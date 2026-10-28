@@ -22,6 +22,24 @@
 # `X:Y@` после `/?#`, пара порт+`@` в query/fragment судятся, паритет v3),
 # токен-ветвь — якорь начала значения и НЕОБЯЗАТЕЛЬНАЯ схема; клетки
 # k99–k116, стабы двенадцати классов v4.
+# 142 v4+advB2 (усиление по вердикту adv contracts-142-impl-v4 1/2, блокер
+# B2: литерал канона в файле не доказывает исполняемую семантику — мутант,
+# где USERINFO_RE остался канон-литералом для r1, а рабочая проверка заменена
+# узким USERINFO_TEST_RE '[A-Za-z0-9_-]+', проходил 150/150 при утечке):
+# клетки k117–k120 — токен authority с символами канон-класса вне
+# [A-Za-z0-9_-] ('.'/'%'/'~' и !$&'()*+,;=), обе формы адреса; стаб
+# stab_uzkij-token-predikat воспроизводит мутанта (канон-литерал остаётся,
+# исполняемый grep уже по USERINFO_TEST_RE) и ловится именованно.
+# 142 v4+R142v4-B1 (усиление по ревью contracts-142-impl-v4 krug1 FAIL):
+# класс СХЕМЫ токен-ветви — мутант mut-rfc-shema (канон-литерал на месте,
+# исполняемый grep по USERINFO_TEST_RE со схемой RFC 3986) проходил 158/158
+# при утечке в кавычках: клетки k125–k127 (токен-URL в обеих кавычках;
+# позиция СХЕМЫ — все байты канон-класса вне RFC-алфавита, порождение
+# ves_shema_vne_rfc) + СТАТИЧЕСКАЯ клетка r4 — исполняемый блок стража
+# субъекта (if [ -f "$DOM_SEKRETOV" ] … fi минус комментарии) == блоку
+# модели БАЙТ В БАЙТ (механизация §Граница implementer frozen 142/4);
+# закрывает класс «канон-литерал + иной исполняемый предикат» (B2/B3/B4/
+# R-B1) одним свойством; стаб stab_rfc-shema ловится k125–k127 + r4.
 #
 # Режимы:
 #   без ключей   — субъект = scripts/connect_project.sh КОРНЯ ДЕРЕВА батареи
@@ -70,9 +88,9 @@ done
 die2() { printf 's142: %s\n' "$*" >&2; exit 2; }
 
 # ── согласованность source.json: оси ↔ клетки ↔ стабы ↔ канон ↔ пин модели ──
-jq -e '.osi | type == "array" and length == 150' "$SRC_JSON" >/dev/null 2>&1 || die2 "нет .osi длиной 150 в source.json"
+jq -e '.osi | type == "array" and length == 162' "$SRC_JSON" >/dev/null 2>&1 || die2 "нет .osi длиной 162 в source.json"
 mapfile -t OSIDS < <(jq -r '.osi[].id' "$SRC_JSON")
-[ "$(printf '%s\n' "${OSIDS[@]}" | LC_ALL=C sort | uniq | wc -l)" = 150 ] || die2 "иды осей не уникальны"
+[ "$(printf '%s\n' "${OSIDS[@]}" | LC_ALL=C sort | uniq | wc -l)" = 162 ] || die2 "иды осей не уникальны"
 mapfile -t STAB_KEYS < <(jq -r '.stab_vhod | keys[]' "$SRC_JSON" | LC_ALL=C sort)
 mapfile -t STAB_FILES < <(cd "$BATT/stabs" && ls stab_*.sh 2>/dev/null | sed 's/\.sh$//' | LC_ALL=C sort)
 [ "${STAB_KEYS[*]:-}" = "${STAB_FILES[*]:-}" ] \
@@ -150,6 +168,46 @@ imya_vne() { # $1 = класс, $2 = форма; кладёт IMYA
     pustoe)  IMYA=" X$h$s" ;;
     *) die2 "imya_vne: неизвестный класс $1" ;;
   esac
+}
+
+# Порождалки ПОЛНОГО канон-класса (арбитраж contracts-142-impl-v4-arbitraz,
+# РЕШЕНИЕ Q1): байты 0x01..0x7F минус запрещённое множество — дополнение
+# определено каноном, не перечнем руки: токен-ветвь [^/?#[:space:]] плюс
+# терминатор `@` и нейтральное `:` (двоеточие-ветвь судит такое значение
+# раньше — мутантом неразличимо); двоеточие-ветвь [^/@[:space:]] плюс
+# разделитель `:`. Одиночные байты 0x80..0xFF и Unicode-пробелы НЕ входят:
+# их ожидание локале-зависимо (замер арбитража 1) и исключено решением
+# (к владельцу). Четыре многобайтных представителя длин 2/3/4 байта UTF-8
+# (é Ж 中 😀) локале-инвариантны (замер: матч во всех трёх локалях).
+ves_klass_tok() { local i; for i in $(seq 1 127); do case $i in 9|10|11|12|13|32|35|47|58|63|64) continue ;; esac; printf "\\$(printf '%03o' "$i")"; done; printf 'éЖ中😀'; }
+ves_klass_dvoet() { local i; for i in $(seq 1 127); do case $i in 9|10|11|12|13|32|47|58|64) continue ;; esac; printf "\\$(printf '%03o' "$i")"; done; printf 'éЖ中😀'; }
+ves_shema_vne_rfc() { # R142v4-B1: байты канон-класса СХЕМЫ [^/?#[:space:]]
+  # ВНЕ учебного RFC-алфавита [A-Za-z][A-Za-z0-9+.-]*: то же дополнение
+  # запрещённого множества, что ves_klass_tok (пробельные границы, `#`,
+  # `/`, `?`, терминатор `:` и нейтральный `@`), минус байты RFC —
+  # дополнение определено каноном и RFC-классом мутанта, не перечнем руки;
+  # 0x80+ и Unicode-пробелы исключены арбитражем (локале-зависимы).
+  local i; for i in $(seq 1 127); do case $i in 9|10|11|12|13|32|35|47|58|63|64) continue ;; esac; printf "\\$(printf '%03o' "$i")"; done | tr -d 'A-Za-z0-9+.-'
+}
+# Блок стража sekret-v-dereve для СТАТИЧЕСКОЙ клетки r4 (ревью R142v4-B1):
+# от маркера модели `if [ -f "$DOM_SEKRETOV" ]; then` до парного `fi` по
+# вложенности if/fi, МИНУС строки-комментарии — механизация §Граница
+# implementer frozen 142/4 («diff субъект/модель минус комментарии = ровно
+# блок предиката И блок NUL-предпроверки»): ИСПОЛНЯЕМЫЕ строки блока
+# субъекта обязаны совпадать с моделью БАЙТ В БАЙТ. Литерал канона в
+# файле (r1) не доказывает исполняемой семантики: общий класс «канон-литерал
+# + иной исполняемый предикат» (B2 узкий токен, B3 без кавычки, B4 sentinel,
+# R-B1 схема RFC) закрывается ЭТИМ одним свойством.
+blok_predikata() { # $1 = файл двери; в stdout — блок минус комментарии
+  awk '
+    !on && $0 == "if [ -f \"$DOM_SEKRETOV\" ]; then" { on=1; d=1; print; next }
+    on {
+      if ($0 ~ /^[[:space:]]*if[[:space:]].*;[[:space:]]*then/) d++
+      if ($0 ~ /^[[:space:]]*fi[[:space:]]*$/) d--
+      print
+      if (d == 0) exit
+    }
+  ' "$1" | grep -v '^[[:space:]]*#'
 }
 WP=""   # префикс мира (стабы не переиспользуют миры клеток)
 mir() { # $1 = имя мира; установка = SUBJECT + двойник workshop + поддельный HOME
@@ -425,6 +483,109 @@ kletka() { # $1 = id клетки; печатает строку вердикт�
       mir k116; IMYA=$(imya _URL); TOKZN="pw-$(rnd)"
       printf '%s=user:p?%s@host/db\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k116/home/.config/dev-harness/secrets.env
       printf 'dsn: user:p?%s@host/db\n' "$TOKZN" > "$RUNDIR/$WP"k116/proj/dsn.txt; VID=token ;;
+    # ── ось K, усиление adv contracts-142-impl-v4 (блокер B2): r1 сверяет
+    # ЛИТЕРАЛ канона в файле, но не исполняемую семантику — мутант с узким
+    # USERINFO_TEST_RE '[A-Za-z0-9_-]+' (канон-строка нетронута) пропускал
+    # утечку: токен 'tok.<rnd>.%~' в authority не входит в узкий класс.
+    # Токен-ветвь канона допускает ЛЮБОЙ непустой фрагмент authority без
+    # '/'/'?'/'#'/пробела: клетки ниже дают токен с '.'/'%'/'~' (k117/k118 —
+    # замер адверсария дословно) и с прочими символами канон-класса вне
+    # [A-Za-z0-9_-] — '!$&'()*+,;=' (k119/k120; ':' вне списка: двоеточие
+    # в токене судится двоеточие-ветвью и узкому мутанту не различимо), в
+    # ОБЕИХ формах адреса: 'https://<токен>@host' и '//<токен>@host'; имя
+    # адресное порождено imya() (И-6), значение — в индексируемом leak.txt;
+    # в отказе — имя файла, НЕ значение (TOKZN). Стаб stab_uzkij-token-
+    # predikat ловится здесь + на k111/k112/k115/k116 (та же узкая семантика
+    # на двоеточие-ветви) именованно (Н-39: привязка по коду).
+    k117-token-tochka-protsent-tilde)
+      mir k117; IMYA=$(imya _URL); TOKZN="tok.$(rnd).%~"
+      printf '%s=https://%s@host.test/path\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k117/home/.config/dev-harness/secrets.env
+      printf 'remote https://%s@host.test/path\n' "$TOKZN" > "$RUNDIR/$WP"k117/proj/leak.txt; VID=token ;;
+    k118-token-tpt-bez-shemy)
+      mir k118; IMYA=$(imya _URL); TOKZN="tok.$(rnd).%~"
+      printf '%s=//%s@host.test/path\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k118/home/.config/dev-harness/secrets.env
+      printf 'mirror //%s@host.test/path\n' "$TOKZN" > "$RUNDIR/$WP"k118/proj/leak.txt; VID=token ;;
+    k119-token-ostalnaya-punktuaciya)
+      mir k119; IMYA=$(imya _ENDPOINT); PUNKT='!$&'"'"'()*+,;='; TOKZN="$(rnd)$PUNKT"
+      printf '%s=https://%s@api.internal:9000/v1\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k119/home/.config/dev-harness/secrets.env
+      printf 'api https://%s@api.internal:9000/v1\n' "$TOKZN" > "$RUNDIR/$WP"k119/proj/leak.txt; VID=token ;;
+    k120-token-punktuaciya-bez-shemy)
+      mir k120; IMYA=$(imya URL); PUNKT='!$&'"'"'()*+,;='; TOKZN="$(rnd)$PUNKT"
+      printf '%s=//%s@mirror.internal/back\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k120/home/.config/dev-harness/secrets.env
+      printf 'mirror //%s@mirror.internal/back\n' "$TOKZN" > "$RUNDIR/$WP"k120/proj/leak.txt; VID=token ;;
+
+    # ── ось K, усиление по РЕШЕНИЮ арбитра contracts-142-impl-v4-arbitraz
+    # (адверсарий 2/2, B3: мутант с USERINFO_TEST_RE — канон-литерал нетронут,
+    # исполняемый класс уже канона — проходил 154/154 при утечке): развёртка
+    # по ПОЛНОМУ канон-классу. k121/k122 — токен authority, составленный из
+    # ВСЕХ локале-инвариантных байтов токен-класса (116: 0x01..0x7F без
+    # 09 0A 0B 0C 0D 20 23 2F 3F 3A 40 — порождено ves_klass_tok как
+    # дополнение запрещённого множества) + éЖ中😀, в ОБЕИХ формах адреса
+    # (со схемой / scheme-relative): мутант, исключивший из исполняемого
+    # класса любой байт или подкласс, рвёт непрерывный прогон до `@` —
+    # значение не судится, утечка запускает workshop, клетка красна по
+    # построению; серия «ещё один символ» закрыта конечностью множества.
+    # k123 — все 118 байтов класса двоеточие-ветви (0x01..0x7F без
+    # 09 0A 0B 0C 0D 20 2F 3A 40, порождено ves_klass_dvoet) в user И в pass
+    # (`U:U@host`, единственный `:` — разделитель: узкий мутант user/pass не
+    # может выбрать внутреннее двоеточие). k124 — граница: пробельный байт
+    # (SP TAB VT FF CR) в токене ОБРЫВАЕТ прогон `+` — 5 строк одного дома
+    # под порождёнными адресными именами ожидают сессию (мутант-расширение
+    # `[^/?#]+` ловится здесь); CR — в середине значения (хвостовой `${v%$'\r'}`
+    # снял бы его). Значения — в индексируемом leak.txt; в отказе — имя
+    # файла, НЕ значение (TOKZN). Имя — imya() (И-6).
+    k121-token-ves-klass)
+      mir k121; IMYA=$(imya _URL); TOKZN=$(ves_klass_tok)
+      printf '%s=https://%s@host.test/p\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k121/home/.config/dev-harness/secrets.env
+      printf 'remote https://%s@host.test/p\n' "$TOKZN" > "$RUNDIR/$WP"k121/proj/leak.txt; VID=token ;;
+    k122-token-ves-klass-bez-shemy)
+      mir k122; IMYA=$(imya _URL); TOKZN=$(ves_klass_tok)
+      printf '%s=//%s@host.test/p\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k122/home/.config/dev-harness/secrets.env
+      printf 'mirror //%s@host.test/p\n' "$TOKZN" > "$RUNDIR/$WP"k122/proj/leak.txt; VID=token ;;
+    k123-userinfo-ves-klass)
+      mir k123; IMYA=$(imya _URL); _u=$(ves_klass_dvoet); TOKZN="$_u:$_u"
+      printf '%s=%s@host.test/db\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k123/home/.config/dev-harness/secrets.env
+      printf 'dsn %s@host.test/db\n' "$TOKZN" > "$RUNDIR/$WP"k123/proj/leak.txt; VID=token ;;
+    k124-granica-probelnye)
+      mir k124; : > "$RUNDIR/$WP"k124/home/.config/dev-harness/secrets.env; : > "$RUNDIR/$WP"k124/proj/leak.txt
+      for _b in ' ' $'\t' $'\v' $'\f' $'\r'; do
+        printf '%s=https://tok%sx@host.test/p\n' "$(imya _URL)" "$_b" >> "$RUNDIR/$WP"k124/home/.config/dev-harness/secrets.env
+        printf 'adres https://tok%sx@host.test/p\n' "$_b" >> "$RUNDIR/$WP"k124/proj/leak.txt
+      done; VID=sessija ;;
+    # ── ось K, усиление по ревью R142v4-B1 (rev contracts-142-impl-v4 krug1
+    # FAIL): класс СХЕМЫ токен-ветви. Мутант mut-rfc-shema (канон-литерал
+    # USERINFO_RE нетронут — r1 зелёная; исполняемый grep по
+    # USERINFO_TEST_RE со схемой RFC 3986 [A-Za-z][A-Za-z0-9+.-]*)
+    # проходил все 158 клеток: ни одна не несла в позиции схемы байт вне
+    # RFC-алфавита, ни одной клетки с токен-URL в кавычках. Канон судит
+    # схему классом [^/?#[:space:]]* — кавычка в позиции схемы конформна
+    # (матрица арбитража v4, строка quoted-token: «расширение (кавычка в
+    # классе схемы)»; И-5: значение в кавычках — конформная форма 125,
+    # клетка z2-kavychki). k125/k126 — значение токен-URL в ОБЕИХ кавычках
+    # (двойные/одинарные) под порождённым адресным именем: честная дверь
+    # судит (схема «"https:» входит в класс канона) → отказ; мутант
+    # RFC-схемы userinfo не видит → утечка запускает workshop. k127 —
+    # позиция СХЕМЫ несёт ВСЕ байты канон-класса вне RFC-алфавита
+    # (порождено ves_shema_vne_rfc дополнением, как ves_klass_tok):
+    # серия «ещё один байт схемы» закрыта конечностью множества.
+    # Форма «//<токен>@host» в кавычках НЕ добавляется — R142v4-S1,
+    # решение владельца v+1. Имя — imya() (И-6); значение — в
+    # индексируемом leak.txt (обе формы: парсер 125 пишет в ZNACH и
+    # сырую с кавычками, и снятую); в отказе — имя файла, НЕ значение
+    # (TOKZN). Ожидание — из канона ДО субъекта: rc 1, sekret-v-dereve,
+    # 0 workshop.
+    k125-token-v-dvojnyh-kavychkah)
+      mir k125; IMYA=$(imya _URL); TOKZN="synth-$(rnd)"
+      printf '%s="https://%s@host.test/p"\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k125/home/.config/dev-harness/secrets.env
+      printf 'remote https://%s@host.test/p\n' "$TOKZN" > "$RUNDIR/$WP"k125/proj/leak.txt; VID=token ;;
+    k126-token-v-odinarnyh-kavychkah)
+      mir k126; IMYA=$(imya _URL); TOKZN="synth-$(rnd)"
+      printf "%s='https://%s@host.test/p'\n" "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k126/home/.config/dev-harness/secrets.env
+      printf 'remote https://%s@host.test/p\n' "$TOKZN" > "$RUNDIR/$WP"k126/proj/leak.txt; VID=token ;;
+    k127-shema-vne-alfavita-rfc)
+      mir k127; IMYA=$(imya _URL); TOKZN="tok-$(rnd)"; _sh=$(ves_shema_vne_rfc)
+      printf '%s=%s://%s@host.test/p\n' "$IMYA" "$_sh" "$TOKZN" > "$RUNDIR/$WP"k127/home/.config/dev-harness/secrets.env
+      printf 'remote %s://%s@host.test/p\n' "$_sh" "$TOKZN" > "$RUNDIR/$WP"k127/proj/leak.txt; VID=token ;;
     # ── ось K, имена ВНЕ грамматики ключа 125 (вердикт adv
     # contracts-142-impl-v1, блокер 1: `FOO.URL=…` и `FOO-URL=…` оканчиваются
     # на URL и проходили ветку continue — значение не сканировалось, rc 0 при
@@ -542,6 +703,7 @@ kletka() { # $1 = id клетки; печатает строку вердикт�
     r1-kanon-v-subekte) VID=kanon ;;
     r2-grammatika-v-subekte) VID=grammatika ;;
     r3-nul-predproverka-v-subekte) VID=nulpred ;;
+    r4-blok-predikata-v-subekte) VID=predikat ;;
     *) printf 'КЛЕТКА %s КРАСНА: клетка не описана в раннере\n' "$id"; return 1 ;;
   esac
   local M
@@ -610,6 +772,15 @@ kletka() { # $1 = id клетки; печатает строку вердикт�
       grep -qF -- "$KANON_N" "$SUBJECT" || why="$why нет канона NUL-предпроверки;"
       if [ -z "$why" ]; then printf 'КЛЕТКА %s ЗЕЛЕНА\n' "$id"
       else printf 'КЛЕТКА %s КРАСНА: канон NUL-предпроверки не в субъекте байт в байт:%s\n' "$id" "$why"; fi ;;
+    predikat)
+      blok_predikata "$MODEL" > "$RUNDIR/${WP}predblok.model"
+      blok_predikata "$SUBJECT" > "$RUNDIR/${WP}predblok.subj"
+      if cmp -s "$RUNDIR/${WP}predblok.model" "$RUNDIR/${WP}predblok.subj"; then
+        printf 'КЛЕТКА %s ЗЕЛЕНА\n' "$id"
+      else
+        printf 'КЛЕТКА %s КРАСНА: исполняемый блок стража (if [ -f "$DOM_SEKRETOV" ] … fi, минус комментарии) ≠ модели байт в байт: %s\n' "$id" \
+          "$(diff "$RUNDIR/${WP}predblok.model" "$RUNDIR/${WP}predblok.subj" | sed -n '1,3p' | tr '\n' ' ')"
+      fi ;;
   esac
 }
 
@@ -617,7 +788,7 @@ schet() { # $1 = файл клеток; $2 = метка режима
   local G R
   G=$(grep -c '^КЛЕТКА .* ЗЕЛЕНА$' "$1"); R=$(grep -c '^КЛЕТКА .* КРАСНА' "$1")
   printf 's142 %s: клеток %s, зелёных %s, красных %s\n' "$2" "$((G+R))" "$G" "$R" >&2
-  [ "$((G+R))" = 150 ] || { printf 's142: клеток %s ≠ 150 — мир сломан\n' "$((G+R))" >&2; return 2; }
+  [ "$((G+R))" = 162 ] || { printf 's142: клеток %s ≠ 162 — мир сломан\n' "$((G+R))" >&2; return 2; }
   [ "$R" = 0 ] || return 1
 }
 
