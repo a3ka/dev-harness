@@ -216,7 +216,7 @@
     }
   ],
   "piny": {
-    "model/.github/workflows/mobile.yml": "22e26f22a758b1478f9404b5e8caf47190aea104728e1a8569a82261e183c6d1",
+    "model/.github/workflows/mobile.yml": "7e4b292c836ccd5a530d831560671b1465f3847045d1eb90993d16e63ed829d5",
     "model/mobile/ci-screens.json": "e11d15196440489589a7ff837d1d50b9adce7f7cadc884238b558cc6f4f768b0",
     "model/mobile/scripts/select-ci-screens.cjs": "4bf826ac8eb397f1c7b2699f7b7d161f0e92074127b25c05f20991bb9f5d391a",
     "model/mobile/scripts/ci-aggregate.cjs": "83118c9297a9b2678e28b73fb4e8ffd772f39bf6f41426c2d07fe9d8199fede1",
