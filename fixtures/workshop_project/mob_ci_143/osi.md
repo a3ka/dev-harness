@@ -1,6 +1,6 @@
 # Оси батареи 143 (mob-ci-razdelenie) — 69 клеток (правка v3 по РЕШЕНИЮ арбитража
-# contracts-143-arbitraz.md, Б1–Б4: +y22 needs работников; отложенная клетка
-# p01 ⇒ rc 2 NOT_IMPLEMENTED во всех режимах; пины 21 — перепись 9 черновиков)
+# contracts-143-arbitraz.md, Б1–Б4: +y22 needs работников; пины 21 — перепись
+# 9 черновиков; ПЕРЕПИН 995/5 исполнен — p01 АКТИВНА, судит ЭФФЕКТИВНЫЙ checkout)
 
 Субъекты: `.github/workflows/mobile.yml` (DAG), `mobile/ci-screens.json` (карта),
 `mobile/scripts/select-ci-screens.cjs` (селектор), `mobile/scripts/ci-aggregate.cjs`
@@ -9,9 +9,14 @@
 `--model` → эталоны; `--stabs` → + матрица обманных стабов. Оракул `source.json`
 в памяти ДО вызова субъекта; ожидания S-оси строит независимый python-канон
 `probe.py:kanon_vybor` (субъект-.cjs не исполняется для ожиданий); пины sha256
-21 (12: 4 модели + 5 живых носителей API/workflow + 3 носителя P/S/H-пина
-995/4 — байты maestro_probe.py/pilot.yaml/ci-e2e.sh; + 9 черновиков drafts/*.md
-— перепись zhestkij_kanon ДО клеток, арбитраж Б4) — `ORACLE_TAMPERED` rc 2.
+21 (12: 4 модели + 5 живых носителей API/workflow + 3 носителя P/S — байты
+P v5 (nositeli/p-4ac99af9.py), pilot.yaml, ci-e2e.sh; + 9 черновиков
+drafts/*.md — перепись zhestkij_kanon ДО клеток, арбитраж Б4) —
+`ORACLE_TAMPERED` rc 2. Retired байты 66052cdf (frozen 995/4, rglob) — НЕ
+пин: встроенная полезная нагрузка красной ветви p01/стаба
+(stabs/p-66052cdf.py, вне glob stab_*.py — census stabs 33 не трогает),
+целостность кодовой константой probe.py (RETIRED_SHA256) — порча/удаление =
+rc 2 `ORACLE_TAMPERED` ДО клеток.
 
 
 ## S — селектор (поведение, replay подложными git/gh; 25 клеток)
@@ -93,22 +98,51 @@ y_vtoroj_povtor (y13) · y_pkill_shirokij (y12) · y_marker_udalen (y18) ·
 y_139_zhiv (y09) · f_P_vkljuchaet_ekran (f01,f02) · f_bez_vhoda (f04) ·
 digest_mjortvaja_vetka (a17 — мутант критика `if false && …` во всех пяти
 работниках: шаг digest исполняется и ПРОХОДИТ, подложный APK ставится) ·
-p_rglob_kataloga (p01 — перепин .harness симулирует исполненный 995 v5,
-носитель P всё ещё rglob: клетка активируется и обязана покраснеть) ·
+p_rglob_kataloga (p01 — атака двойного checkout вердикта критика 1/2:
+измеренный checkout 4ac99af9 сохранён, после него до запуска P вставлен
+второй checkout того же path с retired пином 66052cdf; эффективный =
+последний до запуска = retired, replay старых байтов запрашивает весь
+каталог — клетка обязана покраснеть исполнением) ·
 y_agregat_bez_checkout (y19) · y_ident_bez_id (y20) · y_cancel_vyklyuchen (y21) ·
 y_bez_build_apk (y22,a17 — арбитраж Б2: все пять работников теряют ребро
 build-apk; статика y22 + рендер a17 — тот же мутант красит и y20).
 
-## P — исполняемый набор P (1 клетка; NEEDS_PRECEDENT)
+## P — исполняемый набор P (1 клетка; АКТИВНА после перепина 995/5)
 
-p01-P-nabor: ИСПОЛНИТЕЛЬНЫЙ replay цепочки e2e-pilot — носитель P
-(maestro_probe.py пина 66052cdf, sha256 в пинах) → носитель S
-(ci-e2e.sh 995/4, 0fa425b5) → подложный maestro (логирует argv; каталог
-раскрывается в перечень флоу; в песочнице лежит и КАРТА СУБЪЕКТА
-mobile/ci-screens.json — пост-995-v5 P читает набор из manifest, без карты
-replay ложно красен). Оракул: запрошен РОВНО фиксированный набор P
-(pilot/start/rehearsal/tabs, каждый раз) при .maestro со флоу всех экранов.
-При пине H 66052cdf клетка ОТЛОЖЕНА (NEEDS_PRECEDENT, место: 995 v5 —
-freeze 995/5, перепин модели и носителей); стаб p_rglob_kataloga доказывает,
-что после перепина клетка ловит rglob; живой эксперимент пачки v2 доказал и
-ЗЕЛЁНЫЙ путь: с P, копирующим только manifest-набор, p01 зеленеет.
+p01-P-nabor: ИСПОЛНИТЕЛЬНЫЙ replay цепочки e2e-pilot — носитель P по
+ЭФФЕКТИВНОМУ пину .harness из P_IZ_PINA. П1 (арбитраж 143-repin): по ВСЕМ
+задачам число шагов, чей run содержит литерал maestro_probe.py, РОВНО 1 и
+он в e2e-pilot (И-8); иначе клетка красна именованной причиной со списком
+job[индекс-шага] — второй запуск P (в e2e-pilot после первого или в другой
+задаче) красен; ноль запусков — именованный отказ «P не исполняется этим
+workflow» (fail-closed). П2: в шагах checkout ДО запуска P path
+сопоставляется по posixpath.normpath == '.harness' (алиасы ./.harness и
+.harness/ — тот же каталог); нелитеральный path (содержит ${{, абсолютный,
+normpath начинается с '..') — красна «путь checkout неизмерим: <path>»
+(fail-closed). Эффективный пин — ПОСЛЕДНИЙ checkout каталога .harness ДО
+шага запуска maestro_probe.py (дубль path судится последним —
+actions/checkout перезаписывает каталог, содержимое .harness при запуске P
+задаёт последний checkout; checkout после запуска P не влияет; вердикт
+критика 1/2 — атака двойного checkout) — 4ac99af9 → nositeli/p-4ac99af9.py
+v5: набор из manifest; 66052cdf → stabs/p-66052cdf.py rglob
+(retired-нагрузка, не пин) → носитель S (ci-e2e.sh 995/4, 0fa425b5) →
+подложный maestro (логирует argv; каталог раскрывается в перечень флоу; в
+песочнице лежит и КАРТА СУБЪЕКТА mobile/ci-screens.json — P v5 читает
+набор из manifest, без карты replay ложно красен). Оракул: запрошен РОВНО
+фиксированный набор P (pilot/start/rehearsal/tabs, каждый раз) при .maestro
+со флоу всех экранов. Модель перепинена на 4ac99af9 (freeze 995/5, ленд
+ffbbc99e7): клетка зелена на живой модели. Retired пин 66052cdf — КРАСНАЯ
+ветка исполнением (replay старых байтов: Maestro запрошен весь каталог,
+8 флоу); неизмеренный пин — красная именованная причина (батарея отвечает
+только за пины, чьи байты пинует); стаб p_rglob_kataloga повторяет атаку
+критика (двойной checkout «хороший, затем плохой» → эффективно retired →
+красно исполнением); «плохой, затем хороший» оставляет эффективным
+хороший — клетка зелена: измерается реальность, а не первый ref.
+НЕ ЗАЩИЩАЕТ (остаток арбитража 143-repin; ловцы — ревью cutover-PR со
+сверкой байтов с моделью (§Порядок п.2), адверсарий, живая приёмка п.4):
+запуск P без литерала maestro_probe.py в run (env-косвенность, обёртка,
+composite/reusable — замер «second P via env var path» rc 0), перезапись
+.harness shell-командами в run (rm/cp/git clone/curl) или действиями вне
+actions/checkout, живая семантика платформы (needs/if/concurrency);
+полное отсутствие литерала — уже fail-closed (замер «literal hidden» →
+красна).
