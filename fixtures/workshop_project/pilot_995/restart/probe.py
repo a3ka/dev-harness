@@ -381,6 +381,100 @@ n=$(( $(cat "$k/maestro_schet" 2>/dev/null || echo 0) + 1 ))
 echo "$n" >"$k/maestro_schet"
 rc=$(pole "${SCENARIJ_MAESTRO_RC:-0}" "$n"); rc=${rc:-0}
 flovi=$(pole "${SCENARIJ_MAESTRO_FLOV:-}" "$n")
+if [ "${SCENARIJ_MAESTRO_KATALOG:-}" = da ]; then
+  # 995 v5 (143): каталог-режим — перечень флоу берётся из ЦЕЛЕВОГО каталога argv
+  # (S передаёт .maestro); config.yaml флоу не назначается (гейт происхождения
+  # 118); каждый запрос пишется в журнал строкой MAESTRO_POTOKI (исполненные
+  # имена ФАЙЛОВ) — оракул клеток nabor-*; статус/деталь/маркер/кадры — шаблон
+  # попытки SCENARIJ_MAESTRO_KATALOG_SHABLON.
+  # 995 v5-адресная (вердикт критика 1/2): Maestro исполняет каталог ПОСЛЕ
+  # flows-фильтра config.yaml — документированная в продукте 118 семантика
+  # (блок-список после 'flows:', элемент '- значение', кавычки сняты, '!имя' —
+  # ЛИТЕРАЛЬНОЕ исключение файла), а не «всё *.yaml»; имя testcase — поле
+  # name: заголовка флоу до '---' (живой формат zhivoj/report.xml), при
+  # отсутствии — имя файла; SCENARIJ_MAESTRO_KATALOG_PROPUSK — файлы, которые
+  # Maestro не исполнил вовсе (вход ветви «три testcase при четырёх копиях»).
+  cel=""
+  prev=""
+  for a in "$@"; do
+    case "$prev" in
+      --device|--format|--output|--test-output-dir|-e) prev=""; continue ;;
+    esac
+    case "$a" in
+      -*|test) ;;
+      *) cel="$a" ;;
+    esac
+    prev="$a"
+  done
+  if [ -z "$cel" ] || [ ! -d "$cel" ]; then
+    printf 'MAESTRO_VNE_ALFAVITA: %s\n' "$*" >&2
+    exit 127
+  fi
+  obrez() {
+    local s="$1"
+    s="${s#"${s%%[![:space:]]*}"}"
+    s="${s%"${s##*[![:space:]]}"}"
+    printf '%s' "$s"
+  }
+  iskljuchen_v_confige() {   # $1 = имя файла; грамматика 118, литеральные '!имя'
+    local cfg="$cel/config.yaml" v=0 s zn
+    [ -f "$cfg" ] || return 1
+    while IFS= read -r s || [ -n "$s" ]; do
+      s="$(obrez "$s")"
+      if [ "$v" = 1 ]; then
+        case "$s" in
+          -\ *) ;;
+          *) break ;;
+        esac
+        zn="$(obrez "${s#- }")"
+        while :; do
+          case "$zn" in \"*|\'*) zn="${zn#?}" ;; *) break ;; esac
+        done
+        while :; do
+          case "$zn" in *\"|*\') zn="${zn%?}" ;; *) break ;; esac
+        done
+        [ "$zn" = "!$1" ] && return 0
+      elif [ "$s" = "flows:" ]; then
+        v=1
+      fi
+    done <"$cfg"
+    return 1
+  }
+  propuschen() {   # $1 = имя файла; PROPUSK — запятенные имена
+    local sp
+    [ -n "${SCENARIJ_MAESTRO_KATALOG_PROPUSK:-}" ] || return 1
+    IFS=',' read -ra _prop <<<$SCENARIJ_MAESTRO_KATALOG_PROPUSK
+    for sp in "${_prop[@]}"; do
+      [ "$sp" = "$1" ] && return 0
+    done
+    return 1
+  }
+  imja_potoka() {   # $1 = файл флоу → name: заголовка, иначе имя файла
+    local s
+    while IFS= read -r s; do
+      [ "$s" = "---" ] && break
+      case "$s" in
+        name:*) printf '%s\n' "$(obrez "${s#name:}")"; return 0 ;;
+      esac
+    done <"$1"
+    printf '%s\n' "${1##*/}"
+  }
+  shablon=$(pole "${SCENARIJ_MAESTRO_KATALOG_SHABLON:-ok|-|net|pilot-first-run+pilot-welcome+pilot-restart}" "$n")
+  IFS='|' read -r _st _dt _mk _kd <<<"$shablon"
+  spisok=""
+  imena=""
+  for f in "$cel"/*.yaml; do
+    [ -e "$f" ] || continue
+    imja_f="${f##*/}"
+    [ "$imja_f" = config.yaml ] && continue
+    iskljuchen_v_confige "$imja_f" && continue
+    propuschen "$imja_f" && continue
+    spisok="$spisok${spisok:+;}$(imja_potoka "$f")@$_st@$_dt@$_mk@$_kd"
+    imena="$imena${imena:+ }$imja_f"
+  done
+  flovi="$spisok"
+  printf 'MAESTRO_POTOKI %s\n' "$imena" >>"$z"
+fi
 mkdir -p "$tod"
 if [ "${SCENARIJ_MAESTRO_BEZOTCHETA:-}" = da ]; then
   : >"$out"
@@ -523,7 +617,7 @@ OKRUZHENIE_ACTIONS = {
     'GITHUB_RUN_ATTEMPT': '1',
     'GITHUB_RUN_NUMBER': '4242',
     'GITHUB_WORKFLOW': 'mobile',
-    'GITHUB_JOB': 'android-e2e',
+    'GITHUB_JOB': 'e2e-pilot',
     'GITHUB_EVENT_NAME': 'push',
     'GITHUB_SHA': '9950beef9950beef9950beef9950beef9950beef',
     'GITHUB_REF': 'refs/heads/main',
@@ -534,6 +628,37 @@ OKRUZHENIE_ACTIONS = {
 }
 
 SEKRET = 'synthetic-private-995v2'
+
+# 995 v5 (143 И-1/И-8): фиксированный набор P — единый источник в памяти
+# проверяющего; записи соответствуют модели 143 (model/mobile/ci-screens.json,
+# integracija.fiksirovannyj_nabor): приватный pilot.yaml (из H) + три флоу
+# репозитория продукта. Песочница P несёт флоу ВСЕХ экранов живого #124 —
+# «только набор» обязан быть различим с rglob-копией всего каталога.
+NABOR_P = ('pilot.yaml',
+           'mobile/.maestro/start.yaml',
+           'mobile/.maestro/rehearsal.yaml',
+           'mobile/.maestro/cmp-mob-002-tabs.yaml')
+IMENA_NABORA = tuple(zapis.rsplit('/', 1)[-1] for zapis in NABOR_P)
+ZHIVYE_POTOKI_REPO = ('vkhod-117-splash-vhod.yaml', 'first-run-ekran.yaml',
+                      'erstinformation.yaml', 'cmp-mob-004-start.yaml',
+                      'start.yaml', 'rehearsal.yaml',
+                      'cmp-mob-002-tabs.yaml', 'config.yaml')
+
+# 995 v5-адресная (вердикт критика 1/2): config.yaml песочницы — штатная форма
+# продукта (main #124; грамматика фильтра — 118): блок-список flows со звёздой
+# и обязательным исключением erstinformation.yaml; сцены добавляют config_flows.
+KONFIG_KATALOGA = ('# 995: штатный конфиг каталога Maestro (происхождение 118)\n'
+                   'flows:\n  - "*"\n  - "!erstinformation.yaml"\n')
+
+def _imja_pilota():
+    """name: заголовка приватного pilot.yaml — единый источник сценарной
+    коллизии name: (995 v5-адресная-2, РЕШЕНИЕ арбитра 995 v5)."""
+    for stroka in (HERE.parent / 'pilot.yaml').read_text(encoding='utf-8').splitlines():
+        if stroka.startswith('name:'):
+            imja = stroka.partition(':')[2].strip()
+            if imja:
+                return imja
+    return 'pilot.yaml'
 
 
 def sha256_bytes(b):
@@ -624,6 +749,9 @@ SCENA_KLJUCHI = {
     'maestro_png_krasnyj': 'SCENARIJ_MAESTRO_PNG_KRASNYJ',
     'maestro_bezotcheta': 'SCENARIJ_MAESTRO_BEZOTCHETA',
     'maestro_zhivoe': 'SCENARIJ_MAESTRO_ZHIVOE',
+    'maestro_katalog': 'SCENARIJ_MAESTRO_KATALOG',
+    'maestro_katalog_shablon': 'SCENARIJ_MAESTRO_KATALOG_SHABLON',
+    'maestro_katalog_propusk': 'SCENARIJ_MAESTRO_KATALOG_PROPUSK',
     'transport_posle': 'SCENARIJ_TRANSPORT_POSLE',
     'boot': 'SCENARIJ_BOOT',
     'stabil': 'SCENARIJ_STABIL',
@@ -1118,6 +1246,8 @@ def sud_svip(subj_bytes, kejs, koren, bystro=False):
 P_ENV_KLJUCHI = ('SCENARIJ_ZAPISI', 'SCENARIJ_KATALOG', 'SCENARIJ_RYCHKA',
                  'SCENARIJ_MAESTRO_RC', 'SCENARIJ_MAESTRO_FLOV',
                  'SCENARIJ_MAESTRO_PNG_KRASNYJ', 'SCENARIJ_MAESTRO_ZHIVOE',
+                 'SCENARIJ_MAESTRO_KATALOG', 'SCENARIJ_MAESTRO_KATALOG_SHABLON',
+                 'SCENARIJ_MAESTRO_KATALOG_PROPUSK',
                  'SCENARIJ_MAESTRO_BEZOTCHETA', 'SCENARIJ_TRANSPORT_POSLE',
                  'SCENARIJ_BOOT', 'SCENARIJ_STABIL', 'SCENARIJ_INSTALL',
                  'SCENARIJ_ADB_DEVICES_OBRYV', 'SCENARIJ_BOOT_ID', 'SCENARIJ_LOGCAT',
@@ -1140,9 +1270,46 @@ def ispolnit_p(p_subj, scena, koren, dop_args=(), potoki=None):
     env['GITHUB_RUN_ATTEMPT'] = '1'
     repo = katalog / 'repo'
     (repo / 'mobile/scripts').mkdir(parents=True)
-    (repo / 'mobile/.maestro').mkdir(parents=True)
+    maestro_koren = repo / 'mobile/.maestro'
+    maestro_koren.mkdir(parents=True)
     (repo / 'mobile/scripts/ci-e2e.sh').write_bytes((MODEL / 'ci-e2e.sh').read_bytes())
-    (repo / 'mobile/.maestro/rehearsal.yaml').write_text('synthetic-flow-995\n', encoding='utf-8')
+    # 995 v5 (143): песочница несёт карту экранов (fiksirovannyj_nabor — NABOR_P,
+    # единый источник) и флоу ВСЕХ экранов живого продукта: чужие флоу ДОЛЖНЫ
+    # присутствовать, иначе «только набор» не различим с rglob (Н-39); негативы
+    # искажают вход по kejs: karta='net'|'bez-klyucha', net_floy=<имя флоу>.
+    # 995 v5-адресная-2 (РЕШЕНИЕ арбитра 995 v5): сценарная коллизия name: —
+    # name_kollizija сопоставляет файлу набора ДРУГОЙ флоу набора (достижимое
+    # состояние продукта: правка start.yaml в ЗОНЕ implementer); имя-цель —
+    # из живого pilot.yaml (единый источник), не константой (Н-39: вход
+    # порождает раннер).
+    kollizii = scena.get('name_kollizija') or {}
+    imja_pilota = _imja_pilota() if kollizii else None
+    for imja in ZHIVYE_POTOKI_REPO:
+        if imja == scena.get('net_floy'):
+            continue
+        if imja == 'config.yaml':
+            # 995 v5-адресная (вердикт критика 1/2): config.yaml каталога —
+            # штатная форма продукта (блок-список flows; '!erstinformation.yaml'
+            # обязателен), сценарий добавляет исключения config_flows (в т.ч.
+            # '!start.yaml' атаки критика); фильтр применяет подложный maestro,
+            # P отказывает до запуска.
+            tekst = KONFIG_KATALOGA
+            for zapis in (scena.get('config_flows') or []):
+                tekst += '  - "%s"\n' % zapis
+            (maestro_koren / imja).write_text(tekst, encoding='utf-8')
+        else:
+            zagolovok = imja
+            if kollizii.get(imja) == 'pilot.yaml':
+                zagolovok = imja_pilota
+            (maestro_koren / imja).write_text(
+                'appId: com.complior.mobile\nname: %s\n---\n- launchApp:\n    clearState: true\n' % zagolovok,
+                encoding='utf-8')
+    if scena.get('karta') != 'net':
+        karta = {'schema': 1, 'integracija': {'id': 'pilot', 'job': 'e2e-pilot'}}
+        if scena.get('karta') != 'bez-klyucha':
+            karta['integracija']['fiksirovannyj_nabor'] = list(NABOR_P)
+        (repo / 'mobile/ci-screens.json').write_text(
+            json.dumps(karta, ensure_ascii=False, indent=1), encoding='utf-8')
     kod = katalog / 'code'
     kod.write_text(SEKRET + '\n', encoding='utf-8')
     out = katalog / 'out'
@@ -1246,6 +1413,23 @@ def sud_p_replay(p_subj, kejs, koren):
                     prichiny.append('публикация без flows/%s (%s) попытки %s' % (imja, f, num))
     if ozh.get('out_net_flows') and out.is_dir() and list(out.rglob('flows')):
         prichiny.append('в публикации лишние flows-каталоги')
+    if 'zapros_nabora' in ozh:
+        # 995 v5: КАЖДЫЙ вызов Maestro запрашивает РОВНО фиксированный набор
+        # (строка MAESTRO_POTOKI на каждый вызов каталог-режима): ни чужих флоу
+        # экранов, ни config.yaml, ни дублей; строк запросов ровно столько,
+        # сколько было вызовов Maestro (обе попытки RECOVERED — «каждый раз»).
+        ozhid = sorted(ozh['zapros_nabora'])
+        stroki = [s for s in fakt['zapisi'] if s.startswith('MAESTRO_POTOKI ')]
+        vyzovov = sum(1 for s in fakt['zapisi'] if s.startswith('MAESTRO '))
+        if not stroki:
+            prichiny.append('нет строк MAESTRO_POTOKI — запрошенный набор не доказан')
+        if stroki and len(stroki) != vyzovov:
+            prichiny.append('строк MAESTRO_POTOKI %d ≠ вызовов MAESTRO %d' % (len(stroki), vyzovov))
+        for s in stroki:
+            if sorted(s.split()[1:]) != ozhid:
+                prichiny.append('запрошен набор %s ≠ фиксированного %s'
+                                % (sorted(s.split()[1:]), ozhid))
+                break
     if ozh.get('net_png_diagnostika') and out.is_dir():
         png = [f for f in out.rglob('*.png') if 'diagnostics' in f.parts]
         if png:
@@ -1631,6 +1815,94 @@ def p_bez_sobytija(t):
 def p_privatnoe_v_publikaciju(t):
     return _zameni(t, "publication = private / 'maestro-out'", 'publication = private')
 
+def p_rglob_kataloga(t):
+    # «rglob-P» (frozen 995/4): набор = весь каталог .maestro (карта не читается
+    # по существу) — на песочнице со флоу всех экранов Maestro запрошены и
+    # чужие флоу (живой замер 143: все 8); красна на nabor-zaprosen-rovno.
+    return _zameni(t,
+                   "        integracija = karta.get('integracija') if isinstance(karta, dict) else None\n"
+                   "        nabor = integracija.get('fiksirovannyj_nabor') if isinstance(integracija, dict) else None\n",
+                   "        nabor = ([str(f.relative_to(a.repo)) for f in (a.repo / 'mobile/.maestro').rglob('*') if f.is_file()]\n"
+                   "                 + ['pilot.yaml'])\n")
+
+
+def p_pustoj_nabor(t):
+    # «пустой успех»: карта есть, ключа нет → тихий пустой набор вместо
+    # именованного отказа — зелёный прогон только с pilot.yaml; красна на
+    # nabor-bez-klyucha (ожидался rc 2 SKHEMA_KARTY).
+    return _zameni(t,
+                   "        if not isinstance(nabor, list) or not nabor \\\n"
+                   "                or not all(isinstance(zapis, str) and zapis for zapis in nabor):\n"
+                   "            print('995 SKHEMA_KARTY: integracija.fiksirovannyj_nabor отсутствует, пуст или не список',\n"
+                   "                  file=sys.stderr)\n"
+                   "            raise RuntimeError('SKHEMA_KARTY')\n",
+                   "        if not isinstance(nabor, list):\n"
+                   "            nabor = []\n"
+                   "        nabor = [zapis for zapis in (nabor or []) if isinstance(zapis, str) and zapis]\n")
+
+
+def p_tihoe_suzhenie(t):
+    # «тихое сужение»: перечисленный флоу отсутствует → молча пропущен, прогон
+    # зелен без него; красна на nabor-net-floy (ожидался rc 2
+    # FIKSIROVANNYJ_NABOR_NEPOLEN).
+    return _zameni(t,
+                   "            if not istochnik.is_file():\n"
+                   "                print('995 FIKSIROVANNYJ_NABOR_NEPOLEN: %s отсутствует в репозитории' % zapis,\n"
+                   "                      file=sys.stderr)\n"
+                   "                raise RuntimeError('FIKSIROVANNYJ_NABOR_NEPOLEN')\n",
+                   "            if not istochnik.is_file():\n"
+                   "                continue\n")
+
+
+def p_ignoriruet_konfig(t):
+    # «обход через конфигурацию исполнения» (вердикт критика 1/2): flows-фильтр
+    # скопированного config.yaml не проверяется до запуска — P исполняет прогон
+    # и при исключённом флоу набора (форма поставленного v5; подложный maestro
+    # применяет фильтр 118 — исполнено три из четырёх); красна на
+    # nabor-konfig-iskljuchaet-* (ожидался rc 2 FIKSIROVANNYJ_NABOR_ISKLJUCHEN).
+    return _zameni(t,
+                   "        iskljuchenija = _iskljuchenija_konfiga(\n"
+                   "            config_bytes.decode('utf-8', 'replace')) if config_bytes is not None else set()\n"
+                   "        iskljuchennye = sorted(iskljuchenija & {PurePosixPath(z).name for z in nabor})\n"
+                   "        if iskljuchennye:\n"
+                   "            print('995 FIKSIROVANNYJ_NABOR_ISKLJUCHEN: mobile/.maestro/config.yaml '\n"
+                   "                  'flows исключает %s из фиксированного набора' % ', '.join(iskljuchennye),\n"
+                   "                  file=sys.stderr)\n"
+                   "            raise RuntimeError('FIKSIROVANNYJ_NABOR_ISKLJUCHEN')\n",
+                   "")
+
+
+def p_bez_polnoty_junit(t):
+    # «тихая неполнота исполнения» (вердикт критика 1/2): проверка полноты
+    # (мультимножество имён testcase) снята целиком — три testcase при
+    # четырёх копиях зеленеют; красна на nabor-junit-nepolnyj (ожидался
+    # rc 1 FIKSIROVANNYJ_NABOR_NE_ISPOLNEN) и на nabor-kollizija-name-propusk.
+    return _zameni(t,
+                   "            fakticheskie_imena = sorted(c.get('name') for c in cases)\n"
+                   "            if (set(fakticheskie_imena) & set(ozhidaemye_imena_testcaseov)\n"
+                   "                    and fakticheskie_imena != ozhidaemye_imena_testcaseov):\n"
+                   "                print('995 FIKSIROVANNYJ_NABOR_NE_ISPOLNEN: исполнены %s ≠ фиксированного набора %s'\n"
+                   "                      % (fakticheskie_imena, ozhidaemye_imena_testcaseov))\n"
+                   "                return 1\n",
+                   "")
+
+
+def p_mnozhestvo_vmesto_multimnozhestva(t):
+    # «set вместо мультимножества» (форма поставленного v5, РЕШЕНИЕ арбитра
+    # 995 v5): полнота сравнивает МНОЖЕСТВА имён без кратности — коллизия
+    # name: (два флоу набора с одним заголовком, исполнен один) даёт
+    # равенство множеств при трёх testcase на четырёх копиях — ложная
+    # зелень атаки A1; красна на nabor-kollizija-name-propusk (ожидался
+    # rc 1 FIKSIROVANNYJ_NABOR_NE_ISPOLNEN). Привязка по коду ветви
+    # сравнения (Н-39), не по прозе контракта.
+    return _zameni(t,
+                   "            fakticheskie_imena = sorted(c.get('name') for c in cases)\n"
+                   "            if (set(fakticheskie_imena) & set(ozhidaemye_imena_testcaseov)\n"
+                   "                    and fakticheskie_imena != ozhidaemye_imena_testcaseov):\n",
+                   "            fakticheskie_imena = sorted({c.get('name') for c in cases})\n"
+                   "            if (set(fakticheskie_imena) & set(ozhidaemye_imena_testcaseov)\n"
+                   "                    and set(fakticheskie_imena) != set(ozhidaemye_imena_testcaseov)):\n")
+
 
 S_STABY = {
     's-bez-restarta': s_bez_restarta,
@@ -1667,11 +1939,17 @@ S_STABY = {
 }
 
 P_STABY = {
+    'p-mnozhestvo-vmesto-multimnozhestva': p_mnozhestvo_vmesto_multimnozhestva,
     'p-bez-redakcii': p_bez_redakcii,
     'p-bez-diagnostiki': p_bez_diagnostiki,
     'p-bez-timeout-publikacii': p_bez_timeout_publikacii,
     'p-bez-sobytija': p_bez_sobytija,
     'p-privatnoe-v-publikaciju': p_privatnoe_v_publikaciju,
+    'p-rglob-kataloga': p_rglob_kataloga,
+    'p-pustoj-nabor': p_pustoj_nabor,
+    'p-tihoe-suzhenie': p_tihoe_suzhenie,
+    'p-ignoriruet-konfig': p_ignoriruet_konfig,
+    'p-bez-polnoty-junit': p_bez_polnoty_junit,
 }
 
 STAB_MUTACII = dict(S_STABY)
