@@ -9,7 +9,8 @@
 # sha256; рассинхрон множеств — rc 2 ORACLE_TAMPERED.
 """Батарея 140 (odin-agent-na-predmet): один рабочий агент на предмет,
 атомарный замок (repoId, subjectId) на batch, судья после yield автора
-на зафиксированный OBJECT, единый учёт начатых предметов (лимиты 1/3/2).
+на зафиксированный OBJECT, единый учёт начатых предметов (лимиты 3/3/3 —
+слово владельца 2026-10-28: 1/3/2 → 3/3/3, только числа).
 
 Режимы:
   (без флага)   субъект = ПОСТАВЛЕННАЯ дверь дерева scripts/zamok_predmeta.sh
@@ -65,11 +66,12 @@ GIT_ENV = {'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_SYSTEM': '/dev/null',
            'PATH': os.environ.get('PATH', '/usr/bin:/bin')}
 
 # константы канона — сверяются с source.json (единый источник значений)
-CAP_HARNESS, CAP_MOB, CAP_BACK = 1, 3, 2
+CAP_HARNESS, CAP_MOB, CAP_BACK = 3, 3, 3  # слово владельца 2026-10-28: 1/3/2 → 3/3/3
 BROSHEN_TTL_MIN = 60
 YIELD_LITERAL = '"toolName":"yield"'
 REPO_ID = 'dev-harness'
 MOB_REMOTE = 'ssh://git@github.com/a3ka/Complior-mob.git'
+BACK_REMOTE = 'ssh://git@github.com/a3ka/Complior-back.git'
 HARNESS_REMOTE = 'ssh://git@github.com/a3ka/dev-harness.git'
 OBJECT_DUMMY = '1234567890123456789012345678901234567890'
 
@@ -400,16 +402,22 @@ def kejsy():
                 k_net_startov(mir, 'учёт')]
     reg('w12-arbiter-propusk', 'роль=судья-процесса;режим=любой', w12)
 
+    def _harness_zhivoj(mir, nnn_list):
+        for nnn in nnn_list:
+            wt, br, _ = mir.worktree(nnn)
+            mir.start(nnn, 'Arch%s' % nnn, wt=wt, branch=br)
+            mir.zhurnal('Arch%s' % nnn, sdal=False)
+
     def w13(mir, door):
-        wt141, br141, _ = mir.worktree('141')
-        wt142, br142, _ = mir.worktree('142')
-        mir.start('141', 'Arch141', wt=wt141, branch=br141)
-        mir.zhurnal('Arch141', sdal=False)
-        ev = mir.sobytie('e.json', [item('architect', 'Arch142',
-                        ['SUBJECT=142', 'WORKTREE=' + wt142, 'BRANCH=' + br142])])
+        # слово владельца 2026-10-28: кап harness 1 → 3; отказ — на 3 из 3
+        # занятых (граница «CAP занято → отказ LIMIT_GRUPPY»).
+        _harness_zhivoj(mir, ['141', '142', '143'])
+        wt, br, _ = mir.worktree('144')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch144',
+                        ['SUBJECT=144', 'WORKTREE=' + wt, 'BRANCH=' + br])])
         r = sudit(door, mir, ev)
         return [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина')]
-    reg('w13-limit-harness', 'учёт=лимит;группа=harness-1', w13)
+    reg('w13-limit-harness', 'учёт=лимит;группа=harness-3-из-3-занято', w13)
 
     def _mob_zhivoj(mir, nnn_list):
         for nnn in nnn_list:
@@ -446,27 +454,35 @@ def kejsy():
     reg('w16-limit-slovo', 'учёт=лимит;СЛОВО=владельца', w16)
 
     def w17(mir, door):
-        wt130, br130, _ = mir.worktree('130')
-        mir.start('130', 'Arch130', wt=wt130, branch=br130)
+        # слово владельца 2026-10-28: кап harness 1 → 3 — при пустой группе
+        # мир «один done» больше не упирается в лимит (стаб s17 проходил,
+        # замер STAB_ZHIV); мир переведён на mob (кап не менялся): 2 живых +
+        # done-освобождённый слот + новый = ровно CAP — done обязан освободить.
+        _mob_zhivoj(mir, ['150', '151'])
+        wt130, br130, _ = mir.worktree('130', remote=MOB_REMOTE)
+        mir.start('130', 'Arch130', gruppa='mob', wt=wt130, branch=br130)
         mir.zhurnal('Arch130', sdal=True)
         mir.done('130')
-        wt131, br131, _ = mir.worktree('131')
+        wt131, br131, _ = mir.worktree('131', remote=MOB_REMOTE)
         ev = mir.sobytie('e.json', [item('architect', 'Arch131',
                         ['SUBJECT=131', 'WORKTREE=' + wt131, 'BRANCH=' + br131])])
         r = sudit(door, mir, ev)
         return [k_rc(r, 0, 'rc')]
-    reg('w17-limit-done-osvobozhdaet', 'учёт=лимит;done=тег-реестра', w17)
+    reg('w17-limit-done-osvobozhdaet', 'учёт=лимит;done=тег-реестра;группа=mob-2-живых', w17)
 
     def w18(mir, door):
-        wt130, br130, _ = mir.worktree('130')
-        mir.start('130', 'Arch130', wt=wt130, branch=br130)
+        # как w17: ПАУЗА обязана освободить слот — мир на mob, 2 живых +
+        # пауза + новый = ровно CAP (стаб s27 красен).
+        _mob_zhivoj(mir, ['150', '151'])
+        wt130, br130, _ = mir.worktree('130', remote=MOB_REMOTE)
+        mir.start('130', 'Arch130', gruppa='mob', wt=wt130, branch=br130)
         mir.pauza('130')
-        wt131, br131, _ = mir.worktree('131')
+        wt131, br131, _ = mir.worktree('131', remote=MOB_REMOTE)
         ev = mir.sobytie('e.json', [item('architect', 'Arch131',
                         ['SUBJECT=131', 'WORKTREE=' + wt131, 'BRANCH=' + br131])])
         r = sudit(door, mir, ev)
         return [k_rc(r, 0, 'rc')]
-    reg('w18-limit-pauza-osvobozhdaet', 'учёт=лимит;ПАУЗА=освобождает-слот', w18)
+    reg('w18-limit-pauza-osvobozhdaet', 'учёт=лимит;ПАУЗА=освобождает-слот;группа=mob-2-живых', w18)
 
     def w19(mir, door):
         wt, br, _ = mir.worktree('118', remote=MOB_REMOTE)
@@ -476,6 +492,47 @@ def kejsy():
         return [k_rc(r, 0, 'rc'),
                 k_stroka(mir, 'start', subjectId='118', holder='Impl118', group='mob')]
     reg('w19-gruppa-iz-pina', 'источник=git-remote;учёт=группа-предмета', w19)
+
+    def w20(mir, door):
+        # слово владельца 2026-10-28: кап harness 1 → 3; граница «ровно
+        # CAP−1 занято → разрешено» (на двери v1 1/3/2 красна — 2 ≥ 1).
+        _harness_zhivoj(mir, ['141', '142'])
+        wt, br, _ = mir.worktree('143')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch143',
+                        ['SUBJECT=143', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 0, 'rc'),
+                k_stroka(mir, 'start', subjectId='143', holder='Arch143', group='harness')]
+    reg('w20-limit-harness-tri-ok', 'учёт=лимит;группа=harness-2-из-3-граница', w20)
+
+    def _back_zhivoj(mir, nnn_list):
+        for nnn in nnn_list:
+            wt, br, _ = mir.worktree(nnn, remote=BACK_REMOTE)
+            mir.start(nnn, 'Back%s' % nnn, gruppa='back', wt=wt, branch=br)
+            mir.zhurnal('Back%s' % nnn, sdal=False)
+
+    def w21(mir, door):
+        # слово владельца 2026-10-28: кап back 2 → 3; граница «ровно CAP−1
+        # занято → разрешено» (на двери v1 1/3/2 красна — 2 ≥ 2).
+        _back_zhivoj(mir, ['160', '161'])
+        wt, br, _ = mir.worktree('162', remote=BACK_REMOTE)
+        ev = mir.sobytie('e.json', [item('implementer', 'Impl162',
+                        ['SUBJECT=162', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 0, 'rc'),
+                k_stroka(mir, 'start', subjectId='162', holder='Impl162', group='back')]
+    reg('w21-limit-back-tri-ok', 'учёт=лимит;группа=back-2-из-3-граница', w21)
+
+    def w22(mir, door):
+        # слово владельца 2026-10-28: кап back 2 → 3; отказ — на 3 из 3
+        # занятых (граница «CAP занято → отказ LIMIT_GRUPPY»).
+        _back_zhivoj(mir, ['160', '161', '162'])
+        wt, br, _ = mir.worktree('163', remote=BACK_REMOTE)
+        ev = mir.sobytie('e.json', [item('implementer', 'Impl163',
+                        ['SUBJECT=163', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина')]
+    reg('w22-limit-back-chetyre', 'учёт=лимит;группа=back-3-из-3-занято', w22)
 
     # B. судьи: состояние автора × OBJECT × порядок судей × риск
     def _avtor_sdal(mir, nnn, risk='обычный'):
