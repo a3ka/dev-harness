@@ -392,6 +392,25 @@ jobs:
       artifact_name: ${{ steps.ident.outputs.artifact_name }}
       run_id: ${{ steps.ident.outputs.run_id }}
     steps:
+      # 143 (блокер адверсария 1/2, cutover): source provenance сборки —
+      # checkout проверяемой ревизии ПЕРВЫМ шагом, до любых source-consuming
+      # шагов (needs: quality задаёт порядок, но не переносит checkout и не
+      # закрепляет runner: без шага переиспользуемый self-hosted раннер
+      # собирает остаточный workspace старой ревизии; по образцу checkout
+      # работников). clean: true — остатки старого дерева не выживают;
+      # persist-credentials: false — токен не остаётся на диске.
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          clean: true
+      # 143 (FAIL критика Crit143x — «литерал на месте, исполняемое иное»):
+      # checkout с ref чужой ревизии либо второй checkout после правильного
+      # первого проходили батарею 69/69 — фактическая ревизия рабочего
+      # дерева сверяется с $GITHUB_SHA ДО любого шага, читающего исходники
+      # (версия node/npm ci/prebuild; env-форма — без ${{ }} инъекции).
+      - name: Сборка из проверяемой ревизии (HEAD == GITHUB_SHA)
+        working-directory: ${{ github.workspace }}
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - name: Изоляция раннера (/home недоступен коду из PR)
         run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
       - name: Версия Node совпадает с .node-version
