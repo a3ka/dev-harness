@@ -235,10 +235,16 @@ zhivye_subekty_gruppy() {  # <group> → «repoId/subjectId» построчно
 }
 zhivykh_v_gruppe() {  # <group> [iskljuchit-NNN] → число (без done и ПАУЗ);
   # смена держателя предмета слот НЕ занимает второй раз (исключается сам предмет)
+  # [D30 chuzhoj-reestr] done/ПАУЗА/исключение — ТОЛЬКО записи своего REPO_ID:
+  # теги и паузы локального --repo о предмете чужого реестра не говорят;
+  # запись чужого repoId занята до её RELEASE — fail-safe (отказ в лишнем
+  # спавне, не пропуск дубля; РЕШЕНИЕ арбитража contracts-140-impl-v2-arbitraz,
+  # блокер B1: локальный done освобождал слот чужой записи).
   local n s cnt=0 iskl="${2:-}"
   n="$(zhivye_subekty_gruppy "$1")"
   while IFS= read -r s; do
     [ -n "$s" ] || continue
+    [ "${s%%/*}" = "$REPO_ID" ] || { cnt=$((cnt + 1)); continue; }
     [ "${s#*/}" = "$iskl" ] && continue
     predmet_done "${s#*/}" && continue
     na_pauze "${s#*/}" && continue
@@ -265,12 +271,15 @@ mutex_zajavit() {  # <NNN> → 0 взят | 1 не взят
   done
   return 1
 }
+# [D31 svoi-mutexi] снятие — только по VZJATO, мьютексам, ВЗЯТЫМ этим вызовом:
+# отказавший процесс не трогает мьютексы конкурента (R140v2-B1: снятие по
+# всему SUBJS отпускало чужой живой мьютекс — второй START на предмет).
 mutexi_snyat_vse() {
   local s
   while IFS= read -r s; do
     [ -n "$s" ] && rmdir "$(zamok_dir "$s")/mutex" 2>/dev/null
   done <<EOF
-$SUBJS
+$VZJATO
 EOF
 }
 # [D19 gruppa-pina] группа — из remote origin worktree пина (единый источник git).
@@ -401,6 +410,9 @@ EOF
 
   # мьютексы всех предметов пакета (отсортированы — общий порядок у конкурентов)
   SUBJS="$(printf '%s' "$GATED" | cut -d'|' -f4 | sort -u)"
+  # [D31 svoi-mutexi] VZJATO — только взятые ЭТИМ вызовом: пополняется после
+  # каждого успешного zajavit; отказ снимает свои, чужой мьютекс цел.
+  VZJATO=''
   local ms
   while IFS= read -r ms; do
     [ -n "$ms" ] || continue
@@ -408,6 +420,8 @@ EOF
       mutexi_snyat_vse
       otp ZANYATO_RESHENIEM "предмет $ms: мьютекс решения занят (параллельный суд)"
     fi
+    VZJATO="${VZJATO}${ms}
+"
   done <<EOF
 $SUBJS
 EOF
@@ -587,8 +601,14 @@ uchet() {
   while IFS="$(printf '\t')" read -r r s g h k; do
     [ -n "$s" ] || continue
     st="$(stare_holder "$h")"
-    if predmet_done "$s"; then st='done'; fi
-    if na_pauze "$s"; then st='pauza'; fi
+    # [D30 chuzhoj-reestr] done/ПАУЗА — источники СВОЕГО реестра (--repo):
+    # состояние записи чужого repoId по локальным тегам/паузам не вычисляется
+    # (ложный done прятал живой чужой слот — блокер B1 арбитража
+    # contracts-140-impl-v2-arbitraz).
+    if [ "$r" = "$REPO_ID" ]; then
+      if predmet_done "$s"; then st='done'; fi
+      if na_pauze "$s"; then st='pauza'; fi
+    fi
     printf 'UCHET\t%s\t%s\t%s\t%s\t%s\t%s\n' "$r" "$s" "$g" "$h" "$k" "$st"
   done <<EOF
 $aktiven
