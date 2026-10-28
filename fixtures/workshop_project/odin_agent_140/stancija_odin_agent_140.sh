@@ -19,7 +19,7 @@
 #
 # КЛЕТКИ (osi.md): p01 дубль живого рабочего (приёмка 5а); p02 судья до yield
 # (класс свидетеля критика); p03 судья без OBJECT (приёмка 5б); p04 OBJECT≠tip;
-# p05 порядок адверсарий→ревьюер; p06 лимит harness 1; p07 атомарный пакет
+# p05 порядок адверсарий→ревьюер; p06 лимит harness 3 из 3 (слово владельца 2026-10-28: 1/3/2 → 3/3/3); p07 атомарный пакет
 # (дубль предмета в batch — блок всего пакета, занятий ноль); p08 гонка двух
 # tool_call — ровно один пропуск; p09 дубль после рестарта; p10 пропуск судьи
 # после yield + START пишет РАСШИРЕНИЕ; p11 алфавит 104 не ослаблен; p12 чужой
@@ -240,18 +240,27 @@ begi() {  # <хук> <cases> → вывод драйвера
   out="$(begi "$HUK" "$W/p05/c.json")" && proba p05-int-porjadok-adv-rev ok || proba p05-int-porjadok-adv-rev krasno "$(printf '%s' "$out" | grep '^GOT' | head -1)"
 }
 
-# ── p06 лимит harness 1 занят ────────────────────────────────────────────────
+# ── p06 лимит harness: 3 из 3 занято (слово владельца 2026-10-28: 1/3/2 → 3/3/3) ─
 {
-  ST="$W/p06/st"; RE="$W/p06/repo"; WT141="$W/p06/wt141"; WT142="$W/p06/wt142"
-  mkdir -p "$ST/zamok" "$(dirname "$(mir_sess "$ST")")" "$RE" "$WT141" "$WT142"
+  ST="$W/p06/st"; RE="$W/p06/repo"
+  WT141="$W/p06/wt141"; WT142="$W/p06/wt142"; WT143="$W/p06/wt143"; WT144="$W/p06/wt144"
+  mkdir -p "$ST/zamok" "$(dirname "$(mir_sess "$ST")")" "$RE" "$WT141" "$WT142" "$WT143" "$WT144"
   mir_github "$RE" 'ssh://git@github.com/a3ka/dev-harness.git'
   mir_github "$WT141" 'ssh://git@github.com/a3ka/dev-harness.git'
   mir_github "$WT142" 'ssh://git@github.com/a3ka/dev-harness.git'
+  mir_github "$WT143" 'ssh://git@github.com/a3ka/dev-harness.git'
+  mir_github "$WT144" 'ssh://git@github.com/a3ka/dev-harness.git'
   git -C "$WT141" checkout -q -b wip/141/avtor 2>/dev/null
   git -C "$WT142" checkout -q -b wip/142/avtor 2>/dev/null
+  git -C "$WT143" checkout -q -b wip/143/avtor 2>/dev/null
+  git -C "$WT144" checkout -q -b wip/144/avtor 2>/dev/null
   mir_start "$ST" 141 Arch141 rabochij architect harness - "$WT141" wip/141/avtor
   mir_zhurnal "$ST" Arch141 0 -
-  sobytie "$W/p06/ev.json" architect Arch142 'SUBJECT=142' "WORKTREE=$WT142" 'BRANCH=wip/142/avtor' > /dev/null
+  mir_start "$ST" 142 Arch142 rabochij architect harness - "$WT142" wip/142/avtor
+  mir_zhurnal "$ST" Arch142 0 -
+  mir_start "$ST" 143 Arch143 rabochij architect harness - "$WT143" wip/143/avtor
+  mir_zhurnal "$ST" Arch143 0 -
+  sobytie "$W/p06/ev.json" architect Arch144 'SUBJECT=144' "WORKTREE=$WT144" 'BRANCH=wip/144/avtor' > /dev/null
   kejs "$W/p06/c.json" p06 'block:LIMIT_GRUPPY' "$W/p06/ev.json" "$(mir_sess "$ST")" "$RE"
   out="$(begi "$HUK" "$W/p06/c.json")" && proba p06-int-limit-harness ok || proba p06-int-limit-harness krasno "$(printf '%s' "$out" | grep '^GOT' | head -1)"
 }

@@ -60,9 +60,9 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 WORKERS='architect implementer implementer-glm implementer-vision'
 JUDGES='critic critic-sol adversary reviewer'
 TAB=$'\t'
-CAP_HARNESS=1
+CAP_HARNESS=3
 CAP_MOB=3
-CAP_BACK=2
+CAP_BACK=3
 BROSHEN_TTL_MIN=60
 MUTEX_STALE_MIN=5
 GRP_MOB_REPO='Complior-mob'
@@ -491,7 +491,7 @@ EOF
       esac
       if [ "$cap" -gt 0 ]; then
         zhivo="$(zhivykh_v_gruppe "$grp" "$sv")"
-        # [D25 limit-gruppy] слот 1/3/2; СЛОВО и done — в учёте (реестр).
+        # [D25 limit-gruppy] слот 3/3/3 (слово владельца 2026-10-28: 1/3/2 → 3/3/3); СЛОВО и done — в учёте (реестр).
         if [ "$zhivo" -ge "$cap" ] && ! slovo_vladelca "$sv"; then
           mutexi_snyat_vse
           otp LIMIT_GRUPPY "группа $grp: занято $zhivo из $cap (предмет $sv); сверх лимита — только СЛОВО владельца (строка SLOVO)"
