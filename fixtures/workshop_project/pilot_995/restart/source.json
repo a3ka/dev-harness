@@ -1,5 +1,5 @@
 {
- "versija": 5,
+ "versija": 8,
  "kontrakt": "995-cmp-mob-001-android-pilot",
  "subjekt": "mobile/scripts/ci-e2e.sh",
  "subjekt_p": "fixtures/workshop_project/pilot_995/maestro_probe.py",
@@ -44,7 +44,7 @@
  ],
  "nositeli": {
   "model/ci-e2e.sh": "0fa425b5db4752633c7ea453065503bfa8ecefa67e1bef8a7e66102426897f30",
-  "model/maestro_probe.py": "9a556b48cf4f84a988ba520e6e9ec7389004f461173a8202c6dfb34528803749",
+  "model/maestro_probe.py": "6639ce8c0fd6db095a2d7ff84897d5bdcb01ed59369a8b377b06c7087dbfd353",
   "nositeli/ci-e2e-staryj.sh": "21715b69f59df4aca45ba16f5184a5a403d15e083a39fe6d0f64f8b69055eee7",
   "nositeli/maestro_probe-staryj.py": "0a20a690dcb163314f3b22cd6785ac2d415cae97e3bae6a9bd3717f6c94b5277",
   "zhivoj/report.xml": "4a9cb0feff59832696af5ae6aa3e0401835d00de6d28429c4833025b7bc286af",
@@ -79,7 +79,8 @@
   "staryj-p": "fixtures/workshop_project/pilot_995/maestro_probe.py @ main (sha256 0a20a690… — тот же файл, что исполняется пином H; сверка Astra §3)",
   "zhivoj-format": "живой артефакт прогона v1 run 40381520936 серии 799bbc890 (report.xml 7×\"Unknown error\"; per-flow commands.json message \"Command failed (host:transport:emulator-5560): device offline\"; logs/maestro.log; имена флоу с пробелами/кириллицей/«—»/«→») — байт-эталон формата, пин в nositeli (zhivoj/); подложный maestro батареи порождает тот же формат",
   "zhivoe-derevo": "живой ЗЕЛЁНЫЙ артефакт прогона v1 run 40316137237 (серия 799bbc890, artgreen/): test-вывод деревьями <ts>/<флоу>/{commands.json,logs/maestro.log,logs/device-logcat.txt,manifest.json,takeScreenshot/*.png}, PNG верхнего уровня НЕТ — байт-эталон живой структуры, пин zhivoj/2026-10-26_114125/ (3 флоу: пилот 995, rehearsal 991, «/»-флоу 999 tabs); дефект v3 — серия ba5ebbc9279 run 40412181305: 7/7 passed → NATIVE_EVIDENCE_INCOMPLETE (публикация без деревьев)",
-  "potrebitel-rehearsal": "потребитель «Check rehearsal evidence» — scripts/rehearsal-evidence.sh продукта @ ba5ebbc9279bcde0b5a3c168bdc98eef24969a4c (шаг mobile.yml после runner 995, cwd=mobile/): JUnit rehearsal SUCCESS без провалов + рекурсивный find ровно одного непустого rehearsal-before/after.png в maestro-out; байт-копия в potrebiteli/, пин sha256 (дрейф продукта = rc 2 ORACLE_TAMPERED)"
+ "potrebitel-rehearsal": "потребитель «Check rehearsal evidence» — scripts/rehearsal-evidence.sh продукта @ ba5ebbc9279bcde0b5a3c168bdc98eef24969a4c (шаг mobile.yml после runner 995, cwd=mobile/): JUnit rehearsal SUCCESS без провалов + рекурсивный find ровно одного непустого rehearsal-before/after.png в maestro-out; байт-копия в potrebiteli/, пин sha256 (дрейф продукта = rc 2 ORACLE_TAMPERED)",
+ "karta-143": "995 v5 (143 И-1/И-8): фиксированный набор P — модель 143 fixtures/workshop_project/mob_ci_143/model/mobile/ci-screens.json, integracija.fiksirovannyj_nabor = pilot.yaml (приватный из H) + mobile/.maestro/{start,rehearsal,cmp-mob-002-tabs}.yaml; песочница батареи несёт те же записи из единого источника probe.NABOR_P и флоу всех экранов живого #124 — «только набор» различим с rglob; S-байты 0fa425b5… не меняются"
  },
  "kejsy": {
   "pervaja-zelena": {
@@ -4410,6 +4411,423 @@
      "rehearsal": true
     }
    }
+  },
+  "nabor-zaprosen-rovno": {
+   "tip": "p-replay",
+   "opisanie": "995 v5 (143 И-8), исполнительная клетка фиксированного набора: replay P над песочницей с картой экранов и флоу ВСЕХ экранов — КАЖДЫЙ вызов Maestro (обе попытки RECOVERED) запрашивает РОВНО набор P (pilot/start/rehearsal/cmp-mob-002-tabs), config.yaml флоу не назначается, чужие флоу экранов не запрошены; rglob-P (frozen 995/4) запрашивает весь каталог — красен здесь (живой замер 143: все 8)",
+   "scena": {
+    "maestro_katalog": "da",
+    "maestro_katalog_shablon": [
+     "obryv|device offline||",
+     "ok|||pilot-first-run+pilot-welcome+pilot-restart"
+    ],
+    "maestro_rc": [
+     1,
+     0
+    ],
+    "transport_posle": [
+     "obryv",
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-nabor",
+    "logcat": "logcat-ring-995 nabor stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "adb_devices_obryv": "emulator-5560\toffline"
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "vyvod": [
+     "995 sobytie: RECOVERED",
+     "995 native rc=0"
+    ],
+    "neto": [
+     "EXHAUSTED"
+    ],
+    "zapros_nabora": [
+     "pilot.yaml",
+     "start.yaml",
+     "rehearsal.yaml",
+     "cmp-mob-002-tabs.yaml"
+    ],
+    "out_report": [
+     "attempt=\"2\"",
+     "rc=\"0\""
+    ],
+    "out_png": [
+     "pilot-first-run.png",
+     "pilot-restart.png",
+     "pilot-welcome.png"
+    ],
+    "out_diag": {
+     "1": [
+      "maestro.log",
+      "report.xml",
+      "diag/manifest.txt",
+      "diag/adb-devices.txt",
+      "diag/logcat-do.txt",
+      "diag/logcat-posle.txt",
+      "diag/emulator.log"
+     ],
+     "2": [
+      "maestro.log",
+      "report.xml",
+      "diag/manifest.txt",
+      "diag/adb-devices.txt",
+      "diag/logcat-do.txt",
+      "diag/emulator.log"
+     ]
+    },
+    "net_v_out": [
+     "ci-e2e.sh",
+     "ci-screens.json"
+    ],
+    "redaktor": true
+   }
+  },
+  "nabor-net-karty": {
+   "tip": "p-replay",
+   "opisanie": "995 v5, негатив: карта экранов mobile/ci-screens.json отсутствует в репо — именованный отказ SKHEMA_KARTY (rc 2, маркер в выводе), набор не может стать пустым «успехом»; ничего не исполняется и не публикуется; отказ дважды стережён (непрочитанная карта И валидация набора), одиночная мутация одного стража неотличима — стаб не привязан (Н-39)",
+   "scena": {
+    "maestro_katalog": "da",
+    "maestro_rc": [
+     0
+    ],
+    "karta": "net"
+   },
+   "ozhidanie": {
+    "rc": 2,
+    "vyvod": [
+     "SKHEMA_KARTY"
+    ],
+    "neto": [
+     "FIKSIROVANNYJ_NABOR_NEPOLEN",
+     "RECOVERED",
+     "EXHAUSTED",
+     "995 native rc="
+    ],
+    "out_report_net": true
+   }
+  },
+  "nabor-bez-klyucha": {
+   "tip": "p-replay",
+   "opisanie": "995 v5, негатив: карта есть, но integracija.fiksirovannyj_nabor отсутствует — именованный отказ SKHEMA_KARTY, не тихий пустой набор; стаб p-pustoj-nabor превращает отказ в зелёный прогон только с pilot.yaml — красен здесь",
+   "scena": {
+    "maestro_katalog": "da",
+    "maestro_rc": [
+     0
+    ],
+    "karta": "bez-klyucha"
+   },
+   "ozhidanie": {
+    "rc": 2,
+    "vyvod": [
+     "SKHEMA_KARTY"
+    ],
+    "neto": [
+     "FIKSIROVANNYJ_NABOR_NEPOLEN",
+     "995 native rc="
+    ],
+    "out_report_net": true
+   }
+  },
+  "nabor-net-floy": {
+   "tip": "p-replay",
+   "opisanie": "995 v5, негатив: перечисленный картой флоу (cmp-mob-002-tabs.yaml) отсутствует в .maestro репо — именованный отказ FIKSIROVANNYJ_NABOR_NEPOLEN, не тихое сужение набора; стаб p-tihoe-suzhenie пропускает флоу молча и зеленеет — красен здесь",
+   "scena": {
+    "maestro_katalog": "da",
+    "maestro_rc": [
+     0
+    ],
+    "net_floy": "cmp-mob-002-tabs.yaml"
+   },
+   "ozhidanie": {
+    "rc": 2,
+    "vyvod": [
+     "FIKSIROVANNYJ_NABOR_NEPOLEN"
+    ],
+    "neto": [
+     "SKHEMA_KARTY",
+     "995 native rc="
+    ],
+    "out_report_net": true
+   }
+  },
+  "nabor-konfig-iskljuchaet-pilot": {
+   "tip": "p-replay",
+   "opisanie": "995 v5 (адресная, вердикт критика 1/2), негатив: flows-фильтр config.yaml исключает pilot.yaml из фиксированного набора — именованный отказ FIKSIROVANNYJ_NABOR_ISKLJUCHEN ДО запуска (rc 2, место и выход), ничего не исполняется и не публикуется; стаб p-ignoriruet-konfig запускает прогон — подложный maestro применяет фильтр 118 (исполнено три), красен здесь",
+   "scena": {
+    "maestro_katalog": "da",
+    "maestro_rc": [
+     0
+    ],
+    "config_flows": [
+     "!pilot.yaml"
+    ]
+   },
+   "ozhidanie": {
+    "rc": 2,
+    "vyvod": [
+     "FIKSIROVANNYJ_NABOR_ISKLJUCHEN"
+    ],
+    "neto": [
+     "FIKSIROVANNYJ_NABOR_NEPOLEN",
+     "SKHEMA_KARTY",
+     "995 native rc=",
+     "RECOVERED"
+    ],
+    "out_report_net": true
+   }
+  },
+  "nabor-konfig-iskljuchaet-start": {
+   "tip": "p-replay",
+   "opisanie": "995 v5 (адресная), негатив: повтор атаки критика — config.yaml несёт штатный '!erstinformation.yaml' плюс '!start.yaml' — именованный отказ FIKSIROVANNYJ_NABOR_ISKLJUCHEN ДО запуска; Maestro не может тихо исключить флоу набора фильтром конфига",
+   "scena": {
+    "maestro_katalog": "da",
+    "maestro_rc": [
+     0
+    ],
+    "config_flows": [
+     "!start.yaml"
+    ]
+   },
+   "ozhidanie": {
+    "rc": 2,
+    "vyvod": [
+     "FIKSIROVANNYJ_NABOR_ISKLJUCHEN"
+    ],
+    "neto": [
+     "FIKSIROVANNYJ_NABOR_NEPOLEN",
+     "SKHEMA_KARTY",
+     "995 native rc=",
+     "RECOVERED"
+    ],
+    "out_report_net": true
+   }
+  },
+  "nabor-konfig-iskljuchaet-rehearsal": {
+   "tip": "p-replay",
+   "opisanie": "995 v5 (адресная), негатив: flows-фильтр исключает rehearsal.yaml — именованный отказ FIKSIROVANNYJ_NABOR_ISKLJUCHEN ДО запуска; то же для каждой из четырёх позиций набора",
+   "scena": {
+    "maestro_katalog": "da",
+    "maestro_rc": [
+     0
+    ],
+    "config_flows": [
+     "!rehearsal.yaml"
+    ]
+   },
+   "ozhidanie": {
+    "rc": 2,
+    "vyvod": [
+     "FIKSIROVANNYJ_NABOR_ISKLJUCHEN"
+    ],
+    "neto": [
+     "FIKSIROVANNYJ_NABOR_NEPOLEN",
+     "SKHEMA_KARTY",
+     "995 native rc=",
+     "RECOVERED"
+    ],
+    "out_report_net": true
+   }
+  },
+  "nabor-konfig-iskljuchaet-tabs": {
+   "tip": "p-replay",
+   "opisanie": "995 v5 (адресная), негатив: flows-фильтр исключает cmp-mob-002-tabs.yaml — именованный отказ FIKSIROVANNYJ_NABOR_ISKLJUCHEN ДО запуска; набор не сужается конфигом ни по одной позиции",
+   "scena": {
+    "maestro_katalog": "da",
+    "maestro_rc": [
+     0
+    ],
+    "config_flows": [
+     "!cmp-mob-002-tabs.yaml"
+    ]
+   },
+   "ozhidanie": {
+    "rc": 2,
+    "vyvod": [
+     "FIKSIROVANNYJ_NABOR_ISKLJUCHEN"
+    ],
+    "neto": [
+     "FIKSIROVANNYJ_NABOR_NEPOLEN",
+     "SKHEMA_KARTY",
+     "995 native rc=",
+     "RECOVERED"
+    ],
+    "out_report_net": true
+   }
+  },
+  "nabor-konfig-iskljuchaet-chuzhoj": {
+   "tip": "p-replay",
+   "opisanie": "995 v5 (адресная), позитив: flows-фильтр исключает ЧУЖОЙ флоу вне набора (vkhod-117-splash-vhod.yaml; штатно — erstinformation.yaml) — НЕ отказ, проверка 118 не ломается: обе попытки RECOVERED, КАЖДЫЙ вызов Maestro запрашивает и исполняет РОВНО четыре именованных testcase набора",
+   "scena": {
+    "maestro_katalog": "da",
+    "maestro_katalog_shablon": [
+     "obryv|device offline||",
+     "ok|||pilot-first-run+pilot-welcome+pilot-restart"
+    ],
+    "maestro_rc": [
+     1,
+     0
+    ],
+    "transport_posle": [
+     "obryv",
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-nabor",
+    "logcat": "logcat-ring-995 nabor stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "adb_devices_obryv": "emulator-5560\toffline",
+    "config_flows": [
+     "!vkhod-117-splash-vhod.yaml"
+    ]
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "vyvod": [
+     "995 sobytie: RECOVERED",
+     "995 native rc=0"
+    ],
+    "neto": [
+     "EXHAUSTED"
+    ],
+    "zapros_nabora": [
+     "pilot.yaml",
+     "start.yaml",
+     "rehearsal.yaml",
+     "cmp-mob-002-tabs.yaml"
+    ],
+    "out_report": [
+     "attempt=\"2\"",
+     "rc=\"0\"",
+     "tests=\"4\""
+    ],
+    "out_png": [
+     "pilot-first-run.png",
+     "pilot-restart.png",
+     "pilot-welcome.png"
+    ],
+    "out_diag": {
+     "1": [
+      "maestro.log",
+      "report.xml",
+      "diag/manifest.txt",
+      "diag/adb-devices.txt",
+      "diag/logcat-do.txt",
+      "diag/logcat-posle.txt",
+      "diag/emulator.log"
+     ],
+     "2": [
+      "maestro.log",
+      "report.xml",
+      "diag/manifest.txt",
+      "diag/adb-devices.txt",
+      "diag/logcat-do.txt",
+      "diag/emulator.log"
+     ]
+    },
+    "net_v_out": [
+     "ci-e2e.sh",
+     "ci-screens.json"
+    ],
+    "redaktor": true
+   }
+  },
+  "nabor-junit-nepolnyj": {
+   "tip": "p-replay",
+   "opisanie": "995 v5 (адресная), негатив: config ничего не исключает из набора, но Maestro исполнил три из четырёх скопированных флоу (SCENARIJ_MAESTRO_KATALOG_PROPUSK) — публикация КРАСНАЯ: FIKSIROVANNYJ_NABOR_NE_ISPOLNEN, исполнены не ровно четыре именованных testcase; стаб p-bez-polnoty-junit зеленеет (форма поставленного v5) — красен здесь",
+   "scena": {
+    "maestro_katalog": "da",
+    "maestro_rc": [
+     0
+    ],
+    "maestro_katalog_shablon": [
+     "ok|||pilot-first-run+pilot-welcome+pilot-restart"
+    ],
+    "maestro_katalog_propusk": [
+     "start.yaml"
+    ]
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "vyvod": [
+     "FIKSIROVANNYJ_NABOR_NE_ISPOLNEN"
+    ],
+    "neto": [
+     "995 native rc="
+    ],
+    "out_report": [
+     "tests=\"3\""
+    ]
+   }
+  },
+  "nabor-kollizija-name-propusk": {
+   "tip": "p-replay",
+   "opisanie": "995 v5-адресная-2 (РЕШЕНИЕ арбитра 995 v5), негатив: коллизия name: — start.yaml несёт name: заголовок приватного pilot.yaml (достижимое состояние продукта, ЗОНА implementer), Maestro пропускает start.yaml без отказа (SCENARIJ_MAESTRO_KATALOG_PROPUSK) — три testcase при четырёх копиях дают РАВНЫЕ множества имён (ложная зелень формы поставленного v5: A1 замера арбитра) — публикация КРАСНАЯ по мультимножеству: FIKSIROVANNYJ_NABOR_NE_ISPOLNEN, rc 1, report.xml tests=\"3\"; стаб p-mnozhestvo-vmesto-multimnozhestva зеленеет — красен здесь",
+   "scena": {
+    "maestro_katalog": "da",
+    "maestro_rc": [
+     0
+    ],
+    "maestro_katalog_shablon": [
+     "ok|||pilot-first-run+pilot-welcome+pilot-restart"
+    ],
+    "maestro_katalog_propusk": [
+     "start.yaml"
+    ],
+    "name_kollizija": {
+     "start.yaml": "pilot.yaml"
+    }
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "vyvod": [
+     "FIKSIROVANNYJ_NABOR_NE_ISPOLNEN"
+    ],
+    "neto": [
+     "995 native rc="
+    ],
+    "out_report": [
+     "tests=\"3\""
+    ]
+   }
+  },
+  "nabor-kollizija-name-ispolnen": {
+   "tip": "p-replay",
+   "opisanie": "995 v5-адресная-2 (РЕШЕНИЕ арбитра 995 v5), контроль C: та же коллизия name: start↔pilot, но Maestro исполнил ВСЕ четыре скопированных флоу — честный полный прогон при дубле name: ОСТАЁТСЯ ЗЕЛЁНЫМ (rc 0, testcases=4, report.xml tests=\"4\"): предмет адреса — «скопировано ≠ исполнено», а не гигиена имён; контроль D (уникальные имена, все четыре исполнены) несут зелёные клетки nabor-zaprosen-rovno/nabor-konfig-iskljuchaet-chuzhoj",
+   "scena": {
+    "maestro_katalog": "da",
+    "maestro_rc": [
+     0
+    ],
+    "maestro_katalog_shablon": [
+     "ok|||pilot-first-run+pilot-welcome+pilot-restart"
+    ],
+    "name_kollizija": {
+     "start.yaml": "pilot.yaml"
+    }
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "vyvod": [
+     "995 native rc=0 testcases=4 failed=0"
+    ],
+    "out_report": [
+     "tests=\"4\""
+    ],
+    "out_png": [
+     "pilot-first-run.png",
+     "pilot-restart.png",
+     "pilot-welcome.png"
+    ],
+    "zapros_nabora": [
+     "pilot.yaml",
+     "start.yaml",
+     "rehearsal.yaml",
+     "cmp-mob-002-tabs.yaml"
+    ]
+   }
   }
  },
  "stab_vhod": {
@@ -4544,6 +4962,27 @@
   "s-ne-publikuet-kadry": [
    "zhivoe-derevo-zelenyj",
    "zhivoe-rehearsal-potrebitel"
+  ],
+  "p-rglob-kataloga": [
+   "nabor-zaprosen-rovno"
+  ],
+  "p-pustoj-nabor": [
+   "nabor-bez-klyucha"
+  ],
+  "p-tihoe-suzhenie": [
+   "nabor-net-floy"
+  ],
+  "p-ignoriruet-konfig": [
+   "nabor-konfig-iskljuchaet-pilot",
+   "nabor-konfig-iskljuchaet-start",
+   "nabor-konfig-iskljuchaet-rehearsal",
+   "nabor-konfig-iskljuchaet-tabs"
+  ],
+  "p-bez-polnoty-junit": [
+   "nabor-junit-nepolnyj"
+  ],
+  "p-mnozhestvo-vmesto-multimnozhestva": [
+   "nabor-kollizija-name-propusk"
   ]
  },
  "potrebiteli": {

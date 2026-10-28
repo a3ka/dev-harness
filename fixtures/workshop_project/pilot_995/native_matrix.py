@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise native runner publication/exit boundaries, NOT Android UI behavior."""
 import argparse
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -55,7 +56,16 @@ def main():
         repo = root / 'subject'
         (repo / 'mobile/scripts').mkdir(parents=True)
         (repo / 'mobile/.maestro').mkdir()
-        (repo / 'mobile/.maestro/rehearsal.yaml').write_text('synthetic-flow')
+        # 995 v5 (143): субъект несёт карту экранов — P копирует фиксированный
+        # набор (integracija.fiksirovannyj_nabor), а не весь каталог .maestro
+        for imja in ('start.yaml', 'rehearsal.yaml', 'cmp-mob-002-tabs.yaml'):
+            (repo / 'mobile/.maestro' / imja).write_text('synthetic-flow')
+        (repo / 'mobile/ci-screens.json').write_text(json.dumps({
+            'schema': 1,
+            'integracija': {'id': 'pilot', 'fiksirovannyj_nabor': [
+                'pilot.yaml', 'mobile/.maestro/start.yaml',
+                'mobile/.maestro/rehearsal.yaml',
+                'mobile/.maestro/cmp-mob-002-tabs.yaml']}}))
         (repo / 'mobile/scripts/ci-e2e.sh').write_text(
             'set -eu\n'
             'test -s .maestro/pilot.yaml\n'
