@@ -57,6 +57,12 @@ SUBJECT_FILES = [
     "mobile/scripts/ci-aggregate.cjs",
 ]
 RETRY_REL = ".github/workflows/mobile-e2e-retry.yml"
+# 143 (С-3 Rev143): буква шага «Изоляция раннера» (build-apk/e2e-pilot) и
+# маркеры run-шагов, исполняющих код PR на хосте раннера (y24 судит
+# presence-до-первого-такого-шага; replej_rabotnika шаг этой буквы
+# пропускает — песочница реальный /home не моделирует)
+RUN_IZOLJACII = "test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness"
+MARKER_KODA_PR = ("npm ", "npx ", "node ", "maestro", "gradlew", "expo ", "bash scripts/")
 
 CANON_JOBS = ["select-screens", "quality", "build-apk", "e2e-splash",
               "e2e-first-run", "e2e-erstinformation", "e2e-start", "e2e-pilot",
@@ -319,10 +325,13 @@ elif cmd == "devices":
 sys.exit(0)
 """
 
-SHIM_EMULATOR = """#!/bin/sh
-# подложный эмулятор: живёт фоновым процессом (kill -0 у скриптов честен),
-# ничего не занимает; прибивается killpg драйвера либо kill $EMU_PID скрипта.
-exec sleep 300
+SHIM_EMULATOR = """#!/usr/bin/env python3
+# подложный эмулятор: живёт фоновым процессом (kill -0 у скриптов честен —
+# ci-e2e.sh судит owned PID), ничего не занимает; прибивается killpg драйвера,
+# TERM/KILL ostanovit_svoyo либо kill $EMU_PID скрипта. Ожидание —
+# time.sleep, НЕ PATH-sleep: подложный sleep (y23) мгновенен.
+import time
+time.sleep(300)
 """
 
 SHIM_MAESTRO = """#!/usr/bin/env python3
@@ -367,6 +376,32 @@ for fl in potoki:
         razbor.append(p.name)
 with open(log, "a") as f:
     f.write("MAESTRO_POTOKI " + " ".join(razbor) + "\\n")
+# 143 (y23, Б-1 Rev143): сценарии транспорта клетки исполнения повтора.
+# obryv — ПЕРВЫЙ вызов test на каждый --test-output-dir падает канонической
+# сигнатурой обрыва (device offline / DeviceServerDiedException в
+# <tdir>/maestro.log — как живой отказ run 40961808157 att.1), повтор того
+# же tdir успешен; produkt — КАЖДЫЙ вызов падает продуктовым провалом БЕЗ
+# сигнатуры. Без MAESTRO_SCENARIJ — прежнее поведение (rc 0).
+sc = os.environ.get("MAESTRO_SCENARIJ", "")
+if sc in ("obryv", "produkt") and tdir:
+    pred = 0
+    if os.path.isfile(log):
+        with open(log) as f:
+            pred = sum(1 for l in f if l.startswith("MAESTRO_ARGV ") and tdir in l)
+    if sc == "obryv" and pred == 1:
+        Path(tdir).mkdir(parents=True, exist_ok=True)
+        (Path(tdir) / "maestro.log").write_text(
+            "CommandFailed: Command failed (host:transport:emulator-5568): device offline\\n"
+            "DeviceServerDiedException: Device server died\\n", encoding="utf-8")
+        sys.stderr.write("CommandFailed: Command failed (host:transport:emulator-5568): "
+                         "device offline\\nDeviceServerDiedException: Device server died\\n")
+        sys.exit(1)
+    if sc == "produkt":
+        Path(tdir).mkdir(parents=True, exist_ok=True)
+        (Path(tdir) / "maestro.log").write_text("Assertion is false: Mission visible\\n",
+                                                encoding="utf-8")
+        sys.stderr.write("Assertion is false: Mission visible\\n")
+        sys.exit(1)
 if out:
     if tdir:
         papka = Path(tdir) / str(int(time.time())) / "pilot" / "takeScreenshot"
@@ -427,6 +462,24 @@ esac
 exit 0
 """
 
+SHIM_SLEEP = """#!/bin/sh
+# подложный sleep (y23): время не тикает — boot/wait-циклы replay мгновенны;
+# ни одна клетка не ведёт счёт от реального времени. Подложный emulator
+# (exec sleep) завершается сразу — его живость никто не ждёт.
+exit 0
+"""
+
+SHIM_PKILL = """#!/usr/bin/env python3
+# подложный pkill (y23): замкнутость песочницы — replay не убивает процессов
+# реальной станции; все вызовы пишутся в PKILL_LOG (шаги зовут pkill только
+# под || true, rc всегда 0 эквивалентен «никого не нашёл»).
+import os, sys
+log = os.environ.get("PKILL_LOG", "/dev/null")
+with open(log, "a") as f:
+    f.write("PKILL " + " ".join(sys.argv[1:]) + "\\n")
+sys.exit(0)
+"""
+
 PODKOLOTYJ_APK = b"PODKOLYOT-APK-BAJTY-995-143\n"
 
 
@@ -450,9 +503,11 @@ def _napishi_shim(p, tekst):
     p.chmod(0o700)
 
 
-def postroj_pesochitsu(tmp):
+def postroj_pesochitsu(tmp, maestro_scenarij=None):
     """Замкнутая среда прогона: workspace, bin/ с подложными adb/emulator/
-    maestro/gh, фиктивный ANDROID_HOME с avdmanager-подложкой, env."""
+    maestro/gh/sleep/pkill, фиктивный ANDROID_HOME с avdmanager-подложкой,
+    env; maestro_scenarij — транспортный сценарий клетки y23 (None —
+    прежнее поведение подложного Maestro)."""
     koren = Path(tmp)
     ws = koren / "ws"
     (ws / "mobile").mkdir(parents=True, exist_ok=True)
@@ -469,9 +524,11 @@ def postroj_pesochitsu(tmp):
     _napishi_shim(bin_dir / "emulator", SHIM_EMULATOR)
     _napishi_shim(bin_dir / "maestro", SHIM_MAESTRO)
     _napishi_shim(bin_dir / "gh", SHIM_GH_RUN)
+    _napishi_shim(bin_dir / "sleep", SHIM_SLEEP)
+    _napishi_shim(bin_dir / "pkill", SHIM_PKILL)
     _napishi_shim(avdm / "avdmanager", SHIM_AVDMANAGER)
     logi = {}
-    for imja in ("ADB_LOG", "MAESTRO_LOG", "GH_LOG", "AVDMANAGER_LOG"):
+    for imja in ("ADB_LOG", "MAESTRO_LOG", "GH_LOG", "AVDMANAGER_LOG", "PKILL_LOG"):
         f = koren / (imja.lower() + ".txt")
         f.write_text("", encoding="utf-8")
         logi[imja] = str(f)
@@ -485,6 +542,8 @@ def postroj_pesochitsu(tmp):
         "GITHUB_RUN_ATTEMPT": "1",
         "GH_TOKEN": "TESTTOKEN-143",
     })
+    if maestro_scenarij:
+        env["MAESTRO_SCENARIJ"] = maestro_scenarij
     env.update(logi)
     return ws, env
 
@@ -537,12 +596,15 @@ def _ispolni_shag(skript, cwd, env, vremja=120):
     return rc, out, err
 
 
-def replej_rabotnika(wf, job_imja, tmp, do_posle=None):
+def replej_rabotnika(wf, job_imja, tmp, do_posle=None, maestro_scenarij=None):
     """Последовательный ИСПОЛНИТЕЛЬНЫЙ replay run-шагов job из субъекта:
     ГитХаб-семантика (обычный шаг после отказа не идёт; if: always() идёт;
-    uses: — действия, записываются и пропускаются). Возвращает
-    (rc_итог, hvost_stderr, ustanovlen_li, oshibka|None)."""
-    ws, env = postroj_pesochitsu(tmp)
+    uses: — действия, записываются и пропускаются; шаг «Изоляция раннера»
+    зондирует реальный /home раннера и в замкнутой песочнице пропускается —
+    судится структурно y24 и живым CI). maestro_scenarij — транспортный
+    сценарий y23. Возвращает (rc_итог, hvost_stderr, ustanovlen_li,
+    oshibka|None)."""
+    ws, env = postroj_pesochitsu(tmp, maestro_scenarij)
     digest = hashlib.sha256(b"ETALON-APK-143\n").hexdigest()
     sborka = {"apk_sha256": digest, "artifact_name": "apk-4242-" + digest[:12], "run_id": "4242"}
     znach = konteksty_rendera(ws, sborka, set((wf.get("jobs", {}).get(job_imja) or {}).get("needs") or []))
@@ -551,6 +613,11 @@ def replej_rabotnika(wf, job_imja, tmp, do_posle=None):
     hvost = ""
     for s in shagi:
         if s.get("uses"):
+            continue
+        # 143 (С-3 Rev143): шаг «Изоляция раннера» зондирует РЕАЛЬНЫЙ /home
+        # раннера (test ! -e /home/harness/...); песочница его не моделирует.
+        run_tek = s.get("run")
+        if isinstance(run_tek, str) and run_tek.strip() == RUN_IZOLJACII:
             continue
         imja = s.get("name") or ""
         if do_posle is not None and imja not in do_posle:
@@ -584,7 +651,9 @@ def replej_rabotnika(wf, job_imja, tmp, do_posle=None):
             except RenderVneAlfavita as e:
                 return itog, hvost, False, "РЕНДЕР_ВНЕ_АЛФАВИТА: %s" % e
         rc, out, err = _ispolni_shag(skript, cwd, env_shaga)
-        hvost = (err or "")[-400:]
+        # y23: хвост 1200 — диагностика Н-407 и маркеры ПОВТОР/ИСЧЕРПАНЫ
+        # укладываются целиком (трасса Maestro эхом коротка)
+        hvost = (err or "")[-1200:]
         if rc != 0:
             itog = rc
             break
@@ -1018,7 +1087,13 @@ def _ref_harness_h(wf):
     zapuski = []
     for jname, j in wf.get("jobs", {}).items():
         for i, s in enumerate(j.get("steps") or []):
-            if "maestro_probe.py" in (s.get("run") or ""):
+            # С-2 Rev143: run: true (YAML-bool) — именованный отказ, не
+            # TypeError-трасса (fail-closed по имени, как остальные отказы)
+            run = s.get("run")
+            if run is not None and not isinstance(run, str):
+                return False, None, ("run шага %s[%d] не строка (YAML-bool?): %r"
+                                     % (jname, i, run))
+            if "maestro_probe.py" in (run or ""):
                 zapuski.append((jname, i))
     if not zapuski:
         return False, None, None
@@ -1233,6 +1308,154 @@ def sud_povtory(wf, rep=None):
         if n != lim:
             return False, "%s: маркеров ПОВТОР %d, канон %d" % (j, n, lim)
     return True, ""
+
+# --- y23 (Б-1 Rev143): клетка ИСПОЛНЕНИЯ повтора -----------------------------------
+#
+# Блокер Б-1 ревью Rev143: y13 считала ЛИТЕРАЛ «ПОВТОР: », а ветка повтора
+# шага «108 start» была мёртвой (set -e в zapusk108 до return "$rc" ронял
+# шаг на первом ненулевом rc Maestro — до ДИАГНОСТИКА/ПОВТОР; живой отказ
+# run 40961808157 att.1). Класс «литерал на месте, исполняемое иное»
+# закрывается ПО ПОСТРОЕНИЮ: реальное тело шага повтора каждого экранного
+# работника ИСПОЛНЯЕТСЯ в замкнутой песочнице с подложными adb/emulator/
+# maestro/pkill/sleep; H-валидатор 132 (135/118) в песочнице заменён
+# подложкой того же контракта (гонит подложный Maestro по пачке, возвращает
+# его rc; сигнатуру обрыва в каталог вывода пишет сам Maestro-шим). Оракул —
+# константы ниже, в памяти клетки (правило 8); мутации тела шага ловятся
+# стабами той же пачки (Н-39).
+
+RABOTNIKI_S_POVTOROM = ["e2e-splash", "e2e-first-run", "e2e-erstinformation", "e2e-start"]
+# канон maestro-вызовов на работника: (обрыв транспорта, продуктовый провал)
+KANON_VYZOVOV_POVTORA = {"e2e-splash": (4, 1), "e2e-first-run": (2, 1),
+                         "e2e-erstinformation": (2, 1), "e2e-start": (2, 1)}
+
+PODKLODKA_EKRAN_SHABLONA = '''#!/usr/bin/env python3
+# Подложка валидатора 132 (клетка y23): настоящий H-скрипт в песочнице
+# отсутствует; подложка повторяет его контракт — гонит Maestro (подложный)
+# по пачке и возвращает его rc; сигнатуру обрыва пишет Maestro-шим.
+import os, subprocess, sys
+pak = sys.argv[sys.argv.index("--pack") + 1] if "--pack" in sys.argv else "."
+vyhody = {"mobile/e2e-first-run": "mobile/maestro-out-first-run",
+          "mobile/e2e-erstinformation": "mobile/maestro-out-erstinformation"}
+out = vyhody.get(pak, "maestro-out")
+serial = (os.environ.get("FIRST_RUN_SERIAL")
+          or os.environ.get("ERSTINFORMATION_SERIAL") or "emulator-5564")
+sys.exit(subprocess.call(
+    ["maestro", "--device", serial, "test", "--format", "junit",
+     "--output", out + "/report.xml", "--test-output-dir", out, pak]))
+'''
+
+PROVERKA_PODKLADKA = "# podklodka proiskhozhdenija y23 (cmp s tem zhe pinom H raven)\n"
+
+
+def _pesok_povtora(podtmp):
+    """Фикстуры y23 в песочнице ДО replay (правило 8): подложные H-валидаторы
+    132 и файлы проверки происхождения для 135/118; 117/108 зовут Maestro
+    напрямую и фикстур не требуют."""
+    ws = Path(podtmp) / "ws"
+    for hdir in (".harness135", ".harness118"):
+        (ws / hdir / "scripts").mkdir(parents=True, exist_ok=True)
+        (ws / hdir / "scripts" / "ekran_shablon.py").write_text(
+            PODKLODKA_EKRAN_SHABLONA, encoding="utf-8")
+    t135 = ws / ".harness135" / "fixtures" / "workshop_project" / "first_run_ekran_135" / "teksty"
+    t118 = ws / ".harness118" / "fixtures" / "workshop_project" / "erstinformation_118" / "teksty"
+    t135.mkdir(parents=True, exist_ok=True)
+    t118.mkdir(parents=True, exist_ok=True)
+    (t135 / "proverka_text.py").write_text(PROVERKA_PODKLADKA, encoding="utf-8")
+    (t118 / "proverka_text.py").write_text(PROVERKA_PODKLADKA, encoding="utf-8")
+    (ws / ".harness118" / "scripts" / "sverka_maketa.py").write_text(
+        "# podklodka sverka y23\n", encoding="utf-8")
+    (ws / ".harness123").mkdir(parents=True, exist_ok=True)
+    (ws / ".harness123" / "scripts").mkdir(exist_ok=True)
+    for pak in ("e2e-first-run", "e2e-erstinformation"):
+        (ws / "mobile" / pak / "batareja").mkdir(parents=True, exist_ok=True)
+        (ws / "mobile" / pak / "batareja" / "proverka_proiskhozdenija.py").write_text(
+            PROVERKA_PODKLADKA, encoding="utf-8")
+    (ws / "mobile" / "e2e-erstinformation" / "kadry.json").write_text("{}\n", encoding="utf-8")
+
+
+def sud_ispolnenie_povtora(wf, rep, tmp):
+    """y23-ispolnenie-povtora (Б-1 Rev143): ИСПОЛНИТЕЛЬНЫЙ replay шага
+    повтора каждого экранного работника — обрыв adb-транспорта
+    (канонический: device offline / DeviceServerDiedException из maestro.log)
+    обязан дать диагностику Н-407 + «ПОВТОР: » и РОВНО второй прогон Maestro
+    (rc 0); продуктовый провал без сигнатуры — один прогон и rc≠0 (повтора
+    нет). 117 гонит две темы: обрыв на каждой (4 вызова), продуктовый провал
+    первой темы останавливает шаг именованным «ПОВТОРЫ ИСЧЕРПАНЫ» — мёртвая
+    ветка проявляется молчаливым обрывом без имени."""
+    problemy = []
+    for j in RABOTNIKI_S_POVTOROM:
+        shagi = (wf.get("jobs", {}).get(j) or {}).get("steps") or []
+        shag = next((s for s in shagi
+                     if isinstance(s.get("run"), str) and "ПОВТОР: " in s["run"]), None)
+        if shag is None:
+            return False, "%s: нет шага с веткой повтора (ПОВТОР: в run)" % j
+        imja_shaga = shag.get("name") or ""
+        for scenarij in ("obryv", "produkt"):
+            podtmp = Path(tmp) / ("povtor-%s-%s" % (j, scenarij))
+            podtmp.mkdir(exist_ok=True)
+            _pesok_povtora(podtmp)
+            rc, hvost, ustanovlen, osh = replej_rabotnika(
+                wf, j, podtmp, do_posle={imja_shaga}, maestro_scenarij=scenarij)
+            if osh is not None:
+                problemy.append("%s/%s: %s" % (j, scenarij, osh))
+                continue
+            vyzovy = sum(1 for l in (Path(podtmp) / "maestro_log.txt")
+                         .read_text(encoding="utf-8").splitlines()
+                         if l.startswith("MAESTRO_ARGV ") and " test " in l)
+            kanon = KANON_VYZOVOV_POVTORA[j][0 if scenarij == "obryv" else 1]
+            if scenarij == "obryv":
+                if rc != 0:
+                    problemy.append("%s/обрыв: rc=%d (канон 0) — шаг упал до/в повторе" % (j, rc))
+                if "ПОВТОР: " not in hvost:
+                    problemy.append("%s/обрыв: маркер ПОВТОР не в stderr — мёртвая ветка повтора" % j)
+                if j != "e2e-splash" and "ДИАГНОСТИКА" not in hvost:
+                    problemy.append("%s/обрыв: диагностика Н-407 не в stderr" % j)
+            else:
+                if rc == 0:
+                    problemy.append("%s/продуктовый: rc=0 — продуктовый провал замаскирован" % j)
+                if "ПОВТОР: " in hvost:
+                    problemy.append("%s/продуктовый: маркер ПОВТОР в stderr — повтор без сигнатуры" % j)
+                if j == "e2e-splash" and "ПОВТОРЫ ИСЧЕРПАНЫ" not in hvost:
+                    problemy.append("%s/продуктовый: шаг умер молча, без именованного «ПОВТОРЫ ИСЧЕРПАНЫ»" % j)
+            if vyzovy != kanon:
+                problemy.append("%s/%s: maestro-вызовов %d, канон %d — ветка повтора не исполнена"
+                                % (j, scenarij, vyzovy, kanon))
+    return (not problemy, "; ".join(problemy))
+
+
+def sud_izoljacija_ranera(wf, rep=None):
+    """y24-izoljacija-ranera (С-3 Rev143): в КАЖДОЙ job, исполняющей код PR
+    на хосте (run с npm/npx/node/maestro/gradlew/expo/bash scripts/), шаг
+    «Изоляция раннера» стоит ДО первого такого шага; буква — точный run-
+    литерал build-apk/e2e-pilot, имя — «Изоляция раннера…». Job без шагов с
+    кодом PR требования не несёт."""
+    problemy = []
+    for jname, j in wf.get("jobs", {}).items():
+        shagi = j.get("steps") or []
+        pervyj = None
+        for i, s in enumerate(shagi):
+            run = s.get("run")
+            if isinstance(run, str) and any(m in run for m in MARKER_KODA_PR):
+                pervyj = i
+                break
+        if pervyj is None:
+            continue
+        izol = next((i for i, s in enumerate(shagi)
+                     if isinstance(s.get("run"), str)
+                     and s["run"].strip() == RUN_IZOLJACII), None)
+        s_pervyj = shagi[pervyj]
+        imja_pervogo = (s_pervyj.get("name") or s_pervyj.get("uses")
+                        or str(s_pervyj.get("run") or "?").strip().splitlines()[0][:60])
+        if izol is None:
+            problemy.append("%s: нет шага «Изоляция раннера» (буква build-apk) до "
+                            "шага %d «%s», исполняющего код PR" % (jname, pervyj, imja_pervogo))
+        elif izol > pervyj:
+            problemy.append("%s: изоляция (%d) ПОСЛЕ первого шага с кодом PR "
+                            "(%d «%s»)" % (jname, izol, pervyj, imja_pervogo))
+        elif not (shagi[izol].get("name") or "").startswith("Изоляция раннера"):
+            problemy.append("%s: шаг изоляции без имени «Изоляция раннера…»: %r"
+                            % (jname, shagi[izol].get("name")))
+    return (not problemy, "; ".join(problemy))
 
 
 def sud_jest(wf, rep=None):
@@ -1691,6 +1914,7 @@ KLETKI_Y = [
     ("y19-outputs-provodka", sud_provodka),
     ("y21-concurrency", sud_concurrency),
     ("y22-needs-rabotnikov", sud_needs_rabotnikov),
+    ("y24-izoljacija-ranera", sud_izoljacija_ranera),
 ]
 
 
@@ -1760,6 +1984,11 @@ def odna_kletka(imja, subject_root, vrem):
                 wf = yaml.safe_load(wf_p.read_text(encoding="utf-8"))
             except Exception as e:
                 return False, "MOBILE_YML_NE_YAML: %s" % e
+            if imja == "y23-ispolnenie-povtora":
+                try:
+                    return sud_ispolnenie_povtora(wf, str(d), tmp)
+                except Exception as e:
+                    return False, "ISKLJUCHENIE %s" % e
             if imja == "y20-tojson-needs":
                 try:
                     return sud_tojson_needs(wf, str(d), subject_root=d, tmp=tmp)
@@ -1846,7 +2075,7 @@ def glavnaja():
     sobiraem_a()
     vse_kletki = (list(SCENARII_S) + list(SCENARII_A) + ["a17-digest-do-ustanovki"] +
                   [k[0] for k in KLETKI_Y if k[0] != "y20-tojson-needs"] + ["y20-tojson-needs"] +
-                  KLETKI_F + ["p01-P-nabor"])
+                  ["y23-ispolnenie-povtora"] + KLETKI_F + ["p01-P-nabor"])
     obyavlennye = [k["id"] for k in src["kletki"]]
     if sorted(obyavlennye) != sorted(vse_kletki):
         return oshibka_orakula("source.json kletki ≠ клетки движка: лишние %s отсутствуют %s" % (
