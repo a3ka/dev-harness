@@ -50,6 +50,10 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+      # 143 (С-3 Rev143): код PR исполняется на хосте раннера (node) —
+      # проба изоляции ДО первого такого шага (буква build-apk/e2e-pilot).
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
       - name: 'Выбор экранов (select-ci-screens.cjs, fail-closed)'
         id: sel
         working-directory: ${{ github.workspace }}
@@ -106,6 +110,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      # 143 (С-3 Rev143): код PR исполняется на хосте раннера (npm/node) —
+      # проба изоляции ДО первого такого шага (буква build-apk/e2e-pilot).
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
       # 995 (CMP-MOB-001) + 999 (CMP-MOB-002) + 108 (CMP-MOB-004) +
       # 111 (CMP-MOB-005): единый H-пин принятого харнеса
       # c663dd0fb0b233e56368707aef6940baaf254a30 несёт четыре семейства
@@ -475,6 +483,10 @@ jobs:
         with:
           persist-credentials: false
           clean: true
+      # 143 (С-3 Rev143): код PR исполняется на хосте раннера (maestro) —
+      # проба изоляции ДО первого такого шага (буква build-apk/e2e-pilot).
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
       # 143: работник НЕ пересобирает APK — берёт артефакт сборки по ТОЧНОМУ
       # имени из outputs build-apk (переживает выборочный повтор работника:
       # имя не вычисляется из github.run_attempt) и сверяет sha256 ДО установки.
@@ -668,6 +680,10 @@ jobs:
         with:
           persist-credentials: false
           clean: true
+      # 143 (С-3 Rev143): код PR исполняется на хосте раннера (maestro) —
+      # проба изоляции ДО первого такого шага (буква build-apk/e2e-pilot).
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
       # 143: работник НЕ пересобирает APK — берёт артефакт сборки по ТОЧНОМУ
       # имени из outputs build-apk (переживает выборочный повтор работника:
       # имя не вычисляется из github.run_attempt) и сверяет sha256 ДО установки.
@@ -866,6 +882,11 @@ jobs:
         with:
           persist-credentials: false
           clean: true
+      # 143 (С-3 Rev143): код PR исполняется на хосте раннера (npm/maestro) —
+      # проба изоляции ДО первого такого шага (буква build-apk/e2e-pilot);
+      # в монолите эта проба охраняла весь android-e2e, включая Jest 118.
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
       # 143: работник НЕ пересобирает APK — берёт артефакт сборки по ТОЧНОМУ
       # имени из outputs build-apk (переживает выборочный повтор работника:
       # имя не вычисляется из github.run_attempt) и сверяет sha256 ДО установки.
@@ -1124,6 +1145,10 @@ jobs:
         with:
           persist-credentials: false
           clean: true
+      # 143 (С-3 Rev143): код PR исполняется на хосте раннера (maestro) —
+      # проба изоляции ДО первого такого шага (буква build-apk/e2e-pilot).
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
       # 143: работник НЕ пересобирает APK — берёт артефакт сборки по ТОЧНОМУ
       # имени из outputs build-apk (переживает выборочный повтор работника:
       # имя не вычисляется из github.run_attempt) и сверяет sha256 ДО установки.
@@ -1219,7 +1244,9 @@ jobs:
               --test-output-dir maestro-out-start \
               .maestro/cmp-mob-004-start.yaml
             local rc=$?
-            set -e
+            # 143 (Б-1 Rev143): БЕЗ set -e — errexit в функции глобален и
+            # ронял шаг на ненулевом rc Maestro ДО ветки ДИАГНОСТИКА/ПОВТОР
+            # (мёртвая ветка повтора; живой отказ — run 40961808157 att.1).
             return "$rc"
           }
           if ! boot108; then
@@ -1418,6 +1445,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      # 143 (С-3 Rev143): код PR исполняется на хосте раннера (node) —
+      # проба изоляции ДО первого такого шага (буква build-apk/e2e-pilot).
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
       - name: 'Агрегат: needs+selection+digest (fail-closed)'
         working-directory: ${{ github.workspace }}
         env:
@@ -1443,6 +1474,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      # 143 (С-3 Rev143): код PR исполняется на хосте раннера (node) —
+      # проба изоляции ДО первого такого шага (буква build-apk/e2e-pilot).
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
       - name: 'Агрегат сигнала: needs+selection+digest (fail-closed)'
         working-directory: ${{ github.workspace }}
         env:

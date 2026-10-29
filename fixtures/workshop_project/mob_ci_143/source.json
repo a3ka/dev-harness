@@ -212,11 +212,17 @@
       "id": "y22-needs-rabotnikov"
     },
     {
+      "id": "y23-ispolnenie-povtora"
+    },
+    {
+      "id": "y24-izoljacija-ranera"
+    },
+    {
       "id": "p01-P-nabor"
     }
   ],
   "piny": {
-    "model/.github/workflows/mobile.yml": "868b30e1a1accbacddea9a9ade6e97b7bafd58e83cb8160bba610ebd4ecf8c41",
+    "model/.github/workflows/mobile.yml": "401071f04359000258dc3f4c34f0c27374f41762473f233e7646370105f5f896",
     "model/mobile/ci-screens.json": "e11d15196440489589a7ff837d1d50b9adce7f7cadc884238b558cc6f4f768b0",
     "model/mobile/scripts/select-ci-screens.cjs": "4bf826ac8eb397f1c7b2699f7b7d161f0e92074127b25c05f20991bb9f5d391a",
     "model/mobile/scripts/ci-aggregate.cjs": "83118c9297a9b2678e28b73fb4e8ffd772f39bf6f41426c2d07fe9d8199fede1",
@@ -316,6 +322,12 @@
       "y04-net-if-false",
       "y07-uslovija-rabotnikov"
     ],
+    "stab_y_izoljacija_posle_npm118": [
+      "y24-izoljacija-ranera"
+    ],
+    "stab_y_izoljacija_udalena118": [
+      "y24-izoljacija-ranera"
+    ],
     "stab_y_jest_udalen": [
       "y14-jest-118"
     ],
@@ -327,6 +339,27 @@
     ],
     "stab_y_pkill_shirokij": [
       "y12-avd-namespace"
+    ],
+    "stab_y_povtor_mertvaja_vetka108": [
+      "y23-ispolnenie-povtora"
+    ],
+    "stab_y_povtor_rc_nol108": [
+      "y23-ispolnenie-povtora"
+    ],
+    "stab_y_povtor_vne_konteksta117": [
+      "y23-ispolnenie-povtora"
+    ],
+    "stab_y_povtor_vtoroj_true108": [
+      "y23-ispolnenie-povtora"
+    ],
+    "stab_y_povtor_vtoroj_true135": [
+      "y23-ispolnenie-povtora"
+    ],
+    "stab_y_povtor_vtoroj_true118": [
+      "y23-ispolnenie-povtora"
+    ],
+    "stab_y_run_bool": [
+      "p01-P-nabor"
     ],
     "stab_y_strategija": [
       "y06-net-strategii"
