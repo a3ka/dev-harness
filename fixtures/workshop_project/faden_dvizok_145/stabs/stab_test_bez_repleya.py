@@ -46,4 +46,4 @@ describe('faden-motion (без реплея)', () => {
   });
 });
 '''
-(cel / 'mobile/src/ui/faden/__tests__/faden-motion.test.ts').write_text(test, encoding='utf-8')
+(cel / 'mobile/src/lib/faden/__tests__/faden-motion.test.ts').write_text(test, encoding='utf-8')

@@ -1,14 +1,14 @@
 {
   "kontrakt": "contracts/145-faden-dvizok.md",
   "subjekt": [
-    "mobile/src/ui/faden/faden-motion.ts",
+    "mobile/src/lib/faden/faden-motion.ts",
     "mobile/src/theme/motion-tokens.ts",
-    "mobile/src/ui/faden/__tests__/faden-replay.json",
-    "mobile/src/ui/faden/FadenSign.tsx",
-    "mobile/src/ui/faden/index.ts",
-    "mobile/src/ui/faden/__tests__/faden-motion.test.ts",
-    "mobile/src/ui/faden/__tests__/faden-sign.test.tsx",
-    "mobile/src/ui/faden/faden-state-source.ts"
+    "mobile/src/lib/faden/__tests__/faden-replay.json",
+    "mobile/src/lib/faden/FadenSign.tsx",
+    "mobile/src/lib/faden/index.ts",
+    "mobile/src/lib/faden/__tests__/faden-motion.test.ts",
+    "mobile/src/lib/faden/__tests__/faden-sign.test.tsx",
+    "mobile/src/lib/faden/faden-state-source.ts"
   ],
   "kletki": [
     {
@@ -228,17 +228,17 @@
     "oracle/motion-spec-gespraech.json": "064d7821428f425d431fbd1efd65cbec37263bb62ef974924746a07e769cd318",
     "drajver.json": "b53fe9c1bcc18c2267a290fc5120740931d8be682b991136dadcacfa2a6b7473",
     "motion-tokens.ts": "4d252c9fffad6d7c2c2e44f48fd1944899360c210639b6dc1b2af6acd1c0710b",
-    "probe_runner.mjs": "3ea65ebdb1d9b6e80f60d76188704bdf92808fda367297445701ecdae4dc7e79",
+    "probe_runner.mjs": "84a820eaefbf87c0e4def19fd7d171a08bf502ac6eefc0884151804cebe9eea6",
     "jest_shim.mjs": "cc1ba9cdbd2ae3ea1fd165b183d47dee365df738dfb3656cd34ce1ad0de0717b",
     "istochnik-sostojanij.mjs": "ccc4e65acab3a1cc3bcc0dc3151fa8c42969f86ecfae637500f4572cb0a34bae",
-    "produkt/mobile/src/ui/faden/faden-motion.ts": "8cb72b446887a071124539c8d96503277771f63d7592a25ef610ed785f754101",
-    "produkt/mobile/src/ui/faden/FadenSign.tsx": "e00612a1931a990fc05b239337401f49dbc0cac11dd6e3fdb3f0c451ee91fb00",
-    "produkt/mobile/src/ui/faden/index.ts": "ed748fd3577ed242e8ecbfe756fa15aaf4bc75ca7602d2fc7fc7ff6f8540a5b7",
-    "produkt/mobile/src/ui/faden/__tests__/faden-motion.test.ts": "590c20e882baf8c6f9efee6f49dee67d517cf95abd441492608299539d9bffe3",
-    "produkt/mobile/src/ui/faden/__tests__/faden-sign.test.tsx": "9dc0faf76c95de20a9ee0b5ba3621d96165e3a37d8a68883826556ac041bcd91",
-    "produkt/mobile/src/ui/faden/__tests__/faden-replay.json": "b53fe9c1bcc18c2267a290fc5120740931d8be682b991136dadcacfa2a6b7473",
+    "produkt/mobile/src/lib/faden/faden-motion.ts": "ddb1e86add76fb7cfefaaefa1bf4489ed8105d1c641084c722fa19f15162171e",
+    "produkt/mobile/src/lib/faden/FadenSign.tsx": "e00612a1931a990fc05b239337401f49dbc0cac11dd6e3fdb3f0c451ee91fb00",
+    "produkt/mobile/src/lib/faden/index.ts": "ed748fd3577ed242e8ecbfe756fa15aaf4bc75ca7602d2fc7fc7ff6f8540a5b7",
+    "produkt/mobile/src/lib/faden/__tests__/faden-motion.test.ts": "788378a5cfcac504149f6223af8d17c15c0e38d3ee3c836ac88ea9eaaf17c962",
+    "produkt/mobile/src/lib/faden/__tests__/faden-sign.test.tsx": "9dc0faf76c95de20a9ee0b5ba3621d96165e3a37d8a68883826556ac041bcd91",
+    "produkt/mobile/src/lib/faden/__tests__/faden-replay.json": "b53fe9c1bcc18c2267a290fc5120740931d8be682b991136dadcacfa2a6b7473",
     "produkt/mobile/src/theme/motion-tokens.ts": "4d252c9fffad6d7c2c2e44f48fd1944899360c210639b6dc1b2af6acd1c0710b",
-    "produkt/mobile/src/ui/faden/faden-state-source.ts": "6da0ca7a7b0553930110aceacf115bd33d19ad29a8a8d9fb67df6525aab81593"
+    "produkt/mobile/src/lib/faden/faden-state-source.ts": "625e30feb86978d41525e3619d391c60b41db3c5a0dbcec6de1cfb77ece7f5ce"
   },
   "dopusk_stolbcov": {
     "R": 1.0,

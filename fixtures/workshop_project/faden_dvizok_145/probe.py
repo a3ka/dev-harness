@@ -43,11 +43,11 @@ STABS = BATAREJA / 'stabs'
 SOURCE = BATAREJA / 'source.json'
 
 # Пути субъекта в продукте (грамматика контракта 145; имена фиксированы).
-SUBJEKT_DVIZOK = 'mobile/src/ui/faden/faden-motion.ts'
+SUBJEKT_DVIZOK = 'mobile/src/lib/faden/faden-motion.ts'
 SUBJEKT_TOKENY = 'mobile/src/theme/motion-tokens.ts'
-SUBJEKT_DRAJVER = 'mobile/src/ui/faden/__tests__/faden-replay.json'
+SUBJEKT_DRAJVER = 'mobile/src/lib/faden/__tests__/faden-replay.json'
 # Тестовый источник состояний (§4 бэкенд-разбора, слово 29.10 ~00:55; И-10)
-SUBJEKT_ISTOCHNIK = 'mobile/src/ui/faden/faden-state-source.ts'
+SUBJEKT_ISTOCHNIK = 'mobile/src/lib/faden/faden-state-source.ts'
 
 
 def oshibka_orakula(soobshchenie):
@@ -149,11 +149,11 @@ def progony_stabov(vremennyj, src, seed=None):
         # тавтологии, тест без порта) — тогда судим репо-режимом по ней
         produkt = cel / 'produkt'
         if (produkt / 'mobile').is_dir():
-            runner, kletki = zapusti_runnera(produkt / 'mobile/src/ui/faden/faden-motion.ts',
+            runner, kletki = zapusti_runnera(produkt / 'mobile/src/lib/faden/faden-motion.ts',
                                              produkt / 'mobile/src/theme/motion-tokens.ts',
-                                             produkt / 'mobile/src/ui/faden/__tests__/faden-replay.json',
+                                             produkt / 'mobile/src/lib/faden/__tests__/faden-replay.json',
                                              'repo', repo_root=produkt, seed=seed,
-                                             subject_istochnik=produkt / 'mobile/src/ui/faden/faden-state-source.ts')
+                                             subject_istochnik=produkt / 'mobile/src/lib/faden/faden-state-source.ts')
         else:
             runner, kletki = zapusti_runnera(cel / 'faden-motion.js', cel / 'motion-tokens.ts',
                                              cel / 'drajver.json', 'model', seed=seed,
@@ -203,17 +203,17 @@ def zhivoj_komponent(repo_root):
     if not jest_bin.exists():
         predposylki.append('нет node_modules/.bin/jest')
     objazatelnye = [
-        'mobile/src/ui/faden/FadenSign.tsx',
-        'mobile/src/ui/faden/faden-motion.ts',
-        'mobile/src/ui/faden/__tests__/faden-motion.test.ts',
-        'mobile/src/ui/faden/__tests__/faden-sign.test.tsx',
-        'mobile/src/ui/faden/__tests__/faden-replay.json',
+        'mobile/src/lib/faden/FadenSign.tsx',
+        'mobile/src/lib/faden/faden-motion.ts',
+        'mobile/src/lib/faden/__tests__/faden-motion.test.ts',
+        'mobile/src/lib/faden/__tests__/faden-sign.test.tsx',
+        'mobile/src/lib/faden/__tests__/faden-replay.json',
     ]
     for f in objazatelnye:
         if not (repo_root / f).is_file():
             predposylki.append('нет %s' % f)
-    for otn in ('mobile/src/ui/faden/__tests__/faden-motion.test.ts',
-                'mobile/src/ui/faden/__tests__/faden-sign.test.tsx'):
+    for otn in ('mobile/src/lib/faden/__tests__/faden-motion.test.ts',
+                'mobile/src/lib/faden/__tests__/faden-sign.test.tsx'):
         sub = repo_root / otn
         kanon = BATAREJA / 'produkt' / otn
         if sub.is_file() and kanon.is_file() and sub.read_bytes() != kanon.read_bytes():
@@ -278,7 +278,7 @@ def zhivoj_komponent(repo_root):
                         assery += 1
             return assery, sjuity
 
-        FADEN = 'src/ui/faden/FadenSign.tsx'  # относительно kopija == копии mobile/ (правка scoped-критика 3/3: был двойной mobile/)
+        FADEN = 'src/lib/faden/FadenSign.tsx'  # относительно kopija == копии mobile/ (правка scoped-критика 3/3: был двойной mobile/)
         ishodnyj = (kopija / FADEN).read_text(encoding='utf-8')
 
         def obertka(telo, komentar):

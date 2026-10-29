@@ -17,7 +17,7 @@ bat = pathlib.Path(__file__).resolve().parents[1]
 cel = cel / 'produkt'
 shutil.copytree(bat / 'produkt', cel)
 tavtologia = "// фиктивный тест пробы\n describe('faden', () => { it('проба', () => { expect(1).toBe(1); }); });\n"
-(cel / 'mobile/src/ui/faden/__tests__/faden-motion.test.ts').write_text(tavtologia, encoding='utf-8')
+(cel / 'mobile/src/lib/faden/__tests__/faden-motion.test.ts').write_text(tavtologia, encoding='utf-8')
 mertvyje = """// фиктивный знаковый тест пробы: ассерты в недостижимом блоке (арбитраж A.5)
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
@@ -37,4 +37,4 @@ describe('FadenSign (проба)', () => {
   });
 });
 """
-(cel / 'mobile/src/ui/faden/__tests__/faden-sign.test.tsx').write_text(mertvyje, encoding='utf-8')
+(cel / 'mobile/src/lib/faden/__tests__/faden-sign.test.tsx').write_text(mertvyje, encoding='utf-8')

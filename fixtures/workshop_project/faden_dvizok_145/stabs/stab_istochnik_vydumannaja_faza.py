@@ -35,4 +35,4 @@ export function fadenInput(fact) {
   return { ok: true, patch: { state: sostojanie } };
 }
 '''
-(cel / 'mobile/src/ui/faden/faden-state-source.ts').write_text(modul, encoding='utf-8')
+(cel / 'mobile/src/lib/faden/faden-state-source.ts').write_text(modul, encoding='utf-8')

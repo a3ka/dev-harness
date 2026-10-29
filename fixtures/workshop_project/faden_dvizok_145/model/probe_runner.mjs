@@ -701,7 +701,7 @@ if (A.mode === 'repo') {
   const fakt = A.subjectDriver ? crypto.createHash('sha256').update(fs.readFileSync(A.subjectDriver)).digest('hex') : null;
   kletka('a01-drajver-zapis', fakt === ozidaemyj, fakt ? 'DRAJVER_IZMENEN: sha256 ' + fakt + ' != пин ' + ozidaemyj : 'DRAJVER_OTSVTSTVUET: ' + (A.subjectDriver || '—'), {});
   const REPO = fs.realpathSync(A.repoRoot);
-  const fajly = ['mobile/src/ui/faden/FadenSign.tsx', 'mobile/src/ui/faden/index.ts', 'mobile/src/ui/faden/__tests__/faden-motion.test.ts', 'mobile/src/ui/faden/__tests__/faden-sign.test.tsx'];
+  const fajly = ['mobile/src/lib/faden/FadenSign.tsx', 'mobile/src/lib/faden/index.ts', 'mobile/src/lib/faden/__tests__/faden-motion.test.ts', 'mobile/src/lib/faden/__tests__/faden-sign.test.tsx'];
   const netu = fajly.filter(f => !fs.existsSync(path.join(REPO, f)));
   kletka('a02-fajly-komponenta', netu.length === 0, netu.length ? 'NET_FAJLA: ' + netu.join(',') : '', { ispolnenie: 'CI продукта (jest, job quality) + режим L; клетка — наличие' });
 
@@ -715,8 +715,8 @@ if (A.mode === 'repo') {
   // — jest-expo (job quality) и режим L; подмена файла мёртвыми ассертами/
   // недостижимым блоком/чем угодно иным отклоняется одним общим свойством.
   {
-    const putTesta = path.join(REPO, 'mobile/src/ui/faden/__tests__/faden-sign.test.tsx');
-    const putKanona = path.join(KANON, 'mobile/src/ui/faden/__tests__/faden-sign.test.tsx');
+    const putTesta = path.join(REPO, 'mobile/src/lib/faden/__tests__/faden-sign.test.tsx');
+    const putKanona = path.join(KANON, 'mobile/src/lib/faden/__tests__/faden-sign.test.tsx');
     const detali = { chto: 'целостность обязательного файла (байты == канону); исполнение — jest-expo (quality) + --live-component, не node-шим' };
     if (!fs.existsSync(putTesta)) {
       kletka('a05-jest-znak-celesnost', false, 'NET_FAJLA_TESTA: ' + putTesta, detali);
@@ -740,8 +740,8 @@ if (A.mode === 'repo') {
   // отказы пробы, не успех. Regex-эвристика expect(<литерал>) удалена:
   // значимость несёт сам исполняемый канон, а не распознавание текста.
   {
-    const putTesta = path.join(REPO, 'mobile/src/ui/faden/__tests__/faden-motion.test.ts');
-    const putKanona = path.join(KANON, 'mobile/src/ui/faden/__tests__/faden-motion.test.ts');
+    const putTesta = path.join(REPO, 'mobile/src/lib/faden/__tests__/faden-motion.test.ts');
+    const putKanona = path.join(KANON, 'mobile/src/lib/faden/__tests__/faden-motion.test.ts');
     if (!fs.existsSync(putTesta)) {
       kletka('a03-jest-dvizhok-kanon', false, 'NET_FAJLA_TESTA: ' + putTesta, {});
     } else {
