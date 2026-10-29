@@ -82,6 +82,7 @@ check:sessii-proektov-136-family-selftest	55	1	0
 check:start-ekran-138-family-selftest	22	1	0
 check:e2e-avtoperezapusk-139-family-selftest	27	1	0
 check:skaner-sekretov-142-family-selftest	60	1	0
+check:faden-dvizok-145-family-selftest	15	1	0
 check:ci-e2e-restart-995-family-selftest	188	1	0
 check:obryv-adb-141-family-selftest	56	1	0
 check:odin-agent-140-family-selftest	55	1	0
