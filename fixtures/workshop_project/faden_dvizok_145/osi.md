@@ -2,11 +2,11 @@
 # арбитражу Astra + входные требования бэкенд-разбора §4, слово 29.10 ~00:55;
 # числа — из вывода прогонов)
 
-Субъекты (продукт, имена фиксированы контрактом): `mobile/src/ui/faden/faden-motion.ts`
+Субъекты (продукт, имена фиксированы контрактом): `mobile/src/lib/faden/faden-motion.ts`
 (движок — дословный TS-порт `faden-motion.js` 1.3: чистые функции + headless-инстанс),
 `mobile/src/theme/motion-tokens.ts` (31 токен движения),
-`mobile/src/ui/faden/__tests__/faden-replay.json` (драйвер-запись, байты = пин),
-`mobile/src/ui/faden/faden-state-source.ts` (тестовый источник состояний — И-10),
+`mobile/src/lib/faden/__tests__/faden-replay.json` (драйвер-запись, байты = пин),
+`mobile/src/lib/faden/faden-state-source.ts` (тестовый источник состояний — И-10),
 `FadenSign.tsx` + `index.ts` + ОБЯЗАТЕЛЬНЫЕ jest-тесты. Обязательные тесты —
 побайтовые копии канонических артефактов батареи (produkt-форма, пиннена
 sha256): движковый `faden-motion.test.ts` судится клеткой a03 (равенство
@@ -236,6 +236,40 @@ eslint файлов v2 — чисто · check-structure продукта при
 состава клеток/стабов/привязок НЕ меняла (46/20/29; пинов 17 — обновлена
 запись канона знакового теста); слова v1 «на станции нет рантайма» более
 не основание: копия продукта с node_modules — сама среда (норма 146+).
+
+## Замеры правки v3 (перенос ui/faden → lib/faden + живые гейты CI; слово 29.10 ~15:30; вывод команд)
+
+Причина: живой CI продукта (PR Complior-mob #138–#141) вскрыл три слоя
+красного ВНЕ зоны v2 — корневой tsc 995 (TS5097/TS2531 в двух пиннованных
+канонах), 999 LITERAL_PALETTE (hex-литералы CANON-палитры порта в SCAN_PATHS
+`mobile/src/ui`), structure-policy sourceLayers (`ui/faden` не слой);
+единственное место, проходящее 999+structure, — `mobile/src/lib/faden/`
+(живое доказательство: PR #141 job quality PASS, run 40902100313).
+Правка: путь `src/ui/faden` → `src/lib/faden` везде (probe.py 14,
+probe_runner.mjs 8, source.json 14, стабы 4, osi.md 3, produkt-форма —
+дерево + комментарии; канон faden-motion.test.ts — 2 строки, пин
+`590c20e8…` → `788378a5…`; faden-sign.test.tsx байты не менялись —
+`9dc0faf7…`; перепилены пины probe_runner.mjs `3ea65ebd…` → `84a820ea…`,
+faden-motion.ts, faden-state-source.ts). Состав НЕ менялся: 46/20/29,
+пинов 17 (модель 9 + produkt-форма 8).
+
+Батарея: без флага — SUBJECT_ABSENT rc 1, 46 поимённых · `--model`: 46/46
+rc 0 · `--stabs`: контроль 46/46 + стабов 20, привязок 29, непойманных 0,
+rc 0 · `--repo` (эталон produkt-формы): 46/46 rc 0 · `--repo` (копия
+продукта diag-lib `bcf4391c` + канон v3): 46/46 rc 0 · `--seed 7/42/2026`
+(repo): 46/46 rc 0 каждый · `proba_live_put`: rc 0.
+
+Живые прогоны на копии продукта (diag-lib + канон v3): `npm test -- faden`
+rc 0, 3 сьюта/15 тестов (PASS по `src/lib/faden/__tests__/*`) ·
+`--live-component --repo` rc 0: контроль ZELEN (3/15), 15/15 мутантов убиты
+предметными ассертами (поимённо = v2: null(idle) 9, null(прочие) по 4,
+заморозка 5, ос-false 1, ос-true 4, отключение обновления 4) · живые гейты
+CI: корневой `npx tsc --noEmit -p tsconfig.json` rc 0 (995; exclude двух
+канонов в mobile/tsconfig.json), `shell_static_probe.py --repo .` rc 0 (999;
+движок в lib — вне SCAN_PATHS), `node scripts/check-structure.cjs` CI-формы
+rc 0 «structure: OK (repository inventory; external trees excluded)»,
+`npm run typecheck` rc 0, `types_probe.py --repo .` rc 0 — норма 146+
+«до заморозки прогоняются живые гейты CI продукта» исполнена ДО заморозки.
 
 Первая редакция: 40 клеток / 15 стабов / 23 привязки; правка по критику 1/2:
 45/20/29; правка по арбитражу Astra: 44 клетки (−a04) / 19 стабов

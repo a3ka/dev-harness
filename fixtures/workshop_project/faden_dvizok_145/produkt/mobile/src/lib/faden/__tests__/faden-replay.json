@@ -1,0 +1,1427 @@
+{
+ "versija": 1,
+ "dvizok": "Dynamic Faden 1.3",
+ "istochnik": {
+  "paket_zip": "Complior-D24-Gespraech-Final2-Motion.zip",
+  "paket_zip_sha256": "5b8b0ccd47c8647980e9c1e5e6963ebf52be8a418389e43aa0a50dc6f0b40469",
+  "spec_raw_sha256": "5af5d6a13c68f622dc01819eccce6151c17c274ad8decc0db181aa4a8f139f33",
+  "zametka": "таймлайны тиров выведены подгонкой референс-движка по строкам оракула (beam-поиск, доказательство — режим --model: все 6680 строк, допуск модели 0.002); события/начальные опции — побайтово из lab/spec_raw.json; входы — oracle/input-tracks.json"
+ },
+ "dt_ms": 16.6667,
+ "progrev_kadrov": 90,
+ "poryadok_kadra": "advanceTime(DT) не нужен: все set() кадра получают одно время now=last+DT; события (at<=t_i) по возрастанию at, затем сигналы в порядке spec (сэмпл кадра i), затем set({}); тир — в конце кадра (dt=0); строка снимается после шага кадра",
+ "sceny": {
+  "GA-T29": {
+   "nachalnye": {
+    "state": "idle",
+    "size": "mini",
+    "emotion": "neutral"
+   },
+   "sobytiya": [
+    {
+     "at": 0,
+     "set": {
+      "state": "listening"
+     }
+    }
+   ],
+   "signaly": [],
+   "tiry": [
+    [
+     19,
+     "compact"
+    ],
+    [
+     22,
+     "medium"
+    ],
+    [
+     102,
+     "mini"
+    ]
+   ],
+   "kadrov": 103,
+   "hold_ms": [
+    300,
+    800
+   ],
+   "win_ms": [
+    0,
+    600
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     150
+    ],
+    [
+     50,
+     300
+    ],
+    [
+     75,
+     450
+    ],
+    [
+     100,
+     600
+    ]
+   ]
+  },
+  "GA-T35": {
+   "nachalnye": {
+    "state": "idle",
+    "size": "mini",
+    "emotion": "neutral"
+   },
+   "sobytiya": [
+    {
+     "at": 500,
+     "set": {
+      "state": "listening"
+     }
+    }
+   ],
+   "signaly": [],
+   "tiry": [
+    [
+     50,
+     "compact"
+    ],
+    [
+     52,
+     "medium"
+    ],
+    [
+     132,
+     "mini"
+    ]
+   ],
+   "kadrov": 133,
+   "hold_ms": [
+    300,
+    800
+   ],
+   "win_ms": [
+    0,
+    1100
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     275
+    ],
+    [
+     50,
+     550
+    ],
+    [
+     75,
+     825
+    ],
+    [
+     100,
+     1100
+    ]
+   ]
+  },
+  "GA-T33": {
+   "nachalnye": {
+    "state": "needs_action",
+    "size": "mini",
+    "emotion": "neutral"
+   },
+   "sobytiya": [],
+   "signaly": [],
+   "tiry": [],
+   "kadrov": 121,
+   "hold_ms": [
+    300,
+    900
+   ],
+   "win_ms": [
+    0,
+    800
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     200
+    ],
+    [
+     50,
+     400
+    ],
+    [
+     75,
+     600
+    ],
+    [
+     100,
+     800
+    ]
+   ]
+  },
+  "GA-T32": {
+   "nachalnye": {
+    "state": "idle",
+    "size": "compact",
+    "emotion": "neutral"
+   },
+   "sobytiya": [],
+   "signaly": [],
+   "tiry": [
+    [
+     0,
+     "mini"
+    ]
+   ],
+   "kadrov": 137,
+   "hold_ms": [
+    300,
+    900
+   ],
+   "win_ms": [
+    0,
+    1060
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     265
+    ],
+    [
+     50,
+     530
+    ],
+    [
+     75,
+     795
+    ],
+    [
+     100,
+     1060
+    ]
+   ]
+  },
+  "GA-T34": {
+   "nachalnye": {
+    "state": "idle",
+    "size": "compact",
+    "emotion": "neutral"
+   },
+   "sobytiya": [
+    {
+     "at": 0,
+     "set": {
+      "state": "speaking",
+      "emotion": "positive"
+     }
+    },
+    {
+     "at": 2150,
+     "set": {
+      "state": "listening"
+     }
+    }
+   ],
+   "signaly": [
+    "envelope"
+   ],
+   "tiry": [
+    [
+     0,
+     "mini"
+    ],
+    [
+     20,
+     "compact"
+    ],
+    [
+     22,
+     "medium"
+    ],
+    [
+     231,
+     "mini"
+    ]
+   ],
+   "kadrov": 232,
+   "hold_ms": [
+    300,
+    900
+   ],
+   "win_ms": [
+    0,
+    2650
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     662.5
+    ],
+    [
+     50,
+     1325
+    ],
+    [
+     75,
+     1987.5
+    ],
+    [
+     100,
+     2650
+    ]
+   ]
+  },
+  "GA-T08": {
+   "nachalnye": {
+    "state": "idle",
+    "size": "mini",
+    "emotion": "neutral"
+   },
+   "sobytiya": [
+    {
+     "at": 0,
+     "set": {
+      "state": "listening"
+     }
+    }
+   ],
+   "signaly": [],
+   "tiry": [
+    [
+     23,
+     "medium"
+    ],
+    [
+     126,
+     "mini"
+    ]
+   ],
+   "kadrov": 127,
+   "hold_ms": [
+    300,
+    900
+   ],
+   "win_ms": [
+    0,
+    900
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     225
+    ],
+    [
+     50,
+     450
+    ],
+    [
+     75,
+     675
+    ],
+    [
+     100,
+     900
+    ]
+   ]
+  },
+  "GA-T27": {
+   "nachalnye": {
+    "state": "understanding",
+    "size": "large",
+    "emotion": "positive"
+   },
+   "sobytiya": [
+    {
+     "at": 0,
+     "set": {
+      "state": "speaking"
+     }
+    },
+    {
+     "at": 1500,
+     "set": {
+      "state": "listening"
+     }
+    }
+   ],
+   "signaly": [
+    "envelope",
+    "amplitude"
+   ],
+   "tiry": [
+    [
+     0,
+     "medium"
+    ],
+    [
+     201,
+     "compact"
+    ],
+    [
+     203,
+     "mini"
+    ]
+   ],
+   "kadrov": 295,
+   "hold_ms": [
+    300,
+    900
+   ],
+   "win_ms": [
+    0,
+    3700
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     925
+    ],
+    [
+     50,
+     1850
+    ],
+    [
+     75,
+     2775
+    ],
+    [
+     100,
+     3700
+    ]
+   ]
+  },
+  "GA-T37": {
+   "nachalnye": {
+    "state": "listening",
+    "size": "mini",
+    "emotion": "neutral"
+   },
+   "sobytiya": [
+    {
+     "at": 0,
+     "set": {
+      "state": "idle"
+     }
+    }
+   ],
+   "signaly": [],
+   "tiry": [],
+   "kadrov": 127,
+   "hold_ms": [
+    300,
+    900
+   ],
+   "win_ms": [
+    0,
+    900
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     225
+    ],
+    [
+     50,
+     450
+    ],
+    [
+     75,
+     675
+    ],
+    [
+     100,
+     900
+    ]
+   ]
+  },
+  "GA-T16": {
+   "nachalnye": {
+    "state": "listening",
+    "size": "large",
+    "emotion": "neutral"
+   },
+   "sobytiya": [
+    {
+     "at": 0,
+     "set": {
+      "state": "idle"
+     }
+    }
+   ],
+   "signaly": [
+    "amplitude"
+   ],
+   "tiry": [
+    [
+     0,
+     "medium"
+    ],
+    [
+     17,
+     "mini"
+    ],
+    [
+     18,
+     "medium"
+    ],
+    [
+     23,
+     "mini"
+    ]
+   ],
+   "kadrov": 133,
+   "hold_ms": [
+    300,
+    900
+   ],
+   "win_ms": [
+    0,
+    1000
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     250
+    ],
+    [
+     50,
+     500
+    ],
+    [
+     75,
+     750
+    ],
+    [
+     100,
+     1000
+    ]
+   ]
+  },
+  "GA-T17": {
+   "nachalnye": {
+    "state": "idle",
+    "size": "mini",
+    "emotion": "neutral"
+   },
+   "sobytiya": [
+    {
+     "at": 0,
+     "set": {
+      "state": "listening"
+     }
+    }
+   ],
+   "signaly": [],
+   "tiry": [
+    [
+     23,
+     "compact"
+    ],
+    [
+     24,
+     "medium"
+    ],
+    [
+     132,
+     "mini"
+    ]
+   ],
+   "kadrov": 133,
+   "hold_ms": [
+    300,
+    900
+   ],
+   "win_ms": [
+    0,
+    1000
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     250
+    ],
+    [
+     50,
+     500
+    ],
+    [
+     75,
+     750
+    ],
+    [
+     100,
+     1000
+    ]
+   ]
+  },
+  "GA-T18": {
+   "nachalnye": {
+    "state": "idle",
+    "size": "mini",
+    "emotion": "neutral"
+   },
+   "sobytiya": [],
+   "signaly": [],
+   "tiry": [],
+   "kadrov": 97,
+   "hold_ms": [
+    300,
+    800
+   ],
+   "win_ms": [
+    0,
+    500
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     125
+    ],
+    [
+     50,
+     250
+    ],
+    [
+     75,
+     375
+    ],
+    [
+     100,
+     500
+    ]
+   ]
+  },
+  "GA-T19": {
+   "nachalnye": {
+    "state": "idle",
+    "size": "mini",
+    "emotion": "neutral"
+   },
+   "sobytiya": [],
+   "signaly": [],
+   "tiry": [],
+   "kadrov": 115,
+   "hold_ms": [
+    300,
+    900
+   ],
+   "win_ms": [
+    0,
+    700
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     175
+    ],
+    [
+     50,
+     350
+    ],
+    [
+     75,
+     525
+    ],
+    [
+     100,
+     700
+    ]
+   ]
+  },
+  "GA-T20": {
+   "nachalnye": {
+    "state": "working",
+    "size": "mini",
+    "emotion": "empathetic"
+   },
+   "sobytiya": [
+    {
+     "at": 0,
+     "set": {
+      "state": "needs_action",
+      "emotion": "neutral"
+     }
+    }
+   ],
+   "signaly": [],
+   "tiry": [],
+   "kadrov": 121,
+   "hold_ms": [
+    300,
+    900
+   ],
+   "win_ms": [
+    0,
+    800
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     200
+    ],
+    [
+     50,
+     400
+    ],
+    [
+     75,
+     600
+    ],
+    [
+     100,
+     800
+    ]
+   ]
+  },
+  "GA-T21": {
+   "nachalnye": {
+    "state": "needs_action",
+    "size": "mini",
+    "emotion": "neutral"
+   },
+   "sobytiya": [
+    {
+     "at": 0,
+     "set": {
+      "state": "working"
+     }
+    },
+    {
+     "at": 800,
+     "set": {
+      "state": "waiting",
+      "emotion": "reassuring"
+     }
+    }
+   ],
+   "signaly": [],
+   "tiry": [],
+   "kadrov": 199,
+   "hold_ms": [
+    300,
+    900
+   ],
+   "win_ms": [
+    0,
+    2100
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     525
+    ],
+    [
+     50,
+     1050
+    ],
+    [
+     75,
+     1575
+    ],
+    [
+     100,
+     2100
+    ]
+   ]
+  },
+  "GA-T22": {
+   "nachalnye": {
+    "state": "working",
+    "size": "mini",
+    "emotion": "positive"
+   },
+   "sobytiya": [
+    {
+     "at": 0,
+     "set": {
+      "state": "done"
+     }
+    }
+   ],
+   "signaly": [],
+   "tiry": [],
+   "kadrov": 139,
+   "hold_ms": [
+    300,
+    900
+   ],
+   "win_ms": [
+    0,
+    1100
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     275
+    ],
+    [
+     50,
+     550
+    ],
+    [
+     75,
+     825
+    ],
+    [
+     100,
+     1100
+    ]
+   ]
+  },
+  "GA-T23": {
+   "nachalnye": {
+    "state": "waiting",
+    "size": "mini",
+    "emotion": "reassuring"
+   },
+   "sobytiya": [
+    {
+     "at": 0,
+     "set": {
+      "state": "uncertain",
+      "emotion": "careful"
+     }
+    }
+   ],
+   "signaly": [],
+   "tiry": [],
+   "kadrov": 115,
+   "hold_ms": [
+    300,
+    900
+   ],
+   "win_ms": [
+    0,
+    700
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     175
+    ],
+    [
+     50,
+     350
+    ],
+    [
+     75,
+     525
+    ],
+    [
+     100,
+     700
+    ]
+   ]
+  },
+  "GA-T24": {
+   "nachalnye": {
+    "state": "listening",
+    "size": "mini",
+    "emotion": "empathetic"
+   },
+   "sobytiya": [
+    {
+     "at": 0,
+     "set": {
+      "state": "error",
+      "emotion": "neutral"
+     }
+    },
+    {
+     "at": 1600,
+     "set": {
+      "state": "understanding"
+     }
+    }
+   ],
+   "signaly": [
+    "amplitude"
+   ],
+   "tiry": [],
+   "kadrov": 205,
+   "hold_ms": [
+    300,
+    800
+   ],
+   "win_ms": [
+    0,
+    2300
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     575
+    ],
+    [
+     50,
+     1150
+    ],
+    [
+     75,
+     1725
+    ],
+    [
+     100,
+     2300
+    ]
+   ]
+  },
+  "GA-R2": {
+   "nachalnye": {
+    "state": "listening",
+    "size": "large",
+    "emotion": "neutral"
+   },
+   "sobytiya": [
+    {
+     "at": 2600,
+     "set": {
+      "state": "idle"
+     }
+    },
+    {
+     "at": 4820,
+     "set": {
+      "state": "listening"
+     }
+    }
+   ],
+   "signaly": [
+    "amplitude"
+   ],
+   "tiry": [
+    [
+     0,
+     "medium"
+    ],
+    [
+     173,
+     "mini"
+    ],
+    [
+     174,
+     "medium"
+    ],
+    [
+     179,
+     "mini"
+    ],
+    [
+     313,
+     "compact"
+    ],
+    [
+     314,
+     "medium"
+    ],
+    [
+     487,
+     "mini"
+    ]
+   ],
+   "kadrov": 488,
+   "hold_ms": [
+    300,
+    800
+   ],
+   "win_ms": [
+    0,
+    7020
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     1755
+    ],
+    [
+     50,
+     3510
+    ],
+    [
+     75,
+     5265
+    ],
+    [
+     100,
+     7020
+    ]
+   ]
+  },
+  "GA-R2-393": {
+   "nachalnye": {
+    "state": "listening",
+    "size": "large",
+    "emotion": "neutral"
+   },
+   "sobytiya": [
+    {
+     "at": 2600,
+     "set": {
+      "state": "idle"
+     }
+    },
+    {
+     "at": 4820,
+     "set": {
+      "state": "listening"
+     }
+    }
+   ],
+   "signaly": [
+    "amplitude"
+   ],
+   "tiry": [
+    [
+     0,
+     "medium"
+    ],
+    [
+     173,
+     "mini"
+    ],
+    [
+     174,
+     "medium"
+    ],
+    [
+     179,
+     "mini"
+    ],
+    [
+     313,
+     "compact"
+    ],
+    [
+     314,
+     "medium"
+    ],
+    [
+     487,
+     "mini"
+    ]
+   ],
+   "kadrov": 488,
+   "hold_ms": [
+    300,
+    800
+   ],
+   "win_ms": [
+    0,
+    7020
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     1755
+    ],
+    [
+     50,
+     3510
+    ],
+    [
+     75,
+     5265
+    ],
+    [
+     100,
+     7020
+    ]
+   ]
+  },
+  "GA-R3": {
+   "nachalnye": {
+    "state": "idle",
+    "size": "large",
+    "emotion": "neutral"
+   },
+   "sobytiya": [
+    {
+     "at": 600,
+     "set": {
+      "state": "listening"
+     }
+    },
+    {
+     "at": 4230,
+     "set": {
+      "state": "understanding"
+     }
+    },
+    {
+     "at": 4830,
+     "set": {
+      "state": "speaking",
+      "emotion": "empathetic"
+     }
+    },
+    {
+     "at": 7230,
+     "set": {
+      "state": "listening"
+     }
+    },
+    {
+     "at": 10910,
+     "set": {
+      "state": "understanding"
+     }
+    },
+    {
+     "at": 11510,
+     "set": {
+      "state": "working"
+     }
+    },
+    {
+     "at": 13210,
+     "set": {
+      "state": "ready"
+     }
+    },
+    {
+     "at": 14710,
+     "set": {
+      "state": "needs_action",
+      "emotion": "neutral"
+     }
+    },
+    {
+     "at": 16410,
+     "set": {
+      "state": "working"
+     }
+    },
+    {
+     "at": 17210,
+     "set": {
+      "state": "waiting",
+      "emotion": "reassuring"
+     }
+    },
+    {
+     "at": 19410,
+     "set": {
+      "state": "uncertain",
+      "emotion": "careful"
+     }
+    },
+    {
+     "at": 20910,
+     "set": {
+      "state": "error",
+      "emotion": "neutral"
+     }
+    },
+    {
+     "at": 22210,
+     "set": {
+      "state": "uncertain",
+      "emotion": "careful"
+     }
+    },
+    {
+     "at": 23560,
+     "set": {
+      "state": "done",
+      "emotion": "positive"
+     }
+    }
+   ],
+   "signaly": [
+    "amplitude",
+    "envelope",
+    "amplitude"
+   ],
+   "tiry": [
+    [
+     0,
+     "medium"
+    ],
+    [
+     277,
+     "mini"
+    ],
+    [
+     278,
+     "medium"
+    ],
+    [
+     720,
+     "mini"
+    ]
+   ],
+   "kadrov": 1586,
+   "hold_ms": [
+    400,
+    900
+   ],
+   "win_ms": [
+    0,
+    25110
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     6277.5
+    ],
+    [
+     50,
+     12555
+    ],
+    [
+     75,
+     18832.5
+    ],
+    [
+     100,
+     25110
+    ]
+   ]
+  },
+  "GA-R3-393": {
+   "nachalnye": {
+    "state": "idle",
+    "size": "large",
+    "emotion": "neutral"
+   },
+   "sobytiya": [
+    {
+     "at": 600,
+     "set": {
+      "state": "listening"
+     }
+    },
+    {
+     "at": 4230,
+     "set": {
+      "state": "understanding"
+     }
+    },
+    {
+     "at": 4830,
+     "set": {
+      "state": "speaking",
+      "emotion": "empathetic"
+     }
+    },
+    {
+     "at": 7230,
+     "set": {
+      "state": "listening"
+     }
+    },
+    {
+     "at": 10910,
+     "set": {
+      "state": "understanding"
+     }
+    },
+    {
+     "at": 11510,
+     "set": {
+      "state": "working"
+     }
+    },
+    {
+     "at": 13210,
+     "set": {
+      "state": "ready"
+     }
+    },
+    {
+     "at": 14710,
+     "set": {
+      "state": "needs_action",
+      "emotion": "neutral"
+     }
+    },
+    {
+     "at": 16410,
+     "set": {
+      "state": "working"
+     }
+    },
+    {
+     "at": 17210,
+     "set": {
+      "state": "waiting",
+      "emotion": "reassuring"
+     }
+    },
+    {
+     "at": 19410,
+     "set": {
+      "state": "uncertain",
+      "emotion": "careful"
+     }
+    },
+    {
+     "at": 20910,
+     "set": {
+      "state": "error",
+      "emotion": "neutral"
+     }
+    },
+    {
+     "at": 22210,
+     "set": {
+      "state": "uncertain",
+      "emotion": "careful"
+     }
+    },
+    {
+     "at": 23560,
+     "set": {
+      "state": "done",
+      "emotion": "positive"
+     }
+    }
+   ],
+   "signaly": [
+    "amplitude",
+    "envelope",
+    "amplitude"
+   ],
+   "tiry": [
+    [
+     0,
+     "medium"
+    ],
+    [
+     277,
+     "mini"
+    ],
+    [
+     278,
+     "medium"
+    ],
+    [
+     433,
+     "mini"
+    ],
+    [
+     463,
+     "medium"
+    ],
+    [
+     720,
+     "mini"
+    ]
+   ],
+   "kadrov": 1586,
+   "hold_ms": [
+    400,
+    900
+   ],
+   "win_ms": [
+    0,
+    25110
+   ],
+   "tochki_proc": [
+    [
+     0,
+     0
+    ],
+    [
+     25,
+     6277.5
+    ],
+    [
+     50,
+     12555
+    ],
+    [
+     75,
+     18832.5
+    ],
+    [
+     100,
+     25110
+    ]
+   ]
+  }
+ }
+}
