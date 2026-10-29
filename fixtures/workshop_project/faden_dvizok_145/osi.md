@@ -271,6 +271,49 @@ rc 0 «structure: OK (repository inventory; external trees excluded)»,
 `npm run typecheck` rc 0, `types_probe.py --repo .` rc 0 — норма 146+
 «до заморозки прогоняются живые гейты CI продукта» исполнена ДО заморозки.
 
+## Замеры правки v4 (заголовок канона вне аудита литералов 132; FAIL Rev145 Б-1; вывод команд)
+
+Причина: слияние реализации делало красным android-e2e продукта — шаг
+«118 erstinformation» (mobile.yml:664) пишет ПОЛНЫЙ jest-отчёт в пачку 118,
+валидатор 132 (scripts/ekran_shablon.py @5dbcb549) в check_literal аудирует
+всю пачку; RE_CVET-ветка ident(…цифра…) читала заголовок первого теста
+канона a05 «…ровно n кадров за advanceTimersByTime(16·n)» как литерал →
+PRICHINA LITERAL_VNE_AUDITA jest-otchet.json:1 (живой run 40919849830, обе
+попытки failure; база 518d8e7b — []). Правка: ОДНА строка канона
+faden-sign.test.tsx:114 — «…ровно n кадров за продвижение часов на 16·n мс»
+(ассерты/движок не тронуты); пин source.json 9dc0faf7… → 6715822f…; состав
+НЕ менялся: 46/20/29, пинов 17 (модель 9 + produkt-форма 8).
+
+Полный аудит отчёта (своей мерой literal_audit.py ревьюера — вызывает
+check_literal валидатора @5dbcb549; перечислены ВСЕ совпадения RE_CVET/
+RE_RAZMER после маски дайджестов, не только первое): на копии продукта
+c563920 с каноном v3 — отказ `['PRICHINA\tLITERAL_VNE_AUDITA\tjest-otchet.json:1']`,
+ровно 2 совпадения advanceTimersByTime(16·n) (fullName
+и title первого теста канона), ДРУГИХ violating-строк в заголовках обоих
+пиннованных канонов и дополнительного теста implementer НЕТ (faden-motion.
+test.ts: describe/3×it чисты; faden-sign.test.tsx: остальные 6 заголовков
+чисты; faden-sign-contract.test.tsx: 5 заголовков чисты; консоль-вывод
+erstinfo-сьютов чист); с каноном v4 — `[]`, совпадений 0.
+
+Батарея: без флага — SUBJECT_ABSENT rc 1, 46 поимённых · `--model`: 46/46
+rc 0 · `--stabs`: контроль 46/46 + стабов 20, привязок 29, непойманных 0,
+rc 0 · `--repo` (эталон produkt-формы): 46/46 rc 0 · `--repo` (копия
+продукта c563920 + канон v4): 46/46 rc 0 · `--seed 7/42/2026` (repo):
+46/46 rc 0 каждый · proba_live_put: rc 0.
+
+Живые прогоны на копии продукта (c563920 + канон v4, sha256 6715822f…7f0):
+`npm test -- faden` — rc 0, Test Suites: 3 passed, 3 total, Tests: 15
+passed, 15 total (PASS по src/lib/faden/__tests__/*) · полный отчёт шага
+118 (`npm test -- --json --outputFile=e2e-erstinformation/jest-otchet.json`)
+— rc 0, 15 сьютов/149 тестов, аудит `[]` (до правки — LITERAL_VNE_AUDITA) ·
+`--live-component --repo` rc 0: контроль ZELEN (3/15), 15/15 мутантов убиты
+(поимённо = v3: null(idle) 9, null(прочие) по 4, заморозка 5, ос-false 1,
+ос-true 4, отключение обновления 4) · корневой `npx tsc --noEmit -p
+tsconfig.json` rc 0 (995) · `npm run typecheck` rc 0 · 999
+`shell_static_probe.py --repo` rc 0 · eslint изменённого канона rc 0
+(строка 114: 100 символов против 97). Живой android-e2e на диаг-PR —
+условие заморозки v4 (оркестратор, по sha кандидата, до freeze).
+
 Первая редакция: 40 клеток / 15 стабов / 23 привязки; правка по критику 1/2:
 45/20/29; правка по арбитражу Astra: 44 клетки (−a04) / 19 стабов
 (−pustoj_komponent, test_bez_porta→test_bez_repleya) / 28 привязок;
