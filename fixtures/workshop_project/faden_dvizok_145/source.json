@@ -1,0 +1,261 @@
+{
+  "kontrakt": "contracts/145-faden-dvizok.md",
+  "subjekt": [
+    "mobile/src/ui/faden/faden-motion.ts",
+    "mobile/src/theme/motion-tokens.ts",
+    "mobile/src/ui/faden/__tests__/faden-replay.json",
+    "mobile/src/ui/faden/FadenSign.tsx",
+    "mobile/src/ui/faden/index.ts",
+    "mobile/src/ui/faden/__tests__/faden-motion.test.ts",
+    "mobile/src/ui/faden/__tests__/faden-sign.test.tsx",
+    "mobile/src/ui/faden/faden-state-source.ts"
+  ],
+  "kletki": [
+    {
+      "id": "s-ga-t29"
+    },
+    {
+      "id": "s-ga-t35"
+    },
+    {
+      "id": "s-ga-t33"
+    },
+    {
+      "id": "s-ga-t32"
+    },
+    {
+      "id": "s-ga-t34"
+    },
+    {
+      "id": "s-ga-t08"
+    },
+    {
+      "id": "s-ga-t27"
+    },
+    {
+      "id": "s-ga-t37"
+    },
+    {
+      "id": "s-ga-t16"
+    },
+    {
+      "id": "s-ga-t17"
+    },
+    {
+      "id": "s-ga-t18"
+    },
+    {
+      "id": "s-ga-t19"
+    },
+    {
+      "id": "s-ga-t20"
+    },
+    {
+      "id": "s-ga-t21"
+    },
+    {
+      "id": "s-ga-t22"
+    },
+    {
+      "id": "s-ga-t23"
+    },
+    {
+      "id": "s-ga-t24"
+    },
+    {
+      "id": "s-ga-r2"
+    },
+    {
+      "id": "s-ga-r2-393"
+    },
+    {
+      "id": "s-ga-r3"
+    },
+    {
+      "id": "s-ga-r3-393"
+    },
+    {
+      "id": "p01-sostojanija-tiry"
+    },
+    {
+      "id": "p02-emocii"
+    },
+    {
+      "id": "p03-prime"
+    },
+    {
+      "id": "p04-tab"
+    },
+    {
+      "id": "p05-path-svg"
+    },
+    {
+      "id": "p06-morph"
+    },
+    {
+      "id": "p07-adaptive"
+    },
+    {
+      "id": "p08-voicebars"
+    },
+    {
+      "id": "p09-tierfor"
+    },
+    {
+      "id": "p10-bezier"
+    },
+    {
+      "id": "p11-katalog"
+    },
+    {
+      "id": "p12-instance-sglazhivanie"
+    },
+    {
+      "id": "p13-instance-restart"
+    },
+    {
+      "id": "d01-ud-pozy"
+    },
+    {
+      "id": "d02-ud-instance"
+    },
+    {
+      "id": "d03-ud-sceny"
+    },
+    {
+      "id": "t01-tokemy"
+    },
+    {
+      "id": "i01-istochnik-funkcija"
+    },
+    {
+      "id": "i02-istochnik-vydumannaja-faza"
+    },
+    {
+      "id": "a01-drajver-zapis"
+    },
+    {
+      "id": "a02-fajly-komponenta"
+    },
+    {
+      "id": "p14-pose-sejanye-vhody"
+    },
+    {
+      "id": "p15-instance-sejanye-vhody"
+    },
+    {
+      "id": "a03-jest-dvizhok-kanon"
+    },
+    {
+      "id": "a05-jest-znak-celesnost"
+    }
+  ],
+  "stab_vhod": {
+    "stab_zakodirovana_konstanta": [
+      "s-ga-t29",
+      "p01-sostojanija-tiry"
+    ],
+    "stab_okruglenie": [
+      "p01-sostojanija-tiry",
+      "p05-path-svg"
+    ],
+    "stab_nevernaja_os": [
+      "s-ga-t29",
+      "p01-sostojanija-tiry"
+    ],
+    "stab_propusk_sostojanija": [
+      "s-ga-t22"
+    ],
+    "stab_ignor_ud": [
+      "d01-ud-pozy",
+      "d02-ud-instance"
+    ],
+    "stab_drejf_sglazhivanija": [
+      "s-ga-t35",
+      "p12-instance-sglazhivanie",
+      "p11-katalog"
+    ],
+    "stab_tab_zhivoj": [
+      "p04-tab"
+    ],
+    "stab_voicebars_bez_stepeni": [
+      "p08-voicebars"
+    ],
+    "stab_adaptive_bez_doka": [
+      "p07-adaptive"
+    ],
+    "stab_morph_linejnyj": [
+      "p06-morph"
+    ],
+    "stab_timing_sdvig": [
+      "p06-morph",
+      "p11-katalog"
+    ],
+    "stab_tokeny_ne_polny": [
+      "t01-tokemy"
+    ],
+    "stab_prime_bez_tochki": [
+      "p03-prime"
+    ],
+    "stab_katalog_bez_stroki": [
+      "p11-katalog"
+    ],
+    "stab_path_krug": [
+      "p05-path-svg",
+      "s-ga-t20"
+    ],
+    "stab_pose_vne_setki": [
+      "p14-pose-sejanye-vhody"
+    ],
+    "stab_instance_vne_setki": [
+      "p15-instance-sejanye-vhody"
+    ],
+    "stab_tavtologicheskie_testy": [
+      "a03-jest-dvizhok-kanon",
+      "a05-jest-znak-celesnost"
+    ],
+    "stab_test_bez_repleya": [
+      "a03-jest-dvizhok-kanon"
+    ],
+    "stab_istochnik_vydumannaja_faza": [
+      "i02-istochnik-vydumannaja-faza"
+    ]
+  },
+  "piny": {
+    "faden-motion.js": "4ffcc6beac1b311f097fe4855b1c34301290f8f1e88dce166715c3ab8814c21a",
+    "oracle/faden-poses-gespraech.json": "9763fdc06b0c0a3c3138f7abac57bf5efbc714403f53d221c3b7c8d225c4f002",
+    "oracle/input-tracks.json": "40e068c92e01e12676254ff40ae6315ad3474c76602d0dfb84cdd00975314b94",
+    "oracle/motion-spec-gespraech.json": "064d7821428f425d431fbd1efd65cbec37263bb62ef974924746a07e769cd318",
+    "drajver.json": "b53fe9c1bcc18c2267a290fc5120740931d8be682b991136dadcacfa2a6b7473",
+    "motion-tokens.ts": "4d252c9fffad6d7c2c2e44f48fd1944899360c210639b6dc1b2af6acd1c0710b",
+    "probe_runner.mjs": "3ea65ebdb1d9b6e80f60d76188704bdf92808fda367297445701ecdae4dc7e79",
+    "jest_shim.mjs": "cc1ba9cdbd2ae3ea1fd165b183d47dee365df738dfb3656cd34ce1ad0de0717b",
+    "istochnik-sostojanij.mjs": "ccc4e65acab3a1cc3bcc0dc3151fa8c42969f86ecfae637500f4572cb0a34bae",
+    "produkt/mobile/src/ui/faden/faden-motion.ts": "8cb72b446887a071124539c8d96503277771f63d7592a25ef610ed785f754101",
+    "produkt/mobile/src/ui/faden/FadenSign.tsx": "e00612a1931a990fc05b239337401f49dbc0cac11dd6e3fdb3f0c451ee91fb00",
+    "produkt/mobile/src/ui/faden/index.ts": "ed748fd3577ed242e8ecbfe756fa15aaf4bc75ca7602d2fc7fc7ff6f8540a5b7",
+    "produkt/mobile/src/ui/faden/__tests__/faden-motion.test.ts": "590c20e882baf8c6f9efee6f49dee67d517cf95abd441492608299539d9bffe3",
+    "produkt/mobile/src/ui/faden/__tests__/faden-sign.test.tsx": "170dd2ee43926dadeb2606929ae884b5715f03987eb50cbf0ea19e63382f19b7",
+    "produkt/mobile/src/ui/faden/__tests__/faden-replay.json": "b53fe9c1bcc18c2267a290fc5120740931d8be682b991136dadcacfa2a6b7473",
+    "produkt/mobile/src/theme/motion-tokens.ts": "4d252c9fffad6d7c2c2e44f48fd1944899360c210639b6dc1b2af6acd1c0710b",
+    "produkt/mobile/src/ui/faden/faden-state-source.ts": "6da0ca7a7b0553930110aceacf115bd33d19ad29a8a8d9fb67df6525aab81593"
+  },
+  "dopusk_stolbcov": {
+    "R": 1.0,
+    "w": 1.0,
+    "g": 1.0,
+    "dotA": 1.0,
+    "dotRho": 1.0,
+    "sx": 0.016666666666666666,
+    "dotScale": 0.09090909090909091,
+    "dotOpacity": 0.010416666666666666,
+    "check": 0.015625,
+    "bead": 0.010416666666666666
+  },
+  "zametka": {
+    "istochnik_paketa": "Complior-D24-Gespraech-Final2-Motion.zip (sha256 5b8b0ccd47c8647980e9c1e5e6963ebf52be8a418389e43aa0a50dc6f0b40469 из SHA256SUMS пакета; копии побайтово равны ветке cmp-mob-d24/ishodniki 5d3dc22593d4d445d5504ddce837bff23e5f99a3 продукта)",
+    "dopusk_stolbcov_istina": "1 ед. viewBox (канон 96), приведённая к носителю столбца: геометрия R/w/g/dotA/dotRho — 1.0; sx — 1/60 (2R·sx); dotScale — 1/11 (r=11·dotScale); check — 1/64 (CHECK_LEN=64); dotOpacity/bead — 1/96; тон — точно",
+    "dopusk_modeli": "0.002 — границы round3 экспортёра пакета (замер этой пачки: 45 строк из 6680, все ≤0.001); структурных расхождений 0",
+    "ud_signal": "при reducedMotion входы заменяются константами лаборатории (amplitude 0.5 / envelope 0.6) — семантика lab/lab.html step()"
+  }
+}
