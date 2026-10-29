@@ -1,0 +1,166 @@
+{
+ "_comment": "Фиктивный носитель батареи 146: подмножество реального манифеста D 2.4 (та же грамматика списков screens/motion/frames; GA-T20 — переход НЕ касающийся экранов пачки, для клетки perehod-lishnij; GA-34 — экран манифеста БЕЗ кадров у пачки). Источник: Complior-D24-Gespraech-Final2-Pack (SHA256SUMS у владельца); sha256 реального манифеста — в source.json:.piny.kontekst.",
+ "name": "Complior · Gespräch · финал 2 (после критики финала 1)",
+ "generated": "2026-10-28T20:38:35Z",
+ "screens": [
+  "GA-01",
+  "GA-15",
+  "GA-16",
+  "GA-34",
+  "GA-54",
+  "GA-56"
+ ],
+ "motion": [
+  {
+   "id": "GA-T28",
+   "title": "Mitte antippen → Menü: das Zeichen fliegt zur Frage, die Pillen kommen von oben («Sprechen» zuerst), ≈ 300 ms",
+   "group": "Финал 2 · меню центральной кнопки",
+   "profile": "390x844",
+   "window_ms": [
+    0,
+    450
+   ],
+   "frames": [
+    "GA-01",
+    "GA-15"
+   ],
+   "video": {
+    "dark": "video/GA-T28-mitte-menue-oeffnen.dark.mp4",
+    "dark_reduced": "video/GA-T28-mitte-menue-oeffnen.dark.reduced.mp4",
+    "light": "video/GA-T28-mitte-menue-oeffnen.light.mp4",
+    "light_reduced": "video/GA-T28-mitte-menue-oeffnen.light.reduced.mp4"
+   }
+  },
+  {
+   "id": "GA-T31",
+   "title": "«×» / Hintergrund / Esc → Menü schließen: das Zeichen fliegt zurück in den Kiesel",
+   "group": "Финал 2 · меню центральной кнопки",
+   "profile": "390x844",
+   "window_ms": [
+    0,
+    300
+   ],
+   "frames": [
+    "GA-15",
+    "GA-01"
+   ],
+   "video": {
+    "dark": "video/GA-T31-mitte-menue-schliessen.dark.mp4",
+    "dark_reduced": "video/GA-T31-mitte-menue-schliessen.dark.reduced.mp4",
+    "light": "video/GA-T31-mitte-menue-schliessen.light.mp4",
+    "light_reduced": "video/GA-T31-mitte-menue-schliessen.light.reduced.mp4"
+   }
+  },
+  {
+   "id": "GA-T29",
+   "title": "Menü «Sprechen» → Stimme im leeren Chat: das Zeichen wächst von der Frage in die Bühne, die Leiste sagt «Ich höre zu.»",
+   "group": "Финал 2 · меню центральной кнопки",
+   "profile": "390x844",
+   "window_ms": [
+    0,
+    600
+   ],
+   "frames": [
+    "GA-15",
+    "GA-34"
+   ],
+   "video": {
+    "dark": "video/GA-T29-menue-sprechen.dark.mp4",
+    "dark_reduced": "video/GA-T29-menue-sprechen.dark.reduced.mp4",
+    "light": "video/GA-T29-menue-sprechen.light.mp4",
+    "light_reduced": "video/GA-T29-menue-sprechen.light.reduced.mp4"
+   }
+  },
+  {
+   "id": "GA-T35",
+   "title": "Mitte gedrückt halten (press-long 500 ms) → sofort Stimme: das Zeichen wächst aus dem Kiesel in die Bühne",
+   "group": "Финал 2 · меню центральной кнопки",
+   "profile": "390x844",
+   "window_ms": [
+    0,
+    1100
+   ],
+   "frames": [
+    "GA-01",
+    "GA-34"
+   ],
+   "video": {
+    "dark": "video/GA-T35-mitte-halten-sprechen.dark.mp4",
+    "dark_reduced": "video/GA-T35-mitte-halten-sprechen.dark.reduced.mp4",
+    "light": "video/GA-T35-mitte-halten-sprechen.light.mp4",
+    "light_reduced": "video/GA-T35-mitte-halten-sprechen.light.reduced.mp4"
+   }
+  },
+  {
+   "id": "GA-T20",
+   "title": "working → needs_action · «In Arbeit» → «Ihre Rückmeldung nötig» in der Kopfzeile, die Freigabe steigt im Chat auf",
+   "group": "Финал 2 · состояния",
+   "profile": "390x844",
+   "window_ms": [
+    0,
+    800
+   ],
+   "frames": [
+    "GA-54",
+    "GA-56"
+   ],
+   "video": {
+    "dark": "video/GA-T20-working-needs-action.dark.mp4",
+    "dark_reduced": "video/GA-T20-working-needs-action.dark.reduced.mp4",
+    "light": "video/GA-T20-working-needs-action.light.mp4",
+    "light_reduced": "video/GA-T20-working-needs-action.light.reduced.mp4"
+   }
+  },
+  {
+   "id": "GA-T36",
+   "frames": [
+    "GA-34",
+    "GA-16"
+   ]
+  }
+ ],
+ "frames": [
+  {
+   "id": "GA-01",
+   "theme": "dark",
+   "profile": "390x844",
+   "kind": "screen",
+   "png": "screens/390x844/GA-01.png"
+  },
+  {
+   "id": "GA-01",
+   "theme": "light",
+   "profile": "390x844",
+   "kind": "screen",
+   "png": "screens/390x844/GA-01-Hell.png"
+  },
+  {
+   "id": "GA-15",
+   "theme": "dark",
+   "profile": "390x844",
+   "kind": "screen",
+   "png": "screens/390x844/GA-15.png"
+  },
+  {
+   "id": "GA-15",
+   "theme": "light",
+   "profile": "390x844",
+   "kind": "screen",
+   "png": "screens/390x844/GA-15-Hell.png"
+  },
+  {
+   "id": "GA-16",
+   "theme": "dark",
+   "profile": "390x844",
+   "kind": "screen",
+   "png": "screens/390x844/GA-16.png"
+  },
+  {
+   "id": "GA-16",
+   "theme": "light",
+   "profile": "390x844",
+   "kind": "screen",
+   "png": "screens/390x844/GA-16-Hell.png"
+  }
+ ]
+}
