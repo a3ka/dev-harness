@@ -235,7 +235,7 @@
     "produkt/mobile/src/ui/faden/FadenSign.tsx": "e00612a1931a990fc05b239337401f49dbc0cac11dd6e3fdb3f0c451ee91fb00",
     "produkt/mobile/src/ui/faden/index.ts": "ed748fd3577ed242e8ecbfe756fa15aaf4bc75ca7602d2fc7fc7ff6f8540a5b7",
     "produkt/mobile/src/ui/faden/__tests__/faden-motion.test.ts": "590c20e882baf8c6f9efee6f49dee67d517cf95abd441492608299539d9bffe3",
-    "produkt/mobile/src/ui/faden/__tests__/faden-sign.test.tsx": "170dd2ee43926dadeb2606929ae884b5715f03987eb50cbf0ea19e63382f19b7",
+    "produkt/mobile/src/ui/faden/__tests__/faden-sign.test.tsx": "9dc0faf76c95de20a9ee0b5ba3621d96165e3a37d8a68883826556ac041bcd91",
     "produkt/mobile/src/ui/faden/__tests__/faden-replay.json": "b53fe9c1bcc18c2267a290fc5120740931d8be682b991136dadcacfa2a6b7473",
     "produkt/mobile/src/theme/motion-tokens.ts": "4d252c9fffad6d7c2c2e44f48fd1944899360c210639b6dc1b2af6acd1c0710b",
     "produkt/mobile/src/ui/faden/faden-state-source.ts": "6da0ca7a7b0553930110aceacf115bd33d19ad29a8a8d9fb67df6525aab81593"

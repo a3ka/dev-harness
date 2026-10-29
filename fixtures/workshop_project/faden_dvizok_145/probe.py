@@ -232,7 +232,12 @@ def zhivoj_komponent(repo_root):
         return 2
     sostojanija = json.loads(r.stdout.strip().splitlines()[-1])
 
-    vrem = Path(tempfile.mkdtemp(prefix='faden-145-live-'))
+    # Префикс БЕЗ 'faden' (правка v2, замер живого прогона): префикс каталога
+    # входит в путь каждого теста в копии, и старый префикс 'faden-145-live-'
+    # расширял позиционный паттерн jest 'faden' на ВСЕ сьюты продукта
+    # (15 вместо 3) и краснил контроль на чужом сьюте erstinformation
+    # (он читает ../docs — сосед копии, которого в ней нет).
+    vrem = Path(tempfile.mkdtemp(prefix='live-matrica-145-'))
     try:
         kopija = vrem / 'mobile'
         shutil.copytree(mob, kopija, ignore=shutil.ignore_patterns('node_modules'))
