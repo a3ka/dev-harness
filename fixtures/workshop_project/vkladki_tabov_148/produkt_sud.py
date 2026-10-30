@@ -42,7 +42,7 @@ NOS_TOKENS = HERE / 'nositeli/tokens.css'
 NOS_D24_REAL = HERE / 'nositeli/d24-real'
 
 ETALON_146 = HERE / 'model' / 'ekran_shablon.py'
-ETALON_146_PIN = 'ab26d789e7813d403adb160b06131f460ca8082d7d2cc3485673abcaf39b679e'
+ETALON_146_PIN = '5fd1415e40b257e5e7b97c7bf9bc8fe31e94dcea9e05c4c3ac44d68802db453b'
 ZOND = HERE / 'produkt' / 'vkladki-zond-148.test.tsx'
 ZOND_IMJA = 'vkladki-zond-148.test.tsx'
 ZOND_KUDA = 'src/bootstrap/__tests__'

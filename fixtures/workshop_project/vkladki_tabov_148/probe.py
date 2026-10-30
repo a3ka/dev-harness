@@ -83,7 +83,7 @@ def load_source():
             if not p.is_file() or sha256_fajla(p) != pin:
                 print('ORACLE_TAMPERED: %s %s' % (gruppa, rel), file=sys.stderr)
                 raise SystemExit(2)
-    if sha256_fajla(MODEL_A) != 'ab26d789e7813d403adb160b06131f460ca8082d7d2cc3485673abcaf39b679e':
+    if sha256_fajla(MODEL_A) != '5fd1415e40b257e5e7b97c7bf9bc8fe31e94dcea9e05c4c3ac44d68802db453b':
         print('ORACLE_TAMPERED: пин эталона v3 (model/ekran_shablon.py)',
               file=sys.stderr)
         raise SystemExit(2)
