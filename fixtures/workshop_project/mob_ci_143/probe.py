@@ -503,6 +503,26 @@ def _napishi_shim(p, tekst):
     p.chmod(0o700)
 
 
+def _razreshi_node():
+    """Единственное разрешение node для всех замкнутых песочниц батареи:
+    NODEBIN (прецедент батареи 145), иначе shutil.which внешней среды.
+    На раннере CI node от actions/setup-node лежит вне /usr/bin, а PATH
+    каждой песочницы — bin_dir + /usr/bin:/bin: без симлинка bin_dir/node
+    селектор и run-шаги падали FileNotFoundError 'node' (PR #451)."""
+    ukazan = os.environ.get("NODEBIN", "").strip()
+    if ukazan:
+        p = Path(ukazan)
+        if not p.is_file():
+            print("NOT_IMPLEMENTED: NODEBIN=%s не существует" % ukazan, file=sys.stderr)
+            raise SystemExit(2)
+        return str(p.resolve())
+    najden = shutil.which("node")
+    if najden is None:
+        return None
+    return str(Path(najden).resolve())
+
+
+NODE_BIN = _razreshi_node()
 def postroj_pesochitsu(tmp, maestro_scenarij=None):
     """Замкнутая среда прогона: workspace, bin/ с подложными adb/emulator/
     maestro/gh/sleep/pkill, фиктивный ANDROID_HOME с avdmanager-подложкой,
@@ -527,6 +547,11 @@ def postroj_pesochitsu(tmp, maestro_scenarij=None):
     _napishi_shim(bin_dir / "sleep", SHIM_SLEEP)
     _napishi_shim(bin_dir / "pkill", SHIM_PKILL)
     _napishi_shim(avdm / "avdmanager", SHIM_AVDMANAGER)
+    # Fix143e: симлинк на РЕАЛЬНЫЙ node (не подложка) — run-шаги модели
+    # зовут node по имени; замкнутый PATH (bin_dir + /usr/bin:/bin) без
+    # симлинка теряет node на раннере CI (setup-node кладёт его вне
+    # /usr/bin, живой отказ PR dev-harness#451)
+    os.symlink(NODE_BIN, bin_dir / "node")
     logi = {}
     for imja in ("ADB_LOG", "MAESTRO_LOG", "GH_LOG", "AVDMANAGER_LOG", "PKILL_LOG"):
         f = koren / (imja.lower() + ".txt")
@@ -835,6 +860,10 @@ def zapusti_selektor(subject_selector, sc, tmp):
     (bin_dir / "git").chmod(0o700)
     (bin_dir / "gh").write_text(SHIM_GH, encoding="utf-8")
     (bin_dir / "gh").chmod(0o700)
+    # Fix143e: node разрешён СНАРУЖИ замкнутого PATH (NODEBIN → which) и
+    # лежит симлинком в bin_dir — на раннере без /usr/bin/node селектор
+    # всё равно находится (живой отказ PR dev-harness#451)
+    os.symlink(NODE_BIN, bin_dir / "node")
     sel_out = Path(tmp) / "selection.json"
     args = ["node", str(sandbox / "mobile" / "scripts" / "select-ci-screens.cjs"),
             "--mode", sc["mode"], "--base-sha", "b" * 40, "--head-sha", "f" * 40,
@@ -2061,7 +2090,7 @@ def glavnaja():
             print("NEIZVESTNYJ_ARGUMENT: %s" % args[i], file=sys.stderr)
             return 2
         i += 1
-    if shutil.which("node") is None:
+    if NODE_BIN is None:
         print("NOT_IMPLEMENTED: нет node", file=sys.stderr)
         return 2
     try:
