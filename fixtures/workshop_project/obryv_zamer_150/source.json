@@ -1,0 +1,27 @@
+{
+  "kontrakt": "contracts/150-prichinnyy-zamer-obryva.md",
+  "subjekt": [
+    ".github/workflows/mobile.yml",
+    "mobile/ci-screens.json",
+    "mobile/scripts/zamer_obryva.sh"
+  ],
+  "piny": {
+    "model/.github/workflows/mobile.yml": "85cebcbf879894cbfdca36e7f24cfc5f22c8a6c092542074b7d5a39e4694c175",
+    "model/mobile/ci-screens.json": "543434d3884ab50d879de6934f2f40874b817602f9d803d288ad3a3e527cae38",
+    "model/mobile/scripts/zamer_obryva.sh": "e38b7c598a549cd103b83622896e43ea802faec3e5df0de2840ed2608c266125"
+  },
+  "stab_vhod": {
+    "stabs/stab_zamer_noop.py": "b01-krasnyj-s-signaturoj",
+    "stabs/stab_zamer_posle_ostanovki.py": "b04-dannye-do-ostanovki",
+    "stabs/stab_zamer_vsegda.py": "b02-zelenyj-tishina",
+    "stabs/stab_zamer_bez_cgroup.py": "b05-cgroup-poly",
+    "stabs/stab_zamer_maskiruet.py": "z03-obertka-porjadok-maskirovka",
+    "stabs/stab_zamer_bez_redakcii.py": "b07-sekrety-redakcija",
+    "stabs/stab_zamer_bez_predela.py": "b08-obem-ogranichen",
+    "stabs/stab_zamer_tjaghelo.py": "b09-sampler-legkij",
+    "stabs/stab_zamer_zelenyj_krasnyj.py": "b02-zelenyj-tishina",
+    "stabs/stab_zamer_shirokij_grep.py": "b03-produktovyj-krasnyj",
+    "stabs/stab_zamer_pidfile_zhiv.py": "b10-sampler-ostanovlen"
+  },
+  "zametka": "оракул батареи 150 (правило 8: в памяти ДО субъекта); пины — байты эталона model/; стабы — мутации кодом, привязки только здесь (Н-39)"
+}

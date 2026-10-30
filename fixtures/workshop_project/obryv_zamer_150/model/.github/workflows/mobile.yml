@@ -1,0 +1,87 @@
+# 150 — МОДЕЛЬ обвязки причинного замера обрыва (prichinnyy-zamer-obryva).
+# Эталон СУБЪЕКТА для батареи 150: ОДИН представитель экранного работника
+# (e2e-proba-obryv) с канонической обёрткой из ТРЁХ шагов вокруг экранного
+# шага. Реальные работники продукта (legacy-пять 143/1, e2e-gespraech-vhod
+# 147/1, e2e-vkladki 148/1, интеграция e2e-pilot 995) сохраняют СВОИ экраные
+# тела дословно (И-15 143/2, их владельцы); обёртка вставляется ВОКРУГ их
+# экраного шага без правки тел. Тело экранного шага здесь — МИНИМАЛЬНЫЙ
+# ПРЕДСТАВИТЕЛЬ (boot/priemka/cleanup маркеры канона 143/141): форма экрана
+# судится батареей 143/147/148, батарея 150 судит ТОЛЬКО замер.
+name: mobile
+on:
+  pull_request:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+jobs:
+  select-screens:
+    runs-on: [self-hosted, linux, x64, complior]
+    outputs:
+      e2e-proba-obryv: ${{ steps.vybor.outputs.e2e-proba-obryv }}
+    steps:
+      - run: echo 'sluzhebnyj vybor (kanon 143 — zdes' predstavlen)'
+  build-apk:
+    runs-on: [self-hosted, linux, x64, complior]
+    steps:
+      - run: echo 'sluzhebnaja sborka (kanon 143 — zdes'' predstavlena)'
+  e2e-proba-obryv:
+    needs: [select-screens, build-apk]
+    if: needs.select-screens.outputs['e2e-proba-obryv'] == 'true'
+    runs-on: [self-hosted, linux, x64, kvm, complior]
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          clean: true
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
+      # ── обёртка 150, шаг 1/3: сэмплер ДО экранного шага ─────────────────
+      - name: 'Замер обрыва: запуск сэмплера (150)'
+        env:
+          ZAMER_EKRAN: proba-obryv
+          ZAMER_NS: mobile/maestro-out-proba
+          ZAMER_SERIAL: emulator-5571
+        run: |
+          set -euo pipefail
+          bash mobile/scripts/zamer_obryva.sh start \
+            --ekran "$ZAMER_EKRAN" --ns "$ZAMER_NS" --serial "$ZAMER_SERIAL" \
+            --spool .zamer-$ZAMER_EKRAN \
+            || echo 'ZAMER_START_NE_UDALSJA (zamer idet bez semplera)' >&2
+      # ── экранный шаг работника (представитель; в продукте — тело экрана) ─
+      - name: 'Экранная пачка (представитель экранного шага)'
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          PORT=5571
+          SERIAL="emulator-$PORT"
+          echo "ekrannoj shag: boot + priemka + odin POVTOR po signature (kanon 143/141)"
+            pkill -f "qemu-system-x86_64.*-port $PORT" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          echo "ekrannoj shag: boot + priemka + odin PОВТОР po signature (kanon 143/141)"
+          exit 1
+      # ── обёртка 150, шаг 2/3: гейт + сбор ПОСЛЕ экранного шага ───────────
+      - name: 'Замер обрыва: сбор причинного снимка (150)'
+        if: always()
+        env:
+          ZAMER_EKRAN: proba-obryv
+          ZAMER_NS: mobile/maestro-out-proba
+          ZAMER_SERIAL: emulator-5571
+        run: |
+          set -u
+          bash mobile/scripts/zamer_obryva.sh sbor \
+            --ekran "$ZAMER_EKRAN" --ns "$ZAMER_NS" --serial "$ZAMER_SERIAL" \
+            --spool .zamer-$ZAMER_EKRAN --out mobile/zamer-out-$ZAMER_EKRAN
+      # ── обёртка 150, шаг 3/3: публикация if:always(), зелёный молчит ────
+      - name: 'Замер обрыва: артефакт (150)'
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: zamer-proba-obryv-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: mobile/zamer-out-proba-obryv
+          if-no-files-found: ignore
+          retention-days: 14

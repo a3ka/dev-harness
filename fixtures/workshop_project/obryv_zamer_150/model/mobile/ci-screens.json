@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "zametka": "Карта модели 150 (prichinnyy-zamer-obryva): грамматика записи — 143/2 (mobile/ci-screens.json продукта); здесь один экран-представитель для суда обёртки замера. Батарея 150 читает карту субъекта НЕЗАВИСИМЫМ каноном (ekrany[].job + ekrany[].output_namespace + integracija.job/output_namespace) — как батарея 143.",
+  "ekrany": [
+    {
+      "id": "proba-obryv",
+      "kontrakty": ["150"],
+      "status": "approved",
+      "job": "e2e-proba-obryv",
+      "pack": "mobile/e2e-proba-obryv/",
+      "flows": ["mobile/.maestro/proba-obryv.yaml"],
+      "child_flows": [],
+      "puti": ["mobile/e2e-proba-obryv/"],
+      "h_checkout": [".harness150"],
+      "output_namespace": "mobile/maestro-out-proba"
+    }
+  ]
+}
