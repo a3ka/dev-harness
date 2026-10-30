@@ -12,10 +12,19 @@
 # работнике (норма 132 v2: boot/PORT393/экспорт обоих серийников,
 # потребляемых e2e.sh пачки; блок Crit147b — снятие расширения не
 # зелено) и выносом пачки общим шагом инвентаризации (обход критика:
-# ekran.json={} без проводки проходил 82/82). Оракул — пины source.json
-# (проверяются ДО любого субъекта) и ожидания, вычисленные ЭТАЛОНОМ на
-# том же входе ДО субъекта (правило 8); каждая красная клетка несёт
-# РОВНО одно имя причины.
+# ekran.json={} без проводки проходил 82/82); (5) ПОЛНЫЙ СУД ПАЧКИ
+# продукта тем же ЗАМОРОЖЕННЫМ валидатором v3 (блок 1 Crit149b: пачка
+# {shablon,ekran,dvizhenie.ekrany} без источников/проходимости/профиля
+# проходила rc 0 83/83 — клетка s-pachka-validirovana, собственных
+# литеральных проверок полей нет — судит ТОЛЬКО валидатор по канону
+# 132/146); (6) ИСПОЛНИМЫЙ зонд живого экрана (блок 1 Crit149b: реальный
+# UI — чат-хост GespraechTekstChat и правка композера ChatComposer —
+# доказывается jest-зондом на РЕАЛЬНЫХ компонентах R, прецедент
+# ispolnimyj_sud 148; мутанты «пустой хост»/«композер не изменён»
+# убиваются ассертами; клетка s-ekran-ispolnim). Оракул — пины
+# source.json (проверяются ДО любого субъекта) и ожидания, вычисленные
+# ЭТАЛОНОМ на том же входе ДО субъекта (правило 8); каждая красная
+# клетка несёт РОВНО одно имя причины.
 #
 # Режимы (argv):
 #   (без флага)   судится живое дерево харнесса: валидатор scripts/ (v3
@@ -24,10 +33,10 @@
 #                 (SUBJECT_ABSENT: зелень без субъекта невозможна)
 #   --model       субъект = эталон (контроль входов)
 #   --stabs       контроль + матрица обманных стабов (SVJAZI N, живых 0)
-#   --repo R      судится живой продукт R (машина/канон/пачка)
+#   --repo R      судится живой продукт R (машина/канон/пачка/экран)
 #   --a-derevo P C  (служебный) живой рецепт И-8: продукт P -> A-дерево C
-#                 (карта+job из лекала+output+needs+пачка) — зелёный
-#                 контроль клетки s-lekalo-instanciirovano (W --repo C)
+#                 (карта+job из лекала+output+needs+пачка+референс
+#                 экрана) — зелёный контроль клеток s-* (W --repo C)
 #   --oracle-tamper  порча каждого носителя по очереди в одноразовой
 #                 копии зоны — ORACLE_TAMPERED rc 2 ДО клеток
 #   --piny-only   (служебный) только проверка пинов оракула
@@ -35,6 +44,7 @@
 #
 # Коды возврата: 0 — зелено; 1 — красная клетка/живой стаб/нет субъекта;
 # 2 — ORACLE_TAMPERED, рассинхрон реестра, нечем проверять.
+#
 import json
 import os
 import re
@@ -85,6 +95,42 @@ KANON_V_ZONE = {
     'mobile/.maestro/gespraech-tekst-prokhod.yaml':
         'pachka/gespraech-tekst-prokhod.yaml',
     'mobile/e2e-gespraech-tekst/dvizhenie.mjs': 'teksty/dvizhenie.mjs',
+}
+
+# --- блок 1 Crit149b: полный суд пачки валидатором v3 + исполняемый
+# зонд экрана (канон вызова — 132/146, прецеденты produkt_sud 148) -----
+ZOND = os.path.join(ZDE, 'produkt', 'gespraech-zond-149.test.tsx')
+ZOND_IMJA = 'gespraech-zond-149.test.tsx'
+ZOND_KUDA = 'src/features/conversation/__tests__'
+RASKLADKA = os.path.join(MODEL, 'produktnaja-raskladka')
+# канонические пути компонентов экрана в продукте (контракт 149):
+HOST_V_PRODUKTE = os.path.join('mobile', 'src', 'features',
+                               'conversation', 'chat-host.tsx')
+MASHINA_V_PRODUKTE = os.path.join('mobile', 'src', 'features',
+                                  'conversation', 'chat-machine.ts')
+KOMPOZER_V_PRODUKTE = os.path.join('mobile', 'src', 'ui',
+                                   'conversation-composer',
+                                   'conversation-composer.tsx')
+# мутанты исполняемого суда (блок 1 Crit149b): «пустой хост» — файл
+# выродился в пустой рендер; «композер не изменён» — байты product main
+# (носитель зоны, пин), правка 149 снята
+MUTANTY_ISPOLNIMYE = [
+    ('host-pustoj', HOST_V_PRODUKTE,
+     os.path.join(STABY, 'stab_host_pustoj.tsx')),
+    ('kompozer-ne-izmenen', KOMPOZER_V_PRODUKTE,
+     os.path.join(NOS, 'produkt', 'composer-108.tsx')),
+]
+
+# клеточные стабы (Н-39: стаб → клетка + файл; рассинхрон — rc 2):
+# lekalo — обход проводки (круг Crit149); ekran-minimalnyj — неполная
+# v3-пачка (блок 1 Crit149b); jest-krasnyj/zelenyj — фиктивные jest-среды
+KLETOCHNYE_STABY = {
+    'lekalo-obhod-kritika': ('s-lekalo-instanciirovano',
+                             'stab_lekalo_obhod_kritika.py'),
+    'ekran-minimalnyj': ('s-pachka-validirovana',
+                         'stab_ekran_minimalnyj.py'),
+    'jest-krasnyj': ('s-ekran-ispolnim', 'stab_jest_krasnyj.sh'),
+    'jest-zelenyj': ('s-ekran-ispolnim', 'stab_jest_zelenyj.sh'),
 }
 
 # ∩-правило: все переходы манифеста, чьи кадры ∩ экраны пачки ≠ ∅
@@ -155,12 +201,27 @@ def vedro_lekalo(src):
                    'stabs/stab_lekalo_obhod_kritika.py'):
         if kljuch not in src['piny']['nositeli']:
             utechka('пин лекала отсутствует: ' + kljuch)
+    for kljuch in ('produkt/gespraech-zond-149.test.tsx',
+                   'stabs/stab_ekran_minimalnyj.py',
+                   'stabs/stab_jest_zelenyj.sh',
+                   'stabs/stab_jest_krasnyj.sh',
+                   'stabs/stab_host_pustoj.tsx',
+                   'nositeli/produkt/composer-108.tsx',
+                   'model/produktnaja-raskladka/mobile/src/features/'
+                   'conversation/chat-host.tsx',
+                   'model/produktnaja-raskladka/mobile/src/features/'
+                   'conversation/chat-kopija.ts',
+                   'model/produktnaja-raskladka/mobile/src/ui/'
+                   'conversation-composer/conversation-composer.tsx'):
+        if kljuch not in src['piny']['nositeli']:
+            utechka('пин блока 1 отсутствует: ' + kljuch)
     for stab, svaz in (src.get('stab_vhod') or {}).items():
         if 'kletka' in svaz:
-            if svaz['kletka'] != 's-lekalo-instanciirovano' or \
-                    'pravilo' in svaz or stab != 'lekalo-obhod-kritika' or \
-                    src['staby'].get(stab) != 'stab_lekalo_obhod_kritika.py':
-                utechka('привязка стаба лекала ' + stab)
+            ozhid = KLETOCHNYE_STABY.get(stab)
+            if not ozhid or svaz['kletka'] != ozhid[0] or \
+                    'pravilo' in svaz or \
+                    src['staby'].get(stab) != ozhid[1]:
+                utechka('привязка клеточного стаба ' + stab)
         elif svaz.get('pravilo') not in PRAVILA_MASHINY:
             utechka('привязка стаба ' + stab)
 
@@ -235,6 +296,58 @@ OZHIDAEMYE_PRICHINY = {
 
 def _sh(q):
     return q.replace("'", "'\\''")
+
+def telo_standina_e2e():
+    """Текст стенд-ина e2e (СВЕЖИЕ кадры-носители обеих тем/профилей в
+    раскладку Maestro): единый источник для мира оси A (postav_mir) и
+    синтетического репо суда пачки (sobrat_mir_pachki) — байты одни."""
+    kadr = os.path.join(NOS, 'd24', 'kadry')
+    telo = ['#!/usr/bin/env bash', 'set -eu',
+            'out=mobile/maestro-out-gespraech-tekst', 'rm -rf "$out"',
+            'mkdir -p "$out"']
+    ekrany = ['ga-11', 'ga-12', 'ga-13', 'ga-17', 'ga-18', 'ga-19']
+    for tema, suff, profs in (
+            ('dark', 'dark', ('390', '393')),
+            ('light', 'hell', ('390', '393'))):
+        d = '"$out"/%s/run/gespraech/takeScreenshot' % tema
+        telo += ['mkdir -p %s' % d]
+        for ga in ekrany:
+            for prof in profs:
+                snimok = ('gespraech-tekst-%s' % ga
+                          + ('' if prof == '390' else '-393'))
+                imja = 'gespraech-tekst-%s-%s-%s.png' % (ga, suff, prof)
+                telo += ['cp "%s/%s" %s/%s.png'
+                         % (_sh(kadr), imja, d, snimok)]
+    telo += ['exit 0']
+    return '\n'.join(telo) + '\n'
+
+
+def napishi_standiny(repo, pak, mashina, speka):
+    """Стенд-ины приёмки (мир оси A и синтетическое репо суда пачки):
+    e2e кладёт свежие кадры, prokhod требует цель-флою, npm-шим
+    запускает раннер численной приёмки на ДАННОЙ машине против ДАННОЙ
+    спеки (живой e2e/Maestro/jest — продуктовый CI экрана, остаток 132;
+    здесь — честные стенд-ины миров, не эмулятор)."""
+    put = os.path.join(pak, 'e2e.sh')
+    open(put, 'w').write(telo_standina_e2e())
+    os.chmod(put, 0o755)
+    put = os.path.join(pak, 'prokhod.sh')
+    open(put, 'w').write('#!/usr/bin/env bash\nset -eu\n'
+                         '[ -f "${1:?cel-flou}" ] || exit 3\nexit 0\n')
+    os.chmod(put, 0o755)
+    put = os.path.join(repo, 'bin', 'npm')
+    os.makedirs(os.path.dirname(put), exist_ok=True)
+    open(put, 'w').write(
+        '#!/usr/bin/env bash\nout=""; prev=""\nfor a in "$@"; do\n'
+        '  if [ "$prev" = "--outputFile" ]; then out="$a"; fi\n'
+        '  prev="$a"\ndone\n[ -n "$out" ] || exit 2\n'
+        'case "$out" in\n  /*) cel="$out";;\n  *) cel="%s/mobile/$out";;'
+        '\nesac\n'
+        'exec node "%s" --machine "%s" --spec "%s" --json --outputFile '
+        '"$cel"\n'
+        % (_sh(repo), _sh(os.path.join(MODEL, 'dvizhenie-runner.mjs')),
+           _sh(mashina), _sh(speka)))
+    os.chmod(put, 0o755)
 
 
 def postav_mir(tmp):
@@ -313,49 +426,11 @@ def postav_mir(tmp):
                              'gespraech-tekst.test.ts'))
     shutil.copy(os.path.join(TEKSTY, 'dvizhenie.mjs'),
                 os.path.join(pak, 'dvizhenie.mjs'))
-    # стенд-ин e2e: свежие кадры обеих тем и обоих профилей
-    kadr = os.path.join(NOS, 'd24', 'kadry')
-    telo = ['#!/usr/bin/env bash', 'set -eu',
-            'out=mobile/maestro-out-gespraech-tekst', 'rm -rf "$out"',
-            'mkdir -p "$out"']
-    ekrany = ['ga-11', 'ga-12', 'ga-13', 'ga-17', 'ga-18', 'ga-19']
-    for tema, suff, profs in (
-            ('dark', 'dark', ('390', '393')),
-            ('light', 'hell', ('390', '393'))):
-        d = '"$out"/%s/run/gespraech/takeScreenshot' % tema
-        telo += ['mkdir -p %s' % d]
-        for ga in ekrany:
-            for prof in profs:
-                snimok = ('gespraech-tekst-%s' % ga
-                          + ('' if prof == '390' else '-393'))
-                imja = 'gespraech-tekst-%s-%s-%s.png' % (ga, suff, prof)
-                telo += ['cp "%s/%s" %s/%s.png'
-                         % (_sh(kadr), imja, d, snimok)]
-    telo += ['exit 0']
-    put = os.path.join(pak, 'e2e.sh')
-    open(put, 'w').write('\n'.join(telo) + '\n')
-    os.chmod(put, 0o755)
-    # стенд-ин прохода: цель-флою существует, нажатия — продуктовый CI
-    put = os.path.join(pak, 'prokhod.sh')
-    open(put, 'w').write('#!/usr/bin/env bash\nset -eu\n'
-                         '[ -f "${1:?cel-flou}" ] || exit 3\nexit 0\n')
-    os.chmod(put, 0o755)
-    # PATH-стенд-ин npm: раннер численной приёмки на машине мира
+    # стенд-ины приёмки (общие с судом пачки: napishi_standiny)
     mashina = os.path.join(repo, 'mobile', 'src', 'features',
                            'conversation', 'chat-machine.ts')
     speka = os.path.join(d24, 'motion', 'motion-spec-gespraech.json')
-    put = os.path.join(repo, 'bin', 'npm')
-    open(put, 'w').write(
-        '#!/usr/bin/env bash\nout=""; prev=""\nfor a in "$@"; do\n'
-        '  if [ "$prev" = "--outputFile" ]; then out="$a"; fi\n'
-        '  prev="$a"\ndone\n[ -n "$out" ] || exit 2\n'
-        'case "$out" in\n  /*) cel="$out";;\n  *) cel="%s/mobile/$out";;'
-        '\nesac\n'
-        'exec node "%s" --machine "%s" --spec "%s" --json --outputFile '
-        '"$cel"\n'
-        % (_sh(repo), _sh(os.path.join(MODEL, 'dvizhenie-runner.mjs')),
-           _sh(mashina), _sh(speka)))
-    os.chmod(put, 0o755)
+    napishi_standiny(repo, pak, mashina, speka)
     shutil.copy(RUNNER123, os.path.join(repo, '.harness149', 'scripts',
                                         'sverka_maketa.py'))
     shutil.copy(RUNNER123, os.path.join(hrn, 'scripts', 'sverka_maketa.py'))
@@ -380,6 +455,160 @@ def zapusk_valid(jar, pak, repo, hrn):
     prichiny = [ln.split('\t')[1] for ln in r.stderr.splitlines()
                 if ln.startswith('PRICHINA\t') and '\t' in ln]
     return r.returncode, prichiny
+
+
+def sobrat_mir_pachki(repo_r, vrem):
+    """Синтетическое репо суда пачки продукта (блок 1 Crit149b; канон
+    вызова 132/146, прецедент produkt_sud 148): пачка R — ЦЕЛИКОМ как
+    есть; всё объявленное вне пачки (источники dvizhenie, аудит токенов,
+    макеты по манифестам кадров, флоу, ne_trogaet) — из R по объявленным
+    путям; раннер 123 — живой из дерева харнесса в .harness149 (как H-
+    checkout лекала); стенд-ины e2e/prokhod/npm — батареи (живой
+    эмулятор/Maestro/jest — продуктовый CI, остаток 132). Машина для
+    отчёта приёмки — машина R (копия в синтетическое репо, если есть).
+    НИКАКИХ собственных проверок полей пачки здесь нет — форма и полнота
+    судятся ТОЛЬКО валидатором."""
+    sint = os.path.join(vrem, 'repo')
+    pak = os.path.join(repo_r, 'mobile', 'e2e-gespraech-tekst')
+    if not os.path.isfile(os.path.join(pak, 'ekran.json')):
+        return None, None
+    try:
+        forma = json.load(open(os.path.join(pak, 'ekran.json'),
+                               encoding='utf-8'))
+    except (OSError, ValueError):
+        forma = {}
+    spak = os.path.join(sint, 'mobile', 'e2e-gespraech-tekst')
+    os.makedirs(spak, exist_ok=True)
+    for koren, dirs, fajly in os.walk(pak):
+        for imja in fajly:
+            dst = os.path.join(sint, os.path.relpath(
+                os.path.join(koren, imja), repo_r))
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy(os.path.join(koren, imja), dst)
+
+    def skopiruj_s_repo(otn):
+        isto = os.path.join(repo_r, otn)
+        if os.path.isfile(isto):
+            kuda = os.path.join(sint, otn)
+            os.makedirs(os.path.dirname(kuda), exist_ok=True)
+            shutil.copy(isto, kuda)
+            return True
+        return False
+
+    # источники движения и аудит токенов — по объявленным путям из R
+    dv = forma.get('dvizhenie') if isinstance(forma, dict) else None
+    dv = dv if isinstance(dv, dict) else {}
+    for pole in ('manifest', 'spec', 'pozvonok'):
+        if isinstance(dv.get(pole), str):
+            skopiruj_s_repo(dv[pole])
+    if isinstance(forma, dict) and isinstance(
+            forma.get('audit_tokenov'), str):
+        skopiruj_s_repo(forma['audit_tokenov'])
+    # флоу e2e-сценария и маршрута профиля — из R
+    if isinstance(forma, dict) and isinstance(forma.get('e2e_scenarij'),
+                                               str):
+        skopiruj_s_repo(forma['e2e_scenarij'])
+    vp = forma.get('vtoroj_profil') if isinstance(forma, dict) else None
+    if isinstance(vp, dict) and isinstance(vp.get('marshrut'), str):
+        skopiruj_s_repo(vp['marshrut'])
+    # флоу прохода: цель-флою объявлена только в argv priemka.prokhod —
+    # все .yaml из команд приёмки копируются из R (иначе мир неполон и
+    # валидатор отказал бы PROKHOD_NE_MAESTRO по вине МИРА, не пачки)
+    pr = forma.get('priemka') if isinstance(forma, dict) else None
+    argv_flou = []
+    if isinstance(pr, dict):
+        for komanda in pr.values():
+            if isinstance(komanda, str):
+                argv_flou.append(komanda)
+    if isinstance(dv.get('priemka_dvizhenija'), str):
+        argv_flou.append(dv['priemka_dvizhenija'])
+    for komanda in argv_flou:
+        for slovo in komanda.split(' '):
+            if slovo.endswith('.yaml'):
+                skopiruj_s_repo(slovo)
+    # макеты — по манифестам кадров пачки (пути канонические в R)
+    for imja_manifesta in ('kadry.json', 'kadry-393.json'):
+        try:
+            man = json.load(open(os.path.join(spak, imja_manifesta),
+                                 encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        for k in (man.get('kadry') or []):
+            if isinstance(k, dict) and isinstance(k.get('maket'), str):
+                skopiruj_s_repo(k['maket'])
+    # ne_trogaet — из R (найденное); фикстуры 132 — мини-харнесс ниже
+    hrn = os.path.join(vrem, 'harness')
+    os.makedirs(os.path.join(hrn, 'scripts'), exist_ok=True)
+    shutil.copy(RUNNER123, os.path.join(hrn, 'scripts',
+                                        'sverka_maketa.py'))
+    fikt = os.path.join(KOREN, 'fixtures', 'workshop_project',
+                        'ekran_shablon_132', 'model', 'fiktura')
+    for d in ('pachta_chuzhogo', 'pachta_tot_zhe'):
+        for f in ('ekran.json', 'kadry.json'):
+            kuda = os.path.join(hrn, 'fixtures', 'workshop_project',
+                                'ekran_shablon_132', 'model', 'fiktura',
+                                d, f)
+            os.makedirs(os.path.dirname(kuda), exist_ok=True)
+            shutil.copy(os.path.join(fikt, d, f), kuda)
+    if isinstance(forma, dict):
+        for otn in (forma.get('ne_trogaet')
+                    if isinstance(forma.get('ne_trogaet'), list) else []):
+            skopiruj_s_repo(otn)
+    # каталог кадров и раннер 123 в .harness149 (пин лекала в продукте)
+    kd = forma.get('kadry_dir') if isinstance(forma, dict) else None
+    os.makedirs(os.path.join(sint, kd if isinstance(kd, str)
+                             else 'mobile/maestro-out-gespraech-tekst'),
+                exist_ok=True)
+    os.makedirs(os.path.join(sint, '.harness149', 'scripts'), exist_ok=True)
+    shutil.copy(RUNNER123, os.path.join(sint, '.harness149', 'scripts',
+                                        'sverka_maketa.py'))
+    # машина R для отчёта приёмки движения (нет машины — отчёт падает,
+    # это честный отказ валидатора, не дефект мира)
+    mashina = os.path.join(sint, MASHINA_V_PRODUKTE)
+    if os.path.isfile(os.path.join(repo_r, MASHINA_V_PRODUKTE)):
+        os.makedirs(os.path.dirname(mashina), exist_ok=True)
+        shutil.copy(os.path.join(repo_r, MASHINA_V_PRODUKTE), mashina)
+    # спека для npm-шима — ТОЛЬКО объявленный путь (источник уже скопирован
+    # из R выше; фолбэк носителями скрыл бы удаление источника в R —
+    # валидатор обязан отказать ISTOCHNIK_OTSVTSTVUET, а не видеть подмену)
+    speka = os.path.join(
+        sint, dv['spec'] if isinstance(dv.get('spec'), str)
+        else 'docs/ux/04_Gespraech_D24/motion/motion-spec-gespraech.json')
+    napishi_standiny(sint, spak, mashina, speka)
+    return sint, hrn
+
+
+def sud_pachki_validiatorom(repo_r, src):
+    """s-pachka-validirovana (блок 1 Crit149b: «W --repo принимал продукт
+    без корректной v3-пачки» — обход {shablon,ekran,dvizhenie.ekrany}
+    проходил rc 0 83/83): пачка ЭТОГО экрана в R судится тем же
+    ЗАМОРОЖЕННЫМ валидатором v3 (эталон model/ekran_shablon.py, пин
+    5fd1415e == source.json), каким судятся миры оси A, — в
+    синтетическом репо из файлов R (sobrat_mir_pachki). Собственных
+    литеральных проверок полей НЕТ (единый источник формы — валидатор
+    132/146). Отказ — именованный PACHKA_NE_PROSHLA_VALIDATOR с
+    PRICHINA-строками валидатора; (True, '') — пачка прошла."""
+    if not os.path.isfile(ETALON) or sha(ETALON) != \
+            src['piny']['sha']['model/ekran_shablon.py']:
+        return False, 'PACHKA_NE_PROSHLA_VALIDATOR: эталон v3 не пиннован'
+    vrem = tempfile.mkdtemp(prefix='gespraechtekst149-pv-')
+    try:
+        sint, hrn = sobrat_mir_pachki(repo_r, vrem)
+        if sint is None:
+            return False, ('PACHKA_NE_PROSHLA_VALIDATOR: нет '
+                           'mobile/e2e-gespraech-tekst/ekran.json')
+        rc, prichiny = zapusk_valid(ETALON,
+                                    os.path.join(
+                                        sint, 'mobile',
+                                        'e2e-gespraech-tekst'),
+                                    sint, hrn)
+        if rc == 0:
+            return True, ''
+        detali = '; '.join(prichiny[:4]) if prichiny else (
+            'rc=%d без именованных причин (состав ключей != v3)' % rc)
+        return False, 'PACHKA_NE_PROSHLA_VALIDATOR: %s' % detali
+    finally:
+        shutil.rmtree(vrem, ignore_errors=True)
 
 
 # ---------- мутации клеток оси A (по одной на имя причины) ----------
@@ -1098,6 +1327,164 @@ def sud_lekalo(repo, src):
             'LEKALO_NE_INSTANCIIROVANO: ' + '; '.join(netu))
 
 
+
+def ispolnimyj_sud(mob_koren, src, podrobno=True):
+    """Исполняемый суд экрана (блок 1 Crit149b: «реальный UI должен быть
+    доказуем заявленной командой, а не выводиться из наличия машины и
+    канона»; прецедент ispolnimyj_sud 148): живой jest-зонд
+    produkt/gespraech-zond-149.test.tsx (пин source.json) на РЕАЛЬНЫХ
+    компонентах дерева — чат-хост GespraechTekstChat (канонический путь
+    mobile/src/features/conversation/chat-host.tsx) и композер
+    ChatComposer (mobile/src/ui/conversation-composer/...) — в
+    изолированной копии mobile (node_modules — симлинк установки R),
+    плюс матрица мутантов «пустой хост»/«композер не изменён» (байты
+    product main, носитель зоны): контроль зелен, каждый мутант убит
+    УПАВШИМ АССЕРТОМ. Падение загрузки сьюта мутантом НЕ засчитывается
+    (ISPOLNIMYJ_MUTANT_NE_UBIT), красный контроль — ISPOLNIMYJ_
+    KONTROL_KRASEN, зелёный под мутантом — ISPOLNIMYJ_MUTANT_ZHIV.
+    Дерево без mobile/package.json — именованный пропуск (stderr), не
+    зелень продукта; заявленная среда без установки — LIVE_PREDPOSYLKA,
+    НИКОГДА skip->pass (прецедент proba_live_put 145). Возвращает
+    (prichiny, otkaz) — otkaz 'skip' только для дерева без package.json.
+    """
+    mob = mob_koren
+    if not os.path.isfile(os.path.join(mob, 'package.json')):
+        print('ISPOLNIMYJ_SKIP: нет mobile/package.json — не jest-среда',
+              file=sys.stderr)
+        return [], 'skip'
+    if not os.path.isfile(ZOND) or sha(ZOND) != \
+            src['piny']['sha']['produkt/%s' % ZOND_IMJA]:
+        return ['ORACLE_TAMPERED: пин зонда не совпал'], None
+    predposylki = []
+    konfig = None
+    for imja in ('jest.config.js', 'jest.config.json'):
+        if os.path.isfile(os.path.join(mob, imja)):
+            konfig = imja
+            break
+    if konfig is None:
+        predposylki.append('нет mobile/jest.config.{js,json}')
+    nm = os.path.join(mob, 'node_modules')
+    for paket in ('jest-expo', '@testing-library/react-native'):
+        if not os.path.isfile(os.path.join(nm, paket, 'package.json')):
+            predposylki.append('не установлен пакет %s' % paket)
+    if not os.path.exists(os.path.join(nm, '.bin', 'jest')):
+        predposylki.append('нет node_modules/.bin/jest')
+    for otn in (HOST_V_PRODUKTE, KOMPOZER_V_PRODUKTE,
+                MASHINA_V_PRODUKTE):
+        if not os.path.isfile(os.path.join(mob_koren, '..', otn)):
+            predposylki.append('нет компонента %s' % otn)
+    if predposylki:
+        return ['LIVE_PREDPOSYLKA: %s' % '; '.join(predposylki)], None
+    vrem = tempfile.mkdtemp(prefix='gespraechtekst149-live-')
+    try:
+        kopija = os.path.join(vrem, 'mobile')
+        shutil.copytree(mob, kopija,
+                        ignore=shutil.ignore_patterns('node_modules'))
+        os.symlink(os.path.realpath(nm), os.path.join(kopija,
+                                                      'node_modules'))
+        zond = os.path.join(kopija, ZOND_KUDA, ZOND_IMJA)
+        os.makedirs(os.path.dirname(zond), exist_ok=True)
+        shutil.copy(ZOND, zond)
+
+        def zapustit():
+            try:
+                p = subprocess.run(
+                    [os.path.join(kopija, 'node_modules', '.bin', 'jest'),
+                     '--config', konfig, '--rootDir', '.', '--ci',
+                     '--runInBand', '--json', 'gespraech-zond'],
+                    cwd=kopija, capture_output=True, text=True, timeout=1200)
+            except subprocess.TimeoutExpired:
+                return None, 'ТАЙМАУТ jest (1200 с)'
+            tek = (p.stdout or '').strip()
+            try:
+                return json.loads(tek), None
+            except json.JSONDecodeError:
+                a, b = tek.find('{'), tek.rfind('}')
+                if a < 0 or b <= a:
+                    return None, 'jest без JSON-итога rc=%d: %s' % (
+                        p.returncode, (p.stderr or tek)[:200])
+                try:
+                    return json.loads(tek[a:b + 1]), None
+                except json.JSONDecodeError:
+                    return None, 'jest JSON не разобран rc=%d' % p.returncode
+
+        def klassifikirovat(svod):
+            """(упавших ассертов, не исполнившихся сьютов): падение
+            загрузки/трансформации НЕ засчитывается убитым мутантом."""
+            assery, sjuity = 0, 0
+            for sjuit in svod.get('testResults') or []:
+                utv = sjuit.get('assertionResults') or []
+                if not utv:
+                    sjuity += 1
+                    continue
+                for a in utv:
+                    if a.get('status') == 'failed':
+                        assery += 1
+            return assery, sjuity
+
+        ishodnye = {}
+        for _imja, otn, _istochnik in MUTANTY_ISPOLNIMYE:
+            put = os.path.join(kopija, os.path.relpath(otn, 'mobile'))
+            ishodnye[otn] = open(put, encoding='utf-8').read()
+
+        svod, oshibka = zapustit()
+        if svod is None:
+            return ['ISPOLNIMYJ_INFRA: контроль: %s' % oshibka], None
+        assery, _sjuity = klassifikirovat(svod)
+        zelen = bool(svod.get('success')) and \
+            int(svod.get('numPassedTests', 0)) > 0
+        if podrobno:
+            print('ISPOLNIMYJ kontrol %s — suites=%s tests=%s' % (
+                'ZELEN' if zelen else 'KRASEN',
+                svod.get('numTotalTestSuites'),
+                svod.get('numTotalTests')), file=sys.stderr)
+        if not zelen:
+            return ['ISPOLNIMYJ_KONTROL_KRASEN: зонд красен на исходных '
+                    'компонентах R (упавших ассертов %d)' % assery], None
+        zhivye, neubit = [], []
+        for imja, otn, istochnik in MUTANTY_ISPOLNIMYE:
+            put = os.path.join(kopija, os.path.relpath(otn, 'mobile'))
+            tekst = ishodnye[otn]
+            with open(istochnik, encoding='utf-8') as fh:
+                mutacija = fh.read()
+            with open(put, 'w', encoding='utf-8') as fh:
+                fh.write(mutacija)
+            svod, oshibka = zapustit()
+            if svod is None:
+                neubit.append('%s(infra: %s)' % (imja, oshibka))
+                if podrobno:
+                    print('ISPOLNIMYJ mutant %s INFRA — %s'
+                          % (imja, oshibka), file=sys.stderr)
+            else:
+                assery, sjuity = klassifikirovat(svod)
+                if assery > 0:
+                    if podrobno:
+                        print('ISPOLNIMYJ mutant %s UBIT — упавших '
+                              'ассертов %d' % (imja, assery),
+                              file=sys.stderr)
+                elif sjuity > 0:
+                    neubit.append('%s(сьют не исполнился)' % imja)
+                    if podrobno:
+                        print('ISPOLNIMYJ mutant %s NE_UBIT — сьют(ы) не '
+                              'исполнились' % imja, file=sys.stderr)
+                else:
+                    zhivye.append(imja)
+                    if podrobno:
+                        print('ISPOLNIMYJ mutant %s ZHIV — зонд зелён под '
+                              'мутантом' % imja, file=sys.stderr)
+            with open(put, 'w', encoding='utf-8') as fh:
+                fh.write(tekst)
+        prichiny = []
+        if zhivye:
+            prichiny.append('ISPOLNIMYJ_MUTANT_ZHIV: %s' % ', '.join(zhivye))
+        if neubit:
+            prichiny.append('ISPOLNIMYJ_MUTANT_NE_UBIT: %s'
+                            % ', '.join(neubit))
+        return prichiny, None
+    finally:
+        shutil.rmtree(vrem, ignore_errors=True)
+
+
 def postav_zhivoe_a_derevo(produkt, cel, src):
     """Живой зелёный контроль (рецепт И-8, прецедент 147): продукт P
     (клон Complior-mob) -> A-дерево C: канон-байты (11 пинов) + машина +
@@ -1134,6 +1521,18 @@ def postav_zhivoe_a_derevo(produkt, cel, src):
     os.makedirs(mashina, exist_ok=True)
     shutil.copy(os.path.join(MODEL, 'chat-machine.ts'),
                 os.path.join(mashina, 'chat-machine.ts'))
+    # референс-раскладка экрана (блок 1 Crit149b): чат-хост + композер
+    for otn in (HOST_V_PRODUKTE, KOMPOZER_V_PRODUKTE,
+                os.path.join('mobile', 'src', 'features', 'conversation',
+                             'chat-kopija.ts')):
+        shutil.copy(os.path.join(RASKLADKA, otn),
+                    os.path.join(cel, otn))
+    # jest-среда: node_modules продукта — симлинком (зонд копию не
+    # тащит; прецедент zhivoj_komponent 145 / ispolnimyj_sud 148)
+    nm_isto = os.path.join(produkt, 'mobile', 'node_modules')
+    if os.path.isdir(nm_isto):
+        os.symlink(os.path.realpath(nm_isto),
+                   os.path.join(cel, 'mobile', 'node_modules'))
     with open(os.path.join(cel, 'mobile', 'ci-screens.json'),
               encoding='utf-8') as fh:
         karta = json.load(fh)
@@ -1151,6 +1550,40 @@ def postav_zhivoe_a_derevo(produkt, cel, src):
     print('A-DEREVO %s job=%s kanon=%d mashina=1 ekran.json=forma'
           % (cel, LE['job_id'], len(kanon)))
     return 0
+
+
+def postav_fejk_jest(vrem, jest_skript):
+    """Фиктивная jest-среда стабов jest-* (прецедент _fejk_jest_sreda
+    148): заявленная package.json среда + метаданные пакетов +
+    node_modules/.bin/jest с зашитым итогом + компоненты референс-
+    раскладки батареи по каноническим путям — исполняемый путь клетки
+    s-ekran-ispolnim доходит до запуска jest и классифицирует исходы
+    ИМЕННО, без RN-рантайма. Возвращает корень mobile фиктивной среды."""
+    koren = os.path.join(vrem, 'fejk')
+    mob = os.path.join(koren, 'mobile')
+    for otn in (HOST_V_PRODUKTE, KOMPOZER_V_PRODUKTE,
+                os.path.join('mobile', 'src', 'features', 'conversation',
+                             'chat-kopija.ts')):
+        dst = os.path.join(koren, otn)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        shutil.copy(os.path.join(RASKLADKA, otn), dst)
+    dst = os.path.join(koren, MASHINA_V_PRODUKTE)
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    shutil.copy(os.path.join(MODEL, 'chat-machine.ts'), dst)
+    open(os.path.join(mob, 'package.json'), 'w').write(
+        '{"name":"mobile-fejk","private":true}')
+    open(os.path.join(mob, 'jest.config.js'), 'w').write(
+        'module.exports = {};\n')
+    for paket in ('jest-expo', '@testing-library/react-native'):
+        d = os.path.join(mob, 'node_modules', paket)
+        os.makedirs(d, exist_ok=True)
+        open(os.path.join(d, 'package.json'), 'w').write(
+            '{"name":"%s","version":"0.0.0-fejk"}' % paket)
+    bindir = os.path.join(mob, 'node_modules', '.bin')
+    os.makedirs(bindir, exist_ok=True)
+    shutil.copy(jest_skript, os.path.join(bindir, 'jest'))
+    os.chmod(os.path.join(bindir, 'jest'), 0o755)
+    return mob
 
 
 def main():
@@ -1341,6 +1774,43 @@ def main():
         ok_l, pochemu_l = sud_lekalo(repo_r, src)
         itogi.append(('s-lekalo-instanciirovano', ok_l,
                       '' if ok_l else pochemu_l))
+
+    # полный суд пачки валидатором v3 (блок 1 Crit149b: W --repo принимал
+    # продукт с ekran.json={shablon,ekran,dvizhenie.ekrany} rc 0 83/83);
+    # собственные литеральные проверки полей НЕ изобретаются — форма
+    # судится ТОЛЬКО замороженным валидатором 146 (пин 5fd1415e) в
+    # синтетическом репо из файлов R
+    if rezhim == 'koren':
+        itogi.append(('s-pachka-validirovana', False,
+                      'SUBJECT_ABSENT продукт'))
+    elif rezhim in ('model', 'stabs'):
+        itogi.append(('s-pachka-validirovana', True,
+                      'статически-зелёный контроль (модель)'))
+    else:
+        ok_v, pochemu_v = sud_pachki_validiatorom(repo_r, src)
+        itogi.append(('s-pachka-validirovana', ok_v,
+                      '' if ok_v else pochemu_v))
+
+    # исполняемый суд экрана (блок 1 Crit149b): живой jest-зонд на
+    # РЕАЛЬНЫХ компонентах R + матрица мутантов; без mobile/package.json —
+    # именованный пропуск (не зелень продукта), заявленная среда без
+    # установки — LIVE_PREDPOSYLKA (никогда skip→pass)
+    if rezhim == 'koren':
+        itogi.append(('s-ekran-ispolnim', False,
+                      'SUBJECT_ABSENT продукт'))
+    elif rezhim in ('model', 'stabs'):
+        itogi.append(('s-ekran-ispolnim', True,
+                      'статически-зелёный контроль (модель)'))
+    else:
+        prichiny_z, otkaz_z = ispolnimyj_sud(
+            os.path.join(repo_r, 'mobile'), src)
+        if otkaz_z == 'skip':
+            itogi.append(('s-ekran-ispolnim', True,
+                          'ISPOLNIMYJ_SKIP: не jest-среда (нет '
+                          'mobile/package.json)'))
+        else:
+            itogi.append(('s-ekran-ispolnim', not prichiny_z,
+                          '; '.join(prichiny_z)))
     zelen = sum(1 for _, ok, _ in itogi if ok)
     krasn = len(itogi) - zelen
     for idk, ok, pochemu in itogi:
@@ -1391,6 +1861,66 @@ def main():
             svjazi += 1
         finally:
             shutil.rmtree(vrem_a, ignore_errors=True)
+        # стаб ekran-minimalnyj (блок 1 Crit149b, Н-39): мир оси A (пачка
+        # эталона + источники) с МИНИМАЛЬНОЙ формой ekran.json — дословная
+        # атака Crit149b-mut-ekran-minimal; клетка s-pachka-validirovana
+        # обязана краснеть; «пропускник» (зелена без суда валидатором)
+        # оставил бы вход зелёным — STAB_ZHIV rc 1
+        vrem_e = tempfile.mkdtemp(prefix='gespraechtekst149-ekmin-')
+        try:
+            repo_e, _hrn_e, _pak_e = postav_mir(vrem_e)
+            r = subprocess.run([sys.executable,
+                                os.path.join(STABY, src['staby'][
+                                    'ekran-minimalnyj']), repo_e],
+                               capture_output=True, text=True, timeout=60)
+            if r.returncode != 0:
+                sys.stderr.write('ORACLE стаб ekran-minimalnyj: мутатор '
+                                 'rc=%d %s\n' % (r.returncode,
+                                                 r.stderr.strip()[:120]))
+                return 2
+            ok_e, pochemu_e = sud_pachki_validiatorom(repo_e, src)
+            if ok_e:
+                print('STAB ekran-minimalnyj ZHIV (пачка-минимум прошла '
+                      'суд валидатором)')
+                return 1
+            if 'PACHKA_NE_PROSHLA_VALIDATOR' not in pochemu_e:
+                sys.stderr.write('ORACLE стаб ekran-minimalnyj: причина '
+                                 '%s\n' % pochemu_e[:160])
+                return 2
+            print('STAB ekran-minimalnyj KRASEN s-pachka-validirovana')
+            svjazi += 1
+        finally:
+            shutil.rmtree(vrem_e, ignore_errors=True)
+        # стабы jest-krasnyj/jest-zelenyj (блок 1 Crit149b, Н-39;
+        # прецедент _fejk_jest_sreda 148): фиктивная jest-среда из
+        # референс-раскладки батареи — исполняемый путь клетки доходит
+        # до запуска jest и классифицирует исходы ИМЕННО: зашитый красный
+        # итог — ISPOLNIMYJ_KONTROL_KRASEN, зашитый зелёный (мутанты
+        # живы) — ISPOLNIMYJ_MUTANT_ZHIV; судья, не различающий их, —
+        # рассинхрон rc 2
+        for stab_name, ozhidaemaja in (
+                ('jest-krasnyj', 'ISPOLNIMYJ_KONTROL_KRASEN'),
+                ('jest-zelenyj', 'ISPOLNIMYJ_MUTANT_ZHIV')):
+            vrem_j = tempfile.mkdtemp(prefix='gespraechtekst149-jest-')
+            try:
+                mob = postav_fejk_jest(vrem_j, os.path.join(
+                    STABY, src['staby'][stab_name]))
+                prichiny_j, otkaz_j = ispolnimyj_sud(mob, src,
+                                                     podrobno=False)
+                svod = '; '.join(prichiny_j)
+                if otkaz_j == 'skip' or (not prichiny_j):
+                    print('STAB %s ZHIV (исполняемый суд зелён на '
+                          'фиктивной среде)' % stab_name)
+                    return 1
+                if ozhidaemaja not in svod:
+                    sys.stderr.write('ORACLE стаб %s: причина %s\n'
+                                     % (stab_name, svod[:160]))
+                    return 2
+                print('STAB %s KRASEN s-ekran-ispolnim (%s)'
+                      % (stab_name, ozhidaemaja))
+                svjazi += 1
+            finally:
+                shutil.rmtree(vrem_j, ignore_errors=True)
         print('SVJAZI %d' % svjazi)
 
     print('клеток %d, зелёных %d, красных %d; режим %s seed %d'
