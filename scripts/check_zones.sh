@@ -1538,6 +1538,15 @@ while IFS=$'\t' read -r nnn since; do
               ;;
           esac
           ;;
+        # слово владельца 2026-10-30 ~16:45 (мандат консультанту), консультант ~18:00; строка плана 149 по слову владельца 29.10/30.10
+        de609555d63c4a272d49ab6b7525668eccd5829c)
+          case "$f" in
+            ROADMAP.md|registry/plan.tsv)
+              printf '%s\n' "$f" >> "$TMP/process_excluded"
+              continue
+              ;;
+          esac
+          ;;
       esac
       inside=1
       while IFS= read -r p; do
