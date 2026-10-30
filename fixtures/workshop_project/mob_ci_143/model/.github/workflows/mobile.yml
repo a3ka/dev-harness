@@ -365,21 +365,37 @@ jobs:
           rm -rf .harness
           python3 .harness117/fixtures/workshop_project/vkhod_117/vkhod_static_probe.py --repo .
           python3 .harness117b/fixtures/workshop_project/vkhod_117/vkhod_probe.py --repo .
-      # 118 (Erstinformation): пачка экрана mobile/e2e-erstinformation и файл
-      # пробы композиции mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh
-      # выносятся из дерева тем же шагом, что и пачка 135 — layout-проверка
-      # (structure-policy.json) их не знает, как и .harness/.harness117/.harness117b.
-      # Шаги 107/117 выше дословно.
-      - name: Вынести H, батарею 117 и пачки 135/118 из дерева до lint (layout-проверка не должна их видеть)
+      # 143 v2 (Astra §2.2): вынос пачек ОБЩИЙ. Список pack-каталогов даёт
+      # режим инвентаризации селектора по карте (--mode inventar): пачка/флоу
+      # без записи карты, запись без исполняемого входа, symlink — rc 1 ДО
+      # любого перемещения (не wildcard и не «убрали всё — lint зелёный»).
+      # Каждый следующий экран (147–154) добавляет свою пачку записью карты
+      # в том же PR — персональная строка mv здесь не появляется.
+      # 118 (Erstinformation): файл пробы композиции
+      # mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh и H-checkoutы
+      # остаются явными (не экранные packs — обобщать все временные файлы
+      # нельзя); layout-проверка (structure-policy.json) их не знает.
+      - name: 'Инвентаризация пачек по карте и вынос H, батареи 117, пачек экранов из дерева до lint'
         working-directory: ${{ github.workspace }}
         run: |
           set -e
           mkdir -p /tmp/dev-harness-verify
+          node mobile/scripts/select-ci-screens.cjs --mode inventar --repo . \
+            --out /tmp/dev-harness-verify/impl-inventar-${{ github.run_id }}-${{ github.run_attempt }}.json \
+            > /tmp/dev-harness-verify/impl-inventar-${{ github.run_id }}-${{ github.run_attempt }}.out
+          while IFS= read -r stroka; do
+            case "$stroka" in
+              PACHKA\ *)
+                pachka="${stroka#PACHKA }"
+                test -n "$pachka"
+                test -d "$pachka"
+                mv "$pachka" "/tmp/dev-harness-verify/impl-pack-$(basename "${pachka%/}")-${{ github.run_id }}-${{ github.run_attempt }}"
+                ;;
+            esac
+          done < /tmp/dev-harness-verify/impl-inventar-${{ github.run_id }}-${{ github.run_attempt }}.out
           mv .harness /tmp/dev-harness-verify/impl995-h-${{ github.run_id }}-${{ github.run_attempt }}
           mv .harness117 /tmp/dev-harness-verify/impl117-b-${{ github.run_id }}-${{ github.run_attempt }}
           mv .harness117b /tmp/dev-harness-verify/impl117b-b-${{ github.run_id }}-${{ github.run_attempt }}
-          mv mobile/e2e-first-run /tmp/dev-harness-verify/impl135-pack-${{ github.run_id }}-${{ github.run_attempt }}
-          mv mobile/e2e-erstinformation /tmp/dev-harness-verify/impl118-pack-${{ github.run_id }}-${{ github.run_attempt }}
           mv mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh /tmp/dev-harness-verify/impl118-probe-${{ github.run_id }}-${{ github.run_attempt }}
       - run: npm test
       - run: npm run lint
