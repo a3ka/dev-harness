@@ -85,7 +85,16 @@
    "nositeli/screen-job.template.yml": "fixtures/workshop_project/gespraech_tekst_149/nositeli/screen-job.template.yml",
    "nositeli/produkt/mobile-6240f63.yml": "fixtures/workshop_project/gespraech_tekst_149/nositeli/produkt/mobile-6240f63.yml",
    "nositeli/produkt/ci-screens-6240f63.json": "fixtures/workshop_project/gespraech_tekst_149/nositeli/produkt/ci-screens-6240f63.json",
-   "stabs/stab_lekalo_obhod_kritika.py": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_lekalo_obhod_kritika.py"
+   "stabs/stab_lekalo_obhod_kritika.py": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_lekalo_obhod_kritika.py",
+   "produkt/gespraech-zond-149.test.tsx": "fixtures/workshop_project/gespraech_tekst_149/produkt/gespraech-zond-149.test.tsx",
+   "stabs/stab_ekran_minimalnyj.py": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_ekran_minimalnyj.py",
+   "stabs/stab_jest_zelenyj.sh": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_jest_zelenyj.sh",
+   "stabs/stab_jest_krasnyj.sh": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_jest_krasnyj.sh",
+   "stabs/stab_host_pustoj.tsx": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_host_pustoj.tsx",
+   "nositeli/produkt/composer-108.tsx": "fixtures/workshop_project/gespraech_tekst_149/nositeli/produkt/composer-108.tsx",
+   "model/produktnaja-raskladka/mobile/src/features/conversation/chat-host.tsx": "fixtures/workshop_project/gespraech_tekst_149/model/produktnaja-raskladka/mobile/src/features/conversation/chat-host.tsx",
+   "model/produktnaja-raskladka/mobile/src/features/conversation/chat-kopija.ts": "fixtures/workshop_project/gespraech_tekst_149/model/produktnaja-raskladka/mobile/src/features/conversation/chat-kopija.ts",
+   "model/produktnaja-raskladka/mobile/src/ui/conversation-composer/conversation-composer.tsx": "fixtures/workshop_project/gespraech_tekst_149/model/produktnaja-raskladka/mobile/src/ui/conversation-composer/conversation-composer.tsx"
   },
   "sha": {
    "model/ekran_shablon.py": "5fd1415e40b257e5e7b97c7bf9bc8fe31e94dcea9e05c4c3ac44d68802db453b",
@@ -171,7 +180,16 @@
    "nositeli/screen-job.template.yml": "3675182e218c467f694dc69d4ee3457900849e6717b7a80d12e8bafc80aa14dd",
    "nositeli/produkt/mobile-6240f63.yml": "6137aa571ace1147ae1a29884c98008620c3b329eebf83617b5a971d57d0405e",
    "nositeli/produkt/ci-screens-6240f63.json": "85c23e1c66e9661d1d3fc2d56dfd13e4fba1b38bbaa6b9e569acfc0fb98c09e3",
-   "stabs/stab_lekalo_obhod_kritika.py": "caa5449031553fb69552ce9718a492c69f5e2bfc481a9facfd6009e04a527b34"
+   "stabs/stab_lekalo_obhod_kritika.py": "caa5449031553fb69552ce9718a492c69f5e2bfc481a9facfd6009e04a527b34",
+   "produkt/gespraech-zond-149.test.tsx": "7438b4ae4e319acebba4361fb3012060af8c88aaaaa3ca27d90bdf8293db77b1",
+   "stabs/stab_ekran_minimalnyj.py": "b26f6da03a07bca46bdf099383f72af67ffe1d6d1dca1de916cde8bab4299075",
+   "stabs/stab_jest_zelenyj.sh": "4614716e0f7668518d3623a3556a7d60f57d87de2d46e2cd8317c65eb4816691",
+   "stabs/stab_jest_krasnyj.sh": "62a38dee1568fb3da8b5e9b3da6911ac42368003eef3ed97cea02b732b679a5b",
+   "stabs/stab_host_pustoj.tsx": "d1f7841681a14d8ee875d7023d726609ad55f5e0f1e684978345423820e9fd1e",
+   "nositeli/produkt/composer-108.tsx": "05d289190275f727c45dd917acf2aa7f7957def976f0f0f3c7a8f02f4490815f",
+   "model/produktnaja-raskladka/mobile/src/features/conversation/chat-host.tsx": "9cc4223062329607e01365e18e5ca94586b4523b6cef43b7a31ed9ebe04272d9",
+   "model/produktnaja-raskladka/mobile/src/features/conversation/chat-kopija.ts": "bdd2477dc0fd4d49e396d897cfd369c42c87eab40ddd65a1d869244db401f6dd",
+   "model/produktnaja-raskladka/mobile/src/ui/conversation-composer/conversation-composer.tsx": "e288c9345b1585a211bd4ba809fdf8a46f9d56e11e164d2300fb52d562b43e2c"
   },
   "kanon": {
    "mobile/src/features/conversation/__tests__/gespraech-tekst.test.ts": "c4c0a32a03a2e24c5f70552507843dcdff778b57880f6e8e37deaeca2f8cf0de",
@@ -402,7 +420,14 @@
   "serial_393": "GESPRAECH_TEKST_SERIAL_393",
   "evidence_ns": "mobile/maestro-out-gespraech-tekst",
   "shablon": 3,
-  "ekrany": ["GA-11", "GA-12", "GA-13", "GA-17", "GA-18", "GA-19"]
+  "ekrany": [
+   "GA-11",
+   "GA-12",
+   "GA-13",
+   "GA-17",
+   "GA-18",
+   "GA-19"
+  ]
  },
  "staby": {
   "t30-fon-posle": "stab_t30_fon_posle.ts",
@@ -414,7 +439,10 @@
   "ud-ignor": "stab_ud_ignor.ts",
   "pole-bez-potolka": "stab_pole_bez_potolka.ts",
   "pole-bez-skrolla": "stab_pole_bez_skrolla.ts",
-  "lekalo-obhod-kritika": "stab_lekalo_obhod_kritika.py"
+  "lekalo-obhod-kritika": "stab_lekalo_obhod_kritika.py",
+  "ekran-minimalnyj": "stab_ekran_minimalnyj.py",
+  "jest-krasnyj": "stab_jest_krasnyj.sh",
+  "jest-zelenyj": "stab_jest_zelenyj.sh"
  },
  "stab_vhod": {
   "t30-fon-posle": {
@@ -446,6 +474,15 @@
   },
   "lekalo-obhod-kritika": {
    "kletka": "s-lekalo-instanciirovano"
+  },
+  "ekran-minimalnyj": {
+   "kletka": "s-pachka-validirovana"
+  },
+  "jest-krasnyj": {
+   "kletka": "s-ekran-ispolnim"
+  },
+  "jest-zelenyj": {
+   "kletka": "s-ekran-ispolnim"
   }
  }
 }
