@@ -1,0 +1,3189 @@
+{
+ "_comment": "Фиктивный носитель батареи 146: подмножество реальной спеки движения D 2.4 (tokens/rules/viewports дословно; сцены T28/T31/T29/T35 дословно — грамматика реальных байтов). Источник тот же; sha256 реальной спеки — в source.json:.piny.kontekst.",
+ "name": "Complior Motion · Gespräch mit Complior (pilot)",
+ "version": "D 2.3 · Faden 1.3",
+ "design_system": "Complior Bento D 2.3",
+ "format": "brief «Разговор с агентом» 2026-10-28, §2",
+ "viewports": [
+  {
+   "profile": "390x844",
+   "w": 390,
+   "h": 844,
+   "fps": 60
+  },
+  {
+   "profile": "393x852",
+   "w": 393,
+   "h": 852,
+   "fps": 60,
+   "safe_top": 59,
+   "safe_bottom": 34
+  }
+ ],
+ "tokens": [
+  {
+   "name": "motion-fast",
+   "value": "150ms",
+   "usage": "Нажатие пилюли, тумблер, hover."
+  },
+  {
+   "name": "motion-base",
+   "value": "250ms",
+   "usage": "Смена сегмента, выбор опции, появление листа."
+  },
+  {
+   "name": "motion-slow",
+   "value": "400ms",
+   "usage": "Смена состояния точки знака, галочка «Erledigt», появление карточки внимания."
+  },
+  {
+   "name": "ease-standard",
+   "value": "cubic-bezier(0.2, 0.7, 0.2, 1)",
+   "usage": "Единственная кривая: быстрый старт, мягкий финиш. Без bounce и overshoot."
+  },
+  {
+   "name": "motion-cycle",
+   "value": "2400ms",
+   "usage": "Цикл «работает»: бусина проходит нить туда и обратно. Единственное повторяющееся движение знака; при reduced-motion выключено."
+  },
+  {
+   "name": "motion-none",
+   "value": "0ms",
+   "usage": "«Уменьшить движение»: переход мгновенный, значения сразу конечные. В таблицах движения — нулевая задержка."
+  },
+  {
+   "name": "motion-stagger",
+   "value": "60ms",
+   "usage": "Шаг между блоками одной группы при появлении: строки FactCard, шаги MissionRoadmap, новые строки AgentActivity, блоки рабочей области."
+  },
+  {
+   "name": "faden-transition",
+   "value": "320ms",
+   "usage": "Dynamic Faden: сглаживание позы при смене состояния — экспоненциальное приближение τ = faden-transition / 3 (≈ 107 мс, делится на скорость модификатора), ≈ 99 % за 480 мс."
+  },
+  {
+   "name": "faden-listen-attack",
+   "value": "80ms",
+   "usage": "listening: нарастание реакции точки на амплитуду микрофона."
+  },
+  {
+   "name": "faden-listen-release",
+   "value": "220ms",
+   "usage": "listening: спад реакции точки."
+  },
+  {
+   "name": "faden-speak-attack",
+   "value": "60ms",
+   "usage": "speaking: нарастание по огибающей TTS."
+  },
+  {
+   "name": "faden-speak-release",
+   "value": "240ms",
+   "usage": "speaking: спад по огибающей TTS."
+  },
+  {
+   "name": "faden-gather",
+   "value": "600ms",
+   "usage": "understanding: один жест «собираю смысл» (дуга −4 %, точка к концу нити), затем удержание."
+  },
+  {
+   "name": "faden-handover",
+   "value": "400ms",
+   "usage": "needs_action: передача инициативы — точка выходит к разрыву и остаётся."
+  },
+  {
+   "name": "faden-settle",
+   "value": "400ms",
+   "usage": "ready: settling к канонической форме (точка 0,92 → 1)."
+  },
+  {
+   "name": "faden-done-dot",
+   "value": "260ms",
+   "usage": "done: точка идёт к концу нити и уменьшается."
+  },
+  {
+   "name": "faden-done-check",
+   "value": "390ms",
+   "usage": "done: галочка прорисовывается; стартует на 80 % faden-done-dot (208 мс)."
+  },
+  {
+   "name": "faden-done",
+   "value": "650ms",
+   "usage": "done: вся последовательность до устойчивого Erledigt."
+  },
+  {
+   "name": "faden-idle-drift-a",
+   "value": "9000ms",
+   "usage": "idle: период почти незаметного изменения эллиптичности (±0,012)."
+  },
+  {
+   "name": "faden-idle-drift-b",
+   "value": "13000ms",
+   "usage": "idle: период изменения наклона (±1,2°)."
+  },
+  {
+   "name": "faden-uncertain-drift",
+   "value": "7000ms",
+   "usage": "uncertain: период дрейфа точки ±2°."
+  },
+  {
+   "name": "ease-faden-out",
+   "value": "cubic-bezier(0.33, 1, 0.68, 1)",
+   "usage": "Dynamic Faden: easeOutCubic — handover, settle, done (внутренняя кривая движка, не для UI)."
+  },
+  {
+   "name": "ease-faden-loop",
+   "value": "cubic-bezier(0.65, 0, 0.35, 1)",
+   "usage": "Dynamic Faden: easeInOutCubic — бусина working (внутренняя кривая движка, не для UI)."
+  },
+  {
+   "name": "motion-morph",
+   "value": "450ms",
+   "usage": "D 2.3 · Shared element разговора: знак растёт из кнопки агента до сцены и обратно, сцена ↔ верхняя панель, микрофон ↔ Sprechleiste, слой разговора ↔ Gesprächsnotiz. Кривая ease-morph."
+  },
+  {
+   "name": "ease-morph",
+   "value": "cubic-bezier(0.32, 0.72, 0, 1)",
+   "usage": "Кривая shared element (быстро выходит из пальца, долго и мягко садится, без overshoot — нативное ощущение iOS-листа). Только для морфа; весь остальной UI — ease-standard."
+  },
+  {
+   "name": "press-long",
+   "value": "500ms",
+   "usage": "Удержание кнопки агента до прямого старта голоса (как минимальная длительность long press iOS); пока держат, знак «готовится» (prime 0 → 1)."
+  },
+  {
+   "name": "voice-endpoint",
+   "value": "1200ms",
+   "usage": "Тишина после речи → конец реплики (listening → understanding). Решает хост (VAD); значение — эталон таблиц."
+  },
+  {
+   "name": "voice-silence-hint",
+   "value": "8000ms",
+   "usage": "Долгая тишина без речи: строка над Sprechleiste «Ich höre noch zu. Sie können auch schreiben.»"
+  },
+  {
+   "name": "voice-autopause",
+   "value": "30000ms",
+   "usage": "Ещё дольше без речи: микрофон ставится на паузу сам («Gespräch pausiert»), знак → idle. Приватность и батарея."
+  },
+  {
+   "name": "wave-step",
+   "value": "66ms",
+   "usage": "Полосы Sprechleiste: новая полоса каждые 66 мс (4 кадра при 60 fps), старые уходят влево; высота = максимум амплитуды за окно (CompliorFaden.voiceBars)."
+  },
+  {
+   "name": "motion-stagger-tight",
+   "value": "30ms",
+   "usage": "D 2.4 · шаг пилюль меню центральной вкладки сверху вниз («Sprechen» первым): меню читается через ≈ 300 мс (было ≈ 640 мс, «Sprechen» последним)."
+  }
+ ],
+ "rules": {
+  "curves": "ease-standard (UI) · ease-morph (shared element, motion-morph); no springs",
+  "reduced_motion": "movement / scale / size / height / rotation / morph → 0 ms; opacity & colour ≤ motion-fast; live inputs static; voice bars mid height while speech; Faden loops off",
+  "interrupt": "retrigger reverses from the current value; new target mid-flight → from the current value (CompliorFaden.morph from the last box); leaving the screen → final state at once",
+  "adaptive": "CompliorFaden.adaptive: P = H − T − A − C; S = max(96, min(cap, P − 64)); dock when the host says so or P − 64 < 96; fit (im Chat): stage = S + 64, rest to the thread; motion-slow · ease-standard; dock motion-morph · ease-morph; follow the keyboard frame",
+  "platform": "system keyboard, back gesture, permission dialog: OS animations, the layout follows the keyboard frame"
+ },
+ "groups": [
+  "Финал 2 · меню центральной кнопки",
+  "Финал 2 · состояния"
+ ],
+ "scenes": [
+  {
+   "id": "GA-T28",
+   "slug": "mitte-menue-oeffnen",
+   "group": "Финал 2 · меню центральной кнопки",
+   "title": "Mitte antippen → Menü: das Zeichen fliegt zur Frage, die Pillen kommen von oben («Sprechen» zuerst), ≈ 300 ms",
+   "trigger": "Касание центральной вкладки «Gespräch» (`proposed.action.gespraech.tab.menu`). Удержание `press-long` — сразу голос (GA-T35).",
+   "interrupt": "«×», касание фона, Esc, «назад» — GA-T31 от текущих значений; выбор пункта во время открытия — сразу этот пункт.",
+   "reduced": "Без полёта, поворота и подъёма: фон, «×», вопрос и пилюли появляются сменой opacity за `motion-fast`; знак сразу у вопроса.",
+   "a11y": "Вкладка — `role=\"button\"` `aria-haspopup=\"dialog\"` `aria-expanded=\"true\"`; меню — `role=\"dialog\"` `aria-modal`, фон `inert`; фокус — на «Sprechen»; Esc / «назад» / «×» закрывают и возвращают фокус на вкладку.",
+   "notes": [
+    "Меню читается к ≈ 300 мс (последняя пилюля видна к 60 + 90 + 150 мс); в v1 — ≈ 640 мс, и «Sprechen» появлялся последним.",
+    "Shared element: знак камешка (28) — тот же знак над вопросом (40): спрашивает Complior."
+   ],
+   "boards": [
+    "GA-01",
+    "GA-15"
+   ],
+   "frames": [
+    "W01",
+    "F04.07"
+   ],
+   "profile": "390x844",
+   "viewport": {
+    "w": 390,
+    "h": 844,
+    "fps": 60
+   },
+   "haptics": [
+    {
+     "at": 0,
+     "ios": "impactOccurred(.light)",
+     "android": "VIRTUAL_KEY",
+     "why": "меню открывается"
+    }
+   ],
+   "earcons": [],
+   "window_ms": [
+    0,
+    450
+   ],
+   "hold_ms": [
+    300,
+    900
+   ],
+   "keyframes_ms": {
+    "0": 0.0,
+    "25": 112.5,
+    "50": 225.0,
+    "75": 337.5,
+    "100": 450.0
+   },
+   "ui_duration_ms": 400.0,
+   "initial_from": null,
+   "tracks": [
+    {
+     "order": 1,
+     "element": ".L-start .p-nav-agent .p-nav-pebble",
+     "what": "камешек: нажатие",
+     "property": "scale",
+     "property_label": "scale",
+     "from": 1,
+     "to": 0.94,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 150.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 2,
+     "element": ".L-start .p-nav-agent .p-nav-pebble",
+     "what": "камешек уступает место «×»",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 1,
+     "to": 0,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 150.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 3,
+     "element": ".ga-dial .p-dial-close",
+     "what": "«×» на месте камешка",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 150.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 4,
+     "element": "#scrim",
+     "what": "фон: размытие 14 + ground 74 %",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 250.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 5,
+     "element": ".ga-dial .p-dial-close",
+     "what": "«×»: поворот −45° → 0",
+     "property": "rot",
+     "property_label": "rot",
+     "from": -45,
+     "to": 0,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 250.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 6,
+     "element": ".ga-dial .p-dial-close",
+     "what": "«×» вырастает из камешка",
+     "property": "scale",
+     "property_label": "scale",
+     "from": 0.6,
+     "to": 1,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 250.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 7,
+     "element": "#mkg",
+     "what": "знак летит из камешка к вопросу (28 → 40): x",
+     "property": "left",
+     "property_label": "left",
+     "from": {
+      "rect": ".L-start .p-nav-agent .p-nav-pebble svg",
+      "k": "x"
+     },
+     "to": {
+      "rect": ".ga-dial .p-dial-mark svg",
+      "k": "x"
+     },
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 250.0,
+     "curve": {
+      "token": "ease-morph",
+      "value": "cubic-bezier(0.32, 0.72, 0, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false,
+     "resolved": {
+      "dark": {
+       "from": 181,
+       "to": 175
+      },
+      "light": {
+       "from": 181,
+       "to": 175
+      }
+     }
+    },
+    {
+     "order": 8,
+     "element": "#mkg",
+     "what": "y",
+     "property": "top",
+     "property_label": "top, px",
+     "from": {
+      "rect": ".L-start .p-nav-agent .p-nav-pebble svg",
+      "k": "y"
+     },
+     "to": {
+      "rect": ".ga-dial .p-dial-mark svg",
+      "k": "y"
+     },
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 250.0,
+     "curve": {
+      "token": "ease-morph",
+      "value": "cubic-bezier(0.32, 0.72, 0, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false,
+     "resolved": {
+      "dark": {
+       "from": 781,
+       "to": 359
+      },
+      "light": {
+       "from": 781,
+       "to": 359
+      }
+     }
+    },
+    {
+     "order": 9,
+     "element": "#mkg",
+     "what": "размер",
+     "property": "w",
+     "property_label": "width, px",
+     "from": {
+      "rect": ".L-start .p-nav-agent .p-nav-pebble svg",
+      "k": "w"
+     },
+     "to": {
+      "rect": ".ga-dial .p-dial-mark svg",
+      "k": "w"
+     },
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 250.0,
+     "curve": {
+      "token": "ease-morph",
+      "value": "cubic-bezier(0.32, 0.72, 0, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false,
+     "resolved": {
+      "dark": {
+       "from": 28,
+       "to": 40
+      },
+      "light": {
+       "from": 28,
+       "to": 40
+      }
+     }
+    },
+    {
+     "order": 10,
+     "element": "#mkg",
+     "what": "размер",
+     "property": "h",
+     "property_label": "height, px",
+     "from": {
+      "rect": ".L-start .p-nav-agent .p-nav-pebble svg",
+      "k": "h"
+     },
+     "to": {
+      "rect": ".ga-dial .p-dial-mark svg",
+      "k": "h"
+     },
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 250.0,
+     "curve": {
+      "token": "ease-morph",
+      "value": "cubic-bezier(0.32, 0.72, 0, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false,
+     "resolved": {
+      "dark": {
+       "from": 28,
+       "to": 40
+      },
+      "light": {
+       "from": 28,
+       "to": 40
+      }
+     }
+    },
+    {
+     "order": 11,
+     "element": ".ga-dial .p-dial-head p",
+     "what": "вопрос «Wie möchten Sie beginnen?» и строка «Sie können jederzeit wechseln.»",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "motion-stagger-tight",
+      "ms": 30.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 180.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 12,
+     "element": ".ga-dial .p-dial-head p",
+     "what": "вопрос «Wie möchten Sie beginnen?» и строка «Sie können jederzeit wechseln.»",
+     "property": "ty",
+     "property_label": "translateY, px",
+     "from": 8,
+     "to": 0,
+     "delay": {
+      "token": "motion-stagger-tight",
+      "ms": 30.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 180.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 13,
+     "element": ".ga-dial .p-dial-list > li:nth-child(1)",
+     "what": "пилюля 1 сверху вниз — «Sprechen»",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "2*motion-stagger-tight",
+      "ms": 60.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 210.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 14,
+     "element": ".ga-dial .p-dial-list > li:nth-child(1)",
+     "what": "пилюля 1: подъём 12 → 0",
+     "property": "ty",
+     "property_label": "translateY, px",
+     "from": 12,
+     "to": 0,
+     "delay": {
+      "token": "2*motion-stagger-tight",
+      "ms": 60.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 310.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 15,
+     "element": ".ga-dial .p-dial-list > li:nth-child(2)",
+     "what": "пилюля 2 сверху вниз",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "3*motion-stagger-tight",
+      "ms": 90.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 240.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 16,
+     "element": ".ga-dial .p-dial-list > li:nth-child(2)",
+     "what": "пилюля 2: подъём 12 → 0",
+     "property": "ty",
+     "property_label": "translateY, px",
+     "from": 12,
+     "to": 0,
+     "delay": {
+      "token": "3*motion-stagger-tight",
+      "ms": 90.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 340.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 17,
+     "element": ".ga-dial .p-dial-list > li:nth-child(3)",
+     "what": "пилюля 3 сверху вниз",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "4*motion-stagger-tight",
+      "ms": 120.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 270.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 18,
+     "element": ".ga-dial .p-dial-list > li:nth-child(3)",
+     "what": "пилюля 3: подъём 12 → 0",
+     "property": "ty",
+     "property_label": "translateY, px",
+     "from": 12,
+     "to": 0,
+     "delay": {
+      "token": "4*motion-stagger-tight",
+      "ms": 120.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 370.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 19,
+     "element": ".ga-dial .p-dial-list > li:nth-child(4)",
+     "what": "пилюля 4 сверху вниз",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "5*motion-stagger-tight",
+      "ms": 150.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 300.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 20,
+     "element": ".ga-dial .p-dial-list > li:nth-child(4)",
+     "what": "пилюля 4: подъём 12 → 0",
+     "property": "ty",
+     "property_label": "translateY, px",
+     "from": 12,
+     "to": 0,
+     "delay": {
+      "token": "5*motion-stagger-tight",
+      "ms": 150.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 400.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    }
+   ],
+   "events": [
+    {
+     "at": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "do": "class",
+     "element": "#dial",
+     "what": "знак сел у вопроса",
+     "set": null
+    },
+    {
+     "at": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "do": "hide",
+     "element": "#mkg",
+     "what": "`#mkg` уходит из раскладки",
+     "set": null
+    }
+   ],
+   "signals": [],
+   "files": {
+    "video": {
+     "dark": "video/GA-T28-mitte-menue-oeffnen.dark.mp4",
+     "dark_reduced": "video/GA-T28-mitte-menue-oeffnen.dark.reduced.mp4",
+     "light": "video/GA-T28-mitte-menue-oeffnen.light.mp4",
+     "light_reduced": "video/GA-T28-mitte-menue-oeffnen.light.reduced.mp4"
+    },
+    "keyframes": {
+     "dark": [
+      "keyframes/GA-T28-mitte-menue-oeffnen.dark.000.png",
+      "keyframes/GA-T28-mitte-menue-oeffnen.dark.025.png",
+      "keyframes/GA-T28-mitte-menue-oeffnen.dark.050.png",
+      "keyframes/GA-T28-mitte-menue-oeffnen.dark.075.png",
+      "keyframes/GA-T28-mitte-menue-oeffnen.dark.100.png"
+     ],
+     "dark_reduced": [
+      "keyframes/GA-T28-mitte-menue-oeffnen.dark.reduced.000.png",
+      "keyframes/GA-T28-mitte-menue-oeffnen.dark.reduced.025.png",
+      "keyframes/GA-T28-mitte-menue-oeffnen.dark.reduced.050.png",
+      "keyframes/GA-T28-mitte-menue-oeffnen.dark.reduced.075.png",
+      "keyframes/GA-T28-mitte-menue-oeffnen.dark.reduced.100.png"
+     ],
+     "light": [
+      "keyframes/GA-T28-mitte-menue-oeffnen.light.000.png",
+      "keyframes/GA-T28-mitte-menue-oeffnen.light.025.png",
+      "keyframes/GA-T28-mitte-menue-oeffnen.light.050.png",
+      "keyframes/GA-T28-mitte-menue-oeffnen.light.075.png",
+      "keyframes/GA-T28-mitte-menue-oeffnen.light.100.png"
+     ],
+     "light_reduced": [
+      "keyframes/GA-T28-mitte-menue-oeffnen.light.reduced.000.png",
+      "keyframes/GA-T28-mitte-menue-oeffnen.light.reduced.025.png",
+      "keyframes/GA-T28-mitte-menue-oeffnen.light.reduced.050.png",
+      "keyframes/GA-T28-mitte-menue-oeffnen.light.reduced.075.png",
+      "keyframes/GA-T28-mitte-menue-oeffnen.light.reduced.100.png"
+     ]
+    },
+    "strip": {
+     "dark": "strips/GA-T28-mitte-menue-oeffnen.dark.png",
+     "dark_reduced": "strips/GA-T28-mitte-menue-oeffnen.dark.reduced.png",
+     "light": "strips/GA-T28-mitte-menue-oeffnen.light.png",
+     "light_reduced": "strips/GA-T28-mitte-menue-oeffnen.light.reduced.png"
+    }
+   }
+  },
+  {
+   "id": "GA-T31",
+   "slug": "mitte-menue-schliessen",
+   "group": "Финал 2 · меню центральной кнопки",
+   "title": "«×» / Hintergrund / Esc → Menü schließen: das Zeichen fliegt zurück in den Kiesel",
+   "trigger": "Касание «×» (`common.close`), касание фона, Esc, жест «назад».",
+   "interrupt": "Касание вкладки во время закрытия — снова GA-T28 от текущих значений.",
+   "reduced": "Сразу: меню и фон гаснут за `motion-fast`, знак сразу в камешке.",
+   "a11y": "Фокус возвращается на вкладку «Gespräch»; `aria-expanded=\"false\"`; фон снова доступен.",
+   "notes": [],
+   "boards": [
+    "GA-15",
+    "GA-01"
+   ],
+   "frames": [
+    "F04.07",
+    "W01"
+   ],
+   "profile": "390x844",
+   "viewport": {
+    "w": 390,
+    "h": 844,
+    "fps": 60
+   },
+   "haptics": [],
+   "earcons": [],
+   "window_ms": [
+    0,
+    300
+   ],
+   "hold_ms": [
+    300,
+    800
+   ],
+   "keyframes_ms": {
+    "0": 0.0,
+    "25": 75.0,
+    "50": 150.0,
+    "75": 225.0,
+    "100": 300.0
+   },
+   "ui_duration_ms": 300.0,
+   "initial_from": null,
+   "tracks": [
+    {
+     "order": 1,
+     "element": ".ga-dial .p-dial-close",
+     "what": "«×»",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 1,
+     "to": 0,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 150.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 2,
+     "element": ".ga-dial .p-dial-list > li:nth-child(1)",
+     "what": "пилюля",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 1,
+     "to": 0,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 150.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 3,
+     "element": ".ga-dial .p-dial-list > li:nth-child(2)",
+     "what": "пилюля",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 1,
+     "to": 0,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 150.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 4,
+     "element": ".ga-dial .p-dial-list > li:nth-child(3)",
+     "what": "пилюля",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 1,
+     "to": 0,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 150.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 5,
+     "element": ".ga-dial .p-dial-list > li:nth-child(4)",
+     "what": "пилюля",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 1,
+     "to": 0,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 150.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 6,
+     "element": ".ga-dial .p-dial-list > li:nth-child(1)",
+     "what": "пилюля опускается 8",
+     "property": "ty",
+     "property_label": "translateY, px",
+     "from": 0,
+     "to": 8,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 150.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 7,
+     "element": ".ga-dial .p-dial-list > li:nth-child(2)",
+     "what": "пилюля опускается 8",
+     "property": "ty",
+     "property_label": "translateY, px",
+     "from": 0,
+     "to": 8,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 150.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 8,
+     "element": ".ga-dial .p-dial-list > li:nth-child(3)",
+     "what": "пилюля опускается 8",
+     "property": "ty",
+     "property_label": "translateY, px",
+     "from": 0,
+     "to": 8,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 150.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 9,
+     "element": ".ga-dial .p-dial-list > li:nth-child(4)",
+     "what": "пилюля опускается 8",
+     "property": "ty",
+     "property_label": "translateY, px",
+     "from": 0,
+     "to": 8,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 150.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 10,
+     "element": ".ga-dial .p-dial-head p",
+     "what": "вопрос меню",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 1,
+     "to": 0,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 150.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 11,
+     "element": "#scrim",
+     "what": "фон",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 1,
+     "to": 0,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 250.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 12,
+     "element": ".ga-dial .p-dial-close",
+     "what": "«×»: поворот 0 → −45°",
+     "property": "rot",
+     "property_label": "rot",
+     "from": 0,
+     "to": -45,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 250.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 13,
+     "element": ".ga-dial .p-dial-close",
+     "what": "«×» уходит в камешек",
+     "property": "scale",
+     "property_label": "scale",
+     "from": 1,
+     "to": 0.6,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 250.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 14,
+     "element": "#mkg",
+     "what": "знак летит от вопроса обратно в камешек: x",
+     "property": "left",
+     "property_label": "left",
+     "from": {
+      "rect": ".ga-dial .p-dial-mark svg",
+      "k": "x"
+     },
+     "to": {
+      "rect": ".L-start .p-nav-agent .p-nav-pebble svg",
+      "k": "x"
+     },
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 250.0,
+     "curve": {
+      "token": "ease-morph",
+      "value": "cubic-bezier(0.32, 0.72, 0, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false,
+     "resolved": {
+      "dark": {
+       "from": 175,
+       "to": 181
+      },
+      "light": {
+       "from": 175,
+       "to": 181
+      }
+     }
+    },
+    {
+     "order": 15,
+     "element": "#mkg",
+     "what": "y",
+     "property": "top",
+     "property_label": "top, px",
+     "from": {
+      "rect": ".ga-dial .p-dial-mark svg",
+      "k": "y"
+     },
+     "to": {
+      "rect": ".L-start .p-nav-agent .p-nav-pebble svg",
+      "k": "y"
+     },
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 250.0,
+     "curve": {
+      "token": "ease-morph",
+      "value": "cubic-bezier(0.32, 0.72, 0, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false,
+     "resolved": {
+      "dark": {
+       "from": 359,
+       "to": 781
+      },
+      "light": {
+       "from": 359,
+       "to": 781
+      }
+     }
+    },
+    {
+     "order": 16,
+     "element": "#mkg",
+     "what": "размер",
+     "property": "w",
+     "property_label": "width, px",
+     "from": {
+      "rect": ".ga-dial .p-dial-mark svg",
+      "k": "w"
+     },
+     "to": {
+      "rect": ".L-start .p-nav-agent .p-nav-pebble svg",
+      "k": "w"
+     },
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 250.0,
+     "curve": {
+      "token": "ease-morph",
+      "value": "cubic-bezier(0.32, 0.72, 0, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false,
+     "resolved": {
+      "dark": {
+       "from": 40,
+       "to": 28
+      },
+      "light": {
+       "from": 40,
+       "to": 28
+      }
+     }
+    },
+    {
+     "order": 17,
+     "element": "#mkg",
+     "what": "размер",
+     "property": "h",
+     "property_label": "height, px",
+     "from": {
+      "rect": ".ga-dial .p-dial-mark svg",
+      "k": "h"
+     },
+     "to": {
+      "rect": ".L-start .p-nav-agent .p-nav-pebble svg",
+      "k": "h"
+     },
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 250.0,
+     "curve": {
+      "token": "ease-morph",
+      "value": "cubic-bezier(0.32, 0.72, 0, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false,
+     "resolved": {
+      "dark": {
+       "from": 40,
+       "to": 28
+      },
+      "light": {
+       "from": 40,
+       "to": 28
+      }
+     }
+    },
+    {
+     "order": 18,
+     "element": ".L-start .p-nav-agent .p-nav-pebble",
+     "what": "камешек возвращается",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 300.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    }
+   ],
+   "events": [
+    {
+     "at": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "do": "class",
+     "element": ".L-start",
+     "what": "знак снова в камешке",
+     "set": null
+    },
+    {
+     "at": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "do": "hide",
+     "element": "#mkg",
+     "what": "`#mkg` уходит из раскладки",
+     "set": null
+    }
+   ],
+   "signals": [],
+   "files": {
+    "video": {
+     "dark": "video/GA-T31-mitte-menue-schliessen.dark.mp4",
+     "dark_reduced": "video/GA-T31-mitte-menue-schliessen.dark.reduced.mp4",
+     "light": "video/GA-T31-mitte-menue-schliessen.light.mp4",
+     "light_reduced": "video/GA-T31-mitte-menue-schliessen.light.reduced.mp4"
+    },
+    "keyframes": {
+     "dark": [
+      "keyframes/GA-T31-mitte-menue-schliessen.dark.000.png",
+      "keyframes/GA-T31-mitte-menue-schliessen.dark.025.png",
+      "keyframes/GA-T31-mitte-menue-schliessen.dark.050.png",
+      "keyframes/GA-T31-mitte-menue-schliessen.dark.075.png",
+      "keyframes/GA-T31-mitte-menue-schliessen.dark.100.png"
+     ],
+     "dark_reduced": [
+      "keyframes/GA-T31-mitte-menue-schliessen.dark.reduced.000.png",
+      "keyframes/GA-T31-mitte-menue-schliessen.dark.reduced.025.png",
+      "keyframes/GA-T31-mitte-menue-schliessen.dark.reduced.050.png",
+      "keyframes/GA-T31-mitte-menue-schliessen.dark.reduced.075.png",
+      "keyframes/GA-T31-mitte-menue-schliessen.dark.reduced.100.png"
+     ],
+     "light": [
+      "keyframes/GA-T31-mitte-menue-schliessen.light.000.png",
+      "keyframes/GA-T31-mitte-menue-schliessen.light.025.png",
+      "keyframes/GA-T31-mitte-menue-schliessen.light.050.png",
+      "keyframes/GA-T31-mitte-menue-schliessen.light.075.png",
+      "keyframes/GA-T31-mitte-menue-schliessen.light.100.png"
+     ],
+     "light_reduced": [
+      "keyframes/GA-T31-mitte-menue-schliessen.light.reduced.000.png",
+      "keyframes/GA-T31-mitte-menue-schliessen.light.reduced.025.png",
+      "keyframes/GA-T31-mitte-menue-schliessen.light.reduced.050.png",
+      "keyframes/GA-T31-mitte-menue-schliessen.light.reduced.075.png",
+      "keyframes/GA-T31-mitte-menue-schliessen.light.reduced.100.png"
+     ]
+    },
+    "strip": {
+     "dark": "strips/GA-T31-mitte-menue-schliessen.dark.png",
+     "dark_reduced": "strips/GA-T31-mitte-menue-schliessen.dark.reduced.png",
+     "light": "strips/GA-T31-mitte-menue-schliessen.light.png",
+     "light_reduced": "strips/GA-T31-mitte-menue-schliessen.light.reduced.png"
+    }
+   }
+  },
+  {
+   "id": "GA-T29",
+   "slug": "menue-sprechen",
+   "group": "Финал 2 · меню центральной кнопки",
+   "title": "Menü «Sprechen» → Stimme im leeren Chat: das Zeichen wächst von der Frage in die Bühne, die Leiste sagt «Ich höre zu.»",
+   "trigger": "Касание «Sprechen» (`ia115.entry.speak`) в меню центральной кнопки.",
+   "interrupt": "⌨ во время морфа — обратный морф в шапку (GA-T16 без клавиатуры); микрофон запрещён — GA-T19.",
+   "reduced": "Без морфа: меню гаснет, чат с Sprechleiste появляется (opacity за `motion-fast`); знак сразу на сцене.",
+   "a11y": "Фокус — на «Zum Text wechseln»; объявляется «Ich höre zu.» (строка Sprechleiste, `role=\"status\"`); таб-бар скрыт, пока идёт голос; «Beenden» — в шапке.",
+   "notes": [
+    "Shared element: знак у вопроса (40) становится присутствием сцены (288). Статус говорит только Sprechleiste: под знаком подписи нет."
+   ],
+   "boards": [
+    "GA-15",
+    "GA-34"
+   ],
+   "frames": [
+    "F04.07",
+    "F04.03",
+    "F06.02"
+   ],
+   "profile": "390x844",
+   "viewport": {
+    "w": 390,
+    "h": 844,
+    "fps": 60
+   },
+   "haptics": [
+    {
+     "at": 0,
+     "ios": "impactOccurred(.medium)",
+     "android": "CONTEXT_CLICK",
+     "why": "разговор голосом начинается"
+    }
+   ],
+   "earcons": [
+    {
+     "at": 450.0,
+     "file": "listen-start",
+     "why": "микрофон открыт"
+    }
+   ],
+   "window_ms": [
+    0,
+    600
+   ],
+   "hold_ms": [
+    300,
+    800
+   ],
+   "keyframes_ms": {
+    "0": 0.0,
+    "25": 150.0,
+    "50": 300.0,
+    "75": 450.0,
+    "100": 600.0
+   },
+   "ui_duration_ms": 500.0,
+   "initial_from": null,
+   "tracks": [
+    {
+     "order": 1,
+     "element": ".L-start .p-nav-agent .p-nav-pebble",
+     "what": "камешек под «×» (меню открыто)",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 0,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "end_ms": 0.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 2,
+     "element": ".ga-dial .p-dial-list > li:nth-child(1) .p-dial-item",
+     "what": "«Sprechen»: нажатие",
+     "property": "scale",
+     "property_label": "scale",
+     "from": 1,
+     "to": 0.97,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 150.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 3,
+     "element": ".ga-dial .p-dial-list",
+     "what": "пилюли",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 1,
+     "to": 0,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 150.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 4,
+     "element": ".ga-dial .p-dial-head p",
+     "what": "вопрос",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 1,
+     "to": 0,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 150.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 5,
+     "element": ".ga-dial .p-dial-close",
+     "what": "«×»",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 1,
+     "to": 0,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 150.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 6,
+     "element": "#voice",
+     "what": "фон чата (ground) поверх размытия",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 250.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 7,
+     "element": "#ctop",
+     "what": "шапка «Gespräch» + «Beenden»",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 400.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 8,
+     "element": "#a-vb",
+     "what": "Sprechleiste поднимается («Ich höre zu.», живая точка)",
+     "property": "ty",
+     "property_label": "translateY, px",
+     "from": 24,
+     "to": 0,
+     "delay": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 400.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 9,
+     "element": "#a-vb",
+     "what": "Sprechleiste",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 400.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 10,
+     "element": "#b-hint",
+     "what": "подсказка и темы-пилюли как примеры",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 500.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 11,
+     "element": "#b-hint",
+     "what": "подсказка и темы-пилюли как примеры",
+     "property": "ty",
+     "property_label": "translateY, px",
+     "from": 12,
+     "to": 0,
+     "delay": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 500.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 12,
+     "element": "#voice",
+     "what": "фон чата: подложка меню",
+     "property": "bg",
+     "property_label": "bg",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 150.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 13,
+     "element": "#scrim",
+     "what": "затемнение сцены знака (подложка)",
+     "property": "bg",
+     "property_label": "bg",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 250.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    }
+   ],
+   "events": [
+    {
+     "at": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "do": "faden",
+     "element": "#F",
+     "what": "Dynamic Faden idle → listening",
+     "set": {
+      "state": "listening"
+     }
+    }
+   ],
+   "signals": [],
+   "adaptive": {
+    "rule": "CompliorFaden.adaptive (Faden 1.3): P = H − T − A − C; S = max(96, min(cap, P − 64)); док, когда хост решил (работа, текстовый режим) или P − 64 < 96; «im Chat» (fit): сцена = S + 64, остаток — ленте; новая цель → motion-slow · ease-standard от текущего значения; док / раздок — motion-morph · ease-morph; пока движется клавиатура — следуем её кадру (follow)",
+    "H": 844,
+    "top": 60,
+    "caps": [
+     [
+      -1000000000.0,
+      288
+     ]
+    ],
+    "docks": [],
+    "fit": [],
+    "follow": null,
+    "slot": "#slot",
+    "duration": {
+     "token": "motion-slow",
+     "ms": 400.0
+    },
+    "curve": "ease-standard",
+    "dock": {
+     "token": "motion-morph",
+     "curve": "ease-morph"
+    },
+    "enter_from": ".ga-dial .p-dial-mark svg",
+    "exit_to": null,
+    "enter": {
+     "at": 0,
+     "dur": "motion-morph",
+     "ease": "ease-morph"
+    },
+    "exit": null,
+    "timeline": [
+     {
+      "t": -300,
+      "kind": "start",
+      "P": 624,
+      "S": 40,
+      "docked": false,
+      "tier": "mini",
+      "x": 175,
+      "y": 359
+     },
+     {
+      "t": 166.7,
+      "kind": "retarget",
+      "P_from": 624,
+      "P_to": 618.2,
+      "S_from": 257.6,
+      "S_to": 288,
+      "docked": false,
+      "A": 65.8,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 183.3,
+      "kind": "retarget",
+      "P_from": 624,
+      "P_to": 612.8,
+      "S_from": 263.8,
+      "S_to": 288,
+      "docked": false,
+      "A": 71.2,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 200,
+      "kind": "retarget",
+      "P_from": 623.1,
+      "P_to": 608.7,
+      "S_from": 268.6,
+      "S_to": 288,
+      "docked": false,
+      "A": 75.3,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 216.7,
+      "kind": "retarget",
+      "P_from": 621.6,
+      "P_to": 606.0,
+      "S_from": 272.4,
+      "S_to": 288,
+      "docked": false,
+      "A": 78.0,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 233.3,
+      "kind": "retarget",
+      "P_from": 619.7,
+      "P_to": 604.2,
+      "S_from": 275.5,
+      "S_to": 288,
+      "docked": false,
+      "A": 79.8,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 250,
+      "kind": "retarget",
+      "P_from": 617.6,
+      "P_to": 602.9,
+      "S_from": 278.0,
+      "S_to": 288,
+      "docked": false,
+      "A": 81.1,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 266.7,
+      "kind": "retarget",
+      "P_from": 615.6,
+      "P_to": 602.0,
+      "S_from": 280.0,
+      "S_to": 288,
+      "docked": false,
+      "A": 82.0,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 283.3,
+      "kind": "retarget",
+      "P_from": 613.7,
+      "P_to": 601.4,
+      "S_from": 281.7,
+      "S_to": 288,
+      "docked": false,
+      "A": 82.6,
+      "C": 100,
+      "cap": 288
+     }
+    ],
+    "end": {
+     "P": 600.1,
+     "S": 288,
+     "x": 51,
+     "y": 198.0,
+     "docked": false,
+     "tier": "full",
+     "workTop": 660.1
+    },
+    "tiers": [
+     [
+      -300,
+      "mini"
+     ],
+     [
+      16.7,
+      "compact"
+     ],
+     [
+      66.7,
+      "medium"
+     ],
+     [
+      100,
+      "large"
+     ],
+     [
+      133.3,
+      "full"
+     ]
+    ]
+   },
+   "faden": {
+    "tokens": [],
+    "kinetics": "",
+    "pose_changes": [
+     {
+      "param": "w",
+      "label": "раскрытие разрыва",
+      "unit": "°",
+      "from": 95.5,
+      "to": 101.5,
+      "min": 95.5,
+      "max": 101.5
+     },
+     {
+      "param": "g",
+      "label": "поворот",
+      "unit": "°",
+      "from": 7.7,
+      "to": 13.667,
+      "min": 7.7,
+      "max": 13.667
+     }
+    ],
+    "tone": {
+     "from": "accent",
+     "to": "accent"
+    },
+    "engine": "components/faden-motion.js (Dynamic Faden 1.3) — эталонная реализация; покадровые позы эталона: faden-poses-gespraech.json"
+   },
+   "files": {
+    "video": {
+     "dark": "video/GA-T29-menue-sprechen.dark.mp4",
+     "dark_reduced": "video/GA-T29-menue-sprechen.dark.reduced.mp4",
+     "light": "video/GA-T29-menue-sprechen.light.mp4",
+     "light_reduced": "video/GA-T29-menue-sprechen.light.reduced.mp4"
+    },
+    "keyframes": {
+     "dark": [
+      "keyframes/GA-T29-menue-sprechen.dark.000.png",
+      "keyframes/GA-T29-menue-sprechen.dark.025.png",
+      "keyframes/GA-T29-menue-sprechen.dark.050.png",
+      "keyframes/GA-T29-menue-sprechen.dark.075.png",
+      "keyframes/GA-T29-menue-sprechen.dark.100.png"
+     ],
+     "dark_reduced": [
+      "keyframes/GA-T29-menue-sprechen.dark.reduced.000.png",
+      "keyframes/GA-T29-menue-sprechen.dark.reduced.025.png",
+      "keyframes/GA-T29-menue-sprechen.dark.reduced.050.png",
+      "keyframes/GA-T29-menue-sprechen.dark.reduced.075.png",
+      "keyframes/GA-T29-menue-sprechen.dark.reduced.100.png"
+     ],
+     "light": [
+      "keyframes/GA-T29-menue-sprechen.light.000.png",
+      "keyframes/GA-T29-menue-sprechen.light.025.png",
+      "keyframes/GA-T29-menue-sprechen.light.050.png",
+      "keyframes/GA-T29-menue-sprechen.light.075.png",
+      "keyframes/GA-T29-menue-sprechen.light.100.png"
+     ],
+     "light_reduced": [
+      "keyframes/GA-T29-menue-sprechen.light.reduced.000.png",
+      "keyframes/GA-T29-menue-sprechen.light.reduced.025.png",
+      "keyframes/GA-T29-menue-sprechen.light.reduced.050.png",
+      "keyframes/GA-T29-menue-sprechen.light.reduced.075.png",
+      "keyframes/GA-T29-menue-sprechen.light.reduced.100.png"
+     ]
+    },
+    "strip": {
+     "dark": "strips/GA-T29-menue-sprechen.dark.png",
+     "dark_reduced": "strips/GA-T29-menue-sprechen.dark.reduced.png",
+     "light": "strips/GA-T29-menue-sprechen.light.png",
+     "light_reduced": "strips/GA-T29-menue-sprechen.light.reduced.png"
+    }
+   }
+  },
+  {
+   "id": "GA-T35",
+   "slug": "mitte-halten-sprechen",
+   "group": "Финал 2 · меню центральной кнопки",
+   "title": "Mitte gedrückt halten (press-long 500 ms) → sofort Stimme: das Zeichen wächst aus dem Kiesel in die Bühne",
+   "trigger": "Удержание центральной вкладки `press-long` (500 мс); подсказка «oder Taste gedrückt halten» в меню учит этому жесту.",
+   "interrupt": "Отпускание до 500 мс — это касание: меню (GA-T28). При крупном тексте (Large Content Viewer / подсказки Android) хост выключает ярлык — голос остаётся в меню.",
+   "reduced": "Камешек не растёт; через 500 мс чат с Sprechleiste появляется (opacity за `motion-fast`).",
+   "a11y": "Ярлык дублирует пункт меню «Sprechen» — для VoiceOver / TalkBack действие доступно в меню и как custom action вкладки.",
+   "notes": [],
+   "boards": [
+    "GA-01",
+    "GA-34"
+   ],
+   "frames": [
+    "W01",
+    "F04.03"
+   ],
+   "profile": "390x844",
+   "viewport": {
+    "w": 390,
+    "h": 844,
+    "fps": 60
+   },
+   "haptics": [
+    {
+     "at": 500.0,
+     "ios": "impactOccurred(.medium)",
+     "android": "LONG_PRESS",
+     "why": "удержание распознано"
+    }
+   ],
+   "earcons": [
+    {
+     "at": 950.0,
+     "file": "listen-start",
+     "why": "микрофон открыт"
+    }
+   ],
+   "window_ms": [
+    0,
+    1100
+   ],
+   "hold_ms": [
+    300,
+    800
+   ],
+   "keyframes_ms": {
+    "0": 0.0,
+    "25": 275.0,
+    "50": 550.0,
+    "75": 825.0,
+    "100": 1100.0
+   },
+   "ui_duration_ms": 1000.0,
+   "initial_from": null,
+   "tracks": [
+    {
+     "order": 1,
+     "element": ".L-start .p-nav-agent .p-nav-pebble",
+     "what": "камешек растёт, пока палец держит (press-long)",
+     "property": "scale",
+     "property_label": "scale",
+     "from": 1,
+     "to": 1.06,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "press-long",
+      "ms": 500.0
+     },
+     "end_ms": 500.0,
+     "curve": {
+      "token": "linear",
+      "value": null
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 2,
+     "element": ".L-start .p-nav-agent .p-nav-pebble",
+     "what": "камешек",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 1,
+     "to": 0,
+     "delay": {
+      "token": "500.0",
+      "ms": 500.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 650.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 3,
+     "element": "#voice",
+     "what": "фон чата",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "500.0",
+      "ms": 500.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 750.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 4,
+     "element": "#ctop",
+     "what": "шапка «Gespräch» + «Beenden»",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "650.0",
+      "ms": 650.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 900.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 5,
+     "element": "#a-vb",
+     "what": "Sprechleiste",
+     "property": "ty",
+     "property_label": "translateY, px",
+     "from": 24,
+     "to": 0,
+     "delay": {
+      "token": "650.0",
+      "ms": 650.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 900.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 6,
+     "element": "#a-vb",
+     "what": "Sprechleiste",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "650.0",
+      "ms": 650.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 900.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 7,
+     "element": "#b-hint",
+     "what": "подсказка и темы-пилюли",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "750.0",
+      "ms": 750.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 1000.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 8,
+     "element": "#b-hint",
+     "what": "подсказка и темы-пилюли",
+     "property": "ty",
+     "property_label": "translateY, px",
+     "from": 12,
+     "to": 0,
+     "delay": {
+      "token": "750.0",
+      "ms": 750.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 1000.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    }
+   ],
+   "events": [
+    {
+     "at": {
+      "token": "500.0",
+      "ms": 500.0
+     },
+     "do": "faden",
+     "element": "#F",
+     "what": "Dynamic Faden idle → listening",
+     "set": {
+      "state": "listening"
+     }
+    }
+   ],
+   "signals": [],
+   "adaptive": {
+    "rule": "CompliorFaden.adaptive (Faden 1.3): P = H − T − A − C; S = max(96, min(cap, P − 64)); док, когда хост решил (работа, текстовый режим) или P − 64 < 96; «im Chat» (fit): сцена = S + 64, остаток — ленте; новая цель → motion-slow · ease-standard от текущего значения; док / раздок — motion-morph · ease-morph; пока движется клавиатура — следуем её кадру (follow)",
+    "H": 844,
+    "top": 60,
+    "caps": [
+     [
+      -1000000000.0,
+      288
+     ]
+    ],
+    "docks": [],
+    "fit": [],
+    "follow": null,
+    "slot": "#slot",
+    "duration": {
+     "token": "motion-slow",
+     "ms": 400.0
+    },
+    "curve": "ease-standard",
+    "dock": {
+     "token": "motion-morph",
+     "curve": "ease-morph"
+    },
+    "enter_from": ".L-start .p-nav-agent .p-nav-pebble svg",
+    "exit_to": null,
+    "enter": {
+     "at": 500.0,
+     "dur": "motion-morph",
+     "ease": "ease-morph"
+    },
+    "exit": null,
+    "timeline": [
+     {
+      "t": -300,
+      "kind": "start",
+      "P": 624,
+      "S": 28,
+      "docked": false,
+      "tier": "mini",
+      "x": 181,
+      "y": 781
+     },
+     {
+      "t": 666.7,
+      "kind": "retarget",
+      "P_from": 624,
+      "P_to": 618.2,
+      "S_from": 256.1,
+      "S_to": 288,
+      "docked": false,
+      "A": 65.8,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 683.3,
+      "kind": "retarget",
+      "P_from": 624,
+      "P_to": 612.8,
+      "S_from": 262.7,
+      "S_to": 288,
+      "docked": false,
+      "A": 71.2,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 700,
+      "kind": "retarget",
+      "P_from": 623.1,
+      "P_to": 608.7,
+      "S_from": 267.7,
+      "S_to": 288,
+      "docked": false,
+      "A": 75.3,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 716.7,
+      "kind": "retarget",
+      "P_from": 621.6,
+      "P_to": 606.0,
+      "S_from": 271.7,
+      "S_to": 288,
+      "docked": false,
+      "A": 78.0,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 733.3,
+      "kind": "retarget",
+      "P_from": 619.7,
+      "P_to": 604.2,
+      "S_from": 274.9,
+      "S_to": 288,
+      "docked": false,
+      "A": 79.8,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 750,
+      "kind": "retarget",
+      "P_from": 617.6,
+      "P_to": 602.9,
+      "S_from": 277.5,
+      "S_to": 288,
+      "docked": false,
+      "A": 81.1,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 766.7,
+      "kind": "retarget",
+      "P_from": 615.6,
+      "P_to": 602.0,
+      "S_from": 279.6,
+      "S_to": 288,
+      "docked": false,
+      "A": 82.0,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 783.3,
+      "kind": "retarget",
+      "P_from": 613.7,
+      "P_to": 601.4,
+      "S_from": 281.4,
+      "S_to": 288,
+      "docked": false,
+      "A": 82.6,
+      "C": 100,
+      "cap": 288
+     }
+    ],
+    "end": {
+     "P": 600.1,
+     "S": 288,
+     "x": 51,
+     "y": 198.0,
+     "docked": false,
+     "tier": "full",
+     "workTop": 660.1
+    },
+    "tiers": [
+     [
+      -300,
+      "mini"
+     ],
+     [
+      533.3,
+      "compact"
+     ],
+     [
+      566.7,
+      "medium"
+     ],
+     [
+      600,
+      "large"
+     ],
+     [
+      633.3,
+      "full"
+     ]
+    ]
+   },
+   "faden": {
+    "tokens": [],
+    "kinetics": "",
+    "pose_changes": [
+     {
+      "param": "w",
+      "label": "раскрытие разрыва",
+      "unit": "°",
+      "from": 95.5,
+      "to": 101.5,
+      "min": 95.5,
+      "max": 101.5
+     },
+     {
+      "param": "g",
+      "label": "поворот",
+      "unit": "°",
+      "from": 7.7,
+      "to": 13.665,
+      "min": 7.7,
+      "max": 13.665
+     }
+    ],
+    "tone": {
+     "from": "accent",
+     "to": "accent"
+    },
+    "engine": "components/faden-motion.js (Dynamic Faden 1.3) — эталонная реализация; покадровые позы эталона: faden-poses-gespraech.json"
+   },
+   "files": {
+    "video": {
+     "dark": "video/GA-T35-mitte-halten-sprechen.dark.mp4",
+     "dark_reduced": "video/GA-T35-mitte-halten-sprechen.dark.reduced.mp4",
+     "light": "video/GA-T35-mitte-halten-sprechen.light.mp4",
+     "light_reduced": "video/GA-T35-mitte-halten-sprechen.light.reduced.mp4"
+    },
+    "keyframes": {
+     "dark": [
+      "keyframes/GA-T35-mitte-halten-sprechen.dark.000.png",
+      "keyframes/GA-T35-mitte-halten-sprechen.dark.025.png",
+      "keyframes/GA-T35-mitte-halten-sprechen.dark.050.png",
+      "keyframes/GA-T35-mitte-halten-sprechen.dark.075.png",
+      "keyframes/GA-T35-mitte-halten-sprechen.dark.100.png"
+     ],
+     "dark_reduced": [
+      "keyframes/GA-T35-mitte-halten-sprechen.dark.reduced.000.png",
+      "keyframes/GA-T35-mitte-halten-sprechen.dark.reduced.025.png",
+      "keyframes/GA-T35-mitte-halten-sprechen.dark.reduced.050.png",
+      "keyframes/GA-T35-mitte-halten-sprechen.dark.reduced.075.png",
+      "keyframes/GA-T35-mitte-halten-sprechen.dark.reduced.100.png"
+     ],
+     "light": [
+      "keyframes/GA-T35-mitte-halten-sprechen.light.000.png",
+      "keyframes/GA-T35-mitte-halten-sprechen.light.025.png",
+      "keyframes/GA-T35-mitte-halten-sprechen.light.050.png",
+      "keyframes/GA-T35-mitte-halten-sprechen.light.075.png",
+      "keyframes/GA-T35-mitte-halten-sprechen.light.100.png"
+     ],
+     "light_reduced": [
+      "keyframes/GA-T35-mitte-halten-sprechen.light.reduced.000.png",
+      "keyframes/GA-T35-mitte-halten-sprechen.light.reduced.025.png",
+      "keyframes/GA-T35-mitte-halten-sprechen.light.reduced.050.png",
+      "keyframes/GA-T35-mitte-halten-sprechen.light.reduced.075.png",
+      "keyframes/GA-T35-mitte-halten-sprechen.light.reduced.100.png"
+     ]
+    },
+    "strip": {
+     "dark": "strips/GA-T35-mitte-halten-sprechen.dark.png",
+     "dark_reduced": "strips/GA-T35-mitte-halten-sprechen.dark.reduced.png",
+     "light": "strips/GA-T35-mitte-halten-sprechen.light.png",
+     "light_reduced": "strips/GA-T35-mitte-halten-sprechen.light.reduced.png"
+    }
+   }
+  },
+  {
+   "id": "GA-T36",
+   "slug": "mitte-halten-sprechen",
+   "group": "Финал 2 · меню центральной кнопки",
+   "title": "Mitte gedrückt halten (press-long 500 ms) → sofort Stimme: das Zeichen wächst aus dem Kiesel in die Bühne",
+   "trigger": "Удержание центральной вкладки `press-long` (500 мс); подсказка «oder Taste gedrückt halten» в меню учит этому жесту.",
+   "interrupt": "Отпускание до 500 мс — это касание: меню (GA-T28). При крупном тексте (Large Content Viewer / подсказки Android) хост выключает ярлык — голос остаётся в меню.",
+   "reduced": "Камешек не растёт; через 500 мс чат с Sprechleiste появляется (opacity за `motion-fast`).",
+   "a11y": "Ярлык дублирует пункт меню «Sprechen» — для VoiceOver / TalkBack действие доступно в меню и как custom action вкладки.",
+   "notes": [],
+   "boards": [
+    "GA-01",
+    "GA-34"
+   ],
+   "frames": [
+    "W01",
+    "F04.03"
+   ],
+   "profile": "390x844",
+   "viewport": {
+    "w": 390,
+    "h": 844,
+    "fps": 60
+   },
+   "haptics": [
+    {
+     "at": 500.0,
+     "ios": "impactOccurred(.medium)",
+     "android": "LONG_PRESS",
+     "why": "удержание распознано"
+    }
+   ],
+   "earcons": [
+    {
+     "at": 950.0,
+     "file": "listen-start",
+     "why": "микрофон открыт"
+    }
+   ],
+   "window_ms": [
+    0,
+    1100
+   ],
+   "hold_ms": [
+    300,
+    800
+   ],
+   "keyframes_ms": {
+    "0": 0.0,
+    "25": 275.0,
+    "50": 550.0,
+    "75": 825.0,
+    "100": 1100.0
+   },
+   "ui_duration_ms": 1000.0,
+   "initial_from": null,
+   "tracks": [
+    {
+     "order": 1,
+     "element": ".L-start .p-nav-agent .p-nav-pebble",
+     "what": "камешек растёт, пока палец держит (press-long)",
+     "property": "scale",
+     "property_label": "scale",
+     "from": 1,
+     "to": 1.06,
+     "delay": {
+      "token": "0",
+      "ms": 0.0
+     },
+     "duration": {
+      "token": "press-long",
+      "ms": 500.0
+     },
+     "end_ms": 500.0,
+     "curve": {
+      "token": "linear",
+      "value": null
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 2,
+     "element": ".L-start .p-nav-agent .p-nav-pebble",
+     "what": "камешек",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 1,
+     "to": 0,
+     "delay": {
+      "token": "500.0",
+      "ms": 500.0
+     },
+     "duration": {
+      "token": "motion-fast",
+      "ms": 150.0
+     },
+     "end_ms": 650.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 3,
+     "element": "#voice",
+     "what": "фон чата",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "500.0",
+      "ms": 500.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 750.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 4,
+     "element": "#ctop",
+     "what": "шапка «Gespräch» + «Beenden»",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "650.0",
+      "ms": 650.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 900.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 5,
+     "element": "#a-vb",
+     "what": "Sprechleiste",
+     "property": "ty",
+     "property_label": "translateY, px",
+     "from": 24,
+     "to": 0,
+     "delay": {
+      "token": "650.0",
+      "ms": 650.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 900.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    },
+    {
+     "order": 6,
+     "element": "#a-vb",
+     "what": "Sprechleiste",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "650.0",
+      "ms": 650.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 900.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 7,
+     "element": "#b-hint",
+     "what": "подсказка и темы-пилюли",
+     "property": "opacity",
+     "property_label": "opacity",
+     "from": 0,
+     "to": 1,
+     "delay": {
+      "token": "750.0",
+      "ms": 750.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 1000.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 150.0,
+     "platform": false
+    },
+    {
+     "order": 8,
+     "element": "#b-hint",
+     "what": "подсказка и темы-пилюли",
+     "property": "ty",
+     "property_label": "translateY, px",
+     "from": 12,
+     "to": 0,
+     "delay": {
+      "token": "750.0",
+      "ms": 750.0
+     },
+     "duration": {
+      "token": "motion-base",
+      "ms": 250.0
+     },
+     "end_ms": 1000.0,
+     "curve": {
+      "token": "ease-standard",
+      "value": "cubic-bezier(0.2, 0.7, 0.2, 1)"
+     },
+     "spring": null,
+     "reduced_duration_ms": 0.0,
+     "platform": false
+    }
+   ],
+   "events": [
+    {
+     "at": {
+      "token": "500.0",
+      "ms": 500.0
+     },
+     "do": "faden",
+     "element": "#F",
+     "what": "Dynamic Faden idle → listening",
+     "set": {
+      "state": "listening"
+     }
+    }
+   ],
+   "signals": [],
+   "adaptive": {
+    "rule": "CompliorFaden.adaptive (Faden 1.3): P = H − T − A − C; S = max(96, min(cap, P − 64)); док, когда хост решил (работа, текстовый режим) или P − 64 < 96; «im Chat» (fit): сцена = S + 64, остаток — ленте; новая цель → motion-slow · ease-standard от текущего значения; док / раздок — motion-morph · ease-morph; пока движется клавиатура — следуем её кадру (follow)",
+    "H": 844,
+    "top": 60,
+    "caps": [
+     [
+      -1000000000.0,
+      288
+     ]
+    ],
+    "docks": [],
+    "fit": [],
+    "follow": null,
+    "slot": "#slot",
+    "duration": {
+     "token": "motion-slow",
+     "ms": 400.0
+    },
+    "curve": "ease-standard",
+    "dock": {
+     "token": "motion-morph",
+     "curve": "ease-morph"
+    },
+    "enter_from": ".L-start .p-nav-agent .p-nav-pebble svg",
+    "exit_to": null,
+    "enter": {
+     "at": 500.0,
+     "dur": "motion-morph",
+     "ease": "ease-morph"
+    },
+    "exit": null,
+    "timeline": [
+     {
+      "t": -300,
+      "kind": "start",
+      "P": 624,
+      "S": 28,
+      "docked": false,
+      "tier": "mini",
+      "x": 181,
+      "y": 781
+     },
+     {
+      "t": 666.7,
+      "kind": "retarget",
+      "P_from": 624,
+      "P_to": 618.2,
+      "S_from": 256.1,
+      "S_to": 288,
+      "docked": false,
+      "A": 65.8,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 683.3,
+      "kind": "retarget",
+      "P_from": 624,
+      "P_to": 612.8,
+      "S_from": 262.7,
+      "S_to": 288,
+      "docked": false,
+      "A": 71.2,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 700,
+      "kind": "retarget",
+      "P_from": 623.1,
+      "P_to": 608.7,
+      "S_from": 267.7,
+      "S_to": 288,
+      "docked": false,
+      "A": 75.3,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 716.7,
+      "kind": "retarget",
+      "P_from": 621.6,
+      "P_to": 606.0,
+      "S_from": 271.7,
+      "S_to": 288,
+      "docked": false,
+      "A": 78.0,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 733.3,
+      "kind": "retarget",
+      "P_from": 619.7,
+      "P_to": 604.2,
+      "S_from": 274.9,
+      "S_to": 288,
+      "docked": false,
+      "A": 79.8,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 750,
+      "kind": "retarget",
+      "P_from": 617.6,
+      "P_to": 602.9,
+      "S_from": 277.5,
+      "S_to": 288,
+      "docked": false,
+      "A": 81.1,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 766.7,
+      "kind": "retarget",
+      "P_from": 615.6,
+      "P_to": 602.0,
+      "S_from": 279.6,
+      "S_to": 288,
+      "docked": false,
+      "A": 82.0,
+      "C": 100,
+      "cap": 288
+     },
+     {
+      "t": 783.3,
+      "kind": "retarget",
+      "P_from": 613.7,
+      "P_to": 601.4,
+      "S_from": 281.4,
+      "S_to": 288,
+      "docked": false,
+      "A": 82.6,
+      "C": 100,
+      "cap": 288
+     }
+    ],
+    "end": {
+     "P": 600.1,
+     "S": 288,
+     "x": 51,
+     "y": 198.0,
+     "docked": false,
+     "tier": "full",
+     "workTop": 660.1
+    },
+    "tiers": [
+     [
+      -300,
+      "mini"
+     ],
+     [
+      533.3,
+      "compact"
+     ],
+     [
+      566.7,
+      "medium"
+     ],
+     [
+      600,
+      "large"
+     ],
+     [
+      633.3,
+      "full"
+     ]
+    ]
+   },
+   "faden": {
+    "tokens": [],
+    "kinetics": "",
+    "pose_changes": [
+     {
+      "param": "w",
+      "label": "раскрытие разрыва",
+      "unit": "°",
+      "from": 95.5,
+      "to": 101.5,
+      "min": 95.5,
+      "max": 101.5
+     },
+     {
+      "param": "g",
+      "label": "поворот",
+      "unit": "°",
+      "from": 7.7,
+      "to": 13.665,
+      "min": 7.7,
+      "max": 13.665
+     }
+    ],
+    "tone": {
+     "from": "accent",
+     "to": "accent"
+    },
+    "engine": "components/faden-motion.js (Dynamic Faden 1.3) — эталонная реализация; покадровые позы эталона: faden-poses-gespraech.json"
+   },
+   "files": {
+    "video": {
+     "dark": "video/GA-T36-mitte-halten-sprechen.dark.mp4",
+     "dark_reduced": "video/GA-T36-mitte-halten-sprechen.dark.reduced.mp4",
+     "light": "video/GA-T36-mitte-halten-sprechen.light.mp4",
+     "light_reduced": "video/GA-T36-mitte-halten-sprechen.light.reduced.mp4"
+    },
+    "keyframes": {
+     "dark": [
+      "keyframes/GA-T36-mitte-halten-sprechen.dark.000.png",
+      "keyframes/GA-T36-mitte-halten-sprechen.dark.025.png",
+      "keyframes/GA-T36-mitte-halten-sprechen.dark.050.png",
+      "keyframes/GA-T36-mitte-halten-sprechen.dark.075.png",
+      "keyframes/GA-T36-mitte-halten-sprechen.dark.100.png"
+     ],
+     "dark_reduced": [
+      "keyframes/GA-T36-mitte-halten-sprechen.dark.reduced.000.png",
+      "keyframes/GA-T36-mitte-halten-sprechen.dark.reduced.025.png",
+      "keyframes/GA-T36-mitte-halten-sprechen.dark.reduced.050.png",
+      "keyframes/GA-T36-mitte-halten-sprechen.dark.reduced.075.png",
+      "keyframes/GA-T36-mitte-halten-sprechen.dark.reduced.100.png"
+     ],
+     "light": [
+      "keyframes/GA-T36-mitte-halten-sprechen.light.000.png",
+      "keyframes/GA-T36-mitte-halten-sprechen.light.025.png",
+      "keyframes/GA-T36-mitte-halten-sprechen.light.050.png",
+      "keyframes/GA-T36-mitte-halten-sprechen.light.075.png",
+      "keyframes/GA-T36-mitte-halten-sprechen.light.100.png"
+     ],
+     "light_reduced": [
+      "keyframes/GA-T36-mitte-halten-sprechen.light.reduced.000.png",
+      "keyframes/GA-T36-mitte-halten-sprechen.light.reduced.025.png",
+      "keyframes/GA-T36-mitte-halten-sprechen.light.reduced.050.png",
+      "keyframes/GA-T36-mitte-halten-sprechen.light.reduced.075.png",
+      "keyframes/GA-T36-mitte-halten-sprechen.light.reduced.100.png"
+     ]
+    },
+    "strip": {
+     "dark": "strips/GA-T36-mitte-halten-sprechen.dark.png",
+     "dark_reduced": "strips/GA-T36-mitte-halten-sprechen.dark.reduced.png",
+     "light": "strips/GA-T36-mitte-halten-sprechen.light.png",
+     "light_reduced": "strips/GA-T36-mitte-halten-sprechen.light.reduced.png"
+    }
+   }
+  }
+ ]
+}
