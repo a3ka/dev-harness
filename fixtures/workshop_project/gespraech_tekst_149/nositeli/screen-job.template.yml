@@ -1,0 +1,195 @@
+# 143 v2 — ЛЕКАЛО экранного работника (D 2.4; Astra §2.3, слово владельца
+# 2026-10-30 ~11:40 UTC). Это НЕ готовый workflow и НЕ список экранов:
+# архитектор экрана (147–154) инстанцирует лекало своими параметрами и
+# ставит job В ТОМ ЖЕ PR тремя парными правками: запись карты
+# (mobile/ci-screens.json), output job-а в select-screens, имя worker в
+# needs ОБОИХ агрегирующих задач (required PR-агрегат и ночной signal).
+# Проверяющий код работников перечислений экранов НЕ держит (143 v2).
+#
+# Параметры (все обязаны быть заменены; лекало не содержит ни одного
+# имени существующего экрана — второго списка экранов нет):
+#   {{JOB_ID}}      — имя job, e2e-<screen> (алфавит [a-z0-9-])
+#   {{SCREEN_ID}}   — id записи карты (алфавит [a-z0-9-])
+#   {{PACK}}        — pack-каталог пачки, mobile/e2e-<screen>/ (пачка
+#                     регистрируется записью карты; выносит её общий шаг
+#                     инвентаризации quality — персональный mv не нужен)
+#   {{FLOWS}}       — корневые флоу пачки (mobile/.maestro/<...>.yaml,
+#                     через запятую для env; владение флоу — только карта)
+#   {{H_REF}}       — ПРИНЯТЫЙ H-пин харнесса (sha), несущий реализацию
+#                     валидатора 132 v3 (ekran_shablon.py) и все её
+#                     зависимости; плавающая ссылка на main недопустима
+#   {{H_PATH}}      — путь checkout H в дереве (.harness<NNN>)
+#   {{AVD_PORT}}    — порт эмулятора работника, уникальный в DAG
+#                     (int; слоты: 5560 занят интеграцией — не выбирать)
+#   {{EVIDENCE_NS}} — каталог доказательств, mobile/maestro-out-<screen>
+#
+# Обязательства (судятся батареей 143 v2 по КАЖДОМУ работнику карты):
+# чистое проверяемое дерево; изоляция до кода PR; один общий APK с digest
+# до установки и outputs идентичности; независимый emulator/state
+# (AVD/порт на работника); валидатор 132 v3 из принятого H-пина; один
+# screen-local уровень восстановления (ровно один «ПОВТОР: », только по
+# канонической сигнатуре обрыва adb — 141); публикация evidence; НЕТ
+# continue-on-error, НЕТ strategy/matrix, НЕТ скрытого второго запуска
+# (внешний повтор выведен из эксплуатации). Тела legacy-работников на
+# это лекало НЕ переносятся: их H-пины, same-job Jest и локальные
+# правила восстановления остаются в своих задачах.
+jobs:
+  {{JOB_ID}}:
+    needs: [select-screens, build-apk]
+    if: needs.select-screens.outputs['{{JOB_ID}}'] == 'true'
+    outputs:
+      apk_sha256: ${{ steps.ident.outputs.apk_sha256 }}
+      artifact_name: ${{ steps.ident.outputs.artifact_name }}
+      run_id: ${{ steps.ident.outputs.run_id }}
+    runs-on: [self-hosted, linux, x64, kvm, complior]
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          clean: true
+      # изоляция ДО первого шага, исполняющего код PR на хосте раннера
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
+      # работник НЕ пересобирает APK: артефакт по ТОЧНОМУ имени из outputs
+      # сборки (имя переживает выборочный повтор), sha256 ДО установки
+      - name: 'APK сборки: артефакт по имени, digest до установки'
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMJA_ARTEFAKTA: ${{ needs.build-apk.outputs.artifact_name }}
+          ZHELANYJ_DIGEST: ${{ needs.build-apk.outputs.apk_sha256 }}
+        run: |
+          set -euo pipefail
+          test -n "$IMJA_ARTEFAKTA" && test -n "$ZHELANYJ_DIGEST"
+          rm -rf apk-build && mkdir -p apk-build
+          gh run download "${{ github.run_id }}" --name "$IMJA_ARTEFAKTA" --dir apk-build
+          test -f apk-build/app-release.apk
+          got="$(sha256sum apk-build/app-release.apk | awk '{print $1}')"
+          if [ "$got" != "$ZHELANYJ_DIGEST" ]; then
+            echo "APK_DIGEST_RASKHOZHDENIE: $got != $ZHELANYJ_DIGEST" >&2
+            exit 1
+          fi
+          mkdir -p mobile/android/app/build/outputs/apk/release
+          cp apk-build/app-release.apk mobile/android/app/build/outputs/apk/release/app-release.apk
+      # outputs работника для агрегата: digest установленного APK, имя
+      # артефакта и run-identity той же сборки (агрегат сверяет их с
+      # build-apk; шаг БЕЗ id: ident в needs-контекст не попадает)
+      - name: 'Идентичность прогона работника (outputs для агрегата)'
+        id: ident
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          got="$(sha256sum mobile/android/app/build/outputs/apk/release/app-release.apk | awk '{print $1}')"
+          {
+            echo "apk_sha256=$got"
+            echo "artifact_name=${{ needs.build-apk.outputs.artifact_name }}"
+            echo "run_id=${{ needs.build-apk.outputs.run_id }}"
+          } >> "$GITHUB_OUTPUT"
+      # H: ПРИНЯТЫЙ пин харнесса с реализацией валидатора 132 v3 и всеми
+      # зависимостями; содержимое пачки/флоу — предмет ЭКРАННОГО контракта
+      - name: Checkout H пачки экрана ({{H_PATH}})
+        uses: actions/checkout@v7
+        with:
+          repository: a3ka/dev-harness
+          ref: {{H_REF}}
+          path: {{H_PATH}}
+          persist-credentials: false
+      - name: 'Экранная пачка: валидатор 132 v3 + Maestro, один уровень восстановления'
+        working-directory: ${{ github.workspace }}
+        env:
+          FLOWS_PACHKI: {{FLOWS}}
+        run: |
+          set -euo pipefail
+          APK='mobile/android/app/build/outputs/apk/release/app-release.apk'
+          AVD="ci{{SCREEN_ID}}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          PORT={{AVD_PORT}}
+          SERIAL="emulator-${PORT}"
+          AVDM="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
+          cleanup() {
+            adb -s "$SERIAL" emu kill >/dev/null 2>&1 || true
+            sleep 3
+            pkill -f "qemu-system-x86_64.*-avd $AVD" >/dev/null 2>&1 || true
+            "$AVDM" delete avd -n "$AVD" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          echo no | "$AVDM" create avd --force -n "$AVD" \
+            -k "system-images;android-36;google_apis;x86_64" -d pixel_7 >/dev/null
+          sed -i 's/^hw.ramSize=.*/hw.ramSize=2048/' "$ANDROID_AVD_HOME/$AVD.avd/config.ini"
+          adb start-server >/dev/null
+          boot() {
+            adb -s "$SERIAL" emu kill >/dev/null 2>&1 || true
+            sleep 3
+            pkill -f "qemu-system-x86_64.*-avd $AVD" >/dev/null 2>&1 || true
+            emulator -avd "$AVD" -port "$PORT" -no-window -no-audio -no-boot-anim -no-snapshot \
+              -gpu swiftshader_indirect >"emulator-$AVD.log" 2>&1 &
+            adb -s "$SERIAL" wait-for-device
+            for _ in $(seq 1 130); do
+              [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+              sleep 3
+            done
+            [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] || {
+              echo "ОТКАЗ: эмулятор {{SCREEN_ID}} не загрузился за 390 с" >&2; return 1; }
+            local ok=0
+            for _ in $(seq 1 40); do
+              if [ "$(adb -s "$SERIAL" get-state 2>/dev/null)" = "device" ] &&
+                 adb -s "$SERIAL" shell pm path android >/dev/null 2>&1; then
+                ok=$((ok + 1)); [ "$ok" -ge 3 ] && break
+              else
+                ok=0
+              fi
+              sleep 2
+            done
+            if [ "$ok" -lt 3 ]; then
+              echo "ОТКАЗ: эмулятор $SERIAL не стабилизировался (adb offline)" >&2
+              return 1
+            fi
+            for s in window_animation_scale transition_animation_scale animator_duration_scale; do
+              adb -s "$SERIAL" shell settings put global "$s" 0
+            done
+            adb -s "$SERIAL" install -r "$APK" >/dev/null
+          }
+          diag() {
+            echo "ДИАГНОСТИКА {{SCREEN_ID}}: adb devices" >&2
+            adb devices >&2 || true
+            echo "ДИАГНОСТИКА {{SCREEN_ID}}: сигнатуры Maestro в {{EVIDENCE_NS}}" >&2
+            grep -rnE 'device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException' \
+              '{{EVIDENCE_NS}}' >&2 2>/dev/null || true
+            echo "ДИАГНОСТИКА {{SCREEN_ID}}: хвост emulator-$AVD.log" >&2
+            tail -n 40 "emulator-$AVD.log" >&2 || true
+          }
+          run_priemka() {
+            rm -rf '{{EVIDENCE_NS}}'
+            mkdir -p '{{EVIDENCE_NS}}'
+            python3 {{H_PATH}}/scripts/ekran_shablon.py --pack '{{PACK}}' --repo . --harness '{{H_PATH}}'
+          }
+          if ! boot; then diag; exit 1; fi
+          set +e
+          run_priemka
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            diag
+            if grep -rqE 'device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException' \
+              '{{EVIDENCE_NS}}' 2>/dev/null; then
+              echo "ПОВТОР: обрыв adb-транспорта эмулятора {{SCREEN_ID}} — перезапуск эмулятора и валидатора" >&2
+              if ! boot; then diag; exit 1; fi
+              set +e
+              run_priemka
+              rc=$?
+              set -e
+              if [ "$rc" -ne 0 ]; then diag; fi
+            fi
+          fi
+          [ "$rc" -eq 0 ] || exit "$rc"
+      - name: Артефакты экрана (кадры, отчёт)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-{{SCREEN_ID}}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: {{EVIDENCE_NS}}
+          if-no-files-found: error
+          retention-days: 14
