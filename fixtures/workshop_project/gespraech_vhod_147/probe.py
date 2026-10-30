@@ -126,14 +126,15 @@ def vedro():
     for kljuch in ('nositeli/screen-job.template.yml',
                    'nositeli/produkt/mobile-6240f63.yml',
                    'nositeli/produkt/ci-screens-6240f63.json',
-                   'stabs/stab_lekalo_obhod_kritika.py'):
+                   'stabs/stab_lekalo_obhod_kritika.py',
+                   'stabs/stab_lekalo_bez_zapuska_393.py'):
         if kljuch not in src['piny']['nositeli']:
             utechka('пин лекала отсутствует: ' + kljuch)
     for stab, svaz in (src.get('stab_vhod') or {}).items():
         if 'kletka' in svaz:
             if svaz['kletka'] != 's-lekalo-instanciirovano' or \
-                    'pravilo' in svaz or stab != 'lekalo-obhod-kritika' or \
-                    src['staby'].get(stab) != 'stab_lekalo_obhod_kritika.py':
+                    'pravilo' in svaz or src['staby'].get(stab) != \
+                    'stab_' + stab.replace('-', '_') + '.py':
                 utechka('привязка стаба лекала ' + stab)
         elif svaz.get('pravilo') not in PRAVILA_MASHINY:
             utechka('привязка стаба ' + stab)
@@ -709,8 +710,11 @@ def rassiri_vtoroj_avd(job, src):
     — расширение экранного шага ПОВЕРХ лекала (канон e2e.sh ждёт
     GESPRAECH_SERIAL/GESPRAECH_SERIAL_393). Обязательства лекала сохранены:
     PORT 5572, один «ПОВТОР: », валидатор из .harness147, оба корневых
-    флоу в FLOWS_PACHKI. Форма расширения — рецепт пачки, детали
-    реализации (имена/порядок) — реализация implementer."""
+    флоу в FLOWS_PACHKI. AVD393 СОЗДАЁТСЯ и настраивается на профиль
+    393×852@3x (1179×2556 @ 480dpi) рядом с созданием основного — запуск
+    без создания мёрт (замер станции 30.10, Fix147f). Форма расширения —
+    рецепт пачки, детали реализации (имена/порядок) — реализация
+    implementer."""
     LE = src['lekalo']
     shag = next(s for s in job['steps']
                 if str(s.get('name', '')).startswith('Экранная пачка'))
@@ -724,12 +728,18 @@ def rassiri_vtoroj_avd(job, src):
         'AVD393="ci%s-393-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"\n'
         'PORT393=%d\n' % (LE['screen_id'], LE['avd_port_393']))
     r = _zameni_schet(
-        r, '  "$AVDM" delete avd -n "$AVD" >/dev/null 2>&1 || true\n',
-        '  "$AVDM" delete avd -n "$AVD" >/dev/null 2>&1 || true\n'
-        '  adb -s "$SERIAL393" emu kill >/dev/null 2>&1 || true\n'
-        '  pkill -f "qemu-system-x86_64.*-avd $AVD393" '
-        '>/dev/null 2>&1 || true\n'
-        '  "$AVDM" delete avd -n "$AVD393" >/dev/null 2>&1 || true\n')
+        r, 'sed -i \'s/^hw.ramSize=.*/hw.ramSize=2048/\' '
+        '"$ANDROID_AVD_HOME/$AVD.avd/config.ini"\n',
+        'sed -i \'s/^hw.ramSize=.*/hw.ramSize=2048/\' '
+        '"$ANDROID_AVD_HOME/$AVD.avd/config.ini"\n'
+        'echo no | "$AVDM" create avd --force -n "$AVD393" \\\n'
+        '  -k "system-images;android-36;google_apis;x86_64" '
+        '-d pixel_7 >/dev/null\n'
+        'sed -i -e \'s/^hw.ramSize=.*/hw.ramSize=2048/\' \\\n'
+        '  -e \'s/^hw.lcd.density=.*/hw.lcd.density=480/\' \\\n'
+        '  -e \'s/^hw.lcd.width=.*/hw.lcd.width=1179/\' \\\n'
+        '  -e \'s/^hw.lcd.height=.*/hw.lcd.height=2556/\' \\\n'
+        '  "$ANDROID_AVD_HOME/$AVD393.avd/config.ini"\n')
     r = _zameni_schet(
         r, '\nif ! boot; then diag; exit 1; fi\n',
         '\nif ! boot; then diag; exit 1; fi\n'
@@ -913,23 +923,97 @@ def _sudi_vtoroj_profil(run, src):
     return netu
 
 
+def _sudi_zapusk_393(shag, src):
+    """ЗАПУСК второго эмулятора профиля 393 (норма 132 v2; блок Crit147c):
+    boot-переключения и экспорта мало — эмулятор 393 обязан быть ЗАПУЩЕН
+    до приёмки, по коду job: (1) AVD 393 создан (грамматика лекала:
+    create avd -n "$AVD393" — emulator -avd без созданного AVD мёрт);
+    (2) вызов boot стоит ПОСЛЕ переключения SERIAL="$SERIAL393" и ДО
+    возврата serial-390 (AVD="$AVD_GL")/первого вызова run_priemka —
+    порядок: переключение serial -> запуск AVD-393 -> run_priemka;
+    (3) запуск не размаскирован: каноническая форма лекала
+    «if ! boot; then … exit …; fi» либо голый boot под set -e; if на
+    экранном шаге, || true/|| : у вызова, условная guard (открытое
+    «then»/«else»/«do» перед вызовом), форма без распространения отказа —
+    маскировка. Отсутствие/маскировка/мёртвый запуск — одно имя
+    LEKALO_BEZ_ZAPUSKA_393 (старшинство после LEKALO_BEZ_VTOROGO_PROFILJA;
+    continue-on-error в job ловит запрет лекала раньше —
+    LEKALO_NE_INSTANCIIROVANO)."""
+    netu = []
+    if shag.get('if') is not None:
+        netu.append('экранный шаг под условием if: %r — запуск 393 может '
+                    'быть пропущен целиком' % str(shag['if'])[:50])
+    run = str(shag.get('run') or '')
+    if not re.search(r'create avd\b[^\n]*-n "\$AVD393"', run):
+        netu.append('AVD 393 не создаётся (нет create avd -n "$AVD393") — '
+                    'запуск мёрт: emulator -avd "$AVD393" без AVD')
+    perek = run.find('SERIAL="$SERIAL393"')
+    if perek == -1:
+        return netu  # переключения нет — LEKALO_BEZ_VTOROGO_PROFILJA
+    vyzov = run.find('run_priemka\n')
+    vozvrat = run.find('AVD="$AVD_GL"')
+    granicy = [g for g in (vyzov, vozvrat) if g != -1]
+    okno = run[perek:min(granicy)] if granicy and min(granicy) > perek else ''
+    zapuskov = 0
+    maski = []
+    stroki = okno.split('\n')
+    for i, ln in enumerate(stroki):
+        s = ln.strip()
+        if not s or s.startswith('#') or s.startswith('boot()'):
+            continue
+        if not re.search(r'(?<![\w.$-])boot(?![\w.$-])', s):
+            continue
+        if (re.match(r'^if ! boot; then\b', s) and
+                re.search(r'\bexit\b', s) and re.search(r';\s*fi$', s)) \
+                or s == 'boot':
+            pred = next((stroki[j].strip() for j in range(i - 1, -1, -1)
+                         if stroki[j].strip()), '')
+            if pred.endswith('then') or pred.endswith('else') or \
+                    pred.endswith('do'):
+                maski.append('запуск под условной guard (%r перед ним): %r'
+                             % (pred[-30:], s[:50]))
+            else:
+                zapuskov += 1
+            continue
+        if '|| true' in s or '|| :' in s:
+            maski.append('отказ проглочен (|| true): %r' % s[:60])
+        elif re.match(r'^(if ! boot|.*&&\s*boot)', s):
+            maski.append('условный запуск/отказ не распространён: %r'
+                         % s[:60])
+        else:
+            maski.append('запуск в неканонической форме: %r' % s[:60])
+    if zapuskov == 0 and not any('guard' in m or 'if:' in m for m in netu):
+        if maski:
+            netu.append('запуск AVD 393 размаскирован: ' + '; '.join(maski))
+        else:
+            netu.append('запуск AVD 393 отсутствует: между переключением '
+                        'SERIAL="$SERIAL393" и возвратом serial-390/'
+                        'run_priemka нет вызова boot')
+    return netu
+
+
 def sud_lekalo(repo, src):
     """s-lekalo-instanciirovano (И-8; блоки Crit147 круг 1 + Crit147b круг
-    2): в --repo судит ТРИ парные правки лекала 143/2 (запись карты, job
-    из лекала по пину шаблона/ключам инстанциации, output выбора + needs
-    обоих агрегатов), вынос пачки мобильным общим шагом инвентаризации,
-    НЕПУСТУЮ форму пачки (ekran.json={} — обход критика), ВТОРОЙ AVD
-    профиля 393 в экранном шаге (порт/boot/GESPRAECH_SERIAL_393 до
-    приёмки) и НЕПУСТЫЕ puti записи карты (выбор экранной задачи по её
-    путям обеспечен). Именованный отказ — РОВНО одно имя на вход, по
-    старшинству: LEKALO_NE_INSTANCIIROVANO (парные правки/вынос/форма),
-    LEKALO_BEZ_VTOROGO_PROFILJA (второй AVD 393), LEKALO_BEZ_PUTEJ_KARTY
-    (puti записи). «Пропускник» ловится стабом lekalo-obhod-kritika
-    (Н-39)."""
+    2 + Crit147c): в --repo судит ТРИ парные правки лекала 143/2 (запись
+    карты, job из лекала по пину шаблона/ключам инстанциации, output
+    выбора + needs обоих агрегатов), вынос пачки мобильным общим шагом
+    инвентаризации, НЕПУСТУЮ форму пачки (ekran.json={} — обход
+    критика), ВТОРОЙ AVD профиля 393 в экранном шаге (порт/boot-переключ/
+    GESPRAECH_SERIAL_393 до приёмки), ЗАПУСК AVD-393 (create + вызов
+    boot после переключения до приёмки, без маскировки — Crit147c) и
+    НЕПУСТЫЕ puti записи карты (выбор экранной задачи по её путям
+    обеспечен). Именованный отказ — РОВНО одно имя на вход, по
+    старшинству: LEKALO_NE_INSTANCIIROVANO (парные правки/вынос/форма/
+    запреты лекала — в т.ч. continue-on-error), LEKALO_BEZ_VTOROGO_
+    PROFILJA (второй AVD 393: порт/переключение/экспорт),
+    LEKALO_BEZ_ZAPUSKA_393 (create/запуск/маскировка запуска),
+    LEKALO_BEZ_PUTEJ_KARTY (puti записи). «Пропускник» ловится стабами
+    lekalo-obhod-kritika и lekalo-bez-zapuska-393 (Н-39)."""
     LE = src['lekalo']
     JOB = LE['job_id']
     netu = []
     netu_393 = []
+    netu_zapusk = []
     netu_puti = []
 
     karta, osh = _chita_json(os.path.join(repo, 'mobile',
@@ -1005,6 +1089,7 @@ def sud_lekalo(repo, src):
             if shag is not None:
                 netu_393.extend(_sudi_vtoroj_profil(
                     str(shag.get('run') or ''), src))
+                netu_zapusk.extend(_sudi_zapusk_393(shag, src))
         outs = ((jobs.get('select-screens') or {}).get('outputs') or {})
         if outs.get(JOB) != '${{ steps.vybor.outputs.%s }}' % JOB:
             netu.append('output выбора %s отсутствует/не из шага vybor'
@@ -1023,6 +1108,7 @@ def sud_lekalo(repo, src):
             netu.append('wildcard-вынос mobile/e2e-*')
     for imja, spisok in (('LEKALO_NE_INSTANCIIROVANO', netu),
                          ('LEKALO_BEZ_VTOROGO_PROFILJA', netu_393),
+                         ('LEKALO_BEZ_ZAPUSKA_393', netu_zapusk),
                          ('LEKALO_BEZ_PUTEJ_KARTY', netu_puti)):
         if spisok:
             return False, '%s: %s' % (imja, '; '.join(spisok))
@@ -1272,11 +1358,15 @@ def main():
                 return 1
             print('STAB %s KRASEN %s' % (stab, svaz['pravilo']))
             svjazi += 1
-        # стаб лекала (Н-39, блок Crit147 круг 1): обход критика — канон и
-        # машина на месте, проводки нет, ekran.json={}. Пара входов одной
-        # клеткой: A-дерево рецепта ЗЕЛЁНО (живые байты продукта 6240f630 +
-        # три парные правки), стаб-обход КРАСЕН; мутант-«пропускник»
-        # (клетка зелена без проверок) ловится здесь — STAB_ZHIV rc 1.
+        # стабы лекала (Н-39; блоки Crit147/Crit147b/Crit147c): пара входов
+        # одной клеткой — A-дерево рецепта ЗЕЛЁНО (живые байты продукта
+        # 6240f630 + три парные правки + второй AVD 393), каждый стаб-
+        # мутатор дерева КРАСЕН своим именем: lekalo-obhod-kritika снимает
+        # проводку целиком (LEKALO_NE_INSTANCIIROVANO),
+        # lekalo-bez-zapuska-393 удаляет ТОЛЬКО запуск второго эмулятора
+        # после переключения 393 (LEKALO_BEZ_ZAPUSKA_393 — scoped-обход
+        # Crit147c); мутант-«пропускник» (клетка зелена без проверок)
+        # ловится здесь — STAB_ZHIV rc 1.
         vrem_a = tempfile.mkdtemp(prefix='gespraech147-lekalo-')
         try:
             a_der = postav_a_derevo(vrem_a, src)
@@ -1285,23 +1375,27 @@ def main():
                 sys.stderr.write('ORACLE A-дерево не зелено: %s\n'
                                  % pochemu_a)
                 return 2
-            stub = os.path.join(vrem_a, 'stub')
-            shutil.copytree(a_der, stub)
-            r = subprocess.run([sys.executable,
-                                os.path.join(STABY, src['staby'][
-                                    'lekalo-obhod-kritika']), stub],
-                               capture_output=True, text=True, timeout=60)
-            if r.returncode != 0:
-                sys.stderr.write('ORACLE стаб лекала: мутатор rc=%d %s\n'
-                                 % (r.returncode, r.stderr.strip()[:120]))
-                return 2
-            ok_s, pochemu_s = sud_lekalo(stub, src)
-            if ok_s:
-                print('STAB lekalo-obhod-kritika ZHIV (клетка зелена на '
-                      'обходе критика: ekran.json={} без проводки)')
-                return 1
-            print('STAB lekalo-obhod-kritika KRASEN s-lekalo-instanciirovano')
-            svjazi += 1
+            for stab, svaz in sorted(src['stab_vhod'].items()):
+                if 'kletka' not in svaz:
+                    continue
+                stub = os.path.join(vrem_a, 'stub-' + stab)
+                shutil.copytree(a_der, stub)
+                r = subprocess.run(
+                    [sys.executable,
+                     os.path.join(STABY, src['staby'][stab]), stub],
+                    capture_output=True, text=True, timeout=60)
+                if r.returncode != 0:
+                    sys.stderr.write('ORACLE стаб %s: мутатор rc=%d %s\n'
+                                     % (stab, r.returncode,
+                                        r.stderr.strip()[:120]))
+                    return 2
+                ok_s, pochemu_s = sud_lekalo(stub, src)
+                if ok_s:
+                    print('STAB %s ZHIV (клетка %s зелена на стабе)'
+                          % (stab, svaz['kletka']))
+                    return 1
+                print('STAB %s KRASEN %s' % (stab, pochemu_s.split(':')[0]))
+                svjazi += 1
         finally:
             shutil.rmtree(vrem_a, ignore_errors=True)
         print('SVJAZI %d' % svjazi)

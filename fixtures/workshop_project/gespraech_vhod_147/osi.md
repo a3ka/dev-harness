@@ -98,37 +98,48 @@ s-pachka-v-produkte, s-mashina-v-produkte, s-kanon-bajty (байты
 
 s-lekalo-instanciirovano (И-8; блок Crit147 круг 1 — ekran.json={} без
 проводки проходил 70/70; блок Crit147b круг 2 — job без второго AVD 393
-и запись карты с puti=[] проходили 71/71): судит в --repo ТРИ парные
-правки лекала 143/2 (экран-работник добавляется СВОИМ PR инстанциацией
-ЛЕКАЛА nositeli/screen-job.template.yml — копия frozen 143/2, sha256-пин;
-ключи инстанциации — source.json.lekalo, единый источник): (1) запись
-карты mobile/ci-screens.json с job e2e-gespraech-vhod (id/kontrakty/
-status/pack/flows оба корневых/child_flows/h_checkout .harness147/
-output_namespace + НЕПУСТЫЕ puti — все три пути И-8: features/
-conversation, tab-shell.tsx, mocks — пусто/неполная тройка красна
-LEKALO_BEZ_PUTEJ_KARTY: выбор экранной задачи по её путям не обеспечен);
-(2) job в .github/workflows/mobile.yml ИЗ ЛЕКАЛА —
-needs/if/outputs/runs-on/timeout/permissions равны скелету инстанциации,
-шаги лекала по порядку полными именами (грамматика одна — пиннованный
-шаблон, второго перечня в батарее нет), экранный шаг расширяем (норма
-132 v2 — второй AVD 393 в том же работнике), но несёт валидатор 132 v3
-из .harness147, PORT=5572 и оба корневых флоу в FLOWS_PACHKI; H-checkout
-— принятым 40-hex пином (не плавающей ссылкой); запреты
-continue-on-error/strategy/matrix и ровно один «ПОВТОР: »; (3) output
-выбора в select-screens (из шага vybor) + имя работника в needs ОБОИХ
-агрегатов (android-e2e required + mobile-regression-signal ночной);
-вынос пачки — общий шаг инвентаризации quality (--mode inventar;
-персональный mv и wildcard запрещены); пачка НЕ ПУСТА (ekran.json —
-форма v3: shablon 3, ekran gespraech-vhod, ekrany GA-01/GA-15/GA-16 —
-обход Crit147 {} красен); ВТОРОЙ AVD профиля 393 в экранном шаге (блок
-Crit147b: PORT393=5573, boot-переключ SERIAL="$SERIAL393", export
-GESPRAECH_SERIAL_393= ДО вызова приёмки run_priemka — канон e2e.sh ждёт
-её; отсутствие/непотребление — LEKALO_BEZ_VTOROGO_PROFILJA). Имя
-причины — РОВНО одно на вход, по старшинству: LEKALO_NE_INSTANCIIROVANO
-(парные правки/вынос/форма) → LEKALO_BEZ_VTOROGO_PROFILJA (второй AVD
-393) → LEKALO_BEZ_PUTEJ_KARTY (puti записи). Зелёный контроль:
+и запись карты с puti=[] проходили 71/71; блок Crit147c scoped — удаление
+ТОЛЬКО запуска второго эмулятора после переключения 393 проходило 71/71):
+судит в --repo ТРИ парные правки лекала 143/2 (экран-работник добавляется
+СВОИМ PR инстанциацией ЛЕКАЛА nositeli/screen-job.template.yml — копия
+frozen 143/2, sha256-пин; ключи инстанциации — source.json.lekalo,
+единый источник): (1) запись карты mobile/ci-screens.json с job
+e2e-gespraech-vhod (id/kontrakty/status/pack/flows оба корневых/
+child_flows/h_checkout .harness147/output_namespace + НЕПУСТЫЕ puti —
+все три пути И-8: features/conversation, tab-shell.tsx, mocks —
+пусто/неполная тройка красна LEKALO_BEZ_PUTEJ_KARTY: выбор экранной
+задачи по её путям не обеспечен); (2) job в
+.github/workflows/mobile.yml ИЗ ЛЕКАЛА — needs/if/outputs/runs-on/
+timeout/permissions равны скелету инстанциации, шаги лекала по порядку
+полными именами (грамматика одна — пиннованный шаблон, второго перечня
+в батарее нет), экранный шаг расширяем (норма 132 v2 — второй AVD 393 в
+том же работнике), но несёт валидатор 132 v3 из .harness147, PORT=5572 и
+оба корневых флоу в FLOWS_PACHKI; H-checkout — принятым 40-hex пином (не
+плавающей ссылкой); запреты continue-on-error/strategy/matrix и ровно
+один «ПОВТОР: »; (3) output выбора в select-screens (из шага vybor) + имя
+работника в needs ОБОИХ агрегатов (android-e2e required +
+mobile-regression-signal ночной); вынос пачки — общий шаг инвентаризации
+quality (--mode inventar; персональный mv и wildcard запрещены); пачка
+НЕ ПУСТА (ekran.json — форма v3: shablon 3, ekran gespraech-vhod, ekrany
+GA-01/GA-15/GA-16 — обход Crit147 {} красен); ВТОРОЙ AVD профиля 393 в
+экранном шаге (блок Crit147b: PORT393=5573, boot-переключ
+SERIAL="$SERIAL393", export GESPRAECH_SERIAL_393= ДО вызова приёмки
+run_priemka — канон e2e.sh ждёт её; отсутствие/непотребление —
+LEKALO_BEZ_VTOROGO_PROFILJA); ЗАПУСК AVD-393 по коду job (блок Crit147c:
+create avd -n "$AVD393" — без него emulator -avd "$AVD393" мёрт; вызов
+boot МЕЖДУ переключением SERIAL="$SERIAL393" и возвратом serial-390
+(AVD="$AVD_GL")/первым run_priemka — порядок «переключение serial →
+запуск AVD-393 → run_priemka»; каноническая форма — грамматика лекала
+«if ! boot; then … exit …; fi» либо голый boot под set -e; маскировки:
+if: на экранном шаге, || true/|| : у вызова, условная guard (открытое
+then/else/do перед вызовом), форма без exit — LEKALO_BEZ_ZAPUSKA_393).
+Имя причины — РОВНО одно на вход, по старшинству:
+LEKALO_NE_INSTANCIIROVANO (парные правки/вынос/форма/запреты) →
+LEKALO_BEZ_VTOROGO_PROFILJA (второй AVD 393) → LEKALO_BEZ_ZAPUSKA_393
+(запуск 393) → LEKALO_BEZ_PUTEJ_KARTY (puti записи). Зелёный контроль:
 A-дерево рецепта (--a-derevo: живые байты продукта 6240f630 + три парные
-правки + второй AVD) — клетка зелена, полная батарея rc 0 71/71.
+правки + создание/запуск второго AVD) — клетка зелена, полная батарея
+rc 0 71/71.
 
 ## Стабы (Н-39: привязка к правилу, где дефект наблюдаем)
 
@@ -142,11 +153,16 @@ A-дерево рецепта (--a-derevo: живые байты продукт�
 | morph-linejnyj | znak-morf-250 |
 | zakrytie-bez-morfa | plan-close-t31 |
 | lekalo-obhod-kritika | s-lekalo-instanciirovano |
+| lekalo-bez-zapuska-393 | s-lekalo-instanciirovano |
 
 Честность раннера доказывается самими стабами: раннер, всегда пишущий
-«зелено», оставил бы стабы живыми (rc 1 STAB_ZHIV). Стаб лекала —
-мутатор ДЕРЕВА (не машины): снимает все три парные правки и опустошает
-ekran.json (дословный обход Crit147 атака 3); клетка обязана краснеть —
-мутант-«пропускник» (клетка зелена без проверок) ловится той же парой
-входов: A-дерево рецепта зелено, стаб-обход красен (контроль в каждом
---stabs прогоне; замеры частичных мутантов — контракт §Живые измерения).
+«зелено», оставил бы стабы живыми (rc 1 STAB_ZHIV). Стабы лекала —
+мутаторы ДЕРЕВА (не машины): lekalo-obhod-kritika снимает все три парные
+правки и опустошает ekran.json (дословный обход Crit147 атака 3);
+lekalo-bez-zapuska-393 удаляет ТОЛЬКО строку запуска второго эмулятора
+после переключения 393 (вызовов boot 3→2, bash -n rc 0 — дословный
+scoped-обход Crit147c); клетка обязана краснеть своим именем —
+мутанты-«пропускники» (клетка зелена без проверок) ловятся той же парой
+входов: A-дерево рецепта зелено, каждый стаб-обход красен (контроль в
+каждом --stabs прогоне; замеры частичных мутантов и маскировок —
+контракт §Живые измерения).
