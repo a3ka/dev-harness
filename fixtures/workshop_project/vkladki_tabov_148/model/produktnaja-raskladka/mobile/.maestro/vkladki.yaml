@@ -1,0 +1,12 @@
+# vkladki (148): GA-02/03/04/09 — снимки обеих тем на основном профиле.
+appId: complior
+---
+- runFlow: vkhod-dopusk
+- takeScreenshot: vkladki-vorgaenge
+- tapOn: { id: shell-tab-schutz }
+- takeScreenshot: vkladki-schutz
+- tapOn: { id: shell-tab-post }
+- takeScreenshot: vkladki-post
+- tapOn: { id: shell-tab-vorgaenge }
+- scroll
+- takeScreenshot: vkladki-vorgaenge-skroll

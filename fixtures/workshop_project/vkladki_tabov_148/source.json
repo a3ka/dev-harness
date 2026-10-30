@@ -1,0 +1,2046 @@
+{
+ "_comment": "Батарея 148 (vkladki-tabov): оракул. Субъекты: (A) живой scripts/ekran_shablon.py на модельной пачке (эталон — model/ekran_shablon.py батареи: байт-копия модели батареи 146, v3; пин в probe.py); (B) продукт — produkt_sud.py --repo R (эталон — референсная раскладка model/produktnaja-raskladka + пачка ekran_forma_prod).",
+ "ekran_forma": {
+  "ekran": "vkladki",
+  "kadry": "kadry.json",
+  "sostojanija": [
+   "vorgaenge",
+   "schutz-badge",
+   "post",
+   "vorgaenge-skroll",
+   "tema-dark",
+   "tema-light"
+  ],
+  "kljuchi_kopii": [
+   "ia115.nav.START",
+   "ia117.nav.VORGAENGE",
+   "ia115.nav.SCHUTZ",
+   "ia115.nav.POST",
+   "proposed.gespraech.tab",
+   "proposed.gespraech.tab.a11y",
+   "ui.vorgaenge.group.working",
+   "ui.vorgaenge.group.needs_you",
+   "ui.vorgaenge.group.waiting",
+   "ui.vorgaenge.subtitle",
+   "ui.mission.all_done",
+   "ui.post.filter.all",
+   "ui.post.filter.received",
+   "ui.post.filter.sent",
+   "ui.post.send_to_complior",
+   "frame.F19.01.title",
+   "global.back"
+  ],
+  "operacii_api": [],
+  "katalog_kopii": "mobile/e2e-vkladki/katalog_kopii.json",
+  "spec_api": "mobile/e2e-vkladki/spec_api.json",
+  "audit_tokenov": "docs/ux/03_Mobility_Slice1/ds/tokens.css",
+  "e2e_scenarij": "mobile/.maestro/vkladki.yaml",
+  "kadry_dir": "mobile/maestro-out-vkladki",
+  "kontrakt": "kontrakt.md",
+  "batareja": [
+   "batareja/red_ekrana.sh"
+  ],
+  "priemka": {
+   "e2e": "bash mobile/e2e-vkladki/e2e.sh vkladki",
+   "sverka": "python3 .harness123/scripts/sverka_maketa.py --manifest .harness123/kadry.json --kadry mobile/maestro-out-vkladki --repo .",
+   "prokhod": "bash mobile/e2e-vkladki/prokhod.sh mobile/.maestro/prokhod-vkladki.yaml"
+  },
+  "zony": {
+   "architect": [
+    "contracts/148-vkladki-tabov.md",
+    "fixtures/workshop_project/vkladki_tabov_148/"
+   ],
+   "implementer": [
+    "mobile/src/bootstrap/tab-shell.tsx",
+    "mobile/src/bootstrap/gespraech-mitte.tsx",
+    "mobile/src/features/missions/components/VorgaengeListe.tsx",
+    "mobile/src/features/missions/model/vkladki-dannye.ts",
+    "mobile/src/features/protection/components/SchutzUebersicht.tsx",
+    "mobile/src/features/post/components/PostEingang.tsx",
+    "mobile/src/i18n/ui-copy.ts",
+    "mobile/src/app/",
+    "mobile/.maestro/vkladki.yaml",
+    "mobile/.maestro/vkladki-tabshell-393.yaml",
+    "mobile/.maestro/prokhod-vkladki.yaml",
+    "mobile/e2e-vkladki/"
+   ]
+  },
+  "zamenjaet": null,
+  "ne_trogaet": [
+   "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_chuzhogo/kadry.json",
+   "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_tot_zhe/kadry.json"
+  ],
+  "fiktura": false,
+  "shablon": 3,
+  "prokhodimost": {
+   "pressable": [
+    {
+     "id": "shell-tab-start",
+     "sostojanie": "deistvie",
+     "izmenenie": "razdel-start",
+     "shirina": 79,
+     "vysota": 46,
+     "x": 0,
+     "y": 772,
+     "demo": false
+    },
+    {
+     "id": "shell-tab-vorgaenge",
+     "sostojanie": "deistvie",
+     "izmenenie": "razdel-vorgaenge",
+     "shirina": 79,
+     "vysota": 46,
+     "x": 79,
+     "y": 772,
+     "demo": false
+    },
+    {
+     "id": "gespraech-mitte",
+     "sostojanie": "deistvie",
+     "izmenenie": "status-mitte-perekljuchaetsja-mok-menu-147",
+     "shirina": 79,
+     "vysota": 46,
+     "x": 157,
+     "y": 772,
+     "demo": false
+    },
+    {
+     "id": "shell-tab-schutz",
+     "sostojanie": "deistvie",
+     "izmenenie": "razdel-schutz",
+     "shirina": 79,
+     "vysota": 46,
+     "x": 236,
+     "y": 772,
+     "demo": false
+    },
+    {
+     "id": "shell-tab-post",
+     "sostojanie": "deistvie",
+     "izmenenie": "razdel-post",
+     "shirina": 79,
+     "vysota": 46,
+     "x": 314,
+     "y": 772,
+     "demo": false
+    },
+    {
+     "id": "vorgaenge-stroka-1",
+     "sostojanie": "deistvie",
+     "izmenenie": "vorgang-hausrat-vergleich-mok",
+     "shirina": 361,
+     "vysota": 44,
+     "x": 16,
+     "y": 293,
+     "demo": false
+    },
+    {
+     "id": "vorgaenge-stroka-2",
+     "sostojanie": "deistvie",
+     "izmenenie": "vorgang-kfz-wechsel-mok",
+     "shirina": 361,
+     "vysota": 44,
+     "x": 16,
+     "y": 547,
+     "demo": false
+    },
+    {
+     "id": "vorgaenge-stroka-3",
+     "sostojanie": "deistvie",
+     "izmenenie": "vorgang-rechtsschutz-beratung-mok",
+     "shirina": 361,
+     "vysota": 44,
+     "x": 16,
+     "y": 313,
+     "demo": false
+    },
+    {
+     "id": "vorgaenge-stroka-4",
+     "sostojanie": "deistvie",
+     "izmenenie": "vorgang-hausrat-vertrag-mok",
+     "shirina": 361,
+     "vysota": 44,
+     "x": 16,
+     "y": 445,
+     "demo": false
+    },
+    {
+     "id": "vorgaenge-vse-sdelannye",
+     "sostojanie": "deistvie",
+     "izmenenie": "spisok-erledigte-mok",
+     "shirina": 361,
+     "vysota": 44,
+     "x": 16,
+     "y": 565,
+     "demo": false
+    },
+    {
+     "id": "schutz-kartochka-vertraege",
+     "sostojanie": "deistvie",
+     "izmenenie": "schutz-vertraege-mok",
+     "shirina": 361,
+     "vysota": 56,
+     "x": 16,
+     "y": 199,
+     "demo": false
+    },
+    {
+     "id": "schutz-stroka-mobilitaet",
+     "sostojanie": "deistvie",
+     "izmenenie": "schutz-bereich-mobilitaet-mok",
+     "shirina": 361,
+     "vysota": 58,
+     "x": 16,
+     "y": 621,
+     "demo": false
+    },
+    {
+     "id": "schutz-stroka-wohnen",
+     "sostojanie": "deistvie",
+     "izmenenie": "schutz-bereich-wohnen-mok",
+     "shirina": 361,
+     "vysota": 58,
+     "x": 16,
+     "y": 679,
+     "demo": false
+    },
+    {
+     "id": "post-filtr-alle",
+     "sostojanie": "deistvie",
+     "izmenenie": "filtr-alle",
+     "shirina": 93,
+     "vysota": 44,
+     "x": 19,
+     "y": 199,
+     "demo": false
+    },
+    {
+     "id": "post-filtr-vhodjaschie",
+     "sostojanie": "deistvie",
+     "izmenenie": "filtr-eingegangen",
+     "shirina": 93,
+     "vysota": 44,
+     "x": 112,
+     "y": 199,
+     "demo": false
+    },
+    {
+     "id": "post-filtr-otpravlennye",
+     "sostojanie": "deistvie",
+     "izmenenie": "filtr-gesendet",
+     "shirina": 93,
+     "vysota": 44,
+     "x": 205,
+     "y": 199,
+     "demo": false
+    },
+    {
+     "id": "post-napisat-complior",
+     "sostojanie": "deistvie",
+     "izmenenie": "composer-mok",
+     "shirina": 319,
+     "vysota": 44,
+     "x": 37,
+     "y": 358,
+     "demo": false
+    },
+    {
+     "id": "post-soobschenie-rechtsschutz",
+     "sostojanie": "deistvie",
+     "izmenenie": "soobschenie-rechtsschutz-mok",
+     "shirina": 361,
+     "vysota": 180,
+     "x": 16,
+     "y": 637,
+     "demo": false
+    }
+   ],
+   "demo": [],
+   "safe": {
+    "verh": 59,
+    "niz": 34,
+    "vysota": 852
+   }
+  },
+  "vtoroj_profil": {
+   "profil": "iphone-safe-area",
+   "shirina": 393,
+   "vysota": 852,
+   "vyrez": 59,
+   "home": 34,
+   "obolochka": "tabshell",
+   "marshrut": "mobile/.maestro/vkladki-tabshell-393.yaml",
+   "kadry": "kadry_profil.json",
+   "elementy": [
+    {
+     "id": "shapka-tabshell",
+     "tip": "shapka",
+     "x": 0,
+     "y": 59,
+     "shirina": 393,
+     "vysota": 48
+    },
+    {
+     "id": "zagolovok-vkladki",
+     "tip": "zagolovok",
+     "x": 16,
+     "y": 140,
+     "shirina": 361,
+     "vysota": 40
+    },
+    {
+     "id": "kontent-vkladki",
+     "tip": "prochee",
+     "x": 16,
+     "y": 180,
+     "shirina": 361,
+     "vysota": 560
+    },
+    {
+     "id": "tab-leiste-levo",
+     "tip": "kontrol",
+     "x": 0,
+     "y": 766,
+     "shirina": 157,
+     "vysota": 52
+    },
+    {
+     "id": "tab-leiste-pravo",
+     "tip": "kontrol",
+     "x": 236,
+     "y": 766,
+     "shirina": 157,
+     "vysota": 52
+    },
+    {
+     "id": "znak-mitte",
+     "tip": "ikonka",
+     "x": 182,
+     "y": 776,
+     "shirina": 28,
+     "vysota": 28,
+     "glif": "faden-tab"
+    }
+   ]
+  },
+  "dvizhenie": {
+   "manifest": "docs/ux/04_Gespraech_D24/pack/gespraech-final2-manifest.json",
+   "manifest_sha256": "d68fdc292b842d6d08b28d7a048f3ea576186e164e26eb21809bc4e45a38591a",
+   "spec": "docs/ux/04_Gespraech_D24/motion/motion-spec-gespraech.json",
+   "spec_sha256": "fe71a00c5cc121dc1814ebb11051617657c1887de10369efd40af24ff96fc885",
+   "pozvonok": "docs/ux/04_Gespraech_D24/motion/faden-poses-gespraech.json",
+   "pozvonok_sha256": "7cf84bc35272968ec28afe9043b3a326cefd55a76836d7e0922e43976872e35e",
+   "ekrany": [
+    "GA-02",
+    "GA-03",
+    "GA-04",
+    "GA-09"
+   ],
+   "perehody": [],
+   "sceny_znaka": [],
+   "etalony": {},
+   "priemka_dvizhenija": "bash mobile/e2e-vkladki/dvizhenie.sh vkladki --json --outputFile mobile/e2e-vkladki/dvizhenie-otchet.json"
+  }
+ },
+ "ekran_forma_prod": {
+  "ekran": "vkladki",
+  "kadry": "kadry.json",
+  "sostojanija": [
+   "vorgaenge",
+   "schutz-badge",
+   "post",
+   "vorgaenge-skroll",
+   "tema-dark",
+   "tema-light"
+  ],
+  "kljuchi_kopii": [
+   "ia115.nav.START",
+   "ia117.nav.VORGAENGE",
+   "ia115.nav.SCHUTZ",
+   "ia115.nav.POST",
+   "proposed.gespraech.tab",
+   "proposed.gespraech.tab.a11y",
+   "ui.vorgaenge.group.working",
+   "ui.vorgaenge.group.needs_you",
+   "ui.vorgaenge.group.waiting",
+   "ui.vorgaenge.subtitle",
+   "ui.mission.all_done",
+   "ui.post.filter.all",
+   "ui.post.filter.received",
+   "ui.post.filter.sent",
+   "ui.post.send_to_complior",
+   "frame.F19.01.title",
+   "global.back"
+  ],
+  "operacii_api": [],
+  "katalog_kopii": "mobile/e2e-vkladki/katalog_kopii.json",
+  "spec_api": "mobile/e2e-vkladki/spec_api.json",
+  "audit_tokenov": "docs/ux/03_Mobility_Slice1/ds/tokens.css",
+  "e2e_scenarij": "mobile/.maestro/vkladki.yaml",
+  "kadry_dir": "mobile/maestro-out-vkladki",
+  "kontrakt": "kontrakt.md",
+  "batareja": [
+   "batareja/red_ekrana.sh"
+  ],
+  "priemka": {
+   "e2e": "bash mobile/e2e-vkladki/e2e.sh vkladki",
+   "sverka": "python3 .harness123/scripts/sverka_maketa.py --manifest .harness123/kadry.json --kadry mobile/maestro-out-vkladki --repo .",
+   "prokhod": "bash mobile/e2e-vkladki/prokhod.sh mobile/.maestro/prokhod-vkladki.yaml"
+  },
+  "zony": {
+   "architect": [
+    "contracts/148-vkladki-tabov.md",
+    "fixtures/workshop_project/vkladki_tabov_148/"
+   ],
+   "implementer": [
+    "mobile/src/bootstrap/tab-shell.tsx",
+    "mobile/src/bootstrap/gespraech-mitte.tsx",
+    "mobile/src/features/missions/components/VorgaengeListe.tsx",
+    "mobile/src/features/missions/model/vkladki-dannye.ts",
+    "mobile/src/features/protection/components/SchutzUebersicht.tsx",
+    "mobile/src/features/post/components/PostEingang.tsx",
+    "mobile/src/i18n/ui-copy.ts",
+    "mobile/src/app/",
+    "mobile/.maestro/vkladki.yaml",
+    "mobile/.maestro/vkladki-tabshell-393.yaml",
+    "mobile/.maestro/prokhod-vkladki.yaml",
+    "mobile/e2e-vkladki/"
+   ]
+  },
+  "zamenjaet": null,
+  "ne_trogaet": [
+   "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_chuzhogo/kadry.json",
+   "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_tot_zhe/kadry.json",
+   "mobile/e2e-erstinformation/kadry.json",
+   "mobile/e2e-first-run/kadry.json"
+  ],
+  "fiktura": false,
+  "shablon": 3,
+  "prokhodimost": {
+   "pressable": [
+    {
+     "id": "shell-tab-start",
+     "sostojanie": "deistvie",
+     "izmenenie": "razdel-start",
+     "shirina": 79,
+     "vysota": 46,
+     "x": 0,
+     "y": 772,
+     "demo": false
+    },
+    {
+     "id": "shell-tab-vorgaenge",
+     "sostojanie": "deistvie",
+     "izmenenie": "razdel-vorgaenge",
+     "shirina": 79,
+     "vysota": 46,
+     "x": 79,
+     "y": 772,
+     "demo": false
+    },
+    {
+     "id": "gespraech-mitte",
+     "sostojanie": "deistvie",
+     "izmenenie": "status-mitte-perekljuchaetsja-mok-menu-147",
+     "shirina": 79,
+     "vysota": 46,
+     "x": 157,
+     "y": 772,
+     "demo": false
+    },
+    {
+     "id": "shell-tab-schutz",
+     "sostojanie": "deistvie",
+     "izmenenie": "razdel-schutz",
+     "shirina": 79,
+     "vysota": 46,
+     "x": 236,
+     "y": 772,
+     "demo": false
+    },
+    {
+     "id": "shell-tab-post",
+     "sostojanie": "deistvie",
+     "izmenenie": "razdel-post",
+     "shirina": 79,
+     "vysota": 46,
+     "x": 314,
+     "y": 772,
+     "demo": false
+    },
+    {
+     "id": "vorgaenge-stroka-1",
+     "sostojanie": "deistvie",
+     "izmenenie": "vorgang-hausrat-vergleich-mok",
+     "shirina": 361,
+     "vysota": 44,
+     "x": 16,
+     "y": 293,
+     "demo": false
+    },
+    {
+     "id": "vorgaenge-stroka-2",
+     "sostojanie": "deistvie",
+     "izmenenie": "vorgang-kfz-wechsel-mok",
+     "shirina": 361,
+     "vysota": 44,
+     "x": 16,
+     "y": 547,
+     "demo": false
+    },
+    {
+     "id": "vorgaenge-stroka-3",
+     "sostojanie": "deistvie",
+     "izmenenie": "vorgang-rechtsschutz-beratung-mok",
+     "shirina": 361,
+     "vysota": 44,
+     "x": 16,
+     "y": 313,
+     "demo": false
+    },
+    {
+     "id": "vorgaenge-stroka-4",
+     "sostojanie": "deistvie",
+     "izmenenie": "vorgang-hausrat-vertrag-mok",
+     "shirina": 361,
+     "vysota": 44,
+     "x": 16,
+     "y": 445,
+     "demo": false
+    },
+    {
+     "id": "vorgaenge-vse-sdelannye",
+     "sostojanie": "deistvie",
+     "izmenenie": "spisok-erledigte-mok",
+     "shirina": 361,
+     "vysota": 44,
+     "x": 16,
+     "y": 565,
+     "demo": false
+    },
+    {
+     "id": "schutz-kartochka-vertraege",
+     "sostojanie": "deistvie",
+     "izmenenie": "schutz-vertraege-mok",
+     "shirina": 361,
+     "vysota": 56,
+     "x": 16,
+     "y": 199,
+     "demo": false
+    },
+    {
+     "id": "schutz-stroka-mobilitaet",
+     "sostojanie": "deistvie",
+     "izmenenie": "schutz-bereich-mobilitaet-mok",
+     "shirina": 361,
+     "vysota": 58,
+     "x": 16,
+     "y": 621,
+     "demo": false
+    },
+    {
+     "id": "schutz-stroka-wohnen",
+     "sostojanie": "deistvie",
+     "izmenenie": "schutz-bereich-wohnen-mok",
+     "shirina": 361,
+     "vysota": 58,
+     "x": 16,
+     "y": 679,
+     "demo": false
+    },
+    {
+     "id": "post-filtr-alle",
+     "sostojanie": "deistvie",
+     "izmenenie": "filtr-alle",
+     "shirina": 93,
+     "vysota": 44,
+     "x": 19,
+     "y": 199,
+     "demo": false
+    },
+    {
+     "id": "post-filtr-vhodjaschie",
+     "sostojanie": "deistvie",
+     "izmenenie": "filtr-eingegangen",
+     "shirina": 93,
+     "vysota": 44,
+     "x": 112,
+     "y": 199,
+     "demo": false
+    },
+    {
+     "id": "post-filtr-otpravlennye",
+     "sostojanie": "deistvie",
+     "izmenenie": "filtr-gesendet",
+     "shirina": 93,
+     "vysota": 44,
+     "x": 205,
+     "y": 199,
+     "demo": false
+    },
+    {
+     "id": "post-napisat-complior",
+     "sostojanie": "deistvie",
+     "izmenenie": "composer-mok",
+     "shirina": 319,
+     "vysota": 44,
+     "x": 37,
+     "y": 358,
+     "demo": false
+    },
+    {
+     "id": "post-soobschenie-rechtsschutz",
+     "sostojanie": "deistvie",
+     "izmenenie": "soobschenie-rechtsschutz-mok",
+     "shirina": 361,
+     "vysota": 180,
+     "x": 16,
+     "y": 637,
+     "demo": false
+    }
+   ],
+   "demo": [],
+   "safe": {
+    "verh": 59,
+    "niz": 34,
+    "vysota": 852
+   }
+  },
+  "vtoroj_profil": {
+   "profil": "iphone-safe-area",
+   "shirina": 393,
+   "vysota": 852,
+   "vyrez": 59,
+   "home": 34,
+   "obolochka": "tabshell",
+   "marshrut": "mobile/.maestro/vkladki-tabshell-393.yaml",
+   "kadry": "kadry_profil.json",
+   "elementy": [
+    {
+     "id": "shapka-tabshell",
+     "tip": "shapka",
+     "x": 0,
+     "y": 59,
+     "shirina": 393,
+     "vysota": 48
+    },
+    {
+     "id": "zagolovok-vkladki",
+     "tip": "zagolovok",
+     "x": 16,
+     "y": 140,
+     "shirina": 361,
+     "vysota": 40
+    },
+    {
+     "id": "kontent-vkladki",
+     "tip": "prochee",
+     "x": 16,
+     "y": 180,
+     "shirina": 361,
+     "vysota": 560
+    },
+    {
+     "id": "tab-leiste-levo",
+     "tip": "kontrol",
+     "x": 0,
+     "y": 766,
+     "shirina": 157,
+     "vysota": 52
+    },
+    {
+     "id": "tab-leiste-pravo",
+     "tip": "kontrol",
+     "x": 236,
+     "y": 766,
+     "shirina": 157,
+     "vysota": 52
+    },
+    {
+     "id": "znak-mitte",
+     "tip": "ikonka",
+     "x": 182,
+     "y": 776,
+     "shirina": 28,
+     "vysota": 28,
+     "glif": "faden-tab"
+    }
+   ]
+  },
+  "dvizhenie": {
+   "manifest": "docs/ux/04_Gespraech_D24/pack/gespraech-final2-manifest.json",
+   "manifest_sha256": "b5bd859858853f708aea05e589cb187b21ea02d3c02af4081ad7ab8d5e76d6b7",
+   "spec": "docs/ux/04_Gespraech_D24/motion/motion-spec-gespraech.json",
+   "spec_sha256": "064d7821428f425d431fbd1efd65cbec37263bb62ef974924746a07e769cd318",
+   "pozvonok": "docs/ux/04_Gespraech_D24/motion/faden-poses-gespraech.json",
+   "pozvonok_sha256": "9763fdc06b0c0a3c3138f7abac57bf5efbc714403f53d221c3b7c8d225c4f002",
+   "ekrany": [
+    "GA-02",
+    "GA-03",
+    "GA-04",
+    "GA-09"
+   ],
+   "perehody": [],
+   "sceny_znaka": [],
+   "etalony": {},
+   "priemka_dvizhenija": "bash mobile/e2e-vkladki/dvizhenie.sh vkladki --json --outputFile mobile/e2e-vkladki/dvizhenie-otchet.json"
+  }
+ },
+ "kadry_manifest": {
+  "_comment": "148 vkladki-tabov: 16 кадров D 2.4 (GA-02/03/04/09) — грамматика 123",
+  "mera": {
+   "chernila_T": 40,
+   "kletka_pt": 6,
+   "fon_shag": 4,
+   "razmytie_r": 1,
+   "region_porog": 0.05,
+   "margin": 1,
+   "chrome_verh_pt": 36,
+   "chrome_niz_pt": 20,
+   "min_dolja_suda": 0.5
+  },
+  "kadry": [
+   {
+    "id": "GA-02 dark",
+    "tema": "dark",
+    "snimok": "vkladki-vorgaenge",
+    "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-02.png",
+    "maket_sha256": "1e5c2b8affcb9b7741d79de8b364e5c84a5ec1bf517ca11451b30c7bdc13b203",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "shapka",
+      "bbox_pt": [
+       0,
+       0,
+       390,
+       140
+      ]
+     },
+     {
+      "imja": "kontent",
+      "bbox_pt": [
+       0,
+       140,
+       390,
+       762
+      ]
+     },
+     {
+      "imja": "tab-leiste",
+      "bbox_pt": [
+       0,
+       762,
+       390,
+       844
+      ]
+     },
+     {
+      "imja": "mitte",
+      "bbox_pt": [
+       156,
+       762,
+       234,
+       844
+      ]
+     }
+    ]
+   },
+   {
+    "id": "GA-02 light",
+    "tema": "light",
+    "snimok": "vkladki-vorgaenge",
+    "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-02-Hell.png",
+    "maket_sha256": "a89e7f55790c44ab1b4a6591d9e952150a733b73834dcdb3191bffb89ef349c9",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "shapka",
+      "bbox_pt": [
+       0,
+       0,
+       390,
+       140
+      ]
+     },
+     {
+      "imja": "kontent",
+      "bbox_pt": [
+       0,
+       140,
+       390,
+       762
+      ]
+     },
+     {
+      "imja": "tab-leiste",
+      "bbox_pt": [
+       0,
+       762,
+       390,
+       844
+      ]
+     },
+     {
+      "imja": "mitte",
+      "bbox_pt": [
+       156,
+       762,
+       234,
+       844
+      ]
+     }
+    ]
+   },
+   {
+    "id": "GA-03 dark",
+    "tema": "dark",
+    "snimok": "vkladki-schutz",
+    "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-03.png",
+    "maket_sha256": "10cbd7b640b464ea66ef8813345baae1b9006b4daa7c9e732e5b06f699b998dd",
+    "porog": 0.6,
+    "maski_pt": [
+     [
+      0,
+      403,
+      390,
+      488
+     ]
+    ],
+    "elementy": [
+     {
+      "imja": "shapka",
+      "bbox_pt": [
+       0,
+       0,
+       390,
+       140
+      ]
+     },
+     {
+      "imja": "kontent",
+      "bbox_pt": [
+       0,
+       140,
+       390,
+       762
+      ]
+     },
+     {
+      "imja": "tab-leiste",
+      "bbox_pt": [
+       0,
+       762,
+       390,
+       844
+      ]
+     },
+     {
+      "imja": "mitte",
+      "bbox_pt": [
+       156,
+       762,
+       234,
+       844
+      ]
+     }
+    ]
+   },
+   {
+    "id": "GA-03 light",
+    "tema": "light",
+    "snimok": "vkladki-schutz",
+    "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-03-Hell.png",
+    "maket_sha256": "686dbc85002c07548c5b923dc4e5875a045afcb164a78b67b8f9da7c4e287650",
+    "porog": 0.6,
+    "maski_pt": [
+     [
+      0,
+      403,
+      390,
+      488
+     ]
+    ],
+    "elementy": [
+     {
+      "imja": "shapka",
+      "bbox_pt": [
+       0,
+       0,
+       390,
+       140
+      ]
+     },
+     {
+      "imja": "kontent",
+      "bbox_pt": [
+       0,
+       140,
+       390,
+       762
+      ]
+     },
+     {
+      "imja": "tab-leiste",
+      "bbox_pt": [
+       0,
+       762,
+       390,
+       844
+      ]
+     },
+     {
+      "imja": "mitte",
+      "bbox_pt": [
+       156,
+       762,
+       234,
+       844
+      ]
+     }
+    ]
+   },
+   {
+    "id": "GA-04 dark",
+    "tema": "dark",
+    "snimok": "vkladki-post",
+    "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-04.png",
+    "maket_sha256": "bd286b8152c1e5a69c082707800ba9bf8cbb9f3d90ef04fe849fad49db496816",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "shapka",
+      "bbox_pt": [
+       0,
+       0,
+       390,
+       140
+      ]
+     },
+     {
+      "imja": "kontent",
+      "bbox_pt": [
+       0,
+       140,
+       390,
+       762
+      ]
+     },
+     {
+      "imja": "tab-leiste",
+      "bbox_pt": [
+       0,
+       762,
+       390,
+       844
+      ]
+     },
+     {
+      "imja": "mitte",
+      "bbox_pt": [
+       156,
+       762,
+       234,
+       844
+      ]
+     }
+    ]
+   },
+   {
+    "id": "GA-04 light",
+    "tema": "light",
+    "snimok": "vkladki-post",
+    "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-04-Hell.png",
+    "maket_sha256": "e0b12bd71e4d285a3dd0fec749e8e67eaf92b4afeeb43613181a4308cf0fcc60",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "shapka",
+      "bbox_pt": [
+       0,
+       0,
+       390,
+       140
+      ]
+     },
+     {
+      "imja": "kontent",
+      "bbox_pt": [
+       0,
+       140,
+       390,
+       762
+      ]
+     },
+     {
+      "imja": "tab-leiste",
+      "bbox_pt": [
+       0,
+       762,
+       390,
+       844
+      ]
+     },
+     {
+      "imja": "mitte",
+      "bbox_pt": [
+       156,
+       762,
+       234,
+       844
+      ]
+     }
+    ]
+   },
+   {
+    "id": "GA-09 dark",
+    "tema": "dark",
+    "snimok": "vkladki-vorgaenge-skroll",
+    "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-09.png",
+    "maket_sha256": "d00890866538178c6b3b7da076850ce01b0c302d66af5ce75c339344645f37b8",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "shapka",
+      "bbox_pt": [
+       0,
+       0,
+       390,
+       140
+      ]
+     },
+     {
+      "imja": "kontent",
+      "bbox_pt": [
+       0,
+       140,
+       390,
+       762
+      ]
+     },
+     {
+      "imja": "tab-leiste",
+      "bbox_pt": [
+       0,
+       762,
+       390,
+       844
+      ]
+     },
+     {
+      "imja": "mitte",
+      "bbox_pt": [
+       156,
+       762,
+       234,
+       844
+      ]
+     }
+    ]
+   },
+   {
+    "id": "GA-09 light",
+    "tema": "light",
+    "snimok": "vkladki-vorgaenge-skroll",
+    "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-09-Hell.png",
+    "maket_sha256": "331a77ac477a78e056b9172aa5aada27504d287cc1e6b1c6648e51bcd8ceb853",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "shapka",
+      "bbox_pt": [
+       0,
+       0,
+       390,
+       140
+      ]
+     },
+     {
+      "imja": "kontent",
+      "bbox_pt": [
+       0,
+       140,
+       390,
+       762
+      ]
+     },
+     {
+      "imja": "tab-leiste",
+      "bbox_pt": [
+       0,
+       762,
+       390,
+       844
+      ]
+     },
+     {
+      "imja": "mitte",
+      "bbox_pt": [
+       156,
+       762,
+       234,
+       844
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "profil_kadry": {
+  "_comment": "148 vkladki-tabov: 16 кадров D 2.4 (GA-02/03/04/09) — грамматика 123",
+  "mera": {
+   "chernila_T": 40,
+   "kletka_pt": 6,
+   "fon_shag": 4,
+   "razmytie_r": 1,
+   "region_porog": 0.05,
+   "margin": 1,
+   "chrome_verh_pt": 36,
+   "chrome_niz_pt": 20,
+   "min_dolja_suda": 0.5
+  },
+  "kadry": [
+   {
+    "id": "GA-02 dark 393",
+    "tema": "dark",
+    "snimok": "vkladki-vorgaenge-393",
+    "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-02.png",
+    "maket_sha256": "d1b0612048ae10fd68ad5be07b65f8ca4cb716e19b4983f9a83457713b3b0af5",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "shapka",
+      "bbox_pt": [
+       0,
+       0,
+       393,
+       140
+      ]
+     },
+     {
+      "imja": "kontent",
+      "bbox_pt": [
+       0,
+       140,
+       393,
+       770
+      ]
+     },
+     {
+      "imja": "tab-leiste",
+      "bbox_pt": [
+       0,
+       770,
+       393,
+       852
+      ]
+     },
+     {
+      "imja": "mitte",
+      "bbox_pt": [
+       156,
+       770,
+       234,
+       852
+      ]
+     }
+    ]
+   },
+   {
+    "id": "GA-02 light 393",
+    "tema": "light",
+    "snimok": "vkladki-vorgaenge-393",
+    "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-02-Hell.png",
+    "maket_sha256": "34bd0dd5702e9042f698c0cfae546bd9b5493550b422f9e548980d3c4ce15554",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "shapka",
+      "bbox_pt": [
+       0,
+       0,
+       393,
+       140
+      ]
+     },
+     {
+      "imja": "kontent",
+      "bbox_pt": [
+       0,
+       140,
+       393,
+       770
+      ]
+     },
+     {
+      "imja": "tab-leiste",
+      "bbox_pt": [
+       0,
+       770,
+       393,
+       852
+      ]
+     },
+     {
+      "imja": "mitte",
+      "bbox_pt": [
+       156,
+       770,
+       234,
+       852
+      ]
+     }
+    ]
+   },
+   {
+    "id": "GA-03 dark 393",
+    "tema": "dark",
+    "snimok": "vkladki-schutz-393",
+    "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-03.png",
+    "maket_sha256": "ba6e8c512f0d2573c6a158789c0c0dc7f99d75b15a8af377db3ff506c1a2b50d",
+    "porog": 0.6,
+    "maski_pt": [
+     [
+      0,
+      425,
+      393,
+      510
+     ]
+    ],
+    "elementy": [
+     {
+      "imja": "shapka",
+      "bbox_pt": [
+       0,
+       0,
+       393,
+       140
+      ]
+     },
+     {
+      "imja": "kontent",
+      "bbox_pt": [
+       0,
+       140,
+       393,
+       770
+      ]
+     },
+     {
+      "imja": "tab-leiste",
+      "bbox_pt": [
+       0,
+       770,
+       393,
+       852
+      ]
+     },
+     {
+      "imja": "mitte",
+      "bbox_pt": [
+       156,
+       770,
+       234,
+       852
+      ]
+     }
+    ]
+   },
+   {
+    "id": "GA-03 light 393",
+    "tema": "light",
+    "snimok": "vkladki-schutz-393",
+    "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-03-Hell.png",
+    "maket_sha256": "1acacb6ed648cc00bfa22e247cd0ce115ca889ca13743adf7798840eefdb658c",
+    "porog": 0.6,
+    "maski_pt": [
+     [
+      0,
+      425,
+      393,
+      510
+     ]
+    ],
+    "elementy": [
+     {
+      "imja": "shapka",
+      "bbox_pt": [
+       0,
+       0,
+       393,
+       140
+      ]
+     },
+     {
+      "imja": "kontent",
+      "bbox_pt": [
+       0,
+       140,
+       393,
+       770
+      ]
+     },
+     {
+      "imja": "tab-leiste",
+      "bbox_pt": [
+       0,
+       770,
+       393,
+       852
+      ]
+     },
+     {
+      "imja": "mitte",
+      "bbox_pt": [
+       156,
+       770,
+       234,
+       852
+      ]
+     }
+    ]
+   },
+   {
+    "id": "GA-04 dark 393",
+    "tema": "dark",
+    "snimok": "vkladki-post-393",
+    "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-04.png",
+    "maket_sha256": "6bbcbff3ce76da39cc3ad0af4d02a22f55c467f8b67d1124d101e6834d540ce5",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "shapka",
+      "bbox_pt": [
+       0,
+       0,
+       393,
+       140
+      ]
+     },
+     {
+      "imja": "kontent",
+      "bbox_pt": [
+       0,
+       140,
+       393,
+       770
+      ]
+     },
+     {
+      "imja": "tab-leiste",
+      "bbox_pt": [
+       0,
+       770,
+       393,
+       852
+      ]
+     },
+     {
+      "imja": "mitte",
+      "bbox_pt": [
+       156,
+       770,
+       234,
+       852
+      ]
+     }
+    ]
+   },
+   {
+    "id": "GA-04 light 393",
+    "tema": "light",
+    "snimok": "vkladki-post-393",
+    "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-04-Hell.png",
+    "maket_sha256": "84bf6198a696e9808c75dc345cf2ead4e868b93d3589df47a864e2a2cb946a8f",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "shapka",
+      "bbox_pt": [
+       0,
+       0,
+       393,
+       140
+      ]
+     },
+     {
+      "imja": "kontent",
+      "bbox_pt": [
+       0,
+       140,
+       393,
+       770
+      ]
+     },
+     {
+      "imja": "tab-leiste",
+      "bbox_pt": [
+       0,
+       770,
+       393,
+       852
+      ]
+     },
+     {
+      "imja": "mitte",
+      "bbox_pt": [
+       156,
+       770,
+       234,
+       852
+      ]
+     }
+    ]
+   },
+   {
+    "id": "GA-09 dark 393",
+    "tema": "dark",
+    "snimok": "vkladki-vorgaenge-skroll-393",
+    "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-09.png",
+    "maket_sha256": "f2fdbd901f5b56c74645c9c6caaa827f74a7655e8e6a43638ec246ea605c4bda",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "shapka",
+      "bbox_pt": [
+       0,
+       0,
+       393,
+       140
+      ]
+     },
+     {
+      "imja": "kontent",
+      "bbox_pt": [
+       0,
+       140,
+       393,
+       770
+      ]
+     },
+     {
+      "imja": "tab-leiste",
+      "bbox_pt": [
+       0,
+       770,
+       393,
+       852
+      ]
+     },
+     {
+      "imja": "mitte",
+      "bbox_pt": [
+       156,
+       770,
+       234,
+       852
+      ]
+     }
+    ]
+   },
+   {
+    "id": "GA-09 light 393",
+    "tema": "light",
+    "snimok": "vkladki-vorgaenge-skroll-393",
+    "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-09-Hell.png",
+    "maket_sha256": "c7d9550e99918379214097561242d17091c786544af62f34e17ad1b3cd3b9bef",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "shapka",
+      "bbox_pt": [
+       0,
+       0,
+       393,
+       140
+      ]
+     },
+     {
+      "imja": "kontent",
+      "bbox_pt": [
+       0,
+       140,
+       393,
+       770
+      ]
+     },
+     {
+      "imja": "tab-leiste",
+      "bbox_pt": [
+       0,
+       770,
+       393,
+       852
+      ]
+     },
+     {
+      "imja": "mitte",
+      "bbox_pt": [
+       156,
+       770,
+       234,
+       852
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "katalog": {
+  "_comment": "Verbatim-подмножество BrokerOS_UI_Copy_DE.json (slice-1) и proposed-копии пакета D 2.4 для экрана vkladki (148).",
+  "ia115.nav.START": {
+   "text": "Start",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ia117.nav.VORGAENGE": {
+   "text": "Vorgänge",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ia115.nav.SCHUTZ": {
+   "text": "Schutz",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ia115.nav.POST": {
+   "text": "Post",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "proposed.gespraech.tab": {
+   "text": "Gespräch",
+   "review_status": "PROPOSED / PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "proposed.gespraech.tab.a11y": {
+   "text": "Gespräch mit Complior",
+   "review_status": "PROPOSED / PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ui.vorgaenge.group.working": {
+   "text": "In Arbeit",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ui.vorgaenge.group.needs_you": {
+   "text": "Ihre Rückmeldung nötig",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ui.vorgaenge.group.waiting": {
+   "text": "Warten auf Antwort",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ui.vorgaenge.subtitle": {
+   "text": "Worum wir uns gerade kümmern",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ui.mission.all_done": {
+   "text": "Alle erledigten Vorgänge",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ui.post.filter.all": {
+   "text": "Alle",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ui.post.filter.received": {
+   "text": "Eingegangen",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ui.post.filter.sent": {
+   "text": "Gesendet",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ui.post.send_to_complior": {
+   "text": "An Complior schicken",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "frame.F19.01.title": {
+   "text": "Ihre Absicherung im Überblick",
+   "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED"
+  },
+  "global.back": {
+   "text": "Zurück",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  }
+ },
+ "kontrakt_tekst": "# Контракт пачки vkladki (148) — одна страница\n\n## Воля владельца\n- Слово 2026-10-28 ~22:50 (docs/owner/2026-10-28-d24-gespraech-final2.md):\n  «Реализовать эти экраны со всей динамикой и движениями»; GA-02/03/04/09 —\n  нижнее меню/таб-бар D 2.4; опоры — знак 145 и шаблон 132.\n\n## Существующее\n- TabShell (999/995, влито): 4 вкладки, темы, УД; Mitte/контент/скролл —\n  новое 148; знак tier tab 28 px — движок 145 (mobile/src/lib/faden).\n\n## Инварианты\n- Пять слотов лейсте: Start, Vorgänge, Mitte, Schutz, Post; Mitte — НЕ\n  accessibilityRole=tab (замороженная грамматика 999: role=tab — ровно\n  четыре); контент вкладок — слоты композиции (frozen 999/copy без\n  слотов неизменны).\n- Скролл контента ПОД лейсте (GA-09); кадр сверяется с макетом (123).\n- Mitte: FadenSign size=tab (28 px), статус In Arbeit (GA-02/04/09),\n  бейдж Ihre Rückmeldung nötig (GA-03; ключи ui.vorgaenge.group).\n- Касания не меньше 44 pt (prokhodimost); цели — из манифеста D 2.4.\n- Переходов нет (∩-правило: ни один переход манифеста не касается\n  GA-02/03/04/09); perehody, sceny_znaka, etalony пусты.\n\n## Приёмочный критерий\n- Валидатор 132 v3: ekran_shablon.py --pack mobile/e2e-vkladki --repo .\n  --harness H → rc 0 (16 кадров, оба профиля, сверка, проход);\n  негативы — именованные отказы (батарея 148, osi.md).\n\n## Зоны и исполнители\nЗОНА architect: contracts/148-vkladki-tabov.md fixtures/workshop_project/vkladki_tabov_148/\nЗОНА implementer: mobile/src/bootstrap/tab-shell.tsx mobile/src/bootstrap/gespraech-mitte.tsx\nЗОНА implementer: mobile/src/features/missions/components/VorgaengeListe.tsx\nЗОНА implementer: mobile/src/features/missions/model/vkladki-dannye.ts\nЗОНА implementer: mobile/src/features/protection/components/SchutzUebersicht.tsx\nЗОНА implementer: mobile/src/features/post/components/PostEingang.tsx mobile/src/i18n/ui-copy.ts\nЗОНА implementer: mobile/src/app/ mobile/.maestro/vkladki.yaml\nЗОНА implementer: mobile/.maestro/vkladki-tabshell-393.yaml mobile/.maestro/prokhod-vkladki.yaml\nЗОНА implementer: mobile/e2e-vkladki/\n\n## ПРОВОДКА\nПРОВОДКА:\n- guard=fixtures/workshop_project/vkladki_tabov_148/red_vkladki_tabov_148.sh\n\n## Модель угроз\nЗАЩИЩАЕТ: от опущенного Mitte/контента (кадры против пиннованных\nмакетов), от касаний меньше 44 pt, от подмены макетов (sha256), от\nскрытого движения (∩-полнота против манифеста D 2.4).\nНЕ ЗАЩИЩАЕТ: «ощущение» движения (владелец на iPhone), живой эмулятор\nвнутри батареи (продуктовый CI), зона Notice GA-03 до каталогизации\nкопии (ключа нет ни в каталоге, ни в proposed; maski_pt кадра).\n",
+ "batareja_tekst": "#!/usr/bin/env bash\n# Батарея экрана vkladki живёт в харнессе (guard-канал 148):\n# bash fixtures/workshop_project/vkladki_tabov_148/red_vkladki_tabov_148.sh\n# (без флага -- живой продукт; --model -- эталон; --stabs -- матрица).\nset -u\necho 'VNIMANIE: батарея живёт в харнессе (см. ПРОВОДКА контракта 148)'\nexit 2\n",
+ "spec": {
+  "openapi": "3.1.0",
+  "paths": {},
+  "_comment": "148 vkladki: экран без API-операций (пилот на тестовых данных)"
+ },
+ "standiny": {
+  "e2e": "#!/usr/bin/env bash\n# Стенд-ин priemka.e2e (батарея 148): эмулятора нет — кадры\n# кладёт перегонка макетов (пиксели те же, байты иные).\nset -eu\nexec python3 \"$(dirname \"$0\")/../e2e-standin-vkladki/e2e-stand-in.py\" \"$@\"\n",
+  "e2e_py": "#!/usr/bin/env python3\n# Стенд-ин e2e батареи 148: перекодированные макеты → Maestro-раскладка\n# kadry_dir/<тема>/aa/bb/takeScreenshot/<snimok>.png (оба манифеста).\nimport json\nimport sys\nfrom pathlib import Path\n\nsys.path.insert(0, str(Path(__file__).resolve().parent))\nfrom stand_in_png import perekodirovat\n\nREPO = Path(__file__).resolve().parents[2]\nPACK = Path(__file__).resolve().parents[1] / 'e2e-vkladki'\nOUT = REPO / 'mobile/maestro-out-vkladki'\nfor imja in ('kadry.json', 'kadry_profil.json'):\n    man = json.loads((PACK / imja).read_text(encoding='utf-8'))\n    for k in man['kadry']:\n        kadr = perekodirovat((REPO / k['maket']).read_bytes())\n        d = OUT / k['tema'] / 'aa' / 'bb' / 'takeScreenshot'\n        d.mkdir(parents=True, exist_ok=True)\n        (d / (k['snimok'] + '.png')).write_bytes(kadr)\nprint('E2E_STAND_IN: кадры обоих профилей положены')\n",
+  "png": "#!/usr/bin/env python3\n# Перегонка PNG (батарея 148): декодер ct 2 (RGB) и 6 (RGBA); энкодер\n# всегда RGBA — пиксели те же, байты иные (приём 118/132).\nimport struct\nimport zlib\n\n\ndef dekodirovat(blob):\n    pos, idat, ihdr = 8, bytearray(), None\n    while pos < len(blob):\n        ln, typ = struct.unpack('>I4s', blob[pos:pos + 8])\n        body = blob[pos + 8:pos + 8 + ln]\n        if typ == b'IHDR':\n            ihdr = body\n        elif typ == b'IDAT':\n            idat += body\n        pos += 12 + ln\n    w, h, bd, ct = struct.unpack('>IIBB', ihdr[:10])\n    assert bd == 8 and ct in (2, 6), 'ожидался RGB/RGBA'\n    ch = 3 if ct == 2 else 4\n    raw = zlib.decompress(bytes(idat))\n    stride = w * ch\n    rows, prev = [], bytearray(stride)\n    i = 0\n    for _y in range(h):\n        f = raw[i]\n        i += 1\n        line = bytearray(raw[i:i + stride])\n        i += stride\n        if f == 1:\n            for x in range(ch, stride):\n                line[x] = (line[x] + line[x - ch]) & 0xFF\n        elif f == 2:\n            for x in range(stride):\n                line[x] = (line[x] + prev[x]) & 0xFF\n        elif f == 3:\n            for x in range(stride):\n                a = line[x - ch] if x >= ch else 0\n                line[x] = (line[x] + ((a + prev[x]) >> 1)) & 0xFF\n        elif f == 4:\n            for x in range(stride):\n                a = line[x - ch] if x >= ch else 0\n                b = prev[x]\n                c = prev[x - ch] if x >= ch else 0\n                p = a + b - c\n                pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)\n                pr = a if (pa <= pb and pa <= pc) else (b if pb <= pc else c)\n                line[x] = (line[x] + pr) & 0xFF\n        prev = line\n        rows.append(bytes(line))\n    return w, h, ch, rows\n\n\ndef kodirovat_rgba(w, h, ch, rows):\n    def chunk(t, d):\n        return (struct.pack('>I', len(d)) + t + d\n                + struct.pack('>I', zlib.crc32(t + d) & 0xFFFFFFFF))\n    if ch == 3:\n        rows = [b''.join(bytes(r[x:x + 3]) + b'\\xff' for x in range(0, len(r), 3))\n                for r in rows]\n    raw2 = b''.join(b'\\x00' + r for r in rows)\n    return (b'\\x89PNG\\r\\n\\x1a\\n'\n            + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0))\n            + chunk(b'IDAT', zlib.compress(raw2, 1)) + chunk(b'IEND', b''))\n\n\ndef perekodirovat(blob):\n    w, h, ch, rows = dekodirovat(blob)\n    return kodirovat_rgba(w, h, ch, rows)\n",
+  "e2e_padaet": "#!/usr/bin/env bash\n# Мутант: e2e не прошла (rc 1) — кадры не кладутся.\nexit 1\n",
+  "e2e_molchit": "#!/usr/bin/env bash\n# Мутант: rc 0, кадров не кладёт — KADR_OTSUTSTVUET.\nexit 0\n",
+  "e2e_ustarevshij": "#!/usr/bin/env bash\n# Мутант: кладёт ДОзапусковые кадры — свежесть провалит.\nset -eu\nexec python3 \"$(dirname \"$0\")/../e2e-standin-vkladki/e2e-ustarevshij.py\" \"$@\"\n",
+  "e2e_ustarevshij_py": "#!/usr/bin/env python3\n# Мутант устаревших кадров: кадры пишет СРАЗУ и засыпает — к суду\n# свежести их mtime старше старта команды (валидатор зовёт после).\nimport json\nimport sys\nimport time\nfrom pathlib import Path\n\nsys.path.insert(0, str(Path(__file__).resolve().parent))\nfrom stand_in_png import perekodirovat\n\nREPO = Path(__file__).resolve().parents[2]\nPACK = Path(__file__).resolve().parents[1] / 'e2e-vkladki'\nOUT = REPO / 'mobile/maestro-out-vkladki'\nfor imja in ('kadry.json', 'kadry_profil.json'):\n    man = json.loads((PACK / imja).read_text(encoding='utf-8'))\n    for k in man['kadry']:\n        kadr = perekodirovat((REPO / k['maket']).read_bytes())\n        d = OUT / k['tema'] / 'aa' / 'bb' / 'takeScreenshot'\n        d.mkdir(parents=True, exist_ok=True)\n        (d / (k['snimok'] + '.png')).write_bytes(kadr)\nprint('E2E_USTAREVSHIJ: кадры положены до окна суда')\ntime.sleep(3)\n",
+  "e2e_nizhe_poroga": "#!/usr/bin/env bash\n# Мутант: кадр GA-03 dark с залитой фоном полосой Mitte.\nset -eu\nexec python3 \"$(dirname \"$0\")/../e2e-standin-vkladki/e2e-nizhe-poroga.py\" \"$@\"\n",
+  "e2e_nizhe_poroga_py": "#!/usr/bin/env python3\n# Мутант ниже порога (148): честные кадры, КРОМЕ GA-03 dark — полоса\n# Mitte [157,772,236,818] залита модой цвета полосы.\nimport json\nimport sys\nfrom collections import Counter\nfrom pathlib import Path\n\nsys.path.insert(0, str(Path(__file__).resolve().parent))\nfrom stand_in_png import dekodirovat, kodirovat_rgba\n\nREPO = Path(__file__).resolve().parents[2]\nPACK = Path(__file__).resolve().parents[1] / 'e2e-vkladki'\nOUT = REPO / 'mobile/maestro-out-vkladki'\nfor imja in ('kadry.json', 'kadry_profil.json'):\n    man = json.loads((PACK / imja).read_text(encoding='utf-8'))\n    for k in man['kadry']:\n        w, h, ch, rows = dekodirovat((REPO / k['maket']).read_bytes())\n        if k['id'] == 'GA-03 dark':\n            x0, y0, x1, y1 = 157, 772, 236, 818\n            nib = []\n            for y in range(y0, min(y1, h)):\n                row = rows[y]\n                for x in range(x0, min(x1, w)):\n                    nib.append(tuple(row[x * ch:x * ch + ch]))\n            moda = Counter(nib).most_common(1)[0][0]\n            for y in range(y0, min(y1, h)):\n                row = bytearray(rows[y])\n                for x in range(x0, min(x1, w)):\n                    row[x * ch:x * ch + ch] = moda\n                rows[y] = bytes(row)\n        kadr = kodirovat_rgba(w, h, ch, rows)\n        d = OUT / k['tema'] / 'aa' / 'bb' / 'takeScreenshot'\n        d.mkdir(parents=True, exist_ok=True)\n        (d / (k['snimok'] + '.png')).write_bytes(kadr)\nprint('E2E_NIZHE_POROGA: кадры положены (GA-03 dark испорчен)')\n",
+  "dvizhenie": "#!/usr/bin/env bash\n# Стенд-ин priemka_dvizhenija: СВЕЖИЙ отчёт jest-формы.\nset -eu\nexec python3 \"$(dirname \"$0\")/../e2e-standin-vkladki/dvizhenie-stand-in.py\" \"$@\"\n",
+  "dvizhenie_py": "#!/usr/bin/env python3\n# Стенд-ин численной приёмки движения (148): экран без переходов —\n# отчёт jest-формы сьюта экрана; свежесть даёт timestamp-строка.\nimport json\nimport time\nfrom pathlib import Path\n\nREPO = Path(__file__).resolve().parents[2]\notchet = {\n    'numTotalTests': 6, 'numPassedTests': 6, 'numFailedTests': 0,\n    'testResults': [{'assertionResults': [{'status': 'passed'}] * 6}],\n    'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime()),\n}\nput = REPO / 'mobile/e2e-vkladki/dvizhenie-otchet.json'\nput.write_text(json.dumps(otchet, indent=1), encoding='utf-8')\nprint('DVIZHENIE_STAND_IN: отчёт записан', put)\n",
+  "dvizhenie_pustoj": "#!/usr/bin/env bash\n# Мутант: отчёт пуст (numTotalTests 0).\nset -eu\nprintf '{\"numTotalTests\":0,\"numPassedTests\":0,\"numFailedTests\":0,\"testResults\":[]}' > mobile/e2e-vkladki/dvizhenie-otchet.json\n",
+  "dvizhenie_s_provalami": "#!/usr/bin/env bash\n# Мутант: отчёт с провалами.\nset -eu\nprintf '{\"numTotalTests\":6,\"numPassedTests\":5,\"numFailedTests\":1,\"testResults\":[{\"assertionResults\":[]}]}' > mobile/e2e-vkladki/dvizhenie-otchet.json\n",
+  "prokhod": "#!/usr/bin/env bash\n# Стенд-ин priemka.prokhod: проход честно зелён.\nexit 0\n",
+  "prokhod_padaet": "#!/usr/bin/env bash\n# Мутант: проход не прошёл (rc 1).\nexit 1\n"
+ },
+ "piny": {
+  "nositeli": {
+   "nositeli/d24/manifest.json": "d68fdc292b842d6d08b28d7a048f3ea576186e164e26eb21809bc4e45a38591a",
+   "nositeli/d24/poses.json": "7cf84bc35272968ec28afe9043b3a326cefd55a76836d7e0922e43976872e35e",
+   "nositeli/d24/spec.json": "fe71a00c5cc121dc1814ebb11051617657c1887de10369efd40af24ff96fc885",
+   "nositeli/d24-real/manifest.json": "b5bd859858853f708aea05e589cb187b21ea02d3c02af4081ad7ab8d5e76d6b7",
+   "nositeli/d24-real/poses.json": "9763fdc06b0c0a3c3138f7abac57bf5efbc714403f53d221c3b7c8d225c4f002",
+   "nositeli/d24-real/spec.json": "064d7821428f425d431fbd1efd65cbec37263bb62ef974924746a07e769cd318",
+   "nositeli/maket/390x844-GA-02-Hell.png": "a89e7f55790c44ab1b4a6591d9e952150a733b73834dcdb3191bffb89ef349c9",
+   "nositeli/maket/390x844-GA-02.png": "1e5c2b8affcb9b7741d79de8b364e5c84a5ec1bf517ca11451b30c7bdc13b203",
+   "nositeli/maket/390x844-GA-03-Hell.png": "686dbc85002c07548c5b923dc4e5875a045afcb164a78b67b8f9da7c4e287650",
+   "nositeli/maket/390x844-GA-03.png": "10cbd7b640b464ea66ef8813345baae1b9006b4daa7c9e732e5b06f699b998dd",
+   "nositeli/maket/390x844-GA-04-Hell.png": "e0b12bd71e4d285a3dd0fec749e8e67eaf92b4afeeb43613181a4308cf0fcc60",
+   "nositeli/maket/390x844-GA-04.png": "bd286b8152c1e5a69c082707800ba9bf8cbb9f3d90ef04fe849fad49db496816",
+   "nositeli/maket/390x844-GA-09-Hell.png": "331a77ac477a78e056b9172aa5aada27504d287cc1e6b1c6648e51bcd8ceb853",
+   "nositeli/maket/390x844-GA-09.png": "d00890866538178c6b3b7da076850ce01b0c302d66af5ce75c339344645f37b8",
+   "nositeli/maket/393x852-GA-02-Hell.png": "34bd0dd5702e9042f698c0cfae546bd9b5493550b422f9e548980d3c4ce15554",
+   "nositeli/maket/393x852-GA-02.png": "d1b0612048ae10fd68ad5be07b65f8ca4cb716e19b4983f9a83457713b3b0af5",
+   "nositeli/maket/393x852-GA-03-Hell.png": "1acacb6ed648cc00bfa22e247cd0ce115ca889ca13743adf7798840eefdb658c",
+   "nositeli/maket/393x852-GA-03.png": "ba6e8c512f0d2573c6a158789c0c0dc7f99d75b15a8af377db3ff506c1a2b50d",
+   "nositeli/maket/393x852-GA-04-Hell.png": "84bf6198a696e9808c75dc345cf2ead4e868b93d3589df47a864e2a2cb946a8f",
+   "nositeli/maket/393x852-GA-04.png": "6bbcbff3ce76da39cc3ad0af4d02a22f55c467f8b67d1124d101e6834d540ce5",
+   "nositeli/maket/393x852-GA-09-Hell.png": "c7d9550e99918379214097561242d17091c786544af62f34e17ad1b3cd3b9bef",
+   "nositeli/maket/393x852-GA-09.png": "f2fdbd901f5b56c74645c9c6caaa827f74a7655e8e6a43638ec246ea605c4bda",
+   "nositeli/tokens.css": "c70832955fe9f3c1f0bc5e99eda27c2f1e3a575e1a3f9cedbcf5a93b61bdaf4b"
+  },
+  "etalon_raskladka": {
+   "model/produktnaja-raskladka/mobile/.maestro/prokhod-vkladki.yaml": "b0efc19438b6277355090a5730649e208e263ea7d127a7b40d127010edf62b2a",
+   "model/produktnaja-raskladka/mobile/.maestro/vkladki-tabshell-393.yaml": "0bfa247c11691fb4d20ae54cc6632acd02f0f6513dd06c60350da3c902dbd7f8",
+   "model/produktnaja-raskladka/mobile/.maestro/vkladki.yaml": "91cf8de5ad9cf2024b09b250d1a9373e018bc3025d3def6bca1b8000724cf475",
+   "model/produktnaja-raskladka/mobile/src/app/(tabs)/[section].tsx": "64495569d54189b8b4f515fc50a260a7a4e447f9bb62809b1c43c4248693307e",
+   "model/produktnaja-raskladka/mobile/src/bootstrap/gespraech-mitte.tsx": "f1a060089f9e49e4412d571a96db7d3a252b26d2724653e40990829dce75a45e",
+   "model/produktnaja-raskladka/mobile/src/bootstrap/tab-shell.tsx": "81b031cbf9b0beaf2b4d1c8f2bc008f433bbd479db5bb683483c8c23cd30073f",
+   "model/produktnaja-raskladka/mobile/src/features/missions/components/VorgaengeListe.tsx": "9ca51bd06a90599c7202256db066f7486be0a13312d433091ee55f8e63226982",
+   "model/produktnaja-raskladka/mobile/src/features/missions/model/vkladki-dannye.ts": "e8d39311b8ec83f297eb4b581a03d0b81a014d2cd02a434b236047b90a710bd1",
+   "model/produktnaja-raskladka/mobile/src/features/post/components/PostEingang.tsx": "d0c2b7a6da9dac0461cabc8a0e8a37eab217fc471a4310f78b2762ee8d265892",
+   "model/produktnaja-raskladka/mobile/src/features/protection/components/SchutzUebersicht.tsx": "89a56e1b6badfecc65572f2d084937db27feaf2e45aa72288431861563cfc354",
+   "model/produktnaja-raskladka/mobile/src/i18n/ui-copy.ts": "796d73bf36efb73e68baf239bc39bb55d33cd0400c70989e77add3cc0b4cf678"
+  }
+ },
+ "dopusk_score": 0.01,
+ "kejsy": {
+  "chestnyj-vkladki": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tvkladki\tOK"
+   ],
+   "prichiny": []
+  },
+  "shablon-otsvtstvuet": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tSHABLON_NEVEREN\tсостав ключей != шаблон: ['dvizhenie', 'prokhodimost', 'vtoroj_profil']"
+   ]
+  },
+  "shablon-2-s-ga-kadrami": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tDVIZHENIE_OTSVTSTVUET\tэкраны D 2.4 без shablon 3: GA-02, GA-03, GA-04, GA-09"
+   ]
+  },
+  "priemka-bez-prokhoda": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tSHABLON_NEVEREN\tpriemka"
+   ]
+  },
+  "prokhodimost-otsvtstvuet": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tSHABLON_NEVEREN\tсостав ключей != шаблон: ['prokhodimost']"
+   ]
+  },
+  "vtoroj-profil-otsvtstvuet": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tSHABLON_NEVEREN\tсостав ключей != шаблон: ['vtoroj_profil']"
+   ]
+  },
+  "maket-podmenen": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tMAKET_PODMENEN\tGA-03 dark\tsha256"
+   ]
+  },
+  "kadr-nizhe-poroga": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t0.243\t0.600\tmitte\tNIZHE_POROGA",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-03 dark\tscore=0.243 porog=0.600 hudshij=mitte"
+   ]
+  },
+  "kadr-ustarevshij": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tKADR_USTAREVSHIJ\tdark/aa/bb/takeScreenshot/vkladki-post-393.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tdark/aa/bb/takeScreenshot/vkladki-post.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tdark/aa/bb/takeScreenshot/vkladki-schutz-393.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tdark/aa/bb/takeScreenshot/vkladki-schutz.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tdark/aa/bb/takeScreenshot/vkladki-vorgaenge-393.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tdark/aa/bb/takeScreenshot/vkladki-vorgaenge-skroll-393.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tdark/aa/bb/takeScreenshot/vkladki-vorgaenge-skroll.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tdark/aa/bb/takeScreenshot/vkladki-vorgaenge.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tlight/aa/bb/takeScreenshot/vkladki-post-393.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tlight/aa/bb/takeScreenshot/vkladki-post.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tlight/aa/bb/takeScreenshot/vkladki-schutz-393.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tlight/aa/bb/takeScreenshot/vkladki-schutz.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tlight/aa/bb/takeScreenshot/vkladki-vorgaenge-393.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tlight/aa/bb/takeScreenshot/vkladki-vorgaenge-skroll-393.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tlight/aa/bb/takeScreenshot/vkladki-vorgaenge-skroll.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tlight/aa/bb/takeScreenshot/vkladki-vorgaenge.png"
+   ]
+  },
+  "e2e-ne-proshla": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tE2E_NE_PROSHLA\trc=1"
+   ]
+  },
+  "chuzhoj-kadr": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tCHUZHIE_KADRY\tFiktura-Kadr-Tot-Zhe"
+   ]
+  },
+  "stroka-bez-izmenenija": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tPRESSABLE_BEZ_IZMENENIJA\tvorgaenge-stroka-1"
+   ]
+  },
+  "kasanie-menshe-normy": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tKASANIE_MENSHE_NORMY\tgespraech-mitte: vysota 36 < 44"
+   ]
+  },
+  "kasanie-v-safe-zone": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tKASANIE_V_SAFE_ZONE\tgespraech-mitte"
+   ]
+  },
+  "demo-v-sostave": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tDEMO_V_SOSTAVE\tshell-tab-start"
+   ]
+  },
+  "demo-bez-otdelenija": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tDEMO_BEZ_OTDELENIJA\tdemo-sostojanie"
+   ]
+  },
+  "povtor-id": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tSHABLON_NEVEREN\tprokhodimost: повторы id"
+   ]
+  },
+  "profil-nizhe-minimuma": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tPROFIL_NIZHE_MINIMUMA\t320×640 < 393×852 (класс iPhone 15/16)",
+    "PRICHINA\tZALEZAET_POD_INSET\tkontent-vkladki: niz",
+    "PRICHINA\tZALEZAET_POD_INSET\ttab-leiste-levo: niz",
+    "PRICHINA\tZALEZAET_POD_INSET\ttab-leiste-pravo: niz",
+    "PRICHINA\tZALEZAET_POD_INSET\tznak-mitte: niz"
+   ]
+  },
+  "profil-bez-insetov": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tPROFIL_BEZ_INSETOV\tvyrez 0 вне 47–59"
+   ]
+  },
+  "odna-tema": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tODNA_TEMA\tкадры профиля без тем: light"
+   ]
+  },
+  "marshrut-bez-obolochki": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tMARSHRUT_BEZ_OBOLOCHKI\tмаршрут mobile/.maestro/vkladki-tabshell-393.yaml не содержит оболочку tabshell: собранный путь не наблюдается"
+   ]
+  },
+  "marshrut-bez-snimka": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tMARSHRUT_BEZ_SNIMKA\tvkladki-post-393"
+   ]
+  },
+  "prokhod-ne-maestro": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tPROKHOD_NE_MAESTRO\tпроход без цели-флоу Maestro (существующий .yaml в репо): true"
+   ]
+  },
+  "prokhod-bez-pressable": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tPROKHOD_BEZ_PRESSABLE\tgespraech-mitte"
+   ]
+  },
+  "prokhod-ne-proshla": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tPROKHOD_NE_PROSHLA\trc=1"
+   ]
+  },
+  "literal-cveta": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tLITERAL_VNE_AUDITA\tkontrakt.md:52"
+   ]
+  },
+  "kljuch-bez-kataloga": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tKLJUCH_BEZ_KATALOGA\tui.net.kljucha"
+   ]
+  },
+  "scenarij-bez-snimka": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tSCENARIJ_BEZ_SNIMKA\tvkladki-post",
+    "PRICHINA\tSCENARIJ_BEZ_SNIMKA\tvkladki-post"
+   ]
+  },
+  "zony-rashodjatsja": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tZONY_RASHODJATSJA\timplementer"
+   ]
+  },
+  "perehod-lishnij": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tPEREHOD_LISHNIJ\tGA-T28"
+   ]
+  },
+  "istochnik-ne-sovpadaet": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tISTOCHNIK_NE_SOVPADAET\tspec"
+   ]
+  },
+  "istochnik-otsutstvuet": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tISTOCHNIK_OTSVTSTVUET\tdocs/ux/04_Gespraech_D24/pack/net-takogo-manifesta.json"
+   ]
+  },
+  "pr-chestnaja": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tvkladki\tOK"
+   ],
+   "prichiny": []
+  },
+  "pr-shov-net": {
+   "rc": 1,
+   "stdout": [
+    "PRICHINA\tSHOV_NET: нет маркеров слота: ['readonly sectionScreens?: Readonly<Partial<Record<ShellSection, React.ReactNode>>>;', 'readonly mitte?: React.ReactNode;']"
+   ],
+   "prichiny": []
+  },
+  "pr-mitte-tab": {
+   "rc": 1,
+   "stdout": [
+    "PRICHINA\tMITTE_V_TAB: Mitte несёт accessibilityRole=\"tab\" (замороженная грамматика 999 — role=tab ровно четыре)"
+   ],
+   "prichiny": []
+  },
+  "pr-pachka-net": {
+   "rc": 1,
+   "stdout": [
+    "PRICHINA\tPACHKA_ABSENT: нет mobile/e2e-vkladki/ekran.json"
+   ],
+   "prichiny": []
+  },
+  "pr-makety-piny": {
+   "rc": 1,
+   "stdout": [
+    "PRICHINA\tMAKET_PIN_NEVEREN: kadry.json: GA-02 dark"
+   ],
+   "prichiny": []
+  },
+  "pr-kopii-net": {
+   "rc": 1,
+   "stdout": [
+    "PRICHINA\tKOPII_NET: нет ключей: ['ui.vorgaenge.group.working', 'ui.vorgaenge.group.needs_you']"
+   ],
+   "prichiny": []
+  },
+  "pr-scenarij-net": {
+   "rc": 1,
+   "stdout": [
+    "PRICHINA\tSCENARIJ_BEZ_SNIMKA: vkladki.yaml без vkladki-post"
+   ],
+   "prichiny": []
+  },
+  "pr-kontent-net": {
+   "rc": 1,
+   "stdout": [
+    "PRICHINA\tKONTENT_NET: ['mobile/src/features/post/components/PostEingang.tsx']"
+   ],
+   "prichiny": []
+  }
+ },
+ "stab_vhod": {
+  "s65_prokhodimost_propuskaet.py": [
+   "stroka-bez-izmenenija",
+   "kasanie-menshe-normy",
+   "kasanie-v-safe-zone",
+   "demo-v-sostave",
+   "demo-bez-otdelenija",
+   "povtor-id"
+  ],
+  "s66_profil_propuskaet.py": [
+   "profil-nizhe-minimuma",
+   "profil-bez-insetov",
+   "odna-tema"
+  ],
+  "s67_marshrut_propuskaet.py": [
+   "marshrut-bez-obolochki",
+   "marshrut-bez-snimka"
+  ],
+  "s68_prokhod_propuskaet.py": [
+   "prokhod-ne-maestro",
+   "prokhod-bez-pressable",
+   "prokhod-ne-proshla"
+  ],
+  "s69_literal_propuskaet.py": [
+   "literal-cveta"
+  ],
+  "s70_ga_trigger_propuskaet.py": [
+   "shablon-2-s-ga-kadrami"
+  ],
+  "s71_perehody_polnota.py": [
+   "perehod-lishnij"
+  ],
+  "s72_kadry_propuskaet.py": [
+   "maket-podmenen",
+   "kadr-nizhe-poroga",
+   "kadr-ustarevshij"
+  ],
+  "s73_e2e_propuskaet.py": [
+   "e2e-ne-proshla"
+  ],
+  "s74_chuzhie_propuskaet.py": [
+   "chuzhoj-kadr"
+  ],
+  "s75_shov_propuskaet.py": [
+   "pr-shov-net"
+  ],
+  "s76_mitte_tab_propuskaet.py": [
+   "pr-mitte-tab"
+  ],
+  "s77_pachka_propuskaet.py": [
+   "pr-pachka-net"
+  ],
+  "s78_makety_propuskaet.py": [
+   "pr-makety-piny"
+  ],
+  "s79_kopii_propuskaet.py": [
+   "pr-kopii-net"
+  ],
+  "s80_scenarij_propuskaet.py": [
+   "pr-scenarij-net"
+  ],
+  "s81_kontent_propuskaet.py": [
+   "pr-kontent-net"
+  ]
+ }
+}

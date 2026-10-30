@@ -1,0 +1,14 @@
+# vkladki (148): второй профиль 393x852 (собранный путь tabshell) —
+# кадры GA-02/03/04/09 в обеих темах на AVD с вырезом и домашней полосой.
+appId: complior
+---
+- runFlow: vkhod-dopusk
+- label: tabshell
+- takeScreenshot: vkladki-vorgaenge-393
+- tapOn: { id: shell-tab-schutz }
+- takeScreenshot: vkladki-schutz-393
+- tapOn: { id: shell-tab-post }
+- takeScreenshot: vkladki-post-393
+- tapOn: { id: shell-tab-vorgaenge }
+- scroll
+- takeScreenshot: vkladki-vorgaenge-skroll-393
