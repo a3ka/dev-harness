@@ -243,6 +243,9 @@
     },
     {
       "id": "i08-vybor-child-flows"
+    },
+    {
+      "id": "i09-podpis-child-flows"
     }
   ],
   "piny": {
@@ -467,6 +470,9 @@
     ],
     "stab_i_job_bez_karty": [
       "i02-jobs-iz-karty"
+    ],
+    "stab_i_child_bez_podpisi": [
+      "i09-podpis-child-flows"
     ],
     "stab_i_child_rezhet_vybor": [
       "i08-vybor-child-flows"

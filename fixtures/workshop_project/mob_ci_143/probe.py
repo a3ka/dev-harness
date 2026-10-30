@@ -171,12 +171,14 @@ def kanon_razberi_kartu(text):
     for e in m.get("ekrany", []):
         zapisi.append({"id": e["id"], "job": e["job"], "status": e["status"],
                        "puti": e.get("puti") or [], "pack": e.get("pack"),
-                       "flows": e.get("flows") or [], "integration": False})
+                       "flows": e.get("flows") or [],
+                       "child_flows": e.get("child_flows") or [], "integration": False})
     if m.get("integracija"):
         i = m["integracija"]
         zapisi.append({"id": i["id"], "job": i["job"], "status": i["status"],
                        "puti": i.get("puti") or [], "pack": None,
-                       "flows": i.get("fiksirovannyj_nabor") or [], "integration": True})
+                       "flows": i.get("fiksirovannyj_nabor") or [],
+                       "child_flows": i.get("child_flows") or [], "integration": True})
     return zapisi, m.get("shared", {}).get("puti") or []
 
 
@@ -202,6 +204,7 @@ def kanon_vybor(karta_base_text, karta_head_text, diff, mode):
             u = union[z["id"]]
             u["puti"] = list(dict.fromkeys(u["puti"] + z["puti"]))
             u["flows"] = list(dict.fromkeys(u["flows"] + z["flows"]))
+            u["child_flows"] = list(dict.fromkeys(u["child_flows"] + z["child_flows"]))
             if u["pack"] != z["pack"]:
                 u["pack"] = u["pack"] or z["pack"]
             if u["status"] != z["status"]:
@@ -212,16 +215,16 @@ def kanon_vybor(karta_base_text, karta_head_text, diff, mode):
     policy_change = False
     if karta_base_text is not None:
         policy_change = (
-            json.dumps([[z["id"], z["job"], z["status"], z["puti"], z["pack"], z["flows"]] for z in base_z], ensure_ascii=False) +
+            json.dumps([[z["id"], z["job"], z["status"], z["puti"], z["pack"], z["flows"], z["child_flows"]] for z in base_z], ensure_ascii=False) +
             json.dumps(base_sh, ensure_ascii=False) !=
-            json.dumps([[z["id"], z["job"], z["status"], z["puti"], z["pack"], z["flows"]] for z in head_z], ensure_ascii=False) +
+            json.dumps([[z["id"], z["job"], z["status"], z["puti"], z["pack"], z["flows"], z["child_flows"]] for z in head_z], ensure_ascii=False) +
             json.dumps(head_sh, ensure_ascii=False))
 
     def vladelec(p):
         vl = []
         for zid in porjadok:
             z = union[zid]
-            korni = list(z["puti"]) + ([z["pack"]] if z["pack"] else []) + list(z["flows"])
+            korni = list(z["puti"]) + ([z["pack"]] if z["pack"] else []) + list(z["flows"]) + list(z["child_flows"])
             if any(kanon_pokryvaet(k, p) for k in korni):
                 vl.append(zid)
         return vl
@@ -2371,19 +2374,40 @@ def sud_legacy_opora(wf, rep):
         return False, "LEGACY_UDALJON_IZ_DAG: %s" % netu_dag
     return True, ""
 
+def _svobodnoe_imja_child(karta, ekrany, rod, zond="child-proba"):
+    """Свободное имя child-флоу по грамматике карты (вне регистра субъекта):
+    единый источник для проб i08 (владение) и i09 (подпись) — имя не занято
+    ни flows/child_flows/fiksirovannyj_nabor, ни legacy_entrypoint, ни
+    служебными потоками карты (инвариантность к именам, Н-39/019)."""
+    zanjatye = set(karta.get("sluzhebnye_potoki") or [])
+    for e in ekrany + [karta] + ([karta["integracija"]] if karta.get("integracija") else []):
+        for f in ((e.get("flows") or []) + (e.get("child_flows") or []) +
+                  (e.get("fiksirovannyj_nabor") or [])):
+            zanjatye.add(f)
+        if e.get("legacy_entrypoint"):
+            zanjatye.add(e["legacy_entrypoint"])
+    child = "mobile/.maestro/%s-%s.yaml" % (rod["id"], zond)
+    while child in zanjatye:
+        child = child.replace(".yaml", "2.yaml")
+    return child
+
 def sud_vybor_child_flows(subject_root, tmp):
-    """i08-vybor-child-flows (v2c, блок Crit143v2 §2.1): ИСПОЛНИТЕЛЬНАЯ —
-    выборочный режим селектора СУБЪЕКТА на НАСТОЯЩЕМ git-diff (живые коммиты
-    base/head, реальный git; оракул в памяти, правило 8): зарегистрированный
-    child_flow принадлежит экрану — PR, меняющий ТОЛЬКО child-flow, выбирает
-    работника родителя (rc 0, AFFECTED, НЕ полный набор), а не отказ
-    INVENTAR_KARTY; корневой флоу того же экрана на том же механизме —
-    прежняя семантика (контроль). Вход строится ИЗ КАРТЫ СУБЪЕКТА: при
-    наличии зарегистрированного child_flow судится он (живой класс 148),
-    иначе регистрируется свободное имя проб (грамматика карты разрешает
-    правку child_flows автором экрана). Мутант, режущий владение
-    child-flows (стаб stab_i_child_rezhet_vybor), на ЭТОМ входе обязан
-    краснеть отказом INVENTAR_KARTY."""
+    """i08-vybor-child-flows (v2c/v2d, блок Crit143v2 §2.1 + Arb143v2 блок 1):
+    ИСПОЛНИТЕЛЬНАЯ — выборочный режим селектора СУБЪЕКТА на НАСТОЯЩЕМ
+    git-diff (живые коммиты base/head, реальный git; оракул в памяти,
+    правило 8): зарегистрированный child_flow принадлежит экрану — PR,
+    меняющий ТОЛЬКО child-flow, выбирает работника родителя (rc 0, НЕ
+    полный набор, НЕ INVENTAR_KARTY). Критерий допускает ОБА статуса И-1:
+    причина родителя — по честному приоритету И-2 (approved → AFFECTED,
+    in-development → DEVELOPMENT, искусственная замена не требуется), и
+    остальные in-development экраны карты остаются в выборе. Корневой флоу
+    того же экрана на том же механизме — прежняя семантика (контроль).
+    Вход строится ИЗ КАРТЫ СУБЪЕКТА: при наличии зарегистрированного
+    child_flow судится он (живой класс 148), иначе регистрируется
+    свободное имя проб (грамматика карты разрешает правку child_flows
+    автором экрана). Мутант, режущий владение child-flows (стаб
+    stab_i_child_rezhet_vybor), на ЭТОМ входе обязан краснеть отказом
+    INVENTAR_KARTY — при любом статусе родителя."""
     d = Path(subject_root)
     sel = d / "mobile" / "scripts" / "select-ci-screens.cjs"
     karta_text = (d / "mobile" / "ci-screens.json").read_text(encoding="utf-8")
@@ -2400,16 +2424,7 @@ def sud_vybor_child_flows(subject_root, tmp):
         rod = next((e for e in ekrany if (e.get("flows") or [])), None)
         if rod is None:
             return False, "нет экрана с flows для входа клетки"
-        zanjatye = set(karta.get("sluzhebnye_potoki") or [])
-        for e in ekrany + [karta] + ([karta["integracija"]] if karta.get("integracija") else []):
-            for f in ((e.get("flows") or []) + (e.get("child_flows") or []) +
-                      (e.get("fiksirovannyj_nabor") or [])):
-                zanjatye.add(f)
-            if e.get("legacy_entrypoint"):
-                zanjatye.add(e["legacy_entrypoint"])
-        child = "mobile/.maestro/%s-child-proba.yaml" % rod["id"]
-        while child in zanjatye:
-            child = child.replace(".yaml", "2.yaml")
+        child = _svobodnoe_imja_child(karta, ekrany, rod)
         karta2 = json.loads(json.dumps(karta, ensure_ascii=False))
         for e in karta2["ekrany"]:
             if e["id"] == rod["id"]:
@@ -2418,6 +2433,12 @@ def sud_vybor_child_flows(subject_root, tmp):
     koren = rod["flows"][0]
     if not koren.startswith("mobile/"):
         return False, "корневой флоу экрана %s вне mobile/ — вход клетки не конформен" % rod["id"]
+    # v2d (Arb143v2 блок 1): причина родителя — из СТАТУСА карты (оракул в
+    # памяти), оба статуса И-1 законны; in-development экраны (включая
+    # прочие) остаются в выборе — селектор не сужает разработку
+    vse_zapisi = ekrany + ([karta["integracija"]] if karta.get("integracija") else [])
+    razrabotki = [z["job"] for z in vse_zapisi if z.get("status") == "in-development"]
+    ozhidaemaja = "DEVELOPMENT" if rod.get("status") == "in-development" else "AFFECTED"
     # (2) настоящий git-репозиторий: карта (при синтезе — с регистрацией
     # пробы) в base и head ОДНА — diff только флоу; живые коммиты, не replay
     neudachi = []
@@ -2473,7 +2494,7 @@ def sud_vybor_child_flows(subject_root, tmp):
                            capture_output=True, text=True, timeout=60, env=env, cwd=str(pod))
         return r, out_f
 
-    def sudim(r, out_f, fajl, ozhidaem_prichinu=None):
+    def sudim(r, out_f, fajl, ozhidaem_prichinu=None, razrabotki=()):
         if r.returncode != 0:
             return "PR только %s: rc=%d %s" % (fajl, r.returncode, (r.stderr or "").strip()[:160])
         if out_f.is_file():
@@ -2490,25 +2511,153 @@ def sud_vybor_child_flows(subject_root, tmp):
         if sel_j.get("full_set"):
             return "PR только %s: полный набор вместо экрана родителя" % fajl
         if ozhidaem_prichinu and vybor[rod["job"]] != ozhidaem_prichinu:
-            return "PR только %s: причина %s ≠ %s" % (fajl, vybor[rod["job"]], ozhidaem_prichinu)
+            return "PR только %s: причина %s ≠ %s (статус родителя %s)" % (
+                fajl, vybor[rod["job"]], ozhidaem_prichinu, rod.get("status"))
+        for j in razrabotki:
+            if j not in vybor:
+                return "PR только %s: экран в разработке %s выпал из выбора (%s)" % (
+                    fajl, j, sorted(vybor))
         return None
 
-    # (3) child-only PR: родитель выбран, AFFECTED, не полный набор
+    # (3) child-only PR: родитель выбран (причина по статусу И-1), не
+    # полный набор; прочие in-development остаются в выборе
     r, out_f = prigon(child, "child")
-    osh = sudim(r, out_f, child, "AFFECTED")
+    osh = sudim(r, out_f, child, ozhidaemaja, razrabotki)
     if osh:
         neudachi.append(osh)
     # (4) контроль: корневой флоу — прежняя семантика селектора
     r, out_f = prigon(koren, "koren")
-    osh = sudim(r, out_f, koren)
+    osh = sudim(r, out_f, koren, None, razrabotki)
     if osh:
         neudachi.append(osh)
     return (not neudachi, "; ".join(neudachi))
 
 
+def sud_podpis_child_flows(subject_root, tmp):
+    """i09-podpis-child-flows (v2d, блок 2 Arb143v2): ИСПОЛНИТЕЛЬНАЯ —
+    изменение ТОЛЬКО регистрации child_flows (записи карты) между base и
+    head на НАСТОЯЩЕМ git-diff обязано классифицироваться POLICY_CHANGE:
+    child_flows — часть подписи карты (И-2 v2c), значит policy_change=true,
+    причина POLICY_CHANGE (подмена классификации COMMON_CHANGE/full_set не
+    допускается) и полный набор union-карты. Граница арбитра: изменение
+    ФАЙЛА child-flow (клетка i08) — выборочное, БЕЗ полного набора;
+    изменение его РЕГИСТРАЦИИ (эта клетка) — POLICY_CHANGE/полный набор.
+    Мутант, режущий z.child_flows ТОЛЬКО из kartaPodpis (стаб
+    stab_i_child_bez_podpisi; union и vladelec сохранены), на ЭТОМ входе
+    даёт policy_change=false — клетка красна, ложный зелёный 79/79 из
+    вердикта Crit143v2s невозможен."""
+    d = Path(subject_root)
+    sel = d / "mobile" / "scripts" / "select-ci-screens.cjs"
+    karta_text = (d / "mobile" / "ci-screens.json").read_text(encoding="utf-8")
+    karta = json.loads(karta_text)
+    ekrany = list(karta.get("ekrany") or [])
+    if not ekrany:
+        return False, "PUSTOJ_REESTR: нет ekrany для входа клетки"
+    # (1) вход: родитель — экран с child_flows/flows; head ДОБАВЛЯЕТ к его
+    # child_flows свободное имя пробы — смена регистрации живым классом
+    # (автор экранной задачи регистрирует child-flow в своём PR)
+    rod = next((e for e in ekrany if (e.get("child_flows") or []) or (e.get("flows") or [])), None)
+    if rod is None:
+        return False, "нет экрана с child_flows/flows для входа клетки"
+    child = _svobodnoe_imja_child(karta, ekrany, rod, "child-podpis-proba")
+    karta_head = json.loads(json.dumps(karta, ensure_ascii=False))
+    for e in karta_head["ekrany"]:
+        if e["id"] == rod["id"]:
+            e.setdefault("child_flows", []).append(child)
+            break
+
+    # (2) самопроверка входа (мера не врёт): base/head расходятся РОВНО
+    # child_flows родителя — вся карта вне этого поля побайтово равна
+    def _bez_child(m):
+        m2 = json.loads(json.dumps(m, ensure_ascii=False))
+        for e in m2["ekrany"]:
+            if e["id"] == rod["id"]:
+                e.pop("child_flows", None)
+        return json.dumps(m2, ensure_ascii=False, sort_keys=True)
+
+    if _bez_child(karta) != _bez_child(karta_head):
+        return False, "вход клетки не конформен: base/head расходятся вне child_flows"
+    # (3) настоящий git-репозиторий: base = карта субъекта, head = карта с
+    # регистрацией; файлы child-flow НЕ трогаются (файл ≠ регистрация)
+    pod = Path(tmp) / "i09-podpis"
+    (pod / "mobile" / "scripts").mkdir(parents=True, exist_ok=True)
+    (pod / "mobile" / "scripts" / "select-ci-screens.cjs").write_text(
+        sel.read_text(encoding="utf-8"), encoding="utf-8")
+    (pod / "mobile" / "ci-screens.json").write_text(karta_text, encoding="utf-8")
+    env = dict(os.environ)
+    for k in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
+        env.pop(k, None)
+    ident = ["-c", "user.name=k143-i09", "-c", "user.email=k143-i09@battery.local"]
+
+    def g(*a):
+        r = subprocess.run(["git", "-C", str(pod)] + ident + list(a),
+                           capture_output=True, text=True, env=env, timeout=60)
+        if r.returncode != 0:
+            raise RuntimeError("git %s: %s" % (a[0], r.stderr.strip()[:120]))
+        return r
+
+    g("init", "-q")
+    g("add", "-A")
+    g("commit", "-qm", "base")
+    base = subprocess.run(["git", "-C", str(pod), "rev-parse", "HEAD"],
+                          capture_output=True, text=True, env=env).stdout.strip()
+    (pod / "mobile" / "ci-screens.json").write_text(
+        json.dumps(karta_head, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    g("add", "-A")
+    g("commit", "-qm", "pr")
+    head = subprocess.run(["git", "-C", str(pod), "rev-parse", "HEAD"],
+                          capture_output=True, text=True, env=env).stdout.strip()
+    diff_fajly = subprocess.run(["git", "-C", str(pod), "diff", "--name-only", base, head],
+                                capture_output=True, text=True, env=env)
+    if diff_fajly.returncode != 0 or diff_fajly.stdout.split() != ["mobile/ci-screens.json"]:
+        return False, "вход клетки не конформен: diff base/head не только карта (%s)" % (
+            diff_fajly.stdout.split() or diff_fajly.stderr.strip()[:80])
+    bin_dir = Path(tmp) / "i09-bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    node_link = bin_dir / "node"
+    if not node_link.exists():
+        os.symlink(NODE_BIN, node_link)
+    env["PATH"] = str(bin_dir) + os.pathsep + "/usr/bin:/bin"
+    out_f = pod / "selection.json"
+    r = subprocess.run(["node", str(pod / "mobile" / "scripts" / "select-ci-screens.cjs"),
+                        "--mode", "pull_request", "--repo", str(pod),
+                        "--base-sha", base, "--head-sha", head, "--pr", "701",
+                        "--out", str(out_f)],
+                       capture_output=True, text=True, timeout=60, env=env, cwd=str(pod))
+    # (4) оракул в памяти: подпись карты изменилась → POLICY_CHANGE
+    neudachi = []
+    if r.returncode != 0:
+        neudachi.append("смена регистрации child_flows: rc=%d %s" % (
+            r.returncode, (r.stderr or "").strip()[:160]))
+    else:
+        try:
+            sel_j = json.loads(out_f.read_text(encoding="utf-8"))
+        except Exception as e:
+            sel_j = None
+            neudachi.append("selection.json не разбирается: %s" % e)
+        if sel_j is not None:
+            if sel_j.get("policy_change") is not True:
+                neudachi.append("policy_change не поднят (%s; prichiny %s): изменение ТОЛЬКО child_flows — часть подписи карты, POLICY_CHANGE обязателен" % (
+                    sel_j.get("policy_change"), sel_j.get("prichiny")))
+            if "POLICY_CHANGE" not in (sel_j.get("prichiny") or []):
+                neudachi.append("POLICY_CHANGE нет в prichiny %s: подмена классификации COMMON_CHANGE/full_set не допускается" % (
+                    sel_j.get("prichiny") or []))
+            if sel_j.get("full_set") is not True:
+                neudachi.append("full_set не поднят при смене регистрации child_flows")
+            vybor = {s["job"] for s in sel_j.get("selected", [])}
+            ozhidaemye = {z["job"] for z in ekrany}
+            if karta.get("integracija"):
+                ozhidaemye.add(karta["integracija"]["job"])
+            ne_hvat = sorted(ozhidaemye - vybor)
+            if ne_hvat:
+                neudachi.append("полный набор неполон: нет %s" % ne_hvat)
+    return (not neudachi, "; ".join(neudachi))
+
+
 KLETKI_I = ["i01-inventar-dereva", "i02-jobs-iz-karty", "i03-vyhody-selektora",
             "i04-agregaty-iz-karty", "i05-vynos-iz-inventarja",
-            "i06-lekalo-rabotnika", "i07-legacy-opora", "i08-vybor-child-flows"]
+            "i06-lekalo-rabotnika", "i07-legacy-opora", "i08-vybor-child-flows",
+            "i09-podpis-child-flows"]
 
 
 def odna_kletka(imja, subject_root, vrem):
@@ -2583,6 +2732,15 @@ def odna_kletka(imja, subject_root, vrem):
                     return False, "SUBJECT_ABSENT"
                 try:
                     return sud_vybor_child_flows(d, tmp)
+                except KartaSubiekta as e:
+                    return False, str(e)
+                except Exception as e:
+                    return False, "ISKLJUCHENIE %s" % e
+            if imja == "i09-podpis-child-flows":
+                if not sel.is_file() or not karta.is_file():
+                    return False, "SUBJECT_ABSENT"
+                try:
+                    return sud_podpis_child_flows(d, tmp)
                 except KartaSubiekta as e:
                     return False, str(e)
                 except Exception as e:
