@@ -1591,7 +1591,9 @@
   "dvizhenie_pustoj": "#!/usr/bin/env bash\n# Мутант: отчёт пуст (numTotalTests 0).\nset -eu\nprintf '{\"numTotalTests\":0,\"numPassedTests\":0,\"numFailedTests\":0,\"testResults\":[]}' > mobile/e2e-vkladki/dvizhenie-otchet.json\n",
   "dvizhenie_s_provalami": "#!/usr/bin/env bash\n# Мутант: отчёт с провалами.\nset -eu\nprintf '{\"numTotalTests\":6,\"numPassedTests\":5,\"numFailedTests\":1,\"testResults\":[{\"assertionResults\":[]}]}' > mobile/e2e-vkladki/dvizhenie-otchet.json\n",
   "prokhod": "#!/usr/bin/env bash\n# Стенд-ин priemka.prokhod: проход честно зелён.\nexit 0\n",
-  "prokhod_padaet": "#!/usr/bin/env bash\n# Мутант: проход не прошёл (rc 1).\nexit 1\n"
+  "prokhod_padaet": "#!/usr/bin/env bash\n# Мутант: проход не прошёл (rc 1).\nexit 1\n",
+  "jest_zelenyj": "#!/bin/sh\n# фиктивный jest живой стадии 148 (клетка мутанта-живца): НЕ продуктовый\n# движок — всегда зелёный итог, чтобы суд классифицировал мутантов ЖИВЫМИ\nprintf '%s\\n' '{\"success\":true,\"numPassedTests\":4,\"numTotalTestSuites\":1,\"numTotalTests\":4,\"testResults\":[{\"assertionResults\":[{\"status\":\"passed\"},{\"status\":\"passed\"},{\"status\":\"passed\"},{\"status\":\"passed\"}]}]}'\n",
+  "jest_krasnyj": "#!/bin/sh\n# фиктивный jest живой стадии 148 (клетка красного контроля): НЕ продуктовый\n# движок — всегда красный итог, чтобы контроль исходного кода краснел именованно\nprintf '%s\\n' '{\"success\":false,\"numPassedTests\":0,\"numFailedTests\":4,\"numTotalTestSuites\":1,\"numTotalTests\":4,\"testResults\":[{\"assertionResults\":[{\"status\":\"failed\"},{\"status\":\"failed\"},{\"status\":\"failed\"},{\"status\":\"failed\"}]}]}'\n"
  },
  "piny": {
   "nositeli": {
@@ -1631,6 +1633,9 @@
    "model/produktnaja-raskladka/mobile/src/features/post/components/PostEingang.tsx": "d0c2b7a6da9dac0461cabc8a0e8a37eab217fc471a4310f78b2762ee8d265892",
    "model/produktnaja-raskladka/mobile/src/features/protection/components/SchutzUebersicht.tsx": "89a56e1b6badfecc65572f2d084937db27feaf2e45aa72288431861563cfc354",
    "model/produktnaja-raskladka/mobile/src/i18n/ui-copy.ts": "796d73bf36efb73e68baf239bc39bb55d33cd0400c70989e77add3cc0b4cf678"
+  },
+  "produkt": {
+   "produkt/vkladki-zond-148.test.tsx": "a6dab970df65199d0fcbc48497103fca92e37b00dfe85fedc01f5983ecfbed39"
   }
  },
  "dopusk_score": 0.01,
@@ -1952,7 +1957,7 @@
   "pr-makety-piny": {
    "rc": 1,
    "stdout": [
-    "PRICHINA\tMAKET_PIN_NEVEREN: kadry.json: GA-02 dark"
+    "PRICHINA\tMAKET_PIN_NEVEREN: kadry.json: GA-02 dark (путь docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-02.png)"
    ],
    "prichiny": []
   },
@@ -1974,6 +1979,61 @@
    "rc": 1,
    "stdout": [
     "PRICHINA\tKONTENT_NET: ['mobile/src/features/post/components/PostEingang.tsx']"
+   ],
+   "prichiny": []
+  },
+  "pr-maket-put-net": {
+   "rc": 1,
+   "stdout": [
+    "PRICHINA\tMAKET_PIN_NEVEREN: kadry.json: GA-02 dark (путь docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-02.png)"
+   ],
+   "prichiny": []
+  },
+  "pr-live-predposylka": {
+   "rc": 2,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tvkladki\tOK",
+    "PRICHINA\tLIVE_PREDPOSYLKA: нет mobile/jest.config.{js,json}; не установлен пакет jest-expo; не установлен пакет @testing-library/react-native; нет node_modules/.bin/jest"
+   ],
+   "prichiny": []
+  },
+  "pr-live-kontrol-krasen": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tvkladki\tOK",
+    "PRICHINA\tISPOLNIMYJ_KONTROL_KRASEN: зонд красен на исходных компонентах R (упавших ассертов 4)"
+   ],
+   "prichiny": []
+  },
+  "pr-live-mutant-zhiv": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tvkladki\tOK",
+    "PRICHINA\tISPOLNIMYJ_MUTANT_ZHIV: tabs, badge, skroll"
    ],
    "prichiny": []
   }
@@ -2041,6 +2101,14 @@
   ],
   "s81_kontent_propuskaet.py": [
    "pr-kontent-net"
+  ],
+  "s82_ispolnimyj_propuskaet.py": [
+   "pr-live-predposylka",
+   "pr-live-kontrol-krasen",
+   "pr-live-mutant-zhiv"
+  ],
+  "s83_maket_put_propuskaet.py": [
+   "pr-maket-put-net"
   ]
  }
 }
