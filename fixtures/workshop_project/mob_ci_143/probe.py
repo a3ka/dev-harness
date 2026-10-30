@@ -2371,11 +2371,145 @@ def sud_legacy_opora(wf, rep):
         return False, "LEGACY_UDALJON_IZ_DAG: %s" % netu_dag
     return True, ""
 
+def sud_vybor_child_flows(subject_root, tmp):
+    """i08-vybor-child-flows (v2c, блок Crit143v2 §2.1): ИСПОЛНИТЕЛЬНАЯ —
+    выборочный режим селектора СУБЪЕКТА на НАСТОЯЩЕМ git-diff (живые коммиты
+    base/head, реальный git; оракул в памяти, правило 8): зарегистрированный
+    child_flow принадлежит экрану — PR, меняющий ТОЛЬКО child-flow, выбирает
+    работника родителя (rc 0, AFFECTED, НЕ полный набор), а не отказ
+    INVENTAR_KARTY; корневой флоу того же экрана на том же механизме —
+    прежняя семантика (контроль). Вход строится ИЗ КАРТЫ СУБЪЕКТА: при
+    наличии зарегистрированного child_flow судится он (живой класс 148),
+    иначе регистрируется свободное имя проб (грамматика карты разрешает
+    правку child_flows автором экрана). Мутант, режущий владение
+    child-flows (стаб stab_i_child_rezhet_vybor), на ЭТОМ входе обязан
+    краснеть отказом INVENTAR_KARTY."""
+    d = Path(subject_root)
+    sel = d / "mobile" / "scripts" / "select-ci-screens.cjs"
+    karta_text = (d / "mobile" / "ci-screens.json").read_text(encoding="utf-8")
+    karta = json.loads(karta_text)
+    ekrany = list(karta.get("ekrany") or [])
+    if not ekrany:
+        return False, "PUSTOJ_REESTR: нет ekrany для входа клетки"
+    # (1) вход: зарегистрированный child_flow субъекта либо свободное имя проб
+    rod = next((e for e in ekrany if (e.get("child_flows") or [])), None)
+    if rod is not None:
+        child = rod["child_flows"][0]
+        karta2 = None  # регистрация уже в карте субъекта — карта не правится
+    else:
+        rod = next((e for e in ekrany if (e.get("flows") or [])), None)
+        if rod is None:
+            return False, "нет экрана с flows для входа клетки"
+        zanjatye = set(karta.get("sluzhebnye_potoki") or [])
+        for e in ekrany + [karta] + ([karta["integracija"]] if karta.get("integracija") else []):
+            for f in ((e.get("flows") or []) + (e.get("child_flows") or []) +
+                      (e.get("fiksirovannyj_nabor") or [])):
+                zanjatye.add(f)
+            if e.get("legacy_entrypoint"):
+                zanjatye.add(e["legacy_entrypoint"])
+        child = "mobile/.maestro/%s-child-proba.yaml" % rod["id"]
+        while child in zanjatye:
+            child = child.replace(".yaml", "2.yaml")
+        karta2 = json.loads(json.dumps(karta, ensure_ascii=False))
+        for e in karta2["ekrany"]:
+            if e["id"] == rod["id"]:
+                e.setdefault("child_flows", []).append(child)
+                break
+    koren = rod["flows"][0]
+    if not koren.startswith("mobile/"):
+        return False, "корневой флоу экрана %s вне mobile/ — вход клетки не конформен" % rod["id"]
+    # (2) настоящий git-репозиторий: карта (при синтезе — с регистрацией
+    # пробы) в base и head ОДНА — diff только флоу; живые коммиты, не replay
+    neudachi = []
+    ident = ["-c", "user.name=k143-i08", "-c", "user.email=k143-i08@battery.local"]
+
+    def prigon(fajl_difa, imja):
+        pod = Path(tmp) / ("i08-" + imja)
+        (pod / "mobile" / "scripts").mkdir(parents=True, exist_ok=True)
+        (pod / "mobile" / "scripts" / "select-ci-screens.cjs").write_text(
+            sel.read_text(encoding="utf-8"), encoding="utf-8")
+        (pod / "mobile" / "ci-screens.json").write_text(
+            karta2 and json.dumps(karta2, ensure_ascii=False, indent=2) + "\n" or karta_text,
+            encoding="utf-8")
+        potoki = set()
+        for e in ekrany:
+            potoki |= set((e.get("flows") or []) + (e.get("child_flows") or []))
+        potoki.add(child)
+        for f in sorted(p for p in potoki if p.startswith("mobile/")):
+            q = pod / f
+            q.parent.mkdir(parents=True, exist_ok=True)
+            q.write_text("flow: base\n", encoding="utf-8")
+        env = dict(os.environ)
+        for k in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
+            env.pop(k, None)
+
+        def g(*a):
+            r = subprocess.run(["git", "-C", str(pod)] + ident + list(a),
+                               capture_output=True, text=True, env=env, timeout=60)
+            if r.returncode != 0:
+                raise RuntimeError("git %s: %s" % (a[0], r.stderr.strip()[:120]))
+            return r
+        g("init", "-q")
+        g("add", "-A")
+        g("commit", "-qm", "base")
+        base = subprocess.run(["git", "-C", str(pod), "rev-parse", "HEAD"],
+                              capture_output=True, text=True, env=env).stdout.strip()
+        (pod / fajl_difa).write_text("flow: izmenen\n", encoding="utf-8")
+        g("add", "-A")
+        g("commit", "-qm", "pr")
+        head = subprocess.run(["git", "-C", str(pod), "rev-parse", "HEAD"],
+                              capture_output=True, text=True, env=env).stdout.strip()
+        bin_dir = Path(tmp) / ("i08-bin-%s" % imja)
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        node_link = bin_dir / "node"
+        if not node_link.exists():
+            os.symlink(NODE_BIN, node_link)
+        env["PATH"] = str(bin_dir) + os.pathsep + "/usr/bin:/bin"
+        out_f = pod / "selection.json"
+        r = subprocess.run(["node", str(pod / "mobile" / "scripts" / "select-ci-screens.cjs"),
+                            "--mode", "pull_request", "--repo", str(pod),
+                            "--base-sha", base, "--head-sha", head, "--pr", "700",
+                            "--out", str(out_f)],
+                           capture_output=True, text=True, timeout=60, env=env, cwd=str(pod))
+        return r, out_f
+
+    def sudim(r, out_f, fajl, ozhidaem_prichinu=None):
+        if r.returncode != 0:
+            return "PR только %s: rc=%d %s" % (fajl, r.returncode, (r.stderr or "").strip()[:160])
+        if out_f.is_file():
+            try:
+                sel_j = json.loads(out_f.read_text(encoding="utf-8"))
+            except Exception as e:
+                return "selection.json не разбирается: %s" % e
+        else:
+            return "selection.json не написан"
+        vybor = {s["job"]: s.get("reason") for s in sel_j.get("selected", [])}
+        if rod["job"] not in vybor:
+            return "PR только %s: работник родителя %s не выбран (%s)" % (
+                fajl, rod["job"], sorted(vybor))
+        if sel_j.get("full_set"):
+            return "PR только %s: полный набор вместо экрана родителя" % fajl
+        if ozhidaem_prichinu and vybor[rod["job"]] != ozhidaem_prichinu:
+            return "PR только %s: причина %s ≠ %s" % (fajl, vybor[rod["job"]], ozhidaem_prichinu)
+        return None
+
+    # (3) child-only PR: родитель выбран, AFFECTED, не полный набор
+    r, out_f = prigon(child, "child")
+    osh = sudim(r, out_f, child, "AFFECTED")
+    if osh:
+        neudachi.append(osh)
+    # (4) контроль: корневой флоу — прежняя семантика селектора
+    r, out_f = prigon(koren, "koren")
+    osh = sudim(r, out_f, koren)
+    if osh:
+        neudachi.append(osh)
+    return (not neudachi, "; ".join(neudachi))
+
 
 KLETKI_I = ["i01-inventar-dereva", "i02-jobs-iz-karty", "i03-vyhody-selektora",
             "i04-agregaty-iz-karty", "i05-vynos-iz-inventarja",
-            "i06-lekalo-rabotnika", "i07-legacy-opora"]
-# --- исполнение одной клетки ---------------------------------------------------------
+            "i06-lekalo-rabotnika", "i07-legacy-opora", "i08-vybor-child-flows"]
+
 
 def odna_kletka(imja, subject_root, vrem):
     d = Path(subject_root)
@@ -2440,6 +2574,15 @@ def odna_kletka(imja, subject_root, vrem):
                     return False, "SUBJECT_ABSENT"
                 try:
                     return sud_lekalo(d, tmp)
+                except KartaSubiekta as e:
+                    return False, str(e)
+                except Exception as e:
+                    return False, "ISKLJUCHENIE %s" % e
+            if imja == "i08-vybor-child-flows":
+                if not sel.is_file() or not karta.is_file():
+                    return False, "SUBJECT_ABSENT"
+                try:
+                    return sud_vybor_child_flows(d, tmp)
                 except KartaSubiekta as e:
                     return False, str(e)
                 except Exception as e:
