@@ -96,6 +96,31 @@ s-pachka-v-produkte, s-mashina-v-produkte, s-kanon-bajty (байты
 статически-зелёные контроли (доказано осями a/m и vedro; прецедент
 132/146); безфлагово — SUBJECT_ABSENT до реализации.
 
+s-lekalo-instanciirovano (И-8; блок Crit147 круг 1 — ekran.json={} без
+проводки проходил 70/70): судит в --repo ТРИ парные правки лекала 143/2
+(экран-работник добавляется СВОИМ PR инстанциацией ЛЕКАЛА
+nositeli/screen-job.template.yml — копия frozen 143/2, sha256-пин; ключи
+инстанциации — source.json.lekalo, единый источник): (1) запись карты
+mobile/ci-screens.json с job e2e-gespraech-vhod (id/kontrakty/status/
+pack/flows оба корневых/child_flows/h_checkout .harness147/
+output_namespace); (2) job в .github/workflows/mobile.yml ИЗ ЛЕКАЛА —
+needs/if/outputs/runs-on/timeout/permissions равны скелету инстанциации,
+шаги лекала по порядку полными именами (грамматика одна — пиннованный
+шаблон, второго перечня в батарее нет), экранный шаг расширяем (норма
+132 v2 — второй AVD 393 в том же работнике), но несёт валидатор 132 v3
+из .harness147, PORT=5572 и оба корневых флоу в FLOWS_PACHKI; H-checkout
+— принятым 40-hex пином (не плавающей ссылкой); запреты
+continue-on-error/strategy/matrix и ровно один «ПОВТОР: »; (3) output
+выбора в select-screens (из шага vybor) + имя работника в needs ОБОИХ
+агрегатов (android-e2e required + mobile-regression-signal ночной);
+вынос пачки — общий шаг инвентаризации quality (--mode inventar;
+персональный mv и wildcard запрещены); пачка НЕ ПУСТА (ekran.json —
+форма v3: shablon 3, ekran gespraech-vhod, ekrany GA-01/GA-15/GA-16 —
+обход Crit147 {} красен). Отсутствие ЛЮБОГО аспекта — именованный отказ
+LEKALO_NE_INSTANCIIROVANO со списком недостающего. Зелёный контроль:
+A-дерево рецепта (--a-derevo: живые байты продукта 6240f630 + три парные
+правки + второй AVD) — клетка зелена, полная батарея rc 0 71/71.
+
 ## Стабы (Н-39: привязка к правилу, где дефект наблюдаем)
 
 | стаб | правило |
@@ -107,6 +132,12 @@ s-pachka-v-produkte, s-mashina-v-produkte, s-kanon-bajty (байты
 | ud-ignor | ud-bez-poljota |
 | morph-linejnyj | znak-morf-250 |
 | zakrytie-bez-morfa | plan-close-t31 |
+| lekalo-obhod-kritika | s-lekalo-instanciirovano |
 
 Честность раннера доказывается самими стабами: раннер, всегда пишущий
-«зелено», оставил бы стабы живыми (rc 1 STAB_ZHIV).
+«зелено», оставил бы стабы живыми (rc 1 STAB_ZHIV). Стаб лекала —
+мутатор ДЕРЕВА (не машины): снимает все три парные правки и опустошает
+ekran.json (дословный обход Crit147 атака 3); клетка обязана краснеть —
+мутант-«пропускник» (клетка зелена без проверок) ловится той же парой
+входов: A-дерево рецепта зелено, стаб-обход красен (контроль в каждом
+--stabs прогоне; замеры частичных мутантов — контракт §Живые измерения).

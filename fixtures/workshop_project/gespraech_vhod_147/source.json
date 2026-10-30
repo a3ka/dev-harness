@@ -55,7 +55,11 @@
    "teksty/dvizhenie.mjs": "fixtures/workshop_project/gespraech_vhod_147/teksty/dvizhenie.mjs",
    "teksty/e2e.sh": "fixtures/workshop_project/gespraech_vhod_147/teksty/e2e.sh",
    "teksty/gespraech-dvizhenie.test.ts": "fixtures/workshop_project/gespraech_vhod_147/teksty/gespraech-dvizhenie.test.ts",
-   "teksty/prokhod.sh": "fixtures/workshop_project/gespraech_vhod_147/teksty/prokhod.sh"
+   "teksty/prokhod.sh": "fixtures/workshop_project/gespraech_vhod_147/teksty/prokhod.sh",
+   "nositeli/screen-job.template.yml": "fixtures/workshop_project/gespraech_vhod_147/nositeli/screen-job.template.yml",
+   "nositeli/produkt/mobile-6240f63.yml": "fixtures/workshop_project/gespraech_vhod_147/nositeli/produkt/mobile-6240f63.yml",
+   "nositeli/produkt/ci-screens-6240f63.json": "fixtures/workshop_project/gespraech_vhod_147/nositeli/produkt/ci-screens-6240f63.json",
+   "stabs/stab_lekalo_obhod_kritika.py": "fixtures/workshop_project/gespraech_vhod_147/stabs/stab_lekalo_obhod_kritika.py"
   },
   "sha": {
    "model/dvizhenie-runner.mjs": "86157a88c92978544eea709aa96b9510f7e0cebeb95e682dcc805ffb2dd69178",
@@ -111,7 +115,11 @@
    "teksty/dvizhenie.mjs": "1869f8abc07339a7d07dcd5b8da08bd5e138ba2f3b7412ce126ee4df5579b216",
    "teksty/e2e.sh": "449ed3e111522490aa9aa8b6cf9ec5c66478063466c106aff0f84f7641914de4",
    "teksty/gespraech-dvizhenie.test.ts": "662c3cbc1aeeee027404b8983403f9ba0930629cf5bb7d343c9c4914f9f34981",
-   "teksty/prokhod.sh": "f6b3dc57ab6d7cfd22da9644ee5c762391f741420aa9f3ee9e7d3c60761a1dcf"
+   "teksty/prokhod.sh": "f6b3dc57ab6d7cfd22da9644ee5c762391f741420aa9f3ee9e7d3c60761a1dcf",
+   "nositeli/screen-job.template.yml": "3675182e218c467f694dc69d4ee3457900849e6717b7a80d12e8bafc80aa14dd",
+   "nositeli/produkt/mobile-6240f63.yml": "6137aa571ace1147ae1a29884c98008620c3b329eebf83617b5a971d57d0405e",
+   "nositeli/produkt/ci-screens-6240f63.json": "85c23e1c66e9661d1d3fc2d56dfd13e4fba1b38bbaa6b9e569acfc0fb98c09e3",
+   "stabs/stab_lekalo_obhod_kritika.py": "8222f585cfa89a1ab7cfa51aac950e741a5eb085c4a4f9284f797b713fe1730a"
   },
   "kanon": {
    "mobile/src/features/conversation/__tests__/gespraech-dvizhenie.test.ts": "662c3cbc1aeeee027404b8983403f9ba0930629cf5bb7d343c9c4914f9f34981",
@@ -297,6 +305,33 @@
    "kontrol-forma": {}
   }
  },
+ "lekalo": {
+  "job_id": "e2e-gespraech-vhod",
+  "screen_id": "gespraech-vhod",
+  "pack": "mobile/e2e-gespraech-vhod/",
+  "flows": [
+   "mobile/.maestro/gespraech-vhod.yaml",
+   "mobile/.maestro/gespraech-vhod-393.yaml"
+  ],
+  "child_flows": [
+   "mobile/.maestro/gespraech-prokhod.yaml"
+  ],
+  "puti": [
+   "mobile/src/features/conversation/",
+   "mobile/src/bootstrap/tab-shell.tsx",
+   "mobile/src/mocks/"
+  ],
+  "h_path": ".harness147",
+  "avd_port": 5572,
+  "avd_port_393": 5573,
+  "evidence_ns": "mobile/maestro-out-gespraech",
+  "shablon": 3,
+  "ekrany": [
+   "GA-01",
+   "GA-15",
+   "GA-16"
+  ]
+ },
  "staby": {
   "porjadok-obratnyj": "stab_porjadok_obratnyj.ts",
   "shag-ne-tot": "stab_shag_ne_tot.ts",
@@ -304,7 +339,8 @@
   "presslong-ranjshe": "stab_presslong_ranjshe.ts",
   "ud-ignor": "stab_ud_ignor.ts",
   "morph-linejnyj": "stab_morph_linejnyj.ts",
-  "zakrytie-bez-morfa": "stab_zakrytie_bez_morfa.ts"
+  "zakrytie-bez-morfa": "stab_zakrytie_bez_morfa.ts",
+  "lekalo-obhod-kritika": "stab_lekalo_obhod_kritika.py"
  },
  "stab_vhod": {
   "porjadok-obratnyj": {
@@ -327,6 +363,9 @@
   },
   "zakrytie-bez-morfa": {
    "pravilo": "plan-close-t31"
+  },
+  "lekalo-obhod-kritika": {
+   "kletka": "s-lekalo-instanciirovano"
   }
  }
 }
