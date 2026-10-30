@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
-# НЕ БАРЬЕР: субъект (SUBJECT) батареи fixtures/workshop_project/ekran_shablon_132/probe.py; её приёмка — проба красным на сам scripts/ekran_shablon.py, не сам скрипт; контракт 132 §ПРОВОДКА: guard=fixtures/workshop_project/ekran_shablon_132/red_ekran_shablon_132.sh.
-# Классификатор antiplacebo к субъекту неприменим: в области лежит барьер-guard,
-# а не тестируемый им скрипт; коды возврата перечислены в докстринге ниже.
-# СУБЪЕКТ батареи fixtures/workshop_project/ekran_shablon_132/probe.py: её приёмка —
-# проба красным на сам scripts/ekran_shablon.py по эталонному source.json (70 входов);
-# эталон поведения — fixtures/workshop_project/ekran_shablon_132/model/ekran_shablon.py
-# (`probe.py --model`), тот же CLI и тот же вывод. Граница шаблона — контракт 132
-# §Инварианты 1–10, §Приёмочный критерий 5–6.
-# ЭТО РЕАЛИЗАЦИЯ (ЗОНА implementer), НЕ эталон: код ниже — ДОСЛОВНЫЙ ПОРТ эталона
-# v2 (frozen/contracts/132/2); единственное различие с эталоном — эта шапка
-# (комментарии): определение и алфавиты формы — докстринг и код эталона.
+# НЕ БАРЬЕР: субъект (SUBJECT) батареи fixtures/workshop_project/shablon_dvizhenie_146/probe.py — этот файл (эталон поведения) и его дословный порт scripts/ekran_shablon.py (PORT_DOSLOVEN); приёмка батареи — красные пробы на субъект, не сам скрипт; барьер — probe.py и red_shablon_dvizhenie_146.sh (контракт 146 §ПРОВОДКА: guard=fixtures/workshop_project/shablon_dvizhenie_146/red_shablon_dvizhenie_146.sh); коды возврата перечислены в докстринге ниже.
+# ЭТАЛОН 146 (v3 шаблона 132): эталон поведения батареи
+# fixtures/workshop_project/shablon_dvizhenie_146/probe.py; та же
+# грамматика вывода, что у субъекта scripts/ekran_shablon.py. v3 =
+# frozen 132/2 (байт-в-байт поведением v1/v2) + блок dvizhenie:
+# шапка-докстринг, константы KLJUCHI_DVIZHENIE/алфавиты, ветка
+# check_dvizhenie + исполнение priemka_dvizhenija (слово владельца
+# 2026-10-28 mob-dvizhenie §Решение п.4; слово владельца 2026-10-28
+# d24-gespraech-final2 — «со всей динамикой и движениями»).
 """Шаблон контракта экрана mob (132): машиночитаемая форма ekran.json + проверки.
 
 Форма (замкнутый состав): v1 — 17 полей ниже (СТАРЫЙ экран); v2 — те же
   17 + shablon + prokhodimost + vtoroj_profil (НОВЫЙ экран; слово
   владельца 2026-10-27 ~22:45 UTC — «правило проходимости» и ~23:45 UTC —
   сверка на ВТОРОМ профиле экрана с safe-area; уже замороженные экранные
-  контракты блоков не несут и не переоткрываются):
+  контракты блоков не несут и не переоткрываются); v3 — v2 + dvizhenie
+  (shablon: 3 — экран с движением; слово владельца 2026-10-28
+  mob-dvizhenie §Решение п.4, пилот 145 — численная приёмка против
+  pose()/path() и спеки движения):
   ekran          id экрана, [a-z0-9][a-z0-9-]{0,63} — ОДИН экран на контракт
   kadry          путь в пачке: манифест кадров грамматики 123 (kadry_117.json)
   sostojanija    непустой список [a-z0-9-]+, без повторов
@@ -193,6 +194,73 @@ ekran — её манифест обязан стоять в ne_trogaet (NE_TROG
 корней, арбитраж 132 Б: читаются все корни, не первый найденный).
 Замена целиком: заменяющий контракт экрана удаляет пачку предшественника
 своей зоной — живость определяется наличием ekran.json.
+  dvizhenie     блок движения НОВОГО экрана (shablon 3; замкнутый состав
+                 ключей — KLJUCHI_DVIZHENIE; отсутствие блока при
+                 shablon: 3 — DVIZHENIE_OTSVTSTVUET rc 1; блок при
+                 shablon: 2 — SHABLON_NEVEREN; слово владельца
+                 2026-10-28 mob-dvizhenie §Решение п.4 «после пилота»):
+                 "manifest"/"spec"/"pozvonok" — пути в репо продукта:
+                 манифест пакета дизайнера (screens/motion списки),
+                 спецификация движения (tokens/scenes), оракул поз знака
+                 (scenes; пилот 145); каждому — "_sha256" пин байтов
+                 файла в репо (ISTOCHNIK_NE_SOVPADAET rc 1; нет файла —
+                 ISTOCHNIK_OTSVTSTVUET rc 2, fail-closed); "ekrany" —
+                 список GA-идов экранов ЭТОЙ пачки (^GA-[0-9]{2}$,
+                 каждый — экран манифеста; каждый кадр манифеста пачки с
+                 GA-якорем (^GA-[0-9]{2}($| )) обязан быть объявлен —
+                 EKRANY_NE_POLNY; объявленный без кадров — EKRAN_BEZ_KADROV;
+                 посторонний — EKRAN_VNE_MANIFESTA; кадры с GA-якорем у
+                 пачки БЕЗ shablon: 3 — DVIZHENIE_OTSVTSTVUET с именами
+                 кадров: экран D 2.4 не прячет движение за v2);
+                 "perehody" — переходы пачки: ПОЛНОТА против манифеста —
+                 всякий id движения манифеста, чьи frames ∩ ekrany ≠ ∅,
+                 обязан быть объявлен (PEREHODY_NE_POLNY), посторонний
+                 (frames ∩ ekrany = ∅) — PEREHOD_LISHNIJ, вне манифеста —
+                 PEREHOD_VNE_MANIFESTA; у объявленного перехода обязана
+                 быть сцена спеки (PEREHOD_BEZ_SPECY);
+                 "sceny_znaka" — РОВНО perehody ∩ сцены оракула поз
+                 (пропуск — SCENY_ZNAKA_NE_POLNY, лишняя —
+                 SCENA_VNE_ORAKULA; переход без поз-оракула — морф-треки,
+                 сценой знака НЕ объявляется);
+                 "etalony" — на КАЖДЫЙ perehod: keyframes — по темам
+                 dark/dark_reduced/light/light_reduced РОВНО столько
+                 sha256-пинов, сколько файлов ключевых кадров в files
+                 сцены спеки (ETALON_TEMA_OTSVTSTVUET/ETALON_NE_POLON;
+                 не-hex — ETALON_NE_HEX), video — sha256 на каждую тему
+                 из files сцены (VIDEO_ETALON_NE_POLON); посторонний
+                 ключ — ETALON_LISHNIJ; байты эталонов живут во вложении
+                 Release пакета дизайнера (вне репо) — валидатор судит
+                 наличие/форму/число, байты — vision-судьи по SHA256SUMS;
+                 "priemka_dvizhenija" — командная строка ЧИСЛЕННОЙ
+                 приёмки движения (jest-реплей против оракулов; алфавит
+                 RE_PRIEMKA): argv несёт "--json" и "--outputFile" с
+                 путём отчёта в репо (DVIZHENIE_BEZ_OTCHETA) —
+                 ИСПОЛНЯЕТСЯ фактическим argv (cwd = репо): rc ≠ 0 —
+                 DVIZHENIE_NE_PROSHLA; отчёт свеж (mtime не старше старта
+                 И байты отличны от дозапусковой ревизии — OTCHET_USTAREVSHIJ),
+                 читается как JSON (OTCHET_NE_CHITAETSJA),
+                 numTotalTests > 0 (OTCHET_PUSTOJ) и numPassedTests ==
+                 numTotalTests (OTCHET_S_PROVALAMI).
+  Грамматика СПЕКИ движения (судится ПО ОБЪЯВЛЕННЫМ переходам пачки —
+  чужие сцены вне суда; токены — единый источник spec.tokens; числа
+  производны, обязаны совпадать): длительность — имя токена (сырое число —
+  DLITELNOST_BEZ_TOKENA) И ms == значению токена (ZNACHENIE_NE_TOKENA);
+  задержка — число | имя токена | арифметика n*token / a + b - c над
+  ними, значение обязано совпадать (ZADERZHKA_NE_PO_GRAMMATIKE /
+  ZADERZHKA_NE_SOGLASNA); кривая — ease-standard | ease-morph | linear
+  (KRIVAYA_VNE_KANONA; значение кривой == значению токена), пружина
+  запрещена (spring != null — PRUZHINA_ZAPRESHCHENA); состав полей
+  трека обязателен ЦЕЛИКОМ — физическое удаление любого поля = отказ
+  TREK_BEZ_POLJA С ИМЕНЕМ поля (пустое значение судится своей ветвью);
+  УД —
+  reduced_duration_ms обязателен (UD_BEZ_STOLBCA): перемещение/размер
+  (свойство вне {opacity, bg}) — 0, видимое (opacity/bg) — не дольше
+  токена motion-fast (UD_NARUSHEN; правило MOTION reduced_motion);
+  end_ms == delay + duration (END_MS_NE_RAVEN); порядок — order 1..n
+  без повторов (PORYADOK_NARUSHEN); keyframes_ms — ровно 0/25/50/75/100 %
+  и значения == window_ms[1]×k/100 (KLJUCHEVYE_KADRY_NE_RAVNY), окно
+  от нуля (OKNO_NE_OT_NULJA); files сцены — 4 темы видео + 4 темы
+  ключевых кадров, списки непусты (FAJLY_ETALONOV_NE_POLNY).
 
 Проверки (порядок «дешёвые раньше дорогих»: при любом отказе формы/полей
 дешёвых проверок дорогое не зовётся):
@@ -262,12 +330,26 @@ KASANIE_V_SAFE_ZONE / DEMO_NE_OTMECHEN / DEMO_V_SOSTAVE / DEMO_BEZ_OTDELENIJA /
 PROKHOD_NE_PROSHLA / PROKHOD_NE_MAESTRO / PROKHOD_BEZ_PRESSABLE /
 VTOROJ_PROFIL_OTSVTSTVUET / PROFIL_NIZHE_MINIMUMA / PROFIL_BEZ_INSETOV /
 GOLYJ_KOMPONENT / NALOZHENIE_SLOEV / ZALEZAET_POD_INSET / PUSTAJA_IKONKA /
-ODNA_TEMA / MARSHRUT_BEZ_OBOLOCHKI / MARSHRUT_BEZ_SNIMKA;
+ODNA_TEMA / MARSHRUT_BEZ_OBOLOCHKI / MARSHRUT_BEZ_SNIMKA / v3-движение:
+DVIZHENIE_OTSVTSTVUET / EKRANY_NE_POLNY / EKRAN_BEZ_KADROV /
+EKRAN_VNE_MANIFESTA / PEREHODY_NE_POLNY / PEREHOD_LISHNIJ /
+PEREHOD_VNE_MANIFESTA / PEREHOD_BEZ_SPECY / SCENY_ZNAKA_NE_POLNY /
+SCENA_VNE_ORAKULA / ETALON_BEZ_PINOV / ETALON_LISHNIJ /
+ETALON_TEMA_OTSVTSTVUET / ETALON_NE_POLON / ETALON_NE_HEX /
+VIDEO_ETALON_NE_POLON / ISTOCHNIK_NE_SOVPADAET / DVIZHENIE_BEZ_OTCHETA /
+DVIZHENIE_NE_PROSHLA / OTCHET_OTSVTSTVUET / OTCHET_USTAREVSHIJ /
+OTCHET_NE_CHITAETSJA / OTCHET_PUSTOJ / OTCHET_S_PROVALAMI /
+DLITELNOST_BEZ_TOKENA / ZNACHENIE_NE_TOKENA / ZADERZHKA_NE_PO_GRAMMATIKE /
+ZADERZHKA_NE_SOGLASNA / KRIVAYA_VNE_KANONA / KRIVAYA_NE_SOGLASNA /
+PRUZHINA_ZAPRESHCHENA / UD_BEZ_STOLBCA / UD_NARUSHEN / END_MS_NE_RAVEN /
+PORYADOK_NARUSHEN / KLJUCHEVYE_KADRY_NE_RAVNY / OKNO_NE_OT_NULJA /
+FAJLY_ETALONOV_NE_POLNY / TREK_BEZ_POLJA;
 Несвязанный --manifest/--kadry/--repo — SAMODELNAYA_SVERKA rc 1
 с именем флага в подробности.
 2 — SHABLON_NEVEREN (грамматика формы, нет файла, манифест кадров вне
 грамматики 123, fiktura у судимой) / SVERKA_123_ABSENT (нет раннера 123 —
-инфраструктура).
+инфраструктура) / ISTOCHNIK_OTSVTSTVUET (нет источника движения в репо —
+инфраструктура, fail-closed).
 """
 import hashlib
 import os
@@ -283,6 +365,33 @@ FORMA_KEYS = {'ekran', 'kadry', 'sostojanija', 'kljuchi_kopii', 'operacii_api',
               'kadry_dir', 'kontrakt', 'batareja', 'priemka', 'zony',
               'zamenjaet', 'ne_trogaet', 'fiktura'}
 FORMA_KEYS_V2 = FORMA_KEYS | {'shablon', 'prokhodimost', 'vtoroj_profil'}
+# v3 (146): форма экрана с движением — v2 + dvizhenie (слово владельца
+# 2026-10-28 mob-dvizhenie §Решение п.4 «после пилота»: раздел «движение»
+# в шаблоне экранного контракта; пилот 145 — численная приёмка знака).
+FORMA_KEYS_V3 = FORMA_KEYS_V2 | {'dvizhenie'}
+# Грамматика блока dvizhenie — замкнутый состав (041); источник нормы
+# ЕДИНожды — здесь и в докстринге выше, пополнение — только v+1 шаблона.
+KLJUCHI_DVIZHENIE = {'manifest', 'manifest_sha256', 'spec', 'spec_sha256',
+                     'pozvonok', 'pozvonok_sha256', 'ekrany', 'perehody',
+                     'sceny_znaka', 'etalony', 'priemka_dvizhenija'}
+RE_GA_EKRAN = re.compile(r'\AGA-[0-9]{2}\Z')
+RE_GA_JAKOR = re.compile(r'\AGA-[0-9]{2}(?:[ ].*)?\Z')
+RE_SHA256 = re.compile(r'\A[0-9a-f]{64}\Z')
+# Темы эталонов дизайнера (Release-вложение пакета: 4 видео + 4×5
+# ключевых кадров на переход; байты судят vision-судьи, валидатор —
+# наличие/форму/число).
+TEMY_ETF = ('dark', 'dark_reduced', 'light', 'light_reduced')
+# Кривые движения: две UI-кривые дизайн-системы + linear для живого
+# прогресса press-long (значение null); пружины запрещены (MOTION rules).
+KRIVYE_KANON = ('ease-standard', 'ease-morph', 'linear')
+# Свойства, которым при «Уменьшить движение» разрешена задержка до
+# motion-fast; всё остальное (перемещение/размер/поворот/морф) — 0.
+SVOJSTVA_VIZUALNYE = {'opacity', 'bg'}
+# Обязательные поля трека спеки движения; физическое удаление поля —
+# TREK_BEZ_POLJA С ИМЕНЕМ поля (Crit146c: удаление ≠ пустое значение,
+# пустое/чужое значение судится своей ветвью ниже).
+POLJA_TREKA = {'order', 'element', 'property', 'delay', 'duration',
+               'end_ms', 'curve', 'spring', 'reduced_duration_ms'}
 # Норма правила проходимости (слово владельца 2026-10-27 ~22:45 UTC):
 # цели касания ≥ 44pt. Закреплена в источнике нормы ЕДИНожды — здесь;
 # в батарее и пачках числа геометрии приходят из манифеста экрана.
@@ -387,7 +496,7 @@ RE_HEX_ZHIST = re.compile(
 MAX_STRANICA = 60
 MAX_SHIRINA = 120
 MAX_BAJT = 4000
-RC2 = {'SHABLON_NEVEREN', 'SVERKA_123_ABSENT'}
+RC2 = {'SHABLON_NEVEREN', 'SVERKA_123_ABSENT', 'ISTOCHNIK_OTSVTSTVUET'}
 # отказ раннера 123 -> имя отказа шаблона (по грамматике вывода 123)
 RUNNER_MAP = {'NIZHE_POROGA': 'KADR_NIZHE_POROGA',
               'KADR_OTSUTSTVUET': 'KADR_OTSUTSTVUET',
@@ -425,20 +534,29 @@ def _spisok(f, pole, re_, pustoj=False):
 def check_alfavit(f):
     """Грамматика формы: состав ключей, алфавиты, замкнутость (041).
     v1 — 17 полей (старый экран); v2 — 20 (shablon 2 + prokhodimost +
-    vtoroj_profil). Промежуточные составы v1+{shablon:2} и
-    v1+{shablon:2, prokhodimost} принимаются грамматикой, чтобы отсутствие
-    блока у НОВОГО экрана отказало ИМЕННОЙ причиной
+    vtoroj_profil); v3 — 21 (shablon 3 = v2 + dvizhenie, слово владельца
+    2026-10-28 mob-dvizhenie §Решение п.4). Промежуточные составы
+    v1+{shablon:2} и v1+{shablon:2, prokhodimost} принимаются грамматикой,
+    чтобы отсутствие блока у НОВОГО экрана отказало ИМЕННОЙ причиной
     PROKHODIMOST_OTSVTSTVUET / VTOROJ_PROFIL_OTSVTSTVUET (правило 7
-    AGENTS), а не глухим SHABLON_NEVEREN."""
+    AGENTS), а не глухим SHABLON_NEVEREN; состав shablon:3 БЕЗ dvizhenie
+    принимается грамматикой по тем же спискам — отсутствие отказывает
+    именованной причиной DVIZHENIE_OTSVTSTVUET (правило 7), а блок
+    dvizhenie при shablon:2 — SHABLON_NEVEREN (замкнутость составов)."""
     if not isinstance(f, dict):
         return [otkaz('SHABLON_NEVEREN', 'forma не объект')]
     novyj = 'shablon' in f
     if novyj:
-        if type(f['shablon']) is not int or f['shablon'] != 2:
+        if type(f['shablon']) is not int or f['shablon'] not in (2, 3):
             return [otkaz('SHABLON_NEVEREN', 'shablon')]
-        if set(f) not in (FORMA_KEYS_V2,
-                          FORMA_KEYS | {'shablon'},
-                          FORMA_KEYS | {'shablon', 'prokhodimost'}):
+        if 'dvizhenie' in f:
+            if f['shablon'] != 3 or set(f) != FORMA_KEYS_V3:
+                return [otkaz('SHABLON_NEVEREN',
+                              'состав ключей != шаблон: %s'
+                              % sorted(set(f) ^ FORMA_KEYS_V3))]
+        elif set(f) not in (FORMA_KEYS_V2,
+                            FORMA_KEYS | {'shablon'},
+                            FORMA_KEYS | {'shablon', 'prokhodimost'}):
             return [otkaz('SHABLON_NEVEREN',
                           'состав ключей != шаблон: %s'
                           % sorted(set(f) ^ FORMA_KEYS_V2))]
@@ -1046,6 +1164,573 @@ def check_vtoroj_profil(f, pack: Path):
 
 
 
+def _sha256_bajtov(p: Path):
+    return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+RE_PEREHOD = re.compile(r'\AGA-[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*\Z')
+
+
+def _spisok_dv(dv, pole, re_, pustoj=False):
+    """Списковое поле блока dvizhenie: список, алфавит, без повторов."""
+    zn = dv.get(pole)
+    if not isinstance(zn, list):
+        return [otkaz('SHABLON_NEVEREN', 'dvizhenie.' + pole)], zn or []
+    if not zn and not pustoj:
+        return [otkaz('SHABLON_NEVEREN', 'dvizhenie.' + pole + ': пусто')], zn
+    for x in zn:
+        if not isinstance(x, str) or not re_.match(x):
+            return ([otkaz('SHABLON_NEVEREN',
+                           'dvizhenie.%s: %r' % (pole, x))], zn)
+    if len(set(zn)) != len(zn):
+        return [otkaz('SHABLON_NEVEREN',
+                      'dvizhenie.%s: повторы' % pole)], zn
+    return [], zn
+
+
+def zagnost_dvizhenija(f):
+    """Форма блока dvizhenie: замкнутый состав ключей, алфавиты путей/пинов
+    (041). Возвращает (otkazy, dv)."""
+    dv = f.get('dvizhenie')
+    if not isinstance(dv, dict) or set(dv) != KLJUCHI_DVIZHENIE:
+        return ([otkaz('SHABLON_NEVEREN',
+                       'состав ключей != dvizhenie: %s'
+                       % sorted(set(dv if isinstance(dv, dict) else {})
+                                ^ KLJUCHI_DVIZHENIE))], None)
+    bad = []
+    for pole in ('manifest', 'spec', 'pozvonok'):
+        if not path_ok(dv[pole]):
+            bad.append(otkaz('SHABLON_NEVEREN', 'dvizhenie.' + pole))
+    for pole in ('manifest_sha256', 'spec_sha256', 'pozvonok_sha256'):
+        if not isinstance(dv[pole], str) or not RE_SHA256.match(dv[pole]):
+            bad.append(otkaz('SHABLON_NEVEREN', 'dvizhenie.' + pole))
+    if not isinstance(dv['priemka_dvizhenija'], str) \
+            or not RE_PRIEMKA.match(dv['priemka_dvizhenija']):
+        bad.append(otkaz('SHABLON_NEVEREN', 'dvizhenie.priemka_dvizhenija'))
+    if not isinstance(dv['etalony'], dict):
+        bad.append(otkaz('SHABLON_NEVEREN', 'dvizhenie.etalony'))
+    return bad, dv
+
+
+def zagnost_istochniki(dv, repo: Path):
+    """Источники движения: файл в репо, пин sha256 байтов, разбор JSON,
+    грамматика списков. Возвращает (otkazy, {'manifest'|'spec'|'pozvonok'}).
+    Нет файла — ISTOCHNIK_OTSVTSTVUET rc 2 (инфраструктура, fail-closed);
+    пин не совпал — ISTOCHNIK_NE_SOVPADAET rc 1 (пачка лжёт об источнике)."""
+    isto, bad = {}, []
+    for imja in ('manifest', 'spec', 'pozvonok'):
+        p = repo / dv[imja]
+        if not p.is_file():
+            return [otkaz('ISTOCHNIK_OTSVTSTVUET', dv[imja])], None
+        if _sha256_bajtov(p) != dv[imja + '_sha256']:
+            bad.append(otkaz('ISTOCHNIK_NE_SOVPADAET', imja))
+            continue
+        try:
+            isto[imja] = json.loads(p.read_text(encoding='utf-8'))
+        except ValueError:
+            bad.append(otkaz('ISTOCHNIK_OTSVTSTVUET', imja + ' не JSON'))
+    if bad or len(isto) != 3:
+        return bad, None
+    man, spc, poz = isto['manifest'], isto['spec'], isto['pozvonok']
+    if (not isinstance(man, dict)
+            or not isinstance(man.get('screens'), list)
+            or not all(isinstance(x, str) for x in man['screens'])
+            or not isinstance(man.get('motion'), list)
+            or not all(isinstance(x, dict)
+                       and isinstance(x.get('id'), str)
+                       and isinstance(x.get('frames'), list)
+                       and all(isinstance(y, str) for y in x['frames'])
+                       for x in man['motion'])):
+        return ([otkaz('ISTOCHNIK_OTSVTSTVUET', 'manifest не по грамматике')],
+                None)
+    if (not isinstance(spc, dict)
+            or not isinstance(spc.get('tokens'), list)
+            or not all(isinstance(t, dict)
+                       and isinstance(t.get('name'), str)
+                       and isinstance(t.get('value'), str)
+                       for t in spc['tokens'])
+            or not isinstance(spc.get('scenes'), list)
+            or not all(isinstance(s, dict) and isinstance(s.get('id'), str)
+                       for s in spc['scenes'])):
+        return ([otkaz('ISTOCHNIK_OTSVTSTVUET', 'spec не по грамматике')],
+                None)
+    if not isinstance(poz, dict) or not isinstance(poz.get('scenes'), dict):
+        return ([otkaz('ISTOCHNIK_OTSVTSTVUET', 'pozvonok не по грамматике')],
+                None)
+    return [], isto
+
+
+def _tokeny(spc):
+    """Токены спеки: имя -> (значение-строка, мс или None)."""
+    tk = {}
+    for t in spc['tokens']:
+        ms = None
+        m = re.match(r'\A([0-9]+(?:\.[0-9]+)?)ms\Z', t['value'])
+        if m:
+            ms = float(m.group(1))
+        tk[t['name']] = (t['value'], ms)
+    return tk
+
+
+def _znach_vyrazhenija(tekst, tk):
+    """Значение закрытой грамматики задержки: число | имя токена |
+    n*token | a + b - c над числами и токенами (мс). None — вне
+    грамматики либо токен без мс-значения (кривая как задержка — отказ)."""
+    if not isinstance(tekst, str) or not tekst:
+        return None
+    znach, znak, ozhidaem_term = 0.0, 1.0, True
+    for ch in tekst.split(' '):
+        if ch in ('+', '-'):
+            if ozhidaem_term:
+                return None
+            znak = 1.0 if ch == '+' else -1.0
+            ozhidaem_term = True
+            continue
+        if not ozhidaem_term:
+            return None
+        v = None
+        m = re.match(r'\A([0-9]+(?:\.[0-9]+)?)(?:\*([a-z][a-z0-9-]*))?\Z',
+                     ch)
+        if m:
+            v = float(m.group(1))
+            if m.group(2):
+                if m.group(2) not in tk or tk[m.group(2)][1] is None:
+                    return None
+                v = v * tk[m.group(2)][1]
+        elif ch in tk:
+            if tk[ch][1] is None:
+                return None
+            v = tk[ch][1]
+        if v is None:
+            return None
+        znach += znak * v
+        ozhidaem_term = False
+    return None if ozhidaem_term else znach
+
+
+def _proverka_dlitel(dur, tk, gde, bad):
+    """Длительность трека: имя токена (или «0») И ms == значению токена;
+    сырое число — DLITELNOST_BEZ_TOKENA (токены — единый источник)."""
+    if not (isinstance(dur, dict) and isinstance(dur.get('token'), str)
+            and isinstance(dur.get('ms'), (int, float))
+            and not isinstance(dur.get('ms'), bool)):
+        bad.append(otkaz('TREK_BEZ_POLJA', gde + ': duration'))
+        return False
+    if dur['token'] == '0':
+        if float(dur['ms']) == 0.0:
+            return True
+        bad.append(otkaz('ZNACHENIE_NE_TOKENA', gde + ': 0'))
+        return False
+    if dur['token'] not in tk or tk[dur['token']][1] is None:
+        bad.append(otkaz('DLITELNOST_BEZ_TOKENA',
+                         '%s: %s' % (gde, dur['token'])))
+    elif abs(tk[dur['token']][1] - float(dur['ms'])) > 1e-9:
+        bad.append(otkaz('ZNACHENIE_NE_TOKENA',
+                         '%s: %s' % (gde, dur['token'])))
+    else:
+        return True
+    return False
+
+
+def _proverka_zaderzh(z, tk, gde, bad):
+    """Задержка: закрытая грамматика (число | токен | n*token | a+b-c) И
+    согласованность значения (ZADERZHKA_NE_SOGLASNA)."""
+    if not (isinstance(z, dict) and isinstance(z.get('token'), str)
+            and isinstance(z.get('ms'), (int, float))
+            and not isinstance(z.get('ms'), bool)):
+        bad.append(otkaz('TREK_BEZ_POLJA', gde + ': delay'))
+        return False
+    v = _znach_vyrazhenija(z['token'], tk)
+    if v is None:
+        bad.append(otkaz('ZADERZHKA_NE_PO_GRAMMATIKE',
+                         '%s: %s' % (gde, z['token'])))
+    elif abs(v - float(z['ms'])) > 1e-9:
+        bad.append(otkaz('ZADERZHKA_NE_SOGLASNA',
+                         '%s: %s' % (gde, z['token'])))
+    else:
+        return True
+    return False
+
+
+
+
+def _proverka_ud(t, ud_limit, gde, bad):
+    """«Уменьшить движение» (правило MOTION reduced_motion): столбец
+    обязателен; перемещение/размер — 0; видимое (opacity/bg) — не дольше
+    токена motion-fast."""
+    r = t.get('reduced_duration_ms')
+    if not isinstance(r, (int, float)) or isinstance(r, bool):
+        bad.append(otkaz('UD_BEZ_STOLBCA', gde))
+    elif ((t['property'] in SVOJSTVA_VIZUALNYE
+           and float(r) > ud_limit + 1e-9)
+          or (t['property'] not in SVOJSTVA_VIZUALNYE
+              and abs(float(r)) > 1e-9)):
+        bad.append(otkaz('UD_NARUSHEN', gde + ': ' + t['property']))
+
+
+def _proverka_end(t, z, dur, gde, bad):
+    """end_ms == delay + duration (производное число, не самовольное)."""
+    if not isinstance(t.get('end_ms'), (int, float)) \
+            or isinstance(t.get('end_ms'), bool) \
+            or abs(float(t['end_ms'])
+                   - (float(z['ms']) + float(dur['ms']))) > 1e-9:
+        bad.append(otkaz('END_MS_NE_RAVEN', gde))
+
+
+def _proverka_sceny_kadry(sc, pid, bad):
+    """Ключевые кадры сцены: окно от нуля; ровно 0/25/50/75/100 % и
+    значения == доля окна (механизм 0/25/50/75/100 приёмки движения)."""
+    w = sc.get('window_ms')
+    kf = sc.get('keyframes_ms')
+    if not (isinstance(w, list) and len(w) == 2
+            and all(isinstance(x, (int, float)) for x in w)):
+        bad.append(otkaz('TREK_BEZ_POLJA', pid + ': window_ms'))
+        return
+    if float(w[0]) != 0.0:
+        bad.append(otkaz('OKNO_NE_OT_NULJA', pid))
+    if not (isinstance(kf, dict)
+            and set(kf) == {'0', '25', '50', '75', '100'}
+            and all(isinstance(kf[k], (int, float)) for k in kf)):
+        bad.append(otkaz('KLJUCHEVYE_KADRY_NE_RAVNY', pid))
+        return
+    for k in ('0', '25', '50', '75', '100'):
+        if abs(float(kf[k]) - float(w[1]) * int(k) / 100.0) > 1e-9:
+            bad.append(otkaz('KLJUCHEVYE_KADRY_NE_RAVNY',
+                             '%s: %s%%' % (pid, k)))
+
+
+def _proverka_sceny_fajly(sc, pid, bad):
+    """Файлы эталонов сцены: 4 темы видео + 4 темы ключевых кадров,
+    списки непусты (сами байты — в Release, судят vision-судьи)."""
+    fajly = sc.get('files')
+    if (not isinstance(fajly, dict)
+            or not isinstance(fajly.get('video'), dict)
+            or set(fajly['video']) != set(TEMY_ETF)
+            or not all(isinstance(v, str) and v
+                       for v in fajly['video'].values())
+            or not isinstance(fajly.get('keyframes'), dict)
+            or set(fajly['keyframes']) != set(TEMY_ETF)
+            or not all(isinstance(v, list) and v
+                       and all(isinstance(x, str) and x for x in v)
+                       for v in fajly['keyframes'].values())):
+        bad.append(otkaz('FAJLY_ETALONOV_NE_POLNY', pid))
+
+
+def _grammatika_sceny(sc, tk, pid):
+    """Грамматика сцены спеки движения по ОБЪЯВЛЕННОМУ переходу (чужие
+    сцены вне суда): состав треков, токены длительности/задержки, канон
+    кривых, запрет пружин, УД, end_ms, порядок 1..n, ключевые кадры,
+    файлы эталонов. Токены — единый источник (spec.tokens); числа
+    производны и обязаны совпадать. Составляющие — отдельные функции
+    (стабы батареи подменяют ровно свою ветвь, Н-39)."""
+    bad = []
+    treki = sc.get('tracks')
+    if not isinstance(treki, list) or not treki:
+        return [otkaz('TREK_BEZ_POLJA', pid + ': нет треков')]
+    if 'motion-fast' not in tk or tk['motion-fast'][1] is None:
+        return [otkaz('UD_NARUSHEN', pid + ': spec без токена motion-fast')]
+    ud_limit = tk['motion-fast'][1]
+    porjadki = []
+    for i, t in enumerate(treki):
+        gde = '%s:%d' % (pid, i + 1)
+        if not isinstance(t, dict):
+            bad.append(otkaz('TREK_BEZ_POLJA', gde))
+            continue
+        # Crit146c (B.8): физическое УДАЛЕНИЕ обязательного поля — отказ
+        # С ИМЕНЕМ поля, поимённо каждое отсутствующее (пустое/чужое
+        # значение судится своей ветвью ниже); найденный состав обязан
+        # быть надмножеством POLJA_TREKA на КАЖДОМ треке КАЖДОЙ сцены.
+        netu_polej = sorted(POLJA_TREKA - set(t))
+        if netu_polej:
+            for pole in netu_polej:
+                bad.append(otkaz('TREK_BEZ_POLJA', '%s: %s' % (gde, pole)))
+            continue
+        if not isinstance(t.get('property'), str):
+            bad.append(otkaz('TREK_BEZ_POLJA', '%s: property' % gde))
+            continue
+        dur_ok = _proverka_dlitel(t.get('duration'), tk, gde, bad)
+        zader_ok = _proverka_zaderzh(t.get('delay'), tk, gde, bad)
+        _proverka_mekhaniki(t, tk, gde, bad)
+        _proverka_ud(t, ud_limit, gde, bad)
+        if dur_ok and zader_ok:
+            _proverka_end(t, t['delay'], t['duration'], gde, bad)
+        if isinstance(t.get('order'), int) and not isinstance(t.get('order'), bool):
+            porjadki.append(t['order'])
+    _proverka_sceny_poryadok(porjadki, len(treki), pid, bad)
+    _proverka_sceny_kadry(sc, pid, bad)
+    _proverka_sceny_fajly(sc, pid, bad)
+    return bad
+
+
+def _proverka_mekhaniki(t, tk, gde, bad):
+    """Механика анимации трека: канон кривых (ease-standard/ease-morph/
+    linear; значение == токену) И запрет пружин (MOTION rules: no
+    springs) — одна ветвь, кривая и пружина неразделимы."""
+    kr = t.get('curve')
+    if not (isinstance(kr, dict) and isinstance(kr.get('token'), str)):
+        bad.append(otkaz('TREK_BEZ_POLJA', gde + ': curve'))
+    elif kr['token'] not in KRIVYE_KANON:
+        bad.append(otkaz('KRIVAYA_VNE_KANONA',
+                         '%s: %s' % (gde, kr['token'])))
+    elif kr['token'] == 'linear':
+        if kr.get('value') is not None:
+            bad.append(otkaz('KRIVAYA_NE_SOGLASNA', gde + ': linear'))
+    elif kr['token'] not in tk or tk[kr['token']][0] is None:
+        bad.append(otkaz('KRIVAYA_NE_SOGLASNA',
+                         '%s: %s' % (gde, kr['token'])))
+    elif kr.get('value') != tk[kr['token']][0]:
+        bad.append(otkaz('KRIVAYA_NE_SOGLASNA',
+                         '%s: %s' % (gde, kr['token'])))
+    if t.get('spring') is not None:
+        bad.append(otkaz('PRUZHINA_ZAPRESHCHENA', gde))
+
+
+def _proverka_sceny_poryadok(porjadki, n, pid, bad):
+    """Порядок стартов треков: order ровно 1..n (хореография сцены —
+    данные спеки, валидатор судит производное)."""
+    if porjadki != list(range(1, n + 1)):
+        bad.append(otkaz('PORYADOK_NARUSHEN', pid))
+
+
+def check_dvizhenie(f, repo: Path, kadry):
+    """Блок dvizhenie (v3, слово владельца 2026-10-28 mob-dvizhenie
+    §Решение п.4): форма, источники с пинами, экраны пачки против
+    манифеста и якорей кадров, ПОЛНОТА переходов (∩-правило), сцены
+    знака, эталоны Release, грамматика спеки по объявленным переходам.
+    Ветвь инертна для пачек v1/v2 без GA-кадров (обратная совместимость
+    замороженных экранов слайса-1 — пачки 117/135/118 не переоткрываются)."""
+    bad, dv = zagnost_dvizhenija(f)
+    if bad:
+        return bad
+    sbad, isto = zagnost_istochniki(dv, repo)
+    if sbad:
+        return sbad
+    man, spc, poz = isto['manifest'], isto['spec'], isto['pozvonok']
+    tk = _tokeny(spc)
+    obad, ekrany = _spisok_dv(dv, 'ekrany', RE_GA_EKRAN)
+    if obad:
+        return obad
+    bad += _ekrany_sud(set(man['screens']), ekrany, kadry['ids'])
+    if bad:
+        return bad
+    pbad, perehody = _spisok_dv(dv, 'perehody', RE_PEREHOD, pustoj=True)
+    if pbad:
+        return pbad
+    dvizh_man = {}
+    for m in man['motion']:
+        dvizh_man[m['id']] = set(m['frames'])
+    bad += _perehody_polnota(dvizh_man, set(ekrany), perehody)
+    if bad:
+        return bad
+    sceny = {}
+    for s in spc['scenes']:
+        sceny[s['id']] = s
+    for pid in perehody:
+        if pid not in sceny:
+            bad.append(otkaz('PEREHOD_BEZ_SPECY', pid))
+    if bad:
+        return bad
+    zbad, sceny_znaka = _spisok_dv(dv, 'sceny_znaka', RE_PEREHOD, pustoj=True)
+    if zbad:
+        return zbad
+    bad += _sceny_znaka_sud(set(poz['scenes']), set(perehody), sceny_znaka)
+    if bad:
+        return bad
+    bad += _etalony_sud(sceny, dv['etalony'], perehody)
+    if bad:
+        return bad
+    for pid in sorted(perehody):
+        bad += _grammatika_sceny(sceny[pid], tk, pid)
+    return bad
+
+
+def _ekrany_sud(ekrany_man, ekrany, kadry_ids):
+    """Экраны пачки: посторонний — EKRAN_VNE_MANIFESTA; кадр с GA-якорем
+    без объявления — EKRANY_NE_POLNY; объявленный без кадров —
+    EKRAN_BEZ_KADROV (состав пачки — не самодекларация, якорь кадра
+    наблюдаем)."""
+    bad = []
+    for e in ekrany:
+        if e not in ekrany_man:
+            bad.append(otkaz('EKRAN_VNE_MANIFESTA', e))
+    po_jakorju = set()
+    for kid in kadry_ids:
+        if RE_GA_JAKOR.match(kid):
+            po_jakorju.add(kid.split(' ', 1)[0])
+    for e in sorted(po_jakorju - set(ekrany)):
+        bad.append(otkaz('EKRANY_NE_POLNY', e))
+    for e in sorted(set(ekrany) - po_jakorju):
+        bad.append(otkaz('EKRAN_BEZ_KADROV', e))
+    return bad
+
+
+def _perehody_polnota(dvizh_man, ekrany, perehody):
+    """ПОЛНОТА переходов (∩-правило): всякий переход манифеста, чьи
+    frames ∩ экраны пачки ≠ ∅, объявлен; посторонний/вне манифеста —
+    отказ (незаявленное движение невидимо приёмкой — главный обход)."""
+    bad = []
+    for pid in perehody:
+        if pid not in dvizh_man:
+            bad.append(otkaz('PEREHOD_VNE_MANIFESTA', pid))
+        elif not (dvizh_man[pid] & ekrany):
+            bad.append(otkaz('PEREHOD_LISHNIJ', pid))
+    for pid in sorted(dvizh_man):
+        if dvizh_man[pid] & ekrany and pid not in perehody:
+            bad.append(otkaz('PEREHODY_NE_POLNY', pid))
+    return bad
+
+
+def _sceny_znaka_sud(sceny_poz, perehody, zaiavl):
+    """Сцены знака — РОВНО perehody ∩ сцены поз-оракула (И-3, обе
+    стороны равенства; B.9 арбитража 146): пропуск лишает численной
+    приёмки знака (SCENY_ZNAKA_NE_POLNY); объявленная вне пересечения —
+    отказ: сцена вообще без поз-оракула (SCENA_VNE_ORAKULA; T28/T31 —
+    морф-треки) И сцена, ЧУЖАЯ переходам этой пачки, хоть и с позами
+    (SCENA_VNE_PEREHODA — эталоны знака не её)."""
+    bad = []
+    peresechenie = perehody & sceny_poz
+    for s in zaiavl:
+        if s not in peresechenie:
+            bad.append(otkaz('SCENA_VNE_ORAKULA' if s not in sceny_poz
+                             else 'SCENA_VNE_PEREHODA', s))
+    for s in sorted(peresechenie):
+        if s not in zaiavl:
+            bad.append(otkaz('SCENY_ZNAKA_NE_POLNY', s))
+    return bad
+
+
+def _etalony_sud(sceny, et, perehody):
+    """Эталоны Release на каждый переход: 4 темы видео + 4 темы × столько
+    sha-пинов, сколько файлов ключевых кадров в спеке (байты — вне репо,
+    судят vision-судьи; валидатор — наличие/форму/число/состав)."""
+    bad = []
+    for pid in sorted(set(et) - set(perehody)):
+        bad.append(otkaz('ETALON_LISHNIJ', pid))
+    for pid in sorted(set(perehody) - set(et)):
+        bad.append(otkaz('ETALON_BEZ_PINOV', pid))
+    for pid in sorted(perehody):
+        if pid not in et:
+            # уже назван ETALON_BEZ_PINOV выше; отсутствующий ключ НЕ
+            # индексируем (B.9 арбитража 146: краш — не именованный отказ)
+            continue
+        z = et[pid]
+        fajly = sceny[pid].get('files')
+        if not isinstance(z, dict) or set(z) != {'keyframes', 'video'}:
+            bad.append(otkaz('SHABLON_NEVEREN', 'etalony.' + pid))
+            continue
+        if (not isinstance(fajly, dict)
+                or not isinstance(fajly.get('video'), dict)
+                or not isinstance(fajly.get('keyframes'), dict)):
+            bad.append(otkaz('FAJLY_ETALONOV_NE_POLNY', pid))
+            continue
+        vid, kfs = fajly['video'], fajly['keyframes']
+        zv = z['video']
+        if not isinstance(zv, dict) or set(zv) != set(vid):
+            bad.append(otkaz('VIDEO_ETALON_NE_POLON', pid))
+            continue
+        for tema in sorted(zv):
+            if not isinstance(zv[tema], str) or not RE_SHA256.match(zv[tema]):
+                bad.append(otkaz('ETALON_NE_HEX',
+                                 '%s video %s' % (pid, tema)))
+        zk = z['keyframes']
+        if not isinstance(zk, dict) or set(zk) != set(kfs):
+            bad.append(otkaz('ETALON_TEMA_OTSVTSTVUET', pid))
+            continue
+        for tema in sorted(zk):
+            puti = kfs[tema]
+            piny = zk[tema]
+            if not isinstance(puti, list) or not isinstance(piny, list) \
+                    or len(piny) != len(puti):
+                bad.append(otkaz('ETALON_NE_POLON', '%s %s' % (pid, tema)))
+                continue
+            for x in piny:
+                if not isinstance(x, str) or not RE_SHA256.match(x):
+                    bad.append(otkaz('ETALON_NE_HEX',
+                                     '%s %s' % (pid, tema)))
+                    break
+    return bad
+
+
+def d24_ekrany(kadry):
+    """Экраны D 2.4 пачки по якорям кадров (GA-ид в начале id кадра):
+    пачка без GA-кадров — не экранная пачка D 2.4, dvizhenie ей не нужен
+    (слайс-1: 117/135/118 остаются при своей форме)."""
+    ek = set()
+    for kid in kadry['ids']:
+        if RE_GA_JAKOR.match(kid):
+            ek.add(kid.split(' ', 1)[0])
+    return sorted(ek)
+
+
+def check_d24_triggery(f, kadry):
+    """Триггер раздела «движение» (v3): shablon 3 без блока и кадры с
+    GA-якорем у пачки БЕЗ shablon 3 — DVIZHENIE_OTSVTSTVUET с именами
+    (экран D 2.4 не прячет движение за версией формы)."""
+    if f['shablon'] == 3 and 'dvizhenie' not in f:
+        return [otkaz('DVIZHENIE_OTSVTSTVUET',
+                      'shablon 3 без блока dvizhenie')]
+    if f['shablon'] != 3 and d24_ekrany(kadry):
+        return [otkaz('DVIZHENIE_OTSVTSTVUET',
+                      'экраны D 2.4 без shablon 3: %s'
+                      % ', '.join(d24_ekrany(kadry)))]
+    return []
+
+def _forma_priemki_dvizhenija(dv):
+    """Форма команды приёмки движения: argv несёт --json И --outputFile
+    с путём отчёта в репо (алфавит RE_PRIEMKA уже проверен формой).
+    Возвращает (argv, путь | None)."""
+    argv = razbit_argv(dv['priemka_dvizhenija'])
+    put_otcheta = None
+    if '--outputFile' in argv:
+        i = argv.index('--outputFile')
+        if i + 1 < len(argv) and path_ok(argv[i + 1]):
+            put_otcheta = argv[i + 1]
+    if '--json' not in argv:
+        put_otcheta = None
+    return argv, put_otcheta
+
+
+
+def run_priemka_dvizhenie(f, repo: Path):
+    """Исполнение численной приёмки движения (фактический argv, cwd=репо,
+    без shell — прецедент Г3-002): rc 0; отчёт jest-формы по --outputFile
+    СВЕЖ (создан этим запуском: mtime не старше старта И байты отличны от
+    дозапусковой ревизии — как свежесть кадров e2e), читается, тесты
+    непусты и все зелены. Команда без --json/--outputFile — отказ ещё на
+    форме (DVIZHENIE_BEZ_OTCHETA): «приёмка движения исполнена» без
+    отчёта не бывает."""
+    argv, put_otcheta = _forma_priemki_dvizhenija(f['dvizhenie'])
+    if put_otcheta is None:
+        return [otkaz('DVIZHENIE_BEZ_OTCHETA',
+                      f['dvizhenie']['priemka_dvizhenija'])]
+    p = repo / put_otcheta
+    rester = None
+    if p.is_file():
+        rester = _sha256_bajtov(p)
+    start = time.time_ns()
+    try:
+        r = subprocess.run(argv, cwd=str(repo), capture_output=True,
+                           text=True)
+    except (OSError, ValueError):
+        return [otkaz('DVIZHENIE_NE_PROSHLA', 'запуск: ' + argv[0])]
+    if r.returncode != 0:
+        return [otkaz('DVIZHENIE_NE_PROSHLA', 'rc=%d' % r.returncode)]
+    if not p.is_file():
+        return [otkaz('OTCHET_OTSVTSTVUET', put_otcheta)]
+    if p.stat().st_mtime_ns < start or rester == _sha256_bajtov(p):
+        return [otkaz('OTCHET_USTAREVSHIJ', put_otcheta)]
+    try:
+        ot = json.loads(p.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return [otkaz('OTCHET_NE_CHITAETSJA', put_otcheta)]
+    nt = ot.get('numTotalTests') if isinstance(ot, dict) else None
+    np_ = ot.get('numPassedTests') if isinstance(ot, dict) else None
+    if not isinstance(nt, int) or isinstance(nt, bool) or nt == 0:
+        return [otkaz('OTCHET_PUSTOJ', put_otcheta)]
+    if not isinstance(np_, int) or isinstance(np_, bool) or np_ != nt:
+        return [otkaz('OTCHET_S_PROVALAMI', put_otcheta)]
+    return []
+
 def _bez_kommentarija(line):
     """Комментарий YAML (С-2 арбитража 132 v2): «#» первым непробельным
     символом строки либо сразу после пробела, ВНЕ одинарных/двойных
@@ -1411,6 +2096,13 @@ def main(argv=None):
             otkazy += check_marshrut(f, pack, repo)
         if kadry and 'shablon' in f:
             otkazy += check_prokhod_komanda(f, repo)
+        if kadry and 'shablon' in f:
+            # v3 (146): экранным пачкам D 2.4 (кадры с GA-якорем) раздел
+            # «движение» ОБЯЗАТЕЛЕН (check_d24_triggery — именованный
+            # отказ, правило 7; состав — не самодекларация: якорь кадра).
+            otkazy += check_d24_triggery(f, kadry)
+            if 'dvizhenie' in f:
+                otkazy += check_dvizhenie(f, repo, kadry)
         if not otkazy:
             otkazy += check_starost(f, kadry['piny'] if kadry else set())
         if not otkazy:
@@ -1427,6 +2119,8 @@ def main(argv=None):
             otkazy += run_sverka_profil(f, pack, repo, harness)
         if not otkazy and 'shablon' in f:
             otkazy += run_priemka_prokhod(f, repo)
+        if not otkazy and f.get('shablon') == 3:
+            otkazy += run_priemka_dvizhenie(f, repo)
     for o in otkazy:
         print(o, file=sys.stderr)
     if otkazy:
