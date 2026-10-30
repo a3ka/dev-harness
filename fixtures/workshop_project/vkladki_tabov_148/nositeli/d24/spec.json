@@ -1,0 +1,174 @@
+{
+ "_comment": "148: подмножество реальной спеки (tokens целиком; сцены-заголовки)",
+ "tokens": [
+  {
+   "name": "motion-fast",
+   "value": "150ms",
+   "usage": "Нажатие пилюли, тумблер, hover."
+  },
+  {
+   "name": "motion-base",
+   "value": "250ms",
+   "usage": "Смена сегмента, выбор опции, появление листа."
+  },
+  {
+   "name": "motion-slow",
+   "value": "400ms",
+   "usage": "Смена состояния точки знака, галочка «Erledigt», появление карточки внимания."
+  },
+  {
+   "name": "ease-standard",
+   "value": "cubic-bezier(0.2, 0.7, 0.2, 1)",
+   "usage": "Единственная кривая: быстрый старт, мягкий финиш. Без bounce и overshoot."
+  },
+  {
+   "name": "motion-cycle",
+   "value": "2400ms",
+   "usage": "Цикл «работает»: бусина проходит нить туда и обратно. Единственное повторяющееся движение знака; при reduced-motion выключено."
+  },
+  {
+   "name": "motion-none",
+   "value": "0ms",
+   "usage": "«Уменьшить движение»: переход мгновенный, значения сразу конечные. В таблицах движения — нулевая задержка."
+  },
+  {
+   "name": "motion-stagger",
+   "value": "60ms",
+   "usage": "Шаг между блоками одной группы при появлении: строки FactCard, шаги MissionRoadmap, новые строки AgentActivity, блоки рабочей области."
+  },
+  {
+   "name": "faden-transition",
+   "value": "320ms",
+   "usage": "Dynamic Faden: сглаживание позы при смене состояния — экспоненциальное приближение τ = faden-transition / 3 (≈ 107 мс, делится на скорость модификатора), ≈ 99 % за 480 мс."
+  },
+  {
+   "name": "faden-listen-attack",
+   "value": "80ms",
+   "usage": "listening: нарастание реакции точки на амплитуду микрофона."
+  },
+  {
+   "name": "faden-listen-release",
+   "value": "220ms",
+   "usage": "listening: спад реакции точки."
+  },
+  {
+   "name": "faden-speak-attack",
+   "value": "60ms",
+   "usage": "speaking: нарастание по огибающей TTS."
+  },
+  {
+   "name": "faden-speak-release",
+   "value": "240ms",
+   "usage": "speaking: спад по огибающей TTS."
+  },
+  {
+   "name": "faden-gather",
+   "value": "600ms",
+   "usage": "understanding: один жест «собираю смысл» (дуга −4 %, точка к концу нити), затем удержание."
+  },
+  {
+   "name": "faden-handover",
+   "value": "400ms",
+   "usage": "needs_action: передача инициативы — точка выходит к разрыву и остаётся."
+  },
+  {
+   "name": "faden-settle",
+   "value": "400ms",
+   "usage": "ready: settling к канонической форме (точка 0,92 → 1)."
+  },
+  {
+   "name": "faden-done-dot",
+   "value": "260ms",
+   "usage": "done: точка идёт к концу нити и уменьшается."
+  },
+  {
+   "name": "faden-done-check",
+   "value": "390ms",
+   "usage": "done: галочка прорисовывается; стартует на 80 % faden-done-dot (208 мс)."
+  },
+  {
+   "name": "faden-done",
+   "value": "650ms",
+   "usage": "done: вся последовательность до устойчивого Erledigt."
+  },
+  {
+   "name": "faden-idle-drift-a",
+   "value": "9000ms",
+   "usage": "idle: период почти незаметного изменения эллиптичности (±0,012)."
+  },
+  {
+   "name": "faden-idle-drift-b",
+   "value": "13000ms",
+   "usage": "idle: период изменения наклона (±1,2°)."
+  },
+  {
+   "name": "faden-uncertain-drift",
+   "value": "7000ms",
+   "usage": "uncertain: период дрейфа точки ±2°."
+  },
+  {
+   "name": "ease-faden-out",
+   "value": "cubic-bezier(0.33, 1, 0.68, 1)",
+   "usage": "Dynamic Faden: easeOutCubic — handover, settle, done (внутренняя кривая движка, не для UI)."
+  },
+  {
+   "name": "ease-faden-loop",
+   "value": "cubic-bezier(0.65, 0, 0.35, 1)",
+   "usage": "Dynamic Faden: easeInOutCubic — бусина working (внутренняя кривая движка, не для UI)."
+  },
+  {
+   "name": "motion-morph",
+   "value": "450ms",
+   "usage": "D 2.3 · Shared element разговора: знак растёт из кнопки агента до сцены и обратно, сцена ↔ верхняя панель, микрофон ↔ Sprechleiste, слой разговора ↔ Gesprächsnotiz. Кривая ease-morph."
+  },
+  {
+   "name": "ease-morph",
+   "value": "cubic-bezier(0.32, 0.72, 0, 1)",
+   "usage": "Кривая shared element (быстро выходит из пальца, долго и мягко садится, без overshoot — нативное ощущение iOS-листа). Только для морфа; весь остальной UI — ease-standard."
+  },
+  {
+   "name": "press-long",
+   "value": "500ms",
+   "usage": "Удержание кнопки агента до прямого старта голоса (как минимальная длительность long press iOS); пока держат, знак «готовится» (prime 0 → 1)."
+  },
+  {
+   "name": "voice-endpoint",
+   "value": "1200ms",
+   "usage": "Тишина после речи → конец реплики (listening → understanding). Решает хост (VAD); значение — эталон таблиц."
+  },
+  {
+   "name": "voice-silence-hint",
+   "value": "8000ms",
+   "usage": "Долгая тишина без речи: строка над Sprechleiste «Ich höre noch zu. Sie können auch schreiben.»"
+  },
+  {
+   "name": "voice-autopause",
+   "value": "30000ms",
+   "usage": "Ещё дольше без речи: микрофон ставится на паузу сам («Gespräch pausiert»), знак → idle. Приватность и батарея."
+  },
+  {
+   "name": "wave-step",
+   "value": "66ms",
+   "usage": "Полосы Sprechleiste: новая полоса каждые 66 мс (4 кадра при 60 fps), старые уходят влево; высота = максимум амплитуды за окно (CompliorFaden.voiceBars)."
+  },
+  {
+   "name": "motion-stagger-tight",
+   "value": "30ms",
+   "usage": "D 2.4 · шаг пилюль меню центральной вкладки сверху вниз («Sprechen» первым): меню читается через ≈ 300 мс (было ≈ 640 мс, «Sprechen» последним)."
+  }
+ ],
+ "scenes": [
+  {
+   "id": "GA-T28"
+  },
+  {
+   "id": "GA-T31"
+  },
+  {
+   "id": "GA-T29"
+  },
+  {
+   "id": "GA-T35"
+  }
+ ]
+}

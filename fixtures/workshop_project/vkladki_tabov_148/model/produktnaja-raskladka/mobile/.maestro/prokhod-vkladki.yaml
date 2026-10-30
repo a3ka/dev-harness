@@ -1,0 +1,24 @@
+# vkladki (148): проход по видимым pressable — каждое нажатие даёт
+# наблюдаемое изменение (правило проходимости, слово владельца
+# 2026-10-27); мок-цели меню/Vorgang-карт — контракты 147/153 (zamenjaet).
+appId: complior
+---
+- runFlow: vkhod-dopusk
+- tapOn: { id: shell-tab-start }
+- tapOn: { id: shell-tab-vorgaenge }
+- tapOn: { id: gespraech-mitte }
+- tapOn: { id: shell-tab-schutz }
+- tapOn: { id: shell-tab-post }
+- tapOn: { id: vorgaenge-stroka-1 }
+- tapOn: { id: vorgaenge-stroka-2 }
+- tapOn: { id: vorgaenge-stroka-3 }
+- tapOn: { id: vorgaenge-stroka-4 }
+- tapOn: { id: vorgaenge-vse-sdelannye }
+- tapOn: { id: schutz-kartochka-vertraege }
+- tapOn: { id: schutz-stroka-mobilitaet }
+- tapOn: { id: schutz-stroka-wohnen }
+- tapOn: { id: post-filtr-alle }
+- tapOn: { id: post-filtr-vhodjaschie }
+- tapOn: { id: post-filtr-otpravlennye }
+- tapOn: { id: post-napisat-complior }
+- tapOn: { id: post-soobschenie-rechtsschutz }

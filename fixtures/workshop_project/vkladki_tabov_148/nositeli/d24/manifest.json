@@ -1,0 +1,133 @@
+{
+ "_comment": "148: подмножество реального манифеста D 2.4 (те же объекты; screens — весь список, motion — переходы вне GA-02/03/04/09 для ∩-замера и perehod-lishnij)",
+ "screens": [
+  "GA-01",
+  "GA-02",
+  "GA-03",
+  "GA-04",
+  "GA-09",
+  "GA-11",
+  "GA-12",
+  "GA-13",
+  "GA-14",
+  "GA-15",
+  "GA-16",
+  "GA-17",
+  "GA-18",
+  "GA-19",
+  "GA-30",
+  "GA-31",
+  "GA-32",
+  "GA-33",
+  "GA-34",
+  "GA-35",
+  "GA-40",
+  "GA-41",
+  "GA-42",
+  "GA-43",
+  "GA-44",
+  "GA-45",
+  "GA-46",
+  "GA-50",
+  "GA-51",
+  "GA-52",
+  "GA-53",
+  "GA-54",
+  "GA-55",
+  "GA-56",
+  "GA-57",
+  "GA-58",
+  "GA-59",
+  "GA-60",
+  "GA-61",
+  "GA-72",
+  "GA-73",
+  "GA-74",
+  "GA-77",
+  "GA-78",
+  "GA-79",
+  "GA-80"
+ ],
+ "motion": [
+  {
+   "id": "GA-T28",
+   "title": "Mitte antippen → Menü: das Zeichen fliegt zur Frage, die Pillen kommen von oben («Sprechen» zuerst), ≈ 300 ms",
+   "group": "Финал 2 · меню центральной кнопки",
+   "profile": "390x844",
+   "window_ms": [
+    0,
+    450
+   ],
+   "frames": [
+    "GA-01",
+    "GA-15"
+   ],
+   "video": {
+    "dark": "video/GA-T28-mitte-menue-oeffnen.dark.mp4",
+    "dark_reduced": "video/GA-T28-mitte-menue-oeffnen.dark.reduced.mp4",
+    "light": "video/GA-T28-mitte-menue-oeffnen.light.mp4",
+    "light_reduced": "video/GA-T28-mitte-menue-oeffnen.light.reduced.mp4"
+   }
+  },
+  {
+   "id": "GA-T31",
+   "title": "«×» / Hintergrund / Esc → Menü schließen: das Zeichen fliegt zurück in den Kiesel",
+   "group": "Финал 2 · меню центральной кнопки",
+   "profile": "390x844",
+   "window_ms": [
+    0,
+    300
+   ],
+   "frames": [
+    "GA-15",
+    "GA-01"
+   ],
+   "video": {
+    "dark": "video/GA-T31-mitte-menue-schliessen.dark.mp4",
+    "dark_reduced": "video/GA-T31-mitte-menue-schliessen.dark.reduced.mp4",
+    "light": "video/GA-T31-mitte-menue-schliessen.light.mp4",
+    "light_reduced": "video/GA-T31-mitte-menue-schliessen.light.reduced.mp4"
+   }
+  },
+  {
+   "id": "GA-T29",
+   "title": "Menü «Sprechen» → Stimme im leeren Chat: das Zeichen wächst von der Frage in die Bühne, die Leiste sagt «Ich höre zu.»",
+   "group": "Финал 2 · меню центральной кнопки",
+   "profile": "390x844",
+   "window_ms": [
+    0,
+    600
+   ],
+   "frames": [
+    "GA-15",
+    "GA-34"
+   ],
+   "video": {
+    "dark": "video/GA-T29-menue-sprechen.dark.mp4",
+    "dark_reduced": "video/GA-T29-menue-sprechen.dark.reduced.mp4",
+    "light": "video/GA-T29-menue-sprechen.light.mp4",
+    "light_reduced": "video/GA-T29-menue-sprechen.light.reduced.mp4"
+   }
+  },
+  {
+   "id": "GA-T35",
+   "title": "Mitte gedrückt halten (press-long 500 ms) → sofort Stimme: das Zeichen wächst aus dem Kiesel in die Bühne",
+   "group": "Финал 2 · меню центральной кнопки",
+   "profile": "390x844",
+   "window_ms": [
+    0,
+    1100
+   ],
+   "frames": [
+    "GA-01",
+    "GA-34"
+   ],
+   "video": {
+    "dark": "video/GA-T35-mitte-halten-sprechen.dark.mp4",
+    "dark_reduced": "video/GA-T35-mitte-halten-sprechen.dark.reduced.mp4",
+    "light": "video/GA-T35-mitte-halten-sprechen.light.mp4",
+    "light_reduced": "video/GA-T35-mitte-halten-sprechen.light.reduced.mp4"
+   }
+  }
+ ]
+}
