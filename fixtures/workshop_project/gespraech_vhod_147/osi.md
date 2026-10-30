@@ -97,13 +97,17 @@ s-pachka-v-produkte, s-mashina-v-produkte, s-kanon-bajty (байты
 132/146); безфлагово — SUBJECT_ABSENT до реализации.
 
 s-lekalo-instanciirovano (И-8; блок Crit147 круг 1 — ekran.json={} без
-проводки проходил 70/70): судит в --repo ТРИ парные правки лекала 143/2
-(экран-работник добавляется СВОИМ PR инстанциацией ЛЕКАЛА
-nositeli/screen-job.template.yml — копия frozen 143/2, sha256-пин; ключи
-инстанциации — source.json.lekalo, единый источник): (1) запись карты
-mobile/ci-screens.json с job e2e-gespraech-vhod (id/kontrakty/status/
-pack/flows оба корневых/child_flows/h_checkout .harness147/
-output_namespace); (2) job в .github/workflows/mobile.yml ИЗ ЛЕКАЛА —
+проводки проходил 70/70; блок Crit147b круг 2 — job без второго AVD 393
+и запись карты с puti=[] проходили 71/71): судит в --repo ТРИ парные
+правки лекала 143/2 (экран-работник добавляется СВОИМ PR инстанциацией
+ЛЕКАЛА nositeli/screen-job.template.yml — копия frozen 143/2, sha256-пин;
+ключи инстанциации — source.json.lekalo, единый источник): (1) запись
+карты mobile/ci-screens.json с job e2e-gespraech-vhod (id/kontrakty/
+status/pack/flows оба корневых/child_flows/h_checkout .harness147/
+output_namespace + НЕПУСТЫЕ puti — все три пути И-8: features/
+conversation, tab-shell.tsx, mocks — пусто/неполная тройка красна
+LEKALO_BEZ_PUTEJ_KARTY: выбор экранной задачи по её путям не обеспечен);
+(2) job в .github/workflows/mobile.yml ИЗ ЛЕКАЛА —
 needs/if/outputs/runs-on/timeout/permissions равны скелету инстанциации,
 шаги лекала по порядку полными именами (грамматика одна — пиннованный
 шаблон, второго перечня в батарее нет), экранный шаг расширяем (норма
@@ -116,8 +120,13 @@ continue-on-error/strategy/matrix и ровно один «ПОВТОР: »; (3)
 вынос пачки — общий шаг инвентаризации quality (--mode inventar;
 персональный mv и wildcard запрещены); пачка НЕ ПУСТА (ekran.json —
 форма v3: shablon 3, ekran gespraech-vhod, ekrany GA-01/GA-15/GA-16 —
-обход Crit147 {} красен). Отсутствие ЛЮБОГО аспекта — именованный отказ
-LEKALO_NE_INSTANCIIROVANO со списком недостающего. Зелёный контроль:
+обход Crit147 {} красен); ВТОРОЙ AVD профиля 393 в экранном шаге (блок
+Crit147b: PORT393=5573, boot-переключ SERIAL="$SERIAL393", export
+GESPRAECH_SERIAL_393= ДО вызова приёмки run_priemka — канон e2e.sh ждёт
+её; отсутствие/непотребление — LEKALO_BEZ_VTOROGO_PROFILJA). Имя
+причины — РОВНО одно на вход, по старшинству: LEKALO_NE_INSTANCIIROVANO
+(парные правки/вынос/форма) → LEKALO_BEZ_VTOROGO_PROFILJA (второй AVD
+393) → LEKALO_BEZ_PUTEJ_KARTY (puti записи). Зелёный контроль:
 A-дерево рецепта (--a-derevo: живые байты продукта 6240f630 + три парные
 правки + второй AVD) — клетка зелена, полная батарея rc 0 71/71.
 

@@ -881,17 +881,56 @@ def _sudi_job_lekala(job, src):
     return netu
 
 
+def _sudi_vtoroj_profil(run, src):
+    """Второй AVD профиля 393 ВНУТРИ экранного шага (норма 132 v2; блок
+    Crit147b круг 2): boot второго эмулятора на порту avd_port_393 и
+    GESPRAECH_SERIAL_393, экспортированная ДО вызова приёмки (канон
+    e2e.sh ждёт GESPRAECH_SERIAL/GESPRAECH_SERIAL_393 — без экспорта
+    e2e профиля 393 отказывает до Maestro). Аспекты: PORT393=<порт>,
+    boot-переключ SERIAL="$SERIAL393", export-строка с GESPRAECH_SERIAL_393=
+    до первого вызова run_priemka (потребление экраным шагом)."""
+    LE = src['lekalo']
+    netu = []
+    if ('PORT393=%d\n' % LE['avd_port_393']) not in run:
+        netu.append('экранный шаг без PORT393=%d (порт второго AVD 393)'
+                    % LE['avd_port_393'])
+    if 'SERIAL="$SERIAL393"' not in run:
+        netu.append('экранный шаг без boot второго AVD 393 '
+                    '(SERIAL="$SERIAL393")')
+    eksporty = [m.start() for m in re.finditer(
+        r'^[^\S\n]*export\b[^\n]*\bGESPRAECH_SERIAL_393=', run, re.M)]
+    if not eksporty:
+        netu.append('GESPRAECH_SERIAL_393 не экспортирована экраным шагом '
+                    '(канон e2e.sh ждёт её)')
+    else:
+        vyzov = run.find('run_priemka\n')
+        if vyzov == -1:
+            netu.append('GESPRAECH_SERIAL_393 не потребляется экраным '
+                        'шагом (вызов приёмки run_priemka не найден)')
+        elif eksporty[0] > vyzov:
+            netu.append('GESPRAECH_SERIAL_393 не потребляется экраным '
+                        'шагом (export после вызова приёмки run_priemka)')
+    return netu
+
+
 def sud_lekalo(repo, src):
-    """s-lekalo-instanciirovano (И-8; блок Crit147 круг 1): в --repo судит
-    ТРИ парные правки лекала 143/2 (запись карты, job из лекала по пину
-    шаблона/ключам инстанциации, output выбора + needs обоих агрегатов),
-    вынос пачки мобильным общим шагом инвентаризации и НЕПУСТУЮ форму
-    пачки (ekran.json={} — обход критика). Отсутствие ЛЮБОГО аспекта —
-    именованный отказ LEKALO_NE_INSTANCIIROVANO со списком недостающего.
-    «Пропускник» ловится стабом lekalo-obhod-kritika (Н-39)."""
+    """s-lekalo-instanciirovano (И-8; блоки Crit147 круг 1 + Crit147b круг
+    2): в --repo судит ТРИ парные правки лекала 143/2 (запись карты, job
+    из лекала по пину шаблона/ключам инстанциации, output выбора + needs
+    обоих агрегатов), вынос пачки мобильным общим шагом инвентаризации,
+    НЕПУСТУЮ форму пачки (ekran.json={} — обход критика), ВТОРОЙ AVD
+    профиля 393 в экранном шаге (порт/boot/GESPRAECH_SERIAL_393 до
+    приёмки) и НЕПУСТЫЕ puti записи карты (выбор экранной задачи по её
+    путям обеспечен). Именованный отказ — РОВНО одно имя на вход, по
+    старшинству: LEKALO_NE_INSTANCIIROVANO (парные правки/вынос/форма),
+    LEKALO_BEZ_VTOROGO_PROFILJA (второй AVD 393), LEKALO_BEZ_PUTEJ_KARTY
+    (puti записи). «Пропускник» ловится стабом lekalo-obhod-kritika
+    (Н-39)."""
     LE = src['lekalo']
     JOB = LE['job_id']
     netu = []
+    netu_393 = []
+    netu_puti = []
 
     karta, osh = _chita_json(os.path.join(repo, 'mobile',
                                           'ci-screens.json'))
@@ -923,6 +962,14 @@ def sud_lekalo(repo, src):
             if z.get('output_namespace') != LE['evidence_ns']:
                 netu.append('output_namespace записи %r'
                             % z.get('output_namespace'))
+            puti = z.get('puti') or []
+            if not puti:
+                netu_puti.append('puti записи пусты (выбор экранной '
+                                 'задачи не обеспечен)')
+            else:
+                for p_ in LE['puti']:
+                    if p_ not in puti:
+                        netu_puti.append('puti записи без %s' % p_)
 
     ej, osh = _chita_json(os.path.join(repo, LE['pack'].strip('/'),
                                        'ekran.json'))
@@ -952,6 +999,12 @@ def sud_lekalo(repo, src):
             netu.append('нет job %s в mobile.yml' % JOB)
         else:
             netu.extend(_sudi_job_lekala(jobs[JOB], src))
+            shag = next((s for s in (jobs[JOB].get('steps') or [])
+                         if str(s.get('name', '')).startswith(
+                             'Экранная пачка')), None)
+            if shag is not None:
+                netu_393.extend(_sudi_vtoroj_profil(
+                    str(shag.get('run') or ''), src))
         outs = ((jobs.get('select-screens') or {}).get('outputs') or {})
         if outs.get(JOB) != '${{ steps.vybor.outputs.%s }}' % JOB:
             netu.append('output выбора %s отсутствует/не из шага vybor'
@@ -968,8 +1021,12 @@ def sud_lekalo(repo, src):
             netu.append('персональный mv пачки (вынос — общий шаг)')
         if re.search(r'mv\s+mobile/e2e-\*', tekst):
             netu.append('wildcard-вынос mobile/e2e-*')
-    return (not netu, '' if not netu else
-            'LEKALO_NE_INSTANCIIROVANO: ' + '; '.join(netu))
+    for imja, spisok in (('LEKALO_NE_INSTANCIIROVANO', netu),
+                         ('LEKALO_BEZ_VTOROGO_PROFILJA', netu_393),
+                         ('LEKALO_BEZ_PUTEJ_KARTY', netu_puti)):
+        if spisok:
+            return False, '%s: %s' % (imja, '; '.join(spisok))
+    return True, ''
 
 
 def postav_zhivoe_a_derevo(produkt, cel, src):
