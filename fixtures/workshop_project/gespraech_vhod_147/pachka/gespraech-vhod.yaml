@@ -1,0 +1,29 @@
+# Флоу e2e пачки gespraech-vhod (контракт 147). Производственный путь:
+# запуск приложения -> вкладка Start с центральной кнопкой «Gespräch».
+# Кадры: GA-01 (старт), GA-15 (меню), GA-16 (меню с ждущим Vorgang — мок).
+# Тема переключается вызывающей стороной (e2e.sh, оба прогона).
+appId: com.complior.mobile
+name: gespraech-vhod
+---
+- launchApp
+- assertVisible:
+    id: gespraech-mitte
+- takeScreenshot:
+    name: gespraech-ga-01
+- tapOn:
+    id: gespraech-mitte
+- assertVisible:
+    id: gespraech-menu
+- takeScreenshot:
+    name: gespraech-ga-15
+- tapOn:
+    id: gespraech-menu-close
+- assertNotVisible:
+    id: gespraech-menu
+# ждущий Vorgang — мок-хост (mobile/src/mocks, норма пилота 28.10)
+- tapOn:
+    id: gespraech-mitte
+- assertVisible:
+    id: gespraech-menu-ansehen
+- takeScreenshot:
+    name: gespraech-ga-16

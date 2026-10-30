@@ -1,0 +1,79 @@
+# Проход проходимости пачки gespraech-vhod (контракт 147): каждое нажатие
+# видимой цели даёт наблюдаемое изменение (assertVisible/assertNotVisible);
+# пустых нажатий нет. Демо-переключателей на экране нет.
+appId: com.complior.mobile
+name: gespraech-prokhod
+---
+- launchApp
+- tapOn:
+    id: shell-profile-entry
+- assertVisible:
+    id: profil
+- tapOn:
+    id: shell-tab-start
+- assertVisible:
+    id: gespraech-mitte
+- tapOn:
+    id: shell-tab-vorgaenge
+- assertVisible:
+    id: vorgaenge
+- tapOn:
+    id: shell-tab-schutz
+- assertVisible:
+    id: schutz
+- tapOn:
+    id: shell-tab-post
+- assertVisible:
+    id: post
+- tapOn:
+    id: gespraech-vorgaenge-ansehen
+- assertVisible:
+    id: vorgaenge
+- tapOn:
+    id: gespraech-mitte
+- assertVisible:
+    id: gespraech-menu
+- tapOn:
+    id: gespraech-menu-sprechen
+- assertVisible:
+    id: gespraech-voice
+- tapOn:
+    id: gespraech-beenden
+- tapOn:
+    id: gespraech-mitte
+- tapOn:
+    id: gespraech-menu-schreiben
+- assertVisible:
+    id: gespraech-schreiben
+- tapOn:
+    id: gespraech-zurueck
+- tapOn:
+    id: gespraech-mitte
+- tapOn:
+    id: gespraech-menu-foto
+- assertVisible:
+    id: gespraech-foto
+- tapOn:
+    id: gespraech-zurueck
+- tapOn:
+    id: gespraech-mitte
+- tapOn:
+    id: gespraech-menu-dokument
+- assertVisible:
+    id: gespraech-dokument
+- tapOn:
+    id: gespraech-zurueck
+- tapOn:
+    id: gespraech-mitte
+- assertVisible:
+    id: gespraech-menu-ansehen
+- tapOn:
+    id: gespraech-menu-ansehen
+- assertVisible:
+    id: gespraech-vorgang
+- tapOn:
+    id: gespraech-mitte
+- tapOn:
+    id: gespraech-menu-close
+- assertNotVisible:
+    id: gespraech-menu

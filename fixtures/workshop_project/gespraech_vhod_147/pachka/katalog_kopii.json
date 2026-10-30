@@ -1,0 +1,47 @@
+{
+ "_comment": "Срез каталога копии экрана gespraech-vhod (ключи верхнего уровня = copy_key BrokerOS_UI_Copy_DE.json verbatim); генерируется в продукт.",
+ "ia115.nav.START": {
+  "text": "Start",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ia117.nav.VORGAENGE": {
+  "text": "Vorgänge",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ia115.nav.SCHUTZ": {
+  "text": "Schutz",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ia115.nav.POST": {
+  "text": "Post",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ia115.entry.speak": {
+  "text": "Sprechen",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ia115.entry.write": {
+  "text": "Schreiben",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ia115.entry.photo": {
+  "text": "Foto",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ia115.entry.document": {
+  "text": "Brief / Dokument",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "common.close": {
+  "text": "Schließen",
+  "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED"
+ },
+ "ui.mission.group.needs_user": {
+  "text": "Ihre Rückmeldung nötig",
+  "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED"
+ },
+ "frame.F04.07.title": {
+  "text": "Wie möchten Sie beginnen?",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ }
+}
