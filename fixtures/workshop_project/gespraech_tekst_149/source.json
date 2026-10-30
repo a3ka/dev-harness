@@ -81,7 +81,11 @@
    "stabs/stab_t32_bez_plashek.ts": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_t32_bez_plashek.ts",
    "stabs/stab_t32_chipy_ranshe.ts": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_t32_chipy_ranshe.ts",
    "stabs/stab_t37_morph_linejnyj.ts": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_t37_morph_linejnyj.ts",
-   "stabs/stab_ud_ignor.ts": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_ud_ignor.ts"
+   "stabs/stab_ud_ignor.ts": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_ud_ignor.ts",
+   "nositeli/screen-job.template.yml": "fixtures/workshop_project/gespraech_tekst_149/nositeli/screen-job.template.yml",
+   "nositeli/produkt/mobile-6240f63.yml": "fixtures/workshop_project/gespraech_tekst_149/nositeli/produkt/mobile-6240f63.yml",
+   "nositeli/produkt/ci-screens-6240f63.json": "fixtures/workshop_project/gespraech_tekst_149/nositeli/produkt/ci-screens-6240f63.json",
+   "stabs/stab_lekalo_obhod_kritika.py": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_lekalo_obhod_kritika.py"
   },
   "sha": {
    "model/ekran_shablon.py": "5fd1415e40b257e5e7b97c7bf9bc8fe31e94dcea9e05c4c3ac44d68802db453b",
@@ -163,7 +167,11 @@
    "stabs/stab_t32_bez_plashek.ts": "de453e6ddabe75b4644922ea6a654db11f7f470dd82cfa98b04d162900d71735",
    "stabs/stab_t32_chipy_ranshe.ts": "6f42fc5c4c5c21cd64a10b956bc631f3a3a60b1c3384ab9efe7767c995151e63",
    "stabs/stab_t37_morph_linejnyj.ts": "538500edccd69aa837c003130e4128227938fd8def57b45ac5863995265fc817",
-   "stabs/stab_ud_ignor.ts": "e7a914d594bb284424339998a84165ec9b42b1b7682cf87cf6b8b0c1c2f5a88c"
+   "stabs/stab_ud_ignor.ts": "e7a914d594bb284424339998a84165ec9b42b1b7682cf87cf6b8b0c1c2f5a88c",
+   "nositeli/screen-job.template.yml": "3675182e218c467f694dc69d4ee3457900849e6717b7a80d12e8bafc80aa14dd",
+   "nositeli/produkt/mobile-6240f63.yml": "6137aa571ace1147ae1a29884c98008620c3b329eebf83617b5a971d57d0405e",
+   "nositeli/produkt/ci-screens-6240f63.json": "85c23e1c66e9661d1d3fc2d56dfd13e4fba1b38bbaa6b9e569acfc0fb98c09e3",
+   "stabs/stab_lekalo_obhod_kritika.py": "caa5449031553fb69552ce9718a492c69f5e2bfc481a9facfd6009e04a527b34"
   },
   "kanon": {
    "mobile/src/features/conversation/__tests__/gespraech-tekst.test.ts": "c4c0a32a03a2e24c5f70552507843dcdff778b57880f6e8e37deaeca2f8cf0de",
@@ -370,6 +378,32 @@
    "kontrol-forma": {}
   }
  },
+ "lekalo": {
+  "job_id": "e2e-gespraech-tekst",
+  "screen_id": "gespraech-tekst",
+  "pack": "mobile/e2e-gespraech-tekst/",
+  "flows": [
+   "mobile/.maestro/gespraech-tekst.yaml",
+   "mobile/.maestro/gespraech-tekst-393.yaml"
+  ],
+  "child_flows": [
+   "mobile/.maestro/gespraech-tekst-prokhod.yaml"
+  ],
+  "puti": [
+   "mobile/src/features/conversation/",
+   "mobile/src/ui/conversation-composer/",
+   "mobile/src/mocks/",
+   "mobile/e2e-gespraech-tekst/"
+  ],
+  "h_path": ".harness149",
+  "avd_port": 5580,
+  "avd_port_393": 5581,
+  "serial": "GESPRAECH_TEKST_SERIAL",
+  "serial_393": "GESPRAECH_TEKST_SERIAL_393",
+  "evidence_ns": "mobile/maestro-out-gespraech-tekst",
+  "shablon": 3,
+  "ekrany": ["GA-11", "GA-12", "GA-13", "GA-17", "GA-18", "GA-19"]
+ },
  "staby": {
   "t30-fon-posle": "stab_t30_fon_posle.ts",
   "t30-morph-linejnyj": "stab_t30_morph_linejnyj.ts",
@@ -379,7 +413,8 @@
   "t37-morph-linejnyj": "stab_t37_morph_linejnyj.ts",
   "ud-ignor": "stab_ud_ignor.ts",
   "pole-bez-potolka": "stab_pole_bez_potolka.ts",
-  "pole-bez-skrolla": "stab_pole_bez_skrolla.ts"
+  "pole-bez-skrolla": "stab_pole_bez_skrolla.ts",
+  "lekalo-obhod-kritika": "stab_lekalo_obhod_kritika.py"
  },
  "stab_vhod": {
   "t30-fon-posle": {
@@ -408,6 +443,9 @@
   },
   "pole-bez-skrolla": {
    "pravilo": "pole-shest-strok"
+  },
+  "lekalo-obhod-kritika": {
+   "kletka": "s-lekalo-instanciirovano"
   }
  }
 }
