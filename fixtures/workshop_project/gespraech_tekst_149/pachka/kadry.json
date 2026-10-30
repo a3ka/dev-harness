@@ -1,0 +1,283 @@
+{
+ "mera": {
+  "chernila_T": 40,
+  "kletka_pt": 6,
+  "fon_shag": 4,
+  "razmytie_r": 1,
+  "region_porog": 0.05,
+  "margin": 1,
+  "chrome_verh_pt": 36,
+  "chrome_niz_pt": 20,
+  "min_dolja_suda": 0.5
+ },
+ "kadry": [
+  {
+   "id": "GA-11 dark",
+   "tema": "dark",
+   "snimok": "gespraech-tekst-ga-11",
+   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-11.png",
+   "maket_sha256": "4f84799bb08e3d79fb9cacaee8a00e1c1d6b0651552982f659d4eb277eb52865",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GA-11 light",
+   "tema": "light",
+   "snimok": "gespraech-tekst-ga-11",
+   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-11-Hell.png",
+   "maket_sha256": "a17ef21da3df386af1c7f1c11ac66a2c1b6966f56672a0bd29fe838cc927751e",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GA-12 dark",
+   "tema": "dark",
+   "snimok": "gespraech-tekst-ga-12",
+   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-12.png",
+   "maket_sha256": "16ca3c5b33500e0c2c9c34f56350fcbad124f9413320ebd66479ba42a48a8393",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GA-12 light",
+   "tema": "light",
+   "snimok": "gespraech-tekst-ga-12",
+   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-12-Hell.png",
+   "maket_sha256": "0fbd1287aab1a7d1ffa8ce796f5de810410a6ca67418e8af077b5e7de80457d0",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GA-13 dark",
+   "tema": "dark",
+   "snimok": "gespraech-tekst-ga-13",
+   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-13.png",
+   "maket_sha256": "13f91b92edf581581aea6d40a5e7ffa375bf17605e53276e5fb7542006e98e09",
+   "porog": 0.6,
+   "maski_pt": [
+    [
+     0,
+     500,
+     390,
+     824
+    ]
+   ],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GA-13 light",
+   "tema": "light",
+   "snimok": "gespraech-tekst-ga-13",
+   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-13-Hell.png",
+   "maket_sha256": "28ea7ff9b6af711641087b5bb32df05f4b56bd53a50f7293a8f9483bc53321db",
+   "porog": 0.6,
+   "maski_pt": [
+    [
+     0,
+     500,
+     390,
+     824
+    ]
+   ],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GA-17 dark",
+   "tema": "dark",
+   "snimok": "gespraech-tekst-ga-17",
+   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-17.png",
+   "maket_sha256": "fc8533de2dd04b320594b3063f647b22a29d003b6344a07b0854231787fb125e",
+   "porog": 0.6,
+   "maski_pt": [
+    [
+     0,
+     500,
+     390,
+     824
+    ]
+   ],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GA-17 light",
+   "tema": "light",
+   "snimok": "gespraech-tekst-ga-17",
+   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-17-Hell.png",
+   "maket_sha256": "e816de45698f123b9fb8467b1cbf86f2dbed88df710ac22f8b4b11ff5fd9b82b",
+   "porog": 0.6,
+   "maski_pt": [
+    [
+     0,
+     500,
+     390,
+     824
+    ]
+   ],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GA-18 dark",
+   "tema": "dark",
+   "snimok": "gespraech-tekst-ga-18",
+   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-18.png",
+   "maket_sha256": "7af795a72f8adb66c1f0f7d33be21403c6901250114e3b75fd3019dc22d048c4",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GA-18 light",
+   "tema": "light",
+   "snimok": "gespraech-tekst-ga-18",
+   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-18-Hell.png",
+   "maket_sha256": "98b2f7f9cc9ee7838da8f53d9b9e11c08993494b601d1d3f643dc7fc26c9202b",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GA-19 dark",
+   "tema": "dark",
+   "snimok": "gespraech-tekst-ga-19",
+   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-19.png",
+   "maket_sha256": "4fca14f3a9ef70858c4f36777a8931c762572f2d727a199b066fadf0962daa82",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GA-19 light",
+   "tema": "light",
+   "snimok": "gespraech-tekst-ga-19",
+   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-19-Hell.png",
+   "maket_sha256": "20c343288e8a11a5b3c869adc4b84039a337f2fa0395c4c715674fae8ed02168",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      824
+     ]
+    }
+   ]
+  }
+ ]
+}

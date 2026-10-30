@@ -1,0 +1,47 @@
+{
+ "_comment": "Срез каталога копии экрана gespraech-tekst (ключи верхнего уровня = copy_key BrokerOS_UI_Copy_DE.json verbatim); генерируется в продукт.",
+ "frame.F04.01.title": {
+  "text": "Was möchten Sie klären?",
+  "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED"
+ },
+ "action.F04.A01": {
+  "text": "Nachricht schreiben",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "action.F05.A01": {
+  "text": "Nachricht senden",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "action.F05.A02": {
+  "text": "Dokument hinzufügen",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ia115.entry.speak": {
+  "text": "Sprechen",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "frame.F05.02.title": {
+  "text": "Gesprächsverlauf",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ia115.nav.START": {
+  "text": "Start",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ia117.nav.VORGAENGE": {
+  "text": "Vorgänge",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ia115.nav.SCHUTZ": {
+  "text": "Schutz",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ia115.nav.POST": {
+  "text": "Post",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ui.mission.group.working": {
+  "text": "In Arbeit",
+  "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED"
+ }
+}

@@ -1,0 +1,523 @@
+{
+ "_comment": "Кадры экрана first-run-ekran: First-Run (грамматика и значения — kadry_first_run_ekran.json батареи 123, заменяемый манифест) и вход F03 из пакета макетов Mobility Slice; порог — норма 123.",
+ "mera": {
+  "chernila_T": 40,
+  "kletka_pt": 6,
+  "fon_shag": 4,
+  "razmytie_r": 1,
+  "region_porog": 0.05,
+  "margin": 1,
+  "chrome_verh_pt": 36,
+  "chrome_niz_pt": 20,
+  "min_dolja_suda": 0.5
+ },
+ "kadry": [
+  {
+   "id": "First-Run dark",
+   "tema": "dark",
+   "snimok": "first-run-ekran-first-run",
+   "maket": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/First-Run.png",
+   "maket_sha256": "0411d0a370c2427de5abcb8caa43f2eb00b4eee0657d77c8f08dbbf52df66a94",
+   "porog": 0.6,
+   "maski_pt": [
+    [
+     0,
+     42,
+     56,
+     76
+    ]
+   ],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      165,
+      33,
+      225,
+      50
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      110,
+      123,
+      290,
+      296
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      26,
+      369,
+      365,
+      454
+     ]
+    },
+    {
+     "imja": "podzagolovok",
+     "bbox_pt": [
+      25,
+      484,
+      366,
+      539
+     ]
+    },
+    {
+     "imja": "cta",
+     "bbox_pt": [
+      16,
+      738,
+      374,
+      794
+     ]
+    },
+    {
+     "imja": "futer",
+     "bbox_pt": [
+      125,
+      813,
+      265,
+      826
+     ]
+    }
+   ]
+  },
+  {
+   "id": "First-Run light",
+   "tema": "light",
+   "snimok": "first-run-ekran-first-run",
+   "maket": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/First-Run.png",
+   "maket_sha256": "0411d0a370c2427de5abcb8caa43f2eb00b4eee0657d77c8f08dbbf52df66a94",
+   "porog": 0.6,
+   "maski_pt": [
+    [
+     0,
+     42,
+     56,
+     76
+    ]
+   ],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      165,
+      33,
+      225,
+      50
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      110,
+      123,
+      290,
+      296
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      26,
+      369,
+      365,
+      454
+     ]
+    },
+    {
+     "imja": "podzagolovok",
+     "bbox_pt": [
+      25,
+      484,
+      366,
+      539
+     ]
+    },
+    {
+     "imja": "cta",
+     "bbox_pt": [
+      16,
+      738,
+      374,
+      794
+     ]
+    },
+    {
+     "imja": "futer",
+     "bbox_pt": [
+      125,
+      813,
+      265,
+      826
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F03.01 dark",
+   "tema": "dark",
+   "snimok": "first-run-ekran-f03-01",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F03.01.png",
+   "maket_sha256": "d1a2e383082bbf834352ba183d983b18147a727939f82e156016ac4440d8d2de",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      162,
+      36,
+      228,
+      54
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      156,
+      120,
+      234,
+      198
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      18,
+      246,
+      288,
+      276
+     ]
+    },
+    {
+     "imja": "tekst",
+     "bbox_pt": [
+      18,
+      282,
+      126,
+      306
+     ]
+    },
+    {
+     "imja": "pole",
+     "bbox_pt": [
+      18,
+      324,
+      366,
+      360
+     ]
+    },
+    {
+     "imja": "osibka",
+     "bbox_pt": [
+      36,
+      372,
+      138,
+      390
+     ]
+    },
+    {
+     "imja": "dopolnitelno",
+     "bbox_pt": [
+      42,
+      414,
+      192,
+      438
+     ]
+    },
+    {
+     "imja": "cta",
+     "bbox_pt": [
+      12,
+      468,
+      342,
+      504
+     ]
+    },
+    {
+     "imja": "ssylki",
+     "bbox_pt": [
+      12,
+      714,
+      378,
+      780
+     ]
+    },
+    {
+     "imja": "niz",
+     "bbox_pt": [
+      108,
+      798,
+      282,
+      816
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F03.01 light",
+   "tema": "light",
+   "snimok": "first-run-ekran-f03-01",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F03.01-Hell.png",
+   "maket_sha256": "306096157873ff877f7cddd437c7e1ea59df0b18ea2c1ec64bf7364668a225b6",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      822
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F03.02 dark",
+   "tema": "dark",
+   "snimok": "first-run-ekran-f03-02",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F03.02.png",
+   "maket_sha256": "82cb91ef277ba2ee24907a0a440ae48005bbc7ccd2ea35058e33af15ec9564cc",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      162,
+      36,
+      228,
+      54
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      156,
+      108,
+      240,
+      186
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      132,
+      210,
+      258,
+      222
+     ]
+    },
+    {
+     "imja": "tekst",
+     "bbox_pt": [
+      18,
+      228,
+      252,
+      282
+     ]
+    },
+    {
+     "imja": "pole",
+     "bbox_pt": [
+      18,
+      294,
+      354,
+      330
+     ]
+    },
+    {
+     "imja": "osibka",
+     "bbox_pt": [
+      36,
+      342,
+      276,
+      360
+     ]
+    },
+    {
+     "imja": "dopolnitelno",
+     "bbox_pt": [
+      42,
+      384,
+      90,
+      402
+     ]
+    },
+    {
+     "imja": "cta",
+     "bbox_pt": [
+      120,
+      450,
+      270,
+      462
+     ]
+    },
+    {
+     "imja": "ssylki",
+     "bbox_pt": [
+      12,
+      714,
+      378,
+      780
+     ]
+    },
+    {
+     "imja": "niz",
+     "bbox_pt": [
+      120,
+      798,
+      270,
+      810
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F03.02 light",
+   "tema": "light",
+   "snimok": "first-run-ekran-f03-02",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F03.02-Hell.png",
+   "maket_sha256": "bb2c1929e2737a6ae072a325a122b23aebac89792e646dea73d7bb6cc21c4ca2",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      822
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F03.02-V01 dark",
+   "tema": "dark",
+   "snimok": "first-run-ekran-f03-02-v01",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F03.02-V01.png",
+   "maket_sha256": "5777b005307913d41659daad7731158593a90e3d3c079905bde3267060a19298",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      162,
+      36,
+      228,
+      54
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      156,
+      108,
+      234,
+      180
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      174,
+      210,
+      216,
+      222
+     ]
+    },
+    {
+     "imja": "tekst",
+     "bbox_pt": [
+      18,
+      228,
+      252,
+      282
+     ]
+    },
+    {
+     "imja": "pole",
+     "bbox_pt": [
+      18,
+      294,
+      354,
+      330
+     ]
+    },
+    {
+     "imja": "osibka",
+     "bbox_pt": [
+      36,
+      342,
+      276,
+      360
+     ]
+    },
+    {
+     "imja": "dopolnitelno",
+     "bbox_pt": [
+      12,
+      366,
+      378,
+      444
+     ]
+    },
+    {
+     "imja": "cta",
+     "bbox_pt": [
+      30,
+      468,
+      330,
+      510
+     ]
+    },
+    {
+     "imja": "ssylki",
+     "bbox_pt": [
+      12,
+      714,
+      378,
+      780
+     ]
+    },
+    {
+     "imja": "niz",
+     "bbox_pt": [
+      120,
+      798,
+      270,
+      810
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F03.02-V01 light",
+   "tema": "light",
+   "snimok": "first-run-ekran-f03-02-v01",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F03.02-V01-Hell.png",
+   "maket_sha256": "0c8ec9fb674ed89e285d576766991c384b6ed06ddc0008bffb0d307cab21c078",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      822
+     ]
+    }
+   ]
+  }
+ ]
+}

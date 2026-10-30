@@ -1,0 +1,9 @@
+{
+ "_comment": "JSON-проекция BrokerOS_Unified_OpenAPI_v3.yaml: операции текстового чата (postMessage/listMessages) есть в ядре OpenAPI 5.9, но беседный бэкенд отсутствует (пробел: разбор Conversation Backend 28.10, G03/G13 — разделить synthetic UI-пилот и production-gate); пилот 149 — мок-хост (норма 28.10), operacii_api пусты; подключение реальных операций — предмет бэкенд-контракта, не экрана.",
+ "openapi": "3.0.0",
+ "info": {
+  "title": "BrokerOS",
+  "version": "3"
+ },
+ "paths": {}
+}
