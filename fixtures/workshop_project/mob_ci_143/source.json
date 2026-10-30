@@ -240,12 +240,15 @@
     },
     {
       "id": "i07-legacy-opora"
+    },
+    {
+      "id": "i08-vybor-child-flows"
     }
   ],
   "piny": {
     "model/.github/workflows/mobile.yml": "6137aa571ace1147ae1a29884c98008620c3b329eebf83617b5a971d57d0405e",
     "model/mobile/ci-screens.json": "85c23e1c66e9661d1d3fc2d56dfd13e4fba1b38bbaa6b9e569acfc0fb98c09e3",
-    "model/mobile/scripts/select-ci-screens.cjs": "57df25d4bac6fe5c8835a4faae425f95662d7a7a687f80e57e83d2bf16f77545",
+    "model/mobile/scripts/select-ci-screens.cjs": "866e9c1a27287971017088fc9d025e459311e9a2a784041e060e2d276dccefb7",
     "model/mobile/scripts/ci-aggregate.cjs": "83118c9297a9b2678e28b73fb4e8ffd772f39bf6f41426c2d07fe9d8199fede1",
     "nositeli/mobile-124.yml": "f45c68230eb83b12c8aa81173da4b9d46608b966acfef7da7ba6178d21087421",
     "nositeli/api/pull-124.json": "af9d11d2a76a3feb3532e00e5f3f902571b1211cf94a30313cc40695570a5053",
@@ -464,6 +467,9 @@
     ],
     "stab_i_job_bez_karty": [
       "i02-jobs-iz-karty"
+    ],
+    "stab_i_child_rezhet_vybor": [
+      "i08-vybor-child-flows"
     ]
   }
 }

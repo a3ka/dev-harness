@@ -277,7 +277,9 @@ if (args.mode === "schedule" || args.mode === "dispatch") {
 
 // --- карта union и изменение политики --------------------------------------
 function kartaPodpis(map) {
-  return JSON.stringify(map.zapisi.map((z) => [z.id, z.job, z.status, z.puti, z.pack, z.flows])) + "|" + JSON.stringify(map.shared);
+  // v2c (Crit143v2 §2.1): child_flows — часть политики владения, изменение
+  // записи child-flows в PR входит в подпись (POLICY_CHANGE), как flows
+  return JSON.stringify(map.zapisi.map((z) => [z.id, z.job, z.status, z.puti, z.pack, z.flows, z.child_flows])) + "|" + JSON.stringify(map.shared);
 }
 const unionZapisi = [];
 const poId = new Map();
@@ -287,8 +289,11 @@ for (const src of [baseMap, headMap]) {
     else {
       const b = poId.get(z.id);
       // union путей base ∪ head: сужение не исключает экран из проверки PR
+      // (v2c: child_flows объединяются тем же правилом — принадлежность
+      // экрану не теряется при изменении записи между base и head)
       b.puti = Array.from(new Set([...b.puti, ...z.puti]));
       b.flows = Array.from(new Set([...b.flows, ...z.flows]));
+      b.child_flows = Array.from(new Set([...b.child_flows, ...z.child_flows]));
       if (b.pack !== z.pack) b.pack = b.pack || z.pack;
       if (b.status !== z.status) b.status = "in-development";
     }
@@ -311,7 +316,10 @@ function pokryvaet(prefiks, p) {
 function vladelec(p) {
   const vl = [];
   for (const z of unionZapisi) {
-    const korni = [...z.puti, ...(z.pack ? [z.pack] : []), ...z.flows];
+    // v2c (Crit143v2 §2.1): зарегистрированный child_flow принадлежит экрану
+    // и участвует во владении ВЫБОРОЧНЫХ режимов наравне с корневым flows —
+    // правка только child-flow выбирает экран родителя, а не INVENTAR_KARTY
+    const korni = [...z.puti, ...(z.pack ? [z.pack] : []), ...z.flows, ...z.child_flows];
     if (korni.some((k) => pokryvaet(k, p))) vl.push(z.id);
   }
   return vl;
