@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# НЕ БАРЬЕР: субъект (SUBJECT) батареи fixtures/workshop_project/shablon_dvizhenie_146/probe.py — этот файл (эталон поведения) и его дословный порт scripts/ekran_shablon.py (PORT_DOSLOVEN); приёмка батареи — красные пробы на субъект, не сам скрипт; барьер — probe.py и red_shablon_dvizhenie_146.sh (контракт 146 §ПРОВОДКА: guard=fixtures/workshop_project/shablon_dvizhenie_146/red_shablon_dvizhenie_146.sh); коды возврата перечислены в докстринге ниже.
 # ЭТАЛОН 146 (v3 шаблона 132): эталон поведения батареи
 # fixtures/workshop_project/shablon_dvizhenie_146/probe.py; та же
 # грамматика вывода, что у субъекта scripts/ekran_shablon.py. v3 =
