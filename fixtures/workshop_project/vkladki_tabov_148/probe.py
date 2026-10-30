@@ -77,7 +77,7 @@ def load_source():
         print('ORACLE_TAMPERED: stubs/ != stab_vhod (%s)' % imejutsa,
               file=sys.stderr)
         raise SystemExit(2)
-    for gruppa, koren in (('nositeli', HERE), ('etalon_raskladka', HERE)):
+    for gruppa, koren in (('nositeli', HERE), ('etalon_raskladka', HERE), ('produkt', HERE)):
         for rel, pin in src['piny'][gruppa].items():
             p = koren / rel
             if not p.is_file() or sha256_fajla(p) != pin:
@@ -520,6 +520,9 @@ def sobrat_referens(src, tmp):
     b = pachka / 'batareja'
     b.mkdir()
     (b / 'red_ekrana.sh').write_text(src['batareja_tekst'], encoding='utf-8')
+    # макеты по каноническим путям (блок 2 Crit148: суд привязан к ПУТИ
+    # в репо; носители — байты product main, пин sha в манифестах)
+    postavit_makety(repo, (src['kadry_manifest'], src['profil_kadry']))
     return repo
 
 
@@ -572,15 +575,61 @@ def mut_pr_kontent_net(repo, src):
     (repo / 'mobile/src/features/post/components/PostEingang.tsx').unlink()
 
 
+def _fejk_jest_sreda(repo, src, skript):
+    """Фиктивная jest-среда (прецедент proba_live_put 145): заявленная
+    package.json среда + метаданные пакетов + node_modules/.bin/jest с
+    зашитым итогом — исполняемый путь produkt_sud доходит до запуска
+    jest и классифицирует исходы ИМЕННО, без RN-рантайма."""
+    mob = repo / 'mobile'
+    (mob / 'package.json').write_text(
+        '{"name":"mobile-fejk","private":true}', encoding='utf-8')
+    (mob / 'jest.config.js').write_text('module.exports = {};\n', encoding='utf-8')
+    for paket in ('jest-expo', '@testing-library/react-native'):
+        d = mob / 'node_modules' / paket
+        d.mkdir(parents=True, exist_ok=True)
+        (d / 'package.json').write_text(
+            '{"name":"%s","version":"0.0.0-fejk"}' % paket, encoding='utf-8')
+    bindir = mob / 'node_modules' / '.bin'
+    bindir.mkdir(parents=True, exist_ok=True)
+    jest = bindir / 'jest'
+    jest.write_text(src['standiny'][skript], encoding='utf-8')
+    jest.chmod(0o755)
+
+
+def mut_pr_maket_put_net(repo, src):
+    # блок 2 Crit148: PNG удалён по каноническому пути, пин в кадре тот
+    # же — подмена носителем батареи запрещена, суд краснит по ПУТИ
+    (repo / 'docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-02.png').unlink()
+
+
+def mut_pr_live_predposylka(repo, src):
+    # package.json заявляет jest-среду, установки нет — именованная
+    # предпосылка rc 2, НЕ skip->pass (блок 1, прецедент 145)
+    (repo / 'mobile/package.json').write_text(
+        '{"name":"mobile-fejk","private":true}', encoding='utf-8')
+
+
+def mut_pr_live_kontrol_krasen(repo, src):
+    _fejk_jest_sreda(repo, src, 'jest_krasnyj')
+
+
+def mut_pr_live_mutant_zhiv(repo, src):
+    _fejk_jest_sreda(repo, src, 'jest_zelenyj')
+
+
 MUTACII_PRODUKTA = {
     'pr-chestnaja': None,
     'pr-shov-net': mut_pr_shov_net,
     'pr-mitte-tab': mut_pr_mitte_tab,
     'pr-pachka-net': mut_pr_pachka_net,
     'pr-makety-piny': mut_pr_makety_piny,
+    'pr-maket-put-net': mut_pr_maket_put_net,
     'pr-kopii-net': mut_pr_kopii_net,
     'pr-scenarij-net': mut_pr_scenarij_net,
     'pr-kontent-net': mut_pr_kontent_net,
+    'pr-live-predposylka': mut_pr_live_predposylka,
+    'pr-live-kontrol-krasen': mut_pr_live_kontrol_krasen,
+    'pr-live-mutant-zhiv': mut_pr_live_mutant_zhiv,
 }
 
 
