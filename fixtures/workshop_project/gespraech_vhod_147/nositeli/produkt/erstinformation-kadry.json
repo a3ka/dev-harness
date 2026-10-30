@@ -1,0 +1,2244 @@
+{
+ "_comment": "Disclosure mockups from docs/ux/03_Mobility_Slice1/screens, mobility-manifest.json F02.03 and F02.08.",
+ "mera": {
+  "chernila_T": 40,
+  "kletka_pt": 6,
+  "fon_shag": 4,
+  "razmytie_r": 1,
+  "region_porog": 0.05,
+  "margin": 1,
+  "chrome_verh_pt": 36,
+  "chrome_niz_pt": 20,
+  "min_dolja_suda": 0.5
+ },
+ "kadry": [
+  {
+   "id": "F02.03-V01-V0 dark",
+   "tema": "dark",
+   "snimok": "erstinformation-f02-03-v01-v0",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F02.03-V01-V0.png",
+   "maket_sha256": "6df227bba9a4eeb9f368dde8dcd51f635ecfe53c78c820e3fddbf3a2fb301215",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      60
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      0,
+      60,
+      390,
+      180
+     ]
+    },
+    {
+     "imja": "sostojanie",
+     "bbox_pt": [
+      0,
+      180,
+      390,
+      225
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      0,
+      225,
+      390,
+      299
+     ]
+    },
+    {
+     "imja": "opisanie",
+     "bbox_pt": [
+      0,
+      299,
+      390,
+      347
+     ]
+    },
+    {
+     "imja": "kartochka-zagolovok",
+     "bbox_pt": [
+      0,
+      347,
+      390,
+      411
+     ]
+    },
+    {
+     "imja": "dokument-tekst",
+     "bbox_pt": [
+      0,
+      411,
+      234,
+      505
+     ]
+    },
+    {
+     "imja": "dokument-status",
+     "bbox_pt": [
+      234,
+      411,
+      390,
+      505
+     ]
+    },
+    {
+     "imja": "zustellung-tekst",
+     "bbox_pt": [
+      0,
+      505,
+      234,
+      584
+     ]
+    },
+    {
+     "imja": "zustellung-status",
+     "bbox_pt": [
+      234,
+      505,
+      390,
+      584
+     ]
+    },
+    {
+     "imja": "status",
+     "bbox_pt": [
+      0,
+      584,
+      390,
+      700
+     ]
+    },
+    {
+     "imja": "osnovnoe-dejstvie",
+     "bbox_pt": [
+      0,
+      700,
+      390,
+      782
+     ]
+    },
+    {
+     "imja": "dokument-oeffnen",
+     "bbox_pt": [
+      0,
+      782,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F02.03-V01-V0 light",
+   "tema": "light",
+   "snimok": "erstinformation-f02-03-v01-v0",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F02.03-V01-V0-Hell.png",
+   "maket_sha256": "3828fa1263fee9e4c61197e4df6c194784de776da98a640fc11b15f749d32137",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      60
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      0,
+      60,
+      390,
+      180
+     ]
+    },
+    {
+     "imja": "sostojanie",
+     "bbox_pt": [
+      0,
+      180,
+      390,
+      225
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      0,
+      225,
+      390,
+      299
+     ]
+    },
+    {
+     "imja": "opisanie",
+     "bbox_pt": [
+      0,
+      299,
+      390,
+      347
+     ]
+    },
+    {
+     "imja": "kartochka-zagolovok",
+     "bbox_pt": [
+      0,
+      347,
+      390,
+      411
+     ]
+    },
+    {
+     "imja": "dokument-tekst",
+     "bbox_pt": [
+      0,
+      411,
+      234,
+      505
+     ]
+    },
+    {
+     "imja": "dokument-status",
+     "bbox_pt": [
+      234,
+      411,
+      390,
+      505
+     ]
+    },
+    {
+     "imja": "zustellung-tekst",
+     "bbox_pt": [
+      0,
+      505,
+      234,
+      584
+     ]
+    },
+    {
+     "imja": "zustellung-status",
+     "bbox_pt": [
+      234,
+      505,
+      390,
+      584
+     ]
+    },
+    {
+     "imja": "status",
+     "bbox_pt": [
+      0,
+      584,
+      390,
+      700
+     ]
+    },
+    {
+     "imja": "osnovnoe-dejstvie",
+     "bbox_pt": [
+      0,
+      700,
+      390,
+      782
+     ]
+    },
+    {
+     "imja": "dokument-oeffnen",
+     "bbox_pt": [
+      0,
+      782,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F02.03-V02-V0 dark",
+   "tema": "dark",
+   "snimok": "erstinformation-f02-03-v02-v0",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F02.03-V02-V0.png",
+   "maket_sha256": "6df227bba9a4eeb9f368dde8dcd51f635ecfe53c78c820e3fddbf3a2fb301215",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      60
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      0,
+      60,
+      390,
+      180
+     ]
+    },
+    {
+     "imja": "sostojanie",
+     "bbox_pt": [
+      0,
+      180,
+      390,
+      225
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      0,
+      225,
+      390,
+      299
+     ]
+    },
+    {
+     "imja": "opisanie",
+     "bbox_pt": [
+      0,
+      299,
+      390,
+      347
+     ]
+    },
+    {
+     "imja": "kartochka-zagolovok",
+     "bbox_pt": [
+      0,
+      347,
+      390,
+      411
+     ]
+    },
+    {
+     "imja": "dokument-tekst",
+     "bbox_pt": [
+      0,
+      411,
+      234,
+      505
+     ]
+    },
+    {
+     "imja": "dokument-status",
+     "bbox_pt": [
+      234,
+      411,
+      390,
+      505
+     ]
+    },
+    {
+     "imja": "zustellung-tekst",
+     "bbox_pt": [
+      0,
+      505,
+      234,
+      584
+     ]
+    },
+    {
+     "imja": "zustellung-status",
+     "bbox_pt": [
+      234,
+      505,
+      390,
+      584
+     ]
+    },
+    {
+     "imja": "status",
+     "bbox_pt": [
+      0,
+      584,
+      390,
+      700
+     ]
+    },
+    {
+     "imja": "osnovnoe-dejstvie",
+     "bbox_pt": [
+      0,
+      700,
+      390,
+      782
+     ]
+    },
+    {
+     "imja": "dokument-oeffnen",
+     "bbox_pt": [
+      0,
+      782,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F02.03-V02-V0 light",
+   "tema": "light",
+   "snimok": "erstinformation-f02-03-v02-v0",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F02.03-V02-V0-Hell.png",
+   "maket_sha256": "3828fa1263fee9e4c61197e4df6c194784de776da98a640fc11b15f749d32137",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      60
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      0,
+      60,
+      390,
+      180
+     ]
+    },
+    {
+     "imja": "sostojanie",
+     "bbox_pt": [
+      0,
+      180,
+      390,
+      225
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      0,
+      225,
+      390,
+      299
+     ]
+    },
+    {
+     "imja": "opisanie",
+     "bbox_pt": [
+      0,
+      299,
+      390,
+      347
+     ]
+    },
+    {
+     "imja": "kartochka-zagolovok",
+     "bbox_pt": [
+      0,
+      347,
+      390,
+      411
+     ]
+    },
+    {
+     "imja": "dokument-tekst",
+     "bbox_pt": [
+      0,
+      411,
+      234,
+      505
+     ]
+    },
+    {
+     "imja": "dokument-status",
+     "bbox_pt": [
+      234,
+      411,
+      390,
+      505
+     ]
+    },
+    {
+     "imja": "zustellung-tekst",
+     "bbox_pt": [
+      0,
+      505,
+      234,
+      584
+     ]
+    },
+    {
+     "imja": "zustellung-status",
+     "bbox_pt": [
+      234,
+      505,
+      390,
+      584
+     ]
+    },
+    {
+     "imja": "status",
+     "bbox_pt": [
+      0,
+      584,
+      390,
+      700
+     ]
+    },
+    {
+     "imja": "osnovnoe-dejstvie",
+     "bbox_pt": [
+      0,
+      700,
+      390,
+      782
+     ]
+    },
+    {
+     "imja": "dokument-oeffnen",
+     "bbox_pt": [
+      0,
+      782,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F02.03-V01 dark",
+   "tema": "dark",
+   "snimok": "erstinformation-f02-03-v01",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F02.03-V01.png",
+   "maket_sha256": "b3ed01e7786fce1978b3d2af60c6673106ced716c4307d5bb1f5186b2c4d3af1",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      130
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      0,
+      130,
+      390,
+      190
+     ]
+    },
+    {
+     "imja": "opisanie",
+     "bbox_pt": [
+      0,
+      190,
+      390,
+      230
+     ]
+    },
+    {
+     "imja": "kartochka-zagolovok",
+     "bbox_pt": [
+      0,
+      230,
+      390,
+      290
+     ]
+    },
+    {
+     "imja": "broker-tekst",
+     "bbox_pt": [
+      0,
+      290,
+      234,
+      350
+     ]
+    },
+    {
+     "imja": "broker-status",
+     "bbox_pt": [
+      234,
+      290,
+      390,
+      350
+     ]
+    },
+    {
+     "imja": "register-tekst",
+     "bbox_pt": [
+      0,
+      350,
+      234,
+      406
+     ]
+    },
+    {
+     "imja": "register-status",
+     "bbox_pt": [
+      234,
+      350,
+      390,
+      406
+     ]
+    },
+    {
+     "imja": "anschrift-tekst",
+     "bbox_pt": [
+      0,
+      406,
+      234,
+      465
+     ]
+    },
+    {
+     "imja": "anschrift-status",
+     "bbox_pt": [
+      234,
+      406,
+      390,
+      465
+     ]
+    },
+    {
+     "imja": "erlaubnis-tekst",
+     "bbox_pt": [
+      0,
+      465,
+      234,
+      510
+     ]
+    },
+    {
+     "imja": "erlaubnis-status",
+     "bbox_pt": [
+      234,
+      465,
+      390,
+      510
+     ]
+    },
+    {
+     "imja": "datum",
+     "bbox_pt": [
+      0,
+      510,
+      390,
+      575
+     ]
+    },
+    {
+     "imja": "dokument-zagolovok",
+     "bbox_pt": [
+      0,
+      575,
+      390,
+      617
+     ]
+    },
+    {
+     "imja": "dokument-karte",
+     "bbox_pt": [
+      0,
+      617,
+      390,
+      700
+     ]
+    },
+    {
+     "imja": "status",
+     "bbox_pt": [
+      0,
+      700,
+      390,
+      752
+     ]
+    },
+    {
+     "imja": "osnovnoe-dejstvie",
+     "bbox_pt": [
+      0,
+      752,
+      390,
+      806
+     ]
+    },
+    {
+     "imja": "dokument-oeffnen",
+     "bbox_pt": [
+      0,
+      806,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F02.03-V01 light",
+   "tema": "light",
+   "snimok": "erstinformation-f02-03-v01",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F02.03-V01-Hell.png",
+   "maket_sha256": "1b5bb443347e8574c40e7b97823bdcd24ccc865f752cf7554809b3edc4bc639a",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      130
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      0,
+      130,
+      390,
+      190
+     ]
+    },
+    {
+     "imja": "opisanie",
+     "bbox_pt": [
+      0,
+      190,
+      390,
+      230
+     ]
+    },
+    {
+     "imja": "kartochka-zagolovok",
+     "bbox_pt": [
+      0,
+      230,
+      390,
+      290
+     ]
+    },
+    {
+     "imja": "broker-tekst",
+     "bbox_pt": [
+      0,
+      290,
+      234,
+      350
+     ]
+    },
+    {
+     "imja": "broker-status",
+     "bbox_pt": [
+      234,
+      290,
+      390,
+      350
+     ]
+    },
+    {
+     "imja": "register-tekst",
+     "bbox_pt": [
+      0,
+      350,
+      234,
+      406
+     ]
+    },
+    {
+     "imja": "register-status",
+     "bbox_pt": [
+      234,
+      350,
+      390,
+      406
+     ]
+    },
+    {
+     "imja": "anschrift-tekst",
+     "bbox_pt": [
+      0,
+      406,
+      234,
+      465
+     ]
+    },
+    {
+     "imja": "anschrift-status",
+     "bbox_pt": [
+      234,
+      406,
+      390,
+      465
+     ]
+    },
+    {
+     "imja": "erlaubnis-tekst",
+     "bbox_pt": [
+      0,
+      465,
+      234,
+      510
+     ]
+    },
+    {
+     "imja": "erlaubnis-status",
+     "bbox_pt": [
+      234,
+      465,
+      390,
+      510
+     ]
+    },
+    {
+     "imja": "datum",
+     "bbox_pt": [
+      0,
+      510,
+      390,
+      575
+     ]
+    },
+    {
+     "imja": "dokument-zagolovok",
+     "bbox_pt": [
+      0,
+      575,
+      390,
+      617
+     ]
+    },
+    {
+     "imja": "dokument-karte",
+     "bbox_pt": [
+      0,
+      617,
+      390,
+      700
+     ]
+    },
+    {
+     "imja": "status",
+     "bbox_pt": [
+      0,
+      700,
+      390,
+      752
+     ]
+    },
+    {
+     "imja": "osnovnoe-dejstvie",
+     "bbox_pt": [
+      0,
+      752,
+      390,
+      806
+     ]
+    },
+    {
+     "imja": "dokument-oeffnen",
+     "bbox_pt": [
+      0,
+      806,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F02.03-V02 dark",
+   "tema": "dark",
+   "snimok": "erstinformation-f02-03-v02",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F02.03-V02.png",
+   "maket_sha256": "e25286728be632f8ee2b0bb47d45872c2fc65646bc7193bf14c0e85712961977",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      130
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      0,
+      130,
+      390,
+      190
+     ]
+    },
+    {
+     "imja": "opisanie",
+     "bbox_pt": [
+      0,
+      190,
+      390,
+      230
+     ]
+    },
+    {
+     "imja": "kartochka-zagolovok",
+     "bbox_pt": [
+      0,
+      230,
+      390,
+      290
+     ]
+    },
+    {
+     "imja": "broker-tekst",
+     "bbox_pt": [
+      0,
+      290,
+      234,
+      350
+     ]
+    },
+    {
+     "imja": "broker-status",
+     "bbox_pt": [
+      234,
+      290,
+      390,
+      350
+     ]
+    },
+    {
+     "imja": "register-tekst",
+     "bbox_pt": [
+      0,
+      350,
+      234,
+      406
+     ]
+    },
+    {
+     "imja": "register-status",
+     "bbox_pt": [
+      234,
+      350,
+      390,
+      406
+     ]
+    },
+    {
+     "imja": "anschrift-tekst",
+     "bbox_pt": [
+      0,
+      406,
+      234,
+      465
+     ]
+    },
+    {
+     "imja": "anschrift-status",
+     "bbox_pt": [
+      234,
+      406,
+      390,
+      465
+     ]
+    },
+    {
+     "imja": "erlaubnis-tekst",
+     "bbox_pt": [
+      0,
+      465,
+      234,
+      510
+     ]
+    },
+    {
+     "imja": "erlaubnis-status",
+     "bbox_pt": [
+      234,
+      465,
+      390,
+      510
+     ]
+    },
+    {
+     "imja": "datum",
+     "bbox_pt": [
+      0,
+      510,
+      390,
+      575
+     ]
+    },
+    {
+     "imja": "dokument-zagolovok",
+     "bbox_pt": [
+      0,
+      575,
+      390,
+      617
+     ]
+    },
+    {
+     "imja": "dokument-karte",
+     "bbox_pt": [
+      0,
+      617,
+      390,
+      700
+     ]
+    },
+    {
+     "imja": "status",
+     "bbox_pt": [
+      0,
+      700,
+      390,
+      752
+     ]
+    },
+    {
+     "imja": "osnovnoe-dejstvie",
+     "bbox_pt": [
+      0,
+      752,
+      390,
+      806
+     ]
+    },
+    {
+     "imja": "dokument-oeffnen",
+     "bbox_pt": [
+      0,
+      806,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F02.03-V02 light",
+   "tema": "light",
+   "snimok": "erstinformation-f02-03-v02",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F02.03-V02-Hell.png",
+   "maket_sha256": "b99fe0aeec71ac1b60cc8ace502cc3594990ef13db529305624b5926b4c7a7eb",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      130
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      0,
+      130,
+      390,
+      190
+     ]
+    },
+    {
+     "imja": "opisanie",
+     "bbox_pt": [
+      0,
+      190,
+      390,
+      230
+     ]
+    },
+    {
+     "imja": "kartochka-zagolovok",
+     "bbox_pt": [
+      0,
+      230,
+      390,
+      290
+     ]
+    },
+    {
+     "imja": "broker-tekst",
+     "bbox_pt": [
+      0,
+      290,
+      234,
+      350
+     ]
+    },
+    {
+     "imja": "broker-status",
+     "bbox_pt": [
+      234,
+      290,
+      390,
+      350
+     ]
+    },
+    {
+     "imja": "register-tekst",
+     "bbox_pt": [
+      0,
+      350,
+      234,
+      406
+     ]
+    },
+    {
+     "imja": "register-status",
+     "bbox_pt": [
+      234,
+      350,
+      390,
+      406
+     ]
+    },
+    {
+     "imja": "anschrift-tekst",
+     "bbox_pt": [
+      0,
+      406,
+      234,
+      465
+     ]
+    },
+    {
+     "imja": "anschrift-status",
+     "bbox_pt": [
+      234,
+      406,
+      390,
+      465
+     ]
+    },
+    {
+     "imja": "erlaubnis-tekst",
+     "bbox_pt": [
+      0,
+      465,
+      234,
+      510
+     ]
+    },
+    {
+     "imja": "erlaubnis-status",
+     "bbox_pt": [
+      234,
+      465,
+      390,
+      510
+     ]
+    },
+    {
+     "imja": "datum",
+     "bbox_pt": [
+      0,
+      510,
+      390,
+      575
+     ]
+    },
+    {
+     "imja": "dokument-zagolovok",
+     "bbox_pt": [
+      0,
+      575,
+      390,
+      617
+     ]
+    },
+    {
+     "imja": "dokument-karte",
+     "bbox_pt": [
+      0,
+      617,
+      390,
+      700
+     ]
+    },
+    {
+     "imja": "status",
+     "bbox_pt": [
+      0,
+      700,
+      390,
+      752
+     ]
+    },
+    {
+     "imja": "osnovnoe-dejstvie",
+     "bbox_pt": [
+      0,
+      752,
+      390,
+      806
+     ]
+    },
+    {
+     "imja": "dokument-oeffnen",
+     "bbox_pt": [
+      0,
+      806,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F02.08-V01 dark",
+   "tema": "dark",
+   "snimok": "erstinformation-f02-08-v01",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F02.08-V01.png",
+   "maket_sha256": "2ea021a7da12d160f366c1537f269a91a4e6d040c7c02071b76fa4f42a2bc508",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      60
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      0,
+      60,
+      390,
+      180
+     ]
+    },
+    {
+     "imja": "sostojanie",
+     "bbox_pt": [
+      0,
+      180,
+      390,
+      225
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      0,
+      225,
+      390,
+      299
+     ]
+    },
+    {
+     "imja": "opisanie",
+     "bbox_pt": [
+      0,
+      299,
+      390,
+      347
+     ]
+    },
+    {
+     "imja": "kartochka-zagolovok",
+     "bbox_pt": [
+      0,
+      347,
+      390,
+      411
+     ]
+    },
+    {
+     "imja": "dokument-tekst",
+     "bbox_pt": [
+      0,
+      411,
+      234,
+      505
+     ]
+    },
+    {
+     "imja": "dokument-status",
+     "bbox_pt": [
+      234,
+      411,
+      390,
+      505
+     ]
+    },
+    {
+     "imja": "zustellung-tekst",
+     "bbox_pt": [
+      0,
+      505,
+      234,
+      584
+     ]
+    },
+    {
+     "imja": "zustellung-status",
+     "bbox_pt": [
+      234,
+      505,
+      390,
+      584
+     ]
+    },
+    {
+     "imja": "status",
+     "bbox_pt": [
+      0,
+      584,
+      390,
+      700
+     ]
+    },
+    {
+     "imja": "osnovnoe-dejstvie",
+     "bbox_pt": [
+      0,
+      700,
+      390,
+      782
+     ]
+    },
+    {
+     "imja": "dokument-oeffnen",
+     "bbox_pt": [
+      0,
+      782,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F02.08-V01 light",
+   "tema": "light",
+   "snimok": "erstinformation-f02-08-v01",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F02.08-V01-Hell.png",
+   "maket_sha256": "f52033ab4ea47cc73551f7c15b7d49ee28c5d8e523a1e1955e7d011fbd9a7e0b",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      60
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      0,
+      60,
+      390,
+      180
+     ]
+    },
+    {
+     "imja": "sostojanie",
+     "bbox_pt": [
+      0,
+      180,
+      390,
+      225
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      0,
+      225,
+      390,
+      299
+     ]
+    },
+    {
+     "imja": "opisanie",
+     "bbox_pt": [
+      0,
+      299,
+      390,
+      347
+     ]
+    },
+    {
+     "imja": "kartochka-zagolovok",
+     "bbox_pt": [
+      0,
+      347,
+      390,
+      411
+     ]
+    },
+    {
+     "imja": "dokument-tekst",
+     "bbox_pt": [
+      0,
+      411,
+      234,
+      505
+     ]
+    },
+    {
+     "imja": "dokument-status",
+     "bbox_pt": [
+      234,
+      411,
+      390,
+      505
+     ]
+    },
+    {
+     "imja": "zustellung-tekst",
+     "bbox_pt": [
+      0,
+      505,
+      234,
+      584
+     ]
+    },
+    {
+     "imja": "zustellung-status",
+     "bbox_pt": [
+      234,
+      505,
+      390,
+      584
+     ]
+    },
+    {
+     "imja": "status",
+     "bbox_pt": [
+      0,
+      584,
+      390,
+      700
+     ]
+    },
+    {
+     "imja": "osnovnoe-dejstvie",
+     "bbox_pt": [
+      0,
+      700,
+      390,
+      782
+     ]
+    },
+    {
+     "imja": "dokument-oeffnen",
+     "bbox_pt": [
+      0,
+      782,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F02.08-V02 dark",
+   "tema": "dark",
+   "snimok": "erstinformation-f02-08-v02",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F02.08-V02.png",
+   "maket_sha256": "f5660a15e54371359a7ad8d426cee6fa91ac0d9f8b15df9ec828a243f86c45e8",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      60
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      0,
+      60,
+      390,
+      180
+     ]
+    },
+    {
+     "imja": "sostojanie",
+     "bbox_pt": [
+      0,
+      180,
+      390,
+      225
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      0,
+      225,
+      390,
+      299
+     ]
+    },
+    {
+     "imja": "opisanie",
+     "bbox_pt": [
+      0,
+      299,
+      390,
+      347
+     ]
+    },
+    {
+     "imja": "kartochka-zagolovok",
+     "bbox_pt": [
+      0,
+      347,
+      390,
+      411
+     ]
+    },
+    {
+     "imja": "dokument-tekst",
+     "bbox_pt": [
+      0,
+      411,
+      234,
+      505
+     ]
+    },
+    {
+     "imja": "dokument-status",
+     "bbox_pt": [
+      234,
+      411,
+      390,
+      505
+     ]
+    },
+    {
+     "imja": "zustellung-tekst",
+     "bbox_pt": [
+      0,
+      505,
+      234,
+      584
+     ]
+    },
+    {
+     "imja": "zustellung-status",
+     "bbox_pt": [
+      234,
+      505,
+      390,
+      584
+     ]
+    },
+    {
+     "imja": "status",
+     "bbox_pt": [
+      0,
+      584,
+      390,
+      700
+     ]
+    },
+    {
+     "imja": "osnovnoe-dejstvie",
+     "bbox_pt": [
+      0,
+      700,
+      390,
+      782
+     ]
+    },
+    {
+     "imja": "dokument-oeffnen",
+     "bbox_pt": [
+      0,
+      782,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F02.08-V02 light",
+   "tema": "light",
+   "snimok": "erstinformation-f02-08-v02",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F02.08-V02-Hell.png",
+   "maket_sha256": "2fc8eb9f50c32f92b87b87bf67c40ce3da8b3a3a547f84dbde0f3221d5e17c3a",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      60
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      0,
+      60,
+      390,
+      180
+     ]
+    },
+    {
+     "imja": "sostojanie",
+     "bbox_pt": [
+      0,
+      180,
+      390,
+      225
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      0,
+      225,
+      390,
+      299
+     ]
+    },
+    {
+     "imja": "opisanie",
+     "bbox_pt": [
+      0,
+      299,
+      390,
+      347
+     ]
+    },
+    {
+     "imja": "kartochka-zagolovok",
+     "bbox_pt": [
+      0,
+      347,
+      390,
+      411
+     ]
+    },
+    {
+     "imja": "dokument-tekst",
+     "bbox_pt": [
+      0,
+      411,
+      234,
+      505
+     ]
+    },
+    {
+     "imja": "dokument-status",
+     "bbox_pt": [
+      234,
+      411,
+      390,
+      505
+     ]
+    },
+    {
+     "imja": "zustellung-tekst",
+     "bbox_pt": [
+      0,
+      505,
+      234,
+      584
+     ]
+    },
+    {
+     "imja": "zustellung-status",
+     "bbox_pt": [
+      234,
+      505,
+      390,
+      584
+     ]
+    },
+    {
+     "imja": "status",
+     "bbox_pt": [
+      0,
+      584,
+      390,
+      700
+     ]
+    },
+    {
+     "imja": "osnovnoe-dejstvie",
+     "bbox_pt": [
+      0,
+      700,
+      390,
+      782
+     ]
+    },
+    {
+     "imja": "dokument-oeffnen",
+     "bbox_pt": [
+      0,
+      782,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F02.08-V03 dark",
+   "tema": "dark",
+   "snimok": "erstinformation-f02-08-v03",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F02.08-V03.png",
+   "maket_sha256": "3388da91086fb6ee2aecac8882b3047507dc14ebdd2a62b7ecc2fd8818777674",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      60
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      0,
+      60,
+      390,
+      180
+     ]
+    },
+    {
+     "imja": "sostojanie",
+     "bbox_pt": [
+      0,
+      180,
+      390,
+      225
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      0,
+      225,
+      390,
+      299
+     ]
+    },
+    {
+     "imja": "opisanie",
+     "bbox_pt": [
+      0,
+      299,
+      390,
+      347
+     ]
+    },
+    {
+     "imja": "kartochka-zagolovok",
+     "bbox_pt": [
+      0,
+      347,
+      390,
+      411
+     ]
+    },
+    {
+     "imja": "dokument-tekst",
+     "bbox_pt": [
+      0,
+      411,
+      234,
+      505
+     ]
+    },
+    {
+     "imja": "dokument-status",
+     "bbox_pt": [
+      234,
+      411,
+      390,
+      505
+     ]
+    },
+    {
+     "imja": "zustellung-tekst",
+     "bbox_pt": [
+      0,
+      505,
+      234,
+      584
+     ]
+    },
+    {
+     "imja": "zustellung-status",
+     "bbox_pt": [
+      234,
+      505,
+      390,
+      584
+     ]
+    },
+    {
+     "imja": "status",
+     "bbox_pt": [
+      0,
+      584,
+      390,
+      700
+     ]
+    },
+    {
+     "imja": "osnovnoe-dejstvie",
+     "bbox_pt": [
+      0,
+      700,
+      390,
+      782
+     ]
+    },
+    {
+     "imja": "dokument-oeffnen",
+     "bbox_pt": [
+      0,
+      782,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F02.08-V03 light",
+   "tema": "light",
+   "snimok": "erstinformation-f02-08-v03",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F02.08-V03-Hell.png",
+   "maket_sha256": "9cb114c40f801929393a18164adf840cbbc39bc7334d60416ad3fd1a5065871d",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      60
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      0,
+      60,
+      390,
+      180
+     ]
+    },
+    {
+     "imja": "sostojanie",
+     "bbox_pt": [
+      0,
+      180,
+      390,
+      225
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      0,
+      225,
+      390,
+      299
+     ]
+    },
+    {
+     "imja": "opisanie",
+     "bbox_pt": [
+      0,
+      299,
+      390,
+      347
+     ]
+    },
+    {
+     "imja": "kartochka-zagolovok",
+     "bbox_pt": [
+      0,
+      347,
+      390,
+      411
+     ]
+    },
+    {
+     "imja": "dokument-tekst",
+     "bbox_pt": [
+      0,
+      411,
+      234,
+      505
+     ]
+    },
+    {
+     "imja": "dokument-status",
+     "bbox_pt": [
+      234,
+      411,
+      390,
+      505
+     ]
+    },
+    {
+     "imja": "zustellung-tekst",
+     "bbox_pt": [
+      0,
+      505,
+      234,
+      584
+     ]
+    },
+    {
+     "imja": "zustellung-status",
+     "bbox_pt": [
+      234,
+      505,
+      390,
+      584
+     ]
+    },
+    {
+     "imja": "status",
+     "bbox_pt": [
+      0,
+      584,
+      390,
+      700
+     ]
+    },
+    {
+     "imja": "osnovnoe-dejstvie",
+     "bbox_pt": [
+      0,
+      700,
+      390,
+      782
+     ]
+    },
+    {
+     "imja": "dokument-oeffnen",
+     "bbox_pt": [
+      0,
+      782,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F02.08-V04 dark",
+   "tema": "dark",
+   "snimok": "erstinformation-f02-08-v04",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F02.08-V04.png",
+   "maket_sha256": "8b134427063f691968199652ea940d769dd65fe9fbb1a12d6829d92548e42baa",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      60
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      0,
+      60,
+      390,
+      180
+     ]
+    },
+    {
+     "imja": "sostojanie",
+     "bbox_pt": [
+      0,
+      180,
+      390,
+      225
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      0,
+      225,
+      390,
+      299
+     ]
+    },
+    {
+     "imja": "opisanie",
+     "bbox_pt": [
+      0,
+      299,
+      390,
+      347
+     ]
+    },
+    {
+     "imja": "kartochka-zagolovok",
+     "bbox_pt": [
+      0,
+      347,
+      390,
+      411
+     ]
+    },
+    {
+     "imja": "dokument-tekst",
+     "bbox_pt": [
+      0,
+      411,
+      234,
+      505
+     ]
+    },
+    {
+     "imja": "dokument-status",
+     "bbox_pt": [
+      234,
+      411,
+      390,
+      505
+     ]
+    },
+    {
+     "imja": "zustellung-tekst",
+     "bbox_pt": [
+      0,
+      505,
+      234,
+      584
+     ]
+    },
+    {
+     "imja": "zustellung-status",
+     "bbox_pt": [
+      234,
+      505,
+      390,
+      584
+     ]
+    },
+    {
+     "imja": "status",
+     "bbox_pt": [
+      0,
+      584,
+      390,
+      700
+     ]
+    },
+    {
+     "imja": "osnovnoe-dejstvie",
+     "bbox_pt": [
+      0,
+      700,
+      390,
+      782
+     ]
+    },
+    {
+     "imja": "dokument-oeffnen",
+     "bbox_pt": [
+      0,
+      782,
+      390,
+      824
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F02.08-V04 light",
+   "tema": "light",
+   "snimok": "erstinformation-f02-08-v04",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F02.08-V04-Hell.png",
+   "maket_sha256": "817b0fec50c1206dab384c1bc4de69397d47e3252ca742882916b0c5e9989c8b",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      60
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      0,
+      60,
+      390,
+      180
+     ]
+    },
+    {
+     "imja": "sostojanie",
+     "bbox_pt": [
+      0,
+      180,
+      390,
+      225
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      0,
+      225,
+      390,
+      299
+     ]
+    },
+    {
+     "imja": "opisanie",
+     "bbox_pt": [
+      0,
+      299,
+      390,
+      347
+     ]
+    },
+    {
+     "imja": "kartochka-zagolovok",
+     "bbox_pt": [
+      0,
+      347,
+      390,
+      411
+     ]
+    },
+    {
+     "imja": "dokument-tekst",
+     "bbox_pt": [
+      0,
+      411,
+      234,
+      505
+     ]
+    },
+    {
+     "imja": "dokument-status",
+     "bbox_pt": [
+      234,
+      411,
+      390,
+      505
+     ]
+    },
+    {
+     "imja": "zustellung-tekst",
+     "bbox_pt": [
+      0,
+      505,
+      234,
+      584
+     ]
+    },
+    {
+     "imja": "zustellung-status",
+     "bbox_pt": [
+      234,
+      505,
+      390,
+      584
+     ]
+    },
+    {
+     "imja": "status",
+     "bbox_pt": [
+      0,
+      584,
+      390,
+      700
+     ]
+    },
+    {
+     "imja": "osnovnoe-dejstvie",
+     "bbox_pt": [
+      0,
+      700,
+      390,
+      782
+     ]
+    },
+    {
+     "imja": "dokument-oeffnen",
+     "bbox_pt": [
+      0,
+      782,
+      390,
+      824
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,493 @@
+{
+ "ekran": "gespraech-vhod",
+ "kadry": "kadry.json",
+ "sostojanija": [
+  "start",
+  "menju",
+  "menju-vorgang"
+ ],
+ "kljuchi_kopii": [
+  "ia115.nav.START",
+  "ia117.nav.VORGAENGE",
+  "ia115.nav.SCHUTZ",
+  "ia115.nav.POST",
+  "ia115.entry.speak",
+  "ia115.entry.write",
+  "ia115.entry.photo",
+  "ia115.entry.document",
+  "common.close",
+  "ui.mission.group.needs_user",
+  "frame.F04.07.title"
+ ],
+ "operacii_api": [],
+ "katalog_kopii": "mobile/e2e-gespraech-vhod/katalog_kopii.json",
+ "spec_api": "mobile/e2e-gespraech-vhod/spec_api.json",
+ "audit_tokenov": "docs/ux/03_Mobility_Slice1/ds/tokens.css",
+ "e2e_scenarij": "mobile/.maestro/gespraech-vhod.yaml",
+ "kadry_dir": "mobile/maestro-out-gespraech",
+ "kontrakt": "kontrakt.md",
+ "batareja": [
+  "batareja/red_ekrana.sh"
+ ],
+ "priemka": {
+  "e2e": "bash mobile/e2e-gespraech-vhod/e2e.sh gespraech-vhod",
+  "sverka": "python3 .harness147/scripts/sverka_maketa.py --manifest mobile/e2e-gespraech-vhod/kadry.json --kadry mobile/maestro-out-gespraech --repo .",
+  "prokhod": "bash mobile/e2e-gespraech-vhod/prokhod.sh mobile/.maestro/gespraech-prokhod.yaml"
+ },
+ "zony": {
+  "architect": [
+   "contracts/147-gespraech-vhod-menu.md",
+   "fixtures/workshop_project/gespraech_vhod_147/"
+  ],
+  "implementer": [
+   "mobile/src/features/conversation/",
+   "mobile/src/bootstrap/tab-shell.tsx",
+   "mobile/src/mocks/",
+   "mobile/.maestro/",
+   "mobile/e2e-gespraech-vhod/"
+  ]
+ },
+ "zamenjaet": null,
+ "ne_trogaet": [
+  "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_chuzhogo/kadry.json",
+  "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_tot_zhe/kadry.json",
+  "mobile/e2e-first-run/kadry.json",
+  "mobile/e2e-erstinformation/kadry.json"
+ ],
+ "fiktura": false,
+ "shablon": 3,
+ "prokhodimost": {
+  "pressable": [
+   {
+    "id": "shell-profile-entry",
+    "sostojanie": "deistvie",
+    "izmenenie": "profil",
+    "shirina": 44,
+    "vysota": 44,
+    "x": 330,
+    "y": 16,
+    "demo": false
+   },
+   {
+    "id": "gespraech-vorgaenge-ansehen",
+    "sostojanie": "deistvie",
+    "izmenenie": "nav-vorgaenge",
+    "shirina": 310,
+    "vysota": 56,
+    "x": 40,
+    "y": 656,
+    "demo": false
+   },
+   {
+    "id": "shell-tab-start",
+    "sostojanie": "deistvie",
+    "izmenenie": "tab-start",
+    "shirina": 78,
+    "vysota": 46,
+    "x": 0,
+    "y": 782,
+    "demo": false
+   },
+   {
+    "id": "shell-tab-vorgaenge",
+    "sostojanie": "deistvie",
+    "izmenenie": "tab-vorgaenge",
+    "shirina": 78,
+    "vysota": 46,
+    "x": 78,
+    "y": 782,
+    "demo": false
+   },
+   {
+    "id": "gespraech-mitte",
+    "sostojanie": "deistvie",
+    "izmenenie": "menu-open",
+    "shirina": 78,
+    "vysota": 46,
+    "x": 156,
+    "y": 782,
+    "demo": false
+   },
+   {
+    "id": "shell-tab-schutz",
+    "sostojanie": "deistvie",
+    "izmenenie": "tab-schutz",
+    "shirina": 78,
+    "vysota": 46,
+    "x": 234,
+    "y": 782,
+    "demo": false
+   },
+   {
+    "id": "shell-tab-post",
+    "sostojanie": "deistvie",
+    "izmenenie": "tab-post",
+    "shirina": 78,
+    "vysota": 46,
+    "x": 312,
+    "y": 782,
+    "demo": false
+   },
+   {
+    "id": "gespraech-menu-sprechen",
+    "sostojanie": "deistvie",
+    "izmenenie": "menue-sprechen",
+    "shirina": 320,
+    "vysota": 60,
+    "x": 35,
+    "y": 438,
+    "demo": false
+   },
+   {
+    "id": "gespraech-menu-schreiben",
+    "sostojanie": "deistvie",
+    "izmenenie": "menue-schreiben",
+    "shirina": 320,
+    "vysota": 60,
+    "x": 35,
+    "y": 508,
+    "demo": false
+   },
+   {
+    "id": "gespraech-menu-foto",
+    "sostojanie": "deistvie",
+    "izmenenie": "menue-foto",
+    "shirina": 320,
+    "vysota": 60,
+    "x": 35,
+    "y": 578,
+    "demo": false
+   },
+   {
+    "id": "gespraech-menu-dokument",
+    "sostojanie": "deistvie",
+    "izmenenie": "menue-dokument",
+    "shirina": 320,
+    "vysota": 60,
+    "x": 35,
+    "y": 648,
+    "demo": false
+   },
+   {
+    "id": "gespraech-menu-close",
+    "sostojanie": "deistvie",
+    "izmenenie": "menu-close",
+    "shirina": 56,
+    "vysota": 56,
+    "x": 167,
+    "y": 728,
+    "demo": false
+   },
+   {
+    "id": "gespraech-menu-ansehen",
+    "sostojanie": "deistvie",
+    "izmenenie": "vorgang-ansehen",
+    "shirina": 320,
+    "vysota": 102,
+    "x": 35,
+    "y": 294,
+    "demo": false
+   }
+  ],
+  "demo": [],
+  "safe": {
+   "verh": 0,
+   "niz": 0,
+   "vysota": 844
+  }
+ },
+ "vtoroj_profil": {
+  "profil": "iphone-safe-area",
+  "shirina": 393,
+  "vysota": 852,
+  "vyrez": 59,
+  "home": 34,
+  "obolochka": "tab-shell",
+  "marshrut": "mobile/.maestro/gespraech-vhod-393.yaml",
+  "kadry": "kadry-393.json",
+  "elementy": [
+   {
+    "id": "profil",
+    "tip": "ikonka",
+    "x": 333,
+    "y": 75,
+    "shirina": 44,
+    "vysota": 44,
+    "dostupnoe_imja": "profil-i-nastrojki"
+   },
+   {
+    "id": "vorgaenge-ansehen",
+    "tip": "kontrol",
+    "x": 40,
+    "y": 715,
+    "shirina": 313,
+    "vysota": 56
+   },
+   {
+    "id": "tab-bar",
+    "tip": "kontrol",
+    "x": 0,
+    "y": 772,
+    "shirina": 393,
+    "vysota": 46
+   }
+  ]
+ },
+ "dvizhenie": {
+  "manifest": "docs/ux/04_Gespraech_D24/pack/gespraech-final2-manifest.json",
+  "manifest_sha256": "b5bd859858853f708aea05e589cb187b21ea02d3c02af4081ad7ab8d5e76d6b7",
+  "spec": "docs/ux/04_Gespraech_D24/motion/motion-spec-gespraech.json",
+  "spec_sha256": "064d7821428f425d431fbd1efd65cbec37263bb62ef974924746a07e769cd318",
+  "pozvonok": "docs/ux/04_Gespraech_D24/motion/faden-poses-gespraech.json",
+  "pozvonok_sha256": "9763fdc06b0c0a3c3138f7abac57bf5efbc714403f53d221c3b7c8d225c4f002",
+  "ekrany": [
+   "GA-01",
+   "GA-15",
+   "GA-16"
+  ],
+  "perehody": [
+   "GA-T28",
+   "GA-T29",
+   "GA-T30",
+   "GA-T31",
+   "GA-T33",
+   "GA-T35"
+  ],
+  "sceny_znaka": [
+   "GA-T29",
+   "GA-T33",
+   "GA-T35"
+  ],
+  "etalony": {
+   "GA-T28": {
+    "keyframes": {
+     "dark": [
+      "ae8f1ea344f1d7b7029fb8b2b82dd0075ea9d38502cca3528fe84393af10c208",
+      "b170020e475c397a7b232f401a71afed3fff99c5e59fe30393ef7a7b3cd17bd7",
+      "1b8c3b2f1057878cd3aba31aa742a6a558cc3c32cd94b81f478505fef4cc063e",
+      "e351611b949777b065b2ab62a2d9d775dc6b8f1b0e6cf607c32ef402dbd68edd",
+      "e1cd8a7a0a9c31a08cb073cb77d28de2964fe9bc201aef965c9947f3f7ccd561"
+     ],
+     "dark_reduced": [
+      "d62d535d9059016de9a529a848d6dde24325fc79b7c7f727d5ea86b5e67883c5",
+      "cdfcfe07d4bcda3d2213c23aaec0be6de1d3909b702f246ad45311719111ed3a",
+      "c032b7f9609513ce3c83042b85d8b0f29af26d3b5e6e8028062edd2507ab2b8f",
+      "b81547cbfbcba713d970cfd10b4ba46a758645dc2037bc7ce46b10540778b564",
+      "a8fb559a3b9d5efb6a1666ac2092e443f63417e202b54960e01c9d0f2e7540b7"
+     ],
+     "light": [
+      "d34d98f9642081469b03e2efbe57de12c8712bc556fbf64c4610860eb4664230",
+      "4f99d18a1eda9c4485b2502bf23c61cd521101f99ed72627db199abb723cbc01",
+      "ba6ac26ca5ea310cf3be2cd316d3eacfac9fd602291ee00cae6548d8c917ae3f",
+      "8d7d900112f4a453eb779a8898e4a2f29f8918b10d9bc4478d4e5abd76a5cc94",
+      "8ba236735d80bb5372ef97d6bc31deeb223cdc33535722d7937dfd3f1338d9bb"
+     ],
+     "light_reduced": [
+      "c50367cf6522db783838a9094002f9c8138e5203af96460f1b87ff1063893620",
+      "5561285ed8a71a6b8f9e17f10a7dc7992773c115176536bb2648c6a7ae87a6b4",
+      "78aa2d766f3349d915ff218901b288b121325cc1bc8105c623ac4d098ce01b25",
+      "561826fdde9c91263985b35dcd7e3eed92a88143f5cd49b687eebb19490b40d8",
+      "1cf661ab2e42eafb8d032b73e617a5a84028b894e945a5ea8f10315e2ca94ce1"
+     ]
+    },
+    "video": {
+     "dark": "28153c3ec6cb1a35e3996bf3516547e5546de698008059598fa1846dd7410e17",
+     "dark_reduced": "93779a8367fc6b0df4a602fdec9e0525f1a7d904c038a5ddb56cee0980d61935",
+     "light": "2dd3820e58436fc29db466f05c53060d4ebbe9ab58ade761ec4951e5259dadb4",
+     "light_reduced": "a5e6a1a2c6f41e941da27bc9f4ed0d0e3cda03e3a282ea0cabe01933cca241ea"
+    }
+   },
+   "GA-T29": {
+    "keyframes": {
+     "dark": [
+      "ad0cd73420e043644a8f6adb95272d5848189c587a06c53f445192850e5b6785",
+      "4c95f6982c54d278fac713e80e06bf6ff3630e7435a57010200182773caccdee",
+      "b1edaaa06d98006d39249c9a78e5a37e3cc78f8772623aeae3006fdeabfbb90d",
+      "a2a9d7d9d5adc35f1bafcd3e01d6ee87191fff73f7a414ae34d93e12cad57560",
+      "6fa27aaf1a5a15b0ed0bb21ef81acebbf5a92a66db9e7d7bd73291a8756e12d6"
+     ],
+     "dark_reduced": [
+      "9c639cdbd36865d060ab3399c5ea51a13751fe29fa067dca46748f4e88e6a587",
+      "e1c9ff9a3c76caf86b66a33bcdc997d4680f7e850611f5a0805cb25629835ec6",
+      "c7a9f4b9ba71eb44376e8c6682acad3b4e7ddbcf42450ff891549d0233ca5c9e",
+      "8e995182a4eeeb79a90a730c7c67437d85db2381e590703dea7106c50a0d8eaf",
+      "b59e346d3b4919b516b64171be25f712ef24a4e8714df9455fa9b836d4f56e5f"
+     ],
+     "light": [
+      "dade45ad13cba97fc36fa767e83a9ba642a587eacd6a34aab2cfa7c62e06cde8",
+      "b294b97952ea65f9829c5d9062449f66806e5bc708262d1f27171a932e9e1fce",
+      "d0a8b213d274d1ef4a9bfcd5d6094269344e51aa410665036a4dcc98cabbea06",
+      "a6188a0a937d1d997d9f0f35126eb91054b0a3830f3bd23f99b2c018cb867265",
+      "a425f63e41e004c639bed49924cdd0a7ece04e8d6cc8ac6c392a5a82e6c87ced"
+     ],
+     "light_reduced": [
+      "2a04373f652284b70561983c3d070e6e0d8c17d84966302523e4ef06e1ab35b1",
+      "8db957d6edd7161c0573655ad0e6e7d851b6f0fabbf4e63152c8d10f029158b0",
+      "cbaae88c4d57e9c2b7e565535884e4266f57d7fda4e93ebf96ec54a9a668f7ee",
+      "d1eaaa65e1726133af3612dd970f4c073518c0b77bff3c0accb99846895b8bd2",
+      "22421d56e4e85615be241aa8f94a426120d63671df229e1cbea6cb7ab15359c5"
+     ]
+    },
+    "video": {
+     "dark": "89068ceab074e5ecea5325fdc3b4f9203a7abd87a3f1f2e175950c48f0c740dc",
+     "dark_reduced": "d4f86e9bb5263493859f149bc25b2910c67ad63590453a4fb1fdbcd8e9f7eaeb",
+     "light": "bf7527fd7c6ffacd30e19fc629f207e3cf89d4e7e55fb286dea28862179b298b",
+     "light_reduced": "11e6d4b4f43a6971aefde7557915af84daf476315971457c2ed14311d6ac312e"
+    }
+   },
+   "GA-T30": {
+    "keyframes": {
+     "dark": [
+      "aea5f35b09175214e096198d8c58baf2a844a5bf85c8dc25f62e2b0d47b08186",
+      "76970e45a0327f841d3324082c046904fa6b006ea6789fbbe937e32de7333b4d",
+      "50678bb7724a6124bda19315dbb974cf77cc174ae2fd8e797ad7ff6666c6bc23",
+      "04755ee005595cef2d6f5e10b21288c07e9b2517185c24b2e4fa1292b9afc272",
+      "6784b3a44db1b8579d003878e11d52a56edcf5ed63783a89dae0d2d49e2f09ef"
+     ],
+     "dark_reduced": [
+      "d49f0b4cc1f67654a9a1e9f517b3a6460faae3d6aca4d1a600f27cc3700f250f",
+      "58801b536af1d0fbf644221b4f40064dbc2f724a60ff22101d574ae9349eb55e",
+      "988791827d7fd1817614b043cbc73850d85bf1c83c4c198dba19b3f775117d67",
+      "d1bcf296437f8acfb570cab9800b4482199e8d7306ee9021a8705fb3c85c21db",
+      "303d0d7c3a7b6329a24b6877bbad7fc10b5dfc1705fa5b240be46c7e7c81cb40"
+     ],
+     "light": [
+      "29052cff4e0afeb531da5b4ce3a0a0a538b7d59f302bf0d0c19791e7f3c56704",
+      "df867dd8358e2f71051ed841256d188b1eb2f849261623aad195c78b0779184f",
+      "22f80961fb23658085690da3998a9f18fef8543cf0358932301e3d5cf89bf7c3",
+      "a963983fda0df1fc575f9e603d6353268233e73c3a29570d349acc1a634dc690",
+      "47a0899eb2c968e586319dc621bfe2facfa4d4e69f55474d84751fdc88679ae7"
+     ],
+     "light_reduced": [
+      "79b339968f7b5b89d46517a9f3ceaf45ff52e8ce58fe3627fc5fb3d6a3d2e268",
+      "2c95f91089c00c31f2e982c1380e2588c034422ff1031d3bac77fe9b95ffb255",
+      "a9f817e0e5b72b48ae87e0d5cde079141ba350df2fb0c49d5de29c0f7c373afe",
+      "71bce688e9e1245711b9020f65652932110bffb618043d57bf06480820d84e02",
+      "1aa09f3ef70d805f6af6204a2e81822c5f4a38e465f10dff1afe29193e84368a"
+     ]
+    },
+    "video": {
+     "dark": "271e4d9fd718e4db330e90bd5b88da8bf482428ab6f46f526a6d2355c2fecef0",
+     "dark_reduced": "53e2b61c27458206465afbc26b560ec4f45caf5f4acb98f991d8185c570545b5",
+     "light": "8cf5ec2cda9d05857f88c825b49f7504390cb7766b56608ede75922fd9a34606",
+     "light_reduced": "815a0917052bb122e6e998e2343b834de14ab40ec0d1532512120330441abab1"
+    }
+   },
+   "GA-T31": {
+    "keyframes": {
+     "dark": [
+      "758aa7fa99166103265aaf4dbfe74e0d2ae68c3e8579a86649e3d87160ea0e74",
+      "262480c037d74d7c4c53b189549153108a33775ea623e1aa8c1698f2b6943793",
+      "a182b50c9edd20ba514ae714ee0102becd19249a167d80582a145949d8830fac",
+      "3133e3a579b86a0ca19191c7363d04b8898d2d2794e4e79b8e516e4366cca559",
+      "881841cd49624c74b02938fd15d285b2e44c331a4a0143706cca7bd706ce06c7"
+     ],
+     "dark_reduced": [
+      "71bdd4875020325676c8dec71f8b39cba2162dbc63682b2bbf9a928008e35f3e",
+      "f709aaaf2ebb320db4f92bc97716640ff01fdb38e4ff29d88ccd83ef13498044",
+      "91210fb8b95e871d61f2e547eaf5415042b34299b280586ba93f4e4197a01ea1",
+      "2aeb3f034753692312f624a7b06125f82aa740c3fe68da9e4b0a88ed310abcdc",
+      "e1218b00f38362ed36049b336bd5b2fe98f82cb40c7933089cde77273144d5f9"
+     ],
+     "light": [
+      "8ef4c035ada30b85e6550e3818c1ba56310d80a22948e34e1614e403b50611dc",
+      "ce7f1929990d19e1a01177527eb9bdcd6f30c4191f9a3ab15552ed268d1376e4",
+      "013d00933755338c470b969aa333e4c0851fde79d80c6d4269058a306e809647",
+      "77cf9bf12f5d295686cbb006c7c2dcf41dda0454fcddd56d09aadbb0b36bd77c",
+      "b500922558759f5a28e9c3511976a8332a201946eeec9f99b0ed62e825e35f72"
+     ],
+     "light_reduced": [
+      "a6702d6b391e1d51f21c3cd883ff6af97713841f551a6252162e0a5d5e91a1a4",
+      "2daad9f71d7bcb8d2039257e7718c9a95cf5ae4532ce44fe01a9ca7f9cef6803",
+      "b0d93284a224d6fc32232fc7259c06849259a7dd3b54d4574c6f5e254be9c3f1",
+      "853c8ee45411d52b6330979f07cd7e9d135bef1082196121866dffe9eee50683",
+      "c53ba4955ba7705ebba57316693a3f044f3103082225b3d8b2525d63814b08c6"
+     ]
+    },
+    "video": {
+     "dark": "9b9df764e6f404556d9a30527914743f83d8bad8017ce1a0d0870a90937bc4cb",
+     "dark_reduced": "10a5ee97f57f3fa97d95838a4463bcac051bdb28b53f4fea48b09fd4f733a2a0",
+     "light": "d5ec4ac9213189661d5f15da73263e74d5c10ffbe0346edc4957e0a68eddc3d3",
+     "light_reduced": "9684f100125ec242ae0e1095f03e250765557448a3e45c3080c1e3fe0a497320"
+    }
+   },
+   "GA-T33": {
+    "keyframes": {
+     "dark": [
+      "1fd9f8bccc144687be81592ac33dc0ee90d3d2a3b4608f8527127a02152c93c6",
+      "1b005060bc484db9ad8866d67d24816d8cccdeac9986c8d4fed456fc3cc769d1",
+      "e99c41109197d4c08cd802c608aedc5ba5efc0fbc47907211544d8b54db9e48d",
+      "f5ea0f038e5cae429ee10b89950b8638a6c05ba7235af08bc91a4fae43b10510",
+      "96ceb4e549f3377d1b098ea3e5470d31680a97ab438b9a1eee1e3c9e3798809f"
+     ],
+     "dark_reduced": [
+      "a3c0b759b2087318e5be50ce474f2d624cd2393fc7f6fd3b2da0c80bc96f1298",
+      "93a2766995234fa45f480d94ee25d9bbc2066c20c50140f70eddb642b77b439c",
+      "b0189fa1073f5c5aeb3edea96d9200ef0cd23cce0b9a720ea67b8d99c8df8c64",
+      "5b7d098cb82d762c60ab3f62eb0a6a5a9f987bb222b09ca7c7fcc07de84e3aeb",
+      "8c410a98a221a392ec3dd70ff27897364547c18e1c7f7da3c6b7de5453389285"
+     ],
+     "light": [
+      "2e22afc32d25b045024a8e918d9b13f2ad836ad2ac3334260ccedecd1db3f9d0",
+      "5ffce2635d6e4d230efdd290a1241ffe7aa5247f10ad2a70e86bd916a6ac29fe",
+      "34a3ee713354feed4127db41f6a0914e527b085ef93f92382d1696ffb44e73ae",
+      "75c1f193823a0fed3911c6dca13c4e6f66a5f6feb0d9c8b3279cbd60873efa34",
+      "1a9db4accdee1c325ae0ba9c8b3f1f3c98528af16084b91b915f64d91e11f9c3"
+     ],
+     "light_reduced": [
+      "5d45315afd61462864de900c61ed095340a79e5c27e539a5b34e19942bc91c5f",
+      "8844d0807f2740bad552fd54044c8bb799d7bee41d6a9527e79abe9c2a2bc1bb",
+      "2f43e5115508dee19a1a91c477d69b13a1f05cebe967a0010d77d2ba1112746e",
+      "3a4a9f81c7f462421f7653f5c4d881daa7fa25b64465823c94a77767a34fc4bc",
+      "7acd349700e1d18617e7e3013a57beb75609cb1d7bd3f0522ab758051696ab98"
+     ]
+    },
+    "video": {
+     "dark": "e7163e2eb48a3caf2422d112efad2ea126fc0d4b041542c1c050f0b77dfed5f9",
+     "dark_reduced": "ece8e7db03c3917639f51a36d003c1be20f895007859b025a1934c997dd78576",
+     "light": "04b39767a72c91c6dcfcfa9bc50ad3b7b476f1675bc8705baf43a3da6b78f545",
+     "light_reduced": "ee1a38a0bfd7bc9f6c2d0db92497be8cde168d472bb86dc459def3e6574a525b"
+    }
+   },
+   "GA-T35": {
+    "keyframes": {
+     "dark": [
+      "10a42170c235ba922badb5e1f0c15ef44b499b13eaea3a9df6d4c93424190977",
+      "226e5f834e41193885f1b7952ceae85e72ef02da54fbfcbcbbb882633edcfaf2",
+      "5dc626cbe0b83cc3bb580ea3040b65f36fcb34715d16e77653250f16ad331cd8",
+      "38475e0e48e81cca870761948a452b0893ce238b42589662e1c89e4bb490683b",
+      "9113b1da26a5450750bb00827c465dbb7fdd96abebf8987f0fa4a1b764df01fc"
+     ],
+     "dark_reduced": [
+      "0bf3f63da2174119a9da09fc1f20cf1e3451ef6008810ce69cf23fb983236be6",
+      "b6e62b845d9ae13ff513251bee6c3a860ddc679a75fd4be93996d2a74fd3bea0",
+      "7ee4f695c3c63e8a7eecdbe743082d93dad2623a0f15b6d03f7d7b3ea2a67904",
+      "3814886f946d86ebb5a77f09dd0454a4465fa95193305b2df3d3e9cf4fcf76e9",
+      "89b1fb14a6912d6ae298276fba4b1368f4c41ae1921bfdcf6be6a0f09195102e"
+     ],
+     "light": [
+      "226c2ee42c335945d07cb0276f8672d90a3a86564859e25f7c73bf9113ff1783",
+      "e36dd2ed59412ee10abdea6be707310a4f18960531e1c98e380604ffeeeef592",
+      "bda13bcff2be3c2119d626b79367522d8c0170fd3e406d4194778cfd1e98e891",
+      "f63c4918f792d609f6415c9555488e48e50fd58159ea8a25545f55548c65e229",
+      "0518f8ef8c1262d0f4adbb531096aee06abe0dc1e88d321e405699fb12447fac"
+     ],
+     "light_reduced": [
+      "3fb41e03f48947fdae38e8fc72f55e683e9e33711f981bfedfd3eb91e6371656",
+      "a87bfe6b77ab42d39dae1a738d0bc4145183dad4cfda3318e0ee175413717eea",
+      "fdbaa2eb1fc05ad92bfee42e0a428fa3237402c92a40ec54d16dea8699988274",
+      "47724f3d983595574ef77e1b38c83f690d26ca1735c0711df8ab765d43793633",
+      "c6785303a0edec25c96da75193feea2bb18637f08213828fd4a9995351774bed"
+     ]
+    },
+    "video": {
+     "dark": "36938097b513ccf2da446b9dce9ca4e62f004d3e86a00655e7a6d74de7c94a99",
+     "dark_reduced": "22c33ebf27b9d10984d3a344f471c6d6af9628611c433d7f3471f32dc18b689c",
+     "light": "83fb6842b1856a7381172e18b55f32a816062bfab7166d9853fd20a8e829dfa3",
+     "light_reduced": "28afcb5933fd46ec1932e4e2bea6a70e2f850d69c4d75c3625033b2b4eda02fa"
+    }
+   }
+  },
+  "priemka_dvizhenija": "node mobile/e2e-gespraech-vhod/dvizhenie.mjs --json --outputFile mobile/e2e-gespraech-vhod/jest-otchet.json gespraech"
+ }
+}

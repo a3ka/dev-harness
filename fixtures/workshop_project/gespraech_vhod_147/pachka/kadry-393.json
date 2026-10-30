@@ -1,0 +1,135 @@
+{
+ "mera": {
+  "chernila_T": 40,
+  "kletka_pt": 6,
+  "fon_shag": 4,
+  "razmytie_r": 1,
+  "region_porog": 0.05,
+  "margin": 1,
+  "chrome_verh_pt": 36,
+  "chrome_niz_pt": 20,
+  "min_dolja_suda": 0.5
+ },
+ "kadry": [
+  {
+   "id": "GA-01 dark",
+   "tema": "dark",
+   "snimok": "gespraech-ga-01-393",
+   "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-01.png",
+   "maket_sha256": "579c740b2a10dc1a5f0de293dda6d91fd1ed91e8546760d54c79a558b26f2c98",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      393,
+      832
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GA-01 light",
+   "tema": "light",
+   "snimok": "gespraech-ga-01-393",
+   "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-01-Hell.png",
+   "maket_sha256": "757c3625299bfd1b1953cd41859196e8b00f57544e3c5bae1af7ffb9d5842c93",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      393,
+      832
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GA-15 dark",
+   "tema": "dark",
+   "snimok": "gespraech-ga-15-393",
+   "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-15.png",
+   "maket_sha256": "b0ecc12e32b79e6f428517197ef522e1eb078f6f4ad2abc055f192fabed112f2",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      393,
+      832
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GA-15 light",
+   "tema": "light",
+   "snimok": "gespraech-ga-15-393",
+   "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-15-Hell.png",
+   "maket_sha256": "f1d61c2c0dee8eea840c7fc83d59c9365529fa647b84630e343678de489acd7d",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      393,
+      832
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GA-16 dark",
+   "tema": "dark",
+   "snimok": "gespraech-ga-16-393",
+   "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-16.png",
+   "maket_sha256": "6b0b82cc5a96d7a1634235895d10f9d23205985bae7d03e093fd94b17f972cb9",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      393,
+      832
+     ]
+    }
+   ]
+  },
+  {
+   "id": "GA-16 light",
+   "tema": "light",
+   "snimok": "gespraech-ga-16-393",
+   "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-16-Hell.png",
+   "maket_sha256": "1f7a72ef2dc9aed4ea807c9d0ea0b001b52be7d92d353082c48559021e18d176",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      36,
+      393,
+      832
+     ]
+    }
+   ]
+  }
+ ]
+}

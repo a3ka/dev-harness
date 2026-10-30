@@ -1,0 +1,9 @@
+{
+ "_comment": "JSON-проекция BrokerOS_Unified_OpenAPI_v3.yaml: операции входа Gespräch в OpenAPI не приняты (бэкенд-дельта приглашения — PROPOSED_NOT_OPENAPI_ADOPTED); голос-хост в пилоте 147 — мок (норма 28.10), численно T35 судит контракт 150.",
+ "openapi": "3.0.0",
+ "info": {
+  "title": "BrokerOS",
+  "version": "3"
+ },
+ "paths": {}
+}

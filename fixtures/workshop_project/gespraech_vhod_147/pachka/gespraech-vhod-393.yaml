@@ -1,0 +1,26 @@
+# Флоу СОБРАННОГО пути второго профиля 393 (контракт 147): оболочка
+# tab-shell видима на собранном пути, кадры профиля — обе темы (e2e.sh).
+appId: com.complior.mobile
+name: gespraech-vhod-393
+---
+- launchApp
+- assertVisible:
+    id: tab-shell
+- assertVisible:
+    id: gespraech-mitte
+- takeScreenshot:
+    name: gespraech-ga-01-393
+- tapOn:
+    id: gespraech-mitte
+- assertVisible:
+    id: gespraech-menu
+- takeScreenshot:
+    name: gespraech-ga-15-393
+- tapOn:
+    id: gespraech-menu-close
+- tapOn:
+    id: gespraech-mitte
+- assertVisible:
+    id: gespraech-menu-ansehen
+- takeScreenshot:
+    name: gespraech-ga-16-393
