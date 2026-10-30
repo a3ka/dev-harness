@@ -1,0 +1,3163 @@
+{
+ "_comment": "Батарея 146 (shablon-dvizhenie, 132 v3): kejsy — ожидания эталона (rc/prichiny/stdout, допуск dopusk_score на KADR-числа); stab_vhod — привязка стабов к входам ИХ дефекта (Н-39); piny.nositeli — sha256 носителей батареи; piny.kontekst — sha256 РЕАЛЬНЫХ источников D 2.4 пакета дизайнера (живой прогон --d24-real против репо продукта).",
+ "subject_rel": "scripts/ekran_shablon.py",
+ "runner123_rel": "scripts/sverka_maketa.py",
+ "snimok": "vkhod-demo-splash",
+ "ekran_forma": {
+  "ekran": "demo-vkhod",
+  "kadry": "kadry.json",
+  "sostojanija": [
+   "start",
+   "tema-dark",
+   "tema-light"
+  ],
+  "kljuchi_kopii": [
+   "ui.vkhod.promise",
+   "ui.vkhod.cta"
+  ],
+  "operacii_api": [
+   "demoStart"
+  ],
+  "katalog_kopii": "docs/ux/01_UX_Source_of_Truth/BrokerOS_UI_Copy_DE.json",
+  "spec_api": "api/openapi.json",
+  "audit_tokenov": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/ds/tokens.css",
+  "e2e_scenarij": "mobile/.maestro/demo-vkhod.yaml",
+  "kadry_dir": "mobile/maestro-out-demo",
+  "kontrakt": "kontrakt.md",
+  "batareja": [
+   "batareja/red_ekrana.sh"
+  ],
+  "priemka": {
+   "e2e": "bash mobile/e2e.sh demo-vkhod",
+   "sverka": "python3 .harness123/scripts/sverka_maketa.py --manifest .harness123/kadry.json --kadry mobile/maestro-out-demo --repo .",
+   "prokhod": "bash mobile/prokhod.sh mobile/.maestro/prokhod-demo-vkhod.yaml"
+  },
+  "zony": {
+   "architect": [
+    "contracts/135-demo-vkhod.md",
+    "fixtures/workshop_project/demo_vkhod_135/"
+   ],
+   "implementer": [
+    "mobile/src/features/demo/"
+   ]
+  },
+  "zamenjaet": "fixtures/workshop_project/ekran_shablon_132/model/fiktura/kadry_starogo.json",
+  "ne_trogaet": [
+   "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_chuzhogo/kadry.json",
+   "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_tot_zhe/kadry.json"
+  ],
+  "fiktura": false,
+  "shablon": 2,
+  "prokhodimost": {
+   "pressable": [
+    {
+     "id": "cta-demo",
+     "sostojanie": "deistvie",
+     "izmenenie": "ekran.demo-zagruzka",
+     "shirina": 356,
+     "vysota": 48,
+     "x": 17,
+     "y": 700,
+     "demo": false
+    },
+    {
+     "id": "ssylka-pomosh",
+     "sostojanie": "neaktivna",
+     "kadry": [
+      "Splash dark",
+      "Splash light"
+     ],
+     "shirina": 48,
+     "vysota": 48,
+     "x": 171,
+     "y": 636,
+     "demo": false
+    }
+   ],
+   "demo": [
+    {
+     "id": "demo-sostojanie",
+     "sostojanie": "deistvie",
+     "izmenenie": "sostojanie.demo-toggl",
+     "shirina": 48,
+     "vysota": 48,
+     "x": 17,
+     "y": 752,
+     "demo": true,
+     "otdelenie": "kontejner-demo"
+    }
+   ],
+   "safe": {
+    "verh": 59,
+    "niz": 34,
+    "vysota": 844
+   }
+  },
+  "vtoroj_profil": {
+   "profil": "iphone-safe-area",
+   "shirina": 393,
+   "vysota": 852,
+   "vyrez": 59,
+   "home": 34,
+   "obolochka": "tabshell",
+   "marshrut": "mobile/.maestro/demo-vkhod-tabshell.yaml",
+   "kadry": "kadry_profil.json",
+   "elementy": [
+    {
+     "id": "shapka-tabshell",
+     "tip": "shapka",
+     "x": 0,
+     "y": 59,
+     "shirina": 393,
+     "vysota": 48
+    },
+    {
+     "id": "zagolovok-start",
+     "tip": "zagolovok",
+     "x": 16,
+     "y": 107,
+     "shirina": 361,
+     "vysota": 40
+    },
+    {
+     "id": "wordmark",
+     "tip": "kontrol",
+     "x": 157,
+     "y": 514,
+     "shirina": 76,
+     "vysota": 20
+    },
+    {
+     "id": "znak",
+     "tip": "prochee",
+     "x": 110,
+     "y": 271,
+     "shirina": 180,
+     "vysota": 173
+    },
+    {
+     "id": "ikonka-kompozera-otvetit",
+     "tip": "ikonka",
+     "x": 329,
+     "y": 710,
+     "shirina": 48,
+     "vysota": 48,
+     "glif": "otvetit"
+    },
+    {
+     "id": "ikonka-kompozera-otpravit",
+     "tip": "ikonka",
+     "x": 329,
+     "y": 762,
+     "shirina": 48,
+     "vysota": 48,
+     "dostupnoe_imja": "otpravit"
+    }
+   ]
+  }
+ },
+ "ekran_forma_d24": {
+  "ekran": "gespraech-mitte",
+  "kadry": "kadry.json",
+  "sostojanija": [
+   "start",
+   "menju-otkryta",
+   "menju-s-vorgangom",
+   "tema-dark",
+   "tema-light"
+  ],
+  "kljuchi_kopii": [
+   "ia115.nav.START",
+   "proposed.gespraech.tab"
+  ],
+  "operacii_api": [],
+  "katalog_kopii": "docs/ux/01_UX_Source_of_Truth/BrokerOS_UI_Copy_DE.json",
+  "spec_api": "api/openapi.json",
+  "audit_tokenov": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/ds/tokens.css",
+  "e2e_scenarij": "mobile/.maestro/gespraech-mitte.yaml",
+  "kadry_dir": "mobile/maestro-out-gespraech",
+  "kontrakt": "kontrakt.md",
+  "batareja": [
+   "batareja/red_ekrana.sh"
+  ],
+  "priemka": {
+   "e2e": "bash mobile/e2e.sh gespraech-mitte",
+   "sverka": "python3 .harness123/scripts/sverka_maketa.py --manifest .harness123/kadry.json --kadry mobile/maestro-out-gespraech --repo .",
+   "prokhod": "bash mobile/prokhod.sh mobile/.maestro/prokhod-gespraech-mitte.yaml"
+  },
+  "zony": {
+   "architect": [
+    "contracts/147-demo-gespraech-mitte.md",
+    "fixtures/workshop_project/gespraech_mitte_147/"
+   ],
+   "implementer": [
+    "mobile/src/features/gespraech/"
+   ]
+  },
+  "zamenjaet": null,
+  "ne_trogaet": [
+   "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_chuzhogo/kadry.json",
+   "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_tot_zhe/kadry.json"
+  ],
+  "fiktura": false,
+  "shablon": 3,
+  "prokhodimost": {
+   "pressable": [
+    {
+     "id": "mitte-gespraech",
+     "sostojanie": "deistvie",
+     "izmenenie": "ekran.menju-otkryta",
+     "shirina": 76,
+     "vysota": 44,
+     "x": 157,
+     "y": 766,
+     "demo": false
+    },
+    {
+     "id": "krestik-zakrytija",
+     "sostojanie": "deistvie",
+     "izmenenie": "ekran.menju-zakryta",
+     "shirina": 48,
+     "vysota": 48,
+     "x": 171,
+     "y": 64,
+     "demo": false
+    }
+   ],
+   "demo": [],
+   "safe": {
+    "verh": 59,
+    "niz": 34,
+    "vysota": 844
+   }
+  },
+  "vtoroj_profil": {
+   "profil": "iphone-safe-area",
+   "shirina": 393,
+   "vysota": 852,
+   "vyrez": 59,
+   "home": 34,
+   "obolochka": "tabshell",
+   "marshrut": "mobile/.maestro/gespraech-mitte-tabshell.yaml",
+   "kadry": "kadry_profil.json",
+   "elementy": [
+    {
+     "id": "shapka-tabshell",
+     "tip": "shapka",
+     "x": 0,
+     "y": 59,
+     "shirina": 393,
+     "vysota": 48
+    },
+    {
+     "id": "zagolovok-gespraech",
+     "tip": "zagolovok",
+     "x": 16,
+     "y": 107,
+     "shirina": 361,
+     "vysota": 40
+    },
+    {
+     "id": "znak-mitte",
+     "tip": "kontrol",
+     "x": 158,
+     "y": 772,
+     "shirina": 76,
+     "vysota": 38
+    },
+    {
+     "id": "ikonka-otpravit",
+     "tip": "ikonka",
+     "x": 329,
+     "y": 700,
+     "shirina": 48,
+     "vysota": 48,
+     "glif": "otpravit"
+    }
+   ]
+  },
+  "dvizhenie": {
+   "manifest": "docs/ux/04_Gespraech_D24/pack/gespraech-final2-manifest.json",
+   "manifest_sha256": "b1e37c47261b5574aaa2744c4c8e25770e046307f48c253b3c75ba0d4e6754f5",
+   "spec": "docs/ux/04_Gespraech_D24/motion/motion-spec-gespraech.json",
+   "spec_sha256": "1b19a543741dce069a37c1e74699bcacb75f19512e32ca08268b5b9ac00f75bf",
+   "pozvonok": "docs/ux/04_Gespraech_D24/motion/faden-poses-gespraech.json",
+   "pozvonok_sha256": "9a35ca704f81c418300162faeada6988a1a5df1e0517c987098fb88d958a06a0",
+   "ekrany": [
+    "GA-01",
+    "GA-15",
+    "GA-16"
+   ],
+   "perehody": [
+    "GA-T28",
+    "GA-T31",
+    "GA-T29",
+    "GA-T35",
+    "GA-T36"
+   ],
+   "sceny_znaka": [
+    "GA-T29",
+    "GA-T35"
+   ],
+   "etalony": {
+    "GA-T28": {
+     "keyframes": {
+      "dark": [
+       "e4e92d68f8755cc8ef5393ce5d6afae07027932b4d33e6105851be8e456da53b",
+       "4a155f735c87032a981a1d71126b37d4e8cc835a4ef9179828bd18109787a3b9",
+       "79c75ff6fd1e96585feaeed62566e63024bb03c12c4cdb885c40d74f34bb680f",
+       "0c4faae1ebd25342f54ef329a866a79e0f692655eeafa1bc9f3f8c46f9f95a54",
+       "b71078bab8db51296781cc6e7322cbb5c2f5c0d025742a87294a2ac5e1bb03ea"
+      ],
+      "dark_reduced": [
+       "bb65b9c33d6c46d077d8714a045e35e1a58a8b1a261729dc8a4331b7f76d56d9",
+       "d8d22d319efa845ea69df79e004eb2514bc8b46269e542a54777c3ebcb3780ea",
+       "f3541fc55d010c39058b086d6c9f6ac943b4cd30871d4ce34aee56019cd3869b",
+       "1a087260b4f692044a3e2ca019cceae2d3a1797ba75bab78dd98710ee0e2cb13",
+       "fe1b92de68879123f1ad5f5bce13704d7c96bd60cbbdf6bfe5a6a16ad95a4eac"
+      ],
+      "light": [
+       "f1b14eb41bd91d7e8edeacb5d72ed1abac2c6191bc879a396f58ca800c84ac44",
+       "6e79a2a30d0111ef38288ff0471c2ab739d1c44f0af0abd5d6d0efaf476c9226",
+       "c04a846ac8f8103c6a86a84adcecd991bc1e359f904f4011d82da26000a2620b",
+       "3464d3f667e270160cd4346cf08acceddbd8219cc7304966ff3aaa9f10aba120",
+       "f032b9989cc5cd83be59d813d01f3429bad2a6c0ca1292ea289cd54f0937afe0"
+      ],
+      "light_reduced": [
+       "560578dfb92ff4a26af56d97a8faeb5f7b295e8e496fecbe06a5b99f4a5b35b7",
+       "f65c05a311dd1cf15be3049c6cd9300c8f8ba32ad4476fa5140167c688fa93ce",
+       "707027a208e81fbb1fedfa7cb399661673dd62c6137e802530bf544f97f038dd",
+       "ef2d29f045764a8ff774327db10a97d3eba3c7f588df13171f3f1349b579fece",
+       "b6c1f2036c159d955f0ba07091bac9c9ed4b7b8d7143d3f3bccedfaee971349a"
+      ]
+     },
+     "video": {
+      "dark": "b1113743cc114bfe966004bb87ddf018b569ed8114098e112460f9f4e5a79c5f",
+      "dark_reduced": "e36ad28b3de69ceb5e4c391add4dc2edf0ac3271e96c0bedce23922fbeaec733",
+      "light": "848edbaf7d7341b01f9f11e0dc79869e5e53338af2bc82773347c00602f5fd87",
+      "light_reduced": "a95d98caf613bca3dd3080b9b4897b3282a12e295d5047f9b365218038c9865f"
+     }
+    },
+    "GA-T31": {
+     "keyframes": {
+      "dark": [
+       "71a4567859f9c42db4a4388aedbaad4c501d02db81650a99e3db4f4838c62189",
+       "365f431cc13a138c43826684eba7bcfc6e522280dfd3760ed5ced1cb0b39ba45",
+       "50156ec0b2a55b322a0c81f9b0b2617e5b843dd9865553e59a7d512f5e018f8c",
+       "4b531b1df20294e2fd1cf6863b38c689af25f5487a8775426ca3e5c3ea3006fd",
+       "c5e8812a7f31f0662f2059bb451e2a9471ef45151f109885bd98012a1217c0c6"
+      ],
+      "dark_reduced": [
+       "b0ba14ec6391d8f27685a9691e8d77ccfa47f632da13cb10a33aaaf2ee1aea27",
+       "29c052e1c3bbd7ca398b9a1fa4d64632ba54420b21a276d2b2491e97c3afbf56",
+       "f8e3b740878b1a43fb2f058c214c7ef65dccf22e7581af95ccc4795c64b27355",
+       "c9091390b6583fa3335c289e8bc15e6a52c27355970e5bb3fb6bde57203bc6e2",
+       "915d969d5c5ee8a6605b793f1b606b3d70eb37abab488f1cd146e7d204d18981"
+      ],
+      "light": [
+       "f0889303419b523cb7872dc8e70985a518a806b67242b6a897ea265af9868c14",
+       "576ed3f877c7d81c4861a594957cfca56a156428c399056b2aa3c4d9a5b9a050",
+       "828e3f7269b72db1f6eb1eac3dba5b7f53ac154c0ee9a2171075ba9668e83189",
+       "25f360630fcba24916d96d59c48ea3cbbff0b4e7bc4de2445ab7a5426aab96dd",
+       "ee1a85dc8047e8b5c26e96d0964d57d4da060b69bfb8f6aa89a66c8c88d3c0b6"
+      ],
+      "light_reduced": [
+       "c22316302b536d8472d3a457be79d145cf051ec61db66af3d0cd151789b6c90c",
+       "9d4816e9e9fae4d0293cfa57743cc07928c0512f707e1cf1a6f307c90373014d",
+       "30ab2105ed1c1beafb8c77160961395f3b68f103c124856ff2686ad6309bfed3",
+       "702157e556f5ef7e039dbe489acd61de9e3e8dc0e1c23707277d9319313376f3",
+       "05314aaa6f02697b6f9705b0905fba3e8a6125086ba7386073cb4051ca1a3a46"
+      ]
+     },
+     "video": {
+      "dark": "ea2eaa5fba95cf0f462572eac3027b8de6dfa2973866362b305dc2f4a4ebad9a",
+      "dark_reduced": "22784afc226b176242c39578e3718a8d354fb6dc6b176b1d74bbfb55b637d941",
+      "light": "78239d5c3fb22158eab09c839b48c3271975945533ac27b9a6a87910358c1f83",
+      "light_reduced": "c231b325fe631fbad0f9ca6ebc17ace9dba09b029a6c64bd825ebb2d6fe5bb62"
+     }
+    },
+    "GA-T29": {
+     "keyframes": {
+      "dark": [
+       "472ffb029b9fe545d77b1a72221c255b5903c230729984b268d5cfadde888fc8",
+       "dd609bd82a2f578d5abc337d8e5fef727b10ba80356ea8f81837e4b03e8998ab",
+       "41182b66cfef30535cdaa42c4996f6e472348ca96db6c0cb551cb8bae7bdd77b",
+       "f63f1fc7858c09d4454715a9afe6a0fe37c019e363eb81ce69e7fc294808b5da",
+       "d10249ffbb868d21f65bfdad3ff148d2eda1400347c26a54e58e82eefe90a04e"
+      ],
+      "dark_reduced": [
+       "c463badc14a398992723b2d0026499553580e533449da4238c45e75556126d83",
+       "7af3c10cf3d81dcab9d5333e12dad2db0b0ed21d0530cdb6654a2261a43f3800",
+       "e48a5968fd191a057c2c04e40de040c4f2c566f279c64c45926534244d8dfc4c",
+       "16b675b6bc89a4fc6c2552a987354a0d35a082196a61823a7bb2f5117eef5cf7",
+       "9e90e4b55fac81da7e04ca41898c059d9b4922a0b3671c631e9431c99ef2c19a"
+      ],
+      "light": [
+       "44e907dc0bbcb3e08662fc2a5aab89a49f4fa6fda58370786dfed2fcc97e96ae",
+       "9f894e9722121516ce7e041c99e40da3e6ee540957e2824796da7e28e173e700",
+       "b415c6328210ef8e5ea65c6d6ee78a3f6e819c61e3f81f5982e15a7ba744aa3e",
+       "1b6e8145f15650df35782f77832ac63495c76feb79d9d8659e250311ea1f77b8",
+       "07cbefcf92e13add85e8e35528df68bdfffccae689c8b795a137c360f1bbfca9"
+      ],
+      "light_reduced": [
+       "f9827d47557e223fa3a45d7b7a65c61a51cb5beba7f21d5832875bc3e0642ec0",
+       "79a9c2744551cdad15082dd91e2660af40d7763a18cdb576ba360dbaebd2ebee",
+       "a6a2f5eb2f2a24f07c74ac57da568519c41991fe31afa577077d06bc633625f6",
+       "776d904e7b365f84c8a36b90ef50d80facb2b67b82bf9926f821b83b669118b8",
+       "e0f7128bac7825190ff218e0809ea266fdcd73f86ea79f78dd88b825e5290b68"
+      ]
+     },
+     "video": {
+      "dark": "2ad9fed4a88214140f6b6294ef6df17cb6eca9922bcb77fbd10bc7275eb62774",
+      "dark_reduced": "13876be8c8ee1541f70565b878d02ee94508ee1799a84024a4089898f3269348",
+      "light": "533ee65825333bd8368c1bfa44886f4a6f3b0d3efc211bdb9b096f6c4835d19d",
+      "light_reduced": "80f3f9432229f9c4764005a434ff9e72dae4b42dcabd05b5a8ba1d9b18fac7b4"
+     }
+    },
+    "GA-T35": {
+     "keyframes": {
+      "dark": [
+       "1dc4223b40da203ecca1b85631bedd8700606588bd73430b4841adf532a21ac3",
+       "9cf89852c462c75868db06afc054aa7080ed1c3e6c8e428a5b39e8a6871fbfeb",
+       "0a03c88f982621bc1a447194db5716f03ddcbed1b6bd552e3b24c644647114ad",
+       "4ca08901aa920b75eaa822bbcb8e1f4a620b5c3350557b5d9795210695cad1f4",
+       "6d0b715dcda63a6c425455541e0116c85bc227977e83324a3f2a01ef0384af07"
+      ],
+      "dark_reduced": [
+       "42e6bda6b2e9d71316a85967d7b6ce28d2039fe6510d26ca8c7881554f0dc87e",
+       "443e9f3dc896aa63ba9a2a6f1f5e21204e21264ce1f9fb8fe8e26b72aadb23a1",
+       "fd10740e49cf3971f078fbdfed7dddcc6ac2d9481a7a275918d78cf9f7392130",
+       "1820cb228f37a7cf72d269116e628addc3c6dff3d0cf25f00cfa667b4f48fdf8",
+       "ca71360a2649b846e843aac5a5cd1811d596aa744cbff22cdcc061be3f228911"
+      ],
+      "light": [
+       "b99670275c5fcd82626067dad5157208c28d8aa163a00b14eacd84f3b47914e8",
+       "7caf5754b41bb7a28ee273e387f34b1580aa7c05be6bf898a2733f9935e2b1f5",
+       "d760a640eb8e1056343aebd92e94da2d6e23ce1496e87fd408bf607f1609622e",
+       "7135af326bf5cc57cf2a4cbf67dbd65323feec5d339bddd85362901cd312dabb",
+       "07629cd86c6f35d3f29db0d2f0175ed4fdb89b9f0eb531d3c3b99103d58f3b7b"
+      ],
+      "light_reduced": [
+       "ffe2b44ae61c8491beef4ee4d17ca369501db14c576d5a3870b56a68a5d2ced7",
+       "2b5374c44b6b6b4ffd5fe6f71451d00435e7a89d8cf153c7f87c429f50ad38a4",
+       "063550a8caa36c0fb9c75ce38d37e1c0b18fe714a2a56df39a121b846f51115c",
+       "25b9ca38324e9e62391ea6daf65075c99e022445af3929408d2c8f0624a79602",
+       "e25c4969b26bca04925f5b9129e628e4095d826483c19f2bdda7bf584333ba5e"
+      ]
+     },
+     "video": {
+      "dark": "9c58b6b2c1cb73d0e9a1f763db61ad42da4b676da9043b8746142c9803d548df",
+      "dark_reduced": "fc8500867a9bf43d2e4f5651baca95d3ba54150a115347ad29c1337cb10cce39",
+      "light": "835d74b04517d5de5ca9d763c6e6769581970a6bc757a31d3c92b30bdd5fe08d",
+      "light_reduced": "ba421e0dc13a826d5e77b50600379700aa9e204b5eddd42db4ef430360e581a3"
+     }
+    },
+    "GA-T36": {
+     "keyframes": {
+      "dark": [
+       "1dc4223b40da203ecca1b85631bedd8700606588bd73430b4841adf532a21ac3",
+       "9cf89852c462c75868db06afc054aa7080ed1c3e6c8e428a5b39e8a6871fbfeb",
+       "0a03c88f982621bc1a447194db5716f03ddcbed1b6bd552e3b24c644647114ad",
+       "4ca08901aa920b75eaa822bbcb8e1f4a620b5c3350557b5d9795210695cad1f4",
+       "6d0b715dcda63a6c425455541e0116c85bc227977e83324a3f2a01ef0384af07"
+      ],
+      "dark_reduced": [
+       "42e6bda6b2e9d71316a85967d7b6ce28d2039fe6510d26ca8c7881554f0dc87e",
+       "443e9f3dc896aa63ba9a2a6f1f5e21204e21264ce1f9fb8fe8e26b72aadb23a1",
+       "fd10740e49cf3971f078fbdfed7dddcc6ac2d9481a7a275918d78cf9f7392130",
+       "1820cb228f37a7cf72d269116e628addc3c6dff3d0cf25f00cfa667b4f48fdf8",
+       "ca71360a2649b846e843aac5a5cd1811d596aa744cbff22cdcc061be3f228911"
+      ],
+      "light": [
+       "b99670275c5fcd82626067dad5157208c28d8aa163a00b14eacd84f3b47914e8",
+       "7caf5754b41bb7a28ee273e387f34b1580aa7c05be6bf898a2733f9935e2b1f5",
+       "d760a640eb8e1056343aebd92e94da2d6e23ce1496e87fd408bf607f1609622e",
+       "7135af326bf5cc57cf2a4cbf67dbd65323feec5d339bddd85362901cd312dabb",
+       "07629cd86c6f35d3f29db0d2f0175ed4fdb89b9f0eb531d3c3b99103d58f3b7b"
+      ],
+      "light_reduced": [
+       "ffe2b44ae61c8491beef4ee4d17ca369501db14c576d5a3870b56a68a5d2ced7",
+       "2b5374c44b6b6b4ffd5fe6f71451d00435e7a89d8cf153c7f87c429f50ad38a4",
+       "063550a8caa36c0fb9c75ce38d37e1c0b18fe714a2a56df39a121b846f51115c",
+       "25b9ca38324e9e62391ea6daf65075c99e022445af3929408d2c8f0624a79602",
+       "e25c4969b26bca04925f5b9129e628e4095d826483c19f2bdda7bf584333ba5e"
+      ]
+     },
+     "video": {
+      "dark": "9c58b6b2c1cb73d0e9a1f763db61ad42da4b676da9043b8746142c9803d548df",
+      "dark_reduced": "fc8500867a9bf43d2e4f5651baca95d3ba54150a115347ad29c1337cb10cce39",
+      "light": "835d74b04517d5de5ca9d763c6e6769581970a6bc757a31d3c92b30bdd5fe08d",
+      "light_reduced": "ba421e0dc13a826d5e77b50600379700aa9e204b5eddd42db4ef430360e581a3"
+     }
+    }
+   },
+   "priemka_dvizhenija": "python3 mobile/dvizhenie-stand-in.py --json --outputFile mobile/dvizhenie-otchet.json"
+  }
+ },
+ "kadry_manifest": {
+  "_comment": "Кадры экрана demo-vkhod: грамматика kadry_117.json (контракт 123); mera и bbox — дословно из kadry_117.json (единый источник 123).",
+  "mera": {
+   "chernila_T": 40,
+   "kletka_pt": 6,
+   "fon_shag": 4,
+   "razmytie_r": 1,
+   "region_porog": 0.05,
+   "margin": 1,
+   "chrome_verh_pt": 36,
+   "chrome_niz_pt": 20,
+   "min_dolja_suda": 0.5
+  },
+  "kadry": [
+   {
+    "id": "Splash dark",
+    "tema": "dark",
+    "snimok": "vkhod-demo-splash",
+    "maket": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/Splash.png",
+    "maket_sha256": "4a17e3a4c3888343490f73c037688a7d6522e5fac1919126265c7414f26c976c",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "znak",
+      "bbox_pt": [
+       110,
+       271,
+       290,
+       444
+      ]
+     },
+     {
+      "imja": "wordmark",
+      "bbox_pt": [
+       157,
+       514,
+       233,
+       534
+      ]
+     },
+     {
+      "imja": "tagline",
+      "bbox_pt": [
+       57,
+       569,
+       333,
+       596
+      ]
+     }
+    ]
+   },
+   {
+    "id": "Splash light",
+    "tema": "light",
+    "snimok": "vkhod-demo-splash",
+    "maket": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/Splash-Hell.png",
+    "maket_sha256": "108167d6a5cc85b7d67b48f1076492d1e1cfd9bf88f6445bf5b070656fe31eda",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "znak",
+      "bbox_pt": [
+       110,
+       271,
+       290,
+       444
+      ]
+     },
+     {
+      "imja": "wordmark",
+      "bbox_pt": [
+       157,
+       514,
+       233,
+       534
+      ]
+     },
+     {
+      "imja": "tagline",
+      "bbox_pt": [
+       57,
+       569,
+       333,
+       596
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "kontrakt_tekst": "# Контракт 135 — demo-vkhod: экран входа (пример экрана по шаблону 132)\n\n## Воля владельца\nЭкран описан машиночитаемой формой ekran.json (шаблон 132); приёмка —\nandroid-e2e rc 0 и сверка каждого кадра с PNG-макетом docs/ux не ниже порога\nмеханизма 123. Один экран — один контракт: этот контракт заменяет контракт\nэкрана целиком, чужих пикселей не морозит.\n\n## Существующее\nМера, порог и раннер — контракт 123 (scripts/sverka_maketa.py, манифест\nкадров по грамматике kadry_117.json). Литералы токенов — только в общем\nаудите D2.2.5.1 (audit_tokenov формы). Ключи копии — каталог\nBrokerOS_UI_Copy_DE.json verbatim.\n\n## Инварианты\n1. Форма ekran.json едина и замкнута: один экран — один контракт; следующий\nконтракт экрана заменяет его целиком (zamenjaet: кадры — надмножество),\nчужие кадры не объявляет (ne_trogaet: пересечение пусто).\n2. В пачке экрана нет литералов цветов и размеров: значения токенов живут в\nобщем аудите D2.2.5.1, растр судит сверка 123.\n3. Приёмка — rc-команды priemka: android-e2e rc 0 и запуск раннера 123 по\nманифесту кадров пачки.\n\n## Приёмочный критерий\n- Дано: пачка экрана и репо продукта; когда: python3 scripts/ekran_shablon.py\n--pack . --repo R --harness H; тогда: rc 0 — форма верна, оба кадра не ниже\nпорога манифеста.\n- Негатив: кадр ниже порога либо экран с литералом вне аудита — rc 1 с\nименем кадра/файла.\n\n## Зоны и исполнители\n\nЗОНА architect: contracts/135-demo-vkhod.md fixtures/workshop_project/demo_vkhod_135/\nЗОНА implementer: mobile/src/features/demo/\n\n## ПРОВОДКА\nПРОВОДКА-ЭНФОРСМЕНТ: гейт экрана — scripts/ekran_shablon.py по форме\nekran.json (шаблон 132); сверка кадров — механизм 123.\n\n## Модель угроз\nЗАЩИЩАЕТ: форма (замкнутые алфавиты, якорные грамматики) — от расползания\nполей; сверка 123 — от зелени без макета; запрет литералов — от второй\nпалитры в батарее; zamenjaet/ne_trogaet — от деления экрана между\nконтрактами и морозинга чужих пикселей.\nНЕ ЗАЩИЩАЕТ: смысл копии (суд каталога и ревью), качество самого макета.\n",
+ "batareja_tekst": "#!/usr/bin/env bash\n# Батарея экрана demo-vkhod: сверка каждого кадра против PNG-макета —\n# механизм 123 (мера и порог — манифест кадров пачки); литералы токенов —\n# только в общем аудите D2.2.5.1 (audit_tokenov формы экрана).\nexec python3 .harness123/scripts/sverka_maketa.py --manifest .harness123/kadry.json --kadry mobile/maestro-out-demo --repo .\n",
+ "katalog": {
+  "_comment": "Каталог копии (срез D2.2.5.1): ключи верхнего уровня.",
+  "ui.vkhod.promise": {
+   "de": "Sie sagen, was passiert ist. Complior kümmert sich um den Rest.",
+   "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED"
+  },
+  "ui.vkhod.cta": {
+   "de": "Anmelden oder Konto erstellen",
+   "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED"
+  },
+  "ia115.nav.START": {
+   "de": "Start",
+   "review_status": "UX_EDITORIAL_REVIEWED"
+  },
+  "proposed.gespraech.tab": {
+   "de": "Gespräch",
+   "review_status": "PROPOSED"
+  }
+ },
+ "spec": {
+  "openapi": "3.0.0",
+  "paths": {
+   "/v1/demo/start": {
+    "post": {
+     "operationId": "demoStart",
+     "responses": {
+      "200": {
+       "description": "ok"
+      }
+     }
+    }
+   }
+  }
+ },
+ "tokens_audit": "/* Общий аудит токенов D2.2.5.1 — единственное место литералов. */\n:root {\n  --ground-light: #F3F2EE;\n  --ground-dark: #0A0A0A;\n}\n.type-lg { font-size: 22px; }\n",
+ "flow": "appId: com.complior.demo\nname: demo-vkhod\n---\n- launchApp\n- takeScreenshot: vkhod-demo-splash\n",
+ "flow_profil": "appId: com.complior.demo\nname: demo-vkhod-tabshell\n---\n- launchApp\n- vojti-v-obolochku: tabshell\n- najti: shapka-tabshell\n- takeScreenshot: vkhod-demo-tabshell\n",
+ "prokhod_flow": "appId: com.complior.demo\nname: prokhod-demo-vkhod\n---\n- launchApp\n- nazhat: cta-demo\n- zhdat-izmenenija: ekran.demo-zagruzka\n- nazhat: ssylka-pomosh\n- utverdit-neaktivnost: ssylka-pomosh\n- nazhat: demo-sostojanie\n- zhdat-izmenenija: sostojanie.demo-toggl\n",
+ "e2e_skript": "#!/usr/bin/env bash\n# Stand-in android-e2e (replay, прецедент 132): для каждого имени\n# takeScreenshot из флоу кладёт кадр из e2e-nositeli в Maestro-раскладку\n# своего каталога кадров (демо слайса-1 — maestro-out-demo, пачка D 2.4 —\n# maestro-out-gespraech). Нет носителя для имени — кадра не будет (сверка\n# назовёт его отсутствующим); неизвестный флоу — rc 3.\nset -u\nflow=\"${1:?imja floy}\"\nf=\"mobile/.maestro/$flow.yaml\"\n[ -f \"$f\" ] || exit 3\nfor profil in \"$flow\" demo-vkhod-tabshell gespraech-mitte-tabshell; do\n  pf=\"mobile/.maestro/$profil.yaml\"\n  [ -f \"$pf\" ] || continue\n  case \"$profil\" in\n    gespraech-*) out=\"mobile/maestro-out-gespraech\" ;;\n    *) out=\"mobile/maestro-out-demo\" ;;\n  esac\n  for tema in dark light; do\n    d=\"$out/$tema/20261022T120000Z/$profil/takeScreenshot\"\n    mkdir -p \"$d\"\n    sed -n 's/.*takeScreenshot:[[:space:]]*//p' \"$pf\" | while IFS= read -r name; do\n      [ -n \"$name\" ] || continue\n      if [ -f \"mobile/e2e-nositeli/$tema/$name.png\" ]; then\n        cp \"mobile/e2e-nositeli/$tema/$name.png\" \"$d/$name.png\"\n      fi\n    done\n  done\ndone\n",
+ "prokhod_skript": "#!/usr/bin/env bash\n# Stand-in прохода Maestro по pressable (правило проходимости,\n# слово владельца 2026-10-27): жмёт каждый видимый pressable флоу и ждёт\n# наблюдаемое изменение либо пометку неактивности; replay без эмулятора.\n# Цель команды — ПУТЬ флоу Maestro (.yaml): судится статически\n# (цель-флоу + покрытие pressable), исполняется фактически (rc).\nset -u\nflow=\"${1:?put floy}\"\n[ -f \"$flow\" ] || exit 3\nexit 0\n",
+ "bez_elementa": {
+  "kadr": "Splash dark",
+  "polosa_pt": [
+   0,
+   262,
+   390,
+   452
+  ],
+  "comment": "свидетель ниже-порога: полоса знака залита фоном (приём bez-znaka-splash-dark батареи 123)"
+ },
+ "profil_kadry": {
+  "_comment": "Кадры ВТОРОГО профиля (iphone-safe-area, собранный путь с оболочкой TabShell): второй набор кадров/эталонов той же грамматики 123; макет — тот же PNG docs/ux на экран/тему, mera — дословно из kadry.json (единый источник 123); snimok профиля — отдельное имя снимка.",
+  "mera": {
+   "chernila_T": 40,
+   "kletka_pt": 6,
+   "fon_shag": 4,
+   "razmytie_r": 1,
+   "region_porog": 0.05,
+   "margin": 1,
+   "chrome_verh_pt": 36,
+   "chrome_niz_pt": 20,
+   "min_dolja_suda": 0.5
+  },
+  "kadry": [
+   {
+    "id": "Start tabshell dark",
+    "tema": "dark",
+    "snimok": "vkhod-demo-tabshell",
+    "maket": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/Splash.png",
+    "maket_sha256": "4a17e3a4c3888343490f73c037688a7d6522e5fac1919126265c7414f26c976c",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "znak",
+      "bbox_pt": [
+       110,
+       271,
+       290,
+       444
+      ]
+     },
+     {
+      "imja": "wordmark",
+      "bbox_pt": [
+       157,
+       514,
+       233,
+       534
+      ]
+     },
+     {
+      "imja": "tagline",
+      "bbox_pt": [
+       57,
+       569,
+       333,
+       596
+      ]
+     }
+    ]
+   },
+   {
+    "id": "Start tabshell light",
+    "tema": "light",
+    "snimok": "vkhod-demo-tabshell",
+    "maket": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/Splash-Hell.png",
+    "maket_sha256": "108167d6a5cc85b7d67b48f1076492d1e1cfd9bf88f6445bf5b070656fe31eda",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "znak",
+      "bbox_pt": [
+       110,
+       271,
+       290,
+       444
+      ]
+     },
+     {
+      "imja": "wordmark",
+      "bbox_pt": [
+       157,
+       514,
+       233,
+       534
+      ]
+     },
+     {
+      "imja": "tagline",
+      "bbox_pt": [
+       57,
+       569,
+       333,
+       596
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "dopusk_score": 0.01,
+ "d24_teksty": {
+  "kadry_manifest": {
+   "_comment": "Кадры пачки D 2.4: та же грамматика 123; id несут GA-якорь экрана.",
+   "mera": {
+    "chernila_T": 40,
+    "kletka_pt": 6,
+    "fon_shag": 4,
+    "razmytie_r": 1,
+    "region_porog": 0.05,
+    "margin": 1,
+    "chrome_verh_pt": 36,
+    "chrome_niz_pt": 20,
+    "min_dolja_suda": 0.5
+   },
+   "kadry": [
+    {
+     "id": "GA-01 dark",
+     "tema": "dark",
+     "snimok": "gespraech-ga-01",
+     "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-01.png",
+     "maket_sha256": "a8740d46c984405cfb960fe0154e0b9147c02296fc2c1f927dda372e5cbc181e",
+     "porog": 0.6,
+     "maski_pt": [],
+     "elementy": [
+      {
+       "imja": "znak",
+       "bbox_pt": [
+        110,
+        271,
+        290,
+        444
+       ]
+      },
+      {
+       "imja": "vopros",
+       "bbox_pt": [
+        48,
+        500,
+        342,
+        560
+       ]
+      }
+     ]
+    },
+    {
+     "id": "GA-01 light",
+     "tema": "light",
+     "snimok": "gespraech-ga-01",
+     "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-01-Hell.png",
+     "maket_sha256": "a8740d46c984405cfb960fe0154e0b9147c02296fc2c1f927dda372e5cbc181e",
+     "porog": 0.6,
+     "maski_pt": [],
+     "elementy": [
+      {
+       "imja": "znak",
+       "bbox_pt": [
+        110,
+        271,
+        290,
+        444
+       ]
+      },
+      {
+       "imja": "vopros",
+       "bbox_pt": [
+        48,
+        500,
+        342,
+        560
+       ]
+      }
+     ]
+    },
+    {
+     "id": "GA-15 dark",
+     "tema": "dark",
+     "snimok": "gespraech-ga-15",
+     "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-15.png",
+     "maket_sha256": "9fe180feead65db05d35e627cfe0cefc0eb1da528ec55f1382a86be795b67dfb",
+     "porog": 0.6,
+     "maski_pt": [],
+     "elementy": [
+      {
+       "imja": "znak",
+       "bbox_pt": [
+        110,
+        271,
+        290,
+        444
+       ]
+      },
+      {
+       "imja": "vopros",
+       "bbox_pt": [
+        48,
+        500,
+        342,
+        560
+       ]
+      }
+     ]
+    },
+    {
+     "id": "GA-15 light",
+     "tema": "light",
+     "snimok": "gespraech-ga-15",
+     "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-15-Hell.png",
+     "maket_sha256": "9fe180feead65db05d35e627cfe0cefc0eb1da528ec55f1382a86be795b67dfb",
+     "porog": 0.6,
+     "maski_pt": [],
+     "elementy": [
+      {
+       "imja": "znak",
+       "bbox_pt": [
+        110,
+        271,
+        290,
+        444
+       ]
+      },
+      {
+       "imja": "vopros",
+       "bbox_pt": [
+        48,
+        500,
+        342,
+        560
+       ]
+      }
+     ]
+    },
+    {
+     "id": "GA-16 dark",
+     "tema": "dark",
+     "snimok": "gespraech-ga-16",
+     "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-16.png",
+     "maket_sha256": "86e37a78e6fd38637b558569ad29814e861826ac79963e726b759cb635729305",
+     "porog": 0.6,
+     "maski_pt": [],
+     "elementy": [
+      {
+       "imja": "znak",
+       "bbox_pt": [
+        110,
+        271,
+        290,
+        444
+       ]
+      },
+      {
+       "imja": "vopros",
+       "bbox_pt": [
+        48,
+        500,
+        342,
+        560
+       ]
+      }
+     ]
+    },
+    {
+     "id": "GA-16 light",
+     "tema": "light",
+     "snimok": "gespraech-ga-16",
+     "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-16-Hell.png",
+     "maket_sha256": "86e37a78e6fd38637b558569ad29814e861826ac79963e726b759cb635729305",
+     "porog": 0.6,
+     "maski_pt": [],
+     "elementy": [
+      {
+       "imja": "znak",
+       "bbox_pt": [
+        110,
+        271,
+        290,
+        444
+       ]
+      },
+      {
+       "imja": "vopros",
+       "bbox_pt": [
+        48,
+        500,
+        342,
+        560
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "profil_kadry": {
+   "_comment": "Второй профиль пачки D 2.4 (собранный путь).",
+   "mera": {
+    "chernila_T": 40,
+    "kletka_pt": 6,
+    "fon_shag": 4,
+    "razmytie_r": 1,
+    "region_porog": 0.05,
+    "margin": 1,
+    "chrome_verh_pt": 36,
+    "chrome_niz_pt": 20,
+    "min_dolja_suda": 0.5
+   },
+   "kadry": [
+    {
+     "id": "GA-01 tabshell dark",
+     "tema": "dark",
+     "snimok": "gespraech-tabshell",
+     "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-01-tabshell.png",
+     "maket_sha256": "d91bdc4da86287de61e0b7e899c2d3777d2354d7eb32556961a15955a585061b",
+     "porog": 0.6,
+     "maski_pt": [],
+     "elementy": [
+      {
+       "imja": "shapka",
+       "bbox_pt": [
+        0,
+        59,
+        393,
+        107
+       ]
+      }
+     ]
+    },
+    {
+     "id": "GA-01 tabshell light",
+     "tema": "light",
+     "snimok": "gespraech-tabshell",
+     "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-01-tabshell.png",
+     "maket_sha256": "d91bdc4da86287de61e0b7e899c2d3777d2354d7eb32556961a15955a585061b",
+     "porog": 0.6,
+     "maski_pt": [],
+     "elementy": [
+      {
+       "imja": "shapka",
+       "bbox_pt": [
+        0,
+        59,
+        393,
+        107
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "kontrakt": "# Экран gespraech-mitte (демо-пачка D 2.4 для шаблона v3)\n\n## Воля владельца\nЭкраны D 2.4 сдаются со всей динамикой пакета дизайнера; раздел\n«движение» обязателен экранным пачкам после пилота знака. Пачка\nописана машиночитаемой формой ekran.json (shablon: 3).\n\n## Существующее\nДвижок знака — в приложении (пилот). Валидатор шаблона судит форму\nдекларации движения: полноту переходов против манифеста, токены\nспеки, сцены знака, эталоны Release, приёмку с отчётом.\n\n## Инварианты\nВсякий переход манифеста, касающийся экранов пачки, объявлен; сцены\nзнака объявлены точно по оракулу поз; длительности и задержки —\nтокенами спеки; пружин нет; «Уменьшить движение» гасит перемещение.\n\n## Приёмочный критерий\nКоманда шаблона на пачке завершается нулём; отказы именованные.\n\n## Зоны и исполнители\nЗОНА architect: contracts/147-demo-gespraech-mitte.md\nЗОНА architect: fixtures/workshop_project/gespraech_mitte_147/\nЗОНА implementer: mobile/src/features/gespraech/\n\n## ПРОВОДКА\nguard: батарея шаблона судит валидатор харнесса; шаг CI — selftest\nбатареи (безфлаговый red-режим после ленда реализации).\n\n## Модель угроз\nЗАЩИЩАЕТ: полноту декларации движения, грамматику спеки, свежесть\nотчёта приёмки.\nНЕ ЗАЩИЩАЕТ: байты эталонов Release (судят vision-судьи по суммам);\n«ощущение» движения (владелец на живом телефоне).\n",
+  "batareja": "#!/usr/bin/env bash\n# батарея экрана: обёртка ред-прогона шаблона\nexit 0\n",
+  "flow": "appId: com.complior.demo\nname: gespraech-mitte\n---\n- launchApp\n- takeScreenshot: gespraech-ga-01\n- takeScreenshot: gespraech-ga-15\n- takeScreenshot: gespraech-ga-16\n",
+  "flow_profil": "appId: com.complior.demo\nname: gespraech-mitte-tabshell\n---\n- launchApp\n- vojti-v-obolochku: tabshell\n- najti: shapka-tabshell\n- takeScreenshot: gespraech-tabshell\n",
+  "prokhod_flow": "appId: com.complior.demo\nname: prokhod-gespraech-mitte\n---\n- launchApp\n- najti-i-nazhat: mitte-gespraech\n- najti-i-nazhat: krestik-zakrytija\n",
+  "dvizhenie_skripty": {
+   "chestnyj": "#!/usr/bin/env python3\n# Stand-in численной приёмки движения (репо, не пачка): пишет СВЕЖИЙ отчёт jest-формы.\nimport json\nimport sys\nfrom pathlib import Path\nput = None\nargv = sys.argv[1:]\nif '--outputFile' in argv:\n    put = argv[argv.index('--outputFile') + 1]\notchet = {\"numTotalTests\": 6, \"numPassedTests\": 6, \"numFailedTests\": 0, \"success\": True}\nPath(put).write_text(json.dumps(otchet, indent=1), encoding='utf-8')\n",
+   "padaet": "#!/usr/bin/env python3\n# мутант: приёмка падает — движение не принято.\nimport sys\nsys.exit(1)\n",
+   "molchit": "#!/usr/bin/env python3\n# мутант: rc 0, отчёта нет.\nimport sys\nsys.exit(0)\n",
+   "s_provalami": "#!/usr/bin/env python3\n# мутант: отчёт есть, часть тестов красная.\nimport json\nimport sys\nfrom pathlib import Path\nput = None\nargv = sys.argv[1:]\nif '--outputFile' in argv:\n    put = argv[argv.index('--outputFile') + 1]\notchet = {\"numTotalTests\": 3, \"numPassedTests\": 2, \"numFailedTests\": 1, \"success\": False}\nPath(put).write_text(json.dumps(otchet, indent=1), encoding='utf-8')\n",
+   "pustoj": "#!/usr/bin/env python3\n# мутант: отчёт пуст — тестов ноль.\nimport json\nimport sys\nfrom pathlib import Path\nput = None\nargv = sys.argv[1:]\nif '--outputFile' in argv:\n    put = argv[argv.index('--outputFile') + 1]\notchet = {\"numTotalTests\": 0, \"numPassedTests\": 0, \"numFailedTests\": 0, \"success\": True}\nPath(put).write_text(json.dumps(otchet, indent=1), encoding='utf-8')\n",
+   "musor": "#!/usr/bin/env python3\n# мутант: «отчёт» — не JSON.\nimport sys\nfrom pathlib import Path\nput = None\nargv = sys.argv[1:]\nif '--outputFile' in argv:\n    put = argv[argv.index('--outputFile') + 1]\nPath(put).write_text('ne json', encoding='utf-8')\n",
+   "te-zhe-bajty": "#!/usr/bin/env python3\n# мутант (A.7): переписывает ДОзапусковые байты — mtime свеж, байты те же.\nimport sys\nfrom pathlib import Path\nargv = sys.argv[1:]\nput = argv[argv.index('--outputFile') + 1]\np = Path(put)\nb = p.read_bytes()\np.write_bytes(b)\n",
+   "staryj-mtime": "#!/usr/bin/env python3\n# мутант (A.7): пишет НОВЫЙ отчёт, но сдвигает mtime на 2 ч назад.\nimport json\nimport os\nimport sys\nfrom pathlib import Path\nargv = sys.argv[1:]\nput = argv[argv.index('--outputFile') + 1]\np = Path(put)\np.write_text(json.dumps({\"numTotalTests\": 6, \"numPassedTests\": 6, \"numFailedTests\": 0, \"success\": True}, indent=1), encoding='utf-8')\nt = os.stat(p).st_mtime - 7200\nos.utime(p, (t, t))\n"
+  },
+  "otchety": {
+   "chestnyj": "{\n \"numTotalTests\": 6,\n \"numPassedTests\": 6,\n \"numFailedTests\": 0,\n \"success\": true\n}"
+  }
+ },
+ "piny": {
+  "nositeli": {
+   "nositeli/d24/kadry/gespraech-ga-01.png": "a8740d46c984405cfb960fe0154e0b9147c02296fc2c1f927dda372e5cbc181e",
+   "nositeli/d24/kadry/gespraech-ga-15.png": "9fe180feead65db05d35e627cfe0cefc0eb1da528ec55f1382a86be795b67dfb",
+   "nositeli/d24/kadry/gespraech-ga-16.png": "86e37a78e6fd38637b558569ad29814e861826ac79963e726b759cb635729305",
+   "nositeli/d24/kadry/gespraech-tabshell.png": "d91bdc4da86287de61e0b7e899c2d3777d2354d7eb32556961a15955a585061b",
+   "nositeli/d24/maket/GA-01-Hell.png": "a8740d46c984405cfb960fe0154e0b9147c02296fc2c1f927dda372e5cbc181e",
+   "nositeli/d24/maket/GA-01.png": "a8740d46c984405cfb960fe0154e0b9147c02296fc2c1f927dda372e5cbc181e",
+   "nositeli/d24/maket/GA-15-Hell.png": "9fe180feead65db05d35e627cfe0cefc0eb1da528ec55f1382a86be795b67dfb",
+   "nositeli/d24/maket/GA-15.png": "9fe180feead65db05d35e627cfe0cefc0eb1da528ec55f1382a86be795b67dfb",
+   "nositeli/d24/maket/GA-16-Hell.png": "86e37a78e6fd38637b558569ad29814e861826ac79963e726b759cb635729305",
+   "nositeli/d24/maket/GA-16.png": "86e37a78e6fd38637b558569ad29814e861826ac79963e726b759cb635729305",
+   "nositeli/d24/manifest.json": "b1e37c47261b5574aaa2744c4c8e25770e046307f48c253b3c75ba0d4e6754f5",
+   "nositeli/d24/poses.json": "9a35ca704f81c418300162faeada6988a1a5df1e0517c987098fb88d958a06a0",
+   "nositeli/d24/spec.json": "1b19a543741dce069a37c1e74699bcacb75f19512e32ca08268b5b9ac00f75bf",
+   "nositeli/kadry/r1423-dark-vkhod-117-splash.png": "7cb96563a7b2b4f65d4e833b0d03488fa627c7a541830b7bcddce0cc0087eb68",
+   "nositeli/kadry/r1423-light-vkhod-117-splash.png": "d8927a5c66b9aaf2f667d2ddc4c6cb31a3e428e039fe53ffbb675f44b7fb97b5",
+   "nositeli/maket/Splash-Hell.png": "108167d6a5cc85b7d67b48f1076492d1e1cfd9bf88f6445bf5b070656fe31eda",
+   "nositeli/maket/Splash.png": "4a17e3a4c3888343490f73c037688a7d6522e5fac1919126265c7414f26c976c"
+  },
+  "kontekst": {
+   "realnyj-manifest": "b5bd859858853f708aea05e589cb187b21ea02d3c02af4081ad7ab8d5e76d6b7",
+   "realnaja-speka": "064d7821428f425d431fbd1efd65cbec37263bb62ef974924746a07e769cd318",
+   "realnyj-pozvonok": "9763fdc06b0c0a3c3138f7abac57bf5efbc714403f53d221c3b7c8d225c4f002"
+  }
+ },
+ "kejsy": {
+  "slice1-pachka": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
+    "KADR\tSplash light\t0.782\t0.600\ttagline\tOK",
+    "SHABLON\tdemo-vkhod\tOK"
+   ],
+   "prichiny": []
+  },
+  "chestnyj-d24-ekran": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tgespraech-mitte\tOK"
+   ],
+   "prichiny": []
+  },
+  "shablon3-bez-dvizhenija": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tDVIZHENIE_OTSVTSTVUET\tshablon 3 без блока dvizhenie"
+   ]
+  },
+  "ga-pachka-na-shablone2": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tDVIZHENIE_OTSVTSTVUET\tэкраны D 2.4 без shablon 3: GA-01, GA-15, GA-16"
+   ]
+  },
+  "dvizhenie-na-shablone2": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tSHABLON_NEVEREN\tсостав ключей != шаблон: []"
+   ]
+  },
+  "priemka-s-lishnim-kljuchom": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tSHABLON_NEVEREN\tpriemka"
+   ]
+  },
+  "ekrany-vne-manifesta": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tEKRAN_VNE_MANIFESTA\tGA-99",
+    "PRICHINA\tEKRAN_BEZ_KADROV\tGA-99"
+   ]
+  },
+  "ekran-bez-kadrov": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tEKRAN_BEZ_KADROV\tGA-34"
+   ]
+  },
+  "perehod-vne-manifesta": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tPEREHOD_VNE_MANIFESTA\tGA-T99"
+   ]
+  },
+  "perehod-lishnij": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tPEREHOD_LISHNIJ\tGA-T20"
+   ]
+  },
+  "scena-vne-orakula": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tSCENA_VNE_ORAKULA\tGA-T28"
+   ]
+  },
+  "etalony-bez-pina": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tETALON_BEZ_PINOV\tGA-T31"
+   ]
+  },
+  "etalony-ne-polny": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tETALON_NE_POLON\tGA-T28 dark"
+   ]
+  },
+  "etalon-ne-hex": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tETALON_NE_HEX\tGA-T28 dark"
+   ]
+  },
+  "etalon-lishnij": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tETALON_LISHNIJ\tGA-T20"
+   ]
+  },
+  "etalon-tema-otsutstvuet": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tETALON_TEMA_OTSVTSTVUET\tGA-T28"
+   ]
+  },
+  "video-etalon-ne-polon": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tVIDEO_ETALON_NE_POLON\tGA-T28"
+   ]
+  },
+  "priemka-dvizhenija-bez-otcheta": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tDVIZHENIE_BEZ_OTCHETA\tpython3 mobile/dvizhenie-stand-in.py"
+   ]
+  },
+  "priemka-dvizhenija-ne-proshla": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tDVIZHENIE_NE_PROSHLA\trc=1"
+   ]
+  },
+  "otchet-otsutstvuet": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tOTCHET_OTSVTSTVUET\tmobile/dvizhenie-otchet.json"
+   ]
+  },
+  "otchet-ustarevshij": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tOTCHET_USTAREVSHIJ\tmobile/dvizhenie-otchet.json"
+   ]
+  },
+  "otchet-s-provalami": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tOTCHET_S_PROVALAMI\tmobile/dvizhenie-otchet.json"
+   ]
+  },
+  "otchet-pustoj": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tOTCHET_PUSTOJ\tmobile/dvizhenie-otchet.json"
+   ]
+  },
+  "otchet-ne-chitaetsja": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tOTCHET_NE_CHITAETSJA\tmobile/dvizhenie-otchet.json"
+   ]
+  },
+  "pruzhina-v-spetse": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "krivaya-vne-kanona": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "dlitelnost-bez-tokena": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "dlitelnost-ne-tokenu": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "zaderzhka-ne-po-grammatike": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "zaderzhka-ne-soglasna": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "ud-narushen-peremeshchenie": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "ud-narushen-cveta": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "ud-bez-stolbca": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "end-ms-ne-raven": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "poryadok-narushen": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "kljuchevye-kadry-neverny": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-etalonov-ne-polny": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pruzhina-vo-vseh-perehodah": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "dlitelnost-ms-vse-treki": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "dlitelnost-neizvestnyj-token-vse-treki": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "dlitelnost-syroe-chislo-vse-treki": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "ekrany-ne-polny-ga-01": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "ekrany-ne-polny-ga-15": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "ekrany-ne-polny-ga-16": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "ekrany-perestanovka": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tgespraech-mitte\tOK"
+   ],
+   "prichiny": []
+  },
+  "end-ms-neverno-vse-treki": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalon-poslednij-pin-ne-hex": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalon-vid-lishnij": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalon-vid-otsutstvuet": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalon-video-bez-temy-dark": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalon-video-bez-temy-dark_reduced": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalon-video-bez-temy-light": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalon-video-bez-temy-light_reduced": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalon-video-pin-ne-hex-vse-temy": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalony-dlinnye-vse-temy": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalony-korotkie-vse-temy": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-kadry-bez-temy-dark": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-kadry-bez-temy-dark_reduced": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-kadry-bez-temy-light": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-kadry-bez-temy-light_reduced": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-kadry-lishnjaja-tema": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-kadry-pustoj-element-1": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-kadry-pustoj-element-2": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-kadry-pustoj-element-3": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-kadry-pustoj-element-4": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-kadry-pustoj-element-5": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-kadry-pustoj-spisok-dark": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-kadry-pustoj-spisok-dark_reduced": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-kadry-pustoj-spisok-light": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-kadry-pustoj-spisok-light_reduced": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-video-bez-temy-dark": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-video-bez-temy-dark_reduced": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-video-bez-temy-light": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-video-bez-temy-light_reduced": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-video-lishnjaja-tema": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-video-pustaja-stroka-dark": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-video-pustaja-stroka-dark_reduced": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-video-pustaja-stroka-light": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "fajly-video-pustaja-stroka-light_reduced": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "istochnik-ne-grammatiki-manifest": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "istochnik-ne-grammatiki-pozvonok": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "istochnik-ne-grammatiki-spec": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "istochnik-ne-json-manifest": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "istochnik-ne-json-pozvonok": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "istochnik-ne-json-spec": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "istochnik-otsutstvuet-manifest": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "istochnik-otsutstvuet-pozvonok": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "istochnik-otsutstvuet-spec": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "istochnik-piny-manifest": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "istochnik-piny-pozvonok": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "istochnik-piny-spec": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "kadr-0-neverno-vse-sceny": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "kadr-100-neverno-vse-sceny": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "kadr-25-neverno-vse-sceny": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "kadr-50-neverno-vse-sceny": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "kadr-75-neverno-vse-sceny": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "kadry-lishnij-procent": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "kadry-net-procenta-25": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "krivaya-imja-vne-kanona-vse-treki": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "krivaya-znachenie-vne-tokena-vse-treki": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "okno-ne-ot-nulja-vse-sceny": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "otchet-staryj-mtime": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tOTCHET_USTAREVSHIJ\tmobile/dvizhenie-otchet.json"
+   ]
+  },
+  "otchet-te-zhe-bajty": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tOTCHET_USTAREVSHIJ\tmobile/dvizhenie-otchet.json"
+   ]
+  },
+  "perehody-ne-polny-ga-t28": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "perehody-ne-polny-ga-t29": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "perehody-ne-polny-ga-t31": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "perehody-ne-polny-ga-t35": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "perehody-ne-polny-ga-t36": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "poryadok-dubl-poslednej": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "poryadok-perestanovka-pervyj-poslednij": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "poryadok-propusk-poslednej": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "poryadok-seredina": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pruzhina-na-kazhdom-treke": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "scena-v-poz-vne-perehodov": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "sceny-znaka-ne-polny-ga-t29": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "sceny-znaka-ne-polny-ga-t35": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "ud-bez-stolbca-vse-treki": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "ud-cveta-vse-treki": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "ud-peremeshchenie-vse-treki": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "window-ne-forma-vse-sceny": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "zaderzhka-mnogo-termonov-ne-soglasno": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "zaderzhka-mnogo-termonov-soglasno": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tgespraech-mitte\tOK"
+   ],
+   "prichiny": []
+  },
+  "zaderzhka-ms-neverno-vse-treki": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "zaderzhka-neizvestnyj-token-vse-treki": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "zaderzhka-token-bez-ms-vse-treki": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalony-bez-pina-ga-t28": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalony-bez-pina-ga-t31": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalony-bez-pina-ga-t29": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalony-bez-pina-ga-t35": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalony-bez-pina-ga-t36": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "perehod-bez-specy-ga-t28": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "perehod-bez-specy-ga-t31": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "perehod-bez-specy-ga-t29": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "perehod-bez-specy-ga-t35": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "perehod-bez-specy-ga-t36": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-ekrany-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-ekrany-perestanovka": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tgespraech-mitte\tOK"
+   ],
+   "prichiny": []
+  },
+  "matrica-dv-ekrany-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-ekrany-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-etalony-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-etalony-pustoe": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-etalony-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-manifest-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-manifest-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-manifest-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-manifest_sha256-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-manifest_sha256-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-manifest_sha256-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-perehody-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-perehody-perestanovka": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tgespraech-mitte\tOK"
+   ],
+   "prichiny": []
+  },
+  "matrica-dv-perehody-pustoe": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-perehody-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-pozvonok-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-pozvonok-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-pozvonok-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-pozvonok_sha256-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-pozvonok_sha256-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-pozvonok_sha256-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-priemka_dvizhenija-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-priemka_dvizhenija-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-priemka_dvizhenija-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-sceny_znaka-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-sceny_znaka-perestanovka": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tgespraech-mitte\tOK"
+   ],
+   "prichiny": []
+  },
+  "matrica-dv-sceny_znaka-pustoe": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-sceny_znaka-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-spec-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-spec-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-spec-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-spec_sha256-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-spec_sha256-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-dv-spec_sha256-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-audit_tokenov-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-audit_tokenov-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-audit_tokenov-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-batareja-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-batareja-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-batareja-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-e2e_scenarij-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-e2e_scenarij-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-e2e_scenarij-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-ekran-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-ekran-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-ekran-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-fiktura-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-fiktura-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-kadry-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-kadry-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-kadry-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-kadry_dir-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-kadry_dir-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-kadry_dir-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-katalog_kopii-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-katalog_kopii-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-katalog_kopii-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-kljuchi_kopii-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-kljuchi_kopii-perestanovka": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tgespraech-mitte\tOK"
+   ],
+   "prichiny": []
+  },
+  "matrica-top-kljuchi_kopii-podmnozhestvo": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tgespraech-mitte\tOK"
+   ],
+   "prichiny": []
+  },
+  "matrica-top-kljuchi_kopii-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-kljuchi_kopii-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-kontrakt-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-kontrakt-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-kontrakt-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-ne_trogaet-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-ne_trogaet-perestanovka": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tgespraech-mitte\tOK"
+   ],
+   "prichiny": []
+  },
+  "matrica-top-ne_trogaet-podmnozhestvo": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-ne_trogaet-pustoe": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-ne_trogaet-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-operacii_api-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-operacii_api-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-priemka-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-priemka-podmnozhestvo": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-priemka-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-priemka-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-prokhodimost-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-prokhodimost-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-shablon-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-shablon-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-shablon-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-sostojanija-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-sostojanija-perestanovka": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tgespraech-mitte\tOK"
+   ],
+   "prichiny": []
+  },
+  "matrica-top-sostojanija-podmnozhestvo": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tgespraech-mitte\tOK"
+   ],
+   "prichiny": []
+  },
+  "matrica-top-sostojanija-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-sostojanija-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-spec_api-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-spec_api-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-spec_api-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-vtoroj_profil-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-vtoroj_profil-podmnozhestvo": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-vtoroj_profil-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-vtoroj_profil-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-zamenjaet-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-zamenjaet-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-zony-chuzhoj": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-zony-podmnozhestvo": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-zony-pustoe": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "matrica-top-zony-udalen": {
+   "rc": 2,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalon-pin-0-ne-hex": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalon-pin-1-ne-hex": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalon-pin-2-ne-hex": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalon-pin-3-ne-hex": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalon-pin-4-ne-hex": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalon-kf-bez-temy-dark": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalon-kf-bez-temy-dark_reduced": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalon-kf-bez-temy-light": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalon-kf-bez-temy-light_reduced": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "etalony-piny-perestanovka": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tgespraech-mitte\tOK"
+   ],
+   "prichiny": []
+  },
+  "perehody-bez-specy-vse": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-udaleno-curve": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-udaleno-delay": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-udaleno-duration": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-udaleno-element": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-udaleno-end_ms": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-udaleno-order": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-udaleno-property": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-udaleno-reduced_duration_ms": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-udaleno-spring": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-pustoe-order": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-pustoe-end_ms": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-pustoe-delay": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-pustoe-duration": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-pustoe-curve": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-chuzhoj-order": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-chuzhoj-property": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-chuzhoj-delay": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-chuzhoj-duration": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-chuzhoj-end_ms": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-chuzhoj-curve": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-chuzhoj-spring": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-chuzhoj-reduced_duration_ms": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "pole-treka-pustoe-element": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tgespraech-mitte\tOK"
+   ],
+   "prichiny": []
+  },
+  "pole-treka-pustoe-reduced_duration_ms": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tgespraech-mitte\tOK"
+   ],
+   "prichiny": []
+  },
+  "pole-treka-chuzhoj-element": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tgespraech-mitte\tOK"
+   ],
+   "prichiny": []
+  },
+  "scena-window-ms-udalen": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "scena-window-ms-pustoj": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "scena-window-ms-chuzhoj": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "scena-window-ms-perestanovka": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "scena-keyframes-ms-udaleny": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "scena-keyframes-ms-pustoj": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "scena-keyframes-ms-chuzhoj": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "scena-files-udaleny": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "scena-files-pustoj": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "scena-files-chuzhoj": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "scena-tracks-udaleny": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "scena-tracks-pustoj": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "scena-tracks-chuzhoj": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "scena-tracks-perestanovka": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "scena-tracks-podmnozhestvo-poslednego": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tGA-01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-15 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-16 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tgespraech-mitte\tOK"
+   ],
+   "prichiny": []
+  },
+  "pole-treka-pustoe-property": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  },
+  "scena-tracks-podmnozhestvo-pervogo": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [],
+   "vychisljaemyj": true
+  }
+ },
+ "stab_vhod": {
+  "s45_dvizhenie_bez_suda.py": [
+   "etalony-bez-pina",
+   "ga-pachka-na-shablone2",
+   "istochnik-otsutstvuet-manifest",
+   "perehody-ne-polny-ga-t35",
+   "pruzhina-v-spetse",
+   "shablon3-bez-dvizhenija"
+  ],
+  "s46_sostav_shablona3.py": [
+   "dvizhenie-na-shablone2"
+  ],
+  "s47_priemka_alfavit.py": [
+   "priemka-s-lishnim-kljuchom"
+  ],
+  "s48_jakorja_ga.py": [
+   "ekran-bez-kadrov",
+   "ekrany-ne-polny-ga-16",
+   "ga-pachka-na-shablone2"
+  ],
+  "s49_ekrany_polnota.py": [
+   "ekran-bez-kadrov",
+   "ekrany-ne-polny-ga-16",
+   "ekrany-vne-manifesta"
+  ],
+  "s50_perehody_polnota.py": [
+   "perehod-lishnij",
+   "perehod-vne-manifesta",
+   "perehody-ne-polny-ga-t35"
+  ],
+  "s51_sceny_znaka.py": [
+   "scena-vne-orakula",
+   "sceny-znaka-ne-polny-ga-t29"
+  ],
+  "s52_piny_istochnikov.py": [
+   "istochnik-piny-spec"
+  ],
+  "s53_etalony.py": [
+   "etalon-kf-bez-temy-dark",
+   "etalon-kf-bez-temy-dark_reduced",
+   "etalon-kf-bez-temy-light",
+   "etalon-kf-bez-temy-light_reduced",
+   "etalon-lishnij",
+   "etalon-ne-hex",
+   "etalon-pin-0-ne-hex",
+   "etalon-pin-1-ne-hex",
+   "etalon-pin-2-ne-hex",
+   "etalon-pin-3-ne-hex",
+   "etalon-pin-4-ne-hex",
+   "etalon-tema-otsutstvuet",
+   "etalony-bez-pina",
+   "etalony-bez-pina-ga-t28",
+   "etalony-bez-pina-ga-t29",
+   "etalony-bez-pina-ga-t31",
+   "etalony-bez-pina-ga-t35",
+   "etalony-bez-pina-ga-t36",
+   "etalony-ne-polny",
+   "video-etalon-ne-polon"
+  ],
+  "s54_dlitzelnost_token.py": [
+   "dlitelnost-bez-tokena",
+   "dlitelnost-ne-tokenu"
+  ],
+  "s55_zaderzhka_grammatika.py": [
+   "zaderzhka-ne-po-grammatike",
+   "zaderzhka-ne-soglasna"
+  ],
+  "s56_mekhanika_krivye.py": [
+   "krivaya-vne-kanona",
+   "pole-treka-chuzhoj-curve",
+   "pole-treka-pustoe-curve",
+   "pruzhina-v-spetse"
+  ],
+  "s57_ud.py": [
+   "pole-treka-chuzhoj-reduced_duration_ms",
+   "ud-bez-stolbca",
+   "ud-narushen-cveta",
+   "ud-narushen-peremeshchenie"
+  ],
+  "s58_end_ms.py": [
+   "end-ms-ne-raven",
+   "pole-treka-chuzhoj-end_ms",
+   "pole-treka-pustoe-end_ms"
+  ],
+  "s59_sceny_poryadok.py": [
+   "pole-treka-chuzhoj-order",
+   "pole-treka-pustoe-order",
+   "poryadok-narushen",
+   "scena-tracks-perestanovka",
+   "scena-tracks-podmnozhestvo-pervogo"
+  ],
+  "s60_sceny_kadry.py": [
+   "kljuchevye-kadry-neverny",
+   "scena-keyframes-ms-chuzhoj",
+   "scena-keyframes-ms-pustoj",
+   "scena-keyframes-ms-udaleny",
+   "scena-window-ms-chuzhoj",
+   "scena-window-ms-pustoj",
+   "scena-window-ms-udalen"
+  ],
+  "s61_fajly_etalonov.py": [
+   "fajly-etalonov-ne-polny"
+  ],
+  "s62_priemka_forma.py": [
+   "priemka-dvizhenija-bez-otcheta"
+  ],
+  "s63_priemka_ispolnenie.py": [
+   "otchet-ne-chitaetsja",
+   "otchet-otsutstvuet",
+   "otchet-pustoj",
+   "otchet-s-provalami",
+   "otchet-ustarevshij",
+   "priemka-dvizhenija-ne-proshla"
+  ],
+  "s64_v2_slomano.py": [
+   "slice1-pachka"
+  ],
+  "s65_grammatika_odin_perehod.py": [
+   "pruzhina-vo-vseh-perehodah"
+  ],
+  "s66_mekhanika_pervyj_trek.py": [
+   "krivaya-imja-vne-kanona-vse-treki",
+   "krivaya-znachenie-vne-tokena-vse-treki",
+   "pruzhina-na-kazhdom-treke"
+  ],
+  "s67_dlitzelnost_pervyj_trek.py": [
+   "dlitelnost-ms-vse-treki",
+   "dlitelnost-neizvestnyj-token-vse-treki",
+   "dlitelnost-syroe-chislo-vse-treki"
+  ],
+  "s68_zaderzhka_pervyj_term.py": [
+   "zaderzhka-mnogo-termonov-ne-soglasno",
+   "zaderzhka-mnogo-termonov-soglasno"
+  ],
+  "s69_ud_odno_svojstvo.py": [
+   "ud-cveta-vse-treki",
+   "ud-peremeshchenie-vse-treki"
+  ],
+  "s70_kadry_odin_procent.py": [
+   "kadr-0-neverno-vse-sceny",
+   "kadr-100-neverno-vse-sceny",
+   "kadr-50-neverno-vse-sceny",
+   "kadr-75-neverno-vse-sceny"
+  ],
+  "s71_fajly_odna_tema.py": [
+   "fajly-kadry-bez-temy-light_reduced",
+   "fajly-video-bez-temy-light"
+  ],
+  "s72_etalon_pervyj_pin.py": [
+   "etalon-pin-1-ne-hex",
+   "etalon-pin-2-ne-hex",
+   "etalon-pin-3-ne-hex",
+   "etalon-poslednij-pin-ne-hex"
+  ],
+  "s73_istochnik_odin.py": [
+   "istochnik-piny-manifest",
+   "istochnik-piny-pozvonok"
+  ],
+  "s74_perehody_pervyj_kadr.py": [
+   "perehody-ne-polny-ga-t36"
+  ],
+  "s75_sceny_znaka_odnostoronne.py": [
+   "scena-v-poz-vne-perehodov"
+  ],
+  "s76_poryadok_bez_poslednej.py": [
+   "poryadok-dubl-poslednej",
+   "poryadok-propusk-poslednej"
+  ],
+  "s77_etalon_piny_krajnie.py": [
+   "etalon-pin-1-ne-hex",
+   "etalon-pin-2-ne-hex",
+   "etalon-pin-3-ne-hex"
+  ],
+  "s78_scena_podmena.py": [
+   "perehod-bez-specy-ga-t28",
+   "perehod-bez-specy-ga-t29",
+   "perehod-bez-specy-ga-t31",
+   "perehod-bez-specy-ga-t35",
+   "perehod-bez-specy-ga-t36"
+  ],
+  "s79_trek_polja_po_umolchaniju.py": [
+   "pole-treka-udaleno-curve",
+   "pole-treka-udaleno-delay",
+   "pole-treka-udaleno-duration",
+   "pole-treka-udaleno-element",
+   "pole-treka-udaleno-end_ms",
+   "pole-treka-udaleno-order",
+   "pole-treka-udaleno-property",
+   "pole-treka-udaleno-reduced_duration_ms",
+   "pole-treka-udaleno-spring"
+  ],
+  "s80_dv_spiski_vychisljaet.py": [
+   "matrica-dv-ekrany-udalen",
+   "matrica-dv-etalony-udalen",
+   "matrica-dv-perehody-udalen",
+   "matrica-dv-sceny_znaka-udalen"
+  ]
+ }
+}
