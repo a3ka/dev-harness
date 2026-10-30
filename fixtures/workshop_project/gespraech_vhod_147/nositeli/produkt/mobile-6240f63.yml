@@ -1,0 +1,1512 @@
+name: mobile
+
+# 143 (mob-ci-razdelenie): разделение CI по экранам. Явные jobs (не матрица),
+# одна сборка build-apk (release/mock/x86_64) — работники получают ТОТ ЖЕ
+# артефакт по точному имени и сверяют sha256 ДО установки; один уровень
+# восстановления внутри каждой экранной задачи (141 внутри экрана; внешний
+# автоповтор 139 mobile-e2e-retry.yml выведен из эксплуатации — файла нет);
+# fail-closed агрегат android-e2e (имя required-проверки сохранено) судит
+# needs+selection+digest; ночь/предрелиз — тот же DAG с полным набором,
+# агрегируется в НЕ-required mobile-regression-signal; select-screens выбирает
+# затронутые экраны по карте mobile/ci-screens.json (fail-closed: ошибка
+# входа/карты — rc 1 с именем, пустой выбор — полный набор с причиной).
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('mobile-pr-{0}', github.event.number) || (github.event_name == 'schedule' && 'mobile-nightly' || (github.event_name == 'workflow_dispatch' && format('mobile-dispatch-{0}', github.sha) || format('mobile-{0}', github.ref))) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    working-directory: mobile
+
+jobs:
+  # 143: выбор затронутых экранов. Карта — mobile/ci-screens.json (схема 1),
+  # селектор — mobile/scripts/select-ci-screens.cjs. Ошибка входа/карты/инвентаря
+  # — rc 1 с именем (не пустой success); пустой первичный выбор — полный набор
+  # с причиной EMPTY_SELECTION_FALLBACK; ночь/диспетч — полный набор без diff.
+  # checkout с fetch-depth: 0: селектору нужен merge-base base...head.
+  select-screens:
+    runs-on: [self-hosted, linux, x64, complior]
+    timeout-minutes: 10
+    outputs:
+      selection: ${{ steps.sel.outputs.selection }}
+      e2e-splash: ${{ steps.vybor.outputs.e2e-splash }}
+      e2e-first-run: ${{ steps.vybor.outputs.e2e-first-run }}
+      e2e-erstinformation: ${{ steps.vybor.outputs.e2e-erstinformation }}
+      e2e-start: ${{ steps.vybor.outputs.e2e-start }}
+      e2e-pilot: ${{ steps.vybor.outputs.e2e-pilot }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      # 143 (С-3 Rev143): код PR исполняется на хосте раннера (node) —
+      # проба изоляции ДО первого такого шага (буква build-apk/e2e-pilot).
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
+      - name: 'Выбор экранов (select-ci-screens.cjs, fail-closed)'
+        id: sel
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          case "${{ github.event_name }}" in
+            pull_request) MODE=pull_request ;;
+            push) MODE=push ;;
+            schedule) MODE=schedule ;;
+            workflow_dispatch) MODE=dispatch ;;
+            merge_group) MODE=merge_group ;;
+            *) echo "REZHIM: ${{ github.event_name }}" >&2; exit 1 ;;
+          esac
+          ARGS=(--mode "$MODE" --out selection.json --repo .)
+          if [ "$MODE" = pull_request ]; then
+            ARGS+=(--base-sha "${{ github.event.pull_request.base.sha }}" --head-sha "${{ github.event.pull_request.head.sha }}" --pr "${{ github.event.pull_request.number }}")
+          elif [ "$MODE" = push ]; then
+            ARGS+=(--base-sha "${{ github.event.before }}" --head-sha "${{ github.sha }}")
+          elif [ "$MODE" = merge_group ]; then
+            ARGS+=(--base-sha "${{ github.event.merge_group.base_sha }}" --head-sha "${{ github.event.merge_group.head_sha }}")
+          fi
+          node mobile/scripts/select-ci-screens.cjs "${ARGS[@]}"
+          {
+            echo "selection<<SELECTION_KONEC"
+            cat selection.json
+            echo "SELECTION_KONEC"
+          } >> "$GITHUB_OUTPUT"
+      - name: 'Выходы выбора по работникам'
+        id: vybor
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          node -e '
+            const fs = require("fs");
+            const sel = JSON.parse(fs.readFileSync("selection.json", "utf8"));
+            const fs2 = require("fs");
+            const out = [];
+            for (const s of sel.selected) out.push(`${s.job}=true`);
+            for (const e of sel.excluded) out.push(`${e.job}=false`);
+            fs2.appendFileSync(process.env.GITHUB_OUTPUT, out.join("\n") + "\n");
+          '
+      - name: 'Артефакт selection.json'
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: selection-${{ github.run_id }}-${{ github.run_attempt }}
+          path: selection.json
+          if-no-files-found: error
+          retention-days: 14
+  quality:
+    runs-on: [self-hosted, linux, x64, complior]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      # 143 (С-3 Rev143): код PR исполняется на хосте раннера (npm/node) —
+      # проба изоляции ДО первого такого шага (буква build-apk/e2e-pilot).
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
+      # 995 (CMP-MOB-001) + 999 (CMP-MOB-002) + 108 (CMP-MOB-004) +
+      # 111 (CMP-MOB-005): единый H-пин принятого харнеса
+      # c663dd0fb0b233e56368707aef6940baaf254a30 несёт четыре семейства
+      # проб — pilot_995 (перепин после CMP-MOB-003/107), nav_999,
+      # start_108 (336 клеток: 324 поведенческих + 12 ROUTE/ENTRY;
+      # матрица 42 поведенческих + 5 статических мутантов), first_run_111
+      # (v4: статическая 16/16 + поведенческая 23/23, матрица 16 статических +
+      # 34 поведенческих мутантов; К5 требует НАЛИЧИЯ и не-скрытости обеих
+      # строк макета — podzagolovok «Ein Brief, ein Schaden, …» и futer
+      # «Versicherung. Erledigt.» — в ОБЕИХ схемах; +4 клетки
+      # RESTYLE_GUARD_995_F03_01_{DARK,LIGHT} и
+      # RESTYLE_GUARD_995_WELCOME_{DARK,LIGHT} по совету С10/Р2 ревьюера круга 3).
+      # Числа батареи 111 — замер на пине 66b9fe1c46de75abe3263982ed2a2d8ae50c19d6
+      # (до перепина на 8d3f48b886b180689114f15bc90c8d13bcd8480f): static 16/16 rc0, honest 19/19 rc0,
+      # матрица rc0 (15 статических + 24 поведенческих мутанта); регресс
+      # 995 --check-frozen rc0, 999 четыре пробы rc0, 108 static 22/22 + honest
+      # 336/336 rc0; npm lint/typecheck/test rc0.
+      # frozen-пробы 995/999/start_108/111
+      # держатся одним checkout, без дрейфа между шагами. cmp блокирует
+      # job до запуска npm test при дрейфе, потом идут проб-Jest/RNTL
+      # на disposable-копии в /tmp; quality-job прогоняет пробы 995,
+      # четыре пробы 999, две пробы 108 и две пробы 111; --matrix
+      # остаётся для арбитража.
+      # ПЕРЕПИН H 2026-10-23: 8d3f48b886b180689114f15bc90c8d13bcd8480f →
+      # c663dd0fb0b233e56368707aef6940baaf254a30 (origin/main харнесса) —
+      # несёт frozen/contracts/111/4: каталог копии First-Run v4 (обе строки
+      # макета обязательны на экране; видимость судит закрытый перечень
+      # скрытий). Между пинами pilot_995/nav_999/start_108 не менялись;
+      # vkhod_117 менялся (117 v3 не заморожен: frozen/contracts/117/3 нет) —
+      # потому .harness117 остаётся на своём пине, а .harness (995/999/108/111)
+      # и .harness117 читают разные ревизии намеренно. Числа замера на новом
+      # пине (свои прогоны): 111 honest 23/23 rc0, 111 --model 23/23 rc0,
+      # 111 --matrix rc0 (34 стаба, каждый красен своей именованной ветвью),
+      # 111 static 16/16 rc0, 111 static --matrix rc0 (16 стабов); регресс
+      # 995 --check-frozen rc0, 999 четыре пробы rc0, 108 static 22/22 + honest
+      # 336/336 rc0; npm test/lint/typecheck rc0.
+      # ПЕРЕПИН H 2026-10-21 (история): 66b9fe1c46de75abe3263982ed2a2d8ae50c19d6 →
+      # 8d3f48b886b180689114f15bc90c8d13bcd8480f (origin/main харнесса),
+      # который принёс батарею 117 v2 (fixtures/workshop_project/vkhod_117;
+      # frozen/contracts/117/2 — предок этого коммита) и семейства
+      # 995/999/108/111; тогда .harness и .harness117 стали одним SHA.
+      # Пин .harness117 (батарея 117) НЕ переписывается: остаётся на
+      # 8d3f48b886b180689114f15bc90c8d13bcd8480f (frozen/contracts/117/2).
+      # Пин .harness123 (сверка кадров 123) НЕ переписывается: по
+      # source.json sverka_123.provodka «перепин .harness123 — дело 123»,
+      # а клетка SVERKA_123_HARNESS_PIN сверяет ref только как 40-hex.
+      # ПЕРЕПИН H 2026-10-25 (контракт 118 v2, §ПРЕДПОСЫЛКИ: «перепин H …
+      # на ревизию с этими данными ДО продуктового зелёного»):
+      # c663dd0fb0b233e56368707aef6940baaf254a30 →
+      # b9b4c66f3d84dc8aa7eb7c8e83b466e807817416 (main харнесса) — ревизия
+      # несёт ленд данных 995 (871d04eb: session.expires_at 2026-10-14 →
+      # 2099-12-31 в fixtures/workshop_project/pilot_995/source.json, слово
+      # владельца 25.10); cmp-шаг ниже требует байт-равенства продукта и H.
+      # Между c663dd0f и b9b4c66f3 в pilot_995/nav_999/start_108/
+      # first_run_111 и scripts/ekran_shablon.py/sverka_maketa.py
+      # изменился ТОЛЬКО этот литерал (git diff --stat), пробы не тронуты.
+      - name: Checkout frozen probe harness H
+        uses: actions/checkout@v7
+        with:
+          repository: a3ka/dev-harness
+          ref: b9b4c66f3d84dc8aa7eb7c8e83b466e807817416
+          path: .harness
+          persist-credentials: false
+      - name: cmp frozen pilot.test.tsx + source.json с H
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -e
+          test -f mobile/src/bootstrap/__tests__/pilot.test.tsx
+          test -f mobile/src/bootstrap/__tests__/source.json
+          cmp mobile/src/bootstrap/__tests__/pilot.test.tsx .harness/fixtures/workshop_project/pilot_995/pilot.test.tsx
+          cmp mobile/src/bootstrap/__tests__/source.json .harness/fixtures/workshop_project/pilot_995/source.json
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: probe.py --check-frozen (H, --repo disposable R)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -e
+          mkdir -p /tmp/dev-harness-verify
+          cp -a . /tmp/dev-harness-verify/impl995-r-${{ github.run_id }}-${{ github.run_attempt }}
+          python3 -m pip install -r /tmp/dev-harness-verify/impl995-r-${{ github.run_id }}-${{ github.run_attempt }}/.harness/fixtures/workshop_project/pilot_995/requirements.txt
+          cd /tmp/dev-harness-verify/impl995-r-${{ github.run_id }}-${{ github.run_attempt }}
+          python3 .harness/fixtures/workshop_project/pilot_995/probe.py --repo . --check-frozen
+      - name: runtime_probe.py, bundle_probe.py, schema_probe.py, frozen_matrix.py, transport_probe.py, admission_probe.py, stale_probe.py, types_probe.py, pins_probe.py, admission_family_probe.py, stale_table_probe.py (H, --repo disposable R)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -e
+          cd /tmp/dev-harness-verify/impl995-r-${{ github.run_id }}-${{ github.run_attempt }}
+          python3 .harness/fixtures/workshop_project/pilot_995/runtime_probe.py --repo .
+          python3 .harness/fixtures/workshop_project/pilot_995/bundle_probe.py --repo .
+          python3 .harness/fixtures/workshop_project/pilot_995/schema_probe.py --repo .
+          python3 .harness/fixtures/workshop_project/pilot_995/frozen_matrix.py --repo .
+          python3 .harness/fixtures/workshop_project/pilot_995/transport_probe.py --repo .
+          python3 .harness/fixtures/workshop_project/pilot_995/admission_probe.py --repo .
+          python3 .harness/fixtures/workshop_project/pilot_995/stale_probe.py --repo .
+          python3 .harness/fixtures/workshop_project/pilot_995/types_probe.py --repo .
+          python3 .harness/fixtures/workshop_project/pilot_995/pins_probe.py --repo .
+          python3 .harness/fixtures/workshop_project/pilot_995/admission_family_probe.py --repo .
+          python3 .harness/fixtures/workshop_project/pilot_995/stale_table_probe.py --repo .
+      # 999 (CMP-MOB-002): навигация Start/Vorgänge/Schutz/Post и токены D2.2.5.1.
+      # H принятого харнеса закреплён за frozen/contracts/999/1 (c9f680b4d);
+      # четыре пробы (nav 238, ui 18, static 6, copy 51) исполняются на
+      # disposable-копии в /tmp; --matrix остаётся для арбитража.
+      - name: 999 nav_probe.py / ui_probe.py / shell_static_probe.py / copy_probe.py (H, --repo disposable R)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -e
+          mkdir -p /tmp/dev-harness-verify
+          cp -a . /tmp/dev-harness-verify/impl999-r-${{ github.run_id }}-${{ github.run_attempt }}
+          cd /tmp/dev-harness-verify/impl999-r-${{ github.run_id }}-${{ github.run_attempt }}
+          python3 .harness/fixtures/workshop_project/nav_999/nav_probe.py --repo .
+          python3 .harness/fixtures/workshop_project/nav_999/ui_probe.py --repo .
+          python3 .harness/fixtures/workshop_project/nav_999/shell_static_probe.py --repo .
+          python3 .harness/fixtures/workshop_project/nav_999/copy_probe.py --repo .
+      # 108 (CMP-MOB-004): Start F04.01–F04.07 — статическая проба (22/22)
+      # и поведенческая проба (336/336 на честном C, с ROUTE_ENTRY;
+      # на B — rc1 START_SEAM_ABSENT). Шаг 108 берёт тот же checkout H,
+      # что 995/999/111 — c663dd0fb0b233e56368707aef6940baaf254a30 (шаг
+      # «Checkout frozen probe harness H» выше); отдельного H-пина 108
+      # нет. Матрица 42 поведенческих + 5 статических мутантов. Перепин H
+      # на 66b9fe1c46de75abe3263982ed2a2d8ae50c19d6 (ленд wip/111/architect: клетки
+      # RESTYLE_GUARD_995_* круга 4) выполнен; текущий пин —
+      # c663dd0fb0b233e56368707aef6940baaf254a30: оба checkout (quality и
+      # android-e2e) читают одну ревизию.
+      # frozen-шаги 995/999 сохранены дословно. --matrix — для арбитража.
+      - name: 108 start_static_probe.py / start_probe.py (H, --repo disposable R)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -e
+          mkdir -p /tmp/dev-harness-verify
+          cp -a . /tmp/dev-harness-verify/impl108-r-${{ github.run_id }}-${{ github.run_attempt }}
+          cd /tmp/dev-harness-verify/impl108-r-${{ github.run_id }}-${{ github.run_attempt }}
+          python3 .harness/fixtures/workshop_project/start_108/start_static_probe.py --repo .
+          python3 .harness/fixtures/workshop_project/start_108/start_probe.py --repo .
+      # 111 (CMP-MOB-005): First-Run по D2.2.5.1 — статическая проба 16/16
+      # и поведенческая проба 23/23 на честном C (на B — rc1
+      # FIRST_RUN_SEAM_ABSENT). Шаг 111 берёт тот же checkout H, что
+      # 995/999/108 — c663dd0fb0b233e56368707aef6940baaf254a30 (шаг
+      # «Checkout frozen probe harness H» выше); отдельного H-пина 111 нет.
+      # Матрица 16 статических + 34 поведенческих мутантов
+      # (+4 клетки RESTYLE_GUARD_995_* круга 4 по совету С10/Р2 ревьюера).
+      # Перепин H на 66b9fe1c46de75abe3263982ed2a2d8ae50c19d6 (ленд wip/111/architect: клетки
+      # RESTYLE_GUARD_995_* круга 4) выполнен; текущий пин —
+      # c663dd0fb0b233e56368707aef6940baaf254a30: оба checkout (quality и
+      # android-e2e) читают одну ревизию. frozen-шаги 995/999/108
+      # сохранены дословно. --matrix — для арбитража.
+      - name: 111 first_run_static_probe.py / first_run_probe.py (H, --repo disposable R)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -e
+          mkdir -p /tmp/dev-harness-verify
+          cp -a . /tmp/dev-harness-verify/impl111-r-${{ github.run_id }}-${{ github.run_attempt }}
+          cd /tmp/dev-harness-verify/impl111-r-${{ github.run_id }}-${{ github.run_attempt }}
+          python3 .harness/fixtures/workshop_project/first_run_111/first_run_static_probe.py --repo .
+          python3 .harness/fixtures/workshop_project/first_run_111/first_run_probe.py --repo .
+      # 117 (CMP-MOB-006): вход F03.01/F03.02 по D2.2.5.1 + НАШ нативный
+      # splash/иконка. Батарея vkhod_117 (поведенческая 22 клетки RNTL +
+      # статическая 35 клеток: ассеты, app.json, произведённые drawable,
+      # композиты по эталону артбордов) пиннится отдельным checkout в свой путь
+      # .harness117 — отдельного ревизионного SHA больше нет: перепин
+      # 2026-10-21 поставил .harness117 на тот же
+      # 8d3f48b886b180689114f15bc90c8d13bcd8480f, что и .harness был тогда
+      # (батарея 117 v2 приехала в общий H; на 66b9fe1c46de75abe3263982ed2a2d8ae50c19d6,
+      # до перепина, её не было — отсюда и был отдельный коммит
+      # frozen/contracts/117/1 = 8d2a7fcfb6a38193a1f9bc05505bde33e8532e57).
+      # Перепин 2026-10-23 (H .harness → c663dd0fb0b233e56368707aef6940baaf254a30)
+      # .harness117 НЕ тронул: батарея 117 v2 — замороженная ревизия
+      # (frozen/contracts/117/2), а на новом пине файлы vkhod_117 отличаются
+      # (117 v3 не заморожен: frozen/contracts/117/3 нет).
+      # Свой путь нужен, чтобы шаг 117 читал батарею из .harness117, пока
+      # .harness (995/999/108/111) выносится из дерева до lint. Шаг читает
+      # батарею из этого checkout и гоняет её на disposable-копии R тем же
+      # механизмом, что 995/999/108/111.
+      # ПЕРЕПИН .harness117 2026-10-28 (живая приёмка cutover: PR Complior-mob
+      # #136, run 40637850251, job quality 122648864425 — шаг 15 красный RED
+      # SVERKA_123_STEP_UNCONDITIONAL / SVERKA_123_MANIFEST_CANON /
+      # SVERKA_123_HARNESS_PIN, «шагов с .harness123/scripts/sverka_maketa.py 0»):
+      # 8d3f48b886b180689114f15bc90c8d13bcd8480f →
+      # 4ac99af9fe8b02f16206b5c98bb9556556c05e74 (main харнесса; несёт
+      # frozen/contracts/117/5 — байты vkhod_117 этого пина равны байтам тега
+      # 754a30403dd601d53c04dbe3884d61d0b383eae7, diff пуст; тот же SHA, что и
+      # .harness задачи e2e-pilot). Причина: батарея 117 v2 судила шаг сверки
+      # 123 в монолитном jobs.android-e2e (source.json sverka_123.provodka
+      # job=android-e2e); после разделения DAG сверка живёт в e2e-splash — v5
+      # судит её там (provodka job=e2e-splash; ref .harness123 сверяется
+      # формой 40-hex, перепин .harness123 — дело 123 по его source.json).
+      # Замер этой пачки на cutover-дереве cb03387fcc03: static 70/70 rc 0;
+      # поведенческая с эталоном (--model) 191/191 rc 0, без продуктового PR
+      # 117 v5 на дереве красны ровно 34 W1A-клетки (маркер erstinformation-117
+      # из model/pilot-app v5 ещё не в main) — тот же набор из 34 на родителе
+      # ed852ee, т.е. НЕ cutover-регрессия.
+      - name: Checkout probe battery 117 (frozen/contracts/117/5)
+        uses: actions/checkout@v7
+        with:
+          repository: a3ka/dev-harness
+          ref: 4ac99af9fe8b02f16206b5c98bb9556556c05e74
+          path: .harness117
+          persist-credentials: false
+      # РАЗВЯЗКА ПИНОВ 2026-10-28 (живая приёмка cutover #136, ВТОРОЙ прогон
+      # quality: run 40645135546, job 122672085383): статика v5 из этого
+      # checkout зелёна (70/70), но ПОВЕДЕНЧЕСКАЯ проба из ТОГО ЖЕ checkout
+      # красна 34/191 — клетки MIGRACIYA_* (W0/W1A/NEPODKLYUCHEN,
+      # G0_SMENA_TEMY, PORYADOK, RERENDER_W1A_W0): те же 34, что Addr117/
+      # Crit143r3 мерили на монолите и целевом дереве («граница 117 / W1A;
+      # требуется отдельная продуктовая поставка 117 v5» — residual
+      # Crit143r3; маркер erstinformation-117 из model/pilot-app v5 ещё не
+      # в main). Зелёные ревизии у проб РАЗНЫЕ: статике нужен v5 (placement
+      # сверки 123 в e2e-splash; старый пин красен тремя SVERKA_123_* —
+      # первый прогон run 40637850251), поведению — v2 (замер этой пачки
+      # на cutover-дереве 3a94e19a6b13791d959f70712cd674b72db53c2b:
+      # behavioral 26/26 rc 0 — тот же пин, которым поведение было зелёно
+      # на монолите #124). СТАТИКА остаётся на .harness117 (v5), ПОВЕДЕНИЕ
+      # идёт из отдельного checkout .harness117b (v2): для поведения ничего
+      # не меняется (тот же пин 8d3f48b8, те же клетки) и ни одна проба не
+      # ослаблена и не удалена; продуктовая поставка 117 v5 переводит
+      # поведение на v5 своей пачкой — перепином .harness117b.
+      - name: Checkout probe battery 117 v2 — поведенческая (frozen/contracts/117/2)
+        uses: actions/checkout@v7
+        with:
+          repository: a3ka/dev-harness
+          ref: 8d3f48b886b180689114f15bc90c8d13bcd8480f
+          path: .harness117b
+          persist-credentials: false
+      # Контракт 117 v2 «Приёмочный критерий»: пробы — Python 3 stdlib
+      # (+ pyyaml для клеток Maestro; отсутствие — rc2 INFRASTRUCTURE).
+      # Шаг install-pyyaml-pyyaml явно ставит pyyaml==6.0.1 (версия, на которой
+      # батарея замерена локально на 6.0.1; pip уже на python 3.12 из
+      # setup-python@v7 выше). Шаг безусловный, НЕ пропускается при
+      # ранее установленной pyyaml — контракт 117 v2 этого требует.
+      # android-e2e НЕ нуждается: пробы 117 (vkhod_static_probe / vkhod_probe)
+      # в android-e2e не запускаются (там Maestro на release APK —
+      # .maestro/vkhod-117-splash-vhod.yaml, без импорта yaml на уровне модуля).
+      - name: 'pyyaml для клеток Maestro батареи 117 (контракт 117 v5: приёмка)'
+        working-directory: ${{ github.workspace }}
+        run: python3 -m pip install 'pyyaml==6.0.1'
+      - name: '117 vkhod_static_probe.py (v5, .harness117) / vkhod_probe.py (v2, .harness117b) — батарея 117, --repo disposable R'
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -e
+          mkdir -p /tmp/dev-harness-verify
+          cp -a . /tmp/dev-harness-verify/impl117-r-${{ github.run_id }}-${{ github.run_attempt }}
+          cd /tmp/dev-harness-verify/impl117-r-${{ github.run_id }}-${{ github.run_attempt }}
+          rm -rf .harness
+          python3 .harness117/fixtures/workshop_project/vkhod_117/vkhod_static_probe.py --repo .
+          python3 .harness117b/fixtures/workshop_project/vkhod_117/vkhod_probe.py --repo .
+      # 143 v2 (Astra §2.2): вынос пачек ОБЩИЙ. Список pack-каталогов даёт
+      # режим инвентаризации селектора по карте (--mode inventar): пачка/флоу
+      # без записи карты, запись без исполняемого входа, symlink — rc 1 ДО
+      # любого перемещения (не wildcard и не «убрали всё — lint зелёный»).
+      # Каждый следующий экран (147–154) добавляет свою пачку записью карты
+      # в том же PR — персональная строка mv здесь не появляется.
+      # 118 (Erstinformation): файл пробы композиции
+      # mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh и H-checkoutы
+      # остаются явными (не экранные packs — обобщать все временные файлы
+      # нельзя); layout-проверка (structure-policy.json) их не знает.
+      - name: 'Инвентаризация пачек по карте и вынос H, батареи 117, пачек экранов из дерева до lint'
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -e
+          mkdir -p /tmp/dev-harness-verify
+          node mobile/scripts/select-ci-screens.cjs --mode inventar --repo . \
+            --out /tmp/dev-harness-verify/impl-inventar-${{ github.run_id }}-${{ github.run_attempt }}.json \
+            > /tmp/dev-harness-verify/impl-inventar-${{ github.run_id }}-${{ github.run_attempt }}.out
+          while IFS= read -r stroka; do
+            case "$stroka" in
+              PACHKA\ *)
+                pachka="${stroka#PACHKA }"
+                test -n "$pachka"
+                test -d "$pachka"
+                mv "$pachka" "/tmp/dev-harness-verify/impl-pack-$(basename "${pachka%/}")-${{ github.run_id }}-${{ github.run_attempt }}"
+                ;;
+            esac
+          done < /tmp/dev-harness-verify/impl-inventar-${{ github.run_id }}-${{ github.run_attempt }}.out
+          mv .harness /tmp/dev-harness-verify/impl995-h-${{ github.run_id }}-${{ github.run_attempt }}
+          mv .harness117 /tmp/dev-harness-verify/impl117-b-${{ github.run_id }}-${{ github.run_attempt }}
+          mv .harness117b /tmp/dev-harness-verify/impl117b-b-${{ github.run_id }}-${{ github.run_attempt }}
+          mv mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh /tmp/dev-harness-verify/impl118-probe-${{ github.run_id }}-${{ github.run_attempt }}
+      - run: npm test
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run doctor
+        env:
+          EXPO_DOCTOR_SKIP_DEPENDENCY_VERSION_CHECK: '1'
+  # 143: единственная сборка release-APK (тело и env — дословно прежний шаг
+  # «Сборка release-APK»); публикует артефакт с именем run-id+digest и outputs
+  # идентичности (apk_sha256, artifact_name, run_id) — работники сверяют digest
+  # до установки, агрегат сверяет digest каждого работника с этой сборкой.
+  build-apk:
+    needs: quality
+    runs-on: [self-hosted, linux, x64, kvm, complior]
+    timeout-minutes: 25
+    outputs:
+      apk_sha256: ${{ steps.ident.outputs.apk_sha256 }}
+      artifact_name: ${{ steps.ident.outputs.artifact_name }}
+      run_id: ${{ steps.ident.outputs.run_id }}
+    steps:
+      # 143 (блокер адверсария 1/2, cutover): source provenance сборки —
+      # checkout проверяемой ревизии ПЕРВЫМ шагом, до любых source-consuming
+      # шагов (needs: quality задаёт порядок, но не переносит checkout и не
+      # закрепляет runner: без шага переиспользуемый self-hosted раннер
+      # собирает остаточный workspace старой ревизии; по образцу checkout
+      # работников). clean: true — остатки старого дерева не выживают;
+      # persist-credentials: false — токен не остаётся на диске.
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          clean: true
+      # 143 (FAIL критика Crit143x — «литерал на месте, исполняемое иное»):
+      # checkout с ref чужой ревизии либо второй checkout после правильного
+      # первого проходили батарею 69/69 — фактическая ревизия рабочего
+      # дерева сверяется с $GITHUB_SHA ДО любого шага, читающего исходники
+      # (версия node/npm ci/prebuild; env-форма — без ${{ }} инъекции).
+      - name: Сборка из проверяемой ревизии (HEAD == GITHUB_SHA)
+        working-directory: ${{ github.workspace }}
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
+      - name: Версия Node совпадает с .node-version
+        working-directory: ${{ github.workspace }}
+        run: test "$(node -v)" = "v$(cat .node-version)"
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - run: npm ci --no-audit --no-fund
+      - name: Сборка release-APK (JS внутри, без Metro; только x86_64)
+        env:
+          EXPO_PUBLIC_API_MODE: mock
+        run: |
+          npx expo prebuild --platform android --no-install
+          cd android && ./gradlew --no-daemon assembleRelease -PreactNativeArchitectures=x86_64 --max-workers=4
+      - name: 'Идентичность сборки и артефакт APK'
+        id: ident
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          APK='mobile/android/app/build/outputs/apk/release/app-release.apk'
+          test -f "$APK"
+          digest="$(sha256sum "$APK" | awk '{print $1}')"
+          imja="apk-${{ github.run_id }}-${digest:0:12}"
+          printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$digest" "${{ github.sha }}" "${{ github.run_id }}" "${{ github.run_attempt }}" "$imja" > mobile/build-identichnost.txt
+          {
+            echo "apk_sha256=$digest"
+            echo "artifact_name=$imja"
+            echo "run_id=${{ github.run_id }}"
+          } >> "$GITHUB_OUTPUT"
+      - name: 'Артефакт APK (одна сборка на прогон)'
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.ident.outputs.artifact_name }}
+          path: mobile/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
+  # 143 (e2e-splash): экран 117 + сверка 123; тела шагов — дословно из прежнего android-e2e (свой AVD/порт 5562, повтор по теме по канонической сигнатуре)
+  e2e-splash:
+    needs: [select-screens, build-apk]
+    if: needs.select-screens.outputs['e2e-splash'] == 'true'
+    outputs:
+      apk_sha256: ${{ steps.ident.outputs.apk_sha256 }}
+      artifact_name: ${{ steps.ident.outputs.artifact_name }}
+      run_id: ${{ steps.ident.outputs.run_id }}
+    runs-on: [self-hosted, linux, x64, kvm, complior]
+    timeout-minutes: 40
+    # 143 (живая приёмка cutover, PR Complior-mob#136, run 40650367385):
+    # «gh run download» артефакта сборки требует actions: read, которого нет
+    # в workflow-level permissions (contents: read) — живой HTTP 403 Resource
+    # not accessible by integration на всех пяти работниках. Job-level набор
+    # ЗАМЕНЯЕТ workflow-level целиком, потому contents: read повторён явно.
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          clean: true
+      # 143 (С-3 Rev143): код PR исполняется на хосте раннера (maestro) —
+      # проба изоляции ДО первого такого шага (буква build-apk/e2e-pilot).
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
+      # 143: работник НЕ пересобирает APK — берёт артефакт сборки по ТОЧНОМУ
+      # имени из outputs build-apk (переживает выборочный повтор работника:
+      # имя не вычисляется из github.run_attempt) и сверяет sha256 ДО установки.
+      - name: 'APK сборки: артефакт по имени, digest до установки'
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMJA_ARTEFAKTA: ${{ needs.build-apk.outputs.artifact_name }}
+          ZHELANYJ_DIGEST: ${{ needs.build-apk.outputs.apk_sha256 }}
+        run: |
+          set -euo pipefail
+          test -n "$IMJA_ARTEFAKTA" && test -n "$ZHELANYJ_DIGEST"
+          rm -rf apk-build && mkdir -p apk-build
+          gh run download "${{ github.run_id }}" --name "$IMJA_ARTEFAKTA" --dir apk-build
+          test -f apk-build/app-release.apk
+          got="$(sha256sum apk-build/app-release.apk | awk '{print $1}')"
+          if [ "$got" != "$ZHELANYJ_DIGEST" ]; then
+            echo "APK_DIGEST_RASKHOZHDENIE: $got != $ZHELANYJ_DIGEST" >&2
+            exit 1
+          fi
+          mkdir -p mobile/android/app/build/outputs/apk/release
+          cp apk-build/app-release.apk mobile/android/app/build/outputs/apk/release/app-release.apk
+      # 143: outputs работника для агрегата — digest установленного APK,
+      # имя артефакта и run-identity той же сборки (агрегат сверяет их с
+      # build-apk; расхождение = чужой/старый артефакт, rc 1 агрегата).
+      - name: 'Идентичность прогона работника (outputs для агрегата)'
+        id: ident
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          got="$(sha256sum mobile/android/app/build/outputs/apk/release/app-release.apk | awk '{print $1}')"
+          {
+            echo "apk_sha256=$got"
+            echo "artifact_name=${{ needs.build-apk.outputs.artifact_name }}"
+            echo "run_id=${{ needs.build-apk.outputs.run_id }}"
+          } >> "$GITHUB_OUTPUT"
+      # 117 (CMP-MOB-006, арбитраж круга 2, ПРАВИЛО (В)): доказательство Б3
+      # «кадр целиком в окне» и кадры по правилу (В) — Maestro на release APK
+      # (Expo Go картинку плагина не показывает, С1). Свой эмулятор прогона
+      # 117: ОДИН сценарий .maestro/vkhod-117-splash-vhod.yaml исполняется
+      # дважды — тема ОС переключается между прогонами (cmd uimode night),
+      # каталог вывода несёт схему; assertVisible — каждый элемент состава
+      # кадра, takeScreenshot — каждый кадр. Артефакты (скриншоты + JUnit)
+      # уходят в maestro-out-117 отдельным шагом ниже.
+      - name: 117 splash/F03.01/F03.02 × тема (Maestro, release APK)
+        working-directory: ${{ github.workspace }}/mobile
+        run: |
+          set -euo pipefail
+          APK='android/app/build/outputs/apk/release/app-release.apk'
+          AVD="ci117-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          PORT=5562
+          SERIAL="emulator-${PORT}"
+          AVDM="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
+          cleanup117() {
+            adb -s "$SERIAL" emu kill >/dev/null 2>&1 || true
+            sleep 3
+            pkill -f "qemu-system-x86_64.*-avd $AVD" >/dev/null 2>&1 || true
+            "$AVDM" delete avd -n "$AVD" >/dev/null 2>&1 || true
+          }
+          trap cleanup117 EXIT
+          echo no | "$AVDM" create avd --force -n "$AVD" \
+            -k "system-images;android-36;google_apis;x86_64" -d pixel_7 >/dev/null
+          sed -i 's/^hw.ramSize=.*/hw.ramSize=2048/' "$ANDROID_AVD_HOME/$AVD.avd/config.ini"
+          adb start-server >/dev/null
+
+          # adb-транспорт эмулятора иногда кратко уходит в offline (PR #114, шаги 995 и 117:
+          # «device offline» / «device <...> not found» / DeviceServerDiedException). Ждём, пока
+          # adb стабильно отвечает на shell pm path android три проверки подряд.
+          wait_stable117() {
+            local ok=0
+            for _ in $(seq 1 40); do
+              if [ "$(adb -s "$SERIAL" get-state 2>/dev/null)" = "device" ] &&
+                 adb -s "$SERIAL" shell pm path android >/dev/null 2>&1; then
+                ok=$((ok + 1)); [ "$ok" -ge 3 ] && return 0
+              else
+                ok=0
+              fi
+              sleep 2
+            done
+            echo "ОТКАЗ: эмулятор $SERIAL не стабилизировался (adb offline)" >&2
+            return 1
+          }
+
+          boot_emulator() {
+            emulator -avd "$AVD" -port "$PORT" -no-window -no-audio -no-boot-anim -no-snapshot \
+              -gpu swiftshader_indirect >"emulator-$AVD.log" 2>&1 &
+            adb -s "$SERIAL" wait-for-device
+            for _ in $(seq 1 130); do
+              [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+              sleep 3
+            done
+            [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] || {
+              echo "ОТКАЗ: эмулятор 117 не загрузился за 390 с" >&2; return 1; }
+            wait_stable117
+            for s in window_animation_scale transition_animation_scale animator_duration_scale; do
+              adb -s "$SERIAL" shell settings put global "$s" 0
+            done
+            adb -s "$SERIAL" install -r "$APK" >/dev/null
+          }
+
+          # Прогон темы ровно один раз; при сигнатуре обрыва adb-транспорта в выводе темы —
+          # перезапуск эмулятора и второй (последний) прогон этой темы с чистым каталогом.
+          # Провал assert/assertVisible (rc≠0 без сигнатуры) — НЕ повторяется.
+          run_theme() {
+            local theme="$1" night
+            if [ "$theme" = "dark" ]; then night=yes; else night=no; fi
+            adb -s "$SERIAL" shell cmd uimode night "$night"
+            sleep 2
+            rm -rf "maestro-out-117/$theme"
+            set +e
+            maestro --device "$SERIAL" test --format junit \
+              --output "maestro-out-117/report-$theme.xml" \
+              --test-output-dir "maestro-out-117/$theme" \
+              .maestro/vkhod-117-splash-vhod.yaml
+            local rc=$?
+            set -e
+            if [ "$rc" -ne 0 ] && grep -rqE 'device offline|device .* not found|DeviceServerDiedException' "maestro-out-117/$theme" 2>/dev/null; then
+              echo "ПОВТОР: обрыв adb-транспорта эмулятора — перезапуск и повтор темы $theme" >&2
+              adb -s "$SERIAL" emu kill >/dev/null 2>&1 || true
+              sleep 3
+              pkill -f "qemu-system-x86_64.*-avd $AVD" >/dev/null 2>&1 || true
+              boot_emulator
+              adb -s "$SERIAL" shell cmd uimode night "$night"
+              sleep 2
+              rm -rf "maestro-out-117/$theme"
+              set +e
+              maestro --device "$SERIAL" test --format junit \
+                --output "maestro-out-117/report-$theme.xml" \
+                --test-output-dir "maestro-out-117/$theme" \
+                .maestro/vkhod-117-splash-vhod.yaml
+              rc=$?
+              set -e
+            fi
+            return "$rc"
+          }
+
+          boot_emulator
+          rm -rf maestro-out-117
+          for theme in dark light; do
+            run_theme "$theme" || { echo "ПОВТОРЫ ИСЧЕРПАНЫ: тема $theme" >&2; exit 1; }
+          done
+# mobile/maestro-out-117/sverka-123.tsv — 2 строки KADR (kadry_117.json v2: Splash dark/light).
+      # 123 (CMP-MOB-007, mob-sverka-maketa): сверка кадров, снятых шагом
+      # 117 выше, с PNG-макетами D2.2.5.1 в docs/ux. Шаг стоит ПОСЛЕ «117
+      # splash/F03.01/F03.02 × тема» (кадры mobile/maestro-out-117 уже на
+      # диске) и ДО «Артефакты 117» (if: always() выгружает и кадры, и tsv).
+      # пин .harness123 перепинен на 123 v2: манифест kadry_117 = Splash dark/light, слово владельца ~20:00 UTC «А»
+      # Без continue-on-error: кадр ниже порога 0,600 — шаг rc 1, job android-e2e = failure,
+      # лог несёт NIZHE_POROGA<TAB><id кадра>, артефакт
+      - name: Checkout scripts/sverka_maketa.py (mob-sverka-123 implementation)
+        uses: actions/checkout@v7
+        with:
+          repository: a3ka/dev-harness
+          ref: 5d98a1cd745ce08eeb21b89f8e05750c4e769a0e
+          path: .harness123
+          persist-credentials: false
+      - name: 123 сверка кадров с макетом (scripts/sverka_maketa.py)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -o pipefail
+          python3 .harness123/scripts/sverka_maketa.py --manifest .harness123/fixtures/workshop_project/mob_sverka_123/kadry_117.json --kadry mobile/maestro-out-117 --repo . | tee mobile/maestro-out-117/sverka-123.tsv
+      - name: Артефакты 117 (кадры по правилу (В), отчёт)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-117-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: mobile/maestro-out-117
+          if-no-files-found: error
+          retention-days: 14
+
+  # 143 (e2e-first-run): экранная пачка 135 (+ placement 111); валидатор 132 + cmp + происхождение, один повтор по сигнатуре (141); H: .harness135 + .harness123 (sverka пакета 135 живёт в .harness123/scripts — скрытая зависимость ekran.json)
+  e2e-first-run:
+    needs: [select-screens, build-apk]
+    if: needs.select-screens.outputs['e2e-first-run'] == 'true'
+    outputs:
+      apk_sha256: ${{ steps.ident.outputs.apk_sha256 }}
+      artifact_name: ${{ steps.ident.outputs.artifact_name }}
+      run_id: ${{ steps.ident.outputs.run_id }}
+    runs-on: [self-hosted, linux, x64, kvm, complior]
+    timeout-minutes: 40
+    # 143 (живая приёмка cutover, PR Complior-mob#136, run 40650367385):
+    # «gh run download» артефакта сборки требует actions: read, которого нет
+    # в workflow-level permissions (contents: read) — живой HTTP 403 Resource
+    # not accessible by integration на всех пяти работниках. Job-level набор
+    # ЗАМЕНЯЕТ workflow-level целиком, потому contents: read повторён явно.
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          clean: true
+      # 143 (С-3 Rev143): код PR исполняется на хосте раннера (maestro) —
+      # проба изоляции ДО первого такого шага (буква build-apk/e2e-pilot).
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
+      # 143: работник НЕ пересобирает APK — берёт артефакт сборки по ТОЧНОМУ
+      # имени из outputs build-apk (переживает выборочный повтор работника:
+      # имя не вычисляется из github.run_attempt) и сверяет sha256 ДО установки.
+      - name: 'APK сборки: артефакт по имени, digest до установки'
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMJA_ARTEFAKTA: ${{ needs.build-apk.outputs.artifact_name }}
+          ZHELANYJ_DIGEST: ${{ needs.build-apk.outputs.apk_sha256 }}
+        run: |
+          set -euo pipefail
+          test -n "$IMJA_ARTEFAKTA" && test -n "$ZHELANYJ_DIGEST"
+          rm -rf apk-build && mkdir -p apk-build
+          gh run download "${{ github.run_id }}" --name "$IMJA_ARTEFAKTA" --dir apk-build
+          test -f apk-build/app-release.apk
+          got="$(sha256sum apk-build/app-release.apk | awk '{print $1}')"
+          if [ "$got" != "$ZHELANYJ_DIGEST" ]; then
+            echo "APK_DIGEST_RASKHOZHDENIE: $got != $ZHELANYJ_DIGEST" >&2
+            exit 1
+          fi
+          mkdir -p mobile/android/app/build/outputs/apk/release
+          cp apk-build/app-release.apk mobile/android/app/build/outputs/apk/release/app-release.apk
+      # 143: outputs работника для агрегата — digest установленного APK,
+      # имя артефакта и run-identity той же сборки (агрегат сверяет их с
+      # build-apk; расхождение = чужой/старый артефакт, rc 1 агрегата).
+      - name: 'Идентичность прогона работника (outputs для агрегата)'
+        id: ident
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          got="$(sha256sum mobile/android/app/build/outputs/apk/release/app-release.apk | awk '{print $1}')"
+          {
+            echo "apk_sha256=$got"
+            echo "artifact_name=${{ needs.build-apk.outputs.artifact_name }}"
+            echo "run_id=${{ needs.build-apk.outputs.run_id }}"
+          } >> "$GITHUB_OUTPUT"
+      # 135 (CMP-MOB-008, first-run-ekran): экранная пачка mobile/e2e-first-run
+      # (First-Run + вход F03.01/F03.02/F03.02-V01, 8 кадров). Пин .harness135
+      # — принятый H харнесса: scripts/ekran_shablon.py (валидатор 132),
+      # fixtures/workshop_project/first_run_ekran_135/teksty/proverka_text.py
+      # (файл проверки происхождения, побайтово равный
+      # mobile/e2e-first-run/batareja/proverka_proiskhozdenija.py). Раннер 123
+      # берётся из .harness123 (тот же файл по байтам, что в .harness135/scripts).
+      # Порядок (контракт 135 п.6): валидатор 132 исполняет priemka.e2e
+      # (e2e.sh: настоящий Maestro, обе темы) и сверку 123 → cmp проверки с
+      # H-пином → проверка происхождения БЕЗ промежуточного изменения кадров.
+      # Проба Г0 117/2 (RESTYLE_GUARD_995_F03_{DARK,LIGHT}) исполняется в
+      # quality-job (шаг «117 vkhod_static_probe.py / vkhod_probe.py»).
+      - name: Checkout H пачки first-run-ekran (.harness135)
+        uses: actions/checkout@v7
+        with:
+          repository: a3ka/dev-harness
+          ref: ca277b3ac80c052bdb6b984953fa3ba23c64bab5
+          path: .harness135
+          persist-credentials: false
+      # 123 (CMP-MOB-007, mob-sverka-maketa): сверка кадров, снятых шагом
+      # 117 выше, с PNG-макетами D2.2.5.1 в docs/ux. Шаг стоит ПОСЛЕ «117
+      # splash/F03.01/F03.02 × тема» (кадры mobile/maestro-out-117 уже на
+      # диске) и ДО «Артефакты 117» (if: always() выгружает и кадры, и tsv).
+      # пин .harness123 перепинен на 123 v2: манифест kadry_117 = Splash dark/light, слово владельца ~20:00 UTC «А»
+      # Без continue-on-error: кадр ниже порога 0,600 — шаг rc 1, job android-e2e = failure,
+      # лог несёт NIZHE_POROGA<TAB><id кадра>, артефакт
+      - name: Checkout scripts/sverka_maketa.py (mob-sverka-123 implementation)
+        uses: actions/checkout@v7
+        with:
+          repository: a3ka/dev-harness
+          ref: 5d98a1cd745ce08eeb21b89f8e05750c4e769a0e
+          path: .harness123
+          persist-credentials: false
+      - name: 135 first-run-ekran (валидатор 132 + cmp + проверка происхождения, Maestro × тема)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          APK='mobile/android/app/build/outputs/apk/release/app-release.apk'
+          AVD="ci135-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          PORT=5564
+          SERIAL="emulator-${PORT}"
+          AVDM="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
+          cleanup135() {
+            adb -s "$SERIAL" emu kill >/dev/null 2>&1 || true
+            sleep 3
+            pkill -f "qemu-system-x86_64.*-avd $AVD" >/dev/null 2>&1 || true
+            "$AVDM" delete avd -n "$AVD" >/dev/null 2>&1 || true
+          }
+          trap cleanup135 EXIT
+          echo no | "$AVDM" create avd --force -n "$AVD" \
+            -k "system-images;android-36;google_apis;x86_64" -d pixel_7 >/dev/null
+          sed -i 's/^hw.ramSize=.*/hw.ramSize=2048/' "$ANDROID_AVD_HOME/$AVD.avd/config.ini"
+          adb start-server >/dev/null
+          # Н-407: обрыв adb-транспорта после «готовности» эмулятора — не провал
+          # проверки. Канон шага 117/ci-e2e.sh (слово владельца 25.10): ровно
+          # один повтор, и только по сигнатуре обрыва транспорта; провал
+          # сверки/проверки происхождения НЕ повторяется.
+          boot135() {
+            adb -s "$SERIAL" emu kill >/dev/null 2>&1 || true
+            sleep 3
+            pkill -f "qemu-system-x86_64.*-avd $AVD" >/dev/null 2>&1 || true
+            emulator -avd "$AVD" -port "$PORT" -no-window -no-audio -no-boot-anim -no-snapshot \
+              -gpu swiftshader_indirect >"emulator-$AVD.log" 2>&1 &
+            adb -s "$SERIAL" wait-for-device
+            for _ in $(seq 1 130); do
+              [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+              sleep 3
+            done
+            [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] || {
+              echo "ОТКАЗ: эмулятор 135 не загрузился за 390 с" >&2; return 1; }
+            local ok=0
+            for _ in $(seq 1 40); do
+              if [ "$(adb -s "$SERIAL" get-state 2>/dev/null)" = "device" ] &&
+                 adb -s "$SERIAL" shell pm path android >/dev/null 2>&1; then
+                ok=$((ok + 1)); [ "$ok" -ge 3 ] && break
+              else
+                ok=0
+              fi
+              sleep 2
+            done
+            if [ "$ok" -lt 3 ]; then
+              echo "ОТКАЗ: эмулятор $SERIAL не стабилизировался (adb offline)" >&2
+              return 1
+            fi
+            for s in window_animation_scale transition_animation_scale animator_duration_scale; do
+              adb -s "$SERIAL" shell settings put global "$s" 0
+            done
+            adb -s "$SERIAL" install -r "$APK" >/dev/null
+          }
+          # Н-407: диагностика ВНЕ эха — обрыв adb обязан быть виден в логе шага,
+          # а не только в артефакте (иначе не работает ни триаж, ни признак
+          # повтора 139, который читает лог мимо ##[group]-эха скрипта).
+          diag135() {
+            echo "ДИАГНОСТИКА 135: adb devices" >&2
+            adb devices >&2 || true
+            echo "ДИАГНОСТИКА 135: сигнатуры Maestro в mobile/maestro-out-first-run" >&2
+            grep -rnE 'device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException' \
+              mobile/maestro-out-first-run >&2 2>/dev/null || true
+            echo "ДИАГНОСТИКА 135: хвост emulator-$AVD.log" >&2
+            tail -n 40 "emulator-$AVD.log" >&2 || true
+          }
+          run_priemka135() {
+            rm -rf mobile/maestro-out-first-run
+            mkdir -p mobile/maestro-out-first-run
+            python3 .harness135/scripts/ekran_shablon.py --pack mobile/e2e-first-run --repo . --harness .harness135
+          }
+          if ! boot135; then diag135; exit 1; fi
+          export FIRST_RUN_SERIAL="$SERIAL"
+          set +e
+          run_priemka135
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            diag135
+            if grep -rqE 'device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException' \
+              mobile/maestro-out-first-run 2>/dev/null; then
+              echo "ПОВТОР: обрыв adb-транспорта эмулятора 135 — перезапуск эмулятора и валидатора" >&2
+              if ! boot135; then diag135; exit 1; fi
+              set +e
+              run_priemka135
+              rc=$?
+              set -e
+              if [ "$rc" -ne 0 ]; then diag135; fi
+            fi
+          fi
+          [ "$rc" -eq 0 ] || exit "$rc"
+          cmp mobile/e2e-first-run/batareja/proverka_proiskhozdenija.py .harness135/fixtures/workshop_project/first_run_ekran_135/teksty/proverka_text.py
+          python3 mobile/e2e-first-run/batareja/proverka_proiskhozdenija.py --pack mobile/e2e-first-run --repo . --harness .harness135
+      - name: Артефакты 135 (кадры first-run-ekran, отчёт)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-first-run-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: mobile/maestro-out-first-run
+          if-no-files-found: error
+          retention-days: 14
+
+  # 143 (e2e-erstinformation): экранная пачка 118; same-job session-Jest
+  # (npm test --json в ЭТОЙ задаче ДО checker — проводка 118 v2 сохранена),
+  # H: .harness118 + .harness123/scripts; один повтор по сигнатуре (141).
+  e2e-erstinformation:
+    needs: [select-screens, build-apk]
+    if: needs.select-screens.outputs['e2e-erstinformation'] == 'true'
+    outputs:
+      apk_sha256: ${{ steps.ident.outputs.apk_sha256 }}
+      artifact_name: ${{ steps.ident.outputs.artifact_name }}
+      run_id: ${{ steps.ident.outputs.run_id }}
+    runs-on: [self-hosted, linux, x64, kvm, complior]
+    timeout-minutes: 40
+    # 143 (живая приёмка cutover, PR Complior-mob#136, run 40650367385):
+    # «gh run download» артефакта сборки требует actions: read, которого нет
+    # в workflow-level permissions (contents: read) — живой HTTP 403 Resource
+    # not accessible by integration на всех пяти работниках. Job-level набор
+    # ЗАМЕНЯЕТ workflow-level целиком, потому contents: read повторён явно.
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          clean: true
+      # 143 (С-3 Rev143): код PR исполняется на хосте раннера (npm/maestro) —
+      # проба изоляции ДО первого такого шага (буква build-apk/e2e-pilot);
+      # в монолите эта проба охраняла весь android-e2e, включая Jest 118.
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
+      # 143: работник НЕ пересобирает APK — берёт артефакт сборки по ТОЧНОМУ
+      # имени из outputs build-apk (переживает выборочный повтор работника:
+      # имя не вычисляется из github.run_attempt) и сверяет sha256 ДО установки.
+      - name: 'APK сборки: артефакт по имени, digest до установки'
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMJA_ARTEFAKTA: ${{ needs.build-apk.outputs.artifact_name }}
+          ZHELANYJ_DIGEST: ${{ needs.build-apk.outputs.apk_sha256 }}
+        run: |
+          set -euo pipefail
+          test -n "$IMJA_ARTEFAKTA" && test -n "$ZHELANYJ_DIGEST"
+          rm -rf apk-build && mkdir -p apk-build
+          gh run download "${{ github.run_id }}" --name "$IMJA_ARTEFAKTA" --dir apk-build
+          test -f apk-build/app-release.apk
+          got="$(sha256sum apk-build/app-release.apk | awk '{print $1}')"
+          if [ "$got" != "$ZHELANYJ_DIGEST" ]; then
+            echo "APK_DIGEST_RASKHOZHDENIE: $got != $ZHELANYJ_DIGEST" >&2
+            exit 1
+          fi
+          mkdir -p mobile/android/app/build/outputs/apk/release
+          cp apk-build/app-release.apk mobile/android/app/build/outputs/apk/release/app-release.apk
+      # 143: outputs работника для агрегата — digest установленного APK,
+      # имя артефакта и run-identity той же сборки (агрегат сверяет их с
+      # build-apk; расхождение = чужой/старый артефакт, rc 1 агрегата).
+      - name: 'Идентичность прогона работника (outputs для агрегата)'
+        id: ident
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          got="$(sha256sum mobile/android/app/build/outputs/apk/release/app-release.apk | awk '{print $1}')"
+          {
+            echo "apk_sha256=$got"
+            echo "artifact_name=${{ needs.build-apk.outputs.artifact_name }}"
+            echo "run_id=${{ needs.build-apk.outputs.run_id }}"
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - run: npm ci --no-audit --no-fund
+      # 118 (Erstinformation): экранная пачка mobile/e2e-erstinformation —
+      # 16 кадров F02.03/F02.08 в обеих темах. Пин .harness118 — принятый
+      # харнесс с усиленной батареей 118 (арбитраж 117↔118 п.1.1–1.7):
+      # scripts/ekran_shablon.py (валидатор формы 132), scripts/sverka_maketa.py
+      # (раннер 123) и fixtures/workshop_project/erstinformation_118/teksty/
+      # proverka_text.py (файл проверки происхождения, побайтово равный
+      # mobile/e2e-erstinformation/batareja/proverka_proiskhozdenija.py).
+      # Порядок (контракт 118, §ПРОВОДКА-ЭНФОРСМЕНТ): валидатор 132 сам
+      # исполняет priemka.e2e (Maestro, обе темы) и сверку 123 → cmp файла
+      # проверки происхождения с пином H → проверка происхождения БЕЗ
+      # промежуточной правки кадров.
+      #
+      # Пин .harness118 подставлен при интеграции ветки:
+      # d417996f906e881330d989aecfd08bbcdbc4709a = refs/heads/main харнесса
+      # (усиленная батарея 118 после вердикта адверсария круга 1: блокер B3 —
+      # проверка происхождения судит исключение пачки `!erstinformation.yaml`
+      # в mobile/.maestro/config.yaml именованным CONFIG_BEZ_ISKLJUCHENIJA
+      # (носитель mobile/.maestro/config.yaml байт-в-байт = teksty/
+      # maestro_config.yaml пина); прежние усиления пина сохранены:
+      # селектор first-run-continue с дефисом, замкнутая пара
+      # testID=/buttonTestID= в проверке носителя, appId флоу
+      # = com.complior.mobile — пакет продукта, и суд appId в проверке
+      # происхождения: прежний пин оставлял чужой demo-пакет, из-за чего
+      # Maestro падал «Package … is not installed».
+      #
+      # ПЕРЕПИН .harness118 2026-10-25 (контракт 118 v2 круг 3 — РЕШЕНИЕ
+      # арбитра + критик accept, frozen/contracts/118/2):
+      # d417996f → b9b4c66f3d84dc8aa7eb7c8e83b466e807817416 →
+      # 5dbcb549dcd226b2bdc858a06aeb2a1be7bcbf04 (main харнесса). Причина
+      # перепина — канонизация путей checker'а (Adv118v2b: относительная
+      # форма --repo . ломала KOMPOZICIJA, rc 127); после b9b4c66f3 менялись
+      # батарея 118 и реестр/форки/HANDOFF. Батарея v2 добавляет: пин-форму
+      # 13 клеток session-srok.test.tsx (sha256), судью ИСПОЛНЕНИЯ — отчёт jest
+      # --json шага npm test ДО checker'а (флаг отчёта исполнения,
+      # fail-closed), байтовый судью данных — носитель байт-равен эталону
+      # ИЛИ эталону с ровно одной подстановкой литерала expires_at
+      # (nositeli/dannye/etalon_995.json + etalon_pilot_responses.json).
+      # ПРЕДПОСЫЛКА (контракт 118, §Зависимость замороженного корня): путь
+      # `/` → First-Run → demo → Erstinformation → Start держит pilot-app.tsx,
+      # а его правка разрешена только ПОСЛЕ замороженной миграции 117 v+1
+      # (frozen/contracts/117/3). Шаг ниже проверяет тег и останавливает job с
+      # внятной причиной, пока миграция не заморожена.
+      - name: Checkout H пачки erstinformation (.harness118)
+        uses: actions/checkout@v7
+        with:
+          repository: a3ka/dev-harness
+          ref: 5dbcb549dcd226b2bdc858a06aeb2a1be7bcbf04
+          path: .harness118
+          persist-credentials: false
+      # 123 (CMP-MOB-007, mob-sverka-maketa): сверка кадров, снятых шагом
+      # 117 выше, с PNG-макетами D2.2.5.1 в docs/ux. Шаг стоит ПОСЛЕ «117
+      # splash/F03.01/F03.02 × тема» (кадры mobile/maestro-out-117 уже на
+      # диске) и ДО «Артефакты 117» (if: always() выгружает и кадры, и tsv).
+      # пин .harness123 перепинен на 123 v2: манифест kadry_117 = Splash dark/light, слово владельца ~20:00 UTC «А»
+      # Без continue-on-error: кадр ниже порога 0,600 — шаг rc 1, job android-e2e = failure,
+      # лог несёт NIZHE_POROGA<TAB><id кадра>, артефакт
+      - name: Checkout scripts/sverka_maketa.py (mob-sverka-123 implementation)
+        uses: actions/checkout@v7
+        with:
+          repository: a3ka/dev-harness
+          ref: 5d98a1cd745ce08eeb21b89f8e05750c4e769a0e
+          path: .harness123
+          persist-credentials: false
+      - name: 118 миграция 117 v+1 заморожена (frozen/contracts/117/3)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          git -C .harness118 fetch --tags origin
+          git -C .harness118 rev-parse --quiet --verify refs/tags/frozen/contracts/117/3 >/dev/null || {
+            echo "MIGRATION_117_V1_ABSENT: pilot-app.tsx нельзя править без frozen/contracts/117/3" >&2
+            exit 1
+          }
+      # 118 v2 (А-2, судья исполнения): отчёт jest --json пишет шаг npm
+      # test ТОГО ЖЕ job ДО шага проверки происхождения; checker получает
+      # его флагом отчёта и судит исполнение 13 пин-клеток срока
+      # (success, имя файла, каждая клетка ровно раз passed, pending/todo
+      # 0 — fail-closed: нет отчёта = непрогон). Порядок шагов судит
+      # CI_BEZ_OTCHETA_SROKA (единственная текстовая нога; подделка
+      # отчёта/перестановка шагов — остаток §НЕ ЗАЩИЩАЕТ контракта,
+      # ловец — журнал CI, reviewer, adversary-гейт).
+      - run: npm test -- --json --outputFile=e2e-erstinformation/jest-otchet.json
+      - name: 118 erstinformation (валидатор 132 + cmp + проверка происхождения, Maestro × тема)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          APK='mobile/android/app/build/outputs/apk/release/app-release.apk'
+          AVD="ci118-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          PORT=5566
+          SERIAL="emulator-${PORT}"
+          AVDM="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
+          cleanup118() {
+            adb -s "$SERIAL" emu kill >/dev/null 2>&1 || true
+            sleep 3
+            pkill -f "qemu-system-x86_64.*-avd $AVD" >/dev/null 2>&1 || true
+            "$AVDM" delete avd -n "$AVD" >/dev/null 2>&1 || true
+          }
+          trap cleanup118 EXIT
+          echo no | "$AVDM" create avd --force -n "$AVD" \
+            -k "system-images;android-36;google_apis;x86_64" -d pixel_7 >/dev/null
+          sed -i 's/^hw.ramSize=.*/hw.ramSize=2048/' "$ANDROID_AVD_HOME/$AVD.avd/config.ini"
+          adb start-server
+          # Н-407: обрыв adb-транспорта после «готовности» эмулятора — не провал
+          # проверки. Канон шага 117/ci-e2e.sh (слово владельца 25.10): ровно
+          # один повтор, и только по сигнатуре обрыва транспорта; провал
+          # сверки/проверки происхождения НЕ повторяется.
+          boot118() {
+            adb -s "$SERIAL" emu kill >/dev/null 2>&1 || true
+            sleep 3
+            pkill -f "qemu-system-x86_64.*-avd $AVD" >/dev/null 2>&1 || true
+            emulator -avd "$AVD" -port "$PORT" -no-window -no-audio -no-boot-anim -no-snapshot \
+              -gpu swiftshader_indirect >"emulator-$AVD.log" 2>&1 &
+            adb -s "$SERIAL" wait-for-device
+            for _ in $(seq 1 130); do
+              [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+              sleep 3
+            done
+            [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] || {
+              echo "ОТКАЗ: эмулятор 118 не загрузился за 390 с" >&2; return 1; }
+            local ok=0
+            for _ in $(seq 1 40); do
+              if [ "$(adb -s "$SERIAL" get-state 2>/dev/null)" = "device" ] &&
+                 adb -s "$SERIAL" shell pm path android >/dev/null 2>&1; then
+                ok=$((ok + 1)); [ "$ok" -ge 3 ] && break
+              else
+                ok=0
+              fi
+              sleep 2
+            done
+            if [ "$ok" -lt 3 ]; then
+              echo "ОТКАЗ: эмулятор $SERIAL не стабилизировался (adb offline)" >&2
+              return 1
+            fi
+            for s in window_animation_scale transition_animation_scale animator_duration_scale; do
+              adb -s "$SERIAL" shell settings put global "$s" 0
+            done
+            adb -s "$SERIAL" install -r "$APK" >/dev/null
+          }
+          # Н-407: диагностика ВНЕ эха — обрыв adb обязан быть виден в логе шага,
+          # а не только в артефакте (иначе не работает ни триаж, ни признак
+          # повтора 139, который читает лог мимо ##[group]-эха скрипта).
+          diag118() {
+            echo "ДИАГНОСТИКА 118: adb devices" >&2
+            adb devices >&2 || true
+            echo "ДИАГНОСТИКА 118: сигнатуры Maestro в mobile/maestro-out-erstinformation" >&2
+            grep -rnE 'device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException' \
+              mobile/maestro-out-erstinformation >&2 2>/dev/null || true
+            echo "ДИАГНОСТИКА 118: хвост emulator-$AVD.log" >&2
+            tail -n 40 "emulator-$AVD.log" >&2 || true
+          }
+          run_priemka118() {
+            rm -rf mobile/maestro-out-erstinformation
+            mkdir -p mobile/maestro-out-erstinformation
+            cp .harness118/scripts/sverka_maketa.py .harness123/scripts/
+            cp mobile/e2e-erstinformation/kadry.json .harness123/kadry.json
+            python3 .harness118/scripts/ekran_shablon.py --pack mobile/e2e-erstinformation --repo . --harness .harness118
+          }
+          if ! boot118; then diag118; exit 1; fi
+          export ERSTINFORMATION_SERIAL="$SERIAL"
+          set +e
+          run_priemka118
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            diag118
+            if grep -rqE 'device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException' \
+              mobile/maestro-out-erstinformation 2>/dev/null; then
+              echo "ПОВТОР: обрыв adb-транспорта эмулятора 118 — перезапуск эмулятора и валидатора" >&2
+              if ! boot118; then diag118; exit 1; fi
+              set +e
+              run_priemka118
+              rc=$?
+              set -e
+              if [ "$rc" -ne 0 ]; then diag118; fi
+            fi
+          fi
+          [ "$rc" -eq 0 ] || exit "$rc"
+          cmp mobile/e2e-erstinformation/batareja/proverka_proiskhozdenija.py .harness118/fixtures/workshop_project/erstinformation_118/teksty/proverka_text.py
+          python3 mobile/e2e-erstinformation/batareja/proverka_proiskhozdenija.py --pack "$PWD/mobile/e2e-erstinformation" --repo "$PWD" --harness .harness118 --jest-otchet e2e-erstinformation/jest-otchet.json
+      - name: Артефакты 118 (кадры erstinformation, отчёт)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-erstinformation-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: mobile/maestro-out-erstinformation
+          if-no-files-found: error
+          retention-days: 14
+
+  # 143 (e2e-start): поведенческий сценарий 108 (cmp-mob-004-start.yaml,
+  # clearState + complior://start — самодостаточен) на СВОЁМ эмуляторе и в
+  # своём рабочем наборе; до поставки 138 это настоящий исполняемый entrypoint
+  # Start (не пустая заглушка). Один уровень восстановления: перезапуск
+  # собственного эмулятора и один повтор по канонической сигнатуре обрыва
+  # adb-транспорта (канон 117/ci-e2e); продуктовый провал не повторяется.
+  e2e-start:
+    needs: [select-screens, build-apk]
+    if: needs.select-screens.outputs['e2e-start'] == 'true'
+    outputs:
+      apk_sha256: ${{ steps.ident.outputs.apk_sha256 }}
+      artifact_name: ${{ steps.ident.outputs.artifact_name }}
+      run_id: ${{ steps.ident.outputs.run_id }}
+    runs-on: [self-hosted, linux, x64, kvm, complior]
+    timeout-minutes: 40
+    # 143 (живая приёмка cutover, PR Complior-mob#136, run 40650367385):
+    # «gh run download» артефакта сборки требует actions: read, которого нет
+    # в workflow-level permissions (contents: read) — живой HTTP 403 Resource
+    # not accessible by integration на всех пяти работниках. Job-level набор
+    # ЗАМЕНЯЕТ workflow-level целиком, потому contents: read повторён явно.
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          clean: true
+      # 143 (С-3 Rev143): код PR исполняется на хосте раннера (maestro) —
+      # проба изоляции ДО первого такого шага (буква build-apk/e2e-pilot).
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
+      # 143: работник НЕ пересобирает APK — берёт артефакт сборки по ТОЧНОМУ
+      # имени из outputs build-apk (переживает выборочный повтор работника:
+      # имя не вычисляется из github.run_attempt) и сверяет sha256 ДО установки.
+      - name: 'APK сборки: артефакт по имени, digest до установки'
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMJA_ARTEFAKTA: ${{ needs.build-apk.outputs.artifact_name }}
+          ZHELANYJ_DIGEST: ${{ needs.build-apk.outputs.apk_sha256 }}
+        run: |
+          set -euo pipefail
+          test -n "$IMJA_ARTEFAKTA" && test -n "$ZHELANYJ_DIGEST"
+          rm -rf apk-build && mkdir -p apk-build
+          gh run download "${{ github.run_id }}" --name "$IMJA_ARTEFAKTA" --dir apk-build
+          test -f apk-build/app-release.apk
+          got="$(sha256sum apk-build/app-release.apk | awk '{print $1}')"
+          if [ "$got" != "$ZHELANYJ_DIGEST" ]; then
+            echo "APK_DIGEST_RASKHOZHDENIE: $got != $ZHELANYJ_DIGEST" >&2
+            exit 1
+          fi
+          mkdir -p mobile/android/app/build/outputs/apk/release
+          cp apk-build/app-release.apk mobile/android/app/build/outputs/apk/release/app-release.apk
+      # 143: outputs работника для агрегата — digest установленного APK,
+      # имя артефакта и run-identity той же сборки (агрегат сверяет их с
+      # build-apk; расхождение = чужой/старый артефакт, rc 1 агрегата).
+      - name: 'Идентичность прогона работника (outputs для агрегата)'
+        id: ident
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          got="$(sha256sum mobile/android/app/build/outputs/apk/release/app-release.apk | awk '{print $1}')"
+          {
+            echo "apk_sha256=$got"
+            echo "artifact_name=${{ needs.build-apk.outputs.artifact_name }}"
+            echo "run_id=${{ needs.build-apk.outputs.run_id }}"
+          } >> "$GITHUB_OUTPUT"
+      - name: 108 start (Maestro, release APK, свой эмулятор)
+        working-directory: ${{ github.workspace }}/mobile
+        run: |
+          set -euo pipefail
+          APK='android/app/build/outputs/apk/release/app-release.apk'
+          AVD="ci108-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          PORT=5568
+          SERIAL="emulator-${PORT}"
+          AVDM="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
+          KANON='device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException'
+          cleanup108() {
+            adb -s "$SERIAL" emu kill >/dev/null 2>&1 || true
+            sleep 3
+            pkill -f "qemu-system-x86_64.*-avd $AVD" >/dev/null 2>&1 || true
+            "$AVDM" delete avd -n "$AVD" >/dev/null 2>&1 || true
+          }
+          trap cleanup108 EXIT
+          echo no | "$AVDM" create avd --force -n "$AVD" \
+            -k "system-images;android-36;google_apis;x86_64" -d pixel_7 >/dev/null
+          sed -i 's/^hw.ramSize=.*/hw.ramSize=2048/' "$ANDROID_AVD_HOME/$AVD.avd/config.ini"
+          adb start-server >/dev/null
+          boot108() {
+            adb -s "$SERIAL" emu kill >/dev/null 2>&1 || true
+            sleep 3
+            pkill -f "qemu-system-x86_64.*-avd $AVD" >/dev/null 2>&1 || true
+            emulator -avd "$AVD" -port "$PORT" -no-window -no-audio -no-boot-anim -no-snapshot \
+              -gpu swiftshader_indirect >"emulator-$AVD.log" 2>&1 &
+            adb -s "$SERIAL" wait-for-device
+            for _ in $(seq 1 130); do
+              [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+              sleep 3
+            done
+            [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] || {
+              echo "ОТКАЗ: эмулятор 108 не загрузился за 390 с" >&2; return 1; }
+            local ok=0
+            for _ in $(seq 1 40); do
+              if [ "$(adb -s "$SERIAL" get-state 2>/dev/null)" = "device" ] &&
+                 adb -s "$SERIAL" shell pm path android >/dev/null 2>&1; then
+                ok=$((ok + 1)); [ "$ok" -ge 3 ] && break
+              else
+                ok=0
+              fi
+              sleep 2
+            done
+            [ "$ok" -ge 3 ] || { echo "ОТКАЗ: эмулятор $SERIAL не стабилизировался (adb offline)" >&2; return 1; }
+            for s in window_animation_scale transition_animation_scale animator_duration_scale; do
+              adb -s "$SERIAL" shell settings put global "$s" 0
+            done
+            adb -s "$SERIAL" install -r "$APK" >/dev/null
+          }
+          zapusk108() {
+            rm -rf maestro-out-start
+            mkdir -p maestro-out-start
+            set +e
+            maestro --device "$SERIAL" test --format junit \
+              --output maestro-out-start/report.xml \
+              --test-output-dir maestro-out-start \
+              .maestro/cmp-mob-004-start.yaml
+            local rc=$?
+            # 143 (Б-1 Rev143): БЕЗ set -e — errexit в функции глобален и
+            # ронял шаг на ненулевом rc Maestro ДО ветки ДИАГНОСТИКА/ПОВТОР
+            # (мёртвая ветка повтора; живой отказ — run 40961808157 att.1).
+            return "$rc"
+          }
+          if ! boot108; then
+            echo "ДИАГНОСТИКА 108: adb devices" >&2
+            adb devices >&2 || true
+            exit 1
+          fi
+          set +e
+          zapusk108
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            echo "ДИАГНОСТИКА 108: сигнатуры Maestro в maestro-out-start" >&2
+            grep -rnE "$KANON" maestro-out-start >&2 2>/dev/null || true
+            if grep -rqE "$KANON" maestro-out-start 2>/dev/null; then
+              echo "ПОВТОР: обрыв adb-транспорта эмулятора 108 — перезапуск и повтор набора" >&2
+              adb -s "$SERIAL" emu kill >/dev/null 2>&1 || true
+              sleep 3
+              pkill -f "qemu-system-x86_64.*-avd $AVD" >/dev/null 2>&1 || true
+              if ! boot108; then exit 1; fi
+              set +e
+              zapusk108
+              rc=$?
+              set -e
+            fi
+          fi
+          [ "$rc" -eq 0 ] || exit "$rc"
+      - name: Артефакты 108 (отчёт start)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-start-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: mobile/maestro-out-start
+          if-no-files-found: error
+          retention-days: 14
+  # 143 (e2e-pilot): межэкранная интеграционная приёмка 995 — фиксированный
+  # набор P (pilot.yaml приватный из H, start, rehearsal, 999 tabs) на СВОЁМ
+  # эмуляторе/приватном cwd (ci-e2e.sh — единственный владелец повтора);
+  # rehearsal-evidence и version gate остаются в этой задаче. Секрет — только
+  # здесь; работники экранов его не получают.
+  e2e-pilot:
+    needs: [select-screens, build-apk]
+    if: needs.select-screens.outputs['e2e-pilot'] == 'true'
+    outputs:
+      apk_sha256: ${{ steps.ident.outputs.apk_sha256 }}
+      artifact_name: ${{ steps.ident.outputs.artifact_name }}
+      run_id: ${{ steps.ident.outputs.run_id }}
+    runs-on: [self-hosted, linux, x64, kvm, complior]
+    timeout-minutes: 40
+    # 143 (живая приёмка cutover, PR Complior-mob#136, run 40650367385):
+    # «gh run download» артефакта сборки требует actions: read, которого нет
+    # в workflow-level permissions (contents: read) — живой HTTP 403 Resource
+    # not accessible by integration на всех пяти работниках. Job-level набор
+    # ЗАМЕНЯЕТ workflow-level целиком, потому contents: read повторён явно.
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          clean: true
+      # 143: работник НЕ пересобирает APK — берёт артефакт сборки по ТОЧНОМУ
+      # имени из outputs build-apk (переживает выборочный повтор работника:
+      # имя не вычисляется из github.run_attempt) и сверяет sha256 ДО установки.
+      - name: 'APK сборки: артефакт по имени, digest до установки'
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMJA_ARTEFAKTA: ${{ needs.build-apk.outputs.artifact_name }}
+          ZHELANYJ_DIGEST: ${{ needs.build-apk.outputs.apk_sha256 }}
+        run: |
+          set -euo pipefail
+          test -n "$IMJA_ARTEFAKTA" && test -n "$ZHELANYJ_DIGEST"
+          rm -rf apk-build && mkdir -p apk-build
+          gh run download "${{ github.run_id }}" --name "$IMJA_ARTEFAKTA" --dir apk-build
+          test -f apk-build/app-release.apk
+          got="$(sha256sum apk-build/app-release.apk | awk '{print $1}')"
+          if [ "$got" != "$ZHELANYJ_DIGEST" ]; then
+            echo "APK_DIGEST_RASKHOZHDENIE: $got != $ZHELANYJ_DIGEST" >&2
+            exit 1
+          fi
+          mkdir -p mobile/android/app/build/outputs/apk/release
+          cp apk-build/app-release.apk mobile/android/app/build/outputs/apk/release/app-release.apk
+      # 143: outputs работника для агрегата — digest установленного APK,
+      # имя артефакта и run-identity той же сборки (агрегат сверяет их с
+      # build-apk; расхождение = чужой/старый артефакт, rc 1 агрегата).
+      - name: 'Идентичность прогона работника (outputs для агрегата)'
+        id: ident
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          got="$(sha256sum mobile/android/app/build/outputs/apk/release/app-release.apk | awk '{print $1}')"
+          {
+            echo "apk_sha256=$got"
+            echo "artifact_name=${{ needs.build-apk.outputs.artifact_name }}"
+            echo "run_id=${{ needs.build-apk.outputs.run_id }}"
+          } >> "$GITHUB_OUTPUT"
+      # 995 (CMP-MOB-001): тот же frozen H публикуется через actions/checkout в шаге
+      # android-e2e; maestro_probe.py исполняется из R/.harness и читает frozen pilot.yaml
+      # и scripts/ci-e2e.sh; эмулятор и его приватный cwd живут внутри runner-а.
+      # H = b9b4c66f3d84dc8aa7eb7c8e83b466e807817416 — единый пин с quality-job
+      # (ПЕРЕПИН 2026-10-25, контракт 118 v2 §ПРЕДПОСЫЛКИ: ревизия несёт ленд
+      # данных 995 — session.expires_at → 2099-12-31T00:00:00Z в
+      # fixtures/workshop_project/pilot_995/source.json; между c663dd0f и
+      # b9b4c66f3 в батареях pilot_995/nav_999/start_108/first_run_111 и
+      # scripts/ изменился ТОЛЬКО этот литерал):
+      # pilot_995, nav_999, start_108 (336 клеток + ROUTE_ENTRY, матрица 42+5),
+      # first_run_111 (v4: статическая 16/16 + поведенческая 23/23, матрица 16+34).
+      - name: Checkout frozen probe harness H
+        uses: actions/checkout@v7
+        with:
+          repository: a3ka/dev-harness
+          ref: 4ac99af9fe8b02f16206b5c98bb9556556c05e74
+          path: .harness
+          persist-credentials: false
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      # 995 (CMP-MOB-001): frozen pilot.yaml + секрет кода — PRIVATE_FILE вне репо/артефактов;
+      # maestro_probe.py сам управляет эмулятором через ci-e2e.sh в приватном cwd.
+      - name: H-pин приватного кода вне checkout
+        env:
+          PILOT_DEMO_CODE: ${{ secrets.PILOT_DEMO_CODE }}
+        run: |
+          if [ -z "$PILOT_DEMO_CODE" ]; then
+            echo "PILOT_DEMO_CODE_ABSENT" >&2
+            exit 1
+          fi
+          umask 077
+          mkdir -p /tmp/impl995-pilot-private-${{ github.run_id }}-${{ github.run_attempt }}
+          printf '%s' "$PILOT_DEMO_CODE" > /tmp/impl995-pilot-private-${{ github.run_id }}-${{ github.run_attempt }}/code
+      - name: Maestro runner для CMP-MOB-001 (через maestro_probe.py → ci-e2e.sh)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -e
+          python3 -m pip install -r .harness/fixtures/workshop_project/pilot_995/requirements.txt
+          # Н-407: диагностика ВНЕ эха — обрыв adb виден в логе шага, не только в
+          # артефакте maestro.log (транспорт эмулятора 995 живёт в приватном cwd
+          # maestro_probe → ci-e2e.sh; хвост emulator-лога шагу недоступен — доступны
+          # adb devices и сигнатуры из mobile/maestro-out). Шагового повтора НЕТ:
+          # повтор уже живёт внутри ci-e2e.sh (зона 995), уровень workflow — 139.
+          set +e
+          python3 .harness/fixtures/workshop_project/pilot_995/maestro_probe.py \
+            --repo ${{ github.workspace }} \
+            --apk ${{ github.workspace }}/mobile/android/app/build/outputs/apk/release/app-release.apk \
+            --code-file /tmp/impl995-pilot-private-${{ github.run_id }}-${{ github.run_attempt }}/code \
+            --out ${{ github.workspace }}/mobile/maestro-out
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            echo "ДИАГНОСТИКА 995: adb devices" >&2
+            adb devices >&2 || true
+            echo "ДИАГНОСТИКА 995: сигнатуры Maestro в mobile/maestro-out" >&2
+            grep -rnE 'device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException' \
+              mobile/maestro-out >&2 2>/dev/null || true
+          fi
+          [ "$rc" -eq 0 ] || exit "$rc"
+      - name: Cleanup private code file
+        if: always()
+        run: rm -rf /tmp/impl995-pilot-private-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Check rehearsal evidence
+        id: rehearsal_evidence
+        run: bash scripts/rehearsal-evidence.sh
+      - name: Артефакты (скриншоты, отчёт)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: mobile/maestro-out
+          if-no-files-found: error
+          retention-days: 14
+      - name: Check Maestro version
+        id: rehearsal_version
+        run: |
+          actual_version="$(maestro --version 2>/dev/null || true)"
+          if [ "$actual_version" != "2.11.0" ]; then
+            echo "MAESTRO_VERSION_MISMATCH: expected=2.11.0 actual='$actual_version'" >&2
+            exit 1
+          fi
+
+  # 143: fail-closed агрегат required-проверки android-e2e (имя сохранено —
+  # меньше административного окна протекции веток). if: always() — падение
+  # selector/quality/build не пропускает агрегат молча: он обязан КРАСНЕТЬ.
+  android-e2e:
+    needs: [select-screens, quality, build-apk, e2e-splash, e2e-first-run, e2e-erstinformation, e2e-start, e2e-pilot]
+    if: always() && (github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'merge_group')
+    runs-on: [self-hosted, linux, x64, complior]
+    timeout-minutes: 5
+    steps:
+      # 143 (блокер 3 критика): агрегат запускает node mobile/scripts/ci-aggregate.cjs
+      # — на чистом раннере файла нет; checkout той же ревизии ДО запуска скрипта,
+      # persist-credentials: false (токен checkout-а не остаётся на диске).
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      # 143 (С-3 Rev143): код PR исполняется на хосте раннера (node) —
+      # проба изоляции ДО первого такого шага (буква build-apk/e2e-pilot).
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
+      - name: 'Агрегат: needs+selection+digest (fail-closed)'
+        working-directory: ${{ github.workspace }}
+        env:
+          NEEDS_KONTEKST: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$NEEDS_KONTEKST" > needs.json
+          node mobile/scripts/ci-aggregate.cjs --needs needs.json
+  # 143: ночная/предрелизная полная регрессия — СИГНАЛ, не блок: тот же DAG
+  # на полном наборе approved (schedule/dispatch выбирают всё), агрегируется в
+  # mobile-regression-signal (имя НЕ required); красная ночь честно красная,
+  # PR не блокирует и merge-policy не меняет. Маркер полной регрессии — вход
+  # независимого freshness-монитора станции (REGRESSION_NOT_RUN при его
+  # отсутствии к 06:00 UTC): выключенный workflow сам себя не удостоверит.
+  mobile-regression-signal:
+    needs: [select-screens, quality, build-apk, e2e-splash, e2e-first-run, e2e-erstinformation, e2e-start, e2e-pilot]
+    if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: [self-hosted, linux, x64, complior]
+    timeout-minutes: 5
+    steps:
+      # 143 (блокер 3 критика): сигнал запускает тот же ci-aggregate.cjs — checkout
+      # ДО запуска скрипта, persist-credentials: false.
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      # 143 (С-3 Rev143): код PR исполняется на хосте раннера (node) —
+      # проба изоляции ДО первого такого шага (буква build-apk/e2e-pilot).
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
+      - name: 'Агрегат сигнала: needs+selection+digest (fail-closed)'
+        working-directory: ${{ github.workspace }}
+        env:
+          NEEDS_KONTEKST: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$NEEDS_KONTEKST" > needs.json
+          node mobile/scripts/ci-aggregate.cjs --needs needs.json
+      - name: 'Маркер полной регрессии (freshness-монитор)'
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: regression-marker-${{ github.run_id }}
+          path: needs.json
+          if-no-files-found: error
+          retention-days: 14

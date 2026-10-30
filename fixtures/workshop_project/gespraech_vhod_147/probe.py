@@ -5,9 +5,14 @@
 # вход-меню (модель model/menu-machine.ts; в продукте —
 # mobile/src/features/conversation/menu-machine.ts) против пиннованной
 # спеки дизайнера (раннер model/dvizhenie-runner.mjs); (3) пачка и канон
-# в продукте (--repo). Оракул — пины source.json (проверяются ДО любого
-# субъекта) и ожидания, вычисленные ЭТАЛОНОМ на том же входе ДО субъекта
-# (правило 8); каждая красная клетка несёт РОВНО одно имя причины.
+# в продукте (--repo); (4) CI-проводка экрана (--repo; И-8): инстанциация
+# ЛЕКАЛА screen-job.template.yml (frozen 143/2, копия в nositeli/, пин)
+# тремя парными правками — запись карты, output выбора, needs обоих
+# агрегатов — плюс вынос пачки общим шагом инвентаризации (блок Crit147
+# круг 1: ekran.json={} без проводки проходил 70/70). Оракул — пины
+# source.json (проверяются ДО любого субъекта) и ожидания, вычисленные
+# ЭТАЛОНОМ на том же входе ДО субъекта (правило 8); каждая красная клетка
+# несёт РОВНО одно имя причины.
 #
 # Режимы (argv):
 #   (без флага)   судится живое дерево харнесса: валидатор scripts/, в
@@ -17,6 +22,9 @@
 #   --model       субъект = эталон (контроль входов)
 #   --stabs       контроль + матрица обманных стабов (SVJAZI N, живых 0)
 #   --repo R      судится живой продукт R (машина/канон/пачка)
+#   --a-derevo P C  (служебный) живой рецепт И-8: продукт P -> A-дерево C
+#                 (карта+job из лекала+output+needs+пачка) — зелёный
+#                 контроль клетки s-lekalo-instanciirovano (W --repo C)
 #   --oracle-tamper  порча каждого носителя по очереди в одноразовой
 #                 копии зоны — ORACLE_TAMPERED rc 2 ДО клеток
 #   --piny-only   (служебный) только проверка пинов оракула
@@ -32,6 +40,7 @@ import subprocess
 import sys
 import tempfile
 import hashlib
+import yaml
 
 ZDE = os.environ.get('GESpraech147_ZONA',
                      os.path.dirname(os.path.abspath(__file__)))
@@ -50,6 +59,31 @@ PEREHODY = ['GA-T28', 'GA-T29', 'GA-T30', 'GA-T31', 'GA-T33', 'GA-T35']
 PRAVILA_MASHINY = ['plan-open-t28', 'sprechen-pervym', 'menja-k-300',
                    'znak-morf-250', 'press-long-500', 'plan-close-t31',
                    'ud-bez-poljota']
+
+# лекало 143/2 (И-8): копия frozen-шаблона — носитель зоны (пин sha256 в
+# source.json, байты == тегу 3ca9d92f); агрегаты и служебные задачи DAG —
+# имена frozen 143/2 (OCI-механизм продукта, PR Complior-mob#145 6240f630)
+LEKALO = os.path.join(NOS, 'screen-job.template.yml')
+AGREGATY = ('android-e2e', 'mobile-regression-signal')
+BAZA_WF = os.path.join(NOS, 'produkt', 'mobile-6240f63.yml')
+BAZA_KARTA = os.path.join(NOS, 'produkt', 'ci-screens-6240f63.json')
+# канон-файлы пачки: путь в продукте -> файл зоны с теми же байтами
+# (второй источник — source.json piny.kanon; сверяется до копирования)
+KANON_V_ZONE = {
+    'mobile/src/features/conversation/__tests__/gespraech-dvizhenie.test.ts':
+        'teksty/gespraech-dvizhenie.test.ts',
+    'mobile/e2e-gespraech-vhod/kontrakt.md': 'pachka/kontrakt.md',
+    'mobile/e2e-gespraech-vhod/kadry.json': 'pachka/kadry.json',
+    'mobile/e2e-gespraech-vhod/kadry-393.json': 'pachka/kadry-393.json',
+    'mobile/e2e-gespraech-vhod/katalog_kopii.json': 'pachka/katalog_kopii.json',
+    'mobile/e2e-gespraech-vhod/spec_api.json': 'pachka/spec_api.json',
+    'mobile/e2e-gespraech-vhod/batareja/red_ekrana.sh':
+        'pachka/batareja/red_ekrana.sh',
+    'mobile/.maestro/gespraech-vhod.yaml': 'pachka/gespraech-vhod.yaml',
+    'mobile/.maestro/gespraech-vhod-393.yaml': 'pachka/gespraech-vhod-393.yaml',
+    'mobile/.maestro/gespraech-prokhod.yaml': 'pachka/gespraech-prokhod.yaml',
+    'mobile/e2e-gespraech-vhod/dvizhenie.mjs': 'teksty/dvizhenie.mjs',
+}
 
 
 def utechka(n):
@@ -75,6 +109,34 @@ def vedro():
         if kk != 'kontrol-forma' and v.get('prichina') != \
                 OZHIDAEMYE_PRICHINY.get(kk):
             utechka('prichina ' + kk)
+    lek = src.get('lekalo')
+    if not isinstance(lek, dict) or set(lek) != {
+            'job_id', 'screen_id', 'pack', 'flows', 'child_flows', 'puti',
+            'h_path', 'avd_port', 'avd_port_393', 'evidence_ns', 'shablon',
+            'ekrany'}:
+        utechka('source.json.lekalo — состав ключей')
+    if not re.fullmatch(r'e2e-[a-z0-9-]+', lek['job_id']) or \
+            not re.fullmatch(r'[a-z0-9-]+', lek['screen_id']) or \
+            lek['pack'] != 'mobile/e2e-%s/' % lek['screen_id'] or \
+            lek['h_path'] != '.harness147' or lek['shablon'] != 3 or \
+            set(lek['ekrany']) != {'GA-01', 'GA-15', 'GA-16'} or \
+            not isinstance(lek['avd_port'], int) or \
+            not isinstance(lek['avd_port_393'], int):
+        utechka('source.json.lekalo — грамматика значений')
+    for kljuch in ('nositeli/screen-job.template.yml',
+                   'nositeli/produkt/mobile-6240f63.yml',
+                   'nositeli/produkt/ci-screens-6240f63.json',
+                   'stabs/stab_lekalo_obhod_kritika.py'):
+        if kljuch not in src['piny']['nositeli']:
+            utechka('пин лекала отсутствует: ' + kljuch)
+    for stab, svaz in (src.get('stab_vhod') or {}).items():
+        if 'kletka' in svaz:
+            if svaz['kletka'] != 's-lekalo-instanciirovano' or \
+                    'pravilo' in svaz or stab != 'lekalo-obhod-kritika' or \
+                    src['staby'].get(stab) != 'stab_lekalo_obhod_kritika.py':
+                utechka('привязка стаба лекала ' + stab)
+        elif svaz.get('pravilo') not in PRAVILA_MASHINY:
+            utechka('привязка стаба ' + stab)
     return src
 
 
@@ -619,6 +681,352 @@ def zapusk_pravila_mashiny(mashina, pravilo=None):
     return r.returncode, (r.stdout + r.stderr).strip()
 
 
+# ---------- лекало 143/2: инстанциация И-8 (блок Crit147 круг 1) ----------
+
+
+def lekalo_zameny(src, h_ref=None):
+    """Параметры инстанциации И-8; единый источник — source.json.lekalo.
+    H_REF — ПРИНЯТЫЙ пин харнесса в PR интеграции: здесь форма 40-hex
+    (значение судит ревью интеграции, клетка — только литеральный пин,
+    не плавающую ссылку)."""
+    LE = src['lekalo']
+    return {'{{JOB_ID}}': LE['job_id'], '{{SCREEN_ID}}': LE['screen_id'],
+            '{{PACK}}': LE['pack'], '{{FLOWS}}': ','.join(LE['flows']),
+            '{{H_REF}}': h_ref or 'a' * 40, '{{H_PATH}}': LE['h_path'],
+            '{{AVD_PORT}}': str(LE['avd_port']),
+            '{{EVIDENCE_NS}}': LE['evidence_ns']}
+
+
+def _zameni_schet(tekst, staryj, novyj):
+    if tekst.count(staryj) != 1:
+        raise RuntimeError('лекало: якорь %r встречен %d раз'
+                           % (staryj[:40], tekst.count(staryj)))
+    return tekst.replace(staryj, novyj)
+
+
+def rassiri_vtoroj_avd(job, src):
+    """Норма 132 v2 (И-8): второй AVD профиля 393 ВНУТРИ того же работника
+    — расширение экранного шага ПОВЕРХ лекала (канон e2e.sh ждёт
+    GESPRAECH_SERIAL/GESPRAECH_SERIAL_393). Обязательства лекала сохранены:
+    PORT 5572, один «ПОВТОР: », валидатор из .harness147, оба корневых
+    флоу в FLOWS_PACHKI. Форма расширения — рецепт пачки, детали
+    реализации (имена/порядок) — реализация implementer."""
+    LE = src['lekalo']
+    shag = next(s for s in job['steps']
+                if str(s.get('name', '')).startswith('Экранная пачка'))
+    r = shag['run']
+    r = _zameni_schet(r, 'SERIAL="emulator-${PORT}"\n',
+                      'SERIAL="emulator-${PORT}"\n'
+                      'SERIAL393="emulator-%d"\n' % LE['avd_port_393'])
+    r = _zameni_schet(
+        r, 'trap cleanup EXIT\n',
+        'trap cleanup EXIT\n'
+        'AVD393="ci%s-393-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"\n'
+        'PORT393=%d\n' % (LE['screen_id'], LE['avd_port_393']))
+    r = _zameni_schet(
+        r, '  "$AVDM" delete avd -n "$AVD" >/dev/null 2>&1 || true\n',
+        '  "$AVDM" delete avd -n "$AVD" >/dev/null 2>&1 || true\n'
+        '  adb -s "$SERIAL393" emu kill >/dev/null 2>&1 || true\n'
+        '  pkill -f "qemu-system-x86_64.*-avd $AVD393" '
+        '>/dev/null 2>&1 || true\n'
+        '  "$AVDM" delete avd -n "$AVD393" >/dev/null 2>&1 || true\n')
+    r = _zameni_schet(
+        r, '\nif ! boot; then diag; exit 1; fi\n',
+        '\nif ! boot; then diag; exit 1; fi\n'
+        '# второй AVD профиля 393 (норма 132 v2): тот же работник, свой порт\n'
+        'AVD_GL="$AVD"; PORT_GL="$PORT"; SERIAL_GL="$SERIAL"\n'
+        'AVD="$AVD393"; PORT="$PORT393"; SERIAL="$SERIAL393"\n'
+        'if ! boot; then diag; exit 1; fi\n'
+        'export GESPRAECH_SERIAL="$SERIAL_GL" GESPRAECH_SERIAL_393="$SERIAL393"\n'
+        'AVD="$AVD_GL"; PORT="$PORT_GL"; SERIAL="$SERIAL_GL"\n')
+    shag['run'] = r
+    return job
+
+
+def instanciruj_job(src, h_ref=None, s_393=False):
+    """Лекало + параметры И-8 -> dict job (грамматика — ТОЛЬКО пиннованный
+    шаблон, второго списка обязательств в батарее нет)."""
+    with open(LEKALO, encoding='utf-8') as fh:
+        tekst = fh.read()
+    zam = lekalo_zameny(src, h_ref)
+    for k in sorted(zam):
+        tekst = tekst.replace(k, zam[k])
+    if re.search(r'\{\{[A-Z_]+\}\}', tekst):
+        raise RuntimeError('лекало: незаменённый плейсхолдер')
+    job = yaml.safe_load(tekst)['jobs'][src['lekalo']['job_id']]
+    if s_393:
+        job = rassiri_vtoroj_avd(job, src)
+    return job
+
+
+def podkljuchi_147(karta, wf, src, h_ref=None):
+    """ТРИ парные правки лекала одним движением (И-8: тот же PR): запись
+    карты + job + output выбора + needs ОБОИХ агрегатов. Единый источник
+    рецепта для A-дерева самопроверки и живого --a-derevo."""
+    LE = src['lekalo']
+    JOB = LE['job_id']
+    karta.setdefault('ekrany', []).append({
+        'id': LE['screen_id'], 'kontrakty': ['147'],
+        'status': 'in-development', 'job': JOB, 'pack': LE['pack'],
+        'flows': list(LE['flows']), 'child_flows': list(LE['child_flows']),
+        'puti': list(LE['puti']), 'h_checkout': [LE['h_path']],
+        'output_namespace': LE['evidence_ns']})
+    wf.setdefault('jobs', {})[JOB] = instanciruj_job(src, h_ref, s_393=True)
+    vyhody = wf['jobs'].setdefault('select-screens', {}).setdefault(
+        'outputs', {})
+    vyhody[JOB] = '${{ steps.vybor.outputs.%s }}' % JOB
+    for ag in AGREGATY:
+        needs = wf['jobs'].setdefault(ag, {}).setdefault('needs', [])
+        if JOB not in needs:
+            needs.append(JOB)
+
+
+def postav_a_derevo(tmp, src):
+    """A-дерево самопроверки клетки: ЖИВЫЕ байты продукта (main Complior-mob
+    6240f630 — механизм 143 v2 влит, пины nositeli/produkt/) + три парные
+    правки И-8 + форма пачки. Клетка обязана быть здесь ЗЕЛЁНОЙ (контроль);
+    КРАСНОЙ — на стабе-обходе (stabs/stab_lekalo_obhod_kritika.py)."""
+    LE = src['lekalo']
+    koren = os.path.join(tmp, 'a-derevo')
+    os.makedirs(os.path.join(koren, '.github', 'workflows'))
+    os.makedirs(os.path.join(koren, LE['pack'].strip('/')))
+    with open(BAZA_KARTA, encoding='utf-8') as fh:
+        karta = json.load(fh)
+    with open(BAZA_WF, encoding='utf-8') as fh:
+        wf = yaml.safe_load(fh)
+    podkljuchi_147(karta, wf, src)
+    with open(os.path.join(koren, 'mobile', 'ci-screens.json'), 'w',
+              encoding='utf-8') as fh:
+        json.dump(karta, fh, ensure_ascii=False, indent=2)
+        fh.write('\n')
+    with open(os.path.join(koren, '.github', 'workflows', 'mobile.yml'),
+              'w', encoding='utf-8') as fh:
+        yaml.safe_dump(wf, fh, allow_unicode=True, sort_keys=False)
+    shutil.copy(os.path.join(PACHKA, 'forma-ekrana.json'),
+                os.path.join(koren, LE['pack'].strip('/'), 'ekran.json'))
+    return koren
+
+
+def _chita_json(put):
+    try:
+        with open(put, encoding='utf-8') as fh:
+            return json.load(fh), None
+    except Exception as e:
+        return None, 'не читается/не JSON: %s' % str(e)[:80]
+
+
+def _sudi_job_lekala(job, src):
+    """Job против скелета лекала: поля DAG равны; шаги лекала — по порядку
+    полными именами/uses (клетка не держит второго перечня шагов — грамматика
+    одна, пиннованный шаблон); экранный шаг расширяем (норма 132 v2 —
+    второй AVD), но несёт валидатор 132 v3 из H-пина, PORT И-8 и оба
+    корневых флоу; H-checkout — принятым 40-hex пином (не плавающей
+    ссылкой); запреты и ровно один «ПОВТОР: » — по всему job."""
+    LE = src['lekalo']
+    netu = []
+    skel = instanciruj_job(src)
+    for pole in ('needs', 'if', 'outputs', 'runs-on', 'timeout-minutes',
+                 'permissions'):
+        if job.get(pole) != skel.get(pole):
+            netu.append('job.%s != лекалу' % pole)
+    telo = json.dumps(job, ensure_ascii=False)
+    for zapret in ('continue-on-error', 'strategy', 'matrix'):
+        if zapret in telo:
+            netu.append('запрещённое лекалом %s в job' % zapret)
+    povtor = telo.count('ПОВТОР: ')
+    if povtor != 1:
+        netu.append('маркеров ПОВТОР %d (канон — ровно один)' % povtor)
+
+    def metka(s):
+        if s.get('name'):
+            return 'name:' + str(s['name'])
+        return 'uses:' + str(s.get('uses'))
+
+    metki = [metka(s) for s in skel['steps']]
+    sovpad = {}
+    i = 0
+    for s in (job.get('steps') or []):
+        if i < len(metki) and metka(s) == metki[i]:
+            sovpad[i] = s
+            i += 1
+    if i != len(metki):
+        netu.append('шаги лекала не найдены по порядку (%d из %d)'
+                    % (i, len(metki)))
+    else:
+        for n, s in sovpad.items():
+            ekran = metki[n].startswith('name:Экранная пачка')
+            h_checkout = metki[n].startswith('name:Checkout H пачки')
+            if ekran:
+                env = s.get('env') or {}
+                if env.get('FLOWS_PACHKI') != ','.join(LE['flows']):
+                    netu.append('FLOWS_PACHKI != оба корневых флоу И-8')
+                run = str(s.get('run') or '')
+                if ('python3 %s/scripts/ekran_shablon.py'
+                        % LE['h_path']) not in run:
+                    netu.append('экранный шаг без валидатора 132 v3 из %s'
+                                % LE['h_path'])
+                if ('PORT=%d' % LE['avd_port']) not in run:
+                    netu.append('экранный шаг без PORT=%d' % LE['avd_port'])
+            elif h_checkout:
+                et = dict(skel['steps'][n].get('with') or {})
+                fact = dict(s.get('with') or {})
+                ref = fact.pop('ref', None)
+                et.pop('ref', None)
+                if et != fact or not re.fullmatch(r'[0-9a-f]{40}',
+                                                  str(ref or '')):
+                    netu.append('H-checkout != лекалу (ref — принятый '
+                                '40-hex пин)')
+            elif s != skel['steps'][n]:
+                netu.append('шаг %r != лекалу' % metki[n][5:45])
+    return netu
+
+
+def sud_lekalo(repo, src):
+    """s-lekalo-instanciirovano (И-8; блок Crit147 круг 1): в --repo судит
+    ТРИ парные правки лекала 143/2 (запись карты, job из лекала по пину
+    шаблона/ключам инстанциации, output выбора + needs обоих агрегатов),
+    вынос пачки мобильным общим шагом инвентаризации и НЕПУСТУЮ форму
+    пачки (ekran.json={} — обход критика). Отсутствие ЛЮБОГО аспекта —
+    именованный отказ LEKALO_NE_INSTANCIIROVANO со списком недостающего.
+    «Пропускник» ловится стабом lekalo-obhod-kritika (Н-39)."""
+    LE = src['lekalo']
+    JOB = LE['job_id']
+    netu = []
+
+    karta, osh = _chita_json(os.path.join(repo, 'mobile',
+                                          'ci-screens.json'))
+    if karta is None:
+        netu.append('карта mobile/ci-screens.json %s' % osh)
+    else:
+        zapisi = [z for z in (karta.get('ekrany') or [])
+                  if z.get('job') == JOB]
+        if not zapisi:
+            netu.append('нет записи карты с job %s' % JOB)
+        else:
+            z = zapisi[0]
+            if z.get('id') != LE['screen_id']:
+                netu.append('id записи %r' % z.get('id'))
+            if '147' not in (z.get('kontrakty') or []):
+                netu.append('kontrakty записи без 147')
+            if z.get('status') not in ('in-development', 'approved'):
+                netu.append('status записи %r' % z.get('status'))
+            if z.get('pack') != LE['pack']:
+                netu.append('pack записи %r' % z.get('pack'))
+            for f in LE['flows']:
+                if f not in (z.get('flows') or []):
+                    netu.append('flows записи без %s' % f)
+            for f in LE['child_flows']:
+                if f not in (z.get('child_flows') or []):
+                    netu.append('child_flows записи без %s' % f)
+            if LE['h_path'] not in (z.get('h_checkout') or []):
+                netu.append('h_checkout записи без %s' % LE['h_path'])
+            if z.get('output_namespace') != LE['evidence_ns']:
+                netu.append('output_namespace записи %r'
+                            % z.get('output_namespace'))
+
+    ej, osh = _chita_json(os.path.join(repo, LE['pack'].strip('/'),
+                                       'ekran.json'))
+    if ej is None:
+        netu.append('ekran.json пачки %s' % osh)
+    elif not isinstance(ej, dict) or not ej:
+        netu.append('ekran.json пачки пуст (обход Crit147: {})')
+    else:
+        if ej.get('shablon') != LE['shablon']:
+            netu.append('ekran.json shablon %r' % ej.get('shablon'))
+        if ej.get('ekran') != LE['screen_id']:
+            netu.append('ekran.json ekran %r' % ej.get('ekran'))
+        ekrany = ((ej.get('dvizhenie') or {}).get('ekrany')) or []
+        if set(ekrany) != set(LE['ekrany']):
+            netu.append('ekrany формы %s' % sorted(ekrany))
+
+    put_wf = os.path.join(repo, '.github', 'workflows', 'mobile.yml')
+    try:
+        with open(put_wf, encoding='utf-8') as fh:
+            wf = yaml.safe_load(fh)
+    except Exception as e:
+        wf = None
+        netu.append('mobile.yml не читается: %s' % str(e)[:80])
+    if wf is not None:
+        jobs = wf.get('jobs') or {}
+        if JOB not in jobs:
+            netu.append('нет job %s в mobile.yml' % JOB)
+        else:
+            netu.extend(_sudi_job_lekala(jobs[JOB], src))
+        outs = ((jobs.get('select-screens') or {}).get('outputs') or {})
+        if outs.get(JOB) != '${{ steps.vybor.outputs.%s }}' % JOB:
+            netu.append('output выбора %s отсутствует/не из шага vybor'
+                        % JOB)
+        for ag in AGREGATY:
+            if JOB not in ((jobs.get(ag) or {}).get('needs') or []):
+                netu.append('needs агрегата %s без %s' % (ag, JOB))
+        tekst = json.dumps(wf, ensure_ascii=False)
+        shagi_q = ((jobs.get('quality') or {}).get('steps') or [])
+        if not any('--mode inventar' in str(s.get('run') or '')
+                   for s in shagi_q):
+            netu.append('в quality нет общего шага --mode inventar')
+        if re.search(r'mv\s+mobile/e2e-gespraech-vhod\b', tekst):
+            netu.append('персональный mv пачки (вынос — общий шаг)')
+        if re.search(r'mv\s+mobile/e2e-\*', tekst):
+            netu.append('wildcard-вынос mobile/e2e-*')
+    return (not netu, '' if not netu else
+            'LEKALO_NE_INSTANCIIROVANO: ' + '; '.join(netu))
+
+
+def postav_zhivoe_a_derevo(produkt, cel, src):
+    """Живой зелёный контроль (рецепт И-8, прецедент A2/148): продукт P
+    (клон Complior-mob) -> A-дерево C: канон-байты (11 пинов) + машина +
+    форма пачки + обёртки e2e/prokhod + ТРИ парные правки лекала. На C
+    батарея --repo обязана дать rc 0 (все клетки)."""
+    LE = src['lekalo']
+    kanon = src['piny']['kanon']
+    if set(kanon) != set(KANON_V_ZONE):
+        print('ORACLE_TAMPERED piny.kanon != карта носителей зоны',
+              file=sys.stderr)
+        return 2
+    for otn, fajl in KANON_V_ZONE.items():
+        if sha(os.path.join(ZDE, fajl)) != kanon[otn]:
+            print('ORACLE_TAMPERED байты канона %s' % fajl, file=sys.stderr)
+            return 2
+    if os.path.exists(cel):
+        print('OTKAZ: цель существует: %s' % cel, file=sys.stderr)
+        return 2
+    ignor = shutil.ignore_patterns('.git', 'node_modules')
+    shutil.copytree(produkt, cel, ignore=ignor)
+    for otn, fajl in KANON_V_ZONE.items():
+        put = os.path.join(cel, otn)
+        os.makedirs(os.path.dirname(put), exist_ok=True)
+        shutil.copy(os.path.join(ZDE, fajl), put)
+    pak = os.path.join(cel, LE['pack'].strip('/'))
+    os.makedirs(pak, exist_ok=True)
+    shutil.copy(os.path.join(PACHKA, 'forma-ekrana.json'),
+                os.path.join(pak, 'ekran.json'))
+    for imja in ('e2e.sh', 'prokhod.sh'):
+        shutil.copy(os.path.join(TEKSTY, imja), os.path.join(pak, imja))
+        os.chmod(os.path.join(pak, imja), 0o755)
+    mashina = os.path.join(cel, 'mobile', 'src', 'features',
+                           'conversation')
+    os.makedirs(mashina, exist_ok=True)
+    shutil.copy(os.path.join(MODEL, 'menu-machine.ts'),
+                os.path.join(mashina, 'menu-machine.ts'))
+    with open(os.path.join(cel, 'mobile', 'ci-screens.json'),
+              encoding='utf-8') as fh:
+        karta = json.load(fh)
+    with open(os.path.join(cel, '.github', 'workflows', 'mobile.yml'),
+              encoding='utf-8') as fh:
+        wf = yaml.safe_load(fh)
+    podkljuchi_147(karta, wf, src)
+    with open(os.path.join(cel, 'mobile', 'ci-screens.json'), 'w',
+              encoding='utf-8') as fh:
+        json.dump(karta, fh, ensure_ascii=False, indent=2)
+        fh.write('\n')
+    with open(os.path.join(cel, '.github', 'workflows', 'mobile.yml'), 'w',
+              encoding='utf-8') as fh:
+        yaml.safe_dump(wf, fh, allow_unicode=True, sort_keys=False)
+    print('A-DEREVO %s job=%s kanon=%d mashina=1 ekran.json=forma'
+          % (cel, LE['job_id'], len(kanon)))
+    return 0
+
+
 def main():
     argv = sys.argv[1:]
     rezhim = 'koren'
@@ -633,6 +1041,12 @@ def main():
         repo_r = argv[argv.index('--repo') + 1]
     elif '--oracle-tamper' in argv:
         rezhim = 'tamper'
+    elif '--a-derevo' in argv:
+        i = argv.index('--a-derevo')
+        if i + 2 >= len(argv):
+            print('OTKAZ: --a-derevo <продукт> <цель>', file=sys.stderr)
+            return 2
+        return postav_zhivoe_a_derevo(argv[i + 1], argv[i + 2], vedro())
     if '--seed' in argv:
         seed = int(argv[argv.index('--seed') + 1])
     src = vedro()
@@ -771,6 +1185,17 @@ def main():
             itogi.append((idk, True, 'статически-зелёный контроль (модель)'))
         else:
             itogi.append((idk, bool(ok), '' if ok else 'нет/не совпало'))
+    # отказ LEKALO_NE_INSTANCIIROVANO со списком недостающего (блок Crit147)
+    if rezhim == 'koren':
+        itogi.append(('s-lekalo-instanciirovano', False,
+                      'SUBJECT_ABSENT продукт'))
+    elif rezhim in ('model', 'stabs'):
+        itogi.append(('s-lekalo-instanciirovano', True,
+                      'статически-зелёный контроль (модель)'))
+    else:
+        ok_l, pochemu_l = sud_lekalo(repo_r, src)
+        itogi.append(('s-lekalo-instanciirovano', ok_l,
+                      '' if ok_l else pochemu_l))
 
     zelen = sum(1 for _, ok, _ in itogi if ok)
     krasn = len(itogi) - zelen
@@ -780,6 +1205,8 @@ def main():
     svjazi = 0
     if rezhim == 'stabs':
         for stab, svaz in sorted(src['stab_vhod'].items()):
+            if 'kletka' in svaz:
+                continue  # стабы лекала — ниже, отдельным контуром
             put = os.path.join(STABY, src['staby'][stab])
             rc, vyv = zapusk_pravila_mashiny(put, svaz['pravilo'])
             if rc == 0:
@@ -788,6 +1215,38 @@ def main():
                 return 1
             print('STAB %s KRASEN %s' % (stab, svaz['pravilo']))
             svjazi += 1
+        # стаб лекала (Н-39, блок Crit147 круг 1): обход критика — канон и
+        # машина на месте, проводки нет, ekran.json={}. Пара входов одной
+        # клеткой: A-дерево рецепта ЗЕЛЁНО (живые байты продукта 6240f630 +
+        # три парные правки), стаб-обход КРАСЕН; мутант-«пропускник»
+        # (клетка зелена без проверок) ловится здесь — STAB_ZHIV rc 1.
+        vrem_a = tempfile.mkdtemp(prefix='gespraech147-lekalo-')
+        try:
+            a_der = postav_a_derevo(vrem_a, src)
+            ok_a, pochemu_a = sud_lekalo(a_der, src)
+            if not ok_a:
+                sys.stderr.write('ORACLE A-дерево не зелено: %s\n'
+                                 % pochemu_a)
+                return 2
+            stub = os.path.join(vrem_a, 'stub')
+            shutil.copytree(a_der, stub)
+            r = subprocess.run([sys.executable,
+                                os.path.join(STABY, src['staby'][
+                                    'lekalo-obhod-kritika']), stub],
+                               capture_output=True, text=True, timeout=60)
+            if r.returncode != 0:
+                sys.stderr.write('ORACLE стаб лекала: мутатор rc=%d %s\n'
+                                 % (r.returncode, r.stderr.strip()[:120]))
+                return 2
+            ok_s, pochemu_s = sud_lekalo(stub, src)
+            if ok_s:
+                print('STAB lekalo-obhod-kritika ZHIV (клетка зелена на '
+                      'обходе критика: ekran.json={} без проводки)')
+                return 1
+            print('STAB lekalo-obhod-kritika KRASEN s-lekalo-instanciirovano')
+            svjazi += 1
+        finally:
+            shutil.rmtree(vrem_a, ignore_errors=True)
         print('SVJAZI %d' % svjazi)
 
     print('клеток %d, зелёных %d, красных %d; режим %s seed %d'
