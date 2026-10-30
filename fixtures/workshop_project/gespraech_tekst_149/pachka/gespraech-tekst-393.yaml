@@ -1,0 +1,39 @@
+# Флоу СОБРАННОГО пути второго профиля 393 (контракт 149): оболочка
+# tab-shell видима на собранном пути, кадры профиля — обе темы (e2e.sh).
+appId: com.complior.mobile
+name: gespraech-tekst-393
+---
+- launchApp
+- assertVisible:
+    id: tab-shell
+- assertVisible:
+    id: gespraech-mitte
+- takeScreenshot:
+    name: gespraech-tekst-ga-11-393
+- tapOn:
+    id: gespraech-mitte
+- tapOn:
+    id: gespraech-menu-schreiben
+- assertVisible:
+    id: gespraech-pole
+- takeScreenshot:
+    name: gespraech-tekst-ga-17-393
+- tapOn:
+    id: gespraech-topic-auto-erzaehlen
+- takeScreenshot:
+    name: gespraech-tekst-ga-12-393
+- tapOn:
+    id: gespraech-vlozhit
+- assertVisible:
+    id: gespraech-vlozhit-foto
+- takeScreenshot:
+    name: gespraech-tekst-ga-18-393
+- tapOn:
+    id: gespraech-vlozhit-dokument
+- takeScreenshot:
+    name: gespraech-tekst-ga-19-393
+- inputText:
+    id: gespraech-pole
+    text: Fahrzeug Kombi gebraucht Baujahr
+- takeScreenshot:
+    name: gespraech-tekst-ga-13-393

@@ -1,0 +1,143 @@
+# Проход проходимости пачки gespraech-tekst (контракт 149): каждое
+# нажатие видимой цели даёт наблюдаемое изменение (assertVisible/
+# assertNotVisible); пустых нажатий нет. Демо-переключателей нет.
+# Голосовые цели (микрофоны плашек/поля, «Lieber erzählen?») — мок-хост
+# до контрактов 150/151 (норма пилота 28.10): мок отвечает состоянием.
+appId: com.complior.mobile
+name: gespraech-tekst-prokhod
+---
+- launchApp
+- tapOn:
+    id: gespraech-verlauf
+- assertVisible:
+    id: gespraech-verlauf-spisok
+- tapOn:
+    id: shell-tab-start
+- assertVisible:
+    id: gespraech-mitte
+- tapOn:
+    id: shell-tab-vorgaenge
+- assertVisible:
+    id: vorgaenge
+- tapOn:
+    id: shell-tab-schutz
+- assertVisible:
+    id: schutz
+- tapOn:
+    id: shell-tab-post
+- assertVisible:
+    id: post
+- tapOn:
+    id: shell-tab-start
+- tapOn:
+    id: gespraech-topic-schaden
+- assertVisible:
+    id: gespraech-tema-schaden
+- tapOn:
+    id: gespraech-topic-schaden-speak
+- assertVisible:
+    id: gespraech-voice
+- tapOn:
+    id: gespraech-beenden
+- tapOn:
+    id: gespraech-topic-schaden
+- tapOn:
+    id: gespraech-topic-auto
+- assertVisible:
+    id: gespraech-tema-auto
+- tapOn:
+    id: gespraech-topic-auto-erzaehlen
+- assertVisible:
+    id: gespraech-tema
+- tapOn:
+    id: gespraech-chip-gekauft
+- assertNotVisible:
+    id: gespraech-chip-gekauft
+- tapOn:
+    id: gespraech-topic-umzug
+- assertVisible:
+    id: gespraech-tema-umzug
+- tapOn:
+    id: gespraech-topic-umzug-erzaehlen
+- assertVisible:
+    id: gespraech-tema
+- tapOn:
+    id: gespraech-chip-geplant
+- assertNotVisible:
+    id: gespraech-chip-geplant
+- tapOn:
+    id: gespraech-topic-nachwuchs
+- assertVisible:
+    id: gespraech-tema-nachwuchs
+- tapOn:
+    id: gespraech-topic-nachwuchs-erzaehlen
+- assertVisible:
+    id: gespraech-tema
+- tapOn:
+    id: gespraech-topic-heirat
+- assertVisible:
+    id: gespraech-tema-heirat
+- tapOn:
+    id: gespraech-topic-heirat-erzaehlen
+- assertVisible:
+    id: gespraech-tema
+- tapOn:
+    id: gespraech-lieber-erzaehlen
+- assertVisible:
+    id: gespraech-voice
+- tapOn:
+    id: gespraech-beenden
+- tapOn:
+    id: gespraech-vlozhit
+- assertVisible:
+    id: gespraech-vlozhit-foto
+- tapOn:
+    id: gespraech-vlozhit-dokument
+- assertVisible:
+    id: gespraech-chip-vergleichen
+- tapOn:
+    id: gespraech-chip-vergleichen
+- assertNotVisible:
+    id: gespraech-chip-vergleichen
+- tapOn:
+    id: gespraech-vlozhit
+- tapOn:
+    id: gespraech-vlozhit-dokument
+- tapOn:
+    id: gespraech-chip-nicht
+- assertNotVisible:
+    id: gespraech-chip-nicht
+- tapOn:
+    id: gespraech-pole
+- assertVisible:
+    id: gespraech-klaviatura
+- inputText:
+    id: gespraech-pole
+    text: Notiz an Complior
+- tapOn:
+    id: gespraech-mikrofon-v-pole
+- assertVisible:
+    id: gespraech-voice
+- tapOn:
+    id: gespraech-beenden
+- tapOn:
+    id: gespraech-pole
+- tapOn:
+    id: gespraech-mikrofon
+- assertVisible:
+    id: gespraech-voice
+- tapOn:
+    id: gespraech-beenden
+- tapOn:
+    id: gespraech-pole
+- inputText:
+    id: gespraech-pole
+    text: senden
+- tapOn:
+    id: gespraech-otpravit
+- assertVisible:
+    id: gespraech-soobshchenie
+- tapOn:
+    id: gespraech-mitte
+- assertVisible:
+    id: gespraech-menu

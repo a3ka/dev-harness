@@ -1,0 +1,413 @@
+{
+ "_comment": "Оракул батареи 149: пины носителей зоны (проверяются ДО субъекта), канон-пины (пути в репо продукта, режим --repo), клетки оси A (форма пачки; причина сверяется с фактом эталона), стабы и привязки правил (Н-39).",
+ "piny": {
+  "nositeli": {
+   "model/ekran_shablon.py": "fixtures/workshop_project/gespraech_tekst_149/model/ekran_shablon.py",
+   "model/chat-machine.ts": "fixtures/workshop_project/gespraech_tekst_149/model/chat-machine.ts",
+   "model/dvizhenie-runner.mjs": "fixtures/workshop_project/gespraech_tekst_149/model/dvizhenie-runner.mjs",
+   "nositeli/d24/manifest.json": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/manifest.json",
+   "nositeli/d24/spec.json": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/spec.json",
+   "nositeli/d24/pozvonok.json": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/pozvonok.json",
+   "nositeli/produkt/first-run-kadry.json": "fixtures/workshop_project/gespraech_tekst_149/nositeli/produkt/first-run-kadry.json",
+   "nositeli/produkt/erstinformation-kadry.json": "fixtures/workshop_project/gespraech_tekst_149/nositeli/produkt/erstinformation-kadry.json",
+   "nositeli/produkt/tokens.css": "fixtures/workshop_project/gespraech_tekst_149/nositeli/produkt/tokens.css",
+   "pachka/forma-ekrana.json": "fixtures/workshop_project/gespraech_tekst_149/pachka/forma-ekrana.json",
+   "pachka/kontrakt.md": "fixtures/workshop_project/gespraech_tekst_149/pachka/kontrakt.md",
+   "pachka/kadry.json": "fixtures/workshop_project/gespraech_tekst_149/pachka/kadry.json",
+   "pachka/kadry-393.json": "fixtures/workshop_project/gespraech_tekst_149/pachka/kadry-393.json",
+   "pachka/katalog_kopii.json": "fixtures/workshop_project/gespraech_tekst_149/pachka/katalog_kopii.json",
+   "pachka/spec_api.json": "fixtures/workshop_project/gespraech_tekst_149/pachka/spec_api.json",
+   "pachka/gespraech-tekst.yaml": "fixtures/workshop_project/gespraech_tekst_149/pachka/gespraech-tekst.yaml",
+   "pachka/gespraech-tekst-393.yaml": "fixtures/workshop_project/gespraech_tekst_149/pachka/gespraech-tekst-393.yaml",
+   "pachka/gespraech-tekst-prokhod.yaml": "fixtures/workshop_project/gespraech_tekst_149/pachka/gespraech-tekst-prokhod.yaml",
+   "pachka/batareja/red_ekrana.sh": "fixtures/workshop_project/gespraech_tekst_149/pachka/batareja/red_ekrana.sh",
+   "teksty/gespraech-tekst.test.ts": "fixtures/workshop_project/gespraech_tekst_149/teksty/gespraech-tekst.test.ts",
+   "teksty/dvizhenie.mjs": "fixtures/workshop_project/gespraech_tekst_149/teksty/dvizhenie.mjs",
+   "teksty/e2e.sh": "fixtures/workshop_project/gespraech_tekst_149/teksty/e2e.sh",
+   "teksty/prokhod.sh": "fixtures/workshop_project/gespraech_tekst_149/teksty/prokhod.sh",
+   "nositeli/d24/maket/390x844-GA-11-Hell.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/390x844-GA-11-Hell.png",
+   "nositeli/d24/maket/390x844-GA-11.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/390x844-GA-11.png",
+   "nositeli/d24/maket/390x844-GA-12-Hell.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/390x844-GA-12-Hell.png",
+   "nositeli/d24/maket/390x844-GA-12.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/390x844-GA-12.png",
+   "nositeli/d24/maket/390x844-GA-13-Hell.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/390x844-GA-13-Hell.png",
+   "nositeli/d24/maket/390x844-GA-13.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/390x844-GA-13.png",
+   "nositeli/d24/maket/390x844-GA-17-Hell.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/390x844-GA-17-Hell.png",
+   "nositeli/d24/maket/390x844-GA-17.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/390x844-GA-17.png",
+   "nositeli/d24/maket/390x844-GA-18-Hell.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/390x844-GA-18-Hell.png",
+   "nositeli/d24/maket/390x844-GA-18.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/390x844-GA-18.png",
+   "nositeli/d24/maket/390x844-GA-19-Hell.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/390x844-GA-19-Hell.png",
+   "nositeli/d24/maket/390x844-GA-19.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/390x844-GA-19.png",
+   "nositeli/d24/maket/393x852-GA-11-Hell.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/393x852-GA-11-Hell.png",
+   "nositeli/d24/maket/393x852-GA-11.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/393x852-GA-11.png",
+   "nositeli/d24/maket/393x852-GA-12-Hell.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/393x852-GA-12-Hell.png",
+   "nositeli/d24/maket/393x852-GA-12.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/393x852-GA-12.png",
+   "nositeli/d24/maket/393x852-GA-13-Hell.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/393x852-GA-13-Hell.png",
+   "nositeli/d24/maket/393x852-GA-13.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/393x852-GA-13.png",
+   "nositeli/d24/maket/393x852-GA-17-Hell.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/393x852-GA-17-Hell.png",
+   "nositeli/d24/maket/393x852-GA-17.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/393x852-GA-17.png",
+   "nositeli/d24/maket/393x852-GA-18-Hell.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/393x852-GA-18-Hell.png",
+   "nositeli/d24/maket/393x852-GA-18.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/393x852-GA-18.png",
+   "nositeli/d24/maket/393x852-GA-19-Hell.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/393x852-GA-19-Hell.png",
+   "nositeli/d24/maket/393x852-GA-19.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/maket/393x852-GA-19.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-11-dark-390.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-11-dark-390.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-11-dark-393.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-11-dark-393.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-11-hell-390.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-11-hell-390.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-11-hell-393.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-11-hell-393.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-12-dark-390.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-12-dark-390.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-12-dark-393.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-12-dark-393.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-12-hell-390.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-12-hell-390.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-12-hell-393.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-12-hell-393.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-13-dark-390.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-13-dark-390.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-13-dark-393.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-13-dark-393.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-13-hell-390.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-13-hell-390.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-13-hell-393.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-13-hell-393.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-17-dark-390.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-17-dark-390.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-17-dark-393.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-17-dark-393.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-17-hell-390.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-17-hell-390.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-17-hell-393.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-17-hell-393.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-18-dark-390.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-18-dark-390.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-18-dark-393.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-18-dark-393.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-18-hell-390.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-18-hell-390.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-18-hell-393.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-18-hell-393.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-19-dark-390.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-19-dark-390.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-19-dark-393.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-19-dark-393.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-19-hell-390.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-19-hell-390.png",
+   "nositeli/d24/kadry/gespraech-tekst-ga-19-hell-393.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/d24/kadry/gespraech-tekst-ga-19-hell-393.png",
+   "stabs/stab_pole_bez_potolka.ts": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_pole_bez_potolka.ts",
+   "stabs/stab_pole_bez_skrolla.ts": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_pole_bez_skrolla.ts",
+   "stabs/stab_t30_fon_posle.ts": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_t30_fon_posle.ts",
+   "stabs/stab_t30_morph_linejnyj.ts": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_t30_morph_linejnyj.ts",
+   "stabs/stab_t30_temy_rano.ts": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_t30_temy_rano.ts",
+   "stabs/stab_t32_bez_plashek.ts": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_t32_bez_plashek.ts",
+   "stabs/stab_t32_chipy_ranshe.ts": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_t32_chipy_ranshe.ts",
+   "stabs/stab_t37_morph_linejnyj.ts": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_t37_morph_linejnyj.ts",
+   "stabs/stab_ud_ignor.ts": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_ud_ignor.ts"
+  },
+  "sha": {
+   "model/ekran_shablon.py": "5fd1415e40b257e5e7b97c7bf9bc8fe31e94dcea9e05c4c3ac44d68802db453b",
+   "model/chat-machine.ts": "9787bb0e819cccd493b42e00ad6a878e80e2e8ee198c0c2664c43f13f60ed724",
+   "model/dvizhenie-runner.mjs": "7dd8d7e0bc3d97bd59ba9108707ab317a2e77888589231bdb46c1fb42b8d4277",
+   "nositeli/d24/manifest.json": "b5bd859858853f708aea05e589cb187b21ea02d3c02af4081ad7ab8d5e76d6b7",
+   "nositeli/d24/spec.json": "064d7821428f425d431fbd1efd65cbec37263bb62ef974924746a07e769cd318",
+   "nositeli/d24/pozvonok.json": "9763fdc06b0c0a3c3138f7abac57bf5efbc714403f53d221c3b7c8d225c4f002",
+   "nositeli/produkt/first-run-kadry.json": "d2041a116e575dc53f5aa66d90d760f7d00354271cccea841a4725b4611c1608",
+   "nositeli/produkt/erstinformation-kadry.json": "a78399880c39113ed536bf25aeb3ca73960a0e8d2fa3b92414107cf46e24404c",
+   "nositeli/produkt/tokens.css": "c70832955fe9f3c1f0bc5e99eda27c2f1e3a575e1a3f9cedbcf5a93b61bdaf4b",
+   "pachka/forma-ekrana.json": "c3503db8c36d277d5f0ef058c54b9f70f5e06fa1816c01f486857de6eea8ab1b",
+   "pachka/kontrakt.md": "b76b6f5feb358e8040bf482f0a24423fbf385cae49287793ad1c2c711b0b4bff",
+   "pachka/kadry.json": "3051c4b7810ee7096f8597c2f7b3f98766c8ac23456b09d5931e42915e0cb841",
+   "pachka/kadry-393.json": "cdbd90e89ee3a40d4ecb8858f50f206d6c6dad85ea9b589ee22576e3a6f78024",
+   "pachka/katalog_kopii.json": "7e0f484d9f2fb41e537e9c88b87c32137bc69715166293110b6de9fae6906780",
+   "pachka/spec_api.json": "580660cc5d80b448682ec61bbb7aa0f0a4b2e5cdc0784eef8e70c00f6930f692",
+   "pachka/gespraech-tekst.yaml": "f6a957b39841d997fd2039d61a57f860fa52975a8ea51cecde65d990fc8fc4e1",
+   "pachka/gespraech-tekst-393.yaml": "7dd6140274f807d38192bf13ffca83b7b4b1568cfbb624735381773feeced555",
+   "pachka/gespraech-tekst-prokhod.yaml": "afb6d844d0ea24e735f731cb62dcf68b4e9f6abd896f208fa9d981b71d260024",
+   "pachka/batareja/red_ekrana.sh": "88e9f7c15b55b630b6291872c59e402b0f5b0bfee31a4b71db3351584890519b",
+   "teksty/gespraech-tekst.test.ts": "c4c0a32a03a2e24c5f70552507843dcdff778b57880f6e8e37deaeca2f8cf0de",
+   "teksty/dvizhenie.mjs": "497de9cf4540a0bd5cd14716a0f6becb4309b1c0f4ef2ff17399872b1e3e227f",
+   "teksty/e2e.sh": "f8611c0794f735d2c73bc88aa321b7365aa7ea989ec14e38434ac80dd06b6587",
+   "teksty/prokhod.sh": "13742e56ddf46da9c02e26215ee4b9c0a7b9c2d2ccccc5a7e995b5dc9b35c4fc",
+   "nositeli/d24/maket/390x844-GA-11-Hell.png": "a17ef21da3df386af1c7f1c11ac66a2c1b6966f56672a0bd29fe838cc927751e",
+   "nositeli/d24/maket/390x844-GA-11.png": "4f84799bb08e3d79fb9cacaee8a00e1c1d6b0651552982f659d4eb277eb52865",
+   "nositeli/d24/maket/390x844-GA-12-Hell.png": "0fbd1287aab1a7d1ffa8ce796f5de810410a6ca67418e8af077b5e7de80457d0",
+   "nositeli/d24/maket/390x844-GA-12.png": "16ca3c5b33500e0c2c9c34f56350fcbad124f9413320ebd66479ba42a48a8393",
+   "nositeli/d24/maket/390x844-GA-13-Hell.png": "28ea7ff9b6af711641087b5bb32df05f4b56bd53a50f7293a8f9483bc53321db",
+   "nositeli/d24/maket/390x844-GA-13.png": "13f91b92edf581581aea6d40a5e7ffa375bf17605e53276e5fb7542006e98e09",
+   "nositeli/d24/maket/390x844-GA-17-Hell.png": "e816de45698f123b9fb8467b1cbf86f2dbed88df710ac22f8b4b11ff5fd9b82b",
+   "nositeli/d24/maket/390x844-GA-17.png": "fc8533de2dd04b320594b3063f647b22a29d003b6344a07b0854231787fb125e",
+   "nositeli/d24/maket/390x844-GA-18-Hell.png": "98b2f7f9cc9ee7838da8f53d9b9e11c08993494b601d1d3f643dc7fc26c9202b",
+   "nositeli/d24/maket/390x844-GA-18.png": "7af795a72f8adb66c1f0f7d33be21403c6901250114e3b75fd3019dc22d048c4",
+   "nositeli/d24/maket/390x844-GA-19-Hell.png": "20c343288e8a11a5b3c869adc4b84039a337f2fa0395c4c715674fae8ed02168",
+   "nositeli/d24/maket/390x844-GA-19.png": "4fca14f3a9ef70858c4f36777a8931c762572f2d727a199b066fadf0962daa82",
+   "nositeli/d24/maket/393x852-GA-11-Hell.png": "9976f6b3daee09b6183d9d4bfe4b221f69895f52a1b0d64587e567fe4328310c",
+   "nositeli/d24/maket/393x852-GA-11.png": "fac339d04346fe8db87233d0a2a5ab6316b3a2521f6c3908bc051c37d34b7dba",
+   "nositeli/d24/maket/393x852-GA-12-Hell.png": "ceb69a9fe81ea627955e10a035eb7198a4bc118919ac79f8ef185d08de7e398a",
+   "nositeli/d24/maket/393x852-GA-12.png": "457400097dfb305e6b464cf362cfb5d842fbd315f92ce7b45b6a6fe1b2ec6de1",
+   "nositeli/d24/maket/393x852-GA-13-Hell.png": "89b9ef6b403f00d58530fba8a7b5999372280282776368975eddc9633f5051df",
+   "nositeli/d24/maket/393x852-GA-13.png": "60a610b576e586ccccb2c49fd7d806ee6f59d550b97e68a8e16c7d89d879b8d1",
+   "nositeli/d24/maket/393x852-GA-17-Hell.png": "7d50047b721a6a256d3cd1b9bb82ab213f490e11dfdd08490da39a9686c8867c",
+   "nositeli/d24/maket/393x852-GA-17.png": "ccfde27fdf8e30c286654d65735eff3faf56f6a5f72c3eaf08bcb74e618a22f9",
+   "nositeli/d24/maket/393x852-GA-18-Hell.png": "89a8af31c9d7bfb8a41dfbebce6b4f372723cf8202cc1334b4d39640cb8e3c13",
+   "nositeli/d24/maket/393x852-GA-18.png": "21d777daca40759804bdaef883463b8bd20aa330a0c1364fb375c87fa2d15e27",
+   "nositeli/d24/maket/393x852-GA-19-Hell.png": "7e523135add02bb39219643e18a670d2f3b5f36ea2e4e8d6288942055051ad78",
+   "nositeli/d24/maket/393x852-GA-19.png": "badcc256920633ed3d33a0128f3d17bd2d58e2ed816edbc386db654655135680",
+   "nositeli/d24/kadry/gespraech-tekst-ga-11-dark-390.png": "9a313bd8940e7e7634c022cd5add8569e8fa5b62a465a43fb832e580e5651f0b",
+   "nositeli/d24/kadry/gespraech-tekst-ga-11-dark-393.png": "86bd4af62565b1085faa38bbb1304aa8281d5ea9e974d3d2cc76da9aa80671ff",
+   "nositeli/d24/kadry/gespraech-tekst-ga-11-hell-390.png": "ae1cda90aa80a2dc0f67ad80127773a70a92381e52a959b11ecf8a6008f25e3b",
+   "nositeli/d24/kadry/gespraech-tekst-ga-11-hell-393.png": "ae1dfe3d5d983bdd2cd6aee5efc15f1a24a236214c5501faa88fdbf1c3962208",
+   "nositeli/d24/kadry/gespraech-tekst-ga-12-dark-390.png": "25217119dbbb3393a8c399b72cda88d9cf1ba3868367ea30bfa705e0c2fc4ee4",
+   "nositeli/d24/kadry/gespraech-tekst-ga-12-dark-393.png": "11eaac671a34e91b090d687ed19b85b473451af2c585c8d9dbc8efb9375dd93b",
+   "nositeli/d24/kadry/gespraech-tekst-ga-12-hell-390.png": "83ab1a45467a90d25626bb5c05288f39ab1a23222174aa578230505053bc37bb",
+   "nositeli/d24/kadry/gespraech-tekst-ga-12-hell-393.png": "4292a5aaede455d9923bc68ebad92bde014d03cbdecad03996870fcbc482de20",
+   "nositeli/d24/kadry/gespraech-tekst-ga-13-dark-390.png": "9b8024268e4daaab5e96e1caee1e2c2edf600508457f534f6905f54592ca3a18",
+   "nositeli/d24/kadry/gespraech-tekst-ga-13-dark-393.png": "89338e1fc43db09d8c343dba640b45a5fdd9690540a3f41d1242092ebb9d9027",
+   "nositeli/d24/kadry/gespraech-tekst-ga-13-hell-390.png": "1bfd5b736ff8943fbce4333f91b6ef0f5fdf5e2f0a20f089cd714129f513892c",
+   "nositeli/d24/kadry/gespraech-tekst-ga-13-hell-393.png": "9bee785c96c20edcbc768cf14c51f085e16b9c888a0366ecd1390e3fa7f218a4",
+   "nositeli/d24/kadry/gespraech-tekst-ga-17-dark-390.png": "48d801f67d33799c99ba4eea53b7d6982928d76c100d09a1e07fe73e220e9e0b",
+   "nositeli/d24/kadry/gespraech-tekst-ga-17-dark-393.png": "61487bdf89642229a91eb35598f311103e684765ebee8da4a42a5ebc4d7ec2d4",
+   "nositeli/d24/kadry/gespraech-tekst-ga-17-hell-390.png": "dcfd9ca890740315e69da877f9905057ef8265c614e9ffb775021e7412b50355",
+   "nositeli/d24/kadry/gespraech-tekst-ga-17-hell-393.png": "1423daec76340b98a947e29bd35faf44c56872dd16ab362803fa01c812651d97",
+   "nositeli/d24/kadry/gespraech-tekst-ga-18-dark-390.png": "b3bfca8935edd3515266b0978c5f071c15a3082975950513bf8b3e870c6667c6",
+   "nositeli/d24/kadry/gespraech-tekst-ga-18-dark-393.png": "f3b6e42a6e84d477641ace0ffc0dbca369940846c628fb6ea18c6de5fb267560",
+   "nositeli/d24/kadry/gespraech-tekst-ga-18-hell-390.png": "0c94a074d60d37fa6cb173e38dcf1940c74be04ad7900af5992f75e434064a23",
+   "nositeli/d24/kadry/gespraech-tekst-ga-18-hell-393.png": "c7a960ef7f97db463ed0a5d7819a08943d474c07ae3730b8bae5b21e87faa45b",
+   "nositeli/d24/kadry/gespraech-tekst-ga-19-dark-390.png": "8b55b6f5a5091bb5e7807d2590faca1e57763fb5b13640ef4cd2ae04f4a096a6",
+   "nositeli/d24/kadry/gespraech-tekst-ga-19-dark-393.png": "cb5f8d5c62155c7489cb08432cd7e4e22cd4021b076453bc45f42d318860b4f7",
+   "nositeli/d24/kadry/gespraech-tekst-ga-19-hell-390.png": "bfa8be08adfcb752717af2be0cc691f1f09e23c59c196db8f4bf215e5e40a64c",
+   "nositeli/d24/kadry/gespraech-tekst-ga-19-hell-393.png": "dd2eb7f3261b02e85b2d49e3046b300be0241bc601a52f9fbde30474fc10f0ef",
+   "stabs/stab_pole_bez_potolka.ts": "fab1eada6f8b830ecb0d57f00e65d960e01a2b65ec2d91222fe7b534bd37cae8",
+   "stabs/stab_pole_bez_skrolla.ts": "d20491c992537ef9ba854275911722e8c3512cbcdd446ed26d45ac87dc7398a1",
+   "stabs/stab_t30_fon_posle.ts": "dcf04cdf598afffc4ad45d10983a7100defb1fe9930e7eeaa57e63e42305cd79",
+   "stabs/stab_t30_morph_linejnyj.ts": "920c3f598c04d6d2cbd989219273cc5d6f9a2bd47a20836f694008b190a76623",
+   "stabs/stab_t30_temy_rano.ts": "4c9431ea187c68cc32c534ba2a8dab85fc2d50c7c94102e57ef23c4d56f1b333",
+   "stabs/stab_t32_bez_plashek.ts": "de453e6ddabe75b4644922ea6a654db11f7f470dd82cfa98b04d162900d71735",
+   "stabs/stab_t32_chipy_ranshe.ts": "6f42fc5c4c5c21cd64a10b956bc631f3a3a60b1c3384ab9efe7767c995151e63",
+   "stabs/stab_t37_morph_linejnyj.ts": "538500edccd69aa837c003130e4128227938fd8def57b45ac5863995265fc817",
+   "stabs/stab_ud_ignor.ts": "e7a914d594bb284424339998a84165ec9b42b1b7682cf87cf6b8b0c1c2f5a88c"
+  },
+  "kanon": {
+   "mobile/src/features/conversation/__tests__/gespraech-tekst.test.ts": "c4c0a32a03a2e24c5f70552507843dcdff778b57880f6e8e37deaeca2f8cf0de",
+   "mobile/e2e-gespraech-tekst/kontrakt.md": "b76b6f5feb358e8040bf482f0a24423fbf385cae49287793ad1c2c711b0b4bff",
+   "mobile/e2e-gespraech-tekst/kadry.json": "3051c4b7810ee7096f8597c2f7b3f98766c8ac23456b09d5931e42915e0cb841",
+   "mobile/e2e-gespraech-tekst/kadry-393.json": "cdbd90e89ee3a40d4ecb8858f50f206d6c6dad85ea9b589ee22576e3a6f78024",
+   "mobile/e2e-gespraech-tekst/katalog_kopii.json": "7e0f484d9f2fb41e537e9c88b87c32137bc69715166293110b6de9fae6906780",
+   "mobile/e2e-gespraech-tekst/spec_api.json": "580660cc5d80b448682ec61bbb7aa0f0a4b2e5cdc0784eef8e70c00f6930f692",
+   "mobile/e2e-gespraech-tekst/batareja/red_ekrana.sh": "88e9f7c15b55b630b6291872c59e402b0f5b0bfee31a4b71db3351584890519b",
+   "mobile/.maestro/gespraech-tekst.yaml": "f6a957b39841d997fd2039d61a57f860fa52975a8ea51cecde65d990fc8fc4e1",
+   "mobile/.maestro/gespraech-tekst-393.yaml": "7dd6140274f807d38192bf13ffca83b7b4b1568cfbb624735381773feeced555",
+   "mobile/.maestro/gespraech-tekst-prokhod.yaml": "afb6d844d0ea24e735f731cb62dcf68b4e9f6abd896f208fa9d981b71d260024",
+   "mobile/e2e-gespraech-tekst/dvizhenie.mjs": "497de9cf4540a0bd5cd14716a0f6becb4309b1c0f4ef2ff17399872b1e3e227f"
+  }
+ },
+ "kejsy": {
+  "a": {
+   "shablon2-s-ga": {
+    "prichina": "DVIZHENIE_OTSVTSTVUET"
+   },
+   "ekrany-ne-polny-ga-11": {
+    "prichina": "EKRANY_NE_POLNY"
+   },
+   "ekrany-ne-polny-ga-12": {
+    "prichina": "EKRANY_NE_POLNY"
+   },
+   "ekrany-ne-polny-ga-13": {
+    "prichina": "EKRANY_NE_POLNY"
+   },
+   "ekrany-ne-polny-ga-17": {
+    "prichina": "EKRANY_NE_POLNY"
+   },
+   "ekrany-ne-polny-ga-18": {
+    "prichina": "EKRANY_NE_POLNY"
+   },
+   "ekrany-ne-polny-ga-19": {
+    "prichina": "EKRANY_NE_POLNY"
+   },
+   "ekran-vne-manifesta": {
+    "prichina": "EKRAN_VNE_MANIFESTA"
+   },
+   "ekran-bez-kadrov": {
+    "prichina": "EKRAN_BEZ_KADROV"
+   },
+   "perehody-ne-polny-t30": {
+    "prichina": "PEREHODY_NE_POLNY"
+   },
+   "perehody-ne-polny-t32": {
+    "prichina": "PEREHODY_NE_POLNY"
+   },
+   "perehody-ne-polny-t34": {
+    "prichina": "PEREHODY_NE_POLNY"
+   },
+   "perehody-ne-polny-t08": {
+    "prichina": "PEREHODY_NE_POLNY"
+   },
+   "perehody-ne-polny-t37": {
+    "prichina": "PEREHODY_NE_POLNY"
+   },
+   "perehody-ne-polny-t17": {
+    "prichina": "PEREHODY_NE_POLNY"
+   },
+   "perehody-ne-polny-t18": {
+    "prichina": "PEREHODY_NE_POLNY"
+   },
+   "perehody-ne-polny-t19": {
+    "prichina": "PEREHODY_NE_POLNY"
+   },
+   "perehody-ne-polny-r2": {
+    "prichina": "PEREHODY_NE_POLNY"
+   },
+   "perehody-ne-polny-r2-393": {
+    "prichina": "PEREHODY_NE_POLNY"
+   },
+   "perehod-lishnij": {
+    "prichina": "PEREHOD_LISHNIJ"
+   },
+   "perehod-vne-manifesta": {
+    "prichina": "PEREHOD_VNE_MANIFESTA"
+   },
+   "scena-vne-orakula": {
+    "prichina": "SCENA_VNE_ORAKULA"
+   },
+   "scena-vne-perehoda": {
+    "prichina": "SCENA_VNE_PEREHODA"
+   },
+   "sceny-znaka-ne-polny": {
+    "prichina": "SCENY_ZNAKA_NE_POLNY"
+   },
+   "etalon-bez-pinov": {
+    "prichina": "ETALON_BEZ_PINOV"
+   },
+   "etalon-ne-hex": {
+    "prichina": "ETALON_NE_HEX"
+   },
+   "etalon-ne-polon": {
+    "prichina": "ETALON_NE_POLON"
+   },
+   "etalon-tema-otsvtstvuet": {
+    "prichina": "ETALON_TEMA_OTSVTSTVUET"
+   },
+   "video-etalon-ne-polon": {
+    "prichina": "VIDEO_ETALON_NE_POLON"
+   },
+   "etalon-lishnij": {
+    "prichina": "ETALON_LISHNIJ"
+   },
+   "istochnik-ne-sovpadaet": {
+    "prichina": "ISTOCHNIK_NE_SOVPADAET"
+   },
+   "istochnik-otsvtstvuet": {
+    "prichina": "ISTOCHNIK_OTSVTSTVUET"
+   },
+   "kljuch-bez-kataloga": {
+    "prichina": "KLJUCH_BEZ_KATALOGA"
+   },
+   "scenarij-bez-snimka": {
+    "prichina": "SCENARIJ_BEZ_SNIMKA"
+   },
+   "zony-rashodjatsja": {
+    "prichina": "ZONY_RASHODJATSJA"
+   },
+   "ne-trogaet-ne-polon": {
+    "prichina": "NE_TROGAET_NE_POLON"
+   },
+   "pressable-bez-izmenenija": {
+    "prichina": "PRESSABLE_BEZ_IZMENENIJA"
+   },
+   "kasanie-menshe-normy": {
+    "prichina": "KASANIE_MENSHE_NORMY"
+   },
+   "kasanie-v-safe-zone": {
+    "prichina": "KASANIE_V_SAFE_ZONE"
+   },
+   "kadr-neodnoznachen": {
+    "prichina": "KADR_NEODNOZNACHEN"
+   },
+   "profil-nizhe-minimuma": {
+    "prichina": "PROFIL_NIZHE_MINIMUMA"
+   },
+   "profil-bez-insetov": {
+    "prichina": "PROFIL_BEZ_INSETOV"
+   },
+   "golyl-komponent": {
+    "prichina": "GOLYJ_KOMPONENT"
+   },
+   "marshrut-bez-obolochki": {
+    "prichina": "MARSHRUT_BEZ_OBOLOCHKI"
+   },
+   "marshrut-bez-snimka": {
+    "prichina": "MARSHRUT_BEZ_SNIMKA"
+   },
+   "odna-tema": {
+    "prichina": "ODNA_TEMA"
+   },
+   "nalozhenie-sloev": {
+    "prichina": "NALOZHENIE_SLOEV"
+   },
+   "zalezaet-pod-inset": {
+    "prichina": "ZALEZAET_POD_INSET"
+   },
+   "pustaja-ikonka": {
+    "prichina": "PUSTAJA_IKONKA"
+   },
+   "kontrakt-dlinnyj": {
+    "prichina": "NE_ODNA_STRANICA"
+   },
+   "literal-cveta": {
+    "prichina": "LITERAL_VNE_AUDITA"
+   },
+   "prokhod-ne-maestro": {
+    "prichina": "PROKHOD_NE_MAESTRO"
+   },
+   "prokhod-bez-pressable": {
+    "prichina": "PROKHOD_BEZ_PRESSABLE"
+   },
+   "dvizhenie-bez-otcheta": {
+    "prichina": "DVIZHENIE_BEZ_OTCHETA"
+   },
+   "dvizhenie-ne-proshla": {
+    "prichina": "DVIZHENIE_NE_PROSHLA"
+   },
+   "otchet-ustarevshij": {
+    "prichina": "OTCHET_USTAREVSHIJ"
+   },
+   "otchet-pustoj": {
+    "prichina": "OTCHET_PUSTOJ"
+   },
+   "otchet-s-provalami": {
+    "prichina": "OTCHET_S_PROVALAMI"
+   },
+   "e2e-ne-proshla": {
+    "prichina": "E2E_NE_PROSHLA"
+   },
+   "kadr-ustarevshij": {
+    "prichina": "KADR_USTAREVSHIJ"
+   },
+   "samodelnaya-sverka": {
+    "prichina": "SAMODELNAYA_SVERKA"
+   },
+   "razdel-otsvtstvuet": {
+    "prichina": "RAZDEL_OTSVTSTVUET"
+   },
+   "kontrol-forma": {}
+  }
+ },
+ "staby": {
+  "t30-fon-posle": "stab_t30_fon_posle.ts",
+  "t30-morph-linejnyj": "stab_t30_morph_linejnyj.ts",
+  "t30-temy-rano": "stab_t30_temy_rano.ts",
+  "t32-chipy-ranshe": "stab_t32_chipy_ranshe.ts",
+  "t32-bez-plashek": "stab_t32_bez_plashek.ts",
+  "t37-morph-linejnyj": "stab_t37_morph_linejnyj.ts",
+  "ud-ignor": "stab_ud_ignor.ts",
+  "pole-bez-potolka": "stab_pole_bez_potolka.ts",
+  "pole-bez-skrolla": "stab_pole_bez_skrolla.ts"
+ },
+ "stab_vhod": {
+  "t30-fon-posle": {
+   "pravilo": "t30-fon-do-chata"
+  },
+  "t30-morph-linejnyj": {
+   "pravilo": "t30-morf-pilulja-pole"
+  },
+  "t30-temy-rano": {
+   "pravilo": "t30-temy-posle-polja"
+  },
+  "t32-chipy-ranshe": {
+   "pravilo": "t32-vopros-ranshe-chipov"
+  },
+  "t32-bez-plashek": {
+   "pravilo": "plan-t32"
+  },
+  "t37-morph-linejnyj": {
+   "pravilo": "t37-leista-v-pole"
+  },
+  "ud-ignor": {
+   "pravilo": "ud-bez-poljota"
+  },
+  "pole-bez-potolka": {
+   "pravilo": "pole-shest-strok"
+  },
+  "pole-bez-skrolla": {
+   "pravilo": "pole-shest-strok"
+  }
+ }
+}

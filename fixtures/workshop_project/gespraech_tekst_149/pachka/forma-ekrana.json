@@ -1,0 +1,799 @@
+{
+ "ekran": "gespraech-tekst",
+ "kadry": "kadry.json",
+ "sostojanija": [
+  "plaschki",
+  "tema-verlauf",
+  "schreiben-tastatur",
+  "schreiben-temy",
+  "foto",
+  "dokument"
+ ],
+ "kljuchi_kopii": [
+  "frame.F04.01.title",
+  "action.F04.A01",
+  "action.F05.A01",
+  "action.F05.A02",
+  "ia115.entry.speak",
+  "frame.F05.02.title",
+  "ia115.nav.START",
+  "ia117.nav.VORGAENGE",
+  "ia115.nav.SCHUTZ",
+  "ia115.nav.POST",
+  "ui.mission.group.working"
+ ],
+ "operacii_api": [],
+ "katalog_kopii": "mobile/e2e-gespraech-tekst/katalog_kopii.json",
+ "spec_api": "mobile/e2e-gespraech-tekst/spec_api.json",
+ "audit_tokenov": "docs/ux/03_Mobility_Slice1/ds/tokens.css",
+ "e2e_scenarij": "mobile/.maestro/gespraech-tekst.yaml",
+ "kadry_dir": "mobile/maestro-out-gespraech-tekst",
+ "kontrakt": "kontrakt.md",
+ "batareja": [
+  "batareja/red_ekrana.sh"
+ ],
+ "priemka": {
+  "e2e": "bash mobile/e2e-gespraech-tekst/e2e.sh gespraech-tekst",
+  "sverka": "python3 .harness149/scripts/sverka_maketa.py --manifest mobile/e2e-gespraech-tekst/kadry.json --kadry mobile/maestro-out-gespraech-tekst --repo .",
+  "prokhod": "bash mobile/e2e-gespraech-tekst/prokhod.sh mobile/.maestro/gespraech-tekst-prokhod.yaml"
+ },
+ "zony": {
+  "architect": [
+   "contracts/149-gespraech-tekst-chat.md",
+   "fixtures/workshop_project/gespraech_tekst_149/"
+  ],
+  "implementer": [
+   "mobile/src/features/conversation/",
+   "mobile/src/ui/conversation-composer/",
+   "mobile/src/mocks/",
+   "mobile/.maestro/",
+   "mobile/e2e-gespraech-tekst/"
+  ]
+ },
+ "zamenjaet": null,
+ "ne_trogaet": [
+  "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_chuzhogo/kadry.json",
+  "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_tot_zhe/kadry.json",
+  "mobile/e2e-first-run/kadry.json",
+  "mobile/e2e-erstinformation/kadry.json"
+ ],
+ "fiktura": false,
+ "shablon": 3,
+ "prokhodimost": {
+  "pressable": [
+   {
+    "id": "gespraech-verlauf",
+    "sostojanie": "deistvie",
+    "izmenenie": "verlauf",
+    "shirina": 44,
+    "vysota": 44,
+    "x": 330,
+    "y": 16,
+    "demo": false
+   },
+   {
+    "id": "gespraech-topic-schaden",
+    "sostojanie": "deistvie",
+    "izmenenie": "tema-schaden",
+    "shirina": 294,
+    "vysota": 80,
+    "x": 16,
+    "y": 136,
+    "demo": false
+   },
+   {
+    "id": "gespraech-topic-schaden-speak",
+    "sostojanie": "deistvie",
+    "izmenenie": "tema-schaden-golos",
+    "shirina": 64,
+    "vysota": 80,
+    "x": 310,
+    "y": 136,
+    "demo": false
+   },
+   {
+    "id": "gespraech-topic-auto",
+    "sostojanie": "deistvie",
+    "izmenenie": "tema-auto",
+    "shirina": 173,
+    "vysota": 140,
+    "x": 16,
+    "y": 228,
+    "demo": false
+   },
+   {
+    "id": "gespraech-topic-auto-erzaehlen",
+    "sostojanie": "deistvie",
+    "izmenenie": "tema-auto-tekst",
+    "shirina": 173,
+    "vysota": 44,
+    "x": 16,
+    "y": 368,
+    "demo": false
+   },
+   {
+    "id": "gespraech-topic-umzug",
+    "sostojanie": "deistvie",
+    "izmenenie": "tema-umzug",
+    "shirina": 173,
+    "vysota": 140,
+    "x": 201,
+    "y": 228,
+    "demo": false
+   },
+   {
+    "id": "gespraech-topic-umzug-erzaehlen",
+    "sostojanie": "deistvie",
+    "izmenenie": "tema-umzug-tekst",
+    "shirina": 173,
+    "vysota": 44,
+    "x": 201,
+    "y": 368,
+    "demo": false
+   },
+   {
+    "id": "gespraech-topic-nachwuchs",
+    "sostojanie": "deistvie",
+    "izmenenie": "tema-nachwuchs",
+    "shirina": 173,
+    "vysota": 140,
+    "x": 16,
+    "y": 424,
+    "demo": false
+   },
+   {
+    "id": "gespraech-topic-nachwuchs-erzaehlen",
+    "sostojanie": "deistvie",
+    "izmenenie": "tema-nachwuchs-tekst",
+    "shirina": 173,
+    "vysota": 44,
+    "x": 16,
+    "y": 564,
+    "demo": false
+   },
+   {
+    "id": "gespraech-topic-heirat",
+    "sostojanie": "deistvie",
+    "izmenenie": "tema-heirat",
+    "shirina": 173,
+    "vysota": 140,
+    "x": 201,
+    "y": 424,
+    "demo": false
+   },
+   {
+    "id": "gespraech-topic-heirat-erzaehlen",
+    "sostojanie": "deistvie",
+    "izmenenie": "tema-heirat-tekst",
+    "shirina": 173,
+    "vysota": 44,
+    "x": 201,
+    "y": 564,
+    "demo": false
+   },
+   {
+    "id": "gespraech-chip-gekauft",
+    "sostojanie": "deistvie",
+    "izmenenie": "otvet-gekauft",
+    "shirina": 128,
+    "vysota": 44,
+    "x": 121,
+    "y": 593,
+    "demo": false
+   },
+   {
+    "id": "gespraech-chip-geplant",
+    "sostojanie": "deistvie",
+    "izmenenie": "otvet-geplant",
+    "shirina": 116,
+    "vysota": 44,
+    "x": 258,
+    "y": 593,
+    "demo": false
+   },
+   {
+    "id": "gespraech-lieber-erzaehlen",
+    "sostojanie": "deistvie",
+    "izmenenie": "priglashenie-golos",
+    "shirina": 164,
+    "vysota": 44,
+    "x": 210,
+    "y": 645,
+    "demo": false
+   },
+   {
+    "id": "gespraech-chip-vergleichen",
+    "sostojanie": "deistvie",
+    "izmenenie": "otvet-vergleichen",
+    "shirina": 132,
+    "vysota": 44,
+    "x": 110,
+    "y": 645,
+    "demo": false
+   },
+   {
+    "id": "gespraech-chip-nicht",
+    "sostojanie": "deistvie",
+    "izmenenie": "otvet-nicht",
+    "shirina": 125,
+    "vysota": 44,
+    "x": 249,
+    "y": 645,
+    "demo": false
+   },
+   {
+    "id": "gespraech-vlozhit",
+    "sostojanie": "deistvie",
+    "izmenenie": "vlozhit",
+    "shirina": 44,
+    "vysota": 44,
+    "x": 16,
+    "y": 711,
+    "demo": false
+   },
+   {
+    "id": "gespraech-pole",
+    "sostojanie": "deistvie",
+    "izmenenie": "fokus-polja",
+    "shirina": 242,
+    "vysota": 56,
+    "x": 68,
+    "y": 705,
+    "demo": false
+   },
+   {
+    "id": "gespraech-mikrofon",
+    "sostojanie": "deistvie",
+    "izmenenie": "golos-iz-polja",
+    "shirina": 56,
+    "vysota": 56,
+    "x": 318,
+    "y": 705,
+    "demo": false
+   },
+   {
+    "id": "gespraech-mikrofon-v-pole",
+    "sostojanie": "deistvie",
+    "izmenenie": "golos-iz-polja",
+    "shirina": 44,
+    "vysota": 44,
+    "x": 260,
+    "y": 452,
+    "demo": false
+   },
+   {
+    "id": "gespraech-otpravit",
+    "sostojanie": "deistvie",
+    "izmenenie": "otpravit-soobshchenie",
+    "shirina": 56,
+    "vysota": 56,
+    "x": 318,
+    "y": 444,
+    "demo": false
+   },
+   {
+    "id": "shell-tab-start",
+    "sostojanie": "deistvie",
+    "izmenenie": "tab-start",
+    "shirina": 78,
+    "vysota": 46,
+    "x": 0,
+    "y": 782,
+    "demo": false
+   },
+   {
+    "id": "shell-tab-vorgaenge",
+    "sostojanie": "deistvie",
+    "izmenenie": "tab-vorgaenge",
+    "shirina": 78,
+    "vysota": 46,
+    "x": 78,
+    "y": 782,
+    "demo": false
+   },
+   {
+    "id": "gespraech-mitte",
+    "sostojanie": "deistvie",
+    "izmenenie": "menu-open",
+    "shirina": 78,
+    "vysota": 46,
+    "x": 156,
+    "y": 782,
+    "demo": false
+   },
+   {
+    "id": "shell-tab-schutz",
+    "sostojanie": "deistvie",
+    "izmenenie": "tab-schutz",
+    "shirina": 78,
+    "vysota": 46,
+    "x": 234,
+    "y": 782,
+    "demo": false
+   },
+   {
+    "id": "shell-tab-post",
+    "sostojanie": "deistvie",
+    "izmenenie": "tab-post",
+    "shirina": 78,
+    "vysota": 46,
+    "x": 312,
+    "y": 782,
+    "demo": false
+   }
+  ],
+  "demo": [],
+  "safe": {
+   "verh": 0,
+   "niz": 0,
+   "vysota": 844
+  }
+ },
+ "vtoroj_profil": {
+  "profil": "iphone-safe-area",
+  "shirina": 393,
+  "vysota": 852,
+  "vyrez": 59,
+  "home": 34,
+  "obolochka": "tab-shell",
+  "marshrut": "mobile/.maestro/gespraech-tekst-393.yaml",
+  "kadry": "kadry-393.json",
+  "elementy": [
+   {
+    "id": "verlauf",
+    "tip": "ikonka",
+    "x": 333,
+    "y": 75,
+    "shirina": 44,
+    "vysota": 44,
+    "dostupnoe_imja": "verlauf"
+   },
+   {
+    "id": "temy-plaschki",
+    "tip": "kontrol",
+    "x": 16,
+    "y": 200,
+    "shirina": 361,
+    "vysota": 420
+   },
+   {
+    "id": "kompozer",
+    "tip": "kontrol",
+    "x": 16,
+    "y": 712,
+    "shirina": 361,
+    "vysota": 56
+   },
+   {
+    "id": "tab-bar",
+    "tip": "kontrol",
+    "x": 0,
+    "y": 772,
+    "shirina": 393,
+    "vysota": 46
+   }
+  ]
+ },
+ "dvizhenie": {
+  "manifest": "docs/ux/04_Gespraech_D24/pack/gespraech-final2-manifest.json",
+  "manifest_sha256": "b5bd859858853f708aea05e589cb187b21ea02d3c02af4081ad7ab8d5e76d6b7",
+  "spec": "docs/ux/04_Gespraech_D24/motion/motion-spec-gespraech.json",
+  "spec_sha256": "064d7821428f425d431fbd1efd65cbec37263bb62ef974924746a07e769cd318",
+  "pozvonok": "docs/ux/04_Gespraech_D24/motion/faden-poses-gespraech.json",
+  "pozvonok_sha256": "9763fdc06b0c0a3c3138f7abac57bf5efbc714403f53d221c3b7c8d225c4f002",
+  "ekrany": [
+   "GA-11",
+   "GA-12",
+   "GA-13",
+   "GA-17",
+   "GA-18",
+   "GA-19"
+  ],
+  "perehody": [
+   "GA-T30",
+   "GA-T32",
+   "GA-T34",
+   "GA-T08",
+   "GA-T37",
+   "GA-T17",
+   "GA-T18",
+   "GA-T19",
+   "GA-R2",
+   "GA-R2-393"
+  ],
+  "sceny_znaka": [
+   "GA-T32",
+   "GA-T34",
+   "GA-T08",
+   "GA-T37",
+   "GA-T17",
+   "GA-T18",
+   "GA-T19",
+   "GA-R2",
+   "GA-R2-393"
+  ],
+  "etalony": {
+   "GA-T30": {
+    "keyframes": {
+     "dark": [
+      "453e76d4c0142d7a92ad5e4e7aee3df605cbc6394e0f323604e01099b2a90026",
+      "42926f6df86cdfe9dc4858816ad9bf5ff968598ab139bb8d5d02e68a5562aee4",
+      "5683b7f1097951061ef337586c2d1a04d691fa28f0c0d8abd944163804308bee",
+      "b4832a79655ce4f39eac11bda293dcb3fad7f22a3026518bee1f606c3e874fcc",
+      "aab277dc4e6b2dfb97b1a54a3fc01f986cef41d155e7f4df0d38078592781b6a"
+     ],
+     "dark_reduced": [
+      "8ea555f5f3c588bd38d741fb50bc17e56c378358cc30acbdcdd27a1e4303ee5d",
+      "2675b46ae2f13b72d40d4cdcb695f380396e4f1b01bf69b7d0a9e14eec535fd0",
+      "79a0a9688c90652d5390e4a5ad405ca97cb25099291e78da73bc0b935b7e7e12",
+      "bbce9d36f1377950ac05743e5e00d59f0fd9377cd58a9f580c21ab9302019ae0",
+      "401654f25957465c94ef636073d0781ef1e6b663ba429a517358c5b0afc171b8"
+     ],
+     "light": [
+      "6eb724665cb14393d4c23b5ede3cb2fef0eaa02fec8e57e07cde2f33cc2211a4",
+      "381d6cf4cdea9ee7e51eaafdf97b57812b47fb43198d5948cd18c30b91a6a205",
+      "33e08b0281b6f36411318907fbeddcc01e9680028fb67602992af4580c40817c",
+      "9625a97cb5c91930dd40ebab5d7247ef57a94b40fb4442b57a58f625f9b04373",
+      "d330a733e1501ace1b44a282fcf69e069e3ea0d1d69dd3142491221b0b3dda96"
+     ],
+     "light_reduced": [
+      "1a2c087febd6ce9db3151e818637a0949eb7e03c59fd18e67587057f46d5eba4",
+      "7827cbc5857f322ad229985790eebf3f5b98c4554c4832da7a661a756953ea41",
+      "b7bc93523f030fdc0c0b8886cf6565e144c49fee0c8878f336d40b335002631a",
+      "1f87d0ea42f80bcbca925072973f52372770040334b6e3060934340713b9e906",
+      "832397da6551926e6727268b35edcbd3930f16ed1cdf9b9283e42ca5ddfaa068"
+     ]
+    },
+    "video": {
+     "dark": "a74d2557c1bd986b9a0cb15c1302b0701f99207b09b21189ae2a125f2bfd9dc0",
+     "dark_reduced": "6bba212bbcfd2b5fc3e11928a864dcd5370beb0e5172d543d39ab883e6937e4d",
+     "light": "08e462a7b57fe6d9f92badd32d4c0f2c8d8ecf51c4e6b5cbcb2ad1d5cdd1bad7",
+     "light_reduced": "f7b3e847cdd96ed67d02b7b51afbcd3873068d50579fdac4e31e08d2dcad2357"
+    }
+   },
+   "GA-T32": {
+    "keyframes": {
+     "dark": [
+      "42be4035b2d72f59a3f5ac4c5fa1dc788a206457547acc9b05e40c0304807083",
+      "2894d45a0519d83655e8ba64b8515cb1e2ff41f5472c6174d74970c0d105d3ce",
+      "6fc485d1c3f33d89e3f35cea71c8e27ce8b1458fd22b53875c1b96e301800a37",
+      "579f0e35dbb4467bbf31dd821ce4dc335b6eb4405b7c15aa509a168a22f7e3f6",
+      "47e2c1a375a1ba006711be85274538b870bf7fe49d4e0d008f13166f9d1745ab"
+     ],
+     "dark_reduced": [
+      "eeadfd92b6db48eff5f8e4add06d14d4b4b3638ffc83108f4041718fcaed8c1f",
+      "dc04b05700a86143988fef66db85d0858dcf83483eb52d6c5f0ac8a65fed41e4",
+      "24e5513de14a0e3452bd2cc83d67406f44cda2b40a47ae58ca8c9820d9e0e829",
+      "839defaca492b6eed95c24d6726cf1ee250bfd2a6228266c49ed202605931a06",
+      "668a8d9287b24815ea4e474439be9c56e8413105f37ff36585b79fa56dcb50d1"
+     ],
+     "light": [
+      "5096fe6994ae5e5a4b1c33de770107d41d175d643b21d21a1c4a9f96e8a19c75",
+      "5d27a90cab90d5eac01745e27b45bd0fc69cad167ccc4368973e301258a6030d",
+      "30ce1e7e3dfaaa1c710f51e1505947ecfa83ffe5ca1e2f45c3f4a92f03a6a7e8",
+      "5b3411cef9ac4487cd9b6a152b4ff8de058b2b3274ce83cd649043ce9a91798b",
+      "b91f218b23cfa8df3c301ed0f2afa6338f9ce2d03654f6f65224fe847b967499"
+     ],
+     "light_reduced": [
+      "cc75e9605d8be13b34341b5cdea83a66779235680f5123aaf3396b8e8eae5f42",
+      "05431e09f31145caa0f997934d06c4182b135a83cb860c632618c63d7f71abc5",
+      "f3d6583aca1450d2f531bf3bc050ebc41c940ea4f45482804adeb93d46a78157",
+      "c011063fb0c70381f83e9372bb8cfda068b7bf9fbdfe96bfe2cbea94142cb38d",
+      "3d3bef98e0d5730d330141192ac75c4e8be27ea42ffae6761a15fbfb1cad5ad0"
+     ]
+    },
+    "video": {
+     "dark": "aa6a0dcd2607ed716d9b66e895ffe928243c218c6b4c444c838201972a5cd4cf",
+     "dark_reduced": "2a68bc0137c7ac580e85284ebf7e896a91ca54d82bff4941b83b6a946be04ad9",
+     "light": "32c5ba2456054f9768b6c5dbea2eee2cf5df08835b95ce9866e753a50693ec80",
+     "light_reduced": "ee5c219f83cedcd1b6799b5ce5315f31a227ab3948754ca57f2640585d580ca5"
+    }
+   },
+   "GA-T34": {
+    "keyframes": {
+     "dark": [
+      "5b56e936ee43747a548caff5bbd097a4f0447301cf1d40209985f0ba74ee38a9",
+      "3d46270099de3a0b9903f62245f7db665f2e9616737185ffab8f58f25c7ac60b",
+      "40b16ac0b1c7dc2b6fc1142d441493a7ae120a25213ff02d6fa370dbb019c161",
+      "657131cde5f5ade9f173bd7638eb20a533635b00c775c27195ff091e8bf3c78b",
+      "9493df0a0be6fced8fcb0767f4d2a490f3aef17354fd4af80c549f1c791adcf4"
+     ],
+     "dark_reduced": [
+      "923d1216d505152bbbce36ca388c29c366d1e95d0d08ada3b3453e1552a3400e",
+      "efa65ac9d80f989c349079fed523aa2e019f917f6f16818e32048396248f8583",
+      "7e138248c1cba0897c348ae4fe11156809c21f8bb7e842e5fa33ef023c651879",
+      "5fd15636075b0b08c38ffeda9c5fdae37deac1573ac125b5cf0d8af7463f2766",
+      "3c063bb5eb6f4c59f3081cfed78acad3c3754554d64042d104e2655eb12b0a6b"
+     ],
+     "light": [
+      "030bb6ab022611b38c313bcd9f4dee41c6760a40837edb5c13ddc73b03d944ef",
+      "25b457122c4356dfcc6586c742cc623c8a6ee68164592e327e4d251b96161412",
+      "06729fde00e0e88a4607f643c5fa8709bc0753235d40fef779de8506af198819",
+      "296446ea64e6c1bb1094669f01537465543a4b2249f8fde6c7a2d8aa1ccdadf6",
+      "9641661b0e10bc2ff284735d8151be9b6ac13fc0bf95beb3af248e292611ed14"
+     ],
+     "light_reduced": [
+      "51e0f4e4d5b6320e2424d1c8635ff92cc55f590da11fdc23c6d01eb4ad22b7ea",
+      "bcf415b5d0bd28896b4b76dd996cd088357eec69db1ce426027b069bd6345425",
+      "02383558dc39dd287a765b36ed78dab416ac3606a98b30dc9896d3d7b77a58a4",
+      "68c0d2b1cd2b3fc96c71ecf4e1dae8bf8ab26c270374d02a928ce21d2699c0ef",
+      "c0ab2a0551420ef4eda60fe7a973eb84422db0fcf976ca5312c987c01139f793"
+     ]
+    },
+    "video": {
+     "dark": "e92639a244d00a981c2e50efe81f436beae1c66b2f6880b6332d9c50080ad3be",
+     "dark_reduced": "407160963e7d4536953c8a5fe06efd5ebb3ff4fa43e8ceda65562610b93d3b1b",
+     "light": "18ac0f0eb1748b60c4046807ecde3e71d6e4a00f7e0a6f9d6e01dd958b4417a5",
+     "light_reduced": "5bf1362f04b4ba904932f9fe23a7f1b2bad55fc36af91962a1eafab472885427"
+    }
+   },
+   "GA-T08": {
+    "keyframes": {
+     "dark": [
+      "c09a9345ce6499ef41bdcac27b1b556a800c260c96024c4f88ccf2d2236af4bd",
+      "e02deb740faeda16bc3da2508ba62053837cc993f897e3886af0fbfa9fcb615e",
+      "aa8ab28ca67bbeea090cd4d0f113bcc4a6407195e42f41b05672774552c2d932",
+      "54f439f3f7b11c12842916fe304c2c2ef99e54fd4a92f57a83a497b80229998a",
+      "1184adbe57556aa271e054a17e6438d90b50b3128560a6141d1df58a588ff61d"
+     ],
+     "dark_reduced": [
+      "c401811cb5da3465902852d3591136d625aeba8c3edd3552612b001f2885e0b3",
+      "2055364e67ae0ef07ac5d9e030bb66e2d889f2dc3b6d80851c7529c8cf11dbf7",
+      "c9df234ae81110fa28d4aac3375d29ab031a8444d2b3c40e669d54ac96389b45",
+      "60b0b1275f17edfc5c7e7ddfc33a35dcdfcfd0b0a0c843c99b8707282183e29e",
+      "0e69126d10b9252c53fe855a7bda39a16a5ce575d7757a6326ec81ac7011e969"
+     ],
+     "light": [
+      "7d82e64b6f2b3416874d83cb2f934ac09363183ccbad713ee454c0444a6c6f0a",
+      "0bc2b4010fef09205fa8fa89b9557a6a5726433850eb97d975610ef0715fc118",
+      "2c9079670d6ac0d8bd9e5a3eb588e4d0a0eff547421930e2457dc2ad0fe96bf2",
+      "0c922c96ee2d87ad73eed3b99f9983315047b757447e0502712cfe45b12eaf62",
+      "21a42f552b96a392631a103e042b1774665540b3771e844d38e6c8c7e8830950"
+     ],
+     "light_reduced": [
+      "a1d1a85e43c6fc228a682626b6eb29b8f4a09738781049977a97cda7c7f7ede3",
+      "22d70ae062a5dc4b46747de6831a3c5d73a4f68b3a71158631c91886b5f240f8",
+      "be048c7fa1b4c1e4ec0723038256aabc3161507d8db7b3f1ed3856832714efb4",
+      "dd2c2052331eaa7a66bcd3648204542f036afcf7af170e32a4db7d079bf98367",
+      "0b473b32ad1dc76982efbdc4d7c1797dcecc3d37e3a1449a9d4c8ed460bb4aef"
+     ]
+    },
+    "video": {
+     "dark": "d34fac5b956986b9d59b5735b0516ea7328362c77825c913a41cdb2344c0ff7d",
+     "dark_reduced": "e3926723b3d10015d2e46fd29efad5296effbb90b9d9e1e4f3ab55c9be8c79c1",
+     "light": "7803c267dd76ce3dd9cb8bd97cbac9d291fd95e57dca393b319c0130d78909f0",
+     "light_reduced": "049ace6d74a03d24fbd5a344ae2765af4272e042ece8b6fde403926db62e076b"
+    }
+   },
+   "GA-T37": {
+    "keyframes": {
+     "dark": [
+      "94255c18624211ef5b64813a92fc900b7d1817f1e3fee6bb742e9f5e171a713c",
+      "a7e87a6003d00a1c1d44052c684e5e4dd6ec9ca89dc83f635521d3863e44c1a0",
+      "bd5dfcb9f2ac837ad49f7de5eaded761438c0c721bcc7a643c10378cd4bea6a9",
+      "cb1b923986842170534fb041f83a5d275389a2022d81b8fcaa3009d44d9386ec",
+      "b1ce8c5b1ec110252e62d9ca972bcf26a3405ea397b028a2376fcd6fe6a7b23d"
+     ],
+     "dark_reduced": [
+      "6cd8f98c58894d003134a8adc74589a702ab4b1d8cf1e749585d63f99a80485e",
+      "8c8aef5bb1c87deeeca20d5b590508825400f0f51fedc4a9017f499b8f1f5ccd",
+      "6448325086d2928550ca1ce75422b2d6b5484d961fd0ded8b64e24a83af8c70f",
+      "ec7a92c12a044e6e88b38e21b8cbc07288e29fa5a96374a581c4ea17e9ad9266",
+      "d8b74f160b6a4ede531eeb0fd148a908d8182ea2c77e3aae73534a2d4eaad3e1"
+     ],
+     "light": [
+      "5c8294c791f5f1e9017b9abec8459dde023059f6ac572488653b7bacc920649f",
+      "af73ab5f42691143b8291b66b346d0e627f59d31c7ef2964f4ea1b364c670843",
+      "0fe96758b13835ed1f56e0a4997f14021426d3fce471be1ebcd71acef85b2f2e",
+      "48d489ef7d9b4438c13193d0ca205b0143fc47368d91c33b8bc3bb4061bc8b86",
+      "e3939a85c707ad5df74073ebf2ffc3948b9402700b6f6bcc82a009b98fc0fb95"
+     ],
+     "light_reduced": [
+      "aeb18e4fed91a6dccd18a852e42bf338ee00b477928a1b67f595544174daaca2",
+      "b07d19404d69710f19f4f707adbe8b366b18695afcaa81366fc2d9fd0bab5014",
+      "b8d71b4531b0d52735cf7535b69ffee1dfb3038dd1650a2264b1057e971c1d3b",
+      "ac896445f240edd247a4b17380d224b2c38777fae1700a14ca93f52c03a8b676",
+      "5840b10daa174cd86e1f8252b5357dc5a6a45f8b581fc5b92e20f0de1bad2640"
+     ]
+    },
+    "video": {
+     "dark": "d35360eba8c0704c2e89ccea7a2e7706dcdf13d2d267cafe2bad8a8804aed5b8",
+     "dark_reduced": "2eb27fae30a7ba3222fcc79400212895516c6dec838468654942a57dbc5f5757",
+     "light": "9ab48cde2bd0e82373250a2352ad8659daca8e79c3584e996e1c18e0b12f7f1b",
+     "light_reduced": "5afa0a3f9915ff81326fce50c6ff4dbe6a2d8f3a9d79c871f3d18472535bc19b"
+    }
+   },
+   "GA-T17": {
+    "keyframes": {
+     "dark": [
+      "1c860db5829219539f95f2d268888af78ffca4be43e8230eef3fa0bfd2ee4672",
+      "029bb737e035701a1cf4fcaf0007d562ee570d129c8331e9fdcac8d400ab5693",
+      "8ebe791bd5dd16600bb4eac23ff57c83c08e37b566273d467531e7b5b42b6fb6",
+      "fe7b1e1c7b3f145d241c8c1122d56698c3b2fe96948b8df062b15c8c81587eb4",
+      "a4ceeacfa9f94020b51bdee03036c7a27a1e18123522893fbe31d41d2c4d7e3b"
+     ],
+     "dark_reduced": [
+      "86d028e362cb89a02f1511ce1c703b843a2704cfaac46f578bf1ed3d88968629",
+      "fdd480594b0ddbcb02d51c093bcc3002a6b5e60668590969c5e069fa6ec41e7b",
+      "344e4b6f7c3c27eec4381443374f4e41df53a8b563e861fd463824acbbec92c2",
+      "713557137899be960d0be41de3cf76c5df94f0684c0ecb4dc9352bee0b4b1cc5",
+      "55137ea2f95748b18644c0437b00a7f4bd977ce56576d6458b9fbb3f9657847b"
+     ],
+     "light": [
+      "58f5ecd4b207f8286d824d57864840336dbf03823e7a0b70f4006c6c69182967",
+      "1e10f5e58a1f8e8ab10131531e777eea7caf11b3cd2e4339884d8dfa36c03cdf",
+      "ce9ed4635d895238d57d72fb256db2f08e8ad5a15b2d2887b3eb3a75d35f3346",
+      "a35baab9f139a64678a2576870f7c8e74554670e1de487237afc706f83a76cef",
+      "efe8503a991258fb9c35e6c2bb20bab6d4604d3b771fa7d1e8e9fd43015a8640"
+     ],
+     "light_reduced": [
+      "84aaeea276a6458d3987d3c1c4fca63c9174e496b3e61da763c7604d601e2912",
+      "1fb2e41ca61d2c48abfe1ccde6a227c2cb4a00cee1377a3834f4ca0ff19f7beb",
+      "0d5ae70c70b8e06647b6dc237c89407f46756b09f6e7d65129a21d859f4a5bcf",
+      "e9a39176236093d103fdec7c35304a18c3497de81df7f38b8a8fc58ca71ff100",
+      "8bfab377e87d1b476874cc65a4c2379ca966c5c17c7358f3bdcac5008d020cd0"
+     ]
+    },
+    "video": {
+     "dark": "7ada5455551a0c2e35be452359625194462184e2755857a2f40dc9c00d424921",
+     "dark_reduced": "6b9ffdc48fda33e713089513d1c149600cffa8d4adaf556f72c6a35177ee0513",
+     "light": "2027d1eaaf24ce073b8c1a50e6819754899c2f26bbede6f26b7761ddd853e1d4",
+     "light_reduced": "c475958e3c8b8d99203e0d3b0450eeacbca5b3021216be7341ef2078c334011d"
+    }
+   },
+   "GA-T18": {
+    "keyframes": {
+     "dark": [
+      "5353c1efda109eac3a1f511fbdec27c4738665426c4701ae834ab163f1aa597f",
+      "462cbb24f36bba166ff7352dc30d8c78dac93d7c965e9e4040c2582acd334945",
+      "93f5130e5403e088d58db4249f3623f8be5d7ebba562e3073968c14aee547d37",
+      "708a14689f76873cbcbb03345e8a77bf3ad99c995ff4deff3965901e81fb78d2",
+      "479272a185cd54001ea00608ee759c54b705b823c1e510ac3551cc4f6dd91c58"
+     ],
+     "dark_reduced": [
+      "9599ceb293f5dedbdb1e42aca02f2f19ec235e9c02961584584771f9aa28cc7c",
+      "04319245eb7d517743b5100b200533cd883c14445bd0155089c4d0d778b2410b",
+      "4e006301a358a7707a14670f9badda7adde63de7b116f46f9f4d4f2570d46764",
+      "f10f960829ffa1b66cac65637078a17e76054068057d706ef6b12e7a88a9ecef",
+      "b4238bba2c157bc34a0f61f967c0b41017c40aa70302bc893bf1304475a83fed"
+     ],
+     "light": [
+      "2d5175aa5318cf20bab432c4795547b53b36b1b3d88a6953d40b1d1e5c3aabc0",
+      "85f3d4b4c1c56ec22ef2d9f09f20193670cf8e799d2107527dc898d29333b101",
+      "31fb2cf94f47117232c59b4f0fc605cfbbb9c0625e53181dd5d2f7d1aaaa3541",
+      "f8e68f85d457897ed6b9f514ad9be618d17cdfd69d7328687247c19c6fe80c37",
+      "f23fd4ed6d84fa2c46ea062e5aa188cfabdf95a6359db6f7456ef14ca6b2f352"
+     ],
+     "light_reduced": [
+      "44482641e4a71a8f99508d9dfbda76594a3dcc111924bf0d52d9fb17cd8f736d",
+      "c60be6f185b759fca1101c11e50d92930bfffc36cc5725f4102a4abb268cd2fc",
+      "9f5af24822334a37a81511eb17a73094533a44a0f45f97d6d32648997f9f601e",
+      "427db39cd2dd7c60f00db4fba78b7034907385d3f6122728b85722b0aadb32f4",
+      "793f81895174365b415d9118d8b4826df15bd71463defd235b509c02a5fe8dc4"
+     ]
+    },
+    "video": {
+     "dark": "8f3c8989519c4401012f796976cbaffcdc55b6e7e026cdaab8094f2f6126a0e1",
+     "dark_reduced": "eb911c62fb1436410414cab46986709090b37fc48070c4ac674f865920f1746c",
+     "light": "22c9eaf241f2c97e808c7f36f1820341b63c828108689397a0b14938825cce99",
+     "light_reduced": "201672b75e6a658a94248100fd3a2be57a62d6b699a1b92acb2a33eb3fe74792"
+    }
+   },
+   "GA-T19": {
+    "keyframes": {
+     "dark": [
+      "b9183f8cfaac85b6d64544e33cffa8a20993dcb39af551a27f4a6d8ca834e47a",
+      "6be00a50dc5bfc4d4208e14d686582afc7e5bfddeb947933f568827c978593a0",
+      "7d2238d1c0fecef5118e2d857f29c4f0a13c07c5d3101c77b0cd2abc85bd3848",
+      "cb57d54046738abba530e980241ecb1c4134c99aea12da595b890b9d853e599d",
+      "30fae69d72b4375c3542c1a8d7fa3633e843a0c7782a893532f4d34b10a3ad28"
+     ],
+     "dark_reduced": [
+      "c8bc33bc74aea96de2eebc1003b34b1b81c4bc0d5f89a3d1ef289f426c3ab912",
+      "3eb47f4b079cf3ea38eaf5134e35a93e6ab5a0da67de2ec7b6de4bf4aad056e4",
+      "baef3088afc8dea9b16799c02375de4ff353b5b40197f8b0275be783d1087a5b",
+      "7b65c1d9c2a3ef2d4a2d37aa722fbe5168d76be02847f1c4b257f27924872240",
+      "2a622001c50d43b23abbaa338b7e215a4d49459441c9a6feb932d80789a3f386"
+     ],
+     "light": [
+      "91e06d6136de96e89bfd53d5396f75e35382d7c3a3c07096f736f503a03abf81",
+      "70ec26c8d68d59d20b2d533f478fe5ebaf6675daeaaa8d6f503d46a055df2cf9",
+      "480ed87c4028c9fd943834b440f875eb30f3e001ce5e37fdb58c1f6bd1813aa6",
+      "e624eebdaca5e9c14562a5e1ec781e20a8662b3084801a57216f7b3f12574ecc",
+      "f1a79331b92ed17035730a63f895b06410a1ac60e44f6581d656cfcfea2dc591"
+     ],
+     "light_reduced": [
+      "2bc04116ced5fff149a509517c807d7004303325b2f0b72f5932690b3ebc193e",
+      "23943b52d4a2273ec1a753ec8ede65021ca8f68cf926751deabc3d88cce3e276",
+      "ad88f47f7f9a50a00db9b42157223ce5fcf9daf4046743d2bdb0af7517c5bea8",
+      "b441c19df3550a7405a3d4125574880d2e90bca215aeebc800922c69a69e1a59",
+      "e67ba5608523b62f4846acaa206ca70a9a88a597cb8b023ce17f0646767c5093"
+     ]
+    },
+    "video": {
+     "dark": "973bec4bfd6df20753cad21e969c17018eb3433d0bf28f637ce36a0e6db4b390",
+     "dark_reduced": "6af5a26928670df97af11dfcd48cb16c1e06389f620e4894e63c288dea590fbc",
+     "light": "48127e1d9b0a24ce49e4e0315707034f8b900a70f3f185b1f615ebabe6c71212",
+     "light_reduced": "4f9497dcd629b4b47ddbdc1082c89a3256673138d6bf2d3bf5675a13b793d02d"
+    }
+   },
+   "GA-R2": {
+    "keyframes": {
+     "dark": [
+      "adcfc15dbe55b0d32f22570f3188451f8034565645997802292e399f1d320765",
+      "60f5ef9056f9690e6e4678008675dd29fe78eed452380fd4ccdd6bd5f5c0f06f",
+      "fc379d0348287d5275140d37ee41a7fc1ea693a9ea2dad7852d390f3a1e4d7fb",
+      "2bc335053192e384d39262f51a31614d63940bd3a81cb200e0bd1e387c18723e",
+      "970ff0ac7c0490032fbe133a57962cf6b4b71958e41100315f7f12c67da658ed"
+     ],
+     "dark_reduced": [
+      "1b881767af491c5ebc86db35c5bd4308af9a1719d2fe6cd2fbfe2be49296c87a",
+      "34abaf764ae3e65b8baf2cc7a69268f0f2bc6ee62387258fff1cc7bf8f25b685",
+      "2e9791260340b81140ddd4a72e602d1c183b46257cce939c094db4e989ba8288",
+      "3515108d18d8deea059c4ca13737b71d9bf9e7cb5f7f08d9c791ac811f3bd541",
+      "974d377eaef9f09faf502df1842eaaf0e28d13dea4f402e8b37049ccba05c5cf"
+     ],
+     "light": [
+      "e2ccd555a32421656c60951683ecde387dfdc8bc1e8de38928c830ba8fbc2b29",
+      "68553f5b0cee09c4e320336a5d3cdcfa0c455c33b1535cf7960a98b43674a7b7",
+      "79251223822a20081d1ccb4312ced5ce2f90c54763dc1e22e33e21ee950b6a63",
+      "68adec9be5dcc47f8c6247ee1e696686e8752a79eb6c7edb9f211dead6ca2e56",
+      "a8e20e636a8336ba43c34c74cecc5277ad88c786b555b41da773fc984f3c75cf"
+     ],
+     "light_reduced": [
+      "63ce891461d5d7f1f3af22a18e53b1aa68abe43a07278372a74b4ae812534784",
+      "cb47c7497cd131ed77bfc9bb0061c6f9464dad6ba32f7ddb2cffda8c9de1f313",
+      "2682843b4e04bb72af93f1a9a8280ee6df224f7f2dee6f95ec1c70b67da86a7f",
+      "3db00c7fac5e5f1748b9064145c34936b8c64846c4e1525558bb54b8bdd918f8",
+      "885de85ff42a546bb16062ebdbe17915a49a4338746481c4b7015931c12bfc19"
+     ]
+    },
+    "video": {
+     "dark": "7659f40d7b7fd4134b48e6516e4328e2fc17910d0f63664f23c2a46994e7ac12",
+     "dark_reduced": "755c1c7b87fec85d264a5f70295d18522fd6f0c2bcad09dbd42c82f6e4252d38",
+     "light": "043cd66aacab5b7d673dc30b56222a1fb6aeb3e215266248f3108c63d6f5c5a9",
+     "light_reduced": "a574d0e6e336c1761dfd077fce1240ecc5a865d4d1980e748201d8a6578cd4e9"
+    }
+   },
+   "GA-R2-393": {
+    "keyframes": {
+     "dark": [
+      "8b520f8af6682db43c930622d4d2d0876e973bcc585f1b5f8fe6ef62c3396d87",
+      "e0de8c0e7aad6e203c03a5269ac7421188b7c3c371456102a691fb9a97e8659a",
+      "1f706288ceaf7d06f990e2b2efa80730465e4b28d007361b2555db762f9f468d",
+      "42628751567a5923ca1047c70f67a77b0536d0c70f2f7da2821dbf5e3edfffe6",
+      "e7f4a029728b6cdd5f06ca321628bbf3c600d6f56f991d0e7b6a1a03c8422089"
+     ],
+     "dark_reduced": [
+      "ee406e207aabca7953d0ae74512b9f950d858a633300aa17f82456cc6d4fa377",
+      "f4457be0919c9f717001a479c69e422368fd30e5e89ddd063f84e7f51eb9f73b",
+      "7978549b777691b02c6c962264a541339473f7eba0957cbe66dfacdb37435fe4",
+      "03be5cf56ae1c52b72c10e0f9ced57c933a31cbc9ee348820ea2c79c4556c40b",
+      "20a0aad032af4aeeb71175177ca5b3ce9cb2067174be16ff139c56e960e4b357"
+     ],
+     "light": [
+      "00b9d27926621ee70563e65515385a4273a9b458da40d2fd8b6ce236ed784ad7",
+      "7fda609b5c9de4e76dc10bbdfc3bfb16ee2f777e315820d6ae55c07cd773cf59",
+      "f954244e54c3bcb617fff1539ddac788ee94cbb8f6728894b94494868266e82f",
+      "a4a18c32a2997d054fa35ddd36ae547ab543be626f71882ba95700eccd9f275d",
+      "0172fd5d4d952881b5feca3275508670d00f0098724fd147ede193a6758ab671"
+     ],
+     "light_reduced": [
+      "51d2f6cea324a0bac7ab75136e6a06b3e938da8f33d0abdf57e03bb7051e0554",
+      "b10f6e18a59dc398a55571a8dda9ca16bfb813f83147bc12c48d9dc559e98ee1",
+      "a12715a8bf632f95a8b4ebaba9b2adfcb9c43c06e6b99f07959ae30c49596fbb",
+      "574f39efef1b60cc7ce475fec103249498f6988c755d4963ebc75e3ce6621830",
+      "83e5d3e70d880ac5a655eb5f97bab049e7c8a8a6833b27466a6b6d7a7f11cc02"
+     ]
+    },
+    "video": {
+     "dark": "afda81a7e1f57b8f490fc73113afaffcd547bb1eeef23a3f1122149c03b5d471",
+     "dark_reduced": "daa3e19c2f15f6fadf6f220f6252922babe4f1b1ddd983428f4cd7be64f03eb9",
+     "light": "f51eb1c7c2ef544c333b306b72bd1341bb8edee0d03713fe05d3017933f830da",
+     "light_reduced": "a736c0acc918b82ae6f90da5e95178bccf10b5a5d3c8ff0663477b90c2899568"
+    }
+   }
+  },
+  "priemka_dvizhenija": "node mobile/e2e-gespraech-tekst/dvizhenie.mjs --json --outputFile mobile/e2e-gespraech-tekst/jest-otchet.json gespraech"
+ }
+}

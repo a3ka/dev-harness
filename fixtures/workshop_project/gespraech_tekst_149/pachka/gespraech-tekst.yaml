@@ -1,0 +1,52 @@
+# Флоу e2e пачки gespraech-tekst (контракт 149). Производственный путь:
+# вкладка Start → Mitte → меню → «Schreiben» (T30) и плашки тем (GA-11);
+# касание темы «Neues Auto» (T32) → GA-12. Кадры клавиатурных экранов
+# (GA-13/GA-17) снимаются на входе в чат с черновиком и на themes-строке.
+# Тема переключается вызывающей стороной (e2e.sh, оба прогона).
+appId: com.complior.mobile
+name: gespraech-tekst
+---
+- launchApp
+- assertVisible:
+    id: gespraech-mitte
+- takeScreenshot:
+    name: gespraech-tekst-ga-11
+- tapOn:
+    id: gespraech-mitte
+- assertVisible:
+    id: gespraech-menu
+- tapOn:
+    id: gespraech-menu-schreiben
+- assertVisible:
+    id: gespraech-pole
+- takeScreenshot:
+    name: gespraech-tekst-ga-17
+- tapOn:
+    id: gespraech-topic-auto-erzaehlen
+- assertVisible:
+    id: gespraech-tema
+- takeScreenshot:
+    name: gespraech-tekst-ga-12
+- tapOn:
+    id: gespraech-lieber-erzaehlen
+- assertNotVisible:
+    id: gespraech-chip-gekauft
+- tapOn:
+    id: gespraech-vlozhit
+- assertVisible:
+    id: gespraech-vlozhit-foto
+- takeScreenshot:
+    name: gespraech-tekst-ga-18
+- tapOn:
+    id: gespraech-vlozhit-dokument
+- assertVisible:
+    id: gespraech-chip-vergleichen
+- takeScreenshot:
+    name: gespraech-tekst-ga-19
+- inputText:
+    id: gespraech-pole
+    text: Fahrzeug Kombi gebraucht Baujahr
+- assertVisible:
+    id: gespraech-otpravit
+- takeScreenshot:
+    name: gespraech-tekst-ga-13
