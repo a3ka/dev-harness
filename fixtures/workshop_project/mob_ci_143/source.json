@@ -219,12 +219,33 @@
     },
     {
       "id": "p01-P-nabor"
+    },
+    {
+      "id": "i01-inventar-dereva"
+    },
+    {
+      "id": "i02-jobs-iz-karty"
+    },
+    {
+      "id": "i03-vyhody-selektora"
+    },
+    {
+      "id": "i04-agregaty-iz-karty"
+    },
+    {
+      "id": "i05-vynos-iz-inventarja"
+    },
+    {
+      "id": "i06-lekalo-rabotnika"
+    },
+    {
+      "id": "i07-legacy-opora"
     }
   ],
   "piny": {
-    "model/.github/workflows/mobile.yml": "401071f04359000258dc3f4c34f0c27374f41762473f233e7646370105f5f896",
-    "model/mobile/ci-screens.json": "e11d15196440489589a7ff837d1d50b9adce7f7cadc884238b558cc6f4f768b0",
-    "model/mobile/scripts/select-ci-screens.cjs": "4bf826ac8eb397f1c7b2699f7b7d161f0e92074127b25c05f20991bb9f5d391a",
+    "model/.github/workflows/mobile.yml": "6137aa571ace1147ae1a29884c98008620c3b329eebf83617b5a971d57d0405e",
+    "model/mobile/ci-screens.json": "85c23e1c66e9661d1d3fc2d56dfd13e4fba1b38bbaa6b9e569acfc0fb98c09e3",
+    "model/mobile/scripts/select-ci-screens.cjs": "57df25d4bac6fe5c8835a4faae425f95662d7a7a687f80e57e83d2bf16f77545",
     "model/mobile/scripts/ci-aggregate.cjs": "83118c9297a9b2678e28b73fb4e8ffd772f39bf6f41426c2d07fe9d8199fede1",
     "nositeli/mobile-124.yml": "f45c68230eb83b12c8aa81173da4b9d46608b966acfef7da7ba6178d21087421",
     "nositeli/api/pull-124.json": "af9d11d2a76a3feb3532e00e5f3f902571b1211cf94a30313cc40695570a5053",
@@ -233,7 +254,8 @@
     "nositeli/api/run-40426209738-jobs.json": "24433489a82cf510a1c1e97420ce15b201d3830c3837c635514bc19bf2b6a088",
     "nositeli/p-4ac99af9.py": "6639ce8c0fd6db095a2d7ff84897d5bdcb01ed59369a8b377b06c7087dbfd353",
     "nositeli/pilot-66052cdf.yaml": "3cda11a94ba324fd55cdb9fad039935dbbb1cad8a7719e42aa03c4ff66977e1a",
-    "nositeli/ci-e2e-995-4.sh": "0fa425b5db4752633c7ea453065503bfa8ecefa67e1bef8a7e66102426897f30"
+    "nositeli/ci-e2e-995-4.sh": "0fa425b5db4752633c7ea453065503bfa8ecefa67e1bef8a7e66102426897f30",
+    "model/screen-job.template.yml": "3675182e218c467f694dc69d4ee3457900849e6717b7a80d12e8bafc80aa14dd"
   },
   "chernoviki_piny": {
     "111-v5-draft.md": "a3fb59a8a51996f88eda7aa72bc5afb7074806b053ddaae91a7ea8c42ef520b7",
@@ -418,6 +440,30 @@
     ],
     "stab_y_vtoroj_checkout": [
       "y19-outputs-provodka"
+    ],
+    "stab_i_inventar_pustoj_uspeh": [
+      "i01-inventar-dereva"
+    ],
+    "stab_i_inventar_bez_dereva": [
+      "i01-inventar-dereva"
+    ],
+    "stab_i_vyhody_bez_rabotnika": [
+      "i03-vyhody-selektora"
+    ],
+    "stab_i_signal_bez_rabotnika": [
+      "i04-agregaty-iz-karty"
+    ],
+    "stab_i_vynos_vruchnuju": [
+      "i05-vynos-iz-inventarja"
+    ],
+    "stab_i_udalen_ekran": [
+      "i07-legacy-opora"
+    ],
+    "stab_i_karta_bez_joba": [
+      "i02-jobs-iz-karty"
+    ],
+    "stab_i_job_bez_karty": [
+      "i02-jobs-iz-karty"
     ]
   }
 }

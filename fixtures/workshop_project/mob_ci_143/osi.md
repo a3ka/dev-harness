@@ -1,22 +1,28 @@
-# Оси батареи 143 (mob-ci-razdelenie) — 69 клеток (правка v3 по РЕШЕНИЮ арбитража
-# contracts-143-arbitraz.md, Б1–Б4: +y22 needs работников; пины 21 — перепись
-# 9 черновиков; ПЕРЕПИН 995/5 исполнен — p01 АКТИВНА, судит ЭФФЕКТИВНЫЙ checkout)
+# Оси батареи 143 (mob-ci-razdelenie) — 78 клеток (v2: 71 клетка дерева
+# после Fix143e + 7 клеток I-оси расширения по вердикту Astra
+# mob-ekrannye-job-astra-v1.md §2 и слову владельца 2026-10-30 ~11:40 UTC;
+# история: v3 арбитража Б1–Б4 — 69 клеток, y23/y24 Rev143 — 71)
 
 Субъекты: `.github/workflows/mobile.yml` (DAG), `mobile/ci-screens.json` (карта),
-`mobile/scripts/select-ci-screens.cjs` (селектор), `mobile/scripts/ci-aggregate.cjs`
+`mobile/scripts/select-ci-screens.cjs` (селектор, v2: + режим `--mode
+inventar` без diff/выбора), `mobile/scripts/ci-aggregate.cjs`
 (агрегат), отсутствие `.github/workflows/mobile-e2e-retry.yml`. Режимы раннера
 `red_mob_ci_143.sh`: без флага → SUBJECT_ABSENT; `--repo R` → живой продукт;
-`--model` → эталоны; `--stabs` → + матрица обманных стабов. Оракул `source.json`
-в памяти ДО вызова субъекта; ожидания S-оси строит независимый python-канон
-`probe.py:kanon_vybor` (субъект-.cjs не исполняется для ожиданий); пины sha256
-21 (12: 4 модели + 5 живых носителей API/workflow + 3 носителя P/S — байты
-P v5 (nositeli/p-4ac99af9.py), pilot.yaml, ci-e2e.sh; + 9 черновиков
-drafts/*.md — перепись zhestkij_kanon ДО клеток, арбитраж Б4) —
-`ORACLE_TAMPERED` rc 2. Retired байты 66052cdf (frozen 995/4, rglob) — НЕ
-пин: встроенная полезная нагрузка красной ветви p01/стаба
-(stabs/p-66052cdf.py, вне glob stab_*.py — census stabs 33 не трогает),
-целостность кодовой константой probe.py (RETIRED_SHA256) — порча/удаление =
-rc 2 `ORACLE_TAMPERED` ДО клеток.
+`--model` → эталоны; `--stabs` → + матрица обманных стабов (60). Оракул
+`source.json` в памяти ДО вызова субъекта; ожидания S-оси строит независимый
+python-канон `probe.py:kanon_vybor` (субъект-.cjs не исполняется для
+ожиданий); v2: перечень работников общих обязательств — ИЗ КАРТЫ СУБЪЕКТА
+(`rabotniki_subiekta`), не python-константа; неизменная legacy-опора
+(пять работников frozen 143/1) судится i07 отдельно. Пины sha256 22
+(13: 5 файлов model/ — mobile.yml, ci-screens.json, select-ci-screens.cjs,
+ci-aggregate.cjs, screen-job.template.yml (лекало, v2) + 5 живых носителей
+API/workflow + 3 носителя P/S — байты P v5 (nositeli/p-4ac99af9.py),
+pilot.yaml, ci-e2e.sh; + 9 черновиков drafts/*.md — перепись zhestkij_kanon
+ДО клеток, арбитраж Б4) — `ORACLE_TAMPERED` rc 2. Retired байты 66052cdf
+(frozen 995/4, rglob) — НЕ пин: встроенная полезная нагрузка красной ветви
+p01/стаба (stabs/p-66052cdf.py, вне glob stab_*.py — census stabs не
+трогает), целостность кодовой константой probe.py (RETIRED_SHA256) —
+порча/удаление = rc 2 `ORACLE_TAMPERED` ДО клеток.
 
 
 ## S — селектор (поведение, replay подложными git/gh; 25 клеток)
@@ -51,7 +57,7 @@ adb install (в логе подложного adb нет USTANOVLEN) — бло�
 маркера в YAML ничего не доказывает, мутант `if false && …` ставил подложный
 APK и проходил 63/63.
 
-## Y — DAG mobile.yml (статика; 22 клетки)
+## Y — DAG mobile.yml (статика; 24 клетки: 22 frozen 143/1 + y23/y24 Rev143)
 
 y01 набор задач · y02 needs агрегата · y03 if: always() · y04 нет if:false ·
 y05 нет continue-on-error · y06 нет strategy · y07 канонические условия
@@ -84,7 +90,37 @@ f01 фиксированный набор P (замкнутый перечень
 двойного владельца · f03 паки в карте · f04 статусы + in-development обязан
 иметь исполняемый вход.
 
-## Стабы (33, привязки 49; мутации моделей КОДОМ, Н-39)
+## I — инвентарь/расширение (v2, Astra §2; 7 клеток)
+
+i01 inventar-dereva — ИСПОЛНИТЕЛЬНАЯ: режим `--mode inventar` селектора
+субъекта на синтетических деревьях; честное дерево → rc 0 + PACHKA-строки
+и inventar.json ровно по карте; пачка без записи → PACHKA_BEZ_REGISTRACII;
+запись без пачки/флоу → ZAPIS_BEZ_VHODA; symlink-пачка → SYMLINK_PACHKI;
+флоу без владельца (не служебный sluzhebnye_potoki) → POTOK_BEZ_REGISTRACII;
+имена проб свободны от регистра субъекта (расширение может зваться vkladki) ·
+i02 jobs-iz-karty — jobs(workflow) == 5 служебных ∪ работники карты
+(job без карты / карта без job — именованные расхождения) ·
+i03 vyhody-selektora — outputs(select-screens) == {selection} ∪ работники
+карты, каждый из steps.vybor · i04 agregaty-iz-karty — needs ОБОИХ
+агрегатов (required android-e2e и ночной mobile-regression-signal) ==
+{select-screens, quality, build-apk} ∪ работники карты ·
+i05 vynos-iz-inventarja — вынос пачек quality ОБЩИЙ: один вызов
+--mode inventar до перемещения, перенос ровно PACHKA-строк; персональный
+mv пачки (v1) и wildcard — именованные отказы; H-checkoutы и спец-проба
+118 явные; npm test/lint/typecheck/doctor после выноса ·
+i06 lekalo-rabotnika — лекало model/screen-job.template.yml (файл ПАЧКИ,
+пин sha256 в source.json:.piny): параметры {{JOB_ID}}/{{SCREEN_ID}}/
+{{PACK}}/{{FLOWS}}/{{H_REF}}/{{H_PATH}}/{{AVD_PORT}}/{{EVIDENCE_NS}},
+запреты continue-on-error:/strategy:/matrix:, ни одного имени
+legacy-экрана (второго списка экранов нет), ровно один «ПОВТОР: » в теле;
+ИНСТАНЦИАЦИЯ экраном-пробой + три парные правки (карта, output, needs×2)
+→ работник конформен ВСЕМ общим обязательствам (y01–y12/y19/y22/y24,
+i02–i04) — порт пробы свободен от занятых субъектом; расширяемость
+доказана исполнением на каждом прогоне · i07 legacy-opora — пять
+работников frozen 143/1 остаются в карте И в DAG (согласованное удаление
+— НЕ новый честный baseline; снятие экрана — решение владельца).
+
+## Стабы (60, привязки 76; мутации моделей КОДОМ, Н-39)
 
 bez_obschego (s01,s24) · belyj_spisok_imen (s12,s13) · tihoe_iskljuchenie
 (s03,s04,s05) · pustoj_uspeh (s21) · oshibka_kak_pustota (s16,s18) ·
@@ -106,6 +142,22 @@ p_rglob_kataloga (p01 — атака двойного checkout вердикта 
 y_agregat_bez_checkout (y19) · y_ident_bez_id (y20) · y_cancel_vyklyuchen (y21) ·
 y_bez_build_apk (y22,a17 — арбитраж Б2: все пять работников теряют ребро
 build-apk; статика y22 + рендер a17 — тот же мутант красит и y20).
+
+Стабы I-оси (v2): i_inventar_pustoj_uspeh (i01 — незарегистрированная пачка
+молча входит в перечень, rc 0; класс живого отказа Complior-mob#144 «file
+outside allowed location») · i_inventar_bez_dereva (i01 — записи карты
+деревом не сверяются, ZAPIS_BEZ_VHODA нет) · i_vyhody_bez_rabotnika (i03 —
+output работника не объявлен, экран молча не выбирается) ·
+i_signal_bez_rabotnika (i04 — работник в needs PR-агрегата, но НЕ ночного
+signal: два списка правятся руками и разошлись) · i_vynos_vruchnuju (i05 —
+quality возвращён к v1-форме: персональные mv двух пачек без
+инвентаризации) · i_udalen_ekran (i07 — СОГЛАСОВАННОЕ удаление legacy-экрана
+splash из карты И DAG: все динамические проверки v2 сходятся на четырёх
+работниках — ловит только legacy-опора) · i_karta_bez_joba (i02 — запись
+карты без job: пачка «подключена», CI зелёный, экран не исполняется) ·
+i_job_bez_karty (i02 — явный job в DAG без записи карты: вне инвентаря и
+владения). Лекало стабов не требует: файл пачки под пином sha256 — мутация
+байтов = rc 2 ORACLE_TAMPERED до клеток (прецедент переписи черновиков Б4).
 
 ## P — исполняемый набор P (1 клетка; АКТИВНА после перепина 995/5)
 

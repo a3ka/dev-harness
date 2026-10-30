@@ -64,16 +64,62 @@ RETRY_REL = ".github/workflows/mobile-e2e-retry.yml"
 RUN_IZOLJACII = "test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness"
 MARKER_KODA_PR = ("npm ", "npx ", "node ", "maestro", "gradlew", "expo ", "bash scripts/")
 
-CANON_JOBS = ["select-screens", "quality", "build-apk", "e2e-splash",
-              "e2e-first-run", "e2e-erstinformation", "e2e-start", "e2e-pilot",
-              "android-e2e", "mobile-regression-signal"]
+# 143 v2 (вердикт Astra mob-ekrannye-job-astra-v1.md §2.1, слово владельца
+# 2026-10-30 ~11:40 UTC): перечень работников БОЛЬШЕ не захардкожен.
+# Общие обязательства судятся по работникам КАРТЫ СУБЪЕКТА
+# (ekrany[].job + integracija.job) — следующий экран (147–154) проходит
+# без правки python-перечней; ожидания вычисляются из независимо
+# прочитанного файла субъекта ДО судимых проверок (правило 8 сохранено:
+# карта — вход субъекта, канон её разбора — здесь, у проверяющего).
+SLUZHEBNYE_JOBS = ["select-screens", "quality", "build-apk",
+                   "android-e2e", "mobile-regression-signal"]
+# неизменная legacy-опора frozen 143/1 (i07): одновременное удаление
+# старого экрана из карты и DAG — НЕ новый честный baseline; сценарии
+# S/A построены на карте модели (пять экранов baseline) — там это и полный
+# набор синтетических прогонов
 RABOTNIKI = ["e2e-splash", "e2e-first-run", "e2e-erstinformation", "e2e-start", "e2e-pilot"]
-AGREGAT_NEEDS = {"select-screens", "quality", "build-apk"} | set(RABOTNIKI)
 P_NABOR = ["pilot.yaml", "mobile/.maestro/start.yaml", "mobile/.maestro/rehearsal.yaml",
            "mobile/.maestro/cmp-mob-002-tabs.yaml"]
 STRUKTURA_RE = [re.compile(r"^mobile/e2e-[^/]+/"), re.compile(r"^mobile/\.maestro/[^/]+\.yaml$"),
                 re.compile(r"^mobile/src/app/")]
 VNUTRI_RE = re.compile(r"^(mobile/|\.github/workflows/mobile\.yml$)")
+
+
+class KartaSubiekta(Exception):
+    """Именованный отказ чтения карты субъекта в клетках, судящих работников."""
+
+
+def rabotniki_iz_karty(m):
+    """И-12 (v2): работники = записи карты (ekrany[].job + integracija.job)
+    в порядке карты, без дублей; битая карта — именованный отказ."""
+    spisok = []
+    zapisi = list(m.get("ekrany") or [])
+    if m.get("integracija"):
+        zapisi.append(m["integracija"])
+    for e in zapisi:
+        j = e.get("job")
+        if not j:
+            raise KartaSubiekta("SKHEMA_KARTY: запись %r без job" % e.get("id"))
+        if j in spisok:
+            raise KartaSubiekta("DUPL_JOB: %s" % j)
+        spisok.append(j)
+    if not spisok:
+        raise KartaSubiekta("PUSTOJ_REESTR")
+    return spisok
+
+
+def mapa_subiekta(rep):
+    p = Path(rep) / "mobile" / "ci-screens.json"
+    if not p.is_file():
+        raise KartaSubiekta("KARTA_OTSUTSTVUET")
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception as e:
+        raise KartaSubiekta("KARTA_NE_JSON: %s" % e)
+
+
+def rabotniki_subiekta(rep):
+    return rabotniki_iz_karty(mapa_subiekta(rep))
 
 
 def oshibka_orakula(msg):
@@ -1021,7 +1067,7 @@ def sud_digest_replej(subject_root, tmp):
         wf = yaml.safe_load(wf_p.read_text(encoding="utf-8"))
     except Exception as e:
         return False, "MOBILE_YML_NE_YAML: %s" % e
-    for j in RABOTNIKI:
+    for j in rabotniki_subiekta(d):
         shagi = (wf.get("jobs", {}).get(j) or {}).get("steps") or []
         if not any((s.get("name") or "") == IMJA_DIGEST_SHAGA for s in shagi):
             return False, "%s без шага digest" % j
@@ -1292,7 +1338,7 @@ def sud_apk(wf, rep=None):
         return False, "build-apk без outputs идентичности"
     if not any("Идентичность сборки" in (s.get("name") or "") for s in build.get("steps", [])):
         return False, "нет шага идентичности сборки"
-    for j in RABOTNIKI:
+    for j in rabotniki_subiekta(rep):
         text = text_joba(wf, j)
         if '"IMJA_ARTEFAKTA": "${{ needs.build-apk.outputs.artifact_name }}"' not in text:
             return False, "%s не берёт артефакт по имени из outputs сборки" % j
@@ -1305,7 +1351,7 @@ def sud_apk(wf, rep=None):
 
 def sud_avd(wf, rep=None):
     porty = {}
-    for j in RABOTNIKI:
+    for j in rabotniki_subiekta(rep):
         text = text_joba(wf, j)
         m = re.findall(r"PORT=(\d+)", text)
         if j == "e2e-pilot":
@@ -1320,7 +1366,7 @@ def sud_avd(wf, rep=None):
         porty[j] = m[0]
     if len(set(porty.values())) != len(porty):
         return False, "порты работников совпадают: %s" % porty
-    for j in RABOTNIKI:
+    for j in rabotniki_subiekta(rep):
         text = text_joba(wf, j)
         for line in text.split("\\n"):
             if "pkill" in line and "$AVD" not in line:
@@ -1774,7 +1820,7 @@ def sud_provodka(wf, rep=None):
         if m_git:
             return False, ("build-apk: run-шаг меняет рабочее дерево git-командой "
                            "«git … %s» (позиция %d)" % (m_git.group(1), n))
-    for j in RABOTNIKI:
+    for j in rabotniki_subiekta(rep):
         job = wf.get("jobs", {}).get(j, {})
         outs = job.get("outputs") or {}
         if sorted(outs.keys()) != sorted(kjuchi):
@@ -1815,7 +1861,7 @@ def sud_tojson_needs(wf, rep=None, subject_root=None, tmp=None):
     agg = d / "mobile" / "scripts" / "ci-aggregate.cjs"
     if not agg.is_file():
         return False, "SUBJECT_ABSENT"
-    for j in AGREGAT_NEEDS | {"android-e2e"}:
+    for j in {"select-screens", "quality", "build-apk"} | set(rabotniki_subiekta(subject_root)) | {"android-e2e"}:
         if j not in wf.get("jobs", {}):
             return False, "нет задачи %s" % j
     podtmp = Path(tmp) / "tojson-needs"
@@ -1859,9 +1905,13 @@ def sud_tojson_needs(wf, rep=None, subject_root=None, tmp=None):
             vyhody[k] = shagovye_outputs.get(m.group(2), "")
         else:
             vyhody[k] = ""
+    mapa = mapa_subiekta(subject_root)
+    zapisi_karty = list(mapa.get("ekrany") or [])
+    if mapa.get("integracija"):
+        zapisi_karty.append(mapa["integracija"])
     vybor = {"selected": [{"id": "start", "job": "e2e-start", "reason": "AFFECTED"}],
-             "excluded": [{"id": i, "job": "e2e-" + i, "reason": "NOT_SELECTED"}
-                          for i in ("splash", "first-run", "erstinformation", "pilot")]}
+             "excluded": [{"id": z.get("id"), "job": z.get("job"), "reason": "NOT_SELECTED"}
+                          for z in zapisi_karty if z.get("job") != "e2e-start"]}
     needs = {
         "select-screens": {"result": "success",
                            "outputs": {"selection": json.dumps(vybor, ensure_ascii=False)}},
@@ -1869,7 +1919,7 @@ def sud_tojson_needs(wf, rep=None, subject_root=None, tmp=None):
         "build-apk": {"result": "success", "outputs": sborka},
         "e2e-start": {"result": "success", "outputs": vyhody},
     }
-    for j in RABOTNIKI:
+    for j in rabotniki_subiekta(subject_root):
         if j != "e2e-start":
             needs[j] = {"result": "skipped", "outputs": {}}
     f = podtmp / "needs.json"
@@ -1892,7 +1942,7 @@ def sud_needs_rabotnikov(wf, rep=None):
     эмуляторы; рендер needs.<job>.outputs.* вне needs задачи невозможен
     (konteksty_rendera) — a17/y20 краснеют ИСПОЛНЕНИЕМ на этом же мутанте."""
     problemy = []
-    for j in RABOTNIKI:
+    for j in rabotniki_subiekta(rep):
         n = (wf.get("jobs", {}).get(j) or {}).get("needs")
         if isinstance(n, str):
             n = [n]
@@ -1902,10 +1952,12 @@ def sud_needs_rabotnikov(wf, rep=None):
 
 
 KLETKI_Y = [
-    ("y01-nabor-jobs", lambda wf, rep: (set(wf.get("jobs", {})) == set(CANON_JOBS),
-                                        "jobs %s" % sorted(wf.get("jobs", {})))),
+    ("y01-nabor-jobs", lambda wf, rep: (
+        set(wf.get("jobs", {})) == set(SLUZHEBNYE_JOBS) | set(rabotniki_subiekta(rep)),
+        "jobs %s ≠ служебные %s ∪ работники карты" % (sorted(wf.get("jobs", {})), sorted(SLUZHEBNYE_JOBS)))),
     ("y02-agregat-needs", lambda wf, rep: (
-        set(wf.get("jobs", {}).get("android-e2e", {}).get("needs") or []) == AGREGAT_NEEDS,
+        set(wf.get("jobs", {}).get("android-e2e", {}).get("needs") or []) ==
+        {"select-screens", "quality", "build-apk"} | set(rabotniki_subiekta(rep)),
         "needs агрегата %s" % (wf.get("jobs", {}).get("android-e2e", {}).get("needs"),))),
     ("y03-agregat-if-always", lambda wf, rep: (
         (wf.get("jobs", {}).get("android-e2e", {}).get("if") or "").startswith("always()"),
@@ -1920,14 +1972,14 @@ KLETKI_Y = [
         not any("strategy" in j for j in wf.get("jobs", {}).values()), "есть strategy")),
     ("y07-uslovija-rabotnikov", lambda wf, rep: vse(
         (wf.get("jobs", {}).get(j, {}).get("if") == "needs.select-screens.outputs['%s'] == 'true'" % j,
-         "if %s: %r" % (j, wf.get("jobs", {}).get(j, {}).get("if"))) for j in RABOTNIKI)),
+         "if %s: %r" % (j, wf.get("jobs", {}).get(j, {}).get("if"))) for j in rabotniki_subiekta(rep))),
     ("y08-tajmauty", lambda wf, rep: vse(
-        list((wf.get("jobs", {}).get(j, {}).get("timeout-minutes") == 40, "timeout %s" % j) for j in RABOTNIKI) +
+        list((wf.get("jobs", {}).get(j, {}).get("timeout-minutes") == 40, "timeout %s" % j) for j in rabotniki_subiekta(rep)) +
         [(wf.get("jobs", {}).get("android-e2e", {}).get("timeout-minutes") == 5, "timeout агрегата")])),
     ("y09-sobytija-i-net-139", sud_sobytija),
     ("y10-rabotniki-na-pule", lambda wf, rep: vse(
         (wf.get("jobs", {}).get(j, {}).get("runs-on") == ["self-hosted", "linux", "x64", "kvm", "complior"],
-         "runs-on %s: %s" % (j, wf.get("jobs", {}).get(j, {}).get("runs-on"))) for j in RABOTNIKI)),
+         "runs-on %s: %s" % (j, wf.get("jobs", {}).get(j, {}).get("runs-on"))) for j in rabotniki_subiekta(rep))),
     ("y11-apk-identichnost", sud_apk),
     ("y12-avd-namespace", sud_avd),
     ("y13-odin-uroven-vosstanovlenija", sud_povtory),
@@ -1979,8 +2031,350 @@ try:
     KLETKI_F = [imja for imja, _, _ in sudji_f(KARTA_HEAD)]
 except Exception:
     KLETKI_F = None  # битая карта: zhestkij_kanon уже отказал rc 2 ДО клеток
+# --- I-ось (143 v2, Astra §2): инвентарь из карты, вынос пачек, лекало -------------
+
+def sud_inventar_dereva(subject_root, tmp):
+    """i01-inventar-dereva (И-13): ИСПОЛНИТЕЛЬНАЯ — режим --mode inventar
+    селектора СУБЪЕКТА на синтетических деревьях (оракул в памяти, правило 8):
+    честное дерево → rc 0, PACHKA-строки и inventar.json перечисляют РОВНО
+    зарегистрированные пачки, rabotniki — работников карты; пачка на дереве
+    без записи → rc 1 PACHKA_BEZ_REGISTRACII; запись без пачки/флоу на
+    дереве → ZAPIS_BEZ_VHODA; symlink под видом пачки → SYMLINK_PACHKI;
+    флоу на дереве без владельца (и не служебный) → POTOK_BEZ_REGISTRACII.
+    Живые отказы Complior-mob#144 (INVENTAR_KARTY на vkladki + file outside
+    allowed location) — оба класса стыка карты/дерева закрыты исполнением."""
+    d = Path(subject_root)
+    sel = d / "mobile" / "scripts" / "select-ci-screens.cjs"
+    karta_text = (d / "mobile" / "ci-screens.json").read_text(encoding="utf-8")
+    karta = json.loads(karta_text)
+    zapisi = list(karta.get("ekrany") or [])
+    if karta.get("integracija"):
+        zapisi.append(karta["integracija"])
+    vladelnye_pachki = sorted({z["pack"] for z in zapisi if z.get("pack")})
+
+    def postroj(pod, dop_pachki=(), bez_pachki=(), dop_potoki=(), bez_potoka=None, symlink=None):
+        (pod / "mobile" / "scripts").mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(sel, pod / "mobile" / "scripts" / "select-ci-screens.cjs")
+        (pod / "mobile" / "ci-screens.json").write_text(karta_text, encoding="utf-8")
+        for p in sorted(set(vladelnye_pachki) - set(bez_pachki)) + list(dop_pachki):
+            q = pod / p.rstrip("/")
+            q.mkdir(parents=True, exist_ok=True)
+            (q / "batareja.txt").write_text("pack\n", encoding="utf-8")
+        potoki = set()
+        for z in zapisi:
+            for f in (z.get("flows") or []) + (z.get("child_flows") or []) + (z.get("fiksirovannyj_nabor") or []):
+                if f.startswith("mobile/"):
+                    potoki.add(f)
+            if z.get("legacy_entrypoint"):
+                potoki.add(z["legacy_entrypoint"])
+        potoki |= set(karta.get("sluzhebnye_potoki") or [])
+        potoki |= set(dop_potoki)
+        if bez_potoka:
+            potoki.discard(bez_potoka)
+        for f in sorted(potoki):
+            q = pod / f
+            q.parent.mkdir(parents=True, exist_ok=True)
+            q.write_text("flow\n", encoding="utf-8")
+        if symlink:
+            celp = pod / symlink.rstrip("/")
+            celp.parent.mkdir(parents=True, exist_ok=True)
+            os.symlink("/tmp/vne-checkout-143", celp)
+        return pod
+
+    # имена проб не пересекаются с зарегистрированными входами субъекта
+    # (расширение 147–154 может законно зваться и «vkladki», и «proba»)
+    svobodnaja_pachka = "mobile/e2e-proba/"
+    while svobodnaja_pachka in vladelnye_pachki:
+        svobodnaja_pachka = svobodnaja_pachka.rstrip("/") + "2/"
+    zanjatye_potoki = set()
+    for z in zapisi:
+        for f in (z.get("flows") or []) + (z.get("child_flows") or []) + (z.get("fiksirovannyj_nabor") or []):
+            zanjatye_potoki.add(f)
+        if z.get("legacy_entrypoint"):
+            zanjatye_potoki.add(z["legacy_entrypoint"])
+    zanjatye_potoki |= set(karta.get("sluzhebnye_potoki") or [])
+    svobodnyj_potok = "mobile/.maestro/proba-potoka.yaml"
+    while svobodnyj_potok in zanjatye_potoki:
+        svobodnyj_potok = svobodnyj_potok.replace(".yaml", "2.yaml")
+
+    def zapusti(pod):
+        bin_dir = Path(tmp) / ("inv-bin-%d" % abs(hash(str(pod))))
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        node_link = bin_dir / "node"
+        if not node_link.exists():
+            os.symlink(NODE_BIN, node_link)
+        env = dict(os.environ)
+        env["PATH"] = str(bin_dir) + os.pathsep + "/usr/bin:/bin"
+        out_f = pod / "inventar.json"
+        r = subprocess.run(["node", str(pod / "mobile" / "scripts" / "select-ci-screens.cjs"),
+                            "--mode", "inventar", "--repo", str(pod), "--out", str(out_f)],
+                           capture_output=True, text=True, timeout=60, env=env, cwd=str(pod))
+        return r, out_f
+
+    neudachi = []
+    # (1) честное дерево: rc 0, PACHKA-строки и JSON = зарегистрированные пачки
+    pod = Path(tmp) / "inv-chestnoe"
+    postroj(pod)
+    r, out_f = zapusti(pod)
+    if r.returncode != 0:
+        neudachi.append("честное дерево: rc=%d %s" % (r.returncode, (r.stderr or "").strip()[:120]))
+    else:
+        stroki = sorted(l[len("PACHKA "):] for l in r.stdout.splitlines() if l.startswith("PACHKA "))
+        if stroki != vladelnye_pachki:
+            neudachi.append("PACHKA-строки %s ≠ карте %s" % (stroki, vladelnye_pachki))
+        try:
+            inv = json.loads(out_f.read_text(encoding="utf-8"))
+        except Exception as e:
+            inv = None
+            neudachi.append("inventar.json не разбирается: %s" % e)
+        if inv is not None:
+            if sorted(inv.get("pachki") or []) != vladelnye_pachki:
+                neudachi.append("inv.pachki %s ≠ карте" % sorted(inv.get("pachki") or []))
+            ozh_rab = [z["job"] for z in zapisi]
+            if list(inv.get("rabotniki") or []) != ozh_rab:
+                neudachi.append("inv.rabotniki %s ≠ карте %s" % (inv.get("rabotniki"), ozh_rab))
+    # (2) незарегистрированная пачка на дереве
+    pod = Path(tmp) / "inv-pachka-bez-reg"
+    postroj(pod, dop_pachki=[svobodnaja_pachka])
+    r, _ = zapusti(pod)
+    if r.returncode != 1 or "PACHKA_BEZ_REGISTRACII" not in (r.stderr or ""):
+        neudachi.append("пачка без регистрации: rc=%d %s" % (r.returncode, (r.stderr or "").strip()[:120]))
+    # (3) запись карты без пачки на дереве
+    pod = Path(tmp) / "inv-zapis-bez-vhoda"
+    postroj(pod, bez_pachki=[vladelnye_pachki[0]])
+    r, _ = zapusti(pod)
+    if r.returncode != 1 or "ZAPIS_BEZ_VHODA" not in (r.stderr or ""):
+        neudachi.append("запись без пачки: rc=%d %s" % (r.returncode, (r.stderr or "").strip()[:120]))
+    # (4) symlink под видом пачки — выход за checkout
+    pod = Path(tmp) / "inv-symlink"
+    postroj(pod, symlink="mobile/e2e-novaja")
+    r, _ = zapusti(pod)
+    if r.returncode != 1 or "SYMLINK_PACHKI" not in (r.stderr or ""):
+        neudachi.append("symlink-пачка: rc=%d %s" % (r.returncode, (r.stderr or "").strip()[:120]))
+    # (5) флоу на дереве без владельца и не служебный
+    pod = Path(tmp) / "inv-potok-bez-reg"
+    postroj(pod, dop_potoki=[svobodnyj_potok])
+    r, _ = zapusti(pod)
+    if r.returncode != 1 or "POTOK_BEZ_REGISTRACII" not in (r.stderr or ""):
+        neudachi.append("флоу без владельца: rc=%d %s" % (r.returncode, (r.stderr or "").strip()[:120]))
+    # (6) флоу записи отсутствует на дереве
+    pervyj_potok = None
+    for z in zapisi:
+        for f in (z.get("flows") or []):
+            if f.startswith("mobile/"):
+                pervyj_potok = f
+                break
+        if pervyj_potok:
+            break
+    if pervyj_potok:
+        pod = Path(tmp) / "inv-potok-net"
+        postroj(pod, bez_potoka=pervyj_potok)
+        r, _ = zapusti(pod)
+        if r.returncode != 1 or "ZAPIS_BEZ_VHODA" not in (r.stderr or ""):
+            neudachi.append("флоу записи отсутствует: rc=%d %s" % (r.returncode, (r.stderr or "").strip()[:120]))
+    return (not neudachi, "; ".join(neudachi))
 
 
+def sud_joby_iz_karty(wf, rep):
+    """i02-jobs-iz-karty (И-12): jobs(workflow) == SLUZHEBNYE ∪ работники
+    карты; job без записи и запись без job — именованные расхождения."""
+    rab = set(rabotniki_subiekta(rep))
+    jobs = set(wf.get("jobs", {}))
+    ozhidaemye = set(SLUZHEBNYE_JOBS) | rab
+    if jobs != ozhidaemye:
+        return False, "job без карты: %s; карта без job: %s" % (
+            sorted(jobs - ozhidaemye), sorted(ozhidaemye - jobs))
+    return True, ""
+
+
+def sud_vyhody_selektora(wf, rep):
+    """i03-vyhody-selektora (И-12): outputs(select-screens) == {selection} ∪
+    работники карты, каждый — проводкой steps.vybor.outputs.<job>."""
+    rab = rabotniki_subiekta(rep)
+    outs = (wf.get("jobs", {}).get("select-screens") or {}).get("outputs") or {}
+    ozh = {"selection"} | set(rab)
+    if set(outs) != ozh:
+        return False, "выходы %s ≠ канон %s (нет выхода работнику: %s)" % (
+            sorted(outs), sorted(ozh), sorted(ozh - set(outs)))
+    for j in rab:
+        if outs.get(j) != "${{ steps.vybor.outputs.%s }}" % j:
+            return False, "output %s = %r (не из шага vybor)" % (j, outs.get(j))
+    return True, ""
+
+
+def sud_agregaty_iz_karty(wf, rep):
+    """i04-agregaty-iz-karty (И-12): needs ОБОИХ агрегирующих задач
+    (required PR-агрегат и ночной signal) == {select-screens, quality,
+    build-apk} ∪ работники карты — новый экран обязан попасть в оба."""
+    rab = set(rabotniki_subiekta(rep))
+    ozh = {"select-screens", "quality", "build-apk"} | rab
+    problemy = []
+    for ag in ("android-e2e", "mobile-regression-signal"):
+        n = set((wf.get("jobs", {}).get(ag) or {}).get("needs") or [])
+        if n != ozh:
+            problemy.append("%s: расхождение %s" % (ag, sorted(n ^ ozh)))
+    return (not problemy, "; ".join(problemy))
+
+
+def sud_vynos_iz_inventarja(wf, rep=None):
+    """i05-vynos-iz-inventarja (И-13): вынос пачек в quality ОБЩИЙ —
+    единственный вызов селектора --mode inventar ДО любого перемещения,
+    перенос ровно PACHKA-строк его вывода; персональные mv пачек экранов
+    (v1-форма) и wildcard-вынос запрещены; H-checkoutы (.harness*) и
+    спец-проба композиции 118 остаются явными; npm test/lint/typecheck/
+    doctor стоят ПОСЛЕ выноса (lint не урезан)."""
+    q = wf.get("jobs", {}).get("quality", {})
+    shagi = q.get("steps") or []
+    poz_vynosa = None
+    tekst = None
+    for n, s in enumerate(shagi):
+        run = str(s.get("run") or "")
+        if "--mode inventar" in run:
+            if tekst is not None:
+                return False, "НЕТ_ИНВЕНТАРИЗАЦИИ: вызовов --mode inventar больше одного (%d)" % n
+            tekst = run
+            poz_vynosa = n
+    if tekst is None:
+        return False, "НЕТ_ИНВЕНТАРИЗАЦИИ: в quality нет шага с вызовом селектора --mode inventar"
+    if re.search(r"^\s*mv\s+mobile/e2e-", tekst, re.M):
+        return False, "ВЫНОС_ВРУЧНУЮ: персональный mv пачки экрана (v1-форма)"
+    if re.search(r"mv\s+mobile/e2e-\*", tekst):
+        return False, "ВЫНОС_WILDCARD: массовый вынос маскирует незарегистрированную пачку"
+    for obrazec in ("PACHKA", "while", 'mv "$pachka"'):
+        if obrazec not in tekst:
+            return False, "НЕТ_ЦИКЛА_ПАЧЕК: вынос не читает PACHKA-строки инвентаризации (%s)" % obrazec
+    for javnyj in ("mv .harness ", "mv .harness117 ", "mv .harness117b ",
+                   "mv mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh "):
+        if javnyj not in tekst:
+            return False, "ВЫНОС_H_UDALJON: явный вынос отсутствует: %r" % javnyj.strip()
+    npm_posle = []
+    for n, s in enumerate(shagi):
+        run = str(s.get("run") or "")
+        for komanda in ("npm test", "npm run lint", "npm run typecheck", "npm run doctor"):
+            if komanda in run:
+                npm_posle.append((komanda, n))
+    if len(npm_posle) != 4 or any(n <= poz_vynosa for _, n in npm_posle):
+        return False, "LINT_UREZAN: проверки %s не стоят после выноса (шаг %d)" % (sorted(npm_posle), poz_vynosa)
+    return True, ""
+
+
+LEKALO = HERE / "model" / "screen-job.template.yml"
+LEKALO_ZAMENY = {"{{JOB_ID}}": "e2e-proba", "{{SCREEN_ID}}": "proba",
+                 "{{PACK}}": "mobile/e2e-proba/", "{{FLOWS}}": "mobile/.maestro/proba.yaml",
+                 "{{H_REF}}": "p" * 40, "{{H_PATH}}": ".harness-proba",
+                 "{{AVD_PORT}}": "5570", "{{EVIDENCE_NS}}": "mobile/maestro-out-proba"}
+
+
+def sud_lekalo(subject_root, tmp):
+    """i06-lekalo-rabotnika (И-14): лекало screen-job.template.yml — файл
+    ПАЧКИ: пин sha256 в source.json:.piny + перепись zhestkij_kanon (мутация
+    байтов = rc 2 ORACLE_TAMPERED ДО клеток — стабы не нужны, прецедент
+    черновиков Б4). Судит: (1) параметры-плейсхолдеры и запреты в тексте
+    лекала (второго списка экранов нет); (2) ИНСТАНЦИАЦИЮ — подстановка
+    параметров экрана-пробы + ТРИ парные правки (запись карты, output,
+    needs×2) дают работника, конформного ВСЕМ общим обязательствам батареи
+    (y01–y12/y19/y22/y24, i02/i03/i04) БЕЗ правки python-перечней —
+    расширяемость v2 доказана исполнением на каждом прогоне батареи."""
+    tekst = LEKALO.read_text(encoding="utf-8")
+    neudachi = []
+    for parametr in sorted(LEKALO_ZAMENY):
+        if parametr not in tekst:
+            neudachi.append("параметр %s отсутствует" % parametr)
+    for zapret in ("continue-on-error:", "strategy:", "matrix:"):
+        if zapret in tekst:
+            neudachi.append("запрещённое %s в лекале" % zapret)
+    for staroe in RABOTNIKI:
+        if staroe in tekst:
+            neudachi.append("имя legacy-экрана %s в лекале — второй список экранов" % staroe)
+    telo = tekst.split("\njobs:\n", 1)[1] if "\njobs:\n" in tekst else tekst
+    if telo.count("ПОВТОР: ") != 1:
+        neudachi.append("маркеров ПОВТОР: %d (канон — ровно один уровень восстановления)" % telo.count("ПОВТОР: "))
+    # инстанциация экраном-пробой + полная парная проводка расширения;
+    # порт пробы не пересекается с портами работников субъекта (v2:
+    # AVD-namespace судится на union, расширение может занять 5570)
+    zanjatye_porty = set()
+    wf_sub = yaml.safe_load((Path(subject_root) / ".github" / "workflows" / "mobile.yml").read_text(encoding="utf-8"))
+    for j in wf_sub.get("jobs", {}).values():
+        zanjatye_porty |= set(re.findall(r"PORT=(\d+)", json.dumps(j, ensure_ascii=False)))
+    port_proby = 5570
+    while str(port_proby) in zanjatye_porty:
+        port_proby += 1
+    inst = tekst
+    for k, v in sorted(LEKALO_ZAMENY.items()):
+        if k == "{{AVD_PORT}}":
+            continue
+        inst = inst.replace(k, v)
+    inst = inst.replace("{{AVD_PORT}}", str(port_proby))
+    if re.search(r"\{\{[A-Z_]+\}\}", inst):
+        neudachi.append("незаменённый плейсхолдер в инстанциации")
+    try:
+        doc = yaml.safe_load(inst)
+        job = doc["jobs"]["e2e-proba"]
+    except Exception as e:
+        return False, "ЛЕКАЛО_NE_YAML: %s" % e
+    mapa = mapa_subiekta(subject_root)
+    mapa2 = json.loads(json.dumps(mapa, ensure_ascii=False))
+    mapa2["ekrany"].append({"id": "proba", "kontrakty": ["proba"], "status": "approved",
+                            "job": "e2e-proba", "pack": "mobile/e2e-proba/",
+                            "flows": ["mobile/.maestro/proba.yaml"], "child_flows": [],
+                            "h_checkout": [".harness-proba"],
+                            "output_namespace": "mobile/maestro-out-proba"})
+    pod = Path(tmp) / "lekalo-instancijacija"
+    (pod / "mobile").mkdir(parents=True, exist_ok=True)
+    (pod / ".github" / "workflows").mkdir(parents=True, exist_ok=True)
+    (pod / "mobile" / "ci-screens.json").write_text(json.dumps(mapa2, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    wf2 = yaml.safe_load((Path(subject_root) / ".github" / "workflows" / "mobile.yml").read_text(encoding="utf-8"))
+    wf2["jobs"]["e2e-proba"] = job
+    (wf2["jobs"]["select-screens"]["outputs"])["e2e-proba"] = "${{ steps.vybor.outputs.e2e-proba }}"
+    for ag in ("android-e2e", "mobile-regression-signal"):
+        needs = wf2["jobs"][ag].get("needs") or []
+        needs.append("e2e-proba")
+        wf2["jobs"][ag]["needs"] = needs
+    (pod / ".github" / "workflows" / "mobile.yml").write_text(
+        yaml.safe_dump(wf2, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    proverki = [sud_joby_iz_karty, sud_vyhody_selektora, sud_agregaty_iz_karty,
+                sud_apk, sud_avd, sud_needs_rabotnikov, sud_provodka,
+                sud_izoljacija_ranera]
+    for f in proverki:
+        ok, prichina = f(wf2, str(pod))
+        if not ok:
+            neudachi.append("инстанциация: %s: %s" % (f.__name__, prichina))
+    dopolnitelnye = (
+        ("y04", lambda wf, rep: (not any(
+            j.get("if") in (False, "false") or any(s.get("if") in (False, "false") for s in j.get("steps", []))
+            for j in wf.get("jobs", {}).values()), "есть if:false")),
+        ("y05", lambda wf, rep: (not any(
+            j.get("continue-on-error") or any(s.get("continue-on-error") for s in j.get("steps", []))
+            for j in wf.get("jobs", {}).values()), "есть continue-on-error")),
+        ("y06", lambda wf, rep: (not any(
+            "strategy" in j for j in wf.get("jobs", {}).values()), "есть strategy")),
+    )
+    for imja_provery, f in dopolnitelnye:
+        ok, prichina = f(wf2, str(pod))
+        if not ok:
+            neudachi.append("инстанциация %s: %s" % (imja_provery, prichina))
+    if json.dumps(job, ensure_ascii=False).count("ПОВТОР: ") != 1:
+        neudachi.append("инстанциация: маркеров ПОВТОР ≠ 1")
+    return (not neudachi, "; ".join(neudachi))
+
+
+def sud_legacy_opora(wf, rep):
+    """i07-legacy-opora (И-15): пять работников frozen 143/1 остаются в
+    карте И в DAG одновременно — одновременное удаление старого экрана из
+    карты и workflow НЕ становится новым честным baseline (Astra §2.1:
+    принятые legacy-обязательства сохраняются отдельно от динамики)."""
+    netu_karty = sorted(set(RABOTNIKI) - set(rabotniki_subiekta(rep)))
+    if netu_karty:
+        return False, "LEGACY_UDALJON_IZ_KARTY: %s" % netu_karty
+    netu_dag = sorted(set(RABOTNIKI) - set(wf.get("jobs", {})))
+    if netu_dag:
+        return False, "LEGACY_UDALJON_IZ_DAG: %s" % netu_dag
+    return True, ""
+
+
+KLETKI_I = ["i01-inventar-dereva", "i02-jobs-iz-karty", "i03-vyhody-selektora",
+            "i04-agregaty-iz-karty", "i05-vynos-iz-inventarja",
+            "i06-lekalo-rabotnika", "i07-legacy-opora"]
 # --- исполнение одной клетки ---------------------------------------------------------
 
 def odna_kletka(imja, subject_root, vrem):
@@ -1998,7 +2392,10 @@ def odna_kletka(imja, subject_root, vrem):
                 return False, "SUBJECT_ABSENT"
             return sudja_s(sel, SCENARII_S[imja]["sc"], SCENARII_S[imja]["ozh"], tmp)
         if imja == "a17-digest-do-ustanovki":
-            return sud_digest_replej(d, tmp)
+            try:
+                return sud_digest_replej(d, tmp)
+            except KartaSubiekta as e:
+                return False, str(e)
         if imja == "p01-P-nabor":
             return sud_P_nabor(d, tmp)
         if imja in SCENARII_A:
@@ -2030,6 +2427,39 @@ def odna_kletka(imja, subject_root, vrem):
                     except Exception as e:
                         return False, "ISKLJUCHENIE %s" % e
             return False, "неизвестная y-клетка"
+        if imja in KLETKI_I:
+            if imja == "i01-inventar-dereva":
+                if not sel.is_file() or not karta.is_file():
+                    return False, "SUBJECT_ABSENT"
+                try:
+                    return sud_inventar_dereva(d, tmp)
+                except Exception as e:
+                    return False, "ISKLJUCHENIE %s" % e
+            if imja == "i06-lekalo-rabotnika":
+                if not wf_p.is_file() or not karta.is_file():
+                    return False, "SUBJECT_ABSENT"
+                try:
+                    return sud_lekalo(d, tmp)
+                except KartaSubiekta as e:
+                    return False, str(e)
+                except Exception as e:
+                    return False, "ISKLJUCHENIE %s" % e
+            # i02/i03/i04/i05/i07 — статика по workflow + карте субъекта
+            if not wf_p.is_file():
+                return False, "SUBJECT_ABSENT"
+            try:
+                wf = yaml.safe_load(wf_p.read_text(encoding="utf-8"))
+            except Exception as e:
+                return False, "MOBILE_YML_NE_YAML: %s" % e
+            fn = {"i02-jobs-iz-karty": sud_joby_iz_karty, "i03-vyhody-selektora": sud_vyhody_selektora,
+                  "i04-agregaty-iz-karty": sud_agregaty_iz_karty, "i05-vynos-iz-inventarja": sud_vynos_iz_inventarja,
+                  "i07-legacy-opora": sud_legacy_opora}[imja]
+            try:
+                return fn(wf, str(d))
+            except KartaSubiekta as e:
+                return False, str(e)
+            except Exception as e:
+                return False, "ISKLJUCHENIE %s" % e
         if imja in KLETKI_F:
             if not karta.is_file():
                 return False, "SUBJECT_ABSENT"
@@ -2104,7 +2534,7 @@ def glavnaja():
     sobiraem_a()
     vse_kletki = (list(SCENARII_S) + list(SCENARII_A) + ["a17-digest-do-ustanovki"] +
                   [k[0] for k in KLETKI_Y if k[0] != "y20-tojson-needs"] + ["y20-tojson-needs"] +
-                  ["y23-ispolnenie-povtora"] + KLETKI_F + ["p01-P-nabor"])
+                  ["y23-ispolnenie-povtora"] + KLETKI_F + KLETKI_I + ["p01-P-nabor"])
     obyavlennye = [k["id"] for k in src["kletki"]]
     if sorted(obyavlennye) != sorted(vse_kletki):
         return oshibka_orakula("source.json kletki ≠ клетки движка: лишние %s отсутствуют %s" % (
