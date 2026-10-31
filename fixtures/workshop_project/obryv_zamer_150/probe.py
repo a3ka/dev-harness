@@ -812,28 +812,52 @@ def sud_z04(subjekt_root, src):
     return True, ""
 
 SBOR_SKRIPT = "mobile/scripts/zamer_obryva.sh"
+# управляющие конструкции/скобки: их тело статически не привязывается к
+# безусловному исполнению — именованный отказ, не зелень (круг 3, блок 1)
+UPRAVLJAJUSHCHIE = frozenset((
+    "if", "then", "elif", "else", "fi", "while", "until", "do", "done",
+    "for", "in", "case", "esac", "select", "function", "time", "coproc",
+    "{", "}", "!"))
 
 
 def _shell_komandy(tekst):
-    """Канонизация scalar `run` шага сбора (арбитраж 150, П1): текст →
-    (команды, ошибка). Команда — список пар (слово, literal); literal=True —
-    слово целиком из одинарных кавычек (подстановки НЕ раскрываются).
+    """Канонизация scalar `run` шага сбора (арбитраж 150 П1; блок 1 круга 3):
+    текст → (команды, ошибка). Команда — (слова, bezuslovno, asinhronno):
+    слова — список пар (слово, literal) (literal=True — одинарные кавычки);
+    bezuslovno — позиция команды ГАРАНТИРОВАННО исполняется (правый операнд
+    `&&`/`||`, условная группа и всё внутри неё — False: левые `true`/`false`
+    не обязаны подвести, но правый операнд может быть ПРОПУЩЕН — круг 3:
+    `true || bash …sbor…` проходил все 17 клеток при гарантированно
+    пропущенном сборе); asinhronno — команда завершена `&` (гонка с upload).
     Комментарий — слово, начавшееся с # вне кавычек: ДО КОНЦА СТРОКИ кодом
-    не является (комментарий/echo/посторонняя строка аргументом команды не
-    засчитываются). \\<перевод строки> — продолжение слова; ; && || | &
-    и перевод строки — границы команд; скобки/перенаправления — тоже границы
-    (каноническая форма шага сбора их не несёт, а подстановка внутрь вызова
-    sbor ниже даёт именованный отказ). Полный интерпретатор shell НЕ
-    строится (арбитражем не требуется): незакрытая кавычка — именованный
-    отказ разбора, не зелень."""
+    не является. \\<перевод строки> — продолжение слова; ; && || | & ( )
+    < > >> и перевод строки — границы; слово после перенаправления < >
+    — цель перенаправления, НЕ команда (иначе `> bash sbor…` порождает
+    фиктивный вызов). НЕРАСПОЗНАННАЯ ФОРМА — именованный отказ, не зелень:
+    here-doc (<<), определение функции/скобка в середине слова (name( ),
+    $(…)-подстановка), слово после ), незакрытая кавычка/скобка, группы
+    { }, управляющие конструкции (if/while/for/case/…) — их тело статически
+    не привязать к безусловному исполнению. Полный интерпретатор shell НЕ
+    строится (арбитражем не требуется)."""
     komandy, tek, slovo, literal = [], [], [], False
+    baza = [True]              # стек баз безусловности (топ-уровень/группы)
+    bezuslovno = True          # безусловность позиции СЛЕДУЮЩЕЙ команды
+    celevoe = False            # следующее слово — цель перенаправления
     i, n = 0, len(tekst)
 
     def slovo_konec():
-        nonlocal slovo, literal
+        nonlocal slovo, literal, celevoe
         if slovo:
-            tek.append(("".join(slovo), literal))
+            if not celevoe:
+                tek.append(("".join(slovo), literal))
+            celevoe = False
         slovo, literal = [], False
+
+    def komanda_konec():
+        slovo_konec()
+        if tek:
+            komandy.append((list(tek), bezuslovno, False))
+            tek.clear()
 
     while i < n:
         c = tekst[i]
@@ -869,10 +893,8 @@ def _shell_komandy(tekst):
             i += 1
             continue
         if c == "\n":
-            slovo_konec()
-            if tek:
-                komandy.append(tek)
-                tek = []
+            komanda_konec()
+            bezuslovno = baza[-1]
             i += 1
             continue
         if c == "#" and not slovo:
@@ -880,21 +902,70 @@ def _shell_komandy(tekst):
             j = tekst.find("\n", i)
             i = n if j < 0 else j
             continue
-        if c in ";|&()<>":
-            slovo_konec()
-            if tek:
-                komandy.append(tek)
-                tek = []
-            if c in "&|" and tekst[i + 1:i + 2] == c:
+        if c == "(":
+            if slovo or tek:
+                return None, ("neraspozannaja forma: skobka ( v seredine komandy "
+                              "(opredelenie funkcii libo $(…)-podstanovka)")
+            komanda_konec()
+            baza.append(bezuslovno)
+            i += 1
+            continue
+        if c == ")":
+            komanda_konec()
+            if len(baza) < 2:
+                return None, "neraspozannaja forma: ) bez otkryvajuschej ("
+            baza.pop()
+            bezuslovno = baza[-1]
+            j = i + 1
+            while j < n and tekst[j] in " \t\r":
+                j += 1
+            if j < n and tekst[j] not in ";|&)<>\n":
+                return None, "neraspozannaja forma: slovo posle ) (ne bash-grammatika)"
+            i += 1
+            continue
+        if c == ";":
+            komanda_konec()
+            bezuslovno = baza[-1]
+            i += 1
+            continue
+        if c == "&":
+            if tekst[i + 1:i + 2] == "&":
+                komanda_konec()
+                bezuslovno = False
                 i += 2
             else:
+                komanda_konec()
+                if komandy:
+                    slova, bez, _ = komandy[-1]
+                    komandy[-1] = (slova, bez, True)
+                bezuslovno = baza[-1]
                 i += 1
+            continue
+        if c == "|":
+            dvuxe = tekst[i + 1:i + 2] == "|"
+            komanda_konec()
+            if dvuxe:
+                bezuslovno = False
+            # одиночный | — конвейер: все элементы исполняются, безусловность
+            # позиции не меняется
+            i += 2 if dvuxe else 1
+            continue
+        if c in "<>":
+            if c == "<" and tekst[i + 1:i + 2] == "<":
+                return None, "neraspozannaja forma: here-doc (<<) v shage sbora"
+            komanda_konec()
+            celevoe = True
+            i += 2 if tekst[i + 1:i + 2] == c else 1
             continue
         slovo.append(c)
         i += 1
-    slovo_konec()
-    if tek:
-        komandy.append(tek)
+    komanda_konec()
+    if len(baza) != 1:
+        return None, "nezakrytaja skobka ("
+    for slova, _, _ in komandy:
+        if slova and slova[0][0] in UPRAVLJAJUSHCHIE:
+            return None, ("neraspozannaja forma: upravljajuschaja konstrukcija "
+                          "%r (telo ne privjazat k bezuslovnomu ispolneniju)" % slova[0][0])
     return komandy, ""
 
 
@@ -927,17 +998,22 @@ def _znachenie_argumenta(parnja, envs):
 
 
 def sud_z05(wf, rabotniki):
-    """z05-put-zagruzki: путь/имя upload согласован с ФАКТИЧЕСКИМ --out
-    ИСПОЛНЯЕМОЙ команды сбора ПО КАЖДОМУ работнику карты (арбитраж 150 П1:
-    обёртка обещана каждому работнику, не только представителю replay).
-    scalar `run` шага сбора разбирается на команды (_shell_komandy):
-    комментарий/echo/посторонняя строка кодом не являются; РОВНО один вызов
-    `bash mobile/scripts/zamer_obryva.sh sbor` с РОВНО одним --out; значение
-    --out разрешается разрешёнными env шага и сравнивается с with.path и
-    mobile/zamer-out-<ZAMER_EKRAN>. Нераспознанная/неоднозначная форма —
-    именованный отказ, не зелень. Иначе зелёный CI-шаг «артефакт» молча
-    грузит пустоту (if-no-files-found: ignore) — публикация недоказуема
-    (блокер 6 круга 1; арбитраж 150 П1 — скрытый комментарием --out)."""
+    """z05-put-zagruzki: путь/имя upload согласован с --out БЕЗУСЛОВНО
+    ИСПОЛНЯЕМОЙ команды сбора ПО КАЖДОМУ работнику карты (арбитраж 150 П1;
+    блок 1 круга 3: `true || bash …sbor…` у второго работника проходил все
+    клетки при гарантированно пропущенном сборе). Разбор структуры
+    исполнения шага (_shell_komandy), не regex по тексту: комментарий/echo/
+    посторонняя строка/цель перенаправления кодом не являются; РОВНО один
+    вызов `bash mobile/scripts/zamer_obryva.sh sbor`, стоящий в БЕЗУСЛОВНОЙ
+    позиции (правый операнд &&/||, условная группа, фон &, безусловный exit
+    выше по тексту, функция/heredoc/управляющая конструкция — именованный
+    отказ: исполнение сбора не гарантировано, публикация недоказуема); РОВНО
+    один --out; значение --out разрешается разрешёнными env шага и
+    сравнивается с with.path и mobile/zamer-out-<ZAMER_EKRAN>. Нераспознанная/
+    неоднозначная форма — именованный отказ, не зелень. Иначе зелёный CI-шаг
+    «артефакт» молча грузит пустоту (if-no-files-found: ignore) — блокер 6
+    круга 1 (скрытый комментарием --out) и блокер круга 3 (неисполнимый
+    сбор)."""
     netu = []
     for r in rabotniki:
         job = (wf.get("jobs") or {}).get(r["job"]) or {}
@@ -962,14 +1038,29 @@ def sud_z05(wf, rabotniki):
         if osh:
             netu.append("%s: SBOR_RUN_NE_RASPOZNAN: %s" % (r["job"], osh))
             continue
-        vyzovy = [k[3:] for k in komandy
-                  if len(k) >= 3 and k[0][0] in ("bash", "sh")
-                  and k[1][0] == SBOR_SKRIPT and k[2][0] == "sbor"]
+        vyzovy = [(i, k) for i, k in enumerate(komandy)
+                  if len(k[0]) >= 3 and k[0][0][0] in ("bash", "sh")
+                  and k[0][1][0] == SBOR_SKRIPT and k[0][2][0] == "sbor"]
         if len(vyzovy) != 1:
             netu.append("%s: SBOR_VYZOV_NEODNOZNACHEN: vyzovov %s sbor = %d "
                         "(kanon: odin)" % (r["job"], SBOR_SKRIPT, len(vyzovy)))
             continue
-        argumenty = vyzovy[0]
+        vyzov_i, (_, bezuslovno, asinhronno) = vyzovy[0]
+        if asinhronno:
+            netu.append("%s: SBOR_ASINHRONNEN: vyzov sbor zapushchen v fon (&) — "
+                        "sbor mozhet ne uspet k shagu upload" % r["job"])
+            continue
+        if not bezuslovno:
+            netu.append("%s: SBOR_NE_BEZUSLOVEN: vyzov sbor v uslovnoj pozicii "
+                        "(pravyj operand &&/|| libo uslovnaja gruppa) — sbor mozhet "
+                        "byt propushchen, publikacija nedokazuema" % r["job"])
+            continue
+        if any(bez and slova and slova[0][0] == "exit"
+               for slova, bez, _ in komandy[:vyzov_i]):
+            netu.append("%s: SBOR_NEDOSTIZHIM: bezuslovnyj exit vyshe vyzova sbor — "
+                        "sbor nikogda ne ispolnjaetsja" % r["job"])
+            continue
+        argumenty = komandy[vyzov_i][0][3:]
         out_i = [i for i, p in enumerate(argumenty) if p[0] == "--out"]
         if len(out_i) != 1 or out_i[0] + 1 >= len(argumenty):
             netu.append("%s: SBOR_BEZ_ODNOZNACHNOGO_OUT: --out vstrechen %d raz"

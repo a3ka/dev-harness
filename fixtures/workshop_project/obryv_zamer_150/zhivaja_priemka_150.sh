@@ -13,8 +13,10 @@
 #        ревьюера (порог не назначен: числовой порог overhead — воля
 #        владельца; одна пара CI-длительностей не есть причинное
 #        доказательство равенства)
-#   zhivaja_priemka_150.sh --samoproverka  # подложный gh: исходы всех
-#        именованных случаев (закрытие П2 арбитража 150)
+#   zhivaja_priemka_150.sh --samoproverka  # подложный gh (Только ЗДЕСЬ,
+#        круг 3 блок 2): исходы всех именованных случаев; живые режимы
+#        krasnyj/zelenyj/dlitelnosti используют ВНЕШНИЙ gh из PATH — mock
+#        не определён вне samoproverka и Z150_MOK на живые режимы не влияет
 #
 # repo = репозиторий Complior-mob; S = экран; R = run id; A = attempt;
 # C = sha головы run. Коды: 0 — исход подтверждён; 1 — именованный отказ
@@ -84,7 +86,7 @@ proverka_soderzhimogo() { # <katalog>
 
 # ── приёмка 7: красный run публикует полный причинный артефакт ─────────────
 priemka_krasnyj() { # <repo> <S> <R> <A> <C>
-  local repo="$1" S="$2" R="$3" A="$4" C="$5" art d jobid
+  local repo="${1:-}" S="${2:-}" R="${3:-}" A="${4:-}" C="${5:-}" art d jobid
   [ -n "$repo" ] && [ -n "$S" ] && [ -n "$R" ] && [ -n "$A" ] && [ -n "$C" ] \
     || otkaz "ARGUMENTY: krasnyj <repo> <S> <R> <A> <C>"
   art="zamer-${S}-${C}-${R}-${A}"
@@ -93,6 +95,10 @@ priemka_krasnyj() { # <repo> <S> <R> <A> <C>
   local spisok
   spisok="$(gh api "repos/${repo}/actions/runs/${R}/artifacts")" \
     || otkaz "GH_OTKAZ: artifacts API run $R"
+  # пустой успешный ответ недопустим (круг 3, блок 3): отсутствие/наличие
+  # артефакта доказывается РАЗОБРАННЫМ ответом, 0 байт/мусор — именованный отказ
+  printf '%s' "$spisok" | jq -e 'type == "object" and (.artifacts | type == "array")' >/dev/null \
+    || otkaz "PUSTOJ_OTVET_API: artifacts API run $R dal pustoj/nervalidnyj otvet"
   printf '%s' "$spisok" | jq -e --arg n "$art" \
     '(.artifacts | type == "array") and ([.artifacts[]? | select(.name == $n)] | length == 1)' >/dev/null \
     || otkaz "ARTEFAKT_NET: tochnyj artefakt $art otsutstvuet libo dublirovan"
@@ -108,7 +114,7 @@ priemka_krasnyj() { # <repo> <S> <R> <A> <C>
 
 # ── приёмка 8: зелёный run БЕЗ артефактов замера, маркер в логе job ────────
 priemka_zelenyj() { # <repo> <S> <R> <A>
-  local repo="$1" S="$2" R="$3" A="$4" jobid spisok log
+  local repo="${1:-}" S="${2:-}" R="${3:-}" A="${4:-}" jobid spisok log
   [ -n "$repo" ] && [ -n "$S" ] && [ -n "$R" ] && [ -n "$A" ] \
     || otkaz "ARGUMENTY: zelenyj <repo> <S> <R> <A>"
   jobid="$(poisk_joba "$repo" "$S" "$R" success)" || exit 1
@@ -116,6 +122,11 @@ priemka_zelenyj() { # <repo> <S> <R> <A>
   # ne pechat' chisla); ошибка API ≠ отсутствию — отказ gh всплывает выше
   spisok="$(gh api --paginate "repos/${repo}/actions/runs/${R}/artifacts")" \
     || otkaz "GH_OTKAZ: artifacts API run $R"
+  # хотя бы ОДНА валидная полная JSON-страница ДО сравнения (круг 3, блок 3):
+  # jq -es принимал пустой поток как [] и length==0 давал ЛОЖНЫЙ ноль артефактов
+  printf '%s' "$spisok" | jq -es \
+    'length >= 1 and all(.[]; type == "object" and (.artifacts | type == "array"))' >/dev/null \
+    || otkaz "PUSTOJ_OTVET_API: artifacts API run $R — net ni odnoj validnoj JSON-stranicy (0 bajtov/musor)"
   printf '%s' "$spisok" | jq -es --arg p "zamer-${S}-" \
     '[.[].artifacts[]? | select((.name | type == "string") and (.name | startswith($p)))] | length == 0' >/dev/null \
     || otkaz "ARTEFAKT_ZAPRESCHEN: u zeljonogo run $R est' artefakt zamer-${S}-*"
@@ -146,56 +157,60 @@ izmerit_dlitelnost() { # <repo> <S> <R> <metka>
   echo "DLITELNOST $metka: run=$R job=$S jobid=$id status=$status conclusion=$concl nach=$nach konets=$kon dlitelnost=$d"
 }
 
-# ── подложный gh (только --samoproverka): состояние — файлы в $Z150_MOK ───
-gh() {
-  local m="$Z150_MOK" api=0 download=0 json=0 log=0 repo="" imja="" dir=""
-  local args=("$@") i a
-  for ((i = 0; i < ${#args[@]}; i++)); do
-    a="${args[$i]}"
-    case "$a" in
-      run | view) : ;;
-      download) download=1 ;;
-      api) api=1 ;;
-      --json) json=1 ;;
-      --log) log=1 ;;
-      --repo) i=$((i + 1)); repo="${args[$i]}" ;;
-      -n) i=$((i + 1)); imja="${args[$i]}" ;;
-      -D) i=$((i + 1)); dir="${args[$i]}" ;;
-      --job | --paginate | -R) : ;;
-      -*) : ;;
-      *) : ;;
-    esac
-  done
-  if [ "$api" = 1 ]; then
-    [ -f "$m/artifacts.json" ] || { echo "gh_mock: API-otkaz (net artifacts.json)" >&2; return 1; }
-    cat "$m/artifacts.json"
-    return 0
-  fi
-  if [ "$download" = 1 ]; then
-    [ -d "$m/artefakt" ] || { echo "gh_mock: artefakt $imja ne najden" >&2; return 1; }
-    cp -R "$m/artefakt/." "$dir/" || return 1
-    return 0
-  fi
-  if [ "$log" = 1 ]; then
-    [ -f "$m/log.txt" ] || { echo "gh_mock: log ne dostupen" >&2; return 1; }
-    cat "$m/log.txt"
-    return 0
-  fi
-  if [ "$json" = 1 ]; then
-    [ -f "$m/jobs.json" ] || { echo "gh_mock: gh run view --json otkaz" >&2; return 1; }
-    cat "$m/jobs.json"
-    return 0
-  fi
-  echo "gh_mock: neizvestnyj vyzov: $*" >&2
-  return 9
-}
-
-# ── самопроверка: исходы всех случаев процедуры на подложном gh ────────────
+# ── подложный gh: ОПРЕДЕЛЯЕТСЯ ТОЛЬКО ВНУТРИ samoproverka (круг 3, блок 2) ─
+# Живые режимы (krasnyj/zelenyj/dlitelnosti) используют ВНЕШНИЙ gh из PATH:
+# безусловное определение gh() читало $Z150_MOK под set -u и валило живые
+# приёмки ДО обращения к настоящему gh API; mock живёт только в
+# --samoproverka, состояние — файлы в $Z150_MOK (задаёт samoproverka).
 samoproverka() {
   local KOREN m
   KOREN="$(mktemp -d "${TMPDIR:-/tmp}/zp150-sp-XXXXXX")"
   m="$KOREN/mir"
   mkdir -p "$m"
+
+  gh() {
+    local m="$Z150_MOK" api=0 download=0 json=0 log=0 repo="" imja="" dir=""
+    local args=("$@") i a
+    for ((i = 0; i < ${#args[@]}; i++)); do
+      a="${args[$i]}"
+      case "$a" in
+        run | view) : ;;
+        download) download=1 ;;
+        api) api=1 ;;
+        --json) json=1 ;;
+        --log) log=1 ;;
+        --repo) i=$((i + 1)); repo="${args[$i]}" ;;
+        -n) i=$((i + 1)); imja="${args[$i]}" ;;
+        -D) i=$((i + 1)); dir="${args[$i]}" ;;
+        --job | --paginate | -R) : ;;
+        -*) : ;;
+        *) : ;;
+      esac
+    done
+    if [ "$api" = 1 ]; then
+      [ -f "$m/artifacts.json" ] || { echo "gh_mock: API-otkaz (net artifacts.json)" >&2; return 1; }
+      cat "$m/artifacts.json"
+      return 0
+    fi
+    if [ "$download" = 1 ]; then
+      [ -d "$m/artefakt" ] || { echo "gh_mock: artefakt $imja ne najden" >&2; return 1; }
+      cp -R "$m/artefakt/." "$dir/" || return 1
+      return 0
+    fi
+    if [ "$log" = 1 ]; then
+      [ -f "$m/log.txt" ] || { echo "gh_mock: log ne dostupen" >&2; return 1; }
+      cat "$m/log.txt"
+      return 0
+    fi
+    if [ "$json" = 1 ]; then
+      [ -f "$m/jobs.json" ] || { echo "gh_mock: gh run view --json otkaz" >&2; return 1; }
+      cat "$m/jobs.json"
+      return 0
+    fi
+    echo "gh_mock: neizvestnyj vyzov: $*" >&2
+    return 9
+  }
+
 
   # образцовый артефакт (канон форматов батареи 150)
   mkdir -p "$m/artefakt"
@@ -210,6 +225,7 @@ samoproverka() {
   printf '{"total_count":1,"jobs":[{"name":"S","status":"in_progress","conclusion":null,"databaseId":111}]}' > "$m/jobs-ne-zavershen.json"
   printf '{"total_count":1,"artifacts":[{"name":"zamer-S-C-R-A"}]}' > "$m/artifacts-est.json"
   printf '{"total_count":0,"artifacts":[]}' > "$m/artifacts-net.json"
+  : > "$m/artifacts-pusto.json"   # 0 байт rc 0 — пустой успешный ответ (круг 3, блок 3)
   printf 'Zamer obryva: sbor … vyvod: zeljonyj itog — ne publikuetsja (marker)\n' > "$m/log-marker.txt"
   printf 'Zamer obryva: sbor … prosto log bez markera\n' > "$m/log-bez-markera.txt"
   cp -R "$m/artefakt" "$m/artefakt-bez-exit"
@@ -225,6 +241,7 @@ samoproverka() {
     "zelenyj-polozhitelnyj|0|ZP_ZELENYJ_OK|jobs-uspeh.json|artifacts-net.json|artefakt|log-marker.txt"
     "zelenyj-artefakt-zapreschen|1|ARTEFAKT_ZAPRESCHEN|jobs-uspeh.json|artifacts-est.json|artefakt|log-marker.txt"
     "zelenyj-marker-net|1|MARKER_NE_PUBLIKUETSA|jobs-uspeh.json|artifacts-net.json|artefakt|log-bez-markera.txt"
+    "zelenyj-otvet-api-pustoj|1|PUSTOJ_OTVET_API|jobs-uspeh.json|artifacts-pusto.json|artefakt|log-marker.txt"
     "oshibka-gh|1|GH_OTKAZ|NET|artifacts-est.json|artefakt|log-marker.txt"
   )
   local stroka imja ozh_rc ozh_prichina jobs art log artefakt_dir fakt out proshli=0 vse=0
@@ -271,7 +288,7 @@ case "${1:-}" in
   zelenyj) shift; priemka_zelenyj "$@" ;;
   dlitelnosti)
     shift
-    [ $# -eq 3 ] || otkaz "ARGUMENTY: dlitelnosti <repo> <S> <R1> <R2 — vsego 4>"
+    [ $# -eq 4 ] || otkaz "ARGUMENTY: dlitelnosti <repo> <S> <R1> <R2 — vsego 4 argumenta posle komandy"
     izmerit_dlitelnost "$1" "$2" "$3" s-obertochnym-150
     izmerit_dlitelnost "$1" "$2" "$4" bez-obertki-150
     echo "VYVOD (revjuer): sopostavimost' kartы/runnera/vetki — objazatelno v otchjot; chislovoj porog overhead — volja vladel'tsa (naznacheno ne budet)"
