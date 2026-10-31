@@ -23,7 +23,7 @@ adb/sleep/pgrep в замкнутом PATH, виртуальные секунд�
 | z02-obertka-parametry | env шагов × карта × PORT тела | ZAMER_EKRAN≠id записи; ZAMER_NS≠output_namespace; ZAMER_SERIAL≠emulator-<PORT> (PORT — литерал `PORT=<n>` тел работника, иначе `mobile/scripts/ci-e2e.sh` делегированных) |
 | z03-obertka-porjadok-maskirovka | порядок/свойства шагов | любой continue-on-error у шага работника (маскировка итога); старт позже сбора; между стартом и сбором нет экранного шага; старт с if:always() (сэмплер после экранного шага); сбор/артефакт без if:always(); артефакт не upload-artifact или if-no-files-found≠ignore (зелёный краснеет) |
 | z04-kanon-skripta | байты mobile/scripts/zamer_obryva.sh | ZAMER_SKRIPT_NET / ZAMER_SKRIPT_NE_KANON (пин sha256 в source.json:.piny — канон реализация вносит байт-в-байт) |
-| z05-put-zagruzki | with.path/with.name шага артефакта × env сбора, ПО КАЖДОМУ работнику | PUT_ZAGRUZKI_RASHODITSJA: with.path ≠ mobile/zamer-out-<ZAMER_EKRAN> (шаг грузит пустоту при if-no-files-found: ignore — публикация недоказуема); sbor без --out mobile/zamer-out-$ZAMER_EKRAN; IMJA_ARTEFAKTA_NE_EKRAN (name не zamer-<ekran>-…) |
+| z05-put-zagruzki | with.path/with.name шага артефакта × РАЗБОР scalar `run` шага сбора (канонизация shell-строк: комментарий/echo/посторонняя строка — НЕ код; РОВНО один вызов `bash mobile/scripts/zamer_obryva.sh sbor`; РОВНО один `--out`; `$`-подстановка только из env шага), ПО КАЖДОМУ работнику карты (арбитраж 150 П1) | SBOR_RUN_NE_RASPOZNAN (незакрытая кавычка); SBOR_VYZOV_NEODNOZNACHEN (вызовов sbor ≠ 1); SBOR_BEZ_ODNOZNACHNOGO_OUT; SBOR_OUT_NE_RASPOZNAN (неизвестная переменная/подстановка команды); PUT_ZAGRUZKI_RASHODITSJA: with.path ≠ mobile/zamer-out-<ZAMER_EKRAN> ЛИБО исполняемый `--out` ≠ with.path (upload грузит пустоту при if-no-files-found: ignore — публикация недоказуема); IMJA_ARTEFAKTA_NE_EKRAN (name не zamer-<ekran>-…) |
 
 ## b-ось (поведение, replay обёртки работника-1; сценарии — probe.py:SCENARII)
 
@@ -63,6 +63,7 @@ adb/sleep/pgrep в замкнутом PATH, виртуальные секунд�
 | stab_zamer_bez_kolca.py | logcat-кольцо не пишется в процессе работы | b06 |
 | stab_zamer_arhiv_soblaznjaet.py | наивный гейт по всему ns — архив диагностики 995 лжёт обрывом текущей попытки | b11 |
 | stab_zamer_put_zagruzki.py | with.path ведёт в несуществующий каталог — upload грузит пустоту | z05 |
+| stab_zamer_kommentarij_sbor.py | исполняемый --out сбора ведёт в чужой каталог, правильная строка спрятана комментарием в run (арбитраж 150 П1) | z05 |
 | stab_zamer_techet_procesom.py | sbor выбрасывает подделку-qemu с нонсом мира — процесс переживает сбор | b12 |
 
 ## Режимы и коды
@@ -70,7 +71,7 @@ adb/sleep/pgrep в замкнутом PATH, виртуальные секунд�
 - без флага/без `--repo` — субъект (дерево харнесса) не реализован: rc 1,
   SUBJECT_ABSENT, все 17 клеток красны поимённо;
 - `--repo R` — живой продукт: до реализации обёртки красен поимённо;
-- `--stabs` — контроль + SVJAZI 17, живых стабов 0;
+- `--stabs` — контроль + SVJAZI 18, живых стабов 0;
 - `--oracle-tamper` — порча каждого из 3 пиннованных носителей ловится
   ORACLE_TAMPERED rc 2 ДО клеток;
 - `--seed N` — тот же итог при другом порядке клеток.

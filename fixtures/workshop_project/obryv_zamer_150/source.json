@@ -27,6 +27,7 @@
     "stabs/stab_zamer_bez_kolca.py": "b06-adb-server-i-device",
     "stabs/stab_zamer_arhiv_soblaznjaet.py": "b11-vosstanovlennyj-zelenyj",
     "stabs/stab_zamer_put_zagruzki.py": "z05-put-zagruzki",
+    "stabs/stab_zamer_kommentarij_sbor.py": "z05-put-zagruzki",
     "stabs/stab_zamer_techet_procesom.py": "b12-mir-poddelki-umerly"
   },
   "zametka": "оракул батареи 150 (правило 8: в памяти ДО субъекта); пины — байты эталона model/; стабы — мутации кодом, привязки только здесь (Н-39)"

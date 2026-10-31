@@ -811,12 +811,133 @@ def sud_z04(subjekt_root, src):
         return False, "ZAMER_SKRIPT_NE_KANON: sha %s" % digest[:12]
     return True, ""
 
+SBOR_SKRIPT = "mobile/scripts/zamer_obryva.sh"
+
+
+def _shell_komandy(tekst):
+    """Канонизация scalar `run` шага сбора (арбитраж 150, П1): текст →
+    (команды, ошибка). Команда — список пар (слово, literal); literal=True —
+    слово целиком из одинарных кавычек (подстановки НЕ раскрываются).
+    Комментарий — слово, начавшееся с # вне кавычек: ДО КОНЦА СТРОКИ кодом
+    не является (комментарий/echo/посторонняя строка аргументом команды не
+    засчитываются). \\<перевод строки> — продолжение слова; ; && || | &
+    и перевод строки — границы команд; скобки/перенаправления — тоже границы
+    (каноническая форма шага сбора их не несёт, а подстановка внутрь вызова
+    sbor ниже даёт именованный отказ). Полный интерпретатор shell НЕ
+    строится (арбитражем не требуется): незакрытая кавычка — именованный
+    отказ разбора, не зелень."""
+    komandy, tek, slovo, literal = [], [], [], False
+    i, n = 0, len(tekst)
+
+    def slovo_konec():
+        nonlocal slovo, literal
+        if slovo:
+            tek.append(("".join(slovo), literal))
+        slovo, literal = [], False
+
+    while i < n:
+        c = tekst[i]
+        if c == "'":
+            j = tekst.find("'", i + 1)
+            if j < 0:
+                return None, "nezakrytaja kavychka '"
+            slovo.append(tekst[i + 1:j])
+            literal = True
+            i = j + 1
+            continue
+        if c == '"':
+            j = i + 1
+            while j < n and tekst[j] != '"':
+                if tekst[j] == "\\" and j + 1 < n and tekst[j + 1] in '"\\$`':
+                    j += 2
+                else:
+                    j += 1
+            if j >= n:
+                return None, 'nezakrytaja kavychka "'
+            slovo.append(tekst[i + 1:j])
+            i = j + 1
+            continue
+        if c == "\\" and i + 1 < n and tekst[i + 1] == "\n":
+            i += 2
+            continue
+        if c == "\\" and i + 1 < n:
+            slovo.append(tekst[i + 1])
+            i += 2
+            continue
+        if c in " \t\r":
+            slovo_konec()
+            i += 1
+            continue
+        if c == "\n":
+            slovo_konec()
+            if tek:
+                komandy.append(tek)
+                tek = []
+            i += 1
+            continue
+        if c == "#" and not slovo:
+            # слово, НАЧАВШЕЕСЯ с # (POSIX): до конца строки не код
+            j = tekst.find("\n", i)
+            i = n if j < 0 else j
+            continue
+        if c in ";|&()<>":
+            slovo_konec()
+            if tek:
+                komandy.append(tek)
+                tek = []
+            if c in "&|" and tekst[i + 1:i + 2] == c:
+                i += 2
+            else:
+                i += 1
+            continue
+        slovo.append(c)
+        i += 1
+    slovo_konec()
+    if tek:
+        komandy.append(tek)
+    return komandy, ""
+
+
+_ENV_PODSTANOVKA = re.compile(
+    r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))")
+
+
+def _znachenie_argumenta(parnja, envs):
+    """(значение, ошибка) аргумента --out после разрешения РАЗРЕШЁННЫХ
+    env-параметров шага сбора этого работника (ZAMER_EKRAN/NS/SERIAL из env
+    шага). Неизвестная переменная, подстановка команды или нераспознанный
+    остаток — именованный отказ: неоднозначная форма НЕ судится зелёной
+    (арбитраж 150, П1)."""
+    slovo, literal = parnja
+    if "`" in slovo or "$(" in slovo:
+        return None, "podstanovka komandy v --out (%r)" % slovo
+    if literal:
+        return slovo, ""
+    imena = {(m.group(1) or m.group(2))
+             for m in _ENV_PODSTANOVKA.finditer(slovo)}
+    neizvestnye = sorted(imena - set(envs))
+    if neizvestnye:
+        return None, "neizvestnaja peremennaja: %s" % ", ".join(
+            "$" + v for v in neizvestnye)
+    znach = _ENV_PODSTANOVKA.sub(lambda m: envs[m.group(1) or m.group(2)],
+                                 slovo)
+    if "$" in znach:
+        return None, "neraspoznanannyj ostatok %r" % znach
+    return znach, ""
+
+
 def sud_z05(wf, rabotniki):
-    """z05-put-zagruzki: путь/имя upload согласованы с выходом сбора ПО
-    КАЖДОМУ работнику карты (with.path == mobile/zamer-out-<ZAMER_EKRAN>;
-    name начинается zamer-<ekran>-; sbor пишет --out mobile/zamer-out-…).
-    Иначе зелёный CI-шаг «артефакт» молча грузит пустоту (if-no-files-found:
-    ignore) — публикация недоказуема (блокер 6 круга 1)."""
+    """z05-put-zagruzki: путь/имя upload согласован с ФАКТИЧЕСКИМ --out
+    ИСПОЛНЯЕМОЙ команды сбора ПО КАЖДОМУ работнику карты (арбитраж 150 П1:
+    обёртка обещана каждому работнику, не только представителю replay).
+    scalar `run` шага сбора разбирается на команды (_shell_komandy):
+    комментарий/echo/посторонняя строка кодом не являются; РОВНО один вызов
+    `bash mobile/scripts/zamer_obryva.sh sbor` с РОВНО одним --out; значение
+    --out разрешается разрешёнными env шага и сравнивается с with.path и
+    mobile/zamer-out-<ZAMER_EKRAN>. Нераспознанная/неоднозначная форма —
+    именованный отказ, не зелень. Иначе зелёный CI-шаг «артефакт» молча
+    грузит пустоту (if-no-files-found: ignore) — публикация недоказуема
+    (блокер 6 круга 1; арбитраж 150 П1 — скрытый комментарием --out)."""
     netu = []
     for r in rabotniki:
         job = (wf.get("jobs") or {}).get(r["job"]) or {}
@@ -836,14 +957,37 @@ def sud_z05(wf, rabotniki):
         if not ekr:
             netu.append("%s: sbor bez ZAMER_EKRAN (z02)" % r["job"])
             continue
+        # фактический --out ИСПОЛНЯЕМОЙ команды сбора: не подстрока в run
+        komandy, osh = _shell_komandy(str(sbor.get("run") or ""))
+        if osh:
+            netu.append("%s: SBOR_RUN_NE_RASPOZNAN: %s" % (r["job"], osh))
+            continue
+        vyzovy = [k[3:] for k in komandy
+                  if len(k) >= 3 and k[0][0] in ("bash", "sh")
+                  and k[1][0] == SBOR_SKRIPT and k[2][0] == "sbor"]
+        if len(vyzovy) != 1:
+            netu.append("%s: SBOR_VYZOV_NEODNOZNACHEN: vyzovov %s sbor = %d "
+                        "(kanon: odin)" % (r["job"], SBOR_SKRIPT, len(vyzovy)))
+            continue
+        argumenty = vyzovy[0]
+        out_i = [i for i, p in enumerate(argumenty) if p[0] == "--out"]
+        if len(out_i) != 1 or out_i[0] + 1 >= len(argumenty):
+            netu.append("%s: SBOR_BEZ_ODNOZNACHNOGO_OUT: --out vstrechen %d raz"
+                        % (r["job"], len(out_i)))
+            continue
+        fakt_out, osh = _znachenie_argumenta(argumenty[out_i[0] + 1], envs)
+        if osh:
+            netu.append("%s: SBOR_OUT_NE_RASPOZNAN: %s" % (r["job"], osh))
+            continue
         zhel_path = "mobile/zamer-out-%s" % ekr
         withs = {k: str(v) for k, v in (art.get("with") or {}).items()}
         if withs.get("path") != zhel_path:
             netu.append("%s: PUT_ZAGRUZKI_RASHODITSJA: with.path %r != vyhodu sbora %r"
                         % (r["job"], withs.get("path"), zhel_path))
-        run_sbor = str(sbor.get("run") or "")
-        if "mobile/zamer-out-$ZAMER_EKRAN" not in run_sbor:
-            netu.append("%s: sbor bez --out mobile/zamer-out-$ZAMER_EKRAN" % r["job"])
+        if fakt_out != withs.get("path"):
+            netu.append("%s: PUT_ZAGRUZKI_RASHODITSJA: ispolnjaemyj --out %r != with.path %r "
+                        "(upload gruzit pustotu)" % (r["job"], fakt_out,
+                                                     withs.get("path")))
         imja_art = withs.get("name") or ""
         if not imja_art.startswith("zamer-%s-" % ekr):
             netu.append("%s: IMJA_ARTEFAKTA_NE_EKRAN: %r ne zamer-%s-…"
