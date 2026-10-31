@@ -16,13 +16,17 @@
 # Субъект: дерево продукта (.github/workflows/mobile.yml + mobile/ci-screens.json
 # + mobile/scripts/zamer_obryva.sh). Судит КАЖДОГО работника КАРТЫ
 # (ekrany[].job + integracija.job — канон разбора тут, не у субъекта):
-# структурные клетки (z*) — по всем работникам; поведенческие (b*) —
-# исполнительный replay обёртки ПЕРВОГО работника карты в замкнутой
-# песочнице с подложными adb/sleep (виртуальные секунды) и НАСТОЯЩИМИ
-# процессами-подделками qemu/adb-server (живость PID честна). Экранные
-# тела субъектов НЕ исполняются и не судятся — их держат батареи
+# структурные клетки (z01–z03, z05) — по всем работникам; скрипт — z04;
+# поведенческие (b01–b11) — исполнительный replay обёртки ПЕРВОГО работника
+# карты в замкнутой песочнице с подложными adb/sleep (виртуальные секунды)
+# и НАСТОЯЩИМИ процессами-подделками qemu/adb-server (живость PID честна;
+# КАЖДЫЙ порождённый PID останавливается и дожидается, b12 судит гигиену
+# миров после всех replay). RECOVERED-ns моделируется по frozen 995/5:
+# финальная попытка зелёная + сохранённый архив diagnostics/attempt-1 с
+# сигнатурой — гейт судит ТЕКУЩУЮ попытку (--exclude-dir=diagnostics).
+# Экранные тела субъектов НЕ исполняются и не судятся — их держат батареи
 # 143/147/148/995; replay управляет МИРОМ вокруг обёртки (живой эмулятор,
-# обрыв, сигнатура в ns, wipe повторной попытки).
+# обрыв с маркером signal 9 в журнал, сигнатура в ns, wipe/перезапуск).
 """Батарея 150 (prichinnyy-zamer-obryva).
 
 Режимы (дверь red_obryv_zamer_150.sh передаёт аргументы дальше):
@@ -291,10 +295,13 @@ def _zapusti(tekst_cmd, cwd, env, vremja=60):
 
 
 def _poddelnyj_proces(imea, tmp):
-    """НАСТОЯЩИЙ процесс-подделка (argv0 = имя): kill -0 и /proc честны."""
+    """НАСТОЯЩИЙ процесс-подделка (argv0 = имя): kill -0 и /proc честны.
+    Дескриптор лога закрывается сразу — процесс переживёт мир, только если
+    вызывающий его не остановил (ловец — finally replay + клетка b12)."""
     logf = Path(tmp) / ("proc-%s.log" % re.sub(r"[^A-Za-z0-9_-]", "_", imea)[:40])
-    p = sp.Popen(["bash", "-c", 'exec -a "%s" sleep 600' % imea],
-                 stdout=open(logf, "w"), stderr=sp.DEVNULL, start_new_session=True)
+    with open(logf, "w") as fh:
+        p = sp.Popen(["bash", "-c", 'exec -a "%s" sleep 600' % imea],
+                     stdout=fh, stderr=sp.DEVNULL, start_new_session=True)
     return p
 
 
@@ -325,8 +332,12 @@ def sc_obryv(dopolnitelno=None):
         "sostojanija": [[0, "device"], [T_KRASNOGO, "offline"]],
         "gost": {"boot_id": "b0b0-1111-2222-3333-444444444444", "adbd": "4242",
                  "uptime": "777.5"},
+        # PEM-блок (BEGIN+тело+END) — многострочный секрет кольца/логката (b07)
         "logcat": ("I/SystemUI(1): zapusk\nE/adbd(2): transport error\n"
-                   "D/maestro: Bearer AAAABBBBCCCCDDDD1111 zaghiznjaetsja zdes\n"),
+                   "D/maestro: Bearer AAAABBBBCCCCDDDD1111 zaghiznjaetsja zdes\n"
+                   "-----BEGIN RSA PRIVATE KEY-----\n"
+                   "SUPERSECRET_PRIVATE_KEY_BODY_150\n"
+                   "-----END RSA PRIVATE KEY-----\n"),
         "sobytija": [
             [T_KRASNOGO, "ubit_qemu"],
             [T_KRASNOGO + 2, "signatura"],
@@ -357,6 +368,11 @@ SCENARII = {
     },
     "obryv": {"sc": None, "sobytija": None, "ns": "obryv"},
     "vosstanovlennyj": {
+        # RECOVERED по frozen 995/5: финальная (2-я) попытка зелёная, но её
+        # публикация СОХРАНЯЕТ архив диагностики УПАВШЕЙ 1-й попытки
+        # (opublikovat(): maestro-out/diagnostics/attempt-1/maestro.log с
+        # device offline/DeviceServerDiedException) — гейт 150 обязан судить
+        # ТЕКУЩУЮ попытку, не весь ns (b11; блокер 4 круга 1)
         "sc": {"sostojanija": [[0, "device"], [T_KRASNOGO, "offline"],
                                [T_KRASNOGO + 8, "device"]],
                "gost": {"boot_id": "vosst-0000-0000", "adbd": "3333", "uptime": "888.1"},
@@ -456,11 +472,15 @@ def replej(subjekt_root, worker, imja_scenarija, tmp, dop_scenarij=None, emu_dop
             '<?xml version="1.0"?><testsuites><testsuite name="m"><testcase name="x">'
             "</testcase></testsuite></testsuites>\n", encoding="utf-8")
 
-    # журнал эмулятора в воркспейсе (хвост собирается) + приманка-decoy
+    # журнал эмулятора в воркспейсе (хвост собирается) + приманка-decoy;
+    # PEM-блок (BEGIN+тело+END) — многострочный секрет журнала (b07, блокер 5)
     emu_log = ws / ("emulator-ci%s.log" % worker.get("id", "proba"))
     emu_log.write_text(
         "emulator: boot completed\nemulator: warning cannnot unmap ptr\n"
-        "emulator: ghp_AAAABBBBCCCCDDDDzzzz token v loge\n", encoding="utf-8")
+        "emulator: ghp_AAAABBBBCCCCDDDDzzzz token v loge\n"
+        "-----BEGIN RSA PRIVATE KEY-----\n"
+        "SUPERSECRET_PRIVATE_KEY_BODY_150\n"
+        "-----END RSA PRIVATE KEY-----\n", encoding="utf-8")
     if emu_dopol_strok:
         # вектор объёма: tail -n 200 считает СТРОКИ — тяжесть несут байты строк
         pad = "x" * max(0, emu_dopol_dlina - 24)
@@ -495,10 +515,22 @@ def replej(subjekt_root, worker, imja_scenarija, tmp, dop_scenarij=None, emu_dop
 
     vremja = Vremja(takty)
     port = serial.replace("emulator-", "")
-    qemu = _poddelnyj_proces(
-        "qemu-system-x86_64 %s -port %s" % (nonce, port), koren)
-    adb_srv = _poddelnyj_proces(
-        "adb %s -L tcp:5037 fork-server server --reply-fd 4" % nonce, koren)
+    # гигиена мира (блокер 8): КАЖДЫЙ порождённый процесс регистрируется и
+    # умерщвляется/дожидается в finally — включая перезапуски сценария
+    # (recovered) и исключительные выходы; клетка b12 доказывает отсутствие
+    # живых подделок нонса мира ПОСЛЕ replay
+    porozhdennye = []
+
+    def _novyj_proces(imea):
+        p = _poddelnyj_proces(imea, koren)
+        porozhdennye.append(p)
+        return p
+
+    qemu_imea = "qemu-system-x86_64 %s -port %s" % (nonce, port)
+    adb_imea = "adb %s -L tcp:5037 fork-server server --reply-fd 4" % nonce
+    tekushchie = {"qemu": _novyj_proces(qemu_imea), "adb": _novyj_proces(adb_imea)}
+    qemu = tekushchie["qemu"]
+    adb_srv = tekushchie["adb"]
     time.sleep(0.05)
 
     def strok_semplera():
@@ -514,7 +546,6 @@ def replej(subjekt_root, worker, imja_scenarija, tmp, dop_scenarij=None, emu_dop
 
     sobytija = list(opis.get("sobytija") or sc_obryv()["sobytija"])
     markery = {"do_signatury": None, "do_ubijstva": None, "adresa": []}
-    novye = []
     stop = threading.Event()
     konec = max(t for t, _ in sobytija) if sobytija else T_KONTSA
 
@@ -525,12 +556,29 @@ def replej(subjekt_root, worker, imja_scenarija, tmp, dop_scenarij=None, emu_dop
             for tt, dejstvie in sobytija:
                 if tt <= t and (tt, dejstvie) not in made:
                     made.add((tt, dejstvie))
-                    markery["adresa"].append((tt, dejstvie))
+                    # адрес события фиксируется ПОСЛЕ исполнения обработчика —
+                    # ожидание «все события обработаны» в главном потоке честно
                     if dejstvie == "ubit_qemu":
+                        _ubit(tekushchie["qemu"])
+                        # реальный cleanup экранного шага оставляет запись о
+                        # смерти в журнале — причина для emulator-exit (b04)
+                        try:
+                            with open(emu_log, "a", encoding="utf-8") as f:
+                                f.write("qemu-system: process terminated by "
+                                        "signal 9 (SIGKILL) — zapis ekrannogo shaga\n")
+                        except OSError:
+                            pass
+                        # границу считаем ПОСЛЕ оседания: в полёте могла быть
+                        # строка, ИЗМЕРЕННАЯ до SIGKILL, но записанная после —
+                        # она обязана остаться ДО границы, иначе ложный
+                        # PID_ZHIV_POSLE_SMERTI (детерминизм клетки b04)
+                        time.sleep(0.4)
                         markery["do_ubijstva"] = strok_semplera()
-                        _ubit(qemu)
                     elif dejstvie == "perezapust_qemu":
-                        _ubit(qemu)
+                        # 995 v2: owned-restart — НОВАЯ инкарнация эмулятора
+                        # (новый PID, отслежен и убит в finally/b12)
+                        _ubit(tekushchie["qemu"])
+                        tekushchie["qemu"] = _novyj_proces(qemu_imea)
                     elif dejstvie == "signatura":
                         markery["do_signatury"] = strok_semplera()
                         try:
@@ -541,19 +589,30 @@ def replej(subjekt_root, worker, imja_scenarija, tmp, dop_scenarij=None, emu_dop
                         except OSError:
                             pass
                     elif dejstvie == "wipe_ns_zelenym":
+                        # RECOVERED 995/5 opublikovat(): ns финальной ЗЕЛЁНОЙ
+                        # попытки (top-level junit/report) + СОХРАНЁННЫЙ архив
+                        # диагностики упавшей 1-й (diagnostics/attempt-1) —
+                        # сигнатура обрыва в ns зелёного recovered job ЕСТЬ,
+                        # публиковать нельзя (гейт судит текущую попытку)
                         shutil.rmtree(ns_dir, ignore_errors=True)
-                        ns_dir.mkdir(parents=True, exist_ok=True)
+                        (ns_dir / "diagnostics" / "attempt-1").mkdir(
+                            parents=True, exist_ok=True)
+                        (ns_dir / "diagnostics" / "attempt-1" / "maestro.log").write_text(
+                            "CommandFailed: Command failed (host:transport:%s): "
+                            "device offline\nDeviceServerDiedException: Device server died\n"
+                            % serial, encoding="utf-8")
                         (ns_dir / "junit.xml").write_text(
                             '<?xml version="1.0"?><testsuites><testsuite name="m">'
                             '<testcase name="ok"/></testsuite></testsuites>\n',
                             encoding="utf-8")
-                        _poddelnyj_proces(
-                            "qemu-system-x86_64 %s -port %s" % (nonce, port), koren)
+                        (ns_dir / "report.xml").write_text(
+                            '<?xml version="1.0"?><testsuites tests="1" failures="0">'
+                            '<testsuite name="m"><testcase name="ok"/></testsuite>'
+                            "</testsuites>\n", encoding="utf-8")
                     elif dejstvie == "smenit_adb_server":
-                        _ubit(adb_srv)
-                        novye.append(_poddelnyj_proces(
-                            "adb %s -L tcp:5037 fork-server server --reply-fd 4" % nonce,
-                            koren))
+                        _ubit(tekushchie["adb"])
+                        tekushchie["adb"] = _novyj_proces(adb_imea)
+                    markery["adresa"].append((tt, dejstvie))
             if t >= konec + 2:
                 break
             time.sleep(0.02)
@@ -572,6 +631,7 @@ def replej(subjekt_root, worker, imja_scenarija, tmp, dop_scenarij=None, emu_dop
     rc_start = rc_sbor = None
     out_start = out_sbor = ""
     err_start = err_sbor = ""
+    zhiv_posle_sbora = False
     potok = threading.Thread(target=drajver, daemon=True)
     try:
         potok.start()
@@ -580,10 +640,15 @@ def replej(subjekt_root, worker, imja_scenarija, tmp, dop_scenarij=None, emu_dop
         for k, v in (po_imeni[Z_SHAG_START].get("env") or {}).items():
             env_start[k] = str(v)
         rc_start, out_start, err_start = _zapusti(telo_start, ws, env_start)
-        # ждём виртуальный конец сценария (сэмплер тикает сам)
+        # ждём ОБРАБОТКИ всех событий сценария (не только виртуального
+        # времени: ubit_qemu оседает 0.4 с, и sbor обязан стартовать ПОСЛЕ
+        # него — иначе сигнатура/смерть опаздывают в ns/spool), но не дольше
+        # REALMAJ_TIMAUT; виртуальный запас konec+6 страхует от спина
         granica = time.time() + REALMAJ_TIMAUT
         while time.time() < granica:
-            if vremja.tek() >= konec + 1 or not potok.is_alive():
+            if len(markery["adresa"]) >= len(sobytija) or not potok.is_alive():
+                break
+            if vremja.tek() >= konec + 6:
                 break
             time.sleep(0.05)
         telo_sbor = str(po_imeni[Z_SHAG_SBOR].get("run") or "")
@@ -598,11 +663,19 @@ def replej(subjekt_root, worker, imja_scenarija, tmp, dop_scenarij=None, emu_dop
         except (OSError, ValueError):
             zhiv_posle_sbora = False
     finally:
+        # гигиена мира (блокер 8): остановить и ДОЖДАТЬСЯ каждый порождённый
+        # PID — включая recovered-перезапуски и исключительные выходы
         stop.set()
-        _ubit(qemu)
-        _ubit(adb_srv)
-        for proc in novye:
+        for proc in porozhdennye:
             _ubit(proc)
+        for proc in porozhdennye:
+            try:
+                proc.wait(timeout=5)
+            except Exception:
+                try:
+                    proc.kill()
+                except OSError:
+                    pass
         # сэмплер мог пережить sbor — убираем за собой
         try:
             pidf = ws / (".zamer-%s" % ekran()) / "pid"
@@ -627,6 +700,7 @@ def replej(subjekt_root, worker, imja_scenarija, tmp, dop_scenarij=None, emu_dop
         "markery": markery, "konec": konec,
         "sempler_zhiv_posle_sbora": zhiv_posle_sbora,
         "qemu_pid": qemu.pid, "serial": serial, "ekran": ekran_id,
+        "nonce": nonce,
         "oshibka": None,
     }
 
@@ -737,6 +811,45 @@ def sud_z04(subjekt_root, src):
         return False, "ZAMER_SKRIPT_NE_KANON: sha %s" % digest[:12]
     return True, ""
 
+def sud_z05(wf, rabotniki):
+    """z05-put-zagruzki: путь/имя upload согласованы с выходом сбора ПО
+    КАЖДОМУ работнику карты (with.path == mobile/zamer-out-<ZAMER_EKRAN>;
+    name начинается zamer-<ekran>-; sbor пишет --out mobile/zamer-out-…).
+    Иначе зелёный CI-шаг «артефакт» молча грузит пустоту (if-no-files-found:
+    ignore) — публикация недоказуема (блокер 6 круга 1)."""
+    netu = []
+    for r in rabotniki:
+        job = (wf.get("jobs") or {}).get(r["job"]) or {}
+        shagi = job.get("steps") or []
+        sbor = art = None
+        for s in shagi:
+            imja = str(s.get("name") or "")
+            if imja.startswith(Z_SHAG_SBOR) and sbor is None:
+                sbor = s
+            if imja.startswith(Z_SHAG_ART) and art is None:
+                art = s
+        if sbor is None or art is None:
+            netu.append("%s: net shagov sbor/artefakt (sm. z01)" % r["job"])
+            continue
+        envs = {k: str(v) for k, v in (sbor.get("env") or {}).items()}
+        ekr = envs.get("ZAMER_EKRAN")
+        if not ekr:
+            netu.append("%s: sbor bez ZAMER_EKRAN (z02)" % r["job"])
+            continue
+        zhel_path = "mobile/zamer-out-%s" % ekr
+        withs = {k: str(v) for k, v in (art.get("with") or {}).items()}
+        if withs.get("path") != zhel_path:
+            netu.append("%s: PUT_ZAGRUZKI_RASHODITSJA: with.path %r != vyhodu sbora %r"
+                        % (r["job"], withs.get("path"), zhel_path))
+        run_sbor = str(sbor.get("run") or "")
+        if "mobile/zamer-out-$ZAMER_EKRAN" not in run_sbor:
+            netu.append("%s: sbor bez --out mobile/zamer-out-$ZAMER_EKRAN" % r["job"])
+        imja_art = withs.get("name") or ""
+        if not imja_art.startswith("zamer-%s-" % ekr):
+            netu.append("%s: IMJA_ARTEFAKTA_NE_EKRAN: %r ne zamer-%s-…"
+                        % (r["job"], imja_art[:40], ekr))
+    return (not netu, "; ".join(netu))
+
 
 # ── поведенческие клетки (b*) по результатам replay ────────────────────────
 def _chitaj(p):
@@ -795,7 +908,10 @@ def sud_b03(rez_produkt):
 
 def sud_b04(rez):
     """b04-dannye-do-ostanovki: PID живого эмулятора записан РАНЬДЕ маркера
-    обрыва; после смерти PID исчезает из таймлайна."""
+    обрыва; после смерти PID исчезает из таймлайна; завершение эмулятора
+    (exit/статус в достижимой части — решение владельца 26.10 п.2)
+    зафиксировано сэмплером ДО сбора: смерть PID + ом-дельта cgroup +
+    причина из журнала + честный маркер недоступности числового кода."""
     if rez.get("oshibka"):
         return False, rez["oshibka"]
     stroki = _sempler_stroki(rez)
@@ -812,9 +928,22 @@ def sud_b04(rez):
         return False, "IZMERENO_POSLE_OTSTANOVKI: PID эмулятора не наблюдается ДО сигнатуры"
     do_ub = mark.get("do_ubijstva")
     if do_ub is not None:
-        posle = [l for l in stroki[do_ub:] if qpid in l.split("|")[1]]
+        posle = [l for l in stroki[do_ub:]
+                 if qpid in l.split("|")[1].strip(",").split(",")]
         if posle:
             return False, "PID_ZHIV_POSLE_SMERTI: таймлайн лжёт о живости"
+    # завершение эмулятора: фиксация сэмплером (блокер 3 круга 1)
+    exitf = _chitaj(Path(rez["out_dir"]) / "emulator-exit.txt") or ""
+    if not exitf:
+        return False, "EXIT_NET: смерть эмулятора не зафиксирована (emulator-exit.txt)"
+    if ("qemu PID %s " % qpid) not in exitf:
+        return False, "EXIT_BEZ_PIDA: фиксация смерти не называет упавший PID"
+    if "oom_kill_do=" not in exitf:
+        return False, "EXIT_BEZ_OM_DELTY: нет дельты oom_kill cgroup"
+    if "signal 9" not in exitf:
+        return False, "EXIT_BEZ_PRICHINY: маркер журнала смерти не прочитан"
+    if "vyhod_status" not in exitf:
+        return False, "EXIT_SKRYVAET: нет честного маркера недоступности числового кода"
     return True, ""
 
 
@@ -845,7 +974,9 @@ def sud_b05(rez):
 
 def sud_b06(rez):
     """b06-adb-server-i-device: PID adb-server на старте и сборе, смена
-    помечена; boot_id/adbd из живых проб гостя есть в таймлайне."""
+    помечена; boot_id/adbd из живых проб гостя есть в таймлайне;
+    предостановочный logcat-кольцо (-t, по живому транспорту ДО смерти)
+    записано сэмплером в артефакт (блокер 3 круга 1)."""
     if rez.get("oshibka"):
         return False, rez["oshibka"]
     snimok = _chitaj(Path(rez["out_dir"]) / "sistemnyj-snimok.txt") or ""
@@ -863,42 +994,66 @@ def sud_b06(rez):
         return False, "NET_BOOT_ID: живые пробы гостя не попали в таймлайн"
     if not any(l.split("|")[5] == "4242" for l in stroki):
         return False, "NET_ADBD_PID в таймлайне"
+    kolco = _chitaj(Path(rez["out_dir"]) / "logcat-kolco.txt") or ""
+    if "logcat -d -t 50" not in kolco:
+        return False, "KOLCO_NET: предостановочного logcat-кольца нет (или без -t)"
+    if "E/adbd(2): transport error" not in kolco:
+        return False, "KOLCO_PUSTOE: кольцо не несёт содержимого ДО обрыва"
     return True, ""
 
 
 SEKRET_RE = re.compile(r"ghp_[A-Za-z0-9]{16}|AKIA[0-9A-Z]{16}|Bearer [A-Za-z0-9]{16}")
+# PEM-блок обязан вычищаться ЦЕЛИКОМ: тело и концевая строка — тоже секрет
+# (блокер 5 круга 1: замена одной строки BEGIN пропускала тело ключа)
+PEM_UTECHKA_RE = re.compile(r"PRIVATE KEY-----|SUPERSECRET_PRIVATE_KEY_BODY_150")
 
 
 def sud_b07(rez):
-    """b07-sekrety-redakcija: секреты из журналов/логката не протекают."""
+    """b07-sekrety-redakcija: секреты из журналов/логката не протекают —
+    сканируется ВСЁ опубликованное дерево, включая тело и END многострочного
+    PEM-ключа; маркеры редакции на месте."""
     if rez.get("oshibka"):
         return False, rez["oshibka"]
     utechki = []
-    for p in sorted(Path(rez["out_dir"]).glob("*")):
+    for p in sorted(Path(rez["out_dir"]).rglob("*")):
+        if not p.is_file():
+            continue
         tekst = _chitaj(p) or ""
         for m in SEKRET_RE.finditer(tekst):
             utechki.append("%s:%s" % (p.name, m.group(0)[:14]))
+        for m in PEM_UTECHKA_RE.finditer(tekst):
+            utechki.append("%s:PEM:%s" % (p.name, m.group(0)[:28]))
     if utechki:
         return False, "SEKRET_UTEK: %s" % utechki[:3]
     hvost = _chitaj(Path(rez["out_dir"]) / "emulator-log-hvost.txt") or ""
+    kolco = _chitaj(Path(rez["out_dir"]) / "logcat-kolco.txt") or ""
     if "REDACTED" not in hvost:
         return False, "NET_REDAKTSII: маркер REDACTED не встречен в хвосте"
+    if "REDACTED:key" not in (hvost + kolco):
+        return False, "NET_REDAKTSII_PEM: PEM-блок не помечен редакцией"
     return True, ""
 
 
 def sud_b08(rez_obem):
-    """b08-obem-ogranichen: каждый файл и весь артефакт в пределах."""
+    """b08-obem-ogranichen: каждый файл и весь артефакт в пределах — ТОЧНОЕ
+    сравнение (маркер обрезки входит в потолок; блокер 7 круга 1: допуск
+    +128/+2048 пропускал нарушение самого канона: 524288 + маркер = 524321)."""
     if rez_obem.get("oshibka"):
         return False, rez_obem["oshibka"]
     if not rez_obem["out_dir"].is_dir():
         return False, "ARTEFAKT_NET (сценарий объёма требует публикации)"
-    for p in rez_obem["out_dir"].glob("*"):
+    for p in rez_obem["out_dir"].rglob("*"):
+        if not p.is_file():
+            continue
         razmer = p.stat().st_size
-        if razmer > FAJL_MAKS_BAJT + 128:
-            return False, "FAIL_BEZ_PREDLA: %s %d байт" % (p.name, razmer)
-    total = sum(p.stat().st_size for p in rez_obem["out_dir"].glob("*"))
-    if total > ARTEFAKT_MAKS_BAJT + 2048:
-        return False, "ARTEFAKT_BEZ_PREDLA: %d байт" % total
+        if razmer > FAJL_MAKS_BAJT:
+            return False, "FAIL_BEZ_PREDLA: %s %d байт (потолок %d)" % (
+                p.name, razmer, FAJL_MAKS_BAJT)
+    total = sum(p.stat().st_size for p in rez_obem["out_dir"].rglob("*")
+                if p.is_file())
+    if total > ARTEFAKT_MAKS_BAJT:
+        return False, "ARTEFAKT_BEZ_PREDLA: %d байт (потолок %d)" % (
+            total, ARTEFAKT_MAKS_BAJT)
     return True, ""
 
 
@@ -919,6 +1074,10 @@ def sud_b09(rez, subjekt_root):
         return False, "SAMPLER_TJAZELOVAT: %d опросов devices за %d с" % (devices, virt)
     if shell > virt / 15 + 3:
         return False, "SAMPLER_TJAZELOVAT: %d проб гостя за %d с (норма <=1/15с)" % (shell, virt)
+    logcat_n = sum(1 for z in zaprosy if z.startswith("logcat"))
+    if logcat_n > virt / 15 + 3:
+        return False, "SAMPLER_TJAZELOVAT: %d logcat-чтений за %d с (норма <=1/15с)" % (
+            logcat_n, virt)
     skript_polnyj = _chitaj(Path(subjekt_root) / "mobile" / "scripts" / "zamer_obryva.sh") or ""
     skript = "\n".join(l for l in skript_polnyj.splitlines() if not l.lstrip().startswith("#"))
     for zapret in ("bugreport", "dumpsys"):
@@ -949,10 +1108,15 @@ def sud_b10(rez):
 
 
 def sud_b11(rez_vosst):
-    """b11-vosstanovlennyj-zelenyj: итог зелёный (wipe повторной попытки) —
-    артефакт не публикуется."""
+    """b11-vosstanovlennyj-zelenyj: итог зелёный — артефакт не публикуется.
+    Модель мира: frozen 995/5 RECOVERED — ns финальной зелёной попытки
+    СОХРАНЯЕТ архив диагностики упавшей 1-й (diagnostics/attempt-1 с
+    сигнатурой обрыва); гейт обязан судить ТЕКУЩУЮ попытку, не весь ns
+    (блокер 4 круга 1)."""
     if rez_vosst.get("oshibka"):
         return False, rez_vosst["oshibka"]
+    if not (rez_vosst["ns_dir"] / "diagnostics" / "attempt-1" / "maestro.log").is_file():
+        return False, "RECOVERED_NET: фикстура не несёт архив 995 (дефект батареи)"
     if rez_vosst["rc_sbor"] != 0:
         return False, "VOSST_KRASN: sbor rc=%s" % rez_vosst["rc_sbor"]
     if rez_vosst["out_dir"].exists() and any(rez_vosst["out_dir"].iterdir()):
@@ -960,13 +1124,41 @@ def sud_b11(rez_vosst):
     return True, ""
 
 
+def sud_b12(noncy):
+    """b12-mir-poddelki-umerly: после всех replay НЕТ живых процессов-подделок
+    своего мира (нонсы миров): каждый порождённый PID остановлен и дождан.
+    Гигиена самоисполняемой батареи (блокер 8 круга 1: recovered-подделка
+    пережидала replay и удаление песочницы). Найденных — зачистить на месте."""
+    zhivye = []
+    for d in os.listdir("/proc"):
+        if not d.isdigit():
+            continue
+        try:
+            with open("/proc/%s/cmdline" % d, "rb") as fh:
+                cmd = fh.read().replace(b"\0", b" ").decode("utf-8", "replace")
+        except OSError:
+            continue
+        for n in noncy:
+            if n in cmd:
+                zhivye.append(int(d))
+                try:
+                    os.kill(int(d), signal.SIGKILL)
+                except OSError:
+                    pass
+                break
+    if zhivye:
+        return False, "PODDELKI_ZHIVY: pids %s пережили мир" % zhivye[:6]
+    return True, ""
+
+
 # ── главная ────────────────────────────────────────────────────────────────
 KLETKI = ["z01-obertka-polnota", "z02-obertka-parametry", "z03-obertka-porjadok-maskirovka",
-          "z04-kanon-skripta",
+          "z04-kanon-skripta", "z05-put-zagruzki",
           "b01-krasnyj-s-signaturoj", "b02-zelenyj-tishina", "b03-produktovyj-krasnyj",
           "b04-dannye-do-ostanovki", "b05-cgroup-poly", "b06-adb-server-i-device",
           "b07-sekrety-redakcija", "b08-obem-ogranichen", "b09-sampler-legkij",
-          "b10-sampler-ostanovlen", "b11-vosstanovlennyj-zelenyj"]
+          "b10-sampler-ostanovlen", "b11-vosstanovlennyj-zelenyj",
+          "b12-mir-poddelki-umerly"]
 
 
 def sud_subiekta(subjekt_root, src, tmp_koren, porjadok=None):
@@ -1004,6 +1196,9 @@ def sud_subiekta(subjekt_root, src, tmp_koren, porjadok=None):
                 imja, "SUBJECT_ABSENT: net workflow")
         elif imja == "z04-kanon-skripta":
             zap(imja, sud_z04, subjekt_root, src)
+        elif imja == "z05-put-zagruzki":
+            zap(imja, sud_z05, wf, rabotniki) if wf else krasnye.setdefault(
+                imja, "SUBJECT_ABSENT: net workflow")
     # поведенческие: replay первого работника карты; каталоги живут ДО КОНЦА
     # суда (правило: проверки читают файлы мира ПОСЛЕ replay — раньше контекст
     # удалял ws между replay и клетками, и все файловые клетки слепли)
@@ -1036,6 +1231,9 @@ def sud_subiekta(subjekt_root, src, tmp_koren, porjadok=None):
         for imja in KLETKI:
             if imja.startswith("b"):
                 krasnye.setdefault(imja, "SUBJECT_ABSENT: нет субъекта для replay")
+    # нонсы всех миров — гигиена b12 (после всех replay живых подделок нет)
+    rez["_noncy"] = [r["nonce"] for r in rez.values()
+                     if isinstance(r, dict) and r.get("nonce")]
 
     try:
         return _sud_povedencheskie(krasnye, rez, subjekt_root, poredok, zap)
@@ -1055,7 +1253,8 @@ def _sud_povedencheskie(krasnye, rez, subjekt_root, poredok, zap):
             ("b08-obem-ogranichen", sud_b08, "obryv_obem"),
             ("b09-sampler-legkij", sud_b09, "obryv"),
             ("b10-sampler-ostanovlen", sud_b10, "obryv"),
-            ("b11-vosstanovlennyj-zelenyj", sud_b11, "vosstanovlennyj")]
+            ("b11-vosstanovlennyj-zelenyj", sud_b11, "vosstanovlennyj"),
+            ("b12-mir-poddelki-umerly", sud_b12, "_noncy")]
     for imja in poredok:
         for kletka, fn, kluch in pary:
             if imja == kletka:
