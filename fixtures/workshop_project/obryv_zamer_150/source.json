@@ -8,7 +8,7 @@
   "piny": {
     "model/.github/workflows/mobile.yml": "85cebcbf879894cbfdca36e7f24cfc5f22c8a6c092542074b7d5a39e4694c175",
     "model/mobile/ci-screens.json": "543434d3884ab50d879de6934f2f40874b817602f9d803d288ad3a3e527cae38",
-    "model/mobile/scripts/zamer_obryva.sh": "77c24156e65492a1c0dae624d208beba95db1fb363a99cfd0d9955e70c3e0b94"
+    "model/mobile/scripts/zamer_obryva.sh": "ddfa6fe8fa0331817b8b949db71786dc809b3a45dce32780cda5e35dde587e00"
   },
   "stab_vhod": {
     "stabs/stab_zamer_noop.py": "b01-krasnyj-s-signaturoj",

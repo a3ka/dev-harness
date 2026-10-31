@@ -26,8 +26,9 @@
 #   - ДО остановки пишутся: таймлайн, logcat-кольцо (-t 50, <=96 KiB) и
 #     фиксация завершения эмулятора (emulator-exit.txt: исчезновение PID,
 #     последнее состояние, дельта oom_kill cgroup, маркеры журнала; числовой
-#     exit code внешнему наблюдателю недоступен — честный маркер, вопрос
-#     владельцу 150);
+#     exit code внешнему наблюдателю недоступен — честный маркер
+#     NE_DOSTUPEN: суррогат принят владельцем 2026-10-31, числовой exit —
+#     отдельный предмет позже);
 #   - редакция секретов (ghp_/github_pat_/AKIA/PRIVATE KEY/Bearer) по ВСЕМ
 #     текстам артефакта; PEM-блок (BEGIN+тело+END) вычищается ЦЕЛИКОМ;
 #     env не публикуется (в снимок идут только метки
@@ -200,8 +201,9 @@ if [ "$KMD" = sempler ]; then
     [ -n "$adb_state" ] || adb_state='-'
     # (1a) ЗАВЕРШЕНИЕ эмулятора (решение владельца 26.10 п.2 «PID/exit»):
     # сэмплер — внешний наблюдатель, НЕ родитель qemu; числовой exit code
-    # физически недоступен вне родительской оболочки экраного шага (вопрос
-    # владельцу 150). Достижимая часть фиксируется В МОМЕНТ события, до
+    # физически недоступен вне родительской оболочки экраного шага; суррогат
+    # принят владельцем 2026-10-31, числовой exit — отдельный предмет.
+    # Достижимая часть фиксируется В МОМЕНТ события, до
     # остановки: исчезновение PID из /proc, последнее состояние процесса,
     # дельта oom_kill cgroup раннера, маркеры причины из журнала эмулятора.
     oom_tek="$(pole "$CG/memory.events" '^oom_kill[[:space:]]' '-')"
@@ -218,7 +220,7 @@ if [ "$KMD" = sempler ]; then
         printf 'emu_sostojanie_do=%s\n' "$sostojanie_kesh"
         printf 'oom_kill_do=%s oom_kill_posle=%s\n' "$oom_kesh" "$oom_tek"
         printf 'prichina_po_zhurnalu: %s\n' "${zhurnal_marker:-net fatal-markerov (chistoe zavershenie libo ubijstvo bez zapisi v zhurnal)}"
-        printf 'vyhod_status=NE_DOSTUPEN: nabljudatel ne roditel qemu — chislovoj exit code vneshen (vopros vladeltsu, kontrakt 150)\n'
+        printf 'vyhod_status=NE_DOSTUPEN: nabljudatel ne roditel qemu — chislovoj exit vneshen (surogkat prinyat vladeltsom 2026-10-31; chislovoj exit — otdelnyj predmet)\n'
       } >> "$EXITF" 2>/dev/null
     done
     for p in $tek_spisok; do
