@@ -64,6 +64,15 @@ MUTACII_ISPOLNIMYE = [
      "tabbarOverlay: { bottom: 0, left: 0, position: 'relative', right: 0 },"),
 ]
 
+# Точная маска профиля 393 (слово владельца 31.10, Q1б; вердикт Crit148v2
+# блок 3): тот же литерал несёт судья формы model/sud_formy_148.py.
+PROFIL_MASKA_PT = 48
+
+# Порты пары И-11 (слово владельца 31.10; вердикт Crit148v2 блок 2):
+# работник лекала 143 v2 — 5570, второй AVD — 5576 (сосед 5571 — adb-пара).
+PORT_RABOTNIKA = '5570'
+PORT_VTOROGO = '5576'
+
 SHOV_MARKERY = [
     'readonly sectionScreens?: Readonly<Partial<Record<ShellSection, React.ReactNode>>>;',
     'readonly mitte?: React.ReactNode;',
@@ -100,43 +109,254 @@ SNIMKI_PROFILJA = [s + '-393' for s in SNIMKI_OSNOVNOJ]
 OBOLOCHKA = 'tabshell'
 E2E_SKRIPT = 'mobile/e2e-vkladki/e2e.sh'
 
-def proverka_emuljatorov(repo: Path):
-    """И-11 (слово владельца 2026-10-31): второй эмулятор профиля 393
-    запускается ПОСЛЕ остановки первого, не одновременно (не более двух
-    на станции — Astra mob-ci-razdelenie п.342). Закрытая грамматика
-    жизненного цикла (норма 041): события — ТОП-ЛЕВЕЛ исполняемые строки
-    вне тел функций (функция = «^имя() {» … «^}»); запуск = литеральные
-    подстроки «emulator» и «-avd» в одной строке; остановка = литеральная
-    подстрока «emu kill»; комментарии срезаны до «#». На входе скрипта
-    жив РОВНО один эмулятор — работник лекала 143 v2 (порт 5570);
-    пачка ОБЯЗАНА нести цикл пары сама: остановка первого, затем запуск
-    второго (пара на входе одновременно — v1-форма PR #147, отказ);
-    счётчик живых не поднимается выше одного. Живое исполнение —
-    продуктовый CI, станции эмуляторы не нужны."""
-    put = repo / E2E_SKRIPT
-    if not put.is_file():
-        return ['E2E_SKRIPT_NET: нет %s (жизненный цикл пары — И-11)' % E2E_SKRIPT]
-    zhivo, v_funkcii, byli_zapuski = 1, False, False
-    for nomer, stroka in enumerate(put.read_text(encoding='utf-8').splitlines(), 1):
-        if not v_funkcii and re.match(r'^[A-Za-z_][A-Za-z0-9_]*\s*\(\)\s*\{', stroka):
-            v_funkcii = True
+def _snjat_kommentarij(tekst):
+    """«#» вне кавычек (начало слова: начало строки/пробел/;|&) режет
+    строку — как bash; возвращает (исполняемую часть, комментарий)."""
+    otkr = None
+    for i, c in enumerate(tekst):
+        if otkr:
+            if c == otkr:
+                otkr = None
+        elif c in ("'", '"'):
+            otkr = c
+        elif c == '#' and (i == 0 or tekst[i - 1].isspace()
+                           or tekst[i - 1] in ';|&'):
+            return tekst[:i], tekst[i:]
+    return tekst, ''
+
+
+def _vynesti_podstanovki(tekst):
+    """$(…)/`…` вне одинарных кавычек: содержимое ПОДСТАНОВКИ
+    исполняется (bash-семантика) — выносится отдельно, на месте остаётся
+    маркер \x01N\x01 (один «словесный» кусок, границ слов не несёт)."""
+    rez, soderzhimoe = [], []
+    i, n = 0, len(tekst)
+    while i < n:
+        c = tekst[i]
+        if c == "'":
+            konec = tekst.find("'", i + 1)
+            if konec < 0:
+                konec = n - 1
+            rez.append(tekst[i:konec + 1])
+            i = konec + 1
+        elif c == '$' and i + 1 < n and tekst[i + 1] == '(':
+            glubina, j = 1, i + 2
+            while j < n and glubina:
+                if tekst[j] == '$' and j + 1 < n and tekst[j + 1] == '(':
+                    glubina += 1
+                    j += 2
+                    continue
+                if tekst[j] == ')':
+                    glubina -= 1
+                    if not glubina:
+                        break
+                j += 1
+            soderzhimoe.append(tekst[i + 2:j])
+            rez.append('\x01%d\x01' % (len(soderzhimoe) - 1))
+            i = j + 1
+        elif c == '`':
+            konec = tekst.find('`', i + 1)
+            if konec < 0:
+                konec = n - 1
+            soderzhimoe.append(tekst[i + 1:konec])
+            rez.append('\x01%d\x01' % (len(soderzhimoe) - 1))
+            i = konec + 1
+        else:
+            rez.append(c)
+            i += 1
+    return ''.join(rez), soderzhimoe
+
+
+def _slova_segmenta(tekst):
+    """Слова сегмента: кавычки снимаются по фрагментам, граница слова —
+    незакавыченный пробел/метасимвол (`echo 'adb … emu kill'` — ОДНО
+    слово-данные, не команды emu/kill). Слова изнутри подстановок
+    возвращаются отдельно — их исполняет bash. Рекурсивно."""
+    tekst, podst = _vynesti_podstanovki(tekst)
+    slova, buf, otkr = [], [], None
+    for c in tekst:
+        if otkr:
+            if c == otkr:
+                otkr = None
+            else:
+                buf.append(c)
+        elif c in ("'", '"'):
+            otkr = c
+        elif c.isspace() or c in ';|&<>()':
+            if buf:
+                slova.append(''.join(buf))
+                buf = []
+        else:
+            buf.append(c)
+    if buf:
+        slova.append(''.join(buf))
+    vnutrennie = []
+    for s in podst:
+        vnutrennie.extend(_slova_segmenta(s)[0])
+    return slova, vnutrennie
+
+
+_SHABLON_VAR = re.compile(
+    r'\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}|\$([A-Za-z_][A-Za-z0-9_]*)')
+
+
+def _razreshit(slovo, peremennye, glubina=0):
+    """$VAR/${VAR}/${VAR:-def} разрешаются ЛИТЕРАЛАМИ присваиваний
+    (закрытый алфавит И-11); неразрешённое остаётся как есть."""
+    if glubina > 5 or '$' not in slovo:
+        return slovo
+
+    def zamena(m):
+        imja = m.group(1) or m.group(3)
+        if imja in peremennye:
+            return peremennye[imja]
+        if m.group(1) is not None and m.group(2) is not None:
+            return m.group(2)
+        return m.group(0)
+
+    return _SHABLON_VAR.sub(zamena, slovo)
+
+
+def _segmenty(tekst):
+    """Сегменты по «;»/«&&»/«||»/«|»/«&» вне кавычек:
+    (сегмент, uslovnyj, asinhronnyj, оператор) — сегмент после «&&»/«||»
+    исполняется лишь условно, сегмент перед одиночным «&» асинхронен."""
+    rez, buf, otkr = [], [], None
+    uslovnyj, operator = False, None
+    i, n = 0, len(tekst)
+    while i < n:
+        c = tekst[i]
+        if otkr:
+            if c == otkr:
+                otkr = None
+            buf.append(c)
+            i += 1
             continue
+        if c in ("'", '"'):
+            otkr = c
+            buf.append(c)
+            i += 1
+            continue
+        if c in ';|&':
+            dvoj = c in '|&' and i + 1 < n and tekst[i + 1] == c
+            rez.append((''.join(buf).strip(), uslovnyj,
+                        c == '&' and not dvoj, operator))
+            if dvoj:
+                operator = tekst[i:i + 2]
+                uslovnyj = True
+            else:
+                operator = c
+                uslovnyj = False
+            buf = []
+            i += 2 if dvoj else 1
+            continue
+        buf.append(c)
+        i += 1
+    rez.append((''.join(buf).strip(), uslovnyj, False, operator))
+    return [(s, u, a, o) for s, u, a, o in rez if s]
+
+
+def _razobrat_e2e(put: Path):
+    """События жизненного цикла И-11 — СТРУКТУРНЫЙ разбор исполнения
+    (вердикт Crit148v2: не regex по тексту): верхнеуровневые строки вне
+    тел функций, продолжения «\», комментарии, сегменты, кавычки,
+    подстановки, here-doc (тело — данные). Возвращает {'sobytija',
+    'kandidaty'}: события ('prisvaivanie',N,имя,значение)/('zapusk',N,
+    порт)/('ostanovka',N) и мёртвые кандидаты остановки (N, причина) —
+    текст «emu…kill» есть, исполнения нет."""
+    stroki = put.read_text(encoding='utf-8').splitlines()
+    sobytija, kandidaty, peremennye = [], [], {}
+    v_funkcii = False
+    i = 0
+    while i < len(stroki):
+        fizich = i + 1
+        stroka = stroki[i]
+        i += 1
         if v_funkcii:
             if stroka.startswith('}'):
                 v_funkcii = False
             continue
-        ispoln = stroka.split('#', 1)[0]
-        if 'emu kill' in ispoln:
-            zhivo = max(0, zhivo - 1)
-        elif 'emulator' in ispoln and '-avd' in ispoln:
+        if re.match(r'^[A-Za-z_][A-Za-z0-9_]*\s*\(\)\s*\{', stroka):
+            v_funkcii = True
+            continue
+        tekst, kommentar = _snjat_kommentarij(stroka)
+        # продолжения «\» — одна логическая строка (номер — первой)
+        hvost = len(tekst) - len(tekst.rstrip('\\'))
+        while tekst.rstrip('\\') != tekst and hvost % 2 == 1 and i < len(stroki):
+            tekst = tekst.rstrip()[:-1] + ' ' + _snjat_kommentarij(stroki[i])[0]
+            i += 1
+            hvost = 0
+        # комментарий событий не несёт вовсе (заголовок эталона описывает
+        # грамматику словами «emu kill»): отказ даёт _posledovatelnost
+        ogr = re.search(r'<<-?\s*[\'"]?([A-Za-z_][A-Za-z0-9_]*)', tekst)
+        for segment, uslovnyj, asinh, operator in _segmenty(tekst):
+            slova, vnutrennie = _slova_segmenta(segment)
+            # присваивания в начале сегмента; целый сегмент из них —
+            # самостоятельные присваивания (слежение литералов)
+            k = 0
+            while k < len(slova) and re.match(
+                    r'^[A-Za-z_][A-Za-z0-9_]*=', slova[k]):
+                k += 1
+            if k and k == len(slova):
+                for s in slova:
+                    imja, znach = s.split('=', 1)
+                    peremennye[imja] = znach
+                    if imja in ('PORT_390', 'PORT_393'):
+                        sobytija.append(('prisvaivanie', fizich, imja, znach))
+                continue
+            vse = [_razreshit(s, peremennye) for s in slova[k:] + vnutrennie]
+            zapusk = (any('emulator' in s for s in vse)
+                      and any(s == '-avd' for s in vse))
+            slova_ostanovki = 'emu' in vse and 'kill' in vse
+            if zapusk:
+                port = None
+                for idx, s in enumerate(vse):
+                    if s == '-port' and idx + 1 < len(vse):
+                        port = vse[idx + 1]
+                        break
+                sobytija.append(('zapusk', fizich, port))
+            if slova_ostanovki and not uslovnyj and not asinh:
+                sobytija.append(('ostanovka', fizich))
+            elif slova_ostanovki and uslovnyj:
+                kandidaty.append((fizich, 'после оператора «%s» — условный '
+                                  'путь, остановкой не считается' % operator))
+            elif slova_ostanovki and asinh:
+                kandidaty.append((fizich, 'асинхронно «&» — остановка не '
+                                  'гарантирована к следующей команде'))
+            elif re.search(r'\bemu\s+kill\b', segment):
+                kandidaty.append((fizich, 'текст в кавычках/одним словом — '
+                                  'команд emu и kill нет'))
+        if ogr:
+            # тело here-doc — данные, не исполнение
+            while i < len(stroki) and \
+                    stroki[i].lstrip('\t').strip() != ogr.group(1):
+                if re.search(r'\bemu\s+kill\b', stroki[i]):
+                    kandidaty.append((i + 1, 'тело here-doc — данные, '
+                                      'не исполнение'))
+                i += 1
+            i += 1
+    return {'sobytija': sobytija, 'kandidaty': kandidaty}
+
+
+def _posledovatelnost(razbor):
+    """Закрывающее свойство (вердикт Crit148v2, блок 1): ни один
+    допустимый исполняемый путь не запускает второй AVD, пока первый не
+    завершён. На входе жив работник лекала (5570); остановка — ТОЛЬКО
+    исполняемая (безусловные слова emu и kill); условный запуск — тоже
+    допустимый путь и поднимает счётчик."""
+    zhivo = 1
+    zapuski = [e for e in razbor['sobytija'] if e[0] == 'zapusk']
+    for e in razbor['sobytija']:
+        if e[0] == 'zapusk':
             zhivo += 1
-            byli_zapuski = True
             if zhivo > 1:
                 return ['EMULJATORY_ODNOVREMENNO: строка %d запускает '
                         'эмулятор при живом первом — одновременно (И-11: '
                         'второй после остановки первого, не более двух '
-                        'на станции)' % nomer]
-    if not byli_zapuski:
+                        'на станции)' % e[1]]
+        elif e[0] == 'ostanovka':
+            zhivo = max(0, zhivo - 1)
+    if not zapuski:
         return ['EMULJATORY_NA_VHODE_PAROJ: в %s нет жизненного цикла '
                 'пары (остановка первого → запуск второго) — пара '
                 'эмуляторов ожидается на входе одновременно (v1-форма '
@@ -144,8 +364,114 @@ def proverka_emuljatorov(repo: Path):
     return []
 
 
+def _ostanovka(razbor):
+    """Неисполняемый текст остановкой не считается (вердикт Crit148v2,
+    блок 1): мёртвый кандидат + запуск при живом первом — именованный
+    отказ со строкой и причиной неисполнимости."""
+    if not razbor['kandidaty'] or not any(
+            e[0] == 'zapusk' for e in razbor['sobytija']):
+        return []
+    zhivo = 1
+    for e in razbor['sobytija']:
+        if e[0] == 'zapusk':
+            zhivo += 1
+            if zhivo > 1:
+                nomer, prichina = razbor['kandidaty'][0]
+                return ['OSTANOVKA_NE_ISPOLNIMA: строка %d — текст '
+                        'остановки не исполняется (%s); запуск строки %d '
+                        'даёт двух живых (И-11: неисполняемый текст '
+                        'остановкой не считается)' % (nomer, prichina, e[1])]
+        elif e[0] == 'ostanovka':
+            zhivo = max(0, zhivo - 1)
+    return []
+
+
+def _porty(razbor):
+    """Порты пары — литералы 5570/5576 (вердикт Crit148v2, блок 2):
+    сосед 5571 — adb-пара работника 5570, второй AVD на нём не
+    поднимается (живое доказательство PR #146/#147); порт запуска
+    разрешается литералом присваивания."""
+    otkazy = []
+    oshibka_393 = False
+    for e in razbor['sobytija']:
+        if e[0] != 'prisvaivanie':
+            continue
+        _, nomer, imja, znach = e
+        if imja == 'PORT_390' and znach != PORT_RABOTNIKA:
+            otkazy.append('PORT_390_NE_5570: строка %d: PORT_390=%s, а '
+                          'эмулятор работника лекала 148 — %s (И-11: пара '
+                          '%s/%s)' % (nomer, znach, PORT_RABOTNIKA,
+                                      PORT_RABOTNIKA, PORT_VTOROGO))
+        if imja == 'PORT_393' and znach != PORT_VTOROGO:
+            oshibka_393 = True
+            otkazy.append('PORT_393_NE_5576: строка %d: PORT_393=%s, а план '
+                          'пары 148 — %s/%s (5571 — adb-пара %s, соседний '
+                          'порт запрещён; И-11)' % (nomer, znach,
+                                                    PORT_RABOTNIKA,
+                                                    PORT_VTOROGO,
+                                                    PORT_RABOTNIKA))
+    if not oshibka_393:
+        for e in razbor['sobytija']:
+            if e[0] == 'zapusk' and e[2] is not None and e[2] != PORT_VTOROGO:
+                otkazy.append('PORT_393_NE_5576: строка %d: -port %s у '
+                              'запуска второго, а план пары 148 — %s/%s '
+                              '(5571 — adb-пара %s; И-11)'
+                              % (e[1], e[2], PORT_RABOTNIKA, PORT_VTOROGO,
+                                 PORT_RABOTNIKA))
+    return otkazy
+
+
+def proverka_emuljatorov(repo: Path):
+    """И-11 (слово владельца 2026-10-31 + вердикт Crit148v2): второй
+    эмулятор профиля 393 запускается ТОЛЬКО после остановки первого —
+    не одновременно, не более двух на станции (Astra
+    mob-ci-razdelenie п.342). Закрытый алфавит (норма 041), разбор
+    СТРУКТУРЫ ИСПОЛНЕНИЯ (не regex по тексту): сегменты «;»/«&&»/«||»/
+    «|»/«&», кавычки как границы слов, подстановки $(…)/`…` (их
+    содержимое исполняется), here-doc (данные), тела функций и
+    комментарии не исполняются, продолжения «\» склеивают строку;
+    остановка = безусловные слова emu и kill; запуск = слова emulator
+    и -avd одного сегмента ($VAR разрешается литералами присваиваний);
+    порты пары — литералы 5570/5576. На входе скрипта жив РОВНО один
+    эмулятор — работник лекала 143 v2 (порт 5570); пачка ОБЯЗАНА нести
+    цикл пары сама (v1-форма PR #147 — пара на входе одновременно —
+    отказ). Живое исполнение — продуктовый CI, станции эмуляторы не
+    нужны (правило станции 31.10)."""
+    put = repo / E2E_SKRIPT
+    if not put.is_file():
+        return ['E2E_SKRIPT_NET: нет %s (жизненный цикл пары — И-11)' % E2E_SKRIPT]
+    razbor = _razobrat_e2e(put)
+    return _posledovatelnost(razbor) + _ostanovka(razbor) + _porty(razbor)
+
+
 def sha256_fajla(p: Path):
     return hashlib.sha256(p.read_bytes()).hexdigest()
+
+def proverka_maski_profilja(repo: Path):
+    """Вердикт Crit148v2, блок 3 (слово владельца 31.10, Q1б): точное
+    ЗНАЧЕНИЕ маски профиля 393 — 48 pt; любое иное значение манифеста
+    (47/49/60 проходят визуальную сверку) — именованный отказ независимо
+    от счёта кадров. Манифест — по записи vtoroj_profil.kadry пачки R.
+    Нечитаемые пачка/манифест не судятся здесь — их раньше называют
+    PACHKA_ABSENT / MAKET_PIN_NEVEREN."""
+    pachka = repo / 'mobile/e2e-vkladki'
+    imja = 'kadry_profil.json'
+    try:
+        forma = json.loads((pachka / 'ekran.json').read_text(encoding='utf-8'))
+        imja = forma.get('vtoroj_profil', {}).get('kadry', imja)
+    except (OSError, ValueError):
+        return None
+    try:
+        mera = json.loads((pachka / imja).read_text(encoding='utf-8'))['mera']
+    except (OSError, ValueError, KeyError):
+        return None
+    znach = mera.get('chrome_verh_pt')
+    if znach != PROFIL_MASKA_PT:
+        return ('PROFIL_MASKA_NE_48: %s: mera.chrome_verh_pt=%s, а маска '
+                'системной шапки профиля 393 — %d pt (слово владельца '
+                '31.10, Q1б; значение — независимо от визуальной меры)'
+                % (imja, znach, PROFIL_MASKA_PT))
+    return None
 
 
 def put_maketa(repo: Path, rel: str):
@@ -582,6 +908,10 @@ def main():
             print(l)
     if rc != 0:
         return rc
+    maska = proverka_maski_profilja(repo)
+    if maska:
+        print('PRICHINA\t%s' % maska)
+        return 1
     rc2, prichiny2 = ispolnimyj_sud(repo, src)
     for p in prichiny2:
         print('PRICHINA\t%s' % p)

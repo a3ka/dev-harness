@@ -47,6 +47,11 @@ HERE = Path(__file__).resolve().parent
 H_ROOT = HERE.parents[2]
 SUBJECT_A = H_ROOT / 'scripts' / 'ekran_shablon.py'
 MODEL_A = HERE / 'model' / 'ekran_shablon.py'
+# судья формы 148 (правка Crit148v2, блок 3): гейт значения маски 48 +
+# делегация валидатору (эталон/живой) — субъект A во ВСЕХ честных
+# режимах; стабы матрицы идут без обёртки (Н-39: дефект стаба наблюдаем
+# на его входе, обёртка не должна гасить ложь стаба)
+SUD_FORMY = HERE / 'model' / 'sud_formy_148.py'
 RUNNER123 = H_ROOT / 'scripts' / 'sverka_maketa.py'
 STUBS = HERE / 'stubs'
 NOS_MAKET = HERE / 'nositeli/maket'
@@ -393,6 +398,15 @@ def mut_profil_maska_36(pack, repo, src):
     (pack / 'kadry_profil.json').write_text(
         json.dumps(profil, ensure_ascii=False, indent=1), encoding='utf-8')
 
+def mut_profil_maska_ne_48(pack, repo, src):
+    # вердикт Crit148v2, блок 3: 47 проходит визуальную сверку (пилюля
+    # закрыта любым значением выше 36) — инвариант ТОЧНОГО значения 48
+    # судит судья формы (гейт значения ПОСЛЕ визуального суда)
+    profil = json.loads((pack / 'kadry_profil.json').read_text(encoding='utf-8'))
+    profil['mera']['chrome_verh_pt'] = 47
+    (pack / 'kadry_profil.json').write_text(
+        json.dumps(profil, ensure_ascii=False, indent=1), encoding='utf-8')
+
 
 def mut_marshrut_bez_obolochki(pack, repo, src):
     put = repo / 'mobile/.maestro/vkladki-tabshell-393.yaml'
@@ -494,6 +508,7 @@ MUTACII_FORMY = {
     'profil-bez-insetov': mut_profil_bez_insetov,
     'odna-tema': mut_odna_tema,
     'profil-maska-36': mut_profil_maska_36,
+    'profil-maska-ne-48': mut_profil_maska_ne_48,
     'marshrut-bez-obolochki': mut_marshrut_bez_obolochki,
     'marshrut-bez-snimka': mut_marshrut_bez_snimka,
     'prokhod-ne-maestro': mut_prokhod_ne_maestro,
@@ -625,6 +640,35 @@ def mut_pr_emuljatory_odnovremenno(repo, src):
         'adb -s "$SERIAL_390" emu kill',
         vstavka + 'adb -s "$SERIAL_390" emu kill', 1), encoding='utf-8')
 
+def mut_pr_ostanovka_neispolnima(repo, src):
+    # вердикт Crit148v2, блок 1 (дословная атака): остановка «на бумаге»
+    # — kill после «||» не исполняется ни на одном допустимом пути
+    put = repo / 'mobile/e2e-vkladki/e2e.sh'
+    tekst = put.read_text(encoding='utf-8')
+    put.write_text(tekst.replace(
+        'adb -s "$SERIAL_390" emu kill',
+        'true || adb -s "$SERIAL_390" emu kill', 1), encoding='utf-8')
+
+
+def mut_pr_port_393_sosednij(repo, src):
+    # вердикт Crit148v2, блок 2 (дословная атака): соседний adb-порт
+    # 5571 (adb-пара работника 5570) вместо предписанного 5576
+    put = repo / 'mobile/e2e-vkladki/e2e.sh'
+    tekst = put.read_text(encoding='utf-8')
+    put.write_text(tekst.replace('PORT_393=5576', 'PORT_393=5571', 1),
+                   encoding='utf-8')
+
+
+def mut_pr_maska_ne_48(repo, src):
+    # вердикт Crit148v2, блок 3: манифест профиля R с 47 — визуально
+    # зелёный, значением неверный (продукт-судья судит значение после
+    # зелёного суда пачки)
+    put = repo / 'mobile/e2e-vkladki/kadry_profil.json'
+    man = json.loads(put.read_text(encoding='utf-8'))
+    man['mera']['chrome_verh_pt'] = 47
+    put.write_text(json.dumps(man, ensure_ascii=False, indent=1),
+                   encoding='utf-8')
+
 
 def mut_pr_live_predposylka(repo, src):
     # package.json заявляет jest-среду, установки нет — именованная
@@ -652,6 +696,9 @@ MUTACII_PRODUKTA = {
     'pr-scenarij-net': mut_pr_scenarij_net,
     'pr-kontent-net': mut_pr_kontent_net,
     'pr-emuljatory-odnovremenno': mut_pr_emuljatory_odnovremenno,
+    'pr-ostanovka-neispolnima': mut_pr_ostanovka_neispolnima,
+    'pr-port-393-sosednij': mut_pr_port_393_sosednij,
+    'pr-maska-ne-48': mut_pr_maska_ne_48,
     'pr-live-predposylka': mut_pr_live_predposylka,
     'pr-live-kontrol-krasen': mut_pr_live_kontrol_krasen,
     'pr-live-mutant-zhiv': mut_pr_live_mutant_zhiv,
@@ -660,16 +707,21 @@ MUTACII_PRODUKTA = {
 
 # --- суд входов -------------------------------------------------------------
 
-def run_forma(subject, name, src):
+def run_forma(subject, name, src, obertka=True):
+    """Суд формы: субъект A — судья 148 (гейт маски 48 + делегация
+    валидатору --sud) во всех честных режимах; стабы матрицы идут как
+    есть (obertka=False — обёртка не гасит ложь стаба, Н-39)."""
     tmp = Path(tempfile.mkdtemp(prefix='vkladki148-f-'))
     try:
         repo, pachka, forma = build_forma_repo(src, tmp)
         if MUTACII_FORMY[name] is not None:
             MUTACII_FORMY[name](pachka, repo, src)
-        p = subprocess.run(
-            [sys.executable, str(subject), '--pack', str(pachka),
-             '--repo', str(repo), '--harness', str(H_ROOT)],
-            capture_output=True, text=True)
+        argv = [sys.executable, str(subject), '--pack', str(pachka),
+                '--repo', str(repo), '--harness', str(H_ROOT)]
+        if obertka:
+            argv = [sys.executable, str(SUD_FORMY), '--sud', str(subject)] \
+                + argv[2:]
+        p = subprocess.run(argv, capture_output=True, text=True)
         return p.returncode, p.stdout, p.stderr
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -797,7 +849,7 @@ def main():
         for v in vh:
             svjazi += 1
             if v in MUTACII_FORMY:
-                rc, out, err = run_forma(STUBS / stub, v, src)
+                rc, out, err = run_forma(STUBS / stub, v, src, obertka=False)
             else:
                 rc, out, err = run_produkt(STUBS / stub, v, src)
             if judge(v, src, rc, out, err):
