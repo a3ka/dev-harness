@@ -1101,7 +1101,7 @@
    "razmytie_r": 1,
    "region_porog": 0.05,
    "margin": 1,
-   "chrome_verh_pt": 36,
+   "chrome_verh_pt": 48,
    "chrome_niz_pt": 20,
    "min_dolja_suda": 0.5
   },
@@ -1578,7 +1578,7 @@
  },
  "standiny": {
   "e2e": "#!/usr/bin/env bash\n# Стенд-ин priemka.e2e (батарея 148): эмулятора нет — кадры\n# кладёт перегонка макетов (пиксели те же, байты иные).\nset -eu\nexec python3 \"$(dirname \"$0\")/../e2e-standin-vkladki/e2e-stand-in.py\" \"$@\"\n",
-  "e2e_py": "#!/usr/bin/env python3\n# Стенд-ин e2e батареи 148: перекодированные макеты → Maestro-раскладка\n# kadry_dir/<тема>/aa/bb/takeScreenshot/<snimok>.png (оба манифеста).\nimport json\nimport sys\nfrom pathlib import Path\n\nsys.path.insert(0, str(Path(__file__).resolve().parent))\nfrom stand_in_png import perekodirovat\n\nREPO = Path(__file__).resolve().parents[2]\nPACK = Path(__file__).resolve().parents[1] / 'e2e-vkladki'\nOUT = REPO / 'mobile/maestro-out-vkladki'\nfor imja in ('kadry.json', 'kadry_profil.json'):\n    man = json.loads((PACK / imja).read_text(encoding='utf-8'))\n    for k in man['kadry']:\n        kadr = perekodirovat((REPO / k['maket']).read_bytes())\n        d = OUT / k['tema'] / 'aa' / 'bb' / 'takeScreenshot'\n        d.mkdir(parents=True, exist_ok=True)\n        (d / (k['snimok'] + '.png')).write_bytes(kadr)\nprint('E2E_STAND_IN: кадры обоих профилей положены')\n",
+  "e2e_py": "#!/usr/bin/env python3\n# Стенд-ин e2e батареи 148 (v2, слово владельца 31.10): перекодированные\n# макеты → Maestro-раскладка kadry_dir/<тема>/aa/bb/takeScreenshot/\n# <snimok>.png (оба манифеста). Профиль 393 ЧЕСТЕН к вырезу камеры\n# (доказательство Q1б 31.10, раннер 123 на живых кадрах PR #147):\n# в макетах 393 есть пилюля Dynamic Island (чёрная, x134-260, y11-48 pt),\n# эмулятор вырез в screencap НЕ рисует — стенд-ин замещает пилюлю фоном\n# строки (сэмпл x=60 той же строки; в тёмных макетах пилюля чёрная на\n# чёрном — замещение ничего не меняет). Маска mera.chrome_verh_pt=48\n# закрывает пилюлю целиком; возврат 36 оставляет срез y36-47 в судимой\n# области — светлые кадры 393 ниже порога (живой замер Q1б:\n# 0.425/0.414/0.392 при 36; 0.800/0.783/0.805/0.880 при 48).\nimport json\nimport sys\nfrom pathlib import Path\n\nsys.path.insert(0, str(Path(__file__).resolve().parent))\nfrom stand_in_png import dekodirovat, kodirovat_rgba\n\nREPO = Path(__file__).resolve().parents[2]\nPACK = Path(__file__).resolve().parents[1] / 'e2e-vkladki'\nOUT = REPO / 'mobile/maestro-out-vkladki'\nPILJULA = (134, 260)  # x-диапазон пилюли выреза (замер Q1б, вкл.)\n\n\ndef stirat_piljulju(w, h, ch, rows):\n    \"\"\"Пилюля выреза → фон строки: эмулятор вырез не рисует (Q1б).\"\"\"\n    for y in range(11, 48):\n        row = bytearray(rows[y])\n        fon = bytes(row[60 * ch:60 * ch + ch])\n        for x in range(PILJULA[0], PILJULA[1] + 1):\n            row[x * ch:x * ch + ch] = fon\n        rows[y] = bytes(row)\n    return rows\n\n\nfor imja in ('kadry.json', 'kadry_profil.json'):\n    man = json.loads((PACK / imja).read_text(encoding='utf-8'))\n    for k in man['kadry']:\n        w, h, ch, rows = dekodirovat((REPO / k['maket']).read_bytes())\n        if imja == 'kadry_profil.json':\n            rows = stirat_piljulju(w, h, ch, rows)\n        kadr = kodirovat_rgba(w, h, ch, rows)\n        d = OUT / k['tema'] / 'aa' / 'bb' / 'takeScreenshot'\n        d.mkdir(parents=True, exist_ok=True)\n        (d / (k['snimok'] + '.png')).write_bytes(kadr)\nprint('E2E_STAND_IN: кадры обоих профилей положены (393 без пилюли выреза)')\n",
   "png": "#!/usr/bin/env python3\n# Перегонка PNG (батарея 148): декодер ct 2 (RGB) и 6 (RGBA); энкодер\n# всегда RGBA — пиксели те же, байты иные (приём 118/132).\nimport struct\nimport zlib\n\n\ndef dekodirovat(blob):\n    pos, idat, ihdr = 8, bytearray(), None\n    while pos < len(blob):\n        ln, typ = struct.unpack('>I4s', blob[pos:pos + 8])\n        body = blob[pos + 8:pos + 8 + ln]\n        if typ == b'IHDR':\n            ihdr = body\n        elif typ == b'IDAT':\n            idat += body\n        pos += 12 + ln\n    w, h, bd, ct = struct.unpack('>IIBB', ihdr[:10])\n    assert bd == 8 and ct in (2, 6), 'ожидался RGB/RGBA'\n    ch = 3 if ct == 2 else 4\n    raw = zlib.decompress(bytes(idat))\n    stride = w * ch\n    rows, prev = [], bytearray(stride)\n    i = 0\n    for _y in range(h):\n        f = raw[i]\n        i += 1\n        line = bytearray(raw[i:i + stride])\n        i += stride\n        if f == 1:\n            for x in range(ch, stride):\n                line[x] = (line[x] + line[x - ch]) & 0xFF\n        elif f == 2:\n            for x in range(stride):\n                line[x] = (line[x] + prev[x]) & 0xFF\n        elif f == 3:\n            for x in range(stride):\n                a = line[x - ch] if x >= ch else 0\n                line[x] = (line[x] + ((a + prev[x]) >> 1)) & 0xFF\n        elif f == 4:\n            for x in range(stride):\n                a = line[x - ch] if x >= ch else 0\n                b = prev[x]\n                c = prev[x - ch] if x >= ch else 0\n                p = a + b - c\n                pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)\n                pr = a if (pa <= pb and pa <= pc) else (b if pb <= pc else c)\n                line[x] = (line[x] + pr) & 0xFF\n        prev = line\n        rows.append(bytes(line))\n    return w, h, ch, rows\n\n\ndef kodirovat_rgba(w, h, ch, rows):\n    def chunk(t, d):\n        return (struct.pack('>I', len(d)) + t + d\n                + struct.pack('>I', zlib.crc32(t + d) & 0xFFFFFFFF))\n    if ch == 3:\n        rows = [b''.join(bytes(r[x:x + 3]) + b'\\xff' for x in range(0, len(r), 3))\n                for r in rows]\n    raw2 = b''.join(b'\\x00' + r for r in rows)\n    return (b'\\x89PNG\\r\\n\\x1a\\n'\n            + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0))\n            + chunk(b'IDAT', zlib.compress(raw2, 1)) + chunk(b'IEND', b''))\n\n\ndef perekodirovat(blob):\n    w, h, ch, rows = dekodirovat(blob)\n    return kodirovat_rgba(w, h, ch, rows)\n",
   "e2e_padaet": "#!/usr/bin/env bash\n# Мутант: e2e не прошла (rc 1) — кадры не кладутся.\nexit 1\n",
   "e2e_molchit": "#!/usr/bin/env bash\n# Мутант: rc 0, кадров не кладёт — KADR_OTSUTSTVUET.\nexit 0\n",
@@ -1632,7 +1632,8 @@
    "model/produktnaja-raskladka/mobile/src/features/missions/model/vkladki-dannye.ts": "e8d39311b8ec83f297eb4b581a03d0b81a014d2cd02a434b236047b90a710bd1",
    "model/produktnaja-raskladka/mobile/src/features/post/components/PostEingang.tsx": "d0c2b7a6da9dac0461cabc8a0e8a37eab217fc471a4310f78b2762ee8d265892",
    "model/produktnaja-raskladka/mobile/src/features/protection/components/SchutzUebersicht.tsx": "89a56e1b6badfecc65572f2d084937db27feaf2e45aa72288431861563cfc354",
-   "model/produktnaja-raskladka/mobile/src/i18n/ui-copy.ts": "796d73bf36efb73e68baf239bc39bb55d33cd0400c70989e77add3cc0b4cf678"
+   "model/produktnaja-raskladka/mobile/src/i18n/ui-copy.ts": "796d73bf36efb73e68baf239bc39bb55d33cd0400c70989e77add3cc0b4cf678",
+   "model/produktnaja-raskladka/mobile/e2e-vkladki/e2e.sh": "4f56d5f5b5a326f0b7f386ac03c4443130a6433ede80d3dcd4324fdaa405050f"
   },
   "produkt": {
    "produkt/vkladki-zond-148.test.tsx": "a6dab970df65199d0fcbc48497103fca92e37b00dfe85fedc01f5983ecfbed39"
@@ -2036,6 +2037,31 @@
     "PRICHINA\tISPOLNIMYJ_MUTANT_ZHIV: tabs, badge, skroll"
    ],
    "prichiny": []
+  },
+  "profil-maska-36": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-02 light 393\tscore=0.513 porog=0.600 hudshij=shapka",
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-03 light 393\tscore=0.498 porog=0.600 hudshij=shapka",
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-04 light 393\tscore=0.475 porog=0.600 hudshij=shapka"
+   ]
+  },
+  "pr-emuljatory-odnovremenno": {
+   "rc": 1,
+   "stdout": [
+    "PRICHINA\tEMULJATORY_ODNOVREMENNO: строка 34 запускает эмулятор при живом первом — одновременно (И-11: второй после остановки первого, не более двух на станции)"
+   ],
+   "prichiny": []
   }
  },
  "stab_vhod": {
@@ -2109,6 +2135,12 @@
   ],
   "s83_maket_put_propuskaet.py": [
    "pr-maket-put-net"
+  ],
+  "s84_maska_propuskaet.py": [
+   "profil-maska-36"
+  ],
+  "s85_emuljatory_propuskaet.py": [
+   "pr-emuljatory-odnovremenno"
   ]
  }
 }

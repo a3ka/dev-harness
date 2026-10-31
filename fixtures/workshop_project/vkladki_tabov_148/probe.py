@@ -383,6 +383,15 @@ def mut_odna_tema(pack, repo, src):
     profil['kadry'] = [k for k in profil['kadry'] if k['tema'] == 'dark']
     (pack / 'kadry_profil.json').write_text(
         json.dumps(profil, ensure_ascii=False, indent=1), encoding='utf-8')
+def mut_profil_maska_36(pack, repo, src):
+    # слово владельца 31.10 (v2): маска системной шапки профиля 393 =
+    # 48 pt (Dynamic Island x134-260, y11-48; доказательство Q1б) —
+    # возврат 36 оставляет пилюлю в судимой области (стенд-ин честен:
+    # эмулятор вырез в screencap не рисует)
+    profil = json.loads((pack / 'kadry_profil.json').read_text(encoding='utf-8'))
+    profil['mera']['chrome_verh_pt'] = 36
+    (pack / 'kadry_profil.json').write_text(
+        json.dumps(profil, ensure_ascii=False, indent=1), encoding='utf-8')
 
 
 def mut_marshrut_bez_obolochki(pack, repo, src):
@@ -484,6 +493,7 @@ MUTACII_FORMY = {
     'profil-nizhe-minimuma': mut_profil_nizhe_minimuma,
     'profil-bez-insetov': mut_profil_bez_insetov,
     'odna-tema': mut_odna_tema,
+    'profil-maska-36': mut_profil_maska_36,
     'marshrut-bez-obolochki': mut_marshrut_bez_obolochki,
     'marshrut-bez-snimka': mut_marshrut_bez_snimka,
     'prokhod-ne-maestro': mut_prokhod_ne_maestro,
@@ -506,7 +516,7 @@ def sobrat_referens(src, tmp):
     repo = tmp / 'referens'
     shutil.copytree(RASKLADKA, repo)
     pachka = repo / 'mobile/e2e-vkladki'
-    pachka.mkdir(parents=True)
+    pachka.mkdir(parents=True, exist_ok=True)
     zapis(pachka, src['ekran_forma_prod'])
     (pachka / 'kadry.json').write_text(
         json.dumps(src['kadry_manifest'], ensure_ascii=False, indent=1), encoding='utf-8')
@@ -602,6 +612,20 @@ def mut_pr_maket_put_net(repo, src):
     (repo / 'docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-02.png').unlink()
 
 
+def mut_pr_emuljatory_odnovremenno(repo, src):
+    # И-11 (слово владельца 31.10): второй эмулятор запущен ДО остановки
+    # первого — на станции два живых (одновременный старт)
+    put = repo / 'mobile/e2e-vkladki/e2e.sh'
+    tekst = put.read_text(encoding='utf-8')
+    vstavka = ('"$ANDROID_HOME/emulator/emulator" -avd "$AVD_393" '
+               '-port "$PORT_393" -no-window -no-audio -no-boot-anim '
+               '-no-snapshot -gpu swiftshader_indirect '
+               '>"emulator-148-393.log" 2>&1 &\n')
+    put.write_text(tekst.replace(
+        'adb -s "$SERIAL_390" emu kill',
+        vstavka + 'adb -s "$SERIAL_390" emu kill', 1), encoding='utf-8')
+
+
 def mut_pr_live_predposylka(repo, src):
     # package.json заявляет jest-среду, установки нет — именованная
     # предпосылка rc 2, НЕ skip->pass (блок 1, прецедент 145)
@@ -627,6 +651,7 @@ MUTACII_PRODUKTA = {
     'pr-kopii-net': mut_pr_kopii_net,
     'pr-scenarij-net': mut_pr_scenarij_net,
     'pr-kontent-net': mut_pr_kontent_net,
+    'pr-emuljatory-odnovremenno': mut_pr_emuljatory_odnovremenno,
     'pr-live-predposylka': mut_pr_live_predposylka,
     'pr-live-kontrol-krasen': mut_pr_live_kontrol_krasen,
     'pr-live-mutant-zhiv': mut_pr_live_mutant_zhiv,

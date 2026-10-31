@@ -16,7 +16,8 @@
   блок 2) / SCENARIJ_BEZ_SNIMKA / PROKHOD_BEZ_PRESSABLE +
   ISPOLNIMYJ_KONTROL_KRASEN / ISPOLNIMYJ_MUTANT_ZHIV /
   ISPOLNIMYJ_MUTANT_NE_UBIT / ISPOLNIMYJ_INFRA (блок 1) +
-  причины валидатора (PRICHINA-строки эталона).
+  E2E_SKRIPT_NET / EMULJATORY_NA_VHODE_PAROJ / EMULJATORY_ODNOVREMENNO
+  (И-11, слово владельца 31.10: эмуляторы последовательно) +
 rc: 0 — зелено; 1 — именованный отказ; 2 — нечем судить (нет эталона
 146 / нет носителей / ORACLE_TAMPERED / LIVE_PREDPOSYLKA /
 LIVE_MUTACIJA_NEPRIMENIMA)."""
@@ -25,6 +26,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
 import shutil
 import struct
 import subprocess
@@ -96,6 +98,50 @@ SNIMKI_OSNOVNOJ = ['vkladki-vorgaenge', 'vkladki-schutz', 'vkladki-post',
                    'vkladki-vorgaenge-skroll']
 SNIMKI_PROFILJA = [s + '-393' for s in SNIMKI_OSNOVNOJ]
 OBOLOCHKA = 'tabshell'
+E2E_SKRIPT = 'mobile/e2e-vkladki/e2e.sh'
+
+def proverka_emuljatorov(repo: Path):
+    """И-11 (слово владельца 2026-10-31): второй эмулятор профиля 393
+    запускается ПОСЛЕ остановки первого, не одновременно (не более двух
+    на станции — Astra mob-ci-razdelenie п.342). Закрытая грамматика
+    жизненного цикла (норма 041): события — ТОП-ЛЕВЕЛ исполняемые строки
+    вне тел функций (функция = «^имя() {» … «^}»); запуск = литеральные
+    подстроки «emulator» и «-avd» в одной строке; остановка = литеральная
+    подстрока «emu kill»; комментарии срезаны до «#». На входе скрипта
+    жив РОВНО один эмулятор — работник лекала 143 v2 (порт 5570);
+    пачка ОБЯЗАНА нести цикл пары сама: остановка первого, затем запуск
+    второго (пара на входе одновременно — v1-форма PR #147, отказ);
+    счётчик живых не поднимается выше одного. Живое исполнение —
+    продуктовый CI, станции эмуляторы не нужны."""
+    put = repo / E2E_SKRIPT
+    if not put.is_file():
+        return ['E2E_SKRIPT_NET: нет %s (жизненный цикл пары — И-11)' % E2E_SKRIPT]
+    zhivo, v_funkcii, byli_zapuski = 1, False, False
+    for nomer, stroka in enumerate(put.read_text(encoding='utf-8').splitlines(), 1):
+        if not v_funkcii and re.match(r'^[A-Za-z_][A-Za-z0-9_]*\s*\(\)\s*\{', stroka):
+            v_funkcii = True
+            continue
+        if v_funkcii:
+            if stroka.startswith('}'):
+                v_funkcii = False
+            continue
+        ispoln = stroka.split('#', 1)[0]
+        if 'emu kill' in ispoln:
+            zhivo = max(0, zhivo - 1)
+        elif 'emulator' in ispoln and '-avd' in ispoln:
+            zhivo += 1
+            byli_zapuski = True
+            if zhivo > 1:
+                return ['EMULJATORY_ODNOVREMENNO: строка %d запускает '
+                        'эмулятор при живом первом — одновременно (И-11: '
+                        'второй после остановки первого, не более двух '
+                        'на станции)' % nomer]
+    if not byli_zapuski:
+        return ['EMULJATORY_NA_VHODE_PAROJ: в %s нет жизненного цикла '
+                'пары (остановка первого → запуск второго) — пара '
+                'эмуляторов ожидается на входе одновременно (v1-форма '
+                'PR #147; И-11)' % E2E_SKRIPT]
+    return []
 
 
 def sha256_fajla(p: Path):
@@ -269,6 +315,7 @@ def staticheskie_proverki(repo: Path, src):
                   if not any(p['id'] in l for l in ispolnimye)]
         if net_id:
             otkazy.append('PROKHOD_BEZ_PRESSABLE: %s' % net_id[:3])
+    otkazy += proverka_emuljatorov(repo)
     return otkazy
 
 
