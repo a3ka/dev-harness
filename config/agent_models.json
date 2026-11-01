@@ -67,15 +67,15 @@
       "why": "reviewer: решение 2026-09-12 — opus-5 (1M, «важная часть работы»; duty «перепроверяет ВСЁ»); с 2026-09-26 — семейство @opus в последней версии (слово владельца). Фолбек — сопоставимая модель OpenAI (семейство @gpt-sol), слово владельца. Судьи реализации разведены по вендорам: 2 OpenAI + 2 Anthropic, все на разных моделях. Фолбек reviewer на Sol при adversary Terra двухвендорную пару разрушает: до вызова — законная независимая замена либо остановка (roles/critic.md §Независимость); сам фолбек владельцем не менялся."
     },
     "plan": {
-      "model": "@fable",
-      "fallback": "@gpt-astra",
-      "autoFallback": true,
-      "why": "Слово владельца 2026-10-18 ~16:10 UTC (docs/owner/2026-10-18-raskladka-modelei.md). arbiter — последнее слово: Fable; не модель автора (architect GLM, implementer MiniMax/GLM); замена Fable — только Astra."
-    },
-    "consultant": {
       "model": "@gpt-astra",
       "fallback": "@fable",
-      "why": "Слово владельца 2026-10-18 ~16:10 UTC (docs/owner/2026-10-18-raskladka-modelei.md). консультант форков: Astra; замена Astra — только Fable. Пересечение с arbiter (Fable) возможно только на отказе Astra — roles/consultant.md правится в контракте pravila-modelei."
+      "autoFallback": true,
+      "why": "Слово владельца 2026-10-18 ~16:10 UTC (docs/owner/2026-10-18-raskladka-modelei.md). arbiter — последнее слово: Fable; не модель автора (architect GLM, implementer MiniMax/GLM); замена Fable — только Astra. ОБМЕН РОЛЕЙ (слово владельца 2026-11-01 ~23:00 UTC «давай поменяем арбитра и консультанта местами (фейбл с астрой)»): арбитр — Astra, консультант — Fable; основание — Fable дважды отклонена классификатором провайдера на арбитраже 152 (Refusal (cyber)), арбитр обязан судить любой предмет харнеса, включая правила запрета запуска процессов."
+    },
+    "consultant": {
+      "model": "@fable",
+      "fallback": "@gpt-astra",
+      "why": "Слово владельца 2026-10-18 ~16:10 UTC (docs/owner/2026-10-18-raskladka-modelei.md). консультант форков: Astra; замена Astra — только Fable. Пересечение с arbiter (Fable) возможно только на отказе Astra — roles/consultant.md правится в контракте pravila-modelei. ОБМЕН РОЛЕЙ (слово владельца 2026-11-01 ~23:00 UTC «давай поменяем арбитра и консультанта местами (фейбл с астрой)»): арбитр — Astra, консультант — Fable; основание — Fable дважды отклонена классификатором провайдера на арбитраже 152 (Refusal (cyber)), арбитр обязан судить любой предмет харнеса, включая правила запрета запуска процессов."
     },
     "steward": {
       "model": "@haiku",
