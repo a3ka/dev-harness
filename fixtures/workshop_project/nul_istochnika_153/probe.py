@@ -42,10 +42,13 @@ def project(base, kind):
         'projectId': 'probe', 'workspaceId': 'probe', 'defaults': {}}))
     put(root / 'contracts/probe.md', '# Probe\n')
     path = {'backend': 'migrations/001_core.sql', 'ten': '10.sql',
-            'nested': 'a0b/0.md', 'nul': 'source\0.md',
-            'absolute': str(root / 'inside.md'), 'dotdot': 'sub/../inside.md',
-            'outside': 'link.md', 'directory': 'folder', 'fifo': 'pipe'}[kind]
-    if kind in ('backend', 'ten', 'nested'):
+            'nested': 'a0b/0.md', 'zero-first': '0.md', 'zero-last': 'v1.0',
+            'zero-whole': '0', 'zero-head': '0/x.md', 'zero-tail': 'x/0',
+            'nul': 'source\0.md', 'absolute': str(root / 'inside.md'),
+            'dotdot': 'sub/../inside.md', 'outside': 'link.md',
+            'directory': 'folder', 'fifo': 'pipe'}[kind]
+    if kind in ('backend', 'ten', 'nested', 'zero-first', 'zero-last',
+                'zero-whole', 'zero-head', 'zero-tail'):
         put(root / path, 'source\n')
     elif kind == 'absolute' or kind == 'dotdot':
         put(root / 'inside.md', 'source\n')
@@ -71,6 +74,10 @@ def project(base, kind):
 MODEL_CHANGE = ('    *\\0*) die "SOURCE_CANON_INVALID: NUL в пути: $p" ;;\n', '')
 STABS = {
     'false-zero': (GATE, None),
+    'reject-edge-zero': (GATE, ('  case "$p" in\n',
+                                '  case "$p" in\n    0*|*0) die "SOURCE_CANON_INVALID: NUL в пути: $p" ;;\n')),
+    'reject-whole-zero': (GATE, ('  case "$p" in\n',
+                                 '  case "$p" in\n    0|*/0) die "SOURCE_CANON_INVALID: NUL в пути: $p" ;;\n')),
     'accept-all': (GATE, ('HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"',
                             'exit 0\nHERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"')),
     'skip-nul-json': (RESOLVER, ('and (($e.value.path | contains("\\u0000")) | not)',
@@ -85,11 +92,14 @@ STABS = {
     'accept-fifo': (GATE, ('if [ ! -f "$full" ]; then', 'if [ ! -e "$full" ]; then')),
 }
 # Each mutation must be observable on precisely its assigned conforming input.
-STAB_CASE = {'false-zero': 'backend', 'accept-all': 'nul', 'skip-nul-json': 'nul',
+STAB_CASE = {'false-zero': 'backend', 'reject-edge-zero': 'zero-first',
+             'reject-whole-zero': 'zero-whole', 'accept-all': 'nul', 'skip-nul-json': 'nul',
              'skip-absolute': 'absolute', 'skip-dotdot': 'dotdot',
              'skip-canonical': 'outside', 'accept-directory': 'directory',
              'accept-fifo': 'fifo'}
 CASES = {'backend': (0, ''), 'ten': (0, ''), 'nested': (0, ''),
+         'zero-first': (0, ''), 'zero-last': (0, ''), 'zero-whole': (0, ''),
+         'zero-head': (0, ''), 'zero-tail': (0, ''),
          'nul': (1, 'SOURCE_CANON_INVALID:'), 'absolute': (1, 'SOURCE_CANON_INVALID:'),
          'dotdot': (1, 'SOURCE_CANON_INVALID:'), 'outside': (1, 'SOURCE_CANON_INVALID:'),
          'directory': (1, 'SOURCE_CANON_INVALID:'), 'fifo': (1, 'SOURCE_CANON_INVALID:')}
