@@ -2,12 +2,15 @@
 """Exercise the real source gate on disposable project repositories and mutant tools."""
 import argparse
 import json
+import itertools
 import os
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
+from collections import Counter
 
 TOOLS = Path(__file__).resolve().parents[3]
 GATE = 'scripts/check_project_sources.sh'
@@ -21,7 +24,7 @@ def put(path, text):
 
 def run(argv, **kwargs):
     return subprocess.run([str(x) for x in argv], capture_output=True, text=True,
-                          timeout=30, **kwargs)
+                          timeout=kwargs.pop('timeout', 30), **kwargs)
 
 
 def patch(path, old, new):
@@ -78,6 +81,14 @@ STABS = {
                                 '  case "$p" in\n    0*|*0) die "SOURCE_CANON_INVALID: NUL в пути: $p" ;;\n')),
     'reject-whole-zero': (GATE, ('  case "$p" in\n',
                                  '  case "$p" in\n    0|*/0) die "SOURCE_CANON_INVALID: NUL в пути: $p" ;;\n')),
+    'reject-middle-zero': (GATE, ('  case "$p" in\n',
+                                  '  case "$p" in\n    */0/*) die "SOURCE_CANON_INVALID: NUL в пути: $p" ;;\n')),
+    'reject-double-edge-zero': (GATE, ('  case "$p" in\n',
+                                       '  case "$p" in\n    00*|*00) die "SOURCE_CANON_INVALID: NUL в пути: $p" ;;\n')),
+    'reject-triple-zero': (GATE, ('  case "$p" in\n',
+                                  '  case "$p" in\n    *000*) die "SOURCE_CANON_INVALID: NUL в пути: $p" ;;\n')),
+    'reject-quoted-backslash-zero': (GATE, ('  case "$p" in\n',
+                                            "  case \"$p\" in\n    *'\\0'*) die \"SOURCE_CANON_INVALID: NUL в пути: $p\" ;;\n")),
     'accept-all': (GATE, ('HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"',
                             'exit 0\nHERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"')),
     'skip-nul-json': (RESOLVER, ('and (($e.value.path | contains("\\u0000")) | not)',
@@ -92,8 +103,11 @@ STABS = {
     'accept-fifo': (GATE, ('if [ ! -f "$full" ]; then', 'if [ ! -e "$full" ]; then')),
 }
 # Each mutation must be observable on precisely its assigned conforming input.
-STAB_CASE = {'false-zero': 'backend', 'reject-edge-zero': 'zero-first',
-             'reject-whole-zero': 'zero-whole', 'accept-all': 'nul', 'skip-nul-json': 'nul',
+STAB_CASE = {'false-zero': 'backend', 'reject-edge-zero': 'sweep',
+             'reject-whole-zero': 'sweep', 'reject-middle-zero': 'sweep',
+             'reject-double-edge-zero': 'sweep', 'reject-triple-zero': 'sweep',
+             'reject-quoted-backslash-zero': 'sweep',
+             'accept-all': 'nul', 'skip-nul-json': 'nul',
              'skip-absolute': 'absolute', 'skip-dotdot': 'dotdot',
              'skip-canonical': 'outside', 'accept-directory': 'directory',
              'accept-fifo': 'fifo'}
@@ -106,6 +120,95 @@ CASES = {'backend': (0, ''), 'ten': (0, ''), 'nested': (0, ''),
 REASONS = {'nul': 'NUL', 'absolute': 'абсолютн', 'dotdot': '..',
            'outside': 'вне репозитория', 'directory': 'не regular file',
            'fifo': 'не regular file'}
+
+# Independent of the scripts under test: frozen 996 grammar and filesystem semantics.
+ALPHABET = '01a/.-_\\'
+DOMAIN_COUNTS = {'strok': 37448, 'putej': 26502,
+                 'otkaz-grammatika': 6530, 'ne-regular': 4416}
+
+
+def sweep_domain():
+    groups = {length: [] for length in range(1, 6)}
+    counts = Counter()
+    for length in groups:
+        for chars in itertools.product(ALPHABET, repeat=length):
+            path = ''.join(chars)
+            counts['strok'] += 1
+            if path.startswith('/') or '..' in path:
+                counts['otkaz-grammatika'] += 1
+            elif path.endswith('/') or path.split('/')[-1] == '.':
+                counts['ne-regular'] += 1
+            else:
+                counts['putej'] += 1
+                groups[length].append(path)
+    if dict(counts) != DOMAIN_COUNTS:
+        return None, dict(counts)
+    return groups, dict(counts)
+
+
+def populate(root, path):
+    """Use the raw string: pathlib normalisation would hide ./ and // aliases."""
+    full = os.path.join(root, path)
+    parent = os.path.dirname(full)
+    try:
+        os.makedirs(parent, exist_ok=True)
+        fd = os.open(full, os.O_CREAT | os.O_WRONLY, 0o644)
+        os.close(fd)
+    except OSError:
+        return False
+    if not stat.S_ISREG(os.stat(full).st_mode):
+        raise AssertionError(f'NOT_REGULAR {path!r}')
+    if not os.path.realpath(full).startswith(os.path.realpath(root) + os.sep):
+        raise AssertionError(f'OUTSIDE {path!r}')
+    return True
+
+
+def exercise_sweep(mode, seed):
+    groups, counts = sweep_domain()
+    if groups is None:
+        return False, f'sweep: RED DOMAIN_COUNTS actual={counts} expected={DOMAIN_COUNTS}'
+    with tempfile.TemporaryDirectory(prefix=f'nul153-{seed}-sweep-') as tmp:
+        base = Path(tmp)
+        tools = tools_for(base, mode)
+        batches = 0
+        accepted = 0
+        for length, candidates in groups.items():
+            pending = candidates
+            while pending:
+                batch_base = base / f'batch-{batches}'
+                batch_base.mkdir()
+                root = project(batch_base, 'backend')
+                included, deferred = [], []
+                for path in pending:
+                    (included if populate(root, path) else deferred).append(path)
+                if not included:
+                    return False, f'sweep: RED UNREPRESENTABLE length={length} paths={deferred!r}'
+                canon_path = root / 'harness.project.json'
+                canon = json.loads(canon_path.read_text())
+                canon['sourceCanon']['sources'] = [{'path': path, 'priority': 0}
+                                                   for path in included]
+                put(canon_path, json.dumps(canon))
+                env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
+                env.update(HARNESS_PROJECT_LAYER_ROOT=str(root),
+                           GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_SYSTEM='/dev/null')
+                r = run(['bash', tools / GATE, '--repo', root,
+                         '--contract', 'contracts/probe.md', '--stage', 'pre_critic'],
+                        cwd=root, env=env, timeout=180)
+                marker = root / 'gate-observed'
+                if (r.returncode != 0 or r.stdout or r.stderr or not marker.is_file()
+                        or marker.read_text() != 'executed\n'):
+                    # The real gate stops at its first rejected path; report its actual stderr,
+                    # not an inferred position in the candidate array.
+                    detail = (f'sweep: RED length={length} batch={batches} rc={r.returncode} '
+                              f'stderr={r.stderr.strip()!r} stdout={r.stdout.strip()!r} '
+                              f'gate={marker.exists()}')
+                    return False, detail
+                accepted += len(included)
+                batches += 1
+                pending = deferred
+        if accepted != DOMAIN_COUNTS['putej']:
+            return False, f'sweep: RED LOST_PATHS {accepted} != {DOMAIN_COUNTS["putej"]}'
+        return True, f'sweep: GREEN paths={accepted} batches={batches}'
 
 
 def tools_for(base, mode):
@@ -168,8 +271,14 @@ def main():
                     print('MODEL_RED', detail, file=sys.stderr)
             return 1
         caught = 0
+        model_sweep = exercise_sweep('model', args.seed)
+        if not model_sweep[0]:
+            print('MODEL_RED', model_sweep[1], file=sys.stderr)
+            return 1
+        print('DOMAIN ' + ' '.join(f'{key}={value}' for key, value in DOMAIN_COUNTS.items()))
         for stab, case in STAB_CASE.items():
-            good, detail = exercise(case, stab, args.seed)
+            good, detail = (exercise_sweep(stab, args.seed) if case == 'sweep'
+                            else exercise(case, stab, args.seed))
             if good:
                 print('STAB_SURVIVED', stab, detail, file=sys.stderr)
             else:
@@ -179,9 +288,11 @@ def main():
         return 0 if caught == len(STABS) else 1
     mode = 'model' if args.model else 'repo'
     results = [exercise(case, mode, args.seed) for case in CASES]
+    results.append(exercise_sweep(mode, args.seed))
+    print('DOMAIN ' + ' '.join(f'{key}={value}' for key, value in DOMAIN_COUNTS.items()))
     for good, detail in results:
         print(('GREEN ' if good else 'RED ') + detail)
-    print(f'CELLS={len(CASES)} GREEN={sum(ok for ok, _ in results)}')
+    print(f'CELLS={len(results)} GREEN={sum(ok for ok, _ in results)}')
     return 0 if all(ok for ok, _ in results) else 1
 
 
