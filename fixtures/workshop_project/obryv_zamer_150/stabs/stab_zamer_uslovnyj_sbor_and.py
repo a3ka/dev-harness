@@ -4,10 +4,7 @@ import yaml
 
 
 def mutiruj(koren):
-    """Круг 3, блок 1 (П1), `&&`-обход из закрывающего свойства: вызов sbor
-    в ПРАВОМ операнде `&&` у `false` — сбор гарантированно не исполняется,
-    --out текстово канонический; старый z05 считал форму зелёной. Новый
-    z05: правый операнд && не гарантированно исполняется — SBOR_NE_BEZUSLOVEN."""
+    """false && sbor: шаг завершается раньше сбора, журнал пуст."""
     p = koren / '.github' / 'workflows' / 'mobile.yml'
     wf = yaml.safe_load(p.read_text(encoding='utf-8'))
     shagi = wf['jobs']['e2e-proba-obryv']['steps']
