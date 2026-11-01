@@ -1,0 +1,81 @@
+{
+ "kontrakt": "152-oom-sessii-i-zamki",
+ "nositeli": {
+  "dvojniki/_jadro.sh": "4e25bd7fcf1686fda34b9014642ce1f4bbce9e3304e8c9255a32c050ea86be65",
+  "dvojniki/clang": "8a76ef3e7e22253fa507d86d10352424a313e73dc9810b1d508607fc0af3d3de",
+  "dvojniki/clang++": "8a76ef3e7e22253fa507d86d10352424a313e73dc9810b1d508607fc0af3d3de",
+  "dvojniki/cmake": "8a76ef3e7e22253fa507d86d10352424a313e73dc9810b1d508607fc0af3d3de",
+  "dvojniki/emulator": "8a76ef3e7e22253fa507d86d10352424a313e73dc9810b1d508607fc0af3d3de",
+  "dvojniki/emulator-headless": "8a76ef3e7e22253fa507d86d10352424a313e73dc9810b1d508607fc0af3d3de",
+  "dvojniki/expo": "8a76ef3e7e22253fa507d86d10352424a313e73dc9810b1d508607fc0af3d3de",
+  "dvojniki/gradle": "8a76ef3e7e22253fa507d86d10352424a313e73dc9810b1d508607fc0af3d3de",
+  "dvojniki/prebuild": "8a76ef3e7e22253fa507d86d10352424a313e73dc9810b1d508607fc0af3d3de",
+  "dvojniki/qemu-system": "8a76ef3e7e22253fa507d86d10352424a313e73dc9810b1d508607fc0af3d3de",
+  "dvojniki/qemu-system-i386": "8a76ef3e7e22253fa507d86d10352424a313e73dc9810b1d508607fc0af3d3de",
+  "dvojniki/qemu-system-x86_64": "8a76ef3e7e22253fa507d86d10352424a313e73dc9810b1d508607fc0af3d3de",
+  "dvojniki/qemu-system-x86_64-headless": "8a76ef3e7e22253fa507d86d10352424a313e73dc9810b1d508607fc0af3d3de",
+  "ops/server/user/orch-loop": "b6970b26bb8fbee800ce61462e9543d66d268b6cf2e6dd20a508b1eee96483c0",
+  "scripts/zamok_predmeta.sh": "c393aada493589e8c4146d5c23a6d1501a9d1460510fae737df01e3041461258"
+ },
+ "stab_vhod": {
+  "s01.py": [
+   "a01-emulator",
+   "a02-qemu-system-x86_64",
+   "a03-gradle",
+   "a04-cmake",
+   "a05-clang",
+   "a06-clang++",
+   "a07-prebuild",
+   "a08-semejstva-imen",
+   "a09-expo-run-android-prebuild",
+   "a11-rezolv-formy"
+  ],
+  "s02.py": [
+   "a11-rezolv-formy"
+  ],
+  "s03.py": [
+   "b02-dva-jivyh-tretij-otkaz"
+  ],
+  "s04.py": [
+   "b01-nol-jivyh-propusk",
+   "b03-odin-jivoj-propusk"
+  ],
+  "s05.py": [
+   "a09-expo-run-android-prebuild"
+  ],
+  "s06.py": [
+   "c01-pogib-avto-snjatie",
+   "c02-pogib-osvobodit-srazu",
+   "c03-roditel-umer",
+   "c07-uchet-pogib",
+   "c08-sudja-avtor-pogib",
+   "c09-gonka-avto-snjatija"
+  ],
+  "s07.py": [
+   "c04-yield-prioritet"
+  ],
+  "s08.py": [
+   "c06-broshen-kak-ranyshe"
+  ],
+  "s09.py": [
+   "d01-fakt-oom-rc143"
+  ],
+  "s10.py": [
+   "d03-rc143-bez-fakta",
+   "d05-net-systemctl-degradacija"
+  ],
+  "s11.py": [
+   "d05-net-systemctl-degradacija"
+  ],
+  "s12.py": [
+   "a01-emulator"
+  ]
+ },
+ "subjekt": [
+  "ops/server/user/dvojniki/",
+  "scripts/zamok_predmeta.sh",
+  "ops/server/user/orch-loop"
+ ],
+ "versija": 1,
+ "zametka": "оракул в памяти ДО субъекта (правило 8); стабы — мутации кода модели (Н-39), привязки только здесь"
+}

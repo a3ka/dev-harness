@@ -1,0 +1,358 @@
+#!/usr/bin/env bash
+# orch-loop — минимальная обёртка хоста: перезапуск ведущей сессии по маркеру.
+# Правила (когда ставить маркер, пара, HANDOFF) — в роли orchestrator, проверки — в харнесе.
+#   маркер:        touch /tmp/dev-harness-verify/orch-restart  → через GRACE с новая сессия
+#   стоп:          omp вышел без маркера с rc 0 (/exit) | ~/orch-loop.stop (пауза на пик, владелец:
+#                  touch ~/orch-loop.stop) | EARLY_MAX подряд ранних маркеров или падений
+#   рестарт:       маркер; падение без маркера (rc≠0) и ранний маркер — через EARLY_WAIT с
+# Запуск:  tmux new -s orch orch-loop
+# Установка (любая машина): bash <репо>/ops/server/install.sh user — кладёт этот файл в ~/bin и пишет
+# ~/.config/dev-harness/ops.env (ORCH_REPO = корень репо установки). Переменные среды сильнее файла.
+set -u
+ORCH_ENV="${ORCH_ENV:-$HOME/.config/dev-harness/ops.env}"
+# shellcheck disable=SC1090
+[ -f "$ORCH_ENV" ] && . "$ORCH_ENV"
+REPO="${ORCH_REPO:-$HOME/dev-harness}"
+WORKSHOP="${ORCH_WORKSHOP:-./workshop}"
+MARK="${ORCH_MARK:-/tmp/dev-harness-verify/orch-restart}"
+STOP="${ORCH_STOP:-$HOME/orch-loop.stop}"
+GRACE="${ORCH_GRACE:-20}"
+MIN_LIFE="${ORCH_MIN_LIFE:-120}"
+EARLY_WAIT="${ORCH_EARLY_WAIT:-60}"
+EARLY_MAX="${ORCH_EARLY_MAX:-3}"
+LOG="${ORCH_LOG:-$HOME/orch-loop.log}"
+MEM_MAX="${ORCH_MEM_MAX:-32G}"   # потолок памяти сессии omp (контракт 085, И-5)
+MSG='АВТОПЕРЕЗАПУСК: выполни стартап-протокол роли; ПЕРВЫМ видимым действием — todo из HANDOFF «Следующая сессия» (пары и пункты, текущий — в работе); затем продолжай автономно по разделу «Автоперезапуск orch-loop и два слота», слова владельца не жди.'
+# Рв2-1 (И-4, Н-196, круг 3): цикл может стартовать из среды станции с
+# publication-креденшл (rw-ключ публикации в GIT_SSH_COMMAND / GITHUB_TOKEN /
+# GH_TOKEN / GIT_SSH_KEY_FILE). Съём НА ВХОДЕ: сессия агента станционное
+# наследие не получает. Экспорт ниже этой точки остаётся видимым двери —
+# клетка 4 (стаб s3) ловит его как порчу.
+# А-3 (adversary 093-v2, круг 5): ODELIX_GITHUB_TOKEN — токен org odelixhq
+# (чтение+запись до 2026-10-29) из ~/.config/odelix/github.env станции (роль
+# orchestrator) — тем же каналом, что и Н-196, доходит до среды, где стартует
+# orch-loop, и наследовался ребёнку сессии (живая проба круга 2). Замер
+# станционной среды (имена, без значений): из публикационных имён
+# необработанным оставалось только оно; HARNESS_GITHUB_MODE — режим
+# (read/offline), не креденшл; ZAI/MINIMAX/METERING — ключи модели, которые
+# нужны самой сессии агента и в съём не входят.
+# Один харнесс (слово владельца 2026-10-16): по умолчанию сессия идёт под ТЕМ ЖЕ пользователем,
+# что и цикл (ноутбук, станция, любая машина) — токены владельца у агента остаются (решение
+# владельца: агенты работают под своим uid, orchagent не включается). Отдельный uid агента (контракт
+# 093) — опция: ORCH_AGENT_USER=<другой пользователь>; только в ней работает съём креденшл ниже.
+SELF_USER="$(id -un)"
+AGENT_USER="${ORCH_AGENT_USER:-$SELF_USER}"
+if [ "$AGENT_USER" != "$SELF_USER" ]; then
+  unset GIT_SSH_COMMAND GITHUB_TOKEN GH_TOKEN GIT_SSH_KEY_FILE ODELIX_GITHUB_TOKEN
+fi
+log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" | tee -a "$LOG"; }
+cd "$REPO" || { log "нет $REPO"; exit 2; }
+# Singleton (контракт 997, инв. 5): flock -n на каноническом пути ДО всего, что
+# меняет состояние (self-update, MARK/GO, наблюдатель, сессия). Фиксированный
+# fd 9 наследуется через `exec "$0"` в новое тело скрипта; при повторном
+# входе проверяем, что fd 9 уже указывает на канонический lock-inode
+# (`/dev/fd/9 -ef "$LOCKF"`). Если да — flock на том же OFD проходит после
+# собственного exec без потери lock (util-linux flock живёт на OFD,
+# не на пути). Если нет — открываем fd 9 на каноническом пути. Закрытие
+# fd 9 закрывается ВНУТРИ тела наблюдателя первой строкой (сразу после `do`)
+# — иначе при SIGKILL родителя (обрыв tmux-панели) осиротевший наблюдатель
+# несёт fd 9 с активным flock бессрочно: его тело — `while sleep 5; do ...;
+# done`, новый orch-loop не пройдёт `flock -n 9` до явного гашения осиротевшего.
+# С `exec 9>&-` на каждой итерации lock снимается после выхода из сна, и
+# следующий orch-loop может стартовать в пределах 5 с. Строки снимка 085 р2
+# («( while sleep 5; do» / «  done ) &») сохранены дословно. env-флаг
+# «lock уже взят» не свидетель.
+mkdir -p "$HOME/.local/state/dev-harness"
+LOCKF="$HOME/.local/state/dev-harness/orch-loop.lock"
+[ /dev/fd/9 -ef "$LOCKF" ] 2>/dev/null || exec 9>>"$LOCKF"
+flock -n 9 || { log "ОТКАЗ: orch-loop уже запущен"; exit 1; }
+# Один харнесс: установленная копия (install.sh пишет ORCH_SELF_UPDATE=1 в ops.env) на каждом
+# старте сверяется с репо. Расходится user-часть — переустановка из репо и ОДИН перезапуск
+# установленной копией; расходится root-часть (сторож, юниты) — сессия получает строку доложить
+# владельцу. Перезапуск идёт в УСТАНОВЛЕННЫЙ файл, не в "$0", и не больше одного раза подряд
+# (ORCH_SELF_UPDATED): цикл, запущенный не из установленного места, иначе переустанавливал бы
+# себя без конца (Рв-ОХ-2: 456 витков за 10 с).
+if [ "${ORCH_SELF_UPDATE:-0}" = 1 ] && [ -z "${ORCH_SELF_UPDATED:-}" ] && [ -f "$REPO/ops/server/install.sh" ]; then
+  if ! cmp -s "$0" "$REPO/ops/server/user/orch-loop"; then
+    installed="${OPS_SERVER_BIN_DST:-$HOME/bin}/orch-loop"
+    if bash -n "$REPO/ops/server/user/orch-loop" && bash "$REPO/ops/server/install.sh" user >/dev/null \
+       && cmp -s "$installed" "$REPO/ops/server/user/orch-loop"; then
+      log "цикл обновлён из репо — перезапуск установленной копией ($installed)"
+      ORCH_SELF_UPDATED=1 exec "$installed"
+    fi
+    log "ОТКАЗ: цикл из репо не установлен — работаю на текущей версии ($0)"
+  fi
+fi
+unset ORCH_SELF_UPDATED   # флаг живёт ровно один exec: следующий старт сверяется заново
+if [ "${ORCH_SELF_UPDATE:-0}" = 1 ] && [ -f "$REPO/ops/server/install.sh" ]; then
+  drift="$(bash "$REPO/ops/server/install.sh" verify 2>&1 >/dev/null)" || {
+    log "расхождение с репо: $(printf '%s' "$drift" | tr '\n' ';')"
+    MSG="$MSG ВНИМАНИЕ: машина расходится с репо ($(printf '%s' "$drift" | tr '\n' ';')) — доложи владельцу: sudo bash $REPO/ops/server/install.sh root."
+  }
+fi
+mkdir -p "$(dirname "$MARK")"
+loop_pid=$$; n="${ORCH_N:-0}"
+[ -e "$STOP" ] && { log "стоп-файл $STOP — выход"; rm -f "$STOP"; exit 0; }
+GO="$MARK.go"   # «перезапуск принят»: ставит наблюдатель ДО убийства сессии
+rm -f "$MARK" "$GO"; n=$((n + 1)); start=$(date +%s)
+# Идентичность агента (И-3, 093): ДО форка наблюдателя — эскалация KILL в
+# наблюдателе пользуется тем же узким sudoers-правилом (sudo -nu $AGENT_USER).
+# В режиме «тот же пользователь» HOME сессии — свой.
+if [ "$AGENT_USER" = "$SELF_USER" ]; then
+  AGENT_HOME="${ORCH_AGENT_HOME:-$HOME}"
+else
+  AGENT_HOME="${ORCH_AGENT_HOME:-/var/lib/orch-agent}"
+fi
+# Гашение сессии по дереву посредников (Р1-7 круга 1): запуск сессии —
+# systemd-run --scope (exec) → sh (exec sudo) → sudo -nu (РОДИТЕЛЬ, сигнал
+# пересылает ребёнку) → workshop/omp; omp — НЕ прямой потомок цикла.
+kill_tree() { # <сигнал> <pid>: всем потомкам <pid> (кроме наблюдателя), снизу вверх;
+  # лист под uid агента наблюдателю недосягаем (EPERM) — pid собирается в agent_pids
+  local sig="$1" p="$2" c
+  for c in $(pgrep -P "$p" 2>/dev/null); do
+    [ "$c" = "$watch_pid" ] && continue
+    kill_tree "$sig" "$c"
+  done
+  [ "$p" = "$loop_pid" ] || { kill -"$sig" "$p" 2>/dev/null || agent_pids="$agent_pids $p"; }
+}
+tree_quiet() { # <pid>: rc 0 — живых потомков (кроме наблюдателя) нет
+  local c
+  for c in $(pgrep -P "$1" 2>/dev/null); do
+    [ "$c" = "$watch_pid" ] || return 1
+  done
+  return 0
+}
+reap_session() { # Рв2-3 (И-7, круг 3): зачистка остатков сессии ПОСЛЕ возврата — и при
+  # естественном выходе (rc 0/1), и после маркерного гашения наблюдателем.
+  # Сироты (ppid=1) остаются в группе сессии (setsid у двери) — группа гасится
+  # целиком; лист под uid агента группе сигналов недосягаем (EPERM) — добивается
+  # тем же узким sudoers-правилом (И-3), что и в наблюдателе.
+  local pgid p
+  # Режим «тот же пользователь»: сессия НЕ отделена setsid (omp нужен управляющий терминал
+  # панели), её остатки собраны в scope-юните: TERM, 3 с, затем KILL всему юниту (stop сам
+  # ждал бы TimeoutStopSec 90 с на TERM-иммунном остатке).
+  if [ "$AGENT_USER" = "$SELF_USER" ]; then
+    systemctl --user kill --signal=TERM "$SESSION_UNIT" >/dev/null 2>&1 || return 0
+    for _ in 1 2 3; do
+      sleep 1
+      systemctl --user is-active --quiet "$SESSION_UNIT" 2>/dev/null || return 0
+    done
+    systemctl --user kill --signal=KILL "$SESSION_UNIT" >/dev/null 2>&1 || true
+    return 0
+  fi
+  [ -s "$PGID" ] || return 0
+  pgid="$(cat "$PGID" 2>/dev/null)" || return 0
+  case "$pgid" in ''|*[!0-9]*) return 0 ;; esac
+  pgrep -g "$pgid" >/dev/null 2>&1 || { rm -f "$PGID"; return 0; }
+  kill -TERM -- "-$pgid" 2>/dev/null || true
+  for _ in 1 2 3; do
+    sleep 1
+    pgrep -g "$pgid" >/dev/null 2>&1 || break
+  done
+  kill -KILL -- "-$pgid" 2>/dev/null || true
+  agent_pids=''
+  for p in $(pgrep -g "$pgid" 2>/dev/null); do
+    kill -0 "$p" 2>/dev/null || agent_pids="$agent_pids $p"
+  done
+  if [ -n "$agent_pids" ] && command -v sudo >/dev/null 2>&1; then
+    sudo -nu "$AGENT_USER" kill -KILL $agent_pids 2>/dev/null || true
+  fi
+  rm -f "$PGID"
+}
+# Наблюдатель: ловит 083. Строки снимка 085 р2 («( while sleep 5; do» /
+# «  done ) &») сохранены дословно — клетка р2 085 сравнивает содержимое
+# снимка с субъектом построчно. lock-fd 9 закрывается ВНУТРИ тела
+# наблюдателя отдельной строкой `exec 9>&-` сразу после `do`: иначе при
+# SIGKILL родителя (обрыв tmux-панели) осиротевший наблюдатель несёт fd 9
+# с активным flock бесконечно (его тело — `while sleep 5; do ...; done`),
+# и следующий orch-loop не пройдёт `flock -n 9` до явного гашения сироты.
+( while sleep 5; do
+    exec 9>&-   # 997 инв.5: lock-fd закрыт внутри тела наблюдателя (отдельной строкой)
+    watch_pid="$BASHPID"
+    [ -e "$MARK" ] || continue
+    sleep "$GRACE"
+    # Маркер сняли за время GRACE — передумали: перезапуск отменён, сессия живёт.
+    [ -e "$MARK" ] || { log "сессия #$n: маркер снят за ${GRACE}с — перезапуск отменён"; continue; }
+    touch "$GO"   # с этой точки перезапуск состоялся, даже если маркер снимут (2026-10-03 18:35)
+    # Р1-7: сначала дерево посредников — TERM доходит до процесса агента
+    # пересылкой sudo; станционные строки прямого потомка ниже остаются
+    # для формы «omp — прямой потомок» (до-093 станция, CI-шаблоны).
+    agent_pids=''; kill_tree TERM "$loop_pid"
+    for _ in 1 2 3 4 5 6; do sleep 5; tree_quiet "$loop_pid" && break; done
+    if ! tree_quiet "$loop_pid"; then
+      agent_pids=''; kill_tree KILL "$loop_pid"
+      # KILL sudo не пересылает — осиротевший лист под uid агента добиваем
+      # тем же узким правилом, каким запускали (NOPASSWD harness→агент, И-3).
+      if [ -n "$agent_pids" ] && command -v sudo >/dev/null 2>&1; then
+        sudo -nu "$AGENT_USER" kill -KILL $agent_pids 2>/dev/null || true
+      fi
+    fi
+    pkill -TERM -P "$loop_pid" -f '^omp --profile' || exit 0
+    for _ in 1 2 3 4 5 6; do sleep 5; pgrep -P "$loop_pid" -f '^omp --profile' >/dev/null || exit 0; done
+    pkill -KILL -P "$loop_pid" -f '^omp --profile'; exit 0
+  done ) &
+watcher=$!
+log "сессия #$n: старт"
+# Потолок памяти (контракт 085, И-5): --scope исполняет команду exec'ом —
+# пускач сессии остаётся прямым потомком цикла. И-5 контракта 093: без scope
+# сессия НЕ стартует; именованный отказ rc 1 (см. ниже «запуск в scope не
+# подтверждён — запуск без потолка запрещён»). Ветка запуска-без-потолка
+# удалена (Пять правил §2, замена не наслоение).
+# И-3 контракта 093: сессия запускается под uid агента (≠ владельца
+# /home/harness); HOME сессии — вне /home/harness; workshop не может читать
+# ~/.ssh/github-rw-cwd и ~/.config/odelix/github.env (uid ≠ harness).
+# Одна форма запуска (Р1-9 круга 1: прежние две ветки были побайтно
+# одинаковы и обнуляли стаб s7): шов ORCH_LOOP_AGENT_CMD подставляет
+# тестовую команду вместо workshop, НЕ отменяя sudo -nu — шов выбирает
+# команду, не границу uid (консультант n266). Станционный контур:
+# пользователя orchagent и узкое sudoers-правило провизионит install.sh
+# root (И-3); наблюдатель гасит сессию по дереву посредников (kill_tree).
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+# Панель, поднятая через su из сессии root, наследует XDG_RUNTIME_DIR=/run/user/0 и шину root:
+# systemd-run --user тогда отказывает «Failed to connect to bus: Permission denied» и сессия не
+# стартует (живой укус 2026-10-16 13:27). Чужой каталог/шина — заменяются своими.
+if [ -n "${XDG_RUNTIME_DIR:-}" ] && [ "$XDG_RUNTIME_DIR" != "/run/user/$(id -u)" ]; then
+  export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+  unset DBUS_SESSION_BUS_ADDRESS
+fi
+case "${DBUS_SESSION_BUS_ADDRESS:-}" in
+  ''|"unix:path=${XDG_RUNTIME_DIR:-}/bus") ;;
+  *) unset DBUS_SESSION_BUS_ADDRESS ;;
+esac
+SCOPE=(systemd-run --user --scope -q -p "MemoryMax=$MEM_MAX" -p MemorySwapMax=0)
+# СТОРОЖ 152 (И-1/И-2 «oom-sessii-i-zamki»): двойники и маркер — в среде
+# scope ОДНИМ --setenv-набором ДО «--», хвост команды после «--» не меняется
+# (форма 085: пара «"$AGENT_CMD" "$MSG"» последними аргументами). PATH собран
+# ЗНАЧЕНИЕМ здесь (не systemd-развёртыванием $PATH). Судят двойники по
+# kernel-факту cgroup (orch-session-*.scope), маркер — второй канал.
+# Каталога нет (установка старее) — громкая строка в журнал, сессия идёт;
+# install.sh user ставит двойники атомарно с этим файлом (verify докладывает).
+DVOS="${ORCH_DVOJNIKI:-${OPS_SERVER_BIN_DST:-$HOME/bin}/dvojniki-strogo}"
+if [ -d "$DVOS" ]; then
+  SCOPE+=(--setenv="PATH=$DVOS:$PATH" --setenv=ORCH_SESSION_SCOPE=1)
+else
+  log "сессия #$n: двойники сторожа не установлены ($DVOS) — scope без PATH-сторожа (152 И-1); запусти: bash $REPO/ops/server/install.sh user"
+fi
+PGID="$MARK.pgid"; rm -f "$PGID"
+# Рв2-6 (И-3 v2, слово владельца 2026-10-12): исполняемый код агента —
+# /opt/orch-agent (провизионит install.sh root: root:root, без .env —
+# публикационный токен агенту недоступен, И-4); $REPO под /home/harness
+# uid'у агента недостижим (/home/harness — drwxr-x--- harness:harness,
+# orchagent НЕ в группе harness). Умолчание workshop'а — ИЗ /opt/orch-agent;
+# швы ORCH_WORKSHOP / ORCH_LOOP_AGENT_CMD (тест-миры) путь задают сами.
+# Состояние/сессии агента — $AGENT_HOME (/var/lib/orch-agent), не кодовый
+# корень.
+if [ "$AGENT_USER" = "$SELF_USER" ]; then
+  WORKSHOP="${ORCH_WORKSHOP:-$REPO/workshop}"
+else
+  AGENT_ROOT="${ORCH_AGENT_ROOT:-/opt/orch-agent}"
+  WORKSHOP="${ORCH_WORKSHOP:-$AGENT_ROOT/workshop}"
+fi
+AGENT_CMD="${ORCH_LOOP_AGENT_CMD:-$WORKSHOP}"
+SESSION_UNIT="orch-session-$loop_pid-$n.scope"
+# Рв2-3 (И-7, круг 3): сессия стартует в СВОЕЙ сессии/группе (setsid у двери):
+# pid лидера = pgid пишется в $PGID — осиротевшие потомки (ppid=1) остаются
+# в этой группе и досягаемы зачистке ПОСЛЕ возврата сессии (reap_session),
+# не только при гашении по маркеру наблюдателем.
+# Канал подтверждения (контракт 997, инв. 2): fd 3 в scope — НОВОЕ
+# открытие write-end через `/dev/fd/8` (родитель держит read-end на fd 7).
+# Открытие через `/dev/fd/N` — НЕ `dup(2)`: это новый `open(2)` на путь
+# `/proc/self/fd/8`, отдельный fd в scope; O_NONBLOCK (если был на fd 8)
+# НЕ разделяется между fd 3 и fd 8. На анонимном пайпе pre-existing
+# флагов нет, оба варианта функционально эквивалентны — здесь выбран
+# `/dev/fd/8` как корректная семантика «передать существующий fd в scope».
+# Внутри scope команда пишет «SCOPED\n» на fd 3 ДО exec агента. Токен не
+# берётся из stdout агента/launcher, файла, rc сессии или истории. Ошибка
+# подготовки/чтения канала — отказ rc 1, не fallback. Lock-fd 9 и fd 3
+# в scope закрываются перед/после exec (`exec 3>&-` в scope, `exec 7<&-
+# 8>&-` вокруг вызова).
+# Путь pgid-файла входит в скрипт СРЕДОЙ (ORCH_PGID_FILE), не argv: хвост
+# команды после «--» обязан кончаться парой «"$AGENT_CMD" "$MSG"» (форма 093,
+# И-5: шим 085 опознаёт запуск сессии по двум последним токенам).
+# coproc один раз перед веткой uid: ветки различаются формой команды
+# внутри scope, не настройкой канала. relay-процесс (cat) наследует fd 9
+# (lock) — ему он не нужен; закрытие fd 9 (`exec 9>&-` первой строкой
+# тела) — гигиена: cat работает только на своём stdin/stdout и не зависит
+# от lock-fd родителя.
+coproc RECEIPT { exec 9>&-; cat; }
+receipt_pid=$RECEIPT_PID
+exec 7<&"${RECEIPT[0]}" 8>&"${RECEIPT[1]}"
+exec {RECEIPT[0]}<&- {RECEIPT[1]}>&-
+if [ "$AGENT_USER" = "$SELF_USER" ]; then
+  # Тот же пользователь: без sudo и без setsid (TUI omp держит терминал панели); потолок памяти —
+  # тот же scope, остатки сессии — по имени scope-юнита (reap_session). fd 8 — write-end пайпа
+  # (= /dev/fd/8 — НОВОЕ открытие write-end в scope, отдельный fd в scope); fd 7 — read-end (на родителе).
+  ORCH_PGID_FILE="$PGID" "${SCOPE[@]}" --unit="$SESSION_UNIT" -- sh -c \
+    'printf "SCOPED\n" >&3; exec 3>&-; exec "$1" --yolo -- "$2"' \
+    sh "$AGENT_CMD" "$MSG" 3>/dev/fd/8 7<&- 8>&- 9>&-; rc=$?
+else
+  ORCH_PGID_FILE="$PGID" "${SCOPE[@]}" -- setsid sh -c \
+    'printf "%s\n" "$$" >"$ORCH_PGID_FILE" && printf "SCOPED\n" >&3; exec 3>&-; HOME="$1" exec sudo -nu "$2" "$3" --yolo -- "$4"' \
+    sh "$AGENT_HOME" "$AGENT_USER" "$AGENT_CMD" "$MSG" 3>/dev/fd/8 7<&- 8>&- 9>&-; rc=$?
+fi
+# Канал подтверждения (контракт 997, инв. 2): чтение ДО EOF — если scope
+# отказал, write-end закрывается при exit и read-end возвращает EOF;
+# таймаут НЕ нужен (нет риска вечной блокировки). Закрываем write-end
+# (`exec 8>&-`) сразу, чтобы relay-процесс cat — по EOF от закрытого
+# upstream — сам вышел и `wait` снялся (writer'ов больше нет).
+# fd 9 (lock) в scope уже закрыт `9>&-`; fd 3 в scope закрывается
+# до exec агента (`exec 3>&-` внутри scope-команды). Никаких лишних
+# fd к close (fd 4 нет, stdout stderr НЕ перехватываются —
+# stdin/stdout/stderr агента исходные).
+exec 8>&-
+receipt=
+IFS= read -r receipt <&7 || receipt=
+exec 7<&-
+wait "$receipt_pid"
+if [ "$receipt" != SCOPED ]; then
+  # И-5 (997, инв. 2): подтверждение не получено (systemd-run отказал или
+  # stdout SCOPED не из канала; ошибка подготовки/чтения канала) — именованный
+  # отказ rc 1, сессия НЕ стартует, цикл останавливается, повторов нет.
+  log "сессия #$n: запуск в scope не подтверждён — запуск без потолка запрещён (И-5, контракт 093)"
+  pkill -P "$watcher" 2>/dev/null   # 997: прерываем сон наблюдателя ДО kill, чтобы он не держал lock ещё до 5 с после выхода
+  kill "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null
+  exit 1
+fi
+scoped=1
+log "сессия #$n: scope подтверждён (канал запуска); файловая метка не используется"
+pkill -P "$watcher" 2>/dev/null   # 997: сон наблюдателя не должен держать lock после выхода
+kill "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null
+reap_session   # Рв2-3: остатки сессии гасятся ПОСЛЕ возврата — на любом исходе (rc 0/1, маркер)
+life=$(( $(date +%s) - start ))
+[ -e "$GO" ] && touch "$MARK"
+# Без маркера: rc 0 (/exit) или стоп-файл (пауза на пик, владелец) — останов; иначе это
+# падение (обрыв, сигнал, ошибка) — новая сессия; EARLY_MAX падений подряд — останов.
+if [ ! -e "$MARK" ]; then
+  if [ "$rc" -eq 0 ] || [ -e "$STOP" ]; then
+    rm -f "$STOP"; log "сессия #$n: завершилась без маркера (rc=$rc, ${life}с) — цикл остановлен"; exit "$rc"
+  fi
+  # ФАКТ OOM юнита, не только rc 137 (контракт 152, И-6; боль 31.10 12:01:
+  # scope Failed with result 'oom-kill' при rc=143 — литерал 085 не вышел).
+  # Result мёртвого scope читается сразу после возврата: юнит погашен
+  # reap_session, но ещё известен systemd. systemctl нет/отказал — честная
+  # деградация к старому правилу rc=137 (пустой Result ≠ 'oom-kill');
+  # ложной маркировки нет (клетки d03/d05 батареи oom_zamki_152).
+  unit_result="$(systemctl --user show "$SESSION_UNIT" --property=Result --value 2>/dev/null || true)"
+  if [ "$unit_result" = "oom-kill" ] || { [ "$scoped" -eq 1 ] && [ "$rc" -eq 137 ]; }; then
+    log "сессия #$n: OOM: omp убит потолком памяти (MemoryMax=$MEM_MAX, rc=$rc, Result=$unit_result)"
+  fi
+  crash=$(( ${ORCH_CRASH:-0} + 1 )); [ "$life" -ge $(( MIN_LIFE * 5 )) ] && crash=1
+  [ "$crash" -lt "$EARLY_MAX" ] || { log "сессия #$n: упала без маркера (rc=$rc) $crash раз подряд — цикл остановлен"; exit "$rc"; }
+  log "сессия #$n: упала без маркера (rc=$rc, ${life}с) — новая сессия через ${EARLY_WAIT}с ($crash/$EARLY_MAX)"
+  sleep "$EARLY_WAIT"
+  export ORCH_EARLY="$crash"   # общий счёт нештатных завершений подряд (контракт 085, И-3)
+  ORCH_N="$n" ORCH_CRASH="$crash" exec "$0"
+fi
+# Ранний маркер (< MIN_LIFE) — не остановка: пауза и новая сессия. Останов — только если
+# так EARLY_MAX раз подряд (настоящая петля). Ночью без владельца остановка = потерянные часы.
+if [ "$life" -lt "$MIN_LIFE" ]; then
+  early=$(( ${ORCH_EARLY:-0} + 1 )); rm -f "$MARK"
+  [ "$early" -lt "$EARLY_MAX" ] || { log "сессия #$n: маркер через ${life}с (< ${MIN_LIFE}с) $early раз подряд — цикл остановлен"; exit 3; }
+  log "сессия #$n: маркер через ${life}с (< ${MIN_LIFE}с) — новая сессия через ${EARLY_WAIT}с ($early/$EARLY_MAX)"
+  sleep "$EARLY_WAIT"
+  export ORCH_CRASH="$early"   # общий счёт нештатных завершений подряд (контракт 085, И-3)
+  ORCH_N="$n" ORCH_EARLY="$early" exec "$0"
+fi
+log "сессия #$n: перезапуск по маркеру (${life}с)"
+sleep 3
+ORCH_N="$n" ORCH_EARLY=0 ORCH_CRASH=0 exec "$0"   # тот же pid, свежий текст скрипта
