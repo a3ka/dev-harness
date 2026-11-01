@@ -6,16 +6,16 @@
 продукта: `.github/workflows/mobile.yml` + `mobile/ci-screens.json` +
 `mobile/scripts/zamer_obryva.sh`. Работники — записи КАРТЫ (ekrany[].job +
 integracija.job; канон разбора — у батареи, не у субъекта — прецедент 143).
-Структурные клетки (z*) судят ВСЕХ работников; поведенческие (b*) —
-исполнительный replay обёртки ПЕРВОГО работника карты (обёртка канонически
-одинакова; параметры каждого работника судят z02/z05). Экранные тела
-субъектов батареей НЕ исполняются и не судятся — их держат батареи
+Структурные клетки z01–z04 судят всех работников; z05 ИСПОЛНЯЕТ шаг
+сбора каждого работника в отдельном мире и судит журнал; поведенческие b*
+делают replay обёртки ПЕРВОГО работника (параметры всех держат z02/z05).
+Экранные тела субъектов батареей НЕ исполняются и не судятся — их держат батареи
 143/147/148/995; replay управляет МИРОМ вокруг обёртки: настоящие
 процессы-подделки qemu и adb-server (live `/proc`, нонс мира), подложные
 adb/sleep/pgrep в замкнутом PATH, виртуальные секунды (sleep-шим тикает
 счётчик), сценарные события (обрыв/сигнатура/wipe) по виртуальному времени.
 
-## z-ось (структура обвязки, статика по субъекту)
+## z-ось (обвязка; z05 исполняет сбор каждого работника в отдельном мире)
 
 | клетка | вход | красная причина |
 |---|---|---|
@@ -23,7 +23,7 @@ adb/sleep/pgrep в замкнутом PATH, виртуальные секунд�
 | z02-obertka-parametry | env шагов × карта × PORT тела | ZAMER_EKRAN≠id записи; ZAMER_NS≠output_namespace; ZAMER_SERIAL≠emulator-<PORT> (PORT — литерал `PORT=<n>` тел работника, иначе `mobile/scripts/ci-e2e.sh` делегированных) |
 | z03-obertka-porjadok-maskirovka | порядок/свойства шагов | любой continue-on-error у шага работника (маскировка итога); старт позже сбора; между стартом и сбором нет экранного шага; старт с if:always() (сэмплер после экранного шага); сбор/артефакт без if:always(); артефакт не upload-artifact или if-no-files-found≠ignore (зелёный краснеет) |
 | z04-kanon-skripta | байты mobile/scripts/zamer_obryva.sh | ZAMER_SKRIPT_NET / ZAMER_SKRIPT_NE_KANON (пин sha256 в source.json:.piny — канон реализация вносит байт-в-байт) |
-| z05-put-zagruzki | with.path/with.name шага артефакта × РАЗБОР СТРУКТУРЫ ИСПОЛНЕНИЯ scalar `run` шага сбора (арбитраж 150 П1 + круг 3 блок 1): команды с признаком безусловности; комментарий/echo/посторонняя строка/цель перенаправления — НЕ код; РОВНО один вызов `bash mobile/scripts/zamer_obryva.sh sbor` в БЕЗУСЛОВНОЙ позиции; РОВНО один `--out`; `$`-подстановка только из env шага, ПО КАЖДОМУ работнику карты | SBOR_RUN_NE_RASPOZNAN (незакрытая кавычка/скобка; here-doc `<<`; определение функции/скобка в середине слова; слово после `)`; управляющая конструкция if/while/for/case/{…); SBOR_VYZOV_NEODNOZNACHEN (вызовов sbor ≠ 1: пропуск сбора/`true`/`echo`/комментарий); SBOR_NE_BEZUSLOVEN (правый операнд `&&`/`\|\|`, условная группа — сбор может быть пропущен); SBOR_ASINHRONNEN (фон `&` — гонка с upload); SBOR_NEDOSTIZHIM (безусловный exit выше вызова); SBOR_BEZ_ODNOZNACHNOGO_OUT; SBOR_OUT_NE_RASPOZNAN (неизвестная переменная/подстановка команды); PUT_ZAGRUZKI_RASHODITSJA: with.path ≠ mobile/zamer-out-<ZAMER_EKRAN> ЛИБО исполняемый `--out` ≠ with.path (upload грузит пустоту при if-no-files-found: ignore — публикация недоказуема); IMJA_ARTEFAKTA_NE_EKRAN (name не zamer-<ekran>-…) |
+| z05-put-zagruzki | run шага сбора КАЖДОГО работника исполняется настоящим bash в одноразовом cwd с PATH-двойниками `bash mobile/scripts/zamer_obryva.sh sbor`/gh/adb; оракул — фактический журнал argv двойника, сравнение `--out` с `with.path` и ожидаемым выходом записи карты (ожидания в памяти ДО запуска) | NABLJUDENIE_PUSTO (журнал пуст у всех); SBOR_NE_VYZVAN (нет события конкретного работника: true \|\|/false &&/exit/if false/echo/комментарий/скрытая функция/here-doc); SBOR_RUN_TIMEOUT или SBOR_RUN_OTKAZ; SBOR_VYZOV_NEODNOZNACHEN (не ровно одно событие); SBOR_BEZ_ODNOZNACHNOGO_OUT; SBOR_OUT_NE_SOVPADAET (выход сбора или upload разошлись); IMJA_ARTEFAKTA_NE_EKRAN |
 
 ## b-ось (поведение, replay обёртки работника-1; сценарии — probe.py:SCENARII)
 
@@ -64,11 +64,12 @@ adb/sleep/pgrep в замкнутом PATH, виртуальные секунд�
 | stab_zamer_arhiv_soblaznjaet.py | наивный гейт по всему ns — архив диагностики 995 лжёт обрывом текущей попытки | b11 |
 | stab_zamer_put_zagruzki.py | with.path ведёт в несуществующий каталог — upload грузит пустоту | z05 |
 | stab_zamer_kommentarij_sbor.py | исполняемый --out сбора ведёт в чужой каталог, правильная строка спрятана комментарием в run (арбитраж 150 П1) | z05 |
-| stab_zamer_uslovnyj_sbor.py | вызов sbor спрятан в правый операнд `\|\|` у `true` — сбор гарантированно пропущен при каноническом --out (круг 3, блок 1; атака критика) | z05 |
-| stab_zamer_uslovnyj_sbor_and.py | вызов sbor спрятан в правый операнд `&&` у `false` (`&&`-обход из закрывающего свойства) | z05 |
-| stab_zamer_heredoc_sbor.py | here-doc `<<` на вызове sbor — неkanonическая форма (круг 3) | z05 |
-| stab_zamer_funkcija_sbor.py | вызов sbor в теле функции `zamer_sbor()` — тело статически не привязать к безусловному исполнению (круг 3) | z05 |
-| stab_zamer_exit_do_sbora.py | безусловный `exit 0` выше вызова sbor — сбор недостижим (Н-62, родственный класс) | z05 |
+| stab_zamer_uslovnyj_sbor.py | `true \|\| sbor`: правый операнд не исполняется | z05 |
+| stab_zamer_uslovnyj_sbor_and.py | `false && sbor`: правый операнд не исполняется | z05 |
+| stab_zamer_operator_novaja_stroka.py | `true \|\|` и перевод строки перед sbor: правая ветвь не исполняется | z05 |
+| stab_zamer_heredoc_sbor.py | `cat <<EOF` содержит текст sbor, но не вызывает его | z05 |
+| stab_zamer_funkcija_sbor.py | определение функции содержит sbor, но вызова функции нет | z05 |
+| stab_zamer_exit_do_sbora.py | `exit 0` выше sbor, событие не достигнуто | z05 |
 | stab_zamer_techet_procesom.py | sbor выбрасывает подделку-qemu с нонсом мира — процесс переживает сбор | b12 |
 
 ## Режимы и коды
@@ -76,7 +77,7 @@ adb/sleep/pgrep в замкнутом PATH, виртуальные секунд�
 - без флага/без `--repo` — субъект (дерево харнесса) не реализован: rc 1,
   SUBJECT_ABSENT, все 17 клеток красны поимённо;
 - `--repo R` — живой продукт: до реализации обёртки красен поимённо;
-- `--stabs` — контроль + SVJAZI 23, живых стабов 0;
+- `--stabs` — контроль + SVJAZI 24, живых стабов 0;
 - `--oracle-tamper` — порча каждого из 3 пиннованных носителей ловится
   ORACLE_TAMPERED rc 2 ДО клеток;
 - `--seed N` — тот же итог при другом порядке клеток.

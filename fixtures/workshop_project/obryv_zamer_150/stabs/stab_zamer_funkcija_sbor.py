@@ -4,11 +4,7 @@ import yaml
 
 
 def mutiruj(koren):
-    """Круг 3, блок 1 (П1), «функции» из закрывающего свойства: вызов sbor
-    спрятан в тело функции zamer_sbor(), исполняется отдельным вызовом —
-    статический суд не может привязать тело к безусловному исполнению;
-    старый z05 разбирал скобки как границы и видел вызов зелёным. Новый
-    разбор: скобка в середине команды — SBOR_RUN_NE_RASPOZNAN."""
+    """Сбор виден в определении функции, но функция не вызывается."""
     p = koren / '.github' / 'workflows' / 'mobile.yml'
     wf = yaml.safe_load(p.read_text(encoding='utf-8'))
     shagi = wf['jobs']['e2e-proba-obryv']['steps']
@@ -21,7 +17,7 @@ def mutiruj(koren):
                 kljuch,
                 'zamer_sbor() { ' + kljuch, 1).replace(
                 '--out mobile/zamer-out-$ZAMER_EKRAN',
-                '--out mobile/zamer-out-$ZAMER_EKRAN; }\nzamer_sbor', 1)
+                '--out mobile/zamer-out-$ZAMER_EKRAN; }', 1)
             break
     else:
         raise AssertionError('sbor-shag ne najden')
