@@ -4,11 +4,7 @@ import yaml
 
 
 def mutiruj(koren):
-    """Круг 3, блок 1 (П1), here-doc из закрывающего свойства: вызов sbor
-    получает here-doc (<<) — неkanonicheskaja форма исполнения шага сбора;
-    старый z05 разбирал `<<` как две границы `<` и считал вызов зелёным.
-    Новый разбор структуры исполнения: here-doc — именованный отказ
-    SBOR_RUN_NE_RASPOZNAN."""
+    """Сбор виден в here-doc, но shell исполняет только cat; журнал пуст."""
     p = koren / '.github' / 'workflows' / 'mobile.yml'
     wf = yaml.safe_load(p.read_text(encoding='utf-8'))
     shagi = wf['jobs']['e2e-proba-obryv']['steps']
@@ -18,7 +14,9 @@ def mutiruj(koren):
             kljuch = '--out mobile/zamer-out-$ZAMER_EKRAN'
             assert kljuch in run, 'kanon --out ne najden'
             s['run'] = run.replace(
-                kljuch, kljuch + " <<'ZAMER_EOF'\ntelo here-doc ne kanon\nZAMER_EOF", 1)
+                'bash mobile/scripts/zamer_obryva.sh sbor',
+                "cat <<'ZAMER_EOF'\nbash mobile/scripts/zamer_obryva.sh sbor", 1
+            ).replace(kljuch, kljuch + "\nZAMER_EOF", 1)
             break
     else:
         raise AssertionError('sbor-shag ne najden')

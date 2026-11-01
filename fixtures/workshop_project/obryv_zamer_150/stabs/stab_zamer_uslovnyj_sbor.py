@@ -4,11 +4,7 @@ import yaml
 
 
 def mutiruj(koren):
-    """Круг 3, блок 1 (П1): вызов sbor спрятан в ПРАВЫЙ операнд `||` у
-    `true` — сбор гарантированно пропускается, текстовый --out остаётся
-    каноническим, шаг rc 0; старый z05 разбирал `||` как границу и считал
-    неисполняемый вызов доказанным (ATTACK_RC 0, 17/17 зелёных). Новый z05
-    требует БЕЗУСЛОВНУЮ позицию вызова — SBOR_NE_BEZUSLOVEN."""
+    """true || sbor: правая ветвь не исполняется; журнал сбора пуст."""
     p = koren / '.github' / 'workflows' / 'mobile.yml'
     wf = yaml.safe_load(p.read_text(encoding='utf-8'))
     shagi = wf['jobs']['e2e-proba-obryv']['steps']

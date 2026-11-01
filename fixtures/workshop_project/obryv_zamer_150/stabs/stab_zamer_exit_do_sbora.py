@@ -4,11 +4,7 @@ import yaml
 
 
 def mutiruj(koren):
-    """Круг 3, блок 1 (П1), родственный дефект класса «пропущенный сбор»
-    (Н-62): безусловный `exit 0` выше вызова sbor — шаг завершается ДО
-    сбора, upload грузит пустоту; старый z05 видел единственный вызов в
-    безусловной позиции и был зелёным. Новый z05: безусловный exit до
-    вызова — SBOR_NEDOSTIZHIM."""
+    """exit 0 выше текстового sbor: шаг завершается без события сбора."""
     p = koren / '.github' / 'workflows' / 'mobile.yml'
     wf = yaml.safe_load(p.read_text(encoding='utf-8'))
     shagi = wf['jobs']['e2e-proba-obryv']['steps']
