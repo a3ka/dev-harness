@@ -419,6 +419,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 151 | до V-2 | complior | - | docs/owner/2026-10-30-gespraech-otdacha.md#Порядок |
 | 3 | 144 | до V-2 | autonomy | - | docs/owner/2026-10-28-agent-parkuetsya.md#Порядок |
 | 3 | 152 | до V-2 | autonomy | - | docs/owner/2026-10-31-slot-harness-oom.md#Порядок |
+| 3 | 153 | до V-2 | autonomy | - | docs/owner/2026-11-01-done-gate-nul.md#Порядок |
 | 4 | 095 | до V-2 | context | 094 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
 | 4 | 110 | параллельно с V-2 | done | 087 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
 | 4 | 993 | до V-2 | complior | - | docs/owner/2026-10-17-resheniya-back-992-993.md#4 |
