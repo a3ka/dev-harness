@@ -88,3 +88,5 @@ check:shablon-dvizhenie-146-family-selftest	50	1	0
 check:ci-e2e-restart-995-family-selftest	188	1	0
 check:obryv-adb-141-family-selftest	56	1	0
 check:odin-agent-140-family-selftest	55	1	0
+check:nul-istochnika-153-family-selftest	50	1	0
+check:nul-istochnika-153-stabs-family-selftest	65	1	0
