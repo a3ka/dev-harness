@@ -29,6 +29,7 @@
     "stabs/stab_zamer_put_zagruzki.py": "z05-put-zagruzki",
     "stabs/stab_zamer_kommentarij_sbor.py": "z05-put-zagruzki",
     "stabs/stab_zamer_uslovnyj_sbor.py": "z05-put-zagruzki",
+    "stabs/stab_zamer_operator_novaja_stroka.py": "z05-put-zagruzki",
     "stabs/stab_zamer_uslovnyj_sbor_and.py": "z05-put-zagruzki",
     "stabs/stab_zamer_heredoc_sbor.py": "z05-put-zagruzki",
     "stabs/stab_zamer_funkcija_sbor.py": "z05-put-zagruzki",
