@@ -415,7 +415,6 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 147 | до V-2 | complior | - | docs/owner/2026-10-28-d24-gespraech-final2.md#Порядок |
 | 3 | 148 | до V-2 | complior | - | docs/owner/2026-10-28-d24-gespraech-final2.md#Порядок |
 | 3 | 149 | до V-2 | complior | - | docs/owner/2026-10-28-d24-gespraech-final2.md#Порядок |
-| 3 | 150 | до V-2 | complior | - | docs/owner/2026-10-26-obryv-emulyatora-v2.md#Порядок |
 | 3 | 151 | до V-2 | complior | - | docs/owner/2026-10-30-gespraech-otdacha.md#Порядок |
 | 3 | 144 | до V-2 | autonomy | - | docs/owner/2026-10-28-agent-parkuetsya.md#Порядок |
 | 3 | 152 | до V-2 | autonomy | - | docs/owner/2026-10-31-slot-harness-oom.md#Порядок |
