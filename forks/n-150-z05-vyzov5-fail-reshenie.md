@@ -1,4 +1,4 @@
-ФОРК: 150-z05-vyzov5-fail-reshenie
+ФОРК: n-150-z05-vyzov5-fail-reshenie
 ВОПРОС: Предмет 150 (причинный замер обрыва) — критик (Opus, вызов 5, единственный по слову
   владельца 2026-11-01 ~12:10 после пере-скоупа z05 на исполнительный оракул) вынес FAIL на
   OBJECT 1d0d05f3594416adcc5cd5119abadc41ecd9f399 (verdicts/critic/contracts-150-v1-krug5-fail.md),
