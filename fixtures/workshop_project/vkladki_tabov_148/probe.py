@@ -650,6 +650,25 @@ def mut_pr_ostanovka_neispolnima(repo, src):
         'true || adb -s "$SERIAL_390" emu kill', 1), encoding='utf-8')
 
 
+def mut_pr_echo_emu_kill(repo, src):
+    # Crit148v2c: слова команды остановки — аргументы echo, не adb.
+    put = repo / 'mobile/e2e-vkladki/e2e.sh'
+    tekst = put.read_text(encoding='utf-8')
+    put.write_text(tekst.replace(
+        'adb -s "$SERIAL_390" emu kill', 'echo emu kill', 1),
+        encoding='utf-8')
+
+
+def mut_pr_if_false_kill(repo, src):
+    # Crit148v2c: adb стоит в недостижимой ветке bash.
+    put = repo / 'mobile/e2e-vkladki/e2e.sh'
+    tekst = put.read_text(encoding='utf-8')
+    put.write_text(tekst.replace(
+        'adb -s "$SERIAL_390" emu kill',
+        'if false; then adb -s "$SERIAL_390" emu kill; fi', 1),
+        encoding='utf-8')
+
+
 def mut_pr_port_393_sosednij(repo, src):
     # вердикт Crit148v2, блок 2 (дословная атака): соседний adb-порт
     # 5571 (adb-пара работника 5570) вместо предписанного 5576
@@ -698,6 +717,8 @@ MUTACII_PRODUKTA = {
     'pr-emuljatory-odnovremenno': mut_pr_emuljatory_odnovremenno,
     'pr-ostanovka-neispolnima': mut_pr_ostanovka_neispolnima,
     'pr-port-393-sosednij': mut_pr_port_393_sosednij,
+    'pr-echo-emu-kill': mut_pr_echo_emu_kill,
+    'pr-if-false-kill': mut_pr_if_false_kill,
     'pr-maska-ne-48': mut_pr_maska_ne_48,
     'pr-live-predposylka': mut_pr_live_predposylka,
     'pr-live-kontrol-krasen': mut_pr_live_kontrol_krasen,

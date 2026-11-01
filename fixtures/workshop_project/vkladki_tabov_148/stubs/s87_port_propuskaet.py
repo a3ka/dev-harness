@@ -1,10 +1,9 @@
-"""Стаб s87 (port): порты пары не судятся — соседний adb-порт 5571
-(adb-пара работника 5570) проходит как порт второго AVD (вердикт
-Crit148v2, блок 2: выбранные порты пары обязаны быть проверены как
-5570/5576, соседний adb-порт отвергается исполняемой клеткой). Дефект
-наблюдаем ровно на входе pr-port-393-sosednij (ветка _porty
-продукт-судьи B; Н-39)."""
+"""s87: принимает любой порт START; пройдёт на 5571, оставив порядок
+журнала без изменений (ветка PORT_393_NE_5576 в _sudit_zhurnal)."""
 from _produkt import m, run
 
-m._porty = lambda razbor: []
+original = m._sudit_zhurnal
+m._sudit_zhurnal = lambda lines: [
+    reason for reason in original(lines)
+    if not reason.startswith('PORT_393_NE_5576:')]
 run()

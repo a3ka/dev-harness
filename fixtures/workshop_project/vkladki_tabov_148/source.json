@@ -1633,7 +1633,7 @@
    "model/produktnaja-raskladka/mobile/src/features/post/components/PostEingang.tsx": "d0c2b7a6da9dac0461cabc8a0e8a37eab217fc471a4310f78b2762ee8d265892",
    "model/produktnaja-raskladka/mobile/src/features/protection/components/SchutzUebersicht.tsx": "89a56e1b6badfecc65572f2d084937db27feaf2e45aa72288431861563cfc354",
    "model/produktnaja-raskladka/mobile/src/i18n/ui-copy.ts": "796d73bf36efb73e68baf239bc39bb55d33cd0400c70989e77add3cc0b4cf678",
-   "model/produktnaja-raskladka/mobile/e2e-vkladki/e2e.sh": "fd0df3a480dd5b2f80f0f821348dd8332a48f12153e0bb6951aaea475c30e234"
+   "model/produktnaja-raskladka/mobile/e2e-vkladki/e2e.sh": "ebfabb499009c4b9355ce30970b79ea679c66e923529e64e75f76264ae1af17f"
   },
   "produkt": {
    "produkt/vkladki-zond-148.test.tsx": "a6dab970df65199d0fcbc48497103fca92e37b00dfe85fedc01f5983ecfbed39"
@@ -2076,7 +2076,7 @@
   "pr-emuljatory-odnovremenno": {
    "rc": 1,
    "stdout": [
-    "PRICHINA\tEMULJATORY_ODNOVREMENNO: строка 34 запускает эмулятор при живом первом — одновременно (И-11: второй после остановки первого, не более двух на станции)"
+    "PRICHINA\tEMULJATORY_ODNOVREMENNO: START 5576 при живом эмуляторе"
    ],
    "prichiny": []
   },
@@ -2084,15 +2084,28 @@
    "rc": 1,
    "prichiny": [],
    "stdout": [
-    "PRICHINA\tEMULJATORY_ODNOVREMENNO: строка 38 запускает эмулятор при живом первом — одновременно (И-11: второй после остановки первого, не более двух на станции)",
-    "PRICHINA\tOSTANOVKA_NE_ISPOLNIMA: строка 34 — текст остановки не исполняется (после оператора «||» — условный путь, остановкой не считается); запуск строки 38 даёт двух живых (И-11: неисполняемый текст остановкой не считается)"
+    "PRICHINA\tEMULJATORY_ODNOVREMENNO: START 5576 при живом эмуляторе"
    ]
   },
   "pr-port-393-sosednij": {
    "rc": 1,
    "prichiny": [],
    "stdout": [
-    "PRICHINA\tPORT_393_NE_5576: строка 13: PORT_393=5571, а план пары 148 — 5570/5576 (5571 — adb-пара 5570, соседний порт запрещён; И-11)"
+    "PRICHINA\tPORT_393_NE_5576: START 5571, требуется 5576"
+   ]
+  },
+  "pr-echo-emu-kill": {
+   "rc": 1,
+   "prichiny": [],
+   "stdout": [
+    "PRICHINA\tEMULJATORY_ODNOVREMENNO: START 5576 при живом эмуляторе"
+   ]
+  },
+  "pr-if-false-kill": {
+   "rc": 1,
+   "prichiny": [],
+   "stdout": [
+    "PRICHINA\tEMULJATORY_ODNOVREMENNO: START 5576 при живом эмуляторе"
    ]
   },
   "pr-maska-ne-48": {
@@ -2191,7 +2204,10 @@
    "pr-emuljatory-odnovremenno"
   ],
   "s86_ostanovka_propuskaet.py": [
-   "pr-ostanovka-neispolnima"
+   "pr-ostanovka-neispolnima",
+   "pr-echo-emu-kill",
+   "pr-if-false-kill",
+   "pr-emuljatory-odnovremenno"
   ],
   "s87_port_propuskaet.py": [
    "pr-port-393-sosednij"

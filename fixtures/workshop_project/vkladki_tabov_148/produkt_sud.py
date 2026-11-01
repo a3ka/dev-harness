@@ -1,32 +1,14 @@
 #!/usr/bin/env python3
 # Продукт-судья батареи 148 (§ПРОВОДКА): судит дерево R (референсная
 # раскладка модели или живой продукт --repo) по предмету vkladki-tabov.
-"""produkt_sud.py --repo R: статические маркеры шва/Mitte/контента/копии
-+ полный суд пачки валидатором-ЭТАЛОНОМ v3 (132/2 + ветка dvizhenie
-батареи 146) в синтетическом репо из файлов R + ИСПОЛНЯЕМЫЙ суд
-(блок 1 Crit148): живой jest-зонд produkt/vkladki-zond-148.test.tsx на
-РЕАЛЬНЫХ компонентах R в изолированной копии mobile + матрица трёх
-мутаций (tabs/badge/skroll) — контроль зелен, мутанты убиты.
-
-Отказы — именованные (правило 7), по одному на клетку (каскады срезаны
-порядком суда: дешёвые маркеры раньше дорогого валидатора, jest —
-последним):
-  PACHKA_ABSENT / SHOV_NET / MITTE_NET / MITTE_V_TAB / KONTENT_NET /
-  KOPII_NET / MAKET_PIN_NEVEREN (в т.ч. отсутствие файла по пути,
-  блок 2) / SCENARIJ_BEZ_SNIMKA / PROKHOD_BEZ_PRESSABLE +
-  ISPOLNIMYJ_KONTROL_KRASEN / ISPOLNIMYJ_MUTANT_ZHIV /
-  ISPOLNIMYJ_MUTANT_NE_UBIT / ISPOLNIMYJ_INFRA (блок 1) +
-  E2E_SKRIPT_NET / EMULJATORY_NA_VHODE_PAROJ / EMULJATORY_ODNOVREMENNO
-  (И-11, слово владельца 31.10: эмуляторы последовательно) +
-rc: 0 — зелено; 1 — именованный отказ; 2 — нечем судить (нет эталона
-146 / нет носителей / ORACLE_TAMPERED / LIVE_PREDPOSYLKA /
-LIVE_MUTACIJA_NEPRIMENIMA)."""
+"""Суд дерева продукта: маркеры, исполняемый цикл AVD в песочнице,
+полный суд пачки валидатором v3 и исполняемый jest-зонд компонентов.
+Причины отказа именованы; rc 2 означает отсутствие предпосылок суда."""
 import argparse
 import hashlib
-import importlib.util
 import json
 import os
-import re
+import signal
 import shutil
 import struct
 import subprocess
@@ -109,339 +91,129 @@ SNIMKI_PROFILJA = [s + '-393' for s in SNIMKI_OSNOVNOJ]
 OBOLOCHKA = 'tabshell'
 E2E_SKRIPT = 'mobile/e2e-vkladki/e2e.sh'
 
-def _snjat_kommentarij(tekst):
-    """«#» вне кавычек (начало слова: начало строки/пробел/;|&) режет
-    строку — как bash; возвращает (исполняемую часть, комментарий)."""
-    otkr = None
-    for i, c in enumerate(tekst):
-        if otkr:
-            if c == otkr:
-                otkr = None
-        elif c in ("'", '"'):
-            otkr = c
-        elif c == '#' and (i == 0 or tekst[i - 1].isspace()
-                           or tekst[i - 1] in ';|&'):
-            return tekst[:i], tekst[i:]
-    return tekst, ''
+# Двойники несут состояние живых серийников и журнал. Они устанавливаются
+# сразу в PATH и ANDROID_HOME: обе формы запуска эталонного e2e.sh идут в
+# песочницу, а не к настоящему Android SDK. Журнал — наблюдение, НЕ оракул
+# ожиданий: ожидания PORT_* и начальное состояние остаются у судьи в памяти.
+DVOJNIK = r'''#!/usr/bin/env python3
+import os
+import pathlib
+import sys
+import time
+
+state = pathlib.Path(os.environ["E2E148_STATE"])
+log = pathlib.Path(os.environ["E2E148_LOG"])
+name = pathlib.Path(sys.argv[0]).name
+args = sys.argv[1:]
+
+def read_state():
+    return state.read_text(encoding="utf-8").splitlines()
+
+def event(line):
+    with log.open("a", encoding="utf-8") as output:
+        output.write(line + "\n")
+
+if name == "adb":
+    if args == ["devices"]:
+        print("List of devices attached")
+        for serial in read_state():
+            print(serial + "\tdevice")
+    elif len(args) >= 4 and args[0] == "-s" and args[2:] == ["emu", "kill"]:
+        serial = args[1]
+        event("KILL " + serial)
+        state.write_text("".join(s + "\n" for s in read_state() if s != serial),
+                         encoding="utf-8")
+    elif len(args) >= 3 and args[0] == "-s" and args[2] == "wait-for-device":
+        deadline = time.monotonic() + 5
+        while args[1] not in read_state():
+            if time.monotonic() >= deadline:
+                sys.exit(1)
+            time.sleep(0.01)
+    elif "getprop" in args:
+        print("1")
+elif name == "emulator":
+    port = args[args.index("-port") + 1] if "-port" in args and args.index("-port") + 1 < len(args) else ""
+    event("START " + port)
+    with state.open("a", encoding="utf-8") as output:
+        output.write("emulator-" + port + "\n")
+'''
 
 
-def _vynesti_podstanovki(tekst):
-    """$(…)/`…` вне одинарных кавычек: содержимое ПОДСТАНОВКИ
-    исполняется (bash-семантика) — выносится отдельно, на месте остаётся
-    маркер \x01N\x01 (один «словесный» кусок, границ слов не несёт)."""
-    rez, soderzhimoe = [], []
-    i, n = 0, len(tekst)
-    while i < n:
-        c = tekst[i]
-        if c == "'":
-            konec = tekst.find("'", i + 1)
-            if konec < 0:
-                konec = n - 1
-            rez.append(tekst[i:konec + 1])
-            i = konec + 1
-        elif c == '$' and i + 1 < n and tekst[i + 1] == '(':
-            glubina, j = 1, i + 2
-            while j < n and glubina:
-                if tekst[j] == '$' and j + 1 < n and tekst[j + 1] == '(':
-                    glubina += 1
-                    j += 2
-                    continue
-                if tekst[j] == ')':
-                    glubina -= 1
-                    if not glubina:
-                        break
-                j += 1
-            soderzhimoe.append(tekst[i + 2:j])
-            rez.append('\x01%d\x01' % (len(soderzhimoe) - 1))
-            i = j + 1
-        elif c == '`':
-            konec = tekst.find('`', i + 1)
-            if konec < 0:
-                konec = n - 1
-            soderzhimoe.append(tekst[i + 1:konec])
-            rez.append('\x01%d\x01' % (len(soderzhimoe) - 1))
-            i = konec + 1
-        else:
-            rez.append(c)
-            i += 1
-    return ''.join(rez), soderzhimoe
-
-
-def _slova_segmenta(tekst):
-    """Слова сегмента: кавычки снимаются по фрагментам, граница слова —
-    незакавыченный пробел/метасимвол (`echo 'adb … emu kill'` — ОДНО
-    слово-данные, не команды emu/kill). Слова изнутри подстановок
-    возвращаются отдельно — их исполняет bash. Рекурсивно."""
-    tekst, podst = _vynesti_podstanovki(tekst)
-    slova, buf, otkr = [], [], None
-    for c in tekst:
-        if otkr:
-            if c == otkr:
-                otkr = None
-            else:
-                buf.append(c)
-        elif c in ("'", '"'):
-            otkr = c
-        elif c.isspace() or c in ';|&<>()':
-            if buf:
-                slova.append(''.join(buf))
-                buf = []
-        else:
-            buf.append(c)
-    if buf:
-        slova.append(''.join(buf))
-    vnutrennie = []
-    for s in podst:
-        vnutrennie.extend(_slova_segmenta(s)[0])
-    return slova, vnutrennie
-
-
-_SHABLON_VAR = re.compile(
-    r'\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}|\$([A-Za-z_][A-Za-z0-9_]*)')
-
-
-def _razreshit(slovo, peremennye, glubina=0):
-    """$VAR/${VAR}/${VAR:-def} разрешаются ЛИТЕРАЛАМИ присваиваний
-    (закрытый алфавит И-11); неразрешённое остаётся как есть."""
-    if glubina > 5 or '$' not in slovo:
-        return slovo
-
-    def zamena(m):
-        imja = m.group(1) or m.group(3)
-        if imja in peremennye:
-            return peremennye[imja]
-        if m.group(1) is not None and m.group(2) is not None:
-            return m.group(2)
-        return m.group(0)
-
-    return _SHABLON_VAR.sub(zamena, slovo)
-
-
-def _segmenty(tekst):
-    """Сегменты по «;»/«&&»/«||»/«|»/«&» вне кавычек:
-    (сегмент, uslovnyj, asinhronnyj, оператор) — сегмент после «&&»/«||»
-    исполняется лишь условно, сегмент перед одиночным «&» асинхронен."""
-    rez, buf, otkr = [], [], None
-    uslovnyj, operator = False, None
-    i, n = 0, len(tekst)
-    while i < n:
-        c = tekst[i]
-        if otkr:
-            if c == otkr:
-                otkr = None
-            buf.append(c)
-            i += 1
-            continue
-        if c in ("'", '"'):
-            otkr = c
-            buf.append(c)
-            i += 1
-            continue
-        if c in ';|&':
-            dvoj = c in '|&' and i + 1 < n and tekst[i + 1] == c
-            rez.append((''.join(buf).strip(), uslovnyj,
-                        c == '&' and not dvoj, operator))
-            if dvoj:
-                operator = tekst[i:i + 2]
-                uslovnyj = True
-            else:
-                operator = c
-                uslovnyj = False
-            buf = []
-            i += 2 if dvoj else 1
-            continue
-        buf.append(c)
-        i += 1
-    rez.append((''.join(buf).strip(), uslovnyj, False, operator))
-    return [(s, u, a, o) for s, u, a, o in rez if s]
-
-
-def _razobrat_e2e(put: Path):
-    """События жизненного цикла И-11 — СТРУКТУРНЫЙ разбор исполнения
-    (вердикт Crit148v2: не regex по тексту): верхнеуровневые строки вне
-    тел функций, продолжения «\», комментарии, сегменты, кавычки,
-    подстановки, here-doc (тело — данные). Возвращает {'sobytija',
-    'kandidaty'}: события ('prisvaivanie',N,имя,значение)/('zapusk',N,
-    порт)/('ostanovka',N) и мёртвые кандидаты остановки (N, причина) —
-    текст «emu…kill» есть, исполнения нет."""
-    stroki = put.read_text(encoding='utf-8').splitlines()
-    sobytija, kandidaty, peremennye = [], [], {}
-    v_funkcii = False
-    i = 0
-    while i < len(stroki):
-        fizich = i + 1
-        stroka = stroki[i]
-        i += 1
-        if v_funkcii:
-            if stroka.startswith('}'):
-                v_funkcii = False
-            continue
-        if re.match(r'^[A-Za-z_][A-Za-z0-9_]*\s*\(\)\s*\{', stroka):
-            v_funkcii = True
-            continue
-        tekst, kommentar = _snjat_kommentarij(stroka)
-        # продолжения «\» — одна логическая строка (номер — первой)
-        hvost = len(tekst) - len(tekst.rstrip('\\'))
-        while tekst.rstrip('\\') != tekst and hvost % 2 == 1 and i < len(stroki):
-            tekst = tekst.rstrip()[:-1] + ' ' + _snjat_kommentarij(stroki[i])[0]
-            i += 1
-            hvost = 0
-        # комментарий событий не несёт вовсе (заголовок эталона описывает
-        # грамматику словами «emu kill»): отказ даёт _posledovatelnost
-        ogr = re.search(r'<<-?\s*[\'"]?([A-Za-z_][A-Za-z0-9_]*)', tekst)
-        for segment, uslovnyj, asinh, operator in _segmenty(tekst):
-            slova, vnutrennie = _slova_segmenta(segment)
-            # присваивания в начале сегмента; целый сегмент из них —
-            # самостоятельные присваивания (слежение литералов)
-            k = 0
-            while k < len(slova) and re.match(
-                    r'^[A-Za-z_][A-Za-z0-9_]*=', slova[k]):
-                k += 1
-            if k and k == len(slova):
-                for s in slova:
-                    imja, znach = s.split('=', 1)
-                    peremennye[imja] = znach
-                    if imja in ('PORT_390', 'PORT_393'):
-                        sobytija.append(('prisvaivanie', fizich, imja, znach))
-                continue
-            vse = [_razreshit(s, peremennye) for s in slova[k:] + vnutrennie]
-            zapusk = (any('emulator' in s for s in vse)
-                      and any(s == '-avd' for s in vse))
-            slova_ostanovki = 'emu' in vse and 'kill' in vse
-            if zapusk:
-                port = None
-                for idx, s in enumerate(vse):
-                    if s == '-port' and idx + 1 < len(vse):
-                        port = vse[idx + 1]
-                        break
-                sobytija.append(('zapusk', fizich, port))
-            if slova_ostanovki and not uslovnyj and not asinh:
-                sobytija.append(('ostanovka', fizich))
-            elif slova_ostanovki and uslovnyj:
-                kandidaty.append((fizich, 'после оператора «%s» — условный '
-                                  'путь, остановкой не считается' % operator))
-            elif slova_ostanovki and asinh:
-                kandidaty.append((fizich, 'асинхронно «&» — остановка не '
-                                  'гарантирована к следующей команде'))
-            elif re.search(r'\bemu\s+kill\b', segment):
-                kandidaty.append((fizich, 'текст в кавычках/одним словом — '
-                                  'команд emu и kill нет'))
-        if ogr:
-            # тело here-doc — данные, не исполнение
-            while i < len(stroki) and \
-                    stroki[i].lstrip('\t').strip() != ogr.group(1):
-                if re.search(r'\bemu\s+kill\b', stroki[i]):
-                    kandidaty.append((i + 1, 'тело here-doc — данные, '
-                                      'не исполнение'))
-                i += 1
-            i += 1
-    return {'sobytija': sobytija, 'kandidaty': kandidaty}
-
-
-def _posledovatelnost(razbor):
-    """Закрывающее свойство (вердикт Crit148v2, блок 1): ни один
-    допустимый исполняемый путь не запускает второй AVD, пока первый не
-    завершён. На входе жив работник лекала (5570); остановка — ТОЛЬКО
-    исполняемая (безусловные слова emu и kill); условный запуск — тоже
-    допустимый путь и поднимает счётчик."""
-    zhivo = 1
-    zapuski = [e for e in razbor['sobytija'] if e[0] == 'zapusk']
-    for e in razbor['sobytija']:
-        if e[0] == 'zapusk':
-            zhivo += 1
-            if zhivo > 1:
-                return ['EMULJATORY_ODNOVREMENNO: строка %d запускает '
-                        'эмулятор при живом первом — одновременно (И-11: '
-                        'второй после остановки первого, не более двух '
-                        'на станции)' % e[1]]
-        elif e[0] == 'ostanovka':
-            zhivo = max(0, zhivo - 1)
-    if not zapuski:
-        return ['EMULJATORY_NA_VHODE_PAROJ: в %s нет жизненного цикла '
-                'пары (остановка первого → запуск второго) — пара '
-                'эмуляторов ожидается на входе одновременно (v1-форма '
-                'PR #147; И-11)' % E2E_SKRIPT]
-    return []
-
-
-def _ostanovka(razbor):
-    """Неисполняемый текст остановкой не считается (вердикт Crit148v2,
-    блок 1): мёртвый кандидат + запуск при живом первом — именованный
-    отказ со строкой и причиной неисполнимости."""
-    if not razbor['kandidaty'] or not any(
-            e[0] == 'zapusk' for e in razbor['sobytija']):
-        return []
-    zhivo = 1
-    for e in razbor['sobytija']:
-        if e[0] == 'zapusk':
-            zhivo += 1
-            if zhivo > 1:
-                nomer, prichina = razbor['kandidaty'][0]
-                return ['OSTANOVKA_NE_ISPOLNIMA: строка %d — текст '
-                        'остановки не исполняется (%s); запуск строки %d '
-                        'даёт двух живых (И-11: неисполняемый текст '
-                        'остановкой не считается)' % (nomer, prichina, e[1])]
-        elif e[0] == 'ostanovka':
-            zhivo = max(0, zhivo - 1)
-    return []
-
-
-def _porty(razbor):
-    """Порты пары — литералы 5570/5576 (вердикт Crit148v2, блок 2):
-    сосед 5571 — adb-пара работника 5570, второй AVD на нём не
-    поднимается (живое доказательство PR #146/#147); порт запуска
-    разрешается литералом присваивания."""
-    otkazy = []
-    oshibka_393 = False
-    for e in razbor['sobytija']:
-        if e[0] != 'prisvaivanie':
-            continue
-        _, nomer, imja, znach = e
-        if imja == 'PORT_390' and znach != PORT_RABOTNIKA:
-            otkazy.append('PORT_390_NE_5570: строка %d: PORT_390=%s, а '
-                          'эмулятор работника лекала 148 — %s (И-11: пара '
-                          '%s/%s)' % (nomer, znach, PORT_RABOTNIKA,
-                                      PORT_RABOTNIKA, PORT_VTOROGO))
-        if imja == 'PORT_393' and znach != PORT_VTOROGO:
-            oshibka_393 = True
-            otkazy.append('PORT_393_NE_5576: строка %d: PORT_393=%s, а план '
-                          'пары 148 — %s/%s (5571 — adb-пара %s, соседний '
-                          'порт запрещён; И-11)' % (nomer, znach,
-                                                    PORT_RABOTNIKA,
-                                                    PORT_VTOROGO,
-                                                    PORT_RABOTNIKA))
-    if not oshibka_393:
-        for e in razbor['sobytija']:
-            if e[0] == 'zapusk' and e[2] is not None and e[2] != PORT_VTOROGO:
-                otkazy.append('PORT_393_NE_5576: строка %d: -port %s у '
-                              'запуска второго, а план пары 148 — %s/%s '
-                              '(5571 — adb-пара %s; И-11)'
-                              % (e[1], e[2], PORT_RABOTNIKA, PORT_VTOROGO,
-                                 PORT_RABOTNIKA))
+def _sudit_zhurnal(lines):
+    """Суд только по наблюдаемым KILL/START, не по токенам shell-скрипта."""
+    zhivye = {'emulator-' + PORT_RABOTNIKA}
+    otkazy, zapuskov, narushen_porjadok = [], 0, False
+    for line in lines:
+        if line.startswith('KILL '):
+            zhivye.discard(line[5:])
+        elif line.startswith('START '):
+            port = line[6:]
+            zapuskov += 1
+            if zhivye and not narushen_porjadok:
+                otkazy.append('EMULJATORY_ODNOVREMENNO: START %s при живом эмуляторе'
+                              % port)
+                narushen_porjadok = True
+            if port != PORT_VTOROGO:
+                otkazy.append('PORT_393_NE_5576: START %s, требуется %s'
+                              % (port, PORT_VTOROGO))
+            zhivye.add('emulator-' + port)
+    if not zapuskov:
+        otkazy.append('EMULJATORY_NA_VHODE_PAROJ: нет START в журнале; '
+                      'цикл пары отсутствует или запуск обошёл PATH/ANDROID_HOME')
     return otkazy
 
 
 def proverka_emuljatorov(repo: Path):
-    """И-11 (слово владельца 2026-10-31 + вердикт Crit148v2): второй
-    эмулятор профиля 393 запускается ТОЛЬКО после остановки первого —
-    не одновременно, не более двух на станции (Astra
-    mob-ci-razdelenie п.342). Закрытый алфавит (норма 041), разбор
-    СТРУКТУРЫ ИСПОЛНЕНИЯ (не regex по тексту): сегменты «;»/«&&»/«||»/
-    «|»/«&», кавычки как границы слов, подстановки $(…)/`…` (их
-    содержимое исполняется), here-doc (данные), тела функций и
-    комментарии не исполняются, продолжения «\» склеивают строку;
-    остановка = безусловные слова emu и kill; запуск = слова emulator
-    и -avd одного сегмента ($VAR разрешается литералами присваиваний);
-    порты пары — литералы 5570/5576. На входе скрипта жив РОВНО один
-    эмулятор — работник лекала 143 v2 (порт 5570); пачка ОБЯЗАНА нести
-    цикл пары сама (v1-форма PR #147 — пара на входе одновременно —
-    отказ). Живое исполнение — продуктовый CI, станции эмуляторы не
-    нужны (правило станции 31.10)."""
+    """И-11: исполняем e2e.sh без настоящего SDK; живой 5570 на входе.
+
+    Успех требует START 5576 после KILL первого и rc 0 самого e2e.sh.
+    Даже корректный текст, не исполнившийся в bash, не образует событие.
+    """
     put = repo / E2E_SKRIPT
     if not put.is_file():
         return ['E2E_SKRIPT_NET: нет %s (жизненный цикл пары — И-11)' % E2E_SKRIPT]
-    razbor = _razobrat_e2e(put)
-    return _posledovatelnost(razbor) + _ostanovka(razbor) + _porty(razbor)
+    with tempfile.TemporaryDirectory(prefix='vkladki148-avd-') as dirname:
+        cwd = Path(dirname)
+        script = cwd / E2E_SKRIPT
+        script.parent.mkdir(parents=True)
+        shutil.copyfile(put, script)
+        bin_dir = cwd / 'bin'
+        sdk_bin = cwd / 'android' / 'emulator'
+        bin_dir.mkdir()
+        sdk_bin.mkdir(parents=True)
+        for name in ('adb', 'emulator', 'maestro', 'sleep'):
+            double = bin_dir / name
+            double.write_text(DVOJNIK, encoding='utf-8')
+            double.chmod(0o755)
+        (sdk_bin / 'emulator').symlink_to(bin_dir / 'emulator')
+        state, log = cwd / 'state', cwd / 'events'
+        state.write_text('emulator-' + PORT_RABOTNIKA + '\n', encoding='utf-8')
+        log.write_text('', encoding='utf-8')
+        env = dict(os.environ, PATH=str(bin_dir) + os.pathsep + os.environ.get('PATH', ''),
+                   ANDROID_HOME=str(cwd / 'android'), E2E148_STATE=str(state),
+                   E2E148_LOG=str(log))
+        process = subprocess.Popen(
+            ['bash', str(script)], cwd=cwd, env=env,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            start_new_session=True)
+        try:
+            process.communicate(timeout=15)
+            status = process.returncode
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.communicate()
+            status = 'TIMEOUT (15 s)'
+        try:
+            lines = log.read_text(encoding='utf-8').splitlines()
+        except OSError as exc:
+            return ['E2E_PESOCHNICA_RC: журнал недоступен: %s' % exc]
+        otkazy = _sudit_zhurnal(lines)
+        if status != 0:
+            otkazy.append('E2E_PESOCHNICA_RC: скрипт rc=%s' % status)
+        return otkazy
 
 
 def sha256_fajla(p: Path):

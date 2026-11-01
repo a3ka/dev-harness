@@ -1,10 +1,6 @@
-"""Стаб s85 (emuljatory): последовательность эмуляторов не судится —
-одновременный старт второго до остановки первого проходит (слово
-владельца 31.10: второй после остановки первого, не одновременно, не
-более двух на станции). Дефект наблюдаем ровно на входе
-pr-emuljatory-odnovremenno (ветка proverka_emuljatorov продукт-судьи
-B; Н-39)."""
+"""s85: игнорирует весь журнал цикла пары; неверный порядок становится
+зелёным на pr-emuljatory-odnovremenno (ветка _sudit_zhurnal)."""
 from _produkt import m, run
 
-m.proverka_emuljatorov = lambda repo: []
+m._sudit_zhurnal = lambda lines: []
 run()
