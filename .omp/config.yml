@@ -53,7 +53,7 @@ modelRoles:
   apex-sol: "anthropic/claude-opus-5-5"  # фолбек: openai-codex/gpt-6-sol
   audit: "anthropic/claude-opus-5-5"  # фолбек: openai-codex/gpt-6-sol
   plan: "openai-codex/gpt-6-astra"  # фолбек: anthropic/claude-fable-5-1
-  consultant: "openai-codex/gpt-6-astra"  # фолбек: anthropic/claude-fable-5-1
+  consultant: "anthropic/claude-fable-5-1"  # фолбек: openai-codex/gpt-6-astra
   steward: "anthropic/claude-haiku-4-5"  # фолбек: openai-codex/gpt-6-luna
 # ── /modelRoles ──
 
