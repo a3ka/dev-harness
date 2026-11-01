@@ -13,6 +13,8 @@ import tempfile
 
 HERE = Path(__file__).resolve().parent
 SUBJECT = 'mobile/src/lib/otdacha/index.ts'
+SWEEP_STEP = 0.25
+HOLD_MS = 1000
 DESIGN_SHA256 = '02fc041ab9d482a10571a096d0175cc8a6c60205bfc168e06fc1de07515debbf'
 STABS = {
     'ios-only': ("policy.platform === 'android'", "policy.platform === 'never'", 'EMIT_ANDROID_GA_T28_0_E1_V1_Q0'),
@@ -35,12 +37,28 @@ STABS = {
     'global-test': ("module.exports = { patternFor, playHaptic };", "globalThis.test = (n, f) => {}; module.exports = { patternFor: () => null, playHaptic: async () => {} };", 'PATTERN_IOS_GA_T28_0'),
     'no-await': ("await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);", "void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});", 'SETTLES_AFTER_SDK_IOS_GA_T28_0'),
     'swallow': ("await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);", "try { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch (_) {}", 'REJECTS_AFTER_SDK_IOS_GA_T28_0'),
+    'ceil': ("id === scene && time === at", "id === scene && time === Math.ceil(at)", 'SWEEP_IOS_GA_R2'),
+    'round': ("id === scene && time === at", "id === scene && time === Math.round(at)", 'SWEEP_IOS_GA_R2'),
+    'touchdown-at0': ("id === scene && time === at", "id === scene && (time === at || at === 0)", 'SWEEP_IOS_GA_T35'),
+    'race-timeout-50ms': ("const Haptics = require('expo-haptics');",
+        "const Real = require('expo-haptics'); const Haptics = new Proxy(Real, { get(t, k) { const v = t[k]; return typeof v === 'function' ? (...a) => Promise.race([v(...a), new Promise(r => setTimeout(r, 50))]) : v; } });",
+        'SETTLES_AFTER_SDK_IOS_GA_T28_0'),
+    'race-captured-real-timer-50ms': ("const Haptics = require('expo-haptics');",
+        "const Real = require('expo-haptics'); const realSetTimeout = globalThis.setTimeout; const Haptics = new Proxy(Real, { get(t, k) { const v = t[k]; return typeof v === 'function' ? (...a) => Promise.race([v(...a), new Promise(r => realSetTimeout(r, 50))]) : v; } });",
+        'SETTLES_AFTER_SDK_IOS_GA_T28_0'),
+    'fs-read-sibling-test': ("const rows = require('../../../oracle.json').haptics;",
+        "const fs = require('fs'); const path = require('path');\n"
+        "const src = fs.readFileSync(path.join(__dirname, 'otdacha.test.js'), 'utf8');\n"
+        "const cases = JSON.parse(src.match(/const cases = (.*);\\n/)[1]);\n"
+        "const rows = cases.rows.filter(r => r.platform === 'ios').map(r => [r.scene, r.at, r.iosPattern, r.androidPattern]);",
+        'PRODUCT_MODULE_RESOLUTION'),
 }
 
 
 def case_matrix(oracle):
-    rows, absent, flags, settlements = [], [], [], []
+    rows, absent, flags, settlements, sweeps = [], [], [], [], []
     expected = {'PRODUCT_MODULE_RESOLUTION'}
+    last_oracle_moment = max(row[1] for row in oracle)
     times_by_scene = {}
     for scene, at, ip, ap in oracle:
         times_by_scene.setdefault(scene, set()).add(at)
@@ -65,6 +83,14 @@ def case_matrix(oracle):
                 name = f'{platform.upper()}_{scene.replace("-", "_")}_{marker}'
                 absent.append(dict(scene=scene, at=at, platform=platform, name=name))
                 expected.add('ABSENT_' + name)
+    for scene, times in times_by_scene.items():
+        for platform in ('ios', 'android'):
+            name = f'{platform.upper()}_{scene.replace("-", "_")}'
+            sweeps.append(dict(scene=scene, platform=platform, name=name,
+                               lo=-1, hi=last_oracle_moment + 1,
+                               flo=min(times) - 1, fhi=max(times) + 1,
+                               step=SWEEP_STEP, moments=sorted(times)))
+            expected.add('SWEEP_' + name)
     for scene in ('GA-UNKNOWN', ''):
         for platform in ('ios', 'android'):
             name = f'{platform.upper()}_{scene.replace("-", "_") or "EMPTY"}_0'
@@ -85,7 +111,8 @@ def case_matrix(oracle):
         name = f'{platform.upper()}_{scene.replace("-", "_")}_{at}'
         settlements.append(dict(scene=scene, at=at, platform=platform, method=method, name=name))
         expected.update((f'SETTLES_AFTER_SDK_{name}', f'REJECTS_AFTER_SDK_{name}'))
-    return dict(rows=rows, absent=absent, flags=flags, settlements=settlements), expected
+    return dict(rows=rows, absent=absent, flags=flags, settlements=settlements,
+                sweeps=sweeps, holdMs=HOLD_MS), expected
 
 
 def dependency_status(repo, runtime):
@@ -159,10 +186,13 @@ def execute(runtime, subject, matrix, expected, mutation=None, product_layout=Fa
         if subject == HERE / 'model.js' and not product_layout:
             shutil.copy2(HERE / 'haptics.json', root / 'oracle.json')
         template = (HERE / 'otdacha.test.js').read_text()
-        (target / 'otdacha.test.js').write_text(template.replace('__CASES_PLACEHOLDER__', json.dumps(matrix)))
-        out = root / 'results.json'
+        observer = Path(tempfile.mkdtemp(prefix='observer-', dir=root))
+        test_file = observer / 'otdacha.test.js'
+        test_file.write_text(template.replace('__CASES_PLACEHOLDER__', json.dumps(matrix))
+                             .replace('__SUBJECT_PLACEHOLDER__', json.dumps(str(target / 'index'))))
+        out = observer / 'results.json'
         cmd = [str(mobile / 'node_modules/.bin/jest'), '--ci', '--runInBand', '--silent',
-               '--config', str(root / 'jest.config.js'), '--runTestsByPath', str(target / 'otdacha.test.js'),
+               '--config', str(root / 'jest.config.js'), '--runTestsByPath', str(test_file),
                '--json', '--outputFile', str(out)]
         env = {**os.environ, 'NODE_ENV': 'test', 'EXPO_PUBLIC_API_MODE': 'production'}
         p = subprocess.run(cmd, cwd=root, capture_output=True, text=True, timeout=120, env=env)
@@ -173,7 +203,8 @@ def execute(runtime, subject, matrix, expected, mutation=None, product_layout=Fa
         names = [row['fullName'].split(' ')[-1] for row in assertions]
         failures = {name for name, row in zip(names, assertions) if row['status'] != 'passed'}
         if len(names) != len(expected) or set(names) != expected or len(names) != len(set(names)):
-            return 1, len(names), failures | (expected - set(names)), False
+            extras = {name for name in names if name not in expected or names.count(name) > 1}
+            return 1, len(names), failures | (expected - set(names)) | {'LISHNJAJA_' + name for name in extras}, False
         return p.returncode, len(names), failures, True
 
 
