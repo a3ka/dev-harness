@@ -10,7 +10,7 @@
 
 `scripts/profile_resolver.sh:scan_canon` уже проверяет JSON-строки path и gate на `contains("\u0000")` ДО извлечения путей через `jq -r`/`mapfile`; источник грамматики сохраняется единым. Его существующие отказы `SOURCE_CANON_INVALID` наблюдаемы отдельным входом с JSON `"source\u0000.md"`. Повторный NUL-предикат над переменной bash не чинить другим строковым шаблоном.
 
-`scripts/pre_critic.sh` и `scripts/done_contract.sh` вызывают этот CLI; менять их не нужно. `fixtures/workshop_project/rezhim_996/probe.py` + `probe.sh` судят режим проекта и sourceCanon, но не предъявляют путь с цифрой 0; это замороженная батарея, остаётся зелёной. `contracts/996-rezhim-proekta-polnyj-cikl.md` §Lifecycle и `contracts/112-podklyuchenie-proekta.md` описывают существующий шлюз и миграции бэкенда; текст замороженного 996 не правится. `registry/plan.tsv` — отдельная раздача консультанта, не зона этой пачки.
+`scripts/pre_critic.sh` и `scripts/done_contract.sh` вызывают этот CLI; менять их не нужно. `fixtures/workshop_project/rezhim_996/probe.py` + `probe.sh` судят режим проекта и sourceCanon, но не предъявляют путь с цифрой 0; это замороженная батарея, остаётся зелёной. `contracts/996-rezhim-proekta-polnyj-cikl.md` §Lifecycle и `contracts/112-podklyuchenie-proekta.md` описывают существующий шлюз и миграции бэкенда; текст замороженного 996 не правится. `registry/plan.tsv` в этой ветке ещё не несёт 153 (сверка дерева); PR #470 `owner/plan-153` — отдельная раздача плана консультанта, не реализация шлюза и не зона этой пачки.
 
 ## Frontier и граница
 
