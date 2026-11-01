@@ -35,7 +35,7 @@
 1. Дано: без реализации и без R; когда `W`; тогда rc 1 `SUBJECT_ABSENT`. Дано R до реализации; когда `W --repo R`; тогда rc 1 `SUBJECT_ABSENT`. Нет установленной Jest-среды для модели → rc 2 `INFRASTRUCTURE`, а не зелень или ложная краснота продукта.
 2. Дано R с установленной средой; когда `W --model --runtime R`; тогда rc 0, `CASE 765 GREEN 765 RED 0`; `W --stabs --runtime R` → rc 0, `SVJAZI 18 CASE 765`. Каждый стаб красен своей клеткой или именованным dependency preflight, в том числе подмена глобального test, разделённый oracle require-cache, ожидание/отказ SDK, продуктовый импорт модели и фиктивная версия зависимости. Негатив: порог `time <= at`, отсутствующий флаг, проглоченный отказ или несовпавшее множество имён → rc 1 с именованной клеткой; пустая исходная матрица → rc 2.
 3. Дано R с установленным `expo-haptics`, модулем и lockfile; когда `W --repo R`; тогда rc 0, `CASE 765 GREEN 765 RED 0`. Парные негативы: отсутствует либо несовместима/не установлена зависимость → rc 1 `DEPENDENCY_ABSENT`; отсутствует модуль → rc 1 `SUBJECT_ABSENT`; несовпадение дизайн-копии и оракула → rc 2 `ORACLE_DESIGN_DRIFT`; модель, читающая `../../../oracle.json`, → rc 1 `KRASNO PRODUCT_MODULE_RESOLUTION`. Ключ/момент вне карты на обеих платформах не испускает эффект.
-4. Правило ворот: `bash scripts/pre_critic.sh --repo . contracts/151-gespraech-otdacha.md`, `bash scripts/check_ceilings.sh`, `bash scripts/check_precision_gate.sh . contracts/151-gespraech-otdacha.md`, `bash scripts/check_zones.sh` → rc 0. `bash scripts/check_provodka.sh . contracts/151-gespraech-otdacha.md` до CI-строки оркестратора → rc 1 (`guard не подключён`), после CI-строки → rc 0.
+4. Правило ворот: `bash scripts/pre_critic.sh --repo . contracts/151-gespraech-otdacha.md`, `bash scripts/check_ceilings.sh`, `bash scripts/check_precision_gate.sh . contracts/151-gespraech-otdacha.md`, `bash scripts/check_zones.sh` → rc 0. `bash scripts/check_provodka.sh . contracts/151-gespraech-otdacha.md` → rc 0 при существующем guard и точной внешней оговорке 994; результат не свидетельствует о запуске CI продукта. Проводка считается исполненной только после продуктового diff с отдельным полным H-пином и живого quality на PR реализации: W --model --runtime R → rc 0, CASE 765 GREEN 765 RED 0; W --stabs --runtime R → rc 0, SVJAZI 18 CASE 765; W --repo R → rc 0, CASE 765 GREEN 765 RED 0. Product SHA, H SHA и run URL обязательны в свидетельстве интеграции; отсутствие или пропуск любого запуска не является зеленью 151.
 
 ## Зоны и порядок
 
@@ -43,81 +43,51 @@
 ЗОНА implementer: mobile/src/lib/otdacha/ mobile/package.json mobile/package-lock.json
 ПЕРЕСЕЧЕНИЕ implementer: mobile/package.json — 145 зона зависимостей Faden; только добавить expo-haptics, сохранять все чужие зависимости.
 ПЕРЕСЕЧЕНИЕ implementer: mobile/package-lock.json — 145 зона lockfile; только следствие установки expo-haptics, без изменения чужих зависимостей.
-ЗОНА orchestrator: registry/ci-steps.tsv registry/ci-zamery.tsv .github/workflows/ci.yml
-ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 083 новая строка батареи 151 после реализации, без изменения чужих строк.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 002 добавить только шаг selftest 151; чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 003 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 004 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 005 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 006 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 007 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 008 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 011 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 015 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 016 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 020 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 021 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 027 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 036 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 038 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 039 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 040 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 043 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 045 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 057 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 058 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 059 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 060 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 062 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 063 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 070 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 071 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 072 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 078 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 083 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 084 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 087 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 090 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 092 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 093 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 094 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 095 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 099 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 100 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 109 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 110 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 112 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 114 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 996 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 084 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 087 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 090 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 092 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 093 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 094 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 095 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 103 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 110 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 112 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 113 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 114 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 994 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 996 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 997 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 998 новая строка 151, чужие шаги неизменны.
-ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 114 новая строка 151, чужие шаги неизменны.
+ЗОНА orchestrator: .github/workflows/mobile.yml
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/mobile.yml — 143 только checkout и шаги батареи 151 в существующем quality с адресным выносом собственного .harness151 до копирований/structure/lint; набор jobs, карта, selector, aggregate, needs и тела экранных работников не меняются.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/mobile.yml — 995 отдельный H-пин 151; общий .harness, его пин, cmp и пробы 995, приватный код e2e-pilot и изоляция раннера не меняются.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/mobile.yml — 999 пробы навигации и их H-пин не меняются; только добавление шагов 151 в quality.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/mobile.yml — 108 пробы Start и экранный работник не меняются; только добавление шагов 151 в quality.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/mobile.yml — 116 шаги mission и экранный работник не меняются; только добавление шагов 151 в quality.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/mobile.yml — 111 пробы first-run и их порядок не меняются; только добавление шагов 151 в quality.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/mobile.yml — 117 пины .harness117/.harness117b, пробы и экранный работник не меняются; .harness151 выносится до копирования их disposable R.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/mobile.yml — 118 same-job Jest, checker, пробы, H-пин и экранный работник не меняются.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/mobile.yml — 123 checkout .harness123, сверка кадров, её размещение и пороги не меняются.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/mobile.yml — 135 тело экранной приёмки, H-пин и работа с кадрами не меняются.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/mobile.yml — 138 пин экранной пачки Start, её шаги и экранный работник не меняются; только добавление шагов 151 в quality.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/mobile.yml — 141 экранные повторы и восстановление не меняются.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/mobile.yml — 107 существующие шаги своего предмета не меняются; только добавление шагов 151 в quality.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/mobile.yml — 991 репетиция и её гейты не меняются; только добавление шагов 151 в quality.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/mobile.yml — 147 пауза сохраняется, экранные шаги/канон/пин не меняются; добавляется только CI независимого модуля 151.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/mobile.yml — 148 пауза сохраняется, экранные шаги/канон/пин не меняются; добавляется только CI независимого модуля 151.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/mobile.yml — 149 пауза сохраняется, экранные шаги/канон/пин не меняются; добавляется только CI независимого модуля 151.
 
-Порядок: architect — W красен, W --model и --stabs зелены на реальном Jest-пресете → critic → freeze → implementer — только зона модуля/зависимости, W --repo R зелён → orchestrator подключает CI → независимый суд. В CI харнесса `R` = отдельный checkout приватного `a3ka/Complior-mob` по полному commit SHA (не изменяемый workspace runner), `npm ci` в `R/mobile`, затем `W --model --runtime R` и `W --stabs --runtime R`; только после попадания реализации в выбранный продуктовый SHA запускается также `W --repo R`. До merge реализация и `W --repo` судятся в CI PR продукта Complior-mob; harness CI не выдаёт зелень за отсутствующий в его R модуль. Зоны экранов 147/148/149 на паузе, их «подключение» не входит в done первой поставки.
+Корень зоны orchestrator .github/workflows/mobile.yml — a3ka/Complior-mob, НЕ a3ka/dev-harness. Зона исполняется отдельным продуктовым PR по project_workflow-контексту Complior-mob; контракт/свидетельства остаются в назначенных workflowPaths, установка харнесса не становится местом записи продуктового state. При интеграции перечень пересечений сверяется с union действующих заморозок продукта; разрешение защищённого пути оформляется его штатной процедурой. Существующие зоны architect и implementer 151 остаются без изменения.
+
+Продуктовый diff — только .github/workflows/mobile.yml: в quality сразу после существующего npm ci checkout публичного H в .harness151 с `persist-credentials: false` и буквальным полным SHA принятой опубликованной поставки; следующий шаг имеет `working-directory: ${{ github.workspace }}` и тело:
+
+```bash
+set -euo pipefail
+W="$GITHUB_WORKSPACE/.harness151/fixtures/workshop_project/gespraech_otdacha_151/red_gespraech_otdacha_151.sh"
+bash "$W" --model --runtime "$GITHUB_WORKSPACE"
+bash "$W" --stabs --runtime "$GITHUB_WORKSPACE"
+bash "$W" --repo "$GITHUB_WORKSPACE"
+mv "$GITHUB_WORKSPACE/.harness151" "$RUNNER_TEMP/harness151-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+```
+
+Порядок: architect — W красен, W --model и --stabs зелены на реальном Jest-пресете R → critic → freeze → implementer — только зона модуля/зависимости, W --repo R зелён → orchestrator подключает три обязательных запуска батареи в существующем quality продуктового CI через отдельный опубликованный SHA-пин H → независимый суд. До подключения все три режима предъявляются на локальном R, но зелень CI не заявляется. CI харнесса не скачивает продукт и батарею 151 не запускает. Продуктовый PR реализации проверяет собственный checkout как R, не старый product main. Принятый H-пин обязан содержать батарею 151; локальный неопубликованный SHA ветки и изменяемое имя ветки не являются окончательной проводкой. Зоны экранов 147/148/149 на паузе, их подключение не входит в done первой поставки и вопросы владельца о толковании флагов и объёме done остаются открытыми.
 
 ПРЕДПОСЫЛКИ:
-- secret COMPLIOR_MOB_READ_TOKEN
-- setting продукт: Expo SDK 57, установленный jest-expo и зависимости `mobile/node_modules` для исполнения канона; `expo-haptics` добавляет implementer совместимой Expo-установкой с lockfile. Для продуктового CI PR реализация должна присутствовать в том же checkout продукта, что передаётся как `--repo R`.
-- setting CI-харнесса: доступ к приватному `a3ka/Complior-mob` требует выделенного read-only токена (secret `COMPLIOR_MOB_READ_TOKEN`; наличие и санкция владельца ДО проводки); checkout запинен полным SHA, `npm ci` и явный `--runtime R` обязательны. Node, Python и designer-copy принадлежат этому checkout; эмулятор/нативная сборка не нужны. Без токена/R тест возвращает rc 2, CI не маскирует это пропуском. Product `--repo` в harness CI добавлять лишь после merge реализации в запинненный SHA.
-- setting пауза: перед любым подключением перечитать `registry/pauzy.tsv`; до снятия строк 147/148/149 экранные зоны read-only.
+- setting продукт: Expo SDK 57, Node по .node-version продукта, Python 3.12, установленный jest-expo и зависимости mobile/node_modules после npm ci --no-audit --no-fund в mobile; дизайнерская копия docs/ux/04_Gespraech_D24/motion/haptics.json принадлежит тому же checkout продукта. expo-haptics добавляет implementer совместимой Expo-установкой с lockfile; --repo судит реализацию, package.json, lockfile и установленную зависимость этого checkout.
+- setting CI продукта: существующая задача quality в a3ka/Complior-mob/.github/workflows/mobile.yml получает отдельный checkout публичного a3ka/dev-harness в .harness151 по полному 40-hex SHA принятой ревизии с батареей 151; persist-credentials: false. Общие H-пины и чужие пробы не меняются. R = абсолютный GITHUB_WORKSPACE продукта, не каталог .harness151 и не произвольный workspace станции. Новых секретов, variables, environments, прав репозитория и required checks нет; COMPLIOR_MOB_READ_TOKEN не нужен и не заводится.
+- setting порядок product quality: после существующих setup-python/setup-node и npm ci, до копирований workspace и выноса файлов для lint — checkout .harness151, затем из корня продукта W --model --runtime R, W --stabs --runtime R и W --repo R; W здесь = bash .harness151/fixtures/workshop_project/gespraech_otdacha_151/red_gespraech_otdacha_151.sh. Все три команды обязательны в PR реализации и последующих запусках workflow, без continue-on-error, условного пропуска или подавления rc. После успешных проб .harness151 выносится из workspace до остальных копирований и structure/lint, по существующему продуктовому правилу выноса H. Песочница читает реальные jest.config.js/jest.setup.ts/node_modules R, но не переносит остальной src приложения; модуль и его карта остаются внутри mobile/src/lib/otdacha/.
+- setting CI харнесса: батарея 151 не включается в registry/ci-steps.tsv и .github/workflows/ci.yml, приватный продукт туда не скачивается. Проводка оформляется существующим исключением внешнего CI контракта 994; это не подтверждение успешного product CI. До заморозки architect предъявляет локальные --model/--stabs на реальном R; после реализации orchestrator предъявляет продуктовый SHA, H-пин и живой результат всех трёх команд quality. До этого продуктовая проводка не считается исполненной.
+- setting границы CI: 151 добавляет шаги существующего quality, не новую job и не экранного работника; карта mobile/ci-screens.json, selector, aggregate, jobs/needs, эмуляторы и APK не меняются. Предполёт продуктовой дельты выполняется по 122 с явным working-directory корня продукта для проб; full-workflow --contract проверяет секреты всех jobs, поэтому существующий PILOT_DEMO_CODE остаётся объявлением продуктового контекста, а не новым секретом 151 в публичном харнессе.
+- setting пауза: перед любым подключением перечитать registry/pauzy.tsv; до снятия строк 147/148/149 экранные зоны read-only. Изменение только CI-проводки независимого модуля не разрешает подключать его к экранам и не решает открытые вопросы владельцу о системных флагах и границе done.
 
 ПРОВОДКА:
 - guard=fixtures/workshop_project/gespraech_otdacha_151/red_gespraech_otdacha_151.sh
-ПРОВОДКА-ЭНФОРСМЕНТ: только предметное поведение модуля и карта дизайнера; новой нормы ролей или устава нет. CI-проводка оркестратором после реализации, изолированная Jest-среда — обязательная предпосылка шага.
+ПРОВОДКА-ЭНФОРСМЕНТ: Общий CI dev-harness не получает зависимость от внешнего checkout. Предметный энфорсмент — три обязательных запуска W --model --runtime R, W --stabs --runtime R и W --repo R в существующем quality CI a3ka/Complior-mob, R = абсолютный GITHUB_WORKSPACE продукта; H — отдельный полный SHA-пин принятой батареи 151. --model/--stabs судят контроль и обманки в настоящей Jest-среде, --repo судит поставленный модуль и зависимость; один --stabs не является зеленью реализации. Orchestrator подключает продуктовые шаги после реализации и предъявляет живой результат по продуктовой голове и H-пину; ненулевой rc любого запуска краснит quality и существующий required-агрегат. Новой нормы ролей или устава нет. Оговорка внешнего CI по 994 освобождает только от локальной harness-step и не удостоверяет внешнее исполнение.
 
 ## Модель угроз
 
@@ -126,6 +96,8 @@
 - ложную зелень от пустой/неполной/лишней матрицы Jest и от общего require-кэша карты: ожидания и множество имён снимает Python до импорта subject, сравнивает имена и статус каждого; подмена globalThis.test не меняет захваченную при регистрации ссылку; импорт продукта проверяется без подложенного оракула харнесса.
 НЕ ЗАЩИЩАЕТ:
 - намеренную подмену субъектом кода Jest-ассертов/результата раннера внутри общего JS-realm; ловец — diff-review модуля. Физическое ощущение на телефоне, достоверность источника системных флагов/переключателя iOS silent (Expo Haptics не предоставляет JS-getter), будущие экранные вызовы при паузе и звук earcons — ловец живое устройство и адресная v+1 после снятия паузы; Native OS может дополнительно подавлять эффект. До слова владельца о толковании настроек и границе объёма done считается условным, не утверждённым сокращением.
+- дрейф батареи 151 на новых коммитах dev-harness до обновления принятого H-пина в CI продукта: harness-CI эту батарею не исполняет, а продукт продолжает судиться закреплённой ревизией. Ловец — architect на реальном R при изменении батареи и product quality при адресном перепине; автоматического межрепозиторного запуска и синхронизации H нет. Публикация новой батареи без такого прогона не считается доказанной зеленью.
+- наличие и успешность внешней CI-проводки одной лишь зеленью check_provodka.sh: исключение 994 проверяет существование guard и форму оговорки, не GitHub run. Ловец — просмотр продуктового diff и живой quality по точным product SHA/H SHA с успешными --model/--stabs/--repo без маскировки отказов. Подлинность GitHub-раннера, всего npm dependency supply chain и изоляция от злонамеренного кода общего uid не доказываются Jest-песочницей 151.
 
 ## Незаполненные требования:
 нет
