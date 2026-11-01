@@ -31,9 +31,13 @@ const android = {
 };
 const methods = ['impactAsync', 'selectionAsync', 'notificationAsync', 'performAndroidHapticsAsync'];
 let subject;
-function load() { return subject || (subject = require('./index')); }
+function load() { return subject || (subject = require(__SUBJECT_PLACEHOLDER__)); }
 function calls() { return methods.flatMap(method => H[method].mock.calls.map(args => [method, ...args])); }
 function reset() { methods.forEach(method => H[method].mockClear()); }
+function hasCalls() {
+  for (const method of methods) if (H[method].mock.calls.length) return true;
+  return false;
+}
 
 register('PRODUCT_MODULE_RESOLUTION', () => {
   expect(load().patternFor).toEqual(expect.any(Function));
@@ -72,6 +76,35 @@ for (const { scene, at, platform, name } of cases.absent) {
     } finally { jest.useRealTimers(); }
   });
 }
+for (const { scene, platform, name, lo, hi, flo, fhi, step, moments } of cases.sweeps) {
+  register(`SWEEP_${name}`, async () => {
+    jest.useFakeTimers();
+    try {
+      reset();
+      const known = new Set(moments);
+      const policy = { platform, enabled: true, vibrationEnabled: true, quietMode: false };
+      const { patternFor, playHaptic } = load();
+      const pending = [];
+      const probe = at => {
+        if (known.has(at)) return;
+        const pattern = patternFor(scene, at);
+        if (pattern !== null) throw new Error(`patternFor(${scene}, ${at}) = ${JSON.stringify(pattern)}`);
+        pending.push(playHaptic(scene, at, policy));
+        if (hasCalls()) throw new Error(`SDK call at (${scene}, ${at})`);
+      };
+      for (let at = lo; at <= hi; at++) probe(at);
+      const steps = Math.round((fhi - flo) / step);
+      for (let k = 0; k <= steps; k++) {
+        const at = flo + k * step;
+        if (!Number.isInteger(at)) probe(at);
+      }
+      await Promise.all(pending);
+      await jest.runOnlyPendingTimersAsync();
+      expect(jest.getTimerCount()).toBe(0);
+      expect(calls()).toEqual([]);
+    } finally { jest.useRealTimers(); }
+  }, 60000);
+}
 for (const { scene, at, platform, name } of cases.flags) {
   for (const flag of ['enabled', 'vibrationEnabled', 'quietMode'])
     for (const [state, value] of [['MISSING', undefined], ['NULL', null]]) {
@@ -93,14 +126,13 @@ for (const { scene, at, platform, method, name } of cases.settlements) {
     let finished = false;
     const outcome = load().playHaptic(scene, at,
       { platform, enabled: true, vibrationEnabled: true, quietMode: false }).then(() => { finished = true; });
-    await Promise.resolve();
-    await Promise.resolve();
+    await new Promise(resolve => setTimeout(resolve, cases.holdMs));
     expect(H[method]).toHaveBeenCalledTimes(1);
     expect(finished).toBe(false);
     release();
     await outcome;
     expect(finished).toBe(true);
-  });
+  }, cases.holdMs + 5000);
   register(`REJECTS_AFTER_SDK_${name}`, async () => {
     reset();
     const error = new Error('SDK_REJECTION');
