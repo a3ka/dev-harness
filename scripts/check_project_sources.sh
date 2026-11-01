@@ -108,7 +108,6 @@ for p in "${SOURCE_PATHS[@]}"; do
   case "$p" in
     /*) die "SOURCE_CANON_INVALID: абсолютный путь источника: $p" ;;
     *..*) die "SOURCE_CANON_INVALID: .. в пути: $p" ;;
-    *\0*) die "SOURCE_CANON_INVALID: NUL в пути: $p" ;;
   esac
   full="$REPO/${p#./}"
   # Каталог под R — НЕ regular file; -f требует именно regular file, -e
