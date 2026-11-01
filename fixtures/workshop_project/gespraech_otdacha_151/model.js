@@ -8,7 +8,7 @@ function patternFor(scene, at) {
 }
 
 async function playHaptic(scene, at, policy) {
-  if (!policy.enabled || !policy.vibrationEnabled || policy.quietMode) return;
+  if (policy.enabled !== true || policy.vibrationEnabled !== true || policy.quietMode !== false) return;
   const pattern = patternFor(scene, at);
   if (!pattern) return;
   if (policy.platform === 'android') {
