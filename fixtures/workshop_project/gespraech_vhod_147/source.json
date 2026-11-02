@@ -78,7 +78,11 @@
    "nositeli/kompakt11/kadry/GA-16_menu_dark_390x844.png": "fixtures/workshop_project/gespraech_vhod_147/nositeli/kompakt11/kadry/GA-16_menu_dark_390x844.png",
    "nositeli/kompakt11/kadry/GA-16_menu_dark_393x852.png": "fixtures/workshop_project/gespraech_vhod_147/nositeli/kompakt11/kadry/GA-16_menu_dark_393x852.png",
    "nositeli/kompakt11/kadry/GA-16_menu_light_390x844.png": "fixtures/workshop_project/gespraech_vhod_147/nositeli/kompakt11/kadry/GA-16_menu_light_390x844.png",
-   "nositeli/kompakt11/kadry/GA-16_menu_light_393x852.png": "fixtures/workshop_project/gespraech_vhod_147/nositeli/kompakt11/kadry/GA-16_menu_light_393x852.png"
+   "nositeli/kompakt11/kadry/GA-16_menu_light_393x852.png": "fixtures/workshop_project/gespraech_vhod_147/nositeli/kompakt11/kadry/GA-16_menu_light_393x852.png",
+   "stabs/stab_lekalo_parallelnyj_zapusk.py": "fixtures/workshop_project/gespraech_vhod_147/stabs/stab_lekalo_parallelnyj_zapusk.py",
+   "stabs/stab_lekalo_zamaskirovannyj_otkaz.py": "fixtures/workshop_project/gespraech_vhod_147/stabs/stab_lekalo_zamaskirovannyj_otkaz.py",
+   "stabs/stab_sverka_s_ga01.py": "fixtures/workshop_project/gespraech_vhod_147/stabs/stab_sverka_s_ga01.py",
+   "stabs/stab_maska_36.py": "fixtures/workshop_project/gespraech_vhod_147/stabs/stab_maska_36.py"
   },
   "sha": {
    "model/dvizhenie-runner.mjs": "86157a88c92978544eea709aa96b9510f7e0cebeb95e682dcc805ffb2dd69178",
@@ -134,17 +138,17 @@
    "nositeli/produkt/tokens.css": "c70832955fe9f3c1f0bc5e99eda27c2f1e3a575e1a3f9cedbcf5a93b61bdaf4b",
    "nositeli/screen-job.template.yml": "3675182e218c467f694dc69d4ee3457900849e6717b7a80d12e8bafc80aa14dd",
    "pachka/batareja/red_ekrana.sh": "5976e487bb775e03ba39e4f3b9ddcbabb2cd3ede0439a54f5d867e18ea27e43e",
-   "pachka/forma-ekrana.json": "ff66f9770fcaa3df64cbfba7ef49fb55cf19b544ab938982a01fe93da4c40c11",
+   "pachka/forma-ekrana.json": "e0753f862cb6643df5d8dcdc87090b510746cdacab25eb0559b635e75c26b199",
    "pachka/gespraech-prokhod.yaml": "08e9726be474bb116386adcbcea262871f48d9d499bcd96ac6039e25bede8c82",
    "pachka/gespraech-vhod-393.yaml": "c3339ee799e96c6fba17c961d01473b3a665323353f7cad9154070301c3ec1b7",
    "pachka/gespraech-vhod.yaml": "d15af6d75da7b6bb869dc0a6c81022e7705249e16311827dc5621ad35b973f3a",
-   "pachka/kadry-393.json": "e8e9c0d831498cce8e5efaa25f27af2501cfc2058326bfd125f9d7510251fdb4",
-   "pachka/kadry.json": "4743054cc450e913b39993aca6fc92ab86f46ff518f348c3667f6e395ad303c7",
+   "pachka/kadry-393.json": "d8ab7e85fae01e21056c2afebdd705e818171cfea16eedd9efe20ac0a49f7671",
+   "pachka/kadry.json": "70a3f667397ee4fd2b3348e3febe281a6b104080cab8fb687acf6c73ad49e911",
    "pachka/katalog_kopii.json": "977e6661be5b3aeec6cc637a64c79a801c8091c625ee5b22bb172d85b6304be6",
    "pachka/kontrakt.md": "9eda6ee1710bb154e0bf0047aeef8fcf1904d0de3574e91e8014e4855eabdc9f",
    "pachka/spec_api.json": "99096cdc07c90b209860fe59fa728584d0821db575442e82359e2410db904dbd",
    "stabs/stab_flo_staraq_forma.py": "3cf5a69ef04bf3f74b4869df383d82a5b0dc84f3248126a7e533dcce23a12809",
-   "stabs/stab_lekalo_bez_zapuska_393.py": "e55876fa3326b1576017cda396b784ed2810aba8dbe1e359a77c538eaa16efed",
+   "stabs/stab_lekalo_bez_zapuska_393.py": "84a92c596761a82b52696bc778c3b23165207f7e6e982b7abe213308bcee5924",
    "stabs/stab_lekalo_obhod_kritika.py": "8222f585cfa89a1ab7cfa51aac950e741a5eb085c4a4f9284f797b713fe1730a",
    "stabs/stab_morph_linejnyj.ts": "1083fc0c7537c9a560791d7265577f1528b31e382ba9f4d6d64f6bc96e5c8df3",
    "stabs/stab_porjadok_obratnyj.ts": "e8461a2989442f4659def3cfcd3bb150becb06781c94db8b81792d644cfe69de",
@@ -155,15 +159,19 @@
    "stabs/stab_ud_ignor.ts": "1d4190928a8c169e20b2fcb6767119fc5db40067306e5404918523fc1d295f67",
    "stabs/stab_zakrytie_bez_morfa.ts": "04b59a657950868976f29bd43680ae8703e2b80c8cf80cefe7e1f12a2de9db07",
    "teksty/dvizhenie.mjs": "1869f8abc07339a7d07dcd5b8da08bd5e138ba2f3b7412ce126ee4df5579b216",
-   "teksty/e2e.sh": "449ed3e111522490aa9aa8b6cf9ec5c66478063466c106aff0f84f7641914de4",
+   "teksty/e2e.sh": "845cabfc27719028b44a2a75357426aa90c4aa5ba8d05dc5d8d91d05dccbc93b",
    "teksty/gespraech-dvizhenie.test.ts": "662c3cbc1aeeee027404b8983403f9ba0930629cf5bb7d343c9c4914f9f34981",
-   "teksty/prokhod.sh": "f6b3dc57ab6d7cfd22da9644ee5c762391f741420aa9f3ee9e7d3c60761a1dcf"
+   "teksty/prokhod.sh": "f6b3dc57ab6d7cfd22da9644ee5c762391f741420aa9f3ee9e7d3c60761a1dcf",
+   "stabs/stab_lekalo_parallelnyj_zapusk.py": "c321500da3e755376d5803d380f9c98ea948373f70206d1e791356ea22de38a4",
+   "stabs/stab_lekalo_zamaskirovannyj_otkaz.py": "e6146c67edceaf8cb787731e3de8d42c4e860bd7a1cd65fc8d50d527aca953f6",
+   "stabs/stab_sverka_s_ga01.py": "f5426c802a05c0f4f74867904c389fcf4a58c42dc41464b2297b1aa340c4591c",
+   "stabs/stab_maska_36.py": "11fb7b311a753494f91635420b3ae896d2a2745b442448a15c9edebc24bf0f4c"
   },
   "kanon": {
    "mobile/src/features/conversation/__tests__/gespraech-dvizhenie.test.ts": "662c3cbc1aeeee027404b8983403f9ba0930629cf5bb7d343c9c4914f9f34981",
    "mobile/e2e-gespraech-vhod/kontrakt.md": "9eda6ee1710bb154e0bf0047aeef8fcf1904d0de3574e91e8014e4855eabdc9f",
-   "mobile/e2e-gespraech-vhod/kadry.json": "4743054cc450e913b39993aca6fc92ab86f46ff518f348c3667f6e395ad303c7",
-   "mobile/e2e-gespraech-vhod/kadry-393.json": "e8e9c0d831498cce8e5efaa25f27af2501cfc2058326bfd125f9d7510251fdb4",
+   "mobile/e2e-gespraech-vhod/kadry.json": "70a3f667397ee4fd2b3348e3febe281a6b104080cab8fb687acf6c73ad49e911",
+   "mobile/e2e-gespraech-vhod/kadry-393.json": "d8ab7e85fae01e21056c2afebdd705e818171cfea16eedd9efe20ac0a49f7671",
    "mobile/e2e-gespraech-vhod/katalog_kopii.json": "977e6661be5b3aeec6cc637a64c79a801c8091c625ee5b22bb172d85b6304be6",
    "mobile/e2e-gespraech-vhod/spec_api.json": "99096cdc07c90b209860fe59fa728584d0821db575442e82359e2410db904dbd",
    "mobile/e2e-gespraech-vhod/batareja/red_ekrana.sh": "5976e487bb775e03ba39e4f3b9ddcbabb2cd3ede0439a54f5d867e18ea27e43e",
@@ -189,9 +197,6 @@
    },
    "ekran-vne-manifesta": {
     "prichina": "EKRAN_VNE_MANIFESTA"
-   },
-   "ekrany-ne-polny-ga-01": {
-    "prichina": "EKRANY_NE_POLNY"
    },
    "ekrany-ne-polny-ga-15": {
     "prichina": "EKRANY_NE_POLNY"
@@ -290,9 +295,6 @@
    "perehody-ne-polny-t33": {
     "prichina": "PEREHODY_NE_POLNY"
    },
-   "perehody-ne-polny-t35": {
-    "prichina": "PEREHODY_NE_POLNY"
-   },
    "pressable-bez-izmenenija": {
     "prichina": "PRESSABLE_BEZ_IZMENENIJA"
    },
@@ -364,11 +366,10 @@
   ],
   "h_path": ".harness147",
   "avd_port": 5572,
-  "avd_port_393": 5573,
+  "avd_port_393": 5574,
   "evidence_ns": "mobile/maestro-out-gespraech",
   "shablon": 3,
   "ekrany": [
-   "GA-01",
    "GA-15",
    "GA-16"
   ]
@@ -384,7 +385,11 @@
   "lekalo-obhod-kritika": "stab_lekalo_obhod_kritika.py",
   "lekalo-bez-zapuska-393": "stab_lekalo_bez_zapuska_393.py",
   "flo-staraq-forma": "stab_flo_staraq_forma.py",
-  "prokhod-bez-shell-back": "stab_prokhod_bez_shell_back.py"
+  "prokhod-bez-shell-back": "stab_prokhod_bez_shell_back.py",
+  "lekalo-parallelnyj-zapusk": "stab_lekalo_parallelnyj_zapusk.py",
+  "lekalo-zamaskirovannyj-otkaz": "stab_lekalo_zamaskirovannyj_otkaz.py",
+  "sverka-s-ga01": "stab_sverka_s_ga01.py",
+  "maska-36": "stab_maska_36.py"
  },
  "stab_vhod": {
   "porjadok-obratnyj": {
@@ -419,6 +424,18 @@
   },
   "prokhod-bez-shell-back": {
    "kletka": "s-profil-vozvrat"
+  },
+  "lekalo-parallelnyj-zapusk": {
+   "kletka": "s-lekalo-instanciirovano"
+  },
+  "lekalo-zamaskirovannyj-otkaz": {
+   "kletka": "s-lekalo-instanciirovano"
+  },
+  "sverka-s-ga01": {
+   "kletka": "s-ga01-vne-sverki"
+  },
+  "maska-36": {
+   "kletka": "s-maska-393-48"
   }
  }
 }

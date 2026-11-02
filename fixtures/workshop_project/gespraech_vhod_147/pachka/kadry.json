@@ -12,46 +12,6 @@
  },
  "kadry": [
   {
-   "id": "GA-01 dark",
-   "tema": "dark",
-   "snimok": "gespraech-ga-01",
-   "maket": "docs/ux/05_Kompakt_D24/frames/GA-01_normal_dark_390x844.png",
-   "maket_sha256": "4f286ac1421bb321459a899414b87d7890d38b0dde723e18ec0ad4a2774568c1",
-   "porog": 0.6,
-   "maski_pt": [],
-   "elementy": [
-    {
-     "imja": "ekran",
-     "bbox_pt": [
-      0,
-      36,
-      390,
-      824
-     ]
-    }
-   ]
-  },
-  {
-   "id": "GA-01 light",
-   "tema": "light",
-   "snimok": "gespraech-ga-01",
-   "maket": "docs/ux/05_Kompakt_D24/frames/GA-01_normal_light_390x844.png",
-   "maket_sha256": "80990949bcef238cdfa4a1fa27750e40777301af574e3fb672fc26cacd63d12f",
-   "porog": 0.6,
-   "maski_pt": [],
-   "elementy": [
-    {
-     "imja": "ekran",
-     "bbox_pt": [
-      0,
-      36,
-      390,
-      824
-     ]
-    }
-   ]
-  },
-  {
    "id": "GA-15 dark",
    "tema": "dark",
    "snimok": "gespraech-ga-15",

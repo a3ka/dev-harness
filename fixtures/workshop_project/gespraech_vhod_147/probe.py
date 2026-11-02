@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Батарея контракта 147 gespraech-vhod-menu (guard-канал §ПРОВОДКА).
+# Контракт 147 (gespraech-vhod-menu): guard-канал §ПРОВОДКА.
 # Субъекты: (1) живой валидатор 132 v3 scripts/ekran_shablon.py против
 # эталона model/ekran_shablon.py (пин байтов) на мирах пачки; (2) машина
 # вход-меню (модель model/menu-machine.ts; в продукте —
@@ -9,10 +9,16 @@
 # ЛЕКАЛА screen-job.template.yml (frozen 143/2, копия в nositeli/, пин)
 # тремя парными правками — запись карты, output выбора, needs обоих
 # агрегатов — плюс вынос пачки общим шагом инвентаризации (блок Crit147
-# круг 1: ekran.json={} без проводки проходил 70/70). Оракул — пины
-# source.json (проверяются ДО любого субъекта) и ожидания, вычисленные
-# ЭТАЛОНОМ на том же входе ДО субъекта (правило 8); каждая красная клетка
-# несёт РОВНО одно имя причины.
+# круг 1: ekran.json={} без проводки проходил 70/70). Цикл 2 (вердикт
+# Crit147 v2a, слово владельца 31.10): эмуляторы ПОСЛЕДОВАТЕЛЬНО —
+# остановку 390 и запуск 393 несёт e2e.sh пачки после кадров 390
+# (экранный шаг создаёт AVD393 и передаёт окружение пары; параллельный
+# запуск — LEKALO_PARALLELNYJ_ZAPUSK_393, замаскированный отказ —
+# LEKALO_MASKA_OTKAZA_393); кадр GA-01 исключён из пиксельной сверки
+# (GA01_V_SVERKE), маска шапки 393 = 48 pt (MASKA_393_NE_48). Оракул —
+# пины source.json (проверяются ДО любого субъекта) и ожидания,
+# вычисленные ЭТАЛОНОМ на том же входе ДО субъекта (правило 8); каждая
+# красная клетка несёт РОВНО одно имя причины.
 #
 # Режимы (argv):
 #   (без флага)   судится живое дерево харнесса: валидатор scripts/, в
@@ -20,7 +26,7 @@
 #                 (SUBJECT_ABSENT); клетки a-* красны, пока живой скрипт
 #                 не равен эталону v3 (до пачки implementer 146)
 #   --model       субъект = эталон (контроль входов)
-#   --stabs       контроль + матрица обманных стабов (SVJAZI N, живых 0)
+#   --stabs       контроль + обманные стабы (SVJAZI N, живых 0)
 #   --repo R      судится живой продукт R (машина/канон/пачка)
 #   --a-derevo P C  (служебный) живой рецепт И-8: продукт P -> A-дерево C
 #                 (карта+job из лекала+output+needs+пачка) — зелёный
@@ -28,10 +34,14 @@
 #   --oracle-tamper  порча каждого носителя по очереди в одноразовой
 #                 копии зоны — ORACLE_TAMPERED rc 2 ДО клеток
 #   --piny-only   (служебный) только проверка пинов оракула
+#   --flo-forma-only  (служебный) только клетки формы флоу
+#   --kadry-forma-only  (служебный) только клетки кадровых инвариантов
+#                 сверки (GA-01 вне сверки, маска 393 = 48)
 #   --seed N      seed сеяных входов (право судьи — перезапуск)
 #
 # Коды возврата: 0 — зелено; 1 — красная клетка/живой стаб/нет субъекта;
 # 2 — ORACLE_TAMPERED, рассинхрон реестра, нечем проверять.
+#
 import json
 import os
 import re
@@ -72,6 +82,15 @@ FLOVY_PACHKI = ('gespraech-vhod.yaml', 'gespraech-vhod-393.yaml',
 KLETKI_FLO_STABOV = {
     'flo-staraq-forma': ('s-snimok-strokoj', 'SNIMOK_KARTOJ'),
     'prokhod-bez-shell-back': ('s-profil-vozvrat', 'PROFIL_BEZ_VOZVRATA'),
+}
+
+# кадровые инварианты сверки (цикл 2, слово владельца 31.10): стаб —
+# обманный ПЕРЕПИН манифестов пачки (записи И пины source.json меняются
+# вместе); клетка — имя, причина — РОВНО одно имя (единый источник здесь,
+# source.json.stab_vhod сверяется с ним в vedro)
+KLETKI_KADRY_STABOV = {
+    'sverka-s-ga01': ('s-ga01-vne-sverki', 'GA01_V_SVERKE'),
+    'maska-36': ('s-maska-393-48', 'MASKA_393_NE_48'),
 }
 
 # лекало 143/2 (И-8): копия frozen-шаблона — носитель зоны (пин sha256 в
@@ -133,22 +152,30 @@ def vedro():
             not re.fullmatch(r'[a-z0-9-]+', lek['screen_id']) or \
             lek['pack'] != 'mobile/e2e-%s/' % lek['screen_id'] or \
             lek['h_path'] != '.harness147' or lek['shablon'] != 3 or \
-            set(lek['ekrany']) != {'GA-01', 'GA-15', 'GA-16'} or \
+            set(lek['ekrany']) != {'GA-15', 'GA-16'} or \
             not isinstance(lek['avd_port'], int) or \
-            not isinstance(lek['avd_port_393'], int):
-        utechka('source.json.lekalo — грамматика значений')
+            not isinstance(lek['avd_port_393'], int) or \
+            lek['avd_port_393'] in (lek['avd_port'] - 1,
+                                    lek['avd_port'] + 1):
+        utechka('source.json.lekalo — грамматика значений (порты: соседний'
+                ' с adb-парой 5572 непригоден — слово владельца 31.10)')
     for kljuch in ('nositeli/screen-job.template.yml',
                    'nositeli/produkt/mobile-6240f63.yml',
                    'nositeli/produkt/ci-screens-6240f63.json',
-                   'stabs/stab_lekalo_obhod_kritika.py',
-                   'stabs/stab_lekalo_bez_zapuska_393.py'):
+                   'stabs/stab_lekalo_bez_zapuska_393.py',
+                   'stabs/stab_lekalo_parallelnyj_zapusk.py',
+                   'stabs/stab_lekalo_zamaskirovannyj_otkaz.py',
+                   'stabs/stab_sverka_s_ga01.py',
+                   'stabs/stab_maska_36.py'):
         if kljuch not in src['piny']['nositeli']:
-            utechka('пин лекала отсутствует: ' + kljuch)
+            utechka('пин стаба отсутствует: ' + kljuch)
     for stab, svaz in (src.get('stab_vhod') or {}).items():
         if 'kletka' in svaz:
             svjazannaja = None
             if stab in KLETKI_FLO_STABOV:
                 svjazannaja = KLETKI_FLO_STABOV[stab][0]
+            elif stab in KLETKI_KADRY_STABOV:
+                svjazannaja = KLETKI_KADRY_STABOV[stab][0]
             elif svaz['kletka'] == 's-lekalo-instanciirovano':
                 svjazannaja = svaz['kletka']
             if svjazannaja is None or svaz['kletka'] != svjazannaja \
@@ -163,6 +190,12 @@ def vedro():
                    if 'kletka' in sv and sv['kletka'] in flo_kletki}
     if objavlennye != flo_kletki:
         utechka('стабы формы флоу против клеток формы')
+    kadry_kletki = {v[0] for v in KLETKI_KADRY_STABOV.values()}
+    objavlennye_k = {sv['kletka'] for sv in (src.get('stab_vhod')
+                                             or {}).values()
+                     if 'kletka' in sv and sv['kletka'] in kadry_kletki}
+    if objavlennye_k != kadry_kletki:
+        utechka('стабы кадровых инвариантов против клеток')
     return src
 
 
@@ -170,7 +203,6 @@ def vedro():
 # эталона ДО субъекта; расхождение — дефект оракула, rc 2)
 OZHIDAEMYE_PRICHINY = {
     'shablon2-s-ga': 'DVIZHENIE_OTSVTSTVUET',
-    'ekrany-ne-polny-ga-01': 'EKRANY_NE_POLNY',
     'ekrany-ne-polny-ga-15': 'EKRANY_NE_POLNY',
     'ekrany-ne-polny-ga-16': 'EKRANY_NE_POLNY',
     'ekran-vne-manifesta': 'EKRAN_VNE_MANIFESTA',
@@ -180,7 +212,6 @@ OZHIDAEMYE_PRICHINY = {
     'perehody-ne-polny-t30': 'PEREHODY_NE_POLNY',
     'perehody-ne-polny-t31': 'PEREHODY_NE_POLNY',
     'perehody-ne-polny-t33': 'PEREHODY_NE_POLNY',
-    'perehody-ne-polny-t35': 'PEREHODY_NE_POLNY',
     'perehod-lishnij': 'PEREHOD_LISHNIJ',
     'perehod-vne-manifesta': 'PEREHOD_VNE_MANIFESTA',
     'scena-vne-orakula': 'SCENA_VNE_ORAKULA',
@@ -511,9 +542,9 @@ def izmeni(pak, repo, vid):
         p = put_pachki('e2e.sh')
         s = open(p, encoding='utf-8').read()
         dop = ('mkdir -p "$out"/dark/run2/gespraech/takeScreenshot\n'
-               'cp "%(kadr)s/GA-01_normal_dark_390x844.png" '
+               'cp "%(kadr)s/GA-15_menu_dark_390x844.png" '
                '"$out"/dark/run2/gespraech/takeScreenshot/'
-               'gespraech-ga-01.png\n')
+               'gespraech-ga-15.png\n')
         kadr = os.path.join(NOS, 'kompakt11', 'kadry')
         marker = 'exit 0'
         assert marker in s
@@ -822,6 +853,54 @@ def sudi_flo_forma(koren, repo_r=None):
     return itogi
 
 
+def sudi_kadry_forma(koren, repo_r=None):
+    """Кадровые инварианты сверки (цикл 2, слово владельца 31.10, вердикт
+    Crit147 v2a блоки 1/3): (1) кадр GA-01 исключён из ПИКСЕЛЬНОЙ сверки
+    147 — ни на одном профиле/теме (новый Start D 2.4 — отдельный
+    предмет; переходы/доступность входа не тронуты: ∩-правило T28/T31
+    живо, снимок GA-01 флоу остаётся); запись GA-01 в манифесте кадров —
+    требование совпадения со Start-макетом — GA01_V_SVERKE;
+    (2) маска системной шапки профиля 393 = принятые 48 pt (пилюля
+    пакета 1.1 x133-258, y11-47 — замер Arch148p «Маска 48 подтверждена
+    фактом пакета»: 36 оставляли 12 pt чужого хрома в судимой зоне;
+    больше 48 резало бы собственные пиксели приложения) — MASKA_393_NE_48.
+    Субъект — манифесты пачки зоны pachka/kadry*.json (байты запинены
+    vedro), в --repo той же мерой манифесты продукта."""
+    vhody = [('pachka/kadry.json', os.path.join(koren, 'pachka',
+                                                'kadry.json')),
+             ('pachka/kadry-393.json', os.path.join(koren, 'pachka',
+                                                    'kadry-393.json'))]
+    if repo_r:
+        vhody += [('repo/kadry.json',
+                   os.path.join(repo_r, 'mobile', 'e2e-gespraech-vhod',
+                                'kadry.json')),
+                  ('repo/kadry-393.json',
+                   os.path.join(repo_r, 'mobile', 'e2e-gespraech-vhod',
+                                'kadry-393.json'))]
+    itogi = {'s-ga01-vne-sverki': [], 's-maska-393-48': []}
+    for imja, put in vhody:
+        m, osh = _chita_json(put)
+        if m is None:
+            itogi['s-ga01-vne-sverki'].append(
+                'GA01_V_SVERKE: %s не читается: %s — состав сверки не '
+                'судим' % (imja, osh))
+            continue
+        for k in m.get('kadry') or []:
+            if str(k.get('id', '')).startswith('GA-01'):
+                itogi['s-ga01-vne-sverki'].append(
+                    'GA01_V_SVERKE: %s несёт кадр %r пиксельной сверкой '
+                    '(слово владельца 31.10: GA-01 исключён — Start '
+                    'D 2.4 отдельным предметом)' % (imja, k.get('id')))
+        if '393' in imja:
+            verh = (m.get('mera') or {}).get('chrome_verh_pt')
+            if verh != 48:
+                itogi['s-maska-393-48'].append(
+                    'MASKA_393_NE_48: %s chrome_verh_pt=%r (принятая '
+                    'маска шапки 393 — 48 pt, слово владельца 31.10; '
+                    'пилюля пакета 1.1 y11-47)' % (imja, verh))
+    return itogi
+
+
 def _zerkal_zony(vrem, src):
     """Зеркальная копия зоны (для --oracle-tamper и стабов формы):
     файлы оракула (пины/эталоны/раннер/носители) + probe.py +
@@ -866,15 +945,21 @@ def _zameni_schet(tekst, staryj, novyj):
 
 
 def rassiri_vtoroj_avd(job, src):
-    """Норма 132 v2 (И-8): второй AVD профиля 393 ВНУТРИ того же работника
-    — расширение экранного шага ПОВЕРХ лекала (канон e2e.sh ждёт
-    GESPRAECH_SERIAL/GESPRAECH_SERIAL_393). Обязательства лекала сохранены:
-    PORT 5572, один «ПОВТОР: », валидатор из .harness147, оба корневых
-    флоу в FLOWS_PACHKI. AVD393 СОЗДАЁТСЯ и настраивается на профиль
-    393×852@3x (1179×2556 @ 480dpi) рядом с созданием основного — запуск
-    без создания мёрт (замер станции 30.10, Fix147f). Форма расширения —
-    рецепт пачки, детали реализации (имена/порядок) — реализация
-    implementer."""
+    """Второй AVD профиля 393 — ПОСЛЕДОВАТЕЛЬНО (слово владельца
+    2026-10-31; вердикт Crit147 v2a блок 2): экранный шаг СОЗДАЁТ AVD393
+    и настраивает его на профиль 393×852@3x (1179×2556 @ 480dpi) рядом
+    с созданием основного (запуск без создания мёрт — замер 30.10),
+    расширяет cleanup обоими эмуляторами и передаёт пачке ОКРУЖЕНИЕ ПАРЫ
+    (GESPRAECH_SERIAL/GESPRAECH_SERIAL_393/GESPRAECH_AVD393/
+    GESPRAECH_PORT393/GESPRAECH_APK) ДО приёмки; ОСТАНОВКУ первого и
+    ЗАПУСК второго делает e2e.sh пачки ПОСЛЕ кадров 390 (приёмка обоих
+    профилей одной командой валидатора) — одновременно двух живых
+    эмуляторов шаг не держит (Astra mob-ci-razdelenie п.342). Порт 393 —
+    не соседняя adb-пара первого (5572 занята парой 5572/5573 —
+    доказательство 31.10). Обязательства лекала сохранены: PORT 5572,
+    один «ПОВТОР: », валидатор из .harness147, оба корневых флоу в
+    FLOWS_PACHKI. Форма расширения — рецепт пачки, детали реализации —
+    реализация implementer."""
     LE = src['lekalo']
     shag = next(s for s in job['steps']
                 if str(s.get('name', '')).startswith('Экранная пачка'))
@@ -901,14 +986,24 @@ def rassiri_vtoroj_avd(job, src):
         '  -e \'s/^hw.lcd.height=.*/hw.lcd.height=2556/\' \\\n'
         '  "$ANDROID_AVD_HOME/$AVD393.avd/config.ini"\n')
     r = _zameni_schet(
+        r, '"$AVDM" delete avd -n "$AVD" >/dev/null 2>&1 || true\n',
+        '"$AVDM" delete avd -n "$AVD" >/dev/null 2>&1 || true\n'
+        'adb -s "$SERIAL393" emu kill >/dev/null 2>&1 || true\n'
+        'sleep 3\n'
+        'pkill -f "qemu-system-x86_64.*-avd $AVD393" '
+        '>/dev/null 2>&1 || true\n'
+        '"$AVDM" delete avd -n "$AVD393" >/dev/null 2>&1 || true\n')
+    r = _zameni_schet(
         r, '\nif ! boot; then diag; exit 1; fi\n',
         '\nif ! boot; then diag; exit 1; fi\n'
-        '# второй AVD профиля 393 (норма 132 v2): тот же работник, свой порт\n'
-        'AVD_GL="$AVD"; PORT_GL="$PORT"; SERIAL_GL="$SERIAL"\n'
-        'AVD="$AVD393"; PORT="$PORT393"; SERIAL="$SERIAL393"\n'
-        'if ! boot; then diag; exit 1; fi\n'
-        'export GESPRAECH_SERIAL="$SERIAL_GL" GESPRAECH_SERIAL_393="$SERIAL393"\n'
-        'AVD="$AVD_GL"; PORT="$PORT_GL"; SERIAL="$SERIAL_GL"\n')
+        '# второй AVD профиля 393 — ПОСЛЕДОВАТЕЛЬНО (слово владельца\n'
+        '# 2026-10-31): экранный шаг создаёт AVD393 и передаёт пачке\n'
+        '# окружение пары; ОСТАНОВКУ первого эмулятора и ЗАПУСК второго\n'
+        '# (после кадров 390) делает e2e.sh пачки — одновременно двух\n'
+        '# живых эмуляторов работник не держит (порт 393 вне adb-пары 1-го)\n'
+        'export GESPRAECH_SERIAL="$SERIAL" GESPRAECH_SERIAL_393="$SERIAL393" '
+        'GESPRAECH_AVD393="$AVD393" GESPRAECH_PORT393="$PORT393" '
+        'GESPRAECH_APK="$APK"\n')
     shag['run'] = r
     return job
 
@@ -954,12 +1049,15 @@ def podkljuchi_147(karta, wf, src, h_ref=None):
 def postav_a_derevo(tmp, src):
     """A-дерево самопроверки клетки: ЖИВЫЕ байты продукта (main Complior-mob
     6240f630 — механизм 143 v2 влит, пины nositeli/produkt/) + три парные
-    правки И-8 + форма пачки. Клетка обязана быть здесь ЗЕЛЁНОЙ (контроль);
-    КРАСНОЙ — на стабе-обходе (stabs/stab_lekalo_obhod_kritika.py)."""
+    правки И-8 + форма пачки + e2e.sh пачки (жизненный цикл пары 390/393 —
+    цикл 2: остановку первого и запуск второго несёт e2e, судит клетка).
+    Клетка обязана быть здесь ЗЕЛЁНОЙ (контроль); КРАСНОЙ — на стабах-
+    обходах (stabs/stab_lekalo_*.py)."""
     LE = src['lekalo']
     koren = os.path.join(tmp, 'a-derevo')
     os.makedirs(os.path.join(koren, '.github', 'workflows'))
-    os.makedirs(os.path.join(koren, LE['pack'].strip('/')))
+    pak = os.path.join(koren, LE['pack'].strip('/'))
+    os.makedirs(pak)
     with open(BAZA_KARTA, encoding='utf-8') as fh:
         karta = json.load(fh)
     with open(BAZA_WF, encoding='utf-8') as fh:
@@ -973,7 +1071,9 @@ def postav_a_derevo(tmp, src):
               'w', encoding='utf-8') as fh:
         yaml.safe_dump(wf, fh, allow_unicode=True, sort_keys=False)
     shutil.copy(os.path.join(PACHKA, 'forma-ekrana.json'),
-                os.path.join(koren, LE['pack'].strip('/'), 'ekran.json'))
+                os.path.join(pak, 'ekran.json'))
+    shutil.copy(os.path.join(TEKSTY, 'e2e.sh'), os.path.join(pak, 'e2e.sh'))
+    os.chmod(os.path.join(pak, 'e2e.sh'), 0o755)
     return koren
 
 
@@ -1052,127 +1152,237 @@ def _sudi_job_lekala(job, src):
 
 
 def _sudi_vtoroj_profil(run, src):
-    """Второй AVD профиля 393 ВНУТРИ экранного шага (норма 132 v2; блок
-    Crit147b круг 2): boot второго эмулятора на порту avd_port_393 и
-    GESPRAECH_SERIAL_393, экспортированная ДО вызова приёмки (канон
-    e2e.sh ждёт GESPRAECH_SERIAL/GESPRAECH_SERIAL_393 — без экспорта
-    e2e профиля 393 отказывает до Maestro). Аспекты: PORT393=<порт>,
-    boot-переключ SERIAL="$SERIAL393", export-строка с GESPRAECH_SERIAL_393=
-    до первого вызова run_priemka (потребление экраным шагом)."""
+    """Окружение пары профилей в экранном шаге (норма 132 v2; блок
+    Crit147b круг 2; цикл 2 — последовательный запуск): шаг НЕ запускает
+    393 сам (запуск — e2e.sh после остановки первого), но обязан:
+    PORT393=<порт> (вне adb-пары первого — пригодный), SERIAL393, экспорт
+    ОКРУЖЕНИЯ ПАРЫ (GESPRAECH_SERIAL/GESPRAECH_SERIAL_393/
+    GESPRAECH_AVD393/GESPRAECH_PORT393/GESPRAECH_APK — канон e2e.sh ждёт
+    их всех) ДО вызова приёмки run_priemka, и cleanup обоих эмуляторов
+    (шаг не наследует станции живой AVD393)."""
     LE = src['lekalo']
     netu = []
     if ('PORT393=%d\n' % LE['avd_port_393']) not in run:
         netu.append('экранный шаг без PORT393=%d (порт второго AVD 393)'
                     % LE['avd_port_393'])
-    if 'SERIAL="$SERIAL393"' not in run:
-        netu.append('экранный шаг без boot второго AVD 393 '
-                    '(SERIAL="$SERIAL393")')
-    eksporty = [m.start() for m in re.finditer(
-        r'^[^\S\n]*export\b[^\n]*\bGESPRAECH_SERIAL_393=', run, re.M)]
-    if not eksporty:
-        netu.append('GESPRAECH_SERIAL_393 не экспортирована экраным шагом '
-                    '(канон e2e.sh ждёт её)')
-    else:
+    if ('SERIAL393="emulator-%d"' % LE['avd_port_393']) not in run:
+        netu.append('экранный шаг без SERIAL393 профиля 393')
+    for per in ('GESPRAECH_SERIAL=', 'GESPRAECH_SERIAL_393=',
+                'GESPRAECH_AVD393=', 'GESPRAECH_PORT393=',
+                'GESPRAECH_APK='):
+        eksporty = [m.start() for m in re.finditer(
+            r'^[^\S\n]*export\b[^\n]*\b%s' % re.escape(per), run, re.M)]
+        if not eksporty:
+            netu.append('%s не экспортирована экраным шагом (канон e2e.sh '
+                        'ждёт её)' % per.rstrip('='))
+            continue
         vyzov = run.find('run_priemka\n')
         if vyzov == -1:
-            netu.append('GESPRAECH_SERIAL_393 не потребляется экраным '
-                        'шагом (вызов приёмки run_priemka не найден)')
+            netu.append('%s не потребляется экраным шагом (вызов приёмки '
+                        'run_priemka не найден)' % per.rstrip('='))
         elif eksporty[0] > vyzov:
-            netu.append('GESPRAECH_SERIAL_393 не потребляется экраным '
-                        'шагом (export после вызова приёмки run_priemka)')
+            netu.append('%s не потребляется экраным шагом (export после '
+                        'вызова приёмки run_priemka)' % per.rstrip('='))
+    if 'adb -s "$SERIAL393" emu kill' not in run:
+        netu.append('cleanup шага не останавливает второй эмулятор '
+                    '(adb -s "$SERIAL393" emu kill) — станция наследует '
+                    'живой AVD393')
     return netu
 
 
-def _sudi_zapusk_393(shag, src):
-    """ЗАПУСК второго эмулятора профиля 393 (норма 132 v2; блок Crit147c):
-    boot-переключения и экспорта мало — эмулятор 393 обязан быть ЗАПУЩЕН
-    до приёмки, по коду job: (1) AVD 393 создан (грамматика лекала:
-    create avd -n "$AVD393" — emulator -avd без созданного AVD мёрт);
-    (2) вызов boot стоит ПОСЛЕ переключения SERIAL="$SERIAL393" и ДО
-    возврата serial-390 (AVD="$AVD_GL")/первого вызова run_priemka —
-    порядок: переключение serial -> запуск AVD-393 -> run_priemka;
-    (3) запуск не размаскирован: каноническая форма лекала
-    «if ! boot; then … exit …; fi» либо голый boot под set -e; if на
-    экранном шаге, || true/|| : у вызова, условная guard (открытое
-    «then»/«else»/«do» перед вызовом), форма без распространения отказа —
-    маскировка. Отсутствие/маскировка/мёртвый запуск — одно имя
-    LEKALO_BEZ_ZAPUSKA_393 (старшинство после LEKALO_BEZ_VTOROGO_PROFILJA;
-    continue-on-error в job ловит запрет лекала раньше —
-    LEKALO_NE_INSTANCIIROVANO)."""
-    netu = []
+def _e2e_segmenty(tekst):
+    """Топ-уровневые исполняемые утверждения e2e.sh (замкнутая грамматика,
+    прецедент produkt_sud 148 v2; норма парсящих гардов 041): строки
+    склеены по «\\»-переносу, комментарии «#…» срезаны вне кавычек, тела
+    функций (^имя() { … ^}) пропущены и возвращены реестром
+    {имя: текст тела} — вызов хелпера ожидания вычислим по телу.
+    Возврат: (список утверждений, функции)."""
+    stroki, buf = [], ''
+    for syr in tekst.splitlines():
+        if buf:
+            syr = buf + syr.lstrip()
+            buf = ''
+        if syr.rstrip().endswith('\\'):
+            buf = syr.rstrip()[:-1] + ' '
+            continue
+        stroki.append(syr)
+    ochish = []
+    for s in stroki:
+        otkr, rez = None, s
+        for i, c in enumerate(s):
+            if otkr:
+                if c == otkr:
+                    otkr = None
+            elif c in ("'", '"'):
+                otkr = c
+            elif c == '#' and (i == 0 or s[i - 1].isspace()
+                               or s[i - 1] in ';|&'):
+                rez = s[:i]
+                break
+        ochish.append(rez.strip())
+    utverzhdenija, funkcii = [], {}
+    v_funkcii, imja_f, telo_f = False, None, []
+    for s in ochish:
+        m = re.match(r'^([A-Za-z_][A-Za-z0-9_]*)\s*\(\)\s*\{(.*)$', s)
+        if not v_funkcii and m:
+            v_funkcii, imja_f, telo_f = True, m.group(1), [m.group(2)]
+            continue
+        if v_funkcii:
+            if re.match(r'^\}', s):
+                funkcii[imja_f] = '\n'.join(telo_f)
+                v_funkcii = False
+            else:
+                telo_f.append(s)
+            continue
+        if s:
+            utverzhdenija.append(s)
+    return utverzhdenija, funkcii
+
+
+def _sudi_zhizncikl_e2e(put_e2e):
+    """Жизненный цикл пары 390/393 в e2e.sh ПАЧКИ (слово владельца
+    2026-10-31; вердикт Crit147 v2a блок 2; замкнутый алфавит событий —
+    каноническая форма пачки, отклонения от формы — ревью интеграции):
+    события топ-уровня — остановка 390 («emu kill» по "$serial"), запуск
+    393 («emulator» + «-avd»), приёмка 390/393 («maestro» с "$serial"/
+    "$serial393»), ожидание загрузки («wait-for-device»). Порядок:
+    кадры 390 -> ОСТАНОВКА 390 -> ЗАПУСК 393 -> кадры 393; запуск 393 до
+    остановки/без остановки — ОДНОВРЕМЕННЫЕ AVD; отказы остановки/
+    запуска/ожидания не маскируются («|| true»/«|| :»), отказы
+    распространяет set -e. Возврат: (parallel, maska, bez_zapuska)."""
+    parallel, maska, bez = [], [], []
+    try:
+        tekst = open(put_e2e, encoding='utf-8').read()
+    except OSError as e:
+        return (['e2e.sh пачки не читается (%s) — жизненный цикл пары '
+                 '390/393 не судим' % str(e)[:60]], [], [])
+    try:
+        utv, funkcii = _e2e_segmenty(tekst)
+    except Exception as e:
+        return (['e2e.sh пачки не разбирается: %s' % str(e)[:60]], [], [])
+    zhdushchie = {imja for imja, telo in funkcii.items()
+                  if 'wait-for-device' in telo}
+    sobytija = []
+    for s in utv:
+        z = ('|| true' in s) or ('|| :' in s)
+        slova = re.split(r'[\s;|&]+', s)
+        if re.search(r'\bemu kill\b', s) and '"$serial"' in s \
+                and '"$serial393"' not in s:
+            sobytija.append(('STOP390', z))
+        if 'emulator' in s and '-avd' in slova:
+            sobytija.append(('START393', z))
+        if 'maestro' in slova or 'maestro' in s:
+            if '"$serial393"' in s:
+                sobytija.append(('MAESTRO393', z))
+            elif '"$serial"' in s:
+                sobytija.append(('MAESTRO390', z))
+        if ('wait-for-device' in s or
+                any(imja in slova for imja in zhdushchie)) \
+                and '"$serial393"' in s:
+            sobytija.append(('WAIT393', z))
+    if not any(re.match(r'^set\s+-[a-zA-Z]*e', s) for s in utv):
+        maska.append('e2e.sh без set -e — отказы остановки/запуска 393 '
+                     'не распространяются')
+    for vid, z in sobytija:
+        if z and vid in ('STOP390', 'START393', 'WAIT393'):
+            maska.append('отказ %s проглочен (|| true/|| :) — запуск 393 '
+                         'не распространяет отказ' % vid)
+    stopy = [i for i, (v, _) in enumerate(sobytija) if v == 'STOP390']
+    starty = [i for i, (v, _) in enumerate(sobytija) if v == 'START393']
+    m390 = [i for i, (v, _) in enumerate(sobytija) if v == 'MAESTRO390']
+    m393 = [i for i, (v, _) in enumerate(sobytija) if v == 'MAESTRO393']
+    if not starty:
+        bez.append('запуск AVD 393 в e2e.sh отсутствует (нет emulator … '
+                   '-avd) — приёмка профиля 393 невозможна')
+        return parallel, maska, bez
+    if not stopy:
+        parallel.append('запуск 393 без остановки первого — одновременно '
+                        'два живых AVD (нет adb … emu kill по "$serial")')
+    elif starty[0] < stopy[0]:
+        parallel.append('запуск 393 ДО остановки первого (индексы событий '
+                        'start=%d stop=%d) — одновременно два живых AVD'
+                        % (starty[0], stopy[0]))
+    if not m390 or (stopy and m390[0] > stopy[0]):
+        bez.append('кадры 390 не снимаются до остановки первого — приёмка '
+                   'профиля 390 невозможна (maestro по "$serial" до emu '
+                   'kill)')
+    if not m393 or m393[0] < starty[0]:
+        bez.append('кадры 393 не снимаются после запуска второго — приёмка '
+                   'профиля 393 невозможна (maestro по "$serial393")')
+    return parallel, maska, bez
+
+
+def _sudi_posledovatelno_393(shag, src, repo):
+    """ПОСЛЕДОВАТЕЛЬНЫЙ запуск пары 390/393 (слово владельца 2026-10-31;
+    вердикт Crit147 v2a блок 2). Судит по коду: (1) job: AVD393 СОЗДАН
+    (create avd — emulator -avd без AVD мёрт) и НЕ запускает 393 сам —
+    ни литеральным emulator … -avd "$AVD393", ни вызовом boot под
+    переключёнными переменными AVD="$AVD393" (GA-форма вердикта: два
+    живых эмулятора до приёмки) — LEKALO_PARALLELNYJ_ZAPUSK_393;
+    (2) e2e.sh пачки: порядок кадры-390 -> остановка 390 -> запуск 393 ->
+    кадры 393, без одновременных AVD, отказы не маскированы
+    (|| true/set -e) — LEKALO_PARALLELNYJ_ZAPUSK_393 /
+    LEKALO_MASKA_OTKAZA_393 / LEKALO_BEZ_ZAPUSKA_393. Возврат:
+    (parallel, maska, bez_zapuska)."""
+    parallel, maska, bez = [], [], []
     if shag.get('if') is not None:
-        netu.append('экранный шаг под условием if: %r — запуск 393 может '
-                    'быть пропущен целиком' % str(shag['if'])[:50])
+        parallel.append('экранный шаг под условием if: %r — пара 393 может '
+                        'быть пропущена целиком' % str(shag['if'])[:50])
     run = str(shag.get('run') or '')
     if not re.search(r'create avd\b[^\n]*-n "\$AVD393"', run):
-        netu.append('AVD 393 не создаётся (нет create avd -n "$AVD393") — '
-                    'запуск мёрт: emulator -avd "$AVD393" без AVD')
-    perek = run.find('SERIAL="$SERIAL393"')
-    if perek == -1:
-        return netu  # переключения нет — LEKALO_BEZ_VTOROGO_PROFILJA
-    vyzov = run.find('run_priemka\n')
-    vozvrat = run.find('AVD="$AVD_GL"')
-    granicy = [g for g in (vyzov, vozvrat) if g != -1]
-    okno = run[perek:min(granicy)] if granicy and min(granicy) > perek else ''
-    zapuskov = 0
-    maski = []
-    stroki = okno.split('\n')
-    for i, ln in enumerate(stroki):
-        s = ln.strip()
-        if not s or s.startswith('#') or s.startswith('boot()'):
-            continue
-        if not re.search(r'(?<![\w.$-])boot(?![\w.$-])', s):
-            continue
-        if (re.match(r'^if ! boot; then\b', s) and
-                re.search(r'\bexit\b', s) and re.search(r';\s*fi$', s)) \
-                or s == 'boot':
-            pred = next((stroki[j].strip() for j in range(i - 1, -1, -1)
-                         if stroki[j].strip()), '')
-            if pred.endswith('then') or pred.endswith('else') or \
-                    pred.endswith('do'):
-                maski.append('запуск под условной guard (%r перед ним): %r'
-                             % (pred[-30:], s[:50]))
-            else:
-                zapuskov += 1
-            continue
-        if '|| true' in s or '|| :' in s:
-            maski.append('отказ проглочен (|| true): %r' % s[:60])
-        elif re.match(r'^(if ! boot|.*&&\s*boot)', s):
-            maski.append('условный запуск/отказ не распространён: %r'
-                         % s[:60])
-        else:
-            maski.append('запуск в неканонической форме: %r' % s[:60])
-    if zapuskov == 0 and not any('guard' in m or 'if:' in m for m in netu):
-        if maski:
-            netu.append('запуск AVD 393 размаскирован: ' + '; '.join(maski))
-        else:
-            netu.append('запуск AVD 393 отсутствует: между переключением '
-                        'SERIAL="$SERIAL393" и возвратом serial-390/'
-                        'run_priemka нет вызова boot')
-    return netu
+        bez.append('AVD 393 не создаётся (нет create avd -n "$AVD393") — '
+                   'запуск мёрт: emulator -avd "$AVD393" без AVD')
+    if re.search(r'emulator[^\n]*-avd "\$AVD393"', run):
+        parallel.append('job сам запускает AVD 393 (emulator … -avd '
+                        '"$AVD393") — до остановки первого, параллельно')
+    for m in re.finditer(r'AVD="\$AVD393"', run):
+        nach = m.end()
+        kon = run.find('AVD="$AVD_GL"', nach)
+        okno = run[nach:kon if kon != -1 else len(run)]
+        for ln in okno.split('\n'):
+            s = ln.strip()
+            if re.match(r'^(if ! boot; then\b.*;\s*fi|boot)$', s):
+                parallel.append('вызов boot под переключёнными переменными '
+                                'AVD="$AVD393" (GA-форма: job запускает '
+                                '393 параллельно первому): %r' % s[:50])
+                break
+    p_parallel, p_maska, p_bez = _sudi_zhizncikl_e2e(
+        os.path.join(repo, src['lekalo']['pack'].strip('/'), 'e2e.sh'))
+    parallel.extend(p_parallel)
+    maska.extend(p_maska)
+    bez.extend(p_bez)
+    return parallel, maska, bez
 
 
 def sud_lekalo(repo, src):
     """s-lekalo-instanciirovano (И-8; блоки Crit147 круг 1 + Crit147b круг
-    2 + Crit147c): в --repo судит ТРИ парные правки лекала 143/2 (запись
-    карты, job из лекала по пину шаблона/ключам инстанциации, output
-    выбора + needs обоих агрегатов), вынос пачки мобильным общим шагом
-    инвентаризации, НЕПУСТУЮ форму пачки (ekran.json={} — обход
-    критика), ВТОРОЙ AVD профиля 393 в экранном шаге (порт/boot-переключ/
-    GESPRAECH_SERIAL_393 до приёмки), ЗАПУСК AVD-393 (create + вызов
-    boot после переключения до приёмки, без маскировки — Crit147c) и
-    НЕПУСТЫЕ puti записи карты (выбор экранной задачи по её путям
-    обеспечен). Именованный отказ — РОВНО одно имя на вход, по
-    старшинству: LEKALO_NE_INSTANCIIROVANO (парные правки/вынос/форма/
-    запреты лекала — в т.ч. continue-on-error), LEKALO_BEZ_VTOROGO_
-    PROFILJA (второй AVD 393: порт/переключение/экспорт),
-    LEKALO_BEZ_ZAPUSKA_393 (create/запуск/маскировка запуска),
+    2 + Crit147c; цикл 2 — последовательная пара): в --repo судит ТРИ
+    парные правки лекала 143/2 (запись карты, job из лекала по пину
+    шаблона/ключам инстанциации, output выбора + needs обоих агрегатов),
+    вынос пачки мобильным общим шагом инвентаризации, НЕПУСТУЮ форму
+    пачки (ekran.json={} — обход критика), ОКРУЖЕНИЕ пары профилей в
+    экранном шаге (порт 393 вне adb-пары первого, SERIAL393, экспорт
+    GESPRAECH_* ДО приёмки, cleanup обоих эмуляторов) и
+    ПОСЛЕДОВАТЕЛЬНЫЙ жизненный цикл пары (слово владельца 31.10): job
+    создаёт AVD393 и НЕ запускает 393 сам; e2e.sh пачки несёт порядок
+    кадры-390 -> остановка 390 -> запуск 393 -> кадры 393, без
+    одновременных AVD, с немаскированным отказом и НЕПУСТЫЕ puti записи
+    карты. Именованный отказ — РОВНО одно имя на вход, по старшинству:
+    LEKALO_NE_INSTANCIIROVANO (парные правки/вынос/форма/запреты лекала
+    — в т.ч. continue-on-error), LEKALO_BEZ_VTOROGO_PROFILJA (окружение
+    пары: порт/serial/экспорт/cleanup), LEKALO_PARALLELNYJ_ZAPUSK_393
+    (запуск 393 до остановки первого — в job или e2e), LEKALO_MASKA_
+    OTKAZA_393 (проглоченный отказ остановки/запуска/ожидания),
+    LEKALO_BEZ_ZAPUSKA_393 (create/запуск/приёмка профилей),
     LEKALO_BEZ_PUTEJ_KARTY (puti записи). «Пропускник» ловится стабами
-    lekalo-obhod-kritika и lekalo-bez-zapuska-393 (Н-39)."""
+    lekalo-obhod-kritika, lekalo-bez-zapuska-393, lekalo-parallelnyj-
+    zapusk, lekalo-zamaskirovannyj-otkaz (Н-39)."""
     LE = src['lekalo']
     JOB = LE['job_id']
     netu = []
     netu_393 = []
+    netu_parallel = []
+    netu_maska = []
     netu_zapusk = []
     netu_puti = []
 
@@ -1249,7 +1459,10 @@ def sud_lekalo(repo, src):
             if shag is not None:
                 netu_393.extend(_sudi_vtoroj_profil(
                     str(shag.get('run') or ''), src))
-                netu_zapusk.extend(_sudi_zapusk_393(shag, src))
+                p, m, z = _sudi_posledovatelno_393(shag, src, repo)
+                netu_parallel.extend(p)
+                netu_maska.extend(m)
+                netu_zapusk.extend(z)
         outs = ((jobs.get('select-screens') or {}).get('outputs') or {})
         if outs.get(JOB) != '${{ steps.vybor.outputs.%s }}' % JOB:
             netu.append('output выбора %s отсутствует/не из шага vybor'
@@ -1268,6 +1481,8 @@ def sud_lekalo(repo, src):
             netu.append('wildcard-вынос mobile/e2e-*')
     for imja, spisok in (('LEKALO_NE_INSTANCIIROVANO', netu),
                          ('LEKALO_BEZ_VTOROGO_PROFILJA', netu_393),
+                         ('LEKALO_PARALLELNYJ_ZAPUSK_393', netu_parallel),
+                         ('LEKALO_MASKA_OTKAZA_393', netu_maska),
                          ('LEKALO_BEZ_ZAPUSKA_393', netu_zapusk),
                          ('LEKALO_BEZ_PUTEJ_KARTY', netu_puti)):
         if spisok:
@@ -1365,6 +1580,16 @@ def main():
                   % (kletka, 'ok' if not spisok else 'KRASNO',
                      '; '.join(spisok)))
         return 1 if any(prichiny_flo.values()) else 0
+    if '--kadry-forma-only' in argv:
+        # клеточный прогон кадровых инвариантов сверки (зеркала стабов
+        # кадров): те же клетки, что в полном прогоне; rc 1 — красная
+        prichiny_k = sudi_kadry_forma(ZDE)
+        for kletka in sorted(prichiny_k):
+            spisok = prichiny_k[kletka]
+            print('CASE %s %s %s'
+                  % (kletka, 'ok' if not spisok else 'KRASNO',
+                     '; '.join(spisok)))
+        return 1 if any(prichiny_k.values()) else 0
 
     if rezhim == 'tamper':
         prov = 0
@@ -1500,6 +1725,11 @@ def main():
     # (байты запинены vedro), в --repo — и канон-копии mobile/.maestro
     for kletka, spisok in sorted(sudi_flo_forma(ZDE, repo_r).items()):
         itogi.append((kletka, not spisok, '; '.join(spisok)))
+    # клетки кадровых инвариантов сверки (цикл 2, слово владельца 31.10):
+    # субъект — манифесты пачки зоны (байты запинены vedro), в --repo —
+    # и манифесты пачки продукта
+    for kletka, spisok in sorted(sudi_kadry_forma(ZDE, repo_r).items()):
+        itogi.append((kletka, not spisok, '; '.join(spisok)))
 
 
     zelen = sum(1 for _, ok, _ in itogi if ok)
@@ -1543,6 +1773,9 @@ def main():
                 if svaz['kletka'] in {v[0] for v in
                                       KLETKI_FLO_STABOV.values()}:
                     continue  # стабы формы флоу — ниже, своим контуром
+                if svaz['kletka'] in {v[0] for v in
+                                      KLETKI_KADRY_STABOV.values()}:
+                    continue  # стабы кадровых инвариантов — ниже
                 stub = os.path.join(vrem_a, 'stub-' + stab)
                 shutil.copytree(a_der, stub)
                 r = subprocess.run(
@@ -1606,6 +1839,49 @@ def main():
                 svjazi += 1
             finally:
                 shutil.rmtree(vrem_f, ignore_errors=True)
+        # стабы кадровых инвариантов сверки (Н-39; цикл 2, слово
+        # владельца 31.10): обманный ПЕРЕПИН манифестов — записи И пины
+        # source.json меняются вместе (порчу носителя ловит vedro ДО
+        # клеток, перепин — только клетка). Зеркальная копия зоны;
+        # клеточный прогон --kadry-forma-only обязан дать rc 1 СВОИМ
+        # именем причины (иначе ORACLE — стаб красен не своим дефектом);
+        # зелёный контроль — клетки кадровых инвариантов выше (живая зона
+        # зелена). Мутант-«пропускник» ловится здесь — STAB_ZHIV rc 1.
+        for stab, svaz in sorted(src['stab_vhod'].items()):
+            if stab not in KLETKI_KADRY_STABOV:
+                continue
+            kletka, prichina = KLETKI_KADRY_STABOV[stab]
+            vrem_k = tempfile.mkdtemp(prefix='gespraech147-kadry-')
+            try:
+                zerkalo = _zerkal_zony(vrem_k, src)
+                r = subprocess.run(
+                    [sys.executable,
+                     os.path.join(STABY, src['staby'][stab]), zerkalo],
+                    capture_output=True, text=True, timeout=60)
+                if r.returncode != 0:
+                    sys.stderr.write('ORACLE стаб %s: мутатор rc=%d %s\n'
+                                     % (stab, r.returncode,
+                                        r.stderr.strip()[:120]))
+                    return 2
+                env = dict(os.environ)
+                env['GESpraech147_ZONA'] = zerkalo
+                d = subprocess.run(
+                    [sys.executable, os.path.join(zerkalo, 'probe.py'),
+                     '--kadry-forma-only'], capture_output=True, text=True,
+                    env=env, timeout=300)
+                if d.returncode == 0:
+                    print('STAB %s ZHIV (клетка %s зелена на стабе)'
+                          % (stab, kletka))
+                    return 1
+                if prichina not in d.stdout:
+                    sys.stderr.write('ORACLE стаб %s: красна не своей '
+                                     'причиной: %s\n' % (stab,
+                                                         d.stdout.strip()))
+                    return 2
+                print('STAB %s KRASEN %s' % (stab, prichina))
+                svjazi += 1
+            finally:
+                shutil.rmtree(vrem_k, ignore_errors=True)
         print('SVJAZI %d' % svjazi)
 
     print('клеток %d, зелёных %d, красных %d; режим %s seed %d'
