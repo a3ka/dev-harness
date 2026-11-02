@@ -6,6 +6,10 @@
 // хост не изобретает: планы переходов — машина chat-machine.ts (её судит
 // численный канон пачки); рендер здесь — структурный (зонд батареи 149
 // судит поведение: состав целей и реакции нажатий, прецедент 148).
+// v+1 цикл 2 (вердикт Crit149k2a, класс РЕАЛЬНАЯ_ЗОНА_КАСАНИЯ): КАЖДЫЙ
+// pressable хоста несёт полы зоны нажатия minHeight/minWidth ≥
+// touch-target.min (44) — зона ≠ видимая рамка; карточки тем — полами
+// kartochka_temy (содержимое карточек больше пол, полы — нижняя грань).
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -91,8 +95,8 @@ export function GespraechTekstChat({
             accessibilityRole="button"
             onPress={() => nazhatTemy('schaden', predlozheno.srochno)}
             style={({ pressed }) => [
-              styles.plashka, styles.plashka_srochnaja, obolochka,
-              { opacity: pressed ? 0.7 : 1 },
+              styles.plashka, styles.plashka_srochnaja, styles.kartochka_temy,
+              obolochka, { opacity: pressed ? 0.7 : 1 },
             ]}
             testID="gespraech-topic-schaden"
           >
@@ -116,7 +120,9 @@ export function GespraechTekstChat({
               <Pressable
                 accessibilityRole="button"
                 onPress={() => nazhatTemy(t.id, t.nadpis)}
-                style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+                style={({ pressed }) => [
+                  styles.kartochka_temy, { opacity: pressed ? 0.7 : 1 },
+                ]}
                 testID={'gespraech-topic-' + t.id}
               >
                 <Text style={[styles.tema, nadpis]}>{t.nadpis}</Text>
@@ -238,24 +244,28 @@ const styles = StyleSheet.create({
   plashka: { borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 8,
              justifyContent: 'space-between', marginBottom: 8, padding: 12 },
   plashka_srochnaja: { borderWidth: 2 },
+  kartochka_temy: { minHeight: 44, minWidth: 44 },
   tema: { fontSize: 16, fontWeight: '600' },
   verlauf: { flex: 1 },
   soobschenie: { borderRadius: 10, marginBottom: 6, padding: 10 },
   vopros: { borderRadius: 10, marginBottom: 6, padding: 10 },
   chipy: { borderRadius: 10, borderWidth: 1, flexDirection: 'row',
            flexWrap: 'wrap', gap: 8, padding: 10 },
-  chip: { borderRadius: 8, borderWidth: 1, minHeight: 44, paddingHorizontal: 12,
-          justifyContent: 'center' },
+  chip: { borderRadius: 8, borderWidth: 1, minHeight: 44, minWidth: 44,
+          paddingHorizontal: 12, justifyContent: 'center' },
   temy_stroka: { borderRadius: 10, borderWidth: 1, flexDirection: 'row',
                  gap: 8, padding: 8 },
   tema_piljulja: { borderRadius: 8, borderWidth: 1, minHeight: 44,
-                   justifyContent: 'center', paddingHorizontal: 12 },
+                   minWidth: 44, justifyContent: 'center',
+                   paddingHorizontal: 12 },
   vlozhenie: { borderRadius: 10, borderWidth: 1, padding: 16 },
   knopka_verh: { borderRadius: 8, borderWidth: 1, minHeight: 44,
-                 justifyContent: 'center', paddingHorizontal: 12 },
+                 minWidth: 44, justifyContent: 'center',
+                 paddingHorizontal: 12 },
   knopka_golosa: { borderRadius: 8, borderWidth: 1, minHeight: 44,
                    minWidth: 44, justifyContent: 'center',
                    paddingHorizontal: 8 },
   knopka_erzaehlen: { borderRadius: 8, borderWidth: 1, minHeight: 44,
-                      justifyContent: 'center', paddingHorizontal: 12 },
+                      minWidth: 44, justifyContent: 'center',
+                      paddingHorizontal: 12 },
 });

@@ -7,9 +7,18 @@
 // (CHANGELOG D 2.4 «Помещается всегда»): поле растёт до ШЕСТИ строк и
 // прокручивается (потолок/рост/прокрутка — интерфейс машины
 // chat-machine.ts: poleStrokMaksimum/poleRastjot/poleSkrolluet,
-// единственный источник числа), микрофон primary — видимая кнопка
+// единственный источник числа строк), микрофон primary — видимая кнопка
 // голоса в поле, «+» вложения и «Nachricht senden» появляется с
 // текстом. testID — грамматика проходимости пачки (gespraech-*).
+//
+// v+1 цикл 2 (вердикт Crit149k2a, класс РЕАЛЬНЫЙ_ТОКЕН_ПОЛЯ): высота
+// строки поля — ТОКЕН пакета D24-Kompakt-1.1
+// (typography.body.$value.lineHeight, 21px), не литерал: композер
+// потребляет пакет, зонд батареи сверяет использованную высоту со
+// значением токена (литерал 24/20 вместо 21 красен). Зона нажатия
+// кнопок — полы minWidth/minHeight ≥ touch-target.min (класс
+// РЕАЛЬНАЯ_ЗОНА_КАСАНИЯ: видимая рамка меньше зоны допустима, зона
+// меньше 44 — нет).
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -62,12 +71,17 @@ export function ConversationComposer({
 
 // --- ChatComposer (контракт 149, GA-13/17) --------------------------------
 
+// Токен пакета D24-Kompakt-1.1 (единый источник компактной шкалы):
+// высота строки тела и потолок поля calc(6 * lineHeight(body)).
+import kompakt from '../../../../docs/ux/05_Kompakt_D24/source/tokens.json';
+
 // Структурная константа потолка — из машины (И-4); токены движения для
 // потолка не читаются, передаются нулевые.
 const mashina = createChatMachine(
   { motionFast: 0, motionBase: 0, motionMorph: 0 });
 const STROK_MAKSIMUM = mashina.poleStrokMaksimum();
-const VYSOTA_STROKI = 20;
+const VYSOTA_STROKI = Number(
+  String(kompakt.typography.body.$value.lineHeight).replace('px', ''));
 
 export interface ChatComposerProps {
   /** Черновик (контролируемый порт композиции, прецедент 108 круг 2). */

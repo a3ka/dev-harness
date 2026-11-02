@@ -8,10 +8,13 @@
 # в продукте (--repo); (4) CI-проводка экрана (--repo; И-8, блок Crit149
 # круг 1): инстанциация ЛЕКАЛА screen-job.template.yml (frozen 143/2,
 # копия-носитель в зоне, пин) тремя парными правками — запись карты,
-# output выбора, needs обоих агрегатов — со ВТОРЫМ AVD 393 в том же
-# работнике (норма 132 v2: boot/PORT393/экспорт обоих серийников,
-# потребляемых e2e.sh пачки; блок Crit147b — снятие расширения не
-# зелено) и выносом пачки общим шагом инвентаризации (обход критика:
+# output выбора, needs обоих агрегатов — работник поднимает ОДИН
+# эмулятор лекала (v+1 цикл 2, Crit149k2a ПОРЯДОК_AVD_393: параллельное
+# расширение вторым boot СНЯТО — пару профилей ПОСЛЕДОВАТЕЛЬНО ведёт
+# e2e.sh пачки: остановка первого, затем запуск 393; порядок судится
+# ИСПОЛНЕНИЕМ в песочнице с двойниками SDK — клетка
+# s-emuljatory-posledovatelno, параллельный job красен; слово владельца
+# 2026-10-31) и выносом пачки общим шагом инвентаризации (обход критика:
 # ekran.json={} без проводки проходил 82/82); (5) ПОЛНЫЙ СУД ПАЧКИ
 # продукта тем же ЗАМОРОЖЕННЫМ валидатором v3 (блок 1 Crit149b: пачка
 # {shablon,ekran,dvizhenie.ekrany} без источников/проходимости/профиля
@@ -21,7 +24,13 @@
 # UI — чат-хост GespraechTekstChat и правка композера ChatComposer —
 # доказывается jest-зондом на РЕАЛЬНЫХ компонентах R, прецедент
 # ispolnimyj_sud 148; мутанты «пустой хост»/«композер не изменён»
-# убиваются ассертами; клетка s-ekran-ispolnim). Оракул — пины
+# убиваются ассертами; клетка s-ekran-ispolnim; v+1 цикл 2: матрица
+# несёт zona-12-* и token-24/token-20 — зона нажатия и высота строки
+# поля на РЕАЛЬНОМ компоненте (зоны/токены — пакет 1.1, зонд судит
+# использованную компонентом величину против значения токена); (7) маска
+# шапки профиля 393 = 48 pt (слово владельца 31.10) — суд ЗНАЧЕНИЯ
+# манифеста кадров R (s-profil-maska-393) и самоприменение пачки
+# (d-paket-maska); зелень с 36 pt невозможна). Оракул — пины
 # source.json (проверяются ДО любого субъекта) и ожидания, вычисленные
 # ЭТАЛОНОМ на том же входе ДО субъекта (правило 8); каждая красная
 # клетка несёт РОВНО одно имя причины.
@@ -64,6 +73,7 @@ import re
 import shutil
 import subprocess
 import sys
+import signal
 import tempfile
 import hashlib
 import yaml
@@ -124,14 +134,26 @@ MASHINA_V_PRODUKTE = os.path.join('mobile', 'src', 'features',
 KOMPOZER_V_PRODUKTE = os.path.join('mobile', 'src', 'ui',
                                    'conversation-composer',
                                    'conversation-composer.tsx')
-# мутанты исполняемого суда (блок 1 Crit149b): «пустой хост» — файл
-# выродился в пустой рендер; «композер не изменён» — байты product main
-# (носитель зоны, пин), правка 149 снята
+# мутанты исполняемого суда (блок 1 Crit149b + v+1 цикл 2 Crit149k2a):
+# «пустой хост» — файл выродился в пустой рендер; «композер не изменён»
+# — байты product main (носитель зоны, пин), правка 149 снята;
+# zona-12-* — полы зон нажатия 44 → 12 (класс РЕАЛЬНАЯ_ЗОНА_КАСАНИЯ,
+# дословная атака mut-hit); token-24/token-20 — высота строки поля
+# ЛИТЕРАЛОМ вместо токена пакета (класс РЕАЛЬНЫЙ_ТОКЕН_ПОЛЯ, атака
+# mut-token; вердикт: «литерал 24 (равно как и 20) вместо 21 красен»)
 MUTANTY_ISPOLNIMYE = [
     ('host-pustoj', HOST_V_PRODUKTE,
      os.path.join(STABY, 'stab_host_pustoj.tsx')),
     ('kompozer-ne-izmenen', KOMPOZER_V_PRODUKTE,
      os.path.join(NOS, 'produkt', 'composer-108.tsx')),
+    ('zona-12-host', HOST_V_PRODUKTE,
+     os.path.join(STABY, 'stab_host_zona_12.tsx')),
+    ('zona-12-kompozer', KOMPOZER_V_PRODUKTE,
+     os.path.join(STABY, 'stab_kompozer_zona_12.tsx')),
+    ('token-24', KOMPOZER_V_PRODUKTE,
+     os.path.join(STABY, 'stab_kompozer_token_24.tsx')),
+    ('token-20', KOMPOZER_V_PRODUKTE,
+     os.path.join(STABY, 'stab_kompozer_token_20.tsx')),
 ]
 
 # клеточные стабы (Н-39: стаб → клетка + файл; рассинхрон — rc 2):
@@ -139,7 +161,10 @@ MUTANTY_ISPOLNIMYE = [
 # v3-пачка (блок 1 Crit149b); jest-krasnyj/zelenyj — фиктивные jest-среды
 # (блок 1 Crit149b); flo-*/ga12/ga13 — обманные перепины флоу (перепин
 # 31.10: старая форма снимка, вход без first-run/openLink, состояния
-# GA-12 без вопроса/чипов и GA-13 до отправки)
+# GA-12 без вопроса/чипов и GA-13 до отправки); emuljatory-odnovremenno
+# — параллельный старт 393 до остановки первого (v+1 цикл 2,
+# ПОРЯДОК_AVD_393); maska-36 — маска шапки 393 = 36 pt (v+1 цикл 2,
+# МАСКА_ПРОФИЛЯ_393)
 KLETOCHNYE_STABY = {
     'lekalo-obhod-kritika': ('s-lekalo-instanciirovano',
                              'stab_lekalo_obhod_kritika.py'),
@@ -152,6 +177,9 @@ KLETOCHNYE_STABY = {
     'ga12-bez-voprosa': ('s-ga12-s-voprosom', 'stab_ga12_bez_voprosa.py'),
     'ga13-do-otpravki': ('s-ga13-posle-otpravki',
                          'stab_ga13_do_otpravki.py'),
+    'emuljatory-odnovremenno': ('s-emuljatory-posledovatelno',
+                                'stab_emuljatory_odnovremenno.py'),
+    'maska-36': ('s-profil-maska-393', 'stab_maska_36.py'),
 }
 
 # флоу пачки (байты — носители зоны, пин source.json; канон-копии в
@@ -262,7 +290,10 @@ def vedro_lekalo(src):
                                    'GA-17', 'GA-18', 'GA-19'} or \
             not isinstance(lek['avd_port'], int) or \
             not isinstance(lek['avd_port_393'], int) or \
-            lek['avd_port_393'] != lek['avd_port'] + 1 or \
+            lek['avd_port'] % 2 != 0 or lek['avd_port_393'] % 2 != 0 or \
+            lek['avd_port_393'] < lek['avd_port'] + 2 or \
+            lek['avd_port_393'] in (lek['avd_port'] - 1, lek['avd_port'],
+                                    lek['avd_port'] + 1) or \
             lek['serial'] != 'GESPRAECH_TEKST_SERIAL' or \
             lek['serial_393'] != 'GESPRAECH_TEKST_SERIAL_393' or \
             not lek['flows'] or not lek['child_flows'] or not lek['puti'] \
@@ -281,6 +312,12 @@ def vedro_lekalo(src):
                    'stabs/stab_jest_krasnyj.sh',
                    'stabs/stab_host_pustoj.tsx',
                    'nositeli/produkt/composer-108.tsx',
+                   'stabs/stab_host_zona_12.tsx',
+                   'stabs/stab_kompozer_zona_12.tsx',
+                   'stabs/stab_kompozer_token_24.tsx',
+                   'stabs/stab_kompozer_token_20.tsx',
+                   'stabs/stab_emuljatory_odnovremenno.py',
+                   'stabs/stab_maska_36.py',
                    'model/produktnaja-raskladka/mobile/src/features/'
                    'conversation/chat-host.tsx',
                    'model/produktnaja-raskladka/mobile/src/features/'
@@ -1201,6 +1238,24 @@ def pravila_dannyh():
         assert not est_final2(tok11['motion'])
         return sorted(izmen)
 
+    def d_paket_maska():
+        # v+1 цикл 2 (слово владельца 2026-10-31; Crit149k2a класс
+        # МАСКА_ПРОФИЛЯ_393): самоприменение — манифест кадров профиля
+        # 393 ПАЧКИ несёт маску шапки 48 pt: mera.chrome_verh_pt == 48 и
+        # верх «ekran»-элемента ВСЕХ 12 записей == 48 (repin зоны на 36
+        # красит это правило; в R то же значение судит s-profil-maska-393)
+        m = json.load(open(os.path.join(PACHKA, 'kadry-393.json'),
+                           encoding='utf-8'))
+        assert m['mera']['chrome_verh_pt'] == PROFIL393_VERH_PT, \
+            m['mera']
+        assert len(m['kadry']) == 12, len(m['kadry'])
+        for k in m['kadry']:
+            ekran = k['elementy'][0]
+            assert ekran['imja'] == 'ekran', k['id']
+            assert ekran['bbox_pt'][1] == PROFIL393_VERH_PT, (k['id'],
+                                                               ekran)
+        return PROFIL393_VERH_PT
+
     def d_ud_trex_scen():
         for pid in ('GA-T30', 'GA-T32', 'GA-T37'):
             for t in S[pid]['tracks']:
@@ -1221,7 +1276,8 @@ def pravila_dannyh():
             'd-ud-trex-scen': d_ud_trex_scen,
             'd-paket-kompakt': d_paket_kompakt,
             'd-paket-zony': d_paket_zony,
-            'd-paket-dvizhenie': d_paket_dvizhenie}
+            'd-paket-dvizhenie': d_paket_dvizhenie,
+            'd-paket-maska': d_paket_maska}
 
 
 def zapusk_pravila_mashiny(mashina, pravilo=None):
@@ -1452,52 +1508,16 @@ def _zameni_schet(tekst, staryj, novyj):
     return tekst.replace(staryj, novyj)
 
 
-def rassiri_vtoroj_avd(job, src):
-    """Норма 132 v2 (И-8): второй AVD профиля 393 ВНУТРИ того же работника
-    — расширение экранного шага ПОВЕРХ лекала (канон e2e.sh ждёт
-    %s/%s). Обязательства лекала сохранены: PORT И-8, один
-    «ПОВТОР: », валидатор из %s, оба корневых флоу в FLOWS_PACHKI.
-    Форма расширения — рецепт пачки, детали реализации (имена/порядок) —
-    реализация implementer.""" % (src['lekalo']['serial'],
-                                  src['lekalo']['serial_393'],
-                                  src['lekalo']['h_path'])
-    LE = src['lekalo']
-    shag = next(s for s in job['steps']
-                if str(s.get('name', '')).startswith('Экранная пачка'))
-    r = shag['run']
-    r = _zameni_schet(r, 'SERIAL="emulator-${PORT}"\n',
-                      'SERIAL="emulator-${PORT}"\n'
-                      '%s="emulator-%d"\n' % (LE['serial_393'],
-                                              LE['avd_port_393']))
-    r = _zameni_schet(
-        r, 'trap cleanup EXIT\n',
-        'trap cleanup EXIT\n'
-        'AVD393="ci%s-393-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"\n'
-        'PORT393=%d\n' % (LE['screen_id'], LE['avd_port_393']))
-    r = _zameni_schet(
-        r, '  "$AVDM" delete avd -n "$AVD" >/dev/null 2>&1 || true\n',
-        '  "$AVDM" delete avd -n "$AVD" >/dev/null 2>&1 || true\n'
-        '  adb -s "$SERIAL393" emu kill >/dev/null 2>&1 || true\n'
-        '  pkill -f "qemu-system-x86_64.*-avd $AVD393" '
-        '>/dev/null 2>&1 || true\n'
-        '  "$AVDM" delete avd -n "$AVD393" >/dev/null 2>&1 || true\n')
-    r = _zameni_schet(
-        r, '\nif ! boot; then diag; exit 1; fi\n',
-        '\nif ! boot; then diag; exit 1; fi\n'
-        '# второй AVD профиля 393 (норма 132 v2): тот же работник, свой порт\n'
-        'AVD_GL="$AVD"; PORT_GL="$PORT"; SERIAL_GL="$SERIAL"\n'
-        'AVD="$AVD393"; PORT="$PORT393"; SERIAL="$SERIAL393"\n'
-        'if ! boot; then diag; exit 1; fi\n'
-        'export %s="$SERIAL_GL" %s="$SERIAL393"\n'
-        'AVD="$AVD_GL"; PORT="$PORT_GL"; SERIAL="$SERIAL_GL"\n'
-        % (LE['serial'], LE['serial_393']))
-    shag['run'] = r
-    return job
 
-
-def instanciruj_job(src, h_ref=None, s_393=False):
+def instanciruj_job(src, h_ref=None):
     """Лекало + параметры И-8 -> dict job (грамматика — ТОЛЬКО пиннованный
-    шаблон, второго списка обязательств в батарее нет)."""
+    шаблон, второго списка обязательств в батарее нет). v+1 цикл 2
+    (Crit149k2a, ПОРЯДОК_AVD_393): параллельное расширение экранного
+    шага вторым boot СНЯТО — работник поднимает ОДИН эмулятор лекала;
+    пару профилей (остановка первого, затем запуск 393) последовательным
+    порядком ведёт e2e.sh пачки, судимый исполнением (песочница с
+    двойниками SDK — sud_emuljatorov; прецедент 148 v2 по арбитражу:
+    текстовый счёт boot в job не доказывает порядок)."""
     with open(LEKALO, encoding='utf-8') as fh:
         tekst = fh.read()
     zam = lekalo_zameny(src, h_ref)
@@ -1505,17 +1525,15 @@ def instanciruj_job(src, h_ref=None, s_393=False):
         tekst = tekst.replace(k, zam[k])
     if re.search(r'\{\{[A-Z_]+\}\}', tekst):
         raise RuntimeError('лекало: незаменённый плейсхолдер')
-    job = yaml.safe_load(tekst)['jobs'][src['lekalo']['job_id']]
-    if s_393:
-        job = rassiri_vtoroj_avd(job, src)
-    return job
+    return yaml.safe_load(tekst)['jobs'][src['lekalo']['job_id']]
 
 
 def podkljuchi_149(karta, wf, src, h_ref=None):
     """ТРИ парные правки лекала одним движением (И-8: тот же PR): запись
-    карты + job (со вторым AVD 393) + output выбора + needs ОБОИХ
-    агрегатов. Единый источник рецепта для A-дерева самопроверки и
-    живого --a-derevo."""
+    карты + job из лекала (один эмулятор работника; пара профилей —
+    последовательный порядок e2e.sh, слово владельца 31.10) + output
+    выбора + needs ОБОИХ агрегатов. Единый источник рецепта для A-дерева
+    самопроверки и живого --a-derevo."""
     LE = src['lekalo']
     JOB = LE['job_id']
     karta.setdefault('ekrany', []).append({
@@ -1524,7 +1542,7 @@ def podkljuchi_149(karta, wf, src, h_ref=None):
         'flows': list(LE['flows']), 'child_flows': list(LE['child_flows']),
         'puti': list(LE['puti']), 'h_checkout': [LE['h_path']],
         'output_namespace': LE['evidence_ns']})
-    wf.setdefault('jobs', {})[JOB] = instanciruj_job(src, h_ref, s_393=True)
+    wf.setdefault('jobs', {})[JOB] = instanciruj_job(src, h_ref)
     vyhody = wf['jobs'].setdefault('select-screens', {}).setdefault(
         'outputs', {})
     vyhody[JOB] = '${{ steps.vybor.outputs.%s }}' % JOB
@@ -1567,25 +1585,27 @@ def postav_a_derevo(tmp, src):
         yaml.safe_dump(wf, fh, allow_unicode=True, sort_keys=False)
     shutil.copy(os.path.join(PACHKA, 'forma-ekrana.json'),
                 os.path.join(pak, 'ekran.json'))
+    # v+1 цикл 2: манифесты кадров — вход судов маски профиля 393 и
+    # стабильности стабов (maska-36 мутирует kadry-393 в копии дерева)
+    for imja in ('kadry.json', 'kadry-393.json'):
+        shutil.copy(os.path.join(PACHKA, imja), os.path.join(pak, imja))
     shutil.copy(os.path.join(TEKSTY, 'e2e.sh'), os.path.join(pak, 'e2e.sh'))
+    os.chmod(os.path.join(pak, 'e2e.sh'), 0o755)
     return koren
 
-
-def _ekrannyj_shag(job):
-    return next(s for s in (job.get('steps') or [])
-                if str(s.get('name', '')).startswith('Экранная пачка'))
 
 
 def _sudi_job_lekala(job, src):
     """Job против скелета лекала: поля DAG равны; шаги лекала — по порядку
     полными именами/uses (клетка не держит второго перечня шагов — грамматика
-    одна, пиннованный шаблон); экранный шаг ОБЯЗАН нести расширение вторым
-    AVD 393 (норма 132 v2; блок Crit147b: job без второго boot/серийника
-    393 принимался зелёным): вторая загрузка эмулятора, PORT393 и экспорт
-    ОБОИХ серийников лекала — ожидание выводится из скелета с расширением,
-    не вторым перечнем; валидатор 132 v3 из H-пина, PORT И-8 и оба корневых
-    флоу в FLOWS_PACHKI; H-checkout — принятым 40-hex пином (не плавающей
-    ссылкой); запреты и ровно один «ПОВТОР: » — по всему job."""
+    одна, пиннованный шаблон); v+1 цикл 2 (Crit149k2a, ПОРЯДОК_AVD_393):
+    работник поднимает ОДИН эмулятор лекала — параллельное расширение
+    вторым boot СНЯТО (порядок пары профилей судится исполнением e2e.sh
+    в клетке s-emuljatory-posledovatelno, прецедент 148 v2: текстовый
+    счёт boot в job не доказывает остановку первого); валидатор 132 v3
+    из H-пина, PORT И-8 и оба корневых флоу в FLOWS_PACHKI; H-checkout —
+    принятым 40-hex пином (не плавающей ссылкой); запреты и ровно один
+    «ПОВТОР: » — по всему job."""
     LE = src['lekalo']
     netu = []
     skel = instanciruj_job(src)
@@ -1631,23 +1651,16 @@ def _sudi_job_lekala(job, src):
                                 % LE['h_path'])
                 if ('PORT=%d' % LE['avd_port']) not in run:
                     netu.append('экранный шаг без PORT=%d' % LE['avd_port'])
-                # ВТОРОЙ AVD 393 — обязателен (блок Crit147b: снятие
-                # расширения оставляло клетку зелёной); ожидание — из
-                # скелета с расширением (rassiri_vtoroj_avd), не списком
-                shag393 = _ekrannyj_shag(instanciruj_job(src, s_393=True))
-                run393 = str(shag393.get('run') or '')
-                booty = 'if ! boot; then diag; exit 1; fi'
-                if run.count(booty) < run393.count(booty):
-                    netu.append('экранный шаг без второй загрузки AVD %d'
-                                % LE['avd_port_393'])
-                if ('PORT393=%d' % LE['avd_port_393']) not in run:
-                    netu.append('экранный шаг без PORT393=%d'
-                                % LE['avd_port_393'])
-                # свойство: ОБА серийника экспортированы экраном шага
-                # (имена — из лекало-ключей; форма строки — реализация)
-                for imja in (LE['serial'], LE['serial_393']):
-                    if not re.search(r'export\s+[^\n]*%s=' % imja, run):
-                        netu.append('экранный шаг без экспорта %s' % imja)
+                # v+1 цикл 2 (Crit149k2a, ПОРЯДОК_AVD_393): экранный шаг
+                # равен СКЕЛЕТУ лекала СТРОГО — работник поднимает ОДИН
+                # эмулятор; добавочное поведение в шаге (параллельный
+                # второй boot, инертные строки-носители) красит здесь,
+                # порядок пары профилей судится исполнением e2e.sh
+                # (sud_emuljatorov; уроки mut-inert-boot-2 Crit149b и
+                # арбитража 148: счёт вхождений не доказывает порядок)
+                if s != skel['steps'][n]:
+                    netu.append('экранный шаг != лекалу (добавочное '
+                                'поведение — параллельный AVD и пр.)')
             elif h_checkout:
                 et = dict(skel['steps'][n].get('with') or {})
                 fact = dict(s.get('with') or {})
@@ -1736,10 +1749,13 @@ def sud_lekalo(repo, src):
             tekst_e2e = fh.read()
     except Exception:
         tekst_e2e = ''
-        netu.append('e2e.sh пачки не читается (серийники не потребляются)')
-    for imja in (LE['serial'], LE['serial_393']):
-        if imja not in tekst_e2e:
-            netu.append('e2e.sh пачки не потребляет %s' % imja)
+        netu.append('e2e.sh пачки не читается (порты пары не потребляются)')
+    # v+1 цикл 2: e2e.sh пачки ведёт пару профилей (остановка первого,
+    # затем запуск 393) — судится ИСПОЛНЕНИЕМ в sud_emuljatorov; здесь
+    # только привязка к ПОРТАМ лекала (серийники — производные портов)
+    for port in (LE['avd_port'], LE['avd_port_393']):
+        if ('=%d' % port) not in tekst_e2e:
+            netu.append('e2e.sh пачки без порта %d пары профилей' % port)
 
     put_wf = os.path.join(repo, '.github', 'workflows', 'mobile.yml')
     try:
@@ -1774,6 +1790,202 @@ def sud_lekalo(repo, src):
             'LEKALO_NE_INSTANCIIROVANO: ' + '; '.join(netu))
 
 
+
+# ---------- v+1 цикл 2 (Crit149k2a): последовательная пара AVD 393 и
+# маска профиля 393 — суд ИСПОЛНЕНИЕМ/ЗНАЧЕНИЕМ (прецедент 148 v2) ----
+
+
+PROFIL393_VERH_PT = 48  # слово владельца 2026-10-31: маска шапки 393
+
+
+# Двойники несут состояние живых серийников и журнал событий. Они
+# ставятся в PATH и ANDROID_HOME: обе формы запуска e2e.sh идут в
+# песочницу, не к настоящему Android SDK. Журнал — наблюдение, НЕ оракул
+# ожиданий: порты и начальное состояние (живой эмулятор работника
+# лекала) остаются у судьи в памяти (правило 8).
+DVOJNIK = r'''#!/usr/bin/env python3
+import os
+import pathlib
+import sys
+import time
+
+state = pathlib.Path(os.environ["GESpraechTekst149_STATE"])
+log = pathlib.Path(os.environ["GESpraechTekst149_LOG"])
+name = pathlib.Path(sys.argv[0]).name
+args = sys.argv[1:]
+
+def read_state():
+    return state.read_text(encoding="utf-8").splitlines()
+
+def event(line):
+    with log.open("a", encoding="utf-8") as output:
+        output.write(line + "\n")
+
+if name == "adb":
+    if args == ["devices"]:
+        print("List of devices attached")
+        for serial in read_state():
+            print(serial + "\tdevice")
+    elif len(args) >= 4 and args[0] == "-s" and args[2:] == ["emu", "kill"]:
+        serial = args[1]
+        event("KILL " + serial)
+        state.write_text("".join(s + "\n" for s in read_state() if s != serial),
+                         encoding="utf-8")
+    elif len(args) >= 3 and args[0] == "-s" and args[2] == "wait-for-device":
+        deadline = time.monotonic() + 5
+        while args[1] not in read_state():
+            if time.monotonic() >= deadline:
+                sys.exit(1)
+            time.sleep(0.01)
+    elif "getprop" in args:
+        print("1")
+elif name == "emulator":
+    port = args[args.index("-port") + 1] if "-port" in args and args.index("-port") + 1 < len(args) else ""
+    event("START " + port)
+    with state.open("a", encoding="utf-8") as output:
+        output.write("emulator-" + port + "\n")
+'''
+
+
+def sud_emuljatorov(repo, src):
+    """s-emuljatory-posledovatelno (слово владельца 2026-10-31, Astra
+    mob-ci-razdelenie п.342; вердикт Crit149k2a класс ПОРЯДОК_AVD_393):
+    до старта 393 первый AVD гарантированно остановлен. Исполняем
+    e2e.sh пачки R без настоящего SDK: на входе ЖИВ эмулятор работника
+    лекала (порт avd_port), двойники adb/emulator/maestro/sleep пишут
+    журнал KILL/START; суд — только по событиям журнала (не по словам
+    скрипта): каждый START обязан идти портом avd_port_393 и ТОЛЬКО при
+    пустом множестве живых (иначе AVD393_ZAPUSCHEN_DO_OSTANOVKI —
+    параллельный job красен); запуск, обошедший PATH/ANDROID_HOME, и
+    отсутствие STOP у первого не образуют событий (AVD393_NET_ZAPUSKA);
+    ненулевой rc скрипта — AVD393_E2E_RC. Возвращает список аспектов
+    отказа (пустой — зелено)."""
+    LE = src['lekalo']
+    put = os.path.join(repo, LE['pack'].strip('/'), 'e2e.sh')
+    if not os.path.isfile(put):
+        return ['нет %s (жизненный цикл пары профилей — слово владельца '
+                '31.10)' % os.path.join(LE['pack'].strip('/'), 'e2e.sh')]
+    with tempfile.TemporaryDirectory(prefix='gespraechtekst149-avd-') as d:
+        cwd = os.path.join(d, 'zapusk')
+        os.makedirs(cwd)
+        shutil.copyfile(put, os.path.join(cwd, 'e2e.sh'))
+        os.chmod(os.path.join(cwd, 'e2e.sh'), 0o755)
+        # e2e.sh судит наличие своих флоу (rc 3) — песочница несёт их
+        # из пачки зоны: двойник maestro не читает их, но честный вход
+        # обязан существовать (как в дереве продукта)
+        for potok in LE['flows']:
+            imja_potoka = os.path.basename(potok)
+            kuda = os.path.join(cwd, os.path.dirname(potok))
+            os.makedirs(kuda, exist_ok=True)
+            shutil.copyfile(os.path.join(PACHKA, imja_potoka),
+                            os.path.join(kuda, imja_potoka))
+        bin_dir = os.path.join(d, 'bin')
+        sdk_bin = os.path.join(d, 'android', 'emulator')
+        os.makedirs(bin_dir)
+        os.makedirs(sdk_bin)
+        for imja in ('adb', 'emulator', 'maestro', 'sleep'):
+            dvojnik = os.path.join(bin_dir, imja)
+            with open(dvojnik, 'w', encoding='utf-8') as fh:
+                fh.write(DVOJNIK)
+            os.chmod(dvojnik, 0o755)
+        os.symlink(os.path.join(bin_dir, 'emulator'),
+                   os.path.join(sdk_bin, 'emulator'))
+        sostojanie = os.path.join(d, 'state')
+        zhurnal = os.path.join(d, 'events')
+        with open(sostojanie, 'w', encoding='utf-8') as fh:
+            fh.write('emulator-%d\n' % LE['avd_port'])
+        open(zhurnal, 'w', encoding='utf-8').close()
+        env = dict(os.environ)
+        env['PATH'] = os.pathsep.join([bin_dir, env.get('PATH', '')])
+        env['ANDROID_HOME'] = os.path.join(d, 'android')
+        env['GESpraechTekst149_STATE'] = sostojanie
+        env['GESpraechTekst149_LOG'] = zhurnal
+        # e2e.sh кладёт кадры в mobile/maestro-out-… — cwd одноразовый
+        protsess = subprocess.Popen(
+            ['bash', os.path.join(cwd, 'e2e.sh'), LE['screen_id']],
+            cwd=cwd, env=env, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, start_new_session=True)
+        try:
+            protsess.communicate(timeout=30)
+            status = protsess.returncode
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(protsess.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            protsess.communicate()
+            status = 'ТАЙМАУТ (30 с)'
+        try:
+            stroki = open(zhurnal, encoding='utf-8').read().splitlines()
+        except OSError as e:
+            return ['AVD393_ZHURNAL: журнал недоступен: %s' % e]
+        zhivye = {'emulator-%d' % LE['avd_port']}
+        aspekty, zapuskov, narushen = [], 0, False
+        for stroka in stroki:
+            if stroka.startswith('KILL '):
+                zhivye.discard(stroka[5:])
+            elif stroka.startswith('START '):
+                port = stroka[6:]
+                zapuskov += 1
+                if zhivye and not narushen:
+                    aspekty.append(
+                        'AVD393_ZAPUSCHEN_DO_OSTANOVKI: START %s при '
+                        'живом %s' % (port, ', '.join(sorted(zhivye))))
+                    narushen = True
+                if port != str(LE['avd_port_393']):
+                    aspekty.append('AVD393_PORT_NE_%d: START %s, требуется '
+                                   '%d' % (LE['avd_port_393'], port,
+                                           LE['avd_port_393']))
+                zhivye.add('emulator-%s' % port)
+        if zapuskov == 0:
+            aspekty.append(
+                'AVD393_NET_ZAPUSKA: нет START в журнале; запуск 393 '
+                'отсутствует или обошёл PATH/ANDROID_HOME')
+        if status != 0:
+            aspekty.append('AVD393_E2E_RC: e2e.sh rc=%s' % status)
+        return aspekty
+
+
+def sud_maski_profilja(repo, src):
+    """s-profil-maska-393 (слово владельца 2026-10-31, Q1б; вердикт
+    Crit149k2a класс МАСКА_ПРОФИЛЯ_393): все кадры профиля 393
+    сравниваются с утверждённой маской шапки 48 pt (вырез камеры).
+    Судится ТОЧНОЕ ЗНАЧЕНИЕ манифеста кадров профиля R (файл — по
+    записи vtoroj_profil.kadry формы): mera.chrome_verh_pt == 48 И верх
+    «ekran»-элемента КАЖДОЙ записи == 48; 36/47/49 проходят визуальную
+    меру — значение красит именованно (прецедент proverka_maski_profilja
+    148). Нечитаемые пачка/манифест не судятся здесь (их раньше красит
+    s-pachka-validirovana). Возвращает аспект или None."""
+    LE = src['lekalo']
+    pachka = os.path.join(repo, LE['pack'].strip('/'))
+    imja = 'kadry-393.json'
+    try:
+        forma = json.load(open(os.path.join(pachka, 'ekran.json'),
+                               encoding='utf-8'))
+        imja = ((forma.get('vtoroj_profil') or {}).get('kadry')
+                or imja)
+    except (OSError, ValueError):
+        return None
+    put = os.path.join(pachka, imja)
+    try:
+        m = json.load(open(put, encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    aspekty = []
+    if (m.get('mera') or {}).get('chrome_verh_pt') != PROFIL393_VERH_PT:
+        aspekty.append('mera.chrome_verh_pt=%r' % m.get('mera'))
+    for k in m.get('kadry') or []:
+        ekran = (k.get('elementy') or [{}])[0]
+        if ekran.get('imja') == 'ekran' and \
+                ekran.get('bbox_pt', [0, 0])[1] != PROFIL393_VERH_PT:
+            aspekty.append('%s: ekran.bbox_pt=%s' % (k.get('id'),
+                                                     ekran.get('bbox_pt')))
+    if aspekty:
+        return ('PROFIL_MASKA_NE_48: %s: %s — маска шапки профиля 393 — '
+                '%d pt (слово владельца 31.10; значение — независимо от '
+                'визуальной меры)' % (imja, '; '.join(aspekty[:4]),
+                                      PROFIL393_VERH_PT))
+    return None
 
 def ispolnimyj_sud(mob_koren, src, podrobno=True):
     """Исполняемый суд экрана (блок 1 Crit149b: «реальный UI должен быть
@@ -1820,6 +2032,16 @@ def ispolnimyj_sud(mob_koren, src, podrobno=True):
                 MASHINA_V_PRODUKTE):
         if not os.path.isfile(os.path.join(mob_koren, '..', otn)):
             predposylki.append('нет компонента %s' % otn)
+    # v+1 цикл 2: зонд судит зоны/токены ПАКЕТОМ D24-Kompakt-1.1 —
+    # tokens.json обязан лежать в R (композер потребляет его же);
+    # ekran.json пачки — карта pressable (конечный домен зон)
+    tok_paketa = os.path.join('docs', 'ux', '05_Kompakt_D24', 'source',
+                              'tokens.json')
+    if not os.path.isfile(os.path.join(mob_koren, '..', tok_paketa)):
+        predposylki.append('нет пакета 1.1 %s' % tok_paketa)
+    if not os.path.isfile(os.path.join(mob_koren, 'e2e-gespraech-tekst',
+                                       'ekran.json')):
+        predposylki.append('нет ekran.json пачки (карта pressable зонда)')
     if predposylki:
         return ['LIVE_PREDPOSYLKA: %s' % '; '.join(predposylki)], None
     vrem = tempfile.mkdtemp(prefix='gespraechtekst149-live-')
@@ -1829,6 +2051,11 @@ def ispolnimyj_sud(mob_koren, src, podrobno=True):
                         ignore=shutil.ignore_patterns('node_modules'))
         os.symlink(os.path.realpath(nm), os.path.join(kopija,
                                                       'node_modules'))
+        # пакет 1.1 рядом с копией mobile (референс-композер и зонд
+        # читают токены по относительному пути <корень>/docs/…)
+        tok_kuda = os.path.join(vrem, tok_paketa)
+        os.makedirs(os.path.dirname(tok_kuda), exist_ok=True)
+        shutil.copyfile(os.path.join(mob_koren, '..', tok_paketa), tok_kuda)
         zond = os.path.join(kopija, ZOND_KUDA, ZOND_IMJA)
         os.makedirs(os.path.dirname(zond), exist_ok=True)
         shutil.copy(ZOND, zond)
@@ -2017,6 +2244,17 @@ def postav_fejk_jest(vrem, jest_skript):
     dst = os.path.join(koren, MASHINA_V_PRODUKTE)
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     shutil.copy(os.path.join(MODEL, 'chat-machine.ts'), dst)
+    # v+1 цикл 2: зонд судит зоны/токены пачкой — фиктивная среда несёт
+    # те же входы (ekran.json пачки + tokens.json пакета), чтобы путь
+    # клетки дошёл до запуска jest, а не до LIVE_PREDPOSYLKA
+    pak = os.path.join(mob, 'e2e-gespraech-tekst')
+    os.makedirs(pak, exist_ok=True)
+    shutil.copy(os.path.join(PACHKA, 'forma-ekrana.json'),
+                os.path.join(pak, 'ekran.json'))
+    tok = os.path.join(koren, 'docs', 'ux', '05_Kompakt_D24', 'source',
+                       'tokens.json')
+    os.makedirs(os.path.dirname(tok), exist_ok=True)
+    shutil.copy(os.path.join(NOS, 'kompakt11', 'tokens.json'), tok)
     open(os.path.join(mob, 'package.json'), 'w').write(
         '{"name":"mobile-fejk","private":true}')
     open(os.path.join(mob, 'jest.config.js'), 'w').write(
@@ -2254,6 +2492,35 @@ def main():
         else:
             itogi.append(('s-ekran-ispolnim', not prichiny_z,
                           '; '.join(prichiny_z)))
+
+    # v+1 цикл 2 (Crit149k2a, ПОРЯДОК_AVD_393): до старта 393 первый AVD
+    # гарантированно остановлен — суд ИСПОЛНЕНИЕМ e2e.sh пачки R в
+    # песочнице с двойниками SDK (прецедент 148 v2); параллельный job
+    # (START при живом первом) красен AVD393_ZAPUSCHEN_DO_OSTANOVKI
+    if rezhim == 'koren':
+        itogi.append(('s-emuljatory-posledovatelno', False,
+                      'SUBJECT_ABSENT продукт'))
+    elif rezhim in ('model', 'stabs'):
+        itogi.append(('s-emuljatory-posledovatelno', True,
+                      'статически-зелёный контроль (модель)'))
+    else:
+        aspekty_avd = sud_emuljatorov(repo_r, src)
+        itogi.append(('s-emuljatory-posledovatelno', not aspekty_avd,
+                      '; '.join(aspekty_avd)))
+
+    # v+1 цикл 2 (Crit149k2a, МАСКА_ПРОФИЛЯ_393): все кадры профиля 393
+    # сравниваются с утверждённой маской 48 pt — суд ЗНАЧЕНИЯ манифеста
+    # кадров R (36/47/49 визуально зелёны — красит именованно)
+    if rezhim == 'koren':
+        itogi.append(('s-profil-maska-393', False,
+                      'SUBJECT_ABSENT продукт'))
+    elif rezhim in ('model', 'stabs'):
+        itogi.append(('s-profil-maska-393', True,
+                      'статически-зелёный контроль (модель)'))
+    else:
+        aspekt_maski = sud_maski_profilja(repo_r, src)
+        itogi.append(('s-profil-maska-393', aspekt_maski is None,
+                      aspekt_maski or ''))
     # клетки формы/состояний флоу (перепин 31.10): субъект — флоу пачки
     # зоны (байты запинены vedro), в --repo — и канон-копии mobile/.maestro
     for kletka, spisok in sorted(sudi_flo_forma(ZDE, repo_r).items()):
@@ -2308,6 +2575,50 @@ def main():
             svjazi += 1
         finally:
             shutil.rmtree(vrem_a, ignore_errors=True)
+        # стабы v+1 цикла 2 (Н-39; Crit149k2a): пара входов одной клеткой
+        # на ТОМ ЖЕ рецепте A-дерева — emuljatory-odnovremenno красит
+        # s-emuljatory-posledovatelno (исполнение e2e.sh: START 393 до
+        # остановки первого), maska-36 красит s-profil-maska-393
+        # (значение 36 вместо 48); зелёный контроль клеток — прогон
+        # суда на НЕмутированном рецепте (выше A-дерево зелено, клетка
+        # репе — a-derevo живого продукта); «пропускник» ловится STAB_ZHIV
+        vrem_r2 = tempfile.mkdtemp(prefix='gespraechtekst149-r2-')
+        try:
+            a2 = postav_a_derevo(vrem_r2, src)
+            for stab, kletka, prichina in (
+                    ('emuljatory-odnovremenno',
+                     's-emuljatory-posledovatelno',
+                     'AVD393_ZAPUSCHEN_DO_OSTANOVKI'),
+                    ('maska-36', 's-profil-maska-393',
+                     'PROFIL_MASKA_NE_48')):
+                stub_r = os.path.join(vrem_r2, 'stub-' + stab)
+                shutil.copytree(a2, stub_r)
+                r = subprocess.run(
+                    [sys.executable, os.path.join(STABY,
+                                                  src['staby'][stab]),
+                     stub_r], capture_output=True, text=True, timeout=60)
+                if r.returncode != 0:
+                    sys.stderr.write('ORACLE стаб %s: мутатор rc=%d %s\n'
+                                     % (stab, r.returncode,
+                                        r.stderr.strip()[:120]))
+                    return 2
+                if stab == 'emuljatory-odnovremenno':
+                    aspekty_r = sud_emuljatorov(stub_r, src)
+                    svod_r = '; '.join(aspekty_r)
+                else:
+                    svod_r = sud_maski_profilja(stub_r, src) or ''
+                if not svod_r:
+                    print('STAB %s ZHIV (клетка %s зелена на стабе)'
+                          % (stab, kletka))
+                    return 1
+                if prichina not in svod_r:
+                    sys.stderr.write('ORACLE стаб %s: красна не своей '
+                                     'причиной: %s\n' % (stab, svod_r[:160]))
+                    return 2
+                print('STAB %s KRASEN %s' % (stab, prichina))
+                svjazi += 1
+        finally:
+            shutil.rmtree(vrem_r2, ignore_errors=True)
         # стаб ekran-minimalnyj (блок 1 Crit149b, Н-39): мир оси A (пачка
         # эталона + источники) с МИНИМАЛЬНОЙ формой ekran.json — дословная
         # атака Crit149b-mut-ekran-minimal; клетка s-pachka-validirovana

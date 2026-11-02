@@ -127,7 +127,13 @@
    "nositeli/kompakt11/maket/GA-19_normal_dark_390x844.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/kompakt11/maket/GA-19_normal_dark_390x844.png",
    "nositeli/kompakt11/kadry/GA-19_normal_dark_390x844.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/kompakt11/kadry/GA-19_normal_dark_390x844.png",
    "nositeli/kompakt11/maket/GA-19_normal_dark_393x852.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/kompakt11/maket/GA-19_normal_dark_393x852.png",
-   "nositeli/kompakt11/kadry/GA-19_normal_dark_393x852.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/kompakt11/kadry/GA-19_normal_dark_393x852.png"
+   "nositeli/kompakt11/kadry/GA-19_normal_dark_393x852.png": "fixtures/workshop_project/gespraech_tekst_149/nositeli/kompakt11/kadry/GA-19_normal_dark_393x852.png",
+   "stabs/stab_emuljatory_odnovremenno.py": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_emuljatory_odnovremenno.py",
+   "stabs/stab_host_zona_12.tsx": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_host_zona_12.tsx",
+   "stabs/stab_kompozer_token_20.tsx": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_kompozer_token_20.tsx",
+   "stabs/stab_kompozer_token_24.tsx": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_kompozer_token_24.tsx",
+   "stabs/stab_kompozer_zona_12.tsx": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_kompozer_zona_12.tsx",
+   "stabs/stab_maska_36.py": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_maska_36.py"
   },
   "sha": {
    "model/ekran_shablon.py": "5fd1415e40b257e5e7b97c7bf9bc8fe31e94dcea9e05c4c3ac44d68802db453b",
@@ -142,7 +148,7 @@
    "pachka/forma-ekrana.json": "b0cf267002eed0a3f011d252b4a3c072e65b10a4bdfad2b7500780d41417a7d8",
    "pachka/kontrakt.md": "23e096848c393678e10e963181fca75ca7c176c9a570544aa595218a9a14cf06",
    "pachka/kadry.json": "c72aea1dc4c60d7027e16a6735ee81b3b5106bb70300a8690df4fbbb72b3519d",
-   "pachka/kadry-393.json": "ad3f00f8b860c4fdc0eca23367fcc4b7670eee17151c219e3a98eb7b3915a9fa",
+   "pachka/kadry-393.json": "3e3512adb3692cbd4cd2a7ad11de3afc4378b0db489ea07f53afceb89e52f220",
    "pachka/katalog_kopii.json": "7e0f484d9f2fb41e537e9c88b87c32137bc69715166293110b6de9fae6906780",
    "pachka/spec_api.json": "580660cc5d80b448682ec61bbb7aa0f0a4b2e5cdc0784eef8e70c00f6930f692",
    "pachka/gespraech-tekst.yaml": "ebb53815ce518a98dacfb8f981be72639988010c79a089b9808183892eaf8b52",
@@ -151,8 +157,8 @@
    "pachka/batareja/red_ekrana.sh": "88e9f7c15b55b630b6291872c59e402b0f5b0bfee31a4b71db3351584890519b",
    "teksty/gespraech-tekst.test.ts": "c4c0a32a03a2e24c5f70552507843dcdff778b57880f6e8e37deaeca2f8cf0de",
    "teksty/dvizhenie.mjs": "497de9cf4540a0bd5cd14716a0f6becb4309b1c0f4ef2ff17399872b1e3e227f",
-   "teksty/e2e.sh": "f8611c0794f735d2c73bc88aa321b7365aa7ea989ec14e38434ac80dd06b6587",
-   "teksty/prokhod.sh": "13742e56ddf46da9c02e26215ee4b9c0a7b9c2d2ccccc5a7e995b5dc9b35c4fc",
+   "teksty/e2e.sh": "dbd1ede25a96b65adeeaa5f60b16c07c73b52f951b070edfcff513cdcd85c71e",
+   "teksty/prokhod.sh": "0dfec01cb78b493ad3045a75bbf6c72081271080300656e8450bf65bd578caf6",
    "nositeli/d24/maket/390x844-GA-11-Hell.png": "a17ef21da3df386af1c7f1c11ac66a2c1b6966f56672a0bd29fe838cc927751e",
    "nositeli/d24/maket/390x844-GA-11.png": "4f84799bb08e3d79fb9cacaee8a00e1c1d6b0651552982f659d4eb277eb52865",
    "nositeli/d24/maket/390x844-GA-12-Hell.png": "0fbd1287aab1a7d1ffa8ce796f5de810410a6ca67418e8af077b5e7de80457d0",
@@ -190,15 +196,15 @@
    "nositeli/produkt/mobile-6240f63.yml": "6137aa571ace1147ae1a29884c98008620c3b329eebf83617b5a971d57d0405e",
    "nositeli/produkt/ci-screens-6240f63.json": "85c23e1c66e9661d1d3fc2d56dfd13e4fba1b38bbaa6b9e569acfc0fb98c09e3",
    "stabs/stab_lekalo_obhod_kritika.py": "caa5449031553fb69552ce9718a492c69f5e2bfc481a9facfd6009e04a527b34",
-   "produkt/gespraech-zond-149.test.tsx": "7438b4ae4e319acebba4361fb3012060af8c88aaaaa3ca27d90bdf8293db77b1",
+   "produkt/gespraech-zond-149.test.tsx": "d04a75ecddbf2c6783bc40dff1e17551d9b3b97c9fd1b7dc7248ba3d2b59da2c",
    "stabs/stab_ekran_minimalnyj.py": "b26f6da03a07bca46bdf099383f72af67ffe1d6d1dca1de916cde8bab4299075",
    "stabs/stab_jest_zelenyj.sh": "4614716e0f7668518d3623a3556a7d60f57d87de2d46e2cd8317c65eb4816691",
    "stabs/stab_jest_krasnyj.sh": "62a38dee1568fb3da8b5e9b3da6911ac42368003eef3ed97cea02b732b679a5b",
    "stabs/stab_host_pustoj.tsx": "d1f7841681a14d8ee875d7023d726609ad55f5e0f1e684978345423820e9fd1e",
    "nositeli/produkt/composer-108.tsx": "05d289190275f727c45dd917acf2aa7f7957def976f0f0f3c7a8f02f4490815f",
-   "model/produktnaja-raskladka/mobile/src/features/conversation/chat-host.tsx": "9cc4223062329607e01365e18e5ca94586b4523b6cef43b7a31ed9ebe04272d9",
+   "model/produktnaja-raskladka/mobile/src/features/conversation/chat-host.tsx": "d6a7cbe6a67064f77eab3018a3fff129d45ea85364accd8614541c81a45b7467",
    "model/produktnaja-raskladka/mobile/src/features/conversation/chat-kopija.ts": "bdd2477dc0fd4d49e396d897cfd369c42c87eab40ddd65a1d869244db401f6dd",
-   "model/produktnaja-raskladka/mobile/src/ui/conversation-composer/conversation-composer.tsx": "e288c9345b1585a211bd4ba809fdf8a46f9d56e11e164d2300fb52d562b43e2c",
+   "model/produktnaja-raskladka/mobile/src/ui/conversation-composer/conversation-composer.tsx": "1c7aa37d305ffa1311558fbe2240af50e4b7af3f194e25eda85a4eb75ef23d10",
    "stabs/stab_flo_staraq_forma.py": "60ca02eade3b63bc300a588d00ca1afaba6c8fb6a25eab77390788b9f7a75673",
    "stabs/stab_flo_bez_vkhoda.py": "7a963139776540ffeb36f5236dc39954dd0c5bf9155e8b8c0eb21cfeaba63c58",
    "stabs/stab_ga12_bez_voprosa.py": "40f0e4a9ccb51b6ecbdba39603f9a911f5753de8edc119aa03831069e91be56d",
@@ -255,13 +261,19 @@
    "nositeli/kompakt11/maket/GA-19_normal_dark_390x844.png": "679bed8d5ece18521a0cc320021ffbbf84cec2e26420744ecef60760f41917a1",
    "nositeli/kompakt11/kadry/GA-19_normal_dark_390x844.png": "9ec1935151e4d84c47b890b55bf1ae7e013a458052964bf078cc09392ee7aa1d",
    "nositeli/kompakt11/maket/GA-19_normal_dark_393x852.png": "2d59e4146ef2ab2b7eb518e35febcad4bb052dff9798d77025f52cb5730f635f",
-   "nositeli/kompakt11/kadry/GA-19_normal_dark_393x852.png": "ea70ee27bc77159a551e784b139ae6b621ef050362ba79f3cc77742a158fd6a4"
+   "nositeli/kompakt11/kadry/GA-19_normal_dark_393x852.png": "ea70ee27bc77159a551e784b139ae6b621ef050362ba79f3cc77742a158fd6a4",
+   "stabs/stab_emuljatory_odnovremenno.py": "480abcb8fbecf21d8663109d6ec7297094d0a5640337a7666a589b9bdd21ce88",
+   "stabs/stab_host_zona_12.tsx": "fd440f310a2c1b3b7025bbf768a9001a79361d5bbc73a343f286394de4660f63",
+   "stabs/stab_kompozer_token_20.tsx": "b35bab5a98e9af95615a11d3f005a1cfebf63ef0f902e1990e0e528d8934c01c",
+   "stabs/stab_kompozer_token_24.tsx": "9542619b7cddac9b7182664f6ce842355b96859cd58f44527e5038915a99d8c7",
+   "stabs/stab_kompozer_zona_12.tsx": "7a340c0aa1c3d3c9c2f6b0eece64fb771cdf713b5f1acc43abd60d9894ac1047",
+   "stabs/stab_maska_36.py": "cc6465fed843088937142f47e19b0f022ac0429051b4c829394b29dee706bd2f"
   },
   "kanon": {
    "mobile/src/features/conversation/__tests__/gespraech-tekst.test.ts": "c4c0a32a03a2e24c5f70552507843dcdff778b57880f6e8e37deaeca2f8cf0de",
    "mobile/e2e-gespraech-tekst/kontrakt.md": "23e096848c393678e10e963181fca75ca7c176c9a570544aa595218a9a14cf06",
    "mobile/e2e-gespraech-tekst/kadry.json": "c72aea1dc4c60d7027e16a6735ee81b3b5106bb70300a8690df4fbbb72b3519d",
-   "mobile/e2e-gespraech-tekst/kadry-393.json": "ad3f00f8b860c4fdc0eca23367fcc4b7670eee17151c219e3a98eb7b3915a9fa",
+   "mobile/e2e-gespraech-tekst/kadry-393.json": "3e3512adb3692cbd4cd2a7ad11de3afc4378b0db489ea07f53afceb89e52f220",
    "mobile/e2e-gespraech-tekst/katalog_kopii.json": "7e0f484d9f2fb41e537e9c88b87c32137bc69715166293110b6de9fae6906780",
    "mobile/e2e-gespraech-tekst/spec_api.json": "580660cc5d80b448682ec61bbb7aa0f0a4b2e5cdc0784eef8e70c00f6930f692",
    "mobile/e2e-gespraech-tekst/batareja/red_ekrana.sh": "88e9f7c15b55b630b6291872c59e402b0f5b0bfee31a4b71db3351584890519b",
@@ -484,7 +496,7 @@
   ],
   "h_path": ".harness149",
   "avd_port": 5580,
-  "avd_port_393": 5581,
+  "avd_port_393": 5582,
   "serial": "GESPRAECH_TEKST_SERIAL",
   "serial_393": "GESPRAECH_TEKST_SERIAL_393",
   "evidence_ns": "mobile/maestro-out-gespraech-tekst",
@@ -515,7 +527,9 @@
   "flo-staraq-forma": "stab_flo_staraq_forma.py",
   "flo-bez-vkhoda": "stab_flo_bez_vkhoda.py",
   "ga12-bez-voprosa": "stab_ga12_bez_voprosa.py",
-  "ga13-do-otpravki": "stab_ga13_do_otpravki.py"
+  "ga13-do-otpravki": "stab_ga13_do_otpravki.py",
+  "emuljatory-odnovremenno": "stab_emuljatory_odnovremenno.py",
+  "maska-36": "stab_maska_36.py"
  },
  "stab_vhod": {
   "t30-fon-posle": {
@@ -568,6 +582,12 @@
   },
   "ga13-do-otpravki": {
    "kletka": "s-ga13-posle-otpravki"
+  },
+  "emuljatory-odnovremenno": {
+   "kletka": "s-emuljatory-posledovatelno"
+  },
+  "maska-36": {
+   "kletka": "s-profil-maska-393"
   }
  }
 }
