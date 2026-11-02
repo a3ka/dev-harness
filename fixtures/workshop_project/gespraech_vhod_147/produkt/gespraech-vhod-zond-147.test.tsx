@@ -1,29 +1,11 @@
-// Исполняемый зонд экрана вход-меню Gespräch (контракт 147, v+1 цикл 2 —
-// вердикт Crit147k2b класс РЕАЛЬНЫЙ_ПОТРЕБИТЕЛЬ): зона касания и токен
-// press-long судятся на РЕАЛЬНЫХ компонентах дерева, а не зеркальными
-// декларациями манифеста (прецеденты зондов 148/149). Субъекты:
-//   mobile/src/bootstrap/tab-shell.tsx — вкладки shell-tab-* и вход
-//     профиля shell-profile-entry (цели карты pressable ПАЧКИ, конечный
-//     домен; цели этого состояния, не отрисованные в дереве, — вне
-//     домена: до реализации меню gespraech-* не судимы зоной);
-//   mobile/src/theme/motion-tokens.ts — токен press-long, потребляемый
-//     UI движения продукта (145: модуль — единый источник чисел).
-// Геометрия: зона = ЯВНАЯ рамка (width ?? minWidth; явная малая рамка
-// краснеет и при большем полу — консервативно, прецедент зонд 148) +
-// невидимое расширение hitSlop; без объявления зоны (ни рамки, ни пола,
-// ни hitSlop) — 0, красно: реализация обязана нести настоящую hit-area
-// (И-4, hitSlop/Pressable). Видимая рамка меньше зоны находкой НЕ
-// является (слово владельца 2026-11-02) — судится зона, не рамка.
-// Токен: press-long, используемый продуктом (MOTION_TOKENS), равен
-// значению токена пакета D24-Kompakt-1.1 (docs/ux/05_Kompakt_D24/
-// source/tokens.json motion.press-long; мутант 500→900 красен).
-// Зонд не знает о мутациях батареи: каждая мутация роняет СВОЙ ассерт.
-// Среда 145/RNTL: ОДИН render на тест, события ждутся (прецедент
-// pilot.test); числа — только из носителей (токен/карта), не в зонде.
+// Исполняемый суд 13 целей пачки на реальном дереве: размер, наличие,
+// доступность и наблюдаемое действие в каждом состоянии. Значения токенов
+// поступают из пакета; компонент должен следовать их изменению, а не лишь
+// совпадать с текущим числом.
 import fs from 'fs';
 import path from 'path';
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, userEvent } from '@testing-library/react-native';
 import { StyleSheet, View } from 'react-native';
 
 import { TabShell } from '../tab-shell';
@@ -57,18 +39,14 @@ interface Zona {
   readonly h: number;
 }
 
-/** Зона нажатия цели: явная рамка (побеждает пол) + hitSlop; проценты —
- * от ширины профиля контейнера. */
+/** Нижняя граница эффективной hit-area: width/height и minWidth/minHeight
+ * одновременно действуют как max; padding добавляется только если явной
+ * ширины/высоты нет, hitSlop расширяет границу во всех случаях. */
 function zonaCelej(id: string, shirinaProfilja: number): Zona {
   const el = screen.getByTestId(id);
   const props = (el as { props?: { style?: unknown; hitSlop?: unknown } })
     .props ?? {};
-  const sloi = (StyleSheet.flatten([props.style]) ?? {}) as {
-    width?: number | string;
-    minWidth?: number | string;
-    height?: number | string;
-    minHeight?: number | string;
-  };
+  const sloi = (StyleSheet.flatten([props.style]) ?? {}) as Record<string, number | string>;
   const slop: unknown = props.hitSlop;
   const dop =
     slop === undefined
@@ -82,78 +60,107 @@ function zonaCelej(id: string, shirinaProfilja: number): Zona {
               Number((slop as Record<string, number>).bottom || 0),
           };
   const razmer = (znach: number | string | undefined): number => {
-    if (typeof znach === 'number') {
-      return znach;
-    }
+    if (typeof znach === 'number') return znach;
     if (typeof znach === 'string' && znach.endsWith('%')) {
       return (parseFloat(znach) / 100) * shirinaProfilja;
     }
     return 0;
   };
+  const baza = (a: string, m: string, start: string, end: string, axis: string): number =>
+    Math.max(razmer(sloi[a]), razmer(sloi[m]),
+      razmer(sloi[a]) ? 0 :
+        razmer(sloi[start] ?? sloi[axis] ?? sloi.padding) +
+        razmer(sloi[end] ?? sloi[axis] ?? sloi.padding));
   return {
-    w: razmer(sloi.width ?? sloi.minWidth) + dop.x,
-    h: razmer(sloi.height ?? sloi.minHeight) + dop.y,
+    w: baza('width', 'minWidth', 'paddingLeft', 'paddingRight', 'paddingHorizontal') + dop.x,
+    h: baza('height', 'minHeight', 'paddingTop', 'paddingBottom', 'paddingVertical') + dop.y,
   };
 }
 
-describe('gespraech-vhod: зона касания и токен press-long на компоненте', () => {
+describe('gespraech-vhod: исполнимые цели и токены пакета', () => {
   const PROFLI = [390, 393];
-
   const kartaCelej = (): { minimum: number; celi: string[] } => {
     const tok = JSON.parse(fs.readFileSync(TOKENY_PAKETA, 'utf8'));
     const ekran = JSON.parse(fs.readFileSync(EKRAN_PACHKI, 'utf8'));
     const celi: string[] = (ekran.prokhodimost.pressable as Array<
       { id: string }
     >).map((x) => x.id);
-    if (celi.length === 0) {
-      throw new Error('ekran.json пачки: пустой список pressable');
+    if (celi.length === 0 || new Set(celi).size !== celi.length) {
+      throw new Error('ekran.json пачки: список целей пуст или содержит дубликат');
     }
     return { minimum: px(tok['touch-target'].min.$value as string), celi };
   };
 
-  const proveritZony = (shirina: number, vid: string): string[] => {
-    const nabor = kartaCelej();
-    const narushenija: string[] = [];
-    let sudimyh = 0;
-    for (const id of nabor.celi) {
-      if (screen.queryByTestId(id) === null) {
-        continue; // цель этого состояния не отрисована — вне домена
-      }
-      sudimyh += 1;
-      const zona = zonaCelej(id, shirina);
-      if (!(zona.w >= nabor.minimum && zona.h >= nabor.minimum)) {
-        narushenija.push(
-          id + ' [' + vid + ']: зона ' + zona.w + 'x' + zona.h +
-          ' < touch-target.min ' + nabor.minimum,
-        );
-      }
-    }
-    if (sudimyh === 0) {
-      throw new Error('в дереве не отрисована НИ ОДНА цель карты пачки');
-    }
-    return narushenija;
-  };
-
   for (const shirina of PROFLI) {
-    const vid = 'профиль-' + String(shirina);
-    it('зоны отрисованных целей не меньше touch-target.min (' + vid + ')', async () => {
+    it('все цели доступны и действуют: профиль ' + shirina, async () => {
+      const nabor = kartaCelej();
+      const seen = new Set<string>();
+      const commands = jest.fn();
       const view = await render(
-        <View style={{ width: shirina }} testID={vid}>
-          <TabShell />
+        <View style={{ width: shirina }}>
+          <TabShell onCommand={commands} />
         </View>,
       );
-      expect(proveritZony(shirina, vid)).toEqual([]);
+      const cel = (id: string) => {
+        expect(nabor.celi).toContain(id);
+        const element = screen.getByTestId(id);
+        seen.add(id);
+        let node: typeof element | null = element;
+        while (node !== null) {
+          expect(node.props.disabled).not.toBe(true);
+          expect(node.props.accessibilityState?.disabled).not.toBe(true);
+          expect(node.props.pointerEvents).not.toBe('none');
+          node = node.parent;
+        }
+        // Контрфактический токен не переопределяет валидную при исходном
+        // пакете явную рамку, padding или hitSlop. У целей без такого
+        // независимого размера источник обязан менять живую зону.
+        const style = (StyleSheet.flatten([element.props.style]) ?? {}) as
+          Record<string, number | string>;
+        const fixed = ['width', 'height', 'padding', 'paddingHorizontal',
+          'paddingVertical', 'paddingLeft', 'paddingRight', 'paddingTop',
+          'paddingBottom'].some((key) => style[key] !== undefined) ||
+          element.props.hitSlop !== undefined;
+        if (process.env.GESPRAECH147_METAMORF !== '1' || !fixed) {
+          const zona = zonaCelej(id, shirina);
+          expect(zona.w).toBeGreaterThanOrEqual(nabor.minimum);
+          expect(zona.h).toBeGreaterThanOrEqual(nabor.minimum);
+        }
+        return element;
+      };
+      await fireEvent.press(cel('shell-profile-entry'));
+      expect(screen.getByTestId('profile-surface')).toBeTruthy();
+      await fireEvent.press(screen.getByTestId('shell-back'));
+      expect(screen.getByTestId('section-start')).toBeTruthy();
+      for (const tab of ['vorgaenge', 'schutz', 'post', 'start']) {
+        await fireEvent.press(cel('shell-tab-' + tab));
+        expect(screen.getByTestId('section-' + tab)).toBeTruthy();
+      }
+      await fireEvent.press(cel('gespraech-vorgaenge-ansehen'));
+      await fireEvent.press(cel('gespraech-menu-ansehen'));
+      expect(screen.getByTestId('section-vorgaenge')).toBeTruthy();
+      await fireEvent.press(screen.getByTestId('shell-tab-start'));
+      await fireEvent.press(cel('gespraech-mitte'));
+      expect(screen.getByTestId('gespraech-menu')).toBeTruthy();
+      await fireEvent.press(cel('gespraech-menu-close'));
+      expect(screen.queryByTestId('gespraech-menu')).toBeNull();
+      for (const action of ['sprechen', 'schreiben', 'foto', 'dokument']) {
+        await fireEvent.press(screen.getByTestId('gespraech-mitte'));
+        await fireEvent.press(cel('gespraech-menu-' + action));
+        expect(commands).toHaveBeenLastCalledWith({ kind: action });
+      }
+      const paket = JSON.parse(fs.readFileSync(TOKENY_PAKETA, 'utf8'));
+      const expected = ms(paket.motion['press-long'].$value);
+      expect(ms(MOTION_TOKENS['press-long'])).toBe(expected);
+      const mitte = cel('gespraech-mitte');
+      const user = userEvent.setup();
+      const before = commands.mock.calls.length;
+      await user.longPress(mitte, { duration: expected - 100 });
+      expect(commands).toHaveBeenCalledTimes(before);
+      await user.longPress(mitte, { duration: expected + 100 });
+      expect(commands).toHaveBeenLastCalledWith({ kind: 'voice' });
+      expect([...seen].sort()).toEqual([...nabor.celi].sort());
       view.unmount();
     });
   }
-
-  it('токен press-long, используемый продуктом, равен токену пакета 1.1', () => {
-    const paket = JSON.parse(fs.readFileSync(TOKENY_PAKETA, 'utf8'));
-    const poPaketu = ms(
-      (paket.motion as Record<string, { $value: string }>)['press-long']
-        .$value,
-    );
-    const poProduktu = ms(MOTION_TOKENS['press-long']);
-    expect(poProduktu).toBe(poPaketu);
-  });
 });
