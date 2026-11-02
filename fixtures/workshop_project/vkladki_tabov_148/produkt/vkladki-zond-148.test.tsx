@@ -2,36 +2,52 @@
 // Crit148: класс «литерал на месте, исполняемое иное» закрывается
 // ИСПОЛНЕНИЕМ на реальных компонентах R; v3a — вердикт Crit148k2a:
 // измерения расширены с «слот/бейдж/абсолютный оверлей» до ФАКТИЧЕСКОЙ
-// зоны нажатия (Б2) и ИСПОЛЬЗОВАНИЯ токенов 1.1 компонентом (Б3)).
+// зоны нажатия (Б2) и ИСПОЛЬЗОВАНИЯ токенов 1.1 компонентом (Б3);
+// v3b — вердикт Crit148k2b: (Б1) СВЯЗЬ компонента с токеном, не
+// совпадение числа — высота лейсте == nav.height, minHeight вкладок ==
+// nav.item.min-height, судятся равенством $value и следуют за
+// подменённым значением источника (литерал 49 и final2 71 красны);
+// (Б2) ДЕЙСТВУЮЩИЕ цели контента — не disabled и НАЖИМАЮТСЯ (колбэк
+// контента срабатывает; И-4); (Б3) эффективная зона по правилам RN
+// (height/minHeight/maxHeight/hitSlop/padding) — конформная
+// height:36+minHeight:44 ЗЕЛЁНАЯ, фактическая 36 красна).
 // Зонд пишется produkt_sud в ИЗОЛИРОВАННУЮ КОПИЮ mobile (node_modules —
 // симлинк установки R) и запускается продуктовым jest; оракул текстов —
 // каталог ui-copy самого R (литералов нет), геометрия — рендер-дерево
 // RNTL, значения токенов — носитель vkladki-tokeny-148.json (дословная
-// копия веток nav/touch-target пакета D24-Kompakt-1.1; чисел в зонде
-// нет). Измеряет предмет ИСПОЛНЕНИЕМ:
+// копия веток nav/touch-target пакета D24-Kompakt-1.1, включая
+// nav.height; чисел в зонде нет). Измеряет предмет ИСПОЛНЕНИЕМ:
 //   GA-02/04 — контент вкладок ДОСТИГАЕТ экрана через слот
 //              sectionScreens живого TabShell (переход по нажатию);
 //   GA-03    — бейдж «Ihre Rückmeldung nötig» из параметра маршрута
 //              ?mitte=needs на живом маршруте (tabs)/[section];
 //   GA-09    — таб-лейсте — АБСОЛЮТНЫЙ оверлей нижнего края, контент
 //              вкладки НЕ внутри него (Inhalt läuft darunter);
+//   Б1      — лейсте/вкладки СЛЕДУЮТ за токенами nav.height /
+//              nav.item.min-height ($value 1.1; final2 71 краснеет
+//              равенством);
 //   Б2      — фактическая зона нажатия каждой объявленной цели
-//              (высота/minHeight стиля РЕАЛЬНОГО Pressable +
-//              невидимое расширение hitSlop) ≥ touch-target.min 44 на
-//              ОБОИХ профилях (390×844 и 393×852 — Dimensions.set);
+//              (эффективный бокс стиля РЕАЛЬНОГО Pressable по правилам
+//              RN + невидимое расширение hitSlop) ≥ touch-target.min 44
+//              на ОБОИХ профилях (390×844 и 393×852 — Dimensions.set);
 //              цели лейсте ≥ nav.item.min-height 48; строки Vorgänge
 //              ≥ 60 (зона манифеста 1.1); видимая рамка меньше зоны
 //              находкой НЕ является (слово владельца 2026-11-02);
+//   Б2-действие — обязательные цели контента ДОСТУПНЫ (не disabled) и
+//              НАЖИМАЮТСЯ: событие доходит до колбэка контента;
 //   Б3      — типографика вкладки ИСПОЛЬЗУЕТ токены 1.1: fontSize/
 //              lineHeight надписи == nav.label.font-size /
 //              nav.label.line-height ($value; литерал final2 11px
 //              краснеет равенством).
 // Зонд не знает о мутациях: каждая из мутаций батареи (tabs/badge/
-// skroll/kasanie/tokeny) роняет СВОЙ ассерт поведением, не сравнением
-// строк. Идиомы среды — как у тестов продукта (async render RNTL,
-// press внутри act); react-native НЕ мокается целиком (урок 145 v1:
-// спред requireActual в RN 0.86 роняет загрузку инвариантом
-// TurboModuleRegistry) — профиль задаётся Dimensions.set.
+// skroll/kasanie/tokeny/nav-final2/nav-literal/disabled) роняет СВОЙ
+// ассерт поведением, не сравнением строк; зелёные контроля батареи
+// (svjaz — подмена значений источника, zona — конформная
+// height:36+minHeight:44) обязаны оставаться зелёными. Идиомы среды —
+// как у тестов продукта (async render RNTL, press внутри act);
+// react-native НЕ мокается целиком (урок 145 v1: спред requireActual
+// в RN 0.86 роняет загрузку инвариантом TurboModuleRegistry) — профиль
+// задаётся Dimensions.set.
 import React from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
@@ -61,39 +77,46 @@ jest.mock('expo-router', () => ({
 
 /** Размерность px из носителя 1.1 (числа в зонде запрещены). */
 function px(znach: string): number {
-  const chislo = Number.parseFloat(znach);
-  if (!Number.isFinite(chislo) || !znach.endsWith('px')) {
-    throw new Error(`TOKEN_NE_PX: ${znach} — носитель 1.1 ожидает размерность px`);
+  const m = /^(\d+)px$/.exec(znach);
+  if (m === null) {
+    throw new Error(`TOKEN_NE_PX: ${znach} — грамматика носителя 1.1 Npx`);
   }
-  return chislo;
+  return Number(m[1]);
 }
 
 /** Нажатие — внутри act (идиома erstinformation-demo-path). */
 async function nazhat(id: string) {
   await act(async () => {
-    await fireEvent.press(screen.getByTestId(id));
+    fireEvent.press(screen.getByTestId(id));
   });
 }
 
 /** Стиль узла рендер-дерева, сведённый StyleSheet.flatten. */
 function stilUzla(uzol: unknown): { position?: string; bottom?: number; left?: number; right?: number } {
-  const props = (uzol as { props?: { style?: unknown } }).props;
-  return StyleSheet.flatten([props?.style]) as { position?: string; bottom?: number; left?: number; right?: number };
+  const props = (uzol as { props?: { style?: unknown } }).props ?? {};
+  return (StyleSheet.flatten([props.style]) ?? {}) as {
+    position?: string;
+    bottom?: number;
+    left?: number;
+    right?: number;
+  };
 }
 
 /** Предки узла рендер-дерева (снизу вверх). */
 function predki(uzol: unknown): unknown[] {
-  const spisok: unknown[] = [];
-  for (let u = (uzol as { parent?: unknown }).parent; u; u = (u as { parent?: unknown }).parent) {
-    spisok.push(u);
+  const rjad = [];
+  let tek = (uzol as { parent?: unknown }).parent;
+  while (tek) {
+    rjad.push(tek);
+    tek = (tek as { parent?: unknown }).parent;
   }
-  return spisok;
+  return rjad;
 }
 
 /** Является ли узел оверлеем лейсте: absolute, прижат к нижнему краю. */
 function estOverlej(uzol: unknown): boolean {
   const st = stilUzla(uzol);
-  return Boolean(st && st.position === 'absolute' && st.bottom === 0 && st.left === 0 && st.right === 0);
+  return st.position === 'absolute' && st.bottom === 0 && st.left === 0 && st.right === 0;
 }
 
 interface ZonaNazhatija {
@@ -101,39 +124,75 @@ interface ZonaNazhatija {
   readonly shirina: number | null;
 }
 
+/** Число из стиля (undefined/NaN → null). */
+function ch(x: unknown): number | null {
+  return typeof x === 'number' && Number.isFinite(x) ? x : null;
+}
+
 /**
- * Фактическая зона нажатия цели (Б2): тело = height ?? minHeight стиля
- * РЕАЛЬНОГО Pressable рендер-дерева + невидимое расширение hitSlop
+ * Эффективная ВЫСОТА бокса по правилам RN/Yoga (Crit148k2b Б3): height —
+ * базис, minHeight — ПОЛ (в т.ч. поднимает боксовую высоту выше явного
+ * height: 36+44 → 44), maxHeight — потолок (пол сильнее потолка);
+ * собственный padding узла входит в бокс. Высота без объявления зоны —
+ * нижняя граница бокса (padding), не ноль декларации.
+ */
+function effektivnajaVysota(st: Record<string, unknown>): number {
+  const vys = ch(st.height);
+  const pol = ch(st.minHeight);
+  const potolok = ch(st.maxHeight);
+  const padVerh = ch(st.paddingTop) ?? ch(st.paddingVertical) ?? 0;
+  const padNiz = ch(st.paddingBottom) ?? ch(st.paddingVertical) ?? 0;
+  let telo = vys !== null ? vys : Math.max(pol ?? 0, padVerh + padNiz);
+  if (pol !== null && telo < pol) {
+    telo = pol;
+  }
+  if (potolok !== null && telo > potolok && (pol ?? 0) <= potolok) {
+    telo = potolok;
+  }
+  return telo;
+}
+
+/** Эффективная ШИРИНА бокса — те же правила RN по горизонтали. */
+function effektivnajaShirina(st: Record<string, unknown>): number {
+  const sh = ch(st.width);
+  const pol = ch(st.minWidth);
+  const potolok = ch(st.maxWidth);
+  const padLevo = ch(st.paddingLeft) ?? ch(st.paddingHorizontal) ?? 0;
+  const padPravo = ch(st.paddingRight) ?? ch(st.paddingHorizontal) ?? 0;
+  let telo = sh !== null ? sh : Math.max(pol ?? 0, padLevo + padPravo);
+  if (pol !== null && telo < pol) {
+    telo = pol;
+  }
+  if (potolok !== null && telo > potolok && (pol ?? 0) <= potolok) {
+    telo = potolok;
+  }
+  return telo;
+}
+
+/**
+ * Фактическая зона нажатия цели (Б2): эффективный бокс стиля
+ * РЕАЛЬНОГО Pressable по правилам RN + невидимое расширение hitSlop
  * (токены touch-target.extend.* пакета 1.1: «sichtbar kleinere
  * Steuerelemente erweitern die Zielfläche unsichtbar»). Ширина судится
  * только там, где несёт явное объявление (width/minWidth/hitSlop):
  * ширина строк ряда даётся раскладкой лейсте, как в самом пакете.
- * Тело без объявления зоны (нет height/minHeight и нет расширения)
- * равно 0 — зона ниже нормы, реализация обязана нести настоящую
- * hit-area (И-7: hitSlop/Pressable, не декларация манифеста).
+ * Тело без объявления зоны (нет height/minHeight/maxHeight, padding и
+ * нет расширения) равно 0 — зона ниже нормы, реализация обязана нести
+ * настоящую hit-area (И-7: hitSlop/Pressable, не декларация манифеста).
  */
 function zonaCelej(id: string): ZonaNazhatija {
   const uzol = screen.getByTestId(id);
   const props = (uzol as { props?: { style?: unknown; hitSlop?: unknown } }).props ?? {};
-  const st = (StyleSheet.flatten([props.style]) ?? {}) as {
-    height?: number;
-    minHeight?: number;
-    width?: number;
-    minWidth?: number;
-  };
+  const st = (StyleSheet.flatten([props.style]) ?? {}) as Record<string, unknown>;
   const syr = props.hitSlop;
   const slop = typeof syr === 'number'
     ? { top: syr, bottom: syr, left: syr, right: syr }
     : ((syr ?? {}) as { top?: number; bottom?: number; left?: number; right?: number });
-  const telo = typeof st.height === 'number' ? st.height
-    : typeof st.minHeight === 'number' ? st.minHeight : 0;
-  const vysota = telo + (slop.top ?? 0) + (slop.bottom ?? 0);
-  const obJavlena = typeof st.width === 'number' || typeof st.minWidth === 'number'
-    || Boolean(slop.left) || Boolean(slop.right);
+  const vysota = effektivnajaVysota(st) + (slop.top ?? 0) + (slop.bottom ?? 0);
+  const obJavlena = ch(st.width) !== null || ch(st.minWidth) !== null
+    || ch(st.maxWidth) !== null || Boolean(slop.left) || Boolean(slop.right);
   const shirina = obJavlena
-    ? (typeof st.width === 'number' ? st.width
-        : typeof st.minWidth === 'number' ? st.minWidth : 0)
-      + (slop.left ?? 0) + (slop.right ?? 0)
+    ? effektivnajaShirina(st) + (slop.left ?? 0) + (slop.right ?? 0)
     : null;
   return { vysota, shirina };
 }
@@ -233,6 +292,182 @@ test('GA-09: лейсте — абсолютный оверлей нижнего
   const nadpisiKontenta = predki(screen.getByTestId('zond-slot-vorgaenge'));
   const overlej = nadpisiVkladok.find(estOverlej);
   expect(overlej !== undefined && nadpisiKontenta.includes(overlej)).toBe(false);
+  view.unmount();
+});
+
+// Б1 (Crit148k2b): СВЯЗЬ компонента с токеном, не совпадение числа.
+// Высота строки лейсте == nav.height, эффективная высота вкладок ==
+// nav.item.min-height — равенством $value 1.1 (final2 71 краснеет);
+// при подмене значения источника (контроль svjaz батареи: N+2px,
+// модуль kompakt-tokens регенерирован извлечением) честный компонент
+// СЛЕДУЕТ — литерал 49 в таб-шелле краснеет именно там (мутант
+// nav-literal исполняется под подменой).
+test('Б1: лейсте и вкладки следуют за токенами nav.height/item.min-height', async () => {
+  const vysotaLeiste = px(TOKENY['nav']['height'].$value);
+  const minVysotaVkladki = px(TOKENY['nav']['item.min-height'].$value);
+  const view = await render(<TabShell initialSection="start" reducedMotion />);
+  const leiste = screen.getByTestId('shell-tabbar');
+  const stLeiste = (StyleSheet.flatten([
+    (leiste as { props?: { style?: unknown } }).props?.style,
+  ]) ?? {}) as Record<string, unknown>;
+  const faktLeiste = effektivnajaVysota(stLeiste);
+  if (faktLeiste !== vysotaLeiste) {
+    throw new Error(
+      `NAV_VYSOTA_NE_IZ_TOKENA: высота лейсте ${faktLeiste} != nav.height ${vysotaLeiste}` +
+      ` ($value пакета 1.1; final2 ${TOKENY['nav']['height'].final2} краснеет равенством;` +
+      ' компонент обязан читать токен, не литерал — Crit148k2b Б1)',
+    );
+  }
+  for (const vkladka of ['start', 'vorgaenge', 'schutz', 'post'] as const) {
+    const stVkladki = (StyleSheet.flatten([
+      (screen.getByTestId(`shell-tab-${vkladka}`) as { props?: { style?: unknown } }).props?.style,
+    ]) ?? {}) as Record<string, unknown>;
+    const faktVkladki = effektivnajaVysota(stVkladki);
+    if (faktVkladki !== minVysotaVkladki) {
+      throw new Error(
+        `NAV_MINHEIGHT_NE_IZ_TOKENA shell-tab-${vkladka}: эффективная высота вкладки` +
+        ` ${faktVkladki} != nav.item.min-height ${minVysotaVkladki} ($value пакета 1.1)`,
+      );
+    }
+  }
+  view.unmount();
+});
+
+// Б2-действие (Crit148k2b, И-4): ДЕЙСТВУЮЩИЕ цели контента. Цель
+// обязана быть ДОСТУПНОЙ для нажатия (не disabled) и НАЖИМАТЬСЯ:
+// событие доходит до колбэка контента с ожидаемым аргументом.
+// Отсутствие цели красно (getByTestId бросает), отключённая цель
+// красна именованно (TSEL_OTKLJUCHENA — мутант disabled батареи),
+// цель без действующего отклика красна (TSEL_NAZHATIE_NE_DEJSTVUET).
+// Тесты стоят ДО блока зон: press после Dimensions.set вешает сьют
+// (замеры пачки).
+type Nazhatie = readonly [id: string, kolbek: string, arg?: string];
+
+const NAZHATIJA_RAZDELA: Readonly<Record<'vorgaenge' | 'schutz' | 'post', readonly Nazhatie[]>> = {
+  // testID строк Vorgänge == id строки (vkladki-dannye)
+  vorgaenge: [
+    ['vorgaenge-stroka-rechtsschutz', 'onVorgang', 'vorgaenge-stroka-rechtsschutz'],
+    ['vorgaenge-stroka-hausrat-vertrag', 'onVorgang', 'vorgaenge-stroka-hausrat-vertrag'],
+    ['vorgaenge-vse-sdelannye', 'onAlleErledigte'],
+  ],
+  schutz: [
+    ['schutz-svod', 'onBereich', 'svod'],
+    ['schutz-stat-vertraege', 'onBereich', 'vertraege'],
+    ['schutz-stat-beitrag', 'onBereich', 'beitrag'],
+    ['schutz-optionen', 'onBereich', 'optionen'],
+    ['schutz-oblast-mobilitaet', 'onBereich', 'mobilitaet'],
+    ['schutz-oblast-wohnen', 'onBereich', 'wohnen'],
+    ['schutz-oblast-gesundheit', 'onBereich', 'gesundheit'],
+    ['schutz-oblast-recht', 'onBereich', 'recht'],
+    ['schutz-oblast-familie', 'onBereich', 'familie'],
+  ],
+  post: [
+    ['post-filtr-alle', 'onFiltr', 'all'],
+    ['post-filtr-vhodjaschie', 'onFiltr', 'received'],
+    ['post-filtr-otpravlennye', 'onFiltr', 'sent'],
+    // настройки фильтра нажимают ТЕКУЧИЙ фильтр (по умолчанию all)
+    ['post-filtr-nastrojki', 'onFiltr', 'all'],
+    ['post-napisat-complior', 'onSchicken'],
+    ['post-deckungsanfrage', 'onNachricht', 'post-deckungsanfrage'],
+    ['post-soobschenie-rechtsschutz', 'onNachricht', 'post-soobschenie-rechtsschutz'],
+  ],
+};
+
+/** Одна обязательная цель: доступна (не disabled) и НАЖИМАЕТСЯ.
+ * Среда RN 0.86 (замер пачки): host Pressable не несёт проп onPress
+ * (механика — onResponder-события/onClick), доступность наблюдаема через
+ * accessibilityState.disabled (мутант disabled даёт {disabled:true}),
+ * действенность — ПОВЕДЕНИЕМ: fireEvent.press вызывает колбэк контента
+ * ровно с ожидаемым аргументом (отключённая/безымянная цель колбэка не
+ * вызывает — замер пачки: 0 вызовов). */
+async function proveritDejstvieTseli(id: string, kolbek: { mock: { calls: readonly (readonly unknown[])[] } }, arg?: string) {
+  const uzol = screen.getByTestId(id);
+  const props = (uzol as {
+    props?: {
+      disabled?: unknown;
+      accessibilityState?: { disabled?: boolean };
+    };
+  }).props ?? {};
+  const a11y = props.accessibilityState ?? {};
+  if (props.disabled === true || a11y.disabled === true) {
+    throw new Error(
+      `TSEL_OTKLJUCHENA ${id}: обязательная цель контента отключена (disabled) —` +
+      ' И-4 требует ДЕЙСТВУЮЩИЕ цели: видимость и зона без нажатия обходом являются',
+    );
+  }
+  await nazhat(id);
+  const vigovreno = arg === undefined
+    ? kolbek.mock.calls.length >= 1
+    : kolbek.mock.calls.some((vyzov) => vyzov.length === 1 && vyzov[0] === arg);
+  if (!vigovreno) {
+    throw new Error(
+      `TSEL_NAZHATIE_NE_DEJSTVUET ${id}: нажатие не дошло до колбэка контента` +
+      ` (вызовы ${JSON.stringify(kolbek.mock.calls)}; ожидался аргумент ${JSON.stringify(arg)})`,
+    );
+  }
+}
+
+test('Б2-действие (vorgaenge+Mitte): обязательные цели доступны и нажимаются', async () => {
+  const kolbeki = {
+    onVorgang: jest.fn<(id: string) => void>(),
+    onAlleErledigte: jest.fn<() => void>(),
+  };
+  const mitteNazhatie = jest.fn<() => void>();
+  const view = await render(
+    <TabShell
+      initialSection="vorgaenge"
+      mitte={<GespraechMitte reducedMotion onPress={mitteNazhatie} />}
+      reducedMotion
+      sectionScreens={{
+        vorgaenge: <VorgaengeListe onVorgang={kolbeki.onVorgang} onAlleErledigte={kolbeki.onAlleErledigte} />,
+      }}
+    />,
+  );
+  await waitFor(() => expect(screen.getByTestId('vorgaenge-stroka-rechtsschutz')).toBeOnTheScreen());
+  for (const [id, kolbek, arg] of NAZHATIJA_RAZDELA.vorgaenge) {
+    await proveritDejstvieTseli(id, kolbeki[kolbek as keyof typeof kolbeki] as { mock: { calls: readonly (readonly unknown[])[] } }, arg);
+  }
+  // Mitte — цель лейсте (И-7): доступна и нажимается (до контракта 147 —
+  // мок-отклик: колбэк владельца слота)
+  await proveritDejstvieTseli('gespraech-mitte', mitteNazhatie);
+  view.unmount();
+});
+
+test('Б2-действие (schutz): обязательные цели доступны и нажимаются', async () => {
+  const onBereich = jest.fn<(bereich: string) => void>();
+  const view = await render(
+    <TabShell
+      initialSection="schutz"
+      reducedMotion
+      sectionScreens={{ schutz: <SchutzUebersicht onBereich={onBereich} /> }}
+    />,
+  );
+  await waitFor(() => expect(screen.getByTestId('schutz-optionen')).toBeOnTheScreen());
+  for (const [id, _kolbek, arg] of NAZHATIJA_RAZDELA.schutz) {
+    await proveritDejstvieTseli(id, onBereich, arg);
+  }
+  view.unmount();
+});
+
+test('Б2-действие (post): обязательные цели доступны и нажимаются', async () => {
+  const kolbeki = {
+    onFiltr: jest.fn<(filtr: 'all' | 'received' | 'sent') => void>(),
+    onNachricht: jest.fn<(id: string) => void>(),
+    onSchicken: jest.fn<() => void>(),
+  };
+  const view = await render(
+    <TabShell
+      initialSection="post"
+      reducedMotion
+      sectionScreens={{
+        post: <PostEingang onFiltr={kolbeki.onFiltr} onNachricht={kolbeki.onNachricht} onSchicken={kolbeki.onSchicken} />,
+      }}
+    />,
+  );
+  await waitFor(() => expect(screen.getByTestId('post-filtr-nastrojki')).toBeOnTheScreen());
+  for (const [id, kolbek, arg] of NAZHATIJA_RAZDELA.post) {
+    await proveritDejstvieTseli(id, kolbeki[kolbek as keyof typeof kolbeki] as { mock: { calls: readonly (readonly unknown[])[] } }, arg);
+  }
   view.unmount();
 });
 

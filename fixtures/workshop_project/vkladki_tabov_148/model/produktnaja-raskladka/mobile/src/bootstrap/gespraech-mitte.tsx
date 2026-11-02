@@ -13,6 +13,9 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { FadenSign } from '../lib/faden/FadenSign';
 import { uiCopyDe } from '../i18n/ui-copy';
+// v3b (Crit148k2b Б1): зона Mitte — nav.item.min-height из модуля
+// kompakt-tokens (следует за токеном; не литерал).
+import { navTokens } from './kompakt-tokens';
 
 /** Состояние Mitte: рабочая фаза знака (GA-02/04/09) или «нужен ответ»
  * (GA-03, бейдж). Отображается на состоянии знака 145 и статусном
@@ -75,14 +78,15 @@ export function GespraechMitte({
 
 const styles = StyleSheet.create({
   /* v3a (Crit148k2a, Б2): зона Mitte — nav.item.min-height 48px
-     (пакет D24-Kompakt-1.1, $value); видимая pebble 40×24 (1.1) —
-     зона расширена до нормы строки лейсте. Измеряет зонд 148. */
+     (пакет D24-Kompakt-1.1, $value; v3b — из модуля kompakt-tokens,
+     следует за токеном); видимая pebble 40×24 (1.1) — зона расширена
+     до нормы строки лейсте. Измеряет зонд 148. */
   mitte: {
     alignItems: 'center',
     gap: 2,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    minHeight: 48,
+    minHeight: navTokens.itemMinHeight,
   },
   badgeWrap: {
     paddingHorizontal: 6,

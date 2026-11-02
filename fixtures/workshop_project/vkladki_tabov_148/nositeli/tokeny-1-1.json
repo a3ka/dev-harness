@@ -1,6 +1,7 @@
 {
-  "_comment": "Значения пакета D24-Kompakt-1.1 (source/tokens.json, ветки nav/touch-target; дословные объекты $type/$value/$description/final2). Единственный источник значений исполняемого зонда 148: produkt_sud кладёт этот файл рядом со зондом как vkladki-tokeny-148.json, зонд читает ИМЕНА и $value — чисел в зонде нет. Пин sha256 в source.json piny.nositeli; байты источника сверяются по frames.json пакета (_meta.source_files_sha256).",
+  "_comment": "Значения пакета D24-Kompakt-1.1 (source/tokens.json, ветки nav/touch-target; дословные объекты $type/$value/$description/final2; v3b — + nav.height, Crit148k2b Б1: зонд судит СВЯЗЬ высоты лейсте с токеном). Единственный источник значений исполняемого зонда 148: produkt_sud кладёт этот файл рядом со зондом как vkladki-tokeny-148.json, зонд читает ИМЕНА и $value — чисел в зонде нет. Пин sha256 в source.json piny.nositeli; байты источника сверяются по frames.json пакета (_meta.source_files_sha256).",
   "nav": {
+    "height": {"$type": "dimension", "$value": "49px", "final2": "71px"},
     "item.min-height": {"$type": "dimension", "$value": "48px"},
     "label.font-size": {"$type": "dimension", "$value": "10px", "final2": "11px"},
     "label.line-height": {"$type": "dimension", "$value": "12px"}

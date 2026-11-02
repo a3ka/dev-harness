@@ -60,6 +60,7 @@ NOS_D24 = HERE / 'nositeli/d24'
 NOS_D24_REAL = HERE / 'nositeli/d24-real'
 NOS_PAKET_SUMS = HERE / 'nositeli/paket/SHA256SUMS'
 NOS_TOKENS = HERE / 'nositeli/tokens.css'
+NOS_TOKENY = HERE / 'nositeli' / 'tokeny-1-1.json'
 RASKLADKA = HERE / 'model' / 'produktnaja-raskladka'
 PRODUKT_SUD = HERE / 'produkt_sud.py'
 E2E_CMD = 'bash mobile/e2e-vkladki/e2e.sh vkladki'
@@ -605,6 +606,13 @@ def sobrat_referens(src, tmp):
     put = repo / src['ekran_forma_prod']['audit_tokenov']
     put.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(NOS_TOKENS, put)
+    # v3b (Crit148k2b, Б1): источник ЗНАЧЕНИЙ nav-токенов в R —
+    # source/tokens.json (ветки nav/touch-target; байты == носителю
+    # значений, пин) — гейт TOKENY_MODUL_NE_IZ_ISTOCHNIKA сверяет
+    # модуль kompakt-tokens.ts с извлечением из него
+    istochnik_tok = repo / 'docs/ux/05_Kompakt_D24/source/tokens.json'
+    istochnik_tok.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(NOS_TOKENY, istochnik_tok)
     return repo
 
 
@@ -763,6 +771,16 @@ def mut_pr_maska_ne_48(repo, src):
                    encoding='utf-8')
 
 
+def mut_pr_tokeny_modul(repo, src):
+    # v3b (Crit148k2b, Б1): модуль значений навигационных токенов
+    # дрейфовал от источника (руками переписан на final2 71) при
+    # честном соседнем source/tokens.json — красит статический гейт
+    # производности (TOKENY_MODUL_NE_IZ_ISTOCHNIKA)
+    put = repo / 'mobile/src/bootstrap/kompakt-tokens.ts'
+    put.write_text(put.read_text(encoding='utf-8').replace(
+        'height: 49,', 'height: 71,'), encoding='utf-8')
+
+
 def mut_pr_live_predposylka(repo, src):
     # package.json заявляет jest-среду, установки нет — именованная
     # предпосылка rc 2, НЕ skip->pass (блок 1, прецедент 145)
@@ -799,6 +817,7 @@ MUTACII_PRODUKTA = {
     'pr-live-predposylka': mut_pr_live_predposylka,
     'pr-live-kontrol-krasen': mut_pr_live_kontrol_krasen,
     'pr-live-mutant-zhiv': mut_pr_live_mutant_zhiv,
+    'pr-tokeny-modul': mut_pr_tokeny_modul,
 }
 
 

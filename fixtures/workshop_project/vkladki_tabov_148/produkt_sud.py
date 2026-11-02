@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import signal
 import shutil
 import struct
@@ -31,37 +32,191 @@ ZOND = HERE / 'produkt' / 'vkladki-zond-148.test.tsx'
 ZOND_IMJA = 'vkladki-zond-148.test.tsx'
 ZOND_KUDA = 'src/bootstrap/__tests__'
 # v3a (Crit148k2a, Б3): значения токенов 1.1 — дословная копия веток
-# nav/touch-target пакета; кладётся рядом со зондом, чисел в зонде нет
+# nav/touch-target пакета (v3b: + nav.height — Crit148k2b Б1); кладётся
+# рядом со зондом, чисел в зонде нет
 TOKENY_NOS = HERE / 'nositeli' / 'tokeny-1-1.json'
 TOKENY_IMJA = 'vkladki-tokeny-148.json'
 # v3a (Crit148k2a, Б3): свод пакета — единственный источник пина байтов
 # ds/tokens.css (frames.json _meta.source_files_sha256)
 NOS_PAKET_FRAMES = HERE / 'nositeli' / 'paket' / 'frames.json'
 
-# Матрица исполняемых мутаций — дословные атаки Crit148 (блок 1): якорь
-# обязан встречаться в файле копии РОВНО один раз, иначе именованная
-# неприменимость (rc 2), никогда тихий пропуск.
+# v3b (Crit148k2b, Б1): источник ЗНАЧЕНИЙ nav-токенов — source/tokens.json
+# пакета (ветка nav; ds/tokens.css несёт цвета/базу D 2.3 и nav-размеров
+# не содержит — замер пачки), потребитель — модуль приложения, модуль —
+# каноническое извлечение (tokeny_modul), руками не редактируется
+ISTOCHNIK_TOKENOV = Path('docs/ux/05_Kompakt_D24/source/tokens.json')
+MODUL_TOKENOV = Path('mobile/src/bootstrap/kompakt-tokens.ts')
+
+
+def _nav_znachenija(ist: dict):
+    """(имя поля модуля, число) из веток nav/touch-target источника;
+    $type dimension, $value Npx — иначе ValueError (грамматика едина)."""
+    para = (('height', ('nav', 'height')),
+            ('itemMinHeight', ('nav', 'item.min-height')),
+            ('labelFontSize', ('nav', 'label.font-size')),
+            ('labelLineHeight', ('nav', 'label.line-height')),
+            ('touchTargetMin', ('touch-target', 'min')))
+    znachenija = []
+    for imja, put_kljuca in para:
+        uzel = ist
+        for kusok in put_kljuca:
+            if not isinstance(uzel, dict) or kusok not in uzel:
+                raise ValueError('нет ветки %s' % '.'.join(put_kljuca))
+            uzel = uzel[kusok]
+        if not isinstance(uzel, dict) or uzel.get('$type') != 'dimension':
+            raise ValueError('%s: $type != dimension'
+                             % '.'.join(put_kljuca))
+        m = re.match(r'\A(\d+)px\Z', str(uzel.get('$value')))
+        if m is None:
+            raise ValueError('%s: $value %r не Npx'
+                             % ('.'.join(put_kljuca), uzel.get('$value')))
+        znachenija.append((imja, int(m.group(1))))
+    return znachenija
+
+
+def tokeny_modul(ist: dict) -> str:
+    """Канонический текст mobile/src/bootstrap/kompakt-tokens.ts по
+    значениям источника (единственная производная значений; сверяется
+    байтами гейтом TOKENY_MODUL_NE_IZ_ISTOCHNIKA)."""
+    stroki = ''.join('  %s: %d,\n' % (i, z) for i, z in _nav_znachenija(ist))
+    return (
+        '// 148 vkladki-tabov (И-12): значения nav/touch-target токенов\n'
+        '// пакета D24-Kompakt-1.1 для РЕАЛЬНЫХ компонентов лейсте —\n'
+        '// каноническое извлечение из docs/ux/05_Kompakt_D24/source/\n'
+        '// tokens.json (nav.height, nav.item.min-height,\n'
+        '// nav.label.font-size, nav.label.line-height, touch-target.min;\n'
+        '// поле $value, размерность px). Генерируется извлечением\n'
+        '// батареи 148 (produkt_sud.tokeny_modul) и руками не правится:\n'
+        '// продукт-судья сверяет байты с источником\n'
+        '// (TOKENY_MODUL_NE_IZ_ISTOCHNIKA), зонд судит СВЯЗЬ компонента\n'
+        '// с токеном подменой значения в изолированной копии (Crit148k2b\n'
+        '// Б1: высота лейсте и minHeight вкладок следуют за токеном).\n'
+        'export const navTokens = {\n'
+        + stroki +
+        '} as const;\n')
+
+
+def _plus_dva(znach):
+    m = re.match(r'\A(\d+)px\Z', str(znach))
+    if m is None:
+        raise ValueError('$value %r не Npx — подмена не определена' % znach)
+    return '%dpx' % (int(m.group(1)) + 2)
+
+
+def podmena_istochnika_tokenov(ist: dict):
+    """Контроль связи (Crit148k2b Б1): подмена значений nav.height,
+    nav.item.min-height, nav.label.font-size, nav.label.line-height на
+    ДРУГОЕ ДОПУСТИМОЕ (N+2px, та же грамматика) — только в изолированной
+    копии суда; честный потребитель следует."""
+    novyj = json.loads(json.dumps(ist))
+    opisanie = []
+    for kljuch in ('height', 'item.min-height', 'label.font-size',
+                   'label.line-height'):
+        staryj = novyj['nav'][kljuch]['$value']
+        novyj['nav'][kljuch]['$value'] = _plus_dva(staryj)
+        opisanie.append('nav.%s %s→%s'
+                        % (kljuch, staryj, novyj['nav'][kljuch]['$value']))
+    return novyj, ', '.join(opisanie)
+
+
+def proverka_modulja_tokenov(repo: Path):
+    """v3b (Crit148k2b, Б1): модуль значений навигационных токенов в R —
+    извлечение source/tokens.json (байты == tokeny_modul): рукописный
+    дрейф значений при честном соседнем источнике — именованный отказ
+    ДО исполнения зонда (клетка pr-tokeny-modul, стаб s94)."""
+    istochnik = repo / ISTOCHNIK_TOKENOV
+    if not istochnik.is_file():
+        return ('TOKENY_MODUL_NE_IZ_ISTOCHNIKA: нет %s — источник значений '
+                'токенов навигации пакета 1.1 (И-12)' % ISTOCHNIK_TOKENOV)
+    try:
+        ozhidaemyj = tokeny_modul(
+            json.loads(istochnik.read_text(encoding='utf-8')))
+    except (ValueError, KeyError, TypeError) as e:
+        return ('TOKENY_MODUL_NE_IZ_ISTOCHNIKA: %s не несёт ветки '
+                'nav/touch-target в грамматике Npx (%s)'
+                % (ISTOCHNIK_TOKENOV, e))
+    modul = repo / MODUL_TOKENOV
+    if not modul.is_file():
+        return ('TOKENY_MODUL_NE_IZ_ISTOCHNIKA: нет %s — модуль значений '
+                'токенов лейсте (генерируется извлечением из %s)'
+                % (MODUL_TOKENOV, ISTOCHNIK_TOKENOV))
+    if modul.read_text(encoding='utf-8') != ozhidaemyj:
+        return ('TOKENY_MODUL_NE_IZ_ISTOCHNIKA: %s != извлечению из %s '
+                '(ветки nav.*/touch-target.min; модуль руками не '
+                'редактируется)' % (MODUL_TOKENOV, ISTOCHNIK_TOKENOV))
+    return None
+
+
+# Матрица исполняемого суда (v3b, Crit148k2b): мутации — дословные
+# атаки; каждая запись несет СПИСОК ФОРМ входа (альтернатив): применяется
+# первая, чей якорь единственный в файле копии (вход может уже нести
+# иную правку — например, конформную height:36+minHeight:44 атаки
+# valid-zone: красная формаkasanie определена и для неё); заменяющая
+# форма уже в файле — ИДЕМПОТЕНТНО считается применённой; нет ни одной
+# формы — именованная неприменимость rc 2, никогда тихий пропуск.
+# kontoli — ЗЕЛЁНЫЕ входы (svjaz: подмена значений источника в
+# изолированной копии — честный потребитель следует; zona: конформная
+# height:36+minHeight:44 — зонд не вправе отвергать, слово владельца
+# 02.11). podmena=True — прогон под подменённым источником (модуль
+# регенерирован извлечением, носитель зонда несёт те же значения).
 MUTACII_ISPOLNIMYE = [
-    ('tabs', 'mobile/src/bootstrap/tab-shell.tsx',
-     "section !== 'start' && sectionScreens?.[section] ? (",
-     "section === 'start' && sectionScreens?.[section] ? ("),
-    ('badge', 'mobile/src/app/(tabs)/[section].tsx',
-     "mitteIzMarshruta === 'needs'",
-     "mitteIzMarshruta === 'never-needs'"),
-    ('skroll', 'mobile/src/bootstrap/tab-shell.tsx',
-     "tabbarOverlay: { bottom: 0, left: 0, position: 'absolute', right: 0 },",
-     "tabbarOverlay: { bottom: 0, left: 0, position: 'relative', right: 0 },"),
-    # v3a (Crit148k2a, Б2): фактическая зона 36 при декларированных
-    # hh44 — убивается ассертом зоны зонда (touch-target.min 44)
-    ('kasanie', 'mobile/src/features/post/components/PostEingang.tsx',
-     "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', minHeight: 44 }",
-     "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', height: 36 }"),
-    # v3a (Crit148k2a, Б3): рабочий токен подменён на Final 2
-    # (nav.label.font-size: $value 10 → final2 11) — убивается ассертом
-    # типографики зонда (равенство $value 1.1)
-    ('tokeny', 'mobile/src/bootstrap/tab-shell.tsx',
-     'tabLabel: { fontSize: 10, lineHeight: 12 }',
-     'tabLabel: { fontSize: 11, lineHeight: 12 }'),
+    {'imja': 'tabs', 'mutacii': [
+        ('mobile/src/bootstrap/tab-shell.tsx', [
+            ("section !== 'start' && sectionScreens?.[section] ? (",
+             "section === 'start' && sectionScreens?.[section] ? (")])]},
+    {'imja': 'badge', 'mutacii': [
+        ('mobile/src/app/(tabs)/[section].tsx', [
+            ("mitteIzMarshruta === 'needs'",
+             "mitteIzMarshruta === 'never-needs'")])]},
+    {'imja': 'skroll', 'mutacii': [
+        ('mobile/src/bootstrap/tab-shell.tsx', [
+            ("tabbarOverlay: { bottom: 0, left: 0, position: 'absolute', right: 0 },",
+             "tabbarOverlay: { bottom: 0, left: 0, position: 'relative', right: 0 },")])]},
+    # v3a (Crit148k2a, Б2): фактическая зона 36 при декларированных hh44
+    # — убивается ассертом зоны зонда (touch-target.min 44); вторая
+    # форма — для входов, уже несущих конформную height:36+minHeight:44
+    # (атака valid-zone): снятие minHeight обнажает фактическую 36
+    {'imja': 'kasanie', 'mutacii': [
+        ('mobile/src/features/post/components/PostEingang.tsx', [
+            ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', minHeight: 44 }",
+             "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', height: 36 }"),
+            ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', height: 36, minHeight: 44 }",
+             "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', height: 36 }")])]},
+    # v3a (Crit148k2a, Б3): рабочий токен подменён на Final 2 (nav.label.
+    # font-size $value 10 → final2 11) — убивается равенством $value 1.1;
+    # v3b: якорь перенесён в модуль значений (компонент читает модуль)
+    {'imja': 'tokeny', 'mutacii': [
+        (str(MODUL_TOKENOV), [
+            ('labelFontSize: 10,', 'labelFontSize: 11,')])]},
+    # v3b (Crit148k2b, Б1): старый токен Final 2 в рабочем компоненте —
+    # высота лейсте 71 != nav.height 49 (равенство $value 1.1)
+    {'imja': 'nav-final2', 'mutacii': [
+        ('mobile/src/bootstrap/tab-shell.tsx', [
+            ('height: navTokens.height,', 'height: 71,')])]},
+    # v3b (Crit148k2b, Б1): литерал 49 вместо токена — на пиннованном
+    # пакете зелён (совпадение числа), красен ПОД ПОДМЕНОЙ источника
+    {'imja': 'nav-literal', 'podmena': True, 'mutacii': [
+        ('mobile/src/bootstrap/tab-shell.tsx', [
+            ('height: navTokens.height,', 'height: 49,')])]},
+    # v3b (Crit148k2b, Б2): обязательная цель контента отключена —
+    # проходит зоны/кадры, красна проверкой действующей цели зонда
+    {'imja': 'disabled', 'mutacii': [
+        ('mobile/src/features/protection/components/SchutzUebersicht.tsx', [
+            ("onPress={() => onBereich?.('optionen')}",
+             "disabled\n          onPress={() => onBereich?.('optionen')}")])]},
+]
+KONTROLI_ISPOLNIMYE = [
+    # v3b (Crit148k2b, Б1): СВЯЗЬ компонента с токеном — честный R зелён
+    # и на пиннованном пакете, и на ПОДМЕНЁННОМ значении (N+2px)
+    {'imja': 'svjaz', 'podmena': True, 'mutacii': []},
+    # v3b (Crit148k2b, Б3): КОНФОРМНАЯ зона height:36+minHeight:44 —
+    # RN minHeight поднимает эффективный бокс до 44; зонд обязан быть
+    # ЗЕЛЁНЫМ (ложный отклон конформной зоны — дефект зонда, не входа);
+    # заменяющая форма уже на входе — идемпотентно исполняется как есть
+    {'imja': 'zona', 'mutacii': [
+        ('mobile/src/features/post/components/PostEingang.tsx', [
+            ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', minHeight: 44 }",
+             "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', height: 36, minHeight: 44 }")])]},
 ]
 
 # Точная маска профиля 393 (слово владельца 31.10, Q1б; вердикт Crit148v2
@@ -647,8 +802,11 @@ def ispolnimyj_sud(repo: Path, src):
     """Исполняемый суд (блок 1 Crit148, класс «литерал на месте,
     исполняемое иное»): живой jest-зонд на РЕАЛЬНЫХ компонентах R в
     изолированной копии mobile (node_modules — симлинк установки R,
-    прецедент zhivoj_komponent 145) + матрица трёх мутаций: контроль
-    исходного кода зелен, каждый мутант убит ПРЕДМЕТНЫМ ассертом зонда.
+    прецедент zhivoj_komponent 145) + матрица мутаций (v3b — восемь) и
+    ЗЕЛЁНЫЕ контроля (v3b, Crit148k2b): контроль исходного кода зелен,
+    контроль СВЯЗИ зелен на подменённом источнике (N+2px), контроль
+    конформной зоны (height:36+minHeight:44) зелен, каждый мутант убит
+    ПРЕДМЕТНЫМ ассертом зонда.
     Возвращает (rc, prichiny).
 
     Дерево без mobile/package.json — не jest-среда (синтетические входы
@@ -735,9 +893,78 @@ def ispolnimyj_sud(repo: Path, src):
             return assery, sjuity
 
         ishodnye = {}
-        for _imja, rel, _ankora, _zamena in MUTACII_ISPOLNIMYE:
-            put = kopija / Path(rel).relative_to('mobile')
-            ishodnye[rel] = put.read_text(encoding='utf-8')
+        for _zapis in MUTACII_ISPOLNIMYE + KONTROLI_ISPOLNIMYE:
+            for rel, _formy in _zapis['mutacii']:
+                put = kopija / Path(rel).relative_to('mobile')
+                ishodnye[rel] = put.read_text(encoding='utf-8')
+
+        # v3b (Crit148k2b Б1): состояния источника токенов — пиннованный
+        # и ПОДМЕНЁННЫЙ (N+2px): модуль копии регенерирован извлечением
+        # из подменённого источника, носитель зонда несёт те же
+        # значения; подмена ТОЛЬКО в изолированной копии суда (R не
+        # трогается). Литерал в компоненте совпадением числа проходит
+        # пиннованный прогон — подмену НЕ следует: красен.
+        modul_kopii = kopija / Path(str(MODUL_TOKENOV)).relative_to('mobile')
+        nositel_ishodnyj = TOKENY_NOS.read_text(encoding='utf-8')
+        modul_ishodnyj = ishodnye.get(
+            str(MODUL_TOKENOV), modul_kopii.read_text(encoding='utf-8'))
+        try:
+            istochnik = json.loads(
+                (repo / ISTOCHNIK_TOKENOV).read_text(encoding='utf-8'))
+            ist_podmena, opisanie_podmeny = podmena_istochnika_tokenov(
+                istochnik)
+            modul_podmena = tokeny_modul(ist_podmena)
+            nos_podmena = json.loads(nositel_ishodnyj)
+            for kljuch in ('height', 'item.min-height', 'label.font-size',
+                           'label.line-height'):
+                nos_podmena['nav'][kljuch]['$value'] = _plus_dva(
+                    nos_podmena['nav'][kljuch]['$value'])
+            nositel_podmena = json.dumps(nos_podmena, ensure_ascii=False,
+                                         indent=2) + '\n'
+        except (OSError, ValueError, KeyError, TypeError) as e:
+            return 2, ['LIVE_PREDPOSYLKA: источник/носитель токенов R не '
+                       'читается в грамматике Npx (%s)' % e]
+
+        def ustanovit_sostojanie(podmena: bool):
+            (zond.parent / TOKENY_IMJA).write_text(
+                nositel_podmena if podmena else nositel_ishodnyj,
+                encoding='utf-8')
+            modul_kopii.write_text(
+                modul_podmena if podmena else modul_ishodnyj,
+                encoding='utf-8')
+
+        def primenit_zapis(zapis):
+            """Скопированные файлы — в исходное состояние, состояние
+            источника (пинн/подмена) — по записи, затем её мутации.
+            Мутация ИДЕМПОТЕНТНА: якоря нет, но заменяющая форма уже в
+            файле (вход несёт ту же правку — атака Crit148k2b valid-zone
+            на конформной зоне) — считается применённой и исполняется
+            как есть; нет ни якоря, ни замены — именованная
+            неприменимость. Возвращает None либо неприменимость."""
+            for rel, tekst in ishodnye.items():
+                (kopija / Path(rel).relative_to('mobile')).write_text(
+                    tekst, encoding='utf-8')
+            ustanovit_sostojanie(zapis.get('podmena', False))
+            for rel, formy in zapis['mutacii']:
+                tekst = ishodnye[rel]
+                primenina = None
+                uze = False
+                for ankora, zamena in formy:
+                    if tekst.count(ankora) == 1:
+                        primenina = (ankora, zamena)
+                        break
+                    if tekst.count(zamena) >= 1:
+                        uze = True
+                if primenina is None:
+                    if not uze:
+                        return ('LIVE_MUTACIJA_NEPRIMENIMA: %s: нет ни '
+                                'одной формы входа в %s'
+                                % (zapis['imja'], rel))
+                    continue
+                (kopija / Path(rel).relative_to('mobile')).write_text(
+                    tekst.replace(primenina[0], primenina[1], 1),
+                    encoding='utf-8')
+            return None
 
         svod, oshibka = zapustit()
         if svod is None:
@@ -750,33 +977,71 @@ def ispolnimyj_sud(repo: Path, src):
         if not zelen:
             return 1, ['ISPOLNIMYJ_KONTROL_KRASEN: зонд красен на исходных '
                        'компонентах R (упавших ассертов %d)' % assery]
+
+        # v3b (Crit148k2b Б1): контроль СВЯЗИ — подмена значений источника
+        # на другое допустимое (N+2px): честный потребитель СЛЕДУЕТ
+        neprimenima = primenit_zapis(KONTROLI_ISPOLNIMYE[0])
+        if neprimenima is not None:
+            return 2, [neprimenima]
+        svod, oshibka = zapustit()
+        if svod is None:
+            return 1, ['ISPOLNIMYJ_INFRA: контроль svjaz: %s' % oshibka]
+        assery, _sjuity = klassifikirovat(svod)
+        zelen = bool(svod.get('success')) and int(svod.get('numPassedTests', 0)) > 0
+        print('ISPOLNIMYJ kontrol svjaz %s — %s (высота лейсте и minHeight '
+              'вкладок следуют за источником)' % (
+                  'ZELEN' if zelen else 'KRASEN', opisanie_podmeny),
+              file=sys.stderr)
+        if not zelen:
+            return 1, ['ISPOLNIMYJ_TOKEN_NE_POTREBLJON: высота лейсте/'
+                       'minHeight вкладок не следуют за токеном — подмена '
+                       '%s красна (упавших ассертов %d); совпадение '
+                       'текущего числа связью с токеном не является'
+                       % (opisanie_podmeny, assery)]
+
+        # v3b (Crit148k2b Б3): контроль ЗОНЫ — конформная
+        # height:36+minHeight:44 (эффективная зона 44) зелёная
+        neprimenima = primenit_zapis(KONTROLI_ISPOLNIMYE[1])
+        if neprimenima is not None:
+            return 2, [neprimenima]
+        svod, oshibka = zapustit()
+        if svod is None:
+            return 1, ['ISPOLNIMYJ_INFRA: контроль zona: %s' % oshibka]
+        assery, _sjuity = klassifikirovat(svod)
+        zelen = bool(svod.get('success')) and int(svod.get('numPassedTests', 0)) > 0
+        print('ISPOLNIMYJ kontrol zona %s — height:36+minHeight:44 принята '
+              '(эффективная зона 44 по правилам RN: minHeight — пол)'
+              % ('ZELEN' if zelen else 'KRASEN'), file=sys.stderr)
+        if not zelen:
+            return 1, ['ISPOLNIMYJ_LOZHNYJ_OTKAZ: зонд отверг конформную '
+                       'зону height:36+minHeight:44 — эффективная зона 44 '
+                       'по правилам RN (minHeight — пол; слово владельца '
+                       '2026-11-02: любая реальная зона ≥ 44; упавших '
+                       'ассертов %d)' % assery]
+
         zhivye, neubit = [], []
-        for imja, rel, ankora, zamena in MUTACII_ISPOLNIMYE:
-            put = kopija / Path(rel).relative_to('mobile')
-            tekst = ishodnye[rel]
-            if tekst.count(ankora) != 1:
-                return 2, ['LIVE_MUTACIJA_NEPRIMENIMA: %s: якорь не '
-                           'уникален в %s' % (imja, rel)]
-            put.write_text(tekst.replace(ankora, zamena, 1), encoding='utf-8')
+        for zapis in MUTACII_ISPOLNIMYE:
+            neprimenima = primenit_zapis(zapis)
+            if neprimenima is not None:
+                return 2, [neprimenima]
             svod, oshibka = zapustit()
             if svod is None:
-                neubit.append('%s(infra: %s)' % (imja, oshibka))
-                print('ISPOLNIMYJ mutant %s INFRA — %s' % (imja, oshibka),
-                      file=sys.stderr)
+                neubit.append('%s(infra: %s)' % (zapis['imja'], oshibka))
+                print('ISPOLNIMYJ mutant %s INFRA — %s'
+                      % (zapis['imja'], oshibka), file=sys.stderr)
                 continue
             assery, sjuity = klassifikirovat(svod)
             if assery > 0:
                 print('ISPOLNIMYJ mutant %s UBIT — упавших ассертов %d'
-                      % (imja, assery), file=sys.stderr)
+                      % (zapis['imja'], assery), file=sys.stderr)
             elif sjuity > 0:
-                neubit.append('%s(сьют не исполнился)' % imja)
+                neubit.append('%s(сьют не исполнился)' % zapis['imja'])
                 print('ISPOLNIMYJ mutant %s NE_UBIT — сьют(ы) не исполнились'
-                      % imja, file=sys.stderr)
+                      % zapis['imja'], file=sys.stderr)
             else:
-                zhivye.append(imja)
+                zhivye.append(zapis['imja'])
                 print('ISPOLNIMYJ mutant %s ZHIV — зонд зелён под мутантом'
-                      % imja, file=sys.stderr)
-            put.write_text(tekst, encoding='utf-8')
+                      % zapis['imja'], file=sys.stderr)
         prichiny = []
         if zhivye:
             prichiny.append('ISPOLNIMYJ_MUTANT_ZHIV: %s' % ', '.join(zhivye))
@@ -826,6 +1091,10 @@ def main():
     tokeny = proverka_tokenov(repo, src)
     if tokeny:
         print('PRICHINA\t%s' % tokeny)
+        return 1
+    modul = proverka_modulja_tokenov(repo)
+    if modul:
+        print('PRICHINA\t%s' % modul)
         return 1
     rc2, prichiny2 = ispolnimyj_sud(repo, src)
     for p in prichiny2:

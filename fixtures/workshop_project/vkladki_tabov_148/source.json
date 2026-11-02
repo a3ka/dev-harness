@@ -1761,7 +1761,7 @@
    "nositeli/paket/frames.json": "84e4b5fc52d4dd7e00f91c4c7b9fb56f7ccc5a119b0f4cd351a8199efab72a8b",
    "nositeli/paket/manifest.json": "3fc386adb04fcbffe60bad979b2b0d53085c013bdbc63a6a905af3e6a568a633",
    "nositeli/tokens.css": "49f50ad6695dbf372bdc4c06418421af69fd82bad6b22ed55742922a20cb254e",
-   "nositeli/tokeny-1-1.json": "9fe46721c66d5657a5598d3f5c43f6c92cd6b41217621c08cbfe270e9a643953"
+   "nositeli/tokeny-1-1.json": "6d2d71963250134aa140b716f3b635d44345d0ad254ef19c2adf0ae2d1683113"
   },
   "etalon_raskladka": {
    "model/produktnaja-raskladka/mobile/.maestro/prokhod-vkladki.yaml": "1543efeffec0f750bea8baa057db644b0ac6edf01029ad30721c3e278865ddda",
@@ -1769,16 +1769,17 @@
    "model/produktnaja-raskladka/mobile/.maestro/vkladki.yaml": "91cf8de5ad9cf2024b09b250d1a9373e018bc3025d3def6bca1b8000724cf475",
    "model/produktnaja-raskladka/mobile/e2e-vkladki/e2e.sh": "ebfabb499009c4b9355ce30970b79ea679c66e923529e64e75f76264ae1af17f",
    "model/produktnaja-raskladka/mobile/src/app/(tabs)/[section].tsx": "64495569d54189b8b4f515fc50a260a7a4e447f9bb62809b1c43c4248693307e",
-   "model/produktnaja-raskladka/mobile/src/bootstrap/gespraech-mitte.tsx": "0c5677b983b473c0e848c766b733d5e2839e1c83ba5f044a4fda53af648377ab",
-   "model/produktnaja-raskladka/mobile/src/bootstrap/tab-shell.tsx": "364a3c8e5730ad1446f18e0eebd05e9342824bff435d47512d5225af89e34caa",
+   "model/produktnaja-raskladka/mobile/src/bootstrap/gespraech-mitte.tsx": "31deee252ac24ce96e6af56c4adb9d4d7f1c07b50184d63938a3776fd5880331",
+   "model/produktnaja-raskladka/mobile/src/bootstrap/tab-shell.tsx": "3c53de18838dea62b4a4a35c87003d79a23e9230320e9a7901efb499ce871f10",
    "model/produktnaja-raskladka/mobile/src/features/missions/components/VorgaengeListe.tsx": "256fd30e9c3a8bd9d10469bf90f34435b47670b8fb32458b6cd115d49e59cf61",
    "model/produktnaja-raskladka/mobile/src/features/missions/model/vkladki-dannye.ts": "9dd6fe0a0fb92d4eaab6b196c64c44f534f2b03e58aeeebbfa837886cade07e5",
    "model/produktnaja-raskladka/mobile/src/features/post/components/PostEingang.tsx": "34821e7420ff66e1adaf10330e0b26f53a84f94c07196fafd8d6d0f37d97e169",
    "model/produktnaja-raskladka/mobile/src/features/protection/components/SchutzUebersicht.tsx": "6a7783f5a540d24e3b27390fa67349e1711ec4eb5599bffe5a1403d4c858e62d",
-   "model/produktnaja-raskladka/mobile/src/i18n/ui-copy.ts": "1d00f66166b95d8d2e0d26a0f5895a949be37e924dae6b183bfa06051a158dc1"
+   "model/produktnaja-raskladka/mobile/src/i18n/ui-copy.ts": "1d00f66166b95d8d2e0d26a0f5895a949be37e924dae6b183bfa06051a158dc1",
+   "model/produktnaja-raskladka/mobile/src/bootstrap/kompakt-tokens.ts": "2261a3e5c2d4a5ee9ad4b70d46773569a0205e6c200cd6e0d3bf54ea46a660ec"
   },
   "produkt": {
-   "produkt/vkladki-zond-148.test.tsx": "b6fcfe0ba4298be746a51810e714282d850b9189f1944faadfe455cf96ef1059"
+   "produkt/vkladki-zond-148.test.tsx": "9d9ec09b9e63fd0bc42a7de2abec2ed23dd8c9828a4c4dd970368b410409e4f3"
   }
  },
  "dopusk_score": 0.01,
@@ -2294,7 +2295,7 @@
     "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
     "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
     "SHABLON\tvkladki\tOK",
-    "PRICHINA\tISPOLNIMYJ_MUTANT_ZHIV: tabs, badge, skroll, kasanie, tokeny"
+    "PRICHINA\tISPOLNIMYJ_MUTANT_ZHIV: tabs, badge, skroll, kasanie, tokeny, nav-final2, nav-literal, disabled"
    ],
    "prichiny": []
   },
@@ -2328,6 +2329,22 @@
     "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
     "SHABLON\tvkladki\tOK",
     "PRICHINA\tKADR_PODMENEN: kadry.json: GA-02 dark: пин GA-04_normal_dark_390x844.png — имя записи не соответствует её идентификатору (пакет 1.1 пинит GA-02_normal_dark_390x844.png)"
+   ],
+   "prichiny": []
+  },
+  "pr-tokeny-modul": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tvkladki\tOK",
+    "PRICHINA\tTOKENY_MODUL_NE_IZ_ISTOCHNIKA: mobile/src/bootstrap/kompakt-tokens.ts != извлечению из docs/ux/05_Kompakt_D24/source/tokens.json (ветки nav.*/touch-target.min; модуль руками не редактируется)"
    ],
    "prichiny": []
   }
@@ -2436,6 +2453,9 @@
   ],
   "s93_kadry_podmena_produkt_propuskaet.py": [
    "pr-kadry-podmenen"
+  ],
+  "s94_tokeny_modul_propuskaet.py": [
+   "pr-tokeny-modul"
   ]
  }
 }
