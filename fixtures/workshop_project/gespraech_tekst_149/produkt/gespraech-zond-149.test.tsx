@@ -40,12 +40,36 @@
 // сравнения (GA-19). Таб-бар (shell-tab-*/gespraech-mitte) — зона
 // экрана 148, судом хоста не требуется.
 //
+// v+1 цикл 2 вызов 3 (вердикт Crit149k2c — классы ЛОЖНЫЙ_ОТКАЗ_ЗОНЫ
+// и НЕДЕЙСТВУЮЩАЯ_ОБЯЗАТЕЛЬНАЯ_ЦЕЛЬ): (1) эффективная зона — по
+// правилам RN-стиля, НЕ «приоритет одного поля»: width/height
+// фиксирует размер, minWidth/minHeight — нижний пол, поднимающий
+// размер ВВЕРХ; эффективная ось = max(width, minWidth) + hitSlop.
+// ДОПУСТИМЫЕ способы задания зоны ≥ токена (width/height 44; полы 44;
+// ОДНОВРЕМЕННО width/height и полы в обеих полярностях: 44×44 при
+// полах 36 — зона 44; рамка 36 при полах 44 — зона 44) ЗЕЛЕНЫ —
+// прежняя формула «minWidth ?? width» красила валидные 44×44
+// (ложный отказ, мутант mut-valid-effective-zone). Видимый размер —
+// отдельное свойство (пиксельная мера/манифест), зонд его не судит.
+// (2) каждая обязательная цель каждого состояния ЖИВА и ДЕЙСТВУЕТ:
+// жизненность — disabled/accessibilityState.disabled (RN Pressable
+// вливает disabled в accessibilityState хоста), pointerEvents
+// none/box-none на себе и none/box-only на предке (семантика RNTL
+// is-enabled), onPress отсутствует (поиск — тем же спуском по fiber,
+// что и RNTL propagation: Pressable держит onPress на композите);
+// действие — СВОЙ тест на каждую пару «состояние × цель»: достижение
+// состояния → нажатие → ПОСТУСЛОВИЕ цели (флоу пачки). RNTL
+// доставляет press только живым целям (disabled → onStartShouldSet
+// Responder false; pointerEvents — блок; onPress нет — обработчик не
+// найден), поэтому disabled-кнопка красна И исполнением.
+//
 // Среда 145/RNTL: ОДИН render на тест — render/unmount циклы внутри
 // одного теста дают overlapping act() и пустое дерево (замер этой
 // пачки); между тестами авто-cleanup среды корректен; каждое событие
 // ЖДЁТСЯ (прецедент pilot.test click).
 import fs from 'fs';
 import path from 'path';
+import type { ReactTestInstance } from 'react-test-renderer';
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet, View } from 'react-native';
@@ -80,10 +104,13 @@ function px(znach: string): number {
   return parseFloat(m[1]);
 }
 
-// зона нажатия элемента: min-полы стиля + hitSlop; проценты — от
-// ширины профиля; видимая рамка (width/height) НЕ участвует (слово
-// владельца 2026-11-02: рамка < 44 при зоне ≥ 44 — не находка, зона
-// меньше 44 — находка)
+// Эффективная hit-area: RN width/height задаёт наружную размерность,
+// minWidth/minHeight поднимает нижний пол, hitSlop расширяет её.
+// Без явной размерности padding даёт доказуемую нижнюю грань; при
+// явной размерности padding входит ВНУТРЬ неё и не удваивается.
+// Проценты — от профиля; размер видимой рамки отдельно (манифест).
+// При width=height=44 с полами 36 зона 44; при width=height=36
+// с полами 44 зона также 44, уменьшенная эффективная зона красна.
 function zonaNazhatija(id: string, shirinaProfilja: number) {
   const el = est(id);
   const sloi = StyleSheet.flatten(el.props.style || []);
@@ -108,11 +135,72 @@ function zonaNazhatija(id: string, shirinaProfilja: number) {
     }
     return 0;
   };
+  const otstup = (os: 'left' | 'right' | 'top' | 'bottom') => {
+    const key = os[0].toUpperCase() + os.slice(1);
+    const obshchij = os === 'left' || os === 'right'
+      ? sloi.paddingHorizontal : sloi.paddingVertical;
+    return razmer(sloi['padding' + key] ?? obshchij ?? sloi.padding);
+  };
+  const os = (razmernost: unknown, pol: unknown, otstupy: number) =>
+    Math.max(razmer(razmernost), razmer(pol),
+      razmernost === undefined ? otstupy : 0);
   return {
-    w: razmer(sloi.minWidth ?? sloi.width) + dop.x,
-    h: razmer(sloi.minHeight ?? sloi.height) + dop.y,
+    w: os(sloi.width, sloi.minWidth,
+      otstup('left') + otstup('right')) + dop.x,
+    h: os(sloi.height, sloi.minHeight,
+      otstup('top') + otstup('bottom')) + dop.y,
   };
 }
+
+// onPress обязательной цели: Pressable держит обработчик на КОМПОЗИТЕ
+// (fiber), хост-элемент — нет. Спуск по fiber — как у RNTL
+// (events/propagation findEventHandlerFromFiber): до первой границы
+// хоста; иначе цель «нажимается» действием РОДИТЕЛЯ, не своим.
+// RNTL не экспортирует тип fiber — непроверяемое сведение к локальной
+// форме (библиотечный тип невыразим, чтение только этих полей).
+type Fajber = {
+  memoizedProps: Record<string, unknown> | null;
+  return: Fajber;
+  type: unknown;
+} | null;
+const onPressCele = (el: ReactTestInstance): unknown => {
+  if (typeof el.props.onPress === 'function') {
+    return el.props.onPress;
+  }
+  let fiber = (el as unknown as { unstable_fiber?: Fajber })
+    .unstable_fiber;
+  while (fiber != null && fiber.memoizedProps != null) {
+    if (typeof fiber.memoizedProps.onPress === 'function') {
+      return fiber.memoizedProps.onPress;
+    }
+    if (fiber.return === null || typeof fiber.return.type === 'string') {
+      break;
+    }
+    fiber = fiber.return as Fajber;
+  }
+  return undefined;
+};
+
+// блокатор доставки press семантики RNTL (events/is-enabled
+// getPointerEventsBlocker): сам — none/box-none, предок — none/box-only
+const blokatorNazhatica = (
+  el: ReactTestInstance,
+  roditel: boolean,
+): string | null => {
+  const pe = String(
+    el.props.pointerEvents ??
+      StyleSheet.flatten(el.props.style || []).pointerEvents ??
+      '',
+  );
+  if (pe === 'none' || (!roditel && pe === 'box-none') ||
+      (roditel && pe === 'box-only')) {
+    return pe;
+  }
+  if (el.parent === null) {
+    return null;
+  }
+  return blokatorNazhatica(el.parent, true);
+};
 
 // --- карта домена суда: состояние пачки → обязательные цели ----------
 // Единый источник домена — ПАЧКА (ekran.json): sostojanija объявляет
@@ -208,9 +296,12 @@ const chitatPachku = (): {
 };
 
 // суд состояния: КАЖДАЯ обязательная цель НАЛИЧНА (отсутствие —
-// CEL_OTSTUTSVUET, выхода «цель не отрисована — вне домена» НЕТ);
-// поле ввода (TextInput) судится только наличием — потолок/прокрутка
-// отдельным контуром (машина/токен); остальные — зоной ≥ touch-target
+// CEL_OTSTUTSVUET, выхода «цель не отрисована — вне домена» НЕТ),
+// ЖИВА и в зоне (вызов 3, Crit149k2c НЕДЕЙСТВУЮЩАЯ_ОБЯЗАТЕЛЬНАЯ_ЦЕЛЬ:
+// наличие и размер без действия не засчитываются — выключенная цель
+// красна ИМЕННОЙ причиной): поле ввода (TextInput) судится только
+// наличием — потолок/прокрутка отдельным контуром (машина/токен),
+// ввод — судом действия; остальные — жизненностью и зоной ≥ нормы
 const sudSostojanija = (shirina: number, sostojanie: string) => {
   const nabor = chitatPachku();
   const narushenija: string[] = [];
@@ -221,6 +312,32 @@ const sudSostojanija = (shirina: number, sostojanie: string) => {
       continue;
     }
     if (String(el.type) === 'TextInput') {
+      continue;
+    }
+    // жизненность: RN 0.86 Pressable вливает disabled (и
+    // accessibilityState.disabled) в accessibilityState ХОСТА —
+    // выключенная цель видна, зонна и всё равно красна
+    const az = (el.props.accessibilityState ??
+      {}) as Record<string, unknown>;
+    if (el.props.disabled === true || az.disabled === true) {
+      narushenija.push(
+        'CEL_VYKLUCHENA: ' + id + ' [' + sostojanie + '] disabled',
+      );
+      continue;
+    }
+    const blokator = blokatorNazhatica(el, false);
+    if (blokator !== null) {
+      narushenija.push(
+        'CEL_OBEZDVIZHENA: ' + id + ' [' + sostojanie +
+          '] pointerEvents ' + blokator,
+      );
+      continue;
+    }
+    if (onPressCele(el) === undefined) {
+      narushenija.push(
+        'CEL_BEZ_DEJSTVIJA: ' + id + ' [' + sostojanie +
+          '] onPress отсутствует',
+      );
       continue;
     }
     const zona = zonaNazhatija(id, shirina);
@@ -434,6 +551,96 @@ describe('gespraech-tekst-chat: домен, состояния, зоны и то
       expect(screen.getAllByTestId('gespraech-vopros-agenta').length)
         .toBeGreaterThan(0);
     });
+  }
+
+  // Каждая цель начального состояния получает собственный свежий render:
+  // выключенная или обездвиженная цель не прячется за успехом соседней.
+  const nachalnye = SOSTOJANIJA_I_TSELI.plaschki;
+  for (const shirina of PROFLI) {
+    for (const id of nachalnye) {
+      it('доставляет действие ' + id + ' в профиле ' + shirina, async () => {
+        await render(
+          <View style={{ width: shirina }}>
+            <GespraechTekstChat />
+          </View>,
+        );
+        expect(sudSostojanija(shirina, 'plaschki')).toEqual([]);
+        if (id === 'gespraech-pole') {
+          await vvesti(id, 'Frage');
+          expect(est('gespraech-otpravit')).toBeTruthy();
+          return;
+        }
+        await nazhat(id);
+        if (id === 'gespraech-vlozhit') {
+          expect(est('gespraech-vlozhenie')).toBeTruthy();
+        } else if (id === 'gespraech-verlauf') {
+          expect(est('gespraech-verlauf-spisok')).toBeTruthy();
+        } else if (id === 'gespraech-mikrofon' ||
+                   id.endsWith('-erzaehlen')) {
+          expect(est('gespraech-temy-stroka')).toBeTruthy();
+        } else {
+          expect(est('gespraech-vopros-agenta')).toBeTruthy();
+        }
+      });
+    }
+  }
+
+  // Цели остальных состояний: один render на пару состояние × цель.
+  for (const shirina of PROFLI) {
+    for (const sostojanie of Object.keys(SOSTOJANIJA_I_TSELI)) {
+      if (sostojanie === 'plaschki') {
+        continue;
+      }
+      for (const id of SOSTOJANIJA_I_TSELI[sostojanie]) {
+        it('нажимает ' + id + ' в ' + sostojanie + ' / ' + shirina,
+          async () => {
+            await render(
+              <View style={{ width: shirina }}>
+                <GespraechTekstChat />
+              </View>,
+            );
+            if (sostojanie === 'tema-verlauf') {
+              await nazhat('gespraech-topic-auto');
+            } else if (sostojanie === 'schreiben-temy' ||
+                       sostojanie === 'schreiben-tastatur') {
+              await nazhat('gespraech-topic-auto-erzaehlen');
+              if (sostojanie === 'schreiben-tastatur') {
+                await vvesti('gespraech-pole', 'Zeile');
+              }
+            } else {
+              await nazhat('gespraech-vlozhit');
+              await nazhat(sostojanie === 'foto'
+                ? 'gespraech-vlozhit-foto' : 'gespraech-vlozhit-dokument');
+            }
+            expect(sudSostojanija(shirina, sostojanie)).toEqual([]);
+            if (id === 'gespraech-pole') {
+              await vvesti(id, 'Neue Frage');
+              expect(est(id).props.value).toBe('Neue Frage');
+            } else {
+              await nazhat(id);
+              if (id === 'gespraech-vlozhit') {
+                expect(est('gespraech-vlozhenie')).toBeTruthy();
+              } else if (id.startsWith('gespraech-chip-') ||
+                         id === 'gespraech-otpravit') {
+                expect(est('gespraech-soobschenie-polzovatel')).toBeTruthy();
+              } else if (id === 'gespraech-lieber-erzaehlen' ||
+                         id.startsWith('gespraech-mikrofon')) {
+                expect(est('gespraech-temy-stroka')).toBeTruthy();
+              } else if (id === 'gespraech-verlauf') {
+                expect(est('gespraech-verlauf-spisok')).toBeTruthy();
+                if (sostojanie === 'schreiben-temy' ||
+                    sostojanie === 'schreiben-tastatur') {
+                  expect(net('gespraech-temy-stroka')).toBeNull();
+                } else if (sostojanie === 'foto') {
+                  expect(net('gespraech-vlozhenie-foto')).toBeNull();
+                } else if (sostojanie === 'dokument') {
+                  expect(net('gespraech-vlozhenie-brief')).toBeNull();
+                }
+              }
+            }
+          });
+      }
+    }
   }
 
   it('высота потолка поля на компоненте равна токену пакета calc(6 * lineHeight(body))', async () => {
