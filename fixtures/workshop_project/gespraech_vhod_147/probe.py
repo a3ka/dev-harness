@@ -15,7 +15,12 @@
 # (экранный шаг создаёт AVD393 и передаёт окружение пары; параллельный
 # запуск — LEKALO_PARALLELNYJ_ZAPUSK_393, замаскированный отказ —
 # LEKALO_MASKA_OTKAZA_393); кадр GA-01 исключён из пиксельной сверки
-# (GA01_V_SVERKE), маска шапки 393 = 48 pt (MASKA_393_NE_48). Оракул —
+# (GA01_V_SVERKE), маска шапки 393 = 48 pt (MASKA_393_NE_48). Цикл 2
+# вызов 2 (вердикт Crit147k2b): уход 390 ПОДТВЕРЖДАЕТСЯ исполнением —
+# e2e.sh в песочнице двойников SDK, «залипший» 390 красит клетку
+# s-e2e-ostanovka-podtverzhena (E2E_ZAPUSK_PRI_ZHIVOM_390 и наследуемые);
+# реальный потребитель — jest-зонд produkt/ на РЕАЛЬНЫХ компонентах
+# дерева + матрица мутантов (клетка s-ekran-ispolnim). Оракул —
 # пины source.json (проверяются ДО любого субъекта) и ожидания,
 # вычисленные ЭТАЛОНОМ на том же входе ДО субъекта (правило 8); каждая
 # красная клетка несёт РОВНО одно имя причины.
@@ -37,6 +42,8 @@
 #   --flo-forma-only  (служебный) только клетки формы флоу
 #   --kadry-forma-only  (служебный) только клетки кадровых инвариантов
 #                 сверки (GA-01 вне сверки, маска 393 = 48)
+#   --e2e-zhizncikl-only  (служебный) только клетка жизненного цикла
+#                 пары 390/393 ИСПОЛНЕНИЕМ (зеркала стаба e2e)
 #   --seed N      seed сеяных входов (право судьи — перезапуск)
 #
 # Коды возврата: 0 — зелено; 1 — красная клетка/живой стаб/нет субъекта;
@@ -46,6 +53,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -92,6 +100,49 @@ KLETKI_KADRY_STABOV = {
     'sverka-s-ga01': ('s-ga01-vne-sverki', 'GA01_V_SVERKE'),
     'maska-36': ('s-maska-393-48', 'MASKA_393_NE_48'),
 }
+
+# жизненный цикл пары ИСПОЛНЕНИЕМ (цикл 2, вердикт Crit147k2b класс
+# ПОРЯДОК AVD): стаб — обманный ПЕРЕПИН канона e2e.sh (снятие блока
+# подтверждения ухода — дословный обход критика: rc 0 при «залипшем»
+# 390); клетка исполняет e2e.sh в песочнице двойников SDK
+KLETKI_E2E_STABOV = {
+    'e2e-bez-podtverzdenija': ('s-e2e-ostanovka-podtverzhena',
+                               'E2E_ZAPUSK_PRI_ZHIVOM_390'),
+}
+
+# исполняемый суд экрана (цикл 2, вердикт Crit147k2b класс РЕАЛЬНЫЙ
+# ПОТРЕБИТЕЛЬ): стабы — фиктивные jest-среды с зашитым итогом (красный
+# контроль / зелёный с живыми мутантами) — судят КЛАССИФИКАЦИЮ судьи,
+# не компоненты (прецедент 148/149)
+KLETKI_JEST_STABOV = {
+    'jest-krasnyj': ('s-ekran-ispolnim', 'ISPOLNIMYJ_KONTROL_KRASEN'),
+    'jest-zelenyj': ('s-ekran-ispolnim', 'ISPOLNIMYJ_MUTANT_ZHIV'),
+}
+
+# исполняемый зонд реальных компонентов (цикл 2, Crit147k2b Б2): файл
+# зоны (пин sha) и адрес в дереве; референс-раскладка — копии
+# настоящих компонентов продукта с зонами по токенам пакета 1.1
+# (прецедент 148/149): несут ЗЕЛЁНЫЙ контроль A-дерева, мутанты
+# батареи применяются к файлам дерева по якорям
+ZOND = os.path.join(ZDE, 'produkt', 'gespraech-vhod-zond-147.test.tsx')
+ZOND_IMJA = 'gespraech-vhod-zond-147.test.tsx'
+ZOND_KUDA = os.path.join('mobile', 'src', 'bootstrap', '__tests__')
+RASKLADKA = os.path.join(MODEL, 'produktnaja-raskladka')
+RASKLADKA_V_PRODUKTE = ('mobile/src/bootstrap/tab-shell.tsx',
+                        'mobile/src/theme/motion-tokens.ts')
+TOKENY_PAKETA_OTN = os.path.join('docs', 'ux', '05_Kompakt_D24',
+                                 'source', 'tokens.json')
+# матрица исполняемых мутантов — дословные атаки Crit147k2b Б2: якорь
+# обязан встречаться в файле дерева РОВНО один раз, иначе именованная
+# неприменимость (никогда тихий пропуск)
+MUTACII_ISPOLNIMYE = [
+    ('tab-zona-20', 'mobile/src/bootstrap/tab-shell.tsx',
+     'style={styles.tab}',
+     'style={[styles.tab, { width: 20, height: 20 }]}'),
+    ('press-long-900', 'mobile/src/theme/motion-tokens.ts',
+     "'press-long': '500ms',",
+     "'press-long': '900ms',"),
+]
 
 # лекало 143/2 (И-8): копия frozen-шаблона — носитель зоны (пин sha256 в
 # source.json, байты == тегу 3ca9d92f); агрегаты и служебные задачи DAG —
@@ -166,36 +217,52 @@ def vedro():
                    'stabs/stab_lekalo_parallelnyj_zapusk.py',
                    'stabs/stab_lekalo_zamaskirovannyj_otkaz.py',
                    'stabs/stab_sverka_s_ga01.py',
-                   'stabs/stab_maska_36.py'):
+                   'stabs/stab_maska_36.py',
+                   'stabs/stab_e2e_bez_podtverzdenija.py',
+                   'stabs/stab_jest_krasnyj.sh',
+                   'stabs/stab_jest_zelenyj.sh',
+                   'produkt/gespraech-vhod-zond-147.test.tsx',
+                   'model/produktnaja-raskladka/mobile/src/bootstrap/'
+                   'tab-shell.tsx',
+                   'model/produktnaja-raskladka/mobile/src/theme/'
+                   'motion-tokens.ts'):
         if kljuch not in src['piny']['nositeli']:
             utechka('пин стаба отсутствует: ' + kljuch)
     for stab, svaz in (src.get('stab_vhod') or {}).items():
         if 'kletka' in svaz:
-            svjazannaja = None
-            if stab in KLETKI_FLO_STABOV:
-                svjazannaja = KLETKI_FLO_STABOV[stab][0]
-            elif stab in KLETKI_KADRY_STABOV:
-                svjazannaja = KLETKI_KADRY_STABOV[stab][0]
+            kartochnye = dict(KLETKI_FLO_STABOV)
+            kartochnye.update(KLETKI_KADRY_STABOV)
+            kartochnye.update(KLETKI_E2E_STABOV)
+            kartochnye.update(KLETKI_JEST_STABOV)
+            ozhid = kartochnye.get(stab)
+            if ozhid is not None:
+                imja_fajla = 'stab_' + stab.replace('-', '_') + \
+                    ('.sh' if stab in KLETKI_JEST_STABOV else '.py')
+                if svaz['kletka'] != ozhid[0] or 'pravilo' in svaz or \
+                        src['staby'].get(stab) != imja_fajla:
+                    utechka('привязка стаба ' + stab)
             elif svaz['kletka'] == 's-lekalo-instanciirovano':
-                svjazannaja = svaz['kletka']
-            if svjazannaja is None or svaz['kletka'] != svjazannaja \
-                    or 'pravilo' in svaz or src['staby'].get(stab) != \
-                    'stab_' + stab.replace('-', '_') + '.py':
+                if 'pravilo' in svaz or src['staby'].get(stab) != \
+                        'stab_' + stab.replace('-', '_') + '.py':
+                    utechka('привязка стаба ' + stab)
+            else:
                 utechka('привязка стаба ' + stab)
         elif svaz.get('pravilo') not in PRAVILA_MASHINY:
             utechka('привязка стаба ' + stab)
-    flo_kletki = {v[0] for v in KLETKI_FLO_STABOV.values()}
-    objavlennye = {sv['kletka'] for sv in (src.get('stab_vhod')
-                                           or {}).values()
-                   if 'kletka' in sv and sv['kletka'] in flo_kletki}
-    if objavlennye != flo_kletki:
-        utechka('стабы формы флоу против клеток формы')
-    kadry_kletki = {v[0] for v in KLETKI_KADRY_STABOV.values()}
-    objavlennye_k = {sv['kletka'] for sv in (src.get('stab_vhod')
-                                             or {}).values()
-                     if 'kletka' in sv and sv['kletka'] in kadry_kletki}
-    if objavlennye_k != kadry_kletki:
-        utechka('стабы кадровых инвариантов против клеток')
+    for semejstvo, imja in (
+            (KLETKI_FLO_STABOV, 'стабы формы флоу против клеток формы'),
+            (KLETKI_KADRY_STABOV,
+             'стабы кадровых инвариантов против клеток'),
+            (KLETKI_E2E_STABOV,
+             'стабы жизненного цикла против клеток'),
+            (KLETKI_JEST_STABOV,
+             'стабы jest-среды против клеток')):
+        kletki = {v[0] for v in semejstvo.values()}
+        objavlennye = {sv['kletka'] for sv in
+                       (src.get('stab_vhod') or {}).values()
+                       if 'kletka' in sv and sv['kletka'] in kletki}
+        if objavlennye != kletki:
+            utechka(imja)
     return src
 
 
@@ -921,6 +988,373 @@ def _zerkal_zony(vrem, src):
     return zerkalo
 
 
+# ---------- цикл 2 (Crit147k2b): суд ИСПОЛНЕНИЕМ — жизненный цикл пары
+# и реальный потребитель (зонд jest; прецеденты 148/149) -------------
+
+
+# Двойники несут состояние живых серийников и журнал событий; ставятся в
+# PATH и ANDROID_HOME: обе формы запуска e2e.sh идут в песочницу, не к
+# настоящему Android SDK. Журнал — наблюдение, НЕ оракул ожиданий:
+# порты и начальное состояние (живой эмулятор работника лекала)
+# остаются у судьи в памяти (правило 8). Режим «залипшего» 390:
+# emu kill возвращает rc 0, но серийник ОСТАЁТСЯ в adb devices —
+# дословный обход критика (зависшая/медленная остановка).
+DVOJNIK_147 = r'''#!/usr/bin/env python3
+import os
+import pathlib
+import sys
+import time
+
+state = pathlib.Path(os.environ["GESpraech147_SOSTOJANIE"])
+log = pathlib.Path(os.environ["GESpraech147_ZHURNAL"])
+zalipshij = os.environ.get("GESpraech147_ZALIPSHIJ") == "1"
+name = pathlib.Path(sys.argv[0]).name
+args = sys.argv[1:]
+
+def read_state():
+    return state.read_text(encoding="utf-8").splitlines()
+
+def event(line):
+    with log.open("a", encoding="utf-8") as output:
+        output.write(line + "\n")
+
+if name == "adb":
+    if args == ["devices"]:
+        print("List of devices attached")
+        for serial in read_state():
+            print(serial + "\tdevice")
+    elif len(args) >= 4 and args[0] == "-s" and args[2:] == ["emu", "kill"]:
+        serial = args[1]
+        event("KILL " + serial)
+        if not zalipshij:
+            state.write_text(
+                "".join(s + "\n" for s in read_state() if s != serial),
+                encoding="utf-8")
+    elif len(args) >= 3 and args[0] == "-s" and args[2] == "wait-for-device":
+        deadline = time.monotonic() + 5
+        while args[1] not in read_state():
+            if time.monotonic() >= deadline:
+                sys.exit(1)
+            time.sleep(0.01)
+    elif "getprop" in args:
+        print("1")
+elif name == "emulator":
+    port = args[args.index("-port") + 1] \
+        if "-port" in args and args.index("-port") + 1 < len(args) else ""
+    event("START " + port)
+    with state.open("a", encoding="utf-8") as output:
+        output.write("emulator-" + port + "\n")
+'''
+
+
+def _ispolni_e2e_v_pesochice(put_e2e, LE, zalipshij):
+    """Один запуск e2e.sh в песочнице двойников SDK. Возврат:
+    (rc, stdout+stderr, строки журнала)."""
+    with tempfile.TemporaryDirectory(prefix='gespraech147-e2e-') as d:
+        cwd = os.path.join(d, 'zapusk')
+        os.makedirs(os.path.join(cwd, 'mobile', '.maestro'))
+        shutil.copyfile(put_e2e, os.path.join(cwd, 'e2e.sh'))
+        os.chmod(os.path.join(cwd, 'e2e.sh'), 0o755)
+        # e2e.sh судит наличие своих флоу (rc 3) — песочница несёт их из
+        # пачки зоны: двойник maestro не читает их, но честный вход
+        # обязан существовать (как в дереве продукта)
+        for potok in LE['flows']:
+            shutil.copyfile(os.path.join(PACHKA, os.path.basename(potok)),
+                            os.path.join(cwd, potok))
+        bin_dir = os.path.join(d, 'bin')
+        sdk_bin = os.path.join(d, 'android', 'emulator')
+        os.makedirs(bin_dir)
+        os.makedirs(sdk_bin)
+        for imja in ('adb', 'emulator', 'maestro', 'sleep'):
+            dvojnik = os.path.join(bin_dir, imja)
+            with open(dvojnik, 'w', encoding='utf-8') as fh:
+                fh.write(DVOJNIK_147)
+            os.chmod(dvojnik, 0o755)
+        os.symlink(os.path.join(bin_dir, 'emulator'),
+                   os.path.join(sdk_bin, 'emulator'))
+        sostojanie = os.path.join(d, 'state')
+        zhurnal = os.path.join(d, 'events')
+        with open(sostojanie, 'w', encoding='utf-8') as fh:
+            fh.write('emulator-%d\n' % LE['avd_port'])
+        open(zhurnal, 'w').close()
+        apk = os.path.join(d, 'proba.apk')
+        open(apk, 'wb').close()
+        env = dict(os.environ)
+        env['PATH'] = os.pathsep.join([bin_dir, env.get('PATH', '')])
+        env['ANDROID_HOME'] = os.path.join(d, 'android')
+        env['GESPRAECH_SERIAL'] = 'emulator-%d' % LE['avd_port']
+        env['GESPRAECH_SERIAL_393'] = 'emulator-%d' % LE['avd_port_393']
+        env['GESPRAECH_AVD393'] = 'proba393'
+        env['GESPRAECH_PORT393'] = str(LE['avd_port_393'])
+        env['GESPRAECH_APK'] = apk
+        env['GESpraech147_SOSTOJANIE'] = sostojanie
+        env['GESpraech147_ZHURNAL'] = zhurnal
+        env['GESpraech147_ZALIPSHIJ'] = '1' if zalipshij else ''
+        protsess = subprocess.Popen(
+            ['bash', os.path.join(cwd, 'e2e.sh'), LE['screen_id']],
+            cwd=cwd, env=env, stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, start_new_session=True)
+        try:
+            vyvod, _ = protsess.communicate(timeout=60)
+            status = protsess.returncode
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(protsess.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            vyvod, _ = protsess.communicate()
+            status = 'ТАЙМАУТ (60 с)'
+        stroki = open(zhurnal, encoding='utf-8').read().splitlines()
+        return status, (vyvod or b'').decode('utf-8', 'replace'), stroki
+
+
+def sud_zhizncikla_ispolneniem(put_e2e, src):
+    """s-e2e-ostanovka-podtverzhena (цикл 2, вердикт Crit147k2b класс
+    ПОРЯДОК AVD): 393 запускается только после ПОДТВЕРЖДЁННОГО ухода
+    390; исчерпание ожидания — ненулевой rc с различимой причиной.
+    Исполняет e2e.sh БЕЗ настоящего SDK на ДВУХ входах: (а) честный —
+    emu kill убирает серийник из adb devices: контроль обязан пройти
+    (rc 0, единственный START портом avd_port_393 ПОСЛЕ KILL); (б)
+    «залипший» 390 — emu kill с rc 0, серийник остаётся в списке:
+    запуск 393 запрещён (ЛЮБОЙ START — два живых AVD), отказ обязателен
+    и различим. Имя причины — РОВНО одно, по старшинству:
+    E2E_ZAPUSK_PRI_ZHIVOM_390 → E2E_ZALIPSHIJ_390_RC0 →
+    E2E_ZALIPSHIJ_390_BEZ_PRICHINY → E2E_NET_ZAPUSKA_393 →
+    E2E_KONTROL_RC. Пустой возврат — зелено."""
+    LE = src['lekalo']
+    if not os.path.isfile(put_e2e):
+        return ['E2E_NET_KANONA: нет %s — жизненный цикл пары не судим'
+                % put_e2e]
+    serial390 = 'emulator-%d' % LE['avd_port']
+    port393 = str(LE['avd_port_393'])
+    rc_b, vyvod_b, zh_b = _ispolni_e2e_v_pesochice(put_e2e, LE, True)
+    for stroka in zh_b:
+        if stroka.startswith('START '):
+            return ['E2E_ZAPUSK_PRI_ZHIVOM_390: залипший %s — запущен 393 '
+                    '(порт %s) при живом первом; журнал: %s'
+                    % (serial390, stroka[6:], '; '.join(zh_b))]
+    if rc_b == 0:
+        return ['E2E_ZALIPSHIJ_390_RC0: %s остался в adb devices после '
+                'emu kill, скрипт завершился rc 0 без отказа — два '
+                'живых AVD возможны' % serial390]
+    if 'не ушёл' not in vyvod_b or serial390 not in vyvod_b:
+        return ['E2E_ZALIPSHIJ_390_BEZ_PRICHINY: rc %s без различимой '
+                'причины (нужны имя зависшего серийника и «не ушёл»); '
+                'выход: %s' % (rc_b, vyvod_b.strip()[:120])]
+    rc_a, vyvod_a, zh_a = _ispolni_e2e_v_pesochice(put_e2e, LE, False)
+    zhiv390, startov = True, 0
+    for stroka in zh_a:
+        if stroka == 'KILL ' + serial390:
+            zhiv390 = False
+        elif stroka.startswith('START '):
+            startov += 1
+            if zhiv390:
+                return ['E2E_ZAPUSK_PRI_ZHIVOM_390: честный вход — START '
+                        '%s до emu kill %s' % (stroka[6:], serial390)]
+            if stroka[6:] != port393:
+                return ['E2E_NET_ZAPUSKA_393: START портом %s, требуется '
+                        '%s' % (stroka[6:], port393)]
+    if startov == 0:
+        return ['E2E_NET_ZAPUSKA_393: честный вход — нет START в журнале '
+                '(запуск 393 отсутствует или обошёл PATH/ANDROID_HOME)']
+    if rc_a != 0:
+        return ['E2E_KONTROL_RC: честный вход rc=%s (выход: %s)'
+                % (rc_a, vyvod_a.strip()[:120])]
+    return []
+
+
+def ispolnimyj_sud(mob_koren, src, podrobno=True):
+    """s-ekran-ispolnim (цикл 2, вердикт Crit147k2b класс РЕАЛЬНЫЙ
+    ПОТРЕБИТЕЛЬ): живой jest-зонд produkt/gespraech-vhod-zond-147.test.tsx
+    (пин source.json) на РЕАЛЬНЫХ компонентах дерева — таб-шелл
+    mobile/src/bootstrap/tab-shell.tsx (зоны касания вкладок/профиля по
+    карте pressable ПАЧКИ ≥ touch-target.min пакета 1.1 на обоих
+    профилях) и theme/motion-tokens.ts (press-long, потребляемый UI
+    движения, == токену пакета 1.1) — в изолированной копии mobile
+    (node_modules — симлинк установки дерева), плюс матрица мутантов
+    по якорям (дословные атаки Crit147k2b: Pressable 20×20;
+    press-long 900): контроль зелен, каждый мутант убит УПАВШИМ
+    АССЕРТОМ (падение загрузки сьюта НЕ засчитывается). Заявленная
+    среда без установки — LIVE_PREDPOSYLKA, НИКОГДА skip→pass
+    (прецедент proba_live_put 145); дерево без mobile/package.json —
+    именованный пропуск. Возвращает (prichiny, otkaz)."""
+    mob = mob_koren
+    if not os.path.isfile(os.path.join(mob, 'package.json')):
+        print('ISPOLNIMYJ_SKIP: нет mobile/package.json — не jest-среда',
+              file=sys.stderr)
+        return [], 'skip'
+    if not os.path.isfile(ZOND) or sha(ZOND) != \
+            src['piny']['sha'].get('produkt/%s' % ZOND_IMJA):
+        return ['ORACLE_TAMPERED: пин зонда не совпал'], None
+    predposylki = []
+    konfig = None
+    for imja in ('jest.config.js', 'jest.config.json'):
+        if os.path.isfile(os.path.join(mob, imja)):
+            konfig = imja
+            break
+    if konfig is None:
+        predposylki.append('нет mobile/jest.config.{js,json}')
+    nm = os.path.join(mob, 'node_modules')
+    for paket in ('jest-expo', '@testing-library/react-native'):
+        if not os.path.isfile(os.path.join(nm, paket, 'package.json')):
+            predposylki.append('не установлен пакет %s' % paket)
+    if not os.path.exists(os.path.join(nm, '.bin', 'jest')):
+        predposylki.append('нет node_modules/.bin/jest')
+    for otn in RASKLADKA_V_PRODUKTE:
+        if not os.path.isfile(os.path.join(mob_koren, '..', otn)):
+            predposylki.append('нет компонента %s' % otn)
+    if not os.path.isfile(os.path.join(mob_koren, '..',
+                                       TOKENY_PAKETA_OTN)):
+        predposylki.append('нет пакета 1.1 %s' % TOKENY_PAKETA_OTN)
+    if not os.path.isfile(os.path.join(mob, 'e2e-gespraech-vhod',
+                                       'ekran.json')):
+        predposylki.append('нет ekran.json пачки (карта pressable зонда)')
+    if predposylki:
+        return ['LIVE_PREDPOSYLKA: %s' % '; '.join(predposylki)], None
+    vrem = tempfile.mkdtemp(prefix='gespraech147-live-')
+    try:
+        kopija = os.path.join(vrem, 'mobile')
+        shutil.copytree(mob, kopija,
+                        ignore=shutil.ignore_patterns('node_modules'))
+        os.symlink(os.path.realpath(nm), os.path.join(kopija,
+                                                      'node_modules'))
+        # пакет 1.1 рядом с копией mobile (зонд читает токены пакета по
+        # относительному пути <корень>/docs/…)
+        tok_kuda = os.path.join(vrem, TOKENY_PAKETA_OTN)
+        os.makedirs(os.path.dirname(tok_kuda), exist_ok=True)
+        shutil.copyfile(os.path.join(mob_koren, '..', TOKENY_PAKETA_OTN),
+                        tok_kuda)
+        zond = os.path.join(kopija, os.path.relpath(ZOND_KUDA, 'mobile'),
+                            ZOND_IMJA)
+        os.makedirs(os.path.dirname(zond), exist_ok=True)
+        shutil.copy(ZOND, zond)
+
+        def zapustit():
+            try:
+                p = subprocess.run(
+                    [os.path.join(kopija, 'node_modules', '.bin', 'jest'),
+                     '--config', konfig, '--rootDir', '.', '--ci',
+                     '--runInBand', '--json', 'gespraech-vhod-zond'],
+                    cwd=kopija, capture_output=True, text=True,
+                    timeout=1200)
+            except subprocess.TimeoutExpired:
+                return None, 'ТАЙМАУТ jest (1200 с)'
+            tek = (p.stdout or '').strip()
+            try:
+                return json.loads(tek), None
+            except json.JSONDecodeError:
+                a, b = tek.find('{'), tek.rfind('}')
+                if a < 0 or b <= a:
+                    return None, 'jest без JSON-итога rc=%d: %s' % (
+                        p.returncode, (p.stderr or tek)[:200])
+                try:
+                    return json.loads(tek[a:b + 1]), None
+                except json.JSONDecodeError:
+                    return None, 'jest JSON не разобран rc=%d' % p.returncode
+
+        def klassifikirovat(svod):
+            """(упавших ассертов, не исполнившихся сьютов): падение
+            загрузки/трансформации НЕ засчитывается убитым мутантом."""
+            assery, sjuity = 0, 0
+            for sjuit in svod.get('testResults') or []:
+                utv = sjuit.get('assertionResults') or []
+                if not utv:
+                    sjuity += 1
+                    continue
+                for a in utv:
+                    if a.get('status') == 'failed':
+                        assery += 1
+            return assery, sjuity
+
+        ishodnye = {}
+        for _imja, otn, _jakor, _zamena in MUTACII_ISPOLNIMYE:
+            put = os.path.join(kopija, os.path.relpath(otn, 'mobile'))
+            ishodnye[otn] = open(put, encoding='utf-8').read()
+
+        svod, oshibka = zapustit()
+        if svod is None:
+            return ['ISPOLNIMYJ_INFRA: контроль: %s' % oshibka], None
+        assery, _sjuity = klassifikirovat(svod)
+        zelen = bool(svod.get('success')) and \
+            int(svod.get('numPassedTests', 0)) > 0
+        if podrobno:
+            print('ISPOLNIMYJ kontrol %s — suites=%s tests=%s' % (
+                'ZELEN' if zelen else 'KRASEN',
+                svod.get('numTotalTestSuites'),
+                svod.get('numTotalTests')), file=sys.stderr)
+        if not zelen:
+            return ['ISPOLNIMYJ_KONTROL_KRASEN: зонд красен на исходных '
+                    'компонентах дерева (упавших ассертов %d) — реальная '
+                    'зона касания/токен не соответствуют пачке'
+                    % assery], None
+        for imja, otn, jakor, zamena in MUTACII_ISPOLNIMYE:
+            put = os.path.join(kopija, os.path.relpath(otn, 'mobile'))
+            tekst = ishodnye[otn]
+            if tekst.count(jakor) != 1:
+                return ['ISPOLNIMYJ_MUTANT_NE_PRIMENIM: %s — якорь '
+                        'встречен %d раз (не 1)' % (imja,
+                                                    tekst.count(jakor))], None
+            with open(put, 'w', encoding='utf-8') as fh:
+                fh.write(tekst.replace(jakor, zamena, 1))
+            svod, oshibka = zapustit()
+            if svod is None:
+                return ['ISPOLNIMYJ_INFRA: мутант %s: %s'
+                        % (imja, oshibka)], None
+            assery, sjuity = klassifikirovat(svod)
+            if assery > 0:
+                if podrobno:
+                    print('ISPOLNIMYJ mutant %s UBIT — упавших ассертов %d'
+                          % (imja, assery), file=sys.stderr)
+            elif sjuity > 0:
+                return ['ISPOLNIMYJ_MUTANT_NE_UBIT: %s — сьют не '
+                        'исполнился (падение загрузки не убийство)'
+                        % imja], None
+            else:
+                return ['ISPOLNIMYJ_MUTANT_ZHIV: %s прошёл зонд зелёным — '
+                        'реальная зона касания/токен не судятся'
+                        % imja], None
+            with open(put, 'w', encoding='utf-8') as fh:
+                fh.write(tekst)
+        return [], None
+    finally:
+        shutil.rmtree(vrem, ignore_errors=True)
+
+
+def postav_fejk_jest(vrem, jest_skript):
+    """Фиктивная jest-среда стабов jest-* (прецедент 148/149): заявленная
+    package.json среда + метаданные пакетов + node_modules/.bin/jest с
+    зашитым итогом + компоненты референс-раскладки по каноническим
+    путям — исполняемый путь клетки s-ekran-ispolnim доходит до запуска
+    jest и классифицирует исходы ИМЕННО, без RN-рантайма. Возвращает
+    корень mobile фиктивной среды."""
+    koren = os.path.join(vrem, 'fejk')
+    mob = os.path.join(koren, 'mobile')
+    for otn in RASKLADKA_V_PRODUKTE:
+        dst = os.path.join(koren, otn)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        shutil.copy(os.path.join(RASKLADKA, otn), dst)
+    pak = os.path.join(mob, 'e2e-gespraech-vhod')
+    os.makedirs(pak, exist_ok=True)
+    shutil.copy(os.path.join(PACHKA, 'forma-ekrana.json'),
+                os.path.join(pak, 'ekran.json'))
+    tok = os.path.join(koren, TOKENY_PAKETA_OTN)
+    os.makedirs(os.path.dirname(tok), exist_ok=True)
+    shutil.copy(os.path.join(NOS, 'kompakt11', 'tokens.json'), tok)
+    open(os.path.join(mob, 'package.json'), 'w').write(
+        '{"name":"mobile-fejk","private":true}')
+    open(os.path.join(mob, 'jest.config.js'), 'w').write(
+        'module.exports = {};\n')
+    for paket in ('jest-expo', '@testing-library/react-native'):
+        d = os.path.join(mob, 'node_modules', paket)
+        os.makedirs(d, exist_ok=True)
+        open(os.path.join(d, 'package.json'), 'w').write(
+            '{"name":"%s","version":"0.0.0-fejk"}' % paket)
+    bindir = os.path.join(mob, 'node_modules', '.bin')
+    os.makedirs(bindir, exist_ok=True)
+    shutil.copy(jest_skript, os.path.join(bindir, 'jest'))
+    os.chmod(os.path.join(bindir, 'jest'), 0o755)
+    return mob
+
 # ---------- лекало 143/2: инстанциация И-8 (блок Crit147 круг 1) ----------
 
 
@@ -1510,6 +1944,12 @@ def postav_zhivoe_a_derevo(produkt, cel, src):
         return 2
     ignor = shutil.ignore_patterns('.git', 'node_modules')
     shutil.copytree(produkt, cel, ignore=ignor)
+    # цикл 2 (Crit147k2b Б2): реальный потребитель — jest-среда
+    # продукта СИМЛИНКОМ установки (копия тяжёлая; прецедент 148/149)
+    nm_istochnik = os.path.join(produkt, 'mobile', 'node_modules')
+    if os.path.isdir(nm_istochnik):
+        os.symlink(os.path.realpath(nm_istochnik),
+                   os.path.join(cel, 'mobile', 'node_modules'))
     for otn, fajl in KANON_V_ZONE.items():
         put = os.path.join(cel, otn)
         os.makedirs(os.path.dirname(put), exist_ok=True)
@@ -1526,6 +1966,14 @@ def postav_zhivoe_a_derevo(produkt, cel, src):
     os.makedirs(mashina, exist_ok=True)
     shutil.copy(os.path.join(MODEL, 'menu-machine.ts'),
                 os.path.join(mashina, 'menu-machine.ts'))
+    # цикл 2 (Crit147k2b Б2): референс-компоненты зоны (зоны касания
+    # по токенам пакета 1.1; прецедент 148/149) — зелёный контроль
+    # исполняемого зонда на A-дереве; реальные компоненты продукта
+    # судятся той же мерой в --repo
+    for otn in RASKLADKA_V_PRODUKTE:
+        put = os.path.join(cel, otn)
+        os.makedirs(os.path.dirname(put), exist_ok=True)
+        shutil.copy(os.path.join(RASKLADKA, otn), put)
     with open(os.path.join(cel, 'mobile', 'ci-screens.json'),
               encoding='utf-8') as fh:
         karta = json.load(fh)
@@ -1540,8 +1988,10 @@ def postav_zhivoe_a_derevo(produkt, cel, src):
     with open(os.path.join(cel, '.github', 'workflows', 'mobile.yml'), 'w',
               encoding='utf-8') as fh:
         yaml.safe_dump(wf, fh, allow_unicode=True, sort_keys=False)
-    print('A-DEREVO %s job=%s kanon=%d mashina=1 ekran.json=forma'
-          % (cel, LE['job_id'], len(kanon)))
+    print('A-DEREVO %s job=%s kanon=%d mashina=1 ekran.json=forma '
+          'raskladka=%d node_modules=%s'
+          % (cel, LE['job_id'], len(kanon), len(RASKLADKA_V_PRODUKTE),
+             'da' if os.path.isdir(nm_istochnik) else 'net'))
     return 0
 
 
@@ -1590,6 +2040,15 @@ def main():
                   % (kletka, 'ok' if not spisok else 'KRASNO',
                      '; '.join(spisok)))
         return 1 if any(prichiny_k.values()) else 0
+    if '--e2e-zhizncikl-only' in argv:
+        # клеточный прогон жизненного цикла пары ИСПОЛНЕНИЕМ (зеркала
+        # стаба e2e): та же клетка, что в полном прогоне; rc 1 — красная
+        aspekty_e2e = sud_zhizncikla_ispolneniem(
+            os.path.join(ZDE, 'teksty', 'e2e.sh'), src)
+        print('CASE s-e2e-ostanovka-podtverzhena %s %s'
+              % ('ok' if not aspekty_e2e else 'KRASNO',
+                 '; '.join(aspekty_e2e)))
+        return 1 if aspekty_e2e else 0
 
     if rezhim == 'tamper':
         prov = 0
@@ -1730,6 +2189,38 @@ def main():
     # и манифесты пачки продукта
     for kletka, spisok in sorted(sudi_kadry_forma(ZDE, repo_r).items()):
         itogi.append((kletka, not spisok, '; '.join(spisok)))
+    # клетка жизненного цикла пары ИСПОЛНЕНИЕМ (цикл 2, Crit147k2b
+    # класс ПОРЯДОК AVD): e2e.sh в песочнице двойников SDK — честный
+    # вход зелён, «залипший» 390 — rc 0/молчаливое продолжение красны;
+    # субъект — канон зоны teksty/e2e.sh (байты запинены vedro), в
+    # --repo той же мерой e2e.sh пачки продукта
+    vhod_e2e = os.path.join(ZDE, 'teksty', 'e2e.sh')
+    if rezhim == 'repo':
+        vhod_e2e = os.path.join(repo_r, 'mobile', 'e2e-gespraech-vhod',
+                                'e2e.sh')
+    aspekty_e2e = sud_zhizncikla_ispolneniem(vhod_e2e, src)
+    itogi.append(('s-e2e-ostanovka-podtverzhena', not aspekty_e2e,
+                  '; '.join(aspekty_e2e)))
+    # исполняемый суд экрана (цикл 2, Crit147k2b класс РЕАЛЬНЫЙ
+    # ПОТРЕБИТЕЛЬ): живой jest-зонд на РЕАЛЬНЫХ компонентах дерева +
+    # матрица мутантов; без mobile/package.json — именованный пропуск
+    # (не зелень продукта), заявленная среда без установки —
+    # LIVE_PREDPOSYLKA (никогда skip→pass)
+    if rezhim == 'koren':
+        itogi.append(('s-ekran-ispolnim', False, 'SUBJECT_ABSENT продукт'))
+    elif rezhim in ('model', 'stabs'):
+        itogi.append(('s-ekran-ispolnim', True,
+                      'статически-зелёный контроль (модель)'))
+    else:
+        prichiny_z, otkaz_z = ispolnimyj_sud(
+            os.path.join(repo_r, 'mobile'), src)
+        if otkaz_z == 'skip':
+            itogi.append(('s-ekran-ispolnim', True,
+                          'ISPOLNIMYJ_SKIP: не jest-среда (нет '
+                          'mobile/package.json)'))
+        else:
+            itogi.append(('s-ekran-ispolnim', not prichiny_z,
+                          '; '.join(prichiny_z)))
 
 
     zelen = sum(1 for _, ok, _ in itogi if ok)
@@ -1776,6 +2267,12 @@ def main():
                 if svaz['kletka'] in {v[0] for v in
                                       KLETKI_KADRY_STABOV.values()}:
                     continue  # стабы кадровых инвариантов — ниже
+                if svaz['kletka'] in {v[0] for v in
+                                      KLETKI_E2E_STABOV.values()}:
+                    continue  # стаб жизненного цикла — ниже, своим контуром
+                if svaz['kletka'] in {v[0] for v in
+                                      KLETKI_JEST_STABOV.values()}:
+                    continue  # стабы jest-среды — ниже
                 stub = os.path.join(vrem_a, 'stub-' + stab)
                 shutil.copytree(a_der, stub)
                 r = subprocess.run(
@@ -1882,6 +2379,77 @@ def main():
                 svjazi += 1
             finally:
                 shutil.rmtree(vrem_k, ignore_errors=True)
+        # стаб жизненного цикла (Н-39; цикл 2, Crit147k2b класс ПОРЯДОК
+        # AVD): обманный ПЕРЕПИН канона — блок подтверждения ухода 390
+        # снимается, пин e2e.sh меняется вместе (порчу носителя ловит
+        # vedro ДО клеток). Зеркальная копия зоны; клеточный прогон
+        # --e2e-zhizncikl-only обязан дать rc 1 СВОИМ именем причины
+        # (иначе ORACLE — стаб красен не своим дефектом); зелёный
+        # контроль — клетка выше (живой канон зелен в каждом прогоне).
+        # Мутант-«пропускник» ловится здесь — STAB_ZHIV rc 1.
+        for stab in sorted(KLETKI_E2E_STABOV):
+            kletka, prichina = KLETKI_E2E_STABOV[stab]
+            vrem_e2e = tempfile.mkdtemp(prefix='gespraech147-e2e-')
+            try:
+                zerkalo = _zerkal_zony(vrem_e2e, src)
+                r = subprocess.run(
+                    [sys.executable,
+                     os.path.join(STABY, src['staby'][stab]), zerkalo],
+                    capture_output=True, text=True, timeout=60)
+                if r.returncode != 0:
+                    sys.stderr.write('ORACLE стаб %s: мутатор rc=%d %s\n'
+                                     % (stab, r.returncode,
+                                        r.stderr.strip()[:120]))
+                    return 2
+                env = dict(os.environ)
+                env['GESpraech147_ZONA'] = zerkalo
+                d = subprocess.run(
+                    [sys.executable, os.path.join(zerkalo, 'probe.py'),
+                     '--e2e-zhizncikl-only'], capture_output=True,
+                    text=True, env=env, timeout=300)
+                if d.returncode == 0:
+                    print('STAB %s ZHIV (клетка %s зелена на стабе)'
+                          % (stab, kletka))
+                    return 1
+                if prichina not in d.stdout:
+                    sys.stderr.write('ORACLE стаб %s: красна не своей '
+                                     'причиной: %s\n' % (stab,
+                                                         d.stdout.strip()))
+                    return 2
+                print('STAB %s KRASEN %s' % (stab, prichina))
+                svjazi += 1
+            finally:
+                shutil.rmtree(vrem_e2e, ignore_errors=True)
+        # стабы jest-среды (Н-39; цикл 2, Crit147k2b класс РЕАЛЬНЫЙ
+        # ПОТРЕБИТЕЛЬ; прецедент 148/149): фиктивная jest-среда из
+        # референс-раскладки — исполняемый путь клетки доходит до
+        # запуска jest и классифицирует исходы ИМЕННО: зашитый красный
+        # итог — ISPOLNIMYJ_KONTROL_KRASEN, зашитый зелёный (мутанты
+        # живы) — ISPOLNIMYJ_MUTANT_ZHIV; судья, не различающий их, —
+        # рассинхрон rc 2
+        for stab_name, ozhidaemaja in sorted(
+                (stab, svjaz[1]) for stab, svjaz
+                in KLETKI_JEST_STABOV.items()):
+            vrem_j = tempfile.mkdtemp(prefix='gespraech147-jest-')
+            try:
+                mob = postav_fejk_jest(vrem_j, os.path.join(
+                    STABY, src['staby'][stab_name]))
+                prichiny_j, otkaz_j = ispolnimyj_sud(mob, src,
+                                                     podrobno=False)
+                svod = '; '.join(prichiny_j)
+                if otkaz_j == 'skip' or (not prichiny_j):
+                    print('STAB %s ZHIV (исполняемый суд зелён на '
+                          'фиктивной среде)' % stab_name)
+                    return 1
+                if ozhidaemaja not in svod:
+                    sys.stderr.write('ORACLE стаб %s: причина %s\n'
+                                     % (stab_name, svod[:160]))
+                    return 2
+                print('STAB %s KRASEN s-ekran-ispolnim (%s)'
+                      % (stab_name, ozhidaemaja))
+                svjazi += 1
+            finally:
+                shutil.rmtree(vrem_j, ignore_errors=True)
         print('SVJAZI %d' % svjazi)
 
     print('клеток %d, зелёных %d, красных %d; режим %s seed %d'

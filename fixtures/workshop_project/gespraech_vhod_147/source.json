@@ -82,7 +82,13 @@
    "stabs/stab_lekalo_parallelnyj_zapusk.py": "fixtures/workshop_project/gespraech_vhod_147/stabs/stab_lekalo_parallelnyj_zapusk.py",
    "stabs/stab_lekalo_zamaskirovannyj_otkaz.py": "fixtures/workshop_project/gespraech_vhod_147/stabs/stab_lekalo_zamaskirovannyj_otkaz.py",
    "stabs/stab_sverka_s_ga01.py": "fixtures/workshop_project/gespraech_vhod_147/stabs/stab_sverka_s_ga01.py",
-   "stabs/stab_maska_36.py": "fixtures/workshop_project/gespraech_vhod_147/stabs/stab_maska_36.py"
+   "stabs/stab_maska_36.py": "fixtures/workshop_project/gespraech_vhod_147/stabs/stab_maska_36.py",
+   "stabs/stab_e2e_bez_podtverzdenija.py": "fixtures/workshop_project/gespraech_vhod_147/stabs/stab_e2e_bez_podtverzdenija.py",
+   "stabs/stab_jest_krasnyj.sh": "fixtures/workshop_project/gespraech_vhod_147/stabs/stab_jest_krasnyj.sh",
+   "stabs/stab_jest_zelenyj.sh": "fixtures/workshop_project/gespraech_vhod_147/stabs/stab_jest_zelenyj.sh",
+   "produkt/gespraech-vhod-zond-147.test.tsx": "fixtures/workshop_project/gespraech_vhod_147/produkt/gespraech-vhod-zond-147.test.tsx",
+   "model/produktnaja-raskladka/mobile/src/bootstrap/tab-shell.tsx": "fixtures/workshop_project/gespraech_vhod_147/model/produktnaja-raskladka/mobile/src/bootstrap/tab-shell.tsx",
+   "model/produktnaja-raskladka/mobile/src/theme/motion-tokens.ts": "fixtures/workshop_project/gespraech_vhod_147/model/produktnaja-raskladka/mobile/src/theme/motion-tokens.ts"
   },
   "sha": {
    "model/dvizhenie-runner.mjs": "86157a88c92978544eea709aa96b9510f7e0cebeb95e682dcc805ffb2dd69178",
@@ -159,13 +165,19 @@
    "stabs/stab_ud_ignor.ts": "1d4190928a8c169e20b2fcb6767119fc5db40067306e5404918523fc1d295f67",
    "stabs/stab_zakrytie_bez_morfa.ts": "04b59a657950868976f29bd43680ae8703e2b80c8cf80cefe7e1f12a2de9db07",
    "teksty/dvizhenie.mjs": "1869f8abc07339a7d07dcd5b8da08bd5e138ba2f3b7412ce126ee4df5579b216",
-   "teksty/e2e.sh": "845cabfc27719028b44a2a75357426aa90c4aa5ba8d05dc5d8d91d05dccbc93b",
+   "teksty/e2e.sh": "eae07e47308cd4193319f46790437ca97ee781d4219448f829b6a2fb836cd2b7",
    "teksty/gespraech-dvizhenie.test.ts": "662c3cbc1aeeee027404b8983403f9ba0930629cf5bb7d343c9c4914f9f34981",
    "teksty/prokhod.sh": "f6b3dc57ab6d7cfd22da9644ee5c762391f741420aa9f3ee9e7d3c60761a1dcf",
    "stabs/stab_lekalo_parallelnyj_zapusk.py": "c321500da3e755376d5803d380f9c98ea948373f70206d1e791356ea22de38a4",
    "stabs/stab_lekalo_zamaskirovannyj_otkaz.py": "e6146c67edceaf8cb787731e3de8d42c4e860bd7a1cd65fc8d50d527aca953f6",
    "stabs/stab_sverka_s_ga01.py": "f5426c802a05c0f4f74867904c389fcf4a58c42dc41464b2297b1aa340c4591c",
-   "stabs/stab_maska_36.py": "11fb7b311a753494f91635420b3ae896d2a2745b442448a15c9edebc24bf0f4c"
+   "stabs/stab_maska_36.py": "11fb7b311a753494f91635420b3ae896d2a2745b442448a15c9edebc24bf0f4c",
+   "stabs/stab_e2e_bez_podtverzdenija.py": "b219c7a28c54111204cec4e8d66fa5e4615838bcbbd6de547b649c1f4c707898",
+   "stabs/stab_jest_krasnyj.sh": "4ec3e6167dda1d566d07054e14397c0b12ff77c7ef73326c25266c11eb40f64c",
+   "stabs/stab_jest_zelenyj.sh": "3fbed20c50ea5d2dbb5f73e3512a7d129772c15dc1fcf6454f689a0670a94a6c",
+   "produkt/gespraech-vhod-zond-147.test.tsx": "b78c08b2ab738ec6d10638c33e373250b9e1294303dd4ac354a7bbfc56c94f0a",
+   "model/produktnaja-raskladka/mobile/src/bootstrap/tab-shell.tsx": "c18b6f65f66df350d5beedac9e6c0cd72b704270341ff7b4125b190cbb3ce451",
+   "model/produktnaja-raskladka/mobile/src/theme/motion-tokens.ts": "a2dfd544876ab722479e5787e40734a6652cf652071c85c53a75e7f8f824c51f"
   },
   "kanon": {
    "mobile/src/features/conversation/__tests__/gespraech-dvizhenie.test.ts": "662c3cbc1aeeee027404b8983403f9ba0930629cf5bb7d343c9c4914f9f34981",
@@ -389,7 +401,10 @@
   "lekalo-parallelnyj-zapusk": "stab_lekalo_parallelnyj_zapusk.py",
   "lekalo-zamaskirovannyj-otkaz": "stab_lekalo_zamaskirovannyj_otkaz.py",
   "sverka-s-ga01": "stab_sverka_s_ga01.py",
-  "maska-36": "stab_maska_36.py"
+  "maska-36": "stab_maska_36.py",
+  "e2e-bez-podtverzdenija": "stab_e2e_bez_podtverzdenija.py",
+  "jest-krasnyj": "stab_jest_krasnyj.sh",
+  "jest-zelenyj": "stab_jest_zelenyj.sh"
  },
  "stab_vhod": {
   "porjadok-obratnyj": {
@@ -436,6 +451,15 @@
   },
   "maska-36": {
    "kletka": "s-maska-393-48"
+  },
+  "e2e-bez-podtverzdenija": {
+   "kletka": "s-e2e-ostanovka-podtverzhena"
+  },
+  "jest-krasnyj": {
+   "kletka": "s-ekran-ispolnim"
+  },
+  "jest-zelenyj": {
+   "kletka": "s-ekran-ispolnim"
   }
  }
 }
