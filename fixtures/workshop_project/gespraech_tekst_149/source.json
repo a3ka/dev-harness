@@ -133,7 +133,10 @@
    "stabs/stab_kompozer_token_20.tsx": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_kompozer_token_20.tsx",
    "stabs/stab_kompozer_token_24.tsx": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_kompozer_token_24.tsx",
    "stabs/stab_kompozer_zona_12.tsx": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_kompozer_zona_12.tsx",
-   "stabs/stab_maska_36.py": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_maska_36.py"
+   "stabs/stab_maska_36.py": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_maska_36.py",
+   "stabs/stab_kompozer_token_literal_21.tsx": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_kompozer_token_literal_21.tsx",
+   "stabs/stab_host_bez_chipov_ga19.tsx": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_host_bez_chipov_ga19.tsx",
+   "stabs/stab_kompozer_bez_golosa_v_polje.tsx": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_kompozer_bez_golosa_v_polje.tsx"
   },
   "sha": {
    "model/ekran_shablon.py": "5fd1415e40b257e5e7b97c7bf9bc8fe31e94dcea9e05c4c3ac44d68802db453b",
@@ -196,15 +199,15 @@
    "nositeli/produkt/mobile-6240f63.yml": "6137aa571ace1147ae1a29884c98008620c3b329eebf83617b5a971d57d0405e",
    "nositeli/produkt/ci-screens-6240f63.json": "85c23e1c66e9661d1d3fc2d56dfd13e4fba1b38bbaa6b9e569acfc0fb98c09e3",
    "stabs/stab_lekalo_obhod_kritika.py": "caa5449031553fb69552ce9718a492c69f5e2bfc481a9facfd6009e04a527b34",
-   "produkt/gespraech-zond-149.test.tsx": "d04a75ecddbf2c6783bc40dff1e17551d9b3b97c9fd1b7dc7248ba3d2b59da2c",
+   "produkt/gespraech-zond-149.test.tsx": "0375a6bd722807d89955cd2c0dc94ac5f5386f7645b37f2ef153f6d9d6bf6957",
    "stabs/stab_ekran_minimalnyj.py": "b26f6da03a07bca46bdf099383f72af67ffe1d6d1dca1de916cde8bab4299075",
    "stabs/stab_jest_zelenyj.sh": "4614716e0f7668518d3623a3556a7d60f57d87de2d46e2cd8317c65eb4816691",
    "stabs/stab_jest_krasnyj.sh": "62a38dee1568fb3da8b5e9b3da6911ac42368003eef3ed97cea02b732b679a5b",
    "stabs/stab_host_pustoj.tsx": "d1f7841681a14d8ee875d7023d726609ad55f5e0f1e684978345423820e9fd1e",
    "nositeli/produkt/composer-108.tsx": "05d289190275f727c45dd917acf2aa7f7957def976f0f0f3c7a8f02f4490815f",
-   "model/produktnaja-raskladka/mobile/src/features/conversation/chat-host.tsx": "d6a7cbe6a67064f77eab3018a3fff129d45ea85364accd8614541c81a45b7467",
-   "model/produktnaja-raskladka/mobile/src/features/conversation/chat-kopija.ts": "bdd2477dc0fd4d49e396d897cfd369c42c87eab40ddd65a1d869244db401f6dd",
-   "model/produktnaja-raskladka/mobile/src/ui/conversation-composer/conversation-composer.tsx": "1c7aa37d305ffa1311558fbe2240af50e4b7af3f194e25eda85a4eb75ef23d10",
+   "model/produktnaja-raskladka/mobile/src/features/conversation/chat-host.tsx": "d47c36ae17a2991ed7ba1c45afad404c27f6d42e4d40fff09ffbeef09d8b84a4",
+   "model/produktnaja-raskladka/mobile/src/features/conversation/chat-kopija.ts": "83643ac29dd92977f53e42cba570306952dcaabd023c814f74465e114c73ec6b",
+   "model/produktnaja-raskladka/mobile/src/ui/conversation-composer/conversation-composer.tsx": "4b4a3aedc0c6fb00aaf25138fe8bfef2b98985c444ad3890a4c66a7552cef4e9",
    "stabs/stab_flo_staraq_forma.py": "60ca02eade3b63bc300a588d00ca1afaba6c8fb6a25eab77390788b9f7a75673",
    "stabs/stab_flo_bez_vkhoda.py": "7a963139776540ffeb36f5236dc39954dd0c5bf9155e8b8c0eb21cfeaba63c58",
    "stabs/stab_ga12_bez_voprosa.py": "40f0e4a9ccb51b6ecbdba39603f9a911f5753de8edc119aa03831069e91be56d",
@@ -267,7 +270,10 @@
    "stabs/stab_kompozer_token_20.tsx": "b35bab5a98e9af95615a11d3f005a1cfebf63ef0f902e1990e0e528d8934c01c",
    "stabs/stab_kompozer_token_24.tsx": "9542619b7cddac9b7182664f6ce842355b96859cd58f44527e5038915a99d8c7",
    "stabs/stab_kompozer_zona_12.tsx": "7a340c0aa1c3d3c9c2f6b0eece64fb771cdf713b5f1acc43abd60d9894ac1047",
-   "stabs/stab_maska_36.py": "cc6465fed843088937142f47e19b0f022ac0429051b4c829394b29dee706bd2f"
+   "stabs/stab_maska_36.py": "cc6465fed843088937142f47e19b0f022ac0429051b4c829394b29dee706bd2f",
+   "stabs/stab_kompozer_token_literal_21.tsx": "3805b9f5d60d89b588e25aa118ecc7929eb34681ff2ec788462935ebf82aed89",
+   "stabs/stab_host_bez_chipov_ga19.tsx": "253f1d20f805cc6e8390f9173bddaa346d8414a9189da8ea1e88d9041eeee24a",
+   "stabs/stab_kompozer_bez_golosa_v_polje.tsx": "0d0c5226261bed181f40ae4ae686211acbaa83564b97dc957802886a1f11e5c6"
   },
   "kanon": {
    "mobile/src/features/conversation/__tests__/gespraech-tekst.test.ts": "c4c0a32a03a2e24c5f70552507843dcdff778b57880f6e8e37deaeca2f8cf0de",

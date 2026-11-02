@@ -4,8 +4,8 @@
 // на РЕАЛЬНЫХ компонентах R — чат-хост mobile/src/features/conversation/
 // chat-host.tsx (экспорт GespraechTekstChat) и композер mobile/src/ui/
 // conversation-composer/conversation-composer.tsx (экспорт ChatComposer,
-// правка 149 поверх поверхности 108). Судит ПОВЕДЕНИЕ: состав целей
-// рендера (грамматика gespraech-* пачки) и реакции нажатий/ввода;
+// правка 149 поверх поверхности 108). Судит ПОВЕДЕНИЕМ: состав целей
+// рендера (грамматика gespraech-* пачки), реакции нажатий/ввода,
 // потолок шести строк и прокрутку поля — через интерфейс машины
 // (poleSkrolluet), единственный источник числа строк. Заголовки — без
 // численно-буквенных пар (урок 145 v4). Запускается БАТАРЕЕЙ в
@@ -18,14 +18,32 @@
 // зона = min-полы стиля (+hitSlop) ≥ touch-target.min ТОКЕНА ПАКЕТА;
 // видимая рамка (width/height) зоной не является и не требуется;
 // уменьшение полов при неизменной пачке — красно. (2) потолок поля —
-// значение ТОКЕНА пакета (typography.body lineHeight 21px, потолок
-// calc(6 * 21px)): использованная компонентом высота (rendered
-// maxHeight поля) обязана равняться токену; литерал 24/20 вместо 21
-// красен. Оба числа читаются из docs/ux/05_Kompakt_D24/source/tokens.json
-// дерева (батарея копирует файл пакета в изолированную копию).
+// значение ТОКЕНА пакета (typography.body lineHeight, потолок
+// calc(6 * lineHeight)): использованная компонентом высота (rendered
+// maxHeight поля) обязана равняться токену. Оба числа читаются из
+// docs/ux/05_Kompakt_D24/source/tokens.json дерева (батарея копирует
+// файл пакета в изолированную копию; Суд подменяет значение на другое
+// допустимое — СВЯЗЬ компонента с токеном, не совпадение числа:
+// литерал 21, как и 24/20, красен на подмене).
+//
+// v+1 цикл 2 вызов 2 (вердикт Crit149k2b — класс ПОЛНОТА_ЖИВЫХ_ЦЕЛЕЙ):
+// суд достигает КАЖДОГО заявленного состояния пачки (sostojanija —
+// конечный домен) и требует НАЛИЧИЕ/ДЕЙСТВИЕ каждого обязательного
+// pressable на соответствующем экране; отсутствующая цель — КРАСНА
+// (CEL_OTSTUTSVUET), обход «continue — цель вне домена» снят: цель
+// выводится из домена только КАРТОЙ состояний, а карта сверяется с
+// пачкой (ключи == sostojanija, объединение == pressable ∩ gespraech-*).
+// Достижение состояний — переходы флоу пачки (gespraech-tekst.yaml):
+// тема → Verlauf с вопросом и чипами; ввод → клавиатурное состояние
+// (голос В ПОЛЕ + «Nachricht senden»); «Lieber erzählen?» → письмо;
+// «+» → меню вложений → Foto (GA-18) / Brief-Dokument с чипами
+// сравнения (GA-19). Таб-бар (shell-tab-*/gespraech-mitte) — зона
+// экрана 148, судом хоста не требуется.
+//
 // Среда 145/RNTL: ОДИН render на тест — render/unmount циклы внутри
 // одного теста дают overlapping act() и пустое дерево (замер этой
-// пачки); между тестами авто-cleanup среды корректен.
+// пачки); между тестами авто-cleanup среды корректен; каждое событие
+// ЖДЁТСЯ (прецедент pilot.test click).
 import fs from 'fs';
 import path from 'path';
 import React from 'react';
@@ -41,6 +59,9 @@ const net = (id: string) => screen.queryByTestId(id);
 // событие ЖДЁТСЯ (прецедент pilot.test click; замер dbg5 этой пачки)
 const nazhat = async (id: string) => {
   await fireEvent.press(est(id));
+};
+const vvesti = async (id: string, tekst: string) => {
+  await fireEvent.changeText(est(id), tekst);
 };
 
 // --- пакет D24-Kompakt-1.1: токены и карта pressable (конечный домен) ---
@@ -93,6 +114,126 @@ function zonaNazhatija(id: string, shirinaProfilja: number) {
   };
 }
 
+// --- карта домена суда: состояние пачки → обязательные цели ----------
+// Единый источник домена — ПАЧКА (ekran.json): sostojanija объявляет
+// состояния, prokhodimost.pressable — цели; судятся цели грамматики
+// gespraech-* (таб-бар — зона 148). Принадлежность цели состоянию —
+// по манифесту пакета 1.1 (touch_targets экранов GA-11…GA-19; carte
+// целей батареи — KARTA_CELEJ_PRESS probe.py, та же атрибуция).
+// Тест домена (ниже) сверяет карту с пачкой ТОЧНО: ключи == sostojanija,
+// объединение == pressable ∩ gespraech-*, без повторов.
+const SOSTOJANIJA_I_TSELI: Readonly<Record<string, readonly string[]>> = {
+  // GA-11: плашки тем (+ срочная с голосом), композер без черновика
+  plaschki: [
+    'gespraech-verlauf',
+    'gespraech-topic-schaden',
+    'gespraech-topic-schaden-speak',
+    'gespraech-topic-auto',
+    'gespraech-topic-auto-erzaehlen',
+    'gespraech-topic-umzug',
+    'gespraech-topic-umzug-erzaehlen',
+    'gespraech-topic-nachwuchs',
+    'gespraech-topic-nachwuchs-erzaehlen',
+    'gespraech-topic-heirat',
+    'gespraech-topic-heirat-erzaehlen',
+    'gespraech-vlozhit',
+    'gespraech-pole',
+    'gespraech-mikrofon',
+  ],
+  // GA-12: тема в Verlauf, вопрос агента, чипы ответа + «Lieber…?»
+  'tema-verlauf': [
+    'gespraech-verlauf',
+    'gespraech-chip-gekauft',
+    'gespraech-chip-geplant',
+    'gespraech-lieber-erzaehlen',
+    'gespraech-vlozhit',
+    'gespraech-pole',
+    'gespraech-mikrofon',
+  ],
+  // GA-13: черновик в поле — голос В ПОЛЕ и «Nachricht senden»
+  'schreiben-tastatur': [
+    'gespraech-verlauf',
+    'gespraech-vlozhit',
+    'gespraech-pole',
+    'gespraech-mikrofon-v-pole',
+    'gespraech-otpravit',
+  ],
+  // GA-17: темы-строка над полем, поле в фокусе, без черновика
+  'schreiben-temy': [
+    'gespraech-verlauf',
+    'gespraech-vlozhit',
+    'gespraech-pole',
+    'gespraech-mikrofon',
+  ],
+  // GA-18: Foto в Verlauf, агент подтверждает
+  foto: [
+    'gespraech-verlauf',
+    'gespraech-vlozhit',
+    'gespraech-pole',
+    'gespraech-mikrofon',
+  ],
+  // GA-19: Brief/Dokument — агент спрашивает, чипы сравнения
+  dokument: [
+    'gespraech-verlauf',
+    'gespraech-chip-vergleichen',
+    'gespraech-chip-nicht',
+    'gespraech-vlozhit',
+    'gespraech-pole',
+    'gespraech-mikrofon',
+  ],
+};
+
+const chitatPachku = (): {
+  minimum: number;
+  celi: string[];
+  sostojanija: string[];
+} => {
+  const tok = JSON.parse(fs.readFileSync(TOKENY_PAKETA, 'utf8'));
+  const ekran = JSON.parse(fs.readFileSync(EKRAN_PACHKI, 'utf8'));
+  const celi: string[] = (ekran.prokhodimost.pressable as Array<
+    { id: string }
+  >).map((x) => x.id);
+  if (celi.length === 0) {
+    throw new Error('ekran.json пачки: пустой список pressable');
+  }
+  const sostojanija: string[] = ekran.sostojanija;
+  if (!Array.isArray(sostojanija) || sostojanija.length === 0) {
+    throw new Error('ekran.json пачки: пустой список sostojanija');
+  }
+  return {
+    minimum: px(tok['touch-target'].min.$value as string),
+    celi,
+    sostojanija,
+  };
+};
+
+// суд состояния: КАЖДАЯ обязательная цель НАЛИЧНА (отсутствие —
+// CEL_OTSTUTSVUET, выхода «цель не отрисована — вне домена» НЕТ);
+// поле ввода (TextInput) судится только наличием — потолок/прокрутка
+// отдельным контуром (машина/токен); остальные — зоной ≥ touch-target
+const sudSostojanija = (shirina: number, sostojanie: string) => {
+  const nabor = chitatPachku();
+  const narushenija: string[] = [];
+  for (const id of SOSTOJANIJA_I_TSELI[sostojanie]) {
+    const el = screen.queryByTestId(id);
+    if (el === null) {
+      narushenija.push('CEL_OTSTUTSVUET: ' + id + ' [' + sostojanie + ']');
+      continue;
+    }
+    if (String(el.type) === 'TextInput') {
+      continue;
+    }
+    const zona = zonaNazhatija(id, shirina);
+    if (!(zona.w >= nabor.minimum && zona.h >= nabor.minimum)) {
+      narushenija.push(
+        'ZONA_MENSHE_NORMY: ' + id + ' [' + sostojanie + ']: зона ' +
+        zona.w + 'x' + zona.h + ' < touch-target.min ' + nabor.minimum,
+      );
+    }
+  }
+  return narushenija;
+};
+
 // Зонд-хост: состав целей GA-11 и реакции переходов/отправки.
 describe('gespraech-tekst-chat: хост текст-чата', () => {
   it('рендерит плашки тем с голосом и композер (GA-11)', async () => {
@@ -138,15 +279,36 @@ describe('gespraech-tekst-chat: хост текст-чата', () => {
     expect(est('gespraech-tema-auto')).toBeTruthy();
   });
 
-  it('вложение открывает панель Dokument (GA-19)', async () => {
+  it('вложение «+» открывает меню: Foto ведёт в Verlauf (GA-18)', async () => {
     await render(<GespraechTekstChat />);
     await nazhat('gespraech-vlozhit');
+    // меню вложений — имена флоу пачки (gespraech-tekst.yaml)
     expect(est('gespraech-vlozhenie')).toBeTruthy();
+    expect(est('gespraech-vlozhit-foto')).toBeTruthy();
+    expect(est('gespraech-vlozhit-dokument')).toBeTruthy();
+    await nazhat('gespraech-vlozhit-foto');
+    expect(est('gespraech-vlozhenie-foto')).toBeTruthy();
+    // агент подтверждает (GA-18: «Complior bestätigt»)
+    expect(est('gespraech-vopros-agenta')).toBeTruthy();
+  });
+
+  it('Brief-Dokument: агент спрашивает, чипы сравнения действуют (GA-19)', async () => {
+    await render(<GespraechTekstChat />);
+    await nazhat('gespraech-vlozhit');
+    await nazhat('gespraech-vlozhit-dokument');
+    expect(est('gespraech-vlozhenie-brief')).toBeTruthy();
+    expect(est('gespraech-vopros-agenta')).toBeTruthy();
+    expect(est('gespraech-chip-vergleichen')).toBeTruthy();
+    expect(est('gespraech-chip-nicht')).toBeTruthy();
+    // ДЕЙСТВИЕ обязательного pressable: чип — ответ агенту
+    await nazhat('gespraech-chip-vergleichen');
+    expect(est('gespraech-soobschenie-polzovatel')).toBeTruthy();
+    expect(screen.getAllByTestId('gespraech-vopros-agenta').length).toBe(2);
   });
 
   it('текст и отправка: сообщение в Verlauf, поле очищено', async () => {
     await render(<GespraechTekstChat />);
-    await fireEvent.changeText(est('gespraech-pole'), 'Hallo von Ihnen');
+    await vvesti('gespraech-pole', 'Hallo von Ihnen');
     expect(est('gespraech-otpravit')).toBeTruthy();
     await nazhat('gespraech-otpravit');
     expect(est('gespraech-soobschenie-polzovatel')).toBeTruthy();
@@ -170,22 +332,26 @@ describe('gespraech-tekst-chat: композер разговора', () => {
     expect(naGolos).toHaveBeenCalledTimes(1);
     await nazhat('gespraech-vlozhit');
     expect(naVlozhit).toHaveBeenCalledTimes(1);
-    await fireEvent.changeText(est('gespraech-pole'), 'Kurze Frage');
+    await vvesti('gespraech-pole', 'Kurze Frage');
     expect(est('gespraech-otpravit')).toBeTruthy();
+    // голос В ПОЛЕ (GA-13): с черновиком кнопка голоса — в ряду поля
+    expect(est('gespraech-mikrofon-v-pole')).toBeTruthy();
+    await nazhat('gespraech-mikrofon-v-pole');
+    expect(naGolos).toHaveBeenCalledTimes(2);
   });
 
   it('поле растёт без прокрутки до потолка строк', async () => {
     await render(<ChatComposer />);
-    await fireEvent.changeText(est('gespraech-pole'), 'eine\nzwei\ndrei');
+    await vvesti('gespraech-pole', 'eine\nzwei\ndrei');
     expect(net('gespraech-pole-skroll')).toBeNull();
   });
 
   it('за потолком включается прокрутка поля', async () => {
     await render(<ChatComposer />);
     const semi = ['eins', 'zwei', 'drei', 'vier', 'fuenf', 'sechs'];
-    await fireEvent.changeText(est('gespraech-pole'), semi.join('\n'));
+    await vvesti('gespraech-pole', semi.join('\n'));
     expect(net('gespraech-pole-skroll')).toBeNull();
-    await fireEvent.changeText(est('gespraech-pole'), semi.concat('sieben').join('\n'));
+    await vvesti('gespraech-pole', semi.concat('sieben').join('\n'));
     const skroll = est('gespraech-pole-skroll');
     expect(skroll.props.scrollEnabled).toBe(true);
     expect(est('gespraech-pole')).toBeTruthy();
@@ -194,79 +360,79 @@ describe('gespraech-tekst-chat: композер разговора', () => {
   it('отправка передаёт текст и появляется только с черновиком', async () => {
     const naOtpravit = jest.fn();
     await render(<ChatComposer onOtpravit={naOtpravit} />);
-    await fireEvent.changeText(est('gespraech-pole'), 'Meine Frage zum Auto');
+    await vvesti('gespraech-pole', 'Meine Frage zum Auto');
     await nazhat('gespraech-otpravit');
     expect(naOtpravit).toHaveBeenCalledWith('Meine Frage zum Auto');
   });
 });
 
-// Зонд зоны касания и токена поля (v+1 цикл 2, Crit149k2a).
-describe('gespraech-tekst-chat: зона касания и токен поля на компоненте', () => {
+// Зонд домена, состояний, зон касания и токена поля (v+1 цикл 2).
+describe('gespraech-tekst-chat: домен, состояния, зоны и токен поля', () => {
+  it('карта суда покрывает состояния и цели pressable пачки точно', () => {
+    const nabor = chitatPachku();
+    // ключи карты == sostojanija пачки (конечный домен состояний)
+    expect(Object.keys(SOSTOJANIJA_I_TSELI).slice().sort())
+      .toEqual(nabor.sostojanija.slice().sort());
+    // объединение обязательных целей == целям пачки МИНУС таб-бар
+    // (ряд y=796 манифеста GA-11: shell-tab-* и gespraech-mitte —
+    // поверхность TabShell 148 / меню 147, судом ХОСТА не требуется;
+    // список таб-бара обязан существовать в пачке — иначе исключение
+    // протухло и тест красен); цель МОЖЕТ быть обязательна в нескольких
+    // состояниях (экран повторяет «+»/поле/голос), повтор ВНУТРИ
+    // состояния — ошибка карты)
+    const tabBar = [
+      'shell-tab-start', 'shell-tab-vorgaenge', 'gespraech-mitte',
+      'shell-tab-schutz', 'shell-tab-post',
+    ];
+    for (const id of tabBar) {
+      expect(nabor.celi.indexOf(id)).toBeGreaterThanOrEqual(0);
+    }
+    for (const spisok of Object.values(SOSTOJANIJA_I_TSELI)) {
+      expect(new Set(Array.from(spisok)).size).toBe(spisok.length);
+    }
+    const vse = Object.values(SOSTOJANIJA_I_TSELI).reduce(
+      (a, b) => a.concat(Array.from(b)), [] as string[]);
+    const celiPachki = nabor.celi
+      .filter((id) => tabBar.indexOf(id) < 0).sort();
+    expect(Array.from(new Set(vse)).sort()).toEqual(celiPachki);
+  });
+
   const PROFLI = [390, 393];
-
-  const naborZon = (): { minimum: number; celi: string[] } => {
-    const tok = JSON.parse(fs.readFileSync(TOKENY_PAKETA, 'utf8'));
-    const ekran = JSON.parse(fs.readFileSync(EKRAN_PACHKI, 'utf8'));
-    const celi: string[] = (ekran.prokhodimost.pressable as Array<
-      { id: string }
-    >).map((x) => x.id);
-    if (celi.length === 0) {
-      throw new Error('ekran.json пачки: пустой список pressable');
-    }
-    return { minimum: px(tok['touch-target'].min.$value as string), celi };
-  };
-
-  const proveritSostojanie = (shirina: number, gde: string) => {
-    const nabor = naborZon();
-    const narushenija: string[] = [];
-    for (const id of nabor.celi) {
-      const el = screen.queryByTestId(id);
-      if (el === null) {
-        continue; // цель этого состояния не отрисована — вне домена
-      }
-      // поле ввода — TextInput: его потолок/прокрутка — отдельный
-      // контур (машина/токен), не зона кнопки
-      if (String(el.type) === 'TextInput') {
-        continue;
-      }
-      const zona = zonaNazhatija(id, shirina);
-      if (!(zona.w >= nabor.minimum && zona.h >= nabor.minimum)) {
-        narushenija.push(
-          id + ' [' + gde + ']: зона ' + zona.w + 'x' + zona.h +
-          ' < touch-target.min ' + nabor.minimum,
-        );
-      }
-    }
-    return narushenija;
-  };
-
   for (const shirina of PROFLI) {
     const vid = 'профиль-' + String(shirina);
-    it('зоны плашек тем и чипов не меньше touch-target.min (' + vid + ')', async () => {
+    it('достигает все состояния пачки; обязательные цели наличны, зоны ≥ touch-target.min (' + vid + ')', async () => {
       await render(
         <View style={{ width: shirina }} testID={vid}>
           <GespraechTekstChat />
         </View>,
       );
-      // состояние GA-11 (plaschki)
-      expect(proveritSostojanie(shirina, vid)).toEqual([]);
-      // состояние GA-12 (tema-verlauf: вопрос агента + чипы)
-      await nazhat('gespraech-topic-auto');
-      expect(proveritSostojanie(shirina, vid)).toEqual([]);
-    });
-
-    it('зоны письма, тем-строки и отправки не меньше touch-target.min (' + vid + ')', async () => {
-      await render(
-        <View style={{ width: shirina }} testID={vid}>
-          <GespraechTekstChat />
-        </View>,
-      );
-      // состояние GA-13/17 (schreiben-temy: темы-строка над полем,
-      // «Nachricht senden» с текстом) — композер внутри хоста
+      // plaschki (GA-11)
+      expect(sudSostojanija(shirina, 'plaschki')).toEqual([]);
+      // erzaehlen → schreiben-temy (GA-17): темы-строка над полем
       await nazhat('gespraech-topic-auto-erzaehlen');
-      await fireEvent.changeText(est('gespraech-pole'), 'Zeile');
-      expect(est('gespraech-otpravit')).toBeTruthy();
-      expect(proveritSostojanie(shirina, vid)).toEqual([]);
+      expect(sudSostojanija(shirina, 'schreiben-temy')).toEqual([]);
+      // тема-пилюля → tema-verlauf (GA-12): вопрос и чипы
+      await nazhat('gespraech-tema-auto');
+      expect(sudSostojanija(shirina, 'tema-verlauf')).toEqual([]);
+      // черновик → schreiben-tastatur (GA-13): голос В ПОЛЕ, отправка
+      await vvesti('gespraech-pole', 'Zeile');
+      expect(sudSostojanija(shirina, 'schreiben-tastatur')).toEqual([]);
+      // отправка — сообщение в ленте
+      await nazhat('gespraech-otpravit');
+      expect(est('gespraech-soobschenie-polzovatel')).toBeTruthy();
+      // «+» → меню вложений (флоу пачки: vlozhit-foto/-dokument)
+      await nazhat('gespraech-vlozhit');
+      expect(est('gespraech-vlozhit-foto')).toBeTruthy();
+      expect(est('gespraech-vlozhit-dokument')).toBeTruthy();
+      // Foto → Verlauf с подтверждением (GA-18)
+      await nazhat('gespraech-vlozhit-foto');
+      expect(sudSostojanija(shirina, 'foto')).toEqual([]);
+      // Brief-Dokument → вопрос агента и чипы сравнения (GA-19)
+      await nazhat('gespraech-vlozhit');
+      await nazhat('gespraech-vlozhit-dokument');
+      expect(sudSostojanija(shirina, 'dokument')).toEqual([]);
+      expect(screen.getAllByTestId('gespraech-vopros-agenta').length)
+        .toBeGreaterThan(0);
     });
   }
 
@@ -280,10 +446,12 @@ describe('gespraech-tekst-chat: зона касания и токен поля �
     expect(m ? parseInt(m[1], 10) : 0).toBe(stroka);
     await render(<ChatComposer />);
     const semi = ['eins', 'zwei', 'drei', 'vier', 'fuenf', 'sechs', 'sieben'];
-    await fireEvent.changeText(est('gespraech-pole'), semi.join('\n'));
+    await vvesti('gespraech-pole', semi.join('\n'));
     const sloi = StyleSheet.flatten(est('gespraech-pole').props.style || []);
-    // использованная компонентом высота == значению токена (6 * 21 = 126);
-    // литерал 24 (144) или 20 (120) вместо 21 — красен
+    // использованная компонентом высота == ЗНАЧЕНИЮ ТОКЕНА (файл
+    // читают и компонент, и зонд — при подмене значения батареей
+    // высота обязана СЛЕДОВАТЬ за токеном: литерал 21, как и 24/20,
+    // красен — совпадение текущего числа связи не доказывает)
     expect(sloi.maxHeight).toBe(6 * stroka);
   });
 });

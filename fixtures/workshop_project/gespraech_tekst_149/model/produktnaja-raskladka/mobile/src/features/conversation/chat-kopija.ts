@@ -25,7 +25,11 @@ export const katalogKopii: Readonly<Record<string, ZapisKopii>> = {
 };
 
 // Предложенные строки (PROPOSED, вне каталога): плашки тем GA-11,
-// чипы ответа и «Lieber erzählen?» GA-12, темы-строка GA-17.
+// чипы ответа и «Lieber erzählen?» GA-12, темы-строка GA-17, меню
+// вложений и чипы сравнения GA-18/GA-19. Надписи чипов GA-19 — дословно
+// метки touch_targets экрана GA-19 пиннованного манифеста пакета
+// (source/manifest.json: «Ja, vergleichen», «Erst mal nicht»); тексты
+// вопросов/подтверждений — из макетов D 2.4, ловец — копи-ревью.
 export const predlozheno = {
   srochno: 'Schaden melden',
   temy: [
@@ -42,4 +46,14 @@ export const predlozheno = {
   lieber: 'Lieber erzählen?',
   voprosTemy: 'Wann haben Sie das Auto gekauft?',
   voprosWeiter: 'Möchten Sie noch etwas ergänzen?',
+  menuVlozhenija: [
+    { id: 'foto', nadpis: 'Foto' },
+    { id: 'dokument', nadpis: 'Brief-Dokument' },
+  ],
+  chipyDokumenta: [
+    { id: 'vergleichen', nadpis: 'Ja, vergleichen' },
+    { id: 'nicht', nadpis: 'Erst mal nicht' },
+  ],
+  podtverzhdenieFoto: 'Danke, das Foto ist angekommen.',
+  voprosDokumenta: 'Möchten Sie Ihre Verträge vergleichen?',
 } as const;

@@ -134,13 +134,21 @@ MASHINA_V_PRODUKTE = os.path.join('mobile', 'src', 'features',
 KOMPOZER_V_PRODUKTE = os.path.join('mobile', 'src', 'ui',
                                    'conversation-composer',
                                    'conversation-composer.tsx')
-# мутанты исполняемого суда (блок 1 Crit149b + v+1 цикл 2 Crit149k2a):
-# «пустой хост» — файл выродился в пустой рендер; «композер не изменён»
-# — байты product main (носитель зоны, пин), правка 149 снята;
-# zona-12-* — полы зон нажатия 44 → 12 (класс РЕАЛЬНАЯ_ЗОНА_КАСАНИЯ,
-# дословная атака mut-hit); token-24/token-20 — высота строки поля
-# ЛИТЕРАЛОМ вместо токена пакета (класс РЕАЛЬНЫЙ_ТОКЕН_ПОЛЯ, атака
-# mut-token; вердикт: «литерал 24 (равно как и 20) вместо 21 красен»)
+# мутанты исполняемого суда (блок 1 Crit149b + v+1 цикла 2 Crit149k2a/
+# Crit149k2b): «пустой хост» — файл выродился в пустой рендер;
+# «композер не изменён» — байты product main (носитель зоны, пин),
+# правка 149 снята; zona-12-* — полы зон нажатия 44 → 12 (класс
+# РЕАЛЬНАЯ_ЗОНА_КАСАНИЯ, дословная атака mut-hit); token-24/token-20 —
+# высота строки поля литералом 24/20 вместо значения токена пакета
+# (класс РЕАЛЬНЫЙ_ТОКЕН_ПОЛЯ, атака mut-token; вердикт: «литерал 24
+# (равно как и 20) вместо 21 красен»); v+1 цикл 2 вызов 2 (Crit149k2b):
+# token-literal-21 — высота строки литералом 21 при сохранённом
+# импорте пакета (дословная атака критика; наблюдаем ТОЛЬКО на подмене
+# значения токена — пиннованный проход зелён, совпадение числа связью
+# не является); bez-chipov-ga19 — Brief-Dokument без обязательных чипов
+# сравнения (класс ПОЛНОТА_ЖИВЫХ_ЦЕЛЕЙ, наблюдаем в состоянии dokument:
+# CEL_OTSTUTSVUET); bez-golosa-v-polje — кнопка голоса В ПОЛЕ снята
+# (наблюдаем в schreiben-tastatur и на композере: CEL_OTSTUTSVUET).
 MUTANTY_ISPOLNIMYE = [
     ('host-pustoj', HOST_V_PRODUKTE,
      os.path.join(STABY, 'stab_host_pustoj.tsx')),
@@ -154,6 +162,12 @@ MUTANTY_ISPOLNIMYE = [
      os.path.join(STABY, 'stab_kompozer_token_24.tsx')),
     ('token-20', KOMPOZER_V_PRODUKTE,
      os.path.join(STABY, 'stab_kompozer_token_20.tsx')),
+    ('token-literal-21', KOMPOZER_V_PRODUKTE,
+     os.path.join(STABY, 'stab_kompozer_token_literal_21.tsx')),
+    ('bez-chipov-ga19', HOST_V_PRODUKTE,
+     os.path.join(STABY, 'stab_host_bez_chipov_ga19.tsx')),
+    ('bez-golosa-v-polje', KOMPOZER_V_PRODUKTE,
+     os.path.join(STABY, 'stab_kompozer_bez_golosa_v_polje.tsx')),
 ]
 
 # клеточные стабы (Н-39: стаб → клетка + файл; рассинхрон — rc 2):
@@ -2115,6 +2129,54 @@ def ispolnimyj_sud(mob_koren, src, podrobno=True):
         if not zelen:
             return ['ISPOLNIMYJ_KONTROL_KRASEN: зонд красен на исходных '
                     'компонентах R (упавших ассертов %d)' % assery], None
+
+        # v+1 цикл 2 вызов 2 (вердикт Crit149k2b, класс РЕАЛЬНЫЙ_
+        # ТОКЕН_ПОЛЯ): приёмка различает СВЯЗЬ компонента с токеном и
+        # совпадение ТЕКУЩЕГО числа. Контрольный прогон обязан быть
+        # ЗЕЛЁНЫМ дважды: на пиннованном пакете (выше) и на ПОДМЕНЁННОМ
+        # другом допустимом значении — lineHeight Npx → N+2px, потолок
+        # calc(6 * Npx) → calc(6 * (N+2)px), грамматика та же; высота
+        # поля обязана СЛЕДОВАТЬ за токеном. Подмена — ТОЛЬКО в
+        # изолированной копии суда (пакет R не трогается; предложение
+        # вердикта: «зонд подменяет значение токена в изолированной
+        # копии на другое допустимое»). Мутанты ниже исполняются ПОД
+        # подменой: литерал 21 наблюдаем именно там (пиннованный проход
+        # ему зелён — совпадение числа, не связь).
+        tok_ishodnyj = open(tok_kuda, encoding='utf-8').read()
+        paket_tok = json.loads(tok_ishodnyj)
+        telo = str(paket_tok['typography']['body']['$value']['lineHeight'])
+        m_tela = re.match(r'\A(\d+(?:\.\d+)?)px\Z', telo)
+        if m_tela is None:
+            return ['ISPOLNIMYJ_INFRA: контроль: токен lineHeight вне '
+                    'грамматики Npx: %r' % telo], None
+        staryj = float(m_tela.group(1))
+        if staryj != int(staryj):
+            return ['ISPOLNIMYJ_INFRA: контроль: дробная высота строки '
+                    '%r — подмена не определена' % telo], None
+        novyj = '%d' % (int(staryj) + 2)
+        paket_tok['typography']['body']['$value']['lineHeight'] = \
+            novyj + 'px'
+        paket_tok['component']['.p-chatcomp-input:not(.is-empty)'] \
+            ['$value']['max-height'] = 'calc(6 * %spx)' % novyj
+        with open(tok_kuda, 'w', encoding='utf-8') as fh:
+            json.dump(paket_tok, fh, ensure_ascii=False, indent=2)
+        svod, oshibka = zapustit()
+        if svod is None:
+            return ['ISPOLNIMYJ_INFRA: подмена токена: %s' % oshibka], None
+        assery, _sjuity = klassifikirovat(svod)
+        zelen = bool(svod.get('success')) and \
+            int(svod.get('numPassedTests', 0)) > 0
+        if podrobno:
+            print('ISPOLNIMYJ token-podmena %s — lineHeight %dpx→%spx' % (
+                'ZELEN' if zelen else 'KRASEN', int(staryj), novyj),
+                file=sys.stderr)
+        if not zelen:
+            return ['ISPOLNIMYJ_TOKEN_NE_POTREBLJON: высота поля не '
+                    'следует за токеном — подмена lineHeight %dpx→%spx '
+                    'красна (упавших ассертов %d); совпадение текущего '
+                    'числа связью с токеном не является'
+                    % (int(staryj), novyj, assery)], None
+
         zhivye, neubit = [], []
         for imja, otn, istochnik in MUTANTY_ISPOLNIMYE:
             put = os.path.join(kopija, os.path.relpath(otn, 'mobile'))
@@ -2148,6 +2210,10 @@ def ispolnimyj_sud(mob_koren, src, podrobno=True):
                               'мутантом' % imja, file=sys.stderr)
             with open(put, 'w', encoding='utf-8') as fh:
                 fh.write(tekst)
+        # токен изолированной копии — исходные байты (инвариант для
+        # читающих код суда; копия ниже сносится целиком)
+        with open(tok_kuda, 'w', encoding='utf-8') as fh:
+            fh.write(tok_ishodnyj)
         prichiny = []
         if zhivye:
             prichiny.append('ISPOLNIMYJ_MUTANT_ZHIV: %s' % ', '.join(zhivye))
