@@ -420,6 +420,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 153 | до V-2 | autonomy | - | docs/owner/2026-11-01-done-gate-nul.md#Порядок |
 | 3 | 154 | до V-2 | autonomy | - | docs/owner/2026-11-01-porog-arbitra.md#Остаточный риск |
 | 3 | 155 | до V-2 | autonomy | - | docs/owner/2026-11-02-152-zakryt-nenuzhen.md#Слово |
+| 3 | 156 | до V-2 | autonomy | - | docs/owner/2026-11-02-smert-agenta-s-fonom.md#Слово |
 | 4 | 095 | до V-2 | context | 094 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
 | 4 | 110 | параллельно с V-2 | done | 087 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
 | 4 | 993 | до V-2 | complior | - | docs/owner/2026-10-17-resheniya-back-992-993.md#4 |
