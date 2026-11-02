@@ -94,7 +94,7 @@ test('GA-03: ?mitte=needs — бейдж «Ihre Rückmeldung nötig» на жи�
   mockEnv.params = { section: 'vorgaenge', mitte: 'needs' };
   const view = await render(<TabRoute />);
   await waitFor(() => expect(screen.getByTestId('gespraech-mitte-badge')).toBeOnTheScreen());
-  expect(screen.getByTestId('gespraech-mitte-badge').props.children).toBe(uiCopyDe['ui.vorgaenge.group.needs_you'].text);
+  expect(screen.getByTestId('gespraech-mitte-badge').props.children).toBe(uiCopyDe['ui.mission.group.needs_user'].text);
   view.unmount();
 });
 
@@ -102,7 +102,7 @@ test('GA-03 контроль: без ?mitte=needs бейджа нет, стат�
   mockEnv.params = { section: 'vorgaenge' };
   const view = await render(<TabRoute />);
   await waitFor(() => expect(screen.getByTestId('gespraech-mitte-status')).toBeOnTheScreen());
-  expect(screen.getByTestId('gespraech-mitte-status').props.children).toBe(uiCopyDe['ui.vorgaenge.group.working'].text);
+  expect(screen.getByTestId('gespraech-mitte-status').props.children).toBe(uiCopyDe['ui.mission.group.working'].text);
   view.unmount();
 });
 

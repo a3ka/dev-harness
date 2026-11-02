@@ -25,6 +25,13 @@ const SOOBSCHENIJA: readonly { id: string; titel: string; meta: string }[] = [
   { id: 'post-soobschenie-rechtsschutz', titel: 'Rechtsschutz', meta: 'gesendet von Complior' },
 ];
 
+// v+1 (манифест 1.1): «Filter» — кнопка 64×44 при видимой 36
+// (невидимое расширение, токен touch-target.extend.button-sm);
+// «Deckungsanfrage» — ссылка 101×44 внутри сообщения Rechtsschutz.
+const SSOILKI: readonly { id: string; titel: string }[] = [
+  { id: 'post-deckungsanfrage', titel: 'Deckungsanfrage' },
+];
+
 export function PostEingang({ filtr = 'all', onFiltr, onNachricht, onSchicken }: PostEingangProps) {
   const { tokens } = useTheme();
   return (
@@ -51,6 +58,14 @@ export function PostEingang({ filtr = 'all', onFiltr, onNachricht, onSchicken }:
       </View>
       <Pressable
         accessibilityRole="button"
+        onPress={() => onFiltr?.(filtr)}
+        style={styles.filtrKnopka}
+        testID="post-filtr-nastrojki"
+      >
+        <Text style={[styles.chipText, { color: tokens.ink }]}>Filter</Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
         onPress={onSchicken}
         style={styles.dejstvie}
         testID="post-napisat-complior"
@@ -59,6 +74,17 @@ export function PostEingang({ filtr = 'all', onFiltr, onNachricht, onSchicken }:
           {uiCopyDe['ui.post.send_to_complior'].text}
         </Text>
       </Pressable>
+      {SSOILKI.map((s) => (
+        <Pressable
+          key={s.id}
+          accessibilityRole="link"
+          onPress={() => onNachricht?.(s.id)}
+          style={styles.ssylka}
+          testID={s.id}
+        >
+          <Text style={[styles.ssylkaText, { color: tokens.ink }]}>{s.titel}</Text>
+        </Pressable>
+      ))}
       {SOOBSCHENIJA.map((s) => (
         <Pressable
           key={s.id}
@@ -78,6 +104,9 @@ export function PostEingang({ filtr = 'all', onFiltr, onNachricht, onSchicken }:
 const styles = StyleSheet.create({
   spisok: { gap: 8, paddingBottom: 96 },
   zagolovok: { fontSize: 24, fontWeight: '600' },
+  filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', minHeight: 44 },
+  ssylka: { alignItems: 'flex-start', justifyContent: 'center', minHeight: 44 },
+  ssylkaText: { fontSize: 15, fontWeight: '600' },
   chipy: { flexDirection: 'row', gap: 4 },
   chip: { alignItems: 'center', justifyContent: 'center', minHeight: 44, paddingHorizontal: 12 },
   chipVybrana: { opacity: 1 },

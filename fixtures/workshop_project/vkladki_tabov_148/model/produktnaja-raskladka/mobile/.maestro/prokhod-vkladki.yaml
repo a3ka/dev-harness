@@ -1,6 +1,9 @@
 # vkladki (148): проход по видимым pressable — каждое нажатие даёт
 # наблюдаемое изменение (правило проходимости, слово владельца
 # 2026-10-27); мок-цели меню/Vorgang-карт — контракты 147/153 (zamenjaet).
+# v+1 (пакет D24-Kompakt-1.1): состав целей — touch_targets манифеста
+# 1.1 (hw/hh; зоны вида 36/38→44 — невидимые расширения токенами
+# touch-target.extend.*), геометрия — в prokhodimost пачки.
 appId: complior
 ---
 - runFlow: vkhod-dopusk
@@ -9,16 +12,22 @@ appId: complior
 - tapOn: { id: gespraech-mitte }
 - tapOn: { id: shell-tab-schutz }
 - tapOn: { id: shell-tab-post }
-- tapOn: { id: vorgaenge-stroka-1 }
-- tapOn: { id: vorgaenge-stroka-2 }
-- tapOn: { id: vorgaenge-stroka-3 }
-- tapOn: { id: vorgaenge-stroka-4 }
+- tapOn: { id: vorgaenge-stroka-rechtsschutz }
+- tapOn: { id: vorgaenge-stroka-hausrat-vertrag }
 - tapOn: { id: vorgaenge-vse-sdelannye }
-- tapOn: { id: schutz-kartochka-vertraege }
-- tapOn: { id: schutz-stroka-mobilitaet }
-- tapOn: { id: schutz-stroka-wohnen }
+- tapOn: { id: schutz-svod }
+- tapOn: { id: schutz-stat-vertraege }
+- tapOn: { id: schutz-stat-beitrag }
+- tapOn: { id: schutz-optionen }
+- tapOn: { id: schutz-oblast-mobilitaet }
+- tapOn: { id: schutz-oblast-wohnen }
+- tapOn: { id: schutz-oblast-gesundheit }
+- tapOn: { id: schutz-oblast-recht }
+- tapOn: { id: schutz-oblast-familie }
 - tapOn: { id: post-filtr-alle }
 - tapOn: { id: post-filtr-vhodjaschie }
 - tapOn: { id: post-filtr-otpravlennye }
+- tapOn: { id: post-filtr-nastrojki }
 - tapOn: { id: post-napisat-complior }
 - tapOn: { id: post-soobschenie-rechtsschutz }
+- tapOn: { id: post-deckungsanfrage }

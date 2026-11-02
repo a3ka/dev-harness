@@ -55,12 +55,13 @@ SUD_FORMY = HERE / 'model' / 'sud_formy_148.py'
 RUNNER123 = H_ROOT / 'scripts' / 'sverka_maketa.py'
 STUBS = HERE / 'stubs'
 NOS_MAKET = HERE / 'nositeli/maket'
+NOS_MAKET_FINAL2 = HERE / 'nositeli/maket-final2'
 NOS_D24 = HERE / 'nositeli/d24'
 NOS_D24_REAL = HERE / 'nositeli/d24-real'
+NOS_PAKET_SUMS = HERE / 'nositeli/paket/SHA256SUMS'
 NOS_TOKENS = HERE / 'nositeli/tokens.css'
 RASKLADKA = HERE / 'model' / 'produktnaja-raskladka'
 PRODUKT_SUD = HERE / 'produkt_sud.py'
-
 E2E_CMD = 'bash mobile/e2e-vkladki/e2e.sh vkladki'
 SVERKA_CMD = ('python3 .harness123/scripts/sverka_maketa.py'
               ' --manifest .harness123/kadry.json'
@@ -104,14 +105,40 @@ def zapis(pack: Path, forma):
 
 def postavit_makety(repo: Path, kadry_spiski):
     for man in kadry_spiski:
-        profil = '390x844' if man is kadry_spiski[0] else '393x852'
         for k in man['kadry']:
             kuda = repo / k['maket']
             if not kuda.parent.exists():
                 kuda.parent.mkdir(parents=True)
-            shutil.copyfile(NOS_MAKET / ('%s-%s.png' % (profil, Path(k['maket']).stem)),
-                            kuda)
+            shutil.copyfile(NOS_MAKET / Path(k['maket']).name, kuda)
 
+
+def perepin_final2(koren: Path, pachka: Path):
+    """Возврат пина D 2.4 Final 2 (клетки paket-final2 / pr-paket-final2):
+    оба манифеста пачки перепиниваются на пути 04_Gespraech_D24/pack/screens
+    с фактическими sha256 носителей final2, файлы раскладываются по этим
+    путям — старый пин остаётся ПРИНИМАЕМЫМ валидатором (живой прогон это
+    доказывает), красит его только гейт пакета 1.1 у судей."""
+    for imja_manifesta in ('kadry.json', 'kadry_profil.json'):
+        put = pachka / imja_manifesta
+        man = json.loads(put.read_text(encoding='utf-8'))
+        for k in man['kadry']:
+            ga = k['id'].split()[0]
+            profil = '390x844' if imja_manifesta == 'kadry.json' else '393x852'
+            khvost = '' if k['tema'] == 'dark' else '-Hell'
+            imja = '%s-%s%s.png' % (profil, ga, khvost)
+            k['maket'] = ('docs/ux/04_Gespraech_D24/pack/screens/%s/%s%s.png'
+                          % (profil, ga, khvost))
+            k['maket_sha256'] = sha256_fajla(NOS_MAKET_FINAL2 / imja)
+            kuda = koren / k['maket']
+            kuda.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(NOS_MAKET_FINAL2 / imja, kuda)
+        put.write_text(json.dumps(man, ensure_ascii=False, indent=1),
+                       encoding='utf-8')
+    # пин 123 в репо собирается из пачки ДО мутации — обновить, иначе
+    # сверка-образец судит старый манифест (SAMODELNAYA_SVERKA)
+    pin123 = koren / '.harness123' / 'kadry.json'
+    if pin123.is_file():
+        shutil.copyfile(pachka / 'kadry.json', pin123)
 
 def postavit_istochniki(repo: Path, d24):
     for pole, imja in (('manifest', 'manifest.json'), ('spec', 'spec.json'),
@@ -285,11 +312,16 @@ def mut_vtoroj_profil_otsvtstvuet(pack, repo, src):
 
 def mut_maket_podmenen(pack, repo, src):
     # подмена байтов макета GA-03 в репо (пин в пачке не меняется)
-    put = repo / 'docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-03.png'
+    put = repo / 'docs/ux/05_Kompakt_D24/frames/GA-03_normal_dark_390x844.png'
     blob = bytearray(put.read_bytes())
     blob[-8:] = b'\x00\x00\x00\x00' + blob[-8:-4]
     put.write_bytes(bytes(blob))
 
+
+def mut_paket_final2(pack, repo, src):
+    # v+1 (слово владельца 2026-11-02): пин D 2.4 Final 2 — валидатором
+    # принимается (файлы и sha честны), красит его только гейт пакета 1.1
+    perepin_final2(repo, pack)
 
 def mut_kadr_nizhe_poroga(pack, repo, src):
     # стенд-ин кладёт кадр GA-03 с залитой фоном полосой Mitte (мода
@@ -328,25 +360,25 @@ def mut_chuzhoj_kadr(pack, repo, src):
 
 def mut_stroka_bez_izmenenija(pack, repo, src):
     f = _forma(pack)
-    del f['prokhodimost']['pressable'][5]['izmenenie']
+    del f['prokhodimost']['pressable'][0]['izmenenie']  # vorgaenge-stroka-rechtsschurz
     zapis(pack, f)
 
 
 def mut_kasanie_menshe_normy(pack, repo, src):
     f = _forma(pack)
-    f['prokhodimost']['pressable'][2]['vysota'] = 36
+    f['prokhodimost']['pressable'][4]['vysota'] = 36  # gespraech-mitte
     zapis(pack, f)
 
 
 def mut_kasanie_v_safe_zone(pack, repo, src):
     f = _forma(pack)
-    f['prokhodimost']['pressable'][2]['y'] = 40
+    f['prokhodimost']['pressable'][4]['y'] = 40  # gespraech-mitte
     zapis(pack, f)
 
 
 def mut_demo_v_sostave(pack, repo, src):
     f = _forma(pack)
-    f['prokhodimost']['pressable'][0]['demo'] = True
+    f['prokhodimost']['pressable'][2]['demo'] = True  # shell-tab-start
     zapis(pack, f)
 
 
@@ -509,6 +541,7 @@ MUTACII_FORMY = {
     'odna-tema': mut_odna_tema,
     'profil-maska-36': mut_profil_maska_36,
     'profil-maska-ne-48': mut_profil_maska_ne_48,
+    'paket-final2': mut_paket_final2,
     'marshrut-bez-obolochki': mut_marshrut_bez_obolochki,
     'marshrut-bez-snimka': mut_marshrut_bez_snimka,
     'prokhod-ne-maestro': mut_prokhod_ne_maestro,
@@ -583,7 +616,7 @@ def mut_pr_makety_piny(repo, src):
 def mut_pr_kopii_net(repo, src):
     put = repo / 'mobile/src/i18n/ui-copy.ts'
     tekst = put.read_text(encoding='utf-8')
-    for k in ('ui.vorgaenge.group.working', 'ui.vorgaenge.group.needs_you'):
+    for k in ('ui.mission.group.working', 'ui.mission.group.needs_user'):
         tekst = tekst.replace("  '%s': " % k, "  'udaljono.%s': " % k)
     put.write_text(tekst, encoding='utf-8')
 
@@ -624,7 +657,13 @@ def _fejk_jest_sreda(repo, src, skript):
 def mut_pr_maket_put_net(repo, src):
     # блок 2 Crit148: PNG удалён по каноническому пути, пин в кадре тот
     # же — подмена носителем батареи запрещена, суд краснит по ПУТИ
-    (repo / 'docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-02.png').unlink()
+    (repo / 'docs/ux/05_Kompakt_D24/frames/GA-02_normal_dark_390x844.png').unlink()
+
+
+def mut_pr_paket_final2(repo, src):
+    # v+1: пин Final 2 в пачке живого R — гейт пакета 1.1 (файлы честны,
+    # валидатор и пин-проверка продукта проходят, красит только гейт)
+    perepin_final2(repo, repo / 'mobile/e2e-vkladki')
 
 
 def mut_pr_emuljatory_odnovremenno(repo, src):
@@ -712,6 +751,7 @@ MUTACII_PRODUKTA = {
     'pr-makety-piny': mut_pr_makety_piny,
     'pr-maket-put-net': mut_pr_maket_put_net,
     'pr-kopii-net': mut_pr_kopii_net,
+    'pr-paket-final2': mut_pr_paket_final2,
     'pr-scenarij-net': mut_pr_scenarij_net,
     'pr-kontent-net': mut_pr_kontent_net,
     'pr-emuljatory-odnovremenno': mut_pr_emuljatory_odnovremenno,

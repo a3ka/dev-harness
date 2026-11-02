@@ -18,22 +18,27 @@
    "ia115.nav.POST",
    "proposed.gespraech.tab",
    "proposed.gespraech.tab.a11y",
-   "ui.vorgaenge.group.working",
-   "ui.vorgaenge.group.needs_you",
-   "ui.vorgaenge.group.waiting",
+   "proposed.gespraech.tab.a11y.status",
+   "ui.mission.group.working",
+   "ui.mission.group.needs_user",
+   "ui.mission.group.waiting",
    "ui.vorgaenge.subtitle",
    "ui.mission.all_done",
    "ui.post.filter.all",
    "ui.post.filter.received",
    "ui.post.filter.sent",
    "ui.post.send_to_complior",
-   "frame.F19.01.title",
-   "global.back"
+   "proposed.protection.status.gap",
+   "fixture.schutz.02",
+   "proposed.schutz.gap.action",
+   "proposed.schutz.stat.contracts",
+   "proposed.schutz.stat.premium",
+   "proposed.schutz.section.areas"
   ],
   "operacii_api": [],
   "katalog_kopii": "mobile/e2e-vkladki/katalog_kopii.json",
   "spec_api": "mobile/e2e-vkladki/spec_api.json",
-  "audit_tokenov": "docs/ux/03_Mobility_Slice1/ds/tokens.css",
+  "audit_tokenov": "docs/ux/05_Kompakt_D24/source/ds/tokens.css",
   "e2e_scenarij": "mobile/.maestro/vkladki.yaml",
   "kadry_dir": "mobile/maestro-out-vkladki",
   "kontrakt": "kontrakt.md",
@@ -75,13 +80,33 @@
   "prokhodimost": {
    "pressable": [
     {
+     "id": "vorgaenge-stroka-rechtsschutz",
+     "sostojanie": "deistvie",
+     "izmenenie": "vorgang-rechtsschutz-mok",
+     "shirina": 361,
+     "vysota": 60,
+     "x": 16,
+     "y": 731,
+     "demo": false
+    },
+    {
+     "id": "vorgaenge-stroka-hausrat-vertrag",
+     "sostojanie": "deistvie",
+     "izmenenie": "vorgang-hausrat-vertrag-mok",
+     "shirina": 361,
+     "vysota": 60,
+     "x": 16,
+     "y": 758,
+     "demo": false
+    },
+    {
      "id": "shell-tab-start",
      "sostojanie": "deistvie",
      "izmenenie": "razdel-start",
      "shirina": 79,
-     "vysota": 46,
+     "vysota": 48,
      "x": 0,
-     "y": 772,
+     "y": 770,
      "demo": false
     },
     {
@@ -89,9 +114,9 @@
      "sostojanie": "deistvie",
      "izmenenie": "razdel-vorgaenge",
      "shirina": 79,
-     "vysota": 46,
+     "vysota": 48,
      "x": 79,
-     "y": 772,
+     "y": 770,
      "demo": false
     },
     {
@@ -99,9 +124,9 @@
      "sostojanie": "deistvie",
      "izmenenie": "status-mitte-perekljuchaetsja-mok-menu-147",
      "shirina": 79,
-     "vysota": 46,
+     "vysota": 48,
      "x": 157,
-     "y": 772,
+     "y": 770,
      "demo": false
     },
     {
@@ -109,9 +134,9 @@
      "sostojanie": "deistvie",
      "izmenenie": "razdel-schutz",
      "shirina": 79,
-     "vysota": 46,
+     "vysota": 48,
      "x": 236,
-     "y": 772,
+     "y": 770,
      "demo": false
     },
     {
@@ -119,49 +144,9 @@
      "sostojanie": "deistvie",
      "izmenenie": "razdel-post",
      "shirina": 79,
-     "vysota": 46,
+     "vysota": 48,
      "x": 314,
-     "y": 772,
-     "demo": false
-    },
-    {
-     "id": "vorgaenge-stroka-1",
-     "sostojanie": "deistvie",
-     "izmenenie": "vorgang-hausrat-vergleich-mok",
-     "shirina": 361,
-     "vysota": 44,
-     "x": 16,
-     "y": 293,
-     "demo": false
-    },
-    {
-     "id": "vorgaenge-stroka-2",
-     "sostojanie": "deistvie",
-     "izmenenie": "vorgang-kfz-wechsel-mok",
-     "shirina": 361,
-     "vysota": 44,
-     "x": 16,
-     "y": 547,
-     "demo": false
-    },
-    {
-     "id": "vorgaenge-stroka-3",
-     "sostojanie": "deistvie",
-     "izmenenie": "vorgang-rechtsschutz-beratung-mok",
-     "shirina": 361,
-     "vysota": 44,
-     "x": 16,
-     "y": 313,
-     "demo": false
-    },
-    {
-     "id": "vorgaenge-stroka-4",
-     "sostojanie": "deistvie",
-     "izmenenie": "vorgang-hausrat-vertrag-mok",
-     "shirina": 361,
-     "vysota": 44,
-     "x": 16,
-     "y": 445,
+     "y": 770,
      "demo": false
     },
     {
@@ -171,77 +156,147 @@
      "shirina": 361,
      "vysota": 44,
      "x": 16,
-     "y": 565,
+     "y": 774,
      "demo": false
     },
     {
-     "id": "schutz-kartochka-vertraege",
+     "id": "schutz-svod",
      "sostojanie": "deistvie",
-     "izmenenie": "schutz-vertraege-mok",
+     "izmenenie": "schutz-svod-mok",
      "shirina": 361,
-     "vysota": 56,
+     "vysota": 54,
      "x": 16,
-     "y": 199,
+     "y": 179,
      "demo": false
     },
     {
-     "id": "schutz-stroka-mobilitaet",
+     "id": "schutz-stat-vertraege",
+     "sostojanie": "deistvie",
+     "izmenenie": "schutz-stat-vertraege-mok",
+     "shirina": 175,
+     "vysota": 112,
+     "x": 16,
+     "y": 245,
+     "demo": false
+    },
+    {
+     "id": "schutz-stat-beitrag",
+     "sostojanie": "deistvie",
+     "izmenenie": "schutz-stat-beitrag-mok",
+     "shirina": 175,
+     "vysota": 112,
+     "x": 202,
+     "y": 245,
+     "demo": false
+    },
+    {
+     "id": "schutz-optionen",
+     "sostojanie": "deistvie",
+     "izmenenie": "notice-optionen-mok",
+     "shirina": 146,
+     "vysota": 44,
+     "x": 227,
+     "y": 373,
+     "demo": false
+    },
+    {
+     "id": "schutz-oblast-mobilitaet",
      "sostojanie": "deistvie",
      "izmenenie": "schutz-bereich-mobilitaet-mok",
      "shirina": 361,
-     "vysota": 58,
+     "vysota": 53,
      "x": 16,
-     "y": 621,
+     "y": 523,
      "demo": false
     },
     {
-     "id": "schutz-stroka-wohnen",
+     "id": "schutz-oblast-wohnen",
      "sostojanie": "deistvie",
      "izmenenie": "schutz-bereich-wohnen-mok",
      "shirina": 361,
-     "vysota": 58,
+     "vysota": 54,
      "x": 16,
-     "y": 679,
+     "y": 576,
+     "demo": false
+    },
+    {
+     "id": "schutz-oblast-gesundheit",
+     "sostojanie": "deistvie",
+     "izmenenie": "schutz-bereich-gesundheit-mok",
+     "shirina": 361,
+     "vysota": 54,
+     "x": 16,
+     "y": 629,
+     "demo": false
+    },
+    {
+     "id": "schutz-oblast-recht",
+     "sostojanie": "deistvie",
+     "izmenenie": "schutz-bereich-recht-mok",
+     "shirina": 361,
+     "vysota": 54,
+     "x": 16,
+     "y": 683,
+     "demo": false
+    },
+    {
+     "id": "schutz-oblast-familie",
+     "sostojanie": "deistvie",
+     "izmenenie": "schutz-bereich-familie-mok",
+     "shirina": 361,
+     "vysota": 54,
+     "x": 16,
+     "y": 737,
      "demo": false
     },
     {
      "id": "post-filtr-alle",
      "sostojanie": "deistvie",
      "izmenenie": "filtr-alle",
-     "shirina": 93,
+     "shirina": 94,
      "vysota": 44,
      "x": 19,
-     "y": 199,
+     "y": 182,
      "demo": false
     },
     {
      "id": "post-filtr-vhodjaschie",
      "sostojanie": "deistvie",
      "izmenenie": "filtr-eingegangen",
-     "shirina": 93,
+     "shirina": 94,
      "vysota": 44,
-     "x": 112,
-     "y": 199,
+     "x": 113,
+     "y": 182,
      "demo": false
     },
     {
      "id": "post-filtr-otpravlennye",
      "sostojanie": "deistvie",
      "izmenenie": "filtr-gesendet",
-     "shirina": 93,
+     "shirina": 94,
      "vysota": 44,
-     "x": 205,
-     "y": 199,
+     "x": 208,
+     "y": 182,
+     "demo": false
+    },
+    {
+     "id": "post-filtr-nastrojki",
+     "sostojanie": "deistvie",
+     "izmenenie": "filtr-list-mok",
+     "shirina": 64,
+     "vysota": 44,
+     "x": 313,
+     "y": 183,
      "demo": false
     },
     {
      "id": "post-napisat-complior",
      "sostojanie": "deistvie",
      "izmenenie": "composer-mok",
-     "shirina": 319,
+     "shirina": 328,
      "vysota": 44,
-     "x": 37,
-     "y": 358,
+     "x": 33,
+     "y": 326,
      "demo": false
     },
     {
@@ -249,9 +304,19 @@
      "sostojanie": "deistvie",
      "izmenenie": "soobschenie-rechtsschutz-mok",
      "shirina": 361,
-     "vysota": 180,
+     "vysota": 152,
      "x": 16,
-     "y": 637,
+     "y": 560,
+     "demo": false
+    },
+    {
+     "id": "post-deckungsanfrage",
+     "sostojanie": "deistvie",
+     "izmenenie": "deckungsanfrage-mok",
+     "shirina": 101,
+     "vysota": 44,
+     "x": 156,
+     "y": 712,
      "demo": false
     }
    ],
@@ -278,47 +343,47 @@
      "x": 0,
      "y": 59,
      "shirina": 393,
-     "vysota": 48
+     "vysota": 52
     },
     {
      "id": "zagolovok-vkladki",
      "tip": "zagolovok",
      "x": 16,
-     "y": 140,
+     "y": 111,
      "shirina": 361,
-     "vysota": 40
+     "vysota": 36
     },
     {
      "id": "kontent-vkladki",
      "tip": "prochee",
      "x": 16,
-     "y": 180,
+     "y": 147,
      "shirina": 361,
-     "vysota": 560
+     "vysota": 622
     },
     {
      "id": "tab-leiste-levo",
      "tip": "kontrol",
      "x": 0,
-     "y": 766,
+     "y": 769,
      "shirina": 157,
-     "vysota": 52
+     "vysota": 49
     },
     {
      "id": "tab-leiste-pravo",
      "tip": "kontrol",
      "x": 236,
-     "y": 766,
+     "y": 769,
      "shirina": 157,
-     "vysota": 52
+     "vysota": 49
     },
     {
      "id": "znak-mitte",
      "tip": "ikonka",
-     "x": 182,
-     "y": 776,
-     "shirina": 28,
-     "vysota": 28,
+     "x": 177,
+     "y": 779,
+     "shirina": 40,
+     "vysota": 24,
      "glif": "faden-tab"
     }
    ]
@@ -360,22 +425,27 @@
    "ia115.nav.POST",
    "proposed.gespraech.tab",
    "proposed.gespraech.tab.a11y",
-   "ui.vorgaenge.group.working",
-   "ui.vorgaenge.group.needs_you",
-   "ui.vorgaenge.group.waiting",
+   "proposed.gespraech.tab.a11y.status",
+   "ui.mission.group.working",
+   "ui.mission.group.needs_user",
+   "ui.mission.group.waiting",
    "ui.vorgaenge.subtitle",
    "ui.mission.all_done",
    "ui.post.filter.all",
    "ui.post.filter.received",
    "ui.post.filter.sent",
    "ui.post.send_to_complior",
-   "frame.F19.01.title",
-   "global.back"
+   "proposed.protection.status.gap",
+   "fixture.schutz.02",
+   "proposed.schutz.gap.action",
+   "proposed.schutz.stat.contracts",
+   "proposed.schutz.stat.premium",
+   "proposed.schutz.section.areas"
   ],
   "operacii_api": [],
   "katalog_kopii": "mobile/e2e-vkladki/katalog_kopii.json",
   "spec_api": "mobile/e2e-vkladki/spec_api.json",
-  "audit_tokenov": "docs/ux/03_Mobility_Slice1/ds/tokens.css",
+  "audit_tokenov": "docs/ux/05_Kompakt_D24/source/ds/tokens.css",
   "e2e_scenarij": "mobile/.maestro/vkladki.yaml",
   "kadry_dir": "mobile/maestro-out-vkladki",
   "kontrakt": "kontrakt.md",
@@ -419,13 +489,33 @@
   "prokhodimost": {
    "pressable": [
     {
+     "id": "vorgaenge-stroka-rechtsschutz",
+     "sostojanie": "deistvie",
+     "izmenenie": "vorgang-rechtsschutz-mok",
+     "shirina": 361,
+     "vysota": 60,
+     "x": 16,
+     "y": 731,
+     "demo": false
+    },
+    {
+     "id": "vorgaenge-stroka-hausrat-vertrag",
+     "sostojanie": "deistvie",
+     "izmenenie": "vorgang-hausrat-vertrag-mok",
+     "shirina": 361,
+     "vysota": 60,
+     "x": 16,
+     "y": 758,
+     "demo": false
+    },
+    {
      "id": "shell-tab-start",
      "sostojanie": "deistvie",
      "izmenenie": "razdel-start",
      "shirina": 79,
-     "vysota": 46,
+     "vysota": 48,
      "x": 0,
-     "y": 772,
+     "y": 770,
      "demo": false
     },
     {
@@ -433,9 +523,9 @@
      "sostojanie": "deistvie",
      "izmenenie": "razdel-vorgaenge",
      "shirina": 79,
-     "vysota": 46,
+     "vysota": 48,
      "x": 79,
-     "y": 772,
+     "y": 770,
      "demo": false
     },
     {
@@ -443,9 +533,9 @@
      "sostojanie": "deistvie",
      "izmenenie": "status-mitte-perekljuchaetsja-mok-menu-147",
      "shirina": 79,
-     "vysota": 46,
+     "vysota": 48,
      "x": 157,
-     "y": 772,
+     "y": 770,
      "demo": false
     },
     {
@@ -453,9 +543,9 @@
      "sostojanie": "deistvie",
      "izmenenie": "razdel-schutz",
      "shirina": 79,
-     "vysota": 46,
+     "vysota": 48,
      "x": 236,
-     "y": 772,
+     "y": 770,
      "demo": false
     },
     {
@@ -463,49 +553,9 @@
      "sostojanie": "deistvie",
      "izmenenie": "razdel-post",
      "shirina": 79,
-     "vysota": 46,
+     "vysota": 48,
      "x": 314,
-     "y": 772,
-     "demo": false
-    },
-    {
-     "id": "vorgaenge-stroka-1",
-     "sostojanie": "deistvie",
-     "izmenenie": "vorgang-hausrat-vergleich-mok",
-     "shirina": 361,
-     "vysota": 44,
-     "x": 16,
-     "y": 293,
-     "demo": false
-    },
-    {
-     "id": "vorgaenge-stroka-2",
-     "sostojanie": "deistvie",
-     "izmenenie": "vorgang-kfz-wechsel-mok",
-     "shirina": 361,
-     "vysota": 44,
-     "x": 16,
-     "y": 547,
-     "demo": false
-    },
-    {
-     "id": "vorgaenge-stroka-3",
-     "sostojanie": "deistvie",
-     "izmenenie": "vorgang-rechtsschutz-beratung-mok",
-     "shirina": 361,
-     "vysota": 44,
-     "x": 16,
-     "y": 313,
-     "demo": false
-    },
-    {
-     "id": "vorgaenge-stroka-4",
-     "sostojanie": "deistvie",
-     "izmenenie": "vorgang-hausrat-vertrag-mok",
-     "shirina": 361,
-     "vysota": 44,
-     "x": 16,
-     "y": 445,
+     "y": 770,
      "demo": false
     },
     {
@@ -515,77 +565,147 @@
      "shirina": 361,
      "vysota": 44,
      "x": 16,
-     "y": 565,
+     "y": 774,
      "demo": false
     },
     {
-     "id": "schutz-kartochka-vertraege",
+     "id": "schutz-svod",
      "sostojanie": "deistvie",
-     "izmenenie": "schutz-vertraege-mok",
+     "izmenenie": "schutz-svod-mok",
      "shirina": 361,
-     "vysota": 56,
+     "vysota": 54,
      "x": 16,
-     "y": 199,
+     "y": 179,
      "demo": false
     },
     {
-     "id": "schutz-stroka-mobilitaet",
+     "id": "schutz-stat-vertraege",
+     "sostojanie": "deistvie",
+     "izmenenie": "schutz-stat-vertraege-mok",
+     "shirina": 175,
+     "vysota": 112,
+     "x": 16,
+     "y": 245,
+     "demo": false
+    },
+    {
+     "id": "schutz-stat-beitrag",
+     "sostojanie": "deistvie",
+     "izmenenie": "schutz-stat-beitrag-mok",
+     "shirina": 175,
+     "vysota": 112,
+     "x": 202,
+     "y": 245,
+     "demo": false
+    },
+    {
+     "id": "schutz-optionen",
+     "sostojanie": "deistvie",
+     "izmenenie": "notice-optionen-mok",
+     "shirina": 146,
+     "vysota": 44,
+     "x": 227,
+     "y": 373,
+     "demo": false
+    },
+    {
+     "id": "schutz-oblast-mobilitaet",
      "sostojanie": "deistvie",
      "izmenenie": "schutz-bereich-mobilitaet-mok",
      "shirina": 361,
-     "vysota": 58,
+     "vysota": 53,
      "x": 16,
-     "y": 621,
+     "y": 523,
      "demo": false
     },
     {
-     "id": "schutz-stroka-wohnen",
+     "id": "schutz-oblast-wohnen",
      "sostojanie": "deistvie",
      "izmenenie": "schutz-bereich-wohnen-mok",
      "shirina": 361,
-     "vysota": 58,
+     "vysota": 54,
      "x": 16,
-     "y": 679,
+     "y": 576,
+     "demo": false
+    },
+    {
+     "id": "schutz-oblast-gesundheit",
+     "sostojanie": "deistvie",
+     "izmenenie": "schutz-bereich-gesundheit-mok",
+     "shirina": 361,
+     "vysota": 54,
+     "x": 16,
+     "y": 629,
+     "demo": false
+    },
+    {
+     "id": "schutz-oblast-recht",
+     "sostojanie": "deistvie",
+     "izmenenie": "schutz-bereich-recht-mok",
+     "shirina": 361,
+     "vysota": 54,
+     "x": 16,
+     "y": 683,
+     "demo": false
+    },
+    {
+     "id": "schutz-oblast-familie",
+     "sostojanie": "deistvie",
+     "izmenenie": "schutz-bereich-familie-mok",
+     "shirina": 361,
+     "vysota": 54,
+     "x": 16,
+     "y": 737,
      "demo": false
     },
     {
      "id": "post-filtr-alle",
      "sostojanie": "deistvie",
      "izmenenie": "filtr-alle",
-     "shirina": 93,
+     "shirina": 94,
      "vysota": 44,
      "x": 19,
-     "y": 199,
+     "y": 182,
      "demo": false
     },
     {
      "id": "post-filtr-vhodjaschie",
      "sostojanie": "deistvie",
      "izmenenie": "filtr-eingegangen",
-     "shirina": 93,
+     "shirina": 94,
      "vysota": 44,
-     "x": 112,
-     "y": 199,
+     "x": 113,
+     "y": 182,
      "demo": false
     },
     {
      "id": "post-filtr-otpravlennye",
      "sostojanie": "deistvie",
      "izmenenie": "filtr-gesendet",
-     "shirina": 93,
+     "shirina": 94,
      "vysota": 44,
-     "x": 205,
-     "y": 199,
+     "x": 208,
+     "y": 182,
+     "demo": false
+    },
+    {
+     "id": "post-filtr-nastrojki",
+     "sostojanie": "deistvie",
+     "izmenenie": "filtr-list-mok",
+     "shirina": 64,
+     "vysota": 44,
+     "x": 313,
+     "y": 183,
      "demo": false
     },
     {
      "id": "post-napisat-complior",
      "sostojanie": "deistvie",
      "izmenenie": "composer-mok",
-     "shirina": 319,
+     "shirina": 328,
      "vysota": 44,
-     "x": 37,
-     "y": 358,
+     "x": 33,
+     "y": 326,
      "demo": false
     },
     {
@@ -593,9 +713,19 @@
      "sostojanie": "deistvie",
      "izmenenie": "soobschenie-rechtsschutz-mok",
      "shirina": 361,
-     "vysota": 180,
+     "vysota": 152,
      "x": 16,
-     "y": 637,
+     "y": 560,
+     "demo": false
+    },
+    {
+     "id": "post-deckungsanfrage",
+     "sostojanie": "deistvie",
+     "izmenenie": "deckungsanfrage-mok",
+     "shirina": 101,
+     "vysota": 44,
+     "x": 156,
+     "y": 712,
      "demo": false
     }
    ],
@@ -622,47 +752,47 @@
      "x": 0,
      "y": 59,
      "shirina": 393,
-     "vysota": 48
+     "vysota": 52
     },
     {
      "id": "zagolovok-vkladki",
      "tip": "zagolovok",
      "x": 16,
-     "y": 140,
+     "y": 111,
      "shirina": 361,
-     "vysota": 40
+     "vysota": 36
     },
     {
      "id": "kontent-vkladki",
      "tip": "prochee",
      "x": 16,
-     "y": 180,
+     "y": 147,
      "shirina": 361,
-     "vysota": 560
+     "vysota": 622
     },
     {
      "id": "tab-leiste-levo",
      "tip": "kontrol",
      "x": 0,
-     "y": 766,
+     "y": 769,
      "shirina": 157,
-     "vysota": 52
+     "vysota": 49
     },
     {
      "id": "tab-leiste-pravo",
      "tip": "kontrol",
      "x": 236,
-     "y": 766,
+     "y": 769,
      "shirina": 157,
-     "vysota": 52
+     "vysota": 49
     },
     {
      "id": "znak-mitte",
      "tip": "ikonka",
-     "x": 182,
-     "y": 776,
-     "shirina": 28,
-     "vysota": 28,
+     "x": 177,
+     "y": 779,
+     "shirina": 40,
+     "vysota": 24,
      "glif": "faden-tab"
     }
    ]
@@ -687,7 +817,7 @@
   }
  },
  "kadry_manifest": {
-  "_comment": "148 vkladki-tabov: 16 кадров D 2.4 (GA-02/03/04/09) — грамматика 123",
+  "_comment": "кадры 390 — пакет D24-Kompakt-1.1 (docs/ux/05_Kompakt_D24/frames, sha == SHA256SUMS)",
   "mera": {
    "chernila_T": 40,
    "kletka_pt": 6,
@@ -704,8 +834,8 @@
     "id": "GA-02 dark",
     "tema": "dark",
     "snimok": "vkladki-vorgaenge",
-    "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-02.png",
-    "maket_sha256": "1e5c2b8affcb9b7741d79de8b364e5c84a5ec1bf517ca11451b30c7bdc13b203",
+    "maket": "docs/ux/05_Kompakt_D24/frames/GA-02_normal_dark_390x844.png",
+    "maket_sha256": "f9e8648c8dedb8446c0eee32b2a5105e6a6155c8f870a8c3102f206eb3ed2782",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -715,23 +845,23 @@
        0,
        0,
        390,
-       140
+       135
       ]
      },
      {
       "imja": "kontent",
       "bbox_pt": [
        0,
-       140,
+       135,
        390,
-       762
+       759
       ]
      },
      {
       "imja": "tab-leiste",
       "bbox_pt": [
        0,
-       762,
+       759,
        390,
        844
       ]
@@ -740,7 +870,7 @@
       "imja": "mitte",
       "bbox_pt": [
        156,
-       762,
+       759,
        234,
        844
       ]
@@ -751,8 +881,8 @@
     "id": "GA-02 light",
     "tema": "light",
     "snimok": "vkladki-vorgaenge",
-    "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-02-Hell.png",
-    "maket_sha256": "a89e7f55790c44ab1b4a6591d9e952150a733b73834dcdb3191bffb89ef349c9",
+    "maket": "docs/ux/05_Kompakt_D24/frames/GA-02_normal_light_390x844.png",
+    "maket_sha256": "2d508bb14ec703530bb215c24a5b203e9ee60c3bbceb1854b4f0b0e0090559a5",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -762,23 +892,23 @@
        0,
        0,
        390,
-       140
+       135
       ]
      },
      {
       "imja": "kontent",
       "bbox_pt": [
        0,
-       140,
+       135,
        390,
-       762
+       759
       ]
      },
      {
       "imja": "tab-leiste",
       "bbox_pt": [
        0,
-       762,
+       759,
        390,
        844
       ]
@@ -787,7 +917,7 @@
       "imja": "mitte",
       "bbox_pt": [
        156,
-       762,
+       759,
        234,
        844
       ]
@@ -798,17 +928,10 @@
     "id": "GA-03 dark",
     "tema": "dark",
     "snimok": "vkladki-schutz",
-    "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-03.png",
-    "maket_sha256": "10cbd7b640b464ea66ef8813345baae1b9006b4daa7c9e732e5b06f699b998dd",
+    "maket": "docs/ux/05_Kompakt_D24/frames/GA-03_normal_dark_390x844.png",
+    "maket_sha256": "66b4c02273dcf04d359fd0a7feefe3362182ba68ac732858039b11d377597556",
     "porog": 0.6,
-    "maski_pt": [
-     [
-      0,
-      403,
-      390,
-      488
-     ]
-    ],
+    "maski_pt": [],
     "elementy": [
      {
       "imja": "shapka",
@@ -816,23 +939,23 @@
        0,
        0,
        390,
-       140
+       135
       ]
      },
      {
       "imja": "kontent",
       "bbox_pt": [
        0,
-       140,
+       135,
        390,
-       762
+       759
       ]
      },
      {
       "imja": "tab-leiste",
       "bbox_pt": [
        0,
-       762,
+       759,
        390,
        844
       ]
@@ -841,7 +964,7 @@
       "imja": "mitte",
       "bbox_pt": [
        156,
-       762,
+       759,
        234,
        844
       ]
@@ -852,17 +975,10 @@
     "id": "GA-03 light",
     "tema": "light",
     "snimok": "vkladki-schutz",
-    "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-03-Hell.png",
-    "maket_sha256": "686dbc85002c07548c5b923dc4e5875a045afcb164a78b67b8f9da7c4e287650",
+    "maket": "docs/ux/05_Kompakt_D24/frames/GA-03_normal_light_390x844.png",
+    "maket_sha256": "4d0a4c0d981e9936920955a4beb2da8be52e414c4026519a86c706946947aa17",
     "porog": 0.6,
-    "maski_pt": [
-     [
-      0,
-      403,
-      390,
-      488
-     ]
-    ],
+    "maski_pt": [],
     "elementy": [
      {
       "imja": "shapka",
@@ -870,23 +986,23 @@
        0,
        0,
        390,
-       140
+       135
       ]
      },
      {
       "imja": "kontent",
       "bbox_pt": [
        0,
-       140,
+       135,
        390,
-       762
+       759
       ]
      },
      {
       "imja": "tab-leiste",
       "bbox_pt": [
        0,
-       762,
+       759,
        390,
        844
       ]
@@ -895,7 +1011,7 @@
       "imja": "mitte",
       "bbox_pt": [
        156,
-       762,
+       759,
        234,
        844
       ]
@@ -906,8 +1022,8 @@
     "id": "GA-04 dark",
     "tema": "dark",
     "snimok": "vkladki-post",
-    "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-04.png",
-    "maket_sha256": "bd286b8152c1e5a69c082707800ba9bf8cbb9f3d90ef04fe849fad49db496816",
+    "maket": "docs/ux/05_Kompakt_D24/frames/GA-04_normal_dark_390x844.png",
+    "maket_sha256": "087a17167b58fce478d384e2c62fc36cda92f61edf93a476dff3298298f8de0b",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -917,23 +1033,23 @@
        0,
        0,
        390,
-       140
+       135
       ]
      },
      {
       "imja": "kontent",
       "bbox_pt": [
        0,
-       140,
+       135,
        390,
-       762
+       759
       ]
      },
      {
       "imja": "tab-leiste",
       "bbox_pt": [
        0,
-       762,
+       759,
        390,
        844
       ]
@@ -942,7 +1058,7 @@
       "imja": "mitte",
       "bbox_pt": [
        156,
-       762,
+       759,
        234,
        844
       ]
@@ -953,8 +1069,8 @@
     "id": "GA-04 light",
     "tema": "light",
     "snimok": "vkladki-post",
-    "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-04-Hell.png",
-    "maket_sha256": "e0b12bd71e4d285a3dd0fec749e8e67eaf92b4afeeb43613181a4308cf0fcc60",
+    "maket": "docs/ux/05_Kompakt_D24/frames/GA-04_normal_light_390x844.png",
+    "maket_sha256": "ac9dd85c4326b912979c02baabdae09de63dd62ed6efd1dc5bfabd0b56736bcb",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -964,23 +1080,23 @@
        0,
        0,
        390,
-       140
+       135
       ]
      },
      {
       "imja": "kontent",
       "bbox_pt": [
        0,
-       140,
+       135,
        390,
-       762
+       759
       ]
      },
      {
       "imja": "tab-leiste",
       "bbox_pt": [
        0,
-       762,
+       759,
        390,
        844
       ]
@@ -989,7 +1105,7 @@
       "imja": "mitte",
       "bbox_pt": [
        156,
-       762,
+       759,
        234,
        844
       ]
@@ -1000,8 +1116,8 @@
     "id": "GA-09 dark",
     "tema": "dark",
     "snimok": "vkladki-vorgaenge-skroll",
-    "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-09.png",
-    "maket_sha256": "d00890866538178c6b3b7da076850ce01b0c302d66af5ce75c339344645f37b8",
+    "maket": "docs/ux/05_Kompakt_D24/frames/GA-09_normal_dark_390x844.png",
+    "maket_sha256": "86f884df687fa4d6fdc88f815e6101ad2c7aa69af2e2a95801de9dcef79f0f4c",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1011,23 +1127,23 @@
        0,
        0,
        390,
-       140
+       135
       ]
      },
      {
       "imja": "kontent",
       "bbox_pt": [
        0,
-       140,
+       135,
        390,
-       762
+       759
       ]
      },
      {
       "imja": "tab-leiste",
       "bbox_pt": [
        0,
-       762,
+       759,
        390,
        844
       ]
@@ -1036,7 +1152,7 @@
       "imja": "mitte",
       "bbox_pt": [
        156,
-       762,
+       759,
        234,
        844
       ]
@@ -1047,8 +1163,8 @@
     "id": "GA-09 light",
     "tema": "light",
     "snimok": "vkladki-vorgaenge-skroll",
-    "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-09-Hell.png",
-    "maket_sha256": "331a77ac477a78e056b9172aa5aada27504d287cc1e6b1c6648e51bcd8ceb853",
+    "maket": "docs/ux/05_Kompakt_D24/frames/GA-09_normal_light_390x844.png",
+    "maket_sha256": "d29692de3533bfba75fe5a9d8e0a78017b343c0a8d2ea83c9f861074acc8e47e",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1058,23 +1174,23 @@
        0,
        0,
        390,
-       140
+       135
       ]
      },
      {
       "imja": "kontent",
       "bbox_pt": [
        0,
-       140,
+       135,
        390,
-       762
+       759
       ]
      },
      {
       "imja": "tab-leiste",
       "bbox_pt": [
        0,
-       762,
+       759,
        390,
        844
       ]
@@ -1083,7 +1199,7 @@
       "imja": "mitte",
       "bbox_pt": [
        156,
-       762,
+       759,
        234,
        844
       ]
@@ -1093,7 +1209,7 @@
   ]
  },
  "profil_kadry": {
-  "_comment": "148 vkladki-tabov: 16 кадров D 2.4 (GA-02/03/04/09) — грамматика 123",
+  "_comment": "кадры 393 — пакет D24-Kompakt-1.1; маска шапки 48 (пилюля y11-47 в светлых кадрах, замер)",
   "mera": {
    "chernila_T": 40,
    "kletka_pt": 6,
@@ -1110,8 +1226,8 @@
     "id": "GA-02 dark 393",
     "tema": "dark",
     "snimok": "vkladki-vorgaenge-393",
-    "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-02.png",
-    "maket_sha256": "d1b0612048ae10fd68ad5be07b65f8ca4cb716e19b4983f9a83457713b3b0af5",
+    "maket": "docs/ux/05_Kompakt_D24/frames/GA-02_normal_dark_393x852.png",
+    "maket_sha256": "3943a93fc91b3e0adf6382ae6655cd525cc067369b698f24e51fb7bb161a53b8",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1121,23 +1237,23 @@
        0,
        0,
        393,
-       140
+       136
       ]
      },
      {
       "imja": "kontent",
       "bbox_pt": [
        0,
-       140,
+       136,
        393,
-       770
+       766
       ]
      },
      {
       "imja": "tab-leiste",
       "bbox_pt": [
        0,
-       770,
+       766,
        393,
        852
       ]
@@ -1145,9 +1261,9 @@
      {
       "imja": "mitte",
       "bbox_pt": [
-       156,
-       770,
-       234,
+       157,
+       766,
+       236,
        852
       ]
      }
@@ -1157,8 +1273,8 @@
     "id": "GA-02 light 393",
     "tema": "light",
     "snimok": "vkladki-vorgaenge-393",
-    "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-02-Hell.png",
-    "maket_sha256": "34bd0dd5702e9042f698c0cfae546bd9b5493550b422f9e548980d3c4ce15554",
+    "maket": "docs/ux/05_Kompakt_D24/frames/GA-02_normal_light_393x852.png",
+    "maket_sha256": "0f8699969953a2bec50644c1e8dc1d20273d85eff2a62a70caed57693d2b650c",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1168,23 +1284,23 @@
        0,
        0,
        393,
-       140
+       136
       ]
      },
      {
       "imja": "kontent",
       "bbox_pt": [
        0,
-       140,
+       136,
        393,
-       770
+       766
       ]
      },
      {
       "imja": "tab-leiste",
       "bbox_pt": [
        0,
-       770,
+       766,
        393,
        852
       ]
@@ -1192,9 +1308,9 @@
      {
       "imja": "mitte",
       "bbox_pt": [
-       156,
-       770,
-       234,
+       157,
+       766,
+       236,
        852
       ]
      }
@@ -1204,17 +1320,10 @@
     "id": "GA-03 dark 393",
     "tema": "dark",
     "snimok": "vkladki-schutz-393",
-    "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-03.png",
-    "maket_sha256": "ba6e8c512f0d2573c6a158789c0c0dc7f99d75b15a8af377db3ff506c1a2b50d",
+    "maket": "docs/ux/05_Kompakt_D24/frames/GA-03_normal_dark_393x852.png",
+    "maket_sha256": "34ced494cf3bd16969e16619d49e00053d480c3227c800d2f84453aac909510e",
     "porog": 0.6,
-    "maski_pt": [
-     [
-      0,
-      425,
-      393,
-      510
-     ]
-    ],
+    "maski_pt": [],
     "elementy": [
      {
       "imja": "shapka",
@@ -1222,23 +1331,23 @@
        0,
        0,
        393,
-       140
+       136
       ]
      },
      {
       "imja": "kontent",
       "bbox_pt": [
        0,
-       140,
+       136,
        393,
-       770
+       766
       ]
      },
      {
       "imja": "tab-leiste",
       "bbox_pt": [
        0,
-       770,
+       766,
        393,
        852
       ]
@@ -1246,9 +1355,9 @@
      {
       "imja": "mitte",
       "bbox_pt": [
-       156,
-       770,
-       234,
+       157,
+       766,
+       236,
        852
       ]
      }
@@ -1258,17 +1367,10 @@
     "id": "GA-03 light 393",
     "tema": "light",
     "snimok": "vkladki-schutz-393",
-    "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-03-Hell.png",
-    "maket_sha256": "1acacb6ed648cc00bfa22e247cd0ce115ca889ca13743adf7798840eefdb658c",
+    "maket": "docs/ux/05_Kompakt_D24/frames/GA-03_normal_light_393x852.png",
+    "maket_sha256": "d60bf486da8dca2cee092f9e5c4a2e8cfdbf9579e66584151eba49c7d2753736",
     "porog": 0.6,
-    "maski_pt": [
-     [
-      0,
-      425,
-      393,
-      510
-     ]
-    ],
+    "maski_pt": [],
     "elementy": [
      {
       "imja": "shapka",
@@ -1276,23 +1378,23 @@
        0,
        0,
        393,
-       140
+       136
       ]
      },
      {
       "imja": "kontent",
       "bbox_pt": [
        0,
-       140,
+       136,
        393,
-       770
+       766
       ]
      },
      {
       "imja": "tab-leiste",
       "bbox_pt": [
        0,
-       770,
+       766,
        393,
        852
       ]
@@ -1300,9 +1402,9 @@
      {
       "imja": "mitte",
       "bbox_pt": [
-       156,
-       770,
-       234,
+       157,
+       766,
+       236,
        852
       ]
      }
@@ -1312,8 +1414,8 @@
     "id": "GA-04 dark 393",
     "tema": "dark",
     "snimok": "vkladki-post-393",
-    "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-04.png",
-    "maket_sha256": "6bbcbff3ce76da39cc3ad0af4d02a22f55c467f8b67d1124d101e6834d540ce5",
+    "maket": "docs/ux/05_Kompakt_D24/frames/GA-04_normal_dark_393x852.png",
+    "maket_sha256": "4b54ce6f0eba87f9e663399f37894b8c63a2f02f326c77ca7b9d747d5c31d57e",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1323,23 +1425,23 @@
        0,
        0,
        393,
-       140
+       136
       ]
      },
      {
       "imja": "kontent",
       "bbox_pt": [
        0,
-       140,
+       136,
        393,
-       770
+       766
       ]
      },
      {
       "imja": "tab-leiste",
       "bbox_pt": [
        0,
-       770,
+       766,
        393,
        852
       ]
@@ -1347,9 +1449,9 @@
      {
       "imja": "mitte",
       "bbox_pt": [
-       156,
-       770,
-       234,
+       157,
+       766,
+       236,
        852
       ]
      }
@@ -1359,8 +1461,8 @@
     "id": "GA-04 light 393",
     "tema": "light",
     "snimok": "vkladki-post-393",
-    "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-04-Hell.png",
-    "maket_sha256": "84bf6198a696e9808c75dc345cf2ead4e868b93d3589df47a864e2a2cb946a8f",
+    "maket": "docs/ux/05_Kompakt_D24/frames/GA-04_normal_light_393x852.png",
+    "maket_sha256": "91373fc599d77898a14df0d93235b75e2ac22f9444514a70d491052633dce580",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1370,23 +1472,23 @@
        0,
        0,
        393,
-       140
+       136
       ]
      },
      {
       "imja": "kontent",
       "bbox_pt": [
        0,
-       140,
+       136,
        393,
-       770
+       766
       ]
      },
      {
       "imja": "tab-leiste",
       "bbox_pt": [
        0,
-       770,
+       766,
        393,
        852
       ]
@@ -1394,9 +1496,9 @@
      {
       "imja": "mitte",
       "bbox_pt": [
-       156,
-       770,
-       234,
+       157,
+       766,
+       236,
        852
       ]
      }
@@ -1406,8 +1508,8 @@
     "id": "GA-09 dark 393",
     "tema": "dark",
     "snimok": "vkladki-vorgaenge-skroll-393",
-    "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-09.png",
-    "maket_sha256": "f2fdbd901f5b56c74645c9c6caaa827f74a7655e8e6a43638ec246ea605c4bda",
+    "maket": "docs/ux/05_Kompakt_D24/frames/GA-09_normal_dark_393x852.png",
+    "maket_sha256": "039509874abfde53b71962036e807f43295cbae6883cdc199535a05071d3fc8e",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1417,23 +1519,23 @@
        0,
        0,
        393,
-       140
+       136
       ]
      },
      {
       "imja": "kontent",
       "bbox_pt": [
        0,
-       140,
+       136,
        393,
-       770
+       766
       ]
      },
      {
       "imja": "tab-leiste",
       "bbox_pt": [
        0,
-       770,
+       766,
        393,
        852
       ]
@@ -1441,9 +1543,9 @@
      {
       "imja": "mitte",
       "bbox_pt": [
-       156,
-       770,
-       234,
+       157,
+       766,
+       236,
        852
       ]
      }
@@ -1453,8 +1555,8 @@
     "id": "GA-09 light 393",
     "tema": "light",
     "snimok": "vkladki-vorgaenge-skroll-393",
-    "maket": "docs/ux/04_Gespraech_D24/pack/screens/393x852/GA-09-Hell.png",
-    "maket_sha256": "c7d9550e99918379214097561242d17091c786544af62f34e17ad1b3cd3b9bef",
+    "maket": "docs/ux/05_Kompakt_D24/frames/GA-09_normal_light_393x852.png",
+    "maket_sha256": "cd7902e20b2d5a269b5e7a81df5489e6cf2c1c47d50612b905e40f34c8379144",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1464,23 +1566,23 @@
        0,
        0,
        393,
-       140
+       136
       ]
      },
      {
       "imja": "kontent",
       "bbox_pt": [
        0,
-       140,
+       136,
        393,
-       770
+       766
       ]
      },
      {
       "imja": "tab-leiste",
       "bbox_pt": [
        0,
-       770,
+       766,
        393,
        852
       ]
@@ -1488,9 +1590,9 @@
      {
       "imja": "mitte",
       "bbox_pt": [
-       156,
-       770,
-       234,
+       157,
+       766,
+       236,
        852
       ]
      }
@@ -1499,7 +1601,7 @@
   ]
  },
  "katalog": {
-  "_comment": "Verbatim-подмножество BrokerOS_UI_Copy_DE.json (slice-1) и proposed-копии пакета D 2.4 для экрана vkladki (148).",
+  "_comment": "копия каталога пакета D24-Kompakt-1.1 (source/copy-de.json): text/review_status verbatim",
   "ia115.nav.START": {
    "text": "Start",
    "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
@@ -1524,17 +1626,21 @@
    "text": "Gespräch mit Complior",
    "review_status": "PROPOSED / PRODUCT_COPY_REVIEW_REQUIRED"
   },
-  "ui.vorgaenge.group.working": {
+  "proposed.gespraech.tab.a11y.status": {
+   "text": "Gespräch mit Complior – {status}",
+   "review_status": "PROPOSED / PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ui.mission.group.working": {
    "text": "In Arbeit",
-   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+   "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED"
   },
-  "ui.vorgaenge.group.needs_you": {
+  "ui.mission.group.needs_user": {
    "text": "Ihre Rückmeldung nötig",
-   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+   "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED"
   },
-  "ui.vorgaenge.group.waiting": {
+  "ui.mission.group.waiting": {
    "text": "Warten auf Antwort",
-   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+   "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED"
   },
   "ui.vorgaenge.subtitle": {
    "text": "Worum wir uns gerade kümmern",
@@ -1542,34 +1648,50 @@
   },
   "ui.mission.all_done": {
    "text": "Alle erledigten Vorgänge",
-   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+   "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED"
   },
   "ui.post.filter.all": {
    "text": "Alle",
-   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+   "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED"
   },
   "ui.post.filter.received": {
    "text": "Eingegangen",
-   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+   "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED"
   },
   "ui.post.filter.sent": {
    "text": "Gesendet",
-   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+   "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED"
   },
   "ui.post.send_to_complior": {
    "text": "An Complior schicken",
-   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+   "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED"
   },
-  "frame.F19.01.title": {
-   "text": "Ihre Absicherung im Überblick",
-   "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED"
+  "proposed.protection.status.gap": {
+   "text": "Lücke",
+   "review_status": "PROPOSED / PRODUCT_COPY_REVIEW_REQUIRED"
   },
-  "global.back": {
-   "text": "Zurück",
-   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  "fixture.schutz.02": {
+   "text": "Lücke: Berufsunfähigkeit. Complior zeigt passende Optionen – ohne Verpflichtung.",
+   "review_status": "FIXTURE — Laufzeitinhalt (Agent, Nutzer oder Backend, Szenario D24); nicht als UI-Text fest einbauen"
+  },
+  "proposed.schutz.gap.action": {
+   "text": "Optionen ansehen",
+   "review_status": "PROPOSED / PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "proposed.schutz.stat.contracts": {
+   "text": "Verträge",
+   "review_status": "PROPOSED / PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "proposed.schutz.stat.premium": {
+   "text": "Beitrag / Monat",
+   "review_status": "PROPOSED / PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "proposed.schutz.section.areas": {
+   "text": "Bereiche",
+   "review_status": "PROPOSED / PRODUCT_COPY_REVIEW_REQUIRED"
   }
  },
- "kontrakt_tekst": "# Контракт пачки vkladki (148) — одна страница\n\n## Воля владельца\n- Слово 2026-10-28 ~22:50 (docs/owner/2026-10-28-d24-gespraech-final2.md):\n  «Реализовать эти экраны со всей динамикой и движениями»; GA-02/03/04/09 —\n  нижнее меню/таб-бар D 2.4; опоры — знак 145 и шаблон 132.\n\n## Существующее\n- TabShell (999/995, влито): 4 вкладки, темы, УД; Mitte/контент/скролл —\n  новое 148; знак tier tab 28 px — движок 145 (mobile/src/lib/faden).\n\n## Инварианты\n- Пять слотов лейсте: Start, Vorgänge, Mitte, Schutz, Post; Mitte — НЕ\n  accessibilityRole=tab (замороженная грамматика 999: role=tab — ровно\n  четыре); контент вкладок — слоты композиции (frozen 999/copy без\n  слотов неизменны).\n- Скролл контента ПОД лейсте (GA-09); кадр сверяется с макетом (123).\n- Mitte: FadenSign size=tab (28 px), статус In Arbeit (GA-02/04/09),\n  бейдж Ihre Rückmeldung nötig (GA-03; ключи ui.vorgaenge.group).\n- Касания не меньше 44 pt (prokhodimost); цели — из манифеста D 2.4.\n- Переходов нет (∩-правило: ни один переход манифеста не касается\n  GA-02/03/04/09); perehody, sceny_znaka, etalony пусты.\n\n## Приёмочный критерий\n- Валидатор 132 v3: ekran_shablon.py --pack mobile/e2e-vkladki --repo .\n  --harness H → rc 0 (16 кадров, оба профиля, сверка, проход);\n  негативы — именованные отказы (батарея 148, osi.md).\n\n## Зоны и исполнители\nЗОНА architect: contracts/148-vkladki-tabov.md fixtures/workshop_project/vkladki_tabov_148/\nЗОНА implementer: mobile/src/bootstrap/tab-shell.tsx mobile/src/bootstrap/gespraech-mitte.tsx\nЗОНА implementer: mobile/src/features/missions/components/VorgaengeListe.tsx\nЗОНА implementer: mobile/src/features/missions/model/vkladki-dannye.ts\nЗОНА implementer: mobile/src/features/protection/components/SchutzUebersicht.tsx\nЗОНА implementer: mobile/src/features/post/components/PostEingang.tsx mobile/src/i18n/ui-copy.ts\nЗОНА implementer: mobile/src/app/ mobile/.maestro/vkladki.yaml\nЗОНА implementer: mobile/.maestro/vkladki-tabshell-393.yaml mobile/.maestro/prokhod-vkladki.yaml\nЗОНА implementer: mobile/e2e-vkladki/\n\n## ПРОВОДКА\nПРОВОДКА:\n- guard=fixtures/workshop_project/vkladki_tabov_148/red_vkladki_tabov_148.sh\n\n## Модель угроз\nЗАЩИЩАЕТ: от опущенного Mitte/контента (кадры против пиннованных\nмакетов), от касаний меньше 44 pt, от подмены макетов (sha256), от\nскрытого движения (∩-полнота против манифеста D 2.4).\nНЕ ЗАЩИЩАЕТ: «ощущение» движения (владелец на iPhone), живой эмулятор\nвнутри батареи (продуктовый CI), зона Notice GA-03 до каталогизации\nкопии (ключа нет ни в каталоге, ни в proposed; maski_pt кадра).\n",
+ "kontrakt_tekst": "# Контракт пачки vkladki (148) — одна страница\n\n## Воля владельца\n- Слово 2026-11-02 (пакет D24-Kompakt-1.1, docs/ux/05_Kompakt_D24):\n  «экраны — да» — заменяются версия пакета, токены и эталонные кадры;\n  обязательства/доступность не ослабляются; касания — по hw/hh.\n- Слово 2026-10-28: экраны GA-02/03/04/09 — таб-бар; опоры 145/132.\n\n## Существующее\n- Пакет 1.1 в product main: кадры frames/ (имена GA-xx_normal_тема_профиль,\n  sha — frames/SHA256SUMS), tokens.json (872), copy-de.json (264), цели\n  manifest.json (699, hw/hh, под 44 — ноль); TabShell 999/995 неизменен.\n\n## Инварианты\n- Пять слотов лейсте; Mitte — НЕ accessibilityRole=tab (999); контент —\n  слоты композиции; скролл ПОД лейсте (GA-09).\n- Компакт-шкала токенами: лейсте 49, иконки 20, подписи 10, камешек\n  40×24, зона кнопки 48; шапка 52 (final2 — в tokens.json).\n- Касания ≥ 44 по hw/hh манифеста 1.1 (видимая рамка меньше — не\n  находка: p-btn-sm 36→44, фильтры 38→44); реализация — hit-area\n  (hitSlop/Pressable).\n- Цели/элементы, чья зона пересекает 818 (слоты прототипа\n  y786–834, пилюля home в кадрах y839–843), объявлены с теми же hw/hh\n  до границы (низ 818); ниже 818 пиксели судит сверка.\n- Копия — verbatim-ключи 1.1: Mitte-статусы ui.mission.group.*; Notice\n  GA-03 каталогизирован (маска снята): proposed.protection.status.gap,\n  fixture.schutz.02, proposed.schutz.gap.action/.stat.*/.section.areas.\n- Маска шапки 393 = 48 (пилюля светлых кадров y11–47); пин кадров —\n  имена пакета, sha == SHA256SUMS. Переходов нет (∩ пуста).\n\n## Приёмочный критерий\n- Валидатор 132 v3: ekran_shablon.py --pack mobile/e2e-vkladki --repo .\n  --harness H → rc 0 (16 кадров, оба профиля, сверка, проход); негативы —\n  именованные отказы (osi.md), вкл. PAKET_1_1_NE_PRIPINEN (пин Final 2).\n\n## Зоны и исполнители\nЗОНА architect: contracts/148-vkladki-tabov.md fixtures/workshop_project/vkladki_tabov_148/\nЗОНА implementer: mobile/src/bootstrap/tab-shell.tsx mobile/src/bootstrap/gespraech-mitte.tsx\nЗОНА implementer: mobile/src/features/missions/components/VorgaengeListe.tsx\nЗОНА implementer: mobile/src/features/missions/model/vkladki-dannye.ts\nЗОНА implementer: mobile/src/features/protection/components/SchutzUebersicht.tsx\nЗОНА implementer: mobile/src/features/post/components/PostEingang.tsx mobile/src/i18n/ui-copy.ts\nЗОНА implementer: mobile/src/app/ mobile/.maestro/vkladki.yaml\nЗОНА implementer: mobile/.maestro/vkladki-tabshell-393.yaml mobile/.maestro/prokhod-vkladki.yaml\nЗОНА implementer: mobile/e2e-vkladki/\n\n## ПРОВОДКА\nПРОВОДКА:\n- guard=fixtures/workshop_project/vkladki_tabov_148/red_vkladki_tabov_148.sh\n\n## Модель угроз\nЗАЩИЩАЕТ: Mitte/контент (кадры против макетов пакета), касания ≥ 44 по\nзоне, подмену макетов (sha == SHA256SUMS), пин Final 2, движение (∩).\nНЕ ЗАЩИЩАЕТ: «ощущение» движения (владелец), живой эмулятор (продуктовый\nCI), посадка целей ниже 818 (судит сверка; ловцы — CI/vision/владелец).\n",
  "batareja_tekst": "#!/usr/bin/env bash\n# Батарея экрана vkladki живёт в харнессе (guard-канал 148):\n# bash fixtures/workshop_project/vkladki_tabov_148/red_vkladki_tabov_148.sh\n# (без флага -- живой продукт; --model -- эталон; --stabs -- матрица).\nset -u\necho 'VNIMANIE: батарея живёт в харнессе (см. ПРОВОДКА контракта 148)'\nexit 2\n",
  "spec": {
   "openapi": "3.1.0",
@@ -1578,7 +1700,7 @@
  },
  "standiny": {
   "e2e": "#!/usr/bin/env bash\n# Стенд-ин priemka.e2e (батарея 148): эмулятора нет — кадры\n# кладёт перегонка макетов (пиксели те же, байты иные).\nset -eu\nexec python3 \"$(dirname \"$0\")/../e2e-standin-vkladki/e2e-stand-in.py\" \"$@\"\n",
-  "e2e_py": "#!/usr/bin/env python3\n# Стенд-ин e2e батареи 148 (v2, слово владельца 31.10): перекодированные\n# макеты → Maestro-раскладка kadry_dir/<тема>/aa/bb/takeScreenshot/\n# <snimok>.png (оба манифеста). Профиль 393 ЧЕСТЕН к вырезу камеры\n# (доказательство Q1б 31.10, раннер 123 на живых кадрах PR #147):\n# в макетах 393 есть пилюля Dynamic Island (чёрная, x134-260, y11-48 pt),\n# эмулятор вырез в screencap НЕ рисует — стенд-ин замещает пилюлю фоном\n# строки (сэмпл x=60 той же строки; в тёмных макетах пилюля чёрная на\n# чёрном — замещение ничего не меняет). Маска mera.chrome_verh_pt=48\n# закрывает пилюлю целиком; возврат 36 оставляет срез y36-47 в судимой\n# области — светлые кадры 393 ниже порога (живой замер Q1б:\n# 0.425/0.414/0.392 при 36; 0.800/0.783/0.805/0.880 при 48).\nimport json\nimport sys\nfrom pathlib import Path\n\nsys.path.insert(0, str(Path(__file__).resolve().parent))\nfrom stand_in_png import dekodirovat, kodirovat_rgba\n\nREPO = Path(__file__).resolve().parents[2]\nPACK = Path(__file__).resolve().parents[1] / 'e2e-vkladki'\nOUT = REPO / 'mobile/maestro-out-vkladki'\nPILJULA = (134, 260)  # x-диапазон пилюли выреза (замер Q1б, вкл.)\n\n\ndef stirat_piljulju(w, h, ch, rows):\n    \"\"\"Пилюля выреза → фон строки: эмулятор вырез не рисует (Q1б).\"\"\"\n    for y in range(11, 48):\n        row = bytearray(rows[y])\n        fon = bytes(row[60 * ch:60 * ch + ch])\n        for x in range(PILJULA[0], PILJULA[1] + 1):\n            row[x * ch:x * ch + ch] = fon\n        rows[y] = bytes(row)\n    return rows\n\n\nfor imja in ('kadry.json', 'kadry_profil.json'):\n    man = json.loads((PACK / imja).read_text(encoding='utf-8'))\n    for k in man['kadry']:\n        w, h, ch, rows = dekodirovat((REPO / k['maket']).read_bytes())\n        if imja == 'kadry_profil.json':\n            rows = stirat_piljulju(w, h, ch, rows)\n        kadr = kodirovat_rgba(w, h, ch, rows)\n        d = OUT / k['tema'] / 'aa' / 'bb' / 'takeScreenshot'\n        d.mkdir(parents=True, exist_ok=True)\n        (d / (k['snimok'] + '.png')).write_bytes(kadr)\nprint('E2E_STAND_IN: кадры обоих профилей положены (393 без пилюли выреза)')\n",
+  "e2e_py": "#!/usr/bin/env python3\n# Стенд-ин e2e батареи 148 (v+1, пакет D24-Kompakt-1.1): перекодированные\n# макеты → Maestro-раскладка kadry_dir/<тема>/aa/bb/takeScreenshot/\n# <snimok>.png (оба манифеста). Профиль 393 ЧЕСТЕН к вырезу камеры\n# (доказательство Q1б 31.10, раннер 123 на живых кадрах PR #147):\n# в кадрах 1.1 393 есть пилюля Dynamic Island (чёрная, x133-258, y11-47),\n# эмулятор вырез в screencap НЕ рисует — стенд-ин замещает пилюлю фоном\n# строки (сэмпл x=60 той же строки; в тёмных макетах пилюля чёрная на\n# чёрном — замещение ничего не меняет). Маска mera.chrome_verh_pt=48\n# закрывает пилюлю целиком; возврат 36 оставляет срез y36-47 в судимой\n# области — светлые кадры 393 ниже порога (живой замер Q1б:\n# 0.425/0.414/0.392 при 36; 0.800/0.783/0.805/0.880 при 48).\nimport json\nimport sys\nfrom pathlib import Path\n\nsys.path.insert(0, str(Path(__file__).resolve().parent))\nfrom stand_in_png import dekodirovat, kodirovat_rgba\n\nREPO = Path(__file__).resolve().parents[2]\nPACK = Path(__file__).resolve().parents[1] / 'e2e-vkladki'\nOUT = REPO / 'mobile/maestro-out-vkladki'\nPILJULA = (133, 258)  # x-диапазон пилюли выреза (замер кадра 1.1, вкл.)\n\n\ndef stirat_piljulju(w, h, ch, rows):\n    \"\"\"Пилюля выреза → фон строки: эмулятор вырез не рисует (Q1б).\"\"\"\n    for y in range(11, 48):\n        row = bytearray(rows[y])\n        fon = bytes(row[60 * ch:60 * ch + ch])\n        for x in range(PILJULA[0], PILJULA[1] + 1):\n            row[x * ch:x * ch + ch] = fon\n        rows[y] = bytes(row)\n    return rows\n\n\nfor imja in ('kadry.json', 'kadry_profil.json'):\n    man = json.loads((PACK / imja).read_text(encoding='utf-8'))\n    for k in man['kadry']:\n        w, h, ch, rows = dekodirovat((REPO / k['maket']).read_bytes())\n        if imja == 'kadry_profil.json':\n            rows = stirat_piljulju(w, h, ch, rows)\n        kadr = kodirovat_rgba(w, h, ch, rows)\n        d = OUT / k['tema'] / 'aa' / 'bb' / 'takeScreenshot'\n        d.mkdir(parents=True, exist_ok=True)\n        (d / (k['snimok'] + '.png')).write_bytes(kadr)\nprint('E2E_STAND_IN: кадры обоих профилей положены (393 без пилюли выреза)')\n",
   "png": "#!/usr/bin/env python3\n# Перегонка PNG (батарея 148): декодер ct 2 (RGB) и 6 (RGBA); энкодер\n# всегда RGBA — пиксели те же, байты иные (приём 118/132).\nimport struct\nimport zlib\n\n\ndef dekodirovat(blob):\n    pos, idat, ihdr = 8, bytearray(), None\n    while pos < len(blob):\n        ln, typ = struct.unpack('>I4s', blob[pos:pos + 8])\n        body = blob[pos + 8:pos + 8 + ln]\n        if typ == b'IHDR':\n            ihdr = body\n        elif typ == b'IDAT':\n            idat += body\n        pos += 12 + ln\n    w, h, bd, ct = struct.unpack('>IIBB', ihdr[:10])\n    assert bd == 8 and ct in (2, 6), 'ожидался RGB/RGBA'\n    ch = 3 if ct == 2 else 4\n    raw = zlib.decompress(bytes(idat))\n    stride = w * ch\n    rows, prev = [], bytearray(stride)\n    i = 0\n    for _y in range(h):\n        f = raw[i]\n        i += 1\n        line = bytearray(raw[i:i + stride])\n        i += stride\n        if f == 1:\n            for x in range(ch, stride):\n                line[x] = (line[x] + line[x - ch]) & 0xFF\n        elif f == 2:\n            for x in range(stride):\n                line[x] = (line[x] + prev[x]) & 0xFF\n        elif f == 3:\n            for x in range(stride):\n                a = line[x - ch] if x >= ch else 0\n                line[x] = (line[x] + ((a + prev[x]) >> 1)) & 0xFF\n        elif f == 4:\n            for x in range(stride):\n                a = line[x - ch] if x >= ch else 0\n                b = prev[x]\n                c = prev[x - ch] if x >= ch else 0\n                p = a + b - c\n                pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)\n                pr = a if (pa <= pb and pa <= pc) else (b if pb <= pc else c)\n                line[x] = (line[x] + pr) & 0xFF\n        prev = line\n        rows.append(bytes(line))\n    return w, h, ch, rows\n\n\ndef kodirovat_rgba(w, h, ch, rows):\n    def chunk(t, d):\n        return (struct.pack('>I', len(d)) + t + d\n                + struct.pack('>I', zlib.crc32(t + d) & 0xFFFFFFFF))\n    if ch == 3:\n        rows = [b''.join(bytes(r[x:x + 3]) + b'\\xff' for x in range(0, len(r), 3))\n                for r in rows]\n    raw2 = b''.join(b'\\x00' + r for r in rows)\n    return (b'\\x89PNG\\r\\n\\x1a\\n'\n            + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0))\n            + chunk(b'IDAT', zlib.compress(raw2, 1)) + chunk(b'IEND', b''))\n\n\ndef perekodirovat(blob):\n    w, h, ch, rows = dekodirovat(blob)\n    return kodirovat_rgba(w, h, ch, rows)\n",
   "e2e_padaet": "#!/usr/bin/env bash\n# Мутант: e2e не прошла (rc 1) — кадры не кладутся.\nexit 1\n",
   "e2e_molchit": "#!/usr/bin/env bash\n# Мутант: rc 0, кадров не кладёт — KADR_OTSUTSTVUET.\nexit 0\n",
@@ -1603,40 +1725,59 @@
    "nositeli/d24-real/manifest.json": "b5bd859858853f708aea05e589cb187b21ea02d3c02af4081ad7ab8d5e76d6b7",
    "nositeli/d24-real/poses.json": "9763fdc06b0c0a3c3138f7abac57bf5efbc714403f53d221c3b7c8d225c4f002",
    "nositeli/d24-real/spec.json": "064d7821428f425d431fbd1efd65cbec37263bb62ef974924746a07e769cd318",
-   "nositeli/maket/390x844-GA-02-Hell.png": "a89e7f55790c44ab1b4a6591d9e952150a733b73834dcdb3191bffb89ef349c9",
-   "nositeli/maket/390x844-GA-02.png": "1e5c2b8affcb9b7741d79de8b364e5c84a5ec1bf517ca11451b30c7bdc13b203",
-   "nositeli/maket/390x844-GA-03-Hell.png": "686dbc85002c07548c5b923dc4e5875a045afcb164a78b67b8f9da7c4e287650",
-   "nositeli/maket/390x844-GA-03.png": "10cbd7b640b464ea66ef8813345baae1b9006b4daa7c9e732e5b06f699b998dd",
-   "nositeli/maket/390x844-GA-04-Hell.png": "e0b12bd71e4d285a3dd0fec749e8e67eaf92b4afeeb43613181a4308cf0fcc60",
-   "nositeli/maket/390x844-GA-04.png": "bd286b8152c1e5a69c082707800ba9bf8cbb9f3d90ef04fe849fad49db496816",
-   "nositeli/maket/390x844-GA-09-Hell.png": "331a77ac477a78e056b9172aa5aada27504d287cc1e6b1c6648e51bcd8ceb853",
-   "nositeli/maket/390x844-GA-09.png": "d00890866538178c6b3b7da076850ce01b0c302d66af5ce75c339344645f37b8",
-   "nositeli/maket/393x852-GA-02-Hell.png": "34bd0dd5702e9042f698c0cfae546bd9b5493550b422f9e548980d3c4ce15554",
-   "nositeli/maket/393x852-GA-02.png": "d1b0612048ae10fd68ad5be07b65f8ca4cb716e19b4983f9a83457713b3b0af5",
-   "nositeli/maket/393x852-GA-03-Hell.png": "1acacb6ed648cc00bfa22e247cd0ce115ca889ca13743adf7798840eefdb658c",
-   "nositeli/maket/393x852-GA-03.png": "ba6e8c512f0d2573c6a158789c0c0dc7f99d75b15a8af377db3ff506c1a2b50d",
-   "nositeli/maket/393x852-GA-04-Hell.png": "84bf6198a696e9808c75dc345cf2ead4e868b93d3589df47a864e2a2cb946a8f",
-   "nositeli/maket/393x852-GA-04.png": "6bbcbff3ce76da39cc3ad0af4d02a22f55c467f8b67d1124d101e6834d540ce5",
-   "nositeli/maket/393x852-GA-09-Hell.png": "c7d9550e99918379214097561242d17091c786544af62f34e17ad1b3cd3b9bef",
-   "nositeli/maket/393x852-GA-09.png": "f2fdbd901f5b56c74645c9c6caaa827f74a7655e8e6a43638ec246ea605c4bda",
-   "nositeli/tokens.css": "c70832955fe9f3c1f0bc5e99eda27c2f1e3a575e1a3f9cedbcf5a93b61bdaf4b"
+   "nositeli/maket/GA-02_normal_dark_390x844.png": "f9e8648c8dedb8446c0eee32b2a5105e6a6155c8f870a8c3102f206eb3ed2782",
+   "nositeli/maket/GA-02_normal_dark_393x852.png": "3943a93fc91b3e0adf6382ae6655cd525cc067369b698f24e51fb7bb161a53b8",
+   "nositeli/maket/GA-02_normal_light_390x844.png": "2d508bb14ec703530bb215c24a5b203e9ee60c3bbceb1854b4f0b0e0090559a5",
+   "nositeli/maket/GA-02_normal_light_393x852.png": "0f8699969953a2bec50644c1e8dc1d20273d85eff2a62a70caed57693d2b650c",
+   "nositeli/maket/GA-03_normal_dark_390x844.png": "66b4c02273dcf04d359fd0a7feefe3362182ba68ac732858039b11d377597556",
+   "nositeli/maket/GA-03_normal_dark_393x852.png": "34ced494cf3bd16969e16619d49e00053d480c3227c800d2f84453aac909510e",
+   "nositeli/maket/GA-03_normal_light_390x844.png": "4d0a4c0d981e9936920955a4beb2da8be52e414c4026519a86c706946947aa17",
+   "nositeli/maket/GA-03_normal_light_393x852.png": "d60bf486da8dca2cee092f9e5c4a2e8cfdbf9579e66584151eba49c7d2753736",
+   "nositeli/maket/GA-04_normal_dark_390x844.png": "087a17167b58fce478d384e2c62fc36cda92f61edf93a476dff3298298f8de0b",
+   "nositeli/maket/GA-04_normal_dark_393x852.png": "4b54ce6f0eba87f9e663399f37894b8c63a2f02f326c77ca7b9d747d5c31d57e",
+   "nositeli/maket/GA-04_normal_light_390x844.png": "ac9dd85c4326b912979c02baabdae09de63dd62ed6efd1dc5bfabd0b56736bcb",
+   "nositeli/maket/GA-04_normal_light_393x852.png": "91373fc599d77898a14df0d93235b75e2ac22f9444514a70d491052633dce580",
+   "nositeli/maket/GA-09_normal_dark_390x844.png": "86f884df687fa4d6fdc88f815e6101ad2c7aa69af2e2a95801de9dcef79f0f4c",
+   "nositeli/maket/GA-09_normal_dark_393x852.png": "039509874abfde53b71962036e807f43295cbae6883cdc199535a05071d3fc8e",
+   "nositeli/maket/GA-09_normal_light_390x844.png": "d29692de3533bfba75fe5a9d8e0a78017b343c0a8d2ea83c9f861074acc8e47e",
+   "nositeli/maket/GA-09_normal_light_393x852.png": "cd7902e20b2d5a269b5e7a81df5489e6cf2c1c47d50612b905e40f34c8379144",
+   "nositeli/maket-final2/390x844-GA-02-Hell.png": "a89e7f55790c44ab1b4a6591d9e952150a733b73834dcdb3191bffb89ef349c9",
+   "nositeli/maket-final2/390x844-GA-02.png": "1e5c2b8affcb9b7741d79de8b364e5c84a5ec1bf517ca11451b30c7bdc13b203",
+   "nositeli/maket-final2/390x844-GA-03-Hell.png": "686dbc85002c07548c5b923dc4e5875a045afcb164a78b67b8f9da7c4e287650",
+   "nositeli/maket-final2/390x844-GA-03.png": "10cbd7b640b464ea66ef8813345baae1b9006b4daa7c9e732e5b06f699b998dd",
+   "nositeli/maket-final2/390x844-GA-04-Hell.png": "e0b12bd71e4d285a3dd0fec749e8e67eaf92b4afeeb43613181a4308cf0fcc60",
+   "nositeli/maket-final2/390x844-GA-04.png": "bd286b8152c1e5a69c082707800ba9bf8cbb9f3d90ef04fe849fad49db496816",
+   "nositeli/maket-final2/390x844-GA-09-Hell.png": "331a77ac477a78e056b9172aa5aada27504d287cc1e6b1c6648e51bcd8ceb853",
+   "nositeli/maket-final2/390x844-GA-09.png": "d00890866538178c6b3b7da076850ce01b0c302d66af5ce75c339344645f37b8",
+   "nositeli/maket-final2/393x852-GA-02-Hell.png": "34bd0dd5702e9042f698c0cfae546bd9b5493550b422f9e548980d3c4ce15554",
+   "nositeli/maket-final2/393x852-GA-02.png": "d1b0612048ae10fd68ad5be07b65f8ca4cb716e19b4983f9a83457713b3b0af5",
+   "nositeli/maket-final2/393x852-GA-03-Hell.png": "1acacb6ed648cc00bfa22e247cd0ce115ca889ca13743adf7798840eefdb658c",
+   "nositeli/maket-final2/393x852-GA-03.png": "ba6e8c512f0d2573c6a158789c0c0dc7f99d75b15a8af377db3ff506c1a2b50d",
+   "nositeli/maket-final2/393x852-GA-04-Hell.png": "84bf6198a696e9808c75dc345cf2ead4e868b93d3589df47a864e2a2cb946a8f",
+   "nositeli/maket-final2/393x852-GA-04.png": "6bbcbff3ce76da39cc3ad0af4d02a22f55c467f8b67d1124d101e6834d540ce5",
+   "nositeli/maket-final2/393x852-GA-09-Hell.png": "c7d9550e99918379214097561242d17091c786544af62f34e17ad1b3cd3b9bef",
+   "nositeli/maket-final2/393x852-GA-09.png": "f2fdbd901f5b56c74645c9c6caaa827f74a7655e8e6a43638ec246ea605c4bda",
+   "nositeli/paket/SHA256SUMS": "d8fe43b5f4b3850210afc8299a3fd0ab120b15eefd519f1a883d0f69687f9746",
+   "nositeli/paket/frames.json": "84e4b5fc52d4dd7e00f91c4c7b9fb56f7ccc5a119b0f4cd351a8199efab72a8b",
+   "nositeli/paket/manifest.json": "3fc386adb04fcbffe60bad979b2b0d53085c013bdbc63a6a905af3e6a568a633",
+   "nositeli/tokens.css": "49f50ad6695dbf372bdc4c06418421af69fd82bad6b22ed55742922a20cb254e"
   },
   "etalon_raskladka": {
-   "model/produktnaja-raskladka/mobile/.maestro/prokhod-vkladki.yaml": "b0efc19438b6277355090a5730649e208e263ea7d127a7b40d127010edf62b2a",
+   "model/produktnaja-raskladka/mobile/.maestro/prokhod-vkladki.yaml": "1543efeffec0f750bea8baa057db644b0ac6edf01029ad30721c3e278865ddda",
    "model/produktnaja-raskladka/mobile/.maestro/vkladki-tabshell-393.yaml": "0bfa247c11691fb4d20ae54cc6632acd02f0f6513dd06c60350da3c902dbd7f8",
    "model/produktnaja-raskladka/mobile/.maestro/vkladki.yaml": "91cf8de5ad9cf2024b09b250d1a9373e018bc3025d3def6bca1b8000724cf475",
+   "model/produktnaja-raskladka/mobile/e2e-vkladki/e2e.sh": "ebfabb499009c4b9355ce30970b79ea679c66e923529e64e75f76264ae1af17f",
    "model/produktnaja-raskladka/mobile/src/app/(tabs)/[section].tsx": "64495569d54189b8b4f515fc50a260a7a4e447f9bb62809b1c43c4248693307e",
-   "model/produktnaja-raskladka/mobile/src/bootstrap/gespraech-mitte.tsx": "f1a060089f9e49e4412d571a96db7d3a252b26d2724653e40990829dce75a45e",
+   "model/produktnaja-raskladka/mobile/src/bootstrap/gespraech-mitte.tsx": "028de92032d96571f23f71a362e4672e86dbe3f7524f4741ad2026dcb1a0ccf1",
    "model/produktnaja-raskladka/mobile/src/bootstrap/tab-shell.tsx": "81b031cbf9b0beaf2b4d1c8f2bc008f433bbd479db5bb683483c8c23cd30073f",
-   "model/produktnaja-raskladka/mobile/src/features/missions/components/VorgaengeListe.tsx": "9ca51bd06a90599c7202256db066f7486be0a13312d433091ee55f8e63226982",
-   "model/produktnaja-raskladka/mobile/src/features/missions/model/vkladki-dannye.ts": "e8d39311b8ec83f297eb4b581a03d0b81a014d2cd02a434b236047b90a710bd1",
-   "model/produktnaja-raskladka/mobile/src/features/post/components/PostEingang.tsx": "d0c2b7a6da9dac0461cabc8a0e8a37eab217fc471a4310f78b2762ee8d265892",
-   "model/produktnaja-raskladka/mobile/src/features/protection/components/SchutzUebersicht.tsx": "89a56e1b6badfecc65572f2d084937db27feaf2e45aa72288431861563cfc354",
-   "model/produktnaja-raskladka/mobile/src/i18n/ui-copy.ts": "796d73bf36efb73e68baf239bc39bb55d33cd0400c70989e77add3cc0b4cf678",
-   "model/produktnaja-raskladka/mobile/e2e-vkladki/e2e.sh": "ebfabb499009c4b9355ce30970b79ea679c66e923529e64e75f76264ae1af17f"
+   "model/produktnaja-raskladka/mobile/src/features/missions/components/VorgaengeListe.tsx": "57589ff9ebaf166288af949b95ae60e105d8f6d1c68a75f9fa8f04d2af32c002",
+   "model/produktnaja-raskladka/mobile/src/features/missions/model/vkladki-dannye.ts": "9dd6fe0a0fb92d4eaab6b196c64c44f534f2b03e58aeeebbfa837886cade07e5",
+   "model/produktnaja-raskladka/mobile/src/features/post/components/PostEingang.tsx": "34821e7420ff66e1adaf10330e0b26f53a84f94c07196fafd8d6d0f37d97e169",
+   "model/produktnaja-raskladka/mobile/src/features/protection/components/SchutzUebersicht.tsx": "6a7783f5a540d24e3b27390fa67349e1711ec4eb5599bffe5a1403d4c858e62d",
+   "model/produktnaja-raskladka/mobile/src/i18n/ui-copy.ts": "1d00f66166b95d8d2e0d26a0f5895a949be37e924dae6b183bfa06051a158dc1"
   },
   "produkt": {
-   "produkt/vkladki-zond-148.test.tsx": "a6dab970df65199d0fcbc48497103fca92e37b00dfe85fedc01f5983ecfbed39"
+   "produkt/vkladki-zond-148.test.tsx": "642913417c6ca8c8df002abe36ff69d3d36f3d052893b2520d4c05e269db0071"
   }
  },
  "dopusk_score": 0.01,
@@ -1711,7 +1852,7 @@
    "stdout": [
     "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
     "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-03 dark\t0.243\t0.600\tmitte\tNIZHE_POROGA",
+    "KADR\tGA-03 dark\t0.157\t0.600\tmitte\tNIZHE_POROGA",
     "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
     "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
     "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
@@ -1719,7 +1860,7 @@
     "KADR\tGA-09 light\t1.000\t0.600\tG\tOK"
    ],
    "prichiny": [
-    "PRICHINA\tKADR_NIZHE_POROGA\tGA-03 dark\tscore=0.243 porog=0.600 hudshij=mitte"
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-03 dark\tscore=0.157 porog=0.600 hudshij=mitte"
    ]
   },
   "kadr-ustarevshij": {
@@ -1762,7 +1903,7 @@
    "rc": 1,
    "stdout": [],
    "prichiny": [
-    "PRICHINA\tPRESSABLE_BEZ_IZMENENIJA\tvorgaenge-stroka-1"
+    "PRICHINA\tPRESSABLE_BEZ_IZMENENIJA\tvorgaenge-stroka-rechtsschutz"
    ]
   },
   "kasanie-menshe-normy": {
@@ -1825,6 +1966,57 @@
     "PRICHINA\tODNA_TEMA\tкадры профиля без тем: light"
    ]
   },
+  "profil-maska-36": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-03 light 393\tscore=0.595 porog=0.600 hudshij=shapka",
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-04 light 393\tscore=0.565 porog=0.600 hudshij=shapka"
+   ]
+  },
+  "profil-maska-ne-48": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tvkladki\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tPROFIL_MASKA_NE_48: kadry_profil.json: mera.chrome_verh_pt=47, а маска системной шапки профиля 393 — 48 pt (слово владельца 31.10, Q1б; значение — независимо от визуальной меры)"
+   ]
+  },
+  "paket-final2": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tvkladki\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tPAKET_1_1_NE_PRIPINEN: kadry.json: GA-02 dark: пин вне пакета D24-Kompakt-1.1 (frames/SHA256SUMS)"
+   ]
+  },
   "marshrut-bez-obolochki": {
    "rc": 1,
    "stdout": [],
@@ -1873,7 +2065,7 @@
    "rc": 1,
    "stdout": [],
    "prichiny": [
-    "PRICHINA\tLITERAL_VNE_AUDITA\tkontrakt.md:52"
+    "PRICHINA\tLITERAL_VNE_AUDITA\tkontrakt.md:57"
    ]
   },
   "kljuch-bez-kataloga": {
@@ -1958,14 +2150,37 @@
   "pr-makety-piny": {
    "rc": 1,
    "stdout": [
-    "PRICHINA\tMAKET_PIN_NEVEREN: kadry.json: GA-02 dark (путь docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-02.png)"
+    "PRICHINA\tMAKET_PIN_NEVEREN: kadry.json: GA-02 dark (путь docs/ux/05_Kompakt_D24/frames/GA-02_normal_dark_390x844.png)"
+   ],
+   "prichiny": []
+  },
+  "pr-maket-put-net": {
+   "rc": 1,
+   "stdout": [
+    "PRICHINA\tMAKET_PIN_NEVEREN: kadry.json: GA-02 dark (путь docs/ux/05_Kompakt_D24/frames/GA-02_normal_dark_390x844.png)"
    ],
    "prichiny": []
   },
   "pr-kopii-net": {
    "rc": 1,
    "stdout": [
-    "PRICHINA\tKOPII_NET: нет ключей: ['ui.vorgaenge.group.working', 'ui.vorgaenge.group.needs_you']"
+    "PRICHINA\tKOPII_NET: нет ключей: ['ui.mission.group.working', 'ui.mission.group.needs_user']"
+   ],
+   "prichiny": []
+  },
+  "pr-paket-final2": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tvkladki\tOK",
+    "PRICHINA\tPAKET_1_1_NE_PRIPINEN: kadry.json: GA-02 dark: пин вне пакета D24-Kompakt-1.1 (frames/SHA256SUMS)"
    ],
    "prichiny": []
   },
@@ -1983,10 +2198,54 @@
    ],
    "prichiny": []
   },
-  "pr-maket-put-net": {
+  "pr-emuljatory-odnovremenno": {
    "rc": 1,
    "stdout": [
-    "PRICHINA\tMAKET_PIN_NEVEREN: kadry.json: GA-02 dark (путь docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-02.png)"
+    "PRICHINA\tEMULJATORY_ODNOVREMENNO: START 5576 при живом эмуляторе"
+   ],
+   "prichiny": []
+  },
+  "pr-ostanovka-neispolnima": {
+   "rc": 1,
+   "stdout": [
+    "PRICHINA\tEMULJATORY_ODNOVREMENNO: START 5576 при живом эмуляторе"
+   ],
+   "prichiny": []
+  },
+  "pr-port-393-sosednij": {
+   "rc": 1,
+   "stdout": [
+    "PRICHINA\tPORT_393_NE_5576: START 5571, требуется 5576"
+   ],
+   "prichiny": []
+  },
+  "pr-echo-emu-kill": {
+   "rc": 1,
+   "stdout": [
+    "PRICHINA\tEMULJATORY_ODNOVREMENNO: START 5576 при живом эмуляторе"
+   ],
+   "prichiny": []
+  },
+  "pr-if-false-kill": {
+   "rc": 1,
+   "stdout": [
+    "PRICHINA\tEMULJATORY_ODNOVREMENNO: START 5576 при живом эмуляторе"
+   ],
+   "prichiny": []
+  },
+  "pr-maska-ne-48": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tvkladki\tOK",
+    "PRICHINA\tPROFIL_MASKA_NE_48: kadry_profil.json: mera.chrome_verh_pt=47, а маска системной шапки профиля 393 — 48 pt (слово владельца 31.10, Q1б; значение — независимо от визуальной меры)"
    ],
    "prichiny": []
   },
@@ -2037,92 +2296,6 @@
     "PRICHINA\tISPOLNIMYJ_MUTANT_ZHIV: tabs, badge, skroll"
    ],
    "prichiny": []
-  },
-  "profil-maska-36": {
-   "rc": 1,
-   "stdout": [
-    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK"
-   ],
-   "prichiny": [
-    "PRICHINA\tKADR_NIZHE_POROGA\tGA-02 light 393\tscore=0.513 porog=0.600 hudshij=shapka",
-    "PRICHINA\tKADR_NIZHE_POROGA\tGA-03 light 393\tscore=0.498 porog=0.600 hudshij=shapka",
-    "PRICHINA\tKADR_NIZHE_POROGA\tGA-04 light 393\tscore=0.475 porog=0.600 hudshij=shapka"
-   ]
-  },
-  "profil-maska-ne-48": {
-   "rc": 1,
-   "prichiny": [
-    "PRICHINA\tPROFIL_MASKA_NE_48: kadry_profil.json: mera.chrome_verh_pt=47, а маска системной шапки профиля 393 — 48 pt (слово владельца 31.10, Q1б; значение — независимо от визуальной меры)"
-   ],
-   "stdout": [
-    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
-    "SHABLON\tvkladki\tOK"
-   ]
-  },
-  "pr-emuljatory-odnovremenno": {
-   "rc": 1,
-   "stdout": [
-    "PRICHINA\tEMULJATORY_ODNOVREMENNO: START 5576 при живом эмуляторе"
-   ],
-   "prichiny": []
-  },
-  "pr-ostanovka-neispolnima": {
-   "rc": 1,
-   "prichiny": [],
-   "stdout": [
-    "PRICHINA\tEMULJATORY_ODNOVREMENNO: START 5576 при живом эмуляторе"
-   ]
-  },
-  "pr-port-393-sosednij": {
-   "rc": 1,
-   "prichiny": [],
-   "stdout": [
-    "PRICHINA\tPORT_393_NE_5576: START 5571, требуется 5576"
-   ]
-  },
-  "pr-echo-emu-kill": {
-   "rc": 1,
-   "prichiny": [],
-   "stdout": [
-    "PRICHINA\tEMULJATORY_ODNOVREMENNO: START 5576 при живом эмуляторе"
-   ]
-  },
-  "pr-if-false-kill": {
-   "rc": 1,
-   "prichiny": [],
-   "stdout": [
-    "PRICHINA\tEMULJATORY_ODNOVREMENNO: START 5576 при живом эмуляторе"
-   ]
-  },
-  "pr-maska-ne-48": {
-   "rc": 1,
-   "prichiny": [],
-   "stdout": [
-    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
-    "SHABLON\tvkladki\tOK",
-    "PRICHINA\tPROFIL_MASKA_NE_48: kadry_profil.json: mera.chrome_verh_pt=47, а маска системной шапки профиля 393 — 48 pt (слово владельца 31.10, Q1б; значение — независимо от визуальной меры)"
-   ]
   }
  },
  "stab_vhod": {
@@ -2217,6 +2390,12 @@
   ],
   "s89_maska48_produkt_propuskaet.py": [
    "pr-maska-ne-48"
+  ],
+  "s90_paket_propuskaet.py": [
+   "paket-final2"
+  ],
+  "s91_paket_produkt_propuskaet.py": [
+   "pr-paket-final2"
   ]
  }
 }

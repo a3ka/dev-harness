@@ -3,8 +3,8 @@
 // (GA-02/03/04/09). Знак — FadenSign tiers «tab» 28 px (движок 145,
 // mobile/src/lib/faden); статус Mitte — «In Arbeit» (GA-02/04/09) либо
 // бейдж «Ihre Rückmeldung nötig» (GA-03), ключи каталога slice-1
-// ui.vorgaenge.group.working / needs_you; a11y-имя — база
-// proposed.gespraech.tab.a11y + статус. Роль — button, НЕ tab-роль
+// ui.mission.group.working / needs_user (каталог 1.1); a11y-имя —
+// шаблон proposed.gespraech.tab.a11y.status ({status}). Роль — button, НЕ tab-роль
 // (замороженная грамматика 999 держит роль вкладки ровно для четырёх
 // канонических секций TAB_ORDER; Mitte — кнопка действия): до контракта
 // меню 147 нажатие даёт видимый отклик — переключение статуса/бейджа
@@ -27,8 +27,8 @@ export interface GespraechMitteProps {
 }
 
 const STATUS_KEYS: Readonly<Record<GespraechMitteStatus, string>> = {
-  working: 'ui.vorgaenge.group.working',
-  needs_action: 'ui.vorgaenge.group.needs_you',
+  working: 'ui.mission.group.working',
+  needs_action: 'ui.mission.group.needs_user',
 };
 
 export function GespraechMitte({
@@ -38,10 +38,11 @@ export function GespraechMitte({
   onPress,
 }: GespraechMitteProps) {
   const statusText = uiCopyDe[STATUS_KEYS[status]].text;
-  const baseA11y = uiCopyDe['proposed.gespraech.tab.a11y'].text;
+  const baseA11y = uiCopyDe['proposed.gespraech.tab.a11y.status'].text
+      .replace('{status}', statusText);
   return (
     <Pressable
-      accessibilityLabel={`${baseA11y} – ${statusText}`}
+      accessibilityLabel={baseA11y}
       accessibilityRole="button"
       onPress={onPress}
       style={styles.mitte}

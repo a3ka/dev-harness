@@ -44,6 +44,36 @@ def proverka_maski_profilja(pack: Path):
                 % (imja, znach, PROFIL_MASKA_PT))
     return None
 
+def proverka_paketa(pack: Path):
+    """v+1 (слово владельца 2026-11-02): пин пачки — пакет D24-Kompakt-1.1:
+    каждый кадр обоих манифестов лежит в docs/ux/05_Kompakt_D24/frames/ и
+    его maket_sha256 == записи frames/SHA256SUMS пакета. Старый пин
+    D 2.4 Final 2 валидатор ПРИНИМАЕТ (файлы честны) — красит его ТОЛЬКО
+    этот гейт (клетка paket-final2, стаб s90)."""
+    sums = {}
+    for line in (HERE.parent / 'nositeli/paket/SHA256SUMS').read_text(
+            encoding='utf-8').splitlines():
+        sha, imja = line.split(maxsplit=1)
+        sums[imja.strip().lstrip('*')] = sha
+    try:
+        forma = json.loads((pack / 'ekran.json').read_text(encoding='utf-8'))
+        imena = ['kadry.json',
+                 forma.get('vtoroj_profil', {}).get('kadry', 'kadry_profil.json')]
+    except (OSError, ValueError):
+        return None
+    for imja in imena:
+        try:
+            kadry = json.loads((pack / imja).read_text(encoding='utf-8'))['kadry']
+        except (OSError, ValueError, KeyError):
+            return None
+        for k in kadry:
+            put = k.get('maket', '')
+            imja_fajla = put.rsplit('/', 1)[-1]
+            if (not put.startswith('docs/ux/05_Kompakt_D24/frames/')
+                    or sums.get(imja_fajla) != k.get('maket_sha256')):
+                return ('PAKET_1_1_NE_PRIPINEN: %s: %s: пин вне пакета '
+                        'D24-Kompakt-1.1 (frames/SHA256SUMS)' % (imja, k.get('id')))
+    return None
 
 def main():
     ap = argparse.ArgumentParser()
@@ -59,6 +89,10 @@ def main():
     sys.stderr.write(p.stderr)
     if p.returncode == 0:
         prichina = proverka_maski_profilja(Path(a.pack))
+        if prichina:
+            print('PRICHINA\t%s' % prichina, file=sys.stderr)
+            return 1
+        prichina = proverka_paketa(Path(a.pack))
         if prichina:
             print('PRICHINA\t%s' % prichina, file=sys.stderr)
             return 1

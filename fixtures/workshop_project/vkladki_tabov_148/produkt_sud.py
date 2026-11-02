@@ -63,22 +63,34 @@ MITTE_MARKERY = [
     "import { FadenSign } from '../lib/faden/FadenSign';",
     'size="tab"',
     'testID="gespraech-mitte"',
-    "working: 'ui.vorgaenge.group.working'",
-    "needs_action: 'ui.vorgaenge.group.needs_you'",
-    "uiCopyDe['proposed.gespraech.tab.a11y']",
+    "working: 'ui.mission.group.working'",
+    "needs_action: 'ui.mission.group.needs_user'",
+    "uiCopyDe['proposed.gespraech.tab.a11y.status']",
 ]
 KOPII_KLJUCHI = [
+    'ia115.nav.START',
+    'ia117.nav.VORGAENGE',
+    'ia115.nav.SCHUTZ',
+    'ia115.nav.POST',
     'proposed.gespraech.tab',
     'proposed.gespraech.tab.a11y',
-    'ui.vorgaenge.group.working',
-    'ui.vorgaenge.group.needs_you',
-    'ui.vorgaenge.group.waiting',
+    'proposed.gespraech.tab.a11y.status',
+    'ui.mission.group.working',
+    'ui.mission.group.needs_user',
+    'ui.mission.group.waiting',
     'ui.vorgaenge.subtitle',
     'ui.mission.all_done',
     'ui.post.filter.all',
     'ui.post.filter.received',
     'ui.post.filter.sent',
     'ui.post.send_to_complior',
+    # Notice-зона GA-03 — каталогизирована пакетом 1.1 (маска снята)
+    'proposed.protection.status.gap',
+    'fixture.schutz.02',
+    'proposed.schutz.gap.action',
+    'proposed.schutz.stat.contracts',
+    'proposed.schutz.stat.premium',
+    'proposed.schutz.section.areas',
 ]
 KONTENT_FAJLY = [
     'mobile/src/features/missions/components/VorgaengeListe.tsx',
@@ -245,6 +257,38 @@ def proverka_maski_profilja(repo: Path):
                 % (imja, znach, PROFIL_MASKA_PT))
     return None
 
+def proverka_paketa(repo: Path):
+    """v+1 (слово владельца 2026-11-02): пин пачки R — пакет
+    D24-Kompakt-1.1: каждый кадр обоих манифестов лежит в
+    docs/ux/05_Kompakt_D24/frames/ и maket_sha256 == записи
+    frames/SHA256SUMS. Старый пин Final 2 (файлы честны) проходят и
+    пин-проверку, и эталон — красит ТОЛЬКО этот гейт (клетка
+    pr-paket-final2, стаб s91)."""
+    sums = {}
+    for line in (HERE / 'nositeli/paket/SHA256SUMS').read_text(
+            encoding='utf-8').splitlines():
+        sha, imja = line.split(maxsplit=1)
+        sums[imja.strip().lstrip('*')] = sha
+    pachka = repo / 'mobile/e2e-vkladki'
+    try:
+        forma = json.loads((pachka / 'ekran.json').read_text(encoding='utf-8'))
+        imena = ['kadry.json',
+                 forma.get('vtoroj_profil', {}).get('kadry', 'kadry_profil.json')]
+    except (OSError, ValueError):
+        return None
+    for imja in imena:
+        try:
+            kadry = json.loads((pachka / imja).read_text(encoding='utf-8'))['kadry']
+        except (OSError, ValueError, KeyError):
+            return None
+        for k in kadry:
+            put = k.get('maket', '')
+            imja_fajla = put.rsplit('/', 1)[-1]
+            if (not put.startswith('docs/ux/05_Kompakt_D24/frames/')
+                    or sums.get(imja_fajla) != k.get('maket_sha256')):
+                return ('PAKET_1_1_NE_PRIPINEN: %s: %s: пин вне пакета '
+                        'D24-Kompakt-1.1 (frames/SHA256SUMS)' % (imja, k.get('id')))
+    return None
 
 def put_maketa(repo: Path, rel: str):
     """Макет — файл по КАНОНИЧЕСКОМУ пути в R (блок 2 Crit148): носитель
@@ -683,6 +727,10 @@ def main():
     maska = proverka_maski_profilja(repo)
     if maska:
         print('PRICHINA\t%s' % maska)
+        return 1
+    paket = proverka_paketa(repo)
+    if paket:
+        print('PRICHINA\t%s' % paket)
         return 1
     rc2, prichiny2 = ispolnimyj_sud(repo, src)
     for p in prichiny2:

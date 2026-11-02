@@ -13,8 +13,8 @@ import { ThemeContext } from '../../../theme/context';
 import { VORGAENGE_SPISENOK, type VorgangGruppa, type VorgangRow } from '../model/vkladki-dannye';
 
 const GROUP_KEYS: Readonly<Record<VorgangGruppa, string>> = {
-  working: 'ui.vorgaenge.group.working',
-  waiting: 'ui.vorgaenge.group.waiting',
+  working: 'ui.mission.group.working',
+  waiting: 'ui.mission.group.waiting',
 };
 
 const GRUPPY: readonly VorgangGruppa[] = ['working', 'waiting'];
