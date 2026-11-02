@@ -1,0 +1,1 @@
+Behavioral self-test of the existing critic spawn and freeze gates. Implementation changes scripts/zamok_predmeta.sh and scripts/freeze_contract.sh; this directory is a probe, not a new production gate.
