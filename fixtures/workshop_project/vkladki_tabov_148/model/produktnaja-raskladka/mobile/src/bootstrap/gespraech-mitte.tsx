@@ -74,11 +74,15 @@ export function GespraechMitte({
 }
 
 const styles = StyleSheet.create({
+  /* v3a (Crit148k2a, Б2): зона Mitte — nav.item.min-height 48px
+     (пакет D24-Kompakt-1.1, $value); видимая pebble 40×24 (1.1) —
+     зона расширена до нормы строки лейсте. Измеряет зонд 148. */
   mitte: {
     alignItems: 'center',
     gap: 2,
     paddingHorizontal: 8,
     paddingVertical: 4,
+    minHeight: 48,
   },
   badgeWrap: {
     paddingHorizontal: 6,

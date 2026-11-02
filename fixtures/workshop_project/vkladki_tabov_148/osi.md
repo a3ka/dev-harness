@@ -1,7 +1,7 @@
-# Оси батареи 148 (vkladki-tabov) — 54 клетки, 27 стабов, 44 привязки
-# (`--model` rc 0 54/54; `--stabs` rc 0, контроль 54/54,
-# «SVJAZI 44», живых 0; без флага — rc 1, зелёных 36 /
-# красных 18: продукта в дереве харнесса нет).
+# Оси батареи 148 (vkladki-tabov) — 56 клеток, 29 стабов, 46 привязок
+# (`--model` rc 0 56/56; `--stabs` rc 0, контроль 56/56,
+# «SVJAZI 46», живых 0; без флага — rc 1, зелёных 37 /
+# красных 19: продукта в дереве харнесса нет).
 
 Субъекты (Н-39: стабы привязаны к ветвям ОБОИХ субъектов по stab_vhod
 source.json — привязка кодом, не прозой):
@@ -11,7 +11,9 @@ source.json — привязка кодом, не прозой):
   (mera.chrome_verh_pt == 48) и гейт ПАКЕТА (каждый кадр обоих
   манифестов — docs/ux/05_Kompakt_D24/frames/ + sha == записи
   nositeli/paket/SHA256SUMS пакета D24-Kompakt-1.1; возврат пина
-  D 2.4 Final 2 — PAKET_1_1_NE_PRIPINEN) ПОСЛЕ визуального суда
+  D 2.4 Final 2 — PAKET_1_1_NE_PRIPINEN; v3a Crit148k2a Б1: гейт ИМЁН
+  KADR_PODMENEN — пин каждой записи ↔ её идентификатор по оракулу
+  kadry_manifest/profil_kadry) ПОСЛЕ визуального суда
   делегата `--sud` (живой `scripts/ekran_shablon.py` или эталон) на
   модельной пачке «vkladki» (shablon 3; носители — 16 кадров
   GA-02/03/04/09 пакета D24-Kompakt-1.1 по ИМЕНАМ пакета, байты
@@ -30,14 +32,19 @@ source.json — привязка кодом, не прозой):
 - **B (продукт)** — `produkt_sud.py --repo R`: маркеры шва/контента,
   пины кадров по каноническим путям R (docs/ux/05_Kompakt_D24/frames/,
   гейт пакета PAKET_1_1_NE_PRIPINEN — те же sha, что у судьи формы),
-  снимки обоих профилей и pressable (зона hw/hh); И-11 — исполняемый
+  снимки обоих профилей и pressable (зона hw/hh); v3a Crit148k2a: гейты KADR_PODMENEN (имя записи ↔ идентификатор) и TOKENY_ISTOCHNIK_NEVEREN (байты ds/tokens.css == пину frames.json пакета); И-11 — исполняемый
   e2e.sh в одноразовом cwd с двойниками adb/emulator/maestro/sleep в
   PATH+ANDROID_HOME, состояние живых серийников и журнал KILL/START;
   затем полный суд пачки эталоном v3; последним — ИСПОЛНЯЕМЫЙ суд
   (блок 1 Crit148): живой jest-зонд produkt/vkladki-zond-148.test.tsx
   (пин sha256 в piny.produkt) на РЕАЛЬНЫХ компонентах R в
-  изолированной копии mobile + матрица трёх мутаций tabs/badge/skroll
-  — контроль зелен, мутанты убиты предметными ассертами (прецедент
+  изолированной копии mobile + матрица ПЯТИ мутаций
+  tabs/badge/skroll/kasanie/tokeny — контроль зелен, мутанты убиты
+  предметными ассертами; v3a: зонд меряет фактическую зону нажатия
+  (height/minHeight + hitSlop ≥ touch-target.min на обоих профилях,
+  лейсте ≥ nav.item.min-height, строки ≥ 60 — Crit148k2a Б2) и
+  типографику вкладок против $value 1.1 (nav.label.* — Б3); значения —
+  носитель nositeli/tokeny-1-1.json (дословные ветки пакета) (прецедент
   zhivoj_komponent 145; без package.json — именованный пропуск,
   заявленная среда без установки — rc 2 LIVE_PREDPOSYLKA, никогда
   skip→pass). Эталон — собранная референсная раскладка
@@ -97,11 +104,15 @@ KADR-числа; stubs ↔ stab_vhod — рассинхрон rc 2 ORACLE_TAMPER
   маски 47 при визуально зелёных кадрах (правка Crit148v2, блок 3) —
   PROFIL_MASKA_NE_48: инвариант ТОЧНОГО значения 48 судит судья
   формы ПОСЛЕ визуального суда.
-- **Пакет 1.1** (1; v+1, слово владельца 2026-11-02): пин кадров
-  возвращён на D 2.4 Final 2 (пути 04_Gespraech_D24/pack/screens/,
-  файлы и sha честны, валидатор ЗЕЛЁН — KADR×8 + SHABLON OK) —
-  PAKET_1_1_NE_PRIPINEN: гейт пакета судьи формы (вход paket-final2,
-  клетка 13 контракта).
+- **Пакет 1.1 / имена кадров** (3; v+1 слово 2026-11-02 + v3a
+  Crit148k2a Б1): пин кадров возвращён на D 2.4 Final 2 (пути
+  04_Gespraech_D24/pack/screens/, файлы и sha честны, валидатор ЗЕЛЁН
+  — KADR×8 + SHABLON OK) — PAKET_1_1_NE_PRIPINEN: гейт пакета судьи
+  формы (вход paket-final2, клетка 13 контракта); запись «GA-02 dark»
+  перепинена на СОСЕДНИЙ кадр того же пакета (GA-04, файл и sha
+  честны) — KADR_PODMENEN у судьи формы (вход kadry-podmenen,
+  клетка 15) и у продукт-судьи (вход pr-kadry-podmenen, клетка 16:
+  stdout честен — KADR×8 + SHABLON OK, красит гейт имён).
 - **Проход** (3): argv без цели-флою — PROKHOD_NE_MAESTRO; флоу без
   pressable-токена — PROKHOD_BEZ_PRESSABLE; исполнение rc 1 —
   PROKHOD_NE_PROSHLA.
@@ -112,7 +123,11 @@ KADR-числа; stubs ↔ stab_vhod — рассинхрон rc 2 ORACLE_TAMPER
 - **Движение-пусто** (3): perehody += GA-T28 (∩ = ∅) — PEREHOD_LISHNIJ;
   пин спеки неверен — ISTOCHNIK_NE_SOVPADAET; пути источника нет —
   ISTOCHNIK_OTSVTSTVUET (rc 2 fail-closed, инфраструктура).
-- **Продукт** (19): шов без слотов — SHOV_NET; Mitte с tab-ролью —
+- **Продукт** (20): шов без слотов — SHOV_NET; подмена имени кадра
+  в пачке R при честных файле и sha — KADR_PODMENEN (v3a, вход
+  pr-kadry-podmenen); дрейф байтов источника токенов —
+  TOKENY_ISTOCHNIK_NEVEREN (И-12; живые обходы Б2/Б3 роняют контроль
+  зонда — ISPOLNIMYJ_KONTROL_KRASEN, приёмка 16); Mitte с tab-ролью —
   MITTE_V_TAB; пачка удалена — PACHKA_ABSENT; пин макета неверен либо
   PNG удалён по каноническому пути — MAKET_PIN_NEVEREN; пин пачки R
   на Final 2 при честных файлах — PAKET_1_1_NE_PRIPINEN (v+1, вход
@@ -128,7 +143,7 @@ KADR-числа; stubs ↔ stab_vhod — рассинхрон rc 2 ORACLE_TAMPER
   маска профиля R 47 при визуально зелёных кадрах —
   PROFIL_MASKA_NE_48; честная база — rc 0.
 
-## Стабы (s65–s91: 13 ветвей эталона A/судьи формы + 14 ветвей продукт-судьи B)
+## Стабы (s65–s93: 14 ветвей эталона A/судьи формы + 15 ветвей продукт-судьи B)
 
 Каждый стаб подменяет РОВНО свою ветвь (файл stubs/, загрузчики
 _model.py/_produkt.py) и обязан быть пойман на КАЖДОМ входе своей записи
@@ -156,5 +171,11 @@ model/sud_formy_148.py; доставляет делегата --sud сам — �
 формы (v+1, слово 2026-11-02, вход paket-final2, ветка A
 proverka_paketa model/sud_formy_148.py); s91 гасит гейт пакета
 продукт-судьи — пин Final 2 в пачке R проходит (v+1, вход
-pr-paket-final2, ветка B proverka_paketa produkt_sud.py) — ловцы
-привязаны к входам, где дефект наблюдаем.
+pr-paket-final2, ветка B proverka_paketa produkt_sud.py); s92 гасит
+гейт имён судьи формы — подмена «GA-02 dark» на кадр GA-04 того же
+пакета проходит визуальный суд и гейт пакета (v3a Crit148k2a Б1,
+вход kadry-podmenen, ветка A proverka_imen_kadrov
+model/sud_formy_148.py; делегата --sud доставляет сам, как s90);
+s93 гасит гейт имён продукт-судьи — та же подмена в пачке R проходит
+(v3a, вход pr-kadry-podmenen, ветка B proverka_imen_kadrov
+produkt_sud.py) — ловцы привязаны к входам, где дефект наблюдаем.

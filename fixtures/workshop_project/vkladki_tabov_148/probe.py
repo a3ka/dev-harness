@@ -323,6 +323,24 @@ def mut_paket_final2(pack, repo, src):
     # принимается (файлы и sha честны), красит его только гейт пакета 1.1
     perepin_final2(repo, pack)
 
+def mut_kadry_podmenen(pack, repo, src):
+    # v3a (Crit148k2a, Б1): имя записи «GA-02 dark» пинится на СОСЕДНИЙ
+    # кадр того же пакета (GA-04_normal_dark_390x844.png, файл и sha из
+    # SHA256SUMS честны) — членство в пакете есть, соответствия
+    # идентификатору нет; красит гейт имён судьи формы (KADR_PODMENEN)
+    import json as _json
+    put = pack / 'kadry.json'
+    man = _json.loads(put.read_text(encoding='utf-8'))
+    istochnik = next(k for k in man['kadry'] if k['id'] == 'GA-02 dark')
+    sosed = next(k for k in man['kadry'] if k['id'] == 'GA-04 dark')
+    istochnik['maket'], istochnik['maket_sha256'] = sosed['maket'], sosed['maket_sha256']
+    put.write_text(_json.dumps(man, ensure_ascii=False, indent=1), encoding='utf-8')
+    # пин 123 собирается из пачки — обновить, иначе сверка-образец судит
+    # старый манифест (SAMODELNAYA_SVERKA, прецедент perepin_final2)
+    pin123 = repo / '.harness123' / 'kadry.json'
+    if pin123.is_file():
+        shutil.copyfile(put, pin123)
+
 def mut_kadr_nizhe_poroga(pack, repo, src):
     # стенд-ин кладёт кадр GA-03 с залитой фоном полосой Mitte (мода
     # цвета сетки полосы) — свидетель ниже порога; замена стенд-ина,
@@ -542,6 +560,7 @@ MUTACII_FORMY = {
     'profil-maska-36': mut_profil_maska_36,
     'profil-maska-ne-48': mut_profil_maska_ne_48,
     'paket-final2': mut_paket_final2,
+    'kadry-podmenen': mut_kadry_podmenen,
     'marshrut-bez-obolochki': mut_marshrut_bez_obolochki,
     'marshrut-bez-snimka': mut_marshrut_bez_snimka,
     'prokhod-ne-maestro': mut_prokhod_ne_maestro,
@@ -581,6 +600,11 @@ def sobrat_referens(src, tmp):
     # макеты по каноническим путям (блок 2 Crit148: суд привязан к ПУТИ
     # в репо; носители — байты product main, пин sha в манифестах)
     postavit_makety(repo, (src['kadry_manifest'], src['profil_kadry']))
+    # v3a (Crit148k2a, Б3): источник токенов пакета в референсе — байты
+    # носителя (== пакета; proverka_tokenov судит их против frames.json)
+    put = repo / src['ekran_forma_prod']['audit_tokenov']
+    put.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(NOS_TOKENS, put)
     return repo
 
 
@@ -664,6 +688,17 @@ def mut_pr_paket_final2(repo, src):
     # v+1: пин Final 2 в пачке живого R — гейт пакета 1.1 (файлы честны,
     # валидатор и пин-проверка продукта проходят, красит только гейт)
     perepin_final2(repo, repo / 'mobile/e2e-vkladki')
+
+def mut_pr_kadry_podmenen(repo, src):
+    # v3a (Crit148k2a, Б1): в пачке живого R запись «GA-02 dark» пинится
+    # на соседний кадр того же пакета (GA-04, файл и sha честны) —
+    # красит гейт имён продукт-судьи (KADR_PODMENEN)
+    put = repo / 'mobile/e2e-vkladki/kadry.json'
+    man = json.loads(put.read_text(encoding='utf-8'))
+    istochnik = next(k for k in man['kadry'] if k['id'] == 'GA-02 dark')
+    sosed = next(k for k in man['kadry'] if k['id'] == 'GA-04 dark')
+    istochnik['maket'], istochnik['maket_sha256'] = sosed['maket'], sosed['maket_sha256']
+    put.write_text(json.dumps(man, ensure_ascii=False, indent=1), encoding='utf-8')
 
 
 def mut_pr_emuljatory_odnovremenno(repo, src):
@@ -752,6 +787,7 @@ MUTACII_PRODUKTA = {
     'pr-maket-put-net': mut_pr_maket_put_net,
     'pr-kopii-net': mut_pr_kopii_net,
     'pr-paket-final2': mut_pr_paket_final2,
+    'pr-kadry-podmenen': mut_pr_kadry_podmenen,
     'pr-scenarij-net': mut_pr_scenarij_net,
     'pr-kontent-net': mut_pr_kontent_net,
     'pr-emuljatory-odnovremenno': mut_pr_emuljatory_odnovremenno,

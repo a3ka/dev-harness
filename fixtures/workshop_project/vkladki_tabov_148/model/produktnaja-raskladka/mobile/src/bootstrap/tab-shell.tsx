@@ -382,9 +382,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
   },
+  /* v3a (Crit148k2a, Б2/Б3): зона и типографика вкладки — токены
+     пакета D24-Kompakt-1.1 (source/tokens.json): nav.item.min-height
+     48px ($value), nav.label.font-size 10px / nav.label.line-height
+     12px ($value; final2: 11px). Измеряет зонд батареи 148. */
   tab: {
     paddingHorizontal: 12,
     paddingVertical: 6,
+    minHeight: 48,
   },
-  tabLabel: { fontSize: 14 },
+  tabLabel: { fontSize: 10, lineHeight: 12 },
 });

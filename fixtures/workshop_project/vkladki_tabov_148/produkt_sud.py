@@ -30,6 +30,13 @@ ETALON_146_PIN = '5fd1415e40b257e5e7b97c7bf9bc8fe31e94dcea9e05c4c3ac44d68802db45
 ZOND = HERE / 'produkt' / 'vkladki-zond-148.test.tsx'
 ZOND_IMJA = 'vkladki-zond-148.test.tsx'
 ZOND_KUDA = 'src/bootstrap/__tests__'
+# v3a (Crit148k2a, Б3): значения токенов 1.1 — дословная копия веток
+# nav/touch-target пакета; кладётся рядом со зондом, чисел в зонде нет
+TOKENY_NOS = HERE / 'nositeli' / 'tokeny-1-1.json'
+TOKENY_IMJA = 'vkladki-tokeny-148.json'
+# v3a (Crit148k2a, Б3): свод пакета — единственный источник пина байтов
+# ds/tokens.css (frames.json _meta.source_files_sha256)
+NOS_PAKET_FRAMES = HERE / 'nositeli' / 'paket' / 'frames.json'
 
 # Матрица исполняемых мутаций — дословные атаки Crit148 (блок 1): якорь
 # обязан встречаться в файле копии РОВНО один раз, иначе именованная
@@ -44,6 +51,17 @@ MUTACII_ISPOLNIMYE = [
     ('skroll', 'mobile/src/bootstrap/tab-shell.tsx',
      "tabbarOverlay: { bottom: 0, left: 0, position: 'absolute', right: 0 },",
      "tabbarOverlay: { bottom: 0, left: 0, position: 'relative', right: 0 },"),
+    # v3a (Crit148k2a, Б2): фактическая зона 36 при декларированных
+    # hh44 — убивается ассертом зоны зонда (touch-target.min 44)
+    ('kasanie', 'mobile/src/features/post/components/PostEingang.tsx',
+     "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', minHeight: 44 }",
+     "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', height: 36 }"),
+    # v3a (Crit148k2a, Б3): рабочий токен подменён на Final 2
+    # (nav.label.font-size: $value 10 → final2 11) — убивается ассертом
+    # типографики зонда (равенство $value 1.1)
+    ('tokeny', 'mobile/src/bootstrap/tab-shell.tsx',
+     'tabLabel: { fontSize: 10, lineHeight: 12 }',
+     'tabLabel: { fontSize: 11, lineHeight: 12 }'),
 ]
 
 # Точная маска профиля 393 (слово владельца 31.10, Q1б; вердикт Crit148v2
@@ -290,6 +308,65 @@ def proverka_paketa(repo: Path):
                         'D24-Kompakt-1.1 (frames/SHA256SUMS)' % (imja, k.get('id')))
     return None
 
+def proverka_imen_kadrov(repo: Path, src):
+    """v3a (Crit148k2a, Б1): имя записи кадра обязано соответствовать её
+    идентификатору — пин «GA-02 dark» на файл GA-04 (валидный кадр ТОГО
+    ЖЕ пакета с честным sha из SHA256SUMS) — подмена, а не членство.
+    Ожидание — пин оракула батареи (kadry_manifest/profil_kadry ==
+    пакету 1.1): для каждого GA/темы/профиля ровно его кадр из frames/.
+    Закрывающее свойство: на конечном домене 16 кадров замена пина ЛЮБОЙ
+    записи на другой допустимый кадр пакета красна, честная база зелена."""
+    pachka = repo / 'mobile/e2e-vkladki'
+    try:
+        forma = json.loads((pachka / 'ekran.json').read_text(encoding='utf-8'))
+        pary = [('kadry.json', src['kadry_manifest']),
+                (forma.get('vtoroj_profil', {}).get('kadry', 'kadry_profil.json'),
+                 src['profil_kadry'])]
+    except (OSError, ValueError):
+        return None
+    for imja, orakul in pary:
+        try:
+            kadry = json.loads((pachka / imja).read_text(encoding='utf-8'))['kadry']
+        except (OSError, ValueError, KeyError):
+            return None
+        ozhidaemye = {k['id']: k['maket'] for k in orakul['kadry']}
+        for k in kadry:
+            ozhidaemoe = ozhidaemye.get(k.get('id'))
+            if ozhidaemoe is None:
+                return ('KADR_PODMENEN: %s: %s: записи нет в пине пакета '
+                        'D24-Kompakt-1.1 (GA-02/03/04/09 × normal × '
+                        'dark/light × 390×844/393×852)' % (imja, k.get('id')))
+            if k.get('maket') != ozhidaemoe:
+                return ('KADR_PODMENEN: %s: %s: пин %s — имя записи не '
+                        'соответствует её идентификатору (пакет 1.1 пинит '
+                        '%s)' % (imja, k.get('id'),
+                                 Path(k.get('maket', '')).name,
+                                 Path(ozhidaemoe).name))
+    return None
+
+def proverka_tokenov(repo: Path, src):
+    """v3a (Crit148k2a, Б3): источник токенов пакета в R — БАЙТЫ пакета
+    (docs/ux/05_Kompakt_D24/source/ds/tokens.css): пин — свод самого
+    пакета (frames.json _meta.source_files_sha256['ds/tokens.css']),
+    не фикстура батареи. Подмена байтов источника при верной соседней
+    копии/пачке — именованный отказ."""
+    try:
+        svod = json.loads(NOS_PAKET_FRAMES.read_text(encoding='utf-8'))
+        pin = svod['_meta']['source_files_sha256']['ds/tokens.css']
+    except (OSError, ValueError, KeyError, TypeError):
+        return 'ORACLE_TAMPERED: frames.json пакета без пина ds/tokens.css'
+    put = repo / src['ekran_forma_prod']['audit_tokenov']
+    if not put.is_file():
+        return ('TOKENY_ISTOCHNIK_NEVEREN: нет %s — источник токенов '
+                'пакета D24-Kompakt-1.1 (использование токенов экраном '
+                'судится зондом против того же пакета)' % put.relative_to(repo))
+    fakt = sha256_fajla(put)
+    if fakt != pin:
+        return ('TOKENY_ISTOCHNIK_NEVEREN: %s: байты != пакета '
+                'D24-Kompakt-1.1 (sha256 %s…, свод пакета %s…)'
+                % (put.relative_to(repo), fakt[:12], pin[:12]))
+    return None
+
 def put_maketa(repo: Path, rel: str):
     """Макет — файл по КАНОНИЧЕСКОМУ пути в R (блок 2 Crit148): носитель
     батареи НЕ подменяет путь; отсутствие файла == MAKET_PIN_NEVEREN."""
@@ -508,10 +585,13 @@ def sobrat_repo(repo: Path, tmp: Path, src):
         if (sint / rel).is_file() or (H_ROOT / rel).is_file()]
     (pachka / 'ekran.json').write_text(
         json.dumps(forma, ensure_ascii=False, indent=1), encoding='utf-8')
-    # аудит токенов (копия продукта, пин в source.json)
+    # аудит токенов (v3a, Crit148k2a Б3): синтетическое репо несёт
+    # ИСТОЧНИК R, когда он есть; фикстура батареи — только заполнение
+    # синтетических входов без источника, НЕ единственный источник
     put = sint / src['ekran_forma']['audit_tokenov']
     put.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(NOS_TOKENS, put)
+    isto = repo / src['ekran_forma']['audit_tokenov']
+    shutil.copyfile(isto if isto.is_file() else NOS_TOKENS, put)
     # флоу из R
     for f in ('vkladki.yaml', 'vkladki-tabshell-393.yaml', 'prokhod-vkladki.yaml'):
         isto = repo / 'mobile/.maestro' / f
@@ -582,6 +662,11 @@ def ispolnimyj_sud(repo: Path, src):
         return 0, []
     if not ZOND.is_file() or sha256_fajla(ZOND) != src['piny']['produkt']['produkt/%s' % ZOND_IMJA]:
         return 2, ['ORACLE_TAMPERED: пин зонда не совпал']
+    # v3a (Crit148k2a, Б3): значения токенов 1.1 — носитель батареи,
+    # пин sha256; кладётся рядом со зондом (чисел в зонде нет)
+    if (not TOKENY_NOS.is_file()
+            or sha256_fajla(TOKENY_NOS) != src['piny']['nositeli']['nositeli/tokeny-1-1.json']):
+        return 2, ['ORACLE_TAMPERED: пин носителя токенов 1.1 не совпал']
     predposylki = []
     konfig = None
     for imja in ('jest.config.js', 'jest.config.json'):
@@ -610,6 +695,8 @@ def ispolnimyj_sud(repo: Path, src):
         zond = kopija / ZOND_KUDA / ZOND_IMJA
         zond.parent.mkdir(parents=True, exist_ok=True)
         zond.write_text(ZOND.read_text(encoding='utf-8'), encoding='utf-8')
+        (zond.parent / TOKENY_IMJA).write_text(
+            TOKENY_NOS.read_text(encoding='utf-8'), encoding='utf-8')
 
         def zapustit():
             try:
@@ -731,6 +818,14 @@ def main():
     paket = proverka_paketa(repo)
     if paket:
         print('PRICHINA\t%s' % paket)
+        return 1
+    imena = proverka_imen_kadrov(repo, src)
+    if imena:
+        print('PRICHINA\t%s' % imena)
+        return 1
+    tokeny = proverka_tokenov(repo, src)
+    if tokeny:
+        print('PRICHINA\t%s' % tokeny)
         return 1
     rc2, prichiny2 = ispolnimyj_sud(repo, src)
     for p in prichiny2:

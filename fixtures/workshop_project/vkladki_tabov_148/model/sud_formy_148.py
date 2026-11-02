@@ -75,6 +75,41 @@ def proverka_paketa(pack: Path):
                         'D24-Kompakt-1.1 (frames/SHA256SUMS)' % (imja, k.get('id')))
     return None
 
+def proverka_imen_kadrov(pack: Path):
+    """v3a (Crit148k2a, Б1): имя записи кадра обязано соответствовать её
+    идентификатору — пин «GA-02 dark» на файл GA-04 (валидный кадр ТОГО
+    ЖЕ пакета, честный sha из SHA256SUMS) — подмена, не членство.
+    Ожидание — пин оракула батареи (kadry_manifest/profil_kadry ==
+    пакету 1.1, тот же источник у продукт-судьи produkt_sud)."""
+    import json as _json
+    src = _json.loads((HERE.parent / 'source.json').read_text(encoding='utf-8'))
+    try:
+        forma = _json.loads((pack / 'ekran.json').read_text(encoding='utf-8'))
+        pary = [('kadry.json', src['kadry_manifest']),
+                (forma.get('vtoroj_profil', {}).get('kadry', 'kadry_profil.json'),
+                 src['profil_kadry'])]
+    except (OSError, ValueError):
+        return None
+    for imja, orakul in pary:
+        try:
+            kadry = _json.loads((pack / imja).read_text(encoding='utf-8'))['kadry']
+        except (OSError, ValueError, KeyError):
+            return None
+        ozhidaemye = {k['id']: k['maket'] for k in orakul['kadry']}
+        for k in kadry:
+            ozhidaemoe = ozhidaemye.get(k.get('id'))
+            if ozhidaemoe is None:
+                return ('KADR_PODMENEN: %s: %s: записи нет в пине пакета '
+                        'D24-Kompakt-1.1 (GA-02/03/04/09 × normal × '
+                        'dark/light × 390×844/393×852)' % (imja, k.get('id')))
+            if k.get('maket') != ozhidaemoe:
+                return ('KADR_PODMENEN: %s: %s: пин %s — имя записи не '
+                        'соответствует её идентификатору (пакет 1.1 пинит '
+                        '%s)' % (imja, k.get('id'),
+                                 Path(k.get('maket', '')).name,
+                                 Path(ozhidaemoe).name))
+    return None
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--sud', required=True)
@@ -93,6 +128,10 @@ def main():
             print('PRICHINA\t%s' % prichina, file=sys.stderr)
             return 1
         prichina = proverka_paketa(Path(a.pack))
+        if prichina:
+            print('PRICHINA\t%s' % prichina, file=sys.stderr)
+            return 1
+        prichina = proverka_imen_kadrov(Path(a.pack))
         if prichina:
             print('PRICHINA\t%s' % prichina, file=sys.stderr)
             return 1

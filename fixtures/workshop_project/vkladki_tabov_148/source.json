@@ -1760,7 +1760,8 @@
    "nositeli/paket/SHA256SUMS": "d8fe43b5f4b3850210afc8299a3fd0ab120b15eefd519f1a883d0f69687f9746",
    "nositeli/paket/frames.json": "84e4b5fc52d4dd7e00f91c4c7b9fb56f7ccc5a119b0f4cd351a8199efab72a8b",
    "nositeli/paket/manifest.json": "3fc386adb04fcbffe60bad979b2b0d53085c013bdbc63a6a905af3e6a568a633",
-   "nositeli/tokens.css": "49f50ad6695dbf372bdc4c06418421af69fd82bad6b22ed55742922a20cb254e"
+   "nositeli/tokens.css": "49f50ad6695dbf372bdc4c06418421af69fd82bad6b22ed55742922a20cb254e",
+   "nositeli/tokeny-1-1.json": "9fe46721c66d5657a5598d3f5c43f6c92cd6b41217621c08cbfe270e9a643953"
   },
   "etalon_raskladka": {
    "model/produktnaja-raskladka/mobile/.maestro/prokhod-vkladki.yaml": "1543efeffec0f750bea8baa057db644b0ac6edf01029ad30721c3e278865ddda",
@@ -1768,16 +1769,16 @@
    "model/produktnaja-raskladka/mobile/.maestro/vkladki.yaml": "91cf8de5ad9cf2024b09b250d1a9373e018bc3025d3def6bca1b8000724cf475",
    "model/produktnaja-raskladka/mobile/e2e-vkladki/e2e.sh": "ebfabb499009c4b9355ce30970b79ea679c66e923529e64e75f76264ae1af17f",
    "model/produktnaja-raskladka/mobile/src/app/(tabs)/[section].tsx": "64495569d54189b8b4f515fc50a260a7a4e447f9bb62809b1c43c4248693307e",
-   "model/produktnaja-raskladka/mobile/src/bootstrap/gespraech-mitte.tsx": "028de92032d96571f23f71a362e4672e86dbe3f7524f4741ad2026dcb1a0ccf1",
-   "model/produktnaja-raskladka/mobile/src/bootstrap/tab-shell.tsx": "81b031cbf9b0beaf2b4d1c8f2bc008f433bbd479db5bb683483c8c23cd30073f",
-   "model/produktnaja-raskladka/mobile/src/features/missions/components/VorgaengeListe.tsx": "57589ff9ebaf166288af949b95ae60e105d8f6d1c68a75f9fa8f04d2af32c002",
+   "model/produktnaja-raskladka/mobile/src/bootstrap/gespraech-mitte.tsx": "0c5677b983b473c0e848c766b733d5e2839e1c83ba5f044a4fda53af648377ab",
+   "model/produktnaja-raskladka/mobile/src/bootstrap/tab-shell.tsx": "364a3c8e5730ad1446f18e0eebd05e9342824bff435d47512d5225af89e34caa",
+   "model/produktnaja-raskladka/mobile/src/features/missions/components/VorgaengeListe.tsx": "256fd30e9c3a8bd9d10469bf90f34435b47670b8fb32458b6cd115d49e59cf61",
    "model/produktnaja-raskladka/mobile/src/features/missions/model/vkladki-dannye.ts": "9dd6fe0a0fb92d4eaab6b196c64c44f534f2b03e58aeeebbfa837886cade07e5",
    "model/produktnaja-raskladka/mobile/src/features/post/components/PostEingang.tsx": "34821e7420ff66e1adaf10330e0b26f53a84f94c07196fafd8d6d0f37d97e169",
    "model/produktnaja-raskladka/mobile/src/features/protection/components/SchutzUebersicht.tsx": "6a7783f5a540d24e3b27390fa67349e1711ec4eb5599bffe5a1403d4c858e62d",
    "model/produktnaja-raskladka/mobile/src/i18n/ui-copy.ts": "1d00f66166b95d8d2e0d26a0f5895a949be37e924dae6b183bfa06051a158dc1"
   },
   "produkt": {
-   "produkt/vkladki-zond-148.test.tsx": "642913417c6ca8c8df002abe36ff69d3d36f3d052893b2520d4c05e269db0071"
+   "produkt/vkladki-zond-148.test.tsx": "b6fcfe0ba4298be746a51810e714282d850b9189f1944faadfe455cf96ef1059"
   }
  },
  "dopusk_score": 0.01,
@@ -2293,7 +2294,40 @@
     "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
     "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
     "SHABLON\tvkladki\tOK",
-    "PRICHINA\tISPOLNIMYJ_MUTANT_ZHIV: tabs, badge, skroll"
+    "PRICHINA\tISPOLNIMYJ_MUTANT_ZHIV: tabs, badge, skroll, kasanie, tokeny"
+   ],
+   "prichiny": []
+  },
+  "kadry-podmenen": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tvkladki\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tKADR_PODMENEN: kadry.json: GA-02 dark: пин GA-04_normal_dark_390x844.png — имя записи не соответствует её идентификатору (пакет 1.1 пинит GA-02_normal_dark_390x844.png)"
+   ]
+  },
+  "pr-kadry-podmenen": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tvkladki\tOK",
+    "PRICHINA\tKADR_PODMENEN: kadry.json: GA-02 dark: пин GA-04_normal_dark_390x844.png — имя записи не соответствует её идентификатору (пакет 1.1 пинит GA-02_normal_dark_390x844.png)"
    ],
    "prichiny": []
   }
@@ -2396,6 +2430,12 @@
   ],
   "s91_paket_produkt_propuskaet.py": [
    "pr-paket-final2"
+  ],
+  "s92_kadry_podmena_propuskaet.py": [
+   "kadry-podmenen"
+  ],
+  "s93_kadry_podmena_produkt_propuskaet.py": [
+   "pr-kadry-podmenen"
   ]
  }
 }
