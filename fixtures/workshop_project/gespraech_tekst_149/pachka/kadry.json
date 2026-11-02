@@ -15,8 +15,8 @@
    "id": "GA-11 dark",
    "tema": "dark",
    "snimok": "gespraech-tekst-ga-11",
-   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-11.png",
-   "maket_sha256": "4f84799bb08e3d79fb9cacaee8a00e1c1d6b0651552982f659d4eb277eb52865",
+   "maket": "docs/ux/05_Kompakt_D24/frames/GA-11_normal_dark_390x844.png",
+   "maket_sha256": "c98b8a364e9e061be6ff34dc3960c30be76fad5d44d4749dda930bd54b256ec7",
    "porog": 0.6,
    "maski_pt": [],
    "elementy": [
@@ -35,8 +35,8 @@
    "id": "GA-11 light",
    "tema": "light",
    "snimok": "gespraech-tekst-ga-11",
-   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-11-Hell.png",
-   "maket_sha256": "a17ef21da3df386af1c7f1c11ac66a2c1b6966f56672a0bd29fe838cc927751e",
+   "maket": "docs/ux/05_Kompakt_D24/frames/GA-11_normal_light_390x844.png",
+   "maket_sha256": "d19af9510c66bac962094490ec51a50530724fab6c2e3d6877cf3773942810d1",
    "porog": 0.6,
    "maski_pt": [],
    "elementy": [
@@ -55,8 +55,8 @@
    "id": "GA-12 dark",
    "tema": "dark",
    "snimok": "gespraech-tekst-ga-12",
-   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-12.png",
-   "maket_sha256": "16ca3c5b33500e0c2c9c34f56350fcbad124f9413320ebd66479ba42a48a8393",
+   "maket": "docs/ux/05_Kompakt_D24/frames/GA-12_normal_dark_390x844.png",
+   "maket_sha256": "1d87abf1372381a5fa88887825a1fa72eec02d92e1d9234b6a650e5e2ede1013",
    "porog": 0.6,
    "maski_pt": [],
    "elementy": [
@@ -75,8 +75,8 @@
    "id": "GA-12 light",
    "tema": "light",
    "snimok": "gespraech-tekst-ga-12",
-   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-12-Hell.png",
-   "maket_sha256": "0fbd1287aab1a7d1ffa8ce796f5de810410a6ca67418e8af077b5e7de80457d0",
+   "maket": "docs/ux/05_Kompakt_D24/frames/GA-12_normal_light_390x844.png",
+   "maket_sha256": "ef8446fee6f6bf4351a5f82168d3a4480cc509a840c1e5ff725f1a1931295f83",
    "porog": 0.6,
    "maski_pt": [],
    "elementy": [
@@ -95,8 +95,8 @@
    "id": "GA-13 dark",
    "tema": "dark",
    "snimok": "gespraech-tekst-ga-13",
-   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-13.png",
-   "maket_sha256": "13f91b92edf581581aea6d40a5e7ffa375bf17605e53276e5fb7542006e98e09",
+   "maket": "docs/ux/05_Kompakt_D24/frames/GA-13_keyboard_dark_390x844.png",
+   "maket_sha256": "9acb0ab56305c9164ceb1b120d13d397e623ac9a8969b4bf83a638a75231e3b8",
    "porog": 0.6,
    "maski_pt": [
     [
@@ -122,8 +122,8 @@
    "id": "GA-13 light",
    "tema": "light",
    "snimok": "gespraech-tekst-ga-13",
-   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-13-Hell.png",
-   "maket_sha256": "28ea7ff9b6af711641087b5bb32df05f4b56bd53a50f7293a8f9483bc53321db",
+   "maket": "docs/ux/05_Kompakt_D24/frames/GA-13_keyboard_light_390x844.png",
+   "maket_sha256": "c44d75bd7e4746a539ff3a746f2efd165db64edfd658dad9e96972e96d41bd76",
    "porog": 0.6,
    "maski_pt": [
     [
@@ -149,8 +149,8 @@
    "id": "GA-17 dark",
    "tema": "dark",
    "snimok": "gespraech-tekst-ga-17",
-   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-17.png",
-   "maket_sha256": "fc8533de2dd04b320594b3063f647b22a29d003b6344a07b0854231787fb125e",
+   "maket": "docs/ux/05_Kompakt_D24/frames/GA-17_keyboard_dark_390x844.png",
+   "maket_sha256": "cc86c61094bf8d35708b01d98ef7cb064f9204ecc10fc156b8149fb6303b7c03",
    "porog": 0.6,
    "maski_pt": [
     [
@@ -176,8 +176,8 @@
    "id": "GA-17 light",
    "tema": "light",
    "snimok": "gespraech-tekst-ga-17",
-   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-17-Hell.png",
-   "maket_sha256": "e816de45698f123b9fb8467b1cbf86f2dbed88df710ac22f8b4b11ff5fd9b82b",
+   "maket": "docs/ux/05_Kompakt_D24/frames/GA-17_keyboard_light_390x844.png",
+   "maket_sha256": "8c1102592192152430bc6c1c3c0d87ad41cc5966455e0a0979322194cbe7e25e",
    "porog": 0.6,
    "maski_pt": [
     [
@@ -203,8 +203,8 @@
    "id": "GA-18 dark",
    "tema": "dark",
    "snimok": "gespraech-tekst-ga-18",
-   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-18.png",
-   "maket_sha256": "7af795a72f8adb66c1f0f7d33be21403c6901250114e3b75fd3019dc22d048c4",
+   "maket": "docs/ux/05_Kompakt_D24/frames/GA-18_normal_dark_390x844.png",
+   "maket_sha256": "ef83544606264ad028ec563d2180def49844461240962ba9ed436a39eedbc4be",
    "porog": 0.6,
    "maski_pt": [],
    "elementy": [
@@ -223,8 +223,8 @@
    "id": "GA-18 light",
    "tema": "light",
    "snimok": "gespraech-tekst-ga-18",
-   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-18-Hell.png",
-   "maket_sha256": "98b2f7f9cc9ee7838da8f53d9b9e11c08993494b601d1d3f643dc7fc26c9202b",
+   "maket": "docs/ux/05_Kompakt_D24/frames/GA-18_normal_light_390x844.png",
+   "maket_sha256": "af20f508f4370419c5f06df5dca45c74b43494e18ddd37bf3cf3b3c45336a63e",
    "porog": 0.6,
    "maski_pt": [],
    "elementy": [
@@ -243,8 +243,8 @@
    "id": "GA-19 dark",
    "tema": "dark",
    "snimok": "gespraech-tekst-ga-19",
-   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-19.png",
-   "maket_sha256": "4fca14f3a9ef70858c4f36777a8931c762572f2d727a199b066fadf0962daa82",
+   "maket": "docs/ux/05_Kompakt_D24/frames/GA-19_normal_dark_390x844.png",
+   "maket_sha256": "679bed8d5ece18521a0cc320021ffbbf84cec2e26420744ecef60760f41917a1",
    "porog": 0.6,
    "maski_pt": [],
    "elementy": [
@@ -263,8 +263,8 @@
    "id": "GA-19 light",
    "tema": "light",
    "snimok": "gespraech-tekst-ga-19",
-   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-19-Hell.png",
-   "maket_sha256": "20c343288e8a11a5b3c869adc4b84039a337f2fa0395c4c715674fae8ed02168",
+   "maket": "docs/ux/05_Kompakt_D24/frames/GA-19_normal_light_390x844.png",
+   "maket_sha256": "658beff928652724d6139a71ffa49c400566659a4689079c82b2abe9116e7b7f",
    "porog": 0.6,
    "maski_pt": [],
    "elementy": [

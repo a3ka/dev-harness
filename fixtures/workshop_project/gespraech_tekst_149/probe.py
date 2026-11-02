@@ -26,6 +26,19 @@
 # ЭТАЛОНОМ на том же входе ДО субъекта (правило 8); каждая красная
 # клетка несёт РОВНО одно имя причины.
 #
+# v2 (слово владельца 2026-11-02, пакет D24-Kompakt-1.1): эталонные кадры,
+# токены и зоны касания — пакет docs/ux/05_Kompakt_D24 (носители
+# nositeli/kompakt11/): kadry-манифесты пачки пинуют ИМЕНА кадров пакета
+# с sha из frames/SHA256SUMS; стенд-ин e2e подаёт кадры 1.1 (реализация
+# рендерит компактную шкалу); старый пин D 2.4 Final 2 грамматикой
+# ПРИНИМАЕТСЯ (пути/ша честны против старых макетов мира), но красен
+# ЖИВОЙ мерой 123 — клетка a-staroj-pin-d24 (KADR_NIZHE_POROGA; замер:
+# 390-набор 10/12 кадров 0.315–0.597 < 0.600; неотличимы GA-13 dark
+# 0.895/0.901, GA-17 dark 0.700/0.702, GA-17 light-393 0.656 — ловится
+# полный набор, одиночная подмена — живой CI/vision). Движение пакет 1.1
+# не меняет (motion-delta/tokens судит d-paket-dvizhenie): источники
+# dvizhenie пачки — финал 2 (манифест экранов/переходов под грамматику
+# v3, спека/позы — числа движения неизменны).
 # Режимы (argv):
 #   (без флага)   судится живое дерево харнесса: валидатор scripts/ (v3
 #                 в main — клетки a-* зелены равенством), в продукте
@@ -124,6 +137,9 @@ MUTANTY_ISPOLNIMYE = [
 # клеточные стабы (Н-39: стаб → клетка + файл; рассинхрон — rc 2):
 # lekalo — обход проводки (круг Crit149); ekran-minimalnyj — неполная
 # v3-пачка (блок 1 Crit149b); jest-krasnyj/zelenyj — фиктивные jest-среды
+# (блок 1 Crit149b); flo-*/ga12/ga13 — обманные перепины флоу (перепин
+# 31.10: старая форма снимка, вход без first-run/openLink, состояния
+# GA-12 без вопроса/чипов и GA-13 до отправки)
 KLETOCHNYE_STABY = {
     'lekalo-obhod-kritika': ('s-lekalo-instanciirovano',
                              'stab_lekalo_obhod_kritika.py'),
@@ -131,8 +147,66 @@ KLETOCHNYE_STABY = {
                          'stab_ekran_minimalnyj.py'),
     'jest-krasnyj': ('s-ekran-ispolnim', 'stab_jest_krasnyj.sh'),
     'jest-zelenyj': ('s-ekran-ispolnim', 'stab_jest_zelenyj.sh'),
+    'flo-staraq-forma': ('s-snimok-strokoj', 'stab_flo_staraq_forma.py'),
+    'flo-bez-vkhoda': ('s-vkhod-v-ekran', 'stab_flo_bez_vkhoda.py'),
+    'ga12-bez-voprosa': ('s-ga12-s-voprosom', 'stab_ga12_bez_voprosa.py'),
+    'ga13-do-otpravki': ('s-ga13-posle-otpravki',
+                         'stab_ga13_do_otpravki.py'),
 }
 
+# флоу пачки (байты — носители зоны, пин source.json; канон-копии в
+# продукте — piny.kanon) и клетки их формы/состояний: исполнимость в
+# Maestro 2.11.0 и соответствие состояний кадров GA-12/GA-13 макету
+# D 2.4 (факт Impl149b 31.10 §1/§4: закреплённые флоу не исполнялись —
+# снимок картой {name: …}, launchApp на корне First-Run; состояния
+# GA-12/GA-13 расходились с макетом). Привязка стаба — имя стаба ->
+# (клетка, причина); единый источник здесь, source.json.stab_vhod
+# сверяется с ним в vedro_lekalo.
+FLOVY_PACHKI = ('gespraech-tekst.yaml', 'gespraech-tekst-393.yaml',
+                'gespraech-tekst-prokhod.yaml')
+KLETKI_FLO_STABOV = {
+    'flo-staraq-forma': ('s-snimok-strokoj', 'SNIMOK_KARTOJ'),
+    'flo-bez-vkhoda': ('s-vkhod-v-ekran', 'VHOD_BEZ_VKHODA'),
+    'ga12-bez-voprosa': ('s-ga12-s-voprosom', 'GA12_BEZ_VOPROSA'),
+    'ga13-do-otpravki': ('s-ga13-posle-otpravki', 'GA13_DO_OTPRAVKI'),
+}
+
+# v2: карта целей — pressable пачки -> (экран, метка touch_target
+# манифеста 1.1); зона pressable == (x, y, hw, hh) манифеста (слово
+# владельца 2026-11-02: касание судится по ЗОНЕ hw/hh, видимая рамка
+# меньше зоны находкой не является). gespraech-pole без цели манифеста
+# (textarea): зона ряда композера между '+' и 'Sprechen' GA-11, потолок
+# и прокрутка — машина и токен (d-pole-rastjot, m-pole-shest-strok)
+KARTA_CELEJ_PRESS = {
+    'gespraech-verlauf': ('GA-11', 'Gesprächsverlauf'),
+    'gespraech-topic-schaden':
+        ('GA-11', 'Schaden melden Ich helfe Ihnen sofort weiter'),
+    'gespraech-topic-schaden-speak': ('GA-11', 'Schaden melden erzählen'),
+    'gespraech-topic-auto':
+        ('GA-11', 'Neues Auto Versicherung, Zulassung, Altvertrag'),
+    'gespraech-topic-auto-erzaehlen': ('GA-11', 'Neues Auto erzählen'),
+    'gespraech-topic-umzug': ('GA-11', 'Umzug Adresse, Hausrat, Haftpflicht'),
+    'gespraech-topic-umzug-erzaehlen': ('GA-11', 'Umzug erzählen'),
+    'gespraech-topic-nachwuchs':
+        ('GA-11', 'Nachwuchs Was sich jetzt für Ihre Familie ändert'),
+    'gespraech-topic-nachwuchs-erzaehlen': ('GA-11', 'Nachwuchs erzählen'),
+    'gespraech-topic-heirat': ('GA-11', 'Heirat Verträge bündeln, Namen ändern'),
+    'gespraech-topic-heirat-erzaehlen': ('GA-11', 'Heirat erzählen'),
+    'gespraech-chip-gekauft': ('GA-12', 'Schon gekauft'),
+    'gespraech-chip-geplant': ('GA-12', 'Kauf geplant'),
+    'gespraech-lieber-erzaehlen': ('GA-12', 'Lieber erzählen?'),
+    'gespraech-chip-vergleichen': ('GA-19', 'Ja, vergleichen'),
+    'gespraech-chip-nicht': ('GA-19', 'Erst mal nicht'),
+    'gespraech-vlozhit': ('GA-11', 'Dokument hinzufügen'),
+    'gespraech-mikrofon': ('GA-11', 'Sprechen'),
+    'gespraech-mikrofon-v-pole': ('GA-13', 'Sprechen'),
+    'gespraech-otpravit': ('GA-13', 'Nachricht senden'),
+    'shell-tab-start': ('GA-11', 'Start'),
+    'shell-tab-vorgaenge': ('GA-11', 'Vorgänge'),
+    'gespraech-mitte': ('GA-11', 'Gespräch mit Complior'),
+    'shell-tab-schutz': ('GA-11', 'Schutz'),
+    'shell-tab-post': ('GA-11', 'Post'),
+}
 # ∩-правило: все переходы манифеста, чьи кадры ∩ экраны пачки ≠ ∅
 # (замер по пиннованному манифесту: GA-11/12/13/17/18/19)
 PEREHODY = ['GA-T08', 'GA-R2', 'GA-R2-393', 'GA-T17', 'GA-T18', 'GA-T19',
@@ -215,6 +289,22 @@ def vedro_lekalo(src):
                    'conversation-composer/conversation-composer.tsx'):
         if kljuch not in src['piny']['nositeli']:
             utechka('пин блока 1 отсутствует: ' + kljuch)
+    for kljuch in ('stabs/stab_flo_staraq_forma.py',
+                   'stabs/stab_flo_bez_vkhoda.py',
+                   'stabs/stab_ga12_bez_voprosa.py',
+                   'stabs/stab_ga13_do_otpravki.py'):
+        if kljuch not in src['piny']['nositeli']:
+            utechka('пин стаба флоу отсутствует: ' + kljuch)
+    for otn in ('nositeli/kompakt11/manifest.json',
+                'nositeli/kompakt11/tokens.json',
+                'nositeli/kompakt11/frames.json',
+                'nositeli/kompakt11/SHA256SUMS',
+                'nositeli/kompakt11/motion-delta.md'):
+        if otn not in src['piny']['nositeli']:
+            utechka('пин пакета 1.1 отсутствует: ' + otn)
+    for otn in src['piny']['nositeli']:
+        if otn.startswith('nositeli/d24/kadry/'):
+            utechka('снятый носитель финала-2 снова запинен: ' + otn)
     for stab, svaz in (src.get('stab_vhod') or {}).items():
         if 'kletka' in svaz:
             ozhid = KLETOCHNYE_STABY.get(stab)
@@ -224,6 +314,14 @@ def vedro_lekalo(src):
                 utechka('привязка клеточного стаба ' + stab)
         elif svaz.get('pravilo') not in PRAVILA_MASHINY:
             utechka('привязка стаба ' + stab)
+    # полнота стабов формы/состояний флоу по клеткам (единый источник —
+    # KLETKI_FLO_STABOV): каждая клетка флоу обязана нести свой стаб
+    flo_kletki = {v[0] for v in KLETKI_FLO_STABOV.values()}
+    objavlennye = {sv['kletka'] for sv in (src.get('stab_vhod')
+                                           or {}).values()
+                   if 'kletka' in sv and sv['kletka'] in flo_kletki}
+    if objavlennye != flo_kletki:
+        utechka('стабы флоу против клеток формы/состояний')
 
 
 # ожидаемое имя причины каждой красной клетки оси A (сверяется с фактом
@@ -290,6 +388,7 @@ OZHIDAEMYE_PRICHINY = {
     'kadr-ustarevshij': 'KADR_USTAREVSHIJ',
     'kadr-neodnoznachen': 'KADR_NEODNOZNACHEN',
     'samodelnaya-sverka': 'SAMODELNAYA_SVERKA',
+    'staroj-pin-d24': 'KADR_NIZHE_POROGA',
     'razdel-otsvtstvuet': 'RAZDEL_OTSVTSTVUET',
 }
 
@@ -297,27 +396,46 @@ OZHIDAEMYE_PRICHINY = {
 def _sh(q):
     return q.replace("'", "'\\''")
 
+def _kadry_paketa():
+    """Кадры пакета D24-Kompakt-1.1 (v2): (экран, тема, профиль) -> имя
+    файла кадров пакета; единый источник — frames.json + класс состояния
+    экрана в манифесте 1.1 (не россыпь имён)."""
+    man = json.load(open(os.path.join(NOS, 'kompakt11', 'manifest.json'),
+                         encoding='utf-8'))
+    fr = json.load(open(os.path.join(NOS, 'kompakt11', 'frames.json'),
+                        encoding='utf-8'))['frames']
+    ekrany = ('GA-11', 'GA-12', 'GA-13', 'GA-17', 'GA-18', 'GA-19')
+    karta = {f['screen'] + ' ' + f['theme'] + ' ' + f['profile']:
+             f['file'] for f in fr if f['screen'] in ekrany}
+    return karta, {g: man['screens'][g]['state_classes'][0]
+                   for g in ekrany}
+
+
 def telo_standina_e2e():
-    """Текст стенд-ина e2e (СВЕЖИЕ кадры-носители обеих тем/профилей в
-    раскладку Maestro): единый источник для мира оси A (postav_mir) и
-    синтетического репо суда пачки (sobrat_mir_pachki) — байты одни."""
-    kadr = os.path.join(NOS, 'd24', 'kadry')
+    """Текст стенд-ина e2e (СВЕЖИЕ кадры-носители в раскладку Maestro;
+    единый источник для мира оси A и синтетического репо суда пачки):
+    кадры ПАКЕТА D24-Kompakt-1.1 — перекодированные копии (пиксели равны,
+    байты отличны): реализация рендерит компактную шкалу, стенд-ин честен
+    ей, а не пину пачки — старый пин макетов красен живой мерой 123
+    (клетка a-staroj-pin-d24). Записи — kadry-манифесты пачки (обеих
+    тем/профилей), а не списком здесь."""
+    kadr = os.path.join(NOS, 'kompakt11', 'kadry')
+    karta, sostojanija = _kadry_paketa()
     telo = ['#!/usr/bin/env bash', 'set -eu',
             'out=mobile/maestro-out-gespraech-tekst', 'rm -rf "$out"',
             'mkdir -p "$out"']
-    ekrany = ['ga-11', 'ga-12', 'ga-13', 'ga-17', 'ga-18', 'ga-19']
-    for tema, suff, profs in (
-            ('dark', 'dark', ('390', '393')),
-            ('light', 'hell', ('390', '393'))):
-        d = '"$out"/%s/run/gespraech/takeScreenshot' % tema
-        telo += ['mkdir -p %s' % d]
-        for ga in ekrany:
-            for prof in profs:
-                snimok = ('gespraech-tekst-%s' % ga
-                          + ('' if prof == '390' else '-393'))
-                imja = 'gespraech-tekst-%s-%s-%s.png' % (ga, suff, prof)
-                telo += ['cp "%s/%s" %s/%s.png'
-                         % (_sh(kadr), imja, d, snimok)]
+    for imja_manifesta, prof in (('kadry.json', '390x844'),
+                                 ('kadry-393.json', '393x852')):
+        m = json.load(open(os.path.join(PACHKA, imja_manifesta),
+                           encoding='utf-8'))
+        for k in m['kadry']:
+            ga = k['id'].split(' ')[0]
+            im = karta[ga + ' ' + k['tema'] + ' ' + prof]
+            assert im.startswith('%s_%s_' % (ga, sostojanija[ga])), (im, ga)
+            d = '"$out"/%s/run/gespraech/takeScreenshot' % k['tema']
+            telo += ['mkdir -p %s' % d,
+                     'cp "%s/%s" %s/%s.png'
+                     % (_sh(kadr), im, d, k['snimok'])]
     telo += ['exit 0']
     return '\n'.join(telo) + '\n'
 
@@ -397,6 +515,16 @@ def postav_mir(tmp):
                                      '%s-%s.png' % (prof, ga)),
                         os.path.join(d24, 'pack', 'screens', prof,
                                      ga + '.png'))
+    k11 = os.path.join(repo, 'docs', 'ux', '05_Kompakt_D24')
+    for pod, imja in (('source', 'manifest.json'), ('source', 'tokens.json'),
+                      ('frames', 'frames.json'), ('frames', 'SHA256SUMS'),
+                      ('motion', 'motion-delta.md')):
+        os.makedirs(os.path.join(k11, pod), exist_ok=True)
+        shutil.copy(os.path.join(NOS, 'kompakt11', imja),
+                    os.path.join(k11, pod, imja))
+    for im in sorted(os.listdir(os.path.join(NOS, 'kompakt11', 'maket'))):
+        shutil.copy(os.path.join(NOS, 'kompakt11', 'maket', im),
+                    os.path.join(k11, 'frames', im))
     shutil.copy(os.path.join(NOS, 'produkt', 'tokens.css'),
                 os.path.join(repo, 'docs', 'ux', '03_Mobility_Slice1', 'ds',
                              'tokens.css'))
@@ -697,7 +825,7 @@ def izmeni(pak, repo, vid):
     elif vid == 'scenarij-bez-snimka':
         p = put_repo('mobile/.maestro/gespraech-tekst.yaml')
         s = open(p, encoding='utf-8').read().replace(
-            '    name: gespraech-tekst-ga-12\n', '')
+            '- takeScreenshot: gespraech-tekst-ga-12\n', '')
         open(p, 'w', encoding='utf-8').write(s)
         tronutye.append('flow')
     elif vid == 'zony-rashodjatsja':
@@ -724,14 +852,34 @@ def izmeni(pak, repo, vid):
             if x['id'] == 'gespraech-mitte':
                 x['y'] = 900
         sohrani()
+    elif vid == 'staroj-pin-d24':
+        # v2: обманный возврат пина пачки на D 2.4 Final 2 — пути/ша
+        # честны против старых макетов мира (грамматика ПРИНИМАЕТ старый
+        # пин), красна ЖИВАЯ мера 123: кадры-носители 1.1 против макетов
+        # финала-2 (KADR_NIZHE_POROGA; замер: 390-набор 10/12 кадров
+        # 0.315–0.597 < 0.600)
+        for imja, prof in (('kadry.json', '390x844'),
+                           ('kadry-393.json', '393x852')):
+            p = put_pachki(imja)
+            m = json.load(open(p, encoding='utf-8'))
+            for k in m['kadry']:
+                ga = k['id'].split(' ')[0]
+                hell = '' if k['tema'] == 'dark' else '-Hell'
+                otn = ('docs/ux/04_Gespraech_D24/pack/screens/%s/%s%s.png'
+                       % (prof, ga, hell))
+                k['maket'] = otn
+                k['maket_sha256'] = sha(put_repo(otn))
+            json.dump(m, open(p, 'w', encoding='utf-8'), ensure_ascii=False,
+                      indent=1)
+            tronutye.append(imja)
     elif vid == 'kadr-neodnoznachen':
         p = put_pachki('e2e.sh')
         s = open(p, encoding='utf-8').read()
         dop = ('mkdir -p "$out"/dark/run2/gespraech/takeScreenshot\n'
-               'cp "%(kadr)s/gespraech-tekst-ga-11-dark-390.png" '
+               'cp "%(kadr)s/GA-11_normal_dark_390x844.png" '
                '"$out"/dark/run2/gespraech/takeScreenshot/'
                'gespraech-tekst-ga-11.png\n')
-        kadr = os.path.join(NOS, 'd24', 'kadry')
+        kadr = os.path.join(NOS, 'kompakt11', 'kadry')
         marker = 'exit 0'
         assert marker in s
         open(p, 'w', encoding='utf-8').write(
@@ -755,7 +903,7 @@ def izmeni(pak, repo, vid):
     elif vid == 'marshrut-bez-snimka':
         p = put_repo('mobile/.maestro/gespraech-tekst-393.yaml')
         s = open(p, encoding='utf-8').read().replace(
-            '    name: gespraech-tekst-ga-12-393\n', '')
+            '- takeScreenshot: gespraech-tekst-ga-12-393\n', '')
         open(p, 'w', encoding='utf-8').write(s)
         tronutye.append('flow393')
     elif vid == 'odna-tema':
@@ -851,8 +999,8 @@ def izmeni(pak, repo, vid):
         kd = os.path.join(repo, 'mobile', 'maestro-out-gespraech-tekst',
                           'dark', 'run', 'gespraech', 'takeScreenshot')
         os.makedirs(kd, exist_ok=True)
-        shutil.copy(os.path.join(NOS, 'd24', 'kadry',
-                                 'gespraech-tekst-ga-11-dark-390.png'),
+        shutil.copy(os.path.join(NOS, 'kompakt11', 'kadry',
+                                 'GA-11_normal_dark_390x844.png'),
                     os.path.join(kd, 'gespraech-tekst-ga-11.png'))
         tronutye.append('e2e')
     elif vid == 'samodelnaya-sverka':
@@ -879,6 +1027,13 @@ def pravila_dannyh():
                           encoding='utf-8'))
     man = json.load(open(os.path.join(NOS, 'd24', 'manifest.json'),
                          encoding='utf-8'))
+    # v2: источники пакета D24-Kompakt-1.1 (кадры/токены/зоны/движение)
+    man11 = json.load(open(os.path.join(NOS, 'kompakt11', 'manifest.json'),
+                           encoding='utf-8'))
+    tok11 = json.load(open(os.path.join(NOS, 'kompakt11', 'tokens.json'),
+                           encoding='utf-8'))
+    fr11 = json.load(open(os.path.join(NOS, 'kompakt11', 'frames.json'),
+                          encoding='utf-8'))
     T = {}
     for t in spec['tokens']:
         m = re.match(r'^([0-9.]+)ms$', t['value'])
@@ -934,23 +1089,117 @@ def pravila_dannyh():
             assert t['reduced_duration_ms'] == 0, t
         return sob['#b-end']
 
+    def _px(v):
+        m = re.match(r'\A([0-9]+)px\Z', v)
+        assert m, v
+        return int(m.group(1))
+
     def d_pole_rastjot():
-        kadry = {fr['id']: fr for fr in man['frames']
-                 if fr['theme'] == 'dark' and fr['profile'] == '390x844'}
-        polja = {}
-        knopki = {}
-        for ga in ('GA-11', 'GA-13'):
-            el = kadry[ga]['elements']
-            polja[ga] = [e for e in el
-                         if e['label'] == 'Nachricht an Complior'][0]['h']
-            knopki[ga] = [e['label'] for e in el]
-        assert polja['GA-13'] > polja['GA-11'], polja
-        assert 'Nachricht senden' in knopki['GA-13'], knopki['GA-13']
-        assert 'Nachricht senden' not in knopki['GA-11'], knopki['GA-11']
-        mik = [e for e in kadry['GA-13']['elements']
-               if e['label'] == 'Sprechen'][0]
-        assert mik['w'] == 44 and mik['h'] == 44, mik
-        return polja
+        # v2: данные пакета 1.1 — цели касания hw/hh манифеста и токены
+        # (литералов чисел нет): «Nachricht senden» появляется с текстом
+        # (GA-13 есть, GA-11 нет); микрофон в поле — ЗОНА ≥ touch-target.
+        # min; потолок поля — токен calc(6 * lineHeight(body)); рост
+        # поля с текстом и прокрутку судит машина (pole-shest-strok)
+        minimum = _px(tok11['touch-target']['min']['$value'])
+        t = {ga: {x['label']: x for x in
+                  man11['screens'][ga]['touch_targets']['390x844']}
+             for ga in ('GA-11', 'GA-13')}
+        assert 'Nachricht senden' in t['GA-13'], sorted(t['GA-13'])
+        assert 'Nachricht senden' not in t['GA-11'], sorted(t['GA-11'])
+        mik = t['GA-13']['Sprechen']
+        assert mik['hw'] >= minimum and mik['hh'] >= minimum, mik
+        stroka = _px(tok11['typography']['body']['$value']['lineHeight'])
+        potolok = tok11['component'][
+            '.p-chatcomp-input:not(.is-empty)']['$value']['max-height']
+        assert potolok == 'calc(6 * %dpx)' % stroka, (potolok, stroka)
+        return minimum
+
+    def d_paket_kompakt():
+        # v2: пачка пинует ИМЕНА кадров пакета (frames.json) с sha из
+        # frames/SHA256SUMS (якорь целостности); носители зоны — байты
+        # пакета; покрытие кадров полное у ВСЕХ экранов — ожидание кадров
+        # GA-09/14/18/19 СНЯТО (слово владельца 2026-11-02)
+        sums = {}
+        for ln in open(os.path.join(NOS, 'kompakt11', 'SHA256SUMS'),
+                       encoding='utf-8'):
+            m = re.match(r'\A([0-9a-f]{64})  (\S.+?)\s*\Z', ln)
+            if m:
+                sums[m.group(2)] = m.group(1)
+        assert len(sums) == 190 and len(fr11['frames']) == 188
+        for ga, cov in fr11['coverage'].items():
+            assert cov['coverage'] == 'full' and cov['missing'] == [], ga
+            assert cov['present'] == cov['expected'] > 0, ga
+        for ga in ('GA-09', 'GA-14', 'GA-18', 'GA-19'):
+            assert fr11['coverage'][ga]['present'] == \
+                fr11['coverage'][ga]['expected'] > 0, ga
+        po_fajlu = {f['file']: f['screen'] for f in fr11['frames']}
+        for imja, prof in (('kadry.json', '390x844'),
+                           ('kadry-393.json', '393x852')):
+            m = json.load(open(os.path.join(PACHKA, imja), encoding='utf-8'))
+            for k in m['kadry']:
+                b = os.path.basename(k['maket'])
+                assert k['maket'] == 'docs/ux/05_Kompakt_D24/frames/' + b, k
+                assert po_fajlu.get(b) == k['id'].split(' ')[0], b
+                assert k['maket_sha256'] == sums[b], b
+                assert sha(os.path.join(NOS, 'kompakt11', 'maket', b)) \
+                    == sums[b], b
+        return len(sums)
+
+    def d_paket_zony():
+        # v2: касание судится по ЗОНЕ hw/hh (слово владельца 2026-11-02):
+        # видимая рамка w/h < 44 при зоне ≥ 44 находкой НЕ является;
+        # аудит манифеста — under_44 = 0; pressables пачки — РОВНО зоны
+        # манифеста по карте целей (gespraech-pole — ряд композера,
+        # потолок/прокрутка — машина и токен)
+        minimum = _px(tok11['touch-target']['min']['$value'])
+        audit = man11['_meta']['audit']
+        assert audit['min_hit_px'] == minimum and audit['under_44'] == 0
+        assert audit['under_44_list'] == [] and audit['exceptions'] == []
+        n = 0
+        for ga in ('GA-11', 'GA-12', 'GA-13', 'GA-17', 'GA-18', 'GA-19'):
+            for prof in ('390x844', '393x852'):
+                for x in man11['screens'][ga]['touch_targets'][prof]:
+                    assert x['hw'] >= minimum and x['hh'] >= minimum, x
+                    n += 1
+        f = json.load(open(os.path.join(PACHKA, 'forma-ekrana.json'),
+                           encoding='utf-8'))
+        for x in f['prokhodimost']['pressable']:
+            para = KARTA_CELEJ_PRESS.get(x['id'])
+            if not para:
+                continue
+            ga, metka = para
+            cel = {y['label']: y for y in
+                   man11['screens'][ga]['touch_targets']['390x844']}[metka]
+            assert (x['x'], x['y'], x['shirina'], x['vysota']) == \
+                (cel['x'], cel['y'], cel['hw'], cel['hh']), x['id']
+        return n
+
+    def d_paket_dvizhenie():
+        # v2: движение НЕ изменилось — основа спеки пачки остаётся финалом 2:
+        # motion-delta 1.1 («Против 1.0 движение не изменилось»; изменённые
+        # 13 — только РАЗМЕРЫ, среди них T30/T34/T08/T37/T17 зоны 149;
+        # T32/T18/T19 — «Сохранено») и токены: раздел motion БЕЗ final2
+        # (final2 пишется только где Kompakt меняет значение)
+        md = open(os.path.join(NOS, 'kompakt11', 'motion-delta.md'),
+                  encoding='utf-8').read()
+        assert 'Против 1.0 движение не изменилось' in md
+        izmen = set(re.findall(r'^#### (GA-T[0-9]+)', md, re.M))
+        assert len(izmen) == 13, sorted(izmen)
+        sohr = md.split('### Изменено', 1)[0]
+        assert '### Сохранено' in sohr
+        for pid in ('GA-T30', 'GA-T34', 'GA-T08', 'GA-T37', 'GA-T17'):
+            assert pid in izmen, pid
+        for pid in ('GA-T32', 'GA-T18', 'GA-T19'):
+            assert pid in sohr and pid not in izmen, pid
+
+        def est_final2(d):
+            if isinstance(d, dict):
+                if 'final2' in d:
+                    return True
+                return any(est_final2(v) for v in d.values())
+            return False
+        assert not est_final2(tok11['motion'])
+        return sorted(izmen)
 
     def d_ud_trex_scen():
         for pid in ('GA-T30', 'GA-T32', 'GA-T37'):
@@ -969,7 +1218,10 @@ def pravila_dannyh():
             'd-t30-morph-450': d_t30_morph_450,
             'd-t32-porjadok-sobytij': d_t32_porjadok_sobytij,
             'd-t37-b-end-na-morfe': d_t37_b_end_na_morfe,
-            'd-ud-trex-scen': d_ud_trex_scen}
+            'd-ud-trex-scen': d_ud_trex_scen,
+            'd-paket-kompakt': d_paket_kompakt,
+            'd-paket-zony': d_paket_zony,
+            'd-paket-dvizhenie': d_paket_dvizhenie}
 
 
 def zapusk_pravila_mashiny(mashina, pravilo=None):
@@ -980,6 +1232,201 @@ def zapusk_pravila_mashiny(mashina, pravilo=None):
         argv += ['--pravilo', pravilo]
     r = subprocess.run(argv, capture_output=True, text=True, timeout=120)
     return r.returncode, (r.stdout + r.stderr).strip()
+
+
+# ---------- форма и состояния флоу: Maestro 2.11.0 + макет D 2.4 ----------
+
+
+def shagi_flo(put):
+    """Исполнимые шаги флоу Maestro: документы YAML ПОСЛЕ первого «---»
+    (шапка appId/name — не шаги; структурный аналог ispolnimye_stroki_
+    flo эталона: комментарии и шапка не шаги по построению парсера)."""
+    with open(put, encoding='utf-8') as fh:
+        docs = [d for d in yaml.safe_load_all(fh.read()) if d is not None]
+    if len(docs) < 2:
+        raise ValueError('нет исполняемого тела (после ---)')
+    shagi = []
+    for d in docs[1:]:
+        if not isinstance(d, list):
+            raise ValueError('тело флоу не список шагов')
+        shagi.extend(d)
+    return shagi
+
+
+def _id_shaga(shag):
+    """(команда, id) шага tapOn/assertVisible/assertNotVisible — картой
+    {id: …} или строкой; иначе (None, None)."""
+    if not isinstance(shag, dict):
+        return None, None
+    for komanda in ('tapOn', 'assertVisible', 'assertNotVisible'):
+        v = shag.get(komanda)
+        if isinstance(v, str):
+            return komanda, v
+        if isinstance(v, dict) and isinstance(v.get('id'), str):
+            return komanda, v['id']
+    return None, None
+
+
+RE_VYBOR_TEMY = re.compile(r'\Agespraech-(topic|tema)-[a-z-]+\Z')
+
+
+def _snimok_shaga(shag, snimok):
+    """Снимок snimok в шаге В ЛЮБОЙ форме — строкой или картой {name: …}
+    (клетки состояний судят кадр независимо от формы снимка: старая
+    карта-форма не уводит GA-12/GA-13 из-под состояния — красное-до на
+    нерепиненном клоне продукта, замер 31.10)."""
+    if not isinstance(shag, dict) or 'takeScreenshot' not in shag:
+        return False
+    z = shag['takeScreenshot']
+    if isinstance(z, str):
+        return z == snimok
+    return isinstance(z, dict) and z.get('name') == snimok
+
+
+def sudi_flo_forma(koren, repo_r=None):
+    """Форма и состояния флоу пачки (перепин 31.10: факт стенда
+    Impl149b §1/§4 + сверка кадров с макетом D 2.4). SNIMOK_KARTOJ —
+    каждый снимок СТРОКОВОЙ формой «takeScreenshot: имя» (карта
+    {name: …} в Maestro 2.11.0 даёт «Config Field Required: path»);
+    VHOD_BEZ_VKHODA — после launchApp вход в экран: assertVisible
+    first-run-continue + openLink complior://start ДО первого нажатия
+    (приложение открывается на корне First-Run); GA12_BEZ_VOPROSA —
+    снимок GA-12 ПОСЛЕ выбора темы обязан наблюдать вопрос агента
+    (gespraech-vopros-agenta) и чип ответа (манифест D 2.4: «Complior
+    fragt zuerst · Antwort-Chips und «Lieber erzählen?» kommen
+    zusammen»; замороженный текст: «темой в Verlauf с вопросом агента
+    и чипами»); GA13_DO_OTPRAVKI — снимок GA-13 обязан идти ПОСЛЕ
+    отправки (tapOn gespraech-otpravit + assertVisible
+    gespraech-soobschenie-polzovatel) и НОВОГО ввода (inputText +
+    assertVisible gespraech-otpravit — «Nachricht senden» только с
+    текстом, d-pole-rastjot): макет GA-13 — кадр ПОСЛЕ отправки
+    (карточка фактов «Aus unserem Gespräch» — следствие отправленного
+    сообщения; поле несёт новый текст). Субъект — флоу пачки зоны
+    (байты запинены vedro); в --repo той же мерой канон-копии
+    mobile/.maestro продукта. Возврат: клетка -> список причин."""
+    vhody = [(imja, os.path.join(koren, 'pachka', imja))
+             for imja in FLOVY_PACHKI]
+    if repo_r:
+        vhody += [('repo/' + imja,
+                   os.path.join(repo_r, 'mobile', '.maestro', imja))
+                  for imja in FLOVY_PACHKI]
+    kletki = ('s-snimok-strokoj', 's-vkhod-v-ekran',
+              's-ga12-s-voprosom', 's-ga13-posle-otpravki')
+    itogi = {k: [] for k in kletki}
+    for imja, put in vhody:
+        try:
+            shagi = shagi_flo(put)
+        except (OSError, ValueError, yaml.YAMLError) as e:
+            for k in kletki:
+                itogi[k].append('%s: %s не читается: %s'
+                                % (PRICHINY_FLO[k], imja, e))
+            continue
+        # (1) форма снимка
+        for i, shag in enumerate(shagi):
+            if isinstance(shag, dict) and 'takeScreenshot' in shag:
+                znach = shag['takeScreenshot']
+                if not isinstance(znach, str) or not znach.strip():
+                    itogi['s-snimok-strokoj'].append(
+                        'SNIMOK_KARTOJ: %s шаг %d — снимок картой, '
+                        'а не строкой' % (imja, i + 1))
+        # (2) вход в экран после launchApp
+        if any(s == 'launchApp' for s in shagi):
+            perv_nazhatie = None
+            for i, shag in enumerate(shagi):
+                komanda, _ = _id_shaga(shag)
+                if komanda == 'tapOn':
+                    perv_nazhatie = i
+                    break
+            vhod_do = shagi[1:perv_nazhatie if perv_nazhatie else
+                            len(shagi)]
+            est_first_run = any(
+                _id_shaga(s) == ('assertVisible', 'first-run-continue')
+                for s in vhod_do)
+            est_open = any(isinstance(s, dict)
+                           and s.get('openLink') == 'complior://start'
+                           for s in vhod_do)
+            if not (est_first_run and est_open):
+                itogi['s-vkhod-v-ekran'].append(
+                    'VHOD_BEZ_VKHODA: %s — launchApp без входа '
+                    'first-run-continue + openLink complior://start '
+                    'до первого нажатия (корень First-Run: цель '
+                    'экрана недостижима)' % imja)
+        # (3)/(4) состояния кадров GA-12/GA-13 (оба экранных флоу)
+        for suff in ('', '-393'):
+            snimok12 = 'gespraech-tekst-ga-12' + suff
+            i12 = next((i for i, s in enumerate(shagi)
+                        if _snimok_shaga(s, snimok12)), None)
+            if i12 is None:
+                continue
+            vybor = max((i for i, s in enumerate(shagi[:i12])
+                         if _id_shaga(s)[0] == 'tapOn'
+                         and RE_VYBOR_TEMY.match(_id_shaga(s)[1] or '')),
+                        default=None)
+            mezhdu = shagi[(vybor + 1) if vybor is not None else 0:i12]
+            est_vopros = any(
+                _id_shaga(s) == ('assertVisible', 'gespraech-vopros-agenta')
+                for s in mezhdu)
+            est_chip = any(
+                _id_shaga(s) == ('assertVisible', 'gespraech-chip-gekauft')
+                for s in mezhdu)
+            if not (est_vopros and est_chip):
+                itogi['s-ga12-s-voprosom'].append(
+                    'GA12_BEZ_VOPROSA: %s — снимок %s без наблюдения '
+                    'вопроса агента/чипа после выбора темы (макет GA-12: '
+                    'тема в Verlauf С вопросом и чипами)'
+                    % (imja, snimok12))
+            snimok13 = 'gespraech-tekst-ga-13' + suff
+            i13 = next((i for i, s in enumerate(shagi)
+                        if _snimok_shaga(s, snimok13)), None)
+            if i13 is None:
+                continue
+            otpravki = [i for i, s in enumerate(shagi[:i13])
+                        if _id_shaga(s) == ('tapOn', 'gespraech-otpravit')]
+            posle = shagi[(otpravki[-1] + 1 if otpravki else 0):i13]
+            est_replica = any(
+                _id_shaga(s) == ('assertVisible',
+                                 'gespraech-soobschenie-polzovatel')
+                for s in posle)
+            est_vvod = any(isinstance(s, dict) and 'inputText' in s
+                           for s in posle)
+            est_knopka = any(
+                _id_shaga(s) == ('assertVisible', 'gespraech-otpravit')
+                for s in posle)
+            if not (otpravki and est_replica and est_vvod and est_knopka):
+                itogi['s-ga13-posle-otpravki'].append(
+                    'GA13_DO_OTPRAVKI: %s — снимок %s до отправки/нового '
+                    'ввода (макет GA-13: после отправки — реплика в ленте, '
+                    'поле с новым текстом, «Nachricht senden»)'
+                    % (imja, snimok13))
+    return itogi
+
+
+PRICHINY_FLO = {
+    's-snimok-strokoj': 'SNIMOK_KARTOJ',
+    's-vkhod-v-ekran': 'VHOD_BEZ_VKHODA',
+    's-ga12-s-voprosom': 'GA12_BEZ_VOPROSA',
+    's-ga13-posle-otpravki': 'GA13_DO_OTPRAVKI',
+}
+
+
+def _zerkal_zony(vrem, src):
+    """Зеркальная копия зоны (для --oracle-tamper и стабов флоу):
+    файлы оракула (пины/эталоны/раннер/носители) + probe.py +
+    source.json + model/ + stabs/ целиком."""
+    zerkalo = os.path.join(vrem, 'zona')
+    os.makedirs(zerkalo, exist_ok=True)
+    for otn2 in set(src['piny']['nositeli']) | {'probe.py',
+                                                'source.json'}:
+        if os.path.isfile(os.path.join(ZDE, otn2)):
+            dst = os.path.join(zerkalo, otn2)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy(os.path.join(ZDE, otn2), dst)
+    for d in ('model', 'stabs'):
+        srcdir = os.path.join(ZDE, d)
+        if os.path.isdir(srcdir):
+            shutil.copytree(srcdir, os.path.join(zerkalo, d),
+                            dirs_exist_ok=True)
+    return zerkalo
 
 
 # ---------- лекало 143/2: инстанциация И-8 (блок Crit149 круг 1) ----------
@@ -1611,27 +2058,23 @@ def main():
     src = vedro()
     if '--piny-only' in argv:
         return 0
+    if '--flo-forma-only' in argv:
+        # клеточный прогон формы/состояний флоу (зеркала стабов флоу):
+        # те же клетки, что в полном прогоне; rc 1 — красная клетка
+        prichiny_flo = sudi_flo_forma(ZDE)
+        for kletka in sorted(prichiny_flo):
+            spisok = prichiny_flo[kletka]
+            print('CASE %s %s %s'
+                  % (kletka, 'ok' if not spisok else 'KRASNO',
+                     '; '.join(spisok)))
+        return 1 if any(prichiny_flo.values()) else 0
 
     if rezhim == 'tamper':
         prov = 0
         for imja in sorted(src['piny']['nositeli']):
             otn = imja
             vrem = tempfile.mkdtemp(prefix='gespraechtekst149-tamper-')
-            zerkalo = os.path.join(vrem, 'zona')
-            os.makedirs(zerkalo, exist_ok=True)
-            # копия зоны: только файлы оракула (пины/эталоны/раннер/
-            # носители)
-            for otn2 in set(src['piny']['nositeli']) | {
-                    'probe.py', 'source.json'}:
-                if os.path.isfile(os.path.join(ZDE, otn2)):
-                    dst = os.path.join(zerkalo, otn2)
-                    os.makedirs(os.path.dirname(dst), exist_ok=True)
-                    shutil.copy(os.path.join(ZDE, otn2), dst)
-            for d in ('model', 'stabs'):
-                srcdir = os.path.join(ZDE, d)
-                if os.path.isdir(srcdir):
-                    shutil.copytree(srcdir, os.path.join(zerkalo, d),
-                                    dirs_exist_ok=True)
+            zerkalo = _zerkal_zony(vrem, src)
             # портим ОДИН носитель в зеркале
             p = os.path.join(zerkalo, otn)
             with open(p, 'ab') as fh:
@@ -1811,6 +2254,10 @@ def main():
         else:
             itogi.append(('s-ekran-ispolnim', not prichiny_z,
                           '; '.join(prichiny_z)))
+    # клетки формы/состояний флоу (перепин 31.10): субъект — флоу пачки
+    # зоны (байты запинены vedro), в --repo — и канон-копии mobile/.maestro
+    for kletka, spisok in sorted(sudi_flo_forma(ZDE, repo_r).items()):
+        itogi.append((kletka, not spisok, '; '.join(spisok)))
     zelen = sum(1 for _, ok, _ in itogi if ok)
     krasn = len(itogi) - zelen
     for idk, ok, pochemu in itogi:
@@ -1921,6 +2368,47 @@ def main():
                 svjazi += 1
             finally:
                 shutil.rmtree(vrem_j, ignore_errors=True)
+        # стабы формы/состояний флоу (Н-39; перепин 31.10): обманный
+        # ПЕРЕПИН — флоу И пины source.json меняются вместе (порчу
+        # носителя ловит vedro ДО клеток, перепин — только клетка
+        # формы/состояния). Зеркальная копия зоны; клеточный прогон
+        # --flo-forma-only обязан дать rc 1 СВОИМ именем причины (иначе
+        # ORACLE — стаб красен не своим дефектом); зелёный контроль —
+        # клетки формы выше (живая зона зелена). Мутант-«пропускник»
+        # (клетка зелена без разбора) ловится здесь — STAB_ZHIV rc 1.
+        for stab in sorted(KLETKI_FLO_STABOV):
+            kletka, prichina = KLETKI_FLO_STABOV[stab]
+            vrem_f = tempfile.mkdtemp(prefix='gespraechtekst149-flo-')
+            try:
+                zerkalo = _zerkal_zony(vrem_f, src)
+                r = subprocess.run(
+                    [sys.executable,
+                     os.path.join(STABY, src['staby'][stab]), zerkalo],
+                    capture_output=True, text=True, timeout=60)
+                if r.returncode != 0:
+                    sys.stderr.write('ORACLE стаб %s: мутатор rc=%d %s\n'
+                                     % (stab, r.returncode,
+                                        r.stderr.strip()[:120]))
+                    return 2
+                env = dict(os.environ)
+                env['GESpraechTekst149_ZONA'] = zerkalo
+                d = subprocess.run(
+                    [sys.executable, os.path.join(zerkalo, 'probe.py'),
+                     '--flo-forma-only'], capture_output=True, text=True,
+                    env=env, timeout=300)
+                if d.returncode == 0:
+                    print('STAB %s ZHIV (клетка %s зелена на стабе)'
+                          % (stab, kletka))
+                    return 1
+                if prichina not in d.stdout:
+                    sys.stderr.write('ORACLE стаб %s: красна не своей '
+                                     'причиной: %s\n' % (stab,
+                                                         d.stdout.strip()))
+                    return 2
+                print('STAB %s KRASEN %s' % (stab, prichina))
+                svjazi += 1
+            finally:
+                shutil.rmtree(vrem_f, ignore_errors=True)
         print('SVJAZI %d' % svjazi)
 
     print('клеток %d, зелёных %d, красных %d; режим %s seed %d'
