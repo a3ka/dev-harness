@@ -7,15 +7,16 @@ name: gespraech-vhod
 ---
 - launchApp
 - assertVisible:
+    id: first-run-continue
+- openLink: complior://start
+- assertVisible:
     id: gespraech-mitte
-- takeScreenshot:
-    name: gespraech-ga-01
+- takeScreenshot: gespraech-ga-01
 - tapOn:
     id: gespraech-mitte
 - assertVisible:
     id: gespraech-menu
-- takeScreenshot:
-    name: gespraech-ga-15
+- takeScreenshot: gespraech-ga-15
 - tapOn:
     id: gespraech-menu-close
 - assertNotVisible:
@@ -25,5 +26,4 @@ name: gespraech-vhod
     id: gespraech-mitte
 - assertVisible:
     id: gespraech-menu-ansehen
-- takeScreenshot:
-    name: gespraech-ga-16
+- takeScreenshot: gespraech-ga-16

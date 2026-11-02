@@ -22,7 +22,7 @@
  "operacii_api": [],
  "katalog_kopii": "mobile/e2e-gespraech-vhod/katalog_kopii.json",
  "spec_api": "mobile/e2e-gespraech-vhod/spec_api.json",
- "audit_tokenov": "docs/ux/03_Mobility_Slice1/ds/tokens.css",
+ "audit_tokenov": "docs/ux/05_Kompakt_D24/source/tokens.json",
  "e2e_scenarij": "mobile/.maestro/gespraech-vhod.yaml",
  "kadry_dir": "mobile/maestro-out-gespraech",
  "kontrakt": "kontrakt.md",
@@ -64,18 +64,18 @@
     "izmenenie": "profil",
     "shirina": 44,
     "vysota": 44,
-    "x": 330,
-    "y": 16,
+    "x": 340,
+    "y": 8,
     "demo": false
    },
    {
     "id": "gespraech-vorgaenge-ansehen",
     "sostojanie": "deistvie",
     "izmenenie": "nav-vorgaenge",
-    "shirina": 310,
-    "vysota": 56,
-    "x": 40,
-    "y": 656,
+    "shirina": 318,
+    "vysota": 48,
+    "x": 36,
+    "y": 560,
     "demo": false
    },
    {
@@ -83,9 +83,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "tab-start",
     "shirina": 78,
-    "vysota": 46,
+    "vysota": 48,
     "x": 0,
-    "y": 782,
+    "y": 796,
     "demo": false
    },
    {
@@ -93,9 +93,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "tab-vorgaenge",
     "shirina": 78,
-    "vysota": 46,
+    "vysota": 48,
     "x": 78,
-    "y": 782,
+    "y": 796,
     "demo": false
    },
    {
@@ -103,9 +103,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "menu-open",
     "shirina": 78,
-    "vysota": 46,
+    "vysota": 48,
     "x": 156,
-    "y": 782,
+    "y": 796,
     "demo": false
    },
    {
@@ -113,9 +113,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "tab-schutz",
     "shirina": 78,
-    "vysota": 46,
+    "vysota": 48,
     "x": 234,
-    "y": 782,
+    "y": 796,
     "demo": false
    },
    {
@@ -123,9 +123,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "tab-post",
     "shirina": 78,
-    "vysota": 46,
+    "vysota": 48,
     "x": 312,
-    "y": 782,
+    "y": 796,
     "demo": false
    },
    {
@@ -133,9 +133,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "menue-sprechen",
     "shirina": 320,
-    "vysota": 60,
+    "vysota": 52,
     "x": 35,
-    "y": 438,
+    "y": 515,
     "demo": false
    },
    {
@@ -143,9 +143,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "menue-schreiben",
     "shirina": 320,
-    "vysota": 60,
+    "vysota": 52,
     "x": 35,
-    "y": 508,
+    "y": 575,
     "demo": false
    },
    {
@@ -153,9 +153,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "menue-foto",
     "shirina": 320,
-    "vysota": 60,
+    "vysota": 52,
     "x": 35,
-    "y": 578,
+    "y": 635,
     "demo": false
    },
    {
@@ -163,19 +163,19 @@
     "sostojanie": "deistvie",
     "izmenenie": "menue-dokument",
     "shirina": 320,
-    "vysota": 60,
+    "vysota": 52,
     "x": 35,
-    "y": 648,
+    "y": 695,
     "demo": false
    },
    {
     "id": "gespraech-menu-close",
     "sostojanie": "deistvie",
     "izmenenie": "menu-close",
-    "shirina": 56,
-    "vysota": 56,
-    "x": 167,
-    "y": 728,
+    "shirina": 48,
+    "vysota": 48,
+    "x": 171,
+    "y": 775,
     "demo": false
    },
    {
@@ -183,9 +183,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "vorgang-ansehen",
     "shirina": 320,
-    "vysota": 102,
+    "vysota": 72,
     "x": 35,
-    "y": 294,
+    "y": 403,
     "demo": false
    }
   ],
@@ -209,8 +209,8 @@
    {
     "id": "profil",
     "tip": "ikonka",
-    "x": 333,
-    "y": 75,
+    "x": 343,
+    "y": 67,
     "shirina": 44,
     "vysota": 44,
     "dostupnoe_imja": "profil-i-nastrojki"
@@ -218,18 +218,18 @@
    {
     "id": "vorgaenge-ansehen",
     "tip": "kontrol",
-    "x": 40,
-    "y": 715,
-    "shirina": 313,
-    "vysota": 56
+    "x": 36,
+    "y": 619,
+    "shirina": 321,
+    "vysota": 48
    },
    {
     "id": "tab-bar",
     "tip": "kontrol",
     "x": 0,
-    "y": 772,
+    "y": 769,
     "shirina": 393,
-    "vysota": 46
+    "vysota": 49
    }
   ]
  },
