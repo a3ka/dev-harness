@@ -22,6 +22,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { TAB_ORDER, themeTokens, type ColorScheme, type ShellSectionId, type ThemeTokens } from '../theme/tokens';
 import { ThemeContext } from '../theme/context';
 import { SECTION_TITLE_KEYS, TAB_LABEL_KEYS, uiCopyDe } from '../i18n/ui-copy';
+import { MOTION_TOKENS } from '../theme/motion-tokens';
+import kompakt from '../../../docs/ux/05_Kompakt_D24/source/tokens.json';
+
+const ziel = Number(kompakt['touch-target'].min.$value.replace('px', ''));
+const navZiel = Number(kompakt.nav['item.min-height'].$value.replace('px', ''));
 
 export type ShellSection = ShellSectionId;
 
@@ -202,6 +207,7 @@ export function TabShell({
   const [section, setSection] = useState<ShellSection>(initialSection);
   const [returnTo, setReturnTo] = useState<ShellSection | null>(returnSection);
   const [route, setRoute] = useState<RouteState>('tabs');
+  const [menu, setMenu] = useState<'closed' | 'open' | 'vorgang'>('closed');
 
   const onCommandRef = useRef(onCommand);
   useEffect(() => {
@@ -286,10 +292,38 @@ export function TabShell({
           >
             {uiCopyDe[SECTION_TITLE_KEYS[section]].text}
           </Text>
-          {/* CMP-MOB-004 (108): опциональный слот StartScreen в секции start.
-              Подаётся композицией через prop startScreen; без слота —
-              только заголовок секции (замороженные пробы nav_999). */}
           {section === 'start' && startScreen ? startScreen : null}
+          {section === 'start' ? (
+            <>
+              <Pressable testID="gespraech-vorgaenge-ansehen"
+                onPress={() => setMenu('vorgang')} style={styles.ziel}>
+                <Text>Vorgänge ansehen</Text>
+              </Pressable>
+              <Pressable testID="gespraech-mitte"
+                onPress={() => setMenu('open')}
+                onLongPress={() => onCommandRef.current?.({ kind: 'voice' })}
+                delayLongPress={Number(MOTION_TOKENS['press-long'].replace('ms', ''))}
+                style={styles.ziel}><Text>Gespräch</Text></Pressable>
+              {menu !== 'closed' ? (
+                <View testID="gespraech-menu">
+                  {(['sprechen', 'schreiben', 'foto', 'dokument'] as const).map((id) => (
+                    <Pressable key={id} testID={`gespraech-menu-${id}`}
+                      onPress={() => { onCommandRef.current?.({ kind: id }); setMenu('closed'); }}
+                      style={styles.ziel}><Text>{id}</Text></Pressable>
+                  ))}
+                  <Pressable testID="gespraech-menu-close"
+                    onPress={() => setMenu('closed')} style={styles.ziel}>
+                    <Text>×</Text>
+                  </Pressable>
+                  {menu === 'vorgang' ? (
+                    <Pressable testID="gespraech-menu-ansehen"
+                      onPress={() => { setSection('vorgaenge'); setMenu('closed'); }}
+                      style={styles.ziel}><Text>Ansehen</Text></Pressable>
+                  ) : null}
+                </View>
+              ) : null}
+            </>
+          ) : null}
         </View>
       )}
     </KeyboardAvoidingView>
@@ -346,16 +380,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
   },
-  /* 147 (цикл 2, Crit147k2b): зона вкладки — токены пакета
-     D24-Kompakt-1.1 (source/tokens.json): nav.item.min-height 48px
-     ($value) и touch-target.min 44px; видимая рамка меньше зоны —
-     не находка (слово владельца 2026-11-02). Измеряет зонд 147. */
   tab: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    minHeight: 48,
-    minWidth: 44,
+    minHeight: navZiel,
+    minWidth: ziel,
   },
-  profileZone: { minHeight: 44, minWidth: 44 },
+  profileZone: { minHeight: ziel, minWidth: ziel },
+  ziel: { minHeight: ziel, minWidth: ziel },
   tabLabel: { fontSize: 14 },
 });

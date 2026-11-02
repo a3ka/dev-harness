@@ -132,16 +132,30 @@ RASKLADKA_V_PRODUKTE = ('mobile/src/bootstrap/tab-shell.tsx',
                         'mobile/src/theme/motion-tokens.ts')
 TOKENY_PAKETA_OTN = os.path.join('docs', 'ux', '05_Kompakt_D24',
                                  'source', 'tokens.json')
-# матрица исполняемых мутантов — дословные атаки Crit147k2b Б2: якорь
-# обязан встречаться в файле дерева РОВНО один раз, иначе именованная
-# неприменимость (никогда тихий пропуск)
+# Мутанты относятся к наблюдаемой ветви: область, действие, полнота —
+# основной прогон; совпадающий литерал — только прогон с изменённым токеном.
 MUTACII_ISPOLNIMYE = [
     ('tab-zona-20', 'mobile/src/bootstrap/tab-shell.tsx',
      'style={styles.tab}',
-     'style={[styles.tab, { width: 20, height: 20 }]}'),
+     'style={[styles.tab, { width: 20, height: 20, minWidth: 20, minHeight: 20 }]}'),
     ('press-long-900', 'mobile/src/theme/motion-tokens.ts',
-     "'press-long': '500ms',",
-     "'press-long': '900ms',"),
+     "'press-long': '500ms',", "'press-long': '900ms',"),
+    ('disabled-menu', 'mobile/src/bootstrap/tab-shell.tsx',
+     '<Pressable key={id} testID={`gespraech-menu-${id}`}',
+     '<Pressable disabled key={id} testID={`gespraech-menu-${id}`}'),
+    ('missing-ansehen', 'mobile/src/bootstrap/tab-shell.tsx',
+     'testID="gespraech-menu-ansehen"', 'testID="gespraech-menu-weg"'),
+    ('no-close-action', 'mobile/src/bootstrap/tab-shell.tsx',
+     'onPress={() => setMenu(\'closed\')} style={styles.ziel}',
+     'style={styles.ziel}'),
+]
+MUTACII_SVJAZI = [
+    ('literal-touch-44', 'mobile/src/bootstrap/tab-shell.tsx',
+     'profileZone: { minHeight: ziel, minWidth: ziel }',
+     'profileZone: { minHeight: 44, minWidth: 44 }'),
+    ('literal-press-long-500', 'mobile/src/bootstrap/tab-shell.tsx',
+     "delayLongPress={Number(MOTION_TOKENS['press-long'].replace('ms', ''))}",
+     'delayLongPress={500}'),
 ]
 
 # лекало 143/2 (И-8): копия frozen-шаблона — носитель зоны (пин sha256 в
@@ -1229,14 +1243,18 @@ def ispolnimyj_sud(mob_koren, src, podrobno=True):
         os.makedirs(os.path.dirname(zond), exist_ok=True)
         shutil.copy(ZOND, zond)
 
-        def zapustit():
+        def zapustit(metamorf=False):
+            env = dict(os.environ)
+            env.pop('GESPRAECH147_METAMORF', None)
+            if metamorf:
+                env['GESPRAECH147_METAMORF'] = '1'
             try:
                 p = subprocess.run(
                     [os.path.join(kopija, 'node_modules', '.bin', 'jest'),
                      '--config', konfig, '--rootDir', '.', '--ci',
                      '--runInBand', '--json', 'gespraech-vhod-zond'],
                     cwd=kopija, capture_output=True, text=True,
-                    timeout=1200)
+                    timeout=1200, env=env)
             except subprocess.TimeoutExpired:
                 return None, 'ТАЙМАУТ jest (1200 с)'
             tek = (p.stdout or '').strip()
@@ -1267,7 +1285,8 @@ def ispolnimyj_sud(mob_koren, src, podrobno=True):
             return assery, sjuity
 
         ishodnye = {}
-        for _imja, otn, _jakor, _zamena in MUTACII_ISPOLNIMYE:
+        for _imja, otn, _jakor, _zamena in (MUTACII_ISPOLNIMYE +
+                                             MUTACII_SVJAZI):
             put = os.path.join(kopija, os.path.relpath(otn, 'mobile'))
             ishodnye[otn] = open(put, encoding='utf-8').read()
 
@@ -1289,11 +1308,22 @@ def ispolnimyj_sud(mob_koren, src, podrobno=True):
                     % assery], None
         for imja, otn, jakor, zamena in MUTACII_ISPOLNIMYE:
             put = os.path.join(kopija, os.path.relpath(otn, 'mobile'))
-            tekst = ishodnye[otn]
+            original = ishodnye[otn]
+            tekst = original
             if tekst.count(jakor) != 1:
-                return ['ISPOLNIMYJ_MUTANT_NE_PRIMENIM: %s — якорь '
-                        'встречен %d раз (не 1)' % (imja,
-                                                    tekst.count(jakor))], None
+                # Матрица мутантов проверяет чувствительность судьи на
+                # референсе, не навязывает якорь исходника implementer.
+                tekst = open(os.path.join(RASKLADKA, otn),
+                             encoding='utf-8').read()
+                if tekst.count(jakor) != 1:
+                    return ['ISPOLNIMYJ_MUTANT_NE_PRIMENIM: %s — референс'
+                            ' без якоря' % imja], None
+                with open(put, 'w', encoding='utf-8') as fh:
+                    fh.write(tekst)
+                svod_ref, err_ref = zapustit()
+                if svod_ref is None or not svod_ref.get('success'):
+                    return ['ISPOLNIMYJ_REFERENS_KRASEN: %s %s'
+                            % (imja, err_ref)], None
             with open(put, 'w', encoding='utf-8') as fh:
                 fh.write(tekst.replace(jakor, zamena, 1))
             svod, oshibka = zapustit()
@@ -1314,7 +1344,69 @@ def ispolnimyj_sud(mob_koren, src, podrobno=True):
                         'реальная зона касания/токен не судятся'
                         % imja], None
             with open(put, 'w', encoding='utf-8') as fh:
-                fh.write(tekst)
+                fh.write(original)
+        # Подмена значений ТОЛЬКО в одноразовой копии после проверки
+        # пиннованного канона. Честный компонент следует за обоими токенами;
+        # совпадающий литерал при исходных 44/500 обязан разойтись.
+        token_put = os.path.join(vrem, TOKENY_PAKETA_OTN)
+        with open(token_put, encoding='utf-8') as fh:
+            token = json.load(fh)
+        if (token['touch-target']['min']['$value'] != '44px' or
+                token['motion']['press-long']['$value'] != '500ms'):
+            return ['ISPOLNIMYJ_TOKEN_OSNOVA: ожидали 44px/500ms'], None
+        token['touch-target']['min']['$value'] = '46px'
+        token['motion']['press-long']['$value'] = '700ms'
+        with open(token_put, 'w', encoding='utf-8') as fh:
+            json.dump(token, fh)
+        motion_put = os.path.join(kopija, 'src', 'theme', 'motion-tokens.ts')
+        motion = ishodnye['mobile/src/theme/motion-tokens.ts']
+        if motion.count("'press-long': '500ms',") != 1:
+            return ['ISPOLNIMYJ_TOKEN_NE_PRIMENIM: press-long 500ms'], None
+        with open(motion_put, 'w', encoding='utf-8') as fh:
+            fh.write(motion.replace("'press-long': '500ms',",
+                                    "'press-long': '700ms',", 1))
+        svod, oshibka = zapustit(metamorf=True)
+        if svod is None:
+            return ['ISPOLNIMYJ_INFRA: token-podmena: %s' % oshibka], None
+        assery, _sjuity = klassifikirovat(svod)
+        if not svod.get('success') or assery:
+            return ['ISPOLNIMYJ_TOKEN_NE_POTREBLJON: контроль 44→46px/'
+                    '500→700ms красен (%d ассертов)' % assery], None
+        if podrobno:
+            print('ISPOLNIMYJ token-podmena ZELEN — 44→46px/500→700ms',
+                  file=sys.stderr)
+        for imja, otn, jakor, zamena in MUTACII_SVJAZI:
+            original = ishodnye[otn]
+            tekst = original
+            if tekst.count(jakor) != 1:
+                # Литерал мутируем на референсе судьи, не требуя синтаксиса
+                # референса от валидного компонента продукта.
+                tekst = open(os.path.join(RASKLADKA, otn),
+                             encoding='utf-8').read()
+                if tekst.count(jakor) != 1:
+                    return ['ISPOLNIMYJ_MUTANT_NE_PRIMENIM: %s — референс'
+                            ' без якоря' % imja], None
+                with open(put, 'w', encoding='utf-8') as fh:
+                    fh.write(tekst)
+                svod_ref, err_ref = zapustit(metamorf=True)
+                if svod_ref is None or not svod_ref.get('success'):
+                    return ['ISPOLNIMYJ_REFERENS_KRASEN: %s %s'
+                            % (imja, err_ref)], None
+            with open(put, 'w', encoding='utf-8') as fh:
+                fh.write(tekst.replace(jakor, zamena, 1))
+            svod, oshibka = zapustit(metamorf=True)
+            if svod is None:
+                return ['ISPOLNIMYJ_INFRA: mutant %s: %s'
+                        % (imja, oshibka)], None
+            assery, sjuity = klassifikirovat(svod)
+            if assery <= 0:
+                return ['ISPOLNIMYJ_MUTANT_ZHIV: %s (%d сьютов не '
+                        'исполнилось)' % (imja, sjuity)], None
+            if podrobno:
+                print('ISPOLNIMYJ mutant %s UBIT — упавших ассертов %d'
+                      % (imja, assery), file=sys.stderr)
+            with open(put, 'w', encoding='utf-8') as fh:
+                fh.write(original)
         return [], None
     finally:
         shutil.rmtree(vrem, ignore_errors=True)
