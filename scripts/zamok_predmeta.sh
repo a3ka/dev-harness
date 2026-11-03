@@ -170,9 +170,16 @@ predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # в любой позиции строки, хвост-основание допустим (норма roles/architect.md),
 # вторая декларация в файле — неоднозначность.
 klass_riska() {  # <NNN> → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
-  local spisok f val znach='' ploh=''
-  spisok="$(find "$REPO/contracts" -maxdepth 1 -name "$1-*.md" -print | LC_ALL=C sort)"
-  if [ -z "$spisok" ]; then printf 'net_stroki:файлов contracts/%s-*.md нет' "$1"; return 0; fi
+  local spisok f val znach='' ploh='' kat
+  # Каталог контрактов: у харнеса `contracts/`, у СЕССИИ ПРОЕКТА — `.harness/contracts/`
+  # (измерено 02.11: адверсарий по бэкенд 148 не спавнился — `find: .../contracts:
+  # No such file or directory`, предмет стоял при зелёном CI). Берём существующий;
+  # при обоих приоритет у `contracts/` — это раскладка самого харнеса.
+  if [ -d "$REPO/contracts" ]; then kat="$REPO/contracts"
+  elif [ -d "$REPO/.harness/contracts" ]; then kat="$REPO/.harness/contracts"
+  else printf 'net_stroki:ни contracts/, ни .harness/contracts/ в %s нет' "$REPO"; return 0; fi
+  spisok="$(find "$kat" -maxdepth 1 -name "$1-*.md" -print | LC_ALL=C sort)"
+  if [ -z "$spisok" ]; then printf 'net_stroki:файлов %s/%s-*.md нет' "${kat#$REPO/}" "$1"; return 0; fi
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     val="$(grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' "$f" 2>/dev/null \
