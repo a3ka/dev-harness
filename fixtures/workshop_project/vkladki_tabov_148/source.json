@@ -1779,7 +1779,7 @@
    "model/produktnaja-raskladka/mobile/src/bootstrap/kompakt-tokens.ts": "2261a3e5c2d4a5ee9ad4b70d46773569a0205e6c200cd6e0d3bf54ea46a660ec"
   },
   "produkt": {
-   "produkt/vkladki-zond-148.test.tsx": "9dcf05b66cdee571937b15afdafb5cde6bd8837525cd81ffda6a382b68c615f9"
+   "produkt/vkladki-zond-148.test.tsx": "f7acab241e989e1fe138041efe0109a30380d2e7265eab15e6caed5dac741840"
   }
  },
  "dopusk_score": 0.01,
@@ -2295,7 +2295,7 @@
     "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
     "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
     "SHABLON\tvkladki\tOK",
-    "PRICHINA\tISPOLNIMYJ_MUTANT_ZHIV: tabs, badge, skroll, kasanie, tokeny, nav-final2, nav-literal, disabled, filter-bez-dejstvija, vorgaenge-stroki-net, padding-tolko-gorizontal, badge-opacity, vkladki-opacity, mitte-opacity-predok, nadpis-lozhnaja, schutz-rebenok"
+    "PRICHINA\tISPOLNIMYJ_MUTANT_ZHIV: tabs, badge, skroll, kasanie, tokeny, nav-final2, nav-literal, disabled, filter-bez-dejstvija, vorgaenge-stroki-net, padding-tolko-gorizontal, badge-opacity, vkladki-opacity, mitte-opacity-predok, nadpis-lozhnaja, schutz-rebenok, oblasti-opacity, stroki-opacity, soobschenie-display-none, nadpis-za-ekranom, badge-vsegda, pointer-events"
    ],
    "prichiny": []
   },

@@ -22,7 +22,23 @@
 // testID, если он занимает нажатие, иначе БЛИЖАЙШИЙ предок с
 // press-обработчиком/touch-респондером; Pressable 20×20 с дочерним
 // Text 44×44, несущим testID, красен (зона ребёнка не подменяет зону
-// хозяина — ZONA_NAZHATIJA_MENSHE_NORMY/TSEL_BEZ_HOZIAINA).
+// хозяина — ZONA_NAZHATIJA_MENSHE_NORMY/TSEL_BEZ_HOZIAINA);
+// v3f (независимое упрочнение Arch148z, перечень orch 1–13): (ВЦ)
+// ВИДИМАЯ ЦЕЛЬ — единая проверка видимости интерактивного хозяина
+// (не opacity 0/display:none/нулевой бокс/за-экранная декларация на
+// узле ИЛИ любом предке) + в поддереве хозяина есть видимая непустая
+// надпись; применяется ко ВСЕМ обязательным целям всех разделов и
+// обоих профилей — прозрачные чипы/строки при честной зоне и действии
+// красны TSEL_NEVIDIMA/TSEL_BEZ_VIDIMOJ_NADPISI (замер Arch148z:
+// oblasti-opacity/stroki-opacity проходили rc 0); (ЗЭ) за-экранные
+// ДЕКЛАРАЦИИ (left/top/right/bottom/transform со смещением ≥ экрана)
+// видимость снимают — надпись на left:-9999 красна NADPIS_NEVIDIMA
+// (замер: nadpis-za-ekranom проходил rc 0); (СР) состояния Mitte
+// РАЗЛИЧИМЫ: бейдж needs_user и рабочий статус взаимно исключены —
+// SOSTOJANIE_NERAZLICHIMO (замер: badge-vsegda проходил rc 0);
+// надписи строк Vorgänge — по модели самого R (VORGAENGE_SPISENOK,
+// оракул без литералов); зона Mitte — РАВЕНСТВОМ токену
+// nav.item.min-height в Б1 (не только нормой зоны).
 // Зонд пишется produkt_sud в ИЗОЛИРОВАННУЮ КОПИЮ mobile (node_modules —
 // симлинк установки R) и запускается продуктовым jest; оракул текстов —
 // каталог ui-copy самого R (литералов нет), геометрия — рендер-дерево
@@ -65,7 +81,16 @@
 //              статус/надпись Mitte, заголовки и тексты вкладок;
 //              видимость = стиль-декларации узла и всех предков
 //              (display/opacity/transparent/нулевой бокс), скрытая
-//              копия строки не засчитывается.
+//              копия строки не засчитывается; за-экранные ДЕКЛАРАЦИИ
+//              (left/top/right/bottom/transform ≥ экрана) видимость
+//              снимают (v3f);
+//   видимость целей (v3f, Arch148z) — ЕДИНАЯ проверка видимой цели:
+//              интерактивный хозяин каждой обязательной цели (лейсте 5 +
+//              все цели разделов, оба профиля) не спрятан и несёт
+//              видимую непустую надпись (TSEL_NEVIDIMA /
+//              TSEL_BEZ_VIDIMOJ_NADPISI); состояния Mitte взаимно
+//              исключены (SOSTOJANIE_NERAZLICHIMO); надписи строк —
+//              по модели R; зона Mitte — равенством токену в Б1.
 // Зонд не знает о мутациях: каждый мутант судится исполнением,
 // а не сравнением текста. Независимые зелёные контроли судьи проходят
 // на конформных RN-формах (minHeight/padding/стороны/hitSlop) и
@@ -80,6 +105,8 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { TabShell } from '../tab-shell';
 import { GespraechMitte } from '../gespraech-mitte';
 import { VorgaengeListe } from '../../features/missions/components/VorgaengeListe';
+// v3f: модель строк Vorgänge самого R — оракул надписей строк (не литералы)
+import { VORGAENGE_SPISENOK } from '../../features/missions/model/vkladki-dannye';
 import { SchutzUebersicht } from '../../features/protection/components/SchutzUebersicht';
 import { PostEingang } from '../../features/post/components/PostEingang';
 import { uiCopyDe } from '../../i18n/ui-copy';
@@ -268,6 +295,28 @@ function prichinaNevidimosti(uzol: unknown): string | null {
       || ch(st.height) === 0 || ch(st.maxHeight) === 0) {
       return `${gde}: нулевой бокс`;
     }
+    // v3f (Arch148z, класс 12): за-экранная ДЕКЛАРАЦИЯ — смещение
+    // бокса/надписи на целый экран и больше (left/top/right/bottom или
+    // статический transform) не может быть видимым ни в одном профиле
+    // предмета; порог — максимум геометрии профилей (не литерал).
+    for (const storona of ['left', 'top', 'right', 'bottom'] as const) {
+      const v = ch(st[storona]);
+      if (v !== null && Math.abs(v) >= EKRAN_MAX) {
+        return `${gde}: за экраном (${storona} ${v})`;
+      }
+    }
+    if (Array.isArray(st.transform)) {
+      for (const shag of st.transform) {
+        if (shag !== null && typeof shag === 'object') {
+          for (const os of ['translateX', 'translateY'] as const) {
+            const v = ch((shag as Record<string, unknown>)[os]);
+            if (v !== null && Math.abs(v) >= EKRAN_MAX) {
+              return `${gde}: за экраном (transform ${os} ${v})`;
+            }
+          }
+        }
+      }
+    }
     tek = (tek as { parent?: unknown }).parent;
     uroven += 1;
   }
@@ -373,6 +422,36 @@ function proveritZonu(id: string, minimum: number, normaVysoty?: number) {
   }
 }
 
+// ── v3f (Arch148z, класс 13 перечня orch): ЕДИНАЯ проверка ВИДИМОЙ ЦЕЛИ
+// Применяется ко ВСЕМ обязательным целям всех разделов и обоих профилей:
+// интерактивный хозяин не спрятан (opacity 0 / display:none / нулевой
+// бокс / за-экранная декларация — на узле ИЛИ любом предке), и в
+// поддереве хозяина есть ХОТЯ БЫ ОДНА видимая непустая надпись (цель
+// без видимой надписи — прозрачная пилюля). display:none дополнительно
+// убирается из рендер-дерева самой средой RNTL (замер: getByTestId
+// бросает) — здесь судится остальное. Отказы именованы. */
+function proveritVidimostTseli(id: string) {
+  const hoziain = hoziainNazhatija(id);
+  const prichina = prichinaNevidimosti(hoziain);
+  if (prichina !== null) {
+    throw new Error(
+      `TSEL_NEVIDIMA ${id}: интерактивный хозяин спрятан (${prichina}) —` +
+      ' цель с верной зоной и действием, но полностью невидимая, проходом' +
+      ' не является (класс 13: видимость интерактивных целей)',
+    );
+  }
+  const estVidimyjTekst = tekstyPoddereva(hoziain).some(
+    (t) => prichinaNevidimosti(t) === null && tekstUzla(t).trim() !== '',
+  );
+  if (!estVidimyjTekst) {
+    throw new Error(
+      `TSEL_BEZ_VIDIMOJ_NADPISI ${id}: в поддереве интерактивного хозяина` +
+      ' нет ни одной видимой непустой надписи (прозрачные/заэкранные буквы' +
+      ' не считаются — класс 12/13 перечня orch)',
+    );
+  }
+}
+
 // Слоты зонда: уникальные testID, которых в R нет (маркеры, не копия).
 const sloty = {
   post: <View testID="zond-slot-post" />,
@@ -395,6 +474,10 @@ const PROFILI = [
   { imja: '390x844', shirina: 390, vysota: 844 },
   { imja: '393x852', shirina: 393, vysota: 852 },
 ] as const;
+
+// v3f (Arch148z): порог за-экранной декларации — максимум геометрии
+// профилей предмета (смещение на целый экран и больше); литерала нет.
+const EKRAN_MAX = Math.max(...PROFILI.map((p) => Math.max(p.shirina, p.vysota)));
 
 function ustanovitProfil(profil: { shirina: number; vysota: number }) {
   // оба ключа обязательны (замена только window роняет SafeAreaView мока
@@ -431,6 +514,17 @@ test('GA-03: ?mitte=needs — бейдж «Ihre Rückmeldung nötig» на жи�
   // надпись — прозрачные буквы бейджа красны именованно
   nadpisUzla(screen.getByTestId('gespraech-mitte-badge'),
     uiCopyDe['ui.mission.group.needs_user'].text, 'gespraech-mitte-badge');
+  // v3f (Arch148z, класс 11 перечня orch): состояния РАЗЛИЧИМЫ —
+  // рабочий статус в состоянии бейджа присутствовать не обязан;
+  // слияние состояний красно именованно (замер: мутант «бейдж всегда»
+  // проходил rc 0 — тест-имя «бейджа нет» не несло ассерта отсутствия)
+  if (screen.queryByTestId('gespraech-mitte-status') !== null) {
+    throw new Error(
+      'SOSTOJANIE_NERAZLICHIMO: gespraech-mitte-status присутствует в состоянии' +
+      ' needs_action (?mitte=needs) — бейдж needs_user и рабочий статус' +
+      ' обязаны быть взаимно исключены (класс 11: различимость состояний)',
+    );
+  }
   view.unmount();
 });
 
@@ -441,6 +535,15 @@ test('GA-03 контроль: без ?mitte=needs бейджа нет, стат�
   // v3e: статус — тоже видимая надпись (единый хелпер Б1)
   nadpisUzla(screen.getByTestId('gespraech-mitte-status'),
     uiCopyDe['ui.mission.group.working'].text, 'gespraech-mitte-status');
+  // v3f (Arch148z, класс 11): имя теста обещает «бейджа нет» — теперь
+  // это АССЕРТ, а не название: бейдж в рабочем состоянии красен
+  if (screen.queryByTestId('gespraech-mitte-badge') !== null) {
+    throw new Error(
+      'SOSTOJANIE_NERAZLICHIMO: gespraech-mitte-badge присутствует в рабочем' +
+      ' состоянии (без ?mitte=needs) — бейдж needs_user и рабочий статус' +
+      ' обязаны быть взаимно исключены (класс 11: различимость состояний)',
+    );
+  }
   view.unmount();
 });
 
@@ -470,7 +573,12 @@ test('GA-09: лейсте — абсолютный оверлей нижнего
 test('Б1: лейсте и вкладки следуют за токенами nav.height/item.min-height', async () => {
   const vysotaLeiste = px(TOKENY['nav']['height'].$value);
   const minVysotaVkladki = px(TOKENY['nav']['item.min-height'].$value);
-  const view = await render(<TabShell initialSection="start" reducedMotion />);
+  // v3f (Arch148z): Mitte — пятая цель лейсте (И-7), её зона судится
+  // РАВЕНСТВОМ токену, как у вкладок (до правки — только нормой зоны;
+  // литерал совпадением числа связью не является)
+  const view = await render(
+    <TabShell initialSection="start" reducedMotion mitte={<GespraechMitte reducedMotion />} />,
+  );
   const leiste = screen.getByTestId('shell-tabbar');
   const stLeiste = (StyleSheet.flatten([
     (leiste as { props?: { style?: unknown } }).props?.style,
@@ -494,6 +602,17 @@ test('Б1: лейсте и вкладки следуют за токенами n
         ` ${faktVkladki} != nav.item.min-height ${minVysotaVkladki} ($value пакета 1.1)`,
       );
     }
+  }
+  const stMitte = (StyleSheet.flatten([
+    (screen.getByTestId('gespraech-mitte') as { props?: { style?: unknown } }).props?.style,
+  ]) ?? {}) as Record<string, unknown>;
+  const faktMitte = effektivnajaVysota(stMitte);
+  if (faktMitte !== minVysotaVkladki) {
+    throw new Error(
+      `NAV_MINHEIGHT_NE_IZ_TOKENA gespraech-mitte: эффективная высота Mitte` +
+      ` ${faktMitte} != nav.item.min-height ${minVysotaVkladki} ($value пакета 1.1;` +
+      ' v3f: зона Mitte судится равенством токену, не только нормой)',
+    );
   }
   view.unmount();
 });
@@ -639,6 +758,13 @@ test('Б2-действие (vorgaenge+Mitte): обязательные цели 
   for (const kljuch of NADPISI_VORGAENGE) {
     nadpisUzla(spisokVorgaenge, uiCopyDe[kljuch].text, 'vorgaenge-spisok');
   }
+  // v3f (Arch148z, класс 12/4): надписи СТРОК — по МОДЕЛИ самого R
+  // (VORGAENGE_SPISENOK, оракул без литералов зонда): каждая строка
+  // несёт ВИДИМЫЙ собственный заголовок (прозрачная строка/титул
+  // красны; замер: stroki-opacity проходил rc 0)
+  for (const v of VORGAENGE_SPISENOK) {
+    nadpisUzla(screen.getByTestId(v.id), v.title, v.id);
+  }
   view.unmount();
 });
 
@@ -736,9 +862,11 @@ async function proveritZonyRazdela(profil: { shirina: number; vysota: number }, 
     />,
   );
   for (const id of ['shell-tab-start', 'shell-tab-vorgaenge', 'gespraech-mitte', 'shell-tab-schutz', 'shell-tab-post']) {
+    proveritVidimostTseli(id);
     proveritZonu(id, NORMA_MIN, NORMA_LEISTE);
   }
   for (const [id, norma] of TSELI_RAZDELA[razdel]) {
+    proveritVidimostTseli(id);
     proveritZonu(id, NORMA_MIN, norma);
   }
   view.unmount();

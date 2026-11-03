@@ -277,6 +277,52 @@ MUTACII_ISPOLNIMYE = [
              '          <Text\n            style={[styles.noticeKnopkaTekst,'
              ' { color: tokens.ink, minHeight: 44, minWidth: 44 }]}\n'
              '            testID="schutz-optionen"\n          >')])]},
+    # Arch148z (класс 13 перечня orch): ПРОЗРАЧНЫЕ ЦЕЛИ — пять чипов
+    # областей Schutz с верной зоной/действием, но opacity 0 на самом
+    # Pressable-хозяине; до v3f проходил rc 0 (замер Arch148z на
+    # bf7d7ffd9) — убивается ЕДИНОЙ проверкой видимой цели зонда
+    # (TSEL_NEVIDIMA)
+    {'imja': 'oblasti-opacity', 'mutacii': [
+        ('mobile/src/features/protection/components/SchutzUebersicht.tsx', [
+            ("stroka: { justifyContent: 'center', minHeight: 54 },",
+             "stroka: { justifyContent: 'center', minHeight: 54, opacity: 0 },")])]},
+    # Arch148z (класс 13): строки Vorgänge прозрачны целиком (данные-
+    # надписи вне каталога И-5 не проверялись) — убивают видимость цели
+    # и надпись строки по модели R (TSEL_NEVIDIMA/NADPIS_NEVIDIMA)
+    {'imja': 'stroki-opacity', 'mutacii': [
+        ('mobile/src/features/missions/components/VorgaengeListe.tsx', [
+            ("stroka: { minHeight: 60, justifyContent: 'center' },",
+             "stroka: { minHeight: 60, justifyContent: 'center', opacity: 0 },")])]},
+    # Arch148z (класс 13): сообщение Post спрятано display:none — среда
+    # RNTL убирает display:none из рендер-дерева (замер: getByTestId
+    # бросает), клетки несут регрессию этой среды
+    {'imja': 'soobschenie-display-none', 'mutacii': [
+        ('mobile/src/features/post/components/PostEingang.tsx', [
+            ("soobschenie: { justifyContent: 'center', minHeight: 44 },",
+             "soobschenie: { justifyContent: 'center', minHeight: 44, display: 'none' },")])]},
+    # Arch148z (класс 12): надпись «Gespräch» утащена ЗА ЭКРАН
+    # декларацией (position absolute, left -9999) — не opacity и не
+    # нулевой бокс, до v3f хелпер видимости это не судил (замер: rc 0);
+    # убивается за-экранной декларацией в prichinaNevidimosti
+    {'imja': 'nadpis-za-ekranom', 'mutacii': [
+        ('mobile/src/bootstrap/gespraech-mitte.tsx', [
+            ('label: { fontSize: 12 },',
+             "label: { fontSize: 12, position: 'absolute', left: -9999 },")])]},
+    # Arch148z (класс 11): бейдж needs_user показан ВСЕГДА — рабочее
+    # состояние неотличимо; до v3f имя теста «бейджа нет» не несло
+    # ассерта отсутствия (замер: rc 0) — убивается взаимным исключением
+    # SOSTOJANIE_NERAZLICHIMO
+    {'imja': 'badge-vsegda', 'mutacii': [
+        ('mobile/src/bootstrap/gespraech-mitte.tsx', [
+            ("{status === 'needs_action' ? (",
+             '{true ? (')])]},
+    # Arch148z (класс 3): pointerEvents none на обязательной цели —
+    # среда RNTL не доставляет press (замер: TSEL_NAZHATIE_NE_DEJSTVUET);
+    # матрица несёт регрессию механизма доставки
+    {'imja': 'pointer-events', 'mutacii': [
+        ('mobile/src/features/post/components/PostEingang.tsx', [
+            ("onPress={() => onFiltr?.(filtr)}\n        style={styles.filtrKnopka}",
+             'onPress={() => onFiltr?.(filtr)}\n        pointerEvents="none"\n        style={styles.filtrKnopka}')])]},
 ]
 KONTROLI_ISPOLNIMYE = [
     # v3b (Crit148k2b, Б1): СВЯЗЬ компонента с токеном — честный R зелён
@@ -919,9 +965,11 @@ def ispolnimyj_sud(repo: Path, src):
     """Исполняемый суд (блок 1 Crit148, класс «литерал на месте,
     исполняемое иное»): живой jest-зонд на РЕАЛЬНЫХ компонентах R в
     изолированной копии mobile (node_modules — симлинк установки R,
-    прецедент zhivoj_komponent 145) + матрица мутаций (v3e — 16; Arch148y
+    прецедент zhivoj_komponent 145) + матрица мутаций (v3f — 22; Arch148y
     добавил классы Crit148k2d: прозрачные надписи, скрытая копия
-    строки, testID на ребёнке при хозяине 20×20) и
+    строки, testID на ребёнке при хозяине 20×20; Arch148z — прозрачные
+    цели, за-экранная декларация надписи, бейдж в обоих состояниях,
+    display:none, pointerEvents) и
     ЗЕЛЁНЫЕ контроля (v3b, Crit148k2b): контроль исходного кода зелен,
     контроль СВЯЗИ зелен на подменённом источнике (N+2px), контроль
     конформной зоны (height:36+minHeight:44) зелен, каждый мутант убит
@@ -1105,7 +1153,7 @@ def ispolnimyj_sud(repo: Path, src):
                 for sjuit in svod.get('testResults', [])
                 for utv in sjuit.get('assertionResults', [])
                 for soobschenie in utv.get('failureMessages', [])
-                for m in [re.search(r'(?:TSEL_NAZHATIE_NE_DEJSTVUET|TSEL_OTKLJUCHENA|ZONA_NAZHATIJA_MENSHE_NORMY|NADPIS_NEVIDIMA|TSEL_BEZ_HOZIAINA) [a-z0-9-]+', soobschenie)]
+                for m in [re.search(r'(?:TSEL_NAZHATIE_NE_DEJSTVUET|TSEL_OTKLJUCHENA|ZONA_NAZHATIJA_MENSHE_NORMY|NADPIS_NEVIDIMA|TSEL_BEZ_HOZIAINA|TSEL_NEVIDIMA|TSEL_BEZ_VIDIMOJ_NADPISI) [a-z0-9-]+|SOSTOJANIE_NERAZLICHIMO', soobschenie)]
                 if m is not None
             ), None)
             return 1, ['ISPOLNIMYJ_KONTROL_KRASEN: зонд красен на исходных '
