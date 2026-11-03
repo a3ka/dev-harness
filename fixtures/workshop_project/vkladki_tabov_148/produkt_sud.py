@@ -215,6 +215,18 @@ MUTACII_ISPOLNIMYE = [
     {'imja': 'filter-bez-dejstvija', 'mutacii': [
         ('mobile/src/features/post/components/PostEingang.tsx', [
             ('onPress={() => onFiltr?.(filtr)}', 'onPress={() => {}}')])]},
+    # Arch148w (класс полноты 4): из модели удалены две строки ниже
+    # прокрутки (Hausrat-Vergleich, Kfz-Wechsel) — раньше зонд судил
+    # только видимые строки и мутант проходил rc 0 (замер Arch148w:
+    # produkt_sud --repo mob-stroki-net); теперь домен действия/зон —
+    # ВСЕ строки И-4, каждая отсутствующая красна своим ассертом
+    {'imja': 'vorgaenge-stroki-net', 'mutacii': [
+        ('mobile/src/features/missions/model/vkladki-dannye.ts', [
+            ("  { id: 'vorgaenge-stroka-hausrat-vergleich', title: 'Hausrat-Vergleich', group: 'working' },\n",
+             '')]),
+        ('mobile/src/features/missions/model/vkladki-dannye.ts', [
+            ("  { id: 'vorgaenge-stroka-kfz-wechsel', title: 'Kfz-Wechsel', group: 'waiting' },\n",
+             '')])]},
     {'imja': 'padding-tolko-gorizontal', 'mutacii': [
         ('mobile/src/features/post/components/PostEingang.tsx', [
             ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', minHeight: 44 }",

@@ -1779,7 +1779,7 @@
    "model/produktnaja-raskladka/mobile/src/bootstrap/kompakt-tokens.ts": "2261a3e5c2d4a5ee9ad4b70d46773569a0205e6c200cd6e0d3bf54ea46a660ec"
   },
   "produkt": {
-   "produkt/vkladki-zond-148.test.tsx": "e22d26d6347c765773533222a6d4dd6b322a8f0b7e56fc127d6b62a5a6376160"
+   "produkt/vkladki-zond-148.test.tsx": "e496a223cd9f030551daa75b41ce949a4ddf7a712f8fc2b1d30f4a2ea4d08454"
   }
  },
  "dopusk_score": 0.01,
@@ -2295,7 +2295,7 @@
     "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
     "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
     "SHABLON\tvkladki\tOK",
-    "PRICHINA\tISPOLNIMYJ_MUTANT_ZHIV: tabs, badge, skroll, kasanie, tokeny, nav-final2, nav-literal, disabled, filter-bez-dejstvija, padding-tolko-gorizontal"
+    "PRICHINA\tISPOLNIMYJ_MUTANT_ZHIV: tabs, badge, skroll, kasanie, tokeny, nav-final2, nav-literal, disabled, filter-bez-dejstvija, vorgaenge-stroki-net, padding-tolko-gorizontal"
    ],
    "prichiny": []
   },

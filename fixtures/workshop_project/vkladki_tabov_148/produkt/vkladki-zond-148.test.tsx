@@ -19,6 +19,10 @@
 // nav.height; чисел в зонде нет). Измеряет предмет ИСПОЛНЕНИЕМ:
 //   GA-02/04 — контент вкладок ДОСТИГАЕТ экрана через слот
 //              sectionScreens живого TabShell (переход по нажатию);
+//   полнота  — ВСЕ строки модели Vorgänge И-4 судимы (включая ниже
+//              прокрутки GA-09): присутствие, зона 60 и собственное
+//              действие каждой (Arch148w, класс полноты 4; мутант
+//              vorgaenge-stroki-net — удаление строк — убит);
 //   GA-03    — бейдж «Ihre Rückmeldung nötig» из параметра маршрута
 //              ?mitte=needs на живом маршруте (tabs)/[section];
 //   GA-09    — таб-лейсте — АБСОЛЮТНЫЙ оверлей нижнего края, контент
@@ -355,10 +359,16 @@ test('Б1: лейсте и вкладки следуют за токенами n
 type Nazhatie = readonly [id: string, kolbek: string, arg?: string];
 
 const NAZHATIJA_RAZDELA: Readonly<Record<'vorgaenge' | 'schutz' | 'post', readonly Nazhatie[]>> = {
-  // testID строк Vorgänge == id строки (vkladki-dannye)
+  // testID строк Vorgänge == id строки (vkladki-dannye); Arch148w
+  // (класс полноты 4): домен — ВСЕ четыре строки модели И-4, включая
+  // ниже прокрутки (GA-09: Hausrat-Vergleich, Kfz-Wechsel) — удаление
+  // любой строки красно собственным getByTestId, честный R зелен со
+  // всеми (мутант vorgaenge-stroki-net убит своим ассертом)
   vorgaenge: [
     ['vorgaenge-stroka-rechtsschutz', 'onVorgang', 'vorgaenge-stroka-rechtsschutz'],
     ['vorgaenge-stroka-hausrat-vertrag', 'onVorgang', 'vorgaenge-stroka-hausrat-vertrag'],
+    ['vorgaenge-stroka-hausrat-vergleich', 'onVorgang', 'vorgaenge-stroka-hausrat-vergleich'],
+    ['vorgaenge-stroka-kfz-wechsel', 'onVorgang', 'vorgaenge-stroka-kfz-wechsel'],
     ['vorgaenge-vse-sdelannye', 'onAlleErledigte'],
   ],
   schutz: [
@@ -498,6 +508,7 @@ const NORMA_MIN = px(TOKENY['touch-target']['min'].$value);
 const TSELI_RAZDELA: Readonly<Record<string, readonly (readonly [string, number | undefined])[]>> = {
   vorgaenge: [
     ['vorgaenge-stroka-rechtsschutz', 60], ['vorgaenge-stroka-hausrat-vertrag', 60],
+    ['vorgaenge-stroka-hausrat-vergleich', 60], ['vorgaenge-stroka-kfz-wechsel', 60],
     ['vorgaenge-vse-sdelannye', undefined],
   ],
   schutz: [
