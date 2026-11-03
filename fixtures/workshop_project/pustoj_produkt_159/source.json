@@ -9,16 +9,24 @@
    "stabs/s2_tolko_ekran_json.py",
    "stabs/s3_pri_targets_pust.py",
    "stabs/s4_bez_vyzova_gejta.py",
-   "stabs/s5_stderr_do_gejta.py"
+   "stabs/s5_stderr_do_gejta.py",
+   "stabs/s6_sleduet_simlinku_src.py",
+   "stabs/s7_pobochnyj_effekt_do_gejta.py",
+   "stabs/s8_kletki_posle_otkaza.py",
+   "stabs/s9_ne_takoj_rc.py"
   ],
   "sha": {
-   "model/check_pustoj_produkt_159.py": "db3f4add0237f7ad7eefd3fd12918378f85415c8a6677b9ca910952ffa14b12a",
+   "model/check_pustoj_produkt_159.py": "78332e66bbb68d4e8819accf2b2222c66567ffc1a59fd39bf0b28e498dd5c939",
    "model/gate_tracer.sh": "c6b72bad0975928b9f4ae1faf8ce74b65b2df2ddf9f5cb4a07ff997a322f2bc8",
    "stabs/s1_ignoriruet_rezultat.py": "2b7f46760a0703d92d8c59770d3857f6b86240d659c27adc964e8068e35dc925",
    "stabs/s2_tolko_ekran_json.py": "5c2edece15e4ff89b48e6a747420ced8f442eb8a2427811386d66a1704b66ae9",
    "stabs/s3_pri_targets_pust.py": "2ea3bf5b2d25dd5a9b4c38458797cb91ce24356673f09439e6f97c518f8196ed",
    "stabs/s4_bez_vyzova_gejta.py": "2947cdcc779fc24497a80c2a66ed3e4d0f0bf58bc383ed7323709bb3ee785888",
-   "stabs/s5_stderr_do_gejta.py": "1139ada855ff601b38760661b7dec69d6d695a1e006b23c2be6ab545d8f020bb"
+   "stabs/s5_stderr_do_gejta.py": "1139ada855ff601b38760661b7dec69d6d695a1e006b23c2be6ab545d8f020bb",
+   "stabs/s6_sleduet_simlinku_src.py": "771be5f104228166ec70cca29a5a583da20acea91a43d121ce4762a03f790004",
+   "stabs/s7_pobochnyj_effekt_do_gejta.py": "97f012483cbf0f5b10ee612aae03777492ec7806eb74cbe37e0c5af9f1e72b33",
+   "stabs/s8_kletki_posle_otkaza.py": "60fd9b13c71332690b714c3f0d264831f49f8c194c8fcb3223b31ff04fffaa30",
+   "stabs/s9_ne_takoj_rc.py": "34c5ce86092048142b51267ff3a33bee0f1b16e77e73feeb10e10642a7d504ec"
   }
  },
  "staby": {
@@ -26,7 +34,11 @@
   "s2_tolko_ekran_json.py": "stabs/s2_tolko_ekran_json.py",
   "s3_pri_targets_pust.py": "stabs/s3_pri_targets_pust.py",
   "s4_bez_vyzova_gejta.py": "stabs/s4_bez_vyzova_gejta.py",
-  "s5_stderr_do_gejta.py": "stabs/s5_stderr_do_gejta.py"
+  "s5_stderr_do_gejta.py": "stabs/s5_stderr_do_gejta.py",
+  "s6_sleduet_simlinku_src.py": "stabs/s6_sleduet_simlinku_src.py",
+  "s7_pobochnyj_effekt_do_gejta.py": "stabs/s7_pobochnyj_effekt_do_gejta.py",
+  "s8_kletki_posle_otkaza.py": "stabs/s8_kletki_posle_otkaza.py",
+  "s9_ne_takoj_rc.py": "stabs/s9_ne_takoj_rc.py"
  },
  "stab_vhod": {
   "s1_ignoriruet_rezultat.py": {
@@ -91,6 +103,46 @@
     "g-koren-bez-soderzhimogo"
    ],
    "forma": "wiring-stderr-before-gate",
+   "argv": "gate R"
+  },
+  "s6_sleduet_simlinku_src.py": {
+   "vhody": [
+    "c3-vneshnij-src-simlink"
+   ],
+   "forma": "gate-sleduet-simlinku-src",
+   "argv": "R"
+  },
+  "s7_pobochnyj_effekt_do_gejta.py": {
+   "vhody": [
+    "a-forma-pusta",
+    "b1-pustoj-katalog",
+    "b2-otsutstvujushchij",
+    "v-karta-bez-celej",
+    "g-koren-bez-soderzhimogo"
+   ],
+   "forma": "wiring-side-effect-before-gate",
+   "argv": "gate R"
+  },
+  "s8_kletki_posle_otkaza.py": {
+   "vhody": [
+    "a-forma-pusta",
+    "b1-pustoj-katalog",
+    "b2-otsutstvujushchij",
+    "v-karta-bez-celej",
+    "g-koren-bez-soderzhimogo"
+   ],
+   "forma": "wiring-cells-after-refusal",
+   "argv": "gate R"
+  },
+  "s9_ne_takoj_rc.py": {
+   "vhody": [
+    "a-forma-pusta",
+    "b1-pustoj-katalog",
+    "b2-otsutstvujushchij",
+    "v-karta-bez-celej",
+    "g-koren-bez-soderzhimogo"
+   ],
+   "forma": "wiring-wrong-rc",
    "argv": "gate R"
   }
  },
