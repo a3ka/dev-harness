@@ -195,6 +195,46 @@ MUTACII_ISPOLNIMYE += [
      "onPress={() => setMenu('open')}",
      "onPress={() => setMenu('vorgang')}"),
 ]
+# Независимое упрочнение Arch147w (до вызова 5/5): пропуски, найденные
+# второй парой глаз по классам 1–11 (klassy-realnyj-komponent.md).
+MUTACII_ISPOLNIMYE += [
+    # КЛАСС 1/10 (зона): maxWidth/maxHeight — ПОТОЛОК реальной зоны:
+    # min* 44 при потолке 20 даёт реальные 20×20; измеритель зонда
+    # обязан резать границу потолком (мутант зелёным был ДО правки).
+    ('zone-maxkap', 'mobile/src/bootstrap/tab-shell.tsx',
+     'ziel: { minHeight: ziel, minWidth: ziel },',
+     'ziel: { minHeight: ziel, minWidth: ziel, maxWidth: 20,'
+     ' maxHeight: 20 },'),
+    # КЛАСС 9 (результат нажатия своей цели): пилюля шлёт ЧУЖОЙ ответ
+    # (sprechen) ПЕРЕД своим — «последний вызов» свой; ловится счётом
+    # вызовов (ровно один новый), а не только lastCalledWith.
+    ('piljja-chuzhoj-pered', 'mobile/src/bootstrap/tab-shell.tsx',
+     "onPress={() => { onCommandRef.current?.({ kind: id });"
+     " setMenu('closed'); }}",
+     "onPress={() => { onCommandRef.current?.({ kind: 'sprechen' });"
+     " onCommandRef.current?.({ kind: id }); setMenu('closed'); }}"),
+    # КЛАСС 9/11 (домен состояние×цель): в ждущем меню GA-16 пилюли
+    # schreiben/foto/dokument шлют чужой ответ — зонд давит ВСЕ пилюли
+    # в ОБЕИХ меню с счётом вызовов и своим kind.
+    ('piljuli-ga16-chuzhoj', 'mobile/src/bootstrap/tab-shell.tsx',
+     "onPress={() => { onCommandRef.current?.({ kind: id });"
+     " setMenu('closed'); }}",
+     "onPress={() => { onCommandRef.current?.({ kind:"
+     " menu === 'vorgang' && id !== 'sprechen' ? 'sprechen' : id });"
+     " setMenu('closed'); }}"),
+    # КЛАСС 3/11 (действующая цель в каждом состоянии): «×» не закрывает
+    # ждущее меню GA-16 — зонд давит close и в GA-16.
+    ('close-v-ga16-nedejstvuet', 'mobile/src/bootstrap/tab-shell.tsx',
+     "onPress={() => setMenu('closed')} style={styles.ziel}",
+     "onPress={() => { if (menu !== 'vorgang') setMenu('closed'); }}"
+     " style={styles.ziel}"),
+    # КЛАСС 9/И-3: long-press шлёт voice И открывает меню — удержание
+    # обязано давать голос БЕЗ меню (отпускание раньше — касание).
+    ('longpress-otkryvaet-menu', 'mobile/src/bootstrap/tab-shell.tsx',
+     "onLongPress={() => onCommandRef.current?.({ kind: 'voice' })}",
+     "onLongPress={() => { onCommandRef.current?.({ kind: 'voice' });"
+     " setMenu('open'); }}"),
+]
 MUTACII_SVJAZI = [
     ('literal-touch-44', 'mobile/src/bootstrap/tab-shell.tsx',
      'profileZone: { minHeight: ziel, minWidth: ziel }',
@@ -202,6 +242,13 @@ MUTACII_SVJAZI = [
     ('literal-press-long-500', 'mobile/src/bootstrap/tab-shell.tsx',
      "delayLongPress={Number(MOTION_TOKENS['press-long'].replace('ms', ''))}",
      'delayLongPress={500}'),
+    # КЛАСС 2 (связь с токеном, Arch147w): minWidth вкладки — литерал 44
+    # вместо токена ziel; независимая рамка вкладки (padding 24×12) не
+    # покрывает минимум, поэтому в метаморф-прогоне зона обязана следовать
+    # за токеном — литерал краснеет только при подмене 44→46px.
+    ('tab-minwidth-literal', 'mobile/src/bootstrap/tab-shell.tsx',
+     'minHeight: navZiel,\n    minWidth: ziel,',
+     'minHeight: navZiel,\n    minWidth: 44,'),
 ]
 
 # лекало 143/2 (И-8): копия frozen-шаблона — носитель зоны (пин sha256 в
