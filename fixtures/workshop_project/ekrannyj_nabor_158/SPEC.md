@@ -1,0 +1,349 @@
+# SPEC — батарея ekrannyj_nabor_158 (спецификация для implementer; контракт 158)
+
+Этот файл — ТОЧНАЯ спецификация: батарея строится по нему механически, без проектных решений
+исполнителя. Отступление от SPEC = правка SPEC архитектором (v+1 набора), не молчаливая.
+Числа-счёты в тексте SPEC — состав SPEC (что строить), НЕ результаты прогонов: фактические
+счёты выводит samoopisanie.py; вердикты числами из текста не судятся (слово владельца 2026-11-03).
+
+## 1. Назначение и режимы
+
+`W = bash fixtures/workshop_project/ekrannyj_nabor_158/red_ekrannyj_nabor_158.sh`
+(дверь уже закоммичена архитектором; она исполняет `python3 probe.py "$@"`).
+
+CLI (заявленные флаги; незаявленный флаг → rc 2 `argparse`-отказом, прецедент 148):
+
+- без флага — суд дерева харнесса: семьи A (toy-миры + субъект-клетки z01/z02), B (двойник),
+  C (линт на эталонных носителях), D (домен/оракул), E (самоописание), G (регрессии);
+  живые семьи F — только именованной краснотой отсутствия референсов (LIVE_PREDPOSYLKA
+  как честная клетка-причина, не зелень). После полной реализации — rc 0.
+- `--model` — эталоны вместо субъектов: все семьи на эталоне/эталонном гейте, rc 0.
+- `--stabs` — контроль модели зелёный + каждый стаб отклонён на СВОИХ входах; итог
+  `SVJAZI N`; незамеченный стаб → rc 1 `STAB_ZHIV: <файл>`.
+- `--repo <R>` — живой суд: гейт 159 первым (И-8), затем зонд на R по картам набора
+  (ref-clean/mob-ref) и синтетический экран; rc 0 на честных, rc 1 по причинам клеток
+  на мутантных копиях, rc 2 LIVE_PREDPOSYLKA/ORACLE_TAMPERED.
+- `--ekran <NNN>` — экранный режим: суд контракта NNN как экрана набора (чтение ТРЕК,
+  общие проверки по карте экрана; при ТРЕК: ПОЛНЫЙ — плюс исполнение polnyj_trek/
+  пачки экрана). Тестовая опора режима — toy-экраны семьи A.
+- `--oracle-tamper` — самоповреждение оракула (клетка d02), rc 2.
+
+Вывод: `CASE <имя> ok|KRASNO: <причины>` построчно, итог `клеток N, зелёных N, красных N`;
+`STAB <файл> KRASEN|PROSHYOL`; `SVJAZI N`. Скрипт НИКОГДА не печатает PASS и не возвращает
+0 при красных клетках; нереализованное — rc 2 NOT_IMPLEMENTED.
+
+## 2. Структура каталога
+
+```
+fixtures/workshop_project/ekrannyj_nabor_158/
+  SPEC.md                       # этот файл (архитектор)
+  red_ekrannyj_nabor_158.sh     # дверь (уже закоммичена)
+  probe.py                      # раннер: клетки, режимы, стабы, SVJAZI (implementer)
+  source.json                   # оракул: kejsy/piny/stab_vhod/standiny/dopusk
+  osi.md                        # оси и имена причин (краткая карта клеток)
+  model/
+    check_trek_ekrana_158.py    # ЭТАЛОН гейта трека — единый источник грамматики ТРЕК
+    karta-ref-clean.json        # карта целей экрана вход-меню (снята с референса)
+    karta-mob-ref.json          # карта целей таб-бара (снята с референса)
+    mutanty/*.py                # однозадачные мутаторы негативных образцов (count==1 якорь)
+  zond/
+    nabor-zond-158.test.tsx     # jest-зонд: судит карту целей экрана хелперами
+    helpery.ts                  # ЕДИНЫЕ хелперы И-1 (хозяин/зона/видимость/надпись/действие)
+    sinteticheskij-ekran.tsx    # синтетический экран: 12 способов зоны + способы сокрытия
+  teksty/
+    e2e-porjadok.sh             # СКРИПТ-ДВОЙНИК e2e-канона (порядок 390→393, порты)
+    fake-adb/                   # песочница adb: kill/boot/devices через файловое состояние
+    mutanty/e2e-bez-podtverzhdenija.sh  # мутант канона (b07)
+  nositeli/                     # пины: e2e.sh референсов, tokens-выписка, кадры масок
+  stubs/                        # 6 обманных стабов (перечень §7)
+  samoopisanie/samoopisanie.py  # вывод счётов/хэшей (И-5)
+```
+
+Ресурсная норма (задание 2026-11-03): одноразовые копии референсов — `cp -a --reflink=auto`,
+удаление СРАЗУ после прогона случая, одновременно живых ≤ 3; неизменяемую часть (node_modules)
+жёсткими ссылками/симлинком установки (прецедент 145).
+
+## 3. Домен (конечный; свойство над ним — И-2 контракта)
+
+Оси и ПОЛНЫЕ перечни (клетка строится на каждом элементе перечня, вход задаётся элементом):
+
+- Профили P: 390×844; 393×852.
+- Состояния S: из карты экрана (ref-clean: машина меню — закрытое/обычное/ждущий Vorgang;
+  mob-ref: статусы Mitte/вкладки; точный перечень — снятие с референса, d01 сверяет полноту).
+- Обязательные цели Ц: из карты экрана (снятие: `grep -rn "testID=" mobile/src/<экран>`
+  референса; константы-ожидания количеств и имён — в probe.py, выставлены ДО прогона).
+- Способы задания эффективной зоны Z (ВСЕ допустимые, каждый — зелёный контроль f02;
+  правило RN: явный width/height задаёт бокс border-box — padding ВНУТРИ бокса;
+  при auto-боксе размер = контент + padding; min* поднимают бокс, max* ограничивают):
+  z01 width:44+height:44; z02 height:36+minHeight:44; z03 width/height:44 при меньших
+  minWidth/minHeight; z04 minHeight:44 при auto-высоте; z05 hitSlop расширение; z06
+  padding:22 при auto-боксе (контент+padding ≥44); z07 padding:16 при контенте ≥12;
+  z08 paddingVertical+paddingHorizontal при auto-боксе; z09 height:36+paddingVertical:8
+  +minHeight:52 (явный бокс 36 поднят minHeight до 52 — зона 52 ≥44); z10 flexBasis:44
+  в row-ряду; z11 flex:1 в ряду высоты ≥44; z12 minWidth:44 при auto-width.
+- Способы сокрытия V (каждый — красный образец f15–f22): opacity:0 узла; opacity:0 предка
+  контейнера целей; display:'none'; прозрачный фон+прозрачная надпись; нулевой width;
+  нулевой height; позиция за экраном (left:-999); за клипом предка (overflow:'hidden');
+  перекрыта непрозрачным абсолютным братом.
+- Способы невидимой надписи P (каждый — красный образец f23–f26): скрытый display:'none'
+  Text с ожидаемой строкой + невидимая настоящая; прозрачные буквы color:'transparent';
+  вложенный прозрачный Text при видимом предке (Crit148k2e-1); Text нулевой ширины.
+
+Закрывающий принцип: все допустимые способы (Z) зелены, любое реальное нарушение (V, P,
+уменьшение зоны, чужое/отсутствующее действие, слитые состояния, литерал, подмена кадра,
+маска 36, 393 при живом 390, риска-ЛЁГКИЙ) — красно именованной причиной СВОЕЙ клеткой.
+
+## 4. Карты целей (формат; снятие с референсов)
+
+```json
+{
+  "ekran": "ref-clean-vhod-menu",
+  "istochnik": "/tmp/dev-harness-verify/Arch147t/ref-clean",
+  "profili": ["390", "393"],
+  "sostojanija": [{"id": "obychnoe", "vhod": null},
+                  {"id": "vorgang", "vhod": "gespraech-vorgaenge-ansehen"}],
+  "tceli": [{
+    "testID": "gespraech-sprechen",
+    "objazatelna": true,
+    "sostojanija": ["obychnoe"],
+    "nadpis": "Sprechen",
+    "postuslovie": {"tip": "vyzov", "znachenie": "sprechen"}
+  }]
+}
+```
+
+Снятие: (1) цели — все обязательные testID экрана из контрактов 147/148 (перечни их
+инвариантов «цели») и `grep -rn "testID="` по компонентам экрана референса; (2) состояния —
+машина меню tab-shell.tsx; (3) постусловия — из обработчиков референса (тип vyzov с
+дословным аргументом / perehod в состояние / status-изменение бейджа). Ожидания (имена,
+количества, надписи) — константами probe.py ДО прогона; карта с диска субъекта истиной не
+перечитывается (правило 8). Полнота карты — клетка d01.
+
+## 5. Хелперы (единый код; семантика И-1 контракта, операционализация)
+
+`interaktivnyjHozjain(uzel)`: ближайший сам-или-предок с onPress/onPressIn/onPressOut
+(Pressable, Touchable*, Button). Если testID-узел не хозяин — судится хозяин, найденный
+вверх по дереву; отсутствие хозяина у обязательной цели — причина TSEL_BEZ_HOZJAINA.
+
+`zonaKasanija(hozjain, profil)` — эффективный бокс (px) по правилам RN-стиля:
+| источник размера | правило |
+|---|---|
+| width/height | явный бокс (border-box: padding внутри) |
+| minWidth/maxWidth/minHeight/maxHeight | clamp бокса |
+| flexBasis | основной размер по главной оси контейнера (row→width, column→height) |
+| flex:n>0 | доля свободного места ряда известной длины |
+| auto-бокс | контент + padding (все формы padding/paddingVertical/paddingHorizontal/paddingTop/Bottom/Left/Right) |
+| hitSlop | расширяет бокс на свои значения (отрицательные — сужает) |
+Эффективная зона = бокс после clamp/сложения hitSlop; сравнение с `touch-target.min` (44)
+по ОБЕИМ осям отдельно (причина указывает ось: ШИРИНА/ВЫСОТА). Клип предка в ЗОНЕ не судится
+(граница изложена в контракте, совет Crit148k2e D).
+
+`vidimostUzla(uzel)`: false, если (а) сам или ЛЮБОЙ предок до корня display:'none' или
+opacity 0 (численно 0); (б) нулевой width или height; (в) бокс целиком вне вьюпорта
+профиля; (г) бокс целиком за клипом предка; (д) бокс перекрыт непрозрачным узлом
+(проверка перекрытия по прямой видимости). Иначе true.
+
+`vidimajaNadpis(uzel, ozhidanie)`: среди Text-потомков узла ищется ВИДИМЫЙ по
+`vidimostUzla` (проверяется САМ Text-узел с буквами — видимый предок при прозрачных
+вложенных Text НЕ считается), содержимое (приведённое) == ожидание. Невидимые Text
+(скрытые, прозрачные, нулевые) игнорируются; отсутствие видимой надписи с ожидаемым
+текстом — причина NADPIS_NEVIDIMA.
+
+`dejstvieTseli(tsel)`: монтируется СВЕЖИЙ изолированный колбэк (никаких общих счётчиков);
+fireEvent.press на хозяина; постусловие из карты (тип vyzov — аргумент равен значению;
+perehod — машина в состоянии; status — бейдж/статус изменился конкретно). Несовпадение —
+DEJSTVIE_CHUZHOE; отсутствие доставки — TSEL_VYKLYUCHENA.
+
+`dostizhimostSostojanij(karta)`: для каждого состояния: нажатие СВОЕЙ цели-входа переводит
+машину в него; цели, заявленные «только в состоянии X», находятся ТОЛЬКО в X; в обычном
+состоянии целей ждущего режима нет. Нарушения: SOSTOJANIE_NEDOSTIZHIMO / SOSTOJANIE_SLITO.
+
+Зонд запускается jest'ом изолированной копии mobile референса (node_modules — симлинк
+установки R; прецедент zhivoj_komponent 145); падение загрузки/трансформации сьюта НЕ
+засчитывается зеленью (rc 2 LIVE_PREDPOSYLKA / ISPOLNIMYJ_INFRA).
+
+## 6. Клетки (полный перечень; имя → вход → ожидание)
+
+Формат ожидания: rc и ПРИЧИНА (дословные маркеры вывода). «SUBJECT_ABSENT» — клетка красна,
+пока субъект не реализован (честная краснота требования).
+
+### Семья A — ТРЕК-механика (toy-миры; судят эталон model/check_trek_ekrana_158.py и субъект scripts/check_trek_ekrana.sh)
+
+Toy-мир: tmp-каталог с contracts/190-ekran-obychnyj.md (КЛАСС РИСКА: обычный; приёмка
+содержит литерал `ekrannyj_nabor_158`), contracts/191-ekran-riska.md (КЛАСС РИСКА: рисковый
+(деньги); тот же маркер), toy-пачки с polnyj_trek/mutant.sh.
+
+| клетка | вход | ожидание |
+|---|---|---|
+| a01-trek-po-umolchaniju | 190 без строки ТРЕК | гейт rc 0, вывод «ТРЕК ЛЁГКИЙ (по умолчанию)»; гард --ekran 190 исполняет только команды ядра (в трассе НЕТ polnyj_trek-команд) |
+| a02-risk-bez-stroki | 191 без строки ТРЕК | rc 1, EKRAN_RISKA_LEGKIJ |
+| a03-risk-legkij | 191 с «ТРЕК: ЛЁГКИЙ» | rc 1, EKRAN_RISKA_LEGKIJ |
+| a04-risk-legkij-so-slovom | 191 + строка «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: contracts/191-ekran-riska.md — трек экрана: перевод на ЛЁГКИЙ (слово владельца)» | rc 0 |
+| a05-polnyj-vsegda | 190 и 191 с «ТРЕК: ПОЛНЫЙ» | rc 0 оба, без каких-либо разрешений |
+| a06-pereklyuchenie | 190: ЛЁГКИЙ→ПОЛНЫЙ→ЛЁГКИЙ (замена строк ТРЕК+ТРЕК-ПЕРЕКЛЮЧЕНИЕ) | файлы polnyj_trek/ целы после каждого шага; исходы команд ядра байт-идентичны до/после |
+| a07-tochechnost | переключение 190; прогон 191 до/после | исходы 191 и состав его команд не изменились |
+| a08-grammatika | ТРЕК-ПЕРЕКЛЮЧЕНИЕ с битой датой/без причины/неизвестным автором; стрелка не меняет текущее значение | rc 1, TREK_NE_PO_GRAMMATIKE |
+| a09-dubl | два «ТРЕК:» в одном файле | rc 1, TREK_DUBL |
+| z01-gate-v-dereve | scripts/check_trek_ekrana.sh | существует; на всём домене A — те же rc+причины, что у эталона; до реализации — SUBJECT_ABSENT |
+| z02-noga-pre-critic | scripts/pre_critic.sh нога (д3) | структурно: вызывает check_trek_ekrana.sh с <корнем> и <контрактом> после (д2); живой прогон двери на 191-ЛЁГКИЙ даёт «ОТКАЗ: трек-гейт красен»; до реализации — SUBJECT_ABSENT |
+
+Грамматика гейта (ЕДИНЫЙ источник — эталон model/check_trek_ekrana_158.py; скрипт несёт
+побайтово): маркер экранности — литерал `ekrannyj_nabor_158` в тексте контракта; строка
+`ТРЕК: ЛЁГКИЙ|ПОЛНЫЙ` (0..1; отсутствие = ЛЁГКИЙ; ≥2 → TREK_DUBL; иное значение →
+TREK_NE_PO_GRAMMATIKE); строка `ТРЕК-ПЕРЕКЛЮЧЕНИЕ: ГГГГ-ММ-ДД (architect|implementer|
+orchestrator|owner) (ЛЁГКИЙ|ПОЛНЫЙ)→(ЛЁГКИЙ|ПОЛНЫЙ) — <причина>` (0..1; >1, битый формат
+или стрелка без смены текущего значения → TREK_NE_PO_GRAMMATIKE); КЛАСС РИСКА: строка
+содержит «рисковый» → риска; риска ∧ трек≠ПОЛНЫЙ ∧ нет строки ^РАЗРЕШИЛ-ВЛАДЕЛЕЦ:,
+содержащей basename контракта и подстроку «трек» → EKRAN_RISKA_LEGKIJ. Контракт без
+маркера — rc 0 молча (не экран набора). CLI: `check_trek_ekrana.sh <корень> [<контракт>]`;
+с контрактом — судит его (нога д3), без — весь contracts/.
+
+### Семья B — двойник e2e-канона AVD (песочница fake-adb; тяжёлое — БЕЗ эмулятора)
+
+Двойник teksty/e2e-porjadok.sh несёт канон И-4 дословно: PORT_390/PORT_393 из окружения,
+`adb emu kill` 390 → подтверждение ухода (опрос фейк-adb) → boot 393 на своём порту →
+проверка не более двух живых AVD. Песочница fake-adb: файловое состояние портов/бутов.
+
+| клетка | вход | ожидание |
+|---|---|---|
+| b01-ostanovka-podtverzhdena | фейк: 390 ушёл | двойник rc 0; 393 запущен на PORT_393; в состоянии песочницы — ровно один живой AVD |
+| b02-zalipshij-390 | фейк: 390 жив | rc 4 PODTVERZHDENIE_OSTANOVKI_NET; 393 НЕ запущен (состояние песочницы не содержит boot 393) |
+| b03-vtoroj-boot-port | сосед занял PORT_393 | двойник отказывает именованно PORT_ZANJAT (не молча, не занимает чужой) |
+| b04-maksimum-dva-avd | два живых AVD + попытка третьего | именованный отказ SLISHKOM_MNOGO_AVD |
+| b05-maska-48 | карта набора maska_393=48; синтетические кадры: маска 48 / маска 36 | кадр 48 проходит раннером 123 (вызов scripts/sverka_maketa.py без правки); кадр 36 отклонён причиной раннера |
+| b06-kanon-piny | nositeli/e2e-{147,148}.sh | sha256 файлов == пин source.json; маркеры порядка (подтверждение остановки, PORT_390/PORT_393) присутствуют дословно |
+| b07-mutant-393-pri-390 | teksty/mutanty/e2e-bez-podtverzhdenija.sh на залипшем 390 | мутант ОТКЛОНЁН: исход различим (393 не запущен/красный итог клетки), батарея не принимает порядок мутанта |
+
+### Семья C — линт токенов (И-3)
+
+| клетка | вход | ожидание |
+|---|---|---|
+| c01-literal-nav-height | эталонный экран: литерал 49 в месте чтения nav.height (токен жив, 49) | rc 1 LITERAL_VMEStO_TOKENA |
+| c02-literal-line-height | литерал 21 в месте lineHeight | rc 1 LITERAL_VMEStO_TOKENA |
+| c03-literal-press-long | литерал 500 в месте press-long | rc 1 LITERAL_VMEStO_TOKENA |
+| c04-ravnoe-chislo-bez-svjazi | значение равно токену, источник не читает ключ | rc 1 LITERAL_VMEStO_TOKENA (связь структурная: чтение ключа токена в источнике) |
+| c05-slezhenie | --repo: подмена значения токена в одноразовой копии (44→46, 500→700) | компонент следует — клетка зелёна TOKEN_SLEDUET; отставание — rc 1 TOKEN_NE_SLEDUET |
+
+### Семья D — домен и оракул
+
+| клетка | вход | ожидание |
+|---|---|---|
+| d01-karty-polny | карты ref-clean/mob-ref против референсов | каждый обязательный testID экрана есть в карте (снятие grep'ом референса), каждое состояние машины покрыто, профили 390+393; пропуск — rc 1 KARTA_NE_POLNA |
+| d02-oracle-tamper | --oracle-tamper (порча source.json: удаление ключа kejsy, правка piny) | rc 2 ORACLE_TAMPERED ДО клеток |
+| d03-pustoj-produkt | --repo <пустой R> | первый отказ — причина гейта 159 (PUSTOJ_PRODUKT); файлов 159 нет — rc 2 NOT_IMPLEMENTED, не зелень |
+
+### Семья E — самоописание (И-5)
+
+| клетка | вход | ожидание |
+|---|---|---|
+| e01-soglasovano | samoopisanie/samoopisanie.py | вывод JSON {kletok, stabov, svjazej, nositelej, piny, roditel}; вторая мера (python-счёт по source.json) совпадает поэлементно |
+| e02-chisla-vne-teksta | contracts/158-ekrannyj-nabor.md | в тексте нет счётов батареи (паттерны «клеток N,», «стабов N», «SVJAZI N» с цифрами) — числа только выводом скрипта |
+
+### Семья F — живой суд (--repo; референсы станции)
+
+| клетка | вход | ожидание |
+|---|---|---|
+| f00-chestnyj-kontrol | --repo ref-clean И --repo mob-ref | зонд по обеим картам: все обязательные цели всех состояний обоих профилей зелены; rc 0; числа jest — выводом |
+| f01-predposylka | --repo <R без mobile/package.json или без node_modules> | rc 2 LIVE_PREDPOSYLKA (никогда skip→pass) |
+| f02-sposoby-zony | --repo <R> + zond/sinteticheskij-ekran.tsx | все 12 способов Z зелены (ЛОЖНЫХ ОТКАЗОВ НЕТ — закрывает боль трёх ложных отказов) |
+
+Негативные образцы (ядро ПОЛНОГО трека набора; каждый: reflink-копия референса →
+мутатор model/mutanty/<имя>.py (ровно одна замена, якорь count==1) → `W --repo <копия>` →
+копия удалена сразу):
+
+| клетка | образец (класс перечня) | ожидаемая причина |
+|---|---|---|
+| f10-zona-20 | Pressable 20×20 (кл. 1) | rc 1 ZONA_MENSHE_NORMY (ширина/высота) |
+| f11-zona-36-min36 | height 36 + minHeight 36 (кл. 1) | rc 1 ZONA_MENSHE_NORMY |
+| f12-zona-rebenok-44 | Pressable 20×20, testID и 44-бокс на дочернем Text (кл. 12-уточн.) | rc 1 ZONA_MENSHE_NORMY (зона хозяина) |
+| f13-zona-flex-20 | flexBasis:20, paddingHorizontal:0 (Crit148k2e-3) | rc 1 ZONA_MENSHE_NORMY (ширина) |
+| f14-zona-hitSlop-otric | 44×44 + hitSlop −8 | rc 1 ZONA_MENSHE_NORMY |
+| f15-tsel-opacity0 | Pressable opacity 0 (кл. 13) | rc 1 TSEL_NEVIDIMA |
+| f16-tsel-predok-opacity0 | opacity 0 на предке контейнера целей (кл. 13) | rc 1 TSEL_NEVIDIMA |
+| f17-tsel-display-none | display:'none' (кл. 13) | rc 1 TSEL_NEVIDIMA |
+| f18-tsel-fon-nadpis-transparent | прозрачный фон + прозрачная надпись (кл. 13) | rc 1 TSEL_NEVIDIMA |
+| f19-tsel-nulevoj-boks | width 0 (кл. 13) | rc 1 TSEL_NEVIDIMA |
+| f20-tsel-za-ekranom | left:-999 (кл. 13) | rc 1 TSEL_NEVIDIMA |
+| f21-tsel-za-klipom | вне клипа overflow:'hidden' предка (кл. 13) | rc 1 TSEL_NEVIDIMA |
+| f22-tsel-perekryta | перекрыта непрозрачным абсолютным братом (кл. 13) | rc 1 TSEL_NEVIDIMA |
+| f23-nadpis-skrytyj-text | скрытый display:'none' Text с ожидаемой строкой + невидимая настоящая (кл. 12) | rc 1 NADPIS_NEVIDIMA |
+| f24-nadpis-prozrachnye-bukvy | color:'transparent' у букв (кл. 12) | rc 1 NADPIS_NEVIDIMA |
+| f25-nadpis-vlozhennyj-prozrachnyj | вложенный прозрачный Text при видимом предке (Crit148k2e-1) | rc 1 NADPIS_NEVIDIMA |
+| f26-nadpis-nulevaja-shirina | Text width:0, overflow:'hidden' (кл. 12) | rc 1 NADPIS_NEVIDIMA |
+| f27-dejstvie-sdvig | каждая цель вызывает действие соседа — циклический сдвиг (кл. 9) | rc 1 DEJSTVIE_CHUZHOE |
+| f28-dejstvie-na-393 | обработчик обязательной цели undefined на профиле 393 (Crit148k2e-2) | rc 1 DEJSTVIE_NA_PROFILE_NET |
+| f29-dejstvie-pointer-none | pointerEvents:'none' (кл. 3) | rc 1 TSEL_VYKLYUCHENA |
+| f30-cel-disabled | disabled обязательной цели (кл. 3) | rc 1 TSEL_VYKLYUCHENA |
+| f31-cel-otsutstvuet | изъята обязательная цель карты (кл. 4) | rc 1 TSEL_OTSVTSTVUET |
+| f32-sostojanie-nedostizhimo | вход состояния ведёт в обычное (кл. 11) | rc 1 SOSTOJANIE_NEDOSTIZHIMO |
+| f33-sostojanie-slito | цели «только в X» показываются всегда (кл. 11) | rc 1 SOSTOJANIE_SLITO |
+
+### Семья G — регрессии (замороженные соседи не тронуты)
+
+| клетка | вход | ожидание |
+|---|---|---|
+| g01-147-model | bash fixtures/workshop_project/gespraech_vhod_147/red_gespraech_vhod_147.sh --model | rc 0 |
+| g02-147-stabs | та же с --stabs | rc 0 |
+| g03-148-model | bash fixtures/workshop_project/vkladki_tabov_148/red_vkladki_tabov_148.sh --model | rc 0 |
+| g04-148-stabs | та же с --stabs | rc 0 |
+| g05-149-model | bash fixtures/workshop_project/gespraech_tekst_149/red_gespraech_tekst_149.sh --model | rc 0 |
+| g06-149-stabs | та же с --stabs | rc 0 |
+| g07-143-stabs | red_mob_ci_143 --stabs | rc 0 |
+| g08-159 | red_pustoj_produkt_159 --model и --stabs | rc 0 обе (159 лендится РАНЬШЕ по порядку контракта); файлов нет — rc 2 NOT_IMPLEMENTED именованно, клетка честно красна до ленда 159 |
+
+## 7. Обманные стабы (МИНИМАЛЬНЫЙ перечень; измерение: штатные стабы 147–149 не дали
+ни одной находки — вес набора в негативных образцах §6F)
+
+Привязка стаб↔ветвь — КОДОМ probe.py (source.json.stab_vhod + сравнение исходов с эталоном
+на входах клетки; Н-39): проза ниже — перечень ЧТО строить, не доказательство.
+
+| стаб | подменяет | обязан быть замечен на входах | механизм обнаружения |
+|---|---|---|---|
+| st01-trek-bez-riska | гейт/эталон трека: не читает КЛАСС РИСКА | a02, a03 | расхождение исхода стаба с эталоном на критичных входах (стаб возвращает rc 0 на риска-ЛЁГКИЙ) |
+| st02-trek-udaljaet-sloj | механику переключения: удаляет polnyj_trek при переводе в ЛЁГКИЙ | a06 | целость артефактов после цикла |
+| st03-avd-393-bez-podtverzhdenija | двойник: запускает 393 при живом 390 | b02, b07 | наблюдение состояния песочницы: 393 не запущен обязан держаться |
+| st04-lint-po-chislu | линт: принимает литерал при совпадении числа | c01, c04 | структурная связь не проверяется стабом — входы обязаны остаться красными |
+| st05-zond-bez-predkov | helpery.ts: vidimostUzla/vidimajaNadpis без предков и вложенных | f15, f16, f25 | негативные образцы обязаны оставаться отклонёнными на живой копии |
+| st06-oracle-s-diska | probe.py: ожидания перечитываются с диска субъекта | d02, e01 | вторая мера/память проверяющего (правило 8) |
+
+`--stabs`: контроль зелёный + каждый стаб отклонён хотя бы на одном своём входе
+(`STAB <файл> KRASEN`); незамеченный — rc 1 `STAB_ZHIV: <файл>`; итог `SVJAZI N`.
+
+## 8. Оракул source.json (формат по образцу 148)
+
+`kejsy` — {имя клетки: {rc, markery: [подстроки вывода], prichiny: [имена]}};
+`piny` — {nositeli: {файл: sha256}, etalony: {...}, zond: {файлы zond/: sha256}};
+`stab_vhod` — {файл стаба: [имена клеток]};
+`standiny` — {avd: fake-adb сценарии, kadr: синтетические кадры масок};
+`dopusk` — 0.01 (сверки чисел). Оракул в памяти проверяющего ДО субъекта; рассинхрон
+stubs/ ↔ stab_vhod, порча пинов — rc 2 ORACLE_TAMPERED.
+
+## 9. Прототип клетки (текстом; a02 — остальные по образцу)
+
+```python
+# probe.py (фрагмент; дом A)
+KLETKA = "a02-risk-bez-stroki"
+toy = toy_mir({                                  # tmp-каталог, создан ДО вызова субъекта
+  "contracts/191-ekran-riska.md": TOY_RISK_CONTRACT,   # КЛАСС РИСКА: рисковый (деньги);
+})                                                     # приёмка упоминает ekrannyj_nabor_158
+ozhidanie = {"rc": 1, "prichina": "EKRAN_RISKA_LEGKIJ"}  # в ПАМЯТИ, не на диске субъекта
+for subekt in [etalon_gejt(), skript_gejt_if_exists()]:   # эталон и (если реализован) скрипт
+    rc, vyvod = subekt(toy)                               # вызов ДО чтения чего-либо из toy
+    if rc != ozhidanie["rc"] or ozhidanie["prichina"] not in vyvod:
+        krasno(KLETKA, "SUBJECT_NE_SUDIT" if subekt.is_subjekt else "ETALON_NE_SUDIT")
+# до реализации scripts/check_trek_ekrana.sh клетка z01 красна SUBJECT_ABSENT,
+# a02 судится эталоном (модель зелёна), субъектная часть — честная краснота требования.
+```
+
+## 10. Критерии готовности батареи (приёмка пачки implementer)
+
+1. Все клетки §6 построены; имена клеток и причин совпадают с SPEC дословно (оси — osi.md).
+2. Замеры (числа — в вывод, не в тексты): `W` rc 1 с перечнем красных = субъект-зависимые
+   (z01/z02 до реализации гейта; g08 до ленда 159; живые семьи вне --repo); `W --model` rc 0;
+   `W --stabs` rc 0 SVJAZI; `W --repo` оба референса rc 0; каждый негативный образец §6F —
+   rc 1 своей причиной на одноразовой копии; `W --oracle-tamper` rc 2.
+3. Регрессии g01–g08 по §6G.
+4. samoopisanie.py: вывод согласован двумя мерами (e01).
+5. Гейты контракта на пачке: `bash scripts/pre_critic.sh contracts/158-ekrannyj-nabor.md`
+   rc 0; check_precision_gate/check_threat_model/check_spec_ready/check_ceilings rc 0;
+   check_provodka rc 1 «guard не подключён» (до подключения оркестратором).
+6. Ресурсная норма §2 соблюдена (в отчёте пачки — счёт живых копий, максимум ≤ 3).
