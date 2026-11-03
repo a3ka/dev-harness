@@ -149,6 +149,31 @@ MUTACII_ISPOLNIMYE = [
      'onPress={() => setMenu(\'closed\')} style={styles.ziel}',
      'style={styles.ziel}'),
 ]
+# Сдвиг порога press-long (цикл 2, вердикт Crit147k2c Б2):
+# СИНТАКСИЧЕСКИ НЕЗАВИСИМАЯ мутация — добавка «50 +» к ЛЮБОМУ выражению
+# delayLongPress, как бы кандидат ни читал токен (литерал, replace, slice,
+# вычисление в другой функции). Зонд измеряет фактический порог UI на
+# фейк-часах с допуском 1 мс такта, поэтому мутант обязан быть убит
+# ПОВЕДЕНИЕМ на самом кандидате; подмена кандидата референсом при
+# несовпадении синтаксиса — только с ЯВНЫМ извещением в stderr.
+MUTACII_REGULJARNYE = [
+    ('press-long-sdvig', 'mobile/src/bootstrap/tab-shell.tsx',
+     r'delayLongPress=\{', r'delayLongPress={50 + '),
+]
+MUTACII_ISPOLNIMYE += [
+    # testID и ≥44 стиль на ДОЧЕРНЕМ Text, Pressable 20×20 (Crit147k2c Б1,
+    # дословный мутант критика): зонд судит зону ИНТЕРКТИВНОГО узла —
+    # кнопка 20×20 обязана краснеть собственным ассертом зоны.
+    ('child-testid-hitarea', 'mobile/src/bootstrap/tab-shell.tsx',
+     '''<Pressable key={id} testID={`gespraech-menu-${id}`}
+                      onPress={() => { onCommandRef.current?.({ kind: id }); setMenu('closed'); }}
+                      style={styles.ziel}><Text>{id}</Text></Pressable>''',
+     '''<Pressable key={id}
+                      onPress={() => { onCommandRef.current?.({ kind: id }); setMenu('closed'); }}
+                      style={{ width: 20, height: 20 }}>
+                      <Text testID={`gespraech-menu-${id}`} style={styles.ziel}>{id}</Text>
+                    </Pressable>'''),
+]
 MUTACII_SVJAZI = [
     ('literal-touch-44', 'mobile/src/bootstrap/tab-shell.tsx',
      'profileZone: { minHeight: ziel, minWidth: ziel }',
@@ -1178,17 +1203,25 @@ def sud_zhizncikla_ispolneniem(put_e2e, src):
 
 
 def ispolnimyj_sud(mob_koren, src, podrobno=True):
-    """s-ekran-ispolnim (цикл 2, вердикт Crit147k2b класс РЕАЛЬНЫЙ
-    ПОТРЕБИТЕЛЬ): живой jest-зонд produkt/gespraech-vhod-zond-147.test.tsx
-    (пин source.json) на РЕАЛЬНЫХ компонентах дерева — таб-шелл
-    mobile/src/bootstrap/tab-shell.tsx (зоны касания вкладок/профиля по
-    карте pressable ПАЧКИ ≥ touch-target.min пакета 1.1 на обоих
-    профилях) и theme/motion-tokens.ts (press-long, потребляемый UI
-    движения, == токену пакета 1.1) — в изолированной копии mobile
+    """s-ekran-ispolnim (цикл 2, вердикты Crit147k2b + Crit147k2c класс
+    РЕАЛЬНЫЙ ПОТРЕБИТЕЛЬ): живой jest-зонд
+    produkt/gespraech-vhod-zond-147.test.tsx (пин source.json) на
+    РЕАЛЬНЫХ компонентах дерева — таб-шелл mobile/src/bootstrap/
+    tab-shell.tsx (зоны касания всех целей карты pressable ПАЧКИ на
+    ИНТЕРКТИВНОМ узле — ближайший сам-или-предок, принимающий жест,
+    в т.ч. когда testID на его ребёнке: Crit147k2c Б1 — ≥
+    touch-target.min пакета 1.1 на обоих профилях) и theme/
+    motion-tokens.ts (press-long == токену пакета 1.1; фактический
+    порог UI измеряется на фейк-часах с допуском 1 мс такта: сдвиг
+    «токен + 50» красен, Crit147k2c Б2) — в изолированной копии mobile
     (node_modules — симлинк установки дерева), плюс матрица мутантов
-    по якорям (дословные атаки Crit147k2b: Pressable 20×20;
-    press-long 900): контроль зелен, каждый мутант убит УПАВШИМ
-    АССЕРТОМ (падение загрузки сьюта НЕ засчитывается). Заявленная
+    по якорям и регулярному выражению (дословные атаки Crit147k2b:
+    Pressable 20×20, press-long 900; Crit147k2c: testID на дочернем
+    Text при Pressable 20×20, добавка «50 +» к любому выражению
+    delayLongPress — синтаксически независимо): контроль зелен, каждый
+    мутант убит УПАВШИМ АССЕРТОМ (падение загрузки сьюта НЕ
+    засчитывается); подмена кандидата референсом при несовпадении
+    синтаксиса — ТОЛЬКО с явным извещением в stderr. Заявленная
     среда без установки — LIVE_PREDPOSYLKA, НИКОГДА skip→pass
     (прецедент proba_live_put 145); дерево без mobile/package.json —
     именованный пропуск. Возвращает (prichiny, otkaz)."""
@@ -1313,6 +1346,12 @@ def ispolnimyj_sud(mob_koren, src, podrobno=True):
             if tekst.count(jakor) != 1:
                 # Матрица мутантов проверяет чувствительность судьи на
                 # референсе, не навязывает якорь исходника implementer.
+                # Crit147k2c Б2: подмена НЕ молча — явное извещение в
+                # stderr, свойство на кандидате закрывает контроль зонда.
+                print('ISPOLNIMYJ mutant %s: якорь отсутствует в '
+                      'кандидате — мутант применён к референс-раскладке '
+                      '(кандидат судится контролем зонда)' % imja,
+                      file=sys.stderr)
                 tekst = open(os.path.join(RASKLADKA, otn),
                              encoding='utf-8').read()
                 if tekst.count(jakor) != 1:
@@ -1343,6 +1382,52 @@ def ispolnimyj_sud(mob_koren, src, podrobno=True):
                 return ['ISPOLNIMYJ_MUTANT_ZHIV: %s прошёл зонд зелёным — '
                         'реальная зона касания/токен не судятся'
                         % imja], None
+            with open(put, 'w', encoding='utf-8') as fh:
+                fh.write(original)
+        # Синтаксически независимые мутанты (Crit147k2c Б2): регулярное
+        # выражение вместо дословного якоря — применяется к САМОМУ
+        # кандидату при любой форме записи; референс — только с явным
+        # извещением (свойство на кандидате закрывает контроль зонда).
+        for imja, otn, obrazec, zamena in MUTACII_REGULJARNYE:
+            put = os.path.join(kopija, os.path.relpath(otn, 'mobile'))
+            original = ishodnye[otn]
+            tekst = original
+            novyj, najdeno = re.subn(obrazec, zamena, tekst, count=1)
+            if najdeno != 1:
+                print('ISPOLNIMYJ mutant %s: якорь отсутствует в '
+                      'кандидате — мутант применён к референс-раскладке '
+                      '(кандидат судится контролем зонда)' % imja,
+                      file=sys.stderr)
+                tekst = open(os.path.join(RASKLADKA, otn),
+                             encoding='utf-8').read()
+                novyj, najdeno = re.subn(obrazec, zamena, tekst, count=1)
+                if najdeno != 1:
+                    return ['ISPOLNIMYJ_MUTANT_NE_PRIMENIM: %s — референс'
+                            ' без якоря' % imja], None
+                with open(put, 'w', encoding='utf-8') as fh:
+                    fh.write(tekst)
+                svod_ref, err_ref = zapustit()
+                if svod_ref is None or not svod_ref.get('success'):
+                    return ['ISPOLNIMYJ_REFERENS_KRASEN: %s %s'
+                            % (imja, err_ref)], None
+            with open(put, 'w', encoding='utf-8') as fh:
+                fh.write(novyj)
+            svod, oshibka = zapustit()
+            if svod is None:
+                return ['ISPOLNIMYJ_INFRA: мутант %s: %s'
+                        % (imja, oshibka)], None
+            assery, sjuity = klassifikirovat(svod)
+            if assery > 0:
+                if podrobno:
+                    print('ISPOLNIMYJ mutant %s UBIT — упавших ассертов %d'
+                          % (imja, assery), file=sys.stderr)
+            elif sjuity > 0:
+                return ['ISPOLNIMYJ_MUTANT_NE_UBIT: %s — сьют не '
+                        'исполнился (падение загрузки не убийство)'
+                        % imja], None
+            else:
+                return ['ISPOLNIMYJ_MUTANT_ZHIV: %s прошёл зонд зелёным — '
+                        'фактический порог UI не судится' % imja], None
             with open(put, 'w', encoding='utf-8') as fh:
                 fh.write(original)
         # Подмена значений ТОЛЬКО в одноразовой копии после проверки
@@ -1380,7 +1465,12 @@ def ispolnimyj_sud(mob_koren, src, podrobno=True):
             tekst = original
             if tekst.count(jakor) != 1:
                 # Литерал мутируем на референсе судьи, не требуя синтаксиса
-                # референса от валидного компонента продукта.
+                # референса от валидного компонента продукта. Crit147k2c
+                # Б2: подмена НЕ молча — явное извещение в stderr.
+                print('ISPOLNIMYJ mutant %s: якорь отсутствует в '
+                      'кандидате — мутант применён к референс-раскладке '
+                      '(кандидат судится контролем зонда)' % imja,
+                      file=sys.stderr)
                 tekst = open(os.path.join(RASKLADKA, otn),
                              encoding='utf-8').read()
                 if tekst.count(jakor) != 1:
