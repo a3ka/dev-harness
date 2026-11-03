@@ -1,24 +1,32 @@
 {
  "kontrakt": 159,
- "predmet": "пустой продукт красный: W --repo всех экранных батарей на пустом продукте обязан быть красным (rc != 0, именованная причина)",
+ "predmet": "пустой продукт красный: W --repo всех экранных батарей на пустом продукте обязан быть красным (rc != 0, именованная причина; гейт — первое действие --repo-ветви, вызов доказывается трассой, вывода до вызова нет)",
  "piny": {
   "nositeli": [
    "model/check_pustoj_produkt_159.py",
+   "model/gate_tracer.sh",
    "stabs/s1_ignoriruet_rezultat.py",
    "stabs/s2_tolko_ekran_json.py",
-   "stabs/s3_pri_targets_pust.py"
+   "stabs/s3_pri_targets_pust.py",
+   "stabs/s4_bez_vyzova_gejta.py",
+   "stabs/s5_stderr_do_gejta.py"
   ],
   "sha": {
-   "model/check_pustoj_produkt_159.py": "e992d7e2a086083ed6b3166277a0dedfd205c4b8f365413d28ad1e88ff7db366",
-   "stabs/s1_ignoriruet_rezultat.py": "c00644ef08cf5865b30d643796f169348cc974b14b529953ed5b8eb76a03b111",
+   "model/check_pustoj_produkt_159.py": "db3f4add0237f7ad7eefd3fd12918378f85415c8a6677b9ca910952ffa14b12a",
+   "model/gate_tracer.sh": "c6b72bad0975928b9f4ae1faf8ce74b65b2df2ddf9f5cb4a07ff997a322f2bc8",
+   "stabs/s1_ignoriruet_rezultat.py": "2b7f46760a0703d92d8c59770d3857f6b86240d659c27adc964e8068e35dc925",
    "stabs/s2_tolko_ekran_json.py": "5c2edece15e4ff89b48e6a747420ced8f442eb8a2427811386d66a1704b66ae9",
-   "stabs/s3_pri_targets_pust.py": "2ea3bf5b2d25dd5a9b4c38458797cb91ce24356673f09439e6f97c518f8196ed"
+   "stabs/s3_pri_targets_pust.py": "2ea3bf5b2d25dd5a9b4c38458797cb91ce24356673f09439e6f97c518f8196ed",
+   "stabs/s4_bez_vyzova_gejta.py": "2947cdcc779fc24497a80c2a66ed3e4d0f0bf58bc383ed7323709bb3ee785888",
+   "stabs/s5_stderr_do_gejta.py": "1139ada855ff601b38760661b7dec69d6d695a1e006b23c2be6ab545d8f020bb"
   }
  },
  "staby": {
   "s1_ignoriruet_rezultat.py": "stabs/s1_ignoriruet_rezultat.py",
   "s2_tolko_ekran_json.py": "stabs/s2_tolko_ekran_json.py",
-  "s3_pri_targets_pust.py": "stabs/s3_pri_targets_pust.py"
+  "s3_pri_targets_pust.py": "stabs/s3_pri_targets_pust.py",
+  "s4_bez_vyzova_gejta.py": "stabs/s4_bez_vyzova_gejta.py",
+  "s5_stderr_do_gejta.py": "stabs/s5_stderr_do_gejta.py"
  },
  "stab_vhod": {
   "s1_ignoriruet_rezultat.py": {
@@ -29,22 +37,61 @@
     "v-karta-bez-celej",
     "g-koren-bez-soderzhimogo"
    ],
-   "forma": "trace-ignored"
+   "forma": "wiring-ignored-rc",
+   "argv": "gate R"
   },
   "s2_tolko_ekran_json.py": {
    "vhody": [
     "b1-pustoj-katalog",
     "b2-otsutstvujushchij",
     "v-karta-bez-celej",
-    "g-koren-bez-soderzhimogo"
+    "g-koren-bez-soderzhimogo",
+    "k1-zapis-null",
+    "k2-karta-massiv",
+    "k3-karta-chislo",
+    "k4-karta-stroka",
+    "k5-karta-null",
+    "k6-karta-vlozhennost",
+    "c1-pustye-katalogi",
+    "c2-vneshnij-simlink"
    ],
-   "forma": "zelen-na-pustom"
+   "forma": "gate-tolko-forma",
+   "argv": "R"
   },
   "s3_pri_targets_pust.py": {
    "vhody": [
-    "v-karta-bez-celej"
+    "v-karta-bez-celej",
+    "k1-zapis-null",
+    "k2-karta-massiv",
+    "k3-karta-chislo",
+    "k4-karta-stroka",
+    "k5-karta-null",
+    "k6-karta-vlozhennost"
    ],
-   "forma": "zelen-na-pustom"
+   "forma": "gate-karta-pustaja-prohodka",
+   "argv": "R"
+  },
+  "s4_bez_vyzova_gejta.py": {
+   "vhody": [
+    "a-forma-pusta",
+    "b1-pustoj-katalog",
+    "b2-otsutstvujushchij",
+    "v-karta-bez-celej",
+    "g-koren-bez-soderzhimogo"
+   ],
+   "forma": "wiring-no-gate",
+   "argv": "R"
+  },
+  "s5_stderr_do_gejta.py": {
+   "vhody": [
+    "a-forma-pusta",
+    "b1-pustoj-katalog",
+    "b2-otsutstvujushchij",
+    "v-karta-bez-celej",
+    "g-koren-bez-soderzhimogo"
+   ],
+   "forma": "wiring-stderr-before-gate",
+   "argv": "gate R"
   }
  },
  "batarei": {
