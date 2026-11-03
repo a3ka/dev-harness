@@ -2,14 +2,15 @@
 // доступность и наблюдаемое действие в каждом состоянии. Значения токенов
 // поступают из пакета; компонент должен следовать их изменению, а не лишь
 // совпадать с текущим числом.
-//
-// Зона касания судится на ИНТЕРАКТИВНОМ узле — ближайшем сам-или-предке,
+// Зона касания судится на ИНТЕРКТИВНОМ узле — ближайшем сам-или-предке,
 // принимающем жест, — а не на узле с testID: testID может висеть на
-// декоративном ребёнке шире узкого Pressable (Crit147k2c Б1). Порог
-// press-long измеряется на фейк-часах ТОЧНО, с допуском измерительного
-// интерфейса 1 мс такта advanceTimersByTime: окна ±100 мс пропускали
-// сдвиг «токен + 50 мс» (Crit147k2c Б2); фейк-часы детерминированы,
-// целочисленная граница таймера флейка не даёт.
+// декоративном ребёнке шире узкого Pressable (Crit147k2c Б1). Граница
+// зоны учитывает ПОТОЛОК maxWidth/maxHeight (реальная зона не больше
+// потолка) и padding; hitSlop расширяет. Порог press-long измеряется
+// на фейк-часах ТОЧНО, с допуском измерительного интерфейса 1 мс такта
+// advanceTimersByTime: окна ±100 мс пропускали сдвиг «токен + 50 мс»
+// (Crit147k2c Б2); отпускание раньше порога — касание (меню), у
+// порога — voice без меню (И-3); флейка на границе нет.
 //
 // Каждое заявленное состояние машины (Start, профиль, обычное меню
 // GA-15, ждущий Vorgang GA-16) достигается СОБСТВЕННОЙ целью-входом,
@@ -17,7 +18,10 @@
 // только в GA-16, обычное меню Mitte его не выдаёт, «Vorgänge
 // ansehen» открывает GA-16, а не обычное меню (Crit147k2d —
 // различимость ожидающего Vorgang; слияние состояний и подмена входа
-// красны собственными ассертами).
+// красны собственными ассертами). Действие цели — РОВНО один вызов
+// со СВОИМ ответом в КАЖДОМ состоянии, включая «×» и пилюли ждущего
+// меню (домен состояние×цель×профиль: чужой ответ до своего и «×»,
+// не действующий в GA-16, красны собственными ассертами).
 import fs from 'fs';
 import path from 'path';
 import React from 'react';
@@ -78,11 +82,14 @@ function interaktivnyjUzel(id: string): TestInstance {
     'цель ' + id + ': нет интерактивного узла (press-обработчик/респондер) вверх по дереву');
 }
 
-/** Нижняя граница эффективной hit-area ИНТЕРКТИВНОГО узла: width/height и
- * minWidth/minHeight одновременно действуют как max; padding добавляется
- * только если явной ширины/высоты нет, hitSlop расширяет границу во всех
- * случаях. */
-function zonaUzla(uzel: TestInstance, shirinaProfilja: number): Zona {
+/** Нижняя граница эффективной hit-area ИНТЕРКТИВНОГО узла: width/height
+ * и minWidth/minHeight одновременно действуют как max; padding
+ * добавляется только если явной ширины/высоты нет, hitSlop расширяет
+ * границу во всех случаях; maxWidth/maxHeight — ПОТОЛОК итоговой
+ * зоны (Yoga режет реальную ширину до него), поэтому граница не может
+ * обещать больше потолка (zone-maxkap: min* 44 при реальных 20×20). */
+function zonaUzla(uzel: TestInstance, shirinaProfilja: number,
+                  bezMin = false): Zona {
   const props = (uzel as { props?: { style?: unknown; hitSlop?: unknown } })
     .props ?? {};
   const sloi = (StyleSheet.flatten([props.style]) ?? {}) as Record<string, number | string>;
@@ -105,14 +112,23 @@ function zonaUzla(uzel: TestInstance, shirinaProfilja: number): Zona {
     }
     return 0;
   };
+  // bezMin — независимая от токена часть зоны (явная рамка + padding +
+  // hitSlop, БЕЗ minWidth/minHeight): ею решается, должен ли узел
+  // следовать контрфактическому токену в метаморф-прогоне.
   const baza = (a: string, m: string, start: string, end: string, axis: string): number =>
-    Math.max(razmer(sloi[a]), razmer(sloi[m]),
+    Math.max(razmer(sloi[a]), bezMin ? 0 : razmer(sloi[m]),
       razmer(sloi[a]) ? 0 :
         razmer(sloi[start] ?? sloi[axis] ?? sloi.padding) +
         razmer(sloi[end] ?? sloi[axis] ?? sloi.padding));
+  const potolok = (pole: string): number => {
+    const v = razmer(sloi[pole]);
+    return v > 0 ? v : Number.POSITIVE_INFINITY;
+  };
   return {
-    w: baza('width', 'minWidth', 'paddingLeft', 'paddingRight', 'paddingHorizontal') + dop.x,
-    h: baza('height', 'minHeight', 'paddingTop', 'paddingBottom', 'paddingVertical') + dop.y,
+    w: Math.min(baza('width', 'minWidth', 'paddingLeft', 'paddingRight',
+      'paddingHorizontal') + dop.x, potolok('maxWidth')),
+    h: Math.min(baza('height', 'minHeight', 'paddingTop', 'paddingBottom',
+      'paddingVertical') + dop.y, potolok('maxHeight')),
   };
 }
 
@@ -154,17 +170,16 @@ describe('gespraech-vhod: исполнимые цели и токены паке
         // Зона касания — геометрия ИНТЕРКТИВНОГО узла (узла, который
         // получает жест), в том числе когда testID висит на его ребёнке
         // (Crit147k2c Б1). Контрфактический токен не переопределяет
-        // валидную при исходном пакете явную рамку, padding или hitSlop
-        // интерактивного узла; целям без такого независимого размера
-        // источник обязан менять живую зону.
+        // НЕЗАВИСИМУЮ рамку, которая сама покрывает минимум ИСХОДНОГО
+        // пакета (явные width/height, padding, hitSlop); целям, чья
+        // зона дотягивается до минимума только minWidth/minHeight,
+        // источник обязан менять живую зону (tab-minwidth-literal:
+        // литерал 44 при padding 24×12 больше не проходит метаморф).
         const uzol = interaktivnyjUzel(id);
-        const style = (StyleSheet.flatten([uzol.props.style]) ?? {}) as
-          Record<string, number | string>;
-        const fixed = ['width', 'height', 'padding', 'paddingHorizontal',
-          'paddingVertical', 'paddingLeft', 'paddingRight', 'paddingTop',
-          'paddingBottom'].some((key) => style[key] !== undefined) ||
-          uzol.props.hitSlop !== undefined;
-        if (process.env.GESPRAECH147_METAMORF !== '1' || !fixed) {
+        const nezavisimaja = zonaUzla(uzol, shirina, true);
+        const samodostatochna = nezavisimaja.w >= nabor.minimum &&
+          nezavisimaja.h >= nabor.minimum;
+        if (process.env.GESPRAECH147_METAMORF !== '1' || !samodostatochna) {
           const zona = zonaUzla(uzol, shirina);
           expect(zona.w).toBeGreaterThanOrEqual(nabor.minimum);
           expect(zona.h).toBeGreaterThanOrEqual(nabor.minimum);
@@ -173,15 +188,23 @@ describe('gespraech-vhod: исполнимые цели и токены паке
       };
       // Состояние Start (меню закрыто): цель ждущего Vorgang («Ansehen»)
       // в нём не наблюдается — эксклюзивные цели появляются только в
-      // своём состоянии (Crit147k2d: различимость состояний).
+      // своём состоянии (Crit147k2d: различимость состояний). Цели
+      // меню и профиля отсутствуют в Start даже ВНЕ контейнера меню
+      // (piljuli-vne-menu: рендер пилюль в Start без контейнера).
       expect(screen.queryByTestId('gespraech-menu')).toBeNull();
       expect(screen.queryByTestId('gespraech-menu-ansehen')).toBeNull();
+      expect(screen.queryByTestId('profile-surface')).toBeNull();
+      for (const id of ['sprechen', 'schreiben', 'foto', 'dokument']) {
+        expect(screen.queryByTestId('gespraech-menu-' + id)).toBeNull();
+      }
+      expect(screen.queryByTestId('gespraech-menu-close')).toBeNull();
       // Состояние «профиль» — собственной целью-входа; цели состояния
       // Start в нём отсутствуют (слияние состояний красно).
       await fireEvent.press(cel('shell-profile-entry'));
       expect(screen.getByTestId('profile-surface')).toBeTruthy();
       expect(screen.queryByTestId('gespraech-mitte')).toBeNull();
       expect(screen.queryByTestId('gespraech-vorgaenge-ansehen')).toBeNull();
+      expect(screen.queryByTestId('gespraech-menu')).toBeNull();
       await fireEvent.press(screen.getByTestId('shell-back'));
       expect(screen.getByTestId('section-start')).toBeTruthy();
       for (const tab of ['vorgaenge', 'schutz', 'post', 'start']) {
@@ -190,22 +213,32 @@ describe('gespraech-vhod: исполнимые цели и токены паке
       }
       // GA-16 — меню с ждущим Vorgang: достигается СОБСТВЕННОЙ
       // целью-входом «Vorgänge ansehen» (не обычным меню); его цель
-      // «Ansehen» появляется только в нём и действует переходом, цели
-      // чужих состояний в нём нет; пилюли «Oder etwas Neues beginnen»
-      // действуют своей командой (домен состояния×цели).
+      // «Ansehen» появляется только в нём и действует переходом, «×»
+      // действует и в нём, цели чужих состояний в нём нет; ВСЕ пилюли
+      // «Oder etwas Neues beginnen» действуют своей командой и ровно
+      // одним вызовом (домен состояние×цель: чужой ответ до своего и
+      // подмена команды только в GA-16 красны собственными ассертами).
       await fireEvent.press(cel('gespraech-vorgaenge-ansehen'));
       expect(screen.getByTestId('gespraech-menu')).toBeTruthy();
       expect(screen.getByTestId('gespraech-menu-ansehen')).toBeTruthy();
       expect(screen.queryByTestId('profile-surface')).toBeNull();
+      await fireEvent.press(cel('gespraech-menu-close'));
+      expect(screen.queryByTestId('gespraech-menu')).toBeNull();
+      expect(screen.queryByTestId('gespraech-menu-ansehen')).toBeNull();
+      await fireEvent.press(cel('gespraech-vorgaenge-ansehen'));
       await fireEvent.press(cel('gespraech-menu-ansehen'));
       expect(screen.getByTestId('section-vorgaenge')).toBeTruthy();
       expect(screen.queryByTestId('gespraech-menu')).toBeNull();
       await fireEvent.press(screen.getByTestId('shell-tab-start'));
       expect(screen.getByTestId('section-start')).toBeTruthy();
-      await fireEvent.press(screen.getByTestId('gespraech-vorgaenge-ansehen'));
-      await fireEvent.press(cel('gespraech-menu-sprechen'));
-      expect(commands).toHaveBeenLastCalledWith({ kind: 'sprechen' });
-      expect(screen.queryByTestId('gespraech-menu')).toBeNull();
+      for (const action of ['sprechen', 'schreiben', 'foto', 'dokument']) {
+        await fireEvent.press(cel('gespraech-vorgaenge-ansehen'));
+        const ranee = commands.mock.calls.length;
+        await fireEvent.press(cel('gespraech-menu-' + action));
+        expect(commands.mock.calls.length).toBe(ranee + 1);
+        expect(commands).toHaveBeenLastCalledWith({ kind: action });
+        expect(screen.queryByTestId('gespraech-menu')).toBeNull();
+      }
       // GA-15 — обычное меню Mitte собственной целью-входом; цель
       // ждущего Vorgang в нём НЕ появляется: «Ansehen» в обычном меню
       // и «Vorgänge ansehen», открывающий обычное меню, — красные
@@ -218,7 +251,9 @@ describe('gespraech-vhod: исполнимые цели и токены паке
       expect(screen.queryByTestId('gespraech-menu-ansehen')).toBeNull();
       for (const action of ['sprechen', 'schreiben', 'foto', 'dokument']) {
         await fireEvent.press(screen.getByTestId('gespraech-mitte'));
+        const ranee = commands.mock.calls.length;
         await fireEvent.press(cel('gespraech-menu-' + action));
+        expect(commands.mock.calls.length).toBe(ranee + 1);
         expect(commands).toHaveBeenLastCalledWith({ kind: action });
       }
       const paket = JSON.parse(fs.readFileSync(TOKENY_PAKETA, 'utf8'));
@@ -238,8 +273,17 @@ describe('gespraech-vhod: исполнимые цели и токены паке
       const before = commands.mock.calls.length;
       await user.longPress(mitte, { duration: expected - 1 });
       expect(commands).toHaveBeenCalledTimes(before);
+      // Отпускание раньше порога — касание: меню открывается, voice
+      // нет (И-3). Закрываем и проверяем вторую сторону границы:
+      // удержание до порога даёт voice и НЕ открывает меню, ровно
+      // один новый вызов (longpress-otkryvaet-menu красен).
+      expect(screen.getByTestId('gespraech-menu')).toBeTruthy();
+      await fireEvent.press(cel('gespraech-menu-close'));
+      expect(screen.queryByTestId('gespraech-menu')).toBeNull();
       await user.longPress(mitte, { duration: expected });
+      expect(commands.mock.calls.length).toBe(before + 1);
       expect(commands).toHaveBeenLastCalledWith({ kind: 'voice' });
+      expect(screen.queryByTestId('gespraech-menu')).toBeNull();
       jest.useRealTimers();
       expect([...seen].sort()).toEqual([...nabor.celi].sort());
       view.unmount();

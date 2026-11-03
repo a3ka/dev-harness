@@ -232,8 +232,11 @@ mobile/src/bootstrap/tab-shell.tsx — зона касания каждой ОТ
 сам-или-предок с press-обработчиком или touch-респондером — узел,
 который получает жест, в т.ч. когда testID висит на его ребёнке:
 Crit147k2c Б1; testID на декоративном ребёнке шире узкого Pressable
-больше не проходит): width?minWidth + padding + hitSlop ≥
-motion-tokens.ts — press-long, потребляемый UI движения, равен токену
+больше не проходит): width?minWidth + padding + hitSlop, С ПОТОЛКОМ
+maxWidth/maxHeight (реальная зона не больше потолка — zone-maxkap:
+min* 44 при потолке 20 даёт 20×20 и красен), ≥ touch-target.min
+пакета 1.1 на обоих профилях; theme/motion-tokens.ts — press-long,
+потребляемый UI движения, равен токену
 пакета 1.1 motion.press-long (мутант 900 красен равенством), а
 ФАКТИЧЕСКИЙ порог UI измеряется на фейк-часах с допуском 1 мс такта
 advanceTimersByTime (Crit147k2c Б2): удержание до expected−1 мс не
@@ -248,8 +251,15 @@ gespraech-vorgaenge-ansehen) и судит эксклюзивные цели с�
 «Ansehen» появляется ТОЛЬКО в GA-16 и действует переходом в
 section-vorgaenge с закрытием меню; обычное меню Mitte его НЕ
 выдаёт; «Vorgänge ansehen» открывает GA-16, а не обычное меню; цели
-состояния Start отсутствуют в профиле, профиль — в меню; пилюли GA-16
-(«Oder etwas Neues beginnen») действуют своей командой; домен —
+состояния Start отсутствуют в профиле, профиль — в меню; цели меню
+(пилюли, «×») отсутствуют в Start даже ВНЕ контейнера меню
+(piljuli-vne-menu: рендер пилюль в Start без контейнера — слияние
+красно); «×» действует в ОБЕИХ меню (close-v-ga16-nedejstvuet красен);
+пилюли GA-15 И GA-16 («Oder etwas Neues beginnen») действуют СВОЕЙ
+командой РОВНО одним вызовом (piljja-chuzhoj-pered и
+piljuli-ga16-chuzhoj красны счётом и kind); отпускание раньше порога
+press-long — касание (меню открывается), у порога — voice БЕЗ меню и
+ровно одним вызовом (longpress-otkryvaet-menu красен; И-3); домен —
 состояния×цели×оба профиля.
 Матрица мутантов: по якорям (дословные атаки критиков: Pressable
 вкладки {width: 20, height: 20}; press-long 500→900; disabled; нет
@@ -258,7 +268,12 @@ Pressable 20×20 — Crit147k2c Б1; различимость состояний
 «Vorgänge ansehen» открывает обычное меню — vorgang-nedostizhim,
 «Ansehen» в любом открытом меню — ansehen-v-obychnom, Mitte открывает
 GA-16 — mitte-otkryvaet-vorgang; обе половины вместе = дословное
-дерево атаки критика) и ПО РЕГУЛЯРНОМУ ВЫРАЖЕНИЮ
+дерево атаки критика; независимое упрочнение Arch147w: зона с
+потолком maxWidth/maxHeight 20 — zone-maxkap, пилюля шлёт чужой ответ
+перед своим — piljja-chuzhoj-pered, пилюли GA-16 шлют чужой ответ —
+piljuli-ga16-chuzhoj, «×» не действует в GA-16 —
+close-v-ga16-nedejstvuet, long-press открывает меню —
+longpress-otkryvaet-menu) и ПО РЕГУЛЯРНОМУ ВЫРАЖЕНИЮ
 (синтаксически независимая добавка «50 +» к любому выражению
 delayLongPress — Crit147k2c Б2) — контроль зелен, каждый мутант убит
 УПАВШИМ АССЕРТОМ (падение загрузки сьюта НЕ засчитывается —
@@ -268,7 +283,11 @@ ISPOLNIMYJ_MUTANT_NE_UBIT); якорь встречен не 1 раз — име
 кандидате закрывает контроль зонда. Дерево без mobile/package.json —
 именованный пропуск (не зелень продукта), заявленная среда без
 установки — LIVE_PREDPOSYLKA (никогда skip→pass); зонд красен на
-исходных — ISPOLNIMYJ_KONTROL_KRASEN. Зелёный контроль клетки —
+исходных — ISPOLNIMYJ_KONTROL_KRASEN. Скрытые цели (display:none на
+самом узле ИЛИ на предке) не проходят queryByTestId самого RNTL —
+исполненные мутанты cele-skryty/ekran-skryt-predkom красны (2 упавших
+ассерта каждый) без отдельного ассерта видимости. Зелёный контроль
+клетки —
 A-дерево (референс-раскладка model/produktnaja-raskladka/: настоящие
 компоненты продукта с зонами по токенам пакета 1.1 — прецедент
 148/149).
@@ -342,8 +361,11 @@ jest-krasnyj/jest-zelenyj — фиктивные jest-среды с зашиты
 их, — рассинхрон rc 2. Мутанты реальных компонентов (tab-zona-20,
 press-long-900, disabled-menu, missing-ansehen, no-close-action,
 child-testid-hitarea, vorgang-nedostizhim, ansehen-v-obychnom,
-mitte-otkryvaet-vorgang, press-long-sdvig, literal-touch-44,
-literal-press-long-500) — матрица самой клетки: якорные обязаны
+mitte-otkryvaet-vorgang, zone-maxkap, piljja-chuzhoj-pered,
+piljuli-ga16-chuzhoj, close-v-ga16-nedejstvuet,
+longpress-otkryvaet-menu, press-long-sdvig, literal-touch-44,
+literal-press-long-500, tab-minwidth-literal) — матрица самой клетки:
+якорные обязаны
 встречаться в файле дерева РОВНО один раз (иначе именованная
 неприменимость или — при ином синтаксисе валидного кандидата —
 референс с ЯВНЫМ извещением в stderr), press-long-sdvig — регулярное
