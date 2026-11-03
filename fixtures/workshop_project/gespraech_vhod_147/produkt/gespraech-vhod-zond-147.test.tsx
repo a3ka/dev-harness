@@ -2,11 +2,20 @@
 // доступность и наблюдаемое действие в каждом состоянии. Значения токенов
 // поступают из пакета; компонент должен следовать их изменению, а не лишь
 // совпадать с текущим числом.
+//
+// Зона касания судится на ИНТЕРКТИВНОМ узле — ближайшем сам-или-предке,
+// принимающем жест, — а не на узле с testID: testID может висеть на
+// декоративном ребёнке шире узкого Pressable (Crit147k2c Б1). Порог
+// press-long измеряется на фейк-часах ТОЧНО, с допуском измерительного
+// интерфейса 1 мс такта advanceTimersByTime: окна ±100 мс пропускали
+// сдвиг «токен + 50 мс» (Crit147k2c Б2); фейк-часы детерминированы,
+// целочисленная граница таймера флейка не даёт.
 import fs from 'fs';
 import path from 'path';
 import React from 'react';
 import { fireEvent, render, screen, userEvent } from '@testing-library/react-native';
 import { StyleSheet, View } from 'react-native';
+import type { TestInstance } from 'test-renderer';
 
 import { TabShell } from '../tab-shell';
 import { MOTION_TOKENS } from '../../theme/motion-tokens';
@@ -39,12 +48,34 @@ interface Zona {
   readonly h: number;
 }
 
-/** Нижняя граница эффективной hit-area: width/height и minWidth/minHeight
- * одновременно действуют как max; padding добавляется только если явной
- * ширины/высоты нет, hitSlop расширяет границу во всех случаях. */
-function zonaCelej(id: string, shirinaProfilja: number): Zona {
-  const el = screen.getByTestId(id);
-  const props = (el as { props?: { style?: unknown; hitSlop?: unknown } })
+/** Интерактивный узел цели: ближайший сам-или-предок, принимающий жест —
+ * прямой press-обработчик (onPress/onLongPress/onPressIn/onPressOut) или
+ * touch-респондер (тот же признак, по которому userEvent/fireEvent
+ * доставляют нажатие вверх по дереву). Реальная зона касания — геометрия
+ * ЭТОГО узла с учётом его hitSlop/padding/minHeight. */
+function interaktivnyjUzel(id: string): TestInstance {
+  let uzel: TestInstance | null = screen.getByTestId(id);
+  while (uzel !== null) {
+    const props = (uzel as { props?: Record<string, unknown> }).props ?? {};
+    const prjamoj = props.onPress != null || props.onLongPress != null ||
+      props.onPressIn != null || props.onPressOut != null;
+    const respondent = typeof props.onStartShouldSetResponder === 'function' &&
+      props.onStartShouldSetResponder() === true;
+    if (prjamoj || respondent) {
+      return uzel;
+    }
+    uzel = uzel.parent;
+  }
+  throw new Error(
+    'цель ' + id + ': нет интерактивного узла (press-обработчик/респондер) вверх по дереву');
+}
+
+/** Нижняя граница эффективной hit-area ИНТЕРКТИВНОГО узла: width/height и
+ * minWidth/minHeight одновременно действуют как max; padding добавляется
+ * только если явной ширины/высоты нет, hitSlop расширяет границу во всех
+ * случаях. */
+function zonaUzla(uzel: TestInstance, shirinaProfilja: number): Zona {
+  const props = (uzel as { props?: { style?: unknown; hitSlop?: unknown } })
     .props ?? {};
   const sloi = (StyleSheet.flatten([props.style]) ?? {}) as Record<string, number | string>;
   const slop: unknown = props.hitSlop;
@@ -105,24 +136,28 @@ describe('gespraech-vhod: исполнимые цели и токены паке
         expect(nabor.celi).toContain(id);
         const element = screen.getByTestId(id);
         seen.add(id);
-        let node: typeof element | null = element;
+        let node: TestInstance | null = element;
         while (node !== null) {
           expect(node.props.disabled).not.toBe(true);
           expect(node.props.accessibilityState?.disabled).not.toBe(true);
           expect(node.props.pointerEvents).not.toBe('none');
           node = node.parent;
         }
-        // Контрфактический токен не переопределяет валидную при исходном
-        // пакете явную рамку, padding или hitSlop. У целей без такого
-        // независимого размера источник обязан менять живую зону.
-        const style = (StyleSheet.flatten([element.props.style]) ?? {}) as
+        // Зона касания — геометрия ИНТЕРКТИВНОГО узла (узла, который
+        // получает жест), в том числе когда testID висит на его ребёнке
+        // (Crit147k2c Б1). Контрфактический токен не переопределяет
+        // валидную при исходном пакете явную рамку, padding или hitSlop
+        // интерактивного узла; целям без такого независимого размера
+        // источник обязан менять живую зону.
+        const uzol = interaktivnyjUzel(id);
+        const style = (StyleSheet.flatten([uzol.props.style]) ?? {}) as
           Record<string, number | string>;
         const fixed = ['width', 'height', 'padding', 'paddingHorizontal',
           'paddingVertical', 'paddingLeft', 'paddingRight', 'paddingTop',
           'paddingBottom'].some((key) => style[key] !== undefined) ||
-          element.props.hitSlop !== undefined;
+          uzol.props.hitSlop !== undefined;
         if (process.env.GESPRAECH147_METAMORF !== '1' || !fixed) {
-          const zona = zonaCelej(id, shirina);
+          const zona = zonaUzla(uzol, shirina);
           expect(zona.w).toBeGreaterThanOrEqual(nabor.minimum);
           expect(zona.h).toBeGreaterThanOrEqual(nabor.minimum);
         }
@@ -153,12 +188,22 @@ describe('gespraech-vhod: исполнимые цели и токены паке
       const expected = ms(paket.motion['press-long'].$value);
       expect(ms(MOTION_TOKENS['press-long'])).toBe(expected);
       const mitte = cel('gespraech-mitte');
-      const user = userEvent.setup();
+      // Фактический порог UI, а не окно вокруг токена (Crit147k2c Б2):
+      // удержание до expected−1 мс не даёт voice, удержание ровно до
+      // expected — даёт. Любой сдвиг порога ≥ 1 мс (в т.ч. «токен + 50»)
+      // различим; погрешность измерения — 1 мс такта фейк-часов, флейка
+      // на границе нет (целочисленные часы; таймер Pressability —
+      // setTimeout(delayLongPress + delayPressIn), delayPressIn = 0).
+      jest.useFakeTimers();
+      const user = userEvent.setup({
+        advanceTimers: jest.advanceTimersByTime,
+      });
       const before = commands.mock.calls.length;
-      await user.longPress(mitte, { duration: expected - 100 });
+      await user.longPress(mitte, { duration: expected - 1 });
       expect(commands).toHaveBeenCalledTimes(before);
-      await user.longPress(mitte, { duration: expected + 100 });
+      await user.longPress(mitte, { duration: expected });
       expect(commands).toHaveBeenLastCalledWith({ kind: 'voice' });
+      jest.useRealTimers();
       expect([...seen].sort()).toEqual([...nabor.celi].sort());
       view.unmount();
     });
