@@ -1,0 +1,64 @@
+{
+ "kontrakt": 159,
+ "predmet": "пустой продукт красный: W --repo всех экранных батарей на пустом продукте обязан быть красным (rc != 0, именованная причина)",
+ "piny": {
+  "nositeli": [
+   "model/check_pustoj_produkt_159.py",
+   "stabs/s1_ignoriruet_rezultat.py",
+   "stabs/s2_tolko_ekran_json.py",
+   "stabs/s3_pri_targets_pust.py"
+  ],
+  "sha": {
+   "model/check_pustoj_produkt_159.py": "e992d7e2a086083ed6b3166277a0dedfd205c4b8f365413d28ad1e88ff7db366",
+   "stabs/s1_ignoriruet_rezultat.py": "c00644ef08cf5865b30d643796f169348cc974b14b529953ed5b8eb76a03b111",
+   "stabs/s2_tolko_ekran_json.py": "5c2edece15e4ff89b48e6a747420ced8f442eb8a2427811386d66a1704b66ae9",
+   "stabs/s3_pri_targets_pust.py": "2ea3bf5b2d25dd5a9b4c38458797cb91ce24356673f09439e6f97c518f8196ed"
+  }
+ },
+ "staby": {
+  "s1_ignoriruet_rezultat.py": "stabs/s1_ignoriruet_rezultat.py",
+  "s2_tolko_ekran_json.py": "stabs/s2_tolko_ekran_json.py",
+  "s3_pri_targets_pust.py": "stabs/s3_pri_targets_pust.py"
+ },
+ "stab_vhod": {
+  "s1_ignoriruet_rezultat.py": {
+   "vhody": [
+    "a-forma-pusta",
+    "b1-pustoj-katalog",
+    "b2-otsutstvujushchij",
+    "v-karta-bez-celej",
+    "g-koren-bez-soderzhimogo"
+   ],
+   "forma": "trace-ignored"
+  },
+  "s2_tolko_ekran_json.py": {
+   "vhody": [
+    "b1-pustoj-katalog",
+    "b2-otsutstvujushchij",
+    "v-karta-bez-celej",
+    "g-koren-bez-soderzhimogo"
+   ],
+   "forma": "zelen-na-pustom"
+  },
+  "s3_pri_targets_pust.py": {
+   "vhody": [
+    "v-karta-bez-celej"
+   ],
+   "forma": "zelen-na-pustom"
+  }
+ },
+ "batarei": {
+  "gespraech_otdacha_151": "red_gespraech_otdacha_151.sh",
+  "gespraech_tekst_149": "red_gespraech_tekst_149.sh",
+  "gespraech_vhod_147": "red_gespraech_vhod_147.sh",
+  "vkladki_tabov_148": "red_vkladki_tabov_148.sh"
+ },
+ "vne_domena": [
+  "ekran_shablon_132",
+  "erstinformation_118",
+  "first_run_ekran_135",
+  "mission_116",
+  "shablon_dvizhenie_146",
+  "start_ekran_138"
+ ]
+}
