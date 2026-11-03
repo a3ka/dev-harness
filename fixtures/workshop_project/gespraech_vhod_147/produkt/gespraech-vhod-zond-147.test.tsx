@@ -3,13 +3,21 @@
 // поступают из пакета; компонент должен следовать их изменению, а не лишь
 // совпадать с текущим числом.
 //
-// Зона касания судится на ИНТЕРКТИВНОМ узле — ближайшем сам-или-предке,
+// Зона касания судится на ИНТЕРАКТИВНОМ узле — ближайшем сам-или-предке,
 // принимающем жест, — а не на узле с testID: testID может висеть на
 // декоративном ребёнке шире узкого Pressable (Crit147k2c Б1). Порог
 // press-long измеряется на фейк-часах ТОЧНО, с допуском измерительного
 // интерфейса 1 мс такта advanceTimersByTime: окна ±100 мс пропускали
 // сдвиг «токен + 50 мс» (Crit147k2c Б2); фейк-часы детерминированы,
 // целочисленная граница таймера флейка не даёт.
+//
+// Каждое заявленное состояние машины (Start, профиль, обычное меню
+// GA-15, ждущий Vorgang GA-16) достигается СОБСТВЕННОЙ целью-входом,
+// и эксклюзивные цели состояния появляются ТОЛЬКО в нём: «Ansehen» —
+// только в GA-16, обычное меню Mitte его не выдаёт, «Vorgänge
+// ansehen» открывает GA-16, а не обычное меню (Crit147k2d —
+// различимость ожидающего Vorgang; слияние состояний и подмена входа
+// красны собственными ассертами).
 import fs from 'fs';
 import path from 'path';
 import React from 'react';
@@ -163,22 +171,51 @@ describe('gespraech-vhod: исполнимые цели и токены паке
         }
         return element;
       };
+      // Состояние Start (меню закрыто): цель ждущего Vorgang («Ansehen»)
+      // в нём не наблюдается — эксклюзивные цели появляются только в
+      // своём состоянии (Crit147k2d: различимость состояний).
+      expect(screen.queryByTestId('gespraech-menu')).toBeNull();
+      expect(screen.queryByTestId('gespraech-menu-ansehen')).toBeNull();
+      // Состояние «профиль» — собственной целью-входа; цели состояния
+      // Start в нём отсутствуют (слияние состояний красно).
       await fireEvent.press(cel('shell-profile-entry'));
       expect(screen.getByTestId('profile-surface')).toBeTruthy();
+      expect(screen.queryByTestId('gespraech-mitte')).toBeNull();
+      expect(screen.queryByTestId('gespraech-vorgaenge-ansehen')).toBeNull();
       await fireEvent.press(screen.getByTestId('shell-back'));
       expect(screen.getByTestId('section-start')).toBeTruthy();
       for (const tab of ['vorgaenge', 'schutz', 'post', 'start']) {
         await fireEvent.press(cel('shell-tab-' + tab));
         expect(screen.getByTestId('section-' + tab)).toBeTruthy();
       }
+      // GA-16 — меню с ждущим Vorgang: достигается СОБСТВЕННОЙ
+      // целью-входом «Vorgänge ansehen» (не обычным меню); его цель
+      // «Ansehen» появляется только в нём и действует переходом, цели
+      // чужих состояний в нём нет; пилюли «Oder etwas Neues beginnen»
+      // действуют своей командой (домен состояния×цели).
       await fireEvent.press(cel('gespraech-vorgaenge-ansehen'));
+      expect(screen.getByTestId('gespraech-menu')).toBeTruthy();
+      expect(screen.getByTestId('gespraech-menu-ansehen')).toBeTruthy();
+      expect(screen.queryByTestId('profile-surface')).toBeNull();
       await fireEvent.press(cel('gespraech-menu-ansehen'));
       expect(screen.getByTestId('section-vorgaenge')).toBeTruthy();
+      expect(screen.queryByTestId('gespraech-menu')).toBeNull();
       await fireEvent.press(screen.getByTestId('shell-tab-start'));
+      expect(screen.getByTestId('section-start')).toBeTruthy();
+      await fireEvent.press(screen.getByTestId('gespraech-vorgaenge-ansehen'));
+      await fireEvent.press(cel('gespraech-menu-sprechen'));
+      expect(commands).toHaveBeenLastCalledWith({ kind: 'sprechen' });
+      expect(screen.queryByTestId('gespraech-menu')).toBeNull();
+      // GA-15 — обычное меню Mitte собственной целью-входом; цель
+      // ждущего Vorgang в нём НЕ появляется: «Ansehen» в обычном меню
+      // и «Vorgänge ansehen», открывающий обычное меню, — красные
+      // (обход Crit147k2d был зелёным ровно на этом).
       await fireEvent.press(cel('gespraech-mitte'));
       expect(screen.getByTestId('gespraech-menu')).toBeTruthy();
+      expect(screen.queryByTestId('gespraech-menu-ansehen')).toBeNull();
       await fireEvent.press(cel('gespraech-menu-close'));
       expect(screen.queryByTestId('gespraech-menu')).toBeNull();
+      expect(screen.queryByTestId('gespraech-menu-ansehen')).toBeNull();
       for (const action of ['sprechen', 'schreiben', 'foto', 'dokument']) {
         await fireEvent.press(screen.getByTestId('gespraech-mitte'));
         await fireEvent.press(cel('gespraech-menu-' + action));

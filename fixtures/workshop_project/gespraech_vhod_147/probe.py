@@ -174,6 +174,27 @@ MUTACII_ISPOLNIMYE += [
                       <Text testID={`gespraech-menu-${id}`} style={styles.ziel}>{id}</Text>
                     </Pressable>'''),
 ]
+MUTACII_ISPOLNIMYE += [
+    # Различимость состояний меню (цикл 2, вердикт Crit147k2d класс
+    # РАЗЛИЧИМОСТЬ ОЖИДАЮЩЕГО VORGANG): две половины мутанта критика —
+    # «Vorgänge ansehen» открывает обычное меню (GA-16 недостижим
+    # собственной целью-входом) и «Ansehen» рендерится в любом открытом
+    # меню (слияние состояний) — плюс цель-вход Mitte, ведущая в GA-16.
+    # Зонд достигает каждое состояние СВОЕЙ целью-входа и требует:
+    # «Ansehen» появляется ТОЛЬКО в GA-16 и действует, обычное меню
+    # Mitte его не выдаёт; каждый мутант обязан краснеть собственным
+    # ассертом различимости (обе половины вместе = дословное дерево
+    # атаки критика, краснота объединения следует из красноты половин:
+    # ассерт GA-15 ловит слияние, ассерт GA-16 — недостижимость).
+    ('vorgang-nedostizhim', 'mobile/src/bootstrap/tab-shell.tsx',
+     "onPress={() => setMenu('vorgang')}",
+     "onPress={() => setMenu('open')}"),
+    ('ansehen-v-obychnom', 'mobile/src/bootstrap/tab-shell.tsx',
+     "{menu === 'vorgang' ? (", "{menu !== 'closed' ? ("),
+    ('mitte-otkryvaet-vorgang', 'mobile/src/bootstrap/tab-shell.tsx',
+     "onPress={() => setMenu('open')}",
+     "onPress={() => setMenu('vorgang')}"),
+]
 MUTACII_SVJAZI = [
     ('literal-touch-44', 'mobile/src/bootstrap/tab-shell.tsx',
      'profileZone: { minHeight: ziel, minWidth: ziel }',

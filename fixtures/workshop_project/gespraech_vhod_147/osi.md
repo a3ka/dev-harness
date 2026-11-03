@@ -233,7 +233,6 @@ mobile/src/bootstrap/tab-shell.tsx — зона касания каждой ОТ
 который получает жест, в т.ч. когда testID висит на его ребёнке:
 Crit147k2c Б1; testID на декоративном ребёнке шире узкого Pressable
 больше не проходит): width?minWidth + padding + hitSlop ≥
-touch-target.min 44 пакета 1.1, на профилях 390/393; theme/
 motion-tokens.ts — press-long, потребляемый UI движения, равен токену
 пакета 1.1 motion.press-long (мутант 900 красен равенством), а
 ФАКТИЧЕСКИЙ порог UI измеряется на фейк-часах с допуском 1 мс такта
@@ -241,10 +240,25 @@ advanceTimersByTime (Crit147k2c Б2): удержание до expected−1 мс 
 даёт voice, удержание ровно до expected — даёт; сдвиг порога на любую
 величину ≥ 1 мс (в т.ч. «токен + 50») красен собственным ассертом,
 окна ±100 мс сняты, флейка на границе нет — часы детерминированы.
+ДОСТИЖИМОСТЬ И РАЗЛИЧИМОСТЬ СОСТОЯНИЙ (цикл 2, вердикт Crit147k2d):
+каждое заявленное состояние машины — Start (меню закрыто), профиль,
+обычное меню GA-15, ждущий Vorgang GA-16 — зонд достигает нажатием
+СОБСТВЕННОЙ цели-входа (shell-profile-entry / gespraech-mitte /
+gespraech-vorgaenge-ansehen) и судит эксклюзивные цели состояний:
+«Ansehen» появляется ТОЛЬКО в GA-16 и действует переходом в
+section-vorgaenge с закрытием меню; обычное меню Mitte его НЕ
+выдаёт; «Vorgänge ansehen» открывает GA-16, а не обычное меню; цели
+состояния Start отсутствуют в профиле, профиль — в меню; пилюли GA-16
+(«Oder etwas Neues beginnen») действуют своей командой; домен —
+состояния×цели×оба профиля.
 Матрица мутантов: по якорям (дословные атаки критиков: Pressable
 вкладки {width: 20, height: 20}; press-long 500→900; disabled; нет
 Ansehen; нет действия close; testID и ≥44 стиль на дочернем Text при
-Pressable 20×20 — Crit147k2c Б1) и ПО РЕГУЛЯРНОМУ ВЫРАЖЕНИЮ
+Pressable 20×20 — Crit147k2c Б1; различимость состояний Crit147k2d:
+«Vorgänge ansehen» открывает обычное меню — vorgang-nedostizhim,
+«Ansehen» в любом открытом меню — ansehen-v-obychnom, Mitte открывает
+GA-16 — mitte-otkryvaet-vorgang; обе половины вместе = дословное
+дерево атаки критика) и ПО РЕГУЛЯРНОМУ ВЫРАЖЕНИЮ
 (синтаксически независимая добавка «50 +» к любому выражению
 delayLongPress — Crit147k2c Б2) — контроль зелен, каждый мутант убит
 УПАВШИМ АССЕРТОМ (падение загрузки сьюта НЕ засчитывается —
@@ -327,7 +341,8 @@ jest-krasnyj/jest-zelenyj — фиктивные jest-среды с зашиты
 зелёный (мутанты живы) — ISPOLNIMYJ_MUTANT_ZHIV; судья, не различающий
 их, — рассинхрон rc 2. Мутанты реальных компонентов (tab-zona-20,
 press-long-900, disabled-menu, missing-ansehen, no-close-action,
-child-testid-hitarea, press-long-sdvig, literal-touch-44,
+child-testid-hitarea, vorgang-nedostizhim, ansehen-v-obychnom,
+mitte-otkryvaet-vorgang, press-long-sdvig, literal-touch-44,
 literal-press-long-500) — матрица самой клетки: якорные обязаны
 встречаться в файле дерева РОВНО один раз (иначе именованная
 неприменимость или — при ином синтаксисе валидного кандидата —
