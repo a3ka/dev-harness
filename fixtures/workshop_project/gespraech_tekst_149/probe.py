@@ -135,7 +135,7 @@ KOMPOZER_V_PRODUKTE = os.path.join('mobile', 'src', 'ui',
                                    'conversation-composer',
                                    'conversation-composer.tsx')
 # мутанты исполняемого суда (блок 1 Crit149b + v+1 цикла 2 Crit149k2a/
-# Crit149k2b): «пустой хост» — файл выродился в пустой рендер;
+# Crit149k2b/Crit149k2d): «пустой хост» — файл выродился в пустой рендер;
 # «композер не изменён» — байты product main (носитель зоны, пин),
 # правка 149 снята; zona-12-* — полы зон нажатия 44 → 12 (класс
 # РЕАЛЬНАЯ_ЗОНА_КАСАНИЯ, дословная атака mut-hit); token-24/token-20 —
@@ -148,7 +148,19 @@ KOMPOZER_V_PRODUKTE = os.path.join('mobile', 'src', 'ui',
 # не является); bez-chipov-ga19 — Brief-Dokument без обязательных чипов
 # сравнения (класс ПОЛНОТА_ЖИВЫХ_ЦЕЛЕЙ, наблюдаем в состоянии dokument:
 # CEL_OTSTUTSVUET); bez-golosa-v-polje — кнопка голоса В ПОЛЕ снята
-# (наблюдаем в schreiben-tastatur и на композере: CEL_OTSTUTSVUET).
+# (наблюдаем в schreiben-tastatur и на композере: CEL_OTSTUTSVUET);
+# v+1 цикл 2 вызов 4 (Crit149k2d, класс ЧУЖОЙ_ОТВЕТ_ПРИ_НАЖАТИИ):
+# chuzhoj-otvet-chip — ОБА чипа GA-19 отправляют надпись первого
+# (дословная атака критика mutate_wrong_reply.py: «Erst mal nicht»
+# отправляет «Ja, vergleichen»); chuzhoj-otvet-sdvig — циклический
+# сдвиг по ВСЕМ ответным чипам (GA-12+GA-19: каждый отправляет
+# следующего); chuzhoj-otvet-odin — одна реплика для всех целей
+# (каждый чип обоих экранов отправляет надпись первого чипа GA-12);
+# chuzhaja-tema-sdvig — циклический сдвиг тем (плашка/erzaehlen
+# ставит тему соседа: Heirat открывает темой Auto). Все четыре
+# наблюдаемы СОДЕРЖАНИЕМ: реплика != надписи нажатого чипа / тема !=
+# надписи нажатой плашки — зонд (v+1 вызов 4) сравнивает постусловие
+# с надписью НАЖАТОГО элемента, правильные ответы зелены.
 MUTANTY_ISPOLNIMYE = [
     ('host-pustoj', HOST_V_PRODUKTE,
      os.path.join(STABY, 'stab_host_pustoj.tsx')),
@@ -168,6 +180,14 @@ MUTANTY_ISPOLNIMYE = [
      os.path.join(STABY, 'stab_host_bez_chipov_ga19.tsx')),
     ('bez-golosa-v-polje', KOMPOZER_V_PRODUKTE,
      os.path.join(STABY, 'stab_kompozer_bez_golosa_v_polje.tsx')),
+    ('chuzhoj-otvet-chip', HOST_V_PRODUKTE,
+     os.path.join(STABY, 'stab_host_chuzhoj_otvet_chip.tsx')),
+    ('chuzhoj-otvet-sdvig', HOST_V_PRODUKTE,
+     os.path.join(STABY, 'stab_host_chuzhoj_otvet_sdvig.tsx')),
+    ('chuzhoj-otvet-odin', HOST_V_PRODUKTE,
+     os.path.join(STABY, 'stab_host_chuzhoj_otvet_odin.tsx')),
+    ('chuzhaja-tema-sdvig', HOST_V_PRODUKTE,
+     os.path.join(STABY, 'stab_host_chuzhaja_tema_sdvig.tsx')),
 ]
 
 # клеточные стабы (Н-39: стаб → клетка + файл; рассинхрон — rc 2):

@@ -63,6 +63,21 @@
 // Responder false; pointerEvents — блок; onPress нет — обработчик не
 // найден), поэтому disabled-кнопка красна И исполнением.
 //
+// v+1 цикл 2 вызов 4 (вердикт Crit149k2d — класс ЧУЖОЙ_ОТВЕТ_
+// ПРИ_НАЖАТИИ): постусловие СПЕЦИФИЧНО нажатой цели, не «существует
+// какая-либо реплика»: (1) каждому ответному чипу соответствует его
+// СОБСТВЕННЫЙ отправленный ответ — последняя реплика пользователя
+// равна надписи НАЖАТОГО чипа (чип «Erst mal nicht» не может
+// отправлять «Ja, vergleichen»); (2) тема разговора — надпись
+// нажатой плашки (Heirat нажата — тема Heirat), тема письма —
+// надпись плашки своего erzaehlen (наблюдается через Verlauf:
+// в темах-строке тема не рендерится); (3) отправка композера
+// отправляет ЧЕРНОВИК поля; (4) голос/«Lieber erzählen?»/«+» дают
+// СВОЙ экран (темы-строка/меню) БЕЗ реплики пользователя. Ожидание
+// читается из НАЖАТОГО элемента живьём (первый Text-потомок —
+// единый источник рендера), вторая копия словаря копий не заводится;
+// домен — все пары цель × состояние × профиль (80 action-тестов).
+//
 // Среда 145/RNTL: ОДИН render на тест — render/unmount циклы внутри
 // одного теста дают overlapping act() и пустое дерево (замер этой
 // пачки); между тестами авто-cleanup среды корректен; каждое событие
@@ -86,6 +101,122 @@ const nazhat = async (id: string) => {
 };
 const vvesti = async (id: string, tekst: string) => {
   await fireEvent.changeText(est(id), tekst);
+};
+
+// Надпись элемента: ПЕРВЫЙ текстовый потомок в порядке документа (у
+// плашки темы — её собственная надпись, у чипа — единственная).
+// Источник ожидания — живой рендер нажатой цели, не вторая копия
+// словаря (вызов 4: чужой ответ наблюдаем расхождением реплики с
+// надписью нажатого чипа). Текстовые хост-имена и сбор текста — как
+// HOST_TEXT_NAMES/getTextContent RNTL; findAll у инстанса RNTL v14
+// отсутствует (замер вызова 4) — обход по children вручную.
+const sobratTekst = (uzel: ReactTestInstance | string): string => {
+  if (typeof uzel === 'string') {
+    return uzel;
+  }
+  return uzel.children.map(sobratTekst).join('');
+};
+const najtiTekst = (el: ReactTestInstance): string | null => {
+  // текстовые хост-имена — как HOST_TEXT_NAMES RNTL (Text/RCTText)
+  if (el.type === 'Text' || el.type === 'RCTText') {
+    return sobratTekst(el);
+  }
+  for (const rebenok of el.children) {
+    if (typeof rebenok === 'string') {
+      continue;
+    }
+    const najdeno = najtiTekst(rebenok);
+    if (najdeno !== null) {
+      return najdeno;
+    }
+  }
+  return null;
+};
+const tekstElementa = (el: ReactTestInstance): string => {
+  const tekst = najtiTekst(el);
+  if (tekst === null || tekst === '') {
+    throw new Error('у элемента нет строковой надписи');
+  }
+  return tekst;
+};
+const poslednjajaReplika = (): string => {
+  const spisok = screen.getAllByTestId('gespraech-soobschenie-polzovatel');
+  return tekstElementa(spisok[spisok.length - 1]);
+};
+
+// Нажатие с постусловием СВОЕЙ цели (вызов 4, Crit149k2d
+// ЧУЖОЙ_ОТВЕТ_ПРИ_НАЖАТИИ): результат различает цель и её соседа —
+// чип отправляет СВОЮ надпись, отправка — черновик, плашка — СВОЮ
+// тему, голос/письмо/меню — свой экран без чужой реплики. Ожидание
+// снимается ДО нажатия (после нажатия чип может размонтироваться).
+const nazhatSvojuCel = async (
+  id: string, sostojanie: string, chernovik: string,
+): Promise<void> => {
+  if (id.startsWith('gespraech-chip-')) {
+    const svojOtvet = tekstElementa(est(id));
+    await nazhat(id);
+    expect(poslednjajaReplika()).toBe(svojOtvet);
+    // СВОЙ ответ порождает следующий вопрос агента (реплика+вопрос);
+    // после нажатия вопросов два — getAll, не единственный est
+    expect(screen.getAllByTestId('gespraech-vopros-agenta').length)
+      .toBe(2);
+    return;
+  }
+  if (id === 'gespraech-otpravit') {
+    await nazhat(id);
+    expect(poslednjajaReplika()).toBe(chernovik);
+    return;
+  }
+  if (id === 'gespraech-mikrofon' || id === 'gespraech-mikrofon-v-pole' ||
+      id === 'gespraech-lieber-erzaehlen') {
+    await nazhat(id);
+    expect(est('gespraech-temy-stroka')).toBeTruthy();
+    expect(net('gespraech-vlozhenie')).toBeNull();
+    expect(net('gespraech-soobschenie-polzovatel')).toBeNull();
+    return;
+  }
+  if (id.endsWith('-erzaehlen')) {
+    const svojaTema = tekstElementa(
+      est(id.slice(0, -'-erzaehlen'.length)));
+    await nazhat(id);
+    expect(est('gespraech-temy-stroka')).toBeTruthy();
+    // тема письма не рендерится в темах-строке — видна через Verlauf
+    await nazhat('gespraech-verlauf');
+    expect(tekstElementa(est('gespraech-tema-verh'))).toBe(svojaTema);
+    return;
+  }
+  if (id.startsWith('gespraech-topic-')) {
+    const svojaTema = tekstElementa(
+      est(id === 'gespraech-topic-schaden-speak'
+        ? 'gespraech-topic-schaden' : id));
+    await nazhat(id);
+    expect(tekstElementa(est('gespraech-tema-verh'))).toBe(svojaTema);
+    expect(est('gespraech-vopros-agenta')).toBeTruthy();
+    return;
+  }
+  if (id === 'gespraech-vlozhit') {
+    await nazhat(id);
+    expect(est('gespraech-vlozhenie')).toBeTruthy();
+    expect(net('gespraech-soobschenie-polzovatel')).toBeNull();
+    return;
+  }
+  if (id === 'gespraech-verlauf') {
+    await nazhat(id);
+    expect(est('gespraech-verlauf-spisok')).toBeTruthy();
+    if (sostojanie === 'plaschki') {
+      expect(net('gespraech-topic-schaden')).toBeNull();
+    } else if (sostojanie === 'schreiben-temy' ||
+               sostojanie === 'schreiben-tastatur') {
+      expect(net('gespraech-temy-stroka')).toBeNull();
+    } else if (sostojanie === 'foto') {
+      expect(net('gespraech-vlozhenie-foto')).toBeNull();
+    } else if (sostojanie === 'dokument') {
+      expect(net('gespraech-vlozhenie-brief')).toBeNull();
+    }
+    expect(net('gespraech-soobschenie-polzovatel')).toBeNull();
+    return;
+  }
+  throw new Error('нет постусловия своей цели: ' + id);
 };
 
 // --- пакет D24-Kompakt-1.1: токены и карта pressable (конечный домен) ---
@@ -381,12 +512,14 @@ describe('gespraech-tekst-chat: хост текст-чата', () => {
     expect(net('gespraech-topic-schaden')).toBeNull();
   });
 
-  it('чип ответа даёт следующую реплику разговора', async () => {
+  it('чип ответа отправляет СВОЮ надпись и даёт следующую реплику', async () => {
     await render(<GespraechTekstChat />);
     await nazhat('gespraech-topic-auto');
+    // СВОЙ ответ: реплика равна надписи нажатого чипа, не любой
+    const svoj = tekstElementa(est('gespraech-chip-gekauft'));
     await nazhat('gespraech-chip-gekauft');
+    expect(poslednjajaReplika()).toBe(svoj);
     expect(screen.getAllByTestId('gespraech-vopros-agenta').length).toBe(2);
-    expect(est('gespraech-soobschenie-polzovatel')).toBeTruthy();
   });
 
   it('erzaehlen открывает письмо: темы-строка над полем (GA-17)', async () => {
@@ -409,7 +542,7 @@ describe('gespraech-tekst-chat: хост текст-чата', () => {
     expect(est('gespraech-vopros-agenta')).toBeTruthy();
   });
 
-  it('Brief-Dokument: агент спрашивает, чипы сравнения действуют (GA-19)', async () => {
+  it('Brief-Dokument: агент спрашивает, первый чип отправляет СВОЙ ответ (GA-19)', async () => {
     await render(<GespraechTekstChat />);
     await nazhat('gespraech-vlozhit');
     await nazhat('gespraech-vlozhit-dokument');
@@ -417,18 +550,33 @@ describe('gespraech-tekst-chat: хост текст-чата', () => {
     expect(est('gespraech-vopros-agenta')).toBeTruthy();
     expect(est('gespraech-chip-vergleichen')).toBeTruthy();
     expect(est('gespraech-chip-nicht')).toBeTruthy();
-    // ДЕЙСТВИЕ обязательного pressable: чип — ответ агенту
+    // ДЕЙСТВИЕ обязательного pressable: чип — СВОЙ ответ агенту
+    const svoj = tekstElementa(est('gespraech-chip-vergleichen'));
     await nazhat('gespraech-chip-vergleichen');
-    expect(est('gespraech-soobschenie-polzovatel')).toBeTruthy();
+    expect(poslednjajaReplika()).toBe(svoj);
     expect(screen.getAllByTestId('gespraech-vopros-agenta').length).toBe(2);
   });
 
-  it('текст и отправка: сообщение в Verlauf, поле очищено', async () => {
+  it('GA-19 второй чип отправляет СВОЙ ответ, не соседа (красное Crit149k2d)', async () => {
+    await render(<GespraechTekstChat />);
+    await nazhat('gespraech-vlozhit');
+    await nazhat('gespraech-vlozhit-dokument');
+    // дословная атака критика: «Erst mal nicht» отправляет
+    // «Ja, vergleichen» — все прежние клетки зелены; СВОЙ ответ
+    // различает нажатый чип и его соседа содержанием реплики
+    const svoj = tekstElementa(est('gespraech-chip-nicht'));
+    await nazhat('gespraech-chip-nicht');
+    expect(poslednjajaReplika()).toBe(svoj);
+    expect(screen.getAllByTestId('gespraech-vopros-agenta').length).toBe(2);
+  });
+
+  it('текст и отправка: сообщение равно черновику, поле очищено', async () => {
     await render(<GespraechTekstChat />);
     await vvesti('gespraech-pole', 'Hallo von Ihnen');
     expect(est('gespraech-otpravit')).toBeTruthy();
     await nazhat('gespraech-otpravit');
-    expect(est('gespraech-soobschenie-polzovatel')).toBeTruthy();
+    // отправка композера отправляет ЧЕРНОВИК, не чужую реплику
+    expect(poslednjajaReplika()).toBe('Hallo von Ihnen');
     expect(net('gespraech-otpravit')).toBeNull();
   });
 });
@@ -570,17 +718,7 @@ describe('gespraech-tekst-chat: домен, состояния, зоны и то
           expect(est('gespraech-otpravit')).toBeTruthy();
           return;
         }
-        await nazhat(id);
-        if (id === 'gespraech-vlozhit') {
-          expect(est('gespraech-vlozhenie')).toBeTruthy();
-        } else if (id === 'gespraech-verlauf') {
-          expect(est('gespraech-verlauf-spisok')).toBeTruthy();
-        } else if (id === 'gespraech-mikrofon' ||
-                   id.endsWith('-erzaehlen')) {
-          expect(est('gespraech-temy-stroka')).toBeTruthy();
-        } else {
-          expect(est('gespraech-vopros-agenta')).toBeTruthy();
-        }
+        await nazhatSvojuCel(id, 'plaschki', 'Frage');
       });
     }
   }
@@ -617,26 +755,9 @@ describe('gespraech-tekst-chat: домен, состояния, зоны и то
               await vvesti(id, 'Neue Frage');
               expect(est(id).props.value).toBe('Neue Frage');
             } else {
-              await nazhat(id);
-              if (id === 'gespraech-vlozhit') {
-                expect(est('gespraech-vlozhenie')).toBeTruthy();
-              } else if (id.startsWith('gespraech-chip-') ||
-                         id === 'gespraech-otpravit') {
-                expect(est('gespraech-soobschenie-polzovatel')).toBeTruthy();
-              } else if (id === 'gespraech-lieber-erzaehlen' ||
-                         id.startsWith('gespraech-mikrofon')) {
-                expect(est('gespraech-temy-stroka')).toBeTruthy();
-              } else if (id === 'gespraech-verlauf') {
-                expect(est('gespraech-verlauf-spisok')).toBeTruthy();
-                if (sostojanie === 'schreiben-temy' ||
-                    sostojanie === 'schreiben-tastatur') {
-                  expect(net('gespraech-temy-stroka')).toBeNull();
-                } else if (sostojanie === 'foto') {
-                  expect(net('gespraech-vlozhenie-foto')).toBeNull();
-                } else if (sostojanie === 'dokument') {
-                  expect(net('gespraech-vlozhenie-brief')).toBeNull();
-                }
-              }
+              // постусловие СВОЕЙ цели: реплика/тема/экран
+              // специфичны нажатой цели, не «какая-либо реакция»
+              await nazhatSvojuCel(id, sostojanie, 'Zeile');
             }
           });
       }

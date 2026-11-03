@@ -251,7 +251,14 @@ main, nositeli/produkt/composer-108.tsx), v+1 цикла 2 (Crit149k2a):
 вызов 2 (Crit149k2b): «token-literal-21» (литерал 21 при сохранённом
 импорте пакета — дословная атака критика), «bez-chipov-ga19» (GA-19
 без обязательных чипов сравнения) и «bez-golosa-v-polje» (голос В
-ПОЛЕ снят) — класс ПОЛНОТА_ЖИВЫХ_ЦЕЛЕЙ. Зонд судит НА РЕАЛЬНОМ
+ПОЛЕ снят) — класс ПОЛНОТА_ЖИВЫХ_ЦЕЛЕЙ; v+1 цикла 2 вызов 4
+(Crit149k2d, класс ЧУЖОЙ_ОТВЕТ_ПРИ_НАЖАТИИ): «chuzhoj-otvet-chip»
+(оба чипа GA-19 отправляют первый ответ — дословная атака
+mutate_wrong_reply.py: «Erst mal nicht» отправляет «Ja,
+vergleichen»), «chuzhoj-otvet-sdvig» (циклический сдвиг по всем
+ответным чипам GA-12+GA-19), «chuzhoj-otvet-odin» (одна реплика для
+всех целей) и «chuzhaja-tema-sdvig» (плашки/erzaehlen ставят тему
+соседа). Зонд судит НА РЕАЛЬНОМ
 компоненте: (а) эффективную hit-area каждой обязательной цели на обоих
 профилях — max(width,minWidth) × max(height,minHeight) с hitSlop против
 touch-target.min пакета: width/height 44 при полах 36 и обратное сочетание
@@ -268,7 +275,15 @@ touch-target.min пакета: width/height 44 при полах 36 и обра�
 accessibilityState.disabled, не блокирована pointerEvents и имеет onPress;
 поле принимает ввод. Все 40 пар «состояние × цель» (14 начальных,
 остальные 26) суд нажимает на обоих профилях по отдельности — 80
-живых action-тестов; disabled Heirat красна. Отсутствие цели —
+живых action-тестов; disabled Heirat красна. (г) постусловие СВОЕЙ
+цели (Crit149k2d): результат нажатия различает цель и соседа —
+последняя реплика пользователя == надписи нажатого чипа, тема
+разговора == надписи нажатой плашки (erzaehlen — своей, через
+Verlauf), отправка == черновику, голос/«Lieber erzählen?»/«+» —
+свой экран без чужой реплики; ожидание снимается с нажатого
+элемента живьём (первый текстовый потомок: Text/RCTText — как
+HOST_TEXT_NAMES RNTL; findAll у инстанса RNTL v14 НЕТ — обход по
+children вручную, замер вызова 4). Отсутствие цели —
 CEL_OTSTUTSVUET, disabled — CEL_VYKLUCHENA, блокирование —
 CEL_OBEZDVIZHENA, нет обработчика — CEL_BEZ_DEJSTVIJA. Карта
 «состояние → цели» сверяется с пачкой ТОЧНО (таб-бар — зона 148).
@@ -301,7 +316,8 @@ model/produktnaja-raskladka/ (чат-хост + chat-kopija.ts + композе�
 
 Мутанты матрицы ispolnimyj_sud («пустой хост», stab_host_pustoj.tsx;
 zona-12-*, token-24/token-20, token-literal-21, bez-chipov-ga19,
-bez-golosa-v-polje) — файлы-носители (пин sha256), зонд обязан
+bez-golosa-v-polje, chuzhoj-otvet-chip/-sdvig/-odin,
+chuzhaja-tema-sdvig) — файлы-носители (пин sha256), зонд обязан
 краснеть на каждом УПАВШИМ АССЕРТОМ (token-literal-21 — на подмене
 значения токена, остальные — и на пине); стабы emuljatory/maska —
 мутаторы КОПИИ A-дерева рецепта (e2e.sh стартует 393 до остановки

@@ -136,7 +136,11 @@
    "stabs/stab_maska_36.py": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_maska_36.py",
    "stabs/stab_kompozer_token_literal_21.tsx": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_kompozer_token_literal_21.tsx",
    "stabs/stab_host_bez_chipov_ga19.tsx": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_host_bez_chipov_ga19.tsx",
-   "stabs/stab_kompozer_bez_golosa_v_polje.tsx": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_kompozer_bez_golosa_v_polje.tsx"
+   "stabs/stab_kompozer_bez_golosa_v_polje.tsx": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_kompozer_bez_golosa_v_polje.tsx",
+   "stabs/stab_host_chuzhoj_otvet_chip.tsx": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_host_chuzhoj_otvet_chip.tsx",
+   "stabs/stab_host_chuzhoj_otvet_sdvig.tsx": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_host_chuzhoj_otvet_sdvig.tsx",
+   "stabs/stab_host_chuzhoj_otvet_odin.tsx": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_host_chuzhoj_otvet_odin.tsx",
+   "stabs/stab_host_chuzhaja_tema_sdvig.tsx": "fixtures/workshop_project/gespraech_tekst_149/stabs/stab_host_chuzhaja_tema_sdvig.tsx"
   },
   "sha": {
    "model/ekran_shablon.py": "5fd1415e40b257e5e7b97c7bf9bc8fe31e94dcea9e05c4c3ac44d68802db453b",
@@ -199,7 +203,7 @@
    "nositeli/produkt/mobile-6240f63.yml": "6137aa571ace1147ae1a29884c98008620c3b329eebf83617b5a971d57d0405e",
    "nositeli/produkt/ci-screens-6240f63.json": "85c23e1c66e9661d1d3fc2d56dfd13e4fba1b38bbaa6b9e569acfc0fb98c09e3",
    "stabs/stab_lekalo_obhod_kritika.py": "caa5449031553fb69552ce9718a492c69f5e2bfc481a9facfd6009e04a527b34",
-   "produkt/gespraech-zond-149.test.tsx": "8cc7e91c3336b30b2173da779049126bf0dcca256c72c5b8de81e0957dad62a6",
+   "produkt/gespraech-zond-149.test.tsx": "95ce0d0c69369d7e40b7c197e5704566d53c9cd94632a838ea2bbc43b02305b6",
    "stabs/stab_ekran_minimalnyj.py": "b26f6da03a07bca46bdf099383f72af67ffe1d6d1dca1de916cde8bab4299075",
    "stabs/stab_jest_zelenyj.sh": "4614716e0f7668518d3623a3556a7d60f57d87de2d46e2cd8317c65eb4816691",
    "stabs/stab_jest_krasnyj.sh": "62a38dee1568fb3da8b5e9b3da6911ac42368003eef3ed97cea02b732b679a5b",
@@ -273,7 +277,11 @@
    "stabs/stab_maska_36.py": "cc6465fed843088937142f47e19b0f022ac0429051b4c829394b29dee706bd2f",
    "stabs/stab_kompozer_token_literal_21.tsx": "3805b9f5d60d89b588e25aa118ecc7929eb34681ff2ec788462935ebf82aed89",
    "stabs/stab_host_bez_chipov_ga19.tsx": "253f1d20f805cc6e8390f9173bddaa346d8414a9189da8ea1e88d9041eeee24a",
-   "stabs/stab_kompozer_bez_golosa_v_polje.tsx": "0d0c5226261bed181f40ae4ae686211acbaa83564b97dc957802886a1f11e5c6"
+   "stabs/stab_kompozer_bez_golosa_v_polje.tsx": "0d0c5226261bed181f40ae4ae686211acbaa83564b97dc957802886a1f11e5c6",
+   "stabs/stab_host_chuzhoj_otvet_chip.tsx": "8f3fa355b9a4169eecd20416b315deb565b5fb2ff8dcbbe73997c3d8555ca7a7",
+   "stabs/stab_host_chuzhoj_otvet_sdvig.tsx": "69eebd1518088637d4331dd53864f19626014b578c060f1ae5c87315381da90e",
+   "stabs/stab_host_chuzhoj_otvet_odin.tsx": "62dc8fc7d33d92d74047cfe4e0ba79cfac016deb170c81acece5ac7b691d1942",
+   "stabs/stab_host_chuzhaja_tema_sdvig.tsx": "a46255550f978c7b837abc0028c7870d9501fe06aa287c72b21b05b4249e1ae9"
   },
   "kanon": {
    "mobile/src/features/conversation/__tests__/gespraech-tekst.test.ts": "c4c0a32a03a2e24c5f70552507843dcdff778b57880f6e8e37deaeca2f8cf0de",
