@@ -7,10 +7,10 @@
 // совпадение числа — высота лейсте == nav.height, minHeight вкладок ==
 // nav.item.min-height, судятся равенством $value и следуют за
 // подменённым значением источника (литерал 49 и final2 71 красны);
-// (Б2) ДЕЙСТВУЮЩИЕ цели контента — не disabled и НАЖИМАЮТСЯ (колбэк
-// контента срабатывает; И-4); (Б3) эффективная зона по правилам RN
-// (height/minHeight/maxHeight/hitSlop/padding) — конформная
-// height:36+minHeight:44 ЗЕЛЁНАЯ, фактическая 36 красна).
+// (Б2) ДЕЙСТВУЮЩИЕ цели контента нажимаются с новым вызовом
+// собственного колбэка (не унаследованным от предыдущей цели);
+// (Б3) эффективная зона по RN height/min/max/padding по осям,
+// измеренному тексту и hitSlop: конформные формы зелёные, зона <44 красна.
 // Зонд пишется produkt_sud в ИЗОЛИРОВАННУЮ КОПИЮ mobile (node_modules —
 // симлинк установки R) и запускается продуктовым jest; оракул текстов —
 // каталог ui-copy самого R (литералов нет), геометрия — рендер-дерево
@@ -39,11 +39,10 @@
 //              lineHeight надписи == nav.label.font-size /
 //              nav.label.line-height ($value; литерал final2 11px
 //              краснеет равенством).
-// Зонд не знает о мутациях: каждая из мутаций батареи (tabs/badge/
-// skroll/kasanie/tokeny/nav-final2/nav-literal/disabled) роняет СВОЙ
-// ассерт поведением, не сравнением строк; зелёные контроля батареи
-// (svjaz — подмена значений источника, zona — конформная
-// height:36+minHeight:44) обязаны оставаться зелёными. Идиомы среды —
+// Зонд не знает о мутациях: каждый мутант судится исполнением,
+// а не сравнением текста. Независимые зелёные контроли судьи проходят
+// на конформных RN-формах (minHeight/padding/стороны/hitSlop) и
+// подменённом значении источника токенов. Идиомы среды —
 // как у тестов продукта (async render RNTL, press внутри act);
 // react-native НЕ мокается целиком (урок 145 v1: спред requireActual
 // в RN 0.86 роняет загрузку инвариантом TurboModuleRegistry) — профиль
@@ -129,20 +128,32 @@ function ch(x: unknown): number | null {
   return typeof x === 'number' && Number.isFinite(x) ? x : null;
 }
 
+
+/** Измеряемая нижняя граница высоты содержимого: текст не ниже своей
+ * строки. max консервативен для нескольких потомков, однострочная
+ * кнопка Filter измеряется точно по своему fontSize. */
+function minimalnajaVysotaTeksta(uzol: unknown): number {
+  const z = uzol as { type?: unknown; props?: { style?: unknown }; children?: unknown[] };
+  const st = (StyleSheet.flatten([z.props?.style]) ?? {}) as Record<string, unknown>;
+  const sobstvennaja = z.type === 'Text' ? (ch(st.lineHeight) ?? ch(st.fontSize) ?? 0) : 0;
+  return Math.max(sobstvennaja, ...(z.children ?? []).map((potomok) =>
+    typeof potomok === 'string' ? 0 : minimalnajaVysotaTeksta(potomok)));
+}
 /**
- * Эффективная ВЫСОТА бокса по правилам RN/Yoga (Crit148k2b Б3): height —
- * базис, minHeight — ПОЛ (в т.ч. поднимает боксовую высоту выше явного
- * height: 36+44 → 44), maxHeight — потолок (пол сильнее потолка);
- * собственный padding узла входит в бокс. Высота без объявления зоны —
- * нижняя граница бокса (padding), не ноль декларации.
+ * Эффективная ВЫСОТА бокса RN/Yoga: height — базис, minHeight — пол
+ * (36+44 → 44), maxHeight — потолок (пол сильнее потолка);
+ * собственный padding по приоритету side > axis > all входит в бокс.
+ * Без явного height меряем нижнюю границу текста + padding.
  */
-function effektivnajaVysota(st: Record<string, unknown>): number {
+
+function effektivnajaVysota(st: Record<string, unknown>, soderzhimoe = 0): number {
   const vys = ch(st.height);
   const pol = ch(st.minHeight);
   const potolok = ch(st.maxHeight);
-  const padVerh = ch(st.paddingTop) ?? ch(st.paddingVertical) ?? 0;
-  const padNiz = ch(st.paddingBottom) ?? ch(st.paddingVertical) ?? 0;
-  let telo = vys !== null ? vys : Math.max(pol ?? 0, padVerh + padNiz);
+  const padVerh = ch(st.paddingTop) ?? ch(st.paddingVertical) ?? ch(st.padding) ?? 0;
+  const padNiz = ch(st.paddingBottom) ?? ch(st.paddingVertical) ?? ch(st.padding) ?? 0;
+  let telo = vys !== null ? Math.max(vys, padVerh + padNiz)
+    : Math.max(pol ?? 0, soderzhimoe + padVerh + padNiz);
   if (pol !== null && telo < pol) {
     telo = pol;
   }
@@ -157,9 +168,10 @@ function effektivnajaShirina(st: Record<string, unknown>): number {
   const sh = ch(st.width);
   const pol = ch(st.minWidth);
   const potolok = ch(st.maxWidth);
-  const padLevo = ch(st.paddingLeft) ?? ch(st.paddingHorizontal) ?? 0;
-  const padPravo = ch(st.paddingRight) ?? ch(st.paddingHorizontal) ?? 0;
-  let telo = sh !== null ? sh : Math.max(pol ?? 0, padLevo + padPravo);
+  const padLevo = ch(st.paddingLeft) ?? ch(st.paddingHorizontal) ?? ch(st.padding) ?? 0;
+  const padPravo = ch(st.paddingRight) ?? ch(st.paddingHorizontal) ?? ch(st.padding) ?? 0;
+  let telo = sh !== null ? Math.max(sh, padLevo + padPravo)
+    : Math.max(pol ?? 0, padLevo + padPravo);
   if (pol !== null && telo < pol) {
     telo = pol;
   }
@@ -176,9 +188,8 @@ function effektivnajaShirina(st: Record<string, unknown>): number {
  * Steuerelemente erweitern die Zielfläche unsichtbar»). Ширина судится
  * только там, где несёт явное объявление (width/minWidth/hitSlop):
  * ширина строк ряда даётся раскладкой лейсте, как в самом пакете.
- * Тело без объявления зоны (нет height/minHeight/maxHeight, padding и
- * нет расширения) равно 0 — зона ниже нормы, реализация обязана нести
- * настоящую hit-area (И-7: hitSlop/Pressable, не декларация манифеста).
+ * Без явной декларации высоты однострочный текст тоже занимает место;
+ * если сумма контента и сторон меньше минимума, зона красна (И-7).
  */
 function zonaCelej(id: string): ZonaNazhatija {
   const uzol = screen.getByTestId(id);
@@ -188,7 +199,7 @@ function zonaCelej(id: string): ZonaNazhatija {
   const slop = typeof syr === 'number'
     ? { top: syr, bottom: syr, left: syr, right: syr }
     : ((syr ?? {}) as { top?: number; bottom?: number; left?: number; right?: number });
-  const vysota = effektivnajaVysota(st) + (slop.top ?? 0) + (slop.bottom ?? 0);
+  const vysota = effektivnajaVysota(st, minimalnajaVysotaTeksta(uzol)) + (slop.top ?? 0) + (slop.bottom ?? 0);
   const obJavlena = ch(st.width) !== null || ch(st.minWidth) !== null
     || ch(st.maxWidth) !== null || Boolean(slop.left) || Boolean(slop.right);
   const shirina = obJavlena
@@ -395,14 +406,17 @@ async function proveritDejstvieTseli(id: string, kolbek: { mock: { calls: readon
       ' И-4 требует ДЕЙСТВУЮЩИЕ цели: видимость и зона без нажатия обходом являются',
     );
   }
+  // Изолируем именно ЭТО нажатие: другой элемент может ранее вызвать
+  // тот же callback с тем же аргументом (Filter после Alle).
+  const doNazhatiya = kolbek.mock.calls.length;
   await nazhat(id);
-  const vigovreno = arg === undefined
-    ? kolbek.mock.calls.length >= 1
-    : kolbek.mock.calls.some((vyzov) => vyzov.length === 1 && vyzov[0] === arg);
+  const novye = kolbek.mock.calls.slice(doNazhatiya);
+  const vigovreno = novye.length === 1
+    && (arg === undefined || (novye[0].length === 1 && novye[0][0] === arg));
   if (!vigovreno) {
     throw new Error(
-      `TSEL_NAZHATIE_NE_DEJSTVUET ${id}: нажатие не дошло до колбэка контента` +
-      ` (вызовы ${JSON.stringify(kolbek.mock.calls)}; ожидался аргумент ${JSON.stringify(arg)})`,
+      `TSEL_NAZHATIE_NE_DEJSTVUET ${id}: нажатие не дошло до своего колбэка контента` +
+      ` (новые вызовы ${JSON.stringify(novye)}; ожидался аргумент ${JSON.stringify(arg)})`,
     );
   }
 }

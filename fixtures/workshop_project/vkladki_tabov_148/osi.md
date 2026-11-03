@@ -1,7 +1,7 @@
-# Оси батареи 148 (vkladki-tabov) — 56 клеток, 29 стабов, 46 привязок
-# (`--model` rc 0 56/56; `--stabs` rc 0, контроль 56/56,
-# «SVJAZI 46», живых 0; без флага — rc 1, зелёных 37 /
-# красных 19: продукта в дереве харнесса нет).
+# Оси батареи 148 (vkladki-tabov) — 57 клеток, 30 стабов, 47 привязок
+# (`--model` rc 0 57/57; `--stabs` rc 0, контроль 57/57,
+# «SVJAZI 47», живых 0; без флага — rc 1, зелёных 37 /
+# красных 20: продукта в дереве харнесса нет).
 
 Субъекты (Н-39: стабы привязаны к ветвям ОБОИХ субъектов по stab_vhod
 source.json — привязка кодом, не прозой):
@@ -36,20 +36,21 @@ source.json — привязка кодом, не прозой):
   e2e.sh в одноразовом cwd с двойниками adb/emulator/maestro/sleep в
   PATH+ANDROID_HOME, состояние живых серийников и журнал KILL/START;
   затем полный суд пачки эталоном v3; последним — ИСПОЛНЯЕМЫЙ суд
-  (блок 1 Crit148): живой jest-зонд produkt/vkladki-zond-148.test.tsx
-  (пин sha256 в piny.produkt) на РЕАЛЬНЫХ компонентах R в
-  изолированной копии mobile + матрица ПЯТИ мутаций
-  tabs/badge/skroll/kasanie/tokeny — контроль зелен, мутанты убиты
-  предметными ассертами; v3a: зонд меряет фактическую зону нажатия
-  (height/minHeight + hitSlop ≥ touch-target.min на обоих профилях,
-  лейсте ≥ nav.item.min-height, строки ≥ 60 — Crit148k2a Б2) и
-  типографику вкладок против $value 1.1 (nav.label.* — Б3); значения —
-  носитель nositeli/tokeny-1-1.json (дословные ветки пакета) (прецедент
-  zhivoj_komponent 145; без package.json — именованный пропуск,
-  заявленная среда без установки — rc 2 LIVE_PREDPOSYLKA, никогда
-  skip→pass). Эталон — собранная референсная раскладка
-  `model/produktnaja-raskladka` (код референса 148 + флоу; пачка
-  пишется из source.json:.ekran_forma_prod).
+  реальных компонентов R живым jest-зондом
+  `produkt/vkladki-zond-148.test.tsx` (пин sha256 в piny.produkt)
+  в изолированной копии mobile. Зелёные контроли по отдельности:
+  подмена nav-токенов N+2, конформная height36+minHeight44,
+  padding22, padding16+однострочный Filter14 и paddingVertical22.
+  Красные действующие мутации исполняются по одному на живом R:
+  tabs/badge/skroll/kasanie/tokeny/nav-final2/nav-literal/disabled/
+  filter-bez-dejstvija/padding-tolko-gorizontal; причина Filter
+  принадлежит именно событию Filter, а не старому вызову Alle.
+  Суд зоны учитывает RN height/min/max, padding по осям, контент
+  однострочной кнопки и hitSlop на обоих профилях; исходы
+  подтверждаются `produkt_sud.py --repo R` в среде продукта.
+  Без package.json — именованный пропуск; заявленная среда без
+  установки — rc 2 LIVE_PREDPOSYLKA. Эталон — референсная раскладка
+  `model/produktnaja-raskladka` (пачка — source.json:.ekran_forma_prod).
 
 Оракул — source.json (kejsy: rc/prichiny/stdout с допуском 0.01 на
 KADR-числа; stubs ↔ stab_vhod — рассинхрон rc 2 ORACLE_TAMPERED ДО

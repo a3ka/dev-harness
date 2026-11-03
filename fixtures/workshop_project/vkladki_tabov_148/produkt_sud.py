@@ -181,7 +181,13 @@ MUTACII_ISPOLNIMYE = [
             ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', minHeight: 44 }",
              "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', height: 36 }"),
             ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', height: 36, minHeight: 44 }",
-             "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', height: 36 }")])]},
+             "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', height: 36 }"),
+            ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', padding: 22 }",
+             "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', padding: 8 }"),
+            ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', padding: 16 }",
+             "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', padding: 8 }"),
+            ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', paddingVertical: 22 }",
+             "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', paddingVertical: 8 }")])]},
     # v3a (Crit148k2a, Б3): рабочий токен подменён на Final 2 (nav.label.
     # font-size $value 10 → final2 11) — убивается равенством $value 1.1;
     # v3b: якорь перенесён в модуль значений (компонент читает модуль)
@@ -204,6 +210,21 @@ MUTACII_ISPOLNIMYE = [
         ('mobile/src/features/protection/components/SchutzUebersicht.tsx', [
             ("onPress={() => onBereich?.('optionen')}",
              "disabled\n          onPress={() => onBereich?.('optionen')}")])]},
+    # Crit148k2c: предшествующая Alle вызывает onFiltr('all'); без
+    # собственной реакции Filter не должен наследовать этот вызов.
+    {'imja': 'filter-bez-dejstvija', 'mutacii': [
+        ('mobile/src/features/post/components/PostEingang.tsx', [
+            ('onPress={() => onFiltr?.(filtr)}', 'onPress={() => {}}')])]},
+    {'imja': 'padding-tolko-gorizontal', 'mutacii': [
+        ('mobile/src/features/post/components/PostEingang.tsx', [
+            ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', minHeight: 44 }",
+             "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', paddingHorizontal: 22 }"),
+            ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', padding: 22 }",
+             "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', paddingHorizontal: 22 }"),
+            ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', padding: 16 }",
+             "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', paddingHorizontal: 22 }"),
+            ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', paddingVertical: 22 }",
+             "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', paddingHorizontal: 22 }")])]},
 ]
 KONTROLI_ISPOLNIMYE = [
     # v3b (Crit148k2b, Б1): СВЯЗЬ компонента с токеном — честный R зелён
@@ -217,7 +238,51 @@ KONTROLI_ISPOLNIMYE = [
         ('mobile/src/features/post/components/PostEingang.tsx', [
             ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', minHeight: 44 }",
              "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', height: 36, minHeight: 44 }")])]},
+    # Crit148k2c: все варианты RN padding должны давать 44+ при
+    # исходном действующем обработчике. padding:16 получает 14px
+    # собственной строки Filter → 46; padding:22 → минимум 44.
+    {'imja': 'padding-22', 'mutacii': [
+        ('mobile/src/features/post/components/PostEingang.tsx', [
+            ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', minHeight: 44 }",
+             "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', padding: 22 }")])]},
+    {'imja': 'padding-16', 'mutacii': [
+        ('mobile/src/features/post/components/PostEingang.tsx', [
+            ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', minHeight: 44 }",
+             "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', padding: 16 }")])]},
+    {'imja': 'padding-vertical', 'mutacii': [
+        ('mobile/src/features/post/components/PostEingang.tsx', [
+            ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', minHeight: 44 }",
+             "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', paddingVertical: 22 }")])]},
+    {'imja': 'padding-storony', 'mutacii': [
+        ('mobile/src/features/post/components/PostEingang.tsx', [
+            ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', minHeight: 44 }",
+             "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', paddingTop: 22, paddingBottom: 22 }")])]},
+    {'imja': 'max-pol', 'mutacii': [
+        ('mobile/src/features/post/components/PostEingang.tsx', [
+            ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', minHeight: 44 }",
+             "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', height: 36, minHeight: 44, maxHeight: 36 }")])]},
+    {'imja': 'hitSlop', 'mutacii': [
+        ('mobile/src/features/post/components/PostEingang.tsx', [
+            ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', minHeight: 44 }",
+             "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', height: 36 }")]),
+        ('mobile/src/features/post/components/PostEingang.tsx', [
+            ('style={styles.filtrKnopka}',
+             'hitSlop={{ top: 4, bottom: 4 }} style={styles.filtrKnopka}')])]},
+    {'imja': 'padding-pri-javnom-bokse', 'mutacii': [
+        ('mobile/src/features/post/components/PostEingang.tsx', [
+            ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', minHeight: 44 }",
+             "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', height: 36, width: 36, padding: 22 }")])]},
 ]
+
+KONFORMNYE_STILI_FILTER = (
+    "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', height: 36, minHeight: 44 }",
+    "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', padding: 22 }",
+    "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', padding: 16 }",
+    "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', paddingVertical: 22 }",
+    "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', paddingTop: 22, paddingBottom: 22 }",
+    "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', height: 36, minHeight: 44, maxHeight: 36 }",
+    "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', height: 36, width: 36, padding: 22 }",
+)
 
 # Точная маска профиля 393 (слово владельца 31.10, Q1б; вердикт Crit148v2
 # блок 3): тот же литерал несёт судья формы model/sud_formy_148.py.
@@ -946,7 +1011,7 @@ def ispolnimyj_sud(repo: Path, src):
                     tekst, encoding='utf-8')
             ustanovit_sostojanie(zapis.get('podmena', False))
             for rel, formy in zapis['mutacii']:
-                tekst = ishodnye[rel]
+                tekst = (kopija / Path(rel).relative_to('mobile')).read_text(encoding='utf-8')
                 primenina = None
                 uze = False
                 for ankora, zamena in formy:
@@ -955,6 +1020,12 @@ def ispolnimyj_sud(repo: Path, src):
                         break
                     if tekst.count(zamena) >= 1:
                         uze = True
+                if primenina is None and not uze and zapis in KONTROLI_ISPOLNIMYE[1:] \
+                        and any(stil in tekst for stil in KONFORMNYE_STILI_FILTER):
+                    # Внешний R уже несёт ИНОЙ конформный стиль; конкретный
+                    # контроль исполнен на исходном R, здесь — только его
+                    # собственное исходное выполнение (выше).
+                    return 'KONTROL_NE_PRIMENIM_K_VARIANTU'
                 if primenina is None:
                     if not uze:
                         return ('LIVE_MUTACIJA_NEPRIMENIMA: %s: нет ни '
@@ -975,8 +1046,17 @@ def ispolnimyj_sud(repo: Path, src):
             'ZELEN' if zelen else 'KRASEN', svod.get('numTotalTestSuites'),
             svod.get('numTotalTests')), file=sys.stderr)
         if not zelen:
+            sobstvennyj_otkaz = next((
+                m.group(0)
+                for sjuit in svod.get('testResults', [])
+                for utv in sjuit.get('assertionResults', [])
+                for soobschenie in utv.get('failureMessages', [])
+                for m in [re.search(r'(?:TSEL_NAZHATIE_NE_DEJSTVUET|TSEL_OTKLJUCHENA|ZONA_NAZHATIJA_MENSHE_NORMY) [a-z0-9-]+', soobschenie)]
+                if m is not None
+            ), None)
             return 1, ['ISPOLNIMYJ_KONTROL_KRASEN: зонд красен на исходных '
-                       'компонентах R (упавших ассертов %d)' % assery]
+                       'компонентах R (упавших ассертов %d%s)' %
+                       (assery, '; ' + sobstvennyj_otkaz if sobstvennyj_otkaz else '')]
 
         # v3b (Crit148k2b Б1): контроль СВЯЗИ — подмена значений источника
         # на другое допустимое (N+2px): честный потребитель СЛЕДУЕТ
@@ -999,25 +1079,27 @@ def ispolnimyj_sud(repo: Path, src):
                        'текущего числа связью с токеном не является'
                        % (opisanie_podmeny, assery)]
 
-        # v3b (Crit148k2b Б3): контроль ЗОНЫ — конформная
-        # height:36+minHeight:44 (эффективная зона 44) зелёная
-        neprimenima = primenit_zapis(KONTROLI_ISPOLNIMYE[1])
-        if neprimenima is not None:
-            return 2, [neprimenima]
-        svod, oshibka = zapustit()
-        if svod is None:
-            return 1, ['ISPOLNIMYJ_INFRA: контроль zona: %s' % oshibka]
-        assery, _sjuity = klassifikirovat(svod)
-        zelen = bool(svod.get('success')) and int(svod.get('numPassedTests', 0)) > 0
-        print('ISPOLNIMYJ kontrol zona %s — height:36+minHeight:44 принята '
-              '(эффективная зона 44 по правилам RN: minHeight — пол)'
-              % ('ZELEN' if zelen else 'KRASEN'), file=sys.stderr)
-        if not zelen:
-            return 1, ['ISPOLNIMYJ_LOZHNYJ_OTKAZ: зонд отверг конформную '
-                       'зону height:36+minHeight:44 — эффективная зона 44 '
-                       'по правилам RN (minHeight — пол; слово владельца '
-                       '2026-11-02: любая реальная зона ≥ 44; упавших '
-                       'ассертов %d)' % assery]
+        # Зелёные конформные формы зоны исполняются независимо: ни одна
+        # ранняя зелень не засчитывается за следующую (padding/vertical).
+        for zapis in KONTROLI_ISPOLNIMYE[1:]:
+            neprimenima = primenit_zapis(zapis)
+            if neprimenima == 'KONTROL_NE_PRIMENIM_K_VARIANTU':
+                print('ISPOLNIMYJ kontrol %s NE_PRIMENIM — иной конформный вариант R'
+                      % zapis['imja'], file=sys.stderr)
+                continue
+            if neprimenima is not None:
+                return 2, [neprimenima]
+            svod, oshibka = zapustit()
+            if svod is None:
+                return 1, ['ISPOLNIMYJ_INFRA: контроль %s: %s' % (zapis['imja'], oshibka)]
+            assery, _sjuity = klassifikirovat(svod)
+            zelen = bool(svod.get('success')) and int(svod.get('numPassedTests', 0)) > 0
+            print('ISPOLNIMYJ kontrol %s %s — конформная зона по правилам RN'
+                  % (zapis['imja'], 'ZELEN' if zelen else 'KRASEN'),
+                  file=sys.stderr)
+            if not zelen:
+                return 1, ['ISPOLNIMYJ_LOZHNYJ_OTKAZ: %s: конформная зона '
+                           'отвергнута (упавших ассертов %d)' % (zapis['imja'], assery)]
 
         zhivye, neubit = [], []
         for zapis in MUTACII_ISPOLNIMYE:
