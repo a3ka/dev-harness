@@ -10,7 +10,19 @@
 // (Б2) ДЕЙСТВУЮЩИЕ цели контента нажимаются с новым вызовом
 // собственного колбэка (не унаследованным от предыдущей цели);
 // (Б3) эффективная зона по RN height/min/max/padding по осям,
-// измеренному тексту и hitSlop: конформные формы зелёные, зона <44 красна.
+// измеренному тексту и hitSlop: конформные формы зелёные, зона <44 красна;
+// v3e — вердикт Crit148k2d: (Б1) ВИДИМАЯ НАДПИСЬ, а не текстовый
+// потомок — единый хелпер видимой надписи (Text засчитывается, только
+// если ВИДИМ: не display:none, не color transparent/opacity 0 вплоть
+// до предка, ненулевой бокс), применяется ко ВСЕМ надписям экрана
+// (подписи вкладок, бейдж/статус/надпись Mitte, тексты каталога И-5
+// вкладок); прозрачные буквы и скрытая копия ожидаемой строки при
+// невидимой настоящей надписи красны СВОЕЙ клеткой (NADPIS_NEVIDIMA);
+// (Б2) зона меряется у ИНТЕРАКТИВНОГО ХОЗЯИНА цели — сам узел с
+// testID, если он занимает нажатие, иначе БЛИЖАЙШИЙ предок с
+// press-обработчиком/touch-респондером; Pressable 20×20 с дочерним
+// Text 44×44, несущим testID, красен (зона ребёнка не подменяет зону
+// хозяина — ZONA_NAZHATIJA_MENSHE_NORMY/TSEL_BEZ_HOZIAINA).
 // Зонд пишется produkt_sud в ИЗОЛИРОВАННУЮ КОПИЮ mobile (node_modules —
 // симлинк установки R) и запускается продуктовым jest; оракул текстов —
 // каталог ui-copy самого R (литералов нет), геометрия — рендер-дерево
@@ -43,6 +55,17 @@
 //              lineHeight надписи == nav.label.font-size /
 //              nav.label.line-height ($value; литерал final2 11px
 //              краснеет равенством).
+//   Б2-хозяин (v3e, Crit148k2d Б2) — зона каждой цели меряется у её
+//              ИНТЕРАКТИВНОГО ХОЗЯИНА: сам узел с testID, если он
+//              занимает нажатие, иначе ближайший предок с
+//              press-обработчиком/touch-респондером; зона ребёнка
+//              с testID не подменяет зону 20×20 родителя;
+//   надписи  (v3e, Crit148k2d Б1) — ВИДИМАЯ надпись каждого текста
+//              каталога И-5: подписи пяти слотов лейсте, бейдж GA-03,
+//              статус/надпись Mitte, заголовки и тексты вкладок;
+//              видимость = стиль-декларации узла и всех предков
+//              (display/opacity/transparent/нулевой бокс), скрытая
+//              копия строки не засчитывается.
 // Зонд не знает о мутациях: каждый мутант судится исполнением,
 // а не сравнением текста. Независимые зелёные контроли судьи проходят
 // на конформных RN-формах (minHeight/padding/стороны/hitSlop) и
@@ -53,7 +76,7 @@
 // задаётся Dimensions.set.
 import React from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { TabShell } from '../tab-shell';
 import { GespraechMitte } from '../gespraech-mitte';
 import { VorgaengeListe } from '../../features/missions/components/VorgaengeListe';
@@ -185,6 +208,124 @@ function effektivnajaShirina(st: Record<string, unknown>): number {
   return telo;
 }
 
+// ── v3e (Crit148k2d Б1): ЕДИНЫЙ хелпер ВИДИМОЙ НАДПИСИ ──────────────
+// Применяется ко ВСЕМ надписям предмета (подписи вкладок, бейдж/статус
+// Mitte, тексты каталога И-5 вкладок): Text засчитывается, только если
+// ВИДИМ — не display:none, не color 'transparent'/#RRGGBB00, не
+// opacity 0 (вплоть до предка), ненулевой бокс (width/height/max* = 0
+// на узле или предке). Граница jest-дерева: layout не вычисляется,
+// перекрытие посторонним слоем и клип с НЕНУЛЕВЫМ боксом судит
+// кадровая сверка продуктового CI — зонд на них не полагается и их не
+// заявляет (декларации стиля — то, что доказуемо исполнением здесь).
+
+/** Текст узла: конкатенация строковых листьев (вложенные Text RN
+ * рендерит в общий текст узла). */
+function tekstUzla(uzol: unknown): string {
+  const deti = (uzol as { children?: unknown[] }).children ?? [];
+  let tekst = '';
+  for (const d of deti) {
+    if (typeof d === 'string') {
+      tekst += d;
+    } else if (Array.isArray(d)) {
+      for (const x of d) {
+        if (typeof x === 'string') tekst += x;
+      }
+    } else if (d !== null && d !== undefined && typeof d === 'object') {
+      tekst += tekstUzla(d);
+    }
+  }
+  return tekst;
+}
+
+/** Все Text-узлы поддерева (включая сам узел, если он Text). */
+function tekstyPoddereva(uzol: unknown, akk: unknown[] = []): unknown[] {
+  const u = uzol as { type?: unknown; children?: unknown[] };
+  if (u !== null && u !== undefined && u.type === 'Text') akk.push(u);
+  for (const d of u?.children ?? []) {
+    if (d !== null && d !== undefined && typeof d === 'object') {
+      tekstyPoddereva(d, akk);
+    }
+  }
+  return akk;
+}
+
+/** Причина невидимости буквы: стиль-декларация на САМОМ узле или любом
+ * предке. null — видима. Animated-значения (не число) видимость не
+ * снимают: ch() их отбрасывает. */
+function prichinaNevidimosti(uzol: unknown): string | null {
+  let tek: unknown = uzol;
+  let uroven = 0;
+  while (tek !== null && tek !== undefined) {
+    const props = (tek as { props?: { style?: unknown } }).props ?? {};
+    const st = (StyleSheet.flatten([props.style]) ?? {}) as Record<string, unknown>;
+    const gde = uroven === 0 ? 'узел' : `предок(${uroven})`;
+    if (st.display === 'none') return `${gde}: display none`;
+    if (ch(st.opacity) === 0) return `${gde}: opacity 0`;
+    if (st.color === 'transparent' || (typeof st.color === 'string' && /^#[0-9a-fA-F]{6}00$/.test(st.color))) {
+      return `${gde}: color transparent`;
+    }
+    if (ch(st.width) === 0 || ch(st.maxWidth) === 0
+      || ch(st.height) === 0 || ch(st.maxHeight) === 0) {
+      return `${gde}: нулевой бокс`;
+    }
+    tek = (tek as { parent?: unknown }).parent;
+    uroven += 1;
+  }
+  return null;
+}
+
+/** ЕДИНЫЙ хелпер «видимая надпись узла»: в поддереве host обязан быть
+ * ВИДИМЫЙ Text с содержимым == ожидаемой надписи каталога; скрытые
+ * копии (прозрачные буквы, display:none, нулевой бокс — на узле или
+ * предке) НЕ засчитываются. Возвращает видимый узел (для типографики).
+ * Отказ именован: NADPIS_NEVIDIMA <имя>. */
+function nadpisUzla(host: unknown, ozhidaemyj: string, imja: string): unknown {
+  for (const kandidat of tekstyPoddereva(host)) {
+    if (tekstUzla(kandidat) !== ozhidaemyj) continue;
+    if (prichinaNevidimosti(kandidat) === null) return kandidat;
+  }
+  throw new Error(
+    `NADPIS_NEVIDIMA ${imja}: нет ВИДИМОГО Text с надписью ${JSON.stringify(ozhidaemyj)}` +
+    ' (скрытая копия — display:none/opacity 0/color transparent/нулевой бокс на узле или предке — не засчитывается;' +
+    ' Crit148k2d Б1: судится видимая надпись, а не текстовый потомок)',
+  );
+}
+
+// ── v3e (Crit148k2d Б2): ЕДИНЫЙ хелпер ИНТЕРАКТИВНОГО ХОЗЯИНА ───────
+// Зона нажатия меряется у узла, РЕАЛЬНО принимающего нажатие. Среда
+// RN 0.86 (замер): host Pressable не несёт проп onPress — механика
+// press-обработчика видна как респондерные функции
+// (onStartShouldSetResponder/onResponderGrant) и onClick.
+
+/** Узел занимает нажатие: press-обработчик или touch-респондер. */
+const PRIZNAKI_NAZHATIJA: readonly string[] = [
+  'onPress', 'onPressIn', 'onPressOut', 'onLongPress',
+  'onStartShouldSetResponder', 'onResponderGrant', 'onClick',
+];
+
+function prinimaetNazhatie(uzol: unknown): boolean {
+  const props = (uzol as { props?: Record<string, unknown> }).props ?? {};
+  return PRIZNAKI_NAZHATIJA.some((priznak) => typeof props[priznak] === 'function');
+}
+
+/** Интерактивный хозяин цели: сам узел с testID, если он занимает
+ * нажатие, иначе БЛИЖАЙШИЙ предок с press-обработчиком/
+ * touch-респондером. Pressable 20×20 с дочерним Text 44×44, несущим
+ * testID, даёт хозяином 20×20-родителя — зона ребёнка не подменяет
+ * зону хозяина. Отказ именован: TSEL_BEZ_HOZIAINA <id>. */
+function hoziainNazhatija(id: string): unknown {
+  let tek: unknown = screen.getByTestId(id);
+  while (tek !== null && tek !== undefined) {
+    if (prinimaetNazhatie(tek)) return tek;
+    tek = (tek as { parent?: unknown }).parent;
+  }
+  throw new Error(
+    `TSEL_BEZ_HOZIAINA ${id}: ни узел с testID, ни один предок не занимают нажатие` +
+    ' (press-обработчик/touch-респондер) — цель недоступна касанием;' +
+    ' Crit148k2d Б2: зона судится у интерактивного хозяина',
+  );
+}
+
 /**
  * Фактическая зона нажатия цели (Б2): эффективный бокс стиля
  * РЕАЛЬНОГО Pressable по правилам RN + невидимое расширение hitSlop
@@ -196,14 +337,18 @@ function effektivnajaShirina(st: Record<string, unknown>): number {
  * если сумма контента и сторон меньше минимума, зона красна (И-7).
  */
 function zonaCelej(id: string): ZonaNazhatija {
-  const uzol = screen.getByTestId(id);
-  const props = (uzol as { props?: { style?: unknown; hitSlop?: unknown } }).props ?? {};
+  // v3e (Crit148k2d Б2): эффективный бокс меряется у ИНТЕРАКТИВНОГО
+  // ХОЗЯИНА цели (сам узел с testID либо ближайший предок с
+  // press-обработчиком/touch-респондером) — зона дочернего Text 44×44
+  // при хозяине 20×20 не засчитывается.
+  const hoziain = hoziainNazhatija(id);
+  const props = (hoziain as { props?: { style?: unknown; hitSlop?: unknown } }).props ?? {};
   const st = (StyleSheet.flatten([props.style]) ?? {}) as Record<string, unknown>;
   const syr = props.hitSlop;
   const slop = typeof syr === 'number'
     ? { top: syr, bottom: syr, left: syr, right: syr }
     : ((syr ?? {}) as { top?: number; bottom?: number; left?: number; right?: number });
-  const vysota = effektivnajaVysota(st, minimalnajaVysotaTeksta(uzol)) + (slop.top ?? 0) + (slop.bottom ?? 0);
+  const vysota = effektivnajaVysota(st, minimalnajaVysotaTeksta(hoziain)) + (slop.top ?? 0) + (slop.bottom ?? 0);
   const obJavlena = ch(st.width) !== null || ch(st.minWidth) !== null
     || ch(st.maxWidth) !== null || Boolean(slop.left) || Boolean(slop.right);
   const shirina = obJavlena
@@ -218,7 +363,7 @@ function proveritZonu(id: string, minimum: number, normaVysoty?: number) {
   const norma = normaVysoty ?? minimum;
   if (z.vysota < norma) {
     throw new Error(
-      `ZONA_NAZHATIJA_MENSHE_NORMY ${id}: фактическая высота зоны ${z.vysota} < ${norma}` +
+      `ZONA_NAZHATIJA_MENSHE_NORMY ${id}: фактическая высота зоны интерактивного хозяина ${z.vysota} < ${norma}` +
       ` (touch-target.min=${minimum}${normaVysoty !== undefined ? `, nav.item.min-height=${normaVysoty}` : ''}` +
       ' пакета D24-Kompakt-1.1; видимая рамка меньше зоны находкой не является)',
     );
@@ -282,7 +427,10 @@ test('GA-03: ?mitte=needs — бейдж «Ihre Rückmeldung nötig» на жи�
   mockEnv.params = { section: 'vorgaenge', mitte: 'needs' };
   const view = await render(<TabRoute />);
   await waitFor(() => expect(screen.getByTestId('gespraech-mitte-badge')).toBeOnTheScreen());
-  expect(screen.getByTestId('gespraech-mitte-badge').props.children).toBe(uiCopyDe['ui.mission.group.needs_user'].text);
+  // v3e (Crit148k2d Б1): не «узел есть и дети совпадают», а ВИДИМАЯ
+  // надпись — прозрачные буквы бейджа красны именованно
+  nadpisUzla(screen.getByTestId('gespraech-mitte-badge'),
+    uiCopyDe['ui.mission.group.needs_user'].text, 'gespraech-mitte-badge');
   view.unmount();
 });
 
@@ -290,7 +438,9 @@ test('GA-03 контроль: без ?mitte=needs бейджа нет, стат�
   mockEnv.params = { section: 'vorgaenge' };
   const view = await render(<TabRoute />);
   await waitFor(() => expect(screen.getByTestId('gespraech-mitte-status')).toBeOnTheScreen());
-  expect(screen.getByTestId('gespraech-mitte-status').props.children).toBe(uiCopyDe['ui.mission.group.working'].text);
+  // v3e: статус — тоже видимая надпись (единый хелпер Б1)
+  nadpisUzla(screen.getByTestId('gespraech-mitte-status'),
+    uiCopyDe['ui.mission.group.working'].text, 'gespraech-mitte-status');
   view.unmount();
 });
 
@@ -394,6 +544,30 @@ const NAZHATIJA_RAZDELA: Readonly<Record<'vorgaenge' | 'schutz' | 'post', readon
   ],
 };
 
+// v3e (Crit148k2d Б1): домен ВИДИМЫХ надписей предмета — каждый текст
+// каталога И-5, названный контрактом. Подписи вкладок и Mitte судятся
+// в Б3 и Б2-действии(vorgaenge+Mitte); тексты вкладок — в тестах
+// действия своих разделов (оракул — каталог ui-copy самого R).
+const NADPISI_VKLADOK: readonly (readonly [string, string])[] = [
+  ['start', 'ia115.nav.START'],
+  ['vorgaenge', 'ia117.nav.VORGAENGE'],
+  ['schutz', 'ia115.nav.SCHUTZ'],
+  ['post', 'ia115.nav.POST'],
+];
+const NADPISI_VORGAENGE: readonly string[] = [
+  'ia117.nav.VORGAENGE', 'ui.vorgaenge.subtitle',
+  'ui.mission.group.working', 'ui.mission.group.waiting', 'ui.mission.all_done',
+];
+const NADPISI_SCHUTZ: readonly string[] = [
+  'ia115.nav.SCHUTZ', 'proposed.protection.status.gap', 'fixture.schutz.02',
+  'proposed.schutz.stat.contracts', 'proposed.schutz.stat.premium',
+  'proposed.schutz.section.areas',
+];
+const NADPISI_POST: readonly string[] = [
+  'ia115.nav.POST', 'ui.post.filter.all', 'ui.post.filter.received',
+  'ui.post.filter.sent', 'ui.post.send_to_complior',
+];
+
 /** Одна обязательная цель: доступна (не disabled) и НАЖИМАЕТСЯ.
  * Среда RN 0.86 (замер пачки): host Pressable не несёт проп onPress
  * (механика — onResponder-события/onClick), доступность наблюдаема через
@@ -454,6 +628,17 @@ test('Б2-действие (vorgaenge+Mitte): обязательные цели 
   // Mitte — цель лейсте (И-7): доступна и нажимается (до контракта 147 —
   // мок-отклик: колбэк владельца слота)
   await proveritDejstvieTseli('gespraech-mitte', mitteNazhatie);
+  // v3e (Crit148k2d Б1): видимые надписи этого раздела — подписи
+  // вкладок, надпись/статус Mitte и тексты каталога вкладки Vorgänge
+  for (const [vkladka, kljuch] of NADPISI_VKLADOK) {
+    nadpisUzla(screen.getByTestId(`shell-tab-${vkladka}`), uiCopyDe[kljuch].text, `shell-tab-${vkladka}`);
+  }
+  nadpisUzla(screen.getByTestId('gespraech-mitte'), uiCopyDe['proposed.gespraech.tab'].text, 'gespraech-mitte');
+  nadpisUzla(screen.getByTestId('gespraech-mitte-status'), uiCopyDe['ui.mission.group.working'].text, 'gespraech-mitte-status');
+  const spisokVorgaenge = screen.getByTestId('vorgaenge-spisok');
+  for (const kljuch of NADPISI_VORGAENGE) {
+    nadpisUzla(spisokVorgaenge, uiCopyDe[kljuch].text, 'vorgaenge-spisok');
+  }
   view.unmount();
 });
 
@@ -469,6 +654,14 @@ test('Б2-действие (schutz): обязательные цели дост�
   await waitFor(() => expect(screen.getByTestId('schutz-optionen')).toBeOnTheScreen());
   for (const [id, _kolbek, arg] of NAZHATIJA_RAZDELA.schutz) {
     await proveritDejstvieTseli(id, onBereich, arg);
+  }
+  // v3e (Crit148k2d Б1): видимые надписи Schutz — действие Notice
+  // («Optionen ansehen») и тексты каталога вкладки (заголовок, Lücke,
+  // карточки сводки, заголовок областей)
+  nadpisUzla(screen.getByTestId('schutz-optionen'), uiCopyDe['proposed.schutz.gap.action'].text, 'schutz-optionen');
+  const spisokSchutz = screen.getByTestId('schutz-spisok');
+  for (const kljuch of NADPISI_SCHUTZ) {
+    nadpisUzla(spisokSchutz, uiCopyDe[kljuch].text, 'schutz-spisok');
   }
   view.unmount();
 });
@@ -491,6 +684,12 @@ test('Б2-действие (post): обязательные цели досту�
   await waitFor(() => expect(screen.getByTestId('post-filtr-nastrojki')).toBeOnTheScreen());
   for (const [id, kolbek, arg] of NAZHATIJA_RAZDELA.post) {
     await proveritDejstvieTseli(id, kolbeki[kolbek as keyof typeof kolbeki] as { mock: { calls: readonly (readonly unknown[])[] } }, arg);
+  }
+  // v3e (Crit148k2d Б1): видимые надписи Post — заголовок, чипы
+  // фильтров и действие «An Complior schicken»
+  const spisokPost = screen.getByTestId('post-spisok');
+  for (const kljuch of NADPISI_POST) {
+    nadpisUzla(spisokPost, uiCopyDe[kljuch].text, 'post-spisok');
   }
   view.unmount();
 });
@@ -573,15 +772,12 @@ test('Б3: типографика вкладок использует токен
   const razmer = px(TOKENY['nav']['label.font-size'].$value);
   const vysotaStroki = px(TOKENY['nav']['label.line-height'].$value);
   const view = await render(<TabShell initialSection="start" reducedMotion />);
-  for (const [vkladka, kljuch] of [
-    ['start', 'ia115.nav.START'],
-    ['vorgaenge', 'ia117.nav.VORGAENGE'],
-    ['schutz', 'ia115.nav.SCHUTZ'],
-    ['post', 'ia115.nav.POST'],
-  ] as const) {
-    const nadpis = within(screen.getByTestId(`shell-tab-${vkladka}`))
-      .getByText(uiCopyDe[kljuch].text);
-    const st = StyleSheet.flatten([nadpis.props.style]) as { fontSize?: number; lineHeight?: number };
+  for (const [vkladka, kljuch] of NADPISI_VKLADOK) {
+    // v3e (Crit148k2d Б1): надпись вкладки обязана быть ВИДИМОЙ —
+    // прозрачные буквы красны ещё до сверки типографики
+    const nadpis = nadpisUzla(screen.getByTestId(`shell-tab-${vkladka}`),
+      uiCopyDe[kljuch].text, `shell-tab-${vkladka}`) as { props?: { style?: unknown } };
+    const st = StyleSheet.flatten([nadpis.props?.style]) as { fontSize?: number; lineHeight?: number };
     if (st.fontSize !== razmer) {
       throw new Error(
         `TOKEN_1_1_NE_ISPOLZUETSJA shell-tab-${vkladka}: fontSize ${st.fontSize} != ` +

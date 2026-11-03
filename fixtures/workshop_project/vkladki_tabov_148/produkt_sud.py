@@ -237,6 +237,46 @@ MUTACII_ISPOLNIMYE = [
              "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', paddingHorizontal: 22 }"),
             ("filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', paddingVertical: 22 }",
              "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', paddingHorizontal: 22 }")])]},
+    # Arch148y (Crit148k2d, Б1): ПРОЗРАЧНЫЕ БУКВЫ — бейдж GA-03 скрыт
+    # opacity:0 (testID/текст/токены честны); убивается ЕДИНЫМ хелпером
+    # видимой надписи зонда (NADPIS_NEVIDIMA) — вход критика «полная
+    # копия R, только badgeText + opacity: 0»
+    {'imja': 'badge-opacity', 'mutacii': [
+        ('mobile/src/bootstrap/gespraech-mitte.tsx', [
+            ('badgeText: { fontSize: 10 },',
+             'badgeText: { fontSize: 10, opacity: 0 },')])]},
+    # Arch148y (Crit148k2d, Б1): то же для подписей ВКЛАДОК — tabLabel
+    # прозрачен при честных navTokens/текстах (вход критика №2)
+    {'imja': 'vkladki-opacity', 'mutacii': [
+        ('mobile/src/bootstrap/tab-shell.tsx', [
+            ('lineHeight: navTokens.labelLineHeight,\n  },',
+             'lineHeight: navTokens.labelLineHeight,\n    opacity: 0,\n  },')])]},
+    # Arch148y (Crit148k2d, Б1): opacity 0 НА ПРЕДКЕ надписи — весь
+    # Mitte-хозяин прозрачен; хелпер видимости судит цепочку до корня
+    {'imja': 'mitte-opacity-predok', 'mutacii': [
+        ('mobile/src/bootstrap/gespraech-mitte.tsx', [
+            ('paddingVertical: 4,\n    minHeight: navTokens.itemMinHeight,',
+             'paddingVertical: 4,\n    minHeight: navTokens.itemMinHeight,\n    opacity: 0,')])]},
+    # Arch148y (Crit148k2d, Б1): СКРЫТАЯ КОПИЯ ожидаемой строки при
+    # невидимой настоящей — видимая надпись бейджа иная, ожидаемый текст
+    # несёт прозрачный Text-потомок; сверка «любого Text-потомка» ложна
+    {'imja': 'nadpis-lozhnaja', 'mutacii': [
+        ('mobile/src/bootstrap/gespraech-mitte.tsx', [
+            ('testID="gespraech-mitte-badge">\n            {statusText}\n          </Text>',
+             'testID="gespraech-mitte-badge">\n            {\'Ruckmeldung\'}\n'
+             '            <Text style={{ opacity: 0 }}>{statusText}</Text>\n          </Text>')])]},
+    # Arch148y (Crit148k2d, Б2): testID на ДОЧЕРНЕМ Text 44×44,
+    # реально принимающий нажатие родительский Pressable 20×20 — зона
+    # судится у ИНТЕРАКТИВНОГО ХОЗЯИНА, не по узлу с testID
+    {'imja': 'schutz-rebenok', 'mutacii': [
+        ('mobile/src/features/protection/components/SchutzUebersicht.tsx', [
+            ('style={styles.noticeKnopka}\n          testID="schutz-optionen"\n        >\n'
+             '          <Text style={[styles.noticeKnopkaTekst, { color: tokens.ink }]}>',
+             'style={[styles.noticeKnopka, { width: 20, height: 20, minHeight: 0,'
+             " overflow: 'hidden' }]}\n        >\n"
+             '          <Text\n            style={[styles.noticeKnopkaTekst,'
+             ' { color: tokens.ink, minHeight: 44, minWidth: 44 }]}\n'
+             '            testID="schutz-optionen"\n          >')])]},
 ]
 KONTROLI_ISPOLNIMYE = [
     # v3b (Crit148k2b, Б1): СВЯЗЬ компонента с токеном — честный R зелён
@@ -879,7 +919,9 @@ def ispolnimyj_sud(repo: Path, src):
     """Исполняемый суд (блок 1 Crit148, класс «литерал на месте,
     исполняемое иное»): живой jest-зонд на РЕАЛЬНЫХ компонентах R в
     изолированной копии mobile (node_modules — симлинк установки R,
-    прецедент zhivoj_komponent 145) + матрица мутаций (v3b — восемь) и
+    прецедент zhivoj_komponent 145) + матрица мутаций (v3e — 16; Arch148y
+    добавил классы Crit148k2d: прозрачные надписи, скрытая копия
+    строки, testID на ребёнке при хозяине 20×20) и
     ЗЕЛЁНЫЕ контроля (v3b, Crit148k2b): контроль исходного кода зелен,
     контроль СВЯЗИ зелен на подменённом источнике (N+2px), контроль
     конформной зоны (height:36+minHeight:44) зелен, каждый мутант убит
@@ -1063,7 +1105,7 @@ def ispolnimyj_sud(repo: Path, src):
                 for sjuit in svod.get('testResults', [])
                 for utv in sjuit.get('assertionResults', [])
                 for soobschenie in utv.get('failureMessages', [])
-                for m in [re.search(r'(?:TSEL_NAZHATIE_NE_DEJSTVUET|TSEL_OTKLJUCHENA|ZONA_NAZHATIJA_MENSHE_NORMY) [a-z0-9-]+', soobschenie)]
+                for m in [re.search(r'(?:TSEL_NAZHATIE_NE_DEJSTVUET|TSEL_OTKLJUCHENA|ZONA_NAZHATIJA_MENSHE_NORMY|NADPIS_NEVIDIMA|TSEL_BEZ_HOZIAINA) [a-z0-9-]+', soobschenie)]
                 if m is not None
             ), None)
             return 1, ['ISPOLNIMYJ_KONTROL_KRASEN: зонд красен на исходных '
