@@ -25,13 +25,16 @@
 # вход→причина — константа OZHIDAEMYE ниже, с диска субъекта не
 # перечитывается.
 #
-# Домен входов (15): базовые пять форм слова владельца (a/b1/b2/v/g) +
+# Домен входов (21): базовые пять форм слова владельца (a/b1/b2/v/g) +
 # расширенные k1..k6 (типы и записи карты: null-запись, массив, число,
-# строка, null, вложенность — блок Б2 вердикта), f1 (пустой
+# строка, null, вложенность — блок Б2 вердикта Crit159), f1 (пустой
 # идентификатор экрана), c1 (только пустые подкаталоги), c2 (симлинк
-# вместо содержимого — блок Б1 вердикта) + konformnyj. Слои: W-слой
-# судит БАЗОВЫЕ входы (тяжёлые прогоны батарей), модельный и
-# гейт-слои — весь домен.
+# вместо содержимого — Б1 Crit159), c3 (сам mobile/src — симлинк на
+# заполненный каталог вне R — Б1 Crit159b), c4/c5 (карта/форма —
+# симлинки на действительные значения вне R: не свои узлы), d1/d2/d3
+# (ошибки доступа chmod 000: карта/подкаталог src/форма — Б2 Crit159b,
+# rc 2 NECHITAEMO) + konformnyj. Слои: W-слой судит БАЗОВЫЕ входы
+# (тяжёлые прогоны батарей), модельный и гейт-слои — весь домен.
 #
 # Режимы (argv):
 #   (без флага)  судится живое дерево (см. выше; до ленда реализации
@@ -96,10 +99,11 @@ KARTA_S_ZAPISJU = {
 FORMA = {"ekran": "demo-vkhod", "kadry": "kadry.json"}
 
 # Оракул в памяти (правило 8): вход → (rc эталона, причина ДОСЛОВНО).
-# Домен v2 (15): базовые формы слова владельца + типы/записи карты
-# (k*), пустой идентификатор экрана (f1), пустые контейнеры и симлинк
-# вместо содержимого (c*) — красны КАЖДЫЙ СВОЕЙ причиной, отличимы от
-# konformnyj с исходным файлом.
+# Домен v3 (21): базовые формы слова владельца + типы/записи карты
+# (k*), пустой идентификатор экрана (f1), пустые контейнеры и симлинки
+# вместо содержимого/карты/формы (c*; c3 — Б1 Crit159b: симлинк-КОРЕНЬ
+# src), ошибки доступа (d*: chmod 000 → rc 2 NECHITAEMO — Б2 Crit159b)
+# — красны КАЖДЫЙ СВОЕЙ причиной, отличимы от konformnyj с файлом.
 OZHIDAEMYE = {
     'a-forma-pusta': (1, 'PUSTOJ_PRODUKT: FORMA_PUSTA'),
     'b1-pustoj-katalog': (1, 'PUSTOJ_PRODUKT: KATALOG_PUST'),
@@ -115,6 +119,12 @@ OZHIDAEMYE = {
     'f1-forma-pustoj-id': (1, 'PUSTOJ_PRODUKT: FORMA_PUSTA'),
     'c1-pustye-katalogi': (1, 'PUSTOJ_PRODUKT: KOREN_BEZ_SODERZHIMOGO'),
     'c2-vneshnij-simlink': (1, 'PUSTOJ_PRODUKT: KOREN_BEZ_SODERZHIMOGO'),
+    'c3-vneshnij-src-simlink': (1, 'PUSTOJ_PRODUKT: KOREN_BEZ_SODERZHIMOGO'),
+    'c4-karta-simlink': (1, 'PUSTOJ_PRODUKT: KARTA_BEZ_CELEJ'),
+    'c5-forma-simlink': (1, 'PUSTOJ_PRODUKT: FORMA_PUSTA'),
+    'd1-karta-nechitaema': (2, 'PUSTOJ_PRODUKT: NECHITAEMO'),
+    'd2-src-nechitaem': (2, 'PUSTOJ_PRODUKT: NECHITAEMO'),
+    'd3-forma-nechitaema': (2, 'PUSTOJ_PRODUKT: NECHITAEMO'),
     'konformnyj': (0, ''),
 }
 
@@ -129,7 +139,9 @@ BAZOVYE = ['a-forma-pusta', 'b1-pustoj-katalog', 'b2-otsutstvujushchij',
 SODERZHATELNYE = {
     'konformnyj', 'a-forma-pusta', 'v-karta-bez-celej', 'f1-forma-pustoj-id',
     'k1-zapis-null', 'k2-karta-massiv', 'k3-karta-chislo', 'k4-karta-stroka',
-    'k5-karta-null', 'k6-karta-vlozhennost',
+    'k5-karta-null', 'k6-karta-vlozhennost', 'c4-karta-simlink',
+    'c5-forma-simlink', 'd1-karta-nechitaema', 'd2-src-nechitaem',
+    'd3-forma-nechitaema',
 }
 
 # Н-39: привязка обманного варианта к ветви обнаружения — ЗДЕСЬ,
@@ -142,6 +154,10 @@ VETKA_PO_FORME = {
     'wiring-stderr-before-gate': 'VYVOD_DO_GATE',
     'gate-tolko-forma': 'BATAREJA_ZELENA_NA_PUSTOM',
     'gate-karta-pustaja-prohodka': 'BATAREJA_ZELENA_NA_PUSTOM',
+    'gate-sleduet-simlinku-src': 'BATAREJA_ZELENA_NA_PUSTOM',
+    'wiring-side-effect-before-gate': 'POBOCHNYJ_EFFEKT',
+    'wiring-cells-after-refusal': 'KLETKI_POSLE_OTKAZA',
+    'wiring-wrong-rc': 'RC_NE_1',
 }
 # Обязательная форма трассы у вариантов уровня проводки: сколько
 # записей трассы гейта обязан дать вариант на каждом заявленном входе
@@ -149,8 +165,53 @@ VETKA_PO_FORME = {
 TRASSA_PO_FORME = {
     'wiring-ignored-rc': 1,
     'wiring-stderr-before-gate': 1,
+    'wiring-side-effect-before-gate': 1,
+    'wiring-cells-after-refusal': 1,
+    'wiring-wrong-rc': 1,
     'wiring-no-gate': 0,
 }
+
+# Б2 Crit159b: ошибка доступа → rc 2 NECHITAEMO. Реальный доступ —
+# chmod 000 (uid без DAC override); если chmod не мешает (root),
+# батарея поднимает ОБЪЯВЛЕННУЮ эталоном и гейтом симуляцию env
+# PUSTOJ_PRODUKT_SIMULIRUJ_DOSTUP (точки karta|forma|src) — та же
+# точка отказа, что у chmod 000.
+DOSTUP_TOCHKA = {
+    'd1-karta-nechitaema': 'karta',
+    'd2-src-nechitaem': 'src',
+    'd3-forma-nechitaema': 'forma',
+}
+DOSTUP_CEL = {
+    'd1-karta-nechitaema': (('mobile', 'ci-screens.json'), False),
+    'd2-src-nechitaem': (('mobile', 'src', 'features', 'demo'), True),
+    'd3-forma-nechitaema': (('mobile', 'e2e-demo-vkhod', 'ekran.json'),
+                            False),
+}
+
+
+def dostup_dejstvitelen(r, vid):
+    """True — chmod 000 реально мешает чтению ЭТОМУ uid (не root)."""
+    otnositelno, katalog = DOSTUP_CEL[vid]
+    cel = os.path.join(r, *otnositelno)
+    try:
+        if katalog:
+            with os.scandir(cel):
+                pass
+        else:
+            with open(cel, 'rb'):
+                pass
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+
+
+def env_dostupa(r, vid):
+    """env для прогона d-входа: симуляция только если chmod не мешает."""
+    if vid not in DOSTUP_TOCHKA or dostup_dejstvitelen(r, vid):
+        return {}
+    return {'PUSTOJ_PRODUKT_SIMULIRUJ_DOSTUP': DOSTUP_TOCHKA[vid]}
 
 
 def utechka(n):
@@ -189,6 +250,7 @@ def postavit(baza, vid):
         return r
     md = os.path.join(r, 'mobile')
     karta, forma = KARTA_S_ZAPISJU, FORMA
+    karta_simlink_na = forma_simlink_na = None
     if vid == 'a-forma-pusta':
         forma = {}
     elif vid == 'v-karta-bez-celej':
@@ -210,43 +272,86 @@ def postavit(baza, vid):
     elif vid == 'c1-pustye-katalogi':
         karta = {"schema": 1, "ekrany": [{"id": "demo"}]}
         forma = {"ekran": "demo", "kadry": "kadry.json"}
+    elif vid == 'c4-karta-simlink':
+        # действительная карта ВНЕ R: узел не свой (Б1 Crit159b)
+        karta_simlink_na = os.path.join(baza, 'vne-R-karta.json')
+        with open(karta_simlink_na, 'w') as fh:
+            json.dump(KARTA_S_ZAPISJU, fh)
+    elif vid == 'c5-forma-simlink':
+        # действительная форма ВНЕ R: узел не свой (Б1 Crit159b)
+        forma_simlink_na = os.path.join(baza, 'vne-R-forma.json')
+        with open(forma_simlink_na, 'w') as fh:
+            json.dump(FORMA, fh)
     os.makedirs(os.path.join(md, 'e2e-demo-vkhod'))
-    with open(os.path.join(md, 'ci-screens.json'), 'w') as fh:
-        json.dump(karta, fh)
-    with open(os.path.join(md, 'e2e-demo-vkhod', 'ekran.json'), 'w') as fh:
-        json.dump(forma, fh)
+    if karta_simlink_na:
+        os.symlink(karta_simlink_na, os.path.join(md, 'ci-screens.json'))
+    else:
+        with open(os.path.join(md, 'ci-screens.json'), 'w') as fh:
+            json.dump(karta, fh)
+    put_formy = os.path.join(md, 'e2e-demo-vkhod', 'ekran.json')
+    if forma_simlink_na:
+        os.symlink(forma_simlink_na, put_formy)
+    else:
+        with open(put_formy, 'w') as fh:
+            json.dump(forma, fh)
     # Компонентный слой (граница содержательности — инвариант 1г):
     # корневой App.tsx — всегда (контейнер); содержимое — по входу.
-    os.makedirs(os.path.join(md, 'src'))
-    with open(os.path.join(md, 'src', 'App.tsx'), 'w') as fh:
-        fh.write("export default function App() { return null; }\n")
-    if vid in SODERZHATELNYE:
-        os.makedirs(os.path.join(md, 'src', 'features', 'demo'))
-        with open(os.path.join(md, 'src', 'features', 'demo',
-                               'Demo.tsx'), 'w') as fh:
+    if vid == 'c3-vneshnij-src-simlink':
+        # сам mobile/src — симлинк на ЗАПОЛНЕННЫЙ каталог ВНЕ R
+        # (образец external-src-symlink вердикта Crit159b: os.walk
+        # следует ссылке-КОРНЮ обхода — содержимое вне R не содержимое)
+        vne = os.path.join(baza, 'vne-R-src-zapolnennyj')
+        os.makedirs(os.path.join(vne, 'features', 'demo'))
+        with open(os.path.join(vne, 'App.tsx'), 'w') as fh:
+            fh.write("export default function App() { return null; }\n")
+        with open(os.path.join(vne, 'features', 'demo', 'Demo.tsx'),
+                  'w') as fh:
             fh.write("export function Demo() { return null; }\n")
-    elif vid == 'c1-pustye-katalogi':
-        os.makedirs(os.path.join(md, 'src', 'features'))
-    elif vid == 'c2-vneshnij-simlink':
-        # цель — пустой каталог ВНЕ R: содержимое «есть», но не
-        # принадлежит продукту (структурная пустота по вердикту)
-        vne = os.path.join(baza, 'vne-R-pustoj')
-        os.makedirs(vne, exist_ok=True)
-        os.symlink(vne, os.path.join(md, 'src', 'features'))
+        os.symlink(vne, os.path.join(md, 'src'))
+    else:
+        os.makedirs(os.path.join(md, 'src'))
+        with open(os.path.join(md, 'src', 'App.tsx'), 'w') as fh:
+            fh.write("export default function App() { return null; }\n")
+        if vid in SODERZHATELNYE:
+            os.makedirs(os.path.join(md, 'src', 'features', 'demo'))
+            with open(os.path.join(md, 'src', 'features', 'demo',
+                                   'Demo.tsx'), 'w') as fh:
+                fh.write("export function Demo() { return null; }\n")
+        elif vid == 'c1-pustye-katalogi':
+            os.makedirs(os.path.join(md, 'src', 'features'))
+        elif vid == 'c2-vneshnij-simlink':
+            # цель — пустой каталог ВНЕ R: содержимое «есть», но не
+            # принадлежит продукту (структурная пустота по вердикту)
+            vne = os.path.join(baza, 'vne-R-pustoj')
+            os.makedirs(vne, exist_ok=True)
+            os.symlink(vne, os.path.join(md, 'src', 'features'))
+    # Ошибки доступа (Б2 Crit159b): chmod 000 реален для uid без
+    # DAC override; под root судья поднимает симуляцию env_dostupa
+    if vid == 'd1-karta-nechitaema':
+        os.chmod(os.path.join(md, 'ci-screens.json'), 0)
+    elif vid == 'd2-src-nechitaem':
+        os.chmod(os.path.join(md, 'src', 'features', 'demo'), 0)
+    elif vid == 'd3-forma-nechitaema':
+        os.chmod(put_formy, 0)
     # g-koren-bez-soderzhimogo: только корневой App.tsx
     return r
 
 
-def snimok(r):
-    """Инвентарь дерева R: relpath → ('katalog',)|('simlink',cel')|
-    ('fail',размер,sha256). Симлинки — как симлинки (содержимое не
-    читается и не пересчитывается)."""
+def snimok(r, iskljuchit=frozenset()):
+    """Инвентарь дерева r: relpath → ('katalog',)|('simlink',cel)|
+    ('fail',размер,rezhim,sha256); rezhim — режим доступа (младшие
+    12 бит): подмена прав — тоже побочный эффект. Симлинки — как
+    симлинки (содержимое не читается и не пересчитывается).
+    Абсолютные пути из iskljuchit не учитываются: это файл трассы,
+    который пишет сам гейт (единственное дозволенное изменение)."""
     inv = {}
     if not os.path.isdir(r):
         return inv
     for koren, katalogi, fajly in os.walk(r, followlinks=False):
         for imja in katalogi + fajly:
             p = os.path.join(koren, imja)
+            if os.path.abspath(p) in iskljuchit:
+                continue
             rel = os.path.relpath(p, r)
             if os.path.islink(p):
                 inv[rel] = ('simlink', os.readlink(p))
@@ -255,8 +360,24 @@ def snimok(r):
             elif os.path.isfile(p):
                 with open(p, 'rb') as fh:
                     inv[rel] = ('fail', os.path.getsize(p),
+                                oct(os.stat(p).st_mode & 0o7777),
                                 hashlib.sha256(fh.read()).hexdigest())
     return inv
+
+
+def ubrat(baza):
+    """Стирает baza; сначала возвращает доступ chmod-000 каталогам
+    d-входов — иначе rmtree не войдёт в каталог без прав (режим
+    выставляется сверху вниз, до спуска walk)."""
+    for koren, katalogi, _fajly in os.walk(baza):
+        for imja in katalogi:
+            p = os.path.join(koren, imja)
+            if not os.path.islink(p):
+                try:
+                    os.chmod(p, 0o700)
+                except OSError:
+                    pass
+    shutil.rmtree(baza, ignore_errors=True)
 
 
 def zapusk_obedinennyj(cmd, env, cwd=None, timeout=60):
@@ -309,16 +430,25 @@ def sudit_provodku(sest_cmd, vid, baza):
     SUBEKT_RC2 (субъект вышел rc 2 — fail-closed, не зелень: до
     проводки это собственный INFRASTRUCTURE батареи 151, после
     проводки — rc 2 гейта, проброшенный ветвью); GATE_NE_VYZVAN
-    (трассы нет/не одна/чужая);
-    POBOCHNYJ_EFFEKT (дерево продукта изменилось); VYVOD_DO_GATE
-    (строка прибыла раньше записи трассы); GATE_NE_PERVYM_DEISTVIEM
-    (первая строка не причина); OK."""
+    (трассы нет/не одна/чужая); POBOCHNYJ_EFFEKT (изменилось ВСЁ дерево
+    прогона baza минус файл трассы — граница наблюдения побочных
+    эффектов до/после с режимами доступа, а не только продукт: образец
+    early-action вердикта Crit159b пишет файл ВНЕ R, но в дереве
+    прогона); VYVOD_DO_GATE (строка прибыла раньше записи трассы);
+    GATE_NE_PERVYM_DEISTVIEM (первая строка не причина);
+    KLETKI_POSLE_OTKAZA (после причины есть ещё строки — собственные
+    клетки/вывод батареи после отказа гейта: после rc != 0 батарея
+    завершается, не запуская клеток; образец own-cells-after-fail);
+    RC_NE_1 (на пустом входе батарея обязана выйти ИМЕННО rc 1 — rc 2
+    принят выше как fail-closed, rc 0 выше как зелень; образец
+    wrong-return вердикта Crit159b выходит rc 3); OK."""
     r = postavit(baza, vid)
     ozh_rc, ozh_prichina = OZHIDAEMYE[vid]
-    do = snimok(r)
     trassa = os.path.join(baza, 'trassa-gate-%s.log' % vid)
+    do = snimok(baza, iskljuchit={trassa})
     env = dict(os.environ)
     env['PYTHONUNBUFFERED'] = '1'
+    env['PYTHONDONTWRITEBYTECODE'] = '1'
     env['PUSTOJ_PRODUKT_TRACE'] = trassa
     rc, stroki = zapusk_obedinennyj(sest_cmd(r), env, cwd=KOREN)
     linii = chita_trassu(trassa)
@@ -339,9 +469,10 @@ def sudit_provodku(sest_cmd, vid, baza):
         ts_gejta = int(nashi[0].split(' GATE ')[0])
     except ValueError:
         return 'GATE_NE_VYZVAN', 'трасса не по грамматике', len(linii)
-    if snimok(r) != do:
+    if snimok(baza, iskljuchit={trassa}) != do:
         return ('POBOCHNYJ_EFFEKT',
-                'дерево продукта изменилось за время прогона', len(linii))
+                'дерево прогона (baza) изменилось за время прогона',
+                len(linii))
     rannie = [s for ts, s in stroki if ts < ts_gejta]
     if rannie:
         return ('VYVOD_DO_GATE',
@@ -351,15 +482,26 @@ def sudit_provodku(sest_cmd, vid, baza):
         return ('GATE_NE_PERVYM_DEISTVIEM',
                 'первая=%r ожидалась %r' % (pervaja, ozh_prichina),
                 len(linii))
+    if len(stroki) != 1:
+        return ('KLETKI_POSLE_OTKAZA',
+                'после причины гейта выведено ещё %d строк(и), первая %r'
+                % (len(stroki) - 1, stroki[1][1][:60]), len(linii))
+    if rc != 1:
+        return ('RC_NE_1',
+                'rc=%d: на пустом входе батарея обязана выйти rc 1 '
+                '(rc 2 принят выше как fail-closed)' % rc, len(linii))
     return 'OK', ozh_prichina, len(linii)
 
 
 def zapusk_subekta(skript, vid, baza):
     """(rc, stdout+stderr) — прямой прогон субъекта на СВЕЖЕЙ копии
-    входа (уровень гейта: типы входа, расхождения rc)."""
+    входа (уровень гейта: типы входа, расхождения rc); на d-входах —
+    реальный chmod 000, а под uid, которому он не мешает, объявленная
+    симуляция доступа PUSTOJ_PRODUKT_SIMULIRUJ_DOSTUP."""
     r = postavit(baza, vid)
     p = subprocess.run([sys.executable, skript, r],
-                       capture_output=True, text=True, timeout=60)
+                       capture_output=True, text=True, timeout=60,
+                       env=dict(os.environ, **env_dostupa(r, vid)))
     return p.returncode, p.stdout + p.stderr
 
 
@@ -455,7 +597,7 @@ def sudit_staba(stab, svaz):
         for vid in vhody:
             rc, _vyp = zapusk_subekta(put, vid, baza)
             ozh_rc, _p = OZHIDAEMYE[vid]
-            if ozh_rc == 1 and rc == 0:
+            if ozh_rc != 0 and rc == 0:
                 pojmalo += 1
                 print('STAB %s POJMAN vetka=%s na %s'
                       % (stab, nuzhnaja, vid))
@@ -464,7 +606,7 @@ def sudit_staba(stab, svaz):
         return (False, 'НЕДОСТОВЕРНЫЙ ВАРИАНТ: зелён не на всех '
                 'заявленных входах (%d/%d)' % (pojmalo, len(vhody)))
     finally:
-        shutil.rmtree(baza, ignore_errors=True)
+        ubrat(baza)
 
 
 def main():
@@ -490,7 +632,7 @@ def main():
         try:
             itogi.extend(kontrol_modeli(baza))
         finally:
-            shutil.rmtree(baza, ignore_errors=True)
+            ubrat(baza)
 
     if rezhim == 'stabs':
         # Ожидания эталона — УЖЕ в памяти (OZHIDAEMYE), вычислены до
@@ -525,7 +667,9 @@ def main():
                     r = postavit(baza, vid)
                     p = subprocess.run(['bash', ZHIVOJ_GATE, r],
                                        capture_output=True, text=True,
-                                       timeout=60)
+                                       timeout=60,
+                                       env=dict(os.environ,
+                                                **env_dostupa(r, vid)))
                     ozh_rc, ozh_prichina = OZHIDAEMYE[vid]
                     stroka = ((p.stdout.strip().splitlines()
                                or [''])[0])
@@ -537,7 +681,7 @@ def main():
                                   % (p.returncode, stroka, ozh_rc,
                                      ozh_prichina)))
             finally:
-                shutil.rmtree(baza, ignore_errors=True)
+                ubrat(baza)
             baza_t = tempfile.mkdtemp(prefix='pustoj159-trace-')
             try:
                 # трасса: гейт пишет её ПЕРВЫМ действием (инвариант 3)
@@ -559,7 +703,7 @@ def main():
                               'rc=%d трасса=%d строка=%r'
                               % (p.returncode, len(linii), stroka)))
             finally:
-                shutil.rmtree(baza_t, ignore_errors=True)
+                ubrat(baza_t)
         # (2) батареи: гейт — ПЕРВОЕ действие --repo-ветви на каждом
         # базовом пустом входе (трасса вызова, порядок объединённого
         # потока, снимок продукта, rc)
@@ -573,7 +717,7 @@ def main():
                         return ['bash', put_red, '--repo', r]
                     vetka, pochemu, _t = sudit_provodku(sest, vid, baza)
                 finally:
-                    shutil.rmtree(baza, ignore_errors=True)
+                    ubrat(baza)
                 idk = 'W-%s/%s' % (zona, vid)
                 itogi.append((idk, vetka == 'OK',
                               '' if vetka == 'OK' else
