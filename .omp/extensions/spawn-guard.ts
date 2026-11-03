@@ -153,10 +153,18 @@ function stateRoots(sessionFile: string): Roots | null {
   // корень журналов: последний каталог agent/sessions над файлом сессии
   const m = /^(.*\/agent\/sessions)\//.exec(sessionFile);
   if (m === null) return null;
-  // корень состояний (формула 028): префикс пути до /zones/
+  // Раскладка дев-зоны (028): корень состояний — префикс пути до /zones/.
   const z = sessionFile.indexOf('/zones/');
-  if (z <= 0) return null;
-  return { sost: sessionFile.slice(0, z), zhurnaly: m[1] };
+  if (z > 0) return { sost: sessionFile.slice(0, z), zhurnaly: m[1] };
+  // Раскладка СЕССИИ ПРОЕКТА (055 И-2): дом сессии — `<PSTATE>/home`, сегмента
+  // /zones/ в нём нет НИКОГДА, и прежняя грамматика блокировала здесь ВСЕ
+  // спавны (измерено 02.11: бэкенд Complior-back не мог поднять ни одного
+  // агента; страж не защищал, а запрещал). Корень состояний — `<PSTATE>/state`,
+  // сосед дома, как и задумано профилем проекта.
+  const h = sessionFile.indexOf('/home/.omp/profiles/');
+  if (h > 0) return { sost: sessionFile.slice(0, h) + '/state', zhurnaly: m[1] };
+  // Любая третья раскладка — по-прежнему fail-closed.
+  return null;
 }
 
 // Событие двери — items {agent, name, task}; та же нормализация 104 (batch
