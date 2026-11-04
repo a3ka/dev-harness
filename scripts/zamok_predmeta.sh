@@ -150,6 +150,9 @@ stare_holder() {  # <holder> → yield|bezhit|broshen|net_fajla
 # [D15 pauza] ПАУЗА владельца — только строка registry/pauzy.tsv.
 na_pauze() {  # <NNN>
   local f="$REPO/registry/pauzy.tsv" l
+  # Проектная раскладка (04.11, та же стенка, что каталог контрактов в #500): реестр
+  # проекта лежит в .harness/registry/ — без этого паузу предмета проекта не записать.
+  [ -r "$f" ] || f="$REPO/.harness/registry/pauzy.tsv"
   [ -r "$f" ] || return 1
   while IFS= read -r l; do
     case "$l" in '#'*|'') continue ;; esac
