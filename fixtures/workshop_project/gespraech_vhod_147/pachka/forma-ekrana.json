@@ -22,7 +22,7 @@
  "operacii_api": [],
  "katalog_kopii": "mobile/e2e-gespraech-vhod/katalog_kopii.json",
  "spec_api": "mobile/e2e-gespraech-vhod/spec_api.json",
- "audit_tokenov": "docs/ux/03_Mobility_Slice1/ds/tokens.css",
+ "audit_tokenov": "docs/ux/05_Kompakt_D24/source/tokens.json",
  "e2e_scenarij": "mobile/.maestro/gespraech-vhod.yaml",
  "kadry_dir": "mobile/maestro-out-gespraech",
  "kontrakt": "kontrakt.md",
@@ -64,18 +64,18 @@
     "izmenenie": "profil",
     "shirina": 44,
     "vysota": 44,
-    "x": 330,
-    "y": 16,
+    "x": 340,
+    "y": 8,
     "demo": false
    },
    {
     "id": "gespraech-vorgaenge-ansehen",
     "sostojanie": "deistvie",
     "izmenenie": "nav-vorgaenge",
-    "shirina": 310,
-    "vysota": 56,
-    "x": 40,
-    "y": 656,
+    "shirina": 318,
+    "vysota": 48,
+    "x": 36,
+    "y": 560,
     "demo": false
    },
    {
@@ -83,9 +83,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "tab-start",
     "shirina": 78,
-    "vysota": 46,
+    "vysota": 48,
     "x": 0,
-    "y": 782,
+    "y": 796,
     "demo": false
    },
    {
@@ -93,9 +93,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "tab-vorgaenge",
     "shirina": 78,
-    "vysota": 46,
+    "vysota": 48,
     "x": 78,
-    "y": 782,
+    "y": 796,
     "demo": false
    },
    {
@@ -103,9 +103,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "menu-open",
     "shirina": 78,
-    "vysota": 46,
+    "vysota": 48,
     "x": 156,
-    "y": 782,
+    "y": 796,
     "demo": false
    },
    {
@@ -113,9 +113,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "tab-schutz",
     "shirina": 78,
-    "vysota": 46,
+    "vysota": 48,
     "x": 234,
-    "y": 782,
+    "y": 796,
     "demo": false
    },
    {
@@ -123,9 +123,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "tab-post",
     "shirina": 78,
-    "vysota": 46,
+    "vysota": 48,
     "x": 312,
-    "y": 782,
+    "y": 796,
     "demo": false
    },
    {
@@ -133,9 +133,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "menue-sprechen",
     "shirina": 320,
-    "vysota": 60,
+    "vysota": 52,
     "x": 35,
-    "y": 438,
+    "y": 515,
     "demo": false
    },
    {
@@ -143,9 +143,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "menue-schreiben",
     "shirina": 320,
-    "vysota": 60,
+    "vysota": 52,
     "x": 35,
-    "y": 508,
+    "y": 575,
     "demo": false
    },
    {
@@ -153,9 +153,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "menue-foto",
     "shirina": 320,
-    "vysota": 60,
+    "vysota": 52,
     "x": 35,
-    "y": 578,
+    "y": 635,
     "demo": false
    },
    {
@@ -163,19 +163,19 @@
     "sostojanie": "deistvie",
     "izmenenie": "menue-dokument",
     "shirina": 320,
-    "vysota": 60,
+    "vysota": 52,
     "x": 35,
-    "y": 648,
+    "y": 695,
     "demo": false
    },
    {
     "id": "gespraech-menu-close",
     "sostojanie": "deistvie",
     "izmenenie": "menu-close",
-    "shirina": 56,
-    "vysota": 56,
-    "x": 167,
-    "y": 728,
+    "shirina": 48,
+    "vysota": 48,
+    "x": 171,
+    "y": 775,
     "demo": false
    },
    {
@@ -183,9 +183,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "vorgang-ansehen",
     "shirina": 320,
-    "vysota": 102,
+    "vysota": 72,
     "x": 35,
-    "y": 294,
+    "y": 403,
     "demo": false
    }
   ],
@@ -209,8 +209,8 @@
    {
     "id": "profil",
     "tip": "ikonka",
-    "x": 333,
-    "y": 75,
+    "x": 343,
+    "y": 67,
     "shirina": 44,
     "vysota": 44,
     "dostupnoe_imja": "profil-i-nastrojki"
@@ -218,18 +218,18 @@
    {
     "id": "vorgaenge-ansehen",
     "tip": "kontrol",
-    "x": 40,
-    "y": 715,
-    "shirina": 313,
-    "vysota": 56
+    "x": 36,
+    "y": 619,
+    "shirina": 321,
+    "vysota": 48
    },
    {
     "id": "tab-bar",
     "tip": "kontrol",
     "x": 0,
-    "y": 772,
+    "y": 769,
     "shirina": 393,
-    "vysota": 46
+    "vysota": 49
    }
   ]
  },
@@ -241,7 +241,6 @@
   "pozvonok": "docs/ux/04_Gespraech_D24/motion/faden-poses-gespraech.json",
   "pozvonok_sha256": "9763fdc06b0c0a3c3138f7abac57bf5efbc714403f53d221c3b7c8d225c4f002",
   "ekrany": [
-   "GA-01",
    "GA-15",
    "GA-16"
   ],
@@ -250,13 +249,11 @@
    "GA-T29",
    "GA-T30",
    "GA-T31",
-   "GA-T33",
-   "GA-T35"
+   "GA-T33"
   ],
   "sceny_znaka": [
    "GA-T29",
-   "GA-T33",
-   "GA-T35"
+   "GA-T33"
   ],
   "etalony": {
    "GA-T28": {
@@ -447,44 +444,6 @@
      "dark_reduced": "ece8e7db03c3917639f51a36d003c1be20f895007859b025a1934c997dd78576",
      "light": "04b39767a72c91c6dcfcfa9bc50ad3b7b476f1675bc8705baf43a3da6b78f545",
      "light_reduced": "ee1a38a0bfd7bc9f6c2d0db92497be8cde168d472bb86dc459def3e6574a525b"
-    }
-   },
-   "GA-T35": {
-    "keyframes": {
-     "dark": [
-      "10a42170c235ba922badb5e1f0c15ef44b499b13eaea3a9df6d4c93424190977",
-      "226e5f834e41193885f1b7952ceae85e72ef02da54fbfcbcbbb882633edcfaf2",
-      "5dc626cbe0b83cc3bb580ea3040b65f36fcb34715d16e77653250f16ad331cd8",
-      "38475e0e48e81cca870761948a452b0893ce238b42589662e1c89e4bb490683b",
-      "9113b1da26a5450750bb00827c465dbb7fdd96abebf8987f0fa4a1b764df01fc"
-     ],
-     "dark_reduced": [
-      "0bf3f63da2174119a9da09fc1f20cf1e3451ef6008810ce69cf23fb983236be6",
-      "b6e62b845d9ae13ff513251bee6c3a860ddc679a75fd4be93996d2a74fd3bea0",
-      "7ee4f695c3c63e8a7eecdbe743082d93dad2623a0f15b6d03f7d7b3ea2a67904",
-      "3814886f946d86ebb5a77f09dd0454a4465fa95193305b2df3d3e9cf4fcf76e9",
-      "89b1fb14a6912d6ae298276fba4b1368f4c41ae1921bfdcf6be6a0f09195102e"
-     ],
-     "light": [
-      "226c2ee42c335945d07cb0276f8672d90a3a86564859e25f7c73bf9113ff1783",
-      "e36dd2ed59412ee10abdea6be707310a4f18960531e1c98e380604ffeeeef592",
-      "bda13bcff2be3c2119d626b79367522d8c0170fd3e406d4194778cfd1e98e891",
-      "f63c4918f792d609f6415c9555488e48e50fd58159ea8a25545f55548c65e229",
-      "0518f8ef8c1262d0f4adbb531096aee06abe0dc1e88d321e405699fb12447fac"
-     ],
-     "light_reduced": [
-      "3fb41e03f48947fdae38e8fc72f55e683e9e33711f981bfedfd3eb91e6371656",
-      "a87bfe6b77ab42d39dae1a738d0bc4145183dad4cfda3318e0ee175413717eea",
-      "fdbaa2eb1fc05ad92bfee42e0a428fa3237402c92a40ec54d16dea8699988274",
-      "47724f3d983595574ef77e1b38c83f690d26ca1735c0711df8ab765d43793633",
-      "c6785303a0edec25c96da75193feea2bb18637f08213828fd4a9995351774bed"
-     ]
-    },
-    "video": {
-     "dark": "36938097b513ccf2da446b9dce9ca4e62f004d3e86a00655e7a6d74de7c94a99",
-     "dark_reduced": "22c33ebf27b9d10984d3a344f471c6d6af9628611c433d7f3471f32dc18b689c",
-     "light": "83fb6842b1856a7381172e18b55f32a816062bfab7166d9853fd20a8e829dfa3",
-     "light_reduced": "28afcb5933fd46ec1932e4e2bea6a70e2f850d69c4d75c3625033b2b4eda02fa"
     }
    }
   },

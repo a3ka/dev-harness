@@ -12,51 +12,11 @@
  },
  "kadry": [
   {
-   "id": "GA-01 dark",
-   "tema": "dark",
-   "snimok": "gespraech-ga-01",
-   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-01.png",
-   "maket_sha256": "acb17df29e0008b28e0a23ba36c1d6e2a6f45bf69061e6f40473f48fc631169d",
-   "porog": 0.6,
-   "maski_pt": [],
-   "elementy": [
-    {
-     "imja": "ekran",
-     "bbox_pt": [
-      0,
-      36,
-      390,
-      824
-     ]
-    }
-   ]
-  },
-  {
-   "id": "GA-01 light",
-   "tema": "light",
-   "snimok": "gespraech-ga-01",
-   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-01-Hell.png",
-   "maket_sha256": "3dc4cb44703d7584c092b238900cede539bc7655385880641fc58033e5291b7a",
-   "porog": 0.6,
-   "maski_pt": [],
-   "elementy": [
-    {
-     "imja": "ekran",
-     "bbox_pt": [
-      0,
-      36,
-      390,
-      824
-     ]
-    }
-   ]
-  },
-  {
    "id": "GA-15 dark",
    "tema": "dark",
    "snimok": "gespraech-ga-15",
-   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-15.png",
-   "maket_sha256": "9d4d5d7586828c04b16348387c404bcba1b42be5d41fcabe478f4fe7789c4657",
+   "maket": "docs/ux/05_Kompakt_D24/frames/GA-15_menu_dark_390x844.png",
+   "maket_sha256": "dc6c17ace2bd2fda4f6dd2f6fb1965ec2c889d70823142476bf5d8f5c5789423",
    "porog": 0.6,
    "maski_pt": [],
    "elementy": [
@@ -75,8 +35,8 @@
    "id": "GA-15 light",
    "tema": "light",
    "snimok": "gespraech-ga-15",
-   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-15-Hell.png",
-   "maket_sha256": "2b4b8b1a0afe00c63b4e3f512761283796d0d5561122ef3a6cf4cf3439c313b6",
+   "maket": "docs/ux/05_Kompakt_D24/frames/GA-15_menu_light_390x844.png",
+   "maket_sha256": "23c59636441ef2f667d187f335925e6bfbcd10787024c2e7c876277cbc1117a1",
    "porog": 0.6,
    "maski_pt": [],
    "elementy": [
@@ -95,8 +55,8 @@
    "id": "GA-16 dark",
    "tema": "dark",
    "snimok": "gespraech-ga-16",
-   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-16.png",
-   "maket_sha256": "9cedf17b1b919de8c8d2fd465072fa1945edbbd01845b2f557419050597d3b24",
+   "maket": "docs/ux/05_Kompakt_D24/frames/GA-16_menu_dark_390x844.png",
+   "maket_sha256": "f89f6761a50c8e47e61b5e28585dd4c89562a9dfa5a991ababb015fe88a7359a",
    "porog": 0.6,
    "maski_pt": [],
    "elementy": [
@@ -115,8 +75,8 @@
    "id": "GA-16 light",
    "tema": "light",
    "snimok": "gespraech-ga-16",
-   "maket": "docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-16-Hell.png",
-   "maket_sha256": "ee7774531a58692c5978dad307a276f4731a4eb1ed3a417563e200de06f4d795",
+   "maket": "docs/ux/05_Kompakt_D24/frames/GA-16_menu_light_390x844.png",
+   "maket_sha256": "0f0cc760cc4bb6f1435e6c5131c407068110040c076af42901f7553e0df407c7",
    "porog": 0.6,
    "maski_pt": [],
    "elementy": [

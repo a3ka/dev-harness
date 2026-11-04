@@ -5,10 +5,15 @@ appId: com.complior.mobile
 name: gespraech-prokhod
 ---
 - launchApp
+- assertVisible:
+    id: first-run-continue
+- openLink: complior://start
 - tapOn:
     id: shell-profile-entry
 - assertVisible:
     id: profil
+- tapOn:
+    id: shell-back
 - tapOn:
     id: shell-tab-start
 - assertVisible:
