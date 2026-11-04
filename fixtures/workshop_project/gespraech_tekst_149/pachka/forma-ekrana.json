@@ -67,28 +67,28 @@
     "izmenenie": "verlauf",
     "shirina": 44,
     "vysota": 44,
-    "x": 330,
-    "y": 16,
+    "x": 334,
+    "y": 8,
     "demo": false
    },
    {
     "id": "gespraech-topic-schaden",
     "sostojanie": "deistvie",
     "izmenenie": "tema-schaden",
-    "shirina": 294,
-    "vysota": 80,
+    "shirina": 302,
+    "vysota": 66,
     "x": 16,
-    "y": 136,
+    "y": 120,
     "demo": false
    },
    {
     "id": "gespraech-topic-schaden-speak",
     "sostojanie": "deistvie",
     "izmenenie": "tema-schaden-golos",
-    "shirina": 64,
-    "vysota": 80,
-    "x": 310,
-    "y": 136,
+    "shirina": 56,
+    "vysota": 66,
+    "x": 318,
+    "y": 120,
     "demo": false
    },
    {
@@ -96,9 +96,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "tema-auto",
     "shirina": 173,
-    "vysota": 140,
+    "vysota": 124,
     "x": 16,
-    "y": 228,
+    "y": 198,
     "demo": false
    },
    {
@@ -108,7 +108,7 @@
     "shirina": 173,
     "vysota": 44,
     "x": 16,
-    "y": 368,
+    "y": 322,
     "demo": false
    },
    {
@@ -116,9 +116,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "tema-umzug",
     "shirina": 173,
-    "vysota": 140,
+    "vysota": 124,
     "x": 201,
-    "y": 228,
+    "y": 198,
     "demo": false
    },
    {
@@ -128,7 +128,7 @@
     "shirina": 173,
     "vysota": 44,
     "x": 201,
-    "y": 368,
+    "y": 322,
     "demo": false
    },
    {
@@ -136,9 +136,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "tema-nachwuchs",
     "shirina": 173,
-    "vysota": 140,
+    "vysota": 124,
     "x": 16,
-    "y": 424,
+    "y": 378,
     "demo": false
    },
    {
@@ -148,7 +148,7 @@
     "shirina": 173,
     "vysota": 44,
     "x": 16,
-    "y": 564,
+    "y": 502,
     "demo": false
    },
    {
@@ -156,9 +156,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "tema-heirat",
     "shirina": 173,
-    "vysota": 140,
+    "vysota": 124,
     "x": 201,
-    "y": 424,
+    "y": 378,
     "demo": false
    },
    {
@@ -168,57 +168,57 @@
     "shirina": 173,
     "vysota": 44,
     "x": 201,
-    "y": 564,
+    "y": 502,
     "demo": false
    },
    {
     "id": "gespraech-chip-gekauft",
     "sostojanie": "deistvie",
     "izmenenie": "otvet-gekauft",
-    "shirina": 128,
+    "shirina": 122,
     "vysota": 44,
-    "x": 121,
-    "y": 593,
+    "x": 133,
+    "y": 621,
     "demo": false
    },
    {
     "id": "gespraech-chip-geplant",
     "sostojanie": "deistvie",
     "izmenenie": "otvet-geplant",
-    "shirina": 116,
+    "shirina": 111,
     "vysota": 44,
-    "x": 258,
-    "y": 593,
+    "x": 263,
+    "y": 621,
     "demo": false
    },
    {
     "id": "gespraech-lieber-erzaehlen",
     "sostojanie": "deistvie",
     "izmenenie": "priglashenie-golos",
-    "shirina": 164,
+    "shirina": 157,
     "vysota": 44,
-    "x": 210,
-    "y": 645,
+    "x": 217,
+    "y": 673,
     "demo": false
    },
    {
     "id": "gespraech-chip-vergleichen",
     "sostojanie": "deistvie",
     "izmenenie": "otvet-vergleichen",
-    "shirina": 132,
+    "shirina": 125,
     "vysota": 44,
-    "x": 110,
-    "y": 645,
+    "x": 122,
+    "y": 673,
     "demo": false
    },
    {
     "id": "gespraech-chip-nicht",
     "sostojanie": "deistvie",
     "izmenenie": "otvet-nicht",
-    "shirina": 125,
+    "shirina": 119,
     "vysota": 44,
-    "x": 249,
-    "y": 645,
+    "x": 255,
+    "y": 673,
     "demo": false
    },
    {
@@ -228,27 +228,27 @@
     "shirina": 44,
     "vysota": 44,
     "x": 16,
-    "y": 711,
+    "y": 733,
     "demo": false
    },
    {
     "id": "gespraech-pole",
     "sostojanie": "deistvie",
     "izmenenie": "fokus-polja",
-    "shirina": 242,
-    "vysota": 56,
-    "x": 68,
-    "y": 705,
+    "shirina": 266,
+    "vysota": 50,
+    "x": 60,
+    "y": 733,
     "demo": false
    },
    {
     "id": "gespraech-mikrofon",
     "sostojanie": "deistvie",
     "izmenenie": "golos-iz-polja",
-    "shirina": 56,
-    "vysota": 56,
-    "x": 318,
-    "y": 705,
+    "shirina": 48,
+    "vysota": 48,
+    "x": 326,
+    "y": 735,
     "demo": false
    },
    {
@@ -257,18 +257,18 @@
     "izmenenie": "golos-iz-polja",
     "shirina": 44,
     "vysota": 44,
-    "x": 260,
-    "y": 452,
+    "x": 274,
+    "y": 456,
     "demo": false
    },
    {
     "id": "gespraech-otpravit",
     "sostojanie": "deistvie",
     "izmenenie": "otpravit-soobshchenie",
-    "shirina": 56,
-    "vysota": 56,
-    "x": 318,
-    "y": 444,
+    "shirina": 48,
+    "vysota": 48,
+    "x": 326,
+    "y": 452,
     "demo": false
    },
    {
@@ -276,9 +276,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "tab-start",
     "shirina": 78,
-    "vysota": 46,
+    "vysota": 48,
     "x": 0,
-    "y": 782,
+    "y": 796,
     "demo": false
    },
    {
@@ -286,9 +286,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "tab-vorgaenge",
     "shirina": 78,
-    "vysota": 46,
+    "vysota": 48,
     "x": 78,
-    "y": 782,
+    "y": 796,
     "demo": false
    },
    {
@@ -296,9 +296,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "menu-open",
     "shirina": 78,
-    "vysota": 46,
+    "vysota": 48,
     "x": 156,
-    "y": 782,
+    "y": 796,
     "demo": false
    },
    {
@@ -306,9 +306,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "tab-schutz",
     "shirina": 78,
-    "vysota": 46,
+    "vysota": 48,
     "x": 234,
-    "y": 782,
+    "y": 796,
     "demo": false
    },
    {
@@ -316,9 +316,9 @@
     "sostojanie": "deistvie",
     "izmenenie": "tab-post",
     "shirina": 78,
-    "vysota": 46,
+    "vysota": 48,
     "x": 312,
-    "y": 782,
+    "y": 796,
     "demo": false
    }
   ],
@@ -342,8 +342,8 @@
    {
     "id": "verlauf",
     "tip": "ikonka",
-    "x": 333,
-    "y": 75,
+    "x": 337,
+    "y": 67,
     "shirina": 44,
     "vysota": 44,
     "dostupnoe_imja": "verlauf"
@@ -352,25 +352,25 @@
     "id": "temy-plaschki",
     "tip": "kontrol",
     "x": 16,
-    "y": 200,
+    "y": 179,
     "shirina": 361,
-    "vysota": 420
+    "vysota": 426
    },
    {
     "id": "kompozer",
     "tip": "kontrol",
     "x": 16,
-    "y": 712,
+    "y": 723,
     "shirina": 361,
-    "vysota": 56
+    "vysota": 44
    },
    {
     "id": "tab-bar",
     "tip": "kontrol",
     "x": 0,
-    "y": 772,
+    "y": 769,
     "shirina": 393,
-    "vysota": 46
+    "vysota": 49
    }
   ]
  },

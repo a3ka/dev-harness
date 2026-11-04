@@ -7,9 +7,24 @@
 // (CHANGELOG D 2.4 «Помещается всегда»): поле растёт до ШЕСТИ строк и
 // прокручивается (потолок/рост/прокрутка — интерфейс машины
 // chat-machine.ts: poleStrokMaksimum/poleRastjot/poleSkrolluet,
-// единственный источник числа), микрофон primary — видимая кнопка
+// единственный источник числа строк), микрофон primary — видимая кнопка
 // голоса в поле, «+» вложения и «Nachricht senden» появляется с
 // текстом. testID — грамматика проходимости пачки (gespraech-*).
+//
+// v+1 цикл 2 (вердикт Crit149k2a, класс РЕАЛЬНЫЙ_ТОКЕН_ПОЛЯ): высота
+// строки поля — ТОКЕН пакета D24-Kompakt-1.1
+// (typography.body.$value.lineHeight, 21px), не литерал: композер
+// потребляет пакет, зонд батареи сверяет использованную высоту со
+// значением токена (литерал 24/20 вместо 21 красен; вызов 2 — и ЛИТЕРАЛ
+// 21 красен: суд подменяет значение токена в изолированной копии).
+// Зона нажатия кнопок — полы minWidth/minHeight ≥ touch-target.min
+// (класс РЕАЛЬНАЯ_ЗОНА_КАСАНИЯ: видимая рамка меньше зоны допустима,
+// меньше 44 — нет). v+1 цикл 2 вызов 2 (вердикт Crit149k2b, класс
+// ПОЛНОТА_ЖИВЫХ_ЦЕЛЕЙ): голос в ПОЛЕ — с черновиком кнопка голоса
+// рендерится ВНУТРИ ряда поля (gespraech-mikrofon-v-pole, цель GA-13
+// pressable-карты пачки — hw/hh 44×44), без черновика — «Sprechen»
+// нижнего ряда (gespraech-mikrofon, GA-11/12/17/18/19); «Nachricht
+// senden» появляется с текстом вместе с ней (манифест 1.1: GA-13).
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -62,12 +77,17 @@ export function ConversationComposer({
 
 // --- ChatComposer (контракт 149, GA-13/17) --------------------------------
 
+// Токен пакета D24-Kompakt-1.1 (единый источник компактной шкалы):
+// высота строки тела и потолок поля calc(6 * lineHeight(body)).
+import kompakt from '../../../../docs/ux/05_Kompakt_D24/source/tokens.json';
+
 // Структурная константа потолка — из машины (И-4); токены движения для
 // потолка не читаются, передаются нулевые.
 const mashina = createChatMachine(
   { motionFast: 0, motionBase: 0, motionMorph: 0 });
 const STROK_MAKSIMUM = mashina.poleStrokMaksimum();
-const VYSOTA_STROKI = 20;
+const VYSOTA_STROKI = Number(
+  String(kompakt.typography.body.$value.lineHeight).replace('px', ''));
 
 export interface ChatComposerProps {
   /** Черновик (контролируемый порт композиции, прецедент 108 круг 2). */
@@ -147,19 +167,35 @@ export function ChatComposer({
           {pole}
         </View>
       )}
-      <Pressable
-        accessibilityLabel={katalogKopii['ia115.entry.speak'].text}
-        accessibilityRole="button"
-        onPress={onGolos}
-        style={({ pressed }) => [
-          styles.knopka, styles.knopka_golosa, { opacity: pressed ? 0.7 : 1 },
-        ]}
-        testID="gespraech-mikrofon"
-      >
-        <Text style={{ color: tokens.ink }}>
-          {katalogKopii['ia115.entry.speak'].text}
-        </Text>
-      </Pressable>
+      {draft !== '' ? (
+        <Pressable
+          accessibilityLabel={katalogKopii['ia115.entry.speak'].text}
+          accessibilityRole="button"
+          onPress={onGolos}
+          style={({ pressed }) => [
+            styles.knopka, styles.knopka_golosa, { opacity: pressed ? 0.7 : 1 },
+          ]}
+          testID="gespraech-mikrofon-v-pole"
+        >
+          <Text style={{ color: tokens.ink }}>
+            {katalogKopii['ia115.entry.speak'].text}
+          </Text>
+        </Pressable>
+      ) : (
+        <Pressable
+          accessibilityLabel={katalogKopii['ia115.entry.speak'].text}
+          accessibilityRole="button"
+          onPress={onGolos}
+          style={({ pressed }) => [
+            styles.knopka, styles.knopka_golosa, { opacity: pressed ? 0.7 : 1 },
+          ]}
+          testID="gespraech-mikrofon"
+        >
+          <Text style={{ color: tokens.ink }}>
+            {katalogKopii['ia115.entry.speak'].text}
+          </Text>
+        </Pressable>
+      )}
       {draft !== '' ? (
         <Pressable
           accessibilityLabel={katalogKopii['action.F05.A01'].text}

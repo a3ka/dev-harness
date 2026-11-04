@@ -1,0 +1,151 @@
+{
+  "_meta": {
+    "kontrakt": "149-gespraech-tekst-chat",
+    "naznachenie": "пины экрана 149: пакет, кадры, токены, маски, AVD-канон, ключи копии. Значения сняты живьём с пакета D24-Kompakt-1.1 2026-11-04 (байты == коммиту 9610dc4 продукта; замер git diff --stat 9610dc4 HEAD -- docs/ux/05_Kompakt_D24 пуст). ЕДИНЫЙ источник значений — этот файл; потребители (реализация, тесты, e2e, кадры) несут значения побайтово, переизобретение запрещено.",
+    "svjaz_kartoj": "карта целей — karta.json этой пачки; надписи целей привязаны к ключам copy-de.json ниже"
+  },
+  "paket": {
+    "sborka": "D24-Kompakt-1.1",
+    "kommit_produkta": "9610dc4",
+    "koren": "docs/ux/05_Kompakt_D24",
+    "sha256": {
+      "source/tokens.json": "cb39fb94cb0d775c6c739561315eebe87c207c3244f0dab2c4a42660acd06cb2",
+      "source/manifest.json": "3fc386adb04fcbffe60bad979b2b0d53085c013bdbc63a6a905af3e6a568a633",
+      "source/copy-de.json": "c277661822e2d40670c0821ebd012c6823fd411de7dd4d3c50ed3045e024701e",
+      "frames/frames.json": "84e4b5fc52d4dd7e00f91c4c7b9fb56f7ccc5a119b0f4cd351a8199efab72a8b",
+      "frames/SHA256SUMS": "d8fe43b5f4b3850210afc8299a3fd0ab120b15eefd519f1a883d0f69687f9746"
+    }
+  },
+  "kadry": {
+    "pikselnaja_sverka": [
+      "GA-11_normal_light_390x844.png",
+      "GA-11_normal_dark_390x844.png",
+      "GA-12_normal_light_390x844.png",
+      "GA-12_normal_dark_390x844.png",
+      "GA-13_keyboard_light_390x844.png",
+      "GA-13_keyboard_dark_390x844.png",
+      "GA-17_keyboard_light_390x844.png",
+      "GA-17_keyboard_dark_390x844.png",
+      "GA-18_normal_light_390x844.png",
+      "GA-18_normal_dark_390x844.png",
+      "GA-19_normal_light_390x844.png",
+      "GA-19_normal_dark_390x844.png",
+      "GA-11_normal_light_393x852.png",
+      "GA-11_normal_dark_393x852.png",
+      "GA-12_normal_light_393x852.png",
+      "GA-12_normal_dark_393x852.png",
+      "GA-13_keyboard_light_393x852.png",
+      "GA-13_keyboard_dark_393x852.png",
+      "GA-17_keyboard_light_393x852.png",
+      "GA-17_keyboard_dark_393x852.png",
+      "GA-18_normal_light_393x852.png",
+      "GA-18_normal_dark_393x852.png",
+      "GA-19_normal_light_393x852.png",
+      "GA-19_normal_dark_393x852.png"
+    ],
+    "sha256": {
+      "GA-11_normal_dark_390x844.png": "c98b8a364e9e061be6ff34dc3960c30be76fad5d44d4749dda930bd54b256ec7",
+      "GA-11_normal_dark_393x852.png": "d66d5b867c3e9fd7a710603ed52f6129f23c9302f0d5837b76f30e95948078b0",
+      "GA-11_normal_light_390x844.png": "d19af9510c66bac962094490ec51a50530724fab6c2e3d6877cf3773942810d1",
+      "GA-11_normal_light_393x852.png": "58bd3f57f8153d2dffa4c3f9b83715b09b26e85d829684ee444fbe166214c0f9",
+      "GA-12_normal_dark_390x844.png": "1d87abf1372381a5fa88887825a1fa72eec02d92e1d9234b6a650e5e2ede1013",
+      "GA-12_normal_dark_393x852.png": "105f3279565804793f684a154abd2cd019652e854cb743c84c3091041b21b290",
+      "GA-12_normal_light_390x844.png": "ef8446fee6f6bf4351a5f82168d3a4480cc509a840c1e5ff725f1a1931295f83",
+      "GA-12_normal_light_393x852.png": "e309ef523e4a30ff87837e251fa54b55f8305b0293302a16f190768440359d3c",
+      "GA-13_keyboard_dark_390x844.png": "9acb0ab56305c9164ceb1b120d13d397e623ac9a8969b4bf83a638a75231e3b8",
+      "GA-13_keyboard_dark_393x852.png": "48f05939967619439f0983dbe9a37d77e0a63d629ad704e09628472121a2a9ac",
+      "GA-13_keyboard_light_390x844.png": "c44d75bd7e4746a539ff3a746f2efd165db64edfd658dad9e96972e96d41bd76",
+      "GA-13_keyboard_light_393x852.png": "2a1ac2ace6366b8bef15d74e852c59e616cfad4333541c833729398a36b00afd",
+      "GA-17_keyboard_dark_390x844.png": "cc86c61094bf8d35708b01d98ef7cb064f9204ecc10fc156b8149fb6303b7c03",
+      "GA-17_keyboard_dark_393x852.png": "69ec90708743ae78452945d8633bb75c47d69e6067794f1de18b145a5fc6b06f",
+      "GA-17_keyboard_light_390x844.png": "8c1102592192152430bc6c1c3c0d87ad41cc5966455e0a0979322194cbe7e25e",
+      "GA-17_keyboard_light_393x852.png": "7d98ae3dc73960efbde5776cad8238c7830747c184cb2baef89f7352f1f570b8",
+      "GA-18_normal_dark_390x844.png": "ef83544606264ad028ec563d2180def49844461240962ba9ed436a39eedbc4be",
+      "GA-18_normal_dark_393x852.png": "9c71aaaa66ed263dd1d19469327bddc005837d4720f64c53fc055e0a423d8959",
+      "GA-18_normal_light_390x844.png": "af20f508f4370419c5f06df5dca45c74b43494e18ddd37bf3cf3b3c45336a63e",
+      "GA-18_normal_light_393x852.png": "1cc684e74a8bbdc724eb5d985b74cdae45946c7797fc43608e11bc82ad20de9e",
+      "GA-19_normal_dark_390x844.png": "679bed8d5ece18521a0cc320021ffbbf84cec2e26420744ecef60760f41917a1",
+      "GA-19_normal_dark_393x852.png": "2d59e4146ef2ab2b7eb518e35febcad4bb052dff9798d77025f52cb5730f635f",
+      "GA-19_normal_light_390x844.png": "658beff928652724d6139a71ffa49c400566659a4689079c82b2abe9116e7b7f",
+      "GA-19_normal_light_393x852.png": "3ec8413772c9294c06e2ff032f838cd1048bc469beca15ffbbbfecd709f0e9e4"
+    },
+    "maski": {
+      "profil_390": {
+        "chrome_verh_pt": 36
+      },
+      "profil_393": {
+        "chrome_verh_pt": 48
+      },
+      "klaviaturnye_kadry": "GA-13/GA-17 (kind keyboard): дополнительно маска зоны системной клавиатуры [0, 500, <ширина профиля>, низ] — платформа, «принимается по видео» (правило 6 MOTION); собственные пиксели приложения вне зоны судятся сверкой"
+    },
+    "istochnik_imen": "frames/frames.json пакета (screen/state/theme/profile); покрытие всех шести экранов full (замер coverage: 6/6 экранов × 4 = 24 кадров); пины сверены с frames/SHA256SUMS (24/24) и побайтовым sha256 (замер этой пачки)"
+  },
+  "tokeny": {
+    "istochnik": "source/tokens.json пакета D24-Kompakt-1.1 (пин выше); продукт читает их через mobile/src/theme/ (владелец файла — экран 148), литерал числа в месте, где грамматика требует чтения токена, — нарушение (связь, не совпадение числа)",
+    "znachenija": {
+      "touch-target.min": "44px",
+      "typography.body.fontSize": "15px",
+      "typography.body.lineHeight": "21px",
+      "nav.height": "49px",
+      "nav.item.min-height": "48px",
+      "nav.label.font-size": "10px",
+      "nav.label.line-height": "12px",
+      "motion-fast": "150ms",
+      "motion-base": "250ms",
+      "motion-stagger-tight": "30ms",
+      "motion-morph": "450ms",
+      "ease-morph": "cubic-bezier(0.32, 0.72, 0, 1)",
+      "ease-standard": "cubic-bezier(0.2, 0.7, 0.2, 1)",
+      "press-long": "500ms",
+      "component.p-chatcomp-field.padding": "10px 14px",
+      "component.p-chatcomp-field.border-radius": "22px",
+      "component.p-chatcomp-input.max-height": "calc(6 * 21px)",
+      "component.p-topic.min-height": "96px",
+      "component.p-topic.is-compact.min-height": "44px"
+    },
+    "proizvodnye": {
+      "potolok_polja_px": 126,
+      "formula_potolka": "calc(6 * 21px) = 6 × lineHeight(typography.body) = 126 — «Помещается всегда» (CHANGELOG D 2.4): поле растёт до ШЕСТИ строк и прокручивается",
+      "pravilo_otpravki": "«Nachricht senden» (action.F05.A01) видна ТОЛЬКО с непустым черновиком: GA-13 (черновик) есть, GA-11 (пусто) нет — манифест 1.1, живой замер touch_targets",
+      "pravilo_golosa_v_pole": "с непустым черновиком кнопка голоса — В РЯДУ поля (gespraech-mikrofon-v-pole, GA-13), без черновика — композер primary-микрофон (gespraech-mikrofon)"
+    }
+  },
+  "avd": {
+    "porjadok": "последовательный: кадры 390 (эмулятор работника, порт 5580) → остановка 390 с ПОДТВЕРЖДЕНИЕМ ухода (adb devices; исчерпание 60 с — ненулевой rc с различимой причиной, 393 НЕ запущен) → запуск 393 (порт 5582) → кадры 393; не более двух живых AVD; запуск 393 при живом 390 запрещён (канон набора 158 И-4; прецедент e2e.sh 149/1)",
+    "port_390": 5580,
+    "port_393": 5582
+  },
+  "kopija_kljuchi": {
+    "pljashki_tem": {
+      "Schaden melden": "proposed.gespraech.topic.schaden.title",
+      "Neues Auto": "proposed.gespraech.topic.auto.title",
+      "Umzug": "proposed.gespraech.topic.umzug.title",
+      "Nachwuchs": "proposed.gespraech.topic.kind.title",
+      "Heirat": "proposed.gespraech.topic.heirat.title"
+    },
+    "chipy_otveta": {
+      "Schon gekauft": "fixture.neues-auto.11",
+      "Kauf geplant": "fixture.neues-auto.06",
+      "Ja, vergleichen": "fixture.brief.05",
+      "Erst mal nicht": "fixture.brief.04",
+      "Lieber erzählen?": "proposed.gespraech.invite.title"
+    },
+    "kompozer": {
+      "Nachricht senden": "action.F05.A01",
+      "Dokument hinzufügen": "action.F05.A02",
+      "Gesprächsverlauf": "frame.F05.02.title",
+      "Sprechen": "ia115.entry.speak"
+    },
+    "status": "значения PROPOSED/fixture — источник надписей; смысл предложений копии судит копи-ревью (вне машинной зелени), статус PROPOSED не ослабляет надпись как оракул нажатия (видимая надпись — оракул постусловия otpravka)"
+  },
+  "zony_dizajna_hw_hh": {
+    "istochnik": "source/manifest.json пакета 1.1 (пин выше), touch_targets шести экранов зоны; живой замер этой пачки: 120 записей целей (6 экранов × 2 профиля), под 44 pt — 0; видимый размер < 44 при зоне ≥ 44 находкой не является (слово владельца 2026-11-02)",
+    "pljashki_390": "срочная 302×66 (+erzählen 56×66); обычные 173×124 (+erzählen 173×44); 393: 305×66/175×124",
+    "chipy": "122×44 / 111×44 (GA-12), 125×44 / 119×44 (GA-19), «Lieber erzählen?» 157×44; 393 — те же +3 по x",
+    "verlauf": "44×44 (оба профиля)",
+    "vlozhit": "44×44 (оба профиля)",
+    "sprechen_kompozera": "48×48 (GA-12/17/18/19), в поле GA-13 — 44×44",
+    "vkladki_390": "78×48 (все пять, включая Mitte-слот); 393: 79×48",
+    "fakt_stroki_ga13": "325×74 и 325×54 (390) / 328 (393) — «ändern»-цели письма"
+  }
+}

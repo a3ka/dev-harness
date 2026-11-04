@@ -1,39 +1,58 @@
 # Флоу СОБРАННОГО пути второго профиля 393 (контракт 149): оболочка
-# tab-shell видима на собранном пути, кадры профиля — обе темы (e2e.sh).
+# tab-shell наблюдаема на собранном пути (И-6), кадры профиля — обе темы
+# (e2e.sh). Рабочая форма Maestro 2.11.0 (перепин 31.10, факт стенда
+# Impl149b §1/§4 + урок 147): снимок строкой, вход first-run-continue +
+# openLink complior://start. Состояния кадров — макет D 2.4: GA-12 —
+# плашка темы → вопрос агента + чипы ДО снимка; GA-13 — ПОСЛЕ отправки
+# (реплика в ленте, новый текст в поле); GA-17 — кадр последний.
 appId: com.complior.mobile
 name: gespraech-tekst-393
 ---
 - launchApp
 - assertVisible:
+    id: first-run-continue
+- openLink: complior://start
+- assertVisible:
     id: tab-shell
 - assertVisible:
     id: gespraech-mitte
-- takeScreenshot:
-    name: gespraech-tekst-ga-11-393
+- takeScreenshot: gespraech-tekst-ga-11-393
+- tapOn:
+    id: gespraech-topic-auto
+- assertVisible:
+    id: gespraech-vopros-agenta
+- assertVisible:
+    id: gespraech-chip-gekauft
+- takeScreenshot: gespraech-tekst-ga-12-393
+- inputText:
+    id: gespraech-pole
+    text: Fahrzeug Kombi gebraucht Baujahr 2021
+- assertVisible:
+    id: gespraech-otpravit
+- tapOn:
+    id: gespraech-otpravit
+- assertVisible:
+    id: gespraech-soobschenie-polzovatel
+- inputText:
+    id: gespraech-pole
+    text: Ungefähr 12.000 km im Jahr.
+- assertVisible:
+    id: gespraech-otpravit
+- takeScreenshot: gespraech-tekst-ga-13-393
+- tapOn:
+    id: gespraech-vlozhit
+- assertVisible:
+    id: gespraech-vlozhit-foto
+- takeScreenshot: gespraech-tekst-ga-18-393
+- tapOn:
+    id: gespraech-vlozhit-dokument
+- assertVisible:
+    id: gespraech-chip-vergleichen
+- takeScreenshot: gespraech-tekst-ga-19-393
 - tapOn:
     id: gespraech-mitte
 - tapOn:
     id: gespraech-menu-schreiben
 - assertVisible:
     id: gespraech-pole
-- takeScreenshot:
-    name: gespraech-tekst-ga-17-393
-- tapOn:
-    id: gespraech-topic-auto-erzaehlen
-- takeScreenshot:
-    name: gespraech-tekst-ga-12-393
-- tapOn:
-    id: gespraech-vlozhit
-- assertVisible:
-    id: gespraech-vlozhit-foto
-- takeScreenshot:
-    name: gespraech-tekst-ga-18-393
-- tapOn:
-    id: gespraech-vlozhit-dokument
-- takeScreenshot:
-    name: gespraech-tekst-ga-19-393
-- inputText:
-    id: gespraech-pole
-    text: Fahrzeug Kombi gebraucht Baujahr
-- takeScreenshot:
-    name: gespraech-tekst-ga-13-393
+- takeScreenshot: gespraech-tekst-ga-17-393

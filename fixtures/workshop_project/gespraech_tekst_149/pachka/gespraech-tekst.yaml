@@ -1,16 +1,61 @@
-# Флоу e2e пачки gespraech-tekst (контракт 149). Производственный путь:
-# вкладка Start → Mitte → меню → «Schreiben» (T30) и плашки тем (GA-11);
-# касание темы «Neues Auto» (T32) → GA-12. Кадры клавиатурных экранов
-# (GA-13/GA-17) снимаются на входе в чат с черновиком и на themes-строке.
+# Флоу e2e пачки gespraech-tekst (контракт 149). Рабочая форма
+# Maestro 2.11.0 (перепин 31.10, факт стенда Impl149b §1/§4 + урок 147):
+# снимок — СТРОКОЙ (карта {name: …} даёт «Config Field Required: path»);
+# вход — assertVisible first-run-continue + openLink complior://start
+# (launchApp открывает корень First-Run). Состояния кадров — макет D 2.4:
+# касание ПЛАШКИ темы «Neues Auto» (T32) → GA-12 «Thema im Verlauf,
+# Complior fragt zuerst · Antwort-Chips und «Lieber erzählen?» kommen
+# zusammen» (вопрос агента и чипы наблюдаемы ДО снимка); ответ текстом и
+# ОТПРАВКА → GA-13 «Schreiben · iOS-Tastatur offen» ПОСЛЕ отправки
+# (отправленная реплика в ленте, поле с новым текстом, «Nachricht
+# senden»); вложения Foto (GA-18) и Brief-Dokument (GA-19); Mitte →
+# меню → «Schreiben» (T30) → GA-17 (поле в фокусе, темы-строка,
+# клавиатура; кадр последний — с открытой клавиатурой таб-бар недостижим).
 # Тема переключается вызывающей стороной (e2e.sh, оба прогона).
 appId: com.complior.mobile
 name: gespraech-tekst
 ---
 - launchApp
 - assertVisible:
+    id: first-run-continue
+- openLink: complior://start
+- assertVisible:
     id: gespraech-mitte
-- takeScreenshot:
-    name: gespraech-tekst-ga-11
+- takeScreenshot: gespraech-tekst-ga-11
+- tapOn:
+    id: gespraech-topic-auto
+- assertVisible:
+    id: gespraech-vopros-agenta
+- assertVisible:
+    id: gespraech-chip-gekauft
+- takeScreenshot: gespraech-tekst-ga-12
+- inputText:
+    id: gespraech-pole
+    text: Fahrzeug Kombi gebraucht Baujahr 2021
+- assertVisible:
+    id: gespraech-otpravit
+- tapOn:
+    id: gespraech-otpravit
+- assertVisible:
+    id: gespraech-soobschenie-polzovatel
+- assertNotVisible:
+    id: gespraech-chip-gekauft
+- inputText:
+    id: gespraech-pole
+    text: Ungefähr 12.000 km im Jahr.
+- assertVisible:
+    id: gespraech-otpravit
+- takeScreenshot: gespraech-tekst-ga-13
+- tapOn:
+    id: gespraech-vlozhit
+- assertVisible:
+    id: gespraech-vlozhit-foto
+- takeScreenshot: gespraech-tekst-ga-18
+- tapOn:
+    id: gespraech-vlozhit-dokument
+- assertVisible:
+    id: gespraech-chip-vergleichen
+- takeScreenshot: gespraech-tekst-ga-19
 - tapOn:
     id: gespraech-mitte
 - assertVisible:
@@ -19,34 +64,4 @@ name: gespraech-tekst
     id: gespraech-menu-schreiben
 - assertVisible:
     id: gespraech-pole
-- takeScreenshot:
-    name: gespraech-tekst-ga-17
-- tapOn:
-    id: gespraech-topic-auto-erzaehlen
-- assertVisible:
-    id: gespraech-tema
-- takeScreenshot:
-    name: gespraech-tekst-ga-12
-- tapOn:
-    id: gespraech-lieber-erzaehlen
-- assertNotVisible:
-    id: gespraech-chip-gekauft
-- tapOn:
-    id: gespraech-vlozhit
-- assertVisible:
-    id: gespraech-vlozhit-foto
-- takeScreenshot:
-    name: gespraech-tekst-ga-18
-- tapOn:
-    id: gespraech-vlozhit-dokument
-- assertVisible:
-    id: gespraech-chip-vergleichen
-- takeScreenshot:
-    name: gespraech-tekst-ga-19
-- inputText:
-    id: gespraech-pole
-    text: Fahrzeug Kombi gebraucht Baujahr
-- assertVisible:
-    id: gespraech-otpravit
-- takeScreenshot:
-    name: gespraech-tekst-ga-13
+- takeScreenshot: gespraech-tekst-ga-17

@@ -3,10 +3,17 @@
 # assertNotVisible); пустых нажатий нет. Демо-переключателей нет.
 # Голосовые цели (микрофоны плашек/поля, «Lieber erzählen?») — мок-хост
 # до контрактов 150/151 (норма пилота 28.10): мок отвечает состоянием.
+# Вход — first-run-continue + openLink complior://start (перепин 31.10:
+# launchApp открывает корень First-Run, урок 147; профиля на пути нет —
+# shell-back не требуется: gespraech-verlauf — оверлей экрана чата,
+# таб-бар остаётся достижимым).
 appId: com.complior.mobile
 name: gespraech-tekst-prokhod
 ---
 - launchApp
+- assertVisible:
+    id: first-run-continue
+- openLink: complior://start
 - tapOn:
     id: gespraech-verlauf
 - assertVisible:

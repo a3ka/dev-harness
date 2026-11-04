@@ -6,6 +6,17 @@
 // хост не изобретает: планы переходов — машина chat-machine.ts (её судит
 // численный канон пачки); рендер здесь — структурный (зонд батареи 149
 // судит поведение: состав целей и реакции нажатий, прецедент 148).
+// v+1 цикл 2 (вердикт Crit149k2a, класс РЕАЛЬНАЯ_ЗОНА_КАСАНИЯ): КАЖДЫЙ
+// pressable хоста несёт полы зоны нажатия minHeight/minWidth ≥
+// touch-target.min (44) — зона ≠ видимая рамка; карточки тем — полами
+// kartochka_temy (содержимое карточек больше пол, полы — нижняя грань).
+// v+1 цикл 2 вызов 2 (вердикт Crit149k2b, класс ПОЛНОТА_ЖИВЫХ_ЦЕЛЕЙ):
+// вложение «+» открывает МЕНЮ (gespraech-vlozhit-foto/-dokument — имена
+// из флоу пачки), Foto ведёт в Verlauf с подтверждением агента (GA-18),
+// Brief-Dokument — в объяснение агента с чипами сравнения GA-19
+// (gespraech-chip-vergleichen/-nicht — цели pressable-карты пачки);
+// зонд достигает всех шести состояний и требует КАЖДУЮ обязательную
+// цель — отсутствующей цели больше нет «вне домена».
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -13,7 +24,8 @@ import { ChatComposer } from '../../ui/conversation-composer/conversation-compos
 import { useTheme } from '../../theme/context';
 import { katalogKopii, predlozheno } from './chat-kopija';
 
-type Sostojanie = 'plaschki' | 'tema-verlauf' | 'schreiben-temy' | 'dokument';
+type Sostojanie = 'plaschki' | 'tema-verlauf' | 'schreiben-temy' |
+  'vlozhenie' | 'foto' | 'dokument';
 
 interface Soobschenie {
   readonly ot: 'polzovatel' | 'agent';
@@ -91,8 +103,8 @@ export function GespraechTekstChat({
             accessibilityRole="button"
             onPress={() => nazhatTemy('schaden', predlozheno.srochno)}
             style={({ pressed }) => [
-              styles.plashka, styles.plashka_srochnaja, obolochka,
-              { opacity: pressed ? 0.7 : 1 },
+              styles.plashka, styles.plashka_srochnaja, styles.kartochka_temy,
+              obolochka, { opacity: pressed ? 0.7 : 1 },
             ]}
             testID="gespraech-topic-schaden"
           >
@@ -116,7 +128,9 @@ export function GespraechTekstChat({
               <Pressable
                 accessibilityRole="button"
                 onPress={() => nazhatTemy(t.id, t.nadpis)}
-                style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+                style={({ pressed }) => [
+                  styles.kartochka_temy, { opacity: pressed ? 0.7 : 1 },
+                ]}
                 testID={'gespraech-topic-' + t.id}
               >
                 <Text style={[styles.tema, nadpis]}>{t.nadpis}</Text>
@@ -144,7 +158,8 @@ export function GespraechTekstChat({
         </ScrollView>
       ) : null}
 
-      {sostojanie === 'tema-verlauf' || sostojanie === 'schreiben-temy' ? (
+      {sostojanie === 'tema-verlauf' || sostojanie === 'schreiben-temy' ||
+       sostojanie === 'foto' || sostojanie === 'dokument' ? (
         <ScrollView style={styles.verlauf} testID="gespraech-verlauf-spisok">
           {verlauf.map((s, i) => (
             <Text
@@ -164,7 +179,8 @@ export function GespraechTekstChat({
               {v}
             </Text>
           ))}
-          {voprosy.length > 0 && verlauf.length === 0 ? (
+          {voprosy.length > 0 && verlauf.length === 0 &&
+           (sostojanie === 'tema-verlauf' || sostojanie === 'schreiben-temy') ? (
             <View style={[styles.chipy, obolochka]} testID="gespraech-chipy">
               {predlozheno.chipy.map((c) => (
                 <Pressable
@@ -212,19 +228,67 @@ export function GespraechTekstChat({
         </View>
       ) : null}
 
-      {sostojanie === 'dokument' ? (
+      {sostojanie === 'vlozhenie' ? (
         <View style={[styles.vlozhenie, obolochka]} testID="gespraech-vlozhenie">
           <Text style={nadpis}>
             {katalogKopii['action.F05.A02'].text}
           </Text>
+          {predlozheno.menuVlozhenija.map((m) => (
+            <Pressable
+              key={m.id}
+              accessibilityRole="button"
+              onPress={() => {
+                setSostojanie(m.id === 'foto' ? 'foto' : 'dokument');
+                sprashivat(m.id === 'foto'
+                  ? predlozheno.podtverzhdenieFoto
+                  : predlozheno.voprosDokumenta);
+              }}
+              style={({ pressed }) => [
+                styles.knopka_erzaehlen, obolochka, { opacity: pressed ? 0.7 : 1 },
+              ]}
+              testID={'gespraech-vlozhit-' + m.id}
+            >
+              <Text style={nadpis}>{m.nadpis}</Text>
+            </Pressable>
+          ))}
         </View>
       ) : null}
+
+      {sostojanie === 'foto' ? (
+        <View style={[styles.vlozhenie, obolochka]} testID="gespraech-vlozhenie-foto">
+          <Text style={nadpis}>{predlozheno.menuVlozhenija[0].nadpis}</Text>
+        </View>
+      ) : null}
+
+      {sostojanie === 'dokument' ? (
+        <>
+          <View style={[styles.vlozhenie, obolochka]} testID="gespraech-vlozhenie-brief">
+            <Text style={nadpis}>{predlozheno.menuVlozhenija[1].nadpis}</Text>
+          </View>
+          <View style={[styles.chipy, obolochka]} testID="gespraech-chipy-dokumenta">
+            {predlozheno.chipyDokumenta.map((c) => (
+              <Pressable
+                key={c.id}
+                accessibilityRole="button"
+                onPress={() => nazhatChip(c.nadpis)}
+                style={({ pressed }) => [
+                  styles.chip, obolochka, { opacity: pressed ? 0.7 : 1 },
+                ]}
+                testID={'gespraech-chip-' + c.id}
+              >
+                <Text style={nadpis}>{c.nadpis}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </>
+      ) : null}
+
 
       <ChatComposer
         onChangeText={setDraft}
         onGolos={() => setSostojanie('schreiben-temy')}
         onOtpravit={otpravit}
-        onVlozhit={() => setSostojanie('dokument')}
+        onVlozhit={() => setSostojanie('vlozhenie')}
         value={draft}
       />
     </View>
@@ -238,24 +302,28 @@ const styles = StyleSheet.create({
   plashka: { borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 8,
              justifyContent: 'space-between', marginBottom: 8, padding: 12 },
   plashka_srochnaja: { borderWidth: 2 },
+  kartochka_temy: { minHeight: 44, minWidth: 44 },
   tema: { fontSize: 16, fontWeight: '600' },
   verlauf: { flex: 1 },
   soobschenie: { borderRadius: 10, marginBottom: 6, padding: 10 },
   vopros: { borderRadius: 10, marginBottom: 6, padding: 10 },
   chipy: { borderRadius: 10, borderWidth: 1, flexDirection: 'row',
            flexWrap: 'wrap', gap: 8, padding: 10 },
-  chip: { borderRadius: 8, borderWidth: 1, minHeight: 44, paddingHorizontal: 12,
-          justifyContent: 'center' },
+  chip: { borderRadius: 8, borderWidth: 1, minHeight: 44, minWidth: 44,
+          paddingHorizontal: 12, justifyContent: 'center' },
   temy_stroka: { borderRadius: 10, borderWidth: 1, flexDirection: 'row',
                  gap: 8, padding: 8 },
   tema_piljulja: { borderRadius: 8, borderWidth: 1, minHeight: 44,
-                   justifyContent: 'center', paddingHorizontal: 12 },
+                   minWidth: 44, justifyContent: 'center',
+                   paddingHorizontal: 12 },
   vlozhenie: { borderRadius: 10, borderWidth: 1, padding: 16 },
   knopka_verh: { borderRadius: 8, borderWidth: 1, minHeight: 44,
-                 justifyContent: 'center', paddingHorizontal: 12 },
+                 minWidth: 44, justifyContent: 'center',
+                 paddingHorizontal: 12 },
   knopka_golosa: { borderRadius: 8, borderWidth: 1, minHeight: 44,
                    minWidth: 44, justifyContent: 'center',
                    paddingHorizontal: 8 },
   knopka_erzaehlen: { borderRadius: 8, borderWidth: 1, minHeight: 44,
-                      justifyContent: 'center', paddingHorizontal: 12 },
+                      minWidth: 44, justifyContent: 'center',
+                      paddingHorizontal: 12 },
 });
