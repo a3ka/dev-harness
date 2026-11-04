@@ -1,0 +1,204 @@
+{
+  "_meta": {
+    "kontrakt": "149-gespraech-tekst-chat",
+    "format": "карта целей экрана — грамматика SPEC.md §4 набора ekrannyj_nabor_158 (contracts/158-ekrannyj-nabor.md И-6/И-7)",
+    "paketa": "D24-Kompakt-1.1 (Complior-mob docs/ux/05_Kompakt_D24, коммит 9610dc4; пины — piny.json этой пачки)",
+    "sostojanija_kadrov": "plaschki=GA-11 normal, tema-verlauf=GA-12 normal, schreiben-tastatur=GA-13 keyboard, schreiben-temy=GA-17 keyboard, foto=GA-18 normal, dokument=GA-19 normal",
+    "proiskhozhdenie_domena": "объединение целей == pressable-домену замороженного 149/1 (26 testID; TabShell-цели включены по состояниям, где дизайн их показывает); зоны кнопок — manifest.json пакета 1.1"
+  },
+  "ekran": "gespraech-tekst-chat-149",
+  "istochnik": "Complior-mob mobile/src/features/conversation/ (чат-хост, машина, копия) + mobile/src/ui/conversation-composer/conversation-composer.tsx (композер) + слот tab-shell; зоны hw/hh — manifest.json пакета 1.1 (пин в piny.json)",
+  "profili": ["390", "393"],
+  "sostojanja": [
+    {"id": "plaschki", "vhod": null, "kadr": "GA-11"},
+    {"id": "tema-verlauf", "vhod": "gespraech-topic-auto", "kadr": "GA-12"},
+    {"id": "schreiben-tastatur", "vhod": "gespraech-pole", "kadr": "GA-13"},
+    {"id": "schreiben-temy", "vhod": "gespraech-topic-auto-erzaehlen", "kadr": "GA-17"},
+    {"id": "foto", "vhod": "gespraech-vlozhit-foto", "kadr": "GA-18"},
+    {"id": "dokument", "vhod": "gespraech-vlozhit-dokument", "kadr": "GA-19"}
+  ],
+  "tceli": [
+    {
+      "testID": "gespraech-verlauf",
+      "objazatelna": true,
+      "sostojanja": ["plaschki", "tema-verlauf", "schreiben-tastatur", "schreiben-temy", "foto", "dokument"],
+      "nadpis": null,
+      "postuslovie": {"tip": "perehod", "znachenie": "verlauf-ekran"}
+    },
+    {
+      "testID": "gespraech-topic-schaden",
+      "objazatelna": true,
+      "sostojanja": ["plaschki"],
+      "nadpis": "Schaden melden",
+      "postuslovie": {"tip": "tema", "znachenie": "Schaden melden"}
+    },
+    {
+      "testID": "gespraech-topic-schaden-speak",
+      "objazatelna": true,
+      "sostojanja": ["plaschki"],
+      "nadpis": null,
+      "postuslovie": {"tip": "golos", "znachenie": "schaden"}
+    },
+    {
+      "testID": "gespraech-topic-auto",
+      "objazatelna": true,
+      "sostojanja": ["plaschki"],
+      "nadpis": "Neues Auto",
+      "postuslovie": {"tip": "tema", "znachenie": "Neues Auto"}
+    },
+    {
+      "testID": "gespraech-topic-auto-erzaehlen",
+      "objazatelna": true,
+      "sostojanja": ["plaschki"],
+      "nadpis": null,
+      "postuslovie": {"tip": "perehod", "znachenie": "schreiben-temy"}
+    },
+    {
+      "testID": "gespraech-topic-umzug",
+      "objazatelna": true,
+      "sostojanja": ["plaschki"],
+      "nadpis": "Umzug",
+      "postuslovie": {"tip": "tema", "znachenie": "Umzug"}
+    },
+    {
+      "testID": "gespraech-topic-umzug-erzaehlen",
+      "objazatelna": true,
+      "sostojanja": ["plaschki"],
+      "nadpis": null,
+      "postuslovie": {"tip": "perehod", "znachenie": "schreiben-temy"}
+    },
+    {
+      "testID": "gespraech-topic-nachwuchs",
+      "objazatelna": true,
+      "sostojanja": ["plaschki"],
+      "nadpis": "Nachwuchs",
+      "postuslovie": {"tip": "tema", "znachenie": "Nachwuchs"}
+    },
+    {
+      "testID": "gespraech-topic-nachwuchs-erzaehlen",
+      "objazatelna": true,
+      "sostojanja": ["plaschki"],
+      "nadpis": null,
+      "postuslovie": {"tip": "perehod", "znachenie": "schreiben-temy"}
+    },
+    {
+      "testID": "gespraech-topic-heirat",
+      "objazatelna": true,
+      "sostojanja": ["plaschki"],
+      "nadpis": "Heirat",
+      "postuslovie": {"tip": "tema", "znachenie": "Heirat"}
+    },
+    {
+      "testID": "gespraech-topic-heirat-erzaehlen",
+      "objazatelna": true,
+      "sostojanja": ["plaschki"],
+      "nadpis": null,
+      "postuslovie": {"tip": "perehod", "znachenie": "schreiben-temy"}
+    },
+    {
+      "testID": "gespraech-chip-gekauft",
+      "objazatelna": true,
+      "sostojanja": ["tema-verlauf"],
+      "nadpis": "Schon gekauft",
+      "postuslovie": {"tip": "otpravka", "znachenie": "Schon gekauft"}
+    },
+    {
+      "testID": "gespraech-chip-geplant",
+      "objazatelna": true,
+      "sostojanja": ["tema-verlauf"],
+      "nadpis": "Kauf geplant",
+      "postuslovie": {"tip": "otpravka", "znachenie": "Kauf geplant"}
+    },
+    {
+      "testID": "gespraech-lieber-erzaehlen",
+      "objazatelna": true,
+      "sostojanja": ["tema-verlauf"],
+      "nadpis": "Lieber erzählen?",
+      "postuslovie": {"tip": "golos", "znachenie": "auto"}
+    },
+    {
+      "testID": "gespraech-chip-vergleichen",
+      "objazatelna": true,
+      "sostojanja": ["dokument"],
+      "nadpis": "Ja, vergleichen",
+      "postuslovie": {"tip": "otpravka", "znachenie": "Ja, vergleichen"}
+    },
+    {
+      "testID": "gespraech-chip-nicht",
+      "objazatelna": true,
+      "sostojanja": ["dokument"],
+      "nadpis": "Erst mal nicht",
+      "postuslovie": {"tip": "otpravka", "znachenie": "Erst mal nicht"}
+    },
+    {
+      "testID": "gespraech-vlozhit",
+      "objazatelna": true,
+      "sostojanja": ["plaschki", "tema-verlauf", "schreiben-tastatur", "schreiben-temy", "foto", "dokument"],
+      "nadpis": null,
+      "postuslovie": {"tip": "perehod", "znachenie": "vlozhenija"}
+    },
+    {
+      "testID": "gespraech-pole",
+      "objazatelna": true,
+      "sostojanja": ["plaschki", "tema-verlauf", "schreiben-tastatur", "schreiben-temy", "foto", "dokument"],
+      "nadpis": null,
+      "postuslovie": {"tip": "fokus", "znachenie": "klaviatura"}
+    },
+    {
+      "testID": "gespraech-mikrofon",
+      "objazatelna": true,
+      "sostojanja": ["plaschki", "tema-verlauf", "schreiben-temy", "foto", "dokument"],
+      "nadpis": null,
+      "postuslovie": {"tip": "golos", "znachenie": "mok"}
+    },
+    {
+      "testID": "gespraech-mikrofon-v-pole",
+      "objazatelna": true,
+      "sostojanja": ["schreiben-tastatur"],
+      "nadpis": null,
+      "postuslovie": {"tip": "golos", "znachenie": "mok"}
+    },
+    {
+      "testID": "gespraech-otpravit",
+      "objazatelna": true,
+      "sostojanja": ["schreiben-tastatur"],
+      "nadpis": null,
+      "postuslovie": {"tip": "otpravka", "znachenie": "chernovik"}
+    },
+    {
+      "testID": "shell-tab-start",
+      "objazatelna": true,
+      "sostojanja": ["plaschki", "tema-verlauf", "foto", "dokument"],
+      "nadpis": "Start",
+      "postuslovie": {"tip": "perehod", "znachenie": "section-start"}
+    },
+    {
+      "testID": "shell-tab-vorgaenge",
+      "objazatelna": true,
+      "sostojanja": ["plaschki", "tema-verlauf", "foto", "dokument"],
+      "nadpis": "Vorgänge",
+      "postuslovie": {"tip": "perehod", "znachenie": "section-vorgaenge"}
+    },
+    {
+      "testID": "gespraech-mitte",
+      "objazatelna": true,
+      "sostojanja": ["plaschki", "tema-verlauf", "foto", "dokument"],
+      "nadpis": null,
+      "postuslovie": {"tip": "perehod", "znachenie": "menu"}
+    },
+    {
+      "testID": "shell-tab-schutz",
+      "objazatelna": true,
+      "sostojanja": ["plaschki", "tema-verlauf", "foto", "dokument"],
+      "nadpis": "Schutz",
+      "postuslovie": {"tip": "perehod", "znachenie": "section-schutz"}
+    },
+    {
+      "testID": "shell-tab-post",
+      "objazatelna": true,
+      "sostojanja": ["plaschki", "tema-verlauf", "foto", "dokument"],
+      "nadpis": "Post",
+      "postuslovie": {"tip": "perehod", "znachenie": "section-post"}
+    }
+  ]
+}
