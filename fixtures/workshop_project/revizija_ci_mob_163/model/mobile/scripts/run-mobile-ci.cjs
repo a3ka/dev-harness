@@ -3,6 +3,7 @@ const { spawnSync } = require('node:child_process');
 const lanes = {
   quality: ['bash', ['mobile/scripts/ci-quality.sh']],
   'e2e-splash': ['bash', ['mobile/scripts/ci-e2e-splash.sh']],
+  'e2e-cloud': ['bash', ['mobile/scripts/ci-e2e-cloud.sh']],
 };
 if (process.argv[2] === '--list') {
   console.log(Object.keys(lanes).join('\n'));
