@@ -424,6 +424,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 157 | до V-2 | autonomy | - | docs/owner/2026-11-02-strazh-spavna-proektov.md#Слово владельца |
 | 3 | 158 | до V-2 | autonomy | - | docs/owner/2026-11-03-lyogkij-trek-ekranov.md#Слово владельца |
 | 3 | 159 | до V-2 | autonomy | - | docs/owner/2026-11-03-lyogkij-trek-ekranov.md#Слово владельца |
+| 3 | 160 | до V-2 | autonomy | - | docs/owner/2026-11-04-connect-project.md#Слово владельца |
 | 4 | 095 | до V-2 | context | 094 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
 | 4 | 110 | параллельно с V-2 | done | 087 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
 | 4 | 993 | до V-2 | complior | - | docs/owner/2026-10-17-resheniya-back-992-993.md#4 |
