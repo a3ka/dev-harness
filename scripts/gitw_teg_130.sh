@@ -76,10 +76,17 @@ judge_tag() {
   # Ровно один <dir>/<NNN>-*.md под коммитом источника — тот же путь, что и у
   # читателя check_contract_frozen; имя файла само по себе ничего не доказывает.
   names="$(objgit ls-tree --name-only "$commit" -- "$dir/" 2>/dev/null)"
+  # Проектная раскладка (04.11, та же стенка, что #500/#504): у проекта тексты и вердикты
+  # лежат под .harness/. Станционный путь пуст под тегом → читаем проектный.
+  pre=""; pre_re=""
+  if [ -z "$names" ]; then
+    names="$(objgit ls-tree --name-only "$commit" -- ".harness/$dir/" 2>/dev/null)"
+    [ -n "$names" ] && { pre=".harness/"; pre_re='\.harness/'; }
+  fi
   n=0; path=""
   while IFS= read -r p; do
     [ -n "$p" ] || continue
-    if [[ "$p" =~ ^${dir}/${nnn}-[^/]+\.md$ ]]; then n=$((n + 1)); path="$p"; fi
+    if [[ "$p" =~ ^${pre_re}${dir}/${nnn}-[^/]+\.md$ ]]; then n=$((n + 1)); path="$p"; fi
   done <<<"$names"
   if [ "$n" -ne 1 ]; then
     otkaz "$short" "текст не в main цели" "под тегом файлов $dir/$nnn-*.md: $n (нужен ровно один)"
@@ -95,7 +102,7 @@ judge_tag() {
   # здесь не ловится: это забота читателя check:contract-frozen).
   vk=1
   while [ "$vk" -le "$v" ]; do
-    vpath="verdicts/critic/${dir}-${nnn}-v${vk}.md"
+    vpath="${pre}verdicts/critic/${dir}-${nnn}-v${vk}.md"
     body="$(objgit cat-file -p "$RMAIN:$vpath" 2>/dev/null || true)"
     first="$(printf '%s\n' "$body" | sed -n 1p | tr -d '\r')"
     first="${first#"${first%%[![:space:]]*}"}"
