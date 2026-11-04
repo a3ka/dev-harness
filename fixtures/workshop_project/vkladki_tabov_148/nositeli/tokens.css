@@ -1,4 +1,4 @@
-/* Complior Bento D 2.2.3 — generated from tokens.json */
+/* Complior Bento D 2.3 — generated from tokens.json */
 @font-face { font-family: "DM Sans"; src: url("fonts/DMSans-Variable.ttf"); font-weight: 100 1000; font-style: normal; }
 :root, [data-theme="dark"] {
   --ground: #0a0a0a;
@@ -40,6 +40,12 @@
   --danger: #ff6b6b;
   --on-danger: #121211;
   --success-text: #8fe08a;
+  --voice-surface: var(--card);
+  --on-voice: var(--on-card);
+  --on-voice-muted: var(--on-card-muted);
+  --voice-live: var(--on-card-accent);
+  --voice-go: var(--on-voice);
+  --on-voice-go: var(--accent);
   --shadow-fab: 0 8px 24px #00000099;
   --focus-ring: 0 0 0 2px #0a0a0a, 0 0 0 4px #d6f75a;
 }
@@ -83,6 +89,12 @@
   --danger: #b42318;
   --on-danger: #ffffff;
   --success-text: #2f6f2a;
+  --voice-surface: #121211;
+  --on-voice: #f3f2ee;
+  --on-voice-muted: #a6a69f;
+  --voice-live: var(--accent);
+  --voice-go: var(--accent);
+  --on-voice-go: var(--on-accent);
   --shadow-fab: 0 8px 24px #12121126;
   --focus-ring: 0 0 0 2px #f3f2ee, 0 0 0 4px #3f6d0f;
 }
@@ -113,6 +125,9 @@
   --size-presence-compact: 96px;
   --size-presence-medium: 160px;
   --size-presence-large: 232px;
+  --size-presence-full: 288px;
+  --size-voicebar: 68px;
+  --size-pebble: 56px;
   --radius-sm: 12px;
   --radius-md: 20px;
   --radius-card: 28px;
@@ -122,6 +137,32 @@
   --motion-slow: 400ms;
   --ease-standard: cubic-bezier(0.2, 0.7, 0.2, 1);
   --motion-cycle: 2400ms;
+  --motion-none: 0ms;
+  --motion-stagger: 60ms;
+  --faden-transition: 320ms;
+  --faden-listen-attack: 80ms;
+  --faden-listen-release: 220ms;
+  --faden-speak-attack: 60ms;
+  --faden-speak-release: 240ms;
+  --faden-gather: 600ms;
+  --faden-handover: 400ms;
+  --faden-settle: 400ms;
+  --faden-done-dot: 260ms;
+  --faden-done-check: 390ms;
+  --faden-done: 650ms;
+  --faden-idle-drift-a: 9000ms;
+  --faden-idle-drift-b: 13000ms;
+  --faden-uncertain-drift: 7000ms;
+  --ease-faden-out: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-faden-loop: cubic-bezier(0.65, 0, 0.35, 1);
+  --motion-morph: 450ms;
+  --ease-morph: cubic-bezier(0.32, 0.72, 0, 1);
+  --press-long: 500ms;
+  --voice-endpoint: 1200ms;
+  --voice-silence-hint: 8000ms;
+  --voice-autopause: 30000ms;
+  --wave-step: 66ms;
+  --motion-stagger-tight: 30ms;
   --font-sans: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "DM Mono", ui-monospace, Menlo, monospace;
 }

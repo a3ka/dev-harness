@@ -47,15 +47,22 @@ HERE = Path(__file__).resolve().parent
 H_ROOT = HERE.parents[2]
 SUBJECT_A = H_ROOT / 'scripts' / 'ekran_shablon.py'
 MODEL_A = HERE / 'model' / 'ekran_shablon.py'
+# судья формы 148 (правка Crit148v2, блок 3): гейт значения маски 48 +
+# делегация валидатору (эталон/живой) — субъект A во ВСЕХ честных
+# режимах; стабы матрицы идут без обёртки (Н-39: дефект стаба наблюдаем
+# на его входе, обёртка не должна гасить ложь стаба)
+SUD_FORMY = HERE / 'model' / 'sud_formy_148.py'
 RUNNER123 = H_ROOT / 'scripts' / 'sverka_maketa.py'
 STUBS = HERE / 'stubs'
 NOS_MAKET = HERE / 'nositeli/maket'
+NOS_MAKET_FINAL2 = HERE / 'nositeli/maket-final2'
 NOS_D24 = HERE / 'nositeli/d24'
 NOS_D24_REAL = HERE / 'nositeli/d24-real'
+NOS_PAKET_SUMS = HERE / 'nositeli/paket/SHA256SUMS'
 NOS_TOKENS = HERE / 'nositeli/tokens.css'
+NOS_TOKENY = HERE / 'nositeli' / 'tokeny-1-1.json'
 RASKLADKA = HERE / 'model' / 'produktnaja-raskladka'
 PRODUKT_SUD = HERE / 'produkt_sud.py'
-
 E2E_CMD = 'bash mobile/e2e-vkladki/e2e.sh vkladki'
 SVERKA_CMD = ('python3 .harness123/scripts/sverka_maketa.py'
               ' --manifest .harness123/kadry.json'
@@ -99,14 +106,40 @@ def zapis(pack: Path, forma):
 
 def postavit_makety(repo: Path, kadry_spiski):
     for man in kadry_spiski:
-        profil = '390x844' if man is kadry_spiski[0] else '393x852'
         for k in man['kadry']:
             kuda = repo / k['maket']
             if not kuda.parent.exists():
                 kuda.parent.mkdir(parents=True)
-            shutil.copyfile(NOS_MAKET / ('%s-%s.png' % (profil, Path(k['maket']).stem)),
-                            kuda)
+            shutil.copyfile(NOS_MAKET / Path(k['maket']).name, kuda)
 
+
+def perepin_final2(koren: Path, pachka: Path):
+    """Возврат пина D 2.4 Final 2 (клетки paket-final2 / pr-paket-final2):
+    оба манифеста пачки перепиниваются на пути 04_Gespraech_D24/pack/screens
+    с фактическими sha256 носителей final2, файлы раскладываются по этим
+    путям — старый пин остаётся ПРИНИМАЕМЫМ валидатором (живой прогон это
+    доказывает), красит его только гейт пакета 1.1 у судей."""
+    for imja_manifesta in ('kadry.json', 'kadry_profil.json'):
+        put = pachka / imja_manifesta
+        man = json.loads(put.read_text(encoding='utf-8'))
+        for k in man['kadry']:
+            ga = k['id'].split()[0]
+            profil = '390x844' if imja_manifesta == 'kadry.json' else '393x852'
+            khvost = '' if k['tema'] == 'dark' else '-Hell'
+            imja = '%s-%s%s.png' % (profil, ga, khvost)
+            k['maket'] = ('docs/ux/04_Gespraech_D24/pack/screens/%s/%s%s.png'
+                          % (profil, ga, khvost))
+            k['maket_sha256'] = sha256_fajla(NOS_MAKET_FINAL2 / imja)
+            kuda = koren / k['maket']
+            kuda.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(NOS_MAKET_FINAL2 / imja, kuda)
+        put.write_text(json.dumps(man, ensure_ascii=False, indent=1),
+                       encoding='utf-8')
+    # пин 123 в репо собирается из пачки ДО мутации — обновить, иначе
+    # сверка-образец судит старый манифест (SAMODELNAYA_SVERKA)
+    pin123 = koren / '.harness123' / 'kadry.json'
+    if pin123.is_file():
+        shutil.copyfile(pachka / 'kadry.json', pin123)
 
 def postavit_istochniki(repo: Path, d24):
     for pole, imja in (('manifest', 'manifest.json'), ('spec', 'spec.json'),
@@ -280,11 +313,34 @@ def mut_vtoroj_profil_otsvtstvuet(pack, repo, src):
 
 def mut_maket_podmenen(pack, repo, src):
     # подмена байтов макета GA-03 в репо (пин в пачке не меняется)
-    put = repo / 'docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-03.png'
+    put = repo / 'docs/ux/05_Kompakt_D24/frames/GA-03_normal_dark_390x844.png'
     blob = bytearray(put.read_bytes())
     blob[-8:] = b'\x00\x00\x00\x00' + blob[-8:-4]
     put.write_bytes(bytes(blob))
 
+
+def mut_paket_final2(pack, repo, src):
+    # v+1 (слово владельца 2026-11-02): пин D 2.4 Final 2 — валидатором
+    # принимается (файлы и sha честны), красит его только гейт пакета 1.1
+    perepin_final2(repo, pack)
+
+def mut_kadry_podmenen(pack, repo, src):
+    # v3a (Crit148k2a, Б1): имя записи «GA-02 dark» пинится на СОСЕДНИЙ
+    # кадр того же пакета (GA-04_normal_dark_390x844.png, файл и sha из
+    # SHA256SUMS честны) — членство в пакете есть, соответствия
+    # идентификатору нет; красит гейт имён судьи формы (KADR_PODMENEN)
+    import json as _json
+    put = pack / 'kadry.json'
+    man = _json.loads(put.read_text(encoding='utf-8'))
+    istochnik = next(k for k in man['kadry'] if k['id'] == 'GA-02 dark')
+    sosed = next(k for k in man['kadry'] if k['id'] == 'GA-04 dark')
+    istochnik['maket'], istochnik['maket_sha256'] = sosed['maket'], sosed['maket_sha256']
+    put.write_text(_json.dumps(man, ensure_ascii=False, indent=1), encoding='utf-8')
+    # пин 123 собирается из пачки — обновить, иначе сверка-образец судит
+    # старый манифест (SAMODELNAYA_SVERKA, прецедент perepin_final2)
+    pin123 = repo / '.harness123' / 'kadry.json'
+    if pin123.is_file():
+        shutil.copyfile(put, pin123)
 
 def mut_kadr_nizhe_poroga(pack, repo, src):
     # стенд-ин кладёт кадр GA-03 с залитой фоном полосой Mitte (мода
@@ -323,25 +379,25 @@ def mut_chuzhoj_kadr(pack, repo, src):
 
 def mut_stroka_bez_izmenenija(pack, repo, src):
     f = _forma(pack)
-    del f['prokhodimost']['pressable'][5]['izmenenie']
+    del f['prokhodimost']['pressable'][0]['izmenenie']  # vorgaenge-stroka-rechtsschurz
     zapis(pack, f)
 
 
 def mut_kasanie_menshe_normy(pack, repo, src):
     f = _forma(pack)
-    f['prokhodimost']['pressable'][2]['vysota'] = 36
+    f['prokhodimost']['pressable'][4]['vysota'] = 36  # gespraech-mitte
     zapis(pack, f)
 
 
 def mut_kasanie_v_safe_zone(pack, repo, src):
     f = _forma(pack)
-    f['prokhodimost']['pressable'][2]['y'] = 40
+    f['prokhodimost']['pressable'][4]['y'] = 40  # gespraech-mitte
     zapis(pack, f)
 
 
 def mut_demo_v_sostave(pack, repo, src):
     f = _forma(pack)
-    f['prokhodimost']['pressable'][0]['demo'] = True
+    f['prokhodimost']['pressable'][2]['demo'] = True  # shell-tab-start
     zapis(pack, f)
 
 
@@ -381,6 +437,24 @@ def mut_profil_bez_insetov(pack, repo, src):
 def mut_odna_tema(pack, repo, src):
     profil = json.loads((pack / 'kadry_profil.json').read_text(encoding='utf-8'))
     profil['kadry'] = [k for k in profil['kadry'] if k['tema'] == 'dark']
+    (pack / 'kadry_profil.json').write_text(
+        json.dumps(profil, ensure_ascii=False, indent=1), encoding='utf-8')
+def mut_profil_maska_36(pack, repo, src):
+    # слово владельца 31.10 (v2): маска системной шапки профиля 393 =
+    # 48 pt (Dynamic Island x134-260, y11-48; доказательство Q1б) —
+    # возврат 36 оставляет пилюлю в судимой области (стенд-ин честен:
+    # эмулятор вырез в screencap не рисует)
+    profil = json.loads((pack / 'kadry_profil.json').read_text(encoding='utf-8'))
+    profil['mera']['chrome_verh_pt'] = 36
+    (pack / 'kadry_profil.json').write_text(
+        json.dumps(profil, ensure_ascii=False, indent=1), encoding='utf-8')
+
+def mut_profil_maska_ne_48(pack, repo, src):
+    # вердикт Crit148v2, блок 3: 47 проходит визуальную сверку (пилюля
+    # закрыта любым значением выше 36) — инвариант ТОЧНОГО значения 48
+    # судит судья формы (гейт значения ПОСЛЕ визуального суда)
+    profil = json.loads((pack / 'kadry_profil.json').read_text(encoding='utf-8'))
+    profil['mera']['chrome_verh_pt'] = 47
     (pack / 'kadry_profil.json').write_text(
         json.dumps(profil, ensure_ascii=False, indent=1), encoding='utf-8')
 
@@ -484,6 +558,10 @@ MUTACII_FORMY = {
     'profil-nizhe-minimuma': mut_profil_nizhe_minimuma,
     'profil-bez-insetov': mut_profil_bez_insetov,
     'odna-tema': mut_odna_tema,
+    'profil-maska-36': mut_profil_maska_36,
+    'profil-maska-ne-48': mut_profil_maska_ne_48,
+    'paket-final2': mut_paket_final2,
+    'kadry-podmenen': mut_kadry_podmenen,
     'marshrut-bez-obolochki': mut_marshrut_bez_obolochki,
     'marshrut-bez-snimka': mut_marshrut_bez_snimka,
     'prokhod-ne-maestro': mut_prokhod_ne_maestro,
@@ -506,7 +584,7 @@ def sobrat_referens(src, tmp):
     repo = tmp / 'referens'
     shutil.copytree(RASKLADKA, repo)
     pachka = repo / 'mobile/e2e-vkladki'
-    pachka.mkdir(parents=True)
+    pachka.mkdir(parents=True, exist_ok=True)
     zapis(pachka, src['ekran_forma_prod'])
     (pachka / 'kadry.json').write_text(
         json.dumps(src['kadry_manifest'], ensure_ascii=False, indent=1), encoding='utf-8')
@@ -523,6 +601,18 @@ def sobrat_referens(src, tmp):
     # макеты по каноническим путям (блок 2 Crit148: суд привязан к ПУТИ
     # в репо; носители — байты product main, пин sha в манифестах)
     postavit_makety(repo, (src['kadry_manifest'], src['profil_kadry']))
+    # v3a (Crit148k2a, Б3): источник токенов пакета в референсе — байты
+    # носителя (== пакета; proverka_tokenov судит их против frames.json)
+    put = repo / src['ekran_forma_prod']['audit_tokenov']
+    put.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(NOS_TOKENS, put)
+    # v3b (Crit148k2b, Б1): источник ЗНАЧЕНИЙ nav-токенов в R —
+    # source/tokens.json (ветки nav/touch-target; байты == носителю
+    # значений, пин) — гейт TOKENY_MODUL_NE_IZ_ISTOCHNIKA сверяет
+    # модуль kompakt-tokens.ts с извлечением из него
+    istochnik_tok = repo / 'docs/ux/05_Kompakt_D24/source/tokens.json'
+    istochnik_tok.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(NOS_TOKENY, istochnik_tok)
     return repo
 
 
@@ -558,7 +648,7 @@ def mut_pr_makety_piny(repo, src):
 def mut_pr_kopii_net(repo, src):
     put = repo / 'mobile/src/i18n/ui-copy.ts'
     tekst = put.read_text(encoding='utf-8')
-    for k in ('ui.vorgaenge.group.working', 'ui.vorgaenge.group.needs_you'):
+    for k in ('ui.mission.group.working', 'ui.mission.group.needs_user'):
         tekst = tekst.replace("  '%s': " % k, "  'udaljono.%s': " % k)
     put.write_text(tekst, encoding='utf-8')
 
@@ -599,7 +689,96 @@ def _fejk_jest_sreda(repo, src, skript):
 def mut_pr_maket_put_net(repo, src):
     # блок 2 Crit148: PNG удалён по каноническому пути, пин в кадре тот
     # же — подмена носителем батареи запрещена, суд краснит по ПУТИ
-    (repo / 'docs/ux/04_Gespraech_D24/pack/screens/390x844/GA-02.png').unlink()
+    (repo / 'docs/ux/05_Kompakt_D24/frames/GA-02_normal_dark_390x844.png').unlink()
+
+
+def mut_pr_paket_final2(repo, src):
+    # v+1: пин Final 2 в пачке живого R — гейт пакета 1.1 (файлы честны,
+    # валидатор и пин-проверка продукта проходят, красит только гейт)
+    perepin_final2(repo, repo / 'mobile/e2e-vkladki')
+
+def mut_pr_kadry_podmenen(repo, src):
+    # v3a (Crit148k2a, Б1): в пачке живого R запись «GA-02 dark» пинится
+    # на соседний кадр того же пакета (GA-04, файл и sha честны) —
+    # красит гейт имён продукт-судьи (KADR_PODMENEN)
+    put = repo / 'mobile/e2e-vkladki/kadry.json'
+    man = json.loads(put.read_text(encoding='utf-8'))
+    istochnik = next(k for k in man['kadry'] if k['id'] == 'GA-02 dark')
+    sosed = next(k for k in man['kadry'] if k['id'] == 'GA-04 dark')
+    istochnik['maket'], istochnik['maket_sha256'] = sosed['maket'], sosed['maket_sha256']
+    put.write_text(json.dumps(man, ensure_ascii=False, indent=1), encoding='utf-8')
+
+
+def mut_pr_emuljatory_odnovremenno(repo, src):
+    # И-11 (слово владельца 31.10): второй эмулятор запущен ДО остановки
+    # первого — на станции два живых (одновременный старт)
+    put = repo / 'mobile/e2e-vkladki/e2e.sh'
+    tekst = put.read_text(encoding='utf-8')
+    vstavka = ('"$ANDROID_HOME/emulator/emulator" -avd "$AVD_393" '
+               '-port "$PORT_393" -no-window -no-audio -no-boot-anim '
+               '-no-snapshot -gpu swiftshader_indirect '
+               '>"emulator-148-393.log" 2>&1 &\n')
+    put.write_text(tekst.replace(
+        'adb -s "$SERIAL_390" emu kill',
+        vstavka + 'adb -s "$SERIAL_390" emu kill', 1), encoding='utf-8')
+
+def mut_pr_ostanovka_neispolnima(repo, src):
+    # вердикт Crit148v2, блок 1 (дословная атака): остановка «на бумаге»
+    # — kill после «||» не исполняется ни на одном допустимом пути
+    put = repo / 'mobile/e2e-vkladki/e2e.sh'
+    tekst = put.read_text(encoding='utf-8')
+    put.write_text(tekst.replace(
+        'adb -s "$SERIAL_390" emu kill',
+        'true || adb -s "$SERIAL_390" emu kill', 1), encoding='utf-8')
+
+
+def mut_pr_echo_emu_kill(repo, src):
+    # Crit148v2c: слова команды остановки — аргументы echo, не adb.
+    put = repo / 'mobile/e2e-vkladki/e2e.sh'
+    tekst = put.read_text(encoding='utf-8')
+    put.write_text(tekst.replace(
+        'adb -s "$SERIAL_390" emu kill', 'echo emu kill', 1),
+        encoding='utf-8')
+
+
+def mut_pr_if_false_kill(repo, src):
+    # Crit148v2c: adb стоит в недостижимой ветке bash.
+    put = repo / 'mobile/e2e-vkladki/e2e.sh'
+    tekst = put.read_text(encoding='utf-8')
+    put.write_text(tekst.replace(
+        'adb -s "$SERIAL_390" emu kill',
+        'if false; then adb -s "$SERIAL_390" emu kill; fi', 1),
+        encoding='utf-8')
+
+
+def mut_pr_port_393_sosednij(repo, src):
+    # вердикт Crit148v2, блок 2 (дословная атака): соседний adb-порт
+    # 5571 (adb-пара работника 5570) вместо предписанного 5576
+    put = repo / 'mobile/e2e-vkladki/e2e.sh'
+    tekst = put.read_text(encoding='utf-8')
+    put.write_text(tekst.replace('PORT_393=5576', 'PORT_393=5571', 1),
+                   encoding='utf-8')
+
+
+def mut_pr_maska_ne_48(repo, src):
+    # вердикт Crit148v2, блок 3: манифест профиля R с 47 — визуально
+    # зелёный, значением неверный (продукт-судья судит значение после
+    # зелёного суда пачки)
+    put = repo / 'mobile/e2e-vkladki/kadry_profil.json'
+    man = json.loads(put.read_text(encoding='utf-8'))
+    man['mera']['chrome_verh_pt'] = 47
+    put.write_text(json.dumps(man, ensure_ascii=False, indent=1),
+                   encoding='utf-8')
+
+
+def mut_pr_tokeny_modul(repo, src):
+    # v3b (Crit148k2b, Б1): модуль значений навигационных токенов
+    # дрейфовал от источника (руками переписан на final2 71) при
+    # честном соседнем source/tokens.json — красит статический гейт
+    # производности (TOKENY_MODUL_NE_IZ_ISTOCHNIKA)
+    put = repo / 'mobile/src/bootstrap/kompakt-tokens.ts'
+    put.write_text(put.read_text(encoding='utf-8').replace(
+        'height: 49,', 'height: 71,'), encoding='utf-8')
 
 
 def mut_pr_live_predposylka(repo, src):
@@ -625,26 +804,40 @@ MUTACII_PRODUKTA = {
     'pr-makety-piny': mut_pr_makety_piny,
     'pr-maket-put-net': mut_pr_maket_put_net,
     'pr-kopii-net': mut_pr_kopii_net,
+    'pr-paket-final2': mut_pr_paket_final2,
+    'pr-kadry-podmenen': mut_pr_kadry_podmenen,
     'pr-scenarij-net': mut_pr_scenarij_net,
     'pr-kontent-net': mut_pr_kontent_net,
+    'pr-emuljatory-odnovremenno': mut_pr_emuljatory_odnovremenno,
+    'pr-ostanovka-neispolnima': mut_pr_ostanovka_neispolnima,
+    'pr-port-393-sosednij': mut_pr_port_393_sosednij,
+    'pr-echo-emu-kill': mut_pr_echo_emu_kill,
+    'pr-if-false-kill': mut_pr_if_false_kill,
+    'pr-maska-ne-48': mut_pr_maska_ne_48,
     'pr-live-predposylka': mut_pr_live_predposylka,
     'pr-live-kontrol-krasen': mut_pr_live_kontrol_krasen,
     'pr-live-mutant-zhiv': mut_pr_live_mutant_zhiv,
+    'pr-tokeny-modul': mut_pr_tokeny_modul,
 }
 
 
 # --- суд входов -------------------------------------------------------------
 
-def run_forma(subject, name, src):
+def run_forma(subject, name, src, obertka=True):
+    """Суд формы: субъект A — судья 148 (гейт маски 48 + делегация
+    валидатору --sud) во всех честных режимах; стабы матрицы идут как
+    есть (obertka=False — обёртка не гасит ложь стаба, Н-39)."""
     tmp = Path(tempfile.mkdtemp(prefix='vkladki148-f-'))
     try:
         repo, pachka, forma = build_forma_repo(src, tmp)
         if MUTACII_FORMY[name] is not None:
             MUTACII_FORMY[name](pachka, repo, src)
-        p = subprocess.run(
-            [sys.executable, str(subject), '--pack', str(pachka),
-             '--repo', str(repo), '--harness', str(H_ROOT)],
-            capture_output=True, text=True)
+        argv = [sys.executable, str(subject), '--pack', str(pachka),
+                '--repo', str(repo), '--harness', str(H_ROOT)]
+        if obertka:
+            argv = [sys.executable, str(SUD_FORMY), '--sud', str(subject)] \
+                + argv[2:]
+        p = subprocess.run(argv, capture_output=True, text=True)
         return p.returncode, p.stdout, p.stderr
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -772,7 +965,7 @@ def main():
         for v in vh:
             svjazi += 1
             if v in MUTACII_FORMY:
-                rc, out, err = run_forma(STUBS / stub, v, src)
+                rc, out, err = run_forma(STUBS / stub, v, src, obertka=False)
             else:
                 rc, out, err = run_produkt(STUBS / stub, v, src)
             if judge(v, src, rc, out, err):

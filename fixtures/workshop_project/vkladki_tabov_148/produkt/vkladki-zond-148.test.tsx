@@ -1,25 +1,117 @@
 // Батарея 148 (vkladki-tabov), живой jest-зонд (правка блоков 1 вердикта
 // Crit148: класс «литерал на месте, исполняемое иное» закрывается
-// ИСПОЛНЕНИЕМ на реальных компонентах R). Зонд пишется produkt_sud в
-// ИЗОЛИРОВАННУЮ КОПИЮ mobile (node_modules — симлинк установки R) и
-// запускается продуктовым jest; оракул текстов — каталог ui-copy самого
-// R (литералов нет), геометрия — рендер-дерево RNTL. Измеряет три
-// исполняемых измерения предмета:
-//   GA-02/04 — контент вкладок ДОСТИГАЕТ экрана через слот sectionScreens
-//              живого TabShell (переход по нажатию вкладки);
+// ИСПОЛНЕНИЕМ на реальных компонентах R; v3a — вердикт Crit148k2a:
+// измерения расширены с «слот/бейдж/абсолютный оверлей» до ФАКТИЧЕСКОЙ
+// зоны нажатия (Б2) и ИСПОЛЬЗОВАНИЯ токенов 1.1 компонентом (Б3);
+// v3b — вердикт Crit148k2b: (Б1) СВЯЗЬ компонента с токеном, не
+// совпадение числа — высота лейсте == nav.height, minHeight вкладок ==
+// nav.item.min-height, судятся равенством $value и следуют за
+// подменённым значением источника (литерал 49 и final2 71 красны);
+// (Б2) ДЕЙСТВУЮЩИЕ цели контента нажимаются с новым вызовом
+// собственного колбэка (не унаследованным от предыдущей цели);
+// (Б3) эффективная зона по RN height/min/max/padding по осям,
+// измеренному тексту и hitSlop: конформные формы зелёные, зона <44 красна;
+// v3e — вердикт Crit148k2d: (Б1) ВИДИМАЯ НАДПИСЬ, а не текстовый
+// потомок — единый хелпер видимой надписи (Text засчитывается, только
+// если ВИДИМ: не display:none, не color transparent/opacity 0 вплоть
+// до предка, ненулевой бокс), применяется ко ВСЕМ надписям экрана
+// (подписи вкладок, бейдж/статус/надпись Mitte, тексты каталога И-5
+// вкладок); прозрачные буквы и скрытая копия ожидаемой строки при
+// невидимой настоящей надписи красны СВОЕЙ клеткой (NADPIS_NEVIDIMA);
+// (Б2) зона меряется у ИНТЕРАКТИВНОГО ХОЗЯИНА цели — сам узел с
+// testID, если он занимает нажатие, иначе БЛИЖАЙШИЙ предок с
+// press-обработчиком/touch-респондером; Pressable 20×20 с дочерним
+// Text 44×44, несущим testID, красен (зона ребёнка не подменяет зону
+// хозяина — ZONA_NAZHATIJA_MENSHE_NORMY/TSEL_BEZ_HOZIAINA);
+// v3f (независимое упрочнение Arch148z, перечень orch 1–13): (ВЦ)
+// ВИДИМАЯ ЦЕЛЬ — единая проверка видимости интерактивного хозяина
+// (не opacity 0/display:none/нулевой бокс/за-экранная декларация на
+// узле ИЛИ любом предке) + в поддереве хозяина есть видимая непустая
+// надпись; применяется ко ВСЕМ обязательным целям всех разделов и
+// обоих профилей — прозрачные чипы/строки при честной зоне и действии
+// красны TSEL_NEVIDIMA/TSEL_BEZ_VIDIMOJ_NADPISI (замер Arch148z:
+// oblasti-opacity/stroki-opacity проходили rc 0); (ЗЭ) за-экранные
+// ДЕКЛАРАЦИИ (left/top/right/bottom/transform со смещением ≥ экрана)
+// видимость снимают — надпись на left:-9999 красна NADPIS_NEVIDIMA
+// (замер: nadpis-za-ekranom проходил rc 0); (СР) состояния Mitte
+// РАЗЛИЧИМЫ: бейдж needs_user и рабочий статус взаимно исключены —
+// SOSTOJANIE_NERAZLICHIMO (замер: badge-vsegda проходил rc 0);
+// надписи строк Vorgänge — по модели самого R (VORGAENGE_SPISENOK,
+// оракул без литералов); зона Mitte — РАВЕНСТВОМ токену
+// nav.item.min-height в Б1 (не только нормой зоны).
+// Зонд пишется produkt_sud в ИЗОЛИРОВАННУЮ КОПИЮ mobile (node_modules —
+// симлинк установки R) и запускается продуктовым jest; оракул текстов —
+// каталог ui-copy самого R (литералов нет), геометрия — рендер-дерево
+// RNTL, значения токенов — носитель vkladki-tokeny-148.json (дословная
+// копия веток nav/touch-target пакета D24-Kompakt-1.1, включая
+// nav.height; чисел в зонде нет). Измеряет предмет ИСПОЛНЕНИЕМ:
+//   GA-02/04 — контент вкладок ДОСТИГАЕТ экрана через слот
+//              sectionScreens живого TabShell (переход по нажатию);
+//   полнота  — ВСЕ строки модели Vorgänge И-4 судимы (включая ниже
+//              прокрутки GA-09): присутствие, зона 60 и собственное
+//              действие каждой (Arch148w, класс полноты 4; мутант
+//              vorgaenge-stroki-net — удаление строк — убит);
 //   GA-03    — бейдж «Ihre Rückmeldung nötig» из параметра маршрута
 //              ?mitte=needs на живом маршруте (tabs)/[section];
 //   GA-09    — таб-лейсте — АБСОЛЮТНЫЙ оверлей нижнего края, контент
-//              вкладки НЕ внутри него (Inhalt läuft darunter).
-// Зонд не знает о мутациях: каждая из трёх мутаций батареи (tabs/badge/
-// scroll) роняет СВОЙ ассерт поведением, не сравнением строк. Идиомы
-// среды — как у тестов продукта (async render RNTL, press внутри act).
+//              вкладки НЕ внутри него (Inhalt läuft darunter);
+//   Б1      — лейсте/вкладки СЛЕДУЮТ за токенами nav.height /
+//              nav.item.min-height ($value 1.1; final2 71 краснеет
+//              равенством);
+//   Б2      — фактическая зона нажатия каждой объявленной цели
+//              (эффективный бокс стиля РЕАЛЬНОГО Pressable по правилам
+//              RN + невидимое расширение hitSlop) ≥ touch-target.min 44
+//              на ОБОИХ профилях (390×844 и 393×852 — Dimensions.set);
+//              цели лейсте ≥ nav.item.min-height 48; строки Vorgänge
+//              ≥ 60 (зона манифеста 1.1); видимая рамка меньше зоны
+//              находкой НЕ является (слово владельца 2026-11-02);
+//   Б2-действие — обязательные цели контента ДОСТУПНЫ (не disabled) и
+//              НАЖИМАЮТСЯ: событие доходит до колбэка контента;
+//   Б3      — типографика вкладки ИСПОЛЬЗУЕТ токены 1.1: fontSize/
+//              lineHeight надписи == nav.label.font-size /
+//              nav.label.line-height ($value; литерал final2 11px
+//              краснеет равенством).
+//   Б2-хозяин (v3e, Crit148k2d Б2) — зона каждой цели меряется у её
+//              ИНТЕРАКТИВНОГО ХОЗЯИНА: сам узел с testID, если он
+//              занимает нажатие, иначе ближайший предок с
+//              press-обработчиком/touch-респондером; зона ребёнка
+//              с testID не подменяет зону 20×20 родителя;
+//   надписи  (v3e, Crit148k2d Б1) — ВИДИМАЯ надпись каждого текста
+//              каталога И-5: подписи пяти слотов лейсте, бейдж GA-03,
+//              статус/надпись Mitte, заголовки и тексты вкладок;
+//              видимость = стиль-декларации узла и всех предков
+//              (display/opacity/transparent/нулевой бокс), скрытая
+//              копия строки не засчитывается; за-экранные ДЕКЛАРАЦИИ
+//              (left/top/right/bottom/transform ≥ экрана) видимость
+//              снимают (v3f);
+//   видимость целей (v3f, Arch148z) — ЕДИНАЯ проверка видимой цели:
+//              интерактивный хозяин каждой обязательной цели (лейсте 5 +
+//              все цели разделов, оба профиля) не спрятан и несёт
+//              видимую непустую надпись (TSEL_NEVIDIMA /
+//              TSEL_BEZ_VIDIMOJ_NADPISI); состояния Mitte взаимно
+//              исключены (SOSTOJANIE_NERAZLICHIMO); надписи строк —
+//              по модели R; зона Mitte — равенством токену в Б1.
+// Зонд не знает о мутациях: каждый мутант судится исполнением,
+// а не сравнением текста. Независимые зелёные контроли судьи проходят
+// на конформных RN-формах (minHeight/padding/стороны/hitSlop) и
+// подменённом значении источника токенов. Идиомы среды —
+// как у тестов продукта (async render RNTL, press внутри act);
+// react-native НЕ мокается целиком (урок 145 v1: спред requireActual
+// в RN 0.86 роняет загрузку инвариантом TurboModuleRegistry) — профиль
+// задаётся Dimensions.set.
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { Dimensions, StyleSheet, View } from 'react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { TabShell } from '../tab-shell';
+import { GespraechMitte } from '../gespraech-mitte';
+import { VorgaengeListe } from '../../features/missions/components/VorgaengeListe';
+// v3f: модель строк Vorgänge самого R — оракул надписей строк (не литералы)
+import { VORGAENGE_SPISENOK } from '../../features/missions/model/vkladki-dannye';
+import { SchutzUebersicht } from '../../features/protection/components/SchutzUebersicht';
+import { PostEingang } from '../../features/post/components/PostEingang';
 import { uiCopyDe } from '../../i18n/ui-copy';
 import TabRoute from '../../app/(tabs)/[section]';
+import TOKENY from './vkladki-tokeny-148.json';
 
 // Параметры маршрута — управляемая среда зонда (прецедент продукта:
 // start-route-dopusk.test.tsx; фабрика jest.mock читает mockEnv ЛЕНИВО,
@@ -36,32 +128,328 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockEnv.params,
 }));
 
+/** Размерность px из носителя 1.1 (числа в зонде запрещены). */
+function px(znach: string): number {
+  const m = /^(\d+)px$/.exec(znach);
+  if (m === null) {
+    throw new Error(`TOKEN_NE_PX: ${znach} — грамматика носителя 1.1 Npx`);
+  }
+  return Number(m[1]);
+}
+
 /** Нажатие — внутри act (идиома erstinformation-demo-path). */
 async function nazhat(id: string) {
   await act(async () => {
-    await fireEvent.press(screen.getByTestId(id));
+    fireEvent.press(screen.getByTestId(id));
   });
 }
 
 /** Стиль узла рендер-дерева, сведённый StyleSheet.flatten. */
 function stilUzla(uzol: unknown): { position?: string; bottom?: number; left?: number; right?: number } {
-  const props = (uzol as { props?: { style?: unknown } }).props;
-  return StyleSheet.flatten([props?.style]) as { position?: string; bottom?: number; left?: number; right?: number };
+  const props = (uzol as { props?: { style?: unknown } }).props ?? {};
+  return (StyleSheet.flatten([props.style]) ?? {}) as {
+    position?: string;
+    bottom?: number;
+    left?: number;
+    right?: number;
+  };
 }
 
 /** Предки узла рендер-дерева (снизу вверх). */
 function predki(uzol: unknown): unknown[] {
-  const spisok: unknown[] = [];
-  for (let u = (uzol as { parent?: unknown }).parent; u; u = (u as { parent?: unknown }).parent) {
-    spisok.push(u);
+  const rjad = [];
+  let tek = (uzol as { parent?: unknown }).parent;
+  while (tek) {
+    rjad.push(tek);
+    tek = (tek as { parent?: unknown }).parent;
   }
-  return spisok;
+  return rjad;
 }
 
 /** Является ли узел оверлеем лейсте: absolute, прижат к нижнему краю. */
 function estOverlej(uzol: unknown): boolean {
   const st = stilUzla(uzol);
-  return Boolean(st && st.position === 'absolute' && st.bottom === 0 && st.left === 0 && st.right === 0);
+  return st.position === 'absolute' && st.bottom === 0 && st.left === 0 && st.right === 0;
+}
+
+interface ZonaNazhatija {
+  readonly vysota: number;
+  readonly shirina: number | null;
+}
+
+/** Число из стиля (undefined/NaN → null). */
+function ch(x: unknown): number | null {
+  return typeof x === 'number' && Number.isFinite(x) ? x : null;
+}
+
+
+/** Измеряемая нижняя граница высоты содержимого: текст не ниже своей
+ * строки. max консервативен для нескольких потомков, однострочная
+ * кнопка Filter измеряется точно по своему fontSize. */
+function minimalnajaVysotaTeksta(uzol: unknown): number {
+  const z = uzol as { type?: unknown; props?: { style?: unknown }; children?: unknown[] };
+  const st = (StyleSheet.flatten([z.props?.style]) ?? {}) as Record<string, unknown>;
+  const sobstvennaja = z.type === 'Text' ? (ch(st.lineHeight) ?? ch(st.fontSize) ?? 0) : 0;
+  return Math.max(sobstvennaja, ...(z.children ?? []).map((potomok) =>
+    typeof potomok === 'string' ? 0 : minimalnajaVysotaTeksta(potomok)));
+}
+/**
+ * Эффективная ВЫСОТА бокса RN/Yoga: height — базис, minHeight — пол
+ * (36+44 → 44), maxHeight — потолок (пол сильнее потолка);
+ * собственный padding по приоритету side > axis > all входит в бокс.
+ * Без явного height меряем нижнюю границу текста + padding.
+ */
+
+function effektivnajaVysota(st: Record<string, unknown>, soderzhimoe = 0): number {
+  const vys = ch(st.height);
+  const pol = ch(st.minHeight);
+  const potolok = ch(st.maxHeight);
+  const padVerh = ch(st.paddingTop) ?? ch(st.paddingVertical) ?? ch(st.padding) ?? 0;
+  const padNiz = ch(st.paddingBottom) ?? ch(st.paddingVertical) ?? ch(st.padding) ?? 0;
+  let telo = vys !== null ? Math.max(vys, padVerh + padNiz)
+    : Math.max(pol ?? 0, soderzhimoe + padVerh + padNiz);
+  if (pol !== null && telo < pol) {
+    telo = pol;
+  }
+  if (potolok !== null && telo > potolok && (pol ?? 0) <= potolok) {
+    telo = potolok;
+  }
+  return telo;
+}
+
+/** Эффективная ШИРИНА бокса — те же правила RN по горизонтали. */
+function effektivnajaShirina(st: Record<string, unknown>): number {
+  const sh = ch(st.width);
+  const pol = ch(st.minWidth);
+  const potolok = ch(st.maxWidth);
+  const padLevo = ch(st.paddingLeft) ?? ch(st.paddingHorizontal) ?? ch(st.padding) ?? 0;
+  const padPravo = ch(st.paddingRight) ?? ch(st.paddingHorizontal) ?? ch(st.padding) ?? 0;
+  let telo = sh !== null ? Math.max(sh, padLevo + padPravo)
+    : Math.max(pol ?? 0, padLevo + padPravo);
+  if (pol !== null && telo < pol) {
+    telo = pol;
+  }
+  if (potolok !== null && telo > potolok && (pol ?? 0) <= potolok) {
+    telo = potolok;
+  }
+  return telo;
+}
+
+// ── v3e (Crit148k2d Б1): ЕДИНЫЙ хелпер ВИДИМОЙ НАДПИСИ ──────────────
+// Применяется ко ВСЕМ надписям предмета (подписи вкладок, бейдж/статус
+// Mitte, тексты каталога И-5 вкладок): Text засчитывается, только если
+// ВИДИМ — не display:none, не color 'transparent'/#RRGGBB00, не
+// opacity 0 (вплоть до предка), ненулевой бокс (width/height/max* = 0
+// на узле или предке). Граница jest-дерева: layout не вычисляется,
+// перекрытие посторонним слоем и клип с НЕНУЛЕВЫМ боксом судит
+// кадровая сверка продуктового CI — зонд на них не полагается и их не
+// заявляет (декларации стиля — то, что доказуемо исполнением здесь).
+
+/** Текст узла: конкатенация строковых листьев (вложенные Text RN
+ * рендерит в общий текст узла). */
+function tekstUzla(uzol: unknown): string {
+  const deti = (uzol as { children?: unknown[] }).children ?? [];
+  let tekst = '';
+  for (const d of deti) {
+    if (typeof d === 'string') {
+      tekst += d;
+    } else if (Array.isArray(d)) {
+      for (const x of d) {
+        if (typeof x === 'string') tekst += x;
+      }
+    } else if (d !== null && d !== undefined && typeof d === 'object') {
+      tekst += tekstUzla(d);
+    }
+  }
+  return tekst;
+}
+
+/** Все Text-узлы поддерева (включая сам узел, если он Text). */
+function tekstyPoddereva(uzol: unknown, akk: unknown[] = []): unknown[] {
+  const u = uzol as { type?: unknown; children?: unknown[] };
+  if (u !== null && u !== undefined && u.type === 'Text') akk.push(u);
+  for (const d of u?.children ?? []) {
+    if (d !== null && d !== undefined && typeof d === 'object') {
+      tekstyPoddereva(d, akk);
+    }
+  }
+  return akk;
+}
+
+/** Причина невидимости буквы: стиль-декларация на САМОМ узле или любом
+ * предке. null — видима. Animated-значения (не число) видимость не
+ * снимают: ch() их отбрасывает. */
+function prichinaNevidimosti(uzol: unknown): string | null {
+  let tek: unknown = uzol;
+  let uroven = 0;
+  while (tek !== null && tek !== undefined) {
+    const props = (tek as { props?: { style?: unknown } }).props ?? {};
+    const st = (StyleSheet.flatten([props.style]) ?? {}) as Record<string, unknown>;
+    const gde = uroven === 0 ? 'узел' : `предок(${uroven})`;
+    if (st.display === 'none') return `${gde}: display none`;
+    if (ch(st.opacity) === 0) return `${gde}: opacity 0`;
+    if (st.color === 'transparent' || (typeof st.color === 'string' && /^#[0-9a-fA-F]{6}00$/.test(st.color))) {
+      return `${gde}: color transparent`;
+    }
+    if (ch(st.width) === 0 || ch(st.maxWidth) === 0
+      || ch(st.height) === 0 || ch(st.maxHeight) === 0) {
+      return `${gde}: нулевой бокс`;
+    }
+    // v3f (Arch148z, класс 12): за-экранная ДЕКЛАРАЦИЯ — смещение
+    // бокса/надписи на целый экран и больше (left/top/right/bottom или
+    // статический transform) не может быть видимым ни в одном профиле
+    // предмета; порог — максимум геометрии профилей (не литерал).
+    for (const storona of ['left', 'top', 'right', 'bottom'] as const) {
+      const v = ch(st[storona]);
+      if (v !== null && Math.abs(v) >= EKRAN_MAX) {
+        return `${gde}: за экраном (${storona} ${v})`;
+      }
+    }
+    if (Array.isArray(st.transform)) {
+      for (const shag of st.transform) {
+        if (shag !== null && typeof shag === 'object') {
+          for (const os of ['translateX', 'translateY'] as const) {
+            const v = ch((shag as Record<string, unknown>)[os]);
+            if (v !== null && Math.abs(v) >= EKRAN_MAX) {
+              return `${gde}: за экраном (transform ${os} ${v})`;
+            }
+          }
+        }
+      }
+    }
+    tek = (tek as { parent?: unknown }).parent;
+    uroven += 1;
+  }
+  return null;
+}
+
+/** ЕДИНЫЙ хелпер «видимая надпись узла»: в поддереве host обязан быть
+ * ВИДИМЫЙ Text с содержимым == ожидаемой надписи каталога; скрытые
+ * копии (прозрачные буквы, display:none, нулевой бокс — на узле или
+ * предке) НЕ засчитываются. Возвращает видимый узел (для типографики).
+ * Отказ именован: NADPIS_NEVIDIMA <имя>. */
+function nadpisUzla(host: unknown, ozhidaemyj: string, imja: string): unknown {
+  for (const kandidat of tekstyPoddereva(host)) {
+    if (tekstUzla(kandidat) !== ozhidaemyj) continue;
+    if (prichinaNevidimosti(kandidat) === null) return kandidat;
+  }
+  throw new Error(
+    `NADPIS_NEVIDIMA ${imja}: нет ВИДИМОГО Text с надписью ${JSON.stringify(ozhidaemyj)}` +
+    ' (скрытая копия — display:none/opacity 0/color transparent/нулевой бокс на узле или предке — не засчитывается;' +
+    ' Crit148k2d Б1: судится видимая надпись, а не текстовый потомок)',
+  );
+}
+
+// ── v3e (Crit148k2d Б2): ЕДИНЫЙ хелпер ИНТЕРАКТИВНОГО ХОЗЯИНА ───────
+// Зона нажатия меряется у узла, РЕАЛЬНО принимающего нажатие. Среда
+// RN 0.86 (замер): host Pressable не несёт проп onPress — механика
+// press-обработчика видна как респондерные функции
+// (onStartShouldSetResponder/onResponderGrant) и onClick.
+
+/** Узел занимает нажатие: press-обработчик или touch-респондер. */
+const PRIZNAKI_NAZHATIJA: readonly string[] = [
+  'onPress', 'onPressIn', 'onPressOut', 'onLongPress',
+  'onStartShouldSetResponder', 'onResponderGrant', 'onClick',
+];
+
+function prinimaetNazhatie(uzol: unknown): boolean {
+  const props = (uzol as { props?: Record<string, unknown> }).props ?? {};
+  return PRIZNAKI_NAZHATIJA.some((priznak) => typeof props[priznak] === 'function');
+}
+
+/** Интерактивный хозяин цели: сам узел с testID, если он занимает
+ * нажатие, иначе БЛИЖАЙШИЙ предок с press-обработчиком/
+ * touch-респондером. Pressable 20×20 с дочерним Text 44×44, несущим
+ * testID, даёт хозяином 20×20-родителя — зона ребёнка не подменяет
+ * зону хозяина. Отказ именован: TSEL_BEZ_HOZIAINA <id>. */
+function hoziainNazhatija(id: string): unknown {
+  let tek: unknown = screen.getByTestId(id);
+  while (tek !== null && tek !== undefined) {
+    if (prinimaetNazhatie(tek)) return tek;
+    tek = (tek as { parent?: unknown }).parent;
+  }
+  throw new Error(
+    `TSEL_BEZ_HOZIAINA ${id}: ни узел с testID, ни один предок не занимают нажатие` +
+    ' (press-обработчик/touch-респондер) — цель недоступна касанием;' +
+    ' Crit148k2d Б2: зона судится у интерактивного хозяина',
+  );
+}
+
+/**
+ * Фактическая зона нажатия цели (Б2): эффективный бокс стиля
+ * РЕАЛЬНОГО Pressable по правилам RN + невидимое расширение hitSlop
+ * (токены touch-target.extend.* пакета 1.1: «sichtbar kleinere
+ * Steuerelemente erweitern die Zielfläche unsichtbar»). Ширина судится
+ * только там, где несёт явное объявление (width/minWidth/hitSlop):
+ * ширина строк ряда даётся раскладкой лейсте, как в самом пакете.
+ * Без явной декларации высоты однострочный текст тоже занимает место;
+ * если сумма контента и сторон меньше минимума, зона красна (И-7).
+ */
+function zonaCelej(id: string): ZonaNazhatija {
+  // v3e (Crit148k2d Б2): эффективный бокс меряется у ИНТЕРАКТИВНОГО
+  // ХОЗЯИНА цели (сам узел с testID либо ближайший предок с
+  // press-обработчиком/touch-респондером) — зона дочернего Text 44×44
+  // при хозяине 20×20 не засчитывается.
+  const hoziain = hoziainNazhatija(id);
+  const props = (hoziain as { props?: { style?: unknown; hitSlop?: unknown } }).props ?? {};
+  const st = (StyleSheet.flatten([props.style]) ?? {}) as Record<string, unknown>;
+  const syr = props.hitSlop;
+  const slop = typeof syr === 'number'
+    ? { top: syr, bottom: syr, left: syr, right: syr }
+    : ((syr ?? {}) as { top?: number; bottom?: number; left?: number; right?: number });
+  const vysota = effektivnajaVysota(st, minimalnajaVysotaTeksta(hoziain)) + (slop.top ?? 0) + (slop.bottom ?? 0);
+  const obJavlena = ch(st.width) !== null || ch(st.minWidth) !== null
+    || ch(st.maxWidth) !== null || Boolean(slop.left) || Boolean(slop.right);
+  const shirina = obJavlena
+    ? effektivnajaShirina(st) + (slop.left ?? 0) + (slop.right ?? 0)
+    : null;
+  return { vysota, shirina };
+}
+
+/** Зона цели ≥ нормы; отказ именован (мутант убит предметным ассертом). */
+function proveritZonu(id: string, minimum: number, normaVysoty?: number) {
+  const z = zonaCelej(id);
+  const norma = normaVysoty ?? minimum;
+  if (z.vysota < norma) {
+    throw new Error(
+      `ZONA_NAZHATIJA_MENSHE_NORMY ${id}: фактическая высота зоны интерактивного хозяина ${z.vysota} < ${norma}` +
+      ` (touch-target.min=${minimum}${normaVysoty !== undefined ? `, nav.item.min-height=${normaVysoty}` : ''}` +
+      ' пакета D24-Kompakt-1.1; видимая рамка меньше зоны находкой не является)',
+    );
+  }
+  if (z.shirina !== null && z.shirina < minimum) {
+    throw new Error(`ZONA_NAZHATIJA_MENSHE_NORMY ${id}: фактическая ширина зоны ${z.shirina} < ${minimum}`);
+  }
+}
+
+// ── v3f (Arch148z, класс 13 перечня orch): ЕДИНАЯ проверка ВИДИМОЙ ЦЕЛИ
+// Применяется ко ВСЕМ обязательным целям всех разделов и обоих профилей:
+// интерактивный хозяин не спрятан (opacity 0 / display:none / нулевой
+// бокс / за-экранная декларация — на узле ИЛИ любом предке), и в
+// поддереве хозяина есть ХОТЯ БЫ ОДНА видимая непустая надпись (цель
+// без видимой надписи — прозрачная пилюля). display:none дополнительно
+// убирается из рендер-дерева самой средой RNTL (замер: getByTestId
+// бросает) — здесь судится остальное. Отказы именованы. */
+function proveritVidimostTseli(id: string) {
+  const hoziain = hoziainNazhatija(id);
+  const prichina = prichinaNevidimosti(hoziain);
+  if (prichina !== null) {
+    throw new Error(
+      `TSEL_NEVIDIMA ${id}: интерактивный хозяин спрятан (${prichina}) —` +
+      ' цель с верной зоной и действием, но полностью невидимая, проходом' +
+      ' не является (класс 13: видимость интерактивных целей)',
+    );
+  }
+  const estVidimyjTekst = tekstyPoddereva(hoziain).some(
+    (t) => prichinaNevidimosti(t) === null && tekstUzla(t).trim() !== '',
+  );
+  if (!estVidimyjTekst) {
+    throw new Error(
+      `TSEL_BEZ_VIDIMOJ_NADPISI ${id}: в поддереве интерактивного хозяина` +
+      ' нет ни одной видимой непустой надписи (прозрачные/заэкранные буквы' +
+      ' не считаются — класс 12/13 перечня orch)',
+    );
+  }
 }
 
 // Слоты зонда: уникальные testID, которых в R нет (маркеры, не копия).
@@ -70,6 +458,34 @@ const sloty = {
   schutz: <View testID="zond-slot-schutz" />,
   vorgaenge: <View testID="zond-slot-vorgaenge" />,
 };
+
+// Реальный контент вкладок R в слотах шва (И-1) — зонд измеряет
+// компоненты ПРОДУКТА, не копию батареи.
+const kontent = {
+  post: <PostEingang />,
+  schutz: <SchutzUebersicht />,
+  vorgaenge: <VorgaengeListe />,
+};
+
+// Оба профиля предмета (И-9): 390×844 и 393×852 — через Dimensions.set
+// мока RN (исполнение под каждой геометрией; зона токенов не зависит от
+// ширины, но профиль-зависимая реализация судится в обоих рендерах).
+const PROFILI = [
+  { imja: '390x844', shirina: 390, vysota: 844 },
+  { imja: '393x852', shirina: 393, vysota: 852 },
+] as const;
+
+// v3f (Arch148z): порог за-экранной декларации — максимум геометрии
+// профилей предмета (смещение на целый экран и больше); литерала нет.
+const EKRAN_MAX = Math.max(...PROFILI.map((p) => Math.max(p.shirina, p.vysota)));
+
+function ustanovitProfil(profil: { shirina: number; vysota: number }) {
+  // оба ключа обязательны (замена только window роняет SafeAreaView мока
+  // в пустое дерево), а сам вызов — ВНЕ act: наложение act-областей
+  // роняет ВСЕ последующие рендеры сьюта (замеры пачки: тестид 0)
+  const geometrija = { width: profil.shirina, height: profil.vysota, scale: 1, fontScale: 1 };
+  Dimensions.set({ window: geometrija, screen: { ...geometrija } });
+}
 
 test('GA-02/04: контент вкладок достигает экрана через слот sectionScreens', async () => {
   const view = await render(<TabShell initialSection="start" reducedMotion sectionScreens={sloty} />);
@@ -94,7 +510,21 @@ test('GA-03: ?mitte=needs — бейдж «Ihre Rückmeldung nötig» на жи�
   mockEnv.params = { section: 'vorgaenge', mitte: 'needs' };
   const view = await render(<TabRoute />);
   await waitFor(() => expect(screen.getByTestId('gespraech-mitte-badge')).toBeOnTheScreen());
-  expect(screen.getByTestId('gespraech-mitte-badge').props.children).toBe(uiCopyDe['ui.vorgaenge.group.needs_you'].text);
+  // v3e (Crit148k2d Б1): не «узел есть и дети совпадают», а ВИДИМАЯ
+  // надпись — прозрачные буквы бейджа красны именованно
+  nadpisUzla(screen.getByTestId('gespraech-mitte-badge'),
+    uiCopyDe['ui.mission.group.needs_user'].text, 'gespraech-mitte-badge');
+  // v3f (Arch148z, класс 11 перечня orch): состояния РАЗЛИЧИМЫ —
+  // рабочий статус в состоянии бейджа присутствовать не обязан;
+  // слияние состояний красно именованно (замер: мутант «бейдж всегда»
+  // проходил rc 0 — тест-имя «бейджа нет» не несло ассерта отсутствия)
+  if (screen.queryByTestId('gespraech-mitte-status') !== null) {
+    throw new Error(
+      'SOSTOJANIE_NERAZLICHIMO: gespraech-mitte-status присутствует в состоянии' +
+      ' needs_action (?mitte=needs) — бейдж needs_user и рабочий статус' +
+      ' обязаны быть взаимно исключены (класс 11: различимость состояний)',
+    );
+  }
   view.unmount();
 });
 
@@ -102,7 +532,18 @@ test('GA-03 контроль: без ?mitte=needs бейджа нет, стат�
   mockEnv.params = { section: 'vorgaenge' };
   const view = await render(<TabRoute />);
   await waitFor(() => expect(screen.getByTestId('gespraech-mitte-status')).toBeOnTheScreen());
-  expect(screen.getByTestId('gespraech-mitte-status').props.children).toBe(uiCopyDe['ui.vorgaenge.group.working'].text);
+  // v3e: статус — тоже видимая надпись (единый хелпер Б1)
+  nadpisUzla(screen.getByTestId('gespraech-mitte-status'),
+    uiCopyDe['ui.mission.group.working'].text, 'gespraech-mitte-status');
+  // v3f (Arch148z, класс 11): имя теста обещает «бейджа нет» — теперь
+  // это АССЕРТ, а не название: бейдж в рабочем состоянии красен
+  if (screen.queryByTestId('gespraech-mitte-badge') !== null) {
+    throw new Error(
+      'SOSTOJANIE_NERAZLICHIMO: gespraech-mitte-badge присутствует в рабочем' +
+      ' состоянии (без ?mitte=needs) — бейдж needs_user и рабочий статус' +
+      ' обязаны быть взаимно исключены (класс 11: различимость состояний)',
+    );
+  }
   view.unmount();
 });
 
@@ -119,5 +560,364 @@ test('GA-09: лейсте — абсолютный оверлей нижнего
   const nadpisiKontenta = predki(screen.getByTestId('zond-slot-vorgaenge'));
   const overlej = nadpisiVkladok.find(estOverlej);
   expect(overlej !== undefined && nadpisiKontenta.includes(overlej)).toBe(false);
+  view.unmount();
+});
+
+// Б1 (Crit148k2b): СВЯЗЬ компонента с токеном, не совпадение числа.
+// Высота строки лейсте == nav.height, эффективная высота вкладок ==
+// nav.item.min-height — равенством $value 1.1 (final2 71 краснеет);
+// при подмене значения источника (контроль svjaz батареи: N+2px,
+// модуль kompakt-tokens регенерирован извлечением) честный компонент
+// СЛЕДУЕТ — литерал 49 в таб-шелле краснеет именно там (мутант
+// nav-literal исполняется под подменой).
+test('Б1: лейсте и вкладки следуют за токенами nav.height/item.min-height', async () => {
+  const vysotaLeiste = px(TOKENY['nav']['height'].$value);
+  const minVysotaVkladki = px(TOKENY['nav']['item.min-height'].$value);
+  // v3f (Arch148z): Mitte — пятая цель лейсте (И-7), её зона судится
+  // РАВЕНСТВОМ токену, как у вкладок (до правки — только нормой зоны;
+  // литерал совпадением числа связью не является)
+  const view = await render(
+    <TabShell initialSection="start" reducedMotion mitte={<GespraechMitte reducedMotion />} />,
+  );
+  const leiste = screen.getByTestId('shell-tabbar');
+  const stLeiste = (StyleSheet.flatten([
+    (leiste as { props?: { style?: unknown } }).props?.style,
+  ]) ?? {}) as Record<string, unknown>;
+  const faktLeiste = effektivnajaVysota(stLeiste);
+  if (faktLeiste !== vysotaLeiste) {
+    throw new Error(
+      `NAV_VYSOTA_NE_IZ_TOKENA: высота лейсте ${faktLeiste} != nav.height ${vysotaLeiste}` +
+      ` ($value пакета 1.1; final2 ${TOKENY['nav']['height'].final2} краснеет равенством;` +
+      ' компонент обязан читать токен, не литерал — Crit148k2b Б1)',
+    );
+  }
+  for (const vkladka of ['start', 'vorgaenge', 'schutz', 'post'] as const) {
+    const stVkladki = (StyleSheet.flatten([
+      (screen.getByTestId(`shell-tab-${vkladka}`) as { props?: { style?: unknown } }).props?.style,
+    ]) ?? {}) as Record<string, unknown>;
+    const faktVkladki = effektivnajaVysota(stVkladki);
+    if (faktVkladki !== minVysotaVkladki) {
+      throw new Error(
+        `NAV_MINHEIGHT_NE_IZ_TOKENA shell-tab-${vkladka}: эффективная высота вкладки` +
+        ` ${faktVkladki} != nav.item.min-height ${minVysotaVkladki} ($value пакета 1.1)`,
+      );
+    }
+  }
+  const stMitte = (StyleSheet.flatten([
+    (screen.getByTestId('gespraech-mitte') as { props?: { style?: unknown } }).props?.style,
+  ]) ?? {}) as Record<string, unknown>;
+  const faktMitte = effektivnajaVysota(stMitte);
+  if (faktMitte !== minVysotaVkladki) {
+    throw new Error(
+      `NAV_MINHEIGHT_NE_IZ_TOKENA gespraech-mitte: эффективная высота Mitte` +
+      ` ${faktMitte} != nav.item.min-height ${minVysotaVkladki} ($value пакета 1.1;` +
+      ' v3f: зона Mitte судится равенством токену, не только нормой)',
+    );
+  }
+  view.unmount();
+});
+
+// Б2-действие (Crit148k2b, И-4): ДЕЙСТВУЮЩИЕ цели контента. Цель
+// обязана быть ДОСТУПНОЙ для нажатия (не disabled) и НАЖИМАТЬСЯ:
+// событие доходит до колбэка контента с ожидаемым аргументом.
+// Отсутствие цели красно (getByTestId бросает), отключённая цель
+// красна именованно (TSEL_OTKLJUCHENA — мутант disabled батареи),
+// цель без действующего отклика красна (TSEL_NAZHATIE_NE_DEJSTVUET).
+// Тесты стоят ДО блока зон: press после Dimensions.set вешает сьют
+// (замеры пачки).
+type Nazhatie = readonly [id: string, kolbek: string, arg?: string];
+
+const NAZHATIJA_RAZDELA: Readonly<Record<'vorgaenge' | 'schutz' | 'post', readonly Nazhatie[]>> = {
+  // testID строк Vorgänge == id строки (vkladki-dannye); Arch148w
+  // (класс полноты 4): домен — ВСЕ четыре строки модели И-4, включая
+  // ниже прокрутки (GA-09: Hausrat-Vergleich, Kfz-Wechsel) — удаление
+  // любой строки красно собственным getByTestId, честный R зелен со
+  // всеми (мутант vorgaenge-stroki-net убит своим ассертом)
+  vorgaenge: [
+    ['vorgaenge-stroka-rechtsschutz', 'onVorgang', 'vorgaenge-stroka-rechtsschutz'],
+    ['vorgaenge-stroka-hausrat-vertrag', 'onVorgang', 'vorgaenge-stroka-hausrat-vertrag'],
+    ['vorgaenge-stroka-hausrat-vergleich', 'onVorgang', 'vorgaenge-stroka-hausrat-vergleich'],
+    ['vorgaenge-stroka-kfz-wechsel', 'onVorgang', 'vorgaenge-stroka-kfz-wechsel'],
+    ['vorgaenge-vse-sdelannye', 'onAlleErledigte'],
+  ],
+  schutz: [
+    ['schutz-svod', 'onBereich', 'svod'],
+    ['schutz-stat-vertraege', 'onBereich', 'vertraege'],
+    ['schutz-stat-beitrag', 'onBereich', 'beitrag'],
+    ['schutz-optionen', 'onBereich', 'optionen'],
+    ['schutz-oblast-mobilitaet', 'onBereich', 'mobilitaet'],
+    ['schutz-oblast-wohnen', 'onBereich', 'wohnen'],
+    ['schutz-oblast-gesundheit', 'onBereich', 'gesundheit'],
+    ['schutz-oblast-recht', 'onBereich', 'recht'],
+    ['schutz-oblast-familie', 'onBereich', 'familie'],
+  ],
+  post: [
+    ['post-filtr-alle', 'onFiltr', 'all'],
+    ['post-filtr-vhodjaschie', 'onFiltr', 'received'],
+    ['post-filtr-otpravlennye', 'onFiltr', 'sent'],
+    // настройки фильтра нажимают ТЕКУЧИЙ фильтр (по умолчанию all)
+    ['post-filtr-nastrojki', 'onFiltr', 'all'],
+    ['post-napisat-complior', 'onSchicken'],
+    ['post-deckungsanfrage', 'onNachricht', 'post-deckungsanfrage'],
+    ['post-soobschenie-rechtsschutz', 'onNachricht', 'post-soobschenie-rechtsschutz'],
+  ],
+};
+
+// v3e (Crit148k2d Б1): домен ВИДИМЫХ надписей предмета — каждый текст
+// каталога И-5, названный контрактом. Подписи вкладок и Mitte судятся
+// в Б3 и Б2-действии(vorgaenge+Mitte); тексты вкладок — в тестах
+// действия своих разделов (оракул — каталог ui-copy самого R).
+const NADPISI_VKLADOK: readonly (readonly [string, string])[] = [
+  ['start', 'ia115.nav.START'],
+  ['vorgaenge', 'ia117.nav.VORGAENGE'],
+  ['schutz', 'ia115.nav.SCHUTZ'],
+  ['post', 'ia115.nav.POST'],
+];
+const NADPISI_VORGAENGE: readonly string[] = [
+  'ia117.nav.VORGAENGE', 'ui.vorgaenge.subtitle',
+  'ui.mission.group.working', 'ui.mission.group.waiting', 'ui.mission.all_done',
+];
+const NADPISI_SCHUTZ: readonly string[] = [
+  'ia115.nav.SCHUTZ', 'proposed.protection.status.gap', 'fixture.schutz.02',
+  'proposed.schutz.stat.contracts', 'proposed.schutz.stat.premium',
+  'proposed.schutz.section.areas',
+];
+const NADPISI_POST: readonly string[] = [
+  'ia115.nav.POST', 'ui.post.filter.all', 'ui.post.filter.received',
+  'ui.post.filter.sent', 'ui.post.send_to_complior',
+];
+
+/** Одна обязательная цель: доступна (не disabled) и НАЖИМАЕТСЯ.
+ * Среда RN 0.86 (замер пачки): host Pressable не несёт проп onPress
+ * (механика — onResponder-события/onClick), доступность наблюдаема через
+ * accessibilityState.disabled (мутант disabled даёт {disabled:true}),
+ * действенность — ПОВЕДЕНИЕМ: fireEvent.press вызывает колбэк контента
+ * ровно с ожидаемым аргументом (отключённая/безымянная цель колбэка не
+ * вызывает — замер пачки: 0 вызовов). */
+async function proveritDejstvieTseli(id: string, kolbek: { mock: { calls: readonly (readonly unknown[])[] } }, arg?: string) {
+  const uzol = screen.getByTestId(id);
+  const props = (uzol as {
+    props?: {
+      disabled?: unknown;
+      accessibilityState?: { disabled?: boolean };
+    };
+  }).props ?? {};
+  const a11y = props.accessibilityState ?? {};
+  if (props.disabled === true || a11y.disabled === true) {
+    throw new Error(
+      `TSEL_OTKLJUCHENA ${id}: обязательная цель контента отключена (disabled) —` +
+      ' И-4 требует ДЕЙСТВУЮЩИЕ цели: видимость и зона без нажатия обходом являются',
+    );
+  }
+  // Изолируем именно ЭТО нажатие: другой элемент может ранее вызвать
+  // тот же callback с тем же аргументом (Filter после Alle).
+  const doNazhatiya = kolbek.mock.calls.length;
+  await nazhat(id);
+  const novye = kolbek.mock.calls.slice(doNazhatiya);
+  const vigovreno = novye.length === 1
+    && (arg === undefined || (novye[0].length === 1 && novye[0][0] === arg));
+  if (!vigovreno) {
+    throw new Error(
+      `TSEL_NAZHATIE_NE_DEJSTVUET ${id}: нажатие не дошло до своего колбэка контента` +
+      ` (новые вызовы ${JSON.stringify(novye)}; ожидался аргумент ${JSON.stringify(arg)})`,
+    );
+  }
+}
+
+test('Б2-действие (vorgaenge+Mitte): обязательные цели доступны и нажимаются', async () => {
+  const kolbeki = {
+    onVorgang: jest.fn<(id: string) => void>(),
+    onAlleErledigte: jest.fn<() => void>(),
+  };
+  const mitteNazhatie = jest.fn<() => void>();
+  const view = await render(
+    <TabShell
+      initialSection="vorgaenge"
+      mitte={<GespraechMitte reducedMotion onPress={mitteNazhatie} />}
+      reducedMotion
+      sectionScreens={{
+        vorgaenge: <VorgaengeListe onVorgang={kolbeki.onVorgang} onAlleErledigte={kolbeki.onAlleErledigte} />,
+      }}
+    />,
+  );
+  await waitFor(() => expect(screen.getByTestId('vorgaenge-stroka-rechtsschutz')).toBeOnTheScreen());
+  for (const [id, kolbek, arg] of NAZHATIJA_RAZDELA.vorgaenge) {
+    await proveritDejstvieTseli(id, kolbeki[kolbek as keyof typeof kolbeki] as { mock: { calls: readonly (readonly unknown[])[] } }, arg);
+  }
+  // Mitte — цель лейсте (И-7): доступна и нажимается (до контракта 147 —
+  // мок-отклик: колбэк владельца слота)
+  await proveritDejstvieTseli('gespraech-mitte', mitteNazhatie);
+  // v3e (Crit148k2d Б1): видимые надписи этого раздела — подписи
+  // вкладок, надпись/статус Mitte и тексты каталога вкладки Vorgänge
+  for (const [vkladka, kljuch] of NADPISI_VKLADOK) {
+    nadpisUzla(screen.getByTestId(`shell-tab-${vkladka}`), uiCopyDe[kljuch].text, `shell-tab-${vkladka}`);
+  }
+  nadpisUzla(screen.getByTestId('gespraech-mitte'), uiCopyDe['proposed.gespraech.tab'].text, 'gespraech-mitte');
+  nadpisUzla(screen.getByTestId('gespraech-mitte-status'), uiCopyDe['ui.mission.group.working'].text, 'gespraech-mitte-status');
+  const spisokVorgaenge = screen.getByTestId('vorgaenge-spisok');
+  for (const kljuch of NADPISI_VORGAENGE) {
+    nadpisUzla(spisokVorgaenge, uiCopyDe[kljuch].text, 'vorgaenge-spisok');
+  }
+  // v3f (Arch148z, класс 12/4): надписи СТРОК — по МОДЕЛИ самого R
+  // (VORGAENGE_SPISENOK, оракул без литералов зонда): каждая строка
+  // несёт ВИДИМЫЙ собственный заголовок (прозрачная строка/титул
+  // красны; замер: stroki-opacity проходил rc 0)
+  for (const v of VORGAENGE_SPISENOK) {
+    nadpisUzla(screen.getByTestId(v.id), v.title, v.id);
+  }
+  view.unmount();
+});
+
+test('Б2-действие (schutz): обязательные цели доступны и нажимаются', async () => {
+  const onBereich = jest.fn<(bereich: string) => void>();
+  const view = await render(
+    <TabShell
+      initialSection="schutz"
+      reducedMotion
+      sectionScreens={{ schutz: <SchutzUebersicht onBereich={onBereich} /> }}
+    />,
+  );
+  await waitFor(() => expect(screen.getByTestId('schutz-optionen')).toBeOnTheScreen());
+  for (const [id, _kolbek, arg] of NAZHATIJA_RAZDELA.schutz) {
+    await proveritDejstvieTseli(id, onBereich, arg);
+  }
+  // v3e (Crit148k2d Б1): видимые надписи Schutz — действие Notice
+  // («Optionen ansehen») и тексты каталога вкладки (заголовок, Lücke,
+  // карточки сводки, заголовок областей)
+  nadpisUzla(screen.getByTestId('schutz-optionen'), uiCopyDe['proposed.schutz.gap.action'].text, 'schutz-optionen');
+  const spisokSchutz = screen.getByTestId('schutz-spisok');
+  for (const kljuch of NADPISI_SCHUTZ) {
+    nadpisUzla(spisokSchutz, uiCopyDe[kljuch].text, 'schutz-spisok');
+  }
+  view.unmount();
+});
+
+test('Б2-действие (post): обязательные цели доступны и нажимаются', async () => {
+  const kolbeki = {
+    onFiltr: jest.fn<(filtr: 'all' | 'received' | 'sent') => void>(),
+    onNachricht: jest.fn<(id: string) => void>(),
+    onSchicken: jest.fn<() => void>(),
+  };
+  const view = await render(
+    <TabShell
+      initialSection="post"
+      reducedMotion
+      sectionScreens={{
+        post: <PostEingang onFiltr={kolbeki.onFiltr} onNachricht={kolbeki.onNachricht} onSchicken={kolbeki.onSchicken} />,
+      }}
+    />,
+  );
+  await waitFor(() => expect(screen.getByTestId('post-filtr-nastrojki')).toBeOnTheScreen());
+  for (const [id, kolbek, arg] of NAZHATIJA_RAZDELA.post) {
+    await proveritDejstvieTseli(id, kolbeki[kolbek as keyof typeof kolbeki] as { mock: { calls: readonly (readonly unknown[])[] } }, arg);
+  }
+  // v3e (Crit148k2d Б1): видимые надписи Post — заголовок, чипы
+  // фильтров и действие «An Complior schicken»
+  const spisokPost = screen.getByTestId('post-spisok');
+  for (const kljuch of NADPISI_POST) {
+    nadpisUzla(spisokPost, uiCopyDe[kljuch].text, 'post-spisok');
+  }
+  view.unmount();
+});
+
+// Б2 (Crit148k2a): фактическая зона нажатия. Среда (замеры пачки):
+// (1) третий render() в ОДНОМ тесте даёт пустое дерево — потому каждый
+// раздел×профыл — ОТДЕЛЬНЫЙ тест с одним рендером; (2) press/waitFor
+// после Dimensions.set вешает сьют микрозадачной бурей — измерение
+// идёт прямым рендером секции (переход вкладок покрыт тестом GA-02/04);
+// (3) Dimensions.set — ВНЕ act и с ОБИМИ ключами window+screen (без
+// screen SafeAreaView мока роняет дерево в пустоту, в act — все
+// последующие рендеры).
+const NORMA_LEISTE = px(TOKENY['nav']['item.min-height'].$value);
+const NORMA_MIN = px(TOKENY['touch-target']['min'].$value);
+const TSELI_RAZDELA: Readonly<Record<string, readonly (readonly [string, number | undefined])[]>> = {
+  vorgaenge: [
+    ['vorgaenge-stroka-rechtsschutz', 60], ['vorgaenge-stroka-hausrat-vertrag', 60],
+    ['vorgaenge-stroka-hausrat-vergleich', 60], ['vorgaenge-stroka-kfz-wechsel', 60],
+    ['vorgaenge-vse-sdelannye', undefined],
+  ],
+  schutz: [
+    ['schutz-svod', undefined], ['schutz-stat-vertraege', undefined],
+    ['schutz-stat-beitrag', undefined], ['schutz-optionen', undefined],
+    ['schutz-oblast-mobilitaet', undefined], ['schutz-oblast-wohnen', undefined],
+    ['schutz-oblast-gesundheit', undefined], ['schutz-oblast-recht', undefined],
+    ['schutz-oblast-familie', undefined],
+  ],
+  post: [
+    ['post-filtr-alle', undefined], ['post-filtr-vhodjaschie', undefined],
+    ['post-filtr-otpravlennye', undefined], ['post-filtr-nastrojki', undefined],
+    ['post-napisat-complior', undefined], ['post-deckungsanfrage', undefined],
+    ['post-soobschenie-rechtsschutz', undefined],
+  ],
+};
+
+async function proveritZonyRazdela(profil: { shirina: number; vysota: number }, razdel: 'vorgaenge' | 'schutz' | 'post') {
+  ustanovitProfil(profil);
+  const view = await render(
+    <TabShell
+      initialSection={razdel}
+      mitte={<GespraechMitte reducedMotion />}
+      reducedMotion
+      sectionScreens={kontent}
+    />,
+  );
+  for (const id of ['shell-tab-start', 'shell-tab-vorgaenge', 'gespraech-mitte', 'shell-tab-schutz', 'shell-tab-post']) {
+    proveritVidimostTseli(id);
+    proveritZonu(id, NORMA_MIN, NORMA_LEISTE);
+  }
+  for (const [id, norma] of TSELI_RAZDELA[razdel]) {
+    proveritVidimostTseli(id);
+    proveritZonu(id, NORMA_MIN, norma);
+  }
+  view.unmount();
+}
+
+test('Б2 (390x844, vorgaenge): зоны ≥ touch-target.min/nav.item.min-height', async () => {
+  await proveritZonyRazdela(PROFILI[0], 'vorgaenge');
+});
+
+test('Б2 (390x844, schutz): зоны ≥ touch-target.min', async () => {
+  await proveritZonyRazdela(PROFILI[0], 'schutz');
+});
+
+test('Б2 (390x844, post): зоны ≥ touch-target.min', async () => {
+  await proveritZonyRazdela(PROFILI[0], 'post');
+});
+
+test('Б2 (393x852, vorgaenge): зоны ≥ touch-target.min/nav.item.min-height', async () => {
+  await proveritZonyRazdela(PROFILI[1], 'vorgaenge');
+});
+
+test('Б2 (393x852, schutz): зоны ≥ touch-target.min', async () => {
+  await proveritZonyRazdela(PROFILI[1], 'schutz');
+});
+
+test('Б2 (393x852, post): зоны ≥ touch-target.min', async () => {
+  await proveritZonyRazdela(PROFILI[1], 'post');
+});
+
+test('Б3: типографика вкладок использует токены 1.1 (nav.label.*)', async () => {
+  const razmer = px(TOKENY['nav']['label.font-size'].$value);
+  const vysotaStroki = px(TOKENY['nav']['label.line-height'].$value);
+  const view = await render(<TabShell initialSection="start" reducedMotion />);
+  for (const [vkladka, kljuch] of NADPISI_VKLADOK) {
+    // v3e (Crit148k2d Б1): надпись вкладки обязана быть ВИДИМОЙ —
+    // прозрачные буквы красны ещё до сверки типографики
+    const nadpis = nadpisUzla(screen.getByTestId(`shell-tab-${vkladka}`),
+      uiCopyDe[kljuch].text, `shell-tab-${vkladka}`) as { props?: { style?: unknown } };
+    const st = StyleSheet.flatten([nadpis.props?.style]) as { fontSize?: number; lineHeight?: number };
+    if (st.fontSize !== razmer) {
+      throw new Error(
+        `TOKEN_1_1_NE_ISPOLZUETSJA shell-tab-${vkladka}: fontSize ${st.fontSize} != ` +
+        `${razmer} (nav.label.font-size $value 1.1; final2 ${TOKENY['nav']['label.font-size'].final2} краснеет)`,
+      );
+    }
+    if (st.lineHeight !== vysotaStroki) {
+      throw new Error(
+        `TOKEN_1_1_NE_ISPOLZUETSJA shell-tab-${vkladka}: lineHeight ${st.lineHeight} != ` +
+        `${vysotaStroki} (nav.label.line-height $value 1.1)`,
+      );
+    }
+  }
   view.unmount();
 });

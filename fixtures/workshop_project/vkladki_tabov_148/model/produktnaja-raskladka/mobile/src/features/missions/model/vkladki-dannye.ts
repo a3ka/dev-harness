@@ -15,9 +15,13 @@ export interface VorgangRow {
   readonly group: VorgangGruppa;
 }
 
+// v+1 (пакет D24-Kompakt-1.1, GA-02 «ohne «Complior fragen» in der
+// Liste»): видимые строки кадра — Rechtsschutz-Beratung и
+// Hausrat-Vertrag (цели манифеста 1.1); Hausrat-Vergleich и Kfz-Wechsel
+// — ниже прокрутки (GA-09), не цели судимых кадров.
 export const VORGAENGE_SPISENOK: readonly VorgangRow[] = [
-  { id: 'vorgaenge-stroka-1', title: 'Hausrat-Vergleich', group: 'working' },
-  { id: 'vorgaenge-stroka-2', title: 'Kfz-Wechsel', group: 'waiting' },
-  { id: 'vorgaenge-stroka-3', title: 'Rechtsschutz-Beratung', group: 'working' },
-  { id: 'vorgaenge-stroka-4', title: 'Hausrat-Vertrag', group: 'working' },
+  { id: 'vorgaenge-stroka-rechtsschutz', title: 'Rechtsschutz-Beratung', group: 'working' },
+  { id: 'vorgaenge-stroka-hausrat-vertrag', title: 'Hausrat-Vertrag', group: 'working' },
+  { id: 'vorgaenge-stroka-hausrat-vergleich', title: 'Hausrat-Vergleich', group: 'working' },
+  { id: 'vorgaenge-stroka-kfz-wechsel', title: 'Kfz-Wechsel', group: 'waiting' },
 ];

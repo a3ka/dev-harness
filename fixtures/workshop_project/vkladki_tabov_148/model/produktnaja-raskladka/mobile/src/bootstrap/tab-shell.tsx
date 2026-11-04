@@ -21,6 +21,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TAB_ORDER, themeTokens, type ColorScheme, type ShellSectionId, type ThemeTokens } from '../theme/tokens';
 import { ThemeContext } from '../theme/context';
+// v3b (Crit148k2b Б1): значения nav-токенов пакета 1.1 — модуль
+// kompakt-tokens (каноническое извлечение из source/tokens.json,
+// гейт байтов у продукт-судьи); высота лейсте, minHeight вкладок и
+// типографика надписей СЛЕДУЮТ за токеном (не литералы).
+import { navTokens } from './kompakt-tokens';
 import { SECTION_TITLE_KEYS, TAB_LABEL_KEYS, uiCopyDe } from '../i18n/ui-copy';
 
 export type ShellSection = ShellSectionId;
@@ -167,7 +172,7 @@ interface TabBarProps {
 
 function TabBar({ selected, inkColor, onCardColor, onSelect, mitte }: TabBarProps) {
   return (
-    <View accessibilityRole="tablist" style={styles.tabbar}>
+    <View accessibilityRole="tablist" style={styles.tabbar} testID="shell-tabbar">
       {TAB_ORDER.map((id) => (
         <React.Fragment key={id}>
           {id === 'schutz' && mitte ? mitte : null}
@@ -325,7 +330,6 @@ export function TabShell({
        композитом-хозяином шва — грамматика контейнеров 999 сохранена). */
     <View
       style={[
-        styles.tabbarBg,
         styles.tabbarOverlay,
         { backgroundColor: tokens.panel },
       ]}
@@ -374,17 +378,27 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   title: { fontSize: 24, fontWeight: '600' },
-  tabbarBg: { paddingVertical: 8 },
   /* 148 (GA-09): оверлей — контент прокручивается под лейсте. */
   tabbarOverlay: { bottom: 0, left: 0, position: 'absolute', right: 0 },
+  /* v3b (Crit148k2b Б1): лейсте — высота nav.height 49px пакета 1.1
+     (final2 71px), вкладки — minHeight nav.item.min-height 48px,
+     надписи — nav.label.font-size/line-height 10/12 ($value; v3a
+     Crit148k2a Б2/Б3); фоновая подложка снята: коробка лейсте =
+     строка вкладок (манифест 1.1: коробка y769–818 = 49 высотой,
+     внешний padding убран). Значения — модуль kompakt-tokens. */
   tabbar: {
     alignItems: 'center',
     flexDirection: 'row',
+    height: navTokens.height,
     justifyContent: 'space-around',
   },
   tab: {
     paddingHorizontal: 12,
     paddingVertical: 6,
+    minHeight: navTokens.itemMinHeight,
   },
-  tabLabel: { fontSize: 14 },
+  tabLabel: {
+    fontSize: navTokens.labelFontSize,
+    lineHeight: navTokens.labelLineHeight,
+  },
 });

@@ -13,8 +13,8 @@ import { ThemeContext } from '../../../theme/context';
 import { VORGAENGE_SPISENOK, type VorgangGruppa, type VorgangRow } from '../model/vkladki-dannye';
 
 const GROUP_KEYS: Readonly<Record<VorgangGruppa, string>> = {
-  working: 'ui.vorgaenge.group.working',
-  waiting: 'ui.vorgaenge.group.waiting',
+  working: 'ui.mission.group.working',
+  waiting: 'ui.mission.group.waiting',
 };
 
 const GRUPPY: readonly VorgangGruppa[] = ['working', 'waiting'];
@@ -87,7 +87,9 @@ const styles = StyleSheet.create({
   zagolovok: { fontSize: 24, fontWeight: '600' },
   podzagolovok: { fontSize: 13, marginBottom: 4 },
   gruppa: { fontSize: 17, fontWeight: '600', marginTop: 8 },
-  stroka: { minHeight: 44, justifyContent: 'center' },
+  /* v3a (Crit148k2a, Б2): высота касания строки — 60 pt по зоне
+     (манифест 1.1: vorgaenge-stroka-* 361×60; И-7). Измеряет зонд. */
+  stroka: { minHeight: 60, justifyContent: 'center' },
   strokaText: { fontSize: 15 },
   hvost: { alignItems: 'center', justifyContent: 'center', minHeight: 44, marginTop: 8 },
   hvostText: { fontSize: 15, fontWeight: '600' },
