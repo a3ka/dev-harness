@@ -1,0 +1,17 @@
+name: mobile
+on: [push]
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm run ci:quality
+  e2e-splash:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm run ci:e2e-splash
+      - name: 123 сверка кадров с макетом (scripts/sverka_maketa.py)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -o pipefail
+          python3 .harness123/scripts/sverka_maketa.py --manifest .harness123/fixtures/workshop_project/mob_sverka_123/kadry_117.json --kadry mobile/maestro-out-117 --repo . | tee mobile/maestro-out-117/sverka-123.tsv
