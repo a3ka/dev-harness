@@ -1,0 +1,104 @@
+{
+  "_meta": {
+    "kontrakt": "147-gespraech-vhod-menu",
+    "naznachenie": "пины экрана 147: пакет, кадры, токены, маски, AVD-канон, ключи копии. Значения сняты живьём с пакета D24-Kompakt-1.1 2026-11-04 (байты == коммиту 9610dc4 продукта; замер git diff --stat 9610dc4 HEAD -- docs/ux/05_Kompakt_D24 пуст). ЕДИНЫЙ источник значений — этот файл; потребители (реализация, тесты, e2e, кадры) несут значения побайтово, переизобретение запрещено.",
+    "svjaz_kartoj": "карта целей — karta.json этой пачки; надписи целей привязаны к ключам copy-de.json ниже"
+  },
+  "paket": {
+    "sborka": "D24-Kompakt-1.1",
+    "kommit_produkta": "9610dc4",
+    "koren": "docs/ux/05_Kompakt_D24",
+    "sha256": {
+      "source/tokens.json": "cb39fb94cb0d775c6c739561315eebe87c207c3244f0dab2c4a42660acd06cb2",
+      "source/manifest.json": "3fc386adb04fcbffe60bad979b2b0d53085c013bdbc63a6a905af3e6a568a633",
+      "source/copy-de.json": "c277661822e2d40670c0821ebd012c6823fd411de7dd4d3c50ed3045e024701e",
+      "frames/frames.json": "84e4b5fc52d4dd7e00f91c4c7b9fb56f7ccc5a119b0f4cd351a8199efab72a8b"
+    }
+  },
+  "kadry": {
+    "pikselnaja_sverka": [
+      "GA-15_menu_light_390x844.png",
+      "GA-15_menu_dark_390x844.png",
+      "GA-15_menu_light_393x852.png",
+      "GA-15_menu_dark_393x852.png",
+      "GA-16_menu_light_390x844.png",
+      "GA-16_menu_dark_390x844.png",
+      "GA-16_menu_light_393x852.png",
+      "GA-16_menu_dark_393x852.png"
+    ],
+    "snimok_bez_sverki": [
+      "GA-01_normal_light_390x844.png",
+      "GA-01_normal_dark_390x844.png",
+      "GA-01_normal_light_393x852.png",
+      "GA-01_normal_dark_393x852.png"
+    ],
+    "sha256": {
+      "GA-01_normal_dark_390x844.png": "4f286ac1421bb321459a899414b87d7890d38b0dde723e18ec0ad4a2774568c1",
+      "GA-01_normal_dark_393x852.png": "feafee320131b9ae5e331e60a69506169f94ce7d88b06ec8d07c013128248e59",
+      "GA-01_normal_light_390x844.png": "80990949bcef238cdfa4a1fa27750e40777301af574e3fb672fc26cacd63d12f",
+      "GA-01_normal_light_393x852.png": "fd76378a2ea8d56e868bf80f89b5238f33c75b2462be60ec2d3da546aaef073f",
+      "GA-15_menu_dark_390x844.png": "dc6c17ace2bd2fda4f6dd2f6fb1965ec2c889d70823142476bf5d8f5c5789423",
+      "GA-15_menu_dark_393x852.png": "c2f38f19976f08fafae5b578580cae873bf87f6d56955893989d98ec73b86914",
+      "GA-15_menu_light_390x844.png": "23c59636441ef2f667d187f335925e6bfbcd10787024c2e7c876277cbc1117a1",
+      "GA-15_menu_light_393x852.png": "a63edc1f99dc6a62681a11c6a74e677f97e6dd784ac0b81fcb95ae4ce0f51f2a",
+      "GA-16_menu_dark_390x844.png": "f89f6761a50c8e47e61b5e28585dd4c89562a9dfa5a991ababb015fe88a7359a",
+      "GA-16_menu_dark_393x852.png": "9f6df86f8420fa38824136e0626b61aec1ff4044a14b957d4e23f1af4812d350",
+      "GA-16_menu_light_390x844.png": "0f0cc760cc4bb6f1435e6c5131c407068110040c076af42901f7553e0df407c7",
+      "GA-16_menu_light_393x852.png": "cd32e0e8eb78c805f6747a302eea919870d848bab51f60e62b4080b111bda9bf"
+    },
+    "maski": {"profil_390": {"chrome_verh_pt": 36}, "profil_393": {"chrome_verh_pt": 48}},
+    "ga01_vne_sverki": "GA-01 исключён из пиксельной сверки ни на одном профиле/теме (слово владельца 2026-10-31: новый Start D 2.4 — отдельный предмет; живой замер существующего Start против GA-01 1.1 — 0.326/0.299); снимок GA-01 остаётся в флоу, свежесть файла судится"
+  },
+  "tokeny": {
+    "istochnik": "source/tokens.json пакета D24-Kompakt-1.1 (пин выше); продукт читает их через mobile/src/theme/ (владелец файла — экран 148), литерал числа в месте, где грамматика требует чтения токена, — нарушение (связь, не совпадение числа)",
+    "znachenija": {
+      "nav.height": "49px",
+      "nav.item.min-height": "48px",
+      "nav.label.font-size": "10px",
+      "nav.label.line-height": "12px",
+      "nav.icon": "20px",
+      "touch-target.min": "44px",
+      "typography.body.fontSize": "15px",
+      "typography.body.lineHeight": "21px",
+      "motion-fast": "150ms",
+      "motion-base": "250ms",
+      "motion-stagger-tight": "30ms",
+      "motion-morph": "450ms",
+      "ease-morph": "cubic-bezier(0.32, 0.72, 0, 1)",
+      "press-long": "500ms"
+    },
+    "proizvodnye": {
+      "menu_chitaetsja_k_ms": 300,
+      "formula": "5×motion-stagger-tight + motion-fast = 5×30 + 150 = 300; «Sprechen» — пилюля 1 (наименьшая задержка)"
+    }
+  },
+  "avd": {
+    "porjadok": "последовательный: кадры 390 → остановка 390 с ПОДТВЕРЖДЕНИЕМ ухода (adb devices; emu kill с rc 0 ещё не остановка; исчерпание ожидания 60 с — ненулевой rc с различимой причиной, 393 НЕ запущен) → запуск 393 → кадры 393; не более двух живых AVD; запуск 393 при живом 390 запрещён",
+    "port_390": 5572,
+    "port_393": 5574
+  },
+  "kopija_kljuchi": {
+    "vkladki": {"Start": "ia115.nav.START", "Vorgänge": "ia117.nav.VORGAENGE", "Schutz": "ia115.nav.SCHUTZ", "Post": "ia115.nav.POST"},
+    "piljuli": {"Sprechen": "ia115.entry.speak", "Schreiben": "ia115.entry.write", "Foto": "ia115.entry.photo", "Brief / Dokument": "ia115.entry.document"},
+    "vtoraja_stroka_sprechen": "proposed.gespraech.menu.hold (oder Taste gedrückt halten)",
+    "vopros_menu": "frame.F04.07.title (Wie möchten Sie beginnen?)",
+    "podpis_menu": "proposed.gespraech.menu.body (Sie können jederzeit wechseln.)",
+    "vopros_menu_vorgang": "proposed.gespraech.menu.continue.title (Wie möchten Sie weitermachen?)",
+    "podpis_menu_vorgang": "proposed.gespraech.menu.or_new (Oder etwas Neues beginnen)",
+    "ansehen": "proposed.gespraech.view (Ansehen)",
+    "zakrytie_a11y": "common.close (Schließen); видимый знак — «×»",
+    "vorgaenge_ansehen_a11y": "ui.mission.open_plural (Vorgänge ansehen); видимая подпись строки — «Vorgänge»",
+    "mitte_a11y": "proposed.gespraech.tab (Gespräch) / proposed.gespraech.tab.a11y.status (Gespräch mit Complior – {status})",
+    "profil_a11y": "proposed.kompakt.header.profile.a11y (Profil und Einstellungen)"
+  },
+  "zony_dizajna_hw_hh": {
+    "istochnik": "source/manifest.json пакета 1.1 (пин выше), touch_targets экранов GA-01/GA-15/GA-16; видимый размер < 44 при зоне ≥ 44 находкой не является (слово владельца 2026-11-02)",
+    "vkladki_390": "78×48 (все пять, включая Mitte-слот)",
+    "vkladki_393": "79×48",
+    "profil": "44×44 (оба профиля)",
+    "vorgaenge_ansehen_390": "318×48; 393: 321×48",
+    "piljuli": "320×52 (оба профиля, все четыре)",
+    "zakrytie": "48×48 (оба профиля)",
+    "ansehen_390": "карта ждущего Vorgang 320×72 (кнопка «Ansehen» внутри); 393: 320×72"
+  }
+}
