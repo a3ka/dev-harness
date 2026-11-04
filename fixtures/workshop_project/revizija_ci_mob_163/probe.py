@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import re
 
 import yaml
 
@@ -43,6 +44,39 @@ def exception_keys(text):
 
 def digest(key):
     return hashlib.sha256(key.encode()).hexdigest()
+
+
+def lane_routes(root, scripts):
+    failures = []
+    for name in ('mobile.yml', 'mobile-cloud-e2e.yml'):
+        path = root / '.github/workflows' / name
+        if not path.is_file():
+            failures.append(f'NET_WORKFLOW_{name}')
+            continue
+        try:
+            workflow = yaml.load(path.read_text(), Loader=yaml.BaseLoader)
+            steps = list(steps_in(workflow))
+        except (OSError, TypeError, ValueError, yaml.YAMLError):
+            failures.append(f'NECHITAEMYJ_WORKFLOW_{name}')
+            continue
+        found = False
+        for step in steps:
+            run = step.get('run', '')
+            if not isinstance(run, str):
+                continue
+            # The route is an exact, one-line workflow command, not parity's
+            # equivalence between an npm script's value and a direct invocation.
+            if not (re.search(r'\bnpm\s+(?:run|run-script)\s+ci:[a-z][a-z0-9-]*', run) or
+                    'run-mobile-ci.cjs' in run or
+                    run in (value for key, value in scripts.items() if key.startswith('ci:'))):
+                continue
+            found = True
+            match = re.fullmatch(r'npm run (ci:[a-z][a-z0-9-]*)', run)
+            if match is None or match.group(1) not in scripts:
+                failures.append(f'NPM_MARSHRUT_{name}: {run!r}')
+        if not found:
+            failures.append(f'NET_LANE_V_WORKFLOW_{name}')
+    return failures
 
 
 def acceptance(root, baseline, golden, allowed):
@@ -82,6 +116,7 @@ def acceptance(root, baseline, golden, allowed):
     except OSError:
         failures.append('NET_ISKLIUCHENIJ')
     result = command(['bash', str(PARITY), str(root)], root)
+    failures.extend(lane_routes(root, scripts))
     if result.returncode:
         failures.append(f'PARITET_RC_{result.returncode}: ' + (result.stderr.strip().splitlines()[-1] if result.stderr.strip() else 'без вывода'))
     return failures
@@ -91,14 +126,29 @@ def run_model(root, golden, model_allowed):
     failures = acceptance(root, MODEL, golden, model_allowed)
     if failures:
         return failures
-    for lane, expected in [('quality', '143'), ('e2e-splash', '117')]:
-        with tempfile.TemporaryDirectory(prefix='ci163-marker-') as marker_dir:
-            marker = Path(marker_dir) / 'visited'
-            result = command(['npm', 'run', f'ci:{lane}'], root,
-                             env={**os.environ, 'CI163_MARKER': str(marker)})
-            observed = marker.read_text().splitlines() if marker.exists() else []
-            if result.returncode or observed != [expected]:
-                failures.append(f'BATAREJA_NE_VYZVANA_{lane}: rc={result.returncode} marker={observed}')
+    with tempfile.TemporaryDirectory(prefix='ci163-maestro-') as tools:
+        maestro = Path(tools) / 'maestro'
+        maestro.write_text('#!/bin/sh\nprintf "%s\\n" "${CI163_MAESTRO_VERSION:-2.11.0}"\n')
+        maestro.chmod(0o755)
+        env = {**os.environ, 'PATH': tools + os.pathsep + os.environ['PATH']}
+        for lane, expected in [('quality', '143'), ('e2e-splash', '117'),
+                               ('e2e-cloud', '991')]:
+            with tempfile.TemporaryDirectory(prefix='ci163-marker-') as marker_dir:
+                marker = Path(marker_dir) / 'visited'
+                result = command(['npm', 'run', f'ci:{lane}'], root,
+                                 env={**env, 'CI163_MARKER': str(marker)})
+                observed = marker.read_text().splitlines() if marker.exists() else []
+                if result.returncode or observed != [expected]:
+                    failures.append(f'BATAREJA_NE_VYZVANA_{lane}: rc={result.returncode} marker={observed}')
+        for lane in ('e2e-splash', 'e2e-cloud'):
+            with tempfile.TemporaryDirectory(prefix='ci163-marker-') as marker_dir:
+                marker = Path(marker_dir) / 'visited'
+                result = command(['npm', 'run', f'ci:{lane}'], root,
+                                 env={**env, 'CI163_MARKER': str(marker),
+                                      'CI163_MAESTRO_VERSION': '2.10.0'})
+                if (result.returncode == 0 or marker.exists() or
+                        "MAESTRO_VERSION_MISMATCH: expected=2.11.0 actual='2.10.0'" not in result.stderr):
+                    failures.append(f'MAESTRO_VERSION_GATE_PROPUShCHEN_{lane}')
     return failures
 
 
@@ -114,6 +164,20 @@ def mutant(root, kind):
         with (root / 'config/ci_parity_exceptions.txt').open('a') as out:
             out.write('команда: echo ci = подготовка нового обходного шага вместо переноса содержимого в скрипт\n')
         workflow.write_text(workflow.read_text().replace('run: npm run ci:quality', 'run: echo ci'))
+    elif kind == 'direct-mobile':
+        workflow.write_text(workflow.read_text().replace(
+            'run: npm run ci:e2e-splash',
+            'run: node mobile/scripts/run-mobile-ci.cjs --lane e2e-splash'))
+    elif kind == 'direct-cloud':
+        cloud = root / '.github/workflows/mobile-cloud-e2e.yml'
+        cloud.write_text(cloud.read_text().replace(
+            'run: npm run ci:e2e-cloud',
+            'run: node mobile/scripts/run-mobile-ci.cjs --lane e2e-cloud'))
+    elif kind in ('no-version-mobile', 'no-version-cloud'):
+        lane = 'e2e-splash' if kind == 'no-version-mobile' else 'e2e-cloud'
+        path = root / f'mobile/scripts/ci-{lane}.sh'
+        path.write_text(path.read_text().replace(
+            'bash mobile/scripts/ci-maestro-version.sh\n', ''))
     elif kind == 'rewritten-123':
         workflow.write_text(workflow.read_text().replace('set -o pipefail', 'set +o pipefail'))
 
@@ -164,7 +228,11 @@ def main():
                 'battery-omitted': 'BATAREJA_NE_VYZVANA_e2e-splash',
                 'deleted-debt-only': 'PARITET_RC_1',
                 'new-exception': 'NOVOE_ISKLIUCHENIE',
-                'rewritten-123': 'SVERKA_123_IZMENENA'}
+                'rewritten-123': 'SVERKA_123_IZMENENA',
+                'direct-mobile': 'NPM_MARSHRUT_mobile.yml',
+                'direct-cloud': 'NPM_MARSHRUT_mobile-cloud-e2e.yml',
+                'no-version-mobile': 'MAESTRO_VERSION_GATE_PROPUShCHEN_e2e-splash',
+                'no-version-cloud': 'MAESTRO_VERSION_GATE_PROPUShCHEN_e2e-cloud'}
     for name, reason in expected.items():
         with tempfile.TemporaryDirectory(prefix='ci163-stab-') as temporary:
             target = Path(temporary) / 'model'

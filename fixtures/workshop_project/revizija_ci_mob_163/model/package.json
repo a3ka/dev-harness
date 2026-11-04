@@ -1,1 +1,1 @@
-{"name":"ci-163-model","private":true,"scripts":{"ci:quality":"node mobile/scripts/run-mobile-ci.cjs --lane quality","ci:e2e-splash":"node mobile/scripts/run-mobile-ci.cjs --lane e2e-splash"}}
+{"name":"ci-163-model","private":true,"scripts":{"ci:quality":"node mobile/scripts/run-mobile-ci.cjs --lane quality","ci:e2e-splash":"node mobile/scripts/run-mobile-ci.cjs --lane e2e-splash","ci:e2e-cloud":"node mobile/scripts/run-mobile-ci.cjs --lane e2e-cloud"}}
