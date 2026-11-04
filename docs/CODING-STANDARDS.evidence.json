@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "profile": "architecture",
+  "document_date": "2026-11-04",
+  "scenarios": [],
+  "components": [
+    {
+      "id": "Стандарт",
+      "boundary": "docs/CODING-STANDARDS.md §§1–16, байты закреплены пином sha256 b32fb106a50d7803521a9e8811d17a3f6034ed31ede09622c5f1976e5464a436 в КОНТЕКСТЕ контракта харнесса 162 (python3 mobile/scripts/check-context-sources.py → CITATIONS OK count=5); текст принимает PR продукта #158, эта поставка его не меняет; приоритет источников — §1"
+    },
+    {
+      "id": "Структура",
+      "boundary": "STRUCTURE.md + mobile/structure-policy.json: куда класть код и границы слоёв; стандарт их не дублирует (§1 п.3); две правки STRUCTURE.md (строки 68 и 166 — генерация API-типов сегодня выписана вручную) приняты из PR #158 без изменений"
+    },
+    {
+      "id": "Код",
+      "boundary": "ОТСЛЕЖИВАЕМЫЕ git-файлы кода, тестов и сценариев продукта (mobile/src, mobile/.maestro, mobile/ci-screens.json), названные в колонке «путь-или-глоб» таблицы mobile/scripts/coding-standards-claims.tsv; неотслеживаемая копия и цитата в самом стандарте носителем не являются; объявленные долги — только строки ЦЕЛЬ (код не соответствует: …), чинятся не под этим номером"
+    },
+    {
+      "id": "Конфиг",
+      "boundary": "ОТСЛЕЖИВАЕМЫЕ конфигурации-носители: mobile/eslint.config.js, mobile/tsconfig.json, mobile/package.json, mobile/metro.config.js, mobile/jest.config.js, mobile/jest.setup.ts, mobile/scripts/check-structure.cjs, AGENTS.md, .github/workflows/mobile.yml, docs/ux/05_Kompakt_D24/source/tokens.json; новой lint-политики поставка не вводит"
+    },
+    {
+      "id": "Сверка",
+      "boundary": "mobile/scripts/verify-coding-standards.sh + mobile/scripts/coding-standards-claims.tsv (шесть TAB-полей: id, раздел, дословная формулировка, тип, носитель, шаблон; 123 утверждения: exists 18, grep 89, grep-none 6, json 4, goal 6) и mobile/scripts/check-coding-standards-context.sh (строка contextPack docs/CODING-STANDARDS.md у ролей architect, implementer, reviewer, adversary); двусторонность — по ОБЪЯВЛЕННОМУ множеству таблицы, полноту смысловых норм §§1–16 судит независимый ревьюер"
+    }
+  ],
+  "links": [
+    {
+      "id": "Стандарт-к-носителю",
+      "from": "Стандарт",
+      "to": "Код",
+      "contract": "Формулировка-в-непустой-строке-своей-секции-и-проверка-на-носителе"
+    },
+    {
+      "id": "Носитель-к-правилу",
+      "from": "Код",
+      "to": "Стандарт",
+      "contract": "Раздел-и-дословная-формулировка-правила-в-строке-таблицы"
+    },
+    {
+      "id": "Скрипт-к-таблице",
+      "from": "Сверка",
+      "to": "Стандарт",
+      "contract": "Шесть-TAB-полей-и-ненулевая-выборка"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "Приоритет",
+      "state": "accepted",
+      "source": "docs/CODING-STANDARDS.md §1: контракт задачи → AGENTS.md → STRUCTURE.md + structure-policy.json → mobile/AGENTS.md → этот стандарт"
+    },
+    {
+      "id": "Цель-не-реализация",
+      "state": "accepted",
+      "source": "contracts/162-standart-koda-mob.md §Предмет: стандарт описывает текущие нормы и явные долги «ЦЕЛЬ (код не соответствует: …)», долги не чинятся под этим номером"
+    },
+    {
+      "id": "Трекаемая-сверка",
+      "state": "accepted",
+      "source": "contracts/162-standart-koda-mob.md Инвариант 3: checker и таблица — отслеживаемые файлы mobile/scripts/, scratch tmp/ носителем не служит"
+    }
+  ],
+  "failures": [
+    {
+      "id": "Правило-без-носителя",
+      "result": "строка таблицы с пустым путём или пустым шаблоном носителя и без объявленной цели: bash mobile/scripts/verify-coding-standards.sh → rc 1, «правило без носителя: id=<id>»; пустой или невозможный носитель никогда не зелёный"
+    },
+    {
+      "id": "Носитель-без-правила",
+      "result": "объявленный носитель, формулировки которого нет в непустой строке своей секции «## N.» стандарта (в том числе формулировка из чужого раздела): rc 1, «носитель без правила: <путь>» с id; неотслеживаемая git-копия носителем не считается"
+    },
+    {
+      "id": "Пустая-выборка",
+      "result": "таблица без утверждений или пустой глоб носителя: rc 1, «пустая выборка» / «пустой глоб» с именем id; отсутствие таблицы или стандарта — rc 2 «нечем проверить»; rc 0 на нулевом числе утверждений невозможен"
+    }
+  ],
+  "questions": [],
+  "assertions": [],
+  "evidence": []
+}

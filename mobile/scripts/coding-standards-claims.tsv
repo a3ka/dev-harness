@@ -1,0 +1,124 @@
+id	раздел	утверждение	тип	путь-или-глоб	шаблон
+c01	1	`AGENTS.md` (корень) — источники истины, данные, окружение, как работаем	grep	AGENTS.md	## Источники истины и их приоритет
+c02	1	Если правило здесь молчит — действует STRUCTURE.md.	grep	STRUCTURE.md	Статус: действует
+c03	1	`STRUCTURE.md` + `mobile/structure-policy.json` — куда класть код	exists	mobile/structure-policy.json	-
+c04	1	контекст агентов (`docs/context/CONTEXT-POLICY.md`)	exists	docs/context/CONTEXT-POLICY.md	-
+c05	2	`features/<домен>` не импортирует другой домен (включая `import type`/реэкспорт)	grep	mobile/eslint.config.js	Cross-feature import
+c06	2	`features` не импортирует `app`/`bootstrap`	grep	mobile/eslint.config.js	Features cannot import the composition root
+c07	2	`app`/`features` не импортируют `api/http` — только инъектированный ApiClient	grep	mobile/eslint.config.js	Use the injected ApiClient, not HTTP transport
+c08	2	нижние слои (`api`, `auth`, `ui`, `theme`, `lib`, `i18n`, `analytics`, `navigation`, `mocks`) не зависят от экранов/composition	grep	mobile/eslint.config.js	Lower layers cannot depend on screens
+c09	2	`ui` — props-only (без `api`/`auth`/`analytics`)	grep	mobile/eslint.config.js	UI is props-only
+c10	2	`api` принимает credentials портом	grep	mobile/eslint.config.js	API accepts credentials through a port
+c11	2	`theme`/`lib`/`i18n` не зависят от верхних слоёв	grep	mobile/eslint.config.js	Foundation must not depend on upper layers
+c12	2	production-код не импортирует `src/mocks`	grep	mobile/eslint.config.js	Runtime mocks are isolated
+c13	2	не импортирует `src/mocks` и тесты	grep	mobile/eslint.config.js	Production source cannot import test code
+c14	2	технические папки только из `featureFolders` (`components`, `hooks`, `model`, `adapters`, `__tests__`)	json	mobile/structure-policy.json	.featureFolders=components,hooks,model,adapters,__tests__
+c15	2	проверяет `node scripts/check-structure.cjs` (входит в `npm run lint`)	grep	mobile/scripts/check-structure.cjs	file outside allowed location/type
+c16	2	Не создавать `screens/`, `services/`, `shared/`, `utils/`, второй `app/`	grep	STRUCTURE.md	screens/
+c17	2	и в `features/onboarding/`	exists	mobile/src/features/onboarding/erstinformation-artboard.ts	-
+c18	2	`artboard.ts` есть и в `features/auth/`	exists	mobile/src/features/auth/artboard.ts	-
+c19	2	`start-section-host.tsx` получает `missions` через props	grep	mobile/src/features/start/start-section-host.tsx	readonly missions
+c20	2	route-wrapper реэкспортирует готовый экран (`app/index.tsx`)	grep	mobile/src/app/index.tsx	import \{ PilotApp \}
+c21	3	`export default` — только маршруты `src/app/`	grep	mobile/src/app/**	export default function
+c22	3	Именованные экспорты везде	grep-none	mobile/src/{api,auth,bootstrap,features,i18n,lib,mocks,navigation,theme,ui}/**	export default
+c23	3	Модуль без маршрута default-экспорта не имеет (`app/onboarding-session.tsx`)	exists	mobile/src/app/onboarding-session.tsx	-
+c24	3	**`.json`** — данные (импортируется с расширением)	grep	mobile/src/mocks/runtime.ts	pilot-responses\.json
+c25	3	двух канон-артефактов батареи 145: `src/lib/faden/__tests__/faden-{motion.test.ts,sign.test.tsx}`	grep	mobile/src/lib/faden/__tests__	from '\.\./faden-motion\.ts'
+c26	3	Путь импорта — без расширения (кроме `.json` и двух канон-артефактов	grep	mobile/tsconfig.json	faden-motion\.test\.ts
+c27	3	`lib/faden/index.ts`	exists	mobile/src/lib/faden/index.ts	-
+c28	3	`lib/otdacha/index.ts`	exists	mobile/src/lib/otdacha/index.ts	-
+c29	3	`api/api-client.ts` (ApiClient)	exists	mobile/src/api/api-client.ts	-
+c30	3	**`.d.ts`** — швы-объявления (`bootstrap/runtime-contract.d.ts`)	exists	mobile/src/bootstrap/runtime-contract.d.ts	-
+c31	4	Файлы/каталоги | `kebab-case` | `start-section-host.tsx`	exists	mobile/src/features/start/start-section-host.tsx	-
+c32	4	Компоненты | `PascalCase` | `Button`	grep	mobile/src/ui/button.tsx	export const Button
+c33	4	Хуки | `use*` | `useTheme`	grep	mobile/src/theme/context.ts	export function useTheme
+c34	4	Константы-литералы | `UPPER_SNAKE_CASE` | `TAB_ORDER`	grep	mobile/src/theme/tokens.ts	export const TAB_ORDER
+c35	4	Экспортируемые проекции значений | `camelCase` (API-поверхность, не литерал) | `themeTokens`	grep	mobile/src/theme/tokens.ts	export const themeTokens
+c36	4	`PILOT_DEMO_CODE`	grep	mobile/src/mocks/demo-code.ts	PILOT_DEMO_CODE = 'synthetic-verification-value'
+c37	4	`HAPTIC_SCENES`	grep	mobile/src/lib/otdacha/haptics-map.ts	export const HAPTIC_SCENES
+c38	4	snake_case testID пачек (`erstinfo_*`, `f03_01_email`)	grep	mobile/src/features/onboarding/**	testID="erstinfo_
+c39	4	Сценарии Maestro | `cmp-mob-NNN-<scenario>.yaml` | `cmp-mob-004-start.yaml`	exists	mobile/.maestro/cmp-mob-004-start.yaml	-
+c40	4	Имя файла компонента повторяет каталог-слайс: `ui/agent-presence/agent-presence.tsx`	exists	mobile/src/ui/agent-presence/agent-presence.tsx	-
+c41	5	TypeScript **strict** (`tsconfig.json` `compilerOptions.strict=true`	json	mobile/tsconfig.json	.compilerOptions.strict=true
+c42	5	Алиасы: `@/* → src/*`	grep	mobile/tsconfig.json	@/\*
+c43	5	union-литералы (`type UiState = 'CALM' | 'INPUT' | 'LISTENING'`)	grep	mobile/src/features/start/start-screen.tsx	'CALM' \| 'INPUT' \| 'LISTENING'
+c44	5	`unknown` + предикат на границе (`isSessionPayload` в `app/onboarding-session.tsx`)	grep	mobile/src/app/onboarding-session.tsx	function isSessionPayload
+c45	5	`any` не вводить	grep-none	mobile/src/**	as any|: any\b
+c46	5	`noInlineConfig: true` — **inline `eslint-disable` запрещены**	grep	mobile/eslint.config.js	noInlineConfig
+c47	5	Порог: `eslint . --max-warnings=0`	grep	mobile/package.json	max-warnings=0
+c48	5	запрет сети вне `api/http`	grep	mobile/eslint.config.js	no-restricted-globals
+c50	5	`console.*` в production-файлах не используется (единственный случай — отладочные логи одного теста)	grep	mobile/src/bootstrap/__tests__/erstinformation-demo-path.test.tsx	console\.log
+c51	5	Литеральные словари — `as const`	grep	mobile/src/features/auth/auth-screen.tsx	\} as const
+c52	6	Переиспользуемые примитивы — `React.memo`	grep	mobile/src/ui/button.tsx	React\.memo
+c53	6	поля `readonly`	grep	mobile/src/ui/button.tsx	readonly label
+c54	6	`TabShellProps.startScreen` (слот Start)	grep	mobile/src/bootstrap/tab-shell.tsx	startScreen
+c55	6	`Notice` принимает `children`	grep	mobile/src/ui/notice.tsx	children
+c56	6	(`useKeyboardTop` в `auth-screen.tsx`)	grep	mobile/src/features/auth/auth-screen.tsx	function useKeyboardTop
+c57	6	`useSystemReduceMotion` — `bootstrap/tab-shell.tsx`, без копий	grep	mobile/src/bootstrap/tab-shell.tsx	export function useSystemReduceMotion
+c58	6	`type Frame = 'first-run' | 'email' | 'code' | …` в `pilot-app.tsx`	grep	mobile/src/bootstrap/pilot-app.tsx	type Frame =
+c59	7	Тема — React-контекст: провайдер наполняется явной парой `(scheme, tokens)`	grep	mobile/src/theme/context.ts	createContext
+c60	7	`ThemeContext.Provider` в `TabShell`	grep	mobile/src/bootstrap/tab-shell.tsx	ThemeContext.Provider
+c61	7	чтение палитры — только `useTheme()`	grep	mobile/src/ui/button.tsx	useTheme\(\)
+c62	7	Глобальных стор-библиотек нет и не вводится	grep-none	mobile/package.json	redux|zustand|mobx
+c63	7	Персистенция запрещена	grep-none	mobile/src/**	AsyncStorage|MMKV
+c64	7	Мутабельный модульный сценарий допустим только в `mocks/` (`setScenario` в `start-mock.ts`)	grep	mobile/src/mocks/start-mock.ts	export function setScenario
+c65	7	черновик композера — в route-файле выше слота	grep	mobile/src/app/**	composerValue
+c66	8	`src/api/api-client.ts` (`getSession`, `getDisclosure`, `listMissions`)	grep	mobile/src/api/api-client.ts	listMissions
+c67	8	типы wire — только из `src/api/generated/api-5_8.ts`	exists	mobile/src/api/generated/api-5_8.ts	-
+c68	8	Метода `execute` намеренно нет	grep-none	mobile/src/api/api-client.ts	execute\(
+c69	8	`metro.config.js` `resolver.resolveRequest`	grep	mobile/metro.config.js	resolveRequest
+c70	8	`jest.config.js` `moduleNameMapper`	grep	mobile/jest.config.js	moduleNameMapper
+c71	8	Неподдерживаемое значение режима — ошибка на старте	grep	mobile/src/mocks/runtime.ts	PILOT_API_MODE_UNSUPPORTED
+c72	8	`PILOT_API_MODE_UNSUPPORTED` в обоих рантаймах	grep	mobile/src/bootstrap/http-runtime.ts	PILOT_API_MODE_UNSUPPORTED
+c74	8	production не импортирует `@/mocks`	grep	mobile/eslint.config.js	\./src/mocks
+c75	8	«We MUST NOT fake success» (`bootstrap/http-runtime.ts`)	grep	mobile/src/bootstrap/http-runtime.ts	We MUST NOT fake success
+c76	8	именованный отказ `PILOT_HTTP_UNAVAILABLE`	grep	mobile/src/bootstrap/http-runtime.ts	PILOT_HTTP_UNAVAILABLE
+c77	8	Demo-AuthProvider живёт в `mocks/runtime.ts`, не в `src/auth/`	grep	mobile/src/mocks/runtime.ts	demoAuthProvider
+c78	9	`auth-unavailable` — `accessibilityRole="alert"`	grep	mobile/src/features/auth/auth-screen.tsx	accessibilityRole="alert"
+c79	9	пустой Start показывает присутствие агента и **один** композер	grep	mobile/src/features/start/start-screen.tsx	ОДИН композер
+c80	9	`missions=null` → безопасный fallback	grep	mobile/src/features/start/start-section-host.tsx	readonly MissionBrief\[\] \| null
+c81	9	Сообщения — `Notice`/кадр с ролью `alert`	grep	mobile/src/ui/notice.tsx	accessibilityRole="alert"
+c82	10	`theme/tokens.ts` (8 базовых D2.2.5.1: ground/ink/panel/card/on-card/primary/on-primary/accent, dark+light)	grep	mobile/src/theme/tokens.ts	'on-primary'
+c83	10	Порядок вкладок — `TAB_ORDER` в `theme/tokens.ts`	grep	mobile/src/theme/tokens.ts	TAB_ORDER
+c84	10	движение (`theme/motion-tokens.ts`, `lib/faden/faden-motion.ts` — дословный порт дизайнера)	grep	mobile/src/theme/motion-tokens.ts	export const MOTION_TOKENS
+c85	10	`features/auth/auth-tokens.ts`	exists	mobile/src/features/auth/auth-tokens.ts	-
+c86	10	с картой `CSS_TOKENS`	grep	mobile/src/features/onboarding/erstinformation-tokens.ts	CSS_TOKENS
+c87	10	прецедент `__tests__/erstinformation-colors.test.tsx`	exists	mobile/src/features/onboarding/__tests__/erstinformation-colors.test.tsx	-
+c88	10	(`touch-target.min=44px`)	json	docs/ux/05_Kompakt_D24/source/tokens.json	.touch-target.min.$value=44px
+c89	10	Раскладка макетных экранов — по артборду 390×844	grep	mobile/src/features/auth/artboard.ts	ARTBOARD_WIDTH = 390
+c90	10	(`useArtboard`), координаты из манифеста кадров	grep	mobile/src/features/onboarding/erstinformation-artboard.ts	export function useArtboard
+c91	11	синхронно с `accessibilityState={{ disabled }}` (`ui/button.tsx`)	grep	mobile/src/ui/button.tsx	accessibilityState=\{\{ disabled \}\}
+c92	11	(`tablist` — `tab-shell.tsx`)	grep	mobile/src/bootstrap/tab-shell.tsx	tablist
+c93	11	`accessibilityLabel` — из копии каталога, не сочиняется	grep	mobile/src/ui/conversation-composer/conversation-composer.tsx	accessibilityLabel=\{uiCopyDe
+c94	11	`testID` — на интерактивном хозяине (`Pressable`/`TextInput`), не на обёртке	grep	mobile/src/ui/button.tsx	testID=\{testID\}
+c95	12	(`uiCopyDe`: тексты и `review_status` verbatim из `BrokerOS_UI_Copy_DE.json`)	grep	mobile/src/i18n/ui-copy.ts	review_status
+c96	12	Ключи-карты для повторяющихся наборов: `TAB_LABEL_KEYS`, `SECTION_TITLE_KEYS`	grep	mobile/src/i18n/ui-copy.ts	TAB_LABEL_KEYS
+c97	12	обращение **Sie**	grep	mobile/src/i18n/ui-copy.ts	Sie
+c98	12	с меткой **PROPOSED**	grep	mobile/src/features/auth/auth-screen.tsx	PROPOSED
+c99	12	(`const COPY = {…} as const` в `auth-screen.tsx`)	grep	mobile/src/features/auth/auth-screen.tsx	const COPY =
+c100	13	`features/auth/__tests__/auth-code-input.test.tsx`	exists	mobile/src/features/auth/__tests__/auth-code-input.test.tsx	-
+c101	13	`npm run check` = test + lint + typecheck + doctor	grep	mobile/package.json	npm run test && npm run lint
+c102	13	**Jest/RNTL** (`jest-expo`, `@testing-library/react-native`;	json	mobile/package.json	.scripts.test=jest --ci --runInBand
+c103	13	`INVALID_CODE`, `RESEND_UNCONFIRMED` (`pilot.test.tsx`)	grep	mobile/src/bootstrap/__tests__/pilot.test.tsx	INVALID_CODE
+c104	13	`execute` порта теста бросает `BUSINESS_COMMAND_FORBIDDEN`	grep	mobile/src/bootstrap/__tests__/pilot.test.tsx	BUSINESS_COMMAND_FORBIDDEN
+c105	13	`jest.mock('expo-haptics')`	grep	mobile/src/lib/otdacha/__tests__/otdacha.test.ts	jest\.mock\('expo-haptics'
+c106	13	`jest.setup.ts` ставит кадровые часы rAF 16 мс	grep	mobile/jest.setup.ts	requestAnimationFrame
+c107	13	`appId: com.complior.mobile`	grep	mobile/.maestro/cmp-mob-004-start.yaml	com\.complior\.mobile
+c108	13	`assertVisible` по testID до действия	grep	mobile/.maestro/cmp-mob-004-start.yaml	assertVisible
+c109	13	`takeScreenshot` на значимых кадрах	grep	mobile/.maestro/cmp-mob-004-start.yaml	takeScreenshot
+c110	13	(`.maestro/config.yaml` исключает `erstinformation.yaml`)	grep	mobile/.maestro/config.yaml	erstinformation
+c111	13	`mobile/ci-screens.json`	exists	mobile/ci-screens.json	-
+c112	13	исторические `start.yaml`, `rehearsal.yaml` не переименовываются	exists	mobile/.maestro/start.yaml	-
+c113	14	**merge нажимает владелец**	grep	AGENTS.md	Merge нажимает владелец
+c114	14	обязательные проверки `quality` и `android-e2e`	grep	AGENTS.md	android-e2e
+c115	14	`quality` и `android-e2e`	grep	.github/workflows/mobile.yml	android-e2e
+c116	15	Fetch/`XMLHttpRequest`/`WebSocket`, `axios`/`ky`/`undici`/`expo/fetch` вне `src/api/http/`	grep	mobile/eslint.config.js	'fetch', 'XMLHttpRequest', 'WebSocket'
+c117	15	`import()` с неписаным путём	grep	mobile/eslint.config.js	ImportExpression\[source\.type!="Literal"\]
+g01	5	ЦЕЛЬ (код не соответствует): сквозные относительные импорты	goal	mobile/src/bootstrap/tab-shell.tsx, mobile/src/app/index.tsx, mobile/src/app/(tabs)/[section].tsx, mobile/src/app/onboarding-session.tsx, mobile/src/app/start-destination.tsx, mobile/src/bootstrap/pilot-app.tsx, mobile/src/features/start/start-screen.tsx, mobile/src/ui/*	from '\.\./
+g02	10	ЦЕЛЬ (код не соответствует): литеральные цвета вне токен-модулей	goal	mobile/src/bootstrap/pilot-app.tsx, mobile/src/features/auth/auth-screen.tsx, mobile/src/features/onboarding/welcome-screen.tsx	#[0-9A-Fa-f]{6}
+g03	10	Размерный ряд (spacing/radius/типографика) не спроецирован	goal	mobile/src/ui/button.tsx, mobile/src/ui/text-field.tsx	borderRadius: 999
+g04	12	ЦЕЛЬ (код не соответствует): `welcome-screen.tsx` дублирует текст каталога константой `COPY_BODY`	goal	mobile/src/features/onboarding/welcome-screen.tsx	COPY_BODY
+c118	8	Сегодня файл написан руками по `api/mock-5_8.json` (шапка: «minimal hand-written typings»)	grep	mobile/src/api/generated/api-5_8.ts	hand-written
+g05	13	ЦЕЛЬ (код не соответствует): `cmp-mob-004-start.yaml` — тапы	goal	mobile/.maestro/cmp-mob-004-start.yaml	tapOn
+g06	8	Переход на воспроизводимую генерацию из OpenAPI 5.8.2 — ЦЕЛЬ	goal	mobile/src/api/generated/api-5_8.ts	hand-written
+c119	12	текст юридического документа НЕ рендерится	grep-none	mobile/src/**	Datenschutzerklärung|Impressum|Widerrufsbelehrung|rechtshinweis
