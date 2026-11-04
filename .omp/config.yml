@@ -112,7 +112,6 @@ retry:
   fallbackChains:
     default: ["zai/glm-5.3"]
     vision: ["openai-codex/gpt-6-sol"]
-    task: ["anthropic/claude-sonnet-5-5"]
     advisor: ["anthropic/claude-opus-5-5"]
     plan: ["anthropic/claude-fable-5-1"]
   # ── /fallbackChains ──
