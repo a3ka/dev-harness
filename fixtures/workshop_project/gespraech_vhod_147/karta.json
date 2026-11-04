@@ -1,0 +1,110 @@
+{
+  "_meta": {
+    "kontrakt": "147-gespraech-vhod-menu",
+    "format": "карта целей экрана — грамматика SPEC.md §4 набора ekrannyj_nabor_158 (contracts/158-ekrannyj-nabor.md И-6/И-7)",
+    "paketa": "D24-Kompakt-1.1 (Complior-mob docs/ux/05_Kompakt_D24, коммит 9610dc4; пины — piny.json этой пачки)",
+    "sostojanija_kadrov": "start=GA-01 normal, menu=GA-15 menu, menu_vorgang=GA-16 menu"
+  },
+  "ekran": "gespraech-vhod-menu-147",
+  "istochnik": "Complior-mob mobile/src/features/conversation/ (реализация) + mobile/src/bootstrap/tab-shell.tsx (слот); зоны hw/hh — manifest.json пакета 1.1 (пин в piny.json)",
+  "profili": ["390", "393"],
+  "sostojanja": [
+    {"id": "start", "vhod": null, "kadr": "GA-01"},
+    {"id": "profil", "vhod": "shell-profile-entry", "kadr": null},
+    {"id": "menu", "vhod": "gespraech-mitte", "kadr": "GA-15"},
+    {"id": "menu_vorgang", "vhod": "gespraech-vorgaenge-ansehen", "kadr": "GA-16"}
+  ],
+  "tceli": [
+    {
+      "testID": "shell-tab-start",
+      "objazatelna": true,
+      "sostojanja": ["start"],
+      "nadpis": "Start",
+      "postuslovie": {"tip": "perehod", "znachenie": "section-start"}
+    },
+    {
+      "testID": "shell-tab-vorgaenge",
+      "objazatelna": true,
+      "sostojanja": ["start"],
+      "nadpis": "Vorgänge",
+      "postuslovie": {"tip": "perehod", "znachenie": "section-vorgaenge"}
+    },
+    {
+      "testID": "shell-tab-schutz",
+      "objazatelna": true,
+      "sostojanja": ["start"],
+      "nadpis": "Schutz",
+      "postuslovie": {"tip": "perehod", "znachenie": "section-schutz"}
+    },
+    {
+      "testID": "shell-tab-post",
+      "objazatelna": true,
+      "sostojanja": ["start"],
+      "nadpis": "Post",
+      "postuslovie": {"tip": "perehod", "znachenie": "section-post"}
+    },
+    {
+      "testID": "gespraech-mitte",
+      "objazatelna": true,
+      "sostojanja": ["start"],
+      "nadpis": null,
+      "postuslovie": {"tip": "perehod", "znachenie": "menu"}
+    },
+    {
+      "testID": "shell-profile-entry",
+      "objazatelna": true,
+      "sostojanja": ["start"],
+      "nadpis": null,
+      "postuslovie": {"tip": "perehod", "znachenie": "profile-surface"}
+    },
+    {
+      "testID": "gespraech-vorgaenge-ansehen",
+      "objazatelna": true,
+      "sostojanja": ["start"],
+      "nadpis": "Vorgänge",
+      "postuslovie": {"tip": "perehod", "znachenie": "menu_vorgang"}
+    },
+    {
+      "testID": "gespraech-menu-sprechen",
+      "objazatelna": true,
+      "sostojanja": ["menu", "menu_vorgang"],
+      "nadpis": "Sprechen",
+      "postuslovie": {"tip": "vyzov", "znachenie": "sprechen"}
+    },
+    {
+      "testID": "gespraech-menu-schreiben",
+      "objazatelna": true,
+      "sostojanja": ["menu", "menu_vorgang"],
+      "nadpis": "Schreiben",
+      "postuslovie": {"tip": "vyzov", "znachenie": "schreiben"}
+    },
+    {
+      "testID": "gespraech-menu-foto",
+      "objazatelna": true,
+      "sostojanja": ["menu", "menu_vorgang"],
+      "nadpis": "Foto",
+      "postuslovie": {"tip": "vyzov", "znachenie": "foto"}
+    },
+    {
+      "testID": "gespraech-menu-dokument",
+      "objazatelna": true,
+      "sostojanja": ["menu", "menu_vorgang"],
+      "nadpis": "Brief / Dokument",
+      "postuslovie": {"tip": "vyzov", "znachenie": "dokument"}
+    },
+    {
+      "testID": "gespraech-menu-close",
+      "objazatelna": true,
+      "sostojanja": ["menu", "menu_vorgang"],
+      "nadpis": "×",
+      "postuslovie": {"tip": "perehod", "znachenie": "start"}
+    },
+    {
+      "testID": "gespraech-menu-ansehen",
+      "objazatelna": true,
+      "sostojanja": ["menu_vorgang"],
+      "nadpis": "Ansehen",
+      "postuslovie": {"tip": "perehod", "znachenie": "section-vorgaenge"}
+    }
+  ]
+}
