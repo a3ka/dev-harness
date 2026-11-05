@@ -1,3 +1,10 @@
+## ГДЕ МЫ — НОЧНОЙ БЛОКЕР ДЕТЕКТОРА 05.11 01:47 UTC
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+
+- **ЖДЁТ ВЛАДЕЛЬЦА: legal detector route.** Steward read-only verdict: DEADLOCK. `check_no_leak --check` red; leak содержит `scripts/check_charter.sh`, который не входит в `git diff origin/main..HEAD`; local HANDOFF commits не предки `origin/main`. Поэтому `--retake-ahead` нарушает contract 056 step 6, `--retake-bulk` — contract 044 step 7в, manual snapshot ночью запрещён. Owner/consultant decision нужен до любого override. Рекомендация: не обходить. Утренние варианты: (1) механизмом чисто опубликовать HANDOFF и отдельно разрешить charter path; (2) убрать/revert leak source; (3) легитимно довести `scripts/check_charter.sh` в local diff; (4) явное emergency `РАЗРЕШИЛ-ВЛАДЕЛЕЦ` на override. До решения не push/exchange/freeze/land.
+- **PR #523.** После update-branch новый run `41950110715`: `check:charter` (ap4) и `legkij` green; на момент снимка pending только CI l1/l7. Merge только после полного green.
+
+
 ## ГДЕ МЫ — НОЧНОЙ UPDATE 05.11 01:45 UTC
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
 
