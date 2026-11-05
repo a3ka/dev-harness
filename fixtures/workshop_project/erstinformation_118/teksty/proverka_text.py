@@ -373,9 +373,8 @@ SROK_TEST_FAIL = 'mobile/src/bootstrap/__tests__/session-srok.test.tsx'
 # ассертов (лексические проверки SROK_TESTY_* гейтом не являются).
 SROK_TESTY_FORMA_SHA256 = \
     '489e11fb0ee02ed1864701f02202bfb3758721a8a70f6b5405b29ffb05e9ef5b'
-CI_MOBILE = '.github/workflows/mobile.yml'
-# Отчёт исполнения пишет шаг CI `npm test -- --json --outputFile=…`
-# (cwd mobile); относительный --jest-otchet разрешается от repo/mobile.
+# Отчёт исполнения пишет проверяемый same-run скрипт:
+# npm test -- --json --outputFile=… (cwd mobile), затем checker.
 JEST_OTCHET_OTNOSITELNYJ = 'e2e-erstinformation/jest-otchet.json'
 # 13 клеток пин-формы (А-3): 11 прежних + srok-mezhdu-render-continue;
 # srok-mezhdu-mount-dejstviem ПЕРЕОПРЕДЕЛЕНА как press БЕЗ ререндера на
@@ -447,14 +446,9 @@ def _sud_otchet(otchet_d):
 
 
 def sud_sroka(repo, otchet):
-    """(А-1 + А-2) Пин формы теста + судья исполнения. Токен-проверка
-    PROIZVODSTVO_BEZ_SROKA по подстроке СНЯТА как гейт (арбитраж 118 v2:
-    правильность крючка доказывают исполненные пин-клетки на настоящих
-    поверхностях, не лексика); отсутствие файла крючка — именованный
-    отказ. Судья исполнения НЕ запускает jest сам: отчёт пишет шаг
-    `npm test -- --json --outputFile=` ТОГО ЖЕ job ДО шага checker'а —
-    порядок судит sud_ci_sroka (единственная текстовая нога, остаток
-    назван в §НЕ ЗАЩИЩАЕТ контракта)."""
+    """Пин формы теста + судья исполнения по JSON-отчёту Jest.
+    Порядок и однократность запуска судит same-run script на исполнении,
+    а не поиск строк в mobile.yml. Отчёт сам по себе не аттестует запуск."""
     otkazy = []
     if not (repo / PROIZVODSTVENNYJ_KRJUCHOK).is_file():
         otkazy.append(('PROIZVODSTVO_BEZ_SROKA', PROIZVODSTVENNYJ_KRJUCHOK))
@@ -476,23 +470,6 @@ def sud_sroka(repo, otchet):
     return otkazy + _sud_otchet(otchet_d)
 
 
-def sud_ci_sroka(repo):
-    """(А-2, текстовая нога) mobile.yml несёт шаг npm test с
-    `--json --outputFile=` ДО шага checker'а с `--jest-otchet`; шаг
-    пропал или стоит после checker'а → CI_BEZ_OTCHETA_SROKA. Подделка
-    отчёта и перестановка шагов вне судьи — ловец в §НЕ ЗАЩИЩАЕТ."""
-    c = repo / CI_MOBILE
-    if not c.is_file():
-        return [('CI_BEZ_OTCHETA_SROKA', CI_MOBILE)]
-    stroki = c.read_text(encoding='utf-8').splitlines()
-    shag_jest = [i for i, l in enumerate(stroki)
-                 if '--json --outputFile=' in l and 'npm test' in l]
-    shag_checker = [i for i, l in enumerate(stroki) if '--jest-otchet' in l]
-    if not shag_jest or not shag_checker \
-            or min(shag_jest) > min(shag_checker):
-        return [('CI_BEZ_OTCHETA_SROKA',
-                 'нет npm test --json --outputFile= до шага --jest-otchet')]
-    return []
 
 
 # --- v2 круг 3 (Б-1/Б-2): байтовый судья данных — ровно один литерал -----
@@ -613,7 +590,6 @@ def main():
         otkazy.append(('MANIFEST_NE_16_KADROV', 'sostav'))
     otkazy += sud_flow(shagi, snimki) + sud_kompoziciju(repo)
     otkazy += sud_sroka(repo, a.jest_otchet)
-    otkazy += sud_ci_sroka(repo)
     otkazy += sud_odin_razreshennyj_kljuch(repo, harness)
     istochniki = [p for root in ISTOCHNIKI_EKRANA
                   for p in (repo / root).rglob('*')]

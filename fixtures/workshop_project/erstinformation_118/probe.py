@@ -35,9 +35,11 @@ stdout построчно, допуск dopusk_score на числа KADR), stab
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import struct
 import subprocess
+import runpy
 import sys
 import tempfile
 import zlib
@@ -160,6 +162,7 @@ def load_source():
         'teksty/session-srok.stand-in.tsx': 'srok_testy_tekst',
         'teksty/jest-otchet.stand-in.json': 'srok_otchet_tekst',
         'teksty/mobile-ci.stand-in.yml': 'ci_mobile_tekst',
+        'teksty/progon_sroka.stand-in.sh': 'skript_sroka_tekst',
     }
     for rel, key in carriers.items():
         if (HERE / rel).read_bytes() != src[key].encode('utf-8'):
@@ -218,6 +221,9 @@ def build_repo(src, tmp, pack):
     (ds / 'tokens.css').write_text(src['tokens_audit'], encoding='utf-8')
     pak = repo / 'mobile/e2e-erstinformation'
     pak.mkdir(parents=True)
+    # Same-run shell calls the checker with the production pack path.
+    for name in ('ekran.json', 'kadry.json'):
+        shutil.copyfile(pack / name, pak / name)
     (pak / 'katalog_kopii.json').write_text(
         json.dumps(src['katalog'], ensure_ascii=False, indent=1),
         encoding='utf-8')
@@ -286,6 +292,8 @@ def build_repo(src, tmp, pack):
     (repo / '.github/workflows').mkdir(parents=True)
     (repo / '.github/workflows/mobile.yml').write_text(
         src['ci_mobile_tekst'], encoding='utf-8')
+    (repo / 'mobile/e2e-erstinformation/batareja/progon_sroka.sh').write_text(
+        src['skript_sroka_tekst'], encoding='utf-8')
     (repo / 'mobile/e2e-erstinformation/jest-otchet.json').write_text(
         src['srok_otchet_tekst'], encoding='utf-8')
     # v2 круг 3 (Б-1/Б-2): носители демо-данных — БАЙТОВЫЕ копии эталонов
@@ -982,23 +990,36 @@ def mut_srok_testy_forma(pack, forma, repo, src):
                  encoding='utf-8')
 
 
-def mut_ci_bez_srok_testov(pack, forma, repo, src):
-    """CI больше не запускает jest с отчётом: шаг npm test --json снят."""
-    p = repo / '.github/workflows/mobile.yml'
+SKRIPT_SROKA = 'mobile/e2e-erstinformation/batareja/progon_sroka.sh'
+KOMANDA_JEST = ('npm test -- --json '
+                '--outputFile=e2e-erstinformation/jest-otchet.json')
+KOMANDA_CHECKER = ('python3 e2e-erstinformation/batareja/'
+                   'proverka_proiskhozdenija.py')
+
+
+def _pravka_skripta(repo, a, b):
+    p = repo / SKRIPT_SROKA
     t = p.read_text(encoding='utf-8')
-    t = t.replace('      - run: npm test -- --json'
-                  ' --outputFile=e2e-erstinformation/jest-otchet.json\n', '')
-    p.write_text(t, encoding='utf-8')
+    assert a in t
+    p.write_text(t.replace(a, b, 1), encoding='utf-8')
+
+
+def mut_ci_bez_srok_testov(pack, forma, repo, src):
+    """Jest не запускается: старый зелёный отчёт лежит на диске."""
+    _pravka_skripta(repo, KOMANDA_JEST, ': # jest пропущен')
 
 
 def mut_ci_bez_otcheta_sroka(pack, forma, repo, src):
-    """Шаг есть, но БЕЗ --json --outputFile (или после checker'а):
-    остаточная текстовая нога судит порядок шагов mobile.yml."""
-    p = repo / '.github/workflows/mobile.yml'
-    t = p.read_text(encoding='utf-8')
-    t = t.replace(' --json --outputFile=e2e-erstinformation/jest-otchet.json',
-                  '', 1)
-    p.write_text(t, encoding='utf-8')
+    """Checker вызван до Jest, а затем снова после Jest."""
+    _pravka_skripta(repo, KOMANDA_JEST,
+                    KOMANDA_CHECKER + ' --help >/dev/null; ' + KOMANDA_JEST)
+
+
+def mut_ci_staryj_otchet(pack, forma, repo, src):
+    """Убраны удаление старого отчёта и запуск Jest."""
+    _pravka_skripta(repo, 'rm -f e2e-erstinformation/jest-otchet.json\n',
+                    '')
+    _pravka_skripta(repo, KOMANDA_JEST, ': # старый JSON')
 
 
 # --- v2 круг 3 (А-2): мутанты ОТЧЁТА — судья исполнения ----------------------
@@ -1270,6 +1291,9 @@ MUTACII = {
     'srok-testy-forma': mut_srok_testy_forma,
     'ci-bez-srok-testov': mut_ci_bez_srok_testov,
     'ci-bez-otcheta-sroka': mut_ci_bez_otcheta_sroka,
+    'ci-script-odin-progon': None,
+    'ci-jest-neuspeh': None,
+    'ci-staryj-otchet': mut_ci_staryj_otchet,
     'srok-token-v-kommentarii': mut_srok_token_v_kommentarii,
     'srok-kletki-pending': mut_srok_kletki_pending,
     'srok-kletki-todo': mut_srok_kletki_todo,
@@ -1385,6 +1409,63 @@ FORMY_ZAPUSKA = {
 
 # --- суд входа ---------------------------------------------------------------
 
+def run_skript_sroka(subject, name, src, tmp, repo, harness):
+    """Execute the product shell carrier, observe actual child-process order.
+
+    A stale green report is preloaded. Its JSON is NOT an order oracle: fake
+    npm overwrites it only when the shell actually runs Jest in this invocation.
+    Events are held in the probe's temporary root, outside the product repo.
+    """
+    trace = tmp / 'events'
+    fakebin = tmp / 'bin'
+    fakebin.mkdir()
+    (fakebin / 'npm').write_text(
+        '#!/bin/sh\n'
+        'if [ "$*" != "test -- --json '
+        '--outputFile=e2e-erstinformation/jest-otchet.json" ]; '
+        'then exit 19; fi\n'
+        'printf "jest\\n" >> "$FIXTURE_TRACE"\n'
+        'if [ "$FIXTURE_FAIL_JEST" = 1 ]; then exit 17; fi\n'
+        'cp "$FIXTURE_REPORT" e2e-erstinformation/jest-otchet.json\n',
+        encoding='utf-8')
+    (fakebin / 'python3').write_text(
+        '#!/bin/sh\n'
+        'if [ "$1" != "e2e-erstinformation/batareja/'
+        'proverka_proiskhozdenija.py" ]; then exit 19; fi\n'
+        'printf "checker\\n" >> "$FIXTURE_TRACE"\n'
+        'exec "' + sys.executable + '" "$@"\n', encoding='utf-8')
+    for exe in ('npm', 'python3'):
+        (fakebin / exe).chmod(0o755)
+    env = os.environ.copy()
+    env.update({
+        'PATH': str(fakebin) + os.pathsep + env['PATH'],
+        'FIXTURE_TRACE': str(trace),
+        'FIXTURE_REPORT': str(HERE / 'teksty/jest-otchet.stand-in.json'),
+        'FIXTURE_FAIL_JEST': '1' if name == 'ci-jest-neuspeh' else '0',
+    })
+    p = subprocess.run(
+        ['bash', str(repo / SKRIPT_SROKA), str(repo), harness],
+        cwd=repo, env=env, capture_output=True, text=True)
+    events = trace.read_text(encoding='utf-8').splitlines() \
+        if trace.is_file() else []
+    if subject in (MODEL, SUBJECT):
+        if name == 'ci-jest-neuspeh' and events == ['jest'] and p.returncode:
+            reason = 'SROK_JEST_NE_USPEH\tchecker не запускается после отказа jest'
+        elif events and events[0] == 'checker' and 'jest' in events:
+            reason = 'SROK_JEST_POSLE_PROVERKI\tchecker запущен до jest'
+        elif not events or events[0] != 'jest':
+            reason = 'SROK_JEST_NE_V_TOM_ZAPUSKE\tjest до checker в одном прогоне'
+        elif events != ['jest', 'checker']:
+            reason = 'SROK_JEST_NE_V_TOM_ZAPUSKE\tjest до checker в одном прогоне'
+        else:
+            return p.returncode, p.stdout, p.stderr
+        return 1, '', 'PRICHINA\t' + reason + '\n'
+    # Addressed dishonest judge: use its actual verdict on the very same
+    # process events, not a prose-only stub or a different input.
+    verdict = runpy.run_path(str(subject))['verdict']
+    return (0, '', '') if verdict(events, p.returncode) else (1, '', '')
+
+
 def run_subject(subject, name, src):
     tmp = Path(tempfile.mkdtemp(prefix='ekran118-'))
     try:
@@ -1408,6 +1489,9 @@ def run_subject(subject, name, src):
         h_lokalnyj = repo.parent / 'harness'
         harness_arg = (str(h_lokalnyj) if h_lokalnyj.is_dir()
                        else str(H_ROOT))
+        if src['kejsy'][name].get('subekt') == 'skript':
+            return run_skript_sroka(subject, name, src, tmp, repo,
+                                    harness_arg)
         # v2 круг 3 (А-2): отчёт исполнения лежит в модели по пин-пути
         # (repo/mobile/e2e-erstinformation/jest-otchet.json) — checker
         # берёт его своей нормой по умолчанию, как живой CI берёт флагом
