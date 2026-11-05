@@ -1,3 +1,32 @@
+## ГДЕ МЫ — OWNER SNAPSHOT RULE + PARALLEL PLAN 05.11 11:26 UTC
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+
+### Слова владельца
+- **Стоящее условное разрешение, 2026-11-05 ~11:26 UTC, дословно:** «ок, делай». Ручной `--snapshot` основного чекаута dev-harness разрешён, когда одновременно: (1) `git status --porcelain` пуст; (2) в отказе `check_no_leak --check` нет ни одного `.git`/`.git/*`; (3) КАЖДЫЙ путь из отказа отслеживается в HEAD и побайтово равен `origin/main`: `git diff --quiet origin/main HEAD -- <путь>` rc 0. Не выполнено хоть одно условие — СТОП и доклад. Смешанный набор (часть путей равна origin/main, часть — свои неотправленные) этим разрешением НЕ покрыт: прежняя (г)/`--retake-ahead` для своих путей действует как раньше; если ни (б), ни (г) целиком не проходят — СТОП и доклад владельцу.
+- **Правило порядка, то же слово:** сначала отправляй свои коммиты, потом вливай PR на GitHub и забирай main. Не копи неотправленные коммиты в main: закоммитил — сразу `gitw push` с `check_no_leak` до/после.
+- **Параллельность, слово владельца 2026-11-05 ~11:30 UTC:** «да,подтверждаю. и все что возможно паралель». Новых предметов не брать. Implementer — только MiniMax, без fallback. 149 поставлен в очередь взятых mob-предметов, но реализация стартует только после освобождения mob-слота merge 162.
+
+### Таблица-график: 163 A–F и все взятые предметы
+| Предмет | Текущий шаг | Следующий шаг | Зависимость | Целевая дата [INFERENCE] | Нужно от владельца |
+|---|---|---|---|---|---|
+| 157 | batch-кандидат `dd02e6c3c` проверен | публикация → adversary-3 (batch + зависимый регресс) → reviewer → done | snapshot/push завершены; нужен OBJECT | 05.11 | нет |
+| 158 | MiniMax `3a1cea509` локально green | публикация → adversary → reviewer → land/done | snapshot/push завершены | 05.11 | нет |
+| 161 | PR #514 красный | исправить legkij → freeze → MiniMax → adversary → reviewer → done | критический путь 163; свежий CI | 06.11 | нет |
+| 162 | frozen/1, owner разрешил v+1 | architect v+1 → critic → freeze/2 → MiniMax одна строка → Rev162 → merge #158/contextPack | exact RA уже дано | 06.11 | нет |
+| 147 | v+1 подготовлен | critic → freeze/3 → MiniMax → adversary → vision reviewer → product merge | 143/3 для экранного CI; интеграционный порядок | 10.11 | frozen-999 строка уже дана |
+| 148 | v+1 подготовлен | critic → freeze/3 → MiniMax → adversary → vision reviewer → product merge | 143/3; после 147/162 по конфликтующим файлам | 11.11 | нет |
+| 149 | frozen/2, реализации нет | после merge 162: MiniMax под 143/3, закрыть/заменить stale PR #148 | свободный mob-слот; 143/3 | 14.11 | нет |
+| 163-A | product PR #162, OBJECT `78f385fe`; mobile CI green | merge только после freeze 991/3 | 991/3; cloud proof B | 09.11 | owner merge после судов |
+| 163-B | не начат | cloud `workflow_dispatch mobile-cloud-e2e` + digest artifact | MiniMax task поверх A; 991 version contract | 07.11 | нет |
+| 163-C / 991 v3 | frozen 991/2 | architect draft/replay gate station+cloud → critic/freeze | exact RA на frozen 991/2 | 07.11 | пакет подписи RA |
+| 163-D / 141 v3 + 118 v3 | frozen 141/2, 118/2 | два architect draft → critic/freeze → one-day cutover | exact RA обоих frozen texts | 10.11 | пакет подписи RA |
+| 163-E / 143 v3 | frozen 143/2 | Architect143 сначала сдаёт analysis-only: динамическая matrix по карте без правки workflows; после owner response — только выбранная конструкция | exact RA frozen 143/2; feasibility decision; precedes 147–149 CI | анализ 05.11; реализация — после owner response | owner decision по анализу + пакет подписи RA, если v+1 остаётся |
+| 163-F | долг активен | снять долг после A–E, свежий full CI | A–E, main продукта green | 18.11 | продление долга, если даты сдвинутся |
+
+**143 v3, новое слово владельца 2026-11-05 ~11:35 UTC:** «да, добавь.. но потребуй от него вначале глубокий анализ и подтверждение что возможно и только потом реализаци, чтобы не тратить время на реализацию впустую». До ответа владельца Architect143 делает только analysis-only в local-файле: matrix `fromJSON` из `select-screens`, self-hosted/KVM пул ≤2, порты/AVD, required `android-e2e`, aggregate/needs, evidence/secrets/special screens и батареи 143/141/118/991/117. Реализация и red-tests 143 v3 запрещены; эксперимент — только disposable branch/clone.
+
+**Оценка срока:** [INFERENCE] при последовательных product merges и без красного main A–F укладываются к 18.11 только при freeze 991/3 не позднее 07.11 и решении осуществимости 143 v3 не позднее 05.11. Любой задержанный owner batch RA по 991/143/141/118 или отклонённая динамическая matrix сдвигает D/E/F; тогда нужно продление долга до 18.11, а не обход frozen-текстов.
+
 ## ГДЕ МЫ — DETECTOR FORK ISOLATED PROOF 05.11 04:11 UTC
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
 

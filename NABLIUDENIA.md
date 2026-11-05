@@ -1,3 +1,13 @@
+### Н-251. Детектор основного чекаута дважды за ~10 часов зашёл в тупик после забора уже опубликованных owner-коммитов поверх собственных неотправленных: в 01:24 UTC и в 11:15 UTC `--retake-ahead` не принимает путь, уже равный `origin/main`, а `--retake-bulk` отвергает его автора как не владельца зоны `ОТКРЫТО — адрес: очереди автономности`.
+
+**Что произошло:** в 01:24 UTC локальная история содержала неотправленные HANDOFF/NABLIUDENIA и забранный `scripts/check_charter.sh`; в 11:15 UTC после забора PR #523 отказ перечислил `.github/workflows/ci.yml`, `package.json`, `registry/ci-steps.tsv`, `registry/ci-zamery.tsv`. Каждый второй набор пришёл из уже опубликованного `origin/main`, но не входил в `origin/main..HEAD`: `--retake-ahead` отказал на `.github/workflows/ci.yml`; `--retake-bulk` — «author owner не владелец зоны». Владелец 2026-11-05 ~11:26 UTC дал standing conditional manual snapshot: только пустой porcelain, без `.git/*` и с `git diff --quiet origin/main HEAD -- <путь>` для КАЖДОГО отказного пути.
+
+**Цена:** ночной простой станции до решения владельца; остановлены публикация и суды 147/148/157/158, refresh 161 и v+1 162.
+
+**Источник:** живые `check_no_leak --check`, `--retake-ahead`, `--retake-bulk`; слово владельца 2026-11-05 ~11:26 UTC через consultant.
+
+**ЧЕМ ЗАКРЫТЬ:** временно — standing rule владельца; кандидат малого контракта: `--retake-ahead` принимает отказной путь, побайтно равный `origin/main`, когда одновременно есть собственная ahead-дельта, без расширения допуска на `.git/*` или смешанный набор своих и чужих путей.
+
 ### Н-250. Переминт `frozen/contracts/122/3` БЕЗ синхронной правки реестра рассинхронизировал tag-object с манифестом: строка eb5df0064 «122 → 30a1698c5…», а тег на origin указывает на tag-object c6a3a1889 → дверь минта 031 (ФОРМА REPLACE: старая строка = tag-object id ИЛИ последний frozen-тег) красит мой REPLACE `23df1fb8` (122 → frozen/122/4) «sha старой строки ≠ ни id/CONTRACT/122, ни frozen/122/3» — main push-CI красный (5 прогонов подряд, 3c32dbb81…3dbd18823), PR t7 red на check:zones. Чинится возвратом refs/tags/frozen/contracts/122/3 на исторический tag-object `30a1698c5` (commit afb23179c ∈ main — закоммиченная истина реестра) `ЗАКРЫТО этой же сессией — возврат ссылки + force-push тега через gitw; форк n122-3-retag`
 
 **Что произошло:** REPLACE 122/4 (после ленда поезда t6) прошёл gitw (preflight 071 не судит check:zones), но push-CI main и PR-CI красны: старая строка 122 (30a1698c5, коммит eb5df0064 прошлой сессии) не совпала ни с tag-object id/CONTRACT/122 (a4c52cb77), ни с текущим tag-object frozen/122/3 (c6a3a1889). 30a1698c5 — СТАРЫЙ tag-object тега 122/3, переставленного позже без правки реестра (класс «повторный минт не сходится tag-object-sha», Н-77б).
