@@ -1,3 +1,9 @@
+## ГДЕ МЫ — НОЧНОЙ UPDATE 158 STABS 05.11 01:51 UTC
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+
+- **Харнес 158 (экранный набор), frozen/1.** Independent full `probe.py --stabs` завершился rc0: 36/36 зелёных control cells; 13 stubs rejected; `SVJAZI 26`. `check_zones` rc0. Это не открывает суд: branch `3a1cea509613f1aa95e8c84b444e4aef0cf10c87` по-прежнему не опубликована из-за записанного detector deadlock.
+
+
 ## ГДЕ МЫ — НОЧНОЙ UPDATE 158 05.11 01:50 UTC
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
 
