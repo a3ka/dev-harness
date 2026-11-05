@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# ФЕЙКОВЫЙ adb — песочница e2e-канона AVD (набор ekrannyj_nabor_158).
+#
+# Состояние — файлы в каталоге $FAKE_ADB_STATE: на серийник файл
+# "<serial>.state" ("alive"/"dead") и "<serial>.port". Особый файл
+# "<serial>.zastryal" означает: остановка НЕ срабатывает (залипший 390 —
+# вход клетки b02).
+#
+# Поддерживаемые вызовы (ровно те, что использует двойник канона):
+#   adb devices                      — список живых: "<serial> device port=<p>";
+#   adb -s <serial> emu kill         — остановка (если нет "<serial>.zastryal");
+#   adb -s <serial> wait-for-device  — запуск (создаёт живое устройство;
+#                                      порт — $FAKE_ADB_PORT_393, иначе 5554).
+set -uo pipefail
+
+SOSTOYANIE="${FAKE_ADB_STATE:-}"
+if [ -z "$SOSTOYANIE" ] || [ ! -d "$SOSTOYANIE" ]; then
+  printf 'NOT_IMPLEMENTED: нет состояния песочницы\n' >&2
+  exit 2
+fi
+
+serial=""
+komanda=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -s) serial="$2"; shift 2 ;;
+    devices) komanda="devices"; shift ;;
+    emu) komanda="emu"; shift ;;
+    kill) shift ;;                  # аргумент команды emu (emu kill)
+    wait-for-device) komanda="wait-for-device"; shift ;;
+    *) komanda="$1"; shift ;;
+  esac
+done
+
+case "$komanda" in
+  devices)
+    for f in "$SOSTOYANIE"/*.state; do
+      [ -e "$f" ] || continue
+      s="$(basename "$f" .state)"
+      [ "$(cat "$f")" = "alive" ] || continue
+      port_file="$SOSTOYANIE/$s.port"
+      port=5554
+      [ -f "$port_file" ] && port="$(cat "$port_file")"
+      printf '%s\tdevice\tport=%s\n' "$s" "$port"
+    done
+    ;;
+  emu)
+    if [ -n "$serial" ] && [ ! -f "$SOSTOYANIE/$serial.zastryal" ]; then
+      printf 'dead' > "$SOSTOYANIE/$serial.state"
+    fi
+    ;;
+  wait-for-device)
+    if [ -n "$serial" ]; then
+      printf 'alive' > "$SOSTOYANIE/$serial.state"
+      port="${FAKE_ADB_PORT_393:-5554}"
+      printf '%s' "$port" > "$SOSTOYANIE/$serial.port"
+    fi
+    ;;
+  *)
+    printf 'NOT_IMPLEMENTED: неподдерживаемый вызов adb: %s\n' "$komanda" >&2
+    exit 2
+    ;;
+esac
+exit 0
