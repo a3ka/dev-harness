@@ -23,8 +23,8 @@ def sovmestnyj_v_toy(repo, nomer, toy_root=None, **kwargs):
         return probe.otkaz('%s: нет toy-корня' % probe.P_KARTA_NET)
     rc, vyvod, prichiny, sled, _yadro = probe.sud_ekran(toy, nomer)
     if prichiny:
-        return probe.ishod(rc, prichiny, [vyvod])
-    return probe.ishod(0, [], [vyvod])
+        return probe.ishod(rc, prichiny, probe.marki(vyvod))
+    return probe.ishod(0, [], probe.marki(vyvod))
 
 
 probe.sovmestnyj_rezhim = sovmestnyj_v_toy

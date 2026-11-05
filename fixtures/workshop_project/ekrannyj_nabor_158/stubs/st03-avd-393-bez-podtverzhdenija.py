@@ -21,10 +21,12 @@ SVOY_DVOINIK = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 def zapustit_dvoinik_bez_podtverzhdenija(skript, sekretar, env=None):
     """ДЕФЕКТ: канон без подтверждения ухода 390."""
-    return probe.zapusk_komandy(['bash', SVOY_DVOINIK], cwd=os.path.dirname(
-        SVOY_DVOINIK), env=dict(env or {}, FAKE_ADB_STATE=sekretar,
-                                 PORT_390=probe.PORTY['390'],
-                                 PORT_393=probe.PORTY['393']), timeout=120)
+    rc, out, err = probe.zapusk_komandy(
+        ['bash', SVOY_DVOINIK], cwd=os.path.dirname(SVOY_DVOINIK),
+        env=dict(env or {}, FAKE_ADB_STATE=sekretar,
+                 PORT_390=probe.PORTY['390'],
+                 PORT_393=probe.PORTY['393']), timeout=120)
+    return rc, out + err
 
 
 probe.zapustit_dvoinik = zapustit_dvoinik_bez_podtverzhdenija
