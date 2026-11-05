@@ -1,3 +1,9 @@
+## ГДЕ МЫ — MAIN CI GREEN 05.11 02:00 UTC
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+
+- **Харнес main после PR #523.** GitHub run `41952069806` on head `82e110e832ef092946db0469fb1785826947598d` completed success: `klass`, `legkij`, `vorota`, CI and antiplacebo workflow all green. This closes the #522/#523 remote-CI sequence. Local Handoff is updated, but local exchange remains forbidden by detector deadlock; do not infer local `main` contains remote head.
+
+
 ## ГДЕ МЫ — НОЧНОЙ UPDATE PR #523 MERGED 05.11 01:58 UTC
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
 
