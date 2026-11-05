@@ -1,0 +1,35 @@
+{
+  "_comment": "Выписка токенов набора ekrannyj_nabor_158 — карта токенов для линта (И-3) и для слежения (клетка c05). Значения — из живых носителей: touch-target.min и press-long — из референса Complior-mob (docs/ux/05_Kompakt_D24/source/tokens.json → touch-target.min; mobile/src/theme/motion-tokens.ts → press-long); nav.height и nav.label.line-height — места грамматики экрана из SPEC.md §6C (примеры клеток c01/c02), значения 49 и 21 заданы самой SPEC. Поля «mesta» — места грамматики экрана, где токен обязателен (литерал там — нарушение); «link_prii» — признак СТРУКТУРНОЙ связи: источник читает ключ токена. Связь структурная + слежение (подмена значения токена меняет поведение компонента) — И-3.",
+  "touch-target.min": {
+    "znachenie": 44,
+    "edinica": "px",
+    "istochnik": "Complior-mob docs/ux/05_Kompakt_D24/source/tokens.json → touch-target.min",
+    "kljuch_v_ishodnikah": ["touch-target", "touch-target.min"],
+    "mesta": ["minWidth", "minHeight"],
+    "link_prii": "\\[[\\s*['\"]touch-target['\"]\\s*\\]"
+  },
+  "press-long": {
+    "znachenie": 500,
+    "edinica": "ms",
+    "istochnik": "Complior-mob mobile/src/theme/motion-tokens.ts → press-long",
+    "kljuch_v_ishodnikah": ["press-long"],
+    "mesta": ["delayLongPress"],
+    "link_prii": "\\[[\\s*['\"]press-long['\"]\\s*\\]"
+  },
+  "nav.height": {
+    "znachenie": 49,
+    "edinica": "pt",
+    "istochnik": "SPEC.md §6C (клетка c01: литерал 49 в месте чтения nav.height)",
+    "kljuch_v_ishodnikah": ["nav.height", "nav['height']"],
+    "mesta": ["height"],
+    "link_prii": "\\[[\\s*['\"]nav\\.height['\"]\\s*\\]"
+  },
+  "nav.label.line-height": {
+    "znachenie": 21,
+    "edinica": "pt",
+    "istochnik": "SPEC.md §6C (клетка c02: литерал 21 в месте lineHeight)",
+    "kljuch_v_ishodnikah": ["nav.label.line-height", "label.line-height", "line-height"],
+    "mesta": ["lineHeight"],
+    "link_prii": "\\[[\\s*['\"]nav\\.label\\.line-height['\"]\\s*\\]|\\[[\\s*['\"]nav\\.label['\"]\\s*\\]\\s*\\[\\s*['\"]line-height['\"]\\s*\\]"
+  }
+}
