@@ -1,0 +1,66 @@
+# Architect-only model of the v3 delta. The five legacy jobs come from model/.github/workflows/mobile.yml unchanged.
+jobs:
+  select-screens:
+    outputs:
+      matrix: ${{ steps.sel.outputs.matrix }}
+  e2e-screen:
+    needs: [select-screens, build-apk]
+    if: ${{ needs.select-screens.result == 'success' && needs.build-apk.result == 'success' && needs.select-screens.outputs.matrix != '' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJSON(needs.select-screens.outputs.matrix) }}
+    runs-on: [self-hosted, linux, x64, kvm, complior]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Изоляция раннера
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
+      - name: APK digest before installation
+        run: |
+          test "$(sha256sum "$APK_FILE" | cut -d ' ' -f 1)" = "${{ needs.build-apk.outputs.apk_sha256 }}" || { echo APK_DIGEST_RASKHOZHDENIE; exit 1; }
+      - name: Run selected screen
+        env:
+          SCREEN_ID: ${{ matrix.screen.id }}
+          SCREEN_PACK: ${{ matrix.screen.pack }}
+          SCREEN_FLOW: ${{ matrix.screen.flow }}
+          AVD_PORT: ${{ matrix.screen.avd_port }}
+        run: |
+          export ANDROID_AVD_HOME="${RUNNER_TEMP}/avd-${RUNNER_NAME}-${SCREEN_ID}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          export ADB_SERVER_PORT="$((AVD_PORT + 1))"
+          flock "/tmp/complior-ci-port-${AVD_PORT}.lock" node mobile/scripts/run-ci-screen.cjs --id "$SCREEN_ID" --pack "$SCREEN_PACK" --flow "$SCREEN_FLOW" --port "$AVD_PORT"
+      - name: Publish child evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screen-evidence-${{ matrix.screen.id }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: mobile/screen-evidence/${{ matrix.screen.id }}/
+          if-no-files-found: error
+  android-e2e:
+    needs: [select-screens, quality, build-apk, e2e-splash, e2e-first-run, e2e-erstinformation, e2e-start, e2e-pilot, e2e-screen]
+    steps:
+      - name: Download child evidence
+        if: always()
+        uses: actions/download-artifact@v7
+        with:
+          pattern: screen-evidence-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: mobile/screen-evidence-collected
+          merge-multiple: false
+      - name: Verify selected children
+        if: always()
+        run: node mobile/scripts/ci-aggregate.cjs --needs needs.json --evidence mobile/screen-evidence-collected
+  mobile-regression-signal:
+    needs: [select-screens, quality, build-apk, e2e-splash, e2e-first-run, e2e-erstinformation, e2e-start, e2e-pilot, e2e-screen]
+    steps:
+      - name: Download child evidence
+        if: always()
+        uses: actions/download-artifact@v7
+        with:
+          pattern: screen-evidence-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: mobile/screen-evidence-collected
+          merge-multiple: false
+      - name: Verify selected children
+        if: always()
+        run: node mobile/scripts/ci-aggregate.cjs --needs needs.json --evidence mobile/screen-evidence-collected
