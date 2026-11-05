@@ -17,11 +17,16 @@
                       картам набора и синтетический экран.
   --repo R --ekran N  совместный режим (И-7): гейт 159, членство и ТРЕК по
                       контракту N, ядро — зонд на R по карте ФАЙЛА пачки N.
-  --ekran N           экранный режим (toy-мир): членство, ТРЕК, ядро, слой.
+  --ekran N           экранный режим: членство, ТРЕК, ядро, слой. Источник
+                      контракта и пачки — ОБЪЯВЛЕННЫЙ маршрут: переменная
+                      NABOR_158_TOY_ROOT (внутренний путь клеток) либо корень
+                      дерева харнеса; скрытый toy-мир НЕ подставляется —
+                      несуществующий экран даёт именованный отказ rc 2, а
+                      не зелень.
   --oracle-tamper     порча оракула: rc 2 ORACLE_TAMPERED до клеток.
 
-Служебные флаги: --only <список клеток> (суд подмножества — механизм
-стабов), --piny-only (только сверка пинов оракула).
+Незаявленный флаг → отказ argparse rc 2 (SPEC §1). Служебных флагов нет:
+подмножество клеток — внутренний вызов, сверка пинов — в оракуле.
 
 Коды возврата: 0 — зелено; 1 — красная клетка или живой стаб; 2 — оракул
 порчен, нечем проверить, отказ сочетания.
@@ -310,6 +315,26 @@ def zapusk_komandy(komanda, cwd=None, env=None, timeout=1800):
             proc.stderr.decode('utf-8', 'replace'))
 
 
+def zapusk_chistyy(komanda, cwd=None, env=None, timeout=300):
+    """Запуск с окружением БЕЗ переменных GIT_* — для git в одноразовом каталоге.
+
+    Окружение прогона может нести GIT_DIR/GIT_WORK_TREE (door снимает их
+    гигиенически) — в одноразовом toy-репозитории двери такие переменные
+    указали бы на ЧУЖОЙ репозиторий.
+    """
+    okruzh = dict((k, v) for k, v in os.environ.items()
+                  if not k.startswith('GIT_'))
+    if env:
+        okruzh.update(env)
+    try:
+        proc = subprocess.run(komanda, cwd=cwd, env=okruzh, timeout=timeout,
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except subprocess.TimeoutExpired:
+        return 124, '', 'ТАЙМАУТ'
+    return (proc.returncode, proc.stdout.decode('utf-8', 'replace'),
+            proc.stderr.decode('utf-8', 'replace'))
+
+
 def vremennyy_katalog(prefix='nabor158-'):
     put = tempfile.mkdtemp(prefix=prefix)
     _VREMENNYE.append(put)
@@ -571,12 +596,17 @@ def chlenstvo_i_trek(tekst, imya):
 def sud_ekran(toy_root, nomer, model=None):
     """Экранный режим: членство, ТРЕК, ядро, слой.
 
+    toy_root — корень ОБЪЯВЛЕННОГО маршрута (toy-мир клеток либо корень
+    дерева харнеса): контракт и пачка берутся ТОЛЬКО оттуда.
+
     Возвращает (rc, строки вывода, причины, sled, строки ядра).
     """
     model = model or zagruzit_etalon()
     kontrakt = nayti_kontrakt(toy_root, nomer)
     if kontrakt is None:
-        return (2, ['NOT_IMPLEMENTED: контракт экрана %d не найден' % nomer],
+        return (2, ['NOT_IMPLEMENTED: контракт экрана %d не найден по '
+                    'маршруту %s'
+                    % (nomer, os.path.join(toy_root, 'contracts'))],
                 [P_NOT_IMPL], [], [])
     with open(kontrakt, encoding='utf-8') as fh:
         stroki = fh.read().splitlines()
@@ -592,6 +622,11 @@ def sud_ekran(toy_root, nomer, model=None):
         return 0, vyvod, [], [], []
     vyvod.append('ЭКРАН %d ТРЕК %s' % (nomer, trek))
     paket = os.path.join(toy_root, 'pachki', str(nomer))
+    if not os.path.isdir(paket):
+        # Пачки экрана нет — судить нечего (fail-closed), а не «ядро упало».
+        vyvod.append('NOT_IMPLEMENTED: %s: пачка экрана %d отсутствует: %s'
+                     % (P_KARTA_NET, nomer, paket))
+        return 2, vyvod, [P_KARTA_NET], [], []
     sled_put = os.path.join(paket, 'sled')
     if os.path.exists(sled_put):
         os.remove(sled_put)
@@ -616,25 +651,24 @@ def sud_ekran(toy_root, nomer, model=None):
 
 
 def ekran_rezhim(nomer, toy_root=None, model=None):
-    """CLI --ekran NNN (toy-мир)."""
-    vremennoj = None
+    """CLI --ekran NNN.
+
+    Источник контракта и пачки — ОБЪЯВЛЕННЫЙ маршрут (SPEC §1):
+      * NABOR_158_TOY_ROOT — корень toy-мира (внутренний путь клеток);
+      * иначе — корень дерева харнеса (contracts/<NNN>-*.md, pachki/<NNN>/).
+    Скрытый toy-мир НЕ подставляется: несуществующий экран — именованный
+    отказ rc 2 (нечем проверить), а не зелень за чужой экран.
+    """
     if toy_root is None:
-        toy_root = os.environ.get('NABOR_158_TOY_ROOT')
-    if toy_root is None:
-        vremennoj = vremennyy_katalog('nabor158-toy-')
-        toy_root = postroit_toy(vremennoj, karty=karta_bajty())
-    try:
-        rc, vyvod, prichiny, _sled, _yadro = sud_ekran(toy_root, nomer,
-                                                       model=model)
-        for s in vyvod:
-            print(s)
-        if prichiny:
-            for p in prichiny:
-                print('ПРИЧИНА %s' % p)
-        return rc
-    finally:
-        if vremennoj:
-            shutil.rmtree(vremennoj, ignore_errors=True)
+        toy_root = os.environ.get('NABOR_158_TOY_ROOT') or KOREN
+    rc, vyvod, prichiny, _sled, _yadro = sud_ekran(toy_root, nomer,
+                                                   model=model)
+    for s in vyvod:
+        print(s)
+    if prichiny:
+        for p in prichiny:
+            print('ПРИЧИНА %s' % p)
+    return rc
 
 
 # ── Живой зонд (копия референса + jest) ─────────────────────────────────
@@ -1337,6 +1371,71 @@ def k_z01(ctx):
     return zelenaya()
 
 
+# Гейты, копируемые в toy-репозиторий двери (нога (д3) и её образец).
+KOPY_GATEY_DVERI = ('pre_critic.sh', 'check_precision_gate.sh',
+                    'check_spec_ready.sh', 'verify_ci_parity.sh',
+                    'check_trek_ekrana.sh')
+# Путь эталона гейта трека ОТ КОРНЯ ДЕРЕВА (копируется в toy рядом с гейтом).
+ETALON_TREKA_REL = os.path.join('fixtures', 'workshop_project',
+                                'ekrannyj_nabor_158', 'model')
+
+
+def postroit_toy_dveri(koren):
+    """Toy-репозиторий двери: копии гейтов, риск-экран, git-коммит.
+
+    Образец — fixtures/pre_critic/_toy.sh: гейты копируются в корень toy'а
+    (дверь зовёт их по относительному пути при cwd = её корень), плюс
+    минимальные ci.yml/package.json/ci_parity_exceptions.txt и git-коммит
+    (precision-гейт требует репозиторий с коммитом).
+    """
+    for pod in ('scripts', 'contracts', os.path.join('.github', 'workflows'),
+                'config', ETALON_TREKA_REL):
+        os.makedirs(os.path.join(koren, pod), exist_ok=True)
+    for imya in KOPY_GATEY_DVERI:
+        istochnik = os.path.join(SKRIPTY, imya)
+        if os.path.isfile(istochnik):
+            shutil.copy2(istochnik, os.path.join(koren, 'scripts', imya))
+    for imya in sorted(os.listdir(SKRIPTY)):
+        if imya.startswith('lib_') and imya.endswith('.sh'):
+            shutil.copy2(os.path.join(SKRIPTY, imya),
+                         os.path.join(koren, 'scripts', imya))
+    shutil.copy2(os.path.join(ZDE, 'model', 'check_trek_ekrana_158.py'),
+                 os.path.join(koren, ETALON_TREKA_REL,
+                              'check_trek_ekrana_158.py'))
+    with open(os.path.join(koren, 'package.json'), 'w',
+              encoding='utf-8') as fh:
+        fh.write('{\n  "name": "toy",\n  "version": "1.0.0",\n'
+                 '  "scripts": {\n'
+                 '    "check:precision-gate":'
+                 ' "bash scripts/check_precision_gate.sh",\n'
+                 '    "check:spec-ready": "bash scripts/check_spec_ready.sh"\n'
+                 '  }\n}\n')
+    with open(os.path.join(koren, '.github', 'workflows', 'ci.yml'), 'w',
+              encoding='utf-8') as fh:
+        fh.write('name: toy-ci\non: [push]\njobs:\n  toy:\n'
+                 '    runs-on: ubuntu-latest\n    steps:\n'
+                 '      - run: npm run check:precision-gate -- . '
+                 'contracts/191-ekran-riska.md\n'
+                 '      - run: npm run check:spec-ready -- . '
+                 'contracts/191-ekran-riska.md\n')
+    with open(os.path.join(koren, 'config', 'ci_parity_exceptions.txt'), 'w',
+              encoding='utf-8') as fh:
+        fh.write('')
+    with open(os.path.join(koren, 'contracts', '191-ekran-riska.md'), 'w',
+              encoding='utf-8') as fh:
+        fh.write(tekst_kontrakta(191, trek=TREK_LEGKIJ))
+    for komanda in (['git', 'init', '-q', '-b', 'main', koren],
+                    ['git', '-C', koren, 'add', '-A'],
+                    ['git', '-C', koren, '-c', 'user.name=implementer',
+                     '-c', 'user.email=implementer@dev-harness.local',
+                     'commit', '-qm', 'toy: init']):
+        rc, out, err = zapusk_chistyy(komanda, cwd=koren, timeout=300)
+        if rc != 0:
+            return '%s: %s' % (os.path.basename(komanda[1]),
+                               (err or out).strip()[:200])
+    return None
+
+
 def k_z02(ctx):
     skript = os.path.join(SKRIPTY, 'pre_critic.sh')
     try:
@@ -1351,13 +1450,24 @@ def k_z02(ctx):
                      % P_SUBJECT_ABSENT)
     if i_d2 >= 0 and i_d3 < i_d2:
         return krasnaya('НОГА (Д3) СТОИТ ДО НОГИ (Д2)')
-    toy = toy_dlya(ctx)
-    peropisyat_kontrakt(toy, 191, trek=TREK_LEGKIJ)
+    vyzyv = [s for s in tekst.splitlines()
+             if 'check_trek_ekrana.sh' in s and '"$BASE"' in s
+             and '"$CONTRACT"' in s]
+    if not vyzyv:
+        return krasnaya('НОГА (Д3) НЕ ЗОВЁТ ГЕЙТ С <корнем> И <контрактом>')
+    # ЖИВОЙ ПРОГОН ДВЕРИ: риск-экран в ЛЁГКОМ треке → «трек-гейт красен».
+    koren = vremennyy_katalog('nabor158-dver-')
+    oshibka = postroit_toy_dveri(koren)
+    if oshibka:
+        return otkaz('%s: toy-репозиторий двери не собран: %s'
+                     % (P_SUBJECT_ABSENT, oshibka))
     rc, out, err = zapusk_komandy(
-        ['bash', skript, os.path.join(toy, 'contracts',
-                                      '191-ekran-riska.md')], cwd=KOREN,
-        timeout=600)
+        ['bash', os.path.join(koren, 'scripts', 'pre_critic.sh'),
+         'contracts/191-ekran-riska.md'], cwd=koren, timeout=600)
     vyvod = out + err
+    if rc != 1:
+        return krasnaya('ЖИВАЯ ДВЕРЬ НА РИСК-ЭКРАНЕ: rc=%d (ожидался 1)'
+                        % rc, mark=[vyvod])
     if 'трек-гейт красен' not in vyvod:
         return krasnaya('ЖИВАЯ ДВЕРЬ НЕ СКАЗАЛА О ТРЕК-ГЕЙТЕ',
                         mark=[vyvod])
@@ -1847,15 +1957,20 @@ def k_f00(ctx):
 
 
 def k_f01(ctx):
-    """Клетка f01: референс без jest-среды — rc 2 LIVE_PREDPOSYLKA."""
+    """Клетка f01: референс без jest-среды — rc 2 LIVE_PREDPOSYLKA.
+
+    Подмножество клеток — ВНУТРЕННИЙ вызов (незаявленный флаг CLI запрещён
+    SPEC §1): судится тот же живой путь --repo, что зовёт CLI.
+    """
     pusto = vremennyy_katalog('nabor158-bez-sredy-')
-    rc, out, err = zapusk_komandy(
-        [sys.executable, os.path.join(ZDE, 'probe.py'), '--repo', pusto,
-         '--only', 'f00-chestnyj-kontrol'], cwd=KOREN, timeout=600)
-    if rc == 2 and P_LIVE in (out + err):
-        return ishod(2, [P_LIVE], [out + err])
+    try:
+        ish = sudi_repo(pusto)
+    finally:
+        shutil.rmtree(pusto, ignore_errors=True)
+    if ish['rc'] == 2 and P_LIVE in ish.get('pri', []):
+        return ish
     return krasnaya('ЖИВОЙ ВХОД БЕЗ СРЕДЫ НЕ ДАЛ ИМЕНОВАННЫЙ ОТКАЗ',
-                    mark=[out, err])
+                    mark=ish.get('mark', []))
 
 
 def k_f02(ctx):
@@ -1872,18 +1987,50 @@ def sovmestnyj_ishod(repo, nomer, toy):
     return ish, zond
 
 
+def karta_konstanta():
+    """Карта целей ref-clean — КОНСТАНТА проверяющего (SPEC §6F f03).
+
+    Ожидание трассы снимается ДО вызова субъекта и не берётся из пачки
+    субъекта: иначе подмена источника карты не наблюдаема.
+    """
+    put = os.path.join(MODEL, 'karta-ref-clean.json')
+    try:
+        with open(put, encoding='utf-8') as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def svetoit_trassu(ish, zond, karta):
+    """Сверка трассы зонда САМОЙ проверяющей (карта снята ДО вызова).
+
+    Сверку выполняет проверяющий, а не субъект: субъект может не сверять
+    свою трассу вовсе (стаб st09 — совместный режим уходит в toy-ветвь) —
+    и тогда его исход остаётся «зелёным» при отсутствии трассы. Исход
+    сверки: точное множество 'ZOND <testID> <профиль>' против карты.
+    """
+    if karta is None:
+        return ishod(2, [P_KARTA_NET], ish.get('mark', []))
+    fakt = set(prefiks_stroki(s) for s in zond)
+    if fakt != ozhidanie_trassy(karta):
+        pri = sorted(set(list(ish.get('pri', [])) + [P_ZOND_NE_ZAPUSHCHEN]))
+        return ishod(1, pri, ish.get('mark', []))
+    return ish
+
+
 def k_f03(ctx):
     repo = ctx.get('repo')
     if not repo:
         return otkaz('%s: референс не задан (живой суд — только с '
                      'референсом)' % P_LIVE)
     toy = toy_dlya(ctx)
+    karta = karta_konstanta()          # ожидание — ДО вызова субъекта
     kopija, oshibka = zhivaya_kopiya(repo)
     if kopija is None:
         return otkaz('%s: %s' % (P_LIVE, oshibka))
     try:
         ish, zond = sovmestnyj_ishod(kopija, 195, toy)
-        return ish
+        return svetoit_trassu(ish, zond, karta)
     finally:
         shutil.rmtree(os.path.dirname(kopija), ignore_errors=True)
 
@@ -1894,6 +2041,7 @@ def k_f04(ctx):
         return otkaz('%s: референс не задан (живой суд — только с '
                      'референсом)' % P_LIVE)
     toy = toy_dlya(ctx)
+    karta = karta_konstanta()          # ожидание — ДО вызова субъекта
     kopija, oshibka = zhivaya_kopiya(repo)
     if kopija is None:
         return otkaz('%s: %s' % (P_LIVE, oshibka))
@@ -1905,7 +2053,7 @@ def k_f04(ctx):
         if rc != 0:
             return otkaz('%s: мутатор не применён: %s' % (P_LIVE, err.strip()))
         ish, zond = sovmestnyj_ishod(kopija, 195, toy)
-        return ish
+        return svetoit_trassu(ish, zond, karta)
     finally:
         shutil.rmtree(os.path.dirname(kopija), ignore_errors=True)
 
@@ -1916,12 +2064,13 @@ def k_f05(ctx):
         return otkaz('%s: референс не задан (живой суд — только с '
                      'референсом)' % P_LIVE)
     toy = toy_dlya(ctx)
+    karta = karta_konstanta()          # ожидание — ДО вызова субъекта
     kopija, oshibka = zhivaya_kopiya(repo)
     if kopija is None:
         return otkaz('%s: %s' % (P_LIVE, oshibka))
     try:
         ish, zond = sovmestnyj_ishod(kopija, 196, toy)
-        return ish
+        return svetoit_trassu(ish, zond, karta)
     finally:
         shutil.rmtree(os.path.dirname(kopija), ignore_errors=True)
 
@@ -2404,7 +2553,12 @@ def zapustit_stab(stub, kletka, ctx):
 
 
 def progoni_staby(orakul, ctx):
-    """Матрица обманных стабов: каждый отклонён на СВОИХ входах."""
+    """Матрица обманных стабов: каждый отклонён на СВОИХ входах.
+
+    Падение стаба (исход ISPOLNIMYJ_INFRA) — НЕ поимка: это «нечем
+    проверить», а не наблюдённое расхождение исхода с эталоном. Такой
+    стаб остаётся НЕПОЙМАННЫМ → STAB_ZHIV (rc 1), пока не починен.
+    """
     zhivye = []
     svjazi = 0
     for stub, vhody in sorted(orakul['stab_vhod'].items()):
@@ -2414,6 +2568,11 @@ def progoni_staby(orakul, ctx):
             akt = zapustit_stab(stub, kletka, ctx)
             if akt is None:
                 print('STAB %s %s НЕПРОВЕРЕН' % (stub, kletka))
+                continue
+            if akt.get('rc') == 2 and P_INFRA in akt.get('pri', []):
+                padalo = ', '.join(akt.get('mark', [])) or '—'
+                print('STAB %s %s НЕПРОВЕРЕН: стаб упал (%s)'
+                      % (stub, kletka, padalo))
                 continue
             if sudit(orakul, kletka, akt):
                 lozhenny = True
@@ -2456,12 +2615,10 @@ def postroit_kontekst(orakul, rezhim, repo=None):
     return {'orakul': orakul, 'rezhim': rezhim, 'repo': repo}
 
 
-def progoni_kletki(orakul, ctx, tolko=None):
+def progoni_kletki(orakul, ctx):
     """Прогон клеток; возвращает (зелёных, красных)."""
     zelenyh, krasnyh = 0, 0
     for imya in KLETKI:
-        if tolko and imya not in tolko:
-            continue
         if not stroit_cell(imya, ctx['rezhim']):
             continue
         try:
@@ -2481,25 +2638,15 @@ def progoni_kletki(orakul, ctx, tolko=None):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(
+        description='батарея набора ekrannyj_nabor_158 (SPEC §1)')
     ap.add_argument('--model', action='store_true')
     ap.add_argument('--stabs', action='store_true')
     ap.add_argument('--repo', metavar='R')
     ap.add_argument('--ekran', metavar='NNN')
     ap.add_argument('--oracle-tamper', action='store_true')
-    ap.add_argument('--only', metavar='SPISOK')
-    ap.add_argument('--piny-only', action='store_true')
+    # Заявленных флагов — пять (SPEC §1); незаявленный → отказ argparse rc 2.
     a = ap.parse_args(argv)
-    tolko = None
-    if a.only:
-        tolko = set(x.strip() for x in a.only.split(',') if x.strip())
-    if a.piny_only:
-        orakul, oshibka = chit_orakul()
-        if orakul is None:
-            print('%s: %s' % (P_ORACLE, oshibka), file=sys.stderr)
-            return 2
-        print('ПИНЫ ОК')
-        return 0
     if a.oracle_tamper:
         # порча оракула — ДО клеток (клетка d02)
         vrem = vremennyy_katalog('nabor158-tamper-')
@@ -2579,13 +2726,13 @@ def main(argv=None):
     ctx = postroit_kontekst(orakul, rezhim, repo=repo)
     if a.stabs:
         kontrol = postroit_kontekst(orakul, 'model', repo=repo)
-        zelenyh, krasnyh = progoni_kletki(orakul, kontrol, tolko=tolko)
+        zelenyh, krasnyh = progoni_kletki(orakul, kontrol)
         zhivye = progoni_staby(orakul, ctx)
         if zhivye:
             print('%s: %s' % (P_STAB_ZHIV, ', '.join(zhivye)), file=sys.stderr)
             return 1
         return 0 if krasnyh == 0 else 1
-    zelenyh, krasnyh = progoni_kletki(orakul, ctx, tolko=tolko)
+    zelenyh, krasnyh = progoni_kletki(orakul, ctx)
     if krasnyh:
         return 1
     if gate_net:
