@@ -79,12 +79,11 @@ def reference(repo):
         return 1, 'RISK_DECLARATION_INVALID'
     if verdict.splitlines()[0] != 'accept' or len(marks) != 1:
         return 1, 'JUDGMENT_MISSING'
-    object_lines = [line.removeprefix('OBJECT=') for line in metadata(verdict)
-                    if re.fullmatch(r'OBJECT=[0-9a-f]{40}', line)]
-    if len(object_lines) != 1:
+    object_lines = [line for line in metadata(verdict) if line.startswith('OBJECT=')]
+    if len(object_lines) != 1 or not re.fullmatch(r'OBJECT=[0-9a-f]{40}', object_lines[0]):
         return 1, 'JUDGMENT_OBJECT_INVALID'
     try:
-        original = git(repo, 'rev-parse', object_lines[0] + ':' + CONTRACT)
+        original = git(repo, 'rev-parse', object_lines[0].removeprefix('OBJECT=') + ':' + CONTRACT)
         current = git(repo, 'rev-parse', 'HEAD:' + CONTRACT)
         committed_verdict = git(repo, 'rev-parse', 'HEAD:' + VERDICT)
         disk_verdict = git(repo, 'hash-object', str(repo / VERDICT))
@@ -124,6 +123,14 @@ def stab_ignore_object(repo):
     return reference(repo)
 
 
+def stab_filter_invalid_object(repo):
+    verdict = (repo / VERDICT).read_text(encoding='utf-8')
+    valid = [line for line in metadata(verdict) if re.fullmatch(r'OBJECT=[0-9a-f]{40}', line)]
+    if len(valid) == 1:
+        return 0, ''
+    return reference(repo)
+
+
 def stab_accept_comment(repo):
     contract = (repo / CONTRACT).read_text(encoding='utf-8')
     verdict = (repo / VERDICT).read_text(encoding='utf-8')
@@ -150,6 +157,8 @@ CASES = [
     ('duplicate-object', {'verdict_extra': 'OBJECT=' + '0' * 40 + '\n'},
      1, 'JUDGMENT_OBJECT_INVALID'),
     ('invalid-object', {'object_override': '0' * 40}, 1, 'JUDGMENT_OBJECT_INVALID'),
+    ('valid-plus-malformed-object', {'verdict_extra': 'OBJECT=invalid\n'},
+     1, 'JUDGMENT_OBJECT_INVALID'),
     ('post-verdict-edit', {'mutate_after': True}, 1, 'JUDGMENT_STALE'),
     ('comment-only-declaration', {'declaration': 'непонятный', 'contract_extra':
       '> ' + DECL + 'обычный\n'}, 1, 'RISK_DECLARATION_INVALID'),
@@ -161,6 +170,7 @@ STABS = [
     ('first-marker', stab_first_marker, 'two-judgments'),
     ('ignore-object', stab_ignore_object, 'post-verdict-edit'),
     ('accept-comment', stab_accept_comment, 'comment-only-declaration'),
+    ('filter-invalid-object', stab_filter_invalid_object, 'valid-plus-malformed-object'),
 ]
 
 
