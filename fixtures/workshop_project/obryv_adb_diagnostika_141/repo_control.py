@@ -6,6 +6,8 @@ import subprocess
 import sys
 import tempfile
 
+import probe
+
 HERE = Path(__file__).resolve().parent
 WRAPPER = HERE / 'red_obryv_adb_diagnostika_141.sh'
 SCRIPTS = ('ci-first-run-135.sh', 'ci-erstinformation-118.sh', 'ci-pilot-995.sh')
@@ -32,6 +34,30 @@ def main():
                   (green.returncode, green.stdout, green.stderr), file=sys.stderr)
             return 1
         print('CONTROL_REPO_GREEN rc=0 cases=46')
+        # Replay the mutated product script directly: no structural case and no
+        # SHA pin can account for a missing DeviceServerDiedException here.
+        src = probe.load_source()
+        model_text, _, model_steps, model_scripts = probe.zagruzit_model(src)
+        _, mutant_scripts = probe.sdelat_stab(
+            's-podmena-signatury-diag-118', model_text, model_scripts,
+            src['signatury_regex'])
+        case = src['kejsy']['118-devserverdied-povtor-spas']
+        marker = next(m for m in case['ozhidanie']['vyvod']
+                      if 'DeviceServerDiedException' in m)
+        for environment in ('CHISTYJ', 'ACTIONS'):
+            for script, expected_reason in (
+                    (model_scripts['118'], None),
+                    (mutant_scripts['118'], 'нет маркера вывода: %r' % marker)):
+                actual, error = probe.ispolnit_replay(
+                    model_steps['118'], '118', case['scena'], environment,
+                    root, src['skripty']['118'], script)
+                reason = error or probe.sravnit_replay(actual, case['ozhidanie'])
+                if reason != expected_reason:
+                    print('CONTROL_DIAG118_REPLAY_UNEXPECTED %s: %r != %r' %
+                          (environment, reason, expected_reason), file=sys.stderr)
+                    return 1
+            print('CONTROL_DIAG118_REPLAY_RED %s: нет маркера вывода: %r' %
+                  (environment, marker))
         target = scripts / SCRIPTS[0]
         target.write_text(target.read_text() + '# не меняет исполнение, меняет байты\n')
         red = run(root)
