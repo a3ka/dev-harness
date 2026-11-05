@@ -1,3 +1,9 @@
+## ГДЕ МЫ — НОЧНОЙ UPDATE PR #523 MERGED 05.11 01:58 UTC
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+
+- **Харнес 157 / PR #523.** Fresh CI run `41950110715` green: all antiplacebo and CI lanes, `legkij`, `check:charter`, and `tyazhelyj-itog` pass. PR merged `--rebase` with checked head `5739ebe22e9744bf76451719ee7a866c71dce22a`; GitHub confirms `MERGED`, `mergedAt=2026-11-05T01:58:25Z`, merge result `82e110e832ef092946db0469fb1785826947598d`. Local main deliberately not fetched/pushed: detector deadlock remains and forbids exchange.
+
+
 ## ГДЕ МЫ — НОЧНОЙ UPDATE 158 STABS 05.11 01:51 UTC
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
 
