@@ -2248,10 +2248,10 @@ def k_f06(ctx):
     if not repo:
         return otkaz('%s: референс не задан (живой суд — только с '
                      'референсом)' % P_LIVE)
-    gen = generiruy(ctx, repo)
+    gen, oshibka = generiruy(ctx, repo)
     if gen is None:
         return otkaz('%s: генератор динамических входов не собрал копию '
-                     'референса' % P_LIVE)
+                     'референса: %s' % (P_LIVE, oshibka))
     try:
         # Ожидания зафиксированы В ПАМЯТИ до запуска субъекта.
         for faza, karta, ozhidanie_rc in (('A', 'A', 0), ('B', 'B', 1),
@@ -2280,10 +2280,10 @@ def k_f07(ctx):
     if not repo:
         return otkaz('%s: референс не задан (живой суд — только с '
                      'референсом)' % P_LIVE)
-    gen = generiruy(ctx, repo)
+    gen, oshibka = generiruy(ctx, repo)
     if gen is None:
         return otkaz('%s: генератор динамических входов не собрал копию '
-                     'референса' % P_LIVE)
+                     'референса: %s' % (P_LIVE, oshibka))
     try:
         zapisat_kartu(gen['toy'], gen['N'], gen['karty']['B'])
         zapisat_kartu(gen['toy'], gen['M'], gen['karty']['B'])
@@ -2317,10 +2317,10 @@ def k_f08(ctx):
     if not repo:
         return otkaz('%s: референс не задан (живой суд — только с '
                      'референсом)' % P_LIVE)
-    gen = generiruy(ctx, repo)
+    gen, oshibka = generiruy(ctx, repo)
     if gen is None:
         return otkaz('%s: генератор динамических входов не собрал копию '
-                     'референса' % P_LIVE)
+                     'референса: %s' % (P_LIVE, oshibka))
     try:
         sha_do = sha_fajla(os.path.join(ZDE, 'probe.py'))
         schet_do = len(ctx['orakul']['kejsy'])
@@ -2557,12 +2557,17 @@ def zapustit_stab(stub, kletka, ctx):
 def progoni_staby(orakul, ctx):
     """Матрица обманных стабов: каждый отклонён на СВОИХ входах.
 
-    Падение стаба (исход ISPOLNIMYJ_INFRA) — НЕ поимка: это «нечем
-    проверить», а не наблюдённое расхождение исхода с эталоном. Такой
-    стаб остаётся НЕПОЙМАННЫМ → STAB_ZHIV (rc 1), пока не починен.
+    Падение стаба (исход ISPOLNIMYJ_INFRA) — НЕ поимка: это «нечем проверить»,
+    а не наблюдённое расхождение исхода с эталоном. Такой стаб остаётся
+    НЕПОЙМАННЫМ → STAB_ZHIV (rc 1), пока не починен.
+
+    Отсутствие ЖИВОГО субъекта (rc 2 LIVE_PREDPOSYLKA) — тоже «нечем проверить»:
+    поимки не было, и зелёным это НЕ проходит. Незамеченный стаб — rc 1
+    STAB_ZHIV (SPEC §1, §7) с названной причиной в строке стаба.
     """
     zhivye = []
     svjazi = 0
+    net_subjekta = False
     for stub, vhody in sorted(orakul['stab_vhod'].items()):
         lozhenny = False
         for kletka in vhody:
@@ -2571,10 +2576,18 @@ def progoni_staby(orakul, ctx):
             if akt is None:
                 print('STAB %s %s НЕПРОВЕРЕН' % (stub, kletka))
                 continue
-            if akt.get('rc') == 2 and P_INFRA in akt.get('pri', []):
-                padalo = ', '.join(akt.get('mark', [])) or '—'
-                print('STAB %s %s НЕПРОВЕРЕН: стаб упал (%s)'
-                      % (stub, kletka, padalo))
+            if akt.get('rc') == 2:
+                # rc 2 — «нечем проверить»: поимки нет (расхождения исхода с
+                # эталоном не наблюдалось) и зелёным это НЕ проходит.
+                chasti = list(akt.get('pri', [])) + list(akt.get('mark', []))
+                padalo = '; '.join(chasti) or '—'
+                if any(P_LIVE in p for p in akt.get('pri', [])):
+                    net_subjekta = True
+                    print('STAB %s %s НЕПРОВЕРЕН: нет живого субъекта (%s)'
+                          % (stub, kletka, padalo))
+                else:
+                    print('STAB %s %s НЕПРОВЕРЕН: стаб упал (%s)'
+                          % (stub, kletka, padalo))
                 continue
             if sudit(orakul, kletka, akt):
                 lozhenny = True
@@ -2587,7 +2600,7 @@ def progoni_staby(orakul, ctx):
         else:
             print('STAB %s KRASEN' % stub)
     print('SVJAZI %d' % svjazi)
-    return zhivye
+    return zhivye, net_subjekta
 
 
 # ── Точка входа стаба ───────────────────────────────────────────────────
@@ -2729,9 +2742,12 @@ def main(argv=None):
     if a.stabs:
         kontrol = postroit_kontekst(orakul, 'model', repo=repo)
         zelenyh, krasnyh = progoni_kletki(orakul, kontrol)
-        zhivye = progoni_staby(orakul, ctx)
+        zhivye, net_subjekta = progoni_staby(orakul, ctx)
         if zhivye:
-            print('%s: %s' % (P_STAB_ZHIV, ', '.join(zhivye)), file=sys.stderr)
+            prichina = (' (живой субъект станции отсутствует — проверять нечем)'
+                        if net_subjekta else '')
+            print('%s: %s%s' % (P_STAB_ZHIV, ', '.join(zhivye), prichina),
+                  file=sys.stderr)
             return 1
         return 0 if krasnyh == 0 else 1
     zelenyh, krasnyh = progoni_kletki(orakul, ctx)
