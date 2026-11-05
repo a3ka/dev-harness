@@ -1,0 +1,644 @@
+{
+ "_comment": "Оракул батареи ekrannyj_nabor_158 (SPEC §8). Ожидания клеток (kejsy), пины носителей (piny), привязки стабов к клеткам (stab_vhod), стандартные входы (standiny), допуск сверки чисел (dopusk). Оракул читается ОДИН раз до субъекта (правило 8); рассинхрон stubs/ ↔ stab_vhod или порча пинов — rc 2 ORACLE_TAMPERED. Поле «uslovie» — условное ожидание: «bez» действует, пока условие не выполнено (например, гейт 159 не заведён).",
+ "kejsy": {
+  "a01-trek-po-umolchaniju": {
+   "rc": 0,
+   "pri": [],
+   "markery": [
+    "ТРЕК ЛЁГКИЙ (по умолчанию)"
+   ]
+  },
+  "a02-risk-bez-stroki": {
+   "rc": 1,
+   "pri": [
+    "EKRAN_RISKA_LEGKIJ"
+   ],
+   "markery": [
+    "EKRAN_RISKA_LEGKIJ"
+   ]
+  },
+  "a03-risk-legkij": {
+   "rc": 1,
+   "pri": [
+    "EKRAN_RISKA_LEGKIJ"
+   ],
+   "markery": [
+    "EKRAN_RISKA_LEGKIJ"
+   ]
+  },
+  "a04-risk-legkij-so-slovom": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "a05-polnyj-vsegda": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "a06-pereklyuchenie": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "a07-tochechnost": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "a08-grammatika": {
+   "rc": 1,
+   "pri": [
+    "TREK_NE_PO_GRAMMATIKE"
+   ],
+   "markery": [
+    "TREK_NE_PO_GRAMMATIKE"
+   ]
+  },
+  "a09-dubl": {
+   "rc": 1,
+   "pri": [
+    "TREK_DUBL"
+   ],
+   "markery": [
+    "TREK_DUBL"
+   ]
+  },
+  "a10-sloj-ispolnen-v-polnom": {
+   "rc": 0,
+   "pri": [],
+   "markery": [
+    "SLED shag-1 rc=0"
+   ]
+  },
+  "a11-sloj-krasen": {
+   "rc": 1,
+   "pri": [
+    "POLNYJ_TREK_KRASNO"
+   ],
+   "markery": [
+    "SLED shag-2-krasnyj rc=3"
+   ]
+  },
+  "a12-marker-vne-priemki": {
+   "rc": 0,
+   "pri": [],
+   "markery": [
+    "NE_EKRAN_NABORA"
+   ]
+  },
+  "a13-marker-v-priemke": {
+   "rc": 0,
+   "pri": [],
+   "markery": [
+    "ТРЕК ЛЁГКИЙ (по умолчанию)"
+   ]
+  },
+  "z01-gate-v-dereve": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "z02-noga-pre-critic": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "b01-ostanovka-podtverzhdena": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "b02-zalipshij-390": {
+   "rc": 4,
+   "pri": [
+    "PODTVERZHDENIE_OSTANOVKI_NET"
+   ],
+   "markery": [
+    "PODTVERZHDENIE_OSTANOVKI_NET"
+   ]
+  },
+  "b03-vtoroj-boot-port": {
+   "rc": 5,
+   "pri": [
+    "PORT_ZANJAT"
+   ],
+   "markery": [
+    "PORT_ZANJAT"
+   ]
+  },
+  "b04-maksimum-dva-avd": {
+   "rc": 6,
+   "pri": [
+    "SLISHKOM_MNOGO_AVD"
+   ],
+   "markery": [
+    "SLISHKOM_MNOGO_AVD"
+   ]
+  },
+  "b05-maska-48": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "b06-kanon-piny": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "b07-mutant-393-pri-390": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "c01-literal-nav-height": {
+   "rc": 1,
+   "pri": [
+    "LITERAL_VMEStO_TOKENA"
+   ],
+   "markery": []
+  },
+  "c02-literal-line-height": {
+   "rc": 1,
+   "pri": [
+    "LITERAL_VMEStO_TOKENA"
+   ],
+   "markery": []
+  },
+  "c03-literal-press-long": {
+   "rc": 1,
+   "pri": [
+    "LITERAL_VMEStO_TOKENA"
+   ],
+   "markery": []
+  },
+  "c04-ravnoe-chislo-bez-svjazi": {
+   "rc": 1,
+   "pri": [
+    "LITERAL_VMEStO_TOKENA"
+   ],
+   "markery": []
+  },
+  "c05-slezhenie": {
+   "rc": 0,
+   "pri": [
+    "TOKEN_SLEDUET"
+   ],
+   "markery": []
+  },
+  "d01-karty-polny": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "d02-oracle-tamper": {
+   "rc": 2,
+   "pri": [
+    "ORACLE_TAMPERED"
+   ],
+   "markery": [
+    "ORACLE_TAMPERED"
+   ]
+  },
+  "d03-pustoj-produkt": {
+   "rc": 1,
+   "pri": [
+    "PUSTOJ_PRODUKT"
+   ],
+   "markery": [],
+   "uslovie": {
+    "kak": "gate_159",
+    "bez": {
+     "rc": 2,
+     "pri": [
+      "NOT_IMPLEMENTED"
+     ]
+    }
+   }
+  },
+  "e01-soglasovano": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "e02-chisla-vne-teksta": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "f00-chestnyj-kontrol": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "f01-predposylka": {
+   "rc": 2,
+   "pri": [
+    "LIVE_PREDPOSYLKA"
+   ],
+   "markery": [
+    "LIVE_PREDPOSYLKA"
+   ]
+  },
+  "f02-sposoby-zony": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "f03-sovmestnyj-chestnyj": {
+   "rc": 0,
+   "pri": [],
+   "markery": [
+    "ZOND shell-tab-start 390 ok"
+   ]
+  },
+  "f04-sovmestnyj-vykljuchennaja-tsel": {
+   "rc": 1,
+   "pri": [
+    "TSEL_VYKLYUCHENA"
+   ],
+   "markery": [
+    "ZOND shell-tab-start 390 ok"
+   ]
+  },
+  "f05-sovmestnyj-polnyj-sloj": {
+   "rc": 1,
+   "pri": [
+    "POLNYJ_TREK_KRASNO"
+   ],
+   "markery": [
+    "ZOND shell-tab-start 390 ok"
+   ]
+  },
+  "f06-sovmestnyj-karta-iz-fajla": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "f07-sovmestnyj-nezavisimost-nomera": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "f08-sovmestnyj-dobavlenie-dannyh": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "f10-zona-20": {
+   "rc": 1,
+   "pri": [
+    "ZONA_MENSHE_NORMY"
+   ],
+   "markery": []
+  },
+  "f11-zona-36-min36": {
+   "rc": 1,
+   "pri": [
+    "ZONA_MENSHE_NORMY"
+   ],
+   "markery": []
+  },
+  "f12-zona-rebenok-44": {
+   "rc": 1,
+   "pri": [
+    "ZONA_MENSHE_NORMY"
+   ],
+   "markery": []
+  },
+  "f13-zona-flex-20": {
+   "rc": 1,
+   "pri": [
+    "ZONA_MENSHE_NORMY"
+   ],
+   "markery": []
+  },
+  "f14-zona-hitSlop-otric": {
+   "rc": 1,
+   "pri": [
+    "ZONA_MENSHE_NORMY"
+   ],
+   "markery": []
+  },
+  "f15-tsel-opacity0": {
+   "rc": 1,
+   "pri": [
+    "TSEL_NEVIDIMA"
+   ],
+   "markery": []
+  },
+  "f16-tsel-predok-opacity0": {
+   "rc": 1,
+   "pri": [
+    "TSEL_NEVIDIMA"
+   ],
+   "markery": []
+  },
+  "f17-tsel-display-none": {
+   "rc": 1,
+   "pri": [
+    "TSEL_NEVIDIMA"
+   ],
+   "markery": []
+  },
+  "f18-tsel-fon-nadpis-transparent": {
+   "rc": 1,
+   "pri": [
+    "TSEL_NEVIDIMA"
+   ],
+   "markery": []
+  },
+  "f19-tsel-nulevoj-boks": {
+   "rc": 1,
+   "pri": [
+    "TSEL_NEVIDIMA"
+   ],
+   "markery": []
+  },
+  "f20-tsel-za-ekranom": {
+   "rc": 1,
+   "pri": [
+    "TSEL_NEVIDIMA"
+   ],
+   "markery": []
+  },
+  "f21-tsel-za-klipom": {
+   "rc": 1,
+   "pri": [
+    "TSEL_NEVIDIMA"
+   ],
+   "markery": []
+  },
+  "f22-tsel-perekryta": {
+   "rc": 1,
+   "pri": [
+    "TSEL_NEVIDIMA"
+   ],
+   "markery": []
+  },
+  "f23-nadpis-skrytyj-text": {
+   "rc": 1,
+   "pri": [
+    "NADPIS_NEVIDIMA"
+   ],
+   "markery": []
+  },
+  "f24-nadpis-prozrachnye-bukvy": {
+   "rc": 1,
+   "pri": [
+    "NADPIS_NEVIDIMA"
+   ],
+   "markery": []
+  },
+  "f25-nadpis-vlozhennyj-prozrachnyj": {
+   "rc": 1,
+   "pri": [
+    "NADPIS_NEVIDIMA"
+   ],
+   "markery": []
+  },
+  "f26-nadpis-nulevaja-shirina": {
+   "rc": 1,
+   "pri": [
+    "NADPIS_NEVIDIMA"
+   ],
+   "markery": []
+  },
+  "f27-dejstvie-sdvig": {
+   "rc": 1,
+   "pri": [
+    "DEJSTVIE_CHUZHOE"
+   ],
+   "markery": []
+  },
+  "f28-dejstvie-na-393": {
+   "rc": 1,
+   "pri": [
+    "DEJSTVIE_NA_PROFILE_NET"
+   ],
+   "markery": []
+  },
+  "f29-dejstvie-pointer-none": {
+   "rc": 1,
+   "pri": [
+    "TSEL_VYKLYUCHENA"
+   ],
+   "markery": []
+  },
+  "f30-cel-disabled": {
+   "rc": 1,
+   "pri": [
+    "TSEL_VYKLYUCHENA"
+   ],
+   "markery": []
+  },
+  "f31-cel-otsutstvuet": {
+   "rc": 1,
+   "pri": [
+    "TSEL_OTSVTSTVUET"
+   ],
+   "markery": []
+  },
+  "f32-sostojanie-nedostizhimo": {
+   "rc": 1,
+   "pri": [
+    "SOSTOJANIE_NEDOSTIZHIMO"
+   ],
+   "markery": []
+  },
+  "f33-sostojanie-slito": {
+   "rc": 1,
+   "pri": [
+    "SOSTOJANIE_SLITO"
+   ],
+   "markery": []
+  },
+  "g01-147-model": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "g02-147-stabs": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "g03-148-model": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "g04-148-stabs": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "g05-149-model": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "g06-149-stabs": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "g07-143-stabs": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  },
+  "g08-159": {
+   "rc": 0,
+   "pri": [],
+   "markery": []
+  }
+ },
+ "piny": {
+  "nositeli": {
+   "nositeli/e2e-147.sh": "eae07e47308cd4193319f46790437ca97ee781d4219448f829b6a2fb836cd2b7",
+   "nositeli/e2e-148.sh": "ebfabb499009c4b9355ce30970b79ea679c66e923529e64e75f76264ae1af17f",
+   "nositeli/tokens-vy-piska.json": "9d64570a5ca0b613a67045aff0cf15d94935a29baa2cfd35fb41d969399cc142"
+  },
+  "etalony": {
+   "model/check_trek_ekrana_158.py": "a771567b709ee8f817ad683a3ff521e0daea821f10ab9cacfbea1c6851363885"
+  },
+  "zond": {
+   "zond/helpery.ts": "4d4b7959a5829b218e56aa8a6d73b27aa5f4a8a37e666fc70f497f94b2fe1fea",
+   "zond/nabor-zond-158.test.tsx": "c8c0a9b2ba00d23536613aac4cc13fd0e102c1346b99d1d7df60376b4eda9f53",
+   "zond/sinteticheskij-ekran.tsx": "191f0a4dfd67c6d95d524b69c61c9b5759152d4bdd46d718b353351d6b3c8410"
+  }
+ },
+ "stab_vhod": {
+  "st01-trek-bez-riska.py": [
+   "a02-risk-bez-stroki",
+   "a03-risk-legkij"
+  ],
+  "st02-trek-udaljaet-sloj.py": [
+   "a06-pereklyuchenie"
+  ],
+  "st03-avd-393-bez-podtverzhdenija.py": [
+   "b02-zalipshij-390",
+   "b07-mutant-393-pri-390"
+  ],
+  "st04-lint-po-chislu.py": [
+   "c01-literal-nav-height",
+   "c04-ravnoe-chislo-bez-svjazi"
+  ],
+  "st05-zond-bez-predkov.py": [
+   "f15-tsel-opacity0",
+   "f16-tsel-predok-opacity0",
+   "f25-nadpis-vlozhennyj-prozrachnyj"
+  ],
+  "st06-oracle-s-diska.py": [
+   "d02-oracle-tamper",
+   "e01-soglasovano"
+  ],
+  "st07-polnyj-bez-ispolnenija.py": [
+   "a10-sloj-ispolnen-v-polnom",
+   "a06-pereklyuchenie",
+   "a11-sloj-krasen"
+  ],
+  "st08-marker-gde-ugodno.py": [
+   "a12-marker-vne-priemki"
+  ],
+  "st09-sovmestnyj-v-toy.py": [
+   "f03-sovmestnyj-chestnyj",
+   "f04-sovmestnyj-vykljuchennaja-tsel",
+   "f05-sovmestnyj-polnyj-sloj"
+  ],
+  "st10-sovmestnyj-otvergaet.py": [
+   "f03-sovmestnyj-chestnyj",
+   "f04-sovmestnyj-vykljuchennaja-tsel",
+   "f05-sovmestnyj-polnyj-sloj"
+  ],
+  "st11-sovmestnyj-karta-ref-clean.py": [
+   "f06-sovmestnyj-karta-iz-fajla"
+  ],
+  "st12-sovmestnyj-tablica-nomerov.py": [
+   "f06-sovmestnyj-karta-iz-fajla",
+   "f07-sovmestnyj-nezavisimost-nomera"
+  ],
+  "st13-sovmestnyj-karta-po-nomeru.py": [
+   "f06-sovmestnyj-karta-iz-fajla"
+  ]
+ },
+ "standiny": {
+  "avd": [
+   {
+    "imya": "b01",
+    "sekretar": {
+     "emulator-390": [
+      "alive",
+      5554
+     ]
+    },
+    "ozhidanie": "rc 0; 393 на порту 5576; живых AVD ровно один"
+   },
+   {
+    "imya": "b02",
+    "sekretar": {
+     "emulator-390": [
+      "alive",
+      5554
+     ]
+    },
+    "zastryal": "emulator-390",
+    "ozhidanie": "rc 4 PODTVERZHDENIE_OSTANOVKI_NET; 393 НЕ запущен"
+   },
+   {
+    "imya": "b03",
+    "sekretar": {
+     "emulator-390": [
+      "alive",
+      5554
+     ],
+     "sosed": [
+      "alive",
+      5576
+     ]
+    },
+    "ozhidanie": "rc 5 PORT_ZANJAT"
+   },
+   {
+    "imya": "b04",
+    "sekretar": {
+     "emulator-390": [
+      "alive",
+      5554
+     ],
+     "sosed": [
+      "alive",
+      5556
+     ]
+    },
+    "ozhidanie": "rc 6 SLISHKOM_MNOGO_AVD"
+   }
+  ],
+  "kadr": [
+   {
+    "imya": "b05-48",
+    "maska_pt": 48,
+    "ozhidanie": "rc 0 (проходит 123)"
+   },
+   {
+    "imya": "b05-36",
+    "maska_pt": 36,
+    "ozhidanie": "rc 1 NIZHE_POROGA (отклонён раннером 123)"
+   }
+  ],
+  "kanon": {
+   "nositeli/e2e-147.sh": [
+    "adb -s \"$serial\" emu kill",
+    "adb devices | grep -q \"$serial\"",
+    "exit 4"
+   ],
+   "nositeli/e2e-148.sh": [
+    "PORT_390=5570",
+    "PORT_393=5576",
+    "adb -s \"$SERIAL_390\" emu kill"
+   ]
+  }
+ },
+ "dopusk": 0.01
+}
