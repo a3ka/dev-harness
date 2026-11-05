@@ -1,29 +1,17 @@
 #!/usr/bin/env python3
-# БАРЬЕР-ГУАРД контракта 141 (§ПРОВОДКА): судит ПОСТАВЛЯЕМЫЙ артефакт —
-# .github/workflows/mobile.yml репозитория продукта (шаги 135/118/995 со
-# своим эмулятором) — каноном скрипта (тела run: построчно равны модели,
-# комментарии/формат свободны; замыкание по построению, прецедент 139 v3)
-# и ПОВЕДЕНЧЕСКИ: тело каждого шага исполняется в чистом окружении с
-# подложными adb/emulator/avdmanager/python3 (сценарий задаёт rc валидатора,
-# сигнатуры в maestro-out, состояние adb, хвост emulator-лога; PATH замкнут).
-# Оракул — source.json в памяти ДО вызова субъекта (правило 8); модель и
-# носители — sha256. Н-39: обманные стабы — мутации модели КОДОМ
-# (STAB_MUTACII), привязки — stab_vhod source.json; рассинхрон множеств —
-# rc 2 ORACLE_TAMPERED.
-"""Батарея 141 (obryv-adb-diagnostika): диагностика ВНЕ эха + ровно один
-повтор по сигнатуре обрыва adb-транспорта в шагах 135/118/995 mobile.yml.
+# БАРЬЕР-ГУАРД 141 v3: три workflow-шагa вызывают файлы из дерева продукта;
+# sha256 каждого файла и поведенческий replay из ЭТОГО файла (не из модели).
+# Workflow-соседи свободны; имена/вызовы/управляющие свойства шагов и job
+# остаются в каноне. Оракул source.json и пиненные модельные файлы загружаются
+# в память до субъекта; мутации скриптов и workflow заданы кодом STAB_MUTACII,
+# привязки к наблюдаемым входам — source.json.
+"""Батарея 141 v3: диагностика вне эха и один повтор обрыва adb в 135/118,
+диагностика без шагового повтора в 995.
 
-Режимы:
-  (без флага)  --repo R отсутствует и MOB_REPO не задан → rc 1 SUBJECT_ABSENT
-                 с перечнем всех кейсов (зелень без субъекта невозможна);
-  (без флага)  --repo R / MOB_REPO → судится живой R/.github/workflows/
-                 mobile.yml (тела шагов 135/118/995 против модели);
-  --model      субъект = model/mobile.yml (контроль входов);
-  --stabs      контроль + матрица обманных стабов (SVJAZI N);
-  --matrix     синоним --stabs (для арбитража).
-Коды возврата: 0 — зелено; 1 — красный кейс либо стаб прошёл (STAB_ZHIV)
-либо нет субъекта (SUBJECT_ABSENT); 2 — нечем проверять (нет python3-модуля
-yaml, ORACLE_TAMPERED, дрейф модели/мутаций).
+Режимы: --repo R судит R/.github/workflows/mobile.yml и три файла R/mobile/scripts;
+--model судит модельные файлы; --stabs гоняет модель и кодовые мутации;
+без субъекта — rc 1 SUBJECT_ABSENT. Коды: 0 — все кейсы зелёные;
+1 — красный кейс/живой стаб/нет субъекта; 2 — повреждённый оракул.
 """
 import argparse
 import copy
@@ -220,11 +208,6 @@ RUN_ID = '401407'
 RUN_ATTEMPT = '1'
 
 VYRAZHENIE_RE = re.compile(r'\$\{\{[^}]*\}\}')
-PODSTANOVKA = {
-    '${{ github.workspace }}': None,  # заполняется на sandbox (абс. путь)
-    '${{ github.run_id }}': RUN_ID,
-    '${{ github.run_attempt }}': RUN_ATTEMPT,
-}
 
 
 def sha256_bytes(b):
@@ -535,6 +518,7 @@ def postavit_sandbox(scena, shag, katalog_sandbox):
         'ANDROID_AVD_HOME': str(avd_home),
         'GITHUB_RUN_ID': RUN_ID,
         'GITHUB_RUN_ATTEMPT': RUN_ATTEMPT,
+        'GITHUB_WORKSPACE': str(ws),
         'SCENARIJ_ZAPISI': str(z),
         'SCENARIJ_KATALOG': str(schet_dir),
         'SCENARIJ_SHAG': shag,
@@ -548,27 +532,21 @@ def postavit_sandbox(scena, shag, katalog_sandbox):
     return ws, env
 
 
-def podstavit_vyrazhenija(telo, ws):
-    vyh = telo
-    for k, v in PODSTANOVKA.items():
-        vyh = vyh.replace(k, v if v is not None else str(ws))
-    return vyh
 
-
-def ispolnit_replay(telo, shag, scena, okr, koren):
+def ispolnit_replay(telo, shag, scena, okr, koren, script_path, script_text):
     with tempfile.TemporaryDirectory(dir=str(koren)) as tmp:
         katalog_sandbox = Path(tmp)
         ws, env = postavit_sandbox(scena, shag, katalog_sandbox)
-        telo2 = podstavit_vyrazhenija(telo, ws)
-        if '${{' in telo2:
-            return None, 'VYRAZHENIE_VNE_ALFAVITA: непереведённое ${{ }} в теле'
+        if '${{' in script_text:
+            return None, 'VYRAZHENIE_VNE_ALFAVITA: выражение Actions в shell-скрипте'
+        script = ws / script_path
+        script.parent.mkdir(parents=True, exist_ok=True)
+        script.write_text(script_text, encoding='utf-8')
         env2 = dict(env)
         if okr == 'ACTIONS':
             env2.update(OKRUZHENIE_ACTIONS)
-        skript = katalog_sandbox / 'telo.sh'
-        skript.write_text(telo2, encoding='utf-8')
         try:
-            r = subprocess.run([BASH, str(skript)], cwd=str(ws), env=env2,
+            r = subprocess.run([BASH, '-c', telo], cwd=str(ws), env=env2,
                                capture_output=True, text=True, timeout=90)
         except subprocess.TimeoutExpired:
             return None, 'TIMEOUT replay'
@@ -597,16 +575,22 @@ def sravnit_replay(fakt, ozh):
     return None
 
 
-def sud_kejs(imja, kejs, src, subj_doc, model_doc, model_tela, koren):
+def sud_kejs(imja, kejs, src, subj_doc, model_doc, model_tela, koren,
+             scripts, model_scripts):
     tip = kejs['tip']
     ozh = kejs['ozhidanie']
     if tip == 'replay':
-        telo = telo_shaga(subj_doc, src, kejs['shag'])
+        nomer = kejs['shag']
+        telo = telo_shaga(subj_doc, src, nomer)
         if telo is None:
-            return ('KRASNO', 'SHAG_%s_NET' % kejs['shag'])
+            return ('KRASNO', 'SHAG_%s_NET' % nomer)
+        script = scripts.get(nomer)
+        if script is None:
+            return ('KRASNO', 'SKRIPT_%s_NET' % nomer)
         prichiny = []
         for okr in ('CHISTYJ', 'ACTIONS'):
-            fakt, osh = ispolnit_replay(telo, kejs['shag'], kejs['scena'], okr, koren)
+            fakt, osh = ispolnit_replay(telo, nomer, kejs['scena'], okr, koren,
+                                       src['skripty'][nomer], script)
             if osh:
                 return ('KRASNO', osh)
             p = sravnit_replay(fakt, ozh)
@@ -630,8 +614,13 @@ def sud_kejs(imja, kejs, src, subj_doc, model_doc, model_tela, koren):
         if podtip == 'kanon':
             r = kanon_rashozhdenie(telo, model_tela[nomer])
             if r:
-                return ('KRASNO', 'SKRIPT_RASHOZHDENIE: shag %s: строка %d: %r ≠ %r'
+                return ('KRASNO', 'VYZOV_SKRIPTA: shag %s: строка %d: %r ≠ %r'
                         % (nomer, r[0], r[1], r[2]))
+            script = scripts.get(nomer)
+            if script is None:
+                return ('KRASNO', 'SKRIPT_%s_NET' % nomer)
+            if sha256_bytes(script.encode('utf-8')) != src['nositeli']['model/' + src['skripty'][nomer]]:
+                return ('KRASNO', 'SKRIPT_PIN_RASHOZHDENIE: %s' % nomer)
             return ('ok', None)
         if podtip == 'pereformat':
             stroki = model_tela[nomer].split('\n')
@@ -641,23 +630,27 @@ def sud_kejs(imja, kejs, src, subj_doc, model_doc, model_tela, koren):
                 return ('KRASNO', 'PEREFORMAT_KRASNEN: строка %d' % r[0])
             return ('ok', None)
         if podtip == 'signatura':
+            script = scripts.get(nomer)
+            if script is None:
+                return ('KRASNO', 'SKRIPT_%s_NET' % nomer)
             kanon = src['signatury_regex']
-            n = telo.count(kanon)
+            n = script.count(kanon)
             if n != src['signatur_vstrech'][nomer]:
                 return ('KRASNO', 'PODMENA_SIGNATURY: вхождений канона %d, ожидалось %d'
                         % (n, src['signatur_vstrech'][nomer]))
-            ostavshijsja = telo.replace(kanon, '')
+            ostavshijsja = script.replace(kanon, '')
             for s in src['signatury_ostatok_zapret']:
                 if s in ostavshijsja:
                     return ('KRASNO', 'PODMENA_SIGNATURY: обрывок сигнатуры вне канона: %r' % s)
             return ('ok', None)
         if podtip == 'vyrazhenija':
-            telo995 = telo_shaga(subj_doc, src, '995')
-            if telo995 is None:
-                return ('KRASNO', 'SHAG_995_NET')
-            for v in VYRAZHENIE_RE.findall(telo995):
-                if v not in src['alfavit_vyrazhenij']:
-                    return ('KRASNO', 'VYRAZHENIE_VNE_ALFAVITA: %s' % v)
+            for n in ('135', '118', '995'):
+                script = scripts.get(n)
+                if script is None:
+                    return ('KRASNO', 'SKRIPT_%s_NET' % n)
+                for v in VYRAZHENIE_RE.findall(script):
+                    if v not in src['alfavit_vyrazhenij']:
+                        return ('KRASNO', 'VYRAZHENIE_VNE_ALFAVITA: %s' % v)
             return ('ok', None)
     if tip == 'derevo':
         podtip = kejs['podtip']
@@ -696,6 +689,7 @@ def sud_kejs(imja, kejs, src, subj_doc, model_doc, model_tela, koren):
             src_vnutr['kejsy'] = {k: v for k, v in src['kejsy'].items()
                                   if k != imja}
             rc, _ = progona(None, src_vnutr, model_doc, model_tela, koren,
+                            scripts=model_scripts, model_scripts=model_scripts,
                             pechatat=False, subj_doc_gotovyj=doc)
             if rc != 0:
                 return ('KRASNO', 'ZAKONNAJA_PRAVKA_KRASNEN: законная '
@@ -784,39 +778,6 @@ def _zameni_edinstvennoe(t, staryj, novyj):
     return t.replace(staryj, novyj)
 
 
-def _najti_blok_texta(lines, imja):
-    n = len(lines)
-    i_shag = None
-    for i in range(n):
-        if lines[i].startswith('      - name: ') and lines[i][14:].startswith(imja):
-            i_shag = i
-            break
-    if i_shag is None:
-        raise RuntimeError('шаг мутации не найден: %s' % imja)
-    i_run = None
-    for i in range(i_shag + 1, n):
-        if lines[i] == '        run: |':
-            i_run = i
-            break
-        if lines[i].startswith('      - name: '):
-            raise RuntimeError('run: | не найден у шага %s' % imja)
-    if i_run is None:
-        raise RuntimeError('run: | не найден у шага %s' % imja)
-    i_konec = i_run + 1
-    while i_konec < n and (lines[i_konec].startswith('          ') or lines[i_konec] == ''):
-        i_konec += 1
-    return i_run, i_konec
-
-
-def mutiruj_shag(t, imja, fn):
-    lines = t.split('\n')
-    i_run, i_konec = _najti_blok_texta(lines, imja)
-    telo = '\n'.join(l[10:] if l.startswith(' ' * 10) else l
-                     for l in lines[i_run + 1:i_konec])
-    telo2 = fn(telo.rstrip('\n'))
-    novye = ['        run: |'] + ['          ' + s for s in telo2.split('\n')]
-    lines[i_run:i_konec] = novye
-    return '\n'.join(lines)
 
 
 def _klyuchi_shaga(t, imja, stroki):
@@ -1005,12 +966,12 @@ def m_podmena_signatury_diag_995(b):
 
 
 def m_kanon_stroka_995(b):
-    return _zameni(b, '--code-file /tmp/impl995-pilot-private-${{ github.run_id }}-${{ github.run_attempt }}/code',
-                   '--code-file /tmp/impl995-pilot-private-${{ github.run_attempt }}-${{ github.run_id }}/code')
+    return _zameni(b, '--code-file /tmp/impl995-pilot-private-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/code',
+                   '--code-file /tmp/impl995-pilot-private-${GITHUB_RUN_ATTEMPT}-${GITHUB_RUN_ID}/code')
 
 
 def m_vyrazhenie_vne_alfavita(b):
-    return _zameni(b, '--repo ${{ github.workspace }}', '--repo ${{ secrets.PILOT_DEMO_CODE }}')
+    return _zameni(b, '--repo "$GITHUB_WORKSPACE"', '--repo ${{ secrets.PILOT_DEMO_CODE }}')
 
 
 def m_upr_if_false_135(b):
@@ -1167,12 +1128,28 @@ def m_upr_workflow_env_bash_env(b):
     return _klyuchi_workflow(b, ['env:', '  BASH_ENV: /tmp/x.sh'], 'defaults:')
 
 
-def sdelat_stab(imja, model_tekst, kanon):
+def m_vyzov_obojden_135(b):
+    return _zameni_edinstvennoe(b, '        run: bash mobile/scripts/ci-first-run-135.sh',
+                               '        run: "true"')
+
+
+def m_script_net_995(scripts):
+    result = dict(scripts)
+    del result['995']
+    return result
+
+
+def sdelat_stab(imja, model_tekst, model_scripts, kanon):
     global KANON_MUT
     KANON_MUT = kanon
     try:
         if imja == 's-shag-pereimenovan-135':
-            return _zameni(model_tekst, '- name: 135 first-run-ekran', '- name: 135 first-run')
+            return (_zameni(model_tekst, '- name: 135 first-run-ekran',
+                            '- name: 135 first-run'), model_scripts)
+        if imja == 's-vyzov-obojden-135':
+            return m_vyzov_obojden_135(model_tekst), model_scripts
+        if imja == 's-script-net-995':
+            return model_tekst, m_script_net_995(model_scripts)
         UPRAV_MUTACII = {
             's-upr-if-false-135': m_upr_if_false_135,
             's-upr-timeout-0-135': m_upr_timeout_0_135,
@@ -1201,7 +1178,7 @@ def sdelat_stab(imja, model_tekst, kanon):
             's-upr-workflow-env-bash-env': m_upr_workflow_env_bash_env,
         }
         if imja in UPRAV_MUTACII:
-            return UPRAV_MUTACII[imja](model_tekst)
+            return UPRAV_MUTACII[imja](model_tekst), model_scripts
         SHAGI_MUT = {
             '135 first-run-ekran': (
                 's-bez-signaturnogo-filtra-135', 's-signatura-suzhena-135',
@@ -1249,7 +1226,15 @@ def sdelat_stab(imja, model_tekst, kanon):
         }
         for imja_shaga, imena in SHAGI_MUT.items():
             if imja in imena:
-                return mutiruj_shag(model_tekst, imja_shaga, FUNKCII[imja])
+                nomer = next(n for n, name in (('135', '135 first-run-ekran'),
+                                                ('118', '118 erstinformation'),
+                                                ('995', 'Maestro runner для CMP-MOB-001'))
+                             if name == imja_shaga)
+                scripts = dict(model_scripts)
+                scripts[nomer] = FUNKCII[imja](scripts[nomer])
+                if scripts[nomer] == model_scripts[nomer]:
+                    raise RuntimeError('стаб %s не изменил скрипт' % imja)
+                return model_tekst, scripts
         raise RuntimeError('неизвестный стаб: %s' % imja)
     except (RuntimeError, ValueError) as e:
         print('ORACLE_TAMPERED: стаб %s: %s' % (imja, e), file=sys.stderr)
@@ -1309,6 +1294,8 @@ STAB_MUTACII = {
     's-upr-workflow-defaults-shell': m_upr_workflow_defaults_shell,
     's-upr-workflow-env-bash-env': m_upr_workflow_env_bash_env,
     's-shag-pereimenovan-135': lambda b: b,  # текстовая мутация имени шага
+    's-vyzov-obojden-135': m_vyzov_obojden_135,
+    's-script-net-995': m_script_net_995,
 }
 
 
@@ -1323,11 +1310,17 @@ def zagruzit_model(src):
     tela = {n: telo_shaga(doc, src, n) for n in ('135', '118', '995')}
     if any(t is None for t in tela.values()):
         raise RuntimeError('в модели нет одного из шагов 135/118/995')
-    return tekst, doc, tela
+    scripts = {}
+    for n, path in src['skripty'].items():
+        b = (HERE / 'model' / path).read_bytes()
+        if sha256_bytes(b) != src['nositeli']['model/' + path]:
+            raise RuntimeError('пин model/%s не сходится' % path)
+        scripts[n] = b.decode('utf-8')
+    return tekst, doc, tela, scripts
 
 
-def progona(subject_tekst, src, model_doc, model_tela, koren, pechatat=True,
-            subj_doc_gotovyj=None):
+def progona(subject_tekst, src, model_doc, model_tela, koren, scripts,
+            model_scripts, pechatat=True, subj_doc_gotovyj=None):
     if subj_doc_gotovyj is not None:
         subj_doc = subj_doc_gotovyj
     else:
@@ -1340,7 +1333,7 @@ def progona(subject_tekst, src, model_doc, model_tela, koren, pechatat=True,
     krasnye = 0
     for imja, kejs in src['kejsy'].items():
         ishod, prichina = sud_kejs(imja, kejs, src, subj_doc, model_doc,
-                                   model_tela, koren)
+                                   model_tela, koren, scripts, model_scripts)
         ozh_krasno = kejs.get('ozhidanie', {}).get('krasno')
         if ozh_krasno:
             if ishod == 'KRASNO' and prichina and prichina.startswith(ozh_krasno):
@@ -1370,8 +1363,6 @@ def main():
 
     try:
         src = load_source()
-        if set(src['kejsy']) != set(list(src['kejsy'])):
-            raise RuntimeError('дубли кейсов')
         for k, svjazi in src['stab_vhod'].items():
             for v in svjazi:
                 if v not in src['kejsy']:
@@ -1379,16 +1370,18 @@ def main():
         nositel = NOSITELI / 'mobile-bez-141.yml'
         if sha256_bytes(nositel.read_bytes()) != src['nositeli']['mobile-bez-141.yml']:
             raise RuntimeError('пин носителя mobile-bez-141.yml не сходится')
-        model_tekst, model_doc, model_tela = zagruzit_model(src)
+        model_tekst, model_doc, model_tela, model_scripts = zagruzit_model(src)
     except (RuntimeError, OSError, KeyError) as e:
         return oshibka_orakula(str(e))
 
     koren = Path(tempfile.mkdtemp(prefix='baterija141-'))
 
     subj_tekst = None
+    subject_scripts = {}
     rezhim_subjekta = None
     if args.model:
         subj_tekst = model_tekst
+        subject_scripts = model_scripts
         rezhim_subjekta = 'model'
     elif args.stabs or args.matrix:
         rezhim_subjekta = 'stabs'
@@ -1400,30 +1393,39 @@ def main():
                 print('SUBJECT_ABSENT: %s не найден; входы ниже красные' % put, file=sys.stderr)
             else:
                 subj_tekst = put.read_text(encoding='utf-8')
+                subject_scripts = {
+                    n: (Path(repo) / path).read_text(encoding='utf-8')
+                    for n, path in src['skripty'].items()
+                    if (Path(repo) / path).is_file()
+                }
                 rezhim_subjekta = 'repo'
         else:
             rezhim_subjekta = 'net'
 
     if rezhim_subjekta == 'stabs':
-        rc_kontrol, itogi = progona(model_tekst, src, model_doc, model_tela, koren)
+        rc_kontrol, itogi = progona(model_tekst, src, model_doc, model_tela,
+                                   koren, model_scripts, model_scripts)
         if rc_kontrol != 0:
             print('ORACLE_TAMPERED: контроль модели не зелёный', file=sys.stderr)
             return 2
         svjazi_itog = 0
         zhivye = 0
         for imja_staba in sorted(src['stab_vhod']):
-            mutirovannyj = sdelat_stab(imja_staba, model_tekst, src['signatury_regex'])
+            mutirovannyj = sdelat_stab(imja_staba, model_tekst, model_scripts,
+                                       src['signatury_regex'])
             if mutirovannyj is None:
                 return 2
+            mutant_text, mutant_scripts = mutirovannyj
             try:
-                stab_doc = yaml.safe_load(mutirovannyj)
+                stab_doc = yaml.safe_load(mutant_text)
             except yaml.YAMLError as e:
                 print('ORACLE_TAMPERED: стаб %s даёт неразборный yaml: %s' % (imja_staba, e),
                       file=sys.stderr)
                 return 2
             for vhod in src['stab_vhod'][imja_staba]:
                 ishod, prichina = sud_kejs(vhod, src['kejsy'][vhod], src, stab_doc,
-                                           model_doc, model_tela, koren)
+                                           model_doc, model_tela, koren,
+                                           mutant_scripts, model_scripts)
                 kejs = src['kejsy'][vhod]
                 ozh_krasno = kejs.get('ozhidanie', {}).get('krasno')
                 pojman = (ishod == 'KRASNO') if not ozh_krasno else (
@@ -1448,7 +1450,8 @@ def main():
             print('CASE %s KRASNO (%s)' % (imja, prichina))
         return 1
 
-    rc, _ = progona(subj_tekst, src, model_doc, model_tela, koren)
+    rc, _ = progona(subj_tekst, src, model_doc, model_tela, koren,
+                    subject_scripts, model_scripts)
     return rc
 
 
