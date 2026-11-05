@@ -109,6 +109,7 @@
 
 ## Зоны и исполнители
 
+Независимость судей: автор и критик на Sol допустимы — слово владельца 2026-11-05 ~12:43 UTC «я разрешаю авторство и критика на сол»
 ЗОНА architect: contracts/148-vkladki-tabov.md
 ЗОНА architect: fixtures/workshop_project/vkladki_tabov_148/
 ЗОНА implementer: mobile/src/bootstrap/tab-shell.tsx
