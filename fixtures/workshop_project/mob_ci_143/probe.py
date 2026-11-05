@@ -83,6 +83,7 @@ P_NABOR = ["pilot.yaml", "mobile/.maestro/start.yaml", "mobile/.maestro/rehearsa
 STRUKTURA_RE = [re.compile(r"^mobile/e2e-[^/]+/"), re.compile(r"^mobile/\.maestro/[^/]+\.yaml$"),
                 re.compile(r"^mobile/src/app/")]
 VNUTRI_RE = re.compile(r"^(mobile/|\.github/workflows/mobile\.yml$)")
+MATRIX_V3 = False  # Only the product cutover replaces the per-new-screen worker shape.
 
 
 class KartaSubiekta(Exception):
@@ -100,9 +101,10 @@ def rabotniki_iz_karty(m):
         j = e.get("job")
         if not j:
             raise KartaSubiekta("SKHEMA_KARTY: запись %r без job" % e.get("id"))
-        if j in spisok:
+        if j in spisok and not (MATRIX_V3 and j == "e2e-screen"):
             raise KartaSubiekta("DUPL_JOB: %s" % j)
-        spisok.append(j)
+        if j not in spisok:
+            spisok.append(j)
     if not spisok:
         raise KartaSubiekta("PUSTOJ_REESTR")
     return spisok
@@ -119,6 +121,11 @@ def mapa_subiekta(rep):
 
 
 def rabotniki_subiekta(rep):
+    jobs = rabotniki_iz_karty(mapa_subiekta(rep))
+    return [j for j in jobs if j != "e2e-screen"] if MATRIX_V3 else jobs
+
+
+def vse_rabotniki_subiekta(rep):
     return rabotniki_iz_karty(mapa_subiekta(rep))
 
 
@@ -1956,11 +1963,11 @@ def sud_needs_rabotnikov(wf, rep=None):
 
 KLETKI_Y = [
     ("y01-nabor-jobs", lambda wf, rep: (
-        set(wf.get("jobs", {})) == set(SLUZHEBNYE_JOBS) | set(rabotniki_subiekta(rep)),
+        set(wf.get("jobs", {})) == set(SLUZHEBNYE_JOBS) | set(vse_rabotniki_subiekta(rep)),
         "jobs %s ≠ служебные %s ∪ работники карты" % (sorted(wf.get("jobs", {})), sorted(SLUZHEBNYE_JOBS)))),
     ("y02-agregat-needs", lambda wf, rep: (
         set(wf.get("jobs", {}).get("android-e2e", {}).get("needs") or []) ==
-        {"select-screens", "quality", "build-apk"} | set(rabotniki_subiekta(rep)),
+        {"select-screens", "quality", "build-apk"} | set(vse_rabotniki_subiekta(rep)),
         "needs агрегата %s" % (wf.get("jobs", {}).get("android-e2e", {}).get("needs"),))),
     ("y03-agregat-if-always", lambda wf, rep: (
         (wf.get("jobs", {}).get("android-e2e", {}).get("if") or "").startswith("always()"),
@@ -1972,7 +1979,8 @@ KLETKI_Y = [
         j.get("continue-on-error") or any(s.get("continue-on-error") for s in j.get("steps", []))
         for j in wf.get("jobs", {}).values()), "есть continue-on-error")),
     ("y06-net-strategii", lambda wf, rep: (
-        not any("strategy" in j for j in wf.get("jobs", {}).values()), "есть strategy")),
+        all("strategy" not in job or (MATRIX_V3 and name == "e2e-screen")
+            for name, job in wf.get("jobs", {}).items()), "strategy вне e2e-screen")),
     ("y07-uslovija-rabotnikov", lambda wf, rep: vse(
         (wf.get("jobs", {}).get(j, {}).get("if") == "needs.select-screens.outputs['%s'] == 'true'" % j,
          "if %s: %r" % (j, wf.get("jobs", {}).get(j, {}).get("if"))) for j in rabotniki_subiekta(rep))),
@@ -2181,7 +2189,7 @@ def sud_inventar_dereva(subject_root, tmp):
 def sud_joby_iz_karty(wf, rep):
     """i02-jobs-iz-karty (И-12): jobs(workflow) == SLUZHEBNYE ∪ работники
     карты; job без записи и запись без job — именованные расхождения."""
-    rab = set(rabotniki_subiekta(rep))
+    rab = set(vse_rabotniki_subiekta(rep))
     jobs = set(wf.get("jobs", {}))
     ozhidaemye = set(SLUZHEBNYE_JOBS) | rab
     if jobs != ozhidaemye:
@@ -2195,13 +2203,15 @@ def sud_vyhody_selektora(wf, rep):
     работники карты, каждый — проводкой steps.vybor.outputs.<job>."""
     rab = rabotniki_subiekta(rep)
     outs = (wf.get("jobs", {}).get("select-screens") or {}).get("outputs") or {}
-    ozh = {"selection"} | set(rab)
+    ozh = {"selection"} | set(rab) | ({"matrix"} if MATRIX_V3 else set())
     if set(outs) != ozh:
         return False, "выходы %s ≠ канон %s (нет выхода работнику: %s)" % (
             sorted(outs), sorted(ozh), sorted(ozh - set(outs)))
     for j in rab:
         if outs.get(j) != "${{ steps.vybor.outputs.%s }}" % j:
             return False, "output %s = %r (не из шага vybor)" % (j, outs.get(j))
+    if MATRIX_V3 and outs.get("matrix") != "${{ steps.sel.outputs.matrix }}":
+        return False, "matrix не из шага sel"
     return True, ""
 
 
@@ -2209,7 +2219,7 @@ def sud_agregaty_iz_karty(wf, rep):
     """i04-agregaty-iz-karty (И-12): needs ОБОИХ агрегирующих задач
     (required PR-агрегат и ночной signal) == {select-screens, quality,
     build-apk} ∪ работники карты — новый экран обязан попасть в оба."""
-    rab = set(rabotniki_subiekta(rep))
+    rab = set(vse_rabotniki_subiekta(rep))
     ozh = {"select-screens", "quality", "build-apk"} | rab
     problemy = []
     for ag in ("android-e2e", "mobile-regression-signal"):
@@ -2437,7 +2447,7 @@ def sud_vybor_child_flows(subject_root, tmp):
     # памяти), оба статуса И-1 законны; in-development экраны (включая
     # прочие) остаются в выборе — селектор не сужает разработку
     vse_zapisi = ekrany + ([karta["integracija"]] if karta.get("integracija") else [])
-    razrabotki = [z["job"] for z in vse_zapisi if z.get("status") == "in-development"]
+    razrabotki = [z["id"] for z in vse_zapisi if z.get("status") == "in-development"]
     ozhidaemaja = "DEVELOPMENT" if rod.get("status") == "in-development" else "AFFECTED"
     # (2) настоящий git-репозиторий: карта (при синтезе — с регистрацией
     # пробы) в base и head ОДНА — diff только флоу; живые коммиты, не replay
@@ -2504,15 +2514,15 @@ def sud_vybor_child_flows(subject_root, tmp):
                 return "selection.json не разбирается: %s" % e
         else:
             return "selection.json не написан"
-        vybor = {s["job"]: s.get("reason") for s in sel_j.get("selected", [])}
-        if rod["job"] not in vybor:
-            return "PR только %s: работник родителя %s не выбран (%s)" % (
-                fajl, rod["job"], sorted(vybor))
+        vybor = {s["id"]: s.get("reason") for s in sel_j.get("selected", [])}
+        if rod["id"] not in vybor:
+            return "PR только %s: экран родителя %s не выбран (%s)" % (
+                fajl, rod["id"], sorted(vybor))
         if sel_j.get("full_set"):
             return "PR только %s: полный набор вместо экрана родителя" % fajl
-        if ozhidaem_prichinu and vybor[rod["job"]] != ozhidaem_prichinu:
+        if ozhidaem_prichinu and vybor[rod["id"]] != ozhidaem_prichinu:
             return "PR только %s: причина %s ≠ %s (статус родителя %s)" % (
-                fajl, vybor[rod["job"]], ozhidaem_prichinu, rod.get("status"))
+                fajl, vybor[rod["id"]], ozhidaem_prichinu, rod.get("status"))
         for j in razrabotki:
             if j not in vybor:
                 return "PR только %s: экран в разработке %s выпал из выбора (%s)" % (
@@ -2644,10 +2654,10 @@ def sud_podpis_child_flows(subject_root, tmp):
                     sel_j.get("prichiny") or []))
             if sel_j.get("full_set") is not True:
                 neudachi.append("full_set не поднят при смене регистрации child_flows")
-            vybor = {s["job"] for s in sel_j.get("selected", [])}
-            ozhidaemye = {z["job"] for z in ekrany}
+            vybor = {s["id"] for s in sel_j.get("selected", [])}
+            ozhidaemye = {z["id"] for z in ekrany}
             if karta.get("integracija"):
-                ozhidaemye.add(karta["integracija"]["job"])
+                ozhidaemye.add(karta["integracija"]["id"])
             ne_hvat = sorted(ozhidaemye - vybor)
             if ne_hvat:
                 neudachi.append("полный набор неполон: нет %s" % ne_hvat)
@@ -2805,9 +2815,12 @@ def progony_stabov(vremennyj):
 # --- главная ---------------------------------------------------------------------------
 
 def glavnaja():
+    global MATRIX_V3
     rezhim = None
     repo = None
     args = sys.argv[1:]
+    MATRIX_V3 = "--v3" in args
+    args = [a for a in args if a != "--v3"]
     i = 0
     while i < len(args):
         if args[i] == "--model":
@@ -2861,6 +2874,9 @@ def glavnaja():
                 return 2
         else:
             subject = None
+        if MATRIX_V3 and not repo:
+            print("MATRIX_V3_REQUIRES_REPO", file=sys.stderr)
+            return 2
         if subject is None:
             print("клеток %d, зелёных 0, красных %d — SUBJECT_ABSENT (задайте --repo <корень продукта> или --model)" % (
                 len(vse_kletki), len(vse_kletki)))
@@ -2871,6 +2887,9 @@ def glavnaja():
         krasnye = []
         otlozhennye = []
         for imja in vse_kletki:
+            if MATRIX_V3 and imja == "i06-lekalo-rabotnika":
+                # An independent matrix worker has replaced the old explicit-job template.
+                continue
             ok, prichina = odna_kletka(imja, subject, vrem)
             if ok is None:
                 otlozhennye.append("%s: %s" % (imja, prichina))
@@ -2878,7 +2897,8 @@ def glavnaja():
                 zeljonye += 1
             else:
                 krasnye.append("%s: %s" % (imja, prichina))
-        print("клеток %d, зелёных %d, красных %d" % (len(vse_kletki), zeljonye, len(krasnye)))
+        applied = len(vse_kletki) - (1 if MATRIX_V3 else 0)
+        print("клеток %d, зелёных %d, красных %d" % (applied, zeljonye, len(krasnye)))
         for k in krasnye:
             print("КЛЕТКА %s КРАСНА" % k)
         for o in otlozhennye:

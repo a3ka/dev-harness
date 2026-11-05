@@ -8,16 +8,22 @@
 #   (без флага, --repo R)    — судится живой продукт R (до cutover красен)
 #   --model                  эталон model/ (контроль входов)
 #   --stabs                  контроль + матрица обманных стабов (SVJAZI N)
-# v3 судит универсальную матрицу и детские доказательства ПЕРВЫМ; v2
-# replay остаётся независимым контролем моделей/стабов до cutover. На живом
-# продукте v2-статический запрет matrix и поимённый перечень jobs устарели.
+# v3 судит универсальную матрицу и детские доказательства; v2 replay
+# на продукте проходит ВСЕ клетки кроме explicit-job template (i06):
+# прежние селекторные PR/ночные ветви, legacy outputs и тела проверяются.
 # Коды возврата: 0 — обе применимые батареи зелёные; 1 — предмет красен;
 # 2 — нет предпосылки/оракул повреждён.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)" || exit 2
 command -v python3 >/dev/null 2>&1 || { echo 'NOT_IMPLEMENTED: нет python3' >&2; exit 2; }
-PYTHONDONTWRITEBYTECODE=1 python3 "$HERE/matrix_v3.py" "$@" || exit $?
-case " $* " in
-  *" --repo "*) exit 0 ;;
-esac
-PYTHONDONTWRITEBYTECODE=1 exec python3 "$HERE/probe.py" "$@"
+PYTHONDONTWRITEBYTECODE=1 python3 "$HERE/matrix_v3.py" "$@"
+matrix_rc=$?
+if [[ " $* " == *" --repo "* ]]; then
+  PYTHONDONTWRITEBYTECODE=1 python3 "$HERE/probe.py" "$@" --v3
+else
+  PYTHONDONTWRITEBYTECODE=1 python3 "$HERE/probe.py" "$@"
+fi
+legacy_rc=$?
+if [ "$matrix_rc" -eq 2 ] || [ "$legacy_rc" -eq 2 ]; then exit 2; fi
+if [ "$matrix_rc" -ne 0 ] || [ "$legacy_rc" -ne 0 ]; then exit 1; fi
+exit 0
