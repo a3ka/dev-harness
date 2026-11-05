@@ -52,6 +52,7 @@ ARTIFACTS = 'Артефакты (скриншоты, отчёт)'
 SUFFIX = '${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}'
 APK = 'mobile/android/app/build/outputs/apk/release/app-release.apk'
 RUN_IDS = {'freeze': 'rehearsal_version', 'positive': 'rehearsal_evidence'}
+VERSION_SCRIPT = 'mobile/scripts/check-maestro-version.sh'
 DISK_SPACE = {
     'name': 'Освобождение диска перед cloud-эмулятором',
     'id': 'rehearsal_disk_space',
@@ -282,7 +283,14 @@ def compare(base, head, changed, phase, pins):
             raise Violation(f'EXISTING_CHECK_CHANGED: {path}')
     new_runs = []
     for path, (bw, cw) in workflows.items():
-        new_runs.extend(compare_workflow(bw, cw, path, phase))
+        runs = compare_workflow(bw, cw, path, phase)
+        if phase == 'freeze' and VERSION_SCRIPT not in referenced_scripts(
+                step for step in runs if step.get('id') == 'rehearsal_version'):
+            raise Violation(f'VERSION_CHECK_NOT_SCRIPT: {path}')
+        new_runs.extend(runs)
+    if phase in ('freeze', 'positive'):
+        if head.get(VERSION_SCRIPT) != (HERE / 'check-maestro-version.sh').read_bytes():
+            raise Violation(f'VERSION_SCRIPT_MISMATCH: {VERSION_SCRIPT}')
     for path, (_, reason) in PINS.items():
         if path in head and head[path] != pins[path]:
             raise Violation(reason)

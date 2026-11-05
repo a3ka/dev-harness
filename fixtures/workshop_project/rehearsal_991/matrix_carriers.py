@@ -5,6 +5,7 @@ The comparator never executes model shell. Operational replay remains separate.
 Each independent mutation is paired with its exact observable diagnosis here.
 """
 from copy import deepcopy
+from pathlib import Path
 import yaml
 
 from compare_carriers import (
@@ -46,7 +47,7 @@ def honest(base, phase, pins):
                     step['run'] = 'curl -fsSL https://get.maestro.mobile.dev | MAESTRO_VERSION=2.11.0 bash\necho "$HOME/.maestro/bin" >> "$GITHUB_PATH"\n'
             native['steps'].append({
                 'id': 'rehearsal_version', 'name': 'Check Maestro version',
-                'run': 'test "$(maestro --version)" = "2.11.0"',
+                'run': 'bash scripts/check-maestro-version.sh',
             })
         if phase == 'positive':
             if path == CLOUD:
@@ -63,6 +64,10 @@ def honest(base, phase, pins):
         candidate.update(pins)
         # Merely a structural model: replay, not this comparator, judges the body.
         candidate['mobile/scripts/rehearsal-evidence.sh'] = b'test -s maestro-out/rehearsal-before.png\ntest -s maestro-out/rehearsal-after.png\n'
+    if phase == 'freeze':
+        candidate['mobile/scripts/check-maestro-version.sh'] = (
+            Path(__file__).with_name('check-maestro-version.sh').read_bytes()
+        )
     return candidate
 
 
@@ -85,6 +90,18 @@ def run_matrix(base, pins, base_sha):
         change(obj)
         c[path] = dump(obj)
         add(label, b, c, phase, 1, reason)
+    for path in (MOBILE, CLOUD):
+        freeze = honest(base, 'freeze', pins)
+        workflow, native = job(freeze, path)
+        version = next(s for s in native['steps'] if s.get('id') == 'rehearsal_version')
+        version['run'] = 'test \"$(maestro --version)\" = \"2.11.0\"'
+        freeze[path] = dump(workflow)
+        add('version-inline-' + ('station' if path == MOBILE else 'cloud'),
+            base, freeze, 'freeze', 1, f'VERSION_CHECK_NOT_SCRIPT: {path}')
+    freeze = honest(base, 'freeze', pins)
+    freeze['mobile/scripts/check-maestro-version.sh'] = b'#!/bin/bash\nmaestro --version || true\n'
+    add('version-script-placebo', base, freeze, 'freeze', 1,
+        'VERSION_SCRIPT_MISMATCH: mobile/scripts/check-maestro-version.sh')
 
     quality_reason = f'CARRIER_CHANGED: {MOBILE}:quality:whole-job'
     native_steps = parse(positive[MOBILE])['jobs']['android-e2e']['steps']
