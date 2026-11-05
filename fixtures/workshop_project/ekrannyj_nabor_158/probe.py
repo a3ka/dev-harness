@@ -1967,8 +1967,10 @@ def k_f01(ctx):
         ish = sudi_repo(pusto)
     finally:
         shutil.rmtree(pusto, ignore_errors=True)
-    if ish['rc'] == 2 and P_LIVE in ish.get('pri', []):
-        return ish
+    # Имя причины — ПОДСТРОКОЙ в тексте отказа (причины форматированы);
+    # наружу — ДОСЛОВНОЕ имя причины и текст отказа маркером.
+    if ish['rc'] == 2 and any(P_LIVE in p for p in ish.get('pri', [])):
+        return ishod(2, [P_LIVE], list(ish.get('pri', [])))
     return krasnaya('ЖИВОЙ ВХОД БЕЗ СРЕДЫ НЕ ДАЛ ИМЕНОВАННЫЙ ОТКАЗ',
                     mark=ish.get('mark', []))
 
