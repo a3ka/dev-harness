@@ -1,3 +1,9 @@
+## ГДЕ МЫ — НОЧНОЙ UPDATE 158 05.11 01:50 UTC
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+
+- **Харнес 158 (экранный набор), frozen/1.** `check_zones.sh /tmp/dev-harness-worktrees/c907157c/wip-158-implementer` завершился rc0; log `/tmp/dev-harness-verify/orch/check-zone-158.log`. Independent `--model` smoke начал 36 зелёных клеток; long `--stabs` regression is still running through neighbour 148 and must finish rc0 before any judge. Branch tip `3a1cea509613f1aa95e8c84b444e4aef0cf10c87` is not pushed because detector deadlock remains in force.
+
+
 ## ГДЕ МЫ — НОЧНОЙ БЛОКЕР ДЕТЕКТОРА 05.11 01:47 UTC
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
 
