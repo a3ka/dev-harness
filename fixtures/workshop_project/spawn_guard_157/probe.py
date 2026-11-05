@@ -278,8 +278,8 @@ def run(source, tag):
 
 def main():
     if (len(sys.argv) == 2 and sys.argv[1] not in ('--model', '--stabs')) or (
-            len(sys.argv) == 3 and sys.argv[1] != '--revision') or len(sys.argv) > 3:
-        print('usage: probe.py [--model|--stabs|--revision <commit>]', file=sys.stderr)
+            len(sys.argv) == 3 and sys.argv[1] not in ('--revision', '--mutant')) or len(sys.argv) > 3:
+        print('usage: probe.py [--model|--stabs|--revision <commit>|--mutant <name>]', file=sys.stderr)
         return 2
     if not SOURCE.is_file():
         print('NOT_IMPLEMENTED: absent hook ' + str(SOURCE), file=sys.stderr)
@@ -291,6 +291,8 @@ def main():
     try:
         if len(sys.argv) == 1:
             return int(bool(run(source, 'subject')))
+        if len(sys.argv) == 3 and sys.argv[1] == '--mutant':
+            return int(bool(run(mutation(reference(), sys.argv[2]), 'subject')))
         if len(sys.argv) == 3:
             revision = subprocess.run(
                 ['git', 'show', sys.argv[2] + ':.omp/extensions/spawn-guard.ts'],
