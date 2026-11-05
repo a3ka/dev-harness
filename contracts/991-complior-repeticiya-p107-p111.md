@@ -1,6 +1,7 @@
 # Контракт 991 — совмещённая репетиция П-107/П-111 на Complior-mob (v3, черновик)
 
 КЛАСС: КОДОВЫЙ — конечный предмет меняет StartScreen и исполняемые Android workflows; это не doc-only допуск.
+КЛАСС РИСКА: рисковый — судит обязательный version gate required android-e2e health-продукта (как 163)
 Статус: черновик для суда, не разрешение push/freeze/раздачи в Complior-mob или Merge. Номер уже выдан: registry/contracts.tsv, `991 → 24070489099050108e3f3b8cb5bd66712d378ffc`; повторного минта нет.
 
 КОНТЕКСТ: `docs/owner/2026-10-15-suzhenie-dopuska-pilota.md` — минимальный допуск; `forks/n-105-konsultant-i-n300-batch.md:21–25` — принятое Б1; `verdicts/consultant/complior-p107-p111-batch-v1.md` — инженерные И1–И7; `forks/n-complior-mob-8-razvilok-reshenija.md` — прежние решения; `forks/n-complior-mob-pilot-budget-token.md` — лимиты. Архивный ArchitectP107P111Draft.md — источник предложения, не санкция; его одно-PR маршрут и HARNESS_TOOLCHAIN=android сюда не переносятся.
