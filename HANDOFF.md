@@ -1,3 +1,10 @@
+## ГДЕ МЫ — НОЧНОЙ UPDATE 05.11 01:45 UTC
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+
+- **Харнес 157 / PR #523 (owner/wire-157).** После raw evidence старого FAIL (`check_charter` только 78d8e785, 12/13 разрешены) выполнен GitHub update-branch endpoint для non-charter branch с expected head `ab7ce5c1e1382d72d90c91e79d5dc5a05efc4657`; GitHub ответил `Updating pull request branch.` Цель — включить grandfather #522 в ancestry head, потому что Actions checkout судит head, а reopen этого не сделал. `gh pr checks --watch` до создания checks вернул `no checks reported`; статус — ЖДЁТ свежий CI, не merge до полного зелёного.
+- **Экран 148 (таб-бар), frozen/2.** v+1 перепакован на `origin/main=a9a53c1d3`, architect tip `0a9732d51c25fdbd9aba2d4fba73ef311ca57327`. `pre_critic` green: `PREDPOSYLKI_OK … settings=3`. Архитектор предъявил generator rc0 twice с теми же 8 sha256, checker `--selftest` rc0 (8 retained-region max_difference=0, 4 negative controls), old product rc1 `MASKA_VERH_390`, cached diff check rc0. До publication ветки нет OBJECT для critic; no freeze/push.
+
+
 ## ГДЕ МЫ — НОЧНОЙ ДОПОЛНИТЕЛЬНЫЙ ЧЕКПОЙНТ 05.11 01:36 UTC
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
 
