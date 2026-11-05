@@ -1,5 +1,5 @@
 {
- "versija": 2,
+ "versija": 3,
  "kontrakt": "141-obryv-adb-diagnostika",
  "subjekt": ".github/workflows/mobile.yml",
  "repo_scenariev": "a3ka/Complior-mob",
@@ -26,11 +26,7 @@
   "device [^ ]* not found",
   "DeviceServerDiedException"
  ],
- "alfavit_vyrazhenij": [
-  "${{ github.workspace }}",
-  "${{ github.run_id }}",
-  "${{ github.run_attempt }}"
- ],
+ "alfavit_vyrazhenij": [],
  "utility_alfavit": [
   "bash",
   "sed",
@@ -51,14 +47,18 @@
   "avdmanager"
  ],
  "nositeli": {
-  "model/mobile.yml": "e9c705efcb8612f85299ac07573f05bf191fcda9da7b94b58bba655914e6d3e2",
-  "mobile-bez-141.yml": "b4c83b888d3ec1e2daa9c9b014b3cf3ee3fa741c71e5098d38f81e2006140341"
+  "model/mobile.yml": "528bbc7190a71b7adf93ac2c9163fadb2859df04a9702c6efe83c8e87e7d56d0",
+  "mobile-bez-141.yml": "b4c83b888d3ec1e2daa9c9b014b3cf3ee3fa741c71e5098d38f81e2006140341",
+  "model/mobile/scripts/ci-first-run-135.sh": "5b4c61ecf827d8685d1b70a38d2a52e8f27d4e407299a9c2057e8e345ffbcb5c",
+  "model/mobile/scripts/ci-erstinformation-118.sh": "e79c415d8317908ac81b08dc5ef93e66bdce3414c4462ee80fc63a4ff40d08d9",
+  "model/mobile/scripts/ci-pilot-995.sh": "b10dd371989996b0e1a81663a268a053f5e54b2b8debb375f817f6d66acd995f"
  },
  "istochniki": {
   "osnova": "ветка PR #124 a3ka/Complior-mob cmp-mob-118/erstinformation-prod @ 5803d57 (.github/workflows/mobile.yml)",
   "kandidat": "kandidat-mobile-yml.patch Diag141 (шаг 135; patch --dry-run OK, bash -n OK)",
   "lekalo-118-995": "контракт 141 (architect): шаг 118 — то же лекало; шаг 995 — diag-хвост без шагного повтора",
-  "osnova_v2": "модель v2 — mobile.yml разделённого DAG 143 (mob_ci_143/model/.github/workflows/mobile.yml, sha256 e9c705efcb8612f85299ac07573f05bf191fcda9da7b94b58bba655914e6d3e2): тела шагов 135/118/995 перенесены побайтово (сверено: байт-равны модели v1 b7cd9c518…)"
+  "osnova_v2": "модель v2 — mobile.yml разделённого DAG 143 (mob_ci_143/model/.github/workflows/mobile.yml, sha256 e9c705efcb8612f85299ac07573f05bf191fcda9da7b94b58bba655914e6d3e2): тела шагов 135/118/995 перенесены побайтово (сверено: байт-равны модели v1 b7cd9c518…)",
+  "osnova_v3": "141 v3: тела трёх шагов v2 вынесены в model/mobile/scripts/ci-*-NNN.sh; модельный workflow вызывает скрипты, sha256 покрывает каждый скрипт, replay исполняет файлы из дерева субъекта."
  },
  "kejsy": {
   "135-oflin-povtor-spas": {
@@ -691,21 +691,21 @@
    "tip": "struktura",
    "podtip": "kanon",
    "shag": "135",
-   "opisanie": "канон скрипта: тело run: шага 135 построчно равно модели (комментарии/формат свободны)",
+   "opisanie": "вызов bash mobile/scripts/ci-first-run-135.sh из run; sha256 скрипта равен пину модели",
    "ozhidanie": {}
   },
   "struktura-shag118": {
    "tip": "struktura",
    "podtip": "kanon",
    "shag": "118",
-   "opisanie": "канон скрипта: тело run: шага 118 построчно равно модели (комментарии/формат свободны)",
+   "opisanie": "вызов bash mobile/scripts/ci-erstinformation-118.sh из run; sha256 скрипта равен пину модели",
    "ozhidanie": {}
   },
   "struktura-shag995": {
    "tip": "struktura",
    "podtip": "kanon",
    "shag": "995",
-   "opisanie": "канон скрипта: тело run: шага 995 построчно равно модели (комментарии/формат свободны)",
+   "opisanie": "вызов bash mobile/scripts/ci-pilot-995.sh из run; sha256 скрипта равен пину модели",
    "ozhidanie": {}
   },
   "struktura-pereformat135": {
@@ -958,6 +958,12 @@
   "s-shag-pereimenovan-135": [
    "struktura-shag135"
   ],
+  "s-vyzov-obojden-135": [
+   "struktura-shag135"
+  ],
+  "s-script-net-995": [
+   "struktura-shag995"
+  ],
   "s-upr-if-false-135": [
    "struktura-upravlenie-shag135"
   ],
@@ -1033,5 +1039,10 @@
   "s-upr-job-rebro-pusto": [
    "struktura-upravlenie-job"
   ]
+ },
+ "skripty": {
+  "135": "mobile/scripts/ci-first-run-135.sh",
+  "118": "mobile/scripts/ci-erstinformation-118.sh",
+  "995": "mobile/scripts/ci-pilot-995.sh"
  }
 }
