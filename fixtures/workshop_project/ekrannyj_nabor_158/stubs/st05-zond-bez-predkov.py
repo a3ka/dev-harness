@@ -19,9 +19,12 @@ SVOJ_HELPER = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            'st05-helpery-bez-predkov.ts')
 
 
+_real_kopirovat_zond = probe.kopirovat_zond
+
+
 def kopirovat_zond_s_defektom(kopija, helper=None):
     """ДЕФЕКТ: в копию кладётся helpery.ts без обхода предков."""
-    return probe.kopirovat_zond(kopija, helper=SVOJ_HELPER)
+    return _real_kopirovat_zond(kopija, helper=SVOJ_HELPER)
 
 
 probe.kopirovat_zond = kopirovat_zond_s_defektom
