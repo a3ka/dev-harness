@@ -251,8 +251,8 @@
   "piny": {
     "model/.github/workflows/mobile.yml": "6137aa571ace1147ae1a29884c98008620c3b329eebf83617b5a971d57d0405e",
     "model/mobile/ci-screens.json": "85c23e1c66e9661d1d3fc2d56dfd13e4fba1b38bbaa6b9e569acfc0fb98c09e3",
-    "model/mobile/scripts/select-ci-screens.cjs": "866e9c1a27287971017088fc9d025e459311e9a2a784041e060e2d276dccefb7",
-    "model/mobile/scripts/ci-aggregate.cjs": "83118c9297a9b2678e28b73fb4e8ffd772f39bf6f41426c2d07fe9d8199fede1",
+    "model/mobile/scripts/select-ci-screens.cjs": "335b4d261a037877f57783c6bcc50d9f3a0ddebabc9b4ad745a515ce7c6b1f4a",
+    "model/mobile/scripts/ci-aggregate.cjs": "ff0063e0dc90accf85b8303fc41349efbbedf9b96a1382badf0960a4fa33be4a",
     "nositeli/mobile-124.yml": "f45c68230eb83b12c8aa81173da4b9d46608b966acfef7da7ba6178d21087421",
     "nositeli/api/pull-124.json": "af9d11d2a76a3feb3532e00e5f3f902571b1211cf94a30313cc40695570a5053",
     "nositeli/api/pull-124-files.json": "e153ab9b2424f2f9d6b6436cedc5b65af596ed8c8a4ae474aa8ecc95cea6c2a1",
@@ -479,8 +479,7 @@
     ]
   },
   "v3_piny": {
-    "model/matrix-v3.yml": "66895b66ff1440d5a3ce67eda2704d37f70dde82baf1c7b99b711ccc0fc31287",
-    "model/matrix-select-v3.cjs": "199e7aee15ff52d935d513ad9ba34ef41c7e865d674fcddd69fed30763b5c17f",
-    "model/matrix-aggregate-v3.cjs": "04b853a0ad2aa4cd1c6d70b4a1bd3fb6c657106d58cc55331122e25a405215cf"
+    "model/matrix-v3.yml": "c6b1fb61f6617d7880aacf8743d0aea93e321167b5c23e451236bdb09acf552f",
+    "model/mobile/scripts/run-ci-screen.cjs": "4b76ed1103e873e6de61d2032fd89c004d036142960afa4a385670d3ee70f9ff"
   }
 }

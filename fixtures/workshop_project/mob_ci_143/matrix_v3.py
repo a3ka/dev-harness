@@ -3,6 +3,8 @@
 import argparse
 import copy
 import hashlib
+import os
+import shutil
 import json
 from pathlib import Path
 import subprocess
@@ -14,8 +16,8 @@ import yaml
 HERE = Path(__file__).resolve().parent
 BASE = HERE / 'model'
 LEGACY = ('e2e-splash', 'e2e-first-run', 'e2e-erstinformation', 'e2e-start', 'e2e-pilot')
-SELECT_MODEL = BASE / 'matrix-select-v3.cjs'
-AGG_MODEL = BASE / 'matrix-aggregate-v3.cjs'
+SELECT_MODEL = BASE / 'mobile/scripts/select-ci-screens.cjs'
+AGG_MODEL = BASE / 'mobile/scripts/ci-aggregate.cjs'
 
 
 def checked(ok, reason):
@@ -38,7 +40,11 @@ def model_workflow():
     base = yaml.safe_load((BASE / '.github/workflows/mobile.yml').read_text())
     delta = yaml.safe_load((BASE / 'matrix-v3.yml').read_text())['jobs']
     for name, job in delta.items():
-        if name in ('select-screens', 'android-e2e', 'mobile-regression-signal'):
+        if name == 'select-screens':
+            previous = base['jobs'][name]['outputs']
+            base['jobs'][name].update(job)
+            base['jobs'][name]['outputs'] = {**previous, **job['outputs']}
+        elif name in ('android-e2e', 'mobile-regression-signal'):
             base['jobs'][name].update(job)
         else:
             base['jobs'][name] = job
@@ -46,73 +52,98 @@ def model_workflow():
 
 
 def selected(map_data):
-    return {'selected': [{'id': e['id'], 'job': 'e2e-screen', 'reason': 'DEVELOPMENT'}
-                         for e in map_data['ekrany'] if e['job'] == 'e2e-screen'],
-            'excluded': []}
+    chosen = [e for e in map_data['ekrany'] if e['job'] == 'e2e-screen']
+    matrix = json.dumps({'include': [{'screen': {'id': e['id'], 'pack': e['pack'],
+                  'flow': e['flows'][0], 'avd_port': e['avd_port']}} for e in chosen]}, separators=(',', ':')) if chosen else ''
+    return {'selected': [{'id': e['id'], 'job': e['job'], 'reason': 'DEVELOPMENT'}
+                         for e in chosen],
+            'excluded': [{'id': e['id'], 'job': e['job'], 'reason': 'NOT_SELECTED'}
+                         for e in map_data['ekrany'] if e['job'] != 'e2e-screen'] +
+                        [{'id': 'pilot', 'job': 'e2e-pilot', 'reason': 'NOT_SELECTED'}],
+            'matrix': matrix}
 
 
 def node_run(script, *argv):
-    return subprocess.run(['node', str(script), *map(str, argv)], capture_output=True, text=True, timeout=15)
+    return subprocess.run(['node', str(script), *map(str, argv)], capture_output=True, text=True,
+                          env=dict(os.environ, GITHUB_RUN_ATTEMPT='2'), timeout=15)
 
 
 def selector_case(root, model, tmp, names=('vkladki', 'gespraech'), subject=None):
     tmp.mkdir(parents=True, exist_ok=True)
     mapping = demo_map(names) if model else json.loads((root / 'mobile/ci-screens.json').read_text())
     extras = [e for e in mapping['ekrany'] if e.get('job') == 'e2e-screen']
-    map_path, sel_path = tmp / 'map.json', tmp / 'selection.json'
-    map_path.write_text(json.dumps(mapping))
-    sel_path.write_text(json.dumps(selected(mapping)))
     script = subject or (SELECT_MODEL if model else root / 'mobile/scripts/select-ci-screens.cjs')
     if not script.is_file():
         return checked(False, 'MATRIX_SELECTOR_ABSENT')
-    # Product selector's published matrix must derive from the same map and selection.
-    if model:
-        proc = node_run(script, map_path, sel_path)
-        if proc.returncode:
-            return checked(False, 'MATRIX_MODEL: ' + proc.stderr.strip())
-        if not proc.stdout.strip() and not extras:
-            return checked(True, 'MATRIX_EMPTY')
-        try:
-            output = json.loads(proc.stdout)
-        except ValueError:
-            return checked(False, 'MATRIX_MODEL_NE_JSON')
-    else:
-        # The product interface is --mode schedule --repo R --out selection.json;
-        # matrix is a separate JSON field in the output, NEVER guessed from the map.
-        proc = node_run(script, '--mode', 'schedule', '--repo', root, '--out', tmp / 'actual.json')
-        if proc.returncode:
-            return checked(False, 'MATRIX_SELECTOR: ' + proc.stderr.strip()[:100])
-        try:
-            data = json.loads((tmp / 'actual.json').read_text())
-            output = data['matrix']
-            if not extras and output == '':
-                return checked(True, 'MATRIX_EMPTY')
-            if isinstance(output, str):
-                output = json.loads(output)
-        except (OSError, ValueError, KeyError, TypeError):
+    # The real selector owns both selection and the emitted matrix; no standalone
+    # matrix helper can make an invalid two-screen map green.
+    sandbox = tmp / 'repo'
+    (sandbox / 'mobile').mkdir(parents=True)
+    (sandbox / 'mobile/ci-screens.json').write_text(json.dumps(mapping))
+    output = tmp / 'gh-output'
+    env = dict(os.environ, GITHUB_OUTPUT=str(output))
+    proc = subprocess.run(['node', str(script), '--mode', 'schedule', '--repo', str(sandbox),
+                           '--out', str(tmp / 'selection.json')], capture_output=True, text=True, env=env, timeout=15)
+    if proc.returncode:
+        return checked(False, 'MATRIX_SELECTOR: ' + proc.stderr.strip()[:160])
+    try:
+        data = json.loads((tmp / 'selection.json').read_text())
+        emitted = [line.split('=', 1)[1] for line in output.read_text().splitlines() if line.startswith('matrix=')]
+        if len(emitted) != 1 or data.get('matrix') != emitted[0]:
             return checked(False, 'MATRIX_OUTPUT_ABSENT')
-    expected = [e['id'] for e in extras]
-    actual = [entry['screen']['id'] for entry in output['include']]
-    return checked(actual == expected and len(set(actual)) == len(actual), 'MATRIX_NOT_FROM_MAP')
+        matrix = data['matrix']
+        if not extras:
+            return checked(matrix == '', 'MATRIX_EMPTY')
+        actual = [entry['screen']['id'] for entry in json.loads(matrix)['include']]
+        expected = [e['id'] for e in extras]
+        return checked(actual == expected and len(set(actual)) == len(actual) and
+                       [s['id'] for s in data['selected'] if s['job'] == 'e2e-screen'] == expected,
+                       'MATRIX_NOT_FROM_MAP')
+    except (OSError, ValueError, KeyError, TypeError):
+        return checked(False, 'MATRIX_OUTPUT_ABSENT')
 
-def empty_case(tmp):
-    mapping = json.loads((BASE / 'mobile/ci-screens.json').read_text())
-    map_path, sel_path = tmp / 'empty-map.json', tmp / 'empty-selection.json'
-    map_path.write_text(json.dumps(mapping))
-    sel_path.write_text(json.dumps({'selected': [], 'excluded': []}))
-    selector = node_run(SELECT_MODEL, map_path, sel_path)
-    if selector.returncode or selector.stdout != '':
-        return checked(False, 'MATRIX_EMPTY_NOT_SKIPPED')
-    needs = {'select-screens': {'result': 'success', 'outputs': {'selection': sel_path.read_text(), 'matrix': ''}},
+def duplicate_case(tmp):
+    mapping = demo_map()
+    results = []
+    for field, reason in (('id', 'DUPL_ID'), ('pack', 'DUPL_VLADENIJA')):
+        weak = copy.deepcopy(mapping)
+        weak['ekrany'][-1][field] = weak['ekrany'][-2][field]
+        path = tmp / field
+        (path / 'mobile').mkdir(parents=True)
+        (path / 'mobile/ci-screens.json').write_text(json.dumps(weak))
+        proc = node_run(SELECT_MODEL, '--mode', 'schedule', '--repo', path, '--out', path / 'sel.json')
+        results.append(proc.returncode == 1 and reason in proc.stderr)
+    return checked(all(results), 'MATRIX_DUPLICATE_OWNER_OR_ID')
+
+
+def empty_case(tmp, script=AGG_MODEL):
+    """A skipped matrix is valid only with a nonempty legacy selection."""
+    needs = {'select-screens': {'result': 'success', 'outputs': {'selection': '', 'matrix': ''}},
              'quality': {'result': 'success'},
-             'build-apk': {'result': 'success', 'outputs': {'apk_sha256': 'a' * 64, 'artifact_name': 'apk-411-aaaaaaaaaaaa', 'run_id': '411', 'run_attempt': '2'}},
+             'build-apk': {'result': 'success', 'outputs': {'apk_sha256': 'a' * 64,
+                 'artifact_name': 'apk-411-aaaaaaaaaaaa', 'run_id': '411', 'run_attempt': '2'}},
              'e2e-screen': {'result': 'skipped'}}
-    path = tmp / 'empty-needs.json'
-    path.write_text(json.dumps(needs))
+    for name in LEGACY:
+        needs[name] = {'result': 'skipped'}
+    needs['e2e-splash'] = {'result': 'success', 'outputs': dict(needs['build-apk']['outputs'])}
+    sel = {'selected': [{'id': 'splash', 'job': 'e2e-splash', 'reason': 'AFFECTED'}],
+           'excluded': [{'job': name, 'reason': 'NOT_SELECTED'} for name in LEGACY[1:]], 'matrix': ''}
+    inp = tmp / 'empty-needs.json'
     proof = tmp / 'empty-proof'
     proof.mkdir()
-    aggregate = node_run(AGG_MODEL, path, proof)
-    return checked(aggregate.returncode == 0 and 'CHILD_EVIDENCE_OK' in aggregate.stdout, 'MATRIX_EMPTY_AGGREGATE')
+    def invoke(payload):
+        needs['select-screens']['outputs']['selection'] = json.dumps(payload)
+        inp.write_text(json.dumps(needs))
+        return node_run(script, '--needs', inp, '--evidence', proof)
+    valid = invoke(sel)
+    invalid = invoke(dict(sel, selected=[]))
+    absent = needs.pop('e2e-start')
+    lost = invoke(sel)
+    needs['e2e-start'] = absent
+    return checked(valid.returncode == 0 and 'CHILD_EVIDENCE_OK' in valid.stdout and
+                   invalid.returncode == 1 and 'PUSTOJ_NABOR' in invalid.stdout and
+                   lost.returncode == 1 and 'LEGACY_NEEDS_OTSUTSTVUET' in lost.stdout,
+                   'MATRIX_EMPTY_AGGREGATE')
 
 
 
@@ -125,7 +156,9 @@ def workflow_case(wf, old, which):
         return checked(matrix.get('needs') == ['select-screens', 'build-apk'] and
                        matrix.get('strategy', {}).get('matrix') == '${{ fromJSON(needs.select-screens.outputs.matrix) }}' and
                        matrix.get('strategy', {}).get('fail-fast') is False and
-                       jobs.get('select-screens', {}).get('outputs', {}).get('matrix') == '${{ steps.sel.outputs.matrix }}',
+                       jobs.get('select-screens', {}).get('outputs', {}).get('matrix') == '${{ steps.sel.outputs.matrix }}' and
+                       all(jobs['select-screens']['outputs'].get(key) == value
+                           for key, value in old['jobs']['select-screens']['outputs'].items()),
                        'MATRIX_DAG')
     if which == 'allocator':
         launch = next((str(s.get('run', '')) for s in matrix.get('steps', [])
@@ -167,11 +200,13 @@ def evidence_case(root, model, tmp, missing=False, bad_digest=False, subject=Non
         return checked(False, 'CHILD_AGGREGATOR_ABSENT')
     mapping = demo_map()
     ids = [e['id'] for e in mapping['ekrany'] if e.get('job') == 'e2e-screen']
+    sel = selected(mapping)
     needs = {'select-screens': {'result': 'success', 'outputs': {
-        'selection': json.dumps(selected(mapping)), 'matrix': json.dumps({'include': [{'screen': {'id': i}} for i in ids]})}},
+        'selection': json.dumps(sel), 'matrix': sel['matrix']}},
         'quality': {'result': 'success'}, 'build-apk': {'result': 'success', 'outputs': {
             'apk_sha256': 'a' * 64, 'artifact_name': 'apk-411-aaaaaaaaaaaa', 'run_id': '411', 'run_attempt': '2'}},
         'e2e-screen': {'result': 'success'}}
+    needs.update({j: {'result': 'skipped'} for j in LEGACY})
     proof_dir = tmp / 'child-evidence'
     proof_dir.mkdir(parents=True)
     for ident in ids:
@@ -184,9 +219,9 @@ def evidence_case(root, model, tmp, missing=False, bad_digest=False, subject=Non
         (proof_dir / ('screen-evidence-' + ids[-1] + '-411-2') / 'result.json').unlink()
     input_path = tmp / 'needs.json'
     input_path.write_text(json.dumps(needs))
-    proc = node_run(script, input_path, proof_dir) if model else node_run(script, '--needs', input_path, '--evidence', proof_dir)
+    proc = node_run(script, '--needs', input_path, '--evidence', proof_dir)
     if missing or bad_digest:
-        return checked(proc.returncode == 1 and 'CHILD_EVIDENCE_OTKAZ:' in proc.stderr,
+        return checked(proc.returncode == 1 and 'CHILD_EVIDENCE_OTKAZ' in proc.stdout,
                        'CHILD_NOT_FAIL_CLOSED')
     return checked(proc.returncode == 0 and 'CHILD_EVIDENCE_OK' in proc.stdout,
                    'CHILD_NOT_AGGREGATED')
@@ -198,8 +233,8 @@ STUBS = {
     'matrix-hardcoded': ('matrix', lambda wf: wf['jobs']['e2e-screen']['strategy'].update({'matrix': {'include': [{'screen': {'id': 'vkladki'}}]}})),
     'matrix-fixed-host': ('allocator', lambda wf: wf['jobs']['e2e-screen'].update({'runs-on': ['self-hosted', 'runner-1']})),
     'aggregate-no-child': ('evidence', lambda wf: wf['jobs']['android-e2e']['needs'].remove('e2e-screen')),
-    'no-digest': ('apk', lambda wf: wf['jobs']['e2e-screen']['steps'].pop(2)),
-    'secret-leak': ('apk', lambda wf: wf['jobs']['e2e-screen']['steps'][3].update({'env': {'PILOT_DEMO_CODE': '${{ secrets.PILOT_DEMO_CODE }}'}})),
+    'no-digest': ('apk', lambda wf: wf['jobs']['e2e-screen']['steps'].pop(3)),
+    'secret-leak': ('apk', lambda wf: wf['jobs']['e2e-screen']['steps'][4].update({'env': {'PILOT_DEMO_CODE': '${{ secrets.PILOT_DEMO_CODE }}'}})),
 }
 
 
@@ -215,7 +250,7 @@ def main():
         return 1
     try:
         pins = json.loads((HERE / 'source.json').read_text())['v3_piny']
-        if set(pins) != {'model/matrix-v3.yml', 'model/matrix-select-v3.cjs', 'model/matrix-aggregate-v3.cjs'}:
+        if set(pins) != {'model/matrix-v3.yml', 'model/mobile/scripts/run-ci-screen.cjs'}:
             print('ORACLE_TAMPERED: v3_piny census', file=sys.stderr)
             return 2
         for name, expected in pins.items():
@@ -237,12 +272,16 @@ def main():
         results = [(name, workflow_case(workflow, old, name)) for name in ('legacy', 'matrix', 'allocator', 'evidence', 'apk')]
         results.append(('selector', selector_case(root, not args.repo, tmp)))
         if not args.repo:
+            from connected_v3 import check as connected_check
+            results.append(('connected', connected_check(workflow, demo_map())))
+        if not args.repo:
             results.append(('selector-growth', selector_case(root, True, tmp / 'growth',
                                                                names=('vkladki', 'gespraech', 'novyj'))))
+            results.append(('selector-duplicates', duplicate_case(tmp / 'duplicates')))
         results.append(('child-ok', evidence_case(root, not args.repo, tmp)))
         results.append(('child-missing', evidence_case(root, not args.repo, tmp / 'missing', missing=True)))
         results.append(('child-wrong-digest', evidence_case(root, not args.repo, tmp / 'wrong', bad_digest=True)))
-        results.append(('empty-matrix', empty_case(tmp)))
+        results.append(('empty-matrix', empty_case(tmp, AGG_MODEL if not args.repo else root / 'mobile/scripts/ci-aggregate.cjs')))
         for name, (ok, reason) in results:
             print('КЛЕТКА %s %s%s' % (name, 'ЗЕЛЕНА' if ok else 'КРАСНА: ', '' if ok else reason))
         print('клеток %d, зелёных %d, красных %d' % (len(results), sum(ok for _, (ok, _) in results), sum(not ok for _, (ok, _) in results)))
@@ -259,11 +298,12 @@ def main():
                 print('СТАБ %s @ %s КРАСЕН: %s' % (name, branch, reason))
             selector_stub = tmp / 'selector-fixed.cjs'
             source = SELECT_MODEL.read_text()
-            anchor = "const chosen = selection.selected.filter(e => e.job === 'e2e-screen').map(e => e.id);"
+            anchor = "const matrix = matrixScreens.length ? JSON.stringify({ include: matrixScreens }) : \"\";"
             if source.count(anchor) != 1:
                 print('ORACLE_TAMPERED: selector mutation anchor', file=sys.stderr)
                 return 2
-            selector_stub.write_text(source.replace(anchor, "const chosen = ['vkladki', 'gespraech'];"))
+            selector_stub.write_text(source.replace(anchor,
+                "const matrix = matrixScreens.length ? JSON.stringify({ include: matrixScreens.slice(0, 2) }) : \"\";"))
             ok, reason = selector_case(root, True, tmp / 'selector-weak',
                                        names=('vkladki', 'gespraech', 'novyj'), subject=selector_stub)
             if ok:

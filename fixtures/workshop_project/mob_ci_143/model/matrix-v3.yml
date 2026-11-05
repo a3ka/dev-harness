@@ -18,8 +18,16 @@ jobs:
           persist-credentials: false
       - name: Изоляция раннера
         run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
+      - name: Download the single APK
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ needs.build-apk.outputs.artifact_name }}
+          path: mobile/screen-apk
       - name: APK digest before installation
         run: |
+          APK_FILE=mobile/screen-apk/app-release.apk
+          test -f "$APK_FILE"
+          echo "APK_FILE=$APK_FILE" >> "$GITHUB_ENV"
           test "$(sha256sum "$APK_FILE" | cut -d ' ' -f 1)" = "${{ needs.build-apk.outputs.apk_sha256 }}" || { echo APK_DIGEST_RASKHOZHDENIE; exit 1; }
       - name: Run selected screen
         env:
@@ -27,6 +35,8 @@ jobs:
           SCREEN_PACK: ${{ matrix.screen.pack }}
           SCREEN_FLOW: ${{ matrix.screen.flow }}
           AVD_PORT: ${{ matrix.screen.avd_port }}
+          APK_SHA256: ${{ needs.build-apk.outputs.apk_sha256 }}
+          APK_ARTIFACT_NAME: ${{ needs.build-apk.outputs.artifact_name }}
         run: |
           export ANDROID_AVD_HOME="${RUNNER_TEMP}/avd-${RUNNER_NAME}-${SCREEN_ID}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           export ADB_SERVER_PORT="$((AVD_PORT + 1))"
@@ -41,6 +51,11 @@ jobs:
   android-e2e:
     needs: [select-screens, quality, build-apk, e2e-splash, e2e-first-run, e2e-erstinformation, e2e-start, e2e-pilot, e2e-screen]
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
       - name: Download child evidence
         if: always()
         uses: actions/download-artifact@v7
@@ -50,10 +65,20 @@ jobs:
           merge-multiple: false
       - name: Verify selected children
         if: always()
-        run: node mobile/scripts/ci-aggregate.cjs --needs needs.json --evidence mobile/screen-evidence-collected
+        env:
+          NEEDS_KONTEKST: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$NEEDS_KONTEKST" > needs.json
+          node mobile/scripts/ci-aggregate.cjs --needs needs.json --evidence mobile/screen-evidence-collected
   mobile-regression-signal:
     needs: [select-screens, quality, build-apk, e2e-splash, e2e-first-run, e2e-erstinformation, e2e-start, e2e-pilot, e2e-screen]
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
       - name: Download child evidence
         if: always()
         uses: actions/download-artifact@v7
@@ -63,4 +88,17 @@ jobs:
           merge-multiple: false
       - name: Verify selected children
         if: always()
-        run: node mobile/scripts/ci-aggregate.cjs --needs needs.json --evidence mobile/screen-evidence-collected
+        env:
+          NEEDS_KONTEKST: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$NEEDS_KONTEKST" > needs.json
+          node mobile/scripts/ci-aggregate.cjs --needs needs.json --evidence mobile/screen-evidence-collected
+      - name: 'Маркер полной регрессии (freshness-монитор)'
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: regression-marker-${{ github.run_id }}
+          path: needs.json
+          if-no-files-found: error
+          retention-days: 14

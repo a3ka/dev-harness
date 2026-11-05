@@ -17,9 +17,9 @@ d = Path(sys.argv[1])
 p = d / "mobile/scripts/select-ci-screens.cjs"
 s = p.read_text(encoding="utf-8")
 staryj = ("return JSON.stringify(map.zapisi.map((z) => [z.id, z.job, z.status, "
-          "z.puti, z.pack, z.flows, z.child_flows])) + \"|\" + JSON.stringify(map.shared);")
+          "z.puti, z.pack, z.flows, z.child_flows, z.avd_port])) + \"|\" + JSON.stringify(map.shared);")
 novyj = ("return JSON.stringify(map.zapisi.map((z) => [z.id, z.job, z.status, "
-         "z.puti, z.pack, z.flows])) + \"|\" + JSON.stringify(map.shared);")
+         "z.puti, z.pack, z.flows, z.avd_port])) + \"|\" + JSON.stringify(map.shared);")
 if s.count(staryj) != 1:
     print("MUTACIJA_NE_NAIDENA: строка подписи child-flows встречена %d раз" % s.count(staryj), file=sys.stderr)
     sys.exit(1)
