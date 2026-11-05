@@ -1,3 +1,9 @@
+## ГДЕ МЫ — NABLIUDENIA VALIDATED 05.11 02:06 UTC
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+
+- **Unblock main / observations.** `bash scripts/check_nabludenia.sh` on current local main returned rc0. The validation half of the local NABLIUDENIA task is complete. Publication remains blocked solely by the recorded detector deadlock; no push/exchange attempted.
+
+
 ## ГДЕ МЫ — MAIN CI GREEN 05.11 02:00 UTC
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
 
