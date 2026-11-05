@@ -1,3 +1,9 @@
+## ГДЕ МЫ — DETECTOR FORK ISOLATED PROOF 05.11 04:11 UTC
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+
+- **Fork route.** Isolated temporary root containing only `forks/detektor-deadlock-nochnoy.md` passed `check_fork_route.sh --root` rc0. Therefore its grammar/class/route are valid; global root rc1 is exclusively the inherited unresolved `byudzhet-krugov-154` witness. No consultant call while night-unavailable; the validated fork is ready for morning consultant route.
+
+
 ## ГДЕ МЫ — DETECTOR FORK ROUTE 05.11 04:10 UTC
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
 
