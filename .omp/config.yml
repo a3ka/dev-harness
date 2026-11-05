@@ -45,7 +45,7 @@ tools:
 modelRoles:
   default: "anthropic/claude-sonnet-5-5"  # фолбек: zai/glm-5.3
   vision: "anthropic/claude-sonnet-5-5"  # фолбек: openai-codex/gpt-6-sol
-  task: "minimax/MiniMax-M3"  # фолбек: anthropic/claude-sonnet-5-5
+  task: "minimax/MiniMax-M3"
   task-glm: "zai/glm-5.3"  # фолбек: anthropic/claude-sonnet-5-5
   smol: "minimax/MiniMax-M2.5-lightning"
   slow: "zai/glm-5.3"  # фолбек: openai-codex/gpt-6-sol
@@ -112,7 +112,6 @@ retry:
   fallbackChains:
     default: ["zai/glm-5.3"]
     vision: ["openai-codex/gpt-6-sol"]
-    task: ["anthropic/claude-sonnet-5-5"]
     advisor: ["anthropic/claude-opus-5-5"]
     plan: ["anthropic/claude-fable-5-1"]
   # ── /fallbackChains ──

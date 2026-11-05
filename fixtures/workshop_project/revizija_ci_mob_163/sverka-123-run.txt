@@ -1,0 +1,2 @@
+set -o pipefail
+python3 .harness123/scripts/sverka_maketa.py --manifest .harness123/fixtures/workshop_project/mob_sverka_123/kadry_117.json --kadry mobile/maestro-out-117 --repo . | tee mobile/maestro-out-117/sverka-123.tsv

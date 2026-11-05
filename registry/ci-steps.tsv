@@ -284,3 +284,4 @@ step	check:odin-agent-140-family-selftest	55	bash fixtures/workshop_project/odin
 # КОНТРАКТ 153: батарея nul-istochnika (15 клеток, исчерпывающий домен Σ^{1..5}; ложный отказ NUL по цифре 0 в check_project_sources.sh) — проводка оркестратором по ЗОНЕ orchestrator (окно freeze..done): честный sweep W ≈ 46 с и обманки W --stabs ≈ 62 с по замеру Crit153c на станции
 step	check:nul-istochnika-153-family-selftest	50	bash fixtures/workshop_project/nul_istochnika_153/probe.sh
 step	check:nul-istochnika-153-stabs-family-selftest	65	bash fixtures/workshop_project/nul_istochnika_153/probe.sh --stabs
+step	check:spawn-guard-157-family-selftest	30	npm run check:spawn-guard-157-family-selftest

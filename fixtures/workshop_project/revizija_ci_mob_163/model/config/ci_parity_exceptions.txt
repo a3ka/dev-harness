@@ -1,0 +1,3 @@
+команда: set -o pipefail = служебная настройка оболочки: конвейер упавший при ошибке в любой части, пунктом приёмки не является
+команда: python3 .harness123/scripts/sverka_maketa.py --manifest .harness123/fixtures/workshop_project/mob_sverka_123/kadry_117.json --kadry mobile/maestro-out-117 --repo . = сверка кадров по макету, уже зарегистрированный шаг базового CI
+команда: tee mobile/maestro-out-117/sverka-123.tsv = запись отчёта сверки кадров в артефакты прогона, пунктом приёмки не является
