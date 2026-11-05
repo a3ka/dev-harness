@@ -1547,6 +1547,19 @@ while IFS=$'\t' read -r nnn since; do
               ;;
           esac
           ;;
+        # Слово владельца 2026-11-05 ~01:50 Berlin (канал консультанта, «убедись, что это так. Если да, то А»;
+        # Н-416): черновые коммиты architect контракта 161 до заморозки — тег id/CONTRACT/161 при минте
+        # указал на локальный коммит 15e32aa0 вне истории (черновик 160), поэтому draft-признание (023 iv,
+        # рука Б) их не узнаёт. Только эти два SHA и ровно путь контракта 161; fixtures/SPEC этих коммитов
+        # судятся как обычно, зоны не расширяются. Причину (порядок номер → черновик → пин) чинит предмет 161.
+        82421bcc35143112978313fb7f801bc85d010322|1c787a9d5429f751258a2ee311ce3dc058cee2bd)
+          case "$f" in
+            contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md)
+              printf '%s\n' "$f" >> "$TMP/process_excluded"
+              continue
+              ;;
+          esac
+          ;;
       esac
       inside=1
       while IFS= read -r p; do
