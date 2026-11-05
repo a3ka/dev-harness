@@ -1,3 +1,13 @@
+## ГДЕ МЫ — НОЧНОЙ ДОПОЛНИТЕЛЬНЫЙ ЧЕКПОЙНТ 05.11 01:36 UTC
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+
+- **Экран 147 (вход-меню Gespräch), frozen/2.** v+1 перепакован на `origin/main=a9a53c1d3` и прошёл `pre_critic`: architect tip `2dc276eca296883ececd9403dd20351e227c3945`; `PREDPOSYLKI_OK … settings=7`. Строго до publication ветки нет OBJECT для critic. При фактическом касании `assets/fonts`, `_layout.tsx`, `tab-shell.tsx` в продукте commit body обязан нести дословную owner-строку из предыдущего checkpoint для frozen `contracts/999-cmp-mob-002-navigatsiya.md`.
+- **Экран 148 (таб-бар), frozen/2.** Запрещён новый экран; продолжается только v+1 существующего. Owner scheme уточнён: immutable D24 390 не редизайнится; из 393 берутся system bars высотой top=48 px, bottom=20 px. Генератор детерминирован (repeat sha256); checker держит zero-difference эквивалентность сохранённого сдвинутого региона исходного 390 и производного 390, отдельно называет viewport occlusion 68 px, не выдаёт её за whole-frame identity. Critic-delta и vision reviewer обязаны посмотреть `original390|derived390|393|live` и в verdict назвать, изменён ли дизайн. Mirror входов: `/tmp/dev-harness-verify/design/d24-148/`; его не коммитить.
+- **Харнес 157 (страж спавна), frozen/1.** Перед третьим scoped adversary вызовом санкция: author согласился с новым batch-domain классом; tip `dd02e6c3cf9051260082854f950a6a22f74ef595`, W subject/model 25/0, stabs 16/16, `batch-first-two` rc1 `project-batch-three`, `batch-reviewer-first-pass` rc1 `project-batch-reviewer-first`, guards 140/104 rc0. Разрешено атаковать только этот класс + зависимый регресс, не accept; нужен опубликованный OBJECT и собственная model/OBJECT trace.
+- **PR #523 (owner/wire-157).** Reopen создал run `41947899261`, но Actions checkout тестирует head `ab7ce5c1`, чья история всё ещё не содержит `a9a53c1` grandfather #522. Сырой CI: `check_charter` FAIL только `contracts/157…` в `78d8e785`; 12/13 уставных изменений разрешены. Не merge. Reopen сам не перепривязал ancestry; не переписывать owner branch без явного маршрута.
+- **Детектор/push.** Локальный checkpoint `dbdfbe758` не опубликован: `check_no_leak --retake-ahead` отказал из-за `scripts/check_charter.sh` вне `origin/main..HEAD`; `--retake-bulk` отказал, так как `HANDOFF.md` commit не достижим на origin/main. Ночной запрет: no manual snapshot, пока не пустой porcelain + `HEAD==origin/main` + 0/0 и без `.git/*`. Поэтому Handoff committed, но не pushed; обхода нет.
+
+
 ## ГДЕ МЫ — НОЧНОЙ ЧЕКПОЙНТ 05.11 01:23 UTC
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
 
