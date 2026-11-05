@@ -31,6 +31,13 @@ PROJECT_TAIL = Path(LIVE_PROJECT).parts[-3:]
 STATION_TAIL = Path(LIVE_STATION).parts[-3:]
 SUBAGENT_TAIL = Path(LIVE_SUBAGENT).parts[-5:]
 
+# The five role branches under test are installed from the repository's
+# actual roles configuration; each batch contains another, different role.
+BATCH_ROLES = ('architect', 'implementer', 'critic', 'adversary', 'reviewer')
+INSTALLED_ROLES = json.loads((REPO / 'config/agent_models.json').read_text())['roles']
+if not set(BATCH_ROLES) <= INSTALLED_ROLES.keys():
+    raise ValueError('NOT_IMPLEMENTED: batch role absent from installed alphabet')
+
 
 def reference():
     return subprocess.run(
@@ -59,6 +66,25 @@ def mutation(source, name):
         anchor = '        return { block: true, reason: ZAMOK_BROKEN };'
         replacement = ("        if (r.status === 2 && sessionFile.includes('/dev-harness-projects/'))"
                        " return undefined;\n" + anchor)
+    elif name == 'adv157-pass-without-door':
+        anchor = 'const roots = stateRoots(sessionFile);'
+        replacement = (anchor + "\n      if (taskItems(call.input).some((item) => "
+                       "item.agent === 'adversary')) return undefined;")
+    elif name == 'batch-skip-all':
+        anchor = 'const roots = stateRoots(sessionFile);'
+        replacement = (anchor + '\n      if (Array.isArray((call.input as { tasks?: unknown }).tasks)'
+                       ' && taskItems(call.input).length > 1) return undefined;')
+    elif name.startswith('batch-skip-'):
+        role = name.removeprefix('batch-skip-')
+        if role not in BATCH_ROLES:
+            raise ValueError('unknown batch role')
+        anchor = 'const roots = stateRoots(sessionFile);'
+        replacement = (anchor + '\n      if (Array.isArray((call.input as { tasks?: unknown }).tasks)'
+                       ' && taskItems(call.input).some((item) => item.agent === '
+                       + json.dumps(role) + ')) return undefined;')
+    elif name == 'batch-first-only':
+        anchor = 'JSON.stringify({ tasks: taskItems(call.input) })'
+        replacement = 'JSON.stringify({ tasks: taskItems(call.input).slice(0, 1) })'
     else:
         raise ValueError('unknown mutant')
     if source.count(anchor) != 1:
@@ -86,16 +112,18 @@ def build(base, label, home_parts, profile, tail, state_parts):
     return case_root, install, home, state
 
 
-def case(base, guard, label, home_parts, profile, tail, state_parts, outcome, role='architect'):
+def case(base, guard, label, home_parts, profile, tail, state_parts, outcome, role='architect',
+         batch_roles=None):
     case_root, install, home, state = build(base, label, home_parts, profile, tail, state_parts)
     (install / '.omp/extensions/spawn-guard.ts').write_text(guard)
     cfg = install / 'config/agent_models.json'
     cfg.parent.mkdir(parents=True)
-    cfg.write_text(json.dumps({'roles': {'architect': 'slow'}}))
+    cfg.write_text(json.dumps({'roles': INSTALLED_ROLES}))
     door = install / 'scripts/zamok_predmeta.sh'
     door.parent.mkdir(parents=True)
     door.write_text('#!/usr/bin/env bash\n'
                     'printf "%s\\0" "$@" > "$PROBE_DOOR_LOG"\n'
+                    'cat "${!#}" > "$PROBE_DOOR_EVENT"\n'
                     'if [ "$PROBE_DOOR_RESULT" = deny ]; then printf "DOOR_DENY_157\\n" >&2; exit 1; fi\n'
                     'if [ "$PROBE_DOOR_RESULT" = broken ]; then exit 2; fi\n'
                     'exit 0\n')
@@ -105,9 +133,19 @@ def case(base, guard, label, home_parts, profile, tail, state_parts, outcome, ro
     before_state = snapshot(state) if state else None
     before_tree = snapshot(case_root) if state is None else None
     log = case_root / 'door-argv.bin'
-    env = dict(os.environ, PROBE_DOOR_LOG=str(log), HARNESS_SESSION_HOME=str(case_root / 'forged-home'))
+    event_log = case_root / 'door-event.json'
+    tasks = [{'agent': r, 'name': f'Agent157-{i}-{r}',
+              'task': f'SUBJECT=157\nWORKTREE=/tmp/fixture/{i}\nBRANCH=wip/157/architect'}
+             for i, r in enumerate(batch_roles)] if batch_roles else [
+                 {'agent': role, 'name': 'Agent157',
+                  'task': 'SUBJECT=157\nWORKTREE=/tmp/fixture\nBRANCH=wip/157/architect'}]
+    task_input = {'tasks': tasks} if batch_roles else tasks[0]
+    expected_event = {'tasks': tasks}
+    env = dict(os.environ, PROBE_DOOR_LOG=str(log), PROBE_DOOR_EVENT=str(event_log),
+               HARNESS_SESSION_HOME=str(case_root / 'forged-home'))
     result = subprocess.run(['node', str(HERE / 'driver.mjs'), str(install / '.omp/extensions/spawn-guard.ts'),
-                             str(home / '.omp/profiles' / profile / 'agent' / Path(*tail)), role, outcome],
+                             str(home / '.omp/profiles' / profile / 'agent' / Path(*tail)),
+                             json.dumps(task_input), outcome],
                             cwd=case_root, env=env, capture_output=True, text=True, timeout=20)
     try:
         answer = json.loads(result.stdout.strip())
@@ -138,6 +176,8 @@ def case(base, guard, label, home_parts, profile, tail, state_parts, outcome, ro
         expected = {'pass': True}
     assert answer == expected, (label, expected, answer)
     assert log.exists(), (label, 'root returned without door check')
+    assert event_log.exists(), (label, 'door event absent')
+    assert json.loads(event_log.read_text()) == expected_event, (label, 'door did not judge every batch item')
     args = log.read_bytes().split(b'\0')
     assert args[-1] == b'', (label, args)
     argv = [os.fsdecode(value) for value in args[:-1]]
@@ -154,6 +194,9 @@ DOOR_CELLS_STATION = ('station-deny', 'station-allow', 'station-alt', 'station-p
                       'station-broken', 'station-real', 'subagent-real')
 DOOR_CELLS_PROJECT = ('project-deny', 'project-allow', 'project-alt', 'project-profile',
                       'project-shadow', 'project-broken', 'project-real')
+
+BATCH_CELLS = {role: f'{"station" if role == "reviewer" else "project"}-batch-{role}'
+               for role in BATCH_ROLES}
 
 
 def scenarios():
@@ -186,6 +229,16 @@ def scenarios():
          ('dev-harness-projects', 'shadow', 'state'), 'deny', 'architect'),
         ('project-real', live_project, 'dev', PROJECT_TAIL, live_project_state, 'deny', 'architect'),
         ('project-broken', project, 'dev', TAIL, project_state, 'broken', 'architect'),
+        (BATCH_CELLS['architect'], project, 'dev', TAIL, project_state, 'deny',
+         ('architect', 'reviewer')),
+        (BATCH_CELLS['implementer'], project, 'dev', TAIL, project_state, 'allow',
+         ('architect', 'implementer')),
+        (BATCH_CELLS['critic'], project, 'dev', TAIL, project_state, 'broken',
+         ('architect', 'critic')),
+        (BATCH_CELLS['adversary'], project, 'dev', TAIL, project_state, 'deny',
+         ('architect', 'adversary')),
+        (BATCH_CELLS['reviewer'], station, 'dev', TAIL, station_state, 'allow',
+         ('architect', 'reviewer')),
         ('station-alphabet', station, 'dev', TAIL, station_state, 'deny', 'task'),
         ('foreign-deny', ('foreign-layout', 'flat'), 'dev', TAIL, None, 'deny', 'architect'),
         ('malformed-session', station, 'dev', ('history', 'Agent157.jsonl'), None, 'deny', 'architect'),
@@ -199,7 +252,11 @@ def run(source, tag):
     with tempfile.TemporaryDirectory(prefix='spawn-guard-157-') as temp:
         for name, home, profile, tail, state, outcome, role in all_scenarios:
             try:
-                case(Path(temp), source, name, home, profile, tail, state, outcome, role)
+                if isinstance(role, tuple):
+                    case(Path(temp), source, name, home, profile, tail, state, outcome,
+                         batch_roles=role)
+                else:
+                    case(Path(temp), source, name, home, profile, tail, state, outcome, role)
                 print(f'CASE {tag} {name} OK')
             except (AssertionError, OSError, subprocess.TimeoutExpired) as error:
                 failed.append(name)
@@ -242,12 +299,17 @@ def main():
             'env-root': set(DOOR_CELLS_PROJECT),
             'shadow-deny': {'project-shadow'},
             'rc2-pass': {'project-broken'},
+            'adv157-pass-without-door': {BATCH_CELLS['adversary']},
+            **{f'batch-skip-{role}': {cell} for role, cell in BATCH_CELLS.items()},
+            'batch-skip-all': set(BATCH_CELLS.values()),
+            'batch-first-only': set(BATCH_CELLS.values()),
         }
         for name, observed in targets.items():
             fails = run(mutation(ref_source, name), name)
             if not observed <= fails:
                 print(f'STAB_ZHIV: {name}: expected {sorted(observed)}, got {sorted(fails)}', file=sys.stderr)
                 return 1
+        print(f'STABY {len(targets)} NEPOIMANNYH 0')
         return 0
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         print(str(error), file=sys.stderr)
