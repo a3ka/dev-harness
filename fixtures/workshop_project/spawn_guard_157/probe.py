@@ -85,6 +85,13 @@ def mutation(source, name):
     elif name == 'batch-first-only':
         anchor = 'JSON.stringify({ tasks: taskItems(call.input) })'
         replacement = 'JSON.stringify({ tasks: taskItems(call.input).slice(0, 1) })'
+    elif name == 'batch-first-two':
+        anchor = 'JSON.stringify({ tasks: taskItems(call.input) })'
+        replacement = 'JSON.stringify({ tasks: taskItems(call.input).slice(0, 2) })'
+    elif name == 'batch-reviewer-first-pass':
+        anchor = 'const roots = stateRoots(sessionFile);'
+        replacement = (anchor + '\n      if (Array.isArray((call.input as { tasks?: unknown }).tasks)'
+                       " && taskItems(call.input)[0]?.agent === 'reviewer') return undefined;")
     else:
         raise ValueError('unknown mutant')
     if source.count(anchor) != 1:
@@ -140,7 +147,7 @@ def case(base, guard, label, home_parts, profile, tail, state_parts, outcome, ro
                  {'agent': role, 'name': 'Agent157',
                   'task': 'SUBJECT=157\nWORKTREE=/tmp/fixture\nBRANCH=wip/157/architect'}]
     task_input = {'tasks': tasks} if batch_roles else tasks[0]
-    expected_event = {'tasks': tasks}
+    expected_event = json.dumps({'tasks': tasks}, separators=(',', ':'), ensure_ascii=False).encode()
     env = dict(os.environ, PROBE_DOOR_LOG=str(log), PROBE_DOOR_EVENT=str(event_log),
                HARNESS_SESSION_HOME=str(case_root / 'forged-home'))
     result = subprocess.run(['node', str(HERE / 'driver.mjs'), str(install / '.omp/extensions/spawn-guard.ts'),
@@ -177,7 +184,7 @@ def case(base, guard, label, home_parts, profile, tail, state_parts, outcome, ro
     assert answer == expected, (label, expected, answer)
     assert log.exists(), (label, 'root returned without door check')
     assert event_log.exists(), (label, 'door event absent')
-    assert json.loads(event_log.read_text()) == expected_event, (label, 'door did not judge every batch item')
+    assert event_log.read_bytes() == expected_event, (label, 'door did not judge every batch item')
     args = log.read_bytes().split(b'\0')
     assert args[-1] == b'', (label, args)
     argv = [os.fsdecode(value) for value in args[:-1]]
@@ -239,6 +246,10 @@ def scenarios():
          ('architect', 'adversary')),
         (BATCH_CELLS['reviewer'], station, 'dev', TAIL, station_state, 'allow',
          ('architect', 'reviewer')),
+        ('project-batch-three', project, 'dev', TAIL, project_state, 'deny',
+         ('architect', 'implementer', 'critic')),
+        ('project-batch-reviewer-first', project, 'dev', TAIL, project_state, 'deny',
+         ('reviewer', 'architect')),
         ('station-alphabet', station, 'dev', TAIL, station_state, 'deny', 'task'),
         ('foreign-deny', ('foreign-layout', 'flat'), 'dev', TAIL, None, 'deny', 'architect'),
         ('malformed-session', station, 'dev', ('history', 'Agent157.jsonl'), None, 'deny', 'architect'),
@@ -303,6 +314,8 @@ def main():
             **{f'batch-skip-{role}': {cell} for role, cell in BATCH_CELLS.items()},
             'batch-skip-all': set(BATCH_CELLS.values()),
             'batch-first-only': set(BATCH_CELLS.values()),
+            'batch-first-two': {'project-batch-three'},
+            'batch-reviewer-first-pass': {'project-batch-reviewer-first'},
         }
         for name, observed in targets.items():
             fails = run(mutation(ref_source, name), name)
