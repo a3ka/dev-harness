@@ -1,3 +1,9 @@
+## ГДЕ МЫ — DETECTOR FORK ROUTE 05.11 04:10 UTC
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+
+- **Fork route.** Создан локальный `forks/detektor-deadlock-nochnoy.md`, commit `eb48c5b95da5e41ec81849b76bd3cb883019dc62`: инженерный анализ legal route к consultant до утренней эскалации owner. Required `bash scripts/check_fork_route.sh --root .` returned rc1, but for pre-existing unrelated `byudzhet-krugov-154`: `без подтверждения класса — свидетельство отсутствует`. Новый fork не передавался consultant/owner; чужой fork не менялся. Это добавляет независимый blocker к ночной эскалации, не разрешение обхода detector.
+
+
 ## ГДЕ МЫ — NABLIUDENIA VALIDATED 05.11 02:06 UTC
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
 
