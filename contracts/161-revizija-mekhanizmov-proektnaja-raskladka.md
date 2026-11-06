@@ -6,7 +6,7 @@
 
 ## Существующее
 
-- `scripts/make_task.sh` уже собирает MAP/RULES/REUSE/ZONES и MANIFEST из `contextPack.rows`; `profile_resolver.sh` и `project_paths_resolve` (`scripts/next_id.sh`) уже задают единый профиль и `workflowPaths` проекта. Сегодня `make_task.sh:402-428` ищет незамороженный черновик в переданном worktree, а `:555-557` пишет манифест в `$REPO/.omp/context/`.
+- `scripts/make_task.sh` уже собирает MAP/RULES/REUSE/ZONES и MANIFEST из `contextPack.rows`; `profile_resolver.sh` и `project_paths_resolve` (`scripts/next_id.sh`) уже задают единый профиль и `workflowPaths` проекта. Сегодня `make_task.sh:402-428` ищет незамороженный черновик в переданном worktree, `:340-343` пропускает отсутствующий optional contextPack-файл, а `:555-557` пишет манифест в `$REPO/.omp/context/`.
 - `scripts/spawn_agent.sh:104-125,155-159` требует манифест ДО проверки тега и создания worktree; сейчас ищет его в `$ROOT/.omp/context/`. Dual-control тега и origin-реестра уже действует и сохраняется. `scripts/zamok_predmeta.sh:150-201` читает `.harness/registry/pauzy.tsv` и `.harness/contracts/` для проектного риска; реальный замок судится имеющейся батареей 140, не переписывается ради 161a.
 - Frozen 095 (контекст и роли), 023 (origin dual-control), 103/996 (проектный резолвер) и 140 (замок) сохраняют свои публичные отказы; изменение их семантики не требуется. 157 владеет перехватом hook `spawn-guard.ts`, вне зоны этой пачки.
 
