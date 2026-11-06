@@ -1,3 +1,50 @@
+## ГДЕ МЫ — ПЛАН 06.11
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+### ФАЗА 0 — ЧЕКПОЙНТ
+- 0.1 HANDOFF «ГДЕ МЫ — ПЛАН 06.11» закоммичен (git apply из scratch) и запушен через gitw; SHA — в доклад.
+
+### ФАЗА 1 — ГЛАВНАЯ ЛИНИЯ 165 (materializer)
+- 1.1 continuation-архитектор 165 в /tmp/dev-harness-worktrees/c907157c/wip-165-architect: git mv fixtures/verdict_materializer_165 → fixtures/workshop_project/verdict_materializer_165, правка строки ЗОНА и ссылок, --model/--stabs/pre_critic, коммит (check_staged rc 0).
+- 1.2 critic 165 — раскрыть оба инцидента: seed и RELEASE девяти держателей.
+- 1.3 freeze 165 → implementer → adversary → reviewer → done 165.
+- 1.4 материализация accept: 141 (ce7caed), 143 (436bf7b), 162 (58dc8f0), 164 (6d3c660) → freeze 141/3, 143/3, 162/2, 164/1.
+
+### ФАЗА 2 — ПАРАЛЛЕЛЬНО С ФАЗОЙ 1, СЕЙЧАС
+- 2.1 163, PR mob #162: этапы B и C (коммит cf779fbf) в frozen 163/1? Нет — новая ветка от 78f385fe, новый PR, merge. Да — scoped-суд на дельту 78f385fe..cf779fbf.
+- 2.2 118, PR mob #163: scoped adversary + reviewer на 13d025b6 и bd61176a под frozen 118/3 → merge.
+- 2.3 157: adversary-3 на dd02e6c3c → reviewer → done 157.
+
+### ФАЗА 3 — ЭКРАНЫ МОБА (после 1.4)
+- 3.1 143 v3 implementer → судьи → merge (экранные job — предпосылка 147/148).
+- 3.2 147 и 148 параллельно: MiniMax по frozen/3 на PR mob #146/#147 → adversary → vision-reviewer → merge.
+- 3.3 162/2 implementer → merge стандарта кода → 149 MiniMax по frozen/2 (закрыть или заменить stale PR #148) → судьи → merge.
+- 3.4 158: ref-clean станции → судьи PR #528 → done.
+
+### ФАЗА 4 — ПОСЛЕ ЭКРАНОВ
+- 4.1 141 v3 реализация (PR #537), 164/1 реализация.
+- 4.2 161 ревизия механизмов: только по отдельному слову владельца.
+- 4.3 999 v2 — ждёт владельца.
+
+- Основание записи: слово владельца 2026-11-06 ~00:10 UTC. Маршрут записи: `git apply` из scratch; этот commit затрагивает только HANDOFF.md.
+- HEAD и origin/main перед записью: `377da18b2aa2ff498cddfb5af3d50697e5cade9e`; `git status --porcelain` пуст, `check_no_leak --check /home/harness/dev-harness` rc 0.
+
+| Предмет | Состояние / SHA | Следующая дверь |
+|---|---|---|
+| 165 | Architect продолжил тот же worktree `/tmp/dev-harness-worktrees/c907157c/wip-165-architect`, branch `wip/165/architect`; commit `af95f20f37c664c61ce2c7e5c9f2b1cefca77e0e`, не pushed. Путь fixture перенесён в `fixtures/workshop_project/verdict_materializer_165/`; `--model`, `--stabs`, `pre_critic` — rc 0. | Сначала lawful land, затем critic 165; перед critic раскрыть оба инцидента ниже. Допущение owner на старый `fixtures/verdict_materializer_165/` ОТОЗВАНО, guard-патчи не применять. |
+| 163 | PR Complior-mob #162: accepted OBJECT `78f385fe`, head `cf779fbf`; frozen 163/1 прямо включает этапы B и C. | Scoped adversary, затем reviewer на `78f385fe..cf779fbf`, без новой ветки. |
+| 118 | PR Complior-mob #163: accepted adversary `5803d57a`, reviewer `33beed4c`; head `bd61176a`; неcуженые product commits `13d025b6`, `bd61176a`. | Scoped adversary, затем reviewer под frozen 118/3 на новый OBJECT; замок пускает. |
+| 157 | OBJECT `dd02e6c3cf9051260082854f950a6a22f74ef595`; owner санкция на следующий adversary действует. make_task adversary-3 materialized successfully. | СУД ДО ВЫЗОВА: repo=dev-harness; предмет=157; роль=adversary; вызов=3/2; OBJECT=dd02e6c3cf9051260082854f950a6a22f74ef595; область=batch+зависимая регрессия; санкция owner 2026-11-06. Затем adversary-3. |
+| 141/143/162/164 | Ожидают materializer 165. | После done 165 materialize existing critic accepts; freeze 141/3, 143/3, 162/2, 164/1. |
+| 147/148/158/999 | Без изменений. | Не предпринимать действие. |
+
+### Инциденты 165 — обязательны для critic до freeze
+1. Owner временно создал и удалил uncommitted seed контракта для `make_task`; это нарушение N-85 / truth-in-committed-source.
+2. `zamok_predmeta.sh --osvobodit` ошибочно освободил yielded holders 141, 147, 148, 157, 158, 161, 162, 163, 164. Audit records valid, но `GRP harness 1/1` не является истинным WIP-count и не authorizes new work.
+
+### Ограничения
+- Начато mob 5: 141, 147, 148, 162, 163 при лимите 3. Новые экраны не брать до merge.
+- Устаревшие PR закрывает или оставляет только owner после текущей перепроверки consultant; самостоятельных действий по ним нет.
+
 ## ГДЕ МЫ — OWNER SNAPSHOT RULE + PARALLEL PLAN 05.11 11:26 UTC
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
 
