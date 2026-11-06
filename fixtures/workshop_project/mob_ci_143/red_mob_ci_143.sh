@@ -8,12 +8,16 @@
 #   (без флага, --repo R)    — судится живой продукт R (до cutover красен)
 #   --model                  эталон model/ (контроль входов)
 #   --stabs                  контроль + матрица обманных стабов (SVJAZI N)
-# Обёртка режим не подменяет и сама ничего не печатает; движок, оракул и
-# перечень клеток — probe.py и source.json рядом (единый источник).
-# Коды возврата — коды probe.py: 0 — зелено; 1 — красная клетка либо стаб
-# прошёл (STAB_ZHIV) либо нет субъекта (SUBJECT_ABSENT); 2 — нечем проверять
-# (нет node, ORACLE_TAMPERED, дрейф стабов/модели).
+# v3 судит универсальную матрицу и детские доказательства ПЕРВЫМ; v2
+# replay остаётся независимым контролем моделей/стабов до cutover. На живом
+# продукте v2-статический запрет matrix и поимённый перечень jobs устарели.
+# Коды возврата: 0 — обе применимые батареи зелёные; 1 — предмет красен;
+# 2 — нет предпосылки/оракул повреждён.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)" || exit 2
 command -v python3 >/dev/null 2>&1 || { echo 'NOT_IMPLEMENTED: нет python3' >&2; exit 2; }
+PYTHONDONTWRITEBYTECODE=1 python3 "$HERE/matrix_v3.py" "$@" || exit $?
+case " $* " in
+  *" --repo "*) exit 0 ;;
+esac
 PYTHONDONTWRITEBYTECODE=1 exec python3 "$HERE/probe.py" "$@"

@@ -477,5 +477,10 @@
     "stab_i_child_rezhet_vybor": [
       "i08-vybor-child-flows"
     ]
+  },
+  "v3_piny": {
+    "model/matrix-v3.yml": "66895b66ff1440d5a3ce67eda2704d37f70dde82baf1c7b99b711ccc0fc31287",
+    "model/matrix-select-v3.cjs": "199e7aee15ff52d935d513ad9ba34ef41c7e865d674fcddd69fed30763b5c17f",
+    "model/matrix-aggregate-v3.cjs": "04b853a0ad2aa4cd1c6d70b4a1bd3fb6c657106d58cc55331122e25a405215cf"
   }
 }
