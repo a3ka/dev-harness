@@ -66,6 +66,8 @@
 - 2026-11-06 00:40 UTC / 2.4 161 / rc 1 task gate: `OBJECT_RASHODITSJA: предмет 161: OBJECT задания b99c667be138f344906b352ea5a6d510f11473a4 ≠ tip ветки wip/161/architect (2c7abb6e6ac30cc7c848a0e1172a30ed94ebc54c)`. `b99c667` фактически tip `wip/161/architect-v1`; обход/переименование ветки не выполнялись.
 - 2026-11-06 00:40 UTC / 1.2 165 / rc 1 task gate: `KLASS_RISKA_NET: предмет 165: класс риска неоднозначно определён (net_stroki); файлы: файлов contracts/165-*.md нет`. Контракт и OBJECT есть только в `wip/165/architect`; main-direct судья не запущен, обхода/копирования контракта в main не было.
 - 2026-11-06 01:20 UTC / 3.4 158 / rc 1 `make_task`: `ОТКАЗ: роль вне алфавита: implementer-glm`. Routing требует implementer-glm для диагностики CI, но дверь 095 не допускает эту роль; подмена implementer/модели не выполнялась.
+- 2026-11-06 01:28 UTC / 3.4 158 / station refs `Arch147t/ref-clean` и `Arch148t/mob-ref` восстановлены из указанных уцелевших носителей вне дерева; `red_ekrannyj_nabor_158.sh --model` на OBJECT `a39ffc73f4f04fdc32379838ef8d9c388fa53c9c` → rc 0, клеток 36, зелёных 36, красных 0.
+- 2026-11-06 01:29 UTC / 3.4 158 / PR #528 CI остаётся красным вне зоны 158: job l3 → `lane: неизвестный ключ: check:spawn-guard-157-family-selftest`; job legkij → `FAIL contracts/148-vkladki-tabov.md: заморозка v3 без verdicts/critic/contracts-148-v3.md` и `FAIL contracts/157-spawn-guard-proektnye-sessii.md изменён без новой заморозки`.
 ## ГДЕ МЫ — OWNER SNAPSHOT RULE + PARALLEL PLAN 05.11 11:26 UTC
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
 
