@@ -2,6 +2,7 @@
 """161a: exercise the real project launch doors and report named violations."""
 import json
 import os
+from collections import Counter
 from pathlib import Path
 import subprocess
 import sys
@@ -123,7 +124,9 @@ def actual(mutant=None, captured=None):
         before = mob.snapshot()
         task_args = ['bash', ROOT / 'scripts/make_task.sh', '--repo', mob.draft,
                      '--role', 'architect', '--kind', 'task', '--contract', NUMBER]
-        result = run(*task_args, env=mob.env)
+        result = (run(sys.executable, __file__, '--stub-invoke', 'optional-skipped',
+                      'REUSE: docs/reuse.md', *task_args, env=mob.env)
+                  if mutant == 'optional-skipped' else run(*task_args, env=mob.env))
         if result.returncode == 2:
             print('NOT_IMPLEMENTED: make_task environment: ' + result.stderr.strip(), file=sys.stderr)
             return 2
@@ -153,9 +156,7 @@ def actual(mutant=None, captured=None):
         # Every optional profile row remains required even when its mandatory flag is false.
         optional = mob.draft / 'docs/reuse.md'
         optional.unlink()
-        no_optional = (run(sys.executable, __file__, '--stub-invoke', 'optional-skipped',
-                           optional, *task_args, env=mob.env) if mutant == 'optional-skipped'
-                       else run(*task_args, env=mob.env))
+        no_optional = run(*task_args, env=mob.env)
         check(no_optional.returncode == 1 and 'docs/reuse.md' in no_optional.stderr,
               'PROFILE_PATH_MISSING: absent optional row accepted', failures)
         if no_optional.returncode == 1:
@@ -253,21 +254,21 @@ def actual(mutant=None, captured=None):
 def stub_invoke(kind, value, argv):
     """Executable stand-ins at the public subject call, each delegates to the real door."""
     if kind == 'optional-skipped':
-        path = Path(value)
-        path.write_text('REUSE Complior-mob\n', encoding='utf-8')
-        try:
-            answer = run(*argv)
-        finally:
-            path.unlink()
+        # The real door runs on a conforming, present-row input; the deceptive
+        # stand-in drops precisely the optional row from the issued pack.
+        answer = run(*argv)
+        answer.stdout = ''.join(line for line in answer.stdout.splitlines(keepends=True)
+                                if line.rstrip('\n') != value)
     elif kind == 'foreign-make':
         args = list(argv)
         args[args.index('--repo') + 1] = value
         answer = run(*args)
     elif kind == 'missing-spawn':
-        args = list(argv)
-        args[args.index('--nnn') + 1] = value
-        args[args.index('--author') + 1] = 'reviewer'
-        answer = run(*args)
+        # Deceptive door drops the refusal on the SAME absent-number input.
+        # The actual door is called; no manifest is placed in main.
+        answer = run(*argv)
+        if manifest_refusal(answer):
+            return 0
     else:
         print('NOT_IMPLEMENTED: unknown subject stub', file=sys.stderr)
         return 2
@@ -276,29 +277,52 @@ def stub_invoke(kind, value, argv):
     return answer.returncode
 
 
-def model(stabs):
+def signature(failure):
+    return failure.split(':', 1)[0]
+
+
+def honest_control():
+    """Expected product red before cutover is an independently checked control."""
     failures = []
-    result = actual(captured=failures)
-    if result == 2:
+    rc = actual(captured=failures)
+    if rc == 2:
+        return 2, failures
+    observed = Counter(map(signature, failures))
+    pre_cutover = Counter({'MANIFEST_MAIN_ONLY': 1, 'PROFILE_PATH_MISSING': 1})
+    if (rc == 0 and not failures) or (rc == 1 and observed == pre_cutover
+                                       and any('no unique external manifest before spawn' in x
+                                               for x in failures)
+                                       and any('absent optional row accepted' in x
+                                               for x in failures)):
+        return observed, failures
+    return None, failures
+
+
+def model(stabs):
+    baseline, failures = honest_control()
+    if baseline == 2:
         return 2
-    if result:
+    if baseline is None:
         for failure in failures:
             print(failure, file=sys.stderr)
-        if any(f.startswith(('MANIFEST_MAIN_ONLY:', 'DRAFT_MAIN_REQUIRED:'))
-               for f in failures):
-            print('NOT_IMPLEMENTED: real product control has no external manifest',
-                  file=sys.stderr)
-            return 2
+        print('CONTROL_INVALID: honest product outcome is neither post-cutover green '
+              'nor the measured two-class pre-cutover red', file=sys.stderr)
         return 1
+    print('CONTROL: honest product ' + ('green' if not baseline else 'expected red: '
+          + ', '.join(sorted(baseline))), file=sys.stderr)
     if stabs:
-        for name, reason in (('optional-skipped', 'PROFILE_PATH_MISSING:'),
+        for name, reason in (('optional-skipped', 'CONTEXT_FOREIGN: missing exact REUSE: docs/reuse.md'),
                              ('foreign-make', 'CONTEXT_FOREIGN: make_task'),
                              ('missing-spawn', 'MANIFEST_MISSING:')):
             reds = []
             rc = actual(mutant=name, captured=reds)
-            if rc != 1 or len(reds) != 1 or not reds[0].startswith(reason):
+            expected = Counter(baseline)
+            expected[reason.split(':', 1)[0]] += 1
+            if (rc != 1 or Counter(map(signature, reds)) != expected
+                    or sum(item.startswith(reason) for item in reds) != 1):
                 print(f'STAB_ZHIV: {name}: {reds}', file=sys.stderr)
                 return 1
+            print(f'STAB_CAUGHT: {name}: {reason}', file=sys.stderr)
     return 0
 
 
