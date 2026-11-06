@@ -2195,7 +2195,11 @@ def karta_genera(celi, imya):
 
 
 def generiruy(ctx, repo):
-    """Генератор f06–f08: свободные номера, имена целей, копия R с целями."""
+    """Генератор f06–f08: свободные номера, имена целей, копия R с целями.
+
+    Контракт возврата ЕДИН для обеих ветвей — кортеж (результат, ошибка):
+    успех — (словарь входов, None), отказ — (None, текст ошибки).
+    """
     n1, n2 = svobodnye_nomera(ctx, 2)
     x, y, z = imena_celi(ctx, 3)
     kopija, oshibka = zhivaya_kopiya(repo)
@@ -2233,7 +2237,7 @@ def generiruy(ctx, repo):
         'N': n1, 'M': n2, 'X': x, 'Y': y, 'Z': z,
         'repo': kopija, 'toy': toy, 'karty': karty,
         'ozhidaniya': {k: ozhidanie_trassy(v) for k, v in karty.items()},
-    }
+    }, None
 
 
 def zapisat_kartu(toy, nomer, karta):
