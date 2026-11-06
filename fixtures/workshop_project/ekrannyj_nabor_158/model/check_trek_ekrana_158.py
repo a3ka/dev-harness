@@ -23,7 +23,14 @@ CLI: check_trek_ekrana_158.py <корень> [<контракт>]
     orchestrator|owner) (ЛЁГКИЙ|ПОЛНЫЙ)→(ЛЁГКИЙ|ПОЛНЫЙ) — <причина>` —
     0..1; >1, битый формат (дата/автор/причина) или стрелка без смены
     текущего значения → TREK_NE_PO_GRAMMATIKE;
-  * КЛАСС РИСКА: строка содержит «рисковый» → риска; риска ∧ трек ≠ ПОЛНЫЙ
+  * КЛАСС РИСКА: объявление класса риска — маркер в начале строки либо сразу
+    за границей фразы (`.`/`!`/`?`/`;`; между границей и маркером допустимы
+    пробелы и закрывающие скобки): компактная шапка
+    «КЛАСС ЗАДАЧИ: … . КЛАСС РИСКА: рисковый (деньги)» объявляет тот же
+    класс риска, что отдельная строка; упоминание маркера в прозе
+    («экран класса риска (КЛАСС РИСКА: рисковый)») объявлением НЕ является;
+    значение класса — от маркера до разделителя значения («—», «;», «.», …):
+    класс рисковый, если значение содержит «рисковый»; риска ∧ трек ≠ ПОЛНЫЙ
     ∧ нет строки `^РАЗРЕШИЛ-ВЛАДЕЛЕЦ:` с basename контракта и подстрокой
     «трек» → EKRAN_RISKA_LEGKIJ;
   * контракт без маркера в приёмке → rc 0 МОЛЧА (не экран набора).
@@ -47,10 +54,16 @@ STROKA_PEREKL = re.compile(
     r'^ТРЕК-ПЕРЕКЛЮЧЕНИЕ:\s*(\d{4})-(\d{2})-(\d{2})\s+'
     r'\((architect|implementer|orchestrator|owner)\)\s+'
     r'(ЛЁГКИЙ|ПОЛНЫЙ)→(ЛЁГКИЙ|ПОЛНЫЙ)\s+—\s+(.+)$')
-STROKA_RISKA = re.compile(r'^КЛАСС РИСКА:')
 STROKA_RAZRESHENIYA = re.compile(r'^РАЗРЕШИЛ-ВЛАДЕЛЕЦ:')
 
 AVTORY = ('architect', 'implementer', 'orchestrator', 'owner')
+
+# Объявление класса риска: маркер, границы фразы, разделитель значения.
+MARKER_RISKA = 'КЛАСС РИСКА:'
+GRANICY_FRAZY = '.!?;'
+ZAKRYVAYUSHIE = ')]}»'
+KONEC_ZNACHENIYA = '—;.!?'
+DEKORACIYA = re.compile(r'^(?:[-*+>]\s+|#+\s*|\d+[.)]\s+)+')
 
 
 def _blok_priemki(stroki):
@@ -68,6 +81,46 @@ def _blok_priemki(stroki):
             konets = j
             break
     return '\n'.join(stroki[nachalo:konets])
+
+
+def _granica_frazy(s, i):
+    """True, если позиция i начинает объявление (начало строки/граница фразы)."""
+    j = i - 1
+    while j >= 0 and s[j].isspace():
+        j -= 1
+    if j < 0:
+        return True
+    while j >= 0 and s[j] in ZAKRYVAYUSHIE:
+        j -= 1
+    return j >= 0 and s[j] in GRANICY_FRAZY
+
+
+def _klass_riska(stroka):
+    """Значение объявления класса риска в строке; None — объявления нет.
+
+    Объявление — маркер `КЛАСС РИСКА:` в начале строки либо сразу за границей
+    фразы (`.`/`!`/`?`/`;` + пробел): компактная шапка «КЛАСС ЗАДАЧИ: … .
+    КЛАСС РИСКА: рисковый (деньги)» объявляет тот же класс риска, что и
+    отдельная строка. Упоминание маркера в прозе («экран класса риска
+    (КЛАСС РИСКА: рисковый)», «строка `КЛАСС РИСКА:`») объявлением НЕ является.
+    Значение класса — от маркера до разделителя значения («—», «;», «.», «!»,
+    «?»): основание риска в значении класса не значит («КЛАСС РИСКА: обычный
+    — … рисковый там» — класс обычный).
+    """
+    s = DEKORACIYA.sub('', stroka.strip())
+    nachalo = 0
+    while True:
+        i = s.find(MARKER_RISKA, nachalo)
+        if i < 0:
+            return None
+        if _granica_frazy(s, i):
+            znachenie = s[i + len(MARKER_RISKA):]
+            for j, ch in enumerate(znachenie):
+                if ch in KONEC_ZNACHENIYA:
+                    znachenie = znachenie[:j]
+                    break
+            return znachenie
+        nachalo = i + 1
 
 
 def _blok_teksta(stroki):
@@ -91,8 +144,9 @@ def _blok_teksta(stroki):
         elif s.strip().startswith('ТРЕК-ПЕРЕКЛЮЧЕНИЕ:'):
             # строка переключения есть, но формат битый — разбираем позже
             vozvrashchay['pereklyucheniya'].append(None)
-        if STROKA_RISKA.match(s.strip()):
-            if 'рисковый' in s.lower():
+        znachenie_riska = _klass_riska(s)
+        if znachenie_riska is not None:
+            if 'рисковый' in znachenie_riska.lower():
                 vozvrashchay['risk'] = True
         if STROKA_RAZRESHENIYA.match(s.strip()):
             vozvrashchay['razresheniya'].append(s)

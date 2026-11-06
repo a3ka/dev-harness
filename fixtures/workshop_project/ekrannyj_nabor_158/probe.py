@@ -396,8 +396,14 @@ def chit_orakul(katalog=None):
 
 # ── Toy-мир ────────────────────────────────────────────────────────────
 def tekst_kontrakta(nomer, trek=None, marker_v_priemke=None, risk=None,
-                    pereklyuchenie=None, razreshenie=None):
-    """Текст toy-контракта (строки — до вызова субъекта)."""
+                    pereklyuchenie=None, razreshenie=None, kompaktnyj=False):
+    """Текст toy-контракта (строки — до вызова субъекта).
+
+    kompaktnyj=True — компактная шапка: класс задачи и класс риска в ОДНОЙ
+    строке («КЛАСС ЗАДАЧИ: КОДОВЫЙ. КЛАСС РИСКА: рисковый (деньги).»).
+    Класс риска объявлен не отдельной строкой — гейт обязан прочитать его и
+    там (обход разбора, найденный адверсарием).
+    """
     opis = TOY[nomer]
     marker_v_priemke = (opis['marker_v_priemke'] if marker_v_priemke is None
                         else marker_v_priemke)
@@ -406,8 +412,11 @@ def tekst_kontrakta(nomer, trek=None, marker_v_priemke=None, risk=None,
     stroki.append('# Контракт %d — %s (toy-мир батареи ekrannyj_nabor_158)'
                   % (nomer, opis['opisanie']))
     stroki.append('')
-    stroki.append('КЛАСС ЗАДАЧИ: КОДОВЫЙ.')
-    stroki.append('КЛАСС РИСКА: %s' % risk)
+    if kompaktnyj:
+        stroki.append('КЛАСС ЗАДАЧИ: КОДОВЫЙ. КЛАСС РИСКА: %s' % risk)
+    else:
+        stroki.append('КЛАСС ЗАДАЧИ: КОДОВЫЙ.')
+        stroki.append('КЛАСС РИСКА: %s' % risk)
     stroki.append('')
     stroki.append('КОНТЕКСТ: %s' % opis['opisanie'])
     if not marker_v_priemke:
@@ -1173,20 +1182,38 @@ def k_a01(ctx):
         return krasnaya('ФАЙЛЫ СЛОЯ УДАЛЕНЫ', mark=marki(vyvod, vyvod2))
     if not yadro:
         return krasnaya('ЯДРО НЕ ИСПОЛНЕНО', mark=marki(vyvod, vyvod2))
-    return ishod(rc, [], marki(vyvod, vyvod2))
+    # компактная шапка обычного экрана: класс риска объявлен НЕ отдельной
+    # строкой — гейт обязан остаться зелёным (обычный класс не ломается)
+    peropisyat_kontrakt(toy, 190, kompaktnyj=True)
+    rc3, vyvod3 = gate_etalon(toy, 'contracts/190-ekran-obychnyj.md')
+    if rc3 != 0:
+        return ishod(rc3, prichiny_iz_vyvoda(vyvod3) or
+                     ['КОМПАКТНАЯ ШАПКА ОБЫЧНОГО ЭКРАНА ОТВЕРГНУТА'],
+                     marki(vyvod, vyvod2, vyvod3))
+    return ishod(rc, [], marki(vyvod, vyvod2, vyvod3))
 
 
 def k_a02(ctx):
     toy = toy_dlya(ctx)
     rc, vyvod = gate_etalon(toy, 'contracts/191-ekran-riska.md')
-    return ishod(rc, prichiny_iz_vyvoda(vyvod), marki(vyvod))
+    if rc != 1 or P_RISKA not in prichiny_iz_vyvoda(vyvod):
+        return ishod(rc, prichiny_iz_vyvoda(vyvod), marki(vyvod))
+    # компактная шапка: класс риска объявлен НЕ отдельной строкой — гейт
+    # обязан отказать так же (обход разбора класса риска)
+    peropisyat_kontrakt(toy, 191, kompaktnyj=True)
+    rc2, vyvod2 = gate_etalon(toy, 'contracts/191-ekran-riska.md')
+    return ishod(rc2, prichiny_iz_vyvoda(vyvod2), marki(vyvod, vyvod2))
 
 
 def k_a03(ctx):
     toy = toy_dlya(ctx)
     peropisyat_kontrakt(toy, 191, trek=TREK_LEGKIJ)
     rc, vyvod = gate_etalon(toy, 'contracts/191-ekran-riska.md')
-    return ishod(rc, prichiny_iz_vyvoda(vyvod), marki(vyvod))
+    if rc != 1 or P_RISKA not in prichiny_iz_vyvoda(vyvod):
+        return ishod(rc, prichiny_iz_vyvoda(vyvod), marki(vyvod))
+    peropisyat_kontrakt(toy, 191, trek=TREK_LEGKIJ, kompaktnyj=True)
+    rc2, vyvod2 = gate_etalon(toy, 'contracts/191-ekran-riska.md')
+    return ishod(rc2, prichiny_iz_vyvoda(vyvod2), marki(vyvod, vyvod2))
 
 
 def k_a04(ctx):
@@ -1206,6 +1233,11 @@ def k_a05(ctx):
         peropisyat_kontrakt(toy, nomer, trek=TREK_POLNYJ)
         rc, vyvod = gate_etalon(toy, 'contracts/%s' % TOY[nomer]['imya'])
         ishody.append(ishod(rc, prichiny_iz_vyvoda(vyvod), marki(vyvod)))
+    # компактная шапка риск-экрана с ЯВНЫМ треком — гейт зелёный: явный
+    # трек не ломается, ложных отказов нет
+    peropisyat_kontrakt(toy, 191, trek=TREK_POLNYJ, kompaktnyj=True)
+    rc, vyvod = gate_etalon(toy, 'contracts/%s' % TOY[191]['imya'])
+    ishody.append(ishod(rc, prichiny_iz_vyvoda(vyvod), marki(vyvod)))
     for i in ishody:
         if i['rc'] != 0:
             return i
@@ -1351,23 +1383,35 @@ def k_a13(ctx):
     return ishod(0, [], marki(vyvod, vyvod2))
 
 
+def sravnit_gatey(toy, rel):
+    """Исходы гейта эталона и субъекта по контракту; None — совпали."""
+    etalon = gate_etalon(toy, rel)
+    subjekt = gate_subjekt(toy, rel)
+    if subjekt is None:
+        return otkaz('%s: scripts/check_trek_ekrana.sh в дереве отсутствует'
+                     % P_SUBJECT_ABSENT)
+    if (etalon[0] != subjekt[0] or
+            prichiny_iz_vyvoda(etalon[1]) != prichiny_iz_vyvoda(subjekt[1])
+            or ('ТРЕК ПОЛНЫЙ' in etalon[1]) != ('ТРЕК ПОЛНЫЙ' in subjekt[1])
+            or ('ТРЕК ЛЁГКИЙ' in etalon[1]) != ('ТРЕК ЛЁГКИЙ' in subjekt[1])):
+        return krasnaya(P_NE_SOVPAL,
+                        mark=['%s: эталон %s / субъект %s'
+                              % (rel, etalon[1].strip(), subjekt[1].strip())])
+    return None
+
+
 def k_z01(ctx):
     toy = toy_dlya(ctx)
     for nomer in sorted(TOY):
-        rel = 'contracts/%s' % TOY[nomer]['imya']
-        etalon = gate_etalon(toy, rel)
-        subjekt = gate_subjekt(toy, rel)
-        if subjekt is None:
-            return otkaz('%s: scripts/check_trek_ekrana.sh в дереве '
-                         'отсутствует' % P_SUBJECT_ABSENT)
-        if (etalon[0] != subjekt[0] or
-                prichiny_iz_vyvoda(etalon[1]) != prichiny_iz_vyvoda(subjekt[1])
-                or ('ТРЕК ПОЛНЫЙ' in etalon[1]) != ('ТРЕК ПОЛНЫЙ' in subjekt[1])
-                or ('ТРЕК ЛЁГКИЙ' in etalon[1]) !=
-                ('ТРЕК ЛЁГКИЙ' in subjekt[1])):
-            return krasnaya(P_NE_SOVPAL,
-                            mark=['%s: эталон %s / субъект %s'
-                                  % (rel, etalon[1].strip(), subjekt[1].strip())])
+        problema = sravnit_gatey(toy, 'contracts/%s' % TOY[nomer]['imya'])
+        if problema is not None:
+            return problema
+    # компактная шапка — тоже дом A: эталон и субъект обязаны совпасть и тут
+    for nomer in (190, 191):
+        peropisyat_kontrakt(toy, nomer, kompaktnyj=True)
+        problema = sravnit_gatey(toy, 'contracts/%s' % TOY[nomer]['imya'])
+        if problema is not None:
+            return problema
     return zelenaya()
 
 
@@ -1380,7 +1424,7 @@ ETALON_TREKA_REL = os.path.join('fixtures', 'workshop_project',
                                 'ekrannyj_nabor_158', 'model')
 
 
-def postroit_toy_dveri(koren):
+def postroit_toy_dveri(koren, kompaktnyj=False):
     """Toy-репозиторий двери: копии гейтов, риск-экран, git-коммит.
 
     Образец — fixtures/pre_critic/_toy.sh: гейты копируются в корень toy'а
@@ -1423,7 +1467,8 @@ def postroit_toy_dveri(koren):
         fh.write('')
     with open(os.path.join(koren, 'contracts', '191-ekran-riska.md'), 'w',
               encoding='utf-8') as fh:
-        fh.write(tekst_kontrakta(191, trek=TREK_LEGKIJ))
+        fh.write(tekst_kontrakta(191, trek=TREK_LEGKIJ,
+                                  kompaktnyj=kompaktnyj))
     for komanda in (['git', 'init', '-q', '-b', 'main', koren],
                     ['git', '-C', koren, 'add', '-A'],
                     ['git', '-C', koren, '-c', 'user.name=implementer',
@@ -1456,21 +1501,24 @@ def k_z02(ctx):
     if not vyzyv:
         return krasnaya('НОГА (Д3) НЕ ЗОВЁТ ГЕЙТ С <корнем> И <контрактом>')
     # ЖИВОЙ ПРОГОН ДВЕРИ: риск-экран в ЛЁГКОМ треке → «трек-гейт красен».
-    koren = vremennyy_katalog('nabor158-dver-')
-    oshibka = postroit_toy_dveri(koren)
-    if oshibka:
-        return otkaz('%s: toy-репозиторий двери не собран: %s'
-                     % (P_SUBJECT_ABSENT, oshibka))
-    rc, out, err = zapusk_komandy(
-        ['bash', os.path.join(koren, 'scripts', 'pre_critic.sh'),
-         'contracts/191-ekran-riska.md'], cwd=koren, timeout=600)
-    vyvod = out + err
-    if rc != 1:
-        return krasnaya('ЖИВАЯ ДВЕРЬ НА РИСК-ЭКРАНЕ: rc=%d (ожидался 1)'
-                        % rc, mark=[vyvod])
-    if 'трек-гейт красен' not in vyvod:
-        return krasnaya('ЖИВАЯ ДВЕРЬ НЕ СКАЗАЛА О ТРЕК-ГЕЙТЕ',
-                        mark=[vyvod])
+    # Обе формы шапки: класс риска отдельной строкой и компактной (риск-экран
+    # в компактной шапке не должен проходить дверь молча).
+    for kompaktnyj in (False, True):
+        koren = vremennyy_katalog('nabor158-dver-')
+        oshibka = postroit_toy_dveri(koren, kompaktnyj=kompaktnyj)
+        if oshibka:
+            return otkaz('%s: toy-репозиторий двери не собран: %s'
+                         % (P_SUBJECT_ABSENT, oshibka))
+        rc, out, err = zapusk_komandy(
+            ['bash', os.path.join(koren, 'scripts', 'pre_critic.sh'),
+             'contracts/191-ekran-riska.md'], cwd=koren, timeout=600)
+        vyvod = out + err
+        if rc != 1:
+            return krasnaya('ЖИВАЯ ДВЕРЬ НА РИСК-ЭКРАНЕ: rc=%d (ожидался 1)'
+                            % rc, mark=[vyvod])
+        if 'трек-гейт красен' not in vyvod:
+            return krasnaya('ЖИВАЯ ДВЕРЬ НЕ СКАЗАЛА О ТРЕК-ГЕЙТЕ',
+                            mark=[vyvod])
     return zelenaya()
 
 
