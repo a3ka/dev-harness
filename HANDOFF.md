@@ -57,6 +57,10 @@
 8. После каждого закрытого пункта или раз в 2 часа — коммит HANDOFF «НОЧНОЙ ЖУРНАЛ»: время UTC / пункт / SHA / rc. Контекст >85% — сначала коммит журнала.
 9. К 06:00 UTC — раздел «УТРЕННИЙ ОТЧЁТ»: что закрыто (SHA, теги), что стоит и почему (сырой отказ), вопросы владельцу.
 
+### НОЧНОЙ ЖУРНАЛ
+- 2026-11-06 00:25 UTC / 2.3 157 / rc 1 `check_no_leak --check`: `ОТКАЗ: основной чекаут загрязнён: tmp/adversary157-round3/.git/hooks/applypatch-msg.sample, tmp/adversary157-round3/.git/hooks/commit-msg.sample, tmp/adversary157-round3/.git/config, …`.
+- 2026-11-06 00:25 UTC / действие: agent `Adversary157Round3` получил правило disposable SSH clone, но создал scratch внутри стерегомого дерева; N-85 запретил parent-сессии `write agent://Adversary157Round3` для немедленной коррекции. Обход не выполнялся.
+
 ## ГДЕ МЫ — OWNER SNAPSHOT RULE + PARALLEL PLAN 05.11 11:26 UTC
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
 
