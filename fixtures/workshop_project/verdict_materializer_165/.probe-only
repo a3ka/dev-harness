@@ -1,0 +1,1 @@
+probe-only каталог: имя барьера scripts/materialize_verdict_165.py не совпадает с именем семьи. Клетки вызываются fixtures/workshop_project/verdict_materializer_165/probe.py --model|--stabs|--repo; до реализации --repo даёт SUBJECT_ABSENT, после реализации судит субъект. Стабы привязаны к своим клеткам в probe.py. Подключение шага CI — зона orchestrator после landing.
