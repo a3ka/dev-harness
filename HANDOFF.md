@@ -1,5 +1,10 @@
 ## ГДЕ МЫ — ПЛАН 06.11
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+### ПРАВИЛА УТРА
+- П1. СУДЬИ И АГЕНТЫ — ТОЛЬКО ПИННОВАННЫЕ: `make_task --role <роль> --model-trace <файл>` → `spawn_agent --author <роль> --nnn N` → `WORKTREE`/`BRANCH` в задание → verdict в своей ветке → PR → merge. `_task` без пина, включая `isolated:true` без WORKTREE из spawn_agent, запрещён. Правило распространяется на critic/adversary/reviewer.
+- П2. Нечего делать — вызывай `wait`, а не заканчивай ход; очередь к wait-guard — ход.
+- П3. Строки НОЧНОГО ЖУРНАЛА пишутся полностью: сокращение `…` запрещено, сырой отказ не теряется.
+- Порядок утра: 165 сначала push `wip/165/architect` OBJECT `af95f20f37c664c61ce2c7e5c9f2b1cefca77e0e` → PR → CI → merge, затем pinned critic/freeze/implementer/adversary/reviewer/done и материализация 141/143/157/162/164; параллельно pinned critic 161 на `2c7abb6e6ac30cc7c848a0e1172a30ed94ebc54c`, pinned scoped adversary 163 (`78f385fe..cf779fbf`) и 118 (`13d025b6`, `bd61176a`), затем reviewer → merge. Для 158 `make_task --role implementer`, GLM задаёт `--model-trace`.
 ### ФАЗА 0 — ЧЕКПОЙНТ
 - 0.1 HANDOFF «ГДЕ МЫ — ПЛАН 06.11» закоммичен (git apply из scratch) и запушен через gitw; SHA — в доклад.
 
