@@ -68,6 +68,7 @@
 - 2026-11-06 01:20 UTC / 3.4 158 / rc 1 `make_task`: `ОТКАЗ: роль вне алфавита: implementer-glm`. Routing требует implementer-glm для диагностики CI, но дверь 095 не допускает эту роль; подмена implementer/модели не выполнялась.
 - 2026-11-06 01:28 UTC / 3.4 158 / station refs `Arch147t/ref-clean` и `Arch148t/mob-ref` восстановлены из указанных уцелевших носителей вне дерева; `red_ekrannyj_nabor_158.sh --model` на OBJECT `a39ffc73f4f04fdc32379838ef8d9c388fa53c9c` → rc 0, клеток 36, зелёных 36, красных 0.
 - 2026-11-06 01:29 UTC / 3.4 158 / PR #528 CI остаётся красным вне зоны 158: job l3 → `lane: неизвестный ключ: check:spawn-guard-157-family-selftest`; job legkij → `FAIL contracts/148-vkladki-tabov.md: заморозка v3 без verdicts/critic/contracts-148-v3.md` и `FAIL contracts/157-spawn-guard-proektnye-sessii.md изменён без новой заморозки`.
+- 2026-11-06 02:21 UTC / 3.3 162 / Critic162V2Scoped already yielded `accept` for OBJECT `58dc8f076d03ae0822ee912c624381319fba4398` after all pre-critic gates rc 0; continuation to materialize its own verdict refused: исходное задание read-only и pinned worktree вне разрешённого дерева. Verdict не создан, повторный суд не запускался.
 ## ГДЕ МЫ — OWNER SNAPSHOT RULE + PARALLEL PLAN 05.11 11:26 UTC
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
 
