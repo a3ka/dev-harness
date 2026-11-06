@@ -108,16 +108,15 @@
 ### Таблица-график: 163 A–F и все взятые предметы
 | Предмет | Текущий шаг | Следующий шаг | Зависимость | Целевая дата [INFERENCE] | Нужно от владельца |
 |---|---|---|---|---|---|
-| 157 | batch-кандидат `dd02e6c3c` проверен | публикация → adversary-3 (batch + зависимый регресс) → reviewer → done | snapshot/push завершены; нужен OBJECT | 05.11 | нет |
-| 158 | MiniMax `3a1cea509` локально green | публикация → adversary → reviewer → land/done | snapshot/push завершены | 05.11 | нет |
-| 161 | PR #514 красный | исправить legkij → freeze → MiniMax → adversary → reviewer → done | критический путь 163; свежий CI | 06.11 | нет |
-| 162 | frozen/1, owner разрешил v+1 | architect v+1 → critic → freeze/2 → MiniMax одна строка → Rev162 → merge #158/contextPack | exact RA уже дано | 06.11 | нет |
-| 147 | v+1 подготовлен | critic → freeze/3 → MiniMax → adversary → vision reviewer → product merge | 143/3 для экранного CI; интеграционный порядок | 10.11 | frozen-999 строка уже дана |
-| 148 | v+1 подготовлен | critic → freeze/3 → MiniMax → adversary → vision reviewer → product merge | 143/3; после 147/162 по конфликтующим файлам | 11.11 | нет |
-| 149 | frozen/2, реализации нет | после merge 162: MiniMax под 143/3, закрыть/заменить stale PR #148 | свободный mob-слот; 143/3 | 14.11 | нет |
-| 163-A | product PR #162, OBJECT `78f385fe`; mobile CI green | merge только после freeze 991/3 | 991/3; cloud proof B | 09.11 | owner merge после судов |
-| 163-B | не начат | cloud `workflow_dispatch mobile-cloud-e2e` + digest artifact | MiniMax task поверх A; 991 version contract | 07.11 | нет |
-| 163-C / 991 v3 | frozen 991/2 | architect draft/replay gate station+cloud → critic/freeze | exact RA на frozen 991/2 | 07.11 | пакет подписи RA |
+| 157 | accept adversary-3 `dd02e6c3c` | materialize только после done 165; повторный суд не заводить | done 165 | — | нет |
+| 158 | adversary Terra запущен на `04ab0217f`; прежний reviewer FAIL/out-of-order | adversary → новый reviewer Opus → land → done | reviewer запускается только после adversary | — | нет |
+| 161 | `2c7abb6e` исчерпан | новый маршрут OBJECT; critic не повторять | OBJECT_UZHE_SUZHEN | — | маршрут владельца/консультанта |
+| 165 | critic GLM запущен на `242567381397a5c7a83941ccfccd3d50462e7e0f` | verdict → freeze → implementer → adversary → reviewer → done | pre-spawn gates rc 0; author Sol, critic GLM | — | нет |
+| 166 | номер minted, черновик не начат | после 165: bootstrap architect → контракт нормы Sol→Sol | make_task architect требует черновик; роли/gate до контракта не менять | — | bootstrap route |
+| 999 | v2 `c10a34ce3`, author Sol | GLM critic после 165; перед ним pre_critic и явные v2/дельта против frozen/999/1 | frozen/1 даёт make_task контекст frozen-блоба | — | нет |
+| 147/148 | frozen v3; реализации разрешены | после done 158: набор 158 → adversary → vision reviewer → merge PR #146/#147 | 158/159; product land по трём условиям контракта | — | нет |
+| 163/118 | product heads `cf779fbf` / `bd61176a`, CI green | отдельные main-direct adversary задачи с собственным OBJECT → reviewer → merge | binding только одной OBJECT-строкой и bound trace; пустые wip adversary не использовать | — | нет |
+| 162/149 | frozen/1, owner разрешил v+1 | architect v+1 → critic → freeze/2 → MiniMax → review → merge | exact RA уже дано | 06.11 | нет |
 | 163-D / 141 v3 + 118 v3 | frozen 141/2, 118/2 | два architect draft → critic/freeze → one-day cutover | exact RA обоих frozen texts | 10.11 | пакет подписи RA |
 | 163-E / 143 v3 | frozen 143/2 | Architect143 сначала сдаёт analysis-only: динамическая matrix по карте без правки workflows; после owner response — только выбранная конструкция | exact RA frozen 143/2; feasibility decision; precedes 147–149 CI | анализ 05.11; реализация — после owner response | owner decision по анализу + пакет подписи RA, если v+1 остаётся |
 | 163-F | долг активен | снять долг после A–E, свежий full CI | A–E, main продукта green | 18.11 | продление долга, если даты сдвинутся |
