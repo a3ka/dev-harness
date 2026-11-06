@@ -62,6 +62,7 @@
 - 2026-11-06 00:25 UTC / 2.3 157 / rc 1 `check_no_leak --check`: `ОТКАЗ: основной чекаут загрязнён: tmp/adversary157-round3/.git/hooks/applypatch-msg.sample, tmp/adversary157-round3/.git/hooks/commit-msg.sample, tmp/adversary157-round3/.git/config, …`.
 - 2026-11-06 00:25 UTC / действие: agent `Adversary157Round3` получил правило disposable SSH clone, но создал scratch внутри стерегомого дерева; N-85 запретил parent-сессии `write agent://Adversary157Round3` для немедленной коррекции. Обход не выполнялся.
 
+- 2026-11-06 00:40 UTC / 2.3 157 / санкция владельца 2026-11-06 ~00:40 UTC: snapshot только `tmp/adversary157-round3/**`; предснимочный `--check` содержал только этот префикс, `--snapshot` выполнен, послеснимочный `--check` rc 0 (`основной чекаут чист`). Полный транскрипт — тело commit `9a67c8561`.
 ## ГДЕ МЫ — OWNER SNAPSHOT RULE + PARALLEL PLAN 05.11 11:26 UTC
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
 
