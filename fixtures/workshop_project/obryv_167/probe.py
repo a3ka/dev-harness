@@ -2,6 +2,7 @@
 """Contract 167: independent judge interruption and PR merge checks at public CLI seams."""
 import importlib.util
 from pathlib import Path
+import shutil
 import sys
 import tempfile
 
@@ -78,6 +79,8 @@ def model(path):
     assert src.count(needle) == 1, 'MODEL_RELEASE_ANCHOR_MISSING'
     src = src.replace(needle, '''  h_klass="$(jq -r '.klass' "$zdir/zanyat/holder.json")"
   if [ "$h_klass" = 'sudja' ]; then
+    git -C "$REPO" ls-remote --heads origin >/dev/null 2>&1 || skip "judge refs недоступны"
+    git -C "$REPO" fetch -q --prune origin '+refs/heads/*:refs/remotes/origin/*' >/dev/null 2>&1 || skip "judge refs не синхронизированы"
     h_rol="$(jq -r '.rol' "$zdir/zanyat/holder.json")"
     h_obj="$(jq -r '.object' "$zdir/zanyat/holder.json")"
     if verdict_sessii "$NNN_ARG" "$h_holder" "$h_rol" "$h_obj"; then
@@ -104,6 +107,11 @@ def case(door, kind):
     verdict_dir = 'review' if role == 'reviewer' else 'critic'
     with tempfile.TemporaryDirectory(prefix='obryv-167-') as tmp:
         m = old.Mir(tmp)
+        bare = Path(tmp) / 'remote' / 'dev-harness.git'
+        bare.parent.mkdir()
+        created = old.run(['git', 'init', '-q', '--bare', str(bare)])
+        assert created.returncode == 0, created.stderr
+        m.git(['remote', 'set-url', 'origin', 'file://' + str(bare)])
         nnn = '141'
         m.kontrakt(nnn)
         wt, branch, obj = m.worktree(nnn)
@@ -121,6 +129,14 @@ def case(door, kind):
             c = old.run(['git', '-c', f'user.name={role}', '-c', f'user.email={role}@dev-harness.local',
                          'commit', '-q', '-m', 'judge verdict'], cwd=str(m.repo))
             assert c.returncode == 0, c.stderr
+        if kind == 'remote_unavailable':
+            shutil.rmtree(bare)
+            released = old.osvobodit(door, m, nnn, 'Critic167First')
+            if released.returncode != 2 or 'NOT_IMPLEMENTED: judge refs недоступны' not in released.stderr:
+                return f'REMOTE_NOT_CLOSED rc={released.returncode} stderr={released.stderr.strip()}'
+            if any(r.get('t') == 'RELEASE' and r.get('holder') == 'Critic167First' for r in m.ledg()):
+                return 'REMOTE_WROTE_FALSE_RELEASE'
+            return None
         accounting = None
         if kind != 'verdict_no_receipt':
             released = old.osvobodit(door, m, nnn, 'Critic167First')
@@ -157,11 +173,11 @@ def main():
         control = Path(tmp) / 'zamok_predmeta.sh'
         model(control)
         if mode == '--model':
-            subjects = [('interrupted', control), ('verdict', control), ('verdict_no_receipt', control), ('reviewer_verdict', control)]
+            subjects = [('interrupted', control), ('verdict', control), ('verdict_no_receipt', control), ('reviewer_verdict', control), ('remote_unavailable', control)]
         elif mode == '--stabs':
-            subjects = [('interrupted', control), ('verdict', control), ('verdict_no_receipt', control), ('reviewer_verdict', control)]
+            subjects = [('interrupted', control), ('verdict', control), ('verdict_no_receipt', control), ('reviewer_verdict', control), ('remote_unavailable', control)]
         elif mode == '--repo':
-            subjects = [('interrupted', DOOR), ('verdict', DOOR), ('verdict_no_receipt', DOOR), ('reviewer_verdict', DOOR)]
+            subjects = [('interrupted', DOOR), ('verdict', DOOR), ('verdict_no_receipt', DOOR), ('reviewer_verdict', DOOR), ('remote_unavailable', DOOR)]
         else:
             print('usage: probe.py [--repo|--model|--stabs]', file=sys.stderr)
             return 2
@@ -175,7 +191,8 @@ def main():
             stubs = {'ignore_all_starts': ('verdict', 'interrupted'),
                      'yield_is_verdict': ('interrupted',),
                      'always_block': ('interrupted',),
-                     'no_retry_limit': ('interrupted',)}
+                     'no_retry_limit': ('interrupted',),
+                     'skip_remote_check': ('remote_unavailable',)}
             # Each stub must differ on its own public observable input.
             for stub, cases in stubs.items():
                 for name in cases:
@@ -188,6 +205,9 @@ def main():
                         src = src.replace("prichina='obryv_bez_verdikta'", "prichina='verdikt_zakommiten'", 1)
                     elif stub == 'always_block':
                         src = src.replace('  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3"', '  return 0 # bad: unconditionally blocks\n  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3"', 1)
+                    elif stub == 'skip_remote_check':
+                        src = src.replace('    git -C "$REPO" ls-remote --heads origin >/dev/null 2>&1 || skip "judge refs недоступны"\n', '')
+                        src = src.replace('    git -C "$REPO" fetch -q --prune origin \'+refs/heads/*:refs/remotes/origin/*\' >/dev/null 2>&1 || skip "judge refs не синхронизированы"\n', '')
                     else:
                         src = src.replace('any(.[]; . != "interrupted")', 'false')
                     if src == control.read_text():
