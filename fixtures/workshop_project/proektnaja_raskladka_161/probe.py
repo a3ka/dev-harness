@@ -239,6 +239,7 @@ def actual(mutant=None, captured=None):
             branches_before = require(mob.git('branch', '--list'), 'branches before foreign spawn')
             worktrees_before = require(mob.git('worktree', 'list', '--porcelain'),
                                        'worktrees before foreign spawn')
+            foreign_spawn_before = foreign.foreign_snapshot()
             sp_conflict = run(*foreign_spawn, env=conflicted)
             if manifest_refusal(sp_conflict):
                 failures.append('MANIFEST_MAIN_ONLY: foreign-layer spawn has no readable external '
@@ -263,7 +264,7 @@ def actual(mutant=None, captured=None):
                                                   'worktrees'),
                       'LAYER_FOREIGN: spawn created worktree on refusal', failures)
             check(before_spawn == mob.snapshot(), 'MAIN_DIRTY: foreign spawn changed main', failures)
-            check(foreign_before == foreign.foreign_snapshot(),
+            check(foreign_spawn_before == foreign.foreign_snapshot(),
                   'FOREIGN_DIRTY: spawn changed foreign project', failures)
         # Negative spawn must run independently on a new number, prior to tag/dual-control.
         missing_spawn = ['bash', ROOT / 'scripts/spawn_agent.sh', '--root', mob.main,
