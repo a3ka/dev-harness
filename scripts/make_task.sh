@@ -626,11 +626,24 @@ ${MAP_MAN}${CTX_MAN}${ADR_MAN}${LESSONS_MAN}${TASK_MAN}${TRACE_MAN}"
 # и его .git (живой main и его индекс не меняются). Тот же каталог читает
 # spawn_agent ДО создания worktree. Запись идёт ДО печати пака: пак на
 # stdout означает готовый манифест.
+#
+# Legacy-flow (make_task --repo <main checkout> проекта) сохраняет
+# размещение 095 (<repo>/.omp/context/<NNN>.tsv) — его ждёт дверь 095
+# (замороженная клетка red_dver_spawn_manifest.sh) и поток станции; во
+# внешнее state в этом flow манифест НЕ дублируется. Вход 161a (проектный
+# worktree) в checkout не пишет вовсе: рабочее дерево остаётся чистым.
 if [ "$KIND" = "task" ] && [ -n "$CONTRACT" ]; then
-  _man_dir="$(project_state_dir "$REPO_ABS")/context"
-  mkdir -p "$_man_dir" || die "внешнее state проекта не создать: $_man_dir"
-  _man_file="$_man_dir/$(printf '%03d' "$((10#$CONTRACT))").tsv"
-  printf '%s\n' "$MAN_BODY" >"$_man_file" || die "манифест пака не записан: $_man_file"
+  _man_num="$(printf '%03d' "$((10#$CONTRACT))")"
+  if [ "$_PACK_FROM_WORKTREE" = "1" ]; then
+    _man_dir="$(project_state_dir "$REPO_ABS")/context"
+    mkdir -p "$_man_dir" || die "внешнее state проекта не создать: $_man_dir"
+    _man_file="$_man_dir/$_man_num.tsv"
+    printf '%s\n' "$MAN_BODY" >"$_man_file" || die "манифест пака не записан: $_man_file"
+  else
+    mkdir -p "$REPO/.omp/context" || die "каталог манифеста не создать: $REPO/.omp/context"
+    _man_file="$REPO/.omp/context/$_man_num.tsv"
+    printf '%s\n' "$MAN_BODY" >"$_man_file" || die "манифест пака не записан: $_man_file"
+  fi
 fi
 pack_body
 printf '%s' "$MAN_BODY"
