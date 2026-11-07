@@ -13,6 +13,10 @@
 # другого выхода скрипт не печатает.
 #
 # ОТКАЗЫ rc 1 (поимённо, документированы в контракте):
+#   * контракт 161a: слой проекта (HARNESS_PROJECT_LAYER_ROOT) из чужого
+#     git-проекта → «LAYER_FOREIGN: слой проекта из чужого git-проекта» —
+#     ДО любых сверок и ДО создания ветки/worktree;
+#   * контракт 095 (И-15): нет манифеста пака → «нет манифеста make_task: N»;
 #   * контракт 023 (ii): `--nnn N` без живого refs/tags/id/CONTRACT/N →
 #     «номер N не выдан — спавн мимо реестра»;
 #   * контракт 023 (ii): DUAL-CONTROL провален (нет тега на origin / нет строки
@@ -71,6 +75,7 @@ done
 [ -n "$author" ] || { printf 'spawn_agent: --author обязателен\n' >&2; usage; }
 
 command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; exit 2; }
+command -v sha256sum >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет sha256sum\n' >&2; exit 2; }
 
 # Канонический корень. Если не задан — cwd.
 if [ -z "$root_arg" ]; then
@@ -101,26 +106,75 @@ g() {
     "$@"
 }
 
+# ── КОНТРАКТ 161a: слой проекта — СВОЙ git-проект целевого корня ──────────
+# Профиль и реестр dual-control определяются проектом ЦЕЛЕВОГО корня, а не
+# HARNESS_PROJECT_LAYER_ROOT станции или другого проекта. Конфликт слоёв
+# (корень слоя — чужой git-проект с собственным репо-слоем профиля
+# harness.project.json) — именованный отказ LAYER_FOREIGN ДО любых сверок и
+# ДО создания ветки/worktree. Слой-клон 054 (корень без репо-слоя профиля) —
+# не «другой проект»: прежнее поведение сохранено. Тот же git-проект
+# (main ↔ его worktree) — не конфликт.
+#
+# Внешнее state проекта: каталог ВНЕ чекаута и его .git, общий с make_task
+# (вызов из project-worktree). Ключ — общий .git проекта: один и тот же
+# проект даёт один и тот же каталог из worktree и из main.
+_git_common_dir() {  # <корень> — канонический общий .git проекта ("" — не git-репозиторий)
+  local c
+  c="$(git -C "$1" rev-parse --git-common-dir 2>/dev/null || true)"
+  [ -n "$c" ] || return 0
+  case "$c" in /*) ;; *) c="$1/$c" ;; esac
+  ( cd "$c" 2>/dev/null && pwd -P 2>/dev/null ) || c=""
+  printf '%s' "$c"
+}
+project_state_dir() {  # <корень> — каталог внешнего state проекта
+  local common key
+  common="$(_git_common_dir "$1")"
+  [ -n "$common" ] || common="$1"
+  key="$(printf '%s' "$common" | sha256sum | cut -c1-16)"
+  printf '%s/dev-harness-project-state/%s' "${TMPDIR:-/tmp}" "$key"
+}
+if [ -r "$ROOT/harness.project.json" ]; then
+  _sl_root="${HARNESS_PROJECT_LAYER_ROOT:-$ROOT}"
+  _sl_root_abs="$(cd "$_sl_root" 2>/dev/null && pwd -P 2>/dev/null || true)"
+  if [ -n "$_sl_root_abs" ] && [ "$_sl_root_abs" != "$ROOT" ]; then
+    _sl_repo="$(_git_common_dir "$ROOT")"
+    _sl_layer="$(_git_common_dir "$_sl_root_abs")"
+    if [ -n "$_sl_repo" ] && [ -n "$_sl_layer" ] && [ "$_sl_layer" != "$_sl_repo" ] \
+       && [ -f "$_sl_root_abs/harness.project.json" ]; then
+      printf 'ОТКАЗ: LAYER_FOREIGN: слой проекта из чужого git-проекта: %s (целевой проект: %s)\n' \
+        "$_sl_root_abs" "$ROOT" >&2
+      exit 1
+    fi
+  fi
+fi
+
 # И-15 (095, Решение 5): ОБЯЗАТЕЛЬНОСТЬ пака на двери — общий гейт для обеих
 # ветвей (явный --nnn И авто-режим). Нога стоит В НАЧАЛЕ своей ветви: для
 # явного --nnn — ДО сверок 023 (тег/реестр), чтобы отказ «нет манифеста
 # make_task» имел приоритет над «номер N не выдан» / «тег N не выдан
 # авторитетом»; для авто-режима — в самом конце ветви, сразу после
 # разрешения номера (auto-номер определяется for-each-ref в ветке).
-# Файл манифеста make_task <root>/.omp/context/<NNN>.tsv обязан существовать
-# и не быть пустым; иначе — rc 1 «ОТКАЗ: нет манифеста make_task: <NNN>»
-# (II-3 дословно). После построенного пака манифест-файл живёт и нога не
-# отказывает. (И-15-скоуп) нога правит спавны живого дерева харнеса (А-385):
-# маркер — harness.project.json, якорь репо-слоя профиля 054; toy-миры чужих
-# батарей (016/019/023: make_repo — один пустой коммит) его не несут —
-# там нога молчит, отказы 023 дословно.
+# Файл манифеста make_task обязан существовать и не быть пустым; иначе —
+# rc 1 «ОТКАЗ: нет манифеста make_task: <NNN>» (II-3 дословно). После
+# построенного пака манифест-файл живёт и нога не отказывает. (И-15-скоуп)
+# нога правит спавны живого дерева харнеса (А-385): маркер —
+# harness.project.json, якорь репо-слоя профиля 054; toy-миры чужих батарей
+# (016/019/023: make_repo — один пустой коммит) его не несут — там нога
+# молчит, отказы 023 дословно.
 i15_gate() {
-  local p="$1"
+  local p="$1" mf
   if [ -r "$ROOT/harness.project.json" ]; then
-    local mf="$ROOT/.omp/context/$p.tsv"
+    # КОНТРАКТ 161a: манифест пака — во внешнем state проекта (вне чекаута и
+    # его .git); тот же каталог, куда пишет make_task из project-worktree.
+    mf="$(project_state_dir "$ROOT")/context/$p.tsv"
     if [ ! -s "$mf" ]; then
-      printf 'ОТКАЗ: нет манифеста make_task: %s\n' "$p" >&2
-      exit 1
+      # Устаревшее размещение манифеста (095: <root>/.omp/context/<NNN>.tsv) —
+      # ЧИТАЕТСЯ (пак, собранный прежней сборкой), но не создаётся.
+      mf="$ROOT/.omp/context/$p.tsv"
+      if [ ! -s "$mf" ]; then
+        printf 'ОТКАЗ: нет манифеста make_task: %s\n' "$p" >&2
+        exit 1
+      fi
     fi
   fi
 }
