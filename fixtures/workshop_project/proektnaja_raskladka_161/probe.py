@@ -7,9 +7,10 @@ from collections import Counter
 from pathlib import Path
 import subprocess
 import sys
+import shutil
 import tempfile
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(os.environ.get('PROBE_161_ROOT', Path(__file__).resolve().parents[3])).resolve()
 NUMBER = '761'
 
 
@@ -141,6 +142,251 @@ def worktree_belongs(path, world):
         world.main / '.git').resolve()
 
 
+def tree_fingerprint(root):
+    """Include .git and untracked bytes; HEAD/index/status alone miss metadata writes."""
+    entries = []
+    for path in sorted(root.rglob('*')):
+        rel = str(path.relative_to(root))
+        if path.is_symlink():
+            value = ('link', os.readlink(path))
+        elif path.is_file():
+            value = ('file', hashlib.sha256(path.read_bytes()).hexdigest())
+        else:
+            value = ('dir',)
+        entries.append((rel, value))
+    return tuple(entries)
+
+
+def no_manifest_for_other_project(mutant=None, poisoned=False, captured=None, tool='hash'):
+    """Two different common .git dirs, same number, shared external state base."""
+    failures = []
+    with tempfile.TemporaryDirectory(prefix='fixture-161-collision-') as tmp:
+        base = Path(tmp)
+        first, second = World(base, 'first-mobile'), World(base, 'second-mobile')
+        state = base / 'external-state'
+        state.mkdir()
+        fakebin = base / 'fakebin'
+        fakebin.mkdir()
+        fake = fakebin / ('git' if tool == 'git' else 'sha256sum')
+        if tool == 'git':
+            # Only the identity probe lies; every other git operation stays real.
+            # Both valid projects now appear to have first.main's common .git.
+            fake.write_text('#!/bin/sh\n'
+                            'case " $* " in\n'
+                            '  *" rev-parse --git-common-dir "*) '
+                            f'printf "%s\\n" "{first.main / ".git"}"; exit 0 ;;\n'
+                            'esac\nexec /usr/bin/git "$@"\n', encoding='utf-8')
+        else:
+            fake.write_text('#!/bin/sh\nprintf "%064d  -\\n" 0\n', encoding='utf-8')
+        fake.chmod(0o755)
+        env_first = dict(first.env, TMPDIR=str(state))
+        env_second = dict(second.env, TMPDIR=str(state))
+        if poisoned:
+            env_first['PATH'] = str(fakebin) + os.pathsep + env_first.get('PATH', os.defpath)
+            env_second['PATH'] = str(fakebin) + os.pathsep + env_second.get('PATH', os.defpath)
+        before_first = first.snapshot()
+        before_second = second.snapshot()
+        first_task = run('bash', ROOT / 'scripts/make_task.sh', '--repo', first.draft,
+                         '--role', 'architect', '--kind', 'task', '--contract', NUMBER,
+                         env=env_first)
+        check(first.snapshot() == before_first, 'STATE_FIRST_MAIN_DIRTY', failures)
+        check(second.snapshot() == before_second, 'STATE_OTHER_MAIN_DIRTY', failures)
+        if first_task.returncode == 0:
+            # Mint is legitimate for BOTH projects. Only the first has a prepared packet.
+            first.mint()
+            second.mint()
+            branches = require(second.git('branch', '--list'), 'second branches')
+            worktrees = require(second.git('worktree', 'list', '--porcelain'), 'second worktrees')
+            spawn = ['bash', ROOT / 'scripts/spawn_agent.sh', '--root', second.main,
+                     '--nnn', NUMBER, '--author', 'architect']
+            if mutant in ('collision-spawn', 'git-path-spawn'):
+                result = run(sys.executable, __file__, '--stub-invoke', mutant,
+                             first.main, *spawn, env=env_second)
+            else:
+                result = run(*spawn, env=env_second)
+            reason = 'GIT_PATH_COLLISION' if tool == 'git' else 'STATE_KEY_COLLISION'
+            check(manifest_refusal(result) or
+                  (result.returncode == 1 and not result.stdout),
+                  reason + ': second project accepted first manifest: '
+                  + result.stdout.strip()[:160] + result.stderr.strip()[:120], failures)
+            check(branches == require(second.git('branch', '--list'), 'second branches after'),
+                  reason + ': second branch created', failures)
+            check(worktrees == require(second.git('worktree', 'list', '--porcelain'),
+                                       'second worktrees after'),
+                  reason + ': second worktree created', failures)
+        else:
+            check(first_task.returncode == 1 and not first_task.stdout,
+                  ('GIT_TOOL_INVALID' if tool == 'git' else 'HASH_TOOL_INVALID')
+                  + ': first pack partial or unexpected refusal: '
+                  + first_task.stderr.strip()[:160], failures)
+            check(not list(state.rglob(f'{NUMBER}.tsv')),
+                  ('GIT_TOOL_INVALID' if tool == 'git' else 'HASH_TOOL_INVALID')
+                  + ': rejected pack left a manifest', failures)
+    if captured is not None:
+        captured.extend(failures)
+    else:
+        for failure in failures:
+            print(failure, file=sys.stderr)
+    return int(bool(failures))
+
+
+def tmpdir_must_not_enter_main(alias=False, gitdir=False, mutant=None, captured=None):
+    failures = []
+    with tempfile.TemporaryDirectory(prefix='fixture-161-tmpdir-') as tmp:
+        base = Path(tmp)
+        world = World(base, 'mobile')
+        unsafe = world.main / '.git' if gitdir else world.main
+        if alias:
+            link = base / 'alias-main'
+            link.symlink_to(unsafe, target_is_directory=True)
+            unsafe = link
+        variant = 'symlink' if alias else 'gitdir' if gitdir else 'checkout'
+        before = (world.snapshot(), tree_fingerprint(world.main))
+        task = ['bash', ROOT / 'scripts/make_task.sh', '--repo', world.draft,
+                '--role', 'architect', '--kind', 'task', '--contract', NUMBER]
+        env = dict(world.env, TMPDIR=str(unsafe))
+        if mutant == 'tmpdir-write':
+            result = run(sys.executable, __file__, '--stub-invoke', mutant,
+                         world.main, *task, env=env)
+        else:
+            result = run(*task, env=env)
+        check(result.returncode == 1 and not result.stdout,
+              f'TMPDIR_INSIDE_MAIN: {variant}: package not refused before output: '
+              + result.stderr.strip()[:140], failures)
+        check((world.snapshot(), tree_fingerprint(world.main)) == before,
+              f'TMPDIR_MAIN_DIRTY: {variant}: package changed main or .git', failures)
+    if captured is not None:
+        captured.extend(failures)
+    else:
+        for failure in failures:
+            print(failure, file=sys.stderr)
+    return int(bool(failures))
+
+
+def state_symlink_must_not_enter_main(component, gitdir=False, door='make',
+                                      captured=None):
+    """A safe TMPDIR can still resolve its manifest through a hostile child link."""
+    failures = []
+    with tempfile.TemporaryDirectory(prefix='fixture-161-state-link-') as tmp:
+        base = Path(tmp)
+        world = World(base, 'mobile')
+        state = base / 'external-state'
+        state.mkdir()
+        state_root = state / 'dev-harness-project-state'
+        prepared = run('bash', ROOT / 'scripts/make_task.sh', '--repo', world.draft,
+                       '--role', 'architect', '--kind', 'task', '--contract', NUMBER,
+                       env=dict(world.env, TMPDIR=str(state)))
+        manifests = list(state_root.glob(f'*/context/{NUMBER}.tsv'))
+        if prepared.returncode != 0 or len(manifests) != 1:
+            raise RuntimeError('NOT_IMPLEMENTED: cannot prepare valid external manifest: '
+                               f'rc={prepared.returncode} stderr={prepared.stderr[:250]} '
+                               f'files={list(state.rglob("*.tsv"))}')
+        key = manifests[0].parent.parent.name
+        manifest = manifests[0].read_bytes()
+        context = state_root / key / 'context'
+        target = world.main / '.git' / 'trap-161' if gitdir else world.main / 'docs'
+        target.mkdir(exist_ok=True)
+        if door == 'spawn':
+            world.mint()
+        shutil.rmtree(state_root)
+        if component == 'state':
+            state_root.symlink_to(target, target_is_directory=True)
+        elif component == 'key':
+            state_root.mkdir()
+            (state_root / key).symlink_to(target, target_is_directory=True)
+        elif component == 'context':
+            (state_root / key).mkdir(parents=True)
+            context.symlink_to(target, target_is_directory=True)
+        else:
+            raise ValueError(component)
+        if door == 'spawn':
+            context.mkdir(parents=True, exist_ok=True)
+            (context / f'{NUMBER}.tsv').write_bytes(manifest)
+        before = (world.snapshot(), tree_fingerprint(world.main))
+        branches = require(world.git('branch', '--list'), 'link branches')
+        worktrees = require(world.git('worktree', 'list', '--porcelain'), 'link worktrees')
+        argv = (['bash', ROOT / 'scripts/make_task.sh', '--repo', world.draft,
+                 '--role', 'architect', '--kind', 'task', '--contract', NUMBER]
+                if door == 'make' else
+                ['bash', ROOT / 'scripts/spawn_agent.sh', '--root', world.main,
+                 '--nnn', NUMBER, '--author', 'architect'])
+        env = dict(world.env, TMPDIR=str(state))
+        result = run(*argv, env=env)
+        variant = f'{door}-{component}-{"gitdir" if gitdir else "checkout"}'
+        check(result.returncode == 1 and 'TMPDIR_INSIDE_MAIN' in result.stderr
+              and not result.stdout,
+              f'STATE_LINK_UNSAFE: {variant}: expected refusal before output: '
+              + result.stderr.strip()[:140], failures)
+        check((world.snapshot(), tree_fingerprint(world.main)) == before,
+              f'STATE_LINK_MAIN_DIRTY: {variant}: changed main or .git', failures)
+        if door == 'spawn':
+            check(branches == require(world.git('branch', '--list'), 'link branches after')
+                  and worktrees == require(world.git('worktree', 'list', '--porcelain'),
+                                           'link worktrees after'),
+                  f'STATE_LINK_SPAWNED: {variant}: branch or worktree created', failures)
+    if captured is not None:
+        captured.extend(failures)
+    else:
+        for failure in failures:
+            print(failure, file=sys.stderr)
+    return int(bool(failures))
+
+def safe_state_stays_outside_main(mutant=None, captured=None):
+    failures = []
+    with tempfile.TemporaryDirectory(prefix='fixture-161-safe-state-') as tmp:
+        base = Path(tmp)
+        world = World(base, 'mobile')
+        before = (world.snapshot(), tree_fingerprint(world.main))
+        argv = ['bash', ROOT / 'scripts/make_task.sh', '--repo', world.draft,
+                '--role', 'architect', '--kind', 'task', '--contract', NUMBER]
+        env = dict(world.env, TMPDIR=str(base))
+        result = (run(sys.executable, __file__, '--stub-invoke', mutant,
+                      world.main, *argv, env=env)
+                  if mutant else run(*argv, env=env))
+        check(result.returncode == 0, 'STATE_SAFE_PACK_REFUSED', failures)
+        check((world.snapshot(), tree_fingerprint(world.main)) == before,
+              'STATE_SAFE_MAIN_DIRTY: issued packet wrote into checkout', failures)
+    if captured is not None:
+        captured.extend(failures)
+    else:
+        for failure in failures:
+            print(failure, file=sys.stderr)
+    return int(bool(failures))
+
+def unusable_hash_must_not_issue_packet(mutant=None, captured=None):
+    failures = []
+    with tempfile.TemporaryDirectory(prefix='fixture-161-hash-tool-') as tmp:
+        base = Path(tmp)
+        world = World(base, 'mobile')
+        fakebin = base / 'fakebin'
+        fakebin.mkdir()
+        tool = fakebin / 'sha256sum'
+        tool.write_text('#!/bin/sh\nexit 127\n', encoding='utf-8')
+        tool.chmod(0o755)
+        state = base / 'external-state'
+        state.mkdir()
+        env = dict(world.env, TMPDIR=str(state),
+                   PATH=str(fakebin) + os.pathsep + world.env.get('PATH', os.defpath))
+        before = (world.snapshot(), tree_fingerprint(world.main))
+        task = ['bash', ROOT / 'scripts/make_task.sh', '--repo', world.draft,
+                '--role', 'architect', '--kind', 'task', '--contract', NUMBER]
+        result = (run(sys.executable, __file__, '--stub-invoke', 'hash-ignored',
+                      str(state), *task, env=env)
+                  if mutant else run(*task, env=env))
+        check(result.returncode != 0 and not result.stdout,
+              'HASH_TOOL_UNUSABLE: packet issued with failing hash tool', failures)
+        check(not list(state.rglob(f'{NUMBER}.tsv')),
+              'HASH_TOOL_UNUSABLE: manifest issued with failing hash tool', failures)
+        check((world.snapshot(), tree_fingerprint(world.main)) == before,
+              'HASH_TOOL_MAIN_DIRTY: failing hash changed main', failures)
+    if captured is not None:
+        captured.extend(failures)
+    else:
+        for failure in failures:
+            print(failure, file=sys.stderr)
+    return int(bool(failures))
+
+
 def actual(mutant=None, captured=None):
     failures = []
     with tempfile.TemporaryDirectory(prefix='fixture-161a-') as tmp:
@@ -239,6 +485,7 @@ def actual(mutant=None, captured=None):
             branches_before = require(mob.git('branch', '--list'), 'branches before foreign spawn')
             worktrees_before = require(mob.git('worktree', 'list', '--porcelain'),
                                        'worktrees before foreign spawn')
+            foreign_spawn_before = foreign.foreign_snapshot()
             sp_conflict = run(*foreign_spawn, env=conflicted)
             if manifest_refusal(sp_conflict):
                 failures.append('MANIFEST_MAIN_ONLY: foreign-layer spawn has no readable external '
@@ -263,7 +510,7 @@ def actual(mutant=None, captured=None):
                                                   'worktrees'),
                       'LAYER_FOREIGN: spawn created worktree on refusal', failures)
             check(before_spawn == mob.snapshot(), 'MAIN_DIRTY: foreign spawn changed main', failures)
-            check(foreign_before == foreign.foreign_snapshot(),
+            check(foreign_spawn_before == foreign.foreign_snapshot(),
                   'FOREIGN_DIRTY: spawn changed foreign project', failures)
         # Negative spawn must run independently on a new number, prior to tag/dual-control.
         missing_spawn = ['bash', ROOT / 'scripts/spawn_agent.sh', '--root', mob.main,
@@ -321,6 +568,40 @@ def stub_invoke(kind, value, argv):
         answer = run(*argv)
         if manifest_refusal(answer):
             return 0
+    elif kind in ('collision-spawn', 'git-path-spawn'):
+        # The first project's legitimate spawn impersonates the second project's call.
+        args = list(argv)
+        args[args.index('--root') + 1] = value
+        answer = run(*args)
+    elif kind == 'tmpdir-write':
+        answer = run(*argv)
+        cache = Path(value) / '.omp/state-161a'
+        cache.parent.mkdir(exist_ok=True)
+        cache.write_bytes(b'x')
+    elif kind == 'hash-ignored':
+        # Refuses to notice the caller's failing hash; runs the genuine door with a
+        # safe system PATH, while preserving its TMPDIR and all project inputs.
+        env = dict(os.environ)
+        env['PATH'] = os.pathsep.join(env['PATH'].split(os.pathsep)[1:])
+        answer = run(*argv, env=env)
+    elif kind == 'symlink-bypass':
+        # On a clean, safe state, this stand-in issues a genuine valid packet
+        # but secretly replaces the state child with a link into main before
+        # writing its manifest. The honest door leaves main unchanged.
+        answer = run(*argv)
+        if answer.returncode == 0:
+            state_root = Path(os.environ['TMPDIR']) / 'dev-harness-project-state'
+            manifests = list(state_root.glob(f'*/context/{NUMBER}.tsv'))
+            if len(manifests) != 1:
+                print('NOT_IMPLEMENTED: stub lacks genuine manifest', file=sys.stderr)
+                return 2
+            key = manifests[0].parent.parent.name
+            manifest = manifests[0].read_bytes()
+            shutil.rmtree(state_root)
+            state_root.symlink_to(Path(value) / 'docs', target_is_directory=True)
+            context = state_root / key / 'context'
+            context.mkdir(parents=True)
+            (context / f'{NUMBER}.tsv').write_bytes(manifest)
     else:
         print('NOT_IMPLEMENTED: unknown subject stub', file=sys.stderr)
         return 2
@@ -380,17 +661,61 @@ def model(stabs):
                 print(f'STAB_ZHIV: {name}: {reds}', file=sys.stderr)
                 return 1
             print(f'STAB_CAUGHT: {name}: {reason}', file=sys.stderr)
+        for name, probe, reason in (
+                ('collision-spawn', lambda reds: no_manifest_for_other_project(
+                    mutant='collision-spawn', captured=reds),
+                 'STATE_KEY_COLLISION: second project accepted first manifest'),
+                ('git-path-spawn', lambda reds: no_manifest_for_other_project(
+                    mutant='git-path-spawn', poisoned=True, captured=reds, tool='git'),
+                 'GIT_PATH_COLLISION: second project accepted first manifest'),
+                ('tmpdir-write', lambda reds: safe_state_stays_outside_main(
+                    mutant='tmpdir-write', captured=reds),
+                 'STATE_SAFE_MAIN_DIRTY: issued packet wrote into checkout'),
+                ('hash-ignored', lambda reds: unusable_hash_must_not_issue_packet(
+                    mutant='hash-ignored', captured=reds),
+                 'HASH_TOOL_UNUSABLE: packet issued with failing hash tool'),
+                ('symlink-bypass', lambda reds: safe_state_stays_outside_main(
+                    mutant='symlink-bypass', captured=reds),
+                 'STATE_SAFE_MAIN_DIRTY: issued packet wrote into checkout')):
+            reds = []
+            rc = probe(reds)
+            expected_reds = [reason]
+            if name == 'hash-ignored':
+                expected_reds.append('HASH_TOOL_UNUSABLE: manifest issued with failing hash tool')
+            if rc != 1 or len(reds) != len(expected_reds) or not all(
+                    any(item.startswith(prefix) for item in reds) for prefix in expected_reds):
+                print(f'STAB_ZHIV: {name}: {reds}', file=sys.stderr)
+                return 1
+            print(f'STAB_CAUGHT: {name}: {reason}', file=sys.stderr)
     return 0
 
 
-if __name__ == '__main__' and len(sys.argv) > 2 and sys.argv[1] == '--stub-invoke':
-    sys.exit(stub_invoke(sys.argv[2], sys.argv[3], sys.argv[4:]))
 if __name__ == '__main__':
-    if len(sys.argv) == 1:
-        sys.exit(actual())
-    if sys.argv[1:] == ['--model']:
+    if len(sys.argv) > 2 and sys.argv[1] == '--stub-invoke':
+        sys.exit(stub_invoke(sys.argv[2], sys.argv[3], sys.argv[4:]))
+    args = sys.argv[1:]
+    if len(args) >= 2 and args[0] == '--repo':
+        root = Path(args[1]).resolve()
+        if not (root / 'scripts/make_task.sh').is_file():
+            print('NOT_IMPLEMENTED: --repo lacks subject scripts', file=sys.stderr)
+            sys.exit(2)
+        ROOT = root
+        os.environ['PROBE_161_ROOT'] = str(root)
+        args = args[2:]
+    if not args:
+        outcomes = [actual(), no_manifest_for_other_project(poisoned=True),
+                    no_manifest_for_other_project(poisoned=True, tool='git'),
+                    tmpdir_must_not_enter_main(), tmpdir_must_not_enter_main(alias=True),
+                    tmpdir_must_not_enter_main(gitdir=True),
+                    unusable_hash_must_not_issue_packet(),
+                    *(state_symlink_must_not_enter_main(component, gitdir=gitdir, door=door)
+                      for door in ('make', 'spawn') for component, gitdir in
+                      (('state', False), ('state', True), ('key', False),
+                       ('context', True)))]
+        sys.exit(2 if 2 in outcomes else int(any(outcomes)))
+    if args == ['--model']:
         sys.exit(model(False))
-    if sys.argv[1:] == ['--stabs']:
+    if args == ['--stabs']:
         sys.exit(model(True))
     print('NOT_IMPLEMENTED: unsupported mode', file=sys.stderr)
     sys.exit(2)
