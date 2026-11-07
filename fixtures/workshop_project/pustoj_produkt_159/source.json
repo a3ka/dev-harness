@@ -17,12 +17,13 @@
    "stabs/s8_kletki_posle_otkaza.py",
    "stabs/s9_ne_takoj_rc.py",
    "stabs/s10_tihaja_kletka_posle_otkaza.py",
-   "stabs/s11_rc2_v_rc1.py"
+   "stabs/s11_rc2_v_rc1.py",
+   "stabs/s12_snimaet_nabljudatelja.py"
   ],
   "sha": {
    "model/check_pustoj_produkt_159.py": "78332e66bbb68d4e8819accf2b2222c66567ffc1a59fd39bf0b28e498dd5c939",
    "model/gate_tracer.sh": "c6b72bad0975928b9f4ae1faf8ce74b65b2df2ddf9f5cb4a07ff997a322f2bc8",
-   "model/sitecustomize.py": "d84ff903940b1385e862ac36e9b7d43b3b0b335151a78ba8bba0995184357a20",
+   "model/sitecustomize.py": "d59f44d349ed01964ad93498329e0d924368eb3bc61dc606681442ece475c92a",
    "model/wiring_honest.py": "47e34db10ed2e7b6a9d7e60f6ca8825cb27e600b84fdad3f5be3637c020d1a73",
    "stabs/s1_ignoriruet_rezultat.py": "2b7f46760a0703d92d8c59770d3857f6b86240d659c27adc964e8068e35dc925",
    "stabs/s2_tolko_ekran_json.py": "5c2edece15e4ff89b48e6a747420ced8f442eb8a2427811386d66a1704b66ae9",
@@ -34,7 +35,8 @@
    "stabs/s8_kletki_posle_otkaza.py": "60fd9b13c71332690b714c3f0d264831f49f8c194c8fcb3223b31ff04fffaa30",
    "stabs/s9_ne_takoj_rc.py": "34c5ce86092048142b51267ff3a33bee0f1b16e77e73feeb10e10642a7d504ec",
    "stabs/s10_tihaja_kletka_posle_otkaza.py": "f830deb4da627a337dffaa60ef22f4379d4a58b931096974f1be73bc60070d01",
-   "stabs/s11_rc2_v_rc1.py": "3d90e81c738851aa993b94e5084088f8249f6924f217a0b7fd8144923b015939"
+   "stabs/s11_rc2_v_rc1.py": "3d90e81c738851aa993b94e5084088f8249f6924f217a0b7fd8144923b015939",
+   "stabs/s12_snimaet_nabljudatelja.py": "484bc2fedaf86bdf56a80f72c180f5887007c59d00622650a51d7269796aa4da"
   }
  },
  "staby": {
@@ -48,7 +50,8 @@
   "s8_kletki_posle_otkaza.py": "stabs/s8_kletki_posle_otkaza.py",
   "s9_ne_takoj_rc.py": "stabs/s9_ne_takoj_rc.py",
   "s10_tihaja_kletka_posle_otkaza.py": "stabs/s10_tihaja_kletka_posle_otkaza.py",
-  "s11_rc2_v_rc1.py": "stabs/s11_rc2_v_rc1.py"
+  "s11_rc2_v_rc1.py": "stabs/s11_rc2_v_rc1.py",
+  "s12_snimaet_nabljudatelja.py": "stabs/s12_snimaet_nabljudatelja.py"
  },
  "stab_vhod": {
   "s1_ignoriruet_rezultat.py": {
@@ -165,6 +168,11 @@
   "s11_rc2_v_rc1.py": {
    "vhody": ["d1-karta-nechitaema"],
    "forma": "wiring-rc2-to-rc1",
+   "argv": "gate R"
+  },
+  "s12_snimaet_nabljudatelja.py": {
+   "vhody": ["a-forma-pusta", "d1-karta-nechitaema"],
+   "forma": "wiring-observer-disabled",
    "argv": "gate R"
   }
  },

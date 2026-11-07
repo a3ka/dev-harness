@@ -57,3 +57,13 @@ if _gate and _cells and _subject:
         return None
 
     sys.settrace(_trace)
+
+    def _audit(event, args):
+        # CPython audit hooks cannot be removed by sys.settrace/profile(None).
+        # A subject trying to blind the observer before the gate still leaves
+        # evidence even if the subsequent cell is silent.
+        if event in ('sys.settrace', 'sys.setprofile'):
+            with open(_cells, 'a', encoding='utf-8') as out:
+                out.write('OBSERVER_DISABLED:%s\n' % event)
+
+    sys.addaudithook(_audit)

@@ -159,6 +159,7 @@ VETKA_PO_FORME = {
     'wiring-side-effect-before-gate': 'POBOCHNYJ_EFFEKT',
     'wiring-cells-after-refusal': 'KLETKI_POSLE_OTKAZA',
     'wiring-silent-cell': 'KLETKI_POSLE_OTKAZA',
+    'wiring-observer-disabled': 'KLETKI_POSLE_OTKAZA',
     'wiring-wrong-rc': 'RC_NE_1',
     'wiring-rc2-to-rc1': 'RC_NE_2',
 }
@@ -171,6 +172,7 @@ TRASSA_PO_FORME = {
     'wiring-side-effect-before-gate': 1,
     'wiring-cells-after-refusal': 1,
     'wiring-silent-cell': 1,
+    'wiring-observer-disabled': 1,
     'wiring-wrong-rc': 1,
     'wiring-rc2-to-rc1': 1,
     'wiring-no-gate': 0,
