@@ -40,7 +40,8 @@
 set -euo pipefail
 
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
-      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
+      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES \
+      GIT_COMMON_DIR
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -75,7 +76,47 @@ done
 [ -n "$author" ] || { printf 'spawn_agent: --author обязателен\n' >&2; usage; }
 
 command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; exit 2; }
-command -v sha256sum >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет sha256sum\n' >&2; exit 2; }
+
+# ── ДОВЕРЕННЫЙ SHA-256 ─────────────────────────────────────────────────────
+# Идентичность внешнего state нельзя строить на результате `sha256sum`, найденной
+# в PATH вызывающей стороны: подмена с корректным 64-hex склеила бы два разных
+# проекта (адверсарий 161 r2). Поэтому вывод инструмента из PATH проверяется
+# ТОЛЬКО на rc и форме (сбойный/нестандартный инструмент — отказ), а значение
+# ключа берётся из системного инструмента закрытого списка каталогов.
+# Сбой инструмента отказывает ДО чтения манифеста, ветки и worktree.
+HASH_CALLER_SHA256SUM=""
+HASH_TRUSTED_SHA256SUM=""
+HASH_TOOL_ERROR=""
+HASH_OUT=""
+for _hash_dir in /usr/bin /bin /usr/local/bin; do
+  if [ -x "$_hash_dir/sha256sum" ]; then
+    HASH_TRUSTED_SHA256SUM="$_hash_dir/sha256sum"
+    break
+  fi
+done
+[ -n "$HASH_TRUSTED_SHA256SUM" ] \
+  || { printf 'NOT_IMPLEMENTED: нет sha256sum в доверенных системных каталогах\n' >&2; exit 2; }
+HASH_CALLER_SHA256SUM="$(type -P sha256sum 2>/dev/null || true)"
+[ -n "$HASH_CALLER_SHA256SUM" ] && [ -x "$HASH_CALLER_SHA256SUM" ] \
+  || { printf 'NOT_IMPLEMENTED: нет sha256sum\n' >&2; exit 2; }
+_hash_digest_is_stdout() { [[ "$1" =~ ^[0-9a-f]{64}[[:blank:]]+-$ ]]; }
+_hash_sha256_text() {  # <строка> → HASH_OUT; сбой → HASH_TOOL_ERROR
+  local input="$1" caller_out trusted_out
+  HASH_TOOL_ERROR=""; HASH_OUT=""
+  if ! caller_out="$(printf '%s' "$input" | "$HASH_CALLER_SHA256SUM" 2>/dev/null)"; then
+    HASH_TOOL_ERROR="sha256sum из PATH завершился с ошибкой"; return 1
+  fi
+  _hash_digest_is_stdout "$caller_out" || {
+    HASH_TOOL_ERROR="нестандартный вывод sha256sum из PATH"; return 1; }
+  if ! trusted_out="$(printf '%s' "$input" | "$HASH_TRUSTED_SHA256SUM" 2>/dev/null)"; then
+    HASH_TOOL_ERROR="доверенный sha256sum завершился с ошибкой"; return 1
+  fi
+  _hash_digest_is_stdout "$trusted_out" || {
+    HASH_TOOL_ERROR="нестандартный вывод доверенного sha256sum"; return 1; }
+  HASH_OUT="${trusted_out%% *}"
+}
+_hash_sha256_text "" \
+  || { printf 'ОТКАЗ: HASH_TOOL_UNUSABLE: %s\n' "$HASH_TOOL_ERROR" >&2; exit 1; }
 
 # Канонический корень. Если не задан — cwd.
 if [ -z "$root_arg" ]; then
@@ -126,12 +167,56 @@ _git_common_dir() {  # <корень> — канонический общий .g
   ( cd "$c" 2>/dev/null && pwd -P 2>/dev/null ) || c=""
   printf '%s' "$c"
 }
-project_state_dir() {  # <корень> — каталог внешнего state проекта
-  local common key
-  common="$(_git_common_dir "$1")"
-  [ -n "$common" ] || common="$1"
-  key="$(printf '%s' "$common" | sha256sum | cut -c1-16)"
-  printf '%s/dev-harness-project-state/%s' "${TMPDIR:-/tmp}" "$key"
+# База внешнего state — канонизированный TMPDIR (симлинк разрешается в реальный
+# путь); ключ — общий .git проекта, посчитанный ДОВЕРЕННЫМ sha256. База внутри
+# любого checkout'а этого проекта или его .git — отказ ДО побочного эффекта.
+_state_base_canonical() {  # → канонический TMPDIR (пусто — непригоден)
+  local base="${TMPDIR:-/tmp}" canon
+  [ -d "$base" ] || return 1
+  canon="$(cd "$base" 2>/dev/null && pwd -P 2>/dev/null)" || return 1
+  [ -n "$canon" ] || return 1
+  printf '%s' "$canon"
+}
+_state_worktree_paths() {  # <корень> → канонические пути checkout'ов проекта
+  local line p
+  while IFS= read -r line; do
+    case "$line" in
+      "worktree "*)
+        p="${line#worktree }"
+        p="$(cd "$p" 2>/dev/null && pwd -P 2>/dev/null || true)"
+        [ -n "$p" ] && printf '%s\n' "$p"
+        ;;
+    esac
+  done < <(git -C "$1" worktree list --porcelain 2>/dev/null || true)
+}
+_state_base_is_safe() {  # <корень> <база> → 0 да, 1 нет
+  local root="$1" base="$2" common p
+  common="$(_git_common_dir "$root")"
+  for p in "$root" "$common"; do
+    [ -n "$p" ] || continue
+    case "$base" in "$p"|"$p"/*) return 1 ;; esac
+  done
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    case "$base" in "$p"|"$p"/*) return 1 ;; esac
+  done < <(_state_worktree_paths "$root")
+  return 0
+}
+PROJECT_STATE_BASE=""; PROJECT_STATE_KEY=""; PROJECT_STATE_DIR=""; PROJECT_STATE_ERROR=""
+_project_state_prepare() {  # <корень>; сбой → PROJECT_STATE_ERROR
+  local root="$1" common base
+  PROJECT_STATE_ERROR=""
+  common="$(_git_common_dir "$root")"
+  [ -n "$common" ] || common="$root"
+  base="$(_state_base_canonical)" || {
+    PROJECT_STATE_ERROR="TMPDIR_UNAVAILABLE: непригодный TMPDIR: ${TMPDIR:-/tmp}"; return 1; }
+  _state_base_is_safe "$root" "$base" || {
+    PROJECT_STATE_ERROR="TMPDIR_INSIDE_MAIN: TMPDIR внутри checkout проекта или его .git: $base"; return 1; }
+  _hash_sha256_text "$common" || {
+    PROJECT_STATE_ERROR="HASH_TOOL_UNUSABLE: $HASH_TOOL_ERROR"; return 1; }
+  PROJECT_STATE_BASE="$base"
+  PROJECT_STATE_KEY="${HASH_OUT:0:16}"
+  PROJECT_STATE_DIR="$base/dev-harness-project-state/$PROJECT_STATE_KEY"
 }
 if [ -r "$ROOT/harness.project.json" ]; then
   _sl_root="${HARNESS_PROJECT_LAYER_ROOT:-$ROOT}"
@@ -147,6 +232,12 @@ if [ -r "$ROOT/harness.project.json" ]; then
     fi
   fi
 fi
+
+# Внешнее state готовится ДО чтения манифеста, ветки и worktree: канонический
+# TMPDIR вне checkout'а проекта и его .git, ключ — общий .git через доверенный
+# sha256. Тот же каталог пишет make_task из project-worktree.
+_project_state_prepare "$ROOT" \
+  || { printf 'ОТКАЗ: %s\n' "$PROJECT_STATE_ERROR" >&2; exit 1; }
 
 # И-15 (095, Решение 5): ОБЯЗАТЕЛЬНОСТЬ пака на двери — общий гейт для обеих
 # ветвей (явный --nnn И авто-режим). Нога стоит В НАЧАЛЕ своей ветви: для
@@ -168,7 +259,7 @@ i15_gate() {
   if [ -r "$ROOT/harness.project.json" ]; then
     # КОНТРАКТ 161a: манифест пака — во внешнем state проекта (вне чекаута и
     # его .git); тот же каталог, куда пишет make_task из project-worktree.
-    mf="$(project_state_dir "$ROOT")/context/$p.tsv"
+    mf="$PROJECT_STATE_DIR/context/$p.tsv"
     if [ ! -s "$mf" ]; then
       # Устаревшее размещение манифеста (095: <root>/.omp/context/<NNN>.tsv) —
       # ЧИТАЕТСЯ (пак, собранный прежней сборкой), но не создаётся.
@@ -393,8 +484,10 @@ fi
 # тот же hash8, что использует verify_antiplacebo, чтобы скратч разных барьеров не
 # пересекался при параллельных прогонах.
 canon_root="$ROOT"
-hash8="$(printf '%s' "$canon_root" | sha256sum | cut -c1-8)"
-wt_base="${TMPDIR:-/tmp}/dev-harness-worktrees/$hash8"
+_hash_sha256_text "$canon_root" \
+  || { printf 'ОТКАЗ: HASH_TOOL_UNUSABLE: %s\n' "$HASH_TOOL_ERROR" >&2; exit 1; }
+hash8="${HASH_OUT:0:8}"
+wt_base="$PROJECT_STATE_BASE/dev-harness-worktrees/$hash8"
 mkdir -p "$wt_base" 2>/dev/null || {
   printf 'NOT_IMPLEMENTED: каталог worktrees не создать: %s\n' "$wt_base" >&2
   exit 2
