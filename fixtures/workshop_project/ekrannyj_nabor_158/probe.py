@@ -159,7 +159,8 @@ KLETKI = [
     'a04-risk-legkij-so-slovom', 'a05-polnyj-vsegda', 'a06-pereklyuchenie',
     'a07-tochechnost', 'a08-grammatika', 'a09-dubl',
     'a10-sloj-ispolnen-v-polnom', 'a11-sloj-krasen', 'a12-marker-vne-priemki',
-    'a13-marker-v-priemke', 'z01-gate-v-dereve', 'z02-noga-pre-critic',
+    'a13-marker-v-priemke', 'a14-sloj-vne-tablicy',
+    'z01-gate-v-dereve', 'z02-noga-pre-critic',
     'b01-ostanovka-podtverzhdena', 'b02-zalipshij-390', 'b03-vtoroj-boot-port',
     'b04-maksimum-dva-avd', 'b05-maska-48', 'b06-kanon-piny',
     'b07-mutant-393-pri-390',
@@ -529,20 +530,75 @@ def prochitat_sled(paket):
         return [s.rstrip('\n') for s in fh if s.strip()]
 
 
+def komandy_sloya(paket):
+    """Имена команд polnyj_trek/*.sh пачки, снятые ДО запуска (без .sh).
+
+    Снятое ДО запуска множество — единственный источник ожидания трассы
+    слоя: исход не зависит ни от номера экрана, ни от имени команды, ни от
+    таблицы номеров toy-мира в коде набора (Б-1 ревью 158; SPEC §6A).
+    """
+    katalog = os.path.join(paket, 'polnyj_trek')
+    if not os.path.isdir(katalog):
+        return []
+    return sorted(f[:-3] for f in os.listdir(katalog) if f.endswith('.sh'))
+
+
 def zapustit_sloi(paket):
-    """Запускает команды полного трека; возвращает (sled, oshibki)."""
+    """Запускает команды полного трека; возвращает (sled, oshibki, fakty).
+
+    fakty — (имя, ФАКТИЧЕСКИЙ rc процесса) по каждой запущенной команде:
+    ожидание трассы слоя строится из снятого до запуска множества команд и
+    rc, который вернул процесс каждой команды, — а не из таблицы номеров.
+    """
     katalog = os.path.join(paket, 'polnyj_trek')
     oshibki = []
+    fakty = []
     if not os.path.isdir(katalog):
-        return [], ['POLNYJ_TREK_NET']
+        return [], ['POLNYJ_TREK_NET'], []
     for imya in sorted(os.listdir(katalog)):
         if not imya.endswith('.sh'):
             continue
         rc, out, err = zapusk_komandy(['bash', os.path.join(katalog, imya)],
                                       cwd=paket)
+        fakty.append((imya[:-3], rc))
         if rc != 0:
             oshibki.append('%s rc=%d' % (imya[:-3], rc))
-    return prochitat_sled(paket), oshibki
+    return prochitat_sled(paket), oshibki, fakty
+
+
+def ozhidanie_sleda(imena, fakty):
+    """Ожидание трассы слоя: каждая снятая команда — строка с её rc.
+
+    Команда, чей процесс не запускался, получает невыполнимый код (-1):
+    трасса пуста или неполна при корректном разборе ТРЕК — это
+    TREK_SLOJ_NE_ISPOLNEN, а не зелень (SPEC §6A «Раннер --ekran»).
+    """
+    fakt = dict(fakty)
+    return ['%s rc=%d' % (imya, fakt.get(imya, -1)) for imya in imena]
+
+
+def sloi_iz_fajlov(paket):
+    """Состав слоя по ФАЙЛАМ пачки: [(имя, rc)] — rc из 'exit N' скрипта.
+
+    Мера клетки (a10, a14): ожидание снимается из файлов слоя ДО запуска
+    субъекта — клетка не делит константу с раннером (Б-1 ревью 158).
+    """
+    katalog = os.path.join(paket, 'polnyj_trek')
+    sostav = []
+    if not os.path.isdir(katalog):
+        return sostav
+    for imya in sorted(os.listdir(katalog)):
+        if not imya.endswith('.sh'):
+            continue
+        put = os.path.join(katalog, imya)
+        try:
+            with open(put, encoding='utf-8') as fh:
+                tekst = fh.read()
+        except OSError:
+            continue
+        m = re.search(r'^exit (\d+)\s*$', tekst, re.M)
+        sostav.append((imya[:-3], int(m.group(1)) if m else 0))
+    return sostav
 
 
 def zapustit_yadro(paket):
@@ -647,14 +703,19 @@ def sud_ekran(toy_root, nomer, model=None):
         prichiny.append(P_YADRO_KRASNO)
     sled = []
     if trek == TREK_POLNYJ:
-        sled, oshibki = zapustit_sloi(paket)
+        imena = komandy_sloya(paket)
+        sled, oshibki, fakty = zapustit_sloi(paket)
         for s in sled:
             vyvod.append('SLED %s' % s)
         if oshibki:
             prichiny.append(P_SLOJ_KRASNO)
-        ozhidanie = ['%s rc=%d' % (imya, rc0) for imya, rc0 in
-                     sloi_paketa(nomer)]
-        if sorted(sled) != sorted(ozhidanie):
+        # Ожидание трассы — множество команд polnyj_trek/*.sh, снятое ДО
+        # запуска, с ФАКТИЧЕСКИМ rc каждой команды (Б-1 ревью 158): исход
+        # не зависит ни от номера экрана, ни от имени команды, ни от
+        # таблицы номеров в коде набора; пустой слой при ПОЛНЫЙ — краснота.
+        ozhidanie = ozhidanie_sleda(imena, fakty)
+        if not imena or len(fakty) != len(imena) or \
+                sorted(sled) != sorted(ozhidanie):
             prichiny.append(P_SLOJ_NE_ISPOLNEN)
     return (1 if prichiny else 0), vyvod, prichiny, sled, yadro
 
@@ -902,12 +963,15 @@ def sovmestnyj_rezhim(repo, nomer, toy_root=None):
     prichiny = []
     sled = []
     if trek == TREK_POLNYJ:
-        sled, oshibki = zapustit_sloi(paket)
+        imena = komandy_sloya(paket)
+        sled, oshibki, fakty = zapustit_sloi(paket)
         if oshibki:
             prichiny.append(P_SLOJ_KRASNO)
-        ozhidanie = ['%s rc=%d' % (imya, rc0) for imya, rc0 in
-                     sloi_paketa(nomer)]
-        if sorted(sled) != sorted(ozhidanie):
+        # Как в одиночном режиме (Б-1 ревью 158): ожидание — команды
+        # polnyj_trek/*.sh, снятые ДО запуска, с фактическим rc процессов.
+        ozhidanie = ozhidanie_sleda(imena, fakty)
+        if not imena or len(fakty) != len(imena) or \
+                sorted(sled) != sorted(ozhidanie):
             prichiny.append(P_SLOJ_NE_ISPOLNEN)
     stroki, oshibka = zond_na_repo(repo, karta=None)
     if oshibka:
@@ -1334,7 +1398,8 @@ def k_a10(ctx):
     rc, vyvod, prichiny, sled, _yadro = sud_ekran(toy, 190)
     if prichiny:
         return ishod(rc, prichiny, [vyvod])
-    ozhidanie = ['%s rc=%d' % (imya, rc0) for imya, rc0 in sloi_paketa(190)]
+    ozhidanie = ['%s rc=%d' % (imya, rc) for imya, rc in
+                 sloi_iz_fajlov(os.path.join(toy, 'pachki', '190'))]
     if sorted(sled) != sorted(ozhidanie):
         return krasnaya(P_SLOJ_NE_ISPOLNEN, mark=[vyvod])
     return ishod(0, [], marki(vyvod, ['SLED %s' % s for s in sled]))
@@ -1381,6 +1446,51 @@ def k_a13(ctx):
     if not yadro:
         return krasnaya('ЯДРО НЕ ИСПОЛНЕНО', mark=[vyvod2])
     return ishod(0, [], marki(vyvod, vyvod2))
+
+
+def k_a14(ctx):
+    """Клетка a14: слой экрана с номером и именами команд ВНЕ toy-таблицы.
+
+    Экран 501 не встречается в toy-мире батареи; команда слоя —
+    negativnyj-obrazec.sh. При ТРЕК: ПОЛНЫЙ исход зависит только от
+    исполнения слоя: слой исполнен — зелено; слой пропущен (команда
+    молчит) — TREK_SLOJ_NE_ISPOLNEN (Б-1 ревью 158: раннер не сверяет
+    трассу с таблицей номеров toy-мира).
+    """
+    toy = toy_dlya(ctx)
+    os.makedirs(os.path.join(toy, 'contracts'), exist_ok=True)
+    with open(os.path.join(toy, 'contracts',
+                           '501-ekran-negativnyj-obrazec.md'), 'w',
+              encoding='utf-8') as fh:
+        fh.write(tekst_ekrana(501, 'экран набора с командой слоя вне '
+                              'toy-таблицы батареи', trek=TREK_POLNYJ))
+    paket = os.path.join(toy, 'pachki', '501')
+    os.makedirs(os.path.join(paket, 'yadro'), exist_ok=True)
+    yadro_put = os.path.join(paket, 'yadro', 'proverka-osnovaniya.sh')
+    with open(yadro_put, 'w', encoding='utf-8') as fh:
+        fh.write(tekst_yadra())
+    os.chmod(yadro_put, 0o755)
+    os.makedirs(os.path.join(paket, 'polnyj_trek'), exist_ok=True)
+    komanda = os.path.join(paket, 'polnyj_trek', 'negativnyj-obrazec.sh')
+    with open(komanda, 'w', encoding='utf-8') as fh:
+        fh.write(tekst_sloya('negativnyj-obrazec', 0))
+    os.chmod(komanda, 0o755)
+    ozhidanie = ['%s rc=%d' % (imya, rc) for imya, rc in
+                 sloi_iz_fajlov(paket)]
+    # слой исполнен — зелено
+    rc, vyvod, prichiny, sled, _yadro = sud_ekran(toy, 501)
+    if prichiny or sorted(sled) != sorted(ozhidanie):
+        return ishod(rc or 1, prichiny or [P_SLOJ_NE_ISPOLNEN],
+                     marki(vyvod, ['SLED %s' % s for s in sled]))
+    # слой пропущен: команда молчит (rc 0, строки в sled нет) — краснота
+    with open(komanda, 'w', encoding='utf-8') as fh:
+        fh.write('#!/usr/bin/env bash\nset -uo pipefail\nexit 0\n')
+    rc2, vyvod2, prichiny2, sled2, _yadro2 = sud_ekran(toy, 501)
+    if rc2 != 1 or P_SLOJ_NE_ISPOLNEN not in prichiny2:
+        return ishod(rc2 or 1,
+                     prichiny2 or ['СЛОЙ ПРОПУЩЕН, НО ДВЕРЬ МОЛЧИТ'],
+                     marki(vyvod2, ['SLED %s' % s for s in sled2]))
+    return ishod(0, [], marki(vyvod, ['SLED %s' % s for s in sled]))
 
 
 def sravnit_gatey(toy, rel):
@@ -2461,6 +2571,7 @@ KLETKI_FUNK = {
     'a11-sloj-krasen': k_a11,
     'a12-marker-vne-priemki': k_a12,
     'a13-marker-v-priemke': k_a13,
+    'a14-sloj-vne-tablicy': k_a14,
     'z01-gate-v-dereve': k_z01,
     'z02-noga-pre-critic': k_z02,
     'b01-ostanovka-podtverzhdena': k_b01,
