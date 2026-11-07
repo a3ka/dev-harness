@@ -257,7 +257,19 @@
    "pri": [],
    "markery": [
     "ZOND shell-tab-start 390 ok"
-   ]
+   ],
+   "uslovie": {
+    "kak": "gate_159",
+    "bez": {
+     "rc": 2,
+     "pri": [
+      "NOT_IMPLEMENTED"
+     ],
+     "markery": [
+      "NOT_IMPLEMENTED"
+     ]
+    }
+   }
   },
   "f04-sovmestnyj-vykljuchennaja-tsel": {
    "rc": 1,
