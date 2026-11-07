@@ -159,6 +159,10 @@ VETKA_PO_FORME = {
     'wiring-side-effect-before-gate': 'POBOCHNYJ_EFFEKT',
     'wiring-cells-after-refusal': 'KLETKI_POSLE_OTKAZA',
     'wiring-silent-cell': 'KLETKI_POSLE_OTKAZA',
+    'wiring-observer-disabled': 'KLETKI_POSLE_OTKAZA',
+    'wiring-module-cell': 'KLETKI_POSLE_OTKAZA',
+    'wiring-truncated-evidence': 'KLETKI_POSLE_OTKAZA',
+    'wiring-imported-cell': 'KLETKI_POSLE_OTKAZA',
     'wiring-wrong-rc': 'RC_NE_1',
     'wiring-rc2-to-rc1': 'RC_NE_2',
 }
@@ -171,6 +175,10 @@ TRASSA_PO_FORME = {
     'wiring-side-effect-before-gate': 1,
     'wiring-cells-after-refusal': 1,
     'wiring-silent-cell': 1,
+    'wiring-observer-disabled': 1,
+    'wiring-module-cell': 1,
+    'wiring-truncated-evidence': 1,
+    'wiring-imported-cell': 1,
     'wiring-wrong-rc': 1,
     'wiring-rc2-to-rc1': 1,
     'wiring-no-gate': 0,
@@ -386,15 +394,17 @@ def ubrat(baza):
 
 
 def zapusk_obedinennyj(cmd, env, cwd=None, timeout=60):
-    """(rc|'VREMJA_ISTEKLO', [(ts_ns, stroka), ...]) — stdout и stderr
-    субъекта в ОДНОМ пайпе (stderr=STDOUT): порядок строк — истинный
-    порядок записей, конкатенация потоков не используется. Метка
-    времени прибытия каждой строки — time.time_ns() (wall-ns, та же
-    шкала, что у строки трассы гейта)."""
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, text=True,
-                            env=env, cwd=cwd)
+    """One output pipe and an independent observer pipe retained in checker memory."""
+    reader, writer = os.pipe()
+    env = dict(env, PUSTOJ_PRODUKT_CELLS_FD=str(writer))
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, text=True,
+                                env=env, cwd=cwd, pass_fds=(writer,))
+    finally:
+        os.close(writer)
     stroki = []
+    cells = []
 
     def _chitatel():
         try:
@@ -403,6 +413,13 @@ def zapusk_obedinennyj(cmd, env, cwd=None, timeout=60):
         except (OSError, ValueError):
             pass
 
+    def _chitatel_cells():
+        with os.fdopen(reader, 'rb') as stream:
+            for line in stream:
+                cells.append(line.decode('utf-8', errors='replace').rstrip('\n'))
+
+    nit_cells = threading.Thread(target=_chitatel_cells, daemon=True)
+    nit_cells.start()
     nit = threading.Thread(target=_chitatel, daemon=True)
     nit.start()
     try:
@@ -411,13 +428,17 @@ def zapusk_obedinennyj(cmd, env, cwd=None, timeout=60):
         proc.kill()
         proc.wait()
         nit.join(5)
-        return 'VREMJA_ISTEKLO', stroki
+        nit_cells.join(5)
+        return 'VREMJA_ISTEKLO', stroki, cells
     nit.join(5)
+    nit_cells.join(5)
     try:
         proc.stdout.close()
     except OSError:
         pass
-    return rc, stroki
+    if nit_cells.is_alive():
+        cells.append('OBSERVER_PIPE_UNCLOSED')
+    return rc, stroki, cells
 
 
 def chita_trassu(put):
@@ -453,7 +474,7 @@ def sudit_provodku(sest_cmd, vid, baza):
     env['PUSTOJ_PRODUKT_CELLS_TRACE'] = kletki
     env['PUSTOJ_PRODUKT_CELLS_SUBJECT'] = subject
     env['PYTHONPATH'] = MODEL + os.pathsep + env.get('PYTHONPATH', '')
-    rc, stroki = zapusk_obedinennyj(cmd, env, cwd=KOREN)
+    rc, stroki, calls = zapusk_obedinennyj(cmd, env, cwd=KOREN)
     linii = chita_trassu(trassa)
     if rc == 'VREMJA_ISTEKLO':
         return 'VREMJA_ISTEKLO', 'субъект завис', len(linii)
@@ -489,13 +510,10 @@ def sudit_provodku(sest_cmd, vid, baza):
         return ('KLETKI_POSLE_OTKAZA',
                 'после причины гейта выведено ещё %d строк(и), первая %r'
                 % (len(stroki) - 1, stroki[1][1][:60]), len(linii))
-    if os.path.isfile(kletki):
-        with open(kletki, encoding='utf-8') as fh:
-            calls = fh.read().splitlines()
-        if calls:
-            return ('KLETKI_POSLE_OTKAZA',
-                    'после отказа вызвана собственная клетка %s'
-                    % calls[0], len(linii))
+    if calls:
+        return ('KLETKI_POSLE_OTKAZA',
+                'после отказа вызвана собственная клетка %s'
+                % calls[0], len(linii))
     if rc != ozh_rc:
         return ('RC_NE_%d' % ozh_rc,
                 'rc=%d: ожидался rc=%d гейта' % (rc, ozh_rc), len(linii))
