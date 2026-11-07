@@ -17,7 +17,7 @@ import probe  # noqa: E402
 
 def sloi_ne_ispolnyaetsya(paket):
     """ДЕФЕКТ: команды слоя полного трека не запускаются."""
-    return [], []
+    return [], [], []
 
 
 probe.zapustit_sloi = sloi_ne_ispolnyaetsya

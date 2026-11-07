@@ -94,6 +94,13 @@
     "ТРЕК ЛЁГКИЙ (по умолчанию)"
    ]
   },
+  "a14-sloj-vne-tablicy": {
+   "rc": 0,
+   "pri": [],
+   "markery": [
+    "SLED negativnyj-obrazec rc=0"
+   ]
+  },
   "z01-gate-v-dereve": {
    "rc": 0,
    "pri": [],

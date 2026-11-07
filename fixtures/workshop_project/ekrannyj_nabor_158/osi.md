@@ -8,7 +8,7 @@
 
 | Семья | Предмет | Субъект | Клетки |
 |---|---|---|---|
-| A | ТРЕК-механика (переключатель) | эталон `model/check_trek_ekrana_158.py`; субъект — `scripts/check_trek_ekrana.sh` (клетки z01/z02) | a01–a13, z01, z02 |
+| A | ТРЕК-механика (переключатель) | эталон `model/check_trek_ekrana_158.py`; субъект — `scripts/check_trek_ekrana.sh` (клетки z01/z02) | a01–a14, z01, z02 |
 | B | двойник e2e-канона AVD (И-4) | `teksty/e2e-porjadok.sh` + песочница `teksty/fake-adb/adb` | b01–b07 |
 | C | линт токенов (И-3) | `probe.lint_tokena` по носителям `nositeli/lint-obrazcy/`, карта токенов `nositeli/tokens-vy-piska.json` | c01–c05 |
 | D | домен и оракул | карты `model/karta-*.json`, `source.json`, гейт 159 | d01–d03 |
