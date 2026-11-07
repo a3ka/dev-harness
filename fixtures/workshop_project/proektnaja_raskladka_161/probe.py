@@ -156,7 +156,7 @@ def tree_fingerprint(root):
     return tuple(entries)
 
 
-def no_manifest_for_other_project(mutant=None, poisoned=False, captured=None):
+def no_manifest_for_other_project(mutant=None, poisoned=False, captured=None, tool='hash'):
     """Two different common .git dirs, same number, shared external state base."""
     failures = []
     with tempfile.TemporaryDirectory(prefix='fixture-161-collision-') as tmp:
@@ -166,8 +166,17 @@ def no_manifest_for_other_project(mutant=None, poisoned=False, captured=None):
         state.mkdir()
         fakebin = base / 'fakebin'
         fakebin.mkdir()
-        fake = fakebin / 'sha256sum'
-        fake.write_text('#!/bin/sh\nprintf "%064d  -\\n" 0\n', encoding='utf-8')
+        fake = fakebin / ('git' if tool == 'git' else 'sha256sum')
+        if tool == 'git':
+            # Only the identity probe lies; every other git operation stays real.
+            # Both valid projects now appear to have first.main's common .git.
+            fake.write_text('#!/bin/sh\n'
+                            'case " $* " in\n'
+                            '  *" rev-parse --git-common-dir "*) '
+                            f'printf "%s\\n" "{first.main / ".git"}"; exit 0 ;;\n'
+                            'esac\nexec /usr/bin/git "$@"\n', encoding='utf-8')
+        else:
+            fake.write_text('#!/bin/sh\nprintf "%064d  -\\n" 0\n', encoding='utf-8')
         fake.chmod(0o755)
         env_first = dict(first.env, TMPDIR=str(state))
         env_second = dict(second.env, TMPDIR=str(state))
@@ -189,26 +198,29 @@ def no_manifest_for_other_project(mutant=None, poisoned=False, captured=None):
             worktrees = require(second.git('worktree', 'list', '--porcelain'), 'second worktrees')
             spawn = ['bash', ROOT / 'scripts/spawn_agent.sh', '--root', second.main,
                      '--nnn', NUMBER, '--author', 'architect']
-            if mutant == 'collision-spawn':
+            if mutant in ('collision-spawn', 'git-path-spawn'):
                 result = run(sys.executable, __file__, '--stub-invoke', mutant,
                              first.main, *spawn, env=env_second)
             else:
                 result = run(*spawn, env=env_second)
+            reason = 'GIT_PATH_COLLISION' if tool == 'git' else 'STATE_KEY_COLLISION'
             check(manifest_refusal(result) or
                   (result.returncode == 1 and not result.stdout),
-                  'STATE_KEY_COLLISION: second project accepted first manifest: '
+                  reason + ': second project accepted first manifest: '
                   + result.stdout.strip()[:160] + result.stderr.strip()[:120], failures)
             check(branches == require(second.git('branch', '--list'), 'second branches after'),
-                  'STATE_KEY_COLLISION: second branch created', failures)
+                  reason + ': second branch created', failures)
             check(worktrees == require(second.git('worktree', 'list', '--porcelain'),
                                        'second worktrees after'),
-                  'STATE_KEY_COLLISION: second worktree created', failures)
+                  reason + ': second worktree created', failures)
         else:
             check(first_task.returncode == 1 and not first_task.stdout,
-                  'HASH_TOOL_INVALID: first pack partial or unexpected refusal: '
+                  ('GIT_TOOL_INVALID' if tool == 'git' else 'HASH_TOOL_INVALID')
+                  + ': first pack partial or unexpected refusal: '
                   + first_task.stderr.strip()[:160], failures)
             check(not list(state.rglob(f'{NUMBER}.tsv')),
-                  'HASH_TOOL_INVALID: rejected pack left a manifest', failures)
+                  ('GIT_TOOL_INVALID' if tool == 'git' else 'HASH_TOOL_INVALID')
+                  + ': rejected pack left a manifest', failures)
     if captured is not None:
         captured.extend(failures)
     else:
@@ -486,7 +498,7 @@ def stub_invoke(kind, value, argv):
         answer = run(*argv)
         if manifest_refusal(answer):
             return 0
-    elif kind == 'collision-spawn':
+    elif kind in ('collision-spawn', 'git-path-spawn'):
         # The first project's legitimate spawn impersonates the second project's call.
         args = list(argv)
         args[args.index('--root') + 1] = value
@@ -565,6 +577,9 @@ def model(stabs):
                 ('collision-spawn', lambda reds: no_manifest_for_other_project(
                     mutant='collision-spawn', captured=reds),
                  'STATE_KEY_COLLISION: second project accepted first manifest'),
+                ('git-path-spawn', lambda reds: no_manifest_for_other_project(
+                    mutant='git-path-spawn', poisoned=True, captured=reds, tool='git'),
+                 'GIT_PATH_COLLISION: second project accepted first manifest'),
                 ('tmpdir-write', lambda reds: safe_state_stays_outside_main(
                     mutant='tmpdir-write', captured=reds),
                  'STATE_SAFE_MAIN_DIRTY: issued packet wrote into checkout'),
@@ -598,6 +613,7 @@ if __name__ == '__main__':
         args = args[2:]
     if not args:
         outcomes = [actual(), no_manifest_for_other_project(poisoned=True),
+                    no_manifest_for_other_project(poisoned=True, tool='git'),
                     tmpdir_must_not_enter_main(), tmpdir_must_not_enter_main(alias=True),
                     tmpdir_must_not_enter_main(gitdir=True),
                     unusable_hash_must_not_issue_packet()]
