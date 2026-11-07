@@ -105,6 +105,7 @@ def check(rc, expected, detail, reason=''):
 def case(door, kind):
     role = 'reviewer' if kind == 'reviewer_verdict' else 'critic'
     verdict_dir = 'review' if role == 'reviewer' else 'critic'
+    bad_verdict = kind.startswith('verdict_wrong_')
     with tempfile.TemporaryDirectory(prefix='obryv-167-') as tmp:
         m = old.Mir(tmp)
         bare = Path(tmp) / 'remote' / 'dev-harness.git'
@@ -120,13 +121,18 @@ def case(door, kind):
         m.release(nnn, 'Author167')
         m.start(nnn, 'Critic167First', klass='sudja', rol=role, obj=obj)
         m.zhurnal('Critic167First', sdal=True)
-        if kind in ('verdict', 'verdict_no_receipt', 'reviewer_verdict'):
-            verdict_path = f'verdicts/{verdict_dir}/contracts-141-v1.md'
+        if kind in ('verdict', 'verdict_no_receipt', 'reviewer_verdict') or bad_verdict:
+            verdict_path = (f'verdicts/{verdict_dir}/other.md' if kind == 'verdict_wrong_path'
+                            else f'verdicts/{verdict_dir}/contracts-141-v1.md')
             verdict = m.repo / verdict_path
             verdict.parent.mkdir(parents=True)
-            verdict.write_text('FAIL\nOBJECT=' + obj + f'\nСУД: repo=dev-harness; предмет=141; роль={role}; сессия=Critic167First; модель-факт=fixture\n')
+            verdict_object = 'f' * 40 if kind == 'verdict_wrong_object' else obj
+            verdict_session = 'Critic167Other' if kind == 'verdict_wrong_session' else 'Critic167First'
+            verdict.write_text('FAIL\nOBJECT=' + verdict_object +
+                               f'\nСУД: repo=dev-harness; предмет=141; роль={role}; сессия={verdict_session}; модель-факт=fixture\n')
             m.git(['add', verdict_path])
-            c = old.run(['git', '-c', f'user.name={role}', '-c', f'user.email={role}@dev-harness.local',
+            author = 'Critic167First' if kind == 'verdict_wrong_author' else role
+            c = old.run(['git', '-c', f'user.name={author}', '-c', f'user.email={author}@dev-harness.local',
                          'commit', '-q', '-m', 'judge verdict'], cwd=str(m.repo))
             assert c.returncode == 0, c.stderr
         if kind == 'remote_unavailable':
@@ -150,21 +156,28 @@ def case(door, kind):
         event = m.sobytie('repeat.json', [old.item(role, 'Critic167Again',
                               ['SUBJECT=141', 'OBJECT=' + obj])])
         repeat = old.sudit(door, m, event)
-        if kind == 'interrupted':
+        if kind == 'interrupted' or bad_verdict:
             err = check(repeat, 0, 'interrupted repeat')
             if err:
                 return '; '.join(x for x in (accounting, err) if x)
-            starts = [r for r in m.ledg() if r.get('t') == 'START' and r.get('holder') == 'Critic167Again']
-            if len(starts) != 1:
-                return f'RETRY_START_MISSING {starts!r}'
-            m.zhurnal('Critic167Again', sdal=True)
-            third = m.sobytie('third.json', [old.item('critic', 'Critic167Third',
-                                    ['SUBJECT=141', 'OBJECT=' + obj])])
-            again = old.sudit(door, m, third)
-            err = check(again, 1, 'second repeat', 'OBJECT_UZHE_SUZHEN')
-            return '; '.join(x for x in (accounting, err) if x) or None
+            if kind == 'interrupted':
+                starts = [r for r in m.ledg() if r.get('t') == 'START' and r.get('holder') == 'Critic167Again']
+                if len(starts) != 1:
+                    return f'RETRY_START_MISSING {starts!r}'
+                m.zhurnal('Critic167Again', sdal=True)
+                third = m.sobytie('third.json', [old.item('critic', 'Critic167Third',
+                                        ['SUBJECT=141', 'OBJECT=' + obj])])
+                again = old.sudit(door, m, third)
+                err = check(again, 1, 'second repeat', 'OBJECT_UZHE_SUZHEN')
+                return '; '.join(x for x in (accounting, err) if x) or None
+            return accounting
         err = check(repeat, 1, 'committed verdict blocks repetition', 'OBJECT_UZHE_SUZHEN')
         return '; '.join(x for x in (accounting, err) if x) or None
+
+
+JUDGE_CASES = ('interrupted', 'verdict', 'verdict_no_receipt', 'reviewer_verdict',
+               'remote_unavailable', 'verdict_wrong_author', 'verdict_wrong_path',
+               'verdict_wrong_object', 'verdict_wrong_session')
 
 
 def main():
@@ -173,11 +186,11 @@ def main():
         control = Path(tmp) / 'zamok_predmeta.sh'
         model(control)
         if mode == '--model':
-            subjects = [('interrupted', control), ('verdict', control), ('verdict_no_receipt', control), ('reviewer_verdict', control), ('remote_unavailable', control)]
+            subjects = [(name, control) for name in JUDGE_CASES]
         elif mode == '--stabs':
-            subjects = [('interrupted', control), ('verdict', control), ('verdict_no_receipt', control), ('reviewer_verdict', control), ('remote_unavailable', control)]
+            subjects = [(name, control) for name in JUDGE_CASES]
         elif mode == '--repo':
-            subjects = [('interrupted', DOOR), ('verdict', DOOR), ('verdict_no_receipt', DOOR), ('reviewer_verdict', DOOR), ('remote_unavailable', DOOR)]
+            subjects = [(name, DOOR) for name in JUDGE_CASES]
         else:
             print('usage: probe.py [--repo|--model|--stabs]', file=sys.stderr)
             return 2
@@ -192,7 +205,11 @@ def main():
                      'yield_is_verdict': ('interrupted',),
                      'always_block': ('interrupted',),
                      'no_retry_limit': ('interrupted',),
-                     'skip_remote_check': ('remote_unavailable',)}
+                     'skip_remote_check': ('remote_unavailable',),
+                     'no_author_check': ('verdict_wrong_author',),
+                     'broader_path': ('verdict_wrong_path',),
+                     'no_object_check': ('verdict_wrong_object',),
+                     'no_session_check': ('verdict_wrong_session',)}
             # Each stub must differ on its own public observable input.
             for stub, cases in stubs.items():
                 for name in cases:
@@ -208,6 +225,14 @@ def main():
                     elif stub == 'skip_remote_check':
                         src = src.replace('    git -C "$REPO" ls-remote --heads origin >/dev/null 2>&1 || skip "judge refs недоступны"\n', '')
                         src = src.replace('    git -C "$REPO" fetch -q --prune origin \'+refs/heads/*:refs/remotes/origin/*\' >/dev/null 2>&1 || skip "judge refs не синхронизированы"\n', '')
+                    elif stub == 'no_author_check':
+                        src = src.replace('    [ "$(git -C "$REPO" log -1 --format=%an "$c")" = "$3" ] || continue\n', '')
+                    elif stub == 'broader_path':
+                        src = src.replace('verdicts/"$dir"/contracts-"$1"-v[0-9]*.md', 'verdicts/"$dir"/*.md')
+                    elif stub == 'no_object_check':
+                        src = src.replace('      printf \'%s\\n\' "$blob" | grep -Fxq "OBJECT=$4" || continue\n', '')
+                    elif stub == 'no_session_check':
+                        src = src.replace('      printf \'%s\\n\' "$fields" | tr \';\' \'\\n\' | sed \'s/^ *//;s/ *$//\' | grep -Fxq "сессия=$2" || continue\n', '')
                     else:
                         src = src.replace('any(.[]; . != "interrupted")', 'false')
                     if src == control.read_text():
