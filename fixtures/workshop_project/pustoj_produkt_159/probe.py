@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# Батарея контракта 159 «пустой продукт красный» (guard-канал
-# §ПРОВОДКА), v2 — правка по вердикту Crit159 v1 (четыре блока).
+# Батарея контракта 159 «пустой продукт красный» (guard-канал §ПРОВОДКА);
+# v4: наблюдение тихих клеток после отказа и проброса rc 2 каждой батареей.
 #
 # СУБЪЕКТЫ:
 #  (1) экранные батареи харнесса в режиме --repo — на каждом БАЗОВОМ
@@ -14,7 +14,7 @@
 #      stderr=STDOUT; конкатенация p.stdout+p.stderr отвергнута
 #      вердиктом) и меткой времени прибытия каждой строки против
 #      времени записи трассы (одна шкала wall-ns), побочные эффекты —
-#      снимком дерева продукта до/после;
+#      снимком дерева прогона, тихие клетки — Python-наблюдателем вызовов;
 #  (2) живой гейт scripts/check_pustoj_produkt.sh (зона implementer;
 #      до ленда — клетки SUBJECT_ABSENT): существует, равен эталону
 #      rc-кодом и причиной ПОБАЙТОВО на ВСЁМ домене и пишет трассу
@@ -33,13 +33,13 @@
 # заполненный каталог вне R — Б1 Crit159b), c4/c5 (карта/форма —
 # симлинки на действительные значения вне R: не свои узлы), d1/d2/d3
 # (ошибки доступа chmod 000: карта/подкаталог src/форма — Б2 Crit159b,
-# rc 2 NECHITAEMO) + konformnyj. Слои: W-слой судит БАЗОВЫЕ входы
-# (тяжёлые прогоны батарей), модельный и гейт-слои — весь домен.
+# rc 2 NECHITAEMO) + konformnyj. W-слой судит пять базовых rc-1-входов
+# и один rc-2-вход на КАЖДОЙ батарее; модель и гейт — весь домен.
 #
 # Режимы (argv):
 #   (без флага)  судится живое дерево (см. выше; до ленда реализации
 #                красны поимённо: SUBJECT_ABSENT / GATE_NE_VYZVAN)
-#   --model      субъект = эталон гейта (контроль входов и эталона)
+#   --model      эталон гейта + честная проводка на rc 1 и rc 2
 #   --stabs      контроль + обманные варианты (stabs/); перечень
 #                входов и форма каждого — source.json stab_vhod;
 #                привязка варианта к ветви обнаружения — КОДОМ ниже
@@ -68,6 +68,7 @@ MODEL = os.path.join(ZDE, 'model')
 STABY = os.path.join(ZDE, 'stabs')
 ETALON = os.path.join(MODEL, 'check_pustoj_produkt_159.py')
 GATE_TRACER = os.path.join(MODEL, 'gate_tracer.sh')
+CELLS_OBSERVER = os.path.join(MODEL, 'sitecustomize.py')
 ZHIVOJ_GATE = os.path.join(KOREN, 'scripts', 'check_pustoj_produkt.sh')
 
 # Закрытый перечень экранных батарей с режимом W --repo (159
@@ -157,7 +158,9 @@ VETKA_PO_FORME = {
     'gate-sleduet-simlinku-src': 'BATAREJA_ZELENA_NA_PUSTOM',
     'wiring-side-effect-before-gate': 'POBOCHNYJ_EFFEKT',
     'wiring-cells-after-refusal': 'KLETKI_POSLE_OTKAZA',
+    'wiring-silent-cell': 'KLETKI_POSLE_OTKAZA',
     'wiring-wrong-rc': 'RC_NE_1',
+    'wiring-rc2-to-rc1': 'RC_NE_2',
 }
 # Обязательная форма трассы у вариантов уровня проводки: сколько
 # записей трассы гейта обязан дать вариант на каждом заявленном входе
@@ -167,7 +170,9 @@ TRASSA_PO_FORME = {
     'wiring-stderr-before-gate': 1,
     'wiring-side-effect-before-gate': 1,
     'wiring-cells-after-refusal': 1,
+    'wiring-silent-cell': 1,
     'wiring-wrong-rc': 1,
+    'wiring-rc2-to-rc1': 1,
     'wiring-no-gate': 0,
 }
 
@@ -424,42 +429,40 @@ def chita_trassu(put):
 
 
 def sudit_provodku(sest_cmd, vid, baza):
-    """Судит уровень проводки на входе vid. Возвращает (ветка, почему,
-    записей_трассы). Ветки, в порядке проверки (порядок — часть
-    привязки Н-39): VREMJA_ISTEKLO; BATAREJA_ZELENA_NA_PUSTOM (rc 0);
-    SUBEKT_RC2 (субъект вышел rc 2 — fail-closed, не зелень: до
-    проводки это собственный INFRASTRUCTURE батареи 151, после
-    проводки — rc 2 гейта, проброшенный ветвью); GATE_NE_VYZVAN
-    (трассы нет/не одна/чужая); POBOCHNYJ_EFFEKT (изменилось ВСЁ дерево
-    прогона baza минус файл трассы — граница наблюдения побочных
-    эффектов до/после с режимами доступа, а не только продукт: образец
-    early-action вердикта Crit159b пишет файл ВНЕ R, но в дереве
-    прогона); VYVOD_DO_GATE (строка прибыла раньше записи трассы);
-    GATE_NE_PERVYM_DEISTVIEM (первая строка не причина);
-    KLETKI_POSLE_OTKAZA (после причины есть ещё строки — собственные
-    клетки/вывод батареи после отказа гейта: после rc != 0 батарея
-    завершается, не запуская клеток; образец own-cells-after-fail);
-    RC_NE_1 (на пустом входе батарея обязана выйти ИМЕННО rc 1 — rc 2
-    принят выше как fail-closed, rc 0 выше как зелень; образец
-    wrong-return вердикта Crit159b выходит rc 3); OK."""
+    """Judge one --repo branch with the gate's trace and an independent cell observer."""
     r = postavit(baza, vid)
+    # The observer must read the fixture to compare before/after. Unlike the
+    # direct gate cells, wiring uses the declared simulated access error.
+    if vid in DOSTUP_CEL:
+        segments, directory = DOSTUP_CEL[vid]
+        os.chmod(os.path.join(r, *segments), 0o700 if directory else 0o600)
     ozh_rc, ozh_prichina = OZHIDAEMYE[vid]
     trassa = os.path.join(baza, 'trassa-gate-%s.log' % vid)
-    do = snimok(baza, iskljuchit={trassa})
+    kletki = os.path.join(baza, 'trassa-kletok-%s.log' % vid)
+    do = snimok(baza, iskljuchit={trassa, kletki})
+    cmd = sest_cmd(r)
+    # bash red_*.sh launches probe.py; Python stabs launch themselves.
+    subject = (os.path.join(os.path.dirname(cmd[1]), 'probe.py')
+               if cmd[0] == 'bash' else cmd[1])
     env = dict(os.environ)
+    if vid in DOSTUP_TOCHKA:
+        env['PUSTOJ_PRODUKT_SIMULIRUJ_DOSTUP'] = DOSTUP_TOCHKA[vid]
     env['PYTHONUNBUFFERED'] = '1'
     env['PYTHONDONTWRITEBYTECODE'] = '1'
     env['PUSTOJ_PRODUKT_TRACE'] = trassa
-    rc, stroki = zapusk_obedinennyj(sest_cmd(r), env, cwd=KOREN)
+    env['PUSTOJ_PRODUKT_CELLS_TRACE'] = kletki
+    env['PUSTOJ_PRODUKT_CELLS_SUBJECT'] = subject
+    env['PYTHONPATH'] = MODEL + os.pathsep + env.get('PYTHONPATH', '')
+    rc, stroki = zapusk_obedinennyj(cmd, env, cwd=KOREN)
     linii = chita_trassu(trassa)
     if rc == 'VREMJA_ISTEKLO':
         return 'VREMJA_ISTEKLO', 'субъект завис', len(linii)
     if rc == 0:
         return ('BATAREJA_ZELENA_NA_PUSTOM',
                 'первая=%r' % (stroki[0][1] if stroki else ''), len(linii))
-    if rc == 2:
-        return ('SUBEKT_RC2', 'rc=2 (fail-closed — не зелень)',
-                len(linii))
+    # Preserve the existing 151 infrastructure red on the original rc-1 inputs.
+    if rc == 2 and ozh_rc == 1:
+        return 'SUBEKT_RC2', 'rc=2 (fail-closed — не зелень)', len(linii)
     nashi = [l for l in linii if l.endswith(' GATE ' + r)]
     if len(linii) != 1 or len(nashi) != 1:
         return ('GATE_NE_VYZVAN',
@@ -469,7 +472,7 @@ def sudit_provodku(sest_cmd, vid, baza):
         ts_gejta = int(nashi[0].split(' GATE ')[0])
     except ValueError:
         return 'GATE_NE_VYZVAN', 'трасса не по грамматике', len(linii)
-    if snimok(baza, iskljuchit={trassa}) != do:
+    if snimok(baza, iskljuchit={trassa, kletki}) != do:
         return ('POBOCHNYJ_EFFEKT',
                 'дерево прогона (baza) изменилось за время прогона',
                 len(linii))
@@ -486,10 +489,16 @@ def sudit_provodku(sest_cmd, vid, baza):
         return ('KLETKI_POSLE_OTKAZA',
                 'после причины гейта выведено ещё %d строк(и), первая %r'
                 % (len(stroki) - 1, stroki[1][1][:60]), len(linii))
-    if rc != 1:
-        return ('RC_NE_1',
-                'rc=%d: на пустом входе батарея обязана выйти rc 1 '
-                '(rc 2 принят выше как fail-closed)' % rc, len(linii))
+    if os.path.isfile(kletki):
+        with open(kletki, encoding='utf-8') as fh:
+            calls = fh.read().splitlines()
+        if calls:
+            return ('KLETKI_POSLE_OTKAZA',
+                    'после отказа вызвана собственная клетка %s'
+                    % calls[0], len(linii))
+    if rc != ozh_rc:
+        return ('RC_NE_%d' % ozh_rc,
+                'rc=%d: ожидался rc=%d гейта' % (rc, ozh_rc), len(linii))
     return 'OK', ozh_prichina, len(linii)
 
 
@@ -522,6 +531,22 @@ def kontrol_modeli(baza):
                        '' if ok else
                        'rc=%d строка=%r, ожидалось rc=%d %r'
                        % (rc, stroka, ozh_rc, ozh_prichina)))
+    return kletki
+
+def kontrol_provodki():
+    """Honest early exit must pass on both refusal codes, not only rc 1."""
+    kletki = []
+    for vid in ('a-forma-pusta', 'd1-karta-nechitaema'):
+        baza = tempfile.mkdtemp(prefix='pustoj159-honest-')
+        try:
+            def sest(r):
+                return [sys.executable, os.path.join(MODEL, 'wiring_honest.py'),
+                        GATE_TRACER, r]
+            vetka, pochemu, _ = sudit_provodku(sest, vid, baza)
+            kletki.append(('m-provodka-' + vid, vetka == 'OK',
+                           '' if vetka == 'OK' else vetka + ' ' + pochemu))
+        finally:
+            ubrat(baza)
     return kletki
 
 
@@ -631,6 +656,7 @@ def main():
         baza = tempfile.mkdtemp(prefix='pustoj159-model-')
         try:
             itogi.extend(kontrol_modeli(baza))
+            itogi.extend(kontrol_provodki())
         finally:
             ubrat(baza)
 
@@ -707,10 +733,11 @@ def main():
         # (2) батареи: гейт — ПЕРВОЕ действие --repo-ветви на каждом
         # базовом пустом входе (трасса вызова, порядок объединённого
         # потока, снимок продукта, rc)
+        # A separate access-error cell per battery checks rc 2 propagation.
         for zona, red in BATAREI:
             put_red = os.path.join(KOREN, 'fixtures', 'workshop_project',
                                    zona, red)
-            for vid in BAZOVYE:
+            for vid in BAZOVYE + ['d1-karta-nechitaema']:
                 baza = tempfile.mkdtemp(prefix='pustoj159-W-')
                 try:
                     def sest(r, put_red=put_red):
