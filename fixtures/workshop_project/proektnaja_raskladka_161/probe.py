@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """161a: exercise the real project launch doors and report named violations."""
 import json
+import hashlib
 import os
 from collections import Counter
 from pathlib import Path
@@ -89,6 +90,30 @@ class World:
         return (require(self.git('rev-parse', 'HEAD'), 'HEAD'),
                 require(self.git('status', '--porcelain=v1'), 'status'),
                 require(self.git('write-tree'), 'index'))
+
+    def foreign_snapshot(self):
+        # Independently record the foreign main AND draft before invoking either door.
+        # HEAD/index/status cannot expose changed bytes of an untracked existing file.
+        def files(root):
+            entries = []
+            for path in sorted(root.rglob('*')):
+                rel = path.relative_to(root)
+                if rel.parts[0] == '.git':
+                    continue  # git metadata is covered by HEAD/index/status below
+                if path.is_symlink():
+                    value = ('link', os.readlink(path))
+                elif path.is_file():
+                    value = ('file', hashlib.sha256(path.read_bytes()).hexdigest())
+                else:
+                    value = ('dir',)
+                entries.append((str(rel), value))
+            return tuple(entries)
+
+        return (self.snapshot(),
+                require(self.git('rev-parse', 'HEAD', where=self.draft), 'foreign draft HEAD'),
+                require(self.git('status', '--porcelain=v1', where=self.draft), 'foreign draft status'),
+                require(self.git('write-tree', where=self.draft), 'foreign draft index'),
+                files(self.main), files(self.draft))
 
     def mint(self):
         tag = f'id/CONTRACT/{NUMBER}'
@@ -194,15 +219,26 @@ def actual(mutant=None, captured=None):
         # A separate author gives the foreign-layer probe an unused branch without
         # making the positive architect spawn depend on the outcome of this negative.
         conflicted = dict(mob.env, HARNESS_PROJECT_LAYER_ROOT=str(foreign.main))
+        foreign_before = foreign.foreign_snapshot()
         mt_conflict = (run(sys.executable, __file__, '--stub-invoke', 'foreign-make',
                            foreign.draft, *task_args, env=conflicted)
-                       if mutant == 'foreign-make' else run(*task_args, env=conflicted))
+                       if mutant == 'foreign-make' else
+                       run(sys.executable, __file__, '--stub-invoke', 'foreign-write',
+                           str(foreign.main), *task_args, env=conflicted)
+                       if mutant == 'foreign-write' else run(*task_args, env=conflicted))
         check((mt_conflict.returncode == 1 and 'LAYER_FOREIGN' in mt_conflict.stderr)
               or (mt_conflict.returncode == 0 and 'Complior-mob-source' in mt_conflict.stdout
                   and 'Complior-back-source' not in mt_conflict.stdout),
               'CONTEXT_FOREIGN: make_task accepted foreign layer', failures)
+        if mt_conflict.returncode == 1 and 'LAYER_FOREIGN' in mt_conflict.stderr:
+            check(not mt_conflict.stdout, 'LAYER_FOREIGN: make_task issued partial pack', failures)
+        check(foreign_before == foreign.foreign_snapshot(),
+              'FOREIGN_DIRTY: make_task changed foreign project', failures)
         if external:
             foreign_spawn = [*spawn[:-1], 'critic']
+            branches_before = require(mob.git('branch', '--list'), 'branches before foreign spawn')
+            worktrees_before = require(mob.git('worktree', 'list', '--porcelain'),
+                                       'worktrees before foreign spawn')
             sp_conflict = run(*foreign_spawn, env=conflicted)
             if manifest_refusal(sp_conflict):
                 failures.append('MANIFEST_MAIN_ONLY: foreign-layer spawn has no readable external '
@@ -218,7 +254,17 @@ def actual(mutant=None, captured=None):
                 check(bool(wt) and Path(wt).is_dir(), 'CONTEXT_FOREIGN: spawn no worktree', failures)
                 check(worktree_belongs(wt, mob), 'CONTEXT_FOREIGN: spawn used foreign repository',
                       failures)
+            if sp_conflict.returncode == 1 and 'LAYER_FOREIGN' in sp_conflict.stderr:
+                check('wip/761/critic' not in require(mob.git('branch', '--list'), 'branches'),
+                      'LAYER_FOREIGN: spawn created branch on refusal', failures)
+                check(branches_before == require(mob.git('branch', '--list'), 'branches'),
+                      'LAYER_FOREIGN: spawn changed branches on refusal', failures)
+                check(worktrees_before == require(mob.git('worktree', 'list', '--porcelain'),
+                                                  'worktrees'),
+                      'LAYER_FOREIGN: spawn created worktree on refusal', failures)
             check(before_spawn == mob.snapshot(), 'MAIN_DIRTY: foreign spawn changed main', failures)
+            check(foreign_before == foreign.foreign_snapshot(),
+                  'FOREIGN_DIRTY: spawn changed foreign project', failures)
         # Negative spawn must run independently on a new number, prior to tag/dual-control.
         missing_spawn = ['bash', ROOT / 'scripts/spawn_agent.sh', '--root', mob.main,
                          '--nnn', '762', '--author', 'architect']
@@ -263,6 +309,12 @@ def stub_invoke(kind, value, argv):
         args = list(argv)
         args[args.index('--repo') + 1] = value
         answer = run(*args)
+    elif kind == 'foreign-write':
+        # Genuine door on the conflict input, with a concealed foreign write on either exit.
+        answer = run(*argv)
+        cache = Path(value) / '.omp/cache-161a'
+        cache.parent.mkdir(exist_ok=True)
+        cache.write_bytes(b'x')
     elif kind == 'missing-spawn':
         # Deceptive door drops the refusal on the SAME absent-number input.
         # The actual door is called; no manifest is placed in main.
@@ -313,11 +365,16 @@ def model(stabs):
     if stabs:
         for name, reason in (('optional-skipped', 'CONTEXT_FOREIGN: missing exact REUSE: docs/reuse.md'),
                              ('foreign-make', 'CONTEXT_FOREIGN: make_task'),
+                             ('foreign-write', 'FOREIGN_DIRTY: make_task changed foreign project'),
                              ('missing-spawn', 'MANIFEST_MISSING:')):
             reds = []
             rc = actual(mutant=name, captured=reds)
             expected = Counter(baseline)
             expected[reason.split(':', 1)[0]] += 1
+            # Before cutover this mutant writes its manifest into foreign.draft;
+            # the foreign-state guard must catch that side effect as well.
+            if name == 'foreign-make' and baseline:
+                expected['FOREIGN_DIRTY'] += 1
             if (rc != 1 or Counter(map(signature, reds)) != expected
                     or sum(item.startswith(reason) for item in reds) != 1):
                 print(f'STAB_ZHIV: {name}: {reds}', file=sys.stderr)
