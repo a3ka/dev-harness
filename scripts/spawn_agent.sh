@@ -77,6 +77,34 @@ done
 
 command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; exit 2; }
 
+# ── ДОВЕРЕННЫЙ GIT (идентичность внешнего state) ───────────────────────────
+# Ключ внешнего state — общий .git проекта, и его значение приходит из
+# `git rev-parse --git-common-dir`. Брать этот ответ у git из PATH вызывающей
+# стороны нельзя: подмена git, подменяющая ровно этот вызов, склеивает ключ
+# двух РАЗНЫХ проектов — второй spawn принимает чужой манифест и создаёт ветку
+# и worktree чужого проекта (адверсарий 161 r3: GIT_PATH_COLLISION). Поэтому
+# ВСЕ вызовы git в этом скрипте идут исполняемым файлом из закрытого списка
+# доверенных системных каталогов — то же правило, что у sha256sum ниже
+# (/usr/bin → /bin → /usr/local/bin; значение берётся из доверенного
+# инструмента, а не из PATH вызывающей стороны). Доверенного git нет —
+# именованный отказ NOT_IMPLEMENTED ДО любой записи.
+#
+# Аудит прочих утилит в вычислении ключа и базы state: ключ = sha256(общий
+# .git), база = канонический TMPDIR. Из PATH в этой цепочке шли только git и
+# sha256sum; pwd/cd/printf/case — встроенники bash. python3/awk/sed/grep/
+# readlink/mktemp в вычислении ключа и базы НЕ участвуют (jq — профиль, его
+# PATH-разрешение закреплено клеткой 136 «jq нет»), поэтому правило
+# доверенных каталогов к ним не применяется.
+GIT_BIN=""
+for _git_dir in /usr/bin /bin /usr/local/bin; do
+  if [ -f "$_git_dir/git" ] && [ -x "$_git_dir/git" ]; then
+    GIT_BIN="$_git_dir/git"
+    break
+  fi
+done
+[ -n "$GIT_BIN" ] \
+  || { printf 'NOT_IMPLEMENTED: нет git в доверенных системных каталогах\n' >&2; exit 2; }
+
 # ── ДОВЕРЕННЫЙ SHA-256 ─────────────────────────────────────────────────────
 # Идентичность внешнего state нельзя строить на результате `sha256sum`, найденной
 # в PATH вызывающей стороны: подмена с корректным 64-hex склеила бы два разных
@@ -125,14 +153,14 @@ else
   ROOT="$(cd "$root_arg" 2>/dev/null && pwd -P 2>/dev/null)" || {
     printf 'NOT_IMPLEMENTED: %s не каталог\n' "$root_arg" >&2; exit 2; }
 fi
-git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 \
+"$GIT_BIN" -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 \
   || { printf 'NOT_IMPLEMENTED: %s не репозиторий git\n' "$ROOT" >&2; exit 2; }
-git -C "$ROOT" rev-parse --verify HEAD >/dev/null 2>&1 \
+"$GIT_BIN" -C "$ROOT" rev-parse --verify HEAD >/dev/null 2>&1 \
   || { printf 'NOT_IMPLEMENTED: в %s нет ни одного коммита\n' "$ROOT" >&2; exit 2; }
 
 # HEAD обязан быть main. wip/* ответвляются от main, и если HEAD смотрит мимо — спавн мимо
 # границы, контракт это именует.
-current_head="$(git -C "$ROOT" rev-parse --abbrev-ref HEAD)"
+current_head="$("$GIT_BIN" -C "$ROOT" rev-parse --abbrev-ref HEAD)"
 if [ "$current_head" != "main" ]; then
   printf 'ОТКАЗ: HEAD не main (текущая ветка: %s) — спавн wip/* только от main\n' "$current_head" >&2
   exit 1
@@ -140,7 +168,7 @@ fi
 # Все git-вызовы ниже идут с явным `-c user.name/-c user.email` (Н-61/А-25). Канарейка
 # И-5 проверяет grep'ом эту строку по всему scripts/.
 g() {
-  git -C "$ROOT" \
+  "$GIT_BIN" -C "$ROOT" \
     -c user.name=implementer \
     -c user.email=implementer@dev-harness.local \
     -c commit.gpgsign=false \
@@ -161,7 +189,7 @@ g() {
 # проект даёт один и тот же каталог из worktree и из main.
 _git_common_dir() {  # <корень> — канонический общий .git проекта ("" — не git-репозиторий)
   local c
-  c="$(git -C "$1" rev-parse --git-common-dir 2>/dev/null || true)"
+  c="$("$GIT_BIN" -C "$1" rev-parse --git-common-dir 2>/dev/null || true)"
   [ -n "$c" ] || return 0
   case "$c" in /*) ;; *) c="$1/$c" ;; esac
   ( cd "$c" 2>/dev/null && pwd -P 2>/dev/null ) || c=""
@@ -187,7 +215,7 @@ _state_worktree_paths() {  # <корень> → канонические пут�
         [ -n "$p" ] && printf '%s\n' "$p"
         ;;
     esac
-  done < <(git -C "$1" worktree list --porcelain 2>/dev/null || true)
+  done < <("$GIT_BIN" -C "$1" worktree list --porcelain 2>/dev/null || true)
 }
 _state_base_is_safe() {  # <корень> <база> → 0 да, 1 нет
   local root="$1" base="$2" common p
@@ -305,7 +333,7 @@ if [ -n "$nnn" ]; then
   # имел приоритет над отказами 023 (тег/реестр/dual-control).
   i15_gate "$nnn_padded_gate"
   # 1. тег жив локально
-  if ! git -C "$ROOT" show-ref --verify --quiet "refs/tags/id/CONTRACT/$nnn_padded_gate"; then
+  if ! "$GIT_BIN" -C "$ROOT" show-ref --verify --quiet "refs/tags/id/CONTRACT/$nnn_padded_gate"; then
     printf 'ОТКАЗ: номер %s не выдан — спавн мимо реестра (тег id/CONTRACT/%s отсутствует)\n' "$nnn_padded_gate" "$nnn_padded_gate" >&2
     exit 1
   fi
@@ -345,9 +373,10 @@ if [ -n "$nnn" ]; then
   # именует это fail-closed «авторитет недоступен»).
   dual_result="$(
     set +e
-    ROOT="$ROOT" nnn_padded_gate="$nnn_padded_gate" MANIFEST_PATH="$MANIFEST_PATH" bash -c '
-      ROOT="$1"; nnn_padded_gate="$2"; MANIFEST_PATH="$3"
-      export ROOT nnn_padded_gate MANIFEST_PATH
+    ROOT="$ROOT" nnn_padded_gate="$nnn_padded_gate" MANIFEST_PATH="$MANIFEST_PATH" \
+    GIT_BIN="$GIT_BIN" bash -c '
+      ROOT="$1"; nnn_padded_gate="$2"; MANIFEST_PATH="$3"; GIT_BIN="$4"
+      export ROOT nnn_padded_gate MANIFEST_PATH GIT_BIN
       # 2а. ls-remote origin по обоим пространствам имён тегов номера NNN:
       # id/CONTRACT/<NNN> (минт, якорь dual-control, 023) и frozen/contracts/<NNN>/*
       # (заморозка, 036-г5б). Строка реестра санкционирована, если её sha совпал с
@@ -359,7 +388,7 @@ if [ -n "$nnn" ]; then
       # в membership идёт tag-object-sha (sha самого аннотированного тега с tagger/
       # временем/сообщением). Фильтр — grep -v по '}' (peeled-refname кончается на
       # ^{}, sha — hex без '}').
-      mint_out="$(git -C "$ROOT" ls-remote "origin" "refs/tags/id/CONTRACT/$nnn_padded_gate" 2>/dev/null)"
+      mint_out="$("$GIT_BIN" -C "$ROOT" ls-remote "origin" "refs/tags/id/CONTRACT/$nnn_padded_gate" 2>/dev/null)"
       mint_rc=$?
       if [ "$mint_rc" -ne 0 ]; then printf "NETERR|tag\n"; exit 0; fi
       mint_sha_origin="$(printf "%s\n" "$mint_out" | grep -v "}" | head -1 | awk "{print \$1}")"
@@ -367,12 +396,12 @@ if [ -n "$nnn" ]; then
       # Frozen-теги номера NNN на origin (множество tag-object-sha). Сходимость:
       # переминт id/CONTRACT/<NNN> не меняет frozen-теги — membership остаётся
       # стабильным на любом frozen-состоянии авторитета (дизайн «а»).
-      frozen_out="$(git -C "$ROOT" ls-remote "origin" "refs/tags/frozen/contracts/$nnn_padded_gate/*" 2>/dev/null)"
+      frozen_out="$("$GIT_BIN" -C "$ROOT" ls-remote "origin" "refs/tags/frozen/contracts/$nnn_padded_gate/*" 2>/dev/null)"
       frozen_rc=$?
       if [ "$frozen_rc" -ne 0 ]; then printf "NETERR|frozen\n"; exit 0; fi
       frozen_shas="$(printf "%s\n" "$frozen_out" | grep -v "}" | awk "{print \$1}")"
       # 2б. живая шапка origin/main
-      main_out="$(git -C "$ROOT" ls-remote "origin" "refs/heads/main" 2>/dev/null)"
+      main_out="$("$GIT_BIN" -C "$ROOT" ls-remote "origin" "refs/heads/main" 2>/dev/null)"
       main_rc=$?
       if [ "$main_rc" -ne 0 ]; then printf "NETERR|main\n"; exit 0; fi
       origin_main_sha="$(printf "%s\n" "$main_out" | head -1 | awk "{print \$1}")"
@@ -383,10 +412,10 @@ if [ -n "$nnn" ]; then
       # fetch приносит коммит + tree + blob манифеста; затем cat-file работает.
       # Отказ fetch трактуется как «авторитет недоступен» — сетевой сбой, имя НЕ путать
       # с «не выдан авторитетом». (Эталон семантики — check_staged.sh:336-343.)
-      if ! git -C "$ROOT" fetch origin refs/heads/main 2>/dev/null; then
+      if ! "$GIT_BIN" -C "$ROOT" fetch origin refs/heads/main 2>/dev/null; then
         printf "NETERR|fetch\n"; exit 0
       fi
-      manifest_text="$(git -C "$ROOT" cat-file -p "${origin_main_sha}:${MANIFEST_PATH}" 2>/dev/null)"
+      manifest_text="$("$GIT_BIN" -C "$ROOT" cat-file -p "${origin_main_sha}:${MANIFEST_PATH}" 2>/dev/null)"
       manifest_rc=$?
       if [ "$manifest_rc" -ne 0 ] || [ -z "$manifest_text" ]; then printf "MISSING|manifest\n"; exit 0; fi
       # Грамматика строки (единый источник — контракт 023): «<NNN> → <40-hex>» — NNN
@@ -414,7 +443,7 @@ if [ -n "$nnn" ]; then
         exit 0
       fi
       printf "OK|%s\n" "$manifest_sha"
-    ' _ "$ROOT" "$nnn_padded_gate" "$MANIFEST_PATH"
+    ' _ "$ROOT" "$nnn_padded_gate" "$MANIFEST_PATH" "$GIT_BIN"
   )"
   case "$dual_result" in
     NETERR\|tag|NETERR\|main|NETERR\|frozen|EMPTY\|main)
@@ -474,7 +503,7 @@ nnn_padded="$(printf '%03d' "$((10#$nnn))")"
 branch="wip/${nnn_padded}/${author}"
 # Отказ: живая ветка того же имени. wip/<NNN>/<автор> — УНИКАЛЬНЫЙ ключ спавна, повтор
 # запрещён (контракт Q2: «общий .git — ref ветки виден без push»).
-if git -C "$ROOT" show-ref --verify --quiet "refs/heads/$branch"; then
+if "$GIT_BIN" -C "$ROOT" show-ref --verify --quiet "refs/heads/$branch"; then
   printf 'ОТКАЗ: ветка %s уже существует — повторный спавн запрещён\n' "$branch" >&2
   exit 1
 fi

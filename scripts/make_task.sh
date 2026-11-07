@@ -29,6 +29,33 @@ command -v git >/dev/null 2>&1 || ni "нет git"
 command -v jq >/dev/null 2>&1 || ni "нет jq"
 command -v awk >/dev/null 2>&1 || ni "нет awk"
 
+# ── ДОВЕРЕННЫЙ GIT (идентичность внешнего state) ───────────────────────────
+# Ключ внешнего state — общий .git проекта, и его значение приходит из
+# `git rev-parse --git-common-dir`. Брать этот ответ у git из PATH вызывающей
+# стороны нельзя: подмена git, подменяющая ровно этот вызов, склеивает ключ
+# двух РАЗНЫХ проектов — второй spawn принимает чужой манифест и создаёт ветку
+# и worktree чужого проекта (адверсарий 161 r3: GIT_PATH_COLLISION). Поэтому
+# ВСЕ вызовы git в этом скрипте идут исполняемым файлом из закрытого списка
+# доверенных системных каталогов — то же правило, что у sha256sum ниже
+# (/usr/bin → /bin → /usr/local/bin; значение берётся из доверенного
+# инструмента, а не из PATH вызывающей стороны). Доверенного git нет —
+# именованный отказ NOT_IMPLEMENTED ДО любой записи.
+#
+# Аудит прочих утилит в вычислении ключа и базы state: ключ = sha256(общий
+# .git), база = канонический TMPDIR. Из PATH в этой цепочке шли только git и
+# sha256sum; pwd/cd/printf/case — встроенники bash. python3/awk/sed/grep/
+# readlink/mktemp в вычислении ключа и базы НЕ участвуют (jq — профиль, его
+# PATH-разрешение закреплено клеткой 136 «jq нет»), поэтому правило
+# доверенных каталогов к ним не применяется.
+GIT_BIN=""
+for _git_dir in /usr/bin /bin /usr/local/bin; do
+  if [ -f "$_git_dir/git" ] && [ -x "$_git_dir/git" ]; then
+    GIT_BIN="$_git_dir/git"
+    break
+  fi
+done
+[ -n "$GIT_BIN" ] || ni "нет git в доверенных системных каталогах"
+
 # ── ДОВЕРЕННЫЙ SHA-256 ─────────────────────────────────────────────────────
 # Идентичность внешнего state нельзя строить на результате `sha256sum`, найденной
 # в PATH вызывающей стороны: подмена с корректным 64-hex склеила бы два разных
@@ -278,7 +305,7 @@ fi
 # и тот же каталог из любого worktree и из main.
 _git_common_dir() {  # <корень> — канонический общий .git проекта ("" — не git-репозиторий)
   local c
-  c="$(git -C "$1" rev-parse --git-common-dir 2>/dev/null || true)"
+  c="$("$GIT_BIN" -C "$1" rev-parse --git-common-dir 2>/dev/null || true)"
   [ -n "$c" ] || return 0
   case "$c" in /*) ;; *) c="$1/$c" ;; esac
   ( cd "$c" 2>/dev/null && pwd -P 2>/dev/null ) || c=""
@@ -286,7 +313,7 @@ _git_common_dir() {  # <корень> — канонический общий .g
 }
 _git_dir_abs() {  # <корень> — канонический .git checkout'а ("" — не git-репозиторий)
   local d
-  d="$(git -C "$1" rev-parse --git-dir 2>/dev/null || true)"
+  d="$("$GIT_BIN" -C "$1" rev-parse --git-dir 2>/dev/null || true)"
   [ -n "$d" ] || return 0
   case "$d" in /*) ;; *) d="$1/$d" ;; esac
   ( cd "$d" 2>/dev/null && pwd -P 2>/dev/null ) || d=""
@@ -312,7 +339,7 @@ _state_worktree_paths() {  # <корень> → канонические пут�
         [ -n "$p" ] && printf '%s\n' "$p"
         ;;
     esac
-  done < <(git -C "$1" worktree list --porcelain 2>/dev/null || true)
+  done < <("$GIT_BIN" -C "$1" worktree list --porcelain 2>/dev/null || true)
 }
 _state_base_is_safe() {  # <корень> <база> → 0 да, 1 нет
   local root="$1" base="$2" common p
@@ -376,8 +403,8 @@ fi
 # HEALTH описывает мир в момент ВХОДА, не в момент выхода. Это согласуется
 # с контрактом 095: «HEALTH: branch=<живой git> dirty=<N>» — N считается по
 # состоянию репо на момент сборки пакета, до наших локальных артефактов.
-HEALTH_BRANCH="$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || printf '?')"
-HEALTH_DIRTY="$(git -C "$REPO" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
+HEALTH_BRANCH="$("$GIT_BIN" -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || printf '?')"
+HEALTH_DIRTY="$("$GIT_BIN" -C "$REPO" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
 
 _CW_PLACEHOLDER=""
 _CW_VALUE="$(jq -r '.ci.workflow // empty' "$REPO/harness.project.json" 2>/dev/null || true)"
@@ -587,15 +614,15 @@ _adr_load() {
 if [ "$SKIP_TASK" = "0" ]; then
   [ -n "$CONTRACT" ] || die "контракт не указан"
   case "$CONTRACT" in ''|*[!0-9]*) die "номер контракта вне алфавита: $CONTRACT" ;; esac
-  TAG="$(git -C "$REPO" tag -l "frozen/contracts/$CONTRACT/*" | LC_ALL=C sort -V | tail -n 1)"
+  TAG="$("$GIT_BIN" -C "$REPO" tag -l "frozen/contracts/$CONTRACT/*" | LC_ALL=C sort -V | tail -n 1)"
   ORIGIN="draft"
   if [ -n "$TAG" ]; then
     # (з) заморозка: путь контракта ВНУТРИ блоба тега — профильный
     # (<contracts>/), корень тега — НЕ фолбэк (Frontier И-1в/И-1г).
     _fz_esc="${WP_C_REL//./\\.}"
-    CPATH="$(git -C "$REPO" ls-tree --name-only "$TAG" "$WP_C_REL/" | grep -E "^$_fz_esc/${CONTRACT}-[^/]+\.md$" | head -n 1)"
+    CPATH="$("$GIT_BIN" -C "$REPO" ls-tree --name-only "$TAG" "$WP_C_REL/" | grep -E "^$_fz_esc/${CONTRACT}-[^/]+\.md$" | head -n 1)"
     [ -n "$CPATH" ] || die "заморозка без контракта: $TAG"
-    CBYTES="$(git -C "$REPO" show "$TAG:$CPATH" 2>&1)"
+    CBYTES="$("$GIT_BIN" -C "$REPO" show "$TAG:$CPATH" 2>&1)"
     ORIGIN="frozen"
   else
     case "$ROLE" in architect|critic) ;; *) die "контракт не заморожен: $CONTRACT" ;; esac
