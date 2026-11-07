@@ -2531,12 +2531,10 @@ def delivery_noop_body(n):
             "(MEASURED, роль hc_*, ledger %d)', async () => {});" % n)
 
 
-def delivery_span_tokens(n):
-    """Токены span именованного delivery-теста; число ledger — из манифеста
-    дерева под проверкой (v4): продукт обязан мерить СВОЁ текущее число
-    миграций (007-класс правки обновляет тест вместе с манифестом)."""
+def delivery_span_tokens():
+    """Нечисловые токены внутри span именованного delivery-теста."""
     return ('recordInteractionAsync(', 'readSink(', 'MEASURED',
-            'runtime_role', str(n), 'http_response')
+            'runtime_role', 'http_response')
 
 
 def _js_call_end(body, p):
@@ -2617,7 +2615,8 @@ def delivery_test_fact(repo, tree=None):
     токены-без-исполнения статическая часть не различает."""
     tree = tree or Tree(repo)
     try:
-        tokens = delivery_span_tokens(len(manifest_entries(tree)))
+        n = len(manifest_entries(tree))
+        tokens = delivery_span_tokens()
     except ManifestError as e:
         return (False, 'манифест миграций дерева под проверкой: %s — '
                        'токен ledger именованного теста не выводим '
@@ -2632,6 +2631,8 @@ def delivery_test_fact(repo, tree=None):
                 % DELIVERY_TEST_TITLE)
     span = body[span_i:span_j]
     missing = [tok for tok in tokens if tok not in span]
+    if re.search(r'\bledger %d\b' % n, span) is None:
+        missing.append('ledger %d' % n)
     n_asserts = span.count('assert.')
     if missing or n_asserts < 5:
         return (False, 'тело теста «%s…» выхолащено (I-10): отсутствуют '
