@@ -556,9 +556,6 @@ def model(stabs):
             # the foreign-state guard must catch that side effect as well.
             if name == 'foreign-make' and baseline:
                 expected['FOREIGN_DIRTY'] += 1
-            if name == 'foreign-write' and not baseline:
-                # The first foreign write persists through the foreign-spawn snapshot.
-                expected['FOREIGN_DIRTY'] += 1
             if (rc != 1 or Counter(map(signature, reds)) != expected
                     or sum(item.startswith(reason) for item in reds) != 1):
                 print(f'STAB_ZHIV: {name}: {reds}', file=sys.stderr)
