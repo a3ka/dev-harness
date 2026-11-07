@@ -49,6 +49,51 @@ if (selectorOut) {
 const rabotniki = Object.keys(needs).filter((j) => !SLUZHEBNYE.includes(j) && j !== "android-e2e" && j !== "mobile-regression-signal");
 
 if (!sel) otkaz("SELECTION_OTSUTSTVUET", "select-screens не опубликовал selection");
+// v3: the same required entrypoint checks every matrix child, not just the parent job.
+if (Object.prototype.hasOwnProperty.call(sel, "matrix")) {
+  const path = require("path");
+  const evidenceArg = args.indexOf("--evidence");
+  if (evidenceArg < 0 || !args[evidenceArg + 1]) otkaz("CHILD_EVIDENCE_OTKAZ", "NET_VHODA");
+  const evidence = args[evidenceArg + 1];
+  if (needs["select-screens"].outputs?.matrix !== sel.matrix) otkaz("MATRIX_NE_SELECTION");
+  if (!Array.isArray(sel.selected) || !Array.isArray(sel.excluded) || !sel.selected.length) otkaz("PUSTOJ_NABOR");
+  const legacy = ["e2e-splash", "e2e-first-run", "e2e-erstinformation", "e2e-start", "e2e-pilot"];
+  const build = needs["build-apk"].outputs || {};
+  const attempt = process.env.GITHUB_RUN_ATTEMPT;
+  if (!attempt || !build.apk_sha256 || !build.artifact_name || !build.run_id) otkaz("CHILD_EVIDENCE_OTKAZ", "NET_IDENTICHNOSTI");
+  for (const name of legacy) {
+    const job = needs[name];
+    if (!job) otkaz("LEGACY_NEEDS_OTSUTSTVUET", name);
+    const chosen = sel.selected.some((e) => e.job === name);
+    if (chosen) {
+      if (job.result !== "success" || job.outputs?.apk_sha256 !== build.apk_sha256 ||
+          job.outputs?.artifact_name !== build.artifact_name || job.outputs?.run_id !== build.run_id) otkaz("LEGACY_OTKAZ", name);
+    } else if (job.result !== "skipped" || !sel.excluded.some((e) => e.job === name && e.reason)) otkaz("LEGACY_SKIP_OTKAZ", name);
+  }
+  let matrix;
+  try { matrix = sel.matrix === "" ? {include: []} : JSON.parse(sel.matrix); }
+  catch (e) { otkaz("MATRIX_NE_JSON", e.message); }
+  const chosen = sel.selected.filter((e) => e.job === "e2e-screen").map((e) => e.id);
+  const fromMatrix = matrix.include?.map((e) => e.screen.id);
+  if (!Array.isArray(fromMatrix) || new Set(chosen).size !== chosen.length ||
+      JSON.stringify(chosen.slice().sort()) !== JSON.stringify(fromMatrix.slice().sort())) otkaz("MATRIX_NE_SELECTION");
+  if (needs["e2e-screen"]?.result !== (chosen.length ? "success" : "skipped")) otkaz("MATRIX_PARENT_OTKAZ");
+  const expected = new Set(chosen.map((id) => `screen-evidence-${id}-${build.run_id}-${attempt}`));
+  let actual;
+  try { actual = fs.readdirSync(evidence); }
+  catch (e) { otkaz("CHILD_EVIDENCE_OTKAZ", e.message); }
+  if (expected.size !== actual.length || actual.some((name) => !expected.has(name))) otkaz("CHILD_EVIDENCE_OTKAZ", "PEREPIS_DETEJ");
+  for (const id of chosen) {
+    try {
+      const proof = JSON.parse(fs.readFileSync(path.join(evidence, `screen-evidence-${id}-${build.run_id}-${attempt}`, "result.json"), "utf8"));
+      if (proof.screen_id !== id || proof.status !== "success" || proof.apk_sha256 !== build.apk_sha256 ||
+          proof.artifact_name !== build.artifact_name || proof.run_id !== build.run_id ||
+          proof.run_attempt !== attempt) otkaz("CHILD_EVIDENCE_OTKAZ", "CHUZHOJ_REZULTAT_" + id);
+    } catch (e) { otkaz("CHILD_EVIDENCE_OTKAZ", "NET_DOKAZATELSTVA_" + id); }
+  }
+  process.stdout.write("CHILD_EVIDENCE_OK\n");
+  process.exit(0);
+}
 if (!Array.isArray(sel.selected) || !Array.isArray(sel.excluded)) otkaz("SELECTION_NE_VALIDNA", "нет selected/excluded");
 if (sel.selected.length === 0) otkaz("PUSTOJ_NABOR", "пустой selected при success selector — не принимается");
 const vybrannyeJoby = new Set();

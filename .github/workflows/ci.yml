@@ -40,7 +40,7 @@ jobs:
   # три строки: `kod=<H>`, `tyazh=reuse|run`, `istochnik=<sha>|-` → outputs kod и
   # tyazh. Выполняется БЕЗ условий (всегда на push и pull_request).
   klass:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       kod: ${{ steps.reshenie.outputs.kod }}
       tyazh: ${{ steps.reshenie.outputs.tyazh }}
@@ -62,7 +62,7 @@ jobs:
   # поднимает лимит запросов в час.
   vorota:
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -80,7 +80,7 @@ jobs:
   # 083 и check_no_rewrite (push) — в legkij»); форма — cognitive-only, ловец —
   # стена А7 и ревьюер.
   legkij:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -190,7 +190,7 @@ jobs:
   obshchij:
     needs: klass
     if: needs.klass.outputs.tyazh == 'run'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -223,7 +223,7 @@ jobs:
   antiplacebo:
     needs: klass
     if: needs.klass.outputs.tyazh == 'run'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -262,7 +262,7 @@ jobs:
   ci:
     needs: klass
     if: needs.klass.outputs.tyazh == 'run'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -306,7 +306,7 @@ jobs:
   tyazhelyj-itog:
     needs: [klass, obshchij, antiplacebo, ci]
     if: needs.klass.outputs.tyazh == 'run'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - run: printf '%s\n' "${{ needs.klass.outputs.kod }}" > tyazhelyj.txt
       - uses: actions/upload-artifact@v4

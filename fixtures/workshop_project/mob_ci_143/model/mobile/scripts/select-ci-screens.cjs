@@ -67,6 +67,7 @@ function razberiKartu(raw, label) {
     id: e.id, job: e.job, status: e.status, puti: e.puti || [],
     pack: e.pack || null, flows: e.flows || [], integration: false,
     child_flows: e.child_flows || [], legacy_entrypoint: e.legacy_entrypoint || null,
+    avd_port: e.avd_port,
   }));
   if (integ) zapisi.push({
     id: integ.id, job: integ.job, status: integ.status, puti: integ.puti || [],
@@ -74,16 +75,29 @@ function razberiKartu(raw, label) {
     child_flows: [], legacy_entrypoint: null,
   });
   const poJob = new Map();
+  const poId = new Set();
+  const poPack = new Set();
+  const poFlow = new Set();
   for (const z of zapisi) {
     if (!z.id || !z.job) return { oshibka: "SKHEMA_KARTY", label };
     if (!["approved", "in-development"].includes(z.status)) {
       return { oshibka: "SKHEMA_KARTY", label, status: z.status };
     }
-    // 143 v2 (Astra §2.1): дубли job-id/владения — адресный отказ
-    if (poJob.has(z.job)) {
+    if (poId.has(z.id)) return { oshibka: "DUPL_ID", label, id: z.id };
+    poId.add(z.id);
+    // Only the universal worker shares a job; screen identity and ownership never do.
+    if (poJob.has(z.job) && z.job !== "e2e-screen") {
       return { oshibka: "DUPL_JOB", label, job: z.job, vmeste: poJob.get(z.job) };
     }
     poJob.set(z.job, z.id);
+    if (z.pack && poPack.has(z.pack)) return { oshibka: "DUPL_VLADENIJA", label, pack: z.pack };
+    if (z.pack) poPack.add(z.pack);
+    for (const flow of [...z.flows, ...z.child_flows]) {
+      if (poFlow.has(flow) && (args.mode === "schedule" || args.mode === "dispatch")) {
+        return { oshibka: "INVENTAR_KARTY", label, flow };
+      }
+      poFlow.add(flow);
+    }
     if (z.pack && !/^mobile\/e2e-[a-z0-9-]+\/$/.test(z.pack)) {
       return { oshibka: "SKHEMA_PACHKI", label, pack: z.pack };
     }
@@ -279,7 +293,7 @@ if (args.mode === "schedule" || args.mode === "dispatch") {
 function kartaPodpis(map) {
   // v2c (Crit143v2 §2.1): child_flows — часть политики владения, изменение
   // записи child-flows в PR входит в подпись (POLICY_CHANGE), как flows
-  return JSON.stringify(map.zapisi.map((z) => [z.id, z.job, z.status, z.puti, z.pack, z.flows, z.child_flows])) + "|" + JSON.stringify(map.shared);
+  return JSON.stringify(map.zapisi.map((z) => [z.id, z.job, z.status, z.puti, z.pack, z.flows, z.child_flows, z.avd_port])) + "|" + JSON.stringify(map.shared);
 }
 const unionZapisi = [];
 const poId = new Map();
@@ -387,7 +401,6 @@ if (fullSet) {
   notes.push("EMPTY_SELECTION_FALLBACK: пустой первичный результат — консервативно полный набор");
 }
 
-
 const vyhody = {};
 const selectedSpisok = [];
 const excluded = [];
@@ -397,6 +410,17 @@ for (const z of unionZapisi) {
   (est ? selectedSpisok : excluded).push({ id: z.id, job: z.job, reason: est || "NOT_SELECTED" });
 }
 
+const matrixScreens = selectedSpisok.filter((s) => s.job === "e2e-screen").map((s) => {
+  const z = headMap.zapisi.find((entry) => entry.id === s.id);
+  if (!z || !z.pack || !Array.isArray(z.flows) || z.flows.length !== 1 ||
+      !Number.isInteger(z.avd_port) || z.avd_port < 1024 || z.avd_port > 65534 ||
+      z.avd_port % 2 !== 0 || [5560, 5562, 5564, 5566, 5568].includes(z.avd_port)) {
+    fail("MATRIX_KARTA_EKRANA", s.id);
+  }
+  return { screen: { id: s.id, pack: z.pack, flow: z.flows[0], avd_port: z.avd_port } };
+});
+if (new Set(matrixScreens.map((e) => e.screen.avd_port)).size !== matrixScreens.length) fail("MATRIX_PORT_KOLLIZIJA");
+const matrix = matrixScreens.length ? JSON.stringify({ include: matrixScreens }) : "";
 const sel = {
   mode: args.mode,
   base: args.base, head: args.head,
@@ -409,8 +433,10 @@ const sel = {
   selected: selectedSpisok,
   excluded,
   notes,
+  matrix,
 };
 fs.writeFileSync(args.out, JSON.stringify(sel, null, 2) + "\n");
+if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${matrix}\n`);
 for (const [job, v] of Object.entries(vyhody)) {
   process.stdout.write(`VYHOD ${job}=${v}\n`);
   if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `${job}=${v}\n`);
