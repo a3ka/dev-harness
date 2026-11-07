@@ -741,6 +741,88 @@ def ekran_rezhim(nomer, toy_root=None, model=None):
     return rc
 
 
+# ── Дверь W подпроцессом (клетки судят дверь, не её внутренние функции) ──
+PUT_DVERI = os.path.join(ZDE, 'probe.py')
+
+
+def dver(args, env=None, timeout=1800):
+    """Запуск двери W ПОДПРОЦЕССОМ — раннер чёрный ящик (SPEC §6A).
+
+    Дверь — CLI probe.py (guard-обёртка red_ekrannyj_nabor_158.sh только
+    исполняет его). PUT_DVERI — модульная точка подмены обманных стабов:
+    стаб подставляет копию двери с вшитым дефектом и клетки судят уже
+    дефектную дверь подпроцессом же (Б-2 ревью 158: шов — дверь).
+    Возвращает (rc, строки вывода stdout+stderr).
+    """
+    rc, out, err = zapusk_komandy([sys.executable, PUT_DVERI] + list(args),
+                                  cwd=KOREN, env=env, timeout=timeout)
+    return rc, [s for s in (out + '\n' + err).splitlines() if s.strip()]
+
+
+def razobrat_dver(stroki):
+    """Разбор вывода экранной двери: (причины, sled, строки ядра)."""
+    prichiny = [s.split(' ', 1)[1].strip() for s in stroki
+                if s.startswith('ПРИЧИНА ')]
+    sled = [s.split(' ', 1)[1].strip() for s in stroki
+            if s.startswith('SLED ')]
+    yadro = [s for s in stroki if s.startswith('ЯДРО')]
+    return prichiny, sled, yadro
+
+
+def ekran_dver(toy, nomer):
+    """Экранный режим ЧЕРЕЗ ДВЕРЬ: `W --ekran NNN` подпроцессом.
+
+    toy-корень — объявленным маршрутом NABOR_158_TOY_ROOT (SPEC §6A).
+    Возвращает (rc, причины, sled, строки ядра, вывод).
+    """
+    rc, stroki = dver(['--ekran', str(nomer)],
+                      env={'NABOR_158_TOY_ROOT': toy})
+    prichiny, sled, yadro = razobrat_dver(stroki)
+    return rc, prichiny, sled, yadro, stroki
+
+
+def sovmestnaya_dver(toy, repo, nomer):
+    """Совместный режим ЧЕРЕЗ ДВЕРЬ: `W --repo R --ekran NNN` подпроцессом.
+
+    Возвращает (исход клетки, строки ZOND): rc/причины собираются из
+    вывода двери, трасса — из её строк ZOND (трассу печатает зонд).
+    """
+    rc, stroki = dver(['--repo', repo, '--ekran', str(nomer)],
+                      env={'NABOR_158_TOY_ROOT': toy})
+    prichiny = sorted(set(prichiny_iz_vyvoda('\n'.join(stroki))))
+    zond = [s for s in stroki if s.startswith('ZOND ')]
+    return ishod(rc, prichiny, stroki), zond
+
+
+def sovmestnyj_zelenyj_rc():
+    """rc честной совместной двери при зелёном ядре карты.
+
+    Гейт 159 в дереве — rc 0; без гейта — именованный отказ rc 2
+    NOT_IMPLEMENTED (И-8): совместный режим не зелёный, пока 159 не
+    заведён (порядок контрактов: 159 раньше 158).
+    """
+    return 2 if not gate_159_est() else 0
+
+
+def dver_s_zamenoy(kot, chem, imya='.dver-stab'):
+    """Копия двери с ОДНОЙ якорной заменой (обманные стабы, Н-39).
+
+    Копия кладётся в каталог батареи: ZDE при __file__ копии указывает на
+    настоящий каталог — оракул, носители и model/ читаются с настоящего
+    места. Якорь обязан встречаться РОВНО один раз (прецедент —
+    model/mutanty/_mutator.py). Удаление копии — на вызывающем (finally).
+    """
+    with open(os.path.join(ZDE, 'probe.py'), encoding='utf-8') as fh:
+        tekst = fh.read()
+    if tekst.count(kot) != 1:
+        raise ValueError('якорь двери не уникален (%d): %r'
+                         % (tekst.count(kot), kot[:80]))
+    put = os.path.join(ZDE, '%s-%s.py' % (imya, secrets.token_hex(6)))
+    with open(put, 'w', encoding='utf-8') as fh:
+        fh.write(tekst.replace(kot, chem))
+    return put
+
+
 # ── Живой зонд (копия референса + jest) ─────────────────────────────────
 TOKENS_PAKETA = os.path.join('docs', 'ux', '05_Kompakt_D24', 'source',
                               'tokens.json')
@@ -1237,7 +1319,7 @@ def k_a01(ctx):
     rc, vyvod = gate_etalon(toy, 'contracts/190-ekran-obychnyj.md')
     if rc != 0:
         return ishod(rc, prichiny_iz_vyvoda(vyvod), marki(vyvod))
-    rc2, vyvod2, prichiny, sled, yadro = sud_ekran(toy, 190)
+    rc2, prichiny, sled, yadro, vyvod2 = ekran_dver(toy, 190)
     if prichiny:
         return ishod(rc2, prichiny, marki(vyvod, vyvod2))
     if sled:
@@ -1319,7 +1401,7 @@ def k_a06(ctx):
     zhizni = []
     for trek, perekl in shagi:
         peropisyat_kontrakt(toy, 190, trek=trek, pereklyuchenie=perekl)
-        rc, vyvod, prichiny, sled, yadro = sud_ekran(toy, 190)
+        rc, prichiny, sled, yadro, vyvod = ekran_dver(toy, 190)
         if prichiny:
             return ishod(rc, prichiny, [vyvod])
         zhizni.append((sled, tuple(yadro)))
@@ -1395,11 +1477,12 @@ def k_a09(ctx):
 def k_a10(ctx):
     toy = toy_dlya(ctx)
     peropisyat_kontrakt(toy, 190, trek=TREK_POLNYJ)
-    rc, vyvod, prichiny, sled, _yadro = sud_ekran(toy, 190)
-    if prichiny:
-        return ishod(rc, prichiny, [vyvod])
+    # ожидание — по файлам слоя, снято ДО вызова субъекта (Б-1)
     ozhidanie = ['%s rc=%d' % (imya, rc) for imya, rc in
                  sloi_iz_fajlov(os.path.join(toy, 'pachki', '190'))]
+    rc, prichiny, sled, _yadro, vyvod = ekran_dver(toy, 190)
+    if prichiny:
+        return ishod(rc, prichiny, [vyvod])
     if sorted(sled) != sorted(ozhidanie):
         return krasnaya(P_SLOJ_NE_ISPOLNEN, mark=[vyvod])
     return ishod(0, [], marki(vyvod, ['SLED %s' % s for s in sled]))
@@ -1407,7 +1490,7 @@ def k_a10(ctx):
 
 def k_a11(ctx):
     toy = toy_dlya(ctx)
-    rc, vyvod, prichiny, sled, _yadro = sud_ekran(toy, 194)
+    rc, prichiny, sled, _yadro, vyvod = ekran_dver(toy, 194)
     if not prichiny:
         return ishod(rc, [], [vyvod])
     if 'shag-2-krasnyj rc=3' not in sled:
@@ -1423,7 +1506,7 @@ def k_a12(ctx):
     if rc != 0 or 'ТРЕК' in vyvod:
         return ishod(rc if rc else 1, prichiny_iz_vyvoda(vyvod) or
                      ['ГЕЙТ НЕ МОЛЧАЛ О НЕ-ЭКРАНЕ'], [vyvod])
-    rc2, vyvod2, prichiny, sled, yadro = sud_ekran(toy, 192)
+    rc2, prichiny, sled, _yadro, vyvod2 = ekran_dver(toy, 192)
     if prichiny:
         return ishod(rc2, prichiny, marki(vyvod, vyvod2))
     if sled:
@@ -1438,7 +1521,7 @@ def k_a13(ctx):
     rc, vyvod = gate_etalon(toy, 'contracts/193-ekran-priemka.md')
     if rc != 0:
         return ishod(rc, prichiny_iz_vyvoda(vyvod), marki(vyvod))
-    rc2, vyvod2, prichiny, sled, yadro = sud_ekran(toy, 193)
+    rc2, prichiny, sled, yadro, vyvod2 = ekran_dver(toy, 193)
     if prichiny:
         return ishod(rc2, prichiny, marki(vyvod, vyvod2))
     if sled:
@@ -1478,14 +1561,14 @@ def k_a14(ctx):
     ozhidanie = ['%s rc=%d' % (imya, rc) for imya, rc in
                  sloi_iz_fajlov(paket)]
     # слой исполнен — зелено
-    rc, vyvod, prichiny, sled, _yadro = sud_ekran(toy, 501)
+    rc, prichiny, sled, _yadro, vyvod = ekran_dver(toy, 501)
     if prichiny or sorted(sled) != sorted(ozhidanie):
         return ishod(rc or 1, prichiny or [P_SLOJ_NE_ISPOLNEN],
                      marki(vyvod, ['SLED %s' % s for s in sled]))
     # слой пропущен: команда молчит (rc 0, строки в sled нет) — краснота
     with open(komanda, 'w', encoding='utf-8') as fh:
         fh.write('#!/usr/bin/env bash\nset -uo pipefail\nexit 0\n')
-    rc2, vyvod2, prichiny2, sled2, _yadro2 = sud_ekran(toy, 501)
+    rc2, prichiny2, sled2, _yadro2, vyvod2 = ekran_dver(toy, 501)
     if rc2 != 1 or P_SLOJ_NE_ISPOLNEN not in prichiny2:
         return ishod(rc2 or 1,
                      prichiny2 or ['СЛОЙ ПРОПУЩЕН, НО ДВЕРЬ МОЛЧИТ'],
@@ -2140,13 +2223,6 @@ def k_f02(ctx):
     return sudi_sintetika(repo)
 
 
-def sovmestnyj_ishod(repo, nomer, toy):
-    """Совместный режим: исход + строки трассы зонда."""
-    ish = sovmestnyj_rezhim(repo, nomer, toy_root=toy)
-    zond = [s for s in ish.get('mark', []) if s.startswith('ZOND ')]
-    return ish, zond
-
-
 def karta_konstanta():
     """Карта целей ref-clean — КОНСТАНТА проверяющего (SPEC §6F f03).
 
@@ -2189,7 +2265,7 @@ def k_f03(ctx):
     if kopija is None:
         return otkaz('%s: %s' % (P_LIVE, oshibka))
     try:
-        ish, zond = sovmestnyj_ishod(kopija, 195, toy)
+        ish, zond = sovmestnaya_dver(toy, kopija, 195)
         return svetoit_trassu(ish, zond, karta)
     finally:
         shutil.rmtree(os.path.dirname(kopija), ignore_errors=True)
@@ -2212,7 +2288,7 @@ def k_f04(ctx):
                                       cwd=ZDE, timeout=300)
         if rc != 0:
             return otkaz('%s: мутатор не применён: %s' % (P_LIVE, err.strip()))
-        ish, zond = sovmestnyj_ishod(kopija, 195, toy)
+        ish, zond = sovmestnaya_dver(toy, kopija, 195)
         return svetoit_trassu(ish, zond, karta)
     finally:
         shutil.rmtree(os.path.dirname(kopija), ignore_errors=True)
@@ -2229,7 +2305,7 @@ def k_f05(ctx):
     if kopija is None:
         return otkaz('%s: %s' % (P_LIVE, oshibka))
     try:
-        ish, zond = sovmestnyj_ishod(kopija, 196, toy)
+        ish, zond = sovmestnaya_dver(toy, kopija, 196)
         return svetoit_trassu(ish, zond, karta)
     finally:
         shutil.rmtree(os.path.dirname(kopija), ignore_errors=True)
@@ -2415,14 +2491,21 @@ def k_f06(ctx):
         return otkaz('%s: генератор динамических входов не собрал копию '
                      'референса: %s' % (P_LIVE, oshibka))
     try:
-        # Ожидания зафиксированы В ПАМЯТИ до запуска субъекта.
-        for faza, karta, ozhidanie_rc in (('A', 'A', 0), ('B', 'B', 1),
-                                          ('A2', 'A', 0)):
+        # Ожидания зафиксированы В ПАМЯТИ до запуска субъекта. Зелёное ядро
+        # карты без гейта 159 — честный отказ rc 2 NOT_IMPLEMENTED (И-8).
+        zelenyj = sovmestnyj_zelenyj_rc()
+        for faza, karta, ozhidanie_rc in (('A', 'A', zelenyj),
+                                          ('B', 'B', 1),
+                                          ('A2', 'A', zelenyj)):
             zapisat_kartu(gen['toy'], gen['N'], gen['karty'][karta])
-            ish, zond = sovmestnyj_ishod(gen['repo'], gen['N'], gen['toy'])
+            ish, zond = sovmestnaya_dver(gen['toy'], gen['repo'], gen['N'])
             if ish['rc'] != ozhidanie_rc:
                 return krasnaya('ФАЗА %s: ожидался rc=%d, факт rc=%d'
                                 % (faza, ozhidanie_rc, ish['rc']),
+                                mark=ish.get('mark', []))
+            if ozhidanie_rc == 2 and P_NOT_IMPL not in ish.get('pri', []):
+                return krasnaya('ФАЗА %s: rc 2 без именованного отказа %s '
+                                '(И-8)' % (faza, P_NOT_IMPL),
                                 mark=ish.get('mark', []))
             if set(prefiks_stroki(t) for t in zond) != \
                     gen['ozhidaniya'][karta]:
@@ -2447,10 +2530,11 @@ def k_f07(ctx):
         return otkaz('%s: генератор динамических входов не собрал копию '
                      'референса: %s' % (P_LIVE, oshibka))
     try:
+        zelenyj = sovmestnyj_zelenyj_rc()
         zapisat_kartu(gen['toy'], gen['N'], gen['karty']['B'])
         zapisat_kartu(gen['toy'], gen['M'], gen['karty']['B'])
-        ishN, zondN = sovmestnyj_ishod(gen['repo'], gen['N'], gen['toy'])
-        ishM, zondM = sovmestnyj_ishod(gen['repo'], gen['M'], gen['toy'])
+        ishN, zondN = sovmestnaya_dver(gen['toy'], gen['repo'], gen['N'])
+        ishM, zondM = sovmestnaya_dver(gen['toy'], gen['repo'], gen['M'])
         if ishN['rc'] != 1 or ishM['rc'] != 1:
             return krasnaya('НЕЗАВИСИМОСТЬ НОМЕРА: rc N=%d M=%d'
                             % (ishN['rc'], ishM['rc']))
@@ -2460,11 +2544,15 @@ def k_f07(ctx):
                             mark=sorted(set(zondN) ^ set(zondM)))
         for karta, imya in (('A', 'N'), ('A', 'M')):
             zapisat_kartu(gen['toy'], gen[imya], gen['karty'][karta])
-        ishN, zondN = sovmestnyj_ishod(gen['repo'], gen['N'], gen['toy'])
-        ishM, zondM = sovmestnyj_ishod(gen['repo'], gen['M'], gen['toy'])
-        if ishN['rc'] != 0 or ishM['rc'] != 0:
-            return krasnaya('КАРТА A: rc N=%d M=%d (ожидался 0)'
-                            % (ishN['rc'], ishM['rc']))
+        ishN, zondN = sovmestnaya_dver(gen['toy'], gen['repo'], gen['N'])
+        ishM, zondM = sovmestnaya_dver(gen['toy'], gen['repo'], gen['M'])
+        if ishN['rc'] != zelenyj or ishM['rc'] != zelenyj:
+            return krasnaya('КАРТА A: rc N=%d M=%d (ожидался %d)'
+                            % (ishN['rc'], ishM['rc'], zelenyj))
+        if zelenyj == 2 and (P_NOT_IMPL not in ishN.get('pri', []) or
+                             P_NOT_IMPL not in ishM.get('pri', [])):
+            return krasnaya('КАРТА A: rc 2 без именованного отказа %s (И-8)'
+                            % P_NOT_IMPL)
         if set(prefiks_stroki(t) for t in zondN) != \
                 set(prefiks_stroki(t) for t in zondM):
             return krasnaya('ТРАССЫ N И M РАЗНЫ НА КАРТЕ A',
@@ -2486,12 +2574,17 @@ def k_f08(ctx):
     try:
         sha_do = sha_fajla(os.path.join(ZDE, 'probe.py'))
         schet_do = len(ctx['orakul']['kejsy'])
-        for karta, ozhidanie_rc in (('A', 0), ('B', 1), ('C', 1)):
+        zelenyj = sovmestnyj_zelenyj_rc()
+        for karta, ozhidanie_rc in (('A', zelenyj), ('B', 1), ('C', 1)):
             zapisat_kartu(gen['toy'], gen['N'], gen['karty'][karta])
-            ish, zond = sovmestnyj_ishod(gen['repo'], gen['N'], gen['toy'])
+            ish, zond = sovmestnaya_dver(gen['toy'], gen['repo'], gen['N'])
             if ish['rc'] != ozhidanie_rc:
                 return krasnaya('КАРТА %s: rc=%d (ожидался %d)'
                                 % (karta, ish['rc'], ozhidanie_rc))
+            if ozhidanie_rc == 2 and P_NOT_IMPL not in ish.get('pri', []):
+                return krasnaya('КАРТА %s: rc 2 без именованного отказа %s '
+                                '(И-8)' % (karta, P_NOT_IMPL),
+                                mark=ish.get('mark', []))
             if set(prefiks_stroki(t) for t in zond) != \
                     gen['ozhidaniya'][karta]:
                 return krasnaya('%s: карта %s — трасса не совпала'
