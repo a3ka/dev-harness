@@ -7,6 +7,11 @@
 # КОНТРАКТ 103 (Решение 1): три чтения harness-layout (черновик, заморозка,
 # бриф) берут каталоги контрактов/реестра из эффективного workflowPaths профиля
 # (MERGED profile_resolver) с гардом И-5 против побега пути за корень репо.
+# КОНТРАКТ 161a: профиль/контекст/контракты — своего git-проекта (слой станции
+# или чужой проект → отказ LAYER_FOREIGN); манифест пака пишется во ВНЕШНЕЕ
+# state проекта (вне чекаута и его .git) — его читает spawn_agent до создания
+# worktree; пропущенная строка contextPack.rows (в том числе optional) —
+# именованный отказ PROFILE_PATH_MISSING, а не молчаливое усечение карты.
 # НЕ БАРЬЕР: субъект контракта 095 — зелёный контроль и стаб-детект собственной именованной батареи fixtures/context_pack_095/ (раннер fixtures/_krasnye_095.sh, стаб-пак battery_stubs.sh, 18 мутаций), не case_*.sh-глобом (прецедент drill_exit_marker.sh/drill_path_guard.sh, заморозка 025 И-7). Выходы: 0 — пак построен (stdout), 1 — именованный отказ «ОТКАЗ: ...», 2 — NOT_IMPLEMENTED.
 set -uo pipefail
 TAB="$(printf '\t')"
@@ -195,6 +200,66 @@ if [ -z "${HARNESS_PROJECT_LAYER_ROOT:-}" ]; then
   export HARNESS_PROJECT_LAYER_ROOT="$REPO"
 fi
 
+# ── КОНТРАКТ 161a: слой проекта — СВОЙ git-проект целевого корня ──────────
+# Профиль, контракты и контекст определяются проектом ЦЕЛЕВОГО корня, а не
+# HARNESS_PROJECT_LAYER_ROOT станции или другого проекта. Конфликт слоёв
+# (корень слоя — чужой git-проект, у него свой репо-слой профиля
+# harness.project.json) — именованный отказ LAYER_FOREIGN ДО любой выдачи:
+# stdout пуст, дерево не меняется. Слой-клон 054 (корень без репо-слоя
+# профиля) — не «другой проект»: прежнее поведение сохранено. Тот же
+# git-проект (main ↔ его worktree) — не конфликт.
+#
+# Внешнее state проекта: каталог ВНЕ чекаута и его .git, общий для
+# make_task (вызов из project-worktree) и spawn_agent (вызов из
+# project-main). Ключ — общий .git проекта: один и тот же проект даёт один
+# и тот же каталог из любого worktree и из main.
+_git_common_dir() {  # <корень> — канонический общий .git проекта ("" — не git-репозиторий)
+  local c
+  c="$(git -C "$1" rev-parse --git-common-dir 2>/dev/null || true)"
+  [ -n "$c" ] || return 0
+  case "$c" in /*) ;; *) c="$1/$c" ;; esac
+  ( cd "$c" 2>/dev/null && pwd -P 2>/dev/null ) || c=""
+  printf '%s' "$c"
+}
+_git_dir_abs() {  # <корень> — канонический .git checkout'а ("" — не git-репозиторий)
+  local d
+  d="$(git -C "$1" rev-parse --git-dir 2>/dev/null || true)"
+  [ -n "$d" ] || return 0
+  case "$d" in /*) ;; *) d="$1/$d" ;; esac
+  ( cd "$d" 2>/dev/null && pwd -P 2>/dev/null ) || d=""
+  printf '%s' "$d"
+}
+project_state_dir() {  # <корень> — каталог внешнего state проекта
+  local common key
+  common="$(_git_common_dir "$1")"
+  [ -n "$common" ] || common="$1"
+  key="$(printf '%s' "$common" | sha256sum | cut -c1-16)"
+  printf '%s/dev-harness-project-state/%s' "${TMPDIR:-/tmp}" "$key"
+}
+# Признак входа 161a: пак собирается из ПРОЕКТНОГО worktree — checkout не
+# каноническое состояние проекта (--git-dir ≠ --git-common-dir). Legacy-flow
+# (make_task --repo <main checkout> проекта) сохраняет семантику И-3
+# контракта 095 (optional-источник может отсутствовать; строка фрагмента в
+# паке не печатается) — её держат замороженные батареи 095 и ежедневный
+# поток станции (профиль харнеса объявляет optional-источники, которых нет
+# в дереве). Вход 161a (проектный worktree) требует полноты карты: молча
+# усечённая карта выдала бы агенту неполный контекст проекта.
+_PACK_FROM_WORKTREE=0
+_gd_abs="$(_git_dir_abs "$REPO_ABS")"
+_gc_abs="$(_git_common_dir "$REPO_ABS")"
+if [ -n "$_gd_abs" ] && [ -n "$_gc_abs" ] && [ "$_gd_abs" != "$_gc_abs" ]; then
+  _PACK_FROM_WORKTREE=1
+fi
+_layer_root_abs="$(cd "$HARNESS_PROJECT_LAYER_ROOT" 2>/dev/null && pwd -P 2>/dev/null || true)"
+if [ -n "$_layer_root_abs" ] && [ "$_layer_root_abs" != "$REPO_ABS" ]; then
+  _lc_repo="$(_git_common_dir "$REPO_ABS")"
+  _lc_layer="$(_git_common_dir "$_layer_root_abs")"
+  if [ -n "$_lc_repo" ] && [ -n "$_lc_layer" ] && [ "$_lc_layer" != "$_lc_repo" ] \
+     && [ -f "$_layer_root_abs/harness.project.json" ]; then
+    die "LAYER_FOREIGN: слой проекта из чужого git-проекта: $_layer_root_abs (целевой проект: $REPO_ABS)"
+  fi
+fi
+
 # HEALTH — СНИМАЕМ ДО создания placeholder ci.yml (он грязнит дерево).
 # HEALTH описывает мир в момент ВХОДА, не в момент выхода. Это согласуется
 # с контрактом 095: «HEALTH: branch=<живой git> dirty=<N>» — N считается по
@@ -337,8 +402,16 @@ while IFS="$TAB" read -r kind path roles mnd why; do
   if [ "$KIND" != "brief" ]; then
     case ",$roles," in *",$ROLE,"*) ;; *) continue ;; esac
   fi
+  # КОНТРАКТ 161a: пропущенная строка contextPack.rows — ИМЕНОВАННЫЙ отказ с
+  # путём (PROFILE_PATH_MISSING) вместо частичного пака. Обязательный
+  # источник отказывает всегда (фраза 095 «источник недоступен: <путь>»
+  # дословно, имя — дописано); optional — отказывает во входе 161a
+  # (проектный worktree), в legacy-flow (main checkout) сохраняется И-3
+  # контракта 095: строка фрагмента не печатается, пак строится.
   if [ ! -f "$REPO/$path" ]; then
-    if [ "$mnd" = "true" ]; then die "источник недоступен: $path"; fi
+    if [ "$mnd" = "true" ] || [ "$_PACK_FROM_WORKTREE" = "1" ]; then
+      die "источник недоступен: $path (PROFILE_PATH_MISSING)"
+    fi
     continue
   fi
   case "$kind" in
@@ -547,12 +620,18 @@ if [ -n "$PROJECT_SEC" ]; then printf '%s' "$PROJECT_SEC"; fi
 }
 VK="$(pack_body | wc -c | tr -d ' ')"
 [ "$VK" -le 40000 ] || die "режь задачу: $VK > 40000"
-pack_body
 MAN_BODY="=== MANIFEST ===
 ${MAP_MAN}${CTX_MAN}${ADR_MAN}${LESSONS_MAN}${TASK_MAN}${TRACE_MAN}"
+# КОНТРАКТ 161a: манифест пака живёт во ВНЕШНЕМ state проекта — вне чекаута
+# и его .git (живой main и его индекс не меняются). Тот же каталог читает
+# spawn_agent ДО создания worktree. Запись идёт ДО печати пака: пак на
+# stdout означает готовый манифест.
+if [ "$KIND" = "task" ] && [ -n "$CONTRACT" ]; then
+  _man_dir="$(project_state_dir "$REPO_ABS")/context"
+  mkdir -p "$_man_dir" || die "внешнее state проекта не создать: $_man_dir"
+  _man_file="$_man_dir/$(printf '%03d' "$((10#$CONTRACT))").tsv"
+  printf '%s\n' "$MAN_BODY" >"$_man_file" || die "манифест пака не записан: $_man_file"
+fi
+pack_body
 printf '%s' "$MAN_BODY"
 printf '=== BUDGET ===\nBUDGET: vklejka=%s/40000\n' "$VK"
-if [ "$KIND" = "task" ] && [ -n "$CONTRACT" ]; then
-  mkdir -p "$REPO/.omp/context"
-  printf '%s\n' "$MAN_BODY" >"$REPO/.omp/context/${CONTRACT}.tsv"
-fi
