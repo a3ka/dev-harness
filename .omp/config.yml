@@ -44,7 +44,7 @@ tools:
 # ── modelRoles: СГЕНЕРИРОВАНО из config/agent_models.json — правь только там ──
 modelRoles:
   default: "anthropic/claude-sonnet-5-5"  # фолбек: zai/glm-5.3
-  vision: "anthropic/claude-sonnet-5-5"  # фолбек: openai-codex/gpt-6-sol
+  vision: "minimax/MiniMax-M3"  # фолбек: openai-codex/gpt-6-sol
   task: "minimax/MiniMax-M3"
   task-glm: "zai/glm-5.3"  # фолбек: anthropic/claude-sonnet-5-5
   smol: "minimax/MiniMax-M2.5-lightning"
