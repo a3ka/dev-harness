@@ -6,6 +6,7 @@
    "model/check_pustoj_produkt_159.py",
    "model/gate_tracer.sh",
    "model/sitecustomize.py",
+   "stabs/kletka_v_chuzhom_fajle.py",
    "model/wiring_honest.py",
    "stabs/s1_ignoriruet_rezultat.py",
    "stabs/s2_tolko_ekran_json.py",
@@ -18,13 +19,17 @@
    "stabs/s9_ne_takoj_rc.py",
    "stabs/s10_tihaja_kletka_posle_otkaza.py",
    "stabs/s11_rc2_v_rc1.py",
-   "stabs/s12_snimaet_nabljudatelja.py"
+   "stabs/s12_snimaet_nabljudatelja.py",
+   "stabs/s13_modulnaja_kletka.py",
+   "stabs/s14_stiraet_nabljudenie.py",
+   "stabs/s15_kletka_v_chuzhom_fajle.py"
   ],
   "sha": {
    "model/check_pustoj_produkt_159.py": "78332e66bbb68d4e8819accf2b2222c66567ffc1a59fd39bf0b28e498dd5c939",
    "model/gate_tracer.sh": "c6b72bad0975928b9f4ae1faf8ce74b65b2df2ddf9f5cb4a07ff997a322f2bc8",
-   "model/sitecustomize.py": "d59f44d349ed01964ad93498329e0d924368eb3bc61dc606681442ece475c92a",
+   "model/sitecustomize.py": "c00332de2bc9c1770cdeef31984407af72f6a56261761091d301eafaa1241596",
    "model/wiring_honest.py": "47e34db10ed2e7b6a9d7e60f6ca8825cb27e600b84fdad3f5be3637c020d1a73",
+   "stabs/kletka_v_chuzhom_fajle.py": "403eb49e2b5e2781e6061305d4495e37d19fa4a8f90dd6ffcc1dc1cab53ba1b5",
    "stabs/s1_ignoriruet_rezultat.py": "2b7f46760a0703d92d8c59770d3857f6b86240d659c27adc964e8068e35dc925",
    "stabs/s2_tolko_ekran_json.py": "5c2edece15e4ff89b48e6a747420ced8f442eb8a2427811386d66a1704b66ae9",
    "stabs/s3_pri_targets_pust.py": "2ea3bf5b2d25dd5a9b4c38458797cb91ce24356673f09439e6f97c518f8196ed",
@@ -36,7 +41,10 @@
    "stabs/s9_ne_takoj_rc.py": "34c5ce86092048142b51267ff3a33bee0f1b16e77e73feeb10e10642a7d504ec",
    "stabs/s10_tihaja_kletka_posle_otkaza.py": "f830deb4da627a337dffaa60ef22f4379d4a58b931096974f1be73bc60070d01",
    "stabs/s11_rc2_v_rc1.py": "3d90e81c738851aa993b94e5084088f8249f6924f217a0b7fd8144923b015939",
-   "stabs/s12_snimaet_nabljudatelja.py": "484bc2fedaf86bdf56a80f72c180f5887007c59d00622650a51d7269796aa4da"
+   "stabs/s12_snimaet_nabljudatelja.py": "484bc2fedaf86bdf56a80f72c180f5887007c59d00622650a51d7269796aa4da",
+   "stabs/s13_modulnaja_kletka.py": "4287a51d6ad450f7b9840c7e6aaa3e349deb96d0d542081c9f9b9e067fed6942",
+   "stabs/s14_stiraet_nabljudenie.py": "e1af4f0bfcdb50fe2ee44ddd0c9e48cd0942414257302f04a64d5e4387f68ab5",
+   "stabs/s15_kletka_v_chuzhom_fajle.py": "c8a732197e3644d360946bb5aba99aa6ccbcfaa89a51fd7c0f51ecf0103e5a1c"
   }
  },
  "staby": {
@@ -51,7 +59,10 @@
   "s9_ne_takoj_rc.py": "stabs/s9_ne_takoj_rc.py",
   "s10_tihaja_kletka_posle_otkaza.py": "stabs/s10_tihaja_kletka_posle_otkaza.py",
   "s11_rc2_v_rc1.py": "stabs/s11_rc2_v_rc1.py",
-  "s12_snimaet_nabljudatelja.py": "stabs/s12_snimaet_nabljudatelja.py"
+  "s12_snimaet_nabljudatelja.py": "stabs/s12_snimaet_nabljudatelja.py",
+  "s13_modulnaja_kletka.py": "stabs/s13_modulnaja_kletka.py",
+  "s14_stiraet_nabljudenie.py": "stabs/s14_stiraet_nabljudenie.py",
+  "s15_kletka_v_chuzhom_fajle.py": "stabs/s15_kletka_v_chuzhom_fajle.py"
  },
  "stab_vhod": {
   "s1_ignoriruet_rezultat.py": {
@@ -173,6 +184,21 @@
   "s12_snimaet_nabljudatelja.py": {
    "vhody": ["a-forma-pusta", "d1-karta-nechitaema"],
    "forma": "wiring-observer-disabled",
+   "argv": "gate R"
+  },
+  "s13_modulnaja_kletka.py": {
+   "vhody": ["a-forma-pusta", "d1-karta-nechitaema"],
+   "forma": "wiring-module-cell",
+   "argv": "gate R"
+  },
+  "s14_stiraet_nabljudenie.py": {
+   "vhody": ["a-forma-pusta", "d1-karta-nechitaema"],
+   "forma": "wiring-truncated-evidence",
+   "argv": "gate R"
+  },
+  "s15_kletka_v_chuzhom_fajle.py": {
+   "vhody": ["a-forma-pusta", "d1-karta-nechitaema"],
+   "forma": "wiring-imported-cell",
    "argv": "gate R"
   }
  },
