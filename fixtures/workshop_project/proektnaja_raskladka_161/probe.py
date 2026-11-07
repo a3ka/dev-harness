@@ -7,6 +7,7 @@ from collections import Counter
 from pathlib import Path
 import subprocess
 import sys
+import shutil
 import tempfile
 
 ROOT = Path(os.environ.get('PROBE_161_ROOT', Path(__file__).resolve().parents[3])).resolve()
@@ -254,6 +255,77 @@ def tmpdir_must_not_enter_main(alias=False, gitdir=False, mutant=None, captured=
               + result.stderr.strip()[:140], failures)
         check((world.snapshot(), tree_fingerprint(world.main)) == before,
               f'TMPDIR_MAIN_DIRTY: {variant}: package changed main or .git', failures)
+    if captured is not None:
+        captured.extend(failures)
+    else:
+        for failure in failures:
+            print(failure, file=sys.stderr)
+    return int(bool(failures))
+
+
+def state_symlink_must_not_enter_main(component, gitdir=False, door='make',
+                                      mutant=None, captured=None):
+    """A safe TMPDIR can still resolve its manifest through a hostile child link."""
+    failures = []
+    with tempfile.TemporaryDirectory(prefix='fixture-161-state-link-') as tmp:
+        base = Path(tmp)
+        world = World(base, 'mobile')
+        state = base / 'external-state'
+        state.mkdir()
+        state_root = state / 'dev-harness-project-state'
+        prepared = run('bash', ROOT / 'scripts/make_task.sh', '--repo', world.draft,
+                       '--role', 'architect', '--kind', 'task', '--contract', NUMBER,
+                       env=dict(world.env, TMPDIR=str(state)))
+        manifests = list(state_root.glob(f'*/context/{NUMBER}.tsv'))
+        if prepared.returncode != 0 or len(manifests) != 1:
+            raise RuntimeError('NOT_IMPLEMENTED: cannot prepare valid external manifest: '
+                               f'rc={prepared.returncode} stderr={prepared.stderr[:250]} '
+                               f'files={list(state.rglob("*.tsv"))}')
+        key = manifests[0].parent.parent.name
+        manifest = manifests[0].read_bytes()
+        context = state_root / key / 'context'
+        target = world.main / '.git' / 'trap-161' if gitdir else world.main / 'docs'
+        target.mkdir(exist_ok=True)
+        if door == 'spawn':
+            world.mint()
+        shutil.rmtree(state_root)
+        if component == 'state':
+            state_root.symlink_to(target, target_is_directory=True)
+        elif component == 'key':
+            state_root.mkdir()
+            (state_root / key).symlink_to(target, target_is_directory=True)
+        elif component == 'context':
+            (state_root / key).mkdir(parents=True)
+            context.symlink_to(target, target_is_directory=True)
+        else:
+            raise ValueError(component)
+        if door == 'spawn':
+            context.mkdir(parents=True, exist_ok=True)
+            (context / f'{NUMBER}.tsv').write_bytes(manifest)
+        before = (world.snapshot(), tree_fingerprint(world.main))
+        branches = require(world.git('branch', '--list'), 'link branches')
+        worktrees = require(world.git('worktree', 'list', '--porcelain'), 'link worktrees')
+        argv = (['bash', ROOT / 'scripts/make_task.sh', '--repo', world.draft,
+                 '--role', 'architect', '--kind', 'task', '--contract', NUMBER]
+                if door == 'make' else
+                ['bash', ROOT / 'scripts/spawn_agent.sh', '--root', world.main,
+                 '--nnn', NUMBER, '--author', 'architect'])
+        env = dict(world.env, TMPDIR=str(state))
+        result = (run(sys.executable, __file__, '--stub-invoke', 'symlink-bypass',
+                      str(context), *argv, env=env)
+                  if mutant else run(*argv, env=env))
+        variant = f'{door}-{component}-{"gitdir" if gitdir else "checkout"}'
+        check(result.returncode == 1 and 'TMPDIR_INSIDE_MAIN' in result.stderr
+              and not result.stdout,
+              f'STATE_LINK_UNSAFE: {variant}: expected refusal before output: '
+              + result.stderr.strip()[:140], failures)
+        check((world.snapshot(), tree_fingerprint(world.main)) == before,
+              f'STATE_LINK_MAIN_DIRTY: {variant}: changed main or .git', failures)
+        if door == 'spawn':
+            check(branches == require(world.git('branch', '--list'), 'link branches after')
+                  and worktrees == require(world.git('worktree', 'list', '--porcelain'),
+                                           'link worktrees after'),
+                  f'STATE_LINK_SPAWNED: {variant}: branch or worktree created', failures)
     if captured is not None:
         captured.extend(failures)
     else:
@@ -514,6 +586,16 @@ def stub_invoke(kind, value, argv):
         env = dict(os.environ)
         env['PATH'] = os.pathsep.join(env['PATH'].split(os.pathsep)[1:])
         answer = run(*argv, env=env)
+    elif kind == 'symlink-bypass':
+        # A stand-in that checks only the base: issue a real pack with safe
+        # external state, then place its manifest through the hostile link.
+        context = Path(value)
+        safe = context.parents[2].parent / 'stand-in-clean-state'
+        safe.mkdir()
+        answer = run(*argv, env=dict(os.environ, TMPDIR=str(safe)))
+        if answer.returncode == 0:
+            context.mkdir(parents=True, exist_ok=True)
+            (context / f'{NUMBER}.tsv').write_text(answer.stdout, encoding='utf-8')
     else:
         print('NOT_IMPLEMENTED: unknown subject stub', file=sys.stderr)
         return 2
@@ -585,12 +667,17 @@ def model(stabs):
                  'STATE_SAFE_MAIN_DIRTY: issued packet wrote into checkout'),
                 ('hash-ignored', lambda reds: unusable_hash_must_not_issue_packet(
                     mutant='hash-ignored', captured=reds),
-                 'HASH_TOOL_UNUSABLE: packet issued with failing hash tool')):
+                 'HASH_TOOL_UNUSABLE: packet issued with failing hash tool'),
+                ('symlink-bypass', lambda reds: state_symlink_must_not_enter_main(
+                    'state', mutant='symlink-bypass', captured=reds),
+                 'STATE_LINK_UNSAFE: make-state-checkout: expected refusal before output')):
             reds = []
             rc = probe(reds)
             expected_reds = [reason]
             if name == 'hash-ignored':
                 expected_reds.append('HASH_TOOL_UNUSABLE: manifest issued with failing hash tool')
+            if name == 'symlink-bypass':
+                expected_reds.append('STATE_LINK_MAIN_DIRTY: make-state-checkout:')
             if rc != 1 or len(reds) != len(expected_reds) or not all(
                     any(item.startswith(prefix) for item in reds) for prefix in expected_reds):
                 print(f'STAB_ZHIV: {name}: {reds}', file=sys.stderr)
@@ -616,7 +703,11 @@ if __name__ == '__main__':
                     no_manifest_for_other_project(poisoned=True, tool='git'),
                     tmpdir_must_not_enter_main(), tmpdir_must_not_enter_main(alias=True),
                     tmpdir_must_not_enter_main(gitdir=True),
-                    unusable_hash_must_not_issue_packet()]
+                    unusable_hash_must_not_issue_packet(),
+                    *(state_symlink_must_not_enter_main(component, gitdir=gitdir, door=door)
+                      for door in ('make', 'spawn') for component, gitdir in
+                      (('state', False), ('state', True), ('key', False),
+                       ('context', True)))]
         sys.exit(2 if 2 in outcomes else int(any(outcomes)))
     if args == ['--model']:
         sys.exit(model(False))
