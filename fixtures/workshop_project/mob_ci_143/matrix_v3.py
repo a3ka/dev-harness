@@ -115,6 +115,20 @@ def duplicate_case(tmp):
         results.append(proc.returncode == 1 and reason in proc.stderr)
     return checked(all(results), 'MATRIX_DUPLICATE_OWNER_OR_ID')
 
+def duplicate_matrix_case(tmp, field, reason, subject=SELECT_MODEL):
+    """Each schedule-map collision must fail at its own public selector input."""
+    mapping = demo_map()
+    if field == 'flow':
+        mapping['ekrany'][-1]['flows'] = list(mapping['ekrany'][-2]['flows'])
+    else:
+        mapping['ekrany'][-1]['avd_port'] = mapping['ekrany'][-2]['avd_port']
+    (tmp / 'mobile').mkdir(parents=True)
+    (tmp / 'mobile/ci-screens.json').write_text(json.dumps(mapping))
+    proc = node_run(subject, '--mode', 'schedule', '--repo', tmp, '--out', tmp / 'sel.json')
+    return checked(proc.returncode == 1 and reason in proc.stderr,
+                   'MATRIX_DUPLICATE_' + field.upper() + ': ' + proc.stderr.strip()[:160])
+
+
 
 def empty_case(tmp, script=AGG_MODEL):
     """A skipped matrix is valid only with a nonempty legacy selection."""
@@ -194,7 +208,7 @@ def workflow_case(wf, old, which):
     raise ValueError(which)
 
 
-def evidence_case(root, model, tmp, missing=False, bad_digest=False, subject=None):
+def evidence_case(root, model, tmp, missing=False, bad_digest=False, parent_failure=False, subject=None):
     script = subject or (AGG_MODEL if model else root / 'mobile/scripts/ci-aggregate.cjs')
     if not script.is_file():
         return checked(False, 'CHILD_AGGREGATOR_ABSENT')
@@ -217,9 +231,14 @@ def evidence_case(root, model, tmp, missing=False, bad_digest=False, subject=Non
                                                           'artifact_name': 'apk-411-aaaaaaaaaaaa', 'run_id': '411', 'run_attempt': '2'}))
     if missing:
         (proof_dir / ('screen-evidence-' + ids[-1] + '-411-2') / 'result.json').unlink()
+    if parent_failure:
+        needs['e2e-screen']['result'] = 'failure'
     input_path = tmp / 'needs.json'
     input_path.write_text(json.dumps(needs))
     proc = node_run(script, '--needs', input_path, '--evidence', proof_dir)
+    if parent_failure:
+        return checked(proc.returncode == 1 and 'AGREGAT_OTKAZ: MATRIX_PARENT_OTKAZ' in proc.stdout,
+                       'MATRIX_PARENT_NOT_FAIL_CLOSED: ' + proc.stdout.strip())
     if missing or bad_digest:
         return checked(proc.returncode == 1 and 'CHILD_EVIDENCE_OTKAZ' in proc.stdout,
                        'CHILD_NOT_FAIL_CLOSED')
@@ -278,9 +297,16 @@ def main():
             results.append(('selector-growth', selector_case(root, True, tmp / 'growth',
                                                                names=('vkladki', 'gespraech', 'novyj'))))
             results.append(('selector-duplicates', duplicate_case(tmp / 'duplicates')))
+            results.append(('selector-duplicate-flow',
+                            duplicate_matrix_case(tmp / 'duplicate-flow', 'flow', 'INVENTAR_KARTY')))
+            results.append(('selector-duplicate-port',
+                            duplicate_matrix_case(tmp / 'duplicate-port', 'port', 'MATRIX_PORT_KOLLIZIJA')))
         results.append(('child-ok', evidence_case(root, not args.repo, tmp)))
         results.append(('child-missing', evidence_case(root, not args.repo, tmp / 'missing', missing=True)))
         results.append(('child-wrong-digest', evidence_case(root, not args.repo, tmp / 'wrong', bad_digest=True)))
+        if not args.repo:
+            results.append(('child-parent-failure',
+                            evidence_case(root, True, tmp / 'parent-failure', parent_failure=True)))
         results.append(('empty-matrix', empty_case(tmp, AGG_MODEL if not args.repo else root / 'mobile/scripts/ci-aggregate.cjs')))
         for name, (ok, reason) in results:
             print('КЛЕТКА %s %s%s' % (name, 'ЗЕЛЕНА' if ok else 'КРАСНА: ', '' if ok else reason))
@@ -320,7 +346,47 @@ def main():
                     print('STAB_ZHIV aggregate-echo @ ' + name)
                     return 1
                 print('СТАБ aggregate-echo @ %s КРАСЕН: %s' % (name, reason))
-            print('стабов %d, привязок %d, живых 0' % (len(STUBS) + 2, len(STUBS) + 3))
+            flow_stub = tmp / 'selector-no-flow.cjs'
+            flow_guard = '''      if (poFlow.has(flow) && (args.mode === "schedule" || args.mode === "dispatch")) {
+        return { oshibka: "INVENTAR_KARTY", label, flow };
+      }
+'''
+            if source.count(flow_guard) != 1:
+                print('ORACLE_TAMPERED: flow mutation anchor', file=sys.stderr)
+                return 2
+            flow_stub.write_text(source.replace(flow_guard, ''))
+            ok, reason = duplicate_matrix_case(tmp / 'weak-duplicate-flow', 'flow',
+                                                'INVENTAR_KARTY', subject=flow_stub)
+            if ok:
+                print('STAB_ZHIV selector-no-flow @ selector-duplicate-flow')
+                return 1
+            print('СТАБ selector-no-flow @ selector-duplicate-flow КРАСЕН: ' + reason)
+            port_stub = tmp / 'selector-no-port.cjs'
+            port_guard = 'if (new Set(matrixScreens.map((e) => e.screen.avd_port)).size !== matrixScreens.length) fail("MATRIX_PORT_KOLLIZIJA");'
+            if source.count(port_guard) != 1:
+                print('ORACLE_TAMPERED: port mutation anchor', file=sys.stderr)
+                return 2
+            port_stub.write_text(source.replace(port_guard, ''))
+            ok, reason = duplicate_matrix_case(tmp / 'weak-duplicate-port', 'port',
+                                                'MATRIX_PORT_KOLLIZIJA', subject=port_stub)
+            if ok:
+                print('STAB_ZHIV selector-no-port @ selector-duplicate-port')
+                return 1
+            print('СТАБ selector-no-port @ selector-duplicate-port КРАСЕН: ' + reason)
+            parent_stub = tmp / 'aggregate-no-parent.cjs'
+            aggregate_source = AGG_MODEL.read_text()
+            parent_guard = '  if (needs["e2e-screen"]?.result !== (chosen.length ? "success" : "skipped")) otkaz("MATRIX_PARENT_OTKAZ");\n'
+            if aggregate_source.count(parent_guard) != 1:
+                print('ORACLE_TAMPERED: parent mutation anchor', file=sys.stderr)
+                return 2
+            parent_stub.write_text(aggregate_source.replace(parent_guard, ''))
+            ok, reason = evidence_case(root, True, tmp / 'weak-parent-failure',
+                                       parent_failure=True, subject=parent_stub)
+            if ok:
+                print('STAB_ZHIV aggregate-no-parent @ child-parent-failure')
+                return 1
+            print('СТАБ aggregate-no-parent @ child-parent-failure КРАСЕН: ' + reason)
+            print('стабов %d, привязок %d, живых 0' % (len(STUBS) + 5, len(STUBS) + 6))
         return 0
 
 
