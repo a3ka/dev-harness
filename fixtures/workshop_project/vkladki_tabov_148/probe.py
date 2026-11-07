@@ -53,6 +53,9 @@ MODEL_A = HERE / 'model' / 'ekran_shablon.py'
 # на его входе, обёртка не должна гасить ложь стаба)
 SUD_FORMY = HERE / 'model' / 'sud_formy_148.py'
 RUNNER123 = H_ROOT / 'scripts' / 'sverka_maketa.py'
+# Гейт пустого продукта (контракт 159): общий отказ по признаку пустоты —
+# первое действие --repo-ветви экранных батарей домена.
+GEJT_PUSTOGO_PRODUKTA = H_ROOT / 'scripts' / 'check_pustoj_produkt.sh'
 STUBS = HERE / 'stubs'
 NOS_MAKET = HERE / 'nositeli/maket'
 NOS_MAKET_FINAL2 = HERE / 'nositeli/maket-final2'
@@ -921,6 +924,14 @@ def main():
     ap.add_argument('--snapshot', action='store_true')
     ap.add_argument('--repo', metavar='R')
     a = ap.parse_args()
+    # Гейт пустого продукта (контракт 159, инварианты 2–3): ПЕРВОЕ
+    # действие --repo-ветви. Отказ гейта — единственная строка вывода
+    # батареи и его код; своих клеток после отказа батарея не запускает
+    # (инвариант 2).
+    if a.repo is not None:
+        rc_gejta = subprocess.run(['bash', str(GEJT_PUSTOGO_PRODUKTA), a.repo]).returncode
+        if rc_gejta != 0:
+            return rc_gejta
     src = load_source()
     if a.snapshot:
         return snapshot(src)
