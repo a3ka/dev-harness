@@ -12,6 +12,10 @@ import sys
 import tempfile
 
 HERE = Path(__file__).resolve().parent
+# Гейт пустого продукта (контракт 159): общий отказ по признаку пустоты —
+# первое действие --repo-ветви экранных батарей домена.
+GEJT_PUSTOGO_PRODUKTA = str(HERE.parents[2] / 'scripts' /
+                            'check_pustoj_produkt.sh')
 SUBJECT = 'mobile/src/lib/otdacha/index.ts'
 SWEEP_STEP = 0.25
 HOLD_MS = 1000
@@ -217,6 +221,14 @@ def main():
     args = parser.parse_args()
     if args.model and args.repo or args.stabs and args.repo:
         parser.error('choose model/stabs or repo')
+    # Гейт пустого продукта (контракт 159, инварианты 2–3): ПЕРВОЕ
+    # действие --repo-ветви — ДО проверки runtime. Отказ гейта —
+    # единственная строка вывода батареи и его код; своих клеток после
+    # отказа батарея не запускает (инвариант 2).
+    if args.repo is not None:
+        rc_gejta = subprocess.run(['bash', GEJT_PUSTOGO_PRODUKTA, os.fspath(args.repo)]).returncode
+        if rc_gejta != 0:
+            return rc_gejta
     runtime = args.runtime or args.repo or (Path(os.environ['MOB_151_RUNTIME']) if os.environ.get('MOB_151_RUNTIME') else None)
     if runtime is None and not (args.model or args.stabs):
         print('SUBJECT_ABSENT: mobile/src/lib/otdacha/index.ts')
