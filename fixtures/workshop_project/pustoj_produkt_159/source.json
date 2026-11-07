@@ -1,0 +1,185 @@
+{
+ "kontrakt": 159,
+ "predmet": "пустой продукт красный: W --repo всех экранных батарей на пустом продукте обязан быть красным (rc != 0, именованная причина; гейт — первое действие --repo-ветви, вызов доказывается трассой, вывода до вызова нет)",
+ "piny": {
+  "nositeli": [
+   "model/check_pustoj_produkt_159.py",
+   "model/gate_tracer.sh",
+   "model/sitecustomize.py",
+   "model/wiring_honest.py",
+   "stabs/s1_ignoriruet_rezultat.py",
+   "stabs/s2_tolko_ekran_json.py",
+   "stabs/s3_pri_targets_pust.py",
+   "stabs/s4_bez_vyzova_gejta.py",
+   "stabs/s5_stderr_do_gejta.py",
+   "stabs/s6_sleduet_simlinku_src.py",
+   "stabs/s7_pobochnyj_effekt_do_gejta.py",
+   "stabs/s8_kletki_posle_otkaza.py",
+   "stabs/s9_ne_takoj_rc.py",
+   "stabs/s10_tihaja_kletka_posle_otkaza.py",
+   "stabs/s11_rc2_v_rc1.py"
+  ],
+  "sha": {
+   "model/check_pustoj_produkt_159.py": "78332e66bbb68d4e8819accf2b2222c66567ffc1a59fd39bf0b28e498dd5c939",
+   "model/gate_tracer.sh": "c6b72bad0975928b9f4ae1faf8ce74b65b2df2ddf9f5cb4a07ff997a322f2bc8",
+   "model/sitecustomize.py": "d84ff903940b1385e862ac36e9b7d43b3b0b335151a78ba8bba0995184357a20",
+   "model/wiring_honest.py": "47e34db10ed2e7b6a9d7e60f6ca8825cb27e600b84fdad3f5be3637c020d1a73",
+   "stabs/s1_ignoriruet_rezultat.py": "2b7f46760a0703d92d8c59770d3857f6b86240d659c27adc964e8068e35dc925",
+   "stabs/s2_tolko_ekran_json.py": "5c2edece15e4ff89b48e6a747420ced8f442eb8a2427811386d66a1704b66ae9",
+   "stabs/s3_pri_targets_pust.py": "2ea3bf5b2d25dd5a9b4c38458797cb91ce24356673f09439e6f97c518f8196ed",
+   "stabs/s4_bez_vyzova_gejta.py": "2947cdcc779fc24497a80c2a66ed3e4d0f0bf58bc383ed7323709bb3ee785888",
+   "stabs/s5_stderr_do_gejta.py": "1139ada855ff601b38760661b7dec69d6d695a1e006b23c2be6ab545d8f020bb",
+   "stabs/s6_sleduet_simlinku_src.py": "771be5f104228166ec70cca29a5a583da20acea91a43d121ce4762a03f790004",
+   "stabs/s7_pobochnyj_effekt_do_gejta.py": "97f012483cbf0f5b10ee612aae03777492ec7806eb74cbe37e0c5af9f1e72b33",
+   "stabs/s8_kletki_posle_otkaza.py": "60fd9b13c71332690b714c3f0d264831f49f8c194c8fcb3223b31ff04fffaa30",
+   "stabs/s9_ne_takoj_rc.py": "34c5ce86092048142b51267ff3a33bee0f1b16e77e73feeb10e10642a7d504ec",
+   "stabs/s10_tihaja_kletka_posle_otkaza.py": "f830deb4da627a337dffaa60ef22f4379d4a58b931096974f1be73bc60070d01",
+   "stabs/s11_rc2_v_rc1.py": "3d90e81c738851aa993b94e5084088f8249f6924f217a0b7fd8144923b015939"
+  }
+ },
+ "staby": {
+  "s1_ignoriruet_rezultat.py": "stabs/s1_ignoriruet_rezultat.py",
+  "s2_tolko_ekran_json.py": "stabs/s2_tolko_ekran_json.py",
+  "s3_pri_targets_pust.py": "stabs/s3_pri_targets_pust.py",
+  "s4_bez_vyzova_gejta.py": "stabs/s4_bez_vyzova_gejta.py",
+  "s5_stderr_do_gejta.py": "stabs/s5_stderr_do_gejta.py",
+  "s6_sleduet_simlinku_src.py": "stabs/s6_sleduet_simlinku_src.py",
+  "s7_pobochnyj_effekt_do_gejta.py": "stabs/s7_pobochnyj_effekt_do_gejta.py",
+  "s8_kletki_posle_otkaza.py": "stabs/s8_kletki_posle_otkaza.py",
+  "s9_ne_takoj_rc.py": "stabs/s9_ne_takoj_rc.py",
+  "s10_tihaja_kletka_posle_otkaza.py": "stabs/s10_tihaja_kletka_posle_otkaza.py",
+  "s11_rc2_v_rc1.py": "stabs/s11_rc2_v_rc1.py"
+ },
+ "stab_vhod": {
+  "s1_ignoriruet_rezultat.py": {
+   "vhody": [
+    "a-forma-pusta",
+    "b1-pustoj-katalog",
+    "b2-otsutstvujushchij",
+    "v-karta-bez-celej",
+    "g-koren-bez-soderzhimogo"
+   ],
+   "forma": "wiring-ignored-rc",
+   "argv": "gate R"
+  },
+  "s2_tolko_ekran_json.py": {
+   "vhody": [
+    "b1-pustoj-katalog",
+    "b2-otsutstvujushchij",
+    "v-karta-bez-celej",
+    "g-koren-bez-soderzhimogo",
+    "k1-zapis-null",
+    "k2-karta-massiv",
+    "k3-karta-chislo",
+    "k4-karta-stroka",
+    "k5-karta-null",
+    "k6-karta-vlozhennost",
+    "c1-pustye-katalogi",
+    "c2-vneshnij-simlink"
+   ],
+   "forma": "gate-tolko-forma",
+   "argv": "R"
+  },
+  "s3_pri_targets_pust.py": {
+   "vhody": [
+    "v-karta-bez-celej",
+    "k1-zapis-null",
+    "k2-karta-massiv",
+    "k3-karta-chislo",
+    "k4-karta-stroka",
+    "k5-karta-null",
+    "k6-karta-vlozhennost"
+   ],
+   "forma": "gate-karta-pustaja-prohodka",
+   "argv": "R"
+  },
+  "s4_bez_vyzova_gejta.py": {
+   "vhody": [
+    "a-forma-pusta",
+    "b1-pustoj-katalog",
+    "b2-otsutstvujushchij",
+    "v-karta-bez-celej",
+    "g-koren-bez-soderzhimogo"
+   ],
+   "forma": "wiring-no-gate",
+   "argv": "R"
+  },
+  "s5_stderr_do_gejta.py": {
+   "vhody": [
+    "a-forma-pusta",
+    "b1-pustoj-katalog",
+    "b2-otsutstvujushchij",
+    "v-karta-bez-celej",
+    "g-koren-bez-soderzhimogo"
+   ],
+   "forma": "wiring-stderr-before-gate",
+   "argv": "gate R"
+  },
+  "s6_sleduet_simlinku_src.py": {
+   "vhody": [
+    "c3-vneshnij-src-simlink"
+   ],
+   "forma": "gate-sleduet-simlinku-src",
+   "argv": "R"
+  },
+  "s7_pobochnyj_effekt_do_gejta.py": {
+   "vhody": [
+    "a-forma-pusta",
+    "b1-pustoj-katalog",
+    "b2-otsutstvujushchij",
+    "v-karta-bez-celej",
+    "g-koren-bez-soderzhimogo"
+   ],
+   "forma": "wiring-side-effect-before-gate",
+   "argv": "gate R"
+  },
+  "s8_kletki_posle_otkaza.py": {
+   "vhody": [
+    "a-forma-pusta",
+    "b1-pustoj-katalog",
+    "b2-otsutstvujushchij",
+    "v-karta-bez-celej",
+    "g-koren-bez-soderzhimogo"
+   ],
+   "forma": "wiring-cells-after-refusal",
+   "argv": "gate R"
+  },
+  "s9_ne_takoj_rc.py": {
+   "vhody": [
+    "a-forma-pusta",
+    "b1-pustoj-katalog",
+    "b2-otsutstvujushchij",
+    "v-karta-bez-celej",
+    "g-koren-bez-soderzhimogo"
+   ],
+   "forma": "wiring-wrong-rc",
+   "argv": "gate R"
+  },
+  "s10_tihaja_kletka_posle_otkaza.py": {
+   "vhody": ["a-forma-pusta", "b1-pustoj-katalog",
+             "b2-otsutstvujushchij", "v-karta-bez-celej",
+             "g-koren-bez-soderzhimogo"],
+   "forma": "wiring-silent-cell",
+   "argv": "gate R"
+  },
+  "s11_rc2_v_rc1.py": {
+   "vhody": ["d1-karta-nechitaema"],
+   "forma": "wiring-rc2-to-rc1",
+   "argv": "gate R"
+  }
+ },
+ "batarei": {
+  "gespraech_otdacha_151": "red_gespraech_otdacha_151.sh",
+  "gespraech_tekst_149": "red_gespraech_tekst_149.sh",
+  "gespraech_vhod_147": "red_gespraech_vhod_147.sh",
+  "vkladki_tabov_148": "red_vkladki_tabov_148.sh"
+ },
+ "vne_domena": [
+  "ekran_shablon_132",
+  "erstinformation_118",
+  "first_run_ekran_135",
+  "mission_116",
+  "shablon_dvizhenie_146",
+  "start_ekran_138"
+ ]
+}
