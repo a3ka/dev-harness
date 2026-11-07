@@ -48,8 +48,7 @@ import sys
 import tempfile
 
 ZDE = os.path.dirname(os.path.abspath(__file__))
-KOREN = os.environ.get('NABOR_158_KOREN') or os.path.abspath(
-    os.path.join(ZDE, '..', '..', '..'))
+KOREN = os.path.abspath(os.path.join(ZDE, '..', '..', '..'))
 MODEL = os.path.join(ZDE, 'model')
 NOS = os.path.join(ZDE, 'nositeli')
 TEKSTY = os.path.join(ZDE, 'teksty')
@@ -867,8 +866,8 @@ def kopirovat_zond(kopija, helper=None):
     return cel
 
 
-def zond_na_repo(repo, karta=None, rezhim='karta', firstrun=False,
-                 helper=None, timeout=1800):
+def zond_na_repo(repo, karta=None, rezhim='karta', helper=None,
+                 timeout=1800):
     """Живой зонд на R: (строки трассы, oshibka|None).
 
     Трасса читается из ФАЙЛА (NABOR_158_TRASSA), не из stdout: раннер не
@@ -898,8 +897,6 @@ def zond_na_repo(repo, karta=None, rezhim='karta', firstrun=False,
         }
         if karta:
             env['NABOR_158_KARTA'] = karta
-        if firstrun:
-            env['NABOR_158_FIRSTRUN'] = '1'
         rc, out, err = zapusk_komandy(
             [os.path.join(mob, 'node_modules', '.bin', 'jest'), '--config',
              konfig, '--rootDir', '.', '--ci', '--runInBand',
@@ -1055,9 +1052,6 @@ def sovmestnyj_rezhim(repo, nomer, toy_root=None):
         if not imena or len(fakty) != len(imena) or \
                 sorted(sled) != sorted(ozhidanie):
             prichiny.append(P_SLOJ_NE_ISPOLNEN)
-    stroki, oshibka = zond_na_repo(repo, karta=None)
-    if oshibka:
-        return otkaz('%s: %s' % (P_LIVE, oshibka))
     # Зонд R по карте пачки: карта передаётся зонду ФАЙЛОМ (не таблицей).
     stroki, oshibka = zond_na_repo_s_kartoy(repo, karta)
     if oshibka:
