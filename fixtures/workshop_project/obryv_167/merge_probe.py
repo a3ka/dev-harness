@@ -47,7 +47,7 @@ def scenario(hook, shape):
         must(git(repo, 'tag', 'ustav/1'))
         must(git(repo, 'push', '-q', 'origin', 'main'))
         must(git(repo, 'branch', 'wip/167/architect'))
-        if shape in ('separate', 'partial'):
+        if shape in ('separate', 'partial', 'other_ref'):
             put(repo, 'main-only.txt', 'main\n')
         elif shape in ('registry', 'registry_drop'):
             put(repo, 'registry/contracts.tsv', registry_row('001', 'a') + registry_row('002', 'b'))
@@ -56,7 +56,7 @@ def scenario(hook, shape):
         main = must(git(repo, 'rev-parse', 'HEAD'))
         must(git(repo, 'push', '-q', 'origin', 'main'))
         must(git(repo, 'switch', '-q', 'wip/167/architect'))
-        if shape in ('separate', 'partial'):
+        if shape in ('separate', 'partial', 'other_ref'):
             put(repo, 'branch-only.txt', 'branch\n')
         elif shape in ('registry', 'registry_drop'):
             put(repo, 'registry/contracts.tsv', registry_row('001', 'a') + registry_row('003', 'c'))
@@ -82,23 +82,27 @@ def scenario(hook, shape):
         if shape == 'registry':
             expected = (repo / 'registry/contracts.tsv').read_text()
             assert expected == registry_row('001', 'a') + registry_row('002', 'b') + registry_row('003', 'c')
-        if hook in ('--model', '--allow_all'):
+        if hook in ('--model', '--allow_all', '--no_ref'):
             target = root / 'model-hook'
             source = SOURCE.read_text()
             old = '  p1="${parents[1]}"\n'
             assert source.count(old) == 1, 'HOOK_ANCHOR_MISSING'
             # The model reuses every other pre-push check and substitutes ONLY
             # the narrowly scoped merge exception at the real hook's public seam.
-            source = source.replace(old, old + ('''  if [ "$ref" = 'refs/heads/wip/167/architect' ]; then return 1; fi
-''' if hook == '--allow_all' else '''  if [ "$ref" = 'refs/heads/wip/167/architect' ] &&
-     python3 "''' + str(POLICY) + '''" "$ROOT" "$c" "$LIVE_MAIN"; then
+            condition = ('''  if [ "$ref" = 'refs/heads/wip/167/architect' ]; then return 1; fi
+''' if hook == '--allow_all' else
+                         ('''  if [ "$ref" = 'refs/heads/wip/167/architect' ] &&
+''' if hook == '--model' else '''  if
+''') + '''     python3 "''' + str(POLICY) + '''" "$ROOT" "$c" "$LIVE_MAIN"; then
     return 1
   fi
-'''))
+''')
+            source = source.replace(old, old + condition)
             target.write_text(source)
         else:
             target = SOURCE
-        data = f'refs/heads/wip/167/architect {tip} refs/heads/wip/167/architect {ZERO}\n'
+        ref = 'refs/heads/feature/other-branch' if shape == 'other_ref' else 'refs/heads/wip/167/architect'
+        data = f'{ref} {tip} {ref} {ZERO}\n'
         result = subprocess.run(['bash', str(target), 'origin', 'file://' + str(remote)],
                                 cwd=repo, input=data, text=True, capture_output=True, timeout=30)
         allowed = shape in ('separate', 'registry')
@@ -114,7 +118,7 @@ def main():
     if mode not in ('--model', '--repo', '--stabs'):
         return 2
     errors = []
-    for shape in ('separate', 'registry', 'overlap', 'registry_drop', 'partial'):
+    for shape in ('separate', 'registry', 'overlap', 'registry_drop', 'partial', 'other_ref'):
         error = scenario('--model' if mode in ('--model', '--stabs') else '--repo', shape)
         print(f'MERGE {shape} {"KRASNO " + error if error else "ok"}')
         if error:
@@ -136,6 +140,12 @@ def main():
             else:
                 errors.append('allow_all:' + shape)
                 print(f'STAB_ZHIV allow_all {shape}')
+        error = scenario('--no_ref', 'other_ref')
+        if error:
+            print(f'STAB no_ref other_ref caught: {error}')
+        else:
+            errors.append('no_ref:other_ref')
+            print('STAB_ZHIV no_ref other_ref')
     return int(bool(errors))
 
 
