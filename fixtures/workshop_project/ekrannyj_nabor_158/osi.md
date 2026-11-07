@@ -8,12 +8,12 @@
 
 | Семья | Предмет | Субъект | Клетки |
 |---|---|---|---|
-| A | ТРЕК-механика (переключатель) | эталон `model/check_trek_ekrana_158.py`; субъект — `scripts/check_trek_ekrana.sh` (клетки z01/z02) | a01–a14, z01, z02 |
+| A | ТРЕК-механика (переключатель) | эталон `model/check_trek_ekrana_158.py`; субъект — `scripts/check_trek_ekrana.sh` (клетки z01/z02); экранная ветвь (`--ekran`) судится клетками a01/a06/a10–a14 через дверь подпроцессом | a01–a14, z01, z02 |
 | B | двойник e2e-канона AVD (И-4) | `teksty/e2e-porjadok.sh` + песочница `teksty/fake-adb/adb` | b01–b07 |
 | C | линт токенов (И-3) | `probe.lint_tokena` по носителям `nositeli/lint-obrazcy/`, карта токенов `nositeli/tokens-vy-piska.json` | c01–c05 |
 | D | домен и оракул | карты `model/karta-*.json`, `source.json`, гейт 159 | d01–d03 |
 | E | самоописание (И-5) | `samoopisanie/samoopisanie.py` | e01–e02 |
-| F | живой суд (`--repo`) | зонд `zond/` на копии референса; мутаторы `model/mutanty/` | f00–f33 |
+| F | живой суд (`--repo`) | зонд `zond/` на копии референса; мутаторы `model/mutanty/`; совместные клетки f03–f08 судят дверь `W --repo R --ekran NNN` подпроцессом (toy-корень — `NABOR_158_TOY_ROOT`) | f00–f33 |
 | G | регрессии соседей | двери 147/148/149/143/159 | g01–g08 |
 
 ## Оси
