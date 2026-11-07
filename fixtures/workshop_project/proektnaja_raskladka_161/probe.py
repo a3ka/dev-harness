@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""161a: exercise the real project launch doors; model/stabs check the oracle."""
+"""161a: exercise the real project launch doors and report named violations."""
 import json
+import hashlib
 import os
+from collections import Counter
 from pathlib import Path
 import subprocess
 import sys
@@ -69,7 +71,7 @@ class World:
         require(self.git('commit', '-qm', 'project baseline'), 'baseline')
         require(self.git('push', '-q', '-u', 'origin', 'main'), 'origin main')
         self.draft = base / (name + '-draft')
-        require(self.git('worktree', 'add', '-q', '-b', 'wip/761/architect', self.draft), 'draft worktree')
+        require(self.git('worktree', 'add', '-q', '-b', 'wip/759/architect', self.draft), 'draft worktree')
         self.draft_contract = self.draft / '.harness/contracts/761-launch.md'
         self.draft_contract.write_text('# Draft\nКОНТЕКСТ: запуск проекта\n'
                                        '## Существующее\n- проектный профиль\n'
@@ -89,6 +91,30 @@ class World:
                 require(self.git('status', '--porcelain=v1'), 'status'),
                 require(self.git('write-tree'), 'index'))
 
+    def foreign_snapshot(self):
+        # Independently record the foreign main AND draft before invoking either door.
+        # HEAD/index/status cannot expose changed bytes of an untracked existing file.
+        def files(root):
+            entries = []
+            for path in sorted(root.rglob('*')):
+                rel = path.relative_to(root)
+                if rel.parts[0] == '.git':
+                    continue  # git metadata is covered by HEAD/index/status below
+                if path.is_symlink():
+                    value = ('link', os.readlink(path))
+                elif path.is_file():
+                    value = ('file', hashlib.sha256(path.read_bytes()).hexdigest())
+                else:
+                    value = ('dir',)
+                entries.append((str(rel), value))
+            return tuple(entries)
+
+        return (self.snapshot(),
+                require(self.git('rev-parse', 'HEAD', where=self.draft), 'foreign draft HEAD'),
+                require(self.git('status', '--porcelain=v1', where=self.draft), 'foreign draft status'),
+                require(self.git('write-tree', where=self.draft), 'foreign draft index'),
+                files(self.main), files(self.draft))
+
     def mint(self):
         tag = f'id/CONTRACT/{NUMBER}'
         require(self.git('tag', '-a', tag, '-m', 'mint'), 'mint')
@@ -103,8 +129,19 @@ def check(condition, reason, failures):
     if not condition:
         failures.append(reason)
 
+def manifest_refusal(result):
+    return result.returncode == 1 and (
+        'нет манифеста make_task' in result.stderr or 'MANIFEST_MISSING' in result.stderr)
 
-def actual():
+def worktree_belongs(path, world):
+    if not path or not Path(path).is_dir():
+        return False
+    common = world.git('rev-parse', '--git-common-dir', where=path)
+    return common.returncode == 0 and Path(common.stdout.strip()).resolve() == (
+        world.main / '.git').resolve()
+
+
+def actual(mutant=None, captured=None):
     failures = []
     with tempfile.TemporaryDirectory(prefix='fixture-161a-') as tmp:
         base = Path(tmp)
@@ -112,7 +149,9 @@ def actual():
         before = mob.snapshot()
         task_args = ['bash', ROOT / 'scripts/make_task.sh', '--repo', mob.draft,
                      '--role', 'architect', '--kind', 'task', '--contract', NUMBER]
-        result = run(*task_args, env=mob.env)
+        result = (run(sys.executable, __file__, '--stub-invoke', 'optional-skipped',
+                      'REUSE: docs/reuse.md', *task_args, env=mob.env)
+                  if mutant == 'optional-skipped' else run(*task_args, env=mob.env))
         if result.returncode == 2:
             print('NOT_IMPLEMENTED: make_task environment: ' + result.stderr.strip(), file=sys.stderr)
             return 2
@@ -138,42 +177,103 @@ def actual():
             for row in mob.rows:
                 expected = f"{row['kind']}\t{row['path']}\t{'mandatory' if row['mandatory'] else 'optional'}\tprofile"
                 check(expected in body, 'MANIFEST_ROW_MISSING: ' + row['path'], failures)
+        saved_manifest = external[0].read_bytes() if external else None
         # Every optional profile row remains required even when its mandatory flag is false.
         optional = mob.draft / 'docs/reuse.md'
         optional.unlink()
         no_optional = run(*task_args, env=mob.env)
         check(no_optional.returncode == 1 and 'docs/reuse.md' in no_optional.stderr,
               'PROFILE_PATH_MISSING: absent optional row accepted', failures)
+        if no_optional.returncode == 1:
+            check(not no_optional.stdout, 'PROFILE_PATH_MISSING: partial pack on refusal', failures)
+            if external:
+                check(external[0].read_bytes() == saved_manifest,
+                      'PROFILE_PATH_MISSING: refusal overwrote prepared manifest', failures)
         optional.write_text('REUSE Complior-mob\n', encoding='utf-8')
         mob.mint()
         before_spawn = mob.snapshot()
         spawn = ['bash', ROOT / 'scripts/spawn_agent.sh', '--root', mob.main,
                  '--nnn', NUMBER, '--author', 'architect']
-        # Explicit conflict: unrelated main checkout has a valid profile at the SAME relative path.
+        # The positive spawn has its own branch, distinct from the draft and from
+        # the foreign-layer probe. A missing manifest cannot prove foreign context.
+        normal = run(*spawn, env=mob.env)
+        if external:
+            if manifest_refusal(normal):
+                failures.append('MANIFEST_MAIN_ONLY: positive spawn: ' + normal.stderr.strip()[:180])
+            else:
+                check(normal.returncode == 0,
+                      'SPAWN_REFUSED: positive spawn: ' + normal.stderr.strip()[:180], failures)
+        else:
+            check(manifest_refusal(normal),
+                  'MANIFEST_MAIN_ONLY: positive spawn: ' + normal.stderr.strip()[:180], failures)
+        if normal.returncode == 0:
+            check('BRANCH=wip/761/architect' in normal.stdout, 'SPAWN_WRONG_BRANCH', failures)
+            wt = next((line[9:] for line in normal.stdout.splitlines() if line.startswith('WORKTREE=')), '')
+            check(bool(wt) and Path(wt).is_dir(), 'SPAWN_NO_WORKTREE', failures)
+            check(bool(wt) and mob.main not in Path(wt).parents, 'WORKTREE_IN_MAIN', failures)
+            check(worktree_belongs(wt, mob), 'SPAWN_FOREIGN_REPOSITORY', failures)
+            check(before_spawn == mob.snapshot(), 'MAIN_DIRTY: spawn changed main', failures)
+        elif manifest_refusal(normal):
+            check('wip/761/architect' not in require(mob.git('branch', '--list'), 'branches'),
+                  'MANIFEST_MAIN_ONLY: spawn created branch without external pack', failures)
+        # A separate author gives the foreign-layer probe an unused branch without
+        # making the positive architect spawn depend on the outcome of this negative.
         conflicted = dict(mob.env, HARNESS_PROJECT_LAYER_ROOT=str(foreign.main))
-        mt_conflict = run(*task_args, env=conflicted)
+        foreign_before = foreign.foreign_snapshot()
+        mt_conflict = (run(sys.executable, __file__, '--stub-invoke', 'foreign-make',
+                           foreign.draft, *task_args, env=conflicted)
+                       if mutant == 'foreign-make' else
+                       run(sys.executable, __file__, '--stub-invoke', 'foreign-write',
+                           str(foreign.main), *task_args, env=conflicted)
+                       if mutant == 'foreign-write' else run(*task_args, env=conflicted))
         check((mt_conflict.returncode == 1 and 'LAYER_FOREIGN' in mt_conflict.stderr)
               or (mt_conflict.returncode == 0 and 'Complior-mob-source' in mt_conflict.stdout
                   and 'Complior-back-source' not in mt_conflict.stdout),
               'CONTEXT_FOREIGN: make_task accepted foreign layer', failures)
-        sp_conflict = run(*spawn, env=conflicted)
-        check((sp_conflict.returncode == 1 and 'LAYER_FOREIGN' in sp_conflict.stderr)
-              or (sp_conflict.returncode == 0 and 'BRANCH=wip/761/architect' in sp_conflict.stdout),
-              'CONTEXT_FOREIGN: spawn accepted foreign layer: ' + sp_conflict.stderr.strip()[:140], failures)
-        if sp_conflict.returncode == 0:
-            wt = next((line[9:] for line in sp_conflict.stdout.splitlines() if line.startswith('WORKTREE=')), '')
-            check(bool(wt) and Path(wt).exists(), 'SPAWN_NO_WORKTREE', failures)
-            check(mob.main not in Path(wt).parents, 'WORKTREE_IN_MAIN', failures)
-            check(before_spawn == mob.snapshot(), 'MAIN_DIRTY: spawn changed main', failures)
-        elif external:
-            normal = run(*spawn, env=mob.env)
-            check(normal.returncode == 0, 'MANIFEST_MAIN_ONLY: spawn ' + normal.stderr.strip()[:180], failures)
+        if mt_conflict.returncode == 1 and 'LAYER_FOREIGN' in mt_conflict.stderr:
+            check(not mt_conflict.stdout, 'LAYER_FOREIGN: make_task issued partial pack', failures)
+        check(foreign_before == foreign.foreign_snapshot(),
+              'FOREIGN_DIRTY: make_task changed foreign project', failures)
+        if external:
+            foreign_spawn = [*spawn[:-1], 'critic']
+            branches_before = require(mob.git('branch', '--list'), 'branches before foreign spawn')
+            worktrees_before = require(mob.git('worktree', 'list', '--porcelain'),
+                                       'worktrees before foreign spawn')
+            sp_conflict = run(*foreign_spawn, env=conflicted)
+            if manifest_refusal(sp_conflict):
+                failures.append('MANIFEST_MAIN_ONLY: foreign-layer spawn has no readable external '
+                                'manifest: ' + sp_conflict.stderr.strip()[:140])
+            else:
+                check((sp_conflict.returncode == 1 and 'LAYER_FOREIGN' in sp_conflict.stderr)
+                      or (sp_conflict.returncode == 0 and 'BRANCH=wip/761/critic' in sp_conflict.stdout),
+                      'CONTEXT_FOREIGN: spawn accepted foreign layer: '
+                      + sp_conflict.stderr.strip()[:140], failures)
+            if sp_conflict.returncode == 0:
+                wt = next((line[9:] for line in sp_conflict.stdout.splitlines()
+                           if line.startswith('WORKTREE=')), '')
+                check(bool(wt) and Path(wt).is_dir(), 'CONTEXT_FOREIGN: spawn no worktree', failures)
+                check(worktree_belongs(wt, mob), 'CONTEXT_FOREIGN: spawn used foreign repository',
+                      failures)
+            if sp_conflict.returncode == 1 and 'LAYER_FOREIGN' in sp_conflict.stderr:
+                check('wip/761/critic' not in require(mob.git('branch', '--list'), 'branches'),
+                      'LAYER_FOREIGN: spawn created branch on refusal', failures)
+                check(branches_before == require(mob.git('branch', '--list'), 'branches'),
+                      'LAYER_FOREIGN: spawn changed branches on refusal', failures)
+                check(worktrees_before == require(mob.git('worktree', 'list', '--porcelain'),
+                                                  'worktrees'),
+                      'LAYER_FOREIGN: spawn created worktree on refusal', failures)
+            check(before_spawn == mob.snapshot(), 'MAIN_DIRTY: foreign spawn changed main', failures)
+            check(foreign_before == foreign.foreign_snapshot(),
+                  'FOREIGN_DIRTY: spawn changed foreign project', failures)
         # Negative spawn must run independently on a new number, prior to tag/dual-control.
-        absent = run('bash', ROOT / 'scripts/spawn_agent.sh', '--root', mob.main,
-                     '--nnn', '762', '--author', 'architect', env=mob.env)
-        check(absent.returncode == 1 and ('нет манифеста make_task' in absent.stderr
-              or 'MANIFEST_MISSING' in absent.stderr),
-              'MANIFEST_MISSING: missing pack not rejected before mint: ' + absent.stderr.strip()[:180], failures)
+        missing_spawn = ['bash', ROOT / 'scripts/spawn_agent.sh', '--root', mob.main,
+                         '--nnn', '762', '--author', 'architect']
+        absent = (run(sys.executable, __file__, '--stub-invoke', 'missing-spawn',
+                      NUMBER, *missing_spawn, env=mob.env)
+                  if mutant == 'missing-spawn' else run(*missing_spawn, env=mob.env))
+        check(manifest_refusal(absent),
+              'MANIFEST_MISSING: missing pack not rejected before mint: '
+              + absent.stderr.strip()[:180], failures)
         check('wip/762/architect' not in require(mob.git('branch', '--list'), 'branches'),
               'MANIFEST_MISSING: worktree branch created', failures)
         # Existing project lock (140) is exercised with the project root, not station root.
@@ -189,64 +289,102 @@ def actual():
                      state, '--zhurnaly', journals, '--repo', mob.main, event, env=mob.env)
         check(locked.returncode == 1 and 'PAUZA_VLADELTSA' in locked.stderr,
               'PROJECT_LOCK_FOREIGN: ' + locked.stderr.strip()[:180], failures)
-    for failure in failures:
-        print(failure, file=sys.stderr)
+    if captured is not None:
+        captured.extend(failures)
+    else:
+        for failure in failures:
+            print(failure, file=sys.stderr)
     return int(bool(failures))
 
 
-# Model is independent of the product scripts: mutate a single observable branch of the
-# reference subject and assert the same consumer-facing condition as above, per case.
-CASES = {
-    'draft-main-only': ('make_task', 'DRAFT_MAIN_REQUIRED'),
-    'optional-skipped': ('make_task', 'PROFILE_PATH_MISSING'),
-    'manifest-in-main': ('make_task', 'MANIFEST_MAIN_ONLY'),
-    'spawn-main-only': ('spawn_agent', 'MANIFEST_MAIN_ONLY'),
-    'spawn-without-manifest': ('spawn_agent', 'MANIFEST_MISSING'),
-    'make-foreign-layer': ('make_task', 'CONTEXT_FOREIGN'),
-    'spawn-foreign-layer': ('spawn_agent', 'CONTEXT_FOREIGN'),
-    'lock-station-risk': ('zamok_predmeta', 'PROJECT_LOCK_FOREIGN'),
-}
+def stub_invoke(kind, value, argv):
+    """Executable stand-ins at the public subject call, each delegates to the real door."""
+    if kind == 'optional-skipped':
+        # The real door runs on a conforming, present-row input; the deceptive
+        # stand-in drops precisely the optional row from the issued pack.
+        answer = run(*argv)
+        answer.stdout = ''.join(line for line in answer.stdout.splitlines(keepends=True)
+                                if line.rstrip('\n') != value)
+    elif kind == 'foreign-make':
+        args = list(argv)
+        args[args.index('--repo') + 1] = value
+        answer = run(*args)
+    elif kind == 'foreign-write':
+        # Genuine door on the conflict input, with a concealed foreign write on either exit.
+        answer = run(*argv)
+        cache = Path(value) / '.omp/cache-161a'
+        cache.parent.mkdir(exist_ok=True)
+        cache.write_bytes(b'x')
+    elif kind == 'missing-spawn':
+        # Deceptive door drops the refusal on the SAME absent-number input.
+        # The actual door is called; no manifest is placed in main.
+        answer = run(*argv)
+        if manifest_refusal(answer):
+            return 0
+    else:
+        print('NOT_IMPLEMENTED: unknown subject stub', file=sys.stderr)
+        return 2
+    sys.stdout.write(answer.stdout)
+    sys.stderr.write(answer.stderr)
+    return answer.returncode
 
 
-def oracle(case, stub=None):
-    # Control values are taken before invoking the selected subject branch.
-    draft_only = True
-    optional_exists = case != 'optional-skipped'
-    external_manifest = case != 'spawn-without-manifest'
-    foreign_layer = case in ('make-foreign-layer', 'spawn-foreign-layer')
-    project_paused = case == 'lock-station-risk'
-    if case == 'draft-main-only' and stub == case and draft_only:
-        return 'DRAFT_MAIN_REQUIRED'
-    if case == 'optional-skipped' and not optional_exists:
-        return None if stub == case else 'PROFILE_PATH_MISSING'
-    if case == 'manifest-in-main' and stub == case:
-        return 'MANIFEST_MAIN_ONLY'
-    if case == 'spawn-main-only' and stub == case:
-        return 'MANIFEST_MAIN_ONLY'
-    if case == 'spawn-without-manifest' and not external_manifest:
-        return None if stub == case else 'MANIFEST_MISSING'
-    if foreign_layer and stub == case:
-        return 'CONTEXT_FOREIGN'
-    if project_paused:
-        return 'PROJECT_LOCK_FOREIGN' if stub == case else 'PAUZA_VLADELTSA'
-    return None
+def signature(failure):
+    return failure.split(':', 1)[0]
+
+
+def honest_control():
+    """Expected product red before cutover is an independently checked control."""
+    failures = []
+    rc = actual(captured=failures)
+    if rc == 2:
+        return 2, failures
+    observed = Counter(map(signature, failures))
+    pre_cutover = Counter({'MANIFEST_MAIN_ONLY': 1, 'PROFILE_PATH_MISSING': 1})
+    if (rc == 0 and not failures) or (rc == 1 and observed == pre_cutover
+                                       and any('no unique external manifest before spawn' in x
+                                               for x in failures)
+                                       and any('absent optional row accepted' in x
+                                               for x in failures)):
+        return observed, failures
+    return None, failures
 
 
 def model(stabs):
-    for mutant, (branch, reason) in CASES.items():
-        expected = {'optional-skipped': 'PROFILE_PATH_MISSING',
-                    'spawn-without-manifest': 'MANIFEST_MISSING',
-                    'lock-station-risk': 'PAUZA_VLADELTSA'}.get(mutant)
-        honest = oracle(mutant)
-        if honest != expected:
-            print(f'MODEL_RED: {branch} control {mutant}: {honest}', file=sys.stderr)
-            return 1
-        if stabs and oracle(mutant, mutant) != (reason if mutant == 'lock-station-risk' else (None if expected else reason)):
-            print(f'STAB_ZHIV: {mutant} {branch}: expected {reason}', file=sys.stderr)
-            return 1
+    baseline, failures = honest_control()
+    if baseline == 2:
+        return 2
+    if baseline is None:
+        for failure in failures:
+            print(failure, file=sys.stderr)
+        print('CONTROL_INVALID: honest product outcome is neither post-cutover green '
+              'nor the measured two-class pre-cutover red', file=sys.stderr)
+        return 1
+    print('CONTROL: honest product ' + ('green' if not baseline else 'expected red: '
+          + ', '.join(sorted(baseline))), file=sys.stderr)
+    if stabs:
+        for name, reason in (('optional-skipped', 'CONTEXT_FOREIGN: missing exact REUSE: docs/reuse.md'),
+                             ('foreign-make', 'CONTEXT_FOREIGN: make_task'),
+                             ('foreign-write', 'FOREIGN_DIRTY: make_task changed foreign project'),
+                             ('missing-spawn', 'MANIFEST_MISSING:')):
+            reds = []
+            rc = actual(mutant=name, captured=reds)
+            expected = Counter(baseline)
+            expected[reason.split(':', 1)[0]] += 1
+            # Before cutover this mutant writes its manifest into foreign.draft;
+            # the foreign-state guard must catch that side effect as well.
+            if name == 'foreign-make' and baseline:
+                expected['FOREIGN_DIRTY'] += 1
+            if (rc != 1 or Counter(map(signature, reds)) != expected
+                    or sum(item.startswith(reason) for item in reds) != 1):
+                print(f'STAB_ZHIV: {name}: {reds}', file=sys.stderr)
+                return 1
+            print(f'STAB_CAUGHT: {name}: {reason}', file=sys.stderr)
     return 0
 
 
+if __name__ == '__main__' and len(sys.argv) > 2 and sys.argv[1] == '--stub-invoke':
+    sys.exit(stub_invoke(sys.argv[2], sys.argv[3], sys.argv[4:]))
 if __name__ == '__main__':
     if len(sys.argv) == 1:
         sys.exit(actual())
