@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# НЕ БАРЬЕР: субъект (SUBJECT) батареи fixtures/workshop_project/pustoj_produkt_159/red_pustoj_produkt_159.sh;
+# её приёмка — W на этом скрипте (bash fixtures/workshop_project/pustoj_produkt_159/red_pustoj_produkt_159.sh), не сам скрипт;
+# контракт 159 §ПРОВОДКА: guard=fixtures/workshop_project/pustoj_produkt_159/red_pustoj_produkt_159.sh.
+# Классификатор antiplacebo к субъекту неприменим: в области лежит барьер-guard,
+# а не тестируемый им скрипт.
+#
 # Гейт пустого продукта (контракт 159, инварианты 1–3): общий отказ по
 # признаку ПУСТОТЫ продукта для --repo-ветвей экранных батарей домена
 # (147/148/149/151). Одна грамматика на все батареи: причина отказа не
@@ -14,7 +20,7 @@
 #
 # Форма вызова: bash scripts/check_pustoj_produkt.sh <корень продукта R>
 #
-# Коды возврата (домен rc):
+# ДОМЕННЫЕ rc ГЕЙТА (не объявление роли файла — роль объявлена выше):
 #   0 — продукт НЕ пуст (конформный допущен; stdout пуст);
 #   1 — структурная пустота: причина на stdout РОВНО одной строкой —
 #       PUSTOJ_PRODUKT: KATALOG_OTSUTSTVUET (R не существует/не каталог) |
