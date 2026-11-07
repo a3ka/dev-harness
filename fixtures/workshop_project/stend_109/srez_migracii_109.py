@@ -19,7 +19,7 @@ frozen-тег lane-гигиены — из окружения CI (STEND109_TAG),
       проба отказала бы STEND109_TAG_ABSENT; правка — зона
       implementer, ПРЕДПОСЫЛКИ контракта);
   --model    контроль на порождаемых мирах базы (--base/$STEND109_BASE):
-             N ∈ {1, 14, 15, 17, база, база+1} — оракул каждого мира
+             N ∈ {1, 14, 15, 17, 18, 19, база, база+1} — оракул каждого мира
              вычислен из ЕГО манифеста ДО вызова субъекта (правило 8);
              сценарии ledger: зелено/недокат/перекат/подложный/пустой;
              отказы манифеста: отсутствует/пуст/нечитаем/лишний файл;
@@ -352,7 +352,7 @@ def kletki_mirov(proba, base, tmp, rezultaty):
     base_n = len(json.loads(
         (base / 'server/infrastructure/migrations/manifest.json')
         .read_text())['migrations'])
-    spisok = sorted({1, 14, 15, 17, base_n, base_n + 1})
+    spisok = sorted({1, 14, 15, 17, 18, 19, base_n, base_n + 1})
     bez = podgotovi_shimy(tmp)
     for n in spisok:
         mir = porodi_mir(base, n, tmp)
@@ -390,11 +390,9 @@ def kletki_mirov(proba, base, tmp, rezultaty):
         rezultaty.append(('mir-%d:delivery-tokem' % n,
                           v is None and 'docker' in note,
                           'v=%r note=%s' % (v, note[:110])))
-        # Отставший токен статически ловим только для ДВУЗНАЧНЫХ N:
-        # подстрочная грамматика токенов v3 (tok in span) для однозначного
-        # N совпадает с «PG18» заголовка (демаркация — source.json);
-        # живой слой node --test ловит любое N, здесь не исполняется
-        # (docker — lane stend109/станция стенда).
+        # Отставший токен статически судим для двузначных N (граница
+        # контракта 109): 17/18/19 различают коллизию ledger N с PG18
+        # заголовка без запуска живого docker (тот — lane stend109).
         if n < 10:
             continue
         mir2 = porodi_mir(base, n, tmp)
