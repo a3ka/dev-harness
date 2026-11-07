@@ -187,6 +187,14 @@
 #   влитом коммите владельца f022cb47, но не в теле merge-коммита GitHub (влит без --body);
 #   нового содержания нет; допущение только для этой пары; слово владельца 2026-11-07 «да» через консультанта)
 #
+#   f9846bcaa3d609639d3b5de75869104e6cd1220e  contracts/158-ekrannyj-nabor.md
+#   2c7abb6e6ac30cc7c848a0e1172a30ed94ebc54c  contracts/158-ekrannyj-nabor.md
+#   0c7883891b14442963adf7fe9466ab8a5a0d2472  contracts/158-ekrannyj-nabor.md
+#   (37–39-я: merge-коммиты f9846bca «land: wip/158/critic», 2c7abb6e «land: wip/161/architect (форма пробы)»
+#   и 0c788389 «Merge pull request #538» внесли contracts/158 без строки РАЗРЕШИЛ в теле; во всех трёх
+#   блоб побайтно равен frozen/contracts/158/1 (e75a9f47bc54); нового содержания нет; допущение только
+#   для этих пар; слово владельца 2026-11-07 «да» через консультанта)
+#
 # НЕ добавлять новые записи без прямого слова владельца в НОВОМ коммите с обоснованием.
 #
 # is_charter_path (контракт 019, ветвь 1 — единый источник предиката). Staged-путь
@@ -378,6 +386,12 @@ razreshil() {  # <коммит> <путь> → 0, если разрешение 
       [ "$p" = "contracts/157-spawn-guard-proektnye-sessii.md" ] && return 0 ;;
     97de545dd67a363e2b018204620ddaa01263f17a)
       [ "$p" = "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md" ] && return 0 ;;
+    f9846bcaa3d609639d3b5de75869104e6cd1220e)
+      [ "$p" = "contracts/158-ekrannyj-nabor.md" ] && return 0 ;;
+    2c7abb6e6ac30cc7c848a0e1172a30ed94ebc54c)
+      [ "$p" = "contracts/158-ekrannyj-nabor.md" ] && return 0 ;;
+    0c7883891b14442963adf7fe9466ab8a5a0d2472)
+      [ "$p" = "contracts/158-ekrannyj-nabor.md" ] && return 0 ;;
   esac
 
   # ГРАНДФАЗЕР 116-цепочка (слово владельца 2026-10-23 ~10:00 UTC пункт 3 плана
