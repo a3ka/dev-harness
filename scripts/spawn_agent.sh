@@ -16,6 +16,14 @@
 #   * контракт 161a: слой проекта (HARNESS_PROJECT_LAYER_ROOT) из чужого
 #     git-проекта → «LAYER_FOREIGN: слой проекта из чужого git-проекта» —
 #     ДО любых сверок и ДО создания ветки/worktree;
+#   * контракт 161a: внешнее state — TMPDIR_UNAVAILABLE (TMPDIR непригоден),
+#     TMPDIR_INSIDE_MAIN (база state или ИТОГОВЫЙ каталог манифеста, с учётом
+#     компонента dev-harness-project-state, каталога ключа и context, лежит
+#     внутри checkout'а проекта или его общего .git),
+#     STATE_PATH_UNRESOLVABLE (каталог манифеста неразрешим),
+#     MANIFEST_LINK_UNSAFE (файл манифеста — символьная ссылка),
+#     HASH_TOOL_UNUSABLE (инструмент sha256 непригоден) — все ДО чтения
+#     манифеста, ветки и worktree, stdout пуст, ветка и worktree не создаются;
 #   * контракт 095 (И-15): нет манифеста пака → «нет манифеста make_task: N»;
 #   * контракт 023 (ii): `--nnn N` без живого refs/tags/id/CONTRACT/N →
 #     «номер N не выдан — спавн мимо реестра»;
@@ -94,7 +102,8 @@ command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; 
 # sha256sum; pwd/cd/printf/case — встроенники bash. python3/awk/sed/grep/
 # readlink/mktemp в вычислении ключа и базы НЕ участвуют (jq — профиль, его
 # PATH-разрешение закреплено клеткой 136 «jq нет»), поэтому правило
-# доверенных каталогов к ним не применяется.
+# доверенных каталогов к ним не применяется. Канонизация ИТОГОВОГО пути
+# манифеста (_state_path_canonical) — тоже только встроенники bash.
 GIT_BIN=""
 for _git_dir in /usr/bin /bin /usr/local/bin; do
   if [ -f "$_git_dir/git" ] && [ -x "$_git_dir/git" ]; then
@@ -205,6 +214,35 @@ _state_base_canonical() {  # → канонический TMPDIR (пусто —
   [ -n "$canon" ] || return 1
   printf '%s' "$canon"
 }
+# Канонизация ПРОИЗВОЛЬНОГО пути БЕЗ создания каталогов: каждый СУЩЕСТВУЮЩИЙ
+# компонент разрешается (симлинк — в реальный путь), несуществующий хвост
+# сохраняется буквально. Только встроенники bash (cd/pwd -P) — как у
+# _state_base_canonical; readlink/awk/python3 в вычислении пути НЕ участвуют.
+# Нужна для проверки ИТОГОВОГО каталога манифеста: компонент
+# dev-harness-project-state, каталог ключа и context — элементы пути, и ссылка
+# в любом из них уводит чтение манифеста в checkout проекта или его .git.
+_state_path_canonical() {  # <абсолютный путь> → канонический путь; 1 — непригоден
+  local path="${1:-}" rest comp acc="" canon
+  case "$path" in
+    /*) rest="${path#/}" ;;
+    *) return 1 ;;
+  esac
+  while [ -n "$rest" ]; do
+    case "$rest" in
+      */*) comp="${rest%%/*}"; rest="${rest#*/}" ;;
+      *) comp="$rest"; rest="" ;;
+    esac
+    [ -n "$comp" ] || continue
+    if [ -n "$acc" ]; then acc="$acc/$comp"; else acc="/$comp"; fi
+    if [ -e "$acc" ] || [ -L "$acc" ]; then
+      canon="$(cd "$acc" 2>/dev/null && pwd -P 2>/dev/null || true)"
+      [ -n "$canon" ] || return 1
+      acc="$canon"
+    fi
+  done
+  [ -n "$acc" ] || return 1
+  printf '%s' "$acc"
+}
 _state_worktree_paths() {  # <корень> → канонические пути checkout'ов проекта
   local line p
   while IFS= read -r line; do
@@ -231,8 +269,9 @@ _state_base_is_safe() {  # <корень> <база> → 0 да, 1 нет
   return 0
 }
 PROJECT_STATE_BASE=""; PROJECT_STATE_KEY=""; PROJECT_STATE_DIR=""; PROJECT_STATE_ERROR=""
+PROJECT_STATE_CONTEXT=""; PROJECT_STATE_CONTEXT_CANON=""
 _project_state_prepare() {  # <корень>; сбой → PROJECT_STATE_ERROR
-  local root="$1" common base
+  local root="$1" common base canon
   PROJECT_STATE_ERROR=""
   common="$(_git_common_dir "$root")"
   [ -n "$common" ] || common="$root"
@@ -245,6 +284,17 @@ _project_state_prepare() {  # <корень>; сбой → PROJECT_STATE_ERROR
   PROJECT_STATE_BASE="$base"
   PROJECT_STATE_KEY="${HASH_OUT:0:16}"
   PROJECT_STATE_DIR="$base/dev-harness-project-state/$PROJECT_STATE_KEY"
+  # Безопасной БАЗЫ мало: элементами пути манифеста являются ещё компонент
+  # dev-harness-project-state, каталог ключа и сам context. Ссылка в любом из
+  # них ведёт чтение манифеста в checkout проекта или его .git. Итоговый
+  # каталог канонизируется ДО чтения манифеста, ветки и worktree — отказ
+  # наступает до любого побочного эффекта.
+  PROJECT_STATE_CONTEXT="$PROJECT_STATE_DIR/context"
+  canon="$(_state_path_canonical "$PROJECT_STATE_CONTEXT")" || {
+    PROJECT_STATE_ERROR="STATE_PATH_UNRESOLVABLE: каталог манифеста неразрешим: $PROJECT_STATE_CONTEXT"; return 1; }
+  _state_base_is_safe "$root" "$canon" || {
+    PROJECT_STATE_ERROR="TMPDIR_INSIDE_MAIN: каталог манифеста внутри checkout проекта или его .git: $canon"; return 1; }
+  PROJECT_STATE_CONTEXT_CANON="$canon"
 }
 if [ -r "$ROOT/harness.project.json" ]; then
   _sl_root="${HARNESS_PROJECT_LAYER_ROOT:-$ROOT}"
@@ -287,7 +337,14 @@ i15_gate() {
   if [ -r "$ROOT/harness.project.json" ]; then
     # КОНТРАКТ 161a: манифест пака — во внешнем state проекта (вне чекаута и
     # его .git); тот же каталог, куда пишет make_task из project-worktree.
-    mf="$PROJECT_STATE_DIR/context/$p.tsv"
+    # Читается КАНОНИЧЕСКИЙ каталог (ссылка в компоненте пути уже отвергнута
+    # на _project_state_prepare), а сам файл манифеста не принимается, если он
+    # символьная ссылка: дверь не читает манифест через ссылку.
+    mf="${PROJECT_STATE_CONTEXT_CANON:-$PROJECT_STATE_DIR/context}/$p.tsv"
+    if [ -L "$mf" ]; then
+      printf 'ОТКАЗ: MANIFEST_LINK_UNSAFE: файл манифеста — символьная ссылка: %s\n' "$mf" >&2
+      exit 1
+    fi
     if [ ! -s "$mf" ]; then
       # Устаревшее размещение манифеста (095: <root>/.omp/context/<NNN>.tsv) —
       # ЧИТАЕТСЯ (пак, собранный прежней сборкой), но не создаётся.

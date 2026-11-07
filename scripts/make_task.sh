@@ -12,6 +12,13 @@
 # state проекта (вне чекаута и его .git) — его читает spawn_agent до создания
 # worktree; пропущенная строка contextPack.rows (в том числе optional) —
 # именованный отказ PROFILE_PATH_MISSING, а не молчаливое усечение карты.
+# ОТКАЗЫ внешнего state (поимённо, rc 1, до записи и без stdout пака):
+#   * TMPDIR_UNAVAILABLE — TMPDIR непригоден (нет каталога);
+#   * TMPDIR_INSIDE_MAIN — база state или ИТОГОВЫЙ каталог манифеста (с учётом
+#     компонента dev-harness-project-state, каталога ключа и context) лежит
+#     внутри checkout'а проекта или его общего .git;
+#   * STATE_PATH_UNRESOLVABLE — каталог манифеста неразреним (битая ссылка);
+#   * HASH_TOOL_UNUSABLE — инструмент sha256 непригоден.
 # НЕ БАРЬЕР: субъект контракта 095 — зелёный контроль и стаб-детект собственной именованной батареи fixtures/context_pack_095/ (раннер fixtures/_krasnye_095.sh, стаб-пак battery_stubs.sh, 18 мутаций), не case_*.sh-глобом (прецедент drill_exit_marker.sh/drill_path_guard.sh, заморозка 025 И-7). Выходы: 0 — пак построен (stdout), 1 — именованный отказ «ОТКАЗ: ...», 2 — NOT_IMPLEMENTED.
 set -uo pipefail
 TAB="$(printf '\t')"
@@ -46,7 +53,8 @@ command -v awk >/dev/null 2>&1 || ni "нет awk"
 # sha256sum; pwd/cd/printf/case — встроенники bash. python3/awk/sed/grep/
 # readlink/mktemp в вычислении ключа и базы НЕ участвуют (jq — профиль, его
 # PATH-разрешение закреплено клеткой 136 «jq нет»), поэтому правило
-# доверенных каталогов к ним не применяется.
+# доверенных каталогов к ним не применяется. Канонизация ИТОГОВОГО пути
+# манифеста (_state_path_canonical) — тоже только встроенники bash.
 GIT_BIN=""
 for _git_dir in /usr/bin /bin /usr/local/bin; do
   if [ -f "$_git_dir/git" ] && [ -x "$_git_dir/git" ]; then
@@ -329,6 +337,35 @@ _state_base_canonical() {  # → канонический TMPDIR (пусто —
   [ -n "$canon" ] || return 1
   printf '%s' "$canon"
 }
+# Канонизация ПРОИЗВОЛЬНОГО пути БЕЗ создания каталогов: каждый СУЩЕСТВУЮЩИЙ
+# компонент разрешается (симлинк — в реальный путь), несуществующий хвост
+# сохраняется буквально. Только встроенники bash (cd/pwd -P) — как у
+# _state_base_canonical; readlink/awk/python3 в вычислении пути НЕ участвуют.
+# Нужна для проверки ИТОГОВОГО каталога манифеста: компонент
+# dev-harness-project-state, каталог ключа и context — элементы пути, и ссылка
+# в любом из них уводит запись в checkout проекта или его .git.
+_state_path_canonical() {  # <абсолютный путь> → канонический путь; 1 — непригоден
+  local path="${1:-}" rest comp acc="" canon
+  case "$path" in
+    /*) rest="${path#/}" ;;
+    *) return 1 ;;
+  esac
+  while [ -n "$rest" ]; do
+    case "$rest" in
+      */*) comp="${rest%%/*}"; rest="${rest#*/}" ;;
+      *) comp="$rest"; rest="" ;;
+    esac
+    [ -n "$comp" ] || continue
+    if [ -n "$acc" ]; then acc="$acc/$comp"; else acc="/$comp"; fi
+    if [ -e "$acc" ] || [ -L "$acc" ]; then
+      canon="$(cd "$acc" 2>/dev/null && pwd -P 2>/dev/null || true)"
+      [ -n "$canon" ] || return 1
+      acc="$canon"
+    fi
+  done
+  [ -n "$acc" ] || return 1
+  printf '%s' "$acc"
+}
 _state_worktree_paths() {  # <корень> → канонические пути checkout'ов проекта
   local line p
   while IFS= read -r line; do
@@ -355,8 +392,9 @@ _state_base_is_safe() {  # <корень> <база> → 0 да, 1 нет
   return 0
 }
 PROJECT_STATE_BASE=""; PROJECT_STATE_KEY=""; PROJECT_STATE_DIR=""; PROJECT_STATE_ERROR=""
+PROJECT_STATE_CONTEXT=""; PROJECT_STATE_CONTEXT_CANON=""
 _project_state_prepare() {  # <корень>; сбой → PROJECT_STATE_ERROR
-  local root="$1" common base
+  local root="$1" common base canon
   PROJECT_STATE_ERROR=""
   common="$(_git_common_dir "$root")"
   [ -n "$common" ] || common="$root"
@@ -369,6 +407,17 @@ _project_state_prepare() {  # <корень>; сбой → PROJECT_STATE_ERROR
   PROJECT_STATE_BASE="$base"
   PROJECT_STATE_KEY="${HASH_OUT:0:16}"
   PROJECT_STATE_DIR="$base/dev-harness-project-state/$PROJECT_STATE_KEY"
+  # Безопасной БАЗЫ мало: элементами пути манифеста являются ещё компонент
+  # dev-harness-project-state, каталог ключа и сам context. Ссылка в любом из
+  # них ведёт запись в checkout проекта или его .git. Итоговый каталог
+  # канонизируется ДО создания каталогов — отказ наступает до mkdir и до
+  # записи манифеста, stdout пака не печатается.
+  PROJECT_STATE_CONTEXT="$PROJECT_STATE_DIR/context"
+  canon="$(_state_path_canonical "$PROJECT_STATE_CONTEXT")" || {
+    PROJECT_STATE_ERROR="STATE_PATH_UNRESOLVABLE: каталог манифеста неразрешим: $PROJECT_STATE_CONTEXT"; return 1; }
+  _state_base_is_safe "$root" "$canon" || {
+    PROJECT_STATE_ERROR="TMPDIR_INSIDE_MAIN: каталог манифеста внутри checkout проекта или его .git: $canon"; return 1; }
+  PROJECT_STATE_CONTEXT_CANON="$canon"
 }
 # Признак входа 161a: пак собирается из ПРОЕКТНОГО worktree — checkout не
 # каноническое состояние проекта (--git-dir ≠ --git-common-dir). Legacy-flow
@@ -777,10 +826,24 @@ ${MAP_MAN}${CTX_MAN}${ADR_MAN}${LESSONS_MAN}${TASK_MAN}${TRACE_MAN}"
 if [ "$KIND" = "task" ] && [ -n "$CONTRACT" ]; then
   _man_num="$(printf '%03d' "$((10#$CONTRACT))")"
   if [ "$_PACK_FROM_WORKTREE" = "1" ]; then
-    _man_dir="$PROJECT_STATE_DIR/context"
+    # Каталог манифеста — по КАНОНИЧЕСКОМУ пути (ссылка внутрь checkout'а
+    # проекта или его .git отвергнута ещё на _project_state_prepare) и
+    # повторно канонизируется ПОСЛЕ создания: свойство «каталог манифеста
+    # вне checkout'а и его .git» проверяется на ИТОГОВОМ пути.
+    _man_dir="$PROJECT_STATE_CONTEXT_CANON"
     mkdir -p "$_man_dir" || die "внешнее state проекта не создать: $_man_dir"
+    _man_dir="$(_state_path_canonical "$_man_dir")" \
+      || die "STATE_PATH_UNRESOLVABLE: каталог манифеста неразрешим: $_man_dir"
+    _state_base_is_safe "$REPO_ABS" "$_man_dir" \
+      || die "TMPDIR_INSIDE_MAIN: каталог манифеста внутри checkout проекта или его .git: $_man_dir"
     _man_file="$_man_dir/$_man_num.tsv"
-    printf '%s\n' "$MAN_BODY" >"$_man_file" || die "манифест пака не записан: $_man_file"
+    # Файл манифеста — тоже элемент пути: подложенная ссылка (в том числе на
+    # каталог чужого checkout) удаляется КАК ССЫЛКА — цель не трогается, —
+    # а запись идёт с noclobber: файл, подложенный после удаления, приводит к
+    # отказу, а не к записи по ссылке.
+    rm -f "$_man_file" || die "файл манифеста не удалить: $_man_file"
+    ( set -C; printf '%s\n' "$MAN_BODY" >"$_man_file" ) \
+      || die "манифест пака не записан: $_man_file"
   else
     mkdir -p "$REPO/.omp/context" || die "каталог манифеста не создать: $REPO/.omp/context"
     _man_file="$REPO/.omp/context/$_man_num.tsv"
