@@ -264,7 +264,7 @@ def tmpdir_must_not_enter_main(alias=False, gitdir=False, mutant=None, captured=
 
 
 def state_symlink_must_not_enter_main(component, gitdir=False, door='make',
-                                      mutant=None, captured=None):
+                                      captured=None):
     """A safe TMPDIR can still resolve its manifest through a hostile child link."""
     failures = []
     with tempfile.TemporaryDirectory(prefix='fixture-161-state-link-') as tmp:
@@ -311,9 +311,7 @@ def state_symlink_must_not_enter_main(component, gitdir=False, door='make',
                 ['bash', ROOT / 'scripts/spawn_agent.sh', '--root', world.main,
                  '--nnn', NUMBER, '--author', 'architect'])
         env = dict(world.env, TMPDIR=str(state))
-        result = (run(sys.executable, __file__, '--stub-invoke', 'symlink-bypass',
-                      str(context), *argv, env=env)
-                  if mutant else run(*argv, env=env))
+        result = run(*argv, env=env)
         variant = f'{door}-{component}-{"gitdir" if gitdir else "checkout"}'
         check(result.returncode == 1 and 'TMPDIR_INSIDE_MAIN' in result.stderr
               and not result.stdout,
@@ -342,7 +340,7 @@ def safe_state_stays_outside_main(mutant=None, captured=None):
         argv = ['bash', ROOT / 'scripts/make_task.sh', '--repo', world.draft,
                 '--role', 'architect', '--kind', 'task', '--contract', NUMBER]
         env = dict(world.env, TMPDIR=str(base))
-        result = (run(sys.executable, __file__, '--stub-invoke', 'tmpdir-write',
+        result = (run(sys.executable, __file__, '--stub-invoke', mutant,
                       world.main, *argv, env=env)
                   if mutant else run(*argv, env=env))
         check(result.returncode == 0, 'STATE_SAFE_PACK_REFUSED', failures)
@@ -587,15 +585,23 @@ def stub_invoke(kind, value, argv):
         env['PATH'] = os.pathsep.join(env['PATH'].split(os.pathsep)[1:])
         answer = run(*argv, env=env)
     elif kind == 'symlink-bypass':
-        # A stand-in that checks only the base: issue a real pack with safe
-        # external state, then place its manifest through the hostile link.
-        context = Path(value)
-        safe = context.parents[2].parent / 'stand-in-clean-state'
-        safe.mkdir()
-        answer = run(*argv, env=dict(os.environ, TMPDIR=str(safe)))
+        # On a clean, safe state, this stand-in issues a genuine valid packet
+        # but secretly replaces the state child with a link into main before
+        # writing its manifest. The honest door leaves main unchanged.
+        answer = run(*argv)
         if answer.returncode == 0:
-            context.mkdir(parents=True, exist_ok=True)
-            (context / f'{NUMBER}.tsv').write_text(answer.stdout, encoding='utf-8')
+            state_root = Path(os.environ['TMPDIR']) / 'dev-harness-project-state'
+            manifests = list(state_root.glob(f'*/context/{NUMBER}.tsv'))
+            if len(manifests) != 1:
+                print('NOT_IMPLEMENTED: stub lacks genuine manifest', file=sys.stderr)
+                return 2
+            key = manifests[0].parent.parent.name
+            manifest = manifests[0].read_bytes()
+            shutil.rmtree(state_root)
+            state_root.symlink_to(Path(value) / 'docs', target_is_directory=True)
+            context = state_root / key / 'context'
+            context.mkdir(parents=True)
+            (context / f'{NUMBER}.tsv').write_bytes(manifest)
     else:
         print('NOT_IMPLEMENTED: unknown subject stub', file=sys.stderr)
         return 2
@@ -668,16 +674,14 @@ def model(stabs):
                 ('hash-ignored', lambda reds: unusable_hash_must_not_issue_packet(
                     mutant='hash-ignored', captured=reds),
                  'HASH_TOOL_UNUSABLE: packet issued with failing hash tool'),
-                ('symlink-bypass', lambda reds: state_symlink_must_not_enter_main(
-                    'state', mutant='symlink-bypass', captured=reds),
-                 'STATE_LINK_UNSAFE: make-state-checkout: expected refusal before output')):
+                ('symlink-bypass', lambda reds: safe_state_stays_outside_main(
+                    mutant='symlink-bypass', captured=reds),
+                 'STATE_SAFE_MAIN_DIRTY: issued packet wrote into checkout')):
             reds = []
             rc = probe(reds)
             expected_reds = [reason]
             if name == 'hash-ignored':
                 expected_reds.append('HASH_TOOL_UNUSABLE: manifest issued with failing hash tool')
-            if name == 'symlink-bypass':
-                expected_reds.append('STATE_LINK_MAIN_DIRTY: make-state-checkout:')
             if rc != 1 or len(reds) != len(expected_reds) or not all(
                     any(item.startswith(prefix) for item in reds) for prefix in expected_reds):
                 print(f'STAB_ZHIV: {name}: {reds}', file=sys.stderr)
