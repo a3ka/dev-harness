@@ -7,7 +7,7 @@
   2c7abb6e «land: wip/161/architect (форма пробы #535)» с author=committer=
   owner — ваш пробный merge на ветке («committer owner не объявлен ни одной
   ЗОНА-строкой»). Сверено по дереву консультантом
-  (verdicts/consultant/161-land-owner-committer-klass-v1.md, репродукция в
+  (verdicts/consultant/land-161-owner-committer-klass-v1.md, репродукция в
   одноразовом клоне). Guard не менялся. Последствия без ленда:
   frozen/contracts/161/1 (tag-object 92a28122d, вердикт 6d6f4fcd,
   check_sud_model rc0) не публикуется на origin (контракт 130 — тег после
