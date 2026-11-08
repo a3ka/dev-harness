@@ -8418,3 +8418,15 @@ Arch157h: `scripts/lib_incr.sh:68-111` трактует bare `--incr` как ful
 **Источник:** живой прогон 2026-11-07 ~05:50 UTC: gitw ПРЕДПОЛЁТ-ОТКАЗ «локальный тег не на origin: frozen/contracts/161/1», git tag -d → ПРЕДПОЛЁТ «чисто», push rc0; табло до/после.
 
 **Класс:** конструкция проверки (взаимодействие дверей). **ЧЕМ ЗАКРЫТО:** не закрыто; обход — не приносить ждущий-ленд тег в основной чекаут до ленда; нормативное состояние нести маркером HANDOFF (ЖДЁТ ВЛАДЕЛЬЦА), что и сделано.
+
+## Н-430 — субагент переключил HEAD основного чекаута (2026-11-07 21:55 UTC)
+**Кто/когда/чем (по трейсу):** Impl161f (implementer MiniMax-M3), .git/HEAD mtime 21:55:58; `git symbolic-ref HEAD refs/heads/wip/161/implementer && git read-tree -u --reset HEAD` без `cd <WORKTREE>` (history://Impl161f:697); перед ней :655/:664/:692 (`git branch --show-current` → main; `git checkout wip/161/implementer` → «already used by worktree»). cwd bash-сессии субагента был основной чекаут /home/harness/dev-harness; агент принял его за выданный WORKTREE и решил, что «оркестратор переключил worktree на main».
+**Ущерб:** основной чекаут на wip/161/implementer @76ce5c30b (porcelain пуст), коммиты целы. Устранено `git switch main`, `check_no_leak --check` rc 0. Класс Н-143/Н-165.
+**Мера (cognitive-only):** в каждое задание субагенту: «git checkout/switch/reset/symbolic-ref/read-tree в /home/harness/dev-harness запрещены; каждая git-команда — `cd <WORKTREE> &&` или `git -C <WORKTREE>`; первым делом pwd и rev-parse --show-toplevel». **Механизм (не сделан):** write-guard на git-подкоманды, меняющие HEAD/индекс, при toplevel == основной чекаут. Адрес — очередь автономности.
+
+## Н-431 — тупик gitw: main ↔ frozen-тег (2026-11-08 ~00:00 UTC, 109 v6)
+**Факт:** `gitw push` main отказывает «локальный тег не на origin: frozen/contracts/109/6»; `gitw push origin <тег>` отказывает «вердикт критика не в main цели». Оба условия ждут друг друга, когда freeze_contract.sh ставит тег ПОВЕРХ ещё не опубликованного ленда с вердиктом (на 159/1 порядок был обратный: вердикт уже на origin).
+**Выход этой ночью (не обход гейта — порядок публикации):** `git tag -d <тег>` → `gitw push origin <sha ленда>:refs/heads/main` (код доказан зелёным тяжёлым прогоном PR) → `git update-ref refs/tags/<тег> <тот же объект тега>` → `gitw push origin refs/tags/<тег>` → `gitw push`. Объект тега не пересоздаётся (f2198a2f6… сохранён). **Мера:** публиковать main с вердиктом ДО freeze (freeze на уже опубликованном HEAD). **Механизм (не сделан):** правка порядка проверок gitw — предмет автономности.
+
+## Н-432 — флейк lane l3 `check:ci-e2e-restart-995-family-selftest` (клетка inkarnacija-smert-svip)
+**Факт:** PR #588 и #592 (оба 07.11 ~22:57 и 23:19 UTC): `SVIP k=10/k=19: adb devices -l rc=0 (ожидался 1)`; на #587/#590/#591 зелёный; `gh api -X POST repos/a3ka/dev-harness/actions/runs/<id>/rerun-failed-jobs` после завершения run — зелёный. Не связан с 109/159/161. **Мера:** перезапуск упавшего job; предмет — детерминизм SVIP-эмулятора батареи 995 (адрес — очередь автономности).
