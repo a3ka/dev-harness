@@ -94,3 +94,4 @@ check:spawn-guard-157-family-selftest	30	1	0
 check:proektnaja-raskladka-161-family-selftest	10	1	0
 check:proektnaja-raskladka-161-stabs-family-selftest	25	1	0
 check:make_task-166-family-selftest	10	8	0
+check:pustoj-produkt-159-family-selftest	20	8	0
