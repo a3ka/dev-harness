@@ -1,0 +1,4 @@
+record_id	date	contract	affected_scripts	change	correct_invocation
+1	2026-11-08	161	scripts/make_task.sh,scripts/spawn_agent.sh	Проектный контекст и внешний манифест для запуска агента из проектного worktree	bash scripts/make_task.sh --repo <project-worktree> --role architect --contract <N> --kind task; bash scripts/spawn_agent.sh --root <project-main> --nnn <N> --author architect
+2	2026-11-08	166	scripts/make_task.sh	Разрешён выбор модели судьи независимо от семейства модели автора при сохранении трассы обеих ролей	bash scripts/make_task.sh --repo <project-worktree> --role critic --contract <N> --kind task
+3	2026-11-08	167	scripts/zamok_predmeta.sh	Прерванный суд без закоммиченного вердикта освобождается без зачёта круга; завершённый суд учитывается	bash scripts/zamok_predmeta.sh --osvobodit --sostojanie <state> --zhurnaly <journals> --repo <project-main> <NNN> <holder>
