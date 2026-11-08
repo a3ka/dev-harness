@@ -121,6 +121,14 @@ BASE_CURRENT_W_RC=1
 своя мера (Counter по колонке причины): SUBJECT_ABSENT 3, SUBEKT_RC2 5, GATE_NE_VYZVAN 11, VREMJA_ISTEKLO 8; CASE 27, KRASNO 27
 ```
 
+Повтор на втором одноразовом worktree `base` = `ff320331`:
+
+```text
+замороженный W (блобы фикстуры на теге):  клеток 27, зелёных 0, красных 27; BASE_FROZEN_W_RC=1
+тот же W OBJECT (повтор):                 клеток 27, зелёных 0, красных 27; BASE_CURRENT_W_RC=1
+  REASONS {'SUBJECT_ABSENT': 3, 'SUBEKT_RC2': 5, 'GATE_NE_VYZVAN': 13, 'VREMJA_ISTEKLO': 6}
+```
+
 Совпадает с §Приёмка п. 1 (rc 1; 27 клеток; 3 SUBJECT_ABSENT + 24 W-клетки; причины из названного набора; распределение по нагрузке не порог). Клетки `W-path-bash-*` без гейта не добавляются (`if os.path.isfile(ZHIVOJ_GATE)`), поэтому 27, а не 31. Красное предъявлено своей мерой; после реализации тот же W зелен 51/51 (2).
 
 Фикстура после freeze (`git diff 'frozen/contracts/159/1^{commit}' 2a7fc735b -- fixtures/workshop_project/pustoj_produkt_159/`), автор — только architect:
