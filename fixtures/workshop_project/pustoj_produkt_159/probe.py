@@ -166,6 +166,7 @@ VETKA_PO_FORME = {
     'wiring-wrong-rc': 'RC_NE_1',
     'wiring-rc2-to-rc1': 'RC_NE_2',
     'wiring-thread-before-gate': 'KLETKI_POSLE_OTKAZA',
+    'wiring-spawn-clean-before-gate': 'KLETKI_POSLE_OTKAZA',
     'wiring-path-spoof': 'PATH_PODMENIL_GATE',
 }
 # Обязательная форма трассы у вариантов уровня проводки: сколько
@@ -184,6 +185,7 @@ TRASSA_PO_FORME = {
     'wiring-wrong-rc': 1,
     'wiring-rc2-to-rc1': 1,
     'wiring-thread-before-gate': 1,
+    'wiring-spawn-clean-before-gate': 1,
     'wiring-path-spoof': 1,
     'wiring-no-gate': 0,
 }
@@ -669,6 +671,7 @@ def sudit_staba(stab, svaz):
         if v not in OZHIDAEMYE or v == 'konformnyj':
             utechka('stab_vhod %s вход %s' % (stab, v))
     threaded = forma == 'wiring-thread-before-gate'
+    spawned = forma == 'wiring-spawn-clean-before-gate'
     nuzhnaja = VETKA_PO_FORME[forma]
     baza = tempfile.mkdtemp(prefix='pustoj159-stab-')
     try:
@@ -691,7 +694,7 @@ def sudit_staba(stab, svaz):
             nado_trass = TRASSA_PO_FORME[forma]
             rezultaty = []
             for vid in vhody:
-                if threaded:
+                if threaded or spawned:
                     os.makedirs('/tmp/dev-harness-verify', exist_ok=True)
                     with tempfile.NamedTemporaryFile(
                             prefix='pustoj159-marker-',
@@ -699,11 +702,20 @@ def sudit_staba(stab, svaz):
                         marker = outside.name
                         vetka, pochemu, trass = sudit_provodku(
                             sest, vid, baza, {'PUSTOJ_MUT_MARKER': marker})
+                        if spawned:
+                            # The clean-env child outlives the subject; wait
+                            # for proof that it ran after the parent's exit.
+                            for _ in range(300):
+                                if os.path.getsize(marker):
+                                    break
+                                time.sleep(0.02)
                         executed = (os.path.isfile(marker) and
                                     open(marker, encoding='utf-8').read() ==
-                                    'thread cell after gate refusal\n')
+                                    ('thread cell after gate refusal\n'
+                                     if threaded else
+                                     'spawn cell after gate refusal\n'))
                     if not executed:
-                        return False, 'THREAD_CELL_NOT_EXECUTED %s' % vid
+                        return False, 'PRE_GATE_CELL_NOT_EXECUTED %s' % vid
                 elif forma == 'wiring-path-spoof':
                     os.makedirs('/tmp/dev-harness-verify', exist_ok=True)
                     with tempfile.TemporaryDirectory(
