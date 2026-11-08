@@ -34,6 +34,53 @@ if _gate and _observer_fd is not None and _subject:
         if _cells:
             with open(_cells, 'ab') as out:
                 out.write(line)
+    # A thread/process spawned before the gate can wait for its refusal and
+    # execute a cell without inheriting this thread-local Python profiler.
+    # Record the start, not the eventual side effect: the pipe is held by the
+    # checker, outside the subject's mutable tree.  The direct gate child is
+    # the one permitted spawn on the early-exit path.
+    import _thread
+    import subprocess
+    import threading
+
+    _thread_start = _thread.start_new_thread
+    _threading_start = threading.Thread.start
+    _fork = os.fork
+    _popen = subprocess.Popen
+
+    def _started(kind):
+        _record('PRE_GATE_%s' % kind if not os.path.exists(_gate)
+                else 'POST_GATE_%s' % kind)
+
+    def _start_thread(*args, **kwargs):
+        _started('THREAD')
+        return _thread_start(*args, **kwargs)
+
+    def _start_threading(self, *args, **kwargs):
+        _started('THREAD')
+        return _threading_start(self, *args, **kwargs)
+
+    def _start_fork(*args, **kwargs):
+        _started('FORK')
+        return _fork(*args, **kwargs)
+
+    def _start_process(*args, **kwargs):
+        command = args[0] if args else kwargs.get('args')
+        argv = command if isinstance(command, (list, tuple)) else ()
+        executable = os.fspath(argv[0]) if argv else ''
+        target = os.fspath(argv[1]) if len(argv) > 1 else ''
+        root = os.path.abspath(os.path.join(
+            os.path.dirname(_subject), '..', '..', '..'))
+        gates = (os.path.join(root, 'scripts', 'check_pustoj_produkt.sh'),
+                 os.path.join(os.path.dirname(_observer), 'gate_tracer.sh'))
+        if not (os.path.basename(executable) == 'bash' and target in gates):
+            _started('SUBPROCESS')
+        return _popen(*args, **kwargs)
+
+    _thread.start_new_thread = _start_thread
+    threading.Thread.start = _start_threading
+    os.fork = _start_fork
+    subprocess.Popen = _start_process
     _forward_or_return = ('return', 'if ', 'elif ', 'else:',
                           'sys.stdout.write(', 'sys.stderr.write(',
                           'sys.stdout.flush(', 'sys.stderr.flush(', 'print(')
