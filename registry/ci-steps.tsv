@@ -285,3 +285,6 @@ step	check:odin-agent-140-family-selftest	55	bash fixtures/workshop_project/odin
 step	check:nul-istochnika-153-family-selftest	50	bash fixtures/workshop_project/nul_istochnika_153/probe.sh
 step	check:nul-istochnika-153-stabs-family-selftest	65	bash fixtures/workshop_project/nul_istochnika_153/probe.sh --stabs
 step	check:spawn-guard-157-family-selftest	30	npm run check:spawn-guard-157-family-selftest
+# КОНТРАКТ 161: батарея проектной раскладки (манифест во внешнем state вне checkout/.git; TMPDIR/PATH git/sha256, symlink итогового каталога): W — реальные scripts/make_task.sh и scripts/spawn_agent.sh (замер Reviewer161Opus2: bare ~7 с), --stabs ~22 с; проводка — ПРОВОДКА контракта 161 (guard-канал, check_provodka).
+step	check:proektnaja-raskladka-161-family-selftest	10	bash fixtures/workshop_project/proektnaja_raskladka_161/red_proektnaja_raskladka_161.sh
+step	check:proektnaja-raskladka-161-stabs-family-selftest	25	bash fixtures/workshop_project/proektnaja_raskladka_161/red_proektnaja_raskladka_161.sh --stabs
