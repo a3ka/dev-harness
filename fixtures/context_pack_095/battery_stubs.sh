@@ -24,7 +24,7 @@
 # s14 слой проекта игнорируется      m14  red_profil_dva_sloja.sh
 # s15 нога манифеста снята с двери   m15  red_dver_spawn_manifest.sh
 # s16 статус-фильтр ADR снят         m16  red_uroki_po_oblasti.sh
-# s17 семейство судьи не сверяется   m17  red_revjer_poluchaet_vydannoe.sh
+# s17 авторский след судьи снят      m17  red_revjer_poluchaet_vydannoe.sh
 # s18 содержание брифа вынуто        m18  red_orch_brief_starter.sh
 # s19 отказ активным снят            m19  red_orch_brief_karta_legacy.sh
 set -uo pipefail
