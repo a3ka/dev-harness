@@ -94,6 +94,10 @@ RUNNER123 = os.path.join(KOREN, 'scripts', 'sverka_maketa.py')
 # первое действие --repo-ветви экранных батарей домена.
 GEJT_PUSTOGO_PRODUKTA = os.path.join(KOREN, 'scripts',
                                     'check_pustoj_produkt.sh')
+# Доверенный интерпретатор гейта — АБСОЛЮТНЫЙ путь: подмена bash через
+# PATH подменяла сам гейт (adversary 159, блок 2). Нет интерпретатора —
+# именованный fail-closed rc 2 NOT_IMPLEMENTED, обращения к PATH нет.
+DOVERENNYY_BASH = '/usr/bin/bash'
 
 # лекало 143/2 (И-8, блок Crit149 круг 1): копия frozen-шаблона — носитель
 # зоны (пин sha256 в source.json, байты == тегу 3ca9d92f); агрегаты и
@@ -2377,7 +2381,12 @@ def main():
         # действие --repo-ветви. Отказ гейта — единственная строка вывода
         # батареи и его код; своих клеток после отказа батарея не
         # запускает (инвариант 2).
-        rc_gejta = subprocess.run(['bash', GEJT_PUSTOGO_PRODUKTA, repo_r]).returncode
+        if not (os.path.isfile(DOVERENNYY_BASH)
+                and os.access(DOVERENNYY_BASH, os.X_OK)):
+            print('NOT_IMPLEMENTED: нет доверенного интерпретатора %s'
+                  % DOVERENNYY_BASH, file=sys.stderr)
+            return 2
+        rc_gejta = subprocess.run([DOVERENNYY_BASH, GEJT_PUSTOGO_PRODUKTA, repo_r]).returncode
         if rc_gejta != 0:
             return rc_gejta
     elif '--oracle-tamper' in argv:

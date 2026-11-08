@@ -16,6 +16,10 @@ HERE = Path(__file__).resolve().parent
 # первое действие --repo-ветви экранных батарей домена.
 GEJT_PUSTOGO_PRODUKTA = str(HERE.parents[2] / 'scripts' /
                             'check_pustoj_produkt.sh')
+# Доверенный интерпретатор гейта — АБСОЛЮТНЫЙ путь: подмена bash через
+# PATH подменяла сам гейт (adversary 159, блок 2). Нет интерпретатора —
+# именованный fail-closed rc 2 NOT_IMPLEMENTED, обращения к PATH нет.
+DOVERENNYY_BASH = '/usr/bin/bash'
 SUBJECT = 'mobile/src/lib/otdacha/index.ts'
 SWEEP_STEP = 0.25
 HOLD_MS = 1000
@@ -226,7 +230,12 @@ def main():
     # единственная строка вывода батареи и его код; своих клеток после
     # отказа батарея не запускает (инвариант 2).
     if args.repo is not None:
-        rc_gejta = subprocess.run(['bash', GEJT_PUSTOGO_PRODUKTA, os.fspath(args.repo)]).returncode
+        if not (os.path.isfile(DOVERENNYY_BASH)
+                and os.access(DOVERENNYY_BASH, os.X_OK)):
+            print('NOT_IMPLEMENTED: нет доверенного интерпретатора %s'
+                  % DOVERENNYY_BASH, file=sys.stderr)
+            return 2
+        rc_gejta = subprocess.run([DOVERENNYY_BASH, GEJT_PUSTOGO_PRODUKTA, os.fspath(args.repo)]).returncode
         if rc_gejta != 0:
             return rc_gejta
     runtime = args.runtime or args.repo or (Path(os.environ['MOB_151_RUNTIME']) if os.environ.get('MOB_151_RUNTIME') else None)
