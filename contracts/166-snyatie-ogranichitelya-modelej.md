@@ -29,7 +29,7 @@
 - Дано честная модель будущего поведения; когда `python3 fixtures/workshop_project/model_choice_166/probe.py --model`; тогда rc 0 с зелёными положительными и именованными отрицательными проверками. Когда `python3 fixtures/workshop_project/model_choice_166/probe.py --stabs`; тогда rc 0 при обнаружении независимых порч; невыявленная порча/невалидный честный контроль возвращает не 0. Адресное соответствие мутаций и входов существует только в КОДЕ `probe.py`.
 - Дано реализация; когда `bash fixtures/context_pack_095/red_revjer_poluchaet_vydannoe.sh` и `bash fixtures/context_pack_095/battery_stubs.sh`, затем scoped батарея 136 (`bash fixtures/workshop_project/sessii_136/red_sessii_136.sh --model` и `bash fixtures/workshop_project/sessii_136/red_sessii_136.sh --stabs`), тогда rc 0 без переустановки прежнего отказа; TASK, frozen, след трассы, исключения проекта и порчи s6/s7 сохраняются.
 - Дано выбранная владельцем модель судьи на реальном role-tier; когда `bash scripts/check_sud_model.sh --spawn critic <назначенная-модель> --root .` и существующая связанная `--verdict`-проверка, тогда rc 0 при совпадении с назначением; несовпадение с назначением rc 1, даже если семья автора другая. Дано роль с кадрами без images; когда действующий overlay-гейт, тогда прежний отказ. Эти две проверки не мигрируют.
-- Дано обновлённые норма и fixtures; когда `npm run gen:harness` и `npm run gen:harness -- --check` (сверить реальный CLI), затем `bash scripts/pre_critic.sh --repo . contracts/166-snyatie-ogranichitelya-modelej.md`; тогда rc 0 для генератора и двери. CI шаг 166 исполняет оба режима модели и обновлённые 095/136 и есть в проводке; новые модельные назначения не навязываются.
+- Дано обновлённые норма и fixtures; когда `npm run gen:harness` и `npm run gen:harness -- --check` (сверить реальный CLI), затем `bash scripts/pre_critic.sh --repo . contracts/166-snyatie-ogranichitelya-modelej.md`; тогда rc 0 для генератора и двери. CI шаг 166 запускает `bash fixtures/workshop_project/model_choice_166/red_model_choice_166.sh` (без аргументов: живой субъект, честная модель и стабы); обновлённые 095/136 исполняются своими шагами CI. Шаг 166 есть в проводке; новые модельные назначения не навязываются.
 
 ## Модель угроз
 
@@ -56,6 +56,7 @@
 ЗОНА critic: verdicts/critic/
 ЗОНА reviewer: verdicts/review/
 ЗОНА orchestrator: registry/ci-steps.tsv registry/ci-zamery.tsv .github/workflows/ci.yml
+Строка CI для orchestrator в `registry/ci-steps.tsv` (разделители — TAB): `step	check:make_task-166-family-selftest	10	bash fixtures/workshop_project/model_choice_166/red_model_choice_166.sh`. Ключ `make_task` стоит в некомментарийной строке для guard-канала 038.
 ПЕРЕСЕЧЕНИЕ implementer: fixtures/context_pack_095/ — 095 только снятие семейного отказа; TASK и прочие клетки сохраняются
 ПЕРЕСЕЧЕНИЕ implementer: fixtures/workshop_project/sessii_136/ — 136 только снятие семейного отказа в копиях; другие порчи сохраняются
 ПЕРЕСЕЧЕНИЕ implementer: AGENTS.md — 002 только снятие семейного отказа по слову владельца
@@ -157,11 +158,13 @@
 - setting реестр `config/agent_models.json` назначает модель в контролируемом владельцем месте; реальные записи `models_actual.sh` доступны для связанной проверки 104, не генерируются батареей 166.
 
 ПРОВОДКА:
-role=roles/critic.md «Модель судьи выбирается назначением роли, без сравнения семейства и модели с автором; судья не судит собственную работу»
-role=roles/orchestrator.md «Выбирай модель роли по реестру и сверяй фактическую трассу; совпадение модели с автором не причина отказа»
-charter=AGENTS.md §Модели ролей «Судьи допускаются на назначенных моделях независимо от семейства и модели автора»
-guard=scripts/make_task.sh
+- role=roles/critic.md «Модель судьи выбирается назначением роли, без сравнения семейства и модели с автором; судья не судит собственную работу»
+- role=roles/orchestrator.md «Выбирай модель роли по реестру и сверяй фактическую трассу; совпадение модели с автором не причина отказа»
+- charter=AGENTS.md §Модели ролей «Судьи допускаются на назначенных моделях независимо от семейства и модели автора»
+- guard=scripts/make_task.sh
 ПРОВОДКА-ЭНФОРСМЕНТ: guard удаляет только отказ на совпадении, а обязательный авторский и судейский след оставляет на CLI; выбор роли владельцем не подменяется.
+
+## Порядок и разрешение
 
 Изменяющий `AGENTS.md` implementer-коммит несёт ДОСЛОВНО отдельной строкой в первой колонке тела:
 РАЗРЕШИЛ-ВЛАДЕЛЕЦ: AGENTS.md снятие требования независимости семейств моделей судей и авторов — слово владельца 2026-11-07 «вообще убрать этот ограничитель» (выбор модели любого агента свободен)
