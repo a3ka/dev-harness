@@ -643,8 +643,14 @@ osvobodit() {
   # не снимается, RELEASE не пишется (отсутствие доступа ≠ доказательство).
   h_klass="$(jq -r '.klass // ""' "$zdir/zanyat/holder.json" 2>/dev/null)"
   if [ "$h_klass" = 'sudja' ]; then
-    git -C "$REPO" ls-remote --heads origin >/dev/null 2>&1 || skip "judge refs недоступны"
-    git -C "$REPO" fetch -q --prune origin '+refs/heads/*:refs/remotes/origin/*' >/dev/null 2>&1 || skip "judge refs не синхронизированы"
+    if ! git -C "$REPO" ls-remote --heads origin >/dev/null 2>&1; then
+      rmdir "$zdir/mutex" 2>/dev/null
+      skip "judge refs недоступны"
+    fi
+    if ! git -C "$REPO" fetch -q --prune origin '+refs/heads/*:refs/remotes/origin/*' >/dev/null 2>&1; then
+      rmdir "$zdir/mutex" 2>/dev/null
+      skip "judge refs не синхронизированы"
+    fi
     h_rol="$(jq -r '.rol // ""' "$zdir/zanyat/holder.json" 2>/dev/null)"
     h_obj="$(jq -r '.object // ""' "$zdir/zanyat/holder.json" 2>/dev/null)"
     if verdict_sessii "$NNN_ARG" "$h_holder" "$h_rol" "$h_obj"; then
