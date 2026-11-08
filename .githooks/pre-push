@@ -212,8 +212,8 @@ merge_167_razreshen() {  # <коммит> <remote ref> → 0 (разрешено
   [ "$r" -eq 1 ] || return 1
   base="$(git -C "$ROOT" merge-base "$p1" "$p2" 2>/dev/null)" || return 1
   [ -n "$base" ] || return 1
-  mapfile -t d1 < <(git -C "$ROOT" diff --name-only "$base" "$p1" 2>/dev/null)
-  mapfile -t d2 < <(git -C "$ROOT" diff --name-only "$base" "$p2" 2>/dev/null)
+  mapfile -t d1 < <(git -C "$ROOT" diff --no-renames --name-only "$base" "$p1" 2>/dev/null)
+  mapfile -t d2 < <(git -C "$ROOT" diff --no-renames --name-only "$base" "$p2" 2>/dev/null)
   peresech=0; reestr=0
   for path in "${d1[@]}"; do
     for val in "${d2[@]}"; do
@@ -268,8 +268,8 @@ merge_167_razreshen() {  # <коммит> <remote ref> → 0 (разрешено
     [ -n "${L[$key]+x}" ] || [ -n "${R[$key]+x}" ] || return 1
   done
   # прочие пути результата — как в независимом трёхстороннем слиянии
-  mapfile -t cm < <(git -C "$ROOT" diff --name-only "$p1" "$c" 2>/dev/null)
-  mapfile -t cm2 < <(git -C "$ROOT" diff --name-only "$p2" "$c" 2>/dev/null)
+  mapfile -t cm < <(git -C "$ROOT" diff --no-renames --name-only "$p1" "$c" 2>/dev/null)
+  mapfile -t cm2 < <(git -C "$ROOT" diff --no-renames --name-only "$p2" "$c" 2>/dev/null)
   for path in "${cm[@]}" "${cm2[@]}"; do
     [ "$path" = 'registry/contracts.tsv' ] && continue
     ours="$(git -C "$ROOT" rev-parse "$c:$path" 2>/dev/null)"; r1=$?
