@@ -34,19 +34,15 @@ if _gate and _observer_fd is not None and _subject:
         if _cells:
             with open(_cells, 'ab') as out:
                 out.write(line)
-    # A thread/process spawned before the gate can wait for its refusal and
-    # execute a cell without inheriting this thread-local Python profiler.
-    # Record the start, not the eventual side effect: the pipe is held by the
-    # checker, outside the subject's mutable tree.  The direct gate child is
-    # the one permitted spawn on the early-exit path.
+    # The parent must report a spawn even if the child starts with env={}
+    # or -E -S and never loads this observer.  Keep wrappers for thread
+    # starts (CPython does not audit threading.Thread.start), and use the
+    # process audit events for native forks, execs and all spawn variants.
     import _thread
-    import subprocess
     import threading
 
     _thread_start = _thread.start_new_thread
     _threading_start = threading.Thread.start
-    _fork = os.fork
-    _popen = subprocess.Popen
 
     def _started(kind):
         _record('PRE_GATE_%s' % kind if not os.path.exists(_gate)
@@ -59,28 +55,8 @@ if _gate and _observer_fd is not None and _subject:
     def _start_threading(self, *args, **kwargs):
         _started('THREAD')
         return _threading_start(self, *args, **kwargs)
-
-    def _start_fork(*args, **kwargs):
-        _started('FORK')
-        return _fork(*args, **kwargs)
-
-    def _start_process(*args, **kwargs):
-        command = args[0] if args else kwargs.get('args')
-        argv = command if isinstance(command, (list, tuple)) else ()
-        executable = os.fspath(argv[0]) if argv else ''
-        target = os.fspath(argv[1]) if len(argv) > 1 else ''
-        root = os.path.abspath(os.path.join(
-            os.path.dirname(_subject), '..', '..', '..'))
-        gates = (os.path.join(root, 'scripts', 'check_pustoj_produkt.sh'),
-                 os.path.join(os.path.dirname(_observer), 'gate_tracer.sh'))
-        if not (os.path.basename(executable) == 'bash' and target in gates):
-            _started('SUBPROCESS')
-        return _popen(*args, **kwargs)
-
     _thread.start_new_thread = _start_thread
     threading.Thread.start = _start_threading
-    os.fork = _start_fork
-    subprocess.Popen = _start_process
     _forward_or_return = ('return', 'if ', 'elif ', 'else:',
                           'sys.stdout.write(', 'sys.stderr.write(',
                           'sys.stdout.flush(', 'sys.stderr.flush(', 'print(')
@@ -123,10 +99,31 @@ if _gate and _observer_fd is not None and _subject:
     sys.settrace(_trace)
 
     def _audit(event, args):
-        # CPython audit hooks cannot be removed by sys.settrace/profile(None).
-        # A subject trying to blind the observer before the gate still leaves
-        # evidence even if the subsequent cell is silent.
+        # CPython audit hooks survive sys.settrace/profile(None).  Process
+        # events are observed in the parent, before any clean-env child runs.
         if event in ('sys.settrace', 'sys.setprofile'):
             _record('OBSERVER_DISABLED:%s' % event)
+        elif event in ('os.posix_spawn', 'os.spawn', 'os.system',
+                       'os.exec', 'os.fork', 'os.forkpty',
+                       'subprocess.Popen', '_thread.start_new_thread'):
+            if event in ('subprocess.Popen', 'os.posix_spawn', 'os.spawn'):
+                executable = args[0] if args else None
+                argv = args[1] if len(args) > 1 else None
+                root = os.path.abspath(os.path.join(
+                    os.path.dirname(_subject), '..', '..', '..'))
+                gate = os.path.join(root, 'scripts',
+                                    'check_pustoj_produkt.sh')
+                tracer = os.path.join(os.path.dirname(_observer),
+                                      'gate_tracer.sh')
+                if (isinstance(argv, (list, tuple)) and len(argv) == 3
+                        and ((executable == '/usr/bin/bash'
+                              and argv[0] == '/usr/bin/bash'
+                              and argv[1] in (gate, tracer))
+                             or (event == 'subprocess.Popen'
+                                 and executable == 'bash'
+                                 and argv[0] == 'bash'
+                                 and argv[1] == tracer))):
+                    return  # The fixture's tracer also uses bash from PATH.
+            _started('SPAWN:' + event)
 
     sys.addaudithook(_audit)

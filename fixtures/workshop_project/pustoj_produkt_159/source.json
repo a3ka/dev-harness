@@ -25,12 +25,13 @@
    "stabs/s15_kletka_v_chuzhom_fajle.py",
    "stabs/s16_thread_posle_otkaza.py",
    "stabs/s17_path_bash.py",
+   "stabs/s18_spawn_clean_posle_otkaza.py",
    "stabs/path_fake_bash.py"
   ],
   "sha": {
    "model/check_pustoj_produkt_159.py": "78332e66bbb68d4e8819accf2b2222c66567ffc1a59fd39bf0b28e498dd5c939",
    "model/gate_tracer.sh": "c6b72bad0975928b9f4ae1faf8ce74b65b2df2ddf9f5cb4a07ff997a322f2bc8",
-   "model/sitecustomize.py": "a511d5bd66a11f98defb87b73fb95aa6a5e042b80c677716231124c4a9f31022",
+   "model/sitecustomize.py": "00f9ef677fd0ea6c446647edd674a26becbabfbdfe2f07db1e5c9580ccbd108e",
    "model/wiring_honest.py": "47e34db10ed2e7b6a9d7e60f6ca8825cb27e600b84fdad3f5be3637c020d1a73",
    "stabs/kletka_v_chuzhom_fajle.py": "403eb49e2b5e2781e6061305d4495e37d19fa4a8f90dd6ffcc1dc1cab53ba1b5",
    "stabs/s1_ignoriruet_rezultat.py": "2b7f46760a0703d92d8c59770d3857f6b86240d659c27adc964e8068e35dc925",
@@ -50,6 +51,7 @@
    "stabs/s15_kletka_v_chuzhom_fajle.py": "c8a732197e3644d360946bb5aba99aa6ccbcfaa89a51fd7c0f51ecf0103e5a1c",
    "stabs/s16_thread_posle_otkaza.py": "eb695f30116dc5fe6b78c5353f8922694ffcdc35a3d2c8f6639d4525bc6c6638",
    "stabs/s17_path_bash.py": "58b25ed8a3af458e8ece70fef9f85916730bbc131879d48a19aaea5b45337280",
+   "stabs/s18_spawn_clean_posle_otkaza.py": "c868733979f7cc2a469a0e683b7fc071fb008edbf459aa7a3cb3a1393ff3125a",
    "stabs/path_fake_bash.py": "f5c03984a15186b4285b3557b973d9475c702b16f5e81497d2efa3941631bd64"
   }
  },
@@ -70,7 +72,8 @@
   "s14_stiraet_nabljudenie.py": "stabs/s14_stiraet_nabljudenie.py",
   "s15_kletka_v_chuzhom_fajle.py": "stabs/s15_kletka_v_chuzhom_fajle.py",
   "s16_thread_posle_otkaza.py": "stabs/s16_thread_posle_otkaza.py",
-  "s17_path_bash.py": "stabs/s17_path_bash.py"
+  "s17_path_bash.py": "stabs/s17_path_bash.py",
+  "s18_spawn_clean_posle_otkaza.py": "stabs/s18_spawn_clean_posle_otkaza.py"
  },
  "stab_vhod": {
   "s1_ignoriruet_rezultat.py": {
@@ -217,6 +220,11 @@
   "s17_path_bash.py": {
    "vhody": ["a-forma-pusta", "d1-karta-nechitaema"],
    "forma": "wiring-path-spoof",
+   "argv": "gate R"
+  },
+  "s18_spawn_clean_posle_otkaza.py": {
+   "vhody": ["a-forma-pusta", "d1-karta-nechitaema"],
+   "forma": "wiring-spawn-clean-before-gate",
    "argv": "gate R"
   }
  },
