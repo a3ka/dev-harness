@@ -235,8 +235,25 @@ EOF
 # Сверка по учёту: судья РОЛИ на OBJECT сдал (аргументы jq — из замкнутых
 # алфавитов: rol из JUDGES, object 40-hex, subjectId [0-9]{3}; сравнения
 # литеральные в самом фильтре, склеек из чужого текста нет).
+# [D11 uzhe-suzhen] Круг судейства состоялся, если судья этой роли на этом
+# OBJECT дал START и его круг не закрыт собственным RELEASE `obryv_bez_verdikta`
+# (контракт 167: оборванный судья — START без закоммиченного вердикта — круг D11
+# не тратит; его release даёт ровно один повтор, а новый START повторного судьи
+# снова учитывается). Первый запрос — «был ли START вообще»: без него круг не
+# состоялся. Второй — по каждому судье отдельно: круг закрыт только его
+# собственным release.
 subekt_suzhen_sudej_obj() {  # <NNN> <rol> <object>
-  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" 'any(.[]; .t == "START" and .repoId == $r and .subjectId == $n and .klass == "sudja" and .rol == $roli and .object == $o)' "$LEDGER" >/dev/null 2>&1
+  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" 'any(.[]; .t == "START" and .repoId == $r and .subjectId == $n and .klass == "sudja" and .rol == $roli and .object == $o)' "$LEDGER" >/dev/null 2>&1 || return 1
+  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" '
+    reduce .[] as $l ({};
+      if $l.repoId != $r or $l.subjectId != $n then .
+      elif $l.t == "START" and $l.klass == "sudja" and $l.rol == $roli and $l.object == $o
+        then .[$l.holder] = "open"
+      elif $l.t == "RELEASE" and .[$l.holder] == "open" and $l.prichina == "obryv_bez_verdikta"
+        then .[$l.holder] = "interrupted"
+      elif $l.t == "RELEASE" and .[$l.holder] == "open" then .[$l.holder] = "judged"
+      else . end
+    ) | any(.[]; . != "interrupted")' "$LEDGER" >/dev/null 2>&1
 }
 # [D16 slovo] СЛОВО владельца — строка SLOVO в учёте (санкция сверх лимита).
 slovo_vladelca() {  # <NNN>
@@ -458,12 +475,14 @@ EOF
           otp ZAMOK_BROSHEN "предмет $sv: holder $h_holder без сдачи и без записей >${BROSHEN_TTL_MIN} мин — только --osvobodit, НЕ авто-перезапуск"
           ;;
       esac
-      # [D11 uzhe-suzhen] повторный круг ТОЙ ЖЕ РОЛИ на ТОМ ЖЕ OBJECT — отказ
-      # (боль 117: 7×); другая роль тот же OBJECT судит свободно (конвейер).
-      if [ "$klass" = 'sudja' ] && subekt_suzhen_sudej_obj "$sv" "$rol" "$obj"; then
-        mutexi_snyat_vse
-        otp OBJECT_UZHE_SUZHEN "предмет $sv: OBJECT $obj уже судился ролью $rol; исправительный круг — новый sha"
-      fi
+    fi
+    # [D11 uzhe-suzhen] повторный круг ТОЙ ЖЕ РОЛИ на ТОМ ЖЕ OBJECT — отказ
+    # (боль 117: 7×); другая роль тот же OBJECT судит свободно (конвейер).
+    # Суд идёт и при освобождённом замке (контракт 167): круг судейства считается
+    # по учёту (START и его собственный RELEASE), а не по наличию замка.
+    if [ "$klass" = 'sudja' ] && subekt_suzhen_sudej_obj "$sv" "$rol" "$obj"; then
+      mutexi_snyat_vse
+      otp OBJECT_UZHE_SUZHEN "предмет $sv: OBJECT $obj уже судился ролью $rol; исправительный круг — новый sha"
     fi
     if [ "$klass" = 'sudja' ]; then
       rab="$(poslednij_rabochij "$sv")"
@@ -554,6 +573,34 @@ EOF
 }
 
 # ═════════════════════════════ --osvobodit ═══════════════════════════════════
+# [D11 verdict-zakommiten] Истинность вердикта доказывается Git-коммитом в refs
+# судейской ветки и его blob: первая строка `accept`/`FAIL`, самостоятельная
+# строка `OBJECT=<sha>`, литеральные поля `роль=<роль>;` и `сессия=<holder>;`
+# в строке `СУД:`, автор коммита — роль. Строка в ledger/журнале/рабочем файле
+# без коммита доказательством не является. Локальные и опубликованные судейские
+# refs синхронизируются ДО классификации (вызывающий освобождает — судья уже не
+# пишет); недоступность refs — отказ NOT_IMPLEMENTED, а не разрешение повтора.
+verdict_sessii() {  # <NNN> <holder> <rol> <OBJECT>
+  local c path blob sud fields first dir
+  case "$3" in critic|critic-sol) dir=critic ;; reviewer) dir=review ;; adversary) dir=adversary ;; *) return 1 ;; esac
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    [ "$(git -C "$REPO" log -1 --format=%an "$c")" = "$3" ] || continue
+    while IFS= read -r path; do
+      case "$path" in verdicts/"$dir"/contracts-"$1"-v[0-9]*.md) ;; *) continue ;; esac
+      blob="$(git -C "$REPO" show "$c:$path" 2>/dev/null)" || continue
+      IFS= read -r first <<< "$blob"
+      case "$first" in accept|FAIL) ;; *) continue ;; esac
+      printf '%s\n' "$blob" | grep -Fxq "OBJECT=$4" || continue
+      sud="$(printf '%s\n' "$blob" | grep '^СУД: ')" || continue
+      fields="${sud#СУД: }"
+      printf '%s\n' "$fields" | tr ';' '\n' | sed 's/^ *//;s/ *$//' | grep -Fxq "роль=$3" || continue
+      printf '%s\n' "$fields" | tr ';' '\n' | sed 's/^ *//;s/ *$//' | grep -Fxq "сессия=$2" || continue
+      return 0
+    done < <(git -C "$REPO" diff-tree --root --no-commit-id --name-only -r "$c" -- "verdicts/$dir/")
+  done < <(git -C "$REPO" log --all --format=%H -- "verdicts/$dir/")
+  return 1
+}
 osvobodit() {
   [ -n "$NNN_ARG" ] && [ -n "$HOLDER_ARG" ] || usage
   case "$NNN_ARG" in
@@ -588,6 +635,24 @@ osvobodit() {
       otp ZAMOK_ZHIV "holder $h_holder пишет в журнал свежее (без yield) — живой замок не освобождается"
       ;;
   esac
+  # [D11 obryv-bez-verdikta] Причина освобождения судьи — по доказанному
+  # коммиту вердикта, а не по вызову yield: `verdikt_zakommiten` — вердикт
+  # данной роли/сессии/OBJECT закоммичен; `obryv_bez_verdikta` — доказано
+  # отсутствие такого коммита (оборванный судья: круг D11 не тратит, повтор
+  # разрешён один раз). Недоступность судейских refs — NOT_IMPLEMENTED: замок
+  # не снимается, RELEASE не пишется (отсутствие доступа ≠ доказательство).
+  h_klass="$(jq -r '.klass // ""' "$zdir/zanyat/holder.json" 2>/dev/null)"
+  if [ "$h_klass" = 'sudja' ]; then
+    git -C "$REPO" ls-remote --heads origin >/dev/null 2>&1 || skip "judge refs недоступны"
+    git -C "$REPO" fetch -q --prune origin '+refs/heads/*:refs/remotes/origin/*' >/dev/null 2>&1 || skip "judge refs не синхронизированы"
+    h_rol="$(jq -r '.rol // ""' "$zdir/zanyat/holder.json" 2>/dev/null)"
+    h_obj="$(jq -r '.object // ""' "$zdir/zanyat/holder.json" 2>/dev/null)"
+    if verdict_sessii "$NNN_ARG" "$h_holder" "$h_rol" "$h_obj"; then
+      prichina='verdikt_zakommiten'
+    else
+      prichina='obryv_bez_verdikta'
+    fi
+  fi
   rm -rf "$zdir/zanyat"
   jq -nc --arg t RELEASE --arg r "$REPO_ID" --arg s "$NNN_ARG" --arg h "$h_holder" \
         --arg p "$prichina" --arg at "$(ts_now)" \
