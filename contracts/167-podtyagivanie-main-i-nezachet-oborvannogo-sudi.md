@@ -29,14 +29,22 @@
 ## Зоны и проводка
 
 ЗОНА architect: contracts/167-podtyagivanie-main-i-nezachet-oborvannogo-sudi.md fixtures/workshop_project/obryv_167/
-ЗОНА implementer: scripts/zamok_predmeta.sh .githooks/pre-push roles/orchestrator.md fixtures/workshop_project/odin_agent_140/probe.py
+ЗОНА implementer: scripts/zamok_predmeta.sh .githooks/pre-push roles/orchestrator.md .omp/agents/orchestrator.md fixtures/workshop_project/odin_agent_140/probe.py
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
 ЗОНА reviewer: verdicts/review/
 ЗОНА orchestrator: registry/ci-steps.tsv registry/ci-zamery.tsv .github/workflows/ci.yml
 ПЕРЕСЕЧЕНИЕ implementer: scripts/zamok_predmeta.sh — 140 только D11 и причина судейского RELEASE; остальные клетки без изменений.
-ПЕРЕСЕЧЕНИЕ implementer: fixtures/workshop_project/odin_agent_140/probe.py — 140 только s06: создать настоящий закоммиченный verdict для прежнего отрицательного инварианта D11; остальные клетки и источник модели сохраняются.
+ПЕРЕСЕЧЕНИЕ implementer: fixtures/workshop_project/odin_agent_140/probe.py — 140 только s06: создать настоящий закоммиченный verdict для прежнего отрицательного инварианта D11; b05: release судьи с причиной obryv_bez_verdikta вместо унаследованной yield; остальные клетки и источник модели сохраняются.
 ПЕРЕСЕЧЕНИЕ implementer: .githooks/pre-push — 022 только узкое исключение verdict merge main в PR; общее кольцо charter и не-PR refs без изменений.
+ПЕРЕСЕЧЕНИЕ implementer: .omp/agents/orchestrator.md — 002 только вывод изменённого текста roles/orchestrator.md генератором `npm run gen:harness`; прочее без изменений.
+ПЕРЕСЕЧЕНИЕ implementer: .omp/agents/orchestrator.md — 003 только вывод изменённого текста roles/orchestrator.md генератором `npm run gen:harness`; прочее без изменений.
+ПЕРЕСЕЧЕНИЕ implementer: .omp/agents/orchestrator.md — 005 только вывод изменённого текста roles/orchestrator.md генератором `npm run gen:harness`; прочее без изменений.
+ПЕРЕСЕЧЕНИЕ implementer: .omp/agents/orchestrator.md — 010 только вывод изменённого текста roles/orchestrator.md генератором `npm run gen:harness`; прочее без изменений.
+ПЕРЕСЕЧЕНИЕ implementer: .omp/agents/orchestrator.md — 050 только вывод изменённого текста roles/orchestrator.md генератором `npm run gen:harness`; прочее без изменений.
+ПЕРЕСЕЧЕНИЕ implementer: .omp/agents/orchestrator.md — 061 только вывод изменённого текста roles/orchestrator.md генератором `npm run gen:harness`; прочее без изменений.
+ПЕРЕСЕЧЕНИЕ implementer: .omp/agents/orchestrator.md — 068 только вывод изменённого текста roles/orchestrator.md генератором `npm run gen:harness`; прочее без изменений.
+ПЕРЕСЕЧЕНИЕ implementer: .omp/agents/orchestrator.md — 069 только вывод изменённого текста roles/orchestrator.md генератором `npm run gen:harness`; прочее без изменений.
 ПЕРЕСЕЧЕНИЕ implementer: roles/orchestrator.md — 140 только норма судьи и PR-синхронизации; чужие нормы неизменны.
 ПЕРЕСЕЧЕНИЕ implementer: roles/orchestrator.md — 010 добавляется только норма 167; топология ролей сохраняется.
 ПЕРЕСЕЧЕНИЕ implementer: roles/orchestrator.md — 012 добавляется только норма 167; прежние нормы сохраняются.
@@ -126,10 +134,10 @@
 - setting Судейские refs доступны в локальной Git-базе до классификации verdict или дверь именованно отказывает, без догадки об их отсутствии по одному worktree.
 
 ПРОВОДКА:
-- role=roles/orchestrator.md: разрешённый узкий merge и обязательные CI/суд на новом head.
-- guard=.githooks/pre-push: отбрасывает опасное слияние.
-- guard=scripts/zamok_predmeta.sh: D11 считает только учтённое судейство, сообщает причину RELEASE.
-- test=fixtures/workshop_project/obryv_167/red_obryv_167.sh: тот же набор команд в CI шаге 167.
+- role=roles/orchestrator.md «Merge main в ветку PR: ведущая сессия проекта сама делает полный `merge --no-ff` актуального origin/main в ветку PR (wip — первый родитель, main — второй) своей identity, без force, только если изменения main с момента merge-base НЕ пересекаются по путям с изменениями ветки либо единственное пересечение/конфликт — `registry/contracts.tsv` и итог содержит объединение строк обеих сторон с однозначными ключами и без потери/перезаписи строки; любые другие пересечения, неполный merge, иная ветка или неопределённость — отказ, остальные merge main→wip запрещены; после нового head обязательны CI именно для этого head и заново судьи по новому OBJECT — старый accept не переносится; механическая часть — узкое исключение в `.githooks/pre-push` по живым refs origin, уставные пути судит независимое кольцо `scripts/check_charter.sh`.»
+- role=roles/orchestrator.md «Судья без закоммиченного вердикта: завершивший сессию без коммита вердикта (роль/сессия/OBJECT) освобождается явным `--osvobodit`, дверь пишет причину `obryv_bez_verdikta` — круг D11 не тратится и повторный круг судьи на том же OBJECT допустим ровно один раз; при доказанном коммите вердикта (`accept`/`FAIL`) причина `verdikt_zakommiten` — круг тратится, повтор отказ; недоступность судейских refs — отказ `NOT_IMPLEMENTED`, а не разрешение повтора.»
+- guard=.githooks/pre-push
+- guard=scripts/zamok_predmeta.sh
 
 ## Модель угроз
 
