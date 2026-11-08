@@ -601,6 +601,22 @@ def kontrol_podmeny_path():
         fake = os.path.join(fakebin, 'bash')
         shutil.copy2(os.path.join(STABY, 'path_fake_bash.py'), fake)
         os.chmod(fake, 0o755)
+        # A hermetic standard PATH with no node exposes the hosted-runner case:
+        # wrappers 147/149 still need node, but may only find it outside this bin.
+        standard = os.path.join(shadow, 'standard-bin')
+        os.makedirs(standard)
+        for name in ('python3', 'dirname', 'date'):
+            target = shutil.which(name)
+            if target is None:
+                raise RuntimeError('missing fixture prerequisite: ' + name)
+            os.symlink(target, os.path.join(standard, name))
+        node = shutil.which('node')
+        if node is None:
+            raise RuntimeError('missing fixture prerequisite: node')
+        nodebin = os.path.join(shadow, 'node-bin')
+        os.makedirs(nodebin)
+        os.symlink(node, os.path.join(nodebin, 'node'))
+        honest_path = nodebin + os.pathsep + standard
         wrappers = []
         for zona, red in BATAREI:
             directory = os.path.join(shadow, 'fixtures', 'workshop_project', zona)
@@ -618,7 +634,7 @@ def kontrol_podmeny_path():
                     return ['/usr/bin/bash', wrapper, '--repo', r]
                 vid = 'a-forma-pusta'
                 honest, detail, _ = sudit_provodku(
-                    sest, vid, baza, {'PATH': '/usr/bin:/bin'})
+                    sest, vid, baza, {'PATH': honest_path})
                 if honest != 'OK':
                     results.append(('W-path-bash-' + zona, False,
                                     'KONTROL_NEVALIDEN %s %s' % (honest, detail)))
@@ -629,7 +645,7 @@ def kontrol_podmeny_path():
                     broken.write('#!/usr/bin/bash\nexit 99\n')
                 marker = os.path.join(shadow, 'fake-was-used-' + zona)
                 attack, detail, _ = sudit_provodku(sest, vid, baza, {
-                    'PATH': fakebin + ':/usr/bin:/bin',
+                    'PATH': fakebin + os.pathsep + honest_path,
                     'PUSTOJ_PATH_MODEL': ETALON,
                     'PUSTOJ_PATH_SPOOF_MARKER': marker,
                 })
