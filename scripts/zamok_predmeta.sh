@@ -572,7 +572,6 @@ EOF
   exit 0
 }
 
-# ═════════════════════════════ --osvobodit ═══════════════════════════════════
 # [D11 verdict-zakommiten] Истинность вердикта доказывается Git-коммитом в refs
 # судейской ветки и его blob: первая строка `accept`/`FAIL`, самостоятельная
 # строка `OBJECT=<sha>`, литеральные поля `роль=<роль>;` и `сессия=<holder>;`
@@ -601,6 +600,7 @@ verdict_sessii() {  # <NNN> <holder> <rol> <OBJECT>
   done < <(git -C "$REPO" log --all --format=%H -- "verdicts/$dir/")
   return 1
 }
+# ═════════════════════════════ --osvobodit ═══════════════════════════════════
 osvobodit() {
   [ -n "$NNN_ARG" ] && [ -n "$HOLDER_ARG" ] || usage
   case "$NNN_ARG" in
