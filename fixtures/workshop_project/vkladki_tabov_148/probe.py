@@ -37,6 +37,7 @@ SVERKA_123_ABSENT)."""
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -56,6 +57,10 @@ RUNNER123 = H_ROOT / 'scripts' / 'sverka_maketa.py'
 # Гейт пустого продукта (контракт 159): общий отказ по признаку пустоты —
 # первое действие --repo-ветви экранных батарей домена.
 GEJT_PUSTOGO_PRODUKTA = H_ROOT / 'scripts' / 'check_pustoj_produkt.sh'
+# Доверенный интерпретатор гейта — АБСОЛЮТНЫЙ путь: подмена bash через
+# PATH подменяла сам гейт (adversary 159, блок 2). Нет интерпретатора —
+# именованный fail-closed rc 2 NOT_IMPLEMENTED, обращения к PATH нет.
+DOVERENNYY_BASH = '/usr/bin/bash'
 STUBS = HERE / 'stubs'
 NOS_MAKET = HERE / 'nositeli/maket'
 NOS_MAKET_FINAL2 = HERE / 'nositeli/maket-final2'
@@ -929,7 +934,12 @@ def main():
     # батареи и его код; своих клеток после отказа батарея не запускает
     # (инвариант 2).
     if a.repo is not None:
-        rc_gejta = subprocess.run(['bash', str(GEJT_PUSTOGO_PRODUKTA), a.repo]).returncode
+        if not (os.path.isfile(DOVERENNYY_BASH)
+                and os.access(DOVERENNYY_BASH, os.X_OK)):
+            print('NOT_IMPLEMENTED: нет доверенного интерпретатора %s'
+                  % DOVERENNYY_BASH, file=sys.stderr)
+            return 2
+        rc_gejta = subprocess.run([DOVERENNYY_BASH, str(GEJT_PUSTOGO_PRODUKTA), a.repo]).returncode
         if rc_gejta != 0:
             return rc_gejta
     src = load_source()
