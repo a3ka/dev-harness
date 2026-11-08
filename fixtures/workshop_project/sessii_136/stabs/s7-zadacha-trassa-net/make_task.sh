@@ -134,7 +134,7 @@ if [ -z "$AUTHOR_ROLE" ]; then
 fi
 [ -z "$AUTHOR_ROLE" ] || case "$AUTHOR_ROLE" in orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) ;; *) die "автор вне алфавита: $AUTHOR_ROLE" ;; esac
 
-TRACE_LINE=""; JUDGE_MODEL=""; AUTHOR_MODEL=""
+TRACE_LINE=""; AUTHOR_MODEL=""
 if [ "$PRINT_CONTEXT" -ne 1 ]; then
 # 136 (НАБЛ-П5): проектный режим — трасса по умолчанию .harness/registry/trace.tsv
 # (сеет дверь); явный --model-trace переопределяет. Вне проекта (файла нет) —
@@ -143,18 +143,17 @@ if [ "$PRINT_CONTEXT" -ne 1 ]; then
   while IFS="$TAB" read -r r m fb; do
     [ -z "${r:-}" ] && continue
     case "$fb" in allowed|denied) ;; *) die "трасса: грамматика" ;; esac
-    if [ "$r" = "$ROLE" ]; then TRACE_LINE="TRACE: role=$r model=$m fallback=$fb"; JUDGE_MODEL="$m"; fi
+    if [ "$r" = "$ROLE" ]; then TRACE_LINE="TRACE: role=$r model=$m fallback=$fb"; fi
     [ -n "$AUTHOR_ROLE" ] && [ "$r" = "$AUTHOR_ROLE" ] && AUTHOR_MODEL="$m"
   done < "$TRACE"
   [ -n "$TRACE_LINE" ] || die "свидетельство не той роли: $ROLE"
 fi
 
-_t95_family() { local x="${1#*/}"; x="${x%%-*}"; x="${x%%.*}"; printf '%s' "$x"; }
+# КОНТРАКТ 166: выбор модели роли не зависит от модели, провайдера и семейства
+# автора или другого судьи — совпадение моделей не причина отказа. Обязательным
+# остаётся авторский след трассы (протокол 095).
 if [ "$ROLE" = "reviewer" ] || [ "$ROLE" = "critic" ]; then
   [ -n "$AUTHOR_MODEL" ] || die "свидетельство не той роли: $AUTHOR_ROLE"
-  fam_j="$(_t95_family "$JUDGE_MODEL")"
-  fam_a="$(_t95_family "$AUTHOR_MODEL")"
-  [ "$fam_j" != "$fam_a" ] || die "судья на модели автора: $fam_j"
 fi
 
 # И-14: настоящий профиль — ДВА слоя 054 + contextPack контекстных ключей.
