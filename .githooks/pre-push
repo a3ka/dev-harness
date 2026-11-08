@@ -185,6 +185,113 @@ while IFS=$'\t' read -r lsr_sha lsr_refname; do
   LIVE_EXCLUDES+=( "$lsr_sha" )
 done <<< "$lsremote_out"
 
+# [167 merge-main-v-pr] Узкое исключение из запрета merge main→wip: полный merge
+# ЖИВОГО origin/main в ветку PR (wip — первый родитель, main — второй). Разрешён
+# ТОЛЬКО если: ветка PR — именованная wip-ветка предмета (wip/<NNN>/<автор>);
+# второй родитель — ровно живой origin/main (прошлый локальный main не авторитетен);
+# первый родитель не предок main (иначе это int-форма, а не полный merge ветки);
+# дельты main и ветки от merge-base не пересекаются по путям — либо единственное
+# пересечение — registry/contracts.tsv, и тогда результат содержит объединение
+# строк обеих сторон с однозначными ключами и без потери/перезаписи строки.
+# Неполный merge (`-s ours`), любая другая ветка, любое другое пересечение,
+# неопределённость — отказ (как и прежде). Грамматика строки реестра:
+# `^[0-9]{3} → [0-9a-f]{40}$`, ключ — первые три цифры.
+merge_167_razreshen() {  # <коммит> <remote ref> → 0 (разрешено) | 1 (запрещено)
+  local c="$1" ref="$2" p1 p2 base tree auto auto1 r line key val path
+  local r1 r2 ours theirs peresech reestr
+  local -a parents d1 d2 cm cm2
+  declare -A L=() R=() M=()
+  case "$ref" in refs/heads/wip/[0-9][0-9][0-9]/*) ;; *) return 1 ;; esac
+  [ -n "$LIVE_MAIN" ] || return 1
+  line="$(git -C "$ROOT" rev-list --parents -n 1 "$c" 2>/dev/null)" || return 1
+  read -r -a parents <<< "$line"
+  [ "${#parents[@]}" -eq 3 ] || return 1
+  p1="${parents[1]}"; p2="${parents[2]}"
+  [ "$p2" = "$LIVE_MAIN" ] || return 1
+  git -C "$ROOT" merge-base --is-ancestor "$p1" "$p2" 2>/dev/null; r=$?
+  [ "$r" -eq 1 ] || return 1
+  base="$(git -C "$ROOT" merge-base "$p1" "$p2" 2>/dev/null)" || return 1
+  [ -n "$base" ] || return 1
+  mapfile -t d1 < <(git -C "$ROOT" diff --name-only "$base" "$p1" 2>/dev/null)
+  mapfile -t d2 < <(git -C "$ROOT" diff --name-only "$base" "$p2" 2>/dev/null)
+  peresech=0; reestr=0
+  for path in "${d1[@]}"; do
+    for val in "${d2[@]}"; do
+      [ "$path" = "$val" ] || continue
+      if [ "$path" = 'registry/contracts.tsv' ]; then reestr=1; else peresech=1; fi
+    done
+  done
+  [ "$peresech" -eq 0 ] || return 1
+  tree="$(git -C "$ROOT" rev-parse "$c^{tree}" 2>/dev/null)" || return 1
+  auto="$(git -C "$ROOT" merge-tree --write-tree "$p1" "$p2" 2>/dev/null)"; r=$?
+  IFS= read -r auto1 <<< "$auto"
+  [ -n "$auto1" ] || return 1
+  if [ "$reestr" -eq 0 ]; then
+    # дельты раздельны — результат обязан быть полным merge main в ветку
+    [ "$r" -eq 0 ] || return 1
+    [ "$auto1" = "$tree" ] || return 1
+    return 0
+  fi
+  # единственное пересечение — реестр: строки обеих сторон должны уцелеть
+  for path in "$p1" "$p2" "$c"; do
+    git -C "$ROOT" show "$path:registry/contracts.tsv" >/dev/null 2>&1 || return 1
+  done
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    reg_167_stroka "$line" || return 1
+    key="${line%% *}"
+    [ -z "${L[$key]+x}" ] || return 1
+    L["$key"]="$line"
+  done < <(git -C "$ROOT" show "$p1:registry/contracts.tsv" 2>/dev/null)
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    reg_167_stroka "$line" || return 1
+    key="${line%% *}"
+    [ -z "${R[$key]+x}" ] || return 1
+    R["$key"]="$line"
+  done < <(git -C "$ROOT" show "$p2:registry/contracts.tsv" 2>/dev/null)
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    reg_167_stroka "$line" || return 1
+    key="${line%% *}"
+    [ -z "${M[$key]+x}" ] || return 1
+    M["$key"]="$line"
+  done < <(git -C "$ROOT" show "$c:registry/contracts.tsv" 2>/dev/null)
+  for key in "${!L[@]}"; do
+    if [ -n "${R[$key]+x}" ] && [ "${R[$key]}" != "${L[$key]}" ]; then return 1; fi
+    [ "${M[$key]-}" = "${L[$key]}" ] || return 1
+  done
+  for key in "${!R[@]}"; do
+    [ "${M[$key]-}" = "${R[$key]}" ] || return 1
+  done
+  for key in "${!M[@]}"; do
+    [ -n "${L[$key]+x}" ] || [ -n "${R[$key]+x}" ] || return 1
+  done
+  # прочие пути результата — как в независимом трёхстороннем слиянии
+  mapfile -t cm < <(git -C "$ROOT" diff --name-only "$p1" "$c" 2>/dev/null)
+  mapfile -t cm2 < <(git -C "$ROOT" diff --name-only "$p2" "$c" 2>/dev/null)
+  for path in "${cm[@]}" "${cm2[@]}"; do
+    [ "$path" = 'registry/contracts.tsv' ] && continue
+    ours="$(git -C "$ROOT" rev-parse "$c:$path" 2>/dev/null)"; r1=$?
+    theirs="$(git -C "$ROOT" rev-parse "$auto1:$path" 2>/dev/null)"; r2=$?
+    [ "$r1" -eq "$r2" ] || return 1
+    [ "$ours" = "$theirs" ] || return 1
+  done
+  return 0
+}
+# Строка реестра по грамматике 167: `^[0-9]{3} → [0-9a-f]{40}$` → 0 | 1.
+reg_167_stroka() {  # <строка>
+  local line="$1" key rest val
+  key="${line%% *}"
+  [ "${#key}" -eq 3 ] || return 1
+  case "$key" in [0-9][0-9][0-9]) ;; *) return 1 ;; esac
+  rest="${line#* }"
+  case "$rest" in '→ '*) val="${rest#→ }" ;; *) return 1 ;; esac
+  [ "${#val}" -eq 40 ] || return 1
+  case "$val" in *[!0-9a-f]*) return 1 ;; esac
+  return 0
+}
+
 # Merge main в ветку (норма арбитража merge-wip-protiv-main-konflikt-norm.md). Судится каждый
 # коммит-слияние в пуше в refs/heads/* кроме main. Свежесть к main — только через ленд или
 # int-ветку wip/int-<N>/<автор> от текущего main (main первым родителем).
@@ -207,6 +314,12 @@ merge_main_verdict() {  # <коммит> <remote ref>
     return 2
   fi
   p1="${parents[1]}"
+  # [167] узкое исключение: полный merge живого origin/main в ветку PR — только
+  # он и только по правилам merge_167_razreshen; любой другой merge main→wip
+  # остаётся запрещённым (норма арбитража merge-wip-protiv-main-konflikt-norm).
+  if merge_167_razreshen "$c" "$ref"; then
+    return 1
+  fi
   git -C "$ROOT" merge-base --is-ancestor "$p1" "$LIVE_MAIN"; r=$?
   if [ "$r" -eq 0 ]; then
     case "$ref" in
