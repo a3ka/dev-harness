@@ -192,6 +192,16 @@ def glm_tiers(am):
     return out
 
 
+GLM_AUTO_ROLE = "critic"
+def glm_auto_tiers(am):
+    """Политика владельца 2026-11-07 ~23:40 UTC (через консультанта; заменяет
+    временное слово 2026-10-25 для тира критика): тир роли critic на @glm идёт
+    С автоподменой — autoFallback=true, объявленный fallback и строка цепочки в
+    retry.fallbackChains (ночь без GLM не стопорит суд). Тир выводится из
+    ЖИВОГО реестра (roles.critic), не списком; прочие GLM-тиры — без
+    автоподмены, как прежде."""
+    t = am.get("roles", {}).get(GLM_AUTO_ROLE)
+    return [t] if t in glm_tiers(am) else []
 def fallback_chain_entries(lines):
     """[(имя тира, индекс строки)] записей «имя: [» блока retry.fallbackChains
     (.omp/config.yml). Блок открывает строка «  fallbackChains:» (сдвиг 2 —
@@ -239,7 +249,18 @@ def composition_violations(am, root):
             v.append(f"tiers.{TIER_NAME}.model = {spec.get('model')!r}, ожидается «{TIER_MODEL}»")
         if spec.get("fallback") != TIER_FALLBACK:
             v.append(f"tiers.{TIER_NAME}.fallback = {spec.get('fallback')!r}, ожидается «{TIER_FALLBACK}»")
+    auto = glm_auto_tiers(am)
+    for t in auto:
+        s = am.get("tiers", {}).get(t)
+        if not isinstance(s, dict) or s.get("autoFallback") is not True or not s.get("fallback"):
+            v.append(
+                f"tiers.{t}.autoFallback = {(s or {}).get('autoFallback')!r}, fallback = "
+                f"{(s or {}).get('fallback')!r}; ожидается true с объявленным fallback "
+                "(тир критика на GLM с автоподменой — слово владельца 2026-11-07)"
+            )
     for t in glm_tiers(am):
+        if t in auto:
+            continue
         s = am.get("tiers", {}).get(t)
         if isinstance(s, dict) and s.get("autoFallback") is not False:
             v.append(
@@ -277,7 +298,15 @@ def composition_violations(am, root):
         # производная цепочки — из реестра: строка тира есть ⇔ autoFallback=true;
         # GLM-тиры все autoFallback=false — живой строки у них быть не должно
         chained = {name for name, _ in fallback_chain_entries(cfg_lines)}
+        for t in auto:
+            if t not in chained:
+                v.append(
+                    f".omp/config.yml retry.fallbackChains не несёт строку {t}: — "
+                    "тир критика на GLM без живой цепочки (слово владельца 2026-11-07)"
+                )
         for t in glm_tiers(am):
+            if t in auto:
+                continue
             if t in chained:
                 v.append(
                     f".omp/config.yml retry.fallbackChains несёт строку {t}: — "
@@ -1620,6 +1649,26 @@ def matrix():
         return fn
 
     add("oracle_glm_chain_line", cell_oracle_glm_chain_line("oracle_glm_chain_line", True))
+    # обманная заглушка «тир критика на GLM без автоподмены» (политика
+    # 2026-11-07): seed получает роль critic на собственном GLM-тире с
+    # autoFallback=false и без строки цепочки — помечены обязаны быть ИМЕННО
+    # ветви тира критика (реестр и цепочка), чужих нарушений нет
+    def cell_oracle_critic_no_auto(name, want_flag):
+        def fn():
+            tree, _ = seed_sandbox()
+            am = clone_am(SEED_AM)
+            am["tiers"]["critic-seed"] = {"model": TIER_MODEL, "fallback": TIER_FALLBACK, "autoFallback": False}
+            am["roles"][GLM_AUTO_ROLE] = "critic-seed"
+            v = composition_violations(am, tree)
+            shutil.rmtree(tree, ignore_errors=True)
+            mine = [m for m in v if "critic-seed" in m]
+            flagged = bool(mine) and len(mine) == len(v)
+            return flagged == want_flag, (
+                f"тир критика без автоподмены помечен={flagged} (ожидается {want_flag}, "
+                f"нарушений {len(v)}): {'; '.join(v) or 'чисто'}"
+            )
+        return fn
+    add("oracle_critic_no_auto", cell_oracle_critic_no_auto("oracle_critic_no_auto", True))
     add("oracle_different_tools", cell_oracle_tools("oracle_different_tools", True))
 
     def cell_anchor(name, problems, want_flag):
