@@ -176,6 +176,9 @@ def real_world(ledger, failures):
                   'ПРОВОДКА:\n- guard=scripts/spawn_agent.sh\n'
                   'ПРОВОДКА-ЭНФОРСМЕНТ: проверка скрипта без ролевой нормы.\n'
                   '## Незаполненные требования:\nнет\n')
+        world.put('.github/workflows/ci.yml',
+                  'name: fixture\non: [push]\njobs:\n  check:\n'
+                  '    steps:\n      - run: bash scripts/spawn_agent.sh\n')
         world.git('add', '-A')
         world.git('commit', '-qm', 'baseline contract for notice publication')
         world.git('tag', '-a', 'frozen/contracts/761/1', '-m', 'frozen baseline')
@@ -266,6 +269,38 @@ def real_world(ledger, failures):
                 failures.append('STATION_LAND_RECORDED_REFUSED: rc='
                                 + str(admitted.returncode)
                                 + ' stderr=' + admitted.stderr.strip()[:150])
+        done_world = World(Path(temp), 'station-done')
+        done_world.put('registry/project-mechanisms.tsv',
+                       'projectId\tscript\nnotification-project\tscripts/make_task.sh\n')
+        done_world.put('registry/mechanism-changes.tsv', SEED.read_text(encoding='utf-8'))
+        done_world.put('.harness/contracts/768-mechanism.md',
+                       '# Контракт 768\n## Предмет\n- change\n'
+                       'ПРОВОДКА:\n- guard=scripts/make_task.sh\n'
+                       'ПРОВОДКА-ЭНФОРСМЕНТ: механический guard.\n'
+                       '## Незаполненные требования:\nнет\n')
+        done_world.put('scripts/make_task.sh', '#!/bin/sh\nprintf baseline\n')
+        done_world.put('.github/workflows/ci.yml',
+                       'name: fixture\non: [push]\njobs:\n  check:\n'
+                       '    steps:\n      - run: bash scripts/make_task.sh\n')
+        done_world.git('add', '-A')
+        done_world.git('commit', '-qm', 'done frozen baseline')
+        done_world.git('tag', '-a', 'frozen/contracts/768/1', '-m', 'frozen baseline')
+        done_world.put('scripts/make_task.sh', '#!/bin/sh\nprintf changed\n')
+        done_world.put('.harness/verdicts/review/contracts-768-impl.md', 'accept\n')
+        done_world.git('add', '-A')
+        done_world.git('commit', '-qm', 'reviewed change without matching notice')
+        done_before = done_world.snapshot()
+        station_done = invoke('bash', ROOT / 'scripts/done_contract.sh',
+                              '.harness/contracts/768-mechanism.md', 'fixture note',
+                              done_world.main, env=done_world.env)
+        if station_done.returncode != 1 or 'MECHANISM_NOTICE_MISSING:scripts/make_task.sh' not in (
+                station_done.stderr + station_done.stdout):
+            failures.append('STATION_DONE_WRITER_NOT_GATED: rc=' + str(station_done.returncode)
+                            + ' stderr=' + station_done.stderr.strip()[:150])
+        if done_world.snapshot() != done_before:
+            failures.append('STATION_DONE_WRITER_MUTATED_MAIN')
+        if done_world.git('tag', '-l', 'done/contracts/768/*').stdout.strip():
+            failures.append('STATION_DONE_WRITER_CREATED_TAG')
 
 
 def main():
