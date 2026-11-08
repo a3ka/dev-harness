@@ -183,11 +183,15 @@ class Mir:
                                  'subjectId': nnn, 'group': 'mob',
                                  'at': '2026-10-25T10:00:00Z'}) + '\n')
 
-    def release(self, nnn, holder):
+    def release(self, nnn, holder, prichina='yield'):
+        # prichina — причина освобождения в учёте. Дверь пишет для судьи
+        # verdikt_zakommiten (вердикт закоммичен) либо obryv_bez_verdikta
+        # (судья без закоммиченного вердикта) — контракт 167; 'yield' остаётся
+        # причиной освобождения РАБОЧЕГО.
         with self.ledger.open('a', encoding='utf-8') as fh:
             fh.write(json.dumps({'t': 'RELEASE', 'repoId': REPO_ID,
                                  'subjectId': nnn, 'holder': holder,
-                                 'prichina': 'yield',
+                                 'prichina': prichina,
                                  'at': '2026-10-25T10:00:00Z'}) + '\n')
 
     def sobytie(self, path, items):
@@ -542,6 +546,23 @@ def kejsy():
         mir.zhurnal('Avtor%s' % nnn, sdal=True)
         return wt, br, sha
 
+    def _verdikt_sudyi(mir, nnn, rol, sessiya, obj):
+        # Настоящий ЗАКОММИЧЕННЫЙ вердикт судьи (гейты доказывания, контракт 167):
+        # путь verdicts/<каталог роли>/contracts-<NNN>-v1.md, первая строка accept|FAIL,
+        # самостоятельная строка OBJECT=<sha>, литеральные поля роль= и сессия= в строке
+        # СУД:, автор коммита — роль. Круг судейства на (предмет, роль, OBJECT) тратит
+        # именно такой вердикт.
+        kat = 'review' if rol == 'reviewer' else rol
+        p = mir.repo / 'verdicts' / kat / ('contracts-%s-v1.md' % nnn)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text('FAIL\nOBJECT=%s\nСУД: repo=%s; предмет=%s; роль=%s; сессия=%s; модель-факт=fixture\n'
+                     % (obj, REPO_ID, nnn, rol, sessiya), encoding='utf-8')
+        mir.git(['add', '-A'])
+        c = run(['git', '-c', 'user.name=%s' % rol, '-c', 'user.email=%s@dev-harness.local' % rol,
+                 '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'verdict %s' % nnn],
+                cwd=str(mir.repo))
+        assert c.returncode == 0, c.stderr
+
     def _avtor_sdal_fajly(mir, nnn, faily):
         # мир «неоднозначного источника класса риска» (вердикт адверсария 140
         # вызов 1/2): несколько contracts/<NNN>-*.md; faily — [(суффикс, риск|None)],
@@ -648,6 +669,10 @@ def kejsy():
         wt, br, sha = _avtor_sdal(mir, '141')
         mir.start('141', 'Critic141', klass='sudja', rol='critic', obj=sha)
         mir.zhurnal('Critic141', sdal=True)
+        # Контракт 167: круг судейства на (предмет, роль, OBJECT) тратит
+        # ЗАКОММИЧЕННЫЙ вердикт роли/сессии/OBJECT — прежний отрицательный
+        # инвариант D11 держится на настоящем вердикте, а не на одном START.
+        _verdikt_sudyi(mir, '141', 'critic', 'Critic141', sha)
         ev = mir.sobytie('e.json', [item('critic', 'Critic141b',
                         ['SUBJECT=141', 'OBJECT=' + sha])])
         r = sudit(door, mir, ev)
@@ -1010,7 +1035,11 @@ def kejsy():
         sha_deref = mir.zanyat_holder('141')
         zd = mir.sost / 'zamki' / REPO_ID / '141' / 'zanyat'
         shutil.rmtree(zd, ignore_errors=True)
-        mir.release('141', 'Critic141')
+        # Освобождение СУДЬИ: причина, которую дверь пишет для судьи без
+        # закоммиченного вердикта (контракт 167) — такой release не тратит круг
+        # D11, и повторный круг судьи на том же OBJECT допустим (инвариант
+        # клетки: изолированный режим не меняет вердикт).
+        mir.release('141', 'Critic141', 'obryv_bez_verdikta')
         r2 = sudit(door, mir, ev2)
         if r1.returncode != r2.returncode:
             return ['изолированный режим меняет вердикт: %d vs %d (%r | %r)' % (
