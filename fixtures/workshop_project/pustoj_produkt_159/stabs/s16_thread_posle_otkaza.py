@@ -16,9 +16,13 @@ def main():
     if not marker or not trace:
         return subprocess.call(['/usr/bin/bash', gate, root])
 
+    refused = threading.Event()
+
     def quiet_cell():
         for _ in range(500):
             if os.path.isfile(trace):
+                if not refused.wait(timeout=6):
+                    return
                 with open(marker, 'a', encoding='utf-8') as out:
                     out.write('thread cell after gate refusal\n')
                 return
@@ -30,6 +34,8 @@ def main():
                             capture_output=True, text=True, timeout=60)
     sys.stdout.write(result.stdout)
     sys.stderr.write(result.stderr)
+    if result.returncode != 0:
+        refused.set()
     worker.join(timeout=6)
     return result.returncode
 

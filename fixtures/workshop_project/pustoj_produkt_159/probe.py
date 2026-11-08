@@ -519,13 +519,13 @@ def sudit_provodku(sest_cmd, vid, baza, extra_env=None):
     marker = extra_env.get('PUSTOJ_PATH_SPOOF_MARKER') if extra_env else None
     if marker and os.path.exists(marker):
         return 'PATH_PODMENIL_GATE', 'fake bash вызвал эталон вместо гейта', len(linii)
+    if rc != ozh_rc:
+        return ('RC_NE_%d' % ozh_rc,
+                'rc=%d: ожидался rc=%d гейта' % (rc, ozh_rc), len(linii))
     if calls:
         return ('KLETKI_POSLE_OTKAZA',
                 'после отказа вызвана собственная клетка %s'
                 % calls[0], len(linii))
-    if rc != ozh_rc:
-        return ('RC_NE_%d' % ozh_rc,
-                'rc=%d: ожидался rc=%d гейта' % (rc, ozh_rc), len(linii))
     return 'OK', ozh_prichina, len(linii)
 
 
@@ -692,8 +692,11 @@ def sudit_staba(stab, svaz):
             rezultaty = []
             for vid in vhody:
                 if threaded:
-                    with tempfile.TemporaryDirectory(prefix='pustoj159-marker-') as outside:
-                        marker = os.path.join(outside, 'thread-cell.log')
+                    os.makedirs('/tmp/dev-harness-verify', exist_ok=True)
+                    with tempfile.NamedTemporaryFile(
+                            prefix='pustoj159-marker-',
+                            dir='/tmp/dev-harness-verify') as outside:
+                        marker = outside.name
                         vetka, pochemu, trass = sudit_provodku(
                             sest, vid, baza, {'PUSTOJ_MUT_MARKER': marker})
                         executed = (os.path.isfile(marker) and
