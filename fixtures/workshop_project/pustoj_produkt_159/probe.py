@@ -165,6 +165,8 @@ VETKA_PO_FORME = {
     'wiring-imported-cell': 'KLETKI_POSLE_OTKAZA',
     'wiring-wrong-rc': 'RC_NE_1',
     'wiring-rc2-to-rc1': 'RC_NE_2',
+    'wiring-thread-before-gate': 'KLETKI_POSLE_OTKAZA',
+    'wiring-path-spoof': 'PATH_PODMENIL_GATE',
 }
 # Обязательная форма трассы у вариантов уровня проводки: сколько
 # записей трассы гейта обязан дать вариант на каждом заявленном входе
@@ -181,6 +183,8 @@ TRASSA_PO_FORME = {
     'wiring-imported-cell': 1,
     'wiring-wrong-rc': 1,
     'wiring-rc2-to-rc1': 1,
+    'wiring-thread-before-gate': 1,
+    'wiring-path-spoof': 1,
     'wiring-no-gate': 0,
 }
 
@@ -449,7 +453,7 @@ def chita_trassu(put):
         return [l.rstrip('\n') for l in fh if l.strip()]
 
 
-def sudit_provodku(sest_cmd, vid, baza):
+def sudit_provodku(sest_cmd, vid, baza, extra_env=None):
     """Judge one --repo branch with the gate's trace and an independent cell observer."""
     r = postavit(baza, vid)
     # The observer must read the fixture to compare before/after. Unlike the
@@ -474,6 +478,8 @@ def sudit_provodku(sest_cmd, vid, baza):
     env['PUSTOJ_PRODUKT_CELLS_TRACE'] = kletki
     env['PUSTOJ_PRODUKT_CELLS_SUBJECT'] = subject
     env['PYTHONPATH'] = MODEL + os.pathsep + env.get('PYTHONPATH', '')
+    if extra_env:
+        env.update(extra_env)
     rc, stroki, calls = zapusk_obedinennyj(cmd, env, cwd=KOREN)
     linii = chita_trassu(trassa)
     if rc == 'VREMJA_ISTEKLO':
@@ -510,6 +516,9 @@ def sudit_provodku(sest_cmd, vid, baza):
         return ('KLETKI_POSLE_OTKAZA',
                 'после причины гейта выведено ещё %d строк(и), первая %r'
                 % (len(stroki) - 1, stroki[1][1][:60]), len(linii))
+    marker = extra_env.get('PUSTOJ_PATH_SPOOF_MARKER') if extra_env else None
+    if marker and os.path.exists(marker):
+        return 'PATH_PODMENIL_GATE', 'fake bash вызвал эталон вместо гейта', len(linii)
     if calls:
         return ('KLETKI_POSLE_OTKAZA',
                 'после отказа вызвана собственная клетка %s'
@@ -568,6 +577,70 @@ def kontrol_provodki():
     return kletki
 
 
+def kontrol_podmeny_path():
+    """A plausible trace from PATH/bash must not mask a broken real gate.
+
+    Exercise the actual four probe.py --repo branches in a fresh miniature
+    repository: first prove their honest copy green, then make that copy's
+    gate exit 99 and put a fake bash in PATH which delegates to the model.
+    The original worktree (including its live gate) is never modified.
+    """
+    results = []
+    os.makedirs('/tmp/dev-harness-verify', exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='pustoj159-path-',
+                                     dir='/tmp/dev-harness-verify') as shadow:
+        subprocess.run(['/usr/bin/git', '-C', shadow, 'init', '-q'],
+                       check=True, timeout=30)
+        scripts = os.path.join(shadow, 'scripts')
+        os.makedirs(scripts)
+        gate = os.path.join(scripts, 'check_pustoj_produkt.sh')
+        fakebin = os.path.join(shadow, 'fakebin')
+        os.makedirs(fakebin)
+        fake = os.path.join(fakebin, 'bash')
+        shutil.copy2(os.path.join(STABY, 'path_fake_bash.py'), fake)
+        os.chmod(fake, 0o755)
+        wrappers = []
+        for zona, red in BATAREI:
+            directory = os.path.join(shadow, 'fixtures', 'workshop_project', zona)
+            os.makedirs(directory)
+            source = os.path.join(KOREN, 'fixtures', 'workshop_project', zona)
+            for filename in ('probe.py', red):
+                shutil.copy2(os.path.join(source, filename),
+                             os.path.join(directory, filename))
+            wrappers.append((zona, os.path.join(directory, red)))
+        for zona, wrapper in wrappers:
+            shutil.copy2(ZHIVOJ_GATE, gate)
+            baza = tempfile.mkdtemp(prefix='baza-', dir=shadow)
+            try:
+                def sest(r, wrapper=wrapper):
+                    return ['/usr/bin/bash', wrapper, '--repo', r]
+                vid = 'a-forma-pusta'
+                honest, detail, _ = sudit_provodku(
+                    sest, vid, baza, {'PATH': '/usr/bin:/bin'})
+                if honest != 'OK':
+                    results.append(('W-path-bash-' + zona, False,
+                                    'KONTROL_NEVALIDEN %s %s' % (honest, detail)))
+                    continue
+                ubrat(baza)
+                baza = tempfile.mkdtemp(prefix='baza-', dir=shadow)
+                with open(gate, 'w', encoding='utf-8') as broken:
+                    broken.write('#!/usr/bin/bash\nexit 99\n')
+                marker = os.path.join(shadow, 'fake-was-used-' + zona)
+                attack, detail, _ = sudit_provodku(sest, vid, baza, {
+                    'PATH': fakebin + ':/usr/bin:/bin',
+                    'PUSTOJ_PATH_MODEL': ETALON,
+                    'PUSTOJ_PATH_SPOOF_MARKER': marker,
+                })
+                ok = (attack in ('GATE_NE_VYZVAN', 'RC_NE_1')
+                      and not os.path.exists(marker))
+                results.append(('W-path-bash-' + zona, ok,
+                                '' if ok else 'PATH_PODMENIL_GATE %s %s'
+                                % (attack, detail)))
+            finally:
+                ubrat(baza)
+    return results
+
+
 def pechat_i_itog(itogi, rezhim, svjazi=None, skolko_stabov=None):
     zelen = sum(1 for _, ok, _ in itogi if ok)
     krasn = len(itogi) - zelen
@@ -595,6 +668,7 @@ def sudit_staba(stab, svaz):
     for v in vhody:
         if v not in OZHIDAEMYE or v == 'konformnyj':
             utechka('stab_vhod %s вход %s' % (stab, v))
+    threaded = forma == 'wiring-thread-before-gate'
     nuzhnaja = VETKA_PO_FORME[forma]
     baza = tempfile.mkdtemp(prefix='pustoj159-stab-')
     try:
@@ -617,7 +691,46 @@ def sudit_staba(stab, svaz):
             nado_trass = TRASSA_PO_FORME[forma]
             rezultaty = []
             for vid in vhody:
-                vetka, pochemu, trass = sudit_provodku(sest, vid, baza)
+                if threaded:
+                    with tempfile.TemporaryDirectory(prefix='pustoj159-marker-') as outside:
+                        marker = os.path.join(outside, 'thread-cell.log')
+                        vetka, pochemu, trass = sudit_provodku(
+                            sest, vid, baza, {'PUSTOJ_MUT_MARKER': marker})
+                        executed = (os.path.isfile(marker) and
+                                    open(marker, encoding='utf-8').read() ==
+                                    'thread cell after gate refusal\n')
+                    if not executed:
+                        return False, 'THREAD_CELL_NOT_EXECUTED %s' % vid
+                elif forma == 'wiring-path-spoof':
+                    os.makedirs('/tmp/dev-harness-verify', exist_ok=True)
+                    with tempfile.TemporaryDirectory(
+                            prefix='pustoj159-path-stab-',
+                            dir='/tmp/dev-harness-verify') as shadow:
+                        subprocess.run(['/usr/bin/git', '-C', shadow, 'init', '-q'],
+                                       check=True, timeout=30)
+                        scripts = os.path.join(shadow, 'scripts')
+                        fakebin = os.path.join(shadow, 'fakebin')
+                        os.makedirs(scripts)
+                        os.makedirs(fakebin)
+                        broken = os.path.join(scripts, 'check_pustoj_produkt.sh')
+                        with open(broken, 'w', encoding='utf-8') as fh:
+                            fh.write('#!/usr/bin/bash\nexit 99\n')
+                        fake = os.path.join(fakebin, 'bash')
+                        shutil.copy2(os.path.join(STABY, 'path_fake_bash.py'), fake)
+                        os.chmod(fake, 0o755)
+                        marker = os.path.join(shadow, 'fake-was-used')
+                        def sest_spoof(r):
+                            return [sys.executable, put, broken, r]
+                        vetka, pochemu, trass = sudit_provodku(
+                            sest_spoof, vid, baza, {
+                                'PATH': fakebin + ':/usr/bin:/bin',
+                                'PUSTOJ_PATH_MODEL': ETALON,
+                                'PUSTOJ_PATH_SPOOF_MARKER': marker,
+                            })
+                        if not os.path.isfile(marker):
+                            return False, 'PATH_STAB_NOT_EXECUTED %s' % vid
+                else:
+                    vetka, pochemu, trass = sudit_provodku(sest, vid, baza)
                 rezultaty.append((vid, vetka, pochemu, trass))
             ne_tak_trassoj = ['%s(%d)' % (v, t)
                               for v, _, _, t in rezultaty
@@ -767,6 +880,8 @@ def main():
                 itogi.append((idk, vetka == 'OK',
                               '' if vetka == 'OK' else
                               '%s %s' % (vetka, pochemu)))
+        if os.path.isfile(ZHIVOJ_GATE):
+            itogi.extend(kontrol_podmeny_path())
 
     return pechat_i_itog(itogi, rezhim)
 
