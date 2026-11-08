@@ -82,16 +82,21 @@ def scenario(hook, shape):
         if shape == 'registry':
             expected = (repo / 'registry/contracts.tsv').read_text()
             assert expected == registry_row('001', 'a') + registry_row('002', 'b') + registry_row('003', 'c')
-        if hook in ('--model', '--allow_all', '--no_ref'):
+        if hook in ('--model', '--forbid_all', '--allow_all', '--no_ref'):
             target = root / 'model-hook'
             source = SOURCE.read_text()
             old = '  p1="${parents[1]}"\n'
             assert source.count(old) == 1, 'HOOK_ANCHOR_MISSING'
             # The model reuses every other pre-push check and substitutes ONLY
             # the narrowly scoped merge exception at the real hook's public seam.
-            condition = ('''  if [ "$ref" = 'refs/heads/wip/167/architect' ]; then return 1; fi
+            if hook == '--forbid_all':
+                # A synthetic mutant: the implemented real hook is no longer
+                # restrictive, so it cannot serve as the forbidding stub.
+                condition = '  MM_REASON="запрет любого merge main"; return 0\n'
+            else:
+                condition = ('''  if [ "$ref" = 'refs/heads/wip/167/architect' ]; then return 1; fi
 ''' if hook == '--allow_all' else
-                         ('''  if [ "$ref" = 'refs/heads/wip/167/architect' ] &&
+                             ('''  if [ "$ref" = 'refs/heads/wip/167/architect' ] &&
 ''' if hook == '--model' else '''  if
 ''') + '''     python3 "''' + str(POLICY) + '''" "$ROOT" "$c" "$LIVE_MAIN"; then
     return 1
@@ -124,10 +129,10 @@ def main():
         if error:
             errors.append(shape)
     if mode == '--stabs':
-        # The actual pre-push is the restrictive mutant: each allowed case
-        # distinguishes it from the model, while overlap remains negative.
+        # Forbid-all is a synthetic mutation of the same hook entry, compared
+        # against the honest model on each independently allowed input.
         for shape in ('separate', 'registry'):
-            error = scenario('--repo', shape)
+            error = scenario('--forbid_all', shape)
             if error:
                 print(f'STAB forbid_all {shape} caught: {error}')
             else:
