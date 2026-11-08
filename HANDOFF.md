@@ -1,3 +1,32 @@
+АКТУАЛЬНО (читать первым): «ГДЕ МЫ — 08.11 ~18:50 UTC (чекпойнт: 166 done; 159/167 — в проводке CI)» ниже; дальше — «ГДЕ МЫ — 08.11 ~12:40 UTC (слово владельца «да»; рестарт для оверлея моделей)».
+
+## ГДЕ МЫ — 08.11 ~18:50 UTC (чекпойнт: 166 done; 159/167 — в проводке CI)
+
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+- **ГЛАВНОЕ.** `main` == `origin/main` == `c0c6bf59d` (`c0c6bf59dc2788e0ef4d78d35c7edf9c467cabcd`); незакоммиченное в основном чекауте — только `?? .omp/context/` (манифест `167.tsv` от make_task, ожидаемый артефакт двери). **166 ЗАКРЫТ (done)**: тег `done/contracts/166/1` опубликован на origin и разрешается ровно в `c0c6bf59d` (done-гейт пройден, тег запушен); для v1 done слово владельца не требовалось. Проводка CI 166 — в main коммитом `8ef7ba161` (шаг `check:make_task-166-family-selftest`, вес 10; замер корпусом 114: 8 наблюдений 4..5 с, медиана 5 с).
+- **159 — СЛЕДУЮЩИЙ ПРЕДМЕТ.** PR **#611** «159: portable PATH fixture control» (ветка `wip/159/architect`, head `1cc2c088`): вердикт ревьюера accept — scoped-суд PATH-правки фикстуры v2 (под CI-PATH без node 147/149 доходят до гейта rc 1, W 51/51, `--model` 23/23, `--stabs` SVJAZI 18; советы С6–С8); вердикт в main: `verdicts/review/contracts-159-impl-v2.md` (`c0c6bf59d`). CI #611 на момент снимка (18:39 UTC) ждал только `l1`; прогон 42509676309 завершён 18:45:41 UTC зелёным (17/17 pass). **159 fixture CI — pending**: строки 159 в `registry/ci-steps.tsv` нет — проводка будет пересобрана после land #611 (прежний PR #609 закрыт как заменённый). Дальше по порядку: land #611 → новая проводка CI-шага 159 → done 159 → 158 r4 (PR #564).
+- **167.** PR **#612** «167: подключить frozen acceptance к CI» (ветка `wip/167/orchestrator`, head `415c156f`): **CI pending** — прогон 42511001591 в работе (`l1` и `l4` — pending, остальные гейты зелёные). Дальше: дождаться зелёного CI → land #612 → done 167.
+- **ОСТАТКИ PR (08.11 18:39–18:41 UTC).** #609 «159: подключить батарею пустого продукта к CI» — закрыт, заменён: «CI wiring 159 будет создан заново поверх #611 после land fixture fix; эта ветка остаётся на прежней platform-PATH красноте». #610 «поезд 167: доказать итоговый код-хеш land» — закрыт как consumed: поезд выполнил единственную роль — тяжёлый CI доказал tree hash `7109f922…`, уже опубликованный в main; UI-слияние не применяется. #605 «поезд v2 159/166/167: линейная копия лендов для кодового хеша (CI-гейт; не мержить кнопкой)» — закрыт как consumed: поезд выполнил роль доказательства — его heavy CI был использован для публикации реализации 167; UI-слияние не применяется. **#595 ОСТАВЛЕН ОТКРЫТЫМ** («159: реализация (гейт пустого продукта) после FAIL adversary вызов 1»): носитель `wip/159/implementer-r2` (`e549e42a9`) не эквивалентен по происхождению main — merge-base `65fa3044b`, дельта против `origin/main` — **48 файлов**; закрывать нельзя, ждёт пересборки 159 после land #611.
+- **РЕВЬЮЕР 159: ПЕРЕЗАПУСК ОТКАЗАН МЕХАНИЧЕСКИ.** Запрос перезапуска ревьюера на существующий объект прошёл через обязательные суддейские врата и получил отказ: `ОТКАЗ: OBJECT_UZHE_SUZHEN: предмет 159: OBJECT 1cc2c088… уже судился ролью reviewer; исправительный круг — новый sha`. Искусственный новый SHA ради обхода не создавался — это был бы обход судейского счётчика, а не рестарт; опубликованный accept `verdicts/review/contracts-159-impl-v2.md` остаётся вердиктом на этом объекте.
+- ОРКЕСТРАТОР на Terra по слову владельца 2026-11-08 (оверлей): `default: "@gpt-terra"` в `/home/harness/consultant/models-sol-arch.yml`; расхождение с заявленным Sonnet ожидаемо, не инцидент.
+- **РУЧНОЙ СНИМОК ДЕТЕКТОРА — ТРАНСКРИПТ (08.11 14:40:58 → 14:42:41 UTC), обязательная запись ближайшего чекпойнта оркестратора.** Снимок снят вручную: detached `e73b0e774` (это и есть `origin/main` на тот момент), porcelain пуст, HEAD == origin/main, ahead/behind `0 0`; затем `checkout main` и retake-ahead — опережение возвращено (`587b04f78`, `0 2`).
+
+```text
+$ bash scripts/gitw checkout --detach origin/main && git rev-parse --short HEAD && git rev-list --left-right --count origin/main...HEAD && bash scripts/check_no_leak.sh --retake-bulk /home/harness/dev-harness
+HEAD is now at e73b0e774 Merge pull request #593 from a3ka/owner/critic-autofallback
+e73b0e774
+0	0
+$ bash scripts/check_no_leak.sh --snapshot /home/harness/dev-harness
+(вывод пуст; rc 0)
+$ bash scripts/gitw checkout main && git rev-parse --short HEAD && git rev-list --left-right --count origin/main...main && bash scripts/check_no_leak.sh --retake-ahead /home/harness/dev-harness
+Previous HEAD position was e73b0e774 Merge pull request #593 from a3ka/owner/critic-autofallback
+Switched to branch 'main'
+Your branch is ahead of 'origin/main' by 2 commits.
+  (use "git push" to publish your local commits)
+587b04f78
+0	2
+```
+
 АКТУАЛЬНО (читать первым): «ГДЕ МЫ — 08.11 ~12:40 UTC (слово владельца «да»; рестарт для оверлея моделей)» ниже; дальше — «ГДЕ МЫ — 08.11 ~03:50 UTC».
 ## ГДЕ МЫ — 08.11 ~12:40 UTC (слово владельца «да»; рестарт для оверлея моделей)
 
