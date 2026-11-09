@@ -866,8 +866,7 @@ def kopirovat_zond(kopija, helper=None):
     return cel
 
 
-def zond_na_repo(repo, karta=None, rezhim='karta', helper=None,
-                 timeout=1800):
+def zond_na_repo(repo, karta=None, rezhim='karta', timeout=1800):
     """Живой зонд на R: (строки трассы, oshibka|None).
 
     Трасса читается из ФАЙЛА (NABOR_158_TRASSA), не из stdout: раннер не
@@ -878,7 +877,7 @@ def zond_na_repo(repo, karta=None, rezhim='karta', helper=None,
         kopija, oshibka = kopirovat_referens(repo, vrem)
         if oshibka:
             return [], oshibka
-        kopirovat_zond(kopija, helper=helper)
+        kopirovat_zond(kopija)
         mob = os.path.join(kopija, 'mobile')
         konfig = None
         for imya in ('jest.config.js', 'jest.config.json'):
@@ -940,7 +939,7 @@ def prichiny_iz_trassy(stroki, prefiks='ZOND '):
     return prichiny
 
 
-def sudi_repo(repo, imya_kletki='f00-chestnyj-kontrol'):
+def sudi_repo(repo):
     """Живой суд на R: зонд по карте набора.
 
     Возвращает исход клетки: rc 0 — все обязательные цели всех состояний
@@ -2639,7 +2638,7 @@ def k_negativnyj(ctx, imya):
         if rc != 0:
             return otkaz('%s: мутатор %s не применён: %s'
                          % (P_LIVE, mutator, (err or out).strip()[:200]))
-        ish = sudi_repo(kopija, imya_kletki=imya)
+        ish = sudi_repo(kopija)
         return ish
     finally:
         shutil.rmtree(os.path.dirname(kopija), ignore_errors=True)
