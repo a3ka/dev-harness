@@ -1,0 +1,1 @@
+This fixture probes the existing public scripts/check_sud_model.sh --spawn and --verdict doors. It introduces no standalone barrier in scripts/; --model and --stabs use disposable copies of the frozen 104/2 subject.
