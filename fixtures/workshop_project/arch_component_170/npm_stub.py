@@ -20,7 +20,12 @@ else:
 if component not in ('api.identity', 'worker.events'):
     sys.stderr.write('UNKNOWN_COMPONENT\n')
     sys.exit(42)
+if os.environ.get('ARCH170_FAIL_ID') == component:
+    print('npm notice: brief command failed')
+    sys.exit(17)
 print('# ARCH-BRIEF:' + component)
 print('OWN-CONTRACT:' + component + ':' + os.environ['ARCH170_NONCE'])
+if os.environ.get('ARCH170_PADDING'):
+    print('ARCH-BRIEF-PADDING:' + 'X' * int(os.environ['ARCH170_PADDING']))
 if rules:
     print('FITNESS-RULE-FOR:' + component)

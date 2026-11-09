@@ -110,13 +110,13 @@ def run_case(name, subject):
     role = {'brief_kind': 'orchestrator', 'critic_rules': 'critic', 'arbiter_rules': 'arbiter',
             'implementer_plain': 'implementer', 'adversary_plain': 'adversary',
             'reviewer_plain': 'reviewer'}.get(name, 'architect')
-    arch = name != 'legacy'
+    arch = name not in ('legacy', 'architecture_missing')
     code = name != 'document'
-    component = ('api.identity,worker.events' if name == 'multi_component' else
+    component = ('api.identity,worker.events' if name in ('multi_component', 'brief_failure') else
                  '../escape' if name == 'malformed_id' else
                  'api.identity' if name in ('architect_rules', 'critic_rules', 'arbiter_rules',
                     'implementer_plain', 'adversary_plain', 'reviewer_plain', 'lose_map',
-                    'lose_rules', 'malformed_id') else None)
+                    'lose_rules', 'malformed_id', 'architecture_missing', 'brief_over_budget') else None)
     built, repo = world(arch=arch, code=code)
     try:
         expected_ids = IDS if name == 'multi_component' else IDS[:1]
@@ -128,6 +128,10 @@ def run_case(name, subject):
             os.symlink(HERE / 'npm_stub.py', Path(bin_dir) / 'npm')
             env = dict(os.environ, ARCH170_PROJECT=str(repo), ARCH170_NONCE=nonce,
                        PATH=bin_dir + os.pathsep + os.environ['PATH'])
+            if name == 'brief_failure':
+                env['ARCH170_FAIL_ID'] = 'worker.events'
+            if name == 'brief_over_budget':
+                env['ARCH170_PADDING'] = '41000'
             if name == 'wrong_project':
                 # Profile cannot accidentally decide applicability: project identity changes.
                 profile = repo / 'harness.project.json'
@@ -138,10 +142,17 @@ def run_case(name, subject):
         lines = result.stdout.splitlines()
         manifest = result.stdout.split('=== MANIFEST ===\n', 1)[-1].split('=== BUDGET ===', 1)[0].splitlines()
         reject = {'required': 'ARCH_COMPONENT_NET', 'wrong_project': 'ARCH_COMPONENT_NET',
-                  'malformed_id': 'ARCH_COMPONENT_ID'}.get(name)
+                  'malformed_id': 'ARCH_COMPONENT_ID',
+                  'architecture_missing': 'ARCHITECTURE_NET',
+                  'brief_failure': 'ARCH_BRIEF_OTKAZ',
+                  'brief_over_budget': 'режь задачу'}.get(name)
         if reject:
             good = (result.returncode == 1 and not result.stdout
                     and result.stderr.splitlines()[0].startswith('ОТКАЗ: ' + reject + ':'))
+            if name == 'brief_failure':
+                good &= 'worker.events' in result.stderr
+            if name == 'brief_over_budget':
+                good &= '> 40000' in result.stderr
         else:
             good = (result.returncode == 0 and 'MAP: STRUCTURE.md :: all modules' in lines
                     and 'RULES: COMMON-RULES.md' in lines
@@ -166,7 +177,8 @@ def run_case(name, subject):
 
 CASES = ('required', 'legacy', 'document', 'brief_kind', 'architect_rules',
          'critic_rules', 'arbiter_rules', 'implementer_plain', 'adversary_plain',
-         'reviewer_plain', 'multi_component', 'wrong_project', 'malformed_id')
+         'reviewer_plain', 'multi_component', 'wrong_project', 'malformed_id',
+         'architecture_missing', 'brief_failure', 'brief_over_budget')
 
 
 def cells(subject, selected=None):
@@ -220,10 +232,28 @@ def main():
                 ('backend_only', '[ -d "$REPO/architecture" ] && printf',
                  '[ -d "$REPO/architecture" ] && [ "$(printf \'%s\' "$MERGED" | jq -r .repoId.value)" = Complior-back ] && printf',
                  'wrong_project'),
+                ('architecture_guard_removed',
+                 '[ -d "$REPO/architecture" ] || die "ARCHITECTURE_NET: нет каталога architecture/"',
+                 ': # missing architecture accepted', 'architecture_missing'),
+                ('npm_failure_ignored', ' || die "ARCH_BRIEF_OTKAZ: $_arch_id"',
+                 ' || :', 'brief_failure'),
+                ('brief_outside_budget',
+                 '  [ -z "$ARCH_SEC" ] || printf \'=== ARCHITECTURE BRIEF ===\\n%s\' "$ARCH_SEC"',
+                 '  : # brief deferred past budget', 'brief_over_budget'),
             )
             misses = 0
             for name, old, new, branch in mutants:
-                mutated = replace_once(honest, old, new)
+                if name == 'npm_failure_ignored':
+                    if honest.count(old) != 2:
+                        raise ValueError(f'expected both npm failure branches, found {honest.count(old)}')
+                    mutated = honest.replace(old, new)
+                else:
+                    mutated = replace_once(honest, old, new)
+                if name == 'brief_outside_budget':
+                    mutated = replace_once(
+                        mutated, 'pack_body\nprintf \'%s\' "$MAN_BODY"',
+                        'pack_body\n  [ -z "$ARCH_SEC" ] || printf \'=== ARCHITECTURE BRIEF ===\\n%s\' "$ARCH_SEC"\n'
+                        'printf \'%s\' "$MAN_BODY"')
                 subject.write_text(mutated)
                 caught = not cells(subject, branch)[branch]
                 print(f'170 STAB {name} {"caught" if caught else "ZHIV"} @ {branch}', flush=True)
