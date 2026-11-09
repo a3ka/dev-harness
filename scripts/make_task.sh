@@ -119,6 +119,10 @@ _hash_sha256_file() {  # <файл> → HASH_OUT; сбой → HASH_TOOL_ERROR
 usage() { printf 'usage: make_task.sh --repo R --role ROLE [--kind task|brief] [--contract NNN] [--task-file F] [--model-trace F] [--author-role R2] [--print-context]\n' >&2; exit 1; }
 
 REPO=""; ROLE=""; KIND="task"; CONTRACT=""; TASKFILE=""; TRACE=""; AUTHOR_ROLE_ARG=""; PRINT_CONTEXT=0
+# КОНТРАКТ 169: признак ЯВНОГО --model-trace. Явный аргумент (путь к TSV
+# трассы) и незаданный аргумент (проектный fallback 136) — разные входы с
+# разными отказами; сам факт задания аргумента решает, какой диагноз.
+TRACE_EXPLICIT=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --repo)        REPO="${2:?}"; shift 2 ;;
@@ -126,7 +130,7 @@ while [ $# -gt 0 ]; do
     --kind)        KIND="${2:?}"; shift 2 ;;
     --contract)    CONTRACT="${2:?}"; shift 2 ;;
     --task-file)   TASKFILE="${2:?}"; shift 2 ;;
-    --model-trace) TRACE="${2:?}"; shift 2 ;;
+    --model-trace) TRACE="${2:?}"; TRACE_EXPLICIT=1; shift 2 ;;
     --author-role) AUTHOR_ROLE_ARG="${2:?}"; shift 2 ;;
     --print-context) PRINT_CONTEXT=1; shift ;;
     *) usage ;;
@@ -258,14 +262,25 @@ if [ "$PRINT_CONTEXT" -ne 1 ]; then
 # project_paths_resolve мягким ранним вызовом, не вторая конкатенация);
 # явный --model-trace переопределяет. Вне проекта (резолвер отказал или
 # файла нет) — прежний отказ дословно.
-if [ -z "$TRACE" ]; then
-  _PP_JSON="$(project_paths_resolve "$REPO_ABS" 2>/dev/null)" || _PP_JSON=""
-  if [ -n "$_PP_JSON" ] && [ -f "$(printf '%s' "$_PP_JSON" | jq -r '.registry')/trace.tsv" ]; then
-    TRACE="$(printf '%s' "$_PP_JSON" | jq -r '.registry')/trace.tsv"
+#
+# КОНТРАКТ 169: ЯВНЫЙ --model-trace и незаданный аргумент — РАЗНЫЕ входы.
+# Явный аргумент — ПУТЬ к TSV-файлу трассы (роль TAB модель TAB allowed|denied):
+# строка модели или несуществующий путь отказывают НОВЫМ диагнозом, и проектный
+# fallback их НЕ маскирует (подложенный <registry>/trace.tsv не превращает
+# ошибочный явный аргумент в успех). Незаданный аргумент — проектный fallback
+# 136; трассы нет нигде — прежний отказ 095 дословно.
+if [ "$TRACE_EXPLICIT" = "1" ]; then
+  [ -f "$TRACE" ] || die "--model-trace ожидает путь к TSV-файлу трассы (роль<TAB>модель<TAB>allowed); в проектном корне аргумент можно опустить — берётся <registry>/trace.tsv"
+else
+  if [ -z "$TRACE" ]; then
+    _PP_JSON="$(project_paths_resolve "$REPO_ABS" 2>/dev/null)" || _PP_JSON=""
+    if [ -n "$_PP_JSON" ] && [ -f "$(printf '%s' "$_PP_JSON" | jq -r '.registry')/trace.tsv" ]; then
+      TRACE="$(printf '%s' "$_PP_JSON" | jq -r '.registry')/trace.tsv"
+    fi
+    unset _PP_JSON
   fi
-  unset _PP_JSON
+  [ -n "$TRACE" ] || die "нет свидетельства модели: $ROLE"
 fi
-  if [ -z "$TRACE" ] || [ ! -f "$TRACE" ]; then die "нет свидетельства модели: $ROLE"; fi
   while IFS="$TAB" read -r r m fb; do
     [ -z "${r:-}" ] && continue
     case "$fb" in allowed|denied) ;; *) die "трасса: грамматика" ;; esac

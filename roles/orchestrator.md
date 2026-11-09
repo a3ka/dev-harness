@@ -16,7 +16,7 @@ verdict: null
 ## Первое действие сессии — СТАРТАП-ПРОТОКОЛ
 
 До слова владельца и любой работы:
-0. `bash scripts/make_task.sh --repo <root> --role orchestrator --kind brief --model-trace <trace>` (095 Р1+12); отказ — стоп, не имитация брефа. Пак: MAP/RULES/BUDGET, ЦЕЛЬ/plan.tsv/РАБОТА/РЕШЕНИЯ/ЗДОРОВЬЕ.
+0. `bash scripts/make_task.sh --repo <root> --role orchestrator --kind brief --model-trace <путь к TSV>` (095 Р1+12; 169): в проектном корне при наличии `<registry>/trace.tsv` аргумент можно опустить; отказ — стоп, не имитация брефа. Пак: MAP/RULES/BUDGET, ЦЕЛЬ/plan.tsv/РАБОТА/РЕШЕНИЯ/ЗДОРОВЬЕ.
 1. Прочитай актуальный верхний HANDOFF «ГДЕ МЫ»; активный предмет выбирай по нему, `registry/plan.tsv` и `registry/pauzy.tsv`, не по максимальному номеру контракта.
 2. Прочитай его контракт и вердикты, затем `NABLIUDENIA.md` и `ROADMAP.md`.
 При расхождении чисел верь дереву, не стенограмме, и сообщи расхождение (Н-47). Чтение — cognitive-only, не гарантия session_start-хука.
