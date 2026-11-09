@@ -3,6 +3,7 @@
 import argparse
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -13,8 +14,26 @@ VERIFY = Path('/tmp/dev-harness-verify')
 GOOD = 'Alpha_174'
 OTHER = 'Beta-174'
 BAD = 'Arbiter079Б1'
-MODEL_GOOD = 'openai-codex/gpt-6-sol'
+
+def declared_model():
+    # Read the live declaration before choosing fixture models; no hard-coded
+    # assumption about the model currently assigned to architect.
+    agent = (ROOT / '.omp/agents/architect.md').read_text()
+    role = re.search(r'^model: \["@([a-z]+)"\]$', agent, re.MULTILINE)
+    if role is None:
+        raise ValueError('architect role model declaration missing')
+    config = (ROOT / '.omp/config.yml').read_text()
+    model = re.search(r'^\s+' + re.escape(role.group(1)) + r':\s*"([^"]+)"', config, re.MULTILINE)
+    if model is None:
+        raise ValueError('architect declared model missing')
+    return model.group(1)
+
+
+DECLARED = declared_model()
+MODEL_GOOD = ('openai-codex/gpt-6-sol' if DECLARED != 'openai-codex/gpt-6-sol'
+              else 'openai-codex/gpt-6-sol-174')
 MODEL_OTHER = 'anthropic/claude-sonnet-5-5'
+MODEL_BAD = 'zai/glm-5.3' if DECLARED != 'zai/glm-5.3' else 'zai/glm-5.3-174'
 BAD_ERROR = f'NOT_IMPLEMENTED: session-id вне алфавита [A-Za-z0-9._-]: {BAD}'
 MISSING_ERROR = 'NOT_IMPLEMENTED: сессия не найдена: Missing174'
 
@@ -29,7 +48,7 @@ def replace_one(source, old, new):
 def fixture(zone):
     # Explicit mtime makes ordering deterministic. Session oracle lives in memory.
     rows = ((GOOD, MODEL_GOOD, 1700000000), (OTHER, MODEL_OTHER, 1700000100),
-            (BAD, 'zai/glm-5.3', 1700000200))
+            (BAD, MODEL_BAD, 1700000200))
     for name, model, timestamp in rows:
         f = zone / (name + '.jsonl')
         f.write_text('{"agent":"architect","type":"model_change","model":"' + model
@@ -62,9 +81,11 @@ def cells(subject, zone, oracle):
              f'architect\t{MODEL_GOOD}\tdenied\t{GOOD}\t-\n')
     rows = {}
     rows['legacy_tsv'] = verdict('legacy_tsv', call(subject, zone, '--tsv'), 0,
-                                 'architect\tzai/glm-5.3\tallowed\n' + other3 + good3)
+                                 f'architect\t{MODEL_BAD}\tallowed\n' + other3 + good3)
     rows['legacy_bind_invalid'] = verdict('legacy_bind_invalid', call(subject, zone, '--tsv', '--bind'),
                                           2, '', BAD_ERROR + '\n')
+    rows['legacy_human_last'] = human('legacy_human_last', call(subject, zone),
+                                      MODEL_BAD)
     rows['selected_tsv'] = verdict('selected_tsv', call(subject, zone, '--tsv', '--session', GOOD), 0, good3)
     rows['selected_bind'] = verdict('selected_bind', call(subject, zone, '--tsv', '--bind', '--session', GOOD),
                                     0, good5)
@@ -74,6 +95,8 @@ def cells(subject, zone, oracle):
     rows['selected_human_all'] = human('selected_human_all', call(subject, zone, '--all', '--session', GOOD), all_mode=True)
     rows['exact_id'] = verdict('exact_id', call(subject, zone, '--tsv', '--session', 'Alpha'),
                                2, '', 'NOT_IMPLEMENTED: сессия не найдена: Alpha\n')
+    rows['exact_id_human'] = verdict('exact_id_human', call(subject, zone, '--session', 'Alpha'),
+                                     2, '', 'NOT_IMPLEMENTED: сессия не найдена: Alpha\n')
     rows['missing_id'] = verdict('missing_id', call(subject, zone, '--tsv', '--session', 'Missing174'),
                                  2, '', MISSING_ERROR + '\n')
     rows['invalid_id'] = verdict('invalid_id', call(subject, zone, '--tsv', '--session', BAD),
@@ -86,12 +109,16 @@ def cells(subject, zone, oracle):
     return rows
 
 
-def human(label, result, all_mode=False):
+def human(label, result, model=MODEL_GOOD, all_mode=False):
     lines = result.stdout.splitlines()
+    # Fixture models deliberately differ from the live architect declaration:
+    # the last-session gate is therefore deterministic even if @slow changes.
+    session_rows = [line for line in lines if 'делегировано ' in line]
     ok = (result.returncode == 1 and result.stderr == '' and
           'сессий показано: 1 · гейт по ПОСЛЕДНЕЙ: РАСХОЖДЕНИЕ' in lines and
-          len([line for line in lines if 'делегировано ' in line]) == 1 and
-          MODEL_GOOD in result.stdout and MODEL_OTHER not in result.stdout and
+          len(session_rows) == 1 and model in session_rows[0] and
+          all(other not in session_rows[0] for other in (MODEL_GOOD, MODEL_OTHER, MODEL_BAD)
+              if other != model) and
           ('знаки: ok совпало' in result.stdout) == all_mode)
     print(f"174 {label} {'ok' if ok else 'KRASNO'} rc={result.returncode} stdout={result.stdout!r} stderr={result.stderr!r}")
     return ok
@@ -174,11 +201,16 @@ def main():
             ('ignore_human_filter', FILTER_HUMAN, '', 'selected_human'),
             ('substring_selection', '[ "$(basename "$_f" .jsonl)" = "$SESSION_ID" ]',
              '[[ "$(basename "$_f" .jsonl)" == *"$SESSION_ID"* ]]', 'exact_id'),
+            ('substring_human_selection', FILTER_HUMAN,
+             FILTER_HUMAN.replace('[ "$(basename "$_f" .jsonl)" = "$SESSION_ID" ]',
+                                  '[[ "$(basename "$_f" .jsonl)" == *"$SESSION_ID"* ]]'),
+             'exact_id_human'),
             ('no_missing_diagnosis', 'сессия не найдена: %s',
              'трейсов в зоне нет: %s', 'missing_id'),
             ('allow_invalid_argument', VALIDATE, '', 'invalid_id'),
             ('legacy_skip_bad', 'if [ "$BIND" = "1" ]; then\n      _session=',
              'if [ "$BIND" = "1" ]; then\n      case "$(basename "$f" .jsonl)" in *[!A-Za-z0-9._-]*) continue;; esac\n      _session=', 'legacy_bind_invalid'),
+            ('no_flag_shows_all', '  [ "$ALL" -eq 1 ] || break\n', '', 'legacy_human_last'),
         ]
         failed = False
         for name, old, new, branch in mutations:
