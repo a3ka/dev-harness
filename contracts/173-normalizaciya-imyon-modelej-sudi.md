@@ -19,10 +19,10 @@
 
 ## Приёмка
 
-- Дано дерево до реализации с полным назначением reviewer `anthropic/claude-opus-5-5`, fallback `openai-codex/gpt-6-sol` и critic `zai/glm-5.3`; когда `bash fixtures/sud_model_173/red_sud_model_173.sh --repo`; тогда rc 1 и самостоятельные `spawn_bare_opus KRASNO`, `spawn_bare_glm KRASNO`, `verdict_bare_primary KRASNO`, `verdict_bare_fallback KRASNO`, `verdict_bare_glm KRASNO`, `dynamic_bare_opus KRASNO` (временная конформная пара со значением, выбранным при каждом прогоне); отрицательные клетки не заменяют их красноту.
-- `bash fixtures/sud_model_173/red_sud_model_173.sh --repo` → красная: 173 spawn_bare_opus KRASNO
-- Дано честная временная реализация на pinned `frozen/contracts/104/2:scripts/check_sud_model.sh`; когда `bash fixtures/sud_model_173/red_sud_model_173.sh --model`; тогда rc 0, все позитивные bare-клетки зелёны, неверная версия и чужой prefixed провайдер получают rc 1 с существующей причиной; этот контроль независим от последующего кода рабочего дерева. Дано порчи честной реализации; когда `bash fixtures/sud_model_173/red_sud_model_173.sh --stabs`; тогда rc 0, каждый `STAB … caught`, ни одного `ZHIV`; адрес стаб→вход задаёт только код `probe.py` (Н-39).
-- Дано реализация в зоне implementer; когда `bash fixtures/sud_model_173/red_sud_model_173.sh --repo` и `bash fixtures/sud_model_173/red_sud_model_173.sh` (CI); тогда обе rc 0: для bare primary/denied fallback и prefixed primary наблюдается существующий положительный `СУДЬЯ СВОЕЙ МОДЕЛИ`, для иной версии/полного чужого провайдера — rc 1 с прежней точной причиной, stdout пуст. Привязка и грамматика 104: `bash fixtures/zashchita_main_104/red_sud_model_dver_spavna.sh` и `bash fixtures/zashchita_main_104/red_sud_model_materializatsija.sh` → rc 0.
+- Дано дерево до реализации с полным назначением reviewer `anthropic/claude-opus-5-5`, fallback `openai-codex/gpt-6-sol` и critic `zai/glm-5.3`; когда `bash fixtures/workshop_project/sud_model_173/red_sud_model_173.sh --repo`; тогда rc 1 и самостоятельные `spawn_bare_opus KRASNO`, `spawn_bare_glm KRASNO`, `verdict_bare_primary KRASNO`, `verdict_bare_fallback KRASNO`, `verdict_bare_glm KRASNO`, `dynamic_bare_opus KRASNO` (временная конформная пара со значением, выбранным при каждом прогоне); отрицательные клетки не заменяют их красноту.
+- `bash fixtures/workshop_project/sud_model_173/red_sud_model_173.sh --repo` → красная: 173 spawn_bare_opus KRASNO
+- Дано честная временная реализация на pinned `frozen/contracts/104/2:scripts/check_sud_model.sh`; когда `bash fixtures/workshop_project/sud_model_173/red_sud_model_173.sh --model`; тогда rc 0, все позитивные bare-клетки зелёны, неверная версия и чужой prefixed провайдер получают rc 1 с существующей причиной; этот контроль независим от последующего кода рабочего дерева. Дано порчи честной реализации; когда `bash fixtures/workshop_project/sud_model_173/red_sud_model_173.sh --stabs`; тогда rc 0, каждый `STAB … caught`, ни одного `ZHIV`; адрес стаб→вход задаёт только код `probe.py` (Н-39).
+- Дано реализация в зоне implementer; когда `bash fixtures/workshop_project/sud_model_173/red_sud_model_173.sh --repo` и `bash fixtures/workshop_project/sud_model_173/red_sud_model_173.sh` (CI); тогда обе rc 0: для bare primary/denied fallback и prefixed primary наблюдается существующий положительный `СУДЬЯ СВОЕЙ МОДЕЛИ`, для иной версии/полного чужого провайдера — rc 1 с прежней точной причиной, stdout пуст. Привязка и грамматика 104: `bash fixtures/zashchita_main_104/red_sud_model_dver_spavna.sh` и `bash fixtures/zashchita_main_104/red_sud_model_materializatsija.sh` → rc 0.
 - Дано черновик; когда `bash scripts/pre_critic.sh --repo . contracts/173-normalizaciya-imyon-modelej-sudi.md`; тогда rc 0. Перед done `bash scripts/check_provodka.sh . contracts/173-normalizaciya-imyon-modelej-sudi.md` → rc 0; CI проводка скрипта подключается оркестратором после ленда, `bash scripts/gen_ci_steps.sh --check` → rc 0.
 
 ## Модель угроз
@@ -36,7 +36,7 @@
 
 ## Зоны и проводка
 
-ЗОНА architect: contracts/173-normalizaciya-imyon-modelej-sudi.md fixtures/sud_model_173/
+ЗОНА architect: contracts/173-normalizaciya-imyon-modelej-sudi.md fixtures/workshop_project/sud_model_173/
 ЗОНА implementer: scripts/check_sud_model.sh
 ЗОНА critic: verdicts/critic/
 ЗОНА reviewer: verdicts/review/
@@ -107,12 +107,11 @@
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 114 только замер 173.
 
 ПРЕДПОСЫЛКИ:
-- setting Действующий CI харнесса предоставляет bash, Python 3, git и jq; CI-шаг запускает fixtures/sud_model_173/red_sud_model_173.sh без новых secrets, variables, environments или настроек репозитория.
+- setting Действующий CI харнесса предоставляет bash, Python 3, git и jq; CI-шаг запускает fixtures/workshop_project/sud_model_173/red_sud_model_173.sh без новых secrets, variables, environments или настроек репозитория.
 
 ПРОВОДКА:
-- guard=fixtures/sud_model_173/red_sud_model_173.sh
-ПРОВОДКА-ЭНФОРСМЕНТ: скрипт двери уже существует; новая обязанность есть уточнение сравнения модели внутри scripts/check_sud_model.sh, не поведенческая норма роли; батарея fixtures/sud_model_173/red_sud_model_173.sh подключается отдельным CI-шагом после ленда.
+- guard=fixtures/workshop_project/sud_model_173/red_sud_model_173.sh
+ПРОВОДКА-ЭНФОРСМЕНТ: скрипт двери уже существует; новая обязанность есть уточнение сравнения модели внутри scripts/check_sud_model.sh, не поведенческая норма роли; батарея fixtures/workshop_project/sud_model_173/red_sud_model_173.sh подключается отдельным CI-шагом после ленда.
 
-## Незаполненные требования
-
+## Незаполненные требования:
 нет
