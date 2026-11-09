@@ -36,6 +36,9 @@
 - setting CI харнесса предоставляет bash, Python 3, git, jq и npm/node; новые secrets, variables, environments и настройки репозитория не нужны.
 - setting orchestrator подключает step батареи в registry/ci-steps.tsv, registry/ci-zamery.tsv и .github/workflows/ci.yml после реализации; эта пачка не изменяет CI.
 
+## Незаполненные требования:
+нет
+
 ## Зоны и проводка
 
 ЗОНА architect: contracts/170-arch-component-brief-vhod-zadanija.md fixtures/workshop_project/arch_component_170/
