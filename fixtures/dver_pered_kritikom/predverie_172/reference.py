@@ -33,9 +33,9 @@ def main():
     mutant = os.getenv('STAB_172', '')
     try:
         if args.mode == 'prepare':
-            if not args.branch or not args.sostojanie:
+            if (not args.branch or not args.sostojanie) and mutant != 'allow_incomplete_prepare':
                 return refuse('NE_POLNYJ_VHOD')
-            state = Path(args.sostojanie).resolve()
+            state = Path(args.sostojanie or root.parent / 'state').resolve()
             if mutant != 'state_inside' and (state == root or root in state.parents):
                 return refuse('SOSTOJANIE_V_CHECKOUT')
             local = git(root, 'rev-parse', 'refs/heads/' + args.branch)
@@ -62,17 +62,20 @@ def main():
                     return refuse('MAIN_NE_FAST_FORWARD', 'git -C ' + str(root) + ' branch wip/172/architect-main-saved ' + local + ' && git -C ' + str(root) + ' reset --hard origin/main')
                 git(root, 'reset', '--hard', 'origin/main')
             elif local != remote:
-                git(root, 'merge', '--ff-only', 'origin/main')
+                if mutant == 'ref_only_ff':
+                    git(root, 'update-ref', 'refs/heads/main', remote)
+                else:
+                    git(root, 'merge', '--ff-only', 'origin/main')
             print('MAIN=' + remote)
             return 0
         if args.mode == 'verdict':
-            if not args.file:
+            if not args.file and mutant != 'allow_incomplete_verdict':
                 return refuse('NE_POLNYJ_VHOD')
             branch = git(root, 'symbolic-ref', '--short', 'HEAD')
-            path = Path(args.file)
+            path = Path(args.file or 'verdicts/critic/contracts-172-v1.md')
             if mutant != 'allow_main_verdict' and branch == 'main' and (git(root, 'status', '--porcelain', '--', str(path)) or git(root, 'log', '-1', '--format=%H', '--', str(path))):
                 return refuse('VERDIKT_V_MAIN')
-            if mutant != 'allow_main_verdict' and not (branch.startswith('wip/') and branch.split('/')[-1] in ('critic', 'adversary', 'reviewer', 'arbiter')):
+            if mutant not in ('allow_main_verdict', 'allow_nonjudge_verdict') and not (branch.startswith('wip/') and branch.split('/')[-1] in ('critic', 'adversary', 'reviewer', 'arbiter')):
                 return refuse('NE_SUDJSKAJA_VETKA')
             print('VERDICT_BRANCH=' + branch)
             return 0
