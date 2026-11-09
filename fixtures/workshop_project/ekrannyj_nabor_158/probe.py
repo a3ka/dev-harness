@@ -315,6 +315,26 @@ def zapusk_komandy(komanda, cwd=None, env=None, timeout=1800):
             proc.stderr.decode('utf-8', 'replace'))
 
 
+def zapusk_chistyy(komanda, cwd=None, env=None, timeout=300):
+    """Запуск с окружением БЕЗ переменных GIT_* — для git в одноразовом каталоге.
+
+    Окружение прогона может нести GIT_DIR/GIT_WORK_TREE (door снимает их
+    гигиенически) — в одноразовом toy-репозитории двери такие переменные
+    указали бы на ЧУЖОЙ репозиторий.
+    """
+    okruzh = dict((k, v) for k, v in os.environ.items()
+                  if not k.startswith('GIT_'))
+    if env:
+        okruzh.update(env)
+    try:
+        proc = subprocess.run(komanda, cwd=cwd, env=okruzh, timeout=timeout,
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except subprocess.TimeoutExpired:
+        return 124, '', 'ТАЙМАУТ'
+    return (proc.returncode, proc.stdout.decode('utf-8', 'replace'),
+            proc.stderr.decode('utf-8', 'replace'))
+
+
 def vremennyy_katalog(prefix='nabor158-'):
     put = tempfile.mkdtemp(prefix=prefix)
     _VREMENNYE.append(put)
@@ -1351,6 +1371,71 @@ def k_z01(ctx):
     return zelenaya()
 
 
+# Гейты, копируемые в toy-репозиторий двери (нога (д3) и её образец).
+KOPY_GATEY_DVERI = ('pre_critic.sh', 'check_precision_gate.sh',
+                    'check_spec_ready.sh', 'verify_ci_parity.sh',
+                    'check_trek_ekrana.sh')
+# Путь эталона гейта трека ОТ КОРНЯ ДЕРЕВА (копируется в toy рядом с гейтом).
+ETALON_TREKA_REL = os.path.join('fixtures', 'workshop_project',
+                                'ekrannyj_nabor_158', 'model')
+
+
+def postroit_toy_dveri(koren):
+    """Toy-репозиторий двери: копии гейтов, риск-экран, git-коммит.
+
+    Образец — fixtures/pre_critic/_toy.sh: гейты копируются в корень toy'а
+    (дверь зовёт их по относительному пути при cwd = её корень), плюс
+    минимальные ci.yml/package.json/ci_parity_exceptions.txt и git-коммит
+    (precision-гейт требует репозиторий с коммитом).
+    """
+    for pod in ('scripts', 'contracts', os.path.join('.github', 'workflows'),
+                'config', ETALON_TREKA_REL):
+        os.makedirs(os.path.join(koren, pod), exist_ok=True)
+    for imya in KOPY_GATEY_DVERI:
+        istochnik = os.path.join(SKRIPTY, imya)
+        if os.path.isfile(istochnik):
+            shutil.copy2(istochnik, os.path.join(koren, 'scripts', imya))
+    for imya in sorted(os.listdir(SKRIPTY)):
+        if imya.startswith('lib_') and imya.endswith('.sh'):
+            shutil.copy2(os.path.join(SKRIPTY, imya),
+                         os.path.join(koren, 'scripts', imya))
+    shutil.copy2(os.path.join(ZDE, 'model', 'check_trek_ekrana_158.py'),
+                 os.path.join(koren, ETALON_TREKA_REL,
+                              'check_trek_ekrana_158.py'))
+    with open(os.path.join(koren, 'package.json'), 'w',
+              encoding='utf-8') as fh:
+        fh.write('{\n  "name": "toy",\n  "version": "1.0.0",\n'
+                 '  "scripts": {\n'
+                 '    "check:precision-gate":'
+                 ' "bash scripts/check_precision_gate.sh",\n'
+                 '    "check:spec-ready": "bash scripts/check_spec_ready.sh"\n'
+                 '  }\n}\n')
+    with open(os.path.join(koren, '.github', 'workflows', 'ci.yml'), 'w',
+              encoding='utf-8') as fh:
+        fh.write('name: toy-ci\non: [push]\njobs:\n  toy:\n'
+                 '    runs-on: ubuntu-latest\n    steps:\n'
+                 '      - run: npm run check:precision-gate -- . '
+                 'contracts/191-ekran-riska.md\n'
+                 '      - run: npm run check:spec-ready -- . '
+                 'contracts/191-ekran-riska.md\n')
+    with open(os.path.join(koren, 'config', 'ci_parity_exceptions.txt'), 'w',
+              encoding='utf-8') as fh:
+        fh.write('')
+    with open(os.path.join(koren, 'contracts', '191-ekran-riska.md'), 'w',
+              encoding='utf-8') as fh:
+        fh.write(tekst_kontrakta(191, trek=TREK_LEGKIJ))
+    for komanda in (['git', 'init', '-q', '-b', 'main', koren],
+                    ['git', '-C', koren, 'add', '-A'],
+                    ['git', '-C', koren, '-c', 'user.name=implementer',
+                     '-c', 'user.email=implementer@dev-harness.local',
+                     'commit', '-qm', 'toy: init']):
+        rc, out, err = zapusk_chistyy(komanda, cwd=koren, timeout=300)
+        if rc != 0:
+            return '%s: %s' % (os.path.basename(komanda[1]),
+                               (err or out).strip()[:200])
+    return None
+
+
 def k_z02(ctx):
     skript = os.path.join(SKRIPTY, 'pre_critic.sh')
     try:
@@ -1365,13 +1450,24 @@ def k_z02(ctx):
                      % P_SUBJECT_ABSENT)
     if i_d2 >= 0 and i_d3 < i_d2:
         return krasnaya('НОГА (Д3) СТОИТ ДО НОГИ (Д2)')
-    toy = toy_dlya(ctx)
-    peropisyat_kontrakt(toy, 191, trek=TREK_LEGKIJ)
+    vyzyv = [s for s in tekst.splitlines()
+             if 'check_trek_ekrana.sh' in s and '"$BASE"' in s
+             and '"$CONTRACT"' in s]
+    if not vyzyv:
+        return krasnaya('НОГА (Д3) НЕ ЗОВЁТ ГЕЙТ С <корнем> И <контрактом>')
+    # ЖИВОЙ ПРОГОН ДВЕРИ: риск-экран в ЛЁГКОМ треке → «трек-гейт красен».
+    koren = vremennyy_katalog('nabor158-dver-')
+    oshibka = postroit_toy_dveri(koren)
+    if oshibka:
+        return otkaz('%s: toy-репозиторий двери не собран: %s'
+                     % (P_SUBJECT_ABSENT, oshibka))
     rc, out, err = zapusk_komandy(
-        ['bash', skript, os.path.join(toy, 'contracts',
-                                      '191-ekran-riska.md')], cwd=KOREN,
-        timeout=600)
+        ['bash', os.path.join(koren, 'scripts', 'pre_critic.sh'),
+         'contracts/191-ekran-riska.md'], cwd=koren, timeout=600)
     vyvod = out + err
+    if rc != 1:
+        return krasnaya('ЖИВАЯ ДВЕРЬ НА РИСК-ЭКРАНЕ: rc=%d (ожидался 1)'
+                        % rc, mark=[vyvod])
     if 'трек-гейт красен' not in vyvod:
         return krasnaya('ЖИВАЯ ДВЕРЬ НЕ СКАЗАЛА О ТРЕК-ГЕЙТЕ',
                         mark=[vyvod])
