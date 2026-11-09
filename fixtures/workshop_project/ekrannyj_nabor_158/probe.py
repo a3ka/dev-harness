@@ -25,8 +25,8 @@
                       не зелень.
   --oracle-tamper     порча оракула: rc 2 ORACLE_TAMPERED до клеток.
 
-Служебные флаги: --only <список клеток> (суд подмножества — механизм
-стабов), --piny-only (только сверка пинов оракула).
+Незаявленный флаг → отказ argparse rc 2 (SPEC §1). Служебных флагов нет:
+подмножество клеток — внутренний вызов, сверка пинов — в оракуле.
 
 Коды возврата: 0 — зелено; 1 — красная клетка или живой стаб; 2 — оракул
 порчен, нечем проверить, отказ сочетания.
@@ -1861,15 +1861,20 @@ def k_f00(ctx):
 
 
 def k_f01(ctx):
-    """Клетка f01: референс без jest-среды — rc 2 LIVE_PREDPOSYLKA."""
+    """Клетка f01: референс без jest-среды — rc 2 LIVE_PREDPOSYLKA.
+
+    Подмножество клеток — ВНУТРЕННИЙ вызов (незаявленный флаг CLI запрещён
+    SPEC §1): судится тот же живой путь --repo, что зовёт CLI.
+    """
     pusto = vremennyy_katalog('nabor158-bez-sredy-')
-    rc, out, err = zapusk_komandy(
-        [sys.executable, os.path.join(ZDE, 'probe.py'), '--repo', pusto,
-         '--only', 'f00-chestnyj-kontrol'], cwd=KOREN, timeout=600)
-    if rc == 2 and P_LIVE in (out + err):
-        return ishod(2, [P_LIVE], [out + err])
+    try:
+        ish = sudi_repo(pusto)
+    finally:
+        shutil.rmtree(pusto, ignore_errors=True)
+    if ish['rc'] == 2 and P_LIVE in ish.get('pri', []):
+        return ish
     return krasnaya('ЖИВОЙ ВХОД БЕЗ СРЕДЫ НЕ ДАЛ ИМЕНОВАННЫЙ ОТКАЗ',
-                    mark=[out, err])
+                    mark=ish.get('mark', []))
 
 
 def k_f02(ctx):
@@ -2514,12 +2519,10 @@ def postroit_kontekst(orakul, rezhim, repo=None):
     return {'orakul': orakul, 'rezhim': rezhim, 'repo': repo}
 
 
-def progoni_kletki(orakul, ctx, tolko=None):
+def progoni_kletki(orakul, ctx):
     """Прогон клеток; возвращает (зелёных, красных)."""
     zelenyh, krasnyh = 0, 0
     for imya in KLETKI:
-        if tolko and imya not in tolko:
-            continue
         if not stroit_cell(imya, ctx['rezhim']):
             continue
         try:
@@ -2539,25 +2542,15 @@ def progoni_kletki(orakul, ctx, tolko=None):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(
+        description='батарея набора ekrannyj_nabor_158 (SPEC §1)')
     ap.add_argument('--model', action='store_true')
     ap.add_argument('--stabs', action='store_true')
     ap.add_argument('--repo', metavar='R')
     ap.add_argument('--ekran', metavar='NNN')
     ap.add_argument('--oracle-tamper', action='store_true')
-    ap.add_argument('--only', metavar='SPISOK')
-    ap.add_argument('--piny-only', action='store_true')
+    # Заявленных флагов — пять (SPEC §1); незаявленный → отказ argparse rc 2.
     a = ap.parse_args(argv)
-    tolko = None
-    if a.only:
-        tolko = set(x.strip() for x in a.only.split(',') if x.strip())
-    if a.piny_only:
-        orakul, oshibka = chit_orakul()
-        if orakul is None:
-            print('%s: %s' % (P_ORACLE, oshibka), file=sys.stderr)
-            return 2
-        print('ПИНЫ ОК')
-        return 0
     if a.oracle_tamper:
         # порча оракула — ДО клеток (клетка d02)
         vrem = vremennyy_katalog('nabor158-tamper-')
@@ -2637,13 +2630,13 @@ def main(argv=None):
     ctx = postroit_kontekst(orakul, rezhim, repo=repo)
     if a.stabs:
         kontrol = postroit_kontekst(orakul, 'model', repo=repo)
-        zelenyh, krasnyh = progoni_kletki(orakul, kontrol, tolko=tolko)
+        zelenyh, krasnyh = progoni_kletki(orakul, kontrol)
         zhivye = progoni_staby(orakul, ctx)
         if zhivye:
             print('%s: %s' % (P_STAB_ZHIV, ', '.join(zhivye)), file=sys.stderr)
             return 1
         return 0 if krasnyh == 0 else 1
-    zelenyh, krasnyh = progoni_kletki(orakul, ctx, tolko=tolko)
+    zelenyh, krasnyh = progoni_kletki(orakul, ctx)
     if krasnyh:
         return 1
     if gate_net:
