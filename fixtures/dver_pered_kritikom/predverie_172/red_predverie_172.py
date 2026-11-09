@@ -52,8 +52,11 @@ def setup(base):
 def evaluate(mode, case, root, state, model, mutant=''):
     args = [mode, '--repo', str(root)]
     if mode == 'prepare':
-        args += ['--branch', 'wip/172/architect', '--sostojanie', str(state), '--timeout', '0.05']
-    if mode == 'verdict':
+        args += ['--branch', 'wip/172/architect']
+        if case != 'prepare_no_state':
+            args += ['--sostojanie', str(state)]
+        args += ['--timeout', '0.05']
+    if mode == 'verdict' and case != 'verdict_no_file':
         args += ['--file', 'verdicts/critic/contracts-172-v1.md']
     env = os.environ.copy()
     if mutant:
@@ -66,7 +69,7 @@ def evaluate(mode, case, root, state, model, mutant=''):
 
 
 def case_input(name, root, state, base):
-    if name in ('published', 'missing_origin', 'stale_origin', 'state_inside', 'manifest_wait', 'leak_reject'):
+    if name in ('published', 'missing_origin', 'stale_origin', 'state_inside', 'manifest_wait', 'leak_reject', 'prepare_no_state'):
         if name == 'missing_origin':
             git(root, 'push', 'origin', '--delete', 'wip/172/architect')
         if name == 'stale_origin':
@@ -98,11 +101,13 @@ def case_input(name, root, state, base):
         git(other, 'push', 'origin', 'main')
         git(root, 'fetch', 'origin', 'main')
         return 'sync-main', state
-    if name in ('judge_verdict', 'staged_main_verdict', 'committed_main_verdict'):
-        if name != 'judge_verdict':
+    if name in ('judge_verdict', 'staged_main_verdict', 'committed_main_verdict', 'nonjudge_verdict', 'verdict_no_file'):
+        if name in ('staged_main_verdict', 'committed_main_verdict'):
             git(root, 'switch', 'main')
-        else:
+        elif name in ('judge_verdict', 'verdict_no_file'):
             git(root, 'switch', '-c', 'wip/172/critic')
+        else:
+            git(root, 'switch', '-c', 'wip/172/implementer')
         dest = root / 'verdicts/critic/contracts-172-v1.md'
         dest.parent.mkdir(parents=True)
         dest.write_text('FAIL\n')
@@ -121,6 +126,7 @@ def case_input(name, root, state, base):
 # Expected diagnosis and witness are independent literals, captured before the subject runs.
 CASES = {
     'published': ('OBJECT=', 0, ''),
+    'prepare_no_state': ('NE_POLNYJ_VHOD', 1, ''),
     'missing_origin': ('VETKA_NE_OPUBLIKOVANA', 1, 'bash scripts/gitw push origin wip/172/architect'),
     'stale_origin': ('VETKA_NE_OPUBLIKOVANA', 1, 'bash scripts/gitw push origin wip/172/architect'),
     'state_inside': ('SOSTOJANIE_V_CHECKOUT', 1, ''),
@@ -129,6 +135,8 @@ CASES = {
     'ff_sync': ('MAIN=', 0, ''),
     'nonff_sync': ('MAIN_NE_FAST_FORWARD', 1, 'branch wip/172/architect-main-saved'),
     'judge_verdict': ('VERDICT_BRANCH=wip/172/critic', 0, ''),
+    'verdict_no_file': ('NE_POLNYJ_VHOD', 1, ''),
+    'nonjudge_verdict': ('NE_SUDJSKAJA_VETKA', 1, ''),
     'staged_main_verdict': ('VERDIKT_V_MAIN', 1, ''),
     'committed_main_verdict': ('VERDIKT_V_MAIN', 1, ''),
     'archive_free': ('ARCHIVE_WORKTREE=0', 0, ''),
@@ -137,12 +145,16 @@ CASES = {
 # Pairing is executable only: each mutation must diverge on its own conforming input.
 MUTATIONS = {
     'stale_origin': 'stale_origin',
+    'prepare_no_state': 'allow_incomplete_prepare',
     'state_inside': 'state_inside',
     'manifest_wait': 'ignore_manifest',
     'leak_reject': 'ignore_leak',
     'nonff_sync': 'allow_nonff',
+    'ff_sync': 'ref_only_ff',
     'staged_main_verdict': 'allow_main_verdict',
     'committed_main_verdict': 'allow_main_verdict',
+    'verdict_no_file': 'allow_incomplete_verdict',
+    'nonjudge_verdict': 'allow_nonjudge_verdict',
     'archive_attached': 'allow_archive_worktree',
 }
 
@@ -152,16 +164,23 @@ def check(name, model, mutant=''):
         base = Path(temp)
         root, state = setup(base)
         mode, state = case_input(name, root, state, base)
+        if name == 'ff_sync':
+            assert not (root / 'remote').exists(), 'publisher file was present before sync'
         before = git(root, 'rev-parse', 'main') if name == 'nonff_sync' else ''
         expected, rc, witness = CASES[name]
         result = evaluate(mode, name, root, state, model, mutant)
         stream = result.stdout if rc == 0 else result.stderr
-        ok = result.returncode == rc and expected in stream and (not witness or witness in stream)
+        ok = (result.returncode == rc
+              and (any(line.startswith(expected) for line in stream.splitlines()) if rc == 0
+                   else 'ОТКАЗ: ' + expected in stream.splitlines())
+              and (not witness or witness in stream))
         if name == 'published' and ok:
             tip = git(root, 'rev-parse', 'refs/remotes/origin/wip/172/architect')
             ok = ('OBJECT=' + tip) in result.stdout and ('SOSTOJANIE=' + str(state.resolve())) in result.stdout
         if name == 'ff_sync' and ok:
-            ok = git(root, 'rev-parse', 'main') == git(root, 'rev-parse', 'origin/main')
+            ok = (git(root, 'rev-parse', 'main') == git(root, 'rev-parse', 'origin/main')
+                  and (root / 'remote').is_file()
+                  and (root / 'remote').read_text() == 'remote\n')
         if name == 'nonff_sync' and ok:
             ok = git(root, 'rev-parse', 'main') == before and ('reset --hard origin/main' in result.stderr)
         if name == 'archive_attached' and ok:
