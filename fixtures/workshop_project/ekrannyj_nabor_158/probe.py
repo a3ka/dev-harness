@@ -1002,11 +1002,19 @@ def ozhidanie_trassy(karta):
 
 
 def geyt_159(repo):
-    """Гейт 159 (И-8): первый отказ --repo-ветви. Возвращает (rc, вывод)."""
+    """Гейт 159 (И-8): первый отказ --repo-ветви. Возвращает (rc, вывод).
+
+    Контракт возврата — ЕДИНЫЙ для обоих исходов: (rc, вывод). Гейт в
+    дереве (ленд 159) отдаёт stdout+stderr вывода; отсутствие гейта —
+    именованный отказ rc 2. Раньше (гейта 159 в дереве не было) жил
+    только второй исход, и разбор тройки (rc, out, err) из запуска
+    команды ронял клетку d03 и ветвь --repo.
+    """
     skript = os.path.join(SKRIPTY, 'check_pustoj_produkt.sh')
     if not os.path.isfile(skript):
         return 2, 'NOT_IMPLEMENTED: гейт 159 (scripts/check_pustoj_produkt.sh) в дереве отсутствует'
-    return zapusk_komandy(['bash', skript, repo], cwd=KOREN)
+    rc, out, err = zapusk_komandy(['bash', skript, repo], cwd=KOREN)
+    return rc, out + err
 
 
 def sovmestnyj_rezhim(repo, nomer, toy_root=None):
@@ -2777,11 +2785,18 @@ KLETTKI_ZHIVYE = ('c05-slezhenie',)
 
 
 def stroit_cell(imya, rezhim):
-    """Строится ли клетка в этом режиме."""
+    """Строится ли клетка в этом режиме.
+
+    SPEC §1 (версия v+1, контракт 158/2 п.7): живые клетки F и слежение
+    c05 строятся ТОЛЬКО при явном `--repo <R>`; без флага они не строятся
+    (безфлаговый W — суд дерева харнесса, rc 0; отсутствие R не является
+    неисправностью продукта). В `--repo` при недоступном или непригодном
+    R клетка отказывает rc 2 LIVE_PREDPOSYLKA (не skip→pass).
+    """
     zhivye = imya.startswith('f') or imya in KLETTKI_ZHIVYE
+    if zhivye:
+        return rezhim == 'repo'
     if rezhim in ('model', 'stabs'):
-        if zhivye:
-            return False
         return imya not in KLETTKI_SUBJEKT_DEREVA
     return True
 
