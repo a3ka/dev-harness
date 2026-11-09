@@ -203,6 +203,9 @@ while IFS= read -r f; do
         soglasno=1; chuzhoj=""
         while IFS= read -r c; do
           [ -n "$c" ] || continue
+          # Исторический grandfather-коммит этого пути (check_charter.sh, grandfather_pair) — не носитель
+          # текста v+1: его дельта по другим контрактам — прошлое, не переписываемое (слово владельца 2026-11-10).
+          grandfather_pair "$c" "$f" && continue
           while IFS= read -r df; do
             [ -n "$df" ] || continue
             if [ "$df" != "$f" ]; then
