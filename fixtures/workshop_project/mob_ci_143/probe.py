@@ -128,6 +128,23 @@ def rabotniki_subiekta(rep):
 def vse_rabotniki_subiekta(rep):
     return rabotniki_iz_karty(mapa_subiekta(rep))
 
+def inventar_rabotnikov(wf, rep):
+    """The universal worker is infrastructure only if selection feeds its matrix."""
+    jobs = wf.get("jobs", {})
+    rab = set(vse_rabotniki_subiekta(rep))
+    if MATRIX_V3 and "e2e-screen" in jobs:
+        selector = jobs.get("select-screens", {})
+        sel = [s for s in selector.get("steps", []) if s.get("id") == "sel"]
+        valid = (jobs["e2e-screen"].get("strategy", {}).get("matrix") ==
+                 "${{ fromJSON(needs.select-screens.outputs.matrix) }}" and
+                 selector.get("outputs", {}).get("matrix") == "${{ steps.sel.outputs.matrix }}" and
+                 len(sel) == 1 and
+                 "node mobile/scripts/select-ci-screens.cjs" in str(sel[0].get("run", "")))
+        if not valid:
+            raise KartaSubiekta("MATRIX_OUTPUT_REQUIRED: e2e-screen без вывода селектора")
+        rab.add("e2e-screen")
+    return rab
+
 
 def oshibka_orakula(msg):
     print("ORACLE_TAMPERED: %s" % msg, file=sys.stderr)
@@ -1963,11 +1980,11 @@ def sud_needs_rabotnikov(wf, rep=None):
 
 KLETKI_Y = [
     ("y01-nabor-jobs", lambda wf, rep: (
-        set(wf.get("jobs", {})) == set(SLUZHEBNYE_JOBS) | set(vse_rabotniki_subiekta(rep)),
+        set(wf.get("jobs", {})) == set(SLUZHEBNYE_JOBS) | inventar_rabotnikov(wf, rep),
         "jobs %s ≠ служебные %s ∪ работники карты" % (sorted(wf.get("jobs", {})), sorted(SLUZHEBNYE_JOBS)))),
     ("y02-agregat-needs", lambda wf, rep: (
         set(wf.get("jobs", {}).get("android-e2e", {}).get("needs") or []) ==
-        {"select-screens", "quality", "build-apk"} | set(vse_rabotniki_subiekta(rep)),
+        {"select-screens", "quality", "build-apk"} | inventar_rabotnikov(wf, rep),
         "needs агрегата %s" % (wf.get("jobs", {}).get("android-e2e", {}).get("needs"),))),
     ("y03-agregat-if-always", lambda wf, rep: (
         (wf.get("jobs", {}).get("android-e2e", {}).get("if") or "").startswith("always()"),
@@ -2189,7 +2206,7 @@ def sud_inventar_dereva(subject_root, tmp):
 def sud_joby_iz_karty(wf, rep):
     """i02-jobs-iz-karty (И-12): jobs(workflow) == SLUZHEBNYE ∪ работники
     карты; job без записи и запись без job — именованные расхождения."""
-    rab = set(vse_rabotniki_subiekta(rep))
+    rab = inventar_rabotnikov(wf, rep)
     jobs = set(wf.get("jobs", {}))
     ozhidaemye = set(SLUZHEBNYE_JOBS) | rab
     if jobs != ozhidaemye:
@@ -2219,7 +2236,7 @@ def sud_agregaty_iz_karty(wf, rep):
     """i04-agregaty-iz-karty (И-12): needs ОБОИХ агрегирующих задач
     (required PR-агрегат и ночной signal) == {select-screens, quality,
     build-apk} ∪ работники карты — новый экран обязан попасть в оба."""
-    rab = set(vse_rabotniki_subiekta(rep))
+    rab = inventar_rabotnikov(wf, rep)
     ozh = {"select-screens", "quality", "build-apk"} | rab
     problemy = []
     for ag in ("android-e2e", "mobile-regression-signal"):
@@ -2717,6 +2734,8 @@ def odna_kletka(imja, subject_root, vrem):
                 if imja_y == imja:
                     try:
                         return f(wf, str(d))
+                    except KartaSubiekta as e:
+                        return False, str(e)
                     except Exception as e:
                         return False, "ISKLJUCHENIE %s" % e
             return False, "неизвестная y-клетка"
