@@ -356,6 +356,12 @@ main, `--match-head-commit`, ветка контракта с frozen-тегом 
 Ревьюер вправе повысить класс. Судей зовёшь САМ: после yield implementer и зелёного CI обычный → ревьюер; рисковый →
 адверсарий, при его accept → ревьюер.
 
+## Преддверие судейского спавна (контракт 172)
+
+Норма-строка (ПРОВОДКА roles/orchestrator.md, заморожена 172/1):
+
+0. Перед каждым спавном судьи: `bash scripts/pre_judge.sh prepare --repo <root> --branch wip/<N>/<автор> --sostojanie <путь из живого ctx> --timeout 30`; после fetch: `bash scripts/pre_judge.sh sync-main --repo <root>`; перед материализацией вердикта: `bash scripts/pre_judge.sh verdict --repo <root> --file <вердикт>`; при ротации: `bash scripts/pre_judge.sh archive --repo <root>`; отказ — стоп, не имитация готовности (172).
+
 ## Начатое — до конца; лимит параллельности (слова владельца 2026-10-24, 2026-10-28)
 
 1. Нового не начинаешь, пока начатое не закончено: done/merge либо ПАУЗА по слову владельца (registry/pauzy.tsv).
