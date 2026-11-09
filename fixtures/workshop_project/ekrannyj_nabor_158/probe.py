@@ -181,6 +181,7 @@ KLETKI = [
     'f27-dejstvie-sdvig', 'f28-dejstvie-na-393',
     'f29-dejstvie-pointer-none', 'f30-cel-disabled', 'f31-cel-otsutstvuet',
     'f32-sostojanie-nedostizhimo', 'f33-sostojanie-slito',
+    'f34-nadpis-a11y-net',
     'g01-147-model', 'g02-147-stabs', 'g03-148-model', 'g04-148-stabs',
     'g05-149-model', 'g06-149-stabs', 'g07-143-stabs', 'g08-159',
 ]
@@ -224,6 +225,16 @@ NEGATIVNYE = {
                                      P_SOSTOJANIE_NEDOSTIZHIMO),
     'f33-sostojanie-slito': ('model/mutanty/sostojanie-slito.py',
                               P_SOSTOJANIE_SLITO),
+    'f34-nadpis-a11y-net': ('model/mutanty/profil-bez-a11y.py',
+                              P_NADPIS_NEVIDIMA),
+}
+
+# Станция-источник негативного образца: по умолчанию ref-clean (SPEC §6F:
+# якоря мутаторов образцов f10–f33 — ref-clean). Образец карты mob-ref
+# (цель-иконка без доступного имени) идёт по своей станции — его якорь
+# лежит в экране продукта 148, а не в экране ref-clean.
+STANCIYA_OBRAZTSA = {
+    'f34-nadpis-a11y-net': 'mob-ref',
 }
 
 # Регрессии соседей: клетка → (дверь, флаги)
@@ -2621,6 +2632,17 @@ def k_f08(ctx):
         shutil.rmtree(os.path.dirname(gen['repo']), ignore_errors=True)
 
 
+def istochnik_obrazca(imya):
+    """Станция-источник негативного образца (по умолчанию — ref-clean)."""
+    nazvanie = STANCIYA_OBRAZTSA.get(imya)
+    if nazvanie is None:
+        return istochnik_ref_clean()
+    for imya_ref, put, _kartaf in REFERENSI:
+        if imya_ref == nazvanie:
+            return put
+    return istochnik_ref_clean()
+
+
 def k_negativnyj(ctx, imya):
     """Негативный образец: мутатор на одноразовой копии референса."""
     mutator, ozhidanie = NEGATIVNYE[imya]
@@ -2628,7 +2650,7 @@ def k_negativnyj(ctx, imya):
     if not repo:
         return otkaz('%s: референс не задан (живой суд — только с '
                      'референсом)' % P_LIVE)
-    kopija, oshibka = zhivaya_kopiya(istochnik_ref_clean())
+    kopija, oshibka = zhivaya_kopiya(istochnik_obrazca(imya))
     if kopija is None:
         return otkaz('%s: %s' % (P_LIVE, oshibka))
     try:

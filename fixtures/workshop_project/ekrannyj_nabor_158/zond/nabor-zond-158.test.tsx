@@ -19,8 +19,8 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { TabShell } from '../bootstrap/tab-shell';
 import { FirstRunScreen } from '../features/auth/first-run-screen';
 import {
-  interaktivnyjHozjain, otklyuchenaPoCepi, vidimajaNadpis, vidimostUzla,
-  zonaKasanija,
+  a11yNadpis, interaktivnyjHozjain, otklyuchenaPoCepi, vidimajaNadpis,
+  vidimostUzla, zonaKasanija,
 } from './helpery';
 import { SinteticheskijEkran, ZONY } from './sinteticheskij-ekran';
 
@@ -49,6 +49,8 @@ interface Tsel {
   objazatelna: boolean;
   sostojanija: string[];
   nadpis: string | null;
+  // Доступное имя цели-иконки (видимой надписи нет) — объявляется картой.
+  accessibilityLabel?: string | null;
   postuslovie: { tip: string; znachenie: string };
 }
 interface Karta { profili: string[]; sostojanija: Sostojanie[]; tceli: Tsel[] }
@@ -127,6 +129,11 @@ async function proverit(tsel: Tsel, shirina: number, komandy: jest.Mock,
     return { prichina: 'TSEL_NEVIDIMA', izmer };
   }
   if (tsel.nadpis !== null && !vidimajaNadpis(hozjain, tsel.nadpis, shirina, vysota)) {
+    return { prichina: 'NADPIS_NEVIDIMA', izmer };
+  }
+  // Цель-иконка (видимой надписи нет): обязательное доступное имя — картой.
+  if (tsel.accessibilityLabel != null &&
+      !a11yNadpis(el, hozjain, tsel.accessibilityLabel)) {
     return { prichina: 'NADPIS_NEVIDIMA', izmer };
   }
   if (zona.w < minimum || zona.h < minimum) {

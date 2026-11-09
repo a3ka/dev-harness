@@ -472,6 +472,13 @@
    ],
    "markery": []
   },
+  "f34-nadpis-a11y-net": {
+   "rc": 1,
+   "pri": [
+    "NADPIS_NEVIDIMA"
+   ],
+   "markery": []
+  },
   "g01-147-model": {
    "rc": 0,
    "pri": [],
@@ -523,8 +530,8 @@
    "model/check_trek_ekrana_158.py": "6e3b63584cc76dbaa7ca2d855826333845f5a4f5b78c1776834721a6b1204642"
   },
   "zond": {
-   "zond/helpery.ts": "4d4b7959a5829b218e56aa8a6d73b27aa5f4a8a37e666fc70f497f94b2fe1fea",
-   "zond/nabor-zond-158.test.tsx": "c8c0a9b2ba00d23536613aac4cc13fd0e102c1346b99d1d7df60376b4eda9f53",
+   "zond/helpery.ts": "4316c32e9c6c39b67895f5d5181a5999065e7cabd2325e35d94bbcd97122a03c",
+   "zond/nabor-zond-158.test.tsx": "6ea66ad15dd189a85291d7d806b51ce31f78d93916b3bb35c7ae7e06368f359f",
    "zond/sinteticheskij-ekran.tsx": "191f0a4dfd67c6d95d524b69c61c9b5759152d4bdd46d718b353351d6b3c8410"
   }
  },
@@ -580,6 +587,9 @@
   ],
   "st13-sovmestnyj-karta-po-nomeru.py": [
    "f06-sovmestnyj-karta-iz-fajla"
+  ],
+  "st14-zond-bez-a11y.py": [
+   "f34-nadpis-a11y-net"
   ]
  },
  "standiny": {

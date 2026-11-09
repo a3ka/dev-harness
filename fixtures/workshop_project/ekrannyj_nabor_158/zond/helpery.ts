@@ -316,3 +316,20 @@ export function vidimajaNadpis(uzel: Uzel, ozhidanie: string, shirina: number,
                                vysota = 844): boolean {
   return vidimyeStroki(uzel, shirina, vysota).join('') === ozhidanie;
 }
+
+/** a11yNadpis: доступное имя цели — для целей-ИКОНОК, у которых видимой
+ * надписи нет: имя обязано быть предъявлено узлом цели или её хозяином
+ * (accessibilityLabel). Иначе имя не предъявлено — надпись не найдена.
+ * Ветка объявляется ТОЛЬКО картой (SPEC §4: поле accessibilityLabel цели);
+ * для целей с видимой надписью она не действует — их надпись судится
+ * vidimajaNadpis. */
+export function a11yNadpis(uzel: Uzel, hozjain: Uzel | null,
+                            ozhidanie: string): boolean {
+  const svoe = svojstva(uzel).accessibilityLabel;
+  if (typeof svoe === 'string') return svoe === ozhidanie;
+  if (hozjain !== null) {
+    const imyaHozjaina = svojstva(hozjain).accessibilityLabel;
+    if (typeof imyaHozjaina === 'string') return imyaHozjaina === ozhidanie;
+  }
+  return false;
+}
