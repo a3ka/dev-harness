@@ -27,6 +27,9 @@
 - Дано: staged/committed verdict на main либо attached archive worktree; когда `bash scripts/pre_judge.sh verdict --repo R --file V` либо `bash scripts/pre_judge.sh archive --repo R`; тогда rc 1 со своей причиной и без мутации; judge branch и archive без worktree на тех же входах → rc 0. Дано: staged verdict на `wip/172/implementer`; команда verdict с `--file V` → rc 1 `NE_SUDJSKAJA_VETKA`. Дано: staged verdict на judge branch с опущенным `--file`; команда verdict без `--file` → rc 1 `NE_POLNYJ_VHOD`.
 - До критика: `bash scripts/pre_critic.sh --repo . contracts/172-predverie-sudejskoj-provodki.md` → rc 0. Перед done: `bash scripts/check_provodka.sh . contracts/172-predverie-sudejskoj-provodki.md` → rc 0; при проектном `harness.project.json` также `bash scripts/check_project_sources.sh --stage done` → rc 0.
 
+## Незаполненные требования:
+нет
+
 ## Зоны и проводка
 
 ЗОНА architect: contracts/172-predverie-sudejskoj-provodki.md fixtures/dver_pered_kritikom/predverie_172/
