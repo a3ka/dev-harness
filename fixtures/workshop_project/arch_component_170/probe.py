@@ -30,9 +30,9 @@ if [ "$KIND" = task ]; then
       _arch_rules=""
       case "$ROLE" in architect|critic|arbiter) _arch_rules="--with-rules" ;; esac
       if [ -n "$_arch_rules" ]; then
-        _arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --with-rules --component "$_arch_id")" || die "ARCH_BRIEF_OTKAZ: $_arch_id"
+        _arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --with-rules --component "$_arch_id" 2>&1)" || die "ARCH_BRIEF_OTKAZ: $_arch_id"
       else
-        _arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --component "$_arch_id")" || die "ARCH_BRIEF_OTKAZ: $_arch_id"
+        _arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --component "$_arch_id" 2>&1)" || die "ARCH_BRIEF_OTKAZ: $_arch_id"
       fi
       [ -n "$_arch_text" ] || die "ARCH_BRIEF_OTKAZ: пустой $_arch_id"
       ARCH_SEC="${ARCH_SEC}${_arch_text}
@@ -109,10 +109,14 @@ def invoke(subject, repo, role, component=None, *, kind='task', env=None):
 def run_case(name, subject):
     role = {'brief_kind': 'orchestrator', 'critic_rules': 'critic', 'arbiter_rules': 'arbiter',
             'implementer_plain': 'implementer', 'adversary_plain': 'adversary',
-            'reviewer_plain': 'reviewer'}.get(name, 'architect')
+            'reviewer_plain': 'reviewer', 'implementer_brief_failure': 'implementer',
+            'adversary_brief_failure': 'adversary',
+            'reviewer_brief_failure': 'reviewer'}.get(name, 'architect')
     arch = name not in ('legacy', 'architecture_missing')
     code = name != 'document'
-    component = ('api.identity,worker.events' if name in ('multi_component', 'brief_failure') else
+    component = ('api.identity,worker.events' if name in
+                 ('multi_component', 'brief_failure', 'implementer_brief_failure',
+                  'adversary_brief_failure', 'reviewer_brief_failure') else
                  '../escape' if name == 'malformed_id' else
                  'api.identity' if name in ('architect_rules', 'critic_rules', 'arbiter_rules',
                     'implementer_plain', 'adversary_plain', 'reviewer_plain', 'lose_map',
@@ -128,7 +132,8 @@ def run_case(name, subject):
             os.symlink(HERE / 'npm_stub.py', Path(bin_dir) / 'npm')
             env = dict(os.environ, ARCH170_PROJECT=str(repo), ARCH170_NONCE=nonce,
                        PATH=bin_dir + os.pathsep + os.environ['PATH'])
-            if name == 'brief_failure':
+            if name in ('brief_failure', 'implementer_brief_failure',
+                        'adversary_brief_failure', 'reviewer_brief_failure'):
                 env['ARCH170_FAIL_ID'] = 'worker.events'
             if name == 'brief_over_budget':
                 env['ARCH170_PADDING'] = '41000'
@@ -145,11 +150,15 @@ def run_case(name, subject):
                   'malformed_id': 'ARCH_COMPONENT_ID',
                   'architecture_missing': 'ARCHITECTURE_NET',
                   'brief_failure': 'ARCH_BRIEF_OTKAZ',
+                  'implementer_brief_failure': 'ARCH_BRIEF_OTKAZ',
+                  'adversary_brief_failure': 'ARCH_BRIEF_OTKAZ',
+                  'reviewer_brief_failure': 'ARCH_BRIEF_OTKAZ',
                   'brief_over_budget': 'режь задачу'}.get(name)
         if reject:
             good = (result.returncode == 1 and not result.stdout
                     and result.stderr.splitlines()[0].startswith('ОТКАЗ: ' + reject + ':'))
-            if name == 'brief_failure':
+            if name in ('brief_failure', 'implementer_brief_failure',
+                        'adversary_brief_failure', 'reviewer_brief_failure'):
                 good &= 'worker.events' in result.stderr
             if name == 'brief_over_budget':
                 good &= '> 40000' in result.stderr
@@ -178,7 +187,8 @@ def run_case(name, subject):
 CASES = ('required', 'legacy', 'document', 'brief_kind', 'architect_rules',
          'critic_rules', 'arbiter_rules', 'implementer_plain', 'adversary_plain',
          'reviewer_plain', 'multi_component', 'wrong_project', 'malformed_id',
-         'architecture_missing', 'brief_failure', 'brief_over_budget')
+         'architecture_missing', 'brief_failure', 'implementer_brief_failure',
+         'adversary_brief_failure', 'reviewer_brief_failure', 'brief_over_budget')
 
 
 def cells(subject, selected=None):
@@ -223,8 +233,8 @@ def main():
                  '_arch_rules="--with-rules"\n      case "$ROLE"', 'implementer_plain'),
                 ('only_first_id', '      ARCH_SEC="${ARCH_SEC}${_arch_text}\n"',
                  '      ARCH_SEC="${ARCH_SEC}${_arch_text}\n"\n      _arch_rest=""', 'multi_component'),
-                ('fixed_id', '--with-rules --component "$_arch_id")',
-                 '--with-rules --component "api.identity")', 'multi_component'),
+                ('fixed_id', '--with-rules --component "$_arch_id" 2>&1)',
+                 '--with-rules --component "api.identity" 2>&1)', 'multi_component'),
                 ('map_removed', "  printf '=== MAP ===\\n%s' \"$MAP_LINES\"",
                  "  printf '=== MAP ===\\n%s' \"\"", 'architect_rules'),
                 ('rules_removed', "  printf '=== RULES ===\\n%s' \"$RULES_LINES\"",
@@ -237,6 +247,10 @@ def main():
                  ': # missing architecture accepted', 'architecture_missing'),
                 ('npm_failure_ignored', ' || die "ARCH_BRIEF_OTKAZ: $_arch_id"',
                  ' || :', 'brief_failure'),
+                ('plain_npm_failure_ignored',
+                 '_arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --component "$_arch_id" 2>&1)" || die "ARCH_BRIEF_OTKAZ: $_arch_id"',
+                 '_arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --component "$_arch_id" 2>&1)" || :',
+                 'implementer_brief_failure'),
                 ('brief_outside_budget',
                  '  [ -z "$ARCH_SEC" ] || printf \'=== ARCHITECTURE BRIEF ===\\n%s\' "$ARCH_SEC"',
                  '  : # brief deferred past budget', 'brief_over_budget'),
