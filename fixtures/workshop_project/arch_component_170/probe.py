@@ -50,6 +50,9 @@ if [ -n "$ARCH_COMPONENT" ]; then
   MAP_LINES="$(printf '%s' "$MAP_LINES" | grep -v '^MAP: STRUCTURE.md ::' || true)"
   [ -z "$MAP_LINES" ] || MAP_LINES="${MAP_LINES}
 "
+  MAP_MAN="$(printf '%s' "$MAP_MAN" | grep -v "^map${TAB}STRUCTURE.md${TAB}" || true)"
+  [ -z "$MAP_MAN" ] || MAP_MAN="${MAP_MAN}
+"
 fi
 '''
 
@@ -127,6 +130,7 @@ def case(label, subject, *, arch=True, code=True, backend=True, n=2, cli=True, c
             needle = f"BRIEF: architecture/generated/briefs/{component}.md :: lines={n}"
             ok = (result.returncode == 0 and not stderr and lines.count(needle) == 1
                   and "=== BRIEF ===" in lines and not any(x.startswith("MAP: STRUCTURE.md ::") for x in lines)
+                  and not any(x.startswith("map\tSTRUCTURE.md\t") for x in lines)
                   and brief.is_file() and brief.read_text() == oracle
                   and f"brief\tarchitecture/generated/briefs/{component}.md\tmandatory\tarchitecture" in lines)
         else:
@@ -152,7 +156,7 @@ def no_component(label, subject, *, arch=True, code=True, backend=True):
         shutil.rmtree(built)
 
 
-def cells(subject):
+def cells(subject, selected=None):
     unavailable = os.environ.copy()
     with tempfile.TemporaryDirectory(dir=VERIFY, prefix="arch170-path-") as d:
         for program in ("bash", "git", "jq", "sha256sum", "awk", "grep", "sed", "sort", "head", "tail", "tr", "cat", "mktemp", "dirname", "pwd", "ls", "readlink", "wc", "mkdir", "rm", "mv", "basename", "cut", "date", "find"):
@@ -160,23 +164,24 @@ def cells(subject):
             if target:
                 (Path(d) / program).symlink_to(target)
         unavailable["PATH"] = d
-        return {
-            "required": no_component("required", subject),
-            "legacy": no_component("legacy", subject, arch=False),
-            "document": no_component("document", subject, code=False),
-            "other_project": no_component("other_project", subject, backend=False),
-            "brief": case("brief", subject),
-            "dynamic_id": case("dynamic_id", subject, component="core.worker"),
-            "limit_300": case("limit_300", subject, n=300),
-            "limit_301": case("limit_301", subject, n=301, expected="BRIEF_SLISHKOM_DLINNYJ"),
-            "empty_brief": case("empty_brief", subject, n=0, expected="BRIEF_PUSTOJ"),
-            "stale_on_reject": case("stale_on_reject", subject, n=301, expected="BRIEF_SLISHKOM_DLINNYJ", stale=True),
-            "malformed_id": case("malformed_id", subject, component="../escape", expected="ARCH_COMPONENT_ID"),
-            "missing_node": case("missing_node", subject, env=unavailable, expected="NODE_NET"),
-            "missing_cli": case("missing_cli", subject, cli=False, expected="CLI_NET"),
-            "unknown_component": case("unknown_component", subject, component="missing.module", expected="BRIEF_CLI_OTKAZ"),
-            "no_architecture": case("no_architecture", subject, arch=False, expected="ARCHITECTURE_NET"),
+        checks = {
+            "required": lambda: no_component("required", subject),
+            "legacy": lambda: no_component("legacy", subject, arch=False),
+            "document": lambda: no_component("document", subject, code=False),
+            "other_project": lambda: no_component("other_project", subject, backend=False),
+            "brief": lambda: case("brief", subject),
+            "dynamic_id": lambda: case("dynamic_id", subject, component="core.worker"),
+            "limit_300": lambda: case("limit_300", subject, n=300),
+            "limit_301": lambda: case("limit_301", subject, n=301, expected="BRIEF_SLISHKOM_DLINNYJ"),
+            "empty_brief": lambda: case("empty_brief", subject, n=0, expected="BRIEF_PUSTOJ"),
+            "stale_on_reject": lambda: case("stale_on_reject", subject, n=301, expected="BRIEF_SLISHKOM_DLINNYJ", stale=True),
+            "malformed_id": lambda: case("malformed_id", subject, component="../escape", expected="ARCH_COMPONENT_ID"),
+            "missing_node": lambda: case("missing_node", subject, env=unavailable, expected="NODE_NET"),
+            "missing_cli": lambda: case("missing_cli", subject, cli=False, expected="CLI_NET"),
+            "unknown_component": lambda: case("unknown_component", subject, component="missing.module", expected="BRIEF_CLI_OTKAZ"),
+            "no_architecture": lambda: case("no_architecture", subject, arch=False, expected="ARCHITECTURE_NET"),
         }
+        return {name: check() for name, check in checks.items() if selected is None or name == selected}
 
 
 def main():
@@ -218,13 +223,15 @@ def main():
                 ("not_backend_scoped", honest.replace('[ "$_backend" = Complior-back ]', '[ -n "$_backend" ]'), "other_project"),
                 ("structure_retained", honest.replace('MAP_LINES="$(printf \'%s\' "$MAP_LINES" | grep -v \'^MAP: STRUCTURE.md ::\' || true)"', ':'), "brief"),
                 ("missing_node_skip", honest.replace('command -v node >/dev/null 2>&1 || die "NODE_NET: node не найден"', 'command -v node >/dev/null 2>&1 || true'), "missing_node"),
+                ("manifest_retained", honest.replace('  MAP_MAN="$(printf \'%s\' "$MAP_MAN" | grep -v "^map${TAB}STRUCTURE.md${TAB}" || true)"', ':'), "brief"),
+                ("empty_accepted", honest.replace('if [ "$_arch_lines" -eq 0 ] || [ ! -s "$_arch_out" ];', 'if false;'), "empty_brief"),
             ]
             failures = 0
             for name, mutated, branch in stubs:
                 if mutated == honest:
                     raise ValueError(f"stub {name} is a no-op")
                 subject.write_text(mutated)
-                checks = cells(subject)
+                checks = cells(subject, branch)
                 caught = not checks[branch]
                 print(f"170 STAB {name} {'caught' if caught else 'ZHIV'} @ {branch}")
                 failures += not caught
