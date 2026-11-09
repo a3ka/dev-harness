@@ -17,7 +17,12 @@
                       картам набора и синтетический экран.
   --repo R --ekran N  совместный режим (И-7): гейт 159, членство и ТРЕК по
                       контракту N, ядро — зонд на R по карте ФАЙЛА пачки N.
-  --ekran N           экранный режим (toy-мир): членство, ТРЕК, ядро, слой.
+  --ekran N           экранный режим: членство, ТРЕК, ядро, слой. Источник
+                      контракта и пачки — ОБЪЯВЛЕННЫЙ маршрут: переменная
+                      NABOR_158_TOY_ROOT (внутренний путь клеток) либо корень
+                      дерева харнеса; скрытый toy-мир НЕ подставляется —
+                      несуществующий экран даёт именованный отказ rc 2, а
+                      не зелень.
   --oracle-tamper     порча оракула: rc 2 ORACLE_TAMPERED до клеток.
 
 Служебные флаги: --only <список клеток> (суд подмножества — механизм
@@ -571,12 +576,17 @@ def chlenstvo_i_trek(tekst, imya):
 def sud_ekran(toy_root, nomer, model=None):
     """Экранный режим: членство, ТРЕК, ядро, слой.
 
+    toy_root — корень ОБЪЯВЛЕННОГО маршрута (toy-мир клеток либо корень
+    дерева харнеса): контракт и пачка берутся ТОЛЬКО оттуда.
+
     Возвращает (rc, строки вывода, причины, sled, строки ядра).
     """
     model = model or zagruzit_etalon()
     kontrakt = nayti_kontrakt(toy_root, nomer)
     if kontrakt is None:
-        return (2, ['NOT_IMPLEMENTED: контракт экрана %d не найден' % nomer],
+        return (2, ['NOT_IMPLEMENTED: контракт экрана %d не найден по '
+                    'маршруту %s'
+                    % (nomer, os.path.join(toy_root, 'contracts'))],
                 [P_NOT_IMPL], [], [])
     with open(kontrakt, encoding='utf-8') as fh:
         stroki = fh.read().splitlines()
@@ -592,6 +602,11 @@ def sud_ekran(toy_root, nomer, model=None):
         return 0, vyvod, [], [], []
     vyvod.append('ЭКРАН %d ТРЕК %s' % (nomer, trek))
     paket = os.path.join(toy_root, 'pachki', str(nomer))
+    if not os.path.isdir(paket):
+        # Пачки экрана нет — судить нечего (fail-closed), а не «ядро упало».
+        vyvod.append('NOT_IMPLEMENTED: %s: пачка экрана %d отсутствует: %s'
+                     % (P_KARTA_NET, nomer, paket))
+        return 2, vyvod, [P_KARTA_NET], [], []
     sled_put = os.path.join(paket, 'sled')
     if os.path.exists(sled_put):
         os.remove(sled_put)
@@ -616,25 +631,24 @@ def sud_ekran(toy_root, nomer, model=None):
 
 
 def ekran_rezhim(nomer, toy_root=None, model=None):
-    """CLI --ekran NNN (toy-мир)."""
-    vremennoj = None
+    """CLI --ekran NNN.
+
+    Источник контракта и пачки — ОБЪЯВЛЕННЫЙ маршрут (SPEC §1):
+      * NABOR_158_TOY_ROOT — корень toy-мира (внутренний путь клеток);
+      * иначе — корень дерева харнеса (contracts/<NNN>-*.md, pachki/<NNN>/).
+    Скрытый toy-мир НЕ подставляется: несуществующий экран — именованный
+    отказ rc 2 (нечем проверить), а не зелень за чужой экран.
+    """
     if toy_root is None:
-        toy_root = os.environ.get('NABOR_158_TOY_ROOT')
-    if toy_root is None:
-        vremennoj = vremennyy_katalog('nabor158-toy-')
-        toy_root = postroit_toy(vremennoj, karty=karta_bajty())
-    try:
-        rc, vyvod, prichiny, _sled, _yadro = sud_ekran(toy_root, nomer,
-                                                       model=model)
-        for s in vyvod:
-            print(s)
-        if prichiny:
-            for p in prichiny:
-                print('ПРИЧИНА %s' % p)
-        return rc
-    finally:
-        if vremennoj:
-            shutil.rmtree(vremennoj, ignore_errors=True)
+        toy_root = os.environ.get('NABOR_158_TOY_ROOT') or KOREN
+    rc, vyvod, prichiny, _sled, _yadro = sud_ekran(toy_root, nomer,
+                                                   model=model)
+    for s in vyvod:
+        print(s)
+    if prichiny:
+        for p in prichiny:
+            print('ПРИЧИНА %s' % p)
+    return rc
 
 
 # ── Живой зонд (копия референса + jest) ─────────────────────────────────
