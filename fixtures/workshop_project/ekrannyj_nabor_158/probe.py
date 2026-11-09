@@ -1994,6 +1994,27 @@ def izmer_vysoty(stroki, testid, profil):
 
 
 # ── Семья D — домен и оракул ───────────────────────────────────────────
+def otkrytie_tega(tekst, nachalo):
+    """Текст открывающего тега (от <Pressable до закрывающей '>' вне скобок).
+
+    Атрибуты узла читаются ЦЕЛИКОМ: окно фиксированной длины обрывало
+    разбор у экрана, у которого реквизиты длиннее (атрибуты таб-вкладки
+    продукта 148), — и имя цели терялось.
+    """
+    glubina = 0
+    i = nachalo
+    while i < len(tekst):
+        c = tekst[i]
+        if c in '{([':
+            glubina += 1
+        elif c in '})]':
+            glubina -= 1
+        elif c == '>' and glubina == 0:
+            return tekst[nachalo:i + 1]
+        i += 1
+    return tekst[nachalo:]
+
+
 def pressable_testid(tekst):
     """testID интерактивных узлов исходника (литералы и шаблоны).
 
@@ -2003,7 +2024,7 @@ def pressable_testid(tekst):
     literaly = []
     shablony = []
     for m in re.finditer(r'<Pressable\b', tekst):
-        blok = tekst[m.start():m.start() + 400]
+        blok = otkrytie_tega(tekst, m.start())
         shablon = re.search(r'testID=\{\s*`([^`]+)`\s*\}', blok)
         if shablon:
             shablony.append(shablon.group(1))
