@@ -102,6 +102,40 @@ def selector_case(root, model, tmp, names=('vkladki', 'gespraech'), subject=None
     except (OSError, ValueError, KeyError, TypeError):
         return checked(False, 'MATRIX_OUTPUT_ABSENT')
 
+def selector_output_case(wf, root, tmp):
+    """Execute the workflow's actual sel step, not just the selector executable."""
+    from connected_v3 import github
+
+    steps = [step for step in wf['jobs']['select-screens']['steps'] if step.get('id') == 'sel']
+    if len(steps) != 1:
+        return checked(False, 'MATRIX_SEL_STEP_COUNT')
+    script = root / 'mobile/scripts/select-ci-screens.cjs'
+    if not script.is_file():
+        return checked(False, 'MATRIX_SELECTOR_ABSENT')
+    mapping = demo_map()
+    expected = selected(mapping)['matrix']
+    (tmp / 'mobile/scripts').mkdir(parents=True)
+    shutil.copy2(script, tmp / 'mobile/scripts/select-ci-screens.cjs')
+    (tmp / 'mobile/ci-screens.json').write_text(json.dumps(mapping))
+    output = tmp / 'gh-output'
+    proc = subprocess.run(['bash', '-eo', 'pipefail', '-c',
+                           github(steps[0]['run'], {'github.event_name': 'schedule'})],
+                          cwd=tmp, env=dict(os.environ, GITHUB_OUTPUT=str(output)),
+                          capture_output=True, text=True, timeout=25)
+    if proc.returncode:
+        return checked(False, 'MATRIX_SEL_RUN: ' + (proc.stdout + proc.stderr)[-160:])
+    try:
+        selection = json.loads((tmp / 'selection.json').read_text())
+        emitted = [line.split('=', 1)[1] for line in output.read_text().splitlines()
+                   if line.startswith('matrix=')]
+        if len(emitted) != 1:
+            return checked(False, 'MATRIX_OUTPUT_WRITERS: %d' % len(emitted))
+        return checked(emitted[0] == selection['matrix'] == expected,
+                       'MATRIX_OUTPUT_DIVERGENCE')
+    except (OSError, ValueError, KeyError, TypeError):
+        return checked(False, 'MATRIX_OUTPUT_DIVERGENCE')
+
+
 def duplicate_case(tmp):
     mapping = demo_map()
     results = []
@@ -246,6 +280,29 @@ def evidence_case(root, model, tmp, missing=False, bad_digest=False, parent_fail
                    'CHILD_NOT_AGGREGATED')
 
 
+def inventory_case(wf, tmp, branch):
+    """Exercise each product inventory branch on the empty matrix map."""
+    import probe
+    probe.MATRIX_V3 = True
+    (tmp / 'mobile').mkdir(parents=True, exist_ok=True)
+    shutil.copy2(BASE / 'mobile/ci-screens.json', tmp / 'mobile/ci-screens.json')
+    checks = {
+        'y01-nabor-jobs': lambda: probe.KLETKI_Y[0][1](wf, tmp),
+        'y02-agregat-needs': lambda: probe.KLETKI_Y[1][1](wf, tmp),
+        'i02-jobs-iz-karty': lambda: probe.sud_joby_iz_karty(wf, tmp),
+        'i04-agregaty-iz-karty': lambda: probe.sud_agregaty_iz_karty(wf, tmp),
+    }
+    try:
+        ok, reason = checks[branch]()
+        return checked(ok, reason)
+    except probe.KartaSubiekta as exc:
+        return checked(False, str(exc))
+
+
+INVENTORY_BRANCHES = ('y01-nabor-jobs', 'y02-agregat-needs',
+                      'i02-jobs-iz-karty', 'i04-agregaty-iz-karty')
+
+
 # Stub bindings live in executable code only: each mutation is observed on its own branch.
 STUBS = {
     'legacy-rewritten': ('legacy', lambda wf: wf['jobs']['e2e-splash'].update({'timeout-minutes': 1})),
@@ -290,9 +347,12 @@ def main():
         tmp = Path(t)
         results = [(name, workflow_case(workflow, old, name)) for name in ('legacy', 'matrix', 'allocator', 'evidence', 'apk')]
         results.append(('selector', selector_case(root, not args.repo, tmp)))
+        results.append(('selector-output', selector_output_case(workflow, root, tmp / 'selector-output')))
         if not args.repo:
             from connected_v3 import check as connected_check
             results.append(('connected', connected_check(workflow, demo_map())))
+            for branch in INVENTORY_BRANCHES:
+                results.append(('inventory-' + branch, inventory_case(workflow, tmp / ('inventory-' + branch), branch)))
         if not args.repo:
             results.append(('selector-growth', selector_case(root, True, tmp / 'growth',
                                                                names=('vkladki', 'gespraech', 'novyj'))))
@@ -322,6 +382,30 @@ def main():
                     print('STAB_ZHIV %s @ %s: %s' % (name, branch, reason))
                     return 1
                 print('СТАБ %s @ %s КРАСЕН: %s' % (name, branch, reason))
+            for name, mutate in (
+                ('output-absent', lambda wf: wf['jobs']['select-screens']['outputs'].pop('matrix')),
+                ('producer-absent', lambda wf: wf['jobs']['select-screens']['steps'].__setitem__(
+                    next(i for i, step in enumerate(wf['jobs']['select-screens']['steps'])
+                         if step.get('id') == 'sel'),
+                    {'id': 'sel', 'run': 'echo selection.json'})),
+            ):
+                weak = copy.deepcopy(workflow)
+                mutate(weak)
+                for branch in INVENTORY_BRANCHES:
+                    ok, reason = inventory_case(weak, tmp / ('weak-' + name + '-' + branch), branch)
+                    if ok or 'MATRIX_OUTPUT_REQUIRED' not in reason:
+                        print('STAB_ZHIV %s @ %s: %s' % (name, branch, reason))
+                        return 1
+                    print('СТАБ %s @ %s КРАСЕН: %s' % (name, branch, reason))
+            weak = copy.deepcopy(workflow)
+            sel_step = next(step for step in weak['jobs']['select-screens']['steps']
+                            if step.get('id') == 'sel')
+            sel_step['run'] += '\necho \'matrix={"include":[{"screen":{"id":"podmena"}}]}\' >> "$GITHUB_OUTPUT"\n'
+            ok, reason = selector_output_case(weak, root, tmp / 'weak-second-writer')
+            if ok or 'MATRIX_OUTPUT_WRITERS' not in reason:
+                print('STAB_ZHIV matrix-second-writer @ selector-output: ' + reason)
+                return 1
+            print('СТАБ matrix-second-writer @ selector-output КРАСЕН: ' + reason)
             selector_stub = tmp / 'selector-fixed.cjs'
             source = SELECT_MODEL.read_text()
             anchor = "const matrix = matrixScreens.length ? JSON.stringify({ include: matrixScreens }) : \"\";"
@@ -386,7 +470,7 @@ def main():
                 print('STAB_ZHIV aggregate-no-parent @ child-parent-failure')
                 return 1
             print('СТАБ aggregate-no-parent @ child-parent-failure КРАСЕН: ' + reason)
-            print('стабов %d, привязок %d, живых 0' % (len(STUBS) + 5, len(STUBS) + 6))
+            print('стабов %d, привязок %d, живых 0' % (len(STUBS) + 8, len(STUBS) + 15))
         return 0
 
 
