@@ -110,6 +110,20 @@ def invoke(subject, repo, component=None, *, env=None):
         argv += ["--arch-component", component]
     return subprocess.run(argv, capture_output=True, text=True, timeout=30, env=env)
 
+def legacy_result(repo):
+    # Compare the entire pack against the frozen pre-170 public CLI.
+    with tempfile.TemporaryDirectory(dir=VERIFY, prefix="arch170-legacy-") as d:
+        directory = Path(d) / "scripts"
+        directory.mkdir()
+        for dependency in (ROOT / "scripts").iterdir():
+            if dependency.is_file() and dependency.name != "make_task.sh":
+                (directory / dependency.name).symlink_to(dependency)
+        source = subprocess.run(["git", "-C", str(ROOT), "show", BASE],
+                                capture_output=True, text=True, check=True).stdout
+        baseline = directory / "legacy.sh"
+        baseline.write_text(source)
+        return invoke(baseline, repo)
+
 
 def case(label, subject, *, arch=True, code=True, backend=True, n=2, cli=True, component="api.identity", expected="success", env=None, stale=False):
     built, repo = world(label, architecture=arch, code=code, backend=backend, n=n, cli=cli)
@@ -149,7 +163,12 @@ def no_component(label, subject, *, arch=True, code=True, backend=True):
         lines = result.stdout.splitlines()
         required = arch and backend and code
         ok = (result.returncode == 1 and result.stdout == "" and "ARCH_COMPONENT_NET" in result.stderr) if required else (
-            result.returncode == 0 and "MAP: STRUCTURE.md :: all modules" in lines and not any(x.startswith("BRIEF:") for x in lines))
+            result.returncode == 0 and "MAP: STRUCTURE.md :: all modules" in lines
+            and not any(x.startswith("BRIEF:") for x in lines))
+        if not arch:
+            old = legacy_result(repo)
+            ok = ok and (result.returncode, result.stdout, result.stderr) == (
+                old.returncode, old.stdout, old.stderr)
         print(f"170 {label} {'ok' if ok else 'KRASNO'} rc={result.returncode} stderr={result.stderr.strip()!r}")
         return ok
     finally:
@@ -225,6 +244,7 @@ def main():
                 ("missing_node_skip", honest.replace('command -v node >/dev/null 2>&1 || die "NODE_NET: node не найден"', 'command -v node >/dev/null 2>&1 || true'), "missing_node"),
                 ("manifest_retained", honest.replace('  MAP_MAN="$(printf \'%s\' "$MAP_MAN" | grep -v "^map${TAB}STRUCTURE.md${TAB}" || true)"', ':'), "brief"),
                 ("empty_accepted", honest.replace('if [ "$_arch_lines" -eq 0 ] || [ ! -s "$_arch_out" ];', 'if false;'), "empty_brief"),
+                ("legacy_leak", honest.replace('done <<<"$ROWS_TSV"\n\nSKILLS=', 'done <<<"$ROWS_TSV"\nif [ -z "$ARCH_COMPONENT" ]; then MAP_LINES="${MAP_LINES}MAP: LEGACY-LEAK :: wrong"; fi\n\nSKILLS='), "legacy"),
             ]
             failures = 0
             for name, mutated, branch in stubs:
