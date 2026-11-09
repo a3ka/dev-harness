@@ -246,6 +246,29 @@ def evidence_case(root, model, tmp, missing=False, bad_digest=False, parent_fail
                    'CHILD_NOT_AGGREGATED')
 
 
+def inventory_case(wf, tmp, branch):
+    """Exercise each product inventory branch on the empty matrix map."""
+    import probe
+    probe.MATRIX_V3 = True
+    (tmp / 'mobile').mkdir(parents=True, exist_ok=True)
+    shutil.copy2(BASE / 'mobile/ci-screens.json', tmp / 'mobile/ci-screens.json')
+    checks = {
+        'y01-nabor-jobs': lambda: probe.KLETKI_Y[0][1](wf, tmp),
+        'y02-agregat-needs': lambda: probe.KLETKI_Y[1][1](wf, tmp),
+        'i02-jobs-iz-karty': lambda: probe.sud_joby_iz_karty(wf, tmp),
+        'i04-agregaty-iz-karty': lambda: probe.sud_agregaty_iz_karty(wf, tmp),
+    }
+    try:
+        ok, reason = checks[branch]()
+        return checked(ok, reason)
+    except probe.KartaSubiekta as exc:
+        return checked(False, str(exc))
+
+
+INVENTORY_BRANCHES = ('y01-nabor-jobs', 'y02-agregat-needs',
+                      'i02-jobs-iz-karty', 'i04-agregaty-iz-karty')
+
+
 # Stub bindings live in executable code only: each mutation is observed on its own branch.
 STUBS = {
     'legacy-rewritten': ('legacy', lambda wf: wf['jobs']['e2e-splash'].update({'timeout-minutes': 1})),
@@ -293,6 +316,8 @@ def main():
         if not args.repo:
             from connected_v3 import check as connected_check
             results.append(('connected', connected_check(workflow, demo_map())))
+            for branch in INVENTORY_BRANCHES:
+                results.append(('inventory-' + branch, inventory_case(workflow, tmp / ('inventory-' + branch), branch)))
         if not args.repo:
             results.append(('selector-growth', selector_case(root, True, tmp / 'growth',
                                                                names=('vkladki', 'gespraech', 'novyj'))))
@@ -322,6 +347,21 @@ def main():
                     print('STAB_ZHIV %s @ %s: %s' % (name, branch, reason))
                     return 1
                 print('СТАБ %s @ %s КРАСЕН: %s' % (name, branch, reason))
+            for name, mutate in (
+                ('output-absent', lambda wf: wf['jobs']['select-screens']['outputs'].pop('matrix')),
+                ('producer-absent', lambda wf: wf['jobs']['select-screens']['steps'].__setitem__(
+                    next(i for i, step in enumerate(wf['jobs']['select-screens']['steps'])
+                         if step.get('id') == 'sel'),
+                    {'id': 'sel', 'run': 'echo selection.json'})),
+            ):
+                weak = copy.deepcopy(workflow)
+                mutate(weak)
+                for branch in INVENTORY_BRANCHES:
+                    ok, reason = inventory_case(weak, tmp / ('weak-' + name + '-' + branch), branch)
+                    if ok or 'MATRIX_OUTPUT_REQUIRED' not in reason:
+                        print('STAB_ZHIV %s @ %s: %s' % (name, branch, reason))
+                        return 1
+                    print('СТАБ %s @ %s КРАСЕН: %s' % (name, branch, reason))
             selector_stub = tmp / 'selector-fixed.cjs'
             source = SELECT_MODEL.read_text()
             anchor = "const matrix = matrixScreens.length ? JSON.stringify({ include: matrixScreens }) : \"\";"
@@ -386,7 +426,7 @@ def main():
                 print('STAB_ZHIV aggregate-no-parent @ child-parent-failure')
                 return 1
             print('СТАБ aggregate-no-parent @ child-parent-failure КРАСЕН: ' + reason)
-            print('стабов %d, привязок %d, живых 0' % (len(STUBS) + 5, len(STUBS) + 6))
+            print('стабов %d, привязок %d, живых 0' % (len(STUBS) + 7, len(STUBS) + 14))
         return 0
 
 
