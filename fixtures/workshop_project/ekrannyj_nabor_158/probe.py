@@ -2902,12 +2902,17 @@ def zapustit_stab_kletku(argv):
         return 0
     ctx = {'orakul': orakul, 'rezhim': 'stabs', 'repo': a.repo}
     try:
-        akt = zapustit_kletku(a.cell, ctx)
-    except Exception as exc:  # noqa: BLE001 — стаб не должен ронять батарею
-        akt = ishod(2, ['ISPOLNIMYJ_INFRA'], ['%s: %s' % (type(exc).__name__,
-                                                          exc)])
-    print(json.dumps(akt, ensure_ascii=False))
-    return 0
+        try:
+            akt = zapustit_kletku(a.cell, ctx)
+        except Exception as exc:  # noqa: BLE001 — стаб не должен ронять батарею
+            akt = ishod(2, ['ISPOLNIMYJ_INFRA'],
+                        ['%s: %s' % (type(exc).__name__, exc)])
+        print(json.dumps(akt, ensure_ascii=False))
+        return 0
+    finally:
+        # Уборка временных каталогов — и здесь: вход стаба идёт отдельным
+        # процессом, уборка __main__ его не накрывает (С-11 ревью 158).
+        ubrat_vremennye()
 
 
 # ── Главный вход ────────────────────────────────────────────────────────
