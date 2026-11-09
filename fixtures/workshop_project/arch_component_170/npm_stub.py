@@ -21,7 +21,7 @@ if component not in ('api.identity', 'worker.events'):
     sys.stderr.write('UNKNOWN_COMPONENT\n')
     sys.exit(42)
 if os.environ.get('ARCH170_FAIL_ID') == component:
-    print('npm notice: brief command failed')
+    print('npm notice: brief command failed', file=sys.stderr)
     sys.exit(17)
 print('# ARCH-BRIEF:' + component)
 print('OWN-CONTRACT:' + component + ':' + os.environ['ARCH170_NONCE'])
