@@ -15,7 +15,14 @@
 - **КАП/ТРИАЖ/ТАЙМ-БОКС:** кап кругов 5 на предмет, триаж — чинить только реальный ущерб, тайм-бокс 45 мин — как в роли.
 - **ЖДЁТ УТРА (дописывать сюда):**
   - 143: `gitw push origin 49b27bdf7:refs/heads/wip/int-143/architect` → «ОТКАЗ: pre-push: merge main в ветку запрещён … коммит=8daf8635373619b4ee16b144a2b91fa4dd293c52 — родитель 41218f7cf85959752f638465d4d5d33d8a712552 приносит историю main…»; нужен линейный носитель; путь: wip/143/architect @ 49b27bdf7.
-  - 175: mint-коммит `505f773d2` локальный, ожидает `--retake-ahead` + `gitw push origin main`.
+  - 158: revert-PR #643 (`wip/158/orchestrator-revert` @ `6fce501b3`) CI `legkij` красный: check_zones «ВОТ FAIL коммит вне зоны: orchestrator 5b4017bf fixtures/workshop_project/ekrannyj_nabor_158/…» (revert удаляет файлы в architect-зоне). Нужен owner-коммит revert `71551fb1 -m 1`. architect v+1 не начат до влития.
+  - 162: PR #627 (`wip/int-162/architect` @ `db9fa29e5`, blob `ce10f196…`) — тупик: CI `legkij` красный («contract-frozen: блоб ce10f196 ≠ заморозка v1 c3131a3e»), а `gitw` отказывает публикацию тега `frozen/contracts/162/2` («текст не в main цели … ленд текста, затем publish»). Тег создан локально (`03ada1b88594396d505ab2a7af692c67978a2761` → `refs/backup-tags/frozen-contracts-162-2-local`) и снят локально, т.к. неопубликованный тег блокирует любой gitw push. Нужно решение владельца/консультанта: land #627 поверх красного `contract-frozen` или другой порядок.
+  - 170: после accept круга 3 architect добавил раздел «Незаполненные требования:» (`d2ec36b77` на линейном `wip/170/architect`; PR #649 красный именно на check:ceilings). Для freeze нужен узкий вызов критика (вызов 4/5, санкция владельца на дельту; прецедент 172).
+  - 175: ветка `wip/175/architect` @ `5517790c6`, PR #656; нет строки `registry/plan.tsv` для 175 (owner-коммит) — без неё freeze невозможен.
+  - 172: implementer готов (`wip/172/implementer` @ `db303b0e1`, PR #654, `--repo` 16/16, `--model` 16/16, `--stabs` 12/12). После зелёного CI → ревьюер → ленд; CI-строка 172 (`registry/ci-steps.tsv`, `ci-zamery.tsv`, `gen_ci_steps.sh --write`, команда `python3 fixtures/dver_pered_kritikom/predverie_172/red_predverie_172.py --repo`) — после ленда.
+  - 173/174: PR #655 / #653 → после влития критик (дверь KLASS_RISKA_NET требует контракт в main). #655 CI l3 красный на `check:ci-e2e-restart-995` («inkarnacija-smert-svip: ОТКАЗ: owned PID» — эмулятор-флейк, не предмет 173); `gh run rerun` отказан «workflow file may be broken».
+  - Моб PR #146–#150, #158, #160–#163, #122: ждут 143/162/158 (моб-цепочка по очереди).
+  - Манифесты `.omp/context/<NNN>.tsv` от make_task красят `check_no_leak` до уборщика (не убирать руками — N-85).
 
 АКТУАЛЬНО (читать первым): «ГДЕ МЫ — 09.11 ~08:00 UTC (143 v3: продукт готов, приёмка упёрлась в четыре клетки; владелец-гейты 158/168/169)» ниже; дальше — «ГДЕ МЫ — 09.11 ~06:20 UTC».
 
