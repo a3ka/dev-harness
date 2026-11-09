@@ -1872,18 +1872,50 @@ def sovmestnyj_ishod(repo, nomer, toy):
     return ish, zond
 
 
+def karta_konstanta():
+    """Карта целей ref-clean — КОНСТАНТА проверяющего (SPEC §6F f03).
+
+    Ожидание трассы снимается ДО вызова субъекта и не берётся из пачки
+    субъекта: иначе подмена источника карты не наблюдаема.
+    """
+    put = os.path.join(MODEL, 'karta-ref-clean.json')
+    try:
+        with open(put, encoding='utf-8') as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def svetoit_trassu(ish, zond, karta):
+    """Сверка трассы зонда САМОЙ проверяющей (карта снята ДО вызова).
+
+    Сверку выполняет проверяющий, а не субъект: субъект может не сверять
+    свою трассу вовсе (стаб st09 — совместный режим уходит в toy-ветвь) —
+    и тогда его исход остаётся «зелёным» при отсутствии трассы. Исход
+    сверки: точное множество 'ZOND <testID> <профиль>' против карты.
+    """
+    if karta is None:
+        return ishod(2, [P_KARTA_NET], ish.get('mark', []))
+    fakt = set(prefiks_stroki(s) for s in zond)
+    if fakt != ozhidanie_trassy(karta):
+        pri = sorted(set(list(ish.get('pri', [])) + [P_ZOND_NE_ZAPUSHCHEN]))
+        return ishod(1, pri, ish.get('mark', []))
+    return ish
+
+
 def k_f03(ctx):
     repo = ctx.get('repo')
     if not repo:
         return otkaz('%s: референс не задан (живой суд — только с '
                      'референсом)' % P_LIVE)
     toy = toy_dlya(ctx)
+    karta = karta_konstanta()          # ожидание — ДО вызова субъекта
     kopija, oshibka = zhivaya_kopiya(repo)
     if kopija is None:
         return otkaz('%s: %s' % (P_LIVE, oshibka))
     try:
         ish, zond = sovmestnyj_ishod(kopija, 195, toy)
-        return ish
+        return svetoit_trassu(ish, zond, karta)
     finally:
         shutil.rmtree(os.path.dirname(kopija), ignore_errors=True)
 
@@ -1894,6 +1926,7 @@ def k_f04(ctx):
         return otkaz('%s: референс не задан (живой суд — только с '
                      'референсом)' % P_LIVE)
     toy = toy_dlya(ctx)
+    karta = karta_konstanta()          # ожидание — ДО вызова субъекта
     kopija, oshibka = zhivaya_kopiya(repo)
     if kopija is None:
         return otkaz('%s: %s' % (P_LIVE, oshibka))
@@ -1905,7 +1938,7 @@ def k_f04(ctx):
         if rc != 0:
             return otkaz('%s: мутатор не применён: %s' % (P_LIVE, err.strip()))
         ish, zond = sovmestnyj_ishod(kopija, 195, toy)
-        return ish
+        return svetoit_trassu(ish, zond, karta)
     finally:
         shutil.rmtree(os.path.dirname(kopija), ignore_errors=True)
 
@@ -1916,12 +1949,13 @@ def k_f05(ctx):
         return otkaz('%s: референс не задан (живой суд — только с '
                      'референсом)' % P_LIVE)
     toy = toy_dlya(ctx)
+    karta = karta_konstanta()          # ожидание — ДО вызова субъекта
     kopija, oshibka = zhivaya_kopiya(repo)
     if kopija is None:
         return otkaz('%s: %s' % (P_LIVE, oshibka))
     try:
         ish, zond = sovmestnyj_ishod(kopija, 196, toy)
-        return ish
+        return svetoit_trassu(ish, zond, karta)
     finally:
         shutil.rmtree(os.path.dirname(kopija), ignore_errors=True)
 
