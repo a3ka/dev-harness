@@ -18,6 +18,20 @@
   ],
   "tceli": [
     {
+      "testID": "shell-profile-entry",
+      "objazatelna": true,
+      "sostojanija": [
+        "start",
+        "profil"
+      ],
+      "nadpis": null,
+      "postuslovie": {
+        "tip": "perehod",
+        "znachenie": "profile-surface"
+      },
+      "accessibilityLabel": "Profil und Einstellungen"
+    },
+    {
       "testID": "shell-tab-start",
       "objazatelna": true,
       "sostojanija": [
@@ -63,19 +77,6 @@
       "postuslovie": {
         "tip": "perehod",
         "znachenie": "section-post"
-      }
-    },
-    {
-      "testID": "shell-profile-entry",
-      "objazatelna": true,
-      "sostojanija": [
-        "start",
-        "profil"
-      ],
-      "nadpis": "Profil bearbeiten",
-      "postuslovie": {
-        "tip": "perehod",
-        "znachenie": "profile-surface"
       }
     }
   ]
