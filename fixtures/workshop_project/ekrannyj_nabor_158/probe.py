@@ -2404,7 +2404,12 @@ def zapustit_stab(stub, kletka, ctx):
 
 
 def progoni_staby(orakul, ctx):
-    """Матрица обманных стабов: каждый отклонён на СВОИХ входах."""
+    """Матрица обманных стабов: каждый отклонён на СВОИХ входах.
+
+    Падение стаба (исход ISPOLNIMYJ_INFRA) — НЕ поимка: это «нечем
+    проверить», а не наблюдённое расхождение исхода с эталоном. Такой
+    стаб остаётся НЕПОЙМАННЫМ → STAB_ZHIV (rc 1), пока не починен.
+    """
     zhivye = []
     svjazi = 0
     for stub, vhody in sorted(orakul['stab_vhod'].items()):
@@ -2414,6 +2419,11 @@ def progoni_staby(orakul, ctx):
             akt = zapustit_stab(stub, kletka, ctx)
             if akt is None:
                 print('STAB %s %s НЕПРОВЕРЕН' % (stub, kletka))
+                continue
+            if akt.get('rc') == 2 and P_INFRA in akt.get('pri', []):
+                padalo = ', '.join(akt.get('mark', [])) or '—'
+                print('STAB %s %s НЕПРОВЕРЕН: стаб упал (%s)'
+                      % (stub, kletka, padalo))
                 continue
             if sudit(orakul, kletka, akt):
                 lozhenny = True
