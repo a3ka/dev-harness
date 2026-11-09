@@ -1868,16 +1868,22 @@ def k_c04(ctx):
 
 
 def k_c05(ctx):
-    """Слежение за токеном: значение токена меняется — компонент следует."""
+    """Слежение за токеном: значение токена меняется — компонент следует.
+
+    Вход клетки — одноразовая копия ref-clean: токен пакета, цель карты
+    (gespraech-mitte) и якорь компонента — ref-clean (SPEC §6C).
+    """
     repo = ctx.get('repo')
     if not repo:
         return otkaz('%s: референс не задан (живой суд — только с '
                      'референсом)' % P_LIVE)
-    if not os.path.isdir(repo):
-        return otkaz('%s: референс %s отсутствует' % (P_LIVE, repo))
+    stanciya = istochnik_ref_clean()
+    if not os.path.isdir(stanciya):
+        return otkaz('%s: станция ref-clean %s отсутствует'
+                     % (P_LIVE, stanciya))
     vrem = vremennyy_katalog('nabor158-token-')
     try:
-        kopija, oshibka = kopirovat_referens(repo, vrem)
+        kopija, oshibka = kopirovat_referens(istochnik_ref_clean(), vrem)
         if oshibka:
             return otkaz('%s: %s' % (P_LIVE, oshibka))
         tok = os.path.join(kopija, TOKENS_PAKETA)
@@ -1905,7 +1911,7 @@ def k_c05(ctx):
                             mark=['IZMER gespraech-mitte 390 %s' % vysota])
         # отрицательная рука: компонент НЕ следует за токеном — лаг виден
         vrem2 = vremennyy_katalog('nabor158-token-')
-        kopija2, oshibka2 = kopirovat_referens(repo, vrem2)
+        kopija2, oshibka2 = kopirovat_referens(istochnik_ref_clean(), vrem2)
         if oshibka2:
             return otkaz('%s: %s' % (P_LIVE, oshibka2))
         tok2 = os.path.join(kopija2, TOKENS_PAKETA)
@@ -2192,6 +2198,21 @@ def zhivaya_kopiya(repo):
     return kopija, None
 
 
+def istochnik_ref_clean():
+    """Станция ref-clean — источник входов, привязанных к ref-clean.
+
+    SPEC §6F называет их прямо: f03–f05 — «одноразовые reflink-копии
+    ref-clean», f06–f08 — «одна копия живого ref-clean R»; §4 `istochnik`
+    карты = путь ref-clean. Образцы (f10–f33) и слежение c05 работают на
+    копии ТОГО ЖЕ референса: их якоря мутаторов, значения токенов и цели
+    карты — ref-clean.
+
+    От переданного R зависят f00 (честный контроль), f01, f02 и гейт 159 —
+    они судят ИМЕННО переданный референс.
+    """
+    return REFERENSI[0][1]
+
+
 def k_f00(ctx):
     repo = ctx.get('repo')
     if not repo:
@@ -2263,7 +2284,7 @@ def k_f03(ctx):
                      'референсом)' % P_LIVE)
     toy = toy_dlya(ctx)
     karta = karta_konstanta()          # ожидание — ДО вызова субъекта
-    kopija, oshibka = zhivaya_kopiya(repo)
+    kopija, oshibka = zhivaya_kopiya(istochnik_ref_clean())
     if kopija is None:
         return otkaz('%s: %s' % (P_LIVE, oshibka))
     try:
@@ -2280,7 +2301,7 @@ def k_f04(ctx):
                      'референсом)' % P_LIVE)
     toy = toy_dlya(ctx)
     karta = karta_konstanta()          # ожидание — ДО вызова субъекта
-    kopija, oshibka = zhivaya_kopiya(repo)
+    kopija, oshibka = zhivaya_kopiya(istochnik_ref_clean())
     if kopija is None:
         return otkaz('%s: %s' % (P_LIVE, oshibka))
     try:
@@ -2303,7 +2324,7 @@ def k_f05(ctx):
                      'референсом)' % P_LIVE)
     toy = toy_dlya(ctx)
     karta = karta_konstanta()          # ожидание — ДО вызова субъекта
-    kopija, oshibka = zhivaya_kopiya(repo)
+    kopija, oshibka = zhivaya_kopiya(istochnik_ref_clean())
     if kopija is None:
         return otkaz('%s: %s' % (P_LIVE, oshibka))
     try:
@@ -2438,7 +2459,7 @@ def generiruy(ctx, repo):
     """
     n1, n2 = svobodnye_nomera(ctx, 2)
     x, y, z = imena_celi(ctx, 3)
-    kopija, oshibka = zhivaya_kopiya(repo)
+    kopija, oshibka = zhivaya_kopiya(istochnik_ref_clean())
     if kopija is None:
         return None, oshibka
     ok, oshibka2 = vstavit_celi(kopija, [(x, 'ok'), (y, 'disabled'),
@@ -2608,7 +2629,7 @@ def k_negativnyj(ctx, imya):
     if not repo:
         return otkaz('%s: референс не задан (живой суд — только с '
                      'референсом)' % P_LIVE)
-    kopija, oshibka = zhivaya_kopiya(repo)
+    kopija, oshibka = zhivaya_kopiya(istochnik_ref_clean())
     if kopija is None:
         return otkaz('%s: %s' % (P_LIVE, oshibka))
     try:
