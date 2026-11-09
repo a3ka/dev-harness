@@ -430,6 +430,9 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 163 | до V-2 | complior | - | docs/owner/2026-11-04-revizija-i-mob-v-stanciju.md#Слово владельца |
 | 3 | 166 | до V-2 | autonomy | - | docs/owner/2026-11-07-modeli-i-podtyagivanie.md#Слово владельца |
 | 3 | 167 | до V-2 | autonomy | - | docs/owner/2026-11-07-modeli-i-podtyagivanie.md#Слово владельца |
+| 3 | 168 | до V-2 | autonomy | - | docs/owner/2026-11-09-arhitektura-i-poryadok-stancii.md#Слово владельца |
+| 3 | 169 | до V-2 | autonomy | - | docs/owner/2026-11-09-arhitektura-i-poryadok-stancii.md#Слово владельца |
+| 3 | 170 | до V-2 | autonomy | - | docs/owner/2026-11-09-arhitektura-i-poryadok-stancii.md#Слово владельца |
 | 4 | 095 | до V-2 | context | 094 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
 | 4 | 110 | параллельно с V-2 | done | 087 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
 | 4 | 993 | до V-2 | complior | - | docs/owner/2026-10-17-resheniya-back-992-993.md#4 |
