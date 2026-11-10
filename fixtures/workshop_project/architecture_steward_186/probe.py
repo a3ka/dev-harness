@@ -122,7 +122,7 @@ def honest(root):
     config['tiers'][TIER] = {'model': '@gpt-sol', 'fallback': '@gpt-astra',
                              'why': 'слово владельца 2026-11-10 ~19:45 UTC: хранитель Sol'}
     config['roles'][ROLE] = TIER
-    config['routing']['rules'].append({'class': 'обзор архитектуры после done этапа и блокирующей находки', 'role': ROLE})
+    config['routing']['rules'].append({'class': 'приём находок и обзор архитектуры после done этапа и блокирующей находки', 'role': ROLE})
     put(root, 'config/agent_models.json', json.dumps(config, ensure_ascii=False, indent=2) + '\n')
     put(root, 'scripts/findings_status.py', HONEST_STATUS_SCRIPT)
     put(root, 'scripts/architecture_review.py', HONEST_REVIEW_SCRIPT)
@@ -196,7 +196,7 @@ def judge(root, case):
         block = sections(role[fm.end():]).get(rows[0], set())
         ok = set(rows[1:]).issubset(block)
         return ok, rows[0] if ok else 'нет обязанности ' + rows[0]
-    if case in ('routing', 'tier', 'fallback'):
+    if case in ('routing', 'tier', 'fallback', 'critic_family'):
         path = root / 'config/agent_models.json'
         if not path.is_file():
             return False, 'нет реестра'
@@ -204,9 +204,16 @@ def judge(root, case):
         role_tier = cfg.get('roles', {}).get(ROLE)
         tier = cfg.get('tiers', {}).get(TIER, {})
         if case == 'routing':
-            ok = role_tier == TIER and any(r.get('role') == ROLE and 'архитектур' in r.get('class', '') for r in cfg.get('routing', {}).get('rules', []))
+            route = 'приём находок и обзор архитектуры после done этапа и блокирующей находки'
+            ok = role_tier == TIER and any(r.get('role') == ROLE and r.get('class') == route
+                                               for r in cfg.get('routing', {}).get('rules', []))
         elif case == 'tier':
             ok = role_tier == TIER and tier.get('model') == '@gpt-sol' and cfg.get('models', {}).get('gpt-sol') == 'openai-codex/gpt-6-sol'
+        elif case == 'critic_family':
+            critic_tier = cfg.get('tiers', {}).get(cfg.get('roles', {}).get('critic'), {})
+            critic_model = critic_tier.get('model')
+            ok = (role_tier == TIER and critic_model == '@glm'
+                  and cfg.get('models', {}).get('glm') == 'zai/glm-5.3')
         else:
             ok = role_tier == TIER and tier.get('fallback') == '@gpt-astra'
         return ok, case if ok else 'неверный ' + case
@@ -222,6 +229,10 @@ def judge(root, case):
             path = root / 'ops/server/root/systemd/orch-architecture.timer'
             if not path.is_file() or 'orch-architecture.timer' not in get(root, 'ops/server/install.sh'):
                 return False, 'нет страховочного timer'
+            units = [line for line in path.read_text(encoding='utf-8').splitlines()
+                     if line.startswith('Unit=')]
+            if units != ['Unit=orch-peak@architecture.service']:
+                return False, 'timer не диспатчит architecture'
             return signal(root, 'architecture', 'страховочный timer')
         section = sections(get(root, 'roles/orchestrator.md')).get('Архитектурные события', set())
         if not any('architecture-steward' in line and 'занятом слоте' in line for line in section):
@@ -308,7 +319,7 @@ def judge(root, case):
     raise ValueError(case)
 
 
-CASES = ('role', *LINES, 'status_cli', 'review_file', 'routing', 'tier', 'fallback', 'generated', 'done', 'blocker', 'schedule')
+CASES = ('role', *LINES, 'status_cli', 'review_file', 'routing', 'tier', 'fallback', 'critic_family', 'generated', 'done', 'blocker', 'schedule')
 MUTANTS = (('no_frontmatter', 'role'), ('calendar_only', 'done'), ('blocker_missing', 'blocker'),
            ('humans_only', 'intake'), ('silent_overdue', 'status_cli'), ('invalid_status', 'status_cli'),
            ('review_without_file', 'review'), ('silent_missing_review', 'review_file'),
@@ -319,6 +330,8 @@ MUTANTS = (('no_frontmatter', 'role'), ('calendar_only', 'done'), ('blocker_miss
            ('l3_no_recommendation', 'l3'), ('writes_code_or_judges', 'code_debt'),
            ('no_roadmap_priority', 'register'), ('plan_astra', 'tier'),
            ('wrong_fallback', 'fallback'), ('no_role_map', 'routing'),
+           ('critic_sol', 'critic_family'), ('route_statistics', 'routing'),
+           ('timer_start', 'schedule'),
            ('stale_generated', 'generated'), ('no_timer', 'schedule'))
 STABS = MUTANTS
 
@@ -372,12 +385,16 @@ def mutate(root, name):
         if n != 1:
             raise RuntimeError('event arm missing: ' + event)
         put(root, 'ops/server/root/orch-peak', peak)
-    elif name in ('plan_astra', 'wrong_fallback', 'no_role_map'):
+    elif name in ('plan_astra', 'wrong_fallback', 'no_role_map', 'critic_sol', 'route_statistics'):
         cfg = json.loads(get(root, 'config/agent_models.json'))
         if name == 'plan_astra':
             cfg['roles'][ROLE] = 'plan'
         elif name == 'wrong_fallback':
             cfg['tiers'][TIER]['fallback'] = '@fable'
+        elif name == 'critic_sol':
+            cfg['roles']['critic'] = TIER
+        elif name == 'route_statistics':
+            cfg['routing']['rules'][-1]['class'] = 'архитектурная статистика'
         else:
             del cfg['roles'][ROLE]
         put(root, 'config/agent_models.json', json.dumps(cfg, ensure_ascii=False, indent=2) + '\n')
@@ -386,6 +403,10 @@ def mutate(root, name):
         put(root, '.omp/agents/architecture-steward.md', agent.replace('model: ["@steward-arch"]', 'model: ["@plan"]'))
     elif name == 'no_timer':
         (root / 'ops/server/root/systemd/orch-architecture.timer').unlink()
+    elif name == 'timer_start':
+        timer = 'ops/server/root/systemd/orch-architecture.timer'
+        put(root, timer, get(root, timer).replace('Unit=orch-peak@architecture.service',
+                                                  'Unit=orch-peak@start.service'))
 
 
 def main():
