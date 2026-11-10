@@ -442,6 +442,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 185 | до V-2 | autonomy | - | docs/owner/2026-11-10-dnevnye-resheniya.md#Слово владельца |
 | 3 | 186 | до V-2 | architecture | - | docs/owner/2026-11-10-arhitektura-v-processe.md#Слово владельца |
 | 3 | 187 | до V-2 | architecture | - | docs/owner/2026-11-10-arhitektura-v-processe.md#Слово владельца |
+| 3 | 188 | до V-2 | architecture | - | docs/owner/2026-11-10-arhitektura-v-processe.md#Разрез 187 (слово владельца 2026-11-10 ~20:40 UTC) |
 | 4 | 095 | до V-2 | context | 094 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
 | 4 | 110 | параллельно с V-2 | done | 087 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
 | 4 | 993 | до V-2 | complior | - | docs/owner/2026-10-17-resheniya-back-992-993.md#4 |
