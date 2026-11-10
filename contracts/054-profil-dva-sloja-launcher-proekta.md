@@ -1,10 +1,19 @@
 # Контракт 054 — профиль два слоя + лаунчер режима проекта (В2+В3 плана «Перенос харнесса на Odelix»)
 
-Статус: черновик. Минт: тег `id/CONTRACT/054`
-(tag-object `0051771150fd130f33ce650232da68b6cbc32c42`, `git rev-parse` живьём) + строка
-`054 → 0051771…` в `registry/contracts.tsv` (origin/main `200df65`; резерв 023 исполнен до
-пачки). Заморозка — после круга критика (оркестратор). Работа ведётся в worktree
-`/tmp/dev-harness-worktrees/775e24e1/wip-054-architect`, ветка `wip/054/architect`.
+КОНТЕКСТ: замороженный 184/1; решение А10 2026-11-10 ~20:44 UTC «г да». v+1 (v2 к frozen/contracts/054/1) изменяет только место репо-профиля, условия отсутствия/fallback и судьбу существующих потребителей корневого профиля (станция, семьи фикстур), без расширения двухслойной грамматики. Исполненные предзаморозочные разделы v1 («Красное сейчас (ДО реализации…)», «Приёмка оркестратора на ЭТОМ черновике») удалены как история: их пробы исполнены до frozen/054/1, приёмка реализации ими не ослабляется.
+КЛАСС ЗАДАЧИ: кодовый — резолвер и двери режима проекта.
+КЛАСС РИСКА: обычный — положение профиля рабочего инструмента; права, авторизация, деньги, ПД, согласия и юридические действия не меняются.
+
+## Существующее
+
+- `scripts/profile_resolver.sh:152-202` открывает FD корневого `harness.project.json` и проверяет реальный inode до чтения; `fixtures/workshop_project/red_profil_dva_sloja.sh` (раннер `fixtures/_krasnye_054.sh`, стаб-пак 20/20) судит ветви v1 на корневом toy-профиле и в CI не подключён.
+- Замороженная батарея 184 (`fixtures/workshop_project/external_connection_184/`) судит новый адрес через мир `legacy-root-profile`, где лежат ОБА профиля; мира «только корневой профиль» (форма непереехавшего Complior-back/Complior-mob) в ней нет, поэтому резолвер с корневым fallback она не отличает. Это различение несёт новая семья `fixtures/workshop_project/profil_a10_054/` (зона architect, предъявлена до суда).
+- Корневой профиль сегодня читают: сама станция (отслеживаемый `harness.project.json` в корне dev-harness; `git ls-files .harness` пуст; на нём держатся self-вызовы резолвера, `rezhim_996 --case self-canonical` и манифестная нога спавна 095 И-15, `scripts/spawn_agent.sh:299,337,409`) и семьи фикстур, строящие toy-мир с корневым профилем (перечень — §Потребители корневого профиля).
+
+ПРЕДПОСЫЛКИ:
+- setting v+1 профиля не создаёт GitHub secrets, variables или environments; существующий `ci.workflow` остаётся значением профиля.
+
+Статус: v+1 (v2) к done/contracts/054/1. Минт: тег `id/CONTRACT/054` (tag-object `0051771150fd130f33ce650232da68b6cbc32c42`); работа v+1 ведётся в ветке `wip/184/architect` пакета 184.
 
 ## Предмет
 
@@ -39,6 +48,16 @@ odelix-stack; правила видны в промпте сессии; без �
 (или игрушечном внешнем репо в фикстуре) дал ожидаемый rc на честном входе И красный на
 обманном; минимум ДВА репо разных стеков (Rust и TS)».
 
+## Адресный v+1 — А10 (184)
+
+Историческая цитата В2 выше описывает прежнее расположение; решение владельца 2026-11-10 ~20:44 UTC «г да» меняет только адрес репо-слоя на `<R>/.harness/harness.project.json`. Правило едино для ЛЮБОГО `R`, включая саму станцию: исключения self/legacy по пути вызова нет. `R/harness.project.json` не является входом и не служит fallback: без внутреннего профиля — P1 (в том числе когда корневой есть), одновременное присутствие обоих файлов — P10 (класс `profil` батареи 184); оба отказа — до чтения слоя проекта и до любой записи. `.harness/` остаётся отслеживаемым архивом инструмента внутри одного origin продукта; продуктовый код и CI с ним не связаны. Остальные гарантии 054 (fd/inode-boundary — теперь для `.harness/harness.project.json`, закрытый алфавит, origin каждого значения, P2–P9, pin, bootstrap, правила и два стека) сохраняются. Сквозную миграцию и исключение продуктовых ссылок судит замороженный 184; backend 168/2 требует отдельного v+1.
+
+### Потребители корневого профиля: судьба, исполнитель, зона, порядок ленда
+
+- **Профиль станции.** Отслеживаемый `harness.project.json` dev-harness переносится `git mv` в `.harness/harness.project.json` побайтно (значения repoId, workflowPaths, canonicalRemote, ci, contextPack не меняются). Self-вызовы читают его тем же правилом И-1; `rezhim_996 --case self-canonical` (копия отслеживаемых файлов станции) и манифестная нога спавна станции (095 И-15: `spawn_agent --nnn <N>` без манифеста → `ОТКАЗ: нет манифеста make_task`) сохраняются, потому что их якорь — внутренний профиль станции. Исполнитель — implementer пачки реализации 184; зона — `harness.project.json` (уже в union implementer: 095/097/162/996) и `.harness/harness.project.json` (строка ЗОНА ниже).
+- **Семьи фикстур с корневым toy-профилем** (замер `git grep -l -P '(?<!\.harness/)harness\.project\.json' -- fixtures`): `fixtures/check_judge_gate/red_iv1b_ci_merge_gate_063.sh`, `fixtures/check_judge_gate/red_izoljacija_projectid_055.sh`, `fixtures/context_pack_095/`, `fixtures/freeze_contract/fail_closed_992.py`, `fixtures/parsing_hygiene_battery/profiles/profile_resolver.sh`, `fixtures/profile_resolver/` (шард ap5, 057), `fixtures/project_paths_103/`, файлы `fixtures/workshop_project/{_mir_105.sh,_verify_055_r3.sh,red_github_token_070.sh,red_izoljacija_projectid.sh,red_profil_dva_sloja.sh,red_samodostatochnost_repo_060.sh,red_sharing_agentdb.sh,red_sverka_puti_profylja.sh}` и семьи `fixtures/workshop_project/{arch_component_170,architecture_process_187,done_volny_110,nul_istochnika_153,podklyuchenie_112,push_produkta_124,sessii_125,sessii_136,skaner_sekretov_142}/`. Каждая переводит toy-мир на `.harness/harness.project.json` без потери клеток и полярности. Исполнитель и зона — по уже действующему union замороженных зон, новых строк не требуется: implementer пачки реализации 184 — `fixtures/workshop_project/` (054/1, 055/1), `fixtures/profile_resolver/` (057/059/095), `fixtures/context_pack_095/` (166), `fixtures/freeze_contract/` (992), `fixtures/parsing_hygiene_battery/profiles/profile_resolver.sh` (054/1); architect пакета 184 отдельным коммитом в том же слиянии — `fixtures/project_paths_103/` (103/1) и два файла `fixtures/check_judge_gate/` (008/024/028; их раннер `krasnye_063.sh` — шаг CI `check:merge-gate-family-selftest`). Семьи 122/996/161 переводит architect в их v+1 этого пакета; мир `legacy-root-profile` батареи 184 корневой намеренно и не меняется. Семья, покрасневшая на cutover вне этого перечня и вне зоны, — СТОП и доклад оркестратору (новый отказ — отдельный контракт), не правка вне зоны.
+- **Порядок ленда.** (1) Коммиты v+1 054 и 122 (тексты, семья `profil_a10_054/`, модель 122) ложатся на main раньше реализации и замораживаются (054/2, 122/5): новая семья в CI не подключена, шаг 122 гоняет `--model`. (2) Cutover резолвера и дверей, перенос профиля станции, перевод перечисленных семей и коммиты v+1 996 и 161 (их шаги CI гоняют реализацию без `--model`) ложатся ОДНИМ слиянием; заморозка 996/3 и 161/2 — после этого слияния (контракт 130: тег после текста). Между (1) и (2) main зелёный; после (2) каждый зарегистрированный шаг CI зелёный.
+
 Вход — карта 052 (frozen/2): строка `workshop` (замена/параметризация = «В3: bootstrap
 пина/.env/metering для проекта; боль 1 — правила 1-16 проекта должны доходить»), строки
 параметров-профиля (gitw-канон, лимиты, домен почты) — профиль В2 их НЕСЁТ; подключение
@@ -62,7 +81,7 @@ odelix-stack; правила видны в промпте сессии; без �
   markdown не выражаются (правило 7 требует именованный отказ по ключу — 041-класс).
   Каталоги Odelix ВРЕМЕННЫЕ (слово владельца): профиль-путь — параметр, не константа.
 - **Граница-2 (binding машины — вне git).)** Корень клона слоя проекта резолвер получает
-  из env `HARNESS_PROJECT_LAYER_ROOT`; в версионируемом `harness.project.json` живут ТОЛЬКО
+  из env `HARNESS_PROJECT_LAYER_ROOT`; в версионируемом `.harness/harness.project.json` живут ТОЛЬКО
   пин версии (`projectLayer.version`) и относительный путь (`projectLayer.profilePath`).
   Отвергнуто: абсолютный путь в версионируемом файле — спека §4.3 помещает локальный
   binding вне Git; прецедент ручек `HARNESS_SCRATCH`/`GIT_EXCHANGE_GUARD_CANONICAL`.
@@ -103,8 +122,9 @@ odelix-stack; правила видны в промпте сессии; без �
 ### М1 — `scripts/profile_resolver.sh` (новый)
 
 - **И-1 (вход и отсутствие репо-слоя).** Вызов `bash scripts/profile_resolver.sh --repo
-  <корень>`; файла `harness.project.json` в корне нет → rc 1, P1. Никаких чтений слоя
-  проекта до этого отказа.
+  <корень>`; файла `.harness/harness.project.json` в проекте нет → rc 1, P1. Корневой
+  `harness.project.json` не заменяет его; одновременный root+internal профиль → rc 1, P10.
+  Никаких чтений слоя проекта до этих отказов; FD/inode-проверка применяется к новому пути.
 - **И-2 (слой проекта и его корень).** Корень слоя = `${HARNESS_PROJECT_LAYER_ROOT}`;
   переменная пуста или каталога нет → rc 1, P2. Файл слоя
   `<корень>/<projectLayer.profilePath>` (умолчание `registry/harness-project.json`)
@@ -203,8 +223,8 @@ odelix-stack; правила видны в промпте сессии; без �
 ### Фразы (единый список; код несёт дословно, фикстуры сверяют grep -F)
 
 ```
-P1 = profile ОТКАЗ: нет harness.project.json: <путь>. Инструкция: создайте
-     harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh
+P1 = profile ОТКАЗ: нет .harness/harness.project.json: <путь>. Инструкция: создайте
+     .harness/harness.project.json в репо — состав ключей: scripts/profile_resolver.sh
 P2 = profile ОТКАЗ: корень слоя проекта не задан/недоступен. Инструкция: export
      HARNESS_PROJECT_LAYER_ROOT=<корень клона слоя проекта (odelix-stack)>
 P3 = profile ОТКАЗ: нет файла слоя проекта: <путь>
@@ -216,6 +236,8 @@ P8 = profile ОТКАЗ: нет .env проекта: <путь>. Инструк�
      репо — METERING_PROXY_URL=<адрес прокси учёта проекта>
 P9 = profile ОТКАЗ: нет пина версии omp: <путь>. Инструкция: создайте
      config/harness_pin.json в корне репо — {"version": "<версия omp>"}
+P10 = profile ОТКАЗ: корневой harness.project.json рядом с .harness/harness.project.json:
+     <путь>. Инструкция: удалите корневой профиль — fallback нет
 W1 = workshop PROBE OK: <репо>
 W2 = workshop ОТКАЗ: receive.denyCurrentBranch='<значение>' в <репо>, ожидается
      'refuse'. Исправление: git -C <репо> config receive.denyCurrentBranch refuse
@@ -229,7 +251,7 @@ G1 = FAIL секции правил нет: ## Правила, каждое из
   lib_zones/lib_registry).
 - Заголовок секции правил: константа в `scripts/gen-harness.ts` (И-14); фиксирует и
  probe-проверка И-9.
-- Фразы P1–P7/W1/W2/G1: список §Инварианты; код несёт дословно; фикстуры grep -F.
+- Фразы P1–P10/W1/W2/G1: список §Инварианты; код несёт дословно; фикстуры grep -F.
 - Формула промпта И-9: одна точка сборки в `workshop` (probe и живой режим — один код).
 
 ## Модель угроз
@@ -246,6 +268,9 @@ G1 = FAIL секции правил нет: ## Правила, каждое из
 - подмену правил сессии: правила идут из AGENTS.md мастерской одним извлечением с
   литеральным заголовком; AGENTS.md репо не подмешивается в системный промпт (его
   область — omp), границы областей В3(а) соблюдены механизмом, не договорённостью.
+- молчаливый корневой fallback (А10): продукт только с корневым `harness.project.json`
+  получает P1, продукт с обоими профилями — P10, оба до чтения слоя проекта; значения
+  корневого профиля не выводятся (семья `profil_a10_054/`);
 - молчаливый bootstrap: отсутствие `.env`/пина/профиля — именованный отказ с
   инструкцией ДО сессии, в том числе при экспортированном окружении (к12) и
   вместо мягкого skip «сверять не с чем» (к13); ни одна ветка bootstrap не
@@ -267,7 +292,7 @@ G1 = FAIL секции правил нет: ## Правила, каждое из
 ## Демаркация контрпримера (сходимость серии)
 
 - ПОЛОЖИТЕЛЬНАЯ ОБЛАСТЬ (конформные входы): `--repo <корень>` с существующим
-  `harness.project.json` и доступным слоем проекта из `HARNESS_PROJECT_LAYER_ROOT`;
+  `.harness/harness.project.json` и доступным слоем проекта из `HARNESS_PROJECT_LAYER_ROOT`;
   значения — произвольные непустые строки своей грамматики И-4 (барьерные имена —
   класс `^[a-z0-9][a-z0-9_-]*$`); случайные toy-пути каждого прогона не меняют вердикт
   клетки (инвариантность к значениям).
@@ -284,19 +309,21 @@ G1 = FAIL секции правил нет: ## Правила, каждое из
 
 ## Зоны
 
-ЗОНА architect: contracts/054-profil-dva-sloja-launcher-proekta.md
-ЗОНА implementer: workshop scripts/profile_resolver.sh scripts/gen-harness.ts fixtures/workshop_project/ fixtures/_krasnye_054.sh fixtures/parsing_hygiene_battery/profiles/profile_resolver.sh
+ЗОНА architect: contracts/054-profil-dva-sloja-launcher-proekta.md fixtures/workshop_project/profil_a10_054/
+ЗОНА implementer: workshop scripts/profile_resolver.sh scripts/gen-harness.ts fixtures/workshop_project/ fixtures/_krasnye_054.sh fixtures/parsing_hygiene_battery/profiles/profile_resolver.sh .harness/harness.project.json
 
 ПЕРЕСЕЧЕНИЕ implementer: workshop — 028 implementer-зона (HOME сессии вне дерева) и 030 implementer-зона (инвентарь/гонки спавна); правка 054 — режим проекта, ветки 028/030 (ZONE-топология, spawn) не переступает
 ПЕРЕСЕЧЕНИЕ implementer: workshop — 010 architect-зона (топология orchestrator/architect) — историческая заявка до отвердевания конвенции разделения проверка/проводка (та же причина, что 011/015 на ci.yml в 045)
 ПЕРЕСЕЧЕНИЕ implementer: scripts/gen-harness.ts — 003 architect-зона (метта-адаптация навыков) — та же историческая причина; дельта 054 — только новый режим --agents-rules, генерация агентов не правится
 ПЕРЕСЕЧЕНИЕ implementer: fixtures/parsing_hygiene_battery/profiles/profile_resolver.sh — 041 architect-зона (каталог fixtures/parsing_hygiene_battery/ заморожен за architect; новый профиль — точечная дельта внутри) — по прецеденту 043 (profiles/check_precision_gate.sh)
 
-До-заморозочная батарея fixtures/check_judge_gate/red_profil_dva_sloja_054.sh
-коммитится architect в пачке контракта по ДЕЙСТВУЮЩЕЙ заморозке каталога
-fixtures/check_judge_gate/ (architect-зона; черновик зон не даёт и каталог не
-переобъявляет); перенос в дом семьи — implementer после заморозки (§Зелёное
-ПОСЛЕ реализации).
+Регрессионная батарея v1 живёт в `fixtures/workshop_project/red_profil_dva_sloja.sh`;
+её toy-миры со старым root-профилем переводит implementer (§Потребители). Новые ветви И-1
+v+1 судит семья `fixtures/workshop_project/profil_a10_054/` (зона architect, до суда).
+Замороженная батарея 184 этим v+1 не меняется: `git diff --quiet frozen/contracts/184/1 HEAD --
+fixtures/workshop_project/external_connection_184/` → rc 0 на слиянии реализации. Сужение
+`fixtures/workshop_project/` в зоне implementer здесь не механично: та же папка — в зоне
+implementer 055/1, а check_zones судит объединение зон имени.
 
 РАБОТА НЕ РАЗДАЁТСЯ: scripts/gitw (045 frozen; потребление git.canonicalRemote — отдельный
 предмет после финального каталога) scripts/verify_antiplacebo.sh (030/044 — раннер подхватывает
@@ -330,28 +357,15 @@ guard-канала живьём), его профиль подключается
 
 ## Приёмочный критерий
 
-### Красное сейчас (ДО реализации; исполняемая батарея — в ЭТОЙ пачке архитектора, до заморозки; red_* вне case_-глоба раннера — А-82)
+### Адресный v+1 (семья profil_a10_054 + 184 + потребители)
 
-- `bash fixtures/check_judge_gate/red_profil_dva_sloja_054.sh` → красная: ОТКАЗ: предмет отсутствует
-  (стаб-пак перед этим ЗЕЛЁН и до реализации — исполняется ДО честной части:
-  9 обманных стабов резолвера/лаунчера, каждый умирает на СВОЕЙ клетке
-  именованно — привязка стабов к клеткам по Н-39 в коде фикстуры, не здесь;
-  счёт просмотренных напечатан, пустая выборка — красная; дифференциальная
-  проба пака — те же стабы без ручек обмана проходят свои клетки, ловля
-  предикатом, не случаем; честная часть красна ЕДИНСТВЕННОЙ причиной fail-fast
-  г0 «предмет отсутствует»: scripts/profile_resolver.sh).
-- `bash fixtures/parsing_hygiene_battery/run_battery.sh profile_resolver` → красная: NOT_IMPLEMENTED: профиль не найден
-  (клетка к14 — норма 041: self-application до заморозки; зелёная после
-  реализации).
-
-До-заморозочный адрес батареи — `fixtures/check_judge_gate/` (каталог —
-architect-зона по ДЕЙСТВУЮЩИМ заморозкам; прецедент 045: батарея red_gitw_
-obmen.sh жила там на круг критика до заморозки). Файл закоммичен архитектором
-В ЭТОЙ пачке — критик гоняет его живьём ДО заморозки, обманные стабы входят в
-пачку архитектора, а не после. Дом семьи — `fixtures/workshop_project/
-red_profil_dva_sloja.sh` + раннер `fixtures/_krasnye_054.sh` (зоны implementer):
-implementer переносит батарею первым пост-заморозочным коммитом (§Зелёное
-ПОСЛЕ реализации, прецедент 045 — перенос 9c37233).
+Семья `fixtures/workshop_project/profil_a10_054/red_profil_a10_054.sh` (обёртка над `probe.py`; клетки-литералы `internal-only`, `root-only`, `both`, `neither`, `root-only-no-layer`, `both-no-layer`, `internal-symlink-outside`; в режиме без флага ещё `station-self` на дереве станции; ожидания и случайные id снимаются в память до вызова субъекта; набор клеток сверяется с закреплённым списком — удаление клетки даёт `CELLSET drift`, rc 1):
+- Дано модель И-1 v+1; когда `bash fixtures/workshop_project/profil_a10_054/red_profil_a10_054.sh --model`; тогда rc 0, 7 строк `CELL … ok`, `054-a10 (model): examined=7 red=0`.
+- Дано шесть обманных резолверов, каждый привязан в коде к своей клетке (корневой fallback, без P10, только корень, слой раньше профиля, P10 после слоя, без FD-границы); когда `… --stabs`; тогда rc 0 и `054-a10 stabs: examined=6 caught=6`; живой стаб — `STAB <имя>@<клетка>: ALIVE`, rc 1.
+- Дано текущая реализация (корневой профиль — вход); когда `… ` без флага; тогда rc 1 и именованные `CELL internal-only: RED`, `CELL root-only: RED`, `CELL both: RED`, `CELL neither: RED`, `CELL root-only-no-layer: RED`, `CELL both-no-layer: RED`, `CELL station-self: RED` (`054-a10 (red): examined=8 red=7`). Дано реализация после cutover и перенесённый профиль станции; та же команда → rc 0, `examined=8 red=0`. Резолвер с корневым fallback на том же дереве → rc 1 с `CELL root-only: RED` и `CELL root-only-no-layer: RED`.
+- Дано мир «только корневой профиль»; когда резолвер; тогда rc 1, фраза P1, stdout пуст (значения корневого профиля не выводятся), слой проекта не читается (при пустом `HARNESS_PROJECT_LAYER_ROOT` — P1, не P2). Дано оба профиля; тогда rc 1, фраза P10 до чтения слоя.
+- `bash fixtures/workshop_project/external_connection_184/red_external_connection_184.sh --model` → rc 0; без флага на текущей реализации → rc 1 (красны 9 клеток из 12: clean, internal-reference, ci-reference, readme-reference, configuration-reference, ignore-reference, nested-code-reference, legacy-root-profile, generator-good), после cutover → rc 0.
+- Дано слияние (2) §Порядок ленда; когда CI dev-harness на нём; тогда каждый зарегистрированный шаг `registry/ci-steps.tsv` rc 0 (в том числе `check:podkljuchenie-112-family-selftest`, `check:nul-istochnika-153-family-selftest`, шард ap5 `profile_resolver`, `check:rezhim-996-family-selftest`), `bash scripts/verify_antiplacebo.sh --scope profile_resolver` → rc 0, а `git ls-files harness.project.json` на станции пуст.
 
 ### Честные клетки (case_*.sh семьи fixtures/workshop_project/; зелёные ТОЛЬКО после
 реализации; toy-репо строит фикстура в mktemp, ДВА стека — rust и typescript)
@@ -365,12 +379,14 @@ implementer переносит батарею первым пост-заморо
   когда `bash workshop --probe <репо>`; тогда rc 0 и строка W1, и строка
   `PROMPT: <путь>`, путь существует; оба стека (rust и typescript) — оба rc 0
   (правило «минимум ДВА репо разных стеков»).
-- к2 (И-1, И-11; негативная пара к1): дано git-репо без harness.project.json; когда
-  `bash workshop --probe <репо>`; тогда rc 1, фраза P1 (grep -F), файл не создан.
+- к2 (И-1, И-11; негативная пара к1): дано git-репо без `.harness/harness.project.json`
+  (корневой `harness.project.json` при этом есть либо нет); когда `bash workshop --probe <репо>`;
+  тогда rc 1, фраза P1 (grep -F), файл не создан. к2б: дано полный профиль к1 и копия
+  его байт в корне репо; когда резолвер; тогда rc 1, фраза P10, слой проекта не читается.
 - к3 (И-2): дано полный профиль, env HARNESS_PROJECT_LAYER_ROOT пуст; когда `bash
   scripts/profile_resolver.sh --repo <репо>`; тогда rc 1, фраза P2. к3б: env указывает
   на каталог без файла слоя → rc 1, фраза P3.
-- к4 (И-3, правило 7): дано harness.project.json с ключом `contrete` внутри
+- к4 (И-3, правило 7): дано `.harness/harness.project.json` с ключом `contrete` внутри
   workflowPaths; когда резолвер; тогда rc 1, фраза P4, в причине — путь
   `workflowPaths.contrete`. к4б: тот же класс в слое проекта (лишний ключ верхнего
   уровня) → rc 1, P4 с `слой-проекта`.
@@ -404,7 +420,7 @@ implementer переносит батарею первым пост-заморо
 - к10 (И-14, негативная М3): дано копия AGENTS.md без строки заголовка секции; когда
   `node scripts/gen-harness.ts --agents-rules <копия>`; тогда rc 1, фраза G1. к10б:
   несуществующий файл → rc 2, `NOT_IMPLEMENTED: файла нет:`.
-- к11 (И-6/P7): дано harness.project.json с синтаксической ошибкой JSON; когда
+- к11 (И-6/P7): дано `.harness/harness.project.json` с синтаксической ошибкой JSON; когда
   резолвер; тогда rc 1, фраза P7, файл назван.
 - к12 (И-13; негативная bootstrap-клетка): дано toy-репо к1 БЕЗ `.env`, при этом
   METERING_PROXY_URL ЭКСПОРТИРОВАНА в окружение (контрмодель «запуск пользуется
@@ -424,20 +440,17 @@ implementer переносит батарею первым пост-заморо
 проверенных предъявлений и отказываться на пустой выборке; фразы — только grep -F по
 своей строке списка §Инварианты.
 
-Покрытие инвариантов клетками (пробел критика закрыт): И-1→к2, И-2→к3/к3б,
+Покрытие инвариантов клетками (пробел критика закрыт): И-1→к2/к2б, И-2→к3/к3б,
 И-3→к4/к4б, И-4→к5, И-5→к6, И-6→к9/к11, И-7→к14, И-8→к1, И-9→к8, И-10→к7,
 И-11→к2, И-12→к1, И-13→к12/к13, И-14→к8/к10/к10б — все 14 инвариантов названы
 клетками явно.
 
 ### Зелёное ПОСЛЕ реализации (замер живьём; прогоняет implementer, судит критик)
 
-- implementer ПЕРВЫМ пост-заморозочным коммитом переносит батарею с
-  до-заморозочного адреса в дом семьи: `fixtures/workshop_project/
-  red_profil_dva_sloja.sh` + раннер `fixtures/_krasnye_054.sh` (зоны
-  implementer; прецедент 045: перенос red_gitw_obmen.sh → fixtures/gitw/,
-  9c37233); до-заморозочный файл удаляется тем же коммитом — перенос, не копия;
+- implementer переводит toy-миры существующей `fixtures/workshop_project/red_profil_dva_sloja.sh`
+  и раннера `fixtures/_krasnye_054.sh` на внутренний профиль без потери клеток;
 - прогон `bash fixtures/_krasnye_054.sh` → rc 0: стаб-пак по-прежнему убивает
-  все 9 стабов (различимость не умерла, Н-39), честная часть зелёная (г0 —
+  все 20 стабов (различимость не умерла, Н-39), честная часть зелёная (г0 —
   предмет существует; к1 — W1 на двух стеках);
 - прогон `bash fixtures/parsing_hygiene_battery/run_battery.sh profile_resolver`
   → rc 0 (4 класса закрыты — норма 041).
@@ -447,18 +460,8 @@ implementer переносит батарею первым пост-заморо
   (exec omp — вне границы probe); ловец живого старта — прогон владельца,
   регистрируется в HANDOFF.
 
-### Приёмка оркестратора на ЭТОМ черновике (в worktree, до коммита; пишутся прозой
-без маркера пробы, чтобы гейт не запускал сам себя)
+## Позиция автора после вызова 1/2 v+1 (вердикт verdicts/critic/contracts-054-v2.md)
 
-Команды с корня worktree; шесть гейтов обязаны дать rc 0, две красные пробы —
-именованные rc: `bash scripts/check_precision_gate.sh . contracts/
-054-profil-dva-sloja-launcher-proekta.md` → rc 0; `bash scripts/check_spec_ready.sh
-. contracts/054-profil-dva-sloja-launcher-proekta.md` → rc 0; `bash
-scripts/check_consumers.sh . contracts/054-profil-dva-sloja-launcher-proekta.md` →
-rc 0; `bash scripts/check_provodka.sh . contracts/054-profil-dva-sloja-launcher-
-proekta.md` → rc 0; `bash scripts/check_threat_model.sh . contracts/054-profil-
-dva-sloja-launcher-proekta.md` → rc 0; `bash scripts/check_zones.sh .` → rc 0;
-красные пробы: `bash fixtures/check_judge_gate/red_profil_dva_sloja_054.sh .` →
-rc 1 (стаб-пак 9/9 зелёный, честная часть `ОТКАЗ: предмет отсутствует`); `bash
-fixtures/parsing_hygiene_battery/run_battery.sh profile_resolver` → rc 2
-`NOT_IMPLEMENTED: профиль не найден`.
+- Б-1 — СОГЛАСЕН. Мира «только корневой профиль» не было; к2б не была предъявлена. Закрыто семьёй `profil_a10_054/`: на текущей реализации 7 клеток красны именованно; мутант критика F (корневой fallback) краснит `root-only` и `root-only-no-layer`, честный H с перенесённым профилем станции — rc 0; стаб `root-fallback@root-only` пойман в `--stabs`.
+- Б-2 — СОГЛАСЕН. Судьба потребителей названа в §Потребители корневого профиля: профиль станции переносится в `.harness/` (без self-исключения), семьи фикстур перечислены с исполнителем и зоной (новая строка зоны — только `.harness/harness.project.json`; остальное — действующий union implementer/architect), порядок ленда — два слияния. Замер на одноразовых клонах (H + перенос станции): `rezhim_996 --case self-canonical` rc 0; двери с адресом `.harness/` и перенесённым профилем станции: `spawn_agent --nnn 184` без манифеста → rc 1 `ОТКАЗ: нет манифеста make_task: 184`, worktree не создан.
+- Советы: КЛАСС РИСКА добавлен; удаление исторических разделов отражено в КОНТЕКСТЕ; порядок ленда объявлен; сужение зоны implementer — СПОР: `fixtures/workshop_project/` есть и в зоне implementer 055/1, union check_zones сужение не делает механическим, неизменность батареи 184 закреплена командой `git diff --quiet frozen/contracts/184/1 HEAD -- …` в §Зоны. Механические расхождения 1–6 исправлены (статус, счёт стабов 20, список фраз P1–P10, перечень красных клеток 184).
