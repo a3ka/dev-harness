@@ -19,9 +19,8 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { TabShell } from '../bootstrap/tab-shell';
 import { FirstRunScreen } from '../features/auth/first-run-screen';
 import {
-  interaktivnyjHozjain, otklyuchenaPoCepi, vidimajaNadpis,
+  a11yNadpis, interaktivnyjHozjain, otklyuchenaPoCepi, vidimajaNadpis,
   vidimostUzla, zonaKasanija, P_A11Y_PUSTOE, P_NADPIS_NEVIDIMA,
-  P_NADPIS_NULL_NE_PODDERZHAN,
 } from './helpery';
 import { SinteticheskijEkran, ZONY } from './sinteticheskij-ekran';
 
@@ -130,9 +129,10 @@ async function proverit(tsel: Tsel, shirina: number, komandy: jest.Mock,
     return { prichina: 'TSEL_NEVIDIMA', izmer };
   }
   if (tsel.nadpis === null) {
-    // Вид «иконка» (nadpis:null) в этой сборке батареи НЕ реализован:
-    // карта объявила вид, который зонд не судит — честная краснота.
-    return { prichina: P_NADPIS_NULL_NE_PODDERZHAN, izmer };
+    // Цель-иконка: видимой надписи нет — обязательное доступное имя
+    // объявляет карта; сверяется с именем ХОЗЯИНА (вид карты — И-1(г)).
+    const prichina = a11yNadpis(hozjain, tsel, shirina, vysota);
+    if (prichina !== null) return { prichina, izmer };
   } else if (typeof tsel.nadpis !== 'string' || tsel.nadpis.trim() === '') {
     return { prichina: P_A11Y_PUSTOE, izmer };
   } else if (!vidimajaNadpis(hozjain, tsel.nadpis, shirina, vysota)) {

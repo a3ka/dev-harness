@@ -472,6 +472,49 @@
    ],
    "markery": []
   },
+  "f34-nadpis-a11y-net": {
+   "rc": 1,
+   "pri": [
+    "NADPIS_NEVIDIMA"
+   ],
+   "markery": []
+  },
+  "f35-nadpis-null-u-text": {
+   "rc": 1,
+   "pri": [
+    "KARTA_NADPIS_NE_SOVPALA"
+   ],
+   "markery": []
+  },
+  "f36-nadpis-null-bez-objavlenija": {
+   "rc": 1,
+   "pri": [
+    "A11Y_IMJA_NE_OBYAVLENO"
+   ],
+   "markery": []
+  },
+  "f37-nadpis-null-pustoe-imja": {
+   "rc": 1,
+   "pri": [
+    "A11Y_IMJA_PUSTOE"
+   ],
+   "markery": []
+  },
+  "f38-nadpis-a11y-ne-sovpala": {
+   "rc": 1,
+   "pri": [
+    "NADPIS_NEVIDIMA"
+   ],
+   "markery": []
+  },
+  "f39-nadpis-null-u-nevidimogo-text": {
+   "rc": 1,
+   "pri": [
+    "KARTA_NADPIS_NE_SOVPALA",
+    "NADPIS_NEVIDIMA"
+   ],
+   "markery": []
+  },
   "g01-147-model": {
    "rc": 0,
    "pri": [],
@@ -523,8 +566,8 @@
    "model/check_trek_ekrana_158.py": "6e3b63584cc76dbaa7ca2d855826333845f5a4f5b78c1776834721a6b1204642"
   },
   "zond": {
-   "zond/helpery.ts": "241eac4cc0c4fa80f5d243b74f59ee330484e75dc3d636c14be9d0cec6937813",
-   "zond/nabor-zond-158.test.tsx": "cf66aa7ddbc0559eceeb02b8261b6c286125051039bcdf6941903ad9656ce954",
+   "zond/helpery.ts": "79f230c0f77fc6fd6ae551dc3218697a97a1dc4c6849fb8eb6d4c0646397b64d",
+   "zond/nabor-zond-158.test.tsx": "c14b05b75acdcecc7d692fba4b98cdd63fd416086a1f30e574cadd2b6e9fb761",
    "zond/sinteticheskij-ekran.tsx": "191f0a4dfd67c6d95d524b69c61c9b5759152d4bdd46d718b353351d6b3c8410"
   }
  },
@@ -580,6 +623,12 @@
   ],
   "st13-sovmestnyj-karta-po-nomeru.py": [
    "f06-sovmestnyj-karta-iz-fajla"
+  ],
+  "st14-zond-bez-a11y.py": [
+   "f36-nadpis-null-bez-objavlenija",
+   "f37-nadpis-null-pustoe-imja",
+   "f38-nadpis-a11y-ne-sovpala",
+   "f39-nadpis-null-u-nevidimogo-text"
   ]
  },
  "standiny": {

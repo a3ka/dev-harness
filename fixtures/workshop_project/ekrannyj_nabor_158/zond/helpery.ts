@@ -318,10 +318,72 @@ export function vidimajaNadpis(uzel: Uzel, ozhidanie: string, shirina: number,
 }
 
 /** Вид обязательной цели по карте (SPEC §4): nadpis — непустая строка
- * видимого Text. Вид «иконка» (nadpis:null) в этой сборке батареи НЕ
- * реализован: карта, объявившая nadpis:null, отклоняется именованной
- * причиной неподдержанного вида цели (P_NADPIS_NULL_NE_PODDERZHAN) —
- * честная краснота, не пропуск. */
+ * видимого Text; nadpis:null — цель-иконка: в поддереве хозяина НЕТ ни
+ * одного Text с непустым после trim содержимым (видимого или невидимого),
+ * а имя (`accessibilityLabel`) самого хозяина ПОБАЙТОВО равно объявленному
+ * картой. Ветви взаимоисключающие: карта не может объявить иконкой цель
+ * с текстом. */
+export interface KartaCel {
+  readonly nadpis: string | null;
+  readonly accessibilityLabel?: string | null;
+}
+
+/** Причины отказа цели-иконки (И-1(г)/И-2). */
+export const P_A11Y_NE_OBYAVLENO = 'A11Y_IMJA_NE_OBYAVLENO';
 export const P_A11Y_PUSTOE = 'A11Y_IMJA_PUSTOE';
+export const P_KARTA_NADPIS_NE_SOVPALA = 'KARTA_NADPIS_NE_SOVPALA';
 export const P_NADPIS_NEVIDIMA = 'NADPIS_NEVIDIMA';
-export const P_NADPIS_NULL_NE_PODDERZHAN = 'NADPIS_NULL_NE_PODDERZHAN';
+
+/** Тексты поддерева — ЛЮБЫЕ, видимость НЕ смотрится: носитель Text с
+ * непустым после trim содержимым. Карта, объявившая цель иконкой, не
+ * должна прятать текст за opacity:0 / display:none (SPEC §5, обход Z7). */
+export function tekstySoderzhaniem(uzel: Uzel): string[] {
+  const rezultat: string[] = [];
+  const obhod = (u: Uzel): void => {
+    for (const r of deti(u)) {
+      if (typeof r === 'string') {
+        if (!TEXT_TIPY.has(tipUzla(u))) continue;
+        if (r.trim() === '') continue;
+        rezultat.push(r);
+      } else {
+        obhod(r);
+      }
+    }
+  };
+  obhod(uzel);
+  return rezultat;
+}
+
+/** a11yNadpis: цель-иконка (nadpis === null) — вид карты и имя хозяина.
+ *
+ * Порядок — вид карты сначала, потом сверка имени:
+ *  1) nadpis:null — только цель БЕЗ Text с непустым содержимым (видимого
+ *     ИЛИ невидимого): иначе карта противоречит продукту
+ *     (KARTA_NADPIS_NE_SOVPALA);
+ *  2) поле accessibilityLabel обязано быть объявлено картой
+ *     (A11Y_IMJA_NE_OBYAVLENO);
+ *  3) объявленная строка — непустая после trim (A11Y_IMJA_PUSTOE);
+ *  4) имя ХОЗЯИНА (не дочернего узла) — непустое после trim и ПОБАЙТОВО
+ *     равно объявленному (NADPIS_NEVIDIMA).
+ * null — имя предъявлено, цель зелёная. */
+export function a11yNadpis(hozjain: Uzel | null, karta: KartaCel,
+                            shirina: number, vysota = 844): string | null {
+  if (karta.nadpis !== null) return null;
+  if (hozjain === null) return P_NADPIS_NEVIDIMA;
+  if (tekstySoderzhaniem(hozjain).length > 0) {
+    return P_KARTA_NADPIS_NE_SOVPALA;
+  }
+  const obyavlenie = karta.accessibilityLabel;
+  if (obyavlenie === undefined || obyavlenie === null) {
+    return P_A11Y_NE_OBYAVLENO;
+  }
+  if (typeof obyavlenie !== 'string' || obyavlenie.trim() === '') {
+    return P_A11Y_PUSTOE;
+  }
+  const imya = svojstva(hozjain).accessibilityLabel;
+  if (typeof imya !== 'string' || imya.trim() === '' ||
+      imya !== obyavlenie) {
+    return P_NADPIS_NEVIDIMA;
+  }
+  return null;
+}

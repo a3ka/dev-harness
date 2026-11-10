@@ -79,6 +79,9 @@ P_ZOND_NE_ZAPUSHCHEN = 'ZOND_NA_R_NE_ZAPUSHCHEN'
 P_TSEL_VYKLYUCHENA = 'TSEL_VYKLYUCHENA'
 P_TSEL_NEVIDIMA = 'TSEL_NEVIDIMA'
 P_NADPIS_NEVIDIMA = 'NADPIS_NEVIDIMA'
+P_A11Y_NE_OBYAVLENO = 'A11Y_IMJA_NE_OBYAVLENO'
+P_A11Y_PUSTOE = 'A11Y_IMJA_PUSTOE'
+P_KARTA_NADPIS_NE_SOVPALA = 'KARTA_NADPIS_NE_SOVPALA'
 P_ZONA = 'ZONA_MENSHE_NORMY'
 P_DEJSTVIE_CHUZHOE = 'DEJSTVIE_CHUZHOE'
 P_DEJSTVIE_NET_PROFILE = 'DEJSTVIE_NA_PROFILE_NET'
@@ -181,6 +184,12 @@ KLETKI = [
     'f27-dejstvie-sdvig', 'f28-dejstvie-na-393',
     'f29-dejstvie-pointer-none', 'f30-cel-disabled', 'f31-cel-otsutstvuet',
     'f32-sostojanie-nedostizhimo', 'f33-sostojanie-slito',
+    'f34-nadpis-a11y-net',
+    'f35-nadpis-null-u-text',
+    'f36-nadpis-null-bez-objavlenija',
+    'f37-nadpis-null-pustoe-imja',
+    'f38-nadpis-a11y-ne-sovpala',
+    'f39-nadpis-null-u-nevidimogo-text',
     'g01-147-model', 'g02-147-stabs', 'g03-148-model', 'g04-148-stabs',
     'g05-149-model', 'g06-149-stabs', 'g07-143-stabs', 'g08-159',
 ]
@@ -224,6 +233,21 @@ NEGATIVNYE = {
                                      P_SOSTOJANIE_NEDOSTIZHIMO),
     'f33-sostojanie-slito': ('model/mutanty/sostojanie-slito.py',
                               P_SOSTOJANIE_SLITO),
+    'f34-nadpis-a11y-net': ('model/mutanty/profil-bez-a11y.py',
+                              P_NADPIS_NEVIDIMA),
+}
+
+# Станция-источник негативного образца: по умолчанию ref-clean (SPEC §6F:
+# якоря мутаторов образцов f10–f33 — ref-clean). Образцы карты mob-ref
+# (цель-иконка) идут по своей станции — их якоря лежат в экране продукта
+# 148, а не в экране ref-clean.
+STANCIYA_OBRAZTSA = {
+    'f34-nadpis-a11y-net': 'mob-ref',
+    'f35-nadpis-null-u-text': 'mob-ref',
+    'f36-nadpis-null-bez-objavlenija': 'mob-ref',
+    'f37-nadpis-null-pustoe-imja': 'mob-ref',
+    'f38-nadpis-a11y-ne-sovpala': 'mob-ref',
+    'f39-nadpis-null-u-nevidimogo-text': 'mob-ref',
 }
 
 # Регрессии соседей: клетка → (дверь, флаги)
@@ -2642,6 +2666,17 @@ def k_f08(ctx):
         shutil.rmtree(os.path.dirname(gen['repo']), ignore_errors=True)
 
 
+def istochnik_obrazca(imya):
+    """Станция-источник негативного образца (по умолчанию — ref-clean)."""
+    nazvanie = STANCIYA_OBRAZTSA.get(imya)
+    if nazvanie is None:
+        return istochnik_ref_clean()
+    for imya_ref, put, _kartaf in REFERENSI:
+        if imya_ref == nazvanie:
+            return put
+    return istochnik_ref_clean()
+
+
 def k_negativnyj(ctx, imya):
     """Негативный образец: мутатор на одноразовой копии референса."""
     mutator, ozhidanie = NEGATIVNYE[imya]
@@ -2649,7 +2684,7 @@ def k_negativnyj(ctx, imya):
     if not repo:
         return otkaz('%s: референс не задан (живой суд — только с '
                      'референсом)' % P_LIVE)
-    kopija, oshibka = zhivaya_kopiya(istochnik_ref_clean())
+    kopija, oshibka = zhivaya_kopiya(istochnik_obrazca(imya))
     if kopija is None:
         return otkaz('%s: %s' % (P_LIVE, oshibka))
     try:
@@ -2663,6 +2698,156 @@ def k_negativnyj(ctx, imya):
         return ish
     finally:
         shutil.rmtree(os.path.dirname(kopija), ignore_errors=True)
+
+
+# ── Образцы вида цели: цель-иконка ──────────────────────────────────────
+def stanciya_obrazca(imya_kletki):
+    """Станция-источник образца и карта целей этой станции (model/)."""
+    nazvanie = STANCIYA_OBRAZTSA.get(imya_kletki)
+    for imya_ref, put, kartaf in REFERENSI:
+        if imya_ref == nazvanie:
+            return put, kartaf
+    return istochnik_ref_clean(), 'model/karta-ref-clean.json'
+
+
+def cel_karty(karta, testid):
+    """Цель карты по testID (None — такой цели в карте нет)."""
+    for tsel in karta.get('tceli', []):
+        if tsel.get('testID') == testid:
+            return tsel
+    return None
+
+
+def a11y_obrazec(ctx, imya_kletki, fazy):
+    """Образец вида цели: мутируются карта целей и/или копия референса;
+    ожидаемая причина — в ПАМЯТИ (оракул), не с диска субъекта (правило 8).
+
+    fazy — список фаз: (правка карты, мутатор копии, аргумент мутатора,
+    ожидаемая причина). У каждой фазы — своя одноразовая копия референса
+    (удаляется сразу). Контроль с ИСХОДНОЙ картой на исходной копии — ДО
+    мутации: краснота обязана быть следствием мутации, а не свойством
+    входа. Итог клетки — причины ВСЕХ фаз (парный контроль f39).
+    """
+    if not ctx.get('repo'):
+        return otkaz('%s: референс не задан (живой суд — только с '
+                     'референсом)' % P_LIVE)
+    put_stancii, kartaf = stanciya_obrazca(imya_kletki)
+    stroki = []
+    vse_prichiny = set()
+    for pravka_karty, mutator, znak, ozhidanie in fazy:
+        kopija, oshibka = zhivaya_kopiya(put_stancii)
+        if kopija is None:
+            return otkaz('%s: %s' % (P_LIVE, oshibka))
+        try:
+            kontrol = sudi_repo(kopija)
+            if kontrol['rc'] != 0:
+                return krasnaya('КОНТРОЛЬ С ИСХОДНОЙ КАРТОЙ НЕ ЗЕЛЁНЫЙ: '
+                                'rc=%d' % kontrol['rc'],
+                                mark=kontrol.get('mark', []))
+            with open(os.path.join(ZDE, kartaf), encoding='utf-8') as fh:
+                karta = json.load(fh)
+            if pravka_karty is not None:
+                pravka_karty(karta)
+            vrem = vremennyy_katalog('nabor158-karta-a11y-')
+            try:
+                put = os.path.join(vrem, 'karta.json')
+                with open(put, 'w', encoding='utf-8') as fh:
+                    json.dump(karta, fh, ensure_ascii=False)
+                if mutator:
+                    rc, out, err = zapusk_komandy(
+                        [sys.executable, os.path.join(ZDE, mutator), kopija]
+                        + ([znak] if znak is not None else []),
+                        cwd=ZDE, timeout=300)
+                    if rc != 0:
+                        return otkaz('%s: мутатор %s не применён: %s'
+                                     % (P_LIVE, mutator,
+                                        (err or out).strip()[:200]))
+                stroki, oshibka2 = zond_na_repo(kopija, karta=put)
+            finally:
+                shutil.rmtree(vrem, ignore_errors=True)
+            if oshibka2:
+                return otkaz('%s: %s' % (P_LIVE, oshibka2))
+            prichiny = sorted(set(prichiny_iz_trassy(stroki)))
+            if ozhidanie not in prichiny:
+                return krasnaya('ОЖИДАЛАСЬ ПРИЧИНА %s, ФАКТ: %s'
+                                % (ozhidanie, ', '.join(prichiny) or '—'),
+                                mark=stroki)
+            vse_prichiny.update(prichiny)
+        finally:
+            shutil.rmtree(os.path.dirname(kopija), ignore_errors=True)
+    return krasnaya(*sorted(vse_prichiny), mark=stroki)
+
+
+def k_f35(ctx):
+    """f35-nadpis-null-u-text: текстовая цель объявлена картой иконкой.
+
+    Карта объявляет у цели с ВИДИМЫМ Text `nadpis:null` + непустое
+    accessibilityLabel — вид карты противоречит продукту.
+    """
+    def pravka(karta):
+        tsel = cel_karty(karta, 'shell-tab-start')
+        tsel['nadpis'] = None
+        tsel['accessibilityLabel'] = 'Start'
+
+    return a11y_obrazec(ctx, 'f35-nadpis-null-u-text',
+                        [(pravka, None, None, P_KARTA_NADPIS_NE_SOVPALA)])
+
+
+def k_f36(ctx):
+    """f36-nadpis-null-bez-objavlenija: карта не объявляет доступное
+    имя, у хозяина имя снято."""
+    def pravka(karta):
+        cel_karty(karta, 'shell-profile-entry').pop('accessibilityLabel', None)
+
+    return a11y_obrazec(ctx, 'f36-nadpis-null-bez-objavlenija',
+                        [(pravka, 'model/mutanty/profil-bez-a11y.py', None,
+                          P_A11Y_NE_OBYAVLENO)])
+
+
+def k_f37(ctx):
+    """f37-nadpis-null-pustoe-imja: объявленное имя и имя хозяина
+    пустые; отдельная фаза — пробельная строка. Фазы независимы."""
+    def pravka_pusto(karta):
+        cel_karty(karta, 'shell-profile-entry')['accessibilityLabel'] = ''
+
+    def pravka_probel(karta):
+        cel_karty(karta, 'shell-profile-entry')['accessibilityLabel'] = '   '
+
+    mutator = 'model/mutanty/profil-pustoe-imja.py'
+    return a11y_obrazec(ctx, 'f37-nadpis-null-pustoe-imja',
+                        [(pravka_pusto, mutator, '', P_A11Y_PUSTOE),
+                         (pravka_probel, mutator, '   ', P_A11Y_PUSTOE)])
+
+
+def k_f38(ctx):
+    """f38-nadpis-a11y-ne-sovpala (С-15): имя хозяина иконки ≠ объявленного
+    картой имени. Карта честна (прежнее непустое имя); имя хозяина
+    заменено на ИНУЮ непустую строку — один якорь мутации."""
+    mutator = 'model/mutanty/profil-a11y-ne-sovpala.py'
+    return a11y_obrazec(ctx, 'f38-nadpis-a11y-ne-sovpala',
+                        [(None, mutator, None, P_NADPIS_NEVIDIMA)])
+
+
+def k_f39(ctx):
+    """f39-nadpis-null-u-nevidimogo-text (С-16): цель-иконка с НЕВИДИМЫМ
+    Text в поддереве хозяина (обход Z7) — карта противоречит продукту.
+    Парный контроль: та же скрытая надпись, объявленная картой ТЕКСТОВОЙ
+    целью, даёт NADPIS_NEVIDIMA."""
+    def pravka_ikona(karta):
+        tsel = cel_karty(karta, 'shell-tab-start')
+        tsel['nadpis'] = None
+        tsel['accessibilityLabel'] = 'Start'
+
+    def pravka_tekst(karta):
+        tsel = cel_karty(karta, 'shell-tab-start')
+        tsel['nadpis'] = 'Start'
+        tsel.pop('accessibilityLabel', None)
+
+    mutator = 'model/mutanty/profil-nevidimyj-text.py'
+    return a11y_obrazec(ctx, 'f39-nadpis-null-u-nevidimogo-text',
+                        [(pravka_ikona, mutator, None,
+                          P_KARTA_NADPIS_NE_SOVPALA),
+                         (pravka_tekst, mutator, None, P_NADPIS_NEVIDIMA)])
 
 
 # ── Семья G — регрессии соседей ────────────────────────────────────────
@@ -2736,6 +2921,11 @@ KLETKI_FUNK = {
     'f06-sovmestnyj-karta-iz-fajla': k_f06,
     'f07-sovmestnyj-nezavisimost-nomera': k_f07,
     'f08-sovmestnyj-dobavlenie-dannyh': k_f08,
+    'f35-nadpis-null-u-text': k_f35,
+    'f36-nadpis-null-bez-objavlenija': k_f36,
+    'f37-nadpis-null-pustoe-imja': k_f37,
+    'f38-nadpis-a11y-ne-sovpala': k_f38,
+    'f39-nadpis-null-u-nevidimogo-text': k_f39,
     'g01-147-model': lambda ctx: progoni_sosed(
         SOSTEDY['g01-147-model'][0], SOSTEDY['g01-147-model'][1]),
     'g02-147-stabs': lambda ctx: progoni_sosed(
