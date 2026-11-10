@@ -819,7 +819,10 @@ fi
 # Вход: --arch-component id[,id...] — НЕПУСТОЙ список ID через запятую, порядок
 # входа сохраняется. Признак применимости — каталог <R>/architecture/ ПРОЕКТА
 # (НЕ repoId: профиль есть и у самого харнесса) и кодовый предмет — строка
-# «КЛАСС ЗАДАЧИ: кодовый» в ФАКТИЧЕСКИ выбранном контракте (CBYTES).
+# «КЛАСС ЗАДАЧИ: кодовый» в ФАКТИЧЕСКИ выбранном контракте (CBYTES). Значение
+# класса опознаётся по началу строки до разделителя (точка, «;», скобка, конец
+# строки) — реальные формы: «кодовый.», «КОДОВЫЙ (реализация)», «КОДОВЫЙ; …»;
+# регистр — двумя явными формами, БЕЗ -i (кириллица под LC_ALL=C не сворачивается).
 # Отказы (rc 1, пустой stdout, до выдачи пака):
 #   ARCHITECTURE_NET   — флаг задан, каталога architecture/ нет;
 #   ARCH_COMPONENT_ID  — флаг задан, список неконформен (пустая запись, slash,
@@ -838,6 +841,17 @@ if [ "$KIND" = task ]; then
     case "$ARCH_COMPONENT" in
       ''|,*|*,|*,,*) die "ARCH_COMPONENT_ID: непустой список id через запятую: $ARCH_COMPONENT" ;;
     esac
+    # ФОРМАТ ВСЕХ id проверяется ОТДЕЛЬНЫМ циклом ДО первого вызова npm:
+    # неконформный список отказывает, ни разу не исполнив проектную команду
+    # (её побочные действия не наступают).
+    _arch_rest="$ARCH_COMPONENT"
+    while [ -n "$_arch_rest" ]; do
+      _arch_id="${_arch_rest%%,*}"
+      if [ "$_arch_rest" = "$_arch_id" ]; then _arch_rest=""; else _arch_rest="${_arch_rest#*,}"; fi
+      case "$_arch_id" in
+        ''|[!A-Za-z0-9_]*|*[^A-Za-z0-9._-]*|*..*) die "ARCH_COMPONENT_ID: неконформный id: $_arch_id" ;;
+      esac
+    done
     # stderr npm — в отдельный файл: в пак идёт только stdout брифа, а первая
     # строка stderr остаётся именованным отказом.
     _NPM_ERR_FILE="$(mktemp 2>/dev/null || true)"
@@ -848,9 +862,6 @@ if [ "$KIND" = task ]; then
     while [ -n "$_arch_rest" ]; do
       _arch_id="${_arch_rest%%,*}"
       if [ "$_arch_rest" = "$_arch_id" ]; then _arch_rest=""; else _arch_rest="${_arch_rest#*,}"; fi
-      case "$_arch_id" in
-        ''|[!A-Za-z0-9_]*|*[^A-Za-z0-9._-]*|*..*) die "ARCH_COMPONENT_ID: неконформный id: $_arch_id" ;;
-      esac
       # Правила проекта — только ролям, которые их читают (architect/critic/
       # arbiter); implementer/adversary/reviewer получают бриф без них.
       _arch_rules=""
@@ -873,7 +884,7 @@ if [ "$KIND" = task ]; then
 ${_arch_text}
 "
     done
-  elif [ -d "$_arch_dir" ] && printf '%s\n' "$CBYTES" | grep -Eiq '^КЛАСС ЗАДАЧИ: кодовый$'; then
+  elif [ -d "$_arch_dir" ] && printf '%s\n' "$CBYTES" | grep -Eq '^КЛАСС ЗАДАЧИ:[[:space:]]*(кодовый|КОДОВЫЙ)([^[:alnum:]_]|$)'; then
     die "ARCH_COMPONENT_NET: требуется --arch-component (кодовый предмет, проект с architecture/)"
   fi
 fi
