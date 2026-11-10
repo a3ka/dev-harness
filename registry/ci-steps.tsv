@@ -299,3 +299,4 @@ step	check:models-actual-174-family-selftest	4	bash fixtures/workshop_project/mo
 step	check:pustoj-produkt-159-family-selftest	20	bash fixtures/workshop_project/pustoj_produkt_159/red_pustoj_produkt_159.sh
 step	check:sud-model-173-family-selftest	4	bash fixtures/workshop_project/sud_model_173/red_sud_model_173.sh
 step	check:tablo-demo-175-family-selftest	4	bash fixtures/workshop_project/tablo_demo_175/red_tablo_demo_175.sh --repo . && bash fixtures/workshop_project/tablo_demo_175/red_tablo_demo_175.sh --stabs
+step	check:pre-judge-leak-185-family-selftest	4	bash fixtures/workshop_project/pre_judge_leak_185/red_pre_judge_leak_185.sh --repo . && bash fixtures/workshop_project/pre_judge_leak_185/red_pre_judge_leak_185.sh --stabs
