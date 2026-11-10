@@ -65,7 +65,7 @@ def world(base):
          'commands': dict.fromkeys(['test', 'lint', 'typecheck', 'build'], 'bash check.sh'),
          'ci': {'workflow': '.github/workflows/toy.yml'},
          'barriers': {'mandatory': [], 'optional': []}}
-    put(root, 'harness.project.json', json.dumps(p))
+    put(root, '.harness/harness.project.json', json.dumps(p))
     put(root, 'project-layer.json', json.dumps({'schemaVersion': 1, 'version': '1',
         'projectId': 'p', 'workspaceId': 'w', 'defaults': {}}))
     put(root, 'check.sh', '#!/bin/sh\ntest -s AGENTS.md\n')
@@ -153,8 +153,13 @@ def canon(root, p, gate_exit=0):
         f'sys.exit({gate_exit})\n')
     p['sourceCanon'] = {'sources': [{'path': 'SOURCE.md', 'priority': 0}],
                         'gate': [sys.executable, 'source_gate.py', 'literal ; $(not-shell)']}
-    put(root, 'harness.project.json', json.dumps(p))
+    put(root, '.harness/harness.project.json', json.dumps(p))
     commit(root, 'source canon')
+
+
+# А10: тела фраз P1/P10 резолвера контракта 054 v+1 §Инварианты (дословно).
+A10_P1_BODY = 'нет .harness/harness.project.json: '
+A10_P10_BODY = 'корневой harness.project.json рядом с .harness/harness.project.json: '
 
 
 def installation(base):
@@ -204,7 +209,7 @@ def damage_key(root, p, key, value):
     had = key in p['workflowPaths']
     saved = p['workflowPaths'].get(key)
     p['workflowPaths'][key] = value
-    put(root, 'harness.project.json', json.dumps(p))
+    put(root, '.harness/harness.project.json', json.dumps(p))
     commit(root, 'damage ' + key)
 
     def restore():
@@ -212,7 +217,7 @@ def damage_key(root, p, key, value):
             p['workflowPaths'][key] = saved
         else:
             p['workflowPaths'].pop(key, None)
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'restore ' + key)
 
     return restore
@@ -438,6 +443,8 @@ EXTRA_CASES = (
     'canon-unavailable', 'canon-nul', 'reserve-race', 'reserve-unavailable',
     'zones-project', 'zones-green', 'staged-project', 'staged-green', 'lib-zones-project',
     'mint-project', 'mint-no-authority', 'self-canonical',
+    # Адресный v+1 А10 (вызов 1/2, Б-2): двери на корневом профиле продукта.
+    'paths-root-only-profile', 'paths-both-profiles', 'freeze-root-only-profile',
     'freeze-escalate', 'freeze-ungrammatical', 'done-escalate', 'done-ungrammatical',
     # Круг 1 (FAIL ×2): красные клетки по находкам Б-1…Б-8 и adversary-1.
     'resolver-canon-extra-key', 'resolver-canon-fraction', 'gate-path-argv0',
@@ -467,7 +474,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
     call = lambda op, *args, **kw: subject(mode, op, root, *args, mutant=mutant, **kw)
     if case == 'git-override':
         p['git']['canonicalRemote'] = 'ssh://git@example.invalid/not-this-project.git'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         before = git(root, 'rev-parse', 'HEAD')
         r = call('gitw', 'push', 'origin', 'HEAD:refs/heads/probe',
                  extra_env={'GIT_EXCHANGE_GUARD_CANONICAL': str(origin)})
@@ -499,6 +506,24 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         got = json.loads(r.stdout)
         expect(all(got.get(k) == v for k, v in expected.items()), 'ROLE_CONTEXT_NOT_PROJECT_LOCAL', r)
         expect(str(TOOLS) not in r.stdout, 'ROLE_CONTEXT_LEAKS_INSTALLATION', r)
+    elif case in ('paths-root-only-profile', 'paths-both-profiles', 'freeze-root-only-profile'):
+        # А10: корневой профиль продукта — не вход ни одной двери. Отказ несёт
+        # тело фразы резолвера 054 v+1 (P1 — только корень, P10 — оба), stdout
+        # без раскладки, дерево, HEAD и теги не тронуты.
+        internal = root / '.harness/harness.project.json'
+        (root / 'harness.project.json').write_bytes(internal.read_bytes())
+        if case != 'paths-both-profiles':
+            internal.unlink()
+        commit(root, 'A10 root profile world')
+        phrase = (A10_P10_BODY if case == 'paths-both-profiles' else A10_P1_BODY)
+        before = git(root, 'rev-parse', 'HEAD')
+        r = call('freeze', contract) if case.startswith('freeze') else call('paths')
+        expect(r.returncode == 1 and any(phrase in line for line in r.stderr.splitlines()),
+               'A10_ROOT_PROFILE_ACCEPTED:' + case, r)
+        expect(r.stdout.strip() == '' or case.startswith('freeze'), 'A10_ROOT_LAYOUT_PRINTED', r)
+        expect(git(root, 'status', '--porcelain', '--untracked-files=all') == ''
+               and git(root, 'rev-parse', 'HEAD') == before and not git(root, 'tag', '-l'),
+               'A10_ROOT_PROFILE_MUTATED', r)
     elif case in ('freeze-root-only', 'done-root-only'):
         op = case.split('-')[0]
         role = 'critic' if op == 'freeze' else 'review'
@@ -570,7 +595,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
             git(root, 'init', '--bare', '-q', str(receiver))
             git(root, 'remote', 'set-url', 'origin', str(receiver))
         else:
-            put(root, 'harness.project.json', '{broken')
+            put(root, '.harness/harness.project.json', '{broken')
         r = call('gitw', 'push', 'origin', 'HEAD:refs/heads/probe')
         expect(r.returncode == 1 and not git(receiver, 'for-each-ref', '--format=%(refname)'),
                'UNTRUSTED_ORIGIN_ACCEPTED', r)
@@ -579,7 +604,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         outside.mkdir()
         (root / 'escape').symlink_to(outside, target_is_directory=True)
         p['workflowPaths']['state'] = 'escape'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         r = call('paths')
         expect(r.returncode == 1 and 'workflowPaths' in r.stderr, 'SYMLINK_ESCAPE_ACCEPTED', r)
     elif case.startswith('canon-'):
@@ -614,7 +639,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         if case == 'canon-unavailable':
             p['sourceCanon']['gate'] = ['./missing-command']
             reason = 'SOURCE_GATE_UNAVAILABLE'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         if git(root, 'status', '--porcelain'):
             commit(root, 'canon scenario')
         before = git(root, 'rev-parse', 'HEAD')
@@ -722,7 +747,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
             p['sourceCanon']['evil'] = 1
         else:
             p['sourceCanon']['sources'][0]['priority'] = 0.5
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'invalid canon unit')
         r = call('resolver')
         expect(r.returncode == 1 and 'SOURCE_CANON' in r.stderr,
@@ -732,7 +757,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
             del p['sourceCanon']['evil']
         else:
             p['sourceCanon']['sources'][0]['priority'] = 0
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'repair canon unit')
         r = call('resolver')
         expect(r.returncode == 0, 'RESOLVER_CANON_REPAIR_REFUSED:' + case, r)
@@ -741,7 +766,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         # resolved via PATH, not joined onto R.
         canon(root, p)
         p['sourceCanon']['gate'][0] = 'python3'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'gate argv0 via PATH')
         before = git(root, 'rev-parse', 'HEAD')
         r = call('pre_critic', contract)
@@ -754,7 +779,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         # Б-3: sourceCanon null in the defaults layer is NOT absence.
         canon(root, p)
         p.pop('sourceCanon')
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         layer = json.loads((root / 'project-layer.json').read_text())
         layer['defaults']['sourceCanon'] = None
         put(root, 'project-layer.json', json.dumps(layer))
@@ -777,7 +802,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
             p['sourceCanon']['sources'][0]['path'] = 'LINK.md'
         else:
             p['sourceCanon']['sources'][0]['path'] = '../outside/outside.md'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'source outside repo')
         before = git(root, 'rev-parse', 'HEAD')
         r = call('pre_critic', contract)
@@ -795,7 +820,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         (outside / 'plan.tsv').write_text(header + '777' + row)
         (root / 'escape').symlink_to(outside, target_is_directory=True)
         p['workflowPaths']['registry'] = 'escape'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'registry escapes repo')
         before = git(root, 'rev-parse', 'HEAD')
         r = call('freeze', contract)
@@ -811,7 +836,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         decoy = 'contracts/777-toy.md'
         put(root, decoy, (root / contract).read_text())
         put(root, 'verdicts/' + role + '/contracts-777-v1.md', 'accept\n')
-        put(root, 'harness.project.json', '{broken')
+        put(root, '.harness/harness.project.json', '{broken')
         commit(root, 'broken profile with root decoy')
         before = git(root, 'rev-parse', 'HEAD')
         r = call(op, decoy)
@@ -873,7 +898,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         canon(root, p)
         (root / 'directory-is-not-file').mkdir()
         p['sourceCanon']['sources'][0]['path'] = 'directory-is-not-file'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'directory declared as canonical source')
         before = git(root, 'rev-parse', 'HEAD')
         for op in ('sources', 'pre_critic'):
@@ -884,7 +909,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
                'SOURCE_DIRECTORY_MUTATED')
         # Позитивный контроль: честный regular file на той же двери — зелёный.
         p['sourceCanon']['sources'][0]['path'] = 'SOURCE.md'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'regular source file restored')
         r = call('pre_critic', contract)
         expect(r.returncode == 0, 'SOURCE_DIRECTORY_REPAIR_REFUSED', r)
@@ -894,13 +919,13 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         (base / 'outside.md').write_text('# External requirement\n')
         canon(root, p)
         p['sourceCanon']['sources'][0]['path'] = '../outside.md'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'non-relative source path')
         r = call('resolver')
         expect(r.returncode == 1 and 'SOURCE_CANON' in r.stderr,
                'RESOLVER_SOURCE_PATH_LENIENT', r)
         p['sourceCanon']['sources'][0]['path'] = 'SOURCE.md'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'repair relative source path')
         r = call('resolver')
         expect(r.returncode == 0, 'RESOLVER_SOURCE_REPAIR_REFUSED', r)
@@ -910,7 +935,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         (base / 'outside.md').write_text('# External requirement\n')
         canon(root, p)
         p['sourceCanon']['sources'][0]['path'] = '../outside.md'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'canon escape for print-context')
         r = call('make_task', 'reviewer')
         expect(r.returncode == 1 and 'SOURCE_CANON' in r.stderr,
@@ -922,7 +947,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         outside.mkdir()
         (root / 'escape').symlink_to(outside, target_is_directory=True)
         p['workflowPaths']['registry'] = 'escape'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'registry escapes repo')
         before = git(root, 'rev-parse', 'HEAD')
         op = 'workshop' if case.startswith('workshop-') else 'make_task'
@@ -971,7 +996,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         expect(r.returncode == 0, 'MAKE_TASK_PACK_REFUSAL_FREEZE_FAILED', r)
         (base / 'outside.md').write_text('# External requirement\n')
         p['sourceCanon']['sources'][0]['path'] = '../outside.md'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'canon escape after freeze')
         r = call('make_task_pack', taskf, trace)
         expect(r.returncode != 0, 'MAKE_TASK_PACK_REFUSAL_SWALLOWED', r)
@@ -1007,7 +1032,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
             p['workflowPaths']['state'] = 'st-link'
         else:
             p['workflowPaths']['state'] = '../outside-state'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'state escapes repo')
         before = git(root, 'rev-parse', 'HEAD')
         op = 'workshop' if 'workshop' in case else 'make_task'
@@ -1035,7 +1060,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         expect(git(root, 'rev-parse', 'HEAD') == before, tag + '_MUTATED', r)
         # Позитивный контроль: честный state — потребитель зелёный, все пути в R.
         p['workflowPaths']['state'] = '.harness/session'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'repair honest state')
         r = call(op, 'reviewer', **kwargs)
         expect(r.returncode == 0, tag + '_CONTROL_REFUSED', r)
@@ -1055,7 +1080,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
             p['workflowPaths']['state'] = 'st-link'
         else:
             p['workflowPaths']['state'] = '../outside-state'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'state escapes repo')
         r0 = call('paths')
         expect(r0.returncode == 1
@@ -1067,7 +1092,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         expect(str(outside) not in r.stdout + r.stderr and '../outside-state' not in r.stdout,
                tag + '_LEAKED', r)
         p['workflowPaths']['state'] = '.harness/session'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'repair honest state')
         r = call('make_task_pack', taskf, trace)
         expect(r.returncode == 0 and str(root / '.harness/session/HANDOFF.md') in r.stdout,
@@ -1086,7 +1111,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
                    'DOTDOT_RESOLVER_ACCEPTED:' + key, r)
             restore()
         p['workflowPaths']['fixtures'] = 'docs/v1..2.md'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'honest dot-dot segment in fixtures')
         r = call('paths')
         expect(r.returncode == 0, 'DOTDOT_RESOLVER_CONTROL_REFUSED', r)
@@ -1094,7 +1119,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
                'DOTDOT_RESOLVER_CONTROL_VALUE_WRONG', r)
         p['workflowPaths']['state'] = 'st/v1..2'
         put(root, 'st/v1..2/.keep', '')
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'honest dot-dot segment in state')
         r = call('paths')
         expect(r.returncode == 0, 'DOTDOT_RESOLVER_STATE_CONTROL_REFUSED', r)
@@ -1115,7 +1140,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
                    'DOTDOT_PRINT_CONTEXT_ACCEPTED:' + key, r)
             restore()
         p['workflowPaths']['fixtures'] = 'docs/v1..2.md'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'honest dot-dot segment')
         r = call('make_task', 'reviewer')
         expect(r.returncode == 0, 'DOTDOT_PRINT_CONTEXT_CONTROL_REFUSED', r)
@@ -1136,7 +1161,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
                    'DOTDOT_KIND_TASK_LEAKED:' + key, r)
             restore()
         p['workflowPaths']['fixtures'] = 'docs/v1..2.md'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'honest dot-dot segment')
         r = call('make_task_pack', taskf, trace)
         expect(r.returncode == 0 and 'docs/v1..2.md' in r.stdout,
@@ -1162,7 +1187,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
                    'DOTDOT_WORKSHOP_ACCEPTED:' + key, r)
             restore()
         p['workflowPaths']['fixtures'] = 'docs/v1..2.md'
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'honest dot-dot segment')
         r = call('workshop', **kwargs)
         expect(r.returncode == 0, 'DOTDOT_WORKSHOP_CONTROL_REFUSED', r)
@@ -1281,7 +1306,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
                'FALLBACK_CANON_UNIT_WORKSHOP', r)
         # Контроль: та же ветвь без sourceCanon отдаёт null, не отказ.
         p.pop('sourceCanon')
-        put(root, 'harness.project.json', json.dumps(p))
+        put(root, '.harness/harness.project.json', json.dumps(p))
         commit(root, 'fallback control without canon')
         for op, op_args, reason in (
                 ('paths', (), 'FALLBACK_CONTROL_CANON_PW'),
@@ -1312,7 +1337,7 @@ def test(case, mode, base, mutant):
     if case in ('git-profile', 'git-layer', 'git-reject'):
         if case == 'git-layer':
             remote = p.pop('git')
-            put(root, 'harness.project.json', json.dumps(p))
+            put(root, '.harness/harness.project.json', json.dumps(p))
             layer = json.loads((root / 'project-layer.json').read_text())
             layer['defaults']['git'] = remote
             put(root, 'project-layer.json', json.dumps(layer))
@@ -1369,7 +1394,7 @@ def test(case, mode, base, mutant):
     elif case in ('paths', 'paths-escape'):
         if case == 'paths-escape':
             p['workflowPaths']['verdicts'] = '../outside'
-            put(root, 'harness.project.json', json.dumps(p))
+            put(root, '.harness/harness.project.json', json.dumps(p))
         r = call('paths')
         if case == 'paths-escape':
             expect(r.returncode == 1 and 'workflowPaths' in r.stderr, 'ESCAPE_ACCEPTED', r)
@@ -1419,7 +1444,7 @@ def test(case, mode, base, mutant):
             canon(root, p, 7 if negative else 0)
         if case == 'canon-invalid':
             p['sourceCanon']['unknown'] = 1
-            put(root, 'harness.project.json', json.dumps(p))
+            put(root, '.harness/harness.project.json', json.dumps(p))
         op = 'done' if case == 'canon-done-fail' else 'sources'
         if case == 'canon-precritic-fail':
             op = 'pre_critic'
@@ -1484,6 +1509,10 @@ MUTANTS.update({
     'mint-root-registry': ('mint-project',),
     'mint-self-authority': ('mint-no-authority',),
     'old-self-canon': ('self-canonical',),
+    # А10 (Н-39): «только адрес» наблюдаем там, где внутреннего профиля нет;
+    # дверь без суда корня — там, где оба профиля.
+    'door-legacy-root': ('paths-root-only-profile', 'freeze-root-only-profile'),
+    'door-ignores-root': ('paths-both-profiles',),
 })
 MUTANTS.update({'done-leak': ('station-isolation',),
                 'profile-over-override': ('git-override',),
