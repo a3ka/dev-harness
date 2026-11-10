@@ -39,7 +39,7 @@ jobs:
           APK_ARTIFACT_NAME: ${{ needs.build-apk.outputs.artifact_name }}
         run: |
           export ANDROID_AVD_HOME="${RUNNER_TEMP}/avd-${RUNNER_NAME}-${SCREEN_ID}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          export ADB_SERVER_PORT="$((AVD_PORT + 1))"
+          export ANDROID_ADB_SERVER_PORT="$((AVD_PORT + 20000))"
           flock "/tmp/complior-ci-port-${AVD_PORT}.lock" node mobile/scripts/run-ci-screen.cjs --id "$SCREEN_ID" --pack "$SCREEN_PACK" --flow "$SCREEN_FLOW" --port "$AVD_PORT"
       - name: Publish child evidence
         if: always()

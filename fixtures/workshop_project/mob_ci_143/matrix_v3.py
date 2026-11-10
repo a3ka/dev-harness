@@ -596,11 +596,15 @@ def workflow_case(wf, old, which):
     if which == 'allocator':
         launch = next((str(s.get('run', '')) for s in matrix.get('steps', [])
                        if 'run-ci-screen.cjs' in str(s.get('run', ''))), '')
+        # Emulator console/ADB occupy 5554..5585 (even/odd pairs). For
+        # supported AVD ports 5554..5584 the separate server uses
+        # 25554..25584, never emulator ADB, another child, or host 5037.
+        adb_server = 'export ANDROID_ADB_SERVER_PORT="$((AVD_PORT + 20000))"'
         return checked(matrix.get('runs-on') == ['self-hosted', 'linux', 'x64', 'kvm', 'complior'] and
                        matrix.get('strategy', {}).get('max-parallel') == 2 and
                        'matrix.screen.avd_port' in str(matrix.get('steps')) and
                        'flock ' in launch and 'ANDROID_AVD_HOME=' in launch and
-                       'ADB_SERVER_PORT=' in launch, 'MATRIX_ALLOCATOR')
+                       adb_server in launch.splitlines(), 'MATRIX_ALLOCATOR')
     if which == 'evidence':
         for aggregate in ('android-e2e', 'mobile-regression-signal'):
             job = jobs.get(aggregate, {})
@@ -954,6 +958,34 @@ def main():
         if args.stabs:
             for name, reason in workflow_stabs(workflow, model_workflow()):
                 print('СТАБ %s @ %s КРАСЕН: %s' % (name, name, reason))
+            # One variable is ignored by adb; the other port is occupied by
+            # the emulator. Each counterexample is bound to both affected cells.
+            correct = 'export ANDROID_ADB_SERVER_PORT="$((AVD_PORT + 20000))"'
+            for name, wrong in (
+                ('adb-variable-ignored', 'export ADB_SERVER_PORT="$((AVD_PORT + 20000))"'),
+                ('adb-port-emulator', 'export ANDROID_ADB_SERVER_PORT="$((AVD_PORT + 1))"'),
+            ):
+                weak = copy.deepcopy(workflow)
+                step = next(s for s in weak['jobs']['e2e-screen']['steps']
+                            if 'run-ci-screen.cjs' in str(s.get('run', '')))
+                if step['run'].splitlines().count(correct) != 1:
+                    print('ORACLE_TAMPERED: adb launch mutation anchor', file=sys.stderr)
+                    return 2
+                step['run'] = step['run'].replace(correct, wrong)
+                for branch in ('allocator', 'workflow-e2e-screen-run-step-4'):
+                    if branch == 'allocator':
+                        ok, reason = workflow_case(weak, old, branch)
+                    else:
+                        hits = [(ok, reason) for cell, (ok, reason) in
+                                workflow_controls(weak, model_workflow()) if cell == branch]
+                        if len(hits) != 1:
+                            print('ORACLE_TAMPERED: adb step branch', file=sys.stderr)
+                            return 2
+                        ok, reason = hits[0]
+                    if ok:
+                        print('STAB_ZHIV %s @ %s' % (name, branch))
+                        return 1
+                    print('СТАБ %s @ %s КРАСЕН: %s' % (name, branch, reason))
             from connected_v3 import check as connected_check
             skipped = copy.deepcopy(workflow)
             skipped['jobs']['e2e-screen']['if'] = '${{ false }}'
@@ -1201,8 +1233,8 @@ def main():
             control_count = len(controls(model_workflow())) + len(root_controls(model_workflow(), workflow))
             extension_count = 8
             print('стабов %d, привязок %d, живых 0' % (
-                len(STUBS) + 25 + len(AGG_GUARD_LINES) + len(SELECTOR_GUARD_LINES) + len(LEGACY_GUARD_LINES) + len(INVENTORY_GUARD_LINES) + len(SELECTOR_ENTRY_LINES) + control_count + extension_count,
-                len(STUBS) + 32 + len(AGG_GUARD_LINES) + len(SELECTOR_GUARD_LINES) + len(LEGACY_GUARD_LINES) + len(INVENTORY_GUARD_LINES) + len(SELECTOR_ENTRY_LINES) + control_count + extension_count))
+                len(STUBS) + 27 + len(AGG_GUARD_LINES) + len(SELECTOR_GUARD_LINES) + len(LEGACY_GUARD_LINES) + len(INVENTORY_GUARD_LINES) + len(SELECTOR_ENTRY_LINES) + control_count + extension_count,
+                len(STUBS) + 36 + len(AGG_GUARD_LINES) + len(SELECTOR_GUARD_LINES) + len(LEGACY_GUARD_LINES) + len(INVENTORY_GUARD_LINES) + len(SELECTOR_ENTRY_LINES) + control_count + extension_count))
         return 0
 
 
