@@ -242,6 +242,12 @@ if [ "$MODE" = 'prepare' ]; then
   # Детектор утечки — ДЕЙСТВУЮЩИЙ scripts/check_no_leak.sh репозитория R
   # (второго детектора не заводим). Отсутствие детектора — rc 2, не зелёный.
   DETECTOR="$R/scripts/check_no_leak.sh"
+  # Owner-хотфикс (Н-441, до предмета 185): в проектном корне детектора нет — судим корень R
+  # детектором установки (каталог этого pre_judge.sh). Прежнее поведение при наличии детектора в R
+  # не меняется; окончательный маршрут (только детектор установки) — контракт 185.
+  if [ ! -f "$DETECTOR" ]; then
+    DETECTOR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/check_no_leak.sh"
+  fi
   [ -f "$DETECTOR" ] || skip "нет детектора утечки: scripts/check_no_leak.sh"
   leak_out="$(bash "$DETECTOR" --check "$R" 2>&1)"; leak_rc=$?
   if [ "$leak_rc" -ne 0 ]; then
