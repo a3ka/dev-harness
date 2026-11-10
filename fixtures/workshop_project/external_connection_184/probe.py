@@ -244,12 +244,17 @@ def run(mode, source):
             for name, path in (
                 ('absent-entrypoint', base / 'missing-wrapper.sh'),
                 ('invalid-entrypoint', base / 'invalid-wrapper.sh'),
+                ('no-probe', base / 'no-probe.sh'),
                 ('swallowed-rc', base / 'swallowed-rc.sh'),
             ):
                 if name == 'invalid-entrypoint':
                     write(path, '#!/usr/bin/env bash\nif then\n')
-                elif name == 'swallowed-rc':
+                elif name == 'no-probe':
                     write(path, '#!/usr/bin/env bash\nexit 0\n')
+                elif name == 'swallowed-rc':
+                    write(path, '#!/usr/bin/env bash\n'
+                                f'python3 "{Path(__file__).resolve()}" --unknown-184 >/dev/null 2>&1\n'
+                                'exit 0\n')
                 caught = not entrypoint(path)
                 print(f'STAB {name}@ci-entrypoint: {"caught" if caught else "ZHIV"}')
                 failures += not caught
