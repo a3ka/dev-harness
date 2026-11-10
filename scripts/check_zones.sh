@@ -1160,6 +1160,14 @@ while IFS=$'\t' read -r nnn since; do
         # принятие риска только этой исторической пары, не разрешение на новые.
         # Обычная REPLACE-проверка, ancestry и выбор vmax для остальных C
         # не меняются; другие пути и авторы из проверки не исключаются.
+        # Десятая пара bcd5b796a1e9328ba9440b358ea1f7e0068d8fec / registry/contracts.tsv —
+        # REPLACE 158 3248984f→a92a038d по существу корректен: старая сторона = tag-object
+        # frozen/contracts/158/2, новая = tag-object frozen/contracts/158/3 (догон строки v3,
+        # влитой и откаченной owner-revert 8ce8808a5 без записи строки). Тег frozen/contracts/158/4
+        # поставлен на сам этот коммит, поэтому суд видит vmax=4 и ждёт tag-object 158/4; строку v4
+        # пишет следующий коммит 06dd41c94 (реестр 158 → 3fa5835f == tag-object 158/4). Класс порядка
+        # тег/коммит, тот же что пары 7–9; история main не переписывается. Слово владельца 2026-11-10
+        # ~13:40 UTC (через консультанта). Принятие риска только этой пары.
         # Девятая пара 80ea54402c91c9f4ac6791fc10f09371623a5b70 / registry/contracts.tsv —
         # REPLACE 116 → fc188433: строка равна tag-object-sha живой заморозки frozen/contracts/116/1,
         # опубликованной на origin ДО суда; merge 6a18fafd5 привёл tag-коммит 9f89c3785 в предки
@@ -1195,7 +1203,7 @@ while IFS=$'\t' read -r nnn since; do
             skip_path=1
             continue
             ;;
-          8f1c25f011921721934d870914f562f9f3ff815c|8c734d93b91fb3ff38528d6591d519a5145de325|6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca|eb5df0064ac94551cc361e466e991f8099c0fcca|c663dd0fb0b233e56368707aef6940baaf254a30|56f62ed687a6acde05d2e1af76cf6a2ac489a45e|80ea54402c91c9f4ac6791fc10f09371623a5b70)
+          8f1c25f011921721934d870914f562f9f3ff815c|8c734d93b91fb3ff38528d6591d519a5145de325|6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca|eb5df0064ac94551cc361e466e991f8099c0fcca|c663dd0fb0b233e56368707aef6940baaf254a30|56f62ed687a6acde05d2e1af76cf6a2ac489a45e|80ea54402c91c9f4ac6791fc10f09371623a5b70|bcd5b796a1e9328ba9440b358ea1f7e0068d8fec)
             skip_path=1
             continue
             ;;
