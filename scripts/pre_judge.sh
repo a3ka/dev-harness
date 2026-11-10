@@ -239,16 +239,16 @@ if [ "$MODE" = 'prepare' ]; then
     sleep 0.02
   done
 
-  # Детектор утечки — ДЕЙСТВУЮЩИЙ scripts/check_no_leak.sh репозитория R
-  # (второго детектора не заводим). Отсутствие детектора — rc 2, не зелёный.
-  DETECTOR="$R/scripts/check_no_leak.sh"
-  # Owner-хотфикс (Н-441, до предмета 185): в проектном корне детектора нет — судим корень R
-  # детектором установки (каталог этого pre_judge.sh). Прежнее поведение при наличии детектора в R
-  # не меняется; окончательный маршрут (только детектор установки) — контракт 185.
-  if [ ! -f "$DETECTOR" ]; then
-    DETECTOR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/check_no_leak.sh"
-  fi
-  [ -f "$DETECTOR" ] || skip "нет детектора утечки: scripts/check_no_leak.sh"
+  # Детектор утечки — ВСЕГДА детектор УСТАНОВКИ (каталог этого pre_judge.sh):
+  # судим корень R (канонический git-корень из --repo) установочным
+  # scripts/check_no_leak.sh. Локальный $R/scripts/check_no_leak.sh не
+  # используется НИКОГДА: поддельный «exit 0» в проекте не должен подменять
+  # доверенный детектор перед судьёй (контракт 185, маршрут (а)).
+  # Отсутствие установочного детектора — rc 2 NOT_IMPLEMENTED, не зелёный.
+  HARNESS_SCRIPTS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)" \
+    || skip "нет каталога скриптов харнесса"
+  DETECTOR="$HARNESS_SCRIPTS/check_no_leak.sh"
+  [ -f "$DETECTOR" ] || skip "нет детектора утечки харнесса: scripts/check_no_leak.sh"
   leak_out="$(bash "$DETECTOR" --check "$R" 2>&1)"; leak_rc=$?
   if [ "$leak_rc" -ne 0 ]; then
     [ -n "$leak_out" ] && printf '%s\n' "$leak_out" >&2
