@@ -22,8 +22,10 @@ Complior-mob/
 ├── STRUCTURE.md                # одна карта для всего репозитория
 ├── README.md
 ├── harness.project.json        # профиль, если заведён владельцем
+├── package.json                # точка входа приёмки для харнеса; логика в mobile/
 ├── .node-version
 ├── .github/workflows/          # mobile.yml: quality и android-e2e
+├── .harness/                   # служебная зона харнеса проекта; внешняя
 ├── api/                        # READ ONLY, импортированный OpenAPI/схемы/примеры
 ├── docs/                       # READ ONLY, импортированный UX/DS/copy
 ├── design/reference/           # существующий визуальный эталон; не runtime
@@ -47,6 +49,7 @@ Complior-mob/
     │   ├── check-structure.cjs
     │   ├── select-ci-screens.cjs  # выбор затронутых экранов; --mode inventar — инвентаризация пачек
     │   ├── ci-aggregate.cjs       # агрегат результатов работников в android-e2e
+    │   ├── run-ci-screen.cjs      # один child универсального работника e2e-screen: свой AVD/порт, один APK, своё доказательство
     │   └── rehearsal-evidence.sh  # гейт evidence прогона
     ├── e2e-<screen>/           # пачка экрана: пробы/данные/контракт; выносится до lint
     ├── .maestro/               # Android/iOS E2E yaml, вспомогательные данные
@@ -190,7 +193,7 @@ api/http → api/generated / api interface / lib
 - Jest/RNTL colocated: `__tests__/<subject>.test.ts[x]` у домена/компонента/слоя. Для нескольких доменов — `mobile/tests/acceptance/`; это не новый runtime слой и не место production-helpers. Tests исключаются из Router. Текущий colocated паттерн сохраняется.
 - Maestro — `mobile/.maestro/`, имена сценариев `cmp-mob-NNN-<scenario>.yaml` для новых задач; `start.yaml` сохраняется. Связка AC → сценарий → screenshot/artifact → commit обязательна. Проверка каталога не означает, что сценарий запущен на Android/iOS.
 - `mobile/evidence/` — небольшие протоколы, source refs, hashes и ссылки на CI artifacts. Видео/APK/большие скриншоты — в CI artifact storage, не git. Персональные данные/секреты не допустимы ни там, ни в test fixtures.
-- `.expo/`, `node_modules/`, `dist/`, `coverage/`, `maestro-out/`, `android/`, `ios/` в mobile — generated/runtime output, не целевые зоны ручной разработки. Существующий Expo CNG подход сохраняется. Инвентаризатор пропускает их на диске, но запрещает tracked files в этих деревьях при наличии `.git`.
+- `.expo/`, `node_modules/`, `dist/`, `coverage/`, `maestro-out/`, `screen-evidence/`, `android/`, `ios/` в mobile — generated/runtime output, не целевые зоны ручной разработки. Существующий Expo CNG подход сохраняется. Инвентаризатор пропускает их на диске, но запрещает tracked files в этих деревьях при наличии `.git`.
 - `api/`, `docs/`, `design/` и `contracts/ registry/ verdicts/ fixtures/` не валидируются как мобильный исходный код и не перемещаются этим решением. Для read-only копий и зон харнеса действуют отдельные правила provenance/зон. Сам структурный инвентаризатор **не** защищает эти деревья от изменения; это ответственность прав доступа, review и зонного контроля.
 
 ### 7.1. CI-наборы экранов: карта, пачки и вынос до lint
@@ -201,9 +204,10 @@ api/http → api/generated / api interface / lib
 |---|---|
 | `mobile/ci-screens.json` | карта владения (схема 1): экран → `job`, `pack`, `flows`/`child_flows`/`legacy_entrypoint`, `puti`, `h_checkout`, `output_namespace`; отдельно `integracija` (фиксированный набор P), `shared.puti` (общий слой) и `sluzhebnye_potoki` (флоу без экранного владельца) |
 | `mobile/e2e-<screen>/` | пачка экрана: пробы, данные и контракт экрана; исполняемый вход, а не layout-зона |
-| `mobile/scripts/select-ci-screens.cjs` | выбор затронутых экранов по карте и diff; `--mode inventar` — инвентаризация пачек и флоу по дереву |
-| `mobile/scripts/ci-aggregate.cjs` | агрегат результатов работников в `android-e2e` |
-| `.github/workflows/mobile.yml` | явные jobs (не матрица): служебные + по job на экран; `needs` обоих агрегатов |
+| `mobile/scripts/select-ci-screens.cjs` | выбор затронутых экранов по карте и diff; `--mode inventar` — инвентаризация пачек и флоу по дереву; выход `matrix` — строки универсального работника из той же фактической выборки |
+| `mobile/scripts/ci-aggregate.cjs` | агрегат результатов работников в `android-e2e` (при наличии матричных детей — сверка каждого `screen-evidence-<id>-<run_id>-<run_attempt>`) |
+| `mobile/scripts/run-ci-screen.cjs` | один child универсального работника: свой эмулятор на консольном порту `AVD_PORT` (порт эмулятора), один APK той же сборки (digest до установки), один повтор по сигнатуре adb-транспорта, запись `mobile/screen-evidence/<id>/result.json`; отдельный adb-сервер скриптом не настраивается — его порт задаёт job `e2e-screen` экспортом `ANDROID_ADB_SERVER_PORT` |
+| `.github/workflows/mobile.yml` | пять legacy jobs (явные, без изменений) + служебные + универсальный работник `e2e-screen` (`strategy.matrix` из карты); `needs` обоих агрегатов |
 
 Правила владения:
 
@@ -214,7 +218,7 @@ api/http → api/generated / api interface / lib
 
 Механизм выноса общий, без персональной строки на каждый экран: задача `quality` **до любого перемещения** запускает `node mobile/scripts/select-ci-screens.cjs --mode inventar --repo .` и выносит из дерева ровно перечисленные инвентаризацией pack-каталоги (в namespace прогона), затем — H-checkoutы и пробу композиции 118. `npm test`, `npm run lint`, `npm run typecheck`, `npm run doctor` стоят **после** выноса. Незарегистрированная пачка/флоу останавливает прогон честным отказом; wildcard-вынос (`mobile/e2e-*`) запрещён — он маскировал бы незарегистрированную пачку, поэтому blanket-исключение всех `e2e` в `mobile/structure-policy.json` не вводится.
 
-Новый экран подключается как «пачка + запись карты + явный job + выход выбора + имя job в `needs` обоих агрегатов»; общий YAML сериализует единственный интегратор.
+Новый экран подключается как «пачка + запись карты»: запись карты (с `job: e2e-screen`, уникальными `id`/`pack`/владельцем флоу и собственным `avd_port`) приходит тем же PR, что и пачка/флоу, — отдельный job, отдельный output выбора и отдельная правка `needs` больше не нужны: строки новых экранов собирает универсальный работник `e2e-screen` (`strategy.matrix` из выхода `select-screens`), а оба агрегата сверяют каждого child по его отдельному `screen-evidence-<id>-<run_id>-<run_attempt>`. Пять прежних работников остаются явными jobs без изменений.
 
 ## 8. Карта задач и способ применения
 
