@@ -14,6 +14,8 @@ import shutil
 import subprocess
 import tempfile
 
+import yaml
+
 BASE = Path(__file__).resolve().parent / 'model'
 LEGACY = ('e2e-splash', 'e2e-first-run', 'e2e-erstinformation', 'e2e-start', 'e2e-pilot')
 
@@ -26,6 +28,16 @@ def demand(value, name):
     if not value:
         raise Broken(name)
     return value
+
+
+def matrix_job_if(wf, needs):
+    """Evaluate the closed, pinned GitHub job-if grammar on replay's needs."""
+    expected = yaml.safe_load((BASE / 'matrix-v3.yml').read_text())['jobs']['e2e-screen']['if']
+    if wf['jobs']['e2e-screen'].get('if') != expected:
+        return False
+    return (needs['select-screens']['result'] == 'success' and
+            needs['build-apk']['result'] == 'success' and
+            bool(needs['select-screens']['outputs']['matrix']))
 
 
 def execute(script, cwd, env, name):
@@ -115,6 +127,7 @@ if name == 'maestro':
                  'e2e-screen': {'result': 'success'}}
         for legacy in LEGACY:
             needs[legacy] = {'result': 'success', 'outputs': {'apk_sha256': digest, 'artifact_name': artifact, 'run_id': '411'}}
+        demand(matrix_job_if(wf, needs), 'MATRIX_WORKER_SKIPPED')
         collected = root / 'mobile/screen-evidence-collected'
         collected.mkdir()
         for entry in children:

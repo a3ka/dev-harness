@@ -5,6 +5,40 @@
 # guard caught. New rows use `guard_stub`/the named accept-value stub in --stabs;
 # legacy rows use probe.py's own public --repo cells and the isolated product
 # mutation sweep. The entries below name actual rejective sites, not just reasons.
+# Workflow control-field table (full row expansion and product mutation:
+# workflow_sweep_v3.controls + workflow_mutation_sweep.py --repo <candidate>).
+# Field → independent cell → rejected mutation is generated mechanically:
+#   jobs.<job>.<field> → workflow-<job>-<field> → false/[]/wrong fromJSON/
+#     continue-on-error=true/wrong runs-on/timeout=1/outputs={}/write permission/
+#     broad concurrency/env CI=false (see mutate(), per-field row).
+#   jobs.<job>.steps[<i>].if|continue-on-error|run →
+#     workflow-<job>-<field>-step-<i> → false|true|echo skipped-critical-step.
+# Complete compact field→cell→mutant table (Cartesian expansion of each row;
+# all 181 expanded rows individually measured КРАСЕН rc 1, artifact from
+# workflow_mutation_sweep.py; names use the two formulas above):
+# job                   job-fields                                  steps if|continue       steps run
+# select-screens        if,strategy,runs-on,continue-on-error,        0..4                    1,2,3
+#                       timeout-minutes,outputs,permissions,concurrency,env
+# quality               if,strategy,runs-on,continue-on-error,        0..24                   1,3,6
+#                       timeout-minutes,permissions,concurrency,env
+# build-apk             if,needs,strategy,runs-on,continue-on-error,  0..8                    1,2,3,5,6,7
+#                       timeout-minutes,outputs,permissions,concurrency,env
+# e2e-screen            if,needs,strategy,runs-on,continue-on-error,  0..5                    1,3,4
+#                       timeout-minutes,permissions,concurrency,env
+# android-e2e           if,needs,strategy,runs-on,continue-on-error,  0..3                    1,3
+#                       timeout-minutes,permissions,concurrency,env
+# mobile-regression-    if,needs,strategy,runs-on,continue-on-error,  0..4                    1,3
+# signal                timeout-minutes,permissions,concurrency,env
+# Measured conforming model rows (present job edges + if/continue policy +
+# step controls and run bodies): select-screens 22; quality 53; build-apk 34;
+# e2e-screen 24; android-e2e 19; mobile-regression-signal 21 (total 173).
+# The candidate has four independently owned quality steps: eight extra
+# if/continue cells (candidate total 181). Missing needs/outputs are not
+# mutated to []/{}: this would be semantically indistinguishable from absence.
+# Every real mutant is separately red against its own complete repository copy.
+# Five legacy e2e-* jobs: I-15 forbids rewriting; `legacy` checks full YAML.
+# New 151/995/117 quality run bodies belong to their frozen owners, not a
+# stale 143 model; their conditional flags remain in this sweep.
 # Aggregate ci-aggregate.cjs, physical line → cell / matching mutation:
 #  27 → legacy-guard-no-needs-arg / weak_ok; 30 → legacy-guard-invalid-needs-json / weak_ok
 #  32 → a16-pustoj-needs / bypass; 39 → a07/a08/a09 / bypass
@@ -77,6 +111,7 @@ import sys
 import tempfile
 
 import yaml
+from workflow_sweep_v3 import check as workflow_controls, stabs as workflow_stabs
 
 HERE = Path(__file__).resolve().parent
 BASE = HERE / 'model'
@@ -821,6 +856,7 @@ def main():
     group.add_argument('--model', action='store_true')
     group.add_argument('--stabs', action='store_true')
     group.add_argument('--repo', type=Path)
+    parser.add_argument('--workflow-cell', help='One scoped --repo control-field mutation probe')
     args = parser.parse_args()
     if not args.model and not args.stabs and not args.repo:
         print('MATRIX_SUBJECT_ABSENT', file=sys.stderr)
@@ -844,9 +880,22 @@ def main():
     except (OSError, yaml.YAMLError) as exc:
         print('MATRIX_WORKFLOW_ABSENT: ' + str(exc), file=sys.stderr)
         return 1
+    if args.workflow_cell:
+        if not args.repo:
+            print('WORKFLOW_CELL_REQUIRES_REPO', file=sys.stderr)
+            return 2
+        hits = [(name, result) for name, result in workflow_controls(workflow, model_workflow())
+                if name == args.workflow_cell]
+        if len(hits) != 1:
+            print('WORKFLOW_CELL_UNKNOWN: ' + args.workflow_cell, file=sys.stderr)
+            return 2
+        name, (ok, reason) = hits[0]
+        print('КЛЕТКА %s %s%s' % (name, 'ЗЕЛЕНА' if ok else 'КРАСНА: ', '' if ok else reason))
+        return 0 if ok else 1
     with tempfile.TemporaryDirectory(prefix='matrix-143-v3-') as t:
         tmp = Path(t)
         results = [(name, workflow_case(workflow, old, name)) for name in ('legacy', 'matrix', 'allocator', 'evidence', 'apk')]
+        results.extend(workflow_controls(workflow, model_workflow()))
         results.append(('selector', selector_case(root, not args.repo, tmp)))
         results.append(('selector-output', selector_output_case(workflow, root, tmp / 'selector-output')))
         if not args.repo:
@@ -907,6 +956,29 @@ def main():
         if any(not ok for _, (ok, _) in results):
             return 1
         if args.stabs:
+            for name, reason in workflow_stabs(workflow, model_workflow()):
+                print('СТАБ %s @ %s КРАСЕН: %s' % (name, name, reason))
+            from connected_v3 import check as connected_check
+            skipped = copy.deepcopy(workflow)
+            skipped['jobs']['e2e-screen']['if'] = '${{ false }}'
+            ok, reason = connected_check(skipped, demo_map())
+            if ok or 'MATRIX_WORKER_SKIPPED' not in reason:
+                print('STAB_ZHIV matrix-worker-never-runs @ connected: ' + reason)
+                return 1
+            print('СТАБ matrix-worker-never-runs @ connected КРАСЕН: ' + reason)
+            # Independent frozen quality steps added later must not opt out.
+            extended = copy.deepcopy(workflow)
+            extended['jobs']['quality']['steps'].extend(
+                {'name': 'Independent quality step %d' % index, 'run': 'exit 1'}
+                for index in range(4))
+            if any(not ok for _, (ok, _) in workflow_controls(extended, workflow)):
+                print('WORKFLOW_EXTENSION_HONEST_RED', file=sys.stderr)
+                return 2
+            first_new = len(workflow['jobs']['quality']['steps'])
+            for name, reason in workflow_stabs(extended, workflow):
+                if (name.startswith('workflow-quality-') and '-step-' in name and
+                        int(name.rsplit('-step-', 1)[1]) >= first_new):
+                    print('СТАБ %s @ %s КРАСЕН: %s' % (name, name, reason))
             for name, (branch, mutate) in STUBS.items():
                 weak = copy.deepcopy(workflow)
                 mutate(weak)
@@ -1129,9 +1201,12 @@ def main():
                     print('STAB_ZHIV selector-entry-%s @ selector-entry-%s: %s' % (variant, variant, reason))
                     return 1
                 print('СТАБ selector-entry-%s @ selector-entry-%s КРАСЕН: %s' % (variant, variant, reason))
+            from workflow_sweep_v3 import controls
+            control_count = len(controls(model_workflow()))
+            extension_count = 8
             print('стабов %d, привязок %d, живых 0' % (
-                len(STUBS) + 20 + len(AGG_GUARD_LINES) + len(SELECTOR_GUARD_LINES) + len(LEGACY_GUARD_LINES) + len(INVENTORY_GUARD_LINES) + len(SELECTOR_ENTRY_LINES),
-                len(STUBS) + 27 + len(AGG_GUARD_LINES) + len(SELECTOR_GUARD_LINES) + len(LEGACY_GUARD_LINES) + len(INVENTORY_GUARD_LINES) + len(SELECTOR_ENTRY_LINES)))
+                len(STUBS) + 21 + len(AGG_GUARD_LINES) + len(SELECTOR_GUARD_LINES) + len(LEGACY_GUARD_LINES) + len(INVENTORY_GUARD_LINES) + len(SELECTOR_ENTRY_LINES) + control_count + extension_count,
+                len(STUBS) + 28 + len(AGG_GUARD_LINES) + len(SELECTOR_GUARD_LINES) + len(LEGACY_GUARD_LINES) + len(INVENTORY_GUARD_LINES) + len(SELECTOR_ENTRY_LINES) + control_count + extension_count))
         return 0
 
 
