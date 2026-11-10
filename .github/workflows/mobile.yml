@@ -1510,12 +1510,14 @@ jobs:
           name: ${{ needs.build-apk.outputs.artifact_name }}
           path: mobile/screen-apk
       - name: APK digest before installation
+        working-directory: ${{ github.workspace }}
         run: |
           APK_FILE=mobile/screen-apk/app-release.apk
           test -f "$APK_FILE"
           echo "APK_FILE=$APK_FILE" >> "$GITHUB_ENV"
           test "$(sha256sum "$APK_FILE" | cut -d ' ' -f 1)" = "${{ needs.build-apk.outputs.apk_sha256 }}" || { echo APK_DIGEST_RASKHOZHDENIE; exit 1; }
       - name: Run selected screen
+        working-directory: ${{ github.workspace }}
         env:
           SCREEN_ID: ${{ matrix.screen.id }}
           SCREEN_PACK: ${{ matrix.screen.pack }}
@@ -1566,6 +1568,7 @@ jobs:
           merge-multiple: false
       - name: Verify selected children
         if: always()
+        working-directory: ${{ github.workspace }}
         env:
           NEEDS_KONTEKST: ${{ toJSON(needs) }}
         run: |
@@ -1609,6 +1612,7 @@ jobs:
           merge-multiple: false
       - name: Verify selected children
         if: always()
+        working-directory: ${{ github.workspace }}
         env:
           NEEDS_KONTEKST: ${{ toJSON(needs) }}
         run: |
