@@ -32,7 +32,8 @@ def main():
     model = model_workflow()
     source = args.repo.resolve()
     workflow = yaml.safe_load((source / '.github/workflows/mobile.yml').read_text())
-    rows = tuple((row, root_name, root_match, mutate_root) for row in root_controls())
+    rows = tuple((row, root_name, root_match, mutate_root)
+                 for row in root_controls(model, workflow))
     if not args.top_only:
         rows += tuple((row, name_of, match, mutate) for row in controls(model, workflow))
     if args.save_cell and (not args.save_dir or args.save_cell not in
