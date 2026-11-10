@@ -229,3 +229,19 @@ composite/reusable — замер «second P via env var path» rc 0), пере�
 actions/checkout, живая семантика платформы (needs/if/concurrency);
 полное отсутствие литерала — уже fail-closed (замер «literal hidden» →
 красна).
+
+## Дополнение v3: фактический output матрицы и результат родительского job
+
+`matrix_v3.py` отдельно от 80 клеток legacy-батареи исполняет 14 клеток на
+продукте (`--repo`), 23 на модели (`--model`/`--stabs`), 17 адресных стабов с
+24 привязками (`--stabs`). Вход `child-matrix-output-absent`: непустые
+`selection.matrix` и `selected` плюс валидные доказательства детей, но поле
+`needs["select-screens"].outputs.matrix` отсутствует; агрегат обязан вернуть
+rc 1 `MATRIX_NE_SELECTION`. Стаб `aggregate-matrix-from-selection` подменяет
+источник поля на `sel.matrix` и красен именно на этом входе; с присутствующим
+полем (`child-ok`) он зелён. Вход `child-parent-failure`: та же непустая матрица
+с валидными доказательствами, но `needs["e2e-screen"].result="failure"`; агрегат
+обязан вернуть rc 1 `MATRIX_PARENT_OTKAZ`. Стаб `aggregate-false-parent`
+нейтрализует эту проверку (`if (false)`) и красен именно на failure-входе;
+на `child-ok` он зелён. Оба входа исполняются и против модели, и против
+реального `mobile/scripts/ci-aggregate.cjs` в продуктовом `--repo`.
