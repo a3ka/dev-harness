@@ -17,6 +17,9 @@ verdict: null
 
 До слова владельца и любой работы:
 0. `bash scripts/make_task.sh --repo <root> --role orchestrator --kind brief --model-trace <путь к TSV>` (095 Р1+12; 169): в проектном корне при наличии `<registry>/trace.tsv` аргумент можно опустить; отказ — стоп, не имитация брефа. Пак: MAP/RULES/BUDGET, ЦЕЛЬ/plan.tsv/РАБОТА/РЕШЕНИЯ/ЗДОРОВЬЕ.
+
+После успешного штатного brief до чтения HANDOFF запусти orch_plan_slice.sh --repo <root>, сверяй PLAN_SNAPSHOT с origin/main; при отказе brief не обходи дверь; строки ЖДЁТ из HANDOFF без живого подтверждения не сообщай как актуальные.
+
 1. Прочитай актуальный верхний HANDOFF «ГДЕ МЫ»; активный предмет выбирай по нему, `registry/plan.tsv` и `registry/pauzy.tsv`, не по максимальному номеру контракта.
 2. Прочитай его контракт и вердикты, затем `NABLIUDENIA.md` и `ROADMAP.md`.
 При расхождении чисел верь дереву, не стенограмме, и сообщи расхождение (Н-47). Чтение — cognitive-only, не гарантия session_start-хука.
