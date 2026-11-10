@@ -99,3 +99,4 @@ check:arch-component-170-family-selftest	85	8	0
 check:pre_judge-172-family-selftest	8	8	0
 check:models-actual-174-family-selftest	4	8	0
 check:pustoj-produkt-159-family-selftest	20	8	0
+check:sud-model-173-family-selftest	4	8	0
