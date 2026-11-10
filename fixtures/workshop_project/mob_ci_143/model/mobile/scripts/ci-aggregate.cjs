@@ -55,7 +55,8 @@ if (Object.prototype.hasOwnProperty.call(sel, "matrix")) {
   const evidenceArg = args.indexOf("--evidence");
   if (evidenceArg < 0 || !args[evidenceArg + 1]) otkaz("CHILD_EVIDENCE_OTKAZ", "NET_VHODA");
   const evidence = args[evidenceArg + 1];
-  if (needs["select-screens"].outputs?.matrix !== sel.matrix) otkaz("MATRIX_NE_SELECTION");
+  const matrixOutput = needs["select-screens"].outputs?.matrix;
+  if ((matrixOutput === undefined ? "" : matrixOutput) !== sel.matrix) otkaz("MATRIX_NE_SELECTION");
   if (!Array.isArray(sel.selected) || !Array.isArray(sel.excluded) || !sel.selected.length) otkaz("PUSTOJ_NABOR");
   const legacy = ["e2e-splash", "e2e-first-run", "e2e-erstinformation", "e2e-start", "e2e-pilot"];
   const build = needs["build-apk"].outputs || {};

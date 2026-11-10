@@ -1923,15 +1923,14 @@ def sud_tojson_needs(wf, rep=None, subject_root=None, tmp=None):
             if "=" in line:
                 k, v = line.split("=", 1)
                 shagovye_outputs[k] = v
-    # рендер job-outputs ПО СЕМАНТИКЕ ГитХаба: выражение из steps.<id>.outputs.<k>
-    # разрешимо ТОЛЬКО если шаг с таким id существует и опубликовал ключ
+    # GitHub не сериализует пустой job output в toJSON(needs).
     vyhody = {}
     for k, vyrazhenie in (job.get("outputs") or {}).items():
         m = re.fullmatch(r"\$\{\{ steps\.([A-Za-z0-9_-]+)\.outputs\.([A-Za-z0-9_-]+) \}\}", vyrazhenie or "")
         if m and m.group(1) in {s.get("id") for s in job.get("steps") or []}:
-            vyhody[k] = shagovye_outputs.get(m.group(2), "")
-        else:
-            vyhody[k] = ""
+            value = shagovye_outputs.get(m.group(2), "")
+            if value:
+                vyhody[k] = value
     mapa = mapa_subiekta(subject_root)
     zapisi_karty = list(mapa.get("ekrany") or [])
     if mapa.get("integracija"):
