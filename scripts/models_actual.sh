@@ -33,6 +33,21 @@
 #                                            check_sud_model --verdict; трасса
 #                                            095 НЕ расширяется на месте
 #                                            (make_task читает ровно 3 поля).
+#   bash scripts/models_actual.sh --session <id>
+#                                            ОДНА сессия (контракт 174): входные
+#                                            JSONL ограничиваются ДО разбора
+#                                            событий, проверки `--bind` и
+#                                            отчёта файлами, basename которых
+#                                            без .jsonl буквально равен <id>
+#                                            (тот же примитив, что у `--bind`;
+#                                            вложенная сессия под каталогом
+#                                            родителя — тем же basename).
+#                                            Ни glob, ни regex, ни подстроки:
+#                                            сравнение буквальное. ID вне
+#                                            алфавита [A-Za-z0-9._-] — отказ
+#                                            rc 2; сессии с таким basename в
+#                                            зоне нет — тоже rc 2 (тихого
+#                                            перехода к последней сессии нет).
 #
 # Коды возврата: 0 — модель совпала с заявленной, 1 — разошлась, 2 — нечем проверить.
 set -euo pipefail
@@ -62,16 +77,41 @@ fi
 ALL=0
 TSV=0
 BIND=0
+SESSION_ID=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --all)  ALL=1 ;;
     --tsv)  TSV=1 ;;
     --bind) TSV=1; BIND=1 ;;
+    --session) [ "$#" -ge 2 ] && [ -n "$2" ] || { printf 'NOT_IMPLEMENTED: --session требует ID\n' >&2; exit 2; }
+               SESSION_ID="$2"; shift ;;
     "")     ;;
     *)      printf 'NOT_IMPLEMENTED: неизвестный флаг: %s\n' "$1" >&2; exit 2 ;;
   esac
   shift
 done
+
+# ID выбранной сессии — непустая самостоятельная строка в алфавите
+# [A-Za-z0-9._-] (тот же, что у `--bind` в 104): вне алфавита — именованный
+# отказ rc 2 ДО всякого отбора, иначе «не найдена» замала бы неверный вход.
+if [ -n "$SESSION_ID" ]; then
+  case "$SESSION_ID" in
+    *[!A-Za-z0-9._-]*) printf 'NOT_IMPLEMENTED: session-id вне алфавита [A-Za-z0-9._-]: %s\n' "$SESSION_ID" >&2; exit 2 ;;
+  esac
+fi
+
+# Отбор по basename (без .jsonl) — тот же примитив, что у `--bind`: вложенная
+# сессия под каталогом родителя узнаётся по basename своего файла. Сравнение
+# буквальное: ни glob, ни regex, ни подстроки. Порядок совпавших файлов —
+# прежний (mtime от новых к старым).
+_select_session_traces() {
+  local f
+  for f in "$@"; do
+    if [ "$(basename "$f" .jsonl)" = "$SESSION_ID" ]; then
+      printf '%s\n' "$f"
+    fi
+  done
+}
 
 # `--tsv` — адаптер трассы для make_task.sh: печатает строки
 # `роль TAB модель TAB allowed|denied` из ТОГО ЖЕ источника (JSONL сессий
@@ -83,6 +123,11 @@ done
 if [ "$TSV" = "1" ]; then
   TAB="$(printf '\t')"
   mapfile -t _tsv_traces < <(find "$ZONE" -name '*.jsonl' -printf '%T@ %p\n' 2>/dev/null | sort -rn | cut -d' ' -f2)
+  if [ -n "$SESSION_ID" ]; then
+    mapfile -t _selected < <(_select_session_traces "${_tsv_traces[@]}")
+    _tsv_traces=("${_selected[@]}")
+    [ "${#_tsv_traces[@]}" -gt 0 ] || { printf 'NOT_IMPLEMENTED: сессия не найдена: %s\n' "$SESSION_ID" >&2; exit 2; }
+  fi
   [ "${#_tsv_traces[@]}" -gt 0 ] || { printf 'NOT_IMPLEMENTED: трейсов в зоне нет\n' >&2; exit 2; }
   if [ "$BIND" = "1" ]; then
     command -v jq >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет jq — текст задания сессии нечем разобрать\n' >&2; exit 2; }
@@ -142,6 +187,11 @@ declared="$(grep -oE "^\s+${mr}:\s*\"[^\"]+\"" "$HERE/.omp/config.yml" | sed 's/
 [ -n "$declared" ] || { printf 'NOT_IMPLEMENTED: роль модели @%s не объявлена в .omp/config.yml\n' "$mr" >&2; exit 2; }
 
 mapfile -t traces < <(find "$ZONE" -name '*.jsonl' -printf '%T@ %p\n' 2>/dev/null | sort -rn | cut -d' ' -f2)
+if [ -n "$SESSION_ID" ]; then
+  mapfile -t _selected < <(_select_session_traces "${traces[@]}")
+  traces=("${_selected[@]}")
+  [ "${#traces[@]}" -gt 0 ] || { printf 'NOT_IMPLEMENTED: сессия не найдена: %s\n' "$SESSION_ID" >&2; exit 2; }
+fi
 [ "${#traces[@]}" -gt 0 ] || { printf 'NOT_IMPLEMENTED: трейсов в зоне нет — сессий ещё не было\n' >&2; exit 2; }
 
 printf 'роль сессии %s, заявлена модель %s\n\n' "$SESSION_ROLE" "$declared"
