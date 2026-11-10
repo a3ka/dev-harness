@@ -7,6 +7,7 @@ existing output names and the matrix producer are still mandatory.
 """
 
 import copy
+import fnmatch
 
 JOBS = ('select-screens', 'quality', 'build-apk', 'e2e-screen',
         'android-e2e', 'mobile-regression-signal')
@@ -17,6 +18,121 @@ FIELDS = ('if', 'needs', 'strategy', 'runs-on', 'continue-on-error',
 # outputs can be added without changing the generic selection writer.
 QUALITY_RUNS = (1, 3, 6)
 ABSENT = object()
+
+# Root/on sweep: the honest product and the frozen model agree on these
+# controls. Optional PR branch/type filters are judged by whether main PRs
+# still receive the required check, not by an incidental spelling of YAML.
+ROOT_FIELDS = ('name', 'on', 'permissions', 'concurrency', 'defaults', 'jobs', 'env')
+EVENTS = ('pull_request', 'push', 'schedule', 'workflow_dispatch')
+EVENT_FILTERS = {
+    'pull_request': ('branches', 'branches-ignore', 'paths', 'paths-ignore', 'types'),
+    'push': ('branches', 'branches-ignore', 'paths', 'paths-ignore', 'tags', 'tags-ignore'),
+}
+REQUIRED_PR_TYPES = frozenset(('opened', 'synchronize', 'reopened'))
+
+
+def on_key(wf):
+    # PyYAML's YAML 1.1 parser resolves unquoted `on` to the boolean True.
+    return True if True in wf else 'on'
+
+
+def root_controls():
+    return (tuple(('root', field, None) for field in ROOT_FIELDS) +
+            tuple(('on', event, None) for event in EVENTS) +
+            tuple(('on', event, field) for event, fields in EVENT_FILTERS.items()
+                  for field in fields))
+
+
+def root_value(wf, row):
+    where, field, subfield = row
+    if where == 'root':
+        return wf.get(on_key(wf) if field == 'on' else field, ABSENT)
+    trigger = wf.get(on_key(wf), {})
+    if not isinstance(trigger, dict):
+        return ABSENT
+    event = trigger.get(field, ABSENT)
+    if subfield is None:
+        return event
+    return event.get(subfield, ABSENT) if isinstance(event, dict) else ABSENT
+
+def includes_main(patterns):
+    if not isinstance(patterns, list) or not patterns:
+        return False
+    included = False
+    for pattern in patterns:
+        if not isinstance(pattern, str):
+            return False
+        if fnmatch.fnmatchcase('main', pattern.lstrip('!')):
+            included = not pattern.startswith('!')
+    return included
+
+
+def root_match(wf, model, row):
+    where, field, subfield = row
+    actual = root_value(wf, row)
+    expected = root_value(model, row)
+    if where == 'root' and field == 'jobs':
+        return isinstance(actual, dict) and all(name in actual
+                                                for name in expected)
+    if where == 'root' and field == 'on':
+        return isinstance(actual, dict) and set(actual) == set(expected)
+    if where == 'on' and subfield is None:
+        if field == 'pull_request':
+            return actual is None or (isinstance(actual, dict) and
+                   set(actual).issubset(EVENT_FILTERS[field]))
+        if field == 'push':
+            return isinstance(actual, dict) and set(actual).issubset(EVENT_FILTERS[field])
+        return actual == expected if actual is not ABSENT and expected is not ABSENT else actual is expected
+    if where == 'on' and field == 'pull_request':
+        if subfield == 'branches':
+            return actual is ABSENT or includes_main(actual)
+        if subfield == 'types':
+            return actual is ABSENT or (isinstance(actual, list) and
+                   REQUIRED_PR_TYPES.issubset(actual) and
+                   all(isinstance(v, str) for v in actual))
+        return actual is ABSENT
+    return actual == expected if actual is not ABSENT and expected is not ABSENT else actual is expected
+
+
+def mutate_root(wf, model, row):
+    where, field, subfield = row
+    if where == 'root':
+        key = on_key(wf) if field == 'on' else field
+        if field == 'env':
+            wf[key] = {'BASH_ENV': '/tmp/skip-required'}
+        elif field == 'name':
+            wf[key] = 'unprotected-mobile'
+        else:
+            wf.pop(key, None)
+    else:
+        events = wf[on_key(wf)]
+        if subfield is None:
+            events.pop(field, None)
+        else:
+            if events.get(field) is None:
+                events[field] = {}
+            options = events[field]
+            if subfield == 'branches':
+                options[subfield] = ['release']
+            elif subfield == 'types':
+                options[subfield] = ['labeled']
+            elif subfield == 'paths':
+                options[subfield] = ['mobile/**']
+            elif subfield == 'paths-ignore':
+                options[subfield] = ['mobile/**']
+            elif subfield == 'branches-ignore':
+                # GitHub forbids branches + branches-ignore in one push event.
+                options.pop('branches', None)
+                options[subfield] = ['main']
+            else:
+                options[subfield] = ['v*']
+    if root_match(wf, model, row):
+        raise ValueError('WORKFLOW_MUTATION_NOT_OBSERVABLE: ' + root_name(row))
+    return wf
+
+
+def root_name(row):
+    return 'workflow-' + '-'.join(str(value) for value in row if value is not None)
 
 
 def aggregate_run(text):
@@ -118,11 +234,18 @@ def mutate(wf, model, row):
 
 
 def check(wf, model):
-    return [(name_of(row), (match(wf, model, row),
-             'WORKFLOW_CONTROL_%s' % name_of(row))) for row in controls(model, wf)]
+    return ([(root_name(row), (root_match(wf, model, row),
+              'WORKFLOW_CONTROL_%s' % root_name(row))) for row in root_controls()] +
+            [(name_of(row), (match(wf, model, row),
+              'WORKFLOW_CONTROL_%s' % name_of(row))) for row in controls(model, wf)])
 
 
 def stabs(wf, model):
+    for row in root_controls():
+        weak = mutate_root(copy.deepcopy(wf), model, row)
+        if root_match(weak, model, row):
+            raise ValueError('STAB_ZHIV: ' + root_name(row))
+        yield root_name(row), 'WORKFLOW_CONTROL_' + root_name(row)
     for row in controls(model, wf):
         weak = mutate(copy.deepcopy(wf), model, row)
         if match(weak, model, row):
