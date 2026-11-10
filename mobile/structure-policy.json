@@ -27,7 +27,7 @@
   "featureFolders": ["components", "hooks", "model", "adapters", "__tests__"],
   "sourceLayers": ["api", "auth", "bootstrap", "navigation", "analytics", "theme", "ui", "i18n", "lib", "mocks"],
   "repositoryFiles": ["AGENTS.md", "STRUCTURE.md", "README.md", "harness.project.json", ".gitignore", ".node-version", ".gitattributes"],
-  "mobileFiles": ["AGENTS.md", "README.md", ".gitignore", ".env.example", "app.json", "app.config.ts", "package.json", "package-lock.json", "tsconfig.json", "eslint.config.js", "structure-policy.json", "metro.config.js", "babel.config.js", "jest.config.js", "jest.setup.ts", "expo-env.d.ts", "eas.json", "ci-screens.json"],
+  "mobileFiles": ["AGENTS.md", "README.md", ".gitignore", ".env.example", "app.json", "app.config.ts", "package.json", "package-lock.json", "tsconfig.json", "eslint.config.js", "structure-policy.json", "metro.config.js", "babel.config.js", "jest.config.js", "jest.setup.ts", "expo-env.d.ts", "eas.json", "ci-screens.json", "scripts/coding-standards-claims.tsv"],
   "externalTrees": ["api", "docs", "design", "contracts", "registry", "verdicts", "fixtures"],
   "generatedTrees": [".git", "mobile/node_modules", "mobile/.expo", "mobile/dist", "mobile/android", "mobile/ios", "mobile/coverage", "mobile/maestro-out"]
 }
