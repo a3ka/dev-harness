@@ -1,36 +1,53 @@
 accept
 
-СУД: repo=dev-harness; предмет=170; фаза=контракт; роль=critic; вызов=3/5; модель-план=zai/glm-5.3 (роли critic → тир apex-sol, config/agent_models.json); сессия=Critic170RoundThree; модель-факт=zai/glm-5.3; SHA=ea11324960d96e659dae3c4fe28304e77697f92c; предыдущий=FAIL 857c20958 (v2: повтор класса круга 1 — клетка brief_failure не видит отказ npm в plain-ветви, мутация A2b жива 16/16 зелёных); исключение=решение владельца 2026-11-09 ~18:54 UTC «да» (через консультанта; санкция влита в HANDOFF коммитом c0ffb436a/merge 1ae8d9aed): один исправительный вызов, scoped только на правку A2b; фазовый бюджет 2/2 исчерпан кругом 2
+СУД: repo=dev-harness; предмет=170; фаза=контракт (узкий вызов: дельта «## Незаполненные требования:» поверх accept круга 3); роль=critic; вызов=4/5 (базовый фазовый бюджет 1+1 исчерпан кругами 1–2, круг 3 — санкция владельца 2026-11-09 ~18:54 UTC; этот круг 4 — санкция владельца 2026-11-10 ~23:28 UTC «да» через консультанта: один узкий вызов критика ТОЛЬКО на дельту, как у 172; запись — HANDOFF.md «САНКЦИЯ-ВЛАДЕЛЬЦА», строки 5/21); модель-план=zai/glm-5.3 (роли critic → тир apex-sol, config/agent_models.json); сессия=Critic170RoundFourNarrow; модель-факт=zai/glm-5.3; SHA=d2ec36b77386af6910e1d9cf0dc8131b2b3d2218; предыдущий=accept круга 3 (SHA ea11324960d96e659dae3c4fe28304e77697f92c, байты сохранены в verdicts/critic/contracts-170-v1-krug3.md, материализация #647/54b592d02); исключение=та же санкция: повторное судительство A2b и семантики, принятой кругом 3, вне области вызова.
 
-Независимость: автор правки ea1132496 — architect, openai-codex/gpt-6-sol (тот же автор, что кругов 1–2; трасса /tmp/dev-harness-verify/orch/trace-architect-170.tsv); судья — zai/glm-5.3 по назначению роли (critic → apex-sol); совпадения моделей нет, судья собственную работу не судит. Предвызовной строки СУД для предмета=170 в HANDOFF.md нет вновь (третий вызов подряд) — счёт и независимость восстановлены этим вердиктом (СОВЕТ 2).
+## Независимость
 
-Область суда: только закрытие класса v2 (именованный `ОТКАЗ: ARCH_BRIEF_OTKAZ:` rc 1 без выдачи частичного пака для implementer/adversary/reviewer) и последствия дельты e22d76d7e→ea1132496. Дельта — ровно два файла батареи: npm_stub.py (notice отказа перенесён в stderr) и probe.py (2>&1 в обеих ветвях вызова npm, три клетки implementer/adversary/reviewer_brief_failure, стаб plain_npm_failure_ignored, якорь fixed_id дополнен 2>&1); контракт строкой не менялся (diff e22d76d7e..ea1132496 по contracts/ пуст), перечитывать прозу вне класса оснований нет. Набор артефактов полон.
+Автор дельты d2ec36b7 — architect <architect@dev-harness.local> (2026-11-09 23:06:15 UTC «170: declare no unfilled requirements»), тот же автор, что кругов 1–3. Судья — Critic170RoundFourNarrow, zai/glm-5.3 по назначению роли (critic → apex-sol); собственную работу не судит, сессия судьи отдельная. Совпадение модели судьи с моделью автора отказа не даёт (контракт 166); назначение роли — config/agent_models.json.
 
-## Проверено живьём (одноразовый клон на SHA, команды и rc)
+## Область вызова (scoped по санкции)
 
-- `git -C <клон> rev-parse HEAD` → `ea11324960d96e659dae3c4fe28304e77697f92c` — кандидат равен OBJECT.
-- `bash scripts/pre_critic.sh contracts/170-arch-component-brief-vhod-zadanija.md` → rc 0 (PREDPOSYLKI_OK).
-- `bash fixtures/workshop_project/arch_component_170/red_arch_component_170.sh --model` → rc 0, честный контроль 19/19 ok; три новые клетки дают в точности форму строки 28: rc=1, пустой stdout, `ОТКАЗ: ARCH_BRIEF_OTKAZ: worker.events`.
-- `bash fixtures/workshop_project/arch_component_170/red_arch_component_170.sh --stabs` → rc 0, 12/12 caught, без ZHIV, включая `plain_npm_failure_ignored @ implementer_brief_failure`; классы кругов 1–2 держатся: `architecture_guard_removed`, `npm_failure_ignored`, `brief_outside_budget` пойманы.
-- `bash fixtures/workshop_project/arch_component_170/red_arch_component_170.sh --repo` → rc 1, до реализации красны 16 клеток (required, все *_rules и *_plain, multi_component, wrong_project, malformed_id, architecture_missing, все четыре *_brief_failure, brief_over_budget), `legacy`, `document`, `brief_kind` зелёные — строка 25 контракта (до реализации красная). Это не дефект архитектора: implementer по ЗОНЕ scripts/make_task.sh ещё не работал.
-- Регрессии дельты: `bash fixtures/context_pack_095/red_pravila_proekta_ne_harsa.sh` → rc 0; `bash fixtures/workshop_project/model_trace_169/red_model_trace_169.sh --model` → rc 0.
+Судится ТОЛЬКО дельта к принятому кругом 3 тексту ea1132496 и её последствия. Дельта доказана живым diff:
 
-## Мои мутации и наблюдения (склатч /tmp/dev-harness-verify/critic170r3-attack.py и critic170r3b-h1h2.py, отличны от стабов архитектора; сырой вывод в трейсе сессии)
+```
+git diff ea11324960d96e659dae3c4fe28304e77697f92c d2ec36b77386af6910e1d9cf0dc8131b2b3d2218 -- contracts/170-arch-component-brief-vhod-zadanija.md
+@@ -36,6 +36,9 @@
++## Незаполненные требования:
++нет
++
+1 file changed, 3 insertions(+)
+```
 
-1. M1 — повтор A2b круга 2 (plain-ветвь `|| die "ARCH_BRIEF_OTKAZ: $_arch_id"` → `|| :`), ПОЛНАЯ батарея: `MUTANT A2b replay: red cells -> ['adversary_brief_failure', 'implementer_brief_failure', 'reviewer_brief_failure']` — тот же мутант, что в v2 проходил 16/16 зелёных. Класс круга 2 закрыт.
-2. M2 — порядок управления / частичный пак: каждый бриф печатается в stdout немедленно (первый ID успевает выйти до отказа на втором): `red cells -> ['adversary_brief_failure', 'brief_failure', 'brief_over_budget', 'implementer_brief_failure', 'reviewer_brief_failure']`. Условие «пустой stdout (в том числе без первого брифа)» — нагруженное.
-3. M3 — пак И отказ (stdout непустой + rc 1 + именованный stderr): три plain-клетки красны — «никогда частичного пака» проверяется отдельно от rc/stderr, а не только ими. `brief_failure` зелёна: мутация только plain-ветви, код проверки у всех четырёх клеток общий.
-4. M4 — неверное имя: отказ называет api.identity вместо падающего worker.events — три plain-клетки красны (`stderr='ОТКАЗ: ARCH_BRIEF_OTKAZ: api.identity'`, клетка требует worker.events). Имя падающего ID проверяется.
-5. H1b — честная модель, сырой сценарий по трём plain-ролям (стаб на PATH, FAIL_ID=worker.events, список api.identity,worker.events): `SCEN implementer|adversary|reviewer rc=1 out_bytes=0 stderr_first='ОТКАЗ: ARCH_BRIEF_OTKAZ: worker.events'`.
-6. H2b — маршрутизация клетки (стаб логирует argv): при implementer_brief_failure субъект вызывает npm дважды, оба раза `run brief -- --compact --component api.identity|worker.events` БЕЗ `--with-rules`, в порядке списка — клетка упражняет именно plain-ветвь, а не зеркалит rules-клетку.
-7. H3 — дисперсия стаба (notice отказа возвращён в stdout, форма круга 1): честный контроль 19/19 зелёный; A2b-мутант красен во всех трёх plain-клетках — различающая сила не зависит от размещения notice (stdout или stderr).
-8. H4 — честная модель без 2>&1: `implementer_brief_failure KRASNO rc=1 stderr='npm notice: brief command failed\nОТКАЗ: …'` — первая строка stderr под полицией: утечка npm краснит клетку, молчаливое протекание невозможно.
+- Ровно +3 строки / 0 удалений; раздел вставлен после ПРЕДПОСЫЛОК, до «## Зоны и проводка».
+- Зона architect целиком (контракт + fixtures/workshop_project/arch_component_170/): diff только эти 3 строки; фикстуры побайтно равны базису (`diff -r` пуст).
+- Полный дифф ea1132496..d2ec36b7 — 106 файлов (ребейза ветки wip/170/architect на новый main: 172-фикстуры, 158, HANDOFF, config и пр.) — чужие предметы, вне зоны 170 и вне области вызова.
+- Контракт и фикстуры на main (PR #657, 73cbbc8d7): блоб контракта на origin/main == блобу на OBJECT (`e6ac50a0374bebb21193dd67540f48edad6a5ec1` двумя ls-tree) — «byte-identical» подтверждён.
+- Неизменённые поверхности (предмет, приёмка, зоны, модель угроз, демаркация) приняты кругом 3; нового свидетельства риска по §Порог нет — заново не исследуются.
 
-Класс круга 2 закрыт доказанно: отказ npm в plain-ветви упражняется тремя клетками и стабом; частичный пак и имя падающего ID краснятся живыми мутациями; честная модель зелёна во всех сценариях, включая мои собственные.
+## Прогоны (живые команды; одноразовый клон на SHA)
+
+1. `git -C <клон> rev-parse HEAD` → d2ec36b77386af6910e1d9cf0dc8131b2b3d2218 — кандидат равен OBJECT; клон с origin, ветка wip/170/architect.
+2. `bash scripts/check_ceilings.sh .` @OBJECT → **rc 0**: `ok раздел требований: 161 черновик(ов) судится, замороженные — по тегам`, `потолки в порядке`. Тега frozen/contracts/170/* нет — файл судится, а не пропускается.
+3. Красный базис: ea1132496 недостижим рефами (ветка перебазирована), дерево извлечено `git archive` в /tmp/dev-harness-verify/critic170r4/basetree, замороженность воспроизведена 296 тегами frozen/contracts/* (мини-репозиторий) — семантика пропуска та же, что у реального дерева. `bash <клон>/scripts/check_ceilings.sh <basetree>` → **rc 1**, ровно ОДНО нарушение: `FAIL контракт .../contracts/170-arch-component-brief-vhod-zadanija.md (22108 байт): нет раздела «Незаполненные требования:»`. Совпадает с HANDOFF: PR #649 красен именно на check:ceilings.
+4. `bash scripts/pre_critic.sh contracts/170-arch-component-brief-vhod-zadanija.md` @OBJECT → **rc 0**: `PREDPOSYLKI_OK secrets=0 variables=0 environments=0 settings=2`, `КРИТИК: дверь зелёная` (в состав двери входят precision-gate и spec-ready; запуски не пересекались — гонка /tmp/lib_zones исключена последовательным исполнением).
+5. `bash fixtures/workshop_project/arch_component_170/red_arch_component_170.sh --model` → **rc 0**, 19/19 ok (required, legacy, document, brief_kind, architect/critic/arbiter_rules, implementer/adversary/reviewer_plain, multi_component, wrong_project, malformed_id, architecture_missing, brief_failure, три *_brief_failure, brief_over_budget); отказы в точности именованные (`ARCH_COMPONENT_NET`, `ARCH_COMPONENT_ID`, `ARCHITECTURE_NET`, `ARCH_BRIEF_OTKAZ: worker.events`, `режь задачу: 42693 > 40000`).
+6. `... --stabs` → **rc 0**, 12 строк `170 STAB <name> caught @ <различающий вход>`, 0 ZHIV (включая plain_npm_failure_ignored, npm_failure_ignored, brief_outside_budget, architecture_guard_removed).
+7. `... --repo` → **rc 1** — до реализации красна, как требует контракт: 16 красных клеток (required, все *_rules и *_plain, multi_component, wrong_project, malformed_id, architecture_missing, все *_brief_failure, brief_over_budget), `legacy`, `document`, `brief_kind` зелёные. Ровно та же картина, что зафиксировал круг 3; implementer по ЗОНЕ scripts/make_task.sh ещё не работал — это норма контракта, не дефект архитектора.
+8. Контроль: `bash scripts/check_threat_model.sh . contracts/170-...md` → rc 0 «модель угроз: секция валидна (ЗАЩИЩАЕТ 2, НЕ ЗАЩИЩАЕТ 3)» — секция дельтой не тронута.
+
+## Грамматика раздела и анти-плацебо
+
+- Телом awk'ом самого барьера: body = ровно `нет` (пустая строка стоит ПОСЛЕ тела, усекается `$(...)`).
+- Мутация в одноразовом клоне: пустая строка МЕЖДУ заголовком и `нет` → **rc 1** `FAIL ... тело раздела «Незаполненные требования:» вне грамматики — нужно ровно «нет» либо список «- …»`; после `git checkout --` файл побайтово восстановлен, `git status --porcelain` пуст, повторный прогон → rc 0. Зелень кандидата — заслуга грамматики, не белого списка имён.
+
+## Честность «нет»
+
+Отложенных решений нет: в контракте отсутствуют маркеры откладывания (решит/усмотрен/отложено/TBD/будущей версии), нет строк «РАЗРЕШИЛ-ВЛАДЕЛЕЦ» и обещаний следующей версии. Два совета круга 3 (формулировка строки 28 «stdout или stderr»; предвызывная строка СУД) кругом 3 ПРЯМО оставлены советами — совет не требование, закрывается по усмотрению автора (тот же разбор, что у 172). Строка «архитектурные freeze/done-гейты относятся к отдельному предмету после 172» — заявленная демаркация, принятая кругом 3 вместе с моделью угроз (НЕ ЗАЩИЩАЕТ), а не отложенное требование 170. ПРЕДПОСЫЛКИ опираются только на существующий CI (pre_critic: settings=2, secrets/variables/environments=0). Список-альтернатива грамматики («- …» на каждую строку) не понадобилась: перечислять нечего.
 
 ## Советы (едут с accept, отвечать не обязан)
 
-СОВЕТ contracts/170-arch-component-brief-vhod-zadanija.md:28 — «Дано … npm, который на втором выдаёт непустой stdout и rc 17»: стаб на OBJECT печатает notice отказа в stderr (субъект объединяет потоки 2>&1). Живьём (H3/H4) различающая сила сохранена в обоих размещения и усилена полицией первой строки stderr; при следующей правке контракта уточнить формулировку до «непустой вывод npm (stdout или stderr) и rc 17».
-СОВЕТ (адресат оркестратор, повтор кругов 1–2) — предвызывной строки СУД для предмета=170 в HANDOFF.md нет и к вызову 3/5; при любом следующем вызове запись до вызова обязательна (§Счёт).
+СОВЕТ (адресат оркестратор, повтор круга 3) — формальной предвызывной строки `СУД:` для вызова 4/5 в HANDOFF.md снова нет; санкция записана строкой «САНКЦИЯ-ВЛАДЕЛЬЦА» (HANDOFF:5/21) до вызова, счёт и независимость восстановлены этим вердиктом. При вызове 5/5 (если случится) запись до вызова обязательна (§Счёт).
+СОВЕТ contracts/170-arch-component-brief-vhod-zadanija.md:28 (переезд из круга 3, вне области этого вызова) — при следующей семантической правке контракта уточнить «непустой stdout» до «непустой вывод npm (stdout или stderr)».
 
-Вердикт: accept — класс круга 2 (ARCH_BRIEF_OTKAZ для implementer/adversary/reviewer без частичного пака) закрыт тремя именованными клетками и стабом plain_npm_failure_ignored; повтор A2b мёртв (M1), порядок контроля и честность клеток доказаны мутациями M2–M4 и наблюдениями H1b–H4; заморозка разрешена.
+Вердикт: accept — дельта ровно та, что требует грамматика незамороженного черновика (контракт 004: раздел «Незаполненные требования:», тело «нет»), красный базис воспроизведён единственным нарушением, зелень кандидата доказана грамматикой на живой мутации, фикстуры и принятая кругом 3 семантика не тронуты, «нет» честно. Заморозка 170/1 разрешена по санкции владельца 2026-11-10 ~23:28 UTC.
