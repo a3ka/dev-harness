@@ -5,6 +5,26 @@
 # guard caught. New rows use `guard_stub`/the named accept-value stub in --stabs;
 # legacy rows use probe.py's own public --repo cells and the isolated product
 # mutation sweep. The entries below name actual rejective sites, not just reasons.
+# Root/on control table (workflow_sweep_v3.root_controls + mutate_root):
+#   root.name → workflow-root-name → replace display name
+#   root.on → workflow-root-on → remove the complete trigger map
+#   root.permissions|concurrency|defaults|jobs → workflow-root-<field> → remove
+#   root.env → workflow-root-env → inject BASH_ENV
+#   on.pull_request|push|schedule|workflow_dispatch →
+#     workflow-on-<event> → remove that trigger
+#   on.pull_request.branches|branches-ignore|paths|paths-ignore|types →
+#     workflow-on-pull_request-<filter> → release/main/mobile/**/labeled
+#   on.push.branches|branches-ignore|paths|paths-ignore|tags|tags-ignore →
+#     workflow-on-push-<filter> → release/main/mobile/**/v*
+#   each scoped mutant is separately rejected with its own named cell.
+#   `pull_request.tags`/`tags-ignore` and `push.types` are NOT GitHub Actions
+#   event filters: malformed trigger definitions are not valid counterexamples.
+#   pull_request.branches patterns including main after ordered exclusions
+#   and types containing opened/synchronize/reopened remain conforming;
+#   absent optional filters are no-ops and have no mutant; empty lists
+#   are not assumed valid GitHub event filter definitions.
+#   root.jobs checks presence only: individual job controls are swept below,
+#   and new workers are legitimately extensible.
 # Workflow control-field table (full row expansion and product mutation:
 # workflow_sweep_v3.controls + workflow_mutation_sweep.py --repo <candidate>).
 # Field → independent cell → rejected mutation is generated mechanically:
@@ -1201,8 +1221,8 @@ def main():
                     print('STAB_ZHIV selector-entry-%s @ selector-entry-%s: %s' % (variant, variant, reason))
                     return 1
                 print('СТАБ selector-entry-%s @ selector-entry-%s КРАСЕН: %s' % (variant, variant, reason))
-            from workflow_sweep_v3 import controls
-            control_count = len(controls(model_workflow()))
+            from workflow_sweep_v3 import controls, root_controls
+            control_count = len(controls(model_workflow())) + len(root_controls())
             extension_count = 8
             print('стабов %d, привязок %d, живых 0' % (
                 len(STUBS) + 21 + len(AGG_GUARD_LINES) + len(SELECTOR_GUARD_LINES) + len(LEGACY_GUARD_LINES) + len(INVENTORY_GUARD_LINES) + len(SELECTOR_ENTRY_LINES) + control_count + extension_count,
