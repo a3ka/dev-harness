@@ -89,13 +89,6 @@ if (name==='brief') {
  const status=fs.readFileSync('check-rc','utf8').trim();
  if(status==='2') console.log('NOT_EVALUATED');
  process.exit(Number(status));
-} else if(name==='finding'&&a[1]==='new') {
- const input=JSON.parse(fs.readFileSync(a[a.indexOf('--input')+1],'utf8'));
- const keys=['module','observed','model','proposed','level','authorStatus'];
- if(keys.some(k=>!input[k])||!['L1','L2','L3'].includes(input.level))process.exit(1);
- const dir='governance/findings'; fs.mkdirSync(dir,{recursive:true});
- const n=fs.readdirSync(dir).filter(f=>/^\\d{3}-/.test(f)).length+1;
- fs.writeFileSync(dir+'/'+String(n).padStart(3,'0')+'-'+a[2]+'.json',JSON.stringify(input));
 } else process.exit(2);
 ''')
     put(arch, 'check-rc', (variation[-1] if variation in ('check-1', 'check-2') else '0') + '\n')
@@ -148,7 +141,7 @@ def prepare(root, arch, pinned, variation):
     elif variation == 'draft':
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('identity.lookup', 'identity.draft'))
     elif variation == 'review-missing':
-        put(root, REVIEW, 'ACCEPT\n')
+        put(root, REVIEW, 'ACCEPT\nNote: СВЕРКА-АРХИТЕКТУРЫ: mentioned in a quote, not reported by reviewer\n')
     # CI report mutations happen after commit: the report must reference the final SHA.
     git(root, 'add', '-A')
     git(root, 'commit', '-qm', 'isolated scenario ' + (variation or 'valid'))
@@ -213,7 +206,9 @@ def verdict(root, arch, pinned, action, task, role, mutant=''):
         if check_rc and mutant != 'skip-check': return 1, 'ARCH_CHECK'
         return 0, ''
     if action == 'done':
-        if 'СВЕРКА-АРХИТЕКТУРЫ:' not in (root / REVIEW).read_text() and mutant != 'ignore-review':
+        if not any(line.startswith('СВЕРКА-АРХИТЕКТУРЫ:') and
+                   line[len('СВЕРКА-АРХИТЕКТУРЫ:'):].strip()
+                   for line in (root / REVIEW).read_text().splitlines()) and mutant != 'ignore-review':
             return 1, 'ARCH_REVIEW'
         response = json.loads(ci_record(root).read_text())
         runs = response['check_runs']
