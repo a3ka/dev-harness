@@ -9,14 +9,18 @@ import tempfile
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 BRANCH = 'wip/185/architect'
-OLD = '''  # Детектор утечки — ДЕЙСТВУЮЩИЙ scripts/check_no_leak.sh репозитория R
-  # (второго детектора не заводим). Отсутствие детектора — rc 2, не зелёный.
-  DETECTOR="$R/scripts/check_no_leak.sh"
-  [ -f "$DETECTOR" ] || skip "нет детектора утечки: scripts/check_no_leak.sh"'''
+# Independent honest detector block: the model replaces the whole prepare
+# detector section, not a pre-implementation string in the subject.
 NEW = '''  # Применяем детектор установленного харнесса к переданному корню проекта.
   HARNESS_SCRIPTS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)" || skip "нет каталога скриптов харнесса"
   DETECTOR="$HARNESS_SCRIPTS/check_no_leak.sh"
-  [ -f "$DETECTOR" ] || skip "нет детектора утечки харнесса: scripts/check_no_leak.sh"'''
+  [ -f "$DETECTOR" ] || skip "нет детектора утечки харнесса: scripts/check_no_leak.sh"
+  leak_out="$(bash "$DETECTOR" --check "$R" 2>&1)"; leak_rc=$?
+  if [ "$leak_rc" -ne 0 ]; then
+    [ -n "$leak_out" ] && printf '%s\\n' "$leak_out" >&2
+    refuse CHECK_NO_LEAK_KRASEN "scripts/check_no_leak.sh --check $R вернул rc=$leak_rc"
+  fi
+'''
 
 
 def substitute(text, old, new):
@@ -75,15 +79,15 @@ def check(label, script, variant):
         world = World(Path(temp), script)
         if variant in ('dirty', 'local_fake'):
             (world.project / 'tracked.txt').write_text('changed after snapshot\n', encoding='utf-8')
-        if variant == 'local_fake':
+        if variant in ('local_fake', 'missing_harness_local_fake'):
             (world.project / 'scripts').mkdir()
             (world.project / 'scripts/check_no_leak.sh').write_text('#!/bin/sh\nexit 0\n', encoding='utf-8')
-        if variant == 'missing_harness':
+        if variant in ('missing_harness', 'missing_harness_local_fake'):
             world.detector.unlink()
         got = world.invoke()
         if variant in ('dirty', 'local_fake'):
             expected_rc, reason = 1, 'ОТКАЗ: CHECK_NO_LEAK_KRASEN\n'
-        elif variant == 'missing_harness':
+        elif variant in ('missing_harness', 'missing_harness_local_fake'):
             expected_rc, reason = 2, 'NOT_IMPLEMENTED: нет детектора утечки харнесса:'
         else:
             expected_rc, reason = 0, ''
@@ -102,14 +106,26 @@ def check(label, script, variant):
 
 def source(mode):
     actual = (ROOT / 'scripts/pre_judge.sh').read_text(encoding='utf-8')
-    return actual if mode == '--repo' else substitute(actual, OLD, NEW)
+    if mode == '--repo':
+        return actual
+    # Stable seams belong to 172's manifest wait and OBJECT emission. The
+    # entire detector block between them comes from NEW, even after the
+    # subject's own detector implementation has changed.
+    before = '    sleep 0.02\n  done\n\n'
+    after = '  printf \'OBJECT=%s\\n\' "$remote_tip"\n'
+    if actual.count(before) != 1 or actual.count(after) != 1:
+        raise RuntimeError('prepare model seams changed')
+    start = actual.index(before) + len(before)
+    end = actual.index(after, start)
+    return actual[:start] + NEW + '\n' + actual[end:]
 
 
 def main(mode):
     if mode in ('--model', '--repo'):
         script = source(mode)
         results = [check(name, script, name) for name in
-                   ('clean', 'dirty', 'local_fake', 'missing_harness')]
+                   ('clean', 'dirty', 'local_fake', 'missing_harness',
+                    'missing_harness_local_fake')]
         return 0 if all(results) else 1
     honest = source('--model')
     # Each mutant is attached to the sole public input on which it differs.
@@ -126,6 +142,8 @@ def main(mode):
                                      'if [ "$leak_rc" -ne 1 ] && [ "$leak_rc" -ne 0 ]; then'), 'dirty'),
         'missing_as_green': (substitute(honest, '[ -f "$DETECTOR" ] || skip "нет детектора утечки харнесса: scripts/check_no_leak.sh"',
                                          '[ -f "$DETECTOR" ] || { printf "OBJECT=%s\\nSOSTOJANIE=%s\\n" "$remote_tip" "$S_CANON"; exit 0; }'), 'missing_harness'),
+        'fallback_to_local': (substitute(honest, '[ -f "$DETECTOR" ] || skip "нет детектора утечки харнесса: scripts/check_no_leak.sh"',
+                                         '[ -f "$DETECTOR" ] || DETECTOR="$R/scripts/check_no_leak.sh"\n  [ -f "$DETECTOR" ] || skip "нет детектора утечки харнесса: scripts/check_no_leak.sh"'), 'missing_harness_local_fake'),
     }
     errors = 0
     for name, (mutant, variant) in mutants.items():
