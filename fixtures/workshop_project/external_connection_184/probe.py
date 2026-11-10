@@ -243,9 +243,12 @@ def run(mode, source):
         if mode == 'stabs':
             for name, path in (
                 ('absent-entrypoint', base / 'missing-wrapper.sh'),
+                ('invalid-entrypoint', base / 'invalid-wrapper.sh'),
                 ('swallowed-rc', base / 'swallowed-rc.sh'),
             ):
-                if name == 'swallowed-rc':
+                if name == 'invalid-entrypoint':
+                    write(path, '#!/usr/bin/env bash\nif then\n')
+                elif name == 'swallowed-rc':
                     write(path, '#!/usr/bin/env bash\nexit 0\n')
                 caught = not entrypoint(path)
                 print(f'STAB {name}@ci-entrypoint: {"caught" if caught else "ZHIV"}')
