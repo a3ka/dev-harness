@@ -13,7 +13,7 @@ def git(repo, *args):
 
 
 def snapshot(repo, mutation=None):
-    sha = git(repo, 'rev-parse', '--verify', 'origin/main').strip()
+    sha = git(repo, 'rev-parse', '--verify', 'HEAD' if mutation == 'head' else 'origin/main').strip()
     def blob(path):
         if mutation == 'local' and path in ('registry/plan.tsv', 'ROADMAP.md'):
             from pathlib import Path
@@ -22,8 +22,13 @@ def snapshot(repo, mutation=None):
 
     plan = [r.split('\t') for r in blob('registry/plan.tsv').splitlines()
             if r and not r.startswith('#') and not r.startswith('id\t')]
+    roadmap = blob('ROADMAP.md').splitlines()
+    begin = '<!-- BEGIN GENERATED PLAN -->'
+    end = '<!-- END GENERATED PLAN -->'
+    if roadmap.count(begin) != 1 or roadmap.count(end) != 1 or roadmap.index(begin) >= roadmap.index(end):
+        raise ValueError('PLAN_ROADMAP_RASHOZHDENIE: generated-блок отсутствует или повреждён')
     rows = {}
-    for line in blob('ROADMAP.md').splitlines():
+    for line in roadmap[roadmap.index(begin) + 1:roadmap.index(end)]:
         fields = [field.strip() for field in line.split('|')[1:-1]]
         if len(fields) == 6 and fields[0].isdigit():
             rows[fields[1]] = fields
@@ -73,7 +78,7 @@ def snapshot(repo, mutation=None):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--repo', required=True)
-    parser.add_argument('--mutation', choices=['local', 'no-roadmap', 'stale', 'handoff'])
+    parser.add_argument('--mutation', choices=['local', 'no-roadmap', 'stale', 'handoff', 'head'])
     args = parser.parse_args()
     try:
         sys.stdout.write(snapshot(args.repo, args.mutation))
