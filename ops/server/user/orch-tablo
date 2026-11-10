@@ -91,12 +91,20 @@ frozen = set(re.findall(r'frozen/contracts/([0-9]{3})/', sh('git', '-C', REPO, '
 prs = []   # (репо, номер, ветка, состояние, обновлён)
 # Complior-back ведёт сессия проекта (scripts/connect_project.sh, контракт 125) — её PR не строки станции.
 for repo in ('a3ka/dev-harness', 'a3ka/Complior-mob'):
-    out = sh('gh', 'pr', 'list', '-R', repo, '--json', 'number,headRefName,statusCheckRollup,updatedAt')
+    out = sh('gh', 'pr', 'list', '-R', repo, '--json', 'number,headRefName,title,statusCheckRollup,updatedAt')
     try:
         rows = json.loads(out or '[]')
     except ValueError:
         rows = []
     for p in rows:
+        # Демонстрационные PR — не рабочие дела станции: ветка demo/*, отдельное слово DEMO
+        # в заголовке либо маркер «НЕ МЕРЖИТЬ». Признаки независимы; отсечение на входе —
+        # ни строки табло, ни счёта «стоит без хода». Слово внутри слова (DEMOGRAPHIC) — не признак.
+        title = p.get('title') or ''
+        if (p['headRefName'].casefold().startswith('demo/')
+                or re.search(r'\bDEMO\b', title, re.IGNORECASE)
+                or 'НЕ МЕРЖИТЬ' in title.upper()):
+            continue
         st = [c.get('conclusion') or c.get('status') for c in p.get('statusCheckRollup') or []]
         if not st:
             continue
