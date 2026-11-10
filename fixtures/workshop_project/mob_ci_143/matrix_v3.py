@@ -5,26 +5,17 @@
 # guard caught. New rows use `guard_stub`/the named accept-value stub in --stabs;
 # legacy rows use probe.py's own public --repo cells and the isolated product
 # mutation sweep. The entries below name actual rejective sites, not just reasons.
-# Root/on control table (workflow_sweep_v3.root_controls + mutate_root):
-#   root.name → workflow-root-name → replace display name
-#   root.on → workflow-root-on → remove the complete trigger map
-#   root.permissions|concurrency|defaults|jobs → workflow-root-<field> → remove
-#   root.env → workflow-root-env → inject BASH_ENV
-#   on.pull_request|push|schedule|workflow_dispatch →
-#     workflow-on-<event> → remove that trigger
-#   on.pull_request.branches|branches-ignore|paths|paths-ignore|types →
-#     workflow-on-pull_request-<filter> → release/main/mobile/**/labeled
-#   on.push.branches|branches-ignore|paths|paths-ignore|tags|tags-ignore →
-#     workflow-on-push-<filter> → release/main/mobile/**/v*
-#   each scoped mutant is separately rejected with its own named cell.
-#   `pull_request.tags`/`tags-ignore` and `push.types` are NOT GitHub Actions
-#   event filters: malformed trigger definitions are not valid counterexamples.
-#   pull_request.branches patterns including main after ordered exclusions
-#   and types containing opened/synchronize/reopened remain conforming;
-#   absent optional filters are no-ops and have no mutant; empty lists
-#   are not assumed valid GitHub event filter definitions.
-#   root.jobs checks presence only: individual job controls are swept below,
-#   and new workers are legitimately extensible.
+# Root/on control rows come from workflow_sweep_v3.root_controls(model, subject):
+# root field and every nested map/list path in the actual and model YAML;
+# absent optional permission scopes and trigger filters have explicit rows.
+# Each independently mutated path has its own --workflow-cell assertion.
+# `jobs` is checked for required names only; individual job controls below
+# preserve extensibility of new screen workers.
+# `on.pull_request.branches` must still include main; optional event types
+# must contain opened/synchronize/reopened. Other filters can skip PRs.
+# Existing trigger rows preserve their names; nested rows append YAML keys or
+# list indices (e.g. workflow-root-permissions-contents and
+# workflow-on-schedule-0-cron).
 # Workflow control-field table (full row expansion and product mutation:
 # workflow_sweep_v3.controls + workflow_mutation_sweep.py --repo <candidate>).
 # Field → independent cell → rejected mutation is generated mechanically:
@@ -33,28 +24,13 @@
 #     broad concurrency/env CI=false (see mutate(), per-field row).
 #   jobs.<job>.steps[<i>].if|continue-on-error|run →
 #     workflow-<job>-<field>-step-<i> → false|true|echo skipped-critical-step.
-# Complete compact field→cell→mutant table (Cartesian expansion of each row;
-# all 181 expanded rows individually measured КРАСЕН rc 1, artifact from
-# workflow_mutation_sweep.py; names use the two formulas above):
-# job                   job-fields                                  steps if|continue       steps run
-# select-screens        if,strategy,runs-on,continue-on-error,        0..4                    1,2,3
-#                       timeout-minutes,outputs,permissions,concurrency,env
-# quality               if,strategy,runs-on,continue-on-error,        0..24                   1,3,6
-#                       timeout-minutes,permissions,concurrency,env
-# build-apk             if,needs,strategy,runs-on,continue-on-error,  0..8                    1,2,3,5,6,7
-#                       timeout-minutes,outputs,permissions,concurrency,env
-# e2e-screen            if,needs,strategy,runs-on,continue-on-error,  0..5                    1,3,4
-#                       timeout-minutes,permissions,concurrency,env
-# android-e2e           if,needs,strategy,runs-on,continue-on-error,  0..3                    1,3
-#                       timeout-minutes,permissions,concurrency,env
-# mobile-regression-    if,needs,strategy,runs-on,continue-on-error,  0..4                    1,3
-# signal                timeout-minutes,permissions,concurrency,env
-# Measured conforming model rows (present job edges + if/continue policy +
-# step controls and run bodies): select-screens 22; quality 53; build-apk 34;
-# e2e-screen 24; android-e2e 19; mobile-regression-signal 21 (total 173).
-# The candidate has four independently owned quality steps: eight extra
-# if/continue cells (candidate total 181). Missing needs/outputs are not
-# mutated to []/{}: this would be semantically indistinguishable from absence.
+# In addition to the existing job/step rows, each existing job receives a
+# named permissions.<scope> cell; absent scopes are mutated to write.
+# Independently owned quality steps can grow: their if/continue-on-error
+# flags are discovered from the actual workflow. Missing needs/outputs are
+# not mutated to []/{} because those are semantically indistinguishable.
+# Exact field counts are emitted by workflow_mutation_sweep.py after expanding
+# the actual product YAML; stale hand-counts must not be treated as coverage.
 # Every real mutant is separately red against its own complete repository copy.
 # Five legacy e2e-* jobs: I-15 forbids rewriting; `legacy` checks full YAML.
 # New 151/995/117 quality run bodies belong to their frozen owners, not a
@@ -1222,11 +1198,11 @@ def main():
                     return 1
                 print('СТАБ selector-entry-%s @ selector-entry-%s КРАСЕН: %s' % (variant, variant, reason))
             from workflow_sweep_v3 import controls, root_controls
-            control_count = len(controls(model_workflow())) + len(root_controls())
+            control_count = len(controls(model_workflow())) + len(root_controls(model_workflow(), workflow))
             extension_count = 8
             print('стабов %d, привязок %d, живых 0' % (
-                len(STUBS) + 21 + len(AGG_GUARD_LINES) + len(SELECTOR_GUARD_LINES) + len(LEGACY_GUARD_LINES) + len(INVENTORY_GUARD_LINES) + len(SELECTOR_ENTRY_LINES) + control_count + extension_count,
-                len(STUBS) + 28 + len(AGG_GUARD_LINES) + len(SELECTOR_GUARD_LINES) + len(LEGACY_GUARD_LINES) + len(INVENTORY_GUARD_LINES) + len(SELECTOR_ENTRY_LINES) + control_count + extension_count))
+                len(STUBS) + 25 + len(AGG_GUARD_LINES) + len(SELECTOR_GUARD_LINES) + len(LEGACY_GUARD_LINES) + len(INVENTORY_GUARD_LINES) + len(SELECTOR_ENTRY_LINES) + control_count + extension_count,
+                len(STUBS) + 32 + len(AGG_GUARD_LINES) + len(SELECTOR_GUARD_LINES) + len(LEGACY_GUARD_LINES) + len(INVENTORY_GUARD_LINES) + len(SELECTOR_ENTRY_LINES) + control_count + extension_count))
         return 0
 
 
