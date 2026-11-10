@@ -1,3 +1,19 @@
+## ГДЕ МЫ — 10.11 ~02:20 UTC (автоперезапуск после принудительного 605K; читать первым; дополняет «~02:15» ниже)
+
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+- **ДЕРЕВО.** main == origin/main == `7214548aa` на старте; `check_no_leak --check` → «основной чекаут чист» (после make_task в дереве остаётся `.omp/context/` — манифест двери, ожидаемый артефакт). Бреф-дверь (`make_task --kind brief`): ОТКАЗ «контракт без предмета: contracts/154-schet-vyzovov-kritika.md»; `models_actual.sh --tsv --bind`: NOT_IMPLEMENTED session-id `Arbiter079Б1` (предмет 174) — трасса оркестратора вручную `/tmp/dev-harness-verify/orch/trace-orchestrator-1110.tsv`.
+- **143.** Architect143EmptyOutputGap сдал `35a44e1d5` (клетка `empty-matrix-output-absent`, после rebase на `7214548aa`; до rebase `d7e689485`); батарея `--repo` на продукте mob#164 @`fabf146`: 11 зелёных + 1 красная (новая) и 79/79. PR dev-harness#668 (`wip/int-143/architect`) — CI идёт; после зелёного — `gh pr merge 668 --rebase --match-head-commit <sha>`. Implementer `Impl143EmptyOutput` в работе (зеркало `wip/143/implementer`: синхронизация с продуктом `fabf146` + правка ci-aggregate.cjs; перенос в продуктовый клон `git am`, push дверью `push_product.sh` в mob#164). Дальше: CI mob#164 → адверсарий (рисковый) → ревьюер 143.
+- **170.** Architect170ClassLineGap оборван на полуправке (NameError `lines` в probe.py:~189, правки не закоммичены в worktree `wip-170-architect`). Замок предмета держит оборванный агент (журнал свежее 60 мин): `zamok_predmeta.sh --osvobodit` → ZAMOK_ZHIV до ~02:57 UTC. Задание готово: `/tmp/dev-harness-verify/orch/task-170-architect-c1.md`; спавн `Architect170ClassLineC1` — после 02:57 UTC. Затем implementer 170 (Б-1/Б-2, зона `scripts/make_task.sh`) → второй scoped ревьюер → CI-строка 170 (orchestrator-зона registry/ci-steps.tsv + ci-zamery) → done.
+- **162.** `Impl162Mirror` в работе: зеркало продуктового `54fd5c83` в `wip/162/implementer` (задание `/tmp/dev-harness-verify/orch/task-162-implementer-mirror.md`). Дальше: ревьюер scoped Э-1/Э-2/Э-3 (numstat `1\t1` вместо `1\t0` — вопрос ревьюеру/консультанту).
+- **ЖДЁТ УТРА (незаблокированной работы по ним нет):**
+  - 173: accept критика круга 2 (байты `/tmp/dev-harness-verify/critic173r2/verdicts/critic/contracts-173-v1.md`, blob `26a0b99ba2478256bc0746f91784610f464d1569`) — каноническая запись отказана Н-85, материализует владелец/консультант; затем ремонт тега `id/CONTRACT/173` → freeze → implementer.
+  - 174: то же, байты `/tmp/dev-harness-verify/critic174r2/verdicts/critic/contracts-174-v1.md` (blob `a4b9e6f66307e1b467b3af1cbf76224a887b535c`) → freeze 174 → implementer.
+  - 172: байты ревьюера (blob `95519032d5dae64918a7621ff7fc6bb14153a611`) + CI-строка guard-канала (грамматика «python3 …»): нужен 172 v2 / 083 v+1 — слово владельца.
+  - 170: каноническая запись вердиктов критика круга 4 (`/tmp/dev-harness-verify/critic170r4/…`, blob `418c3f717ca274786596ce06cadcf2b3971f07cd`) и ревьюера FAIL (blob `3e8d37557dc3bd9177f8696cd4f4e08d07d5bb15`).
+  - 175: строка `registry/plan.tsv` (owner) — без неё критик/freeze невозможны.
+  - 158: owner-коммит revert `71551fb1 -m 1` (PR #643 красный по check_zones), затем architect v+1.
+  - Замок харнесса: начато 4 (158 170 172 173) при лимите 3 — ПАУЗА на 158 и/или 172 только словом владельца.
+
 ## ГДЕ МЫ — 10.11 ~02:15 UTC (ПРИНУДИТЕЛЬНЫЙ перезапуск 605K; читать первым; дополняет «ГДЕ МЫ — 10.11 ~01:35» ниже)
 
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
