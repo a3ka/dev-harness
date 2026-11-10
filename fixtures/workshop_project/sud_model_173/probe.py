@@ -127,6 +127,10 @@ CASES = {
     'verdict_foreign_provider': ('reviewer', 'evil/claude-opus-5-5', 'allowed', False, False),
     'fallback_wrong_version': ('reviewer', 'gpt-6-terra', 'denied', False, False),
     'fallback_foreign_provider': ('reviewer', 'evil/gpt-6-sol', 'denied', False, False),
+    'spawn_suffix_bare': ('reviewer', 'claude-opus-5-5-20261101', None, False, False),
+    'verdict_suffix_bare_primary': ('reviewer', 'claude-opus-5-5-20261101', 'allowed', False, False),
+    'verdict_suffix_bare_fallback': ('reviewer', 'gpt-6-sol-20261101', 'denied', False, False),
+    'verdict_fallback_tail_fragment': ('reviewer', 'sol', 'denied', False, False),
 }
 
 # Mutation site -> observed public input. A POST-only failure is never claimed
@@ -142,6 +146,18 @@ STABS = {
     'fallback_any_provider': (COMPARISONS[2][1],
                               'if [ -z "$fbexpected" ] || ! [ "${m#*/}" = "${fbexpected#*/}" ]; then',
                               'fallback_foreign_provider'),
+    'spawn_suffix_glob': (COMPARISONS[0][1],
+                          'if ! case "$model" in ("${expected#*/}"*) true;; (*) same_model "$model" "$expected";; esac; then',
+                          'spawn_suffix_bare'),
+    'primary_suffix_glob': (COMPARISONS[1][1],
+                            'if ! case "$m" in ("${expected#*/}"*) true;; (*) same_model "$m" "$expected";; esac; then',
+                            'verdict_suffix_bare_primary'),
+    'fallback_suffix_glob': (COMPARISONS[2][1],
+                             'if [ -z "$fbexpected" ] || ! case "$m" in ("${fbexpected#*/}"*) true;; (*) same_model "$m" "$fbexpected";; esac; then',
+                             'verdict_suffix_bare_fallback'),
+    'fallback_tail_glob': (COMPARISONS[2][1],
+                           'if [ -z "$fbexpected" ] || ! case "$fbexpected" in (*"$m") true;; (*) false;; esac; then',
+                           'verdict_fallback_tail_fragment'),
 }
 
 
