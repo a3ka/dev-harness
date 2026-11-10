@@ -250,7 +250,8 @@ def workflow_case(wf, old, which):
     raise ValueError(which)
 
 
-def evidence_case(root, model, tmp, missing=False, bad_digest=False, parent_failure=False, subject=None):
+def evidence_case(root, model, tmp, missing=False, bad_digest=False, parent_failure=False,
+                  missing_matrix_output=False, subject=None):
     script = subject or (AGG_MODEL if model else root / 'mobile/scripts/ci-aggregate.cjs')
     if not script.is_file():
         return checked(False, 'CHILD_AGGREGATOR_ABSENT')
@@ -258,7 +259,7 @@ def evidence_case(root, model, tmp, missing=False, bad_digest=False, parent_fail
     ids = [e['id'] for e in mapping['ekrany'] if e.get('job') == 'e2e-screen']
     sel = selected(mapping)
     outputs = {'selection': json.dumps(sel)}
-    if sel['matrix']:
+    if sel['matrix'] and not missing_matrix_output:
         outputs['matrix'] = sel['matrix']
     needs = {'select-screens': {'result': 'success', 'outputs': outputs},
         'quality': {'result': 'success'}, 'build-apk': {'result': 'success', 'outputs': {
@@ -283,6 +284,9 @@ def evidence_case(root, model, tmp, missing=False, bad_digest=False, parent_fail
     if parent_failure:
         return checked(proc.returncode == 1 and 'AGREGAT_OTKAZ: MATRIX_PARENT_OTKAZ' in proc.stdout,
                        'MATRIX_PARENT_NOT_FAIL_CLOSED: ' + proc.stdout.strip())
+    if missing_matrix_output:
+        return checked(proc.returncode == 1 and 'AGREGAT_OTKAZ: MATRIX_NE_SELECTION' in proc.stdout,
+                       'MATRIX_OUTPUT_NOT_FAIL_CLOSED: ' + proc.stdout.strip())
     if missing or bad_digest:
         return checked(proc.returncode == 1 and 'CHILD_EVIDENCE_OTKAZ' in proc.stdout,
                        'CHILD_NOT_FAIL_CLOSED')
@@ -374,9 +378,11 @@ def main():
         results.append(('child-ok', evidence_case(root, not args.repo, tmp)))
         results.append(('child-missing', evidence_case(root, not args.repo, tmp / 'missing', missing=True)))
         results.append(('child-wrong-digest', evidence_case(root, not args.repo, tmp / 'wrong', bad_digest=True)))
-        if not args.repo:
-            results.append(('child-parent-failure',
-                            evidence_case(root, True, tmp / 'parent-failure', parent_failure=True)))
+        results.append(('child-parent-failure',
+                        evidence_case(root, not args.repo, tmp / 'parent-failure', parent_failure=True)))
+        results.append(('child-matrix-output-absent',
+                        evidence_case(root, not args.repo, tmp / 'matrix-output-absent',
+                                      missing_matrix_output=True)))
         results.append(('empty-matrix', empty_case(tmp, AGG_MODEL if not args.repo else root / 'mobile/scripts/ci-aggregate.cjs')))
         results.append(('empty-matrix-output-absent', empty_case(
             tmp / 'absent', AGG_MODEL if not args.repo else root / 'mobile/scripts/ci-aggregate.cjs',
@@ -500,7 +506,36 @@ def main():
                 print('STAB_ZHIV aggregate-no-parent @ child-parent-failure')
                 return 1
             print('СТАБ aggregate-no-parent @ child-parent-failure КРАСЕН: ' + reason)
-            print('стабов %d, привязок %d, живых 0' % (len(STUBS) + 9, len(STUBS) + 16))
+            wrong_field = tmp / 'aggregate-matrix-from-selection.cjs'
+            matrix_field = '  const matrixOutput = needs["select-screens"].outputs?.matrix;'
+            if aggregate_source.count(matrix_field) != 1:
+                print('ORACLE_TAMPERED: actual matrix output mutation anchor', file=sys.stderr)
+                return 2
+            wrong_field.write_text(aggregate_source.replace(matrix_field, '  const matrixOutput = sel.matrix;'))
+            ok, reason = evidence_case(root, True, tmp / 'weak-matrix-output',
+                                       missing_matrix_output=True, subject=wrong_field)
+            if ok or 'MATRIX_OUTPUT_NOT_FAIL_CLOSED' not in reason:
+                print('STAB_ZHIV aggregate-matrix-from-selection @ child-matrix-output-absent: ' + reason)
+                return 1
+            print('СТАБ aggregate-matrix-from-selection @ child-matrix-output-absent КРАСЕН: ' + reason)
+            ok, reason = evidence_case(root, True, tmp / 'weak-matrix-present', subject=wrong_field)
+            if not ok:
+                print('STAB_NE_K_ETOMU_VHODU aggregate-matrix-from-selection @ child-ok: ' + reason)
+                return 1
+            false_parent = tmp / 'aggregate-false-parent.cjs'
+            false_parent.write_text(aggregate_source.replace(
+                parent_guard, '  if (false) otkaz("MATRIX_PARENT_OTKAZ");\n'))
+            ok, reason = evidence_case(root, True, tmp / 'weak-false-parent',
+                                       parent_failure=True, subject=false_parent)
+            if ok or 'MATRIX_PARENT_NOT_FAIL_CLOSED' not in reason:
+                print('STAB_ZHIV aggregate-false-parent @ child-parent-failure: ' + reason)
+                return 1
+            print('СТАБ aggregate-false-parent @ child-parent-failure КРАСЕН: ' + reason)
+            ok, reason = evidence_case(root, True, tmp / 'weak-parent-success', subject=false_parent)
+            if not ok:
+                print('STAB_NE_K_ETOMU_VHODU aggregate-false-parent @ child-ok: ' + reason)
+                return 1
+            print('стабов %d, привязок %d, живых 0' % (len(STUBS) + 11, len(STUBS) + 18))
         return 0
 
 
