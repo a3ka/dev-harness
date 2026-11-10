@@ -230,18 +230,21 @@ actions/checkout, живая семантика платформы (needs/if/con
 полное отсутствие литерала — уже fail-closed (замер «literal hidden» →
 красна).
 
-## Дополнение v3: фактический output матрицы и результат родительского job
+## Дополнение v3: фактический output матрицы и защитные ветви
 
-`matrix_v3.py` отдельно от 80 клеток legacy-батареи исполняет 14 клеток на
-продукте (`--repo`), 23 на модели (`--model`/`--stabs`), 17 адресных стабов с
-24 привязками (`--stabs`). Вход `child-matrix-output-absent`: непустые
-`selection.matrix` и `selected` плюс валидные доказательства детей, но поле
-`needs["select-screens"].outputs.matrix` отсутствует; агрегат обязан вернуть
-rc 1 `MATRIX_NE_SELECTION`. Стаб `aggregate-matrix-from-selection` подменяет
-источник поля на `sel.matrix` и красен именно на этом входе; с присутствующим
-полем (`child-ok`) он зелён. Вход `child-parent-failure`: та же непустая матрица
-с валидными доказательствами, но `needs["e2e-screen"].result="failure"`; агрегат
-обязан вернуть rc 1 `MATRIX_PARENT_OTKAZ`. Стаб `aggregate-false-parent`
-нейтрализует эту проверку (`if (false)`) и красен именно на failure-входе;
-на `child-ok` он зелён. Оба входа исполняются и против модели, и против
-реального `mobile/scripts/ci-aggregate.cjs` в продуктовом `--repo`.
+`matrix_v3.py` исполняет 80 клеток на продукте (`--repo`), 89 на модели
+(`--model`/`--stabs`), 85 адресных стабов с 92 привязками (`--stabs`).
+Наследственная батарея отдельно исполняет 79 клеток на продукте и 80 на модели.
+`child-matrix-output-absent` подаёт непустую matrix при отсутствующем
+`needs["select-screens"].outputs.matrix`; стаб `aggregate-matrix-from-selection`
+читает неверное поле и красен именно на этом входе. `child-ok` удостоверяет
+положительную ветвь. Четыре независимых входа `child-parent-failure`,
+`child-parent-cancelled`, `child-parent-skipped`, `child-parent-absent` содержат
+непустую matrix и валидные доказательства детей. Каждый должен отказать
+`MATRIX_PARENT_OTKAZ`; `aggregate-accept-<значение>` допускает только своё
+недопустимое значение и красен именно на собственной клетке (в том числе на
+штатном GitHub `skipped`, который прежняя failure-клетка не различала).
+`guard-*` и `selector-guard-*` подают по одному повреждённому структурному
+полю с честным зелёным контролем `child-ok`/`selector`, а в режиме `--stabs`
+проверяют собственный ослабленный guard. Источник связи ветвь→клетка→стаб —
+таблица-комментарий в `matrix_v3.py`, не проза frozen-контракта.
