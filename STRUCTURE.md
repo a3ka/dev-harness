@@ -206,7 +206,7 @@ api/http → api/generated / api interface / lib
 | `mobile/e2e-<screen>/` | пачка экрана: пробы, данные и контракт экрана; исполняемый вход, а не layout-зона |
 | `mobile/scripts/select-ci-screens.cjs` | выбор затронутых экранов по карте и diff; `--mode inventar` — инвентаризация пачек и флоу по дереву; выход `matrix` — строки универсального работника из той же фактической выборки |
 | `mobile/scripts/ci-aggregate.cjs` | агрегат результатов работников в `android-e2e` (при наличии матричных детей — сверка каждого `screen-evidence-<id>-<run_id>-<run_attempt>`) |
-| `mobile/scripts/run-ci-screen.cjs` | один child универсального работника: свой AVD/ADB-порт, один APK той же сборки (digest до установки), один повтор по сигнатуре adb-транспорта, запись `mobile/screen-evidence/<id>/result.json` |
+| `mobile/scripts/run-ci-screen.cjs` | один child универсального работника: свой эмулятор на консольном порту `AVD_PORT` (порт эмулятора), один APK той же сборки (digest до установки), один повтор по сигнатуре adb-транспорта, запись `mobile/screen-evidence/<id>/result.json`; отдельный adb-сервер скриптом не настраивается — его порт задаёт job `e2e-screen` экспортом `ANDROID_ADB_SERVER_PORT` |
 | `.github/workflows/mobile.yml` | пять legacy jobs (явные, без изменений) + служебные + универсальный работник `e2e-screen` (`strategy.matrix` из карты); `needs` обоих агрегатов |
 
 Правила владения:
