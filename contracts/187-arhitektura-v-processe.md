@@ -9,6 +9,12 @@
 - Frozen 170 уже требует `scripts/make_task.sh --arch-component` и brief из **локального** `R/architecture/`; зелёная батарея `fixtures/workshop_project/arch_component_170/red_arch_component_170.sh` обязана пережить cutover. `STRUCTURE.md` приходит из contextPack 095 и остаётся. После 167 локальная копия архитектуры бэкенда удаляется: переход к закреплённому коммиту lock требует адресного v+1 170 с разрешением владельца. До него не выдавать несовместимый cutover 187а за done. Ранее поддержанные роли с brief с правилами/без сохраняются.
 - 095/103/161a уже проводят `make_task`, project contextPack, `--repo` и разделение проектных/инструментальных задач. 996 разрешает профильные `workflowPaths`; признак backend — эффективный `repoId=Complior-back`, не наличие `.harness` (также есть у mob). В backend `architecture.lock.json` закрепляет точный коммит отдельного `CompliorOS-architecture`; читать модель из verify-pin клона, не из HEAD и не из локальной `architecture/`. `STRUCTURE.md` остаётся; `docs/ARCHITECTURE.md` исключается из backend contextPack. Миграция проектного профиля — предпосылка, не скрытая правка проекта.
 - `scripts/freeze_contract.sh`, `scripts/pre_critic.sh`, `scripts/done_contract.sh` уже ведут frozen/critic/done, но не связывают область с компонентами модели, результат `check --base`, check-run `arch` на финальном SHA и строку вердикта. 167 проекта держит движок, `bindings.json`, pin и CI: харнесс не запускает движок в done. 186 ведёт хранителя. 188 отдельно проводит нормы ролей, включая автора строки задания и вызов хранителя.
+- CI харнесса исполняет `registry/ci-steps.tsv` через `run_ci_lane.sh`; `gen_ci_steps.sh --check` сравнивает сгенерированные lane/shard-блоки с реестром и резолвит bash-путь, но не требует конкретную команду 187. `check_provodka.sh` проверяет существование и упоминание basename объявленного guard в registry/workflow/hook, не точные аргументы или строку приёмки. Прецеденты: 184 объявляет guard самой батареи; 182 и 185 объявляют функциональную дверь, не отдельную батарею; 186 проводит роли без guard. Замороженный 083/1 объявляет guard батареи, а registry и CI-шаги — пересечение с существующими frozen (083/1, 114 и перечисленные ниже), не новая зона architect.
+
+## Позиция автора после вызова 2/2
+
+СОГЛАСЕН с единственным блоком `verdicts/critic/contracts-187-v1.md`: прямой CI-вызов `check_architecture_contract.sh` не доказывает выполнение батареи. Guard в ПРОВОДКЕ — bash-обёртка батареи, дверь `check_architecture_contract.sh` — отдельный guard и отдельный шаг. До freeze явный rc-гейт `--wiring .` сверяет **два независимых** точных `step`-вызова в реальном `registry/ci-steps.tsv`; `gen_ci_steps.sh --check` сверяет generated workflow с registry. Ролевой поток остаётся 188.
+
 
 ## Предмет, вход и порядок
 
@@ -28,20 +34,21 @@
 
 ## Приёмочный критерий
 
-- Дано: автономные toy-repo продукта и модели со своими `.git`, конформная грамматика CLI, закреплённый коммит A модели и отличный HEAD B; когда `bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --model`; тогда rc 0, каждая из 25 независимых клеток сообщает свой rc и причину. Валидный контрпример сохраняет инвариантность к значениям и расходится на конформном входе. Когда тот же скрипт `--stabs`; тогда rc 0, 23 обманных стаба пойманы каждый собственной различающей клеткой; отсутствие клетки/непойманный стаб → rc 1.
+- Дано: автономные toy-repo продукта и модели со своими `.git`, конформная грамматика CLI, закреплённый коммит A модели и отличный HEAD B; когда `bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --model`; тогда rc 0, каждая из 30 независимых клеток сообщает свой rc и причину. Валидный контрпример сохраняет инвариантность к значениям и расходится на конформном входе. Когда тот же скрипт `--stabs`; тогда rc 0, 27 обманных стабов пойманы каждый собственной различающей клеткой; отсутствие клетки/непойманный стаб → rc 1.
 - Дано: те же входы с ещё не реализованными дверями; когда `bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo .`; тогда rc 1 с независимыми красными клетками; после реализации rc 0. Парные корректные входы rc 0. Скрипт обращается к публичным дверям `make_task`, `freeze_contract.sh`, `pre_critic.sh`, `done_contract.sh`, не только к toy-оракулу.
 - Дано: backend toy без строки задания, с пустой строкой, L3 или немаппленным путём; когда `make_task` собирает пак; тогда rc 1 (`ARCH_LINE_MISSING`/`ARCH_OWNER`/`PATH_WITHOUT_COMPONENT` соответственно), пак не создан. Для валидного задания rc 0; brief из A, не B; `--with-rules` ровно для architect/critic/arbiter; `STRUCTURE.md` есть, `docs/ARCHITECTURE.md` отсутствует. На mob и harness архитектурной строки не требуют.
 - Дано: HEAD-контракт backend без строки, с чужой зоной, немаппленным путём или DRAFT; когда `freeze_contract.sh` судит его; тогда rc 1 (`ARCH_LINE_MISSING`/`ARCH_ZONE`/`PATH_WITHOUT_COMPONENT`/`ARCH_DRAFT`), frozen-тег отсутствует. Конформный контракт → rc 0.
 - Дано: закреплённая модель `check --base` возвращает 1 или 2/`NOT_EVALUATED`; когда `pre_critic.sh` вызывает `check_architecture_contract.sh`; тогда rc 1 (`ARCH_CHECK` либо `ARCH_NOT_EVALUATED`); при rc 0 модели и зелёных прочих ногах дверь rc 0.
 - Дано: reviewer с упоминанием `СВЕРКА-АРХИТЕКТУРЫ:` только внутри чужой строки либо отсутствующий/чужой/красный/skipped check-run `arch` на финальном SHA; когда `done_contract.sh` судит вход; тогда rc 1 (`ARCH_REVIEW` либо `ARCH_CI`), done-тег отсутствует. При самостоятельной непустой строке свидетельства и успешном check-run на точном SHA rc 0.
 - Дано: frozen 170 до санкции v+1; когда `bash fixtures/workshop_project/arch_component_170/red_arch_component_170.sh --model` и `--repo .`; тогда rc 0 на текущей версии. Cutover источника brief происходит только после согласованного v+1 170, без изменения остальных обязанностей 170.
-- Дано: исправленный черновик; когда `bash scripts/pre_critic.sh contracts/187-arhitektura-v-processe.md`, затем `bash scripts/check_precision_gate.sh . contracts/187-arhitektura-v-processe.md`, затем `bash scripts/check_ceilings.sh .`; тогда каждый rc 0. После реализации `bash scripts/check_provodka.sh . contracts/187-arhitektura-v-processe.md` → rc 0; CI вызывает батарею 187 через `bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo .`, а `scripts/check_architecture_contract.sh` подключает прямым вызовом `bash scripts/check_architecture_contract.sh --repo . contracts/187-arhitektura-v-processe.md`.
+- Дано: исправленный черновик; когда `bash scripts/pre_critic.sh contracts/187-arhitektura-v-processe.md`, затем `bash scripts/check_precision_gate.sh . contracts/187-arhitektura-v-processe.md`, затем `bash scripts/check_ceilings.sh .`; тогда каждый rc 0. До freeze после подключения CI orchestrator: `bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --wiring .` и `bash scripts/gen_ci_steps.sh --check` и `bash scripts/check_provodka.sh . contracts/187-arhitektura-v-processe.md` → каждый rc 0; точный `step` в registry исполняет `bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo .`, другой `step` отдельно вызывает `bash scripts/check_architecture_contract.sh --repo . contracts/187-arhitektura-v-processe.md`. Если первый step отсутствует, запускает Python вместо bash или пропускает `--repo .`, rc 1 `CI_BATTERY_187_MISSING_OR_NOT_EXACT`; если нет второго, rc 1 `CI_DIRECT_ARCH_187_MISSING`. Парный точный toy-реестр → rc 0.
 
 ## Модель угроз
 
 ЗАЩИЩАЕТ:
 - От заморозки вне объявленных компонентов и DRAFT, от ложного зелёного rc 2 модели.
 - От done по зелёному чужого SHA или без свидетельства reviewer.
+- От подмены CI-батареи прямым вызовом двери защищает `--wiring` по реальным `step`-строкам registry, с независимым `gen_ci_steps.sh --check` по generated workflow.
 НЕ ЗАЩИЩАЕТ:
 - От ложной модели/сознательного обхода project CI; движок и суд проекта владеют этим свойством.
 - От человеческой ссылки на модель как `ИСТОЧНИК:` до совместимой поддержки sourceCanon.
@@ -125,6 +132,7 @@
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/architecture_process_187/ — 055 только новая семья 187; чужие fixture не меняются.
 
 ПРОВОДКА:
+- guard=fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh
 - guard=scripts/check_architecture_contract.sh
 ПРОВОДКА-ЭНФОРСМЕНТ: двери судят byte-структуру строки, путь/компонент, check-rc, pin и check-run; содержательную архитектурную оценку получают от отдельного предмета 188.
 
