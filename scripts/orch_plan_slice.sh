@@ -32,7 +32,8 @@
 #   0 — срез напечатан;
 #   1 — именованный отказ, stdout ПУСТ (ни одной вводящей в заблуждение строки):
 #       PLAN_SOURCE_UNAVAILABLE — нет обязательного источника на origin/main;
-#       PLAN_ROADMAP_RASHOZHDENIE — plan.tsv расходится с generated-блоком ROADMAP;
+#       PLAN_ROADMAP_RASHOZHDENIE — generated-блок ROADMAP отсутствует или повреждён
+#       либо plan.tsv расходится с этим блоком;
 #   2 — нечем проверить (usage / NOT_IMPLEMENTED).
 
 set -uo pipefail
@@ -88,14 +89,27 @@ contracts_blob="$(git -C "$repo" show "$sha:registry/contracts.tsv" 2>/dev/null)
   || die "PLAN_SOURCE_UNAVAILABLE: нет registry/contracts.tsv на origin/main=$sha"
 
 # ── ROADMAP: карта id → (пара, этап, трек, зависит) ───────────────────────────
-# При наличии маркеров generated-блока берётся ОН (источник порядка плана);
-# без маркеров — все строки файла. Ячейка: пара|id|этап|трек|зависит|источник.
+# Источник карты — СТРОГО generated-блок ROADMAP (контракт 182 И-1/И-4): маркеры
+# BEGIN/END должны быть ровно по одному и BEGIN раньше END; разбираются только
+# строки МЕЖДУ маркерами. Отсутствие или неединственность блока — именованный
+# отказ PLAN_ROADMAP_RASHOZHDENIE, а не зелёный срез по произвольным таблицам
+# файла и не приём строк, стоящих вне блока.
+# Ячейка: пара|id|этап|трек|зависит|источник.
+roadmap_rc=0
 roadmap_map="$(printf '%s\n' "$roadmap_blob" | awk '
-  BEGIN { inblock = 0; seen = 0 }
-  /BEGIN GENERATED PLAN/ { inblock = 1; seen = 1; next }
-  /END GENERATED PLAN/   { inblock = 0; next }
+  BEGIN { inblock = 0; nb = 0; ne = 0; bl = 0; el = 0; nrow = 0 }
+  $0 == "<!-- BEGIN GENERATED PLAN -->" {
+    nb++
+    if (nb == 1) { bl = NR; inblock = 1 }
+    next
+  }
+  $0 == "<!-- END GENERATED PLAN -->" {
+    ne++
+    if (ne == 1) { el = NR; inblock = 0 }
+    next
+  }
   {
-    if (seen && !inblock) next
+    if (!inblock) next
     n = split($0, parts, "[|]")   # «|» — литерал: одиночный «|» как regex пуст
     if (n != 8) next
     # Ячейка = parts[2..7]: awk нумерует split с 1, пустая левая «|» — parts[1].
@@ -104,8 +118,19 @@ roadmap_map="$(printf '%s\n' "$roadmap_blob" | awk '
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", v)
       fld[j] = v
     }
-    if (fld[1] ~ /^[0-9]+$/) printf "%s\t%s\t%s\t%s\t%s\n", fld[2], fld[1], fld[3], fld[4], fld[5]
-  }')"
+    if (fld[1] ~ /^[0-9]+$/) row[++nrow] = fld[2] "\t" fld[1] "\t" fld[3] "\t" fld[4] "\t" fld[5]
+  }
+  END {
+    # Структурная ошибка блока — отдельный код: её отличает владелец от сбоя разбора.
+    if (nb != 1 || ne != 1 || bl >= el) exit 3
+    for (i = 1; i <= nrow; i++) print row[i]
+  }')" || roadmap_rc=$?
+if [ "$roadmap_rc" -ne 0 ]; then
+  if [ "$roadmap_rc" -eq 3 ]; then
+    die "PLAN_ROADMAP_RASHOZHDENIE: generated-блок ROADMAP отсутствует или повреждён (маркеры BEGIN/END не по одному или перевёрнуты) на origin/main=$sha"
+  fi
+  die "PLAN_ROADMAP_RASHOZHDENIE: не разобран generated-блок ROADMAP на origin/main=$sha"
+fi
 
 # ── реестр выдачи: числовой id обязан быть зарегистрирован ───────────────────
 registered_list="$(printf '%s\n' "$contracts_blob" | awk '
@@ -146,6 +171,7 @@ done <<< "$tags_out"
 # ── сборка среза ──────────────────────────────────────────────────────────────
 # Порядок потоков: карта ROADMAP, реестр выдачи, done-теги, frozen-теги, паузы,
 # строки plan.tsv. Строки печатаются ТОЛЬКО в END — при отказе stdout пуст.
+slice_rc=0
 slice="$(awk -v sha="$sha" '
   function fail(why, ident) {
     if (failed) return
@@ -167,13 +193,13 @@ slice="$(awk -v sha="$sha" '
     if (substr(line, 1, 1) == "#") next
     if (substr(line, 1, 3) == "id\t") next
     n = split(line, f, "\t")
-    if (n != 6) fail("нет строки ROADMAP/registry", "")
+    if (n != 6) fail("строка plan.tsv не из шести полей", f[1])
     id = f[1]; wave = f[2]; stage = f[3]; deps = f[4]; track = f[6]
-    if (!(id in rmap)) fail("нет строки ROADMAP/registry", "")
+    if (!(id in rmap)) fail("нет строки generated-блока ROADMAP", id)
     split(rmap[id], r, "\t")
     if (r[1] != wave || r[2] != stage || r[3] != track || r[4] != deps)
       fail("plan.tsv расходится с generated-блоком ROADMAP", id)
-    if (id ~ /^[0-9]+$/ && !(id in reg)) fail("нет строки ROADMAP/registry", "")
+    if (id ~ /^[0-9]+$/ && !(id in reg)) fail("нет записи в registry/contracts.tsv", id)
     dpref = "refs/tags/done/contracts/" id "/"
     fpref = "refs/tags/frozen/contracts/" id "/"
     isdone = 0; isfrozen = 0
@@ -200,7 +226,14 @@ slice="$(awk -v sha="$sha" '
   <(printf '%s\n' "$done_refs") \
   <(printf '%s\n' "$frozen_refs") \
   <(printf '%s\n' "$pause_list") \
-  <(printf '%s\n' "$plan_blob"))" \
-  || die "PLAN_ROADMAP_RASHOZHDENIE: plan.tsv расходится с generated-блоком ROADMAP на origin/main=$sha"
+  <(printf '%s\n' "$plan_blob"))" || slice_rc=$?
+if [ "$slice_rc" -ne 0 ]; then
+  # rc 1 — awk уже напечатал именованный отказ с причиной (fail()); stdout пуст.
+  # Прочие коды — сбой самого разбора: причина не названа, отказ всё равно именованный.
+  if [ "$slice_rc" -ne 1 ]; then
+    die "PLAN_ROADMAP_RASHOZHDENIE: не собран срез по published plan.tsv на origin/main=$sha"
+  fi
+  exit 1
+fi
 
 printf '%s\n' "$slice"
