@@ -1,5 +1,6 @@
 ЖДЁТ ВЛАДЕЛЬЦА: нет (143 пятый вызов санкционирован 2026-11-10 ~16:17 UTC)
 
+СУД: repo=dev-harness+Complior-mob; предмет=162; фаза=реализация (перед слиянием PR mob#158); роль=reviewer; вызов=2/2 (scoped-повтор после ESCALATE вызова 1: verdicts/review/contracts-162-impl-v1.md; контракт v2 заморожен frozen/contracts/162/2 с ПЕРЕСЕЧЕНИЕМ mobile/structure-policy.json); модель-план=anthropic/claude-opus-5-5 (tier audit); сессия=ожидается; SHA=e2f9897de49ad5b4e4206ae445c0176d8265d8a6 (tip wip/162/implementer, зеркало; продукт mob#158 head a1b3d41a8d6fa6f79779eef6732c191d874529ba); предыдущий=verdicts/review/contracts-162-impl-v1.md; исключение=нет
 
 ## ГДЕ МЫ — 10.11 ~18:00 UTC (перезагрузки 14:57; ПЕРЕКРЫВАЕТ «~16:00» там, где расходится; читать первым)
 
