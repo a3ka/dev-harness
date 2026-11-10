@@ -32,18 +32,22 @@ def setup(base):
     git(root, 'config', 'user.email', 'fixture@example.invalid')
     git(root, 'switch', '-c', 'main')
     (root / 'README').write_text('initial\n')
-    (root / 'scripts').mkdir()
-    (root / 'scripts/check_no_leak.sh').write_text('#!/bin/sh\n[ ! -e "$2/leak.flag" ]\n')
-    git(root, 'add', 'README', 'scripts/check_no_leak.sh')
+    git(root, 'add', 'README')
     git(root, 'commit', '-m', 'base')
+    # The harness installation is distinct from the checked project repository R.
+    install = base / 'harness/scripts'
+    install.mkdir(parents=True)
+    (install / 'check_no_leak.sh').write_text('#!/bin/sh\n[ ! -e "$2/leak.flag" ]\n')
+    (install / 'pre_judge.sh').write_bytes(SUBJECT.read_bytes() if SUBJECT.is_file() else b'')
+    (install / 'reference.py').write_bytes(REFERENCE.read_bytes())
     git(root, 'push', '-u', 'origin', 'main')
     git(bare, 'symbolic-ref', 'HEAD', 'refs/heads/main')
     git(root, 'switch', '-c', 'wip/172/architect')
     (root / 'README').write_text('author\n')
     git(root, 'commit', '-am', 'author')
     git(root, 'push', '-u', 'origin', 'wip/172/architect')
-    # This fake external dependency reads an independently controlled leak flag.
-    # The gate itself is exercised as a separate process, never copied or parsed.
+    # This installed detector reads an independently controlled project leak flag.
+    # The gate runs as a separate process from the installation, not from R.
     state = base / 'state'
     state.mkdir()
     return root, state
@@ -62,10 +66,10 @@ def evaluate(mode, case, root, state, model, mutant=''):
     if mutant:
         env['STAB_172'] = mutant
     if model:
-        return run(sys.executable, REFERENCE, *args, env=env)
+        return run(sys.executable, root.parent / 'harness/scripts/reference.py', *args, env=env)
     if not SUBJECT.is_file():
         return run('sh', '-c', 'printf "NE_REALIZOVANO: scripts/pre_judge.sh\\n" >&2; exit 2')
-    return run('bash', SUBJECT, *args, env=env)
+    return run('bash', root.parent / 'harness/scripts/pre_judge.sh', *args, env=env)
 
 
 def case_input(name, root, state, base):
@@ -159,11 +163,14 @@ MUTATIONS = {
 }
 
 
-def check(name, model, mutant=''):
+def check(name, model, mutant='', local_fake=False):
     with tempfile.TemporaryDirectory(prefix='predverie-172-') as temp:
         base = Path(temp)
         root, state = setup(base)
         mode, state = case_input(name, root, state, base)
+        if local_fake:
+            (root / 'scripts').mkdir()
+            (root / 'scripts/check_no_leak.sh').write_text('#!/bin/sh\nexit 0\n')
         if name == 'ff_sync':
             assert not (root / 'remote').exists(), 'publisher file was present before sync'
         before = git(root, 'rev-parse', 'main') if name == 'nonff_sync' else ''
@@ -203,6 +210,13 @@ def main():
                 print(f'STAB {mutation} ZHIV: control_rc={control.returncode}, suspect_rc={suspect.returncode}', file=sys.stderr)
                 return 1
             print(f'STAB {mutation} caught on {name}')
+        for mutation in ('prefer_local', 'ignore_leak_rc'):
+            good, control = check('leak_reject', True, local_fake=True)
+            caught, suspect = check('leak_reject', True, mutation, local_fake=True)
+            if not good or caught:
+                print(f'STAB {mutation} ZHIV: control_rc={control.returncode}, suspect_rc={suspect.returncode}', file=sys.stderr)
+                return 1
+            print(f'STAB {mutation} caught on leak_reject with local fake')
         return 0
     fails = 0
     for name in CASES:
