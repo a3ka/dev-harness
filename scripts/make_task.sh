@@ -19,6 +19,16 @@
 #     внутри checkout'а проекта или его общего .git;
 #   * STATE_PATH_UNRESOLVABLE — каталог манифеста неразреним (битая ссылка);
 #   * HASH_TOOL_UNUSABLE — инструмент sha256 непригоден.
+# КОНТРАКТ 170: бриф компонента архитектуры в паке задания. Флаг
+# --arch-component <id[,id...]> — список компонентов архитектуры проекта; для
+# каждого ID вызывается ПРОЕКТНАЯ команда `npm --prefix <R>/architecture run
+# brief -- --compact [--with-rules] --component <id>` (--with-rules — роли
+# architect/critic/arbiter), её stdout ложится в пак отдельной секцией, в
+# порядке входных ID. Применимость — каталог <R>/architecture/ и кодовый
+# предмет («КЛАСС ЗАДАЧИ: кодовый» в выбранном контракте): без флага такой
+# предмет отказывает ARCH_COMPONENT_NET, с флагом вне architecture/ —
+# ARCHITECTURE_NET, неконформный список — ARCH_COMPONENT_ID, отказ npm —
+# ARCH_BRIEF_OTKAZ. Без architecture/ и без флага прежняя выдача сохранена.
 # НЕ БАРЬЕР: субъект контракта 095 — зелёный контроль и стаб-детект собственной именованной батареи fixtures/context_pack_095/ (раннер fixtures/_krasnye_095.sh, стаб-пак battery_stubs.sh, 18 мутаций), не case_*.sh-глобом (прецедент drill_exit_marker.sh/drill_path_guard.sh, заморозка 025 И-7). Выходы: 0 — пак построен (stdout), 1 — именованный отказ «ОТКАЗ: ...», 2 — NOT_IMPLEMENTED.
 set -uo pipefail
 TAB="$(printf '\t')"
@@ -116,9 +126,14 @@ _hash_sha256_file() {  # <файл> → HASH_OUT; сбой → HASH_TOOL_ERROR
   HASH_OUT="${trusted_out%% *}"
 }
 
-usage() { printf 'usage: make_task.sh --repo R --role ROLE [--kind task|brief] [--contract NNN] [--task-file F] [--model-trace F] [--author-role R2] [--print-context]\n' >&2; exit 1; }
+usage() { printf 'usage: make_task.sh --repo R --role ROLE [--kind task|brief] [--contract NNN] [--task-file F] [--model-trace F] [--author-role R2] [--arch-component id[,id...]] [--print-context]\n' >&2; exit 1; }
 
 REPO=""; ROLE=""; KIND="task"; CONTRACT=""; TASKFILE=""; TRACE=""; AUTHOR_ROLE_ARG=""; PRINT_CONTEXT=0
+# КОНТРАКТ 170: --arch-component <id[,id...]> — список компонентов архитектуры
+# проекта, брифы которых кладутся в пак задания. ПРИЗНАК ЗАДАНИЯ ФЛАГА отделён
+# от его значения: пустой список — неконформный вход (ARCH_COMPONENT_ID), а НЕ
+# «флага нет» (ARCH_COMPONENT_NET).
+ARCH_COMPONENT=""; ARCH_COMPONENT_SET=0
 # КОНТРАКТ 169: признак ЯВНОГО --model-trace. Явный аргумент (путь к TSV
 # трассы) и незаданный аргумент (проектный fallback 136) — разные входы с
 # разными отказами; сам факт задания аргумента решает, какой диагноз.
@@ -133,6 +148,7 @@ while [ $# -gt 0 ]; do
     --model-trace) TRACE="${2:?}"; TRACE_EXPLICIT=1; shift 2 ;;
     --author-role) AUTHOR_ROLE_ARG="${2:?}"; shift 2 ;;
     --print-context) PRINT_CONTEXT=1; shift ;;
+    --arch-component) [ "$#" -ge 2 ] || die "ARCH_COMPONENT_ID: требуется значение: список id через запятую"; ARCH_COMPONENT="${2-}"; ARCH_COMPONENT_SET=1; shift 2 ;;
     *) usage ;;
   esac
 done
@@ -482,7 +498,7 @@ if [ -n "$_CW_VALUE" ] && [ ! -e "$REPO/$_CW_VALUE" ]; then
   _CW_PLACEHOLDER="$_CW_VALUE"
 fi
 _MT_ERR_FILE="$(mktemp 2>/dev/null || echo /tmp/mt_err.$$.$RANDOM)"
-trap '[ -n "${_CW_PLACEHOLDER:-}" ] && [ -e "$REPO/$_CW_PLACEHOLDER" ] && rm -f "$REPO/$_CW_PLACEHOLDER"; rm -f "${_MT_ERR_FILE:-}"' EXIT
+trap '[ -n "${_CW_PLACEHOLDER:-}" ] && [ -e "$REPO/$_CW_PLACEHOLDER" ] && rm -f "$REPO/$_CW_PLACEHOLDER"; rm -f "${_MT_ERR_FILE:-}"; if [ -n "${_NPM_ERR_FILE:-}" ]; then rm -f "$_NPM_ERR_FILE"; fi' EXIT
 
 MERGED=""
 if ! MERGED="$("$PROFILE_RESOLVER" --repo "$REPO" 2>"$_MT_ERR_FILE")"; then
@@ -799,6 +815,69 @@ else
   HEALTH_SEC="$(printf 'HEALTH: branch=%s dirty=%s' "$HEALTH_BRANCH" "$HEALTH_DIRTY")"
 fi
 
+# ── КОНТРАКТ 170: бриф компонента архитектуры в паке задания ────────────────
+# Вход: --arch-component id[,id...] — НЕПУСТОЙ список ID через запятую, порядок
+# входа сохраняется. Признак применимости — каталог <R>/architecture/ ПРОЕКТА
+# (НЕ repoId: профиль есть и у самого харнесса) и кодовый предмет — строка
+# «КЛАСС ЗАДАЧИ: кодовый» в ФАКТИЧЕСКИ выбранном контракте (CBYTES).
+# Отказы (rc 1, пустой stdout, до выдачи пака):
+#   ARCHITECTURE_NET   — флаг задан, каталога architecture/ нет;
+#   ARCH_COMPONENT_ID  — флаг задан, список неконформен (пустая запись, slash,
+#                        «..», символ вне [A-Za-z0-9._-]); проверка ДО запуска npm;
+#   ARCH_BRIEF_OTKAZ   — npm не отдал бриф (rc≠0 или пустой stdout);
+#   ARCH_COMPONENT_NET — флаг НЕ задан, а предмет кодовый и каталог
+#                        architecture/ есть: бриф компонента обязателен.
+# Проектная команда (npm из PATH вызывающей стороны) — источник данных
+# ПРОЕКТА: её stdout — бриф, её stderr — диагностика отказа (в пак не идёт и
+# первой строки stderr не портит: первая строка — именованный отказ).
+ARCH_SEC=""
+if [ "$KIND" = task ]; then
+  _arch_dir="$REPO/architecture"
+  if [ "$ARCH_COMPONENT_SET" = "1" ]; then
+    [ -d "$_arch_dir" ] || die "ARCHITECTURE_NET: нет каталога architecture/ в проекте: $_arch_dir"
+    case "$ARCH_COMPONENT" in
+      ''|,*|*,|*,,*) die "ARCH_COMPONENT_ID: непустой список id через запятую: $ARCH_COMPONENT" ;;
+    esac
+    # stderr npm — в отдельный файл: в пак идёт только stdout брифа, а первая
+    # строка stderr остаётся именованным отказом.
+    _NPM_ERR_FILE="$(mktemp 2>/dev/null || true)"
+    [ -n "$_NPM_ERR_FILE" ] && [ -f "$_NPM_ERR_FILE" ] || _NPM_ERR_FILE=""
+    _NPM_ERR_REDIR="/dev/null"
+    [ -n "$_NPM_ERR_FILE" ] && _NPM_ERR_REDIR="$_NPM_ERR_FILE"
+    _arch_rest="$ARCH_COMPONENT"
+    while [ -n "$_arch_rest" ]; do
+      _arch_id="${_arch_rest%%,*}"
+      if [ "$_arch_rest" = "$_arch_id" ]; then _arch_rest=""; else _arch_rest="${_arch_rest#*,}"; fi
+      case "$_arch_id" in
+        ''|[!A-Za-z0-9_]*|*[^A-Za-z0-9._-]*|*..*) die "ARCH_COMPONENT_ID: неконформный id: $_arch_id" ;;
+      esac
+      # Правила проекта — только ролям, которые их читают (architect/critic/
+      # arbiter); implementer/adversary/reviewer получают бриф без них.
+      _arch_rules=""
+      case "$ROLE" in architect|critic|arbiter) _arch_rules="--with-rules" ;; esac
+      _arch_rc=0
+      if [ -n "$_arch_rules" ]; then
+        _arch_text="$(npm --prefix "$_arch_dir" run brief -- --compact --with-rules --component "$_arch_id" 2>"$_NPM_ERR_REDIR")" || _arch_rc=$?
+      else
+        _arch_text="$(npm --prefix "$_arch_dir" run brief -- --compact --component "$_arch_id" 2>"$_NPM_ERR_REDIR")" || _arch_rc=$?
+      fi
+      if [ "$_arch_rc" -ne 0 ]; then
+        _arch_hint="$(awk 'NR==1 { gsub(/[\r\n\t]/, " "); print substr($0, 1, 200) }' "$_NPM_ERR_REDIR" 2>/dev/null || true)"
+        if [ -n "$_arch_hint" ]; then
+          die "ARCH_BRIEF_OTKAZ: $_arch_id (npm rc=$_arch_rc): $_arch_hint"
+        fi
+        die "ARCH_BRIEF_OTKAZ: $_arch_id (npm rc=$_arch_rc)"
+      fi
+      [ -n "$_arch_text" ] || die "ARCH_BRIEF_OTKAZ: пустой бриф компонента: $_arch_id"
+      ARCH_SEC="${ARCH_SEC}COMPONENT: $_arch_id
+${_arch_text}
+"
+    done
+  elif [ -d "$_arch_dir" ] && printf '%s\n' "$CBYTES" | grep -Eiq '^КЛАСС ЗАДАЧИ: кодовый$'; then
+    die "ARCH_COMPONENT_NET: требуется --arch-component (кодовый предмет, проект с architecture/)"
+  fi
+fi
+
 TRACE_MAN="trace${TAB}${TRACE}${TAB}mandatory${TAB}trace
 "
 pack_body() {
@@ -807,6 +886,7 @@ pack_body() {
   printf '=== MAP ===\n%s' "$MAP_LINES"
   printf '=== RULES ===\n%s' "$RULES_LINES"
   printf '=== REUSE ===\n%s' "$REUSE_LINES"
+  [ -z "$ARCH_SEC" ] || printf '=== ARCHITECTURE BRIEF ===\n%s' "$ARCH_SEC"
   if [ -n "$SKILLS" ]; then printf '=== SKILLS ===\n%s' "$SKILLS"; fi
 if [ -n "$PROJECT_SEC" ]; then printf '%s' "$PROJECT_SEC"; fi
   if [ "$SKIP_TASK" = "0" ]; then
