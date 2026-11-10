@@ -8756,6 +8756,7 @@ soreview-v1.md.
 - 162 · пара 3 · заморожен · трек complior
 - 163 · пара 3 · заморожен · трек complior
 - 168 · пара 3 · заморожен · трек autonomy
+- 175 · пара 3 · заморожен · трек autonomy
 - 095 · пара 4 · заморожен · трек context
 <!-- END GENERATED NEXT SESSION -->
 
