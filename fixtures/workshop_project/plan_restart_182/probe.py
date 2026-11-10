@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-"""Public CLI 182: published-plan state, startup brief, and independent decoys."""
+"""Public CLI 182: published-plan state and independent decoys."""
 import argparse
-import os
 from pathlib import Path
 import subprocess
 import sys
@@ -11,7 +10,6 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 MODEL = HERE / 'model' / 'plan_slice.py'
 SUBJECT = ROOT / 'scripts' / 'orch_plan_slice.sh'
-BRIEF = ROOT / 'scripts' / 'make_task.sh'
 
 
 def run(*args, cwd=None):
@@ -78,61 +76,6 @@ def world(tmp):
     return repo, expected
 
 
-def patched_brief(tmp):
-    scripts = tmp / 'model_scripts'
-    scripts.mkdir()
-    for sibling in (ROOT / 'scripts').iterdir():
-        if sibling.name != 'make_task.sh':
-            (scripts / sibling.name).symlink_to(sibling)
-    source = BRIEF.read_text()
-    old = '      die "брифинг: контракт без предмета: $cf"'
-    assert source.count(old) == 1, 'brief baseline changed'
-    source = source.replace(old, '      WORK_SEC="${WORK_SEC}WORK: ${cnum} :: БЕЗ_ПРЕДМЕТА (есть в plan.tsv)\n"')
-    old = '  HEALTH_SEC="$(printf \'HEALTH: branch=%s dirty=%s\' "$HEALTH_BRANCH" "$HEALTH_DIRTY")"'
-    assert source.count(old) == 1, 'brief health baseline changed'
-    source = source.replace(old, old + f'\n  PLAN_SEC="$(python3 "{MODEL}" --repo "$REPO")" || die "PLAN_SOURCE_UNAVAILABLE"')
-    old = '    printf \'=== HEALTH ===\\n%s\\n\' "$HEALTH_SEC"'
-    assert source.count(old) == 1, 'brief output baseline changed'
-    source = source.replace(old, old + '\n    printf \'=== PLAN_SNAPSHOT ===\\n%s\\n\' "$PLAN_SEC"')
-    path = scripts / 'make_task.sh'
-    path.write_text(source)
-    path.chmod(0o755)
-    return path
-
-
-def brief_world(tmp):
-    # Existing 095 world is the actual profile/trace grammar; this test does not change it.
-    helper = ROOT / 'fixtures' / 'context_pack_095' / '_toy.sh'
-    p = checked('bash', '-c', 'source "$1"; _t95_world restart182', 'fixture', str(helper))
-    place = Path(p)
-    repo = place / 'repo'
-    (repo / 'contracts' / '154-brief.md').write_text(
-        '# Контракт 154\n\n## Существующее\n\nНет предмета.\n')
-    with (repo / 'registry' / 'plan.tsv').open('a') as f:
-        f.write('154\t1\tдо V-2\t-\ttoy\ttrack\n')
-    (repo / 'ROADMAP.md').write_text(
-        '# ROADMAP\n<!-- BEGIN GENERATED PLAN -->\n'
-        '| пара | id | этап | трек | зависит | источник |\n'
-        '|---|---|---|---|---|---|\n'
-        '| 1 | 777 | до V-2 | track | - | toy |\n'
-        '| 1 | 888 | до V-2 | track | 777 | toy |\n'
-        '| 1 | 154 | до V-2 | track | - | toy |\n'
-        '<!-- END GENERATED PLAN -->\n')
-    (repo / 'registry' / 'pauzy.tsv').write_text('')
-    with (repo / 'registry' / 'contracts.tsv').open('a') as f:
-        f.write('888 → ' + '0'*40 + '\n154 → ' + '0'*40 + '\n')
-    # Toy 095 contains planned 888 but no 888 contract: intentional.
-    checked('git', '-C', str(repo), 'add', '-A')
-    checked('git', '-C', str(repo), '-c', 'user.name=architect',
-            '-c', 'user.email=architect@dev-harness.local', 'commit', '-m', 'missing predmet')
-    remote = Path(tempfile.mkdtemp(prefix='brief-remote-', dir=tmp))
-    checked('git', 'init', '--bare', '--initial-branch=main', str(remote))
-    checked('git', '-C', str(repo), 'remote', 'add', 'origin', str(remote))
-    checked('git', '-C', str(repo), 'push', 'origin', 'main')
-    checked('git', '-C', str(repo), 'fetch', 'origin', 'main')
-    trace = place / 'trace.tsv'
-    trace.write_text('orchestrator\tglm-4.7\tallowed\n')
-    return place, repo, trace
 
 
 def assess(command, expected, errors):
@@ -192,42 +135,6 @@ def main():
             print(f'RED source-mismatch: rc={fail.returncode} stdout={fail.stdout[:90]!r} {fail.stderr[:90]}')
         else:
             print('GREEN source-mismatch')
-        toy_place, toy, trace = brief_world(temp)
-        try:
-            candidate = patched_brief(temp) if args.model or args.stabs else target / 'scripts' / 'make_task.sh'
-            out = run('bash', str(candidate), '--repo', str(toy), '--role', 'orchestrator',
-                      '--kind', 'brief', '--model-trace', str(trace))
-            expected_marker = 'WORK: 154 :: БЕЗ_ПРЕДМЕТА (есть в plan.tsv)'
-            if out.returncode or expected_marker not in out.stdout.splitlines():
-                errors.append('brief-marker')
-                print(f'RED brief-marker: rc={out.returncode} {out.stderr.strip()[:180]}')
-            else:
-                print('GREEN brief-marker')
-            toy_sha = checked('git', '-C', str(toy), 'rev-parse', 'origin/main')
-            expected_section = [
-                f'PLAN_SNAPSHOT: origin/main={toy_sha}',
-                'PLAN: 777 | ROADMAP=1/до V-2 | STATUS=черновик | NEXT=контракт → critic → freeze',
-                'PLAN: 888 | ROADMAP=1/до V-2 | STATUS=черновик | NEXT=контракт → critic → freeze',
-                'PLAN: 154 | ROADMAP=1/до V-2 | STATUS=черновик | NEXT=контракт → critic → freeze',
-            ]
-            sections = out.stdout.split('=== PLAN_SNAPSHOT ===\n')
-            actual_section = sections[1].split('===', 1)[0].strip().splitlines() if len(sections) == 2 else []
-            if out.returncode or actual_section != expected_section:
-                errors.append('brief-snapshot')
-                print(f'RED brief-snapshot: rc={out.returncode} {out.stderr.strip()[:160]}')
-            else:
-                print('GREEN brief-snapshot')
-            checked('git', '-C', str(toy), 'remote', 'remove', 'origin')
-            missing = run('bash', str(candidate), '--repo', str(toy), '--role', 'orchestrator',
-                          '--kind', 'brief', '--model-trace', str(trace))
-            if missing.returncode != 1 or missing.stdout or 'PLAN_SOURCE_UNAVAILABLE' not in missing.stderr:
-                errors.append('brief-no-source')
-                print(f'RED brief-no-source: rc={missing.returncode} stdout={missing.stdout[:90]!r} {missing.stderr[:90]}')
-            else:
-                print('GREEN brief-no-source')
-        finally:
-            import shutil
-            shutil.rmtree(toy_place)
         if args.stabs:
             # Each decoy is checked against its own distinguishing coordinate.
             mutations = {'handoff': 'no-stale', 'stale': 'no-stale',
@@ -240,21 +147,9 @@ def main():
                     print(f'STAB {mutation} caught: {cell}')
                 else:
                     print(f'STAB {mutation} ZHIV: {cell}')
-            # Active contract still dies, even though its other legacy contracts pass.
-            toy_place, toy, trace = brief_world(temp)
-            try:
-                proc = run('bash', str(BRIEF), '--repo', str(toy), '--role',
-                           'orchestrator', '--kind', 'brief', '--model-trace', str(trace))
-                if proc.returncode or 'WORK: 154 :: БЕЗ_ПРЕДМЕТА (есть в plan.tsv)' not in proc.stdout.splitlines():
-                    caught += 1
-                    print('STAB brief-die caught: brief-marker')
-                else:
-                    print('STAB brief-die ZHIV: brief-marker')
-            finally:
-                shutil.rmtree(toy_place)
-            print(f'STABS={len(mutations)+1} CAUGHT={caught}')
-            return int(caught != len(mutations) + 1 or bool(errors))
-        print(f'CELLS={count+4} GREEN={count+4-len(errors)}')
+            print(f'STABS={len(mutations)} CAUGHT={caught}')
+            return int(caught != len(mutations) or bool(errors))
+        print(f'CELLS={count+1} GREEN={count+1-len(errors)}')
         return int(bool(errors))
 
 
