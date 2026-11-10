@@ -479,7 +479,7 @@
     ]
   },
   "v3_piny": {
-    "model/matrix-v3.yml": "c6b1fb61f6617d7880aacf8743d0aea93e321167b5c23e451236bdb09acf552f",
+    "model/matrix-v3.yml": "c643e55187188b21ce141a39b7039705cb6882faee36260ca174a0146a201f06",
     "model/mobile/scripts/run-ci-screen.cjs": "4b76ed1103e873e6de61d2032fd89c004d036142960afa4a385670d3ee70f9ff"
   }
 }

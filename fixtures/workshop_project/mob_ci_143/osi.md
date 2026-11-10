@@ -232,8 +232,8 @@ actions/checkout, живая семантика платформы (needs/if/con
 
 ## Дополнение v3: фактический output матрицы и защитные ветви
 
-`matrix_v3.py` исполняет 80 клеток на продукте (`--repo`), 89 на модели
-(`--model`/`--stabs`), 85 адресных стабов с 92 привязками (`--stabs`).
+`matrix_v3.py` исполняет 396 клеток на продукте (`--repo`), 397 на модели
+(`--model`/`--stabs`), 408 адресных стабов с 417 привязками (`--stabs`).
 Наследственная батарея отдельно исполняет 79 клеток на продукте и 80 на модели.
 `child-matrix-output-absent` подаёт непустую matrix при отсутствующем
 `needs["select-screens"].outputs.matrix`; стаб `aggregate-matrix-from-selection`
@@ -264,14 +264,21 @@ actions/checkout, живая семантика платформы (needs/if/con
 `python3 fixtures/workshop_project/mob_ci_143/workflow_mutation_sweep.py
 --repo <копия кандидата>`: для каждого поля одноразовая полная копия
 продукта и отдельный `matrix_v3.py --repo <мутант> --workflow-cell <клетка>`;
-нужны `rc=1` и точная диагностика `WORKFLOW_CONTROL_<клетка>`. Отсутствующие
+нужны `rc=1` и точная диагностика `WORKFLOW_CONTROL_<клетка>`. Режим
+`--model` использует собранный эталон вместо продукта (308 пойманных
+мутаций); продукт с неисправленным ADB-экспортом сначала отказывается
+`HONEST_CONTROL_RED: workflow-e2e-screen-run-step-4`. Отсутствующие
 `needs`/`outputs` не мутируются в `[]`/`{}`: такие изменения неразличимы по
 семантике. Для `if` непустой matrix проверяется именно `e2e-screen.if`:
 `if: ${{ false }}` даёт ровно эту красную клетку, а не отказ соседнего
 агрегата; `connected_v3.py` вычисляет закрытое выражение на needs реальных
 двух строк выбора ДО запуска worker, стаб `matrix-worker-never-runs` красен
-`MATRIX_WORKER_SKIPPED`. Честный контроль: `--repo` — 261/261 matrix +
-79/79 legacy; `--model` — 262/262 matrix + 80/80 legacy; `--stabs` —
-267/267 matrix-стабов (274 привязки, живых 0) и 62/62 legacy-стаба
-(78 привязок). Продуктовый sweep: 181 независимая мутация, 181 адресный
-отказ `rc=1`, живых 0.
+`MATRIX_WORKER_SKIPPED`. Эталонный `Run selected screen` экспортирует
+`ANDROID_ADB_SERVER_PORT=$((AVD_PORT + 20000))`: диапазон консоли эмулятора
+5554..5584 даёт для отдельного adb-сервера 25554..25584, вне 5037 и
+портов эмулятора 5554..5585. Стабы `adb-variable-ignored` (имя переменной
+не читается adb) и `adb-port-emulator` (AVD_PORT+1 занят эмулятором)
+отдельно красны в `allocator` и `workflow-e2e-screen-run-step-4`.
+Честный контроль: `--model` — 397/397 matrix + 80/80 legacy;
+`--stabs` — 408 matrix-стабов (417 привязок, живых 0) и 62 legacy-стаба
+(78 привязок). Продуктовый `--repo` требует исправленного кандидата.
