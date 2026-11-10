@@ -190,6 +190,17 @@ def ci_generator(root, mode):
     return ('ssylka' if REF.search(generated) else 'ok'), result.stdout.strip()
 
 
+def entrypoint(path, *, without_python=False):
+    env = os.environ.copy()
+    if without_python:
+        env['PATH'] = '/nonexistent'
+    result = subprocess.run(['/bin/bash', str(path), '--unknown-184'],
+                            text=True, capture_output=True, env=env)
+    if without_python:
+        return result.returncode == 2 and 'NOT_IMPLEMENTED: python3 unavailable' in result.stderr
+    return result.returncode == 2 and 'unrecognized arguments: --unknown-184' in result.stderr
+
+
 def run(mode, source):
     failures = 0
     with tempfile.TemporaryDirectory(prefix='a10-184-') as tmp:
@@ -228,6 +239,21 @@ def run(mode, source):
                 if got != expected and detail:
                     print('  ' + detail.splitlines()[0])
                 failures += got != expected
+        wrapper = Path(__file__).with_name('red_external_connection_184.sh')
+        if mode == 'stabs':
+            for name, path in (
+                ('absent-entrypoint', base / 'missing-wrapper.sh'),
+                ('swallowed-rc', base / 'swallowed-rc.sh'),
+            ):
+                if name == 'swallowed-rc':
+                    write(path, '#!/usr/bin/env bash\nexit 0\n')
+                caught = not entrypoint(path)
+                print(f'STAB {name}@ci-entrypoint: {"caught" if caught else "ZHIV"}')
+                failures += not caught
+        else:
+            ok = entrypoint(wrapper) and entrypoint(wrapper, without_python=True)
+            print(f'CELL ci-entrypoint: {"ok" if ok else "RED"}')
+            failures += not ok
     return 1 if failures else 0
 
 
