@@ -1,5 +1,18 @@
 ЖДЁТ ВЛАДЕЛЬЦА: 143 — пятый адверсарий-вызов (см. «ГДЕ МЫ ~14:40», вопрос батча)
 
+## ГДЕ МЫ — 10.11 ~16:00 UTC (после слова владельца 15:46 «pre_judge в проектном режиме»; ПЕРЕКРЫВАЕТ «~15:10» там, где расходится; читать первым)
+
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+- **НОМЕРА (для строк плана консультанта):** **182** = «актуальный срез «где мы по плану» после перезапуска» (Н-439; подтверждаю: номер выдан под него); **184** = «внешняя замена подключения проекта Complior-back» (условие done 168 бэкенда; стоячее слово п.4; architect НЕ спавнен — нет слота); **185** = «pre_judge.sh в проектном режиме: детектор харнесса к корню проекта» (Н-441; слово владельца ~15:46). Теги `id/CONTRACT/182|184|185` и строки реестра на origin; 183 пропущен `next_id.sh` (причину не выяснял); 176 сожжён прежде.
+- **СДЕЛАНО С 15:10.** done 173 — тег `done/contracts/173/1` на origin. 175: критик accept (вызов 2/2, `verdicts/critic/contracts-175-v1.md`, #700 влит), носитель `wip/int-175/architect` PR #701 (cherry-pick `ab7ee6797`: main уже нёс версию круга 1; содержимое зоны побайтно == OBJECT accept) — CI → merge → `freeze_contract.sh contracts/175-tablo-bez-demo.md "<причина>"` → implementer (зона `ops/server/user/orch-tablo`, `ops/server/README.md`). 182: `Architect182PlanB` сдал `wip/182/architect` `47113d6285fe9cf9aefab666e00af033651a8d9c` (контракт + `fixtures/workshop_project/plan_restart_182/`; `--model` 12/12 зелёных, `--stabs` 5/5 пойманы, на субъекте `--repo .` красно ожидаемо, pre_critic rc 0); дальше: носитель (cherry-pick без заглушки) → критик → строка плана 182 (консультант) → freeze → implementer.
+- **185 В ПОЛЁТЕ:** `wip/185/architect` (заглушка Н-301 `6c17184b1`), worktree `/tmp/dev-harness-worktrees/c907157c/wip-185-architect`, задание `/tmp/dev-harness-verify/orch/task-185-architect.md`; если architect не доложил — восстановить из Н-441. Критик 185 → строка плана (консультант) → freeze → implementer (`scripts/pre_judge.sh`).
+- **143:** без изменений — пятый вызов адверсария за словом владельца (у консультанта); батарея architect-ветки `1673a516c` проверена зелёной на tip implementer `3b6365ebe`.
+- **158:** `Impl158Refs` убит перезагрузкой, замок освобождается после TTL 60 мин (журнал 14:55:28 → ≈15:55 UTC): `bash scripts/zamok_predmeta.sh --osvobodit --sostojanie /home/harness/.local/state/dev-harness-sessions/c907157c/zamok --zhurnaly /home/harness/.local/state/dev-harness-sessions/c907157c --repo /home/harness/dev-harness 158 Impl158Refs`, затем implementer (референсы из `/home/harness/projects/Complior-mob`, красная 1/37 `--model`, стабы st05/st09–st14; PR #697).
+- **«v+1 по миграции» (п.3 консультанта) почти пуст:** черновики 111, 117, 118, 123, 139, 995 в `fixtures/workshop_project/mob_ci_143/drafts/` совпадают по номеру с текущими frozen (111/5, 117/5, 118/3, 123/3, 139/3, 995/5) — уже применены; 116/4 и 141/2 по версии совпадают, не сверял по тексту; 138 на паузе; 147/148/149 ждут матрицу из done 143.
+- **МЕХАНИКА (дополнение):** (1) НОВЫЙ предмет без черновика (Н-301): `gitw worktree add -b wip/NNN/architect /tmp/dev-harness-worktrees/c907157c/wip-NNN-architect origin/main` → заглушка плумбингом (`hash-object -w` + `update-index --add --cacheinfo` + `checkout-index -f` + `git -c user.name=architect -c user.email=architect@dev-harness.local commit`) → `make_task --repo <worktree> --role architect --kind task --contract NNN --task-file … --model-trace …` → Task с `isolated:true` и строками `SUBJECT=`/`WORKTREE=`/`BRANCH=` (без `isolated:true` — блок Н-85 на запись в WORKTREE, уроки Architect182Plan); (2) `gitw push main` отказывает ПРЕДПОЛЁТ «посторонний worktree», если worktree оркестратора на ветке вне `wip/<N>/<роль>` (`wip/int-*`, detached): держать `wip/012/orchestrator`; (3) слот замка после yield освобождать `--osvobodit <NNN> <holder>` (иначе GRP считает его занятым); (4) вердикт судьи — в клоне судьи, переносится плумбингом на `wip/<N>/<роль>` (`git commit --author=<роль>`), `check_sud_model --verdict` по `models_actual --tsv --bind | tee <файл> | awk -F'\t' '$4=="<сессия>"'` (без `2>&1` — парсер path-guard); (5) `wait` блокирует табло из-за старых mob-PR — ждать автодоставки, CI — фоновым `gh pr checks N --watch`.
+- **Задания не в /tmp:** при перезагрузке восстанавливаются из NABLIUDENIA (Н-439 → 182, Н-441 → 185) и этого блока; трассы — `architect<TAB>zai/glm-5.3<TAB>allowed`, `critic<TAB>zai/glm-5.3<TAB>allowed` (строки TSV).
+- **ЖДЁТ УТРА:** 143 вызов 5 — слово владельца; 162 — после mob#164; 158 — TTL замка; 184 — слот (после 185/158); 163/147/148/149 — после 158; mob PR #122/#146–#150/#160–#163 — консультант/владелец.
+
 СУД: repo=dev-harness; предмет=175; фаза=контракт; роль=critic; вызов=2/2; модель-план=zai/glm-5.3; сессия=ожидается; SHA=ab7ee6797e831bd4276ffb894269346f9b490493; предыдущий=verdicts/critic/contracts-175-v1-krug1-fail.md; исключение=нет
 
 ## ГДЕ МЫ — 10.11 ~15:10 UTC (третья перезагрузка ~14:57; ПЕРЕКРЫВАЕТ «~14:40» там, где расходится; читать первым)
@@ -8743,7 +8756,6 @@ soreview-v1.md.
 - 162 · пара 3 · заморожен · трек complior
 - 163 · пара 3 · заморожен · трек complior
 - 168 · пара 3 · заморожен · трек autonomy
-- 173 · пара 3 · заморожен · трек autonomy
 - 095 · пара 4 · заморожен · трек context
 <!-- END GENERATED NEXT SESSION -->
 
