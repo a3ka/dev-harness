@@ -6,6 +6,8 @@ import sys
 
 args = sys.argv[1:]
 root = Path(os.environ['ARCH170_PROJECT'])
+with open(os.environ['ARCH170_CALLS'], 'a', encoding='utf-8') as calls:
+    calls.write('npm\n')
 if (len(args) not in (8, 9) or args[:2] != ['--prefix', str(root / 'architecture')]
         or args[2:6] != ['run', 'brief', '--', '--compact']):
     sys.stderr.write('INVALID_BRIEF_ARGV\n')

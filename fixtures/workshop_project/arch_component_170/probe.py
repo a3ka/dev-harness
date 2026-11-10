@@ -27,6 +27,11 @@ if [ "$KIND" = task ]; then
       _arch_id="${_arch_rest%%,*}"
       if [ "$_arch_rest" = "$_arch_id" ]; then _arch_rest=""; else _arch_rest="${_arch_rest#*,}"; fi
       case "$_arch_id" in ''|[!A-Za-z0-9_]*|*[^A-Za-z0-9._-]*|*..*) die "ARCH_COMPONENT_ID: неконформный id" ;; esac
+    done
+    _arch_rest="$ARCH_COMPONENT"
+    while [ -n "$_arch_rest" ]; do
+      _arch_id="${_arch_rest%%,*}"
+      if [ "$_arch_rest" = "$_arch_id" ]; then _arch_rest=""; else _arch_rest="${_arch_rest#*,}"; fi
       _arch_rules=""
       case "$ROLE" in architect|critic|arbiter) _arch_rules="--with-rules" ;; esac
       if [ -n "$_arch_rules" ]; then
@@ -38,7 +43,7 @@ if [ "$KIND" = task ]; then
       ARCH_SEC="${ARCH_SEC}${_arch_text}
 "
     done
-  elif [ -d "$REPO/architecture" ] && printf '%s\n' "$CBYTES" | grep -Eiq '^КЛАСС ЗАДАЧИ: кодовый$'; then
+  elif [ -d "$REPO/architecture" ] && printf '%s\n' "$CBYTES" | grep -Eq '^КЛАСС ЗАДАЧИ:[[:space:]]*(кодовый|КОДОВЫЙ)([^[:alnum:]_]|$)'; then
     die "ARCH_COMPONENT_NET: требуется --arch-component"
   fi
 fi
@@ -66,7 +71,7 @@ def model_text():
     return text
 
 
-def world(*, arch=True, code=True):
+def world(*, arch=True, code=True, class_line=None):
     built = subprocess.run(['bash', '-c', '. "$1"; _t95_world arch-170', '_', str(TOY)],
                            capture_output=True, text=True, check=True).stdout.strip()
     repo = Path(built) / 'repo'
@@ -85,7 +90,9 @@ def world(*, arch=True, code=True):
     (repo / 'STRUCTURE.md').write_text('# Project structure\n')
     (repo / 'COMMON-RULES.md').write_text('# Project-wide rules\n')
     contract = repo / 'contracts/777-toy.md'
-    contract.write_text('КЛАСС ЗАДАЧИ: ' + ('кодовый' if code else 'документальный') + '\n' + contract.read_text())
+    contract.write_text((class_line if class_line is not None else
+                         'КЛАСС ЗАДАЧИ: ' + ('кодовый' if code else 'документальный'))
+                        + '\n' + contract.read_text())
     (repo / 'registry/trace.tsv').write_text(''.join(
         f'{role}\topenai-codex/gpt-6-sol\tallowed\n' for role in ('orchestrator',) + RULE_ROLES + PLAIN_ROLES))
     if arch:
@@ -106,6 +113,15 @@ def invoke(subject, repo, role, component=None, *, kind='task', env=None):
     return subprocess.run(argv, capture_output=True, text=True, timeout=40, env=env)
 
 
+CLASS_LINES = {
+    'class_dot': 'КЛАСС ЗАДАЧИ: кодовый.',
+    'class_parens': 'КЛАСС ЗАДАЧИ: КОДОВЫЙ (реализация)',
+    'class_semicolon': 'КЛАСС ЗАДАЧИ: КОДОВЫЙ; один вертикальный слайс',
+    'class_risk_tail': 'КЛАСС ЗАДАЧИ: кодовый. КЛАСС РИСКА: обычный',
+    'class_upper_c': 'КЛАСС ЗАДАЧИ: КОДОВЫЙ',
+}
+
+
 def run_case(name, subject):
     role = {'brief_kind': 'orchestrator', 'critic_rules': 'critic', 'arbiter_rules': 'arbiter',
             'implementer_plain': 'implementer', 'adversary_plain': 'adversary',
@@ -117,11 +133,12 @@ def run_case(name, subject):
     component = ('api.identity,worker.events' if name in
                  ('multi_component', 'brief_failure', 'implementer_brief_failure',
                   'adversary_brief_failure', 'reviewer_brief_failure') else
+                 'api.identity,../x' if name == 'second_malformed_id' else
                  '../escape' if name == 'malformed_id' else
                  'api.identity' if name in ('architect_rules', 'critic_rules', 'arbiter_rules',
                     'implementer_plain', 'adversary_plain', 'reviewer_plain', 'lose_map',
                     'lose_rules', 'malformed_id', 'architecture_missing', 'brief_over_budget') else None)
-    built, repo = world(arch=arch, code=code)
+    built, repo = world(arch=arch, code=code, class_line=CLASS_LINES.get(name))
     try:
         expected_ids = IDS if name == 'multi_component' else IDS[:1]
         nonce = 'SENTINEL-170-' + name
@@ -130,8 +147,11 @@ def run_case(name, subject):
                      f'FITNESS-RULE-FOR:{ident}') for ident in expected_ids]
         with tempfile.TemporaryDirectory(dir=VERIFY, prefix='arch170-bin-') as bin_dir:
             os.symlink(HERE / 'npm_stub.py', Path(bin_dir) / 'npm')
+            calls = Path(bin_dir) / 'calls'
             env = dict(os.environ, ARCH170_PROJECT=str(repo), ARCH170_NONCE=nonce,
-                       PATH=bin_dir + os.pathsep + os.environ['PATH'])
+                       ARCH170_CALLS=str(calls), PATH=bin_dir + os.pathsep + os.environ['PATH'])
+            if name == 'class_upper_c':
+                env['LC_ALL'] = 'C'
             if name in ('brief_failure', 'implementer_brief_failure',
                         'adversary_brief_failure', 'reviewer_brief_failure'):
                 env['ARCH170_FAIL_ID'] = 'worker.events'
@@ -144,10 +164,12 @@ def run_case(name, subject):
                 data['repoId'] = 'another-project'
                 profile.write_text(json.dumps(data))
             result = invoke(subject, repo, role, component, kind='brief' if name == 'brief_kind' else 'task', env=env)
+            npm_calls = len(calls.read_text().splitlines()) if calls.exists() else 0
         lines = result.stdout.splitlines()
         manifest = result.stdout.split('=== MANIFEST ===\n', 1)[-1].split('=== BUDGET ===', 1)[0].splitlines()
         reject = {'required': 'ARCH_COMPONENT_NET', 'wrong_project': 'ARCH_COMPONENT_NET',
-                  'malformed_id': 'ARCH_COMPONENT_ID',
+                  **{key: 'ARCH_COMPONENT_NET' for key in CLASS_LINES},
+                  'malformed_id': 'ARCH_COMPONENT_ID', 'second_malformed_id': 'ARCH_COMPONENT_ID',
                   'architecture_missing': 'ARCHITECTURE_NET',
                   'brief_failure': 'ARCH_BRIEF_OTKAZ',
                   'implementer_brief_failure': 'ARCH_BRIEF_OTKAZ',
@@ -157,6 +179,8 @@ def run_case(name, subject):
         if reject:
             good = (result.returncode == 1 and not result.stdout
                     and result.stderr.splitlines()[0].startswith('ОТКАЗ: ' + reject + ':'))
+            if name == 'second_malformed_id':
+                good &= npm_calls == 0
             if name in ('brief_failure', 'implementer_brief_failure',
                         'adversary_brief_failure', 'reviewer_brief_failure'):
                 good &= 'worker.events' in result.stderr
@@ -177,8 +201,9 @@ def run_case(name, subject):
                 good &= not any(line.startswith('# ARCH-BRIEF:') for line in lines)
         if name == 'malformed_id':
             good &= not (repo / 'architecture/generated').exists()
+        calls_detail = f' npm_calls={npm_calls}' if name == 'second_malformed_id' else ''
         print(f'170 {name} {"ok" if good else "KRASNO"} rc={result.returncode} '
-              f'stderr={result.stderr.strip()!r}', flush=True)
+              f'stderr={result.stderr.strip()!r}{calls_detail}', flush=True)
         return bool(good)
     finally:
         shutil.rmtree(built)
@@ -188,7 +213,9 @@ CASES = ('required', 'legacy', 'document', 'brief_kind', 'architect_rules',
          'critic_rules', 'arbiter_rules', 'implementer_plain', 'adversary_plain',
          'reviewer_plain', 'multi_component', 'wrong_project', 'malformed_id',
          'architecture_missing', 'brief_failure', 'implementer_brief_failure',
-         'adversary_brief_failure', 'reviewer_brief_failure', 'brief_over_budget')
+         'adversary_brief_failure', 'reviewer_brief_failure', 'brief_over_budget',
+         'class_dot', 'class_parens', 'class_semicolon', 'class_risk_tail',
+         'class_upper_c', 'second_malformed_id')
 
 
 def cells(subject, selected=None):
@@ -251,6 +278,21 @@ def main():
                  '_arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --component "$_arch_id" 2>&1)" || die "ARCH_BRIEF_OTKAZ: $_arch_id"',
                  '_arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --component "$_arch_id" 2>&1)" || :',
                  'implementer_brief_failure'),
+                ('exact_class_line',
+                 "grep -Eq '^КЛАСС ЗАДАЧИ:[[:space:]]*(кодовый|КОДОВЫЙ)([^[:alnum:]_]|$)'",
+                 "grep -Eiq '^КЛАСС ЗАДАЧИ: кодовый$'", 'class_dot'),
+                ('locale_only_case',
+                 "grep -Eq '^КЛАСС ЗАДАЧИ:[[:space:]]*(кодовый|КОДОВЫЙ)([^[:alnum:]_]|$)'",
+                 "grep -Eiq '^КЛАСС ЗАДАЧИ:[[:space:]]*кодовый([^[:alnum:]_]|$)'",
+                 'class_upper_c'),
+                ('validate_during_npm',
+                 """    _arch_rest="$ARCH_COMPONENT"
+    while [ -n "$_arch_rest" ]; do
+      _arch_id="${_arch_rest%%,*}"
+      if [ "$_arch_rest" = "$_arch_id" ]; then _arch_rest=""; else _arch_rest="${_arch_rest#*,}"; fi
+      case "$_arch_id" in ''|[!A-Za-z0-9_]*|*[^A-Za-z0-9._-]*|*..*) die "ARCH_COMPONENT_ID: неконформный id" ;; esac
+    done
+""", '', 'second_malformed_id'),
                 ('brief_outside_budget',
                  '  [ -z "$ARCH_SEC" ] || printf \'=== ARCHITECTURE BRIEF ===\\n%s\' "$ARCH_SEC"',
                  '  : # brief deferred past budget', 'brief_over_budget'),
@@ -263,6 +305,11 @@ def main():
                     mutated = honest.replace(old, new)
                 else:
                     mutated = replace_once(honest, old, new)
+                if name == 'validate_during_npm':
+                    mutated = replace_once(
+                        mutated, '      _arch_rules=""',
+                        """      case "$_arch_id" in ''|[!A-Za-z0-9_]*|*[^A-Za-z0-9._-]*|*..*) die "ARCH_COMPONENT_ID: неконформный id" ;; esac
+      _arch_rules=""")
                 if name == 'brief_outside_budget':
                     mutated = replace_once(
                         mutated, 'pack_body\nprintf \'%s\' "$MAN_BODY"',
