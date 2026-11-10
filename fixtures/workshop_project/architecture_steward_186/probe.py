@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""186: one independent Git world per assertion/mutant; owner decision is the oracle."""
+"""Contract 186: isolated honest control and one distinguishable mutant per public seam."""
 import argparse
 import json
 import os
@@ -7,214 +7,270 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 
 HERE = Path(__file__).resolve()
 DEFAULT_REPO = HERE.parents[3]
 ROLE = 'architecture-steward'
+TIER = 'steward-arch'
 
 
 def run(argv, cwd, env=None):
-    return subprocess.run(argv, cwd=cwd, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return subprocess.run(argv, cwd=cwd, env=env, text=True, capture_output=True)
 
 
-def put(root, relative, text):
-    dest = root / relative
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(text, encoding='utf-8')
+def put(root, name, content):
+    path = root / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding='utf-8')
 
 
-def get(root, relative):
-    return (root / relative).read_text(encoding='utf-8')
+def get(root, name):
+    return (root / name).read_text(encoding='utf-8')
 
 
-def world(source, parent):
-    root = parent / 'world'
+def world(source, tmp):
+    root = tmp / 'world'
     root.mkdir()
     for relative in ('roles', '.omp/agents', 'config/agent_models.json', '.omp/config.yml',
-                     'scripts/roles.ts', 'scripts/gen-harness.ts', 'scripts/check_sud_model.sh',
-                     'ops/server/root/orch-peak', 'ops/server/root/systemd',
-                     'ops/server/install.sh', 'roles/orchestrator.md'):
+                     'scripts/roles.ts', 'scripts/gen-harness.ts', 'scripts/findings_status.py',
+                     'ops/server/root/orch-peak', 'ops/server/root/systemd', 'ops/server/install.sh'):
         src, dst = source / relative, root / relative
         if src.is_dir():
             shutil.copytree(src, dst)
         elif src.exists():
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dst)
-    result = run(['git', 'init', '-q', '-b', 'main'], root)
-    if result.returncode:
-        raise RuntimeError(result.stderr)
+    initialized = run(['git', 'init', '-q', '-b', 'main'], root)
+    if initialized.returncode:
+        raise RuntimeError(initialized.stderr)
     return root
 
 
-# Honest candidate is constructed independently of the subject's data; no expectations
-# are ever recomputed by reading candidate-owned files after the call under test.
-HONEST_ROLE = '''---
-role: architecture-steward
-tools: [read, grep, glob, bash, write, edit]
-verdict: null
----
-
-# Architecture Steward — хранитель архитектуры
-
-Субагент по расписанию: за архитектурой наблюдает между срезами, а не ждёт случайной задачи.
-
-## Находки
-Читай CompliorOS-architecture/governance/findings/; сверяй незакрытые находки с изменениями продукта. Записывай новое наблюдение с доказательством и адресатом в журнал архитектуры, не объявляй закрытым без свидетельства.
-
-## Правки L1
-Исправляй L1 в архитектурном репозитории с проверкой и отдельным коммитом. L2 собирай в пачку для владельца; не меняй L2 единолично.
-
-## Обзор среза
-После каждого среза сверяй архитектурный снимок с результатом и зафиксируй один снимок среза. Отклонения и незакрытые DRAFT называй отдельно.
-
-## Схемы операций впрок
-Готовь схемы операций В7 до заморозки контракта; недостающие схемы и контракты модулей заводи механизмом, а не по случаю. Код по DRAFT-операции не выпускай; модули общаются только через контракты.
-
-## Граница полномочий
-Архитектурные артефакты проекта пишутся в проектном workflow/architecture, не в репозиторий харнесса. На решения L2 и заморозку без подписи владельца не претендуй.
+# The oracle is frozen in this process before invoking the candidate. Section lines are
+# matched as entire lines, never as accidental substrings in other sections or comments.
+LINES = {
+    'intake': ('Находки', 'Принимай находки от любой роли и человека непрерывно в CompliorOS-architecture/governance/findings/.'),
+    'status': ('Статусы', 'Статус: принята L1/L2/L3 | отклонена: причина | вопрос владельцу.',
+               'Файл без статуса старше одного среза назови в отчёте governance/review/; findings_status.py возвращает rc 1.'),
+    'l1': ('L1', 'L1: PR хранителя либо architect предмета → шестой вопрос critic → слияние; check --base PASS.'),
+    'l2': ('L2', 'L2: пачка arch/l2-Э → diff → critic → снимок и digest владельца.'),
+    'l3': ('L3', 'L3: один файл = один вопрос владельцу + одна рекомендация; решение принимает владелец.'),
+    'register': ('Реестр', 'Реестр DRAFT/недостающих контрактов строится из check contractReadiness.unresolved.',
+                 'Для каждой операции расставь приоритет по ROADMAP: предмет, Э-этап, срок до контракта X.'),
+    'code_debt': ('Граница полномочий', 'Находку, требующую кода, передай проектному оркестратору как B-DEBT/предмет.',
+                  'Не пиши код, не суди предметы и не требуй подписи хранителя для freeze/done.'),
+    'review': ('Обзор', 'После done последнего предмета каждого Э-этапа делай обзор в CompliorOS-architecture/governance/review/.',
+               'При блокирующей находке делай обзор сразу; недельный timer — только страховка.'),
+}
+HONEST_ROLE = ('---\nrole: architecture-steward\ntools: [read, grep, glob, bash, write, edit]\nverdict: null\n---\n\n'
+               '# Хранитель архитектуры\n\n' + '\n'.join(
+                   '## ' + rows[0] + '\n' + '\n'.join(rows[1:]) + '\n' for rows in LINES.values()))
+SIGNAL = 'СТОРОЖ СТАНЦИИ (автоматически, НЕ слово владельца): architecture-steward: обзор архитектуры; при занятом слоте оставь в очереди.'
+HONEST_STATUS_SCRIPT = '''#!/usr/bin/env python3
+import pathlib
+import subprocess
+import sys
+root, old = pathlib.Path(sys.argv[1]), sys.argv[2]
+past = subprocess.run(['git', '-C', str(root), 'ls-tree', '-r', '--name-only', old, '--', 'governance/findings/'],
+                      text=True, capture_output=True, check=True).stdout.splitlines()
+bad = False
+for name in past:
+    path = root / name
+    if not path.is_file():
+        continue
+    statuses = [line for line in path.read_text().splitlines() if line.startswith('Статус:')]
+    if not statuses or not statuses[0].removeprefix('Статус:').strip():
+        print('ПРОСРОЧЕНО: ' + name)
+        bad = True
+sys.exit(int(bad))
 '''
+
 
 
 def honest(root):
     put(root, 'roles/architecture-steward.md', HONEST_ROLE)
-    conf = json.loads(get(root, 'config/agent_models.json'))
-    conf['roles'][ROLE] = 'plan'
-    conf['routing']['rules'].append({'class': 'плановый обзор архитектуры, находки и схемы операций', 'role': ROLE})
-    put(root, 'config/agent_models.json', json.dumps(conf, ensure_ascii=False, indent=2) + '\n')
+    config = json.loads(get(root, 'config/agent_models.json'))
+    config['tiers'][TIER] = {'model': '@gpt-sol', 'fallback': '@gpt-astra',
+                             'why': 'слово владельца 2026-11-10 ~19:45 UTC: хранитель Sol'}
+    config['roles'][ROLE] = TIER
+    config['routing']['rules'].append({'class': 'обзор архитектуры после done этапа и блокирующей находки', 'role': ROLE})
+    put(root, 'config/agent_models.json', json.dumps(config, ensure_ascii=False, indent=2) + '\n')
+    put(root, 'scripts/findings_status.py', HONEST_STATUS_SCRIPT)
     put(root, 'ops/server/root/systemd/orch-architecture.timer',
-        '[Unit]\nDescription=Плановый обзор архитектуры\n[Timer]\nOnCalendar=Mon *-*-* 09:00:00 UTC\nUnit=orch-peak@architecture.service\nPersistent=false\n[Install]\nWantedBy=timers.target\n')
+        '[Unit]\nDescription=Страховка обзора архитектуры\n[Timer]\nOnCalendar=Mon *-*-* 09:00:00 UTC\nUnit=orch-peak@architecture.service\nPersistent=false\n[Install]\nWantedBy=timers.target\n')
     peak = get(root, 'ops/server/root/orch-peak')
     anchor = '  start)\n'
     if peak.count(anchor) != 1:
         raise RuntimeError('station switch changed')
-    put(root, 'ops/server/root/orch-peak', peak.replace(anchor,
-        '  architecture)\n    say "СТОРОЖ СТАНЦИИ (автоматически, НЕ слово владельца): плановый обзор архитектуры — вызови субагента architecture-steward с тиром plan и запиши результат в проектный журнал архитектуры; при занятом слоте перенеси запись в очередь." || exit 1\n    ;;\n' + anchor))
+    arm = ''.join('  ' + event + ')\n    say "' + SIGNAL + ' ' + qualifier + '" || exit 1\n    ;;\n'
+                  for event, qualifier in (('architecture-done', 'done Э-этапа'),
+                                           ('architecture-blocker', 'блокирующая находка'),
+                                           ('architecture', 'страховочный timer')))
+    put(root, 'ops/server/root/orch-peak', peak.replace(anchor, arm + anchor))
     installer = get(root, 'ops/server/install.sh')
-    old = 'orch-ctx.timer\'\n'
-    if installer.count(old) != 1:
+    anchor = "orch-ctx.timer'\n"
+    if installer.count(anchor) != 1:
         raise RuntimeError('installer inventory changed')
-    put(root, 'ops/server/install.sh', installer.replace(old, 'orch-ctx.timer orch-architecture.timer\'\n'))
-    role = get(root, 'roles/orchestrator.md')
-    put(root, 'roles/orchestrator.md', role + '\n## Сигнал планового обзора архитектуры\nПо сообщению планового обзора от сторожа станции вызови субагента architecture-steward; при занятом слоте сохрани задание в очередь, исполнение подтверждай следом в проектном журнале архитектуры.\n')
-    generated = run(['node', 'scripts/gen-harness.ts'], root)
-    if generated.returncode:
-        raise RuntimeError(f'generator model failed: {generated.stderr}')
+    put(root, 'ops/server/install.sh', installer.replace(anchor, "orch-ctx.timer orch-architecture.timer'\n"))
+    orchestrator = get(root, 'roles/orchestrator.md')
+    put(root, 'roles/orchestrator.md', orchestrator + '\n## Архитектурные события\nПосле done последнего предмета Э-этапа или блокирующей находки вызови architecture-steward; timer — страховка, при занятом слоте оставь событие в очереди.\n')
+    gen = run(['node', 'scripts/gen-harness.ts'], root)
+    if gen.returncode:
+        raise RuntimeError('generator model: ' + gen.stderr)
 
 
-def sections(body):
-    chunks = re.split(r'^## (.+)$', body, flags=re.M)
-    return {chunks[n]: chunks[n+1] for n in range(1, len(chunks) - 1, 2)}
+def sections(text):
+    parts = re.split(r'^## (.+)$', text, flags=re.M)
+    return {parts[i]: set(parts[i + 1].splitlines()) for i in range(1, len(parts) - 1, 2)}
 
+
+def signal(root, event, expected):
+    with tempfile.TemporaryDirectory(prefix='arch-186-action-') as temp:
+        scratch = Path(temp)
+        env = dict(os.environ, ORCH_PEAK_TEST=temp, ORCH_STATE=str(scratch / 'state'),
+                   ORCH_LOG=str(scratch / 'peak.log'), ORCH_REPO=str(root))
+        action = run(['bash', str(root / 'ops/server/root/orch-peak'), event], root, env)
+        if action.returncode:
+            return False, 'action ' + event + ' rc=' + str(action.returncode)
+        path = scratch / 'say.log'
+        if not path.is_file():
+            return False, 'сигнал не доставлен'
+        messages = path.read_text(encoding='utf-8').splitlines()
+        ok = len(messages) == 1 and messages[0].startswith(SIGNAL) and expected in messages[0]
+        return ok, 'сигнал ' + event if ok else 'неправильный сигнал ' + event
+
+
+def finding(author, status):
+    return ('Компонент/ресурс: api.vehicle\n'
+            'Наблюдение: app/vehicle.js:7, отсутствует схема\n'
+            'Ожидание модели: contract.api.vehicle schema\n'
+            'Предлагаемый уровень: L1\n'
+            f'Автор: {author}\n'
+            f'Статус: {status}\n')
 
 def judge(root, case):
-    if case == 'role':
+    if case == 'role' or case in LINES:
         path = root / 'roles' / (ROLE + '.md')
         if not path.is_file():
             return False, 'нет роли'
-        text = path.read_text(encoding='utf-8')
-        fm = re.match(r'\A---\n(.*?)\n---\n', text, flags=re.S)
+        role = path.read_text(encoding='utf-8')
+        fm = re.match(r'\A---\n(.*?)\n---\n', role, re.S)
         if not fm:
             return False, 'нет frontmatter'
-        fields = fm.group(1).splitlines()
-        if 'role: architecture-steward' not in fields or 'verdict: null' not in fields or not any(line.startswith('tools: [') for line in fields):
-            return False, 'неверный инвентарь роли'
-        blocks = sections(text[fm.end():])
-        promises = {
-            'Находки': ('governance/findings/', 'наблюдение', 'адресатом'),
-            'Правки L1': ('L1', 'L2', 'коммит'),
-            'Обзор среза': ('среза', 'снимок', 'отклонения'),
-            'Схемы операций впрок': ('схемы операций', 'В7', 'контракты модулей', 'DRAFT'),
-            'Граница полномочий': ('проект', 'владельца'),
-        }
-        for name, words in promises.items():
-            if name not in blocks or any(word.casefold() not in blocks[name].casefold() for word in words):
-                return False, f'отсутствует обязанность: {name}'
-        return True, 'обязанности и границы роли'
+        fields = set(fm.group(1).splitlines())
+        if 'role: architecture-steward' not in fields or 'verdict: null' not in fields or not any(x.startswith('tools: [') for x in fields):
+            return False, 'неверный инвентарь'
+        if case == 'role':
+            return True, 'роль зарегистрирована'
+        rows = LINES[case]
+        block = sections(role[fm.end():]).get(rows[0], set())
+        ok = set(rows[1:]).issubset(block)
+        return ok, rows[0] if ok else 'нет обязанности ' + rows[0]
     if case in ('routing', 'tier', 'fallback'):
         path = root / 'config/agent_models.json'
         if not path.is_file():
-            return False, 'нет реестра моделей'
-        config = json.loads(path.read_text(encoding='utf-8'))
+            return False, 'нет реестра'
+        cfg = json.loads(path.read_text(encoding='utf-8'))
+        role_tier = cfg.get('roles', {}).get(ROLE)
+        tier = cfg.get('tiers', {}).get(TIER, {})
         if case == 'routing':
-            good = config['roles'].get(ROLE) == 'plan' and any(
-                r.get('role') == ROLE and 'архитектур' in r.get('class', '') for r in config.get('routing', {}).get('rules', []))
-            return good, 'маршрут роли' if good else 'нет маршрута роли'
-        if case == 'tier':
-            good = config['roles'].get(ROLE) == 'plan' and config['tiers']['plan']['model'] == '@gpt-astra'
-            return good, 'тир plan/Astra' if good else 'тир не plan/Astra'
-        good = config['tiers']['plan']['fallback'] == '@fable'
-        return good, 'fallback @fable' if good else 'fallback не @fable'
+            ok = role_tier == TIER and any(r.get('role') == ROLE and 'архитектур' in r.get('class', '') for r in cfg.get('routing', {}).get('rules', []))
+        elif case == 'tier':
+            ok = role_tier == TIER and tier.get('model') == '@gpt-sol' and cfg.get('models', {}).get('gpt-sol') == 'openai-codex/gpt-6-sol'
+        else:
+            ok = role_tier == TIER and tier.get('fallback') == '@gpt-astra'
+        return ok, case if ok else 'неверный ' + case
     if case == 'generated':
-        result = run(['node', 'scripts/gen-harness.ts', '--check'], root)
-        if result.returncode != 0:
-            return False, f'gen:harness --check rc={result.returncode}: {result.stderr.strip()[:120]}'
-        if not (root / '.omp/agents/architecture-steward.md').is_file():
-            return False, 'нет сгенерированного агента'
-        generated = get(root, '.omp/agents/architecture-steward.md')
-        good = 'name: architecture-steward' in generated.splitlines() and 'model: ["@plan"]' in generated.splitlines()
-        return good, 'генерация совпала' if good else 'нет сгенерированного агента @plan'
-    if case == 'schedule':
-        timer = root / 'ops/server/root/systemd/orch-architecture.timer'
-        if not timer.is_file():
-            return False, 'нет timer'
-        lines = timer.read_text(encoding='utf-8').splitlines()
-        if 'OnCalendar=Mon *-*-* 09:00:00 UTC' not in lines or 'Unit=orch-peak@architecture.service' not in lines or 'Persistent=false' not in lines:
-            return False, 'timer не задаёт еженедельный запуск'
-        if 'orch-architecture.timer' not in get(root, 'ops/server/install.sh').split("UNITS='", 1)[-1].split("'", 1)[0].split():
-            return False, 'timer не установлен'
-        role = sections(get(root, 'roles/orchestrator.md')).get('Сигнал планового обзора архитектуры', '')
-        if 'architecture-steward' not in role or 'проектном журнале' not in role:
-            return False, 'нет потребителя сигнала'
-        with tempfile.TemporaryDirectory(prefix='arch-186-action-') as tmp:
-            scratch = Path(tmp)
-            env = dict(os.environ, ORCH_PEAK_TEST=tmp, ORCH_STATE=str(scratch / 'state'),
-                       ORCH_LOG=str(scratch / 'peak.log'), ORCH_REPO=str(root))
-            action = run(['bash', str(root / 'ops/server/root/orch-peak'), 'architecture'], root, env)
-            if action.returncode:
-                return False, f'action rc={action.returncode}: {action.stderr.strip()[:120]}'
-            message = scratch / 'say.log'
-            if not message.is_file():
-                return False, 'сигнал не доставлен'
-            notice = message.read_text(encoding='utf-8').splitlines()
-            good = len(notice) == 1 and 'architecture-steward' in notice[0] and 'НЕ слово владельца' in notice[0]
-            return good, 'реальный сигнал расписания' if good else 'неправильный сигнал расписания'
+        check = run(['node', 'scripts/gen-harness.ts', '--check'], root)
+        if check.returncode:
+            return False, 'генерация расходится rc=' + str(check.returncode)
+        path = root / '.omp/agents/architecture-steward.md'
+        ok = path.is_file() and 'model: ["@steward-arch"]' in path.read_text(encoding='utf-8').splitlines()
+        return ok, 'генерация' if ok else 'нет модели Sol в агенте'
+    if case in ('done', 'blocker', 'schedule'):
+        if case == 'schedule':
+            path = root / 'ops/server/root/systemd/orch-architecture.timer'
+            if not path.is_file() or 'orch-architecture.timer' not in get(root, 'ops/server/install.sh'):
+                return False, 'нет страховочного timer'
+            return signal(root, 'architecture', 'страховочный timer')
+        section = sections(get(root, 'roles/orchestrator.md')).get('Архитектурные события', set())
+        if not any('architecture-steward' in line and 'занятом слоте' in line for line in section):
+            return False, 'нет потребителя события'
+        return signal(root, 'architecture-done' if case == 'done' else 'architecture-blocker',
+                      'done Э-этапа' if case == 'done' else 'блокирующая находка')
+    if case == 'status_cli':
+        path = root / 'scripts/findings_status.py'
+        if not path.is_file():
+            return False, 'нет исполняемой проверки статусов'
+        with tempfile.TemporaryDirectory(prefix='arch-186-findings-') as tmp:
+            project = Path(tmp)
+            run(['git', 'init', '-q', '-b', 'main'], project)
+            put(project, 'governance/findings/001-old.md', finding('implementer', ''))
+            run(['git', 'add', '.'], project)
+            committed = run(['git', '-c', 'user.name=architect', '-c', 'user.email=architect@dev-harness.local',
+                             'commit', '-qm', 'prior slice'], project)
+            if committed.returncode:
+                raise RuntimeError(committed.stderr)
+            put(project, 'governance/findings/002-fresh.md', finding('человек', ''))
+            old = run(['python3', str(path), str(project), 'HEAD'], root)
+            expected = 'ПРОСРОЧЕНО: governance/findings/001-old.md'
+            if old.returncode != 1 or old.stdout.splitlines() != [expected]:
+                return False, 'просрочка без именованной строки и rc 1'
+            put(project, 'governance/findings/001-old.md', finding('implementer', 'принята L1'))
+            resolved = run(['python3', str(path), str(project), 'HEAD'], root)
+            ok = resolved.returncode == 0 and not resolved.stdout.strip()
+            return ok, 'старый/свежий/разобранный статус' if ok else 'неверная полярность статуса'
     raise ValueError(case)
 
 
-CASES = ('role', 'routing', 'tier', 'fallback', 'generated', 'schedule')
+CASES = ('role', *LINES, 'status_cli', 'routing', 'tier', 'fallback', 'generated', 'done', 'blocker', 'schedule')
+MUTANTS = (('no_frontmatter', 'role'), ('calendar_only', 'done'), ('blocker_missing', 'blocker'),
+           ('humans_only', 'intake'), ('silent_overdue', 'status_cli'),
+           ('l3_no_recommendation', 'l3'), ('writes_code_or_judges', 'code_debt'),
+           ('no_roadmap_priority', 'register'), ('plan_astra', 'tier'),
+           ('wrong_fallback', 'fallback'), ('no_role_map', 'routing'),
+           ('stale_generated', 'generated'), ('no_timer', 'schedule'))
+STABS = MUTANTS
 
 
-def mutate(root, kind):
-    if kind == 'no_frontmatter':
+def mutate(root, name):
+    if name == 'no_frontmatter':
         put(root, 'roles/architecture-steward.md', HONEST_ROLE.split('---\n', 2)[2])
-    elif kind == 'no_duties':
-        put(root, 'roles/architecture-steward.md', HONEST_ROLE.replace('## Схемы операций впрок', '## Частные советы'))
-    elif kind == 'steward_copy':
-        put(root, 'roles/architecture-steward.md', get(root, 'roles/steward.md').replace('role: steward', 'role: architecture-steward'))
-    elif kind in ('no_role_map', 'wrong_tier', 'wrong_fallback'):
-        conf = json.loads(get(root, 'config/agent_models.json'))
-        if kind == 'no_role_map':
-            del conf['roles'][ROLE]
-        elif kind == 'wrong_tier':
-            conf['roles'][ROLE] = 'steward'
-        else:
-            conf['tiers']['plan']['fallback'] = '@opus'
-        put(root, 'config/agent_models.json', json.dumps(conf, ensure_ascii=False, indent=2) + '\n')
-    elif kind == 'stale_generated':
-        agent = get(root, '.omp/agents/architecture-steward.md')
-        put(root, '.omp/agents/architecture-steward.md', agent.replace('model: ["@plan"]', 'model: ["@steward"]'))
-    elif kind == 'no_schedule':
-        (root / 'ops/server/root/systemd/orch-architecture.timer').unlink()
-    elif kind == 'no_dispatch':
+    elif name in ('humans_only', 'l3_no_recommendation', 'writes_code_or_judges', 'no_roadmap_priority'):
+        case = dict(MUTANTS)[name]
+        row = LINES[case][-1]
+        replacements = {
+            'humans_only': 'Принимай находки только от человека непрерывно в CompliorOS-architecture/governance/findings/',
+            'l3_no_recommendation': 'L3: вопрос владельцу без рекомендации.',
+            'writes_code_or_judges': 'Пиши код и суди предметы самостоятельно.',
+            'no_roadmap_priority': 'В реестре DRAFT достаточно списка операций без приоритета.',
+        }
+        role = get(root, 'roles/architecture-steward.md')
+        put(root, 'roles/architecture-steward.md', role.replace(row, replacements[name]))
+    elif name == 'silent_overdue':
+        put(root, 'scripts/findings_status.py', 'import sys\nsys.exit(0)\n')
+    elif name in ('calendar_only', 'blocker_missing'):
         peak = get(root, 'ops/server/root/orch-peak')
-        put(root, 'ops/server/root/orch-peak', re.sub(r'  architecture\)\n.*?    ;;\n', '', peak, count=1, flags=re.S))
-
-
-STABS = (('no_frontmatter', 'role'), ('no_duties', 'role'), ('steward_copy', 'role'),
-         ('no_role_map', 'routing'), ('wrong_tier', 'tier'), ('wrong_fallback', 'fallback'),
-         ('stale_generated', 'generated'), ('no_schedule', 'schedule'), ('no_dispatch', 'schedule'))
+        event = 'architecture-done' if name == 'calendar_only' else 'architecture-blocker'
+        peak, n = re.subn(r'  ' + event + r'\)\n.*?    ;;\n', '', peak, count=1, flags=re.S)
+        if n != 1:
+            raise RuntimeError('event arm missing: ' + event)
+        put(root, 'ops/server/root/orch-peak', peak)
+    elif name in ('plan_astra', 'wrong_fallback', 'no_role_map'):
+        cfg = json.loads(get(root, 'config/agent_models.json'))
+        if name == 'plan_astra':
+            cfg['roles'][ROLE] = 'plan'
+        elif name == 'wrong_fallback':
+            cfg['tiers'][TIER]['fallback'] = '@fable'
+        else:
+            del cfg['roles'][ROLE]
+        put(root, 'config/agent_models.json', json.dumps(cfg, ensure_ascii=False, indent=2) + '\n')
+    elif name == 'stale_generated':
+        agent = get(root, '.omp/agents/architecture-steward.md')
+        put(root, '.omp/agents/architecture-steward.md', agent.replace('model: ["@steward-arch"]', 'model: ["@plan"]'))
+    elif name == 'no_timer':
+        (root / 'ops/server/root/systemd/orch-architecture.timer').unlink()
 
 
 def main():
@@ -235,11 +291,8 @@ def main():
                 honest(root)
                 mutate(root, name)
                 good, reason = judge(root, case)
-                if good:
-                    print(f'186 STAB {name} ZHIV @ {case}')
-                    failures += 1
-                else:
-                    print(f'186 STAB {name} caught @ {case}: {reason}')
+                print(f'186 STAB {name} {"ZHIV" if good else "caught"} @ {case}: {reason}')
+                failures += good
     else:
         for case in CASES:
             with tempfile.TemporaryDirectory(prefix='arch-186-') as tmp:
@@ -249,8 +302,8 @@ def main():
                 good, reason = judge(root, case)
                 print(f'186 {case} {"ok" if good else "KRASNO"}: {reason}')
                 failures += not good
-    return bool(failures)
+    return int(bool(failures))
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    raise SystemExit(main())
