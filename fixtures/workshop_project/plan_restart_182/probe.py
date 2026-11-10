@@ -65,6 +65,9 @@ def world(tmp):
         (repo / 'registry' / 'plan.tsv').read_text().replace('147\t3\tдо V-2', '147\t9\tпосле V-2'))
     (repo / 'ROADMAP.md').write_text(
         (repo / 'ROADMAP.md').read_text().replace('| 3 | 147 | до V-2 |', '| 9 | 147 | после V-2 |'))
+    checked('git', '-C', str(repo), 'add', 'registry/plan.tsv', 'ROADMAP.md')
+    checked('git', '-C', str(repo), '-c', 'user.name=architect',
+            '-c', 'user.email=architect@dev-harness.local', 'commit', '-m', 'unpublished local plan')
     checked('git', '-C', str(repo), 'tag', 'done/contracts/147/99')  # unpushed tag
     expected = '\n'.join([
         f'PLAN_SNAPSHOT: origin/main={sha}',
@@ -121,7 +124,7 @@ def main():
         bad.mkdir()
         bad_repo, _ = world(bad)
         (bad_repo / 'ROADMAP.md').write_text(
-            checked('git', '-C', str(bad_repo), 'show', 'HEAD:ROADMAP.md') + '\n')
+            checked('git', '-C', str(bad_repo), 'show', 'origin/main:ROADMAP.md') + '\n')
         checked('git', '-C', str(bad_repo), 'add', 'registry/plan.tsv', 'ROADMAP.md')
         checked('git', '-C', str(bad_repo), '-c', 'user.name=architect',
                 '-c', 'user.email=architect@dev-harness.local', 'commit', '-m', 'mismatch')
@@ -135,10 +138,52 @@ def main():
             print(f'RED source-mismatch: rc={fail.returncode} stdout={fail.stdout[:90]!r} {fail.stderr[:90]}')
         else:
             print('GREEN source-mismatch')
+        # Both malformed published ROADMAPs must reject before emitting any plan rows.
+        # Each world is a separate public CLI invocation, not a combined first-red case.
+        for label, published_roadmap in (
+            ('missing-generated-block',
+             '# ROADMAP\n| пара | id | этап | трек | зависит | источник |\n'
+             '|---|---|---|---|---|---|\n'
+             '| 3 | 147 | до V-2 | complior | - | owner |\n'
+             '| 3 | 148 | до V-2 | complior | 147 | owner |\n'
+             '| 3 | 149 | до V-2 | complior | 148 | owner |\n'
+             '| 3 | 154 | до V-2 | autonomy | - | owner |\n'),
+            ('outside-generated-block',
+             '# ROADMAP\n| пара | id | этап | трек | зависит | источник |\n'
+             '|---|---|---|---|---|---|\n'
+             '| 3 | 154 | до V-2 | autonomy | - | owner |\n'
+             '<!-- BEGIN GENERATED PLAN -->\n'
+             '| пара | id | этап | трек | зависит | источник |\n'
+             '|---|---|---|---|---|---|\n'
+             '| 3 | 147 | до V-2 | complior | - | owner |\n'
+             '| 3 | 148 | до V-2 | complior | 147 | owner |\n'
+             '| 3 | 149 | до V-2 | complior | 148 | owner |\n'
+             '<!-- END GENERATED PLAN -->\n'),
+        ):
+            malformed = temp / label
+            malformed.mkdir()
+            malformed_repo, _ = world(malformed)
+            (malformed_repo / 'registry' / 'plan.tsv').write_text(
+                checked('git', '-C', str(malformed_repo), 'show', 'origin/main:registry/plan.tsv') + '\n')
+            (malformed_repo / 'ROADMAP.md').write_text(published_roadmap)
+            checked('git', '-C', str(malformed_repo), 'add', 'ROADMAP.md', 'registry/plan.tsv')
+            checked('git', '-C', str(malformed_repo), '-c', 'user.name=architect',
+                    '-c', 'user.email=architect@dev-harness.local', 'commit', '-m', label)
+            checked('git', '-C', str(malformed_repo), 'push', 'origin', 'main')
+            checked('git', '-C', str(malformed_repo), 'fetch', 'origin', 'main')
+            command = [sys.executable, MODEL, '--repo', malformed_repo] if args.model or args.stabs else [
+                'bash', target / 'scripts' / 'orch_plan_slice.sh', '--repo', malformed_repo]
+            result = run(*map(str, command))
+            if result.returncode != 1 or result.stdout or 'PLAN_ROADMAP_RASHOZHDENIE' not in result.stderr:
+                errors.append(label)
+                print(f'RED {label}: rc={result.returncode} stdout={result.stdout[:90]!r} {result.stderr[:90]}')
+            else:
+                print(f'GREEN {label}')
         if args.stabs:
             # Each decoy is checked against its own distinguishing coordinate.
             mutations = {'handoff': 'no-stale', 'stale': 'no-stale',
-                         'local': 'local-isolation', 'no-roadmap': 'roadmap'}
+                         'local': 'local-isolation', 'no-roadmap': 'roadmap',
+                         'head': 'published'}
             caught = 0
             for mutation, cell in mutations.items():
                 proc = run(sys.executable, str(MODEL), '--repo', str(repo), '--mutation', mutation)
@@ -149,7 +194,7 @@ def main():
                     print(f'STAB {mutation} ZHIV: {cell}')
             print(f'STABS={len(mutations)} CAUGHT={caught}')
             return int(caught != len(mutations) or bool(errors))
-        print(f'CELLS={count+1} GREEN={count+1-len(errors)}')
+        print(f'CELLS={count+3} GREEN={count+3-len(errors)}')
         return int(bool(errors))
 
 
