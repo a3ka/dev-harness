@@ -9,6 +9,7 @@
 - **172/170:** done опубликованы. **173:** freeze/тег — как в «~09:45». **175:** критик → freeze. **162:** после слияния mob#164.
 
 - **Номера PR (10:15):** #686 (HANDOFF 172), #687 (174: реализация + шаг CI), #688 (158 v+1 носитель `wip/int-158/architect` @ `1e46ddda4`) — все CI идёт; слить по зелёному `gh pr merge N --rebase --match-head-commit <sha>`; после слияния — `gitw fetch` + `gitw merge --ff-only origin/main` + ручной `--snapshot` по стоячей санкции (а)(б)(в).
+- **175 — критик подготовлен, НЕ спавнен (принудительный перезапуск 623K).** Задание `/tmp/dev-harness-verify/orch/task-175-critic.md` (OBJECT `5517790c633758ab4a5b5c94812038b18833f12a` = tip `wip/175/architect`; пути контракта/фикстур равны main). Шаги: `bash scripts/make_task.sh --repo /home/harness/dev-harness --role critic --kind task --contract 175 --task-file /tmp/dev-harness-verify/orch/task-175-critic.md --model-trace /tmp/dev-harness-verify/orch/trace-critic-168.tsv` (трасса там `critic zai/glm-5.3` — окно Terra закрыто 10:00 UTC, критик снова на GLM; при иной модели — свежая трасса) → `Task` agent `critic` с `SUBJECT=175`/`OBJECT=…` в тексте → accept → `freeze_contract.sh contracts/175-tablo-bez-demo.md "<причина>"` → implementer (`ops/server/user/orch-tablo`, `ops/server/README.md`).
 ## ГДЕ МЫ — 10.11 ~09:45 UTC (перезапуск по сторожу контекста 520K; дополняет «~09:50» ниже; читать первым)
 
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
