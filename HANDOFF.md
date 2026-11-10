@@ -1,5 +1,14 @@
 ЖДЁТ ВЛАДЕЛЬЦА: нет
 
+## ГДЕ МЫ — 10.11 ~10:15 UTC (дополняет «~09:45» ниже; читать первым)
+
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+- **СДЕЛАНО С 09:45.** done 170 и done 172 — теги на origin. 174 заморожен (`frozen/contracts/174/1`, реестр `0f98e8ab6`); реализация `Impl174Session` — `wip/174/implementer` `d7467e9a4d4c9a0d83b6cadb8ed9742274c32e75` (`scripts/models_actual.sh`, батарея `red_session_174.sh` rc 0); PR #687 (`wip/174/orchestrator`: реализация + шаг CI `check:models-actual-174-family-selftest` вес 4) — CI идёт; класс риска «обычный» → после зелёного CI ревьюер (OBJECT = полный tip `wip/174/implementer`, т.е. `d7467e9a4…`, последним рабочим в учёте замка является implementer) → merge → `done_contract.sh contracts/174-models-actual-session.md "<причина>"` (первый done) → публикация тега. HANDOFF-PR #686 — CI идёт, слить по зелёному.
+- **158 v+1 (шаг 2 арбитража) — ВЫПОЛНЕН.** `Architect158VPlus1` не смог писать в $WORKTREE (path-guard, пин не распознан), но подготовил коммит в одноразовом клоне `/tmp/dev-harness-verify/orch/158-architect-check` (`eb82a631f`, ДОСЛОВНАЯ строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ в теле); принят `accept_task_commit.sh --author architect` → `wip/158/architect` tip `1e46ddda4a88fce7246fcaeeb393905172df12e9` (2 файла: contracts/158-ekrannyj-nabor.md и SPEC.md, +19/−6; четыре условия иконки, клетки f34–f39, st14, a14; check_spec_ready rc 0, pre_critic rc 0, check_charter rc 0). Носитель `wip/int-158/architect` → PR (номер — `gh pr list --head wip/int-158/architect`), CI → merge (`gh pr merge N --rebase --match-head-commit <sha>`) → критик ТОЛЬКО на дельту `git diff frozen/contracts/158/3 <OBJECT>` по чек-листу (а)–(д) арбитража (OBJECT = полный tip `wip/158/architect` = `1e46ddda4a88fce7246fcaeeb393905172df12e9` либо актуальный после rebase), критик теперь на GLM (окно Terra закрыто 10:00 UTC) → accept → `freeze_contract.sh contracts/158-ekrannyj-nabor.md "<причина с РАЗРЕШИЛ-ВЛАДЕЛЕЦ>"` (158/4) → implementer перелэнд A/B/C тремя коммитами без squash → ревьюер 7 → done 158 (v>1: строка из стоячего разрешения п.1).
+- **143.** `Impl143Verify3` — всё ещё работает (>40 мин, ушёл в посторонний разбор зон; без yield судья не спавнится: «AVTOR_ESHCHO_RABOTAET»). Если не закончится — после рестарта сессии замок освободить `zamok_predmeta.sh --osvobodit` (причина `broshen` после 60 мин молчания журнала), затем адверсарий вызов 4 как в «~09:45».
+- **172/170:** done опубликованы. **173:** freeze/тег — как в «~09:45». **175:** критик → freeze. **162:** после слияния mob#164.
+
+- **Номера PR (10:15):** #686 (HANDOFF 172), #687 (174: реализация + шаг CI), #688 (158 v+1 носитель `wip/int-158/architect` @ `1e46ddda4`) — все CI идёт; слить по зелёному `gh pr merge N --rebase --match-head-commit <sha>`; после слияния — `gitw fetch` + `gitw merge --ff-only origin/main` + ручной `--snapshot` по стоячей санкции (а)(б)(в).
 ## ГДЕ МЫ — 10.11 ~09:45 UTC (перезапуск по сторожу контекста 520K; дополняет «~09:50» ниже; читать первым)
 
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
@@ -8683,7 +8692,6 @@ soreview-v1.md.
 - 162 · пара 3 · заморожен · трек complior
 - 163 · пара 3 · заморожен · трек complior
 - 168 · пара 3 · заморожен · трек autonomy
-- 172 · пара 3 · заморожен · трек autonomy
 - 174 · пара 3 · заморожен · трек autonomy
 - 095 · пара 4 · заморожен · трек context
 <!-- END GENERATED NEXT SESSION -->
