@@ -48,8 +48,9 @@ def main():
                     return refuse('MANIFESTY_NE_UBRANY')
                 time.sleep(0.01)
             if mutant != 'ignore_leak':
-                p = subprocess.run(['bash', str(root / 'scripts/check_no_leak.sh'), '--check', str(root)], capture_output=True, text=True)
-                if p.returncode:
+                detector = root / 'scripts/check_no_leak.sh' if mutant == 'prefer_local' else Path(__file__).resolve().parent / 'check_no_leak.sh'
+                p = subprocess.run(['bash', str(detector), '--check', str(root)], capture_output=True, text=True)
+                if p.returncode and mutant != 'ignore_leak_rc':
                     return refuse('CHECK_NO_LEAK_KRASEN')
             print('OBJECT=' + git(root, 'rev-parse', 'refs/remotes/origin/' + args.branch))
             print('SOSTOJANIE=' + str(state))
