@@ -12,4 +12,5 @@ esac
 rc=0
 python3 "$root/fixtures/workshop_project/architecture_steward_186/probe.py" "${args[@]}" || rc=1
 python3 "$root/fixtures/workshop_project/architecture_steward_186/door_probe.py" "${args[@]}" || rc=1
+python3 "$root/fixtures/workshop_project/architecture_steward_186/pin_probe.py" "${args[@]}" || rc=1
 exit "$rc"
