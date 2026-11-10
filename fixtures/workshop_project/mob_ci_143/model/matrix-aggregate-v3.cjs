@@ -10,7 +10,9 @@ try {
   const needs = JSON.parse(fs.readFileSync(needsPath, 'utf8'));
   const selection = JSON.parse(needs['select-screens'].outputs.selection);
   const rawMatrix = needs['select-screens'].outputs.matrix;
-  const matrix = rawMatrix === '' ? {include: []} : JSON.parse(rawMatrix);
+  const effectiveMatrix = rawMatrix === undefined ? '' : rawMatrix;
+  if (effectiveMatrix !== selection.matrix) reject('MATRIX_NE_SELECTION');
+  const matrix = effectiveMatrix === '' ? {include: []} : JSON.parse(effectiveMatrix);
   if (!Array.isArray(matrix.include)) reject('MATRIX_NE_JSON');
   const chosen = selection.selected.filter(s => s.job === 'e2e-screen').map(s => s.id);
   const fromMatrix = matrix.include.map(entry => entry.screen.id);

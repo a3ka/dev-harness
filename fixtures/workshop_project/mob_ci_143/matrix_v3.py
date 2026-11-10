@@ -164,9 +164,12 @@ def duplicate_matrix_case(tmp, field, reason, subject=SELECT_MODEL):
 
 
 
-def empty_case(tmp, script=AGG_MODEL):
+def empty_case(tmp, script=AGG_MODEL, omit_matrix=False):
     """A skipped matrix is valid only with a nonempty legacy selection."""
-    needs = {'select-screens': {'result': 'success', 'outputs': {'selection': '', 'matrix': ''}},
+    outputs = {'selection': '', 'matrix': ''}
+    if omit_matrix:
+        del outputs['matrix']
+    needs = {'select-screens': {'result': 'success', 'outputs': outputs},
              'quality': {'result': 'success'},
              'build-apk': {'result': 'success', 'outputs': {'apk_sha256': 'a' * 64,
                  'artifact_name': 'apk-411-aaaaaaaaaaaa', 'run_id': '411', 'run_attempt': '2'}},
@@ -178,7 +181,7 @@ def empty_case(tmp, script=AGG_MODEL):
            'excluded': [{'job': name, 'reason': 'NOT_SELECTED'} for name in LEGACY[1:]], 'matrix': ''}
     inp = tmp / 'empty-needs.json'
     proof = tmp / 'empty-proof'
-    proof.mkdir()
+    proof.mkdir(parents=True)
     def invoke(payload):
         needs['select-screens']['outputs']['selection'] = json.dumps(payload)
         inp.write_text(json.dumps(needs))
@@ -188,10 +191,15 @@ def empty_case(tmp, script=AGG_MODEL):
     absent = needs.pop('e2e-start')
     lost = invoke(sel)
     needs['e2e-start'] = absent
+    if omit_matrix:
+        mismatch = invoke(dict(sel, selected=sel['selected'] + [
+            {'id': 'vkladki', 'job': 'e2e-screen', 'reason': 'AFFECTED'}]))
+        if mismatch.returncode != 1 or 'MATRIX_NE_SELECTION' not in mismatch.stdout:
+            return checked(False, 'MATRIX_ABSENT_WITH_CHILD_ACCEPTED: ' + mismatch.stdout.strip())
     return checked(valid.returncode == 0 and 'CHILD_EVIDENCE_OK' in valid.stdout and
                    invalid.returncode == 1 and 'PUSTOJ_NABOR' in invalid.stdout and
                    lost.returncode == 1 and 'LEGACY_NEEDS_OTSUTSTVUET' in lost.stdout,
-                   'MATRIX_EMPTY_AGGREGATE')
+                   ('MATRIX_OUTPUT_ABSENT: ' + valid.stdout.strip()) if omit_matrix else 'MATRIX_EMPTY_AGGREGATE')
 
 
 
@@ -249,8 +257,10 @@ def evidence_case(root, model, tmp, missing=False, bad_digest=False, parent_fail
     mapping = demo_map()
     ids = [e['id'] for e in mapping['ekrany'] if e.get('job') == 'e2e-screen']
     sel = selected(mapping)
-    needs = {'select-screens': {'result': 'success', 'outputs': {
-        'selection': json.dumps(sel), 'matrix': sel['matrix']}},
+    outputs = {'selection': json.dumps(sel)}
+    if sel['matrix']:
+        outputs['matrix'] = sel['matrix']
+    needs = {'select-screens': {'result': 'success', 'outputs': outputs},
         'quality': {'result': 'success'}, 'build-apk': {'result': 'success', 'outputs': {
             'apk_sha256': 'a' * 64, 'artifact_name': 'apk-411-aaaaaaaaaaaa', 'run_id': '411', 'run_attempt': '2'}},
         'e2e-screen': {'result': 'success'}}
@@ -368,6 +378,9 @@ def main():
             results.append(('child-parent-failure',
                             evidence_case(root, True, tmp / 'parent-failure', parent_failure=True)))
         results.append(('empty-matrix', empty_case(tmp, AGG_MODEL if not args.repo else root / 'mobile/scripts/ci-aggregate.cjs')))
+        results.append(('empty-matrix-output-absent', empty_case(
+            tmp / 'absent', AGG_MODEL if not args.repo else root / 'mobile/scripts/ci-aggregate.cjs',
+            omit_matrix=True)))
         for name, (ok, reason) in results:
             print('КЛЕТКА %s %s%s' % (name, 'ЗЕЛЕНА' if ok else 'КРАСНА: ', '' if ok else reason))
         print('клеток %d, зелёных %d, красных %d' % (len(results), sum(ok for _, (ok, _) in results), sum(not ok for _, (ok, _) in results)))
@@ -430,6 +443,23 @@ def main():
                     print('STAB_ZHIV aggregate-echo @ ' + name)
                     return 1
                 print('СТАБ aggregate-echo @ %s КРАСЕН: %s' % (name, reason))
+            absent_stub = tmp / 'aggregate-requires-matrix-key.cjs'
+            aggregate_source = AGG_MODEL.read_text()
+            equality = '  if ((matrixOutput === undefined ? "" : matrixOutput) !== sel.matrix) otkaz("MATRIX_NE_SELECTION");'
+            if aggregate_source.count(equality) != 1:
+                print('ORACLE_TAMPERED: empty matrix mutation anchor', file=sys.stderr)
+                return 2
+            absent_stub.write_text(aggregate_source.replace(
+                equality, '  if (matrixOutput !== sel.matrix) otkaz("MATRIX_NE_SELECTION");'))
+            ok, reason = empty_case(tmp / 'weak-empty-absent', absent_stub, omit_matrix=True)
+            if ok or 'MATRIX_NE_SELECTION' not in reason:
+                print('STAB_ZHIV aggregate-requires-matrix-key @ empty-matrix-output-absent: ' + reason)
+                return 1
+            print('СТАБ aggregate-requires-matrix-key @ empty-matrix-output-absent КРАСЕН: ' + reason)
+            ok, reason = empty_case(tmp / 'weak-empty-present', absent_stub)
+            if not ok:
+                print('STAB_NE_K_ETOMU_VHODU aggregate-requires-matrix-key @ empty-matrix: ' + reason)
+                return 1
             flow_stub = tmp / 'selector-no-flow.cjs'
             flow_guard = '''      if (poFlow.has(flow) && (args.mode === "schedule" || args.mode === "dispatch")) {
         return { oshibka: "INVENTAR_KARTY", label, flow };
@@ -470,7 +500,7 @@ def main():
                 print('STAB_ZHIV aggregate-no-parent @ child-parent-failure')
                 return 1
             print('СТАБ aggregate-no-parent @ child-parent-failure КРАСЕН: ' + reason)
-            print('стабов %d, привязок %d, живых 0' % (len(STUBS) + 8, len(STUBS) + 15))
+            print('стабов %d, привязок %d, живых 0' % (len(STUBS) + 9, len(STUBS) + 16))
         return 0
 
 
