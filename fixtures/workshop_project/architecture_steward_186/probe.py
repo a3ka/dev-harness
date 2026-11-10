@@ -34,7 +34,7 @@ def world(source, tmp):
     root.mkdir()
     for relative in ('roles', '.omp/agents', 'config/agent_models.json', '.omp/config.yml',
                      'scripts/roles.ts', 'scripts/gen-harness.ts', 'scripts/findings_status.py',
-                     'ops/server/root/orch-peak', 'ops/server/root/systemd', 'ops/server/install.sh'):
+                     'scripts/architecture_review.py', 'ops/server/root/orch-peak', 'ops/server/root/systemd', 'ops/server/install.sh'):
         src, dst = source / relative, root / relative
         if src.is_dir():
             shutil.copytree(src, dst)
@@ -53,15 +53,21 @@ LINES = {
     'intake': ('Находки', 'Принимай находки от любой роли и человека непрерывно в CompliorOS-architecture/governance/findings/.'),
     'status': ('Статусы', 'Статус: принята L1/L2/L3 | отклонена: причина | вопрос владельцу.',
                'Файл без статуса старше одного среза назови в отчёте governance/review/; findings_status.py возвращает rc 1.'),
-    'l1': ('L1', 'L1: PR хранителя либо architect предмета → шестой вопрос critic → слияние; check --base PASS.'),
-    'l2': ('L2', 'L2: пачка arch/l2-Э → diff → critic → снимок и digest владельца.'),
-    'l3': ('L3', 'L3: один файл = один вопрос владельцу + одна рекомендация; решение принимает владелец.'),
+    'l1': ('L1', 'L1: PR хранителя либо architect предмета → шестой вопрос critic → слияние; check --base PASS.',
+           'L1: PR в CompliorOS-architecture с отдельным коммитом модели и diff; автор (Астра/хранитель) сам не сливает, назначенный владельцем мейнтейнер сливает без нового слова владельца; до назначения мейнтейнер — владелец.'),
+    'l2': ('L2', 'L2: пачка arch/l2-Э → diff → critic → снимок и digest владельца.',
+           'L2: автор не сливает PR; слияние только с записью владельца.'),
+    'l3': ('L3', 'L3: один файл = один вопрос владельцу + одна рекомендация; решение принимает владелец.',
+           'L3: автор не сливает PR; слияние только с записью владельца.'),
     'register': ('Реестр', 'Реестр DRAFT/недостающих контрактов строится из check contractReadiness.unresolved.',
                  'Для каждой операции расставь приоритет по ROADMAP: предмет, Э-этап, срок до контракта X.'),
+    'register_ci': ('CI реестра', 'Поручи Астре в CompliorOS-architecture реализовать генерацию governance/REGISTER.md из check contractReadiness.unresolved и проектный CI check: устаревший REGISTER.md возвращает rc 1; харнесс не хранит и не проверяет проектный реестр.'),
     'code_debt': ('Граница полномочий', 'Находку, требующую кода, передай проектному оркестратору как B-DEBT/предмет.',
                   'Не пиши код, не суди предметы и не требуй подписи хранителя для freeze/done.'),
     'review': ('Обзор', 'После done последнего предмета каждого Э-этапа делай обзор в CompliorOS-architecture/governance/review/.',
-               'При блокирующей находке делай обзор сразу; недельный timer — только страховка.'),
+               'При блокирующей находке делай обзор сразу; недельный timer — только страховка.',
+               'Коммит обзора: governance/review/<дата>-<Э>.md, включая пустой срез; после done без файла обзора сообщи оркестратору находку.'),
+    'review_check': ('Контроль обзора', 'После обзора среза вызови architecture_review.py <корень-CompliorOS-architecture> <дата> <Э>; при НЕТ ОБЗОРА и rc 1 передай находку оркестратору.'),
 }
 HONEST_ROLE = ('---\nrole: architecture-steward\ntools: [read, grep, glob, bash, write, edit]\nverdict: null\n---\n\n'
                '# Хранитель архитектуры\n\n' + '\n'.join(
@@ -79,11 +85,33 @@ for name in past:
     path = root / name
     if not path.is_file():
         continue
-    statuses = [line for line in path.read_text().splitlines() if line.startswith('Статус:')]
-    if not statuses or not statuses[0].removeprefix('Статус:').strip():
+    statuses = [line.removeprefix('Статус:').strip() for line in path.read_text().splitlines()
+                if line.startswith('Статус:')]
+    status = statuses[0] if len(statuses) == 1 else ''
+    valid = status in ('принята L1', 'принята L2', 'принята L3', 'вопрос владельцу') or (
+        status.startswith('отклонена: ') and bool(status.removeprefix('отклонена: ').strip()))
+    if not valid:
         print('ПРОСРОЧЕНО: ' + name)
         bad = True
 sys.exit(int(bad))
+'''
+HONEST_REVIEW_SCRIPT = '''#!/usr/bin/env python3
+import pathlib
+import subprocess
+import sys
+root, date, stage = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+name = 'governance/review/' + date + '-' + stage + '.md'
+result = subprocess.run(['git', '-C', str(root), 'show', 'HEAD:' + name],
+                        text=True, capture_output=True)
+if result.returncode or not result.stdout.strip():
+    print('НЕТ ОБЗОРА: ' + name)
+    sys.exit(1)
+headings = {'## Дельта модели', '## arch:conform на main', '## Находки',
+            '## L2-пачка', '## DRAFT-реестр'}
+if not headings.issubset(set(result.stdout.splitlines())):
+    print('НЕПОЛНЫЙ ОБЗОР: ' + name)
+    sys.exit(1)
+sys.exit(0)
 '''
 
 
@@ -97,6 +125,7 @@ def honest(root):
     config['routing']['rules'].append({'class': 'обзор архитектуры после done этапа и блокирующей находки', 'role': ROLE})
     put(root, 'config/agent_models.json', json.dumps(config, ensure_ascii=False, indent=2) + '\n')
     put(root, 'scripts/findings_status.py', HONEST_STATUS_SCRIPT)
+    put(root, 'scripts/architecture_review.py', HONEST_REVIEW_SCRIPT)
     put(root, 'ops/server/root/systemd/orch-architecture.timer',
         '[Unit]\nDescription=Страховка обзора архитектуры\n[Timer]\nOnCalendar=Mon *-*-* 09:00:00 UTC\nUnit=orch-peak@architecture.service\nPersistent=false\n[Install]\nWantedBy=timers.target\n')
     peak = get(root, 'ops/server/root/orch-peak')
@@ -220,13 +249,73 @@ def judge(root, case):
             put(project, 'governance/findings/001-old.md', finding('implementer', 'принята L1'))
             resolved = run(['python3', str(path), str(project), 'HEAD'], root)
             ok = resolved.returncode == 0 and not resolved.stdout.strip()
-            return ok, 'старый/свежий/разобранный статус' if ok else 'неверная полярность статуса'
+            if not ok:
+                return False, 'неверная полярность статуса'
+            put(project, 'governance/findings/001-old.md', finding('implementer', 'ожидание без решения'))
+            invalid = run(['python3', str(path), str(project), 'HEAD'], root)
+            ok = invalid.returncode == 1 and invalid.stdout.splitlines() == [expected]
+            return ok, 'старый/свежий/разобранный/неконформный статус' if ok else 'неконформный статус скрывает просрочку'
+    if case == 'review_file':
+        path = root / 'scripts/architecture_review.py'
+        if not path.is_file():
+            return False, 'нет исполняемой проверки обзора'
+        with tempfile.TemporaryDirectory(prefix='arch-186-review-') as tmp:
+            project = Path(tmp)
+            run(['git', 'init', '-q', '-b', 'main'], project)
+            put(project, 'seed.txt', 'slice')
+            run(['git', 'add', '.'], project)
+            committed = run(['git', '-c', 'user.name=architect', '-c', 'user.email=architect@dev-harness.local',
+                             'commit', '-qm', 'prior slice'], project)
+            if committed.returncode:
+                raise RuntimeError(committed.stderr)
+            argv = ['python3', str(path), str(project), '2026-11-10', 'Э2']
+            missing = run(argv, root)
+            expected = 'НЕТ ОБЗОРА: governance/review/2026-11-10-Э2.md'
+            if missing.returncode != 1 or missing.stdout.splitlines() != [expected]:
+                return False, 'нет отчёта оркестратору при пропуске done'
+            put(project, 'governance/review/2026-11-10-Э2.md',
+                '## Дельта модели\nбез дельт\n## arch:conform на main\n0 новых\n'
+                '## Находки\nнет\n## L2-пачка\nнет\n## DRAFT-реестр\nсрок до контракта X\n')
+            uncommitted = run(argv, root)
+            if uncommitted.returncode != 1 or uncommitted.stdout.splitlines() != [expected]:
+                return False, 'непереданный в PR файл выдаётся за коммит обзора'
+            run(['git', 'add', '.'], project)
+            committed = run(['git', '-c', 'user.name=architect', '-c', 'user.email=architect@dev-harness.local',
+                             'commit', '-qm', 'review'], project)
+            if committed.returncode:
+                raise RuntimeError(committed.stderr)
+            put(project, 'governance/review/2026-11-10-Э2.md', 'вроде обзор\n')
+            run(['git', 'add', '.'], project)
+            incomplete_commit = run(['git', '-c', 'user.name=architect', '-c', 'user.email=architect@dev-harness.local',
+                                     'commit', '-qm', 'incomplete review'], project)
+            if incomplete_commit.returncode:
+                raise RuntimeError(incomplete_commit.stderr)
+            incomplete = run(argv, root)
+            if incomplete.returncode != 1 or incomplete.stdout.splitlines() != [
+                    'НЕПОЛНЫЙ ОБЗОР: governance/review/2026-11-10-Э2.md']:
+                return False, 'пустое содержание выдаётся за обзор'
+            put(project, 'governance/review/2026-11-10-Э2.md',
+                '## Дельта модели\nбез дельт\n## arch:conform на main\n0 новых\n'
+                '## Находки\nнет\n## L2-пачка\nнет\n## DRAFT-реестр\nсрок до контракта X\n')
+            run(['git', 'add', '.'], project)
+            restored = run(['git', '-c', 'user.name=architect', '-c', 'user.email=architect@dev-harness.local',
+                            'commit', '-qm', 'complete review'], project)
+            if restored.returncode:
+                raise RuntimeError(restored.stderr)
+            complete = run(argv, root)
+            ok = complete.returncode == 0 and not complete.stdout.strip()
+            return ok, 'пропущенный/незакоммиченный/неполный/полный обзор' if ok else 'обзор не признан'
     raise ValueError(case)
 
 
-CASES = ('role', *LINES, 'status_cli', 'routing', 'tier', 'fallback', 'generated', 'done', 'blocker', 'schedule')
+CASES = ('role', *LINES, 'status_cli', 'review_file', 'routing', 'tier', 'fallback', 'generated', 'done', 'blocker', 'schedule')
 MUTANTS = (('no_frontmatter', 'role'), ('calendar_only', 'done'), ('blocker_missing', 'blocker'),
-           ('humans_only', 'intake'), ('silent_overdue', 'status_cli'),
+           ('humans_only', 'intake'), ('silent_overdue', 'status_cli'), ('invalid_status', 'status_cli'),
+           ('review_without_file', 'review'), ('silent_missing_review', 'review_file'),
+           ('uncommitted_review', 'review_file'), ('incomplete_review', 'review_file'),
+           ('no_register_ci_task', 'register_ci'),
+           ('l1_not_pr', 'l1'), ('l1_self_merge', 'l1'), ('l1_same_commit', 'l1'),
+           ('l2_self_merge', 'l2'), ('l3_self_merge', 'l3'),
            ('l3_no_recommendation', 'l3'), ('writes_code_or_judges', 'code_debt'),
            ('no_roadmap_priority', 'register'), ('plan_astra', 'tier'),
            ('wrong_fallback', 'fallback'), ('no_role_map', 'routing'),
@@ -237,19 +326,45 @@ STABS = MUTANTS
 def mutate(root, name):
     if name == 'no_frontmatter':
         put(root, 'roles/architecture-steward.md', HONEST_ROLE.split('---\n', 2)[2])
-    elif name in ('humans_only', 'l3_no_recommendation', 'writes_code_or_judges', 'no_roadmap_priority'):
+    elif name in ('humans_only', 'l3_no_recommendation', 'writes_code_or_judges',
+                  'no_roadmap_priority', 'review_without_file', 'no_register_ci_task',
+                  'l1_not_pr', 'l1_same_commit', 'l1_self_merge', 'l2_self_merge', 'l3_self_merge'):
         case = dict(MUTANTS)[name]
-        row = LINES[case][-1]
+        row = LINES[case][1 if name in ('humans_only', 'l3_no_recommendation', 'no_register_ci_task') else -1]
         replacements = {
             'humans_only': 'Принимай находки только от человека непрерывно в CompliorOS-architecture/governance/findings/',
             'l3_no_recommendation': 'L3: вопрос владельцу без рекомендации.',
             'writes_code_or_judges': 'Пиши код и суди предметы самостоятельно.',
             'no_roadmap_priority': 'В реестре DRAFT достаточно списка операций без приоритета.',
+            'review_without_file': 'После done достаточно устного обзора; файл и находка оркестратору не нужны.',
+            'no_register_ci_task': 'Реестр ведётся без сверки; Астру не беспокоить.',
+            'l1_not_pr': row.replace('PR в CompliorOS-architecture', 'коммит напрямую в main'),
+            'l1_same_commit': row.replace('отдельным коммитом модели и diff', 'одним коммитом вместе с кодом'),
+            'l1_self_merge': row.replace('автор (Астра/хранитель) сам не сливает', 'автор сам сливает'),
+            'l2_self_merge': 'L2: автор сам сливает PR без записи владельца.',
+            'l3_self_merge': 'L3: автор сам сливает PR без записи владельца.',
         }
         role = get(root, 'roles/architecture-steward.md')
+        if role.count(row) != 1:
+            raise RuntimeError('role mutant anchor missing: ' + name)
         put(root, 'roles/architecture-steward.md', role.replace(row, replacements[name]))
     elif name == 'silent_overdue':
         put(root, 'scripts/findings_status.py', 'import sys\nsys.exit(0)\n')
+    elif name == 'invalid_status':
+        status = get(root, 'scripts/findings_status.py')
+        put(root, 'scripts/findings_status.py', status.replace('if not valid:', 'if not status:'))
+    elif name == 'silent_missing_review':
+        put(root, 'scripts/architecture_review.py', 'import sys\nsys.exit(0)\n')
+    elif name == 'uncommitted_review':
+        put(root, 'scripts/architecture_review.py',
+            HONEST_REVIEW_SCRIPT.replace("result = subprocess.run(['git', '-C', str(root), 'show', 'HEAD:' + name],\n"
+                                         "                        text=True, capture_output=True)",
+                                         "result = subprocess.CompletedProcess([], 0, (root / name).read_text() if (root / name).is_file() else '', '')"))
+    elif name == 'incomplete_review':
+        script = get(root, 'scripts/architecture_review.py')
+        put(root, 'scripts/architecture_review.py', script.replace(
+            "if not headings.issubset(set(result.stdout.splitlines())):",
+            "if not result.stdout.strip():"))
     elif name in ('calendar_only', 'blocker_missing'):
         peak = get(root, 'ops/server/root/orch-peak')
         event = 'architecture-done' if name == 'calendar_only' else 'architecture-blocker'
