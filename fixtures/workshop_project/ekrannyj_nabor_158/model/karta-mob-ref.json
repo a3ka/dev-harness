@@ -1,0 +1,83 @@
+{
+  "ekran": "mob-ref-tabbar",
+  "istochnik": "/tmp/dev-harness-verify/Arch148t/mob-ref",
+  "profili": [
+    "390",
+    "393"
+  ],
+  "maska_393": 48,
+  "sostojanija": [
+    {
+      "id": "start",
+      "vhod": null
+    },
+    {
+      "id": "profil",
+      "vhod": "shell-profile-entry"
+    }
+  ],
+  "tceli": [
+    {
+      "testID": "shell-profile-entry",
+      "objazatelna": true,
+      "sostojanija": [
+        "start",
+        "profil"
+      ],
+      "nadpis": null,
+      "postuslovie": {
+        "tip": "perehod",
+        "znachenie": "profile-surface"
+      },
+      "accessibilityLabel": "Profil und Einstellungen"
+    },
+    {
+      "testID": "shell-tab-start",
+      "objazatelna": true,
+      "sostojanija": [
+        "start"
+      ],
+      "nadpis": "Start",
+      "postuslovie": {
+        "tip": "perehod",
+        "znachenie": "section-start"
+      }
+    },
+    {
+      "testID": "shell-tab-vorgaenge",
+      "objazatelna": true,
+      "sostojanija": [
+        "start"
+      ],
+      "nadpis": "Vorgänge",
+      "postuslovie": {
+        "tip": "perehod",
+        "znachenie": "section-vorgaenge"
+      }
+    },
+    {
+      "testID": "shell-tab-schutz",
+      "objazatelna": true,
+      "sostojanija": [
+        "start"
+      ],
+      "nadpis": "Schutz",
+      "postuslovie": {
+        "tip": "perehod",
+        "znachenie": "section-schutz"
+      }
+    },
+    {
+      "testID": "shell-tab-post",
+      "objazatelna": true,
+      "sostojanija": [
+        "start"
+      ],
+      "nadpis": "Post",
+      "postuslovie": {
+        "tip": "perehod",
+        "znachenie": "section-post"
+      }
+    }
+  ]
+}
