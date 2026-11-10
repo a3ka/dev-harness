@@ -25,10 +25,10 @@
 
 ## Приёмка
 
-- Дано: локальный честный мир с внутренним профилем и ссылкой внутри `.harness/`; когда `python3 fixtures/workshop_project/external_connection_184/probe.py --model`; тогда rc 0, каждая клетка `CELL ... ok`, в том числе generator-good и generator-wrong-id. Дано: отдельные конформные миры со ссылками в CI/README/config/.gitignore/вложенном коде, с root profile и подменённым repoId; та же команда → rc 0 как честный оракул их отказов `ssylka`/`profil`.
-- Дано: до-предметная станция; когда `python3 fixtures/workshop_project/external_connection_184/probe.py --repo /home/harness/projects/Complior-back`; тогда rc 1, именованные `CELL ... RED`, `PRODUCT_REF_COUNT` ненулевой и `PRODUCT_ROOT_PROFILE`; та же команда с `/home/harness/projects/Complior-mob` → rc 1. Дано: реализация плюс мигрированные продуктовые checkout; те же команды → rc 0, `PRODUCT_REF_COUNT 0`, ни root profile, ни красных клеток; `.harness/contracts`, `.harness/verdicts`, registry/state и history остаются на своём origin.
-- Дано: обманные реализации; когда `python3 fixtures/workshop_project/external_connection_184/probe.py --stabs`; тогда rc 0 и каждая строка `STAB ... caught`; вход привязан к каждому стабу в коде батареи, общий case не засчитывается. Дано: добавлена одна ссылка за пределами каталога инструмента; когда `bash scripts/check_project_connection.sh --repo <toy-git>`; тогда rc 1 с причиной `ssylka`, тогда как тот же toy до мутации → rc 0; с чужим repoId → rc 1 `profil`. Генератор на ci.json с projectId собственного слоя → rc 0 и CI без `.harness/`, на чужом projectId → rc 1 `profil-rashozhdenie` без записи.
-- Дано: кандидат на суд; когда `bash scripts/check_precision_gate.sh . contracts/184-vneshnyaya-zamena-podkljucheniya-proekta.md` и затем `bash scripts/pre_critic.sh contracts/184-vneshnyaya-zamena-podkljucheniya-proekta.md` (ПОСЛЕДОВАТЕЛЬНО); тогда оба rc 0. Перед done: `bash scripts/check_provodka.sh . contracts/184-vneshnyaya-zamena-podkljucheniya-proekta.md` → rc 0 после подключения пробы 184 в CI; `bash scripts/check_project_sources.sh --repo <product-root> --contract .harness/contracts/<product-NNN>.md --stage done` на продукте с sourceCanon → rc 0, без скрытого пропуска.
+- Дано: локальный честный мир с внутренним профилем и ссылкой внутри `.harness/`; когда `bash fixtures/workshop_project/external_connection_184/red_external_connection_184.sh --model`; тогда rc 0, каждая клетка `CELL ... ok`, в том числе generator-good, generator-wrong-id и ci-entrypoint. Дано: отдельные конформные миры со ссылками в CI/README/config/.gitignore/вложенном коде, с root profile и подменённым repoId; та же команда → rc 0 как честный оракул их отказов `ssylka`/`profil`. Отсутствующая обёртка, обёртка без Python или потеря кода возврата пробы → `CELL ci-entrypoint: RED`, rc 1; отсутствие python3 в PATH обёртки → rc 2 `NOT_IMPLEMENTED: python3 unavailable`.
+- Дано: до-предметная станция; когда `bash fixtures/workshop_project/external_connection_184/red_external_connection_184.sh --repo /home/harness/projects/Complior-back`; тогда rc 1, именованные `CELL ... RED`, `PRODUCT_REF_COUNT` ненулевой и `PRODUCT_ROOT_PROFILE`; та же команда с `/home/harness/projects/Complior-mob` → rc 1. Дано: реализация плюс мигрированные продуктовые checkout; те же команды → rc 0, `PRODUCT_REF_COUNT 0`, ни root profile, ни красных клеток; `.harness/contracts`, `.harness/verdicts`, registry/state и history остаются на своём origin. Реальные checkout'ы не запускаются в CI харнесса до миграции: оркестратор предъявляет эти две команды read-only на актуальных Complior-back/Complior-mob при done.
+- Дано: обманные реализации, включая отсутствие CI-обёртки и обёртку, скрывающую rc пробы; когда `bash fixtures/workshop_project/external_connection_184/red_external_connection_184.sh --stabs`; тогда rc 0 и каждая строка `STAB ... caught`; вход привязан к каждому стабу в коде батареи, общий case не засчитывается. Дано: добавлена одна ссылка за пределами каталога инструмента; когда `bash scripts/check_project_connection.sh --repo <toy-git>`; тогда rc 1 с причиной `ssylka`, тогда как тот же toy до мутации → rc 0; с чужим repoId → rc 1 `profil`. Генератор на ci.json с projectId собственного слоя → rc 0 и CI без `.harness/`, на чужом projectId → rc 1 `profil-rashozhdenie` без записи.
+- Дано: кандидат на суд; когда `bash scripts/check_precision_gate.sh . contracts/184-vneshnyaya-zamena-podkljucheniya-proekta.md` и затем `bash scripts/pre_critic.sh contracts/184-vneshnyaya-zamena-podkljucheniya-proekta.md` (ПОСЛЕДОВАТЕЛЬНО); тогда оба rc 0. Для CI оркестратор добавляет шаг `bash fixtures/workshop_project/external_connection_184/red_external_connection_184.sh --model && bash fixtures/workshop_project/external_connection_184/red_external_connection_184.sh --stabs` в `registry/ci-steps.tsv`, его замер — в `registry/ci-zamery.tsv`, запускает `bash scripts/gen_ci_steps.sh --write` и `--check` (rc 0). Перед done: `bash scripts/check_provodka.sh . contracts/184-vneshnyaya-zamena-podkljucheniya-proekta.md` → rc 0 после регистрации шага; `bash scripts/check_project_sources.sh --repo <product-root> --contract .harness/contracts/<product-NNN>.md --stage done` на продукте с sourceCanon → rc 0, без скрытого пропуска.
 
 ## Модель угроз
 
@@ -48,6 +48,19 @@
 ЗОНА adversary: verdicts/adversary/
 ЗОНА reviewer: verdicts/review/
 ЗОНА orchestrator: registry/ci-steps.tsv registry/ci-zamery.tsv .github/workflows/ci.yml
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 182 только шаг 184, чужие шаги неизменны.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 185 только шаг 184, чужие шаги неизменны.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 186 только шаг 184, чужие шаги неизменны.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 187 только шаг 184, чужие шаги неизменны.
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 182 только строка 184, чужие строки неизменны.
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 185 только строка 184, чужие строки неизменны.
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 186 только строка 184, чужие строки неизменны.
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 187 только строка 184, чужие строки неизменны.
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 083 только замер 184, чужие замеры неизменны.
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 182 только замер 184, чужие замеры неизменны.
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 185 только замер 184, чужие замеры неизменны.
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 186 только замер 184, чужие замеры неизменны.
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 187 только замер 184, чужие замеры неизменны.
 ПЕРЕСЕЧЕНИЕ implementer: scripts/gen_project_workflow.sh — 122 сравнение projectId c effective layer через резолвер, формат и состав CI без изменения.
 ПЕРЕСЕЧЕНИЕ implementer: scripts/check_zones.sh — 002 сохраняет прежние зоны; меняется лишь обнаружение проектного профиля.
 ПЕРЕСЕЧЕНИЕ implementer: scripts/check_zones.sh — 003 сохраняет прежние зоны; меняется лишь обнаружение проектного профиля.
@@ -121,8 +134,8 @@
 ## Проводка
 
 ПРОВОДКА:
-- guard=fixtures/workshop_project/external_connection_184/probe.py
-ПРОВОДКА-ЭНФОРСМЕНТ: исполняемая батарея 184 подключается отдельным шагом CI харнесса; она вызывает настоящий `scripts/check_project_connection.sh` на disposable checkout и судит placement и ссылки, не заменяя поведенческой нормы роли.
+- guard=fixtures/workshop_project/external_connection_184/red_external_connection_184.sh
+ПРОВОДКА-ЭНФОРСМЕНТ: Исполнимая bash-обёртка в зоне architect с теми же `--model`, `--stabs`, `--repo <корень>` вызывает `probe.py` и сохраняет её rc; одна допустимая CI-команда в реестре запускает обе зелёные ветви. Реальные продуктовые checkout'ы до cutover красны и проверяются при done вне CI.
 
 ## Незаполненные требования:
 нет
