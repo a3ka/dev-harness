@@ -1,81 +1,39 @@
-FAIL
-OBJECT=acb0da9205cfd921fa80eb6a28f52ec30fab49f4
-СУД: repo=dev-harness; предмет=184; фаза=контракт; роль=critic; вызов=2/2; модель-план=zai/glm-5.3; сессия=c907157c; модель-факт=openai-codex/gpt-5.6-terra; SHA=acb0da9205cfd921fa80eb6a28f52ec30fab49f4; предыдущий=verdicts/critic/contracts-184-v1-krug1-fail.md; исключение=нет
+accept
+OBJECT=14b549566f57c3448b3e8f01ea118ab372107565
+СУД: repo=dev-harness; предмет=184; фаза=контракт; роль=critic; вызов=4/2 (исправительный по санкции оркестратора №2); модель-план=zai/glm-5.3; сессия=c907157c; модель-факт=openai-codex/gpt-5.6-terra; SHA=14b549566f57c3448b3e8f01ea118ab372107565; предыдущий=verdicts/critic/contracts-184-v1-vyzov3-fail.md; исключение=санкция оркестратора №2 (§Остановка)
 
-Статус блока круга 1: исходный класс «нет исполнимого CI-entrypoint» закрыт: на OBJECT есть `red_external_connection_184.sh`, честные `--model` и `--stabs` зелёные, а регистрация команды в одноразовой копии проходит `gen_ci_steps --write/--check` и `check_provodka`.
+# Вердикт критика — контракт 184 «внешняя замена подключения проекта (А10)», исправительный вызов 4/2
 
-БЛОКИРУЕТ contracts/184-vneshnyaya-zamena-podkljucheniya-proekta.md:31,137-138 — зарегистрированная CI-команда считает подмену своего единственного entrypoint успешной и потому не доказывает выполнение `probe.py`.
-ОБЯЗАТЕЛЬСТВО: заявленные CI `--model` и `--stabs` должны доказывать выполнение батареи 184; удаление вызова `probe.py` или подмена её статуса не может дать этой команде rc 0.
-КЛАСС ПРИЧИНЫ: ложная достаточность самопроверяющегося CI-entrypoint.
-СОСТОЯНИЕ: источник входа — поддерживаемая в критерии строка CI `bash fixtures/workshop_project/external_connection_184/red_external_connection_184.sh --model && bash fixtures/workshop_project/external_connection_184/red_external_connection_184.sh --stabs`; она прямо названа в приёмке и должна быть записана оркестратором в `registry/ci-steps.tsv`. Источник ошибочного механизма — существующая предметная операция обёртки `PYTHONDONTWRITEBYTECODE=1 python3 "$HERE/probe.py" "$@"; в одноразовом клоне она заменена на `exit 0`, то есть вызов пробы удалён, а не добавлена новая ветвь.
-НАБЛЮДЕНИЕ: после этой замены ровно объявленная CI-цепочка ниже вернула rc 0 без какого-либо вывода: ни `probe.py`, ни красные клетки, ни стабы не были выполнены. Это достижимо в заявленном CI-пути и нарушает названное обязательство.
-ОБХОД: файл `red_external_connection_184.sh` из `#!/usr/bin/env bash` и `exit 0` удовлетворяет CI-критерию по коду возврата, хотя батарея 184 не запускалась вообще.
-ЗАКРЫВАЮЩЕЕ СВОЙСТВО: успех зарегистрированного CI-пути опирается на независимое от изменяемой обёртки свидетельство завершения обеих ветвей пробы; удаление вызова `probe.py` либо поглощение его ненулевого rc обязательно делает CI-путь красным.
-МИНИМАЛЬНОЕ ИСПРАВЛЕНИЕ: дополнить контракт и красную батарею независимым от проверяемой обёртки CI-доказательством этого свойства, затем предъявить красную мутацию удаления вызова и зелёный честный путь.
+## Кандидат, независимость и законность вызова
 
-ПРОГОНЫ (сырой вывод):
+OBJECT проверен в отдельном одноразовом SSH-клоне: `git fetch origin wip/184/architect` дал `14b549566f57c3448b3e8f01ea118ab372107565`, detached `HEAD` установлен на этот SHA. Автор OBJECT — `architect <architect@dev-harness.local>`; судья — отдельная сессия `c907157c`, собственной работы не судит. План модели — `zai/glm-5.3`; фактическая модель — `openai-codex/gpt-5.6-terra`, допустимый autoFallback тира `apex-sol` (`config/agent_models.json:59-63,94`).
 
-$ bash scripts/pre_critic.sh contracts/184-vneshnyaya-zamena-podkljucheniya-proekta.md
+Запуск 4/2 законен только как одноразовая исправительная проверка: `origin/wip/012/orchestrator:HANDOFF.md` содержит `САНКЦИЯ-ОРКЕСТРАТОРА №2` именно для предмета 184, этого OBJECT, предыдущего `verdicts/critic/contracts-184-v1-vyzov3-fail.md`, письменного согласия автора и класса остаточного риска подмены `probe.py`. Поэтому проверены закрытие единственного блока вызова 3 и последствия его дельты; неизменённые поверхности заново не исследовались.
+
+## Закрытие блока вызова 3
+
+Блок закрыт. `contracts/184-vneshnyaya-zamena-podkljucheniya-proekta.md:41` называет ранее наблюдённую конформную подмену `probe.py` на `raise SystemExit(0)`, её наблюдение (полная CI-цепочка возвращает rc 0 без клеток) и границу прямого Python-вызова. `contracts/184-vneshnyaya-zamena-podkljucheniya-proekta.md:52` явно относит эту подмену, включая точный путь и `raise SystemExit(0)`, к `НЕ ЗАЩИЩАЕТ`, помечает остаток `cognitive-only` и называет ловцы: reviewer по git-diff неизменности батареи, `check_contract_frozen` для текста и CI-стражи зон для файлов.
+
+Граница не противоречит `ЗАЩИЩАЕТ` на строках 46–47: те буллеты защищают ссылки в product-файлах и FD/inode-границу внешнего файла, а не собственную целостность выполняемой пробы. Отказ добавлять счётчики обоснован: подменённый проверяемый `probe.py` способен напечатать ожидаемые счётчики, поэтому stdout не докажет происхождение вычисления. Это прямо соответствует правилу 8 `AGENTS.md`: исходник на диске в ходе прогона — территория проверяемого, а не независимое свидетельство.
+
+Дельта OBJECT относительно родителя содержит только пять добавленных строк контракта; fixture-батарея не менялась. Она не вводит новый исполнимый механизм, новую зону или новое обязательство, кроме явной границы уже наблюдённого риска. Новых доказанных блокирующих нарушений в этой дельте нет.
+
+## Выполненные прогоны
+
+```text
+$ git diff --check 14b549566f57c3448b3e8f01ea118ab372107565^ 14b549566f57c3448b3e8f01ea118ab372107565 && git diff --quiet 14b549566f57c3448b3e8f01ea118ab372107565^ 14b549566f57c3448b3e8f01ea118ab372107565 -- fixtures/workshop_project/external_connection_184/ && printf '%s\n' 'DELTA_OK only-contract; BATTERY_UNCHANGED'
+DELTA_OK only-contract; BATTERY_UNCHANGED
+[rc=0]
+
+$ bash scripts/check_precision_gate.sh . contracts/184-vneshnyaya-zamena-podkljucheniya-proekta.md && bash scripts/pre_critic.sh contracts/184-vneshnyaya-zamena-podkljucheniya-proekta.md && bash scripts/check_threat_model.sh . contracts/184-vneshnyaya-zamena-podkljucheniya-proekta.md && bash scripts/check_ceilings.sh . && bash fixtures/workshop_project/external_connection_184/red_external_connection_184.sh --model && bash fixtures/workshop_project/external_connection_184/red_external_connection_184.sh --stabs
+OK
   ok   гейт предпосылок: PREDPOSYLKI_OK secrets=0 variables=0 environments=0 settings=2
 КРИТИК: дверь зелёная
-[rc=0]
-
-$ bash scripts/check_precision_gate.sh . contracts/184-vneshnyaya-zamena-podkljucheniya-proekta.md
-OK
-[rc=0]
-
-$ bash scripts/check_ceilings.sh .
+модель угроз: секция валидна (ЗАЩИЩАЕТ 2 буллет(ов), НЕ ЗАЩИЩАЕТ 3 буллет(ов))
   ok   персоны: 12 файл(ов), потолок 61440 байт
   ok   правила: 1 файл(ов), потолок 30720 байт
   ok   раздел требований: 169 черновик(ов) судится, замороженные — по тегам
 потолки в порядке
-[rc=0]
-
-$ bash fixtures/workshop_project/external_connection_184/red_external_connection_184.sh --model
-CELL clean: ok (expected=ok, got=ok)
-CELL internal-reference: ok (expected=ok, got=ok)
-CELL ci-reference: ok (expected=ssylka, got=ssylka)
-CELL readme-reference: ok (expected=ssylka, got=ssylka)
-CELL configuration-reference: ok (expected=ssylka, got=ssylka)
-CELL ignore-reference: ok (expected=ssylka, got=ssylka)
-CELL nested-code-reference: ok (expected=ssylka, got=ssylka)
-CELL legacy-root-profile: ok (expected=profil, got=profil)
-CELL swapped-identity: ok (expected=profil, got=profil)
-CELL generator-good: ok (expected=ok, got=ok)
-CELL generator-wrong-id: ok (expected=profil, got=profil)
-CELL ci-entrypoint: ok
-[rc=0]
-
-$ bash fixtures/workshop_project/external_connection_184/red_external_connection_184.sh --stabs
-STAB scan-internal@internal-reference: caught (expected=ok, got=ssylka)
-STAB no-ci@ci-reference: caught (expected=ssylka, got=ok)
-STAB no-docs@readme-reference: caught (expected=ssylka, got=ok)
-STAB no-config@configuration-reference: caught (expected=ssylka, got=ok)
-STAB no-ignore@ignore-reference: caught (expected=ssylka, got=ok)
-STAB root-only@nested-code-reference: caught (expected=ssylka, got=ok)
-STAB root-profile@legacy-root-profile: caught (expected=profil, got=ok)
-STAB trust-any-profile@swapped-identity: caught (expected=profil, got=ok)
-STAB duplicate-profile@generator-good: caught (expected=ok, got=profil)
-STAB trust-manifest@generator-wrong-id: caught (expected=profil, got=ok)
-STAB absent-entrypoint@ci-entrypoint: caught
-STAB invalid-entrypoint@ci-entrypoint: caught
-STAB swallowed-rc@ci-entrypoint: caught
-[rc=0]
-
-$ env PATH=/nonexistent /bin/bash fixtures/workshop_project/external_connection_184/red_external_connection_184.sh --model
-NOT_IMPLEMENTED: python3 unavailable
-[rc=2]
-
-$ bash scripts/check_provodka.sh . contracts/184-vneshnyaya-zamena-podkljucheniya-proekta.md
-проводка: guard не подключён: fixtures/workshop_project/external_connection_184/red_external_connection_184.sh не вызывается в .githooks/ или .github/workflows/
-[rc=1; ожидаемо до регистрации CI-шага]
-
-$ bash scripts/gen_ci_steps.sh --write && bash scripts/gen_ci_steps.sh --check && bash scripts/check_provodka.sh . contracts/184-vneshnyaya-zamena-podkljucheniya-proekta.md
-[одноразовая копия с добавленной строкой `step\tcheck:external-connection-184-family-selftest\t0\tbash fixtures/workshop_project/external_connection_184/red_external_connection_184.sh --model && bash fixtures/workshop_project/external_connection_184/red_external_connection_184.sh --stabs`; вывода нет]
-[rc=0]
-
-$ bash scripts/run_ci_lane.sh check:external-connection-184-family-selftest
-+ bash fixtures/workshop_project/external_connection_184/red_external_connection_184.sh --model && bash fixtures/workshop_project/external_connection_184/red_external_connection_184.sh --stabs
 CELL clean: ok (expected=ok, got=ok)
 CELL internal-reference: ok (expected=ok, got=ok)
 CELL ci-reference: ok (expected=ssylka, got=ssylka)
@@ -95,18 +53,13 @@ STAB no-config@configuration-reference: caught (expected=ssylka, got=ok)
 STAB no-ignore@ignore-reference: caught (expected=ssylka, got=ok)
 STAB root-only@nested-code-reference: caught (expected=ssylka, got=ok)
 STAB root-profile@legacy-root-profile: caught (expected=profil, got=ok)
-STAB trust-any-profile@swapped-identity: caught (expected=profil, got=ok)
-STAB duplicate-profile@generator-good: caught (expected=ok, got=profil)
+STAB trust-any-profile@generator-good: caught (expected=ok, got=profil)
 STAB trust-manifest@generator-wrong-id: caught (expected=profil, got=ok)
 STAB absent-entrypoint@ci-entrypoint: caught
 STAB invalid-entrypoint@ci-entrypoint: caught
+STAB no-probe@ci-entrypoint: caught
 STAB swallowed-rc@ci-entrypoint: caught
-замер: check:external-connection-184-family-selftest 1
 [rc=0]
+```
 
-АТАКА — удаление существующей операции вызова пробы во временной обёртке:
-$ bash fixtures/workshop_project/external_connection_184/red_external_connection_184.sh --model && bash fixtures/workshop_project/external_connection_184/red_external_connection_184.sh --stabs
-[вывода нет]
-[rc=0]
-
-После атаки исходный `red_external_connection_184.sh` восстановлен из OBJECT до записи вердикта.
+Вердикт: `accept`. Единственный блок вызова 3 закрыт объявленной границей риска и ловцами; проверенная исправительная дельта не открыла нового блокирующего класса.
