@@ -8,6 +8,7 @@ import sys
 import tempfile
 
 from probe import world, put, git, run, CONTRACT, REVIEW, TOOLS
+from ci_wiring import BATTERY, DIRECT
 
 # Expected answers are immutable tuples in the verifier, never read back from the subject.
 # Mutation is one named coordinate at a time; each mutant is paired with its OWN red case.
@@ -37,6 +38,11 @@ CASES = (
     ('done-ci-skipped', 'done', 'ci-skipped', 1, 'ARCH_CI', 'done'),
     ('legacy-mob', 'freeze', 'mobile', 0, '', 'freeze'),
     ('legacy-harness', 'freeze', 'harness', 0, '', 'freeze'),
+    ('wiring-valid', 'wiring', 'wiring-valid', 0, '', 'wiring'),
+    ('wiring-omitted', 'wiring', 'wiring-omitted', 1, 'CI_BATTERY_187_MISSING_OR_NOT_EXACT', 'wiring'),
+    ('wiring-no-repo', 'wiring', 'wiring-no-repo', 1, 'CI_BATTERY_187_MISSING_OR_NOT_EXACT', 'wiring'),
+    ('wiring-python', 'wiring', 'wiring-python', 1, 'CI_BATTERY_187_MISSING_OR_NOT_EXACT', 'wiring'),
+    ('wiring-direct-missing', 'wiring', 'wiring-direct-missing', 1, 'CI_DIRECT_ARCH_187_MISSING', 'wiring'),
 )
 STABS = {
     'task-no-line': ('task-line-missing', 'allow-line'),
@@ -62,6 +68,10 @@ STABS = {
     'ci-skipped-green': ('done-ci-skipped', 'ignore-ci'),
     'mob-required': ('legacy-mob', 'require-all'),
     'harness-required': ('legacy-harness', 'require-all'),
+    'ci-step-omitted': ('wiring-omitted', 'ignore-wiring'),
+    'ci-step-without-repo': ('wiring-no-repo', 'ignore-wiring'),
+    'ci-step-python-instead': ('wiring-python', 'ignore-wiring'),
+    'ci-direct-replaced-by-battery': ('wiring-direct-missing', 'ignore-wiring'),
 }
 
 def architecture(base, root, variation):
@@ -108,6 +118,14 @@ def ci_record(root):
     return root.parent / (root.name + '-ci-187.json')
 
 def prepare(root, arch, pinned, variation):
+    if variation.startswith('wiring-'):
+        commands = [BATTERY, DIRECT]
+        if variation == 'wiring-omitted': commands.remove(BATTERY)
+        if variation == 'wiring-no-repo': commands[0] = BATTERY.removesuffix(' --repo .')
+        if variation == 'wiring-python': commands[0] = BATTERY.replace('bash fixtures/', 'python3 fixtures/', 1)
+        if variation == 'wiring-direct-missing': commands.remove(DIRECT)
+        put(root, 'registry/ci-steps.tsv', ''.join(
+            f'step\tarch-187-{i}\t1\t{command}\n' for i, command in enumerate(commands)))
     role = 'implementer' if variation == 'no-rules' else 'architect'
     task = root / 'task-187.md'
     task.write_text('SUBJECT=777\nАРХИТЕКТУРА: L1 api.identity\nЗОНА implementer: app/identity/model.js\n')
@@ -162,7 +180,15 @@ def prepare(root, arch, pinned, variation):
     fake_curl.chmod(0o755)
     return task, trace, role
 
-def verdict(root, arch, pinned, action, task, role, mutant=''):
+def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
+    if action == 'wiring':
+        if mutant == 'ignore-wiring':
+            return 0, ''
+        if variation == 'wiring-omitted' or variation in ('wiring-no-repo', 'wiring-python'):
+            return 1, 'CI_BATTERY_187_MISSING_OR_NOT_EXACT'
+        if variation == 'wiring-direct-missing':
+            return 1, 'CI_DIRECT_ARCH_187_MISSING'
+        return 0, ''
     profile = json.loads((root / 'harness.project.json').read_text())
     if profile['repoId'] != 'Complior-back' and mutant != 'require-all':
         return 0, ''
@@ -228,6 +254,9 @@ def live(tools, root, arch, pinned, action, task, trace, role):
     if action == 'done':
         env['ARCH187_CURL_RESPONSE'] = str(ci_record(root))
         env['PATH'] = str(ci_bin(root)) + os.pathsep + env.get('PATH', '')
+    if action == 'wiring':
+        return run('bash', TOOLS / 'fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh',
+                   '--wiring', root, cwd=root, env=env)
     if action == 'task':
         command = ['bash', tools / 'scripts/make_task.sh', '--repo', root, '--role', role,
                    '--kind', 'task', '--contract', '777', '--task-file', task,
@@ -255,7 +284,7 @@ def main():
             root = world(base, label, kind)
             arch, pinned = architecture(base, root, variation)
             task, trace, role = prepare(root, arch, pinned, variation)
-            honest_rc, honest_out = verdict(root, arch, pinned, action, task, role)
+            honest_rc, honest_out = verdict(root, arch, pinned, action, task, role, variation=variation)
             if honest_rc != expected or (reason and reason not in honest_out):
                 raise RuntimeError(f'broken fixture: {label} expected {expected}/{reason}, got {honest_rc}/{honest_out}')
             if args.model or args.stabs:
@@ -282,7 +311,7 @@ def main():
             if args.stabs:
                 for name, (case, mutant) in STABS.items():
                     if case != label: continue
-                    fake_rc, fake_out = verdict(root, arch, pinned, action, task, role, mutant)
+                    fake_rc, fake_out = verdict(root, arch, pinned, action, task, role, mutant, variation=variation)
                     caught = fake_rc != expected or (reason and reason not in fake_out)
                     if not expected and action == 'task':
                         caught = caught or ('PINNED_BRIEF_187' not in fake_out or
