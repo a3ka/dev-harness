@@ -22,8 +22,8 @@
 # для 187 v2 (пробы в его тексте) записано в контракте 195.
 #
 # РЕЖИМЫ: без флага — честные клетки против ЖИВОГО scripts/check_consumers.sh
-# (до реализации rc 1: красна ka; после реализации rc 0); --model — те же
-# клетки против честной модели model/model_gate.sh (rc 0 уже сегодня);
+# (до реализации rc 1: красны ka и kzfail; после реализации rc 0); --model —
+# те же клетки против честной модели model/model_gate.sh (rc 0 уже сегодня);
 # --stabs — обманные реализации: все пойманы ∧ диффпробы зелёные (rc 0 до и
 # после реализации); --repo [корень] — живая клетка на настоящем дереве
 # (contracts/158-ekrannyj-nabor.md; до реализации rc 1 — боль, после rc 0).
@@ -54,6 +54,20 @@
 #   ke  (е) регресс И-4: объект тега-границы удалён (tag -l листингует,
 #       разрешение диапазона отказывает) → rc 1, дословно «потребители 116:
 #       список судимых коммитов окна недоступен» (отказ добычи ≠ vacuous).
+#   kdoneM (з) И-5, конец диапазона: M=200 заморожен с зоной писателя для
+#       implementer и ЗАКРЫТ тегом done/contracts/200/1 ДО правки; PR-rebase
+#       коммит implementer правит писателя ПОСЛЕ done → коммит вне диапазона M,
+#       судится окном N → rc 1 та же фраза «нет ПОТРЕБИТЕЛЬ-пробы»
+#       (until-граница атрибуции жива; мутант/стаб без until даёт rc 0).
+#   ksinceM (з) И-5, начало диапазона: правка писателя РАНЬШЕ frozen/200/1 —
+#       коммит вне диапазона M, судится окном N → rc 1 та же фраза
+#       (since-граница атрибуции жива; мутант/стаб без since даёт rc 0).
+#   kzfail (з) И-8, отказ чтения зон: LIB_ZONES_BASE клетки указывает в
+#       несуществующий каталог — zones_load не может создать скратч; честный
+#       гейт отказывает именованно «потребители 116: зоны атрибуции окна не
+#       читаются», НЕ тихим «зон нет» (суд по пустым зонам). КРАСНАЯ до
+#       реализации (сегодня гейт зон не читает вовсе — отказывает фразой
+#       пробы), зелёная после.
 #   kj  (ж) --repo: живой гейт на настоящем дереве, contracts/158-…: rc 1 до
 #       реализации (боль), rc 0 после.
 #
@@ -65,10 +79,19 @@
 #                          пути; смерть kb, диффпроба kg;
 #   s3 «только land:»     — зонной атрибуции нет вовсе (поведение ДО 195);
 #                          смерть ka (судит PR-rebase коммит), диффпроба kd1;
-#   s4 «ошибка→пустое»    — отказ добычи окна проглатывается в vacuous rc 0;
-#                          смерть ke, диффпроба kb;
+#   s4 «ошибка→пустое»    — отказ добычи ОКНА проглатывается в vacuous rc 0
+#                          (чтение зон честно); смерть ke, диффпроба kb;
 #   s5 «свой тоже наружу» — исключает и через M==N (своё покрытие не
-#                          приоритетно); смерть kv1, диффпроба ka.
+#                          приоритетно); смерть kv1, диффпроба ka;
+#   s6 «без done-границы» — until-конец диапазона M не проверяется (закрытый
+#                          done-диапазон считается открытым до HEAD); смерть
+#                          kdoneM, диффпроба ka;
+#   s7 «без since-границы» — since-начало диапазона M не проверяется
+#                          (диапазон тянется от начала истории); смерть
+#                          ksinceM, диффпроба ka;
+#   s8 «зоны-ошибка → зон нет» — отказ чтения зон проглатывается в пустые
+#                          зоны, суд по пустым (И-8 запрещает); смерть kzfail,
+#                          диффпроба kb.
 #
 # rc: 0 ⟺ все клетки режима зелёные ∧ выборки непусты; пустая выборка — красное.
 # Скрипт не печатает PASS — только счёт просмотренного (правило роли).
@@ -94,6 +117,11 @@ PHRASEZ='потребители 116: зоны атрибуции окна не �
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/red195.XXXXXX")"
 cleanup() { rm -rf "$WORK"; }
 trap cleanup EXIT
+
+# База скратча зон для клетки kzfail (И-8): каталог НЕ существует и батареей не
+# создаётся — zones_load не может создать скратч (отказ чтения зон) ни для
+# какого пользователя, включая root (родителя нет — mkdir падает ENOENT).
+kz_fail_base="$WORK/zfail-net-kataloga"
 
 MODE="${1:-}"
 
@@ -185,6 +213,23 @@ build_all() { # честные игрушки всех клеток (испол�
   ke_obj="$(git -C "$ke" rev-parse frozen/contracts/100/1)"
   ke_f="$ke/.git/objects/${ke_obj:0:2}/${ke_obj:2}"
   [ -f "$ke_f" ] && rm -f "$ke_f"
+  # kdoneM (И-5, конец диапазона): M=200 заморожен с зоной писателя и ЗАКРЫТ
+  # done-тегом ДО правки — коммит после done вне диапазона M
+  kdoneM="$WORK/kdoneM"; mk195 "$kdoneM"; zone200 "$kdoneM" 'scripts/freeze_contract.sh'
+  g "$kdoneM" tag -a done/contracts/200/1 -m 'okno 200 zakryto do pravki'
+  impl_commit "$kdoneM" implementer 'Rebase Human' 'pravka pisatelja posle zakrytija 200'
+  draft100 "$kdoneM" "$CENSUS"
+  # ksinceM (И-5, начало диапазона): правка писателя РАНЬШЕ заморозки M=200 —
+  # коммит до frozen/200/1 вне диапазона M
+  ksinceM="$WORK/ksinceM"; mk195 "$ksinceM"
+  impl_commit "$ksinceM" implementer 'Rebase Human' 'pravka pisatelja do zamorozki 200'
+  zone200 "$ksinceM" 'scripts/freeze_contract.sh'
+  draft100 "$ksinceM" "$CENSUS"
+  # kzfail (И-8): ка-подобная игрушка; отказ чтения зон даёт клетка через
+  # LIB_ZONES_BASE=$kz_fail_base (сам репозиторий игрушки здоров)
+  kzfail="$WORK/kzfail"; mk195 "$kzfail"; zone200 "$kzfail" 'scripts/freeze_contract.sh'
+  impl_commit "$kzfail" implementer 'Rebase Human' 'pravka pisatelja pri nedostupnyh zonah'
+  draft100 "$kzfail" "$CENSUS"
 }
 
 # ── проверки (батарея считает, не умирает на первой) ──────────────────────────
@@ -207,6 +252,14 @@ chk_win_refuse() {
   printf '  FAIL %s: rc %s, ожидался отказ 1 с дословной причиной «%s»\nвывод гейта:\n%s\n' "$1" "$LAST_RC" "$PHRASE4" "$LAST_OUT" >&2
   return 1
 }
+chk_zfail() {
+  if [ "$LAST_RC" -eq 1 ] && printf '%s\n' "$LAST_OUT" | grep -Fq "$PHRASEZ"; then
+    printf '  ok   %s: отказ чтения зон rc 1, причина названа дословно\n' "$1" >&2; return 0
+  fi
+  printf '  FAIL %s: rc %s, ожидался отказ 1 с дословной причиной «%s» (НЕ тихое «зон нет»)\nвывод гейта:\n%s\n' "$1" "$LAST_RC" "$PHRASEZ" "$LAST_OUT" >&2
+  return 1
+}
+
 
 honest_total=0; honest_green=0; honest_fail=""
 hcell() { # hcell <имя> <функция>
@@ -223,6 +276,14 @@ kg_c() { run_gate "$kg" contracts/100-n.md; chk_refuse 'kg: автор вне р
 kd1_c() { run_gate "$kd1" contracts/100-n.md; chk_rc0 'kd1: чужой ленд вне окна (062 И-1)'; }
 kd2_c() { run_gate "$kd2" contracts/100-n.md; chk_rc0 'kd2: канал владельца исключён (Н-300)'; }
 ke_c() { run_gate "$ke" contracts/100-n.md; chk_win_refuse 'ke: отказ добычи окна — именованный, не пустое множество'; }
+kdoneM_c() { run_gate "$kdoneM" contracts/100-n.md; chk_refuse 'kdoneM: конец диапазона M (done) жив — правка после done судится окном N'; }
+ksinceM_c() { run_gate "$ksinceM" contracts/100-n.md; chk_refuse 'ksinceM: начало диапазона M (frozen) живо — правка до заморозки судится окном N'; }
+kzfail_c() {
+  export LIB_ZONES_BASE="$kz_fail_base"
+  run_gate "$kzfail" contracts/100-n.md
+  unset LIB_ZONES_BASE
+  chk_zfail 'kzfail: отказ чтения зон — именованный, не «зон нет»'
+}
 
 # ── живая клетка (--repo) ─────────────────────────────────────────────────────
 live_cell() { # <корень>
@@ -358,8 +419,9 @@ printf 'потребители 116: писатель scripts/freeze_contract.sh 
 exit 1
 EOF
 
-  # s4 «ошибка→пустое»: семантика честная (окно, атрибуция, проба), НО отказ
-  # добычи окна/зон проглатывается в пустое множество — vacuous rc 0.
+  # s4 «ошибка→пустое»: семантика честная (окно, атрибуция, проба, чтение
+  # зон честно — именованный отказ), НО отказ добычи ОКНА проглатывается в
+  # пустое множество — vacuous rc 0.
   cat > "$STUBS/s4_oshibka_pusto.sh" <<'EOF'
 #!/usr/bin/env bash
 set -uo pipefail
@@ -376,8 +438,8 @@ last_frozen="$(git -C "$ROOT" tag -l "frozen/contracts/$n/*" 2>/dev/null | sort 
 . "${HARNESS_ROOT:?HARNESS_ROOT}/scripts/lib_zones.sh"
 COMMITS="$(mktemp)"; trap 'rm -f "$COMMITS"' EXIT
 git -C "$ROOT" rev-list --no-merges "$last_frozen..HEAD" 2>/dev/null | sort -u >"$COMMITS" || : >"$COMMITS"
-ZDIR="$(zones_load "$ROOT" 2>/dev/null)" || ZDIR=""
-[ -n "$ZDIR" ] && [ -f "$ZDIR/zones_scoped" ] && [ -f "$ZDIR/ranges" ] || ZDIR=""
+ZDIR="$(zones_load "$ROOT" 2>/dev/null)" || { printf 'потребители 116: зоны атрибуции окна не читаются\n' >&2; exit 1; }
+[ -n "$ZDIR" ] && [ -f "$ZDIR/zones_scoped" ] && [ -f "$ZDIR/ranges" ] || { printf 'потребители 116: зоны атрибуции окна не читаются\n' >&2; exit 1; }
 hit=0
 while IFS= read -r c; do
   [ -n "$c" ] || continue
@@ -459,6 +521,171 @@ printf 'потребители 116: писатель scripts/freeze_contract.sh 
 exit 1
 EOF
 
+  # s6 «без done-границы»: атрибуция честная (автор+путь+since+отказ зон),
+  # НО until-конец диапазона M не проверяется — закрытый done-диапазон
+  # считается открытым до HEAD.
+  cat > "$STUBS/s6_bez_done_granicy.sh" <<'EOF'
+#!/usr/bin/env bash
+set -uo pipefail
+ROOT="${1:?ispolzovanie: <koren> <otn-put-kontrakta>}"
+CONTRACT_PATH="${2:?ispolzovanie: <koren> <otn-put-kontrakta>}"
+export PATH=/usr/bin:/bin
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+base="${CONTRACT_PATH##*/}"
+n="$(printf '%s' "$base" | sed -nE 's/^([0-9]{3})-.*/\1/p')"
+[ -n "$n" ] || exit 2
+command -v git >/dev/null 2>&1 || exit 2
+last_frozen="$(git -C "$ROOT" tag -l "frozen/contracts/$n/*" 2>/dev/null | sort -V | tail -n 1)"
+[ -n "$last_frozen" ] || exit 0
+. "${HARNESS_ROOT:?HARNESS_ROOT}/scripts/lib_zones.sh"
+COMMITS="$(mktemp)"; trap 'rm -f "$COMMITS"' EXIT
+if ! git -C "$ROOT" rev-list --no-merges "$last_frozen..HEAD" 2>/dev/null | sort -u >"$COMMITS"; then
+  printf 'потребители 116: список судимых коммитов окна недоступен\n' >&2
+  exit 1
+fi
+ZDIR="$(zones_load "$ROOT" 2>/dev/null)" || { printf 'потребители 116: зоны атрибуции окна не читаются\n' >&2; exit 1; }
+[ -n "$ZDIR" ] && [ -f "$ZDIR/zones_scoped" ] && [ -f "$ZDIR/ranges" ] || { printf 'потребители 116: зоны атрибуции окна не читаются\n' >&2; exit 1; }
+hit=0
+while IFS= read -r c; do
+  [ -n "$c" ] || continue
+  out="$(git -C "$ROOT" diff-tree -r --no-commit-id --name-only "$c" -- scripts/freeze_contract.sh)" || exit 9
+  [ -n "$out" ] || continue
+  a="$(git -C "$ROOT" log -1 --format=%an "$c" 2>/dev/null)" || exit 9
+  attributed=0
+  while IFS=$'\t' read -r za zp zn; do
+    [ -n "$za" ] || continue
+    [ "$zn" = "$n" ] && continue
+    [ "$za" = "$a" ] || continue
+    case "$zp" in
+      */) case scripts/freeze_contract.sh in "$zp"*) ;; *) continue ;; esac ;;
+      *)  [ "scripts/freeze_contract.sh" = "$zp" ] || continue ;;
+    esac
+    range="$(awk -F'\t' -v m="$zn" '$1 == m { print $2; exit }' "$ZDIR/ranges")"
+    [ -n "$range" ] || continue
+    since="${range%%..*}"
+    # ДЕФЕКТ: until (конец диапазона done/M/1) не проверяется вовсе
+    git -C "$ROOT" merge-base --is-ancestor "$since" "$c" 2>/dev/null || continue
+    attributed=1; break
+  done <"$ZDIR/zones_scoped"
+  [ "$attributed" -eq 1 ] && continue
+  hit=1; break
+done <"$COMMITS"
+[ "$hit" -eq 0 ] && exit 0
+printf 'потребители 116: писатель scripts/freeze_contract.sh изменён, потребитель fixtures/reader.sh не верифицирован: нет ПОТРЕБИТЕЛЬ-пробы\n' >&2
+exit 1
+EOF
+
+  # s7 «без since-границы»: атрибуция честная (автор+путь+until+отказ зон),
+  # НО since-начало диапазона M не проверяется — диапазон тянется от начала
+  # истории.
+  cat > "$STUBS/s7_bez_since_granicy.sh" <<'EOF'
+#!/usr/bin/env bash
+set -uo pipefail
+ROOT="${1:?ispolzovanie: <koren> <otn-put-kontrakta>}"
+CONTRACT_PATH="${2:?ispolzovanie: <koren> <otn-put-kontrakta>}"
+export PATH=/usr/bin:/bin
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+base="${CONTRACT_PATH##*/}"
+n="$(printf '%s' "$base" | sed -nE 's/^([0-9]{3})-.*/\1/p')"
+[ -n "$n" ] || exit 2
+command -v git >/dev/null 2>&1 || exit 2
+last_frozen="$(git -C "$ROOT" tag -l "frozen/contracts/$n/*" 2>/dev/null | sort -V | tail -n 1)"
+[ -n "$last_frozen" ] || exit 0
+. "${HARNESS_ROOT:?HARNESS_ROOT}/scripts/lib_zones.sh"
+COMMITS="$(mktemp)"; trap 'rm -f "$COMMITS"' EXIT
+if ! git -C "$ROOT" rev-list --no-merges "$last_frozen..HEAD" 2>/dev/null | sort -u >"$COMMITS"; then
+  printf 'потребители 116: список судимых коммитов окна недоступен\n' >&2
+  exit 1
+fi
+ZDIR="$(zones_load "$ROOT" 2>/dev/null)" || { printf 'потребители 116: зоны атрибуции окна не читаются\n' >&2; exit 1; }
+[ -n "$ZDIR" ] && [ -f "$ZDIR/zones_scoped" ] && [ -f "$ZDIR/ranges" ] || { printf 'потребители 116: зоны атрибуции окна не читаются\n' >&2; exit 1; }
+hit=0
+while IFS= read -r c; do
+  [ -n "$c" ] || continue
+  out="$(git -C "$ROOT" diff-tree -r --no-commit-id --name-only "$c" -- scripts/freeze_contract.sh)" || exit 9
+  [ -n "$out" ] || continue
+  a="$(git -C "$ROOT" log -1 --format=%an "$c" 2>/dev/null)" || exit 9
+  attributed=0
+  while IFS=$'\t' read -r za zp zn; do
+    [ -n "$za" ] || continue
+    [ "$zn" = "$n" ] && continue
+    [ "$za" = "$a" ] || continue
+    case "$zp" in
+      */) case scripts/freeze_contract.sh in "$zp"*) ;; *) continue ;; esac ;;
+      *)  [ "scripts/freeze_contract.sh" = "$zp" ] || continue ;;
+    esac
+    range="$(awk -F'\t' -v m="$zn" '$1 == m { print $2; exit }' "$ZDIR/ranges")"
+    [ -n "$range" ] || continue
+    case "$range" in *..*) until="${range#*..}" ;; *) until="" ;; esac
+    # ДЕФЕКТ: since (начало диапазона frozen/M/1) не проверяется вовсе
+    if [ -n "$until" ]; then git -C "$ROOT" merge-base --is-ancestor "$c" "$until" 2>/dev/null || continue; fi
+    attributed=1; break
+  done <"$ZDIR/zones_scoped"
+  [ "$attributed" -eq 1 ] && continue
+  hit=1; break
+done <"$COMMITS"
+[ "$hit" -eq 0 ] && exit 0
+printf 'потребители 116: писатель scripts/freeze_contract.sh изменён, потребитель fixtures/reader.sh не верифицирован: нет ПОТРЕБИТЕЛЬ-пробы\n' >&2
+exit 1
+EOF
+
+  # s8 «зоны-ошибка → зон нет»: семантика честная (окно добывается с именованным
+  # отказом добычи, атрибуция, проба), НО отказ чтения зон проглатывается в
+  # пустые зоны — суд по пустым («тихое зон нет», запрещено И-8).
+  cat > "$STUBS/s8_zony_oshibka_pusto.sh" <<'EOF'
+#!/usr/bin/env bash
+set -uo pipefail
+ROOT="${1:?ispolzovanie: <koren> <otn-put-kontrakta>}"
+CONTRACT_PATH="${2:?ispolzovanie: <koren> <otn-put-kontrakta>}"
+export PATH=/usr/bin:/bin
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+base="${CONTRACT_PATH##*/}"
+n="$(printf '%s' "$base" | sed -nE 's/^([0-9]{3})-.*/\1/p')"
+[ -n "$n" ] || exit 2
+command -v git >/dev/null 2>&1 || exit 2
+last_frozen="$(git -C "$ROOT" tag -l "frozen/contracts/$n/*" 2>/dev/null | sort -V | tail -n 1)"
+[ -n "$last_frozen" ] || exit 0
+. "${HARNESS_ROOT:?HARNESS_ROOT}/scripts/lib_zones.sh"
+COMMITS="$(mktemp)"; trap 'rm -f "$COMMITS"' EXIT
+if ! git -C "$ROOT" rev-list --no-merges "$last_frozen..HEAD" 2>/dev/null | sort -u >"$COMMITS"; then
+  printf 'потребители 116: список судимых коммитов окна недоступен\n' >&2
+  exit 1
+fi
+# ДЕФЕКТ: отказ чтения зон проглатывается в пустые зоны (И-8 требует именованный отказ)
+ZDIR="$(zones_load "$ROOT" 2>/dev/null)" || ZDIR=""
+[ -n "$ZDIR" ] && [ -f "$ZDIR/zones_scoped" ] && [ -f "$ZDIR/ranges" ] || ZDIR=""
+hit=0
+while IFS= read -r c; do
+  [ -n "$c" ] || continue
+  out="$(git -C "$ROOT" diff-tree -r --no-commit-id --name-only "$c" -- scripts/freeze_contract.sh)" || continue
+  [ -n "$out" ] || continue
+  a="$(git -C "$ROOT" log -1 --format=%an "$c" 2>/dev/null)" || continue
+  attributed=0
+  if [ -n "$ZDIR" ]; then
+    while IFS=$'\t' read -r za zp zn; do
+      [ -n "$za" ] || continue
+      [ "$zn" = "$n" ] && continue
+      [ "$za" = "$a" ] || continue
+      case "$zp" in
+        */) case scripts/freeze_contract.sh in "$zp"*) ;; *) continue ;; esac ;;
+        *)  [ "scripts/freeze_contract.sh" = "$zp" ] || continue ;;
+      esac
+      range="$(awk -F'\t' -v m="$zn" '$1 == m { print $2; exit }' "$ZDIR/ranges")"
+      [ -n "$range" ] || continue
+      since="${range%%..*}"; case "$range" in *..*) until="${range#*..}" ;; *) until="" ;; esac
+      git -C "$ROOT" merge-base --is-ancestor "$since" "$c" 2>/dev/null || continue
+      if [ -n "$until" ]; then git -C "$ROOT" merge-base --is-ancestor "$c" "$until" 2>/dev/null || continue; fi
+      attributed=1; break
+    done <"$ZDIR/zones_scoped"
+  fi
+  [ "$attributed" -eq 1 ] && continue
+  hit=1; break
+done <"$COMMITS"
+[ "$hit" -eq 0 ] && exit 0
+printf 'потребители 116: писатель scripts/freeze_contract.sh изменён, потребитель fixtures/reader.sh не верифицирован: нет ПОТРЕБИТЕЛЬ-пробы\n' >&2
+exit 1
+EOF
+
   chmod +x "$STUBS"/*.sh
 }
 
@@ -490,6 +717,17 @@ chk_caught_refuse() {
   printf '  FAIL %s: rc %s, дефект НЕ наблюдаем\nвывод:\n%s\n' "$1" "$LAST_RC" "$LAST_OUT" >&2
   return 1
 }
+# детекция: стаб проглотил отказ чтения зон — отказывает НЕ именованным отказом
+# зон (честная реализация на этом входе rc 1 с PHRASEZ; стаб — фразой пробы или
+# rc 0: тихое «зон нет»)
+chk_caught_zfail() {
+  if [ "$LAST_RC" -eq 1 ] && printf '%s\n' "$LAST_OUT" | grep -Fq "$PHRASEZ"; then
+    printf '  FAIL %s: стаб честно отказал по зонам — дефект НЕ наблюдаем\n' "$1" >&2
+    return 1
+  fi
+  printf '  ok   %s: дефект наблюдаем (отказ зон не назван — тихое «зон нет»)\n' "$1" >&2
+  return 0
+}
 # диффпроба: стаб ЧЕСТЕН на контрольном входе (совпадает с честной реализацией)
 chk_stub_honest_rc0() {
   if [ "$LAST_RC" -eq 0 ]; then printf '  ok   %s: стаб честен на контрольном входе (rc 0)\n' "$1" >&2; return 0; fi
@@ -506,7 +744,7 @@ chk_stub_honest_refuse() {
 
 # ── режимы ────────────────────────────────────────────────────────────────────
 case "$MODE" in
-"") # честные клетки против живого гейта: до реализации rc 1 (красна ka)
+"") # честные клетки против живого гейта: до реализации rc 1 (красны ka и kzfail)
   [ -f "$SUBJ" ] || { printf 'ОТКАЗ: гейт потребителей отсутствует: %s\n' "$SUBJ" >&2; exit 1; }
   build_all
   hcell ka-PR-rebase-vne-okna ka_c
@@ -517,6 +755,9 @@ case "$MODE" in
   hcell kd1-chuzhoj-lend-vne-okna kd1_c
   hcell kd2-kanal-vladeltsa-iskljuchjon kd2_c
   hcell ke-otkaz-dobychi-imenovan ke_c
+  hcell kdoneM-done-granica-diapazona kdoneM_c
+  hcell ksinceM-since-granica-diapazona ksinceM_c
+  hcell kzfail-zony-atribucii-ne-chitajutsja kzfail_c
   printf '195: честных клеток %d, зелёных %d, красных:%s\n' \
     "$honest_total" "$honest_green" "${honest_fail:- нет}"
   [ "$honest_total" -gt 0 ] || { printf '195: ПУСТАЯ выборка честных клеток — красное\n' >&2; exit 1; }
@@ -535,6 +776,9 @@ case "$MODE" in
   hcell kd1-chuzhoj-lend-vne-okna kd1_c
   hcell kd2-kanal-vladeltsa-iskljuchjon kd2_c
   hcell ke-otkaz-dobychi-imenovan ke_c
+  hcell kdoneM-done-granica-diapazona kdoneM_c
+  hcell ksinceM-since-granica-diapazona ksinceM_c
+  hcell kzfail-zony-atribucii-ne-chitajutsja kzfail_c
   SUBJ="$REAL_SUBJ"
   printf '195(model): честных клеток %d, зелёных %d, красных:%s\n' \
     "$honest_total" "$honest_green" "${honest_fail:- нет}"
@@ -557,16 +801,28 @@ case "$MODE" in
   s4_diff() { with_stub "$STUBS/s4_oshibka_pusto.sh";    run_gate "$kb"  contracts/100-n.md; restore_subj; chk_stub_honest_refuse 's4-диффпроба: живое окно судится как честное (вход kb)'; }
   s5()      { with_stub "$STUBS/s5_svoj_tozhe_naruzhu.sh"; run_gate "$kv1" contracts/100-n.md; restore_subj; chk_caught_rc0 's5: свой контракт исключён через M==N (вход kv1)'; }
   s5_diff() { with_stub "$STUBS/s5_svoj_tozhe_naruzhu.sh"; run_gate "$ka"  contracts/100-n.md; restore_subj; chk_stub_honest_rc0 's5-диффпроба: чужая зона исключена как честная (вход ka)'; }
+  s6()      { with_stub "$STUBS/s6_bez_done_granicy.sh";   run_gate "$kdoneM" contracts/100-n.md; restore_subj; chk_caught_rc0 's6: диапазон без done-границы отпустил правку после done (вход kdoneM)'; }
+  s6_diff() { with_stub "$STUBS/s6_bez_done_granicy.sh";   run_gate "$ka"  contracts/100-n.md; restore_subj; chk_stub_honest_rc0 's6-диффпроба: живой M атрибутирует как честный (вход ka)'; }
+  s7()      { with_stub "$STUBS/s7_bez_since_granicy.sh";  run_gate "$ksinceM" contracts/100-n.md; restore_subj; chk_caught_rc0 's7: диапазон без since-границы отпустил правку до заморозки (вход ksinceM)'; }
+  s7_diff() { with_stub "$STUBS/s7_bez_since_granicy.sh";  run_gate "$ka"  contracts/100-n.md; restore_subj; chk_stub_honest_rc0 's7-диффпроба: живой M атрибутирует как честный (вход ka)'; }
+  s8()      { with_stub "$STUBS/s8_zony_oshibka_pusto.sh"; export LIB_ZONES_BASE="$kz_fail_base"; run_gate "$kzfail" contracts/100-n.md; unset LIB_ZONES_BASE; restore_subj; chk_caught_zfail 's8: отказ чтения зон проглочен в «зон нет» (вход kzfail)'; }
+  s8_diff() { with_stub "$STUBS/s8_zony_oshibka_pusto.sh"; run_gate "$kb"  contracts/100-n.md; restore_subj; chk_stub_honest_refuse 's8-диффпроба: живые зоны судятся как честные (вход kb)'; }
   scell s1-gasitel s1
   scell s2-imja-bez-zony s2
   scell s3-tolko-land s3
   scell s4-oshibka-pusto s4
   scell s5-svoj-tozhe-naruzhu s5
+  scell s6-bez-done-granicy s6
+  scell s7-bez-since-granicy s7
+  scell s8-zony-oshibka-pusto s8
   dcell s1-diffpr s1_diff
   dcell s2-diffpr s2_diff
   dcell s3-diffpr s3_diff
   dcell s4-diffpr s4_diff
   dcell s5-diffpr s5_diff
+  dcell s6-diffpr s6_diff
+  dcell s7-diffpr s7_diff
+  dcell s8-diffpr s8_diff
   printf '195(stabs): стабов %d, поймано %d, ускользнуло:%s\n' \
     "$stub_total" "$stub_caught" "${stub_esc:- нет}"
   printf '195(stabs): диффпроб %d, зелёных %d, провал:%s\n' \
