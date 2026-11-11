@@ -34,10 +34,10 @@ def sha40(n):
     return hashlib.sha256(b'190-world-%d' % n).hexdigest()[:40]
 
 
-def sud(subject, n, sha):
-    return ('СУД: repo=dev-harness; предмет=%s; фаза=контракт; роль=critic; вызов=%d/2; '
+def sud(subject, vyzov, sha):
+    return ('СУД: repo=dev-harness; предмет=%s; фаза=контракт; роль=critic; вызов=%s; '
             'модель-план=zai/glm-5.3; сессия=Crit%s; модель-факт=zai/glm-5.3; SHA=%s; '
-            'предыдущий=нет; исключение=нет' % (subject, n, subject, sha))
+            'предыдущий=нет; исключение=нет' % (subject, vyzov, subject, sha))
 
 
 VERDICT_301_KRUG1 = """FAIL
@@ -88,7 +88,7 @@ VERDICT_303_BEZ_SUDA = """FAIL
 """
 VERDICT_303_SUD = VERDICT_303_BEZ_SUDA.replace(
     '# Вердикт критика — контракт 303, вызов 1\n',
-    '# Вердикт критика — контракт 303, вызов 1\n\n' + sud('303', 1, sha40(33)) + '\n')
+    '# Вердикт критика — контракт 303, вызов 1\n\n' + sud('303', '1/2', sha40(33)) + '\n')
 VERDICT_304_BEZ_METOK = """FAIL
 OBJECT=%(sha)s
 %(sud)s
@@ -98,11 +98,35 @@ OBJECT=%(sha)s
 БЛОКИРУЕТ contracts/304-x.md:9 — старый вердикт без строк происхождения и класса.
 """
 
+# Мир D — живые формы поля вызов= (замер дерева, «Существующее» контракта):
+# голое N, N (пояснение) без слэша, слово-форма без ведущих цифр.
+VERDICT_303_SLOVO = """FAIL
+OBJECT=%(sha)s
+%(sud)s
+
+## Блокирующие находки
+
+БЛОКИРУЕТ contracts/303-x.md:5 — нет rc-команды приёмки.
+"""
+SUD_303_SLOVO = ('СУД: repo=dev-harness; предмет=303; фаза=контракт; роль=critic; '
+                 'вызов=по-перечню-арбитра; модель-план=zai/glm-5.3; сессия=Crit303s; '
+                 'модель-факт=zai/glm-5.3; SHA=%s; предыдущий=нет; исключение=нет' % sha40(36))
+SUD_304_SLOVO = ('СУД: repo=dev-harness; предмет=304; фаза=контракт; роль=critic; '
+                 'вызов=адресный после арбитража; модель-план=zai/glm-5.3; сессия=Crit304s; '
+                 'SHA=%s; предыдущий=нет; исключение=нет' % sha40(37))
+
 SUD_302_OBRYV = ('СУД: repo=dev-harness; предмет=302; фаза=контракт; роль=critic; вызов=2/2; '
                  'модель-план=zai/glm-5.3; сессия=Crit302b; модель-факт=нет: сессия упала '
                  '"Retry budget exhausted", вердикта нет; SHA=%s; '
                  'предыдущий=verdicts/critic/contracts-302-v1-krug1-fail.md; '
                  'исключение=обрыв без вердикта' % sha40(32))
+SUD_302_OBRYV_SKOBKA = (
+    'СУД: repo=dev-harness; предмет=302; фаза=контракт; роль=critic; '
+    'вызов=2 (СВЕРХ капа 2 — слово владельца, сессия упала, вердикта нет); '
+    'модель-план=zai/glm-5.3; сессия=Crit302b; модель-факт=нет: сессия упала '
+    '"Retry budget exhausted", вердикта нет; SHA=%s; '
+    'предыдущий=verdicts/critic/contracts-302-v1-krug1-fail.md; '
+    'исключение=обрыв без вердикта' % sha40(32))
 SUD_301_REVIEWER = ('СУД: repo=dev-harness; предмет=301; фаза=реализация; роль=reviewer; '
                     'вызов=1/1; модель-план=anthropic/claude-opus-5-5; сессия=Rev301a; '
                     'SHA=%s; предыдущий=нет; исключение=нет' % sha40(34))
@@ -110,9 +134,19 @@ SUD_999 = ('СУД: repo=dev-harness; предмет=999; фаза=контра�
            'модель-план=zai/glm-5.3; сессия=Crit999; SHA=%s; предыдущий=нет; '
            'исключение=нет' % sha40(35))
 
+# Мир I — вердикт цитирует чужую СУД-строку в ```text-блоке (живой прецедент
+# contracts-186-v1-krug1-fail.md:50): цитата вызова не создаёт (инвариант 1).
+VERDICT_301_KRUG1_TSITATA = VERDICT_301_KRUG1 + """
+Предварительная запись СУД подтверждена коммитом до вызова:
+```text
+СУД: repo=dev-harness; предмет=301; фаза=контракт (переписан по решению владельца); роль=critic; вызов=9/2 (прежний вызов оборван, круг не тратился); модель-план=zai/glm-5.3; сессия=ожидается; SHA=%(sha)s; предыдущий=нет; исключение=нет
+```
+"""
+
 
 def journal_text(calls):
-    """Журнал агента из [(токены, число_инструментов, правка)] — настоящий JSONL-формат."""
+    """Журнал агента из [(токены, число read-вызовов, правка)] — правка (edit)
+    добавляется СВЕРХ ntools; настоящий JSONL-формат."""
     lines = ['{"type": "session", "version": 3, "id": "sess-190", "cwd": "/w"}']
     for i, (tok, ntools, edit) in enumerate(calls):
         tools = []
@@ -168,13 +202,26 @@ def _build_world(base, variant):
     (repo / 'verdicts' / 'critic').mkdir(parents=True)
     (repo / 'registry').mkdir(parents=True)
     reg = ['301 → %s' % sha40(1), '302 → %s' % sha40(2), '303 → %s' % sha40(3)]
-    if variant == 'E':
+    if variant in ('D', 'E'):
         reg.append('304 → %s' % sha40(4))
-    (repo / 'registry' / 'contracts.tsv').write_text('\n'.join(reg) + '\n')
+    if variant != 'R':
+        (repo / 'registry' / 'contracts.tsv').write_text('\n'.join(reg) + '\n')
     v = repo / 'verdicts' / 'critic'
 
+    def vyzov_of(name):
+        """Значение поля вызов= для файла вердикта: мир D несёт живые формы без слэша."""
+        if variant == 'D':
+            return {'contracts-301-v1-krug1-fail.md': '1',
+                    'contracts-301-v1.md': '2',
+                    'contracts-302-v1-krug1-fail.md': '1/2',
+                    'contracts-302-v1-krug2-fail.md':
+                        '3 (исправительный после капа 2 — слово владельца)',
+                    'contracts-302-v1.md': '4 (принято в четвёртом круге)',
+                    'contracts-302-v1-krug3.md': '4 (принято в четвёртом круге)'}[name]
+        return '%d/2' % n_of(name)
+
     def w(name, tmpl, sha):
-        (v / name).write_text(tmpl % {'sha': sha, 'sud': sud(name.split('-')[1], n_of(name), sha)})
+        (v / name).write_text(tmpl % {'sha': sha, 'sud': sud(name.split('-')[1], vyzov_of(name), sha)})
 
     def n_of(name):
         return {'contracts-301-v1-krug1-fail.md': 1, 'contracts-301-v1.md': 2,
@@ -183,7 +230,8 @@ def _build_world(base, variant):
                 'contracts-303-v1-krug1-fail.md': 1,
                 'contracts-304-v1-krug1-fail.md': 1}[name]
 
-    w('contracts-301-v1-krug1-fail.md', VERDICT_301_KRUG1, sha40(11))
+    w('contracts-301-v1-krug1-fail.md',
+      VERDICT_301_KRUG1_TSITATA if variant == 'I' else VERDICT_301_KRUG1, sha40(11))
     w('contracts-301-v1.md', VERDICT_301_ACCEPT, sha40(12))
     w('contracts-302-v1-krug1-fail.md', VERDICT_302_KRUG1, sha40(21))
     w('contracts-302-v1-krug2-fail.md', VERDICT_302_KRUG2, sha40(22))
@@ -191,14 +239,19 @@ def _build_world(base, variant):
     w('contracts-302-v1-krug3.md', VERDICT_302_ACCEPT, sha40(23))
     if variant == 'C':
         (v / 'contracts-303-v1-krug1-fail.md').write_text(VERDICT_303_SUD)
+    elif variant == 'D':
+        (v / 'contracts-303-slovoforma.md').write_text(
+            VERDICT_303_SLOVO % {'sha': sha40(36), 'sud': SUD_303_SLOVO})
     else:
         (v / 'contracts-303-bez-suda.md').write_text(VERDICT_303_BEZ_SUDA)
     if variant == 'E':
         w('contracts-304-v1-krug1-fail.md', VERDICT_304_BEZ_METOK, sha40(41))
     handoff = ['# ГДЕ МЫ', '']
     if variant != 'B':
-        handoff.append(SUD_302_OBRYV)
+        handoff.append(SUD_302_OBRYV_SKOBKA if variant == 'D' else SUD_302_OBRYV)
     handoff += [SUD_301_REVIEWER, SUD_999]
+    if variant == 'D':
+        handoff.append(SUD_304_SLOVO)
     (repo / 'HANDOFF.md').write_text('\n'.join(handoff) + '\n')
     sessions = list(SESSIONS)
     if variant == 'G':
@@ -209,7 +262,10 @@ def _build_world(base, variant):
         for name, calls in agents.items():
             if variant == 'F' and name == 'Architect302a':
                 continue
-            (d / (name + '.jsonl')).write_text(journal_text(calls))
+            text = journal_text(calls)
+            if variant == 'N' and name == 'Crit301a':
+                text = 'ЭТО НЕ JSON: строка-мусор {невалидно\n' + text
+            (d / (name + '.jsonl')).write_text(text)
     return repo, zh
 
 
@@ -242,7 +298,13 @@ def load_oracle():
         if not line or line.startswith('#'):
             continue
         rc_exp.append(line.split('\t'))
-    return tables, rc_exp
+    stderr_exp = {}
+    for line in (DANNYE / 'orakul-stderr.tsv').read_text().splitlines():
+        if not line or line.startswith('#'):
+            continue
+        world, cell, text = line.split('\t', 2)
+        stderr_exp[(world, cell)] = text
+    return tables, rc_exp, stderr_exp
 
 
 def check_pins():
@@ -270,15 +332,40 @@ def cell_cases():
         ('odinochnye-hvost', 'A', (), 'cells', 'A'),
         ('odinochnye-nulevye', 'G', (), 'cells', 'G'),
         ('okno-seansov', 'A', ('--s', '2026-11-10T01:30:00Z'), 'cells', 'A-OKNO'),
+        ('okno-do', 'A', ('--do', '2026-11-10T01:30:00Z'), 'cells', 'A-DO'),
+        ('forma-vyzova', 'D', (), 'cells', 'D'),
+        ('forma-slovo-ne-ust', 'D', (), 'cells', 'D-NEU'),
+        ('tsitata-sud', 'I', (), 'cells', 'I'),
+        ('nekonsistentnaja-stroka', 'N', (), 'cells', 'N'),
+        ('stderr-prosmotreno', 'A', (), 'stderr', ('A', 'stderr-prosmotreno')),
         ('pustaja-vyborka', 'A', ('--s', '2026-11-11T00:00:00Z'), 'rc', ('A', 'pustaja-vyborka', '1', 'ПУСТАЯ_ВЫБОРКА')),
+        ('netu-reestra', 'R', (), 'rc', ('R', 'netu-reestra', '2', 'НЕТ_РЕЕСТРА')),
         ('chistyj-klon', 'A', (), 'rc', ('A', 'chistyj-klon', '2', 'НЕТ_ЖУРНАЛОВ')),
         ('dokument-kanon', 'A', (), 'kanon', 'A'),
     ]
 
 
-def run_cell(cmd, base, variant, extra, kind, expect, tables, doc_root):
+def run_cell(cmd, base, variant, extra, kind, expect, tables, doc_root, stderr_exp=None):
     repo, zh = write_world(base, variant)
-    if kind in ('table', 'cells'):
+    if kind == 'table':
+        exp_rows = tables.get(expect, [])
+        if not exp_rows:
+            return False, 'нет ожидания %s в оракуле' % expect
+        res = run_tool(cmd, repo, zh, extra)
+        if res.returncode != 0:
+            return False, 'rc=%d stderr=%r' % (res.returncode, res.stderr[-160:])
+        got_rows = [l.split('\t') for l in res.stdout.splitlines() if l]
+        if got_rows and got_rows[0] and got_rows[0][0] == 'предмет':
+            got_rows = got_rows[1:]
+        if got_rows != exp_rows:
+            i = next((k for k in range(max(len(got_rows), len(exp_rows)))
+                      if got_rows[k:k + 1] != exp_rows[k:k + 1]), 0)
+            return False, ('строка %d расходится (равенство строк и порядка): '
+                           'got %r exp %r' % (i,
+                                              got_rows[i] if i < len(got_rows) else None,
+                                              exp_rows[i] if i < len(exp_rows) else None))
+        return True, ''
+    if kind == 'cells':
         exp_rows = tables.get(expect, [])
         if not exp_rows:
             return False, 'нет ожидания %s в оракуле' % expect
@@ -310,6 +397,16 @@ def run_cell(cmd, base, variant, extra, kind, expect, tables, doc_root):
         if header is None or header not in doc.read_text().splitlines():
             return False, 'заголовок таблицы не совпадает с документом канона'
         return True, ''
+    if kind == 'stderr':
+        line_exp = (stderr_exp or {}).get(expect)
+        if line_exp is None:
+            return False, 'нет ожидания %s в orakul-stderr.tsv' % (expect,)
+        res = run_tool(cmd, repo, zh, extra)
+        if res.returncode != 0:
+            return False, 'rc=%d stderr=%r' % (res.returncode, res.stderr[-160:])
+        if line_exp not in res.stderr.splitlines():
+            return False, 'stderr не несёт число просмотренного: %r' % res.stderr[-160:]
+        return True, ''
     return False, 'неизвестный вид клетки'
 
 
@@ -330,7 +427,7 @@ def main():
     if '--oracle-tamper' in sys.argv:
         print('ORACLE_OK')
         return 0
-    tables, rc_exp = load_oracle()
+    tables, rc_exp, stderr_exp = load_oracle()
     if mode in ('model', 'stabs'):
         cmd = [sys.executable, str(MODEL)]
         doc_root = HERE / 'model'
@@ -353,7 +450,8 @@ def main():
     with tempfile.TemporaryDirectory(prefix='zamer190-') as tmp:
         base = Path(tmp)
         for cell, variant, extra, kind, expect in cases:
-            ok, why = run_cell(cmd, base, variant, extra, kind, expect, tables, doc_root)
+            ok, why = run_cell(cmd, base, variant, extra, kind, expect, tables, doc_root,
+                               stderr_exp)
             print('%s %s%s' % ('GREEN' if ok else 'RED', cell, (': ' + why) if why else ''))
             if not ok:
                 failures.append(cell)
@@ -363,7 +461,8 @@ def main():
                 caught = False
                 for cell, variant, extra, kind, expect in bound:
                     ok, _why = run_cell([sys.executable, str(STABS_DIR / stab_name)], base,
-                                        variant, extra, kind, expect, tables, HERE / 'model')
+                                        variant, extra, kind, expect, tables, HERE / 'model',
+                                        stderr_exp)
                     if not ok:
                         caught = True
                 stab_total += 1
