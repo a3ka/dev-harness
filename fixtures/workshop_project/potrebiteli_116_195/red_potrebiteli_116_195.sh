@@ -44,6 +44,14 @@
 #       пробы → rc 1 та же фраза (M==N НЕ исключается — И-6).
 #   kv2 (в) свой контракт с пробой: то же + ПОТРЕБИТЕЛЬ-строка и живая проба
 #       → rc 0.
+#   kv3 (в) ПЕРЕКРЫТИЕ своей и чужой зоны: ЗОНА implementer:
+#       scripts/freeze_contract.sh — в заморозке САМОГО 100, И живой M=200
+#       зонит того же писателя для implementer; коммит в ОБОИХ диапазонах;
+#       черновик без пробы → rc 1 та же фраза (И-6: своё покрытие
+#       приоритетно над покрывающим чужим M; реализация без приоритета
+#       своего даёт rc 0 — обход Б-3 круга 2). Зелёная до и после
+#       реализации — убивает мутант/стаб в --model/--stabs и обход в
+#       живом гейте после реализации.
 #   kg  (г) ложная атрибуция: M=200 зонит писателя для implementer; коммит
 #       автора critic правит писателя → rc 1 та же фраза (автор вне роли зоны
 #       не атрибутируется).
@@ -70,6 +78,16 @@
 #       пробы), зелёная после.
 #   kj  (ж) --repo: живой гейт на настоящем дереве, contracts/158-…: rc 1 до
 #       реализации (боль), rc 0 после.
+#   k187 (ж) СЛЕДСТВИЕ раздела «Следствия» на живом дереве: окно 187 без
+#       ПОТРЕБИТЕЛЬ-пробы судит коммиты 187а → rc 1 «нет ПОТРЕБИТЕЛЬ-пробы»
+#       (сегодня и после реализации; мутант без приоритета своего покрытия
+#       даёт rc 0 — обход умирает молча, Б-3 круга 2). Привязка замером
+#       census: окно frozen/contracts/187/1..HEAD несёт коммиты, трогающие
+#       scripts/freeze_contract.sh (§Существующее: 4 коммита 187а).
+#       Предусловие клетки ИЗМЕРЯЕТСЯ (в тексте 187 нет ПОТРЕБИТЕЛЬ-строк);
+#       при появлении проб в 187 v2 клетка обязана быть заменена парой
+#       (окно 187 с пробами → rc 0) — тихо зеленеть не вправе: rc 0
+#       неотличим от «не судит вовсе».
 #
 # СТАБ-ПАК (Н-39: обман ровно одной ветвью предмета; привязка стабов к клеткам —
 # ЭТОТ код, не проза контракта; стаб-пак зелёный ДО и ПОСЛЕ реализации):
@@ -92,6 +110,13 @@
 #   s8 «зоны-ошибка → зон нет» — отказ чтения зон проглатывается в пустые
 #                          зоны, суд по пустым (И-8 запрещает); смерть kzfail,
 #                          диффпроба kb.
+#   s9 «без приоритета своего» — окно/зоны/автор+путь+диапазоны/проба честно,
+#                          НО приоритетной проверки своего покрытия НЕТ:
+#                          при перекрытии своей и чужой зоны исключает через
+#                          M≠N (И-5 без конъюнкта «пара НЕ покрыта зонами N»
+#                          — обход Б-3 круга 2; равносильно удалению ветви
+#                          zone_covers-вперед модели); смерть kv3, диффпроба
+#                          kv1.
 #
 # rc: 0 ⟺ все клетки режима зелёные ∧ выборки непусты; пустая выборка — красное.
 # Скрипт не печатает PASS — только счёт просмотренного (правило роли).
@@ -196,6 +221,14 @@ build_all() { # честные игрушки всех клеток (испол�
   impl_commit "$kv2" implementer 'Rebase Human' 'svoja pravka pisatelja po kontraktu 100'
   printf '# kontrakt 100 v2 draft\n\n## Zony\nЗОНА implementer: scripts/freeze_contract.sh\n\n%s\n\n## Potrebiteli\nПОТРЕБИТЕЛЬ fixtures/reader.sh: bash fixtures/reader.sh\n' "$CENSUS" > "$kv2/contracts/100-n.md"
   commit_all "$kv2" 'chernovik 100 v2 s probou'
+  # kv3: ПЕРЕКРЫТИЕ своей и чужой зоны (Б-3 круга 2) — зона писателя в заморозке
+  # САМОГО 100, И живой M=200 зонит того же писателя для implementer; коммит в
+  # ОБОИХ диапазонах; честная реализация судит (И-6: своё приоритетно), без
+  # приоритета своего покрытия — атрибутирует наружу через M=200 (rc 0)
+  kv3="$WORK/kv3"; mk195 "$kv3" 'ЗОНА implementer: scripts/freeze_contract.sh'
+  zone200 "$kv3" 'scripts/freeze_contract.sh'
+  impl_commit "$kv3" implementer 'Rebase Human' 'svoja pravka pisatelja pri chuzhom perekrytii'
+  draft100 "$kv3" "$CENSUS"
   # kg: чужая зона покрывает писателя для implementer; коммит автора critic
   kg="$WORK/kg"; mk195 "$kg"; zone200 "$kg" 'scripts/freeze_contract.sh'
   impl_commit "$kg" critic 'Rebase Human' 'pravka pisatelja chuzhou identity'
@@ -272,6 +305,34 @@ ka_c() { run_gate "$ka" contracts/100-n.md; chk_rc0 'ka: PR-rebase коммит 
 kb_c() { run_gate "$kb" contracts/100-n.md; chk_refuse 'kb: правка без зоны писателя судится'; }
 kv1_c() { run_gate "$kv1" contracts/100-n.md; chk_refuse 'kv1: свой контракт (M==N) не исключается'; }
 kv2_c() { run_gate "$kv2" contracts/100-n.md; chk_rc0 'kv2: проба живая — rc 0'; }
+kv3_c() { run_gate "$kv3" contracts/100-n.md; chk_refuse 'kv3: перекрытие своей и чужой зоны — своё покрытие приоритетно, судится'; }
+
+# k187 (ж): СЛЕДСТВИЕ раздела «Следствия» на живом дереве — окно 187 без ПОТРЕБИТЕЛЬ-пробы
+# судит коммиты 187а → rc 1. Предусловия ИЗМЕРЯЮТСЯ, не предполагаются: файл
+# контракта 187 есть; в его тексте нет ПОТРЕБИТЕЛЬ-строк; окно
+# frozen/contracts/187/1..HEAD несёт коммиты, трогающие scripts/freeze_contract.sh
+# (привязка замером census §Существующее). При появлении проб в 187 v2 клетка
+# обязана быть заменена парой (окно 187 с пробами → rc 0): тихо зеленеть не
+# вправе — rc 0 на этом входе неотличим от «окно не судит вовсе».
+k187_c() {
+  local c187='contracts/187-arhitektura-v-processe.md' n187
+  [ -f "$REPO/$c187" ] || { printf '  FAIL k187: нет %s в %s — привязка живого следствия исчезла\n' "$c187" "$REPO" >&2; return 1; }
+  if grep -q '^ПОТРЕБИТЕЛЬ' "$REPO/$c187"; then
+    printf '  FAIL k187: контракт 187 уже несёт ПОТРЕБИТЕЛЬ-строки — обязанность следствия (раздел «Следствия») исполнена; клетку заменить парой (окно 187 с пробами → rc 0)\n' >&2
+    return 1
+  fi
+  n187="$(git -C "$REPO" rev-list --no-merges frozen/contracts/187/1..HEAD -- scripts/freeze_contract.sh 2>/dev/null | wc -l)"
+  [ "${n187:-0}" -gt 0 ] || { printf '  FAIL k187: окно 187 не несёт коммитов, трогающих scripts/freeze_contract.sh — вход клетки исчез\n' >&2; return 1; }
+  run_gate "$REPO" "$c187"
+  if [ "$LAST_RC" -eq 1 ] \
+     && printf '%s\n' "$LAST_OUT" | grep -Fq 'не верифицирован: нет ПОТРЕБИТЕЛЬ-пробы' \
+     && printf '%s\n' "$LAST_OUT" | grep -Eq 'писатель scripts/(freeze_contract|done_contract)\.sh изменён'; then
+    printf '  ok   k187: окно 187 судит коммиты 187а без пробы (следствие раздела «Следствия»; судимых писатель-коммитов в окне: %s)\n' "$n187" >&2
+    return 0
+  fi
+  printf '  FAIL k187: rc %s, ожидался отказ 1 «нет ПОТРЕБИТЕЛЬ-пробы» по писателю 187а\nвывод гейта:\n%s\n' "$LAST_RC" "$LAST_OUT" >&2
+  return 1
+}
 kg_c() { run_gate "$kg" contracts/100-n.md; chk_refuse 'kg: автор вне роли зоны не атрибутируется'; }
 kd1_c() { run_gate "$kd1" contracts/100-n.md; chk_rc0 'kd1: чужой ленд вне окна (062 И-1)'; }
 kd2_c() { run_gate "$kd2" contracts/100-n.md; chk_rc0 'kd2: канал владельца исключён (Н-300)'; }
@@ -686,6 +747,65 @@ printf 'потребители 116: писатель scripts/freeze_contract.sh 
 exit 1
 EOF
 
+
+  # s9 «без приоритета своего» (Б-3 круга 2): окно добывается честно
+  # (именованный отказ добычи), зоны читаются честно (именованный отказ),
+  # автор+путь+диапазоны M честны, проба честна — НО приоритетной проверки
+  # своего покрытия НЕТ: при перекрытии своей и чужой зоны исключает через
+  # M≠N (И-5 без конъюнкта «пара НЕ покрыта зонами N»; равносильно удалению
+  # ветви zone_covers-вперед честной модели).
+  cat > "$STUBS/s9_bez_prioriteta_svoego.sh" <<'EOF'
+#!/usr/bin/env bash
+set -uo pipefail
+ROOT="${1:?ispolzovanie: <koren> <otn-put-kontrakta>}"
+CONTRACT_PATH="${2:?ispolzovanie: <koren> <otn-put-kontrakta>}"
+export PATH=/usr/bin:/bin
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+base="${CONTRACT_PATH##*/}"
+n="$(printf '%s' "$base" | sed -nE 's/^([0-9]{3})-.*/\1/p')"
+[ -n "$n" ] || exit 2
+command -v git >/dev/null 2>&1 || exit 2
+last_frozen="$(git -C "$ROOT" tag -l "frozen/contracts/$n/*" 2>/dev/null | sort -V | tail -n 1)"
+[ -n "$last_frozen" ] || exit 0
+. "${HARNESS_ROOT:?HARNESS_ROOT}/scripts/lib_zones.sh"
+COMMITS="$(mktemp)"; trap 'rm -f "$COMMITS"' EXIT
+if ! git -C "$ROOT" rev-list --no-merges "$last_frozen..HEAD" 2>/dev/null | sort -u >"$COMMITS"; then
+  printf 'потребители 116: список судимых коммитов окна недоступен\n' >&2
+  exit 1
+fi
+ZDIR="$(zones_load "$ROOT" 2>/dev/null)" || { printf 'потребители 116: зоны атрибуции окна не читаются\n' >&2; exit 1; }
+[ -n "$ZDIR" ] && [ -f "$ZDIR/zones_scoped" ] && [ -f "$ZDIR/ranges" ] || { printf 'потребители 116: зоны атрибуции окна не читаются\n' >&2; exit 1; }
+hit=0
+while IFS= read -r c; do
+  [ -n "$c" ] || continue
+  out="$(git -C "$ROOT" diff-tree -r --no-commit-id --name-only "$c" -- scripts/freeze_contract.sh)" || exit 9
+  [ -n "$out" ] || continue
+  a="$(git -C "$ROOT" log -1 --format=%an "$c" 2>/dev/null)" || exit 9
+  # ДЕФЕКТ: приоритетной проверки своего покрытия НЕТ — зона N здесь не
+  # рассматривается вовсе; при перекрытии своей и чужой зоны исключает через M≠N
+  attributed=0
+  while IFS=$'\t' read -r za zp zn; do
+    [ -n "$za" ] || continue
+    [ "$zn" = "$n" ] && continue
+    [ "$za" = "$a" ] || continue
+    case "$zp" in
+      */) case scripts/freeze_contract.sh in "$zp"*) ;; *) continue ;; esac ;;
+      *)  [ "scripts/freeze_contract.sh" = "$zp" ] || continue ;;
+    esac
+    range="$(awk -F'\t' -v m="$zn" '$1 == m { print $2; exit }' "$ZDIR/ranges")"
+    [ -n "$range" ] || continue
+    since="${range%%..*}"; case "$range" in *..*) until="${range#*..}" ;; *) until="" ;; esac
+    git -C "$ROOT" merge-base --is-ancestor "$since" "$c" 2>/dev/null || continue
+    if [ -n "$until" ]; then git -C "$ROOT" merge-base --is-ancestor "$c" "$until" 2>/dev/null || continue; fi
+    attributed=1; break
+  done <"$ZDIR/zones_scoped"
+  [ "$attributed" -eq 1 ] && continue
+  hit=1; break
+done <"$COMMITS"
+[ "$hit" -eq 0 ] && exit 0
+printf 'потребители 116: писатель scripts/freeze_contract.sh изменён, потребитель fixtures/reader.sh не верифицирован: нет ПОТРЕБИТЕЛЬ-пробы\n' >&2
+exit 1
+EOF
   chmod +x "$STUBS"/*.sh
 }
 
@@ -758,6 +878,8 @@ case "$MODE" in
   hcell kdoneM-done-granica-diapazona kdoneM_c
   hcell ksinceM-since-granica-diapazona ksinceM_c
   hcell kzfail-zony-atribucii-ne-chitajutsja kzfail_c
+  hcell kv3-svoj-prioritet-pri-perekrytii kv3_c
+  hcell k187-okno-187-sudit-komity-187a k187_c
   printf '195: честных клеток %d, зелёных %d, красных:%s\n' \
     "$honest_total" "$honest_green" "${honest_fail:- нет}"
   [ "$honest_total" -gt 0 ] || { printf '195: ПУСТАЯ выборка честных клеток — красное\n' >&2; exit 1; }
@@ -779,6 +901,8 @@ case "$MODE" in
   hcell kdoneM-done-granica-diapazona kdoneM_c
   hcell ksinceM-since-granica-diapazona ksinceM_c
   hcell kzfail-zony-atribucii-ne-chitajutsja kzfail_c
+  hcell kv3-svoj-prioritet-pri-perekrytii kv3_c
+  hcell k187-okno-187-sudit-komity-187a k187_c
   SUBJ="$REAL_SUBJ"
   printf '195(model): честных клеток %d, зелёных %d, красных:%s\n' \
     "$honest_total" "$honest_green" "${honest_fail:- нет}"
@@ -807,6 +931,8 @@ case "$MODE" in
   s7_diff() { with_stub "$STUBS/s7_bez_since_granicy.sh";  run_gate "$ka"  contracts/100-n.md; restore_subj; chk_stub_honest_rc0 's7-диффпроба: живой M атрибутирует как честный (вход ka)'; }
   s8()      { with_stub "$STUBS/s8_zony_oshibka_pusto.sh"; export LIB_ZONES_BASE="$kz_fail_base"; run_gate "$kzfail" contracts/100-n.md; unset LIB_ZONES_BASE; restore_subj; chk_caught_zfail 's8: отказ чтения зон проглочен в «зон нет» (вход kzfail)'; }
   s8_diff() { with_stub "$STUBS/s8_zony_oshibka_pusto.sh"; run_gate "$kb"  contracts/100-n.md; restore_subj; chk_stub_honest_refuse 's8-диффпроба: живые зоны судятся как честные (вход kb)'; }
+  s9()      { with_stub "$STUBS/s9_bez_prioriteta_svoego.sh"; run_gate "$kv3" contracts/100-n.md; restore_subj; chk_caught_rc0 's9: перекрытие своей и чужой зоны отпущено через M≠N (вход kv3)'; }
+  s9_diff() { with_stub "$STUBS/s9_bez_prioriteta_svoego.sh"; run_gate "$kv1" contracts/100-n.md; restore_subj; chk_stub_honest_refuse 's9-диффпроба: свой контракт без чужих зон судится как честный (вход kv1)'; }
   scell s1-gasitel s1
   scell s2-imja-bez-zony s2
   scell s3-tolko-land s3
@@ -815,6 +941,7 @@ case "$MODE" in
   scell s6-bez-done-granicy s6
   scell s7-bez-since-granicy s7
   scell s8-zony-oshibka-pusto s8
+  scell s9-bez-prioriteta-svoego s9
   dcell s1-diffpr s1_diff
   dcell s2-diffpr s2_diff
   dcell s3-diffpr s3_diff
@@ -823,6 +950,7 @@ case "$MODE" in
   dcell s6-diffpr s6_diff
   dcell s7-diffpr s7_diff
   dcell s8-diffpr s8_diff
+  dcell s9-diffpr s9_diff
   printf '195(stabs): стабов %d, поймано %d, ускользнуло:%s\n' \
     "$stub_total" "$stub_caught" "${stub_esc:- нет}"
   printf '195(stabs): диффпроб %d, зелёных %d, провал:%s\n' \
