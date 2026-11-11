@@ -9,12 +9,18 @@
 #   bash scripts/merge_architecture_pr.sh <корень-CompliorOS-architecture> <номер-PR>
 #
 # Порядок (каждый шаг — именованный отказ БЕЗ слияния):
-#   1. заголовок PR несёт COMPLETOR-<NNN>;
-#   2. identity сливающего (gh api user) ≠ автору PR;
+#   1. заголовок PR несёт РОВНО ОДИН COMPLIOR-<NNN>: грамматика регистрозависима,
+#      `complior-186` и `COMPLIOR-186a` идентификатором работы не являются;
+#   2. identity сливающего (gh api user) ≠ автору PR: логины сравниваются ТОЛЬКО
+#      через casefold (логины GitHub регистронезависимы) — юникод-lookalike, пробел
+#      и суффикс `[bot]` дают ДРУГОЙ аккаунт; пустой логин автора — rc 2 (нечем
+#      судить), не слияние;
 #   3. accept критика на ТОМ ЖЕ head SHA: APPROVED, автор вердикта ≠ автор PR,
-#      строка `accept` и строка `СУД: … модель-факт=<GLM>; SHA=<head>` (фактическая
-#      модель судьи — GLM, а не Sol хранителя);
-#   4. check-runs на head зелёные И среди них есть `architecture` (CI архитектурного репо);
+#      первая строка body — дословно `accept`, единственная строка `СУД: ` несёт
+#      ровно одно поле `модель-факт=<GLM>` (фактическая модель судьи — GLM, а не
+#      Sol хранителя) и кончается `; SHA=<head>`;
+#   4. check-runs на head: ВСЕ страницы (`gh api --paginate`), все runs
+#      completed+success, есть run `architecture`, и его app.slug=github-actions;
 #   5. `npm run check -- --base governance/baseline/approved.json --report` в корне
 #      проекта: baseline PASS (L1 выводится механически), защищённые секции не задеты.
 #      Расхождение вне защищённых секций — L2: без записи владельца дверь отказывает
@@ -54,7 +60,9 @@ import subprocess
 import sys
 
 project, number, repo, critic_logins, critic_model = sys.argv[1:6]
-critics = {name.strip() for name in critic_logins.split(',') if name.strip()}
+# Логины GitHub регистронезависимы: единственная допустимая нормализация — casefold.
+# Ни NFKC, ни trim, ни срез `[bot]`: иной байт в логине = иной аккаунт.
+critics = {name.strip().casefold() for name in critic_logins.split(',') if name.strip()}
 work_item_re = re.compile(r'\bCOMPLIOR-[0-9]+\b')
 sha_re = re.compile(r'[0-9a-f]{40}\Z')
 protected_sections = ('resources', 'authority', 'policies', 'repositoryLayout',
@@ -88,22 +96,56 @@ def gh_json(args):
         broken('gh ' + ' '.join(args) + ': вывод не разобран как JSON')
 
 
+def gh_pages(args):
+    """Страницы ответа `gh api --paginate`: поток JSON-документов одного вывода.
+
+    GitHub отдаёт check-runs постранично, каждая страница — свой JSON-документ,
+    поэтому вывод разбирается потоком документов, а не одним json.loads: иначе
+    вторая страница (с красным run) осталась бы невидимой.
+    """
+    raw = call(['gh'] + args, project)
+    decoder = json.JSONDecoder()
+    pages = []
+    index = 0
+    while index < len(raw):
+        while index < len(raw) and raw[index].isspace():
+            index += 1
+        if index >= len(raw):
+            break
+        try:
+            page, index = decoder.raw_decode(raw, index)
+        except ValueError:
+            broken('gh ' + ' '.join(args) + ': вывод не разобран как JSON')
+        pages.append(page)
+    return pages
+
+
+def app_slug(run):
+    app = run.get('app')
+    return app.get('slug') if isinstance(app, dict) else None
+
+
 pr = gh_json(['pr', 'view', number, '-R', repo,
               '--json', 'title,author,headRefOid,baseRefName'])
+if not isinstance(pr, dict):
+    broken('gh pr view: ответ не разобран как объект')
 title = pr.get('title') or ''
 sha = pr.get('headRefOid') or ''
 author = ((pr.get('author') or {}).get('login')) or ''
-if not work_item_re.search(title):
+if len(work_item_re.findall(title)) != 1:
     refuse('NO_COMPLIOR_ID')
 if not sha_re.fullmatch(sha):
     refuse('HEAD_SHA_INVALID')
 if not author:
     broken('в PR нет автора — слияние невозможно судить')
 
-operator = (gh_json(['api', 'user']) or {}).get('login') or ''
+operator_response = gh_json(['api', 'user'])
+if not isinstance(operator_response, dict):
+    broken('gh api user: ответ не разобран как объект')
+operator = operator_response.get('login') or ''
 if not operator:
     broken('gh api user: нет login оператора')
-if author == operator:
+if author.casefold() == operator.casefold():
     refuse('AUTHOR_IS_MERGER')
 
 reviews = gh_json(['api', 'repos/%s/pulls/%s/reviews' % (repo, number)])
@@ -119,28 +161,46 @@ for review in reviews:
         continue
     if review.get('commit_id') != sha:
         continue
-    if login not in critics:
+    if login.casefold() not in critics:
         continue
-    if login == author:
+    if login.casefold() == author.casefold():
         continue
-    if not re.search(r'^accept$', body, re.M):
+    # accept — дословно ПЕРВАЯ строка body: без пробелов, без другого регистра.
+    lines = body.splitlines()
+    if not lines or lines[0] != 'accept':
         continue
-    if not re.search(r'^СУД: .*модель-факт=' + re.escape(critic_model) +
-                     r'; SHA=' + re.escape(sha) + r'$', body, re.M):
+    # СУД — ровно одна строка, с ровно одним полем модель-факт=<модель критика>
+    # и `; SHA=<head>` в конце.
+    sud = [line for line in lines if line.startswith('СУД: ')]
+    if len(sud) != 1:
+        continue
+    fields = sud[0].split('модель-факт=')
+    if len(fields) != 2:
+        continue
+    if fields[1].split(';', 1)[0] != critic_model:
+        continue
+    if not sud[0].endswith('; SHA=' + sha):
         continue
     accepted = True
     break
 if not accepted:
     refuse('NO_CRITIC_ACCEPT_ON_HEAD')
 
-checks = gh_json(['api', 'repos/%s/commits/%s/check-runs' % (repo, sha)])
-runs = checks.get('check_runs') if isinstance(checks, dict) else None
-if not isinstance(runs, list) or not runs:
-    refuse('CI_NOT_GREEN_ON_HEAD')
-if not any(run.get('name') == 'architecture' for run in runs):
+runs = []
+for page in gh_pages(['api', '--paginate',
+                      'repos/%s/commits/%s/check-runs' % (repo, sha)]):
+    chunk = page.get('check_runs') if isinstance(page, dict) else page
+    if isinstance(chunk, list):
+        runs.extend(run for run in chunk if isinstance(run, dict))
+if not runs:
     refuse('CI_NOT_GREEN_ON_HEAD')
 if any(run.get('status') != 'completed' or run.get('conclusion') != 'success'
        for run in runs):
+    refuse('CI_NOT_GREEN_ON_HEAD')
+architecture = [run for run in runs if run.get('name') == 'architecture']
+if not architecture:
+    refuse('CI_NOT_GREEN_ON_HEAD')
+if any(app_slug(run) != 'github-actions' for run in architecture):
     refuse('CI_NOT_GREEN_ON_HEAD')
 
 check = subprocess.run(['npm', 'run', 'check', '--', '--base',
