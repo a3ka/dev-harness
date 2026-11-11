@@ -262,7 +262,7 @@ fi
 # Отказ — именованный (маркер в stderr), критик не зовётся.
 if [ -n "$REPO_ARG" ] && [ -x "$ROOT/scripts/check_architecture_contract.sh" ]; then
   _a187_rc=0
-  _a187_out="$(cd "$ROOT" && bash scripts/check_architecture_contract.sh --repo "$REPO_ARG" --model-only "$CONTRACT" 2>&1)" || _a187_rc=$?
+  _a187_out="$(cd "$ROOT" && bash scripts/check_architecture_contract.sh --repo "$BASE" --model-only "$CONTRACT" 2>&1)" || _a187_rc=$?
   if [ "$_a187_rc" -ne 0 ]; then
     _a187_first="$(printf '%s' "$_a187_out" | head -n 1)"
     refuse "дверь архитектуры 187а красна: $_a187_first"
