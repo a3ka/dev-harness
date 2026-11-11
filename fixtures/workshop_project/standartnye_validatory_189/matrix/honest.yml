@@ -1,0 +1,30 @@
+# Честная работа (матрица Д§3.2, класс job runtime-r0 предмета 174 бэкенда).
+# SHA действий — из работающего ci.yml проекта (DIAGNOSIS.md:217-219).
+name: ci
+on:
+  push:
+    branches: [main]
+jobs:
+  runtime-r0:
+    name: runtime-r0 (стенд R0, PG18)
+    runs-on: [self-hosted, linux, x64, complior-back]
+    timeout-minutes: 20
+    container:
+      image: ghcr.io/complior/r0-stand@sha256:9f1c4d2ab3e5678091d2c3b4a5f6789012345678901234567890abcdef012345
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .node-version
+      - name: engine-сценарии R0
+        run: python3 tests/tools/run_runtime_r0.py --lane r0 --out evidence/ci/r0
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: evidence-r0
+          path: evidence/ci/r0

@@ -1,0 +1,5 @@
+# Вход rc 2 (грамматика канона): неразборчивый YAML.
+jobs:
+  runtime-r0:
+    runs-on: [self-hosted
+     , linux

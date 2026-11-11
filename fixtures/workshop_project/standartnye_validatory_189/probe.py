@@ -1,0 +1,434 @@
+#!/usr/bin/env python3
+"""Батарея 189 «Л4 — стандартные валидаторы и канон» (семья standartnye_validatory_189).
+
+Режимы (обёртка red_standartnye_validatory_189.sh):
+  --repo <корень>  — судить реальный субъект <корень>/scripts/{validate_std.sh,
+                     validate_std_json.py, check_canon_fragment.py} + пин-файл
+                     <корень>/ops/server/validators.tsv (голый вызов = корень дерева);
+  --model          — та же батарея против честной модели model/scripts/ (сборка
+                     временного корня с пинами двойников);
+  --stabs          — поимка обманных реализаций stabs/ на их различающих входах
+                     (привязки — stabs.tsv, данные, не проза).
+
+Правило 8: ожидания сняты в память (список KLETKI) ДО вызова субъекта; диск
+субъекта как истина не перечитывается. Свидетель z01 — сама батарея (вне
+субъекта). Числа — из прогонов; итог — код возврата: 0 зелено, 1 есть красные
+клетки/живая обманка, 2 нечем судить (LIVE_PREDPOSYLKA), никогда skip→pass.
+"""
+import hashlib
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[2]
+MATRIX = HERE / 'matrix'
+REAL_HOME = Path(os.environ.get('HOME') or '/nonexistent')
+
+# ── Двойники внешних бинарей: честные контракты rc, измеренные Д§3.2 ──────────
+# Двойник actionlint воспроизводит измеренный контракт rc actionlint 1.7.12 на
+# входах матрицы: rc 1 — нет runs-on у job; rc 1 — неизвестное поле github.* в
+# ${{ … }}; прочие мутации матрицы — rc 0 (замер: 2 из 9; остальное ловит канон).
+ACTIONLINT_DVOJNIK = '''#!/usr/bin/env python3
+import re, sys
+try:
+    import yaml
+except Exception:
+    sys.exit(1)
+try:
+    doc = yaml.safe_load(open(sys.argv[1], encoding='utf-8'))
+except Exception:
+    print('yaml: синтаксическая ошибка', file=sys.stderr)
+    sys.exit(1)
+ok = True
+jobs = (doc or {}).get('jobs') or {}
+for jid, job in jobs.items():
+    if isinstance(job, dict) and 'runs-on' not in job:
+        print('%s: "runs-on" is missing' % jid, file=sys.stderr)
+        ok = False
+izvestnye = {'sha', 'ref', 'token', 'event', 'repository', 'workflow', 'run',
+             'job', 'actor', 'head_ref', 'base_ref', 'env', 'github'}
+text = open(sys.argv[1], encoding='utf-8', errors='replace').read()
+for m in re.finditer(r'\\$\\{\\{\\s*github\\.([A-Za-z_][A-Za-z0-9_]*)', text):
+    if m.group(1) not in izvestnye:
+        print('github.%s: unknown property' % m.group(1), file=sys.stderr)
+        ok = False
+sys.exit(0 if ok else 1)
+'''
+
+# Лгущий бинарь: печатает успех, выходит rc 1 (клетка v07: успех по тексту
+# вывода не признаётся, rc пробрасывается).
+LZHUSHHIJ_ACTIONLINT = '''#!/usr/bin/env python3
+print('проверено: ошибок нет')
+sys.exit(1)
+'''  # noqa: намеренно без import sys — падение до exit(1) всё равно даёт rc 1
+
+# Подмена: иной бинарь с иным sha256 (клетка v05: пин обязан отказать).
+DRUGOJ_ACTIONLINT = '#!/bin/sh\n# подмена батареи 189: иной бинарь, иной sha256\nexit 0\n'
+
+# Двойник shellcheck: rc 1 при маркерной находке батареи, иначе rc 0.
+SHELLCHECK_DVOJNIK = '''#!/usr/bin/env python3
+import sys
+data = open(sys.argv[1], encoding='utf-8', errors='replace').read()
+if '# shellcheck-demo-finding' in data:
+    print('SC9999: демонстрационная находка (маркер батареи 189)', file=sys.stderr)
+    sys.exit(1)
+sys.exit(0)
+'''
+
+PIN_JSONSCHEMA = '4.26.0'  # версия на станции (замер сессии 2026-11-11)
+VER_DVOJNIKA = '1.7.12-dvojnik-189'
+
+
+def sha256(put: Path) -> str:
+    return hashlib.sha256(put.read_bytes()).hexdigest()
+
+
+def zapisat(path: Path, text: str, ispoln=False):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding='utf-8')
+    if ispoln:
+        path.chmod(0o755)
+
+
+def sobrat_mir(vrem: Path) -> dict:
+    """Мир двойников + пины. Ожидания — в памяти ДО вызова субъекта (правило 8)."""
+    bin_dir = vrem / 'bin'
+    actionlint = bin_dir / 'actionlint'
+    lie = bin_dir / 'lie_actionlint'
+    drugoj = bin_dir / 'drugoj_actionlint'
+    shellcheck = bin_dir / 'shellcheck'
+    zapisat(actionlint, ACTIONLINT_DVOJNIK, ispoln=True)
+    zapisat(lie, LZHUSHHIJ_ACTIONLINT.replace('sys.exit(1)', 'raise SystemExit(1)'), ispoln=True)
+    zapisat(drugoj, DRUGOJ_ACTIONLINT, ispoln=True)
+    zapisat(shellcheck, SHELLCHECK_DVOJNIK, ispoln=True)
+
+    py3 = vrem / 'py3'
+    py3bez = vrem / 'py3bez'
+    zapisat(py3, '#!/bin/sh\nexec python3 "$@"\n', ispoln=True)
+    zapisat(py3bez, '#!/bin/sh\nexec python3 -S "$@"\n', ispoln=True)
+
+    site = vrem / 'site'
+    zapisat(site / 'jsonschema' / '__init__.py', '')
+    zapisat(site / 'jsonschema-0.0.0.dist-info' / 'METADATA',
+            'Metadata-Version: 2.1\nName: jsonschema\nVersion: 0.0.0\n')
+
+    def pins_tsv(sha_actionlint: str) -> str:
+        return (
+            '# opy: инструмент <TAB> версия <TAB> sha256 (или - для пакетов python)\n'
+            'actionlint\t%s\t%s\n'
+            'shellcheck\t%s\t%s\n'
+            'jsonschema\t%s\t-\n'
+            % (VER_DVOJNIKA, sha_actionlint,
+               VER_DVOJNIKA, sha256(shellcheck), PIN_JSONSCHEMA))
+
+    pins = vrem / 'pins' / 'validators.tsv'
+    pins_lie = vrem / 'pins_lie' / 'validators.tsv'
+    zapisat(pins, pins_tsv(sha256(actionlint)))
+    zapisat(pins_lie, pins_tsv(sha256(lie)))
+
+    # jsonschema на станции живёт в user-site (зависим от HOME): честные json-клетки
+    # получают ОБНАРУЖЕННЫЙ каталог движка через PYTHONPATH — изоляция HOME не
+    # прячет существующий движок; клетки v15/v16 его намеренно не получают.
+    r = subprocess.run(
+        ['python3', '-c',
+         'import jsonschema, os; print(os.path.dirname(os.path.dirname(jsonschema.__file__)))'],
+        capture_output=True, text=True)
+    site_dvizhka = r.stdout.strip() if r.returncode == 0 else ''
+
+    home = vrem / 'home'
+    home.mkdir(parents=True, exist_ok=True)
+    return {
+        'vrem': vrem, 'bin': bin_dir,
+        'actionlint': actionlint, 'lie': lie, 'drugoj': drugoj,
+        'shellcheck': shellcheck, 'py3': py3, 'py3bez': py3bez,
+        'site': site, 'pins': pins, 'pins_lie': pins_lie, 'home': home,
+        'pins_tsv': pins_tsv, 'site_dvizhka': site_dvizhka,
+    }
+
+
+def sobrat_koren_subekta(vrem: Path, mir: dict, istoshnik: str) -> Path:
+    """--model/--stabs: временный корень субъекта = model/scripts + пины мира."""
+    koren = vrem / ('subekt-model' if istoshnik == 'model' else 'subekt-obmanka')
+    for f in ('validate_std.sh', 'validate_std_json.py', 'check_canon_fragment.py'):
+        cel = koren / 'scripts' / f
+        cel.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(HERE / istoshnik / 'scripts' / f, cel)
+    zapisat(koren / 'ops' / 'server' / 'validators.tsv',
+            (mir['pins']).read_text(encoding='utf-8'))
+    return koren
+
+
+class Kletka:
+    def __init__(self, imja, argv, env, rc, markery=()):
+        self.imja, self.argv, self.env, self.rc, self.markery = imja, argv, env, rc, list(markery)
+
+
+def sreda(mir, **nadbavki):
+    env = dict(os.environ)
+    env['HOME'] = str(mir['home'])
+    env['VALIDATE_STD_PINS'] = str(mir['pins'])
+    env['VALIDATE_STD_PYTHON'] = str(mir['py3'])
+    env['VALIDATE_STD_ACTIONLINT'] = str(mir['actionlint'])
+    env['VALIDATE_STD_SHELLCHECK'] = str(mir['shellcheck'])
+    env.pop('PYTHONPATH', None)
+    env.update(nadbavki)
+    return env
+
+
+def kletki(koren: Path, mir: dict) -> list:
+    """Оракул в памяти: имя, команда, среда, ожидаемый rc, обязательные маркеры."""
+    S = koren / 'scripts'
+    M = MATRIX
+    kanon = str(M / 'canon.yml')
+
+    def canon(wf, job='runtime-r0', kanon_fajl=None, py='python3'):
+        return [py, str(S / 'check_canon_fragment.py'), str(wf), job,
+                str(kanon_fajl or M / 'canon.yml')]
+
+    def wrap(*args, **env):
+        return ['bash', str(S / 'validate_std.sh'), *args], env
+
+    K = []
+    # ── канон: 11 входов матрицы Д§3.2 + грамматика/среда ──
+    K.append(Kletka('k01-chestnaja', canon(M / 'honest.yml'), sreda(mir), 0))
+    K.append(Kletka('k02-ekvivalentnaja', canon(M / 'ekvivalent.yml'), sreda(mir), 0))
+    K.append(Kletka('k03-bez-runs-on', canon(M / 'mut_bez_runs_on.yml'), sreda(mir), 1,
+                    ['CANON_DIFF: runs-on:']))
+    K.append(Kletka('k04-scalar-runs-on', canon(M / 'mut_scalar_runs_on.yml'), sreda(mir), 1,
+                    ['CANON_DIFF: runs-on:']))
+    K.append(Kletka('k05-nesushhestvujushhij-sha',
+                    canon(M / 'mut_nesushchestvujushhij_sha.yml'), sreda(mir), 1,
+                    ['CANON_DIFF: steps[0].uses:']))
+    K.append(Kletka('k06-shag-posle-upload', canon(M / 'mut_shag_posle_upload.yml'),
+                    sreda(mir), 1, ['CANON_DIFF: steps[4]']))
+    K.append(Kletka('k07-if-vsegda-lozh', canon(M / 'mut_if_vsegda_lozh.yml'),
+                    sreda(mir), 1, ['CANON_DIFF: steps[2].if']))
+    K.append(Kletka('k08-sha256-fixture', canon(M / 'mut_sha256_fixture.yml'),
+                    sreda(mir), 1, ['CANON_DIFF: container.image:']))
+    K.append(Kletka('k09-teg-vmesto-sha', canon(M / 'mut_teg_vmesto_sha.yml'),
+                    sreda(mir), 1, ['CANON_DIFF: steps[0].uses:']))
+    K.append(Kletka('k10-opetchatka-vyrazhenija',
+                    canon(M / 'mut_opetchatka_vyrazhenija.yml'), sreda(mir), 1,
+                    ['CANON_DIFF: steps[2].env.BASE:']))
+    K.append(Kletka('k11-working-directory', canon(M / 'mut_working_directory.yml'),
+                    sreda(mir), 1, ['CANON_DIFF: steps[2].working-directory']))
+    K.append(Kletka('k12-jaml-ne-razbor', canon(M / 'broken.yml'), sreda(mir), 2,
+                    ['CANON_UNPARSEABLE']))
+    K.append(Kletka('k13-job-net', canon(M / 'honest.yml', job='netu-takogo'),
+                    sreda(mir), 2, ['CANON_JOB_MISSING']))
+    K.append(Kletka('k14-kanon-net',
+                    ['python3', str(S / 'check_canon_fragment.py'), str(M / 'honest.yml'),
+                     'runtime-r0', str(M / 'kanon-netu.yml')], sreda(mir), 2,
+                    ['CANON_ABSENT']))
+    K.append(Kletka('k15-workflow-net',
+                    ['python3', str(S / 'check_canon_fragment.py'), str(M / 'workflow-netu.yml'),
+                     'runtime-r0', kanon], sreda(mir), 2, ['CANON_ABSENT']))
+    K.append(Kletka('k16-kanon-ne-otobrazhenie',
+                    canon(M / 'honest.yml', kanon_fajl=M / 'kanon_spisok.yml'),
+                    sreda(mir), 2, ['CANON_FRAGMENT']))
+    K.append(Kletka('k17-net-pyyaml',
+                    canon(M / 'honest.yml', py=str(mir['py3bez'])), sreda(mir), 2,
+                    ['CANON_ENV']))
+
+    # ── обёртка валидаторов ──
+    argv, env = wrap('workflow', str(M / 'honest.yml'))
+    K.append(Kletka('v01-workflow-chestnyj', argv, sreda(mir, **env), 0))
+    argv, env = wrap('workflow', str(M / 'mut_bez_runs_on.yml'))
+    K.append(Kletka('v02-workflow-bez-runs-on', argv, sreda(mir, **env), 1))
+    argv, env = wrap('workflow', str(M / 'mut_opetchatka_vyrazhenija.yml'))
+    K.append(Kletka('v03-workflow-opetchatka', argv, sreda(mir, **env), 1))
+    argv, env = wrap('workflow', str(M / 'mut_scalar_runs_on.yml'))
+    K.append(Kletka('v04-workflow-scalar-gjanica', argv, sreda(mir, **env), 0))
+    argv, env = wrap('workflow', str(M / 'honest.yml'))
+    e = dict(env)
+    e['VALIDATE_STD_ACTIONLINT'] = str(mir['drugoj'])
+    K.append(Kletka('v05-podmena-binarija', argv, sreda(mir, **e), 2,
+                    ['VALIDATOR_PIN: actionlint']))
+    argv, env = wrap('workflow', str(M / 'honest.yml'))
+    e = dict(env)
+    e['VALIDATE_STD_ACTIONLINT'] = str(mir['bin'] / 'netu')
+    K.append(Kletka('v06-instrumenta-net', argv, sreda(mir, **e), 2,
+                    ['VALIDATOR_MISSING: actionlint']))
+    argv, env = wrap('workflow', str(M / 'honest.yml'))
+    e = dict(env)
+    e['VALIDATE_STD_ACTIONLINT'] = str(mir['lie'])
+    e['VALIDATE_STD_PINS'] = str(mir['pins_lie'])
+    K.append(Kletka('v07-lgushhij-binarij', argv, sreda(mir, **e), 1))
+    argv, env = wrap('bash', str(M / 'chestnyj_skript.sh'))
+    K.append(Kletka('v08-bash-chestnyj', argv, sreda(mir, **env), 0))
+    argv, env = wrap('bash', str(M / 'sintaksis.sh'))
+    K.append(Kletka('v09-bash-sintaksis', argv, sreda(mir, **env), 2,
+                    ['SYNTAX: bash -n']))
+    argv, env = wrap('bash', str(M / 'shellcheck_nahodka.sh'))
+    K.append(Kletka('v10-bash-nahodka', argv, sreda(mir, **env), 1))
+    argv, env = wrap('bash', str(M / 'chestnyj_skript.sh'))
+    e = dict(env)
+    e['VALIDATE_STD_SHELLCHECK'] = str(mir['bin'] / 'netu')
+    K.append(Kletka('v11-shellcheck-net', argv, sreda(mir, **e), 2,
+                    ['VALIDATOR_MISSING: shellcheck']))
+    argv, env = wrap('json', str(M / 'shema.json'), str(M / 'dokument.json'))
+    e = dict(env)
+    e['PYTHONPATH'] = str(mir['site_dvizhka'])
+    K.append(Kletka('v12-json-chestnyj', argv, sreda(mir, **e), 0))
+    argv, env = wrap('json', str(M / 'shema.json'), str(M / 'dokument_narushenie.json'))
+    e = dict(env)
+    e['PYTHONPATH'] = str(mir['site_dvizhka'])
+    K.append(Kletka('v13-json-narushenie', argv, sreda(mir, **e), 1,
+                    ['JSON_INVALID:']))
+    argv, env = wrap('json', str(M / 'shema.json'), str(M / 'dok_ne_razbor.json'))
+    e = dict(env)
+    e['PYTHONPATH'] = str(mir['site_dvizhka'])
+    K.append(Kletka('v14-json-ne-razbor', argv, sreda(mir, **e), 2,
+                    ['JSON_UNPARSEABLE']))
+    argv, env = wrap('json', str(M / 'shema.json'), str(M / 'dokument.json'))
+    e = dict(env)
+    e['VALIDATE_STD_PYTHON'] = str(mir['py3bez'])
+    K.append(Kletka('v15-dvizhka-net', argv, sreda(mir, **e), 2,
+                    ['ENGINE_MISSING: jsonschema']))
+    argv, env = wrap('json', str(M / 'shema.json'), str(M / 'dokument.json'))
+    e = dict(env)
+    e['PYTHONPATH'] = str(mir['site'])
+    K.append(Kletka('v16-versija-ne-ta', argv, sreda(mir, **e), 2,
+                    ['ENGINE_VERSION: jsonschema']))
+    argv, env = wrap('netrezhim', 'argument')
+    K.append(Kletka('v17-rezhim-neizvesten', argv, sreda(mir, **env), 2,
+                    ['NOT_IMPLEMENTED']))
+    return K
+
+
+def sudit(k: Kletka) -> bool:
+    try:
+        r = subprocess.run(k.argv, env=k.env, capture_output=True, text=True, timeout=60)
+        rc, err = r.returncode, r.stderr
+    except FileNotFoundError:
+        rc, err = None, 'SUBJECT_ABSENT: %s' % k.argv[0]
+    except subprocess.TimeoutExpired:
+        rc, err = None, 'TIMEOUT'
+    ok = rc == k.rc and all(m in err for m in k.markery)
+    print('189 %s %s rc=%s %s' % (
+        k.imja, 'ok' if ok else 'KRASNO', rc, err.strip().splitlines()[:1]))
+    return ok
+
+
+def z01_zhivaja_sverka(koren: Path) -> bool:
+    """Живой свидетель (вне субъекта): пин-файл субъекта ↔ установка станции."""
+    pin_fajl = koren / 'ops' / 'server' / 'validators.tsv'
+    if not pin_fajl.is_file():
+        print('189 z01-edinnyj-istochnik KRASNO rc=None SUBJECT_ABSENT: %s' % pin_fajl)
+        return False
+    dom = REAL_HOME / '.local' / 'state' / 'dev-harness' / 'validators'
+    if not dom.is_dir():
+        print('189 z01-edinnyj-istochnik ok LIVE_PREDPOSYLKA: станция без установки '
+              'валидаторов (%s) — живая сверка отложена, не пропуск зелёным' % dom)
+        return True
+    stroki = [l.split('\t') for l in pin_fajl.read_text(encoding='utf-8').splitlines()
+              if l.strip() and not l.lstrip().startswith('#')]
+    vse_ok = True
+    for cols in stroki:
+        if len(cols) < 3 or cols[2] == '-':
+            continue
+        instrument, versija, pin = cols[0], cols[1], cols[2]
+        binar = dom / instrument / versija / instrument
+        if not binar.is_file():
+            print('189 z01-edinnyj-istochnik KRASNO VALIDATOR_MISSING: %s (%s)'
+                  % (instrument, binar))
+            vse_ok = False
+            continue
+        fakt = hashlib.sha256(binar.read_bytes()).hexdigest()
+        if fakt != pin:
+            print('189 z01-edinnyj-istochnik KRASNO VALIDATOR_PIN: %s фактический %s ≠ пин %s'
+                  % (instrument, fakt, pin))
+            vse_ok = False
+        else:
+            print('189 z01-edinnyj-istochnik ok %s: sha установленного == пин' % instrument)
+    return vse_ok
+
+
+def predposylki() -> None:
+    for mod in ('yaml', 'jsonschema'):
+        r = subprocess.run(['python3', '-c', 'import %s' % mod],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            print('LIVE_PREDPOSYLKA: нет модуля %s — нечем исполнять канон/json-клетки '
+                  'батареи 189 (чистый клон без зависимостей — именованный отказ, не '
+                  'skip→pass и не ложная клетка)' % mod, file=sys.stderr)
+            sys.exit(2)
+
+
+def rezhim_repo(koren: Path, mir: dict) -> int:
+    predposylki()
+    K = kletki(koren, mir)
+    zel = sum(1 for k in K if sudit(k)) + (1 if z01_zhivaja_sverka(koren) else 0)
+    vsego = len(K) + 1
+    kras = vsego - zel
+    print('ИТОГ 189: rc=%d KLETKI=%d ZELENYE=%d KRASNYE=%d'
+          % (0 if kras == 0 else 1, vsego, zel, kras))
+    return 0 if kras == 0 else 1
+
+
+def rezhim_stabs(mir: dict) -> int:
+    svjazi = []
+    for line in (HERE / 'stabs.tsv').read_text(encoding='utf-8').splitlines():
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+        cols = line.split('\t')
+        if len(cols) != 3:
+            print('ORACLE_TAMPERED: строка привязки вне грамматики: %r' % line,
+                  file=sys.stderr)
+            return 2
+        svjazi.append(cols)
+    poimano, zhivyh = 0, 0
+    for imja, fail, kletka_imja in svjazi:
+        # Временный корень обманки собираем в изолированном временном каталоге мира:
+        koren = mir['vrem'] / ('obmanka-%s' % imja)
+        for f in ('validate_std.sh', 'validate_std_json.py', 'check_canon_fragment.py'):
+            cel = koren / 'scripts' / f
+            cel.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(HERE / 'model' / 'scripts' / f, cel)
+        shutil.copyfile(HERE / 'stabs' / imja, koren / fail)
+        zapisat(koren / 'ops' / 'server' / 'validators.tsv',
+                (mir['pins']).read_text(encoding='utf-8'))
+        K = kletki(koren, mir)
+        kletka = next((k for k in K if k.imja.startswith(kletka_imja + '-')), None)
+        if kletka is None:
+            print('ORACLE_TAMPERED: клетка привязки не найдена: %s' % kletka_imja,
+                  file=sys.stderr)
+            return 2
+        ulov = not sudit(kletka)  # обманка НЕ удовлетворяет ожиданию клетки
+        if ulov:
+            poimano += 1
+        else:
+            zhivyh += 1
+        print('189 %s %s' % (imja, 'POIMAN' if ulov else 'ZHIV — дефект не различим'))
+    print('ИТОГ 189: rc=%d OBMANOK=%d POIMANY=%d ZHIVYH=%d'
+          % (0 if zhivyh == 0 else 1, len(svjazi), poimano, zhivyh))
+    return 0 if zhivyh == 0 else 1
+
+
+def main() -> int:
+    import argparse
+    p = argparse.ArgumentParser()
+    p.add_argument('--repo', type=Path, default=None)
+    p.add_argument('--model', action='store_true')
+    p.add_argument('--stabs', action='store_true')
+    a = p.parse_args()
+    vrem = Path(tempfile.mkdtemp(prefix='batareja-189-'))
+    try:
+        mir = sobrat_mir(vrem)
+        if a.stabs:
+            return rezhim_stabs(mir)
+        if a.model:
+            koren = sobrat_koren_subekta(vrem, mir, 'model')
+            return rezhim_repo(koren, mir)
+        koren = a.repo if a.repo is not None else ROOT
+        return rezhim_repo(koren, mir)
+    finally:
+        shutil.rmtree(vrem, ignore_errors=True)
+
+
+if __name__ == '__main__':
+    sys.exit(main())

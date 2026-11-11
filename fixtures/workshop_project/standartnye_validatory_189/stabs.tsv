@@ -1,0 +1,12 @@
+# Батарея 189 — привязки обманных реализаций к различающим входам (Н-39: данными
+# батареи, не прозой контракта). Формат: имя файла <TAB> заменяемый файл субъекта <TAB> клетка.
+# Поимка = результат обманной реализации на команде клетки не удовлетворяет
+# ожиданию клетки (rc или именованный маркер).
+stab_uspeh_po_vyvodu.sh	scripts/validate_std.sh	v07
+stab_propus_instrumenta.sh	scripts/validate_std.sh	v06
+stab_bez_proverki_sha.sh	scripts/validate_std.sh	v05
+stab_bez_bash_n.sh	scripts/validate_std.sh	v09
+stab_shema_pustoishka.py	scripts/validate_std_json.py	v13
+stab_bez_proverki_versii.py	scripts/validate_std_json.py	v16
+stab_kanon_podstroka.py	scripts/check_canon_fragment.py	k02
+stab_kanon_bez_imeni.py	scripts/check_canon_fragment.py	k03
