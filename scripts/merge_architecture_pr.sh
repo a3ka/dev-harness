@@ -21,13 +21,21 @@
 #      Sol хранителя) и кончается `; SHA=<head>`;
 #   4. check-runs на head: ВСЕ страницы (`gh api --paginate`), все runs
 #      completed+success, есть run `architecture`, и его app.slug=github-actions;
-#   5. `npm run check -- --base governance/baseline/approved.json --report` в корне
+#   5. локальный checkout — ТО дерево, которое принято: `git rev-parse HEAD` обязан
+#      совпасть с head SHA PR (иначе CHECKOUT_NOT_AT_PR_HEAD), а `git status --porcelain`
+#      обязан быть пуст (иначе CHECKOUT_DIRTY). Сравнивается РАЗРЕШЁННЫЙ sha, а не
+#      имя ветки: detached на head-коммите и иная ветка на том же sha — законны.
+#      Проверка идёт ДО `npm run check`: иначе check классифицирует ЧУЖОЕ дерево
+#      (main, подменённый baseline в рабочем дереве), а слит будет PR head.
+#      Недоступность Git-метаданных (нет .git, мелкий клон) — rc 2 (нечем судить),
+#      не слияние;
+#   6. `npm run check -- --base governance/baseline/approved.json --report` в корне
 #      проекта: baseline PASS (L1 выводится механически), защищённые секции не задеты.
 #      Расхождение вне защищённых секций — L2: без записи владельца дверь отказывает
 #      L2_OWNER_APPROVAL_REQUIRED; расхождение в защищённой секции — L3:
 #      L3_OWNER_APPROVAL_REQUIRED. L2/L3 эта дверь не сливает НИКОГДА: решение и
 #      снимок публикует владелец, слияние ведёт его отдельный маршрут;
-#   6. `gh pr merge <номер> -R a3ka/CompliorOS-architecture --merge --match-head-commit <head>`
+#   7. `gh pr merge <номер> -R a3ka/CompliorOS-architecture --merge --match-head-commit <head>`
 #      — ровно один вызов, и только после всех предыдущих проверок.
 #
 # Правила слияния самого репозитория (базовая ветка, режим коммита, «designated
@@ -202,6 +210,18 @@ if not architecture:
     refuse('CI_NOT_GREEN_ON_HEAD')
 if any(app_slug(run) != 'github-actions' for run in architecture):
     refuse('CI_NOT_GREEN_ON_HEAD')
+
+# Б-1 (ревьюер 186 вызов 1): слияние судит ТО дерево, которое принято. Проверка
+# checkout обязана предшествовать `npm run check`: иначе check классифицирует
+# ЧУЖОЕ дерево (main, подменённый в рабочем дереве baseline), а слит будет PR
+# head. Сравнивается РАЗРЕШЁННЫЙ sha, не имя ветки: detached на head-коммите и
+# иная ветка на том же sha — законны. Отказ Git-метаданных (нет .git, мелкий
+# клон) — rc 2 «нечем судить» (call() так и поступает), не слияние.
+head = call(['git', 'rev-parse', 'HEAD'], project).strip()
+if head != sha:
+    refuse('CHECKOUT_NOT_AT_PR_HEAD')
+if call(['git', 'status', '--porcelain'], project).strip():
+    refuse('CHECKOUT_DIRTY')
 
 check = subprocess.run(['npm', 'run', 'check', '--', '--base',
                          'governance/baseline/approved.json', '--report'],
