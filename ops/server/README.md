@@ -131,6 +131,12 @@ python3 scripts/check_canon_fragment.py <workflow> <job-id> <канон>   # к�
 `JSON_UNPARSEABLE`, `NOT_IMPLEMENTED`. Отсутствие инструмента, пина или среды —
 именованный отказ, а не пропуск проверки.
 
+Аргументов ровно столько, сколько требует режим: `workflow` и `bash` — один
+файл, `json` — схема и документ. Лишний или недостающий аргумент → rc 2
+`NOT_IMPLEMENTED` с именем режима и ожидаемым числом; лишний файл не
+отбрасывается молча (иначе проверка отчиталась бы зелёным по непроверенному
+файлу).
+
 Швы проверки: `VALIDATE_STD_PINS` (файл пинов), `VALIDATE_STD_ACTIONLINT`,
 `VALIDATE_STD_SHELLCHECK`, `VALIDATE_STD_PYTHON` (интерпретатор режима json).
 
