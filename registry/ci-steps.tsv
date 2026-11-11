@@ -304,3 +304,4 @@ step	check:plan-restart-182-family-selftest	4	bash fixtures/workshop_project/pla
 step	check:architecture-process-187-family-selftest	4	bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo .
 step	check:architecture-door-187	4	bash scripts/check_architecture_contract.sh --repo . contracts/187-arhitektura-v-processe.md
 step	check:ekrannyj-nabor-158-family-selftest	400	bash fixtures/workshop_project/ekrannyj_nabor_158/red_ekrannyj_nabor_158.sh --model
+step	check:hranitel-arhitektury-186-family-selftest	10	bash fixtures/workshop_project/architecture_steward_186/red_architecture_186.sh --repo . && bash fixtures/workshop_project/architecture_steward_186/red_architecture_186.sh --stabs && { bash scripts/merge_architecture_pr.sh; [ $? -eq 2 ]; } && { bash scripts/check_architecture_pin.sh; [ $? -eq 2 ]; }
