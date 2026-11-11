@@ -301,3 +301,5 @@ step	check:sud-model-173-family-selftest	4	bash fixtures/workshop_project/sud_mo
 step	check:tablo-demo-175-family-selftest	4	bash fixtures/workshop_project/tablo_demo_175/red_tablo_demo_175.sh --repo . && bash fixtures/workshop_project/tablo_demo_175/red_tablo_demo_175.sh --stabs
 step	check:pre-judge-leak-185-family-selftest	4	bash fixtures/workshop_project/pre_judge_leak_185/red_pre_judge_leak_185.sh --repo && bash fixtures/workshop_project/pre_judge_leak_185/red_pre_judge_leak_185.sh --stabs
 step	check:plan-restart-182-family-selftest	4	bash fixtures/workshop_project/plan_restart_182/red_plan_restart_182.sh --repo . && bash fixtures/workshop_project/plan_restart_182/red_plan_restart_182.sh --stabs && bash -n scripts/orch_plan_slice.sh
+step	check:architecture-process-187-family-selftest	4	bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo .
+step	check:architecture-door-187	4	bash scripts/check_architecture_contract.sh --repo . contracts/187-arhitektura-v-processe.md
