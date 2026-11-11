@@ -8,7 +8,10 @@ still carries "status": "NOT_EVALUATED" (implementation evidence, not a verdict)
 delivered only through the package script (npm run), and package-lock semantics for
 dependencies. Expected answers are immutable tuples in the verifier, never read back from
 the subject. Mutation is one named coordinate at a time; each mutant is paired with its OWN
-red case (Н-39: stub-to-branch binding lives in this code, not in contract prose)."""
+red case (Н-39: stub-to-branch binding lives in this code, not in contract prose).
+v2-r1 (critic verdict, block 1): union of matches[].components over several matches and
+several components in one match, ARCH_CLASS_MISSING on the make_task/done doors, and
+ARCH_PIN for a correct 40-hex absent from the clone — each with its own cell and stub."""
 import hashlib
 import json
 import os
@@ -75,6 +78,13 @@ CASES = (
     ('operation-optional', 'freeze', 'operation-optional', 0, '', 'freeze'),
     ('component-required-no-local', 'task', 'component-required', 1, 'ARCH_COMPONENT_NET', 'task'),
     ('live-real-pin', 'door', 'live-real', 0, 'ARCH_187A_OK', 'door'),
+    # ── v2-r1: три обязательства без различающей клетки (вердикт критика, блок 1) ──
+    ('locate-union-conform', 'freeze', 'union-conform', 0, '', 'freeze'),
+    ('locate-union-foreign', 'freeze', 'union-foreign', 1, 'компоненту api.hub', 'freeze'),
+    ('live-real-union', 'door', 'live-real-union', 0, 'ARCH_187A_OK', 'door'),
+    ('task-class-missing', 'task', 'class-missing', 1, 'ARCH_CLASS_MISSING', 'task'),
+    ('done-class-missing', 'done', 'class-missing', 1, 'ARCH_CLASS_MISSING', 'done'),
+    ('pin-foreign-hex', 'freeze', 'pin-foreign-hex', 1, 'ARCH_PIN', 'freeze'),
 )
 STABS = {
     'task-no-line': ('task-line-missing', 'allow-line'),
@@ -128,6 +138,12 @@ STABS = {
     'precritic-model-only-draft': ('precritic-draft', 'precritic-model-only'),
     'operation-required': ('operation-optional', 'operation-required'),
     'applicability-local-dir': ('component-required-no-local', 'local-dir-only'),
+    # ── v2-r1 стабы: ветви двери по коду (Н-39), каждая — своей клетке ──────────
+    'locate-first-match-component': ('locate-union-conform', 'first-match-component'),
+    'union-any-component': ('locate-union-foreign', 'union-any-component'),
+    'task-class-skip': ('task-class-missing', 'class-skip'),
+    'done-class-skip': ('done-class-missing', 'class-skip'),
+    'pin-net-for-hex': ('pin-foreign-hex', 'pin-net-name'),
 }
 
 # Approved snapshot inside the pinned tree (2.5.x layout of the real model, as run-arch.js
@@ -145,7 +161,24 @@ REAL_DIGEST = '28858bc8743c411485f50aa86db470f6dfd0032a1daa16664f5f7d5ec26c5200'
 # package-script brief, package-lock dependency semantics).
 REAL_VARIATIONS = frozenset((
     'real-valid', 'real-foreign', 'real-comma', 'real-unplaced', 'real-status',
-    'real-brief', 'real-deps', 'live-real'))
+    'real-brief', 'real-deps', 'live-real', 'live-real-union',
+    'union-conform', 'union-foreign'))
+
+# Union world (v2-r1, блок 1(a) вердикта): the real CLI can answer SEVERAL matches
+# with SEVERAL components in one match (observed at the pin: server/src/handlers/x.js
+# → one match with ["gateway.effects","documents.coordinator"]). Single source: the
+# toy CLI bytes and the verifier's honest control both read these constants.
+UNION_PREFIX = 'app/multi/'
+UNION_MATCHES = (
+    {'module': 'module.gateway', 'components': ['api.hub'],
+     'specification': 'app/multi/gateway.js', 'explicit': False, 'matched': 'app/multi/'},
+    {'module': 'module.handlers', 'components': ['api.documents', 'api.effects'],
+     'specification': 'app/multi/handlers.js', 'explicit': False, 'matched': 'app/multi/'},
+)
+
+# A syntactically correct 40-hex that exists in NO clone (v2-r1, блок 1(c)):
+# the door must name ARCH_PIN for it, not ARCHITECTURE_NET.
+FOREIGN_HEX = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
 
 
 def digest(value):
@@ -167,6 +200,20 @@ def placed(path):
     if path.startswith('app/billing/'):
         return 'api.billing'
     return ''
+
+def placed_components(path):
+    """Ordered union of matches[].components over ALL matches — the verifier's own
+    reading of the real-CLI grammar (contract §«Размещение путей» v2). The union
+    world is fed from UNION_MATCHES, the single source shared with the toy CLI."""
+    if path.startswith(UNION_PREFIX):
+        union = []
+        for match in UNION_MATCHES:
+            for component in match['components']:
+                if component not in union:
+                    union.append(component)
+        return union
+    single = placed(path)
+    return [single] if single else []
 
 
 def line_components(text):
@@ -257,6 +304,7 @@ if (name==='brief') {
 # grammar 170 v2 prescribes for the door.
 TOY_CLI_REAL = '''const fs=require('fs');
 const a=process.argv.slice(2); const name=a[0];
+const UNION=__UNION_MATCHES__;
 const where=p=>p.startsWith('app/identity/')?'api.identity':p.startsWith('app/billing/')?'api.billing':'';
 if (name==='brief') {
  if(process.env.npm_lifecycle_event!=='brief'){console.error('BRIEF_NOT_A_PACKAGE_RUN');process.exit(1);}
@@ -265,12 +313,17 @@ if (name==='brief') {
  console.log('PINNED_BRIEF_187 '+id);
  if(a.includes('--with-rules')) console.log('RULES_FROM_PIN_187 semanticInvariant: no second writer; scope_id fixed');
 } else if(name==='locate') {
- const p=a[a.indexOf('--path')+1]; const c=where(p);
+ const p=a[a.indexOf('--path')+1];
+ if(p.startsWith('__UNION_PREFIX__')){
+  console.log(JSON.stringify({scope:'DECLARED_PLACEMENT_ONLY',path:p,status:'DECLARED',matches:UNION,implementationEvidence:'NOT_ASSESSED'},null,2));
+ } else {
+ const c=where(p);
  const dir=p.slice(0,p.lastIndexOf('/')+1);
  const mod='module.'+dir.split('/').filter(Boolean).join('.');
  const body=c?{scope:'DECLARED_PLACEMENT_ONLY',path:p,status:'DECLARED',matches:[{module:mod,components:[c],specification:dir+'module.js',explicit:false,matched:dir}],implementationEvidence:'NOT_ASSESSED'}:{scope:'DECLARED_PLACEMENT_ONLY',path:p,status:'UNRESOLVED',matches:[],implementationEvidence:'NOT_ASSESSED'};
  console.log(JSON.stringify(body,null,2));
  if(!c) process.exit(1);
+ }
 } else if(name==='check') {
  const allowed=['model','report','strict','base','base-digest']; const o={};
  const out=(status,code,rc)=>{console.log(JSON.stringify({status,findings:code?[{code}]:[]},null,2));process.exit(rc);};
@@ -292,6 +345,10 @@ if (name==='brief') {
  process.exit(0);
 } else process.exit(2);
 '''
+# The union placement is fed from the same python constants as the honest control
+# (single source, no second grammar): the placeholders resolve before any write.
+TOY_CLI_REAL = TOY_CLI_REAL.replace('__UNION_PREFIX__', UNION_PREFIX).replace(
+    '__UNION_MATCHES__', json.dumps(UNION_MATCHES, separators=(',', ':')))
 
 TOY_PACKAGE_LOCK = json.dumps({
     'name': 'toy-real-architecture', 'version': '1.0.0', 'lockfileVersion': 3,
@@ -335,7 +392,9 @@ def architecture(base, root, variation):
         lock['commit'] = 'HEAD'
     elif variation == 'pin-empty':
         pass  # no .commit at all: there is nothing pinned
-    elif variation == 'live-real':
+    elif variation == 'pin-foreign-hex':
+        lock['commit'] = FOREIGN_HEX  # correct 40-hex that exists in no clone
+    elif variation in ('live-real', 'live-real-union'):
         lock['commit'] = REAL_PIN
         lock['snapshotDigest'] = REAL_DIGEST
         lock['snapshot'] = 4
@@ -452,6 +511,24 @@ def prepare(root, arch, pinned, variation):
         ).replace('app/identity/model.js', 'server/src/auth/delivery.js'))
         task.write_text('SUBJECT=777\nАРХИТЕКТУРА: L1 api.auth\nЗОНА implementer: server/src/auth/delivery.js\n')
         put(root, 'server/src/auth/delivery.js', 'module.exports=4;\n')
+    elif variation in ('union-conform', 'union-foreign'):
+        contract = (root / CONTRACT).read_text().replace('app/identity/model.js', 'app/multi/x.js')
+        if variation == 'union-conform':
+            # The line names a NON-first component of a NON-first match: honest door
+            # is green (the union intersects), «first component of first match» is red.
+            contract = contract.replace('АРХИТЕКТУРА: L1 api.identity', 'АРХИТЕКТУРА: L1 api.effects')
+        put(root, CONTRACT, contract)
+        put(root, 'app/multi/x.js', 'module.exports=5;\n')
+    elif variation == 'live-real-union':
+        # Observed at the pin: server/src/handlers/x.js is placed in TWO components
+        # (gateway.effects, documents.coordinator); the line names the SECOND.
+        contract = (root / CONTRACT).read_text()
+        put(root, CONTRACT, contract.replace(
+            'АРХИТЕКТУРА: L1 api.identity', 'АРХИТЕКТУРА: L1 documents.coordinator'
+        ).replace('app/identity/model.js', 'server/src/handlers/x.js'))
+        task.write_text('SUBJECT=777\nАРХИТЕКТУРА: L1 documents.coordinator\n'
+                        'ЗОНА implementer: server/src/handlers/x.js\n')
+        put(root, 'server/src/handlers/x.js', 'module.exports=6;\n')
     # CI report mutations happen after commit: the report must reference the final SHA.
     git(root, 'add', '-A')
     git(root, 'commit', '-qm', 'isolated scenario ' + (variation or 'valid'))
@@ -489,6 +566,10 @@ def verdict_v2(root, arch, pinned, action, task, role, mutant, variation):
             if mutant == 'old-pin-name':
                 return 1, 'ARCH_PIN: в architecture.lock.json нет закреплённого коммита'
             return 1, 'ARCHITECTURE_NET: нет закреплённого коммита'
+        if variation == 'pin-foreign-hex':
+            if mutant == 'pin-net-name':
+                return 1, f'ARCHITECTURE_NET: коммит {FOREIGN_HEX} не разрешается в клоне модели'
+            return 1, f'ARCH_PIN: коммит {FOREIGN_HEX} не разрешается в клоне модели'
         if variation == 'class-missing':
             if mutant == 'class-skip':
                 return 0, ''
@@ -514,6 +595,22 @@ def verdict_v2(root, arch, pinned, action, task, role, mutant, variation):
                            f'а строка «АРХИТЕКТУРА:» называет api.identity,api.billing')
             if comp not in ids:
                 return 1, (f'ARCH_ZONE: путь {path} отнесён моделью к компоненту {comp}, '
+                           f'а строка «АРХИТЕКТУРА:» называет {",".join(ids)}')
+            return 0, ''
+        if variation in ('union-conform', 'union-foreign'):
+            ids = line_components(contract)
+            path = next(line[len('ЗОНА implementer:'):].strip()
+                        for line in contract.splitlines()
+                        if line.startswith('ЗОНА implementer:'))
+            union = placed_components(path)
+            if mutant == 'first-match-component':
+                union = union[:1]  # обман: только первый компонент первого матча
+            if mutant == 'union-any-component':
+                return 0, ''  # обман: размещённый путь зелён без сверки со строкой
+            if not union:
+                return 1, f'PATH_WITHOUT_COMPONENT: путь {path} не размещён в закреплённой модели'
+            if not set(union) & set(ids):
+                return 1, (f'ARCH_ZONE: путь {path} отнесён моделью к компоненту {union[0]}, '
                            f'а строка «АРХИТЕКТУРА:» называет {",".join(ids)}')
             return 0, ''
     if action == 'precritic':
@@ -547,6 +644,15 @@ def verdict_v2(root, arch, pinned, action, task, role, mutant, variation):
             if mutant == 'local-dir-only':
                 return 0, ''  # обман: применимость по локальному каталогу, а не по lock
             return 1, 'ARCH_COMPONENT_NET: требуется --arch-component (кодовый предмет, проект с закреплённой моделью)'
+        if variation == 'class-missing':
+            if mutant == 'class-skip':
+                return 0, ''  # обман: бесклассовый черновик пропускается молча
+            return 1, 'ARCH_CLASS_MISSING: в контракте нет строки «КЛАСС ЗАДАЧИ:»'
+    if action == 'done':
+        if variation == 'class-missing':
+            if mutant == 'class-skip':
+                return 0, ''  # обман: бесклассовый контракт молча проходит done
+            return 1, 'ARCH_CLASS_MISSING: в контракте нет строки «КЛАСС ЗАДАЧИ:»'
     if action == 'door':
         if variation == 'root-unset':
             if mutant == 'old-pin-name':
@@ -558,7 +664,7 @@ def verdict_v2(root, arch, pinned, action, task, role, mutant, variation):
             if mutant == 'deps-not-evaluated':
                 return 1, 'ARCH_NOT_EVALUATED: инструмент check --base не отработал'
             return 2, 'ARCH_DEPS: зависимости модели недоступны (npm ci --ignore-scripts)'
-        if variation == 'live-real':
+        if variation in ('live-real', 'live-real-union'):
             return 0, 'ARCH_187A_OK: архитектура сходится с закреплённой моделью'
     raise RuntimeError(f'unknown v2 disposition: {variation}/{action}')
 
@@ -572,9 +678,11 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
         if variation == 'wiring-direct-missing':
             return 1, 'CI_DIRECT_ARCH_187_MISSING'
         return 0, ''
-    if variation in ('pin-symbolic', 'pin-empty', 'class-missing', 'operation-optional',
-                     'component-required', 'live-real', 'root-unset') \
-            or variation.startswith('real-') or variation.startswith('precritic-'):
+    if variation in ('pin-symbolic', 'pin-empty', 'pin-foreign-hex', 'class-missing',
+                     'operation-optional', 'component-required', 'live-real',
+                     'live-real-union', 'root-unset') \
+            or variation.startswith('real-') or variation.startswith('union-') \
+            or variation.startswith('precritic-'):
         return verdict_v2(root, arch, pinned, action, task, role, mutant, variation)
     profile = json.loads((root / 'harness.project.json').read_text())
     if profile['repoId'] != 'Complior-back' and mutant != 'require-all':
@@ -652,7 +760,7 @@ def live(tools, root, arch, pinned, action, task, trace, role, variation=''):
                HARNESS_PROJECT_LAYER_ROOT=str(root), ARCHITECTURE_ROOT=str(arch))
     if variation == 'root-unset':
         env.pop('ARCHITECTURE_ROOT', None)
-    if variation == 'live-real':
+    if variation in ('live-real', 'live-real-union'):
         env['ARCHITECTURE_ROOT'] = os.environ[REAL_PIN_ENV]
     if variation == 'real-deps':
         env['PATH'] = str(npm_bin(root)) + os.pathsep + env.get('PATH', '')
@@ -704,12 +812,12 @@ def main():
     with tempfile.TemporaryDirectory(prefix='workflow-187-') as temp:
         base = Path(temp)
         for label, action, variation, expected, reason, _ in CASES:
-            if label == 'live-real-pin' and not args.model and not args.stabs:
+            if label in ('live-real-pin', 'live-real-union') and not args.model and not args.stabs:
                 obstacle = real_pin_available(os.environ.get(REAL_PIN_ENV, ''))
                 if obstacle == '':
                     pass  # живая клетка исполняется
                 elif obstacle.startswith(REAL_PIN_ENV):
-                    print(f'SKIP live-real-pin: {obstacle} — живая клетка не исполнялась (не зелёная)')
+                    print(f'SKIP {label}: {obstacle} — живая клетка не исполнялась (не зелёная)')
                     skipped += 1
                     continue
                 else:
