@@ -1019,6 +1019,12 @@
   "s-upr-quality-if-false": [
    "struktura-upravlenie-job"
   ],
+  "s-upr-agg-if-false": [
+   "struktura-upravlenie-job"
+  ],
+  "s-upr-agg-if-always-false": [
+   "struktura-upravlenie-job"
+  ],
   "s-upr-workflow-defaults-shell": [
    "struktura-upravlenie-workflow"
   ],

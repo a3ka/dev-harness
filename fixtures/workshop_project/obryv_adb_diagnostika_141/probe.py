@@ -341,6 +341,14 @@ JOB_IF_KANON = "needs.select-screens.outputs['%s'] == 'true'"
 # имя работы канона выводится из JOB_IF_KANON (единый источник, второй
 # константы нет).
 JOB_IF_REBRO = JOB_IF_KANON.split('.')[1]
+# v3-испр. 2 (полоса М2, блок «обход if: false»): имя required-агрегата —
+# норма frozen 141/2 инвариант 11 («`if: always()` required-агрегата
+# android-e2e — любые иные job-if остаются запрещены»); из модели имя НЕ
+# выводится однозначно: android-e2e и mobile-regression-signal агрегируют
+# всех трёх работников одинаковыми needs. Константа одна; модель несёт
+# перекрёстную проверку (upravlenie_job сверяет needs агрегата против
+# трёх работников), значение канона if — тоже модель.
+AGGREGAT_IMJA = 'android-e2e'
 
 
 def upravlenie_job(subj_doc, src, model_doc):
@@ -420,6 +428,42 @@ def upravlenie_job(subj_doc, src, model_doc):
         if not (isinstance(tm, int) and not isinstance(tm, bool) and tm >= 1):
             return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: '
                     'timeout-minutes=%r' % (imja, tm))
+    # v3-испр. 2 (полоса М2, блок «обход if: false»): required-агрегат —
+    # четвёртая работа барьера v2 (инвариант 11 frozen 141/2: «`if:
+    # always()` required-агрегата android-e2e — любые иные job-if остаются
+    # запрещены»). До этой правки `if: false`/`if: ${{ false }}`/
+    # `if: ${{ always() && false }}` на android-e2e гасили обязательную
+    # проверку PR при байт-в-байт шагах и скриптах — воспроизведено на v2
+    # и на кандидате v3 (rc 0, 0 красных). Имя — норма frozen 141/2
+    # (AGGREGAT_IMJA; из модели не выводится: mobile-regression-signal
+    # агрегирует тех же троих), перекрёстная сверка по модели: needs
+    # агрегата содержат всех трёх работников; канон значения if — модель
+    # (`always() && (…)` DAG 143, не «просто always()» из прозы v2).
+    # Отказ fail-closed: аномалия модели — ORACLE_TAMPERED.
+    raboty_modeli = model_doc.get('jobs') or {}
+    model_agg = raboty_modeli.get(AGGREGAT_IMJA)
+    if not isinstance(model_agg, dict):
+        return ('KRASNO', 'ORACLE_TAMPERED: в модели нет работы %s'
+                % AGGREGAT_IMJA)
+    nz_m = model_agg.get('needs')
+    spisok_m = [nz_m] if isinstance(nz_m, str) else (
+        nz_m if isinstance(nz_m, list) else [])
+    nositeli = {src['job_imja'][n] for n in ('135', '118', '995')}
+    if not nositeli <= set(spisok_m):
+        return ('KRASNO', 'ORACLE_TAMPERED: %s в модели не агрегирует '
+                'всех трёх работников (needs=%r)' % (AGGREGAT_IMJA, nz_m))
+    job_agg = jobs.get(AGGREGAT_IMJA) if isinstance(jobs, dict) else None
+    if not isinstance(job_agg, dict):
+        return ('KRASNO', 'JOB_NET: %s' % AGGREGAT_IMJA)
+    lishnie = sorted(set(job_agg) - set(model_agg) - set(JOB_ZELENYE_KLYUCHI))
+    if lishnie:
+        return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: лишние ключи: %s'
+                % (AGGREGAT_IMJA, ', '.join(lishnie)))
+    if job_agg.get('if') != model_agg.get('if'):
+        return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: if=%r '
+                '(канон 143 (модель): %r) — required-агрегат с иным if '
+                'гасит обязательную проверку PR'
+                % (AGGREGAT_IMJA, job_agg.get('if'), model_agg.get('if')))
     return ('ok', None)
 
 
@@ -836,6 +880,33 @@ def _v_rabote(t, imja, staryj, novyj):
     lines[nachalo:konec] = blok.replace(staryj, novyj).split('\n')
     return '\n'.join(lines)
 
+def _zameni_if_raboty(t, imja, novyj_if):
+    """Замена единственной строки `if:` в блоке ОДНОЙ работы (v3-испр. 2,
+    полоса М2: required-агрегат). Вставка продублировала бы ключ YAML
+    (pyyaml оставляет последнюю — канон победил бы), а канон значения if
+    агрегата — длинная строка модели, поэтому замена строится по блоку,
+    не по константе текста."""
+    lines = t.split('\n')
+    nachalo = None
+    for i, l in enumerate(lines):
+        if l == '  %s:' % imja:
+            nachalo = i + 1
+            break
+    if nachalo is None:
+        raise RuntimeError('работа %s не найдена' % imja)
+    konec = len(lines)
+    for i in range(nachalo, len(lines)):
+        if lines[i].startswith('  ') and not lines[i].startswith('   '):
+            konec = i
+            break
+    udary = [i for i in range(nachalo, konec)
+             if lines[i].startswith('    if:')]
+    if len(udary) != 1:
+        raise RuntimeError('в блоке %s строк if: %d, ожидалась 1'
+                           % (imja, len(udary)))
+    lines[udary[0]] = '    ' + novyj_if
+    return '\n'.join(lines)
+
 
 def _klyuchi_workflow(t, stroki, jakor, posle=False):
     """Вставка строк top-level workflow (арбитраж 141: W1/W2) — перед
@@ -1076,6 +1147,18 @@ def m_upr_quality_if_false(b):
     return _klyuchi_raboty(b, 'quality', ['    if: ${{ false }}'])
 
 
+def m_upr_agg_if_false(b):
+    # v3-испр. 2 (полоса М2, блок «обход if: false»): if литералом false
+    # на required-агрегате гасит обязательную проверку PR при байт-в-байт
+    # шагах/скриптах — воспроизведённый обход (v2 и v3 до правки: rc 0).
+    return _zameni_if_raboty(b, AGGREGAT_IMJA, 'if: false')
+
+
+def m_upr_agg_if_always_false(b):
+    # та же ветвь выражением: always() && false — зелёное для любых
+    # различителей-значений, красное литеральным равенством с моделью.
+    return _zameni_if_raboty(b, AGGREGAT_IMJA, 'if: ${{ always() && false }}')
+
 def m_upr_job_rebro_135_net(b):
     # v2-испр. 1 (блокер вердикта критика 141 v2 1/2): ребро select-screens
     # удалено из needs носителя 135 — if и тела байт-в-байт, работа не
@@ -1174,6 +1257,8 @@ def sdelat_stab(imja, model_tekst, model_scripts, kanon):
             's-upr-job-rebro-ne-spisok': m_upr_job_rebro_ne_spisok,
             's-upr-job-rebro-pusto': m_upr_job_rebro_pusto,
             's-upr-quality-if-false': m_upr_quality_if_false,
+            's-upr-agg-if-false': m_upr_agg_if_false,
+            's-upr-agg-if-always-false': m_upr_agg_if_always_false,
             's-upr-workflow-defaults-shell': m_upr_workflow_defaults_shell,
             's-upr-workflow-env-bash-env': m_upr_workflow_env_bash_env,
         }
@@ -1291,6 +1376,8 @@ STAB_MUTACII = {
     's-upr-job-rebro-ne-spisok': m_upr_job_rebro_ne_spisok,
     's-upr-job-rebro-pusto': m_upr_job_rebro_pusto,
     's-upr-quality-if-false': m_upr_quality_if_false,
+    's-upr-agg-if-false': m_upr_agg_if_false,
+    's-upr-agg-if-always-false': m_upr_agg_if_always_false,
     's-upr-workflow-defaults-shell': m_upr_workflow_defaults_shell,
     's-upr-workflow-env-bash-env': m_upr_workflow_env_bash_env,
     's-shag-pereimenovan-135': lambda b: b,  # текстовая мутация имени шага
