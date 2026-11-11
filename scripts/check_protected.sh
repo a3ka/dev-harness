@@ -558,6 +558,10 @@ excuse_for() {  # <путь> → 0, если удаление разрешено
         [ "$p" = "verdicts/critic/contracts-994-v3.md" ] && return 0 ;;
       08ce2e7f33f9374368da5c12ef3c5f729c04f376)
         [ "$p" = "verdicts/review/contracts-105-land-v2.md" ] && return 0 ;;
+      # 189-v4-rename (слово владельца 2026-11-11 ~22:10 UTC): переименование вердикта 189 под канон freeze
+      # (accept лежит в verdicts/critic/contracts-189-v1.md) без строки ALLOW-ARTIFACT-DELETE.
+      0a4e9c490acb7c01d6d32b55b4d8f787e34959a8)
+        [ "$p" = "verdicts/critic/contracts-189-v4.md" ] && return 0 ;;
     esac
     is_lagging_merge_artifact "$c" "$p" && continue
     body="$(git log -1 --format=%B "$c")"
