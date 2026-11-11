@@ -262,7 +262,30 @@ fi
 head_blob="$(g rev-parse --verify --quiet "HEAD:$TARGET" || true)"
 [ -n "$head_blob" ] || die "замораживается только закоммиченное состояние: $TARGET на HEAD отсутствует"
 work_blob="$(g hash-object -- "$ROOT/$TARGET")"
-[ "$work_blob" = "$head_blob" ] || die "замораживается только закоммиченное состояние: $TARGET в рабочем дереве отличается от HEAD (блобы $work_blob и $head_blob)"
+[ "$work_blob" = "$head_blob" ] || die "заморозить только закоммиченное состояние: $TARGET в рабочем дереве отличается от HEAD (блобы $work_blob и $head_blob)"
+
+# ── 4а. КОНТРАКТ 187а: архитектура предмета — до записи тега ─────────────────
+# Суд идёт по HEAD-блобу контракта (тот же текст, что увидит читатель заморозки).
+# Признак режима — эффективный repoId=Complior-back И пин модели
+# (architecture.lock.json): харнесс, mob и документальные предметы нового
+# отказа не получают. Отказ атомарен: до §5/§6/§7 тега нет, реестр не изменён,
+# HEAD не сдвинут.
+if [ -x "$SELF_DIR/check_architecture_contract.sh" ]; then
+  ARCH187_LIB=1
+  # shellcheck disable=SC1091
+  . "$SELF_DIR/check_architecture_contract.sh"
+  if arch187_scope "$ROOT"; then
+    _a187_text="$(mktemp 2>/dev/null || true)"
+    if [ -n "$_a187_text" ] && [ -f "$_a187_text" ]; then
+      g cat-file -p "HEAD:$TARGET" > "$_a187_text" 2>/dev/null || true
+      if arch187_code_subject "$_a187_text"; then
+        arch187_check_text "$_a187_text" contract "$ROOT" || die "$ARCH187_REFUSAL"
+      fi
+      rm -f "$_a187_text"
+    fi
+    arch187_cleanup
+  fi
+fi
 
 # ── 5. причина ────────────────────────────────────────────────────────────────
 case "$REASON" in
