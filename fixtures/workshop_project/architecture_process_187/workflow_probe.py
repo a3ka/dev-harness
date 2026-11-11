@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Independent public-door probes for the 187 cutover. Synthetic projects own their .git."""
+import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -27,15 +29,19 @@ CASES = (
     ('freeze-foreign', 'freeze', 'foreign', 1, 'ARCH_ZONE', 'freeze'),
     ('freeze-unmapped', 'freeze', 'unmapped', 1, 'PATH_WITHOUT_COMPONENT', 'freeze'),
     ('freeze-draft', 'freeze', 'draft', 1, 'ARCH_DRAFT', 'freeze'),
+    ('freeze-draft-marker', 'freeze', 'draft-marker', 1, 'ARCH_DRAFT', 'freeze'),
+    ('freeze-draft-schema', 'freeze', 'draft-schema', 1, 'ARCH_DRAFT', 'freeze'),
     ('check-valid', 'precritic', '', 0, '', 'precritic'),
     ('check-failure', 'precritic', 'check-1', 1, 'ARCH_CHECK', 'precritic'),
     ('check-not-evaluated', 'precritic', 'check-2', 1, 'ARCH_NOT_EVALUATED', 'precritic'),
+    ('check-digest-mismatch', 'precritic', 'digest-mismatch', 1, 'ARCH_CHECK', 'precritic'),
     ('done-valid', 'done', '', 0, '', 'done'),
     ('done-review-missing', 'done', 'review-missing', 1, 'ARCH_REVIEW', 'done'),
     ('done-ci-missing', 'done', 'ci-missing', 1, 'ARCH_CI', 'done'),
     ('done-ci-other-sha', 'done', 'ci-other-sha', 1, 'ARCH_CI', 'done'),
     ('done-ci-red', 'done', 'ci-red', 1, 'ARCH_CI', 'done'),
     ('done-ci-skipped', 'done', 'ci-skipped', 1, 'ARCH_CI', 'done'),
+    ('done-ci-head-ahead', 'done', 'ci-head-ahead', 1, 'ARCH_CI', 'done'),
     ('legacy-mob', 'freeze', 'mobile', 0, '', 'freeze'),
     ('legacy-harness', 'freeze', 'harness', 0, '', 'freeze'),
     ('wiring-valid', 'wiring', 'wiring-valid', 0, '', 'wiring'),
@@ -59,13 +65,19 @@ STABS = {
     'zone-unmapped': ('freeze-unmapped', 'allow-zone'),
     'freeze-line-ignored': ('freeze-no-line', 'allow-zone'),
     'draft-operation': ('freeze-draft', 'allow-draft'),
+    'draft-spaced-token-only': ('freeze-draft-marker', 'draft-spaced-only'),
+    'draft-schemas-ignored': ('freeze-draft-schema', 'draft-id-only'),
     'check-not-called': ('check-failure', 'skip-check'),
     'check-rc-ignored': ('check-not-evaluated', 'rc2-green'),
+    'check-base-without-snapshot': ('check-valid', 'bare-base'),
+    'check-digest-omitted': ('check-valid', 'omit-digest'),
+    'check-digest-self-computed': ('check-digest-mismatch', 'self-digest'),
     'reviewer-line-ignored': ('done-review-missing', 'ignore-review'),
     'ci-not-read': ('done-ci-missing', 'ignore-ci'),
     'ci-sha-ignored': ('done-ci-other-sha', 'ignore-ci'),
     'ci-conclusion-ignored': ('done-ci-red', 'ignore-ci'),
     'ci-skipped-green': ('done-ci-skipped', 'ignore-ci'),
+    'ci-sha-from-origin-ref': ('done-ci-head-ahead', 'sha-from-origin-ref'),
     'mob-required': ('legacy-mob', 'require-all'),
     'harness-required': ('legacy-harness', 'require-all'),
     'ci-step-omitted': ('wiring-omitted', 'ignore-wiring'),
@@ -73,6 +85,52 @@ STABS = {
     'ci-step-python-instead': ('wiring-python', 'ignore-wiring'),
     'ci-direct-replaced-by-battery': ('wiring-direct-missing', 'ignore-wiring'),
 }
+
+# Approved snapshot inside the pinned tree (2.5.x layout of the real model, as run-arch.js
+# and verify-pin.js read it); the lock names it by canonical digest, format 167.
+SNAPSHOT = 'governance/baseline/approved.json'
+CHECK_OPTIONS = ('model', 'report', 'strict', 'base', 'base-digest')
+
+def digest(value):
+    """Canonical SHA-256 of the real model: sorted keys, JSON.stringify bytes."""
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'),
+                                     ensure_ascii=False).encode()).hexdigest()
+
+def snapshot(number):
+    return {'format': 'toy-architecture-baseline/1', 'snapshot': number,
+            'components': ['api.identity'] + (['api.billing'] if number > 1 else [])}
+
+def toy_check(arch, revision, args):
+    """Verifier's own reading of the real CLI `check` grammar (cli.js parseArguments,
+    baseline.js inspectBaseline): a flag without value is MISSING_OPTION_VALUE rc 1,
+    no snapshot or digest is NOT_EVALUATED rc 2, a foreign digest is rc 1."""
+    options, i = {}, 0
+    while i < len(args):
+        key = args[i][2:] if args[i].startswith('--') else ''
+        if key not in CHECK_OPTIONS:
+            return 1, 'UNSUPPORTED_OPTION'
+        if key == 'strict':
+            options[key], i = True, i + 1
+            continue
+        value = args[i + 1] if i + 1 < len(args) else ''
+        if not value or value.startswith('--'):
+            return 1, 'MISSING_OPTION_VALUE'
+        options[key], i = value, i + 2
+    if not options.get('base') or not options.get('base-digest'):
+        return 2, 'NOT_EVALUATED'
+    if digest(json.loads(git(arch, 'show', f'{revision}:{options["base"]}'))) != options['base-digest']:
+        return 1, 'BASELINE_DIGEST_MISMATCH'
+    status = int(git(arch, 'show', revision + ':check-rc'))
+    return status, 'NOT_EVALUATED' if status == 2 else ''
+
+def drafted(line, mutant):
+    """DRAFT is the case-insensitive token `draft` at a word boundary anywhere in the
+    operation line: id, input schema, output schema, or an annotation."""
+    if mutant == 'draft-spaced-only':
+        op_id = line[len('ОПЕРАЦИЯ:'):].split(';')[0].strip().lower()
+        return op_id == 'draft' or op_id.endswith('.draft') or ' DRAFT ' in f' {line} '
+    field = line.split(';')[0] if mutant == 'draft-id-only' else line
+    return re.search(r'(?<!\w)draft(?!\w)', field, re.I) is not None
 
 def architecture(base, root, variation):
     """A separate git repository with A pinned and a later, deliberately different B HEAD."""
@@ -96,19 +154,40 @@ if (name==='brief') {
  if(p.startsWith('app/identity/')) console.log('api.identity');
  else { console.error('PATH_WITHOUT_COMPONENT'); process.exit(1); }
 } else if(name==='check') {
+ const allowed=['model','report','strict','base','base-digest']; const o={};
+ const out=(status,code,rc)=>{console.log(JSON.stringify({status,findings:code?[{code}]:[]}));process.exit(rc);};
+ for(let i=1;i<a.length;i++){
+  const f=a[i]; const k=f.startsWith('--')?f.slice(2):'';
+  if(!allowed.includes(k)) out('FAIL','UNSUPPORTED_OPTION',1);
+  if(k==='strict'){o[k]=true;continue;}
+  const v=a[++i]; if(!v||v.startsWith('--')) out('FAIL','MISSING_OPTION_VALUE',1);
+  o[k]=v;
+ }
+ if(!o.base||!o['base-digest']) out('NOT_EVALUATED','',2);
+ const canon=v=>Array.isArray(v)?v.map(canon):(!v||typeof v!=='object')?v:Object.fromEntries(Object.keys(v).sort().map(k=>[k,canon(v[k])]));
+ const d=require('crypto').createHash('sha256').update(JSON.stringify(canon(JSON.parse(fs.readFileSync(o.base,'utf8'))))).digest('hex');
+ if(d!==o['base-digest']) out('FAIL','BASELINE_DIGEST_MISMATCH',1);
  const status=fs.readFileSync('check-rc','utf8').trim();
  if(status==='2') console.log('NOT_EVALUATED');
  process.exit(Number(status));
 } else process.exit(2);
 ''')
     put(arch, 'check-rc', (variation[-1] if variation in ('check-1', 'check-2') else '0') + '\n')
+    put(arch, SNAPSHOT, json.dumps(snapshot(1)))
     git(arch, 'add', '-A')
     git(arch, 'commit', '-qm', 'published architecture')
     pinned = git(arch, 'rev-parse', 'HEAD')
     put(arch, 'tooling/checks/cli.js', (arch / 'tooling/checks/cli.js').read_text().replace('PINNED_BRIEF_187', 'WRONG_HEAD_BRIEF_187').replace('RULES_FROM_PIN_187', 'WRONG_HEAD_RULES_187'))
+    put(arch, SNAPSHOT, json.dumps(snapshot(2)))
     git(arch, 'add', '-A')
     git(arch, 'commit', '-qm', 'unpublished later architecture')
-    put(root, 'architecture.lock.json', json.dumps({'commit': pinned, 'workItem': 'COMPLIOR-777'}))
+    # Lock format of backend 167: the digest names the approved snapshot, not the commit's
+    # HEAD; digest-mismatch names B's snapshot while the commit stays A.
+    put(root, 'architecture.lock.json', json.dumps({
+        'format': 'complioros-architecture-pin/1', 'repository': 'a3ka/CompliorOS-architecture',
+        'commit': pinned, 'snapshot': 1, 'status': 'APPROVED',
+        'snapshotDigest': digest(snapshot(2 if variation == 'digest-mismatch' else 1)),
+        'workItem': 'COMPLIOR-777'}))
     return arch, pinned
 
 def ci_bin(root):
@@ -158,6 +237,11 @@ def prepare(root, arch, pinned, variation):
         put(root, 'app/billing/evil.js', 'module.exports=2;\n')
     elif variation == 'draft':
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('identity.lookup', 'identity.draft'))
+    elif variation == 'draft-marker':
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+            'ОПЕРАЦИЯ: identity.lookup;', 'ОПЕРАЦИЯ: identity.lookup (DRAFT);'))
+    elif variation == 'draft-schema':
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace('вход schema.query', 'вход schema.draft'))
     elif variation == 'review-missing':
         put(root, REVIEW, 'ACCEPT\nNote: СВЕРКА-АРХИТЕКТУРЫ: mentioned in a quote, not reported by reviewer\n')
     # CI report mutations happen after commit: the report must reference the final SHA.
@@ -172,6 +256,10 @@ def prepare(root, arch, pinned, variation):
     if variation == 'ci-skipped': record['check_runs'][0]['conclusion'] = 'skipped'
     ci_record(root).write_text(json.dumps(record))
     git(root, 'push', '-q', 'origin', 'main')
+    if variation == 'ci-head-ahead':
+        # Local HEAD moves past origin/main after push; the green arch run stays on the old SHA.
+        put(root, 'app/identity/model.js', 'module.exports = 3;\n')
+        git(root, 'commit', '-qam', 'unpushed change after green arch')
     bin_dir = ci_bin(root)
     bin_dir.mkdir()
     fake_curl = bin_dir / 'curl'
@@ -219,7 +307,8 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
     if action == 'freeze':
         if not any(line.startswith('АРХИТЕКТУРА: L1 ') for line in contract.splitlines()) and mutant not in ('allow-zone', 'require-all'):
             return 1, 'ARCH_LINE_MISSING'
-        if 'identity.draft' in contract and mutant != 'allow-draft':
+        if any(drafted(line, mutant) for line in contract.splitlines()
+               if line.startswith('ОПЕРАЦИЯ:')) and mutant != 'allow-draft':
             return 1, 'ARCH_DRAFT'
         if 'server/src/auth/' in contract and mutant != 'allow-zone':
             return 1, 'PATH_WITHOUT_COMPONENT'
@@ -227,7 +316,14 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
             return 1, 'ARCH_ZONE'
         return (1, 'ARCH_LINE_MISSING') if mutant == 'require-all' else (0, '')
     if action == 'precritic':
-        check_rc = int(git(arch, 'show', pinned + ':check-rc').strip())
+        lock = json.loads((root / 'architecture.lock.json').read_text())
+        args = ['--base', SNAPSHOT, '--base-digest', lock['snapshotDigest']]
+        if mutant == 'bare-base': args = ['--base']
+        if mutant == 'omit-digest': args = ['--base', SNAPSHOT]
+        if mutant == 'self-digest':
+            args = ['--base', SNAPSHOT, '--base-digest',
+                    digest(json.loads(git(arch, 'show', f'{pinned}:{SNAPSHOT}')))]
+        check_rc, _ = toy_check(arch, pinned, args)
         if check_rc == 2 and mutant != 'rc2-green': return 1, 'ARCH_NOT_EVALUATED'
         if check_rc and mutant != 'skip-check': return 1, 'ARCH_CHECK'
         return 0, ''
@@ -239,8 +335,9 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
         response = json.loads(ci_record(root).read_text())
         runs = response['check_runs']
         arch_runs = [r for r in runs if r.get('name') == 'arch']
+        final = git(root, 'rev-parse', 'refs/remotes/origin/main' if mutant == 'sha-from-origin-ref' else 'HEAD')
         if mutant != 'ignore-ci' and (not arch_runs or
-                                      arch_runs[-1].get('head_sha') != git(root, 'rev-parse', 'HEAD') or
+                                      arch_runs[-1].get('head_sha') != final or
                                       arch_runs[-1].get('status') != 'completed' or
                                       arch_runs[-1].get('conclusion') != 'success'):
             return 1, 'ARCH_CI'
