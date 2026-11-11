@@ -10,7 +10,10 @@
                       режиме не является неисправностью продукта (SPEC §1).
   --model             субъект = эталон (model/check_trek_ekrana_158.py) и
                       эталонные носители; клетки с ВНЕШНИМ субъектом (живые
-                      референсы, гейт 159) в этом режиме не строятся.
+                      референсы, гейт 159) в этом режиме не строятся; клетка
+                      d01 (карты) судит здесь самодостаточную часть карты —
+                      сверка с экраном референса строится только в --repo и
+                      безфлаговом режиме, где субъект — живой продукт.
   --stabs             контроль модели зелёный + каждый стаб отклонён на СВОИХ
                       входах (source.json.stab_vhod); итог SVJAZI N.
   --repo R            живой суд: гейт 159 первым (И-8), затем зонд на R по
@@ -2064,11 +2067,72 @@ def ustroystva_iz_karty(karta):
             if t.get('objazatelna', True)]
 
 
+# Режимы, в которых клетка d01 судит ЖИВОЙ экран референса. В режимах
+# эталона (--model/--stabs) субъект — карты батареи (model/karta-*.json),
+# а не продукт: сверка с экраном референса там не строится (SPEC §1) —
+# клетка судит самодостаточную часть карт.
+REZHIMY_S_ZHIVYM_EKRANOM = ('repo', 'bare')
+
+
+def karta_samodostatochnaya(karta, kartaf):
+    """Самодостаточная часть карты — без обращения к продукту.
+
+    Возвращает (список обязательных целей, причина|None). Причина — текст
+    для P_KARTA_NE_POLNA: профили канона 390+393, непустые состояния,
+    непустые обязательные цели, привязка каждой цели к состоянию, входы
+    состояний ⊂ цели.
+    """
+    if sorted(karta.get('profili', [])) != list(PROFILI):
+        return None, ('в карте %s профили %s (канон 390+393)'
+                      % (kartaf, karta.get('profili')))
+    if not karta.get('sostojanija'):
+        return None, ('в карте %s нет состояний' % kartaf)
+    celi = ustroystva_iz_karty(karta)
+    if not celi:
+        return None, ('в карте %s нет обязательных целей' % kartaf)
+    for sost in karta['sostojanija']:
+        vhod = sost.get('vhod')
+        if vhod and vhod not in celi:
+            return None, ('вход состояния %s не в карте целей %s'
+                          % (vhod, kartaf))
+    for tsel in karta.get('tceli', []):
+        if not tsel.get('sostojanija'):
+            return None, ('цель %s не привязана к состоянию'
+                          % tsel.get('testID'))
+    return celi, None
+
+
 def k_d01(ctx):
+    """Клетка d01: полнота карт экранов (SPEC §6D).
+
+    Две части клетки:
+      * самодостаточная часть карты (профили 390+393, непустые состояния,
+        непустые обязательные цели, привязка каждой цели к состоянию, входы
+        состояний ⊂ цели) — читается из model/karta-*.json и судится ВСЕГДА,
+        в том числе в режимах эталона (--model/--stabs): карта — эталон
+        батареи, обращения к продукту в ней нет;
+      * сверка карты с экраном референса (bootstrap/tab-shell.tsx) — только
+        там, где субъект — живой продукт (--repo/безфлаговый режим) и
+        референс доступен. В --repo отсутствие референса — rc 2
+        LIVE_PREDPOSYLKA (fail-closed, не skip→pass); в режимах эталона
+        референс не нужен вовсе (SPEC §1: клетки с ВНЕШНИМ субъектом там
+        не строятся), а в безфлаговом режиме без станционных клонов сверка
+        не строится — судится самодостаточная часть карты.
+    """
+    rezhim = ctx.get('rezhim')
     for imya, put, kartaf in REFERENSI:
-        if not os.path.isdir(put):
+        est_referens = os.path.isdir(put)
+        if rezhim == 'repo' and not est_referens:
+            # ЖИВОЙ субъект отсутствует — судить нечего (fail-closed).
             return otkaz('%s: референс %s отсутствует на станции'
                          % (P_LIVE, imya))
+        with open(os.path.join(ZDE, kartaf), encoding='utf-8') as fh:
+            karta = json.load(fh)
+        celi, oshibka = karta_samodostatochnaya(karta, kartaf)
+        if oshibka is not None:
+            return krasnaya('%s: %s' % (P_KARTA_NE_POLNA, oshibka))
+        if rezhim not in REZHIMY_S_ZHIVYM_EKRANOM or not est_referens:
+            continue
         istochnik = os.path.join(put, 'mobile', 'src', 'bootstrap',
                                   'tab-shell.tsx')
         try:
@@ -2076,18 +2140,6 @@ def k_d01(ctx):
                 tekst = fh.read()
         except OSError:
             return otkaz('%s: нет компонента экрана %s' % (P_LIVE, istochnik))
-        with open(os.path.join(ZDE, kartaf), encoding='utf-8') as fh:
-            karta = json.load(fh)
-        if sorted(karta.get('profili', [])) != list(PROFILI):
-            return krasnaya('%s: в карте %s профили %s (канон 390+393)'
-                            % (P_KARTA_NE_POLNA, kartaf, karta.get('profili')))
-        if not karta.get('sostojanija'):
-            return krasnaya('%s: в карте %s нет состояний'
-                            % (P_KARTA_NE_POLNA, kartaf))
-        celi = ustroystva_iz_karty(karta)
-        if not celi:
-            return krasnaya('%s: в карте %s нет обязательных целей'
-                            % (P_KARTA_NE_POLNA, kartaf))
         literaly, shablony = pressable_testid(tekst)
         for testid in celi:
             if testid in literaly:
@@ -2110,16 +2162,6 @@ def k_d01(ctx):
                 continue
             return krasnaya('%s: обязательная цель %s экрана %s не в карте %s'
                             % (P_KARTA_NE_POLNA, testid, imya, kartaf))
-        sostoyaniya = karta['sostojanija']
-        vhody = [s.get('vhod') for s in sostoyaniya if s.get('vhod')]
-        for vhod in vhody:
-            if vhod not in celi:
-                return krasnaya('%s: вход состояния %s не в карте целей %s'
-                                % (P_KARTA_NE_POLNA, vhod, kartaf))
-        for tsel in karta.get('tceli', []):
-            if not tsel.get('sostojanija'):
-                return krasnaya('%s: цель %s не привязана к состоянию'
-                                % (P_KARTA_NE_POLNA, tsel.get('testID')))
     return zelenaya()
 
 
