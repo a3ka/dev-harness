@@ -26,17 +26,24 @@
 #      НЕ ДОКАЗАНО», норма механизма — §Остаточный риск контракта
 #      (write-класс libc); на симуляции различение несут стаб s7 и
 #      канальные пробы cp/cat/install/tee/dd/python3;
-#   к2  verify на зелёном мире: все 9 адресатов == репо → rc 0 и строка
-#       «сверка: 9/9»;
-#   к3  verify на расхождении — ПАРАМЕТРИЗОВАНО по всем девяти адресатам:
-#       каждый искажается по очереди (user-файл, root-файл, 7 юнитов) →
+#   к2  verify на зелёном мире: все адресаты инвентаря install.sh == репо →
+#       rc 0 и строка «сверка: N/N» (N — из UNITS install.sh, единый источник,
+#       правка 186-ф: рост инвентаря станции не требует правки батареи);
+#   к3  verify на расхождении — ПАРАМЕТРИЗОВАНО по всем адресатам инвентаря:
+#       каждый искажается по очереди (user-файл, root-файл, каждый юнит) →
 #       rc 1, stderr несёт «расхождение» и ИМЯ искажённого; субъект,
-#       сверяющий одно имя из девяти, красен на остальных восьми пробах;
+#       сверяющий одно имя из инвентаря, красен на остальных пробах;
 #   к4  euid-гард root-части: запуск под harness → rc 1, stderr «root-часть
 #       требует euid 0», по швовым адресатам ничего не записано;
-#   к5  копии в репо побайтно == станции (9 sha256-пинов, живой съём
-#       2026-10-02); к5b — живая сверка с самой станцией, когда файлы
-#       станции читаемы (в CI — пропуск с пометкой, не зелёное);
+#   к5  дерево субъекта побайтно == ФИКСИРОВАННОЙ таблице пинов репо
+#       (литералы sha256 ниже; каждая смена пина — ЯВНЫЙ коммит в таблице:
+#       стоячая санкция №4 покрывает только значения, живой съём пина с
+#       того же дерева — тавтология, Б-2 контракта 186; инвентарь и счёт
+#       адресатов — из install.sh, единый источник) + биекция «ключи
+#       таблицы пинов == адресаты инвентаря install.sh» (лишний юнит без
+#       пересъёма пина и висящий пин убранного юнита — красные);
+#       к5b — станция против снимка 2026-10-02, пока файлы станции читаемы
+#       (в CI — пропуск с пометкой, не зелёное);
 #   к6  ops/server/README.md несёт чек-строки инвентаря: 9 имён механизмов
 #       и 13 тем (журналы, send-keys, гашение omp, маркер, вкл/выкл,
 #       настройка станции);
@@ -110,8 +117,59 @@ build_interposer
 fails=0
 red() { fails=$((fails + 1)); printf '  КРАСНО: %s\n' "$*"; }
 
-# ── пины: живая станция 2026-10-02 (sha256sum, сверено с inventory слова владельца) ──
-declare -A PIN=(
+# ── инвентарь и пины: инвентарь — install.sh, пины — ФИКСИРОВАННАЯ таблица ────
+# Список юнитов и счёт адресатов извлекаются из UNITS-присваиваний install.sh
+# (не копией литералов — рост инвентаря станции не требует правки к2/к3), НО
+# пины репо — ФИКСИРОВАННЫЕ литералы sha256 (Б-2 контракта 186: пин, снимаемый
+# с того же дерева в момент прогона, — тавтология, дрейф строки он не ловит).
+# Пересъём пина — только явный коммит в этой таблице (стоячая санкция №4:
+# только значения, клетки и логика неизменны). Дрейф грамматики install.sh →
+# отказ rc 2 (пустая выборка — красное, не зелёное).
+units_of() { # <install.sh>: итоговый UNITS по всем присваиваниям (в т.ч. UNITS="$UNITS …")
+  local line acc='' w
+  while IFS= read -r line; do
+    case "$line" in
+      UNITS=*)
+        line="${line#UNITS=}"
+        line="${line#\"}"; line="${line%\"}"
+        line="${line#\'}"; line="${line%\'}"
+        acc="$acc $line" ;;
+    esac
+  done <"$1"
+  for w in $acc; do
+    [ "$w" = '$UNITS' ] && continue
+    case "$w" in
+      *.service|*.timer) printf '%s\n' "$w" ;;
+      *) printf 'ОТКАЗ: неожиданный элемент инвентаря UNITS: %s\n' "$w" >&2; exit 2 ;;
+    esac
+  done
+}
+hash_of() { sha256sum <"$1" | cut -d' ' -f1; }
+UNITS_LIST="$(units_of "$OPS_SRC/install.sh")" || exit 2
+[ -n "$UNITS_LIST" ] || { printf 'ОТКАЗ: UNITS не извлечён из %s\n' "$OPS_SRC/install.sh" >&2; exit 2; }
+UNITS="$(printf '%s ' $UNITS_LIST)"; UNITS="${UNITS% }"
+N_ADDR=$(( $(printf '%s\n' "$UNITS_LIST" | wc -l) + 2 ))   # orch-loop + orch-peak + юниты
+RECIPIENTS='user/orch-loop root/orch-peak'
+for u in $UNITS_LIST; do RECIPIENTS="$RECIPIENTS root/systemd/$u"; done
+declare -A PIN=( # фиксированные пины репо: tip реализации 186 (61b2b2bf8), сняты явным коммитом
+  ['user/orch-loop']='30d837128ab285b4f8430acce14a952b5e6b5f7cb7c22f54639fb25c0393dda7'
+  ['root/orch-peak']='5f2a1f443352f8f4a68200abccf9fca8bc8238cd8b73c4c9011a8891815b7bf6'
+  ['root/systemd/orch-peak@.service']='a7e4e4453ae5fdc4e47758143d8b313ce0fe2b97ad187e3a34c317eaabca1a8f'
+  ['root/systemd/orch-peak-warn.timer']='c1aca85614566ce281b90e51001a3158d10bac6366470c09c29ba9ed0921bc01'
+  ['root/systemd/orch-peak-stop.timer']='94d909b200c8c0ed000ae96ef3aa8c672aa0467f7269b97ad21d852fbb6e0d3a'
+  ['root/systemd/orch-peak-start.timer']='21ec472f90e4328b7b49e90beed5742c0ee2e679f01b195e530bec60fef8a4d0'
+  ['root/systemd/orch-peak-reenable.timer']='ac7e888b54efb983a686ad7bd25041f5ad87ac74a502e79253dcc4403db3fa50'
+  ['root/systemd/orch-peak-reenable.service']='d80d820e0a300d93e367a613f1bee85361b989c88ad2c9ede4d89e69962920db'
+  ['root/systemd/orch-ctx.timer']='dcb7718c6a3a21b50bd08f4c476b058f986ca77b8e70e04ac0327fbe4a202d77'
+  ['root/systemd/orch-architecture.timer']='12a4e6cb60acdcec8b6fb401f81304121b4251d1b96817b3cf3e46e0483b9f62'
+)
+for rel in $RECIPIENTS; do
+  [ -f "$OPS_SRC/$rel" ] || { printf 'ОТКАЗ: в дереве батареи нет ops/server/%s\n' "$rel" >&2; exit 2; }
+done
+# Снимок живой станции 2026-10-02 (сверен прогоном 2026-11-11: станция побайтно
+# равна снимку). Обновляется пачкой, которая перезапускает root-установку
+# станции; к5b судит станцию по снимку, к5 — репо по фиксированной таблице пинов.
+declare -A SNAP=(
   ['user/orch-loop']='30d837128ab285b4f8430acce14a952b5e6b5f7cb7c22f54639fb25c0393dda7'
   ['root/orch-peak']='6b4f2261c100eeb56c7e1e1aeaa6a4b8d3e3b40a046cb854c08056004720c37f'
   ['root/systemd/orch-peak@.service']='a7e4e4453ae5fdc4e47758143d8b313ce0fe2b97ad187e3a34c317eaabca1a8f'
@@ -133,9 +191,7 @@ declare -A STATION=(
   ['root/systemd/orch-peak-reenable.service']='/etc/systemd/system/orch-peak-reenable.service'
   ['root/systemd/orch-ctx.timer']='/etc/systemd/system/orch-ctx.timer'
 )
-UNITS='orch-peak@.service orch-peak-warn.timer orch-peak-stop.timer orch-peak-start.timer orch-peak-reenable.timer orch-peak-reenable.service orch-ctx.timer'
 
-hash_of() { sha256sum <"$1" | cut -d' ' -f1; }
 
 ROLE_ANCHOR='## Автоперезапуск orch-loop и два слота (слова владельца 2026-10-01)'
 ROLE_PTR='- **Обвязка сервера:** единый источник — ops/server/README.md (инвентарь, журналы, вкл/выкл, настройка станции).'
@@ -161,7 +217,7 @@ SRC_ROOT="${OPS_SERVER_SRC:-$SELF_DIR}"
 BIN_DST="${OPS_SERVER_BIN_DST:-$HOME/.local/bin}"
 SBIN_DST="${OPS_SERVER_SBIN_DST:-/usr/local/sbin}"
 ETC_DST="${OPS_SERVER_ETC_DST:-/etc/systemd/system}"
-UNITS='orch-peak@.service orch-peak-warn.timer orch-peak-stop.timer orch-peak-start.timer orch-peak-reenable.timer orch-peak-reenable.service orch-ctx.timer'
+UNITS='__SIM_UNITS__'
 command -v sha256sum >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет sha256sum\n' >&2; exit 2; }
 [ -f "$SRC_ROOT/user/orch-loop" ] && [ -f "$SRC_ROOT/root/orch-peak" ] || {
   printf 'NOT_IMPLEMENTED: нет источника ops/server (user/orch-loop, root/orch-peak)\n' >&2; exit 2; }
@@ -203,7 +259,7 @@ case "$1" in
     rc=0
     check_one "$SBIN_DST/orch-peak" "$SRC_ROOT/root/orch-peak" || rc=1
     for u in $UNITS; do check_one "$ETC_DST/$u" "$SRC_ROOT/root/systemd/$u" || rc=1; done
-    [ "$rc" -eq 0 ] && printf 'установлено: root-часть (orch-peak + 7 юнитов)\n'
+    [ "$rc" -eq 0 ] && printf 'установлено: root-часть (orch-peak + __SIM_NU__ юнитов)\n'
     exit "$rc"
     ;;
   verify)
@@ -211,14 +267,18 @@ case "$1" in
     check_one "$BIN_DST/orch-loop" "$SRC_ROOT/user/orch-loop" || rc=1
     check_one "$SBIN_DST/orch-peak" "$SRC_ROOT/root/orch-peak" || rc=1
     for u in $UNITS; do check_one "$ETC_DST/$u" "$SRC_ROOT/root/systemd/$u" || rc=1; done
-    [ "$rc" -eq 0 ] && printf 'сверка: 9/9\n'
+    [ "$rc" -eq 0 ] && printf 'сверка: __SIM_N__/__SIM_N__\n'
     exit "$rc"
     ;;
   *) usage ;;
 esac
 SIMEOF
+  # инвентарь симуляции — из того же единого источника, что миры клеток:
+  # UNITS и счёт адресатов подставляются значениями, выведенными из install.sh
+  patch_sim "$1" "UNITS='__SIM_UNITS__'" "UNITS='$UNITS'" || return 1
+  patch_sim "$1" '__SIM_NU__ юнитов' "$(( N_ADDR - 2 )) юнитов" || return 1
+  patch_sim "$1" 'сверка: __SIM_N__/__SIM_N__' "сверка: $N_ADDR/$N_ADDR" || return 1
 }
-
 write_sim_readme() { # <путь> — README честной симуляции: несёт ВСЕ чек-строки к6
   cat >"$1" <<'RMDEOF'
 # ops/server — серверная обвязка станции (единый источник в репо)
@@ -426,17 +486,17 @@ cell_k2() { # <subject>: verify зелёного мира
     OPS_SERVER_SBIN_DST="$W/sbin" OPS_SERVER_ETC_DST="$W/etc" \
     bash "$1" verify >"$W/out" 2>"$W/err"; rc=$?
   [ "$rc" -eq 0 ] || { printf 'k2: rc=%s на зелёном мире (%s)\n' "$rc" "$(tail -1 "$W/err")"; return 1; }
-  grep -q 'сверка: 9/9' "$W/out" || { printf 'k2: нет строки «сверка: 9/9»\n'; return 1; }
+  grep -qF "сверка: $N_ADDR/$N_ADDR" "$W/out" || { printf 'k2: нет строки «сверка: %s/%s» (инвентарь install.sh)\n' "$N_ADDR" "$N_ADDR"; return 1; }
   return 0
 }
 
-cell_k3() { # <subject>: verify расхождения — ПАРАМЕТРИЗОВАНО по всем девяти адресатам
+cell_k3() { # <subject>: verify расхождения — ПАРАМЕТРИЗОВАНО по всем адресатам инвентаря install.sh
   # Вердикт критика к1 (блокирующая 2): проба обязана ловить расхождение
-  # ЛЮБОГО из девяти файлов, иначе verify, сверяющий один orch-ctx.timer,
+  # ЛЮБОГО адресата инвентаря, иначе verify, сверяющий один orch-ctx.timer,
   # проходит приёмку. Каждый адресат искажается по очереди: user-файл,
-  # root-файл, каждый из 7 юнитов.
+  # root-файл, каждый юнит из UNITS install.sh.
   local rel base W rc dst
-  for rel in "${!PIN[@]}"; do
+  for rel in $RECIPIENTS; do
     base="${rel##*/}"
     W="$SCRATCH/k3_${rel//\//_}"
     rm -rf "$W"; green_world "$W/bin" "$W/sbin" "$W/etc"
@@ -468,17 +528,40 @@ cell_k4() { # <subject>: euid-гард root-части под harness
   return 0
 }
 
-cell_k5() { # пины репо: 9 копий дерева-субъекта == станция
-  local rel f
+cell_k5() { # пины репо: дерево субъекта побайтно == ФИКСИРОВАННОЙ таблице пинов + биекция таблицы инвентарю
+  local rel f u
+  # биекция №1: ключи фиксированной таблицы пинов == адресатам инвентаря
+  # install.sh. Юнит, добавленный в install.sh без пересъёма пина, и висящий
+  # пин юнита, убранного из инвентаря, — одинаково красные: живой съём пина
+  # с того же дерева эту дыру не ловил (тавтология, Б-2 контракта 186).
+  for rel in $RECIPIENTS; do
+    [ -n "${PIN[$rel]+set}" ] || { printf 'k5: ops/server/%s в инвентаре install.sh без пина в фиксированной таблице (пересъём — явный коммит)\n' "$rel"; return 1; }
+  done
   for rel in "${!PIN[@]}"; do
+    case " $RECIPIENTS " in *" $rel "*) ;; *)
+      printf 'k5: пин %s вне инвентаря install.sh — висящий ключ фиксированной таблицы\n' "$rel"; return 1 ;;
+    esac
+  done
+  # побайтовая сверка: дерево субъекта == фиксированным литералам sha256
+  for rel in $RECIPIENTS; do
     f="$OPS_ROOT/ops/server/$rel"
     [ -f "$f" ] || { printf 'k5: нет ops/server/%s\n' "$rel"; return 1; }
-    [ "$(hash_of "$f")" = "${PIN[$rel]}" ] || { printf 'k5: ops/server/%s разошёлся с пином станции\n' "$rel"; return 1; }
+    [ "$(hash_of "$f")" = "${PIN[$rel]}" ] || { printf 'k5: ops/server/%s разошёлся с фиксированным пином репо (пересъём — явный коммит, не молчаливая правка)\n' "$rel"; return 1; }
+  done
+  # биекция №2: юнит-файл вне инвентаря install.sh не ставится и verify его не
+  # сверяет — дыра «sha256 репо == установленное»; лишний файл — красный
+  for f in "$OPS_ROOT/ops/server/root/systemd"/*.service \
+           "$OPS_ROOT/ops/server/root/systemd"/*.timer; do
+    [ -e "$f" ] || continue
+    u="${f##*/}"
+    case " $UNITS " in *" $u "*) ;; *)
+      printf 'k5: юнит %s вне инвентаря install.sh — не ставится, verify слеп\n' "$u"; return 1 ;;
+    esac
   done
   return 0
 }
 
-cell_k5b() { # живая станция: сверка станции с пинами (в CI — пропуск с пометкой)
+cell_k5b() { # живая станция: сверка станции со снимком 2026-10-02 (в CI — пропуск с пометкой)
   local rel all=1
   for rel in "${!STATION[@]}"; do [ -r "${STATION[$rel]}" ] || all=0; done
   if [ "$all" -eq 0 ]; then
@@ -486,7 +569,7 @@ cell_k5b() { # живая станция: сверка станции с пин�
     return 0
   fi
   for rel in "${!STATION[@]}"; do
-    [ "$(hash_of "${STATION[$rel]}")" = "${PIN[$rel]}" ] || { printf 'k5b: станция %s разошлась с пином\n' "${STATION[$rel]}"; return 1; }
+    [ "$(hash_of "${STATION[$rel]}")" = "${SNAP[$rel]}" ] || { printf 'k5b: станция %s разошлась со снимком 2026-10-02\n' "${STATION[$rel]}"; return 1; }
   done
   printf '  станция: 9/9 побайтно совпали (живая сверка)\n'
   return 0

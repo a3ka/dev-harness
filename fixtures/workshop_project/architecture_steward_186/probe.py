@@ -122,28 +122,41 @@ def honest(root):
     config['tiers'][TIER] = {'model': '@gpt-sol', 'fallback': '@gpt-astra',
                              'why': 'слово владельца 2026-11-10 ~19:45 UTC: хранитель Sol'}
     config['roles'][ROLE] = TIER
-    config['routing']['rules'].append({'class': 'приём находок и обзор архитектуры после done этапа и блокирующей находки', 'role': ROLE})
+    route = 'приём находок и обзор архитектуры после done этапа и блокирующей находки'
+    if not any(r.get('role') == ROLE and r.get('class') == route
+               for r in config['routing']['rules']):
+        config['routing']['rules'].append({'class': route, 'role': ROLE})
     put(root, 'config/agent_models.json', json.dumps(config, ensure_ascii=False, indent=2) + '\n')
     put(root, 'scripts/findings_status.py', HONEST_STATUS_SCRIPT)
     put(root, 'scripts/architecture_review.py', HONEST_REVIEW_SCRIPT)
     put(root, 'ops/server/root/systemd/orch-architecture.timer',
         '[Unit]\nDescription=Страховка обзора архитектуры\n[Timer]\nOnCalendar=Mon *-*-* 09:00:00 UTC\nUnit=orch-peak@architecture.service\nPersistent=false\n[Install]\nWantedBy=timers.target\n')
+    # Честный мир ставит только НЕДОСТАЮЩИЕ артефакты (правка 186-ф): дерево
+    # реализации уже несёт свои копии, а дубликат переживал мутацию одного
+    # вхождения (ZHIV route_statistics/blocker_missing). Мутанты ниже ломают
+    # все вхождения своего класса, поэтому одно вхождение на артефакт.
     peak = get(root, 'ops/server/root/orch-peak')
     anchor = '  start)\n'
     if peak.count(anchor) != 1:
         raise RuntimeError('station switch changed')
-    arm = ''.join('  ' + event + ')\n    say "' + SIGNAL + ' ' + qualifier + '" || exit 1\n    ;;\n'
-                  for event, qualifier in (('architecture-done', 'done Э-этапа'),
-                                           ('architecture-blocker', 'блокирующая находка'),
-                                           ('architecture', 'страховочный timer')))
-    put(root, 'ops/server/root/orch-peak', peak.replace(anchor, arm + anchor))
+    missing = [(event, qualifier) for event, qualifier in
+               (('architecture-done', 'done Э-этапа'),
+                ('architecture-blocker', 'блокирующая находка'),
+                ('architecture', 'страховочный timer'))
+               if not re.search(r'(?m)^  ' + re.escape(event) + r'\)$', peak)]
+    if missing:
+        arm = ''.join('  ' + event + ')\n    say "' + SIGNAL + ' ' + qualifier + '" || exit 1\n    ;;\n'
+                      for event, qualifier in missing)
+        put(root, 'ops/server/root/orch-peak', peak.replace(anchor, arm + anchor))
     installer = get(root, 'ops/server/install.sh')
-    anchor = "orch-ctx.timer'\n"
-    if installer.count(anchor) != 1:
-        raise RuntimeError('installer inventory changed')
-    put(root, 'ops/server/install.sh', installer.replace(anchor, "orch-ctx.timer orch-architecture.timer'\n"))
+    if 'orch-architecture.timer' not in installer:
+        anchor = "orch-ctx.timer'\n"
+        if installer.count(anchor) != 1:
+            raise RuntimeError('installer inventory changed')
+        put(root, 'ops/server/install.sh', installer.replace(anchor, "orch-ctx.timer orch-architecture.timer'\n"))
     orchestrator = get(root, 'roles/orchestrator.md')
-    put(root, 'roles/orchestrator.md', orchestrator + '\n## Архитектурные события\nПосле done последнего предмета Э-этапа или блокирующей находки вызови architecture-steward; timer — страховка, при занятом слоте оставь событие в очереди.\n')
+    if '## Архитектурные события' not in orchestrator:
+        put(root, 'roles/orchestrator.md', orchestrator + '\n## Архитектурные события\nПосле done последнего предмета Э-этапа или блокирующей находки вызови architecture-steward; timer — страховка, при занятом слоте оставь событие в очереди.\n')
     gen = run(['node', 'scripts/gen-harness.ts'], root)
     if gen.returncode:
         raise RuntimeError('generator model: ' + gen.stderr)
@@ -208,7 +221,15 @@ def judge(root, case):
             ok = role_tier == TIER and any(r.get('role') == ROLE and r.get('class') == route
                                                for r in cfg.get('routing', {}).get('rules', []))
         elif case == 'tier':
-            ok = role_tier == TIER and tier.get('model') == '@gpt-sol' and cfg.get('models', {}).get('gpt-sol') == 'openai-codex/gpt-6-sol'
+            # Инвариант §6 — alias "@gpt-sol", не литерал версии: версия семейства
+            # живёт одной строкой в models того же файла (AGENTS.md) и меняется
+            # владельцем (6-sol → 6.1-sol, omp 18.18.8). Смена версии — зелёная;
+            # подмена alias либо семейство, не разворачиваемое из models, — красные.
+            family = tier.get('model')
+            resolved = cfg.get('models', {}).get(family[1:]) \
+                if isinstance(family, str) and family.startswith('@') else None
+            ok = (role_tier == TIER and family == '@gpt-sol'
+                  and isinstance(resolved, str) and bool(resolved.strip()))
         elif case == 'critic_family':
             critic_tier = cfg.get('tiers', {}).get(cfg.get('roles', {}).get('critic'), {})
             critic_model = critic_tier.get('model')
@@ -320,7 +341,7 @@ def judge(root, case):
 
 
 CASES = ('role', *LINES, 'status_cli', 'review_file', 'routing', 'tier', 'fallback', 'critic_family', 'generated', 'done', 'blocker', 'schedule')
-MUTANTS = (('no_frontmatter', 'role'), ('calendar_only', 'done'), ('blocker_missing', 'blocker'),
+MUTANTS = (('no_frontmatter', 'role'),
            ('humans_only', 'intake'), ('silent_overdue', 'status_cli'), ('invalid_status', 'status_cli'),
            ('review_without_file', 'review'), ('silent_missing_review', 'review_file'),
            ('uncommitted_review', 'review_file'), ('incomplete_review', 'review_file'),
@@ -328,10 +349,12 @@ MUTANTS = (('no_frontmatter', 'role'), ('calendar_only', 'done'), ('blocker_miss
            ('l1_not_pr', 'l1'), ('l1_self_merge', 'l1'), ('l1_same_commit', 'l1'),
            ('l2_self_merge', 'l2'), ('l3_self_merge', 'l3'),
            ('l3_no_recommendation', 'l3'), ('writes_code_or_judges', 'code_debt'),
-           ('no_roadmap_priority', 'register'), ('plan_astra', 'tier'),
+           ('no_roadmap_priority', 'register'), ('plan_astra', 'tier'), ('tier_astra', 'tier'),
            ('wrong_fallback', 'fallback'), ('no_role_map', 'routing'),
            ('critic_sol', 'critic_family'), ('route_statistics', 'routing'),
-           ('timer_start', 'schedule'),
+           ('route_rule_deleted', 'routing'),
+           ('blocker_missing', 'blocker'), ('blocker_arm_deleted', 'blocker'),
+           ('calendar_only', 'done'), ('timer_start', 'schedule'),
            ('stale_generated', 'generated'), ('no_timer', 'schedule'))
 STABS = MUTANTS
 
@@ -378,23 +401,55 @@ def mutate(root, name):
         put(root, 'scripts/architecture_review.py', script.replace(
             "if not headings.issubset(set(result.stdout.splitlines())):",
             "if not result.stdout.strip():"))
-    elif name in ('calendar_only', 'blocker_missing'):
+    elif name in ('calendar_only', 'blocker_missing', 'blocker_arm_deleted'):
+        # Граница мутанта (правка 186-ф): мутант основного класса ломает ВСЕ
+        # вхождения события — обе формы терминатора arm-а (собственная строка
+        # "    ;;" и хвостовая "... ;;"), ноль снесённых = отказ батареи;
+        # сосед-удаление (blocker_arm_deleted) выносит ровно одно вхождение —
+        # при одном вхождении в честном мире этого достаточно для красного.
         peak = get(root, 'ops/server/root/orch-peak')
-        event = 'architecture-done' if name == 'calendar_only' else 'architecture-blocker'
-        peak, n = re.subn(r'  ' + event + r'\)\n.*?    ;;\n', '', peak, count=1, flags=re.S)
-        if n != 1:
+        event = {'calendar_only': 'architecture-done',
+                 'blocker_missing': 'architecture-blocker',
+                 'blocker_arm_deleted': 'architecture-blocker'}[name]
+        pattern = re.compile(r'(?m)^  ' + re.escape(event) + r'\)\n.*?;;[^\n]*\n', re.S)
+        if name == 'blocker_arm_deleted':
+            peak, n = pattern.subn('', peak, count=1)
+        else:
+            n = 0
+            while True:
+                peak, removed = pattern.subn('', peak, count=1)
+                if not removed:
+                    break
+                n += removed
+        if n < 1:
             raise RuntimeError('event arm missing: ' + event)
         put(root, 'ops/server/root/orch-peak', peak)
-    elif name in ('plan_astra', 'wrong_fallback', 'no_role_map', 'critic_sol', 'route_statistics'):
+    elif name in ('plan_astra', 'tier_astra', 'wrong_fallback', 'no_role_map', 'critic_sol',
+                  'route_statistics', 'route_rule_deleted'):
         cfg = json.loads(get(root, 'config/agent_models.json'))
+        route = 'приём находок и обзор архитектуры после done этапа и блокирующей находки'
         if name == 'plan_astra':
             cfg['roles'][ROLE] = 'plan'
+        elif name == 'tier_astra':
+            cfg['tiers'][TIER]['model'] = '@gpt-astra'
         elif name == 'wrong_fallback':
-            cfg['tiers'][TIER]['fallback'] = '@fable'
+            cfg['tiers'][TIER]['fallback'] = '@gpt-sol'
         elif name == 'critic_sol':
             cfg['roles']['critic'] = TIER
         elif name == 'route_statistics':
-            cfg['routing']['rules'][-1]['class'] = 'архитектурная статистика'
+            hit = 0
+            for rule in cfg['routing']['rules']:
+                if rule.get('class') == route:
+                    rule['class'] = 'архитектурная статистика'
+                    hit += 1
+            if not hit:
+                raise RuntimeError('route rule missing: ' + route)
+        elif name == 'route_rule_deleted':
+            rules = cfg['routing']['rules']
+            index = next((i for i, rule in enumerate(rules) if rule.get('class') == route), None)
+            if index is None:
+                raise RuntimeError('route rule missing: ' + route)
+            del rules[index]
         else:
             del cfg['roles'][ROLE]
         put(root, 'config/agent_models.json', json.dumps(cfg, ensure_ascii=False, indent=2) + '\n')

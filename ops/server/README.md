@@ -1,6 +1,6 @@
 # ops/server — серверная обвязка станции (единый источник в репо)
 
-Контракты 074/081/085: 9 файлов обвязки лежат в этом каталоге побайтно
+Контракты 074/081/085: 10 файлов обвязки лежат в этом каталоге побайтно
 (сверяются sha256 с живой станцией — `bash ops/server/install.sh verify`),
 установщик ставит их из репо на `~/bin/orch-loop` и
 `/usr/local/sbin/orch-peak` + `/etc/systemd/system/*`, а `README` —
@@ -12,7 +12,7 @@
 
 ```
 bash <репо>/ops/server/install.sh user        # цикл → ~/bin/orch-loop, ~/.config/dev-harness/ops.env
-sudo bash <репо>/ops/server/install.sh root   # сторож + юниты, /etc/dev-harness/ops.env, orch-ctx.timer
+sudo bash <репо>/ops/server/install.sh root   # сторож + юниты, /etc/dev-harness/ops.env, orch-ctx.timer, orch-architecture.timer
 tmux new -s orch ~/bin/orch-loop               # запуск цикла (полный путь: ~/bin не везде в PATH)
 ```
 
@@ -26,7 +26,7 @@ tmux new -s orch ~/bin/orch-loop               # запуск цикла (пол
   доложить владельцу `sudo bash <репо>/ops/server/install.sh root`. Руками на машине ничего
   не правится.
 
-## Инвентарь механизмов (9 файлов, копии побайтно со станции 2026-10-05)
+## Инвентарь механизмов (10 файлов, копии побайтно со станции 2026-10-05)
 
 - **orch-loop** — обёртка хоста: перезапуск ведущей сессии по маркеру
   (`/tmp/dev-harness-verify/orch-restart`); живёт в tmux-сессии `orch` под
@@ -36,7 +36,9 @@ tmux new -s orch ~/bin/orch-loop               # запуск цикла (пол
   (ebc53f30), плюс потолок памяти сессии (И-5, см. ниже) и общий счёт
   нештатных завершений подряд (И-3, см. «Семантика цикла»).
 - **orch-peak** — пауза оркестратора на пиковые часы z.ai (команды
-  `warn`, `stop`, `start`, `check`, `ctx`); root-часть, режим 755, путь —
+  `warn`, `stop`, `start`, `check`, `ctx`; команды архитектурных событий
+  `architecture-done`, `architecture-blocker`, `architecture` — контракт 186,
+  перечислены в шапке файла); root-часть, режим 755, путь —
   `/usr/local/sbin/orch-peak`, владелец `root:root` (harness не имеет права
   менять). Контракт 085: слияние станции (b3e354cd) и версии 080; три
   конфликта разрешены объединением намерений (подпись сторожа + транзакция
@@ -59,6 +61,12 @@ tmux new -s orch ~/bin/orch-loop               # запуск цикла (пол
   сессии; > CTX_SOFT (500 000, контракт 085 И-4б) — сообщение в панель,
   > CTX_HARD (600 000, И-4б) — проверка сохранения с отсрочкой, потом
   маркер перезапуска. Был 300K/500K (080), стал 500K/600K (станция + 085).
+- **orch-architecture.timer** — Mon 09:00 UTC (раз в неделю): страховка
+  обзора архитектуры (контракт 186). Диспатчит `orch-peak@architecture.service`
+  → `orch-peak architecture` — сигнал «страховочный timer» в панель
+  оркестратора. Первичным триггером обзора таймер НЕ является: обзор идёт
+  по событию (done последнего предмета Э-этапа или блокирующая находка),
+  таймер лишь страхует пропущенное событие и не выдаёт себя за слово владельца.
 
 Все юниты — `root:root` 644 в `/etc/systemd/system/`; `Persistent=false` на
 регулярных таймерах.
@@ -249,6 +257,11 @@ orch-peak-stop.timer orch-peak-start.timer`. До этого однократн�
 orch-peak-stop.timer orch-peak-start.timer`. Не трогать `orch-ctx.timer` —
 сторож контекста работает независимо от пиковой паузы.
 
+`orch-architecture.timer` (страховка обзора архитектуры) включается тем же
+root-проходом `install.sh root`, что и `orch-ctx.timer`; вручную его
+выключают только вместе с обзором архитектуры — сигнал страховки при
+занятом слоте оркестратора оставляет событие в очереди.
+
 **Стоп обёртки** (harness): `touch ~/orch-loop.stop` (или шов
 `ORCH_STOP`) — следующая итерация цикла `orch-loop` снимет файл и
 завершится с rc 0.
@@ -314,11 +327,11 @@ bash ops/server/install.sh user
 # root-часть (под root): /usr/local/sbin/orch-peak + bootstrap-библиотека
 # lib_session.sh (root:root 644) + её sha256-манифест lib_session.sh.sha256
 # (root:root 444 — по нему сторож проверяет установленный bootstrap, И-1)
-# + 7 юнитов /etc/systemd/system/
+# + 8 юнитов /etc/systemd/system/
 sudo bash ops/server/install.sh root
 
 # сверка установленного с репо (любой пользователь, только читает):
-# rc 0 + «сверка: 9/9» — установленное == репо; rc != 0 — зовёт файл по имени.
+# rc 0 + «сверка: 10/10» — установленное == репо; rc != 0 — зовёт файл по имени.
 bash ops/server/install.sh verify
 ```
 
@@ -408,7 +421,7 @@ sudo bash ops/server/install.sh verify-start
 Подкоманда `rollback` побайтно восстанавливает предыдущую установленную
 версию из `${OPS_SERVER_ROLLBACK_BACKUP-/usr/local/sbin/.rollback}/` —
 каталог, куда `install.sh root` ПЕРЕД копированием новой версии
-сохраняет снимок прежней (orch-peak + `lib_session.sh` + 7 юнитов,
+сохраняет снимок прежней (orch-peak + `lib_session.sh` + 8 юнитов,
 атомарной заменой каталога). Снимок появляется со ВТОРОЙ установки:
 первой снимать нечего, каталог не создаётся. Откат САМ выполняет
 `systemctl daemon-reload` и `systemctl restart` (находка 2 круга 2: без

@@ -392,3 +392,21 @@ edit/write с АБСОЛЮТНЫМ путём под $WORKTREE, коммит —
 (`path-guard.ts --judge` → pass); относительный путь и путь клона — блок Н-85. Директиву харнесса «правь только
 изолированный клон» пин перекрывает: агент на ней не сдаётся. Эти три строки — в каждое пиновое задание дословно
 (прецедент 2026-11-09: 2834aa8c4, 2e6b64f9 прошли, 170/172 без них сдались).
+
+## Архитектурные события
+
+После done последнего предмета Э-этапа или блокирующей архитектурной находки вызови architecture-steward; при занятом слоте оставь сигнал в очереди — не жди недельного таймера и не выдавай себя за слово владельца.
+
+Станция доставляет сигнал событийно: `bash ops/server/root/orch-peak architecture-done` (обзор после done Э-этапа), `bash ops/server/root/orch-peak architecture-blocker` (блокирующая находка — обзор немедленно), `bash ops/server/root/orch-peak architecture` (страховка недельного таймера `orch-architecture.timer`). Событие в очередь кладёшь сам, если слот хранителя занят.
+
+После сессии обзора проверь коммит `governance/review/<дата>-<Э>.md` в проекте `CompliorOS-architecture`: `python3 scripts/architecture_review.py <корень-CompliorOS-architecture> <дата> <Э>`; `НЕТ ОБЗОРА` с rc 1 — находка оркестратору, а не молчаливое отсутствие отчёта.
+
+L1 PR в `CompliorOS-architecture` сливает станционный оркестратор — дверью `bash scripts/merge_architecture_pr.sh <корень-CompliorOS-architecture> <номер-PR>` (accept критика GLM на том же head, зелёный CI, baseline PASS, автор PR ≠ сливающий, `COMPLIOR-<NNN>` в заголовке). Отказ двери — не сливай вручную: L2/L3 без записи владельца не сливаются никогда.
+
+После архитектурного merge и ДО слияния связанного продуктового PR выполни `bash scripts/check_architecture_pin.sh <корень-CompliorOS-architecture> <№ архитектурного PR> <корень-Complior-back> <№ продуктового PR>` на ТОЧНОМ checkout head продукта; отказ — не сливай продуктовый PR, верни его автору на правку lock.
+
+## Проводка роли (контракт 186)
+
+Норма-строка (ПРОВОДКА roles/orchestrator.md, контракт 186, заморожен frozen/contracts/186/1):
+
+После done последнего предмета каждого Э-этапа и немедленно при блокирующей архитектурной находке вызывай architecture-steward; недельный timer — только страховка; при занятом слоте оставь сигнал в очереди. После сессии обзора проверяй коммит governance/review/<дата>-<Э>.md, отсутствие — находка. Сливай L1 PR в CompliorOS-architecture только через scripts/merge_architecture_pr.sh после accept critic GLM на head, зелёного CI и baseline PASS; при отказе скрипта не сливай вручную. После архитектурного merge и до слияния связанного продуктового PR выполни scripts/check_architecture_pin.sh для PR `COMPLIOR-<NNN>` на точном checkout head продукта; отказ — не сливай продуктовый PR, а верни его автору на правку lock.
