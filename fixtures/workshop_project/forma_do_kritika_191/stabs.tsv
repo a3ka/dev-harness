@@ -1,0 +1,16 @@
+# Батарея 191 — привязки обманных реализаций к различающим входам (Н-39: данными
+# батареи, не прозой контракта). Формат: имя файла <TAB> заменяемый файл субъекта <TAB> клетка.
+# Поимка = результат обманной реализации на команде клетки не удовлетворяет
+# ожиданию клетки (rc или именованный маркер).
+stab_bez_nogi_ugroz.sh	scripts/pre_critic.sh	m02
+stab_bez_nogi_potolkov.sh	scripts/pre_critic.sh	m03
+stab_bez_nogi_provodki.sh	scripts/pre_critic.sh	p01
+stab_noga_vooruzhena_vsegda.sh	scripts/pre_critic.sh	t01
+stab_noga_glotajet_rc2.sh	scripts/pre_critic.sh	f01
+stub_grammar_trebuet_fajly.sh	scripts/check_provodka.sh	p03
+stub_grammar_propuskaet_pojasnenie.sh	scripts/check_provodka.sh	p01
+stub_grammar_propuskaet_vlozhennye.sh	scripts/check_provodka.sh	p02
+stub_grammar_bez_pinninga_charter.sh	scripts/check_provodka.sh	p05
+stub_grammar_propuskaet_goluyu_stroku.sh	scripts/check_provodka.sh	p06
+stub_grammar_bez_v1.sh	scripts/check_provodka.sh	p07
+stub_obychnyj_rezhim_oslablen.sh	scripts/check_provodka.sh	p04
