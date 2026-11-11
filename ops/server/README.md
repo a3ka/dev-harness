@@ -71,6 +71,74 @@ tmux new -s orch ~/bin/orch-loop               # запуск цикла (пол
 Все юниты — `root:root` 644 в `/etc/systemd/system/`; `Persistent=false` на
 регулярных таймерах.
 
+## Валидаторы (контракт 189 — стандартные валидаторы и канон)
+
+Единый источник станции — `ops/server/validators.tsv`: пины (версия + sha256)
+того, что запускается. Файл читают установщик, обёртка `scripts/validate_std.sh`
+и движок json `scripts/validate_std_json.py` — одна строка пина на инструмент,
+разные места его читают.
+
+Формат строки — `<инструмент><TAB><версия><TAB><sha256|->`. `sha256` — байты
+УСТАНОВЛЕННОГО бинаря (того, который сверяется перед запуском); `-` — пакет
+python, закреплённый версией (у него нет бинаря).
+
+| инструмент | версия | что проверяет | пин (sha256 установленного бинаря) |
+|---|---|---|---|
+| `actionlint` | 1.7.12 | workflow GitHub Actions | `c872d6db8c6bf83a8eaa704fc93999f027d55dffbc63b8a6abdccb47df5f4cd4` |
+| `shellcheck` | 0.11.0 | shell-скрипты | `4da528ddb3a4d1b7b24a59d4e16eb2f5fd960f4bd9a3708a15baddbdf1d5a55b` |
+| `jsonschema` | 4.26.0 | JSON Schema Draft 2020-12 | `-` (версия пакета) |
+
+Происхождение загрузки — официальные архивы релизов; установщик сверяет sha256
+РАСПАКОВАННОГО бинаря с пином (не архива), поэтому подмена архива ловится
+сверкой бинаря:
+
+- `actionlint_1.7.12_linux_amd64.tar.gz` — sha256 архива
+  `8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8`;
+- `shellcheck-v0.11.0.linux.x86_64.tar.gz` — sha256 архива
+  `b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6`.
+
+Установка на станции:
+
+```sh
+bash <репо>/ops/server/install.sh validators
+# → $HOME/.local/state/dev-harness/validators/<инструмент>/<версия>/<инструмент> (755).
+#   Сверка sha256 с пином ДО установки: расхождение — именованный отказ rc 1,
+#   и ничего не устанавливается.
+
+bash <репо>/ops/server/install.sh verify
+# → дополнительно сверяет пины ↔ установленное (валидаторы не установлены —
+#   «не установлены», а не расхождение).
+```
+
+Швы установки: `OPS_SERVER_VALIDATORS_DEST` (корень установки) и
+`OPS_SERVER_VALIDATORS_ARCHIVES` (каталог с готовыми архивами — вместо загрузки
+по сети).
+
+Проверка предметов:
+
+```sh
+bash scripts/validate_std.sh workflow .github/workflows/ci.yml  # actionlint
+bash scripts/validate_std.sh bash scripts/foo.sh                 # bash -n + shellcheck
+bash scripts/validate_std.sh json schema.json document.json     # JSON Schema
+python3 scripts/check_canon_fragment.py <workflow> <job-id> <канон>   # канон job
+```
+
+Коды: 0 — прошло; 1 — нарушение (rc валидатора пробрасывается буквально, «успех»
+по тексту вывода не признаётся); 2 — именованный отказ: `VALIDATOR_PINS`
+(файл пинов отсутствует или не читается), `VALIDATOR_MISSING` (нет инструмента
+или строки пина), `VALIDATOR_PIN` (подмена бинаря), `SYNTAX: bash -n`,
+`ENGINE_PINS` / `ENGINE_MISSING` / `ENGINE_VERSION` (движок json),
+`JSON_UNPARSEABLE`, `NOT_IMPLEMENTED`. Отсутствие инструмента, пина или среды —
+именованный отказ, а не пропуск проверки.
+
+Швы проверки: `VALIDATE_STD_PINS` (файл пинов), `VALIDATE_STD_ACTIONLINT`,
+`VALIDATE_STD_SHELLCHECK`, `VALIDATE_STD_PYTHON` (интерпретатор режима json).
+
+Канон (`scripts/check_canon_fragment.py`) сравнивает job с фрагментом-каноном ПОСЛЕ
+разбора YAML: эквивалентные записи (порядок ключей, кавычки, block/flow-списки)
+равны; при расхождении rc 1 и stderr `CANON_DIFF: <путь первого отличия>:
+<причина>`.
+
 ## Singleton (orch-loop, контракт 997, инв. 5)
 
 Один цикл на HOME: `flock -n 9` на каноническом пути
