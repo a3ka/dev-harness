@@ -35,12 +35,15 @@
 #       сверяющий одно имя из инвентаря, красен на остальных пробах;
 #   к4  euid-гард root-части: запуск под harness → rc 1, stderr «root-часть
 #       требует euid 0», по швовым адресатам ничего не записано;
-#   к5  копии репо-субъекта побайтно == живым пинам дерева батареи (sha256
-#       по ops/server; инвентарь и счёт — из install.sh, единый источник)
-#       + биекция юнит-файлов инвентарю (лишний юнит не ставится и verify
-#       не сверяет — дыра «sha256 репо == установленное»); к5b — станция
-#       против снимка 2026-10-02, пока файлы станции читаемы (в CI —
-#       пропуск с пометкой, не зелёное);
+#   к5  дерево субъекта побайтно == ФИКСИРОВАННОЙ таблице пинов репо
+#       (литералы sha256 ниже; каждая смена пина — ЯВНЫЙ коммит в таблице:
+#       стоячая санкция №4 покрывает только значения, живой съём пина с
+#       того же дерева — тавтология, Б-2 контракта 186; инвентарь и счёт
+#       адресатов — из install.sh, единый источник) + биекция «ключи
+#       таблицы пинов == адресаты инвентаря install.sh» (лишний юнит без
+#       пересъёма пина и висящий пин убранного юнита — красные);
+#       к5b — станция против снимка 2026-10-02, пока файлы станции читаемы
+#       (в CI — пропуск с пометкой, не зелёное);
 #   к6  ops/server/README.md несёт чек-строки инвентаря: 9 имён механизмов
 #       и 13 тем (журналы, send-keys, гашение omp, маркер, вкл/выкл,
 #       настройка станции);
@@ -114,12 +117,14 @@ build_interposer
 fails=0
 red() { fails=$((fails + 1)); printf '  КРАСНО: %s\n' "$*"; }
 
-# ── инвентарь и пины: единый источник — ops/server/install.sh дерева батареи ───
-# Правка 186-ф: список юнитов и счёт адресатов извлекаются из UNITS-присваиваний
-# install.sh (не копией литералов — рост инвентаря станции ломал к2/к3),
-# пины репо — живой sha256-съём по ops/server того же дерева (команда та же,
-# что в verify субъекта). Дрейф грамматики install.sh → отказ rc 2
-# (пустая выборка — красное, не зелёное).
+# ── инвентарь и пины: инвентарь — install.sh, пины — ФИКСИРОВАННАЯ таблица ────
+# Список юнитов и счёт адресатов извлекаются из UNITS-присваиваний install.sh
+# (не копией литералов — рост инвентаря станции не требует правки к2/к3), НО
+# пины репо — ФИКСИРОВАННЫЕ литералы sha256 (Б-2 контракта 186: пин, снимаемый
+# с того же дерева в момент прогона, — тавтология, дрейф строки он не ловит).
+# Пересъём пина — только явный коммит в этой таблице (стоячая санкция №4:
+# только значения, клетки и логика неизменны). Дрейф грамматики install.sh →
+# отказ rc 2 (пустая выборка — красное, не зелёное).
 units_of() { # <install.sh>: итоговый UNITS по всем присваиваниям (в т.ч. UNITS="$UNITS …")
   local line acc='' w
   while IFS= read -r line; do
@@ -145,15 +150,25 @@ UNITS_LIST="$(units_of "$OPS_SRC/install.sh")" || exit 2
 UNITS="$(printf '%s ' $UNITS_LIST)"; UNITS="${UNITS% }"
 N_ADDR=$(( $(printf '%s\n' "$UNITS_LIST" | wc -l) + 2 ))   # orch-loop + orch-peak + юниты
 RECIPIENTS='user/orch-loop root/orch-peak'
-declare -A PIN=()
 for u in $UNITS_LIST; do RECIPIENTS="$RECIPIENTS root/systemd/$u"; done
+declare -A PIN=( # фиксированные пины репо: tip реализации 186 (61b2b2bf8), сняты явным коммитом
+  ['user/orch-loop']='30d837128ab285b4f8430acce14a952b5e6b5f7cb7c22f54639fb25c0393dda7'
+  ['root/orch-peak']='5f2a1f443352f8f4a68200abccf9fca8bc8238cd8b73c4c9011a8891815b7bf6'
+  ['root/systemd/orch-peak@.service']='a7e4e4453ae5fdc4e47758143d8b313ce0fe2b97ad187e3a34c317eaabca1a8f'
+  ['root/systemd/orch-peak-warn.timer']='c1aca85614566ce281b90e51001a3158d10bac6366470c09c29ba9ed0921bc01'
+  ['root/systemd/orch-peak-stop.timer']='94d909b200c8c0ed000ae96ef3aa8c672aa0467f7269b97ad21d852fbb6e0d3a'
+  ['root/systemd/orch-peak-start.timer']='21ec472f90e4328b7b49e90beed5742c0ee2e679f01b195e530bec60fef8a4d0'
+  ['root/systemd/orch-peak-reenable.timer']='ac7e888b54efb983a686ad7bd25041f5ad87ac74a502e79253dcc4403db3fa50'
+  ['root/systemd/orch-peak-reenable.service']='d80d820e0a300d93e367a613f1bee85361b989c88ad2c9ede4d89e69962920db'
+  ['root/systemd/orch-ctx.timer']='dcb7718c6a3a21b50bd08f4c476b058f986ca77b8e70e04ac0327fbe4a202d77'
+  ['root/systemd/orch-architecture.timer']='12a4e6cb60acdcec8b6fb401f81304121b4251d1b96817b3cf3e46e0483b9f62'
+)
 for rel in $RECIPIENTS; do
   [ -f "$OPS_SRC/$rel" ] || { printf 'ОТКАЗ: в дереве батареи нет ops/server/%s\n' "$rel" >&2; exit 2; }
-  PIN["$rel"]="$(hash_of "$OPS_SRC/$rel")"
 done
 # Снимок живой станции 2026-10-02 (сверен прогоном 2026-11-11: станция побайтно
 # равна снимку). Обновляется пачкой, которая перезапускает root-установку
-# станции; к5b судит станцию по снимку, к5 — репо по живым пинам дерева.
+# станции; к5b судит станцию по снимку, к5 — репо по фиксированной таблице пинов.
 declare -A SNAP=(
   ['user/orch-loop']='30d837128ab285b4f8430acce14a952b5e6b5f7cb7c22f54639fb25c0393dda7'
   ['root/orch-peak']='6b4f2261c100eeb56c7e1e1aeaa6a4b8d3e3b40a046cb854c08056004720c37f'
@@ -481,7 +496,7 @@ cell_k3() { # <subject>: verify расхождения — ПАРАМЕТРИЗ�
   # проходит приёмку. Каждый адресат искажается по очереди: user-файл,
   # root-файл, каждый юнит из UNITS install.sh.
   local rel base W rc dst
-  for rel in "${!PIN[@]}"; do
+  for rel in $RECIPIENTS; do
     base="${rel##*/}"
     W="$SCRATCH/k3_${rel//\//_}"
     rm -rf "$W"; green_world "$W/bin" "$W/sbin" "$W/etc"
@@ -513,14 +528,27 @@ cell_k4() { # <subject>: euid-гард root-части под harness
   return 0
 }
 
-cell_k5() { # пины репо: копии субъекта == живым пинам дерева батареи (sha256 по ops/server) + биекция юнитов
+cell_k5() { # пины репо: дерево субъекта побайтно == ФИКСИРОВАННОЙ таблице пинов + биекция таблицы инвентарю
   local rel f u
+  # биекция №1: ключи фиксированной таблицы пинов == адресатам инвентаря
+  # install.sh. Юнит, добавленный в install.sh без пересъёма пина, и висящий
+  # пин юнита, убранного из инвентаря, — одинаково красные: живой съём пина
+  # с того же дерева эту дыру не ловил (тавтология, Б-2 контракта 186).
+  for rel in $RECIPIENTS; do
+    [ -n "${PIN[$rel]+set}" ] || { printf 'k5: ops/server/%s в инвентаре install.sh без пина в фиксированной таблице (пересъём — явный коммит)\n' "$rel"; return 1; }
+  done
   for rel in "${!PIN[@]}"; do
+    case " $RECIPIENTS " in *" $rel "*) ;; *)
+      printf 'k5: пин %s вне инвентаря install.sh — висящий ключ фиксированной таблицы\n' "$rel"; return 1 ;;
+    esac
+  done
+  # побайтовая сверка: дерево субъекта == фиксированным литералам sha256
+  for rel in $RECIPIENTS; do
     f="$OPS_ROOT/ops/server/$rel"
     [ -f "$f" ] || { printf 'k5: нет ops/server/%s\n' "$rel"; return 1; }
-    [ "$(hash_of "$f")" = "${PIN[$rel]}" ] || { printf 'k5: ops/server/%s разошёлся с пином дерева батареи\n' "$rel"; return 1; }
+    [ "$(hash_of "$f")" = "${PIN[$rel]}" ] || { printf 'k5: ops/server/%s разошёлся с фиксированным пином репо (пересъём — явный коммит, не молчаливая правка)\n' "$rel"; return 1; }
   done
-  # биекция: юнит-файл вне инвентаря install.sh не ставится и verify его не
+  # биекция №2: юнит-файл вне инвентаря install.sh не ставится и verify его не
   # сверяет — дыра «sha256 репо == установленное»; лишний файл — красный
   for f in "$OPS_ROOT/ops/server/root/systemd"/*.service \
            "$OPS_ROOT/ops/server/root/systemd"/*.timer; do
