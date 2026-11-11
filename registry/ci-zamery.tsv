@@ -105,3 +105,4 @@ check:pre-judge-leak-185-family-selftest	4	8	0
 check:plan-restart-182-family-selftest	4	8	0
 check:architecture-process-187-family-selftest	4	8	0
 check:architecture-door-187	4	8	0
+check:ekrannyj-nabor-158-family-selftest	400	8	0
