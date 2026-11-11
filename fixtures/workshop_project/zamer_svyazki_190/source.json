@@ -6,11 +6,11 @@
     "docs/190-zamer-svyazki.md"
   ],
   "piny": {
-    "dannye/orakul-tablicy.tsv": "90c209f4bc0537c54f55fabc386d4fd142a72709fe04679dffbcb3bf50c14aa5",
+    "dannye/orakul-tablicy.tsv": "7d5a2a4d448077a921f176a80668be3ebab4cfcd8f2a921662ead32b06ecffcc",
     "dannye/orakul-rc.tsv": "96dffc5b17cce6f4e0e0092c9e07bd6318d3b183bcc4e585b39dd744a1c6c2d7",
-    "dannye/orakul-stderr.tsv": "3ccae81c34aa8ea261c2745fe1fef1b08124b0c58af35ec2c577cffbd5d8f2e0",
-    "model/zamer_model.py": "12455c1aa9928f38368cbe2a65b99dbe08e4c1318f9218e34efd80d6cf8c2d27",
-    "model/docs/190-zamer-svyazki.md": "e5589697b22f108e54c2b5e46106388a150c2bb2509b616a254b7b91a31a9b8a"
+    "dannye/orakul-stderr.tsv": "b59f03bead2902066681d0794dc4ae1c69b1bd4faed9d052bf8631ae920c3d5d",
+    "model/zamer_model.py": "c2c78e81d350975a4e8a566c424394151f535314ba5a7aa9b3f0f311f53f3dd1",
+    "model/docs/190-zamer-svyazki.md": "74406d1394387c5d6742ab7c2bc4b49ee141970582f26598568af3611a634914"
   },
   "stab_vhod": {
     "stab_schet_po_fajlam.py": "mir-b-bez-obryva",
@@ -27,7 +27,11 @@
     "stab_vyzov_slesh_strog.py": "forma-vyzova",
     "stab_slovoforma_potera.py": "forma-slovo-ne-ust",
     "stab_schet_tsitat.py": "tsitata-sud",
-    "stab_bez_stderr.py": "stderr-prosmotreno"
+    "stab_bez_stderr.py": "stderr-prosmotreno",
+    "stab_bajty_tekstom.py": "bitaja-stroka-utf8",
+    "stab_propuskaet_fajl.py": "bitaja-stroka-message",
+    "stab_bez_fences.py": "tsitata-do-uchetnoj",
+    "stab_bez_roli.py": "handoff-tolko-critic"
   },
   "zametka": "оракул — данные dannye/ (правило 8: в память ДО субъекта); пины — байты носителей; стабы — мутации чтения кодом, привязки только здесь (Н-39)"
 }

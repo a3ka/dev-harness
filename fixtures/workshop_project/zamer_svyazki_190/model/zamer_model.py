@@ -232,23 +232,40 @@ def collect_calls(repo):
 
 
 def measure_agent(path):
-    """(вызовы, токены, одиночные, хвост) по журналу агента."""
+    """(вызовы, токены, одиночные, хвост) по журналу агента.
+
+    Инвариант 8 (Б-1 ревьюера): неконсистентная строка ЛЮБОГО вида — не JSON,
+    обрыв внутри многобайтового символа, валидный JSON не-объект, message или
+    вложенное поле не нужного типа — пропускается без падения и без вклада в
+    меры: таблица равна миру без этой строки. Журнал читается байтами,
+    json.loads — внутри try (UnicodeDecodeError ⊂ ValueError); rc 1 остаётся
+    именем ПУСТАЯ_ВЫБОРКА, а не traceback'ом декодирования.
+    """
     msgs = []
-    for line in open(path, encoding='utf-8'):
-        try:
-            r = json.loads(line)
-        except ValueError:
-            continue
-        if r.get('type') != 'message':
-            continue
-        m = r.get('message', {})
-        if m.get('role') != 'assistant' or not isinstance(m.get('usage'), dict):
-            continue
-        u = m['usage']
-        tok = int(u.get('totalTokens') or 0)
-        tools = [c for c in m.get('content', []) if isinstance(c, dict) and c.get('type') == 'toolCall']
-        is_edit = any(t.get('name') in ('edit', 'write') for t in tools)
-        msgs.append((tok, len(tools) == 1, is_edit))
+    with open(path, 'rb') as fh:
+        for line in fh:
+            try:
+                r = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(r, dict) or r.get('type') != 'message':
+                continue
+            m = r.get('message')
+            if not isinstance(m, dict):
+                continue
+            if m.get('role') != 'assistant' or not isinstance(m.get('usage'), dict):
+                continue
+            u = m['usage']
+            try:
+                tok = int(u.get('totalTokens') or 0)
+            except (TypeError, ValueError):
+                continue
+            content = m.get('content', [])
+            if not isinstance(content, list):
+                continue
+            tools = [c for c in content if isinstance(c, dict) and c.get('type') == 'toolCall']
+            is_edit = any(t.get('name') in ('edit', 'write') for t in tools)
+            msgs.append((tok, len(tools) == 1, is_edit))
     last_edit = -1
     for i, (_, _, ie) in enumerate(msgs):
         if ie:
