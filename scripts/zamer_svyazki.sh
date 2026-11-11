@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # НЕ БАРЬЕР: субъект (SUBJECT) батареи fixtures/workshop_project/zamer_svyazki_190/red_zamer_svyazki_190.sh;
-# её приёмка — красная проба на сам scripts/zamer_svyazki.sh (22 клетки; режимы --repo/--model/--stabs), не сам скрипт;
+# её приёмка — красная проба на сам scripts/zamer_svyazki.sh (28 клеток в текущей семье; режимы --repo/--model/--stabs), не сам скрипт;
 # контракт 190 §Проводка: guard=scripts/zamer_svyazki.sh (проводка 038 видит подключение по реестру ci-steps).
 #
 # Замер связки architect ↔ критик (контракт 190, Л6 — С16, часть «связка»):

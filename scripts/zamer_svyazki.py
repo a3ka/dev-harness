@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # НЕ БАРЬЕР: субъект (SUBJECT) батареи fixtures/workshop_project/zamer_svyazki_190/red_zamer_svyazki_190.sh;
-# её приёмка — красная проба на сам scripts/zamer_svyazki.sh (22 клетки; режимы --repo/--model/--stabs), не сам скрипт;
+# её приёмка — красная проба на сам scripts/zamer_svyazki.sh (28 клеток в текущей семье; режимы --repo/--model/--stabs), не сам скрипт;
 # контракт 190 §Проводка: guard=scripts/zamer_svyazki.sh (проводка 038 видит подключение по реестру ci-steps).
 """Замер связки architect ↔ критик (контракт 190, Л6 — С16, часть «связка»).
 
@@ -272,24 +272,39 @@ def iter_journals(root, since, until):
 def measure_agent(path):
     """(вызовы, токены, одиночные, хвост) по журналу агента.
 
+    Инвариант 8: неконсистентная строка ЛЮБОГО вида — не JSON, обрыв внутри
+    многобайтового символа, валидный JSON не-объект, `message` или вложенное
+    поле не нужного типа — пропускается без падения и без вклада в меры: таблица
+    равна миру без такой строки. Журнал читается байтами, разбор — внутри try
+    (UnicodeDecodeError ⊂ ValueError), поэтому отказ остаётся именем
+    ПУСТАЯ_ВЫБОРКА, а не traceback'ом декодирования.
+
     Вызов модели — запись message с role=assistant и usage; токены — totalTokens;
     одиночный вызов — ровно один toolCall; правка — toolCall edit/write; хвост —
     токены сообщений после ПОСЛЕДНЕЙ правки (агент без правок — весь расход).
     """
     messages = []
-    with open(path, encoding='utf-8') as stream:
+    with open(path, 'rb') as stream:
         for line in stream:
             try:
                 record = json.loads(line)
             except ValueError:
                 continue  # неконсистентная строка — пропуск без падения (инвариант 8)
-            if record.get('type') != 'message':
+            if not isinstance(record, dict) or record.get('type') != 'message':
                 continue
-            message = record.get('message', {})
+            message = record.get('message')
+            if not isinstance(message, dict):
+                continue
             if message.get('role') != 'assistant' or not isinstance(message.get('usage'), dict):
                 continue
-            tokens = int(message['usage'].get('totalTokens') or 0)
-            tools = [part for part in message.get('content', [])
+            try:
+                tokens = int(message['usage'].get('totalTokens') or 0)
+            except (TypeError, ValueError):
+                continue
+            content = message.get('content', [])
+            if not isinstance(content, list):
+                continue
+            tools = [part for part in content
                      if isinstance(part, dict) and part.get('type') == 'toolCall']
             edited = any(tool.get('name') in ('edit', 'write') for tool in tools)
             messages.append((tokens, len(tools) == 1, edited))
