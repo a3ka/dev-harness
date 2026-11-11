@@ -35,7 +35,8 @@
 #     компоненте (или вне границы компонента) — ARCH_ZONE;
 #   * операция предмета — со схемами входа/выхода и не DRAFT, иначе
 #     ARCH_DRAFT (судится только текст контракта: make_task судит задание);
-#   * `check --base` модели против утверждённого снимка: rc 1 — ARCH_CHECK,
+#   * `check --base` модели против УТВЕРЖДЁННОГО снимка (путь снимка и его
+#     digest — по формату 167, из architecture.lock.json): rc 1 — ARCH_CHECK,
 #     rc 2/NOT_EVALUATED — ARCH_NOT_EVALUATED (никогда не зелено).
 #
 # ВОЗВРАТЫ ДВЕРИ: 0 — зелено (или «187а не применима»); 1 — именованный
@@ -57,6 +58,10 @@
 # одна реализация правил — одна, а не по копии на дверь.
 
 # ── БИБЛИОТЕКА ────────────────────────────────────────────────────────────────
+
+# Утверждённый снимок модели (baseline) — путь ВНУТРИ закреплённого дерева
+# модели: раскладка 2.5.x, как его читают run-arch.js и verify-pin.js.
+ARCH187_SNAPSHOT="governance/baseline/approved.json"
 
 # arch187_scope <repo> — режим 187а применим к проекту <repo>?
 # 0 — применим, 1 — не применим (проект не backend, пин не заведён, профиля нет).
@@ -83,6 +88,13 @@ arch187_code_subject() {
 arch187_pin() {
   [ -f "$1/architecture.lock.json" ] || return 1
   jq -r '.commit // empty' "$1/architecture.lock.json" 2>/dev/null || true
+}
+
+# arch187_snapshot_digest <repo> — digest утверждённого снимка из lock (167).
+# Пусто — утверждённого снимка нет: сравнивать не с чем.
+arch187_snapshot_digest() {
+  [ -f "${1:-}/architecture.lock.json" ] || return 1
+  jq -r '.snapshotDigest // empty' "${1}/architecture.lock.json" 2>/dev/null || true
 }
 
 # arch187_model_prepare <repo> — развернуть дерево закреплённого коммита.
@@ -179,12 +191,48 @@ arch187_brief() {
   return 0
 }
 
-# arch187_model_check — `check --base` закреплённой модели против утверждённого
-# снимка. 0 — зелено; 1 — ARCH_CHECK; 2 — ARCH_NOT_EVALUATED (никогда не зелено).
+# arch187_model_check <repo> — `check --base` закреплённой модели против
+# УТВЕРЖДЁННОГО снимка.
+#
+# Снимок — governance/baseline/approved.json внутри ЗАКРЕПЛЁННОГО дерева
+# (раскладка 2.5.x модели, как её читают run-arch.js и verify-pin.js);
+# его digest берётся из architecture.lock.json (snapshotDigest формата 167)
+# СЛОВОМ: свой digest дверь НЕ считает. Иначе расхождение «утверждён снимок
+# A, закреплён снимок B» не всплыло бы никогда — дверь подставила бы свой
+# digest и зелёный свет был бы ложью (мутант check-digest-self-computed).
+#
+# 0 — зелено; 1 — ARCH_CHECK (красный вердикт модели);
+# 2 — ARCH_NOT_EVALUATED (вердикта нет: оценивать нечем).
+# Ошибка ВХОДА в инструмент (неизвестная опция, потерянное значение,
+# незапустившийся node) — это НЕ красная модель: такой отказ не выдаётся за
+# ARCH_CHECK, иначе дверь объявила бы «модель нашла проблемы» там, где модель
+# просто не поняла вызов.
 arch187_model_check() {
-  local out rc=0
+  local repo="${1:-}" digest out err errf rc=0
   [ -n "${ARCH187_MODEL_DIR:-}" ] || { ARCH187_REFUSAL="ARCH_PIN: дерево модели не развёрнуто"; return 2; }
-  out="$(cd "$ARCH187_MODEL_DIR" && node tooling/checks/cli.js check --base 2>/dev/null)" || rc=$?
+  digest="$(arch187_snapshot_digest "$repo")"
+  if [ -z "$digest" ]; then
+    ARCH187_REFUSAL="ARCH_NOT_EVALUATED: в architecture.lock.json нет snapshotDigest утверждённого снимка"
+    return 2
+  fi
+  errf="$(mktemp 2>/dev/null || true)"
+  if [ -z "$errf" ] || [ ! -f "$errf" ]; then errf=""; fi
+  out="$(cd "$ARCH187_MODEL_DIR" && node tooling/checks/cli.js check --base "$ARCH187_SNAPSHOT" --base-digest "$digest" 2>"${errf:-/dev/null}")" || rc=$?
+  err=""
+  if [ -n "$errf" ]; then
+    err="$(cat "$errf" 2>/dev/null || true)"
+    rm -f "$errf"
+  fi
+  # Вход инструмента не принят — вердикта о коде нет.
+  if printf '%s' "$out" | grep -Eq 'ARCHITECTURE_TOOL_INPUT|MISSING_OPTION_VALUE|UNSUPPORTED_OPTION'; then
+    ARCH187_REFUSAL="ARCH_NOT_EVALUATED: check --base отверг вход инструмента (rc=$rc)"
+    return 2
+  fi
+  # Инструмент не запустился (нет node, нет модуля, нет файла) — вердикта нет.
+  if [ -z "$out" ] && printf '%s' "$err" | grep -Eqi 'Cannot find module|MODULE_NOT_FOUND|ENOENT|no such file|command not found'; then
+    ARCH187_REFUSAL="ARCH_NOT_EVALUATED: инструмент check --base не отработал (rc=$rc): $(printf '%s' "$err" | head -n 1)"
+    return 2
+  fi
   if [ "$rc" = "2" ] || printf '%s' "$out" | grep -q 'NOT_EVALUATED'; then
     ARCH187_REFUSAL="ARCH_NOT_EVALUATED: check --base модели не вынес вердикта (rc=$rc)"
     return 2
@@ -457,7 +505,7 @@ arch187_model_prepare "$repo" || {
   exit 2
 }
 rc=0
-arch187_model_check || rc=$?
+arch187_model_check "$repo" || rc=$?
 if [ "$rc" -ne 0 ]; then
   printf '%s\n' "$ARCH187_REFUSAL" >&2
   exit 1
