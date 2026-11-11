@@ -498,7 +498,9 @@ if [ -n "$_CW_VALUE" ] && [ ! -e "$REPO/$_CW_VALUE" ]; then
   _CW_PLACEHOLDER="$_CW_VALUE"
 fi
 _MT_ERR_FILE="$(mktemp 2>/dev/null || echo /tmp/mt_err.$$.$RANDOM)"
-trap '[ -n "${_CW_PLACEHOLDER:-}" ] && [ -e "$REPO/$_CW_PLACEHOLDER" ] && rm -f "$REPO/$_CW_PLACEHOLDER"; rm -f "${_MT_ERR_FILE:-}"; if [ -n "${_NPM_ERR_FILE:-}" ]; then rm -f "$_NPM_ERR_FILE"; fi' EXIT
+# КОНТРАКТ 187а: в ловушку добавлены развёрнутое дерево закреплённой модели и
+# временный файл текста контракта — иначе дверь оставляет мусор в /tmp.
+trap '[ -n "${_CW_PLACEHOLDER:-}" ] && [ -e "$REPO/$_CW_PLACEHOLDER" ] && rm -f "$REPO/$_CW_PLACEHOLDER"; rm -f "${_MT_ERR_FILE:-}"; rm -f "${_A187_FILE:-}"; if [ -n "${_NPM_ERR_FILE:-}" ]; then rm -f "$_NPM_ERR_FILE"; fi; if [ -n "${ARCH187_MODEL_TMP:-}" ]; then rm -rf "$ARCH187_MODEL_TMP"; fi' EXIT
 
 MERGED=""
 if ! MERGED="$("$PROFILE_RESOLVER" --repo "$REPO" 2>"$_MT_ERR_FILE")"; then
@@ -836,8 +838,48 @@ fi
 ARCH_SEC=""
 if [ "$KIND" = task ]; then
   _arch_dir="$REPO/architecture"
+  # ── КОНТРАКТ 187а: режим «backend с закреплённой моделью» ─────────────────
+  # Признак режима — эффективный repoId=Complior-back И наличие пина модели
+  # (architecture.lock.json). Пока пина нет, проект не в режиме 187а: бриф
+  # компонента читается из локальной architecture/ по-старому (контракт 170), а
+  # требований к строке «АРХИТЕКТУРА:» нет — иначе дверь 170 стала бы отказом
+  # задним числом.
+  _arch187=0
+  _arch187_text=""
+  _MT_SCRIPTS="$(cd "$(dirname "$0")" && pwd)"
+  if [ -x "$_MT_SCRIPTS/check_architecture_contract.sh" ]; then
+    ARCH187_LIB=1
+    # shellcheck disable=SC1091
+    . "$_MT_SCRIPTS/check_architecture_contract.sh"
+    if arch187_scope "$REPO_ABS"; then
+      _A187_FILE="$(mktemp 2>/dev/null || true)"
+      if [ -n "$_A187_FILE" ] && [ -f "$_A187_FILE" ]; then
+        printf '%s' "$CBYTES" > "$_A187_FILE"
+        if arch187_code_subject "$_A187_FILE"; then
+          _arch187=1
+          # Задание судится по ВЫДАННОМУ файлу задания, когда он есть: строка
+          # «АРХИТЕКТУРА:» и зоны — свойства задания, а не черновика контракта.
+          if [ -n "$TASKFILE" ] && [ -f "$TASKFILE" ]; then
+            _arch187_text="$TASKFILE"
+          else
+            _arch187_text="$_A187_FILE"
+          fi
+        fi
+      fi
+    fi
+  fi
+  if [ "$_arch187" = "1" ]; then
+    arch187_check_text "$_arch187_text" task "$REPO_ABS" || die "$ARCH187_REFUSAL"
+  fi
   if [ "$ARCH_COMPONENT_SET" = "1" ]; then
-    [ -d "$_arch_dir" ] || die "ARCHITECTURE_NET: нет каталога architecture/ в проекте: $_arch_dir"
+    if [ "$_arch187" = "1" ]; then
+      # Бриф 187а — из ЗАКРЕПЛЁННОГО коммита модели; локальная architecture/
+      # (устаревшая копия после 167) источником не является и её отсутствие
+      # бриф не отменяет.
+      arch187_model_prepare "$REPO_ABS" || die "$ARCH187_REFUSAL"
+    else
+      [ -d "$_arch_dir" ] || die "ARCHITECTURE_NET: нет каталога architecture/ в проекте: $_arch_dir"
+    fi
     case "$ARCH_COMPONENT" in
       ''|,*|*,|*,,*) die "ARCH_COMPONENT_ID: непустой список id через запятую: $ARCH_COMPONENT" ;;
     esac
@@ -867,17 +909,29 @@ if [ "$KIND" = task ]; then
       _arch_rules=""
       case "$ROLE" in architect|critic|arbiter) _arch_rules="--with-rules" ;; esac
       _arch_rc=0
-      if [ -n "$_arch_rules" ]; then
-        _arch_text="$(npm --prefix "$_arch_dir" run brief -- --compact --with-rules --component "$_arch_id" 2>"$_NPM_ERR_REDIR")" || _arch_rc=$?
-      else
-        _arch_text="$(npm --prefix "$_arch_dir" run brief -- --compact --component "$_arch_id" 2>"$_NPM_ERR_REDIR")" || _arch_rc=$?
-      fi
-      if [ "$_arch_rc" -ne 0 ]; then
-        _arch_hint="$(awk 'NR==1 { gsub(/[\r\n\t]/, " "); print substr($0, 1, 200) }' "$_NPM_ERR_REDIR" 2>/dev/null || true)"
-        if [ -n "$_arch_hint" ]; then
-          die "ARCH_BRIEF_OTKAZ: $_arch_id (npm rc=$_arch_rc): $_arch_hint"
+      if [ "$_arch187" = "1" ]; then
+        # КОНТРАКТ 187а: бриф компонента — из закреплённого коммита модели
+        # (`tooling/checks/cli.js brief --compact`); правила — ровно тем ролям,
+        # которые их читают (architect/critic/arbiter).
+        _arch_rules_flag=0
+        [ -n "$_arch_rules" ] && _arch_rules_flag=1
+        _arch_text="$(arch187_brief "$_arch_id" "$_arch_rules_flag")" || _arch_rc=$?
+        if [ "$_arch_rc" -ne 0 ]; then
+          die "ARCH_BRIEF_OTKAZ: $_arch_id (закреплённая модель не отдала бриф)"
         fi
-        die "ARCH_BRIEF_OTKAZ: $_arch_id (npm rc=$_arch_rc)"
+      else
+        if [ -n "$_arch_rules" ]; then
+          _arch_text="$(npm --prefix "$_arch_dir" run brief -- --compact --with-rules --component "$_arch_id" 2>"$_NPM_ERR_REDIR")" || _arch_rc=$?
+        else
+          _arch_text="$(npm --prefix "$_arch_dir" run brief -- --compact --component "$_arch_id" 2>"$_NPM_ERR_REDIR")" || _arch_rc=$?
+        fi
+        if [ "$_arch_rc" -ne 0 ]; then
+          _arch_hint="$(awk 'NR==1 { gsub(/[\r\n\t]/, " "); print substr($0, 1, 200) }' "$_NPM_ERR_REDIR" 2>/dev/null || true)"
+          if [ -n "$_arch_hint" ]; then
+            die "ARCH_BRIEF_OTKAZ: $_arch_id (npm rc=$_arch_rc): $_arch_hint"
+          fi
+          die "ARCH_BRIEF_OTKAZ: $_arch_id (npm rc=$_arch_rc)"
+        fi
       fi
       [ -n "$_arch_text" ] || die "ARCH_BRIEF_OTKAZ: пустой бриф компонента: $_arch_id"
       ARCH_SEC="${ARCH_SEC}COMPONENT: $_arch_id
