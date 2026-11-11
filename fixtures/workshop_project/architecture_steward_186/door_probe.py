@@ -97,9 +97,16 @@ def world(tmp, case):
     check = call(['git', 'switch', '-q', '-c', 'pr-42'], root)
     if check.returncode:
         raise RuntimeError(check.stderr)
-    if case == 'l2_without_owner':
+    # Б-1 (ревьюер 186 вызов 1): содержание PR наследуется от базового мира,
+    # состояние checkout задаётся отдельным классом миров ниже.
+    content = case
+    if case == 'checkout_main_l2':
+        content = 'l2_without_owner'
+    if case in ('checkout_main_l3', 'dirty_baseline_swap_l3'):
+        content = 'l3_without_owner'
+    if content == 'l2_without_owner':
         current['moduleBoundaries']['api'].append('new-api')
-    if case == 'l3_without_owner':
+    if content == 'l3_without_owner':
         current['resources']['identity'] = 'public'
     write(root, 'governance/current.json', json.dumps(current))
     write(root, 'architecture/description.md', 'L1 corrected relationship\n')
@@ -209,6 +216,51 @@ def world(tmp, case):
         path.chmod(0o755)
     env = dict(os.environ, PATH=str(bin_dir) + os.pathsep + os.environ['PATH'],
                TOY_STATE=str(tmp / 'state.json'), TOY_MERGE_LOG=str(tmp / 'merged.json'), TOY_HEAD=sha)
+    # ── Б-1 (ревьюер 186 вызов 1): слияние судит ТО дерево, которое принято. ────
+    # Checkout обязан стоять ровно на head PR и быть чистым; миры ниже уводят
+    # checkout (main, detached, чужая ветка на том же sha — законно), пачкают
+    # дерево (untracked, modified, подмена baseline — нападение) или ломают
+    # Git-инфраструктуру (нет .git / мелкий клон — нечем судить).
+    if case in ('checkout_main_l1', 'checkout_main_l2', 'checkout_main_l3'):
+        check = call(['git', 'switch', '-q', 'main'], root)
+        if check.returncode:
+            raise RuntimeError(check.stderr)
+    if case == 'dirty_untracked_l1':
+        write(root, 'notes-untracked.txt', 'мусор вне индекса\n')
+    if case == 'dirty_modified_l1':
+        path = root / 'architecture/description.md'
+        path.write_text(path.read_text(encoding='utf-8') + 'локальная правка вне коммита\n',
+                        encoding='utf-8')
+    if case == 'dirty_baseline_swap_l3':
+        # подмена baseline в рабочем дереве: npm check на ГРЯЗНОМ дереве сказал бы
+        # PASS (L1), а слитый коммит несёт L3 — дверь обязана отказаться ДО check
+        write(root, 'governance/baseline/approved.json',
+              json.dumps({'moduleBoundaries': {'api': ['identity']},
+                          'resources': {'identity': 'public'}}))
+    if case == 'dirty_reverted_l1':
+        path = root / 'architecture/description.md'
+        path.write_text(path.read_text(encoding='utf-8') + 'временная правка\n', encoding='utf-8')
+        check = call(['git', 'checkout', '--', 'architecture/description.md'], root)
+        if check.returncode:
+            raise RuntimeError(check.stderr)
+    if case == 'detached_head_l1':
+        check = call(['git', 'switch', '-q', '--detach', sha], root)
+        if check.returncode:
+            raise RuntimeError(check.stderr)
+    if case == 'other_branch_at_head':
+        check = call(['git', 'switch', '-q', '-c', 'review-copy'], root)
+        if check.returncode:
+            raise RuntimeError(check.stderr)
+    if case == 'no_git':
+        shutil.rmtree(root / '.git')
+    if case == 'shallow_clone':
+        clone = tmp / 'shallow'
+        clone_result = subprocess.run(
+            ['git', 'clone', '-q', '--depth', '1', '--branch', 'pr-42',
+             'file://' + str(root), str(clone)], capture_output=True, text=True)
+        if clone_result.returncode:
+            raise RuntimeError(clone_result.stderr)
+        root = clone
     return root, env
 
 
@@ -248,6 +300,20 @@ CASES = {
     'ci_cancelled': (1, 'CI_NOT_GREEN_ON_HEAD'),
     'ci_in_progress': (1, 'CI_NOT_GREEN_ON_HEAD'),
     'ci_two_architecture': (1, 'CI_NOT_GREEN_ON_HEAD'),
+    # Б-1: checkout не на head PR / грязное дерево — именованный отказ ДО npm check
+    'checkout_main_l1': (1, 'CHECKOUT_NOT_AT_PR_HEAD', 'main'),
+    'checkout_main_l2': (1, 'CHECKOUT_NOT_AT_PR_HEAD', 'main'),
+    'checkout_main_l3': (1, 'CHECKOUT_NOT_AT_PR_HEAD', 'main'),
+    'dirty_untracked_l1': (1, 'CHECKOUT_DIRTY'),
+    'dirty_modified_l1': (1, 'CHECKOUT_DIRTY'),
+    'dirty_baseline_swap_l3': (1, 'CHECKOUT_DIRTY'),
+    # законные состояния: откат, detached на head, иная ветка на том же sha
+    'dirty_reverted_l1': (0, None),
+    'detached_head_l1': (0, None),
+    'other_branch_at_head': (0, None),
+    # нечем судить: Git-инфраструктура недоступна / мелкий клон без main
+    'no_git': (2, None, ''),
+    'shallow_clone': (2, None),
 }
 MUTATIONS = {
     'skip_accept': ('if not accepted:', 'if False:', 'no_accept'),
@@ -332,13 +398,20 @@ MUTATIONS = {
                          " for c in runs):\n"
                          "        return fail('CI_NOT_GREEN_ON_HEAD')",
                          'ci_two_architecture'),
+    # Б-1: сверка checkout с head PR и чистотой дерева снята — раньше зелёная
+    # приёмка; каждый стаб различим на СВОЕЙ клетке (Н-39)
+    'skip_head_checkout': ('if head != sha:', 'if False:', 'checkout_main_l1'),
+    'skip_dirty': ("if call(['git', 'status', '--porcelain'], project).strip():",
+                   'if False:', 'dirty_untracked_l1'),
 }
 
 
 def check(root, env, script, case):
     result = call(['python3', str(script), str(root), '42'] if script.suffix == '.py' else
                   ['bash', str(script), str(root), '42'], root, env)
-    expected_rc, expected_reason = CASES[case]
+    expected = CASES[case]
+    expected_rc, expected_reason = expected[0], expected[1]
+    branch = expected[2] if len(expected) > 2 else 'pr-42'
     log = Path(env['TOY_MERGE_LOG'])
     merged = json.loads(log.read_text()) if log.exists() else None
     if expected_rc == 0:
@@ -348,10 +421,11 @@ def check(root, env, script, case):
                 and parents[2] == env['TOY_HEAD']), result
     if expected_rc == 2:
         return (result.returncode == 2 and merged is None
-                and call(['git', 'branch', '--show-current'], root).stdout.strip() == 'pr-42'), result
+                and call(['git', 'branch', '--show-current'], root).stdout.strip() == branch), result
     return (result.returncode == expected_rc
             and (expected_reason is None or expected_reason in result.stdout.splitlines())
-            and merged is None and call(['git', 'branch', '--show-current'], root).stdout.strip() == 'pr-42'), result
+            and merged is None
+            and call(['git', 'branch', '--show-current'], root).stdout.strip() == branch), result
 
 
 def main():
