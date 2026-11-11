@@ -1,0 +1,9 @@
+{
+  "name": "ci-991-version-model",
+  "private": true,
+  "scripts": {
+    "ci:quality": "node mobile/scripts/run-mobile-ci.cjs --lane quality",
+    "ci:e2e-native": "node mobile/scripts/run-mobile-ci.cjs --lane e2e-native",
+    "ci:e2e-cloud": "node mobile/scripts/run-mobile-ci.cjs --lane e2e-cloud"
+  }
+}
