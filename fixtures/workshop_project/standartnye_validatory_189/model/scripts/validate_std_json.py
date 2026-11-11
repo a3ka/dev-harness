@@ -19,16 +19,24 @@ def otkaz2(msg):
     sys.exit(2)
 
 
-def pin_versii():
+def chitaem_piny() -> str:
+    """Пин-файл: «файла нет»/«не читается» → ENGINE_PINS ДО резолва — различимо
+    от «файл цел, строки движка нет» → ENGINE_MISSING (Блок 4 критика, вызов 3)."""
     try:
-        for line in Path(PIN_FILE).read_text(encoding='utf-8').splitlines():
-            if not line.strip() or line.lstrip().startswith('#'):
-                continue
-            cols = line.split('\t')
-            if len(cols) >= 2 and cols[0] == 'jsonschema':
-                return cols[1]
+        return Path(PIN_FILE).read_text(encoding='utf-8')
+    except FileNotFoundError:
+        otkaz2('ENGINE_PINS: файл пинов не найден: %s' % PIN_FILE)
     except OSError:
-        pass
+        otkaz2('ENGINE_PINS: файл пинов не читается: %s' % PIN_FILE)
+
+
+def pin_versii():
+    for line in chitaem_piny().splitlines():
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+        cols = line.split('\t')
+        if len(cols) >= 2 and cols[0] == 'jsonschema':
+            return cols[1]
     return None
 
 
