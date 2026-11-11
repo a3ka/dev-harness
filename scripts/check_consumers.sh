@@ -43,12 +43,23 @@ export PATH=/usr/bin:/bin
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 . "$SELF_DIR/lib_registry.sh"
+# ЕДИНЫЙ читатель ЗОНА-строк и диапазонов применения (контракт 016) —
+# контракт 195 (И-5) читает зоны ПОДКЛЮЧЕНИЕМ, не копией: второй парсер зон
+# в гейте запрещён (смена грамматики зон — контрактом на lib_zones/check_zones).
+# shellcheck disable=SC1091
+. "$SELF_DIR/lib_zones.sh"
 
 die()  { printf '%s\n' "$*" >&2; exit 1; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
 
 ROOT="${1:?использование: $0 <корень> <отн-путь-контракта>}"
 CONTRACT_PATH="${2:?использование: $0 <корень> <отн-путь-контракта>}"
+
+# LIB_ZONES_ROOT — корень для уборки скратча зон (lib_zones.sh, канон 014):
+# скратч и маркер живут ВНЕ корня, и без этого переменного уборка no-op —
+# ответственность за скратч ложится на потребителя. Задаётся ДО первого
+# вызова zones_load (см. __lib_zones_cleanup в lib_zones.sh).
+LIB_ZONES_ROOT="$ROOT"
 
 command -v git >/dev/null 2>&1 || skip "нет git"
 git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || skip "$ROOT не репозиторий git"
@@ -184,7 +195,7 @@ _commits_tmp="$(mktemp -t window_commits116.XXXXXX 2>/dev/null || mktemp)" \
   || die "потребители 116: окно: нечем создать tmp-файл"
 _excl_tmp="$(mktemp -t window_exclude116.XXXXXX 2>/dev/null || mktemp)" \
   || { /usr/bin/rm -f "$_commits_tmp"; die "потребители 116: окно: нечем создать tmp-файл"; }
-trap 'rm -f "$_commits_tmp" "$_excl_tmp"' EXIT
+trap 'rm -f "$_commits_tmp" "$_excl_tmp"; __lib_zones_cleanup' EXIT
 if ! git -C "$ROOT" rev-list --no-merges "$last_frozen..HEAD" 2>/dev/null | sort -u > "$_commits_tmp"; then
   rm -f "$_commits_tmp" "$_excl_tmp"; trap - EXIT
   die "потребители 116: список судимых коммитов окна недоступен"
@@ -212,11 +223,92 @@ fi
 printf '%s\n' "$_owner_commits" | awk -F'\t' '$2 == "owner" && $3 == "owner" { print $1 }' >> "$_excl_tmp"
 sort -u "$_excl_tmp" -o "$_excl_tmp"
 
+# ── п2 (195): зонная атрибуция правки писателя (И-5..И-8) ────────────────────
+# Правка писателя w коммитом c судится окном контракта N тогда и только тогда,
+# когда
+#   (а) пара (автор c, w) покрыта ЗОНА-строками ВЫСШЕЙ заморозки N — своё
+#       покрытие приоритетно (И-6: M==N не исключается; заказчик правки несёт
+#       ПОТРЕБИТЕЛЬ-пробы в своём тексте); иначе
+#   (б) пара НЕ покрыта зоной никакого другого замороженного M≠N, чей диапазон
+#       применения (frozen/M/1..done/M/1|HEAD) содержит c (И-5) — тогда правка
+#       атрибутирована наружу и окном N не судится.
+# Этим PR-слияния rebase'ем (автор сохранён, land-маркера нет) атрибутируются
+# владельцу своей зоны так же, как ленды: окно 158 больше не судит чужую работу.
+#
+# ЗОНА-строки и диапазоны — ТОЛЬКО через zones_load (lib_zones.sh, контракт
+# 016): второй парсер зон в гейте запрещён (И-5). Сопоставления литеральные
+# (имя автора `%an` — имя ЗОНА-строки; путь — точный файл либо каталог зоны с
+# завершающим /), как в check_zones.
+#
+# Отказ чтения зон атрибуции — ИМЕНОВАННЫЙ rc 1 дословной фразой «потребители
+# 116: зоны атрибуции окна не читаются» (И-8), НЕ тихое «зон нет»: пустые зоны
+# — законный случай (игрушки без ЗОНА-строк), отказ ≠ пустота. Зоны читаются
+# ЛЕНИВО — при первой тронутой паре: ветвь «нет тронутых писателей» остаётся
+# vacuous rc 0 (И-7), как и прежде.
+ZDIR=""
+_zones_read=0
+
+# zone_covers <автор> <путь> <контракт M> — пара покрыта ЗОНА-строками
+# контракта M: имя автора — литеральное равенство, путь — точный файл либо
+# каталог зоны с завершающим / (семантика zones_match_path из lib_zones).
+zone_covers() {
+  local a="$1" w="$2" m="$3" za zp zn
+  [ -n "$ZDIR" ] || return 1
+  while IFS=$'\t' read -r za zp zn; do
+    [ -n "$za" ] || continue
+    [ "$za" = "$a" ] && [ "$zn" = "$m" ] || continue
+    case "$zp" in
+      */) case "$w" in "$zp"*) return 0 ;; esac ;;
+      *)  [ "$w" = "$zp" ] && return 0 ;;
+    esac
+  done < "$ZDIR/zones_scoped"
+  return 1
+}
+
+# in_range <контракт M> <коммит> — c ∈ диапазона применения M
+# (frozen/M/1..done/M/1 при живом done-теге, иначе до HEAD).
+in_range() {
+  local m="$1" c="$2" range since until
+  range="$(awk -F'\t' -v m="$m" '$1 == m { print $2; exit }' "$ZDIR/ranges")"
+  [ -n "$range" ] || return 1
+  since="${range%%..*}"
+  case "$range" in
+    *..*) until="${range#*..}" ;;
+    *)    until="" ;;
+  esac
+  git -C "$ROOT" merge-base --is-ancestor "$since" "$c" 2>/dev/null || return 1
+  if [ -n "$until" ]; then
+    git -C "$ROOT" merge-base --is-ancestor "$c" "$until" 2>/dev/null || return 1
+  fi
+  return 0
+}
+
+# attributed_out <коммит> <автор> <писатель> — наружная атрибуция И-5: пара
+# покрыта зоной замороженного контракта ∧ коммит в его диапазоне. Фильтр M==N
+# здесь НЕ пишется: ветвь «своё покрытие» (И-6) уже отсекла M==N для этой же
+# пары — ЗОНА-строка N не может покрыть пару, которую только что не покрыла.
+attributed_out() {
+  local c="$1" a="$2" w="$3" za zp zn
+  [ -n "$ZDIR" ] || return 1
+  while IFS=$'\t' read -r za zp zn; do
+    [ -n "$za" ] || continue
+    [ "$za" = "$a" ] || continue
+    case "$zp" in
+      */) case "$w" in "$zp"*) ;; *) continue ;; esac ;;
+      *)  [ "$w" = "$zp" ] || continue ;;
+    esac
+    if in_range "$zn" "$c"; then return 0; fi
+  done < "$ZDIR/zones_scoped"
+  return 1
+}
+
 # Писатели в правке: зарегистрированные писатели, тронутые коммитами судимого
-# множества окна (покоммитная тронутость И-2). Бежим по коммитам judgeable-set
+# множества окна (покоммитная тронутость И-2) МИНУС пары, атрибутированные
+# наружу по зонам (195: И-5/И-6). Бежим по коммитам judgeable-set
 # (`comm -23 commits exclude` — оба файла лекс-сортированы, хронология не нужна:
 # для тронутости достаточно существования коммита), для каждого коммита
-# diff-tree путей писателя; первый hit по писателю → писатель тронут.
+# diff-tree путей писателя; первый НЕатрибутированный hit по писателю →
+# писатель тронут.
 touched_writers=()
 for w in "${!writer_consumers[@]}"; do
   hit=0
@@ -231,13 +323,26 @@ for w in "${!writer_consumers[@]}"; do
     # файла; die — прецедент п2 catch-all «потребители 116: писатель … изменён,
     # потребитель … не верифицирован: …»).
     out="$(git -C "$ROOT" diff-tree -r --no-commit-id --name-only "$c" -- "$w")" || die "потребители 116: список судимых коммитов окна недоступен"
-    [ -n "$out" ] && { hit=1; break; }
+    [ -n "$out" ] || continue
+    a="$(git -C "$ROOT" log -1 --format=%an "$c" 2>/dev/null)" || die "потребители 116: список судимых коммитов окна недоступен"
+    # Зоны атрибуции — читаются при первой тронутой паре (И-8, лениво).
+    if [ "$_zones_read" -eq 0 ]; then
+      ZDIR="$(zones_load "$ROOT" 2>/dev/null)" \
+        || die "потребители 116: зоны атрибуции окна не читаются"
+      [ -n "$ZDIR" ] && [ -f "$ZDIR/zones_scoped" ] && [ -f "$ZDIR/ranges" ] \
+        || die "потребители 116: зоны атрибуции окна не читаются"
+      _zones_read=1
+    fi
+    if zone_covers "$a" "$w" "$n"; then hit=1; break; fi  # И-6: своё — судится
+    if attributed_out "$c" "$a" "$w"; then continue; fi    # И-5: чужое — вне окна
+    hit=1; break
   done < <(comm -23 "$_commits_tmp" "$_excl_tmp")
   if [ "$hit" -eq 1 ]; then
     touched_writers+=("$w")
   fi
 done
 /usr/bin/rm -f "$_commits_tmp" "$_excl_tmp"
+__lib_zones_cleanup
 trap - EXIT
 
 # Пустое окно — vacuous rc 0
