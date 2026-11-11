@@ -38,6 +38,21 @@ INSTALLED_ROLES = json.loads((REPO / 'config/agent_models.json').read_text())['r
 if not set(BATCH_ROLES) <= INSTALLED_ROLES.keys():
     raise ValueError('NOT_IMPLEMENTED: batch role absent from installed alphabet')
 
+# Параметрическая клетка batch (закрытие FAIL вызова 4, мутант
+# n6-constant-five: домен прежних клеток кончался на N=5): одна точка
+# порождения по длинам N∈{1..8}; префикс длины 6 — вход адверсария дословно
+# (architect..orchestrator), 7-8 дополняются установленным алфавитом.
+# ВЕРХНЯЯ ГРАНИЦА КЛАССА — 8: (а) входы адверсария N=6,7,8; (б) ловимое
+# семейство констант k∈{2..7}: константа 7 требует клетку N=8. N>=9 —
+# ОСТАТОЧНЫЙ РИСК: константа >=8 конечными клетками не выражается; ловец —
+# ревьюер по РЕАЛИЗАЦИИ перебора taskItems (for..of по raw — итерация без
+# вшитой длины), а не по константе в проверке.
+PARAM_BATCH_ROLES = ('architect', 'implementer', 'critic', 'adversary', 'reviewer',
+                     'orchestrator', 'arbiter', 'steward')
+PARAM_MAX_N = len(PARAM_BATCH_ROLES)
+if not set(PARAM_BATCH_ROLES) <= INSTALLED_ROLES.keys():
+    raise ValueError('NOT_IMPLEMENTED: parametric batch role absent from installed alphabet')
+
 
 def reference():
     return subprocess.run(
@@ -78,6 +93,13 @@ BATCH_DROPS = {
     'skip-last-five-plus': _batch_drop(5, '(item, index, all) => index !== all.length - 1'),
     'internal-five-plus': _batch_drop(
         5, '(item, index, all) => index === 0 || index === all.length - 1'),
+    # FAIL вызова 4 — мутанты адверсария дословно (порог 6/7/8): потеря
+    # элемента ТОЛЬКО на длинах от порога; ниже порога побайтов честен,
+    # поэтому красен ровно на клетках с N >= порога (точное ожидание).
+    'n6-constant-five': _batch_drop(6, '(item, index) => index !== 3'),
+    'n7-odd-middle': _batch_drop(7, '(item, index) => index !== 3'),
+    'n8-even-middle': _batch_drop(8, '(item, index) => index !== 4'),
+    'skip-last-six-plus': _batch_drop(6, '(item, index, all) => index !== all.length - 1'),
 }
 
 # Every variant mutates an observable branch of the accepted patch (Н-39).
@@ -127,6 +149,14 @@ def mutation(source, name):
         anchor = 'const roots = stateRoots(sessionFile);'
         replacement = (anchor + '\n      if (Array.isArray((call.input as { tasks?: unknown }).tasks)'
                        " && taskItems(call.input)[0]?.agent === 'reviewer') return undefined;")
+    elif name.startswith('constant-'):
+        # Семейство «константа k» (FAIL вызова 4): дверь судит первые k задач;
+        # на N<=k мутант побайтов честен, красен ровно на N>k.
+        k = name.removeprefix('constant-')
+        if not (k.isdigit() and 2 <= int(k) <= 7):
+            raise ValueError('unknown constant mutant')
+        anchor = BATCH_SEAM
+        replacement = f'JSON.stringify({{ tasks: taskItems(call.input).slice(0, {int(k)}) }})'
     elif name in BATCH_DROPS:
         anchor = BATCH_SEAM
         replacement = BATCH_DROPS[name]
@@ -293,6 +323,13 @@ def scenarios():
         ('project-batch-four', project, 'dev', TAIL, project_state, 'deny',
          ('architect', 'implementer', 'critic', 'adversary')),
         ('project-batch-five', project, 'dev', TAIL, project_state, 'allow', BATCH_ROLES),
+        # Параметрическая клетка batch (закрытие FAIL вызова 4): порождается
+        # ОДНОЙ точкой по длинам N∈{1..PARAM_MAX_N}; оракул независим от
+        # driver — case() строит ожидаемое событие в памяти проверяющего и
+        # сверяет событие двери побайтово. Граница класса и остаточный риск
+        # N>=9 — комментарий у PARAM_BATCH_ROLES.
+        *[(f'project-batch-n{n}', project, 'dev', TAIL, project_state, 'deny',
+           PARAM_BATCH_ROLES[:n]) for n in range(1, PARAM_MAX_N + 1)],
         ('station-alphabet', station, 'dev', TAIL, station_state, 'deny', 'task'),
         ('foreign-deny', ('foreign-layout', 'flat'), 'dev', TAIL, None, 'deny', 'architect'),
         ('malformed-session', station, 'dev', ('history', 'Agent157.jsonl'), None, 'deny', 'architect'),
@@ -369,7 +406,31 @@ def main():
             if not observed <= fails:
                 print(f'STAB_ZHIV: {name}: expected {sorted(observed)}, got {sorted(fails)}', file=sys.stderr)
                 return 1
-        print(f'STABY {len(targets)} NEPOIMANNYH 0')
+        # Стабы вызова 4 — ТОЧНОЕ ожидание, не подмножество: семейство
+        # «константа k»/пороговый пропуск обязано быть красным РОВНО на
+        # batch-клетках за своим порогом и ЗЕЛЁНЫМ на всех прочих (ниже
+        # порога мутант побайтов честен; краснота там — ложь проверки, а не
+        # находка; Н-39: каждый стаб на наблюдаемой ветви своей длины).
+        lengths = {cell[0]: (len(cell[6]) if isinstance(cell[6], tuple) else None)
+                   for cell in scenarios()}
+
+        def cells_over(predicate):
+            return {name for name, ln in lengths.items() if ln is not None and predicate(ln)}
+
+        exact_targets = {
+            **{f'constant-{k}': cells_over(lambda ln, k=k: ln > k) for k in range(2, 8)},
+            'n6-constant-five': cells_over(lambda ln: ln >= 6),
+            'n7-odd-middle': cells_over(lambda ln: ln >= 7),
+            'n8-even-middle': cells_over(lambda ln: ln >= 8),
+            'skip-last-six-plus': cells_over(lambda ln: ln >= 6),
+        }
+        for name, observed in exact_targets.items():
+            fails = run(mutation(ref_source, name), name)
+            if fails != observed:
+                print(f'STAB_ZHIV: {name}: expected exactly {sorted(observed)}, got {sorted(fails)}',
+                      file=sys.stderr)
+                return 1
+        print(f'STABY {len(targets) + len(exact_targets)} NEPOIMANNYH 0')
         return 0
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         print(str(error), file=sys.stderr)
