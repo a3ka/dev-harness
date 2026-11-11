@@ -5,8 +5,8 @@
 # сам scripts/validate_std.sh (режимы --repo/--model/--stabs), не сам скрипт;
 # контракт 189 §Проводка: guard=fixtures/workshop_project/standartnye_validatory_189/red_standartnye_validatory_189.sh.
 #
-# Обёртка стандартных валидаторов станции: workflow — actionlint, bash — `bash -n` и
-# shellcheck, json — JSON Schema (Draft 2020-12) движком scripts/validate_std_json.py.
+# Обёртка стандартных валидаторов станции: workflow — actionlint, bash — `bash -n`
+# и shellcheck, json — JSON Schema (Draft 2020-12) движком scripts/validate_std_json.py.
 # Пин-дисциплина: бинарь запускается ТОЛЬКО после сверки его sha256 с пином репо
 # (ops/server/validators.tsv); выход валидатора пробрасывается буквально — «успех» по
 # тексту вывода не признаётся. Отсутствие (инструмента, пина, среды) — именованный
@@ -25,6 +25,15 @@ PINS="${VALIDATE_STD_PINS:-$SELF_DIR/../ops/server/validators.tsv}"
 PY="${VALIDATE_STD_PYTHON:-python3}"
 
 otkaz2() { printf '%s\n' "$*" >&2; exit 2; }
+
+# Проверка числа позиционных аргументов режима (инвариант 3): ровно ожидаемое
+# число — иначе rc 2 NOT_IMPLEMENTED с именем режима и ожидаемым числом.
+# Молчаливое отбрасывание лишнего аргумента давало ложную зелень по
+# непроверенному файлу (Б-1 ревьюера contracts-189-impl-v1).
+proverka_argumentov() { # $1=режим $2=фактическое число $3=ожидаемое $4=использование
+  [ "$2" -eq "$3" ] \
+    || otkaz2 "NOT_IMPLEMENTED: режим $1 ($4): ожидается аргументов ровно $3, получено $2"
+}
 
 # Строка пина инструмента: «<версия><TAB><sha256>» в stdout; пусто — строки нет.
 # rc≠0 — файл пинов НЕ ЧИТАЕТСЯ: отказ ДО резолва (инвариант 2: три различимых
@@ -75,13 +84,17 @@ mode="${1:-}"
 
 case "$mode" in
   workflow)
-    [ -n "${1:-}" ] || otkaz2 "NOT_IMPLEMENTED: validate_std.sh workflow <файл>"
+    proverka_argumentov workflow "$#" 1 "validate_std.sh workflow <файл>"
+    [ -n "${1:-}" ] \
+      || otkaz2 "NOT_IMPLEMENTED: режим workflow (validate_std.sh workflow <файл>): имя файла пусто"
     bin="$(rezolve_bin actionlint VALIDATE_STD_ACTIONLINT)" || exit $?
     "$bin" "$1"
     exit $?
     ;;
   bash)
-    [ -n "${1:-}" ] || otkaz2 "NOT_IMPLEMENTED: validate_std.sh bash <файл>"
+    proverka_argumentov bash "$#" 1 "validate_std.sh bash <файл>"
+    [ -n "${1:-}" ] \
+      || otkaz2 "NOT_IMPLEMENTED: режим bash (validate_std.sh bash <файл>): имя файла пусто"
     bash -n "$1"
     rc=$?
     if [ "$rc" -ne 0 ]; then
@@ -93,9 +106,9 @@ case "$mode" in
     exit $?
     ;;
   json)
-    if [ "$#" -lt 2 ] || [ -z "${1:-}" ] || [ -z "${2:-}" ]; then
-      otkaz2 "NOT_IMPLEMENTED: validate_std.sh json <схема> <документ>"
-    fi
+    proverka_argumentov json "$#" 2 "validate_std.sh json <схема> <документ>"
+    [ -n "${1:-}" ] && [ -n "${2:-}" ] \
+      || otkaz2 "NOT_IMPLEMENTED: режим json (validate_std.sh json <схема> <документ>): имя файла пусто"
     "$PY" "$SELF_DIR/validate_std_json.py" "$1" "$2"
     exit $?
     ;;
