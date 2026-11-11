@@ -23,6 +23,12 @@
 # зона слишком широкая / режь задачу / брифинг только оркестратору. rc 2 —
 # NOT_IMPLEMENTED. Отказ печатается ДО выдачи пака: частичного stdout у
 # отказа нет (И-3: без молчаливого усечения).
+# Исключение v2 (И-16, Н-439) — ЕДИНСТВЕННАЯ причина строки-маркера: в
+# брифинге активный контракт (NNN в колонке id registry/plan.tsv) без
+# «## Предмет» не отказ, а строка `БРИФ НЕ СОБРАН: контракт без предмета:
+# <путь>` ПЕРВОЙ строкой stdout (до заголовка пака), rc 0, пак собран целиком.
+# Все отказы выше остаются rc 1 без stdout — в том числе отказы
+# безопасности (трасса, роль, слой) маркером не становятся.
 #
 # Инварианты контракта 095: И-0 грамматики, И-1 правила проекта не харнеса,
 # И-2 манифест разрешается, И-3 потерянная ссылка точна, И-4 роль меняет
@@ -33,8 +39,10 @@
 # И-11 происхождение фрагментов, И-12 брифинг — содержательный отдельный
 # режим, И-13 дословная доставка КОНТЕКСТ/§Существующее, И-14 два слоя
 # профиля → выдача.
+# И-16 строка-маркер брифа вместо отказа на активном контракте без предмета.
 set -uo pipefail
 TAB="$(printf '\t')"
+NL=$'\n'
 
 die() { printf 'ОТКАЗ: %s\n' "$*" >&2; exit 1; }
 ni()  { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
@@ -74,7 +82,7 @@ if [ -z "$AUTHOR_ROLE" ]; then
 fi
 [ -z "$AUTHOR_ROLE" ] || case "$AUTHOR_ROLE" in orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) ;; *) die "автор вне алфавита: $AUTHOR_ROLE" ;; esac
 TRACE_LINE=""; AUTHOR_MODEL=""
-if [ -z "$TRACE" ] || [ ! -f "$TRACE" ]; then die "нет свидетельства модели: $ROLE"; fi
+if [ -z "$TRACE" ] || [ ! -f "$TRACE" ]; then die "нет свидетельства модели: $ROLE"; fi # t95-m24
 while IFS="$TAB" read -r r m fb; do
   [ -z "${r:-}" ] && continue
   case "$fb" in allowed|denied) ;; *) die "трасса: грамматика" ;; esac
@@ -152,6 +160,7 @@ esac
 CONTEXT_SEC=""; ZONES_SEC=""; LESSONS_SEC=""; LESSONS_MAN=""; TASK_SEC=""; TASK_MAN=""; CTX_MAN=""
 ZONE_PATHS=""
 GOAL_SEC=""; WORK_SEC=""; DEC_SEC=""; HEALTH_SEC=""
+MARKER_SEC="" # t95-m23: строка-маркер — только брифинг; задачный пак её не несёт
 ADRP="$(printf '%s' "$CP" | jq -r '.adrPath // ""')"
 LLP="$(printf '%s' "$CP" | jq -r '.lessonsPath // ""')"
 ADR_SEC=""; ADR_MAN=""
@@ -268,13 +277,18 @@ $TASK_BYTES"
 else
   # ── И-12: брифинг несёт ЦЕЛЬ/РАБОТУ/РЕШЕНИЯ/ЗДОРОВЬЕ из живых носителей ────
   [ -f "$REPO/registry/plan.tsv" ] && GOAL_SEC="$(cat "$REPO/registry/plan.tsv")"
-  # ── (И-12-скоуп, А-387) карта WORK: каждый контракт — строкой ──
+  # ── (И-12-скоуп, А-387; И-16, Н-439) карта WORK: каждый контракт — строкой ──
   # Якорь заголовка — ПРЕФИКС `^## Предмет` (суффикс-аннотации вида
   # «## Предмет (дословно из докса…)» предмет НЕСУТ: 092/094/095).
-  # Отказ фразой И-12 дословно — ТОЛЬКО активным: NNN в колонке id
-  # registry/plan.tsv (тот же реестр — GOAL брифа). Вне плана без
-  # предмета — строка-маркер: не молчаливый пропуск (И-0) и не смерть
-  # брифа на 6 legacy (Б4 круга 1 ревьюера). plan.tsv нет → план пуст.
+  # Активный контракт (NNN в колонке id registry/plan.tsv) без предмета —
+  # строка-маркер БРИФ НЕ СОБРАН первой строкой stdout + строка WORK (не
+  # молчаливое сужение, И-0); отказа нет. Вне плана без предмета — строка WORK
+  # legacy (не смерть брифа на legacy, Б4 круга 1 ревьюера). plan.tsv нет →
+  # план пуст.
+  nopredmet() {  # <NNN> <путь>
+    MARKER_SEC="${MARKER_SEC}БРИФ НЕ СОБРАН: контракт без предмета: $2$NL" # t95-m20
+    WORK_SEC="${WORK_SEC}WORK: $1 :: без-§Предмет (в plan.tsv)$NL"
+  }
   _plan_ids=""
   [ -f "$REPO/registry/plan.tsv" ] && _plan_ids="$(awk -F'\t' 'NR>1 && $1 ~ /^[0-9]+$/ {print $1}' "$REPO/registry/plan.tsv")"
   for cf in $(LC_ALL=C ls "$REPO"/contracts/*.md 2>/dev/null | LC_ALL=C sort); do
@@ -284,12 +298,13 @@ else
       WORK_SEC="${WORK_SEC}WORK: ${cnum} :: ${csubj}
 "
     elif printf '%s\n' "$_plan_ids" | grep -Fxq -- "$cnum"; then
-      die "брифинг: контракт без предмета: $cf" # t95-m19
+      nopredmet "$cnum" "$cf" # t95-m19
     else
       WORK_SEC="${WORK_SEC}WORK: ${cnum} :: legacy-без-§Предмет (вне plan.tsv)
 "
     fi
   done
+  : # t95-m25 чистый брифинг маркера не несёт
   if [ -n "$ADRP" ] && [ -d "$REPO/$ADRP" ]; then
     while IFS="$TAB" read -r aid _aarea ares; do
       [ -z "${aid:-}" ] && continue
@@ -304,7 +319,7 @@ fi
 TRACE_MAN="trace${TAB}${TRACE}${TAB}mandatory${TAB}trace
 "
 pack_body() {
-  printf '=== make_task contract=%s role=%s kind=%s ===\n' "${CONTRACT:-none}" "$ROLE" "$KIND"
+  printf '%s=== make_task contract=%s role=%s kind=%s ===\n' "$MARKER_SEC" "${CONTRACT:-none}" "$ROLE" "$KIND" # t95-m22
   printf '=== TRACE ===\n%s\n' "$TRACE_LINE"
   printf '=== MAP ===\n%s' "$MAP_LINES"
   printf '=== RULES ===\n%s' "$RULES_LINES"
@@ -335,3 +350,4 @@ if [ "$KIND" = "task" ] && [ -n "$CONTRACT" ]; then
   mkdir -p "$REPO/.omp/context"
   printf '%s\n' "$MAN_BODY" >"$REPO/.omp/context/${CONTRACT}.tsv"
 fi
+exit 0 # t95-m21

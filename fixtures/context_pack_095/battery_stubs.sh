@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 095 (контракт 095, круг 2, Н-39): девятнадцать порч честных
+# Обманный стаб-пак 095 (контракт 095, круг 2 + v2, Н-39): двадцать пять порч честных
 # моделей (dover.sh — сборщик, dver_spawn.sh — дверь), каждая ОДНОЙ якорной
 # sed-по-маркеру, каждая привязана к клетке, на чьём входе её дефект НАБЛЮДАЕМ
 # (привязка живёт В ЭТОМ КОДЕ, не в прозе контракта). Стаб строится из ТЕКУЩЕЙ
@@ -26,7 +26,13 @@
 # s16 статус-фильтр ADR снят         m16  red_uroki_po_oblasti.sh
 # s17 авторский след судьи снят      m17  red_revjer_poluchaet_vydannoe.sh
 # s18 содержание брифа вынуто        m18  red_orch_brief_starter.sh
-# s19 отказ активным снят            m19  red_orch_brief_karta_legacy.sh
+# s19 активный без предмета молча сужен (ни маркера, ни WORK-строки) m19 red_orch_brief_marker.sh [ветвь (а)]
+# s20 маркер без причины             m20  red_orch_brief_marker.sh [ветвь (а)]
+# s21 маркер при rc 1                m21  red_orch_brief_marker.sh [ветвь (а)]
+# s22 маркер не первой строкой       m22  red_orch_brief_marker.sh [ветвь (а)]
+# s23 маркер в задачном паке         m23  red_orch_brief_marker.sh [ветвь (в), только --kind task]
+# s24 отказ безопасности — маркер    m24  red_orch_brief_marker.sh [ветвь (г1), только бриф без трассы]
+# s25 ложный маркер на чистом брифе  m25  red_orch_brief_marker.sh [ветвь (б), только мир без дефектных]
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODEL="$HERE/model/dover.sh"
@@ -106,7 +112,19 @@ zapest s17 t95-m17 red_revjer_poluchaet_vydannoe.sh \
   's@.*# t95-m17.*@  : # t95-m17 порча@'
 zapest s18 t95-m18 red_orch_brief_starter.sh \
   's@.*# t95-m18.*@HEALTH_SEC="HEALTH: branch=? dirty=?" GOAL_SEC="" WORK_SEC="" DEC_SEC="" # t95-m18 порча@'
-zapest s19 t95-m19 red_orch_brief_karta_legacy.sh \
+zapest s19 t95-m19 red_orch_brief_marker.sh \
   's@.*# t95-m19.*@  : # t95-m19 порча@'
+zapest s20 t95-m20 red_orch_brief_marker.sh \
+  's@.*# t95-m20.*@    MARKER_SEC="${MARKER_SEC}БРИФ НЕ СОБРАН:$NL" # t95-m20 порча@'
+zapest s21 t95-m21 red_orch_brief_marker.sh \
+  's@.*# t95-m21.*@if [ -n "$MARKER_SEC" ]; then exit 1; fi; exit 0 # t95-m21 порча@'
+zapest s22 t95-m22 red_orch_brief_marker.sh \
+  's@.*# t95-m22.*@  printf "=== make_task contract=%s role=%s kind=%s ===\\n%s" "${CONTRACT:-none}" "$ROLE" "$KIND" "$MARKER_SEC" # t95-m22 порча@'
+zapest s23 t95-m23 red_orch_brief_marker.sh \
+  's@.*# t95-m23.*@MARKER_SEC=""; [ "$KIND" = "task" ] \&\& MARKER_SEC="БРИФ НЕ СОБРАН: контракт без предмета: toy$NL" # t95-m23 порча@'
+zapest s24 t95-m24 red_orch_brief_marker.sh \
+  's@.*# t95-m24.*@if [ -z "$TRACE" ] || [ ! -f "$TRACE" ]; then printf "БРИФ НЕ СОБРАН: нет свидетельства модели: %s\\n" "$ROLE"; exit 0; fi # t95-m24 порча@'
+zapest s25 t95-m25 red_orch_brief_marker.sh \
+  's@.*# t95-m25.*@  [ -n "$MARKER_SEC" ] || MARKER_SEC="БРИФ НЕ СОБРАН: контракт без предмета: toy$NL" # t95-m25 порча@'
 printf 'ИТОГ стаб-пак 095: rc=%s\n' "$itog"
 exit "$itog"
