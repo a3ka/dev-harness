@@ -1,14 +1,70 @@
 accept
-OBJECT=14e3bb56cca9ccb9976e2ba77efddba0807e1706
-СУД: repo=dev-harness; предмет=147; фаза=контракт (лёгкий трек); роль=critic; вызов=авторизованный scoped; модель-факт=openai-codex/gpt-6-sol; сессия=Critic147AuthorizedSol; SHA=14e3bb56cca9ccb9976e2ba77efddba0807e1706; предыдущий=FAIL verdicts/critic/contracts-147-v3-scoped-fail.md; исключение=авторизация владельца допускает совпадение Sol автора и критика для этого вызова.
+OBJECT=d775f852462a9dfe1094a7f774ef1a657b194425
+КЛАСС=кодовый, ТРЕК ЛЁГКИЙ (экран mob); КЛАСС РИСКА=обыный — подтверждён живьём (UI-экран, пилот-моки, без сети/прав/ПД/денег; PREDPOSYLKI_OK secrets=0 variables=0 environments=0)
+СУД: repo=dev-harness; предмет=147; фаза=контракт v+4 (Б-4/Б-5, слово владельца 2026-11-11 ~19:40 UTC); роль=critic; вызов=1/3; модель-план=zai/glm-5.3; сессия=Crit147v4; модель-факт=zai/glm-5.3; SHA=d775f852462a9dfe1094a7f774ef1a657b194425; предыдущий=нет по фазе v4 (фаза v3 закрыта авторизованным scoped-accept d73963e4 на OBJECT 14e3bb56, заморозка frozen/147/3); исключение=нет. Имя файла по канону freeze: vmax(frozen/contracts/147/*)=3 → вердикт заморозки v4; файл замещает ранний scoped-accept той же фазы v3 (сохранён в истории d73963e4), переименование задним числом не производилось.
 
 ## Решение
-Проверен post-owner-authorization OBJECT. Предыдущий отказ на OBJECT `2dc276eca296883ececd9403dd20351e227c3945` был только процедурным: независимость автора и Sol-критика. Для данного вызова владелец явно разрешил это совпадение. Иных блокирующих находок не выявлено.
 
-## Сырые замеры
-- `bash scripts/pre_critic.sh contracts/147-gespraech-vhod-menu.md` — rc 0.
-- `bash scripts/check_precision_gate.sh . contracts/147-gespraech-vhod-menu.md` — rc 0.
-- `bash scripts/check_threat_model.sh . contracts/147-gespraech-vhod-menu.md` — rc 0.
-- `bash scripts/check_spec_ready.sh . contracts/147-gespraech-vhod-menu.md` — rc 0.
-- `python3 fixtures/workshop_project/gespraech_vhod_147/red_maket_147.py --model --product /home/harness/projects/Complior-mob` — rc 0.
-- `python3 fixtures/workshop_project/gespraech_vhod_147/red_maket_147.py --stubs --product /home/harness/projects/Complior-mob` — rc 0; пять красных мутантов отклонены.
+Кандидат — tip `wip/147/architect` `d775f852` (два коммита architect: f3afb066 текст, d775f852 пины), сверен `git rev-parse origin/wip/147/architect` == OBJECT. Предмет закрыт по обоим пунктам слова владельца 2026-11-11: Б-4 (строго по макету: размытая живая подложка — И-5; лаймовая «Sprechen» в light через `tokens.accent` — И-6; DM Sans в корне с удержанием кадра — И-10; критерий 3 расширен макет-сверкой и адресной красной пробой `red_maket_147.py` SPEC §7) и Б-5 (`mobile/src/bootstrap/__tests__/gespraech-ekran.test.tsx` — ЗОНА implementer:84 + команда критерия 2:70 + ПЕРЕСЕЧЕНИЕ:95). Красные пины санкционированы словом владельца (лёгкий трек «красных тестов architect нет» — заменено адресными пинами Б-4, «Приёмочный критерий», строка 68). Дифф v3→v4 аддитивен: ни один принятый критерий не ослаблен, клетки цикла 2 не тронуты (семья: только +243/−14 в 7 файлах, `red_gespraech_vhod_147.sh` не менялся, 76 клеток probe.py на месте). Пины «строго по макету» берутся из ЕДИНОГО источника: 12 кадров == живым байтам == frames/SHA256SUMS пакета D24-Kompakt-1.1 (main), 18 токенов == source/tokens.json — расхождений 0. Блокирующих находок по §Порог нет; остаточные риски (статический анализ размытия, станция без профилей 390/393, окно до 158) названы в «НЕ ЗАЩИЩАЕТ» с ловцом. Аргумент автора «package.json/lock НЕ в зоне 147» принимаю: три живых владельца (145/v4, 151/v1, 995/v5), зависимость для размытия выведена стоп-словом через оркестратора — расширение зоны не нужно. Модель судьи — по назначению роли (config/agent_models.json roles.critic=apex-sol); совпадение с автором отказа не даёт (контракт 166, слово владельца 2026-11-05 в строке 91).
+
+## Сырые замеры (клон /tmp/dev-harness-verify/Crit147v4/repo @ d775f852)
+
+- `bash scripts/pre_critic.sh contracts/147-gespraech-vhod-menu.md` → rc 0 («гейт предпосылок PREDPOSYLKI_OK settings=6», «гейт трека ТРЕК ЛЁГКИЙ», «КРИТИК: дверь зелёная»).
+- `bash scripts/check_precision_gate.sh . contracts/147-gespraech-vhod-menu.md` → rc 0 (OK).
+- `bash scripts/check_threat_model.sh . contracts/147-gespraech-vhod-menu.md` → rc 0 (ЗАЩИЩАЕТ 9, НЕ ЗАЩИЩАЕТ 7).
+- `bash scripts/check_ceilings.sh .` → rc 0 (потолки в порядке).
+- `bash scripts/check_provodka.sh . contracts/147-gespraech-vhod-menu.md` → rc 0 (guard red_ekrannyj_nabor_158.sh в дереве, 158/v4 заморожен).
+- `python3 fixtures/workshop_project/gespraech_vhod_147/red_maket_147.py --model --reference <frames main> --product <mob cc38881>` → rc 0: 8 кадров GA-15/GA-16 × light/dark × 390/393 `all` + `DM_SANS_ZAGRUZHEN_PRIMENEN` + `frames=8`.
+- `… red_maket_147.py --stubs --reference … --product …` → rc 0: `flat_scrim: PODLOZHKA_NE_RAZMYTA`; `black_sprechen_light: SPRECHEN_NE_LAIM`; `stale_image: PODLOZHKA_ZASTYLA`; `font_in_comment: DM_SANS_NE_ZAGRUZHEN`; `font_not_applied: DM_SANS_NE_PRIMENEN` — каждый обман своей причиной.
+- `… red_maket_147.py --check font --reference … --product <mob cc38881>` → rc 1 `DM_SANS_NE_ZAGRUZHEN` (красное на текущем tip — заявленное состояние «Существующее» подтверждено: в app/_layout.tsx useFonts нет, загрузка в features/conversation/fonts.ts).
+- Вакуум/среда: `--check blur --screens <несуществующий>` → rc 1 `KADR_NET_ODNOZNACHNO: GA-15_menu_light_390x844.png: 0`; `--check font --product <пустой клон без asset>` → rc 1 `DM_SANS_RESOURCE_NET`; `--model --reference <несуществующий>` → rc 1 OSError; `bash fixtures/workshop_project/ekrannyj_nabor_158/red_ekrannyj_nabor_158.sh --repo <несуществующий> --ekran 147` → rc 1 `PUSTOJ_PRODUKT: KATALOG_OTSUTSTVUET` (гейт 159 первым, не зелень).
+- Пины против единого источника (команда /tmp/dev-harness-verify/Crit147v4/check_tokens.py, кадры извлечены `git archive origin/main docs/ux/05_Kompakt_D24`): `frames: 12 pins, live-byte mismatches=0, SHA256SUMS mismatches=0`; `tokens: 18 pins, mismatches=0` (суффиксный учёт групп W3C-формата: motion.motion-fast и т.п.).
+- Карта: karta.json — 13 обязательных целей (все objazatelna), 4 состояния (start 7 / profil 0 / menu 5 / menu_vorgang 6 целей), 2 профиля; piny.kadry.pikselnaja_sverka = 8 записей GA-15/GA-16.
+- Существующее (mob @ cc38881): tokens.ts accent `#d6f75a` в обеих схемах (строки 28/38), primary light `#121211` (36), expo-font ~57.0.4 в package.json, menu-overlay уже на tokens.accent (329/352); шрифт в _layout не зарегистрирован.
+- Заморозки соседей: frozen/contracts/158/{1..4}, frozen/contracts/159/{1,2} есть; ekran_shablon.py sha256 5fd1415e/2133 строк; screen-job.template.yml sha256 3675182e218c…8aa14dd — оба пина контракта точны.
+- Коллизия Б-5: `gespraech-ekran.test` не назван ни одним чужим контрактом (все frozen-теги + main); соседи 148/v3: gespraech-mitte.test.tsx, vkladki-tab-shell.test.tsx — подтверждены.
+- ЗОНЫ/ПЕРЕСЕЧЕНИЯ второй мерой (последние замороженные версии предметов): tab-shell.tsx заявлен зоной 108/1, 148/v3, 999/v1 (сверено, каждая строка ЗОНА есть в теге); каталог mobile/src/app/ — 107/1, 108/1, 118/3, 148/v3, 995/v5, 999/v1 (сверено); features/conversation — 116/4, 149/v2 (зоны в тегах есть).
+- Числа батареи цикла 2: 76 клеток (уникальные идентификаторы probe.py) / 18 заглушек (stabs/) / 87 носителей (49 nositeli + 18 stabs + 4 teksty + 1 produkt + 10 pachka + 5 model) — сходятся.
+
+## Мутации критика (одноразовая копия семьи /tmp/dev-harness-verify/Crit147v4/mut; скрипт mutate.py; каждая — ровно одна ветвь)
+
+| # | Мутация | Команда | Сырой вывод | rc |
+|---|---|---|---|---|
+| M1 | подмена имени ресурса `DMSans-Variable.ttf`→`DM-Sans.ttf` в font-loader | `python3 /tmp/dev-harness-verify/Crit147v4/mutate.py` (кейс M1) | `M1 asset name: rc=1 last='DM_SANS_NE_ZAGRUZHEN' -> OK` | 1 |
+| M2 | подмена семейства `'DM Sans'`→`'DM Sans UI'` | тот же (M2) | `M2 family name: rc=1 last='DM_SANS_NE_ZAGRUZHEN' -> OK` | 1 |
+| M3 | честная регистрация целиком в блочном комментарии | тот же (M3) | `M3 block comment: rc=1 last='DM_SANS_NE_ZAGRUZHEN' -> OK` | 1 |
+| M4 | честная эквивалентная запись `fontFamily: "DM Sans"` (двойные кавычки) | тот же (M4) | `M4 double quotes: rc=1 last='DM_SANS_NE_PRIMENEN' -> OK` (см. СОВЕТ 4) | 1 |
+| M5 | подделка пина оракула (sha256→нули) | тот же (M5) | `M5 tampered pin: rc=1 last='ETALON_SHA256_NE_SOVPAL: GA-15_menu_light_390x844.png' -> OK` | 1 |
+| M6 | честная многострочная обвязка вокруг модели | тот же (M6) | `M6 multiline honest: rc=0 last='frames=8' -> OK` (ложного красного нет) | 0 |
+| M7 | симметрия PODLOZHKA_ZASTYLA (обратная вставка GA-16→GA-15, функцией батареи) | тот же (M7) | `M7 reverse paste: PODLOZHKA_ZASTYLA: reverse light 390: 0.00 (caught)`; `M7 honest pair: green (no raise)` | 1/0 |
+
+Оракул аутентифицируется до открытия кадров кандидата (images() в red_maket_147.py:36-52) — свидетель вне территории проверяемого; подделка пина ловится (M5).
+
+## Карта классов (К-01…К-17, LOOP-DESIGN §1)
+
+- К-01: чисто — pre_critic rc 0, precision rc 0, threat_model rc 0, ceilings rc 0, provodka rc 0 (все — живые прогоны выше).
+- К-02: чисто — слово владельца 19:40 (Б-4/Б-5) → И-5/И-6/И-10 + критерии 2/3 + ЗОНЫ 84/85 + red_maket_147.py; находки ревью impl-v1 (Б-4/Б-5) назначены владельцем контракту и закрыты; задания оркестратора и контракт совпадают по составу.
+- К-03: чисто — затронутые frozen: 108/1, 148/v3, 999/v1 (tab-shell), 107/1, 118/3, 995/v5 (каталог app/), 118/3+995/v5 (__tests__), 116/4, 149/v2 (conversation), 143/2 (лекало, sha сверен), 158/v4+159/v2 (предпосылки, теги есть); необходимости v+1 чужих предметов не возникло (лёгкий трек не правит их поверхности).
+- К-04: чисто — каждый тронутый файл в ЗОНЕ: свои 11 строк + 2 новых по слову владельца (84, 85); пачка/SPEC/karta/piny — ЗОНА architect:82; производных файлов предмет не создаёт.
+- К-05: чисто — все 5 пунктов приёмки несут rc-команды (критерии 1–5: наборная rc 0/именованный rc 2, jest rc 0, red_maket rc 0, CI-условие живым вызовом валидатора, суд).
+- К-06: чисто — пустой клон/несуществующий корень → именованные rc 1 (KADR_NET_ODNOZNACHNO, DM_SANS_RESOURCE_NET, PUSTOJ_PRODUKT), вакуума нет.
+- К-07: чисто — честный модельный путь rc 0 (8 кадров + шрифт); критерий 2 измерен ревью на живом продукте (44 теста rc 0); кадровый прогон в среде продукта — именовано в НЕ ЗАЩИЩАЕТ.
+- К-08: чисто — --stubs rc 0, 5 обманов ровно своими причинами; мои M1/M2/M3 (три ветви загрузки), M5 (целостность оракула), M7 (симметрия подложки) — каждая красна своей причиной, honest M6 зелёный.
+- К-09: чисто — 8 кадров покрывают все значения {GA-15,GA-16}×{light,dark}×{390,393} (piny.pikselnaja_sverka), попарная динамика всех 4 пар обязательна в `--model`/`--screens`.
+- К-10: чисто — судится пиксельное содержимое живых кадров (stddev ROI, попарная дельта, цвет пикселя пилюли) и текст реальных файлов, не маркеры.
+- К-11: чисто — оракул = кадры пакета с пинами sha256, загружается и проверяется ДО кандидата; пины сверены с независимым SHA256SUMS пакета.
+- К-12: н/п — формата со стандартным валидатором в предмете нет (PNG-сверка через PIL против канона-пакета; substring-пины — данные контракта, свободного парсера Markdown/YAML нет).
+- К-13: н/п — секретных выходов нет (PREDPOSYLKI_OK secrets=0); наружные поверхности — кадры/файлы без конфиденциальных множеств.
+- К-14: чисто — на каждый запрещающий предикат есть честная запись, остающаяся зелёной (M6; honest-пара M7); сужение представления кавычками — СОВЕТ 4, визуальная доля судится кадрами.
+- К-15: чисто — все счёты сверены командой (12/12, 18/18, 13×4×2, 8, 76/18/87, теги 158/159, sha 5fd1415e/2133 и 3675182e); унаследованные неточности перечислений orchestrator — СОВЕТ 3, v4 их не меняла (v1==v3==v4).
+- К-16: чисто — КЛАСС РИСКА обычный по закрытому списку подтверждён живьём; остаток назван в НЕ ЗАЩИЩАЕТ (7 буллетов) с ловцами; ТРЕК ЛЁГКИЙ сверен гейтом (147 — обычный, не рисковый класс — лёгкий трек допустим).
+- К-17: н/п — предмет не архитектурный (лёгкий трек экрана, DRAFT-операций нет); ПРОВОДКА-энфорсмент описан и гейт зелёный.
+
+## СОВЕТЫ (не блокируют; автор закрывает по своему усмотрению)
+
+1. СОВЕТ contracts/147-gespraech-vhod-menu.md:23 — в перечне семьи написано `stubs/`, фактический каталог `stabs/` (18 файлов, счёт сходится); опечатка унаследована из frozen v3, приёмкой не используется.
+2. СОВЕТ contracts/147-gespraech-vhod-menu.md:213 — устаревшая ссылка «(frozen/contracts/147/1)» у строки РАЗРЕШИЛ-ВЛАДЕЛЕЦ: заморозка v+4 по канону создаст тег 147/4; строка описательная (механизм — freeze_contract.sh + оркестратор), но лучше назвать целевой тег текущей фазы.
+3. СОВЕТ (перечни ПЕРЕСЕЧЕНИЕ orchestrator, строки 134–161) — из 17 id ci-steps три (084, 092, 094) не упоминаются в живом registry/ci-steps.tsv ни в какой форме; из 44 id ci.yml 33 не встречаются в живом .github/workflows/ci.yml. Перечисления дословно унаследованы из frozen 146/1 и 147/v1..v3 (v4 их не меняла, состав v1==v3==v4), нормативное содержание строк (коммит оркестратора в окне freeze..done, чужие шаги не меняются) не зависит от точности перечня; при случае — чистка отдельным предметом.
+4. СОВЕТ fixtures/workshop_project/gespraech_vhod_147/red_maket_147.py:150-156 (font_text) — предикат требует буквальную подстроку `fontFamily: 'DM Sans'` (одинарные кавычки) в menu-overlay.tsx; эквивалентная запись двойными кавычками или через константу краснеет (мутация M4). Контракт И-10 сам предписывает буквальную форму, начертание в конечном счёте судится кадрами против макета — реализатору достаточно писать предписанную форму; при будущих v+1 можно принять и `fontFamily: "DM Sans"`.
+
+Вердикт вынесен по §Быстрый-процесс §Порог (новый предмет, 2026-10-24): доказанных нарушений обязательств не предъявлено; список советов accept не отменяет.
