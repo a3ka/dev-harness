@@ -174,6 +174,84 @@ case "$norm" in
     ;;
 esac
 
+# ── КОНТРАКТ 187а: СВЕРКА-АРХИТЕКТУРЫ и check-run arch ───────────────────────
+# Два свидетельства, оба до тега done (отказ не создаёт тег):
+#   (1) вердикт ревьюера на OBJECT несёт САМОСТОЯТЕЛЬНУЮ непустую строку
+#       «СВЕРКА-АРХИТЕКТУРЫ:» — упоминание внутри чужой строки (цитата,
+#       приписка) свидетельством не является (ARCH_REVIEW). Содержательную
+#       сверку судит предмет 188; 187а проверяет только наличие свидетельства;
+#   (2) check-run `arch` проектного CI на ЭТОМ ЖЕ финальном SHA продукта main:
+#       чужой SHA, отсутствующий, красный, skipped — ARCH_CI. Движок в done не
+#       запускается (движок и CI проекта владеют этим свойством).
+# Признак режима — эффективный repoId=Complior-back И пин модели; харнесс, mob
+# и документальные предметы этих требований не получают.
+if [ -x "$SELF_DIR/check_architecture_contract.sh" ]; then
+  ARCH187_LIB=1
+  # shellcheck disable=SC1091
+  . "$SELF_DIR/check_architecture_contract.sh"
+  if arch187_scope "$ROOT"; then
+    _a187_txt="$(mktemp 2>/dev/null || true)"
+    if [ -n "$_a187_txt" ] && [ -f "$_a187_txt" ]; then
+      ( cd "$ROOT" && git cat-file -p "HEAD:$TARGET_REL" ) > "$_a187_txt" 2>/dev/null || true
+      if arch187_code_subject "$_a187_txt"; then
+        # (1) свидетельство ревьюера
+        _a187_rev_ok=0
+        ( cd "$ROOT" && git cat-file -p "HEAD:$freshest" ) 2>/dev/null \
+          | tr -d '\r' \
+          | while IFS= read -r _a187_line; do
+              case "$_a187_line" in
+                'СВЕРКА-АРХИТЕКТУРЫ:'*)
+                  _a187_tail="${_a187_line#СВЕРКА-АРХИТЕКТУРЫ:}"
+                  if [ -n "$(printf '%s' "$_a187_tail" | tr -d '[:space:]')" ]; then
+                    printf 'ARCH_REVIEW_OK\n'
+                    break
+                  fi
+                  ;;
+              esac
+            done > "$_a187_txt.flag" 2>/dev/null || true
+        if [ -f "$_a187_txt.flag" ] && grep -q 'ARCH_REVIEW_OK' "$_a187_txt.flag" 2>/dev/null; then
+          _a187_rev_ok=1
+        fi
+        rm -f "$_a187_txt.flag"
+        if [ "$_a187_rev_ok" != "1" ]; then
+          die "ARCH_REVIEW: в вердикте ревьюера $freshest нет самостоятельной строки «СВЕРКА-АРХИТЕКТУРЫ:»"
+        fi
+        # (2) check-run arch на финальном SHA
+        _a187_sha="$(cd "$ROOT" && git rev-parse --verify --quiet refs/remotes/origin/main 2>/dev/null || true)"
+        [ -n "$_a187_sha" ] || _a187_sha="$(cd "$ROOT" && git rev-parse --verify --quiet HEAD 2>/dev/null || true)"
+        [ -n "$_a187_sha" ] || die "ARCH_CI: финальный SHA продукта не читается"
+        _a187_or=""
+        if [ -f "$ROOT/harness.project.json" ]; then
+          _a187_remote="$(jq -r '.git.canonicalRemote // empty' "$ROOT/harness.project.json" 2>/dev/null || true)"
+          case "$_a187_remote" in
+            *github.com[:/]*)
+              _a187_or="$(printf '%s' "$_a187_remote" | sed -E 's#.*github\.com[:/]+##; s#\.git$##; s#/+$##')"
+              ;;
+          esac
+        fi
+        [ -n "$_a187_or" ] || _a187_or="${GITHUB_REPOSITORY:-unknown/unknown}"
+        _a187_url="https://api.github.com/repos/$_a187_or/commits/$_a187_sha/check-runs?per_page=100"
+        _a187_tok="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+        _a187_args=(-sS -H 'Accept: application/vnd.github+json')
+        [ -n "$_a187_tok" ] && _a187_args+=(-H "Authorization: Bearer $_a187_tok")
+        _a187_json=""
+        _a187_crc=0
+        _a187_json="$(curl "${_a187_args[@]}" "$_a187_url" 2>/dev/null)" || _a187_crc=$?
+        _a187_n=0
+        if [ -n "$_a187_json" ]; then
+          _a187_n="$(printf '%s' "$_a187_json" | jq -r --arg sha "$_a187_sha" '[.check_runs[]? | select(.name == "arch" and .head_sha == $sha and .status == "completed" and .conclusion == "success")] | length' 2>/dev/null || printf '0')"
+        fi
+        case "$_a187_n" in
+          ''|*[!0-9]*) _a187_n=0 ;;
+        esac
+        [ "$_a187_n" -gt 0 ] || die "ARCH_CI: успешного check-run arch на финальном SHA $_a187_sha нет (curl rc=$_a187_crc)"
+      fi
+      rm -f "$_a187_txt"
+    fi
+    arch187_cleanup
+  fi
+fi
+
 # ── 996: гейт сверки с источниками (ДО тега) ────────────────────────────────
 # При объявленном sourceCanon — вызов check_project_sources.sh (stage=done).
 # Отказ gate → rc 1 с маркером SOURCE_GATE_FAILED/INVALID/MISSING/UNAVAILABLE.
