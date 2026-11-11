@@ -276,5 +276,23 @@ if [ -x "$ROOT/scripts/check_trek_ekrana.sh" ]; then
   printf '  ok   гейт трека: %s\n' "$(printf '%s' "$trek_out" | tail -n 1)" >&2
 fi
 
+# ── (е) КОНТРАКТ 187а: ДВЕРЬ АРХИТЕКТУРЫ ────────────────────────────────────
+# На проектном --repo дверь архитектуры (scripts/check_architecture_contract.sh)
+# судит закреплённую модель: `check --base` против утверждённого снимка.
+# rc модели 1 → ARCH_CHECK; rc 2/NOT_EVALUATED → ARCH_NOT_EVALUATED. Зелёного
+# результата у rc 2 не бывает: «не вынесено» ≠ «сошлось». Нога вооружена
+# ТОЛЬКО для проекта в режиме 187а (backend с закреплённой моделью) и ТОЛЬКО
+# для кодового предмета: харнесс, mob и документальные предметы её не видят.
+# Отказ — именованный (маркер в stderr), критик не зовётся.
+if [ -n "$REPO_ARG" ] && [ -x "$ROOT/scripts/check_architecture_contract.sh" ]; then
+  _a187_rc=0
+  _a187_out="$(cd "$ROOT" && bash scripts/check_architecture_contract.sh --repo "$REPO_ARG" --model-only "$CONTRACT" 2>&1)" || _a187_rc=$?
+  if [ "$_a187_rc" -ne 0 ]; then
+    _a187_first="$(printf '%s' "$_a187_out" | head -n 1)"
+    refuse "дверь архитектуры 187а красна: $_a187_first"
+  fi
+  printf '  ok   дверь архитектуры 187а: %s\n' "$(printf '%s' "$_a187_out" | tail -n 1)" >&2
+fi
+
 printf 'КРИТИК: дверь зелёная\n'
 exit 0
