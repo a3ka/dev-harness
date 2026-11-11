@@ -9,6 +9,16 @@ COMPLIOR-<NNN> в title; логины сравниваются casefold (GitHub-
 `модель-факт=` со значением модели критика и кончается `; SHA=<head>`; check-runs
 читаются ВСЕ страницы через `gh api --paginate`, зелёность всех runs, наличие
 `architecture` и его происхождение app.slug=github-actions.
+
+Б-1 (ревьюер 186 вызов 1): слияние судит ТО дерево, которое принято. Перед
+`npm run check` дверь обязана убедиться, что локальный checkout стоит ровно на
+head PR (`git rev-parse HEAD` == headRefOid) и дерево чисто (`git status
+--porcelain` пуст): иначе check классифицирует ЧУЖОЕ дерево (main, подменённый
+baseline в рабочем дереве), а слит будет PR head. Несовпадение — именованный
+отказ CHECKOUT_NOT_AT_PR_HEAD, грязь — CHECKOUT_DIRTY (rc 1, слияния нет);
+недоступность Git-метаданных — rc 2 (нечем судить), не слияние. Законно:
+detached на head-коммите, иная ветка на том же sha — дверь сравнивает РАЗРЕШЁННЫЙ
+sha, не имя ветки.
 """
 import json
 import os
@@ -71,6 +81,11 @@ def main():
     if any(c.get('app', {}).get('slug') != 'github-actions'
            for c in runs if c['name'] == 'architecture'):
         return fail('CI_FOREIGN_ARCHITECTURE_APP')
+    head = call(['git', 'rev-parse', 'HEAD'], project).strip()
+    if head != sha:
+        return fail('CHECKOUT_NOT_AT_PR_HEAD')
+    if call(['git', 'status', '--porcelain'], project).strip():
+        return fail('CHECKOUT_DIRTY')
     check = subprocess.run(['npm', 'run', 'check', '--', '--base',
                             'governance/baseline/approved.json', '--report'],
                            cwd=project, text=True, capture_output=True)
