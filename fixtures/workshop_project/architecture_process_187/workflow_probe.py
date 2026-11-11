@@ -11,7 +11,12 @@ the subject. Mutation is one named coordinate at a time; each mutant is paired w
 red case (Н-39: stub-to-branch binding lives in this code, not in contract prose).
 v2-r1 (critic verdict, block 1): union of matches[].components over several matches and
 several components in one match, ARCH_CLASS_MISSING on the make_task/done doors, and
-ARCH_PIN for a correct 40-hex absent from the clone — each with its own cell and stub."""
+ARCH_PIN for a correct 40-hex absent from the clone — each with its own cell and stub.
+v2-r2 (arbiter verdict contracts-187-v2-granica, block 1(a)/(b)): the union-refusal
+observer is semantic — the ARCH_ZONE code itself is required and ANY component of the
+union is accepted at the attribution position (a set property, never one accidental
+literal); the make_task ARCH_CLASS_MISSING observer forbids an emitted pack by judging
+the real emission channel — the pack header line in stdout — not a subject flag."""
 import hashlib
 import json
 import os
@@ -80,7 +85,7 @@ CASES = (
     ('live-real-pin', 'door', 'live-real', 0, 'ARCH_187A_OK', 'door'),
     # ── v2-r1: три обязательства без различающей клетки (вердикт критика, блок 1) ──
     ('locate-union-conform', 'freeze', 'union-conform', 0, '', 'freeze'),
-    ('locate-union-foreign', 'freeze', 'union-foreign', 1, 'компоненту api.hub', 'freeze'),
+    ('locate-union-foreign', 'freeze', 'union-foreign', 1, 'ARCH_ZONE', 'freeze'),
     ('live-real-union', 'door', 'live-real-union', 0, 'ARCH_187A_OK', 'door'),
     ('task-class-missing', 'task', 'class-missing', 1, 'ARCH_CLASS_MISSING', 'task'),
     ('done-class-missing', 'done', 'class-missing', 1, 'ARCH_CLASS_MISSING', 'done'),
@@ -141,7 +146,9 @@ STABS = {
     # ── v2-r1 стабы: ветви двери по коду (Н-39), каждая — своей клетке ──────────
     'locate-first-match-component': ('locate-union-conform', 'first-match-component'),
     'union-any-component': ('locate-union-foreign', 'union-any-component'),
+    'union-refusal-wrong-code': ('locate-union-foreign', 'union-wrong-code'),
     'task-class-skip': ('task-class-missing', 'class-skip'),
+    'task-pack-then-refuse': ('task-class-missing', 'pack-then-refuse'),
     'done-class-skip': ('done-class-missing', 'class-skip'),
     'pin-net-for-hex': ('pin-foreign-hex', 'pin-net-name'),
 }
@@ -179,6 +186,11 @@ UNION_MATCHES = (
 # A syntactically correct 40-hex that exists in NO clone (v2-r1, блок 1(c)):
 # the door must name ARCH_PIN for it, not ARCHITECTURE_NET.
 FOREIGN_HEX = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+
+# The real pack-emission channel of make_task (scripts/make_task.sh pack_body): the pack
+# header line goes to stdout. An ARCH_CLASS_MISSING refusal with this line present is a
+# late refusal over an emitted pack — the observer judges the channel, not a flag (1(b)).
+PACK_MARKER = '=== make_task contract='
 
 
 def digest(value):
@@ -225,6 +237,18 @@ def line_components(text):
             ids = rest.split(' ', 1)[1] if ' ' in rest else ''
             return [i for i in ids.split(',') if i]
     return None
+
+def refusal_ok(label, reason, output):
+    """Is a cell's refusal accepted? Generic cells — the reason substring. The union
+    refusal (1(a)) is a semantic observer: the ARCH_ZONE code itself is required and ANY
+    component of the union is accepted at the attribution position — a property of the
+    set, never of one accidental literal (arbiter contracts-187-v2-granica)."""
+    if label == 'locate-union-foreign':
+        if not re.search(r'(?<![A-Za-z_])ARCH_ZONE(?![A-Za-z_])', output):
+            return False
+        return any(re.search(r'компоненту ' + re.escape(c) + r'(?![A-Za-z0-9_.])', output)
+                   for c in placed_components(UNION_PREFIX + 'x'))
+    return not reason or reason in output
 
 
 def toy_check(arch, revision, args):
@@ -607,10 +631,17 @@ def verdict_v2(root, arch, pinned, action, task, role, mutant, variation):
                 union = union[:1]  # обман: только первый компонент первого матча
             if mutant == 'union-any-component':
                 return 0, ''  # обман: размещённый путь зелён без сверки со строкой
+            if mutant == 'union-wrong-code':
+                # обман: отказ с иным именем кода (PATH_WITHOUT_COMPONENT) — наблюдатель
+                # 1(a) требует сам код ARCH_ZONE, литерал компонента его не подменяет
+                return 1, (f'PATH_WITHOUT_COMPONENT: путь {path} отнесён моделью '
+                           f'к компоненту {union[0]}')
             if not union:
                 return 1, f'PATH_WITHOUT_COMPONENT: путь {path} не размещён в закреплённой модели'
             if not set(union) & set(ids):
-                return 1, (f'ARCH_ZONE: путь {path} отнесён моделью к компоненту {union[0]}, '
+                # честный отказ называет НЕ-первый компонент объединения: наблюдатель
+                # принимает всё множество (1(a)), а не первый литерал оракула
+                return 1, (f'ARCH_ZONE: путь {path} отнесён моделью к компоненту {union[-1]}, '
                            f'а строка «АРХИТЕКТУРА:» называет {",".join(ids)}')
             return 0, ''
     if action == 'precritic':
@@ -647,6 +678,12 @@ def verdict_v2(root, arch, pinned, action, task, role, mutant, variation):
         if variation == 'class-missing':
             if mutant == 'class-skip':
                 return 0, ''  # обман: бесклассовый черновик пропускается молча
+            if mutant == 'pack-then-refuse':
+                # обман: пак выдан, затем rc заменён на 1 и дописан ARCH_CLASS_MISSING
+                # (мутация M6 арбитра) — наблюдатель судит канал выдачи, стаб красен
+                return 1, (PACK_MARKER + '777 role=architect kind=task ===\n'
+                           '=== TRACE ===\nPACK_EMITTED_BEFORE_REFUSAL\n'
+                           'ARCH_CLASS_MISSING: в контракте нет строки «КЛАСС ЗАДАЧИ:»')
             return 1, 'ARCH_CLASS_MISSING: в контракте нет строки «КЛАСС ЗАДАЧИ:»'
     if action == 'done':
         if variation == 'class-missing':
@@ -828,14 +865,16 @@ def main():
             arch, pinned = architecture(base, root, variation)
             task, trace, role = prepare(root, arch, pinned, variation)
             honest_rc, honest_out = verdict(root, arch, pinned, action, task, role, variation=variation)
-            if honest_rc != expected or (reason and reason not in honest_out):
+            if honest_rc != expected or not refusal_ok(label, reason, honest_out):
                 raise RuntimeError(f'broken fixture: {label} expected {expected}/{reason}, got {honest_rc}/{honest_out}')
             if args.model or args.stabs:
                 rc, output = honest_rc, honest_out
             else:
                 result = live(tools, root, arch, pinned, action, task, trace, role, variation)
                 rc, output = result.returncode, result.stdout + result.stderr
-            ok = (rc == expected and (not reason or reason in output))
+            ok = (rc == expected and refusal_ok(label, reason, output))
+            if label == 'task-class-missing' and PACK_MARKER in output:
+                ok = False  # 1(b): пак при ARCH_CLASS_MISSING выдан — судится канал выдачи
             if action == 'task' and not expected:
                 if 'PINNED_BRIEF_187' not in output or 'WRONG_HEAD_BRIEF_187' in output:
                     ok = False
@@ -855,7 +894,9 @@ def main():
                 for name, (case, mutant) in STABS.items():
                     if case != label: continue
                     fake_rc, fake_out = verdict(root, arch, pinned, action, task, role, mutant, variation=variation)
-                    caught = fake_rc != expected or (reason and reason not in fake_out)
+                    caught = (fake_rc != expected
+                              or not refusal_ok(label, reason, fake_out)
+                              or (label == 'task-class-missing' and PACK_MARKER in fake_out))
                     if not expected and action == 'task':
                         caught = caught or ('PINNED_BRIEF_187' not in fake_out or
                             'WRONG_HEAD_BRIEF_187' in fake_out or
