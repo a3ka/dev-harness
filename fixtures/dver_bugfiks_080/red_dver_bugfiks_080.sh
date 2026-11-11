@@ -202,7 +202,33 @@ ORCHPEAK_SRC="$ROOT/ops/server/root/orch-peak"
 [ -f "$ORCHPEAK_SRC" ] || die_pack "в дереве нет ops/server/root/orch-peak"
 [ -f "$ROOT/ops/server/install.sh" ] || die_pack "нет ops/server/install.sh"
 [ -f "$ROOT/ops/server/user/orch-loop" ] || die_pack "нет ops/server/user/orch-loop"
-for u in orch-peak@.service orch-peak-warn.timer orch-peak-stop.timer orch-peak-start.timer orch-peak-reenable.timer orch-peak-reenable.service orch-ctx.timer; do
+# Правка 186-ф: список юнитов — единый источник ops/server/install.sh (UNITS=
+# присваивания), не копия литерала в батарее: рост инвентаря станции ломал в2
+# (verify ждал десятого адресата, sandbox ставил семь). Дрейф грамматики
+# install.sh → отказ (пустая выборка — красное, не зелёное).
+units_of() { # <install.sh>: итоговый UNITS по всем присваиваниям (в т.ч. UNITS="$UNITS …")
+  local line acc='' w
+  while IFS= read -r line; do
+    case "$line" in
+      UNITS=*)
+        line="${line#UNITS=}"
+        line="${line#\"}"; line="${line%\"}"
+        line="${line#\'}"; line="${line%\'}"
+        acc="$acc $line" ;;
+    esac
+  done <"$1"
+  for w in $acc; do
+    [ "$w" = '$UNITS' ] && continue
+    case "$w" in
+      *.service|*.timer) printf '%s\n' "$w" ;;
+      *) die_pack "неожиданный элемент инвентаря UNITS: $w" ;;
+    esac
+  done
+}
+UNITS_LIST="$(units_of "$ROOT/ops/server/install.sh")"
+[ -n "$UNITS_LIST" ] || die_pack "UNITS не извлечён из $ROOT/ops/server/install.sh"
+UNITS="$(printf '%s ' $UNITS_LIST)"; UNITS="${UNITS% }"
+for u in $UNITS_LIST; do
   [ -f "$ROOT/ops/server/root/systemd/$u" ] || die_pack "нет systemd/$u"
 done
 
@@ -217,7 +243,7 @@ sandbox_install() {
   chmod +x "$SBIN_DST/orch-peak"
   cp "$ROOT/ops/server/user/orch-loop" "$BIN_DST/orch-loop"
   chmod +x "$BIN_DST/orch-loop"
-  for u in orch-peak@.service orch-peak-warn.timer orch-peak-stop.timer orch-peak-start.timer orch-peak-reenable.timer orch-peak-reenable.service orch-ctx.timer; do
+  for u in $UNITS_LIST; do
     cp "$ROOT/ops/server/root/systemd/$u" "$ETC_DST/$u"
   done
 }
