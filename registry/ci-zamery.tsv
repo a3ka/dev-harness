@@ -103,3 +103,4 @@ check:sud-model-173-family-selftest	4	8	0
 check:tablo-demo-175-family-selftest	4	8	0
 check:pre-judge-leak-185-family-selftest	4	8	0
 check:plan-restart-182-family-selftest	4	8	0
+check:roles-architecture-188-family-selftest	4	8	0
