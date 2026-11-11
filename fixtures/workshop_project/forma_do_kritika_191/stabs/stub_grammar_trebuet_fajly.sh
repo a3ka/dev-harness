@@ -48,12 +48,18 @@ for ln in "${channel_lines[@]}"; do
       has_role=1
       rest="${body_part#role=}"
       path="${rest%% *}"; after="${rest#* }"
-      norm="$(printf '%s' "$after" | sed -nE '^[[:space:]]*«(.*)»[[:space:]]*$/{s//\1/p;q}')"
+      norm="$(printf '%s' "$after" | sed -nE '/^[[:space:]]*«(.*)»[[:space:]]*$/{s//\1/p;q}')"
       [ -n "$norm" ] || die "проводка: строка вне грамматики: $ln"
       case "$norm" in *«*|*»*) die "проводка: строка вне грамматики: $ln" ;; esac
       rlex="${path#roles/}"
-      { [ "$path" = "$rlex" ] || case "$rlex" in */*|*.md) false;; *) [ -n "${rlex%.md}" ];; esac; } \
-        || die "проводка: role-канал обязан ссылаться строго на roles/<роль>.md, получено: $path"
+      ok_roli=0
+      if [ "$path" != "$rlex" ]; then
+        case "$rlex" in
+          */*) ;;
+          *.md) [ -n "${rlex%.md}" ] && ok_roli=1 ;;
+        esac
+      fi
+      [ "$ok_roli" -eq 1 ] || die "проводка: role-канал обязан ссылаться строго на roles/<роль>.md, получено: $path"
       [ "$GRAMMAR" -eq 1 ] || { [ -f "$ROOT/$path" ] || die "проводка: role-файл не существует: $path"; }
       ;;
     charter=*)
