@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "оракул-2 режима json батареи 189: required, типы, additionalProperties",
+  "type": "object",
+  "required": ["name", "mode", "ves"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {"type": "string", "minLength": 1},
+    "mode": {"enum": ["workflow", "bash", "json"]},
+    "ves": {"type": "number", "minimum": 0}
+  }
+}
