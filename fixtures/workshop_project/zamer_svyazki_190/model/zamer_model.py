@@ -7,7 +7,9 @@
   --zhurnaly <корень>  корень сессий: <sanitized-cwd>/<session-dir>/<Агент>.jsonl
   --s <ISO>/--do <ISO> окно по началу сессии (имя каталога YYYY-MM-DDTHH-MM-SS-…Z)
   --predmety <ERE>     фильтр номеров предметов реестра
-Коды возврата: 0 — таблица; 1 — ПУСТАЯ_ВЫБОРКА; 2 — НЕТ_ЖУРНАЛОВ/НЕТ_РЕЕСТРА/НЕТ_PYTHON.
+Коды возврата: 0 — таблица, stderr несёт «просмотрено: записей_журналов=N» (N>0;
+инвариант 8: обход печатает число просмотренного и отказывает на нуле);
+1 — ПУСТАЯ_ВЫБОРКА; 2 — НЕТ_ЖУРНАЛОВ/НЕТ_РЕЕСТРА/НЕТ_PYTHON.
 """
 import argparse
 import json
@@ -28,6 +30,8 @@ ORIGIN_MAP = {'первичный': 'первичные', 'дельта': 'де�
 ORIGIN_ORDER = ['первичные', 'дельта', 'узкое', 'пропущено', 'повтор']
 
 SUBJECT_RX = re.compile(r'\d{3,}')
+VYZOV_RX = re.compile(r'^\s*(\d+)')
+
 
 
 def role_of(agent_name):
@@ -56,17 +60,35 @@ def parse_sud_line(line):
     return fields
 
 
+def lines_outside_fences(lines):
+    """Строки вне ```-блоков: цитаты чужих СУД-строк учётной грамматикой не читаются."""
+    out, fenced = [], False
+    for line in lines:
+        if line.startswith('```'):
+            fenced = not fenced
+            continue
+        if not fenced:
+            out.append(line)
+    return out
+
+
 def sud_call_key(fields):
-    """(предмет, серия, номер) — вызов судьи; серия из скобок фазы, пусто = основная."""
+    """(предмет, серия, номер) — вызов судьи; серия из скобок фазы, пусто = основная.
+
+    Номер — ВЕДУЩИЙ цифровой кластер значения поля вызов=: живые формы дерева
+    «N/M», «N/M (пояснение)», «N», «N (пояснение)» (перечислены командой в
+    «Существующем» контракта). Ведущих цифр нет (слово-форма: «scoped»,
+    «по-перечню-арбитра») → None — вызов неустановим; предмет при этом
+    помечается не-установлен (collect_calls), а не теряется молча."""
     if 'предмет' not in fields or 'роль' not in fields or 'вызов' not in fields:
         return None
-    try:
-        n = int(fields['вызов'].split('/')[0].strip())
-    except ValueError:
+    m = VYZOV_RX.match(fields['вызов'])
+    if m is None:
         return None
+    n = int(m.group(1))
     faza = fields.get('фаза', '')
-    m = re.search(r'\(([^)]*)\)', faza)
-    seria = m.group(1).strip() if m else ''
+    mm = re.search(r'\(([^)]*)\)', faza)
+    seria = mm.group(1).strip() if mm else ''
     return (fields['предмет'].lstrip('0') or '0', seria, n)
 
 
@@ -101,7 +123,7 @@ def read_verdicts(repo):
                 ishod = line.strip()
                 break
         sud = None
-        for line in lines:
+        for line in lines_outside_fences(lines):
             fields = parse_sud_line(line.strip())
             if fields is not None:
                 sud = fields
@@ -126,12 +148,12 @@ def read_verdicts(repo):
 
 
 def read_handoff_sud(repo):
-    """СУД-строки HANDOFF.md (все вызовы, включая обрывы без вердикта)."""
+    """СУД-строки HANDOFF.md вне код-цитат (все вызовы, включая обрывы без вердикта)."""
     calls = {}
     handoff = repo / 'HANDOFF.md'
     if not handoff.is_file():
         return calls
-    for line in handoff.read_text(encoding='utf-8').splitlines():
+    for line in lines_outside_fences(handoff.read_text(encoding='utf-8').splitlines()):
         fields = parse_sud_line(line.strip())
         if fields is None or fields.get('роль') != 'critic':
             continue
@@ -140,6 +162,22 @@ def read_handoff_sud(repo):
             continue
         calls.setdefault(key, {'verdict': None, 'n': key[2], 'seria': key[1]})
     return calls
+
+
+def handoff_unparsed(repo):
+    """Предметы, чья критик-СУД в HANDOFF неузнаваема (слово-форма вызова=):
+    именованная потеря — предмет уходит в не-установлен, а не выпадает молча."""
+    bad = set()
+    handoff = repo / 'HANDOFF.md'
+    if not handoff.is_file():
+        return bad
+    for line in lines_outside_fences(handoff.read_text(encoding='utf-8').splitlines()):
+        fields = parse_sud_line(line.strip())
+        if fields is None or fields.get('роль') != 'critic':
+            continue
+        if 'предмет' in fields and sud_call_key(fields) is None:
+            bad.add(fields['предмет'].lstrip('0') or '0')
+    return bad
 
 
 
@@ -173,9 +211,10 @@ def iter_journals(root, since, until):
                 out.append((f, role_of(f.stem), subject_of(f.stem)))
     return out
 def collect_calls(repo):
-    """(предмет → [(номер, серия, вердикт|None)]) из вердиктов + HANDOFF; unpinned — без СУД."""
+    """(предмет → [(номер, серия, вердикт|None)]) из вердиктов + HANDOFF; unpinned —
+    без СУД или с неузнаваемой слово-формой вызова= (вердикт и HANDOFF одинаково)."""
     calls = read_handoff_sud(repo)
-    unpinned = set()
+    unpinned = handoff_unparsed(repo)
     for v in read_verdicts(repo):
         if v['sud'] is None:
             unpinned.add(v['subject'])
@@ -335,6 +374,7 @@ def build_table(repo, zhurnaly, since, until, predmety):
     out.append('МЕР\tсреднее_вызовов=%s\taccept_do_vtorogo=%d/%d\tchetyre_plus=%d' % (
         avg, accept_le2, len(established), four_plus))
     print('\n'.join(out))
+    print('просмотрено: записей_журналов=%d' % reviewed, file=sys.stderr)
     return 0
 
 
