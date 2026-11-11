@@ -141,13 +141,76 @@ def sobrat_mir(vrem: Path) -> dict:
 
     home = vrem / 'home'
     home.mkdir(parents=True, exist_ok=True)
+
+    # Дома установки для клеток БЕЗ швов бинарей (инвариант 2: резолв «дом →
+    # command -v»): батарея подставляет дом установкой HOME клетки. v18 —
+    # пин-совпадающий двойник (запуск установленного бинаря); v19 — подмена.
+    def dom_s_binarem(naddir: str, istochnik: Path) -> Path:
+        dom = vrem / naddir
+        cel = (dom / '.local' / 'state' / 'dev-harness' / 'validators'
+               / 'actionlint' / VER_DVOJNIKA / 'actionlint')
+        cel.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(istochnik, cel)
+        cel.chmod(0o755)
+        return dom
+
+    # PATH-подмена (v21): actionlint с иным sha256 первым в PATH клетки.
+    path_podmena = vrem / 'path-podmena'
+    path_podmena.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(drugoj, path_podmena / 'actionlint')
+    (path_podmena / 'actionlint').chmod(0o755)
+
     return {
         'vrem': vrem, 'bin': bin_dir,
         'actionlint': actionlint, 'lie': lie, 'drugoj': drugoj,
         'shellcheck': shellcheck, 'py3': py3, 'py3bez': py3bez,
         'site': site, 'pins': pins, 'pins_lie': pins_lie, 'home': home,
         'pins_tsv': pins_tsv, 'site_dvizhka': site_dvizhka,
+        'dom_chestnyj': dom_s_binarem('dom-chestnyj', actionlint),
+        'dom_podmena': dom_s_binarem('dom-podmena', drugoj),
+        'path_podmena': path_podmena,
     }
+
+def koren_bez_stroki(koren: Path, mir: dict) -> Path:
+    """Вариант корня субъекта с пин-файлом БЕЗ строки actionlint (v20).
+
+    Собирается в мире батареи (не рядом с проверяемым корнем): скрипты
+    копируются из проверяемого корня, пин-файл — строки мира минус actionlint.
+    В голом прогоне до реализации скриптов нет — вариант остаётся без них и
+    клетка красна именем отсутствующего субъекта, как остальные.
+    """
+    koren2 = mir['vrem'] / ('variant-bez-stroki-' + koren.name)
+    for f in ('validate_std.sh', 'validate_std_json.py', 'check_canon_fragment.py'):
+        istochnik = koren / 'scripts' / f
+        if istochnik.is_file():
+            cel = koren2 / 'scripts' / f
+            cel.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(istochnik, cel)
+    bez = ''.join(
+        stroka + '\n'
+        for stroka in mir['pins'].read_text(encoding='utf-8').splitlines()
+        if stroka.split('\t')[0:1] != ['actionlint'])
+    zapisat(koren2 / 'ops' / 'server' / 'validators.tsv', bez)
+    return koren2
+
+def sreda_bez_shvov(mir, home=None, **nadbavki):
+    """Среда клетки БЕЗ швов бинарей: VALIDATE_STD_ACTIONLINT/SHELLCHECK/PYTHON
+    сняты — резолв обязан пойти «дом установки → command -v» (инвариант 2).
+
+    VALIDATE_STD_PINS остаётся пин-файлом МИРА батареи (один и тот же для всех
+    клеток, как и двойники): пин-файл — конфигурация мира, не шов резолва
+    бинаря; без него клетка «пин-совпадающий бинарь в доме» неисполнима в
+    голом прогоне после implementer (реальные пины репо против двойника) и
+    обязательство «голый прогон после implementer зелёный» ломается.
+    """
+    env = dict(os.environ)
+    env['HOME'] = str(home if home is not None else mir['home'])
+    for kluch in [k for k in env if k.startswith('VALIDATE_STD_')]:
+        del env[kluch]
+    env.pop('PYTHONPATH', None)
+    env['VALIDATE_STD_PINS'] = str(mir['pins'])
+    env.update(nadbavki)
+    return env
 
 
 def sobrat_koren_subekta(vrem: Path, mir: dict, istoshnik: str) -> Path:
@@ -297,6 +360,54 @@ def kletki(koren: Path, mir: dict) -> list:
     argv, env = wrap('netrezhim', 'argument')
     K.append(Kletka('v17-rezhim-neizvesten', argv, sreda(mir, **env), 2,
                     ['NOT_IMPLEMENTED']))
+    # ── инвариант 2 БЕЗ швов бинарей: резолв «дом установки → command -v»,
+    # пин-проверка каждой ветви, именованные состояния пина (Блок 1 критика) ──
+    argv = ['bash', str(S / 'validate_std.sh'), 'workflow', str(M / 'honest.yml')]
+    K.append(Kletka('v18-dom-chestnyj', argv,
+                    sreda_bez_shvov(mir, home=mir['dom_chestnyj']), 0))
+    argv = ['bash', str(S / 'validate_std.sh'), 'workflow', str(M / 'honest.yml')]
+    K.append(Kletka('v19-dom-podmena', argv,
+                    sreda_bez_shvov(mir, home=mir['dom_podmena']), 2,
+                    ['VALIDATOR_PIN: actionlint']))
+    # v20 — пин-файл без строки actionlint: вариант корня субъекта с пинами
+    # мира минус строка инструмента; среда без единого VALIDATE_STD_*.
+    e20 = sreda_bez_shvov(mir)
+    del e20['VALIDATE_STD_PINS']
+    K.append(Kletka('v20-stroka-pina-net',
+                    ['bash', str(koren_bez_stroki(koren, mir) / 'scripts'
+                                 / 'validate_std.sh'),
+                     'workflow', str(M / 'honest.yml')],
+                    e20, 2, ['VALIDATOR_MISSING: actionlint']))
+    argv = ['bash', str(S / 'validate_std.sh'), 'workflow', str(M / 'honest.yml')]
+    e21 = sreda_bez_shvov(mir)
+    e21['PATH'] = '%s:%s' % (mir['path_podmena'], e21['PATH'])
+    K.append(Kletka('v21-path-podmena', argv, e21, 2,
+                    ['VALIDATOR_PIN: actionlint']))
+    argv = ['bash', str(S / 'validate_std.sh'), 'workflow', str(M / 'honest.yml')]
+    e22 = sreda_bez_shvov(mir)
+    e22['PATH'] = '/usr/bin:/bin'
+    K.append(Kletka('v22-nigde-net', argv, e22, 2,
+                    ['VALIDATOR_MISSING: actionlint']))
+
+    # ── json по ПЕРЕДАННОЙ схеме: каждая обещанная ограничилка различима
+    # своей клеткой (Блок 2 критика: вторая и третья пары «схема/документ») ──
+    argv, env = wrap('json', str(M / 'shema2.json'), str(M / 'dokument_para2.json'))
+    e = dict(env)
+    e['PYTHONPATH'] = str(mir['site_dvizhka'])
+    K.append(Kletka('v23-json-para2', argv, sreda(mir, **e), 1,
+                    ['JSON_INVALID:/', 'lishnee_pole']))
+    argv, env = wrap('json', str(M / 'shema2.json'),
+                     str(M / 'dokument_tolko_required.json'))
+    e = dict(env)
+    e['PYTHONPATH'] = str(mir['site_dvizhka'])
+    K.append(Kletka('v24-json-tolko-required', argv, sreda(mir, **e), 1,
+                    ['JSON_INVALID:', "'ves' is a required property"]))
+    argv, env = wrap('json', str(M / 'shema2.json'),
+                     str(M / 'dokument_tolko_tip.json'))
+    e = dict(env)
+    e['PYTHONPATH'] = str(mir['site_dvizhka'])
+    K.append(Kletka('v25-json-tolko-tip', argv, sreda(mir, **e), 1,
+                    ['JSON_INVALID:/ves', 'is not of type']))
     return K
 
 
