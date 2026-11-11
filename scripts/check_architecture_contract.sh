@@ -38,9 +38,18 @@
 #   * `check --base` модели против утверждённого снимка: rc 1 — ARCH_CHECK,
 #     rc 2/NOT_EVALUATED — ARCH_NOT_EVALUATED (никогда не зелено).
 #
-# Коды возврата двери: 0 — зелено (или «187а не применима»); 1 — именованный
+# ВОЗВРАТЫ ДВЕРИ: 0 — зелено (или «187а не применима»); 1 — именованный
 # отказ (маркер в stderr, первая строка); 2 — нечем проверить (нет клона, пина
 # или контракта).
+#
+# НЕ БАРЬЕР: роль файла объявлена явно, потому что scripts/verify_antiplacebo.sh
+# требует фикстуру `fixtures/<ключ>/case_*.sh` от каждого барьера и не
+# догадывается (файл без объявленной роли — отказ). Красное покрытие этой двери
+# — семейство fixtures/workshop_project/architecture_process_187/ (зона
+# architect, контракт 187/1): оно гоняет дверь через публичный интерфейс
+# (`make_task`, `freeze_contract.sh`, `pre_critic.sh`, `done_contract.sh`) и
+# конвенцию case_* не использует. Тот же приём, что у check_precision_gate.sh
+# и check_no_leak.sh.
 #
 # РЕЖИМ БИБЛИОТЕКИ: `ARCH187_LIB=1 source check_architecture_contract.sh` —
 # определены функции (строка архитектуры, зоны, locate/brief/check модели), ухода
@@ -118,6 +127,11 @@ arch187_model_prepare() {
   if [ ! -f "$tmp/tooling/checks/cli.js" ]; then
     rm -rf "$tmp"
     ARCH187_REFUSAL="ARCH_PIN: в закреплённом дереве нет tooling/checks/cli.js"
+    return 1
+  fi
+  if [ -L "$tmp/tooling/checks/cli.js" ]; then
+    rm -rf "$tmp"
+    ARCH187_REFUSAL="ARCH_PIN: tooling/checks/cli.js в закреплённом дереве — ссылка, а не файл"
     return 1
   fi
   ARCH187_MODEL_DIR="$tmp"
@@ -255,6 +269,14 @@ arch187_zones() {
   ARCH187_REFUSAL=""
   while IFS= read -r p; do
     [ -n "$p" ] || continue
+    # Продуктовый путь — относительный и без выхода из дерева: значение из
+    # текста контракта не должно вести за пределы репозитория (Н-85).
+    case "$p" in
+      /*) ARCH187_REFUSAL="PATH_WITHOUT_COMPONENT: путь $p не относительный"; return 1 ;;
+    esac
+    case "/$p/" in
+      */../*) ARCH187_REFUSAL="PATH_WITHOUT_COMPONENT: путь $p выходит за пределы дерева"; return 1 ;;
+    esac
     okf=0; okd=0; comp=""
     if comp="$(arch187_locate "$p")"; then okf=1; fi
     case "$p" in
@@ -392,6 +414,13 @@ repo="$(cd "$repo" 2>/dev/null && pwd -P)" || {
   printf 'NOT_IMPLEMENTED: корень проекта не найден: %s\n' "$repo" >&2
   exit 2
 }
+
+# Профиль проекта читается jq; без него режим не определить — «нечем проверить»
+# (fail-closed), а не «не применимо».
+if [ -f "$repo/harness.project.json" ] && ! command -v jq >/dev/null 2>&1; then
+  printf 'ARCH_PIN: jq недоступен — эффективный repoId проекта не прочитан\n' >&2
+  exit 2
+fi
 
 # Не применимо — не отказ: харнесс, mob и документальные предметы нового
 # отказа не получают.
