@@ -2,12 +2,12 @@
 # ops/server/install.sh — установщик серверной обвязки из репо (контракт 074).
 #
 # Единый источник — ops/server/ в этом дереве; установленное == репо (sha256
-# по каждому из 9 файлов). Подкоманды (ровно одна):
+# по каждому из 10 файлов). Подкоманды (ровно одна):
 #   user  — копирует ops/server/user/orch-loop в $HOME/bin/orch-loop,
 #           режим 755, перечитывает sha256 адресата против источника (rc 0 /
 #           rc 1 с именем файла);
 #   root  — копирует ops/server/root/orch-peak в /usr/local/sbin/orch-peak
-#           (755, root:root) и 7 systemd-юнитов в /etc/systemd/system/
+#           (755, root:root) и 8 systemd-юнитов в /etc/systemd/system/
 #           (644, root:root), перечитывает sha256 каждого; euid-гард под
 #           harness отказывает rc 1 с фразой «root-часть требует euid 0»
 #           ДО любых записей; при копировании bootstrap-библиотеки
@@ -21,7 +21,7 @@
 #           и branch.autoSetupMerge=false (И-2). Предусловие нарушено — rc 1
 #           ДО какого-либо chattr. Шов OPS_SERVER_MAIN (инвариант 6 074).
 #           Контракт 093 И-6b: ДО копий сохраняет снимок ПРЕДЫДУЩЕЙ
-#           установленной версии (orch-peak + lib_session.sh + 7 юнитов,
+#           установленной версии (orch-peak + lib_session.sh + 8 юнитов,
 #           побайтово, атомарной заменой каталога) в
 #           ${OPS_SERVER_ROLLBACK_BACKUP-<SBIN_DST>/.rollback} — со второй
 #           установки (первой снимать нечего). Контракт 093 И-3: ПОСЛЕ
@@ -48,8 +48,8 @@
 #           переопределяют идентичность; по умолчанию orchagent /
 #           /var/lib/orch-agent. Шов OPS_SERVER_AGENT_ROOT переопределяет
 #           корень кода агента (по умолчанию /opt/orch-agent).
-#   verify — только читает: побайтно сверяет все 9 адресатов с источниками;
-#             все равны — rc 0 и «сверка: 9/9»; любое расхождение — rc 1
+#   verify — только читает: побайтно сверяет все 10 адресатов с источниками;
+#             все равны — rc 0 и «сверка: 10/10»; любое расхождение — rc 1
 #             с stderr «ОТКАЗ: расхождение <путь>».
 #   verify-start — проверить, что поставленный юнит orch-peak@0 (или иное
 #             имя через шов OPS_SERVER_UNIT) ЗАВЕРШИЛ НОВЫЙ запуск ЭТОЙ
@@ -62,7 +62,7 @@
 #             имени юнита. И-6a контракта 093.
 #   rollback — побайтно восстановить предыдущую установленную версию
 #             (root-часть) из ${OPS_SERVER_ROLLBACK_BACKUP-<каталог>}/ :
-#             orch-peak + lib_session.sh + 7 юнитов (что есть в снимке),
+#             orch-peak + lib_session.sh + 8 юнитов (что есть в снимке),
 #             затем САМ выполнить `systemctl daemon-reload` и `systemctl
 #             restart ${OPS_SERVER_UNIT-orch-peak@0}` (находка 2 круга 2:
 #             без daemon-reload откат не активирует старый юнит) и
@@ -105,6 +105,11 @@ USER_CONF="${OPS_SERVER_USER_CONF-$HOME/.config/dev-harness/ops.env}"
 MACHINE_CONF="${OPS_SERVER_MACHINE_CONF-/etc/dev-harness/ops.env}"
 MAIN_DST="${OPS_SERVER_MAIN-$REPO_ROOT}"
 UNITS='orch-peak@.service orch-peak-warn.timer orch-peak-stop.timer orch-peak-start.timer orch-peak-reenable.timer orch-peak-reenable.service orch-ctx.timer'
+# Юнит страховки обзора архитектуры (контракт 186, §Предмет 6): таймер недели
+# диспатчит orch-peak@architecture.service — сигнал «страховочный timer», первичным
+# триггером он не становится. Ставится тем же root-проходом и сверяется тем же
+# verify; список прежних юнитов выше не переписывается.
+UNITS="$UNITS orch-architecture.timer"
 # Контракт 093 И-6b: каталог предыдущей версии для rollback.
 STATE_BACKUP_DIR="${OPS_SERVER_ROLLBACK_BACKUP-$SBIN_DST/.rollback}"
 # Контракт 093 И-3: идентичность пользователя-агента (idempotent provisioning) — ОПЦИЯ: только при
@@ -283,7 +288,7 @@ case "$1" in
       exit 1
     fi
     # ── И-6b (093): снимок ПРЕДЫДУЩЕЙ установленной версии ДО копий ───────
-    # Побайтово: orch-peak + lib_session.sh + 7 юнитов; атомарная замена
+    # Побайтово: orch-peak + lib_session.sh + 8 юнитов; атомарная замена
     # каталога (tmp + mv). rollback восстанавливает ИМЕННО этот снимок —
     # «v1 → v2 → rollback → на месте v1». Первая установка: снимать нечего,
     # каталог не создаётся (Р1-1 круга 1: прежний код снимок не писал,
@@ -351,7 +356,7 @@ case "$1" in
       chown root:root "$ETC_DST/$u" || die_write "$ETC_DST/$u"
       check_one "$ETC_DST/$u" "$SRC_ROOT/root/systemd/$u" || rc=1
     done
-    [ "$rc" -eq 0 ] && printf 'установлено: root-часть (orch-peak + 7 юнитов)\n'
+    [ "$rc" -eq 0 ] && printf 'установлено: root-часть (orch-peak + 8 юнитов)\n'
 
     # ── контракт 081, И-1/И-2: блокировка <MAIN>/.git/config ядром ФС ────────
     # Исполняется ТОЛЬКО при rc=0 (копия+sha256 чисты) и при выполненных ОБОИХ
@@ -457,6 +462,10 @@ case "$1" in
         systemctl daemon-reload || { printf 'ОТКАЗ: systemctl daemon-reload\n' >&2; rc=1; }
         systemctl enable --now orch-ctx.timer >/dev/null 2>&1 \
           || { printf 'ОТКАЗ: orch-ctx.timer не включён\n' >&2; rc=1; }
+        # Страховка обзора архитектуры (контракт 186): недельный таймер, первичным
+        # триггером обзора он не становится — страхует только пропущенные события.
+        systemctl enable --now orch-architecture.timer >/dev/null 2>&1 \
+          || { printf 'ОТКАЗ: orch-architecture.timer не включён\n' >&2; rc=1; }
         if [ -n "$AGENT_USER" ]; then
           provision_orchagent || rc=1
           provision_agent_code || rc=1
@@ -474,7 +483,7 @@ case "$1" in
     for u in $UNITS; do
       check_one "$ETC_DST/$u" "$SRC_ROOT/root/systemd/$u" || rc=1
     done
-    [ "$rc" -eq 0 ] && printf 'сверка: 9/9\n'
+    [ "$rc" -eq 0 ] && printf 'сверка: 10/10\n'
     exit "$rc"
     ;;
   verify-start)
