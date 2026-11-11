@@ -2,7 +2,10 @@
 # 189 — МОДЕЛЬ (честная реализация для батареи; реализацию предмета пишет
 # implementer в scripts/validate_std.sh по контракту, не по этому файлу).
 # Инварианты: пин → sha256 → запуск; rc инструмента пробрасывается; вывод
-# валидатора не разбирается на «успех»; каждое отсутствие — именованный rc 2.
+# валидатора не разбирается на «успех»; каждое отсутствие — именованный rc 2;
+# аргументов ровно столько, сколько требует режим (инвариант 3): лишний или
+# недостающий → rc 2 NOT_IMPLEMENTED — молчаливое отбрасывание лишнего файла
+# есть ложная зелень по непроверенному (Б-1 ревьюера contracts-189-impl-v1).
 set -uo pipefail
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -52,13 +55,17 @@ mode="${1:-}"
 
 case "$mode" in
   workflow)
-    [ -n "${1:-}" ] || otkaz2 "NOT_IMPLEMENTED: validate_std.sh workflow <файл>"
+    if [ "$#" -ne 1 ] || [ -z "${1:-}" ]; then
+      otkaz2 "NOT_IMPLEMENTED: validate_std.sh workflow <файл>"
+    fi
     bin="$(rezolve_bin actionlint VALIDATE_STD_ACTIONLINT)" || exit $?
     "$bin" "$1"
     exit $?
     ;;
   bash)
-    [ -n "${1:-}" ] || otkaz2 "NOT_IMPLEMENTED: validate_std.sh bash <файл>"
+    if [ "$#" -ne 1 ] || [ -z "${1:-}" ]; then
+      otkaz2 "NOT_IMPLEMENTED: validate_std.sh bash <файл>"
+    fi
     bash -n "$1"
     rc=$?
     if [ "$rc" -ne 0 ]; then
@@ -70,7 +77,7 @@ case "$mode" in
     exit $?
     ;;
   json)
-    if [ "$#" -lt 2 ] || [ -z "${1:-}" ] || [ -z "${2:-}" ]; then
+    if [ "$#" -ne 2 ] || [ -z "${1:-}" ] || [ -z "${2:-}" ]; then
       otkaz2 "NOT_IMPLEMENTED: validate_std.sh json <схема> <документ>"
     fi
     "$PY" "$SELF_DIR/validate_std_json.py" "$1" "$2"
