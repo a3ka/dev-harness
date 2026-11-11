@@ -45,6 +45,41 @@ def reference():
         cwd=REPO, capture_output=True, text=True, check=True).stdout
 
 
+# Шов сериализации batch в дверь — единственная предметная передача списка
+# задач (verdicts/adversary/contracts-157-impl-v3.md: обходы подменяют именно
+# её, честно передавая batch короче порога — мутанты повторяют тот же шов).
+BATCH_SEAM = 'JSON.stringify({ tasks: taskItems(call.input) })'
+
+
+# Класс «batch >= 4» (закрытие FAIL вызова 3): дверь обязана получить КАЖДУЮ
+# задачу batch любой длины N >= 1 в порядке входа; выборочная потеря ЛЮБОЙ
+# подпоследовательности с N >= порога — красное. Порог 4 = вход адверсария,
+# порог 5 закрывает позиции, которых в четвёрке нет (вторая серединная,
+# четвёртая, все внутренние при трёх внутренних).
+def _batch_drop(threshold, keep):
+    items = 'taskItems(call.input)'
+    return (f'JSON.stringify({{ tasks: {items}.length < {threshold} ? {items} '
+            f': {items}.filter({keep}) }})')
+
+
+BATCH_DROPS = {
+    **{f'skip-{word}-four-plus': _batch_drop(4, keep) for word, keep in (
+        ('first', '(item, index) => index !== 0'),
+        ('second', '(item, index) => index !== 1'),
+        ('third', '(item, index) => index !== 2'))},
+    'skip-last-four-plus': _batch_drop(4, '(item, index, all) => index !== all.length - 1'),
+    'first-last-four-plus': _batch_drop(
+        4, '(item, index, all) => index === 0 || index === all.length - 1'),
+    **{f'skip-{word}-five-plus': _batch_drop(5, keep) for word, keep in (
+        ('first', '(item, index) => index !== 0'),
+        ('second', '(item, index) => index !== 1'),
+        ('middle', '(item, index) => index !== 2'),
+        ('fourth', '(item, index) => index !== 3'))},
+    'skip-last-five-plus': _batch_drop(5, '(item, index, all) => index !== all.length - 1'),
+    'internal-five-plus': _batch_drop(
+        5, '(item, index, all) => index === 0 || index === all.length - 1'),
+}
+
 # Every variant mutates an observable branch of the accepted patch (Н-39).
 def mutation(source, name):
     if name == 'blind-root':
@@ -92,6 +127,9 @@ def mutation(source, name):
         anchor = 'const roots = stateRoots(sessionFile);'
         replacement = (anchor + '\n      if (Array.isArray((call.input as { tasks?: unknown }).tasks)'
                        " && taskItems(call.input)[0]?.agent === 'reviewer') return undefined;")
+    elif name in BATCH_DROPS:
+        anchor = BATCH_SEAM
+        replacement = BATCH_DROPS[name]
     else:
         raise ValueError('unknown mutant')
     if source.count(anchor) != 1:
@@ -204,6 +242,8 @@ DOOR_CELLS_PROJECT = ('project-deny', 'project-allow', 'project-alt', 'project-p
 
 BATCH_CELLS = {role: f'{"station" if role == "reviewer" else "project"}-batch-{role}'
                for role in BATCH_ROLES}
+BATCH_GE4_CELLS = frozenset({'project-batch-four', 'project-batch-five'})
+BATCH_GE5_CELLS = frozenset({'project-batch-five'})
 
 
 def scenarios():
@@ -250,6 +290,9 @@ def scenarios():
          ('architect', 'implementer', 'critic')),
         ('project-batch-reviewer-first', project, 'dev', TAIL, project_state, 'deny',
          ('reviewer', 'architect')),
+        ('project-batch-four', project, 'dev', TAIL, project_state, 'deny',
+         ('architect', 'implementer', 'critic', 'adversary')),
+        ('project-batch-five', project, 'dev', TAIL, project_state, 'allow', BATCH_ROLES),
         ('station-alphabet', station, 'dev', TAIL, station_state, 'deny', 'task'),
         ('foreign-deny', ('foreign-layout', 'flat'), 'dev', TAIL, None, 'deny', 'architect'),
         ('malformed-session', station, 'dev', ('history', 'Agent157.jsonl'), None, 'deny', 'architect'),
@@ -318,6 +361,8 @@ def main():
             'batch-first-only': set(BATCH_CELLS.values()),
             'batch-first-two': {'project-batch-three'},
             'batch-reviewer-first-pass': {'project-batch-reviewer-first'},
+            **{name: set(BATCH_GE4_CELLS) for name in BATCH_DROPS if name.endswith('-four-plus')},
+            **{name: set(BATCH_GE5_CELLS) for name in BATCH_DROPS if name.endswith('-five-plus')},
         }
         for name, observed in targets.items():
             fails = run(mutation(ref_source, name), name)
