@@ -216,10 +216,12 @@ if [ -x "$SELF_DIR/check_architecture_contract.sh" ]; then
         if [ "$_a187_rev_ok" != "1" ]; then
           die "ARCH_REVIEW: в вердикте ревьюера $freshest нет самостоятельной строки «СВЕРКА-АРХИТЕКТУРЫ:»"
         fi
-        # (2) check-run arch на финальном SHA
-        _a187_sha="$(cd "$ROOT" && git rev-parse --verify --quiet refs/remotes/origin/main 2>/dev/null || true)"
-        [ -n "$_a187_sha" ] || _a187_sha="$(cd "$ROOT" && git rev-parse --verify --quiet HEAD 2>/dev/null || true)"
-        [ -n "$_a187_sha" ] || die "ARCH_CI: финальный SHA продукта не читается"
+        # (2) check-run arch на ФИНАЛЬНОМ SHA продукта — на ТОМ ЖЕ, на который
+        # встанет тег done (HEAD). Отставший tracking-ref origin/main не
+        # берётся: зелёный run на старом/чужом SHA не засчитывается за этот
+        # коммит — иначе тег встал бы на один SHA, а сверено было бы другое.
+        _a187_sha="$(cd "$ROOT" && git rev-parse --verify --quiet HEAD 2>/dev/null || true)"
+        [ -n "$_a187_sha" ] || die "ARCH_CI: финальный SHA продукта (HEAD) не читается"
         _a187_or=""
         if [ -f "$ROOT/harness.project.json" ]; then
           _a187_remote="$(jq -r '.git.canonicalRemote // empty' "$ROOT/harness.project.json" 2>/dev/null || true)"
@@ -232,7 +234,8 @@ if [ -x "$SELF_DIR/check_architecture_contract.sh" ]; then
         [ -n "$_a187_or" ] || _a187_or="${GITHUB_REPOSITORY:-unknown/unknown}"
         _a187_url="https://api.github.com/repos/$_a187_or/commits/$_a187_sha/check-runs?per_page=100"
         _a187_tok="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
-        _a187_args=(-sS -H 'Accept: application/vnd.github+json')
+        # --max-time: зависший API не должен hanging'ом держать done (совет С5).
+        _a187_args=(-sS --max-time 30 -H 'Accept: application/vnd.github+json')
         [ -n "$_a187_tok" ] && _a187_args+=(-H "Authorization: Bearer $_a187_tok")
         _a187_json=""
         _a187_crc=0
@@ -321,7 +324,16 @@ fi
 
 # ── 8. тег done/contracts/<NNN>/<v> с причиной в аннотации ──────────────────
 tag="done/contracts/$NNN/$v"
-if ! out="$(cd "$ROOT" && git -c user.name=Fixture -c user.email=fixture@local tag -a "$tag" -m "$REASON" 2>&1)"; then
+# Цель тега — ТОТ ЖЕ SHA, который сверен с check-run arch (187а): иначе тег
+# мог бы встать на коммит, для которого зелёного run нет. Пусто — предмет не
+# backend: цель по умолчанию (HEAD), как прежде.
+_a187_tag_target="${_a187_sha:-}"
+if [ -n "$_a187_tag_target" ]; then
+  if ! out="$(cd "$ROOT" && git -c user.name=Fixture -c user.email=fixture@local tag -a "$tag" -m "$REASON" "$_a187_tag_target" 2>&1)"; then
+    printf 'ОТКАЗ: тег %s не создан: %s\n' "$tag" "$out" >&2
+    exit 1
+  fi
+elif ! out="$(cd "$ROOT" && git -c user.name=Fixture -c user.email=fixture@local tag -a "$tag" -m "$REASON" 2>&1)"; then
   printf 'ОТКАЗ: тег %s не создан: %s\n' "$tag" "$out" >&2
   exit 1
 fi
