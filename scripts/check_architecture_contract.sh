@@ -361,6 +361,17 @@ arch187_zones() {
   return 0
 }
 
+# arch187_draft_token <строка> — 0, если в строке есть токен «draft» (любой
+# регистр) на границе слова. Граница — как у \w в re: соседний символ не
+# буква/цифра/подчёркивание; кириллица — буква («идdraftи» — НЕ токен),
+# а «(DRAFT)» и «schema.draft» — токены. Локаль C.UTF-8 — чтобы класс
+# [[:alnum:]] знал не-ASCII буквы (под C кириллица не буква, и «идdraftи»
+# сочлось бы за токен).
+arch187_draft_token() {
+  printf '%s' "${1:-}" | LC_ALL=C.UTF-8 grep -Eq \
+    '(^|[^[:alnum:]_])[Dd][Rr][Aa][Ff][Tt]([^[:alnum:]_]|$)' 2>/dev/null
+}
+
 # arch187_operations <file> — операции предмета: схемы входа/выхода есть, DRAFT
 # нет. Строка операции — «ОПЕРАЦИЯ: <id>; вход <схема>; выход <схема>».
 arch187_operations() {
@@ -371,18 +382,13 @@ arch187_operations() {
     found=1
     id="${line#*ОПЕРАЦИЯ:}"
     id="$(printf '%s' "$id" | sed -e 's/^[[:space:]]*//' -e 's/;.*$//' -e 's/[[:space:]]*$//')"
-    case "$(printf '%s' "$id" | tr '[:upper:]' '[:lower:]')" in
-      draft|*.draft)
-        ARCH187_REFUSAL="ARCH_DRAFT: операция $id не имеет утверждённой схемы (DRAFT)"
-        return 1
-        ;;
-    esac
-    case " $line " in
-      *" DRAFT "*)
-        ARCH187_REFUSAL="ARCH_DRAFT: операция $id помечена DRAFT"
-        return 1
-        ;;
-    esac
+    # DRAFT — токен в ЛЮБОМ месте строки операции: в id («identity.draft»),
+    # в пометке («(DRAFT)») и в схеме («schema.draft»). Токен, а не подстрока:
+    # «идdraftи» и «draft_v2» — не DRAFT.
+    if arch187_draft_token "$line"; then
+      ARCH187_REFUSAL="ARCH_DRAFT: операция $id помечена DRAFT"
+      return 1
+    fi
     schema="$(printf '%s' "$line" | sed -n 's/.*вход[[:space:]]\{1,\}\([^;]*\).*/\1/p' | sed -e 's/[[:space:]]*$//')"
     if [ -z "$schema" ]; then
       ARCH187_REFUSAL="ARCH_DRAFT: у операции $id нет схемы входа"
