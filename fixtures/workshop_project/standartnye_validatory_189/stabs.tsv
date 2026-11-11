@@ -9,6 +9,8 @@ stab_bez_bash_n.sh	scripts/validate_std.sh	v09
 stab_bez_doma_rezolva.sh	scripts/validate_std.sh	v18
 stab_pin_tolko_shva.sh	scripts/validate_std.sh	v21
 stab_pin_tolko_env.sh	scripts/validate_std.sh	v26
+stab_nechitaemost_kak_stroka.sh	scripts/validate_std.sh	v31
+stab_nechitaemost_kak_stroka.py	scripts/validate_std_json.py	v33
 stab_shema_ne_chitaetsya.py	scripts/validate_std_json.py	v23
 stab_shema_pustoishka.py	scripts/validate_std_json.py	v13
 stab_bez_proverki_versii.py	scripts/validate_std_json.py	v16

@@ -160,6 +160,20 @@ def sobrat_mir(vrem: Path) -> dict:
     shutil.copyfile(drugoj, path_podmena / 'actionlint')
     (path_podmena / 'actionlint').chmod(0o755)
 
+    # Нечитаемость chmod 000 материализуется только не под root (root читает и
+    # 000): клетки «пин-файл не читается» (v31/v33) судимы лишь там, где
+    # состояние материально; иначе — именованный отказ NEZAPUSKAEMA в sudit,
+    # не молчаливый зелёный (Блок 4 критика, вызов 3; слово владельца 2026-11-11).
+    proba_nch = vrem / 'proba-nechitaemosti.tsv'
+    zapisat(proba_nch, 'proba\t1\t-\n')
+    proba_nch.chmod(0o000)
+    try:
+        with open(proba_nch, encoding='utf-8') as f:
+            f.read()
+        nechitaemost = False
+    except OSError:
+        nechitaemost = True
+
     return {
         'vrem': vrem, 'bin': bin_dir,
         'actionlint': actionlint, 'lie': lie, 'drugoj': drugoj,
@@ -169,6 +183,7 @@ def sobrat_mir(vrem: Path) -> dict:
         'dom_chestnyj': dom_s_binarem('dom-chestnyj', actionlint),
         'dom_podmena': dom_s_binarem('dom-podmena', drugoj),
         'path_podmena': path_podmena,
+        'chmod_nechitaemost': nechitaemost,
     }
 
 def koren_bez_stroki(koren: Path, mir: dict) -> Path:
@@ -193,17 +208,28 @@ def koren_bez_stroki(koren: Path, mir: dict) -> Path:
     zapisat(koren2 / 'ops' / 'server' / 'validators.tsv', bez)
     return koren2
 
-def koren_s_defoltom(koren: Path, mir: dict, bez_pin_fajla: bool = False) -> Path:
-    """Вариант корня субъекта для клеток ДЕФОЛТНОГО пути пин-файла (v26–v30).
+def koren_s_defoltom(koren: Path, mir: dict, bez_pin_fajla: bool = False,
+                     bez_stroki: str = None, nechitaem: bool = False) -> Path:
+    """Вариант корня субъекта для клеток ДЕФОЛТНОГО пути пин-файла (v26–v34).
 
     Техника koren_bez_stroki (ДЕМО-2 критика, вызов 2): скрипты копируются из
     проверяемого корня, пин-файл мира ставится на ДЕФОЛТНОЕ место
     ops/server/validators.tsv; bez_pin_fajla=True — вариант ВООБЩЕ без
-    пин-файла (v30: отказ VALIDATOR_PINS). В голом прогоне до реализации
-    скриптов нет — вариант остаётся без них и клетка красна именем
-    отсутствующего субъекта, как остальные.
+    пин-файла (v30 обёртка / v32 движок json); bez_stroki=<инструмент> —
+    пин-файл без строки инструмента (v34: строки jsonschema нет, файл цел);
+    nechitaem=True — дефолтный пин-файл chmod 000 (v31 обёртка / v33 движок
+    json; Блок 4 критика, вызов 3). В голом прогоне до реализации скриптов
+    нет — вариант остаётся без них и клетка красна именем отсутствующего
+    субъекта, как остальные.
     """
-    imja = 'variant-bez-pin-fajla-' if bez_pin_fajla else 'variant-s-defoltom-'
+    if bez_pin_fajla:
+        imja = 'variant-bez-pin-fajla-'
+    elif bez_stroki is not None:
+        imja = 'variant-bez-stroki-%s-' % bez_stroki
+    elif nechitaem:
+        imja = 'variant-s-nechitaemym-'
+    else:
+        imja = 'variant-s-defoltom-'
     koren2 = mir['vrem'] / (imja + koren.name)
     for f in ('validate_std.sh', 'validate_std_json.py', 'check_canon_fragment.py'):
         istochnik = koren / 'scripts' / f
@@ -212,8 +238,16 @@ def koren_s_defoltom(koren: Path, mir: dict, bez_pin_fajla: bool = False) -> Pat
             cel.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(istochnik, cel)
     if not bez_pin_fajla:
-        zapisat(koren2 / 'ops' / 'server' / 'validators.tsv',
-                mir['pins'].read_text(encoding='utf-8'))
+        tekst = mir['pins'].read_text(encoding='utf-8')
+        if bez_stroki is not None:
+            tekst = ''.join(
+                stroka + '\n'
+                for stroka in tekst.splitlines()
+                if stroka.split('\t')[0:1] != [bez_stroki])
+        fajl = koren2 / 'ops' / 'server' / 'validators.tsv'
+        zapisat(fajl, tekst)
+        if nechitaem:
+            fajl.chmod(0o000)
     return koren2
 
 def sreda_defolt(mir, home=None, **nadbavki):
@@ -259,8 +293,10 @@ def sobrat_koren_subekta(vrem: Path, mir: dict, istoshnik: str) -> Path:
 
 
 class Kletka:
-    def __init__(self, imja, argv, env, rc, markery=()):
+    def __init__(self, imja, argv, env, rc, markery=(), uslovie=None):
         self.imja, self.argv, self.env, self.rc, self.markery = imja, argv, env, rc, list(markery)
+        self.uslovie = uslovie  # клетка состояния, не материализующегося на станции
+                               # (chmod-000 читается под root): именованный отказ, не зелёное молчание
 
 
 def sreda(mir, **nadbavki):
@@ -473,11 +509,54 @@ def kletki(koren: Path, mir: dict) -> list:
             'workflow', str(M / 'honest.yml')]
     K.append(Kletka('v30-pin-fajl-net', argv,
                     sreda_defolt(mir, home=mir['dom_chestnyj']), 2,
-                    ['VALIDATOR_PINS']))
+                    ['VALIDATOR_PINS', 'не найден']))
+
+    # ── три различимых состояния пин-файла на ОБОИХ скриптах (Блок 4 критика,
+    # вызов 3): «файла нет»/«не читается» → rc 2 VALIDATOR_PINS (обёртка) /
+    # ENGINE_PINS (движок json напрямую) — именованный отказ ДО резолва;
+    # «файл цел, строки нет» → VALIDATOR_MISSING (v20) / ENGINE_MISSING (v34).
+    # chmod-000 нечитаемость материализуется только не под root: под root
+    # клетки v31/v33 дают именованный отказ NEZAPUSKAEMA, не молчаливый
+    # зелёный (слово владельца 2026-11-11, задание fix3). ──
+    uslovie_chmod = None if mir['chmod_nechitaemost'] else (
+        'NEZAPUSKAEMA: chmod-000 нечитаемость не материализуется на этой '
+        'станции (root читает и 000) — клетка не судима, не молчаливый зелёный')
+    koren_nch = koren_s_defoltom(koren, mir, nechitaem=True)
+    argv = ['bash', str(koren_nch / 'scripts' / 'validate_std.sh'),
+            'workflow', str(M / 'honest.yml')]
+    K.append(Kletka('v31-pin-nechitaem', argv,
+                    sreda_defolt(mir, home=mir['dom_chestnyj']), 2,
+                    ['VALIDATOR_PINS', 'не читается'], uslovie=uslovie_chmod))
+    argv = ['python3', str(koren_s_defoltom(koren, mir, bez_pin_fajla=True)
+                           / 'scripts' / 'validate_std_json.py'),
+            str(M / 'shema.json'), str(M / 'dokument.json')]
+    e32 = sreda_defolt(mir)
+    e32['PYTHONPATH'] = str(mir['site_dvizhka'])
+    K.append(Kletka('v32-json-pin-fajl-net', argv, e32, 2,
+                    ['ENGINE_PINS', 'не найден']))
+    argv = ['python3', str(koren_nch / 'scripts' / 'validate_std_json.py'),
+            str(M / 'shema.json'), str(M / 'dokument.json')]
+    e33 = sreda_defolt(mir)
+    e33['PYTHONPATH'] = str(mir['site_dvizhka'])
+    K.append(Kletka('v33-json-pin-nechitaem', argv, e33, 2,
+                    ['ENGINE_PINS', 'не читается'], uslovie=uslovie_chmod))
+    argv = ['python3', str(koren_s_defoltom(koren, mir, bez_stroki='jsonschema')
+                           / 'scripts' / 'validate_std_json.py'),
+            str(M / 'shema.json'), str(M / 'dokument.json')]
+    e34 = sreda_defolt(mir)
+    e34['PYTHONPATH'] = str(mir['site_dvizhka'])
+    K.append(Kletka('v34-json-stroki-pina-net', argv, e34, 2,
+                    ['ENGINE_MISSING: jsonschema', 'нет строки пина']))
     return K
 
 
 def sudit(k: Kletka) -> bool:
+    if k.uslovie:
+        # Состояние клетки не материализуется на этой станции (chmod-000
+        # нечитаемости не бывает под root): именованный отказ NEZAPUSKAEMA,
+        # не молчаливый зелёный (слово владельца 2026-11-11, Блок 4).
+        print('189 %s ok %s' % (k.imja, k.uslovie))
+        return True
     try:
         r = subprocess.run(k.argv, env=k.env, capture_output=True, text=True, timeout=60)
         rc, err = r.returncode, r.stderr
@@ -558,7 +637,7 @@ def rezhim_stabs(mir: dict) -> int:
                   file=sys.stderr)
             return 2
         svjazi.append(cols)
-    poimano, zhivyh = 0, 0
+    poimano, zhivyh, sudimyh = 0, 0, 0
     for imja, fail, kletka_imja in svjazi:
         # Временный корень обманки собираем в изолированном временном каталоге мира:
         koren = mir['vrem'] / ('obmanka-%s' % imja)
@@ -575,14 +654,22 @@ def rezhim_stabs(mir: dict) -> int:
             print('ORACLE_TAMPERED: клетка привязки не найдена: %s' % kletka_imja,
                   file=sys.stderr)
             return 2
+        if kletka.uslovie:
+            # Вход обманки (клетка привязки) не материализуется на этой станции
+            # (chmod-000 под root): именованный пропуск, обманка вне суда —
+            # не молчаливый зелёный и не ложная поимка (слово владельца, fix3).
+            print('189 %s NEZAPUSKAEMA: клетка привязки %s — %s'
+                  % (imja, kletka_imja, kletka.uslovie))
+            continue
         ulov = not sudit(kletka)  # обманка НЕ удовлетворяет ожиданию клетки
+        sudimyh += 1
         if ulov:
             poimano += 1
         else:
             zhivyh += 1
         print('189 %s %s' % (imja, 'POIMAN' if ulov else 'ZHIV — дефект не различим'))
     print('ИТОГ 189: rc=%d OBMANOK=%d POIMANY=%d ZHIVYH=%d'
-          % (0 if zhivyh == 0 else 1, len(svjazi), poimano, zhivyh))
+          % (0 if zhivyh == 0 else 1, sudimyh, poimano, zhivyh))
     return 0 if zhivyh == 0 else 1
 
 

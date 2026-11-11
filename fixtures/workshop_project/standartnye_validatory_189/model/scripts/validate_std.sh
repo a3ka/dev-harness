@@ -11,17 +11,22 @@ PY="${VALIDATE_STD_PYTHON:-python3}"
 
 otkaz2() { printf '%s\n' "$*" >&2; exit 2; }
 
-pin_kolonki() { # $1=инструмент → "version<TAB>sha256" (пусто, если строки нет)
+pin_kolonki() { # $1=инструмент → "version<TAB>sha256" (пусто, если строки нет);
+  # rc≠0 — пин-файл НЕ ЧИТАЕТСЯ (awk его не открывает). Три состояния пин-файла
+  # различимы (Блок 4 критика, вызов 3): «файла нет»/«не читается» →
+  # VALIDATOR_PINS ДО резолва, «файл цел, строки нет» → VALIDATOR_MISSING.
   awk -F'\t' -v t="$1" '$1 == t { printf "%s\t%s\n", $2, $3; exit }' "$PINS" 2>/dev/null
 }
 
 sha256_faila() { sha256sum "$1" 2>/dev/null | awk '{ print $1 }'; }
 
 rezolve_bin() { # $1=инструмент, $2=имя шва ENV → путь проверенного бинаря
-  local instrument="$1" shev="$2" bin="" ver pin fakt
+  local instrument="$1" shev="$2" bin="" ver pin fakt vp
   bin="${!shev:-}"
   if [ -z "$bin" ]; then
-    IFS="$(printf '\t')" read -r ver pin <<< "$(pin_kolonki "$instrument")"
+    vp="$(pin_kolonki "$instrument")" \
+      || otkaz2 "VALIDATOR_PINS: файл пинов не читается: $PINS"
+    IFS="$(printf '\t')" read -r ver pin <<< "$vp"
     [ -n "$ver" ] || otkaz2 "VALIDATOR_MISSING: $instrument (нет строки пина: $PINS)"
     bin="$HOME/.local/state/dev-harness/validators/$instrument/$ver/$instrument"
     if [ ! -f "$bin" ]; then
@@ -29,7 +34,9 @@ rezolve_bin() { # $1=инструмент, $2=имя шва ENV → путь п�
     fi
   fi
   [ -n "$bin" ] && [ -f "$bin" ] || otkaz2 "VALIDATOR_MISSING: $instrument"
-  IFS="$(printf '\t')" read -r ver pin <<< "$(pin_kolonki "$instrument")"
+  vp="$(pin_kolonki "$instrument")" \
+    || otkaz2 "VALIDATOR_PINS: файл пинов не читается: $PINS"
+  IFS="$(printf '\t')" read -r ver pin <<< "$vp"
   [ -n "$ver" ] || otkaz2 "VALIDATOR_MISSING: $instrument (нет строки пина: $PINS)"
   [ -n "$pin" ] || otkaz2 "VALIDATOR_MISSING: $instrument (пин без sha256: $PINS)"
   fakt="$(sha256_faila "$bin")"
