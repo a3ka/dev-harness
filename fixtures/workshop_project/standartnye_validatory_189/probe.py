@@ -193,21 +193,54 @@ def koren_bez_stroki(koren: Path, mir: dict) -> Path:
     zapisat(koren2 / 'ops' / 'server' / 'validators.tsv', bez)
     return koren2
 
-def sreda_bez_shvov(mir, home=None, **nadbavki):
-    """Среда клетки БЕЗ швов бинарей: VALIDATE_STD_ACTIONLINT/SHELLCHECK/PYTHON
-    сняты — резолв обязан пойти «дом установки → command -v» (инвариант 2).
+def koren_s_defoltom(koren: Path, mir: dict, bez_pin_fajla: bool = False) -> Path:
+    """Вариант корня субъекта для клеток ДЕФОЛТНОГО пути пин-файла (v26–v30).
 
-    VALIDATE_STD_PINS остаётся пин-файлом МИРА батареи (один и тот же для всех
-    клеток, как и двойники): пин-файл — конфигурация мира, не шов резолва
-    бинаря; без него клетка «пин-совпадающий бинарь в доме» неисполнима в
-    голом прогоне после implementer (реальные пины репо против двойника) и
-    обязательство «голый прогон после implementer зелёный» ломается.
+    Техника koren_bez_stroki (ДЕМО-2 критика, вызов 2): скрипты копируются из
+    проверяемого корня, пин-файл мира ставится на ДЕФОЛТНОЕ место
+    ops/server/validators.tsv; bez_pin_fajla=True — вариант ВООБЩЕ без
+    пин-файла (v30: отказ VALIDATOR_PINS). В голом прогоне до реализации
+    скриптов нет — вариант остаётся без них и клетка красна именем
+    отсутствующего субъекта, как остальные.
+    """
+    imja = 'variant-bez-pin-fajla-' if bez_pin_fajla else 'variant-s-defoltom-'
+    koren2 = mir['vrem'] / (imja + koren.name)
+    for f in ('validate_std.sh', 'validate_std_json.py', 'check_canon_fragment.py'):
+        istochnik = koren / 'scripts' / f
+        if istochnik.is_file():
+            cel = koren2 / 'scripts' / f
+            cel.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(istochnik, cel)
+    if not bez_pin_fajla:
+        zapisat(koren2 / 'ops' / 'server' / 'validators.tsv',
+                mir['pins'].read_text(encoding='utf-8'))
+    return koren2
+
+def sreda_defolt(mir, home=None, **nadbavki):
+    """Среда клеток ДЕФОЛТНОГО пути пин-файла: ни одного VALIDATE_STD_*.
+
+    Сняты и швы бинарей, и сам пин-файл: резолв пина обязан пойти по дефолту
+    `<каталог скрипта>/../ops/server/validators.tsv` субъекта (инвариант 2;
+    Блок 3 критика, вызов 2 — положительная различимость дефолта).
     """
     env = dict(os.environ)
     env['HOME'] = str(home if home is not None else mir['home'])
     for kluch in [k for k in env if k.startswith('VALIDATE_STD_')]:
         del env[kluch]
     env.pop('PYTHONPATH', None)
+    env.update(nadbavki)
+    return env
+
+def sreda_bez_shvov(mir, home=None, **nadbavki):
+    """Среда клетки БЕЗ швов бинарей: VALIDATE_STD_ACTIONLINT/SHELLCHECK/PYTHON
+    сняты — резолв обязан пойти «дом установки → command -v» (инвариант 2).
+
+    VALIDATE_STD_PINS остаётся пин-файлом МИРА батареи: для клеток v18–v22
+    дефолтный путь не предмет, пин-файл — конфигурация мира (как и двойники).
+    Дефолтный путь пин-файла покрыт отдельными клетками v26–v30 в среде
+    sreda_defolt — без единого VALIDATE_STD_* (совет 2 критика, вызов 2).
+    """
+    env = sreda_defolt(mir, home=home)
     env['VALIDATE_STD_PINS'] = str(mir['pins'])
     env.update(nadbavki)
     return env
@@ -408,6 +441,39 @@ def kletki(koren: Path, mir: dict) -> list:
     e['PYTHONPATH'] = str(mir['site_dvizhka'])
     K.append(Kletka('v25-json-tolko-tip', argv, sreda(mir, **e), 1,
                     ['JSON_INVALID:/ves', 'is not of type']))
+
+    # ── дефолтный путь пин-файла (Блок 3 критика, вызов 2: каждый дефолт
+    # резолва — обёртки и движка json — имеет положительную и парную
+    # отрицательную клетку). Техника ДЕМО-2: вариант-корень субъекта с
+    # пин-файлом мира на ДЕФОЛТНОМ месте, среда БЕЗ единого VALIDATE_STD_*
+    # (sreda_defolt) — резолв пина обязан пойти по дефолту самого скрипта. ──
+    koren_def = koren_s_defoltom(koren, mir)
+    argv = ['bash', str(koren_def / 'scripts' / 'validate_std.sh'),
+            'workflow', str(M / 'honest.yml')]
+    K.append(Kletka('v26-defolt-chestnyj', argv,
+                    sreda_defolt(mir, home=mir['dom_chestnyj']), 0))
+    argv = ['bash', str(koren_def / 'scripts' / 'validate_std.sh'),
+            'workflow', str(M / 'honest.yml')]
+    K.append(Kletka('v27-defolt-podmena-v-dome', argv,
+                    sreda_defolt(mir, home=mir['dom_podmena']), 2,
+                    ['VALIDATOR_PIN: actionlint']))
+    argv = ['python3', str(koren_def / 'scripts' / 'validate_std_json.py'),
+            str(M / 'shema.json'), str(M / 'dokument.json')]
+    e28 = sreda_defolt(mir)
+    e28['PYTHONPATH'] = str(mir['site_dvizhka'])
+    K.append(Kletka('v28-json-defolt-chestnyj', argv, e28, 0))
+    argv = ['python3', str(koren_def / 'scripts' / 'validate_std_json.py'),
+            str(M / 'shema.json'), str(M / 'dokument.json')]
+    e29 = sreda_defolt(mir)
+    e29['PYTHONPATH'] = str(mir['site'])
+    K.append(Kletka('v29-json-defolt-versija-ne-ta', argv, e29, 2,
+                    ['ENGINE_VERSION: jsonschema']))
+    argv = ['bash', str(koren_s_defoltom(koren, mir, bez_pin_fajla=True)
+                        / 'scripts' / 'validate_std.sh'),
+            'workflow', str(M / 'honest.yml')]
+    K.append(Kletka('v30-pin-fajl-net', argv,
+                    sreda_defolt(mir, home=mir['dom_chestnyj']), 2,
+                    ['VALIDATOR_PINS']))
     return K
 
 
