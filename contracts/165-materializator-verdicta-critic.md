@@ -8,6 +8,7 @@
 - `roles/critic.md:40-55` требует завершённый суд по закоммиченному OBJECT; `history://Crit163b` демонстрирует существующий yield с полным verdict и заданием `OBJECT=...`; JSONL сессии содержит событие вызова `yield` и `details.data.verdict`, а файл вердикта может лежать только в scratch судьи. Н-источник — уже состоявшаяся сессия, а не новый спавн.
 - `scripts/check_sud_model.sh --verdict` и `scripts/judge_gate.sh --verdict-row --sud` судят обычного судью по модели, трассе и объекту перед строкой журнала; материализатор НЕ судья и не может создавать строку accept этой дорогой ногой без судьи. Эти механизмы остаются для обычных судов и их вызовов; обходной вызов с подложным `--sud` недопустим.
 - `.omp/extensions/spawn-guard.ts` берёт алфавит ролей из установочного `config/agent_models.json`; `scripts/gen-harness.ts` выводит `.omp/agents/*.md` из `roles/*.md` и модели конфига; `scripts/zamok_predmeta.sh` перечисляет WORKERS/JUDGES и пропускает другие зарегистрированные роли без занятия предмета. `scripts/make_task.sh` сегодня закрывает собственный алфавит ролью без materializer: для штатного запуска нужен адресный допуск контекста, не добавление в замок. `scripts/check_zones.sh` читает зоны из замороженного контракта.
+- Контракты 104 (сверка модели/привязки судьи перед строкой журнала `registry/candidates.tsv`) и 173 (нормализация имён моделей при сравнении) не материализуют ФАЙЛ вердикта и не создают роль: 165 добавляет запись байтов уже состоявшегося accept в `verdicts/critic/` с owner-цитатой и ролью вне WORKERS/JUDGES — не дубль. `models_actual.sh --tsv --bind` при session-id вне `[A-Za-z0-9._-]` (измерено: `Arbiter079Б1`) возвращает rc 2 `NOT_IMPLEMENTED` — дефект производителя трассы, зафиксированный контрактом 173 §Существующее; материализация вердикта судьи с таким session-id через маршрут 104 остаётся заблокированной, 165 её не обходит.
 
 ## Предмет
 
@@ -27,7 +28,7 @@
 2. Дано: завершённый critic с owner-цитатой и точным OBJECT. Когда `W --repo .` после реализации. Тогда rc 0; на выходе побайтово тот же verdict. Дано: чужой source, чужая роль, нет цитаты, иное OBJECT задания, незаконченный yield, `FAIL` вместо `accept`, иное OBJECT вердикта, не-critic в строке СУД, отсутствие verdict. Когда та же команда. Тогда каждый отдельный вход rc 1 со своей именованной причиной, файл назначения не создан. Дано: роль без цитаты / результат reviewer / подложный текст с `verdict=accept` без yield. Когда запускается дверь. Тогда rc 1, новый суд не запускается.
 3. Дано: существующий результат `history://Critic<ID>` и исходный parent `task`-call, взятый живым `read`, owner-сообщение с точной цитатой; когда materializer запускает дверь на живом источнике, тогда запись дословного вердикта и собственный commit; на изменённом exported JSON при неизменённой живой сессии — rc 1 `ISTOCHNIK_NE_CRITIC_HISTORY` без записи. Источник извлекается перед запуском кандидата и удерживается в памяти проверяющего; диск кандидата не перечитывается как истина. Если нет доверенного read/parent-свидетельства, эта нога остаётся красной, freeze запрещён.
 4. Дано: штатная регистрация роли. Когда `node scripts/gen-harness.ts --check`, `bash scripts/check_sud_model.sh --spawn verdict-materializer ignored`, `W --repo .` и scoped spawn-gate toy-проба. Тогда генератор rc 0, `check_sud_model` по имени новой роли rc 2 «роль вне алфавита судей», валидный materializer проходит алфавит spawn-guard и НЕ создаёт запись WORKERS/JUDGES в замке, `W` rc 0. Обычный critic сохраняет действующий `check_sud_model` и прежние батареи 104/140.
-5. Дано: черновик. Когда `bash scripts/pre_critic.sh contracts/165-materializator-verdicta-critic.md`, `bash scripts/check_spec_ready.sh . contracts/165-materializator-verdicta-critic.md` и `bash scripts/check_threat_model.sh . contracts/165-materializator-verdicta-critic.md`. Тогда каждый rc 0. До done `check_provodka` вправе отказать, когда CI-строка ещё не подключена; до done `bash scripts/check_provodka.sh . contracts/165-materializator-verdicta-critic.md` и source-gate проекта (если профиль требует) rc 0.
+5. Дано: черновик. Когда `bash scripts/pre_critic.sh contracts/165-materializator-verdicta-critic.md`, `bash scripts/check_spec_ready.sh . contracts/165-materializator-verdicta-critic.md`, `bash scripts/check_threat_model.sh . contracts/165-materializator-verdicta-critic.md` и `bash fixtures/workshop_project/verdict_materializer_165/zones_union_165.sh . contracts/165-materializator-verdicta-critic.md`. Тогда каждый rc 0; zones_union сверяет заявленные ПЕРЕСЕЧЕНИЕ с живыми frozen-тегами (чужой автор точной зоны — всегда, свой — пока контракт не закрыт done; каталожные зоны верхнего уровня и verdicts/ не суть пересечение). До done `check_provodka` вправе отказать, когда CI-строка ещё не подключена; до done `bash scripts/check_provodka.sh . contracts/165-materializator-verdicta-critic.md` и source-gate проекта (если профиль требует) rc 0.
 
 ПРЕДПОСЫЛКИ:
 - setting Существующий GitHub Actions workflow харнесса `.github/workflows/ci.yml` выполняет добавляемый scoped шаг батареи 165 в стандартной среде Python 3 без новых secrets, variables или environments.
@@ -41,6 +42,7 @@
 НЕ ЗАЩИЩАЕТ:
 - Модель с экспортом JSON сама по себе не аутентифицирует `history://`. Без живого read и parent task-call это демонстрация схемы полей, НЕ доказательство происхождения. Независимый ловец — живой сценарий 3 и adversary; недоступность источника — блокирующий отказ.
 - Настоящий владелец сообщения подтверждается контекстом сессии, не текстом файла owner.txt, доступного кандидату. Подмена доверенного контекста — отдельное нарушение границы установки.
+- Дефект производителя трассы (см. «Существующее»): session-id судьи с символами вне `[A-Za-z0-9._-]` ломает `models_actual.sh --tsv --bind` rc 2 до материализации; 165 не чинит производителя и не подменяет трассу — такой вердикт не материализуется (красная нога 3), ложной зелени нет.
 
 ## Зоны и проводка
 
@@ -61,6 +63,10 @@
 ПЕРЕСЕЧЕНИЕ implementer: .omp/config.yml — 010 только блоки modelRoles/fallbackChains, результат генератора
 ПЕРЕСЕЧЕНИЕ implementer: .omp/config.yml — 012 только блоки modelRoles/fallbackChains, результат генератора
 ПЕРЕСЕЧЕНИЕ implementer: .omp/config.yml — 025 только блоки modelRoles/fallbackChains, результат генератора
+ПЕРЕСЕЧЕНИЕ implementer: scripts/make_task.sh — 095 только адресный допуск materializer; трасса и запреты семейств не меняются
+ПЕРЕСЕЧЕНИЕ implementer: scripts/make_task.sh — 168 только адресный допуск materializer; трасса и запреты семейств не меняются
+ПЕРЕСЕЧЕНИЕ implementer: scripts/make_task.sh — 184 только адресный допуск materializer; трасса и запреты семейств не меняются
+ПЕРЕСЕЧЕНИЕ implementer: scripts/make_task.sh — 187 только адресный допуск materializer; трасса и запреты семейств не меняются
 ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 002 только шаг 165; чужие шаги не меняются
 ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 003 только шаг 165; чужие шаги не меняются
 ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 004 только шаг 165; чужие шаги не меняются
@@ -105,6 +111,20 @@
 ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 112 только шаг 165; чужие шаги не меняются
 ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 114 только шаг 165; чужие шаги не меняются
 ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 996 только шаг 165; чужие шаги не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 141 только шаг 165; чужие шаги не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 147 только шаг 165; чужие шаги не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 148 только шаг 165; чужие шаги не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 149 только шаг 165; чужие шаги не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 157 только шаг 165; чужие шаги не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 158 только шаг 165; чужие шаги не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 163 только шаг 165; чужие шаги не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 168 только шаг 165; чужие шаги не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 184 только шаг 165; чужие шаги не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 187 только шаг 165; чужие шаги не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 188 только шаг 165; чужие шаги не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 189 только шаг 165; чужие шаги не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 190 только шаг 165; чужие шаги не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 195 только шаг 165; чужие шаги не меняются
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 083 только строка 165; чужие строки не меняются
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 084 только строка 165; чужие строки не меняются
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 087 только строка 165; чужие строки не меняются
@@ -122,7 +142,35 @@
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 996 только строка 165; чужие строки не меняются
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 997 только строка 165; чужие строки не меняются
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 998 только строка 165; чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 141 только строка 165; чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 147 только строка 165; чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 148 только строка 165; чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 149 только строка 165; чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 157 только строка 165; чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 158 только строка 165; чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 163 только строка 165; чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 168 только строка 165; чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 184 только строка 165; чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 187 только строка 165; чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 188 только строка 165; чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 189 только строка 165; чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 190 только строка 165; чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 195 только строка 165; чужие строки не меняются
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 114 только замер 165; чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 141 только замер 165; чужие замеры не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 147 только замер 165; чужие замеры не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 148 только замер 165; чужие замеры не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 149 только замер 165; чужие замеры не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 157 только замер 165; чужие замеры не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 158 только замер 165; чужие замеры не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 163 только замер 165; чужие замеры не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 168 только замер 165; чужие замеры не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 184 только замер 165; чужие замеры не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 187 только замер 165; чужие замеры не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 188 только замер 165; чужие замеры не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 189 только замер 165; чужие замеры не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 190 только замер 165; чужие замеры не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 195 только замер 165; чужие замеры не меняются
 ПРОВОДКА:
 - guard=fixtures/workshop_project/verdict_materializer_165/probe.py
 - role=roles/verdict-materializer.md
