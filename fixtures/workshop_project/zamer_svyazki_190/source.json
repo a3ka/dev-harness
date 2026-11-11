@@ -1,0 +1,25 @@
+{
+  "kontrakt": "contracts/190-zamer-svyazki.md",
+  "subjekt": [
+    "scripts/zamer_svyazki.sh",
+    "scripts/zamer_svyazki.py",
+    "docs/190-zamer-svyazki.md"
+  ],
+  "piny": {
+    "dannye/orakul-tablicy.tsv": "1beb3e772f35c9b308e12b5f26e743d9f716a434e87d2b71df5a3e712a8754cb",
+    "dannye/orakul-rc.tsv": "54d340f0c6392369aac9eb2d42db319ab440bcd28e365d7a1ac3597e05a38929",
+    "model/zamer_model.py": "7cc013630d8553d359e97feb2b1988f74a00136bd748cabedb4ae21e186cd193",
+    "model/docs/190-zamer-svyazki.md": "e5e44eab55fa1c90ece6ee8723da9297d3b7326cc087c1198414bb5255b277bd"
+  },
+  "stab_vhod": {
+    "stab_schet_po_fajlam.py": "mir-b-bez-obryva",
+    "stab_poteral_obryv.py": "obryv-schitaetsja",
+    "stab_nol_ne_ustanovlen.py": "verdikt-bez-suda",
+    "stab_tokeny_ne_toj_roli.py": "tokeny-rolevye",
+    "stab_odinochnye_vse_roli.py": "odinochnye-hvost",
+    "stab_hvost_posle_pervoj_pravki.py": "odinochnye-hvost",
+    "stab_bloki_nol_bez_metok.py": "bloki-metki",
+    "stab_bez_okna.py": "okno-seansov"
+  },
+  "zametka": "оракул — данные dannye/ (правило 8: в память ДО субъекта); пины — байты носителей; стабы — мутации чтения кодом, привязки только здесь (Н-39)"
+}
