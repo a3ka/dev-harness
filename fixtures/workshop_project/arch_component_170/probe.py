@@ -19,8 +19,17 @@ RULE_ROLES = ('architect', 'critic', 'arbiter')
 PLAIN_ROLES = ('implementer', 'adversary', 'reviewer')
 MODEL_BODY = r'''ARCH_SEC=""
 if [ "$KIND" = task ]; then
+  _arch_repo="$(printf '%s' "$MERGED" | jq -r .repoId.value)"
+  _arch_code=0
+  if printf '%s\n' "$CBYTES" | grep -Eq '^КЛАСС ЗАДАЧИ:[[:space:]]*(кодовый|КОДОВЫЙ)([^[:alnum:]_]|$)'; then _arch_code=1; fi
   if [ -n "$ARCH_COMPONENT" ]; then
-    [ -d "$REPO/architecture" ] || die "ARCHITECTURE_NET: нет каталога architecture/"
+    [ -f "$REPO/architecture.lock.json" ] || die "ARCHITECTURE_NET: нет закреплённого коммита"
+    _arch_pin="$(jq -er '.commit' "$REPO/architecture.lock.json" 2>/dev/null)" || die "ARCHITECTURE_NET: нет закреплённого коммита"
+    printf '%s\n' "$_arch_pin" | grep -Eqx '[0-9a-f]{40}' || die "ARCHITECTURE_NET: lock не указывает на коммит архитектуры"
+    [ -n "${ARCHITECTURE_ROOT:-}" ] && [ -d "$ARCHITECTURE_ROOT" ] || die "ARCHITECTURE_NET: нет репозитория архитектуры ARCHITECTURE_ROOT"
+    [ "$(git -C "$ARCHITECTURE_ROOT" cat-file -t "$_arch_pin" 2>/dev/null)" = commit ] || die "ARCHITECTURE_NET: lock не указывает на коммит архитектуры"
+    _arch_dir="$(mktemp -d)"
+    git -C "$ARCHITECTURE_ROOT" archive "$_arch_pin" | tar -x -C "$_arch_dir" || die "ARCHITECTURE_NET: не прочитан закреплённый коммит"
     case "$ARCH_COMPONENT" in ''|,*|*,|*,,*) die "ARCH_COMPONENT_ID: пустой id" ;; esac
     _arch_rest="$ARCH_COMPONENT"
     while [ -n "$_arch_rest" ]; do
@@ -28,6 +37,18 @@ if [ "$KIND" = task ]; then
       if [ "$_arch_rest" = "$_arch_id" ]; then _arch_rest=""; else _arch_rest="${_arch_rest#*,}"; fi
       case "$_arch_id" in ''|[!A-Za-z0-9_]*|*[^A-Za-z0-9._-]*|*..*) die "ARCH_COMPONENT_ID: неконформный id" ;; esac
     done
+    if [ "$_arch_repo" = Complior-back ] && [ "$_arch_code" = 1 ]; then
+      # Witness of frozen/contracts/187/1 on the same input: the 170 world must satisfy 187a.
+      _arch_task="$CBYTES"
+      [ -z "$TASKFILE" ] || _arch_task="$(cat "$TASKFILE")"
+      _arch_line="$(printf '%s\n' "$_arch_task" | grep -m1 -E '^АРХИТЕКТУРА:' || true)"
+      printf '%s\n' "$_arch_line" | grep -Eqx 'АРХИТЕКТУРА: L[123] [A-Za-z0-9_][A-Za-z0-9._-]*(,[A-Za-z0-9_][A-Za-z0-9._-]*)*' || die "ARCH_LINE_MISSING: нет строки АРХИТЕКТУРА"
+      case "$_arch_line" in 'АРХИТЕКТУРА: L3 '*) die "ARCH_OWNER: L3" ;; esac
+      for _arch_path in $(printf '%s\n' "$_arch_task" | sed -n 's/^ЗОНА implementer://p'); do
+        _arch_where="$(cd "$_arch_dir" && node tooling/checks/cli.js locate --path "$_arch_path")" || die "PATH_WITHOUT_COMPONENT: $_arch_path"
+        printf '%s\n' "${_arch_line#АРХИТЕКТУРА: L? }" | tr ',' '\n' | grep -Fxq "$_arch_where" || die "ARCH_ZONE: $_arch_path"
+      done
+    fi
     _arch_rest="$ARCH_COMPONENT"
     while [ -n "$_arch_rest" ]; do
       _arch_id="${_arch_rest%%,*}"
@@ -35,19 +56,25 @@ if [ "$KIND" = task ]; then
       _arch_rules=""
       case "$ROLE" in architect|critic|arbiter) _arch_rules="--with-rules" ;; esac
       if [ -n "$_arch_rules" ]; then
-        _arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --with-rules --component "$_arch_id" 2>&1)" || die "ARCH_BRIEF_OTKAZ: $_arch_id"
+        _arch_text="$(npm --prefix "$_arch_dir" run brief -- --compact --with-rules --component "$_arch_id" 2>&1)" || die "ARCH_BRIEF_OTKAZ: $_arch_id"
       else
-        _arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --component "$_arch_id" 2>&1)" || die "ARCH_BRIEF_OTKAZ: $_arch_id"
+        _arch_text="$(npm --prefix "$_arch_dir" run brief -- --compact --component "$_arch_id" 2>&1)" || die "ARCH_BRIEF_OTKAZ: $_arch_id"
       fi
       [ -n "$_arch_text" ] || die "ARCH_BRIEF_OTKAZ: пустой $_arch_id"
       ARCH_SEC="${ARCH_SEC}${_arch_text}
 "
     done
-  elif [ -d "$REPO/architecture" ] && printf '%s\n' "$CBYTES" | grep -Eq '^КЛАСС ЗАДАЧИ:[[:space:]]*(кодовый|КОДОВЫЙ)([^[:alnum:]_]|$)'; then
+    rm -rf "$_arch_dir"
+  elif { [ -f "$REPO/architecture.lock.json" ] || [ "$_arch_repo" = Complior-back ]; } && [ "$_arch_code" = 1 ]; then
     die "ARCH_COMPONENT_NET: требуется --arch-component"
   fi
 fi
 '''
+# Anchors of the honest control used by mutants; replace_once proves each occurs exactly once.
+LOCK_CHECK = r'''[ -f "$REPO/architecture.lock.json" ] || die "ARCHITECTURE_NET: нет закреплённого коммита"'''
+PIN_READ = r'''_arch_pin="$(jq -er '.commit' "$REPO/architecture.lock.json" 2>/dev/null)" || die "ARCHITECTURE_NET: нет закреплённого коммита"'''
+PIN_GRAMMAR = r'''    printf '%s\n' "$_arch_pin" | grep -Eqx '[0-9a-f]{40}' || die "ARCHITECTURE_NET: lock не указывает на коммит архитектуры"'''
+ARCHIVE = r'''    git -C "$ARCHITECTURE_ROOT" archive "$_arch_pin" | tar -x -C "$_arch_dir" || die "ARCHITECTURE_NET: не прочитан закреплённый коммит"'''
 
 
 def replace_once(text, old, new):
@@ -71,7 +98,27 @@ def model_text():
     return text
 
 
-def world(*, arch=True, code=True, class_line=None):
+# Frozen 187a (frozen/contracts/187/1) requires this standalone line in a backend code task;
+# the IDs cover every --arch-component ID the battery passes.
+ARCH_LINE = 'АРХИТЕКТУРА: L1 api.identity,worker.events'
+# Pinned model: only the 187a `locate` command; the 170 brief boundary is `npm --prefix <tree> run brief`.
+MODEL_CLI = r'''const a = process.argv.slice(2);
+if (a[0] === 'locate' && a[1] === '--path' && a.length === 3) {
+  if (a[2] === 'scripts/' || a[2].startsWith('scripts/')) { console.log('api.identity'); process.exit(0); }
+  console.error('PATH_WITHOUT_COMPONENT'); process.exit(1);
+}
+console.error('cli.js: brief goes through npm run brief'); process.exit(2);
+'''
+
+
+def model_tree(directory, revision):
+    (directory / 'tooling/checks').mkdir(parents=True, exist_ok=True)
+    (directory / 'package.json').write_text('{"scripts":{"brief":"node tooling/checks/cli.js brief"}}\n')
+    (directory / 'tooling/checks/cli.js').write_text(MODEL_CLI)
+    (directory / 'brief-revision').write_text(revision + '\n')
+
+
+def world(*, lock='pin', code=True, class_line=None, local_copy=False):
     built = subprocess.run(['bash', '-c', '. "$1"; _t95_world arch-170', '_', str(TOY)],
                            capture_output=True, text=True, check=True).stdout.strip()
     repo = Path(built) / 'repo'
@@ -92,15 +139,35 @@ def world(*, arch=True, code=True, class_line=None):
     contract = repo / 'contracts/777-toy.md'
     contract.write_text((class_line if class_line is not None else
                          'КЛАСС ЗАДАЧИ: ' + ('кодовый' if code else 'документальный'))
-                        + '\n' + contract.read_text())
+                        + '\n' + ARCH_LINE + '\n' + contract.read_text())
     (repo / 'registry/trace.tsv').write_text(''.join(
         f'{role}\topenai-codex/gpt-6-sol\tallowed\n' for role in ('orchestrator',) + RULE_ROLES + PLAIN_ROLES))
-    if arch:
-        (repo / 'architecture').mkdir()
+    model = Path(built) / 'CompliorOS-architecture'
+    model.mkdir()
+    subprocess.run(['git', '-C', str(model), 'init', '-q'], check=True)
+    model_tree(model, 'PINNED-170')
+    subprocess.run(['git', '-C', str(model), 'add', '.'], check=True)
+    subprocess.run(['git', '-C', str(model), '-c', 'user.name=Fixture',
+                    '-c', 'user.email=fixture@local', 'commit', '-qm', 'published architecture'], check=True)
+    pin = subprocess.run(['git', '-C', str(model), 'rev-parse', 'HEAD'],
+                         capture_output=True, text=True, check=True).stdout.strip()
+    (model / 'brief-revision').write_text('WRONG-HEAD-170\n')
+    subprocess.run(['git', '-C', str(model), 'add', '.'], check=True)
+    subprocess.run(['git', '-C', str(model), '-c', 'user.name=Fixture',
+                    '-c', 'user.email=fixture@local', 'commit', '-qm', 'later head'], check=True)
+    lock_text = {'pin': json.dumps({'commit': pin, 'workItem': 'COMPLIOR-777'}),
+                 'zero': json.dumps({'commit': '0' * 40, 'workItem': 'COMPLIOR-777'}),
+                 'symbolic': json.dumps({'commit': 'HEAD', 'workItem': 'COMPLIOR-777'}),
+                 'no_commit': json.dumps({'workItem': 'COMPLIOR-777'}),
+                 'empty': ''}
+    if lock is not None:
+        (repo / 'architecture.lock.json').write_text(lock_text[lock])
+    if local_copy:
+        model_tree(repo / 'architecture', 'WRONG-LOCAL-170')
     subprocess.run(['git', '-C', str(repo), 'add', '.'], check=True, capture_output=True)
     subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'toy context'], check=True)
     subprocess.run(['git', '-C', str(repo), 'tag', 'frozen/contracts/777/1'], check=True)
-    return Path(built), repo
+    return Path(built), repo, model
 
 
 def invoke(subject, repo, role, component=None, *, kind='task', env=None):
@@ -122,13 +189,31 @@ CLASS_LINES = {
 }
 
 
+def section(text, title):
+    marker = f'=== {title} ===\n'
+    if text.count(marker) != 1:
+        return []
+    return text.split(marker, 1)[1].split('=== ', 1)[0].splitlines()
+
+
+NO_LOCK = ('legacy', 'architecture_missing', 'architecture_missing_required', 'local_without_lock')
+LOCK_OF = {'invalid_pin': 'zero', 'empty_lock': 'empty', 'empty_lock_required': 'empty',
+           'lock_without_commit': 'no_commit', 'symbolic_pin': 'symbolic'}
+OTHER_PROJECT = ('wrong_project', 'legacy', 'empty_lock_required')
+NO_PIN = 'ОТКАЗ: ARCHITECTURE_NET: нет закреплённого коммита'
+NOT_COMMIT = 'ОТКАЗ: ARCHITECTURE_NET: lock не указывает на коммит архитектуры'
+PIN_TAIL = {'architecture_missing': NO_PIN, 'local_without_lock': NO_PIN, 'empty_lock': NO_PIN,
+            'lock_without_commit': NO_PIN, 'invalid_pin': NOT_COMMIT, 'symbolic_pin': NOT_COMMIT}
+PIN_REFUSALS = tuple(PIN_TAIL) + ('model_root_unset',)
+
+
 def run_case(name, subject):
     role = {'brief_kind': 'orchestrator', 'critic_rules': 'critic', 'arbiter_rules': 'arbiter',
             'implementer_plain': 'implementer', 'adversary_plain': 'adversary',
             'reviewer_plain': 'reviewer', 'implementer_brief_failure': 'implementer',
             'adversary_brief_failure': 'adversary',
             'reviewer_brief_failure': 'reviewer'}.get(name, 'architect')
-    arch = name not in ('legacy', 'architecture_missing')
+    lock = None if name in NO_LOCK else LOCK_OF.get(name, 'pin')
     code = name != 'document'
     component = ('api.identity,worker.events' if name in
                  ('multi_component', 'brief_failure', 'implementer_brief_failure',
@@ -136,9 +221,10 @@ def run_case(name, subject):
                  'api.identity,../x' if name == 'second_malformed_id' else
                  '../escape' if name == 'malformed_id' else
                  'api.identity' if name in ('architect_rules', 'critic_rules', 'arbiter_rules',
-                    'implementer_plain', 'adversary_plain', 'reviewer_plain', 'lose_map',
-                    'lose_rules', 'malformed_id', 'architecture_missing', 'brief_over_budget') else None)
-    built, repo = world(arch=arch, code=code, class_line=CLASS_LINES.get(name))
+                    'implementer_plain', 'adversary_plain', 'reviewer_plain', 'local_wrong',
+                    'malformed_id', 'brief_over_budget') + PIN_REFUSALS else None)
+    built, repo, model = world(lock=lock, code=code, class_line=CLASS_LINES.get(name),
+                               local_copy=name in ('local_wrong', 'local_without_lock'))
     try:
         expected_ids = IDS if name == 'multi_component' else IDS[:1]
         nonce = 'SENTINEL-170-' + name
@@ -148,8 +234,9 @@ def run_case(name, subject):
         with tempfile.TemporaryDirectory(dir=VERIFY, prefix='arch170-bin-') as bin_dir:
             os.symlink(HERE / 'npm_stub.py', Path(bin_dir) / 'npm')
             calls = Path(bin_dir) / 'calls'
-            env = dict(os.environ, ARCH170_PROJECT=str(repo), ARCH170_NONCE=nonce,
-                       ARCH170_CALLS=str(calls), PATH=bin_dir + os.pathsep + os.environ['PATH'])
+            env = dict(os.environ, ARCH170_NONCE=nonce,
+                       ARCH170_CALLS=str(calls), ARCHITECTURE_ROOT=str(model),
+                       PATH=bin_dir + os.pathsep + os.environ['PATH'])
             if name == 'class_upper_c':
                 env['LC_ALL'] = 'C'
             if name in ('brief_failure', 'implementer_brief_failure',
@@ -157,7 +244,9 @@ def run_case(name, subject):
                 env['ARCH170_FAIL_ID'] = 'worker.events'
             if name == 'brief_over_budget':
                 env['ARCH170_PADDING'] = '41000'
-            if name == 'wrong_project':
+            if name == 'model_root_unset':
+                del env['ARCHITECTURE_ROOT']
+            if name in OTHER_PROJECT:
                 # Profile cannot accidentally decide applicability: project identity changes.
                 profile = repo / 'harness.project.json'
                 data = json.loads(profile.read_text())
@@ -165,43 +254,52 @@ def run_case(name, subject):
                 profile.write_text(json.dumps(data))
             result = invoke(subject, repo, role, component, kind='brief' if name == 'brief_kind' else 'task', env=env)
             npm_calls = len(calls.read_text().splitlines()) if calls.exists() else 0
-        lines = result.stdout.splitlines()
-        manifest = result.stdout.split('=== MANIFEST ===\n', 1)[-1].split('=== BUDGET ===', 1)[0].splitlines()
+        map_lines = section(result.stdout, 'MAP')
+        rule_lines = section(result.stdout, 'RULES')
+        brief_lines = section(result.stdout, 'ARCHITECTURE BRIEF')
+        manifest = section(result.stdout, 'MANIFEST')
         reject = {'required': 'ARCH_COMPONENT_NET', 'wrong_project': 'ARCH_COMPONENT_NET',
+                  'architecture_missing_required': 'ARCH_COMPONENT_NET',
+                  'empty_lock_required': 'ARCH_COMPONENT_NET',
                   **{key: 'ARCH_COMPONENT_NET' for key in CLASS_LINES},
                   'malformed_id': 'ARCH_COMPONENT_ID', 'second_malformed_id': 'ARCH_COMPONENT_ID',
-                  'architecture_missing': 'ARCHITECTURE_NET',
+                  **{key: 'ARCHITECTURE_NET' for key in PIN_REFUSALS},
                   'brief_failure': 'ARCH_BRIEF_OTKAZ',
                   'implementer_brief_failure': 'ARCH_BRIEF_OTKAZ',
                   'adversary_brief_failure': 'ARCH_BRIEF_OTKAZ',
                   'reviewer_brief_failure': 'ARCH_BRIEF_OTKAZ',
                   'brief_over_budget': 'режь задачу'}.get(name)
         if reject:
-            good = (result.returncode == 1 and not result.stdout
-                    and result.stderr.splitlines()[0].startswith('ОТКАЗ: ' + reject + ':'))
-            if name == 'second_malformed_id':
+            first = (result.stderr.splitlines() or [''])[0]
+            good = result.returncode == 1 and not result.stdout and first.startswith('ОТКАЗ: ' + reject + ':')
+            if name in PIN_TAIL:
+                good &= first.startswith(PIN_TAIL[name])
+            if name in PIN_REFUSALS + ('second_malformed_id',):
                 good &= npm_calls == 0
             if name in ('brief_failure', 'implementer_brief_failure',
                         'adversary_brief_failure', 'reviewer_brief_failure'):
-                good &= 'worker.events' in result.stderr
+                good &= first.startswith('ОТКАЗ: ARCH_BRIEF_OTKAZ: worker.events')
             if name == 'brief_over_budget':
                 good &= '> 40000' in result.stderr
         else:
-            good = (result.returncode == 0 and 'MAP: STRUCTURE.md :: all modules' in lines
-                    and 'RULES: COMMON-RULES.md' in lines
+            good = (result.returncode == 0 and 'MAP: STRUCTURE.md :: all modules' in map_lines
+                    and 'RULES: COMMON-RULES.md' in rule_lines
                     and 'map\tSTRUCTURE.md\tmandatory\tprofile' in manifest
                     and 'rules\tCOMMON-RULES.md\tmandatory\tprofile' in manifest)
-            if component and name != 'malformed_id':
-                actual_briefs = [line for line in lines if line.startswith('# ARCH-BRIEF:')]
+            if component:
+                actual_briefs = [line for line in brief_lines if line.startswith('# ARCH-BRIEF:')]
+                good &= brief_lines.count('REVISION:PINNED-170') == len(expected_ids)
+                good &= 'WRONG-HEAD-170' not in brief_lines and 'WRONG-LOCAL-170' not in brief_lines
                 good &= actual_briefs == [row[0] for row in expected]
                 for title, own, fitness in expected:
-                    good &= lines.count(title) == 1 and lines.count(own) == 1
-                    good &= (lines.count(fitness) == 1) if role in RULE_ROLES else fitness not in lines
-            elif name not in ('malformed_id',):
-                good &= not any(line.startswith('# ARCH-BRIEF:') for line in lines)
+                    good &= brief_lines.count(title) == 1 and brief_lines.count(own) == 1
+                    good &= (brief_lines.count(fitness) == 1) if role in RULE_ROLES else fitness not in brief_lines
+            else:
+                good &= not any(line.startswith('# ARCH-BRIEF:') for line in brief_lines)
+                good &= 'REVISION:PINNED-170' not in brief_lines
         if name == 'malformed_id':
             good &= not (repo / 'architecture/generated').exists()
-        calls_detail = f' npm_calls={npm_calls}' if name == 'second_malformed_id' else ''
+        calls_detail = f' npm_calls={npm_calls}' if name in PIN_REFUSALS + ('second_malformed_id',) else ''
         print(f'170 {name} {"ok" if good else "KRASNO"} rc={result.returncode} '
               f'stderr={result.stderr.strip()!r}{calls_detail}', flush=True)
         return bool(good)
@@ -212,7 +310,11 @@ def run_case(name, subject):
 CASES = ('required', 'legacy', 'document', 'brief_kind', 'architect_rules',
          'critic_rules', 'arbiter_rules', 'implementer_plain', 'adversary_plain',
          'reviewer_plain', 'multi_component', 'wrong_project', 'malformed_id',
-         'architecture_missing', 'brief_failure', 'implementer_brief_failure',
+         'architecture_missing', 'architecture_missing_required', 'invalid_pin',
+         'local_wrong', 'local_without_lock',
+         'empty_lock', 'lock_without_commit', 'empty_lock_required', 'symbolic_pin',
+         'model_root_unset',
+         'brief_failure', 'implementer_brief_failure',
          'adversary_brief_failure', 'reviewer_brief_failure', 'brief_over_budget',
          'class_dot', 'class_parens', 'class_semicolon', 'class_risk_tail',
          'class_upper_c', 'second_malformed_id')
@@ -266,17 +368,33 @@ def main():
                  "  printf '=== MAP ===\\n%s' \"\"", 'architect_rules'),
                 ('rules_removed', "  printf '=== RULES ===\\n%s' \"$RULES_LINES\"",
                  "  printf '=== RULES ===\\n%s' \"\"", 'architect_rules'),
-                ('backend_only', '[ -d "$REPO/architecture" ] && printf',
-                 '[ -d "$REPO/architecture" ] && [ "$(printf \'%s\' "$MERGED" | jq -r .repoId.value)" = Complior-back ] && printf',
-                 'wrong_project'),
-                ('architecture_guard_removed',
-                 '[ -d "$REPO/architecture" ] || die "ARCHITECTURE_NET: нет каталога architecture/"',
-                 ': # missing architecture accepted', 'architecture_missing'),
+                ('backend_only', '|| [ "$_arch_repo" = Complior-back ]', '|| false',
+                 'architecture_missing_required'),
+                ('local_copy_required', LOCK_CHECK,
+                 '[ -d "$REPO/architecture" ] || die "ARCHITECTURE_NET: нет локальной копии"', 'architect_rules'),
+                ('local_source',
+                 '_arch_dir="$(mktemp -d)"',
+                 '_arch_dir="$REPO/architecture"', 'local_wrong'),
+                ('head_instead_of_pin',
+                 'archive "$_arch_pin"',
+                 'archive HEAD', 'local_wrong'),
+                ('missing_lock_fallback', LOCK_CHECK,
+                 'if [ ! -f "$REPO/architecture.lock.json" ] && [ -d "$REPO/architecture" ]; then '
+                 '_arch_dir="$REPO/architecture"; else\n    ' + LOCK_CHECK, 'local_without_lock'),
+                ('invalid_pin_accepted', PIN_READ,
+                 '_arch_pin="$(git -C "$ARCHITECTURE_ROOT" rev-parse HEAD)"', 'invalid_pin'),
+                ('empty_lock_head_fallback', PIN_READ,
+                 PIN_READ.split(' || die ')[0] + ' || _arch_pin="$(git -C "$ARCHITECTURE_ROOT" rev-parse HEAD)"',
+                 'empty_lock'),
+                ('applicability_valid_pin_only', '{ [ -f "$REPO/architecture.lock.json" ] ||',
+                 '{ jq -e \'.commit|test("^[0-9a-f]{40}$")\' "$REPO/architecture.lock.json" >/dev/null 2>&1 ||',
+                 'empty_lock_required'),
+                ('pin_grammar_unchecked', PIN_GRAMMAR + '\n', '', 'symbolic_pin'),
                 ('npm_failure_ignored', ' || die "ARCH_BRIEF_OTKAZ: $_arch_id"',
                  ' || :', 'brief_failure'),
                 ('plain_npm_failure_ignored',
-                 '_arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --component "$_arch_id" 2>&1)" || die "ARCH_BRIEF_OTKAZ: $_arch_id"',
-                 '_arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --component "$_arch_id" 2>&1)" || :',
+                 '_arch_text="$(npm --prefix "$_arch_dir" run brief -- --compact --component "$_arch_id" 2>&1)" || die "ARCH_BRIEF_OTKAZ: $_arch_id"',
+                 '_arch_text="$(npm --prefix "$_arch_dir" run brief -- --compact --component "$_arch_id" 2>&1)" || :',
                  'implementer_brief_failure'),
                 ('exact_class_line',
                  "grep -Eq '^КЛАСС ЗАДАЧИ:[[:space:]]*(кодовый|КОДОВЫЙ)([^[:alnum:]_]|$)'",
@@ -305,6 +423,10 @@ def main():
                     mutated = honest.replace(old, new)
                 else:
                     mutated = replace_once(honest, old, new)
+                if name == 'local_source':
+                    mutated = replace_once(mutated, ARCHIVE, '    : # use unpinned local copy')
+                if name == 'missing_lock_fallback':
+                    mutated = replace_once(mutated, ARCHIVE, ARCHIVE + '\n    fi')
                 if name == 'validate_during_npm':
                     mutated = replace_once(
                         mutated, '      _arch_rules=""',
