@@ -3,15 +3,16 @@
   "models": {
     "opus": "anthropic/claude-opus-5-5",
     "sonnet": "anthropic/claude-sonnet-5-5",
-    "fable": "anthropic/claude-fable-5-1",
+    "fable": "anthropic/claude-fable-5-2",
+    "mythos": "anthropic/claude-mythos-5-2",
     "haiku": "anthropic/claude-haiku-4-5",
     "glm": "zai/glm-5.3",
     "minimax": "minimax/MiniMax-M3",
     "minimax-lightning": "minimax/MiniMax-M2.5-lightning",
     "gpt-astra": "openai-codex/gpt-6-astra",
     "gpt-terra": "openai-codex/gpt-5.6-terra",
-    "gpt-sol": "openai-codex/gpt-6-sol",
-    "gpt-sol-xhigh": "openai-codex/gpt-6-sol:xhigh",
+    "gpt-sol": "openai-codex/gpt-6.1-sol",
+    "gpt-sol-xhigh": "openai-codex/gpt-6.1-sol:xhigh",
     "gpt-luna": "openai-codex/gpt-6-luna"
   },
   "tiers": {
