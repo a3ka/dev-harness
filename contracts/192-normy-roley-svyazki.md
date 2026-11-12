@@ -42,6 +42,7 @@ Frontier: (а) черновики Fable побайтово (выбрано) — 
 - `scripts/check_sdacha.sh` в дереве нет — его строит предмет 193 (Л2); ссылки норм на эту дверь до 193 обещанием не обеспечены (названный остаток).
 - От подмены самой семьи (`norms.tsv`, `drafts/`, база модели) вместе с ролями: protected-зона, смысл изменений судят critic и reviewer; побайтовое совпадение каналов роли и семьи сверяет `check_provodka.sh`, а расхождение литералов контракта и `norms.tsv` ловит сама батарея (rc 2).
 - От позиций вставки разделов 188 у implementer 188 (минимальная структурная вставка в модели — оценка снизу по байтам; запас худшего файла — 4973 байта).
+- От невидимых символов (zero-width U+200B и подобные, combining) внутри якорей отсутствия старого порядка: матчинг подстроки по нормализации пробелов оставляет клетку зелёной при видимо живой старой формулировке (мутация критика круга 2, С-2′); ловец — побайтовое совпадение канала роли с черновиком `drafts/edits/*.old` (replace_once пинует честный путь) и дельта-разбор ревьюера; unicode-иммунитет normalize заявленным обязательством не является (вырезка zero-width/combining — отдельный предмет, не клетка этой батареи).
 
 ## Приёмочный критерий
 
@@ -189,6 +190,7 @@ Frontier: (а) черновики Fable побайтово (выбрано) — 
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 188 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 189 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 190 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 195 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 994 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 995 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 996 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
@@ -226,6 +228,7 @@ Frontier: (а) черновики Fable побайтово (выбрано) — 
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 188 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 189 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 190 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 195 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 995 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
 ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 002 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
 ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 003 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
@@ -300,13 +303,14 @@ Frontier: (а) черновики Fable побайтово (выбрано) — 
 ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 188 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
 ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 189 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
 ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 190 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 195 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
 ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 994 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
 ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 995 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
 ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 996 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
 ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 997 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
 ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 998 только новая строка шага `normy_roley_svyazki_192`; чужие строки и замеры сохраняются.
 
-Пояснение перечня: строки «— 195» не заявлены — ЖИВОЙ ЗАМОРОЖЕННОЙ зоны 195 нет: тега `frozen/contracts/195/*` не существует (сверено `git tag -l 'frozen/contracts/*'`; union зон строится из блобов высших заморозок, не из рабочего дерева — влитый, но незамороженный контракт 195 в union не попадает). Появление живой зоны 195 на путях registry/ci-steps.tsv, registry/ci-zamery.tsv, .github/workflows/ci.yml обязан поймать сверщик `bash fixtures/workshop_project/normy_roley_svyazki_192/zones_union_192.sh . contracts/192-normy-roley-svyazki.md` отказом `NEOBYAVLENO: <путь> — обязательные по живым тегам: 195` (семейный сверщик конвенции 186/190 по живым frozen-тегам, адаптация zones_union_165.sh семьи 165; precision-гейт 043 в этом случае остаётся зелёным — автор зоны тот же orchestrator, случай совпадающего автора его грамматикой не требуем); строки добавит следующая редакция контракта (v+1), не молчаливое ожидание тега в конкретном клоне.
+Пояснение перечня: строки «— 195» заявлены по существующей точной зоне — на origin живут ОБА тега: `frozen/contracts/195/1` (peel `464e9e4d8`, в `origin/main`) и `done/contracts/195/1` (peel `0fb903f0d`; сверено при сдаче fix3: `git ls-remote --tags origin 'refs/tags/frozen/contracts/195/*' 'refs/tags/done/contracts/195/*'` → ровно эти два тега). Правило — из кода, не из прозы: членство в union живых зон строится из блобов высших заморозок всех frozen-тегов (`zones_load` в `scripts/lib_zones.sh` — done-тег на членство НЕ влияет, он завершает только диапазон применения ranges, Н-14); ОБЯЗАТЕЛЬНОСТЬ покрытия — чужой автор зоны всегда, свой автор пока контракт не закрыт done (`zones_union_192.sh`: `alien=1 || ! is_done`). Автор зоны 195 — orchestrator, свой для ЗОНА-строки `:73` на тех же путях, поэтому после `done/contracts/195/1` зона 195 НЕобязательна к покрытию, но остаётся существующей точной зоной — заявление «— 195» не фантомно; строки оставлены осознанно: если на момент заморозки 192 done-тега 195 не будет, та же зона снова обязательна — сверщик зелён в обоих состояниях мира. Карта кандидата сверяется по живым тегам origin НА МОМЕНТ ЗАМОРЗКИ, не на момент авторского коммита: сверщик `bash fixtures/workshop_project/normy_roley_svyazki_192/zones_union_192.sh . contracts/192-normy-roley-svyazki.md` на живом origin — rc 0 `ok: ПЕРЕСЕЧЕНИЕ покрывают обязательные живые зоны (17 файл(ов) сверено)` (прогон fix3); в scratch-мире без done-тега 195 при живом frozen — rc 0 (обязательная и заявленная), без frozen-тега 195 (собственный bare-origin, тег снят и там) — rc 1 `FANTOM` ×3 ровно на трёх «— 195»: сверщик различает «тега нет», «заморозка жива, не done» и «done закрыл», подгонки под клон нет; живую зону на путях ЗОНА-строк, опубликованную после этой сдачи, сверщик ловит `NEOBYAVLENO: <путь> — обязательные по живым тегам: <NNN>`, при рассинхроне тегов с origin — rc 2 missing-remote; precision-гейт 043 при заявленных парах зелён (прогон fix3).
 
 CI-проводку собственного шага и его замер orchestrator коммитит после freeze: `gen_ci_steps.sh --write`, `--check` rc 0; `step` вызывает `bash fixtures/workshop_project/normy_roley_svyazki_192/red_normy_roley_svyazki_192.sh --repo .`, а не внутренний `probe.py`.
 
