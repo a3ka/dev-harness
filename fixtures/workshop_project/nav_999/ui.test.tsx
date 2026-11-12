@@ -114,6 +114,11 @@ describe('999 ui', () => {
     expect(view.getByTestId('shell-profile-entry')).toBeTruthy();
     await fireEvent.press(view.getByTestId('shell-profile-entry'));
     expect(view.getByTestId('profile-surface')).toBeTruthy();
+    // Слово владельца 2026-11-12 (~11:50 UTC, issue #895 п.1): на экране
+    // профиля кнопки профиля НЕТ — только «Zurück» (147 v4 И-5 «цели start
+    // в profil отсутствуют», класс 11 набора 158 — SOSTOJANIE_SLITO);
+    // кнопка профиля остаётся в шапке разделов (проверено выше до нажатия).
+    expect(view.queryByTestId('shell-profile-entry')).toBeNull();
     expect(within(view.getByTestId('shell-back')).getByText(source.copy['global.back'].text)).toBeTruthy();
     expect(nearestCompositeIs(view.getByTestId('shell-safe-area'), SafeAreaView)).toBe(true);
     expect(nearestCompositeIs(view.getByTestId('shell-keyboard-container'), KeyboardAvoidingView)).toBe(true);
