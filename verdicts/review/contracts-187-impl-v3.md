@@ -1,95 +1,149 @@
 FAIL
-OBJECT=bd99c4b1d8e5563fba624f021e165a92d2ecf2b5
-СУД: repo=dev-harness; предмет=187; фаза=реализация (узкий ремонт двери 187а); роль=reviewer; вызов=1/1; модель-план=anthropic/claude-opus-5-5; модель-факт=anthropic/claude-opus-5-5 (по workstation-контексту сессии; оркестратор сверяет по трассе); сессия=Rev187DoorB; SHA=bd99c4b1d8e5563fba624f021e165a92d2ecf2b5; контракт=frozen/contracts/187/1 (тег 514df4b1 → коммит 52d3a3a1); предыдущий=нет по этому ремонту; исключение=слово владельца ~13:00 UTC через консультанта (ADR origin/main docs/owner/adr/2026-11-15-dver-187a-produktovye-puti.md)
+OBJECT=cd07d3a9d09504f1a81c4d0466781fcc70798152
+КЛАСС=кодовый; риск=обычный (подтверждён по закрытому перечню contracts/187-arhitektura-v-processe.md:4: дельта меняет двери процесса — разбор ответа locate, rc отказов, класс предмета; права/роли БД, авторизация, деньги, ПД/health и согласия, юридически значимые действия не затронуты; повышать не на чем)
+СУД: repo=dev-harness; предмет=187 (187а v3: дверь разбирает ответ locate целиком); фаза=реализация; роль=reviewer; вызов=1/1 (полный); модель-план=anthropic/claude-opus-5-5 (trace /tmp/dev-harness-verify/orch/trace-rev-plan.tsv); сессия=Rev187v3; модель-факт=anthropic/claude-opus-5-5; OBJECT=cd07d3a9d09504f1a81c4d0466781fcc70798152; предыдущий=verdicts/critic/contracts-187-v3.md; исключение=нет
 
-ИТОГ: ремонт закрывает Д1, Д2 и Д4. Д3 НЕ закрыт на настоящем закреплённом пине 907e9e80. Клетки Д3 зелёные только потому, что toy-CLI батареи кладёт в ответ locate поле, которого настоящий CLI не выдаёт. Два блока (Б-1, Б-2), пять советов (С-1…С-5).
+# Вердикт ревьюера — 187а v3, суд реализации, вызов 1/1
 
-ИДЕНТИФИКАЦИЯ ДЕРЕВА (А-350), одноразовый SSH-клон /tmp/rev187doorB-345160-1794754690 со своим .git:
-  git rev-parse FETCH_HEAD origin/wip/187/implementer → bd99c4b1d8e5563fba624f021e165a92d2ecf2b5 (оба)
-  git diff --quiet eb136a2664 bd99c4b1d8 → rc 0 (дерево bd99 = дерево eb136a; tree 8382f54a)
-  git cat-file -p bd99c4b1d8: parent eb136a2664, parent f50aa6b58b (merge 'origin/wip/187/implementer')
-  git diff --quiet frozen/contracts/187/1 bd99c4b1d8 -- contracts/187-arhitektura-v-processe.md → rc 0 (текст 187 после заморозки не менялся)
-  gh run view 43725631880 → {conclusion: success, headSha: bd99c4b1d8…, headBranch: wip/187/implementer, event: pull_request}
+Контракт: `frozen/contracts/187/2` (тег локален на станции) → коммит `e698aae9d98c71bf077fd70e20d941e672acb735` = tip `origin/wip/187/architect`; текст прочитан `git show e698aae9d:contracts/187-arhitektura-v-processe.md` (214 строк).
+Кандидат: `origin/wip/187/implementer` = `cd07d3a9d09504f1a81c4d0466781fcc70798152` (`git rev-parse` в одноразовом клоне `ssh://git@github.com/a3ka/dev-harness.git` → `/tmp/dev-harness-verify/Rev187v3/repo`, совпал с OBJECT). Родитель = `origin/main` = `0814d2f5a8980e6e8331f06b8e22911e5f57eade`. Один коммит, `user.name=implementer` (MiniMax-M3 по trace); судья — Anthropic Opus.
+Дерево суда: OBJECT + ОДНОРАЗОВО наложенные `git checkout origin/wip/187/architect -- fixtures/workshop_project/architecture_process_187/ contracts/187-arhitektura-v-processe.md` (без коммита).
 
-══ БЛОКИ ══
+## Итог
 
-Б-1 [функциональный дефект: Д3 не закрыт; обязательство ADR Д3 «пути модулей с outsideProductRuntime: true не судятся», frozen 187/1 :23/:29 «каждый продуктовый путь»]
-  Фрагмент: scripts/check_architecture_contract.sh @bd99 :295–299 (arch187_locate):
-    outside="$(printf '%s' "$out" | jq -r '(.matches[0].outsideProductRuntime // false) | tostring' …)"
-  Дверь ищет признак в ответе locate. У закреплённого CLI этого поля в матче нет. Модель 907e9e80 (/home/harness/dev-harness-projects/complior-back/wt/wip-136-demo/tmp/architecture-007-20261113, HEAD 907e9e808738…, porcelain 0) строит матч в tooling/checks/workflow.js:66–72 ровно из полей {module, components, specification, explicit, matched}. Признак есть только в определении модуля: products/back/tests/module.js:5 `outsideProductRuntime: true`. В вывод locate он не попадает.
-  Сырой ответ настоящего locate (node tooling/checks/cli.js locate --path tests/auth/login.test.js, rc=0):
-    "status": "DECLARED", "matches": [{"module": "module.tests", "components": [], "specification": "tests/module.js", "explicit": false, "matched": "tests/"}]   ← поля outsideProductRuntime нет
-  Замер двери OBJECT на настоящем пине (/tmp/dev-harness-verify/rev187doorB-d3.sh, ARCH187_LIB=1, исходник двери — из клона на bd99, hash-object 004b62f0 = blob bd99):
-    locate tests/auth/login.test.js rc=1 kind=componentless refusal=[PATH_WITHOUT_COMPONENT: путь tests/auth/login.test.js размещён моделью, но компонент не назван]
-    zone=[server/infrastructure/email/worker.js tests/auth/login.test.js] rc=1 refusal=[PATH_WITHOUT_COMPONENT: путь tests/auth/login.test.js …]
-    zone=[… server/infrastructure/migrations/x.js] rc=1 PATH_WITHOUT_COMPONENT (у migrations/module.js:5 тоже outsideProductRuntime: true)
-  Тексты бэкенда, origin/main 7db5f008, без fetch (/tmp/dev-harness-verify/rev187doorB-multi.sh):
-    181 [код] rc=1 PATH_WITHOUT_COMPONENT: путь tests/auth/grant-writers.js размещён моделью, но компонент не назван
-    185 [код] rc=1 PATH_WITHOUT_COMPONENT: путь tests/architecture/bindings.json размещён моделью, но компонент не назван | stderr: вне модели: provenance.json
-  На настоящем пине ветвь kind=outside недостижима. Боль 181, которую называет сама клетка, осталась. 185 проходит Д4 и падает на tests/**.
-  Что вернуть: дверь берёт outsideProductRuntime модуля матча из закреплённой модели по конформному каналу, а не из ответа locate. Канал выбирают architect и implementer; я его не проектирую.
+FAIL по двум блокам. Обе ошибки узкие, каждую можно исправить в одном месте. Боль приоритета №1 (А1) на реальном контракте 181 снята: `ARCH_187A_OK` на OBJECT при `PATH_WITHOUT_COMPONENT` на родителе (см. сырой вывод). Батарея architect зелёная, все мои мутанты двери красны своими клетками, область правки чиста.
 
-Б-2 [клетка на неконформной грамматике CLI: нарушение frozen 187/1 :37 «конформная грамматика CLI»; различение по Н-39 мнимое]
-  Фрагмент: fixtures/workshop_project/architecture_process_187/workflow_probe.py @bd99 — OUTSIDE_TESTS_MATCH = {'module': 'module.tests', 'components': [], 'outsideProductRuntime': True, 'emptyComponentsReason': …}, OPS_MATCH = {… 'outsideProductRuntime': False …}. Через TOY_CLI ('__OUTSIDE_TESTS_MATCH__', '__OPS_MATCH__') они попадают в ответ toy-locate.
-  Toy-CLI выдаёт в матче locate поля, которых закреплённый CLI не выдаёт (workflow.js:66–72). Клетка zone-outside-runtime зелёная на вымышленной форме ответа, её защитная пара zone-outside-false-refused судит вымышленное поле. Сообщение коммита fdc95c4c утверждает: «locate tests/** -> module.tests, components [], у module.tests outsideProductRuntime: true». Это верно о модуле, но не об ответе locate, который читает дверь. Батарея --repo . даёт CELLS=53 FAILURES=0, а реальный дефект Д3 при этом остаётся (Б-1). Это подгонка входа клетки под код, а не замер поведения пина.
-  Что вернуть: вход клеток Д3 повторяет настоящий канал признака байт-в-байт, как у CONTAINER_*: там форма ответа совпала с моим замером настоящего пина.
-  Владельцы: architect (fixture) и implementer (дверь, Б-1). Б-1 и Б-2 закрываются вместе.
+- [ ] **Р187v3-Б1 (блок, обязательство контракта).** `make_task` превращает rc 2 двери («нечем проверить») в rc 1.
+  - Фрагмент: `scripts/make_task.sh:880` `arch187_check_text … || die "$ARCH187_REFUSAL"` и `:887` `arch187_model_prepare … || die "$ARCH187_REFUSAL"`. `die` всегда даёт `exit 1`, а `ARCH187_RC=2` библиотеки двери игнорируется.
+  - Обязательство: контракт §«Дерево модели и зависимости» требует `ARCH_DEPS` «с rc 2 двери в любом режиме». §«Размещение путей (v3)» требует `ARCH_LOCATE_GRAMMAR` rc 2 «fail-closed». Зоны судит и `make_task` (§«Двери в целом»: «`make_task` судит задание и черновик контракта (класс, строка, зоны) и собирает бриф из пина»).
+  - Наблюдение (моя проба `probe_rc2.py`, переиспользует строители миров батареи, тот же OBJECT): `door-real-deps rc=2`, `freeze-real-deps rc=2`, `precritic-real-deps rc=2`, **`task-real-deps rc=1`**; `door/freeze/precritic-grammar-broken rc=2`, **`task-grammar-broken rc=1`**. Пак не выдаётся (`nopack`), имя отказа верное. Расходится только rc, и только у одной из четырёх дверей. `freeze_contract`/`pre_critic` implementer научил передавать `ARCH187_RC`, а `make_task` пропустил.
+  - Достижимость: да. На backend `make_task --arch-component` при недоступном npm (или с обрывом тела `locate`) отвечает rc 1, то есть «именованный отказ по существу» вместо «нечем проверить» (правило 7: отказ обязан говорить правду).
+  - Батарея этого не ловит: `deps-door-refusal` идёт действием `door`, `locate-grammar-refusal` — действием `freeze`. Клетки `make_task` на rc 2 нет. Поэтому починке нужна красная клетка (зона architect, добавление по шагу 5–6 законно).
+  - Измерено, что починка узкая. Две строки в `fix_mt` (`|| { printf 'ОТКАЗ: %s\n' "$ARCH187_REFUSAL" >&2; exit "${ARCH187_RC:-1}"; }` на :880 и :887) дают `task-real-deps rc=2`, `task-grammar-broken rc=2`, `nopack`; батарея `--repo` при этом `CELLS=68 FAILURES=0 SKIPPED=2`, rc 0.
 
-══ ЧТО ПРОВЕРЕНО И ПРОШЛО ══
+- [ ] **Р187v3-Б2 (блок: правило 7 AGENTS.md «не приём по догадке» + паразитная сложность 050 с тремя частями).** Ветвь «статус не назван или незнаком» в `arch187_locate` угадывает класс по rc и на ответе вне грамматики даёт ЗЕЛЁНЫЙ результат.
+  - Фрагмент: `scripts/check_architecture_contract.sh:313-323` (`*)` в `case "$status"`). Если тело — JSON-объект с массивом `matches`, а `status` нет или он незнаком, класс выводится из rc `locate`. При rc 0 и пустом объединении получается `empty`, то есть конформ.
+  - Отсутствующее свойство: класс ответа по контракту задаётся `status` и `matches` (§«Размещение путей», четыре класса (а)–(г)). Демаркация 019 (§«Снятия и границы v3») называет конформными только тела с полями `scope/path/status/matches[].components/implementationEvidence`. Источник пина выдаёт `status` всегда: `tooling/checks/workflow.js:87` `status: matches.length === 1 ? 'DECLARED' : 'UNRESOLVED'` (клон `/tmp/dev-harness-verify/arch-pin4`). Ни одна строка приёмки и ни одна клетка батареи эту ветвь не требуют. Toy-CLI всех миров печатает `status` (`workflow_probe.py:463,486`).
+  - Наблюдение (моя проба `probe_nostatus.sh`): тело без `status`, два претендента с пустыми компонентами, rc 0 → OBJECT: `ARCH_187A_OK`, rc 0. Тот же ответ со `status: UNRESOLVED` по контракту (г) — `PATH_WITHOUT_COMPONENT`. Получается fail-open на ответе вне грамматики, хотя сама функция объявляет «fail-closed: догадываться нельзя».
+  - Более простая форма проходит те же строки приёмки (измерено). `mut_h` заменяет ветвь именованным отказом `ARCH_LOCATE_GRAMMAR`/`ARCH187_RC=2`. Результат: `--repo` → `CELLS=68 FAILURES=0 SKIPPED=2` rc 0; с `ARCH187_REAL_ROOT=/tmp/dev-harness-verify/arch-pin4` → `CELLS=68 FAILURES=0 SKIPPED=0`, `live-real-pin`/`live-real-union` GREEN, rc 0. `probe_nostatus.sh` на `mut_h` даёт rc 2 `ARCH_LOCATE_GRAMMAR`. Текст отказа в починке стоит уточнить («ответ locate вне грамматики…»): тело формально парсится, и формулировка «не парсится как JSON» на этом входе неточна.
+  - Нужна красная клетка «тело без `status`» (зона architect).
 
-(1) Правила Д1/Д2/Д4 и инварианты frozen 187/1 :27–29, :41
-  Д1, настоящий пин (/tmp/dev-harness-verify/rev187doorB-d1.sh, digest лока бэкенда 4bb2d163…):
-    "  ok   check --base: rc 0, requiredModelGate PASS; вне вердикта модели (unresolved): latency.command-acceptance, latency.first-agent-event, latency.agent-completion"
-    model_check rc=0 refusal=[]
-  Ветви: rc 1 → ARCH_CHECK, rc 2 → ARCH_NOT_EVALUATED, gate != PASS при rc 0 → ARCH_NOT_EVALUATED, exit двери равен rc функции ("exit \"$rc\""). Ветви «вход не принят», «инструмент не запустился», «нет snapshotDigest» в диффе не тронуты (диф 174c68f6..eb136a: hunks @@-297 и @@-329 меняют только хвост после этих ветвей).
-  Вызывающие: pre_critic.sh:289–292 любой ненулевой rc → refuse; freeze_contract.sh:282 и make_task.sh:991 зовут arch187_check_text, а не model_check. Выход 2 вместо 1 никого не зеленит.
-  Д2, настоящий пин: zone=[server/infrastructure/email/worker.js] rc=0. Мутант M4 (граница каталога снята) → RED zone-container-escape rc=0 expected=1.
-  Д4, настоящий пин: zone=[… provenance.json] rc=0, stderr «вне модели: provenance.json»; zone=[… server/newdir/x.js] rc=1 PATH_WITHOUT_COMPONENT (несколько претендентов).
-  ARCH_ZONE за чужой компонент сохранён: 180 → ARCH_ZONE … api.transport, 183 → ARCH_ZONE … api.loader. Цикл сверки declared в arch187_zones не тронут.
-  ARCH_LOCATE_GRAMMAR сохранён: ветви '' / неизвестный status / не-JSON в arch187_locate не тронуты. Неизвестный ARCH187_LOCATE_KIND → return 1 с ARCH_PIN.
-  Пропуска по префиксу пути в двери нет: Д4 решает пустота .matches (jq '.matches | length' = "0"). Д3 решает поле ответа, но к Б-1 это поле недостижимо.
-  Реальный locate: DECLARED ⇔ matches.length === 1 (workflow.js:87). Значит, чтение matches[0] в DECLARED не теряет других матчей; это не находка.
+Советы (не блокируют):
+- С1. `arch187_intersects`, цикл в `arch187_line` и цикл id в `make_task.sh` трижды повторяют рез списка по запятым. Это одна грамматика в трёх копиях. Есть простая форма — одна функция-итератор. Строк приёмки, которые она бы не прошла, нет, но фрагмент маленький и дефекта не несёт.
+- С2. Комментарий `check_architecture_contract.sh:315` «декарено» — опечатка. При починке Б2 ветвь всё равно уходит.
+- С3 (порядок приземления, оркестратору). Ветка implementer самостоятельно на `origin/main` красна старой батареей main: `--repo .` на чистом OBJECT даёт `CELLS=34 FAILURES=1` (`freeze-foreign`: ожидание v1 по дисковой эвристике, снятой контрактом v2 С2). Приземлять только вместе с фикстурами architect v3 в одном дереве.
 
-(2) Батарея своей мерой (тот же клон, узкий прогон)
-  bd99 --model:  CELLS=53 STABS=0 FAILURES=0, rc=0
-  bd99 --stabs:  CELLS=53 STABS=54 FAILURES=0, rc=0
-  bd99 --repo .: CELLS=53 STABS=0 FAILURES=0, rc=0
-  Красное, 174c68f676 (клетки architect + дверь до ремонта) --repo .: CELLS=53 FAILURES=7, rc=1. Красные клетки: check-green-latency-unresolved, check-rc2-real-gate, check-rc0-gate-lie, zone-container-file, zone-outside-runtime, path-unresolved-zero-absent, path-unresolved-zero-present.
-  База main dd63fc0c12 --stabs: CELLS=40 STABS=43 FAILURES=0. Прирост +13 клеток (4 Д1, 3 Д2, 3 Д3, 3 Д4), +11 стабов.
-  Батарея main не ослаблена: строки CASES/STABS базы, sed+grep+sort+comm, old-not-in-new: 0 (79 строк базы, 103 строки OBJECT, разница 24 = 13+11). Отображение check-rc сохранено: 'check-1'→'1', 'check-2'→'2', прочее → '0'.
-  Мутанты двери (по одной строке sed, файл восстанавливался после каждого; /tmp/dev-harness-verify/rev187doorB-mut.sh):
-    M1 unresolved-none→unresolved-area: RED path-unresolved-zero-absent, path-unresolved-zero-present (FAILURES=2)
-    M2 gate-check снят: RED check-rc0-gate-lie rc=0 expected=2 (FAILURES=1)
-    M3 outside-флаг не читается (if true): RED zone-outside-false-refused, zone-outside-noflag-refused (FAILURES=2)
-    M4 граница каталога снята: RED zone-container-escape (FAILURES=1)
-  Клетки различают ветви кода. Различение клеток Д3 мнимое относительно пина (Б-2).
+## (1) Область правки
 
-(3) Зоны и авторство (Н-71)
-  git diff --name-only dd63fc0c12 eb136a2664 → fixtures/workshop_project/architecture_process_187/workflow_probe.py, scripts/check_architecture_contract.sh. Оба пути в frozen 187/1 :62/:63, в зонах architect и implementer соответственно.
-  Авторство (author/committer): 1f35ecb9, cfaaa9ee, fdc95c4c, 174c68f6 — architect/architect; eb136a26 — implementer/implementer (только scripts/check_architecture_contract.sh); bd99c4b1 (merge) — implementer/implementer. Везде author==committer.
-  git diff --name-only origin/main bd99 дополнительно показывает 7 файлов docs/owner/adr/**. Это сдвиг main (#953), ветка их не несёт.
+`git diff --stat origin/main...cd07d3a9d`:
+```
+ scripts/check_architecture_contract.sh | 372 +++++++++++++++++++++++++--------
+ scripts/done_contract.sh               |   9 +-
+ scripts/freeze_contract.sh             |  17 +-
+ scripts/make_task.sh                   |  15 +-
+ scripts/pre_critic.sh                  |  24 ++-
+ 5 files changed, 336 insertions(+), 101 deletions(-)
+```
+Своей мерой: `sort` путей диффа против `sed -n 's/^ЗОНА implementer: //p'` блоба `e698aae9d:contracts/187-…` — одни и те же 5 путей. `git diff --name-only … -- fixtures/ contracts/` → 0 строк. ЗОНА implementer в `frozen/contracts/187/1` та же.
+Что удалено (все `-`-строки двери прочитаны):
+- `sed -n 1p` в `arch187_locate`. Это корень боли А1, удалён по v3.
+- Дисковая эвристика `[ -e "$repo/$p" ] → ARCH_ZONE` и наследование компонента каталога неразмещённым файлом. Удалены по v2 С2 и v3 (г).
+- Флаг `--model-only` и `model_only`. Удалены по §pre_critic «ПОЛНЫЙ режим». Потребителей флага вне `contracts/` и `verdicts/` в дереве нет (grep `model-only|arch187_code_subject` → 0).
+- `.clone` из lock (v2 С4), имена `ARCH_PIN` для нет-клона/нет-пина вместо `ARCHITECTURE_NET` (v2 расхождение (3)), обязательность `ОПЕРАЦИЯ:` (v2 С3), подстрочный `grep NOT_EVALUATED` (v2 канон), прямой `node cli.js brief` (v2 расхождение (4)).
+Все удаления предписаны контрактом. Пересечения 072/094/095/103/170 не сужены: правки `pre_critic`, `freeze_contract`, `done_contract` лежат только внутри блоков 187а и вооружаются лишь при `arch187_scope` (repoId=Complior-back и lock). Новая ветка `make_task` — `elif [ "$_arch187" = "1" ]` (только в режиме 187а). Выход `pre_critic` rc 2 соответствует его объявленной грамматике («2 — нечем проверить», `pre_critic.sh:44-46`). Соседние батареи — ниже, rc 0.
 
-(5) Смешения с отложенной v+1 нет. 13 новых клеток: check-green-latency-unresolved, check-rc2-real-gate, check-rc1-real-gate, check-rc0-gate-lie, zone-container-file, zone-container-escape, path-unplaced-absent, zone-outside-runtime, zone-outside-false-refused, zone-outside-noflag-refused, path-unresolved-zero-absent, path-unresolved-zero-present, path-area-without-component. Клеток legacy-refused, cutover или precritic-проб v+1 среди них нет. Константы DUAL_*/AMBIG_* помечены «принесено минимально из v+1», но служат входами клеток этого ремонта (path-unplaced-absent, path-area-without-component).
+## (2) Сырой вывод (мои прогоны, дерево OBJECT + наложенные фикстуры architect)
 
-══ СОВЕТЫ (не блокируют) ══
+| команда | итог | rc |
+|---|---|---|
+| `red_architecture_process_187.sh` (без аргументов) | `CELLS=68 STABS=0 FAILURES=0 SKIPPED=2` | 0 |
+| `… --repo .` | `CELLS=68 STABS=0 FAILURES=0 SKIPPED=2` (SKIP: `live-real-pin`, `live-real-union` — «ARCH187_REAL_ROOT не задан») | 0 |
+| `ARCH187_REAL_ROOT=/tmp/dev-harness-verify/arch-pin4 … --repo .` | `CELLS=68 STABS=0 FAILURES=0 SKIPPED=0`; `GREEN live-real-pin: rc=0 … ARCH_187A_OK`, `GREEN live-real-union: rc=0 … ARCH_187A_OK` | 0 |
+| `… --model` | `CELLS=68 STABS=0 FAILURES=0 SKIPPED=0` | 0 |
+| `… --stabs` | `CELLS=68 STABS=70 FAILURES=0 SKIPPED=0` | 0 |
+| `… --repo parent` (скрипты родителя `0814d2f5a`, те же фикстуры) | `CELLS=68 STABS=0 FAILURES=30 SKIPPED=2` | 1 |
+| `… --wiring .` (чистый OBJECT) | — | 0 |
+| `gen_ci_steps.sh --check` | — | 0 |
+| `check_provodka.sh . contracts/187-…` | — | 0 |
 
-С-1 [Д1, fail-open вне достижимого]: в arch187_model_check gate="" при отсутствующем или нестроковом requiredModelGate, а при rc 0 это даёт зелёный. Комментарий там же говорит «rc одному не доверяют». С закреплённым CLI недостижимо: cli.js:263–305 всегда выдаёт requiredModelGate, rc 0 ⇔ PASS вне --strict. Совет: при rc 0 требовать gate == "PASS" явно.
-С-2 [верность toy]: для прочих файлов внутри CONTAINER_PREFIX toy отвечает UNRESOLVED с нулём матчей. Настоящий locate по hint-префиксу даёт DECLARED module.email []. Сейчас от этого не зависит ни одна клетка.
-С-3 [атомарность и состав]: OBJECT — merge с f50aa6b58b. Диапазон origin/main..bd99 несёт 7 коммитов, а не заявленные 5: лишние cd07d3a9 «187a v3…» и f50aa6b5 «187 fix2…» не являются предками main, их собственные диффы трогают make_task/pre_critic/freeze/done. Дерево совпадает с eb136a. land_project.sh:81 делает merge --no-ff, так что оба коммита войдут в историю main. Зоны 187 они не нарушают. Совет: сажать дерево eb136a2664 (ветка wip/187/implementer-door-1115) без этого merge.
-С-4 [050]: TOY_CLI собирается 20 вызовами .replace() по плейсхолдерам с assert на импорте. Проще одна инъекция JSON-таблицы ответов locate (const T=__TABLE__), строки приёмки те же.
-С-5 [след]: ветвь outside в arch187_zones пропускает путь молча (continue без строки), а Д4 печатает «вне модели». Правило владельца строку для Д3 не требует.
+Счёт своей мерой, не выводом батареи. `--stabs` разобран python-счётчиком строк `STAB `: 70 строк, 70 `caught`, 0 `ZHIV`, 70 уникальных имён, 62 различные ловящие клетки; GREEN-строк 68 из 68. Красное множество родителя перечислено поимённо из строк `RED`: 30 имён, и это ровно 17 + 4 + 9 клеток контракта §Приёмочный критерий. `line-duplicate` и `pin-foreign-hex` на родителе GREEN, как и обещано контрактом.
 
-ПАРАЗИТНАЯ СЛОЖНОСТЬ (050), по артефакту — ответы на вопросы (1)–(5):
-  • ARCH187_LOCATE_KIND (новый глобал, 5 значений): (1) различение классов Д3/Д4; (2) состояние явное, задокументировано в шапке arch187_locate; (3) правка свойства затрагивает 1 файл; (4) интерфейс по образцу ARCH187_REFUSAL/ARCH187_LOCATE_COMPS, глубина приемлема; (5) потребитель — arch187_zones, клетки Д3/Д4 — ESSENTIAL.
-  • arch187_model_check, gate/unresolved: (1) Д1 :27/:41; (2) unresolved только печатается; (3) 1 файл; (4) интерфейс прежний, rc 0/1/2; (5) клетки Д1 — ESSENTIAL.
-  • exit "$rc" двери: (1) Д1 «exit = rc функции»; (2) нет нового состояния; (3) 1 файл; (4) —; (5) check-rc2-real-gate — ESSENTIAL.
-  • arch187_zones, перестройка каталог/путь: (1) Д2/Д4; (2) нет нового состояния; (3) 1 файл; (4) интерфейс прежний; (5) клетки Д2/Д4 — ESSENTIAL.
-  • Семья toy-констант и TOY_CLI-шаблон, CHECK_RC_TOKENS, action 'door', помощники locate_answer/union_components/line_components/parent_dir: (1) клетки 13 входов; (2) состояние в константах, явное; (3) одно свойство — fixture плюс toy вместе, рост в пределах одного файла; (4) см. С-4; (5) потребитель — --model/--stabs/--repo в CI — ESSENTIAL, форма шаблона ACCIDENTAL (С-4, совет).
+Боль А1 на точном входе (мир `/tmp/dev-harness-verify/Arch187v3/world181`, контракт 181 Complior-back: `АРХИТЕКТУРА: L2 api.auth,resource.identity`, `ЗОНА implementer: server/src/auth/adapter.js tests/auth/grant-writers.js tests/ci-fixtures/auth004/check_auth_sessions.js tests/architecture/conformance-baseline.json tests/tools/run_backend_ci.py FILES.sha256`; `ARCHITECTURE_ROOT=/tmp/dev-harness-verify/arch-pin4`, без NODE_PATH — дверь сама делает `npm ci`):
+```
+ARCH_187A_OK: архитектура сходится с закреплённой моделью
+DOOR_RC_181_OBJECT=0
+PATH_WITHOUT_COMPONENT: путь server/src/auth/adapter.js не размещён ни в модели, ни в продукте
+DOOR_RC_181_PARENT=1
+```
 
-СВЕРКА-АРХИТЕКТУРЫ: не применима к харнессу по существу; дверь 187а сверена с закреплённым пином 907e9e80 бэкенда замером (Б-1).
-СВЕРКА-СТАНДАРТОВ: AGENTS.md dev-harness не объявляет docs/ARCHITECTURE.md / docs/CODING-STANDARDS.md (grep 'ARCHITECTURE\.md|CODING-STANDARDS' AGENTS.md @bd99 → нет совпадений) — сверять не с чем.
-ПРОВОДКА: guard=red_architecture_process_187.sh и guard=scripts/check_architecture_contract.sh (frozen :135–136) — оба в объекте; барьер именно этого предмета (клетки --repo зовут публичную дверь, action 'door' → bash scripts/check_architecture_contract.sh --repo).
+Свои мутанты по КОДУ двери (копии дерева, правка одной строки `scripts/check_architecture_contract.sh`, `bash -n` ok; прогон `--repo mut_X`):
 
-НЕ ПРОВЕРЯЛ: fixtures/workshop_project/arch_component_170/red_arch_component_170.sh и check_architecture_contract.sh --repo . contracts/187-…md (заявлено ведущим как rc 0; мною не запускались — вне разрешённого узкого прогона).
+| мутант | правка | `FAILURES` | красные клетки | rc |
+|---|---|---|---|---|
+| (а) `sed -n 1p` | первая строка тела как компонент (поведение до v3) | 17 | `locate-json-conform`, `locate-json-foreign`, `zone-comma-list`, `path-unplaced-product`, `check-green-status-field`, `brief-npm-doorway`, `locate-union-conform`, `locate-union-foreign`, **`locate-real-contract`**, `locate-declared-empty`, `locate-outside-universe`, `zone-locate-not-heuristic`, `locate-grammar-refusal`, `locate-declared-empty-worker`, `locate-outside-provenance`, `locate-outside-structure`, `path-unplaced-empty-claimants` (сырой отказ ровно бэкенда: «компоненту {») | 1 |
+| (б) DECLARED-пустой → `placed` | | 3 | `locate-real-contract`, **`locate-declared-empty`**, **`locate-declared-empty-worker`** | 1 |
+| (в) UNRESOLVED-несколько → `unresolved` | | 2 | `path-unplaced-product`, **`path-unplaced-empty-claimants`** | 1 |
+| (г) обрыв тела → `unresolved`, rc 0 | | 1 | **`locate-grammar-refusal`** (rc=0, ожидался 2) | 1 |
+| (д) эвристика вида пути `docs/*\|*.md\|*.json\|*.sha256` → пропуск | | 1 | **`zone-locate-not-heuristic`** | 1 |
+| (е) вернуть `grep -q NOT_EVALUATED` в `check` | | 1 | **`check-green-status-field`** | 1 |
+| (ж) только `matches[0].components[0]` вместо объединения | | 1 | **`locate-union-conform`** | 1 |
+| (h) ветвь `*)` статуса → `ARCH_LOCATE_GRAMMAR` (более простая форма, Б2) | | 0 (и с `ARCH187_REAL_ROOT`: `SKIPPED=0`, обе живые GREEN) | — | 0 |
 
-МАТЕРИАЛЫ (только чтение, кроме клона): /tmp/dev-harness-verify/rev187doorB-d1.sh, rev187doorB-d3.sh, rev187doorB-multi.sh, rev187doorB-mut.sh. Клон /tmp/rev187doorB-345160-1794754690 удалить не удалось: rm отклонён охраной Н-85/А-122 (путь вне null-allowlist). Его нужно удалить оркестратору. Push не делал, в общий checkout не писал.
+(г), (д), (е), (ж) ловятся ровно своей клеткой. (б) и (в) ловятся ровно клетками своего класса; (б) дополнительно краснит боль-клетку `locate-real-contract`, в зоне которой есть тестовый шов. (а) краснит всё JSON-семейство; клетка `locate-real-contract` в нём есть.
+
+Пробы rc дверей (`probe_rc2.py`, Б1):
+```
+door-real-deps: rc=2 nopack :: ARCH_DEPS: зависимости модели недоступны (npm ci --ignore-scripts)
+freeze-real-deps: rc=2 nopack :: ОТКАЗ: ARCH_DEPS: зависимости модели недоступны (npm ci --ignore-scripts)
+precritic-real-deps: rc=2 nopack :: ОТКАЗ: дверь архитектуры 187а красна: ARCH_DEPS: …
+task-real-deps: rc=1 nopack :: ОТКАЗ: ARCH_DEPS: зависимости модели недоступны (npm ci --ignore-scripts)
+door-grammar-broken: rc=2 nopack :: ARCH_LOCATE_GRAMMAR: ответ locate не парсится как JSON (app/broken/model.js)
+freeze-grammar-broken: rc=2 nopack :: ОТКАЗ: ARCH_LOCATE_GRAMMAR: …
+precritic-grammar-broken: rc=2 nopack :: ОТКАЗ: дверь архитектуры 187а красна: ARCH_LOCATE_GRAMMAR: …
+task-grammar-broken: rc=1 nopack :: ОТКАЗ: ARCH_LOCATE_GRAMMAR: ответ locate не парсится как JSON (app/broken/model.js)
+```
+С двухстрочной починкой `make_task` (`fix_mt`): `task-real-deps: rc=2`, `task-grammar-broken: rc=2`, батарея `CELLS=68 FAILURES=0 SKIPPED=2` rc 0.
+Проба Б2 (`probe_nostatus.sh`): OBJECT — `ARCH_187A_OK`, `DOOR_RC_NOSTATUS_TWO_MATCHES=0`; `mut_h` — `ARCH_LOCATE_GRAMMAR …`, `DOOR_RC_NOSTATUS_TWO_MATCHES=2`.
+
+## (3) Неподгонка
+
+В коммите OBJECT нет путей `fixtures/` и `contracts/` (0 строк). Фикстуры 187 на `origin/wip/187/architect` от `origin/main` правились только автором `architect` (`git log --format=%an` по каталогу: `aaf46a81`, `a2d4e0ee`, `6702d1c2`, `2d1ead23`, `0261e4ab` — все architect). Батарея проверялась своими мутантами: она красна на всех семи сломах двери и на родителе — 30 клеток. Подгонки нет.
+
+## (4) Потребители
+
+- `make_task`: `arch187_class` по черновику контракта (CBYTES), затем `arch187_check_text <task|черновик> task`, затем бриф `arch187_brief` через `npm --prefix`. Клетки `task-*`/`brief-*` GREEN. Расхождение rc — Б1.
+- `freeze_contract`: `arch187_class` по HEAD-блобу, затем `arch187_check_text … contract`, выход `ARCH187_RC`. Отказ стоит до записи тега: в клетках `freeze-*` с ожиданием 1/2 тега `frozen/contracts/777/*` нет (наблюдатель батареи).
+- `pre_critic`: `check_architecture_contract.sh --repo "$BASE" "$CONTRACT"` в полном режиме, без `--model-only`; rc 1 → 1, rc 2 → 2.
+- `done_contract`: `arch187_class` по HEAD-блобу; при rc 1 → `die` (ARCH_CLASS_MISSING), при 0 — прежние ноги ARCH_REVIEW/ARCH_CI.
+- `bash scripts/pre_critic.sh contracts/187-arhitektura-v-processe.md` → `КРИТИК: дверь зелёная`, rc 0 (харнесс вне режима 187а — `ARCH_187A_SKIP`).
+- Живая дверь на пине `bfc3f459`: `live-real-pin`/`live-real-union` GREEN; контракт 181 — `ARCH_187A_OK`.
+
+## (5) Гейты и соседи (rc)
+
+`check_consumers.sh . contracts/187-…` 0; `check_precision_gate.sh . contracts/187-…` 0 (`OK`); `check_ceilings.sh .` 0; `check_threat_model.sh . contracts/187-…` 0 (ЗАЩИЩАЕТ 6, НЕ ЗАЩИЩАЕТ 6); `_krasnye_072` 0; `_krasnye_094` 0; `_krasnye_095` 0; `_krasnye_103` 0; `red_arch_component_170.sh --model` 0 и `--repo .` 0 (25/25 `ok`). `_krasnye_038`: rc 1 на чистом OBJECT и rc 1 на чистом родителе `0814d2f5a`, вывод совпадает (`итог: 37 файлов, расхождений 37 (режим ожидания rc=1)`). Это существовало до коммита, OBJECT тут ни при чём.
+`check_zones.sh .` на HEAD=OBJECT (чистый клон, detached `cd07d3a9d`): `замороженных контрактов: 172 · объявленных авторов: 5 · коммитов в диапазонах: 60550 · проверено по зонам: 18339`, rc 0 (817 с).
+
+## (6) Соответствие архитектуре, класс риска, 050, стандарты
+
+Риск: оставляю «обычный». Меняются только двери процесса и rc. Права, авторизация, деньги и ПД не затронуты, перечень строки :4 не задет.
+Форма модуля: одна реализация правил — библиотека `ARCH187_LIB=1` — и четыре двери-импортёра. Это тот же приём, что у `next_id.sh`; второй конвенции нет.
+
+ПАРАЗИТНАЯ СЛОЖНОСТЬ (050), по артефактам диффа — (1) свойство · (2) состояние · (3) файлы вместе · (4) глубина · (5) потребитель:
+- `arch187_class` (замена `arch187_code_subject`): (1) ARCH_CLASS_MISSING на 4 дверях · (2) явное: rc 0/1/2 + `ARCH187_REFUSAL` · (3) 5 файлов, как и до диффа · (4) глубокий · (5) клетки `*-class-missing`. ESSENTIAL.
+- `arch187_hex40`: (1) 40-hex → ARCHITECTURE_NET/ARCH_PIN · (2) нет · (3) 1 · (4) узкий, но точный · (5) `pin-symbolic`, `pin-foreign-hex`. ESSENTIAL.
+- `arch187_intersects`: (1) объединение компонентов и рез по запятым · (2) нет · (3) 1, но грамматика запятых живёт ещё в двух местах (С1) · (4) ок · (5) `zone-comma-list`, union-клетки. ESSENTIAL (совет С1).
+- `arch187_locate`, четыре класса + однострочный id + `unplaced`: (1) v3 (а)–(г), совместимость 170/187-1 · (2) явное: `ARCH187_LOCATE_CLASS/COMPS`, rc · (3) 1 · (4) глубокий · (5) 9 клеток v3. ESSENTIAL. Ветвь `*)` по неизвестному статусу: (1) свойства нет · (2) догадка по rc · (5) потребителя нет → ACCIDENTAL. Есть все три части (фрагмент :313-323, отсутствующее свойство, более простая форма `mut_h` проходит те же строки), поэтому это блок Б2.
+- `ARCH187_RC` (глобальная): (1) rc 2 для ARCH_DEPS/ARCH_LOCATE_GRAMMAR · (2) неявное, побочный канал библиотеки · (3) 3 импортёра обязаны его читать, читают 2 → Б1 · (5) `deps-door-refusal`, `locate-grammar-refusal`. ESSENTIAL как свойство, дефект — в потребителе.
+- Кэш дерева в `arch187_model_prepare` (повторно не разворачивать): (1) прямого свойства нет; (4) экономит второй `git archive` + `npm ci` с сетью на вызов (суд зон, затем бриф). Цена неявной глобали `ARCH187_MODEL_DIR` меньше двойного `npm ci`. ESSENTIAL по стоимости.
+- Ветка `make_task` `elif _arch187 → ARCH_COMPONENT_NET`: (1) v2 расхождение (2) · (5) `component-required-no-local`. ESSENTIAL.
+- `pre_critic` rc 2 и `freeze_contract` `exit ${ARCH187_RC}`: (1) rc 2 в любом режиме · (5) `locate-grammar-refusal` (freeze). ESSENTIAL.
+
+ПРОВОДКА (038): `guard=fixtures/…/red_architecture_process_187.sh` и `guard=scripts/check_architecture_contract.sh` существуют. Оба — отдельные `step` в `registry/ci-steps.tsv:304-305` и ключи в `ci.yml`; `--wiring .` 0, `gen_ci_steps --check` 0. Guard — барьер именно этого предмета. ПРОВОДКА-ЭНФОРСМЕНТ обоснована: двери судят byte-структуру и rc, роли — предмет 188.
+СВЕРКА-СТАНДАРТОВ: не применимо. `AGENTS.md` dev-harness не объявляет `docs/ARCHITECTURE.md`/`docs/CODING-STANDARDS.md` (прочитан целиком), сверять дифф не с чем.
+sourceCanon (996): не объявлен для предмета харнесса, сверки карты нет.
+
+## Что нужно для accept (scoped-исправительный вызов)
+
+1. implementer: Б1 — `make_task.sh:880,887` передают `ARCH187_RC`. Б2 — ветвь `*)` в `arch187_locate` даёт именованный отказ, а не догадку (текст отказа — «вне грамматики ответа»).
+2. architect (своя зона, добавление красных клеток после freeze законно): клетки `make_task` на rc 2 (ARCH_DEPS и обрыв тела) и клетка «тело `locate` без `status`» → rc 2. На OBJECT обе красные, после починки — зелёные.
+3. Повторный суд — только по этим двум путям и новым клеткам.
