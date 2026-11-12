@@ -111,6 +111,17 @@ MUTANTS = [
     ('nonstart-accent-title', 'ACCENT_NOT_TEXT_ON_LIGHT',
      (('mobile/src/bootstrap/tab-shell.tsx', 'style={[styles.title, { color: tokens.ink }]} testID={`section-title-${section}`}', "style={[styles.title, { color: section === 'start' ? tokens.ink : tokens.accent }]} testID={`section-title-${section}`}"),),
      _cells(lambda c: c == 'ACCENT_NOT_TEXT_IN_DARK', 'ACCENT_NOT_TEXT_ON_LIGHT')),
+    # v+1 2026-11-12 (слово владельца ~11:50 UTC, issue #895 п.1; 147 v4
+    # И-5 + класс 11 набора 158 SOSTOJANIE_SLITO): в состоянии профиля
+    # shell-profile-entry быть не должно, shell-back — обязателен.
+    ('profile-entry-in-profile', 'SHELL_CONTAINER_PROFILE',
+     ((SHELL, "{route === 'tabs' ? (\n            <Pressable\n              accessibilityLabel={uiCopyDe['action.F12.A01'].text}",
+       "{true ? (\n            <Pressable\n              accessibilityLabel={uiCopyDe['action.F12.A01'].text}"),),
+     ()),
+    ('profile-no-back', 'SHELL_CONTAINER_PROFILE',
+     ((SHELL, "const showBack = route === 'profile' || returnTo !== null;",
+       'const showBack = returnTo !== null;'),),
+     ()),
 ]
 
 
