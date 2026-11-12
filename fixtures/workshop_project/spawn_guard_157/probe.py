@@ -31,12 +31,76 @@ PROJECT_TAIL = Path(LIVE_PROJECT).parts[-3:]
 STATION_TAIL = Path(LIVE_STATION).parts[-3:]
 SUBAGENT_TAIL = Path(LIVE_SUBAGENT).parts[-5:]
 
+# The five role branches under test are installed from the repository's
+# actual roles configuration; each batch contains another, different role.
+BATCH_ROLES = ('architect', 'implementer', 'critic', 'adversary', 'reviewer')
+INSTALLED_ROLES = json.loads((REPO / 'config/agent_models.json').read_text())['roles']
+if not set(BATCH_ROLES) <= INSTALLED_ROLES.keys():
+    raise ValueError('NOT_IMPLEMENTED: batch role absent from installed alphabet')
+
+# Параметрическая клетка batch (закрытие FAIL вызова 4, мутант
+# n6-constant-five: домен прежних клеток кончался на N=5): одна точка
+# порождения по длинам N∈{1..8}; префикс длины 6 — вход адверсария дословно
+# (architect..orchestrator), 7-8 дополняются установленным алфавитом.
+# ВЕРХНЯЯ ГРАНИЦА КЛАССА — 8: (а) входы адверсария N=6,7,8; (б) ловимое
+# семейство констант k∈{2..7}: константа 7 требует клетку N=8. N>=9 —
+# ОСТАТОЧНЫЙ РИСК: константа >=8 конечными клетками не выражается; ловец —
+# ревьюер по РЕАЛИЗАЦИИ перебора taskItems (for..of по raw — итерация без
+# вшитой длины), а не по константе в проверке.
+PARAM_BATCH_ROLES = ('architect', 'implementer', 'critic', 'adversary', 'reviewer',
+                     'orchestrator', 'arbiter', 'steward')
+PARAM_MAX_N = len(PARAM_BATCH_ROLES)
+if not set(PARAM_BATCH_ROLES) <= INSTALLED_ROLES.keys():
+    raise ValueError('NOT_IMPLEMENTED: parametric batch role absent from installed alphabet')
+
 
 def reference():
     return subprocess.run(
         ['git', 'show', PATCH + ':.omp/extensions/spawn-guard.ts'],
         cwd=REPO, capture_output=True, text=True, check=True).stdout
 
+
+# Шов сериализации batch в дверь — единственная предметная передача списка
+# задач (verdicts/adversary/contracts-157-impl-v3.md: обходы подменяют именно
+# её, честно передавая batch короче порога — мутанты повторяют тот же шов).
+BATCH_SEAM = 'JSON.stringify({ tasks: taskItems(call.input) })'
+
+
+# Класс «batch >= 4» (закрытие FAIL вызова 3): дверь обязана получить КАЖДУЮ
+# задачу batch любой длины N >= 1 в порядке входа; выборочная потеря ЛЮБОЙ
+# подпоследовательности с N >= порога — красное. Порог 4 = вход адверсария,
+# порог 5 закрывает позиции, которых в четвёрке нет (вторая серединная,
+# четвёртая, все внутренние при трёх внутренних).
+def _batch_drop(threshold, keep):
+    items = 'taskItems(call.input)'
+    return (f'JSON.stringify({{ tasks: {items}.length < {threshold} ? {items} '
+            f': {items}.filter({keep}) }})')
+
+
+BATCH_DROPS = {
+    **{f'skip-{word}-four-plus': _batch_drop(4, keep) for word, keep in (
+        ('first', '(item, index) => index !== 0'),
+        ('second', '(item, index) => index !== 1'),
+        ('third', '(item, index) => index !== 2'))},
+    'skip-last-four-plus': _batch_drop(4, '(item, index, all) => index !== all.length - 1'),
+    'first-last-four-plus': _batch_drop(
+        4, '(item, index, all) => index === 0 || index === all.length - 1'),
+    **{f'skip-{word}-five-plus': _batch_drop(5, keep) for word, keep in (
+        ('first', '(item, index) => index !== 0'),
+        ('second', '(item, index) => index !== 1'),
+        ('middle', '(item, index) => index !== 2'),
+        ('fourth', '(item, index) => index !== 3'))},
+    'skip-last-five-plus': _batch_drop(5, '(item, index, all) => index !== all.length - 1'),
+    'internal-five-plus': _batch_drop(
+        5, '(item, index, all) => index === 0 || index === all.length - 1'),
+    # FAIL вызова 4 — мутанты адверсария дословно (порог 6/7/8): потеря
+    # элемента ТОЛЬКО на длинах от порога; ниже порога побайтов честен,
+    # поэтому красен ровно на клетках с N >= порога (точное ожидание).
+    'n6-constant-five': _batch_drop(6, '(item, index) => index !== 3'),
+    'n7-odd-middle': _batch_drop(7, '(item, index) => index !== 3'),
+    'n8-even-middle': _batch_drop(8, '(item, index) => index !== 4'),
+    'skip-last-six-plus': _batch_drop(6, '(item, index, all) => index !== all.length - 1'),
+}
 
 # Every variant mutates an observable branch of the accepted patch (Н-39).
 def mutation(source, name):
@@ -59,6 +123,43 @@ def mutation(source, name):
         anchor = '        return { block: true, reason: ZAMOK_BROKEN };'
         replacement = ("        if (r.status === 2 && sessionFile.includes('/dev-harness-projects/'))"
                        " return undefined;\n" + anchor)
+    elif name == 'adv157-pass-without-door':
+        anchor = 'const roots = stateRoots(sessionFile);'
+        replacement = (anchor + "\n      if (taskItems(call.input).some((item) => "
+                       "item.agent === 'adversary')) return undefined;")
+    elif name == 'batch-skip-all':
+        anchor = 'const roots = stateRoots(sessionFile);'
+        replacement = (anchor + '\n      if (Array.isArray((call.input as { tasks?: unknown }).tasks)'
+                       ' && taskItems(call.input).length > 1) return undefined;')
+    elif name.startswith('batch-skip-'):
+        role = name.removeprefix('batch-skip-')
+        if role not in BATCH_ROLES:
+            raise ValueError('unknown batch role')
+        anchor = 'const roots = stateRoots(sessionFile);'
+        replacement = (anchor + '\n      if (Array.isArray((call.input as { tasks?: unknown }).tasks)'
+                       ' && taskItems(call.input).some((item) => item.agent === '
+                       + json.dumps(role) + ')) return undefined;')
+    elif name == 'batch-first-only':
+        anchor = 'JSON.stringify({ tasks: taskItems(call.input) })'
+        replacement = 'JSON.stringify({ tasks: taskItems(call.input).slice(0, 1) })'
+    elif name == 'batch-first-two':
+        anchor = 'JSON.stringify({ tasks: taskItems(call.input) })'
+        replacement = 'JSON.stringify({ tasks: taskItems(call.input).slice(0, 2) })'
+    elif name == 'batch-reviewer-first-pass':
+        anchor = 'const roots = stateRoots(sessionFile);'
+        replacement = (anchor + '\n      if (Array.isArray((call.input as { tasks?: unknown }).tasks)'
+                       " && taskItems(call.input)[0]?.agent === 'reviewer') return undefined;")
+    elif name.startswith('constant-'):
+        # Семейство «константа k» (FAIL вызова 4): дверь судит первые k задач;
+        # на N<=k мутант побайтов честен, красен ровно на N>k.
+        k = name.removeprefix('constant-')
+        if not (k.isdigit() and 2 <= int(k) <= 7):
+            raise ValueError('unknown constant mutant')
+        anchor = BATCH_SEAM
+        replacement = f'JSON.stringify({{ tasks: taskItems(call.input).slice(0, {int(k)}) }})'
+    elif name in BATCH_DROPS:
+        anchor = BATCH_SEAM
+        replacement = BATCH_DROPS[name]
     else:
         raise ValueError('unknown mutant')
     if source.count(anchor) != 1:
@@ -86,16 +187,18 @@ def build(base, label, home_parts, profile, tail, state_parts):
     return case_root, install, home, state
 
 
-def case(base, guard, label, home_parts, profile, tail, state_parts, outcome, role='architect'):
+def case(base, guard, label, home_parts, profile, tail, state_parts, outcome, role='architect',
+         batch_roles=None):
     case_root, install, home, state = build(base, label, home_parts, profile, tail, state_parts)
     (install / '.omp/extensions/spawn-guard.ts').write_text(guard)
     cfg = install / 'config/agent_models.json'
     cfg.parent.mkdir(parents=True)
-    cfg.write_text(json.dumps({'roles': {'architect': 'slow'}}))
+    cfg.write_text(json.dumps({'roles': INSTALLED_ROLES}))
     door = install / 'scripts/zamok_predmeta.sh'
     door.parent.mkdir(parents=True)
     door.write_text('#!/usr/bin/env bash\n'
                     'printf "%s\\0" "$@" > "$PROBE_DOOR_LOG"\n'
+                    'cat "${!#}" > "$PROBE_DOOR_EVENT"\n'
                     'if [ "$PROBE_DOOR_RESULT" = deny ]; then printf "DOOR_DENY_157\\n" >&2; exit 1; fi\n'
                     'if [ "$PROBE_DOOR_RESULT" = broken ]; then exit 2; fi\n'
                     'exit 0\n')
@@ -105,9 +208,19 @@ def case(base, guard, label, home_parts, profile, tail, state_parts, outcome, ro
     before_state = snapshot(state) if state else None
     before_tree = snapshot(case_root) if state is None else None
     log = case_root / 'door-argv.bin'
-    env = dict(os.environ, PROBE_DOOR_LOG=str(log), HARNESS_SESSION_HOME=str(case_root / 'forged-home'))
+    event_log = case_root / 'door-event.json'
+    tasks = [{'agent': r, 'name': f'Agent157-{i}-{r}',
+              'task': f'SUBJECT=157\nWORKTREE=/tmp/fixture/{i}\nBRANCH=wip/157/architect'}
+             for i, r in enumerate(batch_roles)] if batch_roles else [
+                 {'agent': role, 'name': 'Agent157',
+                  'task': 'SUBJECT=157\nWORKTREE=/tmp/fixture\nBRANCH=wip/157/architect'}]
+    task_input = {'tasks': tasks} if batch_roles else tasks[0]
+    expected_event = json.dumps({'tasks': tasks}, separators=(',', ':'), ensure_ascii=False).encode()
+    env = dict(os.environ, PROBE_DOOR_LOG=str(log), PROBE_DOOR_EVENT=str(event_log),
+               HARNESS_SESSION_HOME=str(case_root / 'forged-home'))
     result = subprocess.run(['node', str(HERE / 'driver.mjs'), str(install / '.omp/extensions/spawn-guard.ts'),
-                             str(home / '.omp/profiles' / profile / 'agent' / Path(*tail)), role, outcome],
+                             str(home / '.omp/profiles' / profile / 'agent' / Path(*tail)),
+                             json.dumps(task_input), outcome],
                             cwd=case_root, env=env, capture_output=True, text=True, timeout=20)
     try:
         answer = json.loads(result.stdout.strip())
@@ -138,6 +251,8 @@ def case(base, guard, label, home_parts, profile, tail, state_parts, outcome, ro
         expected = {'pass': True}
     assert answer == expected, (label, expected, answer)
     assert log.exists(), (label, 'root returned without door check')
+    assert event_log.exists(), (label, 'door event absent')
+    assert event_log.read_bytes() == expected_event, (label, 'door did not judge every batch item')
     args = log.read_bytes().split(b'\0')
     assert args[-1] == b'', (label, args)
     argv = [os.fsdecode(value) for value in args[:-1]]
@@ -154,6 +269,11 @@ DOOR_CELLS_STATION = ('station-deny', 'station-allow', 'station-alt', 'station-p
                       'station-broken', 'station-real', 'subagent-real')
 DOOR_CELLS_PROJECT = ('project-deny', 'project-allow', 'project-alt', 'project-profile',
                       'project-shadow', 'project-broken', 'project-real')
+
+BATCH_CELLS = {role: f'{"station" if role == "reviewer" else "project"}-batch-{role}'
+               for role in BATCH_ROLES}
+BATCH_GE4_CELLS = frozenset({'project-batch-four', 'project-batch-five'})
+BATCH_GE5_CELLS = frozenset({'project-batch-five'})
 
 
 def scenarios():
@@ -186,6 +306,30 @@ def scenarios():
          ('dev-harness-projects', 'shadow', 'state'), 'deny', 'architect'),
         ('project-real', live_project, 'dev', PROJECT_TAIL, live_project_state, 'deny', 'architect'),
         ('project-broken', project, 'dev', TAIL, project_state, 'broken', 'architect'),
+        (BATCH_CELLS['architect'], project, 'dev', TAIL, project_state, 'deny',
+         ('architect', 'reviewer')),
+        (BATCH_CELLS['implementer'], project, 'dev', TAIL, project_state, 'allow',
+         ('architect', 'implementer')),
+        (BATCH_CELLS['critic'], project, 'dev', TAIL, project_state, 'broken',
+         ('architect', 'critic')),
+        (BATCH_CELLS['adversary'], project, 'dev', TAIL, project_state, 'deny',
+         ('architect', 'adversary')),
+        (BATCH_CELLS['reviewer'], station, 'dev', TAIL, station_state, 'allow',
+         ('architect', 'reviewer')),
+        ('project-batch-three', project, 'dev', TAIL, project_state, 'deny',
+         ('architect', 'implementer', 'critic')),
+        ('project-batch-reviewer-first', project, 'dev', TAIL, project_state, 'deny',
+         ('reviewer', 'architect')),
+        ('project-batch-four', project, 'dev', TAIL, project_state, 'deny',
+         ('architect', 'implementer', 'critic', 'adversary')),
+        ('project-batch-five', project, 'dev', TAIL, project_state, 'allow', BATCH_ROLES),
+        # Параметрическая клетка batch (закрытие FAIL вызова 4): порождается
+        # ОДНОЙ точкой по длинам N∈{1..PARAM_MAX_N}; оракул независим от
+        # driver — case() строит ожидаемое событие в памяти проверяющего и
+        # сверяет событие двери побайтово. Граница класса и остаточный риск
+        # N>=9 — комментарий у PARAM_BATCH_ROLES.
+        *[(f'project-batch-n{n}', project, 'dev', TAIL, project_state, 'deny',
+           PARAM_BATCH_ROLES[:n]) for n in range(1, PARAM_MAX_N + 1)],
         ('station-alphabet', station, 'dev', TAIL, station_state, 'deny', 'task'),
         ('foreign-deny', ('foreign-layout', 'flat'), 'dev', TAIL, None, 'deny', 'architect'),
         ('malformed-session', station, 'dev', ('history', 'Agent157.jsonl'), None, 'deny', 'architect'),
@@ -199,7 +343,11 @@ def run(source, tag):
     with tempfile.TemporaryDirectory(prefix='spawn-guard-157-') as temp:
         for name, home, profile, tail, state, outcome, role in all_scenarios:
             try:
-                case(Path(temp), source, name, home, profile, tail, state, outcome, role)
+                if isinstance(role, tuple):
+                    case(Path(temp), source, name, home, profile, tail, state, outcome,
+                         batch_roles=role)
+                else:
+                    case(Path(temp), source, name, home, profile, tail, state, outcome, role)
                 print(f'CASE {tag} {name} OK')
             except (AssertionError, OSError, subprocess.TimeoutExpired) as error:
                 failed.append(name)
@@ -210,8 +358,8 @@ def run(source, tag):
 
 def main():
     if (len(sys.argv) == 2 and sys.argv[1] not in ('--model', '--stabs')) or (
-            len(sys.argv) == 3 and sys.argv[1] != '--revision') or len(sys.argv) > 3:
-        print('usage: probe.py [--model|--stabs|--revision <commit>]', file=sys.stderr)
+            len(sys.argv) == 3 and sys.argv[1] not in ('--revision', '--mutant')) or len(sys.argv) > 3:
+        print('usage: probe.py [--model|--stabs|--revision <commit>|--mutant <name>]', file=sys.stderr)
         return 2
     if not SOURCE.is_file():
         print('NOT_IMPLEMENTED: absent hook ' + str(SOURCE), file=sys.stderr)
@@ -223,6 +371,8 @@ def main():
     try:
         if len(sys.argv) == 1:
             return int(bool(run(source, 'subject')))
+        if len(sys.argv) == 3 and sys.argv[1] == '--mutant':
+            return int(bool(run(mutation(reference(), sys.argv[2]), 'subject')))
         if len(sys.argv) == 3:
             revision = subprocess.run(
                 ['git', 'show', sys.argv[2] + ':.omp/extensions/spawn-guard.ts'],
@@ -242,12 +392,45 @@ def main():
             'env-root': set(DOOR_CELLS_PROJECT),
             'shadow-deny': {'project-shadow'},
             'rc2-pass': {'project-broken'},
+            'adv157-pass-without-door': {BATCH_CELLS['adversary']},
+            **{f'batch-skip-{role}': {cell} for role, cell in BATCH_CELLS.items()},
+            'batch-skip-all': set(BATCH_CELLS.values()),
+            'batch-first-only': set(BATCH_CELLS.values()),
+            'batch-first-two': {'project-batch-three'},
+            'batch-reviewer-first-pass': {'project-batch-reviewer-first'},
+            **{name: set(BATCH_GE4_CELLS) for name in BATCH_DROPS if name.endswith('-four-plus')},
+            **{name: set(BATCH_GE5_CELLS) for name in BATCH_DROPS if name.endswith('-five-plus')},
         }
         for name, observed in targets.items():
             fails = run(mutation(ref_source, name), name)
             if not observed <= fails:
                 print(f'STAB_ZHIV: {name}: expected {sorted(observed)}, got {sorted(fails)}', file=sys.stderr)
                 return 1
+        # Стабы вызова 4 — ТОЧНОЕ ожидание, не подмножество: семейство
+        # «константа k»/пороговый пропуск обязано быть красным РОВНО на
+        # batch-клетках за своим порогом и ЗЕЛЁНЫМ на всех прочих (ниже
+        # порога мутант побайтов честен; краснота там — ложь проверки, а не
+        # находка; Н-39: каждый стаб на наблюдаемой ветви своей длины).
+        lengths = {cell[0]: (len(cell[6]) if isinstance(cell[6], tuple) else None)
+                   for cell in scenarios()}
+
+        def cells_over(predicate):
+            return {name for name, ln in lengths.items() if ln is not None and predicate(ln)}
+
+        exact_targets = {
+            **{f'constant-{k}': cells_over(lambda ln, k=k: ln > k) for k in range(2, 8)},
+            'n6-constant-five': cells_over(lambda ln: ln >= 6),
+            'n7-odd-middle': cells_over(lambda ln: ln >= 7),
+            'n8-even-middle': cells_over(lambda ln: ln >= 8),
+            'skip-last-six-plus': cells_over(lambda ln: ln >= 6),
+        }
+        for name, observed in exact_targets.items():
+            fails = run(mutation(ref_source, name), name)
+            if fails != observed:
+                print(f'STAB_ZHIV: {name}: expected exactly {sorted(observed)}, got {sorted(fails)}',
+                      file=sys.stderr)
+                return 1
+        print(f'STABY {len(targets) + len(exact_targets)} NEPOIMANNYH 0')
         return 0
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         print(str(error), file=sys.stderr)
