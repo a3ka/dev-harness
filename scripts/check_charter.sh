@@ -212,6 +212,13 @@
 #   три SHA уже несли пару для 157/158 — их записи расширены вторым путём; нового содержания нет;
 #   допущение только для этих пар; слово владельца 2026-11-10 «да» через консультанта)
 #
+#   241bff9933cc1382f7ddf3c7a38c4eb34e681275  contracts/195-potrebiteli-116-okno-pr-sliyanij.md
+#   (46-я: land-merge wip/195/architect 2026-11-12 00:31 UTC принёс в main текст 195, замороженный
+#   frozen/contracts/195/1 (464e9e4d8, второй родитель merge), без строки РАЗРЕШИЛ в теле merge — та же
+#   схема, что пара 35 (157) и 37–39 (158); блоб на HEAD побайтно равен frozen/contracts/195/1 (a1fece736901);
+#   нового содержания нет; PR-прогоны legkij красны на этом merge (#847, #899, #900); допущение только
+#   для этой пары; слово владельца 2026-11-12 через консультанта)
+#
 # НЕ добавлять новые записи без прямого слова владельца в НОВОМ коммите с обоснованием.
 #
 # is_charter_path (контракт 019, ветвь 1 — единый источник предиката). Staged-путь
@@ -401,6 +408,8 @@ grandfather_pair() {
         contracts/157-spawn-guard-proektnye-sessii.md|contracts/162-standart-koda-mob.md) return 0 ;;
       esac
       ;;
+    241bff9933cc1382f7ddf3c7a38c4eb34e681275)
+      [ "$p" = "contracts/195-potrebiteli-116-okno-pr-sliyanij.md" ] && return 0 ;;
     97de545dd67a363e2b018204620ddaa01263f17a)
       [ "$p" = "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md" ] && return 0 ;;
     f9846bcaa3d609639d3b5de75869104e6cd1220e)
