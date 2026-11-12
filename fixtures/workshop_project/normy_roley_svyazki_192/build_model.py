@@ -74,9 +74,12 @@ def section_from_draft(block):
 
 
 def apply_192(model):
-    # critic: правка §Остановка + хвост «Второй FAIL» + новый раздел в конец файла
+    # critic: правка §Остановка + голова и хвост «Второй FAIL» + новый раздел в конец файла
     model['critic'] = replace_once(
         model['critic'], HERE / 'drafts/edits/critic-ostanovka.old', HERE / 'drafts/edits/critic-ostanovka.new')
+    model['critic'] = replace_once(
+        model['critic'], HERE / 'drafts/edits/critic-vtorojfail-golova.old',
+        HERE / 'drafts/edits/critic-vtorojfail-golova.new')
     model['critic'] = replace_once(
         model['critic'], HERE / 'drafts/edits/critic-vtorojfail-tail.old',
         HERE / 'drafts/edits/critic-vtorojfail-tail.new')

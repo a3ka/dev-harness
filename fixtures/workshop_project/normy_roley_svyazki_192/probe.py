@@ -5,8 +5,10 @@
 ROLE-DRAFTS прохода Fable 16, побайтово с подстановкой NNN→192); честная модель ролей
 собирается build_model.py из base/roles (пин SHA256SUMS) + вставка 188 (norms.tsv семьи 188)
 + черновики 192. Клетки: 12 норм-строк, 17 строк списка классов, единый источник, строка
-critic-sol, кап 3 + арбитраж (слово владельца 2026-11-11, owner-PR #834), потолок 73728
-на модели, производные агенты равны генерации из ролей настоящим генератором.
+critic-sol, кап 3 + арбитраж (слово владельца 2026-11-11, owner-PR #834), формулировки
+старого порядка остановки отсутствуют во всех семи ролях (critic — клетки net-*, остальные
+шесть — starshij-poryadok), потолок 73728 на модели, производные агенты равны генерации
+из ролей настоящим генератором.
 
 Оракул в памяти проверяющего: ожидания сняты из norms.tsv/drafts ДО чтения файлов ролей
 (правило 8). Сверка структурная: литерал — самостоятельной строкой своего раздела; якоря
@@ -49,8 +51,13 @@ KAP_ABSENT = (
     ('net-pyati', 'Общий предел — пять critic-вызовов'),
     ('net-soglasiya', 'При письменном СОГЛАСИИ автора со всеми открытыми блоками арбитраж НЕ созывается'),
     ('net-isprav', 'исправительный вызов по санкции оркестратора при согласии автора'),
+    ('net-nazvannogo', 'арбитр созывается только при названном споре'),
 )
 CAP_TAIL = 'Scope не позволяет скрыть доказанное нарушение.'
+# Класс шире файла critic (вердикт 192 круг 1, Б-3): формулировки старого порядка
+# остановки не должны жить ни в одной роли; в critic их ловят клетки critic/net-*,
+# остальным шести ролям — своя клетка starshij-poryadok.
+STARSHIJ_ROLES = ('architect', 'orchestrator', 'arbiter', 'adversary', 'reviewer', 'critic-sol')
 
 
 def die(message):
@@ -190,6 +197,12 @@ def cap_violations(text):
     return {k for k, a in KAP_ABSENT if a in flat}
 
 
+def starshij_violations(text):
+    """Формулировки старого порядка остановки в роли ВНЕ critic (весь файл, нормализация)."""
+    flat = normalize(text)
+    return [k for k, anchor in KAP_ABSENT if anchor in flat]
+
+
 def assess_class_line(text, line):
     section = section_of(visible_lines(text), SECTIONS['critic'])
     return section is not None and section.count(line) == 1
@@ -299,18 +312,24 @@ def main():
                   + (f' ({foreign[0]})' if foreign else ''))
             if foreign:
                 failures.add('istochnik/edinstvennyj')
-            for key in cap_missing(texts['critic']):
+            for key in sorted(cap_missing(texts['critic'])):
                 print(f'RED critic/{key} — нет якоря капа в §Остановка')
                 failures.add(f'critic/{key}')
             for key, _ in KAP_PRESENT:
                 if f'critic/{key}' not in failures:
                     print(f'GREEN critic/{key}')
-            for key in cap_violations(texts['critic']):
+            for key in sorted(cap_violations(texts['critic'])):
                 print(f'RED critic/{key} — старый порядок остался')
                 failures.add(f'critic/{key}')
             for key, _ in KAP_ABSENT:
                 if f'critic/{key}' not in failures:
                     print(f'GREEN critic/{key}')
+            for role in STARSHIJ_ROLES:
+                keys = starshij_violations(texts[role])
+                print(f'{"GREEN" if not keys else "RED"} {role}/starshij-poryadok'
+                      + (f' — старый порядок остался ({keys[0]})' if keys else ''))
+                if keys:
+                    failures.add(f'{role}/starshij-poryadok')
             node = shutil.which('node')
             if node is None:
                 die('node недоступен — клетку агентов нечем проверить (отказ среды, rc 2)')
@@ -320,7 +339,7 @@ def main():
             print(f'{"GREEN" if ok else "RED"} repo/agents-parity')
             if not ok:
                 failures.add('repo/agents-parity')
-            cells = 12 + 17 + 2 + len(KAP_PRESENT) + len(KAP_ABSENT) + 1
+            cells = 12 + 17 + 2 + len(KAP_PRESENT) + len(KAP_ABSENT) + len(STARSHIJ_ROLES) + 1
             print(f'CELLS={cells} GREEN={cells - len(failures)}')
             return 1 if failures else 0
 
@@ -341,10 +360,12 @@ def main():
             failures.add('istochnik/edinstvennyj')
         failures.update(f'critic/{k}' for k in cap_missing(texts['critic']))
         failures.update(f'critic/{k}' for k in cap_violations(texts['critic']))
+        failures.update(f'{role}/starshij-poryadok' for role in STARSHIJ_ROLES
+                        if starshij_violations(texts[role]))
         if failures:
             print(f'контроль красен на честной модели: {sorted(failures)}')
             return 1
-        base_cells = 12 + 17 + 2 + len(KAP_PRESENT) + len(KAP_ABSENT)
+        base_cells = 12 + 17 + 2 + len(KAP_PRESENT) + len(KAP_ABSENT) + len(STARSHIJ_ROLES)
 
         # Независимые негативы: каждая координата краснеет СВОИМ предъявлением.
         for role, key, literal in rows:
@@ -366,6 +387,10 @@ def main():
             if key not in cap_violations(
                     texts['critic'].replace(CAP_TAIL, anchor + ' ' + CAP_TAIL, 1)):
                 failures.add(f'restored critic/{key}')
+        for role in STARSHIJ_ROLES:
+            mutant = texts[role].rstrip('\n') + '\n' + KAP_ABSENT[3][1] + '\n'
+            if not starshij_violations(mutant):
+                failures.add(f'restored {role}/starshij-poryadok')
 
         ceilings = {role: (model_dir / 'roles' / f'{role}.md').stat().st_size for role in roles}
         failures.update(f'{role}/potolok' for role in ceiling_failures(model_dir / 'roles', roles))
@@ -376,7 +401,8 @@ def main():
         print(f'CEILINGS={len(ceilings)} MAX={max(ceilings.values())} LIMIT={LIMIT}')
 
         if args.model:
-            negatives = len(rows) * 3 + len(classes) + len(KAP_PRESENT) + len(KAP_ABSENT)
+            negatives = (len(rows) * 3 + len(classes) + len(KAP_PRESENT)
+                         + len(KAP_ABSENT) + len(STARSHIJ_ROLES))
             broken = {f for f in failures
                       if f.split(' ')[0] in ('missing', 'html', 'fence', 'restored')}
             cells = base_cells + len(roles) + 1
@@ -436,7 +462,21 @@ def main():
         target = drifted / 'critic.md'
         target.write_text(target.read_text(encoding='utf-8') + '\nдрейф\n', encoding='utf-8')
         stab('agents-drift', not assess_agents_parity(model_dir / 'roles', drifted, scratch))
-        total = 17
+        ref = subprocess.run(
+            [sys.executable, str(HERE / 'probe.py'), '--repo', str(ROOT.resolve())],
+            capture_output=True, text=True, check=False)
+        bare = subprocess.run(['bash', str(HERE / 'red_normy_roley_svyazki_192.sh')],
+                              capture_output=True, text=True, check=False)
+        stub_wrap = scratch / 'red_normy_roley_svyazki_192.sh'
+        stub_wrap.write_text('#!/usr/bin/env bash\nexit 1\n', encoding='utf-8')
+        stub_bare = subprocess.run(['bash', str(stub_wrap)],
+                                   capture_output=True, text=True, check=False)
+        def barer_equal(run):
+            return (run.returncode == ref.returncode
+                    and sorted(run.stdout.splitlines()) == sorted(ref.stdout.splitlines()))
+
+        stab('barer-stub', barer_equal(bare) and not barer_equal(stub_bare))
+        total = 18
         caught = total - len({f for f in failures if f.startswith('stab')})
         print(f'STABS={total} CAUGHT={caught}')
         return 1 if failures else 0
