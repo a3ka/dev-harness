@@ -15,83 +15,31 @@ spec = importlib.util.spec_from_file_location('odin_agent_140', ROOT / 'fixtures
 old = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(old)
 
-# A control model is derived from the frozen 140 reference, NOT from candidate files.
-# The replacement is scoped to the public release/accounting decision.  The fixture
-# refuses missing anchors rather than blessing a partially patched model.
-ORIGINAL = '''subekt_suzhen_sudej_obj() {  # <NNN> <rol> <object>
-  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" 'any(.[]; .t == "START" and .repoId == $r and .subjectId == $n and .klass == "sudja" and .rol == $roli and .object == $o)' "$LEDGER" >/dev/null 2>&1
-}'''
-REPLACEMENT = '''subekt_suzhen_sudej_obj() {  # <NNN> <rol> <object>
-  # One RELEASE for this precise START, not a blanket release for this role.
-  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" '
-    reduce .[] as $l ({};
-      if $l.repoId != $r or $l.subjectId != $n then .
-      elif $l.t == "START" and $l.klass == "sudja" and $l.rol == $roli and $l.object == $o
-        then .[$l.holder] = "open"
-      elif $l.t == "RELEASE" and .[$l.holder] == "open" and $l.prichina == "obryv_bez_verdikta"
-        then .[$l.holder] = "interrupted"
-      elif $l.t == "RELEASE" and .[$l.holder] == "open" then .[$l.holder] = "judged"
-      else . end
-    ) | any(.[]; . != "interrupted")' "$LEDGER" >/dev/null 2>&1
-}'''
-RELEASE = "  case \"$(stare_holder \"$h_holder\")\" in\n    yield) prichina='yield' ;;"
-# Completion is measured from actual committed verdict, not a yield tool call.
-# A receipt is exact holder+OBJECT, authenticated against git commit and blob.
-NEW_FUNCTION = '''verdict_sessii() {  # <NNN> <holder> <rol> <OBJECT>
-  local c path blob sud fields first dir
-  case "$3" in critic|critic-sol) dir=critic ;; reviewer) dir=review ;; adversary) dir=adversary ;; *) return 1 ;; esac
-  while IFS= read -r c; do
-    [ -n "$c" ] || continue
-    [ "$(git -C "$REPO" log -1 --format=%an "$c")" = "$3" ] || continue
-    while IFS= read -r path; do
-      case "$path" in verdicts/"$dir"/contracts-"$1"-v[0-9]*.md) ;; *) continue ;; esac
-      blob="$(git -C "$REPO" show "$c:$path" 2>/dev/null)" || continue
-      IFS= read -r first <<< "$blob"
-      case "$first" in accept|FAIL) ;; *) continue ;; esac
-      printf '%s\\n' "$blob" | grep -Fxq "OBJECT=$4" || continue
-      sud="$(printf '%s\\n' "$blob" | grep '^СУД: ')" || continue
-      fields="${sud#СУД: }"
-      printf '%s\\n' "$fields" | tr ';' '\\n' | sed 's/^ *//;s/ *$//' | grep -Fxq "роль=$3" || continue
-      printf '%s\\n' "$fields" | tr ';' '\\n' | sed 's/^ *//;s/ *$//' | grep -Fxq "сессия=$2" || continue
-      return 0
-    done < <(git -C "$REPO" diff-tree --root --no-commit-id --name-only -r "$c" -- "verdicts/$dir/")
-  done < <(git -C "$REPO" log --all --format=%H -- "verdicts/$dir/")
-  return 1
-}
-'''
+# The control model IS the frozen 140 reference: since 140 v4 the baseline
+# carries the full 167 semantics verbatim (reduce-form subekt_suzhen_sudej_obj
+# with a circle closed only by RELEASE obryv_bez_verdikta, verdict_sessii
+# receipt check, the verdikt_zakommiten/obryv_bez_verdikta release seam, judge
+# refs sync before classification).  The fixture refuses missing anchors
+# rather than blessing a partially carried model.
+ANCHORS = (
+    ('subekt_suzhen_sudej_obj reduce (контракт 167)',
+     '      elif $l.t == "RELEASE" and .[$l.holder] == "open" and $l.prichina == "obryv_bez_verdikta"\n'
+     '        then .[$l.holder] = "interrupted"\n'),
+    ('verdict_sessii (контракт 167)',
+     'verdict_sessii() {  # <NNN> <holder> <rol> <OBJECT>\n'),
+    ('шов освобождения судьи verdikt_zakommiten/obryv_bez_verdikta',
+     "      prichina='verdikt_zakommiten'\n    else\n      prichina='obryv_bez_verdikta'\n"),
+    ('синхронизация судейских refs до классификации',
+     'if ! git -C "$REPO" ls-remote --heads origin >/dev/null 2>&1; then\n'),
+)
+
 
 
 def model(path):
     src = BASELINE.read_text()
-    if src.count(ORIGINAL) != 1 or src.count(RELEASE) != 1:
-        raise RuntimeError('MODEL_ANCHOR_MISSING')
-    src = src.replace(ORIGINAL, REPLACEMENT)
-    # D11 must also run after --osvobodit removed the current holder's lock.
-    start = src.index('      # [D11 uzhe-suzhen]')
-    end = src.index('    if [ "$klass" = \'sudja\' ]; then\n      rab=', start)
-    section = src[start:end]
-    assert section.endswith('    fi\n') and section.count('OBJECT_UZHE_SUZHEN') == 1
-    d11 = section.removesuffix('    fi\n')
-    src = src[:start] + '    fi\n' + d11 + src[end:]
-    # A yielded judge without a committed verdict is an interrupted judge.
-    # Inject verdict classification at the one release seam; git commit controls outcome.
-    needle = "  rm -rf \"$zdir/zanyat\"\n  jq -nc --arg t RELEASE"
-    assert src.count(needle) == 1, 'MODEL_RELEASE_ANCHOR_MISSING'
-    src = src.replace(needle, '''  h_klass="$(jq -r '.klass' "$zdir/zanyat/holder.json")"
-  if [ "$h_klass" = 'sudja' ]; then
-    git -C "$REPO" ls-remote --heads origin >/dev/null 2>&1 || skip "judge refs недоступны"
-    git -C "$REPO" fetch -q --prune origin '+refs/heads/*:refs/remotes/origin/*' >/dev/null 2>&1 || skip "judge refs не синхронизированы"
-    h_rol="$(jq -r '.rol' "$zdir/zanyat/holder.json")"
-    h_obj="$(jq -r '.object' "$zdir/zanyat/holder.json")"
-    if verdict_sessii "$NNN_ARG" "$h_holder" "$h_rol" "$h_obj"; then
-      prichina='verdikt_zakommiten'
-    else
-      prichina='obryv_bez_verdikta'
-    fi
-  fi
-''' + needle)
-    assert src.count('osvobodit() {') == 1, 'MODEL_FUNCTION_ANCHOR_MISSING'
-    src = src.replace('osvobodit() {', NEW_FUNCTION + '\nosvobodit() {')
+    for name, anchor in ANCHORS:
+        if src.count(anchor) != 1:
+            raise RuntimeError('MODEL_ANCHOR_MISSING: ' + name)
     path.write_text(src)
     path.chmod(0o755)
 
@@ -115,7 +63,10 @@ def case(door, kind):
         m.git(['remote', 'set-url', 'origin', 'file://' + str(bare)])
         nnn = '141'
         m.kontrakt(nnn)
-        wt, branch, obj = m.worktree(nnn)
+        # v+1 140 (класс из ДЕРЕВА OBJECT): контракт — и в ДЕРЕВЕ кандидата
+        # до снятия sha; суд класса читает его, не main-реестр.
+        wt, branch, obj = m.worktree(
+            nnn, kontrakty=[('fajl', nnn + '-stub.md', '# К\nКЛАСС РИСКА: обычный\n')])
         m.start(nnn, 'Author167', wt=wt, branch=branch)
         m.zhurnal('Author167', sdal=True)
         m.release(nnn, 'Author167')
@@ -217,14 +168,20 @@ def main():
                     candidate = Path(tmp) / (stub + '.sh')
                     src = control.read_text()
                     if stub == 'ignore_all_starts':
-                        src = src.replace(REPLACEMENT, REPLACEMENT.replace('any(.[]; . != "interrupted")', 'false'))
+                        src = src.replace('any(.[]; . != "interrupted")', 'false', 1)
                     elif stub == 'yield_is_verdict':
                         src = src.replace("prichina='obryv_bez_verdikta'", "prichina='verdikt_zakommiten'", 1)
                     elif stub == 'always_block':
                         src = src.replace('  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3"', '  return 0 # bad: unconditionally blocks\n  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3"', 1)
                     elif stub == 'skip_remote_check':
-                        src = src.replace('    git -C "$REPO" ls-remote --heads origin >/dev/null 2>&1 || skip "judge refs недоступны"\n', '')
-                        src = src.replace('    git -C "$REPO" fetch -q --prune origin \'+refs/heads/*:refs/remotes/origin/*\' >/dev/null 2>&1 || skip "judge refs не синхронизированы"\n', '')
+                        src = src.replace('    if ! git -C "$REPO" ls-remote --heads origin >/dev/null 2>&1; then\n'
+                                          '      rmdir "$zdir/mutex" 2>/dev/null\n'
+                                          '      skip "judge refs недоступны"\n'
+                                          '    fi\n', '')
+                        src = src.replace('    if ! git -C "$REPO" fetch -q --prune origin \'+refs/heads/*:refs/remotes/origin/*\' >/dev/null 2>&1; then\n'
+                                          '      rmdir "$zdir/mutex" 2>/dev/null\n'
+                                          '      skip "judge refs не синхронизированы"\n'
+                                          '    fi\n', '')
                     elif stub == 'no_author_check':
                         src = src.replace('    [ "$(git -C "$REPO" log -1 --format=%an "$c")" = "$3" ] || continue\n', '')
                     elif stub == 'broader_path':
