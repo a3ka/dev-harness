@@ -140,6 +140,13 @@ stare_holder() {  # <holder> → yield|bezhit|broshen|net_fajla
   jf="$(find "$ZHUR" -type f -name "${h}.jsonl" -print | sed -n '1p')"
   if [ -z "$jf" ]; then printf 'net_fajla'; return 0; fi
   if grep -Fq '"toolName":"yield"' "$jf"; then printf 'yield'; return 0; fi
+  # [D2b session-exit] omp 18.18.8: субагент завершает работу БЕЗ инструмента yield;
+  # последняя запись журнала — {"type":"custom","customType":"session_exit",
+  # "data":{…"kind":"normal"…}}. Нормальное завершение сессии = сдача (литеральные
+  # якоря, только ПОСЛЕДНЯЯ строка журнала; аварийный выход kind≠normal — не сдача).
+  # Срочная правка владельца 2026-11-12; v+1 контракта 140 с клетками — следом.
+  if tail -n 1 "$jf" | grep -Fq '"customType":"session_exit"' \
+     && tail -n 1 "$jf" | grep -Fq '"kind":"normal"'; then printf 'yield'; return 0; fi
   if [ -n "$(find "$jf" -mmin +"$BROSHEN_TTL_MIN" -print)" ]; then
     printf 'broshen'
   else
