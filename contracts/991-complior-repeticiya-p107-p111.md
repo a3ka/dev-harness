@@ -1,7 +1,7 @@
 # Контракт 991 — совмещённая репетиция П-107/П-111 на Complior-mob (v3, черновик)
 
 КЛАСС: КОДОВЫЙ — конечный предмет меняет StartScreen и исполняемые Android workflows; это не doc-only допуск.
-КЛАСС РИСКА: рисковый — судит обязательный version gate required `android-e2e` health-продукта после переноса проверок в ci-скрипты; класс как у frozen 163/1 (основание из закрытого перечня — ПД/health-данные, прецедент frozen 143/2:3).
+КЛАСС РИСКА: обычный — основание: слово владельца 2026-11-11 через консультанта (утверждённый план; решение консультанта 2026-11-12).
 Статус: черновик для суда, не разрешение push/freeze/раздачи в Complior-mob или Merge. Номер уже выдан: registry/contracts.tsv, `991 → 8de3713102adb5a969c8169e984ffd6601fdfaf0`; повторного минта нет.
 
 КОНТЕКСТ: `docs/owner/2026-10-15-suzhenie-dopuska-pilota.md` — минимальный допуск; `forks/n-105-konsultant-i-n300-batch.md:21–25` — принятое Б1; `verdicts/consultant/complior-p107-p111-batch-v1.md` — инженерные И1–И7; `forks/n-complior-mob-8-razvilok-reshenija.md` — прежние решения; `forks/n-complior-mob-pilot-budget-token.md` — лимиты. Архивный ArchitectP107P111Draft.md — источник предложения, не санкция; его одно-PR маршрут и HARNESS_TOOLCHAIN=android сюда не переносятся. Основание v3: слово владельца 2026-11-11 ~19:40 UTC через консультанта (полоса М2, вариант (а)): станция пишет 991 v3, mob#162 (163 этап A) вливается ПОСЛЕ freeze 991 v3; frozen 163/1 называет 991 v3 условием cutover (`:21` «version gate переносится только вместе с 991 v3», `:42` критерий 4, `:53` «991 v3 `--repo R` судит version replay в обоих workflows»).
