@@ -81,7 +81,7 @@ def invoke(candidate, history, uri, owner, obj, out=OUT, seed=None):
                '--history-uri', uri, '--owner-text', str(owner_file), '--object', obj, '--output', out]
         result = subprocess.run(cmd, text=True, capture_output=True)
         after = snapshot(root)
-        changed = sorted(name for name in after if after[name] != before.get(name))
+        changed = sorted({name for name in after if after[name] != before.get(name)} | (set(before) - set(after)))
         return result.returncode, result.stdout + result.stderr, changed, after.get(IN_ZONE)
 
 
