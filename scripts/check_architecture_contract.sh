@@ -276,8 +276,12 @@ arch187_cleanup() {
 #   ambiguous  — status UNRESOLVED, матчей НЕСКОЛЬКО — размещение неоднозначно.
 # Однострочный ответ из одного идентификатора компонента (мир 170/187-1 до
 # cutover) — единственный компонент (placed).
-# Возврат: 0 — ответ разобран; 1 — ответ НЕ разбирается: ARCH187_REFUSAL=
-# «ARCH_LOCATE_GRAMMAR: …», ARCH187_RC=2 (fail-closed: догадываться нельзя).
+# Класс ответа задаёт поле status, а НЕ код возврата модели: ответ без
+# status или с незнакомым status — вне грамматики и есть именованный отказ
+# (ARCH_LOCATE_GRAMMAR rc 2), а не угадывание класса.
+# Возврат: 0 — ответ разобран; 1 — ответ НЕ разбирается или вне грамматики:
+# ARCH187_REFUSAL=«ARCH_LOCATE_GRAMMAR: …», ARCH187_RC=2 (fail-closed:
+# догадываться нельзя).
 arch187_locate() {
   local path="${1:-}" out rc=0 body ans status count comps lines
   ARCH187_LOCATE_CLASS=""
@@ -311,15 +315,16 @@ arch187_locate() {
         if [ "$count" -eq 0 ]; then ARCH187_LOCATE_CLASS="unresolved"; else ARCH187_LOCATE_CLASS="ambiguous"; fi
         ;;
       *)
-        # Статус не назван или незнаком — класс выводится из rc ответа модели
-        # (декарено: rc 0 — DECLARED, rc≠0 — UNRESOLVED).
-        if [ "$rc" -eq 0 ]; then
-          if [ -n "$comps" ]; then ARCH187_LOCATE_CLASS="placed"; else ARCH187_LOCATE_CLASS="empty"; fi
-        elif [ "$count" -eq 0 ]; then
-          ARCH187_LOCATE_CLASS="unresolved"
+        # Статус не назван или незнаком — ответ ВНЕ грамматики: именованный
+        # отказ ARCH_LOCATE_GRAMMAR rc 2 (fail-closed: класс ответа задаёт
+        # поле status, а не код возврата модели; догадываться нельзя).
+        if [ -z "$status" ]; then
+          ARCH187_REFUSAL="ARCH_LOCATE_GRAMMAR: в ответе locate нет поля status ($path)"
         else
-          ARCH187_LOCATE_CLASS="ambiguous"
+          ARCH187_REFUSAL="ARCH_LOCATE_GRAMMAR: в ответе locate незнакомое значение status: $status ($path)"
         fi
+        ARCH187_RC=2
+        return 1
         ;;
     esac
     ARCH187_LOCATE_COMPS="$comps"

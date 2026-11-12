@@ -877,14 +877,25 @@ if [ "$KIND" = task ]; then
     fi
   fi
   if [ "$_arch187" = "1" ]; then
-    arch187_check_text "$_arch187_text" task "$REPO_ABS" || die "$ARCH187_REFUSAL"
+    # Код возврата двери ARCH187_RC: 1 — именованный отказ, 2 — нечем
+    # проверить (ответ модели не разбирается, зависимости дерева
+    # недоступны). Прежний `die` всегда давал rc 1 и «нечем проверить»
+    # выдавалось за именованный отказ (правило 7 AGENTS.md: отказ обязан
+    # говорить правду).
+    arch187_check_text "$_arch187_text" task "$REPO_ABS" || {
+      printf 'ОТКАЗ: %s\n' "$ARCH187_REFUSAL" >&2
+      exit "${ARCH187_RC:-1}"
+    }
   fi
   if [ "$ARCH_COMPONENT_SET" = "1" ]; then
     if [ "$_arch187" = "1" ]; then
       # Бриф 187а — из ЗАКРЕПЛЁННОГО коммита модели; локальная architecture/
       # (устаревшая копия после 167) источником не является и её отсутствие
       # бриф не отменяет.
-      arch187_model_prepare "$REPO_ABS" || die "$ARCH187_REFUSAL"
+      arch187_model_prepare "$REPO_ABS" || {
+        printf 'ОТКАЗ: %s\n' "$ARCH187_REFUSAL" >&2
+        exit "${ARCH187_RC:-2}"
+      }
     else
       [ -d "$_arch_dir" ] || die "ARCHITECTURE_NET: нет каталога architecture/ в проекте: $_arch_dir"
     fi
