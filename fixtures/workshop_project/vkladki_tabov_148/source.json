@@ -1769,8 +1769,9 @@
    "model/produktnaja-raskladka/mobile/.maestro/vkladki.yaml": "91cf8de5ad9cf2024b09b250d1a9373e018bc3025d3def6bca1b8000724cf475",
    "model/produktnaja-raskladka/mobile/e2e-vkladki/e2e.sh": "ebfabb499009c4b9355ce30970b79ea679c66e923529e64e75f76264ae1af17f",
    "model/produktnaja-raskladka/mobile/src/app/(tabs)/[section].tsx": "64495569d54189b8b4f515fc50a260a7a4e447f9bb62809b1c43c4248693307e",
+  "model/produktnaja-raskladka/mobile/src/app/_layout.tsx": "87e6685d74fbbbaf041991693408b718a73be466fdd80e412ab6eeee68a8ec8f",
    "model/produktnaja-raskladka/mobile/src/bootstrap/gespraech-mitte.tsx": "31deee252ac24ce96e6af56c4adb9d4d7f1c07b50184d63938a3776fd5880331",
-   "model/produktnaja-raskladka/mobile/src/bootstrap/tab-shell.tsx": "3c53de18838dea62b4a4a35c87003d79a23e9230320e9a7901efb499ce871f10",
+   "model/produktnaja-raskladka/mobile/src/bootstrap/tab-shell.tsx": "44ed59a93a017dd1c81c772afc9512f74c958b07d643e228b26dc6f5f95e3b31",
    "model/produktnaja-raskladka/mobile/src/features/missions/components/VorgaengeListe.tsx": "256fd30e9c3a8bd9d10469bf90f34435b47670b8fb32458b6cd115d49e59cf61",
    "model/produktnaja-raskladka/mobile/src/features/missions/model/vkladki-dannye.ts": "9dd6fe0a0fb92d4eaab6b196c64c44f534f2b03e58aeeebbfa837886cade07e5",
    "model/produktnaja-raskladka/mobile/src/features/post/components/PostEingang.tsx": "34821e7420ff66e1adaf10330e0b26f53a84f94c07196fafd8d6d0f37d97e169",
@@ -1779,7 +1780,7 @@
    "model/produktnaja-raskladka/mobile/src/bootstrap/kompakt-tokens.ts": "2261a3e5c2d4a5ee9ad4b70d46773569a0205e6c200cd6e0d3bf54ea46a660ec"
   },
   "produkt": {
-   "produkt/vkladki-zond-148.test.tsx": "f7acab241e989e1fe138041efe0109a30380d2e7265eab15e6caed5dac741840"
+   "produkt/vkladki-zond-148.test.tsx": "d6fb96c0f8907df903a81973d392e58eb64fc48e6b6ec11e68b3bd2a0b825f73"
   }
  },
  "dopusk_score": 0.01,
@@ -2295,7 +2296,7 @@
     "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
     "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
     "SHABLON\tvkladki\tOK",
-    "PRICHINA\tISPOLNIMYJ_MUTANT_ZHIV: tabs, badge, skroll, kasanie, tokeny, nav-final2, nav-literal, disabled, filter-bez-dejstvija, vorgaenge-stroki-net, padding-tolko-gorizontal, badge-opacity, vkladki-opacity, mitte-opacity-predok, nadpis-lozhnaja, schutz-rebenok, oblasti-opacity, stroki-opacity, soobschenie-display-none, nadpis-za-ekranom, badge-vsegda, pointer-events"
+    "PRICHINA\tISPOLNIMYJ_MUTANT_ZHIV: tabs, badge, skroll, kasanie, tokeny, nav-final2, nav-literal, disabled, filter-bez-dejstvija, vorgaenge-stroki-net, padding-tolko-gorizontal, badge-opacity, vkladki-opacity, mitte-opacity-predok, nadpis-lozhnaja, schutz-rebenok, oblasti-opacity, stroki-opacity, soobschenie-display-none, nadpis-za-ekranom, badge-vsegda, pointer-events, safe-rezerv-nul, safe-konstanta"
    ],
    "prichiny": []
   },
@@ -2345,6 +2346,38 @@
     "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
     "SHABLON\tvkladki\tOK",
     "PRICHINA\tTOKENY_MODUL_NE_IZ_ISTOCHNIKA: mobile/src/bootstrap/kompakt-tokens.ts != извлечению из docs/ux/05_Kompakt_D24/source/tokens.json (ветки nav.*/touch-target.min; модуль руками не редактируется)"
+   ],
+   "prichiny": []
+  },
+  "pr-safe-bez-provaidera": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tvkladki\tOK",
+    "PRICHINA\tSAFE_AREA_BEZ_PROVAJDERA: _layout.tsx не поднимает <SafeAreaProvider — инсеты устройства не публикуются, лейсте стоит в жестовой полосе (Б-3, слово владельца 2026-11-11)"
+   ],
+   "prichiny": []
+  },
+  "pr-safe-insety-ne-chitajutsja": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tvkladki\tOK",
+    "PRICHINA\tSAFE_AREA_INSETY_NE_CHITAJUTSJA: tab-shell.tsx не читает safe-area инсет (useContext(SafeAreaInsetsContext)/useSafeAreaInsets — оба публичных API пакета) — низ лейсте не поднимается над системной жестовой полосой (Б-3, слово владельца 2026-11-11)"
    ],
    "prichiny": []
   }
@@ -2456,6 +2489,12 @@
   ],
   "s94_tokeny_modul_propuskaet.py": [
    "pr-tokeny-modul"
+  ],
+  "s95_provaider_propuskaet.py": [
+   "pr-safe-bez-provaidera"
+  ],
+  "s96_insety_propuskaet.py": [
+   "pr-safe-insety-ne-chitajutsja"
   ]
  }
 }

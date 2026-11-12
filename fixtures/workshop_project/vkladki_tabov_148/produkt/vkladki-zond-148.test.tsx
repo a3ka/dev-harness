@@ -102,6 +102,7 @@
 import React from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TabShell } from '../tab-shell';
 import { GespraechMitte } from '../gespraech-mitte';
 import { VorgaengeListe } from '../../features/missions/components/VorgaengeListe';
@@ -920,4 +921,78 @@ test('Б3: типографика вкладок использует токен
     }
   }
   view.unmount();
+});
+
+// Б-3 (слово владельца 2026-11-11, v+1): таб-бар стоит НАД нижним
+// safe-area инсетом окна на ОБОИХ профилях (390/393). Зонд сам поднимает
+// SafeAreaProvider с измеренными значениями: 24 — нижний инсет AVD 390
+// (замер живьём, Rev148/Impl148j), 34 — домашняя полоса профиля 393
+// (макет 393x852), 48 — второе КОНФОРМНОЕ значение инсета 390 (среда
+// устройства может дать любое; отличное от 24 убивает плоскую константу
+// — «инсет из окружения, не плоская константа»). Резерв оверлея
+// (эффективная высота shell-tabbar − nav.height) на 390 (allowance
+// профиля 0) == инсету при ОБОИХ значениях, на 393 — ≥ инсета; оверлей
+// прижат к нижнему краю (bottom === 0): контент прокручивается ПОД
+// лейсте (GA-09), инсет перекрывается фоном резерва, а не дырой.
+// Среда зонда: один render() на тест (замер пачки — третий render в
+// одном тесте даёт пустое дерево), Dimensions.set — вне act.
+const VYSOTA_RJADA = px(TOKENY['nav']['height'].$value);
+
+async function proveritRezervSafeArea(
+  profil: { readonly imja: string; readonly shirina: number; readonly vysota: number },
+  inset: number,
+  tochno: boolean,
+): Promise<void> {
+  ustanovitProfil(profil);
+  const view = await render(
+    <SafeAreaProvider
+      initialMetrics={{
+        frame: { x: 0, y: 0, width: profil.shirina, height: profil.vysota },
+        insets: { top: 0, left: 0, right: 0, bottom: inset },
+      }}
+    >
+      <TabShell initialSection="vorgaenge" reducedMotion />
+    </SafeAreaProvider>,
+  );
+  // RNTL-узел рендер-дерева зонда: форма известна (см. Б1 выше)
+  const hoziain = screen.getByTestId('shell-tabbar') as { props?: { style?: unknown } };
+  const st = (StyleSheet.flatten([hoziain.props?.style]) ?? {}) as Record<string, unknown>;
+  const rezerv = effektivnajaVysota(st) - VYSOTA_RJADA;
+  const imja = `${profil.imja}, инсет ${inset}`;
+  if (st.bottom !== 0) {
+    throw new Error(
+      `LEJSTE_V_SAFE_ZONE ${imja}: оверлей не прижат к нижнему краю ` +
+      `(bottom=${String(st.bottom)}) — контент обязан прокручиваться ПОД ` +
+      'лейсте (GA-09), инсет перекрывается фоном резерва, а не дырой',
+    );
+  }
+  if (tochno && rezerv !== inset) {
+    throw new Error(
+      `LEJSTE_V_SAFE_ZONE ${imja}: резерв оверлея ${rezerv} != инсету ` +
+      `${inset} — ряд вкладок обязан стоять НАД системной жестовой ` +
+      'полосой, следуя за инсетом окружения (не плоская константа; ' +
+      'Б-3 Rev148, слово владельца 2026-11-11)',
+    );
+  }
+  if (!tochno && rezerv < inset) {
+    throw new Error(
+      `LEJSTE_V_SAFE_ZONE ${imja}: резерв оверлея ${rezerv} < инсета ` +
+      `${inset} — ряд вкладок обязан стоять НАД системной жестовой ` +
+      'полосой на обоих профилях (Б-3 Rev148, слово владельца ' +
+      '2026-11-11)',
+    );
+  }
+  view.unmount();
+}
+
+test('Б-3 (390x844, инсет 24): резерв лейсте == нижнему инсету', async () => {
+  await proveritRezervSafeArea(PROFILI[0], 24, true);
+});
+
+test('Б-3 (390x844, инсет 48): резерв следует за инсетом, не константа', async () => {
+  await proveritRezervSafeArea(PROFILI[0], 48, true);
+});
+
+test('Б-3 (393x852, инсет 34): резерв лейсте ≥ нижнему инсету', async () => {
+  await proveritRezervSafeArea(PROFILI[1], 34, false);
 });

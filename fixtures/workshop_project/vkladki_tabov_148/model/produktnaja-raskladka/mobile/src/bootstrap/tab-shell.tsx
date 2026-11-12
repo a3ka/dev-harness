@@ -6,7 +6,7 @@
 // читаем её асинхронно: пока Promise не разрешён — декоративное движение
 // выключено (безопасный выбор по слову владельца: при системном
 // reduceMotion анимаций нет НИГДЕ, включая возврат из profile).
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -18,7 +18,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaInsetsContext, SafeAreaView } from 'react-native-safe-area-context';
 import { TAB_ORDER, themeTokens, type ColorScheme, type ShellSectionId, type ThemeTokens } from '../theme/tokens';
 import { ThemeContext } from '../theme/context';
 // v3b (Crit148k2b Б1): значения nav-токенов пакета 1.1 — модуль
@@ -124,6 +124,18 @@ export function useSystemReduceMotion(): boolean {
     };
   }, []);
   return enabled;
+}
+
+/** Нулевые инсеты устройства — среда без SafeAreaProvider (jest-пробы
+ * замороженной поверхности 999 не поднимают провайдер). */
+const BEZ_INSETOV = { top: 0, bottom: 0, left: 0, right: 0 };
+
+/** Инсеты устройства (safe-area, Б-3 — слово владельца 2026-11-11):
+ *  лейсте стоит НАД нижним инсетом на обоих профилях; источник —
+ *  SafeAreaProvider корня приложения (app/_layout.tsx). Форма — как у
+ *  живого tab-shell продукта (единый способ чтения). */
+function useInsets(): { top: number; bottom: number; left: number; right: number } {
+  return useContext(SafeAreaInsetsContext) ?? BEZ_INSETOV;
 }
 
 interface HeaderBarProps {
@@ -323,6 +335,11 @@ export function TabShell({
     </KeyboardAvoidingView>
   );
 
+
+  /* Б-3 (слово владельца 2026-11-11): резерв под нижний инсет устройства
+     — ряд вкладок nav.height стоит НАД системной жестовой полосой на
+     обоих профилях; резерв — фон под инсет, контент идёт ПОД лейсте. */
+  const rezervNiz = Math.max(0, useInsets().bottom);
   const tabbarWrap = route === 'tabs' ? (
     /* 148 vkladki-tabov (GA-09 «Tab-Leiste bleibt, Inhalt läuft darunter»):
        лейсте — оверлей нижнего края поверх body: контент вкладки
@@ -331,7 +348,7 @@ export function TabShell({
     <View
       style={[
         styles.tabbarOverlay,
-        { backgroundColor: tokens.panel },
+        { backgroundColor: tokens.panel, height: navTokens.height + rezervNiz },
       ]}
     >
       <TabBar
