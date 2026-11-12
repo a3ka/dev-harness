@@ -194,6 +194,14 @@ klass_riska() {  # <NNN> → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<
     [ -n "$f" ] || continue
     val="$(grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' "$f" 2>/dev/null \
           | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"
+    # [D30 risk-legacy] старый frozen без строки класса (до слова владельца 24.10): класс —
+    # из registry/risk-legacy.tsv по blob файла (колонки: blob, класс, основание, подтвердил);
+    # норма roles/orchestrator.md §«Порядок судей и класс риска». Литеральное сравнение blob
+    # (awk -F'\t' $1==b), нет записи — поведение прежнее (класс не определён, fail-closed).
+    # Срочная правка владельца 2026-11-12; клетки — v+1 контракта 140.
+    if [ -z "$val" ] && [ -f "$REPO/registry/risk-legacy.tsv" ]; then
+      val="$(awk -F'\t' -v b="$(git hash-object "$f" 2>/dev/null)" 'b!="" && $1==b {print $2; exit}' "$REPO/registry/risk-legacy.tsv")"
+    fi
     case "$val" in
       обычный)  val='obychnyj' ;;
       рисковый) val='risikovyj' ;;
