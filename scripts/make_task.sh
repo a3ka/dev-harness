@@ -855,7 +855,15 @@ if [ "$KIND" = task ]; then
       _A187_FILE="$(mktemp 2>/dev/null || true)"
       if [ -n "$_A187_FILE" ] && [ -f "$_A187_FILE" ]; then
         printf '%s' "$CBYTES" > "$_A187_FILE"
-        if arch187_code_subject "$_A187_FILE"; then
+        # КЛАСС ЗАДАЧИ — по черновику контракта: строки нет — именованный отказ
+        # ARCH_CLASS_MISSING (пак не выдаётся); класс назван и не кодовый —
+        # дверь не вооружается (без отказа).
+        _arch187_class=0
+        arch187_class "$_A187_FILE" || _arch187_class=$?
+        if [ "$_arch187_class" = "1" ]; then
+          die "$ARCH187_REFUSAL"
+        fi
+        if [ "$_arch187_class" = "0" ]; then
           _arch187=1
           # Задание судится по ВЫДАННОМУ файлу задания, когда он есть: строка
           # «АРХИТЕКТУРА:» и зоны — свойства задания, а не черновика контракта.
@@ -938,6 +946,11 @@ if [ "$KIND" = task ]; then
 ${_arch_text}
 "
     done
+  elif [ "$_arch187" = "1" ]; then
+    # КОНТРАКТ 187а: признак режима — закреплённая модель (lock), а не
+    # локальный каталог architecture/: без флага кодовый предмет отказывает
+    # ARCH_COMPONENT_NET независимо от наличия локальной копии.
+    die "ARCH_COMPONENT_NET: требуется --arch-component (кодовый предмет, проект с закреплённой моделью)"
   elif [ -d "$_arch_dir" ] && printf '%s\n' "$CBYTES" | grep -Eq '^КЛАСС ЗАДАЧИ:[[:space:]]*(кодовый|КОДОВЫЙ)([^[:alnum:]_]|$)'; then
     die "ARCH_COMPONENT_NET: требуется --arch-component (кодовый предмет, проект с architecture/)"
   fi

@@ -193,7 +193,14 @@ if [ -x "$SELF_DIR/check_architecture_contract.sh" ]; then
     _a187_txt="$(mktemp 2>/dev/null || true)"
     if [ -n "$_a187_txt" ] && [ -f "$_a187_txt" ]; then
       ( cd "$ROOT" && git cat-file -p "HEAD:$TARGET_REL" ) > "$_a187_txt" 2>/dev/null || true
-      if arch187_code_subject "$_a187_txt"; then
+      # КЛАСС ЗАДАЧИ: строки нет — именованный отказ ARCH_CLASS_MISSING (тег
+      # done не создаётся); класс назван и не кодовый — дверь не вооружается.
+      _a187_class=0
+      arch187_class "$_a187_txt" || _a187_class=$?
+      if [ "$_a187_class" = "1" ]; then
+        die "$ARCH187_REFUSAL"
+      fi
+      if [ "$_a187_class" = "0" ]; then
         # (1) свидетельство ревьюера
         _a187_rev_ok=0
         ( cd "$ROOT" && git cat-file -p "HEAD:$freshest" ) 2>/dev/null \

@@ -278,8 +278,21 @@ if [ -x "$SELF_DIR/check_architecture_contract.sh" ]; then
     _a187_text="$(mktemp 2>/dev/null || true)"
     if [ -n "$_a187_text" ] && [ -f "$_a187_text" ]; then
       g cat-file -p "HEAD:$TARGET" > "$_a187_text" 2>/dev/null || true
-      if arch187_code_subject "$_a187_text"; then
-        arch187_check_text "$_a187_text" contract "$ROOT" || die "$ARCH187_REFUSAL"
+      # КЛАСС ЗАДАЧИ: строки нет — именованный отказ ARCH_CLASS_MISSING;
+      # класс назван и не кодовый — дверь не вооружается (без отказа).
+      _a187_class=0
+      arch187_class "$_a187_text" || _a187_class=$?
+      if [ "$_a187_class" = "1" ]; then
+        printf 'ОТКАЗ: %s\n' "$ARCH187_REFUSAL" >&2
+        exit 1
+      fi
+      if [ "$_a187_class" = "0" ]; then
+        # Код возврата двери ARCH187_RC: 1 — именованный отказ, 2 — нечем
+        # проверить (ответ модели не разбирается, зависимости недоступны).
+        arch187_check_text "$_a187_text" contract "$ROOT" || {
+          printf 'ОТКАЗ: %s\n' "$ARCH187_REFUSAL" >&2
+          exit "${ARCH187_RC:-1}"
+        }
       fi
       rm -f "$_a187_text"
     fi
