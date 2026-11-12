@@ -73,9 +73,23 @@
 #             отказ (нет каталога/снимка, расхождение, запуск не завершён
 #             успехом или не свеж); rc 2 — нет systemctl. И-6b, Рв2-5.
 #
+#   validators — поставить СТАНДАРТНЫЕ ВАЛИДАТОРЫ станции (контракт 189): читает
+#           пины ops/server/validators.tsv (<инструмент><TAB><версия><TAB><sha256|->),
+#           скачивает официальный архив релиза, сверяет sha256 РАСПАКОВАННОГО бинаря с
+#           пином ДО установки и кладёт бинарь в
+#           ${OPS_SERVER_VALIDATORS_DEST-$HOME/.local/state/dev-harness/validators}/<инструмент>/<версия>/<инструмент>
+#           (755). Расхождение sha256 с пином — ИМЕНОВАННЫЙ отказ rc 1, и НИЧЕГО не
+#           устанавливается (сверка всех строк идёт до установки). Строки с «-» —
+#           пакеты python (версия), у них нет бинаря: установка не требуется.
+#           verify дополнительно сверяет пины ↔ установленное (если валидаторы
+#           установлены; станция без установки — не расхождение, а «не установлены»).
+#
 # Швы (инвариант 6): OPS_SERVER_SRC (умолчание — каталог скрипта), адресаты
 # OPS_SERVER_BIN_DST / OPS_SERVER_SBIN_DST / OPS_SERVER_ETC_DST, и OPS_SERVER_MAIN
 # (081 — корень основного чекаута, по умолчанию /home/harness/dev-harness).
+# Швы 189: OPS_SERVER_VALIDATORS_DEST (корень установки валидаторов) и
+# OPS_SERVER_VALIDATORS_ARCHIVES (каталог с готовыми архивами официальных релизов;
+# по умолчанию пусто — установщик сам скачивает архив по сети).
 # При шве скрипт не читает и не пишет умолчательный путь того же шва.
 # Швы OPS_SERVER_AGENT_USER / OPS_SERVER_AGENT_HOME (093, И-3) переопределяют
 # идентичность пользователя-агента; install.sh root провизионит их идемпотентно.
@@ -120,6 +134,14 @@ AGENT_HOME="${OPS_SERVER_AGENT_HOME-/var/lib/orch-agent}"
 SUDOERS_DROP="${OPS_SERVER_SUDOERS_DROP-/etc/sudoers.d/orch-agent-launcher}"
 # Контракт 093 И-3 (Рв2-6, v2): корень исполняемого кода агента.
 AGENT_ROOT="${OPS_SERVER_AGENT_ROOT-/opt/orch-agent}"
+# Контракт 189: стандартные валидаторы станции. Пины — единственный источник
+# (ops/server/validators.tsv); тот же файл читают scripts/validate_std.sh и
+# scripts/validate_std_json.py. Корень установки — по умолчанию путь контракта.
+VALIDATORS_PINS="$SRC_ROOT/validators.tsv"
+VALIDATORS_DEST="${OPS_SERVER_VALIDATORS_DEST-$HOME/.local/state/dev-harness/validators}"
+VALIDATORS_ARCHIVES="${OPS_SERVER_VALIDATORS_ARCHIVES-}"
+# Временный каталог установки (глобальный: к нему обращается trap на выходе).
+VALIDATORS_TMP=""
 
 # ── зависимости и источник (fail-closed rc 2) ────────────────────────────────
 command -v sha256sum >/dev/null 2>&1 \
@@ -129,7 +151,7 @@ command -v sha256sum >/dev/null 2>&1 \
 
 # ── помощники ────────────────────────────────────────────────────────────────
 usage() {
-  printf 'NOT_IMPLEMENTED: использование: ops/server/install.sh user|root|verify|verify-start|rollback\n' >&2
+  printf 'NOT_IMPLEMENTED: использование: ops/server/install.sh user|root|verify|verify-start|rollback|validators\n' >&2
   exit 2
 }
 die_write() {
@@ -141,6 +163,132 @@ check_one() { # <адресат> <источник> — sha256 адресата 
   a="$(sha256sum <"$1" | cut -d' ' -f1)"
   b="$(sha256sum <"$2" | cut -d' ' -f1)"
   [ "$a" = "$b" ] || { printf 'ОТКАЗ: расхождение %s\n' "$1" >&2; return 1; }
+}
+# ── контракт 189: стандартные валидаторы (пины — ops/server/validators.tsv) ────
+# URL официального архива релиза: <инструмент> <версия> → URL; rc 1 — схема
+# загрузки для этого инструмента не объявлена (тихих подмен нет: неизвестный
+# инструмент — именованный отказ, а не «скачаю что найду»).
+validator_archive_url() {
+  case "$1" in
+    actionlint)
+      printf 'https://github.com/rhysd/actionlint/releases/download/v%s/actionlint_%s_linux_amd64.tar.gz\n' "$2" "$2" ;;
+    shellcheck)
+      printf 'https://github.com/koalaman/shellcheck/releases/download/v%s/shellcheck-v%s.linux.x86_64.tar.gz\n' "$2" "$2" ;;
+    *) return 1 ;;
+  esac
+}
+# Поля строки файла пинов: <инструмент> <версия> <sha256|-> (пустое — поля нет).
+validator_pin_fields() { # <строка файла пинов>
+  printf '%s\t%s\t%s\n' \
+    "$(printf '%s' "$1" | cut -f1)" \
+    "$(printf '%s' "$1" | cut -f2)" \
+    "$(printf '%s' "$1" | cut -f3)"
+}
+# Число полей строки пина: формат замкнутый (ровно три) — иначе строка не пин.
+validator_pin_nfields() { # <строка файла пинов>
+  printf '%s' "$1" | awk -F'\t' '{ print NF }'
+}
+# Установка валидаторов: сначала сверка ВСЕХ строк пина (архив → распаковка →
+# sha256 → сравнение с пином), потом установка сверенных бинарей. Расхождение на
+# любой строке — именованный отказ rc 1, и НИЧЕГО не устанавливается.
+install_validators() {
+  local rc=0 line instrument version pin url name archive found fakt target
+  command -v tar >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет tar\n' >&2; return 2; }
+  [ -f "$VALIDATORS_PINS" ] || { printf 'ОТКАЗ: нет файла пинов: %s\n' "$VALIDATORS_PINS" >&2; return 1; }
+  VALIDATORS_TMP="$(mktemp -d)" || { printf 'ОТКАЗ: не создан временный каталог\n' >&2; return 1; }
+  trap 'rm -rf "$VALIDATORS_TMP"' EXIT
+  mkdir -p "$VALIDATORS_TMP/verified" || { printf 'ОТКАЗ: нет каталога %s\n' "$VALIDATORS_TMP/verified" >&2; return 1; }
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ''|'#'*) continue ;; esac
+    if [ "$(validator_pin_nfields "$line")" != 3 ]; then
+      printf 'ОТКАЗ: строка пина вне формата (ожидаются 3 поля): %s\n' "$line" >&2
+      rc=1
+      continue
+    fi
+    IFS="$(printf '\t')" read -r instrument version pin <<< "$(validator_pin_fields "$line")"
+    if [ "$pin" = '-' ]; then
+      printf 'валидатор %s: пакет python версии %s — установка не требуется\n' "$instrument" "$version"
+      continue
+    fi
+    case "$pin" in
+      ''|*[!0-9a-f]*) printf 'ОТКАЗ: пин %s: не sha256 (%s)\n' "$instrument" "$pin" >&2; rc=1; continue ;;
+    esac
+    [ "${#pin}" -eq 64 ] || { printf 'ОТКАЗ: пин %s: не sha256 (%s)\n' "$instrument" "$pin" >&2; rc=1; continue; }
+    url="$(validator_archive_url "$instrument" "$version")" || {
+      printf 'ОТКАЗ: %s: схема загрузки не объявлена\n' "$instrument" >&2; rc=1; continue; }
+    name="${url##*/}"
+    archive="$VALIDATORS_TMP/$name"
+    if [ -n "$VALIDATORS_ARCHIVES" ]; then
+      if [ ! -f "$VALIDATORS_ARCHIVES/$name" ]; then
+        printf 'ОТКАЗ: %s: нет архива %s в %s\n' "$instrument" "$name" "$VALIDATORS_ARCHIVES" >&2
+        rc=1
+        continue
+      fi
+      cp -- "$VALIDATORS_ARCHIVES/$name" "$archive" || { printf 'ОТКАЗ: %s: копия архива\n' "$name" >&2; rc=1; continue; }
+    else
+      command -v curl >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет curl\n' >&2; return 2; }
+      curl -fsSL -o "$archive" "$url" || {
+        printf 'ОТКАЗ: %s: архив не скачан: %s\n' "$instrument" "$url" >&2; rc=1; continue; }
+    fi
+    mkdir -p "$VALIDATORS_TMP/разбор" || { printf 'ОТКАЗ: нет каталога разбора\n' >&2; return 1; }
+    tar -xf "$archive" -C "$VALIDATORS_TMP/разбор" || {
+      printf 'ОТКАЗ: %s: архив не распакован: %s\n' "$instrument" "$name" >&2; rc=1; continue; }
+    found="$(find "$VALIDATORS_TMP/разбор" -type f -name "$instrument" -print -quit)"
+    [ -n "$found" ] || {
+      printf 'ОТКАЗ: %s: в архиве нет бинаря %s\n' "$instrument" "$name" >&2; rc=1; continue; }
+    fakt="$(sha256sum <"$found" | cut -d' ' -f1)"
+    if [ "$fakt" != "$pin" ]; then
+      printf 'ОТКАЗ: VALIDATOR_PIN: %s: фактический %s ≠ пин %s\n' "$instrument" "$fakt" "$pin" >&2
+      rc=1
+      continue
+    fi
+    cp -- "$found" "$VALIDATORS_TMP/verified/$instrument" || { printf 'ОТКАЗ: %s: копия бинаря\n' "$instrument" >&2; rc=1; continue; }
+  done < "$VALIDATORS_PINS"
+  if [ "$rc" -ne 0 ]; then
+    printf 'ОТКАЗ: валидаторы не установлены (расхождение с пином)\n' >&2
+    return 1
+  fi
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ''|'#'*) continue ;; esac
+    IFS="$(printf '\t')" read -r instrument version pin <<< "$(validator_pin_fields "$line")"
+    [ "$pin" = '-' ] && continue
+    target="$VALIDATORS_DEST/$instrument/$version/$instrument"
+    mkdir -p "$(dirname "$target")" || die_write "$(dirname "$target")"
+    cp -- "$VALIDATORS_TMP/verified/$instrument" "$target.new.$$" || die_write "$target.new.$$"
+    chmod 755 "$target.new.$$" || die_write "$target.new.$$"
+    mv -f -- "$target.new.$$" "$target" || die_write "$target"
+    printf 'установлен: %s %s → %s\n' "$instrument" "$version" "$target"
+  done < "$VALIDATORS_PINS"
+  return 0
+}
+# Сверка пинов валидаторов с установленным (контракт 189): каждый пин обязан совпасть
+# с байтами установленного бинаря. Валидаторы не установлены — сверка не выполняется
+# (станция без установки — не расхождение, а «не установлены»).
+check_validators() {
+  local rc=0 line instrument version pin target fakt
+  [ -f "$VALIDATORS_PINS" ] || { printf 'ОТКАЗ: нет файла пинов: %s\n' "$VALIDATORS_PINS" >&2; return 1; }
+  if [ ! -d "$VALIDATORS_DEST" ]; then
+    printf 'валидаторы: не установлены (%s) — сверка пинов не выполнялась\n' "$VALIDATORS_DEST"
+    return 0
+  fi
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ''|'#'*) continue ;; esac
+    IFS="$(printf '\t')" read -r instrument version pin <<< "$(validator_pin_fields "$line")"
+    [ "$pin" = '-' ] && continue
+    target="$VALIDATORS_DEST/$instrument/$version/$instrument"
+    if [ ! -f "$target" ]; then
+      printf 'ОТКАЗ: расхождение %s (нет файла)\n' "$target" >&2
+      rc=1
+      continue
+    fi
+    fakt="$(sha256sum <"$target" | cut -d' ' -f1)"
+    if [ "$fakt" != "$pin" ]; then
+      printf 'ОТКАЗ: расхождение %s (sha256 %s ≠ пин %s)\n' "$target" "$fakt" "$pin" >&2
+      rc=1
+    fi
+  done < "$VALIDATORS_PINS"
+  [ "$rc" -eq 0 ] && printf 'валидаторы: пины совпали с установленным (%s)\n' "$VALIDATORS_DEST"
+  return "$rc"
 }
 # Контракт 093 И-3: провизионирование пользователя-агента (idempotent).
 # Создаёт system-user если отсутствует, /var/lib/orch-agent (владелец агент),
@@ -484,7 +632,14 @@ case "$1" in
       check_one "$ETC_DST/$u" "$SRC_ROOT/root/systemd/$u" || rc=1
     done
     [ "$rc" -eq 0 ] && printf 'сверка: 10/10\n'
+    # Контракт 189: сверка пинов валидаторов ↔ установленного (если установлены).
+    check_validators || rc=1
     exit "$rc"
+    ;;
+  validators)
+    # Контракт 189: стандартные валидаторы по пинам ops/server/validators.tsv.
+    install_validators
+    exit $?
     ;;
   verify-start)
     # И-6a контракта 093 v2 (Рв2-5): юнит — ONESHOT; ActiveState=inactive
