@@ -25,7 +25,15 @@ emptyComponentsReason: outside the product C4 view), UNRESOLVED with zero matche
 matches (ambiguous inside the product tree) — plus a body that may be truncated.
 The door classifies by the MODEL's own answer, never by path heuristics; a
 malformed body is a named ARCH_LOCATE_GRAMMAR rc 2 (fail-closed), never a silent
-narrowing and never green."""
+narrowing and never green.
+v3-r1 (critic verdict contracts-187-v3-vyzov1-fail, block Б-1): each answer class
+now carries at least TWO values of its observable key — a component-less module
+with an id != module.tests (worker/main.js → module.worker, the pin's own form),
+zero-match paths != FILES.sha256 (provenance.json, STRUCTURE.md — both named by
+the contract), and a several-claimants answer with EMPTY components
+(server/index.js → module.server + module.entrypoints, the pin's observed form).
+The literal-narrowing stabs MA1/MA2/MA3 of the verdict are mutant branches of
+the honest control, each caught by its OWN cell."""
 import hashlib
 import json
 import os
@@ -106,6 +114,11 @@ CASES = (
     ('zone-locate-not-heuristic', 'freeze', 'heuristic-docs', 1, 'компоненту api.identity', 'freeze'),
     ('locate-grammar-refusal', 'freeze', 'grammar-broken', 2, 'ARCH_LOCATE_GRAMMAR', 'freeze'),
     ('line-duplicate', 'freeze', 'line-duplicate', 1, 'ARCH_LINE_MISSING', 'freeze'),
+    # ── v3-r1: вторые значения классов ответа (вердикт критика v3, блок Б-1) ────
+    ('locate-declared-empty-worker', 'freeze', 'declared-empty-worker', 0, '', 'freeze'),
+    ('locate-outside-provenance', 'freeze', 'outside-provenance', 0, '', 'freeze'),
+    ('locate-outside-structure', 'freeze', 'outside-structure', 0, '', 'freeze'),
+    ('path-unplaced-empty-claimants', 'freeze', 'ambiguous-empty', 1, 'PATH_WITHOUT_COMPONENT', 'freeze'),
 )
 STABS = {
     'task-no-line': ('task-line-missing', 'allow-line'),
@@ -177,6 +190,11 @@ STABS = {
     'locate-grammar-narrowed': ('locate-grammar-refusal', 'grammar-narrowed'),
     'line-duplicate-allowed': ('line-duplicate', 'allow-duplicate'),
     'ambiguous-any-green': ('path-unplaced-product', 'allow-unmapped'),
+    # ── v3-r1 стабы: литеральные сужения MA1/MA2/MA3 вердикта — каждая ветвь своей клетке ──
+    'locate-empty-refused-literal': ('locate-declared-empty-worker', 'empty-refused-literal'),
+    'universe-refused-literal': ('locate-outside-provenance', 'universe-refused-literal'),
+    'universe-refused-named-pair': ('locate-outside-structure', 'universe-refused-named-pair'),
+    'ambiguous-empty-green': ('path-unplaced-empty-claimants', 'ambiguous-empty-green'),
 }
 
 # Approved snapshot inside the pinned tree (2.5.x layout of the real model, as run-arch.js
@@ -198,7 +216,10 @@ REAL_VARIATIONS = frozenset((
     'union-conform', 'union-foreign',
     # v3: the four answer classes of the real CLI (боль 181/183/185)
     'real-contract', 'declared-empty', 'outside-universe', 'heuristic-docs',
-    'grammar-broken', 'line-duplicate'))
+    'grammar-broken', 'line-duplicate',
+    # v3-r1: second values per class (critic v3, block Б-1)
+    'declared-empty-worker', 'outside-provenance', 'outside-structure',
+    'ambiguous-empty'))
 
 # Union world (v2-r1, блок 1(a) вердикта): the real CLI can answer SEVERAL matches
 # with SEVERAL components in one match (observed at the pin: server/src/handlers/x.js
@@ -231,6 +252,25 @@ DUAL_MATCHES = (
      'specification': 'app/dual/gateway.js', 'explicit': False, 'matched': 'app/dual/'},
     {'module': 'module.dual-entrypoints', 'components': ['api.documents'],
      'specification': 'app/dual/entrypoints.js', 'explicit': False, 'matched': 'app/dual/'},
+)
+# v3-r1 second values (critic verdict, block Б-1): the pin-observed forms that a
+# single-value battery cannot distinguish from a literal narrowing. worker/main.js
+# → module.worker (component-less module with an id != module.tests); server/
+# claimed by TWO modules with EMPTY components (the observed form of
+# server/index.js: module.server + module.entrypoints). The zero-match repo
+# artifacts provenance.json and STRUCTURE.md fall through to the generic
+# else-branch of the toy CLI and of placed() — no new branch needed for them.
+# Single source: the toy CLI bytes and the verifier's honest control both read
+# these constants.
+WORKER_PREFIX = 'worker/'
+WORKER_MATCH = {'module': 'module.worker', 'components': [],
+               'specification': 'worker/module.js', 'explicit': False, 'matched': 'worker/'}
+AMBIG_PREFIX = 'server/'
+AMBIG_MATCHES = (
+    {'module': 'module.server', 'components': [],
+     'specification': 'server/module.js', 'explicit': False, 'matched': 'server/'},
+    {'module': 'module.entrypoints', 'components': [],
+     'specification': 'server/entrypoints.js', 'explicit': False, 'matched': 'server/'},
 )
 BROKEN_PREFIX = 'app/broken/'
 # The truncated body: valid JSON head, unclosed — «парсер глотает незакрытую скобку»
@@ -297,6 +337,10 @@ def locate_answer(path):
         return 'declared', [DOCS_MATCH]
     if path.startswith(DUAL_PREFIX):
         return 'unresolved-multi', list(DUAL_MATCHES)
+    if path.startswith(WORKER_PREFIX):
+        return 'declared', [WORKER_MATCH]
+    if path.startswith(AMBIG_PREFIX):
+        return 'unresolved-multi', list(AMBIG_MATCHES)
     if path.startswith(UNION_PREFIX):
         return 'declared', list(UNION_MATCHES)
     single = placed(path)
@@ -429,6 +473,10 @@ if (name==='brief') {
   one('DECLARED',[__DOCS_MATCH__],0);
  } else if(p.startsWith('__DUAL_PREFIX__')){
   one('UNRESOLVED',__DUAL_MATCHES__,1);
+ } else if(p.startsWith('__WORKER_PREFIX__')){
+  one('DECLARED',[__WORKER_MATCH__],0);
+ } else if(p.startsWith('__AMBIG_PREFIX__')){
+  one('UNRESOLVED',__AMBIG_MATCHES__,1);
  } else if(p.startsWith('__UNION_PREFIX__')){
   one('DECLARED',UNION,0);
  } else {
@@ -472,6 +520,10 @@ TOY_CLI_REAL = (TOY_CLI_REAL
                 .replace('__DOCS_MATCH__', json.dumps(DOCS_MATCH, separators=(',', ':')))
                 .replace('__DUAL_PREFIX__', DUAL_PREFIX)
                 .replace('__DUAL_MATCHES__', json.dumps(DUAL_MATCHES, separators=(',', ':')))
+                .replace('__WORKER_PREFIX__', WORKER_PREFIX)
+                .replace('__WORKER_MATCH__', json.dumps(WORKER_MATCH, separators=(',', ':')))
+                .replace('__AMBIG_PREFIX__', AMBIG_PREFIX)
+                .replace('__AMBIG_MATCHES__', json.dumps(AMBIG_MATCHES, separators=(',', ':')))
                 .replace('__BROKEN_PREFIX__', BROKEN_PREFIX)
                 .replace('__BROKEN_TAIL__', json.dumps(BROKEN_TAIL)))
 
@@ -659,6 +711,28 @@ def prepare(root, arch, pinned, variation):
         # Дубль id в строке «АРХИТЕКТУРА:» — как сейчас (187/1): именованный отказ.
         put(root, CONTRACT, (root / CONTRACT).read_text().replace(
             'АРХИТЕКТУРА: L1 api.identity', 'АРХИТЕКТУРА: L1 api.identity,api.identity'))
+    elif variation == 'declared-empty-worker':
+        # v3-r1 (критик Б-1, класс б): безкомпонентный модуль с id ≠ module.tests —
+        # форма worker/main.js пина (module.worker); строка намеренно чужая.
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+            'АРХИТЕКТУРА: L1 api.identity', 'АРХИТЕКТУРА: L1 api.billing'
+        ).replace('app/identity/model.js', WORKER_PREFIX + 'main.js'))
+        put(root, WORKER_PREFIX + 'main.js', 'module.exports=10;\n')
+    elif variation == 'outside-provenance':
+        # v3-r1 (критик Б-1, класс в): ноль-матчевый артефакт ≠ FILES.sha256
+        # (provenance.json назван §«Существующее» и наблюдён на пине).
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', 'provenance.json'))
+        put(root, 'provenance.json', '{"schema": "toy-pin"}\n')
+    elif variation == 'outside-structure':
+        # v3-r1 (критик Б-1, класс в): третий ноль-матчевый артефакт — STRUCTURE.md
+        # (назван §«Существующее», существует в продукте) — ловит сужение до пары
+        # названных литералов FILES.sha256+provenance.json.
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', 'STRUCTURE.md'))
+    elif variation == 'ambiguous-empty':
+        # v3-r1 (критик Б-1, класс г): НЕСКОЛЬКО претендентов с ПУСТЫМИ компонентами —
+        # наблюдённая на пине форма server/index.js (module.server, module.entrypoints).
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', AMBIG_PREFIX + 'index.js'))
+        put(root, AMBIG_PREFIX + 'index.js', 'module.exports=11;\n')
     elif variation == 'precritic-foreign':
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', 'app/billing/evil.js'))
         put(root, 'app/billing/evil.js', 'x\n')
@@ -808,6 +882,37 @@ def verdict_v2(root, arch, pinned, action, task, role, mutant, variation):
             if mutant == 'allow-duplicate':
                 return 0, ''  # обман: дубль id в строке пропущен
             return 1, 'ARCH_LINE_MISSING: дубль id компонента: api.identity'
+        if variation in ('declared-empty-worker', 'outside-provenance',
+                         'outside-structure', 'ambiguous-empty'):
+            # v3-r1 (критик Б-1): честный контроль читает ответ СТРУКТУРНО через
+            # locate_answer — единый источник с toy-CLI: id модуля, путь и форма
+            # компонентов претендентов не входят в правило литералами. Стабы —
+            # литеральные сужения MA1/MA2/MA3 вердикта, каждый ловится СВОЕЙ клеткой.
+            path = next(line[len('ЗОНА implementer:'):].strip()
+                        for line in contract.splitlines()
+                        if line.startswith('ЗОНА implementer:'))
+            kind, matches = locate_answer(path)
+            if mutant == 'empty-refused-literal' and kind == 'declared' \
+                    and matches and not any(m['components'] for m in matches) \
+                    and matches[0]['module'] != 'module.tests':
+                # MA1: конформ только для литерала module.tests — красит worker/main.js
+                return 1, f'PATH_WITHOUT_COMPONENT: путь {path} не размещён в закреплённой модели'
+            if mutant == 'universe-refused-literal' and kind == 'unresolved-zero' \
+                    and path != 'FILES.sha256':
+                # MA2: конформ только для литерала FILES.sha256 — красит provenance.json
+                return 1, f'PATH_WITHOUT_COMPONENT: путь {path} не размещён в закреплённой модели'
+            if mutant == 'universe-refused-named-pair' and kind == 'unresolved-zero' \
+                    and path not in ('FILES.sha256', 'provenance.json'):
+                # MA2: конформ только для пары названных литералов — красит STRUCTURE.md
+                return 1, f'PATH_WITHOUT_COMPONENT: путь {path} не размещён в закреплённой модели'
+            if mutant == 'ambiguous-empty-green' and kind == 'unresolved-multi' \
+                    and not any(m['components'] for m in matches):
+                # MA3: неоднозначность с ПУСТЫМИ компонентами претендентов — зелёный
+                return 0, ''
+            if kind == 'unresolved-multi':
+                return 1, (f'PATH_WITHOUT_COMPONENT: путь {path} не размещён однозначно '
+                           f'в закреплённой модели (несколько претендентов)')
+            return 0, ''
         if variation in ('union-conform', 'union-foreign'):
             ids = line_components(contract)
             path = next(line[len('ЗОНА implementer:'):].strip()
@@ -906,7 +1011,8 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
                      'operation-optional', 'component-required', 'live-real',
                      'live-real-union', 'root-unset', 'declared-empty',
                      'outside-universe', 'heuristic-docs', 'grammar-broken',
-                     'line-duplicate') \
+                     'line-duplicate', 'declared-empty-worker', 'outside-provenance',
+                     'outside-structure', 'ambiguous-empty') \
             or variation.startswith('real-') or variation.startswith('union-') \
             or variation.startswith('precritic-'):
         return verdict_v2(root, arch, pinned, action, task, role, mutant, variation)
