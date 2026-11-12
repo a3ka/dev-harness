@@ -143,6 +143,64 @@ VERDICT_301_KRUG1_TSITATA = VERDICT_301_KRUG1 + """
 ```
 """
 
+# Миры K — неконсистентные строки журнала Crit301a (Б-1 ревьюера: инвариант 8;
+# живой прецедент — журнал Crit175R2.jsonl в корне c907157c, оборванный
+# посреди последней записи без \n; кириллицу несут сырыми байтами все журналы).
+# K0 — чистый контроль того же построителя (без битых строк); KA — обрыв
+# посреди многобайтового символа (строка-префикс и хвост-запись без \n);
+# KB — валидный JSON не-объект; KC — message и вложенные поля не нужного типа.
+BITAJA_UTF8_PREFIX = 'кириллица оборвана посреди символа: обры'.encode('utf-8')[:-1] + b'\n'
+BITAJA_UTF8_HVOST = ('{"type": "message", "message": {"role": "assistant", "usage": '
+                     '{"totalTokens": 700}, "content": [{"type": "toolCall", "name": '
+                     '"правка"').encode('utf-8')[:-2]
+NE_OBEKT_PREFIX = '[1, 2]\n42\n"текст-не-объект"\n'
+NE_TIP_PREFIX = ('{"type": "message", "message": null}\n'
+                 '{"type": "message", "message": [1, 2]}\n'
+                 '{"type": "message", "message": {"role": "assistant", '
+                 '"usage": {"totalTokens": "не-число"}, "content": "не-список"}}\n')
+
+
+# Мир P — fenced-цитата чужой СУД в вердикте 301 ДО учётной строки и fenced
+# СУД 302 в HANDOFF (С-1а ревьюера: мутация M5 «убран переключатель fence»
+# переживает батарею — в мире I цитата стоит ПОСЛЕ учётной, и правило «первая
+# СУД-строка» закрывает её без fence; здесь цитата ДО учётной, fence —
+# единственная защита: чужой кортеж 9/2 получает вердикт, fenced HANDOFF-СУД
+# создаёт лишний вызов-обрыв).
+VERDICT_301_KRUG1_TSITATA_DO = """FAIL
+OBJECT=%(sha)s
+
+Предварительная запись СУД (цитата; к моменту вызова заменена):
+```text
+СУД: repo=dev-harness; предмет=301; фаза=контракт; роль=critic; вызов=9/2 (прежний вызов оборван, круг не тратился); модель-план=zai/glm-5.3; сессия=Crit301x; модель-факт=zai/glm-5.3; SHA=%(sha)s; предыдущий=нет; исключение=нет
+```
+
+%(sud)s
+
+## Блокирующие находки
+
+БЛОКИРУЕТ contracts/301-x.md:12 — клетка не различает честную и обманную ветвь.
+ОБЯЗАТЕЛЬСТВО: обязательство предмета обязано иметь различающую клетку.
+ПРОИСХОЖДЕНИЕ: первичный
+КЛАСС: К-08
+
+БЛОКИРУЕТ contracts/301-x.md:20 — самописный разбор таблицы вместо канона.
+ПРОИСХОЖДЕНИЕ: первичный
+КЛАСС: К-12
+"""
+SUD_302_FENCED = ('СУД: repo=dev-harness; предмет=302; фаза=контракт; роль=critic; '
+                  'вызов=9/9 (материализация, цитируется в журнале); модель-план=zai/glm-5.3; '
+                  'сессия=Crit302c; модель-факт=zai/glm-5.3; SHA=%s; предыдущий=нет; '
+                  'исключение=нет' % sha40(38))
+
+# Мир Q — СУД ревьюера в HANDOFF несёт кортеж, которого нет среди вызовов
+# критика (С-1б ревьюера: мутация M1b «убран фильтр роль=critic» переживает
+# батарею — в мире A кортеж ревьюера 1/1 совпадает с кортежем критика и
+# поглощается дедупом; здесь вызов=7/7 — кортеж свой, мутация даёт лишний
+# вызов-обрыв).
+SUD_301_REVIEWER_CHUZHOJ = ('СУД: repo=dev-harness; предмет=301; фаза=реализация; '
+                            'роль=reviewer; вызов=7/7; модель-план=anthropic/claude-opus-5-5; '
+                            'сессия=Rev301a; SHA=%s; предыдущий=нет; исключение=нет' % sha40(39))
+
 
 def journal_text(calls):
     """Журнал агента из [(токены, число read-вызовов, правка)] — правка (edit)
@@ -231,7 +289,8 @@ def _build_world(base, variant):
                 'contracts-304-v1-krug1-fail.md': 1}[name]
 
     w('contracts-301-v1-krug1-fail.md',
-      VERDICT_301_KRUG1_TSITATA if variant == 'I' else VERDICT_301_KRUG1, sha40(11))
+      VERDICT_301_KRUG1_TSITATA_DO if variant == 'P' else
+      (VERDICT_301_KRUG1_TSITATA if variant == 'I' else VERDICT_301_KRUG1), sha40(11))
     w('contracts-301-v1.md', VERDICT_301_ACCEPT, sha40(12))
     w('contracts-302-v1-krug1-fail.md', VERDICT_302_KRUG1, sha40(21))
     w('contracts-302-v1-krug2-fail.md', VERDICT_302_KRUG2, sha40(22))
@@ -249,9 +308,11 @@ def _build_world(base, variant):
     handoff = ['# ГДЕ МЫ', '']
     if variant != 'B':
         handoff.append(SUD_302_OBRYV_SKOBKA if variant == 'D' else SUD_302_OBRYV)
-    handoff += [SUD_301_REVIEWER, SUD_999]
+    handoff += [SUD_301_REVIEWER_CHUZHOJ if variant == 'Q' else SUD_301_REVIEWER, SUD_999]
     if variant == 'D':
         handoff.append(SUD_304_SLOVO)
+    if variant == 'P':
+        handoff += ['```text', SUD_302_FENCED, '```']
     (repo / 'HANDOFF.md').write_text('\n'.join(handoff) + '\n')
     sessions = list(SESSIONS)
     if variant == 'G':
@@ -265,7 +326,16 @@ def _build_world(base, variant):
             text = journal_text(calls)
             if variant == 'N' and name == 'Crit301a':
                 text = 'ЭТО НЕ JSON: строка-мусор {невалидно\n' + text
-            (d / (name + '.jsonl')).write_text(text)
+            jpath = d / (name + '.jsonl')
+            if variant == 'KA' and name == 'Crit301a':
+                jpath.write_bytes(BITAJA_UTF8_PREFIX + text.encode('utf-8')
+                                  + BITAJA_UTF8_HVOST)
+            elif variant == 'KB' and name == 'Crit301a':
+                jpath.write_text(NE_OBEKT_PREFIX + text)
+            elif variant == 'KC' and name == 'Crit301a':
+                jpath.write_text(NE_TIP_PREFIX + text)
+            else:
+                jpath.write_text(text)
     return repo, zh
 
 
@@ -337,6 +407,12 @@ def cell_cases():
         ('forma-slovo-ne-ust', 'D', (), 'cells', 'D-NEU'),
         ('tsitata-sud', 'I', (), 'cells', 'I'),
         ('nekonsistentnaja-stroka', 'N', (), 'cells', 'N'),
+        ('bitaja-stroka-utf8', 'KA', (), 'mir-raven', ('KA', 'bitaja-stroka-utf8')),
+        ('bitaja-stroka-ne-obekt', 'KB', (), 'mir-raven', ('KB', 'bitaja-stroka-ne-obekt')),
+        ('bitaja-stroka-message', 'KC', (), 'mir-raven', ('KC', 'bitaja-stroka-message')),
+        ('bitaja-stroka-chistyj-mir', 'K0', (), 'mir-raven', ('K0', 'bitaja-stroka-chistyj-mir')),
+        ('tsitata-do-uchetnoj', 'P', (), 'table', 'P'),
+        ('handoff-tolko-critic', 'Q', (), 'table', 'Q'),
         ('stderr-prosmotreno', 'A', (), 'stderr', ('A', 'stderr-prosmotreno')),
         ('pustaja-vyborka', 'A', ('--s', '2026-11-11T00:00:00Z'), 'rc', ('A', 'pustaja-vyborka', '1', 'ПУСТАЯ_ВЫБОРКА')),
         ('netu-reestra', 'R', (), 'rc', ('R', 'netu-reestra', '2', 'НЕТ_РЕЕСТРА')),
@@ -354,6 +430,33 @@ def run_cell(cmd, base, variant, extra, kind, expect, tables, doc_root, stderr_e
         res = run_tool(cmd, repo, zh, extra)
         if res.returncode != 0:
             return False, 'rc=%d stderr=%r' % (res.returncode, res.stderr[-160:])
+        got_rows = [l.split('\t') for l in res.stdout.splitlines() if l]
+        if got_rows and got_rows[0] and got_rows[0][0] == 'предмет':
+            got_rows = got_rows[1:]
+        if got_rows != exp_rows:
+            i = next((k for k in range(max(len(got_rows), len(exp_rows)))
+                      if got_rows[k:k + 1] != exp_rows[k:k + 1]), 0)
+            return False, ('строка %d расходится (равенство строк и порядка): '
+                           'got %r exp %r' % (i,
+                                              got_rows[i] if i < len(got_rows) else None,
+                                              exp_rows[i] if i < len(exp_rows) else None))
+        return True, ''
+    if kind == 'mir-raven':
+        # Мир с неконсистентными строками журнала равен миру без них (инвариант 8):
+        # rc 0, вся таблица байт-в-байт и строка просмотренного «как прежде» —
+        # пропуск без падения И без искажения мер; expect = (мир, клетка).
+        world, cellname = expect
+        exp_rows = tables.get(world, [])
+        if not exp_rows:
+            return False, 'нет ожидания %s в оракуле' % world
+        line_exp = (stderr_exp or {}).get((world, cellname))
+        if line_exp is None:
+            return False, 'нет ожидания (%s, %s) в orakul-stderr.tsv' % (world, cellname)
+        res = run_tool(cmd, repo, zh, extra)
+        if res.returncode != 0:
+            return False, 'rc=%d stderr=%r' % (res.returncode, res.stderr[-160:])
+        if line_exp not in res.stderr.splitlines():
+            return False, 'stderr не несёт число просмотренного: %r' % res.stderr[-160:]
         got_rows = [l.split('\t') for l in res.stdout.splitlines() if l]
         if got_rows and got_rows[0] and got_rows[0][0] == 'предмет':
             got_rows = got_rows[1:]
