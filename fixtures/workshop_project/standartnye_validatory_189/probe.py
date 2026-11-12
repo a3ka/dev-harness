@@ -547,6 +547,36 @@ def kletki(koren: Path, mir: dict) -> list:
     e34['PYTHONPATH'] = str(mir['site_dvizhka'])
     K.append(Kletka('v34-json-stroki-pina-net', argv, e34, 2,
                     ['ENGINE_MISSING: jsonschema', 'нет строки пина']))
+    # ── инвариант 3, аритмичность аргументов (Б-1 ревьюера contracts-189-impl-v1:
+    # лишние позиционные аргументы молча отбрасывались — вызов с несколькими
+    # файлами давал rc 0 по непроверенному файлу). Лишний аргумент в КАЖДОМ
+    # режиме обёртки → rc 2 NOT_IMPLEMENTED, а не молчаливая проверка первого
+    # из нескольких; недостаток аргументов — той же смертью. canon-режима у
+    # обёртки нет (check_canon_fragment.py — отдельный CLI), клетки с ним не
+    # добавляются. v37 несёт PYTHONPATH движка (как v12): на дефектной
+    # реализации движение ДОКАТЫВАЕТСЯ до честного rc 0 — краснота клетки есть
+    # сам молчаливый пропуск, а не случайное совпадение rc 2 без маркера. ──
+    argv, env = wrap('workflow', str(M / 'honest.yml'), str(M / 'sintaksis.sh'))
+    K.append(Kletka('v35-workflow-lishnij-argument', argv, sreda(mir, **env), 2,
+                    ['NOT_IMPLEMENTED']))
+    argv, env = wrap('bash', str(M / 'chestnyj_skript.sh'), str(M / 'sintaksis.sh'))
+    K.append(Kletka('v36-bash-lishnij-argument', argv, sreda(mir, **env), 2,
+                    ['NOT_IMPLEMENTED']))
+    argv, env = wrap('json', str(M / 'shema.json'), str(M / 'dokument.json'),
+                     str(M / 'dokument_narushenie.json'))
+    e37 = dict(env)
+    e37['PYTHONPATH'] = str(mir['site_dvizhka'])
+    K.append(Kletka('v37-json-lishnij-argument', argv, sreda(mir, **e37), 2,
+                    ['NOT_IMPLEMENTED']))
+    argv, env = wrap('workflow')
+    K.append(Kletka('v38-workflow-bez-fajla', argv, sreda(mir, **env), 2,
+                    ['NOT_IMPLEMENTED']))
+    argv, env = wrap('bash')
+    K.append(Kletka('v39-bash-bez-fajla', argv, sreda(mir, **env), 2,
+                    ['NOT_IMPLEMENTED']))
+    argv, env = wrap('json', str(M / 'shema.json'))
+    K.append(Kletka('v40-json-malo-argumentov', argv, sreda(mir, **env), 2,
+                    ['NOT_IMPLEMENTED']))
     return K
 
 
