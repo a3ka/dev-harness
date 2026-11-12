@@ -6,6 +6,7 @@ stab_bez_nogi_ugroz.sh	scripts/pre_critic.sh	m02
 stab_bez_nogi_potolkov.sh	scripts/pre_critic.sh	m03
 stab_bez_nogi_provodki.sh	scripts/pre_critic.sh	p01
 stab_noga_vooruzhena_vsegda.sh	scripts/pre_critic.sh	t01
+stab_noga_vooruzhena_iz_roota.sh	scripts/pre_critic.sh	r01
 stab_noga_glotajet_rc2.sh	scripts/pre_critic.sh	f01
 stub_grammar_trebuet_fajly.sh	scripts/check_provodka.sh	p03
 stub_grammar_propuskaet_pojasnenie.sh	scripts/check_provodka.sh	p01

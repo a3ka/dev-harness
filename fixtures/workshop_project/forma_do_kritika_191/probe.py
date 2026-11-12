@@ -52,6 +52,7 @@ SPECIFIKACII = {
     'charter_ne_ustav': ('kontrakt_charter_ne_ustav.md', True, ()),
     'golaya_stroka': ('kontrakt_golaya_stroka.md', True, ()),
     'guard_only': ('kontrakt_guard_only.md', True, ()),
+    'repo_bez_formy': ('kontrakt_guard_only.md', False, ()),
     'pustoj': (None, True, ()),
 }
 
@@ -134,6 +135,18 @@ def kletki(miry: Miry) -> list:
     K.append(Kletka('g01-dver-zelena', dver('chestnyj'), 0, ['КРИТИК: дверь зелёная']))
     K.append(Kletka('t01-mir-bez-nog-propuskaet', dver('bez_nog'), 0,
                     ['КРИТИК: дверь зелёная']))
+    # r01 (блок-фикс вердикта 191 v1, Б-1): вход, где расходятся прочтения
+    # вооружения «от корня двери» (ROOT) и «от судимого дерева» (BASE).
+    # Дверь — копия субъекта в ВООРУЖЁННОМ мире (гейты формы при ней),
+    # судимое --repo-дерево — мир без гейтов формы с guard-only контрактом
+    # (г0-доп обязан отказать, окажись нога (и) вооружена на нём). Честная
+    # реализация (скрипт гейта и [ -x ] — в BASE) ноги пропускает → rc 0;
+    # прочтение ROOT вооружает ноги харнесса на чужом мире → rc 1 «проводка
+    # красна» — то, что сломало замороженную 103 (клетки i2 на 777-toy.md).
+    K.append(Kletka('r01-repo-bez-formy-propuskaet',
+                    ['bash', str(miry['chestnyj'] / 'scripts' / 'pre_critic.sh'),
+                     '--repo', str(miry['repo_bez_formy']), KONTRAKT_REL],
+                    0, ['КРИТИК: дверь зелёная']))
     K.append(Kletka('p04-obychnyj-rezhim-krasen', provodka('chestnyj'), 1,
                     ['guard-файл не существует']))
     # предметные клетки (до реализации красны — ног в двери нет)
