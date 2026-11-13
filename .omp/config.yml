@@ -80,6 +80,9 @@ modelRoles:
 # (Н-54) здесь ВЫКЛЮЧЕН (0) — см. roles/orchestrator.md; предохранитель на эту
 # секунду — ИМЕННО softRequestBudget, не wall-clock.
 task:
+  # Явная сдача yield доступна структурированным задачам (omp 18.18.8).
+  structured: true
+  maxRuntimeMs: 0
   isolation:
     enabled: true
     # apply: false (слово владельца 2026-11-06 «да»): omp НЕ накладывает патч
