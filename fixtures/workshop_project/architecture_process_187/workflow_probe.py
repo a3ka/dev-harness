@@ -4,6 +4,11 @@
 locate uses the captured CompliorOS-architecture JSON protocol, not an echo of an ID.
 The existing no-local brief case uses 180's inline code-class metadata; its paired
 missing-line case must still refuse. An explicit document brief is a separate case.
+
+Граница JSON проверяется публичным make_task: обрезанный ответ и одна группа
+status (отсутствующий/неизвестный при rc 0 и пустых matches[].components)
+дают ARCH_LOCATE_GRAMMAR rc 1 без stdout-пака. Это неконформные ответы CLI,
+а не новые варианты допустимой грамматики; task-valid остаётся парным контролем.
 """
 import hashlib
 import json
@@ -26,6 +31,9 @@ CASES = (
     ('task-l3', 'task', 'l3', 1, 'ARCH_OWNER', 'task'),
     ('task-unmapped', 'task', 'unmapped', 1, 'PATH_WITHOUT_COMPONENT', 'task'),
     ('task-foreign', 'task', 'task-foreign', 1, 'ARCH_ZONE', 'task'),
+    ('task-locate-json-malformed', 'task', 'locate-malformed', 1, 'ARCH_LOCATE_GRAMMAR', 'task'),
+    *((f'task-locate-status-{status}', 'task', f'locate-status-{status}',
+       1, 'ARCH_LOCATE_GRAMMAR', 'task') for status in ('missing', 'unknown')),
     ('brief-lock', 'task', 'brief-lock', 0, 'PINNED_BRIEF_187', 'task'),
     ('brief-no-local-copy', 'task', 'no-local', 0, 'PINNED_BRIEF_187', 'task'),
     ('brief-inline-line-missing', 'task', 'inline-line-missing', 1, 'ARCH_LINE_MISSING', 'task'),
@@ -73,6 +81,11 @@ STABS = {
     'document-brief-requires-local': ('brief-document-no-local', 'requires-local'),
     'task-foreign-accepted': ('task-foreign', 'allow-zone'),
     'task-pack-before-refusal': ('brief-inline-line-missing', 'pack-then-refuse'),
+    'locate-malformed-first-line': ('task-locate-json-malformed', 'locate-first-line'),
+    **{f'locate-status-{status}-guessed':
+       (f'task-locate-status-{status}', 'guess-locate-status')
+       for status in ('missing', 'unknown')},
+    'locate-status-pack-before-refusal': ('task-locate-status-missing', 'pack-then-refuse'),
     'brief-rules-omitted': ('brief-with-rules', 'omit-rules'),
     'brief-rules-leaked': ('brief-no-rules', 'leak-rules'),
     'zone-foreign': ('freeze-foreign', 'allow-zone'),
@@ -173,9 +186,22 @@ if (name==='brief') {
  const matches=prefix?[{module:'module.'+prefix.split('/')[1],components,
    specification:prefix+'module.js',explicit:false,matched:prefix}]:[];
  // Same fields as ACTUAL-LOCATE-007-1113.json, pretty-printed as the real CLI.
- console.log(JSON.stringify({scope:'DECLARED_PLACEMENT_ONLY',path:p,
+ const response={scope:'DECLARED_PLACEMENT_ONLY',path:p,
    status:matches.length?'DECLARED':'UNRESOLVED',matches,
-   implementationEvidence:'NOT_ASSESSED'},null,2));
+   implementationEvidence:'NOT_ASSESSED'};
+ const boundary=fs.readFileSync('locate-boundary','utf8').trim();
+ if(boundary==='locate-malformed') {
+   console.log(JSON.stringify(response,null,2).slice(0,-1));
+   process.exit(0);
+ }
+ if(boundary==='locate-status-missing'||boundary==='locate-status-unknown') {
+   response.matches=matches.map(match=>({...match,components:[]}));
+   delete response.status;
+   if(boundary==='locate-status-unknown') response.status='UNKNOWN';
+   console.log(JSON.stringify(response,null,2));
+   process.exit(0);
+ }
+ console.log(JSON.stringify(response,null,2));
  if(!matches.length) process.exit(1);
 } else if(name==='check') {
  const allowed=['model','report','strict','base','base-digest']; const o={};
@@ -197,6 +223,7 @@ if (name==='brief') {
 } else process.exit(2);
 ''')
     put(arch, 'check-rc', (variation[-1] if variation in ('check-1', 'check-2') else '0') + '\n')
+    put(arch, 'locate-boundary', variation + '\n')
     put(arch, SNAPSHOT, json.dumps(snapshot(1)))
     git(arch, 'add', '-A')
     git(arch, 'commit', '-qm', 'published architecture')
@@ -322,7 +349,8 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
                 return 1, 'ARCHITECTURE_NET'
             return 0, 'PINNED_BRIEF_187 api.identity\nRULES_FROM_PIN_187\nSTRUCTURE.md'
         if mutant == 'pack-then-refuse':
-            return 1, PACK_MARKER + '777 role=architect kind=task ===\nARCH_LINE_MISSING'
+            reason = 'ARCH_LOCATE_GRAMMAR' if variation.startswith('locate-') else 'ARCH_LINE_MISSING'
+            return 1, PACK_MARKER + '777 role=architect kind=task ===\n' + reason
         if (not any(line.startswith('АРХИТЕКТУРА: L1 ') or line.startswith('АРХИТЕКТУРА: L2 ')
                     or line.startswith('АРХИТЕКТУРА: L3 ') for line in text.splitlines())) and mutant != 'allow-line' and variation != 'document-no-local':
             return 1, 'ARCH_LINE_MISSING'
@@ -334,6 +362,8 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
             return 1, 'ARCH_ZONE'
         if mutant == 'locate-first-line':
             return 1, 'ARCH_ZONE: компонент { не объявлен'
+        if variation.startswith('locate-') and mutant != 'guess-locate-status':
+            return 1, 'ARCH_LOCATE_GRAMMAR'
         revision = git(arch, 'rev-parse', 'HEAD') if mutant == 'use-head' else pinned
         if mutant == 'requires-local' and not (root / 'architecture').exists():
             return 1, 'ARCHITECTURE_NET'
