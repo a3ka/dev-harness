@@ -140,6 +140,13 @@ stare_holder() {  # <holder> → yield|bezhit|broshen|net_fajla
   jf="$(find "$ZHUR" -type f -name "${h}.jsonl" -print | sed -n '1p')"
   if [ -z "$jf" ]; then printf 'net_fajla'; return 0; fi
   if grep -Fq '"toolName":"yield"' "$jf"; then printf 'yield'; return 0; fi
+  # [D2b session-exit] omp 18.18.8: субагент завершает работу БЕЗ инструмента yield;
+  # последняя запись журнала — {"type":"custom","customType":"session_exit",
+  # "data":{…"kind":"normal"…}}. Нормальное завершение сессии = сдача (литеральные
+  # якоря, только ПОСЛЕДНЯЯ строка журнала; аварийный выход kind≠normal — не сдача).
+  # Срочная правка владельца 2026-11-12; v+1 контракта 140 с клетками — следом.
+  if tail -n 1 "$jf" | grep -Fq '"customType":"session_exit"' \
+     && tail -n 1 "$jf" | grep -Fq '"kind":"normal"'; then printf 'yield'; return 0; fi
   if [ -n "$(find "$jf" -mmin +"$BROSHEN_TTL_MIN" -print)" ]; then
     printf 'broshen'
   else
@@ -187,6 +194,14 @@ klass_riska() {  # <NNN> → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<
     [ -n "$f" ] || continue
     val="$(grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' "$f" 2>/dev/null \
           | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"
+    # [D30 risk-legacy] старый frozen без строки класса (до слова владельца 24.10): класс —
+    # из registry/risk-legacy.tsv по blob файла (колонки: blob, класс, основание, подтвердил);
+    # норма roles/orchestrator.md §«Порядок судей и класс риска». Литеральное сравнение blob
+    # (awk -F'\t' $1==b), нет записи — поведение прежнее (класс не определён, fail-closed).
+    # Срочная правка владельца 2026-11-12; клетки — v+1 контракта 140.
+    if [ -z "$val" ] && [ -f "$REPO/registry/risk-legacy.tsv" ]; then
+      val="$(awk -F'\t' -v b="$(git hash-object "$f" 2>/dev/null)" 'b!="" && $1==b {print $2; exit}' "$REPO/registry/risk-legacy.tsv")"
+    fi
     case "$val" in
       обычный)  val='obychnyj' ;;
       рисковый) val='risikovyj' ;;

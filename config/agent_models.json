@@ -10,7 +10,7 @@
     "minimax": "minimax/MiniMax-M3",
     "minimax-lightning": "minimax/MiniMax-M2.5-lightning",
     "gpt-astra": "openai-codex/gpt-6-astra",
-    "gpt-terra": "openai-codex/gpt-5.6-terra",
+    "gpt-terra": "openai-codex/gpt-6.1-terra",
     "gpt-sol": "openai-codex/gpt-6.1-sol",
     "gpt-sol-xhigh": "openai-codex/gpt-6.1-sol:xhigh",
     "gpt-luna": "openai-codex/gpt-6-luna"
