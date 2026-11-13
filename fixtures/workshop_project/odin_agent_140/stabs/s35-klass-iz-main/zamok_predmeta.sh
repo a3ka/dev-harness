@@ -25,7 +25,9 @@
 #                    (omp 18.18.8 завершает субагентов без yield);
 #   --repo      R  — реестр: registry/pauzy.tsv (ПАУЗА владельца), теги
 #                    done/contracts/<NNN>/* (слот закрыт), registry/
-#                    risk-legacy.tsv (класс старых frozen по blob, [D30]);
+#                    risk-legacy.tsv (класс старых frozen по blob, [D30]),
+#                    теги frozen/contracts/<NNN>/<v> (подтверждение старого
+#                    frozen для дефолта «нет записи — рисковый», [D37]);
 #                    contracts/<NNN>-*.md суда класса НЕ несут — [D31] класс
 #                    судимого кандидата читается из ДЕРЕВА его OBJECT.
 #
@@ -172,6 +174,22 @@ na_pauze() {  # <NNN>
   done < "$f"
   return 1
 }
+# [D37 legacy-frozen] подтверждение «старого frozen» — ВЫСШИЙ существующий тег
+# заморозки frozen/contracts/<NNN>/<v> в $REPO (аннотированные теги
+# freeze_contract.sh — immutable git-объект, НЕ файл рабочего каталога);
+# «старость» датами/mtime не изобретается: граница — фактическое существование
+# тега заморозки и равенство blob. Нет тега/версии/файла по пути в его дереве —
+# пусто: нет подтверждения — нет дефолта.
+frozen_blob() {  # <NNN> <каталог> <путь> → blob файла в высшем frozen | пусто
+  local n="$1" kat="$2" put="$3" v
+  v="$(git -C "$REPO" tag -l "frozen/contracts/$n/*" \
+       | sed -n "s|^frozen/contracts/$n/\([0-9][0-9]*\)$|\1|p" \
+       | sort -n | tail -n 1)"
+  [ -n "$v" ] || return 0
+  git -C "$REPO" rev-parse --verify "frozen/contracts/$n/$v:$kat/$put" \
+    2>/dev/null || return 0
+}
+
 # [D18 done-uchet] done-тег закрывает слот предмета (локальные теги чекаута).
 predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # [D13 klass-riska] строка «КЛАСС РИСКА:» обязательна: нет декларации — класс
@@ -212,10 +230,24 @@ klass_riska() {  # <NNN> <worktree> <OBJECT> → risikovyj|obychnyj|net_stroki:<
     # класс — из registry/risk-legacy.tsv по blob файла (колонки: blob, класс,
     # основание, подтвердил; норма roles/orchestrator.md §«Порядок судей и класс
     # риска»). blob — записи ДЕРЕВА OBJECT кандидата; сам реестр — $REPO (реестр
-    # владельца, 0814d2f5a). Литеральное сравнение blob (awk -F'\t' $1==b), нет
-    # записи — класс не определён (fail-closed).
+    # владельца, 0814d2f5a). Литеральное сравнение blob (awk -F'\t' $1==b);
+    # нет записи — [D37] дефолт подтверждённого старого frozen, иначе fail-closed.
     if [ -z "$val" ] && [ -f "$REPO/registry/risk-legacy.tsv" ]; then
       val="$(awk -F'\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}' "$REPO/registry/risk-legacy.tsv")"
+    fi
+    # [D37 legacy-default] нет строки и нет записи реестра — РИСКОВЫЙ, но
+    # только для подтверждённого старого frozen: blob файла равен его blob в
+    # ВЫСШЕМ существующем теге frozen/contracts/<NNN>/<v> ($REPO). Норма
+    # roles/orchestrator.md §«Порядок судей и класс риска»: «нет записи —
+    # рисковый» (боль bootstrap 998: KLASS_RISKA_NET держал судей старых
+    # frozen без строки — на каждый номер требовался owner-коммит строки в
+    # реестр; консультант ci-bootstrap-risk-998: код отстаёт от нормы, класс
+    # «рисковый» — верхний, понижения нет). Новый/изменённый кандидат
+    # (blob ≠ frozen / тега нет) дефолта НЕ получает: поле обязательно (слово
+    # владельца 24.10), fail-closed — новый текст обязан нести строку сам.
+    if [ -z "$val" ] && [ -n "$blob" ] \
+       && [ "$blob" = "$(frozen_blob "$n" "$kat" "$put")" ]; then
+      val='рисковый'
     fi
     case "$val" in
       обычный)  val='obychnyj' ;;

@@ -213,6 +213,16 @@ class Mir:
         self.git(['add', '-A'])
         self.git(['commit', '-q', '-m', 'legacy'])
 
+    def frozen(self, nnn, tekst, v=1):
+        # [D37] тег заморозки frozen/contracts/<NNN>/<v> ($REPO): как
+        # freeze_contract.sh — аннотированный тег на коммит с контрактом;
+        # immutable git-истина «старого frozen», не файл рабочего каталога
+        f = self.repo / 'contracts' / ('%s-stub.md' % nnn)
+        f.write_text(tekst, encoding='utf-8')
+        self.git(['add', '-A'])
+        self.git(['commit', '-q', '-m', 'freeze%s' % nnn])
+        self.git(['tag', '-a', '-m', 'freeze', 'frozen/contracts/%s/%s' % (nnn, v)])
+
     def blob_kandidata(self, nnn, imja):
         # blob-идентификатор contracts/<imja> в ДЕРЕВЕ кандидата (tip его ветки)
         wt = self.root / ('wt%s' % nnn)
@@ -1413,6 +1423,55 @@ def kejsy():
                 k_svoboden(mir, '142', 'откат-142')]
     reg('s44-klass-otkaz-bez-starta', 'пакет=смешанный;отказ=KLASS_RISKA_NET;откат=без-START-и-замков', s44)
 
+    def s45(mir, door):
+        # [D37 legacy-default] настоящий старый frozen без строки (тег
+        # frozen/contracts/141/1 в $REPO), кандидат — те же байты (blob
+        # равен), записи risk-legacy нет → «нет записи — рисковый» (норма
+        # roles/orchestrator.md §«Порядок судей и класс риска»): адверсарий
+        # после сдачи автора проходит, ревьюер ДО адверсария — отказ
+        # ADVERSARIJ_DO_REVJUERA (не ordinary: дефолт — верхний класс);
+        # строк в реестр не пишем, подписи owner/critic нет. Боль
+        # bootstrap 998: без дефолта каждый старый номер — owner-коммит
+        # строки в реестр (консультант ci-bootstrap-risk-998: код отстаёт
+        # от нормы, воли не выбирает).
+        tekst = '# К\n(старый frozen без строки класса риска)\n'
+        mir.frozen('141', tekst)
+        wt, br, sha = mir.worktree('141', kontrakty=[('fajl', '141-stub.md', tekst)])
+        mir.start('141', 'Avtor141', wt=wt, branch=br)
+        mir.zhurnal('Avtor141', sdal=True)
+        r1 = sudit(door, mir, mir.sobytie('e1.json', [item('reviewer', 'Rev141',
+                        ['SUBJECT=141', 'OBJECT=' + sha])]))
+        r2 = sudit(door, mir, mir.sobytie('e2.json', [item('adversary', 'Adv141',
+                        ['SUBJECT=141', 'OBJECT=' + sha])]))
+        return [k_rc(r1, 1, 'rc'),
+                k_prichina(r1, 'ADVERSARIJ_DO_REVJUERA', 'причина'),
+                k_rc(r2, 0, 'rc'),
+                k_stroka(mir, 'start-adv', holder='Adv141', rol='adversary'),
+                k_chislo_startov(mir, 'учёт', 2)]
+    reg('s45-legacy-frozen-default-riskovyj',
+        'риск=старый-frozen-без-строки;реестр=нет-записи;порядок=адверсарий-проходит;ревьюер-до-адверсария=отказ', s45)
+
+    def s46(mir, door):
+        # [D37] новый кандидат ИЗМЕНИЛ контракт (blob ≠ frozen) и строки
+        # класса не несёт: дефолт не положен — поле обязательно (слово
+        # владельца 24.10), KLASS_RISKA_NET; безусловный «любое отсутствие
+        # строки → рисковый» ложно пустил бы новый контракт (критик прошёл
+        # неопределённый класс). Положительный контроль объявленного класса
+        # — существующие клетки (s09/s11), путь не дублируется.
+        tekst_frozen = '# К\n(старый frozen без строки класса риска)\n'
+        mir.frozen('141', tekst_frozen)
+        tekst_kand = ('# К\n(старый frozen без строки класса риска)\n'
+                      'правка новой пачки: слои и клетки батареи\n')
+        wt, br, sha = mir.worktree('141', kontrakty=[('fajl', '141-stub.md', tekst_kand)])
+        mir.start('141', 'Avtor141', wt=wt, branch=br)
+        mir.zhurnal('Avtor141', sdal=True)
+        r = sudit(door, mir, mir.sobytie('e.json', [item('critic', 'Critic141',
+                        ['SUBJECT=141', 'OBJECT=' + sha])]))
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
+                k_chislo_startov(mir, 'учёт', 1)]
+    reg('s46-izmenennyj-kandidat-bez-stroki',
+        'риск=новый-без-строки;frozen=blob-не-совпадает;отказ=KLASS_RISKA_NET', s46)
+
     # C. пакет: дубль в пакете × откат × гонка × режим
     def b01(mir, door):
         wt141, br141, _ = mir.worktree('141')
@@ -2023,6 +2082,45 @@ def m_bez_scheta_paketa(t):
         fi''',
               '''        : # стаб: прошедшие пакет слоты не занимают''')
 
+def m_bez_legacy_defaulta(t):
+    # [D37] снят: консервативный дефолт «нет записи — рисковый» не
+    # реализован (форма klass_riska до v+1; боль bootstrap 998): старый
+    # frozen без строки и без записи реестра — KLASS_RISKA_NET, судьи
+    # старого предмета стоят до owner-коммита строки в реестр на каждый
+    # номер. Красен на s45: честная дверь пускает адверсария и держит
+    # ревьюера ADVERSARIJ_DO_REVJUERA, стаб отказывает KLASS_RISKA_NET.
+    return _z(t, '''    # [D37 legacy-default] нет строки и нет записи реестра — РИСКОВЫЙ, но
+    # только для подтверждённого старого frozen: blob файла равен его blob в
+    # ВЫСШЕМ существующем теге frozen/contracts/<NNN>/<v> ($REPO). Норма
+    # roles/orchestrator.md §«Порядок судей и класс риска»: «нет записи —
+    # рисковый» (боль bootstrap 998: KLASS_RISKA_NET держал судей старых
+    # frozen без строки — на каждый номер требовался owner-коммит строки в
+    # реестр; консультант ci-bootstrap-risk-998: код отстаёт от нормы, класс
+    # «рисковый» — верхний, понижения нет). Новый/изменённый кандидат
+    # (blob ≠ frozen / тега нет) дефолта НЕ получает: поле обязательно (слово
+    # владельца 24.10), fail-closed — новый текст обязан нести строку сам.
+    if [ -z "$val" ] && [ -n "$blob" ] \\
+       && [ "$blob" = "$(frozen_blob "$n" "$kat" "$put")" ]; then
+      val='рисковый'
+    fi''',
+              '''    : # стаб: [D37] дефолт снят — нет строки и записи: класс не определён''')
+
+
+def m_bezuslovnyj_legacy_default(t):
+    # [D37] искажён: дефолт безусловный — ЛЮБОЕ отсутствие строки (в т.ч.
+    # новый/изменённый кандидат при blob ≠ frozen и вовсе без тега) тихо
+    # «рисковый»: новый контракт без обязательного поля ложно судится —
+    # критик проходит неопределённый класс. Красен на s46 (frozen есть,
+    # blob кандидата не совпадает) и s41 (frozen нет вовсе).
+    return _z(t, '''    if [ -z "$val" ] && [ -n "$blob" ] \\
+       && [ "$blob" = "$(frozen_blob "$n" "$kat" "$put")" ]; then
+      val='рисковый'
+    fi''',
+              '''    if [ -z "$val" ]; then : # стаб: дефолт безусловный, подтверждение frozen снято
+      val='рисковый'
+    fi''')
+
+
 
 
 STAB_MUTACII = {
@@ -2065,6 +2163,8 @@ STAB_MUTACII = {
     's37-relis-osvobozhdaet-slot': m_relis_osvobozhdaet_slot,
     's38-bez-dedushki': m_bez_dedushki,
     's45-bez-scheta-paketa': m_bez_scheta_paketa,
+    's46-bez-legacy-defaulta': m_bez_legacy_defaulta,
+    's47-bezuslovnyj-legacy-default': m_bezuslovnyj_legacy_default,
     'x01-vsegda-puschem': m_vsegda_puschem,
 }
 
