@@ -33,5 +33,6 @@ grep -Fxq "ОТКАЗ: брифинг: контракт без предмета:
 rm "$R/contracts/740-empty.md" "$R/PROJECT.md"
 no="$(bash "$SUBJ" --repo "$R" --role orchestrator --kind brief --model-trace "$W/trace.tsv" 2>"$W/err")"; rc=$?
 [ "$rc" -eq 1 ] && [ -z "$no" ] || red 'mandatory-потеря не отказала без пака'
-grep -Fxq 'ОТКАЗ: источник недоступен: PROJECT.md' "$W/err" || red 'не та причина mandatory-отказа'
+# 161a дописывает протокольный маркер; причина и путь остаются точными.
+grep -Fxq -e 'ОТКАЗ: источник недоступен: PROJECT.md' -e 'ОТКАЗ: источник недоступен: PROJECT.md (PROFILE_PATH_MISSING)' "$W/err" || red 'не та причина mandatory-отказа'
 exit 0

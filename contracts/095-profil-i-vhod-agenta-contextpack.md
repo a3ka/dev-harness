@@ -10,6 +10,9 @@
 
 v2 продолжает 095, не обнуляя историю судов: меняются только обзор WORK/legacy-предмет, допуск implementer-glm, arbiter до заморозки и доставка фактической трассы от лаунчера явным `--model-trace`. Место манифеста И-15/161 и прежний project fallback 136/169 сохраняются; ENV-приоритет, DAG 084 и общий допуск специализаций не вводятся.
 
+ПРЕДПОСЫЛКИ:
+- setting узкая v2 использует существующий CI-шаг check:context-pack-095-family-selftest (registry/ci-steps.tsv, lane l4 в .github/workflows/ci.yml) и отдельный стенд §Приёмки п.8 (клоны пакета А, изолированные HOME/state, установленный omp и runtime-writer 011); CI-workflow и настройки репозитория не меняет, новых secrets/variables/environments не требует.
+
 ## Существующее
 
 - **`scripts/profile_resolver.sh` (054/055/057/059, живой код).** Два слоя профиля (`harness.project.json` репо + пин `projectLayer.version` слоя проекта в `HARNESS_PROJECT_LAYER_ROOT`), замкнутые алфавиты ключей одним массивом SCHEMA_LEVELS, словарь `barriers.*` (массивы сливаются ЮНИТОМ — прецедент для `contextPack.rows`). Контекстные ключи (`contextPack`: rows/adrPath/lessonsPath) — НОВЫЕ ключи ЭТОЙ ЖЕ схемы (Astra 1.2: второй профиль не заводится), миграция SCHEMA_LEVELS той же пачкой. Пин расходится → «пин слоя проекта расходится: репо пинит '<X>', слой несёт '<Y>'» (фраза 054, пак её проксирует).
