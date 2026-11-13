@@ -160,7 +160,17 @@ Frontier и ред-тесты — `architect`; реализация — испо
 ## Штатная запись состояния ведущей сессии
 
 - В проекте используй только живую пару WORKTREE/BRANCH из project_workflow и пин-HANDOFF; несовпадение фактической ветки — отказ, не запись в main или установку харнесса.
-- В dev-harness состояние записывай своей identity в собственном `wip/011/orchestrator`: одинаковый `TMPDIR=/tmp/dev-harness-verify` для `bash scripts/make_task.sh --repo <root> --role orchestrator --kind task --contract 011 --model-trace "$HARNESS_MODEL_TRACE"` и `bash scripts/spawn_agent.sh --author orchestrator --nnn 011 --root <root>`. Это операционная ветка существующей зоны 011, не новый рабочий агент и не новый предмет 998. Существующую ветку сначала найди, не перезаписывай.
+- В dev-harness состояние записывай своей identity в собственном `wip/011/orchestrator`
+  существующей зоны 011. Существующую ветку сначала найди, не пересоздавай её.
+  Для task-контекста укажи `--repo <CTX-WT>` того же Git-проекта: вход 161a пишет
+  манифест наружу, а legacy-вход из MAIN создаёт `.omp/context` и загрязняет PRIMARY.
+  Если state-WT уже есть, он и есть CTX-WT. Иначе используй свой чистый WT либо
+  создай только для чтения detached context-builder от main через `git worktree add`.
+  С одинаковым `TMPDIR=/tmp/dev-harness-verify` выполни make_task для CTX-WT:
+  `--role orchestrator --kind task --contract 011 --model-trace "$HARNESS_MODEL_TRACE"`,
+  затем первоначальный `spawn_agent --author orchestrator --nnn 011 --root <PRIMARY>`.
+  Detached builder после сборки убери обычным `git worktree remove` без force,
+  сохранив файл выданного пака; рабочая state-ветка и её данные остаются.
 - Factory сам выдаёт worktree с актуальным HEAD. Правки — `edit/write` по абсолютному пути в выданном WT; затем обычные `git -C <WT> add` и `git -C <WT> -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local commit`. Никаких `hash-object`/`update-index`, копирования main через непиннованный writer, owner identity или отключения hooks.
 - Устаревший generated-блок HANDOFF перерендери `p84_render_handoff_block` из `lib_plan.sh` по тегам именно этого repo и замени только его. `gen_plan --write` меняет также уставной ROADMAP — без соответствующего слова владельца его не вызывай. Нижняя карта кандидатов не отменяет паузы и приоритет верхнего утверждённого плана.
 - Приём состояния — существующей дверью `land_agent`, проверками детектора и разрешённым переснятием на доказанной дельте. Публикация отдельно через `gitw`; операционная ветка не даёт права обходить CI, бюджет суда или frozen-норму. Настоящий отказ — дословная запись и законный маршрут, не новый способ обойти его.
