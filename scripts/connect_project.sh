@@ -82,6 +82,14 @@ if [ ! -e "$PIN_WT" ]; then
   git worktree add -q -b "$PIN_BR" "$PIN_WT" \
     || { printf 'connect ОТКАЗ: worktree-пин не создан\n' >&2; exit 1; }
 fi
+# В существующем worktree ветка могла смениться (state-checkpoint).
+# Задание несёт фактический пин, а не имя, с которым worktree когда-то создали.
+PIN_BR="$(git -C "$PIN_WT" symbolic-ref --quiet --short HEAD)" \
+  || otkaz "pin-bez-vetki: $PIN_WT"
+case "$PIN_BR" in
+  wip/136/*) ;;
+  *) otkaz "pin-chuzhaja-vetka: $PIN_BR" ;;
+esac
 
 # 136 v3-достройка (Rev136c-B1): путь реестра — из ЕДИНОГО project_paths_resolve
 # (frozen И-6 «путь трассы — из ЕДИНОГО project_paths_resolve»; ПЕРЕСЕЧЕНИЕ
@@ -98,7 +106,7 @@ fi
 # профиля даёт LEGACY-FALLBACK корневой registry ≠ эффективному реестру
 # подключённого проекта (профиль с workflowPaths) — тот же класс
 # рассогласования дверь↔make_task, что и собственный jq (R136c-B1, мир 125).
-ORCH_MODEL="$(jq -er '.roles.orchestrator as $r | .tiers[$r].model as $m | .models[$m[1:]]' "$HERE/config/agent_models.json" 2>/dev/null)" \
+jq -e '.roles.orchestrator as $r | .tiers[$r].model as $m | .models[$m[1:]] | strings | length > 0' "$HERE/config/agent_models.json" >/dev/null 2>&1 \
   || { printf 'connect ОТКАЗ: trassa-net-konfiga: %s/config/agent_models.json\n' "$HERE" >&2; exit 1; }
 
 # 136 (НАБЛ-П11): процедура субагентных пинов — дверь кладёт в $PSTATE/bin
@@ -128,7 +136,7 @@ if [ -n "$TASKFILE_ARG" ]; then
 elif [ -s .harness/NEXT_TASK.md ]; then
   MSG="$(cat .harness/NEXT_TASK.md)"
 else
-  MSG="Сессия проекта поднята без задания: прочитай .harness/HANDOFF.md и .harness/ROADMAP.md проекта, выбери предмет, доложи план."
+  MSG="Автономно продолжай утверждённый план проекта: сначала штатный startup brief, затем прочитай $PIN_WT/.harness/HANDOFF.md и $PIN_WT/.harness/ROADMAP.md. Выбери следующий разрешённый шаг по зависимостям и приоритетам HANDOFF, заполни предусмотренные там слоты; дополнительного «продолжай» не жди. При реальном отказе двери отметь точную причину, остановись и спроси владельца. Станционные/мобильные предметы в этой сессии не исполняй."
 fi
 # 136: распознаём ВСЕ декларации в задании по токенизатору 032/066, включая
 # inline pin:WORKTREE=...:BRANCH=... и пустые/половинные декларации. Регулярное
@@ -247,18 +255,9 @@ REG_REL="${REG_ABS#"$KOREN_ABS"/}"
 [ "$REG_ABS" != "$REG_REL" ] || otkaz "registry-vne-kornja: $REG_ABS"
 mkdir -p "$REG_REL"
 
-# Трасса (семантика — см. блок резолва выше): подмена (чужая модель, дубль
-# строк, лишняя строка, read-only файл) — trassa-rashozhdenie rc 1 ДО exec,
-# файл не изменяется: ни молчаливое принятие, ни перезапись, ни дописывание
-# (И-7: повтор пишет только отсутствующее; пустой файл = отсутствующее);
-# равен конфигу — повтор без записи, сессия поднимается.
-TRASSA="$(printf 'orchestrator\t%s\tallowed\n' "$ORCH_MODEL")"
-if [ -s "$REG_REL/trace.tsv" ]; then
-  [ "$(cat "$REG_REL/trace.tsv" 2>/dev/null)" = "$TRASSA" ] \
-    || otkaz "trassa-rashozhdenie: $REG_REL/trace.tsv ≠ конфигу установки $HERE/config/agent_models.json"
-else
-  printf '%s\n' "$TRASSA" > "$REG_REL/trace.tsv"
-fi
+# Назначение модели в конфиге — не свидетельство запуска. Настоящий TSV
+# готовят workshop и session-trace.ts в state дома сессии до первого tool-call;
+# make_task читает его через HARNESS_MODEL_TRACE. trace.tsv в git не создаём.
 
 # 136 (НАБЛ-П10): сев ПУСТОГО перечня исключений паритета CI в workflowPaths
 # проекта (заполнение — объявления проекта с причинами, НЕ дело двери);
