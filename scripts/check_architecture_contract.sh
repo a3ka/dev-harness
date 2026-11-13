@@ -102,7 +102,8 @@ arch187_code_subject() {
   local src="${1:-}"
   [ -n "$src" ] || return 1
   if [ "$src" = "-" ]; then
-    grep -Eq "$ARCH187_CLASS_RE" - 2>/dev/null
+    # Без -q grep читает весь stdin: ранний выход рвал бы producer в pipefail.
+    grep -E "$ARCH187_CLASS_RE" - >/dev/null 2>/dev/null
   else
     [ -f "$src" ] || return 1
     grep -Eq "$ARCH187_CLASS_RE" "$src" 2>/dev/null
