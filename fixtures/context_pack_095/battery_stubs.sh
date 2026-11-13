@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 095 (контракт 095, круг 2, Н-39): девятнадцать порч честных
-# моделей (dover.sh — сборщик, dver_spawn.sh — дверь), каждая ОДНОЙ якорной
-# sed-по-маркеру, каждая привязана к клетке, на чьём входе её дефект НАБЛЮДАЕМ
-# (привязка живёт В ЭТОМ КОДЕ, не в прозе контракта). Стаб строится из ТЕКУЩЕЙ
-# модели (копия + порча с проверкой якоря: маркер встречается в модели ровно
-# один раз, порча применилась). Пойман = связанная клетка против стаба даёт
-# rc 1 (КРАСНО).
+# Обманный стаб-пак 095 (контракт 095, круг 2 + sol-1112 bounded + followup-1112,
+# Н-39): двадцать девять порч честных моделей (dover.sh — сборщик, dver_spawn.sh —
+# дверь), каждая ОДНОЙ якорной sed-по-маркеру, каждая привязана к клетке, на чьём
+# входе её дефект НАБЛЮДАЕМ (привязка живёт В ЭТОМ КОДЕ, не в прозе контракта).
+# Стаб строится из ТЕКУЩЕЙ модели (копия + порча с проверкой якоря: маркер
+# встречается в модели ровно один раз, порча применилась). Пойман = связанная
+# клетка против стаба даёт rc 1 (КРАСНО).
 #
 # # стаб | ослабляемая защита | маркер | ловящая клетка
 # s1  харнесовские правила вклеены   m1   red_pravila_proekta_ne_harsa.sh
@@ -26,7 +26,17 @@
 # s16 статус-фильтр ADR снят         m16  red_uroki_po_oblasti.sh
 # s17 авторский след судьи снят      m17  red_revjer_poluchaet_vydannoe.sh
 # s18 содержание брифа вынуто        m18  red_orch_brief_starter.sh
-# s19 отказ активным снят            m19  red_orch_brief_karta_legacy.sh
+# s26 статус по датам тегов (не DAG)   m26  red_orch_brief_vozobnovlenie.sh [ветви (а)/(б), мир с лживыми датами]
+# s27 терминальный done показан        m27  red_orch_brief_vozobnovlenie.sh [ветвь (б), только 333]
+# s29 кап брифа снят                   m29  red_orch_brief_bounded_work.sh [ветвь (в), только мир-толстяк]
+# s31 без plan.tsv всё «вне плана»     x1   red_orch_brief_rabota_bez_plana.sh [ветвь (а), только мир без плана]
+# s32 обещание/inline выпали из цепочки x2  red_orch_brief_rabota_bez_plana.sh [ветвь (а), только 710/720/731]
+# s33 отказ источника проглочен        x3   red_orch_brief_rabota_bez_plana.sh [ветвь (в), только бриф]
+# s34 placeholder вместо отказа        x5   red_orch_brief_rabota_bez_plana.sh [ветвь (г), только пустой контракт]
+# s35 TMPDIR-граница (случай) снята    t95-m35 red_dver_spawn_manifest.sh [ветвь (е1), дверь]
+# s36 worktree-перечисление умерло     t95-m36 red_dver_spawn_manifest.sh [ветвь (е3), дверь]
+# s37 TMPDIR-граница (случай) снята    t95-m37 red_dver_spawn_manifest.sh [ветвь (е1), сборщик]
+# s38 worktree-перечисление умерло     t95-m38 red_dver_spawn_manifest.sh [ветвь (е3), сборщик]
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODEL="$HERE/model/dover.sh"
@@ -75,7 +85,7 @@ zapest s1 t95-m1 red_pravila_proekta_ne_harsa.sh \
 zapest s2 t95-m2 red_manifest_razreshaetsja.sh \
   's@.*# t95-m2.*@: # t95-m2 порча@'
 zapest s3 t95-m3 red_poteryannaja_ssylka_tochna.sh \
-  's@.*# t95-m3.*@  : # t95-m3 порча@'
+  's@.*# t95-m3.*@    if false; then # t95-m3 порча@'
 zapest s4 t95-m4 red_roli_menjajut_vydachu.sh \
   's@.*# t95-m4.*@" ;; SKILLS="$SKILLS$(printf "SKILL: grilling\\n")" # t95-m4 порча@'
 zapest s5 t95-m5 red_zony_iz_frozen_blobs.sh \
@@ -106,7 +116,27 @@ zapest s17 t95-m17 red_revjer_poluchaet_vydannoe.sh \
   's@.*# t95-m17.*@  : # t95-m17 порча@'
 zapest s18 t95-m18 red_orch_brief_starter.sh \
   's@.*# t95-m18.*@HEALTH_SEC="HEALTH: branch=? dirty=?" GOAL_SEC="" WORK_SEC="" DEC_SEC="" # t95-m18 порча@'
-zapest s19 t95-m19 red_orch_brief_karta_legacy.sh \
-  's@.*# t95-m19.*@  : # t95-m19 порча@'
+zapest s26 t95-m26 red_orch_brief_vozobnovlenie.sh \
+  's@.*# t95-m26.*@      if [ -z "$fref" ] || [ "$(git -C "$REPO" for-each-ref --format="%(creatordate:unix)" "$fref" 2>/dev/null | sort -n | tail -n 1)" -lt "$(git -C "$REPO" for-each-ref --format="%(creatordate:unix)" "$dref" 2>/dev/null | sort -n | tail -n 1)" ]; then # t95-m26 порча@'
+zapest s27 t95-m27 red_orch_brief_vozobnovlenie.sh \
+  's@.*# t95-m27.*@        st=""; continue # t95-m27 порча@'
+zapest s29 t95-m29 red_orch_brief_bounded_work.sh \
+  's@.*# t95-m29.*@    if [ "$_brk" = "0" ]; then # t95-m29 порча@'
+zapest s31 t95-x1 red_orch_brief_rabota_bez_plana.sh \
+  's@.*# t95-x1.*@    if ! printf "%s\\n" "$_plan_ids" | grep -Fxq -- "$cnum"; then # t95-x1 порча@'
+zapest s32 t95-x2 red_orch_brief_rabota_bez_plana.sh \
+  's@.*# t95-x2.*@        s = subject != "" ? subject : title # t95-x2 порча@'
+zapest s33 t95-x3 red_orch_brief_rabota_bez_plana.sh \
+  's@.*# t95-x3.*@      : # t95-x3 порча@'
+zapest s34 t95-x5 red_orch_brief_rabota_bez_plana.sh \
+  's@.*# t95-x5.*@    csubj="предмет не найден" # t95-x5 порча@'
+zapest s35 t95-m35 red_dver_spawn_manifest.sh \
+  's@.*# t95-m35.*@    "t95-e-none"|"t95-e-none"/*) # t95-m35 порча@' "$DOOR_MODEL"
+zapest s36 t95-m36 red_dver_spawn_manifest.sh \
+  's@.*# t95-m36.*@  while false; do # t95-m36 порча@' "$DOOR_MODEL"
+zapest s37 t95-m37 red_dver_spawn_manifest.sh \
+  's@.*# t95-m37.*@    "t95-e-none"|"t95-e-none"/*) # t95-m37 порча@'
+zapest s38 t95-m38 red_dver_spawn_manifest.sh \
+  's@.*# t95-m38.*@  while false; do # t95-m38 порча@'
 printf 'ИТОГ стаб-пак 095: rc=%s\n' "$itog"
 exit "$itog"

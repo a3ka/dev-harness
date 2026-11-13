@@ -23,6 +23,17 @@
 # зона слишком широкая / режь задачу / брифинг только оркестратору. rc 2 —
 # NOT_IMPLEMENTED. Отказ печатается ДО выдачи пака: частичного stdout у
 # отказа нет (И-3: без молчаливого усечения).
+# Предмет WORK-строки брифа — ЦЕПОЧКА носителей с прецеденсом (followup-1112):
+# первая непустая строка секции «## Предмет…» → секции «## Обещание и граница»
+# (формат backend 167/168/169) → inline «Предмет:» в строке (Н-436, класс
+# 149/160) → фактический H1 «# …» (класс harness 154/157/184) — реальное
+# описание, не придуманный placeholder. H1 с явной пометкой ЧЕРНОВИК
+# сохраняет метку «черновик: » при выборе НЕзаголовочного носителя. Выдержка
+# ≤ 480 СИМВОЛОВ (jq — без байтового обрыва). Незнакомый заголовок — НЕ отказ:
+# rc 1 без stdout дают только нечитаемый/полностью пустой контракт и настоящая
+# невозможность собрать обязательные источники (трасса, слой, mandatory-карта,
+# бюджет). Обзор WORK не валидирует готовность контракта и не объявляет
+# черновики реализованными.
 #
 # Инварианты контракта 095: И-0 грамматики, И-1 правила проекта не харнеса,
 # И-2 манифест разрешается, И-3 потерянная ссылка точна, И-4 роль меняет
@@ -33,8 +44,23 @@
 # И-11 происхождение фрагментов, И-12 брифинг — содержательный отдельный
 # режим, И-13 дословная доставка КОНТЕКСТ/§Существующее, И-14 два слоя
 # профиля → выдача.
+# И-17 bounded WORK-обзор: незакрытые пункты плана строкой WORK; закрытое и
+# вне-планное — счётной строкой «WORK: опущено: закрытых N, вне плана M»;
+# хвост за бюджетом — строкой остатка; кап вклейки 40000 не снимается.
+# И-18 различение состояний — ОДИН общий статус (семантика lib_plan 084):
+# done закрывает предмет только если frozen-КОММИТ высшего тега СОДЕРЖИТСЯ
+# в done-коммите (git merge-base --is-ancestor); даты тегов НЕ бизнес-
+# семантика. Возобновлённый (done-тег есть, статуса done нет) и пауза
+# (registry/pauzy.tsv) несут префикс в слоте предмета; терминальный done
+# и «закрыт без done» опускаются.
+# И-19 (followup-1112) работа без plan.tsv видна: скоуп WORK = ВСЕ контракты;
+# предмет — цепочка носителей с ПРЕЦЕДЕНСОМ (§Предмет → §Обещание и граница
+# → inline «Предмет:» → фактический H1 — см. шапку); полностью пустой или
+# нечитаемый контракт и недоступный обязательный источник — ОТКАЗ rc 1 (бриф
+# НЕ маскирует отказ доверия; незнакомый заголовок — НЕ отказ).
 set -uo pipefail
 TAB="$(printf '\t')"
+NL=$'\n'
 
 die() { printf 'ОТКАЗ: %s\n' "$*" >&2; exit 1; }
 ni()  { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
@@ -62,6 +88,50 @@ done
 [ -d "$REPO" ] || die "репозитория нет: $REPO"
 case "$ROLE" in orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) ;; *) die "роль вне алфавита: $ROLE" ;; esac
 case "$KIND" in task|brief) ;; *) die "kind вне алфавита: $KIND" ;; esac
+
+# ── cutover-1113: внешнее state проекта для манифеста пака (161a/095 И-15) ────
+# Формула 161a переиспользована, нового каталога/конфига нет: манифест живёт
+# в <канонический TMPDIR>/dev-harness-project-state/<первые 16 hex
+# sha256(общий .git)>/context — ОДИН каталог для main checkout и linked WT
+# (общий .git — общий ключ). Готовится ДО построения пака: отказ (TMPDIR
+# непригоден или внутри чекаутов проекта/общего .git) наступает ДО любого stdout.
+# Legacy-размещение <repo>/.omp/context больше не пишется: проверяемый
+# чекаут манифестом не загрязняется (Н-89: ignore не защита от детектора
+# untracked — источник не появляется вовсе).
+MAN_CTX=""
+if [ "$KIND" = "task" ] && [ -n "$CONTRACT" ]; then
+  _mt_base="${TMPDIR:-/tmp}"
+  _mt_base="$(cd "$_mt_base" 2>/dev/null && pwd -P 2>/dev/null)" \
+    || die "TMPDIR_UNAVAILABLE: непригодный TMPDIR: ${TMPDIR:-/tmp}"
+  _mt_common="$(git -C "$REPO" rev-parse --git-common-dir 2>/dev/null || true)"
+  [ -n "$_mt_common" ] || _mt_common="$REPO/.git"
+  case "$_mt_common" in /*) ;; *) _mt_common="$REPO/$_mt_common" ;; esac
+  _mt_common="$(cd "$_mt_common" 2>/dev/null && pwd -P 2>/dev/null)" \
+    || die "STATE_PATH_UNRESOLVABLE: общий .git не разрешается: $_mt_common"
+  case "$_mt_base" in
+    "$REPO"|"$REPO"/*|"$_mt_common"|"$_mt_common"/*) # t95-m37
+      die "TMPDIR_INSIDE_MAIN: TMPDIR внутри checkout проекта или его .git: $_mt_base" ;;
+  esac
+  # Граница 161a — ВСЕ чекауты проекта (как _state_worktree_paths живого
+  # кода): TMPDIR внутри ЛЮБОГО связанного чекаута, не только текущего
+  # корня, небезопасен; runtime-файлы — вне чекаутов и общего .git.
+  while IFS= read -r _mt_wt; do # t95-m38
+    [ -n "$_mt_wt" ] || continue
+    _mt_wt="$(cd "$_mt_wt" 2>/dev/null && pwd -P 2>/dev/null || true)"
+    [ -n "$_mt_wt" ] || continue
+    case "$_mt_base" in "$_mt_wt"|"$_mt_wt"/*)
+      die "TMPDIR_INSIDE_MAIN: TMPDIR внутри checkout проекта или его .git: $_mt_base" ;;
+    esac
+  done < <(git -C "$REPO" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')
+  # Канонический ключ 161a (cutover-1113): живой _git_common_dir ЗАХВАТЫВАЕТ
+  # вывод канонизации (c="$(cd … pwd -P)") и печатает общий .git ОДИН раз —
+  # ключ = первые 16 hex sha256("<common>") без перевода строки (printf '%s',
+  # как _hash_sha256_text живого кода). Хешируется один канонический путь;
+  # двойная печать pwd была измеренной случайностью deployed-кода до починки
+  # родителя и в модели не закрепляется.
+  _mt_key="$(printf '%s' "$_mt_common" | sha256sum | cut -c1-16)"
+  MAN_CTX="$_mt_base/dev-harness-project-state/$_mt_key/context"
+fi
 
 # ── И-12: брифинг — отдельный режим, только оркестратору ────────────────────
 SKIP_TASK=0
@@ -118,7 +188,9 @@ while IFS="$TAB" read -r kind path roles mnd why; do
   done
   case ",$roles," in *",$ROLE,"*) ;; *) continue ;; esac
   if [ ! -f "$REPO/$path" ]; then
-    if [ "$mnd" = "true" ]; then die "источник недоступен: $path"; fi # t95-m3
+    if [ "$mnd" = "true" ]; then # t95-m3
+      die "источник недоступен: $path" # t95-x3: бриф тоже отказывает — отказ доверия не маскируется
+    fi
     continue
   fi
   case "$kind" in
@@ -268,36 +340,126 @@ $TASK_BYTES"
 else
   # ── И-12: брифинг несёт ЦЕЛЬ/РАБОТУ/РЕШЕНИЯ/ЗДОРОВЬЕ из живых носителей ────
   [ -f "$REPO/registry/plan.tsv" ] && GOAL_SEC="$(cat "$REPO/registry/plan.tsv")"
-  # ── (И-12-скоуп, А-387) карта WORK: каждый контракт — строкой ──
-  # Якорь заголовка — ПРЕФИКС `^## Предмет` (суффикс-аннотации вида
-  # «## Предмет (дословно из докса…)» предмет НЕСУТ: 092/094/095).
-  # Отказ фразой И-12 дословно — ТОЛЬКО активным: NNN в колонке id
-  # registry/plan.tsv (тот же реестр — GOAL брифа). Вне плана без
-  # предмета — строка-маркер: не молчаливый пропуск (И-0) и не смерть
-  # брифа на 6 legacy (Б4 круга 1 ревьюера). plan.tsv нет → план пуст.
-  _plan_ids=""
+  # ── (И-12-скоуп, А-387; И-17/И-18/И-19, followup-1112) ────────────────────
+  # Якорь заголовка — ПРЕФИКС `^## Предмет` (суффикс-аннотации предмет НЕСУТ).
+  # СТАТУС — ОДИН общий с генератором ROADMAP/HANDOFF (lib_plan 084): done
+  # закрывает предмет только если frozen-КОММИТ высшего тега содержится в
+  # done-коммите (merge-base --is-ancestor); даты тегов НЕ бизнес-семантика
+  # (followup-1112: прежний оракул на creatordate тегов, стоявших на одном
+  # коммите, моделировал сдвиг часов, а не новую версию). СКОУП WORK:
+  # plan.tsv есть → его id (вне плана — счётная строка); plan.tsv НЕТ → ВСЕ
+  # контракты (работа без реестра видна — так устроен бэкенд). ПРЕДМЕТ —
+  # цепочка носителей с ПРЕЦЕДЕНСОМ в ЛЮБОМ мире (см. шапку): §Предмет →
+  # §Обещание и граница → inline «Предмет:» (Н-436) → фактический H1
+  # (154/157/184); H1 с пометкой ЧЕРНОВИК сохраняет метку у не-заголовочного
+  # носителя; выдержка ≤480 СИМВОЛОВ (jq, без байтового обрыва); полностью
+  # пустой/нечитаемый контракт — ОТКАЗ rc 1 (настоящая невозможность собрать,
+  # не непривычный заголовок). Пауза (registry/pauzy.tsv) и возобновлённый
+  # несут префикс в слоте предмета; терминальный done и «закрыт без done»
+  # опускаются со счётной строкой — не молчаливое усечение (И-0). Обзор не
+  # валидирует готовность контракта и не объявляет черновики реализованными.
+  # Кап вклейки 40000 не снимается.
+  _plan_status() {  # <NNN> → done|закрыт без done|заморожен|номер выдан
+    local id="$1" st='' dref fref blob
+    fref="$(git -C "$REPO" for-each-ref --sort=-version:refname --count=1 --format='%(refname)' "refs/tags/frozen/contracts/$id/" 2>/dev/null)"
+    while IFS= read -r dref; do
+      [ -n "$dref" ] || continue
+      if [ -z "$fref" ] || git -C "$REPO" merge-base --is-ancestor "$fref^{commit}" "$dref^{commit}" 2>/dev/null; then # t95-m26
+        st='done'; break # t95-m27
+      fi
+    done < <(git -C "$REPO" for-each-ref --format='%(refname)' "refs/tags/done/contracts/$id/" 2>/dev/null)
+    if [ "$st" != 'done' ]; then
+      blob=""
+      [ -f "$REPO/registry/closed-without-done.tsv" ] && blob="$(cat "$REPO/registry/closed-without-done.tsv")"
+      if [ -n "$blob" ] && printf '%s\n' "$blob" | awk -F'\t' -v w="$id" '$1==w {f=1; exit} END{exit !f}'; then
+        st='закрыт без done'
+      elif [ -n "$fref" ]; then
+        st='заморожен'
+      else
+        st='номер выдан'
+      fi
+    fi
+    printf '%s\n' "$st"
+  }
+  _subj_of() {  # <файл> → предмет | пусто; ПРЕЦЕДЕНС носителей, выдержка jq
+    local s=""
+    s="$(awk '
+      /^# / && title == "" { title = substr($0, 3) }
+      /^## Предмет/ { section = 1; next }
+      /^## Обещание и граница/ { section = 2; next }
+      /^## / { section = 0 }
+      section == 1 && NF && subject == "" { subject = $0 }
+      section == 2 && NF && promise == "" { promise = $0 }
+      inline == "" && match($0, /(^|[[:space:]])Предмет:[[:space:]]*/) { inline = substr($0, RSTART + RLENGTH) }
+      END {
+        s = subject != "" ? subject : promise != "" ? promise : inline != "" ? inline : title # t95-x2: ПРЕЦЕДЕНС носителей (Н-436)
+        if (s != title && title ~ /ЧЕРНОВИК|Черновик|черновик/) s = "черновик: " s
+        print s
+      }' "$1" | jq -Rr 'if length > 480 then .[0:479] + "…" else . end')" || return 1
+    printf '%s' "$s"
+  }
+  _plan_ids=""; _pauzy_ids=""
   [ -f "$REPO/registry/plan.tsv" ] && _plan_ids="$(awk -F'\t' 'NR>1 && $1 ~ /^[0-9]+$/ {print $1}' "$REPO/registry/plan.tsv")"
+  [ -f "$REPO/registry/pauzy.tsv" ] && _pauzy_ids="$(grep -v '^#' "$REPO/registry/pauzy.tsv" | awk -F'\t' '$1 ~ /^[0-9]+$/ {print $1}')"
+  n_closed=0; n_out=0; WORK_LINES=""
   for cf in $(LC_ALL=C ls "$REPO"/contracts/*.md 2>/dev/null | LC_ALL=C sort); do
     cnum="$(basename "$cf")"; cnum="${cnum%%-*}"
-    csubj="$(awk '/^## Предмет/{f=1;next} /^## /{f=0} f&&NF{print;exit}' "$cf")"
-    if [ -n "$csubj" ]; then
-      WORK_SEC="${WORK_SEC}WORK: ${cnum} :: ${csubj}
-"
-    elif printf '%s\n' "$_plan_ids" | grep -Fxq -- "$cnum"; then
-      die "брифинг: контракт без предмета: $cf" # t95-m19
-    else
-      WORK_SEC="${WORK_SEC}WORK: ${cnum} :: legacy-без-§Предмет (вне plan.tsv)
-"
+    if [ -f "$REPO/registry/plan.tsv" ] && ! printf '%s\n' "$_plan_ids" | grep -Fxq -- "$cnum"; then # t95-x1
+      n_out=$((n_out + 1)); continue
     fi
+    case "$(_plan_status "$cnum")" in
+      done|'закрыт без done') n_closed=$((n_closed + 1)); continue ;;
+    esac
+    prefix=""
+    if git -C "$REPO" for-each-ref --format='%(refname)' "refs/tags/done/contracts/$cnum/" 2>/dev/null | grep -q .; then
+      prefix="возобновлён: "
+    fi
+    if printf '%s\n' "$_pauzy_ids" | grep -Fxq -- "$cnum"; then
+      prefix="ПАУЗА: "
+    fi
+    csubj="$(_subj_of "$cf")" || die "брифинг: не прочитан контракт: $cf" # t95-x4
+    [ -n "$csubj" ] || die "брифинг: контракт без предмета: $cf" # t95-x5: полностью пустой контракт — отказ, не placeholder
+    WORK_LINES="${WORK_LINES}WORK: ${cnum} :: ${prefix}${csubj}$NL"
   done
   if [ -n "$ADRP" ] && [ -d "$REPO/$ADRP" ]; then
     while IFS="$TAB" read -r aid _aarea ares; do
       [ -z "${aid:-}" ] && continue
-      DEC_SEC="${DEC_SEC}ADR: ${aid} :: ${ares}
-"
+      DEC_SEC="${DEC_SEC}ADR: ${aid} :: ${ares}$NL"
     done < <(_adr_load)
   fi
   HEALTH_SEC="$(printf 'HEALTH: branch=%s dirty=%s' "$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || printf '?')" "$(git -C "$REPO" status --porcelain 2>/dev/null | wc -l | tr -d ' ')")" # t95-m18
+  # ── (И-17) сборка WORK-секции под бюджет вклейки 40000 ────────────────────
+  # счётная строка опущенного печатается ВСЕГДА — ноль просмотренного не
+  # «нечего показать» (замер семьи, пустая выборка красна)
+  WORK_HEAD="WORK: опущено: закрытых ${n_closed}, вне плана ${n_out}$NL"
+  _pack_no_work() {
+    printf '=== make_task contract=%s role=%s kind=%s ===\n' "${CONTRACT:-none}" "$ROLE" "$KIND"
+    printf '=== TRACE ===\n%s\n' "$TRACE_LINE"
+    printf '=== MAP ===\n%s' "$MAP_LINES"
+    printf '=== RULES ===\n%s' "$RULES_LINES"
+    printf '=== REUSE ===\n%s' "$REUSE_LINES"
+    if [ -n "$SKILLS" ]; then printf '=== SKILLS ===\n%s' "$SKILLS"; fi
+    if [ -n "$GOAL_SEC" ]; then printf '=== GOAL ===\n%s\n' "$GOAL_SEC"; fi
+    if [ -n "$DEC_SEC" ]; then printf '=== DECISIONS ===\n%s\n' "$DEC_SEC"; fi
+    printf '=== HEALTH ===\n%s\n' "$HEALTH_SEC"
+  }
+  _wbase="$(_pack_no_work | wc -c | tr -d ' ')"
+  _whdr="$(printf '=== WORK ===\n' | wc -c | tr -d ' ')"
+  _acc="${WORK_HEAD}"; _k=0; _brk=0
+  while IFS= read -r _wl; do
+    [ -n "$_wl" ] || continue
+    _nb="$(printf '%s\n' "$_wl" | wc -c | tr -d ' ')"
+    _ab="$(printf '%s' "$_acc" | wc -c | tr -d ' ')"
+    if [ "$_brk" = "0" ] && [ "$((_wbase + _whdr + _ab + _nb))" -le 39800 ]; then # t95-m29
+      _acc="${_acc}${_wl}$NL"
+    else
+      _brk=1; _k=$((_k + 1))
+    fi
+  done < <(printf '%s\n' "$WORK_LINES")
+  if [ "$_k" -gt 0 ]; then
+    _acc="${_acc}WORK: за бюджетом брифа: ${_k} строк; полный план и контракты — по MAP$NL"
+  fi
+  WORK_SEC="$_acc"
 fi
 
 # ── И-9: бюджет вклейки (манифест — ссылки, не вклейка; §13.6-1 владельца) ──
@@ -330,8 +492,17 @@ MAN_BODY="=== MANIFEST ===
 ${MAP_MAN}${CTX_MAN}${ADR_MAN}${LESSONS_MAN}${TASK_MAN}${TRACE_MAN}"
 printf '%s' "$MAN_BODY" # t95-m2: манифест обязателен и полон
 printf '=== BUDGET ===\nBUDGET: vklejka=%s/40000\n' "$VK"
-# Решение 5: манифест-файл пака — вход новой ноги двери spawn_agent (И-15)
+# Решение 5 (cutover-1113): манифест-файл пака — вход ноги И-15 двери
+# spawn_agent; живёт во внешнем state проекта (подготовка — блок cutover-1113
+# выше): ОДИН каталог для main checkout и linked WT, проверяемый чекаут
+# манифестом не загрязняется. Запись — noclobber после удаления старого
+# имени: подмена файла символьной ссылкой не проходит (161a).
 if [ "$KIND" = "task" ] && [ -n "$CONTRACT" ]; then
-  mkdir -p "$REPO/.omp/context"
-  printf '%s\n' "$MAN_BODY" >"$REPO/.omp/context/${CONTRACT}.tsv"
+  _man_num="$(printf '%03d' "$((10#$CONTRACT))")"
+  mkdir -p "$MAN_CTX" || die "внешнее state проекта не создать: $MAN_CTX"
+  _man_file="$MAN_CTX/$_man_num.tsv"
+  rm -f "$_man_file" || die "файл манифеста не удалить: $_man_file"
+  ( set -C; printf '%s\n' "$MAN_BODY" >"$_man_file" ) \
+    || die "манифест пака не записан: $_man_file"
 fi
+exit 0

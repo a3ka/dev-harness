@@ -165,7 +165,7 @@ _t95_adr() {
     printf 'основание: 0000000\n'
     printf 'область: %s\n' "$area"
     printf 'условие пересмотра: toy\n'
-    [ -n "$st" ] && printf 'статус: %s\n' "$st"
+    if [ -n "$st" ]; then printf 'статус: %s\n' "$st"; fi
   } >"$repo/decisions/${id}-${slug}.md"
 }
 
