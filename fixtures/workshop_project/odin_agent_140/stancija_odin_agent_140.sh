@@ -231,6 +231,9 @@ begi() {  # <хук> <cases> → вывод драйвера
   mir_github "$RE" 'ssh://git@github.com/a3ka/dev-harness.git'
   mir_github "$WT" 'ssh://git@github.com/a3ka/dev-harness.git'
   git -C "$WT" checkout -q -b wip/141/avtor 2>/dev/null
+  # v+1 (класс из ДЕРЕВА OBJECT): контракт — в ДЕРЕВЕ кандидата ДО снятия sha;
+  # класс судится из дерева OBJECT, $RE — прежний мир main-реестра.
+  mir_kontrakt "$WT" 141 рисковый
   SHA="$(git -C "$WT" rev-parse HEAD)"
   mir_kontrakt "$RE" 141 рисковый
   mir_start "$ST" 141 Avtor141 rabochij architect harness "$SHA" "$WT" wip/141/avtor
@@ -330,6 +333,8 @@ begi() {  # <хук> <cases> → вывод драйвера
   mir_github "$RE" 'ssh://git@github.com/a3ka/dev-harness.git'
   mir_github "$WT" 'ssh://git@github.com/a3ka/dev-harness.git'
   git -C "$WT" checkout -q -b wip/141/avtor 2>/dev/null
+  # v+1 (класс из ДЕРЕВА OBJECT): контракт — в ДЕРЕВЕ кандидата ДО снятия sha.
+  mir_kontrakt "$WT" 141 обычный
   SHA="$(git -C "$WT" rev-parse HEAD)"
   mir_kontrakt "$RE" 141 обычный
   mir_start "$ST" 141 Avtor141 rabochij architect harness "$SHA" "$WT" wip/141/avtor
