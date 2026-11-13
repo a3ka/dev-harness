@@ -72,6 +72,20 @@
 #             и юнит завершил новый запуск успешно; rc 1 — именованный
 #             отказ (нет каталога/снимка, расхождение, запуск не завершён
 #             успехом или не свеж); rc 2 — нет systemctl. И-6b, Рв2-5.
+#   Сторожа консультанта и bootstrap (канонизированы ремонтом 074,
+#   2026-11-13): root-часть ДОПОЛНИТЕЛЬНО ставит управляемые файлы из
+#   ops/server/root/watchers/ по sha в их существующие адресаты —
+#   nudge-lib.sh (644), orch-nudge.sh, load-nudge.sh, back-nudge.sh,
+#   glm-window.sh, glm-critic-guard.sh, boot-sessions.sh (755) →
+#   ${OPS_SERVER_ROOT_DST-/root}/, back-loop.sh (755) →
+#   ${OPS_SERVER_BACK_HOME-/home/harness}/back-loop.sh, юнит
+#   dev-harness-sessions.service → ${OPS_SERVER_ETC_DST} (644; вне UNITS:
+#   пины батареи 074 юнитов — отдельно). verify сверяет их, когда адресат
+#   читаем: /root недоступен non-root («нет доступа» — не расхождение,
+#   живую сверку делает root), неустановка — не расхождение (прецедент
+#   валидаторов 189). Ставятся ТОЛЬКО в производственном контуре (нет швов
+#   адресатов root-части) либо при явных швах сторожей OPS_SERVER_ROOT_DST /
+#   OPS_SERVER_BACK_HOME — песочницы батарей 074/081 их не ждут.
 #
 #   validators — поставить СТАНДАРТНЫЕ ВАЛИДАТОРЫ станции (контракт 189): читает
 #           пины ops/server/validators.tsv (<инструмент><TAB><версия><TAB><sha256|->),
@@ -126,6 +140,14 @@ UNITS='orch-peak@.service orch-peak-warn.timer orch-peak-stop.timer orch-peak-st
 UNITS="$UNITS orch-architecture.timer"
 # Контракт 093 И-6b: каталог предыдущей версии для rollback.
 STATE_BACKUP_DIR="${OPS_SERVER_ROLLBACK_BACKUP-$SBIN_DST/.rollback}"
+# Ремонт 074 (2026-11-13): канонизированные сторожа консультанта и bootstrap —
+# ops/server/root/watchers/. Ставятся root-частью в существующие адресаты,
+# сверяются verify (когда адресат читаем) и входят в снимок/rollback.
+ROOT_DST="${OPS_SERVER_ROOT_DST-/root}"
+BACK_HOME="${OPS_SERVER_BACK_HOME-/home/harness}"
+WATCHERS_LIB='nudge-lib.sh'                      # библиотека (sourced), режим 644
+WATCHERS='orch-nudge.sh load-nudge.sh back-nudge.sh glm-window.sh glm-critic-guard.sh boot-sessions.sh'
+WATCHER_UNIT='dev-harness-sessions.service'      # bootstrap-юнит; НЕ в UNITS (пины 074 — отдельно)
 # Контракт 093 И-3: идентичность пользователя-агента (idempotent provisioning) — ОПЦИЯ: только при
 # явном OPS_SERVER_AGENT_USER. По умолчанию агент работает под пользователем машины (решение
 # владельца: orchagent не включается).
@@ -436,7 +458,8 @@ case "$1" in
       exit 1
     fi
     # ── И-6b (093): снимок ПРЕДЫДУЩЕЙ установленной версии ДО копий ───────
-    # Побайтово: orch-peak + lib_session.sh + 8 юнитов; атомарная замена
+    # Побайтово: orch-peak + lib_session.sh + 8 юнитов + сторожа консультанта
+    # (root/watchers, ремонт 074); атомарная замена
     # каталога (tmp + mv). rollback восстанавливает ИМЕННО этот снимок —
     # «v1 → v2 → rollback → на месте v1». Первая установка: снимать нечего,
     # каталог не создаётся (Р1-1 круга 1: прежний код снимок не писал,
@@ -446,6 +469,9 @@ case "$1" in
       [ -f "$f" ] && prev=1
     done
     for u in $UNITS; do [ -f "$ETC_DST/$u" ] && prev=1; done
+    for w in $WATCHERS_LIB $WATCHERS; do [ -f "$ROOT_DST/$w" ] && prev=1; done
+    [ -f "$ETC_DST/$WATCHER_UNIT" ] && prev=1
+    [ -f "$BACK_HOME/back-loop.sh" ] && prev=1
     if [ "$prev" -eq 1 ]; then
       SNAP="$STATE_BACKUP_DIR.new.$$"
       rm -rf "$SNAP"; mkdir -p "$SNAP" || die_write "$SNAP"
@@ -455,6 +481,8 @@ case "$1" in
       }
       snap_cp "$SBIN_DST/orch-peak"; snap_cp "$SBIN_DST/lib_session.sh"
       for u in $UNITS; do snap_cp "$ETC_DST/$u"; done
+      for w in $WATCHERS_LIB $WATCHERS; do snap_cp "$ROOT_DST/$w"; done
+      snap_cp "$ETC_DST/$WATCHER_UNIT"; snap_cp "$BACK_HOME/back-loop.sh"
       rm -rf "$STATE_BACKUP_DIR"
       mv -- "$SNAP" "$STATE_BACKUP_DIR" || die_write "$STATE_BACKUP_DIR"
       printf 'снимок предыдущей версии: %s\n' "$STATE_BACKUP_DIR"
@@ -504,6 +532,42 @@ case "$1" in
       chown root:root "$ETC_DST/$u" || die_write "$ETC_DST/$u"
       check_one "$ETC_DST/$u" "$SRC_ROOT/root/systemd/$u" || rc=1
     done
+    # ── сторожа консультанта и bootstrap (канон root/watchers, ремонт 074) ────
+    # Производственный контур (нет швов адресатов root-части) ИЛИ явные швы
+    # сторожей: ставим управляемые файлы по sha в их существующие адресаты.
+    # Песочницы батарей (074/081: заданы SBIN/ETC без швов сторожей) их не
+    # ставят — их тест-миры сторожей не ждут, а писать в настоящий /root из
+    # песочницы нельзя.
+    if [ -z "${OPS_SERVER_SBIN_DST:-}" ] && [ -z "${OPS_SERVER_ETC_DST:-}" ] \
+       || [ -n "${OPS_SERVER_ROOT_DST:-}" ] || [ -n "${OPS_SERVER_BACK_HOME:-}" ]; then
+      mkdir -p "$ROOT_DST" || die_write "$ROOT_DST"
+      for w in $WATCHERS_LIB; do
+        cp -- "$SRC_ROOT/root/watchers/$w" "$ROOT_DST/$w" || die_write "$ROOT_DST/$w"
+        chmod 644 "$ROOT_DST/$w" || die_write "$ROOT_DST/$w"
+        chown root:root "$ROOT_DST/$w" || die_write "$ROOT_DST/$w"
+        check_one "$ROOT_DST/$w" "$SRC_ROOT/root/watchers/$w" || rc=1
+      done
+      for w in $WATCHERS; do
+        cp -- "$SRC_ROOT/root/watchers/$w" "$ROOT_DST/$w" || die_write "$ROOT_DST/$w"
+        chmod 755 "$ROOT_DST/$w" || die_write "$ROOT_DST/$w"
+        chown root:root "$ROOT_DST/$w" || die_write "$ROOT_DST/$w"
+        check_one "$ROOT_DST/$w" "$SRC_ROOT/root/watchers/$w" || rc=1
+      done
+      cp -- "$SRC_ROOT/root/watchers/$WATCHER_UNIT" "$ETC_DST/$WATCHER_UNIT" \
+        || die_write "$ETC_DST/$WATCHER_UNIT"
+      chmod 644 "$ETC_DST/$WATCHER_UNIT" || die_write "$ETC_DST/$WATCHER_UNIT"
+      chown root:root "$ETC_DST/$WATCHER_UNIT" || die_write "$ETC_DST/$WATCHER_UNIT"
+      check_one "$ETC_DST/$WATCHER_UNIT" "$SRC_ROOT/root/watchers/$WATCHER_UNIT" || rc=1
+      # back-loop — цикл бэкенда в доме harness (его поднимает boot-sessions);
+      # root:root 755: harness исполняет, но не правит (управляемый файл)
+      cp -- "$SRC_ROOT/root/watchers/back-loop.sh" "$BACK_HOME/back-loop.sh" \
+        || die_write "$BACK_HOME/back-loop.sh"
+      chmod 755 "$BACK_HOME/back-loop.sh" || die_write "$BACK_HOME/back-loop.sh"
+      chown root:root "$BACK_HOME/back-loop.sh" || die_write "$BACK_HOME/back-loop.sh"
+      check_one "$BACK_HOME/back-loop.sh" "$SRC_ROOT/root/watchers/back-loop.sh" || rc=1
+      [ "$rc" -eq 0 ] && printf 'установлено: сторожа консультанта (%s + %s + back-loop)\n' \
+        "$(printf '%s %s' "$WATCHERS_LIB" "$WATCHERS" | wc -w)" "$WATCHER_UNIT"
+    fi
     [ "$rc" -eq 0 ] && printf 'установлено: root-часть (orch-peak + 8 юнитов)\n'
 
     # ── контракт 081, И-1/И-2: блокировка <MAIN>/.git/config ядром ФС ────────
@@ -614,6 +678,11 @@ case "$1" in
         # триггером обзора он не становится — страхует только пропущенные события.
         systemctl enable --now orch-architecture.timer >/dev/null 2>&1 \
           || { printf 'ОТКАЗ: orch-architecture.timer не включён\n' >&2; rc=1; }
+        # Bootstrap рабочих сессий и сторожей (ремонт 074): юнит поднимает
+        # boot-sessions.sh после загрузки; включение идемпотентно (окно sessions
+        # уже есть — юнит молча выходит), живые сессии не перезапускает.
+        systemctl enable --now "$WATCHER_UNIT" >/dev/null 2>&1 \
+          || { printf 'ОТКАЗ: %s не включён\n' "$WATCHER_UNIT" >&2; rc=1; }
         if [ -n "$AGENT_USER" ]; then
           provision_orchagent || rc=1
           provision_agent_code || rc=1
@@ -631,7 +700,23 @@ case "$1" in
     for u in $UNITS; do
       check_one "$ETC_DST/$u" "$SRC_ROOT/root/systemd/$u" || rc=1
     done
-    [ "$rc" -eq 0 ] && printf 'сверка: 10/10\n'
+    n_addr=$(( 2 + $(printf '%s ' $UNITS | wc -w) ))   # orch-loop + orch-peak + юниты
+    [ "$rc" -eq 0 ] && printf 'сверка: %d/%d\n' "$n_addr" "$n_addr"
+    # Сторожа консультанта (ремонт 074): сверяются, когда адресат ЧИТАЕМ. /root
+    # недоступен non-root («нет доступа» — не расхождение: живую сверку делает
+    # root); неустановка — не расхождение (прецедент валидаторов 189). Читаемый
+    # и расходящийся адресат — именованный отказ с именем файла (check_one).
+    if [ -r "$ROOT_DST" ]; then
+      for w in $WATCHERS_LIB $WATCHERS; do
+        if [ -r "$ROOT_DST/$w" ]; then check_one "$ROOT_DST/$w" "$SRC_ROOT/root/watchers/$w" || rc=1; fi
+      done
+    fi
+    if [ -r "$ETC_DST/$WATCHER_UNIT" ]; then
+      check_one "$ETC_DST/$WATCHER_UNIT" "$SRC_ROOT/root/watchers/$WATCHER_UNIT" || rc=1
+    fi
+    if [ -r "$BACK_HOME/back-loop.sh" ]; then
+      check_one "$BACK_HOME/back-loop.sh" "$SRC_ROOT/root/watchers/back-loop.sh" || rc=1
+    fi
     # Контракт 189: сверка пинов валидаторов ↔ установленного (если установлены).
     check_validators || rc=1
     exit "$rc"
@@ -684,6 +769,9 @@ case "$1" in
     have=0
     for f in orch-peak lib_session.sh; do [ -f "$BACKUP/$f" ] && have=1; done
     for u in $UNITS; do [ -f "$BACKUP/$u" ] && have=1; done
+    for w in $WATCHERS_LIB $WATCHERS back-loop.sh "$WATCHER_UNIT"; do
+      [ -f "$BACKUP/$w" ] && have=1
+    done
     if [ "$have" -eq 0 ]; then
       printf 'ОТКАЗ: нет предыдущей версии: снимок пуст: %s\n' "$BACKUP" >&2
       exit 1
@@ -724,6 +812,36 @@ case "$1" in
         n_units=$((n_units + 1))
       fi
     done
+    # Сторожа консультанта (ремонт 074): восстанавливаются тем же снимком,
+    # каждый — своим режимом и адресатом.
+    for w in $WATCHERS_LIB; do
+      if [ -f "$BACKUP/$w" ]; then
+        mkdir -p "$ROOT_DST" || die_write "$ROOT_DST"
+        cp -- "$BACKUP/$w" "$ROOT_DST/$w" || { printf 'ОТКАЗ: запись %s/%s\n' "$ROOT_DST" "$w" >&2; exit 1; }
+        chmod 644 "$ROOT_DST/$w" || die_write "$ROOT_DST/$w"
+        chown root:root "$ROOT_DST/$w" || die_write "$ROOT_DST/$w"
+      fi
+    done
+    for w in $WATCHERS; do
+      if [ -f "$BACKUP/$w" ]; then
+        mkdir -p "$ROOT_DST" || die_write "$ROOT_DST"
+        cp -- "$BACKUP/$w" "$ROOT_DST/$w" || { printf 'ОТКАЗ: запись %s/%s\n' "$ROOT_DST" "$w" >&2; exit 1; }
+        chmod 755 "$ROOT_DST/$w" || die_write "$ROOT_DST/$w"
+        chown root:root "$ROOT_DST/$w" || die_write "$ROOT_DST/$w"
+      fi
+    done
+    if [ -f "$BACKUP/$WATCHER_UNIT" ]; then
+      cp -- "$BACKUP/$WATCHER_UNIT" "$ETC_DST/$WATCHER_UNIT" \
+        || { printf 'ОТКАЗ: запись %s/%s\n' "$ETC_DST" "$WATCHER_UNIT" >&2; exit 1; }
+      chmod 644 "$ETC_DST/$WATCHER_UNIT" || die_write "$ETC_DST/$WATCHER_UNIT"
+      chown root:root "$ETC_DST/$WATCHER_UNIT" || die_write "$ETC_DST/$WATCHER_UNIT"
+    fi
+    if [ -f "$BACKUP/back-loop.sh" ]; then
+      cp -- "$BACKUP/back-loop.sh" "$BACK_HOME/back-loop.sh" \
+        || { printf 'ОТКАЗ: запись %s/back-loop.sh\n' "$BACK_HOME" >&2; exit 1; }
+      chmod 755 "$BACK_HOME/back-loop.sh" || die_write "$BACK_HOME/back-loop.sh"
+      chown root:root "$BACK_HOME/back-loop.sh" || die_write "$BACK_HOME/back-loop.sh"
+    fi
     # Откат — единый акт: reload + restart + доказательство ЗАВЕРШЕНИЯ
     # НОВОГО запуска (И-6b v2, Рв2-5: юнит oneshot, ActiveState=inactive —
     # норма; Result=success И свежий ExecMainExitTimestamp позже T0 отката —
@@ -747,6 +865,11 @@ case "$1" in
     for u in $UNITS; do
       if [ -f "$BACKUP/$u" ]; then check_one "$ETC_DST/$u" "$BACKUP/$u" || rc=1; fi
     done
+    for w in $WATCHERS_LIB $WATCHERS; do
+      if [ -f "$BACKUP/$w" ]; then check_one "$ROOT_DST/$w" "$BACKUP/$w" || rc=1; fi
+    done
+    [ -f "$BACKUP/$WATCHER_UNIT" ] && { check_one "$ETC_DST/$WATCHER_UNIT" "$BACKUP/$WATCHER_UNIT" || rc=1; }
+    [ -f "$BACKUP/back-loop.sh" ] && { check_one "$BACK_HOME/back-loop.sh" "$BACKUP/back-loop.sh" || rc=1; }
     # А-1 (круг 5): манифест согласован с установленной библиотекой — иначе
     # откат оставил бы сторожа, который откажется стартовать (И-1).
     if [ -f "$SBIN_DST/lib_session.sh.sha256" ]; then

@@ -1,10 +1,13 @@
 # ops/server — серверная обвязка станции (единый источник в репо)
 
-Контракты 074/081/085: 10 файлов обвязки лежат в этом каталоге побайтно
-(сверяются sha256 с живой станцией — `bash ops/server/install.sh verify`),
-установщик ставит их из репо на `~/bin/orch-loop` и
+Контракты 074/081/085 + ремонт 13.11.2026: 10 файлов обвязки лежат в этом
+каталоге побайтно (сверяются sha256 с живой станцией — `bash ops/server/install.sh
+verify`), установщик ставит их из репо на `~/bin/orch-loop` и
 `/usr/local/sbin/orch-peak` + `/etc/systemd/system/*`, а `README` —
-инвентарь для сессии, которая раньше обвязку не видела.
+инвентарь для сессии, которая раньше обвязку не видела. Сторожа консультанта
+и bootstrap сессий (nudge-семья, back-loop, glm-window, glm-critic-guard,
+boot-sessions + юнит) канонизированы тем же установщиком в `root/watchers/`
+(см. раздел «Сторожа и bootstrap»).
 
 ## Один харнесс: установка на любую машину (слово владельца 2026-10-16)
 
@@ -401,11 +404,14 @@ bash ops/server/install.sh user
 # root-часть (под root): /usr/local/sbin/orch-peak + bootstrap-библиотека
 # lib_session.sh (root:root 644) + её sha256-манифест lib_session.sh.sha256
 # (root:root 444 — по нему сторож проверяет установленный bootstrap, И-1)
-# + 8 юнитов /etc/systemd/system/
+# + 8 юнитов /etc/systemd/system/ + сторожа и bootstrap из root/watchers/
+# (nudge-семья, back-loop, glm-window, glm-critic-guard, boot-sessions,
+# dev-harness-sessions.service) — в существующие адресаты, по sha256.
 sudo bash ops/server/install.sh root
 
 # сверка установленного с репо (любой пользователь, только читает):
 # rc 0 + «сверка: 10/10» — установленное == репо; rc != 0 — зовёт файл по имени.
+# Сторожа: /root-адресаты сверяет root (non-root — «нет доступа», не расхождение).
 bash ops/server/install.sh verify
 ```
 
@@ -415,6 +421,11 @@ bash ops/server/install.sh verify
 `OPS_SERVER_MAIN` (081) указывает на корень основного чекаута, чей
 `.git/config` запирается `chattr +i` (по умолчанию — корень чекаута
 установки: два уровня над `ops/server`, откуда запущен `install.sh`).
+Швы сторожей (ремонт 074): `OPS_SERVER_ROOT_DST` (умолчание `/root` —
+адресат nudge-семьи и boot-sessions) и `OPS_SERVER_BACK_HOME` (умолчание
+`/home/harness` — адресат back-loop.sh). При заданном шве установщик не пишет
+в умолчальный путь того же шва; в песочницах батарей (заданы SBIN/ETC без
+швов сторожей) установка сторожей пропускается.
 
 ## Пользователь агента (контракт 093, И-3)
 
@@ -590,15 +601,65 @@ sudo bash ops/server/install.sh verify-start   # rc 0
 
 - **Демонстрационные PR табло не показывает.** Отсекаются на входе, до строк и до счёта: ветка `demo/…` (без учёта регистра), отдельное слово `DEMO` в заголовке (без учёта регистра; слово внутри слова, напр. `DEMOGRAPHIC`, — не признак) либо маркер «НЕ МЕРЖИТЬ» в заголовке. Признаки независимы и действуют в обоих репозиториях (`a3ka/dev-harness`, `a3ka/Complior-mob`): такой PR не даёт ни строки табло, ни счёта «стоит без хода». Обычные рабочие PR, включая красный CI, остаются как были. По контракту 175 (слово владельца 09.11.2026, фаза 1.4).
 
+## Сторожа и bootstrap (канон в ops/server/root/watchers/, ремонт 13.11.2026)
+
+Прежние внешние сторожа консультанта и bootstrap сессий канонизированы в репо:
+источник — `ops/server/root/watchers/`, ставит их в СУЩЕСТВУЮЩИЕ адресаты та же
+root-часть `install.sh root` (по sha256, с перечитыванием), сверяет `verify`
+(когда адресат читаем: `/root` недоступен non-root — «нет доступа» не есть
+расхождение, живую сверку делает root; неустановка — не расхождение, как у
+валидаторов 189). Параллельного установщика/конфига нет.
+
+Общие свойства всех сторожей:
+
+- **Адресация панелей — динамическая** (`pane_of` в nudge-lib): единственный
+  живой `omp --profile` с cwd проекта → цепочка PPid до `pane_pid` tmux.
+  Сохранённых id панелей (%0/%1/%412/%413, ST_PANE/BK_PANE/BACK_PANE/
+  LOAD_PANES) больше НЕТ нигде: su -P создаёт другой pts, сравнение tty ложно,
+  а номера панелей не переживают перезагрузку. Нет процесса или несколько
+  процессов проекта — сторож молчит: в чужую панель не пишем.
+- **Escape не посылается**: сообщение вставляется paste-buffer'ом и встаёт в
+  очередь, текущий инструмент сессии не прерывается.
+- **Не подгоняется законное ожидание**: верхний блок HANDOFF «ЖДЁТ ВЛАДЕЛЬЦА»
+  (станция — HF чекаута; бэкенд — ЖИВОЙ пин-HF пин-worktree
+  `~/dev-harness-projects/complior-back/wt/wip-136-demo/.harness/HANDOFF.md`,
+  не старая копия в main) или идущий дочерний инструмент omp.
+
+| механизм | источник | адресат | процесс / журнал | выключатель |
+|---|---|---|---|---|
+| `nudge-lib.sh` | `root/watchers/nudge-lib.sh` | `/root/nudge-lib.sh` (644) | общая библиотека: `waiting_owner` (верхний блок HF), `has_job`, `omp_pid_of`/`pane_of`, `pin_handoff` (живой пин-HF бэкенда), `quota_windows` (5ч number=5/unit=3 и неделя number=1/unit=6 — раздельно; неполный ответ = отказ) | — (библиотека) |
+| `orch-nudge.sh` | `root/watchers/orch-nudge.sh` | `/root/orch-nudge.sh` | такт раз в 120 с (цикл в boot-sessions): оркестратор станции в wait/тишине ≥ 20 мин + строки СТОИТ на табло → список в панель; журнал `/root/orch-nudge.log` | `touch /root/orch-nudge.off` |
+| `load-nudge.sh` | `root/watchers/load-nudge.sh` | `/root/load-nudge.sh` | норма субагентов на экране (станция 4 = 2 харнес + 2 моб, бэкенд 3; свыше — MiniMax-слот): виджет «Subagents · N running», fallback — старое дерево ролей; нераспознанная панель ≠ «0»; 3 такта (~6 мин) + ≥ 20 мин между толчками; журнал `/root/load-nudge.log` | `/root/load-nudge.off`, `/root/load-nudge.off.<station\|back>` |
+| `back-nudge.sh` | `root/watchers/back-nudge.sh` | `/root/back-nudge.sh` | простой бэкенда: молчание ≥ 25 мин без ЖИВЫХ субагентов; завершённость субагента — структурная терминальная запись `session_exit` (omp 18.18.8 завершает БЕЗ yield — литерал «последний инструмент ≠ yield» убран: держал завершённых «живыми» 3 ч); стартовый толчок только если launcher не получил задание (connect_project стартовое сообщение подаёт сам); журнал `/root/back-nudge.log` | `touch /root/back-nudge.off` |
+| `glm-window.sh` | `root/watchers/glm-window.sh` | `/root/glm-window.sh` | окно 06–10 UTC ЕЖЕДНЕВНО (слово владельца 2026-11-09): apex-sol/task-glm → Terra на окно (источник + живые оверлеи сессий), 10:00 — снятие ТОЛЬКО собственных строк (метка «окно GLM 06–10 UTC»); Terra — из `config/agent_models.json` (семейство gpt-terra), литерала версии нет; реестр не читается — окно не включается; журнал `/root/glm-window.log` | `touch /root/glm-window.off` |
+| `glm-critic-guard.sh` | `root/watchers/glm-critic-guard.sh` | `/root/glm-critic-guard.sh` | наблюдение квот GLM (оба ключа, ОБА окна раздельно); при исчерпании — переход на OpenAI средствами omp по registry (слово владельца 2026-11-12), НЕ остановка сессий, НЕ «слово владельца STOP», смены моделей нет; ключи не выводятся; журнал `/root/glm-critic-guard.log` | `touch /root/glm-critic-guard.off` |
+| `boot-sessions.sh` | `root/watchers/boot-sessions.sh` | `/root/boot-sessions.sh` | подъём после загрузки: tmux work/sessions (станция orch-loop, моб, бэкенд back-loop) + окна сторожей в tmux consultant; идемпотентен (окно sessions есть — выход); `BOOT_TEST=1` — раскладка с заглушками; журнал `/root/boot-sessions.log` | стоп-файлы `~/orch-loop.stop`, `~/back-loop.stop` (снимаются циклами) |
+| `dev-harness-sessions.service` | `root/watchers/dev-harness-sessions.service` | `/etc/systemd/system/` (644) | systemd-юнит bootstrap (oneshot, RemainAfterExit), `ExecStart=/root/boot-sessions.sh`; включается root-проходом install | `systemctl disable --now dev-harness-sessions.service` |
+| `back-loop.sh` | `root/watchers/back-loop.sh` | `/home/harness/back-loop.sh` (755, root:root) | цикл сессии бэкенда под harness: запуск через существующую дверь `scripts/connect_project.sh` с фактическим оверлеем (default @gpt-terra, слово владельца 2026-11-12; устаревший forced-Sol не воспроизводится); singleton `flock -n` на `~/.local/state/dev-harness/back-loop.lock` (fd 9 закрыт в наблюдателе и в дочерней сессии — дублей после рестарта нет); мягкий перезапуск по маркеру `/tmp/dev-harness-verify/back-restart`; журнал `~/back-loop.log` | `touch ~/back-loop.stop` |
+
+**Снято (ремонт 13.11):** `glm-guard` — вместо него один поддерживаемый
+наблюдатель `glm-critic-guard` (старый на 90% недели гасил load/back-будильники
+и читал недельные 100% как 5-часовое окно). Оператору при раскатке: убрать окно
+`glmguard` tmux-сессии consultant и `/root/glm-guard.sh`; флаги
+`/root/glm-stop.*` больше никем не ставятся.
+
 ## Механизмы консультанта вне репо (установлены 24–25.10.2026, слово владельца)
 
-Ставились консультантом руками на сервере, в установку из репо НЕ входят. Перенос в репо — отдельным контрактом.
+Ставились консультантом руками на сервере, в установку из репо НЕ входят.
+Сторожа и bootstrap, канонизированные 13.11 (nudge-семья, back-loop,
+glm-window, glm-critic-guard, boot-sessions и его юнит), — выше, в разделе
+«Сторожа и bootstrap»; здесь только НЕИЗМЕННЫЕ зависимости, которые репо
+не заменяет и не мигрирует (слово владельца: не трогать).
 
 | механизм | где | что делает | выключатель / откат |
 |---|---|---|---|
 | второй раннер android-e2e `station-complior-2` | `/var/lib/ci-runner/runner2`, юнит `gh-runner-complior-2.service`, сеть `ci2-netns.service` (`/root/ci2-netns.sh`); свои `HOME=/var/lib/ci-runner/home2` (`.android`, `.maestro`, `.npm`), `ANDROID_USER_HOME=…/home2/.android`, `ANDROID_AVD_HOME=/var/lib/ci-runner/avd2`, Gradle `gradle2` (скрипт `/root/runner2-split.sh`, 27.10) | второй параллельный эмулятор: раннер живёт в сетевом пространстве `ci2`, поэтому фиксированные порты 5560/5562 скриптов `mobile.yml`/`ci-e2e.sh` не конфликтуют с основным раннером; HOME/AVD-состояние не делит с основным (27.10, слово владельца); лимит 6 CPU / 16 ГБ. Проверено 25.10: две android-e2e одновременно, на раннере 2 загрузился эмулятор и прошли шаги 995/117/123. Проверено 27.10 после разведения HOME/AVD: пара android-e2e на main mob `d014010` одновременно, обе success (run 40591482453 на `station-complior`, 40591487816 на `station-complior-2`) | `systemctl stop gh-runner-complior-2`; вернуть общий HOME: юнит из `/root/gh-runner-complior-2.service.bak-*`, `systemctl daemon-reload`; полное снятие: `./config.sh remove` в runner2, `bash /root/ci2-netns.sh down` |
-| переключатель ключей z.ai `zai-failover` | `~harness/consultant/zai-failover.js`, tmux `consultant-zfA` (порт 8770: ключ А→Б, станция), `consultant-zfB` (8771: Б→А, бэкенд) | при квотном 429 (1308/1309/1310/1113) уводит запрос на второй ключ; оба исчерпаны → 429 клиенту → автофолбек omp на Sonnet. Включается для сессии через `models.yml` в её доме (`.omp/profiles/dev/agent/models.yml`, `providers.zai.baseUrl=http://127.0.0.1:<порт>/api/anthropic`) — работающий процесс подхватит только после перезапуска | удалить `models.yml` в доме сессии (копия `*.before-zf`) |
-| `glm-guard` | `/root/glm-guard.sh`, tmux `consultant-glmguard`, журнал `/root/glm-guard.log` | раз в 5 мин читает недельную квоту обоих ключей z.ai; ≥ 90% доступных ключей сессии → сообщение сессии «доведи шаг, запушь, жди», флаг `/root/glm-stop.<сторона>`, будильник сессии выключается | `touch /root/glm-guard.off`; снять остановку: `rm /root/glm-stop.* /root/orch-nudge.off /root/back-nudge.off` |
+| переключатель ключей z.ai `zai-failover` | `~harness/consultant/zai-failover.js`, tmux `consultant-zfA` (порт 8770: ключ А→Б, станция), `consultant-zfB` (8771: Б→А, бэкенд); подъём после загрузки — `~harness/consultant/zf-restart.sh` (boot-sessions, ДО сессий) | при квотном 429 (1308/1309/1310/1113) уводит запрос на второй ключ; оба исчерпаны → 429 клиенту → автофолбек omp по registry. Включается для сессии через `models.yml` в её доме (`.omp/profiles/dev/agent/models.yml`, `providers.zai.baseUrl=http://127.0.0.1:<порт>/api/anthropic`) — работающий процесс подхватит только после перезапуска | удалить `models.yml` в доме сессии (копия `*.before-zf`) |
+| `zf-heal` | `/root/zf-heal.sh`, окно `zfheal` tmux consultant | самолечение GLM-прокси zai-failover; поднимается boot-sessions | окно zfheal вручную |
+| оверлей запуска бэкенда | `~harness/consultant/models-sol-arch.yml` + обёртка `~harness/consultant/workshop-sol.sh` (подставляется back-loop через `S136_WORKSHOP`) | фактический оверлей сессии бэкенда (сейчас `default: "@gpt-terra"` — слово владельца 2026-11-12); содержимое — решения владельца, НЕ репо: glm-window добавляет/снимает только свои строки с меткой «окно GLM 06–10 UTC» | строка оверлея руками владельца + перезапуск сессии |
+| `station-check` | `~harness/consultant/station-check.sh` | источник строки «последний вызов: …» для orch-nudge и периодический обзор станции | — |
+| `manifest-janitor` | `~harness/manifest-janitor.sh`, окно `janitor` tmux consultant | чистка манифестов `.omp/context` сессий; поднимается boot-sessions | окно janitor вручную |
+| `disk-guard` | `~harness/consultant/disk-guard.sh`, окно `diskguard` tmux consultant | наблюдение места на диске | окно diskguard вручную |
+| тексты сообщений окна GLM | `/root/glmwin-on.txt`, `/root/glmwin-off.txt` | тексты, которые glm-window вставляет в панели при вкл/выкл окна | правка файлов |
 | толкатель тегов бэкенда | `~harness/consultant/tag-pusher.sh`, tmux `consultant-tagpush`, журнал `~harness/consultant/tag-pusher.log` | раз в 10 мин публикует в `a3ka/Complior-back` локальные теги `frozen/contracts/N/V` из клонов, если такого тега в origin нет и коммит достижим из веток origin (у проекта нет двери пуша тегов, НАБЛ-П26) | `touch ~harness/consultant/tag-pusher.off` |
 | `wip-guard` v2 | `/root/wip-guard.sh`, tmux `consultant-wipguard`, журнал `/root/wip-guard.log` | лимиты начатых предметов (сообщение сессии); пересечения агентов по имени — только запись `SUSPECT` в журнал (табло не отличает завершённого агента); сбой источника — `WIP_UNKNOWN` | `touch /root/wip-guard.off` |
-| будильники `orch-nudge`/`back-nudge` | `/root/orch-nudge.sh`, `/root/back-nudge.sh` | толкают сессию, простаивающую в `wait` при строках СТОИТ | `touch /root/orch-nudge.off` / `/root/back-nudge.off` |

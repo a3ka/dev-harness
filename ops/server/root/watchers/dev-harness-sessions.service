@@ -1,0 +1,13 @@
+[Unit]
+Description=dev-harness: рабочие сессии (станция, моб, бэкенд) и сторожа в tmux после загрузки
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/root/boot-sessions.sh
+KillMode=none
+
+[Install]
+WantedBy=multi-user.target
