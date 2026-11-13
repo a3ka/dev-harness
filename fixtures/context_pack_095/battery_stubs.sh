@@ -33,9 +33,9 @@
 # s32 обещание/inline выпали из цепочки x2  red_orch_brief_rabota_bez_plana.sh [ветвь (а), только 710/720/731]
 # s33 отказ источника проглочен        x3   red_orch_brief_rabota_bez_plana.sh [ветвь (в), только бриф]
 # s34 placeholder вместо отказа        x5   red_orch_brief_rabota_bez_plana.sh [ветвь (г), только пустой контракт]
-# s35 TMPDIR-граница (случай) снята    t95-m35 red_dver_spawn_manifest.sh [ветвь (е1), дверь]
+# s35 TMPDIR-граница (случай) снята    t95-m35 red_dver_spawn_manifest.sh [ветвь (е5), дверь — общий .git вне worktree-list; на е1–е4 ненаблюдаемо]
 # s36 worktree-перечисление умерло     t95-m36 red_dver_spawn_manifest.sh [ветвь (е3), дверь]
-# s37 TMPDIR-граница (случай) снята    t95-m37 red_dver_spawn_manifest.sh [ветвь (е1), сборщик]
+# s37 TMPDIR-граница (случай) снята    t95-m37 red_dver_spawn_manifest.sh [ветвь (е5), сборщик — на е1/е2 общий .git внутри чекаутов, ненаблюдаемо]
 # s38 worktree-перечисление умерло     t95-m38 red_dver_spawn_manifest.sh [ветвь (е3), сборщик]
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
