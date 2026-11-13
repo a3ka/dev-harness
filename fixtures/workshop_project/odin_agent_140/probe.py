@@ -643,6 +643,188 @@ def kejsy():
                 k_chislo_startov(mir, 'учёт', 1)]
     reg('w25-poddelnyj-marker-ne-sdacha', 'роль=рабочий;состояние=бежит;сдача=подделка-в-теле-записи', w25)
 
+    # A3. атомарность лимита ГРУППЫ между предметами × слот до done/ПАУЗЫ ×
+    #     дедушка начатого (узлы А/Б ремонта 140: adversary v4 FAIL 1/2 на
+    #     OBJECT 3572945e — гонка двух РАЗНЫХ NNN, 4 из 3; bootstrap 998 —
+    #     11 начатых из 3, замена не пускалась; DIAGNOZ-2026-11-12 F/1.6)
+    def w26(mir, door):
+        # УЗЕЛ А: лимит группы обязан быть атомарен и МЕЖДУ разными предметами.
+        # ДЕТЕРМИНИРОВАННАЯ чередуемость без lucky-timing: реестр пауз — FIFO
+        # с пустым содержанием (семантика «нет пауз», как у отсутствующего
+        # файла); держатель записи держит трубу открытой, поэтому каждое
+        # чтение na_pauze() паркуется в read с наблюдаемым fd. Такт = закрыть
+        # запись (EOF всем стоящим в read) и тут же открыть снова; такт
+        # подаётся ТОЛЬКО когда каждая живая дверь стоит (fd на FIFO в её
+        # дереве процессов). Единственная стоянка двери ДО её снимка группы —
+        # na_pauze преплока; значит любой такт, отпускающий дверь ОТ СЧЁТА
+        # (в цикле подсчёта занятости), застал вторую дверь ПОСЛЕ её снимка
+        # либо вышедшей ⇒ оба снимка группы строго до обеих записей START —
+        # дверь без межпредметной атомарности обязана пропустить ОБЕ (4 из 3),
+        # дверь с атомарным решением группы — ровно одну. Меры независимые:
+        # число принятых (rc 0) и строки START группы в ФАЙЛЕ учёта.
+        _harness_zhivoj(mir, ['101', '102'])
+        wt140, br140, _ = mir.worktree('140')
+        wt141, br141, _ = mir.worktree('141')
+        ev140 = mir.sobytie('ev140.json', [item('architect', 'Arch140',
+                        ['SUBJECT=140', 'WORKTREE=' + wt140, 'BRANCH=' + br140])])
+        ev141 = mir.sobytie('ev141.json', [item('architect', 'Arch141',
+                        ['SUBJECT=141', 'WORKTREE=' + wt141, 'BRANCH=' + br141])])
+        pauzy = mir.repo / 'registry' / 'pauzy.tsv'
+        if pauzy.exists():
+            pauzy.unlink()
+        os.mkfifo(str(pauzy))
+        r0 = os.open(str(pauzy), os.O_RDONLY | os.O_NONBLOCK)
+        zap = [os.open(str(pauzy), os.O_WRONLY | os.O_NONBLOCK)]
+
+        def potomki(koren):
+            vidy, ochered = set(), [koren]
+            while ochered:
+                p = ochered.pop()
+                if p in vidy:
+                    continue
+                vidy.add(p)
+                for z in Path('/proc/%d/task' % p).glob('*/children'):
+                    try:
+                        tekst = z.read_text()
+                    except OSError:
+                        continue
+                    ochered.extend(int(x) for x in tekst.split())
+            return vidy
+
+        def stoit(pid):
+            for q in potomki(pid):
+                try:
+                    spisok = list(Path('/proc/%d/fd' % q).iterdir())
+                except OSError:
+                    continue
+                for fd in spisok:
+                    try:
+                        if os.readlink(str(fd)) == str(pauzy):
+                            return True
+                    except OSError:
+                        continue
+            return False
+
+        dv = [subprocess.Popen(
+                  [BASH, str(door), '--sudit', '--sostojanie', str(mir.sost),
+                   '--zhurnaly', str(mir.zhurnaly), '--repo', str(mir.repo), ev],
+                  env=GIT_ENV, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                  text=True)
+              for ev in (ev140, ev141)]
+        problems = []
+        kraj = time.time() + 60
+        try:
+            while True:
+                zhivye = [p for p in dv if p.poll() is None]
+                if not zhivye:
+                    break
+                if time.time() > kraj:
+                    problems.append('гонка: двери не завершились за 60 с '
+                                    '(rc %r)' % [p.poll() for p in dv])
+                    for p in zhivye:
+                        p.kill()
+                    break
+                if all(stoit(p.pid) for p in zhivye):
+                    # такт: EOF всем стоящим; запись открывается тут же снова
+                    os.close(zap[0])
+                    zap[0] = os.open(str(pauzy), os.O_WRONLY | os.O_NONBLOCK)
+                time.sleep(0.002)
+        finally:
+            vyhody = [p.communicate(timeout=30) for p in dv]
+            for f in (zap[0], r0):
+                try:
+                    os.close(f)
+                except OSError:
+                    pass
+        prinyato = sum(1 for p in dv if p.returncode == 0)
+        if prinyato > 1:
+            problems.append('гонка группы: принято обе двери (rc %r; stderr: '
+                            '%r | %r)' % ([p.returncode for p in dv],
+                                          vyhody[0][1].strip()[:100],
+                                          vyhody[1][1].strip()[:100]))
+        startov = len([x for x in mir.ledg()
+                       if x.get('t') == 'START' and x.get('group') == 'harness'])
+        if startov > CAP_HARNESS:
+            problems.append('гонка группы: START harness %d > CAP %d (файл '
+                            'учёта — независимая мера)' % (startov, CAP_HARNESS))
+        return problems
+    reg('w26-gonka-gruppy-dva-predmeta',
+        'пакет=гонка-разных-предметов;учёт=лимит-группы-атомарен', w26)
+
+    def w27(mir, door):
+        # УЗЕЛ Б-1: рабочий СДАЛ (yield в журнале), замок снят --osvobodit
+        # (строка RELEASE), предмет НЕ done и НЕ на ПАУЗЕ → слот группы
+        # держится: «слот держит предмет до done или ПАУЗЫ» (инвариант 7);
+        # при 3 из 3 занятых НОВЫЙ предмет отказывает LIMIT_GRUPPY.
+        _harness_zhivoj(mir, ['101', '102'])
+        wt103, br103, _ = mir.worktree('103')
+        mir.start('103', 'Arch103', wt=wt103, branch=br103)
+        mir.zhurnal('Arch103', sdal=True)
+        mir.release('103', 'Arch103', 'yield')
+        wt144, br144, _ = mir.worktree('144')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch144',
+                        ['SUBJECT=144', 'WORKTREE=' + wt144, 'BRANCH=' + br144])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина')]
+    reg('w27-relis-slot-derzhit',
+        'учёт=лимит;RELEASE=не-освобождает;состояние=сдал-без-done', w27)
+
+    def w28(mir, door):
+        # УЗЕЛ Б-2: группа сверхлимитна (5 начатых — grandfather-ситуация
+        # 998: 11 из 3), предмет 141 НАЧАТ, его рабочий сдал, замок снят
+        # RELEASE, предмет НЕ done → замена держателя = доведение начатого:
+        # «сверх лимита начатые доводятся, новые не стартуют» (roles/
+        # orchestrator §Начатое—до-конца п.2), «смена держателя не занимает
+        # второй слот» (инвариант 7) → rc 0, START пишется, БЕЗ СЛОВА.
+        _harness_zhivoj(mir, ['145', '146', '147', '148', '149'])
+        wt141, br141, _ = mir.worktree('141')
+        mir.start('141', 'Arch141', wt=wt141, branch=br141, zanyat=False)
+        mir.zhurnal('Arch141', sdal=True)
+        mir.release('141', 'Arch141', 'yield')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch141v2',
+                        ['SUBJECT=141', 'WORKTREE=' + wt141, 'BRANCH=' + br141])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 0, 'rc'),
+                k_stroka(mir, 'start', subjectId='141', holder='Arch141v2',
+                         group='harness'),
+                k_zanyat(mir, '141', 'Arch141v2', 'занятие')]
+    reg('w28-zamena-nachatogo-sverhlimit',
+        'учёт=лимит;замена=держателя-начатого;сверхлимит=доводится', w28)
+
+    def w29(mir, door):
+        # контроль узла Б: дедушка не расползается — НОВЫЙ предмет (без
+        # START) при сверхлимитной группе без СЛОВА отказывает; cap — верхняя
+        # граница (инвариант 7), санкция на новый NNN — только СЛОВО.
+        _harness_zhivoj(mir, ['145', '146', '147', '148'])
+        wt150, br150, _ = mir.worktree('150')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch150',
+                        ['SUBJECT=150', 'WORKTREE=' + wt150, 'BRANCH=' + br150])])
+        r = sudit(door, mir, ev)
+        novykh = len([x for x in mir.ledg()
+                      if x.get('t') == 'START' and x.get('subjectId') == '150'])
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина'),
+                None if novykh == 0 else 'START предмета 150 написан (%d)' % novykh]
+    reg('w29-novyj-sverhlimit-otkaz',
+        'учёт=лимит;новый=сверхлимит-без-СЛОВА;отказ=LIMIT_GRUPPY', w29)
+
+    def w30(mir, door):
+        # УЗЕЛ Б-3 «blocked не освобождает» (roles/orchestrator §Начатое—до
+        # —конца п.2а): рабочий ОБОРВАН (журнал молчит >TTL), --osvobodit
+        # пишут RELEASE(broshen), предмет НЕ done → слот держится до done/
+        # ПАУЗЫ: при 3 из 3 занятых новый предмет отказывает LIMIT_GRUPPY.
+        _harness_zhivoj(mir, ['101', '102'])
+        wt103, br103, _ = mir.worktree('103')
+        mir.start('103', 'Arch103', wt=wt103, branch=br103)
+        mir.zhurnal('Arch103', sdal=False, vozrast_min=BROSHEN_TTL_MIN + 30)
+        mir.release('103', 'Arch103', 'broshen')
+        wt144, br144, _ = mir.worktree('144')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch144',
+                        ['SUBJECT=144', 'WORKTREE=' + wt144, 'BRANCH=' + br144])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина')]
+    reg('w30-blok-slot-derzhit',
+        'учёт=лимит;RELEASE=broshen;blocked=не-освобождает', w30)
+
     # B. судьи: состояние автора × OBJECT × порядок судей × риск
     def _avtor_sdal(mir, nnn, risk='обычный'):
         # v+1: контракт лежит и в $REPO (main), и в ДЕРЕВЕ кандидата — мир
@@ -1738,6 +1920,59 @@ def m_klass_iz_main(t):
           | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"''')
     return t
 
+def m_bez_gruppovoj_atomarnosti(t):
+    # [D34] снят: мьютексы групп не берутся — решение о лимите группы не
+    # атомарно между разными предметами (вердикт адверсария 140 v4 вызов 1/2,
+    # OBJECT 3572945e: два одновременных суда РАЗНЫХ NNN читали одинаковую
+    # заполненность до записи своих START и оба проходили — 4 из 3)
+    return _z(t, '''  # [D34 gruppa-atomarna] мьютексы ГРУПП пакета (отсортированы, до мьютексов
+  # предметов — общий порядок у конкурентов): решение о лимите группы атомарно
+  # и МЕЖДУ разными предметами. Вердикт адверсария 140 v4 вызов 1/2 (OBJECT
+  # 3572945e): два одновременных суда РАЗНЫХ NNN одной группы читали одинаковую
+  # заполненность до записи своих START и оба проходили — 4 из 3. Судьям группы
+  # не нужны: лимит судится только у рабочих.
+  local gz g
+  gz="$(printf '%s' "$GATED" | while IFS='|' read -r idx agent name sv obj wt br klass rol; do
+    [ "$klass" = 'rabochij' ] || continue
+    gruppa_iz_pina "$wt"
+  done | LC_ALL=C sort -u)"
+  while IFS= read -r g; do
+    [ -n "$g" ] || continue
+    case "$g" in harness|mob|back) ;; *) continue ;; esac
+    if ! mutex_zajavit_dir "$(gruppa_zamok_dir "$g")"; then
+      mutexi_snyat_vse
+      otp ZANYATO_RESHENIEM "группа $g: мьютекс решения группы занят (параллельный суд лимита)"
+    fi
+    GRUPPY_ZANYATY="${GRUPPY_ZANYATY}${g}"$'\\n'
+  done <<EOF
+$gz
+EOF
+''', '''  : # стаб: мьютексы групп не берём — лимит группы не атомарен между предметами
+''')
+
+
+def m_relis_osvobozhdaet_slot(t):
+    # [D32] снят: RELEASE снова обнуляет слот группы (форма двери до усиления):
+    # сдался либо оборвался + --osvobodit — предмет выпадает из счёта лимитов
+    # ДО done/ПАУЗЫ (боль bootstrap 998: слот гасился ротацией держателя)
+    return _z(t, '''      if $l.t == "START" then .[$l.repoId + "/" + $l.subjectId] = $l.group
+      else . end
+    ) | to_entries | map(select(.value != null and .value == $g)) | map(.key) | .[]' \\''',
+              '''      if $l.t == "START" then .[$l.repoId + "/" + $l.subjectId] = $l.group
+      elif $l.t == "RELEASE" then .[$l.repoId + "/" + $l.subjectId] = null
+      else . end
+    ) | to_entries | map(select(.value != null and .value == $g)) | map(.key) | .[]' \\''')
+
+
+def m_bez_dedushki(t):
+    # [D33] снят: уже начатый предмет судится лимитом как новый — замена
+    # держателя начатого при сверхлимите отказывает LIMIT_GRUPPY (боль
+    # bootstrap 998: замена/интегратор при 11 начатых из 3 не пускалась)
+    return _z(t, '''        if [ "$zhivo" -ge "$cap" ] && ! slovo_vladelca "$sv" \\
+           && ! predmet_derzhit_slot "$sv" "$grp"; then''',
+              '''        if [ "$zhivo" -ge "$cap" ] && ! slovo_vladelca "$sv"; then''')
+
+
 
 STAB_MUTACII = {
     's01-bez-dublja-rabochego': m_bez_dublja,
@@ -1775,6 +2010,9 @@ STAB_MUTACII = {
     's33-marker-podstrokoj': m_marker_podstrokoj,
     's34-klass-iz-gryazi': m_klass_iz_gryazi,
     's35-klass-iz-main': m_klass_iz_main,
+    's36-bez-gruppovoj-atomarnosti': m_bez_gruppovoj_atomarnosti,
+    's37-relis-osvobozhdaet-slot': m_relis_osvobozhdaet_slot,
+    's38-bez-dedushki': m_bez_dedushki,
     'x01-vsegda-puschem': m_vsegda_puschem,
 }
 

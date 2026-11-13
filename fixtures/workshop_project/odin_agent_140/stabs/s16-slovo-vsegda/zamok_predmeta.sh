@@ -117,6 +117,10 @@ git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 || skip "не репозит�
 LEDGER="$SOST/uchet.jsonl"
 [ -r "$LEDGER" ] || : >> "$LEDGER" || skip "учёт не создать: $LEDGER"
 
+# списки мьютексов, занятых текущим решением (set -u; заполняет sudit)
+SUBJS=''
+GRUPPY_ZANYATY=''
+
 # [D17 repo-id] repoId — пространство имён замка: репозиторий РЕЕСТРА предмета
 # (--repo), литеральный basename origin; общий у рабочих и судей предмета.
 REPO_URL="$(git -C "$REPO" remote get-url origin 2>/dev/null)" || REPO_URL=''
@@ -287,14 +291,31 @@ subekt_suzhen_sudej_obj() {  # <NNN> <rol> <object>
 slovo_vladelca() {  # <NNN>
     'true' "$LEDGER" >/dev/null 2>&1
 }
-# Активные предметы группы: START без последующего RELEASE; done/ПАУЗА слот
-# освобождают (слово владельца 2026-10-24 п.2/2а).
+# [D33 dedushka-nachatogo] Предмет УЖЕ держит слот группы: есть START этой
+# группы, предмет не done и не на ПАУЗЕ. Замена держателя начатого предмета —
+# доведение начатого, не новая санция: «сверх лимита начатые доводятся, новые
+# не стартуют» (roles/orchestrator §Начатое—до-конца п.2), «смена держателя не
+# занимает второй слот» (инвариант 7). НОВЫЙ предмет сверх капа — только СЛОВО.
+predmet_derzhit_slot() {  # <NNN> <group> → rc 0 держит | rc 1 нет
+  predmet_done "$1" && return 1
+  na_pauze "$1" && return 1
+  jq -se --arg r "$REPO_ID" --arg n "$1" --arg g "$2" \
+    'any(.[]; .t == "START" and .repoId == $r and .subjectId == $n and .group == $g)' \
+    "$LEDGER" >/dev/null 2>&1
+}
+# [D32 slot-do-done] Слот группы держит предмет с первого START до done/ПАУЗЫ:
+# строки RELEASE (замок снят --osvobodit: yield, verdikt_zakommiten,
+# obryv_bez_verdikta, broshen) слот НЕ освобождают — «слот держит предмет до
+# done (тег) или ПАУЗЫ (реестр)» (инвариант 7) и «blocked слот не освобождает,
+# только ПАУЗА владельца» (roles/orchestrator §Начатое—до-конца п.2а). Замок
+# предмета освобождается ротацией держателя, слот группы — только done/ПАУЗой
+# (боль bootstrap 998: 11 начатых из 3; DIAGNOZ-2026-11-12 F/1.6). Активные
+# предметы группы: последний START; done/ПАУЗА исключает счётчик ниже.
 zhivye_subekty_gruppy() {  # <group> → «repoId/subjectId» построчно
   jq -rs --arg g "$1" '
     reduce .[] as $l (
       {};
       if $l.t == "START" then .[$l.repoId + "/" + $l.subjectId] = $l.group
-      elif $l.t == "RELEASE" then .[$l.repoId + "/" + $l.subjectId] = null
       else . end
     ) | to_entries | map(select(.value != null and .value == $g)) | map(.key) | .[]' \
     "$LEDGER" 2>/dev/null
@@ -317,11 +338,14 @@ EOF
 
 # ── замки ───────────────────────────────────────────────────────────────────
 zamok_dir() { printf '%s/zamki/%s/%s' "$SOST" "$REPO_ID" "$1"; }
+# [D34 gruppa-atomarna] мьютекс ГРУППЫ: каталог под замками предметов; NNN —
+# [0-9]{3}, имя «_grp» с пространством имён предметов не сталкивается.
+gruppa_zamok_dir() { printf '%s/zamki/%s/_grp/%s' "$SOST" "$REPO_ID" "$1"; }
 # [D22 atomarnost] мьютекс решения: mkdir атомарен между процессами; решение
-# пакета целиком под мьютексами всех своих предметов.
-mutex_zajavit() {  # <NNN> → 0 взят | 1 не взят
+# пакета целиком под мьютексами всех своих предметов И их групп (D34).
+mutex_zajavit_dir() {  # <каталог замка> → 0 взят | 1 не взят
   local d i
-  d="$(zamok_dir "$1")"
+  d="$1"
   mkdir -p "$d" 2>/dev/null || skip "замок не создать: $d"
   i=0
   while [ "$i" -lt 40 ]; do
@@ -331,8 +355,14 @@ mutex_zajavit() {  # <NNN> → 0 взят | 1 не взят
   done
   return 1
 }
+mutex_zajavit() { mutex_zajavit_dir "$(zamok_dir "$1")"; }
 mutexi_snyat_vse() {
   local s
+  while IFS= read -r s; do
+    [ -n "$s" ] && rmdir "$(gruppa_zamok_dir "$s")/mutex" 2>/dev/null
+  done <<EOF
+$GRUPPY_ZANYATY
+EOF
   while IFS= read -r s; do
     [ -n "$s" ] && rmdir "$(zamok_dir "$s")/mutex" 2>/dev/null
   done <<EOF
@@ -465,6 +495,29 @@ EOF
   DUBL="$(printf '%s' "$GATED" | cut -d'|' -f4 | sort | uniq -d | sed -n '1p')"
   [ -z "$DUBL" ] || otp DUBL_V_PAKETE "два элемента пакета на предмет $DUBL"
 
+  # [D34 gruppa-atomarna] мьютексы ГРУПП пакета (отсортированы, до мьютексов
+  # предметов — общий порядок у конкурентов): решение о лимите группы атомарно
+  # и МЕЖДУ разными предметами. Вердикт адверсария 140 v4 вызов 1/2 (OBJECT
+  # 3572945e): два одновременных суда РАЗНЫХ NNN одной группы читали одинаковую
+  # заполненность до записи своих START и оба проходили — 4 из 3. Судьям группы
+  # не нужны: лимит судится только у рабочих.
+  local gz g
+  gz="$(printf '%s' "$GATED" | while IFS='|' read -r idx agent name sv obj wt br klass rol; do
+    [ "$klass" = 'rabochij' ] || continue
+    gruppa_iz_pina "$wt"
+  done | LC_ALL=C sort -u)"
+  while IFS= read -r g; do
+    [ -n "$g" ] || continue
+    case "$g" in harness|mob|back) ;; *) continue ;; esac
+    if ! mutex_zajavit_dir "$(gruppa_zamok_dir "$g")"; then
+      mutexi_snyat_vse
+      otp ZANYATO_RESHENIEM "группа $g: мьютекс решения группы занят (параллельный суд лимита)"
+    fi
+    GRUPPY_ZANYATY="${GRUPPY_ZANYATY}${g}"$'\n'
+  done <<EOF
+$gz
+EOF
+
   # мьютексы всех предметов пакета (отсортированы — общий порядок у конкурентов)
   SUBJS="$(printf '%s' "$GATED" | cut -d'|' -f4 | sort -u)"
   local ms
@@ -566,8 +619,14 @@ EOF
       esac
       if [ "$cap" -gt 0 ]; then
         zhivo="$(zhivykh_v_gruppe "$grp" "$sv")"
-        # [D25 limit-gruppy] слот 3/3/3 (слово владельца 2026-11-07 «по 3-4»); СЛОВО и done — в учёте (реестр).
-        if [ "$zhivo" -ge "$cap" ] && ! slovo_vladelca "$sv"; then
+        # [D25 limit-gruppy] слот 3/3/3 (слово владельца 2026-11-07 «по 3-4»);
+        # СЛОВО и done — в учёте (реестр). [D33 dedushka-nachatogo]: предмет,
+        # УЖЕ держащий слот (START без done/ПАУЗЫ), лимитом не судится — замена
+        # держателя начатого есть доведение начатого (roles/orchestrator
+        # §Начатое—до-конца п.2: «сверх лимита начатые доводятся, новые не
+        # стартуют»; боль bootstrap 998: замена при 11 начатых из 3 не пускалась).
+        if [ "$zhivo" -ge "$cap" ] && ! slovo_vladelca "$sv" \
+           && ! predmet_derzhit_slot "$sv" "$grp"; then
           mutexi_snyat_vse
           otp LIMIT_GRUPPY "группа $grp: занято $zhivo из $cap (предмет $sv); сверх лимита — только СЛОВО владельца (строка SLOVO)"
         fi
@@ -700,11 +759,12 @@ osvobodit() {
 # ══════════════════════════════ --uchet ══════════════════════════════════════
 uchet() {
   local aktiven r s g h k st
+  # [D32 slot-do-done] учёт держит предмет с START до done/ПАУЗЫ (как счётчик
+  # лимитов): RELEASE замок снимает, слот — нет; GRP-строки согласованы с D25.
   aktiven="$(jq -rs '
     reduce .[] as $l (
       {};
       if $l.t == "START" then .[$l.repoId + "/" + $l.subjectId] = {repoId:$l.repoId, subjectId:$l.subjectId, group:$l.group, holder:$l.holder, klass:$l.klass}
-      elif $l.t == "RELEASE" then .[$l.repoId + "/" + $l.subjectId] = null
       else . end
     ) | to_entries | map(select(.value != null)) | map(.value) | .[] |
     [ .repoId, .subjectId, .group, .holder, .klass ] | @tsv' "$LEDGER" 2>/dev/null)"
