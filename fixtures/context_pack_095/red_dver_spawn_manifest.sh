@@ -29,13 +29,15 @@
 #     detached linked WT), TMPDIR внутри ОБЩЕГО .git; е3 TMPDIR внутри
 #     ДРУГОГО связанного чекаута (worktree list), вход main; е4 отдельный
 #     несвязанный клон: общий .git — он сам, ключ клона отличен от main;
-#     е5 отдельный несвязанный клон --separate-git-dir: канонический
-#     общий .git ВНЕ ВСЕХ чекаутов (worktree list его не перечисляет),
-#     TMPDIR внутри него — единственная форма, где отказ несёт ТОЛЬКО
-#     случай общего .git (на е1/е2/е4 общий .git лежит внутри чекаута,
-#     перечисление worktree отвергает TMPDIR и со снятым случаем —
-#     избыточная защита спасает субъект; замер repair-wave-1113: s35/s37
-#     уходили), вход main (дверь и сборщик).
+#     е5 отдельный несвязанный клон --separate-git-dir: TMPDIR внутри
+#     ФАКТИЧЕСКОГО корня чекаута (rev-parse --show-toplevel) при
+#     физически отделённом гит-каталоге; worktree list этот корень НЕ
+#     перечисляет (Git печатает гит-каталог; core.worktree список не
+#     меняет — замер repair-geometry-1113), поэтому отказ на этом входе
+#     несёт ТОЛЬКО случай ROOT/общего .git границы 161a (на е1–е4 вход
+#     накрыт перечислением worktree даже со снятым случаем — избыточная
+#     защита спасает субъект; замер repair-wave-1113: s35/s37 уходили),
+#     вход — сам sep-чекаут (дверь и сборщик).
 # Путь state клетка считает САМА по формуле 161a (независимый оракул),
 # ожидания снимаются в память ДО вызова субъекта (правило 8). Реальная
 # дверь судится до/после landing; в режиме --model грамматику ноги несёт
@@ -200,9 +202,10 @@ fi
 # (е) небезопасный TMPDIR — именованный отказ ДО побочных эффектов, по разным
 # формам Git (срез boundary-сверки 2026-11-13 на production-кандидате
 # repair-sol-1112: е1–е4 дают rc 1 TMPDIR_INSIDE_MAIN, state внутри
-# небезопасных TMPDIR не создаётся; е5 — форма --separate-git-dir
-# (repair-wave-1113: снятие случая общего .git становится наблюдаемым);
-# см. 095-manifest-contract-delta-canonical.md)
+# небезопасных TMPDIR не создаётся; е5 — форма --separate-git-dir,
+# TMPDIR внутри фактического корня (repair-geometry-1113: снятие случая
+# ROOT/общего .git становится наблюдаемым); см.
+# 095-manifest-contract-delta-canonical.md)
 refs_e="$(git -C "$R" for-each-ref | sha256sum)"
 mkdir -p "$common/e-tmp" "$W/wt-linked/e-tmp" \
   || { printf 'КРАСНО: i15/е: тестовые TMPDIR не строятся\n' >&2; exit 1; }
@@ -251,50 +254,73 @@ own_common="$(cd "$W/own/.git" && pwd -P)"
 key_own="$(printf '%s' "$own_common" | sha256sum | cut -c1-16)"
 [ "$key_own" != "$key" ] \
   || { printf 'КРАСНО: i15/е4: отдельный .git дал тот же ключ state, что общий .git main — ключ не от канонического общего пути\n' >&2; exit 1; }
-# е5: отдельный несвязанный клон --separate-git-dir — канонический ОБЩИЙ
-# .git ВНЕ ВСЕХ чекаутов: worktree list перечисляет только чекаут,
-# гит-каталог он не несёт. TMPDIR внутри него отвергает ТОЛЬКО случай
-# общего .git границы 161a: на е1/е2/е4 общий .git лежит внутри чекаута,
-# перечисление worktree отвергает TMPDIR даже со снятым случаем
-# (t95-m35/t95-m37) — избыточная защита спасает субъект (замер
-# repair-wave-1113: s35/s37 не пойманы); эта форма делает снятие случая
-# НАБЛЮДАЕМЫМ (Н-39/А-377). Мир НОВЫЙ внутри W: указатели linked WT
-# репозитория R не трогаются, клонируется toy R (не PRIMARY origin),
-# GIT_DIR/GIT_WORK_TREE не задаются.
+# е5: отдельный несвязанный клон --separate-git-dir — TMPDIR внутри
+# ФАКТИЧЕСКОГО корня чекаута (rev-parse --show-toplevel) при физически
+# отделённом гит-каталоге. Git в этой форме печатает в worktree list
+# гит-каталог, а не корень; core.worktree список не меняет (замер
+# repair-geometry-1113 — сверять список с чекаутом НЕЛЬЗЯ: incidental
+# assert ловил поведение Git, а не субъекта). Поэтому вход накрыт ТОЛЬКО
+# случаем ROOT/общего .git границы 161a: на е1–е4 вход накрыт и
+# перечислением worktree, снятие случая (t95-m35/t95-m37) спасает
+# субъект (замер repair-wave-1113: s35/s37 не пойманы); здесь снятие
+# случая НАБЛЮДАЕМО (Н-39/А-377): мутант пускает runtime в чекаут,
+# честные модель/production отказывают TMPDIR_INSIDE_MAIN — семантика
+# «runtime не пишется в данный чекаут», не проверка строк Git. Мир
+# НОВЫЙ внутри W: указатели linked WT репозитория R не трогаются,
+# клонируется toy R (не PRIMARY origin), GIT_DIR/GIT_WORK_TREE не
+# задаются.
 git clone -q --separate-git-dir "$W/sep-git" "$R" "$W/sep-own" >/dev/null 2>&1 \
   || { printf 'КРАСНО: i15/е5: separate-git-dir клон не строится\n' >&2; exit 1; }
 sep_own="$(cd "$W/sep-own" && pwd -P)"
+sep_root="$(git -C "$W/sep-own" rev-parse --show-toplevel 2>/dev/null)" \
+  || { printf 'КРАСНО: i15/е5: фактический корень sep-клона не разрешается\n' >&2; exit 1; }
+sep_root="$(cd "$sep_root" && pwd -P)" \
+  || { printf 'КРАСНО: i15/е5: фактический корень sep-клона не канонизируется: %s\n' "$sep_root" >&2; exit 1; }
 sep_common="$(git -C "$W/sep-own" rev-parse --git-common-dir)"
 case "$sep_common" in /*) ;; *) sep_common="$W/sep-own/$sep_common" ;; esac
 sep_common="$(cd "$sep_common" && pwd -P)" \
   || { printf 'КРАСНО: i15/е5: отдельный общий .git не канонизируется: %s\n' "$sep_common" >&2; exit 1; }
-# демаркация контрпримера: общий .git строго ВНЕ чекаута, worktree list —
-# ровно один чекаут и НЕ гит-каталог (иначе случай не единственная защита
-# и мутант на этом входе ненаблюдаем)
+# демаркация наблюдаемости входа (НЕ поведенческий критерий двери —
+# вывод Git с чекаутом не сверяется): канонические sep-root и common
+# разделены; e-tmp внутри фактического корня, но НЕ под каким-либо
+# ПЕРЕЧИСЛЕННЫМ Git-чекаутом/common — иначе избыточная защита
+# (t95-m36/t95-m38) покрыла бы вход, и снятие случая ROOT/общего .git
+# (t95-m35/t95-m37) на нём ненаблюдаемо (Н-39/А-377).
 case "$sep_common" in
   "$sep_own"|"$sep_own"/*)
     printf 'КРАСНО: i15/е5: общий .git внутри чекаута — форма не separate-git-dir: %s\n' "$sep_common" >&2; exit 1 ;;
 esac
+case "$sep_root" in
+  "$sep_common"|"$sep_common"/*)
+    printf 'КРАСНО: i15/е5: фактический корень внутри общего .git — форма не separate-git-dir: %s\n' "$sep_root" >&2; exit 1 ;;
+esac
 sep_wts="$(git -C "$W/sep-own" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')"
-[ "$(printf '%s\n' "$sep_wts" | grep -c .)" -eq 1 ] || {
-  printf 'КРАСНО: i15/е5: worktree list отдельного клона не ровно один чекаут: %s\n' "$sep_wts" >&2; exit 1; }
-sep_wt1="$(cd "$sep_wts" && pwd -P)"
-[ "$sep_wt1" = "$sep_own" ] || {
-  printf 'КРАСНО: i15/е5: worktree list не сводится к чекауту: %s != %s\n' "$sep_wt1" "$sep_own" >&2; exit 1; }
-mkdir -p "$sep_common/e-tmp" \
+cover5=0
+while IFS= read -r wt5; do
+  [ -n "$wt5" ] || continue
+  wt5="$(cd "$wt5" 2>/dev/null && pwd -P 2>/dev/null || true)"
+  [ -n "$wt5" ] || continue
+  case "$sep_root/e-tmp" in "$wt5"|"$wt5"/*) cover5=1 ;; esac
+done < <(printf '%s\n' "$sep_wts")
+case "$sep_root/e-tmp" in
+  "$sep_common"|"$sep_common"/*) cover5=1 ;;
+esac
+[ "$cover5" -eq 0 ] || {
+  printf 'КРАСНО: i15/е5: вход накрыт перечисленным чекаутом/common — случай ROOT не единственная защита: %s\n' "$sep_root/e-tmp" >&2; exit 1; }
+mkdir -p "$sep_root/e-tmp" \
   || { printf 'КРАСНО: i15/е5: тестовый TMPDIR не строится\n' >&2; exit 1; }
-oute5="$(TMPDIR="$sep_common/e-tmp" bash "$DOOR" --author implementer --nnn 777 --root "$W/sep-own" 2>&1)"; rce5=$?
+oute5="$(TMPDIR="$sep_root/e-tmp" bash "$DOOR" --author implementer --nnn 777 --root "$W/sep-own" 2>&1)"; rce5=$?
 if [ "$rce5" -ne 1 ] || ! printf '%s\n' "$oute5" | grep -Fq 'TMPDIR_INSIDE_MAIN'; then
-  printf 'КРАСНО: i15/е5: дверь не отвергла TMPDIR внутри общего .git ВНЕ чекаутов (rc=%s, вывод: %s)\n' "$rce5" "$oute5" >&2; exit 1
+  printf 'КРАСНО: i15/е5: дверь не отвергла TMPDIR внутри фактического корня при отдельном гит-каталоге (rc=%s, вывод: %s)\n' "$rce5" "$oute5" >&2; exit 1
 fi
-outw5="$(TMPDIR="$sep_common/e-tmp" bash "$SUBJ" --repo "$W/sep-own" --role implementer --contract 777 --model-trace "$W/trace.tsv" 2>&1)"; rcw5=$?
+outw5="$(TMPDIR="$sep_root/e-tmp" bash "$SUBJ" --repo "$W/sep-own" --role implementer --contract 777 --model-trace "$W/trace.tsv" 2>&1)"; rcw5=$?
 if [ "$rcw5" -ne 1 ] || ! printf '%s\n' "$outw5" | grep -Fq 'TMPDIR_INSIDE_MAIN'; then
-  printf 'КРАСНО: i15/е5: сборщик не отверг TMPDIR внутри общего .git ВНЕ чекаутов (rc=%s, вывод: %s)\n' "$rcw5" "$outw5" >&2; exit 1
+  printf 'КРАСНО: i15/е5: сборщик не отверг TMPDIR внутри фактического корня при отдельном гит-каталоге (rc=%s, вывод: %s)\n' "$rcw5" "$outw5" >&2; exit 1
 fi
 # побочных эффектов нет: state внутри небезопасных TMPDIR не создан, refs те же
 [ ! -e "$common/e-tmp/dev-harness-project-state" ] || { printf 'КРАСНО: i15/е: создан state внутри общего .git\n' >&2; exit 1; }
 [ ! -e "$W/wt-linked/e-tmp/dev-harness-project-state" ] || { printf 'КРАСНО: i15/е: создан state внутри связанного чекаута\n' >&2; exit 1; }
 [ ! -e "$W/own/.git/e-tmp/dev-harness-project-state" ] || { printf 'КРАСНО: i15/е: создан state внутри .git клона\n' >&2; exit 1; }
-[ ! -e "$sep_common/e-tmp/dev-harness-project-state" ] || { printf 'КРАСНО: i15/е: создан state внутри общего .git вне чекаутов\n' >&2; exit 1; }
+[ ! -e "$sep_root/e-tmp/dev-harness-project-state" ] || { printf 'КРАСНО: i15/е: создан state внутри фактического корня sep-клона\n' >&2; exit 1; }
 [ "$(git -C "$R" for-each-ref | sha256sum)" = "$refs_e" ] || { printf 'КРАСНО: i15/е: небезопасные вызовы изменили refs\n' >&2; exit 1; }
 exit 0
