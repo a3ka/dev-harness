@@ -659,32 +659,62 @@ def kejsy():
     #     11 начатых из 3, замена не пускалась; DIAGNOZ-2026-11-12 F/1.6)
     def w26(mir, door):
         # УЗЕЛ А: лимит группы обязан быть атомарен и МЕЖДУ разными предметами.
-        # ДЕТЕРМИНИРОВАННАЯ чередуемость без lucky-timing: реестр пауз — FIFO
-        # с пустым содержанием (семантика «нет пауз», как у отсутствующего
-        # файла); держатель записи держит трубу открытой, поэтому каждое
-        # чтение na_pauze() паркуется в read с наблюдаемым fd. Такт = закрыть
-        # запись (EOF всем стоящим в read) и тут же открыть снова; такт
-        # подаётся ТОЛЬКО когда каждая живая дверь стоит (fd на FIFO в её
-        # дереве процессов). Единственная стоянка двери ДО её снимка группы —
-        # na_pauze преплока; значит любой такт, отпускающий дверь ОТ СЧЁТА
-        # (в цикле подсчёта занятости), застал вторую дверь ПОСЛЕ её снимка
-        # либо вышедшей ⇒ оба снимка группы строго до обеих записей START —
-        # дверь без межпредметной атомарности обязана пропустить ОБЕ (4 из 3),
-        # дверь с атомарным решением группы — ровно одну. Меры независимые:
-        # число принятых (rc 0) и строки START группы в ФАЙЛЕ учёта.
+        # v2 (диагноз STAB_ZHIV s36-над-субъектом, 2026-11-13): прежняя схема —
+        # ОБЩИЙ fifo реестра, «такт» по наличию fd у ОБЕИХ дверей и EOF-вещание —
+        # порядок предполагала, а не строила: fd-наличие ≠ блокировка в read
+        # (окно open→read), такт мог отпустить одну дверь, не сдвинув вторую, и
+        # исход решал планировщик. Замер батареи: тело поставленной двери 1:1 с
+        # эталоном, та же мутация s36 — KRASEN в слое модели и ПРОШЛА в слое
+        # субъекта одного прогона (вердикт не функция двери — клетка не меряет).
+        # v2 строит порядок КОНСТРУКТИВНО: две двери — два реестра (--repo каждой
+        # свой; origin общий ⇒ repoId, замки и учёт общие) ⇒ registry/pauzy.tsv
+        # каждой двери — СВОЙ fifo. Стоянка двери — её читающее открытие СВОЕГО
+        # fifo; шаг = EOF её fifo (писатель — только клетка); удержание = открытый
+        # писатель (read стоит). Порядок: преплок X (стоянка ДО снимка) отпущен →
+        # следующая стоянка X — уже ПОСЛЕ его снимка группы (между преплоком и
+        # считающим циклом дверь pauzy.tsv не читает) → X УДЕРЖАН → Y прогнан до
+        # ВЫХОДА ПРОЦЕССА (каждая его стоянка отпущена) → X отпущен до выхода.
+        # Свидетель порядка — файл учёта: в момент удержания START предмета X нет;
+        # Y при удержанном X читает занятость 2 из 3. Различающий исход: дверь без
+        # группового мьютекса ([D34] снят) пропускает ОБЕ (START 4 из 3, обе rc 0);
+        # честная держит групповой мьютекс от снимка до записи — Y упирается в
+        # занятый мьютекс (mkdir-ретраи ≤2 с → ZANYATO_RESHENIEM) либо после
+        # снятия видит «занято 3» (LIMIT_GRUPPY) — принята ровно одна. Без
+        # случайных задержек: каждое ожидание кончается точным событием (fd
+        # стоянки в дереве процесса, EOF, выход процесса, строка учёта); r0-читатели
+        # держат reopen писателя от ENXIO и живут в клетке, не в дереве двери, —
+        # «стоянку» не подделывают.
         _harness_zhivoj(mir, ['101', '102'])
         wt140, br140, _ = mir.worktree('140')
         wt141, br141, _ = mir.worktree('141')
+        # второй реестр: тот же origin (repoId «dev-harness»), свой pauzy.tsv
+        repo141 = mir.root / 'repo141'
+        for pod in (repo141 / 'contracts', repo141 / 'registry'):
+            pod.mkdir(parents=True, exist_ok=True)
+        g141 = run(['git', 'init', '-q', '.'], cwd=str(repo141))
+        assert g141.returncode == 0, g141.stderr
+        run(['git', 'remote', 'add', 'origin', HARNESS_REMOTE],
+            cwd=str(repo141), env=GIT_ENV)
         ev140 = mir.sobytie('ev140.json', [item('architect', 'Arch140',
                         ['SUBJECT=140', 'WORKTREE=' + wt140, 'BRANCH=' + br140])])
         ev141 = mir.sobytie('ev141.json', [item('architect', 'Arch141',
                         ['SUBJECT=141', 'WORKTREE=' + wt141, 'BRANCH=' + br141])])
-        pauzy = mir.repo / 'registry' / 'pauzy.tsv'
-        if pauzy.exists():
-            pauzy.unlink()
-        os.mkfifo(str(pauzy))
-        r0 = os.open(str(pauzy), os.O_RDONLY | os.O_NONBLOCK)
-        zap = [os.open(str(pauzy), os.O_WRONLY | os.O_NONBLOCK)]
+        fifo = [mir.repo / 'registry' / 'pauzy.tsv',
+                repo141 / 'registry' / 'pauzy.tsv']
+        for f in fifo:
+            if f.exists():
+                f.unlink()
+            os.mkfifo(str(f))
+        dv = [subprocess.Popen(
+                  [BASH, str(door), '--sudit', '--sostojanie', str(mir.sost),
+                   '--zhurnaly', str(mir.zhurnaly), '--repo', str(r), ev],
+                  env=GIT_ENV, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                  text=True)
+              for r, ev in ((mir.repo, ev140), (repo141, ev141))]
+        problems = []
+        kraj = time.time() + 60
+        r0 = [os.open(str(f), os.O_RDONLY | os.O_NONBLOCK) for f in fifo]
+        pisatel = [os.open(str(f), os.O_WRONLY | os.O_NONBLOCK) for f in fifo]
 
         def potomki(koren):
             vidy, ochered = set(), [koren]
@@ -701,47 +731,73 @@ def kejsy():
                     ochered.extend(int(x) for x in tekst.split())
             return vidy
 
-        def stoit(pid):
-            for q in potomki(pid):
+        def stoit(i):
+            for q in potomki(dv[i].pid):
                 try:
                     spisok = list(Path('/proc/%d/fd' % q).iterdir())
                 except OSError:
                     continue
                 for fd in spisok:
                     try:
-                        if os.readlink(str(fd)) == str(pauzy):
+                        if os.readlink(str(fd)) == str(fifo[i]):
                             return True
                     except OSError:
                         continue
             return False
 
-        dv = [subprocess.Popen(
-                  [BASH, str(door), '--sudit', '--sostojanie', str(mir.sost),
-                   '--zhurnaly', str(mir.zhurnaly), '--repo', str(mir.repo), ev],
-                  env=GIT_ENV, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                  text=True)
-              for ev in (ev140, ev141)]
-        problems = []
-        kraj = time.time() + 60
-        try:
-            while True:
-                zhivye = [p for p in dv if p.poll() is None]
-                if not zhivye:
-                    break
+        def uderzhan(i):
+            # ждать СВОЮ стоянку двери i (fd её fifo в её дереве) либо её выход
+            while dv[i].poll() is None:
                 if time.time() > kraj:
-                    problems.append('гонка: двери не завершились за 60 с '
-                                    '(rc %r)' % [p.poll() for p in dv])
-                    for p in zhivye:
-                        p.kill()
-                    break
-                if all(stoit(p.pid) for p in zhivye):
-                    # такт: EOF всем стоящим; запись открывается тут же снова
-                    os.close(zap[0])
-                    zap[0] = os.open(str(pauzy), os.O_WRONLY | os.O_NONBLOCK)
+                    problems.append('гонка: дверь %d не пришла к стоянке за 60 с' % i)
+                    return False
+                if stoit(i):
+                    return True
                 time.sleep(0.002)
+            return False
+
+        def shag(i):
+            # EOF ровно одной стоянке двери i; писатель возвращается тут же —
+            # r0-читатель держит reopen от ENXIO, следующая стоянка — в read
+            os.close(pisatel[i])
+            pisatel[i] = os.open(str(fifo[i]), os.O_WRONLY | os.O_NONBLOCK)
+
+        def vypustit(i):
+            # отпускать по одной стоянке, пока дверь не выйдет (отказ — тоже выход)
+            while dv[i].poll() is None:
+                if time.time() > kraj:
+                    problems.append('гонка: дверь %d не завершилась за 60 с' % i)
+                    return
+                if stoit(i):
+                    shag(i)
+                time.sleep(0.002)
+        try:
+            # (1) преплок X — единственная стоянка ДО снимка группы: отпустить
+            if uderzhan(0):
+                shag(0)
+                # (2) следующая стоянка X — ПОСЛЕ его снимка (считающий цикл):
+                #     удержать — писатель открыт, read стоит, записи X нет
+                if uderzhan(0):
+                    if any(x.get('t') == 'START' and x.get('subjectId') == '140'
+                           for x in mir.ledg()):
+                        problems.append('гонка группы: X записал START до '
+                                        'удержания — порядок не построен')
+                    else:
+                        # (3) Y — до выхода процесса: снапшот Y видит 2 из 3;
+                        #     честную дверь держит групповой мьютекс X
+                        vypustit(1)
+                        # (4) X — до выхода: пишет ПОСЛЕ полного прогона Y
+                        vypustit(0)
+            # дренаж выживших без kill: дверь без стоянок (свидетель x01) и
+            # отказ до преплока выходят сами; kill в finally — только по kraj
+            vypustit(0)
+            vypustit(1)
         finally:
+            for p in dv:
+                if p.poll() is None:
+                    p.kill()
             vyhody = [p.communicate(timeout=30) for p in dv]
-            for f in (zap[0], r0):
+            for f in pisatel + r0:
                 try:
                     os.close(f)
                 except OSError:
