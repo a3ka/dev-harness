@@ -16,18 +16,29 @@
   --oracle-tamper — сверка sha256 носителей оракула (rc 2 ORACLE_TAMPERED)
 
 Канон документа (клетка dokument-kanon): живой docs/190-zamer-svyazki.md судимого
-дерева; при отсутствии файла (ci_klass strip удаляет учётный docs/ — учёт-
-независимость 087) канон читается из замороженной побайтной копии _zamorozka/
-того же дерева — КОДОВЫЙ артефакт fixtures/, входящий в H (прецедент 087:
-registry/ci-steps.tsv:56-69, check_runner_hygiene.sh:710-716), пин байтов —
-source.json (порча — ORACLE_TAMPERED любого режима). НЕ git HEAD: docs/ — учётный
+дерева. Отсутствие файла — КРАСНАЯ клетка «отсутствует» (контракт 190, приёмка);
+единственное исключение — НАСТОЯЩИЙ ci_klass strip (учёт-независимость 087):
+c_strip (scripts/ci_klass.sh) удаляет КАЖДЫЙ файл учётного пути docs/
+(registry/ci-steps.tsv, uchet docs/) и подрезает опустевшие каталоги — после
+настоящего strip под docs/ не остаётся НИ ОДНОГО файла. Только в этом состоянии
+канон читается из замороженной копии _zamorozka/ того же дерева — КОДОВЫЙ
+артефакт fixtures/, входящий в H (прецедент 087: registry/ci-steps.tsv:56-69,
+check_runner_hygiene.sh:710-716), пин байтов — source.json (порча —
+ORACLE_TAMPERED любого режима). Остался под docs/ хоть один чужой файл — это не
+strip (грамматика И-1 адресует путь целиком, а не файлами), а обычное
+отсутствие: копия не читается, клетка красна. НЕ git HEAD: docs/ — учётный
 путь, байты коммита в H не входят — два HEAD с одним H и разными документами
 давали бы разные исходы тяжёлой проверки, reuse артефакта не доказывал бы
 результат. Контроли kanon-* держат суд существенным: подмена живого документа,
-подмена замороженной копии и отсутствие обеих — красные; strip при замороженной
-копии — зелёный (не самоэхо: байты из копии, не из выхода субъекта;
-kanon-strip-podmena: git HEAD мира несёт ПРАВИЛЬНЫЙ канон — зелёное там возможно
-только чтением HEAD, ловит и его, и безусловный фолбэк).
+подмена замороженной копии, отсутствие обеих и ЛОЖНЫЙ strip (документ удалён,
+docs/ непуст, копия и git HEAD несут ПРАВИЛЬНЫЙ канон) — красные; настоящий
+strip при верной копии — зелёный (не самоэхо: байты из копии, не из выхода
+субъекта; kanon-strip-podmena: git HEAD мира несёт ПРАВИЛЬНЫЙ канон — зелёное
+там возможно только чтением HEAD); kanon-drift-kopii держит копию копией
+документа: пока живой файл есть, строка канона копии обязана совпадать с ним
+побайтово — иначе фолбэк подменял бы проверку настоящего документа проверкой
+разошедшейся копии и ломал бы учёт-независимость (дерево зелено, а
+stripped-дерево красно).
 """
 import hashlib
 import json
@@ -378,25 +389,50 @@ def _git(root, *args):
         return subprocess.CompletedProcess(args, 124, b'', b'git: taimaut')
 
 
+def _fajly_pod_docs(doc_root):
+    """Файлы под docs/ судимого дерева — признак настоящего ci_klass strip.
+
+    c_strip (scripts/ci_klass.sh) удаляет КАЖДЫЙ файл учётного пути docs/
+    (registry/ci-steps.tsv, uchet docs/) и подрезает опустевшие каталоги:
+    после настоящего strip под docs/ не остаётся ни одного файла. Грамматика
+    И-1 087 адресует учётные пути ЦЕЛИКОМ (префикс каталога), а не отдельные
+    файлы — «удалён только 190» не является образом никакого strip."""
+    docs = doc_root / 'docs'
+    if not docs.is_dir():
+        return []
+    return sorted(p for p in docs.rglob('*') if p.is_file())
+
+
 def kanon_istochnik(doc_root):
     """Канон документа судимого дерева — 190, приёмка клетки dokument-kanon.
 
     Живой файл docs/190-zamer-svyazki.md первичен: подменённый документ ловится
-    побайтовым сравнением строк. Файла нет — ci_klass strip удаляет учётный docs/
-    БЕЗ изменения коммита (учёт-независимость 087, registry/ci-steps.tsv:56-69)
-    — канон читается из замороженной побайтной копии _zamorozka/ судимого дерева
-    (прецедент 087: check_runner_hygiene.sh:710-716): копия — КОДОВЫЙ артефакт
-    fixtures/, входит в H, пин её байтов — source.json (порча ловится
-    --oracle-tamper любого режима). НЕ git HEAD: docs/ — учётный путь, байты
-    коммита в H не входят — два HEAD с одним H и разными документами давали бы
-    разные исходы тяжёлой проверки, reuse артефакта не доказывал бы результат;
-    не окружение и не произвольная копия — путь фиксирован относительно судимого
-    дерева и пинян. Нет ни файла, ни копии (обычное дерево без канонического
-    документа) — None с именованной причиной: суд не принимает («отсутствие
-    документа — красная клетка», контракт 190, приёмка)."""
+    побайтовым сравнением строк. Файла нет — обычное отсутствие КРАСНО
+    («отсутствие документа — красная клетка», контракт 190, приёмка): под docs/
+    остались другие файлы — это не ci_klass strip (c_strip удаляет учётный
+    путь docs/ целиком и подрезает пустые каталоги), замороженная копия не
+    читается. Под docs/ не осталось ни одного файла — состояние настоящего
+    strip (учёт-независимость 087): канон читается из замороженной копии
+    _zamorozka/ судимого дерева (прецедент 087: check_runner_hygiene.sh:710-716)
+    — копия КОДОВАЯ, артефакт fixtures/, входит в H, пин её байтов —
+    source.json (порча ловится --oracle-tamper любого режима). НЕ git HEAD:
+    docs/ — учётный путь, байты коммита в H не входят — два HEAD с одним H и
+    разными документами давали бы разные исходы тяжёлой проверки, reuse
+    артефакта не доказывал бы результат; не окружение и не произвольная копия
+    — путь фиксирован относительно судимого дерева и пинян. Копии тоже нет —
+    None с именованной причиной «отсутствует»: суд не принимает."""
     doc = doc_root / 'docs' / '190-zamer-svyazki.md'
     if doc.is_file():
         return doc.read_text().splitlines(), 'живой документ %s' % doc
+    residue = _fajly_pod_docs(doc_root)
+    if residue:
+        return None, (
+            'документ канона отсутствует: %s — файла нет, а под docs/ остались '
+            'другие файлы (%d, например %s): это не ci_klass strip (c_strip '
+            'удаляет учётный путь docs/ целиком, registry/ci-steps.tsv uchet '
+            'docs/), обычное отсутствие — красная клетка (контракт 190, '
+            'приёмка); замороженная копия не читается'
+            % (doc, len(residue), residue[0].name))
     zam = (doc_root / 'fixtures' / 'workshop_project' / 'zamer_svyazki_190'
            / '_zamorozka' / '190-zamer-svyazki.md')
     if zam.is_file():
@@ -493,6 +529,8 @@ def cell_cases():
         ('kanon-otsutstvuet', 'A', (), 'kanon_otsutstvuet', None),
         ('kanon-strip', 'A', (), 'kanon_strip', None),
         ('kanon-strip-podmena', 'A', (), 'kanon_strip_podmena', None),
+        ('kanon-strip-lozhnyj', 'A', (), 'kanon_strip_lozhnyj', None),
+        ('kanon-drift-kopii', 'A', (), 'kanon_drift_kopii', None),
     ]
 
 
@@ -570,8 +608,37 @@ def run_cell(cmd, base, variant, extra, kind, expect, tables, doc_root, stderr_e
         res = run_tool(cmd, repo, zh, extra)
         header = res.stdout.splitlines()[0] if (res.returncode == 0 and res.stdout) else None
         return sud_kanon(header, doc_root)
+    if kind == 'kanon_drift_kopii':
+        # Копия обязана оставаться копией документа (учёт-независимость 087 и
+        # «не подменяй проверку настоящего документа проверкой копии»): пока
+        # живой файл есть, строка канона замороженной копии обязана совпадать с
+        # ним побайтово. Расхождение означало бы: дерево зелено (канон судит
+        # живой файл), stripped-дерево красно (канон судит копию) — исход
+        # тяжёлой проверки зависел бы от учётного пути, а фолбэк подменял бы
+        # проверку настоящего документа проверкой разошедшейся копии. Нет
+        # живого файла — сверять нечего (strip-состояние судят kanon-strip /
+        # kanon-strip-podmena / kanon-otsutstvuet); нет в судимом дереве самой
+        # семьи фикстур — strip-фолбэк там не предусмотрен, копия не судится.
+        doc = doc_root / 'docs' / '190-zamer-svyazki.md'
+        family = doc_root / 'fixtures' / 'workshop_project' / 'zamer_svyazki_190'
+        if not doc.is_file() or not family.is_dir():
+            return True, ''
+        zam = family / '_zamorozka' / '190-zamer-svyazki.md'
+        if not zam.is_file():
+            return False, ('нет замороженной копии %s: strip-фолбэк не обеспечен '
+                           '(stripped-дерево откажет при живом документе)' % zam)
+        def _kanon_stroka(path):
+            for line in path.read_text().splitlines():
+                if line.startswith('предмет\t'):
+                    return line
+            return None
+        if _kanon_stroka(doc) != _kanon_stroka(zam):
+            return False, ('канон замороженной копии разошёлся с живым документом '
+                           '(%s): фолбэк подменял бы проверку документа проверкой '
+                           'копии' % zam)
+        return True, ''
     if kind in ('kanon_podmena', 'kanon_otsutstvuet', 'kanon_strip',
-                'kanon_strip_podmena'):
+                'kanon_strip_podmena', 'kanon_strip_lozhnyj'):
         # Контроли существенности суда канона (Н-39; демаркация 019): конформный
         # вход — документ с tab-разделённой строкой канона; валидный контрпример =
         # инвариантность к значениям (kanon-strip зелена на любом конформном
@@ -580,6 +647,9 @@ def run_cell(cmd, base, variant, extra, kind, expect, tables, doc_root, stderr_e
         # (подменённая ЗАМОРОЖЕННАЯ КОПИЯ при правильном каноне в git HEAD мира —
         # ловит самоэхо, безусловный фолбэк и чтение из git HEAD: байты HEAD тут
         # совпадают с заголовком, зелёное возможно только мимо HEAD),
+        # kanon-strip-lozhnyj (документ удалён, но docs/ НЕ пуст, копия и git HEAD
+        # несут ПРАВИЛЬНЫЙ канон — ловит фолбэк без признака strip, чтение git
+        # HEAD и самоэхо: честный суд даёт красную «отсутствует»),
         # kanon-otsutstvuet (нет ни живого файла, ни копии) обязаны быть красными.
         res = run_tool(cmd, repo, zh, extra)
         header = res.stdout.splitlines()[0] if (res.returncode == 0 and res.stdout) else None
@@ -588,9 +658,10 @@ def run_cell(cmd, base, variant, extra, kind, expect, tables, doc_root, stderr_e
         root = base / kind
         if kind in ('kanon_strip', 'kanon_strip_podmena'):
             # strip-мир: коммит несёт и учётный docs/190, и кодовую замороженную
-            # копию; strip удаляет ТОЛЬКО docs/ — так же, как ci_klass strip
-            # удаляет файлы, а не коммиты; toy-коммит как у
-            # red_istochnik_incr_079.sh (git init/add/commit во временном мире).
+            # копию; strip удаляет docs/ ЦЕЛИКОМ — файлы и опустевшие каталоги,
+            # ровно как c_strip ci_klass (учётный путь, не отдельные файлы);
+            # toy-коммит как у red_istochnik_incr_079.sh (git init/add/commit во
+            # временном мире).
             if shutil.which('git') is None:
                 return False, 'нет git — контроль strip-ветви канона не исполним'
             doc = root / 'docs' / '190-zamer-svyazki.md'
@@ -614,12 +685,43 @@ def run_cell(cmd, base, variant, extra, kind, expect, tables, doc_root, stderr_e
                 if p.returncode != 0:
                     return False, 'git %s в strip-мире не прошёл: %r' % (
                         args[0], p.stderr.decode('utf-8', 'replace')[-120:])
-            doc.unlink()
+            shutil.rmtree(root / 'docs')
         elif kind == 'kanon_podmena':
             d = root / 'docs'
             d.mkdir(parents=True, exist_ok=True)
             (d / '190-zamer-svyazki.md').write_text(
                 '# 190 — документ замера (подмена)\n\n```\n%s\tдубль-столбец\n```\n' % header)
+        elif kind == 'kanon_strip_lozhnyj':
+            # ЛОЖНЫЙ strip: docs/190-zamer-svyazki.md удалён, но учётный путь
+            # docs/ НЕ пуст — остался чужой файл; настоящего c_strip такой образ
+            # не порождает (грамматика И-1 адресует путь целиком). Замороженная
+            # копия и git HEAD мира несут ПРАВИЛЬНЫЙ канон: зелёное здесь —
+            # только безусловный фолбэк на копию, чтение git HEAD или самоэхо;
+            # честный суд обязан дать красную «отсутствует» (обычное отсутствие).
+            if shutil.which('git') is None:
+                return False, 'нет git — контроль ложного strip не исполним'
+            docs = root / 'docs'
+            docs.mkdir(parents=True, exist_ok=True)
+            (docs / '048-priemka.md').write_text(
+                '# чужой учётный файл docs/ — остаток после удаления 190\n')
+            doc = docs / '190-zamer-svyazki.md'
+            doc.write_text(
+                '# 190 — документ замера (контроль ложного strip)\n\n```\n%s\n```\n'
+                % header)
+            zam = (root / 'fixtures' / 'workshop_project' / 'zamer_svyazki_190'
+                   / '_zamorozka' / '190-zamer-svyazki.md')
+            zam.parent.mkdir(parents=True, exist_ok=True)
+            zam.write_text(
+                '# 190 — документ замера (замороженная копия, контроль ложного '
+                'strip)\n\n```\n%s\n```\n' % header)
+            for args in (('init', '-q'), ('add', '-A'),
+                         ('-c', 'user.name=t', '-c', 'user.email=t@t',
+                          'commit', '-qm', 'kanon190')):
+                p = _git(root, *args)
+                if p.returncode != 0:
+                    return False, 'git %s в мире ложного strip не прошёл: %r' % (
+                        args[0], p.stderr.decode('utf-8', 'replace')[-120:])
+            doc.unlink()
         else:
             # kanon_otsutstvuet: ни живого файла, ни замороженной копии, ни
             # репозитория; битый .git-файл не даёт git уйти walk-up в репозиторий
@@ -629,17 +731,25 @@ def run_cell(cmd, base, variant, extra, kind, expect, tables, doc_root, stderr_e
             (root / '.git').write_text('gitdir: /netu-zamer190\n')
         ok, why = sud_kanon(header, root)
         if kind == 'kanon_strip':
-            return ok, '' if ok else ('stripped-дерево (файл удалён, канон в '
-                                      'замороженной копии) ошибочно отказано: %s' % why)
+            return ok, '' if ok else ('stripped-дерево (docs/ удалён целиком, '
+                                      'канон в замороженной копии) ошибочно '
+                                      'отказано: %s' % why)
         if ok:
             karto = {'kanon_podmena': 'подменённый живой документ канона',
                      'kanon_strip_podmena': 'подменённая замороженная копия канона',
+                     'kanon_strip_lozhnyj': 'ложный strip — документ удалён при '
+                                            'непустом docs/ (обычное отсутствие)',
                      'kanon_otsutstvuet': 'отсутствующий документ канона'}
             return False, 'суд канона ошибочно принял дерево: %s' % karto[kind]
         if kind == 'kanon_strip_podmena' and 'замороженная копия' not in why:
             return False, ('отказ пришёл не из замороженной копии (байты не оттуда; '
                            'git HEAD мира несёт правильный канон — зелёное мимо '
                            'копии = чтение HEAD): %s' % why)
+        if kind == 'kanon_strip_lozhnyj' and 'отсутствует' not in why:
+            return False, ('отказ без имени «отсутствует» (копия и git HEAD мира '
+                           'несут правильный канон — зелёное мимо живого '
+                           'отсутствия = фолбэк без признака strip или чтение '
+                           'HEAD): %s' % why)
         if kind == 'kanon_otsutstvuet' and 'отсутствует' not in why:
             return False, 'отказ без имени «отсутствует»: %s' % why
         return True, ''
