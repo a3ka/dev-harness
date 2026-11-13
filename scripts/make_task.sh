@@ -12,6 +12,17 @@
 # state проекта (вне чекаута и его .git) — его читает spawn_agent до создания
 # worktree; пропущенная строка contextPack.rows (в том числе optional) —
 # именованный отказ PROFILE_PATH_MISSING, а не молчаливое усечение карты.
+# CUTOVER-1113: формула внешнего state ОДНА для main checkout и linked WT
+# (общий .git — общий ключ 161a = первые 16 hex sha256 канонического общего
+# .git, один путь без перевода строки). Устаревшее размещение
+# <repo>/.omp/context/<NNN>.tsv больше НЕ пишется и НЕ читается (fallback
+# нет): проверяемый чекаут манифестом не загрязняется, а ignore-правило не
+# защита от детектора untracked.
+# СВИДЕТЕЛЬСТВО МОДЕЛИ — только из ЖИВОГО ТРЕЙСА: явный --model-trace (путь
+# к TSV-файлу) либо HARNESS_MODEL_TRACE (путь, публикуемый живой сессией).
+# Проектный fallback 136 (<workflowPaths.registry>/trace.tsv) УДАЛЁН вместе с
+# его неявным чтением: назначение модели в конфиге/реестре — не свидетельство
+# фактического запуска.
 # ОТКАЗЫ внешнего state (поимённо, rc 1, до записи и без stdout пака):
 #   * TMPDIR_UNAVAILABLE — TMPDIR непригоден (нет каталога);
 #   * TMPDIR_INSIDE_MAIN — база state или ИТОГОВЫЙ каталог манифеста (с учётом
@@ -257,15 +268,9 @@ if [ -z "$AUTHOR_ROLE" ]; then
 fi
 [ -z "$AUTHOR_ROLE" ] || case "$AUTHOR_ROLE" in orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) ;; *) die "автор вне алфавита: $AUTHOR_ROLE" ;; esac
 
-# КОНТРАКТ 103 (Решение 1) / 996: пути — ЕДИНЫЙ вызов `project_paths_resolve`
-# (живёт в next_id.sh). Ранний вызов — ТОЛЕРАНТНЫЙ (136, И-7/НАБЛ-П5): его
-# результат нужен ТОЛЬКО дефолту трассы 136 (<workflowPaths.registry> профиля).
-# Отказ резолвера здесь НЕ роняет дверь (toy-мир 095: ci.workflow ещё не
-# создан placeholder'ом ниже) — дефолт трассы не применяется, дальше прежние
-# отказы дословно; СТРОГИЙ вызов `|| die "workflowPaths вне репо"` — на
-# старом месте, после placeholder/profile_resolver. Второго резолвера и
-# конкатенаций `$REPO_ABS/$STATE` нет: ранний и строгий вызовы — один и тот
-# же project_paths_resolve.
+# КОНТРАКТ 103 / 996: единственный резолвер путей профиля — next_id.sh.
+# Пути карты разрешаются после profile_resolver; назначение модели в
+# профиле/реестре не является свидетельством фактического запуска.
 NEXT_ID_LIB=1
 # shellcheck disable=SC1091
 . "$(cd "$(dirname "$0")" && pwd)/next_id.sh"
@@ -273,27 +278,23 @@ NEXT_ID_LIB=1
   || die "next_id.sh без project_paths_resolve"
 TRACE_LINE=""; AUTHOR_MODEL=""
 if [ "$PRINT_CONTEXT" -ne 1 ]; then
-# 136 (НАБЛ-П5): проектный режим — трасса по умолчанию
-# <workflowPaths.registry>/trace.tsv профиля (сеет дверь; путь — из ЕДИНОГО
-# project_paths_resolve мягким ранним вызовом, не вторая конкатенация);
-# явный --model-trace переопределяет. Вне проекта (резолвер отказал или
-# файла нет) — прежний отказ дословно.
+# Свидетельство фактической модели — только ИЗ ЖИВОГО ТРЕЙСА: явный
+# --model-trace (путь к TSV-файлу) либо HARNESS_MODEL_TRACE (путь, который
+# публикует живая сессия). Назначение модели в конфиге/реестре/профиле НЕ
+# является свидетельством запуска, поэтому проектный fallback 136
+# (<workflowPaths.registry>/trace.tsv) УДАЛЁН вместе с его неявным чтением.
 #
 # КОНТРАКТ 169: ЯВНЫЙ --model-trace и незаданный аргумент — РАЗНЫЕ входы.
 # Явный аргумент — ПУТЬ к TSV-файлу трассы (роль TAB модель TAB allowed|denied):
-# строка модели или несуществующий путь отказывают НОВЫМ диагнозом, и проектный
-# fallback их НЕ маскирует (подложенный <registry>/trace.tsv не превращает
-# ошибочный явный аргумент в успех). Незаданный аргумент — проектный fallback
-# 136; трассы нет нигде — прежний отказ 095 дословно.
+# строка модели или несуществующий путь отказывают НОВЫМ диагнозом, и живая
+# трасса сессии их НЕ маскирует. Незаданный аргумент — HARNESS_MODEL_TRACE
+# сессии; трассы нет нигде — прежний отказ 095 дословно.
 if [ "$TRACE_EXPLICIT" = "1" ]; then
-  [ -f "$TRACE" ] || die "--model-trace ожидает путь к TSV-файлу трассы (роль<TAB>модель<TAB>allowed); в проектном корне аргумент можно опустить — берётся <registry>/trace.tsv"
+  [ -f "$TRACE" ] || die "--model-trace ожидает путь к TSV-файлу трассы (роль<TAB>модель<TAB>allowed); в штатной сессии свидетельство передаётся через HARNESS_MODEL_TRACE"
 else
-  if [ -z "$TRACE" ]; then
-    _PP_JSON="$(project_paths_resolve "$REPO_ABS" 2>/dev/null)" || _PP_JSON=""
-    if [ -n "$_PP_JSON" ] && [ -f "$(printf '%s' "$_PP_JSON" | jq -r '.registry')/trace.tsv" ]; then
-      TRACE="$(printf '%s' "$_PP_JSON" | jq -r '.registry')/trace.tsv"
-    fi
-    unset _PP_JSON
+  if [ -z "$TRACE" ] && [ -n "${HARNESS_MODEL_TRACE:-}" ]; then
+    [ -f "$HARNESS_MODEL_TRACE" ] || die "свидетельство сессии недоступно: $HARNESS_MODEL_TRACE"
+    TRACE="$HARNESS_MODEL_TRACE"
   fi
   [ -n "$TRACE" ] || die "нет свидетельства модели: $ROLE"
 fi
@@ -347,7 +348,11 @@ _git_common_dir() {  # <корень> — канонический общий .g
   c="$("$GIT_BIN" -C "$1" rev-parse --git-common-dir 2>/dev/null || true)"
   [ -n "$c" ] || return 0
   case "$c" in /*) ;; *) c="$1/$c" ;; esac
-  ( cd "$c" 2>/dev/null && pwd -P 2>/dev/null ) || c=""
+  # Канонизация ЗАХВАТЫВАЕТСЯ (c="$(cd … pwd -P)"): печатается ОДИН путь.
+  # Подкаталог ( cd … && pwd -P ) печатал бы путь В СВОЙ stdout, и функция
+  # отдавала бы его дважды — ключ state считался бы по «<путь><путь>», а не
+  # по ОДНОМУ каноническому пути (семантика sha256 161a).
+  c="$(cd "$c" 2>/dev/null && pwd -P 2>/dev/null)" || c=""
   printf '%s' "$c"
 }
 _git_dir_abs() {  # <корень> — канонический .git checkout'а ("" — не git-репозиторий)
@@ -355,7 +360,7 @@ _git_dir_abs() {  # <корень> — канонический .git checkout'а
   d="$("$GIT_BIN" -C "$1" rev-parse --git-dir 2>/dev/null || true)"
   [ -n "$d" ] || return 0
   case "$d" in /*) ;; *) d="$1/$d" ;; esac
-  ( cd "$d" 2>/dev/null && pwd -P 2>/dev/null ) || d=""
+  d="$(cd "$d" 2>/dev/null && pwd -P 2>/dev/null)" || d=""
   printf '%s' "$d"
 }
 # База внешнего state — канонизированный TMPDIR (симлинк разрешается в реальный
@@ -464,9 +469,12 @@ _gc_abs="$(_git_common_dir "$REPO_ABS")"
 if [ -n "$_gd_abs" ] && [ -n "$_gc_abs" ] && [ "$_gd_abs" != "$_gc_abs" ]; then
   _PACK_FROM_WORKTREE=1
 fi
-if [ "$_PACK_FROM_WORKTREE" = "1" ]; then
+if [ "$_PACK_FROM_WORKTREE" = "1" ] || { [ "$KIND" = "task" ] && [ -n "$CONTRACT" ]; }; then
   # Внешнее state готовится ДО любой записи: канонический TMPDIR вне checkout'а
-  # проекта и его .git, ключ — общий .git через доверенный sha256.
+  # проекта и его .git, ключ — общий .git через доверенный sha256. Формула
+  # ОДНА для main checkout и linked WT (общий .git — общий ключ): манифест
+  # пака пишется и читается в одном каталоге state из любой точки проекта,
+  # а проверяемый чекаут манифестом не загрязняется.
   _project_state_prepare "$REPO_ABS" || die "$PROJECT_STATE_ERROR"
 fi
 _layer_root_abs="$(cd "$HARNESS_PROJECT_LAYER_ROOT" 2>/dev/null && pwd -P 2>/dev/null || true)"
@@ -693,6 +701,33 @@ _adr_load() {
   done
 }
 
+# Предмет контракта для обзора WORK — ЦЕПОЧКА носителей с прецедентом
+# (И-19): первая непустая строка секции «## Предмет…» → секция «## Обещание и
+# граница» → inline «Предмет:» в строке → фактический H1. Реальное описание,
+# не придуманный placeholder. Выдержка — 480 СИМВОЛОВ (jq: не байтовый
+# обрыв). H1 с явной пометкой ЧЕРНОВИК сохраняет метку «черновик: » у
+# не-заголовочного носителя (обзор не объявляет черновик реализованным).
+# Пустой результат — у контракта нет НИ ОДНОГО носителя: это настоящая
+# невозможность собрать (отказ брифа), а не непривычный заголовок.
+# Правило `{ }` в awk глушит действие по умолчанию: печатается ТОЛЬКО строка
+# из END — вывод не зависит от того, печатает ли awk непокрытые строки.
+_brief_subject() {  # <файл контракта> → предмет (≤480 символов) | пусто
+  awk '
+    /^# / && title == "" { title = substr($0, 3) }
+    /^## Предмет/ { section = 1; next }
+    /^## Обещание и граница/ { section = 2; next }
+    /^## / { section = 0 }
+    section == 1 && NF && subject == "" { subject = $0 }
+    section == 2 && NF && promise == "" { promise = $0 }
+    inline == "" && match($0, /(^|[[:space:]])Предмет:[[:space:]]*/) { inline = substr($0, RSTART + RLENGTH) }
+    { }
+    END {
+      s = subject != "" ? subject : promise != "" ? promise : inline != "" ? inline : title
+      if (s != title && title ~ /ЧЕРНОВИК|Черновик|черновик/) s = "черновик: " s
+      print s
+    }' "$1" | jq -Rr 'if length > 480 then .[0:479] + "…" else . end'
+}
+
 if [ "$SKIP_TASK" = "0" ]; then
   [ -n "$CONTRACT" ] || die "контракт не указан"
   case "$CONTRACT" in ''|*[!0-9]*) die "номер контракта вне алфавита: $CONTRACT" ;; esac
@@ -785,28 +820,51 @@ else
   if [ -f "$REPO/$WP_G_REL/plan.tsv" ]; then
     GOAL_SEC="$(cat "$REPO/$WP_G_REL/plan.tsv")"
   fi
-  # ── (И-12-скоуп, А-387) карта WORK: каждый контракт — строкой ──
-  # Якорь заголовка — ПРЕФИКС `^## Предмет` (суффикс-аннотации вида
-  # «## Предмет (дословно из докса…)» предмет НЕСУТ: 092/094/095).
-  # Отказ фразой И-12 дословно — ТОЛЬКО активным: NNN в колонке id
-  # plan.tsv профиля (тот же реестр — GOAL брифа). Вне плана без
-  # предмета — строка-маркер: не молчаливый пропуск (И-0) и не смерть
-  # брифа на 6 legacy (Б4 круга 1 ревьюера). plan.tsv нет → план пуст.
-  _plan_ids=""
-  [ -f "$REPO/$WP_G_REL/plan.tsv" ] && _plan_ids="$(awk -F'\t' 'NR>1 && $1 ~ /^[0-9]+$/ {print $1}' "$REPO/$WP_G_REL/plan.tsv")" || true
+  # ── (И-12-скоуп, А-387; И-17/И-18/И-19) карта WORK: ОБЗОР РАБОТЫ ──
+  # Скоуп: plan.tsv есть → его id (вне плана — счётной строкой); plan.tsv НЕТ
+  # → ВСЕ контракты (отсутствие реестра ≠ пустая работа — так устроен
+  # бэкенд; прежнее «план пуст» прятало работу за отсутствием plan.tsv).
+  # Статус — ОДИН общий (lib_plan 084, plan_status): бриф не заводит третьей
+  # копии статуса. done закрывает предмет только если frozen-КОММИТ высшего
+  # тега содержится в done-коммите (merge-base --is-ancestor); «закрыт без
+  # done» — реестр; далее заморожен/номер выдан. Даты тегов НЕ бизнес-
+  # семантика (сдвиг часов — не новая версия).
+  # ПРЕДМЕТ — цепочка носителей с прецедентом (см. _brief_subject).
+  # Закрытое и вне-планное не заполняют обзор, но и НЕ исчезают молча: их
+  # считает счётная строка «WORK: опущено: …» (не молчаливое усечение И-0).
+  LIB_PLAN_REGISTRY="$WP_G_REL"
+  # shellcheck disable=SC1091
+  . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_plan.sh"
+  _plan_ids=""; _pauzy_ids=""
+  if [ -f "$REPO/$WP_G_REL/plan.tsv" ]; then
+    _plan_ids="$(awk -F'\t' 'NR>1 && $1 ~ /^[0-9]+$/ {print $1}' "$REPO/$WP_G_REL/plan.tsv")"
+  fi
+  if [ -f "$REPO/$WP_G_REL/pauzy.tsv" ]; then
+    _pauzy_ids="$(grep -v '^#' "$REPO/$WP_G_REL/pauzy.tsv" | awk -F'\t' '$1 ~ /^[0-9]+$/ {print $1}')"
+  fi
+  _closed_count=0; _outside_count=0; _work_lines=""
   for cf in $(LC_ALL=C ls "$REPO/$WP_C_REL"/*.md 2>/dev/null | LC_ALL=C sort); do
     cnum="$(basename "$cf")"; cnum="${cnum%%-*}"
-    csubj="$(awk '/^## Предмет/{f=1;next} /^## /{f=0} f&&NF{print;exit}' "$cf")"
-    if [ -n "$csubj" ]; then
-      WORK_SEC="${WORK_SEC}WORK: ${cnum} :: ${csubj}
-"
-    elif printf '%s\n' "$_plan_ids" | grep -Fxq -- "$cnum"; then
-      die "брифинг: контракт без предмета: $cf"
-    else
-      WORK_SEC="${WORK_SEC}WORK: ${cnum} :: legacy-без-§Предмет (вне plan.tsv)
-"
+    if [ -f "$REPO/$WP_G_REL/plan.tsv" ] && ! printf '%s\n' "$_plan_ids" | grep -Fxq -- "$cnum"; then
+      _outside_count=$((_outside_count + 1)); continue
     fi
+    case "$(plan_status "$cnum" "$REPO")" in
+      "$P84_ST_DONE"|"$P84_ST_CLOSED") _closed_count=$((_closed_count + 1)); continue ;;
+    esac
+    _prefix=""
+    if "$GIT_BIN" -C "$REPO" for-each-ref --format='%(refname)' "refs/tags/done/contracts/$cnum/" 2>/dev/null | grep -q .; then
+      _prefix="возобновлён: "
+    fi
+    if printf '%s\n' "$_pauzy_ids" | grep -Fxq -- "$cnum"; then
+      _prefix="ПАУЗА: "
+    fi
+    csubj="$(_brief_subject "$cf")" || die "брифинг: не прочитан контракт: $cf"
+    [ -n "$csubj" ] || die "брифинг: контракт без предмета: $cf"
+    _work_lines="${_work_lines}WORK: ${cnum} :: ${_prefix}${csubj}
+"
   done
+  WORK_SEC="WORK: опущено: закрытых ${_closed_count}, вне плана ${_outside_count}
+${_work_lines}"
   if [ -n "$ADRP" ] && [ -d "$REPO/$ADRP" ]; then
     while IFS="$TAB" read -r aid _aarea ares; do
       [ -z "${aid:-}" ] && continue
@@ -967,6 +1025,34 @@ if [ -n "$PROJECT_SEC" ]; then printf '%s' "$PROJECT_SEC"; fi
     printf '=== HEALTH ===\n%s\n' "$HEALTH_SEC"
   fi
 }
+# Бюджет вклейки брифа: WORK — обзор работы, который может не поместиться
+# (все контракты мира ~99K против капа вклейки 40000). Обязательные секции
+# (MAP/RULES/GOAL/DECISIONS) не усекаются; обзор WORK усекается ЯВНО: хвост
+# за бюджетом заменяется строкой остатка, а не молчаливым пропуском. Пакет
+# «режь задачу» на этом пути НЕ возникает — кап вклейки держится (И-9 не
+# трогается). Размер меряется ТЕМ ЖЕ сериализатором, который отдаёт пак
+# (pack_body): второй копии раскладки секций нет.
+if [ "$KIND" = "brief" ]; then
+  _work_lines="$WORK_SEC"; WORK_SEC=""
+  _base_bytes="$(pack_body | wc -c | tr -d ' ')"
+  _work_bytes="$(printf '=== WORK ===\n' | wc -c | tr -d ' ')"
+  _omitted=0; _tail=0
+  while IFS= read -r _work_line; do
+    [ -n "$_work_line" ] || continue
+    _line_bytes="$(printf '%s\n' "$_work_line" | wc -c | tr -d ' ')"
+    if [ "$_tail" = 0 ] && [ "$((_base_bytes + _work_bytes + _line_bytes))" -le 39800 ]; then
+      WORK_SEC="${WORK_SEC}${_work_line}
+"
+      _work_bytes=$((_work_bytes + _line_bytes))
+    else
+      _tail=1; _omitted=$((_omitted + 1))
+    fi
+  done <<< "$_work_lines"
+  if [ "$_omitted" -gt 0 ]; then
+    WORK_SEC="${WORK_SEC}WORK: за бюджетом брифа: ${_omitted} строк; полный план и контракты — по MAP
+"
+  fi
+fi
 VK="$(pack_body | wc -c | tr -d ' ')"
 [ "$VK" -le 40000 ] || die "режь задачу: $VK > 40000"
 MAN_BODY="=== MANIFEST ===
@@ -978,37 +1064,37 @@ ${MAP_MAN}${CTX_MAN}${ADR_MAN}${LESSONS_MAN}${TASK_MAN}${TRACE_MAN}"
 # checkout'а проекта или его .git — отказ), ключ — общий .git проекта,
 # посчитанный доверенным sha256 (не результатом инструмента из PATH).
 #
-# Legacy-flow (make_task --repo <main checkout> проекта) сохраняет
-# размещение 095 (<repo>/.omp/context/<NNN>.tsv) — его ждёт дверь 095
-# (замороженная клетка red_dver_spawn_manifest.sh) и поток станции; во
-# внешнее state в этом flow манифест НЕ дублируется. Вход 161a (проектный
-# worktree) в checkout не пишет вовсе: рабочее дерево остаётся чистым.
+# CUTOVER-1113: размещение ОДНО — внешнее state, одинаково для main checkout
+# и project-worktree (общий .git — общий ключ: ключ 161a = первые 16 hex
+# sha256 канонического общего .git, ОДИН путь без перевода строки).
+# Устаревшее <repo>/.omp/context/<NNN>.tsv больше НЕ пишется: рабочее дерево
+# остаётся чистым, и дверь его не читает (fallback нет).
 if [ "$KIND" = "task" ] && [ -n "$CONTRACT" ]; then
   _man_num="$(printf '%03d' "$((10#$CONTRACT))")"
-  if [ "$_PACK_FROM_WORKTREE" = "1" ]; then
-    # Каталог манифеста — по КАНОНИЧЕСКОМУ пути (ссылка внутрь checkout'а
-    # проекта или его .git отвергнута ещё на _project_state_prepare) и
-    # повторно канонизируется ПОСЛЕ создания: свойство «каталог манифеста
-    # вне checkout'а и его .git» проверяется на ИТОГОВОМ пути.
-    _man_dir="$PROJECT_STATE_CONTEXT_CANON"
-    mkdir -p "$_man_dir" || die "внешнее state проекта не создать: $_man_dir"
-    _man_dir="$(_state_path_canonical "$_man_dir")" \
-      || die "STATE_PATH_UNRESOLVABLE: каталог манифеста неразрешим: $_man_dir"
-    _state_base_is_safe "$REPO_ABS" "$_man_dir" \
-      || die "TMPDIR_INSIDE_MAIN: каталог манифеста внутри checkout проекта или его .git: $_man_dir"
-    _man_file="$_man_dir/$_man_num.tsv"
-    # Файл манифеста — тоже элемент пути: подложенная ссылка (в том числе на
-    # каталог чужого checkout) удаляется КАК ССЫЛКА — цель не трогается, —
-    # а запись идёт с noclobber: файл, подложенный после удаления, приводит к
-    # отказу, а не к записи по ссылке.
-    rm -f "$_man_file" || die "файл манифеста не удалить: $_man_file"
-    ( set -C; printf '%s\n' "$MAN_BODY" >"$_man_file" ) \
-      || die "манифест пака не записан: $_man_file"
-  else
-    mkdir -p "$REPO/.omp/context" || die "каталог манифеста не создать: $REPO/.omp/context"
-    _man_file="$REPO/.omp/context/$_man_num.tsv"
-    printf '%s\n' "$MAN_BODY" >"$_man_file" || die "манифест пака не записан: $_man_file"
-  fi
+  # Каталог манифеста — ВНЕШНЕЕ state проекта по формуле 161a, ОДИН каталог
+  # для main checkout и linked WT (общий .git — общий ключ). Устаревшее
+  # размещение <repo>/.omp/context больше НЕ пишется: проверяемый чекаут
+  # манифестом не загрязняется (ignore-правило — не защита от детектора
+  # untracked), и дверь его тоже не читает (fallback нет).
+  #
+  # Каталог манифеста — по КАНОНИЧЕСКОМУ пути (ссылка внутрь checkout'а
+  # проекта или его .git отвергнута ещё на _project_state_prepare) и
+  # повторно канонизируется ПОСЛЕ создания: свойство «каталог манифеста
+  # вне checkout'а и его .git» проверяется на ИТОГОВОМ пути.
+  _man_dir="$PROJECT_STATE_CONTEXT_CANON"
+  mkdir -p "$_man_dir" || die "внешнее state проекта не создать: $_man_dir"
+  _man_dir="$(_state_path_canonical "$_man_dir")" \
+    || die "STATE_PATH_UNRESOLVABLE: каталог манифеста неразрешим: $_man_dir"
+  _state_base_is_safe "$REPO_ABS" "$_man_dir" \
+    || die "TMPDIR_INSIDE_MAIN: каталог манифеста внутри checkout проекта или его .git: $_man_dir"
+  _man_file="$_man_dir/$_man_num.tsv"
+  # Файл манифеста — тоже элемент пути: подложенная ссылка (в том числе на
+  # каталог чужого checkout) удаляется КАК ССЫЛКА — цель не трогается, —
+  # а запись идёт с noclobber: файл, подложенный после удаления, приводит к
+  # отказу, а не к записи по ссылке.
+  rm -f "$_man_file" || die "файл манифеста не удалить: $_man_file"
+  ( set -C; printf '%s\n' "$MAN_BODY" >"$_man_file" ) \
+    || die "манифест пака не записан: $_man_file"
 fi
 pack_body
 printf '%s' "$MAN_BODY"
