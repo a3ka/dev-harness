@@ -2,8 +2,9 @@
 """Public-door probes for 187/1; synthetic projects own their .git.
 
 locate uses the captured CompliorOS-architecture JSON protocol, not an echo of an ID.
-The existing no-local brief case uses 180's inline code-class metadata; its paired
-missing-line case must still refuse. An explicit document brief is a separate case.
+The existing no-local brief pair uses 180's inline code-class metadata and a large
+contract body outside context sections; missing-line must still refuse without a pack.
+An explicit document brief is a separate case.
 
 Граница JSON проверяется публичным make_task: обрезанный ответ и одна группа
 status (отсутствующий/неизвестный при rc 0 и пустых matches[].components)
@@ -271,10 +272,18 @@ def prepare(root, arch, pinned, variation):
     elif variation == 'line-blank':
         task.write_text(task.read_text().replace('АРХИТЕКТУРА: L2 api.identity', 'АРХИТЕКТУРА: '))
     if variation in ('no-local', 'inline-line-missing'):
-        # The real 180 metadata is inline after its identifier, NOT a document task.
-        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+        # Real 180 is 94,015 bytes with its code class near the start. Amplify its
+        # supported large-contract path beyond a 1 MiB Linux pipe capacity so an
+        # early-exiting class predicate cannot hide behind a small buffered write.
+        # This ordinary Markdown appendix is outside the selected context sections:
+        # full CBYTES reaches the public door while the valid pair's pack stays small.
+        contract = (root / CONTRACT).read_text().replace(
             'КЛАСС ЗАДАЧИ: кодовый.',
-            'Идентификатор: `id/CONTRACT/777`. КЛАСС ЗАДАЧИ: кодовый (реализация).'))
+            'Идентификатор: `id/CONTRACT/777`. КЛАСС ЗАДАЧИ: кодовый (реализация).')
+        example = '| identity.lookup | schema.query | schema.record | app/identity/model.js |\n'
+        appendix = '\n## Примеры реализации\n\n| Операция | Вход | Выход | Путь |\n| --- | --- | --- | --- |\n'
+        appendix += example * (94_015 * 16 // len(example.encode()) + 1)
+        put(root, CONTRACT, contract + appendix)
     elif variation == 'document-no-local':
         put(root, CONTRACT, (root / CONTRACT).read_text().replace(
             'КЛАСС ЗАДАЧИ: кодовый.', 'КЛАСС ЗАДАЧИ: документальный.'))
