@@ -347,10 +347,25 @@ plan_status() {
   # 996 К6: путь реестра — из переменной окружения LIB_PLAN_REGISTRY (по
   # умолчанию «registry» — прежнее поведение харнесса как проекта).
   local reg="${LIB_PLAN_REGISTRY:-registry}"
-  # done: ∃ refs/tags/done/contracts/<id>/*
-  if git -C "$root" for-each-ref --format='%(refname)' "refs/tags/done/contracts/${id}/" 2>/dev/null | grep -q .; then
-    st="$P84_ST_DONE"
-  else
+  # КАНДИДАТ 095 (требует узкой санкции владельца — текст 084v2; замороженные
+  # 084/1 и 084/2 буквально задают «любой done → done»): done закрывает
+  # предмет только если frozen-КОММИТ высшего тега СОДЕРЖИТСЯ в done-коммите
+  # (git merge-base --is-ancestor). Прежнее правило прятало новую версию
+  # предмета за старым done: теги, стоявшие на одном коммите, различались
+  # только датами — сдвиг часов, а не новая версия. Даты тегов НЕ бизнес-
+  # семантика. Статус — ОДИН общий для ROADMAP/HANDOFF/брифа 095.
+  local frozen_ref done_ref
+  frozen_ref="$(git -C "$root" for-each-ref --sort=-version:refname --count=1 \
+    --format='%(refname)' "refs/tags/frozen/contracts/${id}/" 2>/dev/null)"
+  while IFS= read -r done_ref; do
+    [ -n "$done_ref" ] || continue
+    if [ -z "$frozen_ref" ] || git -C "$root" merge-base --is-ancestor \
+      "$frozen_ref^{commit}" "$done_ref^{commit}" 2>/dev/null; then
+      st="$P84_ST_DONE"
+      break
+    fi
+  done < <(git -C "$root" for-each-ref --format='%(refname)' "refs/tags/done/contracts/${id}/" 2>/dev/null)
+  if [ "$st" != "$P84_ST_DONE" ]; then
     local blob=''
     if [ "$head" = "1" ]; then
       blob="$(git -C "$root" cat-file -p "HEAD:${reg%/}/closed-without-done.tsv" 2>/dev/null || true)"
