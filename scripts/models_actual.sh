@@ -160,8 +160,16 @@ if [ "$TSV" = "1" ]; then
     # user; jq -r разворачивает \n — якоря ^…$ работают построчно), иначе `-`.
     if [ "$BIND" = "1" ]; then
       _session="$(basename "$f" .jsonl)"
-      case "$_session" in ''|*[!A-Za-z0-9._-]*)
-        printf 'NOT_IMPLEMENTED: session-id вне алфавита [A-Za-z0-9._-]: %s\n' "$_session" >&2; exit 2 ;;
+      case "$_session" in
+        ''|*[!A-Za-z0-9._-]*)
+          # Историческое имя сессии вне алфавита [A-Za-z0-9._-] (например
+          # «Arbiter079Б1»): у такой строки привязки нет ФОРМЫ (session-id —
+          # буквальный basename), но это не повод обрушивать ВСЮ зону —
+          # файл пропускается с честной диагностикой в stderr, остальные
+          # сессии дают строки. ЯВНЫЙ --session вне алфавита отвергнут РАНЬШЕ
+          # всякого отбора (rc 2) — здесь такой вход невозможен.
+          printf 'ПРОПУЩЕНО: session-id вне алфавита [A-Za-z0-9._-]: %s (файл %s)\n' "$_session" "$f" >&2
+          continue ;;
       esac
       _object="$(jq -r 'select(.type == "message" and .message.role == "user") | .message.content[]?.text' "$f" 2>/dev/null \
                  | grep -m1 -E '^OBJECT=[0-9a-f]{40}$' | sed 's/^OBJECT=//' || true)"
