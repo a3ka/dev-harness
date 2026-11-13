@@ -825,6 +825,34 @@ def kejsy():
     reg('w30-blok-slot-derzhit',
         'учёт=лимит;RELEASE=broshen;blocked=не-освобождает', w30)
 
+    def w31(mir, door):
+        # МОДЕЛЬ 45ee1d24 закрыла гонку РАЗНЫХ процессов (D34), но ОДИН batch
+        # с двумя НОВЫМИ NNN одной группы судился по ОДНОМУ учёту: START
+        # пишутся после ворот ([D26]) — оба элемента видят «занято 2 из 3»
+        # и проходят → 4 из 3. [D35]: счёт группы В ПАКЕТЕ — отказ ВСЕМУ
+        # пакету без частичного START; контроль: та же ёмкость, один новый
+        # проходит (отказ — не застрявший мьютекс, а перелимит пакета).
+        _harness_zhivoj(mir, ['171', '172'])
+        wt173, br173, _ = mir.worktree('173')
+        wt174, br174, _ = mir.worktree('174')
+        ev = mir.sobytie('e.json', [
+            item('architect', 'Arch173', ['SUBJECT=173', 'WORKTREE=' + wt173, 'BRANCH=' + br173]),
+            item('implementer', 'Impl174', ['SUBJECT=174', 'WORKTREE=' + wt174, 'BRANCH=' + br174])])
+        r = sudit(door, mir, ev)
+        problems = [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина'),
+                    k_chislo_startov(mir, 'учёт', 2),
+                    k_svoboden(mir, '173', 'откат-173'),
+                    k_svoboden(mir, '174', 'откат-174')]
+        wt175, br175, _ = mir.worktree('175')
+        ev2 = mir.sobytie('e2.json', [item('architect', 'Arch175',
+                        ['SUBJECT=175', 'WORKTREE=' + wt175, 'BRANCH=' + br175])])
+        r2 = sudit(door, mir, ev2)
+        return problems + [k_rc(r2, 0, 'контроль-rc'),
+                           k_stroka(mir, 'контроль-start', subjectId='175',
+                                    group='harness')]
+    reg('w31-paket-dva-novyh-otkaz-vsemu',
+        'пакет=два-новых-одной-группы;учёт=счёт-пакетом;отказ=весь-пакет;контроль=один-новый-проходит', w31)
+
     # B. судьи: состояние автора × OBJECT × порядок судей × риск
     def _avtor_sdal(mir, nnn, risk='обычный'):
         # v+1: контракт лежит и в $REPO (main), и в ДЕРЕВЕ кандидата — мир
@@ -1973,6 +2001,29 @@ def m_bez_dedushki(t):
               '''        if [ "$zhivo" -ge "$cap" ] && ! slovo_vladelca "$sv"; then''')
 
 
+def m_bez_scheta_paketa(t):
+    # [D35] снят: занятость судится ТОЛЬКО по учёту — элементы пакета не
+    # считают слотов соседей (форма модели до усиления): ОДИН batch с двумя
+    # новыми NNN одной группы при 2 занятых из 3 проходит оба — 4 из 3.
+    # Внутрипроцессная дыра (одиночный вызов, БЕЗ гонки) — потому стаб
+    # отличен от s36-bez-gruppovoj-atomarnosti (межпроцессный мьютекс D34)
+    # и красен на СВОЁМ входе w31, где s36 честен.
+    t = _z(t, '''        case "$grp" in
+          harness) zhivo=$((zhivo + PAKET_HARNESS)) ;;
+          mob)     zhivo=$((zhivo + PAKET_MOB)) ;;
+          back)    zhivo=$((zhivo + PAKET_BACK)) ;;
+        esac''',
+              '''        : # стаб: слоты пакета не считаем (учёт без соседей)''')
+    return _z(t, '''        if ! predmet_derzhit_slot "$sv" "$grp"; then
+          case "$grp" in
+            harness) PAKET_HARNESS=$((PAKET_HARNESS + 1)) ;;
+            mob)     PAKET_MOB=$((PAKET_MOB + 1)) ;;
+            back)    PAKET_BACK=$((PAKET_BACK + 1)) ;;
+          esac
+        fi''',
+              '''        : # стаб: прошедшие пакет слоты не занимают''')
+
+
 
 STAB_MUTACII = {
     's01-bez-dublja-rabochego': m_bez_dublja,
@@ -2013,6 +2064,7 @@ STAB_MUTACII = {
     's36-bez-gruppovoj-atomarnosti': m_bez_gruppovoj_atomarnosti,
     's37-relis-osvobozhdaet-slot': m_relis_osvobozhdaet_slot,
     's38-bez-dedushki': m_bez_dedushki,
+    's45-bez-scheta-paketa': m_bez_scheta_paketa,
     'x01-vsegda-puschem': m_vsegda_puschem,
 }
 

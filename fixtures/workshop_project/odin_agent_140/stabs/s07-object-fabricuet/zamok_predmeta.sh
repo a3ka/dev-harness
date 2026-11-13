@@ -532,6 +532,14 @@ EOF
 $SUBJS
 EOF
 
+  # [D35 schet-paketa] счёт группы В ПАКЕТЕ: START пишутся ПОСЛЕ ворот ([D26]
+  # пишет после решения по ВСЕМУ пакету), потому каждый элемент пакета видит
+  # один и тот же учёт БЕЗ STARTов соседей — «два новых одной группы при
+  # занятых 2 из 3» проходили оба (4 из 3). Прошедший ворота элемент занимает
+  # слот для последующих; СЛОВО слот занимает реально (его START будет
+  # написан); дедушка D33 второго слота не занимает (уже в счётчике).
+  local PAKET_HARNESS=0 PAKET_MOB=0 PAKET_BACK=0
+
   # [D26 paket-otkat] суд под мьютексами; записи — только после решения по ВСЕМУ пакету
   while IFS='|' read -r idx agent name sv obj wt br klass rol; do
     [ -n "$sv" ] || continue
@@ -626,10 +634,27 @@ EOF
         # держателя начатого есть доведение начатого (roles/orchestrator
         # §Начатое—до-конца п.2: «сверх лимита начатые доводятся, новые не
         # стартуют»; боль bootstrap 998: замена при 11 начатых из 3 не пускалась).
+        # [D35 schet-paketa] занятость для ЭТОГО элемента = учёт + уже прошедшие
+        # ворота элементы пакета той же группы (их START ещё не написан — [D26]);
+        # без этого пакета «двое новых при 2 из 3» проходили оба — 4 из 3.
+        case "$grp" in
+          harness) zhivo=$((zhivo + PAKET_HARNESS)) ;;
+          mob)     zhivo=$((zhivo + PAKET_MOB)) ;;
+          back)    zhivo=$((zhivo + PAKET_BACK)) ;;
+        esac
         if [ "$zhivo" -ge "$cap" ] && ! slovo_vladelca "$sv" \
            && ! predmet_derzhit_slot "$sv" "$grp"; then
           mutexi_snyat_vse
           otp LIMIT_GRUPPY "группа $grp: занято $zhivo из $cap (предмет $sv); сверх лимита — только СЛОВО владельца (строка SLOVO)"
+        fi
+        # [D35] прошедший ворота НОВЫЙ слот пакета видят последующие элементы;
+        # дедушка D33 слот уже держит (в счётчике), СЛОВО слот занимает реально
+        if ! predmet_derzhit_slot "$sv" "$grp"; then
+          case "$grp" in
+            harness) PAKET_HARNESS=$((PAKET_HARNESS + 1)) ;;
+            mob)     PAKET_MOB=$((PAKET_MOB + 1)) ;;
+            back)    PAKET_BACK=$((PAKET_BACK + 1)) ;;
+          esac
         fi
       fi
     fi
