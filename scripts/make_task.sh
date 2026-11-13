@@ -29,6 +29,12 @@
 # предмет отказывает ARCH_COMPONENT_NET, с флагом вне architecture/ —
 # ARCHITECTURE_NET, неконформный список — ARCH_COMPONENT_ID, отказ npm —
 # ARCH_BRIEF_OTKAZ. Без architecture/ и без флага прежняя выдача сохранена.
+# КОНТРАКТ 187а: в проекте с закреплённой моделью (repoId=Complior-back И
+# architecture.lock.json) ИСТОЧНИК брифа — закреплённый коммит модели (exact
+# SHA пина), а локальная architecture/ после 167 источником не является и её
+# отсутствие бриф не отменяет; КОДОВЫЙ ГЕЙТ (строка «АРХИТЕКТУРА:», зоны) —
+# отдельный признак, класс предмета (архитектурный класс читается грамматикой
+# arch187_code_subject, общей для всех дверей).
 # НЕ БАРЬЕР: субъект контракта 095 — зелёный контроль и стаб-детект собственной именованной батареи fixtures/context_pack_095/ (раннер fixtures/_krasnye_095.sh, стаб-пак battery_stubs.sh, 18 мутаций), не case_*.sh-глобом (прецедент drill_exit_marker.sh/drill_path_guard.sh, заморозка 025 И-7). Выходы: 0 — пак построен (stdout), 1 — именованный отказ «ОТКАЗ: ...», 2 — NOT_IMPLEMENTED.
 set -uo pipefail
 TAB="$(printf '\t')"
@@ -821,10 +827,13 @@ fi
 # Вход: --arch-component id[,id...] — НЕПУСТОЙ список ID через запятую, порядок
 # входа сохраняется. Признак применимости — каталог <R>/architecture/ ПРОЕКТА
 # (НЕ repoId: профиль есть и у самого харнесса) и кодовый предмет — строка
-# «КЛАСС ЗАДАЧИ: кодовый» в ФАКТИЧЕСКИ выбранном контракте (CBYTES). Значение
-# класса опознаётся по началу строки до разделителя (точка, «;», скобка, конец
-# строки) — реальные формы: «кодовый.», «КОДОВЫЙ (реализация)», «КОДОВЫЙ; …»;
-# регистр — двумя явными формами, БЕЗ -i (кириллица под LC_ALL=C не сворачивается).
+# «КЛАСС ЗАДАЧИ: кодовый» в ФАКТИЧЕСКИ выбранном контракте (CBYTES). Грамматика
+# класса — ОДНА на все двери (scripts/check_architecture_contract.sh,
+# arch187_code_subject): маркер «КЛАСС ЗАДАЧИ:» самостоятельной строкой или
+# инлайн на строке с идентификатором (180); значение класса — ровно «кодовый»
+# или «КОДОВЫЙ» до разделителя (точка, «;», скобка, конец строки) — реальные
+# формы: «кодовый.», «КОДОВЫЙ (реализация)», «КОДОВЫЙ; …»; регистр — двумя
+# явными формами, БЕЗ -i (кириллица под LC_ALL=C не сворачивается).
 # Отказы (rc 1, пустой stdout, до выдачи пака):
 #   ARCHITECTURE_NET   — флаг задан, каталога architecture/ нет;
 #   ARCH_COMPONENT_ID  — флаг задан, список неконформен (пустая запись, slash,
@@ -838,41 +847,54 @@ fi
 ARCH_SEC=""
 if [ "$KIND" = task ]; then
   _arch_dir="$REPO/architecture"
-  # ── КОНТРАКТ 187а: режим «backend с закреплённой моделью» ─────────────────
-  # Признак режима — эффективный repoId=Complior-back И наличие пина модели
-  # (architecture.lock.json). Пока пина нет, проект не в режиме 187а: бриф
-  # компонента читается из локальной architecture/ по-старому (контракт 170), а
-  # требований к строке «АРХИТЕКТУРА:» нет — иначе дверь 170 стала бы отказом
-  # задним числом.
-  _arch187=0
+  # ── КОНТРАКТ 187а: ИСТОЧНИК брифа и КОДОВЫЙ ГЕЙТ — разные признаки ───────
+  # (1) ИСТОЧНИК брифа — режим 187а (arch187_scope: эффективный repoId
+  #     Complior-back И pin модели в architecture.lock.json). В режиме 187а
+  #     бриф компонента читается из ЗАКРЕПЛЁННОГО коммита модели (exact SHA
+  #     пина); локальная architecture/ (устаревшая копия после 167) источником
+  #     не является и её отсутствие бриф не отменяет. Вне режима 187а —
+  #     прежний контракт 170: локальная architecture/ и `npm run brief`.
+  # (2) КОДОВЫЙ ГЕЙТ — класс предмета (arch187_code_subject; грамматика
+  #     класса ОДНА на все двери, см. check_architecture_contract.sh). Кодовый
+  #     предмет обязан пройти arch187_check_text (строка «АРХИТЕКТУРА:», зоны)
+  #     ДО выдачи пака; документальный предмет гейта не получает и прикидываться
+  #     кодом не обязан. Инлайн-объявление класса 180 («Идентификатор: … .
+  #     КЛАСС ЗАДАЧИ: кодовый (…)») — тот же кодовый предмет.
+  _arch187_scope=0
+  _arch187_code=0
   _arch187_text=""
   _MT_SCRIPTS="$(cd "$(dirname "$0")" && pwd)"
-  if [ -x "$_MT_SCRIPTS/check_architecture_contract.sh" ]; then
-    ARCH187_LIB=1
-    # shellcheck disable=SC1091
-    . "$_MT_SCRIPTS/check_architecture_contract.sh"
-    if arch187_scope "$REPO_ABS"; then
+  [ -f "$_MT_SCRIPTS/check_architecture_contract.sh" ] \
+    || ni "нет scripts/check_architecture_contract.sh — грамматика класса предмета недоступна"
+  ARCH187_LIB=1
+  # shellcheck disable=SC1091
+  . "$_MT_SCRIPTS/check_architecture_contract.sh"
+  # Класс предмета — по байтам ФАКТИЧЕСКИ выбранного контракта (документная
+  # строка «КЛАСС ЗАДАЧИ:» либо инлайн-форма 180 на одной строке с
+  # идентификатором). Класс НЕ зависит от режима 187а: документный предмет в
+  # pinned scope получает бриф из пина, но гейта архитектуры не получает.
+  if printf '%s' "$CBYTES" | arch187_code_subject -; then
+    _arch187_code=1
+  fi
+  if arch187_scope "$REPO_ABS"; then
+    _arch187_scope=1
+  fi
+  if [ "$_arch187_code" = "1" ] && [ "$_arch187_scope" = "1" ]; then
+    # Задание судится по ВЫДАННОМУ файлу задания, когда он есть: строка
+    # «АРХИТЕКТУРА:» и зоны — свойства задания, а не черновика контракта.
+    if [ -n "$TASKFILE" ] && [ -f "$TASKFILE" ]; then
+      _arch187_text="$TASKFILE"
+    else
       _A187_FILE="$(mktemp 2>/dev/null || true)"
       if [ -n "$_A187_FILE" ] && [ -f "$_A187_FILE" ]; then
         printf '%s' "$CBYTES" > "$_A187_FILE"
-        if arch187_code_subject "$_A187_FILE"; then
-          _arch187=1
-          # Задание судится по ВЫДАННОМУ файлу задания, когда он есть: строка
-          # «АРХИТЕКТУРА:» и зоны — свойства задания, а не черновика контракта.
-          if [ -n "$TASKFILE" ] && [ -f "$TASKFILE" ]; then
-            _arch187_text="$TASKFILE"
-          else
-            _arch187_text="$_A187_FILE"
-          fi
-        fi
+        _arch187_text="$_A187_FILE"
       fi
     fi
-  fi
-  if [ "$_arch187" = "1" ]; then
     arch187_check_text "$_arch187_text" task "$REPO_ABS" || die "$ARCH187_REFUSAL"
   fi
   if [ "$ARCH_COMPONENT_SET" = "1" ]; then
-    if [ "$_arch187" = "1" ]; then
+    if [ "$_arch187_scope" = "1" ]; then
       # Бриф 187а — из ЗАКРЕПЛЁННОГО коммита модели; локальная architecture/
       # (устаревшая копия после 167) источником не является и её отсутствие
       # бриф не отменяет.
@@ -909,7 +931,7 @@ if [ "$KIND" = task ]; then
       _arch_rules=""
       case "$ROLE" in architect|critic|arbiter) _arch_rules="--with-rules" ;; esac
       _arch_rc=0
-      if [ "$_arch187" = "1" ]; then
+      if [ "$_arch187_scope" = "1" ]; then
         # КОНТРАКТ 187а: бриф компонента — из закреплённого коммита модели
         # (`tooling/checks/cli.js brief --compact`); правила — ровно тем ролям,
         # которые их читают (architect/critic/arbiter).
@@ -938,7 +960,7 @@ if [ "$KIND" = task ]; then
 ${_arch_text}
 "
     done
-  elif [ -d "$_arch_dir" ] && printf '%s\n' "$CBYTES" | grep -Eq '^КЛАСС ЗАДАЧИ:[[:space:]]*(кодовый|КОДОВЫЙ)([^[:alnum:]_]|$)'; then
+  elif [ -d "$_arch_dir" ] && [ "$_arch187_code" = "1" ]; then
     die "ARCH_COMPONENT_NET: требуется --arch-component (кодовый предмет, проект с architecture/)"
   fi
 fi
