@@ -31,8 +31,12 @@
 #     отсутствующая строка — ARCH_LINE_MISSING; L3 — отказ до решения владельца
 #     (ARCH_OWNER);
 #   * продуктовые пути `ЗОНА implementer:` — `locate --path` закреплённой
-#     модели. Неразмещённый путь — PATH_WITHOUT_COMPONENT; размещённый в ИНОМ
-#     компоненте (или вне границы компонента) — ARCH_ZONE;
+#     модели. Ответ модели — многострочный JSON: разбирается ЦЕЛИКОМ, а
+#     компоненты — объединение matches[].components всех матчей; класс ответа
+#     задаёт поле status, а НЕ код возврата модели (нет status/незнакомый
+#     status/не-JSON — именованный отказ ARCH_LOCATE_GRAMMAR, зелёным такой
+#     ответ стать не может). Неразмещённый путь — PATH_WITHOUT_COMPONENT;
+#     размещённый в ИНОМ компоненте (или вне границы компонента) — ARCH_ZONE;
 #   * операция предмета — со схемами входа/выхода и не DRAFT, иначе
 #     ARCH_DRAFT (судится только текст контракта: make_task судит задание);
 #   * `check --base` модели против УТВЕРЖДЁННОГО снимка (путь снимка и его
@@ -77,11 +81,33 @@ arch187_scope() {
   return 0
 }
 
-# arch187_code_subject <file> — предмет кодовый? (та же грамматика класса, что
-# в make_task.sh: значение класса опознаётся по началу строки до разделителя).
+# Грамматика класса предмета — ОДНА на все двери (архитектура, заморозка,
+# критика, done, пак задания). Маркер «КЛАСС ЗАДАЧИ:» объявляет класс либо
+# самостоятельной строкой (документная форма: «КЛАСС ЗАДАЧИ: кодовый.»), либо
+# ВНУТРИ строки после границы предложения — инлайн-форма 180 («Идентификатор:
+# `id/CONTRACT/777`. КЛАСС ЗАДАЧИ: кодовый (реализация).»). Граница перед
+# маркером — знак препинания или начало строки: упоминание класса в прозе
+# («требование КЛАСС ЗАДАЧИ: кодовый соблюдено») объявлением класса НЕ является.
+#
+# ЗНАЧЕНИЕ класса — ровно «кодовый» или «КОДОВЫЙ»: регистр НЕ сворачивается
+# (кириллица под C регистра не имеет), после значения — разделитель (точка,
+# «;», скобка, конец строки). Граница значения прежняя: разделителем служит
+# любой знак, кроме буквы/цифры/подчёркивания. Всё иное («документальный»,
+# «смешанный», …) — не кодовый предмет.
+ARCH187_CLASS_RE='(^|[[:punct:]])[[:space:]]*КЛАСС ЗАДАЧИ:[[:space:]]*(кодовый|КОДОВЫЙ)([^[:alnum:]_]|$)'
+
+# arch187_code_subject <file|-> — предмет кодовый? («-» — класс читается из
+# stdin: байты контракта без временного файла).
 arch187_code_subject() {
-  [ -f "${1:-}" ] || return 1
-  grep -Eq '^КЛАСС ЗАДАЧИ:[[:space:]]*(кодовый|КОДОВЫЙ)([^[:alnum:]_]|$)' "$1" 2>/dev/null
+  local src="${1:-}"
+  [ -n "$src" ] || return 1
+  if [ "$src" = "-" ]; then
+    # Без -q grep читает весь stdin: ранний выход рвал бы producer в pipefail.
+    grep -E "$ARCH187_CLASS_RE" - >/dev/null 2>/dev/null
+  else
+    [ -f "$src" ] || return 1
+    grep -Eq "$ARCH187_CLASS_RE" "$src" 2>/dev/null
+  fi
 }
 
 # arch187_pin <repo> — закреплённый коммит модели (пусто — пина нет).
@@ -162,16 +188,86 @@ arch187_cleanup() {
   return 0
 }
 
-# arch187_locate <path> — компонент модели, если путь размещён. 0 — компонент в
-# stdout, 1 — путь не размещён.
+# arch187_locate <path> — компонент(ы) модели, если путь размещён.
+#
+# Ответ модели — МНОГОСТРОЧНЫЙ JSON (scope/path/status/matches[]/components/
+# implementationEvidence); первая строка ответа («{») компонентом НЕ является,
+# тело разбирается ЦЕЛИКОМ.
+#
+# КЛАСС ОТВЕТА ЗАДАЁТ ПОЛЕ status, а НЕ код возврата модели (угадывать по rc
+# нельзя — отказ не выдаётся за «модель права»):
+#   DECLARED   — путь размещён; компоненты — объединение matches[].components
+#                ВСЕХ матчей (первый компонент из множества молча НЕ выбирается);
+#   UNRESOLVED — ни один модуль не притязает на путь: путь не размещён.
+# Ответ без status, с незнакомым status, не-JSON или не-объект с массивом
+# matches — ВНЕ грамматики: именованный отказ ARCH_LOCATE_GRAMMAR (fail-closed:
+# зелёным suchой ответ стать не может).
+#
+# Возврат: 0 — путь размещён, набор компонентов — в ARCH187_LOCATE_COMPS;
+# 1 — путь не размещён (ARCH187_REFUSAL пуст) либо ответ вне грамматики
+# (ARCH187_REFUSAL назван).
+#
+# Результат — переменной, а НЕ stdout: отказ назван в ARCH187_REFUSAL, а
+# вызов в подshell (подстановка `$(...)`) этот отказ потерял бы — дверь решила
+# бы, что модель просто не разместила путь, и потеряла бы имя отказа.
 arch187_locate() {
-  local out rc=0
+  local path="${1:-}" out shape status comps c rest
+  ARCH187_REFUSAL=""
+  ARCH187_LOCATE_COMPS=""
   [ -n "${ARCH187_MODEL_DIR:-}" ] || return 1
-  out="$(cd "$ARCH187_MODEL_DIR" && node tooling/checks/cli.js locate --path "$1" 2>/dev/null)" || rc=$?
-  [ "$rc" -eq 0 ] || return 1
-  out="$(printf '%s' "$out" | tr -d '\r' | sed -n 1p)"
-  [ -n "$out" ] || return 1
-  printf '%s\n' "$out"
+  out="$(cd "$ARCH187_MODEL_DIR" && node tooling/checks/cli.js locate --path "$path" 2>/dev/null)" || true
+  # Пустой ответ — инструмент не отработал: вердикта о размещении нет.
+  if [ -z "$out" ]; then
+    ARCH187_REFUSAL="ARCH_LOCATE_GRAMMAR: модель не ответила на locate (пустой ответ): $path"
+    return 1
+  fi
+  # Канон ответа — JSON-объект с массивом matches.
+  shape="$(printf '%s' "$out" | jq -r 'if (type == "object") and ((.matches | type) == "array") then "ok" else "bad" end' 2>/dev/null)" || shape=""
+  if [ "$shape" != "ok" ]; then
+    ARCH187_REFUSAL="ARCH_LOCATE_GRAMMAR: ответ locate не разобран как JSON-объект с массивом matches: $path"
+    return 1
+  fi
+  status="$(printf '%s' "$out" | jq -r '(.status // "") | tostring' 2>/dev/null)" || status=""
+  case "$status" in
+    DECLARED) ;;
+    UNRESOLVED) return 1 ;;
+    '')
+      ARCH187_REFUSAL="ARCH_LOCATE_GRAMMAR: в ответе locate нет поля status: $path"
+      return 1
+      ;;
+    *)
+      ARCH187_REFUSAL="ARCH_LOCATE_GRAMMAR: незнакомое значение status в ответе locate: $status ($path)"
+      return 1
+      ;;
+  esac
+  # Компоненты — объединение matches[].components всех матчей (не первый из
+  # множества). Компонент не-строкой — ответ вне грамматики.
+  comps="$(printf '%s' "$out" | jq -r '
+      [ (.matches[]? | (.components? // []) | if type == "array" then .[] else empty end ) ]
+      | if all(.[]; type == "string")
+        then (unique | join(" "))
+        else "non..string"
+        end' 2>/dev/null)" || comps=""
+  # Грамматика id — та же, что у строки «АРХИТЕКТУРА:».
+  rest="$comps"
+  while [ -n "$rest" ]; do
+    c="${rest%% *}"
+    if [ "$rest" = "$c" ]; then rest=""; else rest="${rest#* }"; fi
+    case "$c" in
+      ''|[!A-Za-z0-9_]*|*[^A-Za-z0-9._-]*|*..*)
+        ARCH187_REFUSAL="ARCH_LOCATE_GRAMMAR: неконформный id компонента в ответе locate: $c"
+        return 1
+        ;;
+    esac
+  done
+  if [ -z "$comps" ]; then
+    # Размещение модель подтвердила, а компонент не назван: подтвердить
+    # размещение нечем — путь зелёным НЕ объявляется (component-less путь не
+    # разрешён: компонентной претензии нет, но и границы компонента нет).
+    ARCH187_REFUSAL="PATH_WITHOUT_COMPONENT: путь $path размещён моделью, но компонент не назван"
+    return 1
+  fi
+  ARCH187_LOCATE_COMPS="$comps"
   return 0
 }
 
@@ -305,16 +401,25 @@ arch187_zone_paths() {
   sed -n 's/^ЗОНА implementer:[[:space:]]*//p' "$1" 2>/dev/null | tr ' \t' '\n\n' | sed '/^$/d'
 }
 
+# arch187_component_set <список id через запятую> — нормализованный набор
+# компонентов (пробел-separated): список строки «АРХИТЕКТУРА:» сравнивается с
+# НАБОРОМ компонентов размещения, а не с одним литералом.
+arch187_component_set() {
+  printf '%s' "${1:-}" | tr ',' ' ' | tr -s ' ' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+}
+
 # arch187_zones <file> <repo> — размещение продуктовых путей в модели.
-# Размещение считается по модели (locate --path) и по границе компонента:
-# каталог пути должен относиться к тому же компоненту, что и сам путь.
-# Молчаливый отказ модели не превращается в зелёный результат: путь, который
-# модель не разместил, но который лежит в дереве продукта, — чужой компонент
-# (ARCH_ZONE); путь, которого нет ни в модели, ни в продукте, — неразмещённый
-# (PATH_WITHOUT_COMPONENT).
+# Размещение считается по ОТВЕТУ МОДЕЛИ (locate --path) и по границе
+# компонента: каталог пути должен относиться к тому же набору компонентов,
+# что и сам путь. Молчаливый отказ модели не превращается в зелёный результат:
+# путь, который модель не разместил, но который лежит в дереве продукта, —
+# чужой компонент (ARCH_ZONE); путь, которого нет ни в модели, ни в продукте,
+# — неразмещённый (PATH_WITHOUT_COMPONENT); ответ модели вне грамматики —
+# именованный отказ ARCH_LOCATE_GRAMMAR.
 arch187_zones() {
-  local file="${1:-}" repo="${2:-}" p dir comp okf okd
+  local file="${1:-}" repo="${2:-}" p dir fcomps dcomps c rest declared
   ARCH187_REFUSAL=""
+  declared="$(arch187_component_set "$ARCH187_COMPONENTS")"
   while IFS= read -r p; do
     [ -n "$p" ] || continue
     # Продуктовый путь — относительный и без выхода из дерева: значение из
@@ -325,22 +430,36 @@ arch187_zones() {
     case "/$p/" in
       */../*) ARCH187_REFUSAL="PATH_WITHOUT_COMPONENT: путь $p выходит за пределы дерева"; return 1 ;;
     esac
-    okf=0; okd=0; comp=""
-    if comp="$(arch187_locate "$p")"; then okf=1; fi
     case "$p" in
       */) dir="$p" ;;
       *)  dir="$(dirname "$p")/" ;;
     esac
-    if [ "$okf" = "1" ]; then
-      if dir="$(arch187_locate "$dir")"; then okd=1; fi
-      if [ "$okd" = "1" ] && [ "$dir" != "$comp" ]; then
-        ARCH187_REFUSAL="ARCH_ZONE: путь $p вне границы компонента $comp (каталог относится к $dir)"
+    # Размещение каталога пути и самого пути — по ответу модели (набор
+    # компонентов; ответ вне грамматики — именованный отказ, а не догадка).
+    dcomps=""
+    if arch187_locate "$dir"; then
+      dcomps="$ARCH187_LOCATE_COMPS"
+    else
+      if [ -n "$ARCH187_REFUSAL" ]; then
         return 1
       fi
+      dcomps=""
+    fi
+    fcomps=""
+    if arch187_locate "$p"; then
+      fcomps="$ARCH187_LOCATE_COMPS"
     else
-      if dir="$(arch187_locate "$dir")"; then okd=1; fi
-      if [ "$okd" = "1" ]; then
-        comp="$dir"
+      if [ -n "$ARCH187_REFUSAL" ]; then
+        return 1
+      fi
+      fcomps=""
+    fi
+    if [ -z "$fcomps" ]; then
+      # Модель путь не разместила: компонент берётся у каталога пути, если
+      # каталог размещён; иначе путь либо размещён в продукте (чужой
+      # компонент), либо не размещён нигде.
+      if [ -n "$dcomps" ]; then
+        fcomps="$dcomps"
       elif [ -e "$repo/$p" ]; then
         ARCH187_REFUSAL="ARCH_ZONE: путь $p размещён в продукте, но модель не относит его к заявленному компоненту"
         return 1
@@ -349,14 +468,27 @@ arch187_zones() {
         return 1
       fi
     fi
-    case " $ARCH187_COMPONENTS " in
-      *" $comp "*)
-        ;;
-      *)
-        ARCH187_REFUSAL="ARCH_ZONE: путь $p отнесён моделью к компоненту $comp, а строка «АРХИТЕКТУРА:» называет $ARCH187_COMPONENTS"
-        return 1
-        ;;
-    esac
+    # Граница компонента: каталог пути относится к тому же набору
+    # компонентов, что и сам путь.
+    if [ -n "$dcomps" ] && [ "$dcomps" != "$fcomps" ]; then
+      ARCH187_REFUSAL="ARCH_ZONE: путь $p вне границы компонента $fcomps (каталог относится к $dcomps)"
+      return 1
+    fi
+    # Каждый компонент размещения должен быть назван строкой «АРХИТЕКТУРА:»:
+    # первый из множества молча НЕ выбирается, чужой компонент не проходит.
+    rest="$fcomps"
+    while [ -n "$rest" ]; do
+      c="${rest%% *}"
+      if [ "$rest" = "$c" ]; then rest=""; else rest="${rest#* }"; fi
+      case " $declared " in
+        *" $c "*)
+          ;;
+        *)
+          ARCH187_REFUSAL="ARCH_ZONE: путь $p отнесён моделью к компоненту $c, а строка «АРХИТЕКТУРА:» называет $ARCH187_COMPONENTS"
+          return 1
+          ;;
+      esac
+    done
   done < <(arch187_zone_paths "$file")
   return 0
 }

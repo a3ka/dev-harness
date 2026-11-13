@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-"""Independent public-door probes for the 187 cutover. Synthetic projects own their .git."""
+"""Public-door probes for 187/1; synthetic projects own their .git.
+
+locate uses the captured CompliorOS-architecture JSON protocol, not an echo of an ID.
+The existing no-local brief pair uses 180's inline code-class metadata and a large
+contract body outside context sections; missing-line must still refuse without a pack.
+An explicit document brief is a separate case.
+
+Граница JSON проверяется публичным make_task: обрезанный ответ и одна группа
+status (отсутствующий/неизвестный при rc 0 и пустых matches[].components)
+дают ARCH_LOCATE_GRAMMAR rc 1 без stdout-пака. Это неконформные ответы CLI,
+а не новые варианты допустимой грамматики; task-valid остаётся парным контролем.
+"""
 import hashlib
 import json
 import os
@@ -20,8 +31,14 @@ CASES = (
     ('task-line-blank', 'task', 'line-blank', 1, 'ARCH_LINE_MISSING', 'task'),
     ('task-l3', 'task', 'l3', 1, 'ARCH_OWNER', 'task'),
     ('task-unmapped', 'task', 'unmapped', 1, 'PATH_WITHOUT_COMPONENT', 'task'),
+    ('task-foreign', 'task', 'task-foreign', 1, 'ARCH_ZONE', 'task'),
+    ('task-locate-json-malformed', 'task', 'locate-malformed', 1, 'ARCH_LOCATE_GRAMMAR', 'task'),
+    *((f'task-locate-status-{status}', 'task', f'locate-status-{status}',
+       1, 'ARCH_LOCATE_GRAMMAR', 'task') for status in ('missing', 'unknown')),
     ('brief-lock', 'task', 'brief-lock', 0, 'PINNED_BRIEF_187', 'task'),
     ('brief-no-local-copy', 'task', 'no-local', 0, 'PINNED_BRIEF_187', 'task'),
+    ('brief-inline-line-missing', 'task', 'inline-line-missing', 1, 'ARCH_LINE_MISSING', 'task'),
+    ('brief-document-no-local', 'task', 'document-no-local', 0, 'PINNED_BRIEF_187', 'task'),
     ('brief-with-rules', 'task', 'with-rules', 0, 'RULES_FROM_PIN_187', 'task'),
     ('brief-no-rules', 'task', 'no-rules', 0, 'PINNED_BRIEF_187', 'task'),
     ('freeze-valid', 'freeze', '', 0, '', 'freeze'),
@@ -59,6 +76,17 @@ STABS = {
     'task-unmapped-path': ('task-unmapped', 'allow-unmapped'),
     'brief-from-head': ('brief-lock', 'use-head'),
     'brief-requires-local-copy': ('brief-no-local-copy', 'requires-local'),
+    'locate-first-line-json': ('task-valid', 'locate-first-line'),
+    'inline-code-local-fallback': ('brief-no-local-copy', 'anchored-class'),
+    'inline-code-gate-skipped': ('brief-inline-line-missing', 'anchored-class'),
+    'document-brief-requires-local': ('brief-document-no-local', 'requires-local'),
+    'task-foreign-accepted': ('task-foreign', 'allow-zone'),
+    'task-pack-before-refusal': ('brief-inline-line-missing', 'pack-then-refuse'),
+    'locate-malformed-first-line': ('task-locate-json-malformed', 'locate-first-line'),
+    **{f'locate-status-{status}-guessed':
+       (f'task-locate-status-{status}', 'guess-locate-status')
+       for status in ('missing', 'unknown')},
+    'locate-status-pack-before-refusal': ('task-locate-status-missing', 'pack-then-refuse'),
     'brief-rules-omitted': ('brief-with-rules', 'omit-rules'),
     'brief-rules-leaked': ('brief-no-rules', 'leak-rules'),
     'zone-foreign': ('freeze-foreign', 'allow-zone'),
@@ -90,6 +118,9 @@ STABS = {
 # and verify-pin.js read it); the lock names it by canonical digest, format 167.
 SNAPSHOT = 'governance/baseline/approved.json'
 CHECK_OPTIONS = ('model', 'report', 'strict', 'base', 'base-digest')
+
+# Real stdout channel of make_task, also forbidden on a named task refusal.
+PACK_MARKER = '=== make_task contract='
 
 def digest(value):
     """Canonical SHA-256 of the real model: sorted keys, JSON.stringify bytes."""
@@ -151,8 +182,28 @@ if (name==='brief') {
  if(a.includes('--with-rules')) console.log('RULES_FROM_PIN_187 semanticInvariant: no second writer; scope_id fixed');
 } else if(name==='locate') {
  const p=a[a.indexOf('--path')+1];
- if(p.startsWith('app/identity/')) console.log('api.identity');
- else { console.error('PATH_WITHOUT_COMPONENT'); process.exit(1); }
+ const prefix=p.startsWith('app/identity/')?'app/identity/':p.startsWith('app/billing/')?'app/billing/':'';
+ const components=prefix?[prefix==='app/identity/'?'api.identity':'api.billing']:[];
+ const matches=prefix?[{module:'module.'+prefix.split('/')[1],components,
+   specification:prefix+'module.js',explicit:false,matched:prefix}]:[];
+ // Same fields as ACTUAL-LOCATE-007-1113.json, pretty-printed as the real CLI.
+ const response={scope:'DECLARED_PLACEMENT_ONLY',path:p,
+   status:matches.length?'DECLARED':'UNRESOLVED',matches,
+   implementationEvidence:'NOT_ASSESSED'};
+ const boundary=fs.readFileSync('locate-boundary','utf8').trim();
+ if(boundary==='locate-malformed') {
+   console.log(JSON.stringify(response,null,2).slice(0,-1));
+   process.exit(0);
+ }
+ if(boundary==='locate-status-missing'||boundary==='locate-status-unknown') {
+   response.matches=matches.map(match=>({...match,components:[]}));
+   delete response.status;
+   if(boundary==='locate-status-unknown') response.status='UNKNOWN';
+   console.log(JSON.stringify(response,null,2));
+   process.exit(0);
+ }
+ console.log(JSON.stringify(response,null,2));
+ if(!matches.length) process.exit(1);
 } else if(name==='check') {
  const allowed=['model','report','strict','base','base-digest']; const o={};
  const out=(status,code,rc)=>{console.log(JSON.stringify({status,findings:code?[{code}]:[]}));process.exit(rc);};
@@ -173,6 +224,7 @@ if (name==='brief') {
 } else process.exit(2);
 ''')
     put(arch, 'check-rc', (variation[-1] if variation in ('check-1', 'check-2') else '0') + '\n')
+    put(arch, 'locate-boundary', variation + '\n')
     put(arch, SNAPSHOT, json.dumps(snapshot(1)))
     git(arch, 'add', '-A')
     git(arch, 'commit', '-qm', 'published architecture')
@@ -207,7 +259,7 @@ def prepare(root, arch, pinned, variation):
             f'step\tarch-187-{i}\t1\t{command}\n' for i, command in enumerate(commands)))
     role = 'implementer' if variation == 'no-rules' else 'architect'
     task = root / 'task-187.md'
-    task.write_text('SUBJECT=777\nАРХИТЕКТУРА: L1 api.identity\nЗОНА implementer: app/identity/model.js\n')
+    task.write_text('SUBJECT=777\nАРХИТЕКТУРА: L2 api.identity\nЗОНА implementer: app/identity/\n')
     if variation in ('mobile', 'harness'):
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('АРХИТЕКТУРА: L1 api.identity\n', ''))
     trace = root / 'trace-187.tsv'
@@ -215,11 +267,27 @@ def prepare(root, arch, pinned, variation):
     # The check-run report is external to the subject repo and names the final SHA.
     record = {'total_count': 1, 'check_runs': [
         {'id': 187, 'name': 'arch', 'status': 'completed', 'conclusion': 'success'}]}
-    if variation == 'line-missing':
-        task.write_text(task.read_text().replace('АРХИТЕКТУРА: L1 api.identity\n', ''))
+    if variation in ('line-missing', 'inline-line-missing', 'document-no-local'):
+        task.write_text(task.read_text().replace('АРХИТЕКТУРА: L2 api.identity\n', ''))
     elif variation == 'line-blank':
-        task.write_text(task.read_text().replace('АРХИТЕКТУРА: L1 api.identity', 'АРХИТЕКТУРА: '))
-    elif variation == 'no-local':
+        task.write_text(task.read_text().replace('АРХИТЕКТУРА: L2 api.identity', 'АРХИТЕКТУРА: '))
+    if variation in ('no-local', 'inline-line-missing'):
+        # Real 180 is 94,015 bytes with its code class near the start. Amplify its
+        # supported large-contract path beyond a 1 MiB Linux pipe capacity so an
+        # early-exiting class predicate cannot hide behind a small buffered write.
+        # This ordinary Markdown appendix is outside the selected context sections:
+        # full CBYTES reaches the public door while the valid pair's pack stays small.
+        contract = (root / CONTRACT).read_text().replace(
+            'КЛАСС ЗАДАЧИ: кодовый.',
+            'Идентификатор: `id/CONTRACT/777`. КЛАСС ЗАДАЧИ: кодовый (реализация).')
+        example = '| identity.lookup | schema.query | schema.record | app/identity/model.js |\n'
+        appendix = '\n## Примеры реализации\n\n| Операция | Вход | Выход | Путь |\n| --- | --- | --- | --- |\n'
+        appendix += example * (94_015 * 16 // len(example.encode()) + 1)
+        put(root, CONTRACT, contract + appendix)
+    elif variation == 'document-no-local':
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+            'КЛАСС ЗАДАЧИ: кодовый.', 'КЛАСС ЗАДАЧИ: документальный.'))
+    if variation in ('no-local', 'inline-line-missing', 'document-no-local'):
         for file in (root / 'architecture').rglob('*'):
             if file.is_file(): file.unlink()
         for directory in sorted((root / 'architecture').rglob('*'), reverse=True):
@@ -228,10 +296,12 @@ def prepare(root, arch, pinned, variation):
     elif variation == 'freeze-no-line':
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('АРХИТЕКТУРА: L1 api.identity\n', ''))
     elif variation == 'l3':
-        task.write_text(task.read_text().replace('L1 api.identity', 'L3 api.identity'))
+        task.write_text(task.read_text().replace('L2 api.identity', 'L3 api.identity'))
     elif variation == 'unmapped':
-        task.write_text(task.read_text().replace('app/identity/model.js', 'server/src/auth/evil.js'))
+        task.write_text(task.read_text().replace('app/identity/', 'server/src/auth/'))
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', 'server/src/auth/evil.js'))
+    elif variation == 'task-foreign':
+        task.write_text(task.read_text().replace('app/identity/', 'app/billing/'))
     elif variation == 'foreign':
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', 'app/billing/evil.js'))
         put(root, 'app/billing/evil.js', 'module.exports=2;\n')
@@ -283,13 +353,26 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
     contract = (root / CONTRACT).read_text()
     if action == 'task':
         text = task.read_text()
+        if mutant == 'anchored-class' and variation in ('no-local', 'inline-line-missing'):
+            if variation == 'no-local':
+                return 1, 'ARCHITECTURE_NET'
+            return 0, 'PINNED_BRIEF_187 api.identity\nRULES_FROM_PIN_187\nSTRUCTURE.md'
+        if mutant == 'pack-then-refuse':
+            reason = 'ARCH_LOCATE_GRAMMAR' if variation.startswith('locate-') else 'ARCH_LINE_MISSING'
+            return 1, PACK_MARKER + '777 role=architect kind=task ===\n' + reason
         if (not any(line.startswith('АРХИТЕКТУРА: L1 ') or line.startswith('АРХИТЕКТУРА: L2 ')
-                    or line.startswith('АРХИТЕКТУРА: L3 ') for line in text.splitlines())) and mutant != 'allow-line':
+                    or line.startswith('АРХИТЕКТУРА: L3 ') for line in text.splitlines())) and mutant != 'allow-line' and variation != 'document-no-local':
             return 1, 'ARCH_LINE_MISSING'
         if 'АРХИТЕКТУРА: L3 ' in text and mutant != 'allow-l3':
             return 1, 'ARCH_OWNER'
         if 'server/src/auth/' in text and mutant != 'allow-unmapped':
             return 1, 'PATH_WITHOUT_COMPONENT'
+        if 'app/billing/' in text and mutant != 'allow-zone':
+            return 1, 'ARCH_ZONE'
+        if mutant == 'locate-first-line':
+            return 1, 'ARCH_ZONE: компонент { не объявлен'
+        if variation.startswith('locate-') and mutant != 'guess-locate-status':
+            return 1, 'ARCH_LOCATE_GRAMMAR'
         revision = git(arch, 'rev-parse', 'HEAD') if mutant == 'use-head' else pinned
         if mutant == 'requires-local' and not (root / 'architecture').exists():
             return 1, 'ARCHITECTURE_NET'
@@ -390,6 +473,8 @@ def main():
                 result = live(tools, root, arch, pinned, action, task, trace, role)
                 rc, output = result.returncode, result.stdout + result.stderr
             ok = (rc == expected and (not reason or reason in output))
+            if action == 'task' and expected and PACK_MARKER in output:
+                ok = False
             if action == 'task' and not expected:
                 if 'PINNED_BRIEF_187' not in output or 'WRONG_HEAD_BRIEF_187' in output:
                     ok = False
@@ -410,6 +495,8 @@ def main():
                     if case != label: continue
                     fake_rc, fake_out = verdict(root, arch, pinned, action, task, role, mutant, variation=variation)
                     caught = fake_rc != expected or (reason and reason not in fake_out)
+                    if action == 'task' and expected and PACK_MARKER in fake_out:
+                        caught = True
                     if not expected and action == 'task':
                         caught = caught or ('PINNED_BRIEF_187' not in fake_out or
                             'WRONG_HEAD_BRIEF_187' in fake_out or

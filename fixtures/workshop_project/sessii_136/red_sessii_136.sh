@@ -270,12 +270,14 @@ mk_bez_bin() { # $1 = каталог; $2 = исключаемое имя
 dver_msg() { awk 'f{print} $0=="--"{f=1}' "$W/args.txt" 2>/dev/null; }
 dver_argv() { ARGS=(); if [ -f "$W/args0.bin" ]; then mapfile -d '' -t ARGS < "$W/args0.bin"; fi; }
 # сцена субъекта make_task: файл субъекта (дерево|модель|стаб) дословно +
-# НЕменяемые контрактом 136 спутники дерева (profile_resolver.sh, next_id.sh —
-# сиблинги по $(dirname $0), в model/ их нет)
+# НЕменяемые контрактом 136 спутники дерева (profile_resolver.sh, next_id.sh,
+# check_architecture_contract.sh — сиблинги по $(dirname $0), в model/ их нет).
+# Общая грамматика класса 187 нужна make_task --kind task и вне backend.
 mkt_dir() {
   local d="$W/mktbin"; mkdir -p "$d"
   cp "$MKT" "$d/make_task.sh"
-  cp "$ROOT/scripts/profile_resolver.sh" "$ROOT/scripts/next_id.sh" "$d/"
+  cp "$ROOT/scripts/profile_resolver.sh" "$ROOT/scripts/next_id.sh" \
+    "$ROOT/scripts/check_architecture_contract.sh" "$d/"
   printf '%s' "$d/make_task.sh"
 }
 # сцена субъекта verify_ci_parity (ось F, v3.2): файл субъекта
