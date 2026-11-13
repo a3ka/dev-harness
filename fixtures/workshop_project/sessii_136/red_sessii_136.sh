@@ -95,6 +95,40 @@
 # идентичны, обхода нет по ревьюеру; граница «diff = точки модели»
 # буквальна). R136d-S2: миры — под уникальным MIR_BASE в $TMPDIR
 # (параллельные прогоны делили фиксированные пути).
+# 136 v3.3 — МИГРАЦИЯ НА trace-API (ремонт-волна 2026-11-13, parent-прогон
+# 87/75/12 на дереве-кандидате): config-witness упразднён производством —
+# назначение модели в config/agent_models.json НЕ свидетельство запуска;
+# дверь НЕ сеет и НЕ судит <registry>/trace.tsv (живой TSV готовят workshop
+# и session-trace.ts в state дома сессии, make_task читает его через
+# HARNESS_MODEL_TRACE; явный --model-trace первичен, неисправный ЯВНЫЙ вход
+# не замещается молча; implicit без истины — именованный отказ без пака).
+# Замер parent: 12 красных = проверки упразднённого производителя:
+#   c3 (TRACE брифа из посева конфига), c6–c9 (trassa-rashozhdenie: подмена/
+#   дубль/лишняя строка/read-only), c10 (контроль равенства конфигу),
+#   e1/e2 (посев/суд эффективного реестра трассы) — УДАЛЕНЫ, не перепинены
+#   (возвращать config-seed в runtime ради клеток запрещено);
+#   b1/b2 (повтор/раскладка) и c1/c2/c5 (бриф П17 + явная валидная трасса) —
+#   легитимные потребительские границы СОХРАНЕНЫ с исправленным входом:
+#   b1 — повтор без потери state (HANDOFF, перечень исключений, legacy
+#   trace.tsv не тронут, worktree один), b2 — раскладка ПО ФАКТУ профиля:
+#   сев ТОЛЬКО перечня исключений, trace.tsv не создаётся нигде, корневого
+#   config/ нет; c1/c2 — бриф несёт MAP/RULES строк без orchestrator в roles
+#   со свидетельством HARNESS_MODEL_TRACE (env-канал живой сессии);
+#   c5 — явный валидный --model-trace печатает TRACE этой модели.
+# Причина красноты c5 найдена причинным чтением: бриф-ветка кандидатного
+# make_task источает scripts/lib_plan.sh и читает $P84_ST_DONE под set -u —
+# сцена mkt_dir библиотеку не копировала, unbound variable убивала ЛЮБОЙ
+# бриф (не production-дефект: в установке сиблинг лежит рядом).
+# b3/b4/b5 (trassa-net-konfiga: конфига нет/битая/нет jq) — ЗЕЛЁНЫЕ,
+# не тронуты: fail-closed проверка КОНФИГА установки в двери сохранена
+# (резолверу нужен jq; отказ остаётся именованным по трассе).
+# Стабы: s5 (нет трассы — честное поведение теперь) и s39-старый
+# (молча принимает) удалены/перевыведены; s39 := старая модель двери
+# (trassa-rashozhdenie-блок целиком — возврат упразднённого производителя);
+# s40/s41 := новая дверь + перезапись/дописывание trace.tsv из конфига;
+# s6/s7 перевыведены на кандидатный make_task (фильтр в брифе; игнор
+# HARNESS_MODEL_TRACE); s11 → b2, s12 → b2+d1, s42 → f1+f2 (дверь со своим
+# jq сеет не тот реестр — ловят ворота паритета на nowf-профиле).
 #
 # Дверь исполняется из песочницы $SB (копия файла двери + двойник workshop рядом): дверь
 # дословно разрешает(exec) $HERE/workshop — двойник пишет по одному аргументу в строку в
@@ -106,7 +140,7 @@
 #   --model     — честные модели model/ (дерево + точки правок контракта) → rc 0;
 #   --stabs     — каждый стаб гасит свой субъект, его клетки ОБЯЗАНЫ покраснеть;
 #                 rc 0 «стабов <N>, привязок <M>, непойманных 0» (счёт — из
-#                 source.json, v3.2-достройка: 45/87; тексты контракта frozen
+#                 source.json, v3.3-миграция: 44/82; тексты контракта frozen
 #                 136/2 и его версии несут исторические 37/54 и 42/66).
 #
 # Миры — под уникальным $MIR_BASE/w-<клетка>/** в $TMPDIR запуска (оракулы в
@@ -274,8 +308,11 @@ dver_argv() { ARGS=(); if [ -f "$W/args0.bin" ]; then mapfile -d '' -t ARGS < "$
 # сиблинги по $(dirname $0), в model/ их нет)
 mkt_dir() {
   local d="$W/mktbin"; mkdir -p "$d"
+  # v3.3: кандидатный make_task в бриф-ветке источает scripts/lib_plan.sh
+  # (plan_status/P84_ST_* под set -u) — сиблинг копируется в сцену как
+  # НЕменяемый спутник, рядом с profile_resolver/next_id
   cp "$MKT" "$d/make_task.sh"
-  cp "$ROOT/scripts/profile_resolver.sh" "$ROOT/scripts/next_id.sh" "$d/"
+  cp "$ROOT/scripts/profile_resolver.sh" "$ROOT/scripts/next_id.sh" "$ROOT/scripts/lib_plan.sh" "$d/"
   printf '%s' "$d/make_task.sh"
 }
 # сцена субъекта verify_ci_parity (ось F, v3.2): файл субъекта
@@ -515,22 +552,38 @@ k_a50() { # 136 v2-достройка (ось B: страж ЕСТЬ, но ну�
   mk_mir a50-strazh-nulevoj-fajl
   DVER_EMPTYGUARD=1; run_dver
   [ "$DVER_RC" = 1 ] && grep -q 'PIN_CHUZHOJ' "$W/dvor.err" && [ ! -e "$W/args.txt" ]; }
-k_b1() { mk_mir b1-povtor; run_dver
-  local K tr ex tr1 ex1 hd1
-  K="$SEED"; tr="$K/.harness/records/trace.tsv"; ex="$K/.harness/records/ci_parity_exceptions.txt"
-  [ -f "$tr" ] && [ -f "$ex" ] || return 1
-  tr1="$(cat "$tr")"; ex1="$(cat "$ex")"
+k_b1() { # v3.3: повтор без потери state на новой семантике трассы — дверь
+  # trace.tsv не производит и не судит (config-witness упразднён): legacy
+  # файл в эффективном реестре переживает повторный вход байт-в-байт,
+  # отказом «рассогласование» дверь больше не стреляет (мутант-возврат
+  # s39 ловится здесь); HANDOFF владельца и перечень исключений не
+  # переписываются, второй worktree не создаётся (И-5/И-7).
+  mk_mir b1-povtor; run_dver
+  local K ex hd1 tr1 ex1
+  K="$SEED"; ex="$K/.harness/records/ci_parity_exceptions.txt"
+  [ -f "$ex" ] || return 1
   printf '## ГДЕ МЫ\n\n- правка владельца между входами двери.\n' > "$K/.harness/HANDOFF.md"
   hd1="$(cat "$K/.harness/HANDOFF.md")"
-  run_dver
-  [ "$(cat "$tr")" = "$tr1" ] && [ "$(cat "$ex")" = "$ex1" ] \
+  printf 'orchestrator\tevil-model\tallowed\n' > "$K/.harness/records/trace.tsv"
+  tr1="$(cat "$K/.harness/records/trace.tsv")"; ex1="$(cat "$ex")"
+  rm -f "$W/args.txt"; run_dver
+  [ "$DVER_RC" = 7 ] \
     && [ "$(cat "$K/.harness/HANDOFF.md")" = "$hd1" ] \
+    && [ "$(cat "$ex")" = "$ex1" ] \
+    && [ "$(cat "$K/.harness/records/trace.tsv")" = "$tr1" ] \
     && [ "$(git -C "$K" worktree list --porcelain | grep -c 'wip-136-demo')" = "1" ]; }
-k_b2() { mk_mir b2-p10-raskladka; run_dver
-  # раскладка ПО ФАКТУ профиля (registry=.harness/records): сев двери — в
-  # records, корневого config/ нет (блокер 3 критика r1)
+k_b2() { # v3.3: раскладка ПО ФАКТУ профиля (registry=.harness/records) после
+  # упразднения config-witness: дверь сеет ТОЛЬКО пустой перечень исключений
+  # в ЭФФЕКТИВНЫЙ реестр; trace.tsv НЕ создаётся нигде — назначение модели в
+  # конфиге установки не свидетельство запуска (возврат посева = возврат
+  # фальшивого производителя, ловится здесь и в f1/f2 на nowf-профиле);
+  # корневого config/ нет (блокер 3 критика r1).
+  mk_mir b2-p10-raskladka; run_dver
   local K; K="$SEED"
-  [ -f "$K/.harness/records/ci_parity_exceptions.txt" ] && [ -f "$K/.harness/records/trace.tsv" ] \
+  [ "$DVER_RC" = 7 ] || return 1
+  { [ -f "$K/.harness/records/ci_parity_exceptions.txt" ] \
+    && [ ! -s "$K/.harness/records/ci_parity_exceptions.txt" ]; } || return 1
+  [ ! -e "$K/.harness/records/trace.tsv" ] \
     && [ ! -e "$K/.harness/registry/trace.tsv" ] \
     && [ ! -e "$K/.harness/registry/ci_parity_exceptions.txt" ] \
     && [ ! -e "$K/config" ]; }
@@ -554,32 +607,36 @@ k_b5() { # 136 v2-достройка (ось C, четвёртое состоя�
     && [ ! -e "$W/args.txt" ] \
     && [ ! -e "$SEED/.harness/records/trace.tsv" ] \
     && [ ! -e "$SEED/.harness/registry/trace.tsv" ]; }
-mkt_brief() {
+mkt_brief() { # v3.3: первый аргумент --env-trace <файл> — свидетельство
+  # модели ЖИВОЙ сессии env-каналом HARNESS_MODEL_TRACE (его публикует
+  # session-trace runtime; config/registry-посев упразднён); остальные
+  # аргументы проходят CLI make_task как есть.
   local mb; mb="$(mkt_dir)"
-  env HOME="$FH" HARNESS_PROJECT_LAYER_ROOT="$SEED" \
-    bash "$mb" --repo "$SEED" --role orchestrator --kind brief "$@" 2>"$W/mkt.err"
+  if [ "${1:-}" = "--env-trace" ]; then
+    env HOME="$FH" HARNESS_PROJECT_LAYER_ROOT="$SEED" HARNESS_MODEL_TRACE="$2" \
+      bash "$mb" --repo "$SEED" --role orchestrator --kind brief "${@:3}" 2>"$W/mkt.err"
+  else
+    env HOME="$FH" HARNESS_PROJECT_LAYER_ROOT="$SEED" \
+      bash "$mb" --repo "$SEED" --role orchestrator --kind brief "$@" 2>"$W/mkt.err"
+  fi
 }
 # (SIGPIPE, критик r2: производитель в конвейере, потребитель с ранним -q —
 # под pipefail ложное красное; выход сперва в переменную, grep — полный проход).
-k_c1() { mk_mir c1-p17-map; run_dver
-  local out; out="$(mkt_brief)" || return 1
+k_c1() { # v3.3: П17 — бриф несёт MAP строк, чьи roles НЕ содержат
+  # orchestrator (фильтра нет); свидетельство — env-канал HARNESS_MODEL_TRACE
+  mk_mir c1-p17-map; run_dver
+  printf 'orchestrator\tminimax/m1\tallowed\n' > "$W/tr-c1.tsv"
+  local out; out="$(mkt_brief --env-trace "$W/tr-c1.tsv")" || return 1
   grep -Fqx 'MAP: docs/ARCHITECTURE.md :: карта архитектуры проекта' <<<"$out" >/dev/null; }
-k_c2() { mk_mir c2-p17-rules; run_dver
-  local out; out="$(mkt_brief)" || return 1
+k_c2() { # v3.3: П17 — RULES строка без orchestrator в roles, тот же env-канал
+  mk_mir c2-p17-rules; run_dver
+  printf 'orchestrator\tminimax/m1\tallowed\n' > "$W/tr-c2.tsv"
+  local out; out="$(mkt_brief --env-trace "$W/tr-c2.tsv")" || return 1
   grep -Fqx 'RULES: docs/CODING-STANDARDS.md' <<<"$out" >/dev/null; }
-k_c3() { mk_mir c3-p5-trassa
-  # источник трассы — КОНФИГ УСТАНОВКИ (блокер 2 критика r1, В-4а):
-  # конфиг назначает оркестратору Sonnet — трасса обязана нести ЕГО,
-  # зашитый GLM = рассогласование trace↔конфиг. Ожидание снято из того же
-  # конфига той же jq-цепочкой, что у двери (одна грамматика значений).
-  local out model
-  DVER_CONFIG='{"roles":{"orchestrator":"default"},"tiers":{"default":{"model":"@sonnet136"}},"models":{"sonnet136":"anthropic/claude-sonnet-5-5"}}'
-  run_dver
-  model="$(printf '%s' "$DVER_CONFIG" | jq -r '.roles.orchestrator as $r | .tiers[$r].model as $m | .models[$m[1:]]')"
-  out="$(mkt_brief)" \
-    && [ "$model" = "anthropic/claude-sonnet-5-5" ] \
-    && grep -Fq "TRACE: role=orchestrator model=$model fallback=allowed" <<<"$out" \
-    && ! grep -Fq 'model=zai/glm-5.3' <<<"$out"; }
+# v3.3: k_c3-p5-trassa-defolt УДАЛЕН — проверял TRACE брифа из посева
+# trace.tsv значениями КОНФИГА установки (упразднённый config-witness
+# производитель). Возвращать посев ради клетки запрещено; источник
+# свидетельства теперь живой трейс (c1/c2 env-канал, c5 явный вход).
 k_c4() { mk_mir c4-kontrol; run_dver
   local out rc
   # трасса — оракул клетки (не дверь): судья critic + автор architect разных семей
@@ -589,41 +646,22 @@ k_c4() { mk_mir c4-kontrol; run_dver
     bash "$mb" --repo "$SEED" --role critic --kind task --contract 777 \
       --model-trace "$W/c4trace.tsv" 2>"$W/mkt.err")"; rc=$?
   [ "$rc" -eq 0 ] && [ -n "$out" ] && ! grep -Fq 'MAP: docs/ARCHITECTURE.md' <<<"$out"; }
-k_c5() { mk_mir c5-jeksplizit; run_dver
+k_c5() { # v3.3: явный ВАЛИДНЫЙ --model-trace обязан работать — TRACE печатается
+  # моделью из явного файла, ничем не замещается (тихий fallback при
+  # неисправном ЯВНОМ входе — отдельная граница 169). Краснота этой клетки
+  # на кандидатном дереве была дефектом СЦЕНЫ, не производства: бриф-ветка
+  # make_task источает lib_plan.sh ($P84_ST_* под set -u) — mkt_dir его
+  # теперь копирует (см. v3.3 в шапке).
+  mk_mir c5-jeksplizit; run_dver
   local out; printf 'orchestrator\tanthropic/opus\tallowed\n' > "$W/explicit.tsv"
   out="$(mkt_brief --model-trace "$W/explicit.tsv")" \
     && grep -Fq 'TRACE: role=orchestrator model=anthropic/opus fallback=allowed' <<<"$out"; }
-k_trassa_case() { # 136 v2-усиление (адверсарий B2, вердикт keep136adv):
-  # существующий trace.tsv ≠ выведенному из конфига установки — источник
-  # трассы один (И-6), рассогласование исключено по построению: подмена
-  # (чужая модель / дубль строк / лишняя строка / read-only файл) —
-  # именованный отказ trassa-rashozhdenie rc 1 ДО exec, файл не изменён
-  # (И-7: ни молчаливое принятие, ни перезапись, ни дописывание); конфиг
-  # клетки назначает оркестратору anthropic/claude-sonnet-5-5 (ожидание —
-  # той же jq-цепочкой, что у двери: одна грамматика значений).
-  local slug="$1" soderzh="$2" tr
-  mk_mir "$slug"
-  DVER_CONFIG='{"roles":{"orchestrator":"default"},"tiers":{"default":{"model":"@sonnet136"}},"models":{"sonnet136":"anthropic/claude-sonnet-5-5"}}'
-  tr="$SEED/.harness/records/trace.tsv"
-  printf '%b' "$soderzh" > "$tr"
-  [ "$slug" = c9-trassa-readonly ] && chmod 444 "$tr"
-  cp "$tr" "$W/tr.before"; rm -f "$W/args.txt"; run_dver
-  [ "$DVER_RC" = 1 ] && grep -q 'trassa-rashozhdenie' "$W/dvor.err" \
-    && [ ! -e "$W/args.txt" ] && cmp -s "$W/tr.before" "$tr"; }
-k_c6()  { k_trassa_case c6-trassa-podmena-modeli 'orchestrator\tevil-model\tallowed\n'; }
-k_c7()  { k_trassa_case c7-trassa-dubl-strok 'orchestrator\tfirst-model\tallowed\norchestrator\tsecond-model\tallowed\n'; }
-k_c8()  { k_trassa_case c8-trassa-lishnjaja-stroka 'orchestrator\tanthropic/claude-sonnet-5-5\tallowed\ncritic\tminimax/m1\tallowed\n'; }
-k_c9()  { k_trassa_case c9-trassa-readonly 'orchestrator\tevil-model\tallowed\n'; }
-k_c10() { # 136 v2-усиление КОНТРОЛЬ (адверсарий B2): существующий trace.tsv
-  # РАВЕН выведенному из конфига — повтор (И-7): без записи (байт-в-байт),
-  # дверь идёт дальше — сессия поднимается (exec двойника, rc 7).
-  mk_mir c10-kontrol-trassa-ravna
-  DVER_CONFIG='{"roles":{"orchestrator":"default"},"tiers":{"default":{"model":"@sonnet136"}},"models":{"sonnet136":"anthropic/claude-sonnet-5-5"}}'
-  printf 'orchestrator\tanthropic/claude-sonnet-5-5\tallowed\n' > "$SEED/.harness/records/trace.tsv"
-  cp "$SEED/.harness/records/trace.tsv" "$W/tr10.before"
-  rm -f "$W/args.txt"; run_dver
-  [ "$DVER_RC" = 7 ] && [ -f "$W/args.txt" ] \
-    && cmp -s "$W/tr10.before" "$SEED/.harness/records/trace.tsv"; }
+# v3.3: k_c6–k_c10 (trassa-rashozhdenie: подмена/дубль/лишняя строка/
+# read-only + контроль равенства конфигу) УДАЛЕНЫ — сверка существующего
+# trace.tsv с КОНФИГОМ установки проверяла упразднённого производителя
+# («рассогласование trace↔конфиг исключено по построению» больше не норма:
+# конфиг не источник свидетельства). Выжившие границы переехали в b1
+# (дверь не трогает существующий trace.tsv) и b2 (дверь не сеет trace.tsv).
 k_d1() { mk_mir d1-p10; run_dver
   # сев двери: ПУСТОЙ перечень в ПЕРЕОПРЕДЕЛЁННОМ workflowPaths.registry
   # (.harness/records) сразу после входа — заполнение уже дело проекта
@@ -815,43 +853,15 @@ k_d14() { # 136 v2-усиление КОНТРОЛЬ (адверсарий B1): 
   local rc=0
   env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-d14.out" 2>&1 || rc=$?
   [ "$rc" = 1 ] && grep -q 'FAIL' "$W/par-d14.out"; }
-k_e1() { # ось E (Rev136c-B1): профиль БЕЗ workflowPaths целиком — законный
-  # вход 996 (repo:workflowPaths:optional); эффективный реестр ЕДИНОГО
-  # project_paths_resolve — FALLBACK-NO-WORKFLOW $REPO/registry. Дверь,
-  # берущая путь реестра СВОИМ jq (.workflowPaths.registry // ".harness/registry"),
-  # судит .harness/registry ≠ $REPO/registry: закоммиченный подложенный
-  # registry/trace.tsv (evil-model) она не видит, сеет .harness/registry и
-  # поднимает сессию — make_task читает подложку (обход X Rev136c). Ожидание
-  # из frozen И-6 + модель угроз («рассогласование trace.tsv ↔ конфиг исключено
-  # по построению», имя отказа — из B2 прошлого круга): trassa-rashozhdenie
-  # rc 1 ДО exec, подложенный файл не изменён, .harness/registry/trace.tsv
-  # не создаётся.
-  mk_mir e1-trassa-fallback-podmena nowf
-  DVER_CONFIG='{"roles":{"orchestrator":"default"},"tiers":{"default":{"model":"@sonnet136"}},"models":{"sonnet136":"anthropic/claude-sonnet-5-5"}}'
-  mkdir -p "$SEED/registry"
-  printf 'orchestrator\tevil-model\tallowed\n' > "$SEED/registry/trace.tsv"
-  cp "$SEED/registry/trace.tsv" "$W/tr-e1.before"
-  git -C "$SEED" add registry/trace.tsv
-  git -C "$SEED" -c user.name=t -c user.email=t@t commit -q -m 'planted trace'
-  rm -f "$W/args.txt"; run_dver
-  [ "$DVER_RC" = 1 ] && grep -q 'trassa-rashozhdenie' "$W/dvor.err" \
-    && [ ! -e "$W/args.txt" ] \
-    && cmp -s "$W/tr-e1.before" "$SEED/registry/trace.tsv" \
-    && [ ! -e "$SEED/.harness/registry/trace.tsv" ]; }
-k_e2() { # ось E, КОНТРОЛЬ посева: профиль БЕЗ workflowPaths, реестр пуст —
-  # дверь сеет трассу в ЭФФЕКТИВНЫЙ реестр резолвера ($REPO/registry/trace.tsv
-  # — то же место, откуда её читает make_task), а не в дефолт .harness/registry
-  # собственного jq; make_task --kind brief БЕЗ --model-trace печатает TRACE
-  # модель из конфига; сессия поднимается (exec двойника, rc 7).
-  mk_mir e2-trassa-fallback-possev nowf
-  DVER_CONFIG='{"roles":{"orchestrator":"default"},"tiers":{"default":{"model":"@sonnet136"}},"models":{"sonnet136":"anthropic/claude-sonnet-5-5"}}'
-  rm -f "$W/args.txt"; run_dver
-  local out
-  [ "$DVER_RC" = 7 ] && [ -f "$W/args.txt" ] || return 1
-  [ "$(cat "$SEED/registry/trace.tsv" 2>/dev/null)" = "$(printf 'orchestrator\tanthropic/claude-sonnet-5-5\tallowed')" ] || return 1
-  [ ! -e "$SEED/.harness/registry/trace.tsv" ] || return 1
-  out="$(mkt_brief)" \
-    && grep -Fq 'TRACE: role=orchestrator model=anthropic/claude-sonnet-5-5 fallback=allowed' <<<"$out"; }
+# v3.3: k_e1/k_e2 (ось E трассы) УДАЛЕНЫ — обе клетки проверяли посев/суд
+# <registry>/trace.tsv дверью из КОНФИГА установки (упразднённый
+# config-witness): подложенный реестр больше не «обход» (дверь trace.tsv не
+# читает и не пишет), посев «в эффективный реестр» — сам упразднён.
+# Выжившая часть оси E (путь реестра из ЕДИНОГО project_paths_resolve для
+# СЕВА ИСКЛЮЧЕНИЙ) держится f1/f2 (nowf-профиль: эффективный реестр
+# $REPO/registry, НЕпрофильный .harness/registry не читается и не сеется)
+# и b2 (переопределённый профиль: сев в records); стаб s42 (свой jq)
+# перевязан на f1+f2.
 k_f1() { # ось F, КОНТРОЛЬ (R136d-B1): профиль БЕЗ workflowPaths (законный 996,
   # FALLBACK-NO-WORKFLOW) — честный connect сеет ПУСТОЙ перечень в ЭФФЕКТИВНЫЙ
   # реестр резолвера ($REPO/registry), проект заполняет ЕГО — ворота обязаны
@@ -956,7 +966,7 @@ k_f8() { # ось F (нигде): профиль без workflowPaths, чест�
   env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-f8.out" 2>&1 || rc=$?
   [ "$rc" = 2 ] && grep -q 'NOT_IMPLEMENTED' "$W/par-f8.out" \
     && grep -Fq "$SEED/registry/ci_parity_exceptions.txt" "$W/par-f8.out"; }
-ORDER="a1-p6-hvost a2-p6-brief-defolt a3-p3-pin-v-soobshchenii a4-p3-zapis a5-p12-agent a6-p11-subagent-pin a7-granica-unpinned a8-pin-block a9-pin-inline a10-pin-duplicate a11-pin-mixed a12-pin-reverse a13-pin-foreign-wt a14-pin-foreign-br a15-pin-extra-wt a16-pin-extra-br a17-pin-half-wt a18-pin-empty-br a19-pin-inline-mixed a20-pin-delimiters a21-pin-taskfile-duplicate a22-pin-taskfile-inline a23-pin-live-foreign a24-pin-inline-foreign a25-argv-koren-do-razdelitelja a26-ctrl-msg-zakanchivaetsya-putem a27-strazh-net a28-taskfile-argv a29-brief-argv a30-finalnyj-orakul a31-net-node a34-pin-taskfile-block a35-pin-taskfile-mixed a36-pin-taskfile-reverse a37-pin-taskfile-foreign-wt a38-pin-taskfile-foreign-br a39-pin-taskfile-extra-wt a40-pin-taskfile-extra-br a41-pin-taskfile-half-wt a42-pin-taskfile-empty-br a43-pin-taskfile-inline-mixed a44-pin-taskfile-delimiters a45-pin-taskfile-live-foreign a46-pin-taskfile-inline-foreign a47-brief-struktura a48-pustoj-next-brief a49-cr-para-v-taskfile a50-strazh-nulevoj-fajl b1-povtor b2-p10-raskladka b3-trassa-net-konfiga b4-trassa-konfig-bit b5-jq-net-possev c1-p17-map c2-p17-rules c3-p5-trassa-defolt c4-kontrol-filtr c5-kontrol-jeksplizit c6-trassa-podmena-modeli c7-trassa-dubl-strok c8-trassa-lishnjaja-stroka c9-trassa-readonly c10-kontrol-trassa-ravna d1-p10-isklyuchenie d2-kontrol-dom d3-kontrol-koren d4-harness-svoj-profil d5-sloi-poterjan d6-sloi-drugoe-imja d7-bez-jq d8-profil-bit d9-sloi-drugoe-imja-poterjan d10-sloi-vlozhennoe-imja d11-sloi-vlozhennoe-poterjan d12-sloi-dotdot-vyhod d13-sloi-symlink-naruzhu d14-kontrol-symlink-vnutri e1-trassa-fallback-podmena e2-trassa-fallback-possev"
+ORDER="a1-p6-hvost a2-p6-brief-defolt a3-p3-pin-v-soobshchenii a4-p3-zapis a5-p12-agent a6-p11-subagent-pin a7-granica-unpinned a8-pin-block a9-pin-inline a10-pin-duplicate a11-pin-mixed a12-pin-reverse a13-pin-foreign-wt a14-pin-foreign-br a15-pin-extra-wt a16-pin-extra-br a17-pin-half-wt a18-pin-empty-br a19-pin-inline-mixed a20-pin-delimiters a21-pin-taskfile-duplicate a22-pin-taskfile-inline a23-pin-live-foreign a24-pin-inline-foreign a25-argv-koren-do-razdelitelja a26-ctrl-msg-zakanchivaetsya-putem a27-strazh-net a28-taskfile-argv a29-brief-argv a30-finalnyj-orakul a31-net-node a34-pin-taskfile-block a35-pin-taskfile-mixed a36-pin-taskfile-reverse a37-pin-taskfile-foreign-wt a38-pin-taskfile-foreign-br a39-pin-taskfile-extra-wt a40-pin-taskfile-extra-br a41-pin-taskfile-half-wt a42-pin-taskfile-empty-br a43-pin-taskfile-inline-mixed a44-pin-taskfile-delimiters a45-pin-taskfile-live-foreign a46-pin-taskfile-inline-foreign a47-brief-struktura a48-pustoj-next-brief a49-cr-para-v-taskfile a50-strazh-nulevoj-fajl b1-povtor b2-p10-raskladka b3-trassa-net-konfiga b4-trassa-konfig-bit b5-jq-net-possev c1-p17-map c2-p17-rules c4-kontrol-filtr c5-kontrol-jeksplizit d1-p10-isklyuchenie d2-kontrol-dom d3-kontrol-koren d4-harness-svoj-profil d5-sloi-poterjan d6-sloi-drugoe-imja d7-bez-jq d8-profil-bit d9-sloi-drugoe-imja-poterjan d10-sloi-vlozhennoe-imja d11-sloi-vlozhennoe-poterjan d12-sloi-dotdot-vyhod d13-sloi-symlink-naruzhu d14-kontrol-symlink-vnutri"
 ORDER="$ORDER f1-vorota-profile-reestr f2-vorota-podmena-v-neprofilnom f3-vorota-reg-dotdot f4-vorota-reg-symlink f5-vorota-reg-absoljut f6-vorota-reg-bez-kljucha f7-vorota-reg-pustoj f8-vorota-iskljuchenij-net"
 run_cell() { case "$1" in
   a1-p6-hvost) k_a1 ;; a2-p6-brief-defolt) k_a2 ;; a3-p3-pin-v-soobshchenii) k_a3 ;;
@@ -998,17 +1008,13 @@ run_cell() { case "$1" in
   a49-cr-para-v-taskfile) k_a49 ;; a50-strazh-nulevoj-fajl) k_a50 ;;
   b1-povtor) k_b1 ;; b2-p10-raskladka) k_b2 ;;
   b3-trassa-net-konfiga) k_b3 ;; b4-trassa-konfig-bit) k_b4 ;; b5-jq-net-possev) k_b5 ;;
-  c1-p17-map) k_c1 ;; c2-p17-rules) k_c2 ;; c3-p5-trassa-defolt) k_c3 ;;
+  c1-p17-map) k_c1 ;; c2-p17-rules) k_c2 ;;
   c4-kontrol-filtr) k_c4 ;; c5-kontrol-jeksplizit) k_c5 ;;
-  c6-trassa-podmena-modeli) k_c6 ;; c7-trassa-dubl-strok) k_c7 ;;
-  c8-trassa-lishnjaja-stroka) k_c8 ;; c9-trassa-readonly) k_c9 ;;
-  c10-kontrol-trassa-ravna) k_c10 ;;
   d4-harness-svoj-profil) k_d4 ;; d5-sloi-poterjan) k_d5 ;;
   d6-sloi-drugoe-imja) k_d6 ;; d7-bez-jq) k_d7 ;; d8-profil-bit) k_d8 ;;
   d9-sloi-drugoe-imja-poterjan) k_d9 ;; d10-sloi-vlozhennoe-imja) k_d10 ;; d11-sloi-vlozhennoe-poterjan) k_d11 ;;
   d12-sloi-dotdot-vyhod) k_d12 ;; d13-sloi-symlink-naruzhu) k_d13 ;; d14-kontrol-symlink-vnutri) k_d14 ;;
   d1-p10-isklyuchenie) k_d1 ;; d2-kontrol-dom) k_d2 ;; d3-kontrol-koren) k_d3 ;;
-  e1-trassa-fallback-podmena) k_e1 ;; e2-trassa-fallback-possev) k_e2 ;;
   f1-vorota-profile-reestr) k_f1 ;; f2-vorota-podmena-v-neprofilnom) k_f2 ;;
   f3-vorota-reg-dotdot) k_f3 ;; f4-vorota-reg-symlink) k_f4 ;;
   f5-vorota-reg-absoljut) k_f5 ;; f6-vorota-reg-bez-kljucha) k_f6 ;;

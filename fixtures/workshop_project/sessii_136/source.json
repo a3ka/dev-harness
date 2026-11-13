@@ -165,12 +165,12 @@
     "b1-povtor": {
       "bol": "НАБЛ-П3",
       "krasnaya_sejchas": true,
-      "sut": "повторный вход двери не перезаписывает существующее и не дублирует worktree (И-7)"
+      "sut": "повторный вход не перезаписывает существующее и не дублирует worktree (И-7): HANDOFF владельца и перечень исключений байт-в-байт, legacy trace.tsv в эффективном реестре не тронут (дверь его не производит и не судит — config-witness упразднён), rc 7"
     },
     "b2-p10-raskladka": {
       "bol": "НАБЛ-П10",
       "krasnaya_sejchas": true,
-      "sut": "после двери: <workflowPaths.registry>/{ci_parity_exceptions.txt,trace.tsv} есть (сев ПО ФАКТУ профиля, registry переопределён), корневого config/ нет (И-6)"
+      "sut": "раскладка ПО ФАКТУ профиля (registry переопределён): сев ТОЛЬКО пустого ci_parity_exceptions.txt в эффективный реестр; trace.tsv НЕ создаётся нигде (посев/сверка трассы дверью упразднены), корневого config/ нет"
     },
     "b3-trassa-net-konfiga": {
       "bol": "Rev136-B2",
@@ -185,17 +185,12 @@
     "c1-p17-map": {
       "bol": "НАБЛ-П17",
       "krasnaya_sejchas": true,
-      "sut": "бриф оркестратора несёт MAP каждого row (roles без orchestrator) — docs/ARCHITECTURE.md"
+      "sut": "бриф оркестратора несёт MAP каждого row (roles без orchestrator) — docs/ARCHITECTURE.md; свидетельство модели — env-канал HARNESS_MODEL_TRACE (живая сессия), не посев двери из конфига"
     },
     "c2-p17-rules": {
       "bol": "НАБЛ-П17",
       "krasnaya_sejchas": true,
-      "sut": "бриф несёт RULES: docs/CODING-STANDARDS.md"
-    },
-    "c3-p5-trassa-defolt": {
-      "bol": "НАБЛ-П5",
-      "krasnaya_sejchas": true,
-      "sut": "make_task --kind brief без --model-trace: rc 0, TRACE из <workflowPaths.registry>/trace.tsv; модель оркестратора — из КОНФИГА УСТАНОВКИ (roles.orchestrator→tiers→models), рассогласование trace↔конфиг исключено"
+      "sut": "бриф несёт RULES: docs/CODING-STANDARDS.md (row без orchestrator в roles; свидетельство — HARNESS_MODEL_TRACE)"
     },
     "c4-kontrol-filtr": {
       "bol": "НАБЛ-П17",
@@ -205,7 +200,7 @@
     "c5-kontrol-jeksplizit": {
       "bol": "НАБЛ-П5",
       "krasnaya_sejchas": false,
-      "sut": "контроль: явный --model-trace переопределяет дефолт"
+      "sut": "контроль: явный ВАЛИДНЫЙ --model-trace (TSV роль/модель/allowed) — TRACE печатается моделью явного файла, ничем не замещается"
     },
     "d1-p10-isklyuchenie": {
       "bol": "НАБЛ-П10",
@@ -352,31 +347,6 @@
       "krasnaya_sejchas": true,
       "sut": "объявлен вложенный слой .harness/layers/custom.json, файла нет — rc 2 с именем объявленного пути; молчаливый fallback на корень/режим харнесса запрещён (ось D: вложенное имя × потерян)"
     },
-    "c6-trassa-podmena-modeli": {
-      "bol": "НАБЛ-П5",
-      "krasnaya_sejchas": true,
-      "sut": "существующий trace.tsv с чужой моделью — trassa-rashozhdenie rc 1 до exec, файл не изменён, exec нет"
-    },
-    "c7-trassa-dubl-strok": {
-      "bol": "НАБЛ-П5",
-      "krasnaya_sejchas": true,
-      "sut": "существующий trace.tsv с дублем строк (две модели) — тот же отказ rc 1 до exec, файл не изменён"
-    },
-    "c8-trassa-lishnjaja-stroka": {
-      "bol": "НАБЛ-П5",
-      "krasnaya_sejchas": true,
-      "sut": "существующий trace.tsv = верная строка + лишняя строка — тот же отказ rc 1 до exec, файл не изменён"
-    },
-    "c9-trassa-readonly": {
-      "bol": "НАБЛ-П5",
-      "krasnaya_sejchas": true,
-      "sut": "подменённый read-only trace.tsv — отказ rc 1 до exec ДО попытки записи, файл не изменён"
-    },
-    "c10-kontrol-trassa-ravna": {
-      "bol": "НАБЛ-П5",
-      "krasnaya_sejchas": false,
-      "sut": "КОНТРОЛЬ: trace.tsv равен выведенному из конфига — без записи, сессия поднимается (rc 7)"
-    },
     "d12-sloi-dotdot-vyhod": {
       "bol": "НАБЛ-П10",
       "krasnaya_sejchas": true,
@@ -391,16 +361,6 @@
       "bol": "НАБЛ-П10",
       "krasnaya_sejchas": true,
       "sut": "КОНТРОЛЬ: symlink .harness/layer-link.json → .harness/layers/custom.json — проектный режим (rc 1, корень игнорируется)"
-    },
-    "e1-trassa-fallback-podmena": {
-      "bol": "НАБЛ-П5",
-      "krasnaya_sejchas": true,
-      "sut": "профиль без workflowPaths (FALLBACK-NO-WORKFLOW, реестр резолвера $REPO/registry) + закоммиченный подложенный registry/trace.tsv — trassa-rashozhdenie rc 1 до exec, файл не изменён, .harness/registry не трогается (Rev136c-B1)"
-    },
-    "e2-trassa-fallback-possev": {
-      "bol": "НАБЛ-П5",
-      "krasnaya_sejchas": true,
-      "sut": "профиль без workflowPaths: дверь сеет ЭФФЕКТИВНЫЙ реестр $REPO/registry/trace.tsv (то же место читает make_task), бриф печатает TRACE из конфига, rc 7; .harness/registry/trace.tsv не создаётся (Rev136c-B1)"
     },
     "f1-vorota-profile-reestr": {
       "bol": "НАБЛ-П10",
@@ -458,15 +418,13 @@
     "s4-dver-koren-config": [
       "b2-p10-raskladka"
     ],
-    "s5-dver-net-trassy": [
-      "b2-p10-raskladka",
-      "c3-p5-trassa-defolt"
-    ],
     "s6-zadacha-filtr-vezde": [
-      "c4-kontrol-filtr"
+      "c1-p17-map",
+      "c2-p17-rules"
     ],
     "s7-zadacha-trassa-net": [
-      "c3-p5-trassa-defolt"
+      "c1-p17-map",
+      "c2-p17-rules"
     ],
     "s8-parity-vsegda-harness": [
       "d2-kontrol-dom"
@@ -481,11 +439,10 @@
       "a24-pin-inline-foreign"
     ],
     "s11-dver-glm-konstanta": [
-      "c3-p5-trassa-defolt"
+      "b2-p10-raskladka"
     ],
     "s12-dver-registr-bukvalno": [
       "b2-p10-raskladka",
-      "c3-p5-trassa-defolt",
       "d1-p10-isklyuchenie"
     ],
     "s13-parity-koren-v-proekte": [
@@ -576,23 +533,19 @@
       "d12-sloi-dotdot-vyhod",
       "d13-sloi-symlink-naruzhu"
     ],
-    "s39-dver-trassa-molcha-prinimaet": [
-      "c6-trassa-podmena-modeli",
-      "c7-trassa-dubl-strok",
-      "c8-trassa-lishnjaja-stroka",
-      "c9-trassa-readonly"
+    "s39-dver-trassa-rashozhdenie": [
+      "b1-povtor",
+      "b2-p10-raskladka"
     ],
     "s40-dver-trassa-perezapisyvaet": [
-      "c6-trassa-podmena-modeli",
-      "c7-trassa-dubl-strok"
+      "b1-povtor"
     ],
     "s41-dver-trassa-dopisyvaet": [
-      "c6-trassa-podmena-modeli",
-      "c10-kontrol-trassa-ravna"
+      "b1-povtor"
     ],
     "s42-dver-reg-svoim-jq": [
-      "e1-trassa-fallback-podmena",
-      "e2-trassa-fallback-possev"
+      "f1-vorota-profile-reestr",
+      "f2-vorota-podmena-v-neprofilnom"
     ],
     "s43-parity-reg-svoim-jq": [
       "f1-vorota-profile-reestr",
@@ -865,12 +818,6 @@
     },
     {
       "os": "C",
-      "sostojanie": "конфиг есть и разбирается",
-      "svojstvo": "трасса сеется из конфига установки (наблюдение make_task TRACE, одна jq-цепочка)",
-      "kletka": "c3-p5-trassa-defolt"
-    },
-    {
-      "os": "C",
       "sostojanie": "конфига нет",
       "svojstvo": "trassa-net-konfiga rc 1 до exec",
       "kletka": "b3-trassa-net-konfiga"
@@ -954,36 +901,6 @@
       "kletka": "d8-profil-bit"
     },
     {
-      "os": "C",
-      "sostojanie": "существующий trace.tsv ≠ конфигу: чужая модель",
-      "svojstvo": "именованный отказ trassa-rashozhdenie rc 1 до exec, файл не изменён, двойник не вызывается",
-      "kletka": "c6-trassa-podmena-modeli"
-    },
-    {
-      "os": "C",
-      "sostojanie": "существующий trace.tsv ≠ конфигу: дубль строк",
-      "svojstvo": "тот же отказ rc 1 до exec, файл не изменён",
-      "kletka": "c7-trassa-dubl-strok"
-    },
-    {
-      "os": "C",
-      "sostojanie": "существующий trace.tsv ≠ конфигу: лишняя строка",
-      "svojstvo": "тот же отказ rc 1 до exec, файл не изменён",
-      "kletka": "c8-trassa-lishnjaja-stroka"
-    },
-    {
-      "os": "C",
-      "sostojanie": "существующий trace.tsv ≠ конфигу и read-only",
-      "svojstvo": "тот же отказ rc 1 до exec ДО попытки записи, файл не изменён",
-      "kletka": "c9-trassa-readonly"
-    },
-    {
-      "os": "C",
-      "sostojanie": "существующий trace.tsv = выведенному из конфига",
-      "svojstvo": "КОНТРОЛЬ: без записи (байт-в-байт), дверь идёт дальше (exec rc 7)",
-      "kletka": "c10-kontrol-trassa-ravna"
-    },
-    {
       "os": "D",
       "sostojanie": "слой объявлен под .harness/, выходит через .. (файл вне репозитория есть)",
       "svojstvo": "rc 2 с именем объявленного пути (канонизация: вне .harness/ = потерянный слой), достаточные records-исключения и корневая ловушка не читаются",
@@ -1000,18 +917,6 @@
       "sostojanie": "слой — symlink под .harness/ на файл ВНУТРИ .harness/",
       "svojstvo": "КОНТРОЛЬ: канонизированный путь под .harness/ — проектный режим (пустой перечень → rc 1), корневая ловушка игнорируется",
       "kletka": "d14-kontrol-symlink-vnutri"
-    },
-    {
-      "os": "E",
-      "sostojanie": "workflowPaths отсутствует (законный вход 996: FALLBACK-NO-WORKFLOW, эффективный реестр резолвера $REPO/registry)",
-      "svojstvo": "закоммиченный подложенный registry/trace.tsv ≠ конфигу → trassa-rashozhdenie rc 1 ДО exec, файл не изменён, .harness/registry/trace.tsv не создаётся (дверь судит ЭФФЕКТИВНЫЙ реестр)",
-      "kletka": "e1-trassa-fallback-podmena"
-    },
-    {
-      "os": "E",
-      "sostojanie": "workflowPaths отсутствует (законный вход 996: FALLBACK-NO-WORKFLOW, эффективный реестр резолвера $REPO/registry)",
-      "svojstvo": "дверь сеет ЭФФЕКТИВНЫЙ реестр ($REPO/registry/trace.tsv = то, что читает make_task); mkt --kind brief без --model-trace печатает TRACE модель из конфига; сессия поднимается rc 7; .harness/registry/trace.tsv не создаётся",
-      "kletka": "e2-trassa-fallback-possev"
     },
     {
       "os": "F",

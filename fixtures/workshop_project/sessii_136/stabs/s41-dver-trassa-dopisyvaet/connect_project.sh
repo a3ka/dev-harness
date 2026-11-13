@@ -22,7 +22,8 @@
 #   env-v-indekse         — `.harness/.env` уже отслеживается git проекта: секреты
 #                           не пишутся, файл не трогаем (снять с учёта: `git rm
 #                           --cached .harness/.env`);
-#   sekret-v-dereve       — значение дома секретов нашлось в файле, который git
+#   sekret-v-dereve       — значение СЕКРЕТНОГО ключа дома секретов нашлось в файле,
+#                           который git
 #                           проекта может проиндексировать (отслеживаемом или
 #                           неигнорируемом), под ЛЮБЫМ именем — судим рабочую копию
 #                           на КАЖДОМ входе, повторный вход не слабее первого.
@@ -81,35 +82,32 @@ if [ ! -e "$PIN_WT" ]; then
   git worktree add -q -b "$PIN_BR" "$PIN_WT" \
     || { printf 'connect ОТКАЗ: worktree-пин не создан\n' >&2; exit 1; }
 fi
+# В существующем worktree ветка могла смениться (state-checkpoint).
+# Задание несёт фактический пин, а не имя, с которым worktree когда-то создали.
+PIN_BR="$(git -C "$PIN_WT" symbolic-ref --quiet --short HEAD)" \
+  || otkaz "pin-bez-vetki: $PIN_WT"
+case "$PIN_BR" in
+  wip/136/*) ;;
+  *) otkaz "pin-chuzhaja-vetka: $PIN_BR" ;;
+esac
 
-# 136: каталог реестра проекта — workflowPaths.registry из профиля проекта
-# (996: профиль — единственный источник; дефолт .harness/registry). Дверь
-# сеет туда trace и перечень исключений паритета ПО ФАКТУ профиля.
-REG_REL="$(jq -r '.workflowPaths.registry // ".harness/registry"' harness.project.json 2>/dev/null || printf '.harness/registry')"
-mkdir -p "$REG_REL"
-
-# Трасса модели оркестратора (НАБЛ-П5, В-4а): источник — КОНФИГ УСТАНОВКИ
-# $HERE/config/agent_models.json: roles.orchestrator → tiers[роль].model
-# (@алиас) → models[алиас]. НЕ константа и НЕ env-замена. Конфига НЕТ, нечитаем,
-# не разбирается (или нет jq) в момент, когда трасса нужна, — один именованный
-# отказ trassa-net-konfiga ДО exec, трасса не сеется (fail-closed; 136 v2,
-# Rev136-B2б). Никакой ветви «сессия стартует без трассы».
-# 136 v2-усиление (адверсарий B2, вердикт keep136adv): существующий trace.tsv
-# обязан совпадать с выведенным из конфига — рассогласование исключено по
-# построению (модель угроз И-6). Подмена (чужая модель, дубль строк, лишняя
-# строка, read-only файл) — именованный отказ trassa-rashozhdenie rc 1 ДО exec,
-# файл не изменяется: ни молчаливое принятие, ни перезапись, ни дописывание
-# (И-7: повтор пишет только отсутствующее; пустой файл = отсутствующее).
-ORCH_MODEL="$(jq -er '.roles.orchestrator as $r | .tiers[$r].model as $m | .models[$m[1:]]' "$HERE/config/agent_models.json" 2>/dev/null)" \
+# 136 v3-достройка (Rev136c-B1): путь реестра — из ЕДИНОГО project_paths_resolve
+# (frozen И-6 «путь трассы — из ЕДИНОГО project_paths_resolve»; ПЕРЕСЕЧЕНИЕ
+# implementer «103 профильные пути — единственный источник»), образец —
+# scripts/done_wave.sh:117-124; библиотека next_id.sh — сиблинг установки
+# ($HERE/scripts). Никаких собственных jq-разборов пути реестра: на законном
+# профиле БЕЗ workflowPaths (996 repo:workflowPaths:optional → FALLBACK-
+# NO-WORKFLOW, эффективный реестр $REPO/registry) собственный jq давал
+# .harness/registry ≠ резолверу — дверь сеет/сверяет одно место, make_task
+# читает другое (обход X Rev136c). Порядок: сперва конфиг трассы (нет jq/
+# конфига → trassa-net-konfiga ДО резолвера — резолверу тоже нужен jq, отказ
+# остаётся именованным по трассе, b5); резолв реестра — НИЖЕ, ПОСЛЕ того как
+# каркас установит профиль и слой проекта: на СВЕЖЕМ проекте резолв ДО
+# профиля даёт LEGACY-FALLBACK корневой registry ≠ эффективному реестру
+# подключённого проекта (профиль с workflowPaths) — тот же класс
+# рассогласования дверь↔make_task, что и собственный jq (R136c-B1, мир 125).
+jq -e '.roles.orchestrator as $r | .tiers[$r].model as $m | .models[$m[1:]] | strings | length > 0' "$HERE/config/agent_models.json" >/dev/null 2>&1 \
   || { printf 'connect ОТКАЗ: trassa-net-konfiga: %s/config/agent_models.json\n' "$HERE" >&2; exit 1; }
-TRASSA="$(printf 'orchestrator\t%s\tallowed\n' "$ORCH_MODEL")"
-printf '%s\n' "$TRASSA" >> "$REG_REL/trace.tsv"
-
-
-# 136 (НАБЛ-П10): сев ПУСТОГО перечня исключений паритета CI в workflowPaths
-# проекта (заполнение — объявления проекта с причинами, НЕ дело двери);
-# корневой config/ дереву проекта не пишется (И-6 125). И-7: повтор не пишет.
-[ -e "$REG_REL/ci_parity_exceptions.txt" ] || : > "$REG_REL/ci_parity_exceptions.txt"
 
 # 136 (НАБЛ-П11): процедура субагентных пинов — дверь кладёт в $PSTATE/bin
 # скрипт выдачи: каждому субагенту сессии — свой linked worktree под $PSTATE/wt
@@ -138,7 +136,7 @@ if [ -n "$TASKFILE_ARG" ]; then
 elif [ -s .harness/NEXT_TASK.md ]; then
   MSG="$(cat .harness/NEXT_TASK.md)"
 else
-  MSG="Сессия проекта поднята без задания: прочитай .harness/HANDOFF.md и .harness/ROADMAP.md проекта, выбери предмет, доложи план."
+  MSG="Автономно продолжай утверждённый план проекта: сначала штатный startup brief, затем прочитай $PIN_WT/.harness/HANDOFF.md и $PIN_WT/.harness/ROADMAP.md. Выбери следующий разрешённый шаг по зависимостям и приоритетам HANDOFF, заполни предусмотренные там слоты; дополнительного «продолжай» не жди. При реальном отказе двери отметь точную причину, остановись и спроси владельца. Станционные/мобильные предметы в этой сессии не исполняй."
 fi
 # 136: распознаём ВСЕ декларации в задании по токенизатору 032/066, включая
 # inline pin:WORKTREE=...:BRANCH=... и пустые/половинные декларации. Регулярное
@@ -236,6 +234,40 @@ fi
 [ -s .harness/NABLIUDENIA.md ] || printf '# Наблюдения проекта %s\n' "$PID" > .harness/NABLIUDENIA.md
 [ -s .harness/ROADMAP.md ]    || printf '# ROADMAP проекта %s\n' "$PID"    > .harness/ROADMAP.md
 
+# 136 v3-достройка (Rev136c-B1): путь реестра — из ЕДИНОГО project_paths_resolve
+# (frozen И-6 «путь трассы — из ЕДИНОГО project_paths_resolve»; ПЕРЕСЕЧЕНИЕ
+# implementer «103 профильные пути — единственный источник»), образец —
+# scripts/done_wave.sh:117-124; библиотека next_id.sh — сиблинг установки
+# ($HERE/scripts). Резолв — ПОСЛЕ каркаса выше: профиль и слой уже установлены
+# (на свежем проекте резолв ДО профиля = LEGACY-FALLBACK корневой registry ≠
+# эффективному реестру подключённого проекта; собственный jq давал
+# .harness/registry ≠ резолверу — дверь сеет/сверяет одно место, make_task
+# читает другое, обход X Rev136c). Библиотеки нет в установке — именованный
+# отказ net-rezolvera-putej (никакого собственного jq-заместителя).
+NEXT_ID_LIB=1 source "$HERE/scripts/next_id.sh" \
+  || { printf 'connect ОТКАЗ: net-rezolvera-putej: %s/scripts/next_id.sh\n' "$HERE" >&2; exit 1; }
+KOREN_ABS="$(cd "$KOREN" && pwd -P)"
+PPR_JSON="$(project_paths_resolve "$KOREN_ABS")" \
+  || otkaz "profil-ne-razreshaetsja: $KOREN_ABS"
+REG_ABS="$(printf '%s' "$PPR_JSON" | jq -r '.registry')"
+[ -n "$REG_ABS" ] || otkaz "profil-bez-registry: $KOREN_ABS"
+REG_REL="${REG_ABS#"$KOREN_ABS"/}"
+[ "$REG_ABS" != "$REG_REL" ] || otkaz "registry-vne-kornja: $REG_ABS"
+mkdir -p "$REG_REL"
+
+# ОБМАНКА s41 (миграция 136 → trace-API): дверь ДОПИСЫВАЕТ строку оркестратора
+# из КОНФИГА установки в существующий trace.tsv эффективного реестра —
+# возврат упразднённого config-witness побайтовым дописыванием: живой след
+# портится доп-строкой, файл двери больше не принадлежит сессии.
+ORCH_MODEL="$(jq -er '.roles.orchestrator as $r | .tiers[$r].model as $m | .models[$m[1:]]' "$HERE/config/agent_models.json" 2>/dev/null)" \
+  || { printf 'connect ОТКАЗ: trassa-net-konfiga: %s/config/agent_models.json\n' "$HERE" >&2; exit 1; }
+printf 'orchestrator\t%s\tallowed\n' "$ORCH_MODEL" >> "$REG_REL/trace.tsv"
+
+# 136 (НАБЛ-П10): сев ПУСТОГО перечня исключений паритета CI в workflowPaths
+# проекта (заполнение — объявления проекта с причинами, НЕ дело двери);
+# корневой config/ дереву проекта не пишется (И-6 125). И-7: повтор не пишет.
+[ -e "$REG_REL/ci_parity_exceptions.txt" ] || : > "$REG_REL/ci_parity_exceptions.txt"
+
 # ── последний страж: значение дома секретов в файле, который git проиндексирует ──
 # Adv125-А: парсер как у workshop `load_env` (срез парных кавычек — `sed
 # 's/^["'"'"']//;s/["'"'"']$//'`); значения ЛЮБОЙ длины (контракт И-6 порога
@@ -246,23 +278,76 @@ fi
 # раньше оставлял пустой ZNACH и сканер шёл дальше). Под ЛЮБЫМ именем файла;
 # в отказе — имя файла, не значение.
 if [ -f "$DOM_SEKRETOV" ]; then
+  # 142 v2 (слово владельца 2026-10-27 ~15:10 UTC, вариант (а)): ЛЮБОЙ байт
+  # NUL (0x00) в СЫРОМ файле дома секретов — именованный отказ sekret-v-dereve
+  # ДО разбора парсером и ДО workshop: bash `read` молча удаляет NUL (замер
+  # арбитража contracts-142-impl-arbitraz: единственный удаляемый байт из 256),
+  # и строка `FOO_URL\0=<значение>` нормализовалась бы в адресное имя класса
+  # И-3 — без нормализации и без исключения И-3 для строки с NUL. Отказ — на
+  # ЛЮБОЙ строке с NUL (имя, значение, комментарий, пропускаемая, без
+  # хвостового LF); в отказе — имя файла и категория «NUL», не значение.
+  # Ошибка инструмента предпроверки (grep rc ≥ 2) — отказ, не пропуск.
+  if LC_ALL=C grep -qaP '\x00' -- "$DOM_SEKRETOV"; then
+    otkaz "sekret-v-dereve: NUL (байт 0x00) в доме секретов «$DOM_SEKRETOV» — файл не читается как KEY=VALUE; сессия не запускается"
+  elif [ "$?" -ne 1 ]; then
+    otkaz "sekret-v-dereve: предпроверка NUL дома секретов не исполнилась — сессия не запускается"
+  fi
   ZNACH=$(mktemp) || otkaz "нет mktemp"
-  # Парсим KEY=VALUE как workshop: разрез по первому «=», ключ — alphanumeric
-  # с подчёркиванием (по `[A-Za-z_][A-Za-z0-9_]*`, как load_env). Пишем
-  # значение в обеих формах — дословно (для прямой записи значения в файле) и
-  # с обрезанными парными кавычками (как workshop его использует). Пустое
-  # значение после обрезки — пропускаем.
-  # 125 Рв125b-2 (А2-1): идиома последней строки — `read` возвращает ≠0 на
-  # неполной строке, и без `|| [ -n "$k" ]` значение ПОСЛЕДНЕЙ строки
-  # secrets.env (файл без хвостового LF) терялось здесь, хотя `grep` выше
-  # писал его в `.harness/.env`: дверь писала секрет и молчала о нём. CRLF —
-  # снять ДО разбора значения, иначе `\r` часть секрета и совпадения не
-  # находит (совет S13).
+  # 142 (skaner-sekretov, слово владельца 2026-10-26): страж судит только
+  # значения СЕКРЕТНЫХ ключей дома секретов; адреса и прочие параметры дома
+  # секретов (адресный суффикс имени И значение без учётных данных) не
+  # сканируются. Секретный маркер в имени сильнее адресного суффикса;
+  # неизвестное имя — СЕКРЕТ (fail-closed: перечень секретов открыт —
+  # DATABASE_URL с учётными данными, PRIVATE_KEY, *_PASSPHRASE, AUTH, COOKIE…).
+  # Канон предиката — ТРИ строки ниже (побайтово из source.json батареи 142,
+  # единый источник; клетка r1 сверяет их в субъекте); IMYA_RE — грамматика
+  # имени ключа 125 (вердикт adv contracts-142-impl-v1, блокер 1: только ключ
+  # грамматики может получить исключение И-3; клетка r2 сверяет её в субъекте).
+  SEKRET_MARKERY="KEY TOKEN SECRET PASSWD PASSWORD PASSPHRASE PRIVATE AUTH COOKIE CREDENTIAL"
+  ADRES_SUFFIKSY="_URL _HOST _PORT _ADDR _ENDPOINT _NAME URL HOST PORT ADDR ENDPOINT NAME"
+  # 142 v4 (слово владельца 2026-10-28, R142-S1; арбитраж
+  # verdicts/arbitration/contracts-142-v4-arbitraz.md — критик 2/2 исчерпан,
+  # сужения OBJECT 25bda098 относительно v3 отменены): ДВЕ ветви одной
+  # канон-строки. (1) Токен-ветвь `^([^/?#[:space:]]*:)?//[^/?#[:space:]]+@`
+  # судит authority ВНЕШНЕГО адреса — абсолютного (`https://<токен>@host`) и
+  # scheme-relative (`//<токен>@host`): от начала значения необязательная
+  # `схема:`, `//`, непустой фрагмент без `/`/`?`/`#`/пробела, `@`; якорь `^`
+  # и класс без `/?#` эквивалентны «первому `://`» (POSIX ERE без lookahead
+  # «первый» не выражает; вложенный `://…@` достижим только после `?`/`/`/`#`
+  # внешнего адреса — не ловится); токен длины 1 судим, пустой `://@host` —
+  # нет. (2) Двоеточие-ветвь `[^/@[:space:]]*:[^/@[:space:]]*@` — строка
+  # v1/v3 БАЙТ В БАЙТ, без якоря и без границ `?`/`#`: ЛЮБОЙ фрагмент
+  # `user:pass@`/`:pass@` в значении (DSN без схемы, пустой пользователь
+  # `:pass@`, `mailto:`, пароль с сырыми `?`/`#`, неразделимая с ним пара
+  # порт+`@` в запросе/фрагменте — осознанный fail-closed, паритет v3).
+  # Канон v4 содержит канон-строку v3 буквальной альтернативой — множество
+  # судимых значений v4 ⊇ v3 по построению (И-4); расширение — токен-ветвь.
+  # scp-форма `git@host:path` и токен без `://` — вне канона
+  # (§НЕ ЗАЩИЩАЕТ контракта); судейство — один grep -Eq по сырой строке
+  # (r1, байт в байт).
+  USERINFO_RE='(^([^/?#[:space:]]*:)?//[^/?#[:space:]]+@|[^/@[:space:]]*:[^/@[:space:]]*@)'
+  IMYA_RE='[A-Za-z_][A-Za-z0-9_]*'
+  sekretnyj_marker() { for _m in $SEKRET_MARKERY; do case " $1 " in *" $_m "*) return 0 ;; esac; done; return 1; }
+  adresnyj_suffiks() { for _s in $ADRES_SUFFIKSY; do [ "$1" != "${1%$_s}" ] && return 0; done; return 1; }
+  # Парсим KEY=VALUE как workshop (125 дословно): разрез по первому «=», ключ —
+  # alphanumeric с подчёркиванием; CRLF — снять ДО разбора значения; идиома
+  # последней строки — `read` возвращает ≠0 на неполной строке, без
+  # `|| [ -n "$k" ]` значение ПОСЛЕДНЕЙ строки secrets.env терялось (Рв125b-2);
+  # пустое значение — пропускаем (пустой шаблон grep -f матчит все файлы);
+  # значения ЛЮБОЙ длины — порога нет, короткое значение секретного ключа =
+  # секрет; в файле значений ОБЕ формы — дословная и без обрамляющих кавычек.
   while IFS='=' read -r k v || [ -n "$k" ]; do
     v="${v%$'\r'}"
     case "$k" in ''|'#'*) continue ;; esac
     k="${k%% *}"
     [ -n "$v" ] || continue
+    _ku=$(printf '%s' "$k" | tr 'a-z' 'A-Z')
+    _kt=${_ku//_/ }
+    if sekretnyj_marker "$_kt"; then :
+    elif printf '%s' "$k" | grep -Eqx -- "$IMYA_RE" \
+      && adresnyj_suffiks "$_ku" && ! printf '%s' "$v" | grep -Eq -- "$USERINFO_RE"; then
+      continue # параметр дома секретов: адрес/порт/имя без учётных данных; исключение И-3 — только имени грамматики IMYA_RE (adv 142-impl-v1)
+    fi
     printf '%s\n' "$v"
     u=$(printf '%s' "$v" | sed 's/^["'"'"']//;s/["'"'"']$//')
     [ -n "$u" ] && printf '%s\n' "$u"
@@ -272,7 +357,7 @@ if [ -f "$DOM_SEKRETOV" ]; then
     HIT=$(git ls-files -z --cached --others --exclude-standard | xargs -0r grep -lsF -f "$ZNACH" -- | sed -n 1p)
   fi
   rm -f "$ZNACH"
-  unset ZNACH _need
+  unset ZNACH _need _ku _kt
   [ -z "$HIT" ] || otkaz "sekret-v-dereve: значение дома секретов в файле «$HIT», который git может проиндексировать — сессия не запускается"
 fi
 
