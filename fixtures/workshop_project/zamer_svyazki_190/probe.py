@@ -14,10 +14,20 @@
   --model      — эталон model/zamer_model.py (контроль честности миров)
   --stabs      — эталон + матрица обманных стабов (СВЯЗИ)
   --oracle-tamper — сверка sha256 носителей оракула (rc 2 ORACLE_TAMPERED)
+
+Канон документа (клетка dokument-kanon): живой docs/190-zamer-svyazki.md судимого
+дерева; при отсутствии файла в рабочем каталоге (ci_klass strip удаляет учётный
+docs/ — учёт-независимость 087, registry/ci-steps.tsv:56-68) канон читается из
+git HEAD того же дерева. Контроли kanon-* держат суд существенным: подмена живого
+документа, подмена канона в git HEAD и отсутствие документа — красные; strip при
+каноне в HEAD — зелёный (не самоэхо: байты из HEAD, не из выхода субъекта; не
+недоказанный фолбэк: контрпара kanon-strip-podmena доказывает сравнение реальных
+байтов HEAD).
 """
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -344,6 +354,56 @@ def run_tool(cmd, repo, zh, extra=()):
     env = {**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'}
     return subprocess.run(argv, capture_output=True, text=True, timeout=120, env=env)
 
+GIT_ENV_CHUZIE = ('GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DATABASE',
+                  'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_CEILING_DIRECTORIES')
+
+
+def _git(root, *args):
+    """git в каталоге root без наследованных GIT_*-переменных (дисциплина
+    scripts/ci_klass.sh): окружение сессии не подменяет репозиторий чтения.
+    Нет git/таймаут — код 127/124 с текстом (fail-closed именованным отказом
+    выше, не traceback батареи)."""
+    env = {k: v for k, v in os.environ.items() if k not in GIT_ENV_CHUZIE}
+    try:
+        return subprocess.run(['git', '-C', str(root)] + list(args),
+                              capture_output=True, timeout=60, env=env)
+    except FileNotFoundError:
+        return subprocess.CompletedProcess(args, 127, b'', b'netu git')
+    except subprocess.TimeoutExpired:
+        return subprocess.CompletedProcess(args, 124, b'', b'git: taimaut')
+
+
+def kanon_istochnik(doc_root):
+    """Канон документа судимого дерева — 190, приёмка клетки dokument-kanon.
+
+    Живой файл docs/190-zamer-svyazki.md первичен: подменённый документ ловится
+    побайтовым сравнением строк. Файла нет — ci_klass strip удаляет учётный docs/
+    БЕЗ изменения коммита (учёт-независимость 087, registry/ci-steps.tsv:56-68):
+    канон читается из git HEAD того же дерева — зафиксирован коммитом судимого
+    дерева, а не снапшотом батареи (снапшот дрейфовал бы при легитимных правках
+    документа). Нет и в git HEAD (коммит документ не несёт) — None с именованной
+    причиной: обычное дерево без канонического документа суд не принимает
+    («отсутствие документа — красная клетка», контракт 190, приёмка)."""
+    doc = doc_root / 'docs' / '190-zamer-svyazki.md'
+    if doc.is_file():
+        return doc.read_text().splitlines(), 'живой документ %s' % doc
+    p = _git(doc_root, 'show', 'HEAD:docs/190-zamer-svyazki.md')
+    if p.returncode != 0:
+        return None, ('документ канона отсутствует: %s — файла в дереве нет и '
+                      'git HEAD судимого дерева его не несёт' % doc)
+    return p.stdout.decode('utf-8', 'replace').splitlines(), \
+        'git HEAD судимого дерева (учётный strip)'
+
+
+def sud_kanon(header, doc_root):
+    """Заголовок субъекта против документа канона — побайтово, своей строкой."""
+    lines, istochnik = kanon_istochnik(doc_root)
+    if lines is None:
+        return False, istochnik
+    if header is None or header not in lines:
+        return False, 'заголовок таблицы не совпадает с документом канона (%s)' % istochnik
+    return True, ''
+
 
 def parse_table(text):
     rows = {}
@@ -418,6 +478,10 @@ def cell_cases():
         ('netu-reestra', 'R', (), 'rc', ('R', 'netu-reestra', '2', 'НЕТ_РЕЕСТРА')),
         ('chistyj-klon', 'A', (), 'rc', ('A', 'chistyj-klon', '2', 'НЕТ_ЖУРНАЛОВ')),
         ('dokument-kanon', 'A', (), 'kanon', 'A'),
+        ('kanon-podmena', 'A', (), 'kanon_podmena', None),
+        ('kanon-otsutstvuet', 'A', (), 'kanon_otsutstvuet', None),
+        ('kanon-strip-git', 'A', (), 'kanon_strip_git', None),
+        ('kanon-strip-podmena', 'A', (), 'kanon_strip_podmena', None),
     ]
 
 
@@ -494,11 +558,63 @@ def run_cell(cmd, base, variant, extra, kind, expect, tables, doc_root, stderr_e
     if kind == 'kanon':
         res = run_tool(cmd, repo, zh, extra)
         header = res.stdout.splitlines()[0] if (res.returncode == 0 and res.stdout) else None
-        doc = doc_root / 'docs' / '190-zamer-svyazki.md'
-        if not doc.is_file():
-            return False, 'документ канона отсутствует: %s' % doc
-        if header is None or header not in doc.read_text().splitlines():
-            return False, 'заголовок таблицы не совпадает с документом канона'
+        return sud_kanon(header, doc_root)
+    if kind in ('kanon_podmena', 'kanon_otsutstvuet', 'kanon_strip_git',
+                'kanon_strip_podmena'):
+        # Контроли существенности суда канона (Н-39; демаркация 019): конформный
+        # вход — документ с tab-разделённой строкой канона; валидный контрпример =
+        # инвариантность к значениям (kanon-strip-git зелена на любом конформном
+        # документе, несущем байты заголовка субъекта) ∧ расхождение на конформном
+        # входе: kanon-podmena (подменённый живой документ), kanon-strip-podmena
+        # (подменённый канон в git HEAD — ловит самоэхо и безусловный фолбэк),
+        # kanon-otsutstvuet (документа нет нигде) обязаны быть красными.
+        res = run_tool(cmd, repo, zh, extra)
+        header = res.stdout.splitlines()[0] if (res.returncode == 0 and res.stdout) else None
+        if header is None:
+            return False, 'субъект не дал заголовок таблицы'
+        root = base / kind
+        if kind in ('kanon_strip_git', 'kanon_strip_podmena'):
+            # strip-мир: коммит несёт канон, рабочий каталог его лишён — так же,
+            # как ci_klass strip удаляет файлы, не коммиты; toy-коммит как у
+            # red_istochnik_incr_079.sh (git init/add/commit во временном мире).
+            if shutil.which('git') is None:
+                return False, 'нет git — контроль strip-ветви канона не исполним'
+            line = header if kind == 'kanon_strip_git' else header + '\tдубль-столбец'
+            d = root / 'docs'
+            d.mkdir(parents=True, exist_ok=True)
+            (d / '190-zamer-svyazki.md').write_text(
+                '# 190 — документ замера (контроль strip)\n\n```\n%s\n```\n' % line)
+            for args in (('init', '-q'), ('add', '-A'),
+                         ('-c', 'user.name=t', '-c', 'user.email=t@t',
+                          'commit', '-qm', 'kanon190')):
+                p = _git(root, *args)
+                if p.returncode != 0:
+                    return False, 'git %s в strip-мире не прошёл: %r' % (
+                        args[0], p.stderr.decode('utf-8', 'replace')[-120:])
+            (d / '190-zamer-svyazki.md').unlink()
+        elif kind == 'kanon_podmena':
+            d = root / 'docs'
+            d.mkdir(parents=True, exist_ok=True)
+            (d / '190-zamer-svyazki.md').write_text(
+                '# 190 — документ замера (подмена)\n\n```\n%s\tдубль-столбец\n```\n' % header)
+        else:
+            # kanon_otsutstvuet: ни файла, ни репозитория; битый .git-файл не даёт
+            # git уйти walk-up в репозиторий выше TMPDIR — отказ детерминирован.
+            root.mkdir(parents=True, exist_ok=True)
+            (root / '.git').write_text('gitdir: /netu-zamer190\n')
+        ok, why = sud_kanon(header, root)
+        if kind == 'kanon_strip_git':
+            return ok, '' if ok else ('stripped-дерево (файл удалён, канон в git HEAD) '
+                                      'ошибочно отказано: %s' % why)
+        if ok:
+            karto = {'kanon_podmena': 'подменённый живой документ канона',
+                     'kanon_strip_podmena': 'подменённый канон в git HEAD',
+                     'kanon_otsutstvuet': 'отсутствующий документ канона'}
+            return False, 'суд канона ошибочно принял дерево: %s' % karto[kind]
+        if kind == 'kanon_strip_podmena' and 'git HEAD' not in why:
+            return False, 'отказ пришёл не из канона git HEAD (байты не оттуда): %s' % why
+        if kind == 'kanon_otsutstvuet' and 'отсутствует' not in why:
+            return False, 'отказ без имени «отсутствует»: %s' % why
         return True, ''
     if kind == 'stderr':
         line_exp = (stderr_exp or {}).get(expect)
