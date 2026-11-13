@@ -36,6 +36,26 @@
 # отдельный признак, класс предмета (архитектурный класс читается грамматикой
 # arch187_code_subject, общей для всех дверей).
 # НЕ БАРЬЕР: субъект контракта 095 — зелёный контроль и стаб-детект собственной именованной батареи fixtures/context_pack_095/ (раннер fixtures/_krasnye_095.sh, стаб-пак battery_stubs.sh, 18 мутаций), не case_*.sh-глобом (прецедент drill_exit_marker.sh/drill_path_guard.sh, заморозка 025 И-7). Выходы: 0 — пак построен (stdout), 1 — именованный отказ «ОТКАЗ: ...», 2 — NOT_IMPLEMENTED.
+#
+# 095-дельта 1113 (И-20 + И-17/И-18/И-19) — что здесь живого:
+# * РОЛЬ: физическая (implementer-glm) и логическая, семейная (implementer) —
+#   разные сущности. Алфавит роли закрыт: базовые семь ∪ implementer-glm.
+#   Свидетельство модели — строка трассы ФИЗИЧЕСКОЙ роли (семейная строка её
+#   не заменяет); контекстная видимость (rows карты, скилы 13.4, ADR-метки,
+#   исполнительская стадия до заморозки) — СЕМЕЙНАЯ. До заморозки черновик
+#   собирают architect/critic/arbiter; остальные — «контракт не заморожен».
+# * ОБЗОР РАБОТЫ (--kind brief): предмет контракта — цепочка носителей
+#   (§Предмет → §Обещание и граница → inline «Предмет:» → H1, ≤480 символов,
+#   метка «черновик: »); статус предмета — общий lib_plan 084 (plan_status),
+#   вне плана — счётной строкой; закрытое/вне-планное считаются явной строкой
+#   «WORK: опущено: …», а хвост за капом вклейки — строкой остатка. Кап 40000
+#   общий и НЕ повышается; размер меряется тем же сериализатором pack_body.
+# * ФРАГМЕНТЫ КАРТЫ: строки rows могут называть один путь несколько раз — фрагмент
+#   один (путь), дубль не выдаётся; бриф при этом несёт ВСЕ rows без фильтра
+#   ролей (136 НАБЛ-П17).
+# * ОТКАЗ «источник недоступен: <путь>» — дословно фраза 095 (И-3); имя 161a
+#   (PROFILE_PATH_MISSING) остаётся на его 161a-ветке (optional в проектном
+#   worktree).
 set -uo pipefail
 TAB="$(printf '\t')"
 die() { printf 'ОТКАЗ: %s\n' "$*" >&2; exit 1; }
@@ -160,7 +180,22 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$REPO" ] && [ -n "$ROLE" ] || usage
 [ -d "$REPO" ] || die "репозитория нет: $REPO"
-case "$ROLE" in orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) ;; *) die "роль вне алфавита: $ROLE" ;; esac
+# И-20 (095-дельта 1113): назначенная специализация роли — штатный пак.
+# ФИЗИЧЕСКАЯ роль (implementer-glm) и ЛОГИЧЕСКАЯ, СЕМЕЙНАЯ (implementer) —
+# разные сущности: свидетельство модели — СВОЯ строка трассы специализации
+# (свидетельство GLM не подменяется M3-строкой семейной роли), контекстная
+# видимость (rows карты, скилы 13.4, ADR-метки, исполнительская стадия) —
+# СЕМЕЙНАЯ. Алфавит роли ЗАКРЫТ: базовые семь ∪ implementer-glm; произвольное
+# имя и любая другая специализация — прежний отказ «роль вне алфавита: <роль>».
+# Специализация здесь ровно одна и названа явно: реестр ролей НЕ читается,
+# второй алфавит не заводится, CSV-алфавит карты профиля остаётся базовыми
+# семью (И-0 не меняется).
+LOGICAL_ROLE=""
+case "$ROLE" in
+  implementer-glm) LOGICAL_ROLE="implementer" ;;
+  orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) LOGICAL_ROLE="$ROLE" ;;
+  *) die "роль вне алфавита: $ROLE" ;;
+esac
 case "$KIND" in task|brief) ;; *) die "kind вне алфавита: $KIND" ;; esac
 
 # Инструмент хеша обязан быть рабочим ДО любой выдачи: сбойный sha256sum из
@@ -261,7 +296,11 @@ if [ -z "$AUTHOR_ROLE" ]; then
     *)        AUTHOR_ROLE="" ;;
   esac
 fi
-[ -z "$AUTHOR_ROLE" ] || case "$AUTHOR_ROLE" in orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) ;; *) die "автор вне алфавита: $AUTHOR_ROLE" ;; esac
+# И-20: публичная позиция автора согласована с позицией роли ПО ИМЕНИ: тот же
+# закрытый алфавит (implementer-glm — та же специализация), модель автора при
+# этом НЕ меняется: след берётся из строки трассы физического имени, семейная
+# строка его не заменяет.
+[ -z "$AUTHOR_ROLE" ] || case "$AUTHOR_ROLE" in orchestrator|architect|critic|implementer|implementer-glm|adversary|reviewer|arbiter) ;; *) die "автор вне алфавита: $AUTHOR_ROLE" ;; esac
 
 # КОНТРАКТ 103 (Решение 1) / 996: пути — ЕДИНЫЙ вызов `project_paths_resolve`
 # (живёт в next_id.sh). Ранний вызов — ТОЛЕРАНТНЫЙ (136, И-7/НАБЛ-П5): его
@@ -306,6 +345,9 @@ fi
   while IFS="$TAB" read -r r m fb; do
     [ -z "${r:-}" ] && continue
     case "$fb" in allowed|denied) ;; *) die "трасса: грамматика" ;; esac
+    # И-20: строка трассы ищется по ФИЗИЧЕСКОЙ роли (implementer-glm — своя
+    # строка); семейная строка implementer её НЕ заменяет. То же и для следа
+    # автора: имя физическое.
     if [ "$r" = "$ROLE" ]; then TRACE_LINE="TRACE: role=$r model=$m fallback=$fb"; fi
     [ -n "$AUTHOR_ROLE" ] && [ "$r" = "$AUTHOR_ROLE" ] && AUTHOR_MODEL="$m"
   done < "$TRACE"
@@ -607,6 +649,7 @@ if [ "$KIND" = "task" ]; then
 fi
 
 MAP_LINES=""; RULES_LINES=""; REUSE_LINES=""; MAP_MAN=""
+_frag_seen=""
 NROWS="$(printf '%s' "$CP" | jq -r 'if . == null then 0 else (.rows // []) | length end')"
 if [ "$NROWS" = "0" ]; then
   die "нет карты контекста: contextPack"
@@ -627,20 +670,36 @@ while IFS="$TAB" read -r kind path roles mnd why; do
   # оркестратор раздаёт задания и обязан видеть всю карту контекста;
   # kind=task фильтр ролей несёт дословно (грамматика 095 не ослаблена).
   if [ "$KIND" != "brief" ]; then
-    case ",$roles," in *",$ROLE,"*) ;; *) continue ;; esac
+    # И-20: фильтр ролей карты — по ЛОГИЧЕСКОЙ (семейной) роли: назначенная
+    # специализация видит ровно то, что видит семейная роль. Алфавит ролей в
+    # CSV самой карты остаётся базовыми семью (И-0 не меняется).
+    case ",$roles," in *",$LOGICAL_ROLE,"*) ;; *) continue ;; esac
   fi
   # КОНТРАКТ 161a: пропущенная строка contextPack.rows — ИМЕНОВАННЫЙ отказ с
   # путём (PROFILE_PATH_MISSING) вместо частичного пака. Обязательный
-  # источник отказывает всегда (фраза 095 «источник недоступен: <путь>»
-  # дословно, имя — дописано); optional — отказывает во входе 161a
-  # (проектный worktree), в legacy-flow (main checkout) сохраняется И-3
-  # контракта 095: строка фрагмента не печатается, пак строится.
+  # источник отказывает всегда фразой 095 «источник недоступен: <путь>»
+  # ДОСЛОВНО (И-3; клетка 095 сверяет строку отказа построчно); optional —
+  # отказывает во входе 161a (проектный worktree) ИМЕНЕМ 161a, в
+  # legacy-flow (main checkout) сохраняется И-3 контракта 095: строка
+  # фрагмента не печатается, пак строится.
   if [ ! -f "$REPO/$path" ]; then
-    if [ "$mnd" = "true" ] || [ "$_PACK_FROM_WORKTREE" = "1" ]; then
+    if [ "$mnd" = "true" ]; then
+      die "источник недоступен: $path"
+    fi
+    if [ "$_PACK_FROM_WORKTREE" = "1" ]; then
       die "источник недоступен: $path (PROFILE_PATH_MISSING)"
     fi
     continue
   fi
+  # ОДИН фрагмент — ОДИН носитель: строки карты (rows) могут называть один и
+  # тот же путь несколькими строками (разные роли/why), а фрагмент пака — сам
+  # путь. Дубль не выдаётся ни в выдаче, ни в манифесте: бриф остаётся
+  # полным (все rows, без фильтра ролей — 136 НАБЛ-П17), но каждый фрагмент
+  # виден один раз.
+  case ",$_frag_seen," in
+    *",$kind:$path,"*) continue ;;
+  esac
+  _frag_seen="$_frag_seen,$kind:$path,"
   case "$kind" in
     map)   MAP_LINES="${MAP_LINES}MAP: $path :: $why
 " ;;
@@ -655,7 +714,9 @@ while IFS="$TAB" read -r kind path roles mnd why; do
 done <<<"$ROWS_TSV"
 
 SKILLS=""
-case "$ROLE" in
+# И-20: матрица 13.4 — по ЛОГИЧЕСКОЙ (семейной) роли: назначенная
+# специализация получает скилы семейной роли (implementer-матрицу), не свои.
+case "$LOGICAL_ROLE" in
   architect)   SKILLS="SKILL: grilling
 SKILL: writing-for-agents
 SKILL: tdd
@@ -699,6 +760,34 @@ _adr_load() {
   done
 }
 
+# Предмет контракта для обзора WORK — ЦЕПОЧКА носителей с прецедентом
+# (И-19): первая непустая строка секции «## Предмет…» → секция
+# «## Обещание и граница» → inline «Предмет:» в строке → фактический H1.
+# Реальное описание, не придуманный placeholder. Выдержка — 480 СИМВОЛОВ
+# (jq: не байтовый обрыв). H1 с явной пометкой ЧЕРНОВИК сохраняет метку
+# «черновик: » у не-заголовочного носителя (обзор не объявляет черновик
+# реализованным). Пустой результат — у контракта нет НИ ОДНОГО носителя:
+# это настоящая невозможность собрать (отказ брифа), а не непривычный
+# заголовок.
+# Правило `{ }` в awk глушит действие по умолчанию: печатается ТОЛЬКО строка
+# из END — вывод не зависит от того, печатает ли awk непокрытые строки.
+_brief_subject() {  # <файл контракта> → предмет (≤480 символов) | пусто
+  awk '
+    /^# / && title == "" { title = substr($0, 3) }
+    /^## Предмет/ { section = 1; next }
+    /^## Обещание и граница/ { section = 2; next }
+    /^## / { section = 0 }
+    section == 1 && NF && subject == "" { subject = $0 }
+    section == 2 && NF && promise == "" { promise = $0 }
+    inline == "" && match($0, /(^|[[:space:]])Предмет:[[:space:]]*/) { inline = substr($0, RSTART + RLENGTH) }
+    { }
+    END {
+      s = subject != "" ? subject : promise != "" ? promise : inline != "" ? inline : title
+      if (s != title && title ~ /ЧЕРНОВИК|Черновик|черновик/) s = "черновик: " s
+      print s
+    }' "$1" | jq -Rr 'if length > 480 then .[0:479] + "…" else . end'
+}
+
 if [ "$SKIP_TASK" = "0" ]; then
   [ -n "$CONTRACT" ] || die "контракт не указан"
   case "$CONTRACT" in ''|*[!0-9]*) die "номер контракта вне алфавита: $CONTRACT" ;; esac
@@ -713,7 +802,12 @@ if [ "$SKIP_TASK" = "0" ]; then
     CBYTES="$("$GIT_BIN" -C "$REPO" show "$TAG:$CPATH" 2>&1)"
     ORIGIN="frozen"
   else
-    case "$ROLE" in architect|critic) ;; *) die "контракт не заморожен: $CONTRACT" ;; esac
+    # И-20: исполнительская стадия судится по ЛОГИЧЕСКОЙ (семейной) роли:
+    # специализация исполнительской роли работает по заморозке так же, как
+    # семейная (до заморозки — именованный отказ). До заморозки черновик
+    # собирают architect/critic/ARBITER — arbiter наравне с ними (095-дельта
+    # 1113), остальные роли отказаны.
+    case "$LOGICAL_ROLE" in architect|critic|arbiter) ;; *) die "контракт не заморожен: $CONTRACT" ;; esac
     # (д) черновик: только <contracts>/<NNN>-*.md профиля (Frontier И-1а/И-1б).
     CPATH="$(cd "$REPO" && ls "$WP_C_REL"/${CONTRACT}-*.md 2>/dev/null | head -n 1)"
     [ -n "$CPATH" ] || die "черновик контракта не найден: $CONTRACT"
@@ -744,7 +838,9 @@ zones${TAB}${CPATH}${TAB}mandatory${TAB}${ORIGIN}
           'роль:'*)
             ar="${lbl#роль:}"
             case "$ar" in orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) ;; *) die "ADR: грамматика: роль $ar" ;; esac
-            [ "$ar" = "$ROLE" ] && m=1 ;;
+            # И-20: метка роли — по ЛОГИЧЕСКОЙ (семейной) роли: ADR семейной
+            # роли выдаётся её специализации; метка чужой семейной роли — нет.
+            [ "$ar" = "$LOGICAL_ROLE" ] && m=1 ;;
           *)
             case "$lbl" in ''|*[!A-Za-z0-9._/*?-]*) die "ADR: грамматика: метка $lbl" ;; esac
             for zp in $ZONE_PATHS; do case "$zp" in $lbl) m=1 ;; esac; done ;;
@@ -791,28 +887,43 @@ else
   if [ -f "$REPO/$WP_G_REL/plan.tsv" ]; then
     GOAL_SEC="$(cat "$REPO/$WP_G_REL/plan.tsv")"
   fi
-  # ── (И-12-скоуп, А-387) карта WORK: каждый контракт — строкой ──
-  # Якорь заголовка — ПРЕФИКС `^## Предмет` (суффикс-аннотации вида
-  # «## Предмет (дословно из докса…)» предмет НЕСУТ: 092/094/095).
-  # Отказ фразой И-12 дословно — ТОЛЬКО активным: NNN в колонке id
-  # plan.tsv профиля (тот же реестр — GOAL брифа). Вне плана без
-  # предмета — строка-маркер: не молчаливый пропуск (И-0) и не смерть
-  # брифа на 6 legacy (Б4 круга 1 ревьюера). plan.tsv нет → план пуст.
+  # ── (И-12-скоуп, А-387; И-17/И-18/И-19) карта WORK: ОБЗОР РАБОТЫ ──
+  # Скоуп: plan.tsv есть → его id (вне плана — счётной строкой); plan.tsv НЕТ
+  # → ВСЕ контракты (отсутствие реестра ≠ пустая работа: прежнее «план пуст»
+  # прятало работу за отсутствием plan.tsv).
+  # Статус — ОДИН общий (lib_plan 084, plan_status): бриф не заводит третьей
+  # копии статуса. done закрывает предмет; «закрыт без done» — реестр; далее
+  # заморожен/номер выдан — предмет ещё открыт.
+  # ПРЕДМЕТ — цепочка носителей с прецедентом (см. _brief_subject).
+  # Закрытое и вне-планное не заполняют обзор, но и НЕ исчезают молча: их
+  # считает счётная строка «WORK: опущено: …» (не молчаливое усечение И-0).
+  LIB_PLAN_REGISTRY="$WP_G_REL"
+  # shellcheck disable=SC1091
+  . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_plan.sh"
   _plan_ids=""
-  [ -f "$REPO/$WP_G_REL/plan.tsv" ] && _plan_ids="$(awk -F'\t' 'NR>1 && $1 ~ /^[0-9]+$/ {print $1}' "$REPO/$WP_G_REL/plan.tsv")" || true
+  [ -f "$REPO/$WP_G_REL/plan.tsv" ] \
+    && _plan_ids="$(awk -F'\t' 'NR>1 && $1 ~ /^[0-9]+$/ {print $1}' "$REPO/$WP_G_REL/plan.tsv")" || true
+  _closed_count=0; _outside_count=0; _work_lines=""
   for cf in $(LC_ALL=C ls "$REPO/$WP_C_REL"/*.md 2>/dev/null | LC_ALL=C sort); do
     cnum="$(basename "$cf")"; cnum="${cnum%%-*}"
-    csubj="$(awk '/^## Предмет/{f=1;next} /^## /{f=0} f&&NF{print;exit}' "$cf")"
-    if [ -n "$csubj" ]; then
-      WORK_SEC="${WORK_SEC}WORK: ${cnum} :: ${csubj}
-"
-    elif printf '%s\n' "$_plan_ids" | grep -Fxq -- "$cnum"; then
-      die "брифинг: контракт без предмета: $cf"
-    else
-      WORK_SEC="${WORK_SEC}WORK: ${cnum} :: legacy-без-§Предмет (вне plan.tsv)
-"
+    if [ -f "$REPO/$WP_G_REL/plan.tsv" ] && ! printf '%s\n' "$_plan_ids" | grep -Fxq -- "$cnum"; then
+      _outside_count=$((_outside_count + 1)); continue
     fi
+    case "$(plan_status "$cnum" "$REPO_ABS")" in
+      "$P84_ST_DONE"|"$P84_ST_CLOSED") _closed_count=$((_closed_count + 1)); continue ;;
+    esac
+    _prefix=""
+    if [ -f "$REPO/$WP_G_REL/pauzy.tsv" ] \
+      && awk -F'\t' -v id="$cnum" '$1==id {found=1} END {exit !found}' "$REPO/$WP_G_REL/pauzy.tsv"; then
+      _prefix="ПАУЗА: "
+    fi
+    csubj="$(_brief_subject "$cf")" || die "брифинг: не прочитан контракт: $cf"
+    [ -n "$csubj" ] || die "брифинг: контракт без предмета: $cf"
+    _work_lines="${_work_lines}WORK: ${cnum} :: ${_prefix}${csubj}
+"
   done
+  WORK_SEC="WORK: опущено: закрытых ${_closed_count}, вне плана ${_outside_count}
+${_work_lines}"
   if [ -n "$ADRP" ] && [ -d "$REPO/$ADRP" ]; then
     while IFS="$TAB" read -r aid _aarea ares; do
       [ -z "${aid:-}" ] && continue
@@ -989,6 +1100,35 @@ if [ -n "$PROJECT_SEC" ]; then printf '%s' "$PROJECT_SEC"; fi
     printf '=== HEALTH ===\n%s\n' "$HEALTH_SEC"
   fi
 }
+# Бюджет вклейки брифа: WORK — обзор работы, который может не поместиться
+# (мир с сотнями контрактов против капа вклейки 40000). Обязательные секции
+# (MAP/RULES/GOAL/DECISIONS/HEALTH) не усекаются; обзор WORK усекается ЯВНО:
+# хвост за бюджетом заменяется строкой остатка, а не молчаливым пропуском.
+# Пакет «режь задачу» на этом пути НЕ возникает — кап вклейки держится (И-9
+# не трогается, общий кап 40000 НЕ повышается). Размер меряется ТЕМ ЖЕ
+# сериализатором, который отдаёт пак (pack_body): второй копии раскладки
+# секций нет.
+if [ "$KIND" = "brief" ]; then
+  _work_lines="$WORK_SEC"; WORK_SEC=""
+  _base_bytes="$(pack_body | wc -c | tr -d ' ')"
+  _work_bytes="$(printf '=== WORK ===\n' | wc -c | tr -d ' ')"
+  _omitted=0; _tail=0
+  while IFS= read -r _work_line; do
+    [ -n "$_work_line" ] || continue
+    _line_bytes="$(printf '%s\n' "$_work_line" | wc -c | tr -d ' ')"
+    if [ "$_tail" = 0 ] && [ "$((_base_bytes + _work_bytes + _line_bytes))" -le 39800 ]; then
+      WORK_SEC="${WORK_SEC}${_work_line}
+"
+      _work_bytes=$((_work_bytes + _line_bytes))
+    else
+      _tail=1; _omitted=$((_omitted + 1))
+    fi
+  done <<< "$_work_lines"
+  if [ "$_omitted" -gt 0 ]; then
+    WORK_SEC="${WORK_SEC}WORK: за бюджетом брифа: ${_omitted} строк; полный план и контракты — по MAP
+"
+  fi
+fi
 VK="$(pack_body | wc -c | tr -d ' ')"
 [ "$VK" -le 40000 ] || die "режь задачу: $VK > 40000"
 MAN_BODY="=== MANIFEST ===
