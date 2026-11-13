@@ -16,13 +16,18 @@
   --oracle-tamper — сверка sha256 носителей оракула (rc 2 ORACLE_TAMPERED)
 
 Канон документа (клетка dokument-kanon): живой docs/190-zamer-svyazki.md судимого
-дерева; при отсутствии файла в рабочем каталоге (ci_klass strip удаляет учётный
-docs/ — учёт-независимость 087, registry/ci-steps.tsv:56-68) канон читается из
-git HEAD того же дерева. Контроли kanon-* держат суд существенным: подмена живого
-документа, подмена канона в git HEAD и отсутствие документа — красные; strip при
-каноне в HEAD — зелёный (не самоэхо: байты из HEAD, не из выхода субъекта; не
-недоказанный фолбэк: контрпара kanon-strip-podmena доказывает сравнение реальных
-байтов HEAD).
+дерева; при отсутствии файла (ci_klass strip удаляет учётный docs/ — учёт-
+независимость 087) канон читается из замороженной побайтной копии _zamorozka/
+того же дерева — КОДОВЫЙ артефакт fixtures/, входящий в H (прецедент 087:
+registry/ci-steps.tsv:56-69, check_runner_hygiene.sh:710-716), пин байтов —
+source.json (порча — ORACLE_TAMPERED любого режима). НЕ git HEAD: docs/ — учётный
+путь, байты коммита в H не входят — два HEAD с одним H и разными документами
+давали бы разные исходы тяжёлой проверки, reuse артефакта не доказывал бы
+результат. Контроли kanon-* держат суд существенным: подмена живого документа,
+подмена замороженной копии и отсутствие обеих — красные; strip при замороженной
+копии — зелёный (не самоэхо: байты из копии, не из выхода субъекта;
+kanon-strip-podmena: git HEAD мира несёт ПРАВИЛЬНЫЙ канон — зелёное там возможно
+только чтением HEAD, ловит и его, и безусловный фолбэк).
 """
 import hashlib
 import json
@@ -378,21 +383,27 @@ def kanon_istochnik(doc_root):
 
     Живой файл docs/190-zamer-svyazki.md первичен: подменённый документ ловится
     побайтовым сравнением строк. Файла нет — ci_klass strip удаляет учётный docs/
-    БЕЗ изменения коммита (учёт-независимость 087, registry/ci-steps.tsv:56-68):
-    канон читается из git HEAD того же дерева — зафиксирован коммитом судимого
-    дерева, а не снапшотом батареи (снапшот дрейфовал бы при легитимных правках
-    документа). Нет и в git HEAD (коммит документ не несёт) — None с именованной
-    причиной: обычное дерево без канонического документа суд не принимает
-    («отсутствие документа — красная клетка», контракт 190, приёмка)."""
+    БЕЗ изменения коммита (учёт-независимость 087, registry/ci-steps.tsv:56-69)
+    — канон читается из замороженной побайтной копии _zamorozka/ судимого дерева
+    (прецедент 087: check_runner_hygiene.sh:710-716): копия — КОДОВЫЙ артефакт
+    fixtures/, входит в H, пин её байтов — source.json (порча ловится
+    --oracle-tamper любого режима). НЕ git HEAD: docs/ — учётный путь, байты
+    коммита в H не входят — два HEAD с одним H и разными документами давали бы
+    разные исходы тяжёлой проверки, reuse артефакта не доказывал бы результат;
+    не окружение и не произвольная копия — путь фиксирован относительно судимого
+    дерева и пинян. Нет ни файла, ни копии (обычное дерево без канонического
+    документа) — None с именованной причиной: суд не принимает («отсутствие
+    документа — красная клетка», контракт 190, приёмка)."""
     doc = doc_root / 'docs' / '190-zamer-svyazki.md'
     if doc.is_file():
         return doc.read_text().splitlines(), 'живой документ %s' % doc
-    p = _git(doc_root, 'show', 'HEAD:docs/190-zamer-svyazki.md')
-    if p.returncode != 0:
-        return None, ('документ канона отсутствует: %s — файла в дереве нет и '
-                      'git HEAD судимого дерева его не несёт' % doc)
-    return p.stdout.decode('utf-8', 'replace').splitlines(), \
-        'git HEAD судимого дерева (учётный strip)'
+    zam = (doc_root / 'fixtures' / 'workshop_project' / 'zamer_svyazki_190'
+           / '_zamorozka' / '190-zamer-svyazki.md')
+    if zam.is_file():
+        return zam.read_text().splitlines(), \
+            'замороженная копия %s (учётный strip 087, кодовый артефакт в H)' % zam
+    return None, ('документ канона отсутствует: %s — файла в дереве нет и нет '
+                  'замороженной копии %s' % (doc, zam))
 
 
 def sud_kanon(header, doc_root):
@@ -480,7 +491,7 @@ def cell_cases():
         ('dokument-kanon', 'A', (), 'kanon', 'A'),
         ('kanon-podmena', 'A', (), 'kanon_podmena', None),
         ('kanon-otsutstvuet', 'A', (), 'kanon_otsutstvuet', None),
-        ('kanon-strip-git', 'A', (), 'kanon_strip_git', None),
+        ('kanon-strip', 'A', (), 'kanon_strip', None),
         ('kanon-strip-podmena', 'A', (), 'kanon_strip_podmena', None),
     ]
 
@@ -559,31 +570,43 @@ def run_cell(cmd, base, variant, extra, kind, expect, tables, doc_root, stderr_e
         res = run_tool(cmd, repo, zh, extra)
         header = res.stdout.splitlines()[0] if (res.returncode == 0 and res.stdout) else None
         return sud_kanon(header, doc_root)
-    if kind in ('kanon_podmena', 'kanon_otsutstvuet', 'kanon_strip_git',
+    if kind in ('kanon_podmena', 'kanon_otsutstvuet', 'kanon_strip',
                 'kanon_strip_podmena'):
         # Контроли существенности суда канона (Н-39; демаркация 019): конформный
         # вход — документ с tab-разделённой строкой канона; валидный контрпример =
-        # инвариантность к значениям (kanon-strip-git зелена на любом конформном
+        # инвариантность к значениям (kanon-strip зелена на любом конформном
         # документе, несущем байты заголовка субъекта) ∧ расхождение на конформном
         # входе: kanon-podmena (подменённый живой документ), kanon-strip-podmena
-        # (подменённый канон в git HEAD — ловит самоэхо и безусловный фолбэк),
-        # kanon-otsutstvuet (документа нет нигде) обязаны быть красными.
+        # (подменённая ЗАМОРОЖЕННАЯ КОПИЯ при правильном каноне в git HEAD мира —
+        # ловит самоэхо, безусловный фолбэк и чтение из git HEAD: байты HEAD тут
+        # совпадают с заголовком, зелёное возможно только мимо HEAD),
+        # kanon-otsutstvuet (нет ни живого файла, ни копии) обязаны быть красными.
         res = run_tool(cmd, repo, zh, extra)
         header = res.stdout.splitlines()[0] if (res.returncode == 0 and res.stdout) else None
         if header is None:
             return False, 'субъект не дал заголовок таблицы'
         root = base / kind
-        if kind in ('kanon_strip_git', 'kanon_strip_podmena'):
-            # strip-мир: коммит несёт канон, рабочий каталог его лишён — так же,
-            # как ci_klass strip удаляет файлы, не коммиты; toy-коммит как у
+        if kind in ('kanon_strip', 'kanon_strip_podmena'):
+            # strip-мир: коммит несёт и учётный docs/190, и кодовую замороженную
+            # копию; strip удаляет ТОЛЬКО docs/ — так же, как ci_klass strip
+            # удаляет файлы, а не коммиты; toy-коммит как у
             # red_istochnik_incr_079.sh (git init/add/commit во временном мире).
             if shutil.which('git') is None:
                 return False, 'нет git — контроль strip-ветви канона не исполним'
-            line = header if kind == 'kanon_strip_git' else header + '\tдубль-столбец'
-            d = root / 'docs'
-            d.mkdir(parents=True, exist_ok=True)
-            (d / '190-zamer-svyazki.md').write_text(
-                '# 190 — документ замера (контроль strip)\n\n```\n%s\n```\n' % line)
+            doc = root / 'docs' / '190-zamer-svyazki.md'
+            doc.parent.mkdir(parents=True, exist_ok=True)
+            # git HEAD мира несёт ПРАВИЛЬНЫЙ канон (байты заголовка субъекта) —
+            # в обоих strip-мирах: чтение канона из HEAD обязано давать зелёное
+            # и ловится только контрпарой с подменённой копией.
+            doc.write_text(
+                '# 190 — документ замера (контроль strip)\n\n```\n%s\n```\n' % header)
+            zam = (root / 'fixtures' / 'workshop_project' / 'zamer_svyazki_190'
+                   / '_zamorozka' / '190-zamer-svyazki.md')
+            zam.parent.mkdir(parents=True, exist_ok=True)
+            zam.write_text(
+                '# 190 — документ замера (замороженная копия, контроль strip)\n\n'
+                '```\n%s\n```\n'
+                % (header if kind == 'kanon_strip' else header + '\tдубль-столбец'))
             for args in (('init', '-q'), ('add', '-A'),
                          ('-c', 'user.name=t', '-c', 'user.email=t@t',
                           'commit', '-qm', 'kanon190')):
@@ -591,28 +614,32 @@ def run_cell(cmd, base, variant, extra, kind, expect, tables, doc_root, stderr_e
                 if p.returncode != 0:
                     return False, 'git %s в strip-мире не прошёл: %r' % (
                         args[0], p.stderr.decode('utf-8', 'replace')[-120:])
-            (d / '190-zamer-svyazki.md').unlink()
+            doc.unlink()
         elif kind == 'kanon_podmena':
             d = root / 'docs'
             d.mkdir(parents=True, exist_ok=True)
             (d / '190-zamer-svyazki.md').write_text(
                 '# 190 — документ замера (подмена)\n\n```\n%s\tдубль-столбец\n```\n' % header)
         else:
-            # kanon_otsutstvuet: ни файла, ни репозитория; битый .git-файл не даёт
-            # git уйти walk-up в репозиторий выше TMPDIR — отказ детерминирован.
+            # kanon_otsutstvuet: ни живого файла, ни замороженной копии, ни
+            # репозитория; битый .git-файл не даёт git уйти walk-up в репозиторий
+            # выше TMPDIR — отказ детерминирован и у реализаций, заглядывающих
+            # в git.
             root.mkdir(parents=True, exist_ok=True)
             (root / '.git').write_text('gitdir: /netu-zamer190\n')
         ok, why = sud_kanon(header, root)
-        if kind == 'kanon_strip_git':
-            return ok, '' if ok else ('stripped-дерево (файл удалён, канон в git HEAD) '
-                                      'ошибочно отказано: %s' % why)
+        if kind == 'kanon_strip':
+            return ok, '' if ok else ('stripped-дерево (файл удалён, канон в '
+                                      'замороженной копии) ошибочно отказано: %s' % why)
         if ok:
             karto = {'kanon_podmena': 'подменённый живой документ канона',
-                     'kanon_strip_podmena': 'подменённый канон в git HEAD',
+                     'kanon_strip_podmena': 'подменённая замороженная копия канона',
                      'kanon_otsutstvuet': 'отсутствующий документ канона'}
             return False, 'суд канона ошибочно принял дерево: %s' % karto[kind]
-        if kind == 'kanon_strip_podmena' and 'git HEAD' not in why:
-            return False, 'отказ пришёл не из канона git HEAD (байты не оттуда): %s' % why
+        if kind == 'kanon_strip_podmena' and 'замороженная копия' not in why:
+            return False, ('отказ пришёл не из замороженной копии (байты не оттуда; '
+                           'git HEAD мира несёт правильный канон — зелёное мимо '
+                           'копии = чтение HEAD): %s' % why)
         if kind == 'kanon_otsutstvuet' and 'отсутствует' not in why:
             return False, 'отказ без имени «отсутствует»: %s' % why
         return True, ''

@@ -10,7 +10,8 @@
     "dannye/orakul-rc.tsv": "96dffc5b17cce6f4e0e0092c9e07bd6318d3b183bcc4e585b39dd744a1c6c2d7",
     "dannye/orakul-stderr.tsv": "b59f03bead2902066681d0794dc4ae1c69b1bd4faed9d052bf8631ae920c3d5d",
     "model/zamer_model.py": "c2c78e81d350975a4e8a566c424394151f535314ba5a7aa9b3f0f311f53f3dd1",
-    "model/docs/190-zamer-svyazki.md": "74406d1394387c5d6742ab7c2bc4b49ee141970582f26598568af3611a634914"
+    "model/docs/190-zamer-svyazki.md": "74406d1394387c5d6742ab7c2bc4b49ee141970582f26598568af3611a634914",
+    "_zamorozka/190-zamer-svyazki.md": "1b9abae7258709aee0402a0dd344873de95a869fec573227dfd8ff8c0c80f465"
   },
   "stab_vhod": {
     "stab_schet_po_fajlam.py": "mir-b-bez-obryva",
@@ -33,5 +34,5 @@
     "stab_bez_fences.py": "tsitata-do-uchetnoj",
     "stab_bez_roli.py": "handoff-tolko-critic"
   },
-  "zametka": "оракул — данные dannye/ (правило 8: в память ДО субъекта); пины — байты носителей; стабы — мутации чтения кодом, привязки только здесь (Н-39)"
+  "zametka": "оракул — данные dannye/ (правило 8: в память ДО субъекта); пины — байты носителей; _zamorozka/190-zamer-svyazki.md — канон stripped-дерева (087: кодовый артефакт в H, НЕ git HEAD), обновляется вместе с каноном контракта; стабы — мутации чтения кодом, привязки только здесь (Н-39)"
 }
