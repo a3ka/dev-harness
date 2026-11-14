@@ -277,7 +277,7 @@ mkt_dir() {
   local d="$W/mktbin"; mkdir -p "$d"
   cp "$MKT" "$d/make_task.sh"
   cp "$ROOT/scripts/profile_resolver.sh" "$ROOT/scripts/next_id.sh" \
-    "$ROOT/scripts/check_architecture_contract.sh" "$d/"
+    "$ROOT/scripts/check_architecture_contract.sh" "$ROOT/scripts/lib_plan.sh" "$d/"
   printf '%s' "$d/make_task.sh"
 }
 # сцена субъекта verify_ci_parity (ось F, v3.2): файл субъекта
