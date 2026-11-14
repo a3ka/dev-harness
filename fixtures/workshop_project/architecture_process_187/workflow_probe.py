@@ -33,7 +33,13 @@ zero-match paths != FILES.sha256 (provenance.json, STRUCTURE.md — both named b
 the contract), and a several-claimants answer with EMPTY components
 (server/index.js → module.server + module.entrypoints, the pin's observed form).
 The literal-narrowing stabs MA1/MA2/MA3 of the verdict are mutant branches of
-the honest control, each caught by its OWN cell."""
+the honest control, each caught by its OWN cell.
+v3-r2 (reviewer verdict contracts-187-impl-v3, blocks Б1/Б2): make_task propagates
+the door's rc 2 («нечем проверить»: ARCH_DEPS, ARCH_LOCATE_GRAMMAR) instead of
+collapsing it to rc 1, and never emits a pack over that refusal; a body whose
+status field is absent or unfamiliar is OUTSIDE the answer grammar (the pin
+source always emits DECLARED|UNRESOLVED, workflow.js:87) — a named
+ARCH_LOCATE_GRAMMAR rc 2, never a class guessed from the model's rc."""
 import hashlib
 import json
 import os
@@ -119,6 +125,11 @@ CASES = (
     ('locate-outside-provenance', 'freeze', 'outside-provenance', 0, '', 'freeze'),
     ('locate-outside-structure', 'freeze', 'outside-structure', 0, '', 'freeze'),
     ('path-unplaced-empty-claimants', 'freeze', 'ambiguous-empty', 1, 'PATH_WITHOUT_COMPONENT', 'freeze'),
+    # ── v3-r2: rc 2 двери на make_task и тела вне грамматики со статусом (вердикт ревьюера Б1/Б2) ──
+    ('task-deps-refusal', 'task', 'real-deps', 2, 'ARCH_DEPS', 'task'),
+    ('task-grammar-refusal', 'task', 'grammar-broken', 2, 'ARCH_LOCATE_GRAMMAR', 'task'),
+    ('locate-status-missing', 'freeze', 'status-missing', 2, 'ARCH_LOCATE_GRAMMAR', 'freeze'),
+    ('locate-status-unknown', 'freeze', 'status-unknown', 2, 'ARCH_LOCATE_GRAMMAR', 'freeze'),
 )
 STABS = {
     'task-no-line': ('task-line-missing', 'allow-line'),
@@ -195,6 +206,14 @@ STABS = {
     'universe-refused-literal': ('locate-outside-provenance', 'universe-refused-literal'),
     'universe-refused-named-pair': ('locate-outside-structure', 'universe-refused-named-pair'),
     'ambiguous-empty-green': ('path-unplaced-empty-claimants', 'ambiguous-empty-green'),
+    # ── v3-r2 стабы: схлопывание rc 2→1 в make_task, пак поверх отказа, догадка класса
+    # по rc на теле без/с незнакомым status — каждая ветвь своей клетке (Н-39) ──
+    'task-deps-rc-collapsed': ('task-deps-refusal', 'task-rc1'),
+    'task-deps-pack-despite-refusal': ('task-deps-refusal', 'task-pack'),
+    'task-grammar-rc-collapsed': ('task-grammar-refusal', 'task-rc1'),
+    'task-grammar-pack-despite-refusal': ('task-grammar-refusal', 'task-pack'),
+    'status-guess-empty-claimants': ('locate-status-missing', 'status-guess'),
+    'status-guess-unknown': ('locate-status-unknown', 'status-guess'),
 }
 
 # Approved snapshot inside the pinned tree (2.5.x layout of the real model, as run-arch.js
@@ -219,7 +238,9 @@ REAL_VARIATIONS = frozenset((
     'grammar-broken', 'line-duplicate',
     # v3-r1: second values per class (critic v3, block Б-1)
     'declared-empty-worker', 'outside-provenance', 'outside-structure',
-    'ambiguous-empty'))
+    'ambiguous-empty',
+    # v3-r2: out-of-grammar bodies with parseable JSON (reviewer Б2)
+    'status-missing', 'status-unknown'))
 
 # Union world (v2-r1, блок 1(a) вердикта): the real CLI can answer SEVERAL matches
 # with SEVERAL components in one match (observed at the pin: server/src/handlers/x.js
@@ -277,6 +298,28 @@ BROKEN_PREFIX = 'app/broken/'
 # is a stub, the honest door refuses to parse it (ARCH_LOCATE_GRAMMAR, rc 2).
 BROKEN_TAIL = '"matches": [\n    {\n      "module": "module.broken",\n      "components": ["api.'
 
+# v3-r2 (reviewer verdict contracts-187-impl-v3, Б2): a body the pin source NEVER
+# emits — no status field, or an unfamiliar status value — is outside the answer
+# grammar (the source always answers DECLARED|UNRESOLVED, workflow.js:87). The
+# honest door refuses by name (ARCH_LOCATE_GRAMMAR rc 2); the `*)` branch that
+# guesses the class from the model's rc turns an rc-0 body GREEN (fail-open).
+# status-missing: two claimants with EMPTY components — the reviewer's probe form
+# (guess → «empty» → conform); status-unknown: the placed component api.identity
+# named by the line (guess → «placed» → conform). Single source: the toy CLI
+# bytes and the verifier's honest control both read these constants.
+NOSTATUS_PREFIX = 'app/nostatus/'
+NOSTATUS_MATCHES = (
+    {'module': 'module.nostatus-a', 'components': [],
+     'specification': 'app/nostatus/a.js', 'explicit': False, 'matched': 'app/nostatus/'},
+    {'module': 'module.nostatus-b', 'components': [],
+     'specification': 'app/nostatus/b.js', 'explicit': False, 'matched': 'app/nostatus/'},
+)
+UNKNOWN_PREFIX = 'app/unknownstatus/'
+UNKNOWN_STATUS = 'PARTIAL'
+UNKNOWN_MATCH = {'module': 'module.unknownstatus', 'components': ['api.identity'],
+                 'specification': 'app/unknownstatus/module.js', 'explicit': False,
+                 'matched': 'app/unknownstatus/'}
+
 # A syntactically correct 40-hex that exists in NO clone (v2-r1, блок 1(c)):
 # the door must name ARCH_PIN for it, not ARCHITECTURE_NET.
 FOREIGN_HEX = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
@@ -327,8 +370,11 @@ def locate_answer(path):
     (components may be EMPTY — a component-less module by the model's own decision);
     ('unresolved-zero', []) — rc 1, no module claims any prefix (repo artifacts);
     ('unresolved-multi', matches) — rc 1, several longest claimants (ambiguous);
-    ('grammar', None) — the body is not parseable JSON (truncated). Fed from the
-    same constants as the toy CLI bytes."""
+    ('grammar', None) — the body is not parseable JSON (truncated) or is outside
+    the answer grammar (no status field / unfamiliar status value — v3-r2, Б2).
+    Fed from the same constants as the toy CLI bytes."""
+    if path.startswith(NOSTATUS_PREFIX) or path.startswith(UNKNOWN_PREFIX):
+        return 'grammar', None
     if path.startswith(BROKEN_PREFIX):
         return 'grammar', None
     if path.startswith(TESTS_PREFIX):
@@ -477,6 +523,10 @@ if (name==='brief') {
   one('DECLARED',[__WORKER_MATCH__],0);
  } else if(p.startsWith('__AMBIG_PREFIX__')){
   one('UNRESOLVED',__AMBIG_MATCHES__,1);
+ } else if(p.startsWith('__NOSTATUS_PREFIX__')){
+  console.log(JSON.stringify({scope:'DECLARED_PLACEMENT_ONLY',path:p,matches:__NOSTATUS_MATCHES__,implementationEvidence:'NOT_ASSESSED'},null,2));
+ } else if(p.startsWith('__UNKNOWN_PREFIX__')){
+  one(__UNKNOWN_STATUS__,[__UNKNOWN_MATCH__],0);
  } else if(p.startsWith('__UNION_PREFIX__')){
   one('DECLARED',UNION,0);
  } else {
@@ -525,7 +575,12 @@ TOY_CLI_REAL = (TOY_CLI_REAL
                 .replace('__AMBIG_PREFIX__', AMBIG_PREFIX)
                 .replace('__AMBIG_MATCHES__', json.dumps(AMBIG_MATCHES, separators=(',', ':')))
                 .replace('__BROKEN_PREFIX__', BROKEN_PREFIX)
-                .replace('__BROKEN_TAIL__', json.dumps(BROKEN_TAIL)))
+                .replace('__BROKEN_TAIL__', json.dumps(BROKEN_TAIL))
+                .replace('__NOSTATUS_PREFIX__', NOSTATUS_PREFIX)
+                .replace('__NOSTATUS_MATCHES__', json.dumps(NOSTATUS_MATCHES, separators=(',', ':')))
+                .replace('__UNKNOWN_PREFIX__', UNKNOWN_PREFIX)
+                .replace('__UNKNOWN_STATUS__', json.dumps(UNKNOWN_STATUS))
+                .replace('__UNKNOWN_MATCH__', json.dumps(UNKNOWN_MATCH, separators=(',', ':'))))
 
 TOY_PACKAGE_LOCK = json.dumps({
     'name': 'toy-real-architecture', 'version': '1.0.0', 'lockfileVersion': 3,
@@ -705,7 +760,10 @@ def prepare(root, arch, pinned, variation):
     elif variation == 'grammar-broken':
         # Ответ locate — ОБОРВАННЫЙ JSON (незакрытая скобка): именованный отказ
         # ARCH_LOCATE_GRAMMAR rc 2, не зелёный и не сужение до иного имени.
+        # v3-r2: битый путь — и в контракте (канал freeze), и в задании (канал
+        # make_task судит текст --task-file) — как «unmapped» у обеих дверей.
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', BROKEN_PREFIX + 'model.js'))
+        task.write_text(task.read_text().replace('app/identity/model.js', BROKEN_PREFIX + 'model.js'))
         put(root, BROKEN_PREFIX + 'model.js', 'module.exports=9;\n')
     elif variation == 'line-duplicate':
         # Дубль id в строке «АРХИТЕКТУРА:» — как сейчас (187/1): именованный отказ.
@@ -733,6 +791,18 @@ def prepare(root, arch, pinned, variation):
         # наблюдённая на пине форма server/index.js (module.server, module.entrypoints).
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', AMBIG_PREFIX + 'index.js'))
         put(root, AMBIG_PREFIX + 'index.js', 'module.exports=11;\n')
+    elif variation == 'status-missing':
+        # v3-r2 (ревьюер Б2): тело — валидный JSON с массивом matches, но БЕЗ поля
+        # status (источник пина излучает status всегда). Догадка по rc даёт класс
+        # «empty» → конформ (fail-open); честная дверь — именованный отказ rc 2.
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', NOSTATUS_PREFIX + 'x.js'))
+        put(root, NOSTATUS_PREFIX + 'x.js', 'module.exports=12;\n')
+    elif variation == 'status-unknown':
+        # v3-r2 (ревьюер Б2): незнакомое значение status (PARTIAL) при rc 0 и
+        # размещающем компоненте api.identity — догадка даёт «placed» → конформ;
+        # второе значение наблюдаемого ключа вне-грамматности (урок v3-r1).
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', UNKNOWN_PREFIX + 'x.js'))
+        put(root, UNKNOWN_PREFIX + 'x.js', 'module.exports=13;\n')
     elif variation == 'precritic-foreign':
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', 'app/billing/evil.js'))
         put(root, 'app/billing/evil.js', 'x\n')
@@ -878,6 +948,19 @@ def verdict_v2(root, arch, pinned, action, task, role, mutant, variation):
             if mutant == 'grammar-narrowed':
                 return 1, 'PATH_WITHOUT_COMPONENT: путь app/broken/model.js не размещён в закреплённой модели'
             return 2, 'ARCH_LOCATE_GRAMMAR: ответ locate не парсится как JSON (app/broken/model.js)'
+        if variation in ('status-missing', 'status-unknown'):
+            # v3-r2 (ревьюер Б2): тело парсится как JSON, но статус не назван или
+            # незнаком — ВНЕ грамматики ответа (источник пина излучает status всегда).
+            # Стаб — догадка класса по rc: rc 0 → конформ, зелёный (fail-open).
+            path = next(line[len('ЗОНА implementer:'):].strip()
+                        for line in contract.splitlines()
+                        if line.startswith('ЗОНА implementer:'))
+            if mutant == 'status-guess':
+                return 0, ''  # обман: класс угадан по rc модели (rc 0 → конформ)
+            if variation == 'status-missing':
+                return 2, f'ARCH_LOCATE_GRAMMAR: в ответе locate нет поля status ({path})'
+            return 2, (f'ARCH_LOCATE_GRAMMAR: в ответе locate незнакомое значение '
+                       f'status: {UNKNOWN_STATUS} ({path})')
         if variation == 'line-duplicate':
             if mutant == 'allow-duplicate':
                 return 0, ''  # обман: дубль id в строке пропущен
@@ -967,6 +1050,18 @@ def verdict_v2(root, arch, pinned, action, task, role, mutant, variation):
             if mutant == 'local-dir-only':
                 return 0, ''  # обман: применимость по локальному каталогу, а не по lock
             return 1, 'ARCH_COMPONENT_NET: требуется --arch-component (кодовый предмет, проект с закреплённой моделью)'
+        if variation in ('real-deps', 'grammar-broken'):
+            # v3-r2 (ревьюер Б1): rc 2 двери («нечем проверить») доходит до
+            # вызывающего make_task без снижения до rc 1; пак не выдаётся.
+            name = ('ARCH_DEPS: зависимости модели недоступны (npm ci --ignore-scripts)'
+                    if variation == 'real-deps' else
+                    'ARCH_LOCATE_GRAMMAR: ответ locate не парсится как JSON (app/broken/model.js)')
+            if mutant == 'task-rc1':
+                return 1, name  # обман: rc 2 схлопнут в rc 1 (die)
+            if mutant == 'task-pack':
+                # обман: пак выдан ПОВЕРХ отказа rc 2 — наблюдатель судит канал выдачи
+                return 2, name + '\n' + PACK_MARKER + '777 role=architect kind=task ===\n'
+            return 2, name
         if variation == 'class-missing':
             if mutant == 'class-skip':
                 return 0, ''  # обман: бесклассовый черновик пропускается молча
@@ -1012,7 +1107,8 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
                      'live-real-union', 'root-unset', 'declared-empty',
                      'outside-universe', 'heuristic-docs', 'grammar-broken',
                      'line-duplicate', 'declared-empty-worker', 'outside-provenance',
-                     'outside-structure', 'ambiguous-empty') \
+                     'outside-structure', 'ambiguous-empty', 'status-missing',
+                     'status-unknown') \
             or variation.startswith('real-') or variation.startswith('union-') \
             or variation.startswith('precritic-'):
         return verdict_v2(root, arch, pinned, action, task, role, mutant, variation)
@@ -1168,8 +1264,9 @@ def main():
                 result = live(tools, root, arch, pinned, action, task, trace, role, variation)
                 rc, output = result.returncode, result.stdout + result.stderr
             ok = (rc == expected and refusal_ok(label, reason, output))
-            if label == 'task-class-missing' and PACK_MARKER in output:
-                ok = False  # 1(b): пак при ARCH_CLASS_MISSING выдан — судится канал выдачи
+            if label in ('task-class-missing', 'task-deps-refusal',
+                         'task-grammar-refusal') and PACK_MARKER in output:
+                ok = False  # 1(b)/Б1: пак при отказе выдан — судится канал выдачи
             if action == 'task' and not expected:
                 if 'PINNED_BRIEF_187' not in output or 'WRONG_HEAD_BRIEF_187' in output:
                     ok = False
@@ -1191,7 +1288,8 @@ def main():
                     fake_rc, fake_out = verdict(root, arch, pinned, action, task, role, mutant, variation=variation)
                     caught = (fake_rc != expected
                               or not refusal_ok(label, reason, fake_out)
-                              or (label == 'task-class-missing' and PACK_MARKER in fake_out))
+                              or (label in ('task-class-missing', 'task-deps-refusal',
+                                            'task-grammar-refusal') and PACK_MARKER in fake_out))
                     if not expected and action == 'task':
                         caught = caught or ('PINNED_BRIEF_187' not in fake_out or
                             'WRONG_HEAD_BRIEF_187' in fake_out or
