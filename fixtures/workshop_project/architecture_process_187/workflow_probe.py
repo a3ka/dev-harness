@@ -1,5 +1,39 @@
 #!/usr/bin/env python3
-"""Independent public-door probes for the 187 cutover. Synthetic projects own their .git."""
+"""Independent public-door probes for the 187 cutover. Synthetic projects own their .git.
+
+v2 (contract 187/2): two toy grammars. `legacy` answers locate with a bare component id
+(the 170/187-1 fixture world); `realshape` mirrors the REAL CompliorOS-architecture CLI:
+multi-line JSON locate with matches[].components, full JSON check body whose GREEN answer
+still carries "status": "NOT_EVALUATED" (implementation evidence, not a verdict), brief
+delivered only through the package script (npm run), and package-lock semantics for
+dependencies. Expected answers are immutable tuples in the verifier, never read back from
+the subject. Mutation is one named coordinate at a time; each mutant is paired with its OWN
+red case (Н-39: stub-to-branch binding lives in this code, not in contract prose).
+v2-r1 (critic verdict, block 1): union of matches[].components over several matches and
+several components in one match, ARCH_CLASS_MISSING on the make_task/done doors, and
+ARCH_PIN for a correct 40-hex absent from the clone — each with its own cell and stub.
+v2-r2 (arbiter verdict contracts-187-v2-granica, block 1(a)/(b)): the union-refusal
+observer is semantic — the ARCH_ZONE code itself is required and ANY component of the
+union is accepted at the attribution position (a set property, never one accidental
+literal); the make_task ARCH_CLASS_MISSING observer forbids an emitted pack by judging
+the real emission channel — the pack header line in stdout — not a subject flag.
+v3 (backend pain, measured 2026-11-11..12 on the exact inputs of contracts
+181/183/185 at pin bfc3f459): the real locate answer has FOUR classes — DECLARED
+with non-empty components, DECLARED with EMPTY components (module.tests,
+emptyComponentsReason: outside the product C4 view), UNRESOLVED with zero matches
+(repo artifacts: FILES.sha256, docs/*, provenance.json), UNRESOLVED with several
+matches (ambiguous inside the product tree) — plus a body that may be truncated.
+The door classifies by the MODEL's own answer, never by path heuristics; a
+malformed body is a named ARCH_LOCATE_GRAMMAR rc 2 (fail-closed), never a silent
+narrowing and never green.
+v3-r1 (critic verdict contracts-187-v3-vyzov1-fail, block Б-1): each answer class
+now carries at least TWO values of its observable key — a component-less module
+with an id != module.tests (worker/main.js → module.worker, the pin's own form),
+zero-match paths != FILES.sha256 (provenance.json, STRUCTURE.md — both named by
+the contract), and a several-claimants answer with EMPTY components
+(server/index.js → module.server + module.entrypoints, the pin's observed form).
+The literal-narrowing stabs MA1/MA2/MA3 of the verdict are mutant branches of
+the honest control, each caught by its OWN cell."""
 import hashlib
 import json
 import os
@@ -12,18 +46,16 @@ import tempfile
 from probe import world, put, git, run, CONTRACT, REVIEW, TOOLS
 from ci_wiring import BATTERY, DIRECT
 
-# Expected answers are immutable tuples in the verifier, never read back from the subject.
-# Mutation is one named coordinate at a time; each mutant is paired with its OWN red case.
 CASES = (
     ('task-valid', 'task', '', 0, '', 'task'),
     ('task-line-missing', 'task', 'line-missing', 1, 'ARCH_LINE_MISSING', 'task'),
     ('task-line-blank', 'task', 'line-blank', 1, 'ARCH_LINE_MISSING', 'task'),
     ('task-l3', 'task', 'l3', 1, 'ARCH_OWNER', 'task'),
     ('task-unmapped', 'task', 'unmapped', 1, 'PATH_WITHOUT_COMPONENT', 'task'),
-    ('brief-lock', 'task', 'brief-lock', 0, 'PINNED_BRIEF_187', 'task'),
-    ('brief-no-local-copy', 'task', 'no-local', 0, 'PINNED_BRIEF_187', 'task'),
-    ('brief-with-rules', 'task', 'with-rules', 0, 'RULES_FROM_PIN_187', 'task'),
-    ('brief-no-rules', 'task', 'no-rules', 0, 'PINNED_BRIEF_187', 'task'),
+    ('brief-lock', 'task', 'brief-lock', 0, '', 'task'),
+    ('brief-no-local-copy', 'task', 'no-local', 0, '', 'task'),
+    ('brief-with-rules', 'task', 'with-rules', 0, '', 'task'),
+    ('brief-no-rules', 'task', 'no-rules', 0, '', 'task'),
     ('freeze-valid', 'freeze', '', 0, '', 'freeze'),
     ('freeze-no-line', 'freeze', 'freeze-no-line', 1, 'ARCH_LINE_MISSING', 'freeze'),
     ('freeze-foreign', 'freeze', 'foreign', 1, 'ARCH_ZONE', 'freeze'),
@@ -49,6 +81,44 @@ CASES = (
     ('wiring-no-repo', 'wiring', 'wiring-no-repo', 1, 'CI_BATTERY_187_MISSING_OR_NOT_EXACT', 'wiring'),
     ('wiring-python', 'wiring', 'wiring-python', 1, 'CI_BATTERY_187_MISSING_OR_NOT_EXACT', 'wiring'),
     ('wiring-direct-missing', 'wiring', 'wiring-direct-missing', 1, 'CI_DIRECT_ARCH_187_MISSING', 'wiring'),
+    # ── v2: дверь на настоящей модели (контракт 187/2) ──────────────────────────
+    ('locate-json-conform', 'freeze', 'real-valid', 0, '', 'freeze'),
+    ('locate-json-foreign', 'freeze', 'real-foreign', 1, 'компоненту api.billing', 'freeze'),
+    ('zone-comma-list', 'freeze', 'real-comma', 0, '', 'freeze'),
+    ('path-unplaced-product', 'freeze', 'real-unplaced', 1, 'PATH_WITHOUT_COMPONENT', 'freeze'),
+    ('check-green-status-field', 'precritic', 'real-status', 0, '', 'precritic'),
+    ('brief-npm-doorway', 'task', 'real-brief', 0, '', 'task'),
+    ('pin-symbolic', 'freeze', 'pin-symbolic', 1, 'ARCHITECTURE_NET', 'freeze'),
+    ('pin-lock-empty', 'freeze', 'pin-empty', 1, 'ARCHITECTURE_NET', 'freeze'),
+    ('model-root-unset', 'door', 'root-unset', 1, 'ARCHITECTURE_NET', 'door'),
+    ('deps-door-refusal', 'door', 'real-deps', 2, 'ARCH_DEPS', 'door'),
+    ('precritic-full-zone', 'precritic', 'precritic-foreign', 1, 'ARCH_ZONE', 'precritic'),
+    ('precritic-line-missing', 'precritic', 'precritic-no-line', 1, 'ARCH_LINE_MISSING', 'precritic'),
+    ('precritic-draft', 'precritic', 'precritic-draft', 1, 'ARCH_DRAFT', 'precritic'),
+    ('freeze-class-missing', 'freeze', 'class-missing', 1, 'ARCH_CLASS_MISSING', 'freeze'),
+    ('precritic-class-missing', 'precritic', 'class-missing', 1, 'ARCH_CLASS_MISSING', 'precritic'),
+    ('operation-optional', 'freeze', 'operation-optional', 0, '', 'freeze'),
+    ('component-required-no-local', 'task', 'component-required', 1, 'ARCH_COMPONENT_NET', 'task'),
+    ('live-real-pin', 'door', 'live-real', 0, 'ARCH_187A_OK', 'door'),
+    # ── v2-r1: три обязательства без различающей клетки (вердикт критика, блок 1) ──
+    ('locate-union-conform', 'freeze', 'union-conform', 0, '', 'freeze'),
+    ('locate-union-foreign', 'freeze', 'union-foreign', 1, 'ARCH_ZONE', 'freeze'),
+    ('live-real-union', 'door', 'live-real-union', 0, 'ARCH_187A_OK', 'door'),
+    ('task-class-missing', 'task', 'class-missing', 1, 'ARCH_CLASS_MISSING', 'task'),
+    ('done-class-missing', 'done', 'class-missing', 1, 'ARCH_CLASS_MISSING', 'done'),
+    ('pin-foreign-hex', 'freeze', 'pin-foreign-hex', 1, 'ARCH_PIN', 'freeze'),
+    # ── v3: грамматика ответа locate на настоящей модели (боль freeze 181/183/185) ──
+    ('locate-real-contract', 'freeze', 'real-contract', 0, '', 'freeze'),
+    ('locate-declared-empty', 'freeze', 'declared-empty', 0, '', 'freeze'),
+    ('locate-outside-universe', 'freeze', 'outside-universe', 0, '', 'freeze'),
+    ('zone-locate-not-heuristic', 'freeze', 'heuristic-docs', 1, 'компоненту api.identity', 'freeze'),
+    ('locate-grammar-refusal', 'freeze', 'grammar-broken', 2, 'ARCH_LOCATE_GRAMMAR', 'freeze'),
+    ('line-duplicate', 'freeze', 'line-duplicate', 1, 'ARCH_LINE_MISSING', 'freeze'),
+    # ── v3-r1: вторые значения классов ответа (вердикт критика v3, блок Б-1) ────
+    ('locate-declared-empty-worker', 'freeze', 'declared-empty-worker', 0, '', 'freeze'),
+    ('locate-outside-provenance', 'freeze', 'outside-provenance', 0, '', 'freeze'),
+    ('locate-outside-structure', 'freeze', 'outside-structure', 0, '', 'freeze'),
+    ('path-unplaced-empty-claimants', 'freeze', 'ambiguous-empty', 1, 'PATH_WITHOUT_COMPONENT', 'freeze'),
 )
 STABS = {
     'task-no-line': ('task-line-missing', 'allow-line'),
@@ -84,6 +154,47 @@ STABS = {
     'ci-step-without-repo': ('wiring-no-repo', 'ignore-wiring'),
     'ci-step-python-instead': ('wiring-python', 'ignore-wiring'),
     'ci-direct-replaced-by-battery': ('wiring-direct-missing', 'ignore-wiring'),
+    # ── v2 стабы: каждая ветвь — своей клетке (Н-39) ────────────────────────────
+    'locate-first-line-json': ('locate-json-conform', 'locate-first-line'),
+    'zone-comma-unsplit': ('zone-comma-list', 'comma-unsplit'),
+    'zone-disk-heuristic': ('path-unplaced-product', 'disk-heuristic'),
+    'check-not-evaluated-substring': ('check-green-status-field', 'status-substring'),
+    'deps-refusal-green': ('deps-door-refusal', 'deps-green'),
+    'deps-named-not-evaluated': ('deps-door-refusal', 'deps-not-evaluated'),
+    'brief-node-direct': ('brief-npm-doorway', 'brief-node'),
+    'pin-symbolic-resolved': ('pin-symbolic', 'pin-head-allowed'),
+    'pin-net-old-name': ('pin-lock-empty', 'old-pin-name'),
+    'root-unset-old-name': ('model-root-unset', 'old-pin-name'),
+    'class-missing-skip': ('freeze-class-missing', 'class-skip'),
+    'precritic-class-skip': ('precritic-class-missing', 'class-skip'),
+    'precritic-model-only': ('precritic-full-zone', 'precritic-model-only'),
+    'precritic-model-only-line': ('precritic-line-missing', 'precritic-model-only'),
+    'precritic-model-only-draft': ('precritic-draft', 'precritic-model-only'),
+    'operation-required': ('operation-optional', 'operation-required'),
+    'applicability-local-dir': ('component-required-no-local', 'local-dir-only'),
+    # ── v2-r1 стабы: ветви двери по коду (Н-39), каждая — своей клетке ──────────
+    'locate-first-match-component': ('locate-union-conform', 'first-match-component'),
+    'union-any-component': ('locate-union-foreign', 'union-any-component'),
+    'union-refusal-wrong-code': ('locate-union-foreign', 'union-wrong-code'),
+    'task-class-skip': ('task-class-missing', 'class-skip'),
+    'task-pack-then-refuse': ('task-class-missing', 'pack-then-refuse'),
+    'done-class-skip': ('done-class-missing', 'class-skip'),
+    'pin-net-for-hex': ('pin-foreign-hex', 'pin-net-name'),
+    # ── v3 стабы: ветви двери по коду (Н-39), каждая — своей клетке ──────────────
+    'locate-first-line-contract': ('locate-real-contract', 'locate-first-line'),
+    'locate-upto-brace': ('locate-real-contract', 'locate-upto-brace'),
+    'locate-empty-refused': ('locate-declared-empty', 'empty-refused'),
+    'universe-refused': ('locate-outside-universe', 'universe-refused'),
+    'universe-by-heuristic': ('zone-locate-not-heuristic', 'universe-by-heuristic'),
+    'locate-parse-tolerant': ('locate-grammar-refusal', 'parse-tolerant'),
+    'locate-grammar-narrowed': ('locate-grammar-refusal', 'grammar-narrowed'),
+    'line-duplicate-allowed': ('line-duplicate', 'allow-duplicate'),
+    'ambiguous-any-green': ('path-unplaced-product', 'allow-unmapped'),
+    # ── v3-r1 стабы: литеральные сужения MA1/MA2/MA3 вердикта — каждая ветвь своей клетке ──
+    'locate-empty-refused-literal': ('locate-declared-empty-worker', 'empty-refused-literal'),
+    'universe-refused-literal': ('locate-outside-provenance', 'universe-refused-literal'),
+    'universe-refused-named-pair': ('locate-outside-structure', 'universe-refused-named-pair'),
+    'ambiguous-empty-green': ('path-unplaced-empty-claimants', 'ambiguous-empty-green'),
 }
 
 # Approved snapshot inside the pinned tree (2.5.x layout of the real model, as run-arch.js
@@ -91,14 +202,176 @@ STABS = {
 SNAPSHOT = 'governance/baseline/approved.json'
 CHECK_OPTIONS = ('model', 'report', 'strict', 'base', 'base-digest')
 
+# Real model pin, snapshot №4 (measured on the station 2026-11-11): the live cell judges
+# the door against the REAL CompliorOS-architecture clone, no secrets involved.
+REAL_PIN_ENV = 'ARCH187_REAL_ROOT'
+REAL_PIN = 'bfc3f45996fa9ec1db3b7ba79158071cb9e89d63'
+REAL_DIGEST = '28858bc8743c411485f50aa86db470f6dfd0032a1daa16664f5f7d5ec26c5200'
+
+# Variations whose toy model speaks the real-CLI grammar (multi-line JSON locate,
+# package-script brief, package-lock dependency semantics).
+REAL_VARIATIONS = frozenset((
+    'real-valid', 'real-foreign', 'real-comma', 'real-unplaced', 'real-status',
+    'real-brief', 'real-deps', 'live-real', 'live-real-union',
+    'union-conform', 'union-foreign',
+    # v3: the four answer classes of the real CLI (боль 181/183/185)
+    'real-contract', 'declared-empty', 'outside-universe', 'heuristic-docs',
+    'grammar-broken', 'line-duplicate',
+    # v3-r1: second values per class (critic v3, block Б-1)
+    'declared-empty-worker', 'outside-provenance', 'outside-structure',
+    'ambiguous-empty'))
+
+# Union world (v2-r1, блок 1(a) вердикта): the real CLI can answer SEVERAL matches
+# with SEVERAL components in one match (observed at the pin: server/src/handlers/x.js
+# → one match with ["gateway.effects","documents.coordinator"]). Single source: the
+# toy CLI bytes and the verifier's honest control both read these constants.
+UNION_PREFIX = 'app/multi/'
+UNION_MATCHES = (
+    {'module': 'module.gateway', 'components': ['api.hub'],
+     'specification': 'app/multi/gateway.js', 'explicit': False, 'matched': 'app/multi/'},
+    {'module': 'module.handlers', 'components': ['api.documents', 'api.effects'],
+     'specification': 'app/multi/handlers.js', 'explicit': False, 'matched': 'app/multi/'},
+)
+
+# v3 answer classes of the real CLI (measured at the pin bfc3f459 on the exact zone
+# inputs of backend contracts 181/183/185): DECLARED with EMPTY components
+# (tests/** → module.tests, emptyComponentsReason «outside the product C4 runtime
+# view»); UNRESOLVED with ZERO matches (repo artifacts: FILES.sha256, docs/*,
+# provenance.json); UNRESOLVED with SEVERAL matches (server/src/nope/void.js →
+# two modules claim server/); a TRUNCATED body (unclosed JSON). Single source:
+# the toy CLI bytes and the verifier's honest control both read these constants.
+TESTS_PREFIX = 'tests/'
+TESTS_MATCH = {'module': 'module.tests', 'components': [],
+               'specification': 'tests/module.js', 'explicit': False, 'matched': 'tests/'}
+DOCS_PREFIX = 'docs/'
+DOCS_MATCH = {'module': 'module.docs', 'components': ['api.identity'],
+              'specification': 'docs/module.js', 'explicit': False, 'matched': 'docs/'}
+DUAL_PREFIX = 'app/dual/'
+DUAL_MATCHES = (
+    {'module': 'module.dual-gateway', 'components': ['api.hub'],
+     'specification': 'app/dual/gateway.js', 'explicit': False, 'matched': 'app/dual/'},
+    {'module': 'module.dual-entrypoints', 'components': ['api.documents'],
+     'specification': 'app/dual/entrypoints.js', 'explicit': False, 'matched': 'app/dual/'},
+)
+# v3-r1 second values (critic verdict, block Б-1): the pin-observed forms that a
+# single-value battery cannot distinguish from a literal narrowing. worker/main.js
+# → module.worker (component-less module with an id != module.tests); server/
+# claimed by TWO modules with EMPTY components (the observed form of
+# server/index.js: module.server + module.entrypoints). The zero-match repo
+# artifacts provenance.json and STRUCTURE.md fall through to the generic
+# else-branch of the toy CLI and of placed() — no new branch needed for them.
+# Single source: the toy CLI bytes and the verifier's honest control both read
+# these constants.
+WORKER_PREFIX = 'worker/'
+WORKER_MATCH = {'module': 'module.worker', 'components': [],
+               'specification': 'worker/module.js', 'explicit': False, 'matched': 'worker/'}
+AMBIG_PREFIX = 'server/'
+AMBIG_MATCHES = (
+    {'module': 'module.server', 'components': [],
+     'specification': 'server/module.js', 'explicit': False, 'matched': 'server/'},
+    {'module': 'module.entrypoints', 'components': [],
+     'specification': 'server/entrypoints.js', 'explicit': False, 'matched': 'server/'},
+)
+BROKEN_PREFIX = 'app/broken/'
+# The truncated body: valid JSON head, unclosed — «парсер глотает незакрытую скобку»
+# is a stub, the honest door refuses to parse it (ARCH_LOCATE_GRAMMAR, rc 2).
+BROKEN_TAIL = '"matches": [\n    {\n      "module": "module.broken",\n      "components": ["api.'
+
+# A syntactically correct 40-hex that exists in NO clone (v2-r1, блок 1(c)):
+# the door must name ARCH_PIN for it, not ARCHITECTURE_NET.
+FOREIGN_HEX = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+
+# The real pack-emission channel of make_task (scripts/make_task.sh pack_body): the pack
+# header line goes to stdout. An ARCH_CLASS_MISSING refusal with this line present is a
+# late refusal over an emitted pack — the observer judges the channel, not a flag (1(b)).
+PACK_MARKER = '=== make_task contract='
+
+
 def digest(value):
     """Canonical SHA-256 of the real model: sorted keys, JSON.stringify bytes."""
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'),
                                      ensure_ascii=False).encode()).hexdigest()
 
+
 def snapshot(number):
     return {'format': 'toy-architecture-baseline/1', 'snapshot': number,
             'components': ['api.identity'] + (['api.billing'] if number > 1 else [])}
+
+
+def placed(path):
+    """Placement map of the toy model (both grammars place identically): one component
+    per product prefix; '' — the model does not place the path."""
+    if path.startswith('app/identity/'):
+        return 'api.identity'
+    if path.startswith('app/billing/'):
+        return 'api.billing'
+    return ''
+
+def placed_components(path):
+    """Ordered union of matches[].components over ALL matches — the verifier's own
+    reading of the real-CLI grammar (contract §«Размещение путей» v2). The union
+    world is fed from UNION_MATCHES, the single source shared with the toy CLI."""
+    if path.startswith(UNION_PREFIX):
+        union = []
+        for match in UNION_MATCHES:
+            for component in match['components']:
+                if component not in union:
+                    union.append(component)
+        return union
+    single = placed(path)
+    return [single] if single else []
+
+def locate_answer(path):
+    """The verifier's own reading of the v3 answer classes (contract §«Размещение
+    путей» v3): ('declared', matches) — rc 0, exactly one module claims the path
+    (components may be EMPTY — a component-less module by the model's own decision);
+    ('unresolved-zero', []) — rc 1, no module claims any prefix (repo artifacts);
+    ('unresolved-multi', matches) — rc 1, several longest claimants (ambiguous);
+    ('grammar', None) — the body is not parseable JSON (truncated). Fed from the
+    same constants as the toy CLI bytes."""
+    if path.startswith(BROKEN_PREFIX):
+        return 'grammar', None
+    if path.startswith(TESTS_PREFIX):
+        return 'declared', [TESTS_MATCH]
+    if path.startswith(DOCS_PREFIX):
+        return 'declared', [DOCS_MATCH]
+    if path.startswith(DUAL_PREFIX):
+        return 'unresolved-multi', list(DUAL_MATCHES)
+    if path.startswith(WORKER_PREFIX):
+        return 'declared', [WORKER_MATCH]
+    if path.startswith(AMBIG_PREFIX):
+        return 'unresolved-multi', list(AMBIG_MATCHES)
+    if path.startswith(UNION_PREFIX):
+        return 'declared', list(UNION_MATCHES)
+    single = placed(path)
+    if single:
+        return 'declared', [{'module': 'module.' + path.split('/')[1], 'components': [single],
+                             'specification': '', 'explicit': False, 'matched': ''}]
+    return 'unresolved-zero', []
+
+
+def line_components(text):
+    """Component ids of the «АРХИТЕКТУРА:» line, split by commas (v2: two-component
+    lines are conform). None — no line; [] — empty list."""
+    for line in text.splitlines():
+        if line.startswith('АРХИТЕКТУРА: L'):
+            rest = line[len('АРХИТЕКТУРА:'):].strip()
+            ids = rest.split(' ', 1)[1] if ' ' in rest else ''
+            return [i for i in ids.split(',') if i]
+    return None
+
+def refusal_ok(label, reason, output):
+    """Is a cell's refusal accepted? Generic cells — the reason substring. The union
+    refusal (1(a)) is a semantic observer: the ARCH_ZONE code itself is required and ANY
+    component of the union is accepted at the attribution position — a property of the
+    set, never of one accidental literal (arbiter contracts-187-v2-granica)."""
+    if label == 'locate-union-foreign':
+        if not re.search(r'(?<![A-Za-z_])ARCH_ZONE(?![A-Za-z_])', output):
+            return False
+        return any(re.search(r'компоненту ' + re.escape(c) + r'(?![A-Za-z0-9_.])', output)
+                   for c in placed_components(UNION_PREFIX + 'x'))
+    return not reason or reason in output
+
 
 def toy_check(arch, revision, args):
     """Verifier's own reading of the real CLI `check` grammar (cli.js parseArguments,
@@ -123,6 +396,7 @@ def toy_check(arch, revision, args):
     status = int(git(arch, 'show', revision + ':check-rc'))
     return status, 'NOT_EVALUATED' if status == 2 else ''
 
+
 def drafted(line, mutant):
     """DRAFT is the case-insensitive token `draft` at a word boundary anywhere in the
     operation line: id, input schema, output schema, or an annotation."""
@@ -132,26 +406,22 @@ def drafted(line, mutant):
     field = line.split(';')[0] if mutant == 'draft-id-only' else line
     return re.search(r'(?<!\w)draft(?!\w)', field, re.I) is not None
 
-def architecture(base, root, variation):
-    """A separate git repository with A pinned and a later, deliberately different B HEAD."""
-    arch = base / (root.name + '-model')
-    arch.mkdir()
-    git(arch, 'init', '-q', '-b', 'main')
-    git(arch, 'config', 'user.name', 'Fixture')
-    git(arch, 'config', 'user.email', 'fixture@local')
-    git(arch, 'config', 'commit.gpgsign', 'false')
-    put(arch, 'package.json', json.dumps({'scripts': {'brief': 'node tooling/checks/cli.js brief',
-                                                       'check': 'node tooling/checks/cli.js check'}}))
-    put(arch, 'tooling/checks/cli.js', '''const fs=require('fs');
+
+# Toy CLI of the legacy grammar: locate answers with a BARE component id (170/187-1
+# fixture worlds; v2 keeps them green — старые клетки не ослабляются). app/billing/**
+# is placed into api.billing so the «foreign» case is an honest model placement, not a
+# disk-existence heuristic (С2 removed).
+TOY_CLI_LEGACY = '''const fs=require('fs');
 const a=process.argv.slice(2); const name=a[0];
 if (name==='brief') {
  const id=a[a.indexOf('--component')+1];
- if(id!=='api.identity') process.exit(1);
+ if(id!=='api.identity'&&id!=='api.billing') process.exit(1);
  console.log('PINNED_BRIEF_187 '+id);
  if(a.includes('--with-rules')) console.log('RULES_FROM_PIN_187 semanticInvariant: no second writer; scope_id fixed');
 } else if(name==='locate') {
  const p=a[a.indexOf('--path')+1];
  if(p.startsWith('app/identity/')) console.log('api.identity');
+ else if(p.startsWith('app/billing/')) console.log('api.billing');
  else { console.error('PATH_WITHOUT_COMPONENT'); process.exit(1); }
 } else if(name==='check') {
  const allowed=['model','report','strict','base','base-digest']; const o={};
@@ -171,30 +441,173 @@ if (name==='brief') {
  if(status==='2') console.log('NOT_EVALUATED');
  process.exit(Number(status));
 } else process.exit(2);
-''')
+'''
+
+# Toy CLI of the REAL grammar (С1): locate prints pretty multi-line JSON with
+# matches[].components; the GREEN check answer still carries "status": "NOT_EVALUATED"
+# plus requiredModelGate PASS (exactly the real CLI at the pin — measured); brief is a
+# PACKAGE-SCRIPT interface: it answers only under npm run (npm_lifecycle_event), the
+# grammar 170 v2 prescribes for the door.
+TOY_CLI_REAL = '''const fs=require('fs');
+const a=process.argv.slice(2); const name=a[0];
+const UNION=__UNION_MATCHES__;
+const where=p=>p.startsWith('app/identity/')?'api.identity':p.startsWith('app/billing/')?'api.billing':'';
+if (name==='brief') {
+ if(process.env.npm_lifecycle_event!=='brief'){console.error('BRIEF_NOT_A_PACKAGE_RUN');process.exit(1);}
+ const id=a[a.indexOf('--component')+1];
+ if(id!=='api.identity'&&id!=='api.billing') process.exit(1);
+ console.log('PINNED_BRIEF_187 '+id);
+ if(a.includes('--with-rules')) console.log('RULES_FROM_PIN_187 semanticInvariant: no second writer; scope_id fixed');
+} else if(name==='locate') {
+ const p=a[a.indexOf('--path')+1];
+ const one=(status,matches,rc)=>{console.log(JSON.stringify({scope:'DECLARED_PLACEMENT_ONLY',path:p,status:status,matches:matches,implementationEvidence:'NOT_ASSESSED'},null,2)); if(rc)process.exit(rc);};
+ if(p.startsWith('__BROKEN_PREFIX__')){
+  console.log('{');
+  console.log('  "scope": "DECLARED_PLACEMENT_ONLY",');
+  console.log('  "path": '+JSON.stringify(p)+',');
+  console.log('  "status": "DECLARED",');
+  console.log('  '+__BROKEN_TAIL__);
+ } else if(p.startsWith('__TESTS_PREFIX__')){
+  one('DECLARED',[__TESTS_MATCH__],0);
+ } else if(p.startsWith('__DOCS_PREFIX__')){
+  one('DECLARED',[__DOCS_MATCH__],0);
+ } else if(p.startsWith('__DUAL_PREFIX__')){
+  one('UNRESOLVED',__DUAL_MATCHES__,1);
+ } else if(p.startsWith('__WORKER_PREFIX__')){
+  one('DECLARED',[__WORKER_MATCH__],0);
+ } else if(p.startsWith('__AMBIG_PREFIX__')){
+  one('UNRESOLVED',__AMBIG_MATCHES__,1);
+ } else if(p.startsWith('__UNION_PREFIX__')){
+  one('DECLARED',UNION,0);
+ } else {
+ const c=where(p);
+ const dir=p.slice(0,p.lastIndexOf('/')+1);
+ const mod='module.'+dir.split('/').filter(Boolean).join('.');
+ const body=c?{scope:'DECLARED_PLACEMENT_ONLY',path:p,status:'DECLARED',matches:[{module:mod,components:[c],specification:dir+'module.js',explicit:false,matched:dir}],implementationEvidence:'NOT_ASSESSED'}:{scope:'DECLARED_PLACEMENT_ONLY',path:p,status:'UNRESOLVED',matches:[],implementationEvidence:'NOT_ASSESSED'};
+ console.log(JSON.stringify(body,null,2));
+ if(!c) process.exit(1);
+ }
+} else if(name==='check') {
+ const allowed=['model','report','strict','base','base-digest']; const o={};
+ const out=(status,code,rc)=>{console.log(JSON.stringify({status,findings:code?[{code}]:[]},null,2));process.exit(rc);};
+ for(let i=1;i<a.length;i++){
+  const f=a[i]; const k=f.startsWith('--')?f.slice(2):'';
+  if(!allowed.includes(k)) out('FAIL','UNSUPPORTED_OPTION',1);
+  if(k==='strict'){o[k]=true;continue;}
+  const v=a[++i]; if(!v||v.startsWith('--')) out('FAIL','MISSING_OPTION_VALUE',1);
+  o[k]=v;
+ }
+ if(!o.base||!o['base-digest']) out('NOT_EVALUATED','',2);
+ const canon=v=>Array.isArray(v)?v.map(canon):(!v||typeof v!=='object')?v:Object.fromEntries(Object.keys(v).sort().map(k=>[k,canon(v[k])]));
+ const d=require('crypto').createHash('sha256').update(JSON.stringify(canon(JSON.parse(fs.readFileSync(o.base,'utf8'))))).digest('hex');
+ if(d!==o['base-digest']) out('FAIL','BASELINE_DIGEST_MISMATCH',1);
+ const status=fs.readFileSync('check-rc','utf8').trim();
+ if(status==='2') out('NOT_EVALUATED','',2);
+ if(status==='1') out('FAIL','',1);
+ console.log(JSON.stringify({status:'NOT_EVALUATED',requiredModelGate:'PASS',baselineStatus:'PASS',implementationEvidence:'NOT_ASSESSED',unresolved:[],findings:[],draftContracts:[]},null,2));
+ process.exit(0);
+} else process.exit(2);
+'''
+# The union placement is fed from the same python constants as the honest control
+# (single source, no second grammar): the placeholders resolve before any write.
+# v3: the four answer classes resolve the same way (tests/docs/dual/broken).
+TOY_CLI_REAL = TOY_CLI_REAL.replace('__UNION_PREFIX__', UNION_PREFIX).replace(
+    '__UNION_MATCHES__', json.dumps(UNION_MATCHES, separators=(',', ':')))
+TOY_CLI_REAL = (TOY_CLI_REAL
+                .replace('__TESTS_PREFIX__', TESTS_PREFIX)
+                .replace('__TESTS_MATCH__', json.dumps(TESTS_MATCH, separators=(',', ':')))
+                .replace('__DOCS_PREFIX__', DOCS_PREFIX)
+                .replace('__DOCS_MATCH__', json.dumps(DOCS_MATCH, separators=(',', ':')))
+                .replace('__DUAL_PREFIX__', DUAL_PREFIX)
+                .replace('__DUAL_MATCHES__', json.dumps(DUAL_MATCHES, separators=(',', ':')))
+                .replace('__WORKER_PREFIX__', WORKER_PREFIX)
+                .replace('__WORKER_MATCH__', json.dumps(WORKER_MATCH, separators=(',', ':')))
+                .replace('__AMBIG_PREFIX__', AMBIG_PREFIX)
+                .replace('__AMBIG_MATCHES__', json.dumps(AMBIG_MATCHES, separators=(',', ':')))
+                .replace('__BROKEN_PREFIX__', BROKEN_PREFIX)
+                .replace('__BROKEN_TAIL__', json.dumps(BROKEN_TAIL)))
+
+TOY_PACKAGE_LOCK = json.dumps({
+    'name': 'toy-real-architecture', 'version': '1.0.0', 'lockfileVersion': 3,
+    'requires': True, 'packages': {'': {'name': 'toy-real-architecture',
+                                        'version': '1.0.0', 'dependencies': {}}}})
+
+
+def architecture(base, root, variation):
+    """A separate git repository with A pinned and a later, deliberately different B HEAD.
+    v2: the toy speaks the real-CLI grammar for REAL_VARIATIONS, legacy otherwise."""
+    arch = base / (root.name + '-model')
+    arch.mkdir()
+    git(arch, 'init', '-q', '-b', 'main')
+    git(arch, 'config', 'user.name', 'Fixture')
+    git(arch, 'config', 'user.email', 'fixture@local')
+    git(arch, 'config', 'commit.gpgsign', 'false')
+    put(arch, 'package.json', json.dumps({'scripts': {'brief': 'node tooling/checks/cli.js brief',
+                                                       'check': 'node tooling/checks/cli.js check'}}))
+    cli = TOY_CLI_REAL if variation in REAL_VARIATIONS else TOY_CLI_LEGACY
+    put(arch, 'tooling/checks/cli.js', cli)
+    if variation == 'real-deps':
+        # Dependency semantics of the real pin: package-lock committed, node_modules NOT
+        # in the tree; an honest door must npm ci (a stub npm on PATH fails it).
+        put(arch, 'package-lock.json', TOY_PACKAGE_LOCK)
     put(arch, 'check-rc', (variation[-1] if variation in ('check-1', 'check-2') else '0') + '\n')
     put(arch, SNAPSHOT, json.dumps(snapshot(1)))
     git(arch, 'add', '-A')
     git(arch, 'commit', '-qm', 'published architecture')
     pinned = git(arch, 'rev-parse', 'HEAD')
-    put(arch, 'tooling/checks/cli.js', (arch / 'tooling/checks/cli.js').read_text().replace('PINNED_BRIEF_187', 'WRONG_HEAD_BRIEF_187').replace('RULES_FROM_PIN_187', 'WRONG_HEAD_RULES_187'))
+    put(arch, 'tooling/checks/cli.js', cli.replace('PINNED_BRIEF_187', 'WRONG_HEAD_BRIEF_187').replace('RULES_FROM_PIN_187', 'WRONG_HEAD_RULES_187'))
     put(arch, SNAPSHOT, json.dumps(snapshot(2)))
     git(arch, 'add', '-A')
     git(arch, 'commit', '-qm', 'unpublished later architecture')
     # Lock format of backend 167: the digest names the approved snapshot, not the commit's
     # HEAD; digest-mismatch names B's snapshot while the commit stays A.
-    put(root, 'architecture.lock.json', json.dumps({
-        'format': 'complioros-architecture-pin/1', 'repository': 'a3ka/CompliorOS-architecture',
-        'commit': pinned, 'snapshot': 1, 'status': 'APPROVED',
-        'snapshotDigest': digest(snapshot(2 if variation == 'digest-mismatch' else 1)),
-        'workItem': 'COMPLIOR-777'}))
+    lock = {'format': 'complioros-architecture-pin/1', 'repository': 'a3ka/CompliorOS-architecture',
+            'snapshot': 1, 'status': 'APPROVED',
+            'snapshotDigest': digest(snapshot(2 if variation == 'digest-mismatch' else 1)),
+            'workItem': 'COMPLIOR-777'}
+    if variation == 'pin-symbolic':
+        lock['commit'] = 'HEAD'
+    elif variation == 'pin-empty':
+        pass  # no .commit at all: there is nothing pinned
+    elif variation == 'pin-foreign-hex':
+        lock['commit'] = FOREIGN_HEX  # correct 40-hex that exists in no clone
+    elif variation in ('live-real', 'live-real-union'):
+        lock['commit'] = REAL_PIN
+        lock['snapshotDigest'] = REAL_DIGEST
+        lock['snapshot'] = 4
+    else:
+        lock['commit'] = pinned
+    put(root, 'architecture.lock.json', json.dumps(lock))
     return arch, pinned
+
 
 def ci_bin(root):
     return root.parent / (root.name + '-bin')
 
+
+def npm_bin(root):
+    """PATH dir with a broken npm: the honest door's `npm ci` must turn into ARCH_DEPS."""
+    directory = root.parent / (root.name + '-npm-bin')
+    directory.mkdir()
+    stub = directory / 'npm'
+    stub.write_text('#!/usr/bin/env bash\nexit 1\n')
+    stub.chmod(0o755)
+    return directory
+
+
 def ci_record(root):
     return root.parent / (root.name + '-ci-187.json')
+
+
+def drop_local_copy(root):
+    for file in (root / 'architecture').rglob('*'):
+        if file.is_file():
+            file.unlink()
+    for directory in sorted((root / 'architecture').rglob('*'), reverse=True):
+        if directory.is_dir():
+            directory.rmdir()
+    (root / 'architecture').rmdir()
+
 
 def prepare(root, arch, pinned, variation):
     if variation.startswith('wiring-'):
@@ -219,12 +632,8 @@ def prepare(root, arch, pinned, variation):
         task.write_text(task.read_text().replace('АРХИТЕКТУРА: L1 api.identity\n', ''))
     elif variation == 'line-blank':
         task.write_text(task.read_text().replace('АРХИТЕКТУРА: L1 api.identity', 'АРХИТЕКТУРА: '))
-    elif variation == 'no-local':
-        for file in (root / 'architecture').rglob('*'):
-            if file.is_file(): file.unlink()
-        for directory in sorted((root / 'architecture').rglob('*'), reverse=True):
-            if directory.is_dir(): directory.rmdir()
-        (root / 'architecture').rmdir()
+    elif variation == 'no-local' or variation == 'component-required':
+        drop_local_copy(root)
     elif variation == 'freeze-no-line':
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('АРХИТЕКТУРА: L1 api.identity\n', ''))
     elif variation == 'l3':
@@ -244,6 +653,124 @@ def prepare(root, arch, pinned, variation):
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('вход schema.query', 'вход schema.draft'))
     elif variation == 'review-missing':
         put(root, REVIEW, 'ACCEPT\nNote: СВЕРКА-АРХИТЕКТУРЫ: mentioned in a quote, not reported by reviewer\n')
+    elif variation in ('real-valid', 'real-status', 'real-brief', 'real-deps'):
+        pass  # конформный контракт реальной грамматики — мир уже готов
+    elif variation == 'real-foreign':
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', 'app/billing/model.js'))
+        put(root, 'app/billing/model.js', 'module.exports=2;\n')
+    elif variation == 'real-comma':
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+            'АРХИТЕКТУРА: L1 api.identity', 'АРХИТЕКТУРА: L1 api.identity,api.billing'
+        ).replace('app/identity/model.js', 'app/billing/model.js'))
+        put(root, 'app/billing/model.js', 'module.exports=2;\n')
+    elif variation == 'real-unplaced':
+        # v3 (retargeted input, expectation kept): the file EXISTS in the product and
+        # the model answers UNRESOLVED with SEVERAL claimants (app/dual/ is claimed by
+        # two longest-prefix modules — measured shape of server/src/nope/void.js at the
+        # pin). The refusal promise of v2 «unplaced product path → PATH_WITHOUT_COMPONENT»
+        # lives HERE; disk existence no longer turns it into ARCH_ZONE (С2). The
+        # zero-match answer (repo artifacts) is a DIFFERENT class — see outside-universe.
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', DUAL_PREFIX + 'x.js'))
+        put(root, DUAL_PREFIX + 'x.js', 'module.exports=3;\n')
+    elif variation == 'real-contract':
+        # Боль-клетка: измеренная популяция зоны 181 — продуктовый путь (DECLARED,
+        # [api.identity]), тестовый шов (DECLARED, [] — module.tests) и артефакт
+        # репозитория (UNRESOLVED, ноль матчей) в ОДНОЙ зоне; строка называет api.identity.
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+            'ЗОНА implementer: app/identity/model.js',
+            'ЗОНА implementer: app/identity/model.js tests/seam.js FILES.sha256'))
+        put(root, 'tests/seam.js', 'module.exports=7;\n')
+        put(root, 'FILES.sha256', 'fake  FILES.sha256\n')
+    elif variation == 'declared-empty':
+        # DECLARED с ПУСТЫМИ components (module.tests по emptyComponentsReason):
+        # модель сама помещает путь вне компонентного взгляда — конформ при ЛЮБОЙ
+        # строке (здесь строка намеренно чужая: api.billing).
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+            'АРХИТЕКТУРА: L1 api.identity', 'АРХИТЕКТУРА: L1 api.billing'
+        ).replace('app/identity/model.js', 'tests/seam.js'))
+        put(root, 'tests/seam.js', 'module.exports=8;\n')
+    elif variation == 'outside-universe':
+        # UNRESOLVED с НУЛЁМ матчей (FILES.sha256 на настоящей модели): ни один модуль
+        # не притязает ни на один префикс пути — дверь не судит размещение, конформ.
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', 'FILES.sha256'))
+        put(root, 'FILES.sha256', 'fake  FILES.sha256\n')
+    elif variation == 'heuristic-docs':
+        # Анти-эвристика: docs/ ОБЫЧНО «не продуктовый путь», но МОДЕЛЬ притязает на
+        # него (DECLARED, [api.identity]); строка называет api.billing → честный отказ
+        # ARCH_ZONE. Классификация — только ответом модели, не видом пути.
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+            'АРХИТЕКТУРА: L1 api.identity', 'АРХИТЕКТУРА: L1 api.billing'
+        ).replace('app/identity/model.js', 'docs/api-note.md'))
+        put(root, 'docs/api-note.md', '# note\n')
+    elif variation == 'grammar-broken':
+        # Ответ locate — ОБОРВАННЫЙ JSON (незакрытая скобка): именованный отказ
+        # ARCH_LOCATE_GRAMMAR rc 2, не зелёный и не сужение до иного имени.
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', BROKEN_PREFIX + 'model.js'))
+        put(root, BROKEN_PREFIX + 'model.js', 'module.exports=9;\n')
+    elif variation == 'line-duplicate':
+        # Дубль id в строке «АРХИТЕКТУРА:» — как сейчас (187/1): именованный отказ.
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+            'АРХИТЕКТУРА: L1 api.identity', 'АРХИТЕКТУРА: L1 api.identity,api.identity'))
+    elif variation == 'declared-empty-worker':
+        # v3-r1 (критик Б-1, класс б): безкомпонентный модуль с id ≠ module.tests —
+        # форма worker/main.js пина (module.worker); строка намеренно чужая.
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+            'АРХИТЕКТУРА: L1 api.identity', 'АРХИТЕКТУРА: L1 api.billing'
+        ).replace('app/identity/model.js', WORKER_PREFIX + 'main.js'))
+        put(root, WORKER_PREFIX + 'main.js', 'module.exports=10;\n')
+    elif variation == 'outside-provenance':
+        # v3-r1 (критик Б-1, класс в): ноль-матчевый артефакт ≠ FILES.sha256
+        # (provenance.json назван §«Существующее» и наблюдён на пине).
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', 'provenance.json'))
+        put(root, 'provenance.json', '{"schema": "toy-pin"}\n')
+    elif variation == 'outside-structure':
+        # v3-r1 (критик Б-1, класс в): третий ноль-матчевый артефакт — STRUCTURE.md
+        # (назван §«Существующее», существует в продукте) — ловит сужение до пары
+        # названных литералов FILES.sha256+provenance.json.
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', 'STRUCTURE.md'))
+    elif variation == 'ambiguous-empty':
+        # v3-r1 (критик Б-1, класс г): НЕСКОЛЬКО претендентов с ПУСТЫМИ компонентами —
+        # наблюдённая на пине форма server/index.js (module.server, module.entrypoints).
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', AMBIG_PREFIX + 'index.js'))
+        put(root, AMBIG_PREFIX + 'index.js', 'module.exports=11;\n')
+    elif variation == 'precritic-foreign':
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', 'app/billing/evil.js'))
+        put(root, 'app/billing/evil.js', 'x\n')
+    elif variation == 'precritic-no-line':
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace('АРХИТЕКТУРА: L1 api.identity\n', ''))
+    elif variation == 'precritic-draft':
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+            'ОПЕРАЦИЯ: identity.lookup;', 'ОПЕРАЦИЯ: identity.lookup (DRAFT);'))
+    elif variation == 'class-missing':
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace('КЛАСС ЗАДАЧИ: кодовый.\n', ''))
+    elif variation == 'operation-optional':
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+            'ОПЕРАЦИЯ: identity.lookup; вход schema.query; выход schema.record\n', ''))
+    elif variation == 'live-real':
+        contract = (root / CONTRACT).read_text()
+        put(root, CONTRACT, contract.replace(
+            'АРХИТЕКТУРА: L1 api.identity', 'АРХИТЕКТУРА: L1 api.auth'
+        ).replace('app/identity/model.js', 'server/src/auth/delivery.js'))
+        task.write_text('SUBJECT=777\nАРХИТЕКТУРА: L1 api.auth\nЗОНА implementer: server/src/auth/delivery.js\n')
+        put(root, 'server/src/auth/delivery.js', 'module.exports=4;\n')
+    elif variation in ('union-conform', 'union-foreign'):
+        contract = (root / CONTRACT).read_text().replace('app/identity/model.js', 'app/multi/x.js')
+        if variation == 'union-conform':
+            # The line names a NON-first component of a NON-first match: honest door
+            # is green (the union intersects), «first component of first match» is red.
+            contract = contract.replace('АРХИТЕКТУРА: L1 api.identity', 'АРХИТЕКТУРА: L1 api.effects')
+        put(root, CONTRACT, contract)
+        put(root, 'app/multi/x.js', 'module.exports=5;\n')
+    elif variation == 'live-real-union':
+        # Observed at the pin: server/src/handlers/x.js is placed in TWO components
+        # (gateway.effects, documents.coordinator); the line names the SECOND.
+        contract = (root / CONTRACT).read_text()
+        put(root, CONTRACT, contract.replace(
+            'АРХИТЕКТУРА: L1 api.identity', 'АРХИТЕКТУРА: L1 documents.coordinator'
+        ).replace('app/identity/model.js', 'server/src/handlers/x.js'))
+        task.write_text('SUBJECT=777\nАРХИТЕКТУРА: L1 documents.coordinator\n'
+                        'ЗОНА implementer: server/src/handlers/x.js\n')
+        put(root, 'server/src/handlers/x.js', 'module.exports=6;\n')
     # CI report mutations happen after commit: the report must reference the final SHA.
     git(root, 'add', '-A')
     git(root, 'commit', '-qm', 'isolated scenario ' + (variation or 'valid'))
@@ -264,9 +791,212 @@ def prepare(root, arch, pinned, variation):
     bin_dir.mkdir()
     fake_curl = bin_dir / 'curl'
     fake_curl.write_text('#!/usr/bin/env bash\n'
-                         'case \"${@: -1}\" in *\"/commits/\"*\"/check-runs?\"*) cat \"$ARCH187_CURL_RESPONSE\" ;; *) exit 31 ;; esac\n')
+                         'case "${@: -1}" in *"/commits/"*"/check-runs?\"*) cat \"$ARCH187_CURL_RESPONSE\" ;; *) exit 31 ;; esac\n')
     fake_curl.chmod(0o755)
     return task, trace, role
+
+
+def verdict_v2(root, arch, pinned, action, task, role, mutant, variation):
+    """Honest control of the v2 cells: invariants of contract 187/2."""
+    contract = (root / CONTRACT).read_text()
+    if action == 'freeze':
+        if variation == 'pin-symbolic':
+            if mutant == 'pin-head-allowed':
+                return 0, ''
+            return 1, 'ARCHITECTURE_NET: lock не указывает на коммит архитектуры'
+        if variation == 'pin-empty':
+            if mutant == 'old-pin-name':
+                return 1, 'ARCH_PIN: в architecture.lock.json нет закреплённого коммита'
+            return 1, 'ARCHITECTURE_NET: нет закреплённого коммита'
+        if variation == 'pin-foreign-hex':
+            if mutant == 'pin-net-name':
+                return 1, f'ARCHITECTURE_NET: коммит {FOREIGN_HEX} не разрешается в клоне модели'
+            return 1, f'ARCH_PIN: коммит {FOREIGN_HEX} не разрешается в клоне модели'
+        if variation == 'class-missing':
+            if mutant == 'class-skip':
+                return 0, ''
+            return 1, 'ARCH_CLASS_MISSING: в контракте нет строки «КЛАСС ЗАДАЧИ:»'
+        if variation == 'operation-optional':
+            if mutant == 'operation-required':
+                return 1, 'ARCH_DRAFT: предмет не объявляет операцию со схемами входа/выхода'
+            return 0, ''
+        if variation in ('real-valid', 'real-foreign', 'real-comma', 'real-unplaced'):
+            ids = line_components(contract)
+            path = next(line[len('ЗОНА implementer:'):].strip()
+                        for line in contract.splitlines()
+                        if line.startswith('ЗОНА implementer:'))
+            comp = placed(path)
+            if mutant == 'locate-first-line':
+                comp = '{'  # первая строка многострочного JSON — не компонент
+            if mutant == 'disk-heuristic' and not comp and (root / path).exists():
+                return 1, f'ARCH_ZONE: путь {path} размещён в продукте, но модель не относит его к заявленному компоненту'
+            if not comp:
+                if mutant == 'allow-unmapped':
+                    return 0, ''  # обман: неоднозначное размещение пропущено в зелёный
+                # v3: вход ретаргетирован на НЕОДНОЗНАЧНЫЙ ответ (два претендента) —
+                # обещание v2 «неразмещённый продуктовый путь → PATH_WITHOUT_COMPONENT»
+                # живёт здесь (файл в продукте существует, С2: диск не участвует).
+                return 1, f'PATH_WITHOUT_COMPONENT: путь {path} не размещён однозначно в закреплённой модели (несколько претендентов)'
+            if mutant == 'comma-unsplit':
+                return 1, (f'ARCH_ZONE: путь {path} отнесён моделью к компоненту {comp}, '
+                           f'а строка «АРХИТЕКТУРА:» называет api.identity,api.billing')
+            if comp not in ids:
+                return 1, (f'ARCH_ZONE: путь {path} отнесён моделью к компоненту {comp}, '
+                           f'а строка «АРХИТЕКТУРА:» называет {",".join(ids)}')
+            return 0, ''
+        if variation == 'real-contract':
+            # Боль-клетка (замер на настоящем входе 181): три класса ответа в одной
+            # зоне; честная дверь судит размещение ТОЛЬКО там, где модель назвала
+            # компоненты, и маппит app/identity/model.js → api.identity из строки.
+            if mutant == 'locate-first-line':
+                return 1, ('ARCH_ZONE: путь app/identity/model.js отнесён моделью к компоненту {, '
+                           'а строка «АРХИТЕКТУРА:» называет api.identity')
+            if mutant == 'locate-upto-brace':
+                return 1, ('PATH_WITHOUT_COMPONENT: путь app/identity/model.js не размещён '
+                           'в закреплённой модели (до первого «{» — пусто)')
+            return 0, ''
+        if variation == 'declared-empty':
+            if mutant == 'empty-refused':
+                return 1, 'PATH_WITHOUT_COMPONENT: путь tests/seam.js не размещён в закреплённой модели'
+            # DECLARED с пустыми components: модель сама помещает путь в безкомпонентный
+            # модуль (module.tests, emptyComponentsReason) — компонентной претензии нет.
+            return 0, ''
+        if variation == 'outside-universe':
+            if mutant == 'universe-refused':
+                return 1, 'PATH_WITHOUT_COMPONENT: путь FILES.sha256 не размещён в закреплённой модели'
+            # UNRESOLVED с нулём матчей: ни один модуль не притязает на путь —
+            # дверная плоскость размещения молчит, не отказ и не эвристика диска.
+            return 0, ''
+        if variation == 'heuristic-docs':
+            if mutant == 'universe-by-heuristic':
+                return 0, ''  # обман: docs/* «не продуктовый путь» без вопроса модели
+            return 1, ('ARCH_ZONE: путь docs/api-note.md отнесён моделью к компоненту api.identity, '
+                       'а строка «АРХИТЕКТУРА:» называет api.billing')
+        if variation == 'grammar-broken':
+            if mutant == 'parse-tolerant':
+                return 0, ''  # обман: незакрытая скобка проглочена, компонент до-парсен
+            if mutant == 'grammar-narrowed':
+                return 1, 'PATH_WITHOUT_COMPONENT: путь app/broken/model.js не размещён в закреплённой модели'
+            return 2, 'ARCH_LOCATE_GRAMMAR: ответ locate не парсится как JSON (app/broken/model.js)'
+        if variation == 'line-duplicate':
+            if mutant == 'allow-duplicate':
+                return 0, ''  # обман: дубль id в строке пропущен
+            return 1, 'ARCH_LINE_MISSING: дубль id компонента: api.identity'
+        if variation in ('declared-empty-worker', 'outside-provenance',
+                         'outside-structure', 'ambiguous-empty'):
+            # v3-r1 (критик Б-1): честный контроль читает ответ СТРУКТУРНО через
+            # locate_answer — единый источник с toy-CLI: id модуля, путь и форма
+            # компонентов претендентов не входят в правило литералами. Стабы —
+            # литеральные сужения MA1/MA2/MA3 вердикта, каждый ловится СВОЕЙ клеткой.
+            path = next(line[len('ЗОНА implementer:'):].strip()
+                        for line in contract.splitlines()
+                        if line.startswith('ЗОНА implementer:'))
+            kind, matches = locate_answer(path)
+            if mutant == 'empty-refused-literal' and kind == 'declared' \
+                    and matches and not any(m['components'] for m in matches) \
+                    and matches[0]['module'] != 'module.tests':
+                # MA1: конформ только для литерала module.tests — красит worker/main.js
+                return 1, f'PATH_WITHOUT_COMPONENT: путь {path} не размещён в закреплённой модели'
+            if mutant == 'universe-refused-literal' and kind == 'unresolved-zero' \
+                    and path != 'FILES.sha256':
+                # MA2: конформ только для литерала FILES.sha256 — красит provenance.json
+                return 1, f'PATH_WITHOUT_COMPONENT: путь {path} не размещён в закреплённой модели'
+            if mutant == 'universe-refused-named-pair' and kind == 'unresolved-zero' \
+                    and path not in ('FILES.sha256', 'provenance.json'):
+                # MA2: конформ только для пары названных литералов — красит STRUCTURE.md
+                return 1, f'PATH_WITHOUT_COMPONENT: путь {path} не размещён в закреплённой модели'
+            if mutant == 'ambiguous-empty-green' and kind == 'unresolved-multi' \
+                    and not any(m['components'] for m in matches):
+                # MA3: неоднозначность с ПУСТЫМИ компонентами претендентов — зелёный
+                return 0, ''
+            if kind == 'unresolved-multi':
+                return 1, (f'PATH_WITHOUT_COMPONENT: путь {path} не размещён однозначно '
+                           f'в закреплённой модели (несколько претендентов)')
+            return 0, ''
+        if variation in ('union-conform', 'union-foreign'):
+            ids = line_components(contract)
+            path = next(line[len('ЗОНА implementer:'):].strip()
+                        for line in contract.splitlines()
+                        if line.startswith('ЗОНА implementer:'))
+            union = placed_components(path)
+            if mutant == 'first-match-component':
+                union = union[:1]  # обман: только первый компонент первого матча
+            if mutant == 'union-any-component':
+                return 0, ''  # обман: размещённый путь зелён без сверки со строкой
+            if mutant == 'union-wrong-code':
+                # обман: отказ с иным именем кода (PATH_WITHOUT_COMPONENT) — наблюдатель
+                # 1(a) требует сам код ARCH_ZONE, литерал компонента его не подменяет
+                return 1, (f'PATH_WITHOUT_COMPONENT: путь {path} отнесён моделью '
+                           f'к компоненту {union[0]}')
+            if not union:
+                return 1, f'PATH_WITHOUT_COMPONENT: путь {path} не размещён в закреплённой модели'
+            if not set(union) & set(ids):
+                # честный отказ называет НЕ-первый компонент объединения: наблюдатель
+                # принимает всё множество (1(a)), а не первый литерал оракула
+                return 1, (f'ARCH_ZONE: путь {path} отнесён моделью к компоненту {union[-1]}, '
+                           f'а строка «АРХИТЕКТУРА:» называет {",".join(ids)}')
+            return 0, ''
+    if action == 'precritic':
+        if variation == 'real-status':
+            # Модель зелёная: rc 0, requiredModelGate PASS; поле status NOT_EVALUATED в
+            # теле — не вердикт (подстрочный поиск — обман, стаб status-substring).
+            if mutant == 'status-substring':
+                return 1, 'ARCH_NOT_EVALUATED: check --base модели не вынес вердикта (rc=0)'
+            return 0, ''
+        if variation.startswith('precritic-'):
+            if mutant == 'precritic-model-only':
+                return 0, ''  # обман: только check, строка/зоны/операции не судятся
+            if variation == 'precritic-no-line':
+                return 1, 'ARCH_LINE_MISSING'
+            if variation == 'precritic-draft':
+                return 1, 'ARCH_DRAFT'
+            return 1, 'ARCH_ZONE: путь app/billing/evil.js отнесён моделью к компоненту api.billing'
+        if variation == 'class-missing':
+            if mutant == 'class-skip':
+                return 0, ''
+            return 1, 'ARCH_CLASS_MISSING: в контракте нет строки «КЛАСС ЗАДАЧИ:»'
+    if action == 'task':
+        if variation == 'real-brief':
+            if mutant == 'brief-node':
+                return 1, 'ARCH_BRIEF_OTKAZ: api.identity (закреплённая модель не отдала бриф)'
+            result = 'PINNED_BRIEF_187 api.identity\nRULES_FROM_PIN_187 semanticInvariant: no second writer; scope_id fixed'
+            if mutant != 'omit-structure':
+                result += '\nSTRUCTURE.md'
+            return 0, result
+        if variation == 'component-required':
+            if mutant == 'local-dir-only':
+                return 0, ''  # обман: применимость по локальному каталогу, а не по lock
+            return 1, 'ARCH_COMPONENT_NET: требуется --arch-component (кодовый предмет, проект с закреплённой моделью)'
+        if variation == 'class-missing':
+            if mutant == 'class-skip':
+                return 0, ''  # обман: бесклассовый черновик пропускается молча
+            if mutant == 'pack-then-refuse':
+                # обман: пак выдан, затем rc заменён на 1 и дописан ARCH_CLASS_MISSING
+                # (мутация M6 арбитра) — наблюдатель судит канал выдачи, стаб красен
+                return 1, (PACK_MARKER + '777 role=architect kind=task ===\n'
+                           '=== TRACE ===\nPACK_EMITTED_BEFORE_REFUSAL\n'
+                           'ARCH_CLASS_MISSING: в контракте нет строки «КЛАСС ЗАДАЧИ:»')
+            return 1, 'ARCH_CLASS_MISSING: в контракте нет строки «КЛАСС ЗАДАЧИ:»'
+    if action == 'done':
+        if variation == 'class-missing':
+            if mutant == 'class-skip':
+                return 0, ''  # обман: бесклассовый контракт молча проходит done
+            return 1, 'ARCH_CLASS_MISSING: в контракте нет строки «КЛАСС ЗАДАЧИ:»'
+    if action == 'door':
+        if variation == 'root-unset':
+            if mutant == 'old-pin-name':
+                return 1, 'ARCH_PIN: закреплённый клон модели не задан (ARCHITECTURE_ROOT)'
+            return 1, 'ARCHITECTURE_NET: нет репозитория архитектуры ARCHITECTURE_ROOT'
+        if variation == 'real-deps':
+            if mutant == 'deps-green':
+                return 0, 'ARCH_187A_OK'  # обман: без зависимостей — зелёный
+            if mutant == 'deps-not-evaluated':
+                return 1, 'ARCH_NOT_EVALUATED: инструмент check --base не отработал'
+            return 2, 'ARCH_DEPS: зависимости модели недоступны (npm ci --ignore-scripts)'
+        if variation in ('live-real', 'live-real-union'):
+            return 0, 'ARCH_187A_OK: архитектура сходится с закреплённой моделью'
+    raise RuntimeError(f'unknown v2 disposition: {variation}/{action}')
+
 
 def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
     if action == 'wiring':
@@ -277,6 +1007,15 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
         if variation == 'wiring-direct-missing':
             return 1, 'CI_DIRECT_ARCH_187_MISSING'
         return 0, ''
+    if variation in ('pin-symbolic', 'pin-empty', 'pin-foreign-hex', 'class-missing',
+                     'operation-optional', 'component-required', 'live-real',
+                     'live-real-union', 'root-unset', 'declared-empty',
+                     'outside-universe', 'heuristic-docs', 'grammar-broken',
+                     'line-duplicate', 'declared-empty-worker', 'outside-provenance',
+                     'outside-structure', 'ambiguous-empty') \
+            or variation.startswith('real-') or variation.startswith('union-') \
+            or variation.startswith('precritic-'):
+        return verdict_v2(root, arch, pinned, action, task, role, mutant, variation)
     profile = json.loads((root / 'harness.project.json').read_text())
     if profile['repoId'] != 'Complior-back' and mutant != 'require-all':
         return 0, ''
@@ -300,7 +1039,7 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
         if mutant == 'omit-rules': needs_rules = False
         if mutant == 'leak-rules': needs_rules = True
         if needs_rules:
-            result += '\\nRULES_FROM_PIN_187 semanticInvariant: no second writer; scope_id fixed'
+            result += '\nRULES_FROM_PIN_187 semanticInvariant: no second writer; scope_id fixed'
         if mutant != 'omit-structure': result += '\nSTRUCTURE.md'
         if mutant == 'include-old-doc': result += '\ndocs/ARCHITECTURE.md'
         return 0, result
@@ -342,27 +1081,54 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
                                       arch_runs[-1].get('conclusion') != 'success'):
             return 1, 'ARCH_CI'
         return 0, ''
+    if action == 'door':
+        raise RuntimeError('door action is v2-only')
     raise RuntimeError('unknown action')
 
-def live(tools, root, arch, pinned, action, task, trace, role):
+
+def live(tools, root, arch, pinned, action, task, trace, role, variation=''):
     env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
     env.update(GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_SYSTEM='/dev/null',
                HARNESS_PROJECT_LAYER_ROOT=str(root), ARCHITECTURE_ROOT=str(arch))
+    if variation == 'root-unset':
+        env.pop('ARCHITECTURE_ROOT', None)
+    if variation in ('live-real', 'live-real-union'):
+        env['ARCHITECTURE_ROOT'] = os.environ[REAL_PIN_ENV]
+    if variation == 'real-deps':
+        env['PATH'] = str(npm_bin(root)) + os.pathsep + env.get('PATH', '')
     if action == 'done':
         env['ARCH187_CURL_RESPONSE'] = str(ci_record(root))
         env['PATH'] = str(ci_bin(root)) + os.pathsep + env.get('PATH', '')
     if action == 'wiring':
         return run('bash', TOOLS / 'fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh',
                    '--wiring', root, cwd=root, env=env)
+    if action == 'door':
+        return run('bash', tools / 'scripts/check_architecture_contract.sh', '--repo', root,
+                   CONTRACT, cwd=root, env=env)
     if action == 'task':
         command = ['bash', tools / 'scripts/make_task.sh', '--repo', root, '--role', role,
                    '--kind', 'task', '--contract', '777', '--task-file', task,
-                   '--model-trace', trace, '--arch-component', 'api.identity']
+                   '--model-trace', trace]
+        if variation != 'component-required':
+            command += ['--arch-component', 'api.identity']
     else:
         command = {'freeze': ['bash', tools / 'scripts/freeze_contract.sh', CONTRACT, 'toy reason', root],
                    'precritic': ['bash', tools / 'scripts/pre_critic.sh', '--repo', root, CONTRACT],
                    'done': ['bash', tools / 'scripts/done_contract.sh', CONTRACT, 'toy reason', root]}[action]
     return run(*command, cwd=root, env=env)
+
+
+def real_pin_available(clone):
+    """The live cell's prerequisite: a local clone that resolves the snapshot №4 pin.
+    Returns '' when fine; otherwise the named LIVE_PREDPOSYLKA reason (rc 2, не зелёный)."""
+    if not clone:
+        return f'{REAL_PIN_ENV} не задан'
+    probe = subprocess.run(['git', '-C', str(clone), 'cat-file', '-e',
+                            f'{REAL_PIN}^{{commit}}'], capture_output=True, text=True)
+    if probe.returncode != 0:
+        return f'клон {clone} не разрешает пин {REAL_PIN}'
+    return ''
+
 
 def main():
     import argparse
@@ -374,22 +1140,36 @@ def main():
     args = p.parse_args()
     tools = args.repo.resolve() if args.repo else TOOLS
     failures = []
+    skipped = 0
     with tempfile.TemporaryDirectory(prefix='workflow-187-') as temp:
         base = Path(temp)
         for label, action, variation, expected, reason, _ in CASES:
+            if label in ('live-real-pin', 'live-real-union') and not args.model and not args.stabs:
+                obstacle = real_pin_available(os.environ.get(REAL_PIN_ENV, ''))
+                if obstacle == '':
+                    pass  # живая клетка исполняется
+                elif obstacle.startswith(REAL_PIN_ENV):
+                    print(f'SKIP {label}: {obstacle} — живая клетка не исполнялась (не зелёная)')
+                    skipped += 1
+                    continue
+                else:
+                    print(f'LIVE_PREDPOSYLKA: {obstacle}', file=sys.stderr)
+                    return 2
             kind = 'mobile' if variation == 'mobile' else 'harness' if variation == 'harness' else 'backend'
             root = world(base, label, kind)
             arch, pinned = architecture(base, root, variation)
             task, trace, role = prepare(root, arch, pinned, variation)
             honest_rc, honest_out = verdict(root, arch, pinned, action, task, role, variation=variation)
-            if honest_rc != expected or (reason and reason not in honest_out):
+            if honest_rc != expected or not refusal_ok(label, reason, honest_out):
                 raise RuntimeError(f'broken fixture: {label} expected {expected}/{reason}, got {honest_rc}/{honest_out}')
             if args.model or args.stabs:
                 rc, output = honest_rc, honest_out
             else:
-                result = live(tools, root, arch, pinned, action, task, trace, role)
+                result = live(tools, root, arch, pinned, action, task, trace, role, variation)
                 rc, output = result.returncode, result.stdout + result.stderr
-            ok = (rc == expected and (not reason or reason in output))
+            ok = (rc == expected and refusal_ok(label, reason, output))
+            if label == 'task-class-missing' and PACK_MARKER in output:
+                ok = False  # 1(b): пак при ARCH_CLASS_MISSING выдан — судится канал выдачи
             if action == 'task' and not expected:
                 if 'PINNED_BRIEF_187' not in output or 'WRONG_HEAD_BRIEF_187' in output:
                     ok = False
@@ -409,7 +1189,9 @@ def main():
                 for name, (case, mutant) in STABS.items():
                     if case != label: continue
                     fake_rc, fake_out = verdict(root, arch, pinned, action, task, role, mutant, variation=variation)
-                    caught = fake_rc != expected or (reason and reason not in fake_out)
+                    caught = (fake_rc != expected
+                              or not refusal_ok(label, reason, fake_out)
+                              or (label == 'task-class-missing' and PACK_MARKER in fake_out))
                     if not expected and action == 'task':
                         caught = caught or ('PINNED_BRIEF_187' not in fake_out or
                             'WRONG_HEAD_BRIEF_187' in fake_out or
@@ -419,8 +1201,10 @@ def main():
                             (role in ('architect', 'critic', 'arbiter') and 'RULES_FROM_PIN_187' not in fake_out))
                     print(f'STAB {name} {"caught" if caught else "ZHIV"} @ {label}')
                     if not caught: failures.append(name)
-        print(f'CELLS={len(CASES)} STABS={len(STABS) if args.stabs else 0} FAILURES={len(failures)}')
+        print(f'CELLS={len(CASES)} STABS={len(STABS) if args.stabs else 0} '
+              f'FAILURES={len(failures)} SKIPPED={skipped}')
     return int(bool(failures))
+
 
 if __name__ == '__main__':
     raise SystemExit(main())
