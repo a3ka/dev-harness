@@ -284,7 +284,7 @@ step	check:odin-agent-140-family-selftest	55	bash fixtures/workshop_project/odin
 # КОНТРАКТ 153: батарея nul-istochnika (15 клеток, исчерпывающий домен Σ^{1..5}; ложный отказ NUL по цифре 0 в check_project_sources.sh) — проводка оркестратором по ЗОНЕ orchestrator (окно freeze..done): честный sweep W ≈ 46 с и обманки W --stabs ≈ 62 с по замеру Crit153c на станции
 step	check:nul-istochnika-153-family-selftest	50	bash fixtures/workshop_project/nul_istochnika_153/probe.sh
 step	check:nul-istochnika-153-stabs-family-selftest	65	bash fixtures/workshop_project/nul_istochnika_153/probe.sh --stabs
-step	check:spawn-guard-157-family-selftest	30	npm run check:spawn-guard-157-family-selftest
+step	check:spawn-guard-157-family-selftest	90	npm run check:spawn-guard-157-family-selftest && python3 fixtures/workshop_project/spawn_guard_157/probe.py --stabs
 # КОНТРАКТ 161: батарея проектной раскладки (манифест во внешнем state вне checkout/.git; TMPDIR/PATH git/sha256, symlink итогового каталога): W — реальные scripts/make_task.sh и scripts/spawn_agent.sh (замер Reviewer161Opus2: bare ~7 с), --stabs ~22 с; проводка — ПРОВОДКА контракта 161 (guard-канал, check_provodka).
 step	check:proektnaja-raskladka-161-family-selftest	10	bash fixtures/workshop_project/proektnaja_raskladka_161/red_proektnaja_raskladka_161.sh
 step	check:proektnaja-raskladka-161-stabs-family-selftest	25	bash fixtures/workshop_project/proektnaja_raskladka_161/red_proektnaja_raskladka_161.sh --stabs
@@ -305,3 +305,5 @@ step	check:architecture-process-187-family-selftest	4	bash fixtures/workshop_pro
 step	check:architecture-door-187	4	bash scripts/check_architecture_contract.sh --repo . contracts/187-arhitektura-v-processe.md
 step	check:ekrannyj-nabor-158-family-selftest	400	bash fixtures/workshop_project/ekrannyj_nabor_158/red_ekrannyj_nabor_158.sh --model
 step	check:hranitel-arhitektury-186-family-selftest	10	bash fixtures/workshop_project/architecture_steward_186/red_architecture_186.sh --repo . && bash fixtures/workshop_project/architecture_steward_186/red_architecture_186.sh --stabs && { bash scripts/merge_architecture_pr.sh; [ $? -eq 2 ]; } && { bash scripts/check_architecture_pin.sh; [ $? -eq 2 ]; }
+step	check:standartnye-validatory-189-family-selftest	4	bash fixtures/workshop_project/standartnye_validatory_189/red_standartnye_validatory_189.sh --stabs
+step	check:zamer-svyazki-190-family-selftest	4	bash fixtures/workshop_project/zamer_svyazki_190/red_zamer_svyazki_190.sh --repo . && bash fixtures/workshop_project/zamer_svyazki_190/red_zamer_svyazki_190.sh --stabs && bash -n scripts/zamer_svyazki.sh
