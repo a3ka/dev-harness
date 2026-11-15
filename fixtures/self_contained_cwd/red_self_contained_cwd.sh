@@ -82,6 +82,11 @@
 #     — иначе pass даёт scratch-allowlist 025 и зонд ничего не
 #     доказывает (ловушка Н-85/А-122, названа адверсарием m1m2-recheck
 #     и повторена ревьюером contracts-037-v1.md).
+#   * п11 (пакет Б, находка ревью Б-1): symlink ВНУТРИ self-contained копии
+#     наружу и «..» за ним — `<копия>/lnk11/../f11.txt` лексически внутри
+#     копии, а ОС разрешает lnk11 раньше «..» и пишет рядом с целью ссылки —
+#     стаб «М1 по лексически нормализованному пути, без реального предка»
+#     умирает здесь: ожидание block (до пакета Б — pass, клетка красная).
 set -uo pipefail
 ROOT="${1:-$(cd "$(dirname "$0")/../.." && pwd)}"
 SUBJ="$ROOT/.omp/extensions/path-guard.ts"
@@ -130,6 +135,8 @@ mkinit "$SELFCONTAINED"
 # `{"pid":…,"id":"<родитель>[.<ребёнок>]","startToken":…}`.
 printf '{"pid":424242,"id":"TestOwner037","startToken":"1"}' \
   > "$(dirname "$SELFCONTAINED")/.omp-isolation-owner.json"
+# п11 — ссылка внутри копии наружу (OUTSIDE_NS вне $HOME и вне scratch).
+ln -s "$OUTSIDE_NS" "$SELFCONTAINED/lnk11"
 
 # п2 — под $HOME, но .git — ФАЙЛ с мёртвой gitdir-целью (не настоящий живой
 # linked worktree; структурная проверка «каталог, не файл» обязана отвергнуть).
@@ -190,7 +197,7 @@ mkinit "$HOME_ITSELF"
 printf '{"pid":424242,"id":"HomeItself037","startToken":"1"}' \
   > "$HOMEBASE/.omp-isolation-owner.json"
 
-ORDER=(п1 п2 п3 п4 п5 п6 п7 п8 п9 п10)
+ORDER=(п1 п2 п3 п4 п5 п6 п7 п8 п9 п10 п11)
 declare -A ST RAN
 for m in "${ORDER[@]}"; do ST[$m]=0; RAN[$m]=0; done
 fail() {
@@ -285,6 +292,11 @@ expect_judge п9 block "Н-85" "$FAKEHOME" \
 # при откате 20d821d даёт pass = красная) ──────────────────────────────
 expect_judge п10 block "Н-85" "$HOME_ITSELF" \
   "{\"tool\":\"write\",\"args\":{\"path\":\"$HOME_ITSELF/f10.txt\"},\"worktree\":null,\"actual\":\"$HOME_ITSELF\",\"sessionName\":\"HomeItself037\"}"
+
+# ── п11: symlink наружу и «..» за ним внутри self-contained копии ⇒ блок
+# (пакет Б, Б-1: реальный предок по сырому пути, realpathSync.native) ────
+expect_judge п11 block "Н-85" "$FAKEHOME" \
+  "{\"tool\":\"write\",\"args\":{\"path\":\"$SELFCONTAINED/lnk11/../f11.txt\"},\"worktree\":null,\"actual\":\"$SELFCONTAINED\",\"sessionName\":\"TestOwner037\"}"
 
 RED=0; GRN=0; NORUN=0
 for m in "${ORDER[@]}"; do
