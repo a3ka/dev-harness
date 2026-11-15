@@ -47,7 +47,7 @@
 // голого имени, без повторного поиска). Кэш пуст → поведение no-git прежнее:
 // CLI rc 2 NOT_IMPLEMENTED (Н-85), фабрика null/block.
 
-import { realpathSync, statSync, openSync, readSync, closeSync, readFileSync } from 'node:fs';
+import { realpathSync, statSync, lstatSync, openSync, readSync, closeSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname } from 'node:path';
 
@@ -83,6 +83,11 @@ export type JudgeInput = {
   // fail-closed (см. isSelfContainedCwdEligible). В CLI-пути поле приходит в JSON;
   // в фабрике вычисляется из ctx.sessionManager.getSessionFile().
   sessionName?: string | null;
+  // Пакет Б (слово владельца 2026-11-15): каталог сессии omp (ctx.cwd) — для
+  // изолированного работника это корень ЕГО копии. Запись внутрь него разрешена
+  // при любом пине, если копия проходит ВСЕ условия М1 037 (isSelfContainedCwdEligible
+  // с владелец-корреляцией sessionName). Поле задаёт omp, не агент; в CLI — из JSON.
+  sessionCwd?: string | null;
 };
 // ── Утилиты ───────────────────────────────────────────────────────────────────
 function isAllowedURI(p: string): boolean {
@@ -115,6 +120,29 @@ function safeRealpath(p: string): string | null {
 function isWithin(parent: string, child: string): boolean {
   // parent обязан быть канонизирован (без symlink, без ..)
   return child === parent || child.startsWith(`${parent}/`);
+}
+
+// Пакет Б: реальный путь ближайшего СУЩЕСТВУЮЩЕГО предка цели (сама цель при
+// записи обычно ещё не существует) обязан лежать внутри base. Лексическая
+// isWithin не видит symlink внутри копии, которой распоряжается агент
+// (`<копия>/link -> <основной чекаут>`); эта проверка его отсекает. Узел, который
+// существует (lstat), но не разрешается (висячая ссылка: запись пошла бы по ней
+// наружу), — отказ.
+function realAncestorWithin(base: string, normalized: string): boolean {
+  let probe = normalized;
+  for (;;) {
+    const real = safeRealpath(probe);
+    if (real !== null) return isWithin(base, real);
+    try {
+      lstatSync(probe);
+      return false;
+    } catch {
+      // узла нет — поднимаемся к родителю
+    }
+    const slash = probe.lastIndexOf('/');
+    if (slash <= 0) return false;
+    probe = probe.slice(0, slash);
+  }
 }
 
 // Лексическая нормализация «..» и «.» в пути (М4, контракт 032). Разбор сегментов:
@@ -358,6 +386,14 @@ function getSessionName(ctx: unknown): string | null {
   const base = slash >= 0 ? v.slice(slash + 1) : v;
   // basename без расширения .jsonl. base здесь заведомо кончается на .jsonl.
   return base.slice(0, -'.jsonl'.length);
+}
+// Пакет Б: каталог сессии omp. Для изолированного `_task`-ребёнка — корень его
+// копии (замер пробы ISO-PIN 2026-11-15: ctx.cwd = toplevel копии, М1 проходит).
+// Не-строка/пусто → null: новая ветвь pathAllowed не срабатывает (fail-closed).
+function getSessionCwd(ctx: unknown): string | null {
+  if (!ctx || typeof ctx !== 'object' || !('cwd' in ctx)) return null;
+  const v = ctx.cwd;
+  return typeof v === 'string' && v.length > 0 ? v : null;
 }
 function getBranch(ctx: unknown): unknown {
   if (!ctx || typeof ctx !== 'object') return [];
@@ -921,6 +957,7 @@ function pathAllowed(
   canonicalActual: string | null,
   worktree: string | null,
   sessionName: string | null,
+  canonicalSessionCwd: string | null,
 ): boolean {
   if (isAllowedURI(resolved)) return true;
   // Лексическая нормализация .. и . в ОБЕИХ allowlist-ветвях (М4 контракт 032).
@@ -943,6 +980,20 @@ function pathAllowed(
   ) {
     return true;
   }
+  // Пакет Б: своя изолированная копия сессии (ctx.cwd) — при ЛЮБОМ пине. Пин из
+  // задания для изолированного работника — адрес доставки (accept_task_commit
+  // ведущей), а не место записи; без этой ветви работник с парой WORKTREE/BRANCH
+  // не мог писать в собственную копию (модели OpenAI под изоляцией сдавались).
+  // Те же условия М1 037 (п.2–п.6 + HOME + владелец-корреляция), та же граница:
+  // ТОЛЬКО внутри этой копии. Основной чекаут М1 не проходит (вне HOME, без owner.json).
+  if (
+    canonicalSessionCwd !== null &&
+    isSelfContainedCwdEligible(canonicalSessionCwd, sessionName) &&
+    isWithin(canonicalSessionCwd, normalized) &&
+    realAncestorWithin(canonicalSessionCwd, normalized)
+  ) {
+    return true;
+  }
   // Непиннованная сессия + путь не в allowlist — fail-closed (бывшая ветка
   // «worktree===null → pass» снята как корень А-72).
   void worktree;
@@ -962,6 +1013,7 @@ function judgeEditWrite(
   canonicalActual: string | null,
   worktree: string | null,
   sessionName: string | null,
+  canonicalSessionCwd: string | null,
 ): Decision {
   const path = String(args.path ?? '');
   if (!path) return { decision: 'pass' };
@@ -992,7 +1044,7 @@ function judgeEditWrite(
   // непиннованные: pass ТОЛЬКО scratch (URI у непинна обработаны выше). Всё
   // прочее — блок (резолюция владельца 2026-09-11: непиннованный ребёнок
   // ДЕФОЛТ-ЗАПРЕЩЁН на чекаут-запись).
-  if (pathAllowed(path, canonicalWt, canonicalActual, worktree, sessionName)) return { decision: 'pass' };
+  if (pathAllowed(path, canonicalWt, canonicalActual, worktree, sessionName, canonicalSessionCwd)) return { decision: 'pass' };
 
   return {
     decision: 'block',
@@ -1009,6 +1061,7 @@ function judgeBash(
   canonicalActual: string | null,
   worktree: string | null,
   sessionName: string | null,
+  canonicalSessionCwd: string | null,
 ): Decision {
   const cmd = String(args.command ?? '');
   const cwdRaw = args.cwd;
@@ -1060,7 +1113,7 @@ function judgeBash(
     // Непиннованная сессия + абсолютный операнд вне scratch — блок по
     // pathAllowed (резолюция 2026-09-11). URI у непинна уже отсеяны выше.
     // Пиновая + операнд вне пина и не в scratch — блок по Н-85.
-    if (!pathAllowed(resolved, canonicalWt, canonicalActual, worktree, sessionName)) {
+    if (!pathAllowed(resolved, canonicalWt, canonicalActual, worktree, sessionName, canonicalSessionCwd)) {
       return {
         decision: 'block',
         reason:
@@ -1084,6 +1137,8 @@ export function judge(input: JudgeInput): Decision {
   // (см. register() ниже). Отсутствие/не-строка → fail-closed в новой ветви
   // pathAllowed (isSelfContainedCwdEligible).
   const sessionName = input.sessionName ?? null;
+  // Пакет Б: canonical ctx.cwd; не резолвится → null (ветвь «своя копия» не срабатывает).
+  const canonicalSessionCwd = input.sessionCwd ? safeRealpath(input.sessionCwd) : null;
 
   // 1. Канонизация и сверка пина (если задан). Для пина-из-задания (М2 контракт
   // 032) сверка с actual НЕ применяется: actual процесса := cwd ведущей сессии,
@@ -1128,13 +1183,13 @@ export function judge(input: JudgeInput): Decision {
     // тем же ключом, что bash, если omp передаёт args.code / args.command.
     const evalCode = args.code !== undefined ? String(args.code) : String(args.command ?? '');
     const bashLike: Record<string, unknown> = { ...args, command: evalCode };
-    return judgeBash(bashLike, canonicalWt, canonicalActual, worktree, sessionName);
+    return judgeBash(bashLike, canonicalWt, canonicalActual, worktree, sessionName, canonicalSessionCwd);
   }
   if (tool === 'edit' || tool === 'write') {
-    return judgeEditWrite(args, canonicalWt, canonicalActual, worktree, sessionName);
+    return judgeEditWrite(args, canonicalWt, canonicalActual, worktree, sessionName, canonicalSessionCwd);
   }
   if (tool === 'bash') {
-    return judgeBash(args, canonicalWt, canonicalActual, worktree, sessionName);
+    return judgeBash(args, canonicalWt, canonicalActual, worktree, sessionName, canonicalSessionCwd);
   }
   // read / grep / glob / прочие — pass (Г1).
   return { decision: 'pass' };
@@ -1313,10 +1368,12 @@ export default function register(pi: unknown): void {
     // .omp-isolation-owner.json. getSessionName возвращает null при нарушении
     // (не-строка / пустая / без суффикса .jsonl) — fail-closed в новой ветви.
     const sessionName = getSessionName(ctx);
+    // Пакет Б: каталог сессии omp (корень изолированной копии работника).
+    const sessionCwd = getSessionCwd(ctx);
 
     let result: Decision;
     try {
-      result = judge({ tool: name, args, worktree, actual, skipActualCheck, sessionName });
+      result = judge({ tool: name, args, worktree, actual, skipActualCheck, sessionName, sessionCwd });
     } catch {
       return { block: true, reason: 'Н-85: внутренняя ошибка стража пути' };
     }
