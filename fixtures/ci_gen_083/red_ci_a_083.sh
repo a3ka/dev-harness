@@ -1517,7 +1517,13 @@ for chk in check_charter check_zones check_ids check_protected; do
     continue
   fi
   C="$SCRATCH/incr2-$chk.cache"; printf '%s\n' "$BASE" > "$C"
-  out="$(cd "$ROOT" && timeout 60 bash "scripts/$chk.sh" --incr "$C" 2>&1)"; rc=$?
+  # Таймаут И0б — страховка от зависания, НЕ различитель: инкремент от полного прогона
+  # отличают маркер «($NWIN коммит» и кеш=HEAD (полный прогон маркер не печатает — красен
+  # при любом лимите). На merge main→wip (норма 167) окно HEAD~1..HEAD велико: замер
+  # 2026-11-15 на сервере — check_zones --incr, окно 97 коммитов, rc 0 за 91 с; 60 с давали
+  # ложное «предмет отсутствует» (rc 124). Слово владельца «И0б — да» (2026-11-15).
+  # И0 (пустое окно) держит 60 с по тексту 083.
+  out="$(cd "$ROOT" && timeout 300 bash "scripts/$chk.sh" --incr "$C" 2>&1)"; rc=$?
   after="$(head -n1 "$C" 2>/dev/null)"
   if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "incr: $chk судит .* ($NWIN коммит" && [ "$after" = "$HEADSHA" ]; then
     ok "И0б/$chk: непустое окно: маркер с истинным N=$NWIN, кеш перезаписан HEAD"
