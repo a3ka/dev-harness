@@ -10,6 +10,16 @@ An explicit document brief is a separate case.
 status (отсутствующий/неизвестный при rc 0 и пустых matches[].components)
 дают ARCH_LOCATE_GRAMMAR rc 1 без stdout-пака. Это неконформные ответы CLI,
 а не новые варианты допустимой грамматики; task-valid остаётся парным контролем.
+187а-ремонт (узкий, слово владельца 2026-11-15 ~10:45 UTC; приведение к frozen
+187/1, не ослабление и не v+1): the rc grammar of the REAL check tool decides
+the door — rc 0 with requiredModelGate PASS is GREEN even when the overall
+status is NOT_EVALUATED over a NON-EMPTY unresolved latency.* (the live pin
+907e9e80 shape: budgetMs null, latency.* ids in unresolved); rc 2 →
+ARCH_NOT_EVALUATED with the door's OWN rc 2; rc 1 → ARCH_CHECK rc 1; a body
+whose requiredModelGate != PASS at rc 0 (never emitted by the real tool) is
+refused ARCH_NOT_EVALUATED — rc alone is never trusted. The substring hunt
+for NOT_EVALUATED anywhere in the output (the current door) is a caught stub,
+not a verdict.
 """
 import hashlib
 import json
@@ -66,6 +76,16 @@ CASES = (
     ('wiring-no-repo', 'wiring', 'wiring-no-repo', 1, 'CI_BATTERY_187_MISSING_OR_NOT_EXACT', 'wiring'),
     ('wiring-python', 'wiring', 'wiring-python', 1, 'CI_BATTERY_187_MISSING_OR_NOT_EXACT', 'wiring'),
     ('wiring-direct-missing', 'wiring', 'wiring-direct-missing', 1, 'CI_DIRECT_ARCH_187_MISSING', 'wiring'),
+    # ── 187а-ремонт (узкий, слово владельца 2026-11-15 ~10:45): rc-грамматика
+    # check настоящей модели решает дверь: rc 0 + requiredModelGate PASS при
+    # общем status NOT_EVALUATED с непустым unresolved latency.* → rc 0 двери
+    # (frozen 187/1: «при rc 0 модели и зелёных прочих ногах дверь rc 0»);
+    # rc 2 → ARCH_NOT_EVALUATED rc 2 двери; rc 1 → ARCH_CHECK rc 1;
+    # requiredModelGate != PASS при rc 0 → ARCH_NOT_EVALUATED (защита) ─────
+    ('check-green-latency-unresolved', 'precritic', 'real-latency', 0, '', 'precritic'),
+    ('check-rc2-real-gate', 'door', 'real-gate-ne', 2, 'ARCH_NOT_EVALUATED', 'door'),
+    ('check-rc1-real-gate', 'door', 'real-gate-fail', 1, 'ARCH_CHECK', 'door'),
+    ('check-rc0-gate-lie', 'door', 'real-gate-lie', 2, 'ARCH_NOT_EVALUATED', 'door'),
 )
 STABS = {
     'task-no-line': ('task-line-missing', 'allow-line'),
@@ -112,6 +132,15 @@ STABS = {
     'ci-step-without-repo': ('wiring-no-repo', 'ignore-wiring'),
     'ci-step-python-instead': ('wiring-python', 'ignore-wiring'),
     'ci-direct-replaced-by-battery': ('wiring-direct-missing', 'ignore-wiring'),
+    # ── 187а-ремонт стабы: «подстрочный NOT_EVALUATED во всём выводе
+    # отказывает» (текущая дверь) — ловится зелёной latency-клеткой rc 0;
+    # «пропускает rc 2» — rc2-клеткой; защита «gate != PASS → NOT_EVALUATED»
+    # съедает ARCH_CHECK у rc 1 и «игнор поля шлюза при rc 0» — каждая своей
+    # клеткой, различающий вход — свой (Н-39) ──────────────────────────────
+    'latency-not-evaluated-substring': ('check-green-latency-unresolved', 'status-substring'),
+    'model-rc2-passed-green': ('check-rc2-real-gate', 'rc2-green'),
+    'gate-fail-named-not-evaluated': ('check-rc1-real-gate', 'gate-fail-not-evaluated'),
+    'gate-field-ignored': ('check-rc0-gate-lie', 'gate-ignored'),
 }
 
 # Approved snapshot inside the pinned tree (2.5.x layout of the real model, as run-arch.js
@@ -121,6 +150,22 @@ CHECK_OPTIONS = ('model', 'report', 'strict', 'base', 'base-digest')
 
 # Real stdout channel of make_task, also forbidden on a named task refusal.
 PACK_MARKER = '=== make_task contract='
+
+# 187а-ремонт: токен файла check-rc закреплённого дерева задаёт форму ответа
+# check. Исходные миры неизменны байтами: 'check-1' → '1', 'check-2' → '2',
+# прочее → '0' (как до ремонта); новые токены — формы rc-грамматики
+# настоящего CLI (см. ветви TOY_CLI и вердикты verdict).
+CHECK_RC_TOKENS = {'check-1': '1', 'check-2': '2',
+                   'real-latency': 'latency', 'real-gate-ne': 'gate-ne',
+                   'real-gate-fail': 'gate-fail', 'real-gate-lie': 'gate-lie'}
+
+# 187а-ремонт: зелёный rc-0 ответ настоящего CLI несёт общий status
+# NOT_EVALUATED с НЕПУСТЫМ unresolved — latency-требования с budgetMs null
+# (пин 907e9e80: system/fitness.js latencyRequirements; system.js:703-719
+# отдаёт NOT_EVALUATED, cli.js:221-223/268-270 выносят их в unresolved).
+# Единый источник: toy-CLI и честный контроль читают этот кортеж.
+LATENCY_UNRESOLVED = ('latency.command-acceptance', 'latency.first-agent-event',
+                      'latency.agent-completion')
 
 def digest(value):
     """Canonical SHA-256 of the real model: sorted keys, JSON.stringify bytes."""
@@ -163,17 +208,9 @@ def drafted(line, mutant):
     field = line.split(';')[0] if mutant == 'draft-id-only' else line
     return re.search(r'(?<!\w)draft(?!\w)', field, re.I) is not None
 
-def architecture(base, root, variation):
-    """A separate git repository with A pinned and a later, deliberately different B HEAD."""
-    arch = base / (root.name + '-model')
-    arch.mkdir()
-    git(arch, 'init', '-q', '-b', 'main')
-    git(arch, 'config', 'user.name', 'Fixture')
-    git(arch, 'config', 'user.email', 'fixture@local')
-    git(arch, 'config', 'commit.gpgsign', 'false')
-    put(arch, 'package.json', json.dumps({'scripts': {'brief': 'node tooling/checks/cli.js brief',
-                                                       'check': 'node tooling/checks/cli.js check'}}))
-    put(arch, 'tooling/checks/cli.js', '''const fs=require('fs');
+# Toy CLI закреплённого дерева. 187а-ремонт: плейсхолдеры шаблона разрешаются
+# ДО записи — toy-CLI и константы батареи читают единый источник.
+TOY_CLI = '''const fs=require('fs');
 const a=process.argv.slice(2); const name=a[0];
 if (name==='brief') {
  const id=a[a.indexOf('--component')+1];
@@ -220,10 +257,30 @@ if (name==='brief') {
  if(d!==o['base-digest']) out('FAIL','BASELINE_DIGEST_MISMATCH',1);
  const status=fs.readFileSync('check-rc','utf8').trim();
  if(status==='2') console.log('NOT_EVALUATED');
+ if(status==='latency'){
+  console.log(JSON.stringify({status:'NOT_EVALUATED',requiredModelGate:'PASS',baselineStatus:'PASS',implementationEvidence:'NOT_ASSESSED',unresolved:__LATENCY_UNRESOLVED__,findings:[],draftContracts:[]},null,2));
+  process.exit(0);
+ }
+ if(status==='gate-ne') { console.log(JSON.stringify({status:'NOT_EVALUATED',requiredModelGate:'NOT_EVALUATED',baselineStatus:'PASS',implementationEvidence:'NOT_ASSESSED',unresolved:[],findings:[],draftContracts:[]},null,2)); process.exit(2); }
+ if(status==='gate-fail') { console.log(JSON.stringify({status:'FAIL',requiredModelGate:'FAIL',baselineStatus:'PASS',implementationEvidence:'NOT_ASSESSED',unresolved:[],findings:[{code:'STRUCTURAL_INVARIANT'}],draftContracts:[]},null,2)); process.exit(1); }
+ if(status==='gate-lie') { console.log(JSON.stringify({status:'NOT_EVALUATED',requiredModelGate:'NOT_EVALUATED',baselineStatus:'PASS',implementationEvidence:'NOT_ASSESSED',unresolved:[],findings:[],draftContracts:[]},null,2)); process.exit(0); }
  process.exit(Number(status));
 } else process.exit(2);
-''')
-    put(arch, 'check-rc', (variation[-1] if variation in ('check-1', 'check-2') else '0') + '\n')
+'''
+TOY_CLI = TOY_CLI.replace('__LATENCY_UNRESOLVED__', json.dumps(LATENCY_UNRESOLVED, separators=(',', ':')))
+
+def architecture(base, root, variation):
+    """A separate git repository with A pinned and a later, deliberately different B HEAD."""
+    arch = base / (root.name + '-model')
+    arch.mkdir()
+    git(arch, 'init', '-q', '-b', 'main')
+    git(arch, 'config', 'user.name', 'Fixture')
+    git(arch, 'config', 'user.email', 'fixture@local')
+    git(arch, 'config', 'commit.gpgsign', 'false')
+    put(arch, 'package.json', json.dumps({'scripts': {'brief': 'node tooling/checks/cli.js brief',
+                                                       'check': 'node tooling/checks/cli.js check'}}))
+    put(arch, 'tooling/checks/cli.js', TOY_CLI)
+    put(arch, 'check-rc', CHECK_RC_TOKENS.get(variation, '0') + '\n')
     put(arch, 'locate-boundary', variation + '\n')
     put(arch, SNAPSHOT, json.dumps(snapshot(1)))
     git(arch, 'add', '-A')
@@ -399,6 +456,15 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
             return 1, 'ARCH_ZONE'
         return (1, 'ARCH_LINE_MISSING') if mutant == 'require-all' else (0, '')
     if action == 'precritic':
+        if variation == 'real-latency':
+            # 187а-ремонт: зелёный rc 0 с НЕПУСТЫМ unresolved latency.* (живая
+            # форма пина 907e9e80: rc=0, requiredModelGate PASS, findings [],
+            # общий status NOT_EVALUATED только из-за latency.*) — конформ;
+            # подстрочный поиск NOT_EVALUATED во всём выводе — обман (текущая
+            # дверь), стаб status-substring.
+            if mutant == 'status-substring':
+                return 1, 'ARCH_NOT_EVALUATED: check --base модели не вынес вердикта (rc=0)'
+            return 0, ''
         lock = json.loads((root / 'architecture.lock.json').read_text())
         args = ['--base', SNAPSHOT, '--base-digest', lock['snapshotDigest']]
         if mutant == 'bare-base': args = ['--base']
@@ -425,6 +491,29 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
                                       arch_runs[-1].get('conclusion') != 'success'):
             return 1, 'ARCH_CI'
         return 0, ''
+    if action == 'door':
+        if variation == 'real-gate-ne':
+            # 187а-ремонт: rc 2 инструмента — requiredModelGate NOT_EVALUATED
+            # (форма пина, cli.js:305): ARCH_NOT_EVALUATED СВОИМ rc 2 двери,
+            # не схлопнутым в rc 1; стаб «пропускает rc 2» — зелёный.
+            if mutant == 'rc2-green':
+                return 0, 'ARCH_187A_OK: архитектура сходится с закреплённой моделью'
+            return 2, 'ARCH_NOT_EVALUATED: check --base модели не вынес вердикта (rc=2)'
+        if variation == 'real-gate-fail':
+            # 187а-ремонт: rc 1 инструмента — requiredModelGate FAIL (cli.js:304):
+            # ARCH_CHECK rc 1; защита «gate != PASS → ARCH_NOT_EVALUATED»
+            # красный вердикт модели не съедает (стаб gate-fail-not-evaluated).
+            if mutant == 'gate-fail-not-evaluated':
+                return 2, 'ARCH_NOT_EVALUATED: check --base модели не вынес вердикта (rc=1)'
+            return 1, 'ARCH_CHECK: check --base модели красный (rc=1)'
+        if variation == 'real-gate-lie':
+            # 187а-ремонт, защита: requiredModelGate != PASS при rc 0 — тело,
+            # которого настоящий инструмент не излучает (cli.js:304-306); дверь
+            # не доверяет одному rc — именованный ARCH_NOT_EVALUATED (стаб
+            # gate-ignored).
+            if mutant == 'gate-ignored':
+                return 0, 'ARCH_187A_OK: архитектура сходится с закреплённой моделью'
+            return 2, 'ARCH_NOT_EVALUATED: requiredModelGate не PASS (rc=0)'
     raise RuntimeError('unknown action')
 
 def live(tools, root, arch, pinned, action, task, trace, role):
@@ -437,6 +526,9 @@ def live(tools, root, arch, pinned, action, task, trace, role):
     if action == 'wiring':
         return run('bash', TOOLS / 'fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh',
                    '--wiring', root, cwd=root, env=env)
+    if action == 'door':
+        return run('bash', tools / 'scripts/check_architecture_contract.sh', '--repo', root,
+                   CONTRACT, cwd=root, env=env)
     if action == 'task':
         command = ['bash', tools / 'scripts/make_task.sh', '--repo', root, '--role', role,
                    '--kind', 'task', '--contract', '777', '--task-file', task,
