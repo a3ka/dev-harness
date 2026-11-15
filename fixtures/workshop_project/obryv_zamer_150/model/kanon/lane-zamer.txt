@@ -1,0 +1,1 @@
+  zamer: ['bash', ['mobile/scripts/zamer_obryva.sh']],
