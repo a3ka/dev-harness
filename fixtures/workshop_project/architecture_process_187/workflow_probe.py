@@ -49,7 +49,17 @@ gate are separate traits); the code class may be declared by the INLINE form
 180 at the TAIL of a long contract — a head-only reader loses the gate and the
 pair cell catches it; an out-of-grammar locate body (no status / unfamiliar
 status) reaches the make_task caller as rc 2 (held Б1), never a guessed class;
-the no-pack observer covers EVERY negative task cell, not three labels."""
+the no-pack observer covers EVERY negative task cell, not three labels.
+187а-ремонт (узкий, слово владельца 2026-11-15 ~10:45 UTC; приведение к frozen
+187/1, не ослабление и не v+1): the rc grammar of the REAL check tool decides
+the door — rc 0 with requiredModelGate PASS is GREEN even when the overall
+status is NOT_EVALUATED over a NON-EMPTY unresolved latency.* (the live pin
+907e9e80 shape: budgetMs null, latency.* ids in unresolved); rc 2 →
+ARCH_NOT_EVALUATED with the door's OWN rc 2; rc 1 → ARCH_CHECK rc 1; a body
+whose requiredModelGate != PASS at rc 0 (never emitted by the real tool) is
+refused ARCH_NOT_EVALUATED — rc alone is never trusted. The substring hunt
+for NOT_EVALUATED anywhere in the output (the current door) is a caught stub,
+not a verdict."""
 import hashlib
 import json
 import os
@@ -173,6 +183,16 @@ CASES = (
     ('check-digest-mismatch-legacy-refused', 'precritic', 'legacy-precritic-digest-mismatch', 1, 'ARCH_LOCATE_GRAMMAR', 'precritic'),
     ('precritic-full-zone-legacy-refused', 'precritic', 'legacy-precritic-foreign', 1, 'ARCH_LOCATE_GRAMMAR', 'precritic'),
     ('precritic-draft-legacy-refused', 'precritic', 'legacy-precritic-draft', 1, 'ARCH_LOCATE_GRAMMAR', 'precritic'),
+    # ── 187а-ремонт (узкий, слово владельца 2026-11-15 ~10:45): rc-грамматика
+    # check настоящей модели решает дверь: rc 0 + requiredModelGate PASS при
+    # общем status NOT_EVALUATED с непустым unresolved latency.* → rc 0 двери
+    # (frozen 187/1: «при rc 0 модели и зелёных прочих ногах дверь rc 0»);
+    # rc 2 → ARCH_NOT_EVALUATED rc 2 двери; rc 1 → ARCH_CHECK rc 1;
+    # requiredModelGate != PASS при rc 0 → ARCH_NOT_EVALUATED (защита) ─────
+    ('check-green-latency-unresolved', 'precritic', 'real-latency', 0, '', 'precritic'),
+    ('check-rc2-real-gate', 'door', 'real-gate-ne', 2, 'ARCH_NOT_EVALUATED', 'door'),
+    ('check-rc1-real-gate', 'door', 'real-gate-fail', 1, 'ARCH_CHECK', 'door'),
+    ('check-rc0-gate-lie', 'door', 'real-gate-lie', 2, 'ARCH_NOT_EVALUATED', 'door'),
 )
 STABS = {
     'task-no-line': ('task-line-missing', 'allow-line'),
@@ -285,6 +305,15 @@ STABS = {
     'bare-id-accepted-check-digest-mismatch': ('check-digest-mismatch-legacy-refused', 'bare-id-accepted'),
     'bare-id-accepted-precritic-full-zone': ('precritic-full-zone-legacy-refused', 'bare-id-accepted'),
     'bare-id-accepted-precritic-draft': ('precritic-draft-legacy-refused', 'bare-id-accepted'),
+    # ── 187а-ремонт стабы: «подстрочный NOT_EVALUATED во всём выводе
+    # отказывает» (текущая дверь) — ловится зелёной latency-клеткой rc 0;
+    # «пропускает rc 2» — rc2-клеткой; защита «gate != PASS → NOT_EVALUATED»
+    # съедает ARCH_CHECK у rc 1 и «игнор поля шлюза при rc 0» — каждая своей
+    # клеткой, различающий вход — свой (Н-39) ──────────────────────────────
+    'latency-not-evaluated-substring': ('check-green-latency-unresolved', 'status-substring'),
+    'model-rc2-passed-green': ('check-rc2-real-gate', 'rc2-green'),
+    'gate-fail-named-not-evaluated': ('check-rc1-real-gate', 'gate-fail-not-evaluated'),
+    'gate-field-ignored': ('check-rc0-gate-lie', 'gate-ignored'),
 }
 
 # Approved snapshot inside the pinned tree (2.5.x layout of the real model, as run-arch.js
@@ -312,6 +341,8 @@ REAL_VARIATIONS = frozenset((
     'ambiguous-empty',
     # v3-r2: out-of-grammar bodies with parseable JSON (reviewer Б2)
     'status-missing', 'status-unknown',
+    # 187а-ремонт: формы ответа check настоящего CLI (rc-грамматика пина)
+    'real-latency', 'real-gate-ne', 'real-gate-fail', 'real-gate-lie',
     # v+1: consumer worlds of hotfix 0de333cfe6 — судит публичный make_task;
     # 'no-local' обязан стать real-грамматикой: инлайн-класс запускает гейт,
     # а locate hotfix требует JSON-ответа
@@ -362,6 +393,14 @@ LEGACY_PROBE_BASES = {
     'legacy-precritic-foreign': 'precritic-foreign',
     'legacy-precritic-draft': 'precritic-draft',
 }
+
+# 187а-ремонт: токен файла check-rc закреплённого дерева задаёт форму ответа
+# check. Исходные миры неизменны байтами: 'check-1' → '1', 'check-2' → '2',
+# прочее → '0' (как до ремонта); новые токены — формы rc-грамматики
+# настоящего CLI (см. ветви TOY_CLI_REAL и вердикты verdict_v2).
+CHECK_RC_TOKENS = {'check-1': '1', 'check-2': '2',
+                   'real-latency': 'latency', 'real-gate-ne': 'gate-ne',
+                   'real-gate-fail': 'gate-fail', 'real-gate-lie': 'gate-lie'}
 
 
 def legacy_probe_path(variation):
@@ -445,6 +484,14 @@ UNKNOWN_STATUS = 'PARTIAL'
 UNKNOWN_MATCH = {'module': 'module.unknownstatus', 'components': ['api.identity'],
                  'specification': 'app/unknownstatus/module.js', 'explicit': False,
                  'matched': 'app/unknownstatus/'}
+
+# 187а-ремонт: зелёный rc-0 ответ настоящего CLI несёт общий status
+# NOT_EVALUATED с НЕПУСТЫМ unresolved — latency-требования с budgetMs null
+# (пин 907e9e80: system/fitness.js latencyRequirements; system.js:703-719
+# отдаёт NOT_EVALUATED, cli.js:221-223/268-270 выносят их в unresolved).
+# Единый источник: toy-CLI и честный контроль читают этот кортеж.
+LATENCY_UNRESOLVED = ('latency.command-acceptance', 'latency.first-agent-event',
+                      'latency.agent-completion')
 
 # A syntactically correct 40-hex that exists in NO clone (v2-r1, блок 1(c)):
 # the door must name ARCH_PIN for it, not ARCHITECTURE_NET.
@@ -694,6 +741,13 @@ if (name==='brief') {
  const status=fs.readFileSync('check-rc','utf8').trim();
  if(status==='2') out('NOT_EVALUATED','',2);
  if(status==='1') out('FAIL','',1);
+ if(status==='latency'){
+  console.log(JSON.stringify({status:'NOT_EVALUATED',requiredModelGate:'PASS',baselineStatus:'PASS',implementationEvidence:'NOT_ASSESSED',unresolved:__LATENCY_UNRESOLVED__,findings:[],draftContracts:[]},null,2));
+  process.exit(0);
+ }
+ if(status==='gate-ne') { console.log(JSON.stringify({status:'NOT_EVALUATED',requiredModelGate:'NOT_EVALUATED',baselineStatus:'PASS',implementationEvidence:'NOT_ASSESSED',unresolved:[],findings:[],draftContracts:[]},null,2)); process.exit(2); }
+ if(status==='gate-fail') { console.log(JSON.stringify({status:'FAIL',requiredModelGate:'FAIL',baselineStatus:'PASS',implementationEvidence:'NOT_ASSESSED',unresolved:[],findings:[{code:'STRUCTURAL_INVARIANT'}],draftContracts:[]},null,2)); process.exit(1); }
+ if(status==='gate-lie') { console.log(JSON.stringify({status:'NOT_EVALUATED',requiredModelGate:'NOT_EVALUATED',baselineStatus:'PASS',implementationEvidence:'NOT_ASSESSED',unresolved:[],findings:[],draftContracts:[]},null,2)); process.exit(0); }
  console.log(JSON.stringify({status:'NOT_EVALUATED',requiredModelGate:'PASS',baselineStatus:'PASS',implementationEvidence:'NOT_ASSESSED',unresolved:[],findings:[],draftContracts:[]},null,2));
  process.exit(0);
 } else process.exit(2);
@@ -721,6 +775,7 @@ TOY_CLI_REAL = (TOY_CLI_REAL
                 .replace('__UNKNOWN_PREFIX__', UNKNOWN_PREFIX)
                 .replace('__UNKNOWN_STATUS__', json.dumps(UNKNOWN_STATUS))
                 .replace('__UNKNOWN_MATCH__', json.dumps(UNKNOWN_MATCH, separators=(',', ':')))
+                .replace('__LATENCY_UNRESOLVED__', json.dumps(LATENCY_UNRESOLVED, separators=(',', ':')))
                 .replace('__LEGACY_PREFIX__', LEGACY_PROBE_PREFIX))
 
 # Cutover-мир (v+1, hotfix 0de333cfe6): тот же JSON-locate, что TOY_CLI_REAL
@@ -768,7 +823,7 @@ def architecture(base, root, variation):
         # Dependency semantics of the real pin: package-lock committed, node_modules NOT
         # in the tree; an honest door must npm ci (a stub npm on PATH fails it).
         put(arch, 'package-lock.json', TOY_PACKAGE_LOCK)
-    put(arch, 'check-rc', (base_variation[-1] if base_variation in ('check-1', 'check-2') else '0') + '\n')
+    put(arch, 'check-rc', CHECK_RC_TOKENS.get(base_variation, '0') + '\n')
     put(arch, SNAPSHOT, json.dumps(snapshot(1)))
     git(arch, 'add', '-A')
     git(arch, 'commit', '-qm', 'published architecture')
@@ -903,7 +958,9 @@ def prepare(root, arch, pinned, variation):
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('вход schema.query', 'вход schema.draft'))
     elif variation == 'review-missing':
         put(root, REVIEW, 'ACCEPT\nNote: СВЕРКА-АРХИТЕКТУРЫ: mentioned in a quote, not reported by reviewer\n')
-    elif variation in ('real-valid', 'real-status', 'real-brief', 'real-deps'):
+    elif variation in ('real-valid', 'real-status', 'real-brief', 'real-deps',
+                       'real-latency', 'real-gate-ne', 'real-gate-fail',
+                       'real-gate-lie'):
         pass  # конформный контракт реальной грамматики — мир уже готов
     elif variation == 'real-foreign':
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', 'app/billing/model.js'))
@@ -1252,6 +1309,15 @@ def verdict_v2(root, arch, pinned, action, task, role, mutant, variation):
             if mutant == 'status-substring':
                 return 1, 'ARCH_NOT_EVALUATED: check --base модели не вынес вердикта (rc=0)'
             return 0, ''
+        if variation == 'real-latency':
+            # 187а-ремонт: зелёный rc 0 с НЕПУСТЫМ unresolved latency.* (живая
+            # форма пина 907e9e80: rc=0, requiredModelGate PASS, findings [],
+            # общий status NOT_EVALUATED только из-за latency.*) — конформ;
+            # подстрочный поиск NOT_EVALUATED во всём выводе — обман (текущая
+            # дверь), стаб status-substring.
+            if mutant == 'status-substring':
+                return 1, 'ARCH_NOT_EVALUATED: check --base модели не вынес вердикта (rc=0)'
+            return 0, ''
         if variation.startswith('precritic-'):
             if mutant == 'precritic-model-only':
                 return 0, ''  # обман: только check, строка/зоны/операции не судятся
@@ -1359,6 +1425,28 @@ def verdict_v2(root, arch, pinned, action, task, role, mutant, variation):
             return 2, 'ARCH_DEPS: зависимости модели недоступны (npm ci --ignore-scripts)'
         if variation in ('live-real', 'live-real-union'):
             return 0, 'ARCH_187A_OK: архитектура сходится с закреплённой моделью'
+        if variation == 'real-gate-ne':
+            # 187а-ремонт: rc 2 инструмента — requiredModelGate NOT_EVALUATED
+            # (форма пина, cli.js:305): ARCH_NOT_EVALUATED СВОИМ rc 2 двери,
+            # не схлопнутым в rc 1; стаб «пропускает rc 2» — зелёный.
+            if mutant == 'rc2-green':
+                return 0, 'ARCH_187A_OK: архитектура сходится с закреплённой моделью'
+            return 2, 'ARCH_NOT_EVALUATED: check --base модели не вынес вердикта (rc=2)'
+        if variation == 'real-gate-fail':
+            # 187а-ремонт: rc 1 инструмента — requiredModelGate FAIL (cli.js:304):
+            # ARCH_CHECK rc 1; защита «gate != PASS → ARCH_NOT_EVALUATED»
+            # красный вердикт модели не съедает (стаб gate-fail-not-evaluated).
+            if mutant == 'gate-fail-not-evaluated':
+                return 2, 'ARCH_NOT_EVALUATED: check --base модели не вынес вердикта (rc=1)'
+            return 1, 'ARCH_CHECK: check --base модели красный (rc=1)'
+        if variation == 'real-gate-lie':
+            # 187а-ремонт, защита: requiredModelGate != PASS при rc 0 — тело,
+            # которого настоящий инструмент не излучает (cli.js:304-306); дверь
+            # не доверяет одному rc — именованный ARCH_NOT_EVALUATED (стаб
+            # gate-ignored).
+            if mutant == 'gate-ignored':
+                return 0, 'ARCH_187A_OK: архитектура сходится с закреплённой моделью'
+            return 2, 'ARCH_NOT_EVALUATED: requiredModelGate не PASS (rc=0)'
     raise RuntimeError(f'unknown v2 disposition: {variation}/{action}')
 
 
