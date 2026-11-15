@@ -162,6 +162,17 @@ CASES = (
     ('freeze-draft-legacy-refused', 'freeze', 'legacy-freeze-draft', 2, 'ARCH_LOCATE_GRAMMAR', 'freeze'),
     ('freeze-draft-marker-legacy-refused', 'freeze', 'legacy-freeze-draft-marker', 2, 'ARCH_LOCATE_GRAMMAR', 'freeze'),
     ('freeze-draft-schema-legacy-refused', 'freeze', 'legacy-freeze-draft-schema', 2, 'ARCH_LOCATE_GRAMMAR', 'freeze'),
+    # ── v+1 cutover, precritic-канал: полный режим pre_critic судит зоны
+    # (строка → зоны → операции → check) ДО вердикта базового мира; честный
+    # отказ на пробе — ARCH_LOCATE_GRAMMAR rc 1: pre_critic выдаёт именованный
+    # отказ двери СВОИМ rc 1 (приёмка «check --base возвращает 1 или 2 →
+    # rc 1»), rc 2 — норма только каналов task/freeze (Б1). precritic-no-line
+    # НЕ мигрирован: гейт строки отказывает ДО зон, проба ненаблюдаема (Н-39) ──
+    ('check-failure-legacy-refused', 'precritic', 'legacy-precritic-check-1', 1, 'ARCH_LOCATE_GRAMMAR', 'precritic'),
+    ('check-not-evaluated-legacy-refused', 'precritic', 'legacy-precritic-check-2', 1, 'ARCH_LOCATE_GRAMMAR', 'precritic'),
+    ('check-digest-mismatch-legacy-refused', 'precritic', 'legacy-precritic-digest-mismatch', 1, 'ARCH_LOCATE_GRAMMAR', 'precritic'),
+    ('precritic-full-zone-legacy-refused', 'precritic', 'legacy-precritic-foreign', 1, 'ARCH_LOCATE_GRAMMAR', 'precritic'),
+    ('precritic-draft-legacy-refused', 'precritic', 'legacy-precritic-draft', 1, 'ARCH_LOCATE_GRAMMAR', 'precritic'),
 )
 STABS = {
     'task-no-line': ('task-line-missing', 'allow-line'),
@@ -269,6 +280,11 @@ STABS = {
     'bare-id-accepted-freeze-draft': ('freeze-draft-legacy-refused', 'bare-id-accepted'),
     'bare-id-accepted-freeze-draft-marker': ('freeze-draft-marker-legacy-refused', 'bare-id-accepted'),
     'bare-id-accepted-freeze-draft-schema': ('freeze-draft-schema-legacy-refused', 'bare-id-accepted'),
+    'bare-id-accepted-check-failure': ('check-failure-legacy-refused', 'bare-id-accepted'),
+    'bare-id-accepted-check-not-evaluated': ('check-not-evaluated-legacy-refused', 'bare-id-accepted'),
+    'bare-id-accepted-check-digest-mismatch': ('check-digest-mismatch-legacy-refused', 'bare-id-accepted'),
+    'bare-id-accepted-precritic-full-zone': ('precritic-full-zone-legacy-refused', 'bare-id-accepted'),
+    'bare-id-accepted-precritic-draft': ('precritic-draft-legacy-refused', 'bare-id-accepted'),
 }
 
 # Approved snapshot inside the pinned tree (2.5.x layout of the real model, as run-arch.js
@@ -311,12 +327,19 @@ CUTOVER_VARIATIONS = frozenset((
     # исходные миры 170/187-1: тела клеток, стабы и ожидания не меняются
     '', 'brief-lock', 'with-rules', 'no-rules', 'unmapped', 'foreign',
     'draft', 'draft-marker', 'draft-schema',
+    # v+1 cutover, precritic-канал: полный режим pre_critic судит зоны ДО
+    # check/операций — миры check-канала говорят JSON-грамматикой. НЕ здесь:
+    # precritic-no-line (гейт строки отказывает ДО зон, locate не зовётся)
+    'check-1', 'check-2', 'digest-mismatch', 'precritic-foreign', 'precritic-draft',
     # различающие входы мигрированных миров (legacy-проба «голый id»)
     'legacy-task-valid', 'legacy-task-brief-lock', 'legacy-task-with-rules',
     'legacy-task-no-rules', 'legacy-task-unmapped',
     'legacy-freeze-valid', 'legacy-freeze-foreign', 'legacy-freeze-unmapped',
     'legacy-freeze-draft', 'legacy-freeze-draft-marker',
-    'legacy-freeze-draft-schema'))
+    'legacy-freeze-draft-schema',
+    'legacy-precritic-check-1', 'legacy-precritic-check-2',
+    'legacy-precritic-digest-mismatch', 'legacy-precritic-foreign',
+    'legacy-precritic-draft'))
 
 # Различающий вход мигрированного мира: путь, на котором toy-модель отвечает
 # ОДНОЙ строкой-голым id (форма TOY_CLI_LEGACY до cutover). Проба стоит ПЕРВОЙ
@@ -325,7 +348,8 @@ CUTOVER_VARIATIONS = frozenset((
 LEGACY_PROBE_PREFIX = 'app/legacy/'
 
 # Базовая мутация мира с пробой — мутация исходного мигрированного мира; канал
-# пробы: 'legacy-task-*' → файл задания, 'legacy-freeze-*' → контракт.
+# пробы: 'legacy-task-*' → файл задания, 'legacy-freeze-*' и
+# 'legacy-precritic-*' → контракт.
 LEGACY_PROBE_BASES = {
     'legacy-task-valid': '', 'legacy-task-brief-lock': 'brief-lock',
     'legacy-task-with-rules': 'with-rules', 'legacy-task-no-rules': 'no-rules',
@@ -333,6 +357,10 @@ LEGACY_PROBE_BASES = {
     'legacy-freeze-foreign': 'foreign', 'legacy-freeze-unmapped': 'unmapped',
     'legacy-freeze-draft': 'draft', 'legacy-freeze-draft-marker': 'draft-marker',
     'legacy-freeze-draft-schema': 'draft-schema',
+    'legacy-precritic-check-1': 'check-1', 'legacy-precritic-check-2': 'check-2',
+    'legacy-precritic-digest-mismatch': 'digest-mismatch',
+    'legacy-precritic-foreign': 'precritic-foreign',
+    'legacy-precritic-draft': 'precritic-draft',
 }
 
 
@@ -717,6 +745,10 @@ def architecture(base, root, variation):
     v2: the toy speaks the real-CLI grammar for REAL_VARIATIONS, legacy otherwise.
     v+1 cutover: migrated legacy worlds speak TOY_CLI_CUTOVER (JSON locate of the
     production door hotfix 0de333cfe6, brief by the door's own channel)."""
+    # v+1 cutover, precritic-канал: мутации базового мира (check-rc '1'/'2',
+    # digest-mismatch в lock) применяются и к миру с пробой — иначе стаб
+    # «голый id принимается» возвращал бы вердикт НЕ базового мира.
+    base_variation = LEGACY_PROBE_BASES.get(variation, variation)
     arch = base / (root.name + '-model')
     arch.mkdir()
     git(arch, 'init', '-q', '-b', 'main')
@@ -736,7 +768,7 @@ def architecture(base, root, variation):
         # Dependency semantics of the real pin: package-lock committed, node_modules NOT
         # in the tree; an honest door must npm ci (a stub npm on PATH fails it).
         put(arch, 'package-lock.json', TOY_PACKAGE_LOCK)
-    put(arch, 'check-rc', (variation[-1] if variation in ('check-1', 'check-2') else '0') + '\n')
+    put(arch, 'check-rc', (base_variation[-1] if base_variation in ('check-1', 'check-2') else '0') + '\n')
     put(arch, SNAPSHOT, json.dumps(snapshot(1)))
     git(arch, 'add', '-A')
     git(arch, 'commit', '-qm', 'published architecture')
@@ -749,7 +781,7 @@ def architecture(base, root, variation):
     # HEAD; digest-mismatch names B's snapshot while the commit stays A.
     lock = {'format': 'complioros-architecture-pin/1', 'repository': 'a3ka/CompliorOS-architecture',
             'snapshot': 1, 'status': 'APPROVED',
-            'snapshotDigest': digest(snapshot(2 if variation == 'digest-mismatch' else 1)),
+            'snapshotDigest': digest(snapshot(2 if base_variation == 'digest-mismatch' else 1)),
             'workItem': 'COMPLIOR-777'}
     if variation == 'pin-symbolic':
         lock['commit'] = 'HEAD'
@@ -1341,15 +1373,19 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
         return 0, ''
     if variation in LEGACY_PROBE_BASES:
         # v+1 cutover: различающий вход мира — legacy-проба «голый id». Честная
-        # дверь (грамматика производственной двери hotfix 0de333cfe6; rc 2 —
-        # норма held v3 для отказов грамматики ответа) отказывает на пробе
-        # именованно; стаб «голый id принимается» — слой совместимости, которого
-        # после cutover нет: проходит пробу и выносит вердикт базового мира.
+        # дверь (грамматика производственной двери hotfix 0de333cfe6) отказывает
+        # на пробе именованным ARCH_LOCATE_GRAMMAR; стаб «голый id принимается» —
+        # слой совместимости, которого после cutover нет: проходит пробу и
+        # выносит вердикт базового мира. rc — канальный: task/freeze — 2
+        # (Б1: rc 2 двери доходит до вызывающего), precritic — 1 (pre_critic
+        # выдаёт именованный отказ двери СВОИМ rc 1, приёмка «check --base
+        # возвращает 1 или 2 → rc 1»).
         if mutant == 'bare-id-accepted':
             return verdict(root, arch, pinned, action, task, role, '',
                            LEGACY_PROBE_BASES[variation])
-        return 2, ('ARCH_LOCATE_GRAMMAR: ответ locate не разобран как JSON-объект '
-                   f'с массивом matches: {legacy_probe_path(variation)}')
+        return (1 if action == 'precritic' else 2), (
+            'ARCH_LOCATE_GRAMMAR: ответ locate не разобран как JSON-объект '
+            f'с массивом matches: {legacy_probe_path(variation)}')
     if variation in ('pin-symbolic', 'pin-empty', 'pin-foreign-hex', 'class-missing',
                      'operation-optional', 'component-required', 'live-real',
                      'live-real-union', 'root-unset', 'declared-empty',
