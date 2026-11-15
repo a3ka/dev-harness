@@ -1,0 +1,3 @@
+spawnSync('bash', ['mobile/scripts/zamer_child_hook.sh', 'start', '--ekran', id, '--ns', 'mobile/screen-evidence/' + id, '--serial', serial, '--spool', '.zamer-' + id], {stdio: 'inherit'});
+const r = spawnSync('bash', ['mobile/scripts/zamer_child_hook.sh', 'maestro', '--ekran', id, '--ns', 'mobile/screen-evidence/' + id, '--serial', serial, '--spool', '.zamer-' + id, '--out', 'mobile/zamer-out-' + id, '--', 'maestro', '--device', serial, 'test', flow], {encoding: 'utf8'});
+spawnSync('bash', ['mobile/scripts/zamer_child_hook.sh', 'sbor', '--ekran', id, '--ns', 'mobile/screen-evidence/' + id, '--serial', serial, '--spool', '.zamer-' + id, '--out', 'mobile/zamer-out-' + id], {stdio: 'inherit'});

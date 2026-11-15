@@ -1,21 +1,12 @@
-# Обманный стаб батареи 150: мутация модели КОДОМ (Н-39); привязка к клетке —
-# ТОЛЬКО source.json:.stab_vhod. Мутирует копию model/, не дерево харнесса.
-import yaml
-
-
+# Обманный стаб: krug3 — у ВТОРОГО работника `false &&` перед сбором:
+# правая ветвь не исполняется никогда; первый работник каноничен.
 def mutiruj(koren):
-    """false && sbor: шаг завершается раньше сбора, журнал пуст."""
     p = koren / '.github' / 'workflows' / 'mobile.yml'
-    wf = yaml.safe_load(p.read_text(encoding='utf-8'))
-    shagi = wf['jobs']['e2e-proba-obryv']['steps']
-    for s in shagi:
-        if str(s.get('name') or '').startswith('Замер обрыва: сбор'):
-            run = str(s['run'])
-            kljuch = 'bash mobile/scripts/zamer_obryva.sh sbor'
-            assert kljuch in run, 'kanon vyzov sbor ne najden'
-            s['run'] = run.replace(kljuch, 'false && ' + kljuch, 1)
-            break
-    else:
-        raise AssertionError('sbor-shag ne najden')
-    p.write_text(yaml.safe_dump(wf, allow_unicode=True, sort_keys=False),
-                 encoding='utf-8')
+    tekst = p.read_text(encoding='utf-8')
+    nach = tekst.index('  e2e-proba-drugoj:\n')
+    kon = tekst.index('  e2e-proba-matrica:\n')
+    sek = tekst[nach:kon]
+    kljuch = 'npm run ci:zamer -- sbor'
+    assert sek.count(kljuch) == 1
+    sek = sek.replace(kljuch, 'false && ' + kljuch, 1)
+    p.write_text(tekst[:nach] + sek + tekst[kon:], encoding='utf-8')
