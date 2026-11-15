@@ -983,7 +983,10 @@ function pathAllowed(
     worktree === null &&
     canonicalActual !== null &&
     isSelfContainedCwdEligible(canonicalActual, sessionName) &&
-    isWithin(canonicalActual, normalized)
+    isWithin(canonicalActual, normalized) &&
+    // Пакет Б (находка ревью Б-1): та же проверка реального предка по сырому
+    // пути, что у ветви своей копии — `<копия>/lnk/../x` иначе пишет наружу.
+    realAncestorWithin(canonicalActual, resolved)
   ) {
     return true;
   }
