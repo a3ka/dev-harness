@@ -129,7 +129,11 @@ class Mir:
     def done(self, nnn):
         self.git(['tag', 'done/contracts/%s/1' % nnn])
 
-    def worktree(self, nnn, remote=HARNESS_REMOTE):
+    def worktree(self, nnn, remote=HARNESS_REMOTE, kontrakty=None):
+        # v+1 (класс из дерева OBJECT, слово владельца 2026-11-12): kontrakty —
+        # записи [(вид, имя, данные)] вида 'fajl' (данные — текст), 'symlink'
+        # (данные — цель), 'dir'; коммитятся в contracts/ КАНДИДАТА до снятия
+        # sha — суд класса читает именно ДЕРЕВО OBJECT.
         wt = self.root / ('wt%s' % nnn)
         wt.mkdir(parents=True, exist_ok=True)
         g = run(['git', 'init', '-q', '.'], cwd=str(wt))
@@ -137,8 +141,24 @@ class Mir:
         run(['git', 'remote', 'add', 'origin', remote], cwd=str(wt), env=GIT_ENV)
         br = 'wip/%s/avtor' % nnn
         run(['git', 'checkout', '-q', '-b', br], cwd=str(wt), env=GIT_ENV)
-        run(['git', '-c', 'user.name=b', '-c', 'user.email=b@t', 'commit',
-             '-q', '--allow-empty', '-m', 'w'], cwd=str(wt), env=GIT_ENV)
+        if kontrakty:
+            kat = wt / 'contracts'
+            kat.mkdir(exist_ok=True)
+            for vid, imja, dannye in kontrakty:
+                p = kat / imja
+                if vid == 'symlink':
+                    p.symlink_to(dannye)
+                elif vid == 'dir':
+                    p.mkdir(exist_ok=True)
+                    (p / 'vnutri.md').write_text('# К\n', encoding='utf-8')
+                else:
+                    p.write_text(dannye, encoding='utf-8')
+            run(['git', 'add', '-A'], cwd=str(wt), env=GIT_ENV)
+            run(['git', '-c', 'user.name=b', '-c', 'user.email=b@t', 'commit',
+                 '-q', '-m', 'k'], cwd=str(wt), env=GIT_ENV)
+        else:
+            run(['git', '-c', 'user.name=b', '-c', 'user.email=b@t', 'commit',
+                 '-q', '--allow-empty', '-m', 'w'], cwd=str(wt), env=GIT_ENV)
         sha = run(['git', 'rev-parse', 'HEAD'], cwd=str(wt), env=GIT_ENV).stdout.strip()
         return str(wt), br, sha
 
@@ -158,6 +178,56 @@ class Mir:
         if vozrast_min is not None:
             was = time.time() - vozrast_min * 60
             os.utime(str(f), (was, was))
+
+
+    def zhurnal_vyhod(self, holder, kind='normal', poddelka=False, vozrast_min=None):
+        # журнал держателя с завершением omp 18.18.8 (замер 2026-11-12 по
+        # журналам станции: yield-литералов у субагентов 12.11 — 0; событий
+        # session_exit — 2516 normal / 231 signal, все type=custom): ПОСЛЕДНЕЙ
+        # строкой — событие рантайма; форма — из журналов станции, поля — те,
+        # что читает дверь (.type/.customType/.data.kind). poddelka — литералы
+        # «customType":"session_exit"»/«kind":"normal"» вложенными полями
+        # ЧУЖОГО custom-события (канал подделки сдачи: подстрока без структуры).
+        f = self.zhurnaly / ('%s.jsonl' % holder)
+        body = '{"timestamp":"2026-11-12T10:00:00.000Z","message":{"role":"assistant"}}\n'
+        if poddelka:
+            body += ('{"type":"custom","customType":"task_status",'
+                     '"data":{"status":"done","event":{"customType":"session_exit",'
+                     '"kind":"normal"}},"timestamp":"2026-11-12T10:01:00.000Z",'
+                     '"runtime":{"version":"18.18.8"}}\n')
+        else:
+            body += ('{"type":"custom","customType":"session_exit",'
+                     '"data":{"kind":"%s","reason":"final"},'
+                     '"timestamp":"2026-11-12T10:01:00.000Z",'
+                     '"runtime":{"version":"18.18.8"}}\n' % kind)
+        f.write_text(body, encoding='utf-8')
+        if vozrast_min is not None:
+            was = time.time() - vozrast_min * 60
+            os.utime(str(f), (was, was))
+
+    def risk_legacy(self, blob, klass):
+        # строка registry/risk-legacy.tsv ($REPO): класс старого frozen по blob
+        f = self.repo / 'registry' / 'risk-legacy.tsv'
+        with f.open('a', encoding='utf-8') as fh:
+            fh.write('%s\t%s\tслово владельца 2026-11-12\tвладелец\n' % (blob, klass))
+        self.git(['add', '-A'])
+        self.git(['commit', '-q', '-m', 'legacy'])
+
+    def frozen(self, nnn, tekst, v=1):
+        # [D37] тег заморозки frozen/contracts/<NNN>/<v> ($REPO): как
+        # freeze_contract.sh — аннотированный тег на коммит с контрактом;
+        # immutable git-истина «старого frozen», не файл рабочего каталога
+        f = self.repo / 'contracts' / ('%s-stub.md' % nnn)
+        f.write_text(tekst, encoding='utf-8')
+        self.git(['add', '-A'])
+        self.git(['commit', '-q', '-m', 'freeze%s' % nnn])
+        self.git(['tag', '-a', '-m', 'freeze', 'frozen/contracts/%s/%s' % (nnn, v)])
+
+    def blob_kandidata(self, nnn, imja):
+        # blob-идентификатор contracts/<imja> в ДЕРЕВЕ кандидата (tip его ветки)
+        wt = self.root / ('wt%s' % nnn)
+        return run(['git', 'rev-parse', 'HEAD:contracts/%s' % imja],
+                   cwd=str(wt), env=GIT_ENV).stdout.strip()
 
     def start(self, nnn, holder, klass='rabochij', rol='architect',
               gruppa='harness', wt='-', branch='-', obj='-', zanyat=True,
@@ -538,10 +608,354 @@ def kejsy():
         return [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина')]
     reg('w22-limit-back-chetyre', 'учёт=лимит;группа=back-3-из-3-занято', w22)
 
+    # A2. сдача держателя без yield: событие рантайма session_exit (слово
+    #     владельца 2026-11-12: omp 18.18.8 не даёт субагентам yield; замер
+    #     12.11 по станции: 0 yield-литералов, 2516 session_exit normal /
+    #     231 signal, все type=custom; маркер — структурные поля события,
+    #     не подстрока)
+    def w23(mir, door):
+        # автор завершился НОРМАЛЬНО (последняя строка журнала — событие
+        # session_exit kind=normal, yield-литерала нет) → сдача: ротация свободна
+        wt, br, _ = mir.worktree('140')
+        mir.start('140', 'Arch140', wt=wt, branch=br)
+        mir.zhurnal_vyhod('Arch140', kind='normal')
+        ev = mir.sobytie('e.json', [item('implementer', 'Impl140',
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=wip/140/impl'])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 0, 'rc'),
+                k_stroka(mir, 'start', holder='Impl140', rol='implementer'),
+                k_zanyat(mir, '140', 'Impl140', 'занятие')]
+    reg('w23-posle-session-exit-novyj-rabochij', 'роль=рабочий;состояние=сдал-по-session-exit', w23)
+
+    def w24(mir, door):
+        # аварийный выход (kind=signal) — НЕ сдача: журнал свеж, дубль запрещён
+        wt, br, _ = mir.worktree('140')
+        mir.start('140', 'Arch140', wt=wt, branch=br)
+        mir.zhurnal_vyhod('Arch140', kind='signal')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch140b',
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'RABOCHIJ_ZHIV', 'причина'),
+                k_chislo_startov(mir, 'учёт', 1)]
+    reg('w24-session-exit-signal-ne-sdacha', 'роль=рабочий;состояние=аварийный-выход;дубль=живой', w24)
+
+    def w25(mir, door):
+        # ПОДДЕЛКА: литералы session_exit/normal — вложенные поля ЧУЖОГО
+        # custom-события (тело записи, не событие завершения) → НЕ сдача:
+        # маркер сдачи — структурные поля события рантайма, не подстрока
+        wt, br, _ = mir.worktree('140')
+        mir.start('140', 'Arch140', wt=wt, branch=br)
+        mir.zhurnal_vyhod('Arch140', poddelka=True)
+        ev = mir.sobytie('e.json', [item('architect', 'Arch140b',
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'RABOCHIJ_ZHIV', 'причина'),
+                k_chislo_startov(mir, 'учёт', 1)]
+    reg('w25-poddelnyj-marker-ne-sdacha', 'роль=рабочий;состояние=бежит;сдача=подделка-в-теле-записи', w25)
+
+    # A3. атомарность лимита ГРУППЫ между предметами × слот до done/ПАУЗЫ ×
+    #     дедушка начатого (узлы А/Б ремонта 140: adversary v4 FAIL 1/2 на
+    #     OBJECT 3572945e — гонка двух РАЗНЫХ NNN, 4 из 3; bootstrap 998 —
+    #     11 начатых из 3, замена не пускалась; DIAGNOZ-2026-11-12 F/1.6)
+    def w26(mir, door):
+        # УЗЕЛ А: лимит группы обязан быть атомарен и МЕЖДУ разными предметами.
+        # v2 (диагноз STAB_ZHIV s36-над-субъектом, 2026-11-13): прежняя схема —
+        # ОБЩИЙ fifo реестра, «такт» по наличию fd у ОБЕИХ дверей и EOF-вещание —
+        # порядок предполагала, а не строила: fd-наличие ≠ блокировка в read
+        # (окно open→read), такт мог отпустить одну дверь, не сдвинув вторую, и
+        # исход решал планировщик. Замер батареи: тело поставленной двери 1:1 с
+        # эталоном, та же мутация s36 — KRASEN в слое модели и ПРОШЛА в слое
+        # субъекта одного прогона (вердикт не функция двери — клетка не меряет).
+        # v3 (диагноз STAB_ZHIV s21 на w26, 2026-11-14, Arch140RaceRepair):
+        # close/reopen писателя одного fifo тоже не гарантирует наблюдаемого
+        # EOF — read двери, не успевший встать до reopen (окно open→read),
+        # блокируется на новом писателе, EOF поколения теряется: «отпущенная»
+        # стоянка стоит дальше, клетка принимает её за следующую — порядок
+        # разваливается, стаб (s21/s36/x01) выглядит честным. Лечение —
+        # ПОДТВЕРЖДЁННО различные поколения канала (см. shag): писатель
+        # закрывается и ждёт исчезновения fd стоянки из дерева двери; с
+        # закрытым писателем любой read возвращает 0 немедленно, а новый fd
+        # не появится (open читателя без писателя блокируется) — исчезновение
+        # fd = EOF съеден; лишь тогда писатель открывается вновь (поколение
+        # n+1). Конструкция: две двери — два реестра (--repo каждой свой;
+        # origin общий ⇒ repoId, замки и учёт общие) ⇒ registry/pauzy.tsv
+        # каждой двери — СВОЙ fifo. Стоянка двери — fd её fifo в её дереве
+        # (read стоит); удержание = открытый писатель. Порядок: преплок X
+        # (стоянка ДО снимка) отпущен → следующая стоянка X — уже ПОСЛЕ его
+        # снимка группы (между преплоком и считающим циклом дверь pauzy.tsv
+        # не читает) → X УДЕРЖАН → Y прогнан до ВЫХОДА ПРОЦЕССА (каждая его
+        # стоянка отпущена своим подтверждённым поколением) → X отпущен до
+        # выхода. Свидетель порядка — файл учёта: в момент удержания START
+        # предмета X нет; Y при удержанном X читает занятость 2 из 3.
+        # Различающий исход: дверь без группового мьютекса ([D34] снят)
+        # пропускает ОБЕ (START 4 из 3, обе rc 0); честная держит групповой
+        # мьютекс от снимка до записи — Y упирается в занятый мьютекс
+        # (mkdir-ретраи ≤2 с → ZANYATO_RESHENIEM) либо после снятия видит
+        # «занято 3» (LIMIT_GRUPPY) — принята ровно одна. Без случайных
+        # задержек: каждое ожидание кончается точным событием (fd стоянки в
+        # дереве процесса, подтверждённое поколение канала, выход процесса,
+        # строка учёта); r0-читатели держат reopen писателя от ENXIO и живут
+        # в клетке, не в дереве двери, — «стоянку» не подделывают.
+        _harness_zhivoj(mir, ['101', '102'])
+        wt140, br140, _ = mir.worktree('140')
+        wt141, br141, _ = mir.worktree('141')
+        # второй реестр: тот же origin (repoId «dev-harness»), свой pauzy.tsv
+        repo141 = mir.root / 'repo141'
+        for pod in (repo141 / 'contracts', repo141 / 'registry'):
+            pod.mkdir(parents=True, exist_ok=True)
+        g141 = run(['git', 'init', '-q', '.'], cwd=str(repo141))
+        assert g141.returncode == 0, g141.stderr
+        run(['git', 'remote', 'add', 'origin', HARNESS_REMOTE],
+            cwd=str(repo141), env=GIT_ENV)
+        ev140 = mir.sobytie('ev140.json', [item('architect', 'Arch140',
+                        ['SUBJECT=140', 'WORKTREE=' + wt140, 'BRANCH=' + br140])])
+        ev141 = mir.sobytie('ev141.json', [item('architect', 'Arch141',
+                        ['SUBJECT=141', 'WORKTREE=' + wt141, 'BRANCH=' + br141])])
+        fifo = [mir.repo / 'registry' / 'pauzy.tsv',
+                repo141 / 'registry' / 'pauzy.tsv']
+        for f in fifo:
+            if f.exists():
+                f.unlink()
+            os.mkfifo(str(f))
+        dv = [subprocess.Popen(
+                  [BASH, str(door), '--sudit', '--sostojanie', str(mir.sost),
+                   '--zhurnaly', str(mir.zhurnaly), '--repo', str(r), ev],
+                  env=GIT_ENV, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                  text=True)
+              for r, ev in ((mir.repo, ev140), (repo141, ev141))]
+        problems = []
+        kraj = time.time() + 60
+        r0 = [os.open(str(f), os.O_RDONLY | os.O_NONBLOCK) for f in fifo]
+        pisatel = [os.open(str(f), os.O_WRONLY | os.O_NONBLOCK) for f in fifo]
+
+        def potomki(koren):
+            vidy, ochered = set(), [koren]
+            while ochered:
+                p = ochered.pop()
+                if p in vidy:
+                    continue
+                vidy.add(p)
+                for z in Path('/proc/%d/task' % p).glob('*/children'):
+                    try:
+                        tekst = z.read_text()
+                    except OSError:
+                        continue
+                    ochered.extend(int(x) for x in tekst.split())
+            return vidy
+
+        def stoit(i):
+            for q in potomki(dv[i].pid):
+                try:
+                    spisok = list(Path('/proc/%d/fd' % q).iterdir())
+                except OSError:
+                    continue
+                for fd in spisok:
+                    try:
+                        if os.readlink(str(fd)) == str(fifo[i]):
+                            return True
+                    except OSError:
+                        continue
+            return False
+
+        def uderzhan(i):
+            # ждать СВОЮ стоянку двери i (fd её fifo в её дереве) либо её выход
+            while dv[i].poll() is None:
+                if time.time() > kraj:
+                    problems.append('гонка: дверь %d не пришла к стоянке за 60 с' % i)
+                    return False
+                if stoit(i):
+                    return True
+                time.sleep(0.002)
+            return False
+
+        def shag(i):
+            # EOF ровно одной стоянке двери i ПОДТВЕРЖДЁННЫМ поколением канала
+            # (v3, диагноз STAB_ZHIV s21 на w26, Arch140RaceRepair 2026-11-14:
+            # close/reopen писателя без подтверждения не гарантирует
+            # наблюдаемого EOF — read двери, не успевший встать до reopen
+            # (окно open→read), блокируется на новом писателе, EOF поколения
+            # теряется, «отпущенная» стоянка стоит дальше). Поколение: писатель
+            # открыт → fd стоянки видим → read стоит. Шаг: закрыть писателя и
+            # дождаться исчезновения fd стоянки из дерева двери — пока писатель
+            # закрыт, любой read возвращает 0 немедленно, а НОВЫЙ fd не
+            # появится: open читателя без писателя блокируется; исчезновение
+            # fd = EOF съеден именно этим поколением. Только после
+            # подтверждения открываем писателя вновь — поколение n+1, каждая
+            # стоянка отпускается ровно один раз. r0-читатель держит reopen
+            # от ENXIO.
+            os.close(pisatel[i])
+            while dv[i].poll() is None and stoit(i):
+                if time.time() > kraj:
+                    problems.append('гонка: дверь %d не съела EOF поколения '
+                                    'за 60 с' % i)
+                    break
+                time.sleep(0.002)
+            pisatel[i] = os.open(str(fifo[i]), os.O_WRONLY | os.O_NONBLOCK)
+
+        def vypustit(i):
+            # отпускать по одной стоянке, пока дверь не выйдет (отказ — тоже выход)
+            while dv[i].poll() is None:
+                if time.time() > kraj:
+                    problems.append('гонка: дверь %d не завершилась за 60 с' % i)
+                    return
+                if stoit(i):
+                    shag(i)
+                time.sleep(0.002)
+        try:
+            # (1) преплок X — единственная стоянка ДО снимка группы: отпустить
+            if uderzhan(0):
+                shag(0)
+                # (2) следующая стоянка X — ПОСЛЕ его снимка (считающий цикл):
+                #     удержать — писатель открыт, read стоит, записи X нет
+                if uderzhan(0):
+                    if any(x.get('t') == 'START' and x.get('subjectId') == '140'
+                           for x in mir.ledg()):
+                        problems.append('гонка группы: X записал START до '
+                                        'удержания — порядок не построен')
+                    else:
+                        # (3) Y — до выхода процесса: снапшот Y видит 2 из 3;
+                        #     честную дверь держит групповой мьютекс X
+                        vypustit(1)
+                        # (4) X — до выхода: пишет ПОСЛЕ полного прогона Y
+                        vypustit(0)
+            # дренаж выживших без kill: дверь без стоянок (свидетель x01) и
+            # отказ до преплока выходят сами; kill в finally — только по kraj
+            vypustit(0)
+            vypustit(1)
+        finally:
+            for p in dv:
+                if p.poll() is None:
+                    p.kill()
+            vyhody = [p.communicate(timeout=30) for p in dv]
+            for f in pisatel + r0:
+                try:
+                    os.close(f)
+                except OSError:
+                    pass
+        prinyato = sum(1 for p in dv if p.returncode == 0)
+        if prinyato > 1:
+            problems.append('гонка группы: принято обе двери (rc %r; stderr: '
+                            '%r | %r)' % ([p.returncode for p in dv],
+                                          vyhody[0][1].strip()[:100],
+                                          vyhody[1][1].strip()[:100]))
+        startov = len([x for x in mir.ledg()
+                       if x.get('t') == 'START' and x.get('group') == 'harness'])
+        if startov > CAP_HARNESS:
+            problems.append('гонка группы: START harness %d > CAP %d (файл '
+                            'учёта — независимая мера)' % (startov, CAP_HARNESS))
+        return problems
+    reg('w26-gonka-gruppy-dva-predmeta',
+        'пакет=гонка-разных-предметов;учёт=лимит-группы-атомарен', w26)
+
+    def w27(mir, door):
+        # УЗЕЛ Б-1: рабочий СДАЛ (yield в журнале), замок снят --osvobodit
+        # (строка RELEASE), предмет НЕ done и НЕ на ПАУЗЕ → слот группы
+        # держится: «слот держит предмет до done или ПАУЗЫ» (инвариант 7);
+        # при 3 из 3 занятых НОВЫЙ предмет отказывает LIMIT_GRUPPY.
+        _harness_zhivoj(mir, ['101', '102'])
+        wt103, br103, _ = mir.worktree('103')
+        mir.start('103', 'Arch103', wt=wt103, branch=br103)
+        mir.zhurnal('Arch103', sdal=True)
+        mir.release('103', 'Arch103', 'yield')
+        wt144, br144, _ = mir.worktree('144')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch144',
+                        ['SUBJECT=144', 'WORKTREE=' + wt144, 'BRANCH=' + br144])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина')]
+    reg('w27-relis-slot-derzhit',
+        'учёт=лимит;RELEASE=не-освобождает;состояние=сдал-без-done', w27)
+
+    def w28(mir, door):
+        # УЗЕЛ Б-2: группа сверхлимитна (5 начатых — grandfather-ситуация
+        # 998: 11 из 3), предмет 141 НАЧАТ, его рабочий сдал, замок снят
+        # RELEASE, предмет НЕ done → замена держателя = доведение начатого:
+        # «сверх лимита начатые доводятся, новые не стартуют» (roles/
+        # orchestrator §Начатое—до-конца п.2), «смена держателя не занимает
+        # второй слот» (инвариант 7) → rc 0, START пишется, БЕЗ СЛОВА.
+        _harness_zhivoj(mir, ['145', '146', '147', '148', '149'])
+        wt141, br141, _ = mir.worktree('141')
+        mir.start('141', 'Arch141', wt=wt141, branch=br141, zanyat=False)
+        mir.zhurnal('Arch141', sdal=True)
+        mir.release('141', 'Arch141', 'yield')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch141v2',
+                        ['SUBJECT=141', 'WORKTREE=' + wt141, 'BRANCH=' + br141])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 0, 'rc'),
+                k_stroka(mir, 'start', subjectId='141', holder='Arch141v2',
+                         group='harness'),
+                k_zanyat(mir, '141', 'Arch141v2', 'занятие')]
+    reg('w28-zamena-nachatogo-sverhlimit',
+        'учёт=лимит;замена=держателя-начатого;сверхлимит=доводится', w28)
+
+    def w29(mir, door):
+        # контроль узла Б: дедушка не расползается — НОВЫЙ предмет (без
+        # START) при сверхлимитной группе без СЛОВА отказывает; cap — верхняя
+        # граница (инвариант 7), санкция на новый NNN — только СЛОВО.
+        _harness_zhivoj(mir, ['145', '146', '147', '148'])
+        wt150, br150, _ = mir.worktree('150')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch150',
+                        ['SUBJECT=150', 'WORKTREE=' + wt150, 'BRANCH=' + br150])])
+        r = sudit(door, mir, ev)
+        novykh = len([x for x in mir.ledg()
+                      if x.get('t') == 'START' and x.get('subjectId') == '150'])
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина'),
+                None if novykh == 0 else 'START предмета 150 написан (%d)' % novykh]
+    reg('w29-novyj-sverhlimit-otkaz',
+        'учёт=лимит;новый=сверхлимит-без-СЛОВА;отказ=LIMIT_GRUPPY', w29)
+
+    def w30(mir, door):
+        # УЗЕЛ Б-3 «blocked не освобождает» (roles/orchestrator §Начатое—до
+        # —конца п.2а): рабочий ОБОРВАН (журнал молчит >TTL), --osvobodit
+        # пишут RELEASE(broshen), предмет НЕ done → слот держится до done/
+        # ПАУЗЫ: при 3 из 3 занятых новый предмет отказывает LIMIT_GRUPPY.
+        _harness_zhivoj(mir, ['101', '102'])
+        wt103, br103, _ = mir.worktree('103')
+        mir.start('103', 'Arch103', wt=wt103, branch=br103)
+        mir.zhurnal('Arch103', sdal=False, vozrast_min=BROSHEN_TTL_MIN + 30)
+        mir.release('103', 'Arch103', 'broshen')
+        wt144, br144, _ = mir.worktree('144')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch144',
+                        ['SUBJECT=144', 'WORKTREE=' + wt144, 'BRANCH=' + br144])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина')]
+    reg('w30-blok-slot-derzhit',
+        'учёт=лимит;RELEASE=broshen;blocked=не-освобождает', w30)
+
+    def w31(mir, door):
+        # МОДЕЛЬ 45ee1d24 закрыла гонку РАЗНЫХ процессов (D34), но ОДИН batch
+        # с двумя НОВЫМИ NNN одной группы судился по ОДНОМУ учёту: START
+        # пишутся после ворот ([D26]) — оба элемента видят «занято 2 из 3»
+        # и проходят → 4 из 3. [D35]: счёт группы В ПАКЕТЕ — отказ ВСЕМУ
+        # пакету без частичного START; контроль: та же ёмкость, один новый
+        # проходит (отказ — не застрявший мьютекс, а перелимит пакета).
+        _harness_zhivoj(mir, ['171', '172'])
+        wt173, br173, _ = mir.worktree('173')
+        wt174, br174, _ = mir.worktree('174')
+        ev = mir.sobytie('e.json', [
+            item('architect', 'Arch173', ['SUBJECT=173', 'WORKTREE=' + wt173, 'BRANCH=' + br173]),
+            item('implementer', 'Impl174', ['SUBJECT=174', 'WORKTREE=' + wt174, 'BRANCH=' + br174])])
+        r = sudit(door, mir, ev)
+        problems = [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина'),
+                    k_chislo_startov(mir, 'учёт', 2),
+                    k_svoboden(mir, '173', 'откат-173'),
+                    k_svoboden(mir, '174', 'откат-174')]
+        wt175, br175, _ = mir.worktree('175')
+        ev2 = mir.sobytie('e2.json', [item('architect', 'Arch175',
+                        ['SUBJECT=175', 'WORKTREE=' + wt175, 'BRANCH=' + br175])])
+        r2 = sudit(door, mir, ev2)
+        return problems + [k_rc(r2, 0, 'контроль-rc'),
+                           k_stroka(mir, 'контроль-start', subjectId='175',
+                                    group='harness')]
+    reg('w31-paket-dva-novyh-otkaz-vsemu',
+        'пакет=два-новых-одной-группы;учёт=счёт-пакетом;отказ=весь-пакет;контроль=один-новый-проходит', w31)
+
     # B. судьи: состояние автора × OBJECT × порядок судей × риск
     def _avtor_sdal(mir, nnn, risk='обычный'):
+        # v+1: контракт лежит и в $REPO (main), и в ДЕРЕВЕ кандидата — мир
+        # «источники согласны»; клетки расхождения (s39+) расщепляют их сами.
         mir.kontrakt(nnn, risk)
-        wt, br, sha = mir.worktree(nnn)
+        tekst = '# К\nКЛАСС РИСКА: %s\n' % risk
+        wt, br, sha = mir.worktree(nnn, kontrakty=[('fajl', '%s-stub.md' % nnn, tekst)])
         mir.start(nnn, 'Avtor%s' % nnn, wt=wt, branch=br)
         mir.zhurnal('Avtor%s' % nnn, sdal=True)
         return wt, br, sha
@@ -567,15 +981,18 @@ def kejsy():
         # мир «неоднозначного источника класса риска» (вердикт адверсария 140
         # вызов 1/2): несколько contracts/<NNN>-*.md; faily — [(суффикс, риск|None)],
         # None = файл без строки КЛАСС РИСКА; автор сдал, OBJECT == tip ветки.
+        kand = []
         for suf, risk in faily:
-            f = mir.repo / 'contracts' / ('%s-%s.md' % (nnn, suf))
             if risk is None:
-                f.write_text('# К\n(без строки класса риска)\n', encoding='utf-8')
+                tekst = '# К\n(без строки класса риска)\n'
             else:
-                f.write_text('# К\nКЛАСС РИСКА: %s\n' % risk, encoding='utf-8')
+                tekst = '# К\nКЛАСС РИСКА: %s\n' % risk
+            f = mir.repo / 'contracts' / ('%s-%s.md' % (nnn, suf))
+            f.write_text(tekst, encoding='utf-8')
+            kand.append(('fajl', '%s-%s.md' % (nnn, suf), tekst))
         mir.git(['add', '-A'])
         mir.git(['commit', '-q', '-m', 'c%s' % nnn])
-        wt, br, sha = mir.worktree(nnn)
+        wt, br, sha = mir.worktree(nnn, kontrakty=kand)
         mir.start(nnn, 'Avtor%s' % nnn, wt=wt, branch=br)
         mir.zhurnal('Avtor%s' % nnn, sdal=True)
         return wt, br, sha
@@ -591,19 +1008,24 @@ def kejsy():
         # '# К\n' + строка/строки, 'symlink' — симлинк на данные (относительно
         # contracts/), 'dir' — каталог с именем NNN-*.md; затем add+commit,
         # автор сдал, OBJECT == tip ветки (как _avtor_sdal_fajly).
+        kand = []
         for imja, vid, dannye in zapisi:
             p = mir.repo / 'contracts' / imja
             if vid == 'stroka':
                 p.write_text('# К\n' + dannye + '\n', encoding='utf-8')
+                kand.append(('fajl', imja, '# К\n' + dannye + '\n'))
             elif vid == 'stroki':
                 p.write_text('# К\n' + '\n'.join(dannye) + '\n', encoding='utf-8')
+                kand.append(('fajl', imja, '# К\n' + '\n'.join(dannye) + '\n'))
             elif vid == 'symlink':
                 p.symlink_to(dannye)
+                kand.append(('symlink', imja, dannye))
             elif vid == 'dir':
                 p.mkdir()
+                kand.append(('dir', imja, ''))
         mir.git(['add', '-A'])
         mir.git(['commit', '-q', '-m', 'c%s' % nnn])
-        wt, br, sha = mir.worktree(nnn)
+        wt, br, sha = mir.worktree(nnn, kontrakty=kand)
         mir.start(nnn, 'Avtor%s' % nnn, wt=wt, branch=br)
         mir.zhurnal('Avtor%s' % nnn, sdal=True)
         return wt, br, sha
@@ -737,11 +1159,14 @@ def kejsy():
     reg('s12-vetka-nedostupna', 'OBJECT=ветка-утеряна', s12)
 
     def s13(mir, door):
+        # мир согласных источников: файл без строки — и в $REPO, и в ДЕРЕВЕ
+        # кандидата (v+1 судит кандидата); риск не определён — fail-closed
         f = mir.repo / 'contracts' / '141-stub.md'
         f.write_text('# К\n(без строки класса риска)\n', encoding='utf-8')
         mir.git(['add', '-A'])
         mir.git(['commit', '-q', '-m', 'c141'])
-        wt, br, sha = mir.worktree('141')
+        wt, br, sha = mir.worktree('141', kontrakty=[
+            ('fajl', '141-stub.md', '# К\n(без строки класса риска)\n')])
         mir.start('141', 'Avtor141', wt=wt, branch=br)
         mir.zhurnal('Avtor141', sdal=True)
         ev = mir.sobytie('e.json', [item('critic', 'Critic141',
@@ -851,14 +1276,15 @@ def kejsy():
 
     def s31(mir, door):
         # ПОЛНЫЙ текст contracts/140 при 9ec350f7e как единственный файл
-        # предмета: декларация 140:3 (рисковый, середина строки) + упоминание
-        # 140:51 в бэктиках; ревьюер до адверсария отказан, после yield
-        # адверсария проходит (конвенция s09/s10 — двухшаговая клетка)
+        # предмета (в $REPO и в ДЕРЕВЕ кандидата — байт-в-байт): декларация
+        # 140:3 (рисковый, середина строки) + упоминание 140:51 в бэктиках;
+        # ревьюер до адверсария отказан, после yield адверсария проходит
+        # (конвенция s09/s10 — двухшаговая клетка)
         tekst = (MATER / '140-celkom.md').read_text(encoding='utf-8')
         (mir.repo / 'contracts' / '141-a.md').write_text(tekst, encoding='utf-8')
         mir.git(['add', '-A'])
         mir.git(['commit', '-q', '-m', 'c141'])
-        wt, br, sha = mir.worktree('141')
+        wt, br, sha = mir.worktree('141', kontrakty=[('fajl', '141-a.md', tekst)])
         mir.start('141', 'Avtor141', wt=wt, branch=br)
         mir.zhurnal('Avtor141', sdal=True)
         r1 = sudit(door, mir, _revjuer(mir, sha))
@@ -972,6 +1398,165 @@ def kejsy():
         r = sudit(door, mir, ev)
         return [k_rc(r, 1, 'rc'), k_prichina(r, 'AVTOR_ESHCHO_RABOTAET', 'причина')]
     reg('s22-avtor-zhiv-bez-zamka', 'роль=судья;состояние=автор-бежит;источник=журнал', s22)
+
+    # B4. сдача автора по session_exit: судейские ворота D10 читают то же
+    #     состояние держателя (без yield-литерала в журнале)
+    def s38(mir, door):
+        mir.kontrakt('141')
+        tekst = '# К\nКЛАСС РИСКА: обычный\n'
+        wt, br, sha = mir.worktree('141', kontrakty=[('fajl', '141-stub.md', tekst)])
+        mir.start('141', 'Avtor141', wt=wt, branch=br)
+        mir.zhurnal_vyhod('Avtor141', kind='normal')
+        ev = mir.sobytie('e.json', [item('critic', 'Critic141',
+                        ['SUBJECT=141', 'OBJECT=' + sha])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 0, 'rc'),
+                k_stroka(mir, 'start', subjectId='141', holder='Critic141', klass='sudja'),
+                k_zanyat(mir, '141', 'Critic141', 'занятие')]
+    reg('s38-sudja-posle-session-exit', 'роль=судья;состояние=автор-сдал-по-session-exit;OBJECT=совпадает', s38)
+
+    # B5. источник класса риска — ДЕРЕВО OBJECT кандидата, не $REPO (main)
+    #     (слово владельца 2026-11-12, Sol S2 §2.1; боль 991 v3: «рисковый»
+    #     в main против «обычный» в кандидате молча отказывала KLASS_RISKA_NET)
+    def _avtor_sdal_raznost(mir, nnn, risk_main, risk_kand, imja=None):
+        # мир расхождения источников: $REPO декларирует risk_main, ДЕРЕВО
+        # кандидата — risk_kand (один файл; None = без строки класса)
+        imja = imja or ('%s-stub.md' % nnn)
+        mir.kontrakt(nnn, risk_main)
+        if risk_kand is None:
+            tekst = '# К\n(без строки класса риска)\n'
+        else:
+            tekst = '# К\nКЛАСС РИСКА: %s\n' % risk_kand
+        wt, br, sha = mir.worktree(nnn, kontrakty=[('fajl', imja, tekst)])
+        mir.start(nnn, 'Avtor%s' % nnn, wt=wt, branch=br)
+        mir.zhurnal('Avtor%s' % nnn, sdal=True)
+        return wt, br, sha
+
+    def s39(mir, door):
+        # main «рисковый» / кандидат «обычный» → класс кандидата: ревьюер
+        # без адверсария проходит (боль 991 v3: дверь отказывала по main)
+        wt, br, sha = _avtor_sdal_raznost(mir, '141', 'рисковый', 'обычный')
+        r = sudit(door, mir, _revjuer(mir, sha))
+        return [k_rc(r, 0, 'rc'),
+                k_stroka(mir, 'start', holder='Rev141', rol='reviewer')]
+    reg('s39-main-riskovyj-kandidat-obychnyj', 'риск=main-рисковый;кандидат=обычный;порядок=без-адверсария', s39)
+
+    def s40(mir, door):
+        # обратная пара: main «обычный» / кандидат «рисковый» → рисковый:
+        # ревьюер раньше адверсария отказан (по main молча прошёл бы)
+        wt, br, sha = _avtor_sdal_raznost(mir, '141', 'обычный', 'рисковый')
+        r = sudit(door, mir, _revjuer(mir, sha))
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'ADVERSARIJ_DO_REVJUERA', 'причина'),
+                k_chislo_startov(mir, 'учёт', 1)]
+    reg('s40-main-obychnyj-kandidat-riskovyj', 'риск=main-обычный;кандидат=рисковый;порядок=ревьюер-раньше', s40)
+
+    def s41(mir, door):
+        # у кандидата строки нет, blob в реестре не записан → класс не
+        # определён ОТ КАНДИДАТА, даже при согласном main: fail-closed
+        wt, br, sha = _avtor_sdal_raznost(mir, '141', 'обычный', None)
+        ev = mir.sobytie('e.json', [item('critic', 'Critic141',
+                        ['SUBJECT=141', 'OBJECT=' + sha])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
+                k_chislo_startov(mir, 'учёт', 1)]
+    reg('s41-kandidat-bez-stroki', 'риск=main-обычный;кандидат=строки-нет;реестр=нет-записи', s41)
+
+    def s42(mir, door):
+        # старый frozen без строки: класс по blob ДЕРЕВА кандидата из
+        # registry/risk-legacy.tsv ($REPO — реестр владельца, 0814d2f5a);
+        # main-текст «рисковый» источником не является
+        wt, br, sha = _avtor_sdal_raznost(mir, '141', 'рисковый', None)
+        mir.risk_legacy(mir.blob_kandidata('141', '141-stub.md'), 'обычный')
+        r = sudit(door, mir, _revjuer(mir, sha))
+        return [k_rc(r, 0, 'rc'),
+                k_stroka(mir, 'start', holder='Rev141', rol='reviewer')]
+    reg('s42-risk-legacy-blob-kandidata', 'риск=main-рисковый;кандидат=строки-нет;реестр=blob-кандидата-обычный', s42)
+
+    def s43(mir, door):
+        # класс — из ДЕРЕВА OBJECT, не из грязного рабочего каталога автора:
+        # незакоммиченная правка контракта в worktree («обычный») не отменяет
+        # «рисковый» в судимом дереве
+        wt, br, sha = _avtor_sdal_raznost(mir, '141', 'обычный', 'рисковый')
+        (mir.root / 'wt141' / 'contracts' / '141-stub.md').write_text(
+            '# К\nКЛАСС РИСКА: обычный\n', encoding='utf-8')
+        r = sudit(door, mir, _revjuer(mir, sha))
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'ADVERSARIJ_DO_REVJUERA', 'причина'),
+                k_chislo_startov(mir, 'учёт', 1)]
+    reg('s43-klass-iz-dereva-ne-gryazi', 'риск=дерево-рисковый;рабочий-каталог=грязный-обычный;main=обычный', s43)
+
+    def s44(mir, door):
+        # отказ класса не расходует пакет: main согласован («обычный» оба
+        # файла), кандидат конфликтен (обычный+рисковый) → KLASS_RISKA_NET,
+        # НИ одного нового START, замки не поставлены, мьютексы сняты
+        for imja in ('141-a.md', '141-b.md'):
+            (mir.repo / 'contracts' / imja).write_text(
+                '# К\nКЛАСС РИСКА: обычный\n', encoding='utf-8')
+        mir.git(['add', '-A'])
+        mir.git(['commit', '-q', '-m', 'c141'])
+        zapisi = [('fajl', '141-a.md', '# К\nКЛАСС РИСКА: обычный\n'),
+                  ('fajl', '141-b.md', '# К\nКЛАСС РИСКА: рисковый\n')]
+        wt141, br141, sha141 = mir.worktree('141', kontrakty=zapisi)
+        mir.start('141', 'Avtor141', wt=wt141, branch=br141)
+        mir.zhurnal('Avtor141', sdal=True)
+        wt142, br142, _ = mir.worktree('142')
+        ev = mir.sobytie('e.json', [
+            item('critic', 'Critic141', ['SUBJECT=141', 'OBJECT=' + sha141]),
+            item('architect', 'Arch142', ['SUBJECT=142', 'WORKTREE=' + wt142, 'BRANCH=' + br142])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
+                k_chislo_startov(mir, 'учёт', 1),
+                k_zanyat(mir, '141', 'Avtor141', 'замок-141-при-авторе'),
+                k_svoboden(mir, '142', 'откат-142')]
+    reg('s44-klass-otkaz-bez-starta', 'пакет=смешанный;отказ=KLASS_RISKA_NET;откат=без-START-и-замков', s44)
+
+    def s45(mir, door):
+        # [D37 legacy-default] настоящий старый frozen без строки (тег
+        # frozen/contracts/141/1 в $REPO), кандидат — те же байты (blob
+        # равен), записи risk-legacy нет → «нет записи — рисковый» (норма
+        # roles/orchestrator.md §«Порядок судей и класс риска»): адверсарий
+        # после сдачи автора проходит, ревьюер ДО адверсария — отказ
+        # ADVERSARIJ_DO_REVJUERA (не ordinary: дефолт — верхний класс);
+        # строк в реестр не пишем, подписи owner/critic нет. Боль
+        # bootstrap 998: без дефолта каждый старый номер — owner-коммит
+        # строки в реестр (консультант ci-bootstrap-risk-998: код отстаёт
+        # от нормы, воли не выбирает).
+        tekst = '# К\n(старый frozen без строки класса риска)\n'
+        mir.frozen('141', tekst)
+        wt, br, sha = mir.worktree('141', kontrakty=[('fajl', '141-stub.md', tekst)])
+        mir.start('141', 'Avtor141', wt=wt, branch=br)
+        mir.zhurnal('Avtor141', sdal=True)
+        r1 = sudit(door, mir, mir.sobytie('e1.json', [item('reviewer', 'Rev141',
+                        ['SUBJECT=141', 'OBJECT=' + sha])]))
+        r2 = sudit(door, mir, mir.sobytie('e2.json', [item('adversary', 'Adv141',
+                        ['SUBJECT=141', 'OBJECT=' + sha])]))
+        return [k_rc(r1, 1, 'rc'),
+                k_prichina(r1, 'ADVERSARIJ_DO_REVJUERA', 'причина'),
+                k_rc(r2, 0, 'rc'),
+                k_stroka(mir, 'start-adv', holder='Adv141', rol='adversary'),
+                k_chislo_startov(mir, 'учёт', 2)]
+    reg('s45-legacy-frozen-default-riskovyj',
+        'риск=старый-frozen-без-строки;реестр=нет-записи;порядок=адверсарий-проходит;ревьюер-до-адверсария=отказ', s45)
+
+    def s46(mir, door):
+        # [D37] новый кандидат ИЗМЕНИЛ контракт (blob ≠ frozen) и строки
+        # класса не несёт: дефолт не положен — поле обязательно (слово
+        # владельца 24.10), KLASS_RISKA_NET; безусловный «любое отсутствие
+        # строки → рисковый» ложно пустил бы новый контракт (критик прошёл
+        # неопределённый класс). Положительный контроль объявленного класса
+        # — существующие клетки (s09/s11), путь не дублируется.
+        tekst_frozen = '# К\n(старый frozen без строки класса риска)\n'
+        mir.frozen('141', tekst_frozen)
+        tekst_kand = ('# К\n(старый frozen без строки класса риска)\n'
+                      'правка новой пачки: слои и клетки батареи\n')
+        wt, br, sha = mir.worktree('141', kontrakty=[('fajl', '141-stub.md', tekst_kand)])
+        mir.start('141', 'Avtor141', wt=wt, branch=br)
+        mir.zhurnal('Avtor141', sdal=True)
+        r = sudit(door, mir, mir.sobytie('e.json', [item('critic', 'Critic141',
+                        ['SUBJECT=141', 'OBJECT=' + sha])]))
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
+                k_chislo_startov(mir, 'учёт', 1)]
+    reg('s46-izmenennyj-kandidat-bez-stroki',
+        'риск=новый-без-строки;frozen=blob-не-совпадает;отказ=KLASS_RISKA_NET', s46)
 
     # C. пакет: дубль в пакете × откат × гонка × режим
     def b01(mir, door):
@@ -1271,54 +1856,40 @@ def m_bez_rabochego(t):
 
 
 def m_klass_riska_mjagko(t):
-    # fail-open на «нет файла/нет строки/вне алфавита»: плохие записи тихо
-    # пропускаются, пустой итог — обычный; КОНФЛИКТ согласных значений
-    # остаётся отказом (прежняя семантика стаба — «класс риска отсутствует
-    # → тихо обычный»; привязка — по замеру, stab_vhod).
-    t = _z(t, "  if [ -z \"$spisok\" ]; then printf 'net_stroki:файлов contracts/%s-*.md нет' \"$1\"; return 0; fi\n",
-              "  if [ -z \"$spisok\" ]; then printf 'obychnyj'; return 0; fi\n")
-    t = _z(t, '''      *)        ploh="${ploh:+$ploh }$f"; continue ;;
-''', '''      *)        continue ;; # стаб: нет строки/вне алфавита — тихо пропускаем
-''')
-    t = _z(t, "  printf '%s' \"$znach\"\n}",
-              "  if [ -z \"$znach\" ]; then printf 'obychnyj'; else printf '%s' \"$znach\"; fi\n}")
+    # fail-open на «нет файлов/нет строки/вне алфавита/не-blob»: плохие записи
+    # тихо пропускаются, пустой итог — обычный; КОНФЛИКТ согласных значений
+    # остаётся отказом (семантика стаба прежняя — «класс не определён → тихо
+    # обычный»; источник после v+1 — дерево кандидата, привязка — stab_vhod).
+    t = _z(t, '''  if [ -z "$spisok" ]; then printf 'net_stroki:файлов %s/%s-*.md в дереве %s нет' "$kat" "$n" "$obj"; return 0; fi''',
+              '''  if [ -z "$spisok" ]; then printf 'obychnyj'; return 0; fi # стаб: пустой перечень — обычный''')
+    t = _z(t, '''    if [ "$tip_zap" != blob ]; then ploh="${ploh:+$ploh }$put"; continue; fi''',
+              '''    [ "$tip_zap" = blob ] || continue # стаб: не-blob тихо пропущен''')
+    t = _z(t, '''      *)        ploh="${ploh:+$ploh }$put"; continue ;;''',
+              '''      *)        continue ;; # стаб: нет строки/вне алфавита — тихо пропускаем''')
+    t = _z(t, '''  printf '%s' "$znach"''',
+              '''  if [ -z "$znach" ]; then printf 'obychnyj'; else printf '%s' "$znach"; fi # стаб: пустой итог — обычный''')
     return t
 
 
 def m_pervyj_rezultat_find(t):
     # [D29] снят: дефект реализации 140 (73aa92b7a, вердикт адверсария вызов
-    # 1/2) — класс читается по ПЕРВОМУ результату find (sorted|sed -n '1p' —
-    # выбор детерминирован), конфликт/нет строки в остальных файлах молчат:
-    # один «рисковый» файл среди шести пропускал рисковый предмет обычным.
-    # Текст замены — историческая дверь 73aa92b7a дословно (^-якорь строки,
-    # cut -d' ' -f1, -type f): краснота на реальных формах наследуется.
-    return _z(t, '''klass_riska() {  # <NNN> → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
-  local spisok f val znach='' ploh=''
-  spisok="$(find "$REPO/contracts" -maxdepth 1 -name "$1-*.md" -print | LC_ALL=C sort)"
-  if [ -z "$spisok" ]; then printf 'net_stroki:файлов contracts/%s-*.md нет' "$1"; return 0; fi
-  while IFS= read -r f; do
-    [ -n "$f" ] || continue
-    val="$(grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' "$f" 2>/dev/null \\
-          | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"
-    case "$val" in
-      обычный)  val='obychnyj' ;;
-      рисковый) val='risikovyj' ;;
-      *)        ploh="${ploh:+$ploh }$f"; continue ;;
-    esac
-    if [ -z "$znach" ]; then znach="$val"
-    elif [ "$znach" != "$val" ]; then ploh="${ploh:+$ploh }$f"; fi
-  done <<EOF
-$spisok
-EOF
-  if [ -n "$ploh" ]; then printf 'neodnoznachno:%s' "$ploh"; return 0; fi
-  printf '%s' "$znach"
-}''', '''klass_riska() {  # <NNN> → risikovyj|obychnyj|net_stroki
-  local f
-  f="$(find "$REPO/contracts" -maxdepth 1 -type f -name "$1-*.md" -print | LC_ALL=C sort | sed -n '1p')"
-  if [ -z "$f" ]; then printf 'net_stroki'; return 0; fi
-  if ! grep -q '^КЛАСС РИСКА:' "$f"; then printf 'net_stroki'; return 0; fi
-  if grep -q '^КЛАСС РИСКА: рисковый' "$f"; then printf 'risikovyj'; else printf 'obychnyj'; fi
-}''')
+    # 1/2) — класс читается по ПЕРВОМУ результату (sorted|sed -n '1p' — выбор
+    # детерминирован), конфликт/нет строки в остальных файлах молчат: один
+    # «рисковый» файл среди шести пропускал рисковый предмет обычным; форма
+    # чтения — историческая дверь 73aa92b7a (^-якорь строки, grep -q, не-файлы
+    # молча выпадают): краснота на реальных формах наследуется. После v+1
+    # источник первый-по-списку записи ДЕРЕВА OBJECT (перечень стабилен LC_ALL=C).
+    t = _z(t, '''    | LC_ALL=C sort)"''',
+              '''    | LC_ALL=C sort | sed -n '1p')" # стаб: только первый результат''')
+    t = _z(t, '''    if [ "$tip_zap" != blob ]; then ploh="${ploh:+$ploh }$put"; continue; fi''',
+              '''    case "$zap" in 120000*|*' 'tree'*) continue ;; esac # стаб: симлинк/каталог молча выпадают''')
+    t = _z(t, '''    val="$(git -C "$wt" show "$obj:$kat/$put" 2>/dev/null \\
+          | grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' \\
+          | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"''',
+              '''    if git -C "$wt" show "$obj:$kat/$put" 2>/dev/null | grep -q '^КЛАСС РИСКА: рисковый'; then val='рисковый'
+    elif git -C "$wt" show "$obj:$kat/$put" 2>/dev/null | grep -q '^КЛАСС РИСКА:'; then val='обычный'
+    else val=''; fi # стаб: историческая форма чтения''')
+    return t
 
 
 def m_bez_adv_do_rev(t):
@@ -1439,18 +2010,203 @@ def m_klass_riska_tolko_nachalo_stroki(t):
     # читала декларацию ТОЛЬКО с начала строки (^-якорь) и cut -d' ' -f1 —
     # ложный KLASS_RISKA_NET на реальных формах 116/139/140/141 (декларация
     # в середине строки после «КЛАСС ЗАДАЧИ: …», хвост-основание в ней же);
-    # замена — дословная строка извлечения той двери.
-    return _z(t, '''    val="$(grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' "$f" 2>/dev/null \\
+    # замена — та же форма извлечения над содержимым дерева OBJECT (v+1).
+    return _z(t, '''    val="$(git -C "$wt" show "$obj:$kat/$put" 2>/dev/null \\
+          | grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' \\
           | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"''',
-              '''    val="$(grep '^КЛАСС РИСКА:' "$f" | sed -e 's/^КЛАСС РИСКА:[[:space:]]*//' | cut -d' ' -f1)"''')
+              '''    val="$(git -C "$wt" show "$obj:$kat/$put" 2>/dev/null \\
+          | grep '^КЛАСС РИСКА:' | sed -e 's/^КЛАСС РИСКА:[[:space:]]*//' | cut -d' ' -f1)"''')
 
 
 def m_klass_riska_type_f(t):
     # РЕШЕНИЕ арбитража 140 (г): возврат -type f выкидывает из канона не-файлы:
     # симлинк на «рисковый» молча пропускается — рисковый предмет уходит
     # ревьюеру без адверсария; битый симлинк/каталог тоже исчезают из канона.
-    return _z(t, '''  spisok="$(find "$REPO/contracts" -maxdepth 1 -name "$1-*.md" -print | LC_ALL=C sort)"''',
-              '''  spisok="$(find "$REPO/contracts" -maxdepth 1 -type f -name "$1-*.md" -print | LC_ALL=C sort)"''')
+    # После v+1 аналог в дереве OBJECT: записи не-blob молча выпадают вместо
+    # отказа «нечитаемая запись».
+    return _z(t, '''    if [ "$tip_zap" != blob ]; then ploh="${ploh:+$ploh }$put"; continue; fi''',
+              '''    [ "$tip_zap" = blob ] || continue # стаб: не-blob записи молча выпадают из канона''')
+
+
+def m_session_exit_ne_sdacha(t):
+    # [D2b] снят: держатель, честно завершившийся session_exit kind=normal
+    # (omp 18.18.8 без yield), сдачей НЕ считается — замок висит до TTL
+    # (боль 12.11: Arch192Close и др. держали судей 60 мин).
+    return _z(t, '''  if tail -n 1 "$jf" | jq -e 'select(.type == "custom" and .customType == "session_exit" and .data.kind == "normal")' >/dev/null 2>&1; then
+    printf 'yield'; return 0
+  fi
+''', '''  : # стаб: session_exit сдачей не считается
+''')
+
+
+def m_session_exit_ljuboj_kind(t):
+    # kind не проверяется: аварийный/сигнальный выход (замер: 231 signal)
+    # тоже засчитывается сдачей
+    return _z(t, '''and .data.kind == "normal")' >/dev/null 2>&1; then''',
+              '''and .data.kind != "__NIKOGDA__")' >/dev/null 2>&1; then''')
+
+
+def m_marker_podstrokoj(t):
+    # структурная проверка события заменена подстрокой (форма срочной правки
+    # владельца 776d8cd8d): литералы в теле ЧУЖОЙ записи (вложенные поля
+    # события иного типа, текст сообщения) засчитываются как сдача
+    return _z(t, '''  if tail -n 1 "$jf" | jq -e 'select(.type == "custom" and .customType == "session_exit" and .data.kind == "normal")' >/dev/null 2>&1; then''',
+              '''  if tail -n 1 "$jf" | grep -Fq '"customType":"session_exit"' \\
+     && tail -n 1 "$jf" | grep -Fq '"kind":"normal"'; then''')
+
+
+def m_klass_iz_gryazi(t):
+    # [D31] класс читается из ГРЯЗНОГО рабочего каталога автора (cat файла
+    # worktree и hash-object каталога), не из дерева OBJECT: незакоммиченная
+    # правка контракта меняет класс судимого предмета
+    t = _z(t, '''    val="$(git -C "$wt" show "$obj:$kat/$put" 2>/dev/null \\
+          | grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' \\
+          | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"''',
+              '''    val="$(cat "$wt/$kat/$put" 2>/dev/null \\
+          | grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' \\
+          | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"''')
+    t = _z(t, '''    blob="$(printf '%s' "$zap" | cut -f1 | cut -d' ' -f3)"''',
+              '''    blob="$(git -C "$wt" hash-object "$wt/$kat/$put" 2>/dev/null)" # стаб: blob из каталога''')
+    return t
+
+
+def m_klass_iz_main(t):
+    # [D31] снят: источник класса — $REPO/contracts (main), как в двери до
+    # v+1 (боль 991 v3: «рисковый» старого main против «обычный» кандидата
+    # молча отказывала KLASS_RISKA_NET); перечисление find по main, blob —
+    # hash-object файлов main, содержимое — cat файлов main
+    t = _z(t, '''  if [ "$(git -C "$wt" cat-file -t "$obj:contracts" 2>/dev/null)" = tree ]; then kat='contracts'
+  elif [ "$(git -C "$wt" cat-file -t "$obj:.harness/contracts" 2>/dev/null)" = tree ]; then kat='.harness/contracts'
+  else printf 'net_stroki:ни contracts/, ни .harness/contracts/ в дереве %s нет' "$obj"; return 0; fi''',
+              '''  if [ -d "$REPO/contracts" ]; then kat="$REPO/contracts"
+  elif [ -d "$REPO/.harness/contracts" ]; then kat="$REPO/.harness/contracts"
+  else printf 'net_stroki:ни contracts/, ни .harness/contracts/ в %s нет' "$REPO"; return 0; fi''')
+    t = _z(t, '''  spisok="$(git -C "$wt" ls-tree "$obj:$kat" 2>/dev/null \\
+    | awk -F'\\t' -v n="$n" '$2 ~ "^" n "-[^/]*[.]md$" {print $1 "\\t" $2}' \\
+    | LC_ALL=C sort)"''',
+              '''  spisok="$(find "$kat" -maxdepth 1 -name "$n-*.md" -print | LC_ALL=C sort \\
+    | while IFS= read -r mf; do printf '100644 blob %s\\t%s\\n' "$(git hash-object "$mf" 2>/dev/null)" "$mf"; done)"''')
+    t = _z(t, '''    val="$(git -C "$wt" show "$obj:$kat/$put" 2>/dev/null \\
+          | grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' \\
+          | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"''',
+              '''    val="$(grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' "$put" 2>/dev/null \\
+          | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"''')
+    return t
+
+def m_bez_gruppovoj_atomarnosti(t):
+    # [D34] снят: мьютексы групп не берутся — решение о лимите группы не
+    # атомарно между разными предметами (вердикт адверсария 140 v4 вызов 1/2,
+    # OBJECT 3572945e: два одновременных суда РАЗНЫХ NNN читали одинаковую
+    # заполненность до записи своих START и оба проходили — 4 из 3)
+    return _z(t, '''  # [D34 gruppa-atomarna] мьютексы ГРУПП пакета (отсортированы, до мьютексов
+  # предметов — общий порядок у конкурентов): решение о лимите группы атомарно
+  # и МЕЖДУ разными предметами. Вердикт адверсария 140 v4 вызов 1/2 (OBJECT
+  # 3572945e): два одновременных суда РАЗНЫХ NNN одной группы читали одинаковую
+  # заполненность до записи своих START и оба проходили — 4 из 3. Судьям группы
+  # не нужны: лимит судится только у рабочих.
+  local gz g
+  gz="$(printf '%s' "$GATED" | while IFS='|' read -r idx agent name sv obj wt br klass rol; do
+    [ "$klass" = 'rabochij' ] || continue
+    gruppa_iz_pina "$wt"
+  done | LC_ALL=C sort -u)"
+  while IFS= read -r g; do
+    [ -n "$g" ] || continue
+    case "$g" in harness|mob|back) ;; *) continue ;; esac
+    if ! mutex_zajavit_dir "$(gruppa_zamok_dir "$g")"; then
+      mutexi_snyat_vse
+      otp ZANYATO_RESHENIEM "группа $g: мьютекс решения группы занят (параллельный суд лимита)"
+    fi
+    GRUPPY_ZANYATY="${GRUPPY_ZANYATY}${g}"$'\\n'
+  done <<EOF
+$gz
+EOF
+''', '''  : # стаб: мьютексы групп не берём — лимит группы не атомарен между предметами
+''')
+
+
+def m_relis_osvobozhdaet_slot(t):
+    # [D32] снят: RELEASE снова обнуляет слот группы (форма двери до усиления):
+    # сдался либо оборвался + --osvobodit — предмет выпадает из счёта лимитов
+    # ДО done/ПАУЗЫ (боль bootstrap 998: слот гасился ротацией держателя)
+    return _z(t, '''      if $l.t == "START" then .[$l.repoId + "/" + $l.subjectId] = $l.group
+      else . end
+    ) | to_entries | map(select(.value != null and .value == $g)) | map(.key) | .[]' \\''',
+              '''      if $l.t == "START" then .[$l.repoId + "/" + $l.subjectId] = $l.group
+      elif $l.t == "RELEASE" then .[$l.repoId + "/" + $l.subjectId] = null
+      else . end
+    ) | to_entries | map(select(.value != null and .value == $g)) | map(.key) | .[]' \\''')
+
+
+def m_bez_dedushki(t):
+    # [D33] снят: уже начатый предмет судится лимитом как новый — замена
+    # держателя начатого при сверхлимите отказывает LIMIT_GRUPPY (боль
+    # bootstrap 998: замена/интегратор при 11 начатых из 3 не пускалась)
+    return _z(t, '''        if [ "$zhivo" -ge "$cap" ] && ! slovo_vladelca "$sv" \\
+           && ! predmet_derzhit_slot "$sv" "$grp"; then''',
+              '''        if [ "$zhivo" -ge "$cap" ] && ! slovo_vladelca "$sv"; then''')
+
+
+def m_bez_scheta_paketa(t):
+    # [D35] снят: занятость судится ТОЛЬКО по учёту — элементы пакета не
+    # считают слотов соседей (форма модели до усиления): ОДИН batch с двумя
+    # новыми NNN одной группы при 2 занятых из 3 проходит оба — 4 из 3.
+    # Внутрипроцессная дыра (одиночный вызов, БЕЗ гонки) — потому стаб
+    # отличен от s36-bez-gruppovoj-atomarnosti (межпроцессный мьютекс D34)
+    # и красен на СВОЁМ входе w31, где s36 честен.
+    t = _z(t, '''        case "$grp" in
+          harness) zhivo=$((zhivo + PAKET_HARNESS)) ;;
+          mob)     zhivo=$((zhivo + PAKET_MOB)) ;;
+          back)    zhivo=$((zhivo + PAKET_BACK)) ;;
+        esac''',
+              '''        : # стаб: слоты пакета не считаем (учёт без соседей)''')
+    return _z(t, '''        if ! predmet_derzhit_slot "$sv" "$grp"; then
+          case "$grp" in
+            harness) PAKET_HARNESS=$((PAKET_HARNESS + 1)) ;;
+            mob)     PAKET_MOB=$((PAKET_MOB + 1)) ;;
+            back)    PAKET_BACK=$((PAKET_BACK + 1)) ;;
+          esac
+        fi''',
+              '''        : # стаб: прошедшие пакет слоты не занимают''')
+
+def m_bez_legacy_defaulta(t):
+    # [D37] снят: консервативный дефолт «нет записи — рисковый» не
+    # реализован (форма klass_riska до v+1; боль bootstrap 998): старый
+    # frozen без строки и без записи реестра — KLASS_RISKA_NET, судьи
+    # старого предмета стоят до owner-коммита строки в реестр на каждый
+    # номер. Красен на s45: честная дверь пускает адверсария и держит
+    # ревьюера ADVERSARIJ_DO_REVJUERA, стаб отказывает KLASS_RISKA_NET.
+    return _z(t, '''    # [D37 legacy-default] нет строки и нет записи реестра — РИСКОВЫЙ, но
+    # только для подтверждённого старого frozen: blob файла равен его blob в
+    # ВЫСШЕМ существующем теге frozen/contracts/<NNN>/<v> ($REPO). Норма
+    # roles/orchestrator.md §«Порядок судей и класс риска»: «нет записи —
+    # рисковый» (боль bootstrap 998: KLASS_RISKA_NET держал судей старых
+    # frozen без строки — на каждый номер требовался owner-коммит строки в
+    # реестр; консультант ci-bootstrap-risk-998: код отстаёт от нормы, класс
+    # «рисковый» — верхний, понижения нет). Новый/изменённый кандидат
+    # (blob ≠ frozen / тега нет) дефолта НЕ получает: поле обязательно (слово
+    # владельца 24.10), fail-closed — новый текст обязан нести строку сам.
+    if [ -z "$val" ] && [ -n "$blob" ] \\
+       && [ "$blob" = "$(frozen_blob "$n" "$kat" "$put")" ]; then
+      val='рисковый'
+    fi''',
+              '''    : # стаб: [D37] дефолт снят — нет строки и записи: класс не определён''')
+
+
+def m_bezuslovnyj_legacy_default(t):
+    # [D37] искажён: дефолт безусловный — ЛЮБОЕ отсутствие строки (в т.ч.
+    # новый/изменённый кандидат при blob ≠ frozen и вовсе без тега) тихо
+    # «рисковый»: новый контракт без обязательного поля ложно судится —
+    # критик проходит неопределённый класс. Красен на s46 (frozen есть,
+    # blob кандидата не совпадает) и s41 (frozen нет вовсе).
+    return _z(t, '''    if [ -z "$val" ] && [ -n "$blob" ] \\
+       && [ "$blob" = "$(frozen_blob "$n" "$kat" "$put")" ]; then
+      val='рисковый'
+    fi''',
+              '''    if [ -z "$val" ]; then : # стаб: дефолт безусловный, подтверждение frozen снято
+      val='рисковый'
+    fi''')
+
+
 
 
 STAB_MUTACII = {
@@ -1484,6 +2240,17 @@ STAB_MUTACII = {
     's28-pervyj-rezultat-find': m_pervyj_rezultat_find,
     's29-klass-riska-tolko-nachalo-stroki': m_klass_riska_tolko_nachalo_stroki,
     's30-klass-riska-type-f': m_klass_riska_type_f,
+    's31-session-exit-ne-sdacha': m_session_exit_ne_sdacha,
+    's32-session-exit-ljuboj-kind': m_session_exit_ljuboj_kind,
+    's33-marker-podstrokoj': m_marker_podstrokoj,
+    's34-klass-iz-gryazi': m_klass_iz_gryazi,
+    's35-klass-iz-main': m_klass_iz_main,
+    's36-bez-gruppovoj-atomarnosti': m_bez_gruppovoj_atomarnosti,
+    's37-relis-osvobozhdaet-slot': m_relis_osvobozhdaet_slot,
+    's38-bez-dedushki': m_bez_dedushki,
+    's45-bez-scheta-paketa': m_bez_scheta_paketa,
+    's46-bez-legacy-defaulta': m_bez_legacy_defaulta,
+    's47-bezuslovnyj-legacy-default': m_bezuslovnyj_legacy_default,
     'x01-vsegda-puschem': m_vsegda_puschem,
 }
 
