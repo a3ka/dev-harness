@@ -1,0 +1,14 @@
+name: mobile
+on:
+  push:
+  pull_request:
+jobs:
+  quality:
+    runs-on: [self-hosted, linux, x64, kvm, complior]
+    steps:
+      - run: npm run ci:quality
+  e2e-native:
+    runs-on: [self-hosted, linux, x64, kvm, complior]
+    needs: quality
+    steps:
+      - run: npm run ci:e2e-native
