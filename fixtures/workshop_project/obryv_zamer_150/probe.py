@@ -6,7 +6,12 @@
 # не публикуют и не падают; обёртка не меняет итог job.
 #
 # Основа: слово владельца 2026-10-26 п.2 (docs/owner/2026-10-26-obryv-emulyatora-v2.md),
-# §4/§5/§10/§12 verdicts/consultant/obryv-emulyatora-mob-astra-v1.md.
+# §4/§5/§10/§12 verdicts/consultant/obryv-emulyatora-mob-astra-v1.md;
+# закрытый канон обёртки — решение владельца 2026-11-12, S2 §1.3
+# (sol-1112/out-s2/REPORT.md §1.3): батарея НЕ интерпретирует произвольный
+# run/shell/defaults/ифы — она принимает ТОЛЬКО отрендеренный канон
+# (start/сбор/артефакт КАЖДОГО работника; матричный child — дочерним
+# хуком), любое отклонение — именованный отказ (KANON_150_*).
 #
 # Правило 8: оракул source.json читается в память ДО вызова субъекта;
 # порча пиннованных носителей — rc 2 ORACLE_TAMPERED ДО клеток. Н-39:
@@ -14,19 +19,26 @@
 # source.json:.stab_vhod; рассинхрон — rc 2.
 #
 # Субъект: дерево продукта (.github/workflows/mobile.yml + mobile/ci-screens.json
-# + mobile/scripts/zamer_obryva.sh). Судит КАЖДОГО работника КАРТЫ
-# (ekrany[].job + integracija.job — канон разбора тут, не у субъекта):
-# структурные клетки (z01–z03, z05) — по всем работникам; скрипт — z04;
-# поведенческие (b01–b11) — исполнительный replay обёртки ПЕРВОГО работника
-# карты в замкнутой песочнице с подложными adb/sleep (виртуальные секунды)
-# и НАСТОЯЩИМИ процессами-подделками qemu/adb-server (живость PID честна;
-# КАЖДЫЙ порождённый PID останавливается и дожидается, b12 судит гигиену
-# миров после всех replay). RECOVERED-ns моделируется по frozen 995/5:
-# финальная попытка зелёная + сохранённый архив diagnostics/attempt-1 с
-# сигнатурой — гейт судит ТЕКУЩУЮ попытку (--exclude-dir=diagnostics).
-# Экранные тела субъектов НЕ исполняются и не судятся — их держат батареи
-# 143/147/148/995; replay управляет МИРОМ вокруг обёртки (живой эмулятор,
-# обрыв с маркером signal 9 в журнал, сигнатура в ns, wipe/перезапуск).
+# + mobile/scripts/zamer_obryva.sh [+ zamer_child_hook.sh, run-ci-screen.cjs,
+# package.json/run-mobile-ci.cjs при lane/матричной форме]). Единица покрытия —
+# (job, id) по записям КАРТЫ: записи матричного job НЕ схлопываются, второй
+# child судится отдельно. Канон обёртки хранится в пиннованных носителях
+# model/ (workflow-эталон + kanon/*.txt) и рендерится ТОЛЬКО из закрытых
+# полей карты (id/ns/serial) — второго канона в строках Python нет.
+# Структурные клетки (z01–z05) судят ВСЕ единицы; z06/z07 — исполнительный
+# оракул результата: канонический collect каждого работника/child в
+# одноразовом мире судится по РЕАЛЬНЫМ файлам результата (SBOR_150_RESULT_NET),
+# не по событию запуска процесса или echo. Поведенческие (b01–b11) —
+# исполнительный replay обёртки ПЕРВОГО работника карты в замкнутой песочнице
+# с подложными adb/sleep (виртуальные секунды) и НАСТОЯЩИМИ процессами-
+# подделками qemu/adb-server (живость PID честна; КАЖДЫЙ порождённый PID
+# останавливается и дожидается, b12 судит гигиену миров после всех replay).
+# RECOVERED-ns моделируется по frozen 995/5: финальная попытка зелёная +
+# сохранённый архив diagnostics/attempt-1 с сигнатурой — гейт судит
+# ТЕКУЩУЮ попытку (--exclude-dir=diagnostics). Экранные тела субъектов
+# НЕ исполняются и не судятся — их держат батареи 143/147/148/995; replay
+# управляет МИРОМ вокруг обёртки (живой эмулятор, обрыв с маркером signal 9
+# в журнал, сигнатура в ns, wipe/перезапуск).
 """Батарея 150 (prichinnyy-zamer-obryva).
 
 Режимы (дверь red_obryv_zamer_150.sh передаёт аргументы дальше):
@@ -35,7 +47,10 @@
   (без флага, --repo R)    — судится живой продукт R (до реализации красен
                               поимённо; зелень без субъекта невозможна)
   --model                  — эталон model/ (контроль входов): rc 0
-  --stabs                  — контроль + матрица обманных стабов (SVJAZI N)
+  --stabs                  — контроль + матрица обманных стабов (SVJAZI N);
+                              для стабов z-клеток судится ТОЛЬКО привязанная
+                              клетка (исполнительный мир — по потребности
+                              клетки), поведенческий контроль — общий прогон
   --oracle-tamper          — порча каждого носителя: ORACLE_TAMPERED rc 2 ДО клеток
   --seed N                 — тот же результат при другом порядке (инвариантность)
 
@@ -65,13 +80,10 @@ MODEL = HERE / "model"
 STABS = HERE / "stabs"
 SOURCE = HERE / "source.json"
 
-SUBJECT_FILES = [".github/workflows/mobile.yml", "mobile/ci-screens.json",
-                 "mobile/scripts/zamer_obryva.sh"]
-
 Z_SHAG_START = "Замер обрыва: запуск сэмплера"
 Z_SHAG_SBOR = "Замер обрыва: сбор причинного снимка"
 Z_SHAG_ART = "Замер обрыва: артефакт"
-EKRANNYE_MARKERY = ("PORT=", "maestro", "ekran_shablon", "ci-e2e")
+EKRANNYE_MARKERY = ("PORT=", "maestro", "ekran_shablon", "ci-e2e", "run-ci-screen")
 ZAPRET_MASKIROVKI = "continue-on-error"
 SIGNATURY_RE = re.compile(
     r"device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException")
@@ -81,6 +93,18 @@ ARTEFAKT_MAKS_BAJT = 2097152
 T_KRASNOGO = 60
 T_KONTSA = 70
 REALMAJ_TIMAUT = 25
+
+# каноническая семантика шага: шаг канона несёт ЯВНЫЙ `shell: bash`
+# (= bash --noprofile --norc -eo pipefail {0}) и cwd корня — исполнительные
+# клетки применяют ИМЕННО её (krug5 Б1: оракул обязан исполнять шаг в той
+# семантике, что и CI; теперь семантику фиксируют байты канона)
+BASH_KANONA = ["/bin/bash", "--noprofile", "--norc", "-eo", "pipefail", "-c"]
+
+# lane-форма F2 (совместимость 163): `npm run ci:zamer -- <kmd> <argv…>`;
+# привязка lane закрыта: фиксированный argv без eval/параметра оболочки
+LANE_IMJA = "ci:zamer"
+LANE_ZNACHENIE = "node mobile/scripts/run-mobile-ci.cjs --lane zamer"
+LANE_KANON_STROKA = "zamer: ['bash', ['mobile/scripts/zamer_obryva.sh']],"
 
 
 class OshibkaOrakula(Exception):
@@ -110,24 +134,13 @@ def zhestkij_kanon(src):
         tekst = p.read_text(encoding="utf-8")
         if "def mutiruj(" not in tekst:
             raise OshibkaOrakula("стаб %s без mutiruj()" % otn)
+        if kletka not in KLETKI:
+            raise OshibkaOrakula("стаб %s привязан к неизвестной клетке %s" % (otn, kletka))
     if problemy:
         raise OshibkaOrakula("; ".join(problemy))
 
 
-# ── независимый канон карты (грамматика 143/2; субъект не зовётся) ─────────
-def rabotniki_iz_karty(m):
-    spisok = []
-    for z in (m.get("ekrany") or []):
-        if z.get("job"):
-            spisok.append({"job": z["job"], "id": z.get("id", ""),
-                           "ns": z.get("output_namespace", "")})
-    i = m.get("integracija") or {}
-    if i.get("job"):
-        spisok.append({"job": i["job"], "id": i.get("id", "integracija"),
-                       "ns": i.get("output_namespace", "")})
-    return spisok
-
-
+# ── независимый канон карты (грамматика 143; субъект не зовётся) ─────────
 def karta_subiekta(rep):
     p = Path(rep) / "mobile" / "ci-screens.json"
     if not p.is_file():
@@ -149,7 +162,367 @@ def wf_subiekta(rep):
     return yaml.safe_load(p.read_text(encoding="utf-8"))
 
 
-# ── подложные adb/sleep (виртуальное время — счётчик тиков sleep) ───────────
+def tekst_wf_subiekta(rep):
+    p = Path(rep) / ".github" / "workflows" / "mobile.yml"
+    if not p.is_file():
+        return None
+    return p.read_text(encoding="utf-8")
+
+
+def edinicy_pokrytija(rep, wf):
+    """Единица покрытия — (job, id) по записям КАРТЫ: записи матричного job
+    НЕ схлопываются (второй child судится отдельно); матричность определяет
+    workflow субъекта (strategy.matrix), не карта."""
+    karta = karta_subiekta(rep)
+    spisok = []
+    for z in (karta.get("ekrany") or []):
+        if z.get("job"):
+            spisok.append({"job": z["job"], "id": z.get("id", ""),
+                           "ns": z.get("output_namespace", ""),
+                           "avd_port": z.get("avd_port")})
+    i = karta.get("integracija") or {}
+    if i.get("job"):
+        spisok.append({"job": i["job"], "id": i.get("id", "integracija"),
+                       "ns": i.get("output_namespace", ""), "avd_port": None})
+    for e in spisok:
+        job = (wf.get("jobs") or {}).get(e["job"]) or {}
+        e["matrica"] = "matrix" in (job.get("strategy") or {})
+    return spisok
+
+
+# ── закрытый канон обёртки: YAML-дерево с метками + гигиена ────────────────
+class KanonYaml(Exception):
+    pass
+
+
+def _prover_gigieny(uzel, put=""):
+    """Гигиена YAML по ДЕРЕВУ (compose сохраняет дубликаты и merge-ключи):
+    дубликат ключа / merge — именованный отказ, неоднозначная запись не
+    принимается. Алиасы и явные теги ловит поток событий (compose молча
+    резолвит алиасы) — см. _gigiena_eventov."""
+    if isinstance(uzel, yaml.nodes.MappingNode):
+        videny = set()
+        for k, _z in uzel.value:
+            if isinstance(k, yaml.nodes.ScalarNode) and k.value == "<<":
+                raise KanonYaml("merge-kljuch << (put %s) — vne kanona" % put)
+            kljuch = k.value if isinstance(k, yaml.nodes.ScalarNode) else repr(k)
+            if kljuch in videny:
+                raise KanonYaml("duplikat kljucha %r (put %s)" % (kljuch, put))
+            videny.add(kljuch)
+        for k, z in uzel.value:
+            sled = "%s.%s" % (put, k.value) if isinstance(k, yaml.nodes.ScalarNode) else put
+            _prover_gigieny(z, sled)
+    elif isinstance(uzel, yaml.nodes.SequenceNode):
+        for n, z in enumerate(uzel.value):
+            _prover_gigieny(z, "%s[%d]" % (put, n))
+
+
+def _gigiena_eventov(tekst):
+    """Алиасы (*anchor) и явные теги — по потоку событий парсера."""
+    for sob in yaml.parse(tekst, Loader=yaml.loader.Loader):
+        if isinstance(sob, yaml.events.AliasEvent):
+            raise KanonYaml("alias *%s — vne kanona" % sob.anchor)
+        if isinstance(sob, yaml.events.ScalarEvent):
+            if sob.tag is not None and not sob.implicit[0] and not sob.implicit[1]:
+                raise KanonYaml("javnyj tag %s — vne kanona" % sob.tag)
+        if isinstance(sob, (yaml.events.MappingStartEvent, yaml.events.SequenceStartEvent)):
+            if sob.tag is not None and not sob.implicit:
+                raise KanonYaml("javnyj tag %s — vne kanona" % sob.tag)
+
+
+def shagi_s_metkami(tekst):
+    """Дерево workflow (compose, метки строк); гигиена — ДО использования."""
+    _gigiena_eventov(tekst)
+    try:
+        koren = yaml.compose(tekst, Loader=yaml.loader.Loader)
+    except yaml.YAMLError as e:
+        raise KanonYaml("YAML_NE_RAZOBIRAN: %s" % str(e).splitlines()[0])
+    if koren is None:
+        raise KanonYaml("YAML_PUST")
+    _prover_gigieny(koren)
+    return koren
+
+
+def _uzel_karty(derevo, kljuch):
+    for k, z in derevo.value:
+        if isinstance(k, yaml.nodes.ScalarNode) and k.value == kljuch:
+            return z
+    return None
+
+
+def _normalizovannyj_span(tekst_stroki, uzel):
+    """Сырой текст узла-шага: только техническая нормализация базового
+    отступа YAML-узла (и индикатора списка '- ' первой строки); комментарии
+    и содержимое не трогаются; замыкающие пустые строки снимаются."""
+    nach, kon = uzel.start_mark, uzel.end_mark
+    kon_line = min(kon.line, len(tekst_stroki) - 1)
+    stolbec = nach.column
+    stroki = []
+    for i in range(nach.line, kon_line + 1):
+        l = tekst_stroki[i]
+        if len(l) >= stolbec and l[:stolbec].strip() == "":
+            stroki.append(l[stolbec:])
+        else:
+            stroki.append(l.lstrip())
+    while stroki and not stroki[-1].strip():
+        stroki.pop()
+    return "\n".join(stroki)
+
+
+def shagi_dzhoba(derevo, tekst, job_id):
+    """[(imja_shaga, span, uzel)] шагов job по дереву с метками."""
+    jobs = _uzel_karty(derevo, "jobs")
+    if jobs is None:
+        return []
+    uzel_dzhoba = _uzel_karty(jobs, job_id)
+    if uzel_dzhoba is None:
+        return []
+    shagi_uzel = _uzel_karty(uzel_dzhoba, "steps")
+    if shagi_uzel is None or not isinstance(shagi_uzel, yaml.nodes.SequenceNode):
+        return []
+    tekst_stroki = tekst.splitlines()
+    rez = []
+    for s in shagi_uzel.value:
+        if not isinstance(s, yaml.nodes.MappingNode):
+            continue
+        imja = ""
+        for k, z in s.value:
+            if isinstance(k, yaml.nodes.ScalarNode) and k.value == "name":
+                imja = str(z.value)
+        rez.append((imja, _normalizovannyj_span(tekst_stroki, s), s))
+    return rez
+
+
+def _kanon_shablon(model_root, job_id, shag_prefix, podstavki):
+    """Шаблон шага = сырой span шага ЭТАЛОНА (пин source.json) с подстановкой
+    значений работника-представителя плейсхолдерами."""
+    tekst = (Path(model_root) / ".github" / "workflows" / "mobile.yml").read_text(
+        encoding="utf-8")
+    derevo = shagi_s_metkami(tekst)
+    for imja, span, _u in shagi_dzhoba(derevo, tekst, job_id):
+        if imja.startswith(shag_prefix):
+            for fakt, pley in podstavki:
+                span = span.replace(fakt, pley)
+            return span
+    raise OshibkaOrakula("etalon %s: net shaga %r" % (job_id, shag_prefix))
+
+
+def kanony_obertki(model_root):
+    """Рендер-грамматика канона: F1 (прямой вызов) и F2 (npm-lane) — из
+    эталонных работников; матричный артефакт-шаг — без подстановок."""
+    f1 = [("proba-obryv", "{{EKRAN}}"), ("mobile/maestro-out-proba", "{{NS}}"),
+          ("emulator-5571", "{{SERIAL}}"), ("mobile/zamer-out-proba-obryv",
+                                            "mobile/zamer-out-{{EKRAN}}"),
+          ("zamer-proba-obryv-", "zamer-{{EKRAN}}-")]
+    f2 = [("proba-drugoj", "{{EKRAN}}"), ("mobile/maestro-out-drugoj", "{{NS}}"),
+          ("emulator-5573", "{{SERIAL}}"), ("mobile/zamer-out-proba-drugoj",
+                                            "mobile/zamer-out-{{EKRAN}}"),
+          ("zamer-proba-drugoj-", "zamer-{{EKRAN}}-")]
+    shablony = {}
+    for prefiks in (Z_SHAG_START, Z_SHAG_SBOR, Z_SHAG_ART):
+        shablony[("F1", prefiks)] = _kanon_shablon(model_root, "e2e-proba-obryv", prefiks, f1)
+        shablony[("F2", prefiks)] = _kanon_shablon(model_root, "e2e-proba-drugoj", prefiks, f2)
+    shablony[("M", Z_SHAG_ART)] = _kanon_shablon(model_root, "e2e-proba-matrica",
+                                                 Z_SHAG_ART, [])
+    return shablony
+
+
+def _param_tipa(e):
+    """Закрытые типы параметров рендера: неизвестный параметр/тип — отказ."""
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", e["id"] or ""):
+        return "ekran %r" % e["id"]
+    ns = e["ns"] or ""
+    if not re.fullmatch(r"mobile/[a-z0-9][a-z0-9._/-]*", ns) or ".." in ns:
+        return "ns %r" % ns
+    port = e.get("port")
+    if port is not None and not re.fullmatch(r"[0-9]+", str(port)):
+        return "port %r" % port
+    return None
+
+
+def _otrisovka(shablon, e):
+    return (shablon
+            .replace("{{SERIAL}}", "emulator-%s" % e["port"])
+            .replace("{{NS}}", e["ns"])
+            .replace("mobile/zamer-out-{{EKRAN}}", "mobile/zamer-out-%s" % e["id"])
+            .replace("zamer-{{EKRAN}}-", "zamer-%s-" % e["id"])
+            .replace("{{EKRAN}}", e["id"]))
+
+
+def _prichina_stroki(shablon_stroka):
+    s = shablon_stroka.lstrip()
+    if s.startswith("shell:"):
+        return "KANON_150_SHELL"
+    if s.startswith("if:"):
+        return "KANON_150_IF"
+    if s.startswith("working-directory:"):
+        return "KANON_150_CWD"
+    if s.startswith("env:") or s.startswith("ZAMER_"):
+        return "KANON_150_ENV"
+    if s.startswith("run:") or s.startswith("set ") or s.startswith("bash ") \
+            or s.startswith("npm ") or s.startswith("--") or s.startswith("|"):
+        return "KANON_150_RUN"
+    return "KANON_150_KEYS"
+
+
+def _pervoe_rashozhdenie(shablon, fakt):
+    """(причина, адрес) первого отличия нормализованных спанов; сравнение
+    построчное, длины — первым индексом за общей частью."""
+    sh = shablon.split("\n")
+    fk = fakt.split("\n")
+    for i in range(min(len(sh), len(fk))):
+        if sh[i] != fk[i]:
+            return "%s: stroka %d: kanon %r != fakt %r" % (
+                _prichina_stroki(sh[i]), i + 1, sh[i].strip()[:60], fk[i].strip()[:60])
+    if len(sh) != len(fk):
+        i = min(len(sh), len(fk))
+        lishnee = fk[i].strip()[:60] if len(fk) > len(sh) else sh[i].strip()[:60]
+        return "KANON_150_KEYS: chislo strok shaga %d != kanon %d (pervaja lishnjaja/nedostajushchaja: %r)" % (
+            len(fk), len(sh), lishnee)
+    return None
+
+
+def _lane_privjazana(rep):
+    """F2 (npm-lane): закрытая привязка lane к пиннованному скрипту —
+    корневой package.json несёт ci:zamer со значением lane-раннера, словарь
+    lanes раннера несёт каноническую строку (без eval/параметра оболочки)."""
+    paket = Path(rep) / "package.json"
+    try:
+        znach = json.loads(paket.read_text(encoding="utf-8")).get("scripts", {}).get(LANE_IMJA)
+    except (OSError, ValueError) as e:
+        return "KANON_150_LANE: package.json %s" % e
+    if znach != LANE_ZNACHENIE:
+        return ("KANON_150_LANE: scripts.%s = %r != %r" %
+                (LANE_IMJA, znach, LANE_ZNACHENIE))
+    raner = Path(rep) / "mobile" / "scripts" / "run-mobile-ci.cjs"
+    try:
+        stroki = [l.strip() for l in raner.read_text(encoding="utf-8").splitlines()]
+    except OSError as e:
+        return "KANON_150_LANE: run-mobile-ci.cjs %s" % e
+    if stroki.count(LANE_KANON_STROKA) != 1:
+        return ("KANON_150_LANE: kanonicheskaja stroka slovarja lanes "
+                "vstrechena %d raz (kanon: 1)" % stroki.count(LANE_KANON_STROKA))
+    return None
+
+
+def sud_z05(subjekt_root, shablony, edinicy, wf):
+    """z05-kanon-obertki: закрытый канон — сырой текст каждого шага замера
+    КАЖДОЙ единицы покрытия байт-в-байт равен отрендеренному канону; любое
+    отклонение — именованный отказ. Произвольный run не интерпретируется."""
+    netu = []
+    tekst = tekst_wf_subiekta(subjekt_root)
+    if tekst is None:
+        return False, "SUBJECT_ABSENT: net .github/workflows/mobile.yml"
+    try:
+        derevo = shagi_s_metkami(tekst)
+    except KanonYaml as e:
+        return False, "KANON_150_YAML: %s" % e
+    ispolzovana_lane = False
+    for e in edinicy:
+        shagi = shagi_dzhoba(derevo, tekst, e["job"])
+        if e["matrica"]:
+            # матричный child: внешний шаг один (артефакт child); замер —
+            # дочерним хуком внутри раннера (строки канона ниже)
+            art = [s for s in shagi if s[0].startswith(Z_SHAG_ART)]
+            if not art:
+                netu.append("%s[%s]: KANON_150_KEYS: net matriznogo shaga %r" %
+                            (e["job"], e["id"], Z_SHAG_ART))
+            else:
+                otk = _pervoe_rashozhdenie(shablony[("M", Z_SHAG_ART)], art[0][1])
+                if otk:
+                    netu.append("%s[%s]: %s" % (e["job"], e["id"], otk))
+            # экраный шаг: закрытые привязки env к матрице (межконтрактный
+            # вход 143 v3) — структурно; тело шага — зона 143
+            ekran_shag = None
+            for _imja, _span, uzel in shagi:
+                for k, z in uzel.value:
+                    if isinstance(k, yaml.nodes.ScalarNode) and k.value == "run" \
+                            and "run-ci-screen.cjs" in str(z.value):
+                        ekran_shag = uzel
+            if ekran_shag is None:
+                netu.append("%s[%s]: KANON_150_MATRICA: net shaga zapuska "
+                            "run-ci-screen.cjs" % (e["job"], e["id"]))
+            else:
+                envs = {}
+                for k, z in ekran_shag.value:
+                    if isinstance(k, yaml.nodes.ScalarNode) and k.value == "env":
+                        for ek, ez in z.value:
+                            if isinstance(ek, yaml.nodes.ScalarNode):
+                                envs[str(ek.value)] = str(ez.value)
+                zhel = {"SCREEN_ID": "${{ matrix.screen.id }}",
+                        "AVD_PORT": "${{ matrix.screen.avd_port }}"}
+                for kljuch, zh in zhel.items():
+                    if envs.get(kljuch) != zh:
+                        netu.append("%s[%s]: KANON_150_MATRICA: env %s = %r != %r" %
+                                    (e["job"], e["id"], kljuch, envs.get(kljuch), zh))
+            # раннер: канонические строки вызова хука (по одной, в порядке)
+            raner = Path(subjekt_root) / "mobile" / "scripts" / "run-ci-screen.cjs"
+            if not raner.is_file():
+                netu.append("%s[%s]: KANON_150_MATRICA: net run-ci-screen.cjs" %
+                            (e["job"], e["id"]))
+            else:
+                stroki = [l.strip() for l in raner.read_text(encoding="utf-8").splitlines()]
+                kanon_stroki = [
+                    l.strip() for l in
+                    (HERE / "model" / "kanon" / "child-hook-vyzovy.txt")
+                    .read_text(encoding="utf-8").splitlines() if l.strip()]
+                pozicii = []
+                for kljuch, stroka in zip(("start", "maestro", "sbor"), kanon_stroki):
+                    n = stroki.count(stroka)
+                    if n != 1:
+                        netu.append("%s[%s]: KANON_150_MATRICA: kanonicheskij vyzov "
+                                    "huka %s vstrechen %d raz (kanon: 1)" %
+                                    (e["job"], e["id"], kljuch, n))
+                    else:
+                        pozicii.append(stroki.index(stroka))
+                if len(pozicii) == 3 and not (pozicii[0] < pozicii[2] and pozicii[1] < pozicii[2]):
+                    netu.append("%s[%s]: KANON_150_MATRICA: porjadok vyzovov huka "
+                                "narushen %s" % (e["job"], e["id"], pozicii))
+                if any("spawnSync('maestro', [" in s for s in stroki):
+                    netu.append("%s[%s]: KANON_150_MATRICA: prjamoj vyzov maestro "
+                                "mimo huka (stdout/stderr ne popadajut v ns)" %
+                                (e["job"], e["id"]))
+            continue
+        # обычный работник: порт — литерал PORT=<n> тела (делегированным —
+        # mobile/scripts/ci-e2e.sh), serial рендерится из него
+        job_wf = ((wf or {}).get("jobs") or {}).get(e["job"]) or {}
+        e["port"] = port_rabotnika(job_wf.get("steps") or [], subjekt_root)
+        if e["port"] is None:
+            netu.append("%s[%s]: KANON_150_PARAM: PORT_RABOTNIKA_NET (net "
+                        "literala PORT=<n> v tele)" % (e["job"], e["id"]))
+            continue
+        tip = _param_tipa(e)
+        if tip:
+            netu.append("%s[%s]: KANON_150_PARAM: %s" % (e["job"], e["id"], tip))
+            continue
+        najdeny = {}
+        for imja, span, _u in shagi:
+            for prefiks in (Z_SHAG_START, Z_SHAG_SBOR, Z_SHAG_ART):
+                if imja.startswith(prefiks) and prefiks not in najdeny:
+                    najdeny[prefiks] = span
+        for prefiks in (Z_SHAG_START, Z_SHAG_SBOR, Z_SHAG_ART):
+            if prefiks not in najdeny:
+                netu.append("%s[%s]: KANON_150_KEYS: net shaga %r (sm. z01)" %
+                            (e["job"], e["id"], prefiks))
+                continue
+            r1 = _otrisovka(shablony[("F1", prefiks)], e)
+            r2 = _otrisovka(shablony[("F2", prefiks)], e)
+            if najdeny[prefiks] == r1:
+                continue
+            if najdeny[prefiks] == r2:
+                ispolzovana_lane = True
+                continue
+            otk = _pervoe_rashozhdenie(r1, najdeny[prefiks]) \
+                or _pervoe_rashozhdenie(r2, najdeny[prefiks])
+            netu.append("%s[%s]: %s" % (e["job"], e["id"], otk))
+    if ispolzovana_lane:
+        otk = _lane_privjazana(subjekt_root)
+        if otk:
+            netu.insert(0, otk)
+    return (not netu, "; ".join(netu[:6]))
+
+
+# ── подложные adb/sleep/pgrep/maestro (виртуальное время — тики sleep) ─────
 SHIM_SLEEP = """#!/bin/sh
 # подложный sleep (150): время виртуально — sleep N добавляет N тиков в
 # $ZAMER_TAKTY и возвращается мгновенно; сэмплер живёт виртуальными секундами.
@@ -238,7 +611,6 @@ log("neizvestno:" + " ".join(a[:2]))
 sys.exit(0)
 """
 
-
 SHIM_PGREP = """#!/usr/bin/env python3
 # подложный pgrep (150): паттерн применяется к НАСТОЯЩИМ /proc cmdline, но
 # ответ ограничен процессами мира песочницы (нонс Z150_NONCE в cmdline) —
@@ -273,6 +645,19 @@ for d in sorted(os.listdir("/proc"), key=lambda x: int(x) if x.isdigit() else 0)
 sys.exit(0)
 """
 
+SHIM_MAESTRO_SIGN = """#!/bin/sh
+# подложный maestro (150, z07): отказ с канонической сигнатурой обрыва 141
+printf 'Command failed (host:transport): device offline\\n' >&2
+printf 'DeviceServerDiedException: Device server died\\n' >&2
+exit 1
+"""
+
+SHIM_MAESTRO_BEZ_SIGN = """#!/bin/sh
+# подложный maestro (150, z07): продуктовый отказ БЕЗ сигнатуры обрыва
+printf 'Assertion is false: "Ihre Vorgange" is visible\\n' >&2
+exit 1
+"""
+
 
 def _napishi(p, tekst):
     p.write_text(tekst, encoding="utf-8")
@@ -281,6 +666,24 @@ def _napishi(p, tekst):
 
 def _zapusti(tekst_cmd, cwd, env, vremja=60):
     p = sp.Popen(["bash", "-c", tekst_cmd], cwd=str(cwd), env=env,
+                 stdout=sp.PIPE, stderr=sp.PIPE, text=True, start_new_session=True)
+    try:
+        out, err = p.communicate(timeout=vremja)
+        return p.returncode, out, err
+    except sp.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+        except OSError:
+            pass
+        p.communicate()
+        return 124, "", "TIMEOUT"
+
+
+def _zapusti_kanon(tekst_cmd, cwd, env, vremja=60):
+    """Исполнение шага в КАНОНИЧЕСКОЙ семантике Actions для `shell: bash`:
+    bash --noprofile --norc -eo pipefail -c, cwd — воркспейс (шаги канона
+    несут явный working-directory; krug5 Б1 закрыт байтами канона)."""
+    p = sp.Popen(BASH_KANONA + [tekst_cmd], cwd=str(cwd), env=env,
                  stdout=sp.PIPE, stderr=sp.PIPE, text=True, start_new_session=True)
     try:
         out, err = p.communicate(timeout=vremja)
@@ -390,7 +793,7 @@ SCENARII = {
 
 
 def replej(subjekt_root, worker, imja_scenarija, tmp, dop_scenarij=None, emu_dopol_strok=0,
-            emu_dopol_dlina=0):
+           emu_dopol_dlina=0):
     """Исполнительный replay обёртки работника в замкнутой песочнице.
 
     Возвращает dict: rc_start/rc_sbor, out_dir, spool, takty_sum, adb_log,
@@ -418,6 +821,11 @@ def replej(subjekt_root, worker, imja_scenarija, tmp, dop_scenarij=None, emu_dop
         return {"oshibka": "SUBJECT_ABSENT: net mobile/scripts/zamer_obryva.sh"}
     shutil.copy(skript_src, ws / "mobile" / "scripts" / "zamer_obryva.sh")
     os.chmod(ws / "mobile" / "scripts" / "zamer_obryva.sh", 0o700)
+    # lane-форма F2 исполняется через закрытую привязку lane (см. osi.md:
+    # привязка lane доказана отдельной статической проверкой, исполняется
+    # прямой argv пиннованного скрипта)
+    def _prjamo(telo):
+        return telo.replace("npm run ci:zamer -- ", "bash mobile/scripts/zamer_obryva.sh ")
 
     bin_dir = koren / "bin"
     bin_dir.mkdir(exist_ok=True)
@@ -635,11 +1043,11 @@ def replej(subjekt_root, worker, imja_scenarija, tmp, dop_scenarij=None, emu_dop
     potok = threading.Thread(target=drajver, daemon=True)
     try:
         potok.start()
-        telo_start = str(po_imeni[Z_SHAG_START].get("run") or "")
+        telo_start = _prjamo(str(po_imeni[Z_SHAG_START].get("run") or ""))
         env_start = dict(env)
         for k, v in (po_imeni[Z_SHAG_START].get("env") or {}).items():
             env_start[k] = str(v)
-        rc_start, out_start, err_start = _zapusti(telo_start, ws, env_start)
+        rc_start, out_start, err_start = _zapusti_kanon(telo_start, ws, env_start)
         # ждём ОБРАБОТКИ всех событий сценария (не только виртуального
         # времени: ubit_qemu оседает 0.4 с, и sbor обязан стартовать ПОСЛЕ
         # него — иначе сигнатура/смерть опаздывают в ns/spool), но не дольше
@@ -651,11 +1059,11 @@ def replej(subjekt_root, worker, imja_scenarija, tmp, dop_scenarij=None, emu_dop
             if vremja.tek() >= konec + 6:
                 break
             time.sleep(0.05)
-        telo_sbor = str(po_imeni[Z_SHAG_SBOR].get("run") or "")
+        telo_sbor = _prjamo(str(po_imeni[Z_SHAG_SBOR].get("run") or ""))
         env_sbor = dict(env)
         for k, v in (po_imeni[Z_SHAG_SBOR].get("env") or {}).items():
             env_sbor[k] = str(v)
-        rc_sbor, out_sbor, err_sbor = _zapusti(telo_sbor, ws, env_sbor)
+        rc_sbor, out_sbor, err_sbor = _zapusti_kanon(telo_sbor, ws, env_sbor)
         try:
             _pid = int((ws / (".zamer-%s" % ekran()) / "pid").read_text().strip() or 0)
             os.kill(_pid, 0)
@@ -720,54 +1128,87 @@ def port_rabotnika(shagi, subjekt_root):
     return None
 
 
-def sud_z01(wf, rabotniki):
-    """z01-obertka-polnota: у КАЖДОГО работника карты есть все три шага замера."""
+def sud_z01(wf, edinicy):
+    """z01-obertka-polnota: у КАЖДОЙ единицы покрытия есть обязательные шаги
+    замера (обычный работник — три шага; матричный child — артефакт child +
+    экраный шаг раннера; замер child — внутри раннера, см. z05/z07)."""
     netu = []
-    for r in rabotniki:
-        job = (wf.get("jobs") or {}).get(r["job"]) or {}
-        imena = [str(s.get("name") or "") for s in (job.get("steps") or [])]
+    for e in edinicy:
+        job = (wf.get("jobs") or {}).get(e["job"]) or {}
+        shagi = job.get("steps") or []
+        imena = [str(s.get("name") or "") for s in shagi]
+        if e["matrica"]:
+            if not any(i.startswith(Z_SHAG_ART) for i in imena):
+                netu.append("%s[%s] bez matriznogo shaga %r" % (e["job"], e["id"], Z_SHAG_ART))
+            if not any("run-ci-screen.cjs" in str(s.get("run") or "") for s in shagi):
+                netu.append("%s[%s] bez shaga zapuska run-ci-screen.cjs" % (e["job"], e["id"]))
+            continue
         for prefiks in (Z_SHAG_START, Z_SHAG_SBOR, Z_SHAG_ART):
             if not any(i.startswith(prefiks) for i in imena):
-                netu.append("%s bez shaga %r" % (r["job"], prefiks))
+                netu.append("%s bez shaga %r" % (e["job"], prefiks))
     return (not netu, "; ".join(netu))
 
 
-def sud_z02(wf, rabotniki, subjekt_root):
-    """z02-obertka-parametry: env шагов согласован с картой и портом тела."""
+def sud_z02(wf, edinicy, subjekt_root):
+    """z02-obertka-parametry: env шагов согласован с картой и портом тела;
+    матричный child — закрытые привязки env к матрице (межконтрактный вход
+    143 v3: SCREEN_ID/AVD_PORT из matrix.screen.*)."""
     netu = []
-    for r in rabotniki:
-        job = (wf.get("jobs") or {}).get(r["job"]) or {}
+    for e in edinicy:
+        job = (wf.get("jobs") or {}).get(e["job"]) or {}
         shagi = job.get("steps") or []
+        if e["matrica"]:
+            for s in shagi:
+                envs = {k: str(v) for k, v in (s.get("env") or {}).items()}
+                if "SCREEN_ID" in envs:
+                    if envs.get("SCREEN_ID") != "${{ matrix.screen.id }}":
+                        netu.append("%s[%s]: SCREEN_ID %r != matrix.screen.id" %
+                                    (e["job"], e["id"], envs.get("SCREEN_ID")))
+                    if envs.get("AVD_PORT") != "${{ matrix.screen.avd_port }}":
+                        netu.append("%s[%s]: AVD_PORT %r != matrix.screen.avd_port" %
+                                    (e["job"], e["id"], envs.get("AVD_PORT")))
+            continue
         port = port_rabotnika(shagi, subjekt_root)
         for s in shagi:
             imja = str(s.get("name") or "")
             envs = {k: str(v) for k, v in (s.get("env") or {}).items()}
             if imja.startswith(Z_SHAG_START) or imja.startswith(Z_SHAG_SBOR):
-                if envs.get("ZAMER_EKRAN") != r["id"]:
-                    netu.append("%s: ZAMER_EKRAN %r != karte %r"
-                                % (r["job"], envs.get("ZAMER_EKRAN"), r["id"]))
-                if envs.get("ZAMER_NS") != r["ns"]:
-                    netu.append("%s: ZAMER_NS %r != karte %r"
-                                % (r["job"], envs.get("ZAMER_NS"), r["ns"]))
+                if envs.get("ZAMER_EKRAN") != e["id"]:
+                    netu.append("%s[%s]: ZAMER_EKRAN %r != karte %r"
+                                % (e["job"], e["id"], envs.get("ZAMER_EKRAN"), e["id"]))
+                if envs.get("ZAMER_NS") != e["ns"]:
+                    netu.append("%s[%s]: ZAMER_NS %r != karte %r"
+                                % (e["job"], e["id"], envs.get("ZAMER_NS"), e["ns"]))
                 zhel_serial = "emulator-%s" % port if port else None
                 if not zhel_serial or envs.get("ZAMER_SERIAL") != zhel_serial:
-                    netu.append("%s: ZAMER_SERIAL %r != emulator-PORT(%s)"
-                                % (r["job"], envs.get("ZAMER_SERIAL"), port))
+                    netu.append("%s[%s]: ZAMER_SERIAL %r != emulator-PORT(%s)"
+                                % (e["job"], e["id"], envs.get("ZAMER_SERIAL"), port))
     return (not netu, "; ".join(netu))
 
 
-def sud_z03(wf, rabotniki):
+def sud_z03(wf, edinicy):
     """z03-obertka-porjadok-maskirovka: порядок вокруг экраного шага, запрет
-    continue-on-error у ВСЕХ шагов работника, старт без if:always(),
-    сбор/артефакт if:always(), upload ignore."""
+    continue-on-error у ВСЕХ шагов работника И на уровне job, старт без
+    if:always(), сбор/артефакт if:always(), upload ignore."""
     netu = []
-    for r in rabotniki:
-        job = (wf.get("jobs") or {}).get(r["job"]) or {}
+    for e in edinicy:
+        job = (wf.get("jobs") or {}).get(e["job"]) or {}
         shagi = job.get("steps") or []
+        if job.get(ZAPRET_MASKIROVKI):
+            netu.append("%s: job neset continue-on-error (maskirovka itoga)" % e["job"])
         for s in shagi:
             if s.get(ZAPRET_MASKIROVKI):
                 netu.append("%s: shag %r neset continue-on-error (maskirovka itoga)"
-                            % (r["job"], str(s.get("name"))[:40]))
+                            % (e["job"], str(s.get("name"))[:40]))
+        if e["matrica"]:
+            ar = None
+            for s in shagi:
+                if str(s.get("name") or "").startswith(Z_SHAG_ART):
+                    ar = s
+                    break
+            if ar is not None and "always()" not in str(ar.get("if") or ""):
+                netu.append("%s: matriznyj artefakt-shag bez if:always()" % e["job"])
+            continue
         idx = {}
         for i, s in enumerate(shagi):
             imja = str(s.get("name") or "")
@@ -775,33 +1216,34 @@ def sud_z03(wf, rabotniki):
                 if imja.startswith(prefiks) and prefiks not in idx:
                     idx[prefiks] = i
         if Z_SHAG_START in idx and Z_SHAG_SBOR in idx and idx[Z_SHAG_START] >= idx[Z_SHAG_SBOR]:
-            netu.append("%s: start позже sbor (замер после экранного шага?)" % r["job"])
-        # между стартом и сбором обязан быть экранный шаг (PORT=/maestro/ekran_shablon/ci-e2e)
+            netu.append("%s: start позже sbor (замер после экранного шага?)" % e["job"])
+        # между стартом и сбором обязан быть экранный шаг (PORT=/maestro/...)
         mezhdu = shagi[idx.get(Z_SHAG_START, 0) + 1: idx.get(Z_SHAG_SBOR, len(shagi))]
         est_ekran = any(any(m in str(s.get("run") or "") for m in EKRANNYE_MARKERY)
                         for s in mezhdu)
         if not est_ekran:
-            netu.append("%s: mezhdu startom i sborom net ekrannogo shaga" % r["job"])
+            netu.append("%s: mezhdu startom i sborom net ekrannogo shaga" % e["job"])
         st = shagi[idx[Z_SHAG_START]] if Z_SHAG_START in idx else None
         if st is not None and "always()" in str(st.get("if") or ""):
-            netu.append("%s: start несёт if:always() — сэмплер после экранного шага" % r["job"])
+            netu.append("%s: start несёт if:always() — сэмплер после экранного шага" % e["job"])
         sb = shagi[idx[Z_SHAG_SBOR]] if Z_SHAG_SBOR in idx else None
         if sb is not None and "always()" not in str(sb.get("if") or ""):
-            netu.append("%s: sbor без if:always() — красный потеряет сбор" % r["job"])
+            netu.append("%s: sbor без if:always() — красный потеряет сбор" % e["job"])
         ar = shagi[idx[Z_SHAG_ART]] if Z_SHAG_ART in idx else None
         if ar is not None:
             if "always()" not in str(ar.get("if") or ""):
-                netu.append("%s: артефакт-шаг без if:always()" % r["job"])
+                netu.append("%s: артефакт-шаг без if:always()" % e["job"])
             if not str(ar.get("uses") or "").startswith("actions/upload-artifact"):
-                netu.append("%s: артефакт-шаг не upload-artifact" % r["job"])
+                netu.append("%s: артефакт-шаг не upload-artifact" % e["job"])
             withs = {k: str(v) for k, v in (ar.get("with") or {}).items()}
             if withs.get("if-no-files-found") != "ignore":
-                netu.append("%s: артефакт if-no-files-found != ignore (зелёный краснеет)" % r["job"])
+                netu.append("%s: артефакт if-no-files-found != ignore (зелёный краснеет)" % e["job"])
     return (not netu, "; ".join(netu))
 
 
-def sud_z04(subjekt_root, src):
-    """z04-kanon-skripta: скрипт субъекта байт-в-байт канону (пин)."""
+def sud_z04(subjekt_root, src, edinicy):
+    """z04-kanon-skripta: скрипты замера субъекта байт-в-байт канону (пин):
+    zamer_obryva.sh — всегда; zamer_child_hook.sh — при матричных child."""
     p = Path(subjekt_root) / "mobile" / "scripts" / "zamer_obryva.sh"
     if not p.is_file():
         return False, "ZAMER_SKRIPT_NET: mobile/scripts/zamer_obryva.sh"
@@ -809,130 +1251,301 @@ def sud_z04(subjekt_root, src):
     zhel = (src.get("piny") or {}).get("model/mobile/scripts/zamer_obryva.sh")
     if digest != zhel:
         return False, "ZAMER_SKRIPT_NE_KANON: sha %s" % digest[:12]
+    if any(e["matrica"] for e in edinicy):
+        h = Path(subjekt_root) / "mobile" / "scripts" / "zamer_child_hook.sh"
+        if not h.is_file():
+            return False, "ZAMER_HOOK_NET: mobile/scripts/zamer_child_hook.sh"
+        hd = hashlib.sha256(h.read_bytes()).hexdigest()
+        zhel_h = (src.get("piny") or {}).get("model/mobile/scripts/zamer_child_hook.sh")
+        if hd != zhel_h:
+            return False, "ZAMER_HOOK_NE_KANON: sha %s" % hd[:12]
     return True, ""
 
-SBOR_SKRIPT = "mobile/scripts/zamer_obryva.sh"
-# Исполняемый оракул z05: PATH-двойник перехватывает bash <script> sbor,
-# журналирует argv без запуска настоящего скрипта; остальной bash делегирует.
-SHIM_BASH_SBOR = """#!{python}
-import json, os, sys
-if len(sys.argv) >= 3 and sys.argv[1:3] == ['{script}', 'sbor']:
-    with open(os.environ['Z150_ZHURNAL'], 'a', encoding='utf-8') as log:
-        log.write(json.dumps(sys.argv[3:]) + '\\n')
-    sys.exit(0)
-os.execv('/bin/bash', ['/bin/bash'] + sys.argv[1:])
-"""
-SHIM_PUSTOJ = "#!/bin/sh\nexit 0\n"
+
+# ── исполнительный оракул результата (арбитраж 148 метод; S2 §1.3) ─────────
+def _mir_sbora(subjekt_root, e, tmp, s_signaturoj=True):
+    """Одноразовый мир канонического сбора работника: ns по сценарию,
+    журнал эмулятора, cgroup-фикстура, подложные adb/sleep/pgrep в PATH."""
+    koren = Path(tmp)
+    ws = koren / "ws"
+    (ws / "mobile" / "scripts").mkdir(parents=True, exist_ok=True)
+    for imja in ("zamer_obryva.sh", "zamer_child_hook.sh"):
+        src = Path(subjekt_root) / "mobile" / "scripts" / imja
+        if src.is_file():
+            shutil.copy(src, ws / "mobile" / "scripts" / imja)
+            os.chmod(ws / "mobile" / "scripts" / imja, 0o700)
+    bin_dir = koren / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    _napishi(bin_dir / "sleep", SHIM_SLEEP)
+    _napishi(bin_dir / "adb", SHIM_ADB)
+    _napishi(bin_dir / "pgrep", SHIM_PGREP)
+    cg = koren / "cg"
+    cg.mkdir(exist_ok=True)
+    (cg / "memory.current").write_text("10951614464\n", encoding="utf-8")
+    (cg / "memory.events").write_text("low 0\nhigh 10077\nmax 0\noom 0\noom_kill 0\n",
+                                      encoding="utf-8")
+    (cg / "cpu.stat").write_text("nr_periods 852408\nnr_throttled 274509\n"
+                                 "throttled_usec 133176107812\n", encoding="utf-8")
+    (cg / "cpu.pressure").write_text("some avg10=2.31 delta=0.00 total 9050\n",
+                                     encoding="utf-8")
+    (cg / "memory.pressure").write_text("some avg10=1.02 delta=0.00 total 4110\n",
+                                        encoding="utf-8")
+    serial = "emulator-%s" % e["port"]
+    ns_dir = ws / e["ns"]
+    ns_dir.mkdir(parents=True, exist_ok=True)
+    if s_signaturoj:
+        (ns_dir / "maestro.log").write_text(
+            "CommandFailed: Command failed (host:transport:%s): device offline\n"
+            "DeviceServerDiedException: Device server died\n" % serial, encoding="utf-8")
+    else:
+        (ns_dir / "maestro.log").write_text(
+            "Assertion is false: productovyj otkaz bez obryva\n", encoding="utf-8")
+    (ws / ("emulator-ci%s.log" % e["id"])).write_text(
+        "emulator: boot completed\nemulator: warning cannnot unmap ptr\n", encoding="utf-8")
+    takty = koren / "takty.txt"
+    takty.write_text("", encoding="utf-8")
+    adb_log = koren / "adb-log.txt"
+    adb_log.write_text("", encoding="utf-8")
+    scen = {"sostojanija": [[0, "offline"]], "gost": {}, "logcat": "tishina\n"}
+    scen_fajl = koren / "adb-scenarij.json"
+    scen_fajl.write_text(json.dumps(scen), encoding="utf-8")
+    env = dict(os.environ)
+    env.update({
+        "PATH": str(bin_dir) + os.pathsep + "/usr/bin:/bin",
+        "HOME": str(koren / "home"), "ZAMER_TAKTY": str(takty),
+        "ZAMER_ADB_LOG": str(adb_log), "ZAMER_ADB_SCENARIJ": str(scen_fajl),
+        "ZAMER_SERIAL": serial, "ZAMER_CGROUP_DIR": str(cg),
+        "Z150_NONCE": "z150mir-%s" % uuid.uuid4().hex[:10],
+        "GITHUB_RUN_ID": "4242", "GITHUB_RUN_ATTEMPT": "1",
+        "GITHUB_JOB": e["job"], "RUNNER_NAME": "poddelka-runner-150",
+        "ZAMER_EKRAN": e["id"], "ZAMER_NS": e["ns"], "ZAMER_SERIAL": serial,
+    })
+    (koren / "home").mkdir(exist_ok=True)
+    return koren, ws, env
 
 
-def _ispolni_sbor(run, envs):
-    """Исполнить шаг сбора в отдельном cwd без скрипта продукта.
-
-    Ожидания upload остаются в памяти проверяющего. Вся группа процессов,
-    включая фоновые команды, останавливается и дожидается после прогона.
-    """
-    with tempfile.TemporaryDirectory(prefix="z150-z05-") as katalog:
-        mir = Path(katalog)
-        bin_dir = mir / "bin"
-        bin_dir.mkdir()
-        bash_shim = bin_dir / "bash"
-        bash_shim.write_text(SHIM_BASH_SBOR.format(python=sys.executable, script=SBOR_SKRIPT), encoding="utf-8")
-        bash_shim.chmod(0o755)
-        for imja in ("gh", "adb"):
-            p = bin_dir / imja
-            p.write_text(SHIM_PUSTOJ, encoding="utf-8")
-            p.chmod(0o755)
-        zhurnal = mir / "sbor.jsonl"
-        env = {k: str(v) for k, v in envs.items()}
-        env.update({"PATH": str(bin_dir) + ":/usr/bin:/bin", "HOME": str(mir),
-                    "Z150_ZHURNAL": str(zhurnal)})
-        try:
-            proc = sp.Popen(["/bin/bash", "--noprofile", "--norc", "-e", "-o",
-                             "pipefail", "-c", run], cwd=mir, env=env,
-                            stdout=sp.DEVNULL, stderr=sp.DEVNULL,
-                            start_new_session=True)
-        except OSError as e:
-            return [], "SBOR_RUN_OTKAZ: %s" % e
-        osh = ""
-        try:
-            try:
-                proc.wait(timeout=5)
-            except sp.TimeoutExpired:
-                osh = "SBOR_RUN_TIMEOUT: shag sbora ne zavershilsja za 5 sekund"
-        finally:
-            try:
-                os.killpg(proc.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            proc.wait()
-        try:
-            sobytija = [json.loads(line) for line in zhurnal.read_text(encoding="utf-8").splitlines()] if zhurnal.exists() else []
-        except (OSError, ValueError) as e:
-            return [], "SBOR_ZHURNAL_POVREZHDEN: %s" % e
-        if any(not isinstance(argv, list) or not all(isinstance(x, str) for x in argv)
-               for argv in sobytija):
-            return [], "SBOR_ZHURNAL_POVREZHDEN: argv ne stroki"
-        if osh:
-            return sobytija, osh
-        if proc.returncode != 0:
-            return sobytija, "SBOR_RUN_OTKAZ: rc=%s" % proc.returncode
-        return sobytija, ""
+def _telo_shaga_sbora(subjekt_root, e):
+    """Канонический run шага сбора работника из workflow субъекта (F2
+    разрешается в прямой argv пиннованного скрипта — привязка lane доказана
+    статической проверкой z05)."""
+    wf = wf_subiekta(subjekt_root)
+    if wf is None:
+        return None, "SUBJECT_ABSENT: net workflow"
+    job = (wf.get("jobs") or {}).get(e["job"]) or {}
+    for s in job.get("steps") or []:
+        if str(s.get("name") or "").startswith(Z_SHAG_SBOR):
+            telo = str(s.get("run") or "")
+            return telo.replace("npm run ci:zamer -- ",
+                                "bash mobile/scripts/zamer_obryva.sh "), None
+    return None, "SBOR_SHAG_NET: %s" % e["job"]
 
 
-def sud_z05(wf, rabotniki):
-    """z05: факт sbor и --out по КАЖДОМУ работнику, не разбор shell-текста."""
+def sud_z06(subjekt_root, edinicy, tmp_koren, karta_est=True):
+    """z06-sbor-rezultat: канонический collect КАЖДОГО обычного работника в
+    одноразовом мире судится по РЕАЛЬНЫМ файлам результата (itog/signatury),
+    не по событию запуска процесса или echo; честный негатив — продуктовый
+    красный без сигнатуры не публикует (S2 §1.3: положительный образец,
+    который действительно создаёт ожидаемый результат)."""
+    if not karta_est:
+        return False, "SUBJECT_ABSENT: net karty (zelen' bez subjekta nevozmozhna)"
     netu = []
-    nabludeno = 0
-    for r in rabotniki:
-        job = (wf.get("jobs") or {}).get(r["job"]) or {}
-        shagi = job.get("steps") or []
-        sbor = art = None
-        for s in shagi:
-            imja = str(s.get("name") or "")
-            if imja.startswith(Z_SHAG_SBOR) and sbor is None:
-                sbor = s
-            if imja.startswith(Z_SHAG_ART) and art is None:
-                art = s
-        if sbor is None or art is None:
-            netu.append("%s: net shagov sbor/artefakt (sm. z01)" % r["job"])
+    obychnye = [e for e in edinicy if not e["matrica"]]
+    if not obychnye:
+        return True, "detej-net (obychnye rabotniki karty otsutstvujut)"
+    provereno = 0
+    for e in obychnye:
+        e = dict(e)
+        port = port_rabotnika(((wf_subiekta(subjekt_root) or {}).get("jobs") or {})
+                              .get(e["job"], {}).get("steps") or [], subjekt_root)
+        if port is None:
+            netu.append("%s[%s]: PORT_RABOTNIKA_NET (net literala PORT=<n> v tele)" %
+                        (e["job"], e["id"]))
             continue
-        envs = {k: str(v) for k, v in (sbor.get("env") or {}).items()}
-        withs = {k: str(v) for k, v in (art.get("with") or {}).items()}
-        # Снять ожидаемые значения в память ДО запуска проверяемого run.
-        zhel_path = "mobile/zamer-out-%s" % r["id"]
-        path = withs.get("path")
-        imja_art = withs.get("name") or ""
-        sobytija, osh = _ispolni_sbor(str(sbor.get("run") or ""), envs)
-        nabludeno += len(sobytija)
-        if not sobytija:
-            netu.append("%s: SBOR_NE_VYZVAN: zhurnal sbor pust (%s)" %
-                        (r["job"], osh or "shag zavershilsja bez sbora"))
+        e["port"] = port
+        telo, osh = _telo_shaga_sbora(subjekt_root, e)
+        if telo is None:
+            netu.append("%s[%s]: %s" % (e["job"], e["id"], osh))
             continue
-        if osh:
-            netu.append("%s: %s" % (r["job"], osh))
-        if len(sobytija) != 1:
-            netu.append("%s: SBOR_VYZOV_NEODNOZNACHEN: vyzovov sbor=%d (kanon: odin)" %
-                        (r["job"], len(sobytija)))
+        with tempfile.TemporaryDirectory(prefix="z150-z06-", dir=str(tmp_koren)) as tmp:
+            koren, ws, env = _mir_sbora(subjekt_root, e, tmp, s_signaturoj=True)
+            rc, out, err = _zapusti_kanon(telo, ws, env, vremja=30)
+            out_dir = ws / ("mobile/zamer-out-%s" % e["id"])
+            itog = _chitaj(out_dir / "itog.txt") or ""
+            sign = _chitaj(out_dir / "signatury.txt") or ""
+            provereno += 1
+            if rc != 0:
+                netu.append("%s[%s]: SBOR_150_RC=%s (itog job ne dolzhen menjatsja)" %
+                            (e["job"], e["id"], rc))
+            elif "reshenie=publikuem" not in itog:
+                netu.append("%s[%s]: SBOR_150_RESULT_NET: itog bez reshenija=publikuem "
+                            "(sbor ne sozdal rezultat)" % (e["job"], e["id"]))
+            elif not sign.strip():
+                netu.append("%s[%s]: SBOR_150_RESULT_NET: signatury.txt pust" %
+                            (e["job"], e["id"]))
+    # честный негатив (один на батарею): продуктовый красный без сигнатуры
+    e = dict(obychnye[0])
+    port = port_rabotnika(((wf_subiekta(subjekt_root) or {}).get("jobs") or {})
+                          .get(e["job"], {}).get("steps") or [], subjekt_root)
+    if port is not None:
+        e["port"] = port
+        telo, osh = _telo_shaga_sbora(subjekt_root, e)
+        if telo is not None:
+            with tempfile.TemporaryDirectory(prefix="z150-z06n-", dir=str(tmp_koren)) as tmp:
+                koren, ws, env = _mir_sbora(subjekt_root, e, tmp, s_signaturoj=False)
+                rc, out, err = _zapusti_kanon(telo, ws, env, vremja=30)
+                out_dir = ws / ("mobile/zamer-out-%s" % e["id"])
+                if rc != 0 or out_dir.exists():
+                    netu.append("%s[%s]: LOZHNAJA_PUBLIKAJIJA: sbor bez signatury "
+                                "menjaet itog/publikuet" % (e["job"], e["id"]))
+    if obychnye and provereno == 0 and not netu:
+        netu.append("SBOR_150_RESULT_NET: ni odin sbor ne ispolnen")
+    return (not netu, "; ".join(netu[:5]))
+
+
+def sud_z07(subjekt_root, edinicy, tmp_koren, karta_est=True):
+    """z07-dochernij-hook: исполнительный оракул дочернего хука матричного
+    child: положительный образец — отказ Maestro с канонической сигнатурой
+    передаёт stdout/stderr в диагностический ns и собирает артефакт ДО
+    возврата хука (до повтора/finally раннера), rc хука = rc обёрнутой
+    команды; честный негатив — отказ без сигнатуры не публикует. КАЖДЫЙ
+    child судится отдельно, включая второй."""
+    if not karta_est:
+        return False, "SUBJECT_ABSENT: net karty (zelen' bez subjekta nevozmozhna)"
+    netu = []
+    deti = [e for e in edinicy if e["matrica"]]
+    if not deti:
+        return True, "detej-net (matrichnye zapisi karty otsutstvujut)"
+    for e in deti:
+        port = e.get("avd_port")
+        if port is None:
+            netu.append("%s[%s]: KANON_150_PARAM: zapis karty bez avd_port" %
+                        (e["job"], e["id"]))
             continue
-        argv = sobytija[0]
-        out_i = [i for i, arg in enumerate(argv) if arg == "--out"]
-        if len(out_i) != 1 or out_i[0] + 1 >= len(argv):
-            netu.append("%s: SBOR_BEZ_ODNOZNACHNOGO_OUT: --out vstrechen %d raz" %
-                        (r["job"], len(out_i)))
+        huk = Path(subjekt_root) / "mobile" / "scripts" / "zamer_child_hook.sh"
+        if not huk.is_file():
+            netu.append("%s[%s]: ZAMER_HOOK_NET" % (e["job"], e["id"]))
             continue
-        fakt_out = argv[out_i[0] + 1]
-        if path != zhel_path:
-            netu.append("%s: SBOR_OUT_NE_SOVPADAET: with.path %r != vyhodu %r" %
-                        (r["job"], path, zhel_path))
-        if fakt_out != path:
-            netu.append("%s: SBOR_OUT_NE_SOVPADAET: ispolnennyj --out %r != with.path %r "
-                        "(upload gruzit pustotu)" % (r["job"], fakt_out, path))
-        if not imja_art.startswith("zamer-%s-" % r["id"]):
-            netu.append("%s: IMJA_ARTEFAKTA_NE_EKRAN: %r ne zamer-%s-…" %
-                        (r["job"], imja_art[:40], r["id"]))
-    if rabotniki and nabludeno == 0:
-        netu.insert(0, "NABLJUDENIE_PUSTO: ni odin rabotnik ne vyzval sbor")
-    return (not netu, "; ".join(netu))
+        serial = "emulator-%s" % port
+        with tempfile.TemporaryDirectory(prefix="z150-z07-", dir=str(tmp_koren)) as tmp:
+            koren = Path(tmp)
+            ws = koren / "ws"
+            (ws / "mobile" / "scripts").mkdir(parents=True, exist_ok=True)
+            for imja in ("zamer_obryva.sh", "zamer_child_hook.sh"):
+                src = Path(subjekt_root) / "mobile" / "scripts" / imja
+                if src.is_file():
+                    shutil.copy(src, ws / "mobile" / "scripts" / imja)
+                    os.chmod(ws / "mobile" / "scripts" / imja, 0o700)
+            bin_dir = koren / "bin"
+            bin_dir.mkdir(exist_ok=True)
+            _napishi(bin_dir / "maestro", SHIM_MAESTRO_SIGN)
+            _napishi(bin_dir / "sleep", SHIM_SLEEP)
+            _napishi(bin_dir / "adb", SHIM_ADB)
+            _napishi(bin_dir / "pgrep", SHIM_PGREP)
+            takty = koren / "takty.txt"
+            takty.write_text("", encoding="utf-8")
+            adb_log = koren / "adb-log.txt"
+            adb_log.write_text("", encoding="utf-8")
+            cg = koren / "cg"
+            cg.mkdir(exist_ok=True)
+            (cg / "memory.current").write_text("10951614464\n", encoding="utf-8")
+            (cg / "memory.events").write_text(
+                "low 0\nhigh 10077\nmax 0\noom 0\noom_kill 0\n", encoding="utf-8")
+            (cg / "cpu.stat").write_text(
+                "nr_periods 852408\nnr_throttled 274509\n"
+                "throttled_usec 133176107812\n", encoding="utf-8")
+            (cg / "cpu.pressure").write_text(
+                "some avg10=2.31 delta=0.00 total 9050\n", encoding="utf-8")
+            (cg / "memory.pressure").write_text(
+                "some avg10=1.02 delta=0.00 total 4110\n", encoding="utf-8")
+            env = dict(os.environ)
+            env.update({
+                "PATH": str(bin_dir) + os.pathsep + "/usr/bin:/bin",
+                "HOME": str(koren / "home"), "ZAMER_TAKTY": str(takty),
+                "ZAMER_ADB_LOG": str(adb_log),
+                "ZAMER_ADB_SCENARIJ": json.dumps({"sostojanija": [[0, "offline"]]}),
+                "ZAMER_SERIAL": serial, "ZAMER_CGROUP_DIR": str(cg),
+                "Z150_NONCE": "z150mir-%s" % uuid.uuid4().hex[:10],
+                "GITHUB_RUN_ID": "4242", "GITHUB_RUN_ATTEMPT": "1",
+                "GITHUB_JOB": e["job"], "RUNNER_NAME": "poddelka-runner-150",
+            })
+            (koren / "home").mkdir(exist_ok=True)
+            kmd = ("bash mobile/scripts/zamer_child_hook.sh maestro "
+                   "--ekran %s --ns %s --serial %s --spool .zamer-%s "
+                   "--out mobile/zamer-out-%s -- "
+                   "maestro --device %s test mobile/.maestro/proba.yaml"
+                   % (e["id"], e["ns"], serial, e["id"], e["id"], serial))
+            rc, out, err = _zapusti_kanon(kmd, ws, env, vremja=30)
+            ns_log = _chitaj(ws / e["ns"] / "maestro.log") or ""
+            itog = _chitaj(ws / ("mobile/zamer-out-%s" % e["id"]) / "itog.txt") or ""
+            if rc != 1:
+                netu.append("%s[%s]: HUK_ITOG_MENJAETSA: rc=%s != rc maestro (1)" %
+                            (e["job"], e["id"], rc))
+            if "device offline" not in ns_log:
+                netu.append("%s[%s]: HUK_BEZ_NS: stdout/stderr maestro ne v diagnost. ns" %
+                            (e["job"], e["id"]))
+            if "reshenie=publikuem" not in itog:
+                netu.append("%s[%s]: SBOR_150_RESULT_NET: sbor do povtora/finally ne "
+                            "sozdal rezultat" % (e["job"], e["id"]))
+    # честный негатив (первый child): отказ без сигнатуры не публикует
+    e = deti[0]
+    port = e.get("avd_port")
+    huk = Path(subjekt_root) / "mobile" / "scripts" / "zamer_child_hook.sh"
+    if port is not None and huk.is_file():
+        serial = "emulator-%s" % port
+        with tempfile.TemporaryDirectory(prefix="z150-z07n-", dir=str(tmp_koren)) as tmp:
+            koren = Path(tmp)
+            ws = koren / "ws"
+            (ws / "mobile" / "scripts").mkdir(parents=True, exist_ok=True)
+            for imja in ("zamer_obryva.sh", "zamer_child_hook.sh"):
+                src = Path(subjekt_root) / "mobile" / "scripts" / imja
+                if src.is_file():
+                    shutil.copy(src, ws / "mobile" / "scripts" / imja)
+                    os.chmod(ws / "mobile" / "scripts" / imja, 0o700)
+            bin_dir = koren / "bin"
+            bin_dir.mkdir(exist_ok=True)
+            _napishi(bin_dir / "maestro", SHIM_MAESTRO_BEZ_SIGN)
+            _napishi(bin_dir / "sleep", SHIM_SLEEP)
+            _napishi(bin_dir / "adb", SHIM_ADB)
+            _napishi(bin_dir / "pgrep", SHIM_PGREP)
+            takty = koren / "takty.txt"
+            takty.write_text("", encoding="utf-8")
+            adb_log = koren / "adb-log.txt"
+            adb_log.write_text("", encoding="utf-8")
+            cg = koren / "cg"
+            cg.mkdir(exist_ok=True)
+            (cg / "memory.current").write_text("10951614464\n", encoding="utf-8")
+            (cg / "memory.events").write_text(
+                "low 0\nhigh 10077\nmax 0\noom 0\noom_kill 0\n", encoding="utf-8")
+            (cg / "cpu.stat").write_text(
+                "nr_periods 852408\nnr_throttled 274509\n"
+                "throttled_usec 133176107812\n", encoding="utf-8")
+            (cg / "cpu.pressure").write_text(
+                "some avg10=2.31 delta=0.00 total 9050\n", encoding="utf-8")
+            (cg / "memory.pressure").write_text(
+                "some avg10=1.02 delta=0.00 total 4110\n", encoding="utf-8")
+            env = dict(os.environ)
+            env.update({
+                "PATH": str(bin_dir) + os.pathsep + "/usr/bin:/bin",
+                "HOME": str(koren / "home"), "ZAMER_TAKTY": str(takty),
+                "ZAMER_ADB_LOG": str(adb_log),
+                "ZAMER_ADB_SCENARIJ": json.dumps({"sostojanija": [[0, "device"]]}),
+                "ZAMER_SERIAL": serial, "ZAMER_CGROUP_DIR": str(cg),
+                "Z150_NONCE": "z150mir-%s" % uuid.uuid4().hex[:10],
+                "GITHUB_RUN_ID": "4242", "GITHUB_RUN_ATTEMPT": "1",
+                "GITHUB_JOB": e["job"], "RUNNER_NAME": "poddelka-runner-150",
+            })
+            (koren / "home").mkdir(exist_ok=True)
+            kmd = ("bash mobile/scripts/zamer_child_hook.sh maestro "
+                   "--ekran %s --ns %s --serial %s --spool .zamer-%s "
+                   "--out mobile/zamer-out-%s -- "
+                   "maestro --device %s test mobile/.maestro/proba.yaml"
+                   % (e["id"], e["ns"], serial, e["id"], e["id"], serial))
+            rc, out, err = _zapusti_kanon(kmd, ws, env, vremja=30)
+            out_dir = ws / ("mobile/zamer-out-%s" % e["id"])
+            if rc != 1 or out_dir.exists():
+                netu.append("%s[%s]: HUK_LOZHNAJA_PUBLIKAJIJA: otkaz bez signatury "
+                            "publikuet/menjaet itog" % (e["job"], e["id"]))
+    return (not netu, "; ".join(netu[:5]))
 
 
 # ── поведенческие клетки (b*) по результатам replay ────────────────────────
@@ -991,9 +1604,8 @@ def sud_b03(rez_produkt):
 
 
 def sud_b04(rez):
-    """b04-dannye-do-ostanovki: PID живого эмулятора записан РАНЬДЕ маркера
+    """b04-dannye-do-ostanovki: PID живого эмулятора записан РАНЬШЕ маркера
     обрыва; после смерти PID исчезает из таймлайна; завершение эмулятора
-    (exit/статус в достижимой части — решение владельца 26.10 п.2)
     зафиксировано сэмплером ДО сбора: смерть PID + ом-дельта cgroup +
     причина из журнала + честный маркер недоступности числового кода."""
     if rez.get("oshibka"):
@@ -1237,24 +1849,45 @@ def sud_b12(noncy):
 
 # ── главная ────────────────────────────────────────────────────────────────
 KLETKI = ["z01-obertka-polnota", "z02-obertka-parametry", "z03-obertka-porjadok-maskirovka",
-          "z04-kanon-skripta", "z05-put-zagruzki",
+          "z04-kanon-skripta", "z05-kanon-obertki", "z06-sbor-rezultat",
+          "z07-dochernij-hook",
           "b01-krasnyj-s-signaturoj", "b02-zelenyj-tishina", "b03-produktovyj-krasnyj",
           "b04-dannye-do-ostanovki", "b05-cgroup-poly", "b06-adb-server-i-device",
           "b07-sekrety-redakcija", "b08-obem-ogranichen", "b09-sampler-legkij",
           "b10-sampler-ostanovlen", "b11-vosstanovlennyj-zelenyj",
           "b12-mir-poddelki-umerly"]
 
+# исполнительный мир, необходимый каждой b-клетке (лениво, для --stabs)
+MIR_KLETKI = {
+    "b01-krasnyj-s-signaturoj": ("obryv",),
+    "b02-zelenyj-tishina": ("zelenyj",),
+    "b03-produktovyj-krasnyj": ("produkt",),
+    "b04-dannye-do-ostanovki": ("obryv",),
+    "b05-cgroup-poly": ("obryv",),
+    "b06-adb-server-i-device": ("obryv",),
+    "b07-sekrety-redakcija": ("obryv",),
+    "b08-obem-ogranichen": ("obryv_obem",),
+    "b09-sampler-legkij": ("obryv",),
+    "b10-sampler-ostanovlen": ("obryv",),
+    "b11-vosstanovlennyj-zelenyj": ("vosstanovlennyj",),
+    "b12-mir-poddelki-umerly": ("obryv", "zelenyj", "produkt", "vosstanovlennyj", "obryv_obem"),
+}
 
-def sud_subiekta(subjekt_root, src, tmp_koren, porjadok=None):
-    """(kletki_krasnye dict, itog_rc). Суд субъекта по всем клеткам."""
+
+def sud_subiekta(subjekt_root, src, tmp_koren, porjadok=None, tolko=None):
+    """(kletki_krasnye dict, itog_rc). Суд субъекта по всем клеткам; tolko —
+    множество клеток для целевого прогона стаба (исполнительные миры —
+    лениво по потребности клетки; b12 требует все миры)."""
     krasnye = {}
+    karta_est = True
     wf = wf_subiekta(subjekt_root)
     try:
-        rabotniki = rabotniki_iz_karty(karta_subiekta(subjekt_root))
+        edinicy = edinicy_pokrytija(subjekt_root, wf or {})
     except KartaNet as e:
-        rabotniki = []
+        karta_est = False
+        edinicy = []
         krasnye["z01-obertka-polnota"] = "SUBJECT_ABSENT: %s" % e
-    if not rabotniki and "z01-obertka-polnota" not in krasnye:
+    if not edinicy and "z01-obertka-polnota" not in krasnye:
         krasnye["z01-obertka-polnota"] = "KARTA_PUSTA: нет работников"
 
     def zap(modul_imja, fn, *a, **kw):
@@ -1267,66 +1900,92 @@ def sud_subiekta(subjekt_root, src, tmp_koren, porjadok=None):
         if not ok:
             krasnye[modul_imja] = prichina or "krasno"
 
+    zachel = set(tolko) if tolko else None
+
+    def nuzhna(kletka):
+        return zachel is None or kletka in zachel
+
     poredok = list(porjadok or KLETKI)
+    shablony = None
+    if nuzhna("z05-kanon-obertki"):
+        shablony = kanony_obertki(MODEL)
     for imja in poredok:
+        if not nuzhna(imja):
+            continue
         if imja == "z01-obertka-polnota":
-            zap(imja, sud_z01, wf, rabotniki) if wf else krasnye.setdefault(
+            zap(imja, sud_z01, wf, edinicy) if wf else krasnye.setdefault(
                 imja, "SUBJECT_ABSENT: net .github/workflows/mobile.yml")
         elif imja == "z02-obertka-parametry":
-            zap(imja, sud_z02, wf, rabotniki, subjekt_root) if wf else krasnye.setdefault(
+            zap(imja, sud_z02, wf, edinicy, subjekt_root) if wf else krasnye.setdefault(
                 imja, "SUBJECT_ABSENT: net workflow")
         elif imja == "z03-obertka-porjadok-maskirovka":
-            zap(imja, sud_z03, wf, rabotniki) if wf else krasnye.setdefault(
+            zap(imja, sud_z03, wf, edinicy) if wf else krasnye.setdefault(
                 imja, "SUBJECT_ABSENT: net workflow")
         elif imja == "z04-kanon-skripta":
-            zap(imja, sud_z04, subjekt_root, src)
-        elif imja == "z05-put-zagruzki":
-            zap(imja, sud_z05, wf, rabotniki) if wf else krasnye.setdefault(
+            zap(imja, sud_z04, subjekt_root, src, edinicy)
+        elif imja == "z05-kanon-obertki":
+            zap(imja, sud_z05, subjekt_root, shablony, edinicy, wf) if wf else krasnye.setdefault(
                 imja, "SUBJECT_ABSENT: net workflow")
+        elif imja == "z06-sbor-rezultat":
+            zap(imja, sud_z06, subjekt_root, edinicy, tmp_koren, karta_est)
+        elif imja == "z07-dochernij-hook":
+            zap(imja, sud_z07, subjekt_root, edinicy, tmp_koren, karta_est)
     # поведенческие: replay первого работника карты; каталоги живут ДО КОНЦА
     # суда (правило: проверки читают файлы мира ПОСЛЕ replay — раньше контекст
     # удалял ws между replay и клетками, и все файловые клетки слепли)
     rez = {}
     vremennye = []
-    if rabotniki and wf:
-        worker0 = rabotniki[0]
+    obychnye = [e for e in edinicy if not e["matrica"]]
+    nuzhny_miry = set()
+    for kletka, miry in MIR_KLETKI.items():
+        if nuzhna(kletka):
+            nuzhny_miry.update(miry)
+    if obychnye and wf and nuzhny_miry:
+        worker0 = obychnye[0]
+
         def _mir(imja):
             d = Path(tempfile.mkdtemp(prefix="z150-%s-" % imja, dir=str(tmp_koren)))
             vremennye.append(d)
             return d
-        tmp = _mir("obryv")
-        rez["obryv"] = replej(subjekt_root, worker0, "obryv", tmp)
-        tmp = _mir("zelenyj")
-        rez["zelenyj"] = replej(subjekt_root, worker0, "zelenyj", tmp)
-        tmp = _mir("produkt")
-        rez["produkt"] = replej(subjekt_root, worker0, "produkt", tmp)
-        tmp = _mir("vosstanovlennyj")
-        rez["vosstanovlennyj"] = replej(subjekt_root, worker0, "vosstanovlennyj", tmp)
-        tmp = _mir("obem")
-        # объём: огромный logcat-файл сценария + длинный emulator-лог
-        (tmp / "ws").mkdir(parents=True, exist_ok=True)
-        bolshoj = tmp / "ws" / "bolshoj-logcat.txt"
-        bolshoj.write_text("I/x: stroka\n" * 120000, encoding="utf-8")
-        rez["obryv_obem"] = replej(
-            subjekt_root, worker0, "obryv", tmp,
-            dop_scenarij={"logcat_fajl": str(bolshoj)},
-            emu_dopol_strok=300, emu_dopol_dlina=12288)
-    else:
+
+        if "obryv" in nuzhny_miry:
+            tmp = _mir("obryv")
+            rez["obryv"] = replej(subjekt_root, worker0, "obryv", tmp)
+        if "zelenyj" in nuzhny_miry:
+            tmp = _mir("zelenyj")
+            rez["zelenyj"] = replej(subjekt_root, worker0, "zelenyj", tmp)
+        if "produkt" in nuzhny_miry:
+            tmp = _mir("produkt")
+            rez["produkt"] = replej(subjekt_root, worker0, "produkt", tmp)
+        if "vosstanovlennyj" in nuzhny_miry:
+            tmp = _mir("vosstanovlennyj")
+            rez["vosstanovlennyj"] = replej(subjekt_root, worker0, "vosstanovlennyj", tmp)
+        if "obryv_obem" in nuzhny_miry:
+            tmp = _mir("obem")
+            # объём: огромный logcat-файл сценария + длинный emulator-лог
+            (tmp / "ws").mkdir(parents=True, exist_ok=True)
+            bolshoj = tmp / "ws" / "bolshoj-logcat.txt"
+            bolshoj.write_text("I/x: stroka\n" * 120000, encoding="utf-8")
+            rez["obryv_obem"] = replej(
+                subjekt_root, worker0, "obryv", tmp,
+                dop_scenarij={"logcat_fajl": str(bolshoj)},
+                emu_dopol_strok=300, emu_dopol_dlina=12288)
+    elif not obychnye or not wf:
         for imja in KLETKI:
-            if imja.startswith("b"):
+            if imja.startswith("b") and nuzhna(imja):
                 krasnye.setdefault(imja, "SUBJECT_ABSENT: нет субъекта для replay")
     # нонсы всех миров — гигиена b12 (после всех replay живых подделок нет)
     rez["_noncy"] = [r["nonce"] for r in rez.values()
                      if isinstance(r, dict) and r.get("nonce")]
 
     try:
-        return _sud_povedencheskie(krasnye, rez, subjekt_root, poredok, zap)
+        return _sud_povedencheskie(krasnye, rez, subjekt_root, poredok, zap, nuzhna)
     finally:
         for d in vremennye:
             shutil.rmtree(d, ignore_errors=True)
 
 
-def _sud_povedencheskie(krasnye, rez, subjekt_root, poredok, zap):
+def _sud_povedencheskie(krasnye, rez, subjekt_root, poredok, zap, nuzhna=lambda _k: True):
     pary = [("b01-krasnyj-s-signaturoj", sud_b01, "obryv"),
             ("b02-zelenyj-tishina", sud_b02, "zelenyj"),
             ("b03-produktovyj-krasnyj", sud_b03, "produkt"),
@@ -1341,7 +2000,7 @@ def _sud_povedencheskie(krasnye, rez, subjekt_root, poredok, zap):
             ("b12-mir-poddelki-umerly", sud_b12, "_noncy")]
     for imja in poredok:
         for kletka, fn, kluch in pary:
-            if imja == kletka:
+            if imja == kletka and nuzhna(kletka):
                 r = rez.get(kluch)
                 if r is None:
                     krasnye.setdefault(kletka, "REPLAY_NET: %s" % kluch)
@@ -1429,7 +2088,10 @@ def glavnaja():
                     except Exception as e:
                         print("STAB %s SL OMAL: %r" % (otn, e), file=sys.stderr)
                         return 1
-                    kr = sud_subiekta(mir, src, vrem_koren, porjadok)
+                    # целевой прогон: судится ТОЛЬКО привязанная клетка
+                    # (исполнительные миры — по её потребности); исключительность
+                    # клетки не заявляется — ловец OTHER-клеток не требуется
+                    kr = sud_subiekta(mir, src, vrem_koren, porjadok, tolko={kletka})
                 if kletka in kr:
                     print("STAB %s → %s KRASEN (%s)" % (Path(otn).name, kletka, kr[kletka][:60]))
                 else:
