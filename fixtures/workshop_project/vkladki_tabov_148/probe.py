@@ -789,6 +789,38 @@ def mut_pr_tokeny_modul(repo, src):
         'height: 49,', 'height: 71,'), encoding='utf-8')
 
 
+def mut_pr_safe_bez_provaidera(repo, src):
+    # v+1 (слово владельца 2026-11-11, Б-3): SafeAreaProvider снят с корня
+    # приложения — контекст инсетов в рантайме пуст, лейсте стоит в
+    # жестовой полосе (форма головы PR #147 9955af5) — красит гейт
+    # провайдера (SAFE_AREA_BEZ_PROVAJDERA)
+    put = repo / 'mobile/src/app/_layout.tsx'
+    tekst = put.read_text(encoding='utf-8')
+    tekst = tekst.replace(
+        "import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';\n",
+        '')
+    tekst = tekst.replace(
+        '    <SafeAreaProvider initialMetrics={initialWindowMetrics}>\n', '')
+    tekst = tekst.replace('    </SafeAreaProvider>\n', '')
+    put.write_text(tekst, encoding='utf-8')
+
+
+def mut_pr_safe_insety_ne_chitajutsja(repo, src):
+    # v+1 (слово владельца 2026-11-11, Б-3): чтение инсета вырождено в
+    # нули (как у головы PR #147 9955af5: лейсте прижата к краю при
+    # ненулевом инсете устройства) — красит гейт потребления инсета
+    # (SAFE_AREA_INSETY_NE_CHITAJUTSJA)
+    put = repo / 'mobile/src/bootstrap/tab-shell.tsx'
+    tekst = put.read_text(encoding='utf-8')
+    tekst = tekst.replace(
+        "import { SafeAreaInsetsContext, SafeAreaView } from 'react-native-safe-area-context';",
+        "import { SafeAreaView } from 'react-native-safe-area-context';")
+    tekst = tekst.replace(
+        '  return useContext(SafeAreaInsetsContext) ?? BEZ_INSETOV;',
+        '  return BEZ_INSETOV;')
+    put.write_text(tekst, encoding='utf-8')
+
+
 def mut_pr_live_predposylka(repo, src):
     # package.json заявляет jest-среду, установки нет — именованная
     # предпосылка rc 2, НЕ skip->pass (блок 1, прецедент 145)
@@ -826,6 +858,8 @@ MUTACII_PRODUKTA = {
     'pr-live-kontrol-krasen': mut_pr_live_kontrol_krasen,
     'pr-live-mutant-zhiv': mut_pr_live_mutant_zhiv,
     'pr-tokeny-modul': mut_pr_tokeny_modul,
+    'pr-safe-bez-provaidera': mut_pr_safe_bez_provaidera,
+    'pr-safe-insety-ne-chitajutsja': mut_pr_safe_insety_ne_chitajutsja,
 }
 
 
