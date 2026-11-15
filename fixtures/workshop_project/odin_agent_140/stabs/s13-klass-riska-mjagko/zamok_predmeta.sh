@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # ЗАМОК ПРЕДМЕТА (контракт 140 «odin-agent-na-predmet») — эталон единой двери:
 # суд спавна «один рабочий агент на предмет», атомарный замок (repoId, subjectId)
-# на batch целиком, единый учёт начатых предметов (лимиты 1/3/2, START до первой
-# раздачи, слот до done/ПАУЗЫ). Реализация харнесса (scripts/zamok_predmeta.sh)
-# несёт ту же семантику; батарея fixtures/workshop_project/odin_agent_140/
-# судит ЭТУ модель, стабы — её мутации по маркерам [Dn].
+# на batch целиком, единый учёт начатых предметов (лимиты harness 3 / mob 3 /
+# back 3, START до первой раздачи, слот до done/ПАУЗЫ). Реализация харнесса
+# (scripts/zamok_predmeta.sh) несёт ту же семантику; батарея
+# fixtures/workshop_project/odin_agent_140/ судит ЭТУ модель, стабы — её
+# мутации по маркерам [Dn]. v+1 (слово владельца 2026-11-12, Sol S2 §2.1):
+# сдача держателя — событие рантайма session_exit kind=normal (структурные
+# поля ПОСЛЕДНЕЙ строки журнала) наравне с yield-литералом; класс риска
+# судимого кандидата — из ДЕРЕВА его OBJECT, а не из $REPO (main).
 #
 # ВЫЗОВ (грамматика argv замкнута, ровно три формы):
 #   zamok_predmeta.sh --sudit     --sostojanie D --zhurnaly D --repo R <event.json>
@@ -14,18 +18,23 @@
 # ИСТОЧНИКИ СОБЫТИЙ (ось «источник»):
 #   --sostojanie D — замки D/zamki/<repoId>/<NNN>/{mutex,zanyat}/holder.json и
 #                    учёт D/uchet.jsonl (append-only, построчный JSON);
-#   --zhurnaly  D  — журналы сессий станции …/<holder>.jsonl; сдача (yield) —
+#   --zhurnaly  D  — журналы сессий станции …/<holder>.jsonl; сдача —
 #                    литеральная строка `"toolName":"yield"` в журнале holder
 #                    (факт отклика инструмента yield; orch-tablo читает тот же
-#                    факт разбором JSON — здесь байтовый якорь);
+#                    факт) ИЛИ [D2b] событие рантайма session_exit kind=normal
+#                    (omp 18.18.8 завершает субагентов без yield);
 #   --repo      R  — реестр: registry/pauzy.tsv (ПАУЗА владельца), теги
-#                    done/contracts/<NNN>/* (слот закрыт), contracts/<NNN>-*.md
-#                    (строка с декларацией «КЛАСС РИСКА: рисковый|обычный …»).
+#                    done/contracts/<NNN>/* (слот закрыт), registry/
+#                    risk-legacy.tsv (класс старых frozen по blob, [D30]),
+#                    теги frozen/contracts/<NNN>/<v> (подтверждение старого
+#                    frozen для дефолта «нет записи — рисковый», [D37]);
+#                    contracts/<NNN>-*.md суда класса НЕ несут — [D31] класс
+#                    судимого кандидата читается из ДЕРЕВА его OBJECT.
 #
 # ЗАМКНУТЫЕ АЛФАВИТЫ (норма 041; байты-разделители исключены из классов значений):
 #   SUBJECT — строка задания `^SUBJECT=[0-9]{3}$`, ровно одна (/m, якорь ^…$);
 #   OBJECT  — строка задания `^OBJECT=[0-9a-f]{40}$`, ровно одна (грамматика 104
-#             Решение 5 — та же, что models_actual.sh --bind);
+#             Решение 5 — та же, что models_actual.sh --tsv --bind);
 #   PIN     — пара строк `^WORKTREE=/[^TAB]+$` и `^BRANCH=wip/[0-9]{3}/[^TAB]+$`
 #             (построчная форма грамматики 066; NNN ветки == SUBJECT; байт TAB
 #             исключён из класса значения ЛИТЕРАЛЬНО — ERE-скобки не знают \t);
@@ -110,6 +119,10 @@ git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 || skip "не репозит�
 LEDGER="$SOST/uchet.jsonl"
 [ -r "$LEDGER" ] || : >> "$LEDGER" || skip "учёт не создать: $LEDGER"
 
+# списки мьютексов, занятых текущим решением (set -u; заполняет sudit)
+SUBJS=''
+GRUPPY_ZANYATY=''
+
 # [D17 repo-id] repoId — пространство имён замка: репозиторий РЕЕСТРА предмета
 # (--repo), литеральный basename origin; общий у рабочих и судей предмета.
 REPO_URL="$(git -C "$REPO" remote get-url origin 2>/dev/null)" || REPO_URL=''
@@ -128,6 +141,19 @@ stare_holder() {  # <holder> → yield|bezhit|broshen|net_fajla
   jf="$(find "$ZHUR" -type f -name "${h}.jsonl" -print | sed -n '1p')"
   if [ -z "$jf" ]; then printf 'net_fajla'; return 0; fi
   if grep -Fq '"toolName":"yield"' "$jf"; then printf 'yield'; return 0; fi
+  # [D2b session-exit] omp 18.18.8: субагент завершает работу БЕЗ инструмента
+  # yield; рантайм пишет ПОСЛЕДНЕЙ строкой журнала событие завершения сессии
+  # {"type":"custom","customType":"session_exit","data":{…,"kind":"normal"…}}
+  # (замер 2026-11-12 по журналам станции: 2516 normal / 231 signal, все
+  # записи — type=custom). Нормальное завершение = сдача (слово владельца
+  # 2026-11-12). Маркер — ТОЛЬКО структурные поля события рантайма (jq select
+  # ПОСЛЕДНЕЙ строки: .type=="custom" ∧ .customType=="session_exit" ∧
+  # .data.kind=="normal"): литералы в теле ЧУЖОЙ записи (текст сообщения,
+  # args инструмента, вложенные данные события иного типа) сдачей НЕ являются;
+  # kind≠normal (аварийный/сигнальный выход) — не сдача.
+  if tail -n 1 "$jf" | jq -e 'select(.type == "custom" and .customType == "session_exit" and .data.kind == "normal")' >/dev/null 2>&1; then
+    printf 'yield'; return 0
+  fi
   if [ -n "$(find "$jf" -mmin +"$BROSHEN_TTL_MIN" -print)" ]; then
     printf 'broshen'
   else
@@ -138,6 +164,9 @@ stare_holder() {  # <holder> → yield|bezhit|broshen|net_fajla
 # [D15 pauza] ПАУЗА владельца — только строка registry/pauzy.tsv.
 na_pauze() {  # <NNN>
   local f="$REPO/registry/pauzy.tsv" l
+  # Проектная раскладка (04.11, та же стенка, что каталог контрактов в #500): реестр
+  # проекта лежит в .harness/registry/ — без этого паузу предмета проекта не записать.
+  [ -r "$f" ] || f="$REPO/.harness/registry/pauzy.tsv"
   [ -r "$f" ] || return 1
   while IFS= read -r l; do
     case "$l" in '#'*|'') continue ;; esac
@@ -145,38 +174,95 @@ na_pauze() {  # <NNN>
   done < "$f"
   return 1
 }
+# [D37 legacy-frozen] подтверждение «старого frozen» — ВЫСШИЙ существующий тег
+# заморозки frozen/contracts/<NNN>/<v> в $REPO (аннотированные теги
+# freeze_contract.sh — immutable git-объект, НЕ файл рабочего каталога);
+# «старость» датами/mtime не изобретается: граница — фактическое существование
+# тега заморозки и равенство blob. Нет тега/версии/файла по пути в его дереве —
+# пусто: нет подтверждения — нет дефолта.
+frozen_blob() {  # <NNN> <каталог> <путь> → blob файла в высшем frozen | пусто
+  local n="$1" kat="$2" put="$3" v
+  v="$(git -C "$REPO" tag -l "frozen/contracts/$n/*" \
+       | sed -n "s|^frozen/contracts/$n/\([0-9][0-9]*\)$|\1|p" \
+       | sort -n | tail -n 1)"
+  [ -n "$v" ] || return 0
+  git -C "$REPO" rev-parse --verify "frozen/contracts/$n/$v:$kat/$put" \
+    2>/dev/null || return 0
+}
+
 # [D18 done-uchet] done-тег закрывает слот предмета (локальные теги чекаута).
 predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
-# [D13 klass-riska] строка «КЛАСС РИСКА:» в contracts/<NNN>-*.md обязательна:
-# нет файла ИЛИ нет строки — класс не определён (fail-closed, слово владельца 24.10).
+# [D13 klass-riska] строка «КЛАСС РИСКА:» обязательна: нет декларации — класс
+# не определён (fail-closed, слово владельца 24.10). [D31 klass-iz-kandidata]
+# (слово владельца 2026-11-12): ИСТОЧНИК класса судимого кандидата — ДЕРЕВО
+# его OBJECT (git-объекты репозитория автора), НЕ $REPO/contracts (main) и НЕ
+# грязный рабочий каталог автора; боль 991 v3: «обычный» в кандидате против
+# «рисковый» в main молча отказывала спавн критика KLASS_RISKA_NET.
+# Каталог контрактов кандидата: contracts/, у сессии проекта — .harness/
+# contracts/ (измерено 02.11: адверсарий по бэкенд 148 не спавнился); при
+# обоих приоритет у contracts/. Записи не-blob (симлинк/каталог с именем
+# <NNN>-*.md) — нечитаемая запись канона (как D36) → neodnoznachno.
 # [D29 odnoznachnyj-istochnik-riska] класс читается по ВСЕМ файлам предмета:
-# ноль файлов, нет строки в любом из них, значение вне алфавита (обычный|рисковый)
-# или РАЗНЫЕ значения — класс не определён; «первый результат find» не каноничен
-# (вердикт адверсария 140 вызов 1/2: один «рисковый» файл среди шести молча
-# определял класс «обычный» — ревьюер шёл без адверсария). Перечень файлов
-# сортируется LC_ALL=C — сообщение отказа детерминировано. Декларация —
-# в любой позиции строки, хвост-основание допустим (норма roles/architect.md),
-# вторая декларация в файле — неоднозначность.
-klass_riska() {  # <NNN> → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
-  local spisok f val znach='' ploh=''
-  spisok="$(find "$REPO/contracts" -maxdepth 1 -name "$1-*.md" -print | LC_ALL=C sort)"
-  if [ -z "$spisok" ]; then printf 'obychnyj'; return 0; fi
-  while IFS= read -r f; do
-    [ -n "$f" ] || continue
-    val="$(grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' "$f" 2>/dev/null \
+# ноль файлов, нет строки в любом из них, значение вне алфавита (обычный|
+# рисковый) или РАЗНЫЕ значения — класс не определён; «первый результат»
+# не каноничен (вердикт адверсария 140 вызов 1/2: один «рисковый» файл среди
+# шести молча определял класс «обычный» — ревьюер шёл без адверсария).
+# Перечень сортируется LC_ALL=C — сообщение отказа детерминировано.
+# Декларация — в любой позиции строки, хвост-основание допустим (норма
+# roles/architect.md), вторая декларация в файле — неоднозначность.
+klass_riska() {  # <NNN> <worktree> <OBJECT> → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
+  local n="$1" wt="$2" obj="$3" kat spisok zap tip_zap blob put val znach='' ploh=''
+  if [ "$(git -C "$wt" cat-file -t "$obj:contracts" 2>/dev/null)" = tree ]; then kat='contracts'
+  elif [ "$(git -C "$wt" cat-file -t "$obj:.harness/contracts" 2>/dev/null)" = tree ]; then kat='.harness/contracts'
+  else printf 'net_stroki:ни contracts/, ни .harness/contracts/ в дереве %s нет' "$obj"; return 0; fi
+  spisok="$(git -C "$wt" ls-tree "$obj:$kat" 2>/dev/null \
+    | awk -F'\t' -v n="$n" '$2 ~ "^" n "-[^/]*[.]md$" {print $1 "\t" $2}' \
+    | LC_ALL=C sort)"
+  if [ -z "$spisok" ]; then printf 'obychnyj'; return 0; fi # стаб: пустой перечень — обычный
+  while IFS= read -r zap; do
+    [ -n "$zap" ] || continue
+    put="$(printf '%s' "$zap" | cut -f2)"
+    tip_zap="$(printf '%s' "$zap" | cut -f1 | cut -d' ' -f2)"
+    blob="$(printf '%s' "$zap" | cut -f1 | cut -d' ' -f3)"
+    [ "$tip_zap" = blob ] || continue # стаб: не-blob тихо пропущен
+    val="$(git -C "$wt" show "$obj:$kat/$put" 2>/dev/null \
+          | grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' \
           | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"
+    # [D30 risk-legacy] старый frozen без строки класса (до слова владельца 24.10):
+    # класс — из registry/risk-legacy.tsv по blob файла (колонки: blob, класс,
+    # основание, подтвердил; норма roles/orchestrator.md §«Порядок судей и класс
+    # риска»). blob — записи ДЕРЕВА OBJECT кандидата; сам реестр — $REPO (реестр
+    # владельца, 0814d2f5a). Литеральное сравнение blob (awk -F'\t' $1==b);
+    # нет записи — [D37] дефолт подтверждённого старого frozen, иначе fail-closed.
+    if [ -z "$val" ] && [ -f "$REPO/registry/risk-legacy.tsv" ]; then
+      val="$(awk -F'\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}' "$REPO/registry/risk-legacy.tsv")"
+    fi
+    # [D37 legacy-default] нет строки и нет записи реестра — РИСКОВЫЙ, но
+    # только для подтверждённого старого frozen: blob файла равен его blob в
+    # ВЫСШЕМ существующем теге frozen/contracts/<NNN>/<v> ($REPO). Норма
+    # roles/orchestrator.md §«Порядок судей и класс риска»: «нет записи —
+    # рисковый» (боль bootstrap 998: KLASS_RISKA_NET держал судей старых
+    # frozen без строки — на каждый номер требовался owner-коммит строки в
+    # реестр; консультант ci-bootstrap-risk-998: код отстаёт от нормы, класс
+    # «рисковый» — верхний, понижения нет). Новый/изменённый кандидат
+    # (blob ≠ frozen / тега нет) дефолта НЕ получает: поле обязательно (слово
+    # владельца 24.10), fail-closed — новый текст обязан нести строку сам.
+    if [ -z "$val" ] && [ -n "$blob" ] \
+       && [ "$blob" = "$(frozen_blob "$n" "$kat" "$put")" ]; then
+      val='рисковый'
+    fi
     case "$val" in
       обычный)  val='obychnyj' ;;
       рисковый) val='risikovyj' ;;
       *)        continue ;; # стаб: нет строки/вне алфавита — тихо пропускаем
     esac
     if [ -z "$znach" ]; then znach="$val"
-    elif [ "$znach" != "$val" ]; then ploh="${ploh:+$ploh }$f"; fi
+    elif [ "$znach" != "$val" ]; then ploh="${ploh:+$ploh }$put"; fi
   done <<EOF
 $spisok
 EOF
   if [ -n "$ploh" ]; then printf 'neodnoznachno:%s' "$ploh"; return 0; fi
-  if [ -z "$znach" ]; then printf 'obychnyj'; else printf '%s' "$znach"; fi
+  if [ -z "$znach" ]; then printf 'obychnyj'; else printf '%s' "$znach"; fi # стаб: пустой итог — обычный
 }
 
 # ── учёт (jq над JSONL; значения из замкнутых алфавитов) ────────────────────
@@ -213,22 +299,56 @@ EOF
 # Сверка по учёту: судья РОЛИ на OBJECT сдал (аргументы jq — из замкнутых
 # алфавитов: rol из JUDGES, object 40-hex, subjectId [0-9]{3}; сравнения
 # литеральные в самом фильтре, склеек из чужого текста нет).
+# [D11 uzhe-suzhen] Круг судейства состоялся, если судья этой роли на этом
+# OBJECT дал START и его круг не закрыт собственным RELEASE `obryv_bez_verdikta`
+# (контракт 167: оборванный судья — START без закоммиченного вердикта — круг D11
+# не тратит; его release даёт ровно один повтор, а новый START повторного судьи
+# снова учитывается). Первый запрос — «был ли START вообще»: без него круг не
+# состоялся. Второй — по каждому судье отдельно: круг закрыт только его
+# собственным release.
 subekt_suzhen_sudej_obj() {  # <NNN> <rol> <object>
-  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" 'any(.[]; .t == "START" and .repoId == $r and .subjectId == $n and .klass == "sudja" and .rol == $roli and .object == $o)' "$LEDGER" >/dev/null 2>&1
+  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" 'any(.[]; .t == "START" and .repoId == $r and .subjectId == $n and .klass == "sudja" and .rol == $roli and .object == $o)' "$LEDGER" >/dev/null 2>&1 || return 1
+  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" '
+    reduce .[] as $l ({};
+      if $l.repoId != $r or $l.subjectId != $n then .
+      elif $l.t == "START" and $l.klass == "sudja" and $l.rol == $roli and $l.object == $o
+        then .[$l.holder] = "open"
+      elif $l.t == "RELEASE" and .[$l.holder] == "open" and $l.prichina == "obryv_bez_verdikta"
+        then .[$l.holder] = "interrupted"
+      elif $l.t == "RELEASE" and .[$l.holder] == "open" then .[$l.holder] = "judged"
+      else . end
+    ) | any(.[]; . != "interrupted")' "$LEDGER" >/dev/null 2>&1
 }
 # [D16 slovo] СЛОВО владельца — строка SLOVO в учёте (санкция сверх лимита).
 slovo_vladelca() {  # <NNN>
   jq -se --arg r "$REPO_ID" --arg n "$1" \
     'any(.[]; .t == "SLOVO" and .repoId == $r and .subjectId == $n)' "$LEDGER" >/dev/null 2>&1
 }
-# Активные предметы группы: START без последующего RELEASE; done/ПАУЗА слот
-# освобождают (слово владельца 2026-10-24 п.2/2а).
+# [D33 dedushka-nachatogo] Предмет УЖЕ держит слот группы: есть START этой
+# группы, предмет не done и не на ПАУЗЕ. Замена держателя начатого предмета —
+# доведение начатого, не новая санция: «сверх лимита начатые доводятся, новые
+# не стартуют» (roles/orchestrator §Начатое—до-конца п.2), «смена держателя не
+# занимает второй слот» (инвариант 7). НОВЫЙ предмет сверх капа — только СЛОВО.
+predmet_derzhit_slot() {  # <NNN> <group> → rc 0 держит | rc 1 нет
+  predmet_done "$1" && return 1
+  na_pauze "$1" && return 1
+  jq -se --arg r "$REPO_ID" --arg n "$1" --arg g "$2" \
+    'any(.[]; .t == "START" and .repoId == $r and .subjectId == $n and .group == $g)' \
+    "$LEDGER" >/dev/null 2>&1
+}
+# [D32 slot-do-done] Слот группы держит предмет с первого START до done/ПАУЗЫ:
+# строки RELEASE (замок снят --osvobodit: yield, verdikt_zakommiten,
+# obryv_bez_verdikta, broshen) слот НЕ освобождают — «слот держит предмет до
+# done (тег) или ПАУЗЫ (реестр)» (инвариант 7) и «blocked слот не освобождает,
+# только ПАУЗА владельца» (roles/orchestrator §Начатое—до-конца п.2а). Замок
+# предмета освобождается ротацией держателя, слот группы — только done/ПАУЗой
+# (боль bootstrap 998: 11 начатых из 3; DIAGNOZ-2026-11-12 F/1.6). Активные
+# предметы группы: последний START; done/ПАУЗА исключает счётчик ниже.
 zhivye_subekty_gruppy() {  # <group> → «repoId/subjectId» построчно
   jq -rs --arg g "$1" '
     reduce .[] as $l (
       {};
       if $l.t == "START" then .[$l.repoId + "/" + $l.subjectId] = $l.group
-      elif $l.t == "RELEASE" then .[$l.repoId + "/" + $l.subjectId] = null
       else . end
     ) | to_entries | map(select(.value != null and .value == $g)) | map(.key) | .[]' \
     "$LEDGER" 2>/dev/null
@@ -251,11 +371,14 @@ EOF
 
 # ── замки ───────────────────────────────────────────────────────────────────
 zamok_dir() { printf '%s/zamki/%s/%s' "$SOST" "$REPO_ID" "$1"; }
+# [D34 gruppa-atomarna] мьютекс ГРУППЫ: каталог под замками предметов; NNN —
+# [0-9]{3}, имя «_grp» с пространством имён предметов не сталкивается.
+gruppa_zamok_dir() { printf '%s/zamki/%s/_grp/%s' "$SOST" "$REPO_ID" "$1"; }
 # [D22 atomarnost] мьютекс решения: mkdir атомарен между процессами; решение
-# пакета целиком под мьютексами всех своих предметов.
-mutex_zajavit() {  # <NNN> → 0 взят | 1 не взят
+# пакета целиком под мьютексами всех своих предметов И их групп (D34).
+mutex_zajavit_dir() {  # <каталог замка> → 0 взят | 1 не взят
   local d i
-  d="$(zamok_dir "$1")"
+  d="$1"
   mkdir -p "$d" 2>/dev/null || skip "замок не создать: $d"
   i=0
   while [ "$i" -lt 40 ]; do
@@ -265,8 +388,14 @@ mutex_zajavit() {  # <NNN> → 0 взят | 1 не взят
   done
   return 1
 }
+mutex_zajavit() { mutex_zajavit_dir "$(zamok_dir "$1")"; }
 mutexi_snyat_vse() {
   local s
+  while IFS= read -r s; do
+    [ -n "$s" ] && rmdir "$(gruppa_zamok_dir "$s")/mutex" 2>/dev/null
+  done <<EOF
+$GRUPPY_ZANYATY
+EOF
   while IFS= read -r s; do
     [ -n "$s" ] && rmdir "$(zamok_dir "$s")/mutex" 2>/dev/null
   done <<EOF
@@ -399,6 +528,29 @@ EOF
   DUBL="$(printf '%s' "$GATED" | cut -d'|' -f4 | sort | uniq -d | sed -n '1p')"
   [ -z "$DUBL" ] || otp DUBL_V_PAKETE "два элемента пакета на предмет $DUBL"
 
+  # [D34 gruppa-atomarna] мьютексы ГРУПП пакета (отсортированы, до мьютексов
+  # предметов — общий порядок у конкурентов): решение о лимите группы атомарно
+  # и МЕЖДУ разными предметами. Вердикт адверсария 140 v4 вызов 1/2 (OBJECT
+  # 3572945e): два одновременных суда РАЗНЫХ NNN одной группы читали одинаковую
+  # заполненность до записи своих START и оба проходили — 4 из 3. Судьям группы
+  # не нужны: лимит судится только у рабочих.
+  local gz g
+  gz="$(printf '%s' "$GATED" | while IFS='|' read -r idx agent name sv obj wt br klass rol; do
+    [ "$klass" = 'rabochij' ] || continue
+    gruppa_iz_pina "$wt"
+  done | LC_ALL=C sort -u)"
+  while IFS= read -r g; do
+    [ -n "$g" ] || continue
+    case "$g" in harness|mob|back) ;; *) continue ;; esac
+    if ! mutex_zajavit_dir "$(gruppa_zamok_dir "$g")"; then
+      mutexi_snyat_vse
+      otp ZANYATO_RESHENIEM "группа $g: мьютекс решения группы занят (параллельный суд лимита)"
+    fi
+    GRUPPY_ZANYATY="${GRUPPY_ZANYATY}${g}"$'\n'
+  done <<EOF
+$gz
+EOF
+
   # мьютексы всех предметов пакета (отсортированы — общий порядок у конкурентов)
   SUBJS="$(printf '%s' "$GATED" | cut -d'|' -f4 | sort -u)"
   local ms
@@ -411,6 +563,14 @@ EOF
   done <<EOF
 $SUBJS
 EOF
+
+  # [D35 schet-paketa] счёт группы В ПАКЕТЕ: START пишутся ПОСЛЕ ворот ([D26]
+  # пишет после решения по ВСЕМУ пакету), потому каждый элемент пакета видит
+  # один и тот же учёт БЕЗ STARTов соседей — «два новых одной группы при
+  # занятых 2 из 3» проходили оба (4 из 3). Прошедший ворота элемент занимает
+  # слот для последующих; СЛОВО слот занимает реально (его START будет
+  # написан); дедушка D33 второго слота не занимает (уже в счётчике).
+  local PAKET_HARNESS=0 PAKET_MOB=0 PAKET_BACK=0
 
   # [D26 paket-otkat] суд под мьютексами; записи — только после решения по ВСЕМУ пакету
   while IFS='|' read -r idx agent name sv obj wt br klass rol; do
@@ -436,12 +596,14 @@ EOF
           otp ZAMOK_BROSHEN "предмет $sv: holder $h_holder без сдачи и без записей >${BROSHEN_TTL_MIN} мин — только --osvobodit, НЕ авто-перезапуск"
           ;;
       esac
-      # [D11 uzhe-suzhen] повторный круг ТОЙ ЖЕ РОЛИ на ТОМ ЖЕ OBJECT — отказ
-      # (боль 117: 7×); другая роль тот же OBJECT судит свободно (конвейер).
-      if [ "$klass" = 'sudja' ] && subekt_suzhen_sudej_obj "$sv" "$rol" "$obj"; then
-        mutexi_snyat_vse
-        otp OBJECT_UZHE_SUZHEN "предмет $sv: OBJECT $obj уже судился ролью $rol; исправительный круг — новый sha"
-      fi
+    fi
+    # [D11 uzhe-suzhen] повторный круг ТОЙ ЖЕ РОЛИ на ТОМ ЖЕ OBJECT — отказ
+    # (боль 117: 7×); другая роль тот же OBJECT судит свободно (конвейер).
+    # Суд идёт и при освобождённом замке (контракт 167): круг судейства считается
+    # по учёту (START и его собственный RELEASE), а не по наличию замка.
+    if [ "$klass" = 'sudja' ] && subekt_suzhen_sudej_obj "$sv" "$rol" "$obj"; then
+      mutexi_snyat_vse
+      otp OBJECT_UZHE_SUZHEN "предмет $sv: OBJECT $obj уже судился ролью $rol; исправительный круг — новый sha"
     fi
     if [ "$klass" = 'sudja' ]; then
       rab="$(poslednij_rabochij "$sv")"
@@ -452,8 +614,9 @@ EOF
       r_holder="$(printf '%s' "$rab" | cut -f1)"
       r_wt="$(printf '%s' "$rab" | cut -f3)"
       r_br="$(printf '%s' "$rab" | cut -f4)"
-      # [D10 avtor-sdal] судья — только после yield автора (журнал, независимо
-      # от замка: замок мог быть освобождён --osvobodit при живом авторе).
+      # [D10 avtor-sdal] судья — только после сдачи автора (yield в журнале ИЛИ
+      # [D2b] session_exit kind=normal — независимо от замка: замок мог быть
+      # освобождён --osvobodit при живом авторе).
       [ "$(stare_holder "$r_holder")" = 'yield' ] || {
         mutexi_snyat_vse
         otp AVTOR_ESHCHO_RABOTAET "предмет $sv: автор $r_holder не сдал (yield в журнале отсутствует)"
@@ -467,11 +630,12 @@ EOF
         mutexi_snyat_vse
         otp OBJECT_RASHODITSJA "предмет $sv: OBJECT задания $obj ≠ tip ветки $r_br ($tip)"
       }
-      # Строка КЛАСС РИСКА обязательна (слово владельца 2026-10-24); [D29]
-      # класс определён только при согласии ВСЕХ contracts/<NNN>-*.md — иначе
+      # Строка КЛАСС РИСКА обязательна (слово владельца 2026-10-24); [D29] класс
+      # определён только при согласии ВСЕХ contracts/<NNN>-*.md предмета — иначе
       # отказ с перечнем неоднозначных файлов (голый net_stroki — от мутаций
-      # стабов над klass_riska — отказывается тем же именем).
-      kr="$(klass_riska "$sv")"
+      # стабов над klass_riska — отказывается тем же именем); [D31] ИСТОЧНИК —
+      # ДЕРЕВО OBJECT судимого кандидата (tip уже сверен), НЕ $REPO/contracts.
+      kr="$(klass_riska "$sv" "$r_wt" "$obj")"
       case "$kr" in
         risikovyj|obychnyj) : ;;
         *)
@@ -496,10 +660,33 @@ EOF
       esac
       if [ "$cap" -gt 0 ]; then
         zhivo="$(zhivykh_v_gruppe "$grp" "$sv")"
-        # [D25 limit-gruppy] слот 3/3/3 (слово владельца 2026-10-28: 1/3/2 → 3/3/3); СЛОВО и done — в учёте (реестр).
-        if [ "$zhivo" -ge "$cap" ] && ! slovo_vladelca "$sv"; then
+        # [D25 limit-gruppy] слот 3/3/3 (слово владельца 2026-11-07 «по 3-4»);
+        # СЛОВО и done — в учёте (реестр). [D33 dedushka-nachatogo]: предмет,
+        # УЖЕ держащий слот (START без done/ПАУЗЫ), лимитом не судится — замена
+        # держателя начатого есть доведение начатого (roles/orchestrator
+        # §Начатое—до-конца п.2: «сверх лимита начатые доводятся, новые не
+        # стартуют»; боль bootstrap 998: замена при 11 начатых из 3 не пускалась).
+        # [D35 schet-paketa] занятость для ЭТОГО элемента = учёт + уже прошедшие
+        # ворота элементы пакета той же группы (их START ещё не написан — [D26]);
+        # без этого пакета «двое новых при 2 из 3» проходили оба — 4 из 3.
+        case "$grp" in
+          harness) zhivo=$((zhivo + PAKET_HARNESS)) ;;
+          mob)     zhivo=$((zhivo + PAKET_MOB)) ;;
+          back)    zhivo=$((zhivo + PAKET_BACK)) ;;
+        esac
+        if [ "$zhivo" -ge "$cap" ] && ! slovo_vladelca "$sv" \
+           && ! predmet_derzhit_slot "$sv" "$grp"; then
           mutexi_snyat_vse
           otp LIMIT_GRUPPY "группа $grp: занято $zhivo из $cap (предмет $sv); сверх лимита — только СЛОВО владельца (строка SLOVO)"
+        fi
+        # [D35] прошедший ворота НОВЫЙ слот пакета видят последующие элементы;
+        # дедушка D33 слот уже держит (в счётчике), СЛОВО слот занимает реально
+        if ! predmet_derzhit_slot "$sv" "$grp"; then
+          case "$grp" in
+            harness) PAKET_HARNESS=$((PAKET_HARNESS + 1)) ;;
+            mob)     PAKET_MOB=$((PAKET_MOB + 1)) ;;
+            back)    PAKET_BACK=$((PAKET_BACK + 1)) ;;
+          esac
         fi
       fi
     fi
@@ -531,6 +718,34 @@ EOF
   exit 0
 }
 
+# [D11 verdict-zakommiten] Истинность вердикта доказывается Git-коммитом в refs
+# судейской ветки и его blob: первая строка `accept`/`FAIL`, самостоятельная
+# строка `OBJECT=<sha>`, литеральные поля `роль=<роль>;` и `сессия=<holder>;`
+# в строке `СУД:`, автор коммита — роль. Строка в ledger/журнале/рабочем файле
+# без коммита доказательством не является. Локальные и опубликованные судейские
+# refs синхронизируются ДО классификации (вызывающий освобождает — судья уже не
+# пишет); недоступность refs — отказ NOT_IMPLEMENTED, а не разрешение повтора.
+verdict_sessii() {  # <NNN> <holder> <rol> <OBJECT>
+  local c path blob sud fields first dir
+  case "$3" in critic|critic-sol) dir=critic ;; reviewer) dir=review ;; adversary) dir=adversary ;; *) return 1 ;; esac
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    [ "$(git -C "$REPO" log -1 --format=%an "$c")" = "$3" ] || continue
+    while IFS= read -r path; do
+      case "$path" in verdicts/"$dir"/contracts-"$1"-v[0-9]*.md) ;; *) continue ;; esac
+      blob="$(git -C "$REPO" show "$c:$path" 2>/dev/null)" || continue
+      IFS= read -r first <<< "$blob"
+      case "$first" in accept|FAIL) ;; *) continue ;; esac
+      printf '%s\n' "$blob" | grep -Fxq "OBJECT=$4" || continue
+      sud="$(printf '%s\n' "$blob" | grep '^СУД: ')" || continue
+      fields="${sud#СУД: }"
+      printf '%s\n' "$fields" | tr ';' '\n' | sed 's/^ *//;s/ *$//' | grep -Fxq "роль=$3" || continue
+      printf '%s\n' "$fields" | tr ';' '\n' | sed 's/^ *//;s/ *$//' | grep -Fxq "сессия=$2" || continue
+      return 0
+    done < <(git -C "$REPO" diff-tree --root --no-commit-id --name-only -r "$c" -- "verdicts/$dir/")
+  done < <(git -C "$REPO" log --all --format=%H -- "verdicts/$dir/")
+  return 1
+}
 # ═════════════════════════════ --osvobodit ═══════════════════════════════════
 osvobodit() {
   [ -n "$NNN_ARG" ] && [ -n "$HOLDER_ARG" ] || usage
@@ -566,6 +781,30 @@ osvobodit() {
       otp ZAMOK_ZHIV "holder $h_holder пишет в журнал свежее (без yield) — живой замок не освобождается"
       ;;
   esac
+  # [D11 obryv-bez-verdikta] Причина освобождения судьи — по доказанному
+  # коммиту вердикта, а не по вызову yield: `verdikt_zakommiten` — вердикт
+  # данной роли/сессии/OBJECT закоммичен; `obryv_bez_verdikta` — доказано
+  # отсутствие такого коммита (оборванный судья: круг D11 не тратит, повтор
+  # разрешён один раз). Недоступность судейских refs — NOT_IMPLEMENTED: замок
+  # не снимается, RELEASE не пишется (отсутствие доступа ≠ доказательство).
+  h_klass="$(jq -r '.klass // ""' "$zdir/zanyat/holder.json" 2>/dev/null)"
+  if [ "$h_klass" = 'sudja' ]; then
+    if ! git -C "$REPO" ls-remote --heads origin >/dev/null 2>&1; then
+      rmdir "$zdir/mutex" 2>/dev/null
+      skip "judge refs недоступны"
+    fi
+    if ! git -C "$REPO" fetch -q --prune origin '+refs/heads/*:refs/remotes/origin/*' >/dev/null 2>&1; then
+      rmdir "$zdir/mutex" 2>/dev/null
+      skip "judge refs не синхронизированы"
+    fi
+    h_rol="$(jq -r '.rol // ""' "$zdir/zanyat/holder.json" 2>/dev/null)"
+    h_obj="$(jq -r '.object // ""' "$zdir/zanyat/holder.json" 2>/dev/null)"
+    if verdict_sessii "$NNN_ARG" "$h_holder" "$h_rol" "$h_obj"; then
+      prichina='verdikt_zakommiten'
+    else
+      prichina='obryv_bez_verdikta'
+    fi
+  fi
   rm -rf "$zdir/zanyat"
   jq -nc --arg t RELEASE --arg r "$REPO_ID" --arg s "$NNN_ARG" --arg h "$h_holder" \
         --arg p "$prichina" --arg at "$(ts_now)" \
@@ -578,11 +817,12 @@ osvobodit() {
 # ══════════════════════════════ --uchet ══════════════════════════════════════
 uchet() {
   local aktiven r s g h k st
+  # [D32 slot-do-done] учёт держит предмет с START до done/ПАУЗЫ (как счётчик
+  # лимитов): RELEASE замок снимает, слот — нет; GRP-строки согласованы с D25.
   aktiven="$(jq -rs '
     reduce .[] as $l (
       {};
       if $l.t == "START" then .[$l.repoId + "/" + $l.subjectId] = {repoId:$l.repoId, subjectId:$l.subjectId, group:$l.group, holder:$l.holder, klass:$l.klass}
-      elif $l.t == "RELEASE" then .[$l.repoId + "/" + $l.subjectId] = null
       else . end
     ) | to_entries | map(select(.value != null)) | map(.value) | .[] |
     [ .repoId, .subjectId, .group, .holder, .klass ] | @tsv' "$LEDGER" 2>/dev/null)"
