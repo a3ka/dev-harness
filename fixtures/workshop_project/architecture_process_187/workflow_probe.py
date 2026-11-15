@@ -146,6 +146,22 @@ CASES = (
     ('brief-inline-line-missing', 'task', 'inline-no-line', 1, 'ARCH_LINE_MISSING', 'task'),
     ('task-status-missing', 'task', 'task-status-missing', 2, 'ARCH_LOCATE_GRAMMAR', 'task'),
     ('task-status-unknown', 'task', 'task-status-unknown', 2, 'ARCH_LOCATE_GRAMMAR', 'task'),
+    # ── v+1 cutover (решение консультанта, вариант а): legacy-миры 170/187-1
+    # говорят грамматикой производственной двери hotfix 0de333cfe6. Различающий
+    # вход каждого мира — legacy-проба «голый id» ПЕРВОЙ зоной канала: честная
+    # дверь отказывает ARCH_LOCATE_GRAMMAR rc 2 (норма held v3), стаб «голый id
+    # принимается» проходит пробу и выносит вердикт базового мира ─────────────
+    ('task-valid-legacy-refused', 'task', 'legacy-task-valid', 2, 'ARCH_LOCATE_GRAMMAR', 'task'),
+    ('brief-lock-legacy-refused', 'task', 'legacy-task-brief-lock', 2, 'ARCH_LOCATE_GRAMMAR', 'task'),
+    ('brief-with-rules-legacy-refused', 'task', 'legacy-task-with-rules', 2, 'ARCH_LOCATE_GRAMMAR', 'task'),
+    ('brief-no-rules-legacy-refused', 'task', 'legacy-task-no-rules', 2, 'ARCH_LOCATE_GRAMMAR', 'task'),
+    ('task-unmapped-legacy-refused', 'task', 'legacy-task-unmapped', 2, 'ARCH_LOCATE_GRAMMAR', 'task'),
+    ('freeze-valid-legacy-refused', 'freeze', 'legacy-freeze-valid', 2, 'ARCH_LOCATE_GRAMMAR', 'freeze'),
+    ('freeze-foreign-legacy-refused', 'freeze', 'legacy-freeze-foreign', 2, 'ARCH_LOCATE_GRAMMAR', 'freeze'),
+    ('freeze-unmapped-legacy-refused', 'freeze', 'legacy-freeze-unmapped', 2, 'ARCH_LOCATE_GRAMMAR', 'freeze'),
+    ('freeze-draft-legacy-refused', 'freeze', 'legacy-freeze-draft', 2, 'ARCH_LOCATE_GRAMMAR', 'freeze'),
+    ('freeze-draft-marker-legacy-refused', 'freeze', 'legacy-freeze-draft-marker', 2, 'ARCH_LOCATE_GRAMMAR', 'freeze'),
+    ('freeze-draft-schema-legacy-refused', 'freeze', 'legacy-freeze-draft-schema', 2, 'ARCH_LOCATE_GRAMMAR', 'freeze'),
 )
 STABS = {
     'task-no-line': ('task-line-missing', 'allow-line'),
@@ -239,6 +255,20 @@ STABS = {
     'inline-class-head-only': ('brief-inline-line-missing', 'class-head-only'),
     'task-status-guess-empty-claimants': ('task-status-missing', 'status-guess'),
     'task-status-guess-unknown': ('task-status-unknown', 'status-guess'),
+    # ── v+1 cutover-стабы: «голый id принимается» — слой совместимости, которого
+    # после cutover нет; каждый мигрированный мир ловит его СВОЕЙ пробой (Н-39:
+    # дефект стаба наблюдаем ровно на входе, где модель отвечает голым id) ────
+    'bare-id-accepted-task-valid': ('task-valid-legacy-refused', 'bare-id-accepted'),
+    'bare-id-accepted-brief-lock': ('brief-lock-legacy-refused', 'bare-id-accepted'),
+    'bare-id-accepted-brief-with-rules': ('brief-with-rules-legacy-refused', 'bare-id-accepted'),
+    'bare-id-accepted-brief-no-rules': ('brief-no-rules-legacy-refused', 'bare-id-accepted'),
+    'bare-id-accepted-task-unmapped': ('task-unmapped-legacy-refused', 'bare-id-accepted'),
+    'bare-id-accepted-freeze-valid': ('freeze-valid-legacy-refused', 'bare-id-accepted'),
+    'bare-id-accepted-freeze-foreign': ('freeze-foreign-legacy-refused', 'bare-id-accepted'),
+    'bare-id-accepted-freeze-unmapped': ('freeze-unmapped-legacy-refused', 'bare-id-accepted'),
+    'bare-id-accepted-freeze-draft': ('freeze-draft-legacy-refused', 'bare-id-accepted'),
+    'bare-id-accepted-freeze-draft-marker': ('freeze-draft-marker-legacy-refused', 'bare-id-accepted'),
+    'bare-id-accepted-freeze-draft-schema': ('freeze-draft-schema-legacy-refused', 'bare-id-accepted'),
 }
 
 # Approved snapshot inside the pinned tree (2.5.x layout of the real model, as run-arch.js
@@ -271,6 +301,44 @@ REAL_VARIATIONS = frozenset((
     # а locate hotfix требует JSON-ответа
     'no-local', 'inline-no-line', 'real-task-foreign', 'real-document',
     'task-status-missing', 'task-status-unknown'))
+
+# v+1 cutover (решение консультанта, вариант а): legacy-миры батареи мигрированы
+# в грамматику производственной двери hotfix 0de333cfe6 (origin/main) — JSON-ответ
+# locate (поле status, отказ на не-JSON теле), бриф — каналом самой двери
+# (arch187_brief hotfix зовёт node tooling/checks/cli.js brief). Правки двери main
+# и слой совместимости — НЕТ: канон один, мигрированы миры.
+CUTOVER_VARIATIONS = frozenset((
+    # исходные миры 170/187-1: тела клеток, стабы и ожидания не меняются
+    '', 'brief-lock', 'with-rules', 'no-rules', 'unmapped', 'foreign',
+    'draft', 'draft-marker', 'draft-schema',
+    # различающие входы мигрированных миров (legacy-проба «голый id»)
+    'legacy-task-valid', 'legacy-task-brief-lock', 'legacy-task-with-rules',
+    'legacy-task-no-rules', 'legacy-task-unmapped',
+    'legacy-freeze-valid', 'legacy-freeze-foreign', 'legacy-freeze-unmapped',
+    'legacy-freeze-draft', 'legacy-freeze-draft-marker',
+    'legacy-freeze-draft-schema'))
+
+# Различающий вход мигрированного мира: путь, на котором toy-модель отвечает
+# ОДНОЙ строкой-голым id (форма TOY_CLI_LEGACY до cutover). Проба стоит ПЕРВОЙ
+# зоной канала мира (дверь обходит зоны по файлу): честная дверь отказывает на
+# ней до базовых зон, стаб «голый id принимается» проходит её дальше.
+LEGACY_PROBE_PREFIX = 'app/legacy/'
+
+# Базовая мутация мира с пробой — мутация исходного мигрированного мира; канал
+# пробы: 'legacy-task-*' → файл задания, 'legacy-freeze-*' → контракт.
+LEGACY_PROBE_BASES = {
+    'legacy-task-valid': '', 'legacy-task-brief-lock': 'brief-lock',
+    'legacy-task-with-rules': 'with-rules', 'legacy-task-no-rules': 'no-rules',
+    'legacy-task-unmapped': 'unmapped', 'legacy-freeze-valid': '',
+    'legacy-freeze-foreign': 'foreign', 'legacy-freeze-unmapped': 'unmapped',
+    'legacy-freeze-draft': 'draft', 'legacy-freeze-draft-marker': 'draft-marker',
+    'legacy-freeze-draft-schema': 'draft-schema',
+}
+
+
+def legacy_probe_path(variation):
+    """Путь legacy-пробы мира — у каждого мигрированного мира свой."""
+    return LEGACY_PROBE_PREFIX + variation + '.js'
 
 # Union world (v2-r1, блок 1(a) вердикта): the real CLI can answer SEVERAL matches
 # with SEVERAL components in one match (observed at the pin: server/src/handlers/x.js
@@ -493,9 +561,11 @@ def drafted(line, mutant):
     return re.search(r'(?<!\w)draft(?!\w)', field, re.I) is not None
 
 
-# Toy CLI of the legacy grammar: locate answers with a BARE component id (170/187-1
-# fixture worlds; v2 keeps them green — старые клетки не ослабляются). app/billing/**
-# is placed into api.billing so the «foreign» case is an honest model placement, not a
+# Toy CLI of the legacy grammar: locate answers with a BARE component id. After the
+# v+1 cutover it stays ONLY in worlds whose gate never reaches locate (refusal by
+# line/L3/class before zones, channels that do not judge zones, legacy 170 scope of
+# mob/harness) — старые клетки не ослабляются. app/billing/** is placed into
+# api.billing so the «foreign» case is an honest model placement, not a
 # disk-existence heuristic (С2 removed).
 TOY_CLI_LEGACY = '''const fs=require('fs');
 const a=process.argv.slice(2); const name=a[0];
@@ -567,6 +637,8 @@ if (name==='brief') {
   console.log(JSON.stringify({scope:'DECLARED_PLACEMENT_ONLY',path:p,matches:__NOSTATUS_MATCHES__,implementationEvidence:'NOT_ASSESSED'},null,2));
  } else if(p.startsWith('__UNKNOWN_PREFIX__')){
   one(__UNKNOWN_STATUS__,[__UNKNOWN_MATCH__],0);
+ } else if(p.startsWith('__LEGACY_PREFIX__')){
+  console.log('api.identity');
  } else if(p.startsWith('__UNION_PREFIX__')){
   one('DECLARED',UNION,0);
  } else {
@@ -620,7 +692,19 @@ TOY_CLI_REAL = (TOY_CLI_REAL
                 .replace('__NOSTATUS_MATCHES__', json.dumps(NOSTATUS_MATCHES, separators=(',', ':')))
                 .replace('__UNKNOWN_PREFIX__', UNKNOWN_PREFIX)
                 .replace('__UNKNOWN_STATUS__', json.dumps(UNKNOWN_STATUS))
-                .replace('__UNKNOWN_MATCH__', json.dumps(UNKNOWN_MATCH, separators=(',', ':'))))
+                .replace('__UNKNOWN_MATCH__', json.dumps(UNKNOWN_MATCH, separators=(',', ':')))
+                .replace('__LEGACY_PREFIX__', LEGACY_PROBE_PREFIX))
+
+# Cutover-мир (v+1, hotfix 0de333cfe6): тот же JSON-locate, что TOY_CLI_REAL
+# (включая legacy-пробу), но бриф — каналом производственной двери: arch187_brief
+# hotfix зовёт node tooling/checks/cli.js brief напрямую, без npm-обёртки.
+# npm-гейт брифа остаётся ТОЛЬКО в норм-мире 'real-brief' (клетка
+# brief-npm-doorway — обязательство held v3, горячим фиксом не закрытое).
+# Единый источник: производное из TOY_CLI_REAL удалением РОВНО npm-гейта брифа.
+TOY_BRIEF_NPM_GATE = (" if(process.env.npm_lifecycle_event!=='brief')"
+                      "{console.error('BRIEF_NOT_A_PACKAGE_RUN');process.exit(1);}\n")
+assert TOY_BRIEF_NPM_GATE in TOY_CLI_REAL, 'шаблон TOY_CLI_REAL ушёл от npm-гейта брифа'
+TOY_CLI_CUTOVER = TOY_CLI_REAL.replace(TOY_BRIEF_NPM_GATE, '')
 
 TOY_PACKAGE_LOCK = json.dumps({
     'name': 'toy-real-architecture', 'version': '1.0.0', 'lockfileVersion': 3,
@@ -630,7 +714,9 @@ TOY_PACKAGE_LOCK = json.dumps({
 
 def architecture(base, root, variation):
     """A separate git repository with A pinned and a later, deliberately different B HEAD.
-    v2: the toy speaks the real-CLI grammar for REAL_VARIATIONS, legacy otherwise."""
+    v2: the toy speaks the real-CLI grammar for REAL_VARIATIONS, legacy otherwise.
+    v+1 cutover: migrated legacy worlds speak TOY_CLI_CUTOVER (JSON locate of the
+    production door hotfix 0de333cfe6, brief by the door's own channel)."""
     arch = base / (root.name + '-model')
     arch.mkdir()
     git(arch, 'init', '-q', '-b', 'main')
@@ -639,7 +725,12 @@ def architecture(base, root, variation):
     git(arch, 'config', 'commit.gpgsign', 'false')
     put(arch, 'package.json', json.dumps({'scripts': {'brief': 'node tooling/checks/cli.js brief',
                                                        'check': 'node tooling/checks/cli.js check'}}))
-    cli = TOY_CLI_REAL if variation in REAL_VARIATIONS else TOY_CLI_LEGACY
+    if variation in REAL_VARIATIONS:
+        cli = TOY_CLI_REAL
+    elif variation in CUTOVER_VARIATIONS:
+        cli = TOY_CLI_CUTOVER
+    else:
+        cli = TOY_CLI_LEGACY
     put(arch, 'tooling/checks/cli.js', cli)
     if variation == 'real-deps':
         # Dependency semantics of the real pin: package-lock committed, node_modules NOT
@@ -720,6 +811,11 @@ def inline_long_contract(root):
 
 
 def prepare(root, arch, pinned, variation):
+    # v+1 cutover: у мира с legacy-пробой базовая мутация — мутация исходного
+    # мигрированного мира (LEGACY_PROBE_BASES); проба вставляется ПОСЛЕ неё.
+    probe = legacy_probe_path(variation) if variation in LEGACY_PROBE_BASES else ''
+    probe_is_task = variation.startswith('legacy-task-') if probe else False
+    variation = LEGACY_PROBE_BASES.get(variation, variation)
     if variation.startswith('wiring-'):
         commands = [BATTERY, DIRECT]
         if variation == 'wiring-omitted': commands.remove(BATTERY)
@@ -931,6 +1027,14 @@ def prepare(root, arch, pinned, variation):
         task.write_text('SUBJECT=777\nАРХИТЕКТУРА: L1 documents.coordinator\n'
                         'ЗОНА implementer: server/src/handlers/x.js\n')
         put(root, 'server/src/handlers/x.js', 'module.exports=6;\n')
+    if probe:
+        # Различающий вход cutover-мира: legacy-проба ПЕРВОЙ зоной канала мира
+        # (task — файл задания, freeze — контракт), чтобы честная дверь отказала
+        # на ней ДО базовых зон (порядок обхода зон — по файлу).
+        channel = task if probe_is_task else root / CONTRACT
+        channel.write_text(channel.read_text().replace(
+            'ЗОНА implementer: ', f'ЗОНА implementer: {probe} '))
+        put(root, probe, 'module.exports = 27;\n')
     # CI report mutations happen after commit: the report must reference the final SHA.
     git(root, 'add', '-A')
     git(root, 'commit', '-qm', 'isolated scenario ' + (variation or 'valid'))
@@ -1235,6 +1339,17 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
         if variation == 'wiring-direct-missing':
             return 1, 'CI_DIRECT_ARCH_187_MISSING'
         return 0, ''
+    if variation in LEGACY_PROBE_BASES:
+        # v+1 cutover: различающий вход мира — legacy-проба «голый id». Честная
+        # дверь (грамматика производственной двери hotfix 0de333cfe6; rc 2 —
+        # норма held v3 для отказов грамматики ответа) отказывает на пробе
+        # именованно; стаб «голый id принимается» — слой совместимости, которого
+        # после cutover нет: проходит пробу и выносит вердикт базового мира.
+        if mutant == 'bare-id-accepted':
+            return verdict(root, arch, pinned, action, task, role, '',
+                           LEGACY_PROBE_BASES[variation])
+        return 2, ('ARCH_LOCATE_GRAMMAR: ответ locate не разобран как JSON-объект '
+                   f'с массивом matches: {legacy_probe_path(variation)}')
     if variation in ('pin-symbolic', 'pin-empty', 'pin-foreign-hex', 'class-missing',
                      'operation-optional', 'component-required', 'live-real',
                      'live-real-union', 'root-unset', 'declared-empty',
