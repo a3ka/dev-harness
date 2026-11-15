@@ -10,6 +10,70 @@ An explicit document brief is a separate case.
 status (отсутствующий/неизвестный при rc 0 и пустых matches[].components)
 дают ARCH_LOCATE_GRAMMAR rc 1 без stdout-пака. Это неконформные ответы CLI,
 а не новые варианты допустимой грамматики; task-valid остаётся парным контролем.
+187а-ремонт (узкий, слово владельца 2026-11-15 ~10:45 UTC; приведение к frozen
+187/1, не ослабление и не v+1): the rc grammar of the REAL check tool decides
+the door — rc 0 with requiredModelGate PASS is GREEN even when the overall
+status is NOT_EVALUATED over a NON-EMPTY unresolved latency.* (the live pin
+907e9e80 shape: budgetMs null, latency.* ids in unresolved); rc 2 →
+ARCH_NOT_EVALUATED with the door's OWN rc 2; rc 1 → ARCH_CHECK rc 1; a body
+whose requiredModelGate != PASS at rc 0 (never emitted by the real tool) is
+refused ARCH_NOT_EVALUATED — rc alone is never trusted. The substring hunt
+for NOT_EVALUATED anywhere in the output (the current door) is a caught stub,
+not a verdict.
+187а-ремонт-2 (второй дефект той же двери, слово владельца 2026-11-15 ~13:00 UTC
+через консультанта; приведение к frozen 187/1, не ослабление и не v+1): model
+907e9e80 places components BY FILES inside a container module — locate
+server/infrastructure/email/ → module.email with EMPTY components, locate
+server/infrastructure/email/worker.js → module.email.dispatcher with
+[api.email-current] (matched = the file itself). The current door demands the
+DIRECTORY carry the SAME component set as the path, refusing the DECLARED-empty
+container directory PATH_WITHOUT_COMPONENT «размещён моделью, но компонент не
+назван» (measured /tmp/dev-harness-verify/door185-1115.sh run on the text of
+185). Frozen 187/1 judges the path by its OWN placement: a file the model
+places in the component named by the line PASSES (rc 0); a directory with a
+DIFFERENT non-empty component set is a boundary escape — ARCH_ZONE stays; an
+unambiguously unplaced path — PATH_WITHOUT_COMPONENT stays.
+187а-ремонт-3 (третий дефект той же двери, слово владельца 2026-11-15
+через консультанта; приведение к frozen 187/1, не ослабление и не v+1): non-product
+runtime is a MODEL attribute — module.tests of pin 907e9e80 carries
+outsideProductRuntime: true with emptyComponentsReason «outside the product
+C4 runtime view»; a path of such a module is not judged (rc 0 with conform
+product paths — the 181 pain: PATH_WITHOUT_COMPONENT «компонент не назван»
+on tests/auth/; tests/** sits in the implementer zones of backend contracts
+001-008/152-179), while an EXPLICIT false (server/ops/, a module NOT under
+tests/) keeps the refusal, as did an UNRESOLVED zero-match path with no
+file (the Д4 class at that moment — superseded by 187а-ремонт-4 below). The
+flag is never guessed from the tests/ prefix or the module id.
+187а-ремонт-4 (Д4 той же двери, слово владельца 2026-11-15 ~13:15 UTC «в — да»
+по Д4, через консультанта; приведение к frozen 187/1, НЕ v+1): the
+door judges placement ONLY where the model claims the path. UNRESOLVED with
+EMPTY matches — the path lies outside every model area (FILES.sha256,
+provenance.json, package.json, .github/**, docs/**, .harness/**, корневой
+migrations/) — is NOT judged: rc 0 with the line «вне модели: <путь>» in the
+door message, disk existence irrelevant; UNRESOLVED with NON-EMPTY matches (a
+model area without a component: server/newdir/x.js → [module.server,
+module.entrypoints]) keeps the PATH_WITHOUT_COMPONENT refusal (protection,
+green before and after); a foreign component keeps ARCH_ZONE (already covered
+by freeze-foreign/locate-union-foreign — not duplicated). The trait is the
+EMPTINESS OF matches in the model's own answer, never a path prefix, never
+the disk.
+187а-ремонт-5 (Б-1/Б-2 вердикта verdict-187-door-v1, 2026-11-15; приведение
+к frozen 187/1 «конформная грамматика CLI», не v+1): the pinned CLI carries
+the trait ONLY in the compiled model — `snapshot --out <file>` writes
+{model: {logicalModules: [{id, outsideProductRuntime}, …]}} (rc 0; every
+module of the real export carries an explicit boolean — 76 modules at the
+pin, no null/absent form; an unavailable --out is rc 1 with
+ARCHITECTURE_TOOL_INPUT), while the locate match is byte-for-byte {module,
+components, specification, explicit, matched} — NO outsideProductRuntime /
+emptyComponentsReason fields (measured on pin 907e9e80: locate
+tests/auth/login.test.js → module.tests, components [], specification
+tests/module.js, explicit false, matched tests/). The door reads the trait
+of the match module from the snapshot export by module id, never from the
+locate answer; snapshot rc≠0 or the module missing from the export is an
+HONEST ARCH_NOT_EVALUATED with the door's rc 2 (never a silent skip, never
+green); explicit false keeps PATH_WITHOUT_COMPONENT. The old match-level
+noflag cell died with its prefix stub: the distinction it guarded does not
+exist in the conformal grammar (the whole tests/ area is module.tests).
 """
 import hashlib
 import json
@@ -66,6 +130,59 @@ CASES = (
     ('wiring-no-repo', 'wiring', 'wiring-no-repo', 1, 'CI_BATTERY_187_MISSING_OR_NOT_EXACT', 'wiring'),
     ('wiring-python', 'wiring', 'wiring-python', 1, 'CI_BATTERY_187_MISSING_OR_NOT_EXACT', 'wiring'),
     ('wiring-direct-missing', 'wiring', 'wiring-direct-missing', 1, 'CI_DIRECT_ARCH_187_MISSING', 'wiring'),
+    # ── 187а-ремонт (узкий, слово владельца 2026-11-15 ~10:45): rc-грамматика
+    # check настоящей модели решает дверь: rc 0 + requiredModelGate PASS при
+    # общем status NOT_EVALUATED с непустым unresolved latency.* → rc 0 двери
+    # (frozen 187/1: «при rc 0 модели и зелёных прочих ногах дверь rc 0»);
+    # rc 2 → ARCH_NOT_EVALUATED rc 2 двери; rc 1 → ARCH_CHECK rc 1;
+    # requiredModelGate != PASS при rc 0 → ARCH_NOT_EVALUATED (защита) ─────
+    ('check-green-latency-unresolved', 'precritic', 'real-latency', 0, '', 'precritic'),
+    ('check-rc2-real-gate', 'door', 'real-gate-ne', 2, 'ARCH_NOT_EVALUATED', 'door'),
+    ('check-rc1-real-gate', 'door', 'real-gate-fail', 1, 'ARCH_CHECK', 'door'),
+    ('check-rc0-gate-lie', 'door', 'real-gate-lie', 2, 'ARCH_NOT_EVALUATED', 'door'),
+    # ── 187а-ремонт-2 (второй дефект двери, слово владельца 2026-11-15 ~13:00):
+    # размещение компонентов ПО ФАЙЛАМ в модуле-контейнере (пин 907e9e80):
+    # каталог-контейнер — DECLARED с ПУСТЫМИ components, файл внутри — свой
+    # компонент; файл в заявленном строкой компоненте → rc 0 (красна сегодня:
+    # PATH_WITHOUT_COMPONENT «…компонент не назван» на каталоге); каталог с
+    # ДРУГИМ непустым набором → ARCH_ZONE (защита ремонта, зелена до/после);
+    # неоднозначно неразмещённый путь без файла в продукте → защита
+    # PATH_WITHOUT_COMPONENT (зелена до/после) ─────────────────────────────
+    ('zone-container-file', 'freeze', 'container-file', 0, '', 'freeze'),
+    ('zone-container-escape', 'freeze', 'container-escape', 1, 'ARCH_ZONE', 'freeze'),
+    ('path-unplaced-absent', 'freeze', 'container-unplaced', 1, 'PATH_WITHOUT_COMPONENT', 'freeze'),
+    # ── 187а-ремонт-3 (третий дефект двери, слово владельца 2026-11-15):
+    # непродуктовость — ПРИЗНАК МОДЕЛИ (outsideProductRuntime модуля матча
+    # в выгрузке snapshot, ремонт-5), не префикс пути: тестовый шов tests/auth/
+    # (module.tests пина 907e9e80: true) рядом с продуктовым путём → rc 0
+    # (красна сегодня: PATH_WITHOUT_COMPONENT «компонент не назван» на шве —
+    # боль 181, tests/** в зонах 001-008/152-179); ЯВНЫЙ false вне tests/
+    # (server/ops/) при ПУСТЫХ components — прежний отказ (защита, зелена
+    # до/после) ─────────────────────────────────────────────────────────────
+    ('zone-outside-runtime', 'freeze', 'outside-runtime', 0, '', 'freeze'),
+    ('zone-outside-false-refused', 'freeze', 'outside-false', 1, 'PATH_WITHOUT_COMPONENT', 'freeze'),
+    # ── 187а-ремонт-4 (Д4 той же двери, слово владельца 2026-11-15 ~13:15
+    # «в — да»): путь ВНЕ всех областей модели (UNRESOLVED, matches ПУСТ —
+    # признак ИЗ ОТВЕТА МОДЕЛИ, не префикс пути и не диск) — дверь НЕ судит
+    # размещение: rc 0 со строкой «вне модели: <путь>» в сообщении; обе
+    # клетки красны сегодня (файла нет — rc 1 PATH_WITHOUT_COMPONENT, файл
+    # есть — rc 0 без строки); путь В ОБЛАСТИ модели без компонента
+    # (НЕПУСТЫЕ matches: server/newdir/x.js → [module.server,
+    # module.entrypoints]) — прежний отказ PATH_WITHOUT_COMPONENT (защита,
+    # зелена до/после); чужой компонент → ARCH_ZONE — уже покрыто
+    # (freeze-foreign/locate-union-foreign), не дублируется ────────────────
+    ('path-unresolved-zero-absent', 'freeze', 'unresolved-zero-absent', 0, 'вне модели: scripts/ci-helper.sh', 'freeze'),
+    ('path-unresolved-zero-present', 'freeze', 'unresolved-zero-present', 0, 'вне модели: provenance.json', 'freeze'),
+    ('path-area-without-component', 'freeze', 'area-without-component', 1, 'PATH_WITHOUT_COMPONENT', 'freeze'),
+    # ── 187а-ремонт-5 (Б-1/Б-2 вердикта door-v1): канал признака — выгрузка
+    # snapshot закреплённой модели (матч locate признака НЕ несёт): отказ
+    # инструмента (rc 1) и модуль матча вне выгрузки — честный
+    # ARCH_NOT_EVALUATED rc 2 двери (класс и rc — как у NOT_EVALUATED-ветвей
+    # check-канала: «2 — нечем проверить либо вердикта модели нет»), не
+    # пропуск и не зелёный; обе красны сегодня (дверь канал snapshot не
+    # читает вовсе — PATH_WITHOUT_COMPONENT rc 1) ──────────────────────────
+    ('zone-outside-snapshot-failed', 'door', 'outside-snapshot-fail', 2, 'ARCH_NOT_EVALUATED', 'door'),
+    ('zone-outside-snapshot-missing', 'door', 'outside-snapshot-missing', 2, 'ARCH_NOT_EVALUATED', 'door'),
 )
 STABS = {
     'task-no-line': ('task-line-missing', 'allow-line'),
@@ -112,6 +229,45 @@ STABS = {
     'ci-step-without-repo': ('wiring-no-repo', 'ignore-wiring'),
     'ci-step-python-instead': ('wiring-python', 'ignore-wiring'),
     'ci-direct-replaced-by-battery': ('wiring-direct-missing', 'ignore-wiring'),
+    # ── 187а-ремонт стабы: «подстрочный NOT_EVALUATED во всём выводе
+    # отказывает» (текущая дверь) — ловится зелёной latency-клеткой rc 0;
+    # «пропускает rc 2» — rc2-клеткой; защита «gate != PASS → NOT_EVALUATED»
+    # съедает ARCH_CHECK у rc 1 и «игнор поля шлюза при rc 0» — каждая своей
+    # клеткой, различающий вход — свой (Н-39) ──────────────────────────────
+    'latency-not-evaluated-substring': ('check-green-latency-unresolved', 'status-substring'),
+    'model-rc2-passed-green': ('check-rc2-real-gate', 'rc2-green'),
+    'gate-fail-named-not-evaluated': ('check-rc1-real-gate', 'gate-fail-not-evaluated'),
+    'gate-field-ignored': ('check-rc0-gate-lie', 'gate-ignored'),
+    # ── 187а-ремонт-2 стабы: «каталог обязан нести тот же набор компонентов,
+    # что и путь» (текущая дверь — отказ на пустом каталоге-контейнере) —
+    # ловится клеткой файла в контейнере; «всё моделью размещённое проходит
+    # без проверки компонента» — клеткой выхода за границу; каждая ветвь
+    # своей клетке, различающий вход — свой (Н-39) ─────────────────────────
+    'zone-dir-same-set-required': ('zone-container-file', 'dir-same-set-required'),
+    'zone-placed-no-component-check': ('zone-container-escape', 'boundary-skipped'),
+    # ── 187а-ремонт-3/5 стабы: «признак из ответа locate» (текущая дверь,
+    # Б-1 — конформный матч поля не несёт, отказ) — ловится клеткой
+    # непродуктового шва rc 0; «всё без компонентов проходит» (значение
+    # флага не читается вовсе) — клеткой ЯВНОГО false; каждая ветвь своей
+    # клетке, различающий вход — свой (Н-39); стаб «признак по префиксу
+    # tests/» умер вместе с noflag-клеткой: различающего входа в конформной
+    # грамматике нет (весь tests/ — module.tests) ─────────────────────────
+    'outside-locate-flag-read': ('zone-outside-runtime', 'locate-flag-read'),
+    'outside-empty-green': ('zone-outside-false-refused', 'empty-any-green'),
+    # ── 187а-ремонт-4 стабы: «судит ноль-матчей как неразмещённый» (текущая
+    # дверь — PATH_WITHOUT_COMPONENT «не размещён ни в модели, ни в продукте»
+    # без различения областей модели) — краснеет на ОБОИХ ноль-матчевых
+    # входах: файла нет (scripts/ci-helper.sh) и файл есть (provenance.json);
+    # «всё безкомпонентное проходит» — на пути В ОБЛАСТИ модели без
+    # компонента; каждая ветвь своей клетке, различающий вход — свой (Н-39) ──
+    'unresolved-zero-refused-absent': ('path-unresolved-zero-absent', 'zero-refused'),
+    'unresolved-zero-refused-present': ('path-unresolved-zero-present', 'zero-refused'),
+    'area-without-component-green': ('path-area-without-component', 'empty-any-green'),
+    # ── 187а-ремонт-5 стабы: «ошибка snapshot → зелёный» и «модуля нет в
+    # выгрузке — сужу по components» (угадывание вместо честного отказа) —
+    # каждая ветвь своей клетке, различающий вход — свой (Н-39) ────────────
+    'outside-snapshot-error-green': ('zone-outside-snapshot-failed', 'snapshot-error-green'),
+    'outside-snapshot-missing-guessed': ('zone-outside-snapshot-missing', 'snapshot-missing-guess'),
 }
 
 # Approved snapshot inside the pinned tree (2.5.x layout of the real model, as run-arch.js
@@ -121,6 +277,130 @@ CHECK_OPTIONS = ('model', 'report', 'strict', 'base', 'base-digest')
 
 # Real stdout channel of make_task, also forbidden on a named task refusal.
 PACK_MARKER = '=== make_task contract='
+
+# 187а-ремонт: токен файла check-rc закреплённого дерева задаёт форму ответа
+# check. Исходные миры неизменны байтами: 'check-1' → '1', 'check-2' → '2',
+# прочее → '0' (как до ремонта); новые токены — формы rc-грамматики
+# настоящего CLI (см. ветви TOY_CLI и вердикты verdict).
+CHECK_RC_TOKENS = {'check-1': '1', 'check-2': '2',
+                   'real-latency': 'latency', 'real-gate-ne': 'gate-ne',
+                   'real-gate-fail': 'gate-fail', 'real-gate-lie': 'gate-lie'}
+
+# 187а-ремонт: зелёный rc-0 ответ настоящего CLI несёт общий status
+# NOT_EVALUATED с НЕПУСТЫМ unresolved — latency-требования с budgetMs null
+# (пин 907e9e80: system/fitness.js latencyRequirements; system.js:703-719
+# отдаёт NOT_EVALUATED, cli.js:221-223/268-270 выносят их в unresolved).
+# Единый источник: toy-CLI и честный контроль читают этот кортеж.
+LATENCY_UNRESOLVED = ('latency.command-acceptance', 'latency.first-agent-event',
+                      'latency.agent-completion')
+
+# 187а-ремонт-2: форма модели 907e9e80 — модуль-контейнер размещает компоненты
+# ПО ФАЙЛАМ: сам каталог — DECLARED с ПУСТЫМИ components (module.email), файл
+# внутри — свой компонент (worker.js → api.email-current при matched = сам
+# файл; synthetic.js → api.synthetic-email — второе значение той же формы).
+# Единственный источник: toy-CLI и честный контроль читают эти константы.
+CONTAINER_PREFIX = 'server/infrastructure/email/'
+CONTAINER_DIR_MATCH = {'module': 'module.email', 'components': [],
+                       'specification': 'server/infrastructure/email/module.js',
+                       'explicit': False, 'matched': 'server/infrastructure/email/'}
+CONTAINER_FILE_MATCHES = {
+    'worker.js': {'module': 'module.email.dispatcher',
+                  'components': ['api.email-current'],
+                  'specification': 'server/infrastructure/email/worker.js',
+                  'explicit': True, 'matched': 'server/infrastructure/email/worker.js'},
+    'synthetic.js': {'module': 'module.email.synthetic',
+                     'components': ['api.synthetic-email'],
+                     'specification': 'server/infrastructure/email/synthetic.js',
+                     'explicit': True, 'matched': 'server/infrastructure/email/synthetic.js'},
+}
+# Защита границы (frozen 187/1: «граница компонента, не строковый prefix»):
+# каталог с ДРУГИМ непустым набором компонентов — выход файла за границу
+# компонента каталога. Единый источник с toy-CLI.
+ESCAPE_PREFIX = 'app/escape/'
+ESCAPE_DIR_MATCH = {'module': 'module.escape', 'components': ['api.billing'],
+                    'specification': 'app/escape/module.js', 'explicit': False,
+                    'matched': 'app/escape/'}
+ESCAPE_FILE_MATCH = {'module': 'module.escape-model', 'components': ['api.identity'],
+                     'specification': 'app/escape/model.js', 'explicit': True,
+                     'matched': 'app/escape/model.js'}
+# 187а-ремонт-2 (принесено минимально из v+1): неоднозначное размещение —
+# два претендента на 'app/dual/' — различающий вход клетки чистой
+# неразмещённости (container-unplaced): kind 'unresolved-multi'. Единый
+# источник с toy-CLI.
+DUAL_PREFIX = 'app/dual/'
+DUAL_MATCHES = (
+    {'module': 'module.dual-gateway', 'components': ['api.hub'],
+     'specification': 'app/dual/gateway.js', 'explicit': False, 'matched': 'app/dual/'},
+    {'module': 'module.dual-entrypoints', 'components': ['api.documents'],
+     'specification': 'app/dual/entrypoints.js', 'explicit': False, 'matched': 'app/dual/'},
+)
+
+# 187а-ремонт-3/5 (приведение к frozen 187/1, не v+1): непродуктовость пути —
+# ПРИЗНАК МОДЕЛИ, не префикс пути и не id модуля. Матч locate — форма
+# настоящего CLI байт-в-байт, БЕЗ outsideProductRuntime/emptyComponentsReason
+# (замер пина 907e9e80: locate tests/auth/login.test.js → module.tests,
+# components [], specification tests/module.js, explicit false, matched
+# tests/); признак модуль несёт в ВЫГРУСКЕ snapshot (ремонт-5). tests/auth/ —
+# тот же module.tests, что и весь tests/ (специального матча больше нет);
+# server/ops/ — модуль с ЯВНЫМ false. Единственный источник: toy-CLI и
+# честный контроль читают эти константы.
+OUTSIDE_TESTS_PREFIX = 'tests/auth/'
+TESTS_PREFIX = 'tests/'
+TESTS_MATCH = {'module': 'module.tests', 'components': [],
+               'specification': 'tests/module.js', 'explicit': False,
+               'matched': 'tests/'}
+OPS_PREFIX = 'server/ops/'
+OPS_MATCH = {'module': 'module.ops', 'components': [],
+             'specification': 'server/ops/module.js', 'explicit': False,
+             'matched': 'server/ops/'}
+# 187а-ремонт-5: выгрузка snapshot настоящего CLI — {model: {logicalModules:
+# [{id, outsideProductRuntime}, …]}}, КАЖДЫЙ модуль несёт явный boolean
+# (замер пина 907e9e80: 76 модулей, true — ровно шесть, null/absent форм
+# нет); module.ops — ЯВНЫЙ false (защитная пара), module.tests — true (шов
+# боли 181). Единый источник: architecture() пишет файл snapshot-model из
+# snapshot_export(variation), toy-CLI и честный контроль читают её же.
+SNAPSHOT_MODULES = (
+    {'id': 'module.identity', 'outsideProductRuntime': False},
+    {'id': 'module.billing', 'outsideProductRuntime': False},
+    {'id': 'module.email', 'outsideProductRuntime': False},
+    {'id': 'module.email.dispatcher', 'outsideProductRuntime': False},
+    {'id': 'module.email.synthetic', 'outsideProductRuntime': False},
+    {'id': 'module.escape', 'outsideProductRuntime': False},
+    {'id': 'module.escape-model', 'outsideProductRuntime': False},
+    {'id': 'module.dual-gateway', 'outsideProductRuntime': False},
+    {'id': 'module.dual-entrypoints', 'outsideProductRuntime': False},
+    {'id': 'module.server', 'outsideProductRuntime': False},
+    {'id': 'module.entrypoints', 'outsideProductRuntime': False},
+    {'id': 'module.ops', 'outsideProductRuntime': False},
+    {'id': 'module.tests', 'outsideProductRuntime': True},
+)
+
+def snapshot_export(variation):
+    """Выгрузка snapshot toy-модели — канал признака ремонта-5 (единый
+    источник с toy-CLI): 'fail' — инструмент не выгрузился (rc 1);
+    иначе документ {format, model.logicalModules}; вариация
+    'outside-snapshot-missing' не несёт module.tests — модуль матча
+    отсутствует в выгрузке."""
+    if variation == 'outside-snapshot-fail':
+        return 'fail'
+    skip = ('module.tests',) if variation == 'outside-snapshot-missing' else ()
+    return {'format': 'complioros-architecture-baseline/1',
+            'model': {'logicalModules': [dict(m) for m in SNAPSHOT_MODULES
+                                          if m['id'] not in skip]}}
+
+# 187а-ремонт-4 (принесено минимально из v+1): 'server/' — область,
+# на которую притязают ДВА модуля с ПУСТЫМИ компонентами (наблюдённая на
+# пине форма server/index.js: module.server + module.entrypoints) —
+# НЕПУСТЫЕ matches при ПУСТЫХ components, различающий вход клетки
+# area-without-component (server/newdir/x.js). Единый источник с toy-CLI;
+# судится ПОСЛЕ контейнера и ops, лежащих внутри 'server/'.
+AMBIG_PREFIX = 'server/'
+AMBIG_MATCHES = (
+    {'module': 'module.server', 'components': [],
+     'specification': 'server/module.js', 'explicit': False, 'matched': 'server/'},
+    {'module': 'module.entrypoints', 'components': [],
+     'specification': 'server/entrypoints.js', 'explicit': False, 'matched': 'server/'},
+)
 
 def digest(value):
     """Canonical SHA-256 of the real model: sorted keys, JSON.stringify bytes."""
@@ -163,17 +443,80 @@ def drafted(line, mutant):
     field = line.split(';')[0] if mutant == 'draft-id-only' else line
     return re.search(r'(?<!\w)draft(?!\w)', field, re.I) is not None
 
-def architecture(base, root, variation):
-    """A separate git repository with A pinned and a later, deliberately different B HEAD."""
-    arch = base / (root.name + '-model')
-    arch.mkdir()
-    git(arch, 'init', '-q', '-b', 'main')
-    git(arch, 'config', 'user.name', 'Fixture')
-    git(arch, 'config', 'user.email', 'fixture@local')
-    git(arch, 'config', 'commit.gpgsign', 'false')
-    put(arch, 'package.json', json.dumps({'scripts': {'brief': 'node tooling/checks/cli.js brief',
-                                                       'check': 'node tooling/checks/cli.js check'}}))
-    put(arch, 'tooling/checks/cli.js', '''const fs=require('fs');
+def line_components(text):
+    """Component ids of the «АРХИТЕКТУРА:» line, split by commas. None — no line;
+    [] — empty list."""
+    for line in text.splitlines():
+        if line.startswith('АРХИТЕКТУРА: L'):
+            rest = line[len('АРХИТЕКТУРА:'):].strip()
+            ids = rest.split(' ', 1)[1] if ' ' in rest else ''
+            return [i for i in ids.split(',') if i]
+    return None
+
+def parent_dir(path):
+    """Каталог продуктового пути в форме двери: dirname с конечным «/»."""
+    return path[:path.rfind('/') + 1] if '/' in path else ''
+
+def union_components(matches):
+    """Набор компонентов матчей ответа locate: без повторов, по порядку."""
+    union = []
+    for match in matches:
+        for component in match['components']:
+            if component not in union:
+                union.append(component)
+    return union
+
+def locate_answer(path):
+    """Честный контроль ответа locate toy-модели (перенос 187а-ремонта на
+    батарею main; единственный источник с toy-CLI): ('declared', matches) —
+    rc 0, путь размещён (components могут быть ПУСТЫ — решение самой модели);
+    ('unresolved-zero', []) — rc 1, ни один модуль не притязает;
+    ('unresolved-multi', matches) — rc 1, несколько претендентов."""
+    if path.startswith(CONTAINER_PREFIX):
+        # 187а-ремонт-2: контейнер судится ДО AMBIG — 'server/infrastructure/'
+        # лежит внутри амбигуального префикса 'server/' этой toy-модели.
+        rest = path[len(CONTAINER_PREFIX):]
+        if rest == '':
+            return 'declared', [CONTAINER_DIR_MATCH]
+        if rest in CONTAINER_FILE_MATCHES:
+            return 'declared', [CONTAINER_FILE_MATCHES[rest]]
+        return 'unresolved-zero', []
+    if path.startswith(ESCAPE_PREFIX):
+        rest = path[len(ESCAPE_PREFIX):]
+        if rest == '':
+            return 'declared', [ESCAPE_DIR_MATCH]
+        if rest == 'model.js':
+            return 'declared', [ESCAPE_FILE_MATCH]
+        return 'unresolved-zero', []
+    if path.startswith(TESTS_PREFIX):
+        # 187а-ремонт-3/5: весь tests/ (включая шов tests/auth/ боли 181) —
+        # module.tests; признак непродуктовости матч НЕ несёт (форма
+        # настоящего CLI, Б-2) — его носит выгрузка snapshot
+        # (snapshot_export, единый источник с toy-CLI).
+        return 'declared', [TESTS_MATCH]
+    if path.startswith(OPS_PREFIX):
+        # 187а-ремонт-3/5: server/ops/ — module.ops с ЯВНЫМ false в выгрузке
+        # snapshot — прежний отказ (судится ДО AMBIG 'server/', внутри
+        # которого лежит 'server/ops/').
+        return 'declared', [OPS_MATCH]
+    if path.startswith(AMBIG_PREFIX):
+        # 187а-ремонт-4: область модели без компонента — НЕПУСТЫЕ matches
+        # с ПУСТЫМИ components (после контейнера и ops внутри 'server/').
+        return 'unresolved-multi', list(AMBIG_MATCHES)
+    if path.startswith(DUAL_PREFIX):
+        return 'unresolved-multi', list(DUAL_MATCHES)
+    if path.startswith('app/identity/') or path.startswith('app/billing/'):
+        prefix = 'app/identity/' if path.startswith('app/identity/') else 'app/billing/'
+        return 'declared', [{'module': 'module.' + prefix.split('/')[1],
+                             'components': ['api.identity' if prefix == 'app/identity/'
+                                            else 'api.billing'],
+                             'specification': prefix + 'module.js', 'explicit': False,
+                             'matched': prefix}]
+    return 'unresolved-zero', []
+
+# Toy CLI закреплённого дерева. 187а-ремонт: плейсхолдеры шаблона разрешаются
+# ДО записи — toy-CLI и константы батареи читают единый источник.
+TOY_CLI = '''const fs=require('fs');
 const a=process.argv.slice(2); const name=a[0];
 if (name==='brief') {
  const id=a[a.indexOf('--component')+1];
@@ -182,10 +525,31 @@ if (name==='brief') {
  if(a.includes('--with-rules')) console.log('RULES_FROM_PIN_187 semanticInvariant: no second writer; scope_id fixed');
 } else if(name==='locate') {
  const p=a[a.indexOf('--path')+1];
- const prefix=p.startsWith('app/identity/')?'app/identity/':p.startsWith('app/billing/')?'app/billing/':'';
- const components=prefix?[prefix==='app/identity/'?'api.identity':'api.billing']:[];
- const matches=prefix?[{module:'module.'+prefix.split('/')[1],components,
-   specification:prefix+'module.js',explicit:false,matched:prefix}]:[];
+ const one=(status,matches,rc)=>{console.log(JSON.stringify({scope:'DECLARED_PLACEMENT_ONLY',path:p,status:status,matches:matches,implementationEvidence:'NOT_ASSESSED'},null,2)); if(rc)process.exit(rc);};
+ if(p.startsWith('__CONTAINER_PREFIX__')){
+  const crest=p.slice(__CONTAINER_LEN__);
+  if(crest==='') one('DECLARED',[__CONTAINER_DIR_MATCH__],0);
+  else if(crest==='worker.js') one('DECLARED',[__CONTAINER_WORKER_MATCH__],0);
+  else if(crest==='synthetic.js') one('DECLARED',[__CONTAINER_SYNTHETIC_MATCH__],0);
+  else { console.log(JSON.stringify({scope:'DECLARED_PLACEMENT_ONLY',path:p,status:'UNRESOLVED',matches:[],implementationEvidence:'NOT_ASSESSED'},null,2)); process.exit(1); }
+ } else if(p.startsWith('__ESCAPE_PREFIX__')){
+  const erest=p.slice(__ESCAPE_LEN__);
+  if(erest==='') one('DECLARED',[__ESCAPE_DIR_MATCH__],0);
+  else if(erest==='model.js') one('DECLARED',[__ESCAPE_FILE_MATCH__],0);
+  else { console.log(JSON.stringify({scope:'DECLARED_PLACEMENT_ONLY',path:p,status:'UNRESOLVED',matches:[],implementationEvidence:'NOT_ASSESSED'},null,2)); process.exit(1); }
+ } else if(p.startsWith('__TESTS_PREFIX__')){
+  one('DECLARED',[__TESTS_MATCH__],0);
+ } else if(p.startsWith('__OPS_PREFIX__')){
+  one('DECLARED',[__OPS_MATCH__],0);
+ } else if(p.startsWith('__AMBIG_PREFIX__')){
+  one('UNRESOLVED',__AMBIG_MATCHES__,1);
+ } else if(p.startsWith('__DUAL_PREFIX__')){
+  one('UNRESOLVED',__DUAL_MATCHES__,1);
+ } else {
+  const prefix=p.startsWith('app/identity/')?'app/identity/':p.startsWith('app/billing/')?'app/billing/':'';
+  const components=prefix?[prefix==='app/identity/'?'api.identity':'api.billing']:[];
+  const matches=prefix?[{module:'module.'+prefix.split('/')[1],components,
+    specification:prefix+'module.js',explicit:false,matched:prefix}]:[];
  // Same fields as ACTUAL-LOCATE-007-1113.json, pretty-printed as the real CLI.
  const response={scope:'DECLARED_PLACEMENT_ONLY',path:p,
    status:matches.length?'DECLARED':'UNRESOLVED',matches,
@@ -204,6 +568,7 @@ if (name==='brief') {
  }
  console.log(JSON.stringify(response,null,2));
  if(!matches.length) process.exit(1);
+ }
 } else if(name==='check') {
  const allowed=['model','report','strict','base','base-digest']; const o={};
  const out=(status,code,rc)=>{console.log(JSON.stringify({status,findings:code?[{code}]:[]}));process.exit(rc);};
@@ -220,11 +585,77 @@ if (name==='brief') {
  if(d!==o['base-digest']) out('FAIL','BASELINE_DIGEST_MISMATCH',1);
  const status=fs.readFileSync('check-rc','utf8').trim();
  if(status==='2') console.log('NOT_EVALUATED');
+ if(status==='latency'){
+  console.log(JSON.stringify({status:'NOT_EVALUATED',requiredModelGate:'PASS',baselineStatus:'PASS',implementationEvidence:'NOT_ASSESSED',unresolved:__LATENCY_UNRESOLVED__,findings:[],draftContracts:[]},null,2));
+  process.exit(0);
+ }
+ if(status==='gate-ne') { console.log(JSON.stringify({status:'NOT_EVALUATED',requiredModelGate:'NOT_EVALUATED',baselineStatus:'PASS',implementationEvidence:'NOT_ASSESSED',unresolved:[],findings:[],draftContracts:[]},null,2)); process.exit(2); }
+ if(status==='gate-fail') { console.log(JSON.stringify({status:'FAIL',requiredModelGate:'FAIL',baselineStatus:'PASS',implementationEvidence:'NOT_ASSESSED',unresolved:[],findings:[{code:'STRUCTURAL_INVARIANT'}],draftContracts:[]},null,2)); process.exit(1); }
+ if(status==='gate-lie') { console.log(JSON.stringify({status:'NOT_EVALUATED',requiredModelGate:'NOT_EVALUATED',baselineStatus:'PASS',implementationEvidence:'NOT_ASSESSED',unresolved:[],findings:[],draftContracts:[]},null,2)); process.exit(0); }
  process.exit(Number(status));
+} else if(name==='snapshot'){
+ // 187а-ремонт-5: канал признака настоящего CLI (замер пина 907e9e80):
+ // snapshot --out <файл> пишет выгрузку {model:{logicalModules:[…]}} (rc 0),
+ // недоступный --out — rc 1 c FAIL/ARCHITECTURE_TOOL_INPUT (форма EEXIST).
+ const out2=(code,message)=>{console.log(JSON.stringify({status:'FAIL',scope:'ARCHITECTURE_TOOL_INPUT',findings:[{code,message}]}));process.exit(1);};
+ const oi=a.indexOf('--out'); const out=oi>=0?a[oi+1]:'';
+ if(!out||out.startsWith('--')) out2('MISSING_OPTION_VALUE','--out требует значение');
+ const src=fs.readFileSync('snapshot-model','utf8').trim();
+ if(src==='fail') out2('EEXIST','EEXIST: file already exists, mkdir snapshot-out-unavailable');
+ try{fs.mkdirSync(require('path').dirname(out),{recursive:true});fs.writeFileSync(out,src);}catch(e){out2(e.code||'EACCES',String(e.message));}
+ const canon=v=>Array.isArray(v)?v.map(canon):(!v||typeof v!=='object')?v:Object.fromEntries(Object.keys(v).sort().map(k=>[k,canon(v[k])]));
+ const d=require('crypto').createHash('sha256').update(JSON.stringify(canon(JSON.parse(src)))).digest('hex');
+ console.log(JSON.stringify({out:out,digest:d,approval:'NOT_GRANTED',implementationEvidence:'NOT_ASSESSED'}));
 } else process.exit(2);
-''')
-    put(arch, 'check-rc', (variation[-1] if variation in ('check-1', 'check-2') else '0') + '\n')
+'''
+TOY_CLI = (TOY_CLI
+           .replace('__LATENCY_UNRESOLVED__', json.dumps(LATENCY_UNRESOLVED, separators=(',', ':')))
+           .replace('__CONTAINER_PREFIX__', CONTAINER_PREFIX)
+           .replace('__CONTAINER_LEN__', str(len(CONTAINER_PREFIX)))
+           .replace('__CONTAINER_DIR_MATCH__', json.dumps(CONTAINER_DIR_MATCH, separators=(',', ':')))
+           .replace('__CONTAINER_WORKER_MATCH__', json.dumps(CONTAINER_FILE_MATCHES['worker.js'], separators=(',', ':')))
+           .replace('__CONTAINER_SYNTHETIC_MATCH__', json.dumps(CONTAINER_FILE_MATCHES['synthetic.js'], separators=(',', ':')))
+           .replace('__ESCAPE_PREFIX__', ESCAPE_PREFIX)
+           .replace('__ESCAPE_LEN__', str(len(ESCAPE_PREFIX)))
+           .replace('__ESCAPE_DIR_MATCH__', json.dumps(ESCAPE_DIR_MATCH, separators=(',', ':')))
+           .replace('__ESCAPE_FILE_MATCH__', json.dumps(ESCAPE_FILE_MATCH, separators=(',', ':')))
+           .replace('__DUAL_PREFIX__', DUAL_PREFIX)
+           .replace('__DUAL_MATCHES__', json.dumps(DUAL_MATCHES, separators=(',', ':')))
+           .replace('__TESTS_PREFIX__', TESTS_PREFIX)
+           .replace('__TESTS_MATCH__', json.dumps(TESTS_MATCH, separators=(',', ':')))
+           .replace('__OPS_PREFIX__', OPS_PREFIX)
+           .replace('__OPS_MATCH__', json.dumps(OPS_MATCH, separators=(',', ':')))
+           .replace('__AMBIG_PREFIX__', AMBIG_PREFIX)
+           .replace('__AMBIG_MATCHES__', json.dumps(AMBIG_MATCHES, separators=(',', ':'))))
+assert '__CONTAINER' not in TOY_CLI and '__ESCAPE' not in TOY_CLI and '__DUAL' not in TOY_CLI \
+    and '__TESTS' not in TOY_CLI and '__OPS' not in TOY_CLI \
+    and '__AMBIG' not in TOY_CLI, \
+    'шаблон TOY_CLI не разрешён (плейсхолдеры контейнера/выхода/дуала/признака/области)'
+# Ветвь обязана быть в канонической форме из константы (одиночные кавычки
+# шаблона): двойное закавычивание плейсхолдера префикса (json.dumps внутрь
+# готовых кавычек startsWith) молча роняет контейнерные пути в generic-ветку —
+# ловится здесь, на импорте.
+for _prefix in (CONTAINER_PREFIX, ESCAPE_PREFIX, DUAL_PREFIX,
+                TESTS_PREFIX, OPS_PREFIX, AMBIG_PREFIX):
+    assert f"p.startsWith('{_prefix}')" in TOY_CLI, \
+        f'ветвь префикса {_prefix!r} не в канонической форме'
+
+def architecture(base, root, variation):
+    """A separate git repository with A pinned and a later, deliberately different B HEAD."""
+    arch = base / (root.name + '-model')
+    arch.mkdir()
+    git(arch, 'init', '-q', '-b', 'main')
+    git(arch, 'config', 'user.name', 'Fixture')
+    git(arch, 'config', 'user.email', 'fixture@local')
+    git(arch, 'config', 'commit.gpgsign', 'false')
+    put(arch, 'package.json', json.dumps({'scripts': {'brief': 'node tooling/checks/cli.js brief',
+                                                       'check': 'node tooling/checks/cli.js check'}}))
+    put(arch, 'tooling/checks/cli.js', TOY_CLI)
+    put(arch, 'check-rc', CHECK_RC_TOKENS.get(variation, '0') + '\n')
     put(arch, 'locate-boundary', variation + '\n')
+    export = snapshot_export(variation)
+    put(arch, 'snapshot-model',
+        'fail\n' if export == 'fail' else json.dumps(export, indent=2))
     put(arch, SNAPSHOT, json.dumps(snapshot(1)))
     git(arch, 'add', '-A')
     git(arch, 'commit', '-qm', 'published architecture')
@@ -314,6 +745,78 @@ def prepare(root, arch, pinned, variation):
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('вход schema.query', 'вход schema.draft'))
     elif variation == 'review-missing':
         put(root, REVIEW, 'ACCEPT\nNote: СВЕРКА-АРХИТЕКТУРЫ: mentioned in a quote, not reported by reviewer\n')
+    elif variation == 'container-file':
+        # 187а-ремонт-2: зона — ФАЙЛ в модуле-контейнере: locate каталога —
+        # module.email с ПУСТЫМИ components, locate файла — [api.email-current]
+        # (matched = сам файл); строка называет этот компонент.
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+            'АРХИТЕКТУРА: L1 api.identity', 'АРХИТЕКТУРА: L1 api.email-current'
+        ).replace('app/identity/model.js', CONTAINER_PREFIX + 'worker.js'))
+        put(root, CONTAINER_PREFIX + 'worker.js', 'module.exports=16;\n')
+    elif variation == 'container-escape':
+        # Защита границы: каталог — ДРУГОЙ непустой набор (api.billing), файл —
+        # api.identity, строка называет ОБА — отказ только по границе компонента.
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+            'АРХИТЕКТУРА: L1 api.identity', 'АРХИТЕКТУРА: L1 api.identity,api.billing'
+        ).replace('app/identity/model.js', ESCAPE_PREFIX + 'model.js'))
+        put(root, ESCAPE_PREFIX + 'model.js', 'module.exports=17;\n')
+    elif variation == 'container-unplaced':
+        # Защита отказа: путь неоднозначно неразмещён (два претендента
+        # app/dual/) и в продукте НЕ существует — существующий файл вход
+        # ДРУГОЙ клетки (real-unplaced); здесь чистая неразмещённость.
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+            'app/identity/model.js', DUAL_PREFIX + 'absent.js'))
+    elif variation == 'outside-runtime':
+        # 187а-ремонт-3/5: зона как у контрактов бэкенда (001-008, 152-179):
+        # продуктовый путь (DECLARED, [api.identity]) + тестовый шов tests/auth/
+        # (module.tests; признак outsideProductRuntime: true — в ВЫГРУСКЕ
+        # snapshot, матч locate его не несёт) — боль: текущая дверь читает
+        # признак из ответа locate и отказывает PATH_WITHOUT_COMPONENT
+        # «компонент не назван» на тестовом шве.
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+            'ЗОНА implementer: app/identity/model.js',
+            'ЗОНА implementer: app/identity/model.js ' + OUTSIDE_TESTS_PREFIX + 'login.js'))
+        put(root, OUTSIDE_TESTS_PREFIX + 'login.js', 'module.exports=18;\n')
+    elif variation == 'outside-false':
+        # Защита: признак из МОДЕЛИ, не из префикса — модуль НЕ от tests/
+        # (server/ops/) с ЯВНЫМ outsideProductRuntime: false в выгрузке
+        # snapshot и ПУСТЫМИ components — прежний отказ PATH_WITHOUT_COMPONENT
+        # (зелена до/после).
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+            'app/identity/model.js', OPS_PREFIX + 'maintenance.js'))
+        put(root, OPS_PREFIX + 'maintenance.js', 'module.exports=19;\n')
+    elif variation in ('outside-snapshot-fail', 'outside-snapshot-missing'):
+        # 187а-ремонт-5: зона — ТОЛЬКО тестовый шов (module.tests): суждение
+        # обязано упереться в канал snapshot (честный отказ rc 2
+        # ARCH_NOT_EVALUATED: инструмент не выгрузился / модуля нет в
+        # выгрузке), а не в компоненты; файла на диске НЕТ — суждение по
+        # модели, не по диску (нынешняя дверь канал не читает вовсе:
+        # PATH_WITHOUT_COMPONENT rc 1 — клетка красна сегодня).
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+            'app/identity/model.js', OUTSIDE_TESTS_PREFIX + 'login.js'))
+    elif variation == 'unresolved-zero-absent':
+        # 187а-ремонт-4, правило (ii): путь ВНЕ всех областей модели (ноль
+        # матчей), файла в продукте НЕТ — дверь НЕ судит размещение: rc 0 со
+        # строкой «вне модели: <путь>» (красна сегодня: rc 1
+        # PATH_WITHOUT_COMPONENT «не размещён ни в модели, ни в продукте»).
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+            'app/identity/model.js', 'scripts/ci-helper.sh'))
+    elif variation == 'unresolved-zero-present':
+        # 187а-ремонт-4, правило (ii), второе значение: файл СУЩЕСТВУЕТ в
+        # продукте (provenance.json назван §«Существующее»), но ни один модуль
+        # модели не притязает на путь (matches ПУСТ) — rc 0 со строкой «вне
+        # модели: <путь>» (красна сегодня: rc 0 без строки); суждение по диску
+        # («файл есть — судим размещение») запрещено: признак — пустота
+        # matches ответа модели.
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', 'provenance.json'))
+        put(root, 'provenance.json', '{"schema": "toy-pin"}\n')
+    elif variation == 'area-without-component':
+        # 187а-ремонт-4, правило (i) — защита: путь ВНУТРИ области модели без
+        # компонента — НЕПУСТЫЕ matches [module.server, module.entrypoints] с
+        # ПУСТЫМИ components; файла в продукте нет (новый файл области, боль
+        # 185) — прежний отказ PATH_WITHOUT_COMPONENT (зелена до/после; стаб
+        # «всё безкомпонентное проходит» ловится здесь).
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', 'server/newdir/x.js'))
     # CI report mutations happen after commit: the report must reference the final SHA.
     git(root, 'add', '-A')
     git(root, 'commit', '-qm', 'isolated scenario ' + (variation or 'valid'))
@@ -393,12 +896,109 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
         if any(drafted(line, mutant) for line in contract.splitlines()
                if line.startswith('ОПЕРАЦИЯ:')) and mutant != 'allow-draft':
             return 1, 'ARCH_DRAFT'
+        if variation in ('container-file', 'container-escape', 'container-unplaced'):
+            # 187а-ремонт-2 (второй дефект двери): честный контроль читает
+            # размещение СТРУКТУРНО через locate_answer — единый источник с
+            # toy-CLI. Граница компонента судится по НЕПУСТОМУ набору каталога:
+            # пустой набор каталога-контейнера — не претензия (frozen 187/1
+            # судит путь СВОИМ размещением, не набором каталога); ДРУГОЙ
+            # непустой набор — выход за границу; неоднозначный путь — не размещён.
+            path = next(line[len('ЗОНА implementer:'):].strip()
+                        for line in contract.splitlines()
+                        if line.startswith('ЗОНА implementer:'))
+            dkind, dmatches = locate_answer(parent_dir(path))
+            dcomps = union_components(dmatches) if dkind == 'declared' else []
+            kind, matches = locate_answer(path)
+            fcomps = union_components(matches) if kind == 'declared' else []
+            if mutant == 'dir-same-set-required' and fcomps and dkind == 'declared' \
+                    and not dcomps:
+                # обман (текущая дверь): каталог-контейнер без компонентов —
+                # PATH_WITHOUT_COMPONENT «компонент не назван» на каталоге
+                return 1, (f'PATH_WITHOUT_COMPONENT: путь {parent_dir(path)} '
+                           'размещён моделью, но компонент не назван')
+            if mutant == 'boundary-skipped':
+                dcomps = []  # обман: всё размещённое проходит без проверки компонента
+            if kind == 'unresolved-multi':
+                return 1, (f'PATH_WITHOUT_COMPONENT: путь {path} не размещён однозначно '
+                           'в закреплённой модели (несколько претендентов)')
+            if fcomps and dcomps and set(dcomps) != set(fcomps):
+                return 1, f'ARCH_ZONE: путь {path} вне границы компонента'
+            ids = line_components(contract)
+            if not (set(fcomps) & set(ids)):
+                return 1, (f'ARCH_ZONE: путь {path} отнесён моделью к компоненту '
+                           f'{fcomps[0]}, а строка «АРХИТЕКТУРА:» называет {",".join(ids)}')
+            return 0, ''
+        if variation in ('outside-runtime', 'outside-false',
+                         'unresolved-zero-absent', 'unresolved-zero-present',
+                         'area-without-component'):
+            # 187а-ремонт-3/4/5: честный контроль читает ответ СТРУКТУРНО через
+            # locate_answer — единый источник с toy-CLI. Непродуктовость —
+            # ПРИЗНАК МОДЕЛИ (outsideProductRuntime модуля матча в выгрузке
+            # snapshot, не префикс пути и не id модуля; сам матч locate признака
+            # не несёт — Б-2): путь модуля с true пропущен, ЯВНЫЙ false при
+            # ПУСТЫХ components — прежний отказ frozen 187/1. Д4: суждение
+            # размещения — только там, где модель ПРИТЯЗАЕТ на путь: UNRESOLVED
+            # с ПУСТЫМИ matches (вне всех областей модели) — не судить, строка
+            # «вне модели: <путь>» в сообщении rc 0 (диск не участвует);
+            # UNRESOLVED с НЕПУСТЫМИ matches (область модели без компонента)
+            # — прежний отказ. Стабы: «признак из ответа locate» (Б-1, текущая
+            # дверь — конформный матч поля не несёт), «всё безкомпонентное
+            # проходит», «судит ноль-матчей как неразмещённый» — каждая ветвь
+            # своей клетке (Н-39).
+            ids = line_components(contract)
+            paths = [token for line in contract.splitlines()
+                     if line.startswith('ЗОНА implementer:')
+                     for token in line[len('ЗОНА implementer:'):].split()]
+            notes = []
+            modules = snapshot_export(variation)['model']['logicalModules']
+            for path in paths:
+                kind, matches = locate_answer(path)
+                comps = union_components(matches) if kind == 'declared' else []
+                if kind == 'unresolved-zero':
+                    if mutant == 'zero-refused':
+                        # обман (текущая дверь): ноль матчей = «неразмещён»,
+                        # отказ без различения областей модели и без строки
+                        return 1, (f'PATH_WITHOUT_COMPONENT: путь {path} не размещён '
+                                   'ни в модели, ни в продукте')
+                    notes.append(f'вне модели: {path}')
+                    continue
+                if not comps:
+                    if kind == 'declared':
+                        if mutant == 'locate-flag-read':
+                            # обман (Б-1, текущая дверь): признак из ответа
+                            # locate — конформный матч его не несёт
+                            outside = matches[0].get('outsideProductRuntime')
+                        else:
+                            outside = next((m['outsideProductRuntime'] for m in modules
+                                            if m['id'] == matches[0]['module']), None)
+                        if outside is True:
+                            continue  # признак из модели: вне продуктового runtime
+                    if mutant == 'empty-any-green':
+                        continue  # обман: всё безкомпонентное проходит (и в области модели)
+                    if kind == 'declared':
+                        return 1, (f'PATH_WITHOUT_COMPONENT: путь {path} размещён '
+                                   'моделью, но компонент не назван')
+                    return 1, (f'PATH_WITHOUT_COMPONENT: путь {path} не размещён однозначно '
+                               'в закреплённой модели (несколько претендентов)')
+                if not set(comps) & set(ids):
+                    return 1, (f'ARCH_ZONE: путь {path} отнесён моделью к компоненту '
+                               f'{comps[0]}, а строка «АРХИТЕКТУРА:» называет {",".join(ids)}')
+            return 0, '\n'.join(notes)
         if 'server/src/auth/' in contract and mutant != 'allow-zone':
             return 1, 'PATH_WITHOUT_COMPONENT'
         if 'app/billing/' in contract and mutant != 'allow-zone':
             return 1, 'ARCH_ZONE'
         return (1, 'ARCH_LINE_MISSING') if mutant == 'require-all' else (0, '')
     if action == 'precritic':
+        if variation == 'real-latency':
+            # 187а-ремонт: зелёный rc 0 с НЕПУСТЫМ unresolved latency.* (живая
+            # форма пина 907e9e80: rc=0, requiredModelGate PASS, findings [],
+            # общий status NOT_EVALUATED только из-за latency.*) — конформ;
+            # подстрочный поиск NOT_EVALUATED во всём выводе — обман (текущая
+            # дверь), стаб status-substring.
+            if mutant == 'status-substring':
+                return 1, 'ARCH_NOT_EVALUATED: check --base модели не вынес вердикта (rc=0)'
+            return 0, ''
         lock = json.loads((root / 'architecture.lock.json').read_text())
         args = ['--base', SNAPSHOT, '--base-digest', lock['snapshotDigest']]
         if mutant == 'bare-base': args = ['--base']
@@ -425,6 +1025,45 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
                                       arch_runs[-1].get('conclusion') != 'success'):
             return 1, 'ARCH_CI'
         return 0, ''
+    if action == 'door':
+        if variation == 'real-gate-ne':
+            # 187а-ремонт: rc 2 инструмента — requiredModelGate NOT_EVALUATED
+            # (форма пина, cli.js:305): ARCH_NOT_EVALUATED СВОИМ rc 2 двери,
+            # не схлопнутым в rc 1; стаб «пропускает rc 2» — зелёный.
+            if mutant == 'rc2-green':
+                return 0, 'ARCH_187A_OK: архитектура сходится с закреплённой моделью'
+            return 2, 'ARCH_NOT_EVALUATED: check --base модели не вынес вердикта (rc=2)'
+        if variation == 'real-gate-fail':
+            # 187а-ремонт: rc 1 инструмента — requiredModelGate FAIL (cli.js:304):
+            # ARCH_CHECK rc 1; защита «gate != PASS → ARCH_NOT_EVALUATED»
+            # красный вердикт модели не съедает (стаб gate-fail-not-evaluated).
+            if mutant == 'gate-fail-not-evaluated':
+                return 2, 'ARCH_NOT_EVALUATED: check --base модели не вынес вердикта (rc=1)'
+            return 1, 'ARCH_CHECK: check --base модели красный (rc=1)'
+        if variation == 'real-gate-lie':
+            # 187а-ремонт, защита: requiredModelGate != PASS при rc 0 — тело,
+            # которого настоящий инструмент не излучает (cli.js:304-306); дверь
+            # не доверяет одному rc — именованный ARCH_NOT_EVALUATED (стаб
+            # gate-ignored).
+            if mutant == 'gate-ignored':
+                return 0, 'ARCH_187A_OK: архитектура сходится с закреплённой моделью'
+            return 2, 'ARCH_NOT_EVALUATED: requiredModelGate не PASS (rc=0)'
+        if variation in ('outside-snapshot-fail', 'outside-snapshot-missing'):
+            # 187а-ремонт-5: канал признака — выгрузка snapshot закреплённой
+            # модели (матч locate признака не несёт — Б-2): отказ инструмента
+            # (rc 1) или модуль матча вне выгрузки — честный ARCH_NOT_EVALUATED
+            # СВОИМ rc 2 двери (класс и rc — как у NOT_EVALUATED-ветвей
+            # check-канала: «2 — нечем проверить либо вердикта модели нет»),
+            # не пропуск и не зелёный; стабы: «ошибка snapshot → зелёный»,
+            # «модуля нет — сужу по components» (угадывание).
+            if mutant == 'snapshot-error-green':
+                return 0, 'ARCH_187A_OK: архитектура сходится с закреплённой моделью'
+            if mutant == 'snapshot-missing-guess':
+                return 1, ('PATH_WITHOUT_COMPONENT: путь ' + OUTSIDE_TESTS_PREFIX
+                           + 'login.js размещён моделью, но компонент не назван')
+            if variation == 'outside-snapshot-fail':
+                return 2, 'ARCH_NOT_EVALUATED: snapshot закреплённой модели не выгрузился (rc=1)'
+            return 2, 'ARCH_NOT_EVALUATED: модуль матча module.tests отсутствует в выгрузке snapshot'
     raise RuntimeError('unknown action')
 
 def live(tools, root, arch, pinned, action, task, trace, role):
@@ -437,6 +1076,9 @@ def live(tools, root, arch, pinned, action, task, trace, role):
     if action == 'wiring':
         return run('bash', TOOLS / 'fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh',
                    '--wiring', root, cwd=root, env=env)
+    if action == 'door':
+        return run('bash', tools / 'scripts/check_architecture_contract.sh', '--repo', root,
+                   CONTRACT, cwd=root, env=env)
     if action == 'task':
         command = ['bash', tools / 'scripts/make_task.sh', '--repo', root, '--role', role,
                    '--kind', 'task', '--contract', '777', '--task-file', task,
