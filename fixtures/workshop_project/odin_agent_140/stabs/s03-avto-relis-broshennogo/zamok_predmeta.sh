@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # ЗАМОК ПРЕДМЕТА (контракт 140 «odin-agent-na-predmet») — эталон единой двери:
 # суд спавна «один рабочий агент на предмет», атомарный замок (repoId, subjectId)
-# на batch целиком, единый учёт начатых предметов (лимиты 1/3/2, START до первой
-# раздачи, слот до done/ПАУЗЫ). Реализация харнесса (scripts/zamok_predmeta.sh)
-# несёт ту же семантику; батарея fixtures/workshop_project/odin_agent_140/
-# судит ЭТУ модель, стабы — её мутации по маркерам [Dn].
+# на batch целиком, единый учёт начатых предметов (лимиты harness 3 / mob 3 /
+# back 3, START до первой раздачи, слот до done/ПАУЗЫ). Реализация харнесса
+# (scripts/zamok_predmeta.sh) несёт ту же семантику; батарея
+# fixtures/workshop_project/odin_agent_140/ судит ЭТУ модель, стабы — её
+# мутации по маркерам [Dn]. v+1 (слово владельца 2026-11-12, Sol S2 §2.1):
+# сдача держателя — событие рантайма session_exit kind=normal (структурные
+# поля ПОСЛЕДНЕЙ строки журнала) наравне с yield-литералом; класс риска
+# судимого кандидата — из ДЕРЕВА его OBJECT, а не из $REPO (main).
 #
 # ВЫЗОВ (грамматика argv замкнута, ровно три формы):
 #   zamok_predmeta.sh --sudit     --sostojanie D --zhurnaly D --repo R <event.json>
@@ -14,18 +18,21 @@
 # ИСТОЧНИКИ СОБЫТИЙ (ось «источник»):
 #   --sostojanie D — замки D/zamki/<repoId>/<NNN>/{mutex,zanyat}/holder.json и
 #                    учёт D/uchet.jsonl (append-only, построчный JSON);
-#   --zhurnaly  D  — журналы сессий станции …/<holder>.jsonl; сдача (yield) —
+#   --zhurnaly  D  — журналы сессий станции …/<holder>.jsonl; сдача —
 #                    литеральная строка `"toolName":"yield"` в журнале holder
 #                    (факт отклика инструмента yield; orch-tablo читает тот же
-#                    факт разбором JSON — здесь байтовый якорь);
+#                    факт) ИЛИ [D2b] событие рантайма session_exit kind=normal
+#                    (omp 18.18.8 завершает субагентов без yield);
 #   --repo      R  — реестр: registry/pauzy.tsv (ПАУЗА владельца), теги
-#                    done/contracts/<NNN>/* (слот закрыт), contracts/<NNN>-*.md
-#                    (строка с декларацией «КЛАСС РИСКА: рисковый|обычный …»).
+#                    done/contracts/<NNN>/* (слот закрыт), registry/
+#                    risk-legacy.tsv (класс старых frozen по blob, [D30]);
+#                    contracts/<NNN>-*.md суда класса НЕ несут — [D31] класс
+#                    судимого кандидата читается из ДЕРЕВА его OBJECT.
 #
 # ЗАМКНУТЫЕ АЛФАВИТЫ (норма 041; байты-разделители исключены из классов значений):
 #   SUBJECT — строка задания `^SUBJECT=[0-9]{3}$`, ровно одна (/m, якорь ^…$);
 #   OBJECT  — строка задания `^OBJECT=[0-9a-f]{40}$`, ровно одна (грамматика 104
-#             Решение 5 — та же, что models_actual.sh --bind);
+#             Решение 5 — та же, что models_actual.sh --tsv --bind);
 #   PIN     — пара строк `^WORKTREE=/[^TAB]+$` и `^BRANCH=wip/[0-9]{3}/[^TAB]+$`
 #             (построчная форма грамматики 066; NNN ветки == SUBJECT; байт TAB
 #             исключён из класса значения ЛИТЕРАЛЬНО — ERE-скобки не знают \t);
@@ -128,6 +135,19 @@ stare_holder() {  # <holder> → yield|bezhit|broshen|net_fajla
   jf="$(find "$ZHUR" -type f -name "${h}.jsonl" -print | sed -n '1p')"
   if [ -z "$jf" ]; then printf 'net_fajla'; return 0; fi
   if grep -Fq '"toolName":"yield"' "$jf"; then printf 'yield'; return 0; fi
+  # [D2b session-exit] omp 18.18.8: субагент завершает работу БЕЗ инструмента
+  # yield; рантайм пишет ПОСЛЕДНЕЙ строкой журнала событие завершения сессии
+  # {"type":"custom","customType":"session_exit","data":{…,"kind":"normal"…}}
+  # (замер 2026-11-12 по журналам станции: 2516 normal / 231 signal, все
+  # записи — type=custom). Нормальное завершение = сдача (слово владельца
+  # 2026-11-12). Маркер — ТОЛЬКО структурные поля события рантайма (jq select
+  # ПОСЛЕДНЕЙ строки: .type=="custom" ∧ .customType=="session_exit" ∧
+  # .data.kind=="normal"): литералы в теле ЧУЖОЙ записи (текст сообщения,
+  # args инструмента, вложенные данные события иного типа) сдачей НЕ являются;
+  # kind≠normal (аварийный/сигнальный выход) — не сдача.
+  if tail -n 1 "$jf" | jq -e 'select(.type == "custom" and .customType == "session_exit" and .data.kind == "normal")' >/dev/null 2>&1; then
+    printf 'yield'; return 0
+  fi
   if [ -n "$(find "$jf" -mmin +"$BROSHEN_TTL_MIN" -print)" ]; then
     printf 'broshen'
   else
@@ -138,6 +158,9 @@ stare_holder() {  # <holder> → yield|bezhit|broshen|net_fajla
 # [D15 pauza] ПАУЗА владельца — только строка registry/pauzy.tsv.
 na_pauze() {  # <NNN>
   local f="$REPO/registry/pauzy.tsv" l
+  # Проектная раскладка (04.11, та же стенка, что каталог контрактов в #500): реестр
+  # проекта лежит в .harness/registry/ — без этого паузу предмета проекта не записать.
+  [ -r "$f" ] || f="$REPO/.harness/registry/pauzy.tsv"
   [ -r "$f" ] || return 1
   while IFS= read -r l; do
     case "$l" in '#'*|'') continue ;; esac
@@ -147,31 +170,58 @@ na_pauze() {  # <NNN>
 }
 # [D18 done-uchet] done-тег закрывает слот предмета (локальные теги чекаута).
 predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
-# [D13 klass-riska] строка «КЛАСС РИСКА:» в contracts/<NNN>-*.md обязательна:
-# нет файла ИЛИ нет строки — класс не определён (fail-closed, слово владельца 24.10).
+# [D13 klass-riska] строка «КЛАСС РИСКА:» обязательна: нет декларации — класс
+# не определён (fail-closed, слово владельца 24.10). [D31 klass-iz-kandidata]
+# (слово владельца 2026-11-12): ИСТОЧНИК класса судимого кандидата — ДЕРЕВО
+# его OBJECT (git-объекты репозитория автора), НЕ $REPO/contracts (main) и НЕ
+# грязный рабочий каталог автора; боль 991 v3: «обычный» в кандидате против
+# «рисковый» в main молча отказывала спавн критика KLASS_RISKA_NET.
+# Каталог контрактов кандидата: contracts/, у сессии проекта — .harness/
+# contracts/ (измерено 02.11: адверсарий по бэкенд 148 не спавнился); при
+# обоих приоритет у contracts/. Записи не-blob (симлинк/каталог с именем
+# <NNN>-*.md) — нечитаемая запись канона (как D36) → neodnoznachno.
 # [D29 odnoznachnyj-istochnik-riska] класс читается по ВСЕМ файлам предмета:
-# ноль файлов, нет строки в любом из них, значение вне алфавита (обычный|рисковый)
-# или РАЗНЫЕ значения — класс не определён; «первый результат find» не каноничен
-# (вердикт адверсария 140 вызов 1/2: один «рисковый» файл среди шести молча
-# определял класс «обычный» — ревьюер шёл без адверсария). Перечень файлов
-# сортируется LC_ALL=C — сообщение отказа детерминировано. Декларация —
-# в любой позиции строки, хвост-основание допустим (норма roles/architect.md),
-# вторая декларация в файле — неоднозначность.
-klass_riska() {  # <NNN> → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
-  local spisok f val znach='' ploh=''
-  spisok="$(find "$REPO/contracts" -maxdepth 1 -name "$1-*.md" -print | LC_ALL=C sort)"
-  if [ -z "$spisok" ]; then printf 'net_stroki:файлов contracts/%s-*.md нет' "$1"; return 0; fi
-  while IFS= read -r f; do
-    [ -n "$f" ] || continue
-    val="$(grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' "$f" 2>/dev/null \
+# ноль файлов, нет строки в любом из них, значение вне алфавита (обычный|
+# рисковый) или РАЗНЫЕ значения — класс не определён; «первый результат»
+# не каноничен (вердикт адверсария 140 вызов 1/2: один «рисковый» файл среди
+# шести молча определял класс «обычный» — ревьюер шёл без адверсария).
+# Перечень сортируется LC_ALL=C — сообщение отказа детерминировано.
+# Декларация — в любой позиции строки, хвост-основание допустим (норма
+# roles/architect.md), вторая декларация в файле — неоднозначность.
+klass_riska() {  # <NNN> <worktree> <OBJECT> → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
+  local n="$1" wt="$2" obj="$3" kat spisok zap tip_zap blob put val znach='' ploh=''
+  if [ "$(git -C "$wt" cat-file -t "$obj:contracts" 2>/dev/null)" = tree ]; then kat='contracts'
+  elif [ "$(git -C "$wt" cat-file -t "$obj:.harness/contracts" 2>/dev/null)" = tree ]; then kat='.harness/contracts'
+  else printf 'net_stroki:ни contracts/, ни .harness/contracts/ в дереве %s нет' "$obj"; return 0; fi
+  spisok="$(git -C "$wt" ls-tree "$obj:$kat" 2>/dev/null \
+    | awk -F'\t' -v n="$n" '$2 ~ "^" n "-[^/]*[.]md$" {print $1 "\t" $2}' \
+    | LC_ALL=C sort)"
+  if [ -z "$spisok" ]; then printf 'net_stroki:файлов %s/%s-*.md в дереве %s нет' "$kat" "$n" "$obj"; return 0; fi
+  while IFS= read -r zap; do
+    [ -n "$zap" ] || continue
+    put="$(printf '%s' "$zap" | cut -f2)"
+    tip_zap="$(printf '%s' "$zap" | cut -f1 | cut -d' ' -f2)"
+    blob="$(printf '%s' "$zap" | cut -f1 | cut -d' ' -f3)"
+    if [ "$tip_zap" != blob ]; then ploh="${ploh:+$ploh }$put"; continue; fi
+    val="$(git -C "$wt" show "$obj:$kat/$put" 2>/dev/null \
+          | grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' \
           | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"
+    # [D30 risk-legacy] старый frozen без строки класса (до слова владельца 24.10):
+    # класс — из registry/risk-legacy.tsv по blob файла (колонки: blob, класс,
+    # основание, подтвердил; норма roles/orchestrator.md §«Порядок судей и класс
+    # риска»). blob — записи ДЕРЕВА OBJECT кандидата; сам реестр — $REPO (реестр
+    # владельца, 0814d2f5a). Литеральное сравнение blob (awk -F'\t' $1==b), нет
+    # записи — класс не определён (fail-closed).
+    if [ -z "$val" ] && [ -f "$REPO/registry/risk-legacy.tsv" ]; then
+      val="$(awk -F'\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}' "$REPO/registry/risk-legacy.tsv")"
+    fi
     case "$val" in
       обычный)  val='obychnyj' ;;
       рисковый) val='risikovyj' ;;
-      *)        ploh="${ploh:+$ploh }$f"; continue ;;
+      *)        ploh="${ploh:+$ploh }$put"; continue ;;
     esac
     if [ -z "$znach" ]; then znach="$val"
-    elif [ "$znach" != "$val" ]; then ploh="${ploh:+$ploh }$f"; fi
+    elif [ "$znach" != "$val" ]; then ploh="${ploh:+$ploh }$put"; fi
   done <<EOF
 $spisok
 EOF
@@ -213,8 +263,25 @@ EOF
 # Сверка по учёту: судья РОЛИ на OBJECT сдал (аргументы jq — из замкнутых
 # алфавитов: rol из JUDGES, object 40-hex, subjectId [0-9]{3}; сравнения
 # литеральные в самом фильтре, склеек из чужого текста нет).
+# [D11 uzhe-suzhen] Круг судейства состоялся, если судья этой роли на этом
+# OBJECT дал START и его круг не закрыт собственным RELEASE `obryv_bez_verdikta`
+# (контракт 167: оборванный судья — START без закоммиченного вердикта — круг D11
+# не тратит; его release даёт ровно один повтор, а новый START повторного судьи
+# снова учитывается). Первый запрос — «был ли START вообще»: без него круг не
+# состоялся. Второй — по каждому судье отдельно: круг закрыт только его
+# собственным release.
 subekt_suzhen_sudej_obj() {  # <NNN> <rol> <object>
-  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" 'any(.[]; .t == "START" and .repoId == $r and .subjectId == $n and .klass == "sudja" and .rol == $roli and .object == $o)' "$LEDGER" >/dev/null 2>&1
+  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" 'any(.[]; .t == "START" and .repoId == $r and .subjectId == $n and .klass == "sudja" and .rol == $roli and .object == $o)' "$LEDGER" >/dev/null 2>&1 || return 1
+  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" '
+    reduce .[] as $l ({};
+      if $l.repoId != $r or $l.subjectId != $n then .
+      elif $l.t == "START" and $l.klass == "sudja" and $l.rol == $roli and $l.object == $o
+        then .[$l.holder] = "open"
+      elif $l.t == "RELEASE" and .[$l.holder] == "open" and $l.prichina == "obryv_bez_verdikta"
+        then .[$l.holder] = "interrupted"
+      elif $l.t == "RELEASE" and .[$l.holder] == "open" then .[$l.holder] = "judged"
+      else . end
+    ) | any(.[]; . != "interrupted")' "$LEDGER" >/dev/null 2>&1
 }
 # [D16 slovo] СЛОВО владельца — строка SLOVO в учёте (санкция сверх лимита).
 slovo_vladelca() {  # <NNN>
@@ -433,12 +500,14 @@ EOF
         broshen|net_fajla)
           : # стаб: брошенный замок считаем свободным
       esac
-      # [D11 uzhe-suzhen] повторный круг ТОЙ ЖЕ РОЛИ на ТОМ ЖЕ OBJECT — отказ
-      # (боль 117: 7×); другая роль тот же OBJECT судит свободно (конвейер).
-      if [ "$klass" = 'sudja' ] && subekt_suzhen_sudej_obj "$sv" "$rol" "$obj"; then
-        mutexi_snyat_vse
-        otp OBJECT_UZHE_SUZHEN "предмет $sv: OBJECT $obj уже судился ролью $rol; исправительный круг — новый sha"
-      fi
+    fi
+    # [D11 uzhe-suzhen] повторный круг ТОЙ ЖЕ РОЛИ на ТОМ ЖЕ OBJECT — отказ
+    # (боль 117: 7×); другая роль тот же OBJECT судит свободно (конвейер).
+    # Суд идёт и при освобождённом замке (контракт 167): круг судейства считается
+    # по учёту (START и его собственный RELEASE), а не по наличию замка.
+    if [ "$klass" = 'sudja' ] && subekt_suzhen_sudej_obj "$sv" "$rol" "$obj"; then
+      mutexi_snyat_vse
+      otp OBJECT_UZHE_SUZHEN "предмет $sv: OBJECT $obj уже судился ролью $rol; исправительный круг — новый sha"
     fi
     if [ "$klass" = 'sudja' ]; then
       rab="$(poslednij_rabochij "$sv")"
@@ -449,8 +518,9 @@ EOF
       r_holder="$(printf '%s' "$rab" | cut -f1)"
       r_wt="$(printf '%s' "$rab" | cut -f3)"
       r_br="$(printf '%s' "$rab" | cut -f4)"
-      # [D10 avtor-sdal] судья — только после yield автора (журнал, независимо
-      # от замка: замок мог быть освобождён --osvobodit при живом авторе).
+      # [D10 avtor-sdal] судья — только после сдачи автора (yield в журнале ИЛИ
+      # [D2b] session_exit kind=normal — независимо от замка: замок мог быть
+      # освобождён --osvobodit при живом авторе).
       [ "$(stare_holder "$r_holder")" = 'yield' ] || {
         mutexi_snyat_vse
         otp AVTOR_ESHCHO_RABOTAET "предмет $sv: автор $r_holder не сдал (yield в журнале отсутствует)"
@@ -464,11 +534,12 @@ EOF
         mutexi_snyat_vse
         otp OBJECT_RASHODITSJA "предмет $sv: OBJECT задания $obj ≠ tip ветки $r_br ($tip)"
       }
-      # Строка КЛАСС РИСКА обязательна (слово владельца 2026-10-24); [D29]
-      # класс определён только при согласии ВСЕХ contracts/<NNN>-*.md — иначе
+      # Строка КЛАСС РИСКА обязательна (слово владельца 2026-10-24); [D29] класс
+      # определён только при согласии ВСЕХ contracts/<NNN>-*.md предмета — иначе
       # отказ с перечнем неоднозначных файлов (голый net_stroki — от мутаций
-      # стабов над klass_riska — отказывается тем же именем).
-      kr="$(klass_riska "$sv")"
+      # стабов над klass_riska — отказывается тем же именем); [D31] ИСТОЧНИК —
+      # ДЕРЕВО OBJECT судимого кандидата (tip уже сверен), НЕ $REPO/contracts.
+      kr="$(klass_riska "$sv" "$r_wt" "$obj")"
       case "$kr" in
         risikovyj|obychnyj) : ;;
         *)
@@ -493,7 +564,7 @@ EOF
       esac
       if [ "$cap" -gt 0 ]; then
         zhivo="$(zhivykh_v_gruppe "$grp" "$sv")"
-        # [D25 limit-gruppy] слот 3/3/3 (слово владельца 2026-10-28: 1/3/2 → 3/3/3); СЛОВО и done — в учёте (реестр).
+        # [D25 limit-gruppy] слот 3/3/3 (слово владельца 2026-11-07 «по 3-4»); СЛОВО и done — в учёте (реестр).
         if [ "$zhivo" -ge "$cap" ] && ! slovo_vladelca "$sv"; then
           mutexi_snyat_vse
           otp LIMIT_GRUPPY "группа $grp: занято $zhivo из $cap (предмет $sv); сверх лимита — только СЛОВО владельца (строка SLOVO)"
@@ -528,6 +599,34 @@ EOF
   exit 0
 }
 
+# [D11 verdict-zakommiten] Истинность вердикта доказывается Git-коммитом в refs
+# судейской ветки и его blob: первая строка `accept`/`FAIL`, самостоятельная
+# строка `OBJECT=<sha>`, литеральные поля `роль=<роль>;` и `сессия=<holder>;`
+# в строке `СУД:`, автор коммита — роль. Строка в ledger/журнале/рабочем файле
+# без коммита доказательством не является. Локальные и опубликованные судейские
+# refs синхронизируются ДО классификации (вызывающий освобождает — судья уже не
+# пишет); недоступность refs — отказ NOT_IMPLEMENTED, а не разрешение повтора.
+verdict_sessii() {  # <NNN> <holder> <rol> <OBJECT>
+  local c path blob sud fields first dir
+  case "$3" in critic|critic-sol) dir=critic ;; reviewer) dir=review ;; adversary) dir=adversary ;; *) return 1 ;; esac
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    [ "$(git -C "$REPO" log -1 --format=%an "$c")" = "$3" ] || continue
+    while IFS= read -r path; do
+      case "$path" in verdicts/"$dir"/contracts-"$1"-v[0-9]*.md) ;; *) continue ;; esac
+      blob="$(git -C "$REPO" show "$c:$path" 2>/dev/null)" || continue
+      IFS= read -r first <<< "$blob"
+      case "$first" in accept|FAIL) ;; *) continue ;; esac
+      printf '%s\n' "$blob" | grep -Fxq "OBJECT=$4" || continue
+      sud="$(printf '%s\n' "$blob" | grep '^СУД: ')" || continue
+      fields="${sud#СУД: }"
+      printf '%s\n' "$fields" | tr ';' '\n' | sed 's/^ *//;s/ *$//' | grep -Fxq "роль=$3" || continue
+      printf '%s\n' "$fields" | tr ';' '\n' | sed 's/^ *//;s/ *$//' | grep -Fxq "сессия=$2" || continue
+      return 0
+    done < <(git -C "$REPO" diff-tree --root --no-commit-id --name-only -r "$c" -- "verdicts/$dir/")
+  done < <(git -C "$REPO" log --all --format=%H -- "verdicts/$dir/")
+  return 1
+}
 # ═════════════════════════════ --osvobodit ═══════════════════════════════════
 osvobodit() {
   [ -n "$NNN_ARG" ] && [ -n "$HOLDER_ARG" ] || usage
@@ -563,6 +662,30 @@ osvobodit() {
       otp ZAMOK_ZHIV "holder $h_holder пишет в журнал свежее (без yield) — живой замок не освобождается"
       ;;
   esac
+  # [D11 obryv-bez-verdikta] Причина освобождения судьи — по доказанному
+  # коммиту вердикта, а не по вызову yield: `verdikt_zakommiten` — вердикт
+  # данной роли/сессии/OBJECT закоммичен; `obryv_bez_verdikta` — доказано
+  # отсутствие такого коммита (оборванный судья: круг D11 не тратит, повтор
+  # разрешён один раз). Недоступность судейских refs — NOT_IMPLEMENTED: замок
+  # не снимается, RELEASE не пишется (отсутствие доступа ≠ доказательство).
+  h_klass="$(jq -r '.klass // ""' "$zdir/zanyat/holder.json" 2>/dev/null)"
+  if [ "$h_klass" = 'sudja' ]; then
+    if ! git -C "$REPO" ls-remote --heads origin >/dev/null 2>&1; then
+      rmdir "$zdir/mutex" 2>/dev/null
+      skip "judge refs недоступны"
+    fi
+    if ! git -C "$REPO" fetch -q --prune origin '+refs/heads/*:refs/remotes/origin/*' >/dev/null 2>&1; then
+      rmdir "$zdir/mutex" 2>/dev/null
+      skip "judge refs не синхронизированы"
+    fi
+    h_rol="$(jq -r '.rol // ""' "$zdir/zanyat/holder.json" 2>/dev/null)"
+    h_obj="$(jq -r '.object // ""' "$zdir/zanyat/holder.json" 2>/dev/null)"
+    if verdict_sessii "$NNN_ARG" "$h_holder" "$h_rol" "$h_obj"; then
+      prichina='verdikt_zakommiten'
+    else
+      prichina='obryv_bez_verdikta'
+    fi
+  fi
   rm -rf "$zdir/zanyat"
   jq -nc --arg t RELEASE --arg r "$REPO_ID" --arg s "$NNN_ARG" --arg h "$h_holder" \
         --arg p "$prichina" --arg at "$(ts_now)" \
