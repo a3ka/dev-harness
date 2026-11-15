@@ -127,11 +127,18 @@ function isWithin(parent: string, child: string): boolean {
 // isWithin не видит symlink внутри копии, которой распоряжается агент
 // (`<копия>/link -> <основной чекаут>`); эта проверка его отсекает. Узел, который
 // существует (lstat), но не разрешается (висячая ссылка: запись пошла бы по ней
-// наружу), — отказ.
-function realAncestorWithin(base: string, normalized: string): boolean {
-  let probe = normalized;
+// наружу), — отказ. realpathSync.native (realpath(3) ОС), НЕ realpathSync: JS-версия
+// Node сначала делает path.resolve и схлопывает «..» лексически, а ОС разрешает
+// symlink раньше «..» (`<копия>/lnk/../x` — запись рядом с целью ссылки).
+function realAncestorWithin(base: string, rawPath: string): boolean {
+  let probe = rawPath;
   for (;;) {
-    const real = safeRealpath(probe);
+    let real: string | null = null;
+    try {
+      real = realpathSync.native(probe);
+    } catch {
+      real = null;
+    }
     if (real !== null) return isWithin(base, real);
     try {
       lstatSync(probe);
@@ -990,7 +997,9 @@ function pathAllowed(
     canonicalSessionCwd !== null &&
     isSelfContainedCwdEligible(canonicalSessionCwd, sessionName) &&
     isWithin(canonicalSessionCwd, normalized) &&
-    realAncestorWithin(canonicalSessionCwd, normalized)
+    // Сырой путь, НЕ normalized: ОС разрешает symlink раньше «..»
+    // (`<копия>/lnk/../x` лексически внутри, реально — рядом с целью ссылки).
+    realAncestorWithin(canonicalSessionCwd, resolved)
   ) {
     return true;
   }
