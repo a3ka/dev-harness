@@ -1,0 +1,18 @@
+# Обманный стаб: krug5 Б1(б) — у ВТОРОГО работника шаг сбора несёт
+# `shell: true {0}`: CI запускает `true <script>` — сбор не исполняется
+# никогда; байтовый канон shell: bash отвергает (KANON_150_SHELL).
+def mutiruj(koren):
+    p = koren / '.github' / 'workflows' / 'mobile.yml'
+    tekst = p.read_text(encoding='utf-8')
+    nach = tekst.index('  e2e-proba-drugoj:\n')
+    kon = tekst.index('  e2e-proba-matrica:\n')
+    sek = tekst[nach:kon]
+    staryj = ("      - name: 'Замер обрыва: сбор причинного снимка (150)'\n"
+              "        if: always()\n"
+              "        shell: bash\n")
+    novyj = ("      - name: 'Замер обрыва: сбор причинного снимка (150)'\n"
+             "        if: always()\n"
+             "        shell: true {0}\n")
+    assert staryj in sek, 'zagolovok shaga sbora ne najden'
+    sek = sek.replace(staryj, novyj, 1)
+    p.write_text(tekst[:nach] + sek + tekst[kon:], encoding='utf-8')
