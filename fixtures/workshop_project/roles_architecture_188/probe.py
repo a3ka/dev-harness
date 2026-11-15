@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
-"""188: structural role-channel test. Canonical literal norms: norms.tsv."""
+"""188: structural role-channel test. Canonical literal norms: norms.tsv.
+
+v+1 (слово владельца 2026-11-11): пара implementer-glm (998, пин role_pair_glm)
+несёт те же литералы 188 байт-в-байт с телом implementer.md — литерал по-прежнему
+задан единожды в norms.tsv, координаты пары выводятся расширением получателя."""
 import argparse
 from pathlib import Path
+import re
 import sys
 import subprocess
 import tempfile
@@ -9,6 +14,11 @@ import tempfile
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 FINDING_ROLES = ('architect', 'critic', 'implementer', 'adversary', 'reviewer')
+# 998 (пин role_pair_glm): тело roles/implementer-glm.md байт-в-байт с телом
+# roles/implementer.md. Вставка в пару — та же секция, включая маркер базового
+# файла (прецедент парного переноса 996, коммит 53b9cbc5d).
+PAIR_BASE = 'implementer'
+PAIR_ROLE = 'implementer-glm'
 HEADING = '## Архитектура 188'
 
 
@@ -18,14 +28,25 @@ def norms():
         role, key, literal = row.split('\t')
         for recipient in FINDING_ROLES if role == 'all5' else (role,):
             rows.append((recipient, key, literal))
+            # Каждый литерал implementer автоматически становится литералом
+            # пары: единый источник, нулевое расхождение словарей.
+            if recipient == PAIR_BASE:
+                rows.append((PAIR_ROLE, key, literal))
     if len({(role, key) for role, key, _ in rows}) != len(rows):
         raise ValueError('duplicate canonical coordinate')
     return rows
 
 
 def marker(role):
+    # Маркер в glm-файле цитирует базовый файл: тело пары байт-в-байт (998).
+    role = PAIR_BASE if role == PAIR_ROLE else role
     return f'Норма-строка (ПРОВОДКА roles/{role}.md, заморожена 188/1):'
 
+
+def role_body(text):
+    """Тело файла роли после frontmatter — семантика split_role_file пробы 998."""
+    m = re.match(r'^---\n(.*?)\n---\n(.*)$', text, re.S)
+    return m.group(2) if m else text
 
 def visible_lines(text):
     """Exclude Markdown HTML comments and fenced code before matching role norms."""
@@ -91,8 +112,11 @@ def model(rows):
     grouped = {}
     for role, _, literal in rows:
         grouped.setdefault(role, []).append(literal)
-    return {role: '# Role\n\n' + HEADING + '\n\n' + marker(role) + '\n\n' +
-            '\n'.join(literals) + '\n' for role, literals in grouped.items()}
+    texts = {role: '# Role\n\n' + HEADING + '\n\n' + marker(role) + '\n\n' +
+             '\n'.join(literals) + '\n' for role, literals in grouped.items()}
+    # Честная пара: тело glm-файла байт-в-байт с телом implementer.md.
+    texts[PAIR_ROLE] = texts[PAIR_BASE]
+    return texts
 
 
 def main():
@@ -121,7 +145,18 @@ def main():
                 print(f'RED {role}/{key}')
             else:
                 print(f'GREEN {role}/{key}')
-        print(f'CELLS={len(rows)} GREEN={len(rows)-len(missing)}')
+        # Клетка пары (998 role_pair_glm): тела implementer-glm и implementer
+        # байт-в-байт равны; на дереве без норм тела равны — клетка зелена.
+        pair_ok = False
+        base_path = root / 'roles' / f'{PAIR_BASE}.md'
+        glm_path = root / 'roles' / f'{PAIR_ROLE}.md'
+        if base_path.is_file() and glm_path.is_file():
+            pair_ok = role_body(base_path.read_text(encoding='utf-8')) == \
+                role_body(glm_path.read_text(encoding='utf-8'))
+        print(f'{"GREEN" if pair_ok else "RED"} {PAIR_ROLE}/pair')
+        if not pair_ok:
+            missing.append(f'{PAIR_ROLE}/pair')
+        print(f'CELLS={len(rows) + 1} GREEN={len(rows) + 1 - len(missing)}')
         return 1 if missing else 0
 
     failures = []
@@ -144,11 +179,28 @@ def main():
     with_fence = honest[role].replace(marker(role), '```text\n<!--\n```\n' + marker(role), 1)
     if not assess(with_fence, role, literal):
         failures.append('control fenced-comment')
+    # Клетка пары: честные тела равны; каждая glm-мутация красит клетку пары —
+    # норма только в implementer.md, все литералы в комментарии либо в fence.
+    block = '\n'.join(literal for r, _, literal in rows if r == PAIR_BASE)
+    pair_texts = {
+        'control': honest[PAIR_ROLE],
+        'missing': honest[PAIR_ROLE][:honest[PAIR_ROLE].index(HEADING)],
+        'html': honest[PAIR_ROLE].replace(block, '<!--\n' + block + '\n-->'),
+        'fence': honest[PAIR_ROLE].replace(block, '```text\n' + block + '\n```'),
+    }
+    for kind, text in pair_texts.items():
+        equal = role_body(text) == role_body(honest[PAIR_BASE])
+        if kind == 'control':
+            if not equal:
+                failures.append(f'control {PAIR_ROLE}/pair')
+        elif equal:
+            failures.append(f'{kind} {PAIR_ROLE}/pair')
+    total_cells = len(rows) + 1
     if args.model:
-        print(f'CELLS={len(rows)} HONEST={len(rows)-len([f for f in failures if f.startswith("control ")])} '
-              f'RED_NEGATIVES={len(rows)-len([f for f in failures if f.startswith("missing")])} '
-              f'HTML_NEGATIVES={len(rows)-len([f for f in failures if f.startswith("html")])} '
-              f'FENCE_NEGATIVES={len(rows)-len([f for f in failures if f.startswith("fence")])}')
+        print(f'CELLS={total_cells} HONEST={total_cells-len([f for f in failures if f.startswith("control ")])} '
+              f'RED_NEGATIVES={total_cells-len([f for f in failures if f.startswith("missing")])} '
+              f'HTML_NEGATIVES={total_cells-len([f for f in failures if f.startswith("html")])} '
+              f'FENCE_NEGATIVES={total_cells-len([f for f in failures if f.startswith("fence")])}')
         return 1 if failures else 0
 
     # Independent deceptive implementations; each paired with its distinguishable coordinate.
@@ -180,8 +232,37 @@ def main():
             print(f'STAB {label} ZHIV @ {role}/{key}')
         else:
             print(f'STAB {label} caught @ {role}/{key}')
+    # Пара implementer-glm (998): обманные glm-тела. Литеральные мутации красны
+    # своей glm-координатой; побайтовое расхождение вне литералов — ТОЛЬКО
+    # клеткой пары (литеральные клетки пары остаются зелёными).
+    engine = next(text for r, k, text in rows if (r, k) == (PAIR_BASE, 'engine'))
+    glm = honest[PAIR_ROLE]
+    pair_cases = (
+        ('glm-norm-only-implementer', 'literal',
+         glm[:glm.index(HEADING)], (PAIR_ROLE, 'engine')),
+        ('glm-byte-divergence', 'pair', glm + 'x\n', (PAIR_ROLE, 'pair')),
+        ('glm-html-comment', 'literal',
+         glm.replace(engine + '\n', '<!--\n' + engine + '\n-->\n', 1),
+         (PAIR_ROLE, 'engine')),
+        ('glm-fenced-code', 'literal',
+         glm.replace(engine + '\n', '```text\n' + engine + '\n```\n', 1),
+         (PAIR_ROLE, 'engine')),
+        ('glm-optional-section', 'literal',
+         glm.replace(engine + '\n', '', 1) + '\n## Справка (не обязательна)\n' + engine + '\n',
+         (PAIR_ROLE, 'engine')),
+    )
+    for label, kind, mutant, (m_role, m_key) in pair_cases:
+        if kind == 'literal':
+            caught = not assess(mutant, PAIR_ROLE, engine)
+        else:
+            caught = role_body(mutant) != role_body(honest[PAIR_BASE])
+        if caught:
+            print(f'STAB {label} caught @ {m_role}/{m_key}')
+        else:
+            failures.append(f'stab {label} @ {m_role}/{m_key}')
+            print(f'STAB {label} ZHIV @ {m_role}/{m_key}')
     # Exercise the public --repo entrypoint, not just the in-memory assess() call:
-    # all seven honest files remain intact except one hidden multiline norm.
+    # all honest files remain intact except one hidden multiline norm.
     target = ('architect', 'cells')
     literal = next(text for r, k, text in rows if (r, k) == target)
     with tempfile.TemporaryDirectory(prefix='roles188-', dir=HERE) as scratch:
@@ -196,14 +277,15 @@ def main():
     verdicts = result.stdout.splitlines()
     expected = [f'{"RED" if (role, key) == target else "GREEN"} {role}/{key}'
                 for role, key, _ in rows]
-    expected.append(f'CELLS={len(rows)} GREEN={len(rows)-1}')
+    expected.append(f'GREEN {PAIR_ROLE}/pair')
+    expected.append(f'CELLS={len(rows) + 1} GREEN={len(rows)}')
     if result.returncode == 1 and verdicts == expected:
         print('STAB repo-html-comment caught @ architect/cells')
     else:
         failures.append('stab repo-html-comment @ architect/cells')
         print('STAB repo-html-comment ZHIV @ architect/cells')
         print(result.stdout + result.stderr, file=sys.stderr)
-    total = len(cases) + 1
+    total = len(cases) + len(pair_cases) + 1
     print(f'STABS={total} CAUGHT={total-len([f for f in failures if f.startswith("stab")])}')
     return 1 if failures else 0
 
