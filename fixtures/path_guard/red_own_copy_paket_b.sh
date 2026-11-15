@@ -42,7 +42,9 @@
 #     из args.cwd/actual» умирает здесь: ожидание block.
 #   * б12 (sessionCwd — подкаталог копии, не toplevel) — стаб «М1 по любому
 #     предку с .git» умирает здесь: ожидание block.
-set -uo pipefail
+#   * б13 (symlink, затем «..»: <копия>/lnk/../f — лексически внутри копии, а ОС
+#     разрешает lnk раньше «..» и пишет рядом с целью ссылки) — стаб «реальный
+#     предок по лексически нормализованному пути» умирает здесь: ожидание block.
 ROOT="${1:-$(cd "$(dirname "$0")/../.." && pwd)}"
 SUBJ="$ROOT/.omp/extensions/path-guard.ts"
 
@@ -89,7 +91,7 @@ mkdir -p "${COPY}-x"
 mkinit "$MAINLIKE"
 printf '{"pid":424242,"id":"OwnerPB","startToken":"1"}' > "$(dirname "$MAINLIKE")/.omp-isolation-owner.json"
 
-ORDER=(б1 б2 б3 б4 б5 б6 б7 б8 б9 б10 б11 б12)
+ORDER=(б1 б2 б3 б4 б5 б6 б7 б8 б9 б10 б11 б12 б13)
 declare -A ST RAN
 for m in "${ORDER[@]}"; do ST[$m]=0; RAN[$m]=0; done
 fail() {
@@ -144,6 +146,8 @@ expect_judge б11 block \
   "{\"tool\":\"write\",\"args\":{\"path\":\"$COPY/f11.txt\",\"cwd\":\"$COPY\"},$PIN,\"actual\":\"$COPY\",\"sessionName\":\"OwnerPB\"}"
 expect_judge б12 block \
   "{\"tool\":\"write\",\"args\":{\"path\":\"$COPY/sub/f12.txt\"},$PIN,\"sessionName\":\"OwnerPB\",\"sessionCwd\":\"$COPY/sub\"}"
+expect_judge б13 block \
+  "{\"tool\":\"write\",\"args\":{\"path\":\"$COPY/lnk/../f13.txt\"},$PIN,\"sessionName\":\"OwnerPB\",\"sessionCwd\":\"$COPY\"}"
 
 RED=0; GRN=0; NORUN=0
 for m in "${ORDER[@]}"; do
