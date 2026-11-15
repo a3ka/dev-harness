@@ -20,8 +20,8 @@
 #                  CI; в нём лежит коммит из architecture.lock.json);
 #   коммит      → .commit в architecture.lock.json;
 #   чтение     → materialize дерева ЭТОГО коммита (`git archive`) и вызовы
-#                `node tooling/checks/cli.js <brief|locate|check>` ВНУТРИ этого
-#                дерева. Ни HEAD клона, ни локальная `architecture/` продукта
+#                `node tooling/checks/cli.js <brief|locate|check|snapshot>` ВНУТРИ
+#                этого дерева. Ни HEAD клона, ни локальная `architecture/` продукта
 #                источником не являются (две разные версии модели в одном
 #                пакете не смешиваются).
 #
@@ -39,8 +39,9 @@
 #     размещённый в ИНОМ компоненте (или вне границы компонента) — ARCH_ZONE;
 #     каталог-контейнер БЕЗ компонентов — не претензия (модель размещает
 #     компоненты ПО ФАЙЛАМ: путь судится СВОИМ размещением); путь модуля с
-#     признаком outsideProductRuntime и путь вне всех областей модели
-#     (UNRESOLVED, матчей ноль) — не судятся («вне модели: <путь>»);
+#     признаком outsideProductRuntime (признак — ИЗ ВЫГРУЗКИ `snapshot`
+#     закреплённой модели: матч locate его НЕ несёт) и путь вне всех областей
+#     модели (UNRESOLVED, матчей ноль) — не судятся («вне модели: <путь>»);
 #   * операция предмета — со схемами входа/выхода и не DRAFT, иначе
 #     ARCH_DRAFT (судится только текст контракта: make_task судит задание);
 #   * `check --base` модели против УТВЕРЖДЁННОГО снимка (путь снимка и его
@@ -185,18 +186,119 @@ arch187_model_prepare() {
   return 0
 }
 
-# arch187_cleanup — убрать развёрнутое дерево модели (вызывающий зовёт сам:
-# ловушку в библиотеке ставить нельзя — она снесла бы ловушку вызывающего).
+# arch187_snapshot_drop — убрать выгрузку snapshot и сбросить её кэш.
+# Вызывающий зовёт сам (ловушку в библиотеке ставить нельзя); ловушка вызывающего
+# (arch187_cleanup) — backstop.
+arch187_snapshot_drop() {
+  if [ -n "${ARCH187_SNAPSHOT_TMP:-}" ] && [ -f "$ARCH187_SNAPSHOT_TMP" ]; then
+    rm -f "$ARCH187_SNAPSHOT_TMP"
+  fi
+  ARCH187_SNAPSHOT_TMP=""
+  ARCH187_SNAPSHOT_FILE=""
+  ARCH187_SNAPSHOT_STATE=""
+  ARCH187_SNAPSHOT_REFUSAL=""
+  return 0
+}
+
+# arch187_cleanup — убрать развёрнутое дерево модели и выгрузку snapshot
+# (вызывающий зовёт сам: ловушку в библиотеке ставить нельзя — она снесла бы
+# ловушку вызывающего).
 arch187_cleanup() {
   if [ -n "${ARCH187_MODEL_TMP:-}" ] && [ -d "$ARCH187_MODEL_TMP" ]; then
     rm -rf "$ARCH187_MODEL_TMP"
   fi
   ARCH187_MODEL_TMP=""
   ARCH187_MODEL_DIR=""
+  # Выгрузка snapshot — временный файл ВНЕ дерева модели; её кэш живёт вместе
+  # с деревом (новое дерево — новая выгрузка).
+  arch187_snapshot_drop
   return 0
 }
 
-# arch187_locate <path> — класс размещения пути по ответу модели.
+# arch187_snapshot_export — выгрузка закреплённой модели (`snapshot --out`).
+#
+# Канал ПРИЗНАКА непродуктовости — тот же закреплённый CLI, что locate и check
+# (тот же корень модели, тот же вызов node tooling/checks/cli.js): матч locate
+# признака НЕ несёт (форма настоящего CLI — {module, components,
+# specification, explicit, matched}), признак outsideProductRuntime лежит в
+# ОПИСАНИИ модуля и выгружается ОТДЕЛЬНО. Выгрузка запрашивается ОДИН раз на
+# прогон двери и кэшируется (файл — ARCH187_SNAPSHOT_FILE); путей с пустыми
+# components нет — выгрузка не запрашивается вовсе.
+#
+# Файл выгрузки — mktemp ВНЕ дерева продукта и ВНЕ дерева модели; после
+# суждения он убирается (arch187_snapshot_drop), ловушка вызывающего
+# (arch187_cleanup) — backstop.
+#
+# 0 — выгрузка прочитана; 1 — выгрузки нет: отказ ARCH_NOT_EVALUATED с rc 2
+# двери (нечем проверить — не зелёный и не пропуск).
+arch187_snapshot_export() {
+  local tmp rc=0
+  case "${ARCH187_SNAPSHOT_STATE:-}" in
+    ok) return 0 ;;
+    failed)
+      ARCH187_REFUSAL="$ARCH187_SNAPSHOT_REFUSAL"
+      ARCH187_REFUSAL_RC=2
+      return 1
+      ;;
+  esac
+  if [ -z "${ARCH187_MODEL_DIR:-}" ]; then
+    ARCH187_SNAPSHOT_STATE="failed"
+    ARCH187_SNAPSHOT_REFUSAL="ARCH_NOT_EVALUATED: дерево модели не развёрнуто — выгрузку snapshot взять негде"
+    ARCH187_REFUSAL="$ARCH187_SNAPSHOT_REFUSAL"
+    ARCH187_REFUSAL_RC=2
+    return 1
+  fi
+  tmp="$(mktemp 2>/dev/null || true)"
+  if [ -z "$tmp" ] || [ ! -f "$tmp" ]; then
+    ARCH187_SNAPSHOT_STATE="failed"
+    ARCH187_SNAPSHOT_REFUSAL="ARCH_NOT_EVALUATED: временный файл выгрузки snapshot не создать"
+    ARCH187_REFUSAL="$ARCH187_SNAPSHOT_REFUSAL"
+    ARCH187_REFUSAL_RC=2
+    return 1
+  fi
+  ARCH187_SNAPSHOT_TMP="$tmp"
+  (cd "$ARCH187_MODEL_DIR" && node tooling/checks/cli.js snapshot --out "$tmp") >/dev/null 2>&1 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    ARCH187_SNAPSHOT_STATE="failed"
+    ARCH187_SNAPSHOT_REFUSAL="ARCH_NOT_EVALUATED: snapshot закреплённой модели не выгрузился (rc=$rc)"
+    ARCH187_REFUSAL="$ARCH187_SNAPSHOT_REFUSAL"
+    ARCH187_REFUSAL_RC=2
+    return 1
+  fi
+  # Выгрузка обязана быть разбираемой: без массива модулей признак не взять.
+  if ! jq -e '(.model.logicalModules | type) == "array"' "$tmp" >/dev/null 2>&1; then
+    ARCH187_SNAPSHOT_STATE="failed"
+    ARCH187_SNAPSHOT_REFUSAL="ARCH_NOT_EVALUATED: выгрузка snapshot не разобрана (нет model.logicalModules)"
+    ARCH187_REFUSAL="$ARCH187_SNAPSHOT_REFUSAL"
+    ARCH187_REFUSAL_RC=2
+    return 1
+  fi
+  ARCH187_SNAPSHOT_FILE="$tmp"
+  ARCH187_SNAPSHOT_STATE="ok"
+  return 0
+}
+
+# arch187_module_trait <module-id> — признак outsideProductRuntime модуля из
+# выгрузки snapshot: true | false | missing (модуля нет в выгрузке) | absent
+# (модуль есть, признака нет). Модуля нет или признака нет — вердикта нет:
+# догадкой (по префиксу пути или по id модуля) дверь не заменяет.
+arch187_module_trait() {
+  local m="${1:-}"
+  [ -n "${ARCH187_SNAPSHOT_FILE:-}" ] || { printf 'missing\n'; return 1; }
+  jq -r --arg m "$m" '
+    [ (.model.logicalModules // [])[]? | select(.id == $m) ]
+    | if (length == 0) then "missing"
+      else (.[0].outsideProductRuntime | if type == "boolean" then tostring else "absent" end)
+      end
+  ' "$ARCH187_SNAPSHOT_FILE" 2>/dev/null || printf 'missing\n'
+}
+
+# arch187_locate <path> [признак 0|1] — класс размещения пути по ответу модели.
+#
+# Второй аргумент — нужен ли признак непродуктовости: 1 (по умолчанию) — да;
+# 0 — нет (каталог-граница: там признак не влияет на решение — и каталог-
+# контейнер без компонентов, и модуль вне продуктового runtime одинаково не
+# претензия, — и выгрузка snapshot ради каталога не запрашивается).
 #
 # Ответ модели — МНОГОСТРОЧНЫЙ JSON (scope/path/status/matches[]/components/
 # implementationEvidence); первая строка ответа («{») компонентом НЕ является,
@@ -209,8 +311,8 @@ arch187_cleanup() {
 #                множества молча НЕ выбирается). Набор ПУСТ — решение самой
 #                модели: модуль матча может быть модулем-КОНТЕЙНЕРОМ
 #                (компоненты размещаются по ФАЙЛАМ внутри) либо модулем ВНЕ
-#                продуктового runtime — признак outsideProductRuntime матча,
-#                не префикс пути;
+#                продуктового runtime — признак outsideProductRuntime МОДУЛЯ
+#                матча из выгрузки snapshot (не префикс пути);
 #   UNRESOLVED — ни один модуль не притязает: матчей НОЛЬ — путь вне всех
 #                областей модели; матчи НЕПУСТЫ — область модели без
 #                компонента (несколько претендентов).
@@ -220,15 +322,17 @@ arch187_cleanup() {
 #
 # Возврат: 0 — путь размещён с компонентами (класс placed), набор — в
 # ARCH187_LOCATE_COMPS; 1 — прочие классы названы в ARCH187_LOCATE_KIND
-# (unresolved-none | unresolved-area | outside | componentless); отказ в
-# ARCH187_REFUSAL — только у грамматики и componentless.
+# (unresolved-none | unresolved-area | outside | componentless |
+# not-evaluated); отказ в ARCH187_REFUSAL — у грамматики, componentless и
+# not-evaluated (ARCH_NOT_EVALUATED — вердикта модели нет, rc 2 двери).
 #
 # Результат — переменной, а НЕ stdout: отказ назван в ARCH187_REFUSAL, а
 # вызов в подshell (подстановка `$(...)`) этот отказ потерял бы — дверь решила
 # бы, что модель просто не разместила путь, и потеряла бы имя отказа.
 arch187_locate() {
-  local path="${1:-}" out shape status comps c rest outside
+  local path="${1:-}" need="${2:-1}" out shape status comps c rest module trait
   ARCH187_REFUSAL=""
+  ARCH187_REFUSAL_RC="1"
   ARCH187_LOCATE_COMPS=""
   ARCH187_LOCATE_KIND=""
   [ -n "${ARCH187_MODEL_DIR:-}" ] || return 1
@@ -289,13 +393,45 @@ arch187_locate() {
   done
   if [ -z "$comps" ]; then
     # DECLARED с ПУСТЫМИ components — решение самой модели. Непродуктовость —
-    # ПРИЗНАК МОДЕЛИ (outsideProductRuntime модуля матча), не префикс пути:
-    # такой путь не судится. ЯВНЫЙ false или флага нет — component-less путь
-    # не разрешён: компонентной претензии нет, но и границы компонента нет.
-    outside="$(printf '%s' "$out" | jq -r '(.matches[0].outsideProductRuntime // false) | tostring' 2>/dev/null)" || outside="false"
-    if [ "$outside" = "true" ]; then
-      ARCH187_LOCATE_KIND="outside"
-      return 1
+    # ПРИЗНАК МОДЕЛИ (outsideProductRuntime МОДУЛЯ матча), и берётся он из
+    # ВЫГРУЗКИ snapshot закреплённой модели: матч locate признака НЕ несёт
+    # (форма настоящего CLI — {module, components, specification, explicit,
+    # matched}), признак лежит в описании модуля. Такой путь не судится.
+    # ЯВНЫЙ false — прежний отказ: компонентной претензии нет, но и границы
+    # компонента нет. Признака (или самой выгрузки) нет — честный
+    # ARCH_NOT_EVALUATED (rc 2 двери): догадкой дверь не заменяет.
+    if [ "$need" != "0" ]; then
+      module="$(printf '%s' "$out" | jq -r '(.matches[0].module // "") | tostring' 2>/dev/null)" || module=""
+      if [ -n "$module" ]; then
+        if ! arch187_snapshot_export; then
+          ARCH187_LOCATE_KIND="not-evaluated"
+          return 1
+        fi
+        trait="$(arch187_module_trait "$module")"
+        case "$trait" in
+          true)
+            ARCH187_LOCATE_KIND="outside"
+            return 1
+            ;;
+          false)
+            ARCH187_LOCATE_KIND="componentless"
+            ARCH187_REFUSAL="PATH_WITHOUT_COMPONENT: путь $path размещён моделью, но компонент не назван"
+            return 1
+            ;;
+          absent)
+            ARCH187_LOCATE_KIND="not-evaluated"
+            ARCH187_REFUSAL="ARCH_NOT_EVALUATED: признак outsideProductRuntime модуля $module не выгружен"
+            ARCH187_REFUSAL_RC=2
+            return 1
+            ;;
+          *)
+            ARCH187_LOCATE_KIND="not-evaluated"
+            ARCH187_REFUSAL="ARCH_NOT_EVALUATED: модуль матча $module отсутствует в выгрузке snapshot"
+            ARCH187_REFUSAL_RC=2
+            return 1
+            ;;
+        esac
+      fi
     fi
     ARCH187_LOCATE_KIND="componentless"
     ARCH187_REFUSAL="PATH_WITHOUT_COMPONENT: путь $path размещён моделью, но компонент не назван"
@@ -475,15 +611,18 @@ arch187_component_set() {
 # размещением, а граница компонента — по НЕПУСТОМУ набору каталога (каталог-
 # контейнер БЕЗ компонентов не претензия: модель размещает компоненты по
 # ФАЙЛАМ). Не судятся (не отказ): путь модуля ВНЕ продуктового runtime
-# (признак outsideProductRuntime матча) и путь ВНЕ всех областей модели
-# (UNRESOLVED, матчей ноль — строка «вне модели: <путь>» в stderr, диск
-# не участвует). Отказы прежние: component-less DECLARED и UNRESOLVED с
-# непустыми матчами (область модели без компонента) — PATH_WITHOUT_COMPONENT;
-# чужой компонент и выход за границу компонента каталога — ARCH_ZONE;
-# ответ модели вне грамматики — именованный отказ ARCH_LOCATE_GRAMMAR.
+# (признак outsideProductRuntime модуля матча — из выгрузки snapshot) и путь
+# ВНЕ всех областей модели (UNRESOLVED, матчей ноль — строка «вне модели:
+# <путь>» в stderr, диск не участвует). Отказы прежние: component-less
+# DECLARED и UNRESOLVED с непустыми матчами (область модели без компонента) —
+# PATH_WITHOUT_COMPONENT; чужой компонент и выход за границу компонента
+# каталога — ARCH_ZONE; ответ модели вне грамматики — именованный отказ
+# ARCH_LOCATE_GRAMMAR; признака непродуктовости взять негде (выгрузки нет или
+# модуля в ней нет) — ARCH_NOT_EVALUATED с rc 2 двери.
 arch187_zones() {
   local file="${1:-}" repo="${2:-}" p dir fcomps dcomps c rest declared
   ARCH187_REFUSAL=""
+  ARCH187_REFUSAL_RC="1"
   declared="$(arch187_component_set "$ARCH187_COMPONENTS")"
   while IFS= read -r p; do
     [ -n "$p" ] || continue
@@ -504,11 +643,18 @@ arch187_zones() {
     # беспретензионный каталог отказом не становятся; ответ вне грамматики —
     # именованный отказ, а не догадка.
     dcomps=""
-    if arch187_locate "$dir"; then
+    # Каталог — только граница компонента: признак непродуктовости там на
+    # решение НЕ влияет (и контейнер без компонентов, и модуль вне runtime —
+    # одинаково не претензия), поэтому выгрузка snapshot ради каталога не
+    # запрашивается.
+    if arch187_locate "$dir" 0; then
       dcomps="$ARCH187_LOCATE_COMPS"
     else
       case "${ARCH187_LOCATE_KIND:-}" in
-        outside|componentless|unresolved-none|unresolved-area) ARCH187_REFUSAL="" ;;
+        outside|componentless|unresolved-none|unresolved-area)
+          ARCH187_REFUSAL=""
+          ARCH187_REFUSAL_RC="1"
+          ;;
         *)
           [ -n "$ARCH187_REFUSAL" ] || ARCH187_REFUSAL="ARCH_PIN: locate каталога не состоялся: $dir"
           return 1
@@ -517,9 +663,10 @@ arch187_zones() {
     fi
     # Сам путь — СВОИМ размещением (frozen 187/1), не набором каталога и не
     # диском.
-    if ! arch187_locate "$p"; then
+    if ! arch187_locate "$p" 1; then
       case "${ARCH187_LOCATE_KIND:-}" in
-        # Признак МОДЕЛИ: модуль матча вне продуктового runtime — не судим.
+        # Признак МОДЕЛИ (из выгрузки snapshot): модуль матча вне продуктового
+        # runtime — не судим.
         outside) continue ;;
         # Вне всех областей модели (матчей ноль): суждение — только там,
         # где модель ПРИТЯЗАЕТ на путь; строка в stderr, отказом не стало.
@@ -531,6 +678,7 @@ arch187_zones() {
         # отказ.
         unresolved-area)
           ARCH187_REFUSAL="PATH_WITHOUT_COMPONENT: путь $p не размещён однозначно в закреплённой модели (несколько претендентов)"
+          ARCH187_REFUSAL_RC="1"
           return 1
           ;;
         # DECLARED без компонентов и без признака непродуктовости — отказ
@@ -547,6 +695,7 @@ arch187_zones() {
     # границу; пустой набор каталога — не претензия.
     if [ -n "$dcomps" ] && [ "$dcomps" != "$fcomps" ]; then
       ARCH187_REFUSAL="ARCH_ZONE: путь $p вне границы компонента $fcomps (каталог относится к $dcomps)"
+      ARCH187_REFUSAL_RC="1"
       return 1
     fi
     # Каждый компонент размещения должен быть назван строкой «АРХИТЕКТУРА:»:
@@ -560,6 +709,7 @@ arch187_zones() {
           ;;
         *)
           ARCH187_REFUSAL="ARCH_ZONE: путь $p отнесён моделью к компоненту $c, а строка «АРХИТЕКТУРА:» называет $ARCH187_COMPONENTS"
+          ARCH187_REFUSAL_RC="1"
           return 1
           ;;
       esac
@@ -631,12 +781,16 @@ arch187_operations() {
 arch187_check_text() {
   local file="${1:-}" mode="${2:-task}" repo="${3:-}"
   ARCH187_REFUSAL=""
+  ARCH187_REFUSAL_RC="1"
   arch187_line "$file" || return 1
   arch187_model_prepare "$repo" || return 1
-  arch187_zones "$file" "$repo" || return 1
+  # Выгрузка snapshot — временный файл: после суждения она не нужна (убирается
+  # тут, а ловушка вызывающего — backstop).
+  arch187_zones "$file" "$repo" || { arch187_snapshot_drop; return 1; }
   if [ "$mode" = "contract" ]; then
-    arch187_operations "$file" || return 1
+    arch187_operations "$file" || { arch187_snapshot_drop; return 1; }
   fi
+  arch187_snapshot_drop
   return 0
 }
 
@@ -709,7 +863,9 @@ trap 'arch187_cleanup' EXIT
 if [ "$model_only" = "0" ]; then
   arch187_check_text "$contract_file" contract "$repo" || {
     printf '%s\n' "$ARCH187_REFUSAL" >&2
-    exit 1
+    # rc двери — по КЛАССУ отказа: ARCH_NOT_EVALUATED — вердикта модели нет
+    # (rc 2, как у check-канала), прочие именованные отказы — rc 1.
+    exit "${ARCH187_REFUSAL_RC:-1}"
   }
 fi
 
