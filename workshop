@@ -230,6 +230,27 @@ session_model() {
   LIVE_MODEL="$m"
 }
 
+# Общий для станции и проектов вход: архив ФАКТИЧЕСКИХ запусков ролей.
+# Текущую модель оркестратора дописывает session-trace.ts по живому ctx omp —
+# здесь она НЕ выдумывается и не подменяется назначением из конфига: строка
+# оркестратора в архив не пишется.
+prepare_model_trace() {
+  local runtime="${HARNESS_SESSION_HOME:-$HOME}/runtime" raw
+  mkdir -p "$runtime" || die "не создать runtime трассы: $runtime"
+  export HARNESS_MODEL_TRACE="$runtime/model-trace.tsv"
+  raw="$runtime/model-trace.$$.raw"
+  if bash "$HERE/scripts/models_actual.sh" --tsv >"$raw" 2>"$raw.error"; then
+    awk -F'\t' 'NF == 3 && $1 != "" && $1 != "orchestrator" && !seen[$1]++ {print}' \
+      "$raw" >"$HARNESS_MODEL_TRACE.new"
+  else
+    printf 'TRACE_ARCHIVE_NOT_READY: '; cat "$raw.error" >&2
+    : >"$HARNESS_MODEL_TRACE.new"
+  fi
+  chmod 600 "$HARNESS_MODEL_TRACE.new"
+  mv -f "$HARNESS_MODEL_TRACE.new" "$HARNESS_MODEL_TRACE"
+  rm -f "$raw" "$raw.error"
+}
+
 # Учёт требуется, если провайдер с ключом назначен ЛЮБОЙ роли, а не только сессии. Прежняя
 # редакция смотрела на сессию: с переводом сессии на Anthropic проверка перестала бы срабатывать,
 # хотя implementer остался на MiniMax и его расход по-прежнему обязан считаться.
@@ -640,6 +661,7 @@ if [ -z "$PROJECT" ]; then
   if [ -n "$RESUME" ]; then
     printf '  продолжение  сессия %s (план был предъявлен при её старте)\n' "$RESUME" >&2
   fi
+  prepare_model_trace
   exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" "${RESUME_ARGS[@]}" "${YOLO_ARGS[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$TOOLS" "$@"
 fi
 
@@ -1299,4 +1321,5 @@ if [ -n "$RESUME" ]; then
 fi
 printf '  инвентарь    полный, всегда-ask\n\n' >&2
 cd "$PROJECT"
+prepare_model_trace
 exec omp --profile "$PROFILE" --model "$LIVE_MODEL" --config "$POLICY_CFG" "${POLICY_EXT_ARGS[@]}" "${OVERLAY[@]}" "${RESUME_ARGS[@]}" "${YOLO_ARGS[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$TOOLS" "$@"

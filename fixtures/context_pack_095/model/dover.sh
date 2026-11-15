@@ -12,7 +12,7 @@
 # CLI:
 #   dover.sh --repo R --role ROLE [--kind task|brief] [--contract NNN]
 #            [--task-file F] [--model-trace F] [--author-role R2]
-#   ROLE ∈ orchestrator|architect|critic|implementer|adversary|reviewer|arbiter
+#   ROLE ∈ orchestrator|architect|critic|implementer|implementer-glm|adversary|reviewer|arbiter
 #   kind=task (умолчание) — задачный пак по контракту NNN; kind=brief —
 #   стартовый контекст (orch_brief): только оркестратору, без секций контракта.
 #
@@ -60,7 +60,9 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$REPO" ] && [ -n "$ROLE" ] || usage
 [ -d "$REPO" ] || die "репозитория нет: $REPO"
-case "$ROLE" in orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) ;; *) die "роль вне алфавита: $ROLE" ;; esac
+case "$ROLE" in orchestrator|architect|critic|implementer|implementer-glm|adversary|reviewer|arbiter) ;; *) die "роль вне алфавита: $ROLE" ;; esac # t95-m40
+LOGICAL_ROLE="$ROLE"
+[ "$ROLE" != "implementer-glm" ] || LOGICAL_ROLE="implementer" # t95-m41
 case "$KIND" in task|brief) ;; *) die "kind вне алфавита: $KIND" ;; esac
 
 # ── И-12: брифинг — отдельный режим, только оркестратору ────────────────────
@@ -75,10 +77,11 @@ fi
 [ -z "$AUTHOR_ROLE" ] || case "$AUTHOR_ROLE" in orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) ;; *) die "автор вне алфавита: $AUTHOR_ROLE" ;; esac
 TRACE_LINE=""; AUTHOR_MODEL=""
 if [ -z "$TRACE" ] || [ ! -f "$TRACE" ]; then die "нет свидетельства модели: $ROLE"; fi
+ROLE_TRACE="$ROLE" # t95-m42
 while IFS="$TAB" read -r r m fb; do
   [ -z "${r:-}" ] && continue
   case "$fb" in allowed|denied) ;; *) die "трасса: грамматика" ;; esac
-  if [ "$r" = "$ROLE" ]; then TRACE_LINE="TRACE: role=$r model=$m fallback=$fb"; fi # t95-m8
+  if [ "$r" = "$ROLE_TRACE" ]; then TRACE_LINE="TRACE: role=$r model=$m fallback=$fb"; fi # t95-m8
   [ -n "$AUTHOR_ROLE" ] && [ "$r" = "$AUTHOR_ROLE" ] && AUTHOR_MODEL="$m"
 done < "$TRACE"
 [ -n "$TRACE_LINE" ] || die "свидетельство не той роли: $ROLE"
@@ -116,7 +119,7 @@ while IFS="$TAB" read -r kind path roles mnd why; do
   for rr in ${roles//,/ }; do
     case "$rr" in orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) ;; *) die "карта: грамматика: роль $rr" ;; esac
   done
-  case ",$roles," in *",$ROLE,"*) ;; *) continue ;; esac
+  case ",$roles," in *",$LOGICAL_ROLE,"*) ;; *) continue ;; esac
   if [ ! -f "$REPO/$path" ]; then
     if [ "$mnd" = "true" ]; then die "источник недоступен: $path"; fi # t95-m3
     continue
@@ -137,7 +140,7 @@ done < <(printf '%s' "$CP" | jq -r '.rows[]? | [.kind, .path, .roles, (.mandator
 
 # ── скилы: видимость процедурных скилов по роли (слово владельца 13.4) ──────
 SKILLS=""
-case "$ROLE" in
+case "$LOGICAL_ROLE" in
   architect)   SKILLS="SKILL: grilling
 SKILL: writing-for-agents
 SKILL: tdd
@@ -194,7 +197,7 @@ if [ "$SKIP_TASK" = "0" ]; then
     CBYTES="$(git -C "$REPO" show "$TAG:$CPATH" 2>&1)"
     ORIGIN="frozen"
   else
-    case "$ROLE" in architect|critic) ;; *) die "контракт не заморожен: $CONTRACT" ;; esac # t95-m6
+    case "$LOGICAL_ROLE" in architect|critic|arbiter) ;; *) die "контракт не заморожен: $CONTRACT" ;; esac # t95-m6
     CPATH="$(cd "$REPO" && ls contracts/${CONTRACT}-*.md 2>/dev/null | head -n 1)"
     [ -n "$CPATH" ] || die "черновик контракта не найден: $CONTRACT"
     CBYTES="$(cat "$REPO/$CPATH")"
@@ -224,7 +227,7 @@ zones${TAB}${CPATH}${TAB}mandatory${TAB}${ORIGIN}
           'роль:'*)
             ar="${lbl#роль:}"
             case "$ar" in orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) ;; *) die "ADR: грамматика: роль $ar" ;; esac
-            [ "$ar" = "$ROLE" ] && m=1 ;;
+            [ "$ar" = "$LOGICAL_ROLE" ] && m=1 ;;
           *)
             case "$lbl" in ''|*[!A-Za-z0-9._/*?-]*) die "ADR: грамматика: метка $lbl" ;; esac
             for zp in $ZONE_PATHS; do case "$zp" in $lbl) m=1 ;; esac; done ;;
@@ -268,27 +271,38 @@ $TASK_BYTES"
 else
   # ── И-12: брифинг несёт ЦЕЛЬ/РАБОТУ/РЕШЕНИЯ/ЗДОРОВЬЕ из живых носителей ────
   [ -f "$REPO/registry/plan.tsv" ] && GOAL_SEC="$(cat "$REPO/registry/plan.tsv")"
-  # ── (И-12-скоуп, А-387) карта WORK: каждый контракт — строкой ──
-  # Якорь заголовка — ПРЕФИКС `^## Предмет` (суффикс-аннотации вида
-  # «## Предмет (дословно из докса…)» предмет НЕСУТ: 092/094/095).
-  # Отказ фразой И-12 дословно — ТОЛЬКО активным: NNN в колонке id
-  # registry/plan.tsv (тот же реестр — GOAL брифа). Вне плана без
-  # предмета — строка-маркер: не молчаливый пропуск (И-0) и не смерть
-  # брифа на 6 legacy (Б4 круга 1 ревьюера). plan.tsv нет → план пуст.
+  # Носители: §Предмет → §Обещание и граница → inline → H1.
+  # Без plan.tsv видны все договоры; с планом — только открытые plan-id.
+  # WORK — ограниченный обзор, не изменение статусов lib_plan 084.
   _plan_ids=""
   [ -f "$REPO/registry/plan.tsv" ] && _plan_ids="$(awk -F'\t' 'NR>1 && $1 ~ /^[0-9]+$/ {print $1}' "$REPO/registry/plan.tsv")"
+  n_closed=0; n_out=0; WORK_LINES=""
   for cf in $(LC_ALL=C ls "$REPO"/contracts/*.md 2>/dev/null | LC_ALL=C sort); do
     cnum="$(basename "$cf")"; cnum="${cnum%%-*}"
-    csubj="$(awk '/^## Предмет/{f=1;next} /^## /{f=0} f&&NF{print;exit}' "$cf")"
-    if [ -n "$csubj" ]; then
-      WORK_SEC="${WORK_SEC}WORK: ${cnum} :: ${csubj}
-"
-    elif printf '%s\n' "$_plan_ids" | grep -Fxq -- "$cnum"; then
-      die "брифинг: контракт без предмета: $cf" # t95-m19
-    else
-      WORK_SEC="${WORK_SEC}WORK: ${cnum} :: legacy-без-§Предмет (вне plan.tsv)
-"
+    if [ -f "$REPO/registry/plan.tsv" ] && ! grep -Fxq -- "$cnum" <<<"$_plan_ids"; then # t95-x1
+      n_out=$((n_out + 1)); continue
     fi
+    closed=0
+    [ -z "$(git -C "$REPO" tag -l "done/contracts/$cnum/*")" ] || closed=1
+    if [ -f "$REPO/registry/closed-without-done.tsv" ] && awk -F'\t' -v id="$cnum" '$1==id {found=1} END {exit !found}' "$REPO/registry/closed-without-done.tsv"; then closed=1; fi
+    if [ "$closed" = 1 ]; then n_closed=$((n_closed + 1)); continue; fi # t95-m20
+    csubj="$(awk '
+      /^# / && title=="" {title=substr($0,3)}
+      /^## Предмет/ {section=1;next}
+      /^## Обещание и граница/ {section=2;next}
+      /^## / {section=0}
+      section==1 && NF && subject=="" {subject=$0}
+      section==2 && NF && promise=="" {promise=$0}
+      inline=="" && match($0, /(^|[[:space:]])Предмет:[[:space:]]*/) {inline=substr($0,RSTART+RLENGTH)}
+      END {
+        s=subject!="" ? subject : promise!="" ? promise : inline!="" ? inline : title # t95-m31
+        if(s!=title && title ~ /ЧЕРНОВИК|Черновик|черновик/) s="черновик: " s # t95-m32
+        print s
+      }' "$cf" | jq -Rr 'if length>480 then .[0:479]+"…" else . end')" || die "брифинг: не прочитан контракт: $cf"
+    [ -n "$csubj" ] || die "брифинг: контракт без предмета: $cf" # t95-m19
+    prefix=""
+    if [ -f "$REPO/registry/pauzy.tsv" ] && awk -F'\t' -v id="$cnum" '$1==id {found=1} END {exit !found}' "$REPO/registry/pauzy.tsv"; then prefix="ПАУЗА: "; fi
+    WORK_LINES="${WORK_LINES}WORK: ${cnum} :: ${prefix}${csubj}"$'\n'
   done
   if [ -n "$ADRP" ] && [ -d "$REPO/$ADRP" ]; then
     while IFS="$TAB" read -r aid _aarea ares; do
@@ -298,6 +312,30 @@ else
     done < <(_adr_load)
   fi
   HEALTH_SEC="$(printf 'HEALTH: branch=%s dirty=%s' "$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || printf '?')" "$(git -C "$REPO" status --porcelain 2>/dev/null | wc -l | tr -d ' ')")" # t95-m18
+  # Сначала неизменяемые секции, затем целые WORK-строки под тем же капом.
+  WORK_HEAD="WORK: опущено: закрытых ${n_closed}, вне плана ${n_out}"$'\n'
+  _pack_no_work() {
+    printf '=== make_task contract=%s role=%s kind=%s ===\n' "${CONTRACT:-none}" "$ROLE" "$KIND"
+    printf '=== TRACE ===\n%s\n' "$TRACE_LINE"
+    printf '=== MAP ===\n%s=== RULES ===\n%s=== REUSE ===\n%s' "$MAP_LINES" "$RULES_LINES" "$REUSE_LINES"
+    if [ -n "$SKILLS" ]; then printf '=== SKILLS ===\n%s' "$SKILLS"; fi
+    if [ -n "$GOAL_SEC" ]; then printf '=== GOAL ===\n%s\n' "$GOAL_SEC"; fi
+    if [ -n "$DEC_SEC" ]; then printf '=== DECISIONS ===\n%s' "$DEC_SEC"; fi
+    printf '=== HEALTH ===\n%s\n' "$HEALTH_SEC"
+  }
+  base="$(_pack_no_work | wc -c)"
+  acc="$WORK_HEAD"; omitted=0
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    bytes="$(printf '%s%s\n' "$acc" "$line" | wc -c)"
+    if [ "$omitted" -eq 0 ] && [ "$((base + bytes + 13))" -le 39800 ]; then # t95-m29
+      acc="${acc}${line}"$'\n'
+    else
+      omitted=$((omitted + 1))
+    fi
+  done <<<"$WORK_LINES"
+  if [ "$omitted" -gt 0 ]; then acc="${acc}WORK: за бюджетом брифа: ${omitted} строк; полный план и контракты — по MAP"$'\n'; fi # t95-m21
+  WORK_SEC="$acc"
 fi
 
 # ── И-9: бюджет вклейки (манифест — ссылки, не вклейка; §13.6-1 владельца) ──

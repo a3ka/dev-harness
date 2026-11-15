@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 095 (контракт 095, круг 2, Н-39): девятнадцать порч честных
-# моделей (dover.sh — сборщик, dver_spawn.sh — дверь), каждая ОДНОЙ якорной
-# sed-по-маркеру, каждая привязана к клетке, на чьём входе её дефект НАБЛЮДАЕМ
+# Обманный стаб-пак 095: порчи честных моделей (dover.sh — сборщик,
+# dver_spawn.sh — дверь), каждая одной якорной правкой,
 # (привязка живёт В ЭТОМ КОДЕ, не в прозе контракта). Стаб строится из ТЕКУЩЕЙ
 # модели (копия + порча с проверкой якоря: маркер встречается в модели ровно
 # один раз, порча применилась). Пойман = связанная клетка против стаба даёт
@@ -27,6 +26,7 @@
 # s17 авторский след судьи снят      m17  red_revjer_poluchaet_vydannoe.sh
 # s18 содержание брифа вынуто        m18  red_orch_brief_starter.sh
 # s19 отказ активным снят            m19  red_orch_brief_karta_legacy.sh
+# Дополнительные привязки ниже — CLI-клетки bounded/legacy/GLM/draft.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODEL="$HERE/model/dover.sh"
@@ -108,5 +108,30 @@ zapest s18 t95-m18 red_orch_brief_starter.sh \
   's@.*# t95-m18.*@HEALTH_SEC="HEALTH: branch=? dirty=?" GOAL_SEC="" WORK_SEC="" DEC_SEC="" # t95-m18 порча@'
 zapest s19 t95-m19 red_orch_brief_karta_legacy.sh \
   's@.*# t95-m19.*@  : # t95-m19 порча@'
+# Критерийный срез пакета А: каждая порча наблюдаема на СВОЁМ входе.
+zapest s20 t95-m20 red_orch_brief_bounded_work.sh \
+  's@.*# t95-m20.*@    : # t95-m20 порча: закрытые не опускаются@'
+zapest s21 t95-m21 red_orch_brief_bounded_work.sh \
+  's@.*# t95-m21.*@  : # t95-m21 порча: хвост скрыт без счётчика@'
+zapest s29 t95-m29 red_orch_brief_bounded_work.sh \
+  's@.*# t95-m29.*@    if true; then # t95-m29 порча: кап WORK снят@'
+zapest s30 t95-x1 red_orch_brief_rabota_bez_plana.sh \
+  's@.*# t95-x1.*@    if ! grep -Fxq -- "$cnum" <<<"$_plan_ids"; then # t95-x1 порча: без плана всё скрыто@'
+zapest s31 t95-m31 red_orch_brief_rabota_bez_plana.sh \
+  's@.*# t95-m31.*@        s=subject!="" ? subject : title # t95-m31 порча: обещание/inline потеряны@'
+zapest s32 t95-m32 red_orch_brief_rabota_bez_plana.sh \
+  's@.*# t95-m32.*@        s=s # t95-m32 порча: метка черновика потеряна@'
+zapest s40 t95-m40 red_naznachennaja_specializacija.sh \
+  's@.*# t95-m40.*@case "$ROLE" in implementer-glm) die "роль вне алфавита: $ROLE" ;; esac # t95-m40 порча@'
+zapest s41 t95-m41 red_naznachennaja_specializacija.sh \
+  's@.*# t95-m41.*@: # t95-m41 порча: нет семейной роли@'
+zapest s42 t95-m42 red_naznachennaja_specializacija.sh \
+  's@.*# t95-m42.*@ROLE_TRACE="$LOGICAL_ROLE" # t95-m42 порча: физическая трасса подменена@'
+zapest s43 t95-m6 red_rezhim_do_zamorozki.sh \
+  's@.*# t95-m6.*@    case "$LOGICAL_ROLE" in architect|critic) ;; *) die "контракт не заморожен: $CONTRACT" ;; esac # t95-m6 порча: arbiter отказан@'
+zapest s44 t95-m40 red_naznachennaja_specializacija.sh \
+  's@.*# t95-m40.*@: # t95-m40 порча: открыт любой алфавит включая vision@'
+zapest s45 t95-m3 red_orch_brief_bounded_work.sh \
+  's@.*# t95-m3.*@    : # t95-m3 порча: mandatory потеря проглочена в brief@'
 printf 'ИТОГ стаб-пак 095: rc=%s\n' "$itog"
 exit "$itog"

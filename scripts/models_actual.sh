@@ -140,9 +140,18 @@ if [ "$TSV" = "1" ]; then
     _role="$(grep -ohE '"agent"[[:space:]]*:[[:space:]]*"[a-z][a-z0-9-]*"' "$f" 2>/dev/null \
              | sed 's/.*"\([a-z][a-z0-9-]*\)"$/\1/' | LC_ALL=C sort | LC_ALL=C uniq -c \
              | LC_ALL=C sort -rn | head -1 | awk '{print $2}' || true)"
+    # Ведущая сессия лаунчера (workshop: SESSION_ROLE=orchestrator) — файл с заголовком
+    # `"type":"session"` БЕЗ `parentSession`; в ней `"agent"` встречается только в вызовах
+    # task (кого она спавнит), и «самая частая роль» давала architect. Субагентские сессии
+    # несут `parentSession`; файлы без заголовка session (прежний формат, фикстуры) — как прежде.
+    _hdr="$(grep -m1 -F '"type":"session"' "$f" 2>/dev/null || true)"
+    if [ -n "$_hdr" ] && ! printf '%s' "$_hdr" | grep -qF '"parentSession"'; then _role="orchestrator"; fi
     # Каждое событие `model_change` — отдельная строка TSV. Регекс
     # однострочный: эти события короткие и не содержат переводов строк.
-    _events="$(grep -ohE '"type":"model_change"[^{]*"model":"[^"]+"[^{]*"resolvedModelIsFallback":[a-z]+' "$f" 2>/dev/null || true)"
+    # omp 18.18.8 добавил в событие вложенный объект `"runtime":{"version":"…"}` — `[^{]*` на нём
+    # обрывался, и ни одно событие новых сессий не находилось («model_change событий в зоне нет»).
+    # Вложенный runtime вырезается ДО того же регекса; события прежнего формата не меняются.
+    _events="$(sed -E 's/"runtime":\{[^{}]*\},?//g' "$f" 2>/dev/null | grep -ohE '"type":"model_change"[^{]*"model":"[^"]+"[^{]*"resolvedModelIsFallback":[a-z]+' || true)"
     # `--bind` (контракт 104, Решение 2): привязка сессии и объекта суда.
     # session-id — basename JSONL без .jsonl (тот же примитив, что норма 037);
     # алфавит [A-Za-z0-9._-] — TAB в значении невозможен по построению, вне
