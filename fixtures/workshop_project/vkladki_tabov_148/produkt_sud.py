@@ -452,21 +452,31 @@ SHOV_MARKERY = [
     'readonly sectionScreens?: Readonly<Partial<Record<ShellSection, React.ReactNode>>>;',
     'readonly mitte?: React.ReactNode;',
 ]
+# v5 (И-2): судятся КЛЮЧИ каталога 1.1 и канонические якоря — testID,
+# tier знака 145, шаблон a11y-имени proposed.gespraech.tab.a11y.status.
+# Имена внутренних полей кода (working:/needs_action: формы PR #147,
+# которую v5 заменил) не пинируются: статусы Mitte обязаны читаться
+# ключами ui.mission.group.working/needs_user, ключи финала-2
+# (ui.vorgaenge.group.*) запрещены (Существующее v5: «дефект PR #147,
+# не переносится»).
 MITTE_MARKERY = [
     "import { FadenSign } from '../lib/faden/FadenSign';",
     'size="tab"',
     'testID="gespraech-mitte"',
-    "working: 'ui.mission.group.working'",
-    "needs_action: 'ui.mission.group.needs_user'",
+    "'ui.mission.group.working'",
+    "'ui.mission.group.needs_user'",
     "uiCopyDe['proposed.gespraech.tab.a11y.status']",
 ]
+# v5 (И-5): ключи ui-copy — только verbatim из каталога 1.1 (SPEC §5).
+# Сняты якоря формы PR #147: 'proposed.gespraech.tab.a11y' (в каталоге
+# 1.1 отсутствует — вводить ключ вне каталога запрещено) и
+# 'fixture.schutz.02' (fixture.* — данные model-модуля, не ui-copy).
 KOPII_KLJUCHI = [
     'ia115.nav.START',
     'ia117.nav.VORGAENGE',
     'ia115.nav.SCHUTZ',
     'ia115.nav.POST',
     'proposed.gespraech.tab',
-    'proposed.gespraech.tab.a11y',
     'proposed.gespraech.tab.a11y.status',
     'ui.mission.group.working',
     'ui.mission.group.needs_user',
@@ -477,13 +487,32 @@ KOPII_KLJUCHI = [
     'ui.post.filter.received',
     'ui.post.filter.sent',
     'ui.post.send_to_complior',
-    # Notice-зона GA-03 — каталогизирована пакетом 1.1 (маска снята)
+    # Notice-зона GA-03 — proposed-ключи каталогизированы 1.1
     'proposed.protection.status.gap',
-    'fixture.schutz.02',
     'proposed.schutz.gap.action',
     'proposed.schutz.stat.contracts',
     'proposed.schutz.stat.premium',
     'proposed.schutz.section.areas',
+]
+# v5 (И-5): fixture.*/runtime.value.* — данные model-модулей, НЕ
+# ui-copy (review_status каталога 1.1: «nicht als UI-Text fest
+# einbauen»); префикс с кавычкой — ключ-литерал, комментарии не триггерят
+KOPII_DANNYE_PREFIKSY = ["'fixture.", "'runtime.value."]
+# v5 (И-2): ключи финала-2 каталогом 1.1 переименованы в
+# ui.mission.group.* — их использование запрещено
+KOPII_FINAL2_PREFIKS = "'ui.vorgaenge.group."
+# v5 (И-6/SPEC §4): цели лейсте несут testID канона 999 (shell-tab-*)
+# + gespraech-mitte — ТОЛЬКО эти имена пинируются; имена контент-целей
+# экрана v5 не пинирует (якоря вида vorgaenge-stroka-rechtsschutz /
+# schutz-svod — форма PR #147, снята): полноту контент-целей судит
+# манифест СОБСТВЕННОЙ пачки R у судьи формы (sud_pachki: флоу обязан
+# ссылаться на каждый pressable пачки) и прогон Maestro (приёмка п. 4)
+PROKHOD_ID_KANON = [
+    'shell-tab-start',
+    'shell-tab-vorgaenge',
+    'gespraech-mitte',
+    'shell-tab-schutz',
+    'shell-tab-post',
 ]
 KONTENT_FAJLY = [
     'mobile/src/features/missions/components/VorgaengeListe.tsx',
@@ -858,6 +887,19 @@ def staticheskie_proverki(repo: Path, src):
         net = [k for k in KOPII_KLJUCHI if ("'%s'" % k) not in tekst]
         if net:
             otkazy.append('KOPII_NET: нет ключей: %s' % net)
+        # v5 (И-2): ключи финала-2 в ui-copy запрещены — каталог 1.1
+        # их не несёт (переименованы в ui.mission.group.*); проверка
+        # истинности префикса — нейтрализация стаба пустой строкой
+        if KOPII_FINAL2_PREFIKS and KOPII_FINAL2_PREFIKS in tekst:
+            otkazy.append('KOPII_FINAL2: ключи финала-2 '
+                          '(ui.vorgaenge.group.*) в ui-copy — каталог '
+                          'D24-Kompakt-1.1 их не несёт (И-2/И-5 v5)')
+        # v5 (И-5): fixture.*/runtime.value.* — данные model-модулей
+        dannye = [p for p in KOPII_DANNYE_PREFIKSY if p in tekst]
+        if dannye:
+            otkazy.append('KOPII_FIXTURE_V_KOPII: %s — fixture.*/'
+                          'runtime.value.* — данные model-модулей, '
+                          'не ui-copy (И-5 v5)' % dannye)
     # манифесты кадров: 8+8, макеты — файлы по каноническим путям R с
     # пинами байтов (блок 2 Crit148: путь обязателен, подмены носителем нет)
     for imja_manifesta in ('kadry.json', 'kadry_profil.json'):
@@ -905,10 +947,14 @@ def staticheskie_proverki(repo: Path, src):
     else:
         tekst = prokh.read_text(encoding='utf-8')
         ispolnimye = [l.split('#', 1)[0] for l in tekst.splitlines()]
-        net_id = [p['id'] for p in src['ekran_forma']['prokhodimost']['pressable']
-                  if not any(p['id'] in l for l in ispolnimye)]
+        # v5 (И-6/SPEC §4): пинируются только цели лейсте — testID
+        # канона 999 + gespraech-mitte; контент-цели судит манифест
+        # собственной пачки R (sud_pachki у судьи формы: флоу ссылается
+        # на каждый pressable пачки) — имена PR #147 сняты
+        net_id = [i for i in PROKHOD_ID_KANON
+                  if not any(i in l for l in ispolnimye)]
         if net_id:
-            otkazy.append('PROKHOD_BEZ_PRESSABLE: %s' % net_id[:3])
+            otkazy.append('PROKHOD_BEZ_PRESSABLE: %s' % net_id)
     otkazy += proverka_emuljatorov(repo)
     return otkazy
 
