@@ -39,7 +39,17 @@ the door's rc 2 («нечем проверить»: ARCH_DEPS, ARCH_LOCATE_GRAMM
 collapsing it to rc 1, and never emits a pack over that refusal; a body whose
 status field is absent or unfamiliar is OUTSIDE the answer grammar (the pin
 source always emits DECLARED|UNRESOLVED, workflow.js:87) — a named
-ARCH_LOCATE_GRAMMAR rc 2, never a class guessed from the model's rc."""
+ARCH_LOCATE_GRAMMAR rc 2, never a class guessed from the model's rc.
+v+1 (consumer checks of hotfix 0de333cfe6, origin/main): the PUBLIC make_task
+door judges the ISSUED task file — a foreign zone there is a named ARCH_ZONE
+naming the model's component (zones of the draft contract are not a substitute);
+a document-class subject in pinned scope gets the pinned brief with NO local
+architecture/ and no «АРХИТЕКТУРА:» line in the task (brief source and code
+gate are separate traits); the code class may be declared by the INLINE form
+180 at the TAIL of a long contract — a head-only reader loses the gate and the
+pair cell catches it; an out-of-grammar locate body (no status / unfamiliar
+status) reaches the make_task caller as rc 2 (held Б1), never a guessed class;
+the no-pack observer covers EVERY negative task cell, not three labels."""
 import hashlib
 import json
 import os
@@ -130,6 +140,12 @@ CASES = (
     ('task-grammar-refusal', 'task', 'grammar-broken', 2, 'ARCH_LOCATE_GRAMMAR', 'task'),
     ('locate-status-missing', 'freeze', 'status-missing', 2, 'ARCH_LOCATE_GRAMMAR', 'freeze'),
     ('locate-status-unknown', 'freeze', 'status-unknown', 2, 'ARCH_LOCATE_GRAMMAR', 'freeze'),
+    # ── v+1: потребительские проверки hotfix 0de333cfe6 (публичный make_task) ──
+    ('task-foreign', 'task', 'real-task-foreign', 1, 'компоненту api.billing', 'task'),
+    ('brief-document-no-local', 'task', 'real-document', 0, '', 'task'),
+    ('brief-inline-line-missing', 'task', 'inline-no-line', 1, 'ARCH_LINE_MISSING', 'task'),
+    ('task-status-missing', 'task', 'task-status-missing', 2, 'ARCH_LOCATE_GRAMMAR', 'task'),
+    ('task-status-unknown', 'task', 'task-status-unknown', 2, 'ARCH_LOCATE_GRAMMAR', 'task'),
 )
 STABS = {
     'task-no-line': ('task-line-missing', 'allow-line'),
@@ -214,6 +230,15 @@ STABS = {
     'task-grammar-pack-despite-refusal': ('task-grammar-refusal', 'task-pack'),
     'status-guess-empty-claimants': ('locate-status-missing', 'status-guess'),
     'status-guess-unknown': ('locate-status-unknown', 'status-guess'),
+    # ── v+1 стабы: ветви публичного make_task по коду hotfix (Н-39) ────────────
+    'task-zone-skipped': ('task-foreign', 'task-zone-skip'),
+    'task-zones-from-contract': ('task-foreign', 'zones-from-contract'),
+    'document-gate-applied': ('brief-document-no-local', 'gate-applied'),
+    'document-brief-local': ('brief-document-no-local', 'requires-local'),
+    'inline-line-ignored': ('brief-inline-line-missing', 'allow-line'),
+    'inline-class-head-only': ('brief-inline-line-missing', 'class-head-only'),
+    'task-status-guess-empty-claimants': ('task-status-missing', 'status-guess'),
+    'task-status-guess-unknown': ('task-status-unknown', 'status-guess'),
 }
 
 # Approved snapshot inside the pinned tree (2.5.x layout of the real model, as run-arch.js
@@ -240,7 +265,12 @@ REAL_VARIATIONS = frozenset((
     'declared-empty-worker', 'outside-provenance', 'outside-structure',
     'ambiguous-empty',
     # v3-r2: out-of-grammar bodies with parseable JSON (reviewer Б2)
-    'status-missing', 'status-unknown'))
+    'status-missing', 'status-unknown',
+    # v+1: consumer worlds of hotfix 0de333cfe6 — судит публичный make_task;
+    # 'no-local' обязан стать real-грамматикой: инлайн-класс запускает гейт,
+    # а locate hotfix требует JSON-ответа
+    'no-local', 'inline-no-line', 'real-task-foreign', 'real-document',
+    'task-status-missing', 'task-status-unknown'))
 
 # Union world (v2-r1, блок 1(a) вердикта): the real CLI can answer SEVERAL matches
 # with SEVERAL components in one match (observed at the pin: server/src/handlers/x.js
@@ -417,6 +447,16 @@ def refusal_ok(label, reason, output):
         return any(re.search(r'компоненту ' + re.escape(c) + r'(?![A-Za-z0-9_.])', output)
                    for c in placed_components(UNION_PREFIX + 'x'))
     return not reason or reason in output
+
+
+def pinned_brief(role):
+    """Бриф компонента из ЗАКРЕПЛЁННОГО коммита модели (канал 187а, hotfix
+    0de333cfe6): баннер пина, правила — ровно ролям architect/critic/arbiter,
+    затем STRUCTURE.md; та же форма, что legacy-контроль и канал real-brief."""
+    result = 'PINNED_BRIEF_187 api.identity'
+    if role in ('architect', 'critic', 'arbiter'):
+        result += '\nRULES_FROM_PIN_187 semanticInvariant: no second writer; scope_id fixed'
+    return result + '\nSTRUCTURE.md'
 
 
 def toy_check(arch, revision, args):
@@ -664,6 +704,21 @@ def drop_local_copy(root):
     (root / 'architecture').rmdir()
 
 
+def inline_long_contract(root):
+    """v+1 (hotfix 0de333cfe6): мир инлайн-класса 180 — самостоятельной строки
+    «КЛАСС ЗАДАЧИ:» в контракте БОЛЬШЕ НЕТ; класс объявлен инлайн-формой
+    ПОСЛЕДНЕЙ строкой длинного приложения (~1024 инертных строк вне context
+    sections, без маркеров дверей — в пак эти строки не попадают). Читатель,
+    теряющий хвост контракта (якорь на голове, ранний выход по секциям),
+    класса не видит вовсе — отрицательная пара ловит потерю гейта."""
+    contract = (root / CONTRACT).read_text().replace('КЛАСС ЗАДАЧИ: кодовый.\n', '')
+    lines = ['## Приложение: справка по миграции']
+    lines += [f'Заметка {i:04d}: инертная строка справки, маркеров дверей не несёт.'
+              for i in range(1024)]
+    lines.append('Идентификатор: `id/CONTRACT/777`. КЛАСС ЗАДАЧИ: кодовый (реализация).')
+    put(root, CONTRACT, contract + '\n'.join(lines) + '\n')
+
+
 def prepare(root, arch, pinned, variation):
     if variation.startswith('wiring-'):
         commands = [BATTERY, DIRECT]
@@ -687,7 +742,19 @@ def prepare(root, arch, pinned, variation):
         task.write_text(task.read_text().replace('АРХИТЕКТУРА: L1 api.identity\n', ''))
     elif variation == 'line-blank':
         task.write_text(task.read_text().replace('АРХИТЕКТУРА: L1 api.identity', 'АРХИТЕКТУРА: '))
-    elif variation == 'no-local' or variation == 'component-required':
+    elif variation == 'no-local':
+        # v+1: усиленный мир — класс предмета объявлен ТОЛЬКО инлайн-формой 180
+        # в хвосте длинного контракта; локальной architecture/ нет (бриф из пина).
+        drop_local_copy(root)
+        inline_long_contract(root)
+    elif variation == 'inline-no-line':
+        # v+1: отрицательная пара мира инлайн-класса — строка «АРХИТЕКТУРА:»
+        # УДАЛЕНА из файла задания: гейт запускается (класс в хвосте контракта
+        # есть) и отказывает именованным ARCH_LINE_MISSING.
+        drop_local_copy(root)
+        inline_long_contract(root)
+        task.write_text(task.read_text().replace('АРХИТЕКТУРА: L1 api.identity\n', ''))
+    elif variation == 'component-required':
         drop_local_copy(root)
     elif variation == 'freeze-no-line':
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('АРХИТЕКТУРА: L1 api.identity\n', ''))
@@ -803,6 +870,29 @@ def prepare(root, arch, pinned, variation):
         # второе значение наблюдаемого ключа вне-грамматности (урок v3-r1).
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', UNKNOWN_PREFIX + 'x.js'))
         put(root, UNKNOWN_PREFIX + 'x.js', 'module.exports=13;\n')
+    elif variation == 'real-task-foreign':
+        # v+1 (hotfix 0de333cfe6): зона ЗАДАНИЯ — чужой компонент
+        # (app/billing/evil.js); черновик контракта не тронут: публичный
+        # make_task судит ВЫДАННЫЙ файл задания, а не контракт.
+        task.write_text(task.read_text().replace('app/identity/model.js', 'app/billing/evil.js'))
+        put(root, 'app/billing/evil.js', 'module.exports=2;\n')
+    elif variation == 'real-document':
+        # v+1: документальный предмет в pinned scope — локальной architecture/
+        # нет, строки «АРХИТЕКТУРА:» в задании нет: бриф всё равно из пина,
+        # кодовый гейт к документальному предмету не применяется.
+        put(root, CONTRACT, (root / CONTRACT).read_text().replace(
+            'КЛАСС ЗАДАЧИ: кодовый.', 'КЛАСС ЗАДАЧИ: документальный.'))
+        drop_local_copy(root)
+        task.write_text(task.read_text().replace('АРХИТЕКТУРА: L1 api.identity\n', ''))
+    elif variation == 'task-status-missing':
+        # v+1: тело locate без поля status — на канале make_task (зона только в
+        # файле задания); договорная ветка freeze не заменяет этот вход.
+        task.write_text(task.read_text().replace('app/identity/model.js', NOSTATUS_PREFIX + 'x.js'))
+        put(root, NOSTATUS_PREFIX + 'x.js', 'module.exports=14;\n')
+    elif variation == 'task-status-unknown':
+        # v+1: незнакомое значение status (PARTIAL) — на канале make_task.
+        task.write_text(task.read_text().replace('app/identity/model.js', UNKNOWN_PREFIX + 'x.js'))
+        put(root, UNKNOWN_PREFIX + 'x.js', 'module.exports=15;\n')
     elif variation == 'precritic-foreign':
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', 'app/billing/evil.js'))
         put(root, 'app/billing/evil.js', 'x\n')
@@ -1050,6 +1140,49 @@ def verdict_v2(root, arch, pinned, action, task, role, mutant, variation):
             if mutant == 'local-dir-only':
                 return 0, ''  # обман: применимость по локальному каталогу, а не по lock
             return 1, 'ARCH_COMPONENT_NET: требуется --arch-component (кодовый предмет, проект с закреплённой моделью)'
+        if variation == 'real-document':
+            # v+1 (hotfix 0de333cfe6): ИСТОЧНИК брифа (пин) отделён от КОДОВОГО
+            # ГЕЙТА — документальный предмет в pinned scope получает бриф из
+            # закреплённого коммита без локальной architecture/ и без строки
+            # «АРХИТЕКТУРА:» в задании.
+            if mutant == 'gate-applied':
+                return 1, 'ARCH_LINE_MISSING: в тексте нет самостоятельной строки «АРХИТЕКТУРА:»'
+            if mutant == 'requires-local':
+                return 1, 'ARCHITECTURE_NET: нет каталога architecture/ в проекте'
+            return 0, pinned_brief(role)
+        if variation == 'real-task-foreign':
+            # v+1: публичный make_task судит зоны ВЫДАННОГО файла задания:
+            # чужой компонент модели — именованный ARCH_ZONE с именем компонента
+            # из ответа locate (набор, не первый литерал), зоны черновика
+            # контракта заменой не служат.
+            text = task.read_text()
+            ids = line_components(text)
+            path = next(line[len('ЗОНА implementer:'):].strip()
+                        for line in text.splitlines()
+                        if line.startswith('ЗОНА implementer:'))
+            if mutant in ('task-zone-skip', 'zones-from-contract'):
+                # обман: гейт задания пропущен / зоны взяты из контракта —
+                # зелёный пак поверх несудимого задания
+                return 0, PACK_MARKER + f'777 role={role} kind=task ===\n' + pinned_brief(role)
+            foreign = [c for c in placed_components(path) if c not in ids]
+            if foreign:
+                return 1, (f'ARCH_ZONE: путь {path} отнесён моделью к компоненту {foreign[0]}, '
+                           f'а строка «АРХИТЕКТУРА:» называет {",".join(ids)}')
+            return 0, pinned_brief(role)
+        if variation in ('task-status-missing', 'task-status-unknown'):
+            # v+1: тело вне грамматики ответа (нет status / незнакомый status) —
+            # на канале make_task: именованный ARCH_LOCATE_GRAMMAR rc 2 (Б1),
+            # не догадка класса по rc модели и не зелёный пак.
+            text = task.read_text()
+            path = next(line[len('ЗОНА implementer:'):].strip()
+                        for line in text.splitlines()
+                        if line.startswith('ЗОНА implementer:'))
+            if mutant == 'status-guess':
+                return 0, ''  # обман: класс ответа угадан по rc модели (rc 0 → конформ)
+            if variation == 'task-status-missing':
+                return 2, f'ARCH_LOCATE_GRAMMAR: в ответе locate нет поля status: {path}'
+            return 2, (f'ARCH_LOCATE_GRAMMAR: незнакомое значение status в ответе '
+                       f'locate: {UNKNOWN_STATUS} ({path})')
         if variation in ('real-deps', 'grammar-broken'):
             # v3-r2 (ревьюер Б1): rc 2 двери («нечем проверить») доходит до
             # вызывающего make_task без снижения до rc 1; пак не выдаётся.
@@ -1108,7 +1241,7 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
                      'outside-universe', 'heuristic-docs', 'grammar-broken',
                      'line-duplicate', 'declared-empty-worker', 'outside-provenance',
                      'outside-structure', 'ambiguous-empty', 'status-missing',
-                     'status-unknown') \
+                     'status-unknown', 'task-status-missing', 'task-status-unknown') \
             or variation.startswith('real-') or variation.startswith('union-') \
             or variation.startswith('precritic-'):
         return verdict_v2(root, arch, pinned, action, task, role, mutant, variation)
@@ -1118,6 +1251,10 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
     contract = (root / CONTRACT).read_text()
     if action == 'task':
         text = task.read_text()
+        if variation == 'inline-no-line' and mutant == 'class-head-only':
+            # обман (v+1): хвостовой инлайн-класс 180 потерян читателем головы
+            # контракта — гейт не запустился, пак выдан поверх несудимого задания
+            return 0, PACK_MARKER + f'777 role={role} kind=task ===\n' + pinned_brief(role)
         if (not any(line.startswith('АРХИТЕКТУРА: L1 ') or line.startswith('АРХИТЕКТУРА: L2 ')
                     or line.startswith('АРХИТЕКТУРА: L3 ') for line in text.splitlines())) and mutant != 'allow-line':
             return 1, 'ARCH_LINE_MISSING'
@@ -1264,9 +1401,8 @@ def main():
                 result = live(tools, root, arch, pinned, action, task, trace, role, variation)
                 rc, output = result.returncode, result.stdout + result.stderr
             ok = (rc == expected and refusal_ok(label, reason, output))
-            if label in ('task-class-missing', 'task-deps-refusal',
-                         'task-grammar-refusal') and PACK_MARKER in output:
-                ok = False  # 1(b)/Б1: пак при отказе выдан — судится канал выдачи
+            if action == 'task' and expected and PACK_MARKER in output:
+                ok = False  # 1(b)/Б1/v+1: пак при ЛЮБОМ отказе make_task — судится канал выдачи
             if action == 'task' and not expected:
                 if 'PINNED_BRIEF_187' not in output or 'WRONG_HEAD_BRIEF_187' in output:
                     ok = False
@@ -1288,8 +1424,7 @@ def main():
                     fake_rc, fake_out = verdict(root, arch, pinned, action, task, role, mutant, variation=variation)
                     caught = (fake_rc != expected
                               or not refusal_ok(label, reason, fake_out)
-                              or (label in ('task-class-missing', 'task-deps-refusal',
-                                            'task-grammar-refusal') and PACK_MARKER in fake_out))
+                              or (action == 'task' and expected and PACK_MARKER in fake_out))
                     if not expected and action == 'task':
                         caught = caught or ('PINNED_BRIEF_187' not in fake_out or
                             'WRONG_HEAD_BRIEF_187' in fake_out or
