@@ -33,14 +33,15 @@ export const uiCopyDe: Readonly<Record<string, CopyEntry>> = {
   'frame.F08.01.title': { text: 'Ihre Vorgänge', review_status: 'EDITORIAL_DRAFT_REVIEW_REQUIRED' },
   'frame.F19.01.title': { text: 'Ihre Absicherung im Überblick', review_status: 'EDITORIAL_DRAFT_REVIEW_REQUIRED' },
   'frame.F16.01.title': { text: 'Ihre Dokumente', review_status: 'EDITORIAL_DRAFT_REVIEW_REQUIRED' },
-  // 148 vkladki-tabov (v+1, пакет D24-Kompakt-1.1): Mitte «Gespräch»,
+  // 148 vkladki-tabov (v5, пакет D24-Kompakt-1.1): Mitte «Gespräch»,
   // статусы Mitte/групп и фильтры Post — verbatim из каталога пакета
   // source/copy-de.json (ui.mission.*, ui.post.*), proposed-копия —
-  // proposed.gespraech.tab*; Notice-зона GA-03 каталогизирована 1.1
-  // (proposed.protection.status.gap, fixture.schutz.02,
-  // proposed.schutz.*); review_status сохранён.
+  // proposed.gespraech.tab и шаблон a11y-имени .tab.a11y.status;
+  // И-5 v5: proposed.gespraech.tab.a11y в каталоге 1.1 отсутствует —
+  // ключ вне каталога не вводится; fixture.schutz.02 (текст Notice
+  // GA-03) — ДАННЫЕ model-модуля features/protection/model/
+  // schutz-dannye.ts, не ui-copy; review_status сохранён.
   'proposed.gespraech.tab': { text: 'Gespräch', review_status: 'PROPOSED / PRODUCT_COPY_REVIEW_REQUIRED' },
-  'proposed.gespraech.tab.a11y': { text: 'Gespräch mit Complior', review_status: 'PROPOSED / PRODUCT_COPY_REVIEW_REQUIRED' },
   'proposed.gespraech.tab.a11y.status': { text: 'Gespräch mit Complior – {status}', review_status: 'PROPOSED / PRODUCT_COPY_REVIEW_REQUIRED' },
   'ui.mission.group.working': { text: 'In Arbeit', review_status: 'UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED' },
   'ui.mission.group.needs_user': { text: 'Ihre Rückmeldung nötig', review_status: 'UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED' },
@@ -52,7 +53,6 @@ export const uiCopyDe: Readonly<Record<string, CopyEntry>> = {
   'ui.post.filter.sent': { text: 'Gesendet', review_status: 'UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED' },
   'ui.post.send_to_complior': { text: 'An Complior schicken', review_status: 'UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED' },
   'proposed.protection.status.gap': { text: 'Lücke', review_status: 'PROPOSED / PRODUCT_COPY_REVIEW_REQUIRED' },
-  'fixture.schutz.02': { text: 'Lücke: Berufsunfähigkeit. Complior zeigt passende Optionen – ohne Verpflichtung.', review_status: 'FIXTURE — Laufzeitinhalt (Agent, Nutzer oder Backend, Szenario D24); nicht als UI-Text fest einbauen' },
   'proposed.schutz.gap.action': { text: 'Optionen ansehen', review_status: 'PROPOSED / PRODUCT_COPY_REVIEW_REQUIRED' },
   'proposed.schutz.stat.contracts': { text: 'Verträge', review_status: 'PROPOSED / PRODUCT_COPY_REVIEW_REQUIRED' },
   'proposed.schutz.stat.premium': { text: 'Beitrag / Monat', review_status: 'PROPOSED / PRODUCT_COPY_REVIEW_REQUIRED' },
