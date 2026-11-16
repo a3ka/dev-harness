@@ -24,10 +24,10 @@
       "prichina": "GH_KANAL_V_RUN",
       "defekt": "работник e2e-splash вернулся к gh run download"
     },
-    "stab_b01_forma_pisatelja": {
+    "stab_b01_argumenty": {
       "kletka": "b01-forma-pisatelja",
       "prichina": "FORMA_PISATELJA",
-      "defekt": "шаг-писатель maestro-117 несёт постороннюю команду cp рядом с lane-вызовом"
+      "defekt": "аргументы писателя не образуют пару --imja/--chto: вместо --chto передан --kuda при допустимой форме вызова"
     },
     "stab_c01_nepolnaja": {
       "kletka": "c01-forma-chitatelja",
@@ -42,7 +42,7 @@
     "stab_c03_run_para_literal": {
       "kletka": "c03-run-para-iz-sborki",
       "prichina": "RUN_PARA_NE_IZ_SBORKI",
-      "defekt": "агрегат android-e2e передал литеральную пару чужого прогона --run-id 43752095485 --run-attempt 1 (мутация критика MX1)"
+      "defekt": "агрегат android-e2e передал литеральную пару чужого прогона --run-id 43752095485 --run-attempt 1 в корректно оформленном вызове (мутация критика MX1): грамматика пропускает честную форму, происхождение судится c03"
     },
     "stab_d01_put_bez_popytki": {
       "kletka": "d01-koren-vne-skripta",
@@ -52,7 +52,52 @@
     "stab_d02_vyhod_za_koren": {
       "kletka": "d02-vyhod-za-koren",
       "prichina": "VYHOD_ZA_KOREN",
-      "defekt": "источник писателя с '..' — выход за рабочий каталог"
+      "defekt": "источник писателя с сегментом '..' — выход за рабочий каталог при допустимой форме вызова"
+    },
+    "stab_g01_sputnik_cp": {
+      "kletka": "g01-forma-nositelja",
+      "prichina": "FORMA_NOSITELJA_VNE_GRAMMATIKI",
+      "defekt": "посторонняя команда cp рядом с lane-вызовом писателя maestro-117: полный run-текст вне трёх допустимых контекстов L/S+L/P+L+Q"
+    },
+    "stab_g01_kavochnaja_para": {
+      "kletka": "g01-forma-nositelja",
+      "prichina": "FORMA_NOSITELJA_VNE_GRAMMATIKI",
+      "defekt": "литеральная пара чужого прогона за кавычной охраной test \"$OK\" = 1 && … (мутация критика MX1q): запрещённая оболочка вызова отсекается грамматикой до происхождения c03 (арбитраж 197, РЕШЕНИЕ 2.3)"
+    },
+    "stab_g01_ekranirovannaja_kavychka": {
+      "kletka": "g01-forma-nositelja",
+      "prichina": "FORMA_NOSITELJA_VNE_GRAMMATIKI",
+      "defekt": "блокирующая находка Crit197V3 (B6): test \\\" = x && npm run … — экранированная кавычка прятала оператор && от старого разбора; обратная косая черта вне алфавита замкнутой грамматики"
+    },
+    "stab_g01_perenos_posle_operatora": {
+      "kletka": "g01-forma-nositelja",
+      "prichina": "FORMA_NOSITELJA_VNE_GRAMMATIKI",
+      "defekt": "блокирующая находка Crit197V3 (B14): test -n \"$X\" && \\<перенос> + lane-вызов — продолжение строки прячет оператор; перенос после оператора не входит в допустимые формы"
+    },
+    "stab_g01_ohrana_do_vyzova": {
+      "kletka": "g01-forma-nositelja",
+      "prichina": "FORMA_NOSITELJA_VNE_GRAMMATIKI",
+      "defekt": "писатель selection.json за константно-ложной охраной test false && npm run … (мутация критика N4b): оператор композиции вне замкнутой грамматики, вызов отсекается до семантики"
+    },
+    "stab_g01_podavlenie_posle": {
+      "kletka": "g01-forma-nositelja",
+      "prichina": "FORMA_NOSITELJA_VNE_GRAMMATIKI",
+      "defekt": "провал писателя selection.json подавлен «… || test $? -eq 1» (мутация критика N11): оператор композиции вне замкнутой грамматики"
+    },
+    "stab_g01_chtenie_s_true": {
+      "kletka": "g01-forma-nositelja",
+      "prichina": "FORMA_NOSITELJA_VNE_GRAMMATIKI",
+      "defekt": "провал читателя-агрегата подавлен «… || true» (мутация критика N10b): оператор композиции вне замкнутой грамматики"
+    },
+    "stab_g01_khvost_argumentov": {
+      "kletka": "g01-forma-nositelja",
+      "prichina": "FORMA_NOSITELJA_VNE_GRAMMATIKI",
+      "defekt": "позиционный хвост после полных пар аргументов писателя: старый разбор терял хвост dict(zip(...)), грамматика требует полного потребления аргументов"
+    },
+    "stab_g01_povtor_kljucha": {
+      "kletka": "g01-forma-nositelja",
+      "prichina": "FORMA_NOSITELJA_VNE_GRAMMATIKI",
+      "defekt": "повтор ключа --imja в lane-вызове: старый разбор молча перезаписывал значение, грамматика требует ключи без повторов"
     },
     "stab_i01_if_false": {
       "kletka": "i01-nositel-ispolnim",
@@ -67,7 +112,7 @@
     "stab_i02_heredok_nositel": {
       "kletka": "i02-zamknutyj-inventar",
       "prichina": "KATEGORIJA_BEZ_PISATELJA",
-      "defekt": "вызов писателя selection.json стал данными heredoc-носителя: текст есть, операции нет"
+      "defekt": "вызов писателя selection.json стал данными heredoc-носителя: lane-имя в тексте есть, операции нет — грамматика красит форму (g01), категория остаётся без писателя"
     },
     "stab_r09_skript_bez_popytki": {
       "kletka": "r09-izoljacija-popytok",
@@ -78,16 +123,6 @@
       "kletka": "c03-run-para-iz-sborki",
       "prichina": "CHITATEL_APK_BEZ_PARY",
       "defekt": "у APK-читателя e2e-splash снята пара --run-id/--run-attempt целиком (мутация критика N3): чтение уходит в собственную попытку, сборка не переживает повтор работника"
-    },
-    "stab_c03_kavochnaja_ohrana": {
-      "kletka": "c03-run-para-iz-sborki",
-      "prichina": "RUN_PARA_NE_IZ_SBORKI",
-      "defekt": "литеральная пара чужого прогона за кавычной охраной test \"$OK\" = 1 && … (мутация критика MX1q): вызов виден только честным кавычным состоянием разбора"
-    },
-    "stab_i01_chtenie_s_true": {
-      "kletka": "i01-nositel-ispolnim",
-      "prichina": "VYZOV_NE_BEZUSLOVEN",
-      "defekt": "провал читателя-агрегата подавлен «… || true» (мутация критика N10b): спутники читателя свободны (c01), подавление судится композицией"
     },
     "stab_i01_job_if_false": {
       "kletka": "i01-nositel-ispolnim",
@@ -103,16 +138,6 @@
       "kletka": "i01-nositel-ispolnim",
       "prichina": "PROVALY_PODAVLENY",
       "defekt": "job-level continue-on-error: true у носителя e2e-splash (мутация критика N7, совет 1 вердикта V2): работник проглатывает провал шага-носителя"
-    },
-    "stab_i01_ohrana_do_vyzova": {
-      "kletka": "i01-nositel-ispolnim",
-      "prichina": "VYZOV_NE_BEZUSLOVEN",
-      "defekt": "писатель selection.json за константно-ложной охраной test false && npm run … (мутация критика N4b): короткое замыкание && делает носитель тождественно неисполнимым"
-    },
-    "stab_i01_podavlenie_posle": {
-      "kletka": "i01-nositel-ispolnim",
-      "prichina": "VYZOV_NE_BEZUSLOVEN",
-      "defekt": "провал писателя selection.json подавлен «… || test $? -eq 1» (мутация критика N11): test — разрешённый b01 спутник, подавление судится композицией"
     },
     "stab_i01_strategija_provaly": {
       "kletka": "i01-nositel-ispolnim",

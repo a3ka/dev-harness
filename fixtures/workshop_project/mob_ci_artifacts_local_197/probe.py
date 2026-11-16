@@ -10,6 +10,11 @@
 #                     каждая мутация обязана краснеть СВОЕЙ именованной причиной
 #   --repo <корень>   судит живое дерево продукта (Complior-mob)
 #
+# Разбор носителей — ЗАМКНУТАЯ ГРАММАТИКА БЕЛОГО СПИСКА полного run-текста
+# (арбитраж Arb197V1, РЕШЕНИЯ 1–2): три измеренных контекста L/S+L/P+L+Q,
+# обнаружение кандидата по литеральному имени lane; субъектный текст НЕ
+# разбирается как произвольный shell.
+#
 # Оракул: ожидания вычисляются ДО чтения субъекта; пины sha256 модели — в
 # source.json; рассинхрон → rc 2 ORACLE_TAMPERED. Субъект --repo НЕ служит
 # источником ожиданий никогда.
@@ -57,112 +62,177 @@ def zaghruzit_orakul():
     return src
 
 
-# ── разбор run-текста на команды: разделители && / ; / || и перевод строки
-#    УВАЖАЮТ кавычки (состояние переносится между строками — кавычка,
-#    открытая на одной строке, не прячет разделители на следующей);
-#    тело heredoc <<TAG…TAG — ДАННЫЕ, не команды; '#' вне кавычек —
-#    комментарий до конца строки ──
+# ── полная форма носителя: ЗАМКНУТАЯ ГРАММАТИКА БЕЛОГО СПИСКА полного
+#    run-текста (арбитраж Arb197V1, РЕШЕНИЯ 1–2): вместо расширения
+#    чёрного списка shell-разделителей. Обнаружение кандидата — по
+#    ЛИТЕРАЛЬНОМУ имени lane в run-тексте, ДО и БЕЗ какого-либо
+#    shell-разбора; весь текст кандидата обязан совпасть с одной из трёх
+#    ИЗМЕРЕННЫХ форм (разложение 11+1+5 на модели):
+#      L     — одна строка вызова;
+#      S+L   — строка `set -euo pipefail`, затем L;
+#      P+L+Q — APK-блок: фиксированный префикс P (set, проверки
+#              IMJA_ARTEFAKTA/ZHELANYJ_DIGEST, подготовка apk-build),
+#              затем L, фиксированный суффикс Q (проверка файла,
+#              вычисление и сравнение digest, mkdir, cp).
+#    Управляющие конструкции допустимы ТОЛЬКО в фиксированных P/Q и с
+#    этим содержимым; иное → FORMA_NOSITELJA_VNE_GRAMMATIKI (g01,
+#    fail-closed: lane-имя в echo/heredoc/охране/композиции исполненной
+#    операцией не считается). L — закрытая форма И-2 с ПОЛНЫМ
+#    потреблением аргументов: `npm run <lane> -- <ключ> <значение>…`,
+#    пары без хвостов и повторов, ключи из замкнутого набора; значения —
+#    литерал, '…' либо "…" из литеральных кусков, кавычных env-ссылок
+#    $NAME и подстановок ${{ … }}; обратная косая черта и
+#    shell-метасимволы в алфавит не входят ──
 
-RE_HEREDOC = re.compile(r'<<-?\s*(["\']?)([A-Za-z_][A-Za-z0-9_]*)\1')
+S_STROKA = 'set -euo pipefail'
+P_STROKI = (
+    'set -euo pipefail',
+    'test -n "$IMJA_ARTEFAKTA" && test -n "$ZHELANYJ_DIGEST"',
+    'rm -rf apk-build && mkdir -p apk-build',
+)
+Q_STROKI = (
+    'test -f apk-build/app-release.apk',
+    'got="$(sha256sum apk-build/app-release.apk | awk \'{print $1}\')"',
+    'if [ "$got" != "$ZHELANYJ_DIGEST" ]; then',
+    '  echo "APK_DIGEST_RASKHOZHDENIE: $got != $ZHELANYJ_DIGEST" >&2',
+    '  exit 1',
+    'fi',
+    'mkdir -p mobile/android/app/build/outputs/apk/release',
+    'cp apk-build/app-release.apk mobile/android/app/build/outputs/apk/release/app-release.apk',
+)
+
+KLJUCHI_NOSITELJA = ('--imja', '--chto', '--shablon', '--kuda',
+                     '--run-id', '--run-attempt')
+RE_ENV_SSYLKA = re.compile(r'\$[A-Z][A-Z0-9_]*')
+RE_GH_PODSTANOVKA = re.compile(r'\$\{\{[^}]*\}\}')
+RE_LIT_KUSOK = re.compile(r'[A-Za-z0-9._/*-]+')
+RE_LITERAAL = re.compile(r'[A-Za-z0-9][A-Za-z0-9._/-]*')
 
 
-def razbor_nositelja(text):
-    """[(leksy|None, razdeliteli)] — сегменты команд run-текста; у каждого
-    сегмента — разделители, соединяющие его с ПРЕДЫДУЩИМ непустым сегментом
-    ('&&'/'||'/';' — оператор композиции, '\\n' — граница строки).
-    shlex-невыразимый сегмент → leksy None (шаг целиком вне судимых форм)."""
-    rezultat, tekushchij, razdeliteli = [], [], []
-    kod_stroki = []
-    kavoichki = None
-    heredoc_teg = None
-    tekst = str(text)
-    i, n = 0, len(tekst)
-
-    def slit():
-        s = ''.join(tekushchij).strip()
-        del tekushchij[:]
-        if not s:
-            return
-        try:
-            leksy = shlex.split(s)
-        except ValueError:
-            leksy = None
-        rezultat.append((leksy, list(razdeliteli)))
-        del razdeliteli[:]
-
-    while i < n:
-        c = tekst[i]
-        if heredoc_teg is not None:
-            # тело heredoc — данные: до строки-терминатора включительно
-            if c != '\n':
-                i += 1
-                continue
-            konec = tekst.find('\n', i + 1)
-            stroka = tekst[i + 1: n if konec == -1 else konec]
-            if stroka.strip() == heredoc_teg:
-                heredoc_teg = None
-            i = n if konec == -1 else konec
-            continue
-        if kavoichki is not None:
-            tekushchij.append(c)
-            kod_stroki.append(c)
-            if c == kavoichki:
-                kavoichki = None
-            i += 1
-            continue
-        if c in ('"', "'"):
-            kavoichki = c
-            tekushchij.append(c)
-            kod_stroki.append(c)
-            i += 1
-            continue
-        if c == '#':
-            # комментарий вне кавычек — данные до конца строки
-            i = tekst.find('\n', i)
-            if i == -1:
-                break
-            continue
-        if tekst.startswith('&&', i) or tekst.startswith('||', i):
-            slit()
-            razdeliteli.append(tekst[i:i + 2])
-            i += 2
-            continue
-        if c == ';':
-            slit()
-            razdeliteli.append(';')
-            i += 1
-            continue
-        if c == '\n':
-            slit()
-            teg = RE_HEREDOC.findall(''.join(kod_stroki))
-            del kod_stroki[:]
-            if teg:
-                heredoc_teg = teg[-1][1]
-            razdeliteli.append('\n')
-            i += 1
-            continue
-        tekushchij.append(c)
-        kod_stroki.append(c)
-        i += 1
-    slit()
+def _segmenty_konstanty(linija):
+    """argv-сегменты ФИКСИРОВАННОЙ строки контекста P/Q (константа
+    батареи, не субъект): деление на &&/; и разбор кавычек shlex."""
+    rezultat = []
+    for kusok in re.split(r'&&|;', linija):
+        kusok = kusok.strip()
+        if kusok:
+            rezultat.append(shlex.split(kusok))
     return rezultat
 
 
-def razobrat_vyzov(leksy):
-    """npm run <lane> -- --klyuch znachenie… → (lane, {klyuch: znachenie}) | None."""
-    if len(leksy) < 4 or leksy[:2] != ['npm', 'run'] or leksy[3] != '--':
+P_KOMANDY = [s for l in P_STROKI for s in _segmenty_konstanty(l)]
+Q_KOMANDY = [s for l in Q_STROKI for s in _segmenty_konstanty(l)]
+
+
+def _skan_znachenie(stroka, i):
+    """Закрытый алфавит ЗНАЧЕНИЯ L с позиции i: литерал без кавычек;
+    '…' того же алфавита с '*'; "…" из литеральных кусков, env-ссылок
+    $NAME и подстановок ${{ … }}. → (индекс_за, значение) | None."""
+    c = stroka[i]
+    if c == "'":
+        j = stroka.find("'", i + 1)
+        if j < 0 or not re.fullmatch(r'[A-Za-z0-9._*-]*', stroka[i + 1:j]):
+            return None
+        return j + 1, stroka[i + 1:j]
+    if c == '"':
+        k = i + 1
+        while k < len(stroka) and stroka[k] != '"':
+            m = RE_GH_PODSTANOVKA.match(stroka, k) or RE_ENV_SSYLKA.match(stroka, k) \
+                or RE_LIT_KUSOK.match(stroka, k)
+            if not m:
+                return None
+            k = m.end()
+        if k >= len(stroka):
+            return None
+        return k + 1, stroka[i + 1:k]
+    m = RE_LITERAAL.match(stroka, i)
+    if not m:
         return None
+    return m.end(), m.group(0)
+
+
+def razobrat_L(stroka):
+    """L-строка → (lane, argv) | None: `npm run <lane> -- <ключ>
+    <значение>…` — полные пары (ключ без значения и позиционный хвост
+    красны), ключи из KLJUCHI_NOSITELJA без повторов, значения закрытого
+    алфавита; минимум одна пара (голый `npm run <lane> --` вне формы)."""
+    for lane in (LANE_ZAPIS, LANE_CHTENIE):
+        prefiks = f'npm run {lane} --'
+        if stroka.startswith(prefiks):
+            i = len(prefiks)
+            break
+    else:
+        return None
+    argv = ['npm', 'run', lane, '--']
+    while i < len(stroka):
+        if stroka[i] != ' ':
+            return None
+        i += 1
+        if not stroka.startswith('--', i):
+            return None
+        j = stroka.find(' ', i)
+        klyuch = stroka[i:j] if j >= 0 else stroka[i:]
+        if klyuch not in KLJUCHI_NOSITELJA or klyuch in argv:
+            return None
+        argv.append(klyuch)
+        i = len(stroka) if j < 0 else j
+        if i >= len(stroka):
+            return None
+        i += 1
+        para = _skan_znachenie(stroka, i)
+        if para is None:
+            return None
+        i, znachenie = para
+        argv.append(znachenie)
+    if len(argv) == 4:
+        return None
+    return lane, argv
+
+
+def razobrat_formu_nositelja(tekst):
+    """Полный run-текст → (kontekst, lane, argv) | None. Допустим ровно
+    один самостоятельный foreground lane-вызов в одном из трёх контекстов
+    L / S+L / P+L+Q; завершающие переводы строки — чистое оформление,
+    прочие допуски отсутствуют: любое исполняемое отклонение от формы →
+    None (fail-closed, судит g01)."""
+    stroki = str(tekst).rstrip('\n').split('\n')
+    n = len(stroki)
+    if n == 1:
+        para = razobrat_L(stroki[0])
+        return ('L',) + para if para else None
+    if n == 2 and stroki[0] == S_STROKA:
+        para = razobrat_L(stroki[1])
+        return ('S+L',) + para if para else None
+    if n == 3 + 1 + len(Q_STROKI) and tuple(stroki[:3]) == P_STROKI \
+            and tuple(stroki[4:]) == Q_STROKI:
+        para = razobrat_L(stroki[3])
+        return ('P+L+Q',) + para if para else None
+    return None
+
+
+def komandy_formy(kontekst, _lane, argv_l):
+    """argv-сегменты шага ДОПУСТИМОЙ формы: фиксированные команды
+    контекста + самостоятельный lane-вызов L (единственный)."""
+    if kontekst == 'L':
+        return [argv_l]
+    if kontekst == 'S+L':
+        return [['set', '-euo', 'pipefail'], argv_l]
+    return P_KOMANDY + [argv_l] + Q_KOMANDY
+
+
+def razobrat_vyzov(leksy):
+    """argv lane-вызова → (lane, {klyuch: znachenie}); полные пары без
+    повторов гарантированы razobrat_L — потерь хвостов и повторов ключей
+    здесь нет по построению."""
     return leksy[2], dict(zip(leksy[4::2], leksy[5::2]))
 
 
 def vyzovy_lanej(komandy_spisok):
     rezultat = []
     for leksy in komandy_spisok or []:
-        if not leksy:
-            continue
-        if leksy[:2] == ['npm', 'run'] and len(leksy) > 2 and leksy[2] in (LANE_ZAPIS, LANE_CHTENIE):
+        if leksy[:3] in (['npm', 'run', LANE_ZAPIS], ['npm', 'run', LANE_CHTENIE]):
             rezultat.append(razobrat_vyzov(leksy))
-    return [r for r in rezultat if r is not None]
+    return rezultat
 
 
 # ── разрешение имён: env шага → env job → env workflow → выражение ${{ }} ──
@@ -224,19 +294,19 @@ class Subiekt:
 
 def razobrat_subiekta(subiekt):
     wf = yaml.safe_load(subiekt.workflow_put.read_text(encoding='utf-8'))
-    shagi = []           # (job_id, step, komandy, env, razbor)
+    shagi = []           # (job_id, step, komandy|None, env)
     for job_id, job in sorted((wf.get('jobs') or {}).items()):
         for shag in job.get('steps') or []:
-            zapisi = razbor_nositelja(shag.get('run') or '')
-            spisok = []
-            vyrazimo = True
-            for leksy, _ in zapisi:
-                if leksy is None:
-                    vyrazimo = False
-                    break
-                spisok.append(leksy)
+            tekst = str(shag.get('run') or '')
+            # кандидат — по ЛИТЕРАЛЬНОМУ имени lane, не по успеху разбора
+            # (fail-closed): шаг-кандидат вне грамматики семантике не виден
+            # (его красит g01), шаг без имени lane — не носитель
+            forma = None
+            if LANE_ZAPIS in tekst or LANE_CHTENIE in tekst:
+                forma = razobrat_formu_nositelja(tekst)
+            spisok = komandy_formy(*forma) if forma else None
             env = kontekst_env(job, shag, wf)
-            shagi.append((job_id, shag, spisok if vyrazimo else None, env, zapisi))
+            shagi.append((job_id, shag, spisok, env))
     return wf, shagi
 
 
@@ -282,7 +352,7 @@ def a03(subiekt, wf, shagi, _):
 def _vse_vyzovy(shagi):
     """[(job, shag, lane, parametry, env)] для каждого lane-вызова."""
     rezultat = []
-    for job_id, shag, spisok, env, _zapisi in shagi:
+    for job_id, shag, spisok, env in shagi:
         for lane, parametry in vyzovy_lanej(spisok):
             rezultat.append((job_id, shag, lane, parametry, env))
     return rezultat
@@ -299,22 +369,21 @@ def _parametry_razreshennye(vyzov):
 @kletka('b01-forma-pisatelja')
 def b01(subiekt, wf, shagi, _):
     razreshennye_stroki = ('set', 'test', '[')
-    for job_id, shag, spisok, env, _zapisi in shagi:
-        est_zapis = any(leksy[:3] == ['npm', 'run', LANE_ZAPIS] for leksy in spisok or [])
-        if not est_zapis:
-            continue
-        vyzovy = [leksy for leksy in spisok
+    for job_id, shag, spisok, env in shagi:
+        vyzovy = [leksy for leksy in spisok or []
                   if leksy[:3] == ['npm', 'run', LANE_ZAPIS]]
-        if len(vyzovy) != 1:
-            return f'FORMA_PISATELJA: {job_id}.{shag.get("name")}: вызовов zapis {len(vyzovy)} (канон: 1)'
+        if not vyzovy:
+            continue
+        # единственность вызова шага гарантирует грамматика g01; здесь —
+        # охранные спутники писателя и точный состав аргументов
         for leksy in spisok:
             if leksy[:3] == ['npm', 'run', LANE_ZAPIS]:
                 continue
             if not (leksy and leksy[0] in razreshennye_stroki):
                 return f'FORMA_PISATELJA: {job_id}.{shag.get("name")}: посторонняя команда {leksy[:1]}'
         razbor = razobrat_vyzov(vyzovy[0])
-        if razbor is None or set(razbor[1]) != {'--imja', '--chto'}:
-            return f'FORMA_PISATELJA: {job_id}.{shag.get("name")}: аргументы {sorted(set(razbor[1])) if razbor else None} != --imja/--chto'
+        if set(razbor[1]) != {'--imja', '--chto'}:
+            return f'FORMA_PISATELJA: {job_id}.{shag.get("name")}: аргументы {sorted(set(razbor[1]))} != --imja/--chto'
     return None
 
 
@@ -349,20 +418,14 @@ def b03(subiekt, wf, shagi, _):
 
 @kletka('c01-forma-chitatelja')
 def c01(subiekt, wf, shagi, _):
-    razreshennye_stroki = ('set', 'test', '[', 'rm', 'mkdir')
-    for job_id, shag, spisok, env, _zapisi in shagi:
+    for job_id, shag, spisok, env in shagi:
         est = [leksy for leksy in spisok or [] if leksy[:3] == ['npm', 'run', LANE_CHTENIE]]
         if not est:
             continue
-        if len(est) != 1:
-            return f'FORMA_CHITATELJA: {job_id}.{shag.get("name")}: вызовов chtenie {len(est)} (канон: 1)'
-        # у читателя судится ФОРМА lane-вызова (ровно один, закрытые ключи,
-        # пара run-аргументов); охранные команды шага (digest и пр.) свободны —
-        # запись мимо канона ловят b01/b02/d01/d02 на писателях и корне
-        razbor = razobrat_vyzov(est[0])
-        if razbor is None:
-            return f'FORMA_CHITATELJA: {job_id}.{shag.get("name")}: невыразимая форма'
-        parametry = razbor[1]
+        # у читателя судится ФОРМА lane-вызова (закрытые ключи, пара
+        # run-аргументов); единственность вызова и спутники шага
+        # гарантирует грамматика g01 — контексты S/P/Q фиксированы
+        parametry = razobrat_vyzov(est[0])[1]
         kljuchi = set(parametry)
         # неполная идентификация судится РАНЬШЕ алфавита ключей: это более
         # точное имя дефекта для того же входа
@@ -407,7 +470,8 @@ def c03(subiekt, wf, shagi, _):
     # выборочный повтор работника теряет сборку) — отсутствие пары красна
     # именованной причиной. Значения пары ПОСЛЕ env-разрешения — только
     # выражения needs.build-apk.outputs.*: литеральная пара чужого прогона
-    # проходит форму c01, но не происхождение.
+    # проходит форму c01, но не происхождение (запрещённая оболочка вызова
+    # отсекается раньше грамматикой g01).
     ozhidaemye = {'--run-id': 'needs.build-apk.outputs.run_id',
                   '--run-attempt': 'needs.build-apk.outputs.run_attempt'}
     for vyzov in _vse_vyzovy(shagi):
@@ -487,6 +551,25 @@ def e02(subiekt, wf, shagi, _):
             return f'LINEJA_FORMA: {lane} = {skripty.get(lane)!r} != {znachenie!r}'
     return None
 
+# ── полная форма носителя: fail-closed ДО семантического разбора ──
+
+
+@kletka('g01-forma-nositelja')
+def g01(subiekt, wf, shagi, _):
+    # run-текст с ЛИТЕРАЛЬНЫМ именем lane обязан ЦЕЛИКОМ совпасть с одной
+    # из трёх измеренных форм L/S+L/P+L+Q (разложение 11+1+5, арбитраж
+    # 197): lane-имя в echo/heredoc/охране/композиции — не исполненная
+    # операция, а именованный отказ формы; семантические клетки носителя
+    # при этом шаг не видят (spisok None) — инвентарь i02 не закрывается
+    # текстом-призраком
+    for job_id, shag, spisok, env in shagi:
+        if spisok is not None:
+            continue
+        tekst = str(shag.get('run') or '')
+        if LANE_ZAPIS in tekst or LANE_CHTENIE in tekst:
+            return f'FORMA_NOSITELJA_VNE_GRAMMATIKI: {job_id}.{shag.get("name")}'
+    return None
+
 # ── исполнимость и замкнутый инвентарь (писатели и читатели вместе) ──
 
 DOPUSTIMYE_IF_SHAGA = {'always()', 'success()'}
@@ -522,26 +605,13 @@ def _klass_v_inventare(klass, shablon):
         return klass == shablon
     return shablon_pokryvaet(shablon, klass)
 
-def _soedinenija_vokrug_vyzova(zapisi):
-    """Операторы композиции ('&&'/'||'/';'), соединяющие lane-сегмент с
-    соседями; перевод строки разделителем не считается. Пусто — вызов
-    безусловен: исполняется всегда, провал не подавлен."""
-    for k, (leksy, pered) in enumerate(zapisi or []):
-        if not leksy or leksy[:3] not in (['npm', 'run', LANE_ZAPIS],
-                                          ['npm', 'run', LANE_CHTENIE]):
-            continue
-        posle = zapisi[k + 1][1] if k + 1 < len(zapisi) else []
-        soedineno = [r for r in list(pered) + list(posle) if r != '\n']
-        if soedineno:
-            return soedineno
-    return []
-
 
 @kletka('i01-nositel-ispolnim')
 def i01(subiekt, wf, shagi, _):
     # клетка краснеет, когда операция ОТСУТСТВУЕТ или НЕИСПОЛНИМА,
-    # а не когда в файле есть текст
-    for job_id, shag, spisok, env, zapisi in shagi:
+    # а не когда в файле есть текст; композиция операторов у вызова
+    # невозможна в допустимой форме — оболочку носителя судит g01
+    for job_id, shag, spisok, env in shagi:
         if not _est_lane_v_shage(spisok):
             continue
         uslovie = shag.get('if')
@@ -554,15 +624,7 @@ def i01(subiekt, wf, shagi, _):
         podavlen = shag.get('continue-on-error')
         if podavlen is not None and podavlen not in (False, 'false', 'False'):
             return f'PROVALY_PODAVLENY: {job_id}.{shag.get("name")}: continue-on-error={podavlen}'
-        # носитель — БЕЗУСЛОВНАЯ команда: оператор &&/||/; у lane-вызова
-        # (в любую сторону, перенос строки после оператора включён) красит
-        # шаг — константно-ложная охрана (test false && …) и подавление
-        # провала (… || test / … || true) закрыты одним свойством композиции
-        soedinenija = _soedinenija_vokrug_vyzova(zapisi)
-        if soedinenija:
-            return (f'VYZOV_NE_BEZUSLOVEN: {job_id}.{shag.get("name")}:'
-                    f' lane-вызов соединён {" ".join(soedinenija)}')
-    for job_id in sorted({j for j, shag, spisok, env, _zapisi in shagi
+    for job_id in sorted({j for j, shag, spisok, env in shagi
                           if _est_lane_v_shage(spisok)}):
         job = (wf.get('jobs') or {}).get(job_id) or {}
         uslovie = job.get('if')
