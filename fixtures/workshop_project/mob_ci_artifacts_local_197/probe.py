@@ -57,60 +57,94 @@ def zaghruzit_orakul():
     return src
 
 
-# ── разбор run-текста на команды (по строкам/&&/;/||, кавычки уважаются;
-#    тело heredoc <<TAG…TAG — ДАННЫЕ, не команды) ──
+# ── разбор run-текста на команды: разделители && / ; / || и перевод строки
+#    УВАЖАЮТ кавычки (состояние переносится между строками — кавычка,
+#    открытая на одной строке, не прячет разделители на следующей);
+#    тело heredoc <<TAG…TAG — ДАННЫЕ, не команды; '#' вне кавычек —
+#    комментарий до конца строки ──
 
 RE_HEREDOC = re.compile(r'<<-?\s*(["\']?)([A-Za-z_][A-Za-z0-9_]*)\1')
 
 
-def _segmenty(stroka):
-    """Деление строки на сегменты команд по && / ; / || вне кавычек."""
-    rezultat, tekushchij, kavoichki = [], [], None
-    i = 0
-    while i < len(stroka):
-        c = stroka[i]
-        if kavoichki is not None:
-            tekushchij.append(c)
-            if c == kavoichki:
-                kavoichiki = None
-        elif c in ('"', "'"):
-            kavoichki = c
-            tekushchij.append(c)
-        elif stroka.startswith('&&', i) or stroka.startswith('||', i):
-            rezultat.append(''.join(tekushchij).strip())
-            tekushchij = []
-            i += 2
-            continue
-        elif c == ';':
-            rezultat.append(''.join(tekushchij).strip())
-            tekushchij = []
-        else:
-            tekushchij.append(c)
-        i += 1
-    rezultat.append(''.join(tekushchij).strip())
-    return [s for s in rezultat if s]
-
-
-def komandy(text):
-    rezultat = []
+def razbor_nositelja(text):
+    """[(leksy|None, razdeliteli)] — сегменты команд run-текста; у каждого
+    сегмента — разделители, соединяющие его с ПРЕДЫДУЩИМ непустым сегментом
+    ('&&'/'||'/';' — оператор композиции, '\\n' — граница строки).
+    shlex-невыразимый сегмент → leksy None (шаг целиком вне судимых форм)."""
+    rezultat, tekushchij, razdeliteli = [], [], []
+    kod_stroki = []
+    kavoichki = None
     heredoc_teg = None
-    for stroka in str(text).splitlines():
+    tekst = str(text)
+    i, n = 0, len(tekst)
+
+    def slit():
+        s = ''.join(tekushchij).strip()
+        del tekushchij[:]
+        if not s:
+            return
+        try:
+            leksy = shlex.split(s)
+        except ValueError:
+            leksy = None
+        rezultat.append((leksy, list(razdeliteli)))
+        del razdeliteli[:]
+
+    while i < n:
+        c = tekst[i]
         if heredoc_teg is not None:
+            # тело heredoc — данные: до строки-терминатора включительно
+            if c != '\n':
+                i += 1
+                continue
+            konec = tekst.find('\n', i + 1)
+            stroka = tekst[i + 1: n if konec == -1 else konec]
             if stroka.strip() == heredoc_teg:
                 heredoc_teg = None
+            i = n if konec == -1 else konec
             continue
-        stroka = stroka.strip()
-        if not stroka or stroka.startswith('#'):
+        if kavoichki is not None:
+            tekushchij.append(c)
+            kod_stroki.append(c)
+            if c == kavoichki:
+                kavoichki = None
+            i += 1
             continue
-        for segment in _segmenty(stroka):
-            try:
-                leksy = shlex.split(segment)
-            except ValueError:
-                return None
-            rezultat.append(leksy)
-            teg = RE_HEREDOC.findall(segment)
+        if c in ('"', "'"):
+            kavoichki = c
+            tekushchij.append(c)
+            kod_stroki.append(c)
+            i += 1
+            continue
+        if c == '#':
+            # комментарий вне кавычек — данные до конца строки
+            i = tekst.find('\n', i)
+            if i == -1:
+                break
+            continue
+        if tekst.startswith('&&', i) or tekst.startswith('||', i):
+            slit()
+            razdeliteli.append(tekst[i:i + 2])
+            i += 2
+            continue
+        if c == ';':
+            slit()
+            razdeliteli.append(';')
+            i += 1
+            continue
+        if c == '\n':
+            slit()
+            teg = RE_HEREDOC.findall(''.join(kod_stroki))
+            del kod_stroki[:]
             if teg:
                 heredoc_teg = teg[-1][1]
+            razdeliteli.append('\n')
+            i += 1
+            continue
+        tekushchij.append(c)
+        kod_stroki.append(c)
+        i += 1
+    slit()
     return rezultat
 
 
@@ -190,12 +224,19 @@ class Subiekt:
 
 def razobrat_subiekta(subiekt):
     wf = yaml.safe_load(subiekt.workflow_put.read_text(encoding='utf-8'))
-    shagi = []           # (job_id, step, komandy, env)
+    shagi = []           # (job_id, step, komandy, env, razbor)
     for job_id, job in sorted((wf.get('jobs') or {}).items()):
         for shag in job.get('steps') or []:
-            spisok = komandy(shag.get('run') or '')
+            zapisi = razbor_nositelja(shag.get('run') or '')
+            spisok = []
+            vyrazimo = True
+            for leksy, _ in zapisi:
+                if leksy is None:
+                    vyrazimo = False
+                    break
+                spisok.append(leksy)
             env = kontekst_env(job, shag, wf)
-            shagi.append((job_id, shag, spisok, env))
+            shagi.append((job_id, shag, spisok if vyrazimo else None, env, zapisi))
     return wf, shagi
 
 
@@ -241,7 +282,7 @@ def a03(subiekt, wf, shagi, _):
 def _vse_vyzovy(shagi):
     """[(job, shag, lane, parametry, env)] для каждого lane-вызова."""
     rezultat = []
-    for job_id, shag, spisok, env in shagi:
+    for job_id, shag, spisok, env, _zapisi in shagi:
         for lane, parametry in vyzovy_lanej(spisok):
             rezultat.append((job_id, shag, lane, parametry, env))
     return rezultat
@@ -258,7 +299,7 @@ def _parametry_razreshennye(vyzov):
 @kletka('b01-forma-pisatelja')
 def b01(subiekt, wf, shagi, _):
     razreshennye_stroki = ('set', 'test', '[')
-    for job_id, shag, spisok, env in shagi:
+    for job_id, shag, spisok, env, _zapisi in shagi:
         est_zapis = any(leksy[:3] == ['npm', 'run', LANE_ZAPIS] for leksy in spisok or [])
         if not est_zapis:
             continue
@@ -309,7 +350,7 @@ def b03(subiekt, wf, shagi, _):
 @kletka('c01-forma-chitatelja')
 def c01(subiekt, wf, shagi, _):
     razreshennye_stroki = ('set', 'test', '[', 'rm', 'mkdir')
-    for job_id, shag, spisok, env in shagi:
+    for job_id, shag, spisok, env, _zapisi in shagi:
         est = [leksy for leksy in spisok or [] if leksy[:3] == ['npm', 'run', LANE_CHTENIE]]
         if not est:
             continue
@@ -360,15 +401,24 @@ def c02(subiekt, wf, shagi, _):
 
 @kletka('c03-run-para-iz-sborki')
 def c03(subiekt, wf, shagi, _):
-    # происхождение продюсерской пары (И-4): значения --run-id/--run-attempt
-    # ПОСЛЕ env-разрешения — только выражения needs.build-apk.outputs.*;
-    # литеральная пара чужого прогона проходит форму c01, но не происхождение
+    # продюсерская пара APK-читателя (И-4): НАЛИЧИЕ и происхождение.
+    # Читатель потребляемой категории APK обязан нести пару --run-id/
+    # --run-attempt (Frontier-строка «ищет в собственной попытке» отклонена:
+    # выборочный повтор работника теряет сборку) — отсутствие пары красна
+    # именованной причиной. Значения пары ПОСЛЕ env-разрешения — только
+    # выражения needs.build-apk.outputs.*: литеральная пара чужого прогона
+    # проходит форму c01, но не происхождение.
     ozhidaemye = {'--run-id': 'needs.build-apk.outputs.run_id',
                   '--run-attempt': 'needs.build-apk.outputs.run_attempt'}
     for vyzov in _vse_vyzovy(shagi):
         if vyzov[2] != LANE_CHTENIE:
             continue
         parametry = _parametry_razreshennye(vyzov)
+        imja = parametry.get('--imja')
+        if imja is not None and _klass_v_inventare(klass_imeni(imja), 'apk-*') \
+                and not ({'--run-id', '--run-attempt'} <= set(parametry)):
+            return (f'CHITATEL_APK_BEZ_PARY: {vyzov[0]}.{vyzov[1].get("name")}:'
+                    f' {imja}')
         for kljuch, ozhidaemoe in ozhidaemye.items():
             if kljuch not in parametry:
                 continue
@@ -440,7 +490,11 @@ def e02(subiekt, wf, shagi, _):
 # ── исполнимость и замкнутый инвентарь (писатели и читатели вместе) ──
 
 DOPUSTIMYE_IF_SHAGA = {'always()', 'success()'}
-LOZHNO = {'false', 'False', '${{ false }}'}
+# константная ложь условий носителя: текстовые формы, Yaml-булево
+# (str(False) → 'False') и замаскированная ложь !always(); прочие выражения
+# job-условия носителя структурой не судятся (канон needs/matrix — предмет
+# 143), шаговые — замкнутый канон DOPUSTIMYE_IF_SHAGA
+LOZHNO = {'false', 'False', '${{ false }}', '!always()', '${{ !always() }}'}
 
 # замкнутый инвентарь имён предмета: категория → (шаблон класса, читатель
 # в workflow обязан быть). Терминальные категории читает ops/server (196),
@@ -468,12 +522,26 @@ def _klass_v_inventare(klass, shablon):
         return klass == shablon
     return shablon_pokryvaet(shablon, klass)
 
+def _soedinenija_vokrug_vyzova(zapisi):
+    """Операторы композиции ('&&'/'||'/';'), соединяющие lane-сегмент с
+    соседями; перевод строки разделителем не считается. Пусто — вызов
+    безусловен: исполняется всегда, провал не подавлен."""
+    for k, (leksy, pered) in enumerate(zapisi or []):
+        if not leksy or leksy[:3] not in (['npm', 'run', LANE_ZAPIS],
+                                          ['npm', 'run', LANE_CHTENIE]):
+            continue
+        posle = zapisi[k + 1][1] if k + 1 < len(zapisi) else []
+        soedineno = [r for r in list(pered) + list(posle) if r != '\n']
+        if soedineno:
+            return soedineno
+    return []
+
 
 @kletka('i01-nositel-ispolnim')
 def i01(subiekt, wf, shagi, _):
     # клетка краснеет, когда операция ОТСУТСТВУЕТ или НЕИСПОЛНИМА,
     # а не когда в файле есть текст
-    for job_id, shag, spisok, env in shagi:
+    for job_id, shag, spisok, env, zapisi in shagi:
         if not _est_lane_v_shage(spisok):
             continue
         uslovie = shag.get('if')
@@ -486,10 +554,29 @@ def i01(subiekt, wf, shagi, _):
         podavlen = shag.get('continue-on-error')
         if podavlen is not None and podavlen not in (False, 'false', 'False'):
             return f'PROVALY_PODAVLENY: {job_id}.{shag.get("name")}: continue-on-error={podavlen}'
-    for job_id in sorted({j for j, shag, spisok, env in shagi if _est_lane_v_shage(spisok)}):
-        uslovie = str(((wf.get('jobs') or {}).get(job_id) or {}).get('if') or '').strip()
-        if uslovie in LOZHNO:
-            return f'JOB_NOSITELJA_OTKLJUCHEN: {job_id}: if={uslovie}'
+        # носитель — БЕЗУСЛОВНАЯ команда: оператор &&/||/; у lane-вызова
+        # (в любую сторону, перенос строки после оператора включён) красит
+        # шаг — константно-ложная охрана (test false && …) и подавление
+        # провала (… || test / … || true) закрыты одним свойством композиции
+        soedinenija = _soedinenija_vokrug_vyzova(zapisi)
+        if soedinenija:
+            return (f'VYZOV_NE_BEZUSLOVEN: {job_id}.{shag.get("name")}:'
+                    f' lane-вызов соединён {" ".join(soedinenija)}')
+    for job_id in sorted({j for j, shag, spisok, env, _zapisi in shagi
+                          if _est_lane_v_shage(spisok)}):
+        job = (wf.get('jobs') or {}).get(job_id) or {}
+        uslovie = job.get('if')
+        # str() не проглатывает Yaml-булево False (проглатывание 'or ""'
+        # было дефектом блока 1 вердикта Crit197V2)
+        tekst = '' if uslovie is None else str(uslovie).strip()
+        if tekst in LOZHNO:
+            return f'JOB_NOSITELJA_OTKLJUCHEN: {job_id}: if={tekst}'
+        podavlen = job.get('continue-on-error')
+        if podavlen is not None and podavlen not in (False, 'false', 'False'):
+            return f'PROVALY_PODAVLENY: {job_id}: job continue-on-error={podavlen}'
+        podavlen = (job.get('strategy') or {}).get('continue-on-error')
+        if podavlen is not None and podavlen not in (False, 'false', 'False'):
+            return f'PROVALY_PODAVLENY: {job_id}: strategy.continue-on-error={podavlen}'
     return None
 
 
@@ -739,6 +826,9 @@ def rezhim_stabov(orakul):
         shutil.copytree(MODEL, kopiya)
         try:
             mutator = ZDES / 'stabs' / f'{imja_staba}.py'
+            if not mutator.is_file():
+                print(f'STAB {imja_staba} PROPUSHCHEN: файла мутатора нет')
+                return 1
             protsess = subprocess.run([sys.executable, str(mutator), str(kopiya)],
                                       capture_output=True, text=True)
             if protsess.returncode != 0:
@@ -757,6 +847,12 @@ def rezhim_stabov(orakul):
             pojmali += 1
         finally:
             shutil.rmtree(vremennoe, ignore_errors=True)
+    # чистка привязки не прячет мутацию: стаб-файл без записи в stab_vhod красен
+    siroty = sorted(p.name for p in (ZDES / 'stabs').glob('*.py')
+                    if p.stem not in orakul['stab_vhod'])
+    if siroty:
+        print('STAB ' + ', '.join(siroty) + ' BEZ_PRIVJAZKI: файл есть, привязки в source.json нет')
+        return 1
     print(f'стабов {vsego}, непойманных {vsego - pojmali}')
     return 0 if pojmali == vsego else 1
 

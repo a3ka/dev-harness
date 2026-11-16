@@ -73,6 +73,51 @@
       "kletka": "r09-izoljacija-popytok",
       "prichina": "POPYTKI_SLILIS",
       "defekt": "скрипт-канон строит путь без run_attempt — каталоги попыток сливаются (поведение); байтовое расхождение ловит и e01-skript-pin"
+    },
+    "stab_c03_bez_pary": {
+      "kletka": "c03-run-para-iz-sborki",
+      "prichina": "CHITATEL_APK_BEZ_PARY",
+      "defekt": "у APK-читателя e2e-splash снята пара --run-id/--run-attempt целиком (мутация критика N3): чтение уходит в собственную попытку, сборка не переживает повтор работника"
+    },
+    "stab_c03_kavochnaja_ohrana": {
+      "kletka": "c03-run-para-iz-sborki",
+      "prichina": "RUN_PARA_NE_IZ_SBORKI",
+      "defekt": "литеральная пара чужого прогона за кавычной охраной test \"$OK\" = 1 && … (мутация критика MX1q): вызов виден только честным кавычным состоянием разбора"
+    },
+    "stab_i01_chtenie_s_true": {
+      "kletka": "i01-nositel-ispolnim",
+      "prichina": "VYZOV_NE_BEZUSLOVEN",
+      "defekt": "провал читателя-агрегата подавлен «… || true» (мутация критика N10b): спутники читателя свободны (c01), подавление судится композицией"
+    },
+    "stab_i01_job_if_false": {
+      "kletka": "i01-nositel-ispolnim",
+      "prichina": "JOB_NOSITELJA_OTKLJUCHEN",
+      "defekt": "job-условие носителя — Yaml-булево if: false (мутация критика N6): работник отключён целиком; str(False) обязан доходить до сравнения, а не проглатываться falsy"
+    },
+    "stab_i01_job_if_never": {
+      "kletka": "i01-nositel-ispolnim",
+      "prichina": "JOB_NOSITELJA_OTKLJUCHEN",
+      "defekt": "замаскированная константная ложь job-условия ${{ !always() }} (мутация критика N5): форма состоит в замкнутом списке LOZHNO"
+    },
+    "stab_i01_job_provaly": {
+      "kletka": "i01-nositel-ispolnim",
+      "prichina": "PROVALY_PODAVLENY",
+      "defekt": "job-level continue-on-error: true у носителя e2e-splash (мутация критика N7, совет 1 вердикта V2): работник проглатывает провал шага-носителя"
+    },
+    "stab_i01_ohrana_do_vyzova": {
+      "kletka": "i01-nositel-ispolnim",
+      "prichina": "VYZOV_NE_BEZUSLOVEN",
+      "defekt": "писатель selection.json за константно-ложной охраной test false && npm run … (мутация критика N4b): короткое замыкание && делает носитель тождественно неисполнимым"
+    },
+    "stab_i01_podavlenie_posle": {
+      "kletka": "i01-nositel-ispolnim",
+      "prichina": "VYZOV_NE_BEZUSLOVEN",
+      "defekt": "провал писателя selection.json подавлен «… || test $? -eq 1» (мутация критика N11): test — разрешённый b01 спутник, подавление судится композицией"
+    },
+    "stab_i01_strategija_provaly": {
+      "kletka": "i01-nositel-ispolnim",
+      "prichina": "PROVALY_PODAVLENY",
+      "defekt": "strategy.continue-on-error: true у матричного носителя e2e-screen (мутация критика N8, совет 2 вердикта V2): провал потомков матрицы проглатывается"
     }
   },
   "krasnye_143_posle_197": [

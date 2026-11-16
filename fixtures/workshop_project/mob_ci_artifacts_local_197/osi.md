@@ -28,7 +28,7 @@
 |---|---|---|
 | c01-forma-chitatelja | ровно один вызов `ci:artefakt-chtenie`; ключи из замкнутого набора; `--run-id`/`--run-attempt` оба или ни один | `NEPOLNAJA_IDENTIFIKACIJA_RUNA` / `FORMA_CHITATELJA` |
 | c02-imja-bez-pisatelja | каждый читаемый `--imja`/`--shablon` структурно совпадает с каким-то писателем того же workflow (литерал, цепочка env→needs→steps, glob-класс matrix) | `IMJA_BEZ_PISATELJA` / `SHABLON_BEZ_PISATELEJ` |
-| c03-run-para-iz-sborki | значения `--run-id`/`--run-attempt` ПОСЛЕ env-разрешения — только выражения `needs.build-apk.outputs.run_id`/`needs.build-apk.outputs.run_attempt`; литеральная пара чужого прогона красна | `RUN_PARA_NE_IZ_SBORKI` |
+| c03-run-para-iz-sborki | читатель потребляемой категории APK (класс `--imja` покрывает `apk-*`) ОБЯЗАН нести пару `--run-id/--run-attempt` (отсутствие пары — чтение в собственной попытке, сборка не переживает повтор); у переданной пары значения ПОСЛЕ env-разрешения — только выражения `needs.build-apk.outputs.run_id`/`.run_attempt`; литеральная пара чужого прогона красна (в том числе за кавычной охраной run-текста) | `CHITATEL_APK_BEZ_PARY` / `RUN_PARA_NE_IZ_SBORKI` |
 
 ## D. Корень и гигиена пути
 
@@ -49,7 +49,7 @@
 
 | Клетка | Инвариант | Причина |
 |---|---|---|
-| i01-nositel-ispolnim | клетка краснеет, когда операция ОТСУТСТВУЕТ или НЕИСПОЛНИМА, а не когда в файле есть текст: `if:` шага-носителя — замкнутый набор {отсутствует, `always()`, `success()`}; константная ложь шага/job'а и `continue-on-error` носителя красны | `NOSITEL_NEISPOLNIM` / `USLOVIE_VNE_KANONA` / `JOB_NOSITELJA_OTKLJUCHEN` / `PROVALY_PODAVLENY` |
+| i01-nositel-ispolnim | клетка краснеет, когда операция ОТСУТСТВУЕТ или НЕИСПОЛНИМА, а не когда в файле есть текст: `if:` шага-носителя — замкнутый набор {отсутствует, `always()`, `success()`}; константная ложь шага/job'а и `continue-on-error` носителя красны | `NOSITEL_NEISPOLNIM` / `USLOVIE_VNE_KANONA` / `JOB_NOSITELJA_OTKLJUCHEN` / `PROVALY_PODAVLENY` / `VYZOV_NE_BEZUSLOVEN` |
 | i02-zamknutyj-inventar | пять категорий предмета (APK `apk-*`, `selection`, доказательства `maestro*`, child-evidence `screen-evidence-*`, маркер `regression-marker`) обязаны иметь писателя; посторонний писатель красен; потребляемые категории (APK, child-evidence) обязаны иметь читателя в workflow — молчаливая потеря видима; тело heredoc — данные, вызов-как-текст операцией не считается | `KATEGORIJA_BEZ_PISATELJA` / `POSTORONNIJ_PISATEL` / `KATEGORIJA_BEZ_CHITATELJA` |
 
 Класс имени-выражения (`steps.*`/`matrix.*` → `*`) удовлетворяет только
@@ -71,9 +71,14 @@ glob-категориям (`apk-sborki`, `child-evidence`) — известна�
 | r08-istochnik-otsutstvuet | запись отсутствующего источника — отказ (аналог `if-no-files-found: error`) | `PUSTOJ_ZAPIS_NE_KRASN` |
 | r09-izoljacija-popytok | записи попыток 1 и 2 лежат в разных каталогах | `POPYTKI_SLILIS` |
 
-Итого 24 клетки (A3 + B3 + C3 + D2 + E2 + И2 + R9), 12 стабов (ветви
-A1/A3/B1/C1/C2/C3/D1/D2/И3/R9, где И3 = две ветви i01 `if: false` и
-`continue-on-error` плюс i02 heredoc-носитель; привязки и ожидаемые
+Итого 24 клетки (A3 + B3 + C3 + D2 + E2 + И2 + R9), 21 стаб (ветви
+A1/A3/B1/C1/C2/C3×3/D1/D2/И10/R9, где И10 = девять ветвей i01 — `if: false`
+шага, job-условие Yaml-булево `false`, замаскированная ложь job-условия
+`${{ !always() }}`, `continue-on-error` шага, job-level `continue-on-error`,
+`strategy.continue-on-error`, композиция `&&`-охрана до lane-вызова,
+композиция-подавление `||` после вызова писателя, композиция `|| true` у
+читателя — плюс i02 heredoc-носитель; C3×3 — литеральная пара, кавычная
+охрана перед парой, отсутствие пары у APK-читателя; привязки и ожидаемые
 причины — `source.json:.stab_vhod`).
 
 ## Модель
