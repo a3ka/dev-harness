@@ -60,6 +60,12 @@ STUBS = {
     's16_bez_vetki_ne_ustanovleny.sh': ('install', 'verify-not-installed'),
     's17_bez_sverki_kornej.sh': ('install', 'verify-roots'),
     's18_readme_bez_razdela.md': ('readme', 'readme-anchors'),
+    's19_slepaja_k_service.sh': ('install', 'verify-drift'),
+    's20_slepaja_k_timer.sh': ('install', 'verify-drift'),
+    's21_bez_sverki_kornja_beka.sh': ('install', 'verify-roots'),
+    's22_ne_ustanovleny_na_chastichnoj.sh': ('install', 'verify-not-installed'),
+    's23_bez_vladelca_kornja.sh': ('install', 'verify-roots'),
+    's24_poryadok_vkljuchenija_obratnyj.sh': ('install', 'install-artifacts'),
 }
 
 MOB = 'Complior-mob'
@@ -70,8 +76,11 @@ README_ANCHORS = (
     'sudo bash ops/server/install.sh artifacts',
     'ci-artifacts-clean.timer',
     'CI_ARTIFACTS_RETENTION_DAYS',
+    'владелец `harness`',
     'группа harness',
     'на GitHub артефакты не загружаются',
+    'ОТКАЗ:',
+    'systemctl disable --now ci-artifacts-clean.timer',
 )
 
 
@@ -98,7 +107,11 @@ class World:
     def path(self, *parts):
         return self.dir.joinpath(*parts)
 
-    def write_shims(self, users=(), groups=(), euid=0, systemctl='ok'):
+    def write_shims(self, users=(), groups=(), euid=0, systemctl='ok',
+                    stat_owners=()):
+        # stat_owners — конфигурация владельцев корней для stat-шима
+        # (вердикт v2, совет а): строки «<путь> TAB <владелец:группа>»;
+        # формат %U:%G читается из неё, %a — реальный stat (режим не врёт)
         bin_dir = self.path('bin')
         bin_dir.mkdir(exist_ok=True)
         self.journals['chown'] = self.path('chown.journal')
@@ -107,6 +120,9 @@ class World:
         groups_cfg = self.path('known-groups')
         users_cfg.write_text('\n'.join(users) + '\n')
         groups_cfg.write_text('\n'.join(groups) + '\n')
+        stat_cfg = self.path('stat-owners')
+        stat_cfg.write_text(
+            ''.join(f'{p}\t{og}\n' for p, og in stat_owners))
         # systemctl='fail-reload'/'fail-enable' — шим, отказывающий на
         # daemon-reload/enable (И-9д: именованные отказы включения)
         if systemctl == 'fail-reload':
@@ -142,6 +158,25 @@ class World:
                 f'  *) exit 2 ;;\n'
                 f'esac\n'
                 f'printf \'%s:x:1:1::/:/bin/false\\n\' "$name"\nexit 0\n'
+            ),
+            # stat-шим (вердикт v2, совет а): форма модели stat -c FMT -- PATH;
+            # %U:%G — из конфигурации мира (chown в шов-мире — шим журнала,
+            # реальный stat соврал бы о владельце), прочие форматы — честный
+            # stat: режим %a всегда реален, дрейф режима наблюдаем файлово
+            'stat': (
+                '#!/bin/bash\n'
+                'orig=("$@")\n'
+                '[ "$1" = "-c" ] || exec /usr/bin/stat "${orig[@]}"\n'
+                'fmt="$2"\n'
+                'path="${orig[$(( ${#orig[@]} - 1 ))]}"\n'
+                'if [ "$fmt" = "%U:%G" ] && [ -n "$path" ]; then\n'
+                f'  og="$(awk -F\'\\t\' -v p="$path" \'$1 == p {{ print $2 }}\' "{stat_cfg}" 2>/dev/null)" || og=""\n'
+                '  if [ -n "$og" ]; then\n'
+                '    printf \'%s\\n\' "$og"\n'
+                '    exit 0\n'
+                '  fi\n'
+                'fi\n'
+                'exec /usr/bin/stat "${orig[@]}"\n'
             ),
         }
         for name, text in shims.items():
@@ -547,8 +582,13 @@ def cell_no_home_service_env(subj):
 
 # ── клетки установки ─────────────────────────────────────────────────────────
 def install_env(w, src_ops, users=('toymob', 'toyback'), groups=('toygroup',),
-                euid=0, systemctl='ok'):
-    w.write_shims(users=users, groups=groups, euid=euid, systemctl=systemctl)
+                euid=0, systemctl='ok', back_owner_stat='toyback:toygroup'):
+    # stat-конфигурация мира: владельцы корней «как их поставила установка»;
+    # back_owner_stat — раунд дрейфа владельца корня бэка (verify-roots)
+    ciart = w.path('var/lib/ci-artifacts')
+    w.write_shims(users=users, groups=groups, euid=euid, systemctl=systemctl,
+                  stat_owners=((ciart / MOB, 'toymob:toygroup'),
+                               (ciart / BACK, back_owner_stat)))
     return {
         'PATH': f'{w.path("bin")}:/usr/bin:/bin',
         'OPS_SERVER_SRC': str(src_ops),
@@ -630,6 +670,11 @@ def cell_install_artifacts(subj):
             return False, 'нет systemctl daemon-reload'
         if 'systemctl enable --now ci-artifacts-clean.timer' not in sysctl:
             return False, 'нет enable --now ci-artifacts-clean.timer'
+        # И-9д: «daemon-reload, ЗАТЕМ enable» — порядок двух строк журнала
+        # (вердикт v2, совет в; мутация mj: обмен порядка роняет клетку)
+        if sysctl.index('systemctl daemon-reload') \
+                > sysctl.index('systemctl enable --now ci-artifacts-clean.timer'):
+            return False, 'enable раньше daemon-reload (И-9д: «затем»)'
         if 'установлено: ci-artifacts' not in out:
             return False, f'нет строки установки: {out.strip()[:200]}'
         return True, ''
@@ -668,35 +713,45 @@ def cell_install_precondition(subj):
 
 
 def cell_verify_drift(subj):
-    w = World()
-    try:
-        src_ops = subj.src_ops(w)
-        env = install_env(w, src_ops)
-        prefix = subj.install()
-        if prefix is None:
-            return no_subject('ops/server/install.sh')
-        _, verify_mode = subj.install_modes()
-        if subj.kind == 'repo':
-            # реальный verify сверяет и базовые адресаты — ставим их из источника
-            env['OPS_SERVER_BIN_DST'] = str(install_core_files(w, src_ops))
-        # Н-39: стаб s11 не реализует установку — мир ставится ЧЕСТНОЙ моделью,
-        # обманке отдан только этап сверки (её дефект там и наблюдаем)
-        install_prefix = prefix
-        if subj.kind == 'stub' and subj.stub == 's11_slepaja_sverka.sh':
-            install_prefix = ['bash', str(HERE / 'model' / 'install-artifacts.sh')]
-        rc, out, err = w.run(install_prefix + ['artifacts'], env)
-        if rc != 0:
-            return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'установка для мира дрейфа не зелёная: rc={rc}, {err.strip()[:300]}'
-        target = w.path('sbin/ci-artifacts-clean')
-        target.write_bytes(target.read_bytes() + b'drift\n')
-        rc, out, err = w.run(prefix + [verify_mode], env)
-        if rc != 1:
-            return False, f'сверка слепа к дрейфу: rc={rc}, out: {out.strip()[:200]}'
-        if 'расхождение' not in err or 'ci-artifacts-clean' not in err:
-            return False, f'сверка не назвала файл: {err.strip()[:300]}'
-        return True, ''
-    finally:
-        w.close()
+    """И-10: «все три сверяются sha256» — каждому адресату СВОЙ раунд дрейфа
+    (вердикт v2, mh): скрипт, service-юнит, timer-юнит; каждый ждёт rc 1
+    «ОТКАЗ: расхождение <путь>» с именем файла."""
+    prefix = subj.install()
+    if prefix is None:
+        return no_subject('ops/server/install.sh')
+    _, verify_mode = subj.install_modes()
+    for rel, marker in (
+        ('sbin/ci-artifacts-clean', 'ci-artifacts-clean'),
+        ('etc/systemd/system/ci-artifacts-clean.service',
+         'ci-artifacts-clean.service'),
+        ('etc/systemd/system/ci-artifacts-clean.timer',
+         'ci-artifacts-clean.timer'),
+    ):
+        w = World()
+        try:
+            src_ops = subj.src_ops(w)
+            env = install_env(w, src_ops)
+            if subj.kind == 'repo':
+                # реальный verify сверяет и базовые адресаты — ставим их из источника
+                env['OPS_SERVER_BIN_DST'] = str(install_core_files(w, src_ops))
+            # Н-39: стаб s11 не реализует установку — мир ставится ЧЕСТНОЙ моделью,
+            # обманке отдан только этап сверки (её дефект там и наблюдаем)
+            install_prefix = prefix
+            if subj.kind == 'stub' and subj.stub == 's11_slepaja_sverka.sh':
+                install_prefix = ['bash', str(HERE / 'model' / 'install-artifacts.sh')]
+            rc, out, err = w.run(install_prefix + ['artifacts'], env)
+            if rc != 0:
+                return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'установка для мира дрейфа не зелёная: rc={rc}, {err.strip()[:300]}'
+            target = w.path(rel)
+            target.write_bytes(target.read_bytes() + b'drift\n')
+            rc, out, err = w.run(prefix + [verify_mode], env)
+            if rc != 1:
+                return False, f'сверка слепа к дрейфу {marker}: rc={rc}, out: {out.strip()[:200]}'
+            if 'расхождение' not in err or marker not in err:
+                return False, f'сверка не назвала файл {marker}: {err.strip()[:300]}'
+        finally:
+            w.close()
+    return True, ''
 
 def cell_install_euid_refused(subj):
     """И-9(а): не-root прогон artifacts — отказ ДО записей (шим id → 1)."""
@@ -797,15 +852,19 @@ def cell_install_systemctl_refused(subj):
 
 def cell_verify_not_installed(subj):
     """И-10: ни один адресат не установлен — verify rc 0 со строкой
-    «ci-artifacts: не установлены», это не расхождение."""
+    «ci-artifacts: не установлены», это не расхождение; частичная установка
+    (только скрипт, оборвана после первой копии — вердикт v2, mf) —
+    rc 1 «ОТКАЗ: расхождение <путь>» на отсутствующем юните и НЕ «не
+    установлены». Каждому состоянию — свой раунд."""
+    prefix = subj.install()
+    if prefix is None:
+        return no_subject('ops/server/install.sh')
+    _, verify_mode = subj.install_modes()
+    # раунд 1: пустая установка
     w = World()
     try:
         src_ops = subj.src_ops(w)
         env = install_env(w, src_ops)
-        prefix = subj.install()
-        if prefix is None:
-            return no_subject('ops/server/install.sh')
-        _, verify_mode = subj.install_modes()
         if subj.kind == 'repo':
             # базовые адресаты 074 на месте — «не установлены» относится
             # только к тройке ci-artifacts
@@ -817,37 +876,72 @@ def cell_verify_not_installed(subj):
             return False, f'субъект отсутствует: install.sh verify (ветка «не установлены» ci-artifacts), out: {out.strip()[:200]}'
         if 'расхождение' in err:
             return False, f'пустая установка названа расхождением: {err.strip()[:200]}'
+    finally:
+        w.close()
+    # раунд 2: частичная установка — установлен только скрипт
+    w = World()
+    try:
+        src_ops = subj.src_ops(w)
+        env = install_env(w, src_ops)
+        if subj.kind == 'repo':
+            env['OPS_SERVER_BIN_DST'] = str(install_core_files(w, src_ops))
+        sbin = w.path('sbin')
+        sbin.mkdir(parents=True, exist_ok=True)
+        # оракул: байты скрипта — из источника субъекта; расхождение —
+        # только отсутствующие юниты
+        shutil.copyfile(src_ops / 'root/ci-artifacts-clean',
+                        sbin / 'ci-artifacts-clean')
+        (sbin / 'ci-artifacts-clean').chmod(0o755)
+        rc, out, err = w.run(prefix + [verify_mode], env)
+        if rc != 1:
+            return False, f'частичная установка не расхождение: rc={rc}, out: {out.strip()[:200]}'
+        if 'ci-artifacts: не установлены' in out:
+            return False, 'частичная установка названа «не установлены»'
+        svc = w.path('etc/systemd/system/ci-artifacts-clean.service')
+        if 'расхождение' not in err or str(svc) not in err:
+            return False, f'сверка не назвала отсутствующий юнит: {err.strip()[:300]}'
         return True, ''
     finally:
         w.close()
 
 
 def cell_verify_roots(subj):
-    """И-10: сверка корней — после установки chmod 0755 корня моба
-    verify обязан rc 1 «ОТКАЗ: расхождение ci-artifacts: <путь>»."""
-    w = World()
-    try:
-        src_ops = subj.src_ops(w)
-        env = install_env(w, src_ops)
-        prefix = subj.install()
-        if prefix is None:
-            return no_subject('ops/server/install.sh')
-        _, verify_mode = subj.install_modes()
-        if subj.kind == 'repo':
-            env['OPS_SERVER_BIN_DST'] = str(install_core_files(w, src_ops))
-        rc, out, err = w.run(prefix + ['artifacts'], env)
-        if rc != 0:
-            return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'установка для мира дрейфа корня не зелёная: rc={rc}, {err.strip()[:300]}'
-        mob_root = w.path('var/lib/ci-artifacts/Complior-mob')
-        os.chmod(mob_root, 0o755)
-        rc, out, err = w.run(prefix + [verify_mode], env)
-        if rc != 1:
-            return False, f'сверка не смотрит корни: rc={rc}, out: {out.strip()[:200]}'
-        if f'ОТКАЗ: расхождение ci-artifacts: {mob_root}' not in err:
-            return False, f'сверка не назвала корень: {err.strip()[:300]}'
-        return True, ''
-    finally:
-        w.close()
+    """И-10: «режим 2775 … в обоих контурах» и владелец — каждому корню и
+    каждому свойству СВОЙ раунд (вердикт v2: mg — режим бэка, me — владелец):
+    chmod 0755 корня моба, chmod 0755 корня бэка, дрейф владельца бэка в
+    stat-конфигурации мира; каждый ждёт rc 1 «ОТКАЗ: расхождение ci-artifacts:
+    <путь>» с именем корня."""
+    prefix = subj.install()
+    if prefix is None:
+        return no_subject('ops/server/install.sh')
+    _, verify_mode = subj.install_modes()
+    for drift, repo_name, env_kwargs in (
+        ('режим моба', MOB, {}),
+        ('режим бэка', BACK, {}),
+        ('владелец бэка', BACK,
+         {'back_owner_stat': 'toymob:toygroup'}),
+    ):
+        w = World()
+        try:
+            src_ops = subj.src_ops(w)
+            env = install_env(w, src_ops, **env_kwargs)
+            if subj.kind == 'repo':
+                env['OPS_SERVER_BIN_DST'] = str(install_core_files(w, src_ops))
+            rc, out, err = w.run(prefix + ['artifacts'], env)
+            if rc != 0:
+                return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'установка для мира дрейфа корня не зелёная: rc={rc}, {err.strip()[:300]}'
+            root = w.path('var/lib/ci-artifacts') / repo_name
+            if drift != 'владелец бэка':
+                os.chmod(root, 0o755)
+            # владелец бэка: дрейф уже в stat-конфигурации мира (шим %U:%G)
+            rc, out, err = w.run(prefix + [verify_mode], env)
+            if rc != 1:
+                return False, f'сверка не смотрит корни ({drift}): rc={rc}, out: {out.strip()[:200]}'
+            if f'ОТКАЗ: расхождение ci-artifacts: {root}' not in err:
+                return False, f'сверка не назвала корень ({drift}): {err.strip()[:300]}'
+        finally:
+            w.close()
+    return True, ''
 
 
 def cell_readme_anchors(subj):
