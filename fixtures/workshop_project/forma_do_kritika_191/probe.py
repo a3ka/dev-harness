@@ -13,6 +13,7 @@ toy-мире канона 072 стоят копии реальных гейто�
 (честная модель ног — все клетки зелёные), --stabs (поимка обманных реализаций
 по stabs.tsv; данные привязок — не проза контракта).
 """
+import re
 import shutil
 import subprocess
 import sys
@@ -37,7 +38,27 @@ CI_YML = ('name: toy-ci\non: [push]\njobs:\n  toy:\n    runs-on: ubuntu-latest\n
           '      - run: npm run check:spec-ready -- . contracts/043-toy-draft.md\n')
 
 KONTRAKT_REL = 'contracts/043-toy-draft.md'
-PERSONA_LIMIT = 73728  # байт; порог реального check_ceilings.sh (контракт 004)
+
+
+def _persona_limit() -> int:
+    """Порог мира «персона сверх потолка» — из ТОГО ЖЕ источника, что судит
+    этот мир: строка PERSONA_LIMIT= в ROOT/scripts/check_ceilings.sh, копия
+    которого и стоит в каждом вооружённом toy-мире (контракт 004; живое
+    значение 81920 — owner-PR #984). Мир строится ОТ живого порога (порог+1
+    байт): расхождение 73728↔81920 уже краснило честную дверь (предмет 191-Л1).
+    Источник не читается или строки нет — именованный отказ rc 2: неизвестный
+    порог константой не подменяется."""
+    m = re.search(r'(?m)^PERSONA_LIMIT=(\d+)',
+                  (ROOT / 'scripts' / 'check_ceilings.sh').read_text(encoding='utf-8'))
+    if m is None:
+        print('NOT_IMPLEMENTED: в scripts/check_ceilings.sh нет строки '
+              'PERSONA_LIMIT=<байты> — порог мира «персона сверх потолка» '
+              'неизвестен', file=sys.stderr)
+        sys.exit(2)
+    return int(m.group(1))
+
+
+PERSONA_LIMIT = _persona_limit()  # байт; живой порог check_ceilings.sh (#984)
 
 # (имя мира, фикстура или None→пустой контракт, вооружать ногу, доп-файлы)
 SPECIFIKACII = {
