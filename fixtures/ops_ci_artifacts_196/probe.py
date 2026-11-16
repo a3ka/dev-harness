@@ -32,7 +32,7 @@ REPO = HERE.parent.parent
 CASES = (
     'young-kept', 'old-removed', 'young-inside-file', 'symlink-run-refused',
     'repo-symlink-refused', 'traversal-repo-refused', 'grammar-refused',
-    'undeclared-untouched', 'retention-seam', 'root-missing',
+    'undeclared-untouched', 'retention-seam', 'root-missing', 'no-home-service-env',
     'install-artifacts', 'install-precondition', 'verify-drift',
     'unit-grammar',
 )
@@ -51,6 +51,7 @@ STUBS = {
     's09_bez_enable.sh': ('install', 'install-artifacts'),
     's10_bez_persistent.timer': ('unit', 'unit-grammar'),
     's11_slepaja_sverka.sh': ('install', 'verify-drift'),
+    's12_chitaet_home.sh': ('clean', 'no-home-service-env'),
 }
 
 MOB = 'Complior-mob'
@@ -123,11 +124,15 @@ class World:
         p = self.journals[name]
         return p.read_text().splitlines() if p.exists() else []
 
-    def run(self, argv, env, cwd=None):
+    def run(self, argv, env, cwd=None, home=True):
+        # home=False — среда systemd-юнита root без HOME (грабель Н-217):
+        # честный чистильщик обязан работать и в ней
         merged = dict(os.environ)
         merged.update(env)
         merged['PATH'] = env['PATH']
         merged['HOME'] = str(self.path('home'))
+        if not home:
+            merged.pop('HOME', None)
         proc = subprocess.run(argv, cwd=cwd or str(self.dir), env=merged,
                               stdin=subprocess.DEVNULL,
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -479,6 +484,29 @@ def cell_root_missing(subj):
         w.close()
 
 
+
+def cell_no_home_service_env(subj):
+    """Грабель Н-217: systemd-юнит root приходит БЕЗ HOME — чистильщик не
+    имеет права читать HOME ни в одной ветке (orch-peak падал на этом)."""
+    w = World()
+    try:
+        w.write_shims()
+        root = w.path('var/lib/ci-artifacts')
+        old = 7 * DAY + 7200
+        run_old = mk_run(root, MOB, '121-1', old, [('screens', old, 'a.png', old)])
+        run_young = mk_run(root, MOB, '131-1', 120, [('apk', 120, 'app.apk', 120)])
+        subject = subj.clean()
+        if subject is None:
+            return no_subject('ops/server/root/ci-artifacts-clean')
+        rc, out, err = w.run([str(subject)], clean_env(w, root), home=False)
+        if rc != 0:
+            return False, f'без HOME rc={rc}, stderr: {err.strip()[:200]}'
+        if run_old.exists() or not run_young.exists():
+            return False, 'без HOME семантика очистки сломалась'
+        return True, ''
+    finally:
+        w.close()
+
 # ── клетки установки ─────────────────────────────────────────────────────────
 def install_env(w, src_ops, users=('toymob', 'toyback'), groups=('toygroup',)):
     w.write_shims(users=users, groups=groups)
@@ -677,6 +705,7 @@ CELLS = {
     'undeclared-untouched': cell_undeclared_untouched,
     'retention-seam': cell_retention_seam,
     'root-missing': cell_root_missing,
+    'no-home-service-env': cell_no_home_service_env,
     'install-artifacts': cell_install_artifacts,
     'install-precondition': cell_install_precondition,
     'verify-drift': cell_verify_drift,
@@ -695,8 +724,8 @@ def check_family():
     for name in stubs:
         if name not in STUBS:
             refuse(f'стаб без привязки: {name}')
-    if len(CASES) != 14:
-        refuse(f'клеток {len(CASES)}, ожидалось 14')
+    if len(CASES) != 15:
+        refuse(f'клеток {len(CASES)}, ожидалось 15')
 
 
 def main():
