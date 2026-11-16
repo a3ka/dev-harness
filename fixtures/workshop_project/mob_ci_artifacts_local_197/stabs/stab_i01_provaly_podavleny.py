@@ -9,10 +9,12 @@ d = Path(sys.argv[1]) / '.github/workflows/mobile.yml'
 s = d.read_text(encoding='utf-8')
 staryj = """      - name: Артефакты 117 (кадры по правилу (В), отчёт)
         if: always()
+        working-directory: ${{ github.workspace }}
         run: npm run ci:artefakt-zapis -- --imja maestro-117 --chto mobile/maestro-out-117
 """
 novyj = """      - name: Артефакты 117 (кадры по правилу (В), отчёт)
         if: always()
+        working-directory: ${{ github.workspace }}
         continue-on-error: true
         run: npm run ci:artefakt-zapis -- --imja maestro-117 --chto mobile/maestro-out-117
 """

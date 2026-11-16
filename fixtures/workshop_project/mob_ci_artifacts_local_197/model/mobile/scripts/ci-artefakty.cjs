@@ -16,7 +16,13 @@
 //                                        выборочный повтор работника)
 //
 // Выход: rc 0 — успех; rc 2 — именованный отказ ARTEFAKT_OTKAZ: <причина>
-// (fail-closed: успехом не считается ни пустое чтение, ни молчаливый фолбэк).
+// (fail-closed: успехом не считается молчаливый фолбэк; пустое чтение
+// ТОЧНОГО имени и отсутствующий каталог run'а — отказ). ЕДИНСТВЕННОЕ
+// исключение (197 v+1, слово владельца 2026-11-16): пустой выбор ШАБЛОНА —
+// rc 0, строка CHTENIE_PUSTO и ПУСТОЙ созданный --kuda (семантика
+// actions/download-artifact с pattern); строгость ожидаемого множества
+// держит потребитель — ci-aggregate.cjs сверяет выбранные экраны с
+// evidence-каталогом ровно.
 
 'use strict';
 
@@ -170,7 +176,16 @@ function main() {
   const sovpadenija = fs.readdirSync(katalog_runa)
     .filter((imja) => imja.includes('*') === false && regex.test(imja) && fs.statSync(path.join(katalog_runa, imja)).isDirectory())
     .sort();
-  if (sovpadenija.length === 0) otkaz('SOVPADENIJ_NET: ' + shablon);
+  if (sovpadenija.length === 0) {
+    // 197 v+1 (слово владельца 2026-11-16 «197 v+1 — да»): пустой выбор
+    // шаблона — НЕ отказ: PR без новых экранов даёт пустую matrix, читатель
+    // screen-evidence-* честно собирает ноль детей (mob#180: rc 2 краснил
+    // required android-e2e на каждом таком PR). Точное имя и каталог run'а
+    // остаются fail-closed.
+    fs.mkdirSync(kuda, { recursive: true });
+    console.log('CHTENIE_PUSTO: ' + shablon);
+    return;
+  }
   for (const imja of sovpadenija) {
     skopirovat(path.join(katalog_runa, imja), path.join(kuda, imja));
   }
