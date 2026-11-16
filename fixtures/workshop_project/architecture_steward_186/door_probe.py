@@ -202,6 +202,24 @@ def world(tmp, case):
         # надстройка над назначенной-подстрокой; литерал = старый пин 186/1,
         # старая GLM-дверь сливает → клетка честно красна на --repo .
         fact = TOY_MODELS['glm']
+    if case == 'accept_fact_padded':
+        # факт отличается от назначенной ТОЛЬКО формой записи: пробелы/табы
+        # вокруг значения при назначенной без них — блокирующая находка
+        # вердикта Crit186V2b, вход (а); ловит ослабление strip() значения
+        fact = ' \t' + fact + ' \t'
+    if case == 'accept_fact_fullwidth':
+        # NFKC-эквивалент назначенной, не равный байтово: полноширинная
+        # запись (вход (б)); ловит сравнение после Unicode-нормализации
+        fact = 'ｚａｉ／ｇｌｍ－５．３'
+    if case == 'accept_fact_bare':
+        # bare-форма без префикса провайдера при назначенной с префиксом
+        # (вход (в); норма 173 «zai/glm-5.3 ≡ glm-5.3» для check_sud_model.sh
+        # на дверь НЕ переносится); ловит префикс-эквивалентность
+        fact = fact.rsplit('/', 1)[-1]
+    if case == 'accept_fact_suffixed':
+        # надстройка СПЕРЕДИ: факт кончается на назначенную (совет
+        # вердикта Crit186V2b, NM_endswith); ловит суффиксное сравнение
+        fact = 'evil-' + fact
     state = {
         'pr': {'title': 'COMPLIOR-186 architectural correction', 'author': {'login': 'steward'},
                'headRefOid': sha, 'baseRefName': 'main'},
@@ -404,6 +422,13 @@ CASES = {
     'accept_fact_fallback': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
     'accept_fact_same_family': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
     'accept_fact_superstring': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    # клетки нормализации значения модель-факт (блокирующая находка
+    # вердикта Crit186V2b): форма записи не расширяет множество
+    # принимаемых значений — пробелы/NFKC/bare/суффикс
+    'accept_fact_padded': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'accept_fact_fullwidth': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'accept_fact_bare': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'accept_fact_suffixed': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
     'registry_missing': (1, 'CRITIC_MODEL_UNRESOLVED'),
     'registry_invalid_json': (1, 'CRITIC_MODEL_UNRESOLVED'),
     'registry_no_critic_role': (1, 'CRITIC_MODEL_UNRESOLVED'),
@@ -460,6 +485,26 @@ MUTATIONS = {
         "fields[1].split(';', 1)[0] != critic_model",
         "critic_model not in fields[1].split(';', 1)[0]",
         'accept_fact_superstring'),
+    # стабы нормализации сравнения — образец мутаций NM_strip_fact/
+    # NM_strip_both/NM_nfkc/NM_bare_equiv/NM_endswith вердикта Crit186V2b;
+    # каждый к входу, где его дефект наблюдаем (Н-39)
+    'stub_strip_fact': (
+        "fields[1].split(';', 1)[0] != critic_model",
+        "fields[1].split(';', 1)[0].strip() != critic_model",
+        'accept_fact_padded'),
+    'stub_nfkc': (
+        "fields[1].split(';', 1)[0] != critic_model",
+        "__import__('unicodedata').normalize('NFKC', fields[1].split(';', 1)[0]) != "
+        "__import__('unicodedata').normalize('NFKC', critic_model)",
+        'accept_fact_fullwidth'),
+    'stub_bare_equiv': (
+        "fields[1].split(';', 1)[0] != critic_model",
+        "fields[1].split(';', 1)[0] not in (critic_model, critic_model.split('/', 1)[-1])",
+        'accept_fact_bare'),
+    'stub_endswith': (
+        "fields[1].split(';', 1)[0] != critic_model",
+        "fields[1].split(';', 1)[0] != critic_model and not fields[1].split(';', 1)[0].endswith(critic_model)",
+        'accept_fact_suffixed'),
     'skip_ci': ("c['conclusion'] != 'success'", 'False', 'ci_red'),
     'skip_architecture_ci': ("not any(c.get('name') == 'architecture' for c in runs)",
                              'False', 'ci_architecture_missing'),
