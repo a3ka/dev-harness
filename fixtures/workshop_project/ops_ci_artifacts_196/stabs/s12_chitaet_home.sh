@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# ОБМАННЫЙ СТАБ s12 (Н-39: вход no-home-service-env).
+# Дефект: чистильщик читает HOME (журнал в $HOME) — systemd-юнит root приходит
+# без HOME, и чистильщик падает по set -u (грабель Н-217). Честная модель в той
+# же среде работает: HOME не читает ни в одной ветке.
+# Остальное — поведение честной модели; швы и коды те же (см. model/ci-artifacts-clean).
+#
+# Швы (как у субъекта): CI_ARTIFACTS_ROOT (умолчание /var/lib/ci-artifacts),
+# CI_ARTIFACTS_RETENTION_DAYS (умолчание 14), CI_ARTIFACTS_REPOS
+# (умолчание «Complior-mob Complior-back»).
+#
+# Коды: 0 — чисто (молодые хранятся, старые удалены, отказов нет);
+#       1 — именованный отказ (минимум одна строка ОТКАЗ: в stderr);
+#       2 — NOT_IMPLEMENTED (нет зависимости).
+set -u
+
+# ДЕФЕКТ (стаб s12): журнал в $HOME — в среде systemd-юнита без HOME
+# чистильщик падает (грабель Н-217 воспроизведён намеренно)
+printf 'старт\n' >>"$HOME/ci-artifacts-clean.log"
+
+ROOT_ENV="${CI_ARTIFACTS_ROOT:-/var/lib/ci-artifacts}"
+RET_ENV="${CI_ARTIFACTS_RETENTION_DAYS:-14}"
+REPOS_ENV="${CI_ARTIFACTS_REPOS:-Complior-mob Complior-back}"
+
+for c in date find rm sort; do
+  command -v "$c" >/dev/null 2>&1 \
+    || { printf 'NOT_IMPLEMENTED: нет %s\n' "$c" >&2; exit 2; }
+done
+
+# ── И-2: грамматика значений — ДО любой файловой операции ────────────────────
+case "$RET_ENV" in
+  ''|*[!0-9]*) printf 'ОТКАЗ: срок не целое ≥1: %s\n' "$RET_ENV" >&2; exit 1 ;;
+esac
+[ "$RET_ENV" -ge 1 ] || { printf 'ОТКАЗ: срок не целое ≥1: %s\n' "$RET_ENV" >&2; exit 1; }
+
+REPOS=''
+for r in $REPOS_ENV; do
+  case "$r" in
+    ''|.|..|*/*)
+      printf 'ОТКАЗ: недопустимое имя репо: %s\n' "$r" >&2; exit 1 ;;
+  esac
+  case "$r" in
+    [!A-Za-z0-9]*|*[!A-Za-z0-9._-]*)
+      printf 'ОТКАЗ: недопустимое имя репо: %s\n' "$r" >&2; exit 1 ;;
+  esac
+  REPOS="$REPOS $r"
+done
+case "$REPOS" in
+  ' ') printf 'ОТКАЗ: список репо пуст\n' >&2; exit 1 ;;
+esac
+
+# ── И-3: корень существует и не символьная ссылка ────────────────────────────
+if [ -L "$ROOT_ENV" ] || [ ! -d "$ROOT_ENV" ]; then
+  printf 'ОТКАЗ: корень не каталог: %s\n' "$ROOT_ENV" >&2
+  exit 1
+fi
+
+cutoff="$(date -u -d "-$RET_ENV days" '+%Y-%m-%d %H:%M:%S')" \
+  || { printf 'NOT_IMPLEMENTED: date -d\n' >&2; exit 2; }
+
+refuse=0
+for repo in $REPOS; do
+  rdir="$ROOT_ENV/$repo"
+  if [ -e "$rdir" ] || [ -L "$rdir" ]; then
+    if [ -L "$rdir" ] || [ ! -d "$rdir" ]; then
+      printf 'ОТКАЗ: репо не каталог: %s\n' "$rdir" >&2
+      refuse=1
+      continue
+    fi
+  else
+    continue
+  fi
+  deleted=0
+  kept=0
+  while IFS= read -r -d '' entry; do
+    name="${entry##*/}"
+    # И-4: грамматика имени прогона <число>-<число>, ровно один дефис
+    case "$name" in
+      [0-9]*-[0-9]*) ;;
+      *)
+        printf 'ОТКАЗ: имя прогона вне грамматики <число>-<число>: %s\n' "$entry" >&2
+        refuse=1
+        continue ;;
+    esac
+    case "$name" in
+      *[!0-9-]*)
+        printf 'ОТКАЗ: имя прогона вне грамматики <число>-<число>: %s\n' "$entry" >&2
+        refuse=1
+        continue ;;
+    esac
+    case "$name" in
+      *-*)
+        rest="${name#*-}"
+        case "$rest" in
+          *-*)
+            printf 'ОТКАЗ: имя прогона вне грамматики <число>-<число>: %s\n' "$entry" >&2
+            refuse=1
+            continue ;;
+        esac
+        ;;
+    esac
+    # И-5: символьная ссылка на месте прогона — отказ, цели не касаемся
+    if [ -L "$entry" ]; then
+      printf 'ОТКАЗ: прогон — символьная ссылка: %s\n' "$entry" >&2
+      refuse=1
+      continue
+    fi
+    if [ ! -d "$entry" ]; then
+      printf 'ОТКАЗ: прогон не каталог: %s\n' "$entry" >&2
+      refuse=1
+      continue
+    fi
+    # И-6: прогон молод, если ХОТЯ БЫ одна запись его дерева (без прохода по
+    # символьным ссылкам) моложе границы; тогда он не трогается
+    if [ -n "$(find "$entry" -newermt "$cutoff" -print -quit 2>/dev/null)" ]; then
+      kept=$((kept + 1))
+    else
+      rm -rf -- "$entry"
+      deleted=$((deleted + 1))
+      printf 'удалено: %s\n' "$entry"
+    fi
+  done < <(find "$rdir" -mindepth 1 -maxdepth 1 -print0 | sort -z)
+  printf 'ci-artifacts: репо %s: удалено %d, хранится %d\n' "$repo" "$deleted" "$kept"
+done
+
+exit "$refuse"
