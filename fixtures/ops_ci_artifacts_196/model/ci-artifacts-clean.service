@@ -1,0 +1,6 @@
+[Unit]
+Description=Очистка старых артефактов CI станции (контракт 196)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ci-artifacts-clean
