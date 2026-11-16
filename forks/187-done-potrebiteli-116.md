@@ -6,7 +6,7 @@
 ЗАВЕДЁН: 2026-11-15T23:30:00Z
 АВТОР: anthropic/claude-sonnet-5-5
 БЛОКИРУЕТ: нет (done — формальное закрытие; ленд кода и вердиктов выполнен)
-ОТВЕЧЕНО: нет
+ОТВЕЧЕНО: да
 
 СЫРОЙ ВЫВОД (rc 1, main=48aa70efaa): `bash scripts/done_contract.sh contracts/187-arhitektura-v-processe.md "done 187: реализация дверей архитектуры в процессе — ремонт двери 187а Д1–Д4 (reviewer accept contracts-187-impl-v4, OBJECT 5be0647b5d, вызов 2/2 scoped); код в main 8925948ae6, вердикты v3/v4 в main 949ecb6818"` → «done: потребители 116 красны: потребители 116: писатель scripts/freeze_contract.sh изменён, потребитель fixtures/check_check_contract_ready/ не верифицирован: нет ПОТРЕБИТЕЛЬ-пробы». Первая попытка без причины: «done: причина пуста» (дверь требует второй аргумент).
 Факты: ЗОНА implementer frozen 187/1 :63 включает scripts/freeze_contract.sh (и make_task.sh, pre_critic.sh, done_contract.sh, check_architecture_contract.sh); писатель freeze_contract.sh менялся прежними коммитами implementer 187 (cd07d3a9d0 «187a v3…», f50aa6b58b «187 fix2…») — они вошли в main merge'ем носителя двери 187а (PR #970, main 8925948ae6). Дверь 116 требует для каждого изменённого «писателя» ПОТРЕБИТЕЛЬ-пробу в потребителе fixtures/check_check_contract_ready/ — её нет. Тег done/contracts/187/1 не создан. Предмет 187 в реестре: контракт заморожен frozen/contracts/187/1, реализация принята (reviewer v1/v2/v4 accept), основной остаток — формальный done.
