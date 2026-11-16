@@ -52,6 +52,10 @@
   "tokeny": {
     "istochnik": "source/tokens.json пакета D24-Kompakt-1.1 (пин выше); продукт читает их через mobile/src/theme/ (владелец файла — экран 148), литерал числа в месте, где грамматика требует чтения токена, — нарушение (связь, не совпадение числа)",
     "znachenija": {
+      "color.light.accent": "#d6f75a",
+      "color.dark.accent": "#d6f75a",
+      "color.light.on-accent": "#121211",
+      "font.sans": "DM Sans",
       "nav.height": "49px",
       "nav.item.min-height": "48px",
       "nav.label.font-size": "10px",
