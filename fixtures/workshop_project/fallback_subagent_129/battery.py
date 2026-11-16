@@ -5,6 +5,7 @@ usage:
   battery.py [--subject DIR] [--cells a,b]   judge the SUBJECT tree (default: repo root)
   battery.py --model                         judge the honest model (model/fallback-route.ts) — all green
   battery.py --stabs                         every cheat of source.json must be red in each bound cell
+  battery.py --parser                        observer self-tests: id link of both omp formats + negative neighbours
 
 Exit: 0 all cells green (or, with --stabs, every stub caught); 1 otherwise; 2 stand broken.
 One line per cell: `ok <cell>` / `FAIL <cell>: <reason>`. Never prints PASS.
@@ -160,7 +161,28 @@ def build_world(subj, w, cell, overlay):
     return c, tier_of(am)
 
 
-RESULT_RE = re.compile(r'<task-result id="(\w+)" agent="[\w-]+" status="([^"]+)"[^>]*>(.*?)</task-result>', re.S)
+# omp returns a spawned task under its own id grammar: the plain logical name (18.3.1;
+# first spawn of the process) or <name>-<digits> (18.18.8: a later spawn carries a numeric
+# suffix — measured -2/-3, not a global ordinal). The judge links the LOGICAL task name to
+# the ACTUAL returned id by this grammar; a foreign similar id (Child129x, Child1290,
+# AChild129) must not satisfy the link.
+RESULT_RE = re.compile(r'<task-result id="([^"]*)" agent="[\w-]+" status="([^"]+)"[^>]*>(.*?)</task-result>', re.S)
+
+
+def resolve_child(out, name):
+    """Link the logical task name to the actual returned id (observer fix, omp 18.18.8).
+
+    Unique link -> ((id, status, body), None). Otherwise a NAMED outcome, never a guess:
+    no returned id at all, or two returns of one logical name (a duplicate must not be
+    silently judged as either return)."""
+    own = re.compile(r'%s(?:-\d+)?$' % re.escape(name))
+    hits = [(m.group(1), m.group(2), m.group(3)) for m in RESULT_RE.finditer(out)
+            if own.fullmatch(m.group(1))]
+    if not hits:
+        return None, 'нет результата ребёнка %s в выводе родителя' % name
+    if len(hits) > 1:
+        return None, 'дубликат результата ребёнка %s: ids=%s' % (name, ', '.join(h[0] for h in hits))
+    return hits[0], None
 
 
 def judge(w, c, rc):
@@ -172,11 +194,11 @@ def judge(w, c, rc):
     for model, status in c['world'] or ():
         if not any(r['sib'] and r['turn'] and r['model'] == model and r['status'] == status for r in reqs):
             return 'мир не построен: у соседа нет хода %s со статусом %s' % (model, status)
-    res = {m.group(1): (m.group(2), m.group(3)) for m in RESULT_RE.finditer(out)}
+    hit, link = resolve_child(out, CHILD)
+    if link:
+        return link
     want_child, want_model = c['expect']
-    if CHILD not in res:
-        return 'нет результата ребёнка %s в выводе родителя' % CHILD
-    st, body = res[CHILD]
+    st, body = hit[1], hit[2]
     if not st.startswith(want_child):
         return 'ребёнок %s, ожидался %s: %s' % (st, want_child, ' '.join(body.split())[:160])
     if want_model is not None:
@@ -190,6 +212,67 @@ def judge(w, c, rc):
         if n > c['max_child_turns']:
             return 'ребёнок отправил %d ходов при пределе %d (цикл смены моделей)' % (n, c['max_child_turns'])
     return None
+
+
+# ── observer self-tests (--parser): the transcript link resolve_child() makes, without omp ──
+# Honest shapes of BOTH id formats must link and judge green; deceptive stand transcripts
+# (a foreign similar id, a duplicate return, an empty return) must yield their NAMED
+# outcome — each red case below names the naive observer it kills (Н-39: binding in code).
+PR_BODY = '\n<output>\n{\n  "marker": "%s",\n  "model": "fam-f"\n}\n</output>\n' % MARK
+
+
+def _tr(tid, status, body=''):
+    return '<task-result id="%s" agent="architect" status="%s" duration="1ms">%s</task-result>\n' % (tid, status, body)
+
+
+def parser_cases():
+    ok = dict(expect=('completed', 'fam-f'), world=None)
+    fail = dict(expect=('failed', None), world=None)
+    no_child = 'нет результата ребёнка %s в выводе родителя' % CHILD
+    return [
+        # honest, old id format (18.3.1 / first spawn): the plain name links
+        ('pr1-staryj-format', ok, _tr(CHILD, 'completed', PR_BODY), None),
+        # honest, new id format (18.18.8, later spawn): the suffixed id links (live c2 shape)
+        ('pr2-novyj-format', ok, _tr(SIB, 'failed (exit 1)') + _tr(CHILD + '-2', 'completed', PR_BODY), None),
+        # honest refusal under the new id format: a failed child is judged failed (live c5 shape)
+        ('pr3-novyj-format-otkaz', fail, _tr(SIB, 'failed (exit 1)') + _tr(CHILD + '-2', 'failed (exit 1)'), None),
+        # deceptive: only a FOREIGN similar id returned — a prefix/substring matcher would
+        # count the foreign child and pass; the link must refuse it
+        ('pr4-chuzhoj-pohozhij-id', ok, _tr(SIB, 'failed (exit 1)') + _tr(CHILD + 'x-2', 'completed', PR_BODY), no_child),
+        # deceptive: name-boundary foreigners AChild129 / Child1290
+        ('pr5-chuzhoj-granica', ok, _tr('A' + CHILD, 'completed', PR_BODY) + _tr(CHILD + '0', 'completed', PR_BODY), no_child),
+        # deceptive: TWO returns of one logical name (omp 18.18.8 produces them when the
+        # script re-spawns the name; measured ids Child129 + Child129-3) — a dict/last-match
+        # observer silently judges one of them
+        ('pr6-dublikat', ok, _tr(CHILD, 'completed', PR_BODY) + _tr(CHILD + '-2', 'completed', PR_BODY),
+         'дубликат результата ребёнка %s: ids=%s, %s-2' % (CHILD, CHILD, CHILD)),
+        # deceptive: duplicate with DIFFERENT verdicts — first-match would say failed,
+        # last-match completed; both guesses are wrong, the named outcome stands
+        ('pr7-dublikat-razlichnye', ok, _tr(CHILD, 'failed (exit 1)') + _tr(CHILD + '-3', 'completed', PR_BODY),
+         'дубликат результата ребёнка %s: ids=%s, %s-3' % (CHILD, CHILD, CHILD)),
+        # deceptive: EMPTY returned id — must not link and must not crash
+        ('pr8-pustoj-vozvrat', ok, _tr('', 'completed', PR_BODY), no_child),
+    ]
+
+
+def run_parser_tests():
+    red = 0
+    cases = parser_cases()
+    for name, cell, out_text, want in cases:
+        w = tempfile.mkdtemp(prefix='p129-parser-')
+        try:
+            open(os.path.join(w, 'out.txt'), 'w').write('Working...\nPARENT_SAW:\n' + out_text)
+            open(os.path.join(w, 'requests.jsonl'), 'w').write('')
+            got = judge(w, cell, 0)
+        finally:
+            shutil.rmtree(w, ignore_errors=True)
+        if got != want:
+            red += 1
+            print('FAIL %s: judge=%r, ожидалось %r' % (name, got, want))
+        else:
+            print('ok %s' % name)
+    print('parser=%d red=%d' % (len(cases), red))
+    return 1 if red else 0
 
 
 def run_cells(subj, names, overlay, keep=False):
@@ -221,10 +304,13 @@ def main(argv):
             names = argv[i + 1].split(','); i += 2; continue
         if a == '--ext':
             ext_override = argv[i + 1]; i += 2; continue
-        if a in ('--model', '--stabs'):
+        if a in ('--model', '--stabs', '--parser'):
             mode = a[2:]; i += 1; continue
-        print('usage: battery.py [--subject DIR] [--cells a,b] [--ext FILE] [--model|--stabs]', file=sys.stderr)
+        print('usage: battery.py [--subject DIR] [--cells a,b] [--ext FILE] [--model|--stabs|--parser]', file=sys.stderr)
         return 2
+    if mode == 'parser':
+        # the observer self-tests judge crafted transcripts: no omp, no subject files
+        return run_parser_tests()
     if shutil.which('omp') is None:
         print('NOT_IMPLEMENTED: нет omp в PATH — стенд без реального omp не судит', file=sys.stderr)
         return 2
