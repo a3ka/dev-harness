@@ -167,13 +167,22 @@ def build_world(subj, w, cell, overlay):
 # в харнессе… омп поменял названия, завтра опять может поменять». Идентификатор omp НЕ
 # используется для связи вовсе: ребёнок опознаётся по НАШЕМУ маркеру M129 — логическое имя
 # задачи → маркер в задании → результат, несущий этот маркер (завершённый — маркером в
-# yield-JSON, умерший — маркером в тексте ошибки stub-провайдера). Знает наблюдатель только
-# ФОРМУ события (тег task-result и его поля) — и только здесь; изменившийся формат —
-# именованный отказ rc 2 (NOT_IMPLEMENTED-класс), НЕ ложное «нет результата».
+# yield-JSON, умерший — маркером в тексте ошибки stub-провайдера). Адаптер требует РОВНО
+# то, что читает наблюдатель, ничего сверх: атрибут status, его значение и yield-JSON в
+# теле; id/agent/duration НЕ читаются — их переименование или пропуск не отказ (мутант
+# ревьюера: <task-result name=…> судится зелёным). Изменившийся формат — именованный
+# отказ rc 2 (NOT_IMPLEMENTED-класс), НЕ ложное «нет результата» и НЕ ложный FAIL субъекта.
 MARK_TOKEN = re.compile(r'(?<![A-Za-z0-9])%s(?![A-Za-z0-9])' % re.escape(MARK))
 TASK_RESULT_BLOCK = re.compile(r'<task-result\b(?P<attrs>[^>]*)>(?P<body>.*?)</task-result>', re.S)
 TASK_RESULT_ATTR = re.compile(r'([\w-]+)="([^"]*)"')
-TASK_RESULT_NEED = ('id', 'agent', 'status')
+TASK_RESULT_NEED = ('status',)
+# значения status, измеренные живьём на omp 18.18.8 по мирам стенда (completed 19,
+# failed (exit 1) 14, cancelled 6): дрейф ЗНАЧЕНИЯ (omp переименовал completed → done) —
+# такой же изменившийся формат, как дрейф имени атрибута: отказ rc 2, не FAIL субъекта.
+STATUS_VALUE = re.compile(r'^(?:completed|cancelled|failed \(exit \d+\))$')
+# yield-JSON — РЕНДЕР omp результата yield-инструмента (данные задаём мы, форму — omp):
+# «marker» непосредственно перед «model» в одном объекте. Изменилась форма — rc 2.
+YIELD_JSON = re.compile(r'"marker":\s*"%s"\s*,\s*"model":\s*"([^"]+)"' % re.escape(MARK))
 
 
 class OmpFormatChanged(Exception):
@@ -182,16 +191,19 @@ class OmpFormatChanged(Exception):
 
 def read_task_results(out):
     """Транскрипт родителя → [(status, body), …], иначе OmpFormatChanged('формат omp
-    изменился: <поле>'). Отказывают: вхождение <task-result>, не разобранное до полей
-    id/agent/status и закрывающего тега, и наш маркер, дошедший до родителя ВНЕ
-    разобранных блоков (omp сменил форму выдачи). Отсутствие событий вовсе — честное
-    «нет результата с маркером» (не отказ)."""
+    изменился: <поле>'). Отказывают: вхождение <task-result> без закрывающего тега
+    (блок не разбирается); отсутствие атрибута status; значение status вне измеренного
+    словаря; и наш маркер, дошедший до родителя ВНЕ разобранных блоков (omp сменил
+    форму выдачи). Требуется ровно то, что читает наблюдатель: только status.
+    Отсутствие событий вовсе — честное «нет результата с маркером» (не отказ)."""
     parsed, rest, prev = [], [], 0
     for m in TASK_RESULT_BLOCK.finditer(out):
         attrs = dict(TASK_RESULT_ATTR.findall(m.group('attrs')))
         miss = [k for k in TASK_RESULT_NEED if k not in attrs]
         if miss:
             raise OmpFormatChanged('формат omp изменился: %s' % miss[0])
+        if not STATUS_VALUE.match(attrs['status']):
+            raise OmpFormatChanged('формат omp изменился: status=%s' % attrs['status'])
         parsed.append((attrs['status'], m.group('body')))
         rest.append(out[prev:m.start()])
         prev = m.end()
@@ -217,6 +229,16 @@ def resolve_child(out):
     return hits[0], None
 
 
+def read_yield(body):
+    """Модель из yield-JSON завершённого ребёнка. yield-инструмент рендерит САМ omp,
+    форма — знание адаптера: изменилась (omp стал рисовать yield иначе) — отказ rc 2,
+    а не ложное «завершил на модели ?» против субъекта."""
+    m = YIELD_JSON.search(body)
+    if not m:
+        raise OmpFormatChanged('формат omp изменился: yield')
+    return m.group(1)
+
+
 def judge(w, c, rc, link_fn=None):
     out = open(os.path.join(w, 'out.txt'), errors='replace').read()
     reqs = [json.loads(l) for l in open(os.path.join(w, 'requests.jsonl')) if l.strip()]
@@ -234,11 +256,9 @@ def judge(w, c, rc, link_fn=None):
     if not st.startswith(want_child):
         return 'ребёнок %s, ожидался %s: %s' % (st, want_child, ' '.join(body.split())[:160])
     if want_model is not None:
-        got = re.search(r'"model":\s*"([^"]+)"', body)
-        if not got or got.group(1) != want_model:
-            return 'ребёнок завершил на модели %s, ожидалась %s' % (got.group(1) if got else '?', want_model)
-        if not re.search(r'"marker":\s*"%s"' % MARK, body):
-            return 'нет маркера стенда в ответе ребёнка'
+        got = read_yield(body)  # форма yield — знание адаптера (дрейф → rc 2, не «?»)
+        if got != want_model:
+            return 'ребёнок завершил на модели %s, ожидалась %s' % (got, want_model)
     if 'max_child_turns' in c:
         n = sum(1 for r in reqs if r['turn'] and not r['sib'] and r['model'] != 'main')
         if n > c['max_child_turns']:
