@@ -8,13 +8,18 @@
 # различающим входам — КОДОМ ниже, не прозой контракта):
 #   * дверь замка предметов (scripts/zamok_predmeta.sh + нормализация
 #     .omp/extensions/spawn-guard.ts): рабочий item ОБЯЗАН нести реальный
-#     флаг isolated:true (поле события спавна, НЕ слово в task); START
+#     флаг isolated:true (поле события спавна, НЕ слово в task) — в ЛЮБОЙ
+#     позиции пакета: отказ NE_IZOLIROVAN на item ≥1 до START и любых
+#     записей (в учёте не появляется ни одна строка пакета); START
 #     записывает факт isolated; грамматика пина не ослабляется (клетки
-#     d1–d8, h1–h3);
+#     d1–d10, h1–h3; d9-d10 — пакетный вход с рабочим НЕ первым
+#     элементом, закрывают «гейт только item 0»);
 #   * привязка сдачи (scripts/privjazka_sdachi.sh): сверка source/ветка/
-#     роль/предмет/репозиторий/владелец копии с фактом START ДО
-#     accept_task_commit; корень приёма выводится из факта START (клетки
-#     p1–p7);
+#     роль/предмет/репозиторий/владелец копии с ПОСЛЕДНИМ фактом START ДО
+#     accept_task_commit; ротация держателя (≥2 строк START рабочего):
+#     сдача прежнего держателя отказывает KOPIJA_CHUZHAYA, корень приёма
+#     выводится из последнего факта замка (клетки p1–p9; p8-p9 — ротация,
+#     закрывают last→first);
 #   * канонические вставки roles/orchestrator.md §«Изолированный спавн»
 #     (маркеры 199-baza-*/199-nositel-*): синхробаза копии работника и
 #     синхронизация носителя после приёма исполняются и судятся (w1–w2,
@@ -185,6 +190,31 @@ mk_priv_world() {  # <dir>
   PW_MAIN_ABS="$(cd "$PW_MAIN" && pwd -P)"
   PW_TIP="$(git -C "$PW_M" rev-parse HEAD)"
 }
+
+mk_rot_world() {  # <dir> — ротация держателя: ДВЕ строки START рабочего 199
+  local d="$1"
+  ROT_SOST="$d/sost"; ROT_MAIN_NEW="$d/newmain"; ROT_CAR_NEW="$d/newcarrier"
+  ROT_MAIN_OLD="$d/oldmain"; ROT_CAR_OLD="$d/oldcarrier"
+  ROT_M_OLD="$d/kopold/m"; ROT_M_NEW="$d/kopnew/m"
+  mkdir -p "$ROT_SOST" "$d/kopold" "$d/kopnew"
+  mkrepo "$ROT_MAIN_NEW"; git -C "$ROT_MAIN_NEW" remote add origin "$d/toyrepo.git"
+  git -C "$ROT_MAIN_NEW" worktree add -q -b wip/199/architect "$ROT_CAR_NEW" >/dev/null 2>&1
+  mkrepo "$ROT_MAIN_OLD"; git -C "$ROT_MAIN_OLD" remote add origin "$d/toyrepo.git"
+  git -C "$ROT_MAIN_OLD" worktree add -q -b wip/199/architect "$ROT_CAR_OLD" >/dev/null 2>&1
+  mkrepo "$ROT_M_OLD"; printf '{"pid":1,"id":"ArchOld","startToken":"1"}' > "$d/kopold/.omp-isolation-owner.json"
+  mkrepo "$ROT_M_NEW"; printf '{"pid":1,"id":"ArchNew","startToken":"1"}' > "$d/kopnew/.omp-isolation-owner.json"
+  jq -nc --arg r toyrepo --arg s 199 --arg h ArchOld --arg ro architect --arg o - \
+        --arg w "$ROT_CAR_OLD" --arg b wip/199/architect --argjson iso true \
+    '{t:"START",repoId:$r,subjectId:$s,group:"-",holder:$h,klass:"rabochij",rol:$ro,object:$o,worktree:$w,branch:$b,at:"2026-11-16T01:00:00Z",isolated:$iso}' \
+    >> "$ROT_SOST/uchet.jsonl"
+  jq -nc --arg r toyrepo --arg s 199 --arg h ArchNew --arg ro architect --arg o - \
+        --arg w "$ROT_CAR_NEW" --arg b wip/199/architect --argjson iso true \
+    '{t:"START",repoId:$r,subjectId:$s,group:"-",holder:$h,klass:"rabochij",rol:$ro,object:$o,worktree:$w,branch:$b,at:"2026-11-16T02:00:00Z",isolated:$iso}' \
+    >> "$ROT_SOST/uchet.jsonl"
+  ROT_MAIN_NEW_ABS="$(cd "$ROT_MAIN_NEW" && pwd -P)"
+  ROT_TIP_OLD="$(git -C "$ROT_M_OLD" rev-parse HEAD)"
+  ROT_TIP_NEW="$(git -C "$ROT_M_NEW" rev-parse HEAD)"
+}
 zov_priv() { bash "$(priv)" "$@"; }
 
 mk_wip_world() {  # <dir> <advance 1|0>
@@ -317,6 +347,48 @@ BRANCH=wip/198/architect" '{tasks:[{agent:"architect",name:"ArchD8",task:$t,isol
   grep -q 'RASHOZHDENIE_PINA' "$w/err" || { printf 'd8: нет RASHOZHDENIE_PINA\n' >&2; return 1; }
 }
 
+d9() {
+  local w="$WBASE/d9"; mkdir -p "$w"; mk_dwer_world "$w"
+  local DW_CAR2="$w/car198"
+  git -C "$DW_MAIN" worktree add -q -b wip/198/architect "$DW_CAR2" >/dev/null 2>&1
+  mkdir -p "$DW_CAR/contracts"
+  printf 'КЛАСС РИСКА: обычный\n' > "$DW_CAR/contracts/199-toy.md"
+  commit_as "$DW_CAR" architect 'klass'
+  local O; O="$(git -C "$DW_MAIN" rev-parse wip/199/architect)"
+  jq -nc --arg r "$(repo_id "$DW_MAIN")" --arg s 199 --arg h ArchT --arg ro architect \
+        --arg o - --arg w "$DW_CAR" --arg b wip/199/architect --argjson iso true \
+    '{t:"START",repoId:$r,subjectId:$s,group:"-",holder:$h,klass:"rabochij",rol:$ro,object:$o,worktree:$w,branch:$b,at:"2026-11-16T00:00:00Z",isolated:$iso}' \
+    >> "$DW_SOST/uchet.jsonl"
+  printf '{"toolName":"yield"}\n' > "$DW_ZHUR/ArchT.jsonl"
+  jq -n --arg t1 "SUBJECT=199
+OBJECT=$O" --arg t2 "SUBJECT=198
+WORKTREE=$DW_CAR2
+BRANCH=wip/198/architect" '{tasks:[
+  {agent:"critic",name:"CritD9",task:$t1},
+  {agent:"architect",name:"ArchD9",task:$t2,isolated:false}]}' > "$w/ev.json"
+  local rc; bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev.json" >/dev/null 2>"$w/err"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd9: rc=%s (нужен 1: рабочий item 1 пакета без isolated)\n' "$rc" >&2; return 1; }
+  grep -q 'NE_IZOLIROVAN' "$w/err" || { printf 'd9: нет NE_IZOLIROVAN на item 1 пакета\n' >&2; return 1; }
+  [ "$(grep -c . "$DW_SOST/uchet.jsonl")" -eq 1 ] || { printf 'd9: в учёте появились строки пакета вопреки отказу\n' >&2; return 1; }
+}
+
+d10() {
+  local w="$WBASE/d10"; mkdir -p "$w"; mk_dwer_world "$w"
+  local DW_CAR2="$w/car198"
+  git -C "$DW_MAIN" worktree add -q -b wip/198/architect "$DW_CAR2" >/dev/null 2>&1
+  jq -n --arg t1 "SUBJECT=199
+WORKTREE=$DW_CAR
+BRANCH=wip/199/architect" --arg t2 "SUBJECT=198
+WORKTREE=$DW_CAR2
+BRANCH=wip/198/architect" '{tasks:[
+  {agent:"architect",name:"ArchD10a",task:$t1,isolated:true},
+  {agent:"architect",name:"ArchD10b",task:$t2,isolated:false}]}' > "$w/ev.json"
+  local rc; bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev.json" >/dev/null 2>"$w/err"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd10: rc=%s (нужен 1: рабочий item 1 пакета без isolated)\n' "$rc" >&2; return 1; }
+  grep -q 'NE_IZOLIROVAN' "$w/err" || { printf 'd10: нет NE_IZOLIROVAN на item 1 пакета\n' >&2; return 1; }
+  [ ! -s "$DW_SOST/uchet.jsonl" ] || { printf 'd10: START записан вопреки отказу (в т.ч. изолированный item 0)\n' >&2; return 1; }
+}
+
 h_kletka() {  # <id> <item-json> <want-isolated>
   local w="$WBASE/$1"
   mkdir -p "$w"
@@ -386,6 +458,23 @@ p7() {
     --branch wip/199/architect --author architect --tip "$PW_TIP" >/dev/null 2>"$w/err"; rc=$?
   [ "$rc" -eq 1 ] || { printf 'p7: rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
   grep -q 'REPO_RASHODITSJA' "$w/err" || { printf 'p7: нет REPO_RASHODITSJA\n' >&2; return 1; }
+}
+
+p8() {
+  local w="$WBASE/p8"; mkdir -p "$w"; mk_rot_world "$w"
+  local rc; zov_priv --sostojanie "$ROT_SOST" --repo "$ROT_MAIN_NEW" --subject 199 --source "$ROT_M_OLD" \
+    --branch wip/199/architect --author architect --tip "$ROT_TIP_OLD" >/dev/null 2>"$w/err"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'p8: rc=%s (нужен 1: сдача прежнего держателя после ротации)\n' "$rc" >&2; return 1; }
+  grep -q 'KOPIJA_CHUZHAYA' "$w/err" || { printf 'p8: нет KOPIJA_CHUZHAYA (сверка с последним START)\n' >&2; return 1; }
+}
+
+p9() {
+  local w="$WBASE/p9"; mkdir -p "$w"; mk_rot_world "$w"
+  local out rc
+  out="$(zov_priv --sostojanie "$ROT_SOST" --repo "$ROT_MAIN_NEW" --subject 199 --source "$ROT_M_NEW" \
+        --branch wip/199/architect --author architect --tip "$ROT_TIP_NEW" 2>"$w/err")"; rc=$?
+  [ "$rc" -eq 0 ] || { printf 'p9: rc=%s — сдача нового держателя не принята: %s\n' "$rc" "$(tail -1 "$w/err")" >&2; return 1; }
+  [ "$out" = "root=$ROT_MAIN_NEW_ABS" ] || { printf 'p9: корень приёма %s ≠ root из последнего факта замка %s\n' "$out" "$ROT_MAIN_NEW_ABS" >&2; return 1; }
 }
 
 w1() {
@@ -495,7 +584,7 @@ t2() {
 }
 
 # ── учёт клеток ──────────────────────────────────────────────────────────────
-ALL_KLETKI='d1 d2 d3 d4 d5 d6 d7 d8 h1 h2 h3 p1 p2 p3 p4 p5 p6 p7 w1 w2 c1 c2 g1 g2 f1 f2 f3 t1 t2'
+ALL_KLETKI='d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 h1 h2 h3 p1 p2 p3 p4 p5 p6 p7 p8 p9 w1 w2 c1 c2 g1 g2 f1 f2 f3 t1 t2'
 CELL_TOTAL=0; CELL_RED=0; CELL_MISS=0
 kletka() {  # <id> — ОДИН прогон клетки; диагностика — в файл мира
   local id="$1" dg
@@ -519,7 +608,7 @@ run_cells() {  # <ids…>
 }
 
 # ── стабы: привязка к различающим входам — КОДОМ (Н-39) ─────────────────────
-STABI=(s01 s02 s03 s04 s05 s06 s07 s08 s09 s10 s11 s12)
+STABI=(s01 s02 s03 s04 s05 s06 s07 s08 s09 s10 s11 s12 s13 s14)
 stab_fajl() {
   case "$1" in
     s01) printf 'stabs/s01_dver_slovo.sh' ;;
@@ -534,13 +623,15 @@ stab_fajl() {
     s10) printf 'stabs/s10_vstavka_nositel_skip.md' ;;
     s11) printf 'stabs/s11_vstavka_nositel_force.md' ;;
     s12) printf 'stabs/s12_priv_bez_repo.sh' ;;
+    s13) printf 'stabs/s13_dver_paket_nol.sh' ;;
+    s14) printf 'stabs/s14_priv_pervyj.sh' ;;
   esac
 }
 stub_sreda() {  # <sNN> — переменная-шов субъекта
   case "$1" in
-    s01|s02|s03) printf 'S199_DOOR' ;;
+    s01|s02|s03|s13) printf 'S199_DOOR' ;;
     s04|s05)     printf 'S199_GUARD' ;;
-    s06|s07|s12) printf 'S199_PRIV' ;;
+    s06|s07|s12|s14) printf 'S199_PRIV' ;;
     s08|s09|s10|s11) printf 'S199_VSTAVKA' ;;
   esac
 }
@@ -558,6 +649,8 @@ stab_kletki() {
     s10) printf 'c1' ;;
     s11) printf 'c2' ;;
     s12) printf 'p7' ;;
+    s13) printf 'd9 d10' ;;
+    s14) printf 'p8 p9' ;;
   esac
 }
 
