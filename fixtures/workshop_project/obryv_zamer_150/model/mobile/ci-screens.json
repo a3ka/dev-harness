@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "zametka": "Карта модели 150 (prichinnyy-zamer-obryva): грамматика записи — 143/2 (mobile/ci-screens.json продукта); здесь один экран-представитель для суда обёртки замера. Батарея 150 читает карту субъекта НЕЗАВИСИМЫМ каноном (ekrany[].job + ekrany[].output_namespace + integracija.job/output_namespace) — как батарея 143.",
+  "zametka": "Карта модели 150 (prichinnyy-zamer-obryva): грамматика записи — 143 (mobile/ci-screens.json продукта). Три представителя: два работника F1/F2 (e2e-proba-obryv — прямой вызов; e2e-proba-drugoj — npm-lane ci:zamer, совместимость 163) и матричный job e2e-proba-matrica с ДВУМЯ child (замер child — дочерним хуком 150 внутри run-ci-screen.cjs, канон 143 v3; замер второго child судится отдельно). Батарея читает карту субъекта НЕЗАВИСИМЫМ каноном (ekrany[].job/id/output_namespace/avd_port + integracija.job) — как батарея 143; единица покрытия — (job, id): записи матричного job НЕ схлопываются по job.",
   "ekrany": [
     {
       "id": "proba-obryv",
@@ -13,6 +13,44 @@
       "puti": ["mobile/e2e-proba-obryv/"],
       "h_checkout": [".harness150"],
       "output_namespace": "mobile/maestro-out-proba"
+    },
+    {
+      "id": "proba-drugoj",
+      "kontrakty": ["150"],
+      "status": "approved",
+      "job": "e2e-proba-drugoj",
+      "pack": "mobile/e2e-proba-drugoj/",
+      "flows": ["mobile/.maestro/proba-drugoj.yaml"],
+      "child_flows": [],
+      "puti": ["mobile/e2e-proba-drugoj/"],
+      "h_checkout": [".harness150"],
+      "output_namespace": "mobile/maestro-out-drugoj"
+    },
+    {
+      "id": "proba-matrica-odin",
+      "kontrakty": ["150"],
+      "status": "approved",
+      "job": "e2e-proba-matrica",
+      "pack": "mobile/e2e-matrica-odin/",
+      "flows": ["mobile/.maestro/proba-matrica-odin.yaml"],
+      "child_flows": [],
+      "puti": ["mobile/e2e-matrica-odin/"],
+      "h_checkout": [],
+      "avd_port": 5580,
+      "output_namespace": "mobile/screen-evidence/proba-matrica-odin"
+    },
+    {
+      "id": "proba-matrica-dva",
+      "kontrakty": ["150"],
+      "status": "approved",
+      "job": "e2e-proba-matrica",
+      "pack": "mobile/e2e-matrica-dva/",
+      "flows": ["mobile/.maestro/proba-matrica-dva.yaml"],
+      "child_flows": [],
+      "puti": ["mobile/e2e-matrica-dva/"],
+      "h_checkout": [],
+      "avd_port": 5582,
+      "output_namespace": "mobile/screen-evidence/proba-matrica-dva"
     }
   ]
 }
