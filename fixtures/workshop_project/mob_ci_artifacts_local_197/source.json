@@ -1,0 +1,156 @@
+{
+  "_comment": "Контракт 197 (mob-ci-artefakty-lokalno): единый источник батареи. piny — sha256 файлов модели (честной реализации); bazovoje_derevo — живое дерево продукта, от которого модель выведена (проверяемо: замена артефактного транспорта + перенос пробы изоляции в e2e-pilot, см. krasnye_143_posle_197). stab_vhod — привязка каждого обманного стаба к клетке и именованной причине (Н-39: по коду мутатора, не по прозе контракта). krasnye_143_posle_197 — пин состава красных клеток батареи 143 на псевдо-продукте fda1fc8+модель (живой замер; сверяет sverka_inventarja_143.sh).",
+  "bazovoje_derevo": {
+    "repo": "/home/harness/projects/Complior-mob",
+    "ref": "origin/main",
+    "commit": "fda1fc871960b8061d8e6f6d12f2cc38f5834cee",
+    "data": "2026-11-12 (последний fetch клона на станции)",
+    "mobile_yml_sha256": "1d4e304158578e0ed51fd9721b7acb9239f6b599f060bb8fceb761468ab4980e",
+    "zamer": "9 шагов actions/upload-artifact@v7, 3 шага actions/download-artifact@v7, 5 команд gh run download (замер grep этой пачки)"
+  },
+  "piny": {
+    ".github/workflows/mobile.yml": "5f071a18f824e98c4e9ed968aceb738d6a037afa0c7736803e40f247046cdbaf",
+    "package.json": "33339210c643b6f2d42e1c1a54f5f9787ca32867b4467dac416fd466025c7b4c",
+    "mobile/scripts/ci-artefakty.cjs": "1a3a8860462dd9013eb785ba2ba0786f3adaa496a60194497b3432c0fae1d13b"
+  },
+  "stab_vhod": {
+    "stab_a01_upload_ostalsja": {
+      "kletka": "a01-upload-artefakt-ostalsja",
+      "prichina": "UPLOAD_ARTIFAKT_OSTALSJA",
+      "defekt": "в select-screens оставлен один шаг upload-artifact"
+    },
+    "stab_a03_gh_ostalsja": {
+      "kletka": "a03-gh-kanal-v-run",
+      "prichina": "GH_KANAL_V_RUN",
+      "defekt": "работник e2e-splash вернулся к gh run download"
+    },
+    "stab_b01_argumenty": {
+      "kletka": "b01-forma-pisatelja",
+      "prichina": "FORMA_PISATELJA",
+      "defekt": "аргументы писателя не образуют пару --imja/--chto: вместо --chto передан --kuda при допустимой форме вызова"
+    },
+    "stab_c01_nepolnaja": {
+      "kletka": "c01-forma-chitatelja",
+      "prichina": "NEPOLNAJA_IDENTIFIKACIJA_RUNA",
+      "defekt": "читатель APK передал --run-id без --run-attempt"
+    },
+    "stab_c02_chtenie_bez_pisatelja": {
+      "kletka": "c02-imja-bez-pisatelja",
+      "prichina": "IMJA_BEZ_PISATELJA",
+      "defekt": "агрегат читает maestro-999, который никто не пишет"
+    },
+    "stab_c03_run_para_literal": {
+      "kletka": "c03-run-para-iz-sborki",
+      "prichina": "RUN_PARA_NE_IZ_SBORKI",
+      "defekt": "агрегат android-e2e передал литеральную пару чужого прогона --run-id 43752095485 --run-attempt 1 в корректно оформленном вызове (мутация критика MX1): грамматика пропускает честную форму, происхождение судится c03"
+    },
+    "stab_d01_put_bez_popytki": {
+      "kletka": "d01-koren-vne-skripta",
+      "prichina": "KOREN_VNE_SKRIPTA",
+      "defekt": "писатель строит путь cp сам: без run_attempt, грамматика корня в workflow"
+    },
+    "stab_d02_vyhod_za_koren": {
+      "kletka": "d02-vyhod-za-koren",
+      "prichina": "VYHOD_ZA_KOREN",
+      "defekt": "источник писателя с сегментом '..' — выход за рабочий каталог при допустимой форме вызова"
+    },
+    "stab_g01_sputnik_cp": {
+      "kletka": "g01-forma-nositelja",
+      "prichina": "FORMA_NOSITELJA_VNE_GRAMMATIKI",
+      "defekt": "посторонняя команда cp рядом с lane-вызовом писателя maestro-117: полный run-текст вне трёх допустимых контекстов L/S+L/P+L+Q"
+    },
+    "stab_g01_kavochnaja_para": {
+      "kletka": "g01-forma-nositelja",
+      "prichina": "FORMA_NOSITELJA_VNE_GRAMMATIKI",
+      "defekt": "литеральная пара чужого прогона за кавычной охраной test \"$OK\" = 1 && … (мутация критика MX1q): запрещённая оболочка вызова отсекается грамматикой до происхождения c03 (арбитраж 197, РЕШЕНИЕ 2.3)"
+    },
+    "stab_g01_ekranirovannaja_kavychka": {
+      "kletka": "g01-forma-nositelja",
+      "prichina": "FORMA_NOSITELJA_VNE_GRAMMATIKI",
+      "defekt": "блокирующая находка Crit197V3 (B6): test \\\" = x && npm run … — экранированная кавычка прятала оператор && от старого разбора; обратная косая черта вне алфавита замкнутой грамматики"
+    },
+    "stab_g01_perenos_posle_operatora": {
+      "kletka": "g01-forma-nositelja",
+      "prichina": "FORMA_NOSITELJA_VNE_GRAMMATIKI",
+      "defekt": "блокирующая находка Crit197V3 (B14): test -n \"$X\" && \\<перенос> + lane-вызов — продолжение строки прячет оператор; перенос после оператора не входит в допустимые формы"
+    },
+    "stab_g01_ohrana_do_vyzova": {
+      "kletka": "g01-forma-nositelja",
+      "prichina": "FORMA_NOSITELJA_VNE_GRAMMATIKI",
+      "defekt": "писатель selection.json за константно-ложной охраной test false && npm run … (мутация критика N4b): оператор композиции вне замкнутой грамматики, вызов отсекается до семантики"
+    },
+    "stab_g01_podavlenie_posle": {
+      "kletka": "g01-forma-nositelja",
+      "prichina": "FORMA_NOSITELJA_VNE_GRAMMATIKI",
+      "defekt": "провал писателя selection.json подавлен «… || test $? -eq 1» (мутация критика N11): оператор композиции вне замкнутой грамматики"
+    },
+    "stab_g01_chtenie_s_true": {
+      "kletka": "g01-forma-nositelja",
+      "prichina": "FORMA_NOSITELJA_VNE_GRAMMATIKI",
+      "defekt": "провал читателя-агрегата подавлен «… || true» (мутация критика N10b): оператор композиции вне замкнутой грамматики"
+    },
+    "stab_g01_khvost_argumentov": {
+      "kletka": "g01-forma-nositelja",
+      "prichina": "FORMA_NOSITELJA_VNE_GRAMMATIKI",
+      "defekt": "позиционный хвост после полных пар аргументов писателя: старый разбор терял хвост dict(zip(...)), грамматика требует полного потребления аргументов"
+    },
+    "stab_g01_povtor_kljucha": {
+      "kletka": "g01-forma-nositelja",
+      "prichina": "FORMA_NOSITELJA_VNE_GRAMMATIKI",
+      "defekt": "повтор ключа --imja в lane-вызове: старый разбор молча перезаписывал значение, грамматика требует ключи без повторов"
+    },
+    "stab_i01_if_false": {
+      "kletka": "i01-nositel-ispolnim",
+      "prichina": "NOSITEL_NEISPOLNIM",
+      "defekt": "писатель selection.json тождественно неисполним: if: false при сохранении текста вызова (мутация критика MX2)"
+    },
+    "stab_i01_provaly_podavleny": {
+      "kletka": "i01-nositel-ispolnim",
+      "prichina": "PROVALY_PODAVLENY",
+      "defekt": "провал писателя maestro-117 подавлен continue-on-error: true"
+    },
+    "stab_i02_heredok_nositel": {
+      "kletka": "i02-zamknutyj-inventar",
+      "prichina": "KATEGORIJA_BEZ_PISATELJA",
+      "defekt": "вызов писателя selection.json стал данными heredoc-носителя: lane-имя в тексте есть, операции нет — грамматика красит форму (g01), категория остаётся без писателя"
+    },
+    "stab_r09_skript_bez_popytki": {
+      "kletka": "r09-izoljacija-popytok",
+      "prichina": "POPYTKI_SLILIS",
+      "defekt": "скрипт-канон строит путь без run_attempt — каталоги попыток сливаются (поведение); байтовое расхождение ловит и e01-skript-pin"
+    },
+    "stab_c03_bez_pary": {
+      "kletka": "c03-run-para-iz-sborki",
+      "prichina": "CHITATEL_APK_BEZ_PARY",
+      "defekt": "у APK-читателя e2e-splash снята пара --run-id/--run-attempt целиком (мутация критика N3): чтение уходит в собственную попытку, сборка не переживает повтор работника"
+    },
+    "stab_i01_job_if_false": {
+      "kletka": "i01-nositel-ispolnim",
+      "prichina": "JOB_NOSITELJA_OTKLJUCHEN",
+      "defekt": "job-условие носителя — Yaml-булево if: false (мутация критика N6): работник отключён целиком; str(False) обязан доходить до сравнения, а не проглатываться falsy"
+    },
+    "stab_i01_job_if_never": {
+      "kletka": "i01-nositel-ispolnim",
+      "prichina": "JOB_NOSITELJA_OTKLJUCHEN",
+      "defekt": "замаскированная константная ложь job-условия ${{ !always() }} (мутация критика N5): форма состоит в замкнутом списке LOZHNO"
+    },
+    "stab_i01_job_provaly": {
+      "kletka": "i01-nositel-ispolnim",
+      "prichina": "PROVALY_PODAVLENY",
+      "defekt": "job-level continue-on-error: true у носителя e2e-splash (мутация критика N7, совет 1 вердикта V2): работник проглатывает провал шага-носителя"
+    },
+    "stab_i01_strategija_provaly": {
+      "kletka": "i01-nositel-ispolnim",
+      "prichina": "PROVALY_PODAVLENY",
+      "defekt": "strategy.continue-on-error: true у матричного носителя e2e-screen (мутация критика N8, совет 2 вердикта V2): провал потомков матрицы проглатывается"
+    }
+  },
+  "krasnye_143_posle_197": [
+    "legacy: LEGACY_JOB_CHANGED",
+    "evidence: CHILD_DOWNLOAD_ABSENT_android-e2e",
+    "workflow-build-apk-outputs: WORKFLOW_CONTROL_workflow-build-apk-outputs",
+    "workflow-build-apk-run-step-7: WORKFLOW_CONTROL_workflow-build-apk-run-step-7",
+    "a17-digest-do-ustanovki: e2e-splash: РЕНДЕР_ВНЕ_АЛФАВИТА: needs.build-apk.outputs.run_attempt",
+    "y19-outputs-provodka: outputs build-apk: ['apk_sha256', 'artifact_name', 'run_attempt', 'run_id']"
+  ]
+}

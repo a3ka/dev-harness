@@ -1,0 +1,8 @@
+{
+  "name": "complior-mob",
+  "private": true,
+  "scripts": {
+    "ci:artefakt-zapis": "node mobile/scripts/ci-artefakty.cjs zapis",
+    "ci:artefakt-chtenie": "node mobile/scripts/ci-artefakty.cjs chtenie"
+  }
+}
