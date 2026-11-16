@@ -2,15 +2,17 @@
 // вкладки Schutz — сводка защиты: заголовок вкладки (ia115.nav.SCHUTZ),
 // карточки сводки «Verträge»/«Beitrag / Monat» (proposed.schutz.stat.*),
 // Notice «Lücke: Berufsunfähigkeit …» с действием «Optionen ansehen»
-// (proposed.protection.status.gap, fixture.schutz.02,
-// proposed.schutz.gap.action — каталогизированы пакетом 1.1, маска
-// кадра снята: зона судится сверкой), раздел «Bereiche»
+// (proposed.protection.status.gap, proposed.schutz.gap.action —
+// каталогизированы пакетом 1.1, маска кадра снята: зона судится
+// сверкой; текст уведомления fixture.schutz.02 — И-5 v5: данные
+// model-модуля ../model/schutz-dannye, не ui-copy), раздел «Bereiche»
 // (proposed.schutz.section.areas) и пять строк областей (данные мока).
 // Прокручивается под таб-лейсте (GA-09); касания — зоны hw/hh ≥ 44
 // (манифест 1.1; видимые рамки меньше — расширение невидимо).
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { uiCopyDe } from '../../../i18n/ui-copy';
+import { LUECKE_TEXT } from '../model/schutz-dannye';
 import { useTheme } from '../../../theme/context';
 
 export interface SchutzUebersichtProps {
@@ -71,7 +73,7 @@ export function SchutzUebersicht({ onBereich }: SchutzUebersichtProps) {
           {uiCopyDe['proposed.protection.status.gap'].text}
         </Text>
         <Text style={[styles.noticeTekst, { color: tokens.ink }]}>
-          {uiCopyDe['fixture.schutz.02'].text}
+          {LUECKE_TEXT}
         </Text>
         <Pressable
           accessibilityRole="button"

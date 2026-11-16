@@ -235,6 +235,13 @@ while IFS= read -r f; do
   k=1
   while [ "$k" -le "$vmax" ]; do
     if ! grep -qxF "refs/tags/frozen/$dir/$NNN/$k" "$TMP/tags"; then
+      # Единственное допущение пропуска (слово владельца 2026-11-15 через консультанта): 148 v4 вытеснена
+      # v5 до публикации (удержание refs/frozen-hold/contracts/148/4 не предок main; 148/5 опубликован).
+      if [ "$dir/$NNN/$k" = "contracts/148/4" ]; then
+        ok "$f: v4 не опубликована — вытеснена v5 (допущение пропуска, слово владельца 2026-11-15)"
+        k=$((k + 1))
+        continue
+      fi
       bad "$f: версия v$k пропущена в реестре при существующей v$vmax — тег поставлен мимо freeze_contract.sh"
       k=$((k + 1))
       continue

@@ -1,7 +1,13 @@
-# Оси батареи 148 (vkladki-tabov) — 57 клеток, 30 стабов, 47 привязок
-# (`--model` rc 0 57/57; `--stabs` rc 0, контроль 57/57,
-# «SVJAZI 47», живых 0; без флага — rc 1, зелёных 37 /
-# красных 20: продукта в дереве харнесса нет).
+# Оси батареи 148 (vkladki-tabov) — 63 клетки, 34 стаба, 53 привязки
+# (`--model` rc 0 63/63; `--stabs` rc 0, контроль 63/63,
+# «SVJAZI 53», живых 0; без флага — rc 1, зелёных 37 /
+# красных 26: продукта в дереве харнесса нет).
+# v5-перенацел (2026-11-15): статические якоря продукт-судьи сняты с
+# формы PR #147 (замещена v5): MITTE-маркеры судят КЛЮЧИ каталога 1.1
+# (не имена внутренних полей), KOPII — только ключи каталога + ЗАПРЕТ
+# финала-2 и fixture.*/runtime.value.* в ui-copy, PROKHOD — только цели
+# лейсте (канон 999 + gespraech-mitte); референсная раскладка приведена
+# к v5-форме копии (fixture.schutz.02 — данные schutz-dannye.ts).
 
 Субъекты (Н-39: стабы привязаны к ветвям ОБОИХ субъектов по stab_vhod
 source.json — привязка кодом, не прозой):
@@ -48,6 +54,16 @@ source.json — привязка кодом, не прозой):
   Суд зоны учитывает RN height/min/max, padding по осям, контент
   однострочной кнопки и hitSlop на обоих профилях; исходы
   подтверждаются `produkt_sud.py --repo R` в среде продукта.
+  v+1 (слово владельца 2026-11-11, Б-3): статические гейты корня
+  (<SafeAreaProvider в app/_layout.tsx) и чтения инсета лейсте
+  (useContext(SafeAreaInsetsContext)/useSafeAreaInsets) + зондовый
+  ассерт Б-3 — рендер TabShell в SafeAreaProvider (нижний инсет 24 и
+  48 на 390, 34 на 393): резерв оверлея == инсету на 390 (двумя
+  значениями — плоская константа красна), ≥ на 393, bottom 0;
+  эталонная раскладка несёт честную форму: провайдер в корне, резерв
+  оверлея = nav.height + max(0, insets.bottom), мутанты
+  safe-rezerv-nul/safe-konstanta убиваются ассертом (якоря — обе
+  формы: живой продукт и раскладка).
   Без package.json — именованный пропуск; заявленная среда без
   установки — rc 2 LIVE_PREDPOSYLKA. Эталон — референсная раскладка
   `model/produktnaja-raskladka` (пачка — source.json:.ekran_forma_prod).
@@ -124,7 +140,7 @@ KADR-числа; stubs ↔ stab_vhod — рассинхрон rc 2 ORACLE_TAMPER
 - **Движение-пусто** (3): perehody += GA-T28 (∩ = ∅) — PEREHOD_LISHNIJ;
   пин спеки неверен — ISTOCHNIK_NE_SOVPADAET; пути источника нет —
   ISTOCHNIK_OTSVTSTVUET (rc 2 fail-closed, инфраструктура).
-- **Продукт** (20): шов без слотов — SHOV_NET; подмена имени кадра
+- **Продукт** (26): шов без слотов — SHOV_NET; подмена имени кадра
   в пачке R при честных файле и sha — KADR_PODMENEN (v3a, вход
   pr-kadry-podmenen); дрейф байтов источника токенов —
   TOKENY_ISTOCHNIK_NEVEREN (И-12; живые обходы Б2/Б3 роняют контроль
@@ -134,7 +150,20 @@ KADR-числа; stubs ↔ stab_vhod — рассинхрон rc 2 ORACLE_TAMPER
   на Final 2 при честных файлах — PAKET_1_1_NE_PRIPINEN (v+1, вход
   pr-paket-final2, клетка 14; stdout честен — KADR×8 + SHABLON OK,
   красит гейт пакета продукт-судьи); ключи копии удалены — KOPII_NET;
-  флоу без снимка — SCENARIJ_BEZ_SNIMKA; контент удалён — KONTENT_NET;
+  v5-перенацел (2026-11-15): Mitte без ключа каталога (вернулся к
+  финалу-2) — MITTE_NET (вход pr-mitte-net; маркеры судят КЛЮЧИ
+  ui.mission.group.*, не имена внутренних полей); ключи копии —
+  только verbatim из каталога 1.1: финал-2 (ui.vorgaenge.group.*) в
+  ui-copy — KOPII_FINAL2 (вход pr-kopii-final2), fixture.*/runtime.
+  value.* в ui-copy — KOPII_FIXTURE_V_KOPII (вход pr-kopii-fixture;
+  якорь fixture.schutz.02-в-копии формы PR #147 снят, текст Notice —
+  данные model-модуля schutz-dannye.ts); флоу прохода судит ТОЛЬКО
+  цели лейсте (testID канона 999 + gespraech-mitte, И-6) — флоу без
+  нажатия Mitte красен PROKHOD_BEZ_PRESSABLE (вход
+  pr-prokhod-bez-pressable); имена контент-целей (vorgaenge-stroka-*,
+  schutz-svod — форма PR #147) не пинируются: полноту контент-целей
+  судит манифест СОБСТВЕННОЙ пачки R у судьи формы (sud_pachki) и
+  прогон Maestro; флоу без снимка — SCENARIJ_BEZ_SNIMKA; контент удалён — KONTENT_NET;
   package.json без jest-установки — rc 2 LIVE_PREDPOSYLKA; зонд красен
   на исходном коде — ISPOLNIMYJ_KONTROL_KRASEN; мутант переживает зонд
   — ISPOLNIMYJ_MUTANT_ZHIV; второй AVD до остановки первого, а также
@@ -142,16 +171,28 @@ KADR-числа; stubs ↔ stab_vhod — рассинхрон rc 2 ORACLE_TAMPER
   реального `adb … emu kill` — EMULJATORY_ODNOVREMENNO по журналу
   (четыре независимых входа); PORT_393=5571 — PORT_393_NE_5576;
   маска профиля R 47 при визуально зелёных кадрах —
-  PROFIL_MASKA_NE_48; честная база — rc 0.
+  PROFIL_MASKA_NE_48; v+1 (слово владельца 2026-11-11, Б-3): корень
+  приложения без <SafeAreaProvider — SAFE_AREA_BEZ_PROVAJDERA;
+  tab-shell без чтения инсета (useContext(SafeAreaInsetsContext)/
+  useSafeAreaInsets) — SAFE_AREA_INSETY_NE_CHITAJUTSJA; зондовый
+  ассерт Б-3 (резерв оверлея == инсету на 390 при значениях 24 и 48,
+  ≥ на 393, bottom 0) убивает исполняемых мутантов
+  safe-rezerv-nul/safe-konstanta; честная база — rc 0.
 
-## Стабы (s65–s93: 14 ветвей эталона A/судьи формы + 15 ветвей продукт-судьи B)
+## Стабы (s65–s98: 14 ветвей эталона A/судьи формы + 20 ветвей продукт-судьи B)
 
 Каждый стаб подменяет РОВНО свою ветвь (файл stubs/, загрузчики
 _model.py/_produkt.py) и обязан быть пойман на КАЖДОМ входе своей записи
 stab_vhod; «стаб жив» — rc 1 STAB_ZHIV. s72 глотает отказы раннера 123
 (stdout честный, rc принудительно 0) и свежесть кадров; s77 считает
-отсутствие пачки зелёным; s76 пропускает tab-роль Mitte (грамматика 999
-не защищена); s82 гасит исполняемый суд (класс «литерал на месте,
+отсутствие пачки зелёным; s76 пропускает tab-роль Mitte и маркеры
+ключей каталога (грамматика 999 и И-2 не защищены; входы pr-mitte-tab,
+pr-mitte-net); s97 гасит запреты копии — финал-2 и fixture.*/runtime.
+value.* проходят в ui-copy (v5-перенацел 2026-11-15, входы
+pr-kopii-final2/pr-kopii-fixture, ветки B KOPII_FINAL2_PREFIKS/
+KOPII_DANNYE_PREFIKSY); s98 гасит канон целей лейсте — флоу без
+нажатия gespraech-mitte проходит (вход pr-prokhod-bez-pressable,
+ветка B PROKHOD_ID_KANON); s82 гасит исполняемый суд (класс «литерал на месте,
 исполняемое иное» проходит — блок 1 Crit148, входы pr-live-*);
 s83 возвращает подмену отсутствующего макета носителем батареи
 (блок 2 Crit148, вход pr-maket-put-net); s84 глотает отказы сверки
@@ -180,3 +221,15 @@ model/sud_formy_148.py; делегата --sud доставляет сам, ка
 s93 гасит гейт имён продукт-судьи — та же подмена в пачке R проходит
 (v3a, вход pr-kadry-podmenen, ветка B proverka_imen_kadrov
 produkt_sud.py) — ловцы привязаны к входам, где дефект наблюдаем.
+
+s94 гасит гейт производности модуля токенов — kompakt-tokens.ts,
+переписанный руками (71) при честном источнике, проходит (v3b
+Crit148k2b Б1, вход pr-tokeny-modul, ветка B
+proverka_modulja_tokenov); s95 гасит гейт провайдера — корень без
+<SafeAreaProvider проходит суд (v+1, слово 2026-11-11, вход
+pr-safe-bez-provaidera, ветка B proverka_provaidera produkt_sud.py);
+s96 гасит гейт чтения инсета — лейсте без safe-area инсета проходит
+(v+1, вход pr-safe-insety-ne-chitajutsja, ветка B proverka_insetov);
+стабы s82 (гасит исполняемый суд целиком) и s95/s96 закрывают и
+зондовые ассерты Б-3: s82 гасит исполнение резерва, s95/s96 —
+статические ветви; ловцы привязаны к входам, где дефект наблюдаем.
