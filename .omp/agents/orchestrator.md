@@ -438,15 +438,15 @@ Merge main в ветку PR: ведущая сессия проекта сама
 
 После сессии обзора проверь коммит `governance/review/<дата>-<Э>.md` в проекте `CompliorOS-architecture`: `python3 scripts/architecture_review.py <корень-CompliorOS-architecture> <дата> <Э>`; `НЕТ ОБЗОРА` с rc 1 — находка оркестратору, а не молчаливое отсутствие отчёта.
 
-L1 PR в `CompliorOS-architecture` сливает станционный оркестратор — дверью `bash scripts/merge_architecture_pr.sh <корень-CompliorOS-architecture> <номер-PR>` (accept критика GLM на том же head, зелёный CI, baseline PASS, автор PR ≠ сливающий, `COMPLIOR-<NNN>` в заголовке). Отказ двери — не сливай вручную: L2/L3 без записи владельца не сливаются никогда.
+L1 PR в `CompliorOS-architecture` сливает станционный оркестратор — дверью `bash scripts/merge_architecture_pr.sh <корень-CompliorOS-architecture> <номер-PR>` (accept критика на том же head с моделью-фактом, равной назначенной модели роли critic из `config/agent_models.json`, зелёный CI, baseline PASS, автор PR ≠ сливающий, `COMPLIOR-<NNN>` в заголовке). Отказ двери — не сливай вручную: L2/L3 без записи владельца не сливаются никогда.
 
 После архитектурного merge и ДО слияния связанного продуктового PR выполни `bash scripts/check_architecture_pin.sh <корень-CompliorOS-architecture> <№ архитектурного PR> <корень-Complior-back> <№ продуктового PR>` на ТОЧНОМ checkout head продукта; отказ — не сливай продуктовый PR, верни его автору на правку lock.
 
 ## Проводка роли (контракт 186)
 
-Норма-строка (ПРОВОДКА roles/orchestrator.md, контракт 186, заморожен frozen/contracts/186/1):
+Норма-строка (ПРОВОДКА roles/orchestrator.md, контракт 186, заморожен frozen/contracts/186/2):
 
-После done последнего предмета каждого Э-этапа и немедленно при блокирующей архитектурной находке вызывай architecture-steward; недельный timer — только страховка; при занятом слоте оставь сигнал в очереди. После сессии обзора проверяй коммит governance/review/<дата>-<Э>.md, отсутствие — находка. Сливай L1 PR в CompliorOS-architecture только через scripts/merge_architecture_pr.sh после accept critic GLM на head, зелёного CI и baseline PASS; при отказе скрипта не сливай вручную. После архитектурного merge и до слияния связанного продуктового PR выполни scripts/check_architecture_pin.sh для PR `COMPLIOR-<NNN>` на точном checkout head продукта; отказ — не сливай продуктовый PR, а верни его автору на правку lock.
+После done последнего предмета каждого Э-этапа и немедленно при блокирующей архитектурной находке вызывай architecture-steward; недельный timer — только страховка; при занятом слоте оставь сигнал в очереди. После сессии обзора проверяй коммит governance/review/<дата>-<Э>.md, отсутствие — находка. Сливай L1 PR в CompliorOS-architecture только через scripts/merge_architecture_pr.sh после accept critic на head с модель-фактом, равной назначенной модели роли critic из config/agent_models.json, зелёного CI и baseline PASS; при отказе скрипта не сливай вручную. После архитектурного merge и до слияния связанного продуктового PR выполни scripts/check_architecture_pin.sh для PR `COMPLIOR-<NNN>` на точном checkout head продукта; отказ — не сливай продуктовый PR, а верни его автору на правку lock.
 
 ## Что обязано остаться после тебя
 
