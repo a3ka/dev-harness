@@ -247,6 +247,8 @@ BRANCH=wip/187/implementer-hotfix-1113
 
 Scope суда: два production-файла, fixture187 и dependent bootstrap136. Проверить сохранение frozen187/1, включая операцию/границы/implementationPathHint/отказы, закрытие названных классов и зависимый регресс; неизменённые поверхности без названного риска не аудитить заново. Доказанное нарушение не скрывать.
 
+СУД: repo=dev-harness; предмет=186; фаза=реализация v2 (РИСКОВЫЙ: L1-дверь решает право слияния PR); роль=adversary; вызов=1/1; модель-план=по config/agent_models.json (adversary); сессия=ожидается; SHA=8b86533fda0d7d4864fe2521584153da2e993aba
+
 СУД: repo=dev-harness; предмет=197; фаза=контракт v+1 (до заморозки v2); роль=critic; вызов=1/2 (v+1: один полный + один исправительный; слово владельца 2026-11-16 «197 v+1 — да»); модель-план=по config/agent_models.json (critic); сессия=ожидается; SHA=d0b827bb9f270c8708254352545c3d2376e4ef8f
 
 СУД: repo=dev-harness; предмет=187; фаза=реализация; роль=reviewer; вызов=4/2; модель-план=anthropic/claude-opus-5-5; сессия=ожидается; SHA=c9a6096a10ada2bc8ca1f20a24b519736aadd320; предыдущий=verdicts/review/contracts-187-impl-v3.md; исключение=одноразовая санкция orchestrator по §Остановка, текущий текст.
