@@ -8,18 +8,33 @@
 # различающим входам — КОДОМ ниже, не прозой контракта):
 #   * дверь замка предметов (scripts/zamok_predmeta.sh + нормализация
 #     .omp/extensions/spawn-guard.ts): рабочий item ОБЯЗАН нести реальный
-#     флаг isolated:true (поле события спавна, НЕ слово в task) — в ЛЮБОЙ
-#     позиции пакета: отказ NE_IZOLIROVAN на item ≥1 до START и любых
-#     записей (в учёте не появляется ни одна строка пакета); START
+#     флаг isolated:true (поле события спавна, НЕ слово в task) — гейт
+#     НЕПОЗИЦИОНЕН: отказ NE_IZOLIROVAN на плохом рабочем в ЛЮБОЙ позиции
+#     пакета — ПОСЛЕДНИМ элементом (d9-d10), ПЕРВЫМ при изолированном
+#     последнем (d11), СЕРЕДИНОЙ при изолированных крайних (d12) — до
+#     START и любых записей (в учёте не появляется ни одна строка
+#     пакета); позиционные мутации гейта («только item 0», «только
+#     последний», «только крайние») различимы (стабы s13/s15); START
 #     записывает факт isolated; грамматика пина не ослабляется (клетки
-#     d1–d10, h1–h3; d9-d10 — пакетный вход с рабочим НЕ первым
-#     элементом, закрывают «гейт только item 0»);
+#     d1–d12, h1–h3; d13-d17 — пин модели-эталона на унаследованной
+#     семантике двери: CLI-предусловия rc2, источники полей факта START,
+#     замкнутость классов WORKERS/JUDGES, грамматика SUBJECT/OBJECT/
+#     имени/пакета, судейские ворота — замыкание класса «ложная
+#     достаточность» по вердикту Crit199V2);
 #   * привязка сдачи (scripts/privjazka_sdachi.sh): сверка source/ветка/
-#     роль/предмет/репозиторий/владелец копии с ПОСЛЕДНИМ фактом START ДО
-#     accept_task_commit; ротация держателя (≥2 строк START рабочего):
-#     сдача прежнего держателя отказывает KOPIJA_CHUZHAYA, корень приёма
-#     выводится из последнего факта замка (клетки p1–p9; p8-p9 — ротация,
-#     закрывают last→first);
+#     роль/предмет/репозиторий/владелец копии с ПОСЛЕДНИМ РАБОЧИМ фактом
+#     START ДО accept_task_commit; строка START судьи, лежащая в учёте
+#     ПОЗЖЕ рабочей (штатный порядок: судья приходит по предмету после
+#     рабочего), сверку не смещает (p11); START без поля isolated —
+#     наследие сегодняшней двери — даёт NE_IZOLIROVAN (p12); корень
+#     приёма выводится из последнего факта замка и НЕ выбирается
+#     вызывающим даже при СОВПАДАЮЩЕМ repoId: две копии одного origin —
+#     root из факта START, не из --repo (p10); ротация держателя (≥2
+#     строк START рабочего): сдача прежнего держателя отказывает
+#     KOPIJA_CHUZHAYA, корень — из последнего факта замка (клетки p1–
+#     p13; p8-p9 — ротация, закрывают last→first; p13 — предусловия и
+#     имена: rc2 до сверки, NE_REPO, KOPIJA_CHUZHAYA без owner.json,
+#     NOSITEL_NEDOSTUPEN);
 #   * канонические вставки roles/orchestrator.md §«Изолированный спавн»
 #     (маркеры 199-baza-*/199-nositel-*): синхробаза копии работника и
 #     синхронизация носителя после приёма исполняются и судятся (w1–w2,
@@ -28,6 +43,77 @@
 #     (f1–f3 — субъект всегда живой .omp/extensions/path-guard.ts, предмет
 #     199 его НЕ меняет), apply:false (g2), документы (t1–t2).
 #
+#
+# ── ТАБЛИЦА «операция → клетка → стаб» (замыкание класса «ложная
+#    достаточность» по вердикту Crit199V2: каждая операция обеих моделей-
+#    эталонов — фильтр, сравнение, источник данных, ветка отказа — имеет
+#    клетку, краснеющую при её замене/удалении; «=» — замена поведенчески
+#    неотличима на конформных мирах, основание указано; стаб — существующий
+#    стаб, воплощающий замену именно этой операции) ──────────────────────
+# ДВЕРЬ model/zamok_predmeta_199.sh:
+#  --sudit обязателен (rc2)                          → d13 → —
+#  --sostojanie/--zhurnaly/--repo обязательны (rc2)  → d13 → —
+#  [ -d SOST ] rc2            = избыточность: append в тот же LEDGER даёт тот же rc2
+#  [ -d ZHUR ] rc2            → d13 (worker-only спавн: мутант пишет START мимо предусловия) → —
+#  jq/git наличны             = среда: батарея требует те же инструменты (свой rc2 раньше)
+#  [ -f EVENT ] rc2           → d13 → —
+#  REPO=$(cd … pwd -P)        = форма пути: git -C/basename инвариантны к форме; провал cd ≡ провалу git-проверки (тот же rc2)
+#  git-проверка REPO (rc2)    → d13 → —
+#  LEDGER создать             = избыточность: append START создаёт тот же файл
+#  repoId: origin → strip .git → basename → fallback
+#                             → d14 (repoId факта == repo_id батареи, другая мера) → —
+#  ts_now/at                  = метка: ни дверь, ни привязка at не читают (порядок строк учёта позиционный)
+#  список WORKERS             → d15 (негативы всех четырёх классов iso:false) → —
+#  список JUDGES + PROPUST/AGENT_NET
+#                             → d15 (позитивы всех четырёх судей; не-гейт агент — PROPUST; agent отсутствует — AGENT_NET) → —
+#  чтения agent/name/task item → d1 d14 d15 d16 → —
+#  isolated: // false и ≠true→false (fail-closed) → d2 d3 → s03
+#  слово в task не перевешивает поле → d4 → s01
+#  алфавит имени IMJA_NET     → d16 → —
+#  SUBJECT ровно одна ^SUBJECT=[0-9]{3}$ → d16 → —
+#  извлечение sv (c9-11)      → d14 (subjectId факта) → —
+#  пара пина присутствует (PIN_NET) → d6 → s02
+#  пара пина единственна (GRAMMATIKA_PINA) → d7 → s02
+#  извлечение wt/br пина      → d14 (worktree/branch факта) → —
+#  NNN ветки == SUBJECT (RASHOZHDENIE_PINA) → d8 → —
+#  worktree пина существует и репо (rc2) → d16 → —
+#  ГЕЙТ NE_IZOLIROVAN КАЖДОГО item (непозиционен) → d2 d3 d4 d9 d10 d11 d12 → s03 s13 s15
+#  OBJECT ровно одна ^OBJECT=[0-9a-f]{40}$ → d16 → —
+#  извлечение obj             → d5 d17 → —
+#  присвоения obj/klass/rol рабочего → d14 → —
+#  DUBL_V_PAKETE              → d16 → —
+#  RABOCHEGO_NET              → d17 → —
+#  yield-литерал журнала (stare_holder) → d5 d17 → —
+#  VETKA_NEDOSTUPNA           → d17 → —
+#  OBJECT_RASHODITSJA         → d17 → —
+#  KLASS_RISKA_NET (класс из дерева OBJECT) → d5 d17 → —
+#  ADVERSARIJ_DO_REVJUERA     → d17 → —
+#  holder.json замка          → d14 → —
+#  строка START (все поля + isolated факт) → d1 d14 → —
+# ПРИВЯЗКА model/privjazka_sdachi.sh:
+#  обязательные аргументы (rc2) → p13 → —
+#  [ -r LEDGER ] (rc2)       → p13 → —
+#  REPO cd + git-проверка (rc2) → p13 → —
+#  выборка t == START        = иных t не пишет ни одна операция замка (дверь пишет только строки START); расширит грамматика учёта — фильтр получает клетку той же пачкой
+#  выборка subjectId == N    → p6 → —
+#  выборка klass == rabochij → p11 → s17
+#  выборка last              → p8 p9 → s14
+#  SDACHA_NET_START          → p6 → —
+#  чтения полей факта (rol/branch/isolated/worktree/holder/repoId) → p1 p2 p3 p4 p5 p7 p8 p12 → s06 s07
+#  ROL_RASHODITSJA           → p3 → s06
+#  VETKA_RASHODITSJA         → p2 → s06
+#  SUBEKT_VETKI (грамматика ветки) = глубокая защита: на конформных мирах s_br==BR уже влечёт грамматику (дверь пишет только согласованные ветки)
+#  NE_IZOLIROVAN факта START → p12 → s18
+#  REPO_RASHODITSJA (repoId) → p7 → s12
+#  NE_REPO (источник не репо) → p13 → —
+#  owner.json существует рядом → p13 → —
+#  owner.json парсится       = избыточность: битый .id → null ≠ holder → тот же KOPIJA_CHUZHAYA
+#  owner.json id == holder   → p4 p8 → s06
+#  TIP_RASHODITSJA           → p5 → s07
+#  NOSITEL_NEDOSTUPEN (worktree факта читается) → p13 → —
+#  git-common-dir носителя → корень приёма → p1 p9 p10 → s16
+#  strip /.git у корня       → p1 p9 p10 → s16
+#  вывод root=<корень>       → p1 p9 p10 → s16
 # РЕЖИМЫ:
 #   (без флага)  — субъекты дерева; до реализации красное (rc 1);
 #   --model      — субъекты model/ (эталоны целевой семантики); зелёное;
@@ -180,6 +266,8 @@ mk_priv_world() {  # <dir>
   mkrepo "$PW_MAIN"
   git -C "$PW_MAIN" remote add origin "$d/toyrepo.git"
   git -C "$PW_MAIN" worktree add -q -b wip/199/architect "$PW_CAR" >/dev/null 2>&1
+  # вторая копия ТОГО ЖЕ origin: repoId совпадает, носитель START-факта — PW_MAIN (p10)
+  PW_MAIN_B="$d/pmainB"; mkrepo "$PW_MAIN_B"; git -C "$PW_MAIN_B" remote add origin "$d/toyrepo.git"
   mkrepo "$PW_M";  printf '{"pid":1,"id":"ArchP199","startToken":"1"}' > "$d/kop/.omp-isolation-owner.json"
   mkrepo "$PW_M2"; printf '{"pid":1,"id":"Chuzhoj","startToken":"1"}'   > "$d/chp/.omp-isolation-owner.json"
   mkrepo "$PW_DRUG"; git -C "$PW_DRUG" remote add origin "$d/drugoe2.git"
@@ -188,6 +276,7 @@ mk_priv_world() {  # <dir>
     '{t:"START",repoId:$r,subjectId:$s,group:"-",holder:$h,klass:"rabochij",rol:$ro,object:$o,worktree:$w,branch:$b,at:"2026-11-16T00:00:00Z",isolated:$iso}' \
     >> "$PW_SOST/uchet.jsonl"
   PW_MAIN_ABS="$(cd "$PW_MAIN" && pwd -P)"
+  PW_MAIN_B_ABS="$(cd "$PW_MAIN_B" && pwd -P)"
   PW_TIP="$(git -C "$PW_M" rev-parse HEAD)"
 }
 
@@ -216,6 +305,31 @@ mk_rot_world() {  # <dir> — ротация держателя: ДВЕ стро
   ROT_TIP_NEW="$(git -C "$ROT_M_NEW" rev-parse HEAD)"
 }
 zov_priv() { bash "$(priv)" "$@"; }
+
+mk_sud_world() {  # <dir> <строка-КЛАСС РИСКА|-> <yield 1|0> [worktree] —
+  # мир судейских ворот: рабочий START ArchT (iso:true, yield по флагу),
+  # contracts/199-toy.md со строкой класса (или пустой), tip ветки = SW_OBJ
+  local d="$1" ris="$2" yld="$3" wt="${4:-}"
+  SW_MAIN="$d/main"; SW_CAR="$d/carrier"; SW_SOST="$d/sost"; SW_ZHUR="$d/zhur"
+  mkdir -p "$SW_SOST" "$SW_ZHUR"
+  mkrepo "$SW_MAIN"
+  git -C "$SW_MAIN" remote add origin "$d/toyrepo.git"
+  git -C "$SW_MAIN" worktree add -q -b wip/199/architect "$SW_CAR" >/dev/null 2>&1
+  mkdir -p "$SW_CAR/contracts"
+  if [ "$ris" = '-' ]; then : > "$SW_CAR/contracts/199-toy.md"; else printf '%s\n' "$ris" > "$SW_CAR/contracts/199-toy.md"; fi
+  commit_as "$SW_CAR" architect 'klass'
+  SW_OBJ="$(git -C "$SW_MAIN" rev-parse wip/199/architect)"
+  [ -n "$wt" ] || wt="$SW_CAR"
+  jq -nc --arg r toyrepo --arg s 199 --arg h ArchT --arg ro architect --arg o - \
+        --arg w "$wt" --arg b wip/199/architect --argjson iso true \
+    '{t:"START",repoId:$r,subjectId:$s,group:"-",holder:$h,klass:"rabochij",rol:$ro,object:$o,worktree:$w,branch:$b,at:"2026-11-16T00:00:00Z",isolated:$iso}' \
+    >> "$SW_SOST/uchet.jsonl"
+  if [ "$yld" = '1' ]; then printf '{"toolName":"yield"}\n' > "$SW_ZHUR/ArchT.jsonl"; else : > "$SW_ZHUR/ArchT.jsonl"; fi
+}
+sud_event() {  # <файл> <agent> <subject> <object 40hex>
+  jq -n --arg a "$2" --arg s "$3" --arg o "$4" --arg t "SUBJECT=$3
+OBJECT=$4" '{tasks:[{agent:$a,name:"SudjaT",task:$t}]}' > "$1"
+}
 
 mk_wip_world() {  # <dir> <advance 1|0>
   WW_MAIN="$1/wmain"; WW_CAR="$1/wcarrier"; WW_M="$1/m"
@@ -389,6 +503,212 @@ BRANCH=wip/198/architect" '{tasks:[
   [ ! -s "$DW_SOST/uchet.jsonl" ] || { printf 'd10: START записан вопреки отказу (в т.ч. изолированный item 0)\n' >&2; return 1; }
 }
 
+d11() {  # блок (а) вердикта Crit199V2: плохой рабочий ПЕРВЫМ, изолированный — последним
+  local w="$WBASE/d11"; mkdir -p "$w"; mk_dwer_world "$w"
+  local DW_CAR2="$w/car198"
+  git -C "$DW_MAIN" worktree add -q -b wip/198/architect "$DW_CAR2" >/dev/null 2>&1
+  jq -n --arg t1 "SUBJECT=199
+WORKTREE=$DW_CAR
+BRANCH=wip/199/architect" --arg t2 "SUBJECT=198
+WORKTREE=$DW_CAR2
+BRANCH=wip/198/architect" '{tasks:[
+  {agent:"architect",name:"ArchD11a",task:$t1,isolated:false},
+  {agent:"architect",name:"ArchD11b",task:$t2,isolated:true}]}' > "$w/ev.json"
+  local rc; bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev.json" >/dev/null 2>"$w/err"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd11: rc=%s (нужен 1: рабочий item 0 пакета без isolated)\n' "$rc" >&2; return 1; }
+  grep -q 'NE_IZOLIROVAN' "$w/err" || { printf 'd11: нет NE_IZOLIROVAN на item 0 пакета\n' >&2; return 1; }
+  [ ! -s "$DW_SOST/uchet.jsonl" ] || { printf 'd11: START записан вопреки отказу (в т.ч. изолированный последний item)\n' >&2; return 1; }
+}
+
+d12() {  # блок (а): плохой рабочий СЕРЕДИНОЙ, крайние изолированы (гейт «только крайние» мёртв)
+  local w="$WBASE/d12"; mkdir -p "$w"; mk_dwer_world "$w"
+  local DW_CAR2="$w/car198" DW_CAR3="$w/car197"
+  git -C "$DW_MAIN" worktree add -q -b wip/198/architect "$DW_CAR2" >/dev/null 2>&1
+  git -C "$DW_MAIN" worktree add -q -b wip/197/architect "$DW_CAR3" >/dev/null 2>&1
+  jq -n --arg t1 "SUBJECT=199
+WORKTREE=$DW_CAR
+BRANCH=wip/199/architect" --arg t2 "SUBJECT=198
+WORKTREE=$DW_CAR2
+BRANCH=wip/198/architect" --arg t3 "SUBJECT=197
+WORKTREE=$DW_CAR3
+BRANCH=wip/197/architect" '{tasks:[
+  {agent:"architect",name:"ArchD12a",task:$t1,isolated:true},
+  {agent:"architect",name:"ArchD12b",task:$t2,isolated:false},
+  {agent:"architect",name:"ArchD12c",task:$t3,isolated:true}]}' > "$w/ev.json"
+  local rc; bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev.json" >/dev/null 2>"$w/err"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd12: rc=%s (нужен 1: рабочий item 1 середины пакета без isolated)\n' "$rc" >&2; return 1; }
+  grep -q 'NE_IZOLIROVAN' "$w/err" || { printf 'd12: нет NE_IZOLIROVAN на item 1 пакета\n' >&2; return 1; }
+  [ ! -s "$DW_SOST/uchet.jsonl" ] || { printf 'd12: START записан вопреки отказу (в т.ч. изолированные крайние items)\n' >&2; return 1; }
+}
+
+d13() {  # CLI-предусловия двери: rc2 до любых записей (мутант пропуска пишет START)
+  local w="$WBASE/d13"; mkdir -p "$w"; mk_dwer_world "$w"
+  jq -n --arg t "SUBJECT=199
+WORKTREE=$DW_CAR
+BRANCH=wip/199/architect" '{tasks:[{agent:"architect",name:"ArchD13",task:$t,isolated:true}]}' > "$w/ev.json"
+  mkdir -p "$w/notrepo"
+  local rc
+  bash "$(dver)" --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev.json" >/dev/null 2>&1; rc=$?
+  [ "$rc" -eq 2 ] || { printf 'd13: без --sudit rc=%s (нужен 2)\n' "$rc" >&2; return 1; }
+  bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" "$w/ev.json" >/dev/null 2>&1; rc=$?
+  [ "$rc" -eq 2 ] || { printf 'd13: без --repo rc=%s (нужен 2)\n' "$rc" >&2; return 1; }
+  bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$w/notrepo" "$w/ev.json" >/dev/null 2>&1; rc=$?
+  [ "$rc" -eq 2 ] || { printf 'd13: --repo не-репозиторий rc=%s (нужен 2)\n' "$rc" >&2; return 1; }
+  bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$w/net_zhur" --repo "$DW_MAIN" "$w/ev.json" >/dev/null 2>&1; rc=$?
+  [ "$rc" -eq 2 ] || { printf 'd13: --zhurnaly отсутствует rc=%s (нужен 2: worker-only спавн мутантом пишется)\n' "$rc" >&2; return 1; }
+  [ ! -s "$DW_SOST/uchet.jsonl" ] || { printf 'd13: START записан при нарушенном предусловии\n' >&2; return 1; }
+  bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/netu.json" >/dev/null 2>&1; rc=$?
+  [ "$rc" -eq 2 ] || { printf 'd13: файла события нет rc=%s (нужен 2)\n' "$rc" >&2; return 1; }
+}
+
+d14() {  # факт START: источники полей (repoId/holder/subject/pin/isolated) + holder.json замка
+  local w="$WBASE/d14"; mkdir -p "$w"; mk_dwer_world "$w"
+  jq -n --arg t "SUBJECT=199
+WORKTREE=$DW_CAR
+BRANCH=wip/199/architect" '{tasks:[{agent:"architect",name:"ArchD14",task:$t,isolated:true}]}' > "$w/ev.json"
+  local out rc rid
+  out="$(bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev.json" 2>"$w/err")"; rc=$?
+  [ "$rc" -eq 0 ] || { printf 'd14: rc=%s %s\n' "$rc" "$(tail -1 "$w/err")" >&2; return 1; }
+  grep -q 'PUSCHEM' <<<"$out" || { printf 'd14: нет PUSCHEM\n' >&2; return 1; }
+  rid="$(repo_id "$DW_MAIN")"
+  jq -e --arg rid "$rid" --arg w "$DW_CAR" '
+    .t == "START" and .repoId == $rid and .subjectId == "199" and .holder == "ArchD14"
+    and .klass == "rabochij" and .rol == "architect" and .object == "-"
+    and .worktree == $w and .branch == "wip/199/architect" and .isolated == true' \
+    "$DW_SOST/uchet.jsonl" >/dev/null 2>&1 \
+    || { printf 'd14: факт START несёт неверные поля: %s\n' "$(cat "$DW_SOST/uchet.jsonl")" >&2; return 1; }
+  jq -e --arg h ArchD14 '.holder == $h' "$DW_SOST/zamki/$rid/199/zanyat/holder.json" >/dev/null 2>&1 \
+    || { printf 'd14: holder.json замка не записан/чужой holder\n' >&2; return 1; }
+}
+
+d15() {  # замкнутость классов: ВСЕ WORKERS под гейтом, ВСЕ JUDIES свободны, прочие — PROPUST
+  local w="$WBASE/d15"; mkdir -p "$w"; mk_dwer_world "$w"
+  local r rc j out
+  for r in architect implementer implementer-glm implementer-vision; do
+    jq -n --arg a "$r" --arg t "SUBJECT=199
+WORKTREE=$DW_CAR
+BRANCH=wip/199/architect" '{tasks:[{agent:$a,name:"W199",task:$t,isolated:false}]}' > "$w/evw.json"
+    bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/evw.json" >/dev/null 2>"$w/err"; rc=$?
+    [ "$rc" -eq 1 ] || { printf 'd15: %s iso:false rc=%s (нужен 1: гейт накрывает ВСЕ классы рабочих)\n' "$r" "$rc" >&2; return 1; }
+    grep -q 'NE_IZOLIROVAN' "$w/err" || { printf 'd15: %s нет NE_IZOLIROVAN\n' "$r" >&2; return 1; }
+    [ ! -s "$DW_SOST/uchet.jsonl" ] || { printf 'd15: %s START записан вопреки отказу\n' "$r" >&2; return 1; }
+  done
+  mk_sud_world "$w/sud" 'КЛАСС РИСКА: обычный' 1
+  for j in critic critic-sol adversary reviewer; do
+    sud_event "$w/evj.json" "$j" 199 "$SW_OBJ"
+    bash "$(dver)" --sudit --sostojanie "$SW_SOST" --zhurnaly "$SW_ZHUR" --repo "$SW_MAIN" "$w/evj.json" >/dev/null 2>"$w/err"; rc=$?
+    [ "$rc" -eq 0 ] || { printf 'd15: судья %s rc=%s (нужен 0: требование только для рабочих): %s\n' "$j" "$rc" "$(tail -1 "$w/err")" >&2; return 1; }
+  done
+  jq -e -s '([.[] | select(.klass == "sudja") | .rol] | sort) == ["adversary","critic","critic-sol","reviewer"]' \
+    "$SW_SOST/uchet.jsonl" >/dev/null 2>&1 \
+    || { printf 'd15: факты START судей неверны (роли/число)\n' >&2; return 1; }
+  jq -n '{tasks:[{agent:"orchestrator",name:"O199",task:"SUBJECT=199",isolated:false}]}' > "$w/evo.json"
+  out="$(bash "$(dver)" --sudit --sostojanie "$SW_SOST" --zhurnaly "$SW_ZHUR" --repo "$SW_MAIN" "$w/evo.json" 2>"$w/err")"; rc=$?
+  [ "$rc" -eq 0 ] || { printf 'd15: не-гейт агент rc=%s (нужен 0)\n' "$rc" >&2; return 1; }
+  grep -q 'PROPUST' <<<"$out" || { printf 'd15: нет PROPUST для не-гейт агента\n' >&2; return 1; }
+  [ "$(grep -c . "$SW_SOST/uchet.jsonl")" -eq 5 ] || { printf 'd15: не-гейт агент что-то записал в учёт\n' >&2; return 1; }
+  jq -n '{tasks:[{name:"N199",task:"SUBJECT=199"}]}' > "$w/evn.json"
+  bash "$(dver)" --sudit --sostojanie "$SW_SOST" --zhurnaly "$SW_ZHUR" --repo "$SW_MAIN" "$w/evn.json" >/dev/null 2>"$w/err"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd15: agent отсутствует rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
+  grep -q 'AGENT_NET' "$w/err" || { printf 'd15: нет AGENT_NET\n' >&2; return 1; }
+}
+
+d16() {  # грамматика входа двери: именованные отказы/ rc2 на плохих item-входах
+  local w="$WBASE/d16"; mkdir -p "$w"; mk_dwer_world "$w"
+  local rc NUL; NUL=0000000000000000000000000000000000000000
+  jq -n --arg t "WORKTREE=$DW_CAR
+BRANCH=wip/199/architect" '{tasks:[{agent:"architect",name:"G1",task:$t,isolated:true}]}' > "$w/ev1.json"
+  bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev1.json" >/dev/null 2>"$w/e1"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd16: без SUBJECT rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
+  grep -q 'SUBJECT_NET_V_ZADANII' "$w/e1" || { printf 'd16: нет SUBJECT_NET_V_ZADANII\n' >&2; return 1; }
+  jq -n --arg t "SUBJECT=199
+SUBJECT=199
+WORKTREE=$DW_CAR
+BRANCH=wip/199/architect" '{tasks:[{agent:"architect",name:"G2",task:$t,isolated:true}]}' > "$w/ev2.json"
+  bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev2.json" >/dev/null 2>"$w/e2"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd16: два SUBJECT rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
+  grep -q 'SUBEKT_DVA_V_ZADANII' "$w/e2" || { printf 'd16: нет SUBEKT_DVA_V_ZADANII\n' >&2; return 1; }
+  jq -n --arg t "SUBJECT=199
+WORKTREE=$DW_CAR
+BRANCH=wip/199/architect" '{tasks:[{agent:"architect",name:"Плохое Имя",task:$t,isolated:true}]}' > "$w/ev3.json"
+  bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev3.json" >/dev/null 2>"$w/e3"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd16: имя вне алфавита rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
+  grep -q 'IMJA_NET' "$w/e3" || { printf 'd16: нет IMJA_NET\n' >&2; return 1; }
+  printf 'not json' > "$w/ev4.json"
+  bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev4.json" >/dev/null 2>"$w/e4"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd16: битый JSON rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
+  grep -q 'BITYJ_VHOD' "$w/e4" || { printf 'd16: нет BITYJ_VHOD\n' >&2; return 1; }
+  jq -n '{tasks:[]}' > "$w/ev5.json"
+  bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev5.json" >/dev/null 2>"$w/e5"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd16: пустой tasks rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
+  grep -q 'BITYJ_VHOD' "$w/e5" || { printf 'd16: нет BITYJ_VHOD (items пуст)\n' >&2; return 1; }
+  jq -n --arg t1 "SUBJECT=199
+WORKTREE=$DW_CAR
+BRANCH=wip/199/architect" --arg t2 "SUBJECT=199
+WORKTREE=$DW_CAR
+BRANCH=wip/199/architect" '{tasks:[
+  {agent:"architect",name:"DUBLa",task:$t1,isolated:true},
+  {agent:"architect",name:"DUBLb",task:$t2,isolated:true}]}' > "$w/ev6.json"
+  bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev6.json" >/dev/null 2>"$w/e6"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd16: дубль предмета в пакете rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
+  grep -q 'DUBL_V_PAKETE' "$w/e6" || { printf 'd16: нет DUBL_V_PAKETE\n' >&2; return 1; }
+  jq -n --arg t "SUBJECT=199
+WORKTREE=/netu-d16
+BRANCH=wip/199/architect" '{tasks:[{agent:"architect",name:"G9",task:$t,isolated:true}]}' > "$w/ev7.json"
+  bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev7.json" >/dev/null 2>"$w/e7"; rc=$?
+  [ "$rc" -eq 2 ] || { printf 'd16: пин на несуществующий worktree rc=%s (нужен 2)\n' "$rc" >&2; return 1; }
+  grep -q 'NOT_IMPLEMENTED' "$w/e7" || { printf 'd16: нет NOT_IMPLEMENTED о worktree пина\n' >&2; return 1; }
+  mk_sud_world "$w/sud" 'КЛАСС РИСКА: обычный' 1
+  jq -n --arg t "SUBJECT=199" '{tasks:[{agent:"critic",name:"G4",task:$t}]}' > "$w/ev8.json"
+  bash "$(dver)" --sudit --sostojanie "$SW_SOST" --zhurnaly "$SW_ZHUR" --repo "$SW_MAIN" "$w/ev8.json" >/dev/null 2>"$w/e8"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd16: судья без OBJECT rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
+  grep -q 'OBJECT_OTSTUTSVUET' "$w/e8" || { printf 'd16: нет OBJECT_OTSTUTSVUET\n' >&2; return 1; }
+  jq -n --arg t "SUBJECT=199
+OBJECT=$SW_OBJ
+OBJECT=$NUL" '{tasks:[{agent:"critic",name:"G5",task:$t}]}' > "$w/ev9.json"
+  bash "$(dver)" --sudit --sostojanie "$SW_SOST" --zhurnaly "$SW_ZHUR" --repo "$SW_MAIN" "$w/ev9.json" >/dev/null 2>"$w/e9"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd16: два OBJECT rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
+  grep -q 'SUBEKT_DVA_OBJECTA' "$w/e9" || { printf 'd16: нет SUBEKT_DVA_OBJECTA\n' >&2; return 1; }
+}
+
+d17() {  # судейские ворота двери: именованные отказы до START и записей
+  local w="$WBASE/d17"; mkdir -p "$w"
+  local rc NUL; NUL=0000000000000000000000000000000000000000
+  mk_sud_world "$w/a" 'КЛАСС РИСКА: обычный' 1
+  sud_event "$w/a/ev.json" critic 205 "$SW_OBJ"
+  bash "$(dver)" --sudit --sostojanie "$SW_SOST" --zhurnaly "$SW_ZHUR" --repo "$SW_MAIN" "$w/a/ev.json" >/dev/null 2>"$w/e1"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd17: судья предмета без рабочего rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
+  grep -q 'RABOCHEGO_NET' "$w/e1" || { printf 'd17: нет RABOCHEGO_NET\n' >&2; return 1; }
+  mk_sud_world "$w/b" 'КЛАСС РИСКА: обычный' 0
+  sud_event "$w/b/ev.json" critic 199 "$SW_OBJ"
+  bash "$(dver)" --sudit --sostojanie "$SW_SOST" --zhurnaly "$SW_ZHUR" --repo "$SW_MAIN" "$w/b/ev.json" >/dev/null 2>"$w/e2"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd17: судья при несдавшем авторе rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
+  grep -q 'AVTOR_ESHCHO_RABOTAET' "$w/e2" || { printf 'd17: нет AVTOR_ESHCHO_RABOTAET\n' >&2; return 1; }
+  mk_sud_world "$w/c" 'КЛАСС РИСКА: обычный' 1 /netu-d17
+  sud_event "$w/c/ev.json" critic 199 "$SW_OBJ"
+  bash "$(dver)" --sudit --sostojanie "$SW_SOST" --zhurnaly "$SW_ZHUR" --repo "$SW_MAIN" "$w/c/ev.json" >/dev/null 2>"$w/e3"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd17: носитель рабочего нечитаем rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
+  grep -q 'VETKA_NEDOSTUPNA' "$w/e3" || { printf 'd17: нет VETKA_NEDOSTUPNA\n' >&2; return 1; }
+  mk_sud_world "$w/d" 'КЛАСС РИСКА: обычный' 1
+  sud_event "$w/d/ev.json" critic 199 "$NUL"
+  bash "$(dver)" --sudit --sostojanie "$SW_SOST" --zhurnaly "$SW_ZHUR" --repo "$SW_MAIN" "$w/d/ev.json" >/dev/null 2>"$w/e4"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd17: OBJECT ≠ tip rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
+  grep -q 'OBJECT_RASHODITSJA' "$w/e4" || { printf 'd17: нет OBJECT_RASHODITSJA\n' >&2; return 1; }
+  mk_sud_world "$w/e" '-' 1
+  sud_event "$w/e/ev.json" critic 199 "$SW_OBJ"
+  bash "$(dver)" --sudit --sostojanie "$SW_SOST" --zhurnaly "$SW_ZHUR" --repo "$SW_MAIN" "$w/e/ev.json" >/dev/null 2>"$w/e5"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd17: без строки класса риска rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
+  grep -q 'KLASS_RISKA_NET' "$w/e5" || { printf 'd17: нет KLASS_RISKA_NET\n' >&2; return 1; }
+  mk_sud_world "$w/f" 'КЛАСС РИСКА: рисковый' 1
+  sud_event "$w/f/ev.json" reviewer 199 "$SW_OBJ"
+  bash "$(dver)" --sudit --sostojanie "$SW_SOST" --zhurnaly "$SW_ZHUR" --repo "$SW_MAIN" "$w/f/ev.json" >/dev/null 2>"$w/e7"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd17: reviewer на рисковом rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
+  grep -q 'ADVERSARIJ_DO_REVJUERA' "$w/e7" || { printf 'd17: нет ADVERSARIJ_DO_REVJUERA\n' >&2; return 1; }
+  sud_event "$w/f/ev2.json" critic 199 "$SW_OBJ"
+  bash "$(dver)" --sudit --sostojanie "$SW_SOST" --zhurnaly "$SW_ZHUR" --repo "$SW_MAIN" "$w/f/ev2.json" >/dev/null 2>"$w/e6"; rc=$?
+  [ "$rc" -eq 0 ] || { printf 'd17: critic на рисковом rc=%s (нужен 0: порядок запрещает только ревьюера): %s\n' "$rc" "$(tail -1 "$w/e6")" >&2; return 1; }
+}
+
 h_kletka() {  # <id> <item-json> <want-isolated>
   local w="$WBASE/$1"
   mkdir -p "$w"
@@ -475,6 +795,69 @@ p9() {
         --branch wip/199/architect --author architect --tip "$ROT_TIP_NEW" 2>"$w/err")"; rc=$?
   [ "$rc" -eq 0 ] || { printf 'p9: rc=%s — сдача нового держателя не принята: %s\n' "$rc" "$(tail -1 "$w/err")" >&2; return 1; }
   [ "$out" = "root=$ROT_MAIN_NEW_ABS" ] || { printf 'p9: корень приёма %s ≠ root из последнего факта замка %s\n' "$out" "$ROT_MAIN_NEW_ABS" >&2; return 1; }
+}
+
+p10() {  # блок (б) вердикта Crit199V2: --repo = ДРУГАЯ копия того же origin (repoId равен) —
+  # корень приёма обязан выводиться из ФАКТА START, а не из --repo
+  local w="$WBASE/p10"; mkdir -p "$w"; mk_priv_world "$w"
+  local out rc
+  out="$(zov_priv --sostojanie "$PW_SOST" --repo "$PW_MAIN_B" --subject 199 --source "$PW_M" \
+        --branch wip/199/architect --author architect --tip "$PW_TIP" 2>"$w/err")"; rc=$?
+  [ "$rc" -eq 0 ] || { printf 'p10: rc=%s %s\n' "$rc" "$(tail -1 "$w/err")" >&2; return 1; }
+  [ "$out" = "root=$PW_MAIN_ABS" ] || { printf 'p10: корень %s ≠ root из факта START %s (--repo = другая копия того же origin)\n' "$out" "root=$PW_MAIN_ABS" >&2; return 1; }
+}
+
+p11() {  # блок (в): строка START судьи НОВЕЕ рабочего — сверка идёт с последним РАБОЧИМ
+  local w="$WBASE/p11"; mkdir -p "$w"; mk_priv_world "$w"
+  local O out rc; O="$(git -C "$PW_MAIN" rev-parse main)"
+  jq -nc --arg r toyrepo --arg s 199 --arg h CritP11 --arg ro critic --arg o "$O" \
+    '{t:"START",repoId:$r,subjectId:$s,group:"-",holder:$h,klass:"sudja",rol:$ro,object:$o,worktree:"-",branch:"-",at:"2026-11-16T05:00:00Z",isolated:false}' \
+    >> "$PW_SOST/uchet.jsonl"
+  out="$(zov_priv --sostojanie "$PW_SOST" --repo "$PW_MAIN" --subject 199 --source "$PW_M" \
+        --branch wip/199/architect --author architect --tip "$PW_TIP" 2>"$w/err")"; rc=$?
+  [ "$rc" -eq 0 ] || { printf 'p11: rc=%s — честная сдача рабочего заблокирована после визита судьи: %s\n' "$rc" "$(tail -1 "$w/err")" >&2; return 1; }
+  [ "$out" = "root=$PW_MAIN_ABS" ] || { printf 'p11: корень %s ≠ %s\n' "$out" "root=$PW_MAIN_ABS" >&2; return 1; }
+}
+
+p12() {  # блок (г): START рабочего БЕЗ поля isolated (наследие сегодняшней двери) — приём не связан
+  local w="$WBASE/p12"; mkdir -p "$w"; mk_priv_world "$w"
+  jq -c 'del(.isolated)' "$PW_SOST/uchet.jsonl" > "$w/u2" && mv "$w/u2" "$PW_SOST/uchet.jsonl"
+  local rc; zov_priv --sostojanie "$PW_SOST" --repo "$PW_MAIN" --subject 199 --source "$PW_M" \
+    --branch wip/199/architect --author architect --tip "$PW_TIP" >/dev/null 2>"$w/err"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'p12: rc=%s (нужен 1: START без isolated — приём из копии не связан)\n' "$rc" >&2; return 1; }
+  grep -q 'NE_IZOLIROVAN' "$w/err" || { printf 'p12: нет NE_IZOLIROVAN\n' >&2; return 1; }
+}
+
+p13() {  # предусловия/имена привязки: rc2 до сверки; NE_REPO; KOPIJA без owner.json; NOSITEL_NEDOSTUPEN
+  local w="$WBASE/p13"; mkdir -p "$w"; mk_priv_world "$w"
+  mkdir -p "$w/notrepo" "$w/plain" "$w/kopbez"
+  mkrepo "$w/kopbez/m"
+  local rc
+  zov_priv --sostojanie "$PW_SOST" --repo "$PW_MAIN" --source "$PW_M" \
+    --branch wip/199/architect --author architect >/dev/null 2>"$w/e1"; rc=$?
+  [ "$rc" -eq 2 ] || { printf 'p13: без --subject rc=%s (нужен 2)\n' "$rc" >&2; return 1; }
+  zov_priv --sostojanie "$PW_SOST" --repo "$PW_MAIN" --subject 199 --source "$PW_M" \
+    --branch wip/199/architect >/dev/null 2>"$w/e2"; rc=$?
+  [ "$rc" -eq 2 ] || { printf 'p13: без --author rc=%s (нужен 2)\n' "$rc" >&2; return 1; }
+  zov_priv --sostojanie "$w/netsost" --repo "$PW_MAIN" --subject 199 --source "$PW_M" \
+    --branch wip/199/architect --author architect >/dev/null 2>"$w/e3"; rc=$?
+  [ "$rc" -eq 2 ] || { printf 'p13: состояния нет rc=%s (нужен 2)\n' "$rc" >&2; return 1; }
+  zov_priv --sostojanie "$PW_SOST" --repo "$w/notrepo" --subject 199 --source "$PW_M" \
+    --branch wip/199/architect --author architect >/dev/null 2>"$w/e4"; rc=$?
+  [ "$rc" -eq 2 ] || { printf 'p13: --repo не-репозиторий rc=%s (нужен 2)\n' "$rc" >&2; return 1; }
+  zov_priv --sostojanie "$PW_SOST" --repo "$PW_MAIN" --subject 199 --source "$w/plain" \
+    --branch wip/199/architect --author architect >/dev/null 2>"$w/e5"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'p13: источник не-репозиторий rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
+  grep -q 'NE_REPO' "$w/e5" || { printf 'p13: нет NE_REPO\n' >&2; return 1; }
+  zov_priv --sostojanie "$PW_SOST" --repo "$PW_MAIN" --subject 199 --source "$w/kopbez/m" \
+    --branch wip/199/architect --author architect >/dev/null 2>"$w/e6"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'p13: копия без owner.json rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
+  grep -q 'KOPIJA_CHUZHAYA' "$w/e6" || { printf 'p13: нет KOPIJA_CHUZHAYA (нет .omp-isolation-owner.json рядом)\n' >&2; return 1; }
+  jq -c '.worktree="/netu-p13"' "$PW_SOST/uchet.jsonl" > "$w/u2" && mv "$w/u2" "$PW_SOST/uchet.jsonl"
+  zov_priv --sostojanie "$PW_SOST" --repo "$PW_MAIN" --subject 199 --source "$PW_M" \
+    --branch wip/199/architect --author architect --tip "$PW_TIP" >/dev/null 2>"$w/e7"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'p13: носитель факта недоступен rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
+  grep -q 'NOSITEL_NEDOSTUPEN' "$w/e7" || { printf 'p13: нет NOSITEL_NEDOSTUPEN\n' >&2; return 1; }
 }
 
 w1() {
@@ -584,7 +967,7 @@ t2() {
 }
 
 # ── учёт клеток ──────────────────────────────────────────────────────────────
-ALL_KLETKI='d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 h1 h2 h3 p1 p2 p3 p4 p5 p6 p7 p8 p9 w1 w2 c1 c2 g1 g2 f1 f2 f3 t1 t2'
+ALL_KLETKI='d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 d11 d12 d13 d14 d15 d16 d17 h1 h2 h3 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 p12 p13 w1 w2 c1 c2 g1 g2 f1 f2 f3 t1 t2'
 CELL_TOTAL=0; CELL_RED=0; CELL_MISS=0
 kletka() {  # <id> — ОДИН прогон клетки; диагностика — в файл мира
   local id="$1" dg
@@ -608,7 +991,7 @@ run_cells() {  # <ids…>
 }
 
 # ── стабы: привязка к различающим входам — КОДОМ (Н-39) ─────────────────────
-STABI=(s01 s02 s03 s04 s05 s06 s07 s08 s09 s10 s11 s12 s13 s14)
+STABI=(s01 s02 s03 s04 s05 s06 s07 s08 s09 s10 s11 s12 s13 s14 s15 s16 s17 s18)
 stab_fajl() {
   case "$1" in
     s01) printf 'stabs/s01_dver_slovo.sh' ;;
@@ -625,13 +1008,17 @@ stab_fajl() {
     s12) printf 'stabs/s12_priv_bez_repo.sh' ;;
     s13) printf 'stabs/s13_dver_paket_nol.sh' ;;
     s14) printf 'stabs/s14_priv_pervyj.sh' ;;
+    s15) printf 'stabs/s15_dver_paket_poslednij.sh' ;;
+    s16) printf 'stabs/s16_priv_repo_root.sh' ;;
+    s17) printf 'stabs/s17_priv_bez_klass.sh' ;;
+    s18) printf 'stabs/s18_priv_bez_iso.sh' ;;
   esac
 }
 stub_sreda() {  # <sNN> — переменная-шов субъекта
   case "$1" in
-    s01|s02|s03|s13) printf 'S199_DOOR' ;;
+    s01|s02|s03|s13|s15) printf 'S199_DOOR' ;;
     s04|s05)     printf 'S199_GUARD' ;;
-    s06|s07|s12|s14) printf 'S199_PRIV' ;;
+    s06|s07|s12|s14|s16|s17|s18) printf 'S199_PRIV' ;;
     s08|s09|s10|s11) printf 'S199_VSTAVKA' ;;
   esac
 }
@@ -651,6 +1038,10 @@ stab_kletki() {
     s12) printf 'p7' ;;
     s13) printf 'd9 d10' ;;
     s14) printf 'p8 p9' ;;
+    s15) printf 'd11 d12' ;;
+    s16) printf 'p10' ;;
+    s17) printf 'p11' ;;
+    s18) printf 'p12' ;;
   esac
 }
 
