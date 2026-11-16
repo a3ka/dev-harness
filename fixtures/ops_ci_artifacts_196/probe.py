@@ -72,6 +72,12 @@ STUBS = {
     's27_dropin_bez_daemon_reload.sh': ('install', 'install-runner-dropin'),
     's28_dropin_bez_junita.sh': ('install', 'runner-dropin-absent'),
     's29_verify_bez_sverki_dropina.sh': ('install', 'verify-runner-dropin'),
+    # арбитраж 196-1 (Решение 2): стабы пяти блоков v3 — mk10/mk8/mk6/mk7/mk5
+    's30_bez_istochnika_dropina.sh': ('install', 'install-precondition'),
+    's31_bez_sverki_bazy.sh': ('install', 'install-roots-preinstalled'),
+    's32_bez_vladelca_kornja_moba.sh': ('install', 'verify-roots'),
+    's33_verify_dropin_pervogo_junita.sh': ('install', 'verify-runner-dropin'),
+    's34_bez_rezhima_kornej.sh': ('install', 'install-roots-preinstalled'),
 }
 
 MOB = 'Complior-mob'
@@ -116,17 +122,20 @@ class World:
         return self.dir.joinpath(*parts)
 
     def write_shims(self, users=(), groups=(), euid=0, systemctl='ok',
-                    stat_owners=(), dropin_probe=None):
+                    stat_owners=(), dropin_probes=()):
         # stat_owners — конфигурация владельцев корней для stat-шима
         # (вердикт v2, совет а): строки «<путь> TAB <владелец:группа>»;
         # формат %U:%G читается из неё, %a — реальный stat (режим не врёт);
-        # dropin_probe — путь drop-in'а моб-раннера: маркер daemon-reload
-        # записывает, существовал ли файл на момент reload (И-9е: reload
-        # ПОСЛЕ установки drop-in)
+        # dropin_probes — drop-in'ы моб-раннера: маркер daemon-reload пишет
+        # по КАЖДОМУ, существовал ли файл на момент reload (И-9е: reload
+        # ПОСЛЕ установки drop-in; в конфигурации 11 наблюдаемы оба)
         bin_dir = self.path('bin')
         bin_dir.mkdir(exist_ok=True)
-        self.journals['chown'] = self.path('chown.journal')
-        self.journals['systemctl'] = self.path('systemctl.journal')
+        # журналы швов создаются ДО прогона: любые chown/chmod субъекта
+        # наблюдаемы журналом с пустого состояния (РЕШЕНИЕ 3.2 арбитра)
+        for jname in ('chown', 'chmod', 'systemctl'):
+            self.journals[jname] = self.path(f'{jname}.journal')
+            self.journals[jname].write_text('')
         users_cfg = self.path('known-users')
         groups_cfg = self.path('known-groups')
         users_cfg.write_text('\n'.join(users) + '\n')
@@ -155,15 +164,24 @@ class World:
                 '#!/bin/bash\n'
                 f'printf \'%s\\n\' "chown $*" >>"{self.journals["chown"]}"\nexit 0\n'
             ),
+            # chmod-шим (арбитраж 196-1, РЕШЕНИЕ 3.2): ЖУРНАЛ + настоящий
+            # exec — реальный chmod при создании и дрейфе остаётся
+            # исполняемым (не no-op), а ЛЮБОЙ chmod по корням наблюдаем
+            # журналом: одного неизменного конечного режима недостаточно
+            'chmod': (
+                '#!/bin/bash\n'
+                f'printf \'%s\\n\' "chmod $*" >>"{self.journals["chmod"]}"\n'
+                'exec /usr/bin/chmod "$@"\n'
+            ),
             'systemctl': (
                 '#!/bin/bash\n'
                 f'printf \'%s\\n\' "systemctl $*" >>"{self.journals["systemctl"]}"\n'
-                + ((
+                + ''.join(
                     'if [ "$1" = "daemon-reload" ]; then\n'
-                    f'  if [ -f "{dropin_probe}" ]; then m=yes; else m=no; fi\n'
-                    f'  printf \'daemon-reload-dropin=%s\\n\' "$m" >>"{self.journals["systemctl"]}"\n'
+                    f'  if [ -f "{p}" ]; then m=yes; else m=no; fi\n'
+                    f'  printf \'daemon-reload-dropin={p}:%s\\n\' "$m" >>"{self.journals["systemctl"]}"\n'
                     'fi\n'
-                ) if dropin_probe else '')
+                    for p in dropin_probes)
                 + ctl_tail
             ),
             'getent': (
@@ -313,6 +331,47 @@ def install_missing(rc, err):
     if 'NOT_IMPLEMENTED: использование' in err:
         return f'субъект отсутствует: install.sh artifacts (rc={rc})'
     return f'rc={rc}, stderr: {err.strip()[:300]}'
+
+
+def src_ops_missing(subj, w, rel):
+    """Одноразовая копия OPS_SERVER_SRC без одного источника (РЕШЕНИЕ 3.2
+    арбитра): предъявленный репозиторий не mutilруется — для repo-субъекта
+    ops/server копируется целиком в мир, у модели/стаба файл удаляется в
+    уже одноразовой копии мира."""
+    src = subj.src_ops(w)
+    if subj.kind == 'repo':
+        dst = w.path('ops-server-copy')
+        shutil.copytree(src, dst, symlinks=True)
+        (dst / rel).unlink()
+        return dst
+    (src / rel).unlink()
+    return src
+
+
+def subject_writes(w, runner_units=()):
+    """Записи субъекта в целевых деревьях после отказа «до записей»
+    (РЕШЕНИЕ 3.2): корень артефактов ЦЕЛИКОМ (база, корни, пустые
+    каталоги), sbin-адресат, новые записи ETC_DST (юниты, .d-каталоги)
+    сверх сотворённых миром юнитов-раннеров, любые chown/chmod.
+    Подготовка мира и журналы швов записями субъекта не считаются."""
+    wrote = []
+    ciart = w.path('var/lib/ci-artifacts')
+    if ciart.exists():
+        wrote.append(f'создан корень артефактов: {ciart}')
+    sbin = w.path('sbin')
+    if sbin.exists():
+        wrote.append(f'создан sbin: {sbin}')
+    etc = w.path('etc/systemd/system')
+    if etc.exists():
+        allowed = {f'{u}.service' for u in runner_units}
+        for child in sorted(p.name for p in etc.iterdir()):
+            if child not in allowed:
+                wrote.append(f'создан etc-адресат: {etc / child}')
+    for jname in ('chown', 'chmod'):
+        wrote.extend(w.journal(jname))
+    return wrote
+
+
 
 # ── клетки чистильщика ────────────────────────────────────────────────────────
 def clean_env(world, root, repos=f'{MOB} {BACK}', retention='7'):
@@ -603,15 +662,18 @@ def cell_no_home_service_env(subj):
 # ── клетки установки ─────────────────────────────────────────────────────────
 def install_env(w, src_ops, users=('toymob', 'toyback'), groups=('toygroup',),
                 euid=0, systemctl='ok', back_owner_stat='toyback:toygroup',
-                mob_owner_stat='toymob:toygroup', runner_units=()):
+                mob_owner_stat='toymob:toygroup', base_owner_stat='root:root',
+                runner_units=()):
     # stat-конфигурация мира: владельцы корней «как их поставила установка»;
-    # *_owner_stat — раунды дрейфа владельца корня (verify-roots) и
-    # расходящегося существующего корня (install-roots-preinstalled);
-    # runner_units — юниты-раннеры станции (вне репо): мир сотворяет их файлы
-    # в ETC_DST, установщик видит их наличием (И-9е)
+    # *_owner_stat — раунды дрейфа владельца/группы корня (verify-roots) и
+    # расходящегося существующего корня (install-roots-preinstalled); пара
+    # базы — конфигурируема (арбитраж 196-1: константа root:root в probe не
+    # давала отрицательного базового входа); runner_units — юниты-раннеры
+    # станции (вне репо): мир сотворяет их файлы в ETC_DST, установщик видит
+    # их наличием (И-9е)
     ciart = w.path('var/lib/ci-artifacts')
     etc = w.path('etc/systemd/system')
-    dropin_probe = None
+    dropin_probes = []
     if runner_units:
         etc.mkdir(parents=True, exist_ok=True)
         for unit in runner_units:
@@ -623,17 +685,18 @@ def install_env(w, src_ops, users=('toymob', 'toyback'), groups=('toygroup',),
                 'ReadWritePaths=/var/lib/ci-runner /tmp\n'
                 'PrivateTmp=yes\n'
             )
-        # маркер daemon-reload: дрожит над drop-in'ом первого наличествующего
-        # юнита (клетка install-runner-dropin: reload ПОСЛЕ установки drop-in)
+        # маркеры daemon-reload — по drop-in'у КАЖДОГО наличествующего юнита
+        # (в конфигурации 11 наблюдаемы оба: ранний выход после первого
+        # юнита не прикрывается — РЕШЕНИЕ 2 арбитража 196-1)
         for unit in RUNNER_UNITS:
             if unit in runner_units:
-                dropin_probe = etc / f'{unit}.service.d' / 'ci-artifacts.conf'
-                break
+                dropin_probes.append(
+                    etc / f'{unit}.service.d' / 'ci-artifacts.conf')
     w.write_shims(users=users, groups=groups, euid=euid, systemctl=systemctl,
                   stat_owners=((ciart / MOB, mob_owner_stat),
                                (ciart / BACK, back_owner_stat),
-                               (ciart, 'root:root')),
-                  dropin_probe=dropin_probe)
+                               (ciart, base_owner_stat)),
+                  dropin_probes=dropin_probes)
     return {
         'PATH': f'{w.path("bin")}:/usr/bin:/bin',
         'OPS_SERVER_SRC': str(src_ops),
@@ -678,34 +741,40 @@ def cell_install_artifacts(subj):
             return no_subject('ops/server/install.sh')
         if subj.kind == 'stub' and subj.stub == 's11_slepaja_sverka.sh':
             return no_subject('install.sh artifacts (стаб s11 не реализует установку)')
+        # оракул снят ДО вызова субъекта (РЕШЕНИЕ 3.2 арбитра): ожидаемые
+        # байты — из модели-спеки, в память ДО w.run (не после)
+        want_clean = (HERE / 'model/ci-artifacts-clean').read_bytes()
+        want_svc = (HERE / 'model/ci-artifacts-clean.service').read_bytes()
+        want_tmr = (HERE / 'model/ci-artifacts-clean.timer').read_bytes()
         rc, out, err = w.run(prefix + ['artifacts'], env)
         mob_root = ciart / MOB
         back_root = ciart / BACK
         clean_dst = w.path('sbin/ci-artifacts-clean')
         svc_dst = w.path('etc/systemd/system/ci-artifacts-clean.service')
         tmr_dst = w.path('etc/systemd/system/ci-artifacts-clean.timer')
-        # оракул снят ДО вызова: ожидаемые байты берутся из модели-спеки
-        want_clean = (HERE / 'model/ci-artifacts-clean').read_bytes()
-        want_svc = (HERE / 'model/ci-artifacts-clean.service').read_bytes()
-        want_tmr = (HERE / 'model/ci-artifacts-clean.timer').read_bytes()
         if rc != 0:
             return False, install_missing(rc, err)
         if clean_dst.read_bytes() != want_clean or stat.S_IMODE(clean_dst.stat().st_mode) != 0o755:
             return False, 'скрипт не установлен байт-в-байт (755)'
         if svc_dst.read_bytes() != want_svc or stat.S_IMODE(svc_dst.stat().st_mode) != 0o644:
             return False, 'юнит service не установлен байт-в-байт (644)'
-        if tmr_dst.read_bytes() != want_tmr:
-            return False, 'юнит timer не установлен байт-в-байт'
+        if tmr_dst.read_bytes() != want_tmr or stat.S_IMODE(tmr_dst.stat().st_mode) != 0o644:
+            return False, 'юнит timer не установлен байт-в-байт (644)'
+        # база B × создание (матрица РЕШЕНИЯ 2): режим 0755 и chown root:root
+        # наблюдаются, а не выводятся из свойств service-юнита
+        if stat.S_IMODE(ciart.stat().st_mode) != 0o755:
+            return False, f'режим базы {oct(stat.S_IMODE(ciart.stat().st_mode))} != 0755'
         chown = w.journal('chown')
         for want in (
             f'chown root:root -- {clean_dst}',
             f'chown root:root -- {svc_dst}',
             f'chown root:root -- {tmr_dst}',
+            f'chown root:root -- {ciart}',
             f'chown toymob:toygroup -- {mob_root}',
             f'chown toyback:toygroup -- {back_root}',
         ):
             if want not in chown:
-                return False, f'нет владельца корня: {want} (журнал: {"; ".join(chown)})'
+                return False, f'нет владельца: {want} (журнал: {"; ".join(chown)})'
         if stat.S_IMODE(mob_root.stat().st_mode) != 0o2750:
             return False, f'режим корня моба {oct(stat.S_IMODE(mob_root.stat().st_mode))} != 2750'
         if stat.S_IMODE(back_root.stat().st_mode) != 0o2750:
@@ -728,33 +797,69 @@ def cell_install_artifacts(subj):
 
 
 def cell_install_precondition(subj):
-    w = World()
-    try:
-        src_ops = subj.src_ops(w)
-        # toyback НЕ в известных пользователях — предусловие обязано отказать
-        env = install_env(w, src_ops, users=('toymob',))
-        prefix = subj.install()
-        if prefix is None:
-            return no_subject('ops/server/install.sh')
-        if subj.kind == 'stub' and subj.stub == 's11_slepaja_sverka.sh':
-            return no_subject('install.sh artifacts (стаб s11 не реализует установку)')
-        rc, out, err = w.run(prefix + ['artifacts'], env)
-        wrote = [p for p in (
-            w.path('sbin/ci-artifacts-clean'),
-            w.path('etc/systemd/system/ci-artifacts-clean.service'),
-            w.path('etc/systemd/system/ci-artifacts-clean.timer'),
-            w.path('var/lib/ci-artifacts/Complior-mob'),
-            w.path('var/lib/ci-artifacts/Complior-back'),
-        ) if p.exists()]
-        if rc != 1:
-            return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'rc={rc} (ожидался отказ 1), записано: {wrote}'
-        if 'ОТКАЗ: нет пользователя: toyback' not in err:
-            return False, f'нет именованного отказа о пользователе: {err.strip()[:300]}'
-        if wrote:
-            return False, f'отказ не ДО записей: {wrote}'
-        return True, ''
-    finally:
-        w.close()
+    """И-9(б): предусловия ДО записей — каждому отсутствию СВОЙ раунд
+    (матрица РЕШЕНИЯ 2 арбитража 196-1): три учётные записи (владелец моба,
+    владелец бэка, группа — прочие предусловия исправны) и четыре источника
+    (скрипт, service, timer, drop-in); drop-in-источник — при наличествующем
+    раннере И без раннеров: предусловие безусловно (mk10). «До записей» —
+    не создано НИЧЕГО в целевых деревьях (включая одну базу/пустой
+    каталог/drop-in) и ни одного chown/chmod; исчезающий источник готовится
+    в одноразовой копии OPS_SERVER_SRC, предъявленный репозиторий нетронут
+    (РЕШЕНИЕ 3.2)."""
+    prefix = subj.install()
+    if prefix is None:
+        return no_subject('ops/server/install.sh')
+    if subj.kind == 'stub' and subj.stub == 's11_slepaja_sverka.sh':
+        return no_subject('install.sh artifacts (стаб s11 не реализует установку)')
+    # три раунда getent: отсутствует одна учётная запись, прочее исправно
+    for label, env_kwargs, want_err in (
+        ('нет владельца моба', {'users': ('toyback',)},
+         'ОТКАЗ: нет пользователя: toymob'),
+        ('нет владельца бэка', {'users': ('toymob',)},
+         'ОТКАЗ: нет пользователя: toyback'),
+        ('нет группы', {'groups': ()}, 'ОТКАЗ: нет группы: toygroup'),
+    ):
+        w = World()
+        try:
+            src_ops = subj.src_ops(w)
+            env = install_env(w, src_ops, **env_kwargs)
+            rc, out, err = w.run(prefix + ['artifacts'], env)
+            if rc != 1:
+                return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'{label}: rc={rc} (ожидался отказ 1)'
+            if want_err not in err:
+                return False, f'{label}: нет именованного отказа: {err.strip()[:300]}'
+            wrote = subject_writes(w)
+            if wrote:
+                return False, f'{label}: отказ не ДО записей: {wrote[:6]}'
+        finally:
+            w.close()
+    # пять раундов источников: четыре адресата S + безусловность
+    # drop-in-предусловия при отсутствии юнитов раннера
+    for label, rel, runner in (
+        ('нет скрипта', 'root/ci-artifacts-clean', ()),
+        ('нет service-юнита', 'root/systemd/ci-artifacts-clean.service', ()),
+        ('нет timer-юнита', 'root/systemd/ci-artifacts-clean.timer', ()),
+        ('нет drop-in-источника (раннер есть)',
+         'root/gh-runner-complior-ci-artifacts.conf', RUNNER_UNITS[:1]),
+        ('нет drop-in-источника (раннеров нет)',
+         'root/gh-runner-complior-ci-artifacts.conf', ()),
+    ):
+        w = World()
+        try:
+            src_ops = src_ops_missing(subj, w, rel)
+            env = install_env(w, src_ops, runner_units=runner)
+            rc, out, err = w.run(prefix + ['artifacts'], env)
+            if rc != 1:
+                return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'{label}: rc={rc} (ожидался отказ 1)'
+            want = f'ОТКАЗ: нет источника: {src_ops / rel}'
+            if want not in err:
+                return False, f'{label}: нет именованного отказа: {err.strip()[:300]}'
+            wrote = subject_writes(w, runner_units=runner)
+            if wrote:
+                return False, f'{label}: отказ не ДО записей: {wrote[:6]}'
+        finally:
+            w.close()
+    return True, ''
 
 
 def cell_verify_drift(subj):
@@ -799,7 +904,9 @@ def cell_verify_drift(subj):
     return True, ''
 
 def cell_install_euid_refused(subj):
-    """И-9(а): не-root прогон artifacts — отказ ДО записей (шим id → 1)."""
+    """И-9(а): не-root прогон artifacts — отказ ДО записей (шим id → 1).
+    «Без единой записи» (РЕШЕНИЕ 3.2) — ни одного целевого дерева субъекта
+    (база, корни, sbin-адресат, юниты, .d-каталоги) и ни одного chown/chmod."""
     w = World()
     try:
         src_ops = subj.src_ops(w)
@@ -808,19 +915,13 @@ def cell_install_euid_refused(subj):
         if prefix is None:
             return no_subject('ops/server/install.sh')
         rc, out, err = w.run(prefix + ['artifacts'], env)
-        wrote = [p for p in (
-            w.path('sbin/ci-artifacts-clean'),
-            w.path('etc/systemd/system/ci-artifacts-clean.service'),
-            w.path('etc/systemd/system/ci-artifacts-clean.timer'),
-            w.path('var/lib/ci-artifacts/Complior-mob'),
-            w.path('var/lib/ci-artifacts/Complior-back'),
-        ) if p.exists()]
         if rc != 1:
-            return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'rc={rc} (ожидался отказ 1), записано: {wrote}'
+            return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'rc={rc} (ожидался отказ 1)'
         if 'ОТКАЗ: artifacts-часть требует euid 0' not in err:
             return False, f'нет именованного отказа euid: {err.strip()[:300]}'
+        wrote = subject_writes(w)
         if wrote:
-            return False, f'euid-отказ не ДО записей: {wrote}'
+            return False, f'euid-отказ не ДО записей: {wrote[:6]}'
         return True, ''
     finally:
         w.close()
@@ -828,37 +929,40 @@ def cell_install_euid_refused(subj):
 
 def cell_install_repo_symlink_refused(subj):
     """И-9(г): предсозданная символьная ссылка на месте корня репо — отказ,
-    ссылка и цель нетронуты, chown по ссылке не было."""
-    w = World()
-    try:
-        src_ops = subj.src_ops(w)
-        env = install_env(w, src_ops)
-        ciart = w.path('var/lib/ci-artifacts')
-        ciart.mkdir(parents=True)
-        # мир предсоздаёт родителя как станция: 0755 (umask теста не решает)
-        os.chmod(ciart, 0o755)
-        outside = w.path('outside-store')
-        outside.mkdir()
-        (outside / 'evidence.txt').write_bytes(b'target\n')
-        mob_root = ciart / MOB
-        mob_root.symlink_to(outside, target_is_directory=True)
-        prefix = subj.install()
-        if prefix is None:
-            return no_subject('ops/server/install.sh')
-        rc, out, err = w.run(prefix + ['artifacts'], env)
-        if rc != 1:
-            return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'rc={rc} (ожидался отказ 1), stderr: {err.strip()[:200]}'
-        if f'ОТКАЗ: репо — символьная ссылка: {mob_root}' not in err:
-            return False, f'нет именованного отказа на ссылку-репо: {err.strip()[:300]}'
-        if not mob_root.is_symlink():
-            return False, 'установка сняла ссылку-репо'
-        if not (outside / 'evidence.txt').exists():
-            return False, 'цель ссылки-репо повреждена'
-        if f'chown toymob:toygroup -- {mob_root}' in w.journal('chown'):
-            return False, 'установка тронула ссылку-репо chown'
-        return True, ''
-    finally:
-        w.close()
+    ссылка и цель нетронуты, chown/chmod через неё нет. Каждому корню
+    (моб, бэк) — свой раунд (матрица РЕШЕНИЯ 2 арбитража 196-1)."""
+    prefix = subj.install()
+    if prefix is None:
+        return no_subject('ops/server/install.sh')
+    for repo_name in (MOB, BACK):
+        w = World()
+        try:
+            src_ops = subj.src_ops(w)
+            env = install_env(w, src_ops)
+            ciart = w.path('var/lib/ci-artifacts')
+            ciart.mkdir(parents=True)
+            # мир предсоздаёт родителя как станция: 0755 (umask теста не решает)
+            os.chmod(ciart, 0o755)
+            outside = w.path('outside-store')
+            outside.mkdir()
+            (outside / 'evidence.txt').write_bytes(b'target\n')
+            link_root = ciart / repo_name
+            link_root.symlink_to(outside, target_is_directory=True)
+            rc, out, err = w.run(prefix + ['artifacts'], env)
+            if rc != 1:
+                return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'{repo_name}: rc={rc} (ожидался отказ 1), stderr: {err.strip()[:200]}'
+            if f'ОТКАЗ: репо — символьная ссылка: {link_root}' not in err:
+                return False, f'{repo_name}: нет именованного отказа на ссылку-репо: {err.strip()[:300]}'
+            if not link_root.is_symlink():
+                return False, f'{repo_name}: установка сняла ссылку-репо'
+            if not (outside / 'evidence.txt').exists():
+                return False, f'{repo_name}: цель ссылки-репо повреждена'
+            for jname in ('chown', 'chmod'):
+                if any(str(link_root) in line for line in w.journal(jname)):
+                    return False, f'{repo_name}: установка тронула ссылку-репо {jname}'
+        finally:
+            w.close()
+    return True, ''
 
 
 def cell_install_systemctl_refused(subj):
@@ -947,17 +1051,65 @@ def cell_verify_not_installed(subj):
         svc = w.path('etc/systemd/system/ci-artifacts-clean.service')
         if 'расхождение' not in err or str(svc) not in err:
             return False, f'сверка не назвала отсутствующий юнит: {err.strip()[:300]}'
+        # раунды 3–8: остальные векторы присутствия тройки F (матрица
+        # РЕШЕНИЯ 2 арбитража 196-1): частичные миры — от полной установки
+        # (корни и прочие зависимости исправны), каждый ждёт rc 1 с именем
+        # действительно отсутствующего файла и БЕЗ «не установлены»; 111 —
+        # положительный контроль «сверка 3/3»
+        for vector, expect in (
+            ('001', 'sbin/ci-artifacts-clean'),
+            ('010', 'sbin/ci-artifacts-clean'),
+            ('011', 'sbin/ci-artifacts-clean'),
+            ('101', 'etc/systemd/system/ci-artifacts-clean.service'),
+            ('110', 'etc/systemd/system/ci-artifacts-clean.timer'),
+            ('111', None),
+        ):
+            w = World()
+            try:
+                src_ops = subj.src_ops(w)
+                env = install_env(w, src_ops)
+                if subj.kind == 'repo':
+                    env['OPS_SERVER_BIN_DST'] = str(install_core_files(w, src_ops))
+                # Н-39: стабам, не реализующим установку, мир ставится
+                # честной моделью (тот же приём, что verify-drift)
+                install_prefix = prefix
+                if subj.kind == 'stub':
+                    install_prefix = ['bash', str(HERE / 'model' / 'install-artifacts.sh')]
+                rc, out, err = w.run(install_prefix + ['artifacts'], env)
+                if rc != 0:
+                    return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'вектор {vector}: мир не установлен: rc={rc}, {err.strip()[:300]}'
+                rels = ('sbin/ci-artifacts-clean',
+                        'etc/systemd/system/ci-artifacts-clean.service',
+                        'etc/systemd/system/ci-artifacts-clean.timer')
+                for digit, rel in zip(vector, rels):
+                    if digit == '0':
+                        w.path(rel).unlink()
+                rc, out, err = w.run(prefix + [verify_mode], env)
+                if expect is None:
+                    if rc != 0 or 'ci-artifacts: сверка 3/3' not in out:
+                        return False, f'вектор 111: rc={rc}, out: {out.strip()[:200]}'
+                else:
+                    if rc != 1:
+                        return False, f'вектор {vector}: rc={rc} (ожидался 1), out: {out.strip()[:200]}'
+                    if 'ci-artifacts: не установлены' in out:
+                        return False, f'вектор {vector}: частичная установка названа «не установлены»'
+                    if 'расхождение' not in err or str(w.path(expect)) not in err:
+                        return False, f'вектор {vector}: сверка не назвала отсутствующий файл: {err.strip()[:300]}'
+            finally:
+                w.close()
         return True, ''
     finally:
         w.close()
 
 
 def cell_verify_roots(subj):
-    """И-10: «режим 2750 … в обоих контурах» и владелец — каждому корню и
-    каждому свойству СВОЙ раунд (вердикт v2: mg — режим бэка, me — владелец):
-    chmod 0755 корня моба, chmod 0755 корня бэка, дрейф владельца бэка в
-    stat-конфигурации мира; каждый ждёт rc 1 «ОТКАЗ: расхождение ci-artifacts:
-    <путь>» с именем корня."""
+    """И-10: корни репо — каждому корню и каждому свойству СВОЙ раунд
+    (матрица РЕШЕНИЯ 2 арбитража 196-1; v2: mg/me, v3: mk6): шесть дрейфов
+    (режим/владелец/группа × моб/бэк) и два отсутствующих корня при полной
+    исправной тройке F; каждый ждёт rc 1 «ОТКАЗ: расхождение ci-artifacts:
+    <путь>» с именем корня. Режим — реальный chmod (наблюдаем файлово),
+    владелец/группа — stat-конфигурацией мира (шим %U:%G, оси независимы:
+    во «владельце» правильна группа, в «группе» правильный владелец)."""
     prefix = subj.install()
     if prefix is None:
         return no_subject('ops/server/install.sh')
@@ -965,8 +1117,10 @@ def cell_verify_roots(subj):
     for drift, repo_name, env_kwargs in (
         ('режим моба', MOB, {}),
         ('режим бэка', BACK, {}),
-        ('владелец бэка', BACK,
-         {'back_owner_stat': 'toymob:toygroup'}),
+        ('владелец моба', MOB, {'mob_owner_stat': 'toyback:toygroup'}),
+        ('владелец бэка', BACK, {'back_owner_stat': 'toymob:toygroup'}),
+        ('группа моба', MOB, {'mob_owner_stat': 'toymob:netu-gruppy'}),
+        ('группа бэка', BACK, {'back_owner_stat': 'toyback:netu-gruppy'}),
     ):
         w = World()
         try:
@@ -978,14 +1132,35 @@ def cell_verify_roots(subj):
             if rc != 0:
                 return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'установка для мира дрейфа корня не зелёная: rc={rc}, {err.strip()[:300]}'
             root = w.path('var/lib/ci-artifacts') / repo_name
-            if drift != 'владелец бэка':
+            if drift.startswith('режим'):
                 os.chmod(root, 0o755)
-            # владелец бэка: дрейф уже в stat-конфигурации мира (шим %U:%G)
+            # владелец/группа: дрейф уже в stat-конфигурации мира (шим %U:%G)
             rc, out, err = w.run(prefix + [verify_mode], env)
             if rc != 1:
                 return False, f'сверка не смотрит корни ({drift}): rc={rc}, out: {out.strip()[:200]}'
             if f'ОТКАЗ: расхождение ci-artifacts: {root}' not in err:
                 return False, f'сверка не назвала корень ({drift}): {err.strip()[:300]}'
+        finally:
+            w.close()
+    # два раунда отсутствующего корня при полной исправной F (матрица
+    # РЕШЕНИЯ 2, «создание» × verify): сверка обязана отказать именем корня
+    for repo_name in (MOB, BACK):
+        w = World()
+        try:
+            src_ops = subj.src_ops(w)
+            env = install_env(w, src_ops)
+            if subj.kind == 'repo':
+                env['OPS_SERVER_BIN_DST'] = str(install_core_files(w, src_ops))
+            rc, out, err = w.run(prefix + ['artifacts'], env)
+            if rc != 0:
+                return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'установка для мира отсутствующего корня не зелёная: rc={rc}, {err.strip()[:300]}'
+            root = w.path('var/lib/ci-artifacts') / repo_name
+            shutil.rmtree(root)
+            rc, out, err = w.run(prefix + [verify_mode], env)
+            if rc != 1:
+                return False, f'сверка слепа к отсутствию корня {repo_name}: rc={rc}, out: {out.strip()[:200]}'
+            if f'ОТКАЗ: расхождение ci-artifacts: {root}' not in err:
+                return False, f'сверка не назвала отсутствующий корень {repo_name}: {err.strip()[:300]}'
         finally:
             w.close()
     return True, ''
@@ -1056,16 +1231,19 @@ def cell_unit_grammar(subj):
 
 
 def cell_install_roots_preinstalled(subj):
-    """И-9(г): корни станции уже созданы оператором (база 0755 root:root,
-    моб/бэк 2750 с владельцами швов) — установщик принимает их идемпотентно:
-    rc 0, ни одного chown по корням (журнал шима), режимы не дрейфят;
-    расходящийся существующий корень — rc 1 `ОТКАЗ: существующий корень
-    расходится: <путь>` без молчаливого переформатирования. Каждому исходу
-    и корню — свой раунд."""
+    """И-9(г): корни станции уже созданы оператором (база B root:root 0755,
+    моб/бэк M/K 2750 с владельцами швов) — установщик принимает их
+    идемпотентно: rc 0, НИ ОДНОГО chown ИЛИ chmod по любому из трёх корней
+    (РЕШЕНИЕ 3.2: одного неизменного конечного режима недостаточно —
+    наблюдаются журналы обоих швов), байты и метаданные имеющегося
+    содержимого не изменены. Расходящийся существующий корень — rc 1
+    «ОТКАЗ: существующий корень расходится: <путь>» без переформатирования;
+    ДЕВЯТЬ отдельных раундов (матрица РЕШЕНИЯ 2): режим/владелец/группа ×
+    база/моб/бэк, оси независимы, изолировано ОДНО нарушение."""
     prefix = subj.install()
     if prefix is None:
         return no_subject('ops/server/install.sh')
-    # раунд 1: все корни уже верны — идемпотентный приём
+    # раунд 1: B/M/K существуют и верны — идемпотентный приём
     w = World()
     try:
         src_ops = subj.src_ops(w)
@@ -1073,97 +1251,119 @@ def cell_install_roots_preinstalled(subj):
         mob_root = ciart / MOB
         back_root = ciart / BACK
         ciart.mkdir(parents=True)
+        seeded = {}
+        for path in (ciart, mob_root, back_root):
+            path.mkdir(exist_ok=True)
+            seed = path / 'operator-file'
+            seed.write_bytes(b'operator evidence\n')
+            seeded[path] = (seed, b'operator evidence\n',
+                            seed.stat().st_mtime_ns)
         os.chmod(ciart, 0o755)
-        for path in (mob_root, back_root):
-            path.mkdir()
-            os.chmod(path, 0o2750)
+        os.chmod(mob_root, 0o2750)
+        os.chmod(back_root, 0o2750)
         env = install_env(w, src_ops)
         rc, out, err = w.run(prefix + ['artifacts'], env)
         if rc != 0:
             return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'существующие верные корни не приняты: rc={rc}, stderr: {err.strip()[:300]}'
-        chown = w.journal('chown')
-        for drift_line in (
-            f'chown root:root -- {ciart}',
-            f'chown toymob:toygroup -- {mob_root}',
-            f'chown toyback:toygroup -- {back_root}',
-        ):
-            if drift_line in chown:
-                return False, f'идемпотентность: chown по существующему корню: {drift_line}'
-        for path in (mob_root, back_root):
-            if stat.S_IMODE(path.stat().st_mode) != 0o2750:
+        roots = (ciart, mob_root, back_root)
+        for jname in ('chown', 'chmod'):
+            for line in w.journal(jname):
+                for root in roots:
+                    if str(root) in line:
+                        return False, f'идемпотентность: {jname} по корню: {line}'
+        for path, want_mode in ((ciart, 0o755), (mob_root, 0o2750), (back_root, 0o2750)):
+            if stat.S_IMODE(path.stat().st_mode) != want_mode:
                 return False, f'идемпотентность: режим существующего корня дрейфнул: {path}'
+        for path, (seed, want_bytes, want_mtime) in seeded.items():
+            if not seed.exists() or seed.read_bytes() != want_bytes \
+                    or seed.stat().st_mtime_ns != want_mtime:
+                return False, f'идемпотентность: содержимое существующего корня изменено: {seed}'
         if 'установлено: ci-artifacts' not in out:
             return False, f'нет строки установки: {out.strip()[:200]}'
     finally:
         w.close()
-    # раунды 2–4: расходящийся существующий корень — именованный отказ
-    for label, repo_name, env_kwargs, want_mode in (
+    # раунды 2–10: девять расходящихся миров — одно нарушение на адресат
+    # (B×режим/владелец/группа, M×…, K×…; v3: mk5 режим бэка, mk8 база)
+    for label, target, env_kwargs, drift_mode in (
+        ('режим базы', 'base', {}, 0o700),
+        ('владелец базы', 'base', {'base_owner_stat': 'toymob:toygroup'}, None),
+        ('группа базы', 'base', {'base_owner_stat': 'root:toygroup'}, None),
         ('режим моба', MOB, {}, 0o755),
-        ('владелец моба', MOB, {'mob_owner_stat': 'toyback:toygroup'}, 0o2750),
-        ('владелец бэка', BACK, {'back_owner_stat': 'toymob:toygroup'}, 0o2750),
+        ('владелец моба', MOB, {'mob_owner_stat': 'toyback:toygroup'}, None),
+        ('группа моба', MOB, {'mob_owner_stat': 'toymob:netu-gruppy'}, None),
+        ('режим бэка', BACK, {}, 0o755),
+        ('владелец бэка', BACK, {'back_owner_stat': 'toymob:toygroup'}, None),
+        ('группа бэка', BACK, {'back_owner_stat': 'toyback:netu-gruppy'}, None),
     ):
         w = World()
         try:
             src_ops = subj.src_ops(w)
             ciart = w.path('var/lib/ci-artifacts')
-            drift_root = ciart / repo_name
+            mob_root = ciart / MOB
+            back_root = ciart / BACK
             ciart.mkdir(parents=True)
             os.chmod(ciart, 0o755)
-            for name in (MOB, BACK):
-                p = ciart / name
-                p.mkdir()
-                os.chmod(p, 0o2750)
-            os.chmod(drift_root, want_mode)
+            for path in (mob_root, back_root):
+                path.mkdir()
+                os.chmod(path, 0o2750)
+            drift_root = ciart if target == 'base' else ciart / target
+            if drift_mode is not None:
+                os.chmod(drift_root, drift_mode)
             env = install_env(w, src_ops, **env_kwargs)
             rc, out, err = w.run(prefix + ['artifacts'], env)
             if rc != 1:
                 return False, f'расходящийся корень ({label}) принят: rc={rc}'
             if f'ОТКАЗ: существующий корень расходится: {drift_root}' not in err:
                 return False, f'нет именованного отказа о корне ({label}): {err.strip()[:300]}'
-            if stat.S_IMODE(drift_root.stat().st_mode) != want_mode:
+            if drift_mode is not None \
+                    and stat.S_IMODE(drift_root.stat().st_mode) != drift_mode:
                 return False, f'расходящийся корень ({label}) молча переформатирован'
-            if any(str(drift_root) in line for line in w.journal('chown')):
-                return False, f'расходящийся корень ({label}) тронут chown'
+            for jname in ('chown', 'chmod'):
+                if any(str(drift_root) in line for line in w.journal(jname)):
+                    return False, f'расходящийся корень ({label}) тронут {jname}'
         finally:
             w.close()
     return True, ''
 
 
 def cell_install_runner_dropin(subj):
-    """И-9(е): drop-in моб-раннера ставится по наличию юнита — каждому юниту
-    (gh-runner-complior, gh-runner-complior-2) свой раунд: байт-в-байт из
-    репо-источника (ровно ReadWritePaths на корень моба), 0644 root:root,
-    daemon-reload ПОСЛЕ установки (маркер журнала шима: reload при уже
-    стоящем drop-in); юниту без юнита drop-in не ставится."""
+    """И-9(е): drop-in'ы моб-раннера по наличию юнита — конфигурации
+    присутствия 10/01/11 (00 — клетка runner-dropin-absent; матрица
+    РЕШЕНИЯ 2 арбитража 196-1): каждому присутствующему юниту его D —
+    байт-в-байт из репо-источника (ровно ReadWritePaths на корень моба),
+    0644 root:root, ДО daemon-reload — маркер журнала шима по КАЖДОМУ
+    drop-in'у, в 11 наблюдаемы ОБА (ранний выход после первого юнита не
+    прикрывается); отсутствующему юниту .d-каталог не создаётся."""
     prefix = subj.install()
     if prefix is None:
         return no_subject('ops/server/install.sh')
     if subj.kind == 'stub' and subj.stub == 's11_slepaja_sverka.sh':
         return no_subject('install.sh artifacts (стаб s11 не реализует установку)')
     want = (HERE / 'model/gh-runner-complior-ci-artifacts.conf').read_bytes()
-    for unit in RUNNER_UNITS:
+    for units in ((RUNNER_UNITS[0],), (RUNNER_UNITS[1],), tuple(RUNNER_UNITS)):
         w = World()
         try:
             src_ops = subj.src_ops(w)
-            env = install_env(w, src_ops, runner_units=(unit,))
+            env = install_env(w, src_ops, runner_units=units)
             rc, out, err = w.run(prefix + ['artifacts'], env)
             if rc != 0:
-                return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'{unit}: rc={rc}, stderr: {err.strip()[:300]}'
+                return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'{"+".join(units)}: rc={rc}, stderr: {err.strip()[:300]}'
             etc = w.path('etc/systemd/system')
-            dropin = etc / f'{unit}.service.d' / 'ci-artifacts.conf'
-            if not dropin.exists():
-                return False, f'drop-in не установлен при юните {unit}'
-            if dropin.read_bytes() != want:
-                return False, f'drop-in {unit} не байт-в-байт с источником (ReadWritePaths на корень моба)'
-            if stat.S_IMODE(dropin.stat().st_mode) != 0o644:
-                return False, f'drop-in {unit} не 0644: {oct(stat.S_IMODE(dropin.stat().st_mode))}'
-            if f'chown root:root -- {dropin}' not in w.journal('chown'):
-                return False, f'drop-in {unit} без root:root (журнал chown: {"; ".join(w.journal("chown"))})'
-            if 'daemon-reload-dropin=yes' not in w.journal('systemctl'):
-                return False, f'daemon-reload не после установки drop-in {unit} (маркер журнала)'
-            other = RUNNER_UNITS[1] if unit == RUNNER_UNITS[0] else RUNNER_UNITS[0]
-            if (etc / f'{other}.service.d').exists():
-                return False, f'drop-in-каталог юниту без юнита: {other}'
+            for unit in units:
+                dropin = etc / f'{unit}.service.d' / 'ci-artifacts.conf'
+                if not dropin.exists():
+                    return False, f'drop-in не установлен при юните {unit}'
+                if dropin.read_bytes() != want:
+                    return False, f'drop-in {unit} не байт-в-байт с источником (ReadWritePaths на корень моба)'
+                if stat.S_IMODE(dropin.stat().st_mode) != 0o644:
+                    return False, f'drop-in {unit} не 0644: {oct(stat.S_IMODE(dropin.stat().st_mode))}'
+                if f'chown root:root -- {dropin}' not in w.journal('chown'):
+                    return False, f'drop-in {unit} без root:root (журнал chown: {"; ".join(w.journal("chown"))})'
+                if f'daemon-reload-dropin={dropin}:yes' not in w.journal('systemctl'):
+                    return False, f'daemon-reload не после установки drop-in {unit} (маркер журнала)'
+            for unit in RUNNER_UNITS:
+                if unit not in units and (etc / f'{unit}.service.d').exists():
+                    return False, f'drop-in-каталог юниту без юнита: {unit}'
         finally:
             w.close()
     return True, ''
@@ -1198,19 +1398,24 @@ def cell_runner_dropin_absent(subj):
 
 
 def cell_verify_runner_dropin(subj):
-    """И-10: drop-in моб-раннера сверяется условно — юнит есть: дрейф байтов
-    и отсутствующий drop-in дают rc 1 `ОТКАЗ: расхождение <путь>` с именем
-    файла; юнита нет — drop-in не ставился и его отсутствие НЕ расхождение
-    (rc 0 «сверка 3/3»). Каждому состоянию — свой раунд."""
+    """И-10: условная сверка drop-in'ов моб-раннера — канонический мир ОБА
+    юнита (mk7 вердикта v3: одиночный мир первого юнита прикрывал ранний
+    выход после него): каждому D1/D2 × дрейф/отсутствие СВОЙ раунд при
+    исправном другом D — rc 1 «ОТКАЗ: расхождение <путь>» с именем;
+    положительные контроли всех четырёх конфигураций 00/10/01/11 — rc 0
+    «сверка 3/3» (отсутствие юнита не требует его drop-in)."""
     prefix = subj.install()
     if prefix is None:
         return no_subject('ops/server/install.sh')
     _, verify_mode = subj.install_modes()
-    for drift_kind in ('bytes', 'missing'):
+    for unit, drift_kind in (
+        (RUNNER_UNITS[0], 'bytes'), (RUNNER_UNITS[0], 'missing'),
+        (RUNNER_UNITS[1], 'bytes'), (RUNNER_UNITS[1], 'missing'),
+    ):
         w = World()
         try:
             src_ops = subj.src_ops(w)
-            env = install_env(w, src_ops, runner_units=(RUNNER_UNITS[0],))
+            env = install_env(w, src_ops, runner_units=RUNNER_UNITS)
             if subj.kind == 'repo':
                 env['OPS_SERVER_BIN_DST'] = str(install_core_files(w, src_ops))
             # Н-39: стаб не реализует установку честно — мир ставит модель,
@@ -1221,42 +1426,46 @@ def cell_verify_runner_dropin(subj):
             rc, out, err = w.run(install_prefix + ['artifacts'], env)
             if rc != 0:
                 return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'установка для мира дрейфа drop-in не зелёная: rc={rc}, {err.strip()[:300]}'
-            dropin = w.path('etc/systemd/system/gh-runner-complior.service.d/ci-artifacts.conf')
+            etc = w.path('etc/systemd/system')
+            dropin = etc / f'{unit}.service.d' / 'ci-artifacts.conf'
             if not dropin.exists():
                 # честная установка обязана поставить drop-in при юните
-                return False, 'установка не поставила drop-in при юните-раннере (И-9е)'
+                return False, f'установка не поставила drop-in при юните {unit} (И-9е)'
             if drift_kind == 'bytes':
                 dropin.write_bytes(dropin.read_bytes() + b'drift\n')
             else:
                 dropin.unlink()
             rc, out, err = w.run(prefix + [verify_mode], env)
             if rc != 1:
-                return False, f'сверка слепа к {drift_kind} drop-in: rc={rc}, out: {out.strip()[:200]}'
+                return False, f'сверка слепа к {drift_kind} drop-in {unit}: rc={rc}, out: {out.strip()[:200]}'
             if 'расхождение' not in err or str(dropin) not in err:
-                return False, f'сверка не назвала drop-in ({drift_kind}): {err.strip()[:300]}'
+                return False, f'сверка не назвала drop-in {unit} ({drift_kind}): {err.strip()[:300]}'
         finally:
             w.close()
-    # раунд: юнита-раннера нет — отсутствие drop-in не расхождение
-    w = World()
-    try:
-        src_ops = subj.src_ops(w)
-        env = install_env(w, src_ops)
-        if subj.kind == 'repo':
-            env['OPS_SERVER_BIN_DST'] = str(install_core_files(w, src_ops))
-        install_prefix = prefix
-        if subj.kind == 'stub':
-            install_prefix = ['bash', str(HERE / 'model' / 'install-artifacts.sh')]
-        rc, out, err = w.run(install_prefix + ['artifacts'], env)
-        if rc != 0:
-            return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'установка без юнита-раннера не зелёная: rc={rc}, {err.strip()[:300]}'
-        rc, out, err = w.run(prefix + [verify_mode], env)
-        if rc != 0:
-            return False, f'отсутствие юнита-раннера названо расхождением: rc={rc}, stderr: {err.strip()[:300]}'
-        if 'ci-artifacts: сверка 3/3' not in out:
-            return False, f'нет строки сверки: {out.strip()[:200]}'
-        return True, ''
-    finally:
-        w.close()
+    # положительные контроли четырёх конфигураций U (матрица РЕШЕНИЯ 2):
+    # исправные D при присутствующих юнитах, отсутствие юнита — не расхождение
+    for units in ((), (RUNNER_UNITS[0],), (RUNNER_UNITS[1],), tuple(RUNNER_UNITS)):
+        w = World()
+        try:
+            src_ops = subj.src_ops(w)
+            env = install_env(w, src_ops, runner_units=units)
+            if subj.kind == 'repo':
+                env['OPS_SERVER_BIN_DST'] = str(install_core_files(w, src_ops))
+            install_prefix = prefix
+            if subj.kind == 'stub':
+                install_prefix = ['bash', str(HERE / 'model' / 'install-artifacts.sh')]
+            rc, out, err = w.run(install_prefix + ['artifacts'], env)
+            if rc != 0:
+                return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'установка без дрейфа не зелёная: rc={rc}, {err.strip()[:300]}'
+            rc, out, err = w.run(prefix + [verify_mode], env)
+            if rc != 0:
+                return False, f'исправная конфигурация раннеров ({",".join(units) or "00"}) названа расхождением: rc={rc}, stderr: {err.strip()[:300]}'
+            if 'ci-artifacts: сверка 3/3' not in out:
+                return False, f'нет строки сверки: {out.strip()[:200]}'
+        finally:
+            w.close()
+    return True, ''
+
 CELLS = {
     'young-kept': cell_young_kept,
     'old-removed': cell_old_removed,
