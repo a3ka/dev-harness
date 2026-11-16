@@ -5,9 +5,10 @@ usage:
   battery.py [--subject DIR] [--cells a,b]   judge the SUBJECT tree (default: repo root)
   battery.py --model                         judge the honest model (model/fallback-route.ts) — all green
   battery.py --stabs                         every cheat of source.json must be red in each bound cell
-  battery.py --parser                        observer self-tests: id link of both omp formats + negative neighbours
+  battery.py --parser                        observer self-tests: marker link + deceptive observer stubs
 
-Exit: 0 all cells green (or, with --stabs, every stub caught); 1 otherwise; 2 stand broken.
+Exit: 0 all cells green (or, with --stabs, every stub caught); 1 otherwise; 2 stand broken
+or omp output format unrecognized (named refusal «формат omp изменился: <поле>»).
 One line per cell: `ok <cell>` / `FAIL <cell>: <reason>`. Never prints PASS.
 
 What is judged (the subject's real artifacts, copied into a throwaway world):
@@ -64,24 +65,24 @@ def cells(am):
         # c1: no sibling; primary provider exhausted -> the child finishes on the tier fallback.
         'c1-zhivoj-perehod': dict(
             models=modes(quota_providers=(prov[P],)),
-            script=[task_step(CHILD, "Yield the marker.")],
+            script=[task_step(CHILD, MARK + " yield.")],
             expect=('completed', F), world=None),
         # c2: the live death (omp log 2026-10-21): the sibling hit the exhausted primary and then
         # was rejected on the fallback -> the fallback sits in the process-wide cooldown; the
         # child spawned next must still finish on the tier fallback.
         'c2-sosed-cooldown': dict(
             models=modes(quota_providers=(prov[P],), override={F: {"sib": "quota", "default": "ok"}}),
-            script=[task_step(SIB, SIB_MARK + " sibling."), task_step(CHILD, "Yield the marker.")],
+            script=[task_step(SIB, SIB_MARK + " sibling."), task_step(CHILD, MARK + " yield.")],
             expect=('completed', F), world=[(P, 'quota'), (F, 'quota')]),
         # c3: healthy primary -> the child stays on the PRIMARY (no gratuitous re-route).
         'c3-zdorovyj-primary': dict(
             models=modes(),
-            script=[task_step(CHILD, "Yield the marker.")],
+            script=[task_step(CHILD, MARK + " yield.")],
             expect=('completed', P), world=None),
         # c4: a sibling's VALIDATION error (400) on the primary is not exhaustion -> next child on PRIMARY.
         'c4-validacija-soseda': dict(
             models=modes(override={P: {"sib": "validation", "default": "ok"}}),
-            script=[task_step(SIB, SIB_MARK + " sibling."), task_step(CHILD, "Yield the marker.")],
+            script=[task_step(SIB, SIB_MARK + " sibling."), task_step(CHILD, MARK + " yield.")],
             expect=('completed', P), world=[(P, 'validation')]),
         # c5: every provider exhausted -> the child FAILS, and switching/retrying stays bounded.
         # Bound = measured omp 18.3.1 behaviour of a dead child: one failed turn + one omp
@@ -89,7 +90,7 @@ def cells(am):
         # re-prompt loop cheat s7: 4/5/5). A list-cycle in model[] is neutralised by omp itself.
         'c5-vse-ischerpany': dict(
             models=modes(quota_providers=every),
-            script=[task_step(SIB, SIB_MARK + " sibling."), task_step(CHILD, "Yield the marker.")],
+            script=[task_step(SIB, SIB_MARK + " sibling."), task_step(CHILD, MARK + " yield.")],
             expect=('failed', None), world=[(P, 'quota')], max_child_turns=2),
         # c6: the fallback's cooldown is NOT a quota wall: the sibling hit the exhausted primary,
         # then a 400 on the fallback (omp cools the selector down on hard errors too) -> the
@@ -98,7 +99,7 @@ def cells(am):
         # carry an exhaustion record" (critic 129 round 1): in c2 both answers coincide.
         'c6-zapasnaja-validacija': dict(
             models=modes(quota_providers=(prov[P],), override={F: {"sib": "validation", "default": "ok"}}),
-            script=[task_step(SIB, SIB_MARK + " sibling."), task_step(CHILD, "Yield the marker.")],
+            script=[task_step(SIB, SIB_MARK + " sibling."), task_step(CHILD, MARK + " yield.")],
             expect=('completed', F), world=[(P, 'quota'), (F, 'validation')]),
     }
 
@@ -161,31 +162,62 @@ def build_world(subj, w, cell, overlay):
     return c, tier_of(am)
 
 
-# omp returns a spawned task under its own id grammar: the plain logical name (18.3.1;
-# first spawn of the process) or <name>-<digits> (18.18.8: a later spawn carries a numeric
-# suffix — measured -2/-3, not a global ordinal). The judge links the LOGICAL task name to
-# the ACTUAL returned id by this grammar; a foreign similar id (Child129x, Child1290,
-# AChild129) must not satisfy the link.
-RESULT_RE = re.compile(r'<task-result id="([^"]*)" agent="[\w-]+" status="([^"]+)"[^>]*>(.*?)</task-result>', re.S)
+# ── адаптер формата вывода omp — ЕДИНСТВЕННОЕ место, где живёт знание формы события ──
+# Слово владельца (2026-11-16, через консультанта): «чтобы ничего жёсткого не было вписано
+# в харнессе… омп поменял названия, завтра опять может поменять». Идентификатор omp НЕ
+# используется для связи вовсе: ребёнок опознаётся по НАШЕМУ маркеру M129 — логическое имя
+# задачи → маркер в задании → результат, несущий этот маркер (завершённый — маркером в
+# yield-JSON, умерший — маркером в тексте ошибки stub-провайдера). Знает наблюдатель только
+# ФОРМУ события (тег task-result и его поля) — и только здесь; изменившийся формат —
+# именованный отказ rc 2 (NOT_IMPLEMENTED-класс), НЕ ложное «нет результата».
+MARK_TOKEN = re.compile(r'(?<![A-Za-z0-9])%s(?![A-Za-z0-9])' % re.escape(MARK))
+TASK_RESULT_BLOCK = re.compile(r'<task-result\b(?P<attrs>[^>]*)>(?P<body>.*?)</task-result>', re.S)
+TASK_RESULT_ATTR = re.compile(r'([\w-]+)="([^"]*)"')
+TASK_RESULT_NEED = ('id', 'agent', 'status')
 
 
-def resolve_child(out, name):
-    """Link the logical task name to the actual returned id (observer fix, omp 18.18.8).
+class OmpFormatChanged(Exception):
+    """Формат вывода omp не распознан — наблюдатель отказывается судить (живой прогон: rc 2)."""
 
-    Unique link -> ((id, status, body), None). Otherwise a NAMED outcome, never a guess:
-    no returned id at all, or two returns of one logical name (a duplicate must not be
-    silently judged as either return)."""
-    own = re.compile(r'%s(?:-\d+)?$' % re.escape(name))
-    hits = [(m.group(1), m.group(2), m.group(3)) for m in RESULT_RE.finditer(out)
-            if own.fullmatch(m.group(1))]
+
+def read_task_results(out):
+    """Транскрипт родителя → [(status, body), …], иначе OmpFormatChanged('формат omp
+    изменился: <поле>'). Отказывают: вхождение <task-result>, не разобранное до полей
+    id/agent/status и закрывающего тега, и наш маркер, дошедший до родителя ВНЕ
+    разобранных блоков (omp сменил форму выдачи). Отсутствие событий вовсе — честное
+    «нет результата с маркером» (не отказ)."""
+    parsed, rest, prev = [], [], 0
+    for m in TASK_RESULT_BLOCK.finditer(out):
+        attrs = dict(TASK_RESULT_ATTR.findall(m.group('attrs')))
+        miss = [k for k in TASK_RESULT_NEED if k not in attrs]
+        if miss:
+            raise OmpFormatChanged('формат omp изменился: %s' % miss[0])
+        parsed.append((attrs['status'], m.group('body')))
+        rest.append(out[prev:m.start()])
+        prev = m.end()
+    rest.append(out[prev:])
+    tail = ''.join(rest)
+    if '<task-result' in tail:
+        raise OmpFormatChanged('формат omp изменился: <task-result без пары')
+    if MARK_TOKEN.search(tail):
+        raise OmpFormatChanged('формат omp изменился: маркер %s вне task-result' % MARK)
+    return parsed
+
+
+def resolve_child(out):
+    """Связь по НАШЕМУ маркеру: результат ребёнка — единственный task-result, чьё тело
+    несёт M129; id omp не участвует (Child129, Child129-2 и zzz-9 судятся одинаково).
+    Ноль находок — «нет результата с маркером», больше одной — «дубликат маркера»
+    (не угадывать первый/последний)."""
+    hits = [(st, body) for st, body in read_task_results(out) if MARK_TOKEN.search(body)]
     if not hits:
-        return None, 'нет результата ребёнка %s в выводе родителя' % name
+        return None, 'нет результата с маркером %s' % MARK
     if len(hits) > 1:
-        return None, 'дубликат результата ребёнка %s: ids=%s' % (name, ', '.join(h[0] for h in hits))
+        return None, 'дубликат маркера %s (%d результата)' % (MARK, len(hits))
     return hits[0], None
 
 
-def judge(w, c, rc):
+def judge(w, c, rc, link_fn=None):
     out = open(os.path.join(w, 'out.txt'), errors='replace').read()
     reqs = [json.loads(l) for l in open(os.path.join(w, 'requests.jsonl')) if l.strip()]
     if rc == 124:
@@ -194,11 +226,11 @@ def judge(w, c, rc):
     for model, status in c['world'] or ():
         if not any(r['sib'] and r['turn'] and r['model'] == model and r['status'] == status for r in reqs):
             return 'мир не построен: у соседа нет хода %s со статусом %s' % (model, status)
-    hit, link = resolve_child(out, CHILD)
-    if link:
-        return link
+    hit, why = (link_fn or resolve_child)(out)
+    if why:
+        return why
     want_child, want_model = c['expect']
-    st, body = hit[1], hit[2]
+    st, body = hit
     if not st.startswith(want_child):
         return 'ребёнок %s, ожидался %s: %s' % (st, want_child, ' '.join(body.split())[:160])
     if want_model is not None:
@@ -214,56 +246,141 @@ def judge(w, c, rc):
     return None
 
 
-# ── observer self-tests (--parser): the transcript link resolve_child() makes, without omp ──
-# Honest shapes of BOTH id formats must link and judge green; deceptive stand transcripts
-# (a foreign similar id, a duplicate return, an empty return) must yield their NAMED
-# outcome — each red case below names the naive observer it kills (Н-39: binding in code).
+# ── самопроверки наблюдателя (--parser), без omp ──
+# Честные транскрипты: plain id (18.3.1), id с суффиксом (18.18.8) и чужой id дают ОДИН И
+# ТОТ ЖЕ исход — идентификатор не участвует (механически: группы id-form/id-fail обязаны
+# сходиться в один исход). Обманные транскрипты (чужой маркер, дубликат маркера, отсутствие
+# маркера, нераспознанная форма события) дают именованный исход. Каждый красный случай
+# комментарием И механически привязан к наивному наблюдателю, которого убивает: обманные
+# стабы наблюдателя ниже прогоняются по клеткам и обязаны дать ИНОЙ исход (Н-39 — код).
 PR_BODY = '\n<output>\n{\n  "marker": "%s",\n  "model": "fam-f"\n}\n</output>\n' % MARK
+SIB_BODY = '\n<output>\n{\n  "marker": "%s",\n  "model": "fam-f"\n}\n</output>\n' % SIB_MARK
+# умерший ребёнок: маркер доходит текстом ошибки stub-провайдера (живая форма c5, замер
+# omp 18.18.8): [провайдер] 429 [1310][…][stub129 M129] …
+ERR_M = ('\n<output>\n[stub-openai-codex/gpt-sol] 429 [1310][Weekly/Monthly Limit Exhausted.'
+         ' Your limit will reset at 2099-01-01 00:00:00][stub129 %s] (type=rate_limit_error'
+         ' param=1310) retry-after-ms=31561000\n</output>\n' % MARK)
+ERR_SIB = ERR_M.replace(MARK, SIB_MARK)
+OK_NO_MARK = '\n<output>\n{\n  "model": "fam-f"\n}\n</output>\n'
 
 
 def _tr(tid, status, body=''):
     return '<task-result id="%s" agent="architect" status="%s" duration="1ms">%s</task-result>\n' % (tid, status, body)
 
 
+# ── обманные стабы наблюдателя (Н-39) — наивные наблюдатели прошлых кругов ──
+# В судье НЕ используются; сигнатура как у resolve_child. Каждый обязан быть ПОЙМАН:
+# на привязанной клетке исход стаба обязан ОТЛИЧАТЬСЯ от требуемого исхода случая.
+def _blocks(out):
+    for m in TASK_RESULT_BLOCK.finditer(out):
+        a = dict(TASK_RESULT_ATTR.findall(m.group('attrs')))
+        yield a.get('id', ''), a.get('status', ''), m.group('body')
+
+
+def stub_po_id(out):
+    # ОБМАН «матчит по id»: результат ребёнка — тот, чей id omp равен имени задачи.
+    hits = [(st, b) for tid, st, b in _blocks(out) if tid == CHILD]
+    return (hits[0], None) if hits else (None, 'нет результата ребёнка %s' % CHILD)
+
+
+def stub_po_prefiksu_id(out):
+    # ОБМАН «матчит по префиксу id»: id, начинающийся с имени задачи (Child129-2 — да,
+    # но и Child129x — тоже; наивный начало-матчер засчитывает чужого ребёнка).
+    hits = [(st, b) for tid, st, b in _blocks(out) if tid.startswith(CHILD)]
+    return (hits[0], None) if hits else (None, 'нет результата ребёнка %s' % CHILD)
+
+
+def stub_molchit_na_formate(out):
+    # ОБМАН «молчаливо игнорирует нераспознанный формат»: грамматика id прошлого круга
+    # по разобравшимся блокам; нераспознанные вхождения и маркер вне блоков молча пропущены.
+    own = re.compile(r'%s(?:-\d+)?$' % re.escape(CHILD))
+    hits = [(st, b) for tid, st, b in _blocks(out) if own.fullmatch(tid)]
+    return (hits[0], None) if hits else (None, 'нет результата ребёнка %s' % CHILD)
+
+
+def _stub_krajnij(out, last):
+    # ОБМАН «берёт первый/последний при дубликате»: при двух результатах с маркером
+    # угадывает крайний вместо именованного «дубликат маркера».
+    hits = [(st, b) for st, b in read_task_results(out) if MARK_TOKEN.search(b)]
+    if not hits:
+        return None, 'нет результата с маркером %s' % MARK
+    return (hits[-1] if last else hits[0], None)
+
+
+NAIVE_STUBS = [
+    ('матчит по id', stub_po_id),
+    ('матчит по префиксу id', stub_po_prefiksu_id),
+    ('молчит на нераспознанном формате', stub_molchit_na_formate),
+    ('берёт первый при дубликате', lambda out: _stub_krajnij(out, False)),
+    ('берёт последний при дубликате', lambda out: _stub_krajnij(out, True)),
+]
+
+
 def parser_cases():
     ok = dict(expect=('completed', 'fam-f'), world=None)
     fail = dict(expect=('failed', None), world=None)
-    no_child = 'нет результата ребёнка %s в выводе родителя' % CHILD
+    no_mark = 'нет результата с маркером %s' % MARK
+    dup = 'дубликат маркера %s (2 результата)' % MARK
     return [
-        # honest, old id format (18.3.1 / first spawn): the plain name links
-        ('pr1-staryj-format', ok, _tr(CHILD, 'completed', PR_BODY), None),
-        # honest, new id format (18.18.8, later spawn): the suffixed id links (live c2 shape)
-        ('pr2-novyj-format', ok, _tr(SIB, 'failed (exit 1)') + _tr(CHILD + '-2', 'completed', PR_BODY), None),
-        # honest refusal under the new id format: a failed child is judged failed (live c5 shape)
-        ('pr3-novyj-format-otkaz', fail, _tr(SIB, 'failed (exit 1)') + _tr(CHILD + '-2', 'failed (exit 1)'), None),
-        # deceptive: only a FOREIGN similar id returned — a prefix/substring matcher would
-        # count the foreign child and pass; the link must refuse it
-        ('pr4-chuzhoj-pohozhij-id', ok, _tr(SIB, 'failed (exit 1)') + _tr(CHILD + 'x-2', 'completed', PR_BODY), no_child),
-        # deceptive: name-boundary foreigners AChild129 / Child1290
-        ('pr5-chuzhoj-granica', ok, _tr('A' + CHILD, 'completed', PR_BODY) + _tr(CHILD + '0', 'completed', PR_BODY), no_child),
-        # deceptive: TWO returns of one logical name (omp 18.18.8 produces them when the
-        # script re-spawns the name; measured ids Child129 + Child129-3) — a dict/last-match
-        # observer silently judges one of them
-        ('pr6-dublikat', ok, _tr(CHILD, 'completed', PR_BODY) + _tr(CHILD + '-2', 'completed', PR_BODY),
-         'дубликат результата ребёнка %s: ids=%s, %s-2' % (CHILD, CHILD, CHILD)),
-        # deceptive: duplicate with DIFFERENT verdicts — first-match would say failed,
-        # last-match completed; both guesses are wrong, the named outcome stands
-        ('pr7-dublikat-razlichnye', ok, _tr(CHILD, 'failed (exit 1)') + _tr(CHILD + '-3', 'completed', PR_BODY),
-         'дубликат результата ребёнка %s: ids=%s, %s-3' % (CHILD, CHILD, CHILD)),
-        # deceptive: EMPTY returned id — must not link and must not crash
-        ('pr8-pustoj-vozvrat', ok, _tr('', 'completed', PR_BODY), no_child),
+        # идентификатор omp не участвует: старый формат (plain id), новый (суффикс) и
+        # чужой id — один и тот же исход (группа id-form; убивает «матчит по id» на
+        # суффиксе и чужом id: тот промахивается «нет результата ребёнка»)
+        ('pr1-staryj-id', ok, _tr(CHILD, 'completed', PR_BODY), None, [], 'id-form'),
+        ('pr2-novyj-id', ok, _tr(SIB, 'failed (exit 1)') + _tr(CHILD + '-2', 'completed', PR_BODY), None, ['матчит по id'], 'id-form'),
+        ('pr3-chuzhoj-id', ok, _tr('zzz-9', 'completed', PR_BODY), None, ['матчит по id'], 'id-form'),
+        # то же для отказа ребёнка (живая форма c5): маркер доходит текстом ошибки
+        ('pr4-otkaz-staryj-id', fail, _tr(SIB, 'failed (exit 1)', ERR_SIB) + _tr(CHILD, 'failed (exit 1)', ERR_M), None, [], 'id-fail'),
+        ('pr5-otkaz-novyj-id', fail, _tr(SIB, 'failed (exit 1)', ERR_SIB) + _tr(CHILD + '-2', 'failed (exit 1)', ERR_M), None, [], 'id-fail'),
+        ('pr6-otkaz-chuzhoj-id', fail, _tr(SIB, 'failed (exit 1)', ERR_SIB) + _tr('zzz-9', 'failed (exit 1)', ERR_M), None, [], 'id-fail'),
+        # обман «матчит по id»: id ровно Child129, но маркер ЧУЖОЙ (SIB129) — результат
+        # не наш; id-матчер засчитывает его и даёт зелёное
+        ('pr7-tochnyj-id-chuzhoj-marker', ok, _tr(CHILD, 'completed', SIB_BODY), no_mark, ['матчит по id'], None),
+        # обман «матчит по префиксу id»: id начинается с Child129, но маркер чужой
+        ('pr8-prefiks-id-chuzhoj-marker', ok, _tr(CHILD + 'x-2', 'completed', SIB_BODY), no_mark, ['матчит по префиксу id'], None),
+        # обманы «матчит по id»/«по префиксу»: завершённый результат БЕЗ маркера — не наш
+        ('pr9-net-markera', ok, _tr(CHILD, 'completed', OK_NO_MARK), no_mark, ['матчит по id', 'матчит по префиксу id'], None),
+        # обманы «берёт первый/последний при дубликате»: два результата с маркером M129 —
+        # с одинаковыми и с разными вердиктами; угадывание крайнего вместо именованного
+        ('pr10-dublikat-markera', ok, _tr(CHILD, 'completed', PR_BODY) + _tr(CHILD + '-3', 'completed', PR_BODY),
+         dup, ['берёт первый при дубликате', 'берёт последний при дубликате'], None),
+        ('pr11-dublikat-razlichnye', ok, _tr(CHILD, 'failed (exit 1)', ERR_M) + _tr(CHILD + '-3', 'completed', PR_BODY),
+         dup, ['берёт первый при дубликате', 'берёт последний при дубликате'], None),
+        # обман «молчаливо игнорирует нераспознанный формат»: status переименован —
+        # честный наблюдатель отказывается (rc 2), наивный судит по пустому статусу
+        ('pr12-attr-pereimenovan', ok,
+         '<task-result id="%s" agent="architect" outcome="completed" duration="1ms">%s</task-result>\n' % (CHILD, PR_BODY),
+         ('rc2', 'формат omp изменился: status'), ['молчит на нераспознанном формате'], None),
+        # …нет закрывающего тега — блок не разбирается, наивный молчит «нет результата»
+        ('pr13-net-zakryvajushchego', ok, '<task-result id="%s" agent="architect" status="completed">%s' % (CHILD, PR_BODY),
+         ('rc2', 'формат omp изменился: <task-result без пары'), ['молчит на нераспознанном формате'], None),
+        # omp сменил форму события целиком (слово владельца: «завтра опять может
+        # поменять»): наш маркер дошёл до родителя ВНЕ task-result — отказ rc 2,
+        # а не ложное «нет результата»
+        ('pr14-marker-vne-bloka', ok, '{"event":"task_result","marker":"%s","status":"completed"}\n' % MARK,
+         ('rc2', 'формат omp изменился: маркер %s вне task-result' % MARK), ['молчит на нераспознанном формате'], None),
+        # соседний ребёнок с ДРУГИМ маркером не засчитывается (транскрипт валиден)
+        ('pr15-sosed-drugoj-marker', ok, _tr(SIB, 'completed', SIB_BODY), no_mark, [], None),
     ]
 
 
+def _outcome(w, cell, link_fn=None):
+    try:
+        return judge(w, cell, 0, link_fn)
+    except OmpFormatChanged as e:
+        return ('rc2', str(e))
+
+
 def run_parser_tests():
-    red = 0
+    red = caught = checks = 0
     cases = parser_cases()
-    for name, cell, out_text, want in cases:
+    groups, bound = {}, set()
+    for name, cell, out_text, want, kills, group in cases:
         w = tempfile.mkdtemp(prefix='p129-parser-')
         try:
             open(os.path.join(w, 'out.txt'), 'w').write('Working...\nPARENT_SAW:\n' + out_text)
             open(os.path.join(w, 'requests.jsonl'), 'w').write('')
-            got = judge(w, cell, 0)
+            got = _outcome(w, cell)
+            stub_got = {k: _outcome(w, cell, f) for k, f in NAIVE_STUBS if k in kills}
         finally:
             shutil.rmtree(w, ignore_errors=True)
         if got != want:
@@ -271,7 +388,25 @@ def run_parser_tests():
             print('FAIL %s: judge=%r, ожидалось %r' % (name, got, want))
         else:
             print('ok %s' % name)
-    print('parser=%d red=%d' % (len(cases), red))
+        if group:
+            groups.setdefault(group, set()).add(got)
+        for k, g in stub_got.items():
+            bound.add(k)
+            checks += 1
+            if g == want:
+                red += 1
+                print('НЕ ПОЙМАН «%s» на %s: стаб даёт тот же исход %r' % (k, name, want))
+            else:
+                caught += 1
+    for k, _ in NAIVE_STUBS:
+        if k not in bound:
+            red += 1
+            print('FAIL стаб «%s» не привязан ни к одной клетке' % k)
+    for g, outs in sorted(groups.items()):
+        if len(outs) != 1:
+            red += 1
+            print('FAIL группа %s: исход зависит от формата id: %s' % (g, sorted(map(repr, outs))))
+    print('parser=%d red=%d stub_checks=%d caught=%d' % (len(cases), red, checks, caught))
     return 1 if red else 0
 
 
@@ -285,7 +420,11 @@ def run_cells(subj, names, overlay, keep=False):
             if rc == 3:
                 print('STAND BROKEN %s: stub did not start' % cell)
                 sys.exit(2)
-            why = judge(w, c, rc)
+            try:
+                why = judge(w, c, rc)
+            except OmpFormatChanged as e:
+                print('ФОРМАТ ИЗМЕНЁН %s: %s' % (cell, e))
+                sys.exit(2)
         finally:
             if not keep:
                 shutil.rmtree(w, ignore_errors=True)

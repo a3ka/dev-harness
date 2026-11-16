@@ -5,8 +5,8 @@ usage: stub_provider.py <port-file> <plan.json> <requests.jsonl>
 
 One process serves every model of the stand's `stub` provider. plan.json:
 
-  {"_marker": "M129",                 # child yields {"marker": _marker, "model": <id>}
-   "_sib_marker": "SIB129",           # prompt marker of the SIBLING child
+  {"_marker": "M129",                 # each spawned task yields {"marker": <its marker>, "model": <id>}
+   "_sib_marker": "SIB129",           # markers are per LOGICAL task (child M129 / sibling SIB129)
    "_main_script": [{"name": .., "args": {..}}, ...],  # parent tool calls, in order
    "models": {"<id>": MODE | {"sib": MODE, "default": MODE}}}
 
@@ -37,19 +37,27 @@ PORT_FILE, PLAN_FILE, LOG_FILE = sys.argv[1], sys.argv[2], sys.argv[3]
 PLAN = json.load(open(PLAN_FILE))
 MODELS = PLAN["models"]
 
-QUOTA_BODY = json.dumps({
-    "type": "error",
-    "error": {
-        "type": "rate_limit_error",
-        "code": "1310",
-        "message": "[1310][Weekly/Monthly Limit Exhausted. Your limit will reset at 2099-01-01 00:00:00][stub129]",
-    },
-    "request_id": "stub129",
-}).encode()
-VALIDATION_BODY = json.dumps({"error": {
-    "type": "invalid_request_error", "code": "invalid_request_error",
-    "message": "stub129: messages.0.content: field required"}}).encode()
-ERROR500_BODY = json.dumps({"error": {"message": "stub129: upstream hiccup"}}).encode()
+def err_body(kind, marker):
+    """Ошибка с маркером ЗАПРАШИВАЮЩЕГО (слово владельца 2026-11-16: наблюдатель 129
+    связывает результат ребёнка с заданием по НАШЕМУ маркеру, не по id omp) — маркер
+    доходит и от умершего ребёнка: текстом ошибки в его task-result. Байтовая форма
+    живого отказа (omp log 2026-10-21: 429, code 1310, retry-after) сохранена, маркер
+    добавлен в хвост сообщения."""
+    if kind == "quota":
+        return json.dumps({
+            "type": "error",
+            "error": {
+                "type": "rate_limit_error",
+                "code": "1310",
+                "message": "[1310][Weekly/Monthly Limit Exhausted. Your limit will reset at 2099-01-01 00:00:00][stub129 %s]" % marker,
+            },
+            "request_id": "stub129",
+        }).encode()
+    if kind == "validation":
+        return json.dumps({"error": {
+            "type": "invalid_request_error", "code": "invalid_request_error",
+            "message": "stub129 %s: messages.0.content: field required" % marker}}).encode()
+    return json.dumps({"error": {"message": "stub129 %s: upstream hiccup" % marker}}).encode()
 
 
 def chunk(model, delta, finish=None):
@@ -115,12 +123,13 @@ class H(BaseHTTPRequestHandler):
         with open(LOG_FILE, "a") as f:
             f.write(json.dumps({"model": model, "sib": sib, "status": mode,
                                 "turn": bool(body.get("tools"))}) + "\n")
+        mk = PLAN["_sib_marker"] if sib else PLAN["_marker"]  # чей запрос — тот и маркер
         if mode == "quota":
-            self._json(429, QUOTA_BODY, [("retry-after-ms", "31561000"), ("retry-after", "31561")])
+            self._json(429, err_body("quota", mk), [("retry-after-ms", "31561000"), ("retry-after", "31561")])
         elif mode == "validation":
-            self._json(400, VALIDATION_BODY)
+            self._json(400, err_body("validation", mk))
         elif mode == "error500":
-            self._json(500, ERROR500_BODY)
+            self._json(500, err_body("error500", mk))
         elif mode == "main":
             script = PLAN.get("_main_script") or []
             done = tool_messages(body)
@@ -133,7 +142,7 @@ class H(BaseHTTPRequestHandler):
             if tool_messages(body):
                 self._text(model, "child done")
             else:
-                self._tool(model, "yield", {"data": {"marker": PLAN["_marker"], "model": model}})
+                self._tool(model, "yield", {"data": {"marker": mk, "model": model}})
         else:
             self._json(404, json.dumps({"error": {"message": "stub129: unknown model " + model}}).encode())
 
