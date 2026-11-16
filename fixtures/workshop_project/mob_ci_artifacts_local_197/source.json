@@ -1,0 +1,58 @@
+{
+  "_comment": "Контракт 197 (mob-ci-artefakty-lokalno): единый источник батареи. piny — sha256 файлов модели (честной реализации); bazovoje_derevo — живое дерево продукта, от которого модель выведена (проверяемо: замена ТОЛЬКО артефактного транспорта). stab_vhod — привязка каждого обманного стаба к клетке и именованной причине (Н-39: по коду мутатора, не по прозе контракта).",
+  "bazovoje_derevo": {
+    "repo": "/home/harness/projects/Complior-mob",
+    "ref": "origin/main",
+    "commit": "fda1fc871960b8061d8e6f6d12f2cc38f5834cee",
+    "data": "2026-11-12 (последний fetch клона на станции)",
+    "mobile_yml_sha256": "1d4e304158578e0ed51fd9721b7acb9239f6b599f060bb8fceb761468ab4980e",
+    "zamer": "9 шагов actions/upload-artifact@v7, 3 шага actions/download-artifact@v7, 5 команд gh run download (замер grep этой пачки)"
+  },
+  "piny": {
+    ".github/workflows/mobile.yml": "cace6fedbbe9bda4516af59e636a7e90c89015f102e227ea489ba9b97bc160e0",
+    "package.json": "33339210c643b6f2d42e1c1a54f5f9787ca32867b4467dac416fd466025c7b4c",
+    "mobile/scripts/ci-artefakty.cjs": "1a3a8860462dd9013eb785ba2ba0786f3adaa496a60194497b3432c0fae1d13b"
+  },
+  "stab_vhod": {
+    "stab_a01_upload_ostalsja": {
+      "kletka": "a01-upload-artefakt-ostalsja",
+      "prichina": "UPLOAD_ARTIFAKT_OSTALSJA",
+      "defekt": "в select-screens оставлен один шаг upload-artifact"
+    },
+    "stab_a03_gh_ostalsja": {
+      "kletka": "a03-gh-kanal-v-run",
+      "prichina": "GH_KANAL_V_RUN",
+      "defekt": "работник e2e-splash вернулся к gh run download"
+    },
+    "stab_b01_forma_pisatelja": {
+      "kletka": "b01-forma-pisatelja",
+      "prichina": "FORMA_PISATELJA",
+      "defekt": "шаг-писатель maestro-117 несёт постороннюю команду cp рядом с lane-вызовом"
+    },
+    "stab_c01_nepolnaja": {
+      "kletka": "c01-forma-chitatelja",
+      "prichina": "NEPOLNAJA_IDENTIFIKACIJA_RUNA",
+      "defekt": "читатель APK передал --run-id без --run-attempt"
+    },
+    "stab_c02_chtenie_bez_pisatelja": {
+      "kletka": "c02-imja-bez-pisatelja",
+      "prichina": "IMJA_BEZ_PISATELJA",
+      "defekt": "агрегат читает maestro-999, который никто не пишет"
+    },
+    "stab_d01_put_bez_popytki": {
+      "kletka": "d01-koren-vne-skripta",
+      "prichina": "KOREN_VNE_SKRIPTA",
+      "defekt": "писатель строит путь cp сам: без run_attempt, грамматика корня в workflow"
+    },
+    "stab_d02_vyhod_za_koren": {
+      "kletka": "d02-vyhod-za-koren",
+      "prichina": "VYHOD_ZA_KOREN",
+      "defekt": "источник писателя с '..' — выход за рабочий каталог"
+    },
+    "stab_r09_skript_bez_popytki": {
+      "kletka": "r09-izoljacija-popytok",
+      "prichina": "POPYTKI_SLILIS",
+      "defekt": "скрипт-канон строит путь без run_attempt — каталоги попыток сливаются (поведение); байтовое расхождение ловит и e01-skript-pin"
+    }
+  }
+}
