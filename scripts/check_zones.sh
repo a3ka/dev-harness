@@ -1370,6 +1370,18 @@ while IFS=$'\t' read -r nnn since; do
               fi
             fi
           fi
+          # Единственное допущение (слово владельца 2026-11-15 через консультанта, шаг 2 из 2): 148 v4 вытеснена
+          # v5 до публикации — догон строки реестра 148 идёт с v3 прямо на v5 (та же ancestor-мера).
+          if [ "$old_ok" -eq 0 ] && [ "$add_nnn" = "148" ] && [ "$vmax" = "5" ]; then
+            ref_skip="refs/tags/frozen/contracts/148/3"
+            tag_commit_skip="$(g rev-parse --verify --quiet "${ref_skip}^{commit}" 2>/dev/null || true)"
+            if [ -n "$tag_commit_skip" ] \
+               && g merge-base --is-ancestor "$tag_commit_skip" "$c" 2>/dev/null \
+               && [ "$(g cat-file -t "$ref_skip" 2>/dev/null || true)" = "tag" ] \
+               && [ "$(g rev-parse "$ref_skip" 2>/dev/null || true)" = "$rem_sha" ]; then
+              old_ok=1
+            fi
+          fi
           if [ "$old_ok" -eq 0 ]; then
             bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: sha старой строки ≠ ни tag-object id/CONTRACT/$add_nnn, ни tag-object frozen/contracts/$add_nnn/$vmax_prev"
             continue
