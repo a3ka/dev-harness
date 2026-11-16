@@ -1,0 +1,13 @@
+ФОРК: 187-door-rc-nositel
+ВОПРОС: В какой ветке и на какой базе implementer делает узкий ремонт двери 187а (scripts/check_architecture_contract.sh, решение по rc инструмента модели), если красные клетки architect лежат в wip/187/architect поверх отложенного v+1 батареи (897dbf7b9f, родитель 56698ecda7), а wip/187/implementer — старая ветка с грязным WT (920 строк stale) и историей (f50aa6b58b, не предок architect), на main же батарея другая (hotfix-регресс-клетки 6bfc073145) и 56698ecda7..origin/main расходятся (workflow_probe.py 135+/1216−)?
+КЛАСС: инженерный
+ПРИЗНАК: расхождение носителей; не смешивать узкий ремонт с отложенным v+1 (слово консультанта)
+МАРШРУТ: консультант
+ЗАВЕДЁН: 2026-11-15T11:40:00Z
+АВТОР: anthropic/claude-sonnet-5-5
+БЛОКИРУЕТ: да
+ОТВЕЧЕНО: нет
+
+Факты. Arch187DoorRc сдал 897dbf7b9f (wip/187/architect, только workflow_probe.py +91/−3, отдельный коммит; мои `--model` CELLS=97 FAILURES=0 и `--stabs` CELLS=97 STABS=104 FAILURES=0). Стоп-проверка автора: клетки, требующей отказа при rc 0, в батарее нет — продолжаем. Новые клетки: check-green-latency-unresolved (rc 0 + status NOT_EVALUATED + requiredModelGate PASS → rc 0; красна сегодня), check-rc2-real-gate (rc 2 → ARCH_NOT_EVALUATED с rc 2 двери), check-rc1-real-gate (rc 1 → ARCH_CHECK; защита), check-rc0-gate-lie (rc 0 с gate NOT_EVALUATED → ARCH_NOT_EVALUATED) + 4 стаба. Указание автора для implementer: ремонт обязан доводить rc arch187_model_check до exit-кода двери (2→exit 2, 1→exit 1).
+Проблема носителя: (а) implementer-ветка: локально wip/187/implementer и её WT грязные (contracts +116, workflow_probe +866 — stale, нужна байтовая копия как для 140); базовая цепочка (f50aa6b58b) не предок 897dbf7b9f; (б) если базировать implementer на tip architect, в его ветку попадёт весь отложенный v+1 батареи (смешение) и сдвиг non-FF к origin/wip/187/implementer; (в) hotfix 0de333cfe6 уже в main, а батарея main и батарея architect-ветки расходятся.
+Предложение: implementer-ремонт делать в wip/187/implementer, сперва сохранив dirty WT байт-в-байт (preserve-187-impl-1115), затем `checkout -B wip/187/implementer 897dbf7b9f` (локальная ветка; её старая история сохранена на origin/ref/или в архивной локальной ветке archive/187/implementer-f50aa6b58b), правка ТОЛЬКО scripts/check_architecture_contract.sh, коммит implementer; публикация через gitw потребует решения по non-FF (force запрещён) — отсюда вопрос: допустима ли новая суффиксная-по-номеру схема, либо иной носитель (например тот же путь, что для 140: merge старой ветки implementer в новую базу с --no-ff, identity implementer)? Ничего не менялось до ответа.
