@@ -903,6 +903,16 @@ for f in "${staged[@]}"; do
                     fi
                   fi
                 fi
+                # Единственное допущение (слово владельца 2026-11-15 через консультанта, шаг 2 из 2): 148 v4 вытеснена
+                # v5 до публикации — догон строки реестра 148 идёт с v3 прямо на v5.
+                if [ "$old_ok" -eq 0 ] && [ "$add_nnn" = "148" ] && [ "$vmax" = "5" ]; then
+                  ref_skip="refs/tags/frozen/contracts/148/3"
+                  if git -C "$ROOT" show-ref --verify --quiet "$ref_skip" \
+                     && [ "$(git -C "$ROOT" cat-file -t "$ref_skip" 2>/dev/null || true)" = "tag" ] \
+                     && [ "$(git -C "$ROOT" rev-parse "$ref_skip" 2>/dev/null || true)" = "$rem_sha" ]; then
+                    old_ok=1
+                  fi
+                fi
                 if [ "$old_ok" -eq 0 ]; then
                   door_rc=1; door_msg="дверь минта 031: sha старой строки ≠ ни tag-object id/CONTRACT/$add_nnn, ни tag-object frozen/contracts/$add_nnn/$vmax_prev"
                 fi
