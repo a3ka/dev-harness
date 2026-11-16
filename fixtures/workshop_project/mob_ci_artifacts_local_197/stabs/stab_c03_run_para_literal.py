@@ -10,10 +10,12 @@ d = Path(sys.argv[1]) / '.github/workflows/mobile.yml'
 s = d.read_text(encoding='utf-8')
 staryj = """      - name: Download child evidence
         if: always()
+        working-directory: ${{ github.workspace }}
         run: npm run ci:artefakt-chtenie -- --shablon 'screen-evidence-*' --kuda mobile/screen-evidence-collected
 """
 novyj = """      - name: Download child evidence
         if: always()
+        working-directory: ${{ github.workspace }}
         run: npm run ci:artefakt-chtenie -- --shablon 'screen-evidence-*' --kuda mobile/screen-evidence-collected --run-id 43752095485 --run-attempt 1
 """
 if s.count(staryj) != 2:
