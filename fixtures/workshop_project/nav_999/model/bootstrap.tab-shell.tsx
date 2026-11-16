@@ -60,16 +60,18 @@ export function TabShell({
               <Text style={[styles.backLabel, { color: tokens.ink }]}>{uiCopyDe['global.back'].text}</Text>
             </Pressable>
           ) : null}
-          <Pressable
-            accessibilityLabel={uiCopyDe['action.F12.A01'].text}
-            accessibilityRole="button"
-            onPress={openProfile}
-            testID="shell-profile-entry"
-          >
-            <Text style={[styles.profileLabel, { color: tokens.ink }]}>
-              {uiCopyDe['action.F12.A01'].text}
-            </Text>
-          </Pressable>
+          {route === 'tabs' ? (
+            <Pressable
+              accessibilityLabel={uiCopyDe['action.F12.A01'].text}
+              accessibilityRole="button"
+              onPress={openProfile}
+              testID="shell-profile-entry"
+            >
+              <Text style={[styles.profileLabel, { color: tokens.ink }]}>
+                {uiCopyDe['action.F12.A01'].text}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
         {!reducedMotion ? <View style={[styles.faden, { backgroundColor: tokens.accent }]} testID="shell-faden" /> : null}
         <KeyboardAvoidingView
