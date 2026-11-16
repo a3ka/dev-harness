@@ -122,6 +122,12 @@ LEDGER="$SOST/uchet.jsonl"
 # списки мьютексов, занятых текущим решением (set -u; заполняет sudit)
 SUBJS=''
 GRUPPY_ZANYATY=''
+# [D38 mutexi-svoi] предметные мьютексы, РЕАЛЬНО захваченные этим решением:
+# очистка при отказе освобождает только их — ЧУЖИЕ мьютексы пакета не трогает
+# (вердикт адверсария 140 вызов 1/1 на OBJECT 10ef98b179: rmdir по всему SUBJS
+# удалял мьютекс параллельного процесса — третий входил в защищённый участок
+# до выхода первого). SUBJS остаётся перечнем пакета, не владением.
+MUTEXI_ZANYATY=''
 
 # [D17 repo-id] repoId — пространство имён замка: репозиторий РЕЕСТРА предмета
 # (--repo), литеральный basename origin; общий у рабочих и судей предмета.
@@ -211,7 +217,7 @@ predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # Декларация — в любой позиции строки, хвост-основание допустим (норма
 # roles/architect.md), вторая декларация в файле — неоднозначность.
 klass_riska() {  # <NNN> <worktree> <OBJECT> → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
-  local n="$1" wt="$2" obj="$3" kat spisok zap tip_zap blob put val znach='' ploh=''
+  local n="$1" wt="$2" obj="$3" kat spisok zap tip_zap rezim_zap blob put val znach='' ploh=''
   if [ "$(git -C "$wt" cat-file -t "$obj:contracts" 2>/dev/null)" = tree ]; then kat='contracts'
   elif [ "$(git -C "$wt" cat-file -t "$obj:.harness/contracts" 2>/dev/null)" = tree ]; then kat='.harness/contracts'
   else printf 'net_stroki:ни contracts/, ни .harness/contracts/ в дереве %s нет' "$obj"; return 0; fi
@@ -225,6 +231,15 @@ klass_riska() {  # <NNN> <worktree> <OBJECT> → risikovyj|obychnyj|net_stroki:<
     tip_zap="$(printf '%s' "$zap" | cut -f1 | cut -d' ' -f2)"
     blob="$(printf '%s' "$zap" | cut -f1 | cut -d' ' -f3)"
     if [ "$tip_zap" != blob ]; then ploh="${ploh:+$ploh }$put"; continue; fi
+    # [D39 rezim-zapisi] git хранит симлинк записью «120000 blob»: ТИП — blob,
+    # потому проверка одного типа пропускала его, и класс определялся
+    # содержимым ЦЕЛИ симлинка (валидная декларация) либо blob'ом самого
+    # симлинка из risk-legacy (вердикт адверсария 140 вызов 1/1 на OBJECT
+    # 10ef98b179 — принимался за контракт). Читаемая запись канона — только
+    # регулярный файл (режим 100644/100755); прочие режимы (120000 симлинк,
+    # 160000 gitlink) — нечитаемая запись, НЕзависимо от содержимого цели.
+    rezim_zap="$(printf '%s' "$zap" | cut -f1 | cut -d' ' -f1)"
+    [ "$rezim_zap" = 100644 ] || [ "$rezim_zap" = 100755 ] || { ploh="${ploh:+$ploh }$put"; continue; }
     val="$(git -C "$wt" show "$obj:$kat/$put" 2>/dev/null \
           | grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' \
           | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"
@@ -390,6 +405,11 @@ mutex_zajavit_dir() {  # <каталог замка> → 0 взят | 1 не в�
 }
 mutex_zajavit() { mutex_zajavit_dir "$(zamok_dir "$1")"; }
 mutexi_snyat_vse() {
+  # [D38 mutexi-svoi] снятие ТОЛЬКО реально захваченных этим решением
+  # мьютексов: группы — по факту удачного mutex_zajavit_dir, предметы —
+  # по MUTEXI_ZANYATY. ЧУЖОЙ (не взятый) мьютекс не снимается никогда:
+  # неудачная попытка взять не даёт права владения (вердикт адверсария
+  # 140 вызов 1/1: отказ по чужому мьютексу удалял его же).
   local s
   while IFS= read -r s; do
     [ -n "$s" ] && rmdir "$(gruppa_zamok_dir "$s")/mutex" 2>/dev/null
@@ -399,7 +419,7 @@ EOF
   while IFS= read -r s; do
     [ -n "$s" ] && rmdir "$(zamok_dir "$s")/mutex" 2>/dev/null
   done <<EOF
-$SUBJS
+$MUTEXI_ZANYATY
 EOF
 }
 # [D19 gruppa-pina] группа — из remote origin worktree пина (единый источник git).
@@ -553,6 +573,9 @@ EOF
 
   # мьютексы всех предметов пакета (отсортированы — общий порядок у конкурентов)
   SUBJS="$(printf '%s' "$GATED" | cut -d'|' -f4 | sort -u)"
+  # [D38 mutexi-svoi] в MUTEXI_ZANYATY попадают только УДАВШИЕСЯ захваты:
+  # не взятый (чужой) мьютекс в очистку не попадает — освобождение при
+  # отказе снимает исключительно реально захваченные этим решением.
   local ms
   while IFS= read -r ms; do
     [ -n "$ms" ] || continue
@@ -560,6 +583,7 @@ EOF
       mutexi_snyat_vse
       otp ZANYATO_RESHENIEM "предмет $ms: мьютекс решения занят (параллельный суд)"
     fi
+    MUTEXI_ZANYATY="${MUTEXI_ZANYATY}${ms}"$'\n'
   done <<EOF
 $SUBJS
 EOF
@@ -642,7 +666,13 @@ EOF
       esac
       # [D14 adv-do-rev] рисковый предмет: ревьюер — после завершённого адверсария.
       if [ "$kr" = 'risikovyj' ] && [ "$rol" = 'reviewer' ]; then
-        if ! subekt_suzhen_sudej "$sv" 'adversary'; then
+        # [D40 adv-na-objecte] адверсарий подтверждается именно для СУДИМОГО
+        # OBJECT (вердикт адверсария 140 вызов 1/1 на OBJECT 10ef98b179:
+        # сверка без OBJECT пропускала ревьюера нового sha по адверсарию
+        # старого sha) — та же семантика круга START+RELEASE, что у D11
+        # (повтор роли), с прежней проверкой tip (D9) и правилами RELEASE
+        # контракта 167 (obryv_bez_verdikta круг не закрывает).
+        if ! subekt_suzhen_sudej_obj "$sv" 'adversary' "$obj"; then
           mutexi_snyat_vse
           otp ADVERSARIJ_DO_REVJUERA "предмет $sv рисковый, завершённого адверсария в учёте нет — ревьюер раньше адверсария запрещён"
         fi

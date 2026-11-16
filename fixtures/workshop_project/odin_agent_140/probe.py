@@ -949,6 +949,34 @@ def kejsy():
     reg('w31-paket-dva-novyh-otkaz-vsemu',
         'пакет=два-новых-одной-группы;учёт=счёт-пакетом;отказ=весь-пакет;контроль=один-новый-проходит', w31)
 
+    def w32(mir, door):
+        # Вердикт адверсария 140 вызов 1/1 на OBJECT 10ef98b179 (БЛОКИРУЕТ 4,
+        # ложная достаточность приёмки): замена `if [ "$h_holder" !=
+        # "$HOLDER_ARG" ]; then` на `if false; then` оставляла w05/w06
+        # зелёными — снятие сравнения владельца освобождения ничего не
+        # краснило. Адресный сценарий: держатель завершился session_exit
+        # kind=normal (сдача, [D2b]); --osvobodit с ЧУЖИМ именем — rc 1
+        # DERZHATEL_RASHODITSJA, замок жив, RELEASE нет; со СВОИМ именем —
+        # rc 0 OSVOBOZHDEN, замок снят (отказ живого держателя w06
+        # идентичность сам по себе не проверяет — положительная ветка здесь)
+        wt, br, _ = mir.worktree('140')
+        mir.start('140', 'RealHolder', wt=wt, branch=br)
+        mir.zhurnal_vyhod('RealHolder', kind='normal')
+        r1 = osvobodit(door, mir, '140', 'OtherHolder')
+        rel = [x for x in mir.ledg() if x.get('t') == 'RELEASE']
+        problems = [k_rc(r1, 1, 'rc-чужое-имя'),
+                    k_prichina(r1, 'DERZHATEL_RASHODITSJA', 'причина-чужое-имя'),
+                    k_zanyat(mir, '140', 'RealHolder', 'замок-жив-при-чужом-имени')]
+        if rel:
+            problems.append('RELEASE-строка написана при чужом имени: %r' % rel[-1])
+        r2 = osvobodit(door, mir, '140', 'RealHolder')
+        return problems + [k_rc(r2, 0, 'rc-своё-имя'),
+                           k_stdout(r2, 'OSVOBOZHDEN dev-harness/140', 'выход-своё-имя'),
+                           k_svoboden(mir, '140', 'замок-снят-своим-именем')]
+    reg('w32-osvobodit-chuzhoe-imja',
+        'замок=освобождение;holder=чужое-имя-при-сданном-держателе;отказ=DERZHATEL_RASHODITSJA;контроль=своё-имя-освобождает',
+        w32)
+
     # B. судьи: состояние автора × OBJECT × порядок судей × риск
     def _avtor_sdal(mir, nnn, risk='обычный'):
         # v+1: контракт лежит и в $REPO (main), и в ДЕРЕВЕ кандидата — мир
@@ -1558,6 +1586,73 @@ def kejsy():
     reg('s46-izmenennyj-kandidat-bez-stroki',
         'риск=новый-без-строки;frozen=blob-не-совпадает;отказ=KLASS_RISKA_NET', s46)
 
+    def s47(mir, door):
+        # Вердикт адверсария 140 вызов 1/1 на OBJECT 10ef98b179 (БЛОКИРУЕТ 2):
+        # git хранит симлинк записью «120000 blob» — проверка одного ТИПА
+        # записи пропускала его, и дверь классифицировала СОДЕРЖИМОЕ ЦЕЛИ
+        # (валидная декларация «обычный») либо брала класс по blob САМОГО
+        # СИМЛИНКА из risk-legacy. Запись не-файл нечитаема по РЕЖИМУ git
+        # (120000) независимо от содержимого цели (инвариант 6: нечитаемая
+        # запись канона — отказ KLASS_RISKA_NET без START); обе формы цели —
+        # своими подпространствами, каждый вход красен сам
+        def odin(m, legacy):
+            zapisi = [('141-b.md', 'symlink', 'КЛАСС РИСКА: обычный')]
+            wt, br, sha = _avtor_sdal_stroki(m, '141', zapisi)
+            if legacy:
+                # blob симлинка (= хэш байтов цели) внесён в реестр владельца:
+                # класс не может прийти из реестра по нечитаемой записи
+                m.risk_legacy(m.blob_kandidata('141', '141-b.md'), 'обычный')
+            r = sudit(door, m, _revjuer(m, sha))
+            return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
+                    k_chislo_startov(m, 'учёт', 1)]
+        prob = []
+        for legacy in (False, True):
+            for p in _podmir(lambda m, legacy=legacy: odin(m, legacy)):
+                if p:
+                    prob.append('s47 legacy=%s: %s' % (legacy, p))
+        return prob
+    reg('s47-simlink-rezhim-120000',
+        'риск=симлинк-120000-blob;цель=валидная-декларация+legacy-blob;отказ=KLASS_RISKA_NET',
+        s47)
+
+    def s48(mir, door):
+        # Вердикт адверсария 140 вызов 1/1 на OBJECT 10ef98b179 (БЛОКИРУЕТ 3):
+        # subekt_suzhen_sudej сверял только (предмет, роль) без OBJECT —
+        # завершённый адверсарий СТАРОГО sha открывал ревьюеру НОВОГО sha
+        # (исправительный круг без адверсария). Адверсарий завершён на старом
+        # OBJECT (вердикт закоммичен, круг закрыт RELEASE), ветка автора ушла
+        # (amend): ревьюер нового tip — отказ ADVERSARIJ_DO_REVJUERA;
+        # контроль: адверсарий на новом sha проходит, ревьюер после него — тоже
+        wt, br, sha_star = _avtor_sdal(mir, '141', risk='рисковый')
+        _verdikt_sudyi(mir, '141', 'adversary', 'Adv141', sha_star)
+        mir.start('141', 'Adv141', klass='sudja', rol='adversary', obj=sha_star)
+        mir.zhurnal('Adv141', sdal=True)
+        mir.release('141', 'Adv141', 'verdikt_zakommiten')
+        sha_nov = mir.amend('141')
+        r1 = sudit(door, mir, _revjuer(mir, sha_nov))
+        startov_posle_otkaza = len([x for x in mir.ledg() if x.get('t') == 'START'])
+        r2 = sudit(door, mir, mir.sobytie('e2.json', [item('adversary', 'Adv141b',
+                        ['SUBJECT=141', 'OBJECT=' + sha_nov])]))
+        # круг адверсария на новом sha закрыт закоммиченным вердиктом (167):
+        # замок снят, RELEASE verdikt_zakommiten — ревьюер обязан пройти
+        _verdikt_sudyi(mir, '141', 'adversary', 'Adv141b', sha_nov)
+        shutil.rmtree(mir.sost / 'zamki' / REPO_ID / '141' / 'zanyat',
+                      ignore_errors=True)
+        mir.release('141', 'Adv141b', 'verdikt_zakommiten')
+        r3 = sudit(door, mir, mir.sobytie('e3.json', [item('reviewer', 'Rev141b',
+                        ['SUBJECT=141', 'OBJECT=' + sha_nov])]))
+        return [k_rc(r1, 1, 'rc-ревьюер-новый-sha'),
+                k_prichina(r1, 'ADVERSARIJ_DO_REVJUERA', 'причина'),
+                None if startov_posle_otkaza == 2 else
+                'START-строк после отказа ревьюера %d ≠ 2 (только автор и адверсарий старого sha)'
+                % startov_posle_otkaza,
+                k_rc(r2, 0, 'rc-адверсарий-новый-sha'),
+                k_rc(r3, 0, 'rc-ревьюер-после-адверсария'),
+                k_stroka(mir, 'start-ревьюер', holder='Rev141b', rol='reviewer')]
+    reg('s48-adv-tochno-na-objecte',
+        'риск=рисковый;порядок=адверсарий-только-старого-sha;OBJECT=новый-tip;отказ=ADVERSARIJ_DO_REVJUERA;контроль=адверсарий-нового-sha-открывает-ревьюера',
+        s48)
+
     # C. пакет: дубль в пакете × откат × гонка × режим
     def b01(mir, door):
         wt141, br141, _ = mir.worktree('141')
@@ -1642,6 +1737,68 @@ def kejsy():
         return [k_rc(r, 0, 'rc'), k_chislo_startov(mir, 'учёт', 1),
                 k_stroka(mir, 'start', holder='Arch141')]
     reg('b06-paket-rabochij-plus-scout', 'пакет=рабочий+не-гейт-роль', b06)
+
+    def b07(mir, door):
+        # Вердикт адверсария 140 вызов 1/1 на OBJECT 10ef98b179 (БЛОКИРУЕТ 1):
+        # на таймауте мьютекса mutexi_snyat_vse делала rmdir по ВСЕМ предметам
+        # пакета (SUBJS), не отличая захваченные этим решением от чужих, —
+        # отказ второго процесса УДАЛЯЛ мьютекс первого, третий входил в
+        # защищённый участок до выхода первого. Управляемый межпроцессный
+        # сценарий: первый процесс (процесс батареи, реальный конкурент)
+        # держит мьютекс предмета дольше таймаута двери (40×0.05 с — окно
+        # доказано полным рей-циклом отказа второго), второй (дверь-судья)
+        # получает ZANYATO_RESHENIEM, мьютекс первого ОБЯЗАН остаться
+        # (OTHER_MUTEX_EXISTS), третий не входит до отпускания первого и
+        # входит после; отказ элемента batch освобождает ТОЛЬКО реально
+        # захваченные: свой мьютекс снят, чужой жив (ленивое «не снимать
+        # ничего» ловится второй половиной — свой мьютекс висит).
+        wt, br, sha = _avtor_sdal(mir, '141', risk='обычный')
+        ev = mir.sobytie('e141.json', [item('critic', 'Critic141',
+                        ['SUBJECT=141', 'OBJECT=' + sha])])
+        zam = mir.sost / 'zamki' / REPO_ID / '141' / 'mutex'
+        zam.mkdir(parents=True)                # первый процесс взял мьютекс
+        prob = []
+        r2 = sudit(door, mir, ev)               # второй: таймаут, отказ
+        prob += [k_rc(r2, 1, 'rc-второй'),
+                 k_prichina(r2, 'ZANYATO_RESHENIEM', 'причина-второго')]
+        if not zam.is_dir():
+            prob.append('чужой мьютекс удалён отказом второго (OTHER_MUTEX_EXISTS=False)')
+        r3 = sudit(door, mir, ev)               # третий: до отпускания первого
+        prob += [k_rc(r3, 1, 'rc-третий-при-удержании'),
+                 k_prichina(r3, 'ZANYATO_RESHENIEM', 'причина-третьего')]
+        if zam.is_dir():
+            zam.rmdir()                         # первый процесс отпустил
+        r4 = sudit(door, mir, ev)               # вход после отпускания первого
+        prob += [k_rc(r4, 0, 'rc-после-отпускания'),
+                 k_stroka(mir, 'start-после-отпускания', holder='Critic141',
+                          klass='sudja')]
+        # отказ в ПАКЕТЕ: элемент 142 свободен, элемент 143 держит чужой
+        # процесс — отказ всего пакета освобождает только захваченное самим
+        _, _, sha142 = _avtor_sdal(mir, '142', risk='обычный')
+        _, _, sha143 = _avtor_sdal(mir, '143', risk='обычный')
+        mut143 = mir.sost / 'zamki' / REPO_ID / '143' / 'mutex'
+        mut143.mkdir(parents=True)              # чужой процесс держит 143
+        evb = mir.sobytie('epak.json', [
+            item('critic', 'Critic142', ['SUBJECT=142', 'OBJECT=' + sha142]),
+            item('critic', 'Critic143', ['SUBJECT=143', 'OBJECT=' + sha143])])
+        rb = sudit(door, mir, evb)
+        mut142 = mir.sost / 'zamki' / REPO_ID / '142' / 'mutex'
+        prob += [k_rc(rb, 1, 'rc-пакет'),
+                 k_prichina(rb, 'ZANYATO_RESHENIEM', 'причина-пакета')]
+        if mut142.exists():
+            prob.append('свой (захваченный) мьютекс 142 не освобождён отказом пакета')
+        if not mut143.is_dir():
+            prob.append('чужой мьютекс 143 удалён отказом пакета')
+        sudov = len([x for x in mir.ledg()
+                     if x.get('t') == 'START' and x.get('klass') == 'sudja'])
+        if sudov != 1:
+            prob.append('START-судей после отказов %d ≠ 1 (лишь Critic141 после отпускания)' % sudov)
+        if mut143.is_dir():
+            mut143.rmdir()
+        return prob
+    reg('b07-mjuteks-chuzhoj-ne-snimaetsja',
+        'пакет=отказ-по-чужому-мьютексу;замок=владение-мьютексом;отказ=ZANYATO_RESHENIEM;инвариант=чужой-жив-свой-снят-третий-не-входит-до-отпускания',
+        b07)
 
     # D. учёт/сторож
     def u01(mir, door):
@@ -1893,7 +2050,16 @@ def m_pervyj_rezultat_find(t):
 
 
 def m_bez_adv_do_rev(t):
-    return _z(t, '''        if ! subekt_suzhen_sudej "$sv" 'adversary'; then
+    # якорь перепривязан к блоку [D40 adv-na-objecte] (файл батареи 140,
+    # вердикт адверсария вызов 1/1): семантика стаба прежняя — порядок
+    # адверсарий→ревьюер не проверяем вовсе
+    return _z(t, '''        # [D40 adv-na-objecte] адверсарий подтверждается именно для СУДИМОГО
+        # OBJECT (вердикт адверсария 140 вызов 1/1 на OBJECT 10ef98b179:
+        # сверка без OBJECT пропускала ревьюера нового sha по адверсарию
+        # старого sha) — та же семантика круга START+RELEASE, что у D11
+        # (повтор роли), с прежней проверкой tip (D9) и правилами RELEASE
+        # контракта 167 (obryv_bez_verdikta круг не закрывает).
+        if ! subekt_suzhen_sudej_obj "$sv" 'adversary' "$obj"; then
           mutexi_snyat_vse
           otp ADVERSARIJ_DO_REVJUERA "предмет $sv рисковый, завершённого адверсария в учёте нет — ревьюер раньше адверсария запрещён"
         fi''', '''        : # стаб: порядок адверсарий→ревьюер не проверяем''')
@@ -2207,6 +2373,62 @@ def m_bezuslovnyj_legacy_default(t):
     fi''')
 
 
+def m_mjuteks_snimaet_vse(t):
+    # [D38 mutexi-svoi] снят: очистка снова rmdir по ВСЕМ предметам пакета
+    # (SUBJS), не отличая захваченные этим решением от чужих — форма двери
+    # до вердикта адверсария 140 вызов 1/1 на OBJECT 10ef98b179: отказ
+    # второго процесса удаляет мьютекс первого (OTHER_MUTEX_EXISTS=False),
+    # третий входит в защищённый участок до выхода первого.
+    return _z(t, '''  while IFS= read -r s; do
+    [ -n "$s" ] && rmdir "$(zamok_dir "$s")/mutex" 2>/dev/null
+  done <<EOF
+$MUTEXI_ZANYATY
+EOF
+}''', '''  while IFS= read -r s; do
+    [ -n "$s" ] && rmdir "$(zamok_dir "$s")/mutex" 2>/dev/null
+  done <<EOF
+$SUBJS
+EOF
+}''')
+
+
+def m_mjuteks_ne_snimaet_nichego(t):
+    # «ленивая» форма [D38]: предметные мьютексы вообще не снимаются —
+    # чужие целы (верхняя половина инварианта жива), но и СОБСТВЕННЫЕ
+    # захваченные висят после отказа: следующий суд предмета навсегда
+    # упирается в ZANYATO_RESHENIEM. Красен пакетной половиной b07
+    # (мьютекс 142, захваченный дверью и не освобождённый её отказом).
+    return _z(t, '''    [ -n "$s" ] && rmdir "$(zamok_dir "$s")/mutex" 2>/dev/null''',
+              '''    [ -n "$s" ] && : # стаб: захваченные мьютексы не снимаются''')
+
+
+def m_simlink_kak_blob(t):
+    # [D39 rezim-zapisi] снят: режим записи не судится — симлинк «120000
+    # blob» читается как контракт (форма двери до вердикта адверсария 140
+    # вызов 1/1 на OBJECT 10ef98b179): класс определяется содержимым цели
+    # симлинка либо blob'ом самого симлинка из risk-legacy.
+    return _z(t, '''    rezim_zap="$(printf '%s' "$zap" | cut -f1 | cut -d' ' -f1)"
+    [ "$rezim_zap" = 100644 ] || [ "$rezim_zap" = 100755 ] || { ploh="${ploh:+$ploh }$put"; continue; }''',
+              '''    : # стаб: режим записи не судится — симлинк читается как blob''')
+
+
+def m_adv_bez_objecta(t):
+    # [D40 adv-na-objecte] снят: адверсарий подтверждается по предмету БЕЗ
+    # OBJECT (форма двери до вердикта адверсария 140 вызов 1/1 на OBJECT
+    # 10ef98b179) — завершённый адверсарий старого sha открывает ревьюеру
+    # нового sha (исправительный круг без адверсария).
+    return _z(t, '''        if ! subekt_suzhen_sudej_obj "$sv" 'adversary' "$obj"; then''',
+              '''        if ! subekt_suzhen_sudej "$sv" 'adversary'; then # стаб: без OBJECT''')
+
+
+def m_osvobodit_bez_sverki(t):
+    # Сравнение владельца освобождения снято — байпас вердикта адверсария
+    # 140 вызов 1/1 на OBJECT 10ef98b179: `if [ "$h_holder" !=
+    # "$HOLDER_ARG" ]; then` → `if false; then`. ЧУЖОЕ имя при сданном
+    # держателе освобождает замок; прежние w05/w06 оставались зелёными —
+    # ловится только адресной клеткой w32 (чужое имя → DERZHATEL_RASHODITSJA).
+    return _z(t, '''  if [ "$h_holder" != "$HOLDER_ARG" ]; then''',
+              '''  if false; then # стаб: сверка держателя снята''')
 
 
 STAB_MUTACII = {
@@ -2251,6 +2473,11 @@ STAB_MUTACII = {
     's45-bez-scheta-paketa': m_bez_scheta_paketa,
     's46-bez-legacy-defaulta': m_bez_legacy_defaulta,
     's47-bezuslovnyj-legacy-default': m_bezuslovnyj_legacy_default,
+    's48-mjuteks-snimaet-vse': m_mjuteks_snimaet_vse,
+    's49-mjuteks-ne-snimaet-nichego': m_mjuteks_ne_snimaet_nichego,
+    's50-simlink-kak-blob': m_simlink_kak_blob,
+    's51-adv-bez-objecta': m_adv_bez_objecta,
+    's52-osvobodit-bez-sverki': m_osvobodit_bez_sverki,
     'x01-vsegda-puschem': m_vsegda_puschem,
 }
 
