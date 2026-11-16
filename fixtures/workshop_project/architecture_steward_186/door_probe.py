@@ -207,6 +207,20 @@ def world(tmp, case):
         # вокруг значения при назначенной без них — блокирующая находка
         # вердикта Crit186V2b, вход (а); ловит ослабление strip() значения
         fact = ' \t' + fact + ' \t'
+    if case == 'accept_fact_padded_lead_space':
+        # Арбитраж 186-1 РЕШЕНИЕ 2: чистый ОДНОСТОРОННИЙ экземпляр — ведущий
+        # ПРОБЕЛ; двусторонний смешанный вход не различает lstrip и
+        # удаление только пробела — четыре чистых экземпляра различают
+        fact = ' ' + fact
+    if case == 'accept_fact_padded_lead_tab':
+        # чистый односторонний экземпляр — ведущий ТАБ; ловит lstrip('\t')
+        fact = '\t' + fact
+    if case == 'accept_fact_padded_tail_space':
+        # чистый односторонний экземпляр — хвостовой ПРОБЕЛ; ловит rstrip(' ')
+        fact = fact + ' '
+    if case == 'accept_fact_padded_tail_tab':
+        # чистый односторонний экземпляр — хвостовой ТАБ; ловит rstrip('\t')
+        fact = fact + '\t'
     if case == 'accept_fact_fullwidth':
         # NFKC-эквивалент назначенной, не равный байтово: полноширинная
         # запись (вход (б)); ловит сравнение после Unicode-нормализации
@@ -426,6 +440,13 @@ CASES = {
     # вердикта Crit186V2b): форма записи не расширяет множество
     # принимаемых значений — пробелы/NFKC/bare/суффикс
     'accept_fact_padded': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    # Арбитраж 186-1 РЕШЕНИЕ 2: четыре ОДНОСТОРОННИХ экземпляра SPACE/TAB
+    # (ведущий/хвостовой); двусторонний смешанный сохранён выше — каждый
+    # экземпляр исполняется отдельным миром и различим своим выводом
+    'accept_fact_padded_lead_space': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'accept_fact_padded_lead_tab': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'accept_fact_padded_tail_space': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'accept_fact_padded_tail_tab': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
     'accept_fact_fullwidth': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
     'accept_fact_bare': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
     'accept_fact_suffixed': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
@@ -492,6 +513,17 @@ MUTATIONS = {
         "fields[1].split(';', 1)[0] != critic_model",
         "fields[1].split(';', 1)[0].strip() != critic_model",
         'accept_fact_padded'),
+    # одностороннее обрезание значения — Арбитраж 186-1 РЕШЕНИЕ 2
+    # (образец NM_lstrip/NM_rstrip критика Crit186V3): lstrip/rstrip
+    # различимы только на чистых односторонних входах (Н-39)
+    'stub_lstrip_fact': (
+        "fields[1].split(';', 1)[0] != critic_model",
+        "fields[1].split(';', 1)[0].lstrip() != critic_model",
+        'accept_fact_padded_lead_space'),
+    'stub_rstrip_fact': (
+        "fields[1].split(';', 1)[0] != critic_model",
+        "fields[1].split(';', 1)[0].rstrip() != critic_model",
+        'accept_fact_padded_tail_space'),
     'stub_nfkc': (
         "fields[1].split(';', 1)[0] != critic_model",
         "__import__('unicodedata').normalize('NFKC', fields[1].split(';', 1)[0]) != "
