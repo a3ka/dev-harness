@@ -31,6 +31,15 @@ roles.critic → имя тира → tiers[тир].model «@семейство»
 реестра, неразбор JSON, отсутствие roles.critic/тира, неразрешимый алиас
 или пустая строка — именованный отказ CRITIC_MODEL_UNRESOLVED (rc 1,
 слияния нет), не молчаливый fallback на GLM.
+
+Честная дверь по вердикту adversary contracts-186-impl-v2 (Н-1/Н-2/Н-3):
+имя поля `модель-факт=` ограничено слева началом строки СУД или разделителем
+`;` с опциональными пробелами — вхождение подстроки внутри ЧУЖОГО имени поля
+(`ложная-модель-факт=`, `замечание=модель-факт=`) полем не является; реестр
+читается относительно КАНОНИЧЕСКОГО файла скрипта (Path.resolve раскрывает
+симлинки) — запуск по симлинку из чужого дерева не подменяет реестр; цепочка
+назначения завершается только ПОЛНОЙ строкой модели — алиас-цикл и
+алиас-в-алиас дают CRITIC_MODEL_UNRESOLVED, не строку-алиас в роли модели.
 """
 import json
 import os
@@ -39,6 +48,8 @@ import re
 import subprocess
 import sys
 
+# Н-2 (Adv186Impl): реестр — соседний config/ КАНОНИЧЕСКОГО файла скрипта;
+# Path.resolve раскрывает симлинки, каталог ссылки реестром не становится.
 REGISTRY = Path(__file__).resolve().parent / 'config' / 'agent_models.json'
 
 
@@ -59,7 +70,11 @@ def assigned_critic_model():
     model = (models.get(alias[1:])
              if isinstance(models, dict) and isinstance(alias, str) and alias.startswith('@')
              else None)
-    return model if isinstance(model, str) and model.strip() else None
+    # Н-3 (Adv186Impl): цепочка завершается только ПОЛНОЙ строкой модели;
+    # алиас-цикл/алиас-в-алиас — неразрешимое назначение, не модель.
+    if isinstance(model, str) and model.strip() and not model.startswith('@'):
+        return model
+    return None
 
 
 def call(args, cwd):
@@ -102,7 +117,13 @@ def main():
             continue
         lines = r['body'].splitlines()
         sud = [line for line in lines if line.startswith('СУД: ')]
-        fields = sud[0].split('модель-факт=') if len(sud) == 1 else []
+        # Н-1 (Adv186Impl): имя поля ограничено слева началом строки СУД или
+        # разделителем `;` с опциональными пробелами; вхождение подстроки
+        # `модель-факт=` внутри ЧУЖОГО имени поля полем не является. Ровно одно
+        # ограниченное слева вхождение; неоднозначная строка (декой рядом) —
+        # отказ, не угадывание.
+        bounded = re.findall(r'(?:\A|;[ \t]*)модель-факт=', sud[0][5:]) if len(sud) == 1 else []
+        fields = sud[0].split('модель-факт=') if len(bounded) == 1 else []
         if (not lines or lines[0] != 'accept' or len(fields) != 2
                 or fields[1].split(';', 1)[0] != critic_model
                 or not sud[0].endswith('; SHA=' + sha)):

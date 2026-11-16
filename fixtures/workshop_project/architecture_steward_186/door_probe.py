@@ -6,7 +6,12 @@
 не семейство GLM; оракул (resolve_critic в памяти) заморожен ДО вызова субъекта.
 Контроль и субъект исполняются из изолированной install-копии рядом с реестром
 (tmp/control.py, tmp/scripts/merge_architecture_pr.sh); живой реестр харнесса
-батареей не читается, перестановки реестра правки кода не требуют."""
+батареей не читается, перестановки реестра правки кода не требуют.
+Клетки Н-1/Н-2/Н-3 (вердикт Adv186Impl): чужое имя поля / симлинк с чужим
+соседним реестром / алиас-цикл назначения — честная дверь отказывает без
+слияния; стабы wrong_field, symlink_cwd_registry, alias_terminal (и привязки
+тех же мутаций ко вторым входам) ловятся каждая своим входом (Н-39).
+"""
 import argparse
 import json
 import os
@@ -187,12 +192,24 @@ def world(tmp, case):
         registry['tiers']['critic-main']['model'] = '@ghost'
     if case == 'registry_model_empty':
         registry['models']['glm'] = ''
+    if case in ('alias_cycle_honest_fact', 'alias_cycle_fact_alias'):
+        # Н-3 (Adv186Impl): алиас-цикл models.glm='@glm' — назначение
+        # неразрешимо: CRITIC_MODEL_UNRESOLVED rc 1, слияния нет
+        registry['models']['glm'] = '@glm'
+    if case == 'alias_other_family_control':
+        # Н-3 контроль: ЧУЖАЯ семья с алиасом не ломает честное разрешение
+        # назначения critic — законное слияние
+        registry['models']['gpt-terra'] = '@gpt-sol'
     broken_registry = case in ('registry_no_critic_role', 'registry_no_tier',
                                'registry_alias_unresolvable', 'registry_model_empty')
     fact = TOY_MODELS['glm'] if broken_registry else resolve_critic(registry)
     if case == 'accept_fact_glm':
         # назначена Terra, факт GLM: подмена факта красна В ОБЕ стороны,
         # не «любая не-GLM»
+        fact = TOY_MODELS['glm']
+    if case == 'alias_cycle_honest_fact':
+        # Н-3: факт — честная полная строка glm при неразрешимом назначении:
+        # отказ обязан называться CRITIC_MODEL_UNRESOLVED, а не «факт не совпал»
         fact = TOY_MODELS['glm']
     if case == 'accept_fact_fallback':
         # факт = fallback тира из toy-реестра В ПАМЯТИ (правило 8), не литерал
@@ -234,6 +251,15 @@ def world(tmp, case):
         # надстройка СПЕРЕДИ: факт кончается на назначенную (совет
         # вердикта Crit186V2b, NM_endswith); ловит суффиксное сравнение
         fact = 'evil-' + fact
+    if case in ('symlink_foreign_registry', 'own_tree_foreign_neighbor'):
+        # Н-2 (Adv186Impl): рядом с дверью ЧУЖОЕ дерево с чужим реестром
+        # (назначение terra); факт — назначение ЧУЖОГО реестра. Честная дверь
+        # канонизирует путь скрипта и читает реестр СВОЕГО дерева (glm) —
+        # отказ; стаб без канонизации читает реестр каталога ссылки — слияние.
+        foreign = toy_registry('@gpt-terra')
+        write(tmp, 'other/config/agent_models.json',
+              json.dumps(foreign, ensure_ascii=False, indent=2) + '\n')
+        fact = resolve_critic(foreign)
     state = {
         'pr': {'title': 'COMPLIOR-186 architectural correction', 'author': {'login': 'steward'},
                'headRefOid': sha, 'baseRefName': 'main'},
@@ -281,6 +307,22 @@ def world(tmp, case):
     if case == 'model_second_field':
         state['reviews'][0]['body'] = ('accept\nСУД: модель-факт=openai-codex/gpt-6-sol; '
                                        'модель-факт=zai/glm-5.3; SHA=' + sha)
+    if case == 'field_renamed_foreign':
+        # Н-1 (Adv186Impl): подстрока `модель-факт=` внутри ЧУЖОГО имени поля —
+        # переименованное поле поля НЕ несёт, слияния нет
+        state['reviews'][0]['body'] = state['reviews'][0]['body'].replace(
+            'модель-факт=', 'ложная-модель-факт=')
+    if case == 'field_inside_other_name':
+        # Н-1: имя поля — ЗНАЧЕНИЕ чужого поля (реальная грамматика СУД:
+        # `замечание=модель-факт=…`): левая граница не начало строки и не `;`
+        state['reviews'][0]['body'] = state['reviews'][0]['body'].replace(
+            'модель-факт=', 'замечание=модель-факт=')
+    if case == 'field_after_separator_spaces':
+        # Н-1 контроль: поле после `;` с ПРОБЕЛАМИ — законная левая граница
+        # («; с опциональными пробелами»), честная дверь сливает: фикс имени
+        # поля не запирает разделитель намертво
+        state['reviews'][0]['body'] = state['reviews'][0]['body'].replace(
+            '; модель-факт=', ';   модель-факт=')
     if case == 'accept_not_first':
         state['reviews'][0]['body'] = ('напоминание: слить после приёмки\n'
                                        + state['reviews'][0]['body'])
@@ -456,6 +498,21 @@ CASES = {
     'registry_no_tier': (1, 'CRITIC_MODEL_UNRESOLVED'),
     'registry_alias_unresolvable': (1, 'CRITIC_MODEL_UNRESOLVED'),
     'registry_model_empty': (1, 'CRITIC_MODEL_UNRESOLVED'),
+    # Н-1 (вердикт Adv186Impl): подстрока `модель-факт=` внутри чужого имени
+    # поля — слияния нет; законная левая граница `;`+пробелы — контроль зелёный
+    'field_renamed_foreign': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'field_inside_other_name': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'field_after_separator_spaces': (0, None),
+    # Н-2 (Adv186Impl): реестр канонически от файла скрипта, не от каталога
+    # ссылки; контроль — та же раскладка без симлинка, из своего дерева
+    'symlink_foreign_registry': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'own_tree_foreign_neighbor': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    # Н-3 (Adv186Impl): алиас-цикл — неразрешимое назначение, отказ
+    # CRITIC_MODEL_UNRESOLVED при честном факте и при факте-алиасе; контроль —
+    # чужая алиасная семья не ломает честное разрешение
+    'alias_cycle_honest_fact': (1, 'CRITIC_MODEL_UNRESOLVED'),
+    'alias_cycle_fact_alias': (1, 'CRITIC_MODEL_UNRESOLVED'),
+    'alias_other_family_control': (0, None),
     # Б-1: checkout не на head PR / грязное дерево — именованный отказ ДО npm check
     'checkout_main_l1': (1, 'CHECKOUT_NOT_AT_PR_HEAD', 'main'),
     'checkout_main_l2': (1, 'CHECKOUT_NOT_AT_PR_HEAD', 'main'),
@@ -569,8 +626,8 @@ MUTATIONS = {
     'skip_login_bot': ("if pr['author']['login'].casefold() == operator.casefold():",
                        "if pr['author']['login'].removesuffix('[bot]').casefold() == operator.casefold():",
                        'author_bot_suffix'),
-    'skip_sud_fields': ("fields = sud[0].split('модель-факт=') if len(sud) == 1 else []",
-                        "fields = sud[0].split('модель-факт=')[1:] if sud else []",
+    'skip_sud_fields': ("fields = sud[0].split('модель-факт=') if len(bounded) == 1 else []",
+                        "fields = sud[0].split('модель-факт=')[-2:] if sud else []",
                         'model_second_field'),
     'skip_model_empty': ("fields[1].split(';', 1)[0] != critic_model",
                          "fields[1].split(';', 1)[0] not in (critic_model, '')",
@@ -618,6 +675,56 @@ MUTATIONS = {
     'skip_head_checkout': ('if head != sha:', 'if False:', 'checkout_main_l1'),
     'skip_dirty': ("if call(['git', 'status', '--porcelain'], project).strip():",
                    'if False:', 'dirty_untracked_l1'),
+    # стабы вердикта Adv186Impl (Н-1/Н-2/Н-3) — каждый к входу, где его дефект
+    # НАБЛЮДАЕМ (Н-39); повторные привязки той же мутации — вторым входам того
+    # же дефекта; контроли ловят пере-жатые мутации (сепаратор без пробелов,
+    # реестр по cwd, алиасность чужой семьи)
+    'wrong_field': (
+        "bounded = re.findall(r'(?:\\A|;[ \\t]*)модель-факт=', sud[0][5:]) if len(sud) == 1 else []",
+        "bounded = re.findall(r'модель-факт=', sud[0]) if len(sud) == 1 else []",
+        'field_renamed_foreign'),
+    'wrong_field_foreign_name': (
+        "bounded = re.findall(r'(?:\\A|;[ \\t]*)модель-факт=', sud[0][5:]) if len(sud) == 1 else []",
+        "bounded = re.findall(r'модель-факт=', sud[0]) if len(sud) == 1 else []",
+        'field_inside_other_name'),
+    'stub_separator_tight': (
+        "bounded = re.findall(r'(?:\\A|;[ \\t]*)модель-факт=', sud[0][5:]) if len(sud) == 1 else []",
+        "bounded = re.findall(r'(?:\\A|;)модель-факт=', sud[0][5:]) if len(sud) == 1 else []",
+        'field_after_separator_spaces'),
+    'symlink_cwd_registry': (
+        "REGISTRY = Path(__file__).resolve().parent / 'config' / 'agent_models.json'",
+        "REGISTRY = Path(os.path.abspath(__file__)).parent / 'config' / 'agent_models.json'",
+        'symlink_foreign_registry'),
+    'cwd_registry': (
+        "REGISTRY = Path(__file__).resolve().parent / 'config' / 'agent_models.json'",
+        "REGISTRY = Path.cwd() / 'config' / 'agent_models.json'",
+        'own_tree_foreign_neighbor'),
+    'alias_terminal': (
+        "    if isinstance(model, str) and model.strip() and not model.startswith('@'):\n"
+        "        return model\n"
+        "    return None",
+        "    if isinstance(model, str) and model.strip():\n"
+        "        return model\n"
+        "    return None",
+        'alias_cycle_fact_alias'),
+    'alias_terminal_honest_fact': (
+        "    if isinstance(model, str) and model.strip() and not model.startswith('@'):\n"
+        "        return model\n"
+        "    return None",
+        "    if isinstance(model, str) and model.strip():\n"
+        "        return model\n"
+        "    return None",
+        'alias_cycle_honest_fact'),
+    'stub_alias_any_family': (
+        "    if isinstance(model, str) and model.strip() and not model.startswith('@'):\n"
+        "        return model\n"
+        "    return None",
+        "    if (isinstance(model, str) and model.strip() and not model.startswith('@')\n"
+        "            and not any(isinstance(value, str) and value.startswith('@')\n"
+        "                        for value in models.values())):\n"
+        "        return model\n"
+        "    return None",
+        'alias_other_family_control'),
 }
 
 
@@ -685,6 +792,16 @@ def main():
                 # реестр — тот же toy tmp/config/agent_models.json.
                 control = write(tmp, 'scripts/merge_architecture_pr.sh',
                                 door.read_text(encoding='utf-8'))
+            if case == 'symlink_foreign_registry':
+                # Н-2 (Adv186Impl): дверь зовётся по СИМЛИНКУ из чужого
+                # дерева — стаб читает реестр, соседний со ССЫЛКОЙ; честная
+                # дверь канонизирует путь скрипта и читает реестр своего дерева
+                link_name = ('control.py' if control.suffix == '.py'
+                             else 'scripts/merge_architecture_pr.sh')
+                link = tmp / 'other' / link_name
+                link.parent.mkdir(parents=True, exist_ok=True)
+                link.symlink_to(control)
+                control = link
             ok, result = check(project, env, control, case)
             if args.stabs:
                 ok = not ok and result.returncode != 2
