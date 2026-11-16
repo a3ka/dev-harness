@@ -74,7 +74,11 @@ sys.exit(2)
 
 TOY_MODELS = {'glm': 'zai/glm-5.3', 'gpt-terra': 'openai-codex/gpt-6.1-terra',
               'gpt-sol': 'openai-codex/gpt-6.1-sol', 'gpt-astra': 'openai-codex/gpt-6-astra',
-              'gpt-luna': 'openai-codex/gpt-6-luna'}
+              'gpt-luna': 'openai-codex/gpt-6-luna',
+              # клетки ослабления сравнения (вердикт Crit186V2, UM-2/UM-3):
+              # иная модель ТОГО ЖЕ семейства zai и «ядро»-подстрока полной
+              # строки glm — значения toy-реестра, живой реестр не читается
+              'glm-prev': 'zai/glm-4.6', 'glm-core': 'zai/glm'}
 
 
 def toy_registry(model_alias='@glm', fallback_alias='@gpt-terra'):
@@ -159,6 +163,19 @@ def world(tmp, case):
         variant = ('@gpt-terra', '@gpt-sol')
     if case == 'registry_sol':
         variant = ('@gpt-sol', '@gpt-astra')
+    if case == 'accept_fact_fallback':
+        # назначена основная модель тира (terra), факт — его РАЗРЕШЁННЫЙ
+        # fallback (glm): ослабление «принимает {основная, fallback}»
+        # обязано быть красным (UM-1 вердикта Crit186V2)
+        variant = ('@gpt-terra', '@glm')
+    if case == 'accept_fact_same_family':
+        # факт — иная модель ТОГО ЖЕ семейства (тот же префикс до «/»)
+        # после ротации версии: ловит сравнение по семейству (UM-2)
+        variant = ('@glm-prev', '@gpt-terra')
+    if case == 'accept_fact_superstring':
+        # назначенная — собственная подстрока факта: ловит ослабление
+        # «назначенная содержится в факте» (UM-3)
+        variant = ('@glm-core', '@gpt-terra')
     registry = toy_registry(*variant)
     if case == 'registry_fallback_change':
         registry['tiers']['critic-main']['fallback'] = '@gpt-luna'
@@ -177,6 +194,14 @@ def world(tmp, case):
         # назначена Terra, факт GLM: подмена факта красна В ОБЕ стороны,
         # не «любая не-GLM»
         fact = TOY_MODELS['glm']
+    if case == 'accept_fact_fallback':
+        # факт = fallback тира из toy-реестра В ПАМЯТИ (правило 8), не литерал
+        fact = registry['models'][registry['tiers']['critic-main']['fallback'][1:]]
+    if case in ('accept_fact_same_family', 'accept_fact_superstring'):
+        # факт — полная строка glm: иная версия того же семейства zai и
+        # надстройка над назначенной-подстрокой; литерал = старый пин 186/1,
+        # старая GLM-дверь сливает → клетка честно красна на --repo .
+        fact = TOY_MODELS['glm']
     state = {
         'pr': {'title': 'COMPLIOR-186 architectural correction', 'author': {'login': 'steward'},
                'headRefOid': sha, 'baseRefName': 'main'},
@@ -192,7 +217,10 @@ def world(tmp, case):
         state['reviews'][0]['commit_id'] = call(['git', 'rev-parse', 'main'], root).stdout.strip()
     if case == 'accept_author':
         state['pr']['author']['login'] = 'critic'
-    if case == 'accept_same_family':
+    # переименовано с accept_same_family (совет вердикта Crit186V2): факт —
+    # модель ЧУЖОГО семейства (openai-codex при назначенной zai), имя — по
+    # семантике входа, не по истории
+    if case == 'accept_fact_foreign':
         state['reviews'][0]['body'] = state['reviews'][0]['body'].replace('zai/glm-5.3', 'openai-codex/gpt-6-sol')
     if case == 'ci_red':
         state['checks'][0]['conclusion'] = 'failure'
@@ -335,7 +363,7 @@ CASES = {
     'no_accept': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
     'accept_other_head': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
     'accept_author': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
-    'accept_same_family': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'accept_fact_foreign': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
     'ci_red': (1, 'CI_NOT_GREEN_ON_HEAD'),
     'ci_architecture_missing': (1, 'CI_NOT_GREEN_ON_HEAD'),
     'l2_without_owner': (1, 'L2_OWNER_APPROVAL_REQUIRED'),
@@ -371,6 +399,11 @@ CASES = {
     'registry_sol': (0, None),
     'registry_fallback_change': (0, None),
     'accept_fact_glm': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    # клетки ослабления сравнения модель-факт (блокирующая находка
+    # вердикта Crit186V2): fallback тира / то же семейство / подстрока
+    'accept_fact_fallback': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'accept_fact_same_family': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'accept_fact_superstring': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
     'registry_missing': (1, 'CRITIC_MODEL_UNRESOLVED'),
     'registry_invalid_json': (1, 'CRITIC_MODEL_UNRESOLVED'),
     'registry_no_critic_role': (1, 'CRITIC_MODEL_UNRESOLVED'),
@@ -398,7 +431,7 @@ MUTATIONS = {
     'skip_author': ("r['user']['login'] == pr['author']['login']", 'False', 'accept_author'),
     'skip_family': ("fields[1].split(';', 1)[0] != critic_model",
                     "fields[1].split(';', 1)[0] not in (critic_model, 'openai-codex/gpt-6-sol')",
-                    'accept_same_family'),
+                    'accept_fact_foreign'),
     'stub_hardcode_glm': ('= assigned_critic_model()', "= 'zai/glm-5.3'", 'registry_terra'),
     'stub_hardcode_gpt': ('= assigned_critic_model()', "= 'openai-codex/gpt-6.1-terra'", 'l1_merge'),
     'stub_first_tier': ("name = roles.get('critic') if isinstance(roles, dict) else None",
@@ -410,7 +443,23 @@ MUTATIONS = {
         "        return fail('CRITIC_MODEL_UNRESOLVED')",
         "    critic_model = assigned_critic_model()\n"
         "    if critic_model is None:\n"
-        "        critic_model = 'zai/glm-5.3'", 'registry_missing'),
+        "    critic_model = 'zai/glm-5.3'", 'registry_missing'),
+    # стабы ослабления сравнения — каждый к входу, где его дефект наблюдаем
+    # (Н-39): образец — мутации UM-1/UM-2/UM-3 вердикта Crit186V2
+    'stub_fallback_tolerated': (
+        "fields[1].split(';', 1)[0] != critic_model",
+        "fields[1].split(';', 1)[0] not in {critic_model, "
+        "(lambda r: r['models'].get(r['tiers'][r['roles']['critic']].get('fallback', '')[1:]))"
+        "(json.loads(REGISTRY.read_text(encoding='utf-8')))}",
+        'accept_fact_fallback'),
+    'stub_family_prefix': (
+        "fields[1].split(';', 1)[0] != critic_model",
+        "fields[1].split(';', 1)[0].split('/', 1)[0] != critic_model.split('/', 1)[0]",
+        'accept_fact_same_family'),
+    'stub_substring': (
+        "fields[1].split(';', 1)[0] != critic_model",
+        "critic_model not in fields[1].split(';', 1)[0]",
+        'accept_fact_superstring'),
     'skip_ci': ("c['conclusion'] != 'success'", 'False', 'ci_red'),
     'skip_architecture_ci': ("not any(c.get('name') == 'architecture' for c in runs)",
                              'False', 'ci_architecture_missing'),
