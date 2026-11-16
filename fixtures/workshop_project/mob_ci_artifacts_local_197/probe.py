@@ -57,19 +57,60 @@ def zaghruzit_orakul():
     return src
 
 
-# ── разбор run-текста на команды (по строкам/&&/;/||, кавычки уважаются) ──
+# ── разбор run-текста на команды (по строкам/&&/;/||, кавычки уважаются;
+#    тело heredoc <<TAG…TAG — ДАННЫЕ, не команды) ──
+
+RE_HEREDOC = re.compile(r'<<-?\s*(["\']?)([A-Za-z_][A-Za-z0-9_]*)\1')
+
+
+def _segmenty(stroka):
+    """Деление строки на сегменты команд по && / ; / || вне кавычек."""
+    rezultat, tekushchij, kavoichki = [], [], None
+    i = 0
+    while i < len(stroka):
+        c = stroka[i]
+        if kavoichki is not None:
+            tekushchij.append(c)
+            if c == kavoichki:
+                kavoichiki = None
+        elif c in ('"', "'"):
+            kavoichki = c
+            tekushchij.append(c)
+        elif stroka.startswith('&&', i) or stroka.startswith('||', i):
+            rezultat.append(''.join(tekushchij).strip())
+            tekushchij = []
+            i += 2
+            continue
+        elif c == ';':
+            rezultat.append(''.join(tekushchij).strip())
+            tekushchij = []
+        else:
+            tekushchij.append(c)
+        i += 1
+    rezultat.append(''.join(tekushchij).strip())
+    return [s for s in rezultat if s]
+
 
 def komandy(text):
     rezultat = []
+    heredoc_teg = None
     for stroka in str(text).splitlines():
+        if heredoc_teg is not None:
+            if stroka.strip() == heredoc_teg:
+                heredoc_teg = None
+            continue
         stroka = stroka.strip()
         if not stroka or stroka.startswith('#'):
             continue
-        try:
-            leksy = shlex.split(stroka)
-        except ValueError:
-            return None
-        rezultat.append(leksy)
+        for segment in _segmenty(stroka):
+            try:
+                leksy = shlex.split(segment)
+            except ValueError:
+                return None
+            rezultat.append(leksy)
+            teg = RE_HEREDOC.findall(segment)
+            if teg:
+                heredoc_teg = teg[-1][1]
     return rezultat
 
 
@@ -138,7 +179,7 @@ def shablon_pokryvaet(shablon, klass):
 
 class Subiekt:
     def __init__(self, koren):
-        self.koren = Path(koren)
+        self.koren = Path(koren).resolve()
         self.workflow_put = self.koren / '.github/workflows/mobile.yml'
         self.skript_put = self.koren / 'mobile/scripts/ci-artefakty.cjs'
         self.package_put = self.koren / 'package.json'
@@ -317,6 +358,27 @@ def c02(subiekt, wf, shagi, _):
                 return f'SHABLON_BEZ_PISATELEJ: {vyzov[0]}.{vyzov[1].get("name")}: {shablon}'
     return None
 
+@kletka('c03-run-para-iz-sborki')
+def c03(subiekt, wf, shagi, _):
+    # происхождение продюсерской пары (И-4): значения --run-id/--run-attempt
+    # ПОСЛЕ env-разрешения — только выражения needs.build-apk.outputs.*;
+    # литеральная пара чужого прогона проходит форму c01, но не происхождение
+    ozhidaemye = {'--run-id': 'needs.build-apk.outputs.run_id',
+                  '--run-attempt': 'needs.build-apk.outputs.run_attempt'}
+    for vyzov in _vse_vyzovy(shagi):
+        if vyzov[2] != LANE_CHTENIE:
+            continue
+        parametry = _parametry_razreshennye(vyzov)
+        for kljuch, ozhidaemoe in ozhidaemye.items():
+            if kljuch not in parametry:
+                continue
+            znachenie = str(parametry[kljuch])
+            vyrazhenija = re.findall(r'\$\{\{([^}]*)\}\}', znachenie)
+            if len(vyrazhenija) != 1 or vyrazhenija[0].strip() != ozhidaemoe:
+                return (f'RUN_PARA_NE_IZ_SBORKI: {vyzov[0]}.{vyzov[1].get("name")}:'
+                        f' {kljuch}={znachenie}')
+    return None
+
 
 @kletka('d01-koren-vne-skripta')
 def d01(subiekt, wf, shagi, _):
@@ -373,6 +435,95 @@ def e02(subiekt, wf, shagi, _):
     for lane, znachenie in sorted(ZNACHENIE_LINEI.items()):
         if skripty.get(lane) != znachenie:
             return f'LINEJA_FORMA: {lane} = {skripty.get(lane)!r} != {znachenie!r}'
+    return None
+
+# ── исполнимость и замкнутый инвентарь (писатели и читатели вместе) ──
+
+DOPUSTIMYE_IF_SHAGA = {'always()', 'success()'}
+LOZHNO = {'false', 'False', '${{ false }}'}
+
+# замкнутый инвентарь имён предмета: категория → (шаблон класса, читатель
+# в workflow обязан быть). Терминальные категории читает ops/server (196),
+# потребляемые — работники этого же workflow. Класс '*' (имя-выражение из
+# steps./matrix.) удовлетворяет только glob-категориям (в каноне это
+# apk-sborki и child-evidence) — известная грубость класса.
+INVENTAR = {
+    'apk-sborki': ('apk-*', True),
+    'selection': ('selection', False),
+    'dokazatelstva-ekranov': ('maestro*', False),
+    'child-evidence': ('screen-evidence-*', True),
+    'marker-regressii': ('regression-marker', False),
+}
+
+
+def _est_lane_v_shage(spisok):
+    return any(leksy[:3] in (['npm', 'run', LANE_ZAPIS], ['npm', 'run', LANE_CHTENIE])
+               for leksy in spisok or [])
+
+
+def _klass_v_inventare(klass, shablon):
+    if klass == '*':
+        return '*' in shablon
+    if '*' not in shablon:
+        return klass == shablon
+    return shablon_pokryvaet(shablon, klass)
+
+
+@kletka('i01-nositel-ispolnim')
+def i01(subiekt, wf, shagi, _):
+    # клетка краснеет, когда операция ОТСУТСТВУЕТ или НЕИСПОЛНИМА,
+    # а не когда в файле есть текст
+    for job_id, shag, spisok, env in shagi:
+        if not _est_lane_v_shage(spisok):
+            continue
+        uslovie = shag.get('if')
+        if uslovie is not None:
+            tekst = str(uslovie).strip()
+            if tekst in LOZHNO:
+                return f'NOSITEL_NEISPOLNIM: {job_id}.{shag.get("name")}: if={tekst}'
+            if tekst not in DOPUSTIMYE_IF_SHAGA:
+                return f'USLOVIE_VNE_KANONA: {job_id}.{shag.get("name")}: if={tekst}'
+        podavlen = shag.get('continue-on-error')
+        if podavlen is not None and podavlen not in (False, 'false', 'False'):
+            return f'PROVALY_PODAVLENY: {job_id}.{shag.get("name")}: continue-on-error={podavlen}'
+    for job_id in sorted({j for j, shag, spisok, env in shagi if _est_lane_v_shage(spisok)}):
+        uslovie = str(((wf.get('jobs') or {}).get(job_id) or {}).get('if') or '').strip()
+        if uslovie in LOZHNO:
+            return f'JOB_NOSITELJA_OTKLJUCHEN: {job_id}: if={uslovie}'
+    return None
+
+
+@kletka('i02-zamknutyj-inventar')
+def i02(subiekt, wf, shagi, _):
+    # замкнутый инвентарь категорий предмета: каждая категория написана,
+    # посторонних писателей нет, потребляемые категории читаются — молчаливая
+    # потеря (удаление/ослепление писателя или читателя) видима поимённо
+    vyzovy = _vse_vyzovy(shagi)
+    klassy_pisatelej = [klass_imeni(p) for p in
+                        (_parametry_razreshennye(v)['--imja'] for v in vyzovy if v[2] == LANE_ZAPIS)
+                        if p is not None]
+    for kategorija, (shablon, nuzhen_chitatel) in INVENTAR.items():
+        if not any(_klass_v_inventare(klass, shablon) for klass in klassy_pisatelej):
+            return f'KATEGORIJA_BEZ_PISATELJA: {kategorija}'
+    for klass in klassy_pisatelej:
+        if not any(_klass_v_inventare(klass, shablon) for shablon, _ in INVENTAR.values()):
+            return f'POSTORONNIJ_PISATEL: {klass}'
+    for kategorija, (shablon, nuzhen_chitatel) in INVENTAR.items():
+        if not nuzhen_chitatel:
+            continue
+        est_chitatel = False
+        for vyzov in vyzovy:
+            if vyzov[2] != LANE_CHTENIE:
+                continue
+            parametry = _parametry_razreshennye(vyzov)
+            if parametry.get('--imja') is not None and \
+                    _klass_v_inventare(klass_imeni(parametry['--imja']), shablon):
+                est_chitatel = True
+            if parametry.get('--shablon') is not None and \
+                    _klass_v_inventare(parametry['--shablon'], shablon):
+                est_chitatel = True
+        if not est_chitatel:
+            return f'KATEGORIJA_BEZ_CHITATELJA: {kategorija}'
     return None
 
 

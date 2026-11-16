@@ -1,5 +1,5 @@
 {
-  "_comment": "Контракт 197 (mob-ci-artefakty-lokalno): единый источник батареи. piny — sha256 файлов модели (честной реализации); bazovoje_derevo — живое дерево продукта, от которого модель выведена (проверяемо: замена ТОЛЬКО артефактного транспорта). stab_vhod — привязка каждого обманного стаба к клетке и именованной причине (Н-39: по коду мутатора, не по прозе контракта).",
+  "_comment": "Контракт 197 (mob-ci-artefakty-lokalno): единый источник батареи. piny — sha256 файлов модели (честной реализации); bazovoje_derevo — живое дерево продукта, от которого модель выведена (проверяемо: замена артефактного транспорта + перенос пробы изоляции в e2e-pilot, см. krasnye_143_posle_197). stab_vhod — привязка каждого обманного стаба к клетке и именованной причине (Н-39: по коду мутатора, не по прозе контракта). krasnye_143_posle_197 — пин состава красных клеток батареи 143 на псевдо-продукте fda1fc8+модель (живой замер; сверяет sverka_inventarja_143.sh).",
   "bazovoje_derevo": {
     "repo": "/home/harness/projects/Complior-mob",
     "ref": "origin/main",
@@ -9,7 +9,7 @@
     "zamer": "9 шагов actions/upload-artifact@v7, 3 шага actions/download-artifact@v7, 5 команд gh run download (замер grep этой пачки)"
   },
   "piny": {
-    ".github/workflows/mobile.yml": "cace6fedbbe9bda4516af59e636a7e90c89015f102e227ea489ba9b97bc160e0",
+    ".github/workflows/mobile.yml": "5f071a18f824e98c4e9ed968aceb738d6a037afa0c7736803e40f247046cdbaf",
     "package.json": "33339210c643b6f2d42e1c1a54f5f9787ca32867b4467dac416fd466025c7b4c",
     "mobile/scripts/ci-artefakty.cjs": "1a3a8860462dd9013eb785ba2ba0786f3adaa496a60194497b3432c0fae1d13b"
   },
@@ -39,6 +39,11 @@
       "prichina": "IMJA_BEZ_PISATELJA",
       "defekt": "агрегат читает maestro-999, который никто не пишет"
     },
+    "stab_c03_run_para_literal": {
+      "kletka": "c03-run-para-iz-sborki",
+      "prichina": "RUN_PARA_NE_IZ_SBORKI",
+      "defekt": "агрегат android-e2e передал литеральную пару чужого прогона --run-id 43752095485 --run-attempt 1 (мутация критика MX1)"
+    },
     "stab_d01_put_bez_popytki": {
       "kletka": "d01-koren-vne-skripta",
       "prichina": "KOREN_VNE_SKRIPTA",
@@ -49,10 +54,33 @@
       "prichina": "VYHOD_ZA_KOREN",
       "defekt": "источник писателя с '..' — выход за рабочий каталог"
     },
+    "stab_i01_if_false": {
+      "kletka": "i01-nositel-ispolnim",
+      "prichina": "NOSITEL_NEISPOLNIM",
+      "defekt": "писатель selection.json тождественно неисполним: if: false при сохранении текста вызова (мутация критика MX2)"
+    },
+    "stab_i01_provaly_podavleny": {
+      "kletka": "i01-nositel-ispolnim",
+      "prichina": "PROVALY_PODAVLENY",
+      "defekt": "провал писателя maestro-117 подавлен continue-on-error: true"
+    },
+    "stab_i02_heredok_nositel": {
+      "kletka": "i02-zamknutyj-inventar",
+      "prichina": "KATEGORIJA_BEZ_PISATELJA",
+      "defekt": "вызов писателя selection.json стал данными heredoc-носителя: текст есть, операции нет"
+    },
     "stab_r09_skript_bez_popytki": {
       "kletka": "r09-izoljacija-popytok",
       "prichina": "POPYTKI_SLILIS",
       "defekt": "скрипт-канон строит путь без run_attempt — каталоги попыток сливаются (поведение); байтовое расхождение ловит и e01-skript-pin"
     }
-  }
+  },
+  "krasnye_143_posle_197": [
+    "legacy: LEGACY_JOB_CHANGED",
+    "evidence: CHILD_DOWNLOAD_ABSENT_android-e2e",
+    "workflow-build-apk-outputs: WORKFLOW_CONTROL_workflow-build-apk-outputs",
+    "workflow-build-apk-run-step-7: WORKFLOW_CONTROL_workflow-build-apk-run-step-7",
+    "a17-digest-do-ustanovki: e2e-splash: РЕНДЕР_ВНЕ_АЛФАВИТА: needs.build-apk.outputs.run_attempt",
+    "y19-outputs-provodka: outputs build-apk: ['apk_sha256', 'artifact_name', 'run_attempt', 'run_id']"
+  ]
 }

@@ -1320,6 +1320,11 @@ jobs:
         with:
           persist-credentials: false
           clean: true
+      # 143 (С-3 Rev143): npm-lane читателя — код PR (package.json и скрипт
+      # из PR); проба изоляции ДО него, как у остальных работников (в живом
+      # дереве gh run download тут не был кодом PR и стоял раньше пробы).
+      - name: Изоляция раннера (/home недоступен коду из PR)
+        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
       # 143: работник НЕ пересобирает APK — берёт артефакт сборки по ТОЧНОМУ
       # имени из outputs build-apk (переживает выборочный повтор работника:
       # имя не вычисляется из github.run_attempt) и сверяет sha256 ДО установки.
@@ -1375,8 +1380,6 @@ jobs:
           ref: 4ac99af9fe8b02f16206b5c98bb9556556c05e74
           path: .harness
           persist-credentials: false
-      - name: Изоляция раннера (/home недоступен коду из PR)
-        run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
