@@ -1,0 +1,10 @@
+[Unit]
+Description=Ежедневная очистка старых артефактов CI (контракт 196)
+
+[Timer]
+OnCalendar=*-*-* 04:30:00 Asia/Singapore
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=Ежедневная очистка старых артефактов CI (обманный стаб s10)
+
+[Timer]
+OnCalendar=*-*-* 04:30:00 Asia/Singapore
+Persistent=false
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
