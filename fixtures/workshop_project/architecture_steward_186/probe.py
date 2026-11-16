@@ -209,7 +209,7 @@ def judge(root, case):
         block = sections(role[fm.end():]).get(rows[0], set())
         ok = set(rows[1:]).issubset(block)
         return ok, rows[0] if ok else 'нет обязанности ' + rows[0]
-    if case in ('routing', 'tier', 'fallback', 'critic_family'):
+    if case in ('routing', 'tier', 'fallback', 'critic_assigned'):
         path = root / 'config/agent_models.json'
         if not path.is_file():
             return False, 'нет реестра'
@@ -230,11 +230,44 @@ def judge(root, case):
                 if isinstance(family, str) and family.startswith('@') else None
             ok = (role_tier == TIER and family == '@gpt-sol'
                   and isinstance(resolved, str) and bool(resolved.strip()))
-        elif case == 'critic_family':
-            critic_tier = cfg.get('tiers', {}).get(cfg.get('roles', {}).get('critic'), {})
-            critic_model = critic_tier.get('model')
-            ok = (role_tier == TIER and critic_model == '@glm'
-                  and cfg.get('models', {}).get('glm') == 'zai/glm-5.3')
+        elif case == 'critic_assigned':
+            # v+1 (слово владельца 2026-11-16 ~12:20 UTC): назначение роли critic
+            # читается из реестра, значение НЕ пинится. Клетка судит разрешимость
+            # цепочки roles.critic → tiers → @семейство → models и независимость
+            # от конкретного назначения: перестановки реестра (GLM/Terra/Sol,
+            # иной fallback) обязаны оставаться зелёными — модель критика меняет
+            # владелец реестра (998), не батарея и не реализация 186.
+            def resolved(cfg):
+                name = cfg.get('roles', {}).get('critic')
+                tiers = cfg.get('tiers', {})
+                assigned = tiers.get(name) if isinstance(name, str) and isinstance(tiers, dict) else None
+                family = assigned.get('model') if isinstance(assigned, dict) else None
+                models = cfg.get('models', {})
+                model = models.get(family[1:]) if (isinstance(models, dict) and isinstance(family, str)
+                                                   and family.startswith('@')) else None
+                return (isinstance(name, str) and bool(name.strip())
+                        and isinstance(model, str) and bool(model.strip()))
+
+            ok = role_tier == TIER and resolved(cfg)
+            if ok:
+                # Перестановочный мир (а): смена назначения critic в toy-реестре
+                # не красит клетку; недостающие алиасы восполняются синтетикой —
+                # клетке нужна разрешимость цепочки, а не конкретный вендор.
+                for alias, fallback in (('@glm', '@gpt-terra'), ('@gpt-terra', '@gpt-sol'),
+                                        ('@gpt-sol', '@gpt-astra'), ('@glm', '@gpt-luna')):
+                    perm = json.loads(get(root, 'config/agent_models.json'))
+                    perm.setdefault('roles', {})['critic'] = 'critic-main'
+                    perm.setdefault('tiers', {})['critic-main'] = {'model': alias, 'fallback': fallback}
+                    models = perm.setdefault('models', {})
+                    for ref in (alias, fallback):
+                        if isinstance(ref, str) and ref.startswith('@') \
+                                and not isinstance(models.get(ref[1:]), str):
+                            models[ref[1:]] = 'toy/critic-' + ref[1:]
+                    put(root, 'config/agent_models.json',
+                        json.dumps(perm, ensure_ascii=False, indent=2) + '\n')
+                    ok = perm['roles'].get(ROLE) == TIER and resolved(perm)
+                    if not ok:
+                        break
         else:
             ok = role_tier == TIER and tier.get('fallback') == '@gpt-astra'
         return ok, case if ok else 'неверный ' + case
@@ -340,7 +373,7 @@ def judge(root, case):
     raise ValueError(case)
 
 
-CASES = ('role', *LINES, 'status_cli', 'review_file', 'routing', 'tier', 'fallback', 'critic_family', 'generated', 'done', 'blocker', 'schedule')
+CASES = ('role', *LINES, 'status_cli', 'review_file', 'routing', 'tier', 'fallback', 'critic_assigned', 'generated', 'done', 'blocker', 'schedule')
 MUTANTS = (('no_frontmatter', 'role'),
            ('humans_only', 'intake'), ('silent_overdue', 'status_cli'), ('invalid_status', 'status_cli'),
            ('review_without_file', 'review'), ('silent_missing_review', 'review_file'),
@@ -351,8 +384,9 @@ MUTANTS = (('no_frontmatter', 'role'),
            ('l3_no_recommendation', 'l3'), ('writes_code_or_judges', 'code_debt'),
            ('no_roadmap_priority', 'register'), ('plan_astra', 'tier'), ('tier_astra', 'tier'),
            ('wrong_fallback', 'fallback'), ('no_role_map', 'routing'),
-           ('critic_sol', 'critic_family'), ('route_statistics', 'routing'),
-           ('route_rule_deleted', 'routing'),
+           ('critic_role_deleted', 'critic_assigned'), ('critic_tier_missing', 'critic_assigned'),
+           ('critic_alias_broken', 'critic_assigned'), ('critic_model_empty', 'critic_assigned'),
+           ('route_statistics', 'routing'), ('route_rule_deleted', 'routing'),
            ('blocker_missing', 'blocker'), ('blocker_arm_deleted', 'blocker'),
            ('calendar_only', 'done'), ('timer_start', 'schedule'),
            ('stale_generated', 'generated'), ('no_timer', 'schedule'))
@@ -424,7 +458,8 @@ def mutate(root, name):
         if n < 1:
             raise RuntimeError('event arm missing: ' + event)
         put(root, 'ops/server/root/orch-peak', peak)
-    elif name in ('plan_astra', 'tier_astra', 'wrong_fallback', 'no_role_map', 'critic_sol',
+    elif name in ('plan_astra', 'tier_astra', 'wrong_fallback', 'no_role_map', 'critic_role_deleted',
+                  'critic_tier_missing', 'critic_alias_broken', 'critic_model_empty',
                   'route_statistics', 'route_rule_deleted'):
         cfg = json.loads(get(root, 'config/agent_models.json'))
         route = 'приём находок и обзор архитектуры после done этапа и блокирующей находки'
@@ -434,8 +469,17 @@ def mutate(root, name):
             cfg['tiers'][TIER]['model'] = '@gpt-astra'
         elif name == 'wrong_fallback':
             cfg['tiers'][TIER]['fallback'] = '@gpt-sol'
-        elif name == 'critic_sol':
-            cfg['roles']['critic'] = TIER
+        elif name == 'critic_role_deleted':
+            cfg['roles'].pop('critic', None)
+        elif name == 'critic_tier_missing':
+            cfg['roles']['critic'] = 'critic-ghost'
+        elif name in ('critic_alias_broken', 'critic_model_empty'):
+            tier_name = cfg['roles'].get('critic')
+            if not isinstance(tier_name, str) or tier_name not in cfg.get('tiers', {}):
+                tier_name = 'critic-main'
+                cfg['roles']['critic'] = tier_name
+                cfg['tiers'][tier_name] = {'model': '@glm', 'fallback': '@gpt-terra'}
+            cfg['tiers'][tier_name]['model'] = '@ghost' if name == 'critic_alias_broken' else ''
         elif name == 'route_statistics':
             hit = 0
             for rule in cfg['routing']['rules']:
