@@ -78,16 +78,25 @@
 #       пробы), зелёная после.
 #   kj  (ж) --repo: живой гейт на настоящем дереве, contracts/158-…: rc 1 до
 #       реализации (боль), rc 0 после.
-#   k187 (ж) СЛЕДСТВИЕ раздела «Следствия» на живом дереве: окно 187 без
-#       ПОТРЕБИТЕЛЬ-пробы судит коммиты 187а → rc 1 «нет ПОТРЕБИТЕЛЬ-пробы»
-#       (сегодня и после реализации; мутант без приоритета своего покрытия
-#       даёт rc 0 — обход умирает молча, Б-3 круга 2). Привязка замером
-#       census: окно frozen/contracts/187/1..HEAD несёт коммиты, трогающие
-#       scripts/freeze_contract.sh (§Существующее: 4 коммита 187а).
-#       Предусловие клетки ИЗМЕРЯЕТСЯ (в тексте 187 нет ПОТРЕБИТЕЛЬ-строк);
-#       при появлении проб в 187 v2 клетка обязана быть заменена парой
-#       (окно 187 с пробами → rc 0) — тихо зеленеть не вправе: rc 0
-#       неотличим от «не судит вовсе».
+#   k187 (ж) СЛЕДСТВИЕ раздела «Следствия» — ПАРА клеток (миграция исполнена
+#       по слову владельца 2026-11-16 ~09:39 UTC «187 v2 — да, но сначала
+#       убедись по правилам»; прежняя одиночная клетка безусловно краснела
+#       при любой ^ПОТРЕБИТЕЛЬ-строке в 187): k187a — окно 187 С пробами →
+#       rc 0, честный путь на живом дереве, где вход есть (пробы в тексте 187
+#       ∧ писатель-коммиты окна); когда живого входа нет — до влития 187 v2
+#       (синтетика четырёх канонических строк) или после заморозки v2 (живое
+#       окно 187/2..HEAD пусто — vacuous) — изолированная одноразовая копия
+#       со СТАРЫМ непустым окном frozen/contracts/187/1 (check-187v2-route
+#       §3.2). k187b — различающая: то же окно без ОДНОЙ требуемой пробы
+#       (из четырёх убрана check_spec_ready) → rc 1 «нет ПОТРЕБИТЕЛЬ-пробы»;
+#       живое дерево, пока 187 не несёт проб вовсе, после — та же копия.
+#       Мутант «пара не судит» (s10) даёт на обоих входах rc 0 — умирает на
+#       k187b (Б-3 круга 2). Предусловия ИЗМЕРЯЮТСЯ, не предполагаются: файл
+#       187, число ПОТРЕБИТЕЛЬ-строк, писатель-коммиты окна (привязка замером
+#       census §Существующее). Канонические строки — текст 187 v2
+#       (task-187-architect-v2, «ДОБАВИТЬ»); синтетика живёт ТОЛЬКО в
+#       изолированной копии, текст 187 батареей не правится. Тихо зеленеть
+#       пара не вправе: rc 0 без входа неотличим от «окно не судит вовсе».
 #
 # СТАБ-ПАК (Н-39: обман ровно одной ветвью предмета; привязка стабов к клеткам —
 # ЭТОТ код, не проза контракта; стаб-пак зелёный ДО и ПОСЛЕ реализации):
@@ -117,6 +126,12 @@
 #                          — обход Б-3 круга 2; равносильно удалению ветви
 #                          zone_covers-вперед модели); смерть kv3, диффпроба
 #                          kv1.
+#   s10 «пара не судит» — окно/зоны/отказы честны, НО зона ЛЮБОГО
+#                          замороженного контракта, ВКЛЮЧАЯ собственный N,
+#                          атрибутирует пару (автор, писатель) наружу —
+#                          своё покрытие не судится вовсе (И-6 выброшен);
+#                          смерть k187b (копия без одной пробы: vacuous rc 0),
+#                          диффпроба k187a (копия с пробами: rc 0 как честная).
 #
 # rc: 0 ⟺ все клетки режима зелёные ∧ выборки непусты; пустая выборка — красное.
 # Скрипт не печатает PASS — только счёт просмотренного (правило роли).
@@ -307,30 +322,134 @@ kv1_c() { run_gate "$kv1" contracts/100-n.md; chk_refuse 'kv1: свой конт
 kv2_c() { run_gate "$kv2" contracts/100-n.md; chk_rc0 'kv2: проба живая — rc 0'; }
 kv3_c() { run_gate "$kv3" contracts/100-n.md; chk_refuse 'kv3: перекрытие своей и чужой зоны — своё покрытие приоритетно, судится'; }
 
-# k187 (ж): СЛЕДСТВИЕ раздела «Следствия» на живом дереве — окно 187 без ПОТРЕБИТЕЛЬ-пробы
-# судит коммиты 187а → rc 1. Предусловия ИЗМЕРЯЮТСЯ, не предполагаются: файл
-# контракта 187 есть; в его тексте нет ПОТРЕБИТЕЛЬ-строк; окно
-# frozen/contracts/187/1..HEAD несёт коммиты, трогающие scripts/freeze_contract.sh
-# (привязка замером census §Существующее). При появлении проб в 187 v2 клетка
-# обязана быть заменена парой (окно 187 с пробами → rc 0): тихо зеленеть не
-# вправе — rc 0 на этом входе неотличим от «окно не судит вовсе».
-k187_c() {
-  local c187='contracts/187-arhitektura-v-processe.md' n187
-  [ -f "$REPO/$c187" ] || { printf '  FAIL k187: нет %s в %s — привязка живого следствия исчезла\n' "$c187" "$REPO" >&2; return 1; }
-  if grep -q '^ПОТРЕБИТЕЛЬ' "$REPO/$c187"; then
-    printf '  FAIL k187: контракт 187 уже несёт ПОТРЕБИТЕЛЬ-строки — обязанность следствия (раздел «Следствия») исполнена; клетку заменить парой (окно 187 с пробами → rc 0)\n' >&2
-    return 1
+# k187 (ж): СЛЕДСТВИЕ раздела «Следствия» — ПАРА клеток: миграция по появлении
+# проб 187 v2 (слово владельца 2026-11-16 ~09:39 UTC; прежняя одиночная клетка
+# безусловно краснела при любой ^ПОТРЕБИТЕЛЬ-строке в 187 — rc 0 после влития
+# v2 был бы неотличим от «окно не судит»). Канонические строки — текст 187 v2
+# (task-187-architect-v2, «ДОБАВИТЬ»); синтетика живёт ТОЛЬКО в изолированной
+# копии, текст 187 в основном дереве батареей не правится.
+K187_C187='contracts/187-arhitektura-v-processe.md'
+K187_P1='ПОТРЕБИТЕЛЬ fixtures/check_check_contract_ready/: bash fixtures/check_check_contract_ready/doc_048/probe_zhivoy_vyzov_048.sh'
+K187_P2='ПОТРЕБИТЕЛЬ fixtures/drill_contract_change/: bash scripts/verify_antiplacebo.sh --scope drill_contract_change'
+K187_P3='ПОТРЕБИТЕЛЬ scripts/spawn_agent.sh: bash scripts/verify_antiplacebo.sh --scope spawn_agent'
+K187_P4='ПОТРЕБИТЕЛЬ scripts/check_spec_ready.sh: bash scripts/check_spec_ready.sh . contracts/187-arhitektura-v-processe.md'
+K187_CENSUS='замер: `cat scripts/consumers.d/*.tsv | wc -l` = 6 census scripts/consumers.d/*.tsv'
+K187_NEGPFX='^ПОТРЕБИТЕЛЬ scripts/check_spec_ready\.sh:'
+
+k187_win() { # <корень> — писатель-коммиты (freeze|done) окна последней заморозки 187
+  local r="$1" last
+  last="$(git -C "$r" tag -l 'frozen/contracts/187/*' 2>/dev/null | sort -V | tail -n 1)"
+  [ -n "$last" ] || { printf '0\n'; return 0; }
+  git -C "$r" rev-list --no-merges "$last..HEAD" -- scripts/freeze_contract.sh scripts/done_contract.sh 2>/dev/null | wc -l
+}
+
+k187_probes() { # <файл> — число ПОТРЕБИТЕЛЬ-строк (замер, не предположение)
+  local np
+  np="$(grep -c '^ПОТРЕБИТЕЛЬ' "$1" 2>/dev/null)"
+  printf '%s\n' "${np:-0}"
+}
+
+k187_mkcopy() { # <каталог> <0|1-neg> — изолированная одноразовая копия (свой
+  # .git, одноразовый клон; origin снят — реестр заморозок копии full), окно
+  # возвращено к СТАРОЙ границе frozen/contracts/187/1 (старшие 187-теги сняты
+  # ТОЛЬКО в копии), текст 187 дополнен до полных каноническими пробами/census
+  # (neg=1 — убрана ровно проба check_spec_ready). Основной чекаут не мутируется.
+  local dir="$1" neg="$2" f add t pfx
+  [ -e "$dir.k187ok" ] && return 0
+  rm -rf "$dir"
+  git clone -q "$REPO" "$dir" || return 1
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$dir" remote remove origin
+  while IFS= read -r t; do
+    [ -n "$t" ] || continue
+    [ "$t" = 'frozen/contracts/187/1' ] \
+      || GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$dir" tag -d "$t" >/dev/null
+  done < <(git -C "$dir" tag -l 'frozen/contracts/187/*' | sort -V)
+  f="$dir/$K187_C187"
+  add=''
+  for pfx in "$K187_P1" "$K187_P2" "$K187_P3" "$K187_P4"; do
+    grep -q "^${pfx%%:*}:" "$f" || add="${add}${pfx}"$'\n'
+  done
+  grep -q '^замер:' "$f" || add="${add}${K187_CENSUS}"$'\n'
+  if [ -n "$add" ]; then
+    t="$dir/.k187block"
+    printf '\n%s' "$add" > "$t"
+    if grep -q '^## Незаполненные требования' "$f"; then
+      awk -v b="$t" '/^## Незаполненные требования/ && !d { while ((getline l < b) > 0) print l; close(b); d=1 } { print }' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+    else
+      cat "$t" >> "$f"
+    fi
+    rm -f "$t"
   fi
-  n187="$(git -C "$REPO" rev-list --no-merges frozen/contracts/187/1..HEAD -- scripts/freeze_contract.sh 2>/dev/null | wc -l)"
-  [ "${n187:-0}" -gt 0 ] || { printf '  FAIL k187: окно 187 не несёт коммитов, трогающих scripts/freeze_contract.sh — вход клетки исчез\n' >&2; return 1; }
-  run_gate "$REPO" "$c187"
+  if [ "$neg" -eq 1 ]; then
+    grep -v "$K187_NEGPFX" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+  fi
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$dir" \
+    -c user.name=Fixture -c user.email=fixture@local -c commit.gpgsign=false -c core.hooksPath=/dev/null add -A
+  if ! GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$dir" diff --cached --quiet; then
+    GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$dir" \
+      -c user.name=Fixture -c user.email=fixture@local -c commit.gpgsign=false -c core.hooksPath=/dev/null \
+      commit -q -m "k187: izolirovannaja kopija okna frozen/contracts/187/1 (neg=$neg)"
+  fi
+  # постусловия — замером, не предположением
+  for pfx in "$K187_P1" "$K187_P2" "$K187_P3"; do
+    grep -q "^${pfx%%:*}:" "$f" || return 1
+  done
+  if [ "$neg" -eq 0 ]; then
+    grep -q "^${K187_P4%%:*}:" "$f" || return 1
+    grep -q '^замер:' "$f" || return 1
+  else
+    ! grep -q "$K187_NEGPFX" "$f" || return 1
+  fi
+  [ "$(k187_win "$dir")" -gt 0 ] || return 1
+  : > "$dir.k187ok"
+}
+
+k187a_c() { # (a) окно 187 С пробами → rc 0: честный путь — живое дерево, где
+  # вход есть; иначе изолированная копия старого окна 187/1 (живое окно после
+  # заморозки v2 — vacuous; до влития v2 проб в тексте 187 нет)
+  local root n np
+  [ -f "$REPO/$K187_C187" ] \
+    || { printf '  FAIL k187a: нет %s в %s — привязка живого следствия исчезла\n' "$K187_C187" "$REPO" >&2; return 1; }
+  np="$(k187_probes "$REPO/$K187_C187")"
+  n="$(k187_win "$REPO")"
+  if [ "$np" -gt 0 ] && [ "$n" -gt 0 ]; then
+    run_gate "$REPO" "$K187_C187"
+    chk_rc0 "k187a: окно 187 несёт пробы (строк: $np, писатель-коммитов: $n) — честный путь на живом дереве"
+    return
+  fi
+  k187_mkcopy "$WORK/k187pos" 0 \
+    || { printf '  FAIL k187a: изолированная копия окна 187/1 не построена\n' >&2; return 1; }
+  n="$(k187_win "$WORK/k187pos")"
+  [ "$n" -gt 0 ] || { printf '  FAIL k187a: окно копии 187/1 пусто — вход клетки исчез\n' >&2; return 1; }
+  run_gate "$WORK/k187pos" "$K187_C187"
+  chk_rc0 "k187a: окно 187/1 с пробами в изолированной копии (писатель-коммитов: $n; до влития 187 v2 — канонический синтаксис четырёх строк v2)"
+}
+
+k187b_c() { # (b) различающая: то же окно 187 без ОДНОЙ требуемой пробы → rc 1;
+  # живое дерево, пока 187 не несёт проб вовсе, после — копия с убранной пробой
+  local root n np
+  [ -f "$REPO/$K187_C187" ] \
+    || { printf '  FAIL k187b: нет %s в %s — привязка живого следствия исчезла\n' "$K187_C187" "$REPO" >&2; return 1; }
+  np="$(k187_probes "$REPO/$K187_C187")"
+  n="$(k187_win "$REPO")"
+  root=''
+  if [ "$np" -eq 0 ] && [ "$n" -gt 0 ]; then
+    root="$REPO"
+  else
+    k187_mkcopy "$WORK/k187neg" 1 \
+      || { printf '  FAIL k187b: изолированная копия без одной пробы не построена\n' >&2; return 1; }
+    n="$(k187_win "$WORK/k187neg")"
+    [ "$n" -gt 0 ] || { printf '  FAIL k187b: окно копии 187/1 пусто — вход клетки исчез\n' >&2; return 1; }
+    root="$WORK/k187neg"
+  fi
+  run_gate "$root" "$K187_C187"
   if [ "$LAST_RC" -eq 1 ] \
      && printf '%s\n' "$LAST_OUT" | grep -Fq 'не верифицирован: нет ПОТРЕБИТЕЛЬ-пробы' \
      && printf '%s\n' "$LAST_OUT" | grep -Eq 'писатель scripts/(freeze_contract|done_contract)\.sh изменён'; then
-    printf '  ok   k187: окно 187 судит коммиты 187а без пробы (следствие раздела «Следствия»; судимых писатель-коммитов в окне: %s)\n' "$n187" >&2
+    printf '  ok   k187b: окно 187 без требуемой пробы отказывает (писатель-коммитов: %s)\n' "$n" >&2
     return 0
   fi
-  printf '  FAIL k187: rc %s, ожидался отказ 1 «нет ПОТРЕБИТЕЛЬ-пробы» по писателю 187а\nвывод гейта:\n%s\n' "$LAST_RC" "$LAST_OUT" >&2
+  printf '  FAIL k187b: rc %s, ожидался отказ 1 «нет ПОТРЕБИТЕЛЬ-пробы»\nвывод гейта:\n%s\n' "$LAST_RC" "$LAST_OUT" >&2
   return 1
 }
 kg_c() { run_gate "$kg" contracts/100-n.md; chk_refuse 'kg: автор вне роли зоны не атрибутируется'; }
@@ -806,6 +925,65 @@ done <"$COMMITS"
 printf 'потребители 116: писатель scripts/freeze_contract.sh изменён, потребитель fixtures/reader.sh не верифицирован: нет ПОТРЕБИТЕЛЬ-пробы\n' >&2
 exit 1
 EOF
+
+  # s10 «пара не судит» (Н-39: привязка по коду — смерть на входе k187b-копии,
+  # диффпроба на входе k187a-копии): окно добывается честно (именованный отказ
+  # сохранён), зоны читаются честно, НО зона ЛЮБОГО замороженного контракта —
+  # ВКЛЮЧАЯ собственный N — атрибутирует пару (автор, писатель) наружу:
+  # собственное покрытие не судится вовсе (И-6 выброшен; на предмете 187 окно
+  # 187 не судит коммиты 187а ни при каком тексте 187 — rc 0 там, где честная
+  # реализация требует пробу).
+  cat > "$STUBS/s10_para_ne_sudit.sh" <<'EOF'
+#!/usr/bin/env bash
+set -uo pipefail
+ROOT="${1:?ispolzovanie: <koren> <otn-put-kontrakta>}"
+CONTRACT_PATH="${2:?ispolzovanie: <koren> <otn-put-kontrakta>}"
+export PATH=/usr/bin:/bin
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+base="${CONTRACT_PATH##*/}"
+n="$(printf '%s' "$base" | sed -nE 's/^([0-9]{3})-.*/\1/p')"
+[ -n "$n" ] || exit 2
+command -v git >/dev/null 2>&1 || exit 2
+last_frozen="$(git -C "$ROOT" tag -l "frozen/contracts/$n/*" 2>/dev/null | sort -V | tail -n 1)"
+[ -n "$last_frozen" ] || exit 0
+. "${HARNESS_ROOT:?HARNESS_ROOT}/scripts/lib_zones.sh"
+COMMITS="$(mktemp)"; trap 'rm -f "$COMMITS"' EXIT
+if ! git -C "$ROOT" rev-list --no-merges "$last_frozen..HEAD" 2>/dev/null | sort -u >"$COMMITS"; then
+  printf 'потребители 116: список судимых коммитов окна недоступен\n' >&2
+  exit 1
+fi
+ZDIR="$(zones_load "$ROOT" 2>/dev/null)" || exit 1
+[ -n "$ZDIR" ] && [ -f "$ZDIR/zones_scoped" ] && [ -f "$ZDIR/ranges" ] || exit 1
+hit=0
+while IFS= read -r c; do
+  [ -n "$c" ] || continue
+  out="$(git -C "$ROOT" diff-tree -r --no-commit-id --name-only "$c" -- scripts/freeze_contract.sh)" || exit 9
+  [ -n "$out" ] || continue
+  a="$(git -C "$ROOT" log -1 --format=%an "$c" 2>/dev/null)" || exit 9
+  # ДЕФЕКТ: зона ЛЮБОГО контракта (включая собственный N) атрибутирует
+  # наружу — своё покрытие не судится вовсе (И-6 выброшен)
+  attributed=0
+  while IFS=$'\t' read -r za zp zn; do
+    [ -n "$za" ] || continue
+    [ "$za" = "$a" ] || continue
+    case "$zp" in
+      */) case scripts/freeze_contract.sh in "$zp"*) ;; *) continue ;; esac ;;
+      *)  [ "scripts/freeze_contract.sh" = "$zp" ] || continue ;;
+    esac
+    range="$(awk -F'\t' -v m="$zn" '$1 == m { print $2; exit }' "$ZDIR/ranges")"
+    [ -n "$range" ] || continue
+    since="${range%%..*}"; case "$range" in *..*) until="${range#*..}" ;; *) until="" ;; esac
+    git -C "$ROOT" merge-base --is-ancestor "$since" "$c" 2>/dev/null || continue
+    if [ -n "$until" ]; then git -C "$ROOT" merge-base --is-ancestor "$c" "$until" 2>/dev/null || continue; fi
+    attributed=1; break
+  done <"$ZDIR/zones_scoped"
+  [ "$attributed" -eq 1 ] && continue
+  hit=1; break
+done <"$COMMITS"
+[ "$hit" -eq 0 ] && exit 0
+printf 'потребители 116: писатель scripts/freeze_contract.sh изменён, потребитель fixtures/reader.sh не верифицирован: нет ПОТРЕБИТЕЛЬ-пробы\n' >&2
+exit 1
+EOF
   chmod +x "$STUBS"/*.sh
 }
 
@@ -879,7 +1057,8 @@ case "$MODE" in
   hcell ksinceM-since-granica-diapazona ksinceM_c
   hcell kzfail-zony-atribucii-ne-chitajutsja kzfail_c
   hcell kv3-svoj-prioritet-pri-perekrytii kv3_c
-  hcell k187-okno-187-sudit-komity-187a k187_c
+  hcell k187a-okno-187-s-probami-r0 k187a_c
+  hcell k187b-okno-187-bez-odnoj-proby-r1 k187b_c
   printf '195: честных клеток %d, зелёных %d, красных:%s\n' \
     "$honest_total" "$honest_green" "${honest_fail:- нет}"
   [ "$honest_total" -gt 0 ] || { printf '195: ПУСТАЯ выборка честных клеток — красное\n' >&2; exit 1; }
@@ -902,7 +1081,8 @@ case "$MODE" in
   hcell ksinceM-since-granica-diapazona ksinceM_c
   hcell kzfail-zony-atribucii-ne-chitajutsja kzfail_c
   hcell kv3-svoj-prioritet-pri-perekrytii kv3_c
-  hcell k187-okno-187-sudit-komity-187a k187_c
+  hcell k187a-okno-187-s-probami-r0 k187a_c
+  hcell k187b-okno-187-bez-odnoj-proby-r1 k187b_c
   SUBJ="$REAL_SUBJ"
   printf '195(model): честных клеток %d, зелёных %d, красных:%s\n' \
     "$honest_total" "$honest_green" "${honest_fail:- нет}"
@@ -933,6 +1113,8 @@ case "$MODE" in
   s8_diff() { with_stub "$STUBS/s8_zony_oshibka_pusto.sh"; run_gate "$kb"  contracts/100-n.md; restore_subj; chk_stub_honest_refuse 's8-диффпроба: живые зоны судятся как честные (вход kb)'; }
   s9()      { with_stub "$STUBS/s9_bez_prioriteta_svoego.sh"; run_gate "$kv3" contracts/100-n.md; restore_subj; chk_caught_rc0 's9: перекрытие своей и чужой зоны отпущено через M≠N (вход kv3)'; }
   s9_diff() { with_stub "$STUBS/s9_bez_prioriteta_svoego.sh"; run_gate "$kv1" contracts/100-n.md; restore_subj; chk_stub_honest_refuse 's9-диффпроба: свой контракт без чужих зон судится как честный (вход kv1)'; }
+  s10()      { k187_mkcopy "$WORK/k187neg" 1 || { printf '  FAIL s10: копия k187b не построена\n' >&2; return 1; }; with_stub "$STUBS/s10_para_ne_sudit.sh"; run_gate "$WORK/k187neg" contracts/187-arhitektura-v-processe.md; restore_subj; chk_caught_rc0 's10: зона собственного 187 атрибутировала пару наружу — окно не судит (вход k187b-копия)'; }
+  s10_diff() { k187_mkcopy "$WORK/k187pos" 0 || { printf '  FAIL s10: копия k187a не построена\n' >&2; return 1; }; with_stub "$STUBS/s10_para_ne_sudit.sh"; run_gate "$WORK/k187pos" contracts/187-arhitektura-v-processe.md; restore_subj; chk_stub_honest_rc0 's10-диффпроба: копия с пробами отпущена как честная rc 0 (вход k187a-копия)'; }
   scell s1-gasitel s1
   scell s2-imja-bez-zony s2
   scell s3-tolko-land s3
@@ -942,6 +1124,7 @@ case "$MODE" in
   scell s7-bez-since-granicy s7
   scell s8-zony-oshibka-pusto s8
   scell s9-bez-prioriteta-svoego s9
+  scell s10-para-ne-sudit s10
   dcell s1-diffpr s1_diff
   dcell s2-diffpr s2_diff
   dcell s3-diffpr s3_diff
@@ -951,6 +1134,7 @@ case "$MODE" in
   dcell s7-diffpr s7_diff
   dcell s8-diffpr s8_diff
   dcell s9-diffpr s9_diff
+  dcell s10-diffpr s10_diff
   printf '195(stabs): стабов %d, поймано %d, ускользнуло:%s\n' \
     "$stub_total" "$stub_caught" "${stub_esc:- нет}"
   printf '195(stabs): диффпроб %d, зелёных %d, провал:%s\n' \
