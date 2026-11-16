@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Isolated Git worlds: real baseline diff, fake GitHub network, observed merge argv."""
+"""Isolated Git worlds: real baseline diff, fake GitHub network, observed merge argv.
+
+186 v+1 (слово владельца 2026-11-16 ~12:20 UTC): ожидаемая модель критика —
+НАЗНАЧЕНИЕ роли critic в toy-реестре харнесса двери (tmp/config/agent_models.json),
+не семейство GLM; оракул (resolve_critic в памяти) заморожен ДО вызова субъекта.
+Контроль и субъект исполняются из изолированной install-копии рядом с реестром
+(tmp/control.py, tmp/scripts/merge_architecture_pr.sh); живой реестр харнесса
+батареей не читается, перестановки реестра правки кода не требуют."""
 import argparse
 import json
 import os
@@ -65,6 +72,36 @@ sys.exit(2)
 '''
 
 
+TOY_MODELS = {'glm': 'zai/glm-5.3', 'gpt-terra': 'openai-codex/gpt-6.1-terra',
+              'gpt-sol': 'openai-codex/gpt-6.1-sol', 'gpt-astra': 'openai-codex/gpt-6-astra',
+              'gpt-luna': 'openai-codex/gpt-6-luna',
+              # клетки ослабления сравнения (вердикт Crit186V2, UM-2/UM-3):
+              # иная модель ТОГО ЖЕ семейства zai и «ядро»-подстрока полной
+              # строки glm — значения toy-реестра, живой реестр не читается
+              'glm-prev': 'zai/glm-4.6', 'glm-core': 'zai/glm'}
+
+
+def toy_registry(model_alias='@glm', fallback_alias='@gpt-terra'):
+    """Toy установочный реестр харнесса двери (186 v+1): ожидаемая модель
+    критика — назначение роли critic; значения — фиксированные toy-данные,
+    не живой реестр. Первый тир словаря — НЕ тир critic: стаб «первый тир
+    вместо назначения роли» обязан разрешаться в ЧУЖУЮ модель, чтобы быть
+    различимым на своём входе (Н-39)."""
+    return {
+        'roles': {'critic': 'critic-main', 'architecture-steward': 'steward-arch'},
+        'tiers': {
+            'steward-arch': {'model': '@gpt-sol', 'fallback': '@gpt-astra'},
+            'critic-main': {'model': model_alias, 'fallback': fallback_alias},
+        },
+        'models': dict(TOY_MODELS),
+    }
+
+
+def resolve_critic(registry):
+    tier = registry['tiers'][registry['roles']['critic']]
+    return registry['models'][tier['model'][1:]]
+
+
 def call(argv, cwd, env=None):
     return subprocess.run(argv, cwd=cwd, env=env, text=True, capture_output=True)
 
@@ -118,12 +155,91 @@ def world(tmp, case):
     if check.returncode:
         raise RuntimeError(check.stderr)
     sha = call(['git', 'rev-parse', 'HEAD'], root).stdout.strip()
+    # 186 v+1: факт review строится из разрешения назначения роли critic в
+    # toy-реестре В ПАМЯТИ до вызова субъекта (правило 8); значения реестра —
+    # фиксированные toy-данные, живой реестр харнесса не читается.
+    variant = ('@glm', '@gpt-terra')
+    if case in ('registry_terra', 'accept_fact_glm'):
+        variant = ('@gpt-terra', '@gpt-sol')
+    if case == 'registry_sol':
+        variant = ('@gpt-sol', '@gpt-astra')
+    if case == 'accept_fact_fallback':
+        # назначена основная модель тира (terra), факт — его РАЗРЕШЁННЫЙ
+        # fallback (glm): ослабление «принимает {основная, fallback}»
+        # обязано быть красным (UM-1 вердикта Crit186V2)
+        variant = ('@gpt-terra', '@glm')
+    if case == 'accept_fact_same_family':
+        # факт — иная модель ТОГО ЖЕ семейства (тот же префикс до «/»)
+        # после ротации версии: ловит сравнение по семейству (UM-2)
+        variant = ('@glm-prev', '@gpt-terra')
+    if case == 'accept_fact_superstring':
+        # назначенная — собственная подстрока факта: ловит ослабление
+        # «назначенная содержится в факте» (UM-3)
+        variant = ('@glm-core', '@gpt-terra')
+    registry = toy_registry(*variant)
+    if case == 'registry_fallback_change':
+        registry['tiers']['critic-main']['fallback'] = '@gpt-luna'
+    if case == 'registry_no_critic_role':
+        del registry['roles']['critic']
+    if case == 'registry_no_tier':
+        registry['roles']['critic'] = 'critic-ghost'
+    if case == 'registry_alias_unresolvable':
+        registry['tiers']['critic-main']['model'] = '@ghost'
+    if case == 'registry_model_empty':
+        registry['models']['glm'] = ''
+    broken_registry = case in ('registry_no_critic_role', 'registry_no_tier',
+                               'registry_alias_unresolvable', 'registry_model_empty')
+    fact = TOY_MODELS['glm'] if broken_registry else resolve_critic(registry)
+    if case == 'accept_fact_glm':
+        # назначена Terra, факт GLM: подмена факта красна В ОБЕ стороны,
+        # не «любая не-GLM»
+        fact = TOY_MODELS['glm']
+    if case == 'accept_fact_fallback':
+        # факт = fallback тира из toy-реестра В ПАМЯТИ (правило 8), не литерал
+        fact = registry['models'][registry['tiers']['critic-main']['fallback'][1:]]
+    if case in ('accept_fact_same_family', 'accept_fact_superstring'):
+        # факт — полная строка glm: иная версия того же семейства zai и
+        # надстройка над назначенной-подстрокой; литерал = старый пин 186/1,
+        # старая GLM-дверь сливает → клетка честно красна на --repo .
+        fact = TOY_MODELS['glm']
+    if case == 'accept_fact_padded':
+        # факт отличается от назначенной ТОЛЬКО формой записи: пробелы/табы
+        # вокруг значения при назначенной без них — блокирующая находка
+        # вердикта Crit186V2b, вход (а); ловит ослабление strip() значения
+        fact = ' \t' + fact + ' \t'
+    if case == 'accept_fact_padded_lead_space':
+        # Арбитраж 186-1 РЕШЕНИЕ 2: чистый ОДНОСТОРОННИЙ экземпляр — ведущий
+        # ПРОБЕЛ; двусторонний смешанный вход не различает lstrip и
+        # удаление только пробела — четыре чистых экземпляра различают
+        fact = ' ' + fact
+    if case == 'accept_fact_padded_lead_tab':
+        # чистый односторонний экземпляр — ведущий ТАБ; ловит lstrip('\t')
+        fact = '\t' + fact
+    if case == 'accept_fact_padded_tail_space':
+        # чистый односторонний экземпляр — хвостовой ПРОБЕЛ; ловит rstrip(' ')
+        fact = fact + ' '
+    if case == 'accept_fact_padded_tail_tab':
+        # чистый односторонний экземпляр — хвостовой ТАБ; ловит rstrip('\t')
+        fact = fact + '\t'
+    if case == 'accept_fact_fullwidth':
+        # NFKC-эквивалент назначенной, не равный байтово: полноширинная
+        # запись (вход (б)); ловит сравнение после Unicode-нормализации
+        fact = 'ｚａｉ／ｇｌｍ－５．３'
+    if case == 'accept_fact_bare':
+        # bare-форма без префикса провайдера при назначенной с префиксом
+        # (вход (в); норма 173 «zai/glm-5.3 ≡ glm-5.3» для check_sud_model.sh
+        # на дверь НЕ переносится); ловит префикс-эквивалентность
+        fact = fact.rsplit('/', 1)[-1]
+    if case == 'accept_fact_suffixed':
+        # надстройка СПЕРЕДИ: факт кончается на назначенную (совет
+        # вердикта Crit186V2b, NM_endswith); ловит суффиксное сравнение
+        fact = 'evil-' + fact
     state = {
         'pr': {'title': 'COMPLIOR-186 architectural correction', 'author': {'login': 'steward'},
                'headRefOid': sha, 'baseRefName': 'main'},
         'operator': 'station-orchestrator',
         'reviews': [{'state': 'APPROVED', 'commit_id': sha, 'user': {'login': 'critic'},
-                     'body': 'accept\nСУД: repo=architecture; модель-факт=zai/glm-5.3; SHA=' + sha}],
+                     'body': 'accept\nСУД: repo=architecture; модель-факт=' + fact + '; SHA=' + sha}],
         'checks': [{'name': 'architecture', 'status': 'completed', 'conclusion': 'success',
                     'app': {'slug': 'github-actions'}}],
     }
@@ -133,7 +249,10 @@ def world(tmp, case):
         state['reviews'][0]['commit_id'] = call(['git', 'rev-parse', 'main'], root).stdout.strip()
     if case == 'accept_author':
         state['pr']['author']['login'] = 'critic'
-    if case == 'accept_same_family':
+    # переименовано с accept_same_family (совет вердикта Crit186V2): факт —
+    # модель ЧУЖОГО семейства (openai-codex при назначенной zai), имя — по
+    # семантике входа, не по истории
+    if case == 'accept_fact_foreign':
         state['reviews'][0]['body'] = state['reviews'][0]['body'].replace('zai/glm-5.3', 'openai-codex/gpt-6-sol')
     if case == 'ci_red':
         state['checks'][0]['conclusion'] = 'failure'
@@ -209,6 +328,13 @@ def world(tmp, case):
              'check_runs': [{'name': 'security', 'status': 'completed', 'conclusion': 'failure',
                              'app': {'slug': 'github-actions'}}]}]
     write(tmp, 'state.json', json.dumps(state))
+    # toy-реестр харнесса двери: контроль/субъект читают его относительно
+    # СВОЕГО местоположения (tmp/control.py → tmp/config, tmp/scripts/… →
+    # tmp/config), не из живого дерева харнесса и не из cwd.
+    if case == 'registry_invalid_json':
+        write(tmp, 'config/agent_models.json', 'NOT-JSON {roles: critic-main')
+    elif case != 'registry_missing':
+        write(tmp, 'config/agent_models.json', json.dumps(registry, ensure_ascii=False, indent=2) + '\n')
     bin_dir = tmp / 'bin'
     bin_dir.mkdir()
     for name, program in (('gh', FAKE_GH), ('npm', FAKE_NPM)):
@@ -269,7 +395,7 @@ CASES = {
     'no_accept': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
     'accept_other_head': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
     'accept_author': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
-    'accept_same_family': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'accept_fact_foreign': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
     'ci_red': (1, 'CI_NOT_GREEN_ON_HEAD'),
     'ci_architecture_missing': (1, 'CI_NOT_GREEN_ON_HEAD'),
     'l2_without_owner': (1, 'L2_OWNER_APPROVAL_REQUIRED'),
@@ -300,6 +426,36 @@ CASES = {
     'ci_cancelled': (1, 'CI_NOT_GREEN_ON_HEAD'),
     'ci_in_progress': (1, 'CI_NOT_GREEN_ON_HEAD'),
     'ci_two_architecture': (1, 'CI_NOT_GREEN_ON_HEAD'),
+    # 186 v+1: назначение модели критика — из toy-реестра харнесса двери
+    'registry_terra': (0, None),
+    'registry_sol': (0, None),
+    'registry_fallback_change': (0, None),
+    'accept_fact_glm': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    # клетки ослабления сравнения модель-факт (блокирующая находка
+    # вердикта Crit186V2): fallback тира / то же семейство / подстрока
+    'accept_fact_fallback': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'accept_fact_same_family': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'accept_fact_superstring': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    # клетки нормализации значения модель-факт (блокирующая находка
+    # вердикта Crit186V2b): форма записи не расширяет множество
+    # принимаемых значений — пробелы/NFKC/bare/суффикс
+    'accept_fact_padded': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    # Арбитраж 186-1 РЕШЕНИЕ 2: четыре ОДНОСТОРОННИХ экземпляра SPACE/TAB
+    # (ведущий/хвостовой); двусторонний смешанный сохранён выше — каждый
+    # экземпляр исполняется отдельным миром и различим своим выводом
+    'accept_fact_padded_lead_space': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'accept_fact_padded_lead_tab': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'accept_fact_padded_tail_space': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'accept_fact_padded_tail_tab': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'accept_fact_fullwidth': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'accept_fact_bare': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'accept_fact_suffixed': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'registry_missing': (1, 'CRITIC_MODEL_UNRESOLVED'),
+    'registry_invalid_json': (1, 'CRITIC_MODEL_UNRESOLVED'),
+    'registry_no_critic_role': (1, 'CRITIC_MODEL_UNRESOLVED'),
+    'registry_no_tier': (1, 'CRITIC_MODEL_UNRESOLVED'),
+    'registry_alias_unresolvable': (1, 'CRITIC_MODEL_UNRESOLVED'),
+    'registry_model_empty': (1, 'CRITIC_MODEL_UNRESOLVED'),
     # Б-1: checkout не на head PR / грязное дерево — именованный отказ ДО npm check
     'checkout_main_l1': (1, 'CHECKOUT_NOT_AT_PR_HEAD', 'main'),
     'checkout_main_l2': (1, 'CHECKOUT_NOT_AT_PR_HEAD', 'main'),
@@ -319,9 +475,68 @@ MUTATIONS = {
     'skip_accept': ('if not accepted:', 'if False:', 'no_accept'),
     'skip_head': ("r['commit_id'] != sha", 'False', 'accept_other_head'),
     'skip_author': ("r['user']['login'] == pr['author']['login']", 'False', 'accept_author'),
-    'skip_family': ("fields[1].split(';', 1)[0] != 'zai/glm-5.3'",
-                    "fields[1].split(';', 1)[0] not in ('zai/glm-5.3', 'openai-codex/gpt-6-sol')",
-                    'accept_same_family'),
+    'skip_family': ("fields[1].split(';', 1)[0] != critic_model",
+                    "fields[1].split(';', 1)[0] not in (critic_model, 'openai-codex/gpt-6-sol')",
+                    'accept_fact_foreign'),
+    'stub_hardcode_glm': ('= assigned_critic_model()', "= 'zai/glm-5.3'", 'registry_terra'),
+    'stub_hardcode_gpt': ('= assigned_critic_model()', "= 'openai-codex/gpt-6.1-terra'", 'l1_merge'),
+    'stub_first_tier': ("name = roles.get('critic') if isinstance(roles, dict) else None",
+                        "name = next(iter(registry.get('tiers', {}))) if isinstance(registry.get('tiers'), dict) else None",
+                        'registry_terra'),
+    'stub_silent_glm_fallback': (
+        "    critic_model = assigned_critic_model()\n"
+        "    if critic_model is None:\n"
+        "        return fail('CRITIC_MODEL_UNRESOLVED')",
+        "    critic_model = assigned_critic_model()\n"
+        "    if critic_model is None:\n"
+        "    critic_model = 'zai/glm-5.3'", 'registry_missing'),
+    # стабы ослабления сравнения — каждый к входу, где его дефект наблюдаем
+    # (Н-39): образец — мутации UM-1/UM-2/UM-3 вердикта Crit186V2
+    'stub_fallback_tolerated': (
+        "fields[1].split(';', 1)[0] != critic_model",
+        "fields[1].split(';', 1)[0] not in {critic_model, "
+        "(lambda r: r['models'].get(r['tiers'][r['roles']['critic']].get('fallback', '')[1:]))"
+        "(json.loads(REGISTRY.read_text(encoding='utf-8')))}",
+        'accept_fact_fallback'),
+    'stub_family_prefix': (
+        "fields[1].split(';', 1)[0] != critic_model",
+        "fields[1].split(';', 1)[0].split('/', 1)[0] != critic_model.split('/', 1)[0]",
+        'accept_fact_same_family'),
+    'stub_substring': (
+        "fields[1].split(';', 1)[0] != critic_model",
+        "critic_model not in fields[1].split(';', 1)[0]",
+        'accept_fact_superstring'),
+    # стабы нормализации сравнения — образец мутаций NM_strip_fact/
+    # NM_strip_both/NM_nfkc/NM_bare_equiv/NM_endswith вердикта Crit186V2b;
+    # каждый к входу, где его дефект наблюдаем (Н-39)
+    'stub_strip_fact': (
+        "fields[1].split(';', 1)[0] != critic_model",
+        "fields[1].split(';', 1)[0].strip() != critic_model",
+        'accept_fact_padded'),
+    # одностороннее обрезание значения — Арбитраж 186-1 РЕШЕНИЕ 2
+    # (образец NM_lstrip/NM_rstrip критика Crit186V3): lstrip/rstrip
+    # различимы только на чистых односторонних входах (Н-39)
+    'stub_lstrip_fact': (
+        "fields[1].split(';', 1)[0] != critic_model",
+        "fields[1].split(';', 1)[0].lstrip() != critic_model",
+        'accept_fact_padded_lead_space'),
+    'stub_rstrip_fact': (
+        "fields[1].split(';', 1)[0] != critic_model",
+        "fields[1].split(';', 1)[0].rstrip() != critic_model",
+        'accept_fact_padded_tail_space'),
+    'stub_nfkc': (
+        "fields[1].split(';', 1)[0] != critic_model",
+        "__import__('unicodedata').normalize('NFKC', fields[1].split(';', 1)[0]) != "
+        "__import__('unicodedata').normalize('NFKC', critic_model)",
+        'accept_fact_fullwidth'),
+    'stub_bare_equiv': (
+        "fields[1].split(';', 1)[0] != critic_model",
+        "fields[1].split(';', 1)[0] not in (critic_model, critic_model.split('/', 1)[-1])",
+        'accept_fact_bare'),
+    'stub_endswith': (
+        "fields[1].split(';', 1)[0] != critic_model",
+        "fields[1].split(';', 1)[0] != critic_model and not fields[1].split(';', 1)[0].endswith(critic_model)",
+        'accept_fact_suffixed'),
     'skip_ci': ("c['conclusion'] != 'success'", 'False', 'ci_red'),
     'skip_architecture_ci': ("not any(c.get('name') == 'architecture' for c in runs)",
                              'False', 'ci_architecture_missing'),
@@ -357,11 +572,11 @@ MUTATIONS = {
     'skip_sud_fields': ("fields = sud[0].split('модель-факт=') if len(sud) == 1 else []",
                         "fields = sud[0].split('модель-факт=')[1:] if sud else []",
                         'model_second_field'),
-    'skip_model_empty': ("fields[1].split(';', 1)[0] != 'zai/glm-5.3'",
-                         "fields[1].split(';', 1)[0] not in ('zai/glm-5.3', '')",
+    'skip_model_empty': ("fields[1].split(';', 1)[0] != critic_model",
+                         "fields[1].split(';', 1)[0] not in (critic_model, '')",
                          'model_empty_value'),
-    'skip_model_case': ("fields[1].split(';', 1)[0] != 'zai/glm-5.3'",
-                        "fields[1].split(';', 1)[0].casefold() != 'zai/glm-5.3'",
+    'skip_model_case': ("fields[1].split(';', 1)[0] != critic_model",
+                        "fields[1].split(';', 1)[0].casefold() != critic_model",
                         'model_case_distorted'),
     'skip_sud_sha': ("not sud[0].endswith('; SHA=' + sha)", 'False', 'sud_no_sha'),
     'skip_sud_sha_value': ("not sud[0].endswith('; SHA=' + sha)",
@@ -446,24 +661,30 @@ def main():
             tmp = Path(directory)
             project, env = world(tmp, case)
             if args.model or args.stabs:
-                control = HERE / 'door_control.py'
+                # v+1: контроль исполняется из изолированной install-копии
+                # tmp/control.py, чтобы назначение critic читалось из toy-реестра
+                # tmp/config/agent_models.json, а не из живого дерева харнесса.
+                original = (HERE / 'door_control.py').read_text(encoding='utf-8')
                 if args.stabs:
-                    original = control.read_text(encoding='utf-8')
                     if original.count(old) != 1:
                         raise RuntimeError('non-unique mutant anchor: ' + name)
-                    changed = original.replace(old, new)
+                    original = original.replace(old, new)
                     if name == 'skip_baseline':
                         fallback = "if status['baselineStatus'] != 'PASS' or status['contractReadiness']['incompatibleContracts']:"
-                        if changed.count(fallback) != 1:
+                        if original.count(fallback) != 1:
                             raise RuntimeError('missing baseline fallback mutant anchor')
-                        changed = changed.replace(fallback, 'if False:')
-                    control = write(tmp, 'control.py', changed)
+                        original = original.replace(fallback, 'if False:')
+                control = write(tmp, 'control.py', original)
             else:
-                control = source / 'scripts/merge_architecture_pr.sh'
-            if not control.is_file():
-                print(f'186 door {name} KRASNO: merge door missing')
-                failed = True
-                continue
+                door = source / 'scripts/merge_architecture_pr.sh'
+                if not door.is_file():
+                    print(f'186 door {name} KRASNO: merge door missing')
+                    failed = True
+                    continue
+                # v+1: субъект тоже из изолированной install-копии tmp/scripts/,
+                # реестр — тот же toy tmp/config/agent_models.json.
+                control = write(tmp, 'scripts/merge_architecture_pr.sh',
+                                door.read_text(encoding='utf-8'))
             ok, result = check(project, env, control, case)
             if args.stabs:
                 ok = not ok and result.returncode != 2
