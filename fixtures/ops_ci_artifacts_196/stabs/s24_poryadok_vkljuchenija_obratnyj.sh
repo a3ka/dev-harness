@@ -55,11 +55,11 @@ provision_root() { # <каталог> <владелец>
     mkdir -p -- "$1" || die_write "$1"
   fi
   chown "$2:$CIART_GROUP" -- "$1" || die_write "chown $1"
-  chmod 2775 -- "$1" || die_write "chmod $1"
+  chmod 2750 -- "$1" || die_write "chmod $1"
 }
 
 check_root() { # <корень репо> <владелец> — И-10
-  if [ ! -d "$1" ] || [ "$(stat -c %a -- "$1")" != "2775" ]; then
+  if [ ! -d "$1" ] || [ "$(stat -c %a -- "$1")" != "2750" ]; then
     printf 'ОТКАЗ: расхождение ci-artifacts: %s\n' "$1" >&2
     return 1
   fi

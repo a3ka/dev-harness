@@ -45,7 +45,7 @@ provision_root() {
     mkdir -p -- "$1" || die_write "$1"
   fi
   chown "$2:$CIART_GROUP" -- "$1" || die_write "chown $1"
-  chmod 2775 -- "$1" || die_write "chmod $1"
+  chmod 2750 -- "$1" || die_write "chmod $1"
 }
 
 command -v sha256sum >/dev/null 2>&1 \

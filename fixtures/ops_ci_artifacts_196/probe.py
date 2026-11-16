@@ -35,8 +35,9 @@ CASES = (
     'undeclared-untouched', 'retention-seam', 'root-missing', 'no-home-service-env',
     'install-artifacts', 'install-precondition', 'install-euid-refused',
     'install-repo-symlink-refused', 'install-systemctl-refused',
-    'verify-drift', 'verify-not-installed', 'verify-roots',
-    'unit-grammar', 'readme-anchors',
+    'install-roots-preinstalled', 'verify-drift', 'verify-not-installed',
+    'verify-roots', 'verify-runner-dropin', 'install-runner-dropin',
+    'runner-dropin-absent', 'unit-grammar', 'readme-anchors',
 )
 
 # Н-39: привязка обманного стаба к входу, где его дефект НАБЛЮДАМ.
@@ -66,11 +67,18 @@ STUBS = {
     's22_ne_ustanovleny_na_chastichnoj.sh': ('install', 'verify-not-installed'),
     's23_bez_vladelca_kornja.sh': ('install', 'verify-roots'),
     's24_poryadok_vkljuchenija_obratnyj.sh': ('install', 'install-artifacts'),
+    's25_dropin_ne_stavitsja.sh': ('install', 'install-runner-dropin'),
+    's26_dropin_na_koren_beka.sh': ('install', 'install-runner-dropin'),
+    's27_dropin_bez_daemon_reload.sh': ('install', 'install-runner-dropin'),
+    's28_dropin_bez_junita.sh': ('install', 'runner-dropin-absent'),
+    's29_verify_bez_sverki_dropina.sh': ('install', 'verify-runner-dropin'),
 }
 
 MOB = 'Complior-mob'
 DAY = 86400
 BACK = 'Complior-back'
+# юниты моб-раннера станции (вне репо): drop-in ставится по наличию юнита
+RUNNER_UNITS = ('gh-runner-complior', 'gh-runner-complior-2')
 README_ANCHORS = (
     '/var/lib/ci-artifacts/',
     'sudo bash ops/server/install.sh artifacts',
@@ -108,10 +116,13 @@ class World:
         return self.dir.joinpath(*parts)
 
     def write_shims(self, users=(), groups=(), euid=0, systemctl='ok',
-                    stat_owners=()):
+                    stat_owners=(), dropin_probe=None):
         # stat_owners — конфигурация владельцев корней для stat-шима
         # (вердикт v2, совет а): строки «<путь> TAB <владелец:группа>»;
-        # формат %U:%G читается из неё, %a — реальный stat (режим не врёт)
+        # формат %U:%G читается из неё, %a — реальный stat (режим не врёт);
+        # dropin_probe — путь drop-in'а моб-раннера: маркер daemon-reload
+        # записывает, существовал ли файл на момент reload (И-9е: reload
+        # ПОСЛЕ установки drop-in)
         bin_dir = self.path('bin')
         bin_dir.mkdir(exist_ok=True)
         self.journals['chown'] = self.path('chown.journal')
@@ -147,6 +158,12 @@ class World:
             'systemctl': (
                 '#!/bin/bash\n'
                 f'printf \'%s\\n\' "systemctl $*" >>"{self.journals["systemctl"]}"\n'
+                + ((
+                    'if [ "$1" = "daemon-reload" ]; then\n'
+                    f'  if [ -f "{dropin_probe}" ]; then m=yes; else m=no; fi\n'
+                    f'  printf \'daemon-reload-dropin=%s\\n\' "$m" >>"{self.journals["systemctl"]}"\n'
+                    'fi\n'
+                ) if dropin_probe else '')
                 + ctl_tail
             ),
             'getent': (
@@ -269,7 +286,8 @@ class Subjects:
         return p if p.exists() else None
 
     def src_ops(self, world):
-        """Каталог-источник OPS_SERVER_SRC с root/ci-artifacts-clean и юнитами."""
+        """Каталог-источник OPS_SERVER_SRC: root/ci-artifacts-clean, юниты и
+        drop-in моб-раннера (gh-runner-complior-ci-artifacts.conf)."""
         if self.kind == 'repo':
             return self.repo_root / 'ops/server'
         src = world.path('ops-server')
@@ -279,6 +297,8 @@ class Subjects:
                         src / 'root/systemd/ci-artifacts-clean.service')
         shutil.copyfile(HERE / 'model' / 'ci-artifacts-clean.timer',
                         src / 'root/systemd/ci-artifacts-clean.timer')
+        shutil.copyfile(HERE / 'model' / 'gh-runner-complior-ci-artifacts.conf',
+                        src / 'root/gh-runner-complior-ci-artifacts.conf')
         if self.kind == 'stub' and self.stub.endswith('.timer'):
             shutil.copyfile(HERE / 'stabs' / self.stub,
                             src / 'root/systemd/ci-artifacts-clean.timer')
@@ -582,19 +602,44 @@ def cell_no_home_service_env(subj):
 
 # ── клетки установки ─────────────────────────────────────────────────────────
 def install_env(w, src_ops, users=('toymob', 'toyback'), groups=('toygroup',),
-                euid=0, systemctl='ok', back_owner_stat='toyback:toygroup'):
+                euid=0, systemctl='ok', back_owner_stat='toyback:toygroup',
+                mob_owner_stat='toymob:toygroup', runner_units=()):
     # stat-конфигурация мира: владельцы корней «как их поставила установка»;
-    # back_owner_stat — раунд дрейфа владельца корня бэка (verify-roots)
+    # *_owner_stat — раунды дрейфа владельца корня (verify-roots) и
+    # расходящегося существующего корня (install-roots-preinstalled);
+    # runner_units — юниты-раннеры станции (вне репо): мир сотворяет их файлы
+    # в ETC_DST, установщик видит их наличием (И-9е)
     ciart = w.path('var/lib/ci-artifacts')
+    etc = w.path('etc/systemd/system')
+    dropin_probe = None
+    if runner_units:
+        etc.mkdir(parents=True, exist_ok=True)
+        for unit in runner_units:
+            (etc / f'{unit}.service').write_text(
+                '# мир 196: юнит моб-раннера станции (вне репо)\n'
+                '[Service]\n'
+                'User=harness\n'
+                'ProtectSystem=strict\n'
+                'ReadWritePaths=/var/lib/ci-runner /tmp\n'
+                'PrivateTmp=yes\n'
+            )
+        # маркер daemon-reload: дрожит над drop-in'ом первого наличествующего
+        # юнита (клетка install-runner-dropin: reload ПОСЛЕ установки drop-in)
+        for unit in RUNNER_UNITS:
+            if unit in runner_units:
+                dropin_probe = etc / f'{unit}.service.d' / 'ci-artifacts.conf'
+                break
     w.write_shims(users=users, groups=groups, euid=euid, systemctl=systemctl,
-                  stat_owners=((ciart / MOB, 'toymob:toygroup'),
-                               (ciart / BACK, back_owner_stat)))
+                  stat_owners=((ciart / MOB, mob_owner_stat),
+                               (ciart / BACK, back_owner_stat),
+                               (ciart, 'root:root')),
+                  dropin_probe=dropin_probe)
     return {
         'PATH': f'{w.path("bin")}:/usr/bin:/bin',
         'OPS_SERVER_SRC': str(src_ops),
         'OPS_SERVER_SBIN_DST': str(w.path('sbin')),
-        'OPS_SERVER_ETC_DST': str(w.path('etc/systemd/system')),
-        'OPS_SERVER_CI_ARTIFACTS': str(w.path('var/lib/ci-artifacts')),
+        'OPS_SERVER_ETC_DST': str(etc),
+        'OPS_SERVER_CI_ARTIFACTS': str(ciart),
         'OPS_SERVER_CI_ARTIFACTS_MOB_OWNER': 'toymob',
         'OPS_SERVER_CI_ARTIFACTS_BACK_OWNER': 'toyback',
         'OPS_SERVER_CI_ARTIFACTS_GROUP': 'toygroup',
@@ -661,10 +706,10 @@ def cell_install_artifacts(subj):
         ):
             if want not in chown:
                 return False, f'нет владельца корня: {want} (журнал: {"; ".join(chown)})'
-        if stat.S_IMODE(mob_root.stat().st_mode) != 0o2775:
-            return False, f'режим корня моба {oct(stat.S_IMODE(mob_root.stat().st_mode))} != 2775'
-        if stat.S_IMODE(back_root.stat().st_mode) != 0o2775:
-            return False, f'режим корня бэка {oct(stat.S_IMODE(back_root.stat().st_mode))} != 2775'
+        if stat.S_IMODE(mob_root.stat().st_mode) != 0o2750:
+            return False, f'режим корня моба {oct(stat.S_IMODE(mob_root.stat().st_mode))} != 2750'
+        if stat.S_IMODE(back_root.stat().st_mode) != 0o2750:
+            return False, f'режим корня бэка {oct(stat.S_IMODE(back_root.stat().st_mode))} != 2750'
         sysctl = w.journal('systemctl')
         if 'systemctl daemon-reload' not in sysctl:
             return False, 'нет systemctl daemon-reload'
@@ -790,6 +835,8 @@ def cell_install_repo_symlink_refused(subj):
         env = install_env(w, src_ops)
         ciart = w.path('var/lib/ci-artifacts')
         ciart.mkdir(parents=True)
+        # мир предсоздаёт родителя как станция: 0755 (umask теста не решает)
+        os.chmod(ciart, 0o755)
         outside = w.path('outside-store')
         outside.mkdir()
         (outside / 'evidence.txt').write_bytes(b'target\n')
@@ -906,7 +953,7 @@ def cell_verify_not_installed(subj):
 
 
 def cell_verify_roots(subj):
-    """И-10: «режим 2775 … в обоих контурах» и владелец — каждому корню и
+    """И-10: «режим 2750 … в обоих контурах» и владелец — каждому корню и
     каждому свойству СВОЙ раунд (вердикт v2: mg — режим бэка, me — владелец):
     chmod 0755 корня моба, chmod 0755 корня бэка, дрейф владельца бэка в
     stat-конфигурации мира; каждый ждёт rc 1 «ОТКАЗ: расхождение ci-artifacts:
@@ -1007,6 +1054,209 @@ def cell_unit_grammar(subj):
     return True, ''
 
 
+
+def cell_install_roots_preinstalled(subj):
+    """И-9(г): корни станции уже созданы оператором (база 0755 root:root,
+    моб/бэк 2750 с владельцами швов) — установщик принимает их идемпотентно:
+    rc 0, ни одного chown по корням (журнал шима), режимы не дрейфят;
+    расходящийся существующий корень — rc 1 `ОТКАЗ: существующий корень
+    расходится: <путь>` без молчаливого переформатирования. Каждому исходу
+    и корню — свой раунд."""
+    prefix = subj.install()
+    if prefix is None:
+        return no_subject('ops/server/install.sh')
+    # раунд 1: все корни уже верны — идемпотентный приём
+    w = World()
+    try:
+        src_ops = subj.src_ops(w)
+        ciart = w.path('var/lib/ci-artifacts')
+        mob_root = ciart / MOB
+        back_root = ciart / BACK
+        ciart.mkdir(parents=True)
+        os.chmod(ciart, 0o755)
+        for path in (mob_root, back_root):
+            path.mkdir()
+            os.chmod(path, 0o2750)
+        env = install_env(w, src_ops)
+        rc, out, err = w.run(prefix + ['artifacts'], env)
+        if rc != 0:
+            return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'существующие верные корни не приняты: rc={rc}, stderr: {err.strip()[:300]}'
+        chown = w.journal('chown')
+        for drift_line in (
+            f'chown root:root -- {ciart}',
+            f'chown toymob:toygroup -- {mob_root}',
+            f'chown toyback:toygroup -- {back_root}',
+        ):
+            if drift_line in chown:
+                return False, f'идемпотентность: chown по существующему корню: {drift_line}'
+        for path in (mob_root, back_root):
+            if stat.S_IMODE(path.stat().st_mode) != 0o2750:
+                return False, f'идемпотентность: режим существующего корня дрейфнул: {path}'
+        if 'установлено: ci-artifacts' not in out:
+            return False, f'нет строки установки: {out.strip()[:200]}'
+    finally:
+        w.close()
+    # раунды 2–4: расходящийся существующий корень — именованный отказ
+    for label, repo_name, env_kwargs, want_mode in (
+        ('режим моба', MOB, {}, 0o755),
+        ('владелец моба', MOB, {'mob_owner_stat': 'toyback:toygroup'}, 0o2750),
+        ('владелец бэка', BACK, {'back_owner_stat': 'toymob:toygroup'}, 0o2750),
+    ):
+        w = World()
+        try:
+            src_ops = subj.src_ops(w)
+            ciart = w.path('var/lib/ci-artifacts')
+            drift_root = ciart / repo_name
+            ciart.mkdir(parents=True)
+            os.chmod(ciart, 0o755)
+            for name in (MOB, BACK):
+                p = ciart / name
+                p.mkdir()
+                os.chmod(p, 0o2750)
+            os.chmod(drift_root, want_mode)
+            env = install_env(w, src_ops, **env_kwargs)
+            rc, out, err = w.run(prefix + ['artifacts'], env)
+            if rc != 1:
+                return False, f'расходящийся корень ({label}) принят: rc={rc}'
+            if f'ОТКАЗ: существующий корень расходится: {drift_root}' not in err:
+                return False, f'нет именованного отказа о корне ({label}): {err.strip()[:300]}'
+            if stat.S_IMODE(drift_root.stat().st_mode) != want_mode:
+                return False, f'расходящийся корень ({label}) молча переформатирован'
+            if any(str(drift_root) in line for line in w.journal('chown')):
+                return False, f'расходящийся корень ({label}) тронут chown'
+        finally:
+            w.close()
+    return True, ''
+
+
+def cell_install_runner_dropin(subj):
+    """И-9(е): drop-in моб-раннера ставится по наличию юнита — каждому юниту
+    (gh-runner-complior, gh-runner-complior-2) свой раунд: байт-в-байт из
+    репо-источника (ровно ReadWritePaths на корень моба), 0644 root:root,
+    daemon-reload ПОСЛЕ установки (маркер журнала шима: reload при уже
+    стоящем drop-in); юниту без юнита drop-in не ставится."""
+    prefix = subj.install()
+    if prefix is None:
+        return no_subject('ops/server/install.sh')
+    if subj.kind == 'stub' and subj.stub == 's11_slepaja_sverka.sh':
+        return no_subject('install.sh artifacts (стаб s11 не реализует установку)')
+    want = (HERE / 'model/gh-runner-complior-ci-artifacts.conf').read_bytes()
+    for unit in RUNNER_UNITS:
+        w = World()
+        try:
+            src_ops = subj.src_ops(w)
+            env = install_env(w, src_ops, runner_units=(unit,))
+            rc, out, err = w.run(prefix + ['artifacts'], env)
+            if rc != 0:
+                return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'{unit}: rc={rc}, stderr: {err.strip()[:300]}'
+            etc = w.path('etc/systemd/system')
+            dropin = etc / f'{unit}.service.d' / 'ci-artifacts.conf'
+            if not dropin.exists():
+                return False, f'drop-in не установлен при юните {unit}'
+            if dropin.read_bytes() != want:
+                return False, f'drop-in {unit} не байт-в-байт с источником (ReadWritePaths на корень моба)'
+            if stat.S_IMODE(dropin.stat().st_mode) != 0o644:
+                return False, f'drop-in {unit} не 0644: {oct(stat.S_IMODE(dropin.stat().st_mode))}'
+            if f'chown root:root -- {dropin}' not in w.journal('chown'):
+                return False, f'drop-in {unit} без root:root (журнал chown: {"; ".join(w.journal("chown"))})'
+            if 'daemon-reload-dropin=yes' not in w.journal('systemctl'):
+                return False, f'daemon-reload не после установки drop-in {unit} (маркер журнала)'
+            other = RUNNER_UNITS[1] if unit == RUNNER_UNITS[0] else RUNNER_UNITS[0]
+            if (etc / f'{other}.service.d').exists():
+                return False, f'drop-in-каталог юниту без юнита: {other}'
+        finally:
+            w.close()
+    return True, ''
+
+
+def cell_runner_dropin_absent(subj):
+    """И-9(е), негативная пара: юнитов-раннеров нет — drop-in не ставится
+    ни одному (ни одного .d-каталога), установка остаётся зелёной: отсутствие
+    раннера на станции — не ошибка установки."""
+    w = World()
+    try:
+        src_ops = subj.src_ops(w)
+        env = install_env(w, src_ops)
+        prefix = subj.install()
+        if prefix is None:
+            return no_subject('ops/server/install.sh')
+        rc, out, err = w.run(prefix + ['artifacts'], env)
+        if rc != 0:
+            return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'rc={rc}, stderr: {err.strip()[:300]}'
+        etc = w.path('etc/systemd/system')
+        for unit in RUNNER_UNITS:
+            if (etc / f'{unit}.service').exists():
+                return False, f'мир сотворил юнит-раннер сам: {unit}'
+            ddir = etc / f'{unit}.service.d'
+            if ddir.exists():
+                return False, f'drop-in-каталог без юнита-раннера: {ddir}'
+        if 'установлено: ci-artifacts' not in out:
+            return False, f'нет строки установки: {out.strip()[:200]}'
+        return True, ''
+    finally:
+        w.close()
+
+
+def cell_verify_runner_dropin(subj):
+    """И-10: drop-in моб-раннера сверяется условно — юнит есть: дрейф байтов
+    и отсутствующий drop-in дают rc 1 `ОТКАЗ: расхождение <путь>` с именем
+    файла; юнита нет — drop-in не ставился и его отсутствие НЕ расхождение
+    (rc 0 «сверка 3/3»). Каждому состоянию — свой раунд."""
+    prefix = subj.install()
+    if prefix is None:
+        return no_subject('ops/server/install.sh')
+    _, verify_mode = subj.install_modes()
+    for drift_kind in ('bytes', 'missing'):
+        w = World()
+        try:
+            src_ops = subj.src_ops(w)
+            env = install_env(w, src_ops, runner_units=(RUNNER_UNITS[0],))
+            if subj.kind == 'repo':
+                env['OPS_SERVER_BIN_DST'] = str(install_core_files(w, src_ops))
+            # Н-39: стаб не реализует установку честно — мир ставит модель,
+            # обманке отдан только этап сверки (дефект наблюдаем там)
+            install_prefix = prefix
+            if subj.kind == 'stub':
+                install_prefix = ['bash', str(HERE / 'model' / 'install-artifacts.sh')]
+            rc, out, err = w.run(install_prefix + ['artifacts'], env)
+            if rc != 0:
+                return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'установка для мира дрейфа drop-in не зелёная: rc={rc}, {err.strip()[:300]}'
+            dropin = w.path('etc/systemd/system/gh-runner-complior.service.d/ci-artifacts.conf')
+            if not dropin.exists():
+                # честная установка обязана поставить drop-in при юните
+                return False, 'установка не поставила drop-in при юните-раннере (И-9е)'
+            if drift_kind == 'bytes':
+                dropin.write_bytes(dropin.read_bytes() + b'drift\n')
+            else:
+                dropin.unlink()
+            rc, out, err = w.run(prefix + [verify_mode], env)
+            if rc != 1:
+                return False, f'сверка слепа к {drift_kind} drop-in: rc={rc}, out: {out.strip()[:200]}'
+            if 'расхождение' not in err or str(dropin) not in err:
+                return False, f'сверка не назвала drop-in ({drift_kind}): {err.strip()[:300]}'
+        finally:
+            w.close()
+    # раунд: юнита-раннера нет — отсутствие drop-in не расхождение
+    w = World()
+    try:
+        src_ops = subj.src_ops(w)
+        env = install_env(w, src_ops)
+        if subj.kind == 'repo':
+            env['OPS_SERVER_BIN_DST'] = str(install_core_files(w, src_ops))
+        install_prefix = prefix
+        if subj.kind == 'stub':
+            install_prefix = ['bash', str(HERE / 'model' / 'install-artifacts.sh')]
+        rc, out, err = w.run(install_prefix + ['artifacts'], env)
+        if rc != 0:
+            return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'установка без юнита-раннера не зелёная: rc={rc}, {err.strip()[:300]}'
+        rc, out, err = w.run(prefix + [verify_mode], env)
+        if rc != 0:
+            return False, f'отсутствие юнита-раннера названо расхождением: rc={rc}, stderr: {err.strip()[:300]}'
+        if 'ci-artifacts: сверка 3/3' not in out:
+            return False, f'нет строки сверки: {out.strip()[:200]}'
+        return True, ''
+    finally:
+        w.close()
 CELLS = {
     'young-kept': cell_young_kept,
     'old-removed': cell_old_removed,
@@ -1024,9 +1274,13 @@ CELLS = {
     'install-euid-refused': cell_install_euid_refused,
     'install-repo-symlink-refused': cell_install_repo_symlink_refused,
     'install-systemctl-refused': cell_install_systemctl_refused,
+    'install-roots-preinstalled': cell_install_roots_preinstalled,
     'verify-drift': cell_verify_drift,
     'verify-not-installed': cell_verify_not_installed,
     'verify-roots': cell_verify_roots,
+    'verify-runner-dropin': cell_verify_runner_dropin,
+    'install-runner-dropin': cell_install_runner_dropin,
+    'runner-dropin-absent': cell_runner_dropin_absent,
     'unit-grammar': cell_unit_grammar,
     'readme-anchors': cell_readme_anchors,
 }
@@ -1035,7 +1289,8 @@ CELLS = {
 def check_family():
     for p in ('model/ci-artifacts-clean', 'model/install-artifacts.sh',
               'model/ci-artifacts-clean.service', 'model/ci-artifacts-clean.timer',
-              'model/README-ops-server.md'):
+              'model/README-ops-server.md',
+              'model/gh-runner-complior-ci-artifacts.conf'):
         if not (HERE / p).exists():
             refuse(f'нет файла семьи: {p}')
     stubs = sorted(q.name for q in (HERE / 'stabs').iterdir())
@@ -1044,8 +1299,8 @@ def check_family():
     for name in stubs:
         if name not in STUBS:
             refuse(f'стаб без привязки: {name}')
-    if len(CASES) != 21:
-        refuse(f'клеток {len(CASES)}, ожидалось 21')
+    if len(CASES) != 25:
+        refuse(f'клеток {len(CASES)}, ожидалось 25')
 
 
 def main():

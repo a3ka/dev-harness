@@ -11,7 +11,8 @@
 
 - Корни и владельцы: `/var/lib/ci-artifacts/Complior-mob/` — владелец `harness` (писатель моб-раннера),
   `/var/lib/ci-artifacts/Complior-back/` — владелец `ci-back` (писатель бэк-раннера); оба — группа harness,
-  режим 2775 (setgid: созданное наследует группу).
+  режим 2750 (setgid: созданное наследует группу; судьи группы читают, чужие — нет). Корни уже созданы
+  оператором станции — установщик принимает их идемпотентно, без chown/chmod.
 - Установка (root): `sudo bash ops/server/install.sh artifacts`; сверка: `sudo bash ops/server/install.sh verify`
   (успех — `ci-artifacts: сверка 3/3`; до установки — `ci-artifacts: не установлены`, это не расхождение).
 - Таймер: `ci-artifacts-clean.timer` — ежедневно 04:30 Asia/Singapore, Persistent=true (пропущенная за простоем

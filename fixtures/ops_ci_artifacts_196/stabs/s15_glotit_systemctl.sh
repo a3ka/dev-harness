@@ -53,11 +53,11 @@ provision_root() { # <каталог> <владелец>
     mkdir -p -- "$1" || die_write "$1"
   fi
   chown "$2:$CIART_GROUP" -- "$1" || die_write "chown $1"
-  chmod 2775 -- "$1" || die_write "chmod $1"
+  chmod 2750 -- "$1" || die_write "chmod $1"
 }
 
 check_root() { # <корень репо> <владелец> — И-10
-  if [ ! -d "$1" ] || [ "$(stat -c %a -- "$1")" != "2775" ]; then
+  if [ ! -d "$1" ] || [ "$(stat -c %a -- "$1")" != "2750" ]; then
     printf 'ОТКАЗ: расхождение ci-artifacts: %s\n' "$1" >&2
     return 1
   fi
@@ -135,7 +135,7 @@ case "$MODE" in
     if [ "$rc" -ne 0 ]; then
       exit 1
     fi
-    # И-10: корни репо — режим 2775 в обоих контурах (клетка verify-roots),
+    # И-10: корни репо — режим 2750 в обоих контурах (клетка verify-roots),
     # владелец/группа — в производственном (без швов адресатов)
     check_root "$CIART_ROOT/Complior-mob" "$MOB_OWNER" || exit 1
     check_root "$CIART_ROOT/Complior-back" "$BACK_OWNER" || exit 1
