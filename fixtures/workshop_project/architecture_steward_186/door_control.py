@@ -19,6 +19,18 @@ baseline в рабочем дереве), а слит будет PR head. Нес
 недоступность Git-метаданных — rc 2 (нечем судить), не слияние. Законно:
 detached на head-коммите, иная ветка на том же sha — дверь сравнивает РАЗРЕШЁННЫЙ
 sha, не имя ветки.
+
+Честная дверь v+1 (слово владельца 2026-11-16 ~12:20 UTC через консультанта):
+ожидаемая модель критика — НАЗНАЧЕНИЕ роли critic в установочном реестре
+`config/agent_models.json` дерева харнесса самой двери (цепочка
+roles.critic → имя тира → tiers[тир].model «@семейство» → models[семейство]
+→ полная строка модели), не семейство GLM, не env-override и не дерево
+архитектурного PR. Поле `модель-факт=` сравнивается с ПОЛНОЙ строкой
+назначенной модели литерально; fallback тира не расширяет множество
+принимаемых значений — дверь принимает ровно одну модель. Отсутствие файла
+реестра, неразбор JSON, отсутствие roles.critic/тира, неразрешимый алиас
+или пустая строка — именованный отказ CRITIC_MODEL_UNRESOLVED (rc 1,
+слияния нет), не молчаливый fallback на GLM.
 """
 import json
 import os
@@ -26,6 +38,28 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+
+REGISTRY = Path(__file__).resolve().parent / 'config' / 'agent_models.json'
+
+
+def assigned_critic_model():
+    """Назначение роли critic из установочного реестра (контракт 186 v+1)."""
+    try:
+        registry = json.loads(REGISTRY.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(registry, dict):
+        return None
+    roles = registry.get('roles')
+    tiers = registry.get('tiers')
+    name = roles.get('critic') if isinstance(roles, dict) else None
+    tier = tiers.get(name) if isinstance(tiers, dict) and isinstance(name, str) else None
+    alias = tier.get('model') if isinstance(tier, dict) else None
+    models = registry.get('models')
+    model = (models.get(alias[1:])
+             if isinstance(models, dict) and isinstance(alias, str) and alias.startswith('@')
+             else None)
+    return model if isinstance(model, str) and model.strip() else None
 
 
 def call(args, cwd):
@@ -43,6 +77,12 @@ def fail(reason):
 def main():
     project, number = Path(sys.argv[1]), sys.argv[2]
     repo = 'a3ka/CompliorOS-architecture'
+    # v+1: ожидаемая модель критика — назначение роли critic в реестре
+    # харнесса двери; сломанная конфигурация даёт именованный отказ, не
+    # fallback-значение.
+    critic_model = assigned_critic_model()
+    if critic_model is None:
+        return fail('CRITIC_MODEL_UNRESOLVED')
     pr = json.loads(call(['gh', 'pr', 'view', number, '-R', repo,
                           '--json', 'title,author,headRefOid,baseRefName'], project))
     sha = pr['headRefOid']
@@ -64,7 +104,7 @@ def main():
         sud = [line for line in lines if line.startswith('СУД: ')]
         fields = sud[0].split('модель-факт=') if len(sud) == 1 else []
         if (not lines or lines[0] != 'accept' or len(fields) != 2
-                or fields[1].split(';', 1)[0] != 'zai/glm-5.3'
+                or fields[1].split(';', 1)[0] != critic_model
                 or not sud[0].endswith('; SHA=' + sha)):
             continue
         accepted = True

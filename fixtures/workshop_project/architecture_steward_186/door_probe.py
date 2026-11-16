@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Isolated Git worlds: real baseline diff, fake GitHub network, observed merge argv."""
+"""Isolated Git worlds: real baseline diff, fake GitHub network, observed merge argv.
+
+186 v+1 (слово владельца 2026-11-16 ~12:20 UTC): ожидаемая модель критика —
+НАЗНАЧЕНИЕ роли critic в toy-реестре харнесса двери (tmp/config/agent_models.json),
+не семейство GLM; оракул (resolve_critic в памяти) заморожен ДО вызова субъекта.
+Контроль и субъект исполняются из изолированной install-копии рядом с реестром
+(tmp/control.py, tmp/scripts/merge_architecture_pr.sh); живой реестр харнесса
+батареей не читается, перестановки реестра правки кода не требуют."""
 import argparse
 import json
 import os
@@ -65,6 +72,32 @@ sys.exit(2)
 '''
 
 
+TOY_MODELS = {'glm': 'zai/glm-5.3', 'gpt-terra': 'openai-codex/gpt-6.1-terra',
+              'gpt-sol': 'openai-codex/gpt-6.1-sol', 'gpt-astra': 'openai-codex/gpt-6-astra',
+              'gpt-luna': 'openai-codex/gpt-6-luna'}
+
+
+def toy_registry(model_alias='@glm', fallback_alias='@gpt-terra'):
+    """Toy установочный реестр харнесса двери (186 v+1): ожидаемая модель
+    критика — назначение роли critic; значения — фиксированные toy-данные,
+    не живой реестр. Первый тир словаря — НЕ тир critic: стаб «первый тир
+    вместо назначения роли» обязан разрешаться в ЧУЖУЮ модель, чтобы быть
+    различимым на своём входе (Н-39)."""
+    return {
+        'roles': {'critic': 'critic-main', 'architecture-steward': 'steward-arch'},
+        'tiers': {
+            'steward-arch': {'model': '@gpt-sol', 'fallback': '@gpt-astra'},
+            'critic-main': {'model': model_alias, 'fallback': fallback_alias},
+        },
+        'models': dict(TOY_MODELS),
+    }
+
+
+def resolve_critic(registry):
+    tier = registry['tiers'][registry['roles']['critic']]
+    return registry['models'][tier['model'][1:]]
+
+
 def call(argv, cwd, env=None):
     return subprocess.run(argv, cwd=cwd, env=env, text=True, capture_output=True)
 
@@ -118,12 +151,38 @@ def world(tmp, case):
     if check.returncode:
         raise RuntimeError(check.stderr)
     sha = call(['git', 'rev-parse', 'HEAD'], root).stdout.strip()
+    # 186 v+1: факт review строится из разрешения назначения роли critic в
+    # toy-реестре В ПАМЯТИ до вызова субъекта (правило 8); значения реестра —
+    # фиксированные toy-данные, живой реестр харнесса не читается.
+    variant = ('@glm', '@gpt-terra')
+    if case in ('registry_terra', 'accept_fact_glm'):
+        variant = ('@gpt-terra', '@gpt-sol')
+    if case == 'registry_sol':
+        variant = ('@gpt-sol', '@gpt-astra')
+    registry = toy_registry(*variant)
+    if case == 'registry_fallback_change':
+        registry['tiers']['critic-main']['fallback'] = '@gpt-luna'
+    if case == 'registry_no_critic_role':
+        del registry['roles']['critic']
+    if case == 'registry_no_tier':
+        registry['roles']['critic'] = 'critic-ghost'
+    if case == 'registry_alias_unresolvable':
+        registry['tiers']['critic-main']['model'] = '@ghost'
+    if case == 'registry_model_empty':
+        registry['models']['glm'] = ''
+    broken_registry = case in ('registry_no_critic_role', 'registry_no_tier',
+                               'registry_alias_unresolvable', 'registry_model_empty')
+    fact = TOY_MODELS['glm'] if broken_registry else resolve_critic(registry)
+    if case == 'accept_fact_glm':
+        # назначена Terra, факт GLM: подмена факта красна В ОБЕ стороны,
+        # не «любая не-GLM»
+        fact = TOY_MODELS['glm']
     state = {
         'pr': {'title': 'COMPLIOR-186 architectural correction', 'author': {'login': 'steward'},
                'headRefOid': sha, 'baseRefName': 'main'},
         'operator': 'station-orchestrator',
         'reviews': [{'state': 'APPROVED', 'commit_id': sha, 'user': {'login': 'critic'},
-                     'body': 'accept\nСУД: repo=architecture; модель-факт=zai/glm-5.3; SHA=' + sha}],
+                     'body': 'accept\nСУД: repo=architecture; модель-факт=' + fact + '; SHA=' + sha}],
         'checks': [{'name': 'architecture', 'status': 'completed', 'conclusion': 'success',
                     'app': {'slug': 'github-actions'}}],
     }
@@ -209,6 +268,13 @@ def world(tmp, case):
              'check_runs': [{'name': 'security', 'status': 'completed', 'conclusion': 'failure',
                              'app': {'slug': 'github-actions'}}]}]
     write(tmp, 'state.json', json.dumps(state))
+    # toy-реестр харнесса двери: контроль/субъект читают его относительно
+    # СВОЕГО местоположения (tmp/control.py → tmp/config, tmp/scripts/… →
+    # tmp/config), не из живого дерева харнесса и не из cwd.
+    if case == 'registry_invalid_json':
+        write(tmp, 'config/agent_models.json', 'NOT-JSON {roles: critic-main')
+    elif case != 'registry_missing':
+        write(tmp, 'config/agent_models.json', json.dumps(registry, ensure_ascii=False, indent=2) + '\n')
     bin_dir = tmp / 'bin'
     bin_dir.mkdir()
     for name, program in (('gh', FAKE_GH), ('npm', FAKE_NPM)):
@@ -300,6 +366,17 @@ CASES = {
     'ci_cancelled': (1, 'CI_NOT_GREEN_ON_HEAD'),
     'ci_in_progress': (1, 'CI_NOT_GREEN_ON_HEAD'),
     'ci_two_architecture': (1, 'CI_NOT_GREEN_ON_HEAD'),
+    # 186 v+1: назначение модели критика — из toy-реестра харнесса двери
+    'registry_terra': (0, None),
+    'registry_sol': (0, None),
+    'registry_fallback_change': (0, None),
+    'accept_fact_glm': (1, 'NO_CRITIC_ACCEPT_ON_HEAD'),
+    'registry_missing': (1, 'CRITIC_MODEL_UNRESOLVED'),
+    'registry_invalid_json': (1, 'CRITIC_MODEL_UNRESOLVED'),
+    'registry_no_critic_role': (1, 'CRITIC_MODEL_UNRESOLVED'),
+    'registry_no_tier': (1, 'CRITIC_MODEL_UNRESOLVED'),
+    'registry_alias_unresolvable': (1, 'CRITIC_MODEL_UNRESOLVED'),
+    'registry_model_empty': (1, 'CRITIC_MODEL_UNRESOLVED'),
     # Б-1: checkout не на head PR / грязное дерево — именованный отказ ДО npm check
     'checkout_main_l1': (1, 'CHECKOUT_NOT_AT_PR_HEAD', 'main'),
     'checkout_main_l2': (1, 'CHECKOUT_NOT_AT_PR_HEAD', 'main'),
@@ -319,9 +396,21 @@ MUTATIONS = {
     'skip_accept': ('if not accepted:', 'if False:', 'no_accept'),
     'skip_head': ("r['commit_id'] != sha", 'False', 'accept_other_head'),
     'skip_author': ("r['user']['login'] == pr['author']['login']", 'False', 'accept_author'),
-    'skip_family': ("fields[1].split(';', 1)[0] != 'zai/glm-5.3'",
-                    "fields[1].split(';', 1)[0] not in ('zai/glm-5.3', 'openai-codex/gpt-6-sol')",
+    'skip_family': ("fields[1].split(';', 1)[0] != critic_model",
+                    "fields[1].split(';', 1)[0] not in (critic_model, 'openai-codex/gpt-6-sol')",
                     'accept_same_family'),
+    'stub_hardcode_glm': ('= assigned_critic_model()', "= 'zai/glm-5.3'", 'registry_terra'),
+    'stub_hardcode_gpt': ('= assigned_critic_model()', "= 'openai-codex/gpt-6.1-terra'", 'l1_merge'),
+    'stub_first_tier': ("name = roles.get('critic') if isinstance(roles, dict) else None",
+                        "name = next(iter(registry.get('tiers', {}))) if isinstance(registry.get('tiers'), dict) else None",
+                        'registry_terra'),
+    'stub_silent_glm_fallback': (
+        "    critic_model = assigned_critic_model()\n"
+        "    if critic_model is None:\n"
+        "        return fail('CRITIC_MODEL_UNRESOLVED')",
+        "    critic_model = assigned_critic_model()\n"
+        "    if critic_model is None:\n"
+        "        critic_model = 'zai/glm-5.3'", 'registry_missing'),
     'skip_ci': ("c['conclusion'] != 'success'", 'False', 'ci_red'),
     'skip_architecture_ci': ("not any(c.get('name') == 'architecture' for c in runs)",
                              'False', 'ci_architecture_missing'),
@@ -357,11 +446,11 @@ MUTATIONS = {
     'skip_sud_fields': ("fields = sud[0].split('модель-факт=') if len(sud) == 1 else []",
                         "fields = sud[0].split('модель-факт=')[1:] if sud else []",
                         'model_second_field'),
-    'skip_model_empty': ("fields[1].split(';', 1)[0] != 'zai/glm-5.3'",
-                         "fields[1].split(';', 1)[0] not in ('zai/glm-5.3', '')",
+    'skip_model_empty': ("fields[1].split(';', 1)[0] != critic_model",
+                         "fields[1].split(';', 1)[0] not in (critic_model, '')",
                          'model_empty_value'),
-    'skip_model_case': ("fields[1].split(';', 1)[0] != 'zai/glm-5.3'",
-                        "fields[1].split(';', 1)[0].casefold() != 'zai/glm-5.3'",
+    'skip_model_case': ("fields[1].split(';', 1)[0] != critic_model",
+                        "fields[1].split(';', 1)[0].casefold() != critic_model",
                         'model_case_distorted'),
     'skip_sud_sha': ("not sud[0].endswith('; SHA=' + sha)", 'False', 'sud_no_sha'),
     'skip_sud_sha_value': ("not sud[0].endswith('; SHA=' + sha)",
@@ -446,24 +535,30 @@ def main():
             tmp = Path(directory)
             project, env = world(tmp, case)
             if args.model or args.stabs:
-                control = HERE / 'door_control.py'
+                # v+1: контроль исполняется из изолированной install-копии
+                # tmp/control.py, чтобы назначение critic читалось из toy-реестра
+                # tmp/config/agent_models.json, а не из живого дерева харнесса.
+                original = (HERE / 'door_control.py').read_text(encoding='utf-8')
                 if args.stabs:
-                    original = control.read_text(encoding='utf-8')
                     if original.count(old) != 1:
                         raise RuntimeError('non-unique mutant anchor: ' + name)
-                    changed = original.replace(old, new)
+                    original = original.replace(old, new)
                     if name == 'skip_baseline':
                         fallback = "if status['baselineStatus'] != 'PASS' or status['contractReadiness']['incompatibleContracts']:"
-                        if changed.count(fallback) != 1:
+                        if original.count(fallback) != 1:
                             raise RuntimeError('missing baseline fallback mutant anchor')
-                        changed = changed.replace(fallback, 'if False:')
-                    control = write(tmp, 'control.py', changed)
+                        original = original.replace(fallback, 'if False:')
+                control = write(tmp, 'control.py', original)
             else:
-                control = source / 'scripts/merge_architecture_pr.sh'
-            if not control.is_file():
-                print(f'186 door {name} KRASNO: merge door missing')
-                failed = True
-                continue
+                door = source / 'scripts/merge_architecture_pr.sh'
+                if not door.is_file():
+                    print(f'186 door {name} KRASNO: merge door missing')
+                    failed = True
+                    continue
+                # v+1: субъект тоже из изолированной install-копии tmp/scripts/,
+                # реестр — тот же toy tmp/config/agent_models.json.
+                control = write(tmp, 'scripts/merge_architecture_pr.sh',
+                                door.read_text(encoding='utf-8'))
             ok, result = check(project, env, control, case)
             if args.stabs:
                 ok = not ok and result.returncode != 2
