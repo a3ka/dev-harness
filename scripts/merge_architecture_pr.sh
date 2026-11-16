@@ -18,13 +18,18 @@
 #   3. accept критика на ТОМ ЖЕ head SHA: APPROVED, автор вердикта ≠ автор PR,
 #      первая строка body — дословно `accept`, единственная строка `СУД: ` несёт
 #      ровно одно поле `модель-факт=<модель>` и кончается `; SHA=<head>`.
+#      Имя поля ограничено слева началом строки СУД либо разделителем `;` с
+#      опциональными пробелами/табами: подстрока `модель-факт=` внутри ЧУЖОГО
+#      имени поля (`ложная-модель-факт=`, `замечание=модель-факт=`) полем не
+#      является — поле не найдено или поле не одно → отказ, слияния нет.
 #      Ожидаемая модель — НАЗНАЧЕНИЕ роли critic в реестре харнесса двери
 #      (config/agent_models.json: roles.critic → тир → alias @семейство →
 #      models), а не семейство GLM и не env-override; сравнение с ПОЛНОЙ
 #      строкой назначенной модели — ЛИТЕРАЛЬНОЕ (байтовое): без strip/casefold/
 #      NFKC, без bare-эквивалентности, без сравнения по семейству и без
-#      fallback. Неразрешённое назначение → CRITIC_MODEL_UNRESOLVED (rc 1),
-#      слияния нет;
+#      fallback. Цепочка назначения завершается ТОЛЬКО полной строкой модели:
+#      алиас-цикл и алиас-в-алиас — неразрешённое назначение. Неразрешённое
+#      назначение → CRITIC_MODEL_UNRESOLVED (rc 1), слияния нет;
 #   4. check-runs на head: ВСЕ страницы (`gh api --paginate`), все runs
 #      completed+success, есть run `architecture`, и его app.slug=github-actions;
 #   5. локальный checkout — ТО дерево, которое принято: `git rev-parse HEAD` обязан
@@ -67,8 +72,15 @@ ARCH_REPO="${ARCH_REPO:-a3ka/CompliorOS-architecture}"
 # config/agent_models.json (контракт 186 §Дельта v+1).
 CRITIC_LOGINS="${ARCH_CRITIC_LOGINS:-critic}"
 # Реестр назначений — соседний с scripts/ каталог дерева харнесса САМОЙ двери;
-# путь разрешается ОТ ФАЙЛА скрипта, не от cwd.
-SCRIPT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# путь разрешается ОТ РЕАЛЬНОГО файла скрипта: симлинки раскрываются
+# (readlink -f), поэтому запуск по симлинку из чужого дерева НЕ подменяет
+# реестр каталогом ссылки (вердикт Adv186Impl Н-2). Ни cwd, ни каталог
+# ссылки реестром не становятся.
+SCRIPT_PATH="$(readlink -f -- "${BASH_SOURCE[0]}")" || {
+  printf 'DOOR_INFRA_ERROR: путь файла скрипта не разрешён\n' >&2
+  exit 2
+}
+SCRIPT_ROOT="$(cd -- "$(dirname -- "$SCRIPT_PATH")" && pwd -P)"
 REGISTRY="$SCRIPT_ROOT/../config/agent_models.json"
 
 exec python3 - "$PROJECT" "$PR_NUMBER" "$ARCH_REPO" "$CRITIC_LOGINS" "$REGISTRY" <<'PY'
@@ -105,7 +117,16 @@ def assigned_critic_model():
              else None)
     # Пустая строка модели — неразрешённое назначение; непустая сохраняется
     # БАЙТ В БАЙТ (сравнение ниже — без нормализации).
-    return model if isinstance(model, str) and model.strip() else None
+    if not isinstance(model, str) or not model.strip():
+        return None
+    # Н-3 (вердикт Adv186Impl): цепочка назначения завершается ТОЛЬКО полной
+    # строкой модели. Алиас-цикл (`models.glm='@glm'`) и алиас-в-алиас
+    # (`models.glm='@gpt-sol'`) — неразрешимое назначение, а не модель:
+    # CRITIC_MODEL_UNRESOLVED rc 1, слияния нет. Алиасность ЧУЖОЙ семьи
+    # назначение critic не ломает.
+    if model.startswith('@') or model.strip().startswith('@'):
+        return None
+    return model
 
 
 # Логины GitHub регистронезависимы: единственная допустимая нормализация — casefold.
@@ -230,6 +251,14 @@ for review in reviews:
     # bare-эквивалентности, без сравнения по семейству и без допуска fallback.
     sud = [line for line in lines if line.startswith('СУД: ')]
     if len(sud) != 1:
+        continue
+    # Н-1 (вердикт Adv186Impl): имя поля `модель-факт=` ограничено слева
+    # началом строки СУД либо разделителем поля `;` с опциональными
+    # пробелами/табами. Вхождение подстроки внутри ЧУЖОГО имени поля
+    # (`ложная-модель-факт=`, `замечание=модель-факт=`) полем НЕ является:
+    # поле не найдено или поле не одно — отказ, слияния нет.
+    bounded = re.findall(r'(?:\A|;[ \t]*)модель-факт=', sud[0][5:])
+    if len(bounded) != 1:
         continue
     fields = sud[0].split('модель-факт=')
     if len(fields) != 2:
