@@ -27,10 +27,20 @@ bool|отсутствует (отсутствие = ручная подмена 
 Режимы: --model (честная реализация обязана быть зелёной всеми клетками),
 --stabs (каждый обманный стаб пойман на СВОЕМ входе), --repo <корень>
 (живое дерево: красное до замены, зелёное после).
+
+Шовные repo-клетки судят СВОЙСТВО, не дословные токены (правка по вердикту
+Crit198V1, мутации MU-1/MU-2): красна ЛЮБАЯ форма собственного чтения
+реестра швом — дверь/блок --fable не называют файл реестра вовсе, дверь не
+зовёт jq (после Р2 не нужен), блок --fable не несёт значений реестра
+(семейства/иды берутся из живого реестра в рантайме — переживают любую
+респелл-форму: переименование переменных, "fable"[ ]*:, смену способа
+чтения). Дословные токены прежнего кода — только дополнительная форма,
+не единственная.
 """
 import argparse
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -420,10 +430,15 @@ def c_registry_invalid(ctx):
 
 @cell('resolver_plain_call_parity')
 def c_plain_call_parity(ctx):
-    """Два вызова без маркеров батареи (разный cwd и зачищенный env) байт-равны и равны оракулу.
+    """Три вызова без маркеров батареи (разный cwd, зачищенный env, нейтральный
+    родитель) байт-равны и равны оракулу.
 
     Ловит «надстройку, подменяющую ответы проверкам»: субъект, отвечающий
-    честно только по признаку проверки (env/argv/cwd), расходит два вызова.
+    честно только по признаку проверки (env/argv/cwd), расходит вызовы.
+    Третий вызов идёт под НЕЙТРАЛЬНЫМ родителем — bash -c 'node …': родитель
+    процесса резолвера есть bash, не батарея/дверь/генератор; закрывает канал
+    ppid (совет 1 вердикта Crit198V1, мутация MU-3b «родитель чужой — лгать»).
+    Без exec: bash остаётся родителем node и ждёт его код возврата.
     """
     world = ctx['world_full']
     role = 'critic'
@@ -434,12 +449,40 @@ def c_plain_call_parity(ctx):
     a = cli(world, role, world.parent)
     b = run(['node', str(world / 'scripts' / 'roles.ts'), '--resolve-model', role,
              '--root', str(world)], plain, env={'HOME': str(plain)})
+    c = run(['bash', '-c', 'node %s --resolve-model %s --root %s'
+             % (shlex.quote(str(world / 'scripts' / 'roles.ts')), shlex.quote(role),
+                shlex.quote(str(world)))], plain, env={'HOME': str(plain)})
     shutil.rmtree(plain, ignore_errors=True)
-    ok = (a.returncode == 0 and b.returncode == 0 and a.stdout == b.stdout
+    ok = (a.returncode == 0 and b.returncode == 0 and c.returncode == 0
+          and a.stdout == b.stdout == c.stdout
           and a.stdout.strip() == want.strip())
     return check(ok, 'resolver_plain_call_parity',
-                 'вызовы разошлись либо ≠ оракулу: a(rc=%d,%r) b(rc=%d,%r) want=%r — подмена ответа по признаку проверки'
-                 % (a.returncode, a.stdout.strip()[:60], b.returncode, b.stdout.strip()[:60], want))
+                 'вызовы разошлись либо ≠ оракулу: a(rc=%d,%r) b(rc=%d,%r) c(rc=%d,%r) want=%r — подмена ответа по признаку проверки/каналу ppid'
+                 % (a.returncode, a.stdout.strip()[:60], b.returncode, b.stdout.strip()[:60],
+                    c.returncode, c.stdout.strip()[:60], want))
+
+
+@cell('resolver_root_foreign')
+def c_root_foreign(ctx):
+    """Скрипт в A, реестр в B: резолв идёт по --root, не по каталогу скрипта
+    (совет 3 вердикта Crit198V1 — резолвер, молча игнорирующий --root, красен)."""
+    world = ctx['world_full']
+    reg = world_reg(world)
+    a = Path(ctx['tmp']) / 'skript-v-A'
+    b = Path(ctx['tmp']) / 'reestr-v-B'
+    (a / 'scripts').mkdir(parents=True, exist_ok=True)
+    shutil.copy2(world / 'scripts' / 'roles.ts', a / 'scripts' / 'roles.ts')
+    write_registry(b, reg)
+    o = oracle(reg, 'critic')
+    _, tier, model, fallback, auto = o
+    want = '%s\t%s\t%s\t%s' % (tier, model, fallback, 'true' if auto else 'false')
+    r = run(['node', str(a / 'scripts' / 'roles.ts'), '--resolve-model', 'critic',
+             '--root', str(b)], a)
+    got = [l for l in r.stdout.split('\n') if l.strip()]
+    ok = r.returncode == 0 and len(got) == 1 and got[0] == want
+    return check(ok, 'resolver_root_foreign',
+                 'скрипт в A, реестр в B: rc=%d вывод %r ≠ %r — резолвер игнорирует --root (молча читает свой каталог)'
+                 % (r.returncode, got[:1], want))
 
 
 # --- дверь судейской модели как потребитель резолва ---
@@ -856,33 +899,127 @@ def seam_text(root, rel):
     return p.read_text(encoding='utf-8') if p.is_file() else ''
 
 
-def cell_repo_seam_fable_no_literal(root, tmp):
-    w = seam_text(root, 'workshop')
-    ok = '"fable":' not in w
-    return check(ok, 'repo_seam_fable_no_literal',
-                 'лаунчер всё ещё читает модель grep-ом семейства fable — жёсткая привязка вместо резолва')
+# СВОЙСТВО швов (правка по вердикту Crit198V1: мутации MU-1/MU-2): источник
+# ожидания/модели — ТОЛЬКО резолвер Р1. Красна ЛЮБАЯ форма собственного
+# чтения реестра швом. Клетки судят КОД шва (строки-комментарии вычёркнуты:
+# чтение из комментария не исполняется, документация не обязана молчать):
+# имя файла реестра в коде (любое чтение обязано его назвать), jq в коде
+# двери (после Р2 двери не нужен вовсе), значения реестра в коде блока --fable
+# (семейства — в кавырочной форме "семейство", как значение реестра; иды —
+# подстрокой; список — из реестра корня в рантайме). Формы переживают
+# переименование переменных и респелл литерала "fable"[ ]*:. Флаг --fable
+# (имя режима) семейству не тождествен: упоминание флага без кавычек —
+# легитимно, значение реестра в кавычках — дефект.
+
+def code_text(text):
+    """Код шва без строк-комментарий (lstrip().startswith('#'))."""
+    return '\n'.join(l for l in text.split('\n') if not l.lstrip().startswith('#'))
 
 
-def cell_repo_seam_fable_resolver(root, tmp):
+def fable_block(text):
+    """Блок режима --fable: от строки-стража FABLE до парного fi (вложенность
+    учитывается). None — страж не найден либо блок не закрыт."""
+    lines = text.split('\n')
+    start = None
+    for i, l in enumerate(lines):
+        s = l.strip()
+        if s.startswith('if ') and 'FABLE' in s and s.endswith('then'):
+            start = i
+            break
+    if start is None:
+        return None
+    depth = 0
+    for j in range(start, len(lines)):
+        s = lines[j].strip()
+        if s.startswith('if '):
+            depth += 1
+        elif s == 'fi':
+            depth -= 1
+            if depth == 0:
+                return '\n'.join(lines[start:j + 1])
+    return None
+
+
+def registry_values(root):
+    """(семейства в кавырочной форме, иды) реестра корня — запрещённые
+    значения для кода блока --fable."""
+    p = root / 'config' / 'agent_models.json'
+    if not p.is_file():
+        return [], []
+    try:
+        reg = json.loads(p.read_text(encoding='utf-8'))
+    except ValueError:
+        return [], []
+    models = reg.get('models') or {}
+    fams = ['"%s"' % f for f in sorted(models.keys()) if f]
+    ids = sorted({v for v in models.values() if isinstance(v, str) and v})
+    return fams, ids
+
+
+def cell_repo_seam_no_registry_read(root, tmp):
+    """Код швов не называет реестр назначений: любое собственное чтение
+    обязано назвать файл (дверь — целиком; лаунчер — блок --fable, прочие
+    блоки легитимно зовут gen-harness --resolve-overlay)."""
+    bad = []
+    d = code_text(seam_text(root, 'scripts/check_sud_model.sh'))
+    if 'agent_models' in d:
+        bad.append('scripts/check_sud_model.sh')
     w = seam_text(root, 'workshop')
-    ok = '--resolve-model consultant' in w
-    return check(ok, 'repo_seam_fable_resolver',
-                 'шов --fable обязан брать модель роли consultant через единый резолвер (roles.ts --resolve-model consultant)')
+    blk = fable_block(w)
+    if blk is None:
+        if w:
+            bad.append('блок --fable (страж FABLE не найден)')
+    elif 'agent_models' in code_text(blk):
+        bad.append('блок --fable')
+    return check(not bad, 'repo_seam_no_registry_read',
+                 'код шва %r сам называет реестр назначений — источник ожидания/модели только резолвер (Р2/Р3)' % (bad,))
+
+
+def cell_repo_seam_door_no_own_parse(root, tmp):
+    """Код двери не разбирает JSON сама: jq после Р2 не нужен вовсе,
+    фильтры цепочки roles/tiers/models — второй резолвер в любой форме."""
+    d = code_text(seam_text(root, 'scripts/check_sud_model.sh'))
+    hits = []
+    if 'jq' in d:
+        hits.append('jq')
+    for tok in ('.roles[', '.tiers[', '.models[', '"roles"', '"tiers"', '"models"'):
+        if tok in d:
+            hits.append(tok)
+    return check(not hits, 'repo_seam_door_no_own_parse',
+                 'код двери несёт собственный разбор назначений %r — второй резолвер рядом с roles.ts' % (hits,))
+
+
+def cell_repo_seam_fable_no_registry_values(root, tmp):
+    """Код блока --fable не несёт значений реестра: семейства в кавырочной
+    форме и иды моделей (список — из реестра корня в рантайме) запрещены."""
+    w = seam_text(root, 'workshop')
+    blk = fable_block(w)
+    if blk is None:
+        return check(False, 'repo_seam_fable_no_registry_values',
+                     'лаунчер отсутствует' if not w else 'блок --fable не найден (страж FABLE) — якорь шва отсутствует')
+    code = code_text(blk)
+    fams, ids = registry_values(root)
+    hits = [v for v in fams + ids if v in code]
+    return check(not hits, 'repo_seam_fable_no_registry_values',
+                 'код блока --fable несёт значения реестра %r — жёсткая привязка вместо резолва роли consultant' % (hits,))
 
 
 def cell_repo_seam_door_resolver(root, tmp):
     d = seam_text(root, 'scripts/check_sud_model.sh')
-    ok = '--resolve-model' in d
+    ok = 'roles.ts' in d and '--resolve-model' in d
     return check(ok, 'repo_seam_door_resolver',
-                 'дверь судейской модели обязана брать ожидание у единого резолвера (--resolve-model)')
+                 'дверь судейской модели обязана брать ожидание у единого резолвера (roles.ts --resolve-model)')
 
 
-def cell_repo_seam_door_no_private(root, tmp):
-    d = seam_text(root, 'scripts/check_sud_model.sh')
-    bad = [tok for tok in ('.roles[$r]', '.tiers[$t].model') if tok in d]
-    ok = not bad
-    return check(ok, 'repo_seam_door_no_private',
-                 'в двери остался собственный jq-разбор цепочки %r — второй резолвер' % (bad,))
+def cell_repo_seam_fable_resolver(root, tmp):
+    w = seam_text(root, 'workshop')
+    blk = fable_block(w)
+    if blk is None:
+        return check(False, 'repo_seam_fable_resolver',
+                     'лаунчер отсутствует' if not w else 'блок --fable не найден (страж FABLE) — якорь шва отсутствует')
+    ok = 'roles.ts' in blk and '--resolve-model' in blk and 'consultant' in blk
+    return check(ok, 'repo_seam_fable_resolver',
+                 'шов --fable обязан брать модель роли consultant через единый резолвер (roles.ts --resolve-model consultant)')
 
 
 def cell_repo_pravila_live(root, tmp):
@@ -899,10 +1036,11 @@ REPO_CELLS = [
     ('repo_resolver_cli', cell_repo_resolver_cli),
     ('repo_resolver_matrix', cell_repo_resolver_matrix),
     ('repo_door_judges', cell_repo_door_judges),
-    ('repo_seam_fable_no_literal', cell_repo_seam_fable_no_literal),
-    ('repo_seam_fable_resolver', cell_repo_seam_fable_resolver),
+    ('repo_seam_no_registry_read', cell_repo_seam_no_registry_read),
+    ('repo_seam_door_no_own_parse', cell_repo_seam_door_no_own_parse),
+    ('repo_seam_fable_no_registry_values', cell_repo_seam_fable_no_registry_values),
     ('repo_seam_door_resolver', cell_repo_seam_door_resolver),
-    ('repo_seam_door_no_private', cell_repo_seam_door_no_private),
+    ('repo_seam_fable_resolver', cell_repo_seam_fable_resolver),
     ('repo_pravila_live', cell_repo_pravila_live),
 ]
 
@@ -936,10 +1074,13 @@ def run_cell_for_stab(name, ctx):
     return bool(FAILED)
 
 
-def mutant_repo(tmp, decoy, rel):
-    root = Path(tmp) / ('mutant-' + decoy)
+def mutant_repo(ctx, decoy, rel):
+    root = Path(ctx['tmp']) / ('mutant-' + decoy)
     (root / 'scripts').mkdir(parents=True)
     (root / 'config').mkdir(parents=True)
+    # реестр-структуры мир в мутант-корне: шовным клеткам нужны значения
+    # (семейства/иды) живого-формы реестра для запрета в блоке --fable
+    write_registry(root, toy_registry(ctx['source']))
     install_decoy(root, decoy, rel)
     return root
 
@@ -968,10 +1109,14 @@ STAB_BIND = [
      lambda ctx, d: install_decoy(ctx['world_checker'], d, 'scripts/check_project_session.sh')),
     ('decoy_checker_typo.sh', 'pravila_missing_detected',
      lambda ctx, d: install_decoy(ctx['world_checker'], d, 'scripts/check_project_session.sh')),
-    ('decoy_workshop_fable_grep.sh', 'repo_seam_fable_no_literal',
-     lambda ctx, d: ctx.__setitem__('repo_root', mutant_repo(ctx['tmp'], d, 'workshop'))),
-    ('decoy_door_jq_resolve.sh', 'repo_seam_door_no_private',
-     lambda ctx, d: ctx.__setitem__('repo_root', mutant_repo(ctx['tmp'], d, 'scripts/check_sud_model.sh'))),
+    ('decoy_workshop_fable_grep.sh', 'repo_seam_no_registry_read',
+     lambda ctx, d: ctx.__setitem__('repo_root', mutant_repo(ctx, d, 'workshop'))),
+    ('decoy_workshop_fable_respell.sh', 'repo_seam_fable_no_registry_values',
+     lambda ctx, d: ctx.__setitem__('repo_root', mutant_repo(ctx, d, 'workshop'))),
+    ('decoy_door_jq_resolve.sh', 'repo_seam_no_registry_read',
+     lambda ctx, d: ctx.__setitem__('repo_root', mutant_repo(ctx, d, 'scripts/check_sud_model.sh'))),
+    ('decoy_door_jq_respell.sh', 'repo_seam_door_no_own_parse',
+     lambda ctx, d: ctx.__setitem__('repo_root', mutant_repo(ctx, d, 'scripts/check_sud_model.sh'))),
 ]
 
 

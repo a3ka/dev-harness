@@ -3,7 +3,8 @@
 # ДО-правки: jq-цепочка .roles[$r] → .tiers[$t].model → .models[$f] живёт в
 # двери, второй резолвер рядом с scripts/roles.ts. Устанавливается на место
 # scripts/check_sud_model.sh в мутант-корне; ловится repo-клеткой
-# repo_seam_door_no_private (токены собственного разбора в двери).
+# repo_seam_no_registry_read (шов сам называет файл реестра — свойство,
+# действующее на любую форму собственного чтения).
 set -u
 CFG=""
 role=""
