@@ -6,9 +6,15 @@
     "mobile/scripts/zamer_obryva.sh"
   ],
   "piny": {
-    "model/.github/workflows/mobile.yml": "85cebcbf879894cbfdca36e7f24cfc5f22c8a6c092542074b7d5a39e4694c175",
-    "model/mobile/ci-screens.json": "543434d3884ab50d879de6934f2f40874b817602f9d803d288ad3a3e527cae38",
-    "model/mobile/scripts/zamer_obryva.sh": "ddfa6fe8fa0331817b8b949db71786dc809b3a45dce32780cda5e35dde587e00"
+    "model/.github/workflows/mobile.yml": "5e053e4dcf3461acf1c5b280256c61bcc832a2de0a9cb6f576c5eb7066168a69",
+    "model/mobile/ci-screens.json": "e31ffe1bccc63481037d435d4a99cca7e64ed918dde5a0c6f2ed2fa66f0b63ee",
+    "model/mobile/scripts/zamer_obryva.sh": "ddfa6fe8fa0331817b8b949db71786dc809b3a45dce32780cda5e35dde587e00",
+    "model/mobile/scripts/zamer_child_hook.sh": "63544176662f51474e9780cdcf480983485e85bd9e8816db1d4b864d22b79937",
+    "model/mobile/scripts/run-ci-screen.cjs": "6c9807ab605de3be099c83c7441d6aa6d81406600c433b827d55495584e5e618",
+    "model/mobile/scripts/run-mobile-ci.cjs": "cefa2a0c4e04b24e1a153a57f8bfd4bae7e33988ee14c57cdadb9a4729013d87",
+    "model/package.json": "54d28f353c2575bd28caa9e0a632b1775aa3cc0386ad1e78fb6d069da05610fa",
+    "model/kanon/child-hook-vyzovy.txt": "a794e6705dfb3bbf3550dabb8d10bbfb6aa2433aaa1524e9aecdbaf62a75a4f5",
+    "model/kanon/lane-zamer.txt": "6c3fe08f2e93580a254b4526425305106f32c9868e9782e9c4fa97df08787172"
   },
   "stab_vhod": {
     "stabs/stab_zamer_noop.py": "b01-krasnyj-s-signaturoj",
@@ -26,9 +32,28 @@
     "stabs/stab_zamer_pidfile_zhiv.py": "b10-sampler-ostanovlen",
     "stabs/stab_zamer_bez_kolca.py": "b06-adb-server-i-device",
     "stabs/stab_zamer_arhiv_soblaznjaet.py": "b11-vosstanovlennyj-zelenyj",
-    "stabs/stab_zamer_put_zagruzki.py": "z05-put-zagruzki",
-    "stabs/stab_zamer_kommentarij_sbor.py": "z05-put-zagruzki",
+    "stabs/stab_zamer_put_zagruzki.py": "z05-kanon-obertki",
+    "stabs/stab_zamer_kommentarij_sbor.py": "z05-kanon-obertki",
+    "stabs/stab_zamer_uslovnyj_sbor.py": "z05-kanon-obertki",
+    "stabs/stab_zamer_operator_novaja_stroka.py": "z05-kanon-obertki",
+    "stabs/stab_zamer_uslovnyj_sbor_and.py": "z05-kanon-obertki",
+    "stabs/stab_zamer_heredoc_sbor.py": "z05-kanon-obertki",
+    "stabs/stab_zamer_funkcija_sbor.py": "z05-kanon-obertki",
+    "stabs/stab_zamer_exit_do_sbora.py": "z05-kanon-obertki",
+    "stabs/stab_zamer_konvejer_false_true.py": "z05-kanon-obertki",
+    "stabs/stab_zamer_shell_true.py": "z05-kanon-obertki",
+    "stabs/stab_zamer_if_vsegda_i_lozh.py": "z05-kanon-obertki",
+    "stabs/stab_zamer_bez_wd.py": "z05-kanon-obertki",
+    "stabs/stab_zamer_env_lishnij.py": "z05-kanon-obertki",
+    "stabs/stab_zamer_param_narushenie.py": "z05-kanon-obertki",
+    "stabs/stab_zamer_lane_neprivjazan.py": "z05-kanon-obertki",
+    "stabs/stab_zamer_yaml_duplikat.py": "z05-kanon-obertki",
+    "stabs/stab_zamer_matrica_runner_bez_stroki.py": "z05-kanon-obertki",
+    "stabs/stab_zamer_skript_mutirovan.py": "z04-kanon-skripta",
+    "stabs/stab_zamer_sbor_bez_rezultata.py": "z06-sbor-rezultat",
+    "stabs/stab_zamer_hook_bez_sbora.py": "z07-dochernij-hook",
+    "stabs/stab_zamer_matrica_bez_porta_vtorogo.py": "z07-dochernij-hook",
     "stabs/stab_zamer_techet_procesom.py": "b12-mir-poddelki-umerly"
   },
-  "zametka": "оракул батареи 150 (правило 8: в памяти ДО субъекта); пины — байты эталона model/; стабы — мутации кодом, привязки только здесь (Н-39)"
+  "zametka": "оракул батареи 150 (правило 8: в памяти ДО субъекта); пины — байты эталона model/ (workflow-эталон несёт канон обёртки F1/F2 + матричный job; kanon/*.txt — строки вызова хука и словаря lane); стабы — мутации кодом, привязки только здесь (Н-39)"
 }
