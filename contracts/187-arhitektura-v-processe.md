@@ -42,6 +42,11 @@
 - Дано: reviewer с упоминанием `СВЕРКА-АРХИТЕКТУРЫ:` только внутри чужой строки либо отсутствующий/чужой/красный/skipped check-run `arch` на финальном SHA; когда `done_contract.sh` судит вход; тогда rc 1 (`ARCH_REVIEW` либо `ARCH_CI`), done-тег отсутствует. При самостоятельной непустой строке свидетельства и успешном check-run на точном SHA rc 0.
 - Дано: frozen 170 до санкции v+1; когда `bash fixtures/workshop_project/arch_component_170/red_arch_component_170.sh --model` и `--repo .`; тогда rc 0 на текущей версии. Cutover источника brief происходит только после согласованного v+1 170, без изменения остальных обязанностей 170.
 - Дано: исправленный черновик; когда `bash scripts/pre_critic.sh contracts/187-arhitektura-v-processe.md`, затем `bash scripts/check_precision_gate.sh . contracts/187-arhitektura-v-processe.md`, затем `bash scripts/check_ceilings.sh .`; тогда каждый rc 0. До freeze после подключения CI orchestrator: `bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --wiring .` и `bash scripts/gen_ci_steps.sh --check` и `bash scripts/check_provodka.sh . contracts/187-arhitektura-v-processe.md` → каждый rc 0; точный `step` в registry исполняет `bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo .`, другой `step` отдельно вызывает `bash scripts/check_architecture_contract.sh --repo . contracts/187-arhitektura-v-processe.md`. Если первый step отсутствует, запускает Python вместо bash или пропускает `--repo .`, rc 1 `CI_BATTERY_187_MISSING_OR_NOT_EXACT`; если нет второго, rc 1 `CI_DIRECT_ARCH_187_MISSING`. Парный точный toy-реестр → rc 0.
+ПОТРЕБИТЕЛЬ fixtures/check_check_contract_ready/: bash fixtures/check_check_contract_ready/doc_048/probe_zhivoy_vyzov_048.sh
+ПОТРЕБИТЕЛЬ fixtures/drill_contract_change/: bash scripts/verify_antiplacebo.sh --scope drill_contract_change
+ПОТРЕБИТЕЛЬ scripts/spawn_agent.sh: bash scripts/verify_antiplacebo.sh --scope spawn_agent
+ПОТРЕБИТЕЛЬ scripts/check_spec_ready.sh: bash scripts/check_spec_ready.sh . contracts/187-arhitektura-v-processe.md
+замер: `cat scripts/consumers.d/*.tsv | wc -l` = 6 census scripts/consumers.d/*.tsv
 
 ## Модель угроз
 
