@@ -9,7 +9,7 @@
 # Подкоманды: artifacts | verify-artifacts | usage
 #
 # Швы: OPS_SERVER_SRC, OPS_SERVER_SBIN_DST (умолчание /usr/local/sbin),
-# OPS_SERVER_ETC_DST (/etc/systemd/system), OPS_SERVER_CI_ARTIFACTS_ROOT
+# OPS_SERVER_ETC_DST (/etc/systemd/system), OPS_SERVER_CI_ARTIFACTS
 # (/var/lib/ci-artifacts), OPS_SERVER_CI_ARTIFACTS_MOB_OWNER (harness),
 # OPS_SERVER_CI_ARTIFACTS_BACK_OWNER (ci-back), OPS_SERVER_CI_ARTIFACTS_GROUP
 # (harness), OPS_SERVER_SYSTEMCTL (systemctl).
@@ -64,6 +64,21 @@ provision_root() { # <каталог> <владелец>
   fi
   chown "$2:$CIART_GROUP" -- "$1" || die_write "chown $1"
   chmod 2775 -- "$1" || die_write "chmod $1"
+}
+
+check_root() { # <корень репо> <владелец> — И-10
+  if [ ! -d "$1" ] || [ "$(stat -c %a -- "$1")" != "2775" ]; then
+    printf 'ОТКАЗ: расхождение ci-artifacts: %s\n' "$1" >&2
+    return 1
+  fi
+  # владелец/группа — только в производственном контуре (без швов адресатов):
+  # в шов-мире chown — шим журнала, stat соврал бы о владельце
+  if [ -z "${OPS_SERVER_SBIN_DST:-}" ] && [ -z "${OPS_SERVER_ETC_DST:-}" ]; then
+    if [ "$(stat -c %U:%G -- "$1")" != "$2:$CIART_GROUP" ]; then
+      printf 'ОТКАЗ: расхождение ci-artifacts: %s\n' "$1" >&2
+      return 1
+    fi
+  fi
 }
 
 command -v sha256sum >/dev/null 2>&1 \
@@ -132,6 +147,10 @@ case "$MODE" in
     if [ "$rc" -ne 0 ]; then
       exit 1
     fi
+    # И-10: корни репо — режим 2775 в обоих контурах (клетка verify-roots),
+    # владелец/группа — в производственном (без швов адресатов)
+    check_root "$CIART_ROOT/Complior-mob" "$MOB_OWNER" || exit 1
+    check_root "$CIART_ROOT/Complior-back" "$BACK_OWNER" || exit 1
     printf 'ci-artifacts: сверка 3/3\n'
     exit 0
     ;;

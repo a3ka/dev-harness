@@ -33,8 +33,10 @@ CASES = (
     'young-kept', 'old-removed', 'young-inside-file', 'symlink-run-refused',
     'repo-symlink-refused', 'traversal-repo-refused', 'grammar-refused',
     'undeclared-untouched', 'retention-seam', 'root-missing', 'no-home-service-env',
-    'install-artifacts', 'install-precondition', 'verify-drift',
-    'unit-grammar',
+    'install-artifacts', 'install-precondition', 'install-euid-refused',
+    'install-repo-symlink-refused', 'install-systemctl-refused',
+    'verify-drift', 'verify-not-installed', 'verify-roots',
+    'unit-grammar', 'readme-anchors',
 )
 
 # Н-39: привязка обманного стаба к входу, где его дефект НАБЛЮДАМ.
@@ -52,11 +54,25 @@ STUBS = {
     's10_bez_persistent.timer': ('unit', 'unit-grammar'),
     's11_slepaja_sverka.sh': ('install', 'verify-drift'),
     's12_chitaet_home.sh': ('clean', 'no-home-service-env'),
+    's13_bez_euid_garda.sh': ('install', 'install-euid-refused'),
+    's14_skvoz_symlink_repos.sh': ('install', 'install-repo-symlink-refused'),
+    's15_glotit_systemctl.sh': ('install', 'install-systemctl-refused'),
+    's16_bez_vetki_ne_ustanovleny.sh': ('install', 'verify-not-installed'),
+    's17_bez_sverki_kornej.sh': ('install', 'verify-roots'),
+    's18_readme_bez_razdela.md': ('readme', 'readme-anchors'),
 }
 
 MOB = 'Complior-mob'
-BACK = 'Complior-back'
 DAY = 86400
+BACK = 'Complior-back'
+README_ANCHORS = (
+    '/var/lib/ci-artifacts/',
+    'sudo bash ops/server/install.sh artifacts',
+    'ci-artifacts-clean.timer',
+    'CI_ARTIFACTS_RETENTION_DAYS',
+    'группа harness',
+    'на GitHub артефакты не загружаются',
+)
 
 
 def refuse(msg):
@@ -82,7 +98,7 @@ class World:
     def path(self, *parts):
         return self.dir.joinpath(*parts)
 
-    def write_shims(self, users=(), groups=()):
+    def write_shims(self, users=(), groups=(), euid=0, systemctl='ok'):
         bin_dir = self.path('bin')
         bin_dir.mkdir(exist_ok=True)
         self.journals['chown'] = self.path('chown.journal')
@@ -91,17 +107,31 @@ class World:
         groups_cfg = self.path('known-groups')
         users_cfg.write_text('\n'.join(users) + '\n')
         groups_cfg.write_text('\n'.join(groups) + '\n')
+        # systemctl='fail-reload'/'fail-enable' — шим, отказывающий на
+        # daemon-reload/enable (И-9д: именованные отказы включения)
+        if systemctl == 'fail-reload':
+            ctl_tail = '[ "$1" = "daemon-reload" ] && exit 1\nexit 0\n'
+        elif systemctl == 'fail-enable':
+            ctl_tail = '[ "$1" = "enable" ] && exit 1\nexit 0\n'
+        else:
+            ctl_tail = 'exit 0\n'
         shims = {
-            # id -u → 0: euid-гард субъекта проходится непривилегированным
-            # тест-миром (прецедент fix_090, клетка Н-216)
-            'id': '#!/bin/bash\n[ "$1" = "-u" ] && { echo 0; exit 0; }\nexec /usr/bin/id "$@"\n',
+            # id -u → euid (умолчание 0): euid-гард субъекта проходится
+            # непривилегированным тест-миром (прецедент fix_090, клетка Н-216);
+            # euid=1 — вход «не-root прогон» клетки install-euid-refused
+            'id': (
+                '#!/bin/bash\n'
+                f'[ "$1" = "-u" ] && {{ echo {euid}; exit 0; }}\n'
+                'exec /usr/bin/id "$@"\n'
+            ),
             'chown': (
                 '#!/bin/bash\n'
                 f'printf \'%s\\n\' "chown $*" >>"{self.journals["chown"]}"\nexit 0\n'
             ),
             'systemctl': (
                 '#!/bin/bash\n'
-                f'printf \'%s\\n\' "systemctl $*" >>"{self.journals["systemctl"]}"\nexit 0\n'
+                f'printf \'%s\\n\' "systemctl $*" >>"{self.journals["systemctl"]}"\n'
+                + ctl_tail
             ),
             'getent': (
                 '#!/bin/bash\n'
@@ -193,6 +223,14 @@ class Subjects:
         if self.kind == 'stub':
             return HERE / 'model' / f'ci-artifacts-clean.{which}'
         p = self.repo_root / f'ops/server/root/systemd/ci-artifacts-clean.{which}'
+        return p if p.exists() else None
+
+    def readme(self):
+        if self.kind == 'model':
+            return HERE / 'model' / 'README-ops-server.md'
+        if self.kind == 'stub':
+            return HERE / 'stabs' / self.stub
+        p = self.repo_root / 'ops/server/README.md'
         return p if p.exists() else None
 
     def src_ops(self, world):
@@ -508,8 +546,9 @@ def cell_no_home_service_env(subj):
         w.close()
 
 # ── клетки установки ─────────────────────────────────────────────────────────
-def install_env(w, src_ops, users=('toymob', 'toyback'), groups=('toygroup',)):
-    w.write_shims(users=users, groups=groups)
+def install_env(w, src_ops, users=('toymob', 'toyback'), groups=('toygroup',),
+                euid=0, systemctl='ok'):
+    w.write_shims(users=users, groups=groups, euid=euid, systemctl=systemctl)
     return {
         'PATH': f'{w.path("bin")}:/usr/bin:/bin',
         'OPS_SERVER_SRC': str(src_ops),
@@ -575,6 +614,8 @@ def cell_install_artifacts(subj):
         chown = w.journal('chown')
         for want in (
             f'chown root:root -- {clean_dst}',
+            f'chown root:root -- {svc_dst}',
+            f'chown root:root -- {tmr_dst}',
             f'chown toymob:toygroup -- {mob_root}',
             f'chown toyback:toygroup -- {back_root}',
         ):
@@ -657,6 +698,184 @@ def cell_verify_drift(subj):
     finally:
         w.close()
 
+def cell_install_euid_refused(subj):
+    """И-9(а): не-root прогон artifacts — отказ ДО записей (шим id → 1)."""
+    w = World()
+    try:
+        src_ops = subj.src_ops(w)
+        env = install_env(w, src_ops, euid=1)
+        prefix = subj.install()
+        if prefix is None:
+            return no_subject('ops/server/install.sh')
+        rc, out, err = w.run(prefix + ['artifacts'], env)
+        wrote = [p for p in (
+            w.path('sbin/ci-artifacts-clean'),
+            w.path('etc/systemd/system/ci-artifacts-clean.service'),
+            w.path('etc/systemd/system/ci-artifacts-clean.timer'),
+            w.path('var/lib/ci-artifacts/Complior-mob'),
+            w.path('var/lib/ci-artifacts/Complior-back'),
+        ) if p.exists()]
+        if rc != 1:
+            return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'rc={rc} (ожидался отказ 1), записано: {wrote}'
+        if 'ОТКАЗ: artifacts-часть требует euid 0' not in err:
+            return False, f'нет именованного отказа euid: {err.strip()[:300]}'
+        if wrote:
+            return False, f'euid-отказ не ДО записей: {wrote}'
+        return True, ''
+    finally:
+        w.close()
+
+
+def cell_install_repo_symlink_refused(subj):
+    """И-9(г): предсозданная символьная ссылка на месте корня репо — отказ,
+    ссылка и цель нетронуты, chown по ссылке не было."""
+    w = World()
+    try:
+        src_ops = subj.src_ops(w)
+        env = install_env(w, src_ops)
+        ciart = w.path('var/lib/ci-artifacts')
+        ciart.mkdir(parents=True)
+        outside = w.path('outside-store')
+        outside.mkdir()
+        (outside / 'evidence.txt').write_bytes(b'target\n')
+        mob_root = ciart / MOB
+        mob_root.symlink_to(outside, target_is_directory=True)
+        prefix = subj.install()
+        if prefix is None:
+            return no_subject('ops/server/install.sh')
+        rc, out, err = w.run(prefix + ['artifacts'], env)
+        if rc != 1:
+            return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'rc={rc} (ожидался отказ 1), stderr: {err.strip()[:200]}'
+        if f'ОТКАЗ: репо — символьная ссылка: {mob_root}' not in err:
+            return False, f'нет именованного отказа на ссылку-репо: {err.strip()[:300]}'
+        if not mob_root.is_symlink():
+            return False, 'установка сняла ссылку-репо'
+        if not (outside / 'evidence.txt').exists():
+            return False, 'цель ссылки-репо повреждена'
+        if f'chown toymob:toygroup -- {mob_root}' in w.journal('chown'):
+            return False, 'установка тронула ссылку-репо chown'
+        return True, ''
+    finally:
+        w.close()
+
+
+def cell_install_systemctl_refused(subj):
+    """И-9(д): отказывающий systemctl — rc 1 с именованной фразой;
+    отсутствующий бинарь шва — rc 2 NOT_IMPLEMENTED."""
+    prefix = subj.install()
+    if prefix is None:
+        return no_subject('ops/server/install.sh')
+    for mode, want_err in (
+        ('fail-reload', 'ОТКАЗ: systemctl daemon-reload'),
+        ('fail-enable', 'ОТКАЗ: ci-artifacts-clean.timer не включён'),
+    ):
+        w = World()
+        try:
+            src_ops = subj.src_ops(w)
+            env = install_env(w, src_ops, systemctl=mode)
+            rc, out, err = w.run(prefix + ['artifacts'], env)
+            if rc != 1:
+                return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'{mode}: rc={rc} (ожидался отказ 1), stderr: {err.strip()[:200]}'
+            if want_err not in err:
+                return False, f'{mode}: нет именованного отказа: {want_err}; stderr: {err.strip()[:300]}'
+        finally:
+            w.close()
+    w = World()
+    try:
+        src_ops = subj.src_ops(w)
+        env = install_env(w, src_ops)
+        env['OPS_SERVER_SYSTEMCTL'] = 'netu-systemctl-196'
+        rc, out, err = w.run(prefix + ['artifacts'], env)
+        if rc != 2:
+            return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'нет бинаря systemctl: rc={rc} (ожидался 2), stderr: {err.strip()[:200]}'
+        if 'NOT_IMPLEMENTED: нет netu-systemctl-196' not in err:
+            return False, f'нет NOT_IMPLEMENTED о бинаре: {err.strip()[:300]}'
+        return True, ''
+    finally:
+        w.close()
+
+
+def cell_verify_not_installed(subj):
+    """И-10: ни один адресат не установлен — verify rc 0 со строкой
+    «ci-artifacts: не установлены», это не расхождение."""
+    w = World()
+    try:
+        src_ops = subj.src_ops(w)
+        env = install_env(w, src_ops)
+        prefix = subj.install()
+        if prefix is None:
+            return no_subject('ops/server/install.sh')
+        _, verify_mode = subj.install_modes()
+        if subj.kind == 'repo':
+            # базовые адресаты 074 на месте — «не установлены» относится
+            # только к тройке ci-artifacts
+            env['OPS_SERVER_BIN_DST'] = str(install_core_files(w, src_ops))
+        rc, out, err = w.run(prefix + [verify_mode], env)
+        if rc != 0:
+            return False, f'verify на пустой установке красный: rc={rc}, stderr: {err.strip()[:300]}'
+        if 'ci-artifacts: не установлены (sudo bash ops/server/install.sh artifacts)' not in out:
+            return False, f'субъект отсутствует: install.sh verify (ветка «не установлены» ci-artifacts), out: {out.strip()[:200]}'
+        if 'расхождение' in err:
+            return False, f'пустая установка названа расхождением: {err.strip()[:200]}'
+        return True, ''
+    finally:
+        w.close()
+
+
+def cell_verify_roots(subj):
+    """И-10: сверка корней — после установки chmod 0755 корня моба
+    verify обязан rc 1 «ОТКАЗ: расхождение ci-artifacts: <путь>»."""
+    w = World()
+    try:
+        src_ops = subj.src_ops(w)
+        env = install_env(w, src_ops)
+        prefix = subj.install()
+        if prefix is None:
+            return no_subject('ops/server/install.sh')
+        _, verify_mode = subj.install_modes()
+        if subj.kind == 'repo':
+            env['OPS_SERVER_BIN_DST'] = str(install_core_files(w, src_ops))
+        rc, out, err = w.run(prefix + ['artifacts'], env)
+        if rc != 0:
+            return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'установка для мира дрейфа корня не зелёная: rc={rc}, {err.strip()[:300]}'
+        mob_root = w.path('var/lib/ci-artifacts/Complior-mob')
+        os.chmod(mob_root, 0o755)
+        rc, out, err = w.run(prefix + [verify_mode], env)
+        if rc != 1:
+            return False, f'сверка не смотрит корни: rc={rc}, out: {out.strip()[:200]}'
+        if f'ОТКАЗ: расхождение ci-artifacts: {mob_root}' not in err:
+            return False, f'сверка не назвала корень: {err.strip()[:300]}'
+        return True, ''
+    finally:
+        w.close()
+
+
+def cell_readme_anchors(subj):
+    """И-11: раздел README «Локальные артефакты CI (контракт 196)» существует
+    и несёт якорные строки («содержит», не «ровно N тем» — прецедент 074-к6)."""
+    doc = subj.readme()
+    if doc is None:
+        return no_subject('ops/server/README.md')
+    header = '## Локальные артефакты CI (контракт 196)'
+    lines = doc.read_text().splitlines()
+    head_idx = None
+    for i, ln in enumerate(lines):
+        if ln == header:
+            head_idx = i
+            break
+    if head_idx is None:
+        return False, f'субъект отсутствует: ops/server/README.md (раздел «{header}»)'
+    body = []
+    for ln in lines[head_idx + 1:]:
+        if ln.startswith('## '):
+            break
+        body.append(ln)
+    section = '\n'.join(body)
+    for anchor in README_ANCHORS:
+        if anchor not in section:
+            return False, f'раздел 196 не несёт якорь: {anchor}'
+    return True, ''
+
 
 def parse_units(text):
     sections = {}
@@ -685,8 +904,8 @@ def cell_unit_grammar(subj):
     if s.get('Service', {}).get('ExecStart') != '/usr/local/sbin/ci-artifacts-clean':
         return False, f'ExecStart не адрес установки: {s.get("Service", {}).get("ExecStart")}'
     t = parse_units(tmr.read_text())
-    if not t.get('Timer', {}).get('OnCalendar', '').strip():
-        return False, 'у таймера нет расписания OnCalendar'
+    if t.get('Timer', {}).get('OnCalendar') != '*-*-* 04:30:00 Asia/Singapore':
+        return False, f'OnCalendar не расписание 196 (04:30 Asia/Singapore): {t.get("Timer", {}).get("OnCalendar")!r}'
     if t.get('Timer', {}).get('Persistent') != 'true':
         return False, 'таймер не Persistent=true: пропущенная за простоем чистка не навёрстывается'
     if t.get('Install', {}).get('WantedBy') != 'timers.target':
@@ -708,14 +927,21 @@ CELLS = {
     'no-home-service-env': cell_no_home_service_env,
     'install-artifacts': cell_install_artifacts,
     'install-precondition': cell_install_precondition,
+    'install-euid-refused': cell_install_euid_refused,
+    'install-repo-symlink-refused': cell_install_repo_symlink_refused,
+    'install-systemctl-refused': cell_install_systemctl_refused,
     'verify-drift': cell_verify_drift,
+    'verify-not-installed': cell_verify_not_installed,
+    'verify-roots': cell_verify_roots,
     'unit-grammar': cell_unit_grammar,
+    'readme-anchors': cell_readme_anchors,
 }
 
 
 def check_family():
     for p in ('model/ci-artifacts-clean', 'model/install-artifacts.sh',
-              'model/ci-artifacts-clean.service', 'model/ci-artifacts-clean.timer'):
+              'model/ci-artifacts-clean.service', 'model/ci-artifacts-clean.timer',
+              'model/README-ops-server.md'):
         if not (HERE / p).exists():
             refuse(f'нет файла семьи: {p}')
     stubs = sorted(q.name for q in (HERE / 'stabs').iterdir())
@@ -724,8 +950,8 @@ def check_family():
     for name in stubs:
         if name not in STUBS:
             refuse(f'стаб без привязки: {name}')
-    if len(CASES) != 15:
-        refuse(f'клеток {len(CASES)}, ожидалось 15')
+    if len(CASES) != 21:
+        refuse(f'клеток {len(CASES)}, ожидалось 21')
 
 
 def main():
