@@ -250,6 +250,11 @@ _d98_podgotovka() {
     : >"$W/prinyato/registry/candidates.tsv" || d98_ni "журнал"
     cp "$sd/judge_gate.sh" "$sd/check_ci_gate.sh" "$sd/accept_publish.sh" "$sd/check_sud_model.sh" \
       "$W/prinyato/scripts/" || d98_ni "установка субъектов"
+    # Живая дверь 198 зовёт соседний roles.ts из того же дерева субъектов;
+    # честная jq-модель 098 и её стабы этого модуля не требуют.
+    if [ -f "$sd/roles.ts" ]; then
+      cp "$sd/roles.ts" "$W/prinyato/scripts/" || d98_ni "установка резолвера назначений"
+    fi
     # конфиг назначений принятой стороны — копия установочного (контракт 104,
     # Решение 4а): дверь check_sud_model судит по SELF_DIR/../config
     cp "$(_d98_root)/config/agent_models.json" "$W/prinyato/config/agent_models.json" \
