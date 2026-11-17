@@ -12,6 +12,7 @@
 #   PATERN:IZ-INDEXA        — лист читает предыдущий вердикт индексом (Crit193V2);
 #   PATERN:PROPUSK-BLOKOV   — покрытие блоков дельты не судится (Crit193V1);
 #   PATERN:BEZ-MARKERA      — маркер рекурсии снят (Crit193V1);
+#   PATERN:BEZ-OSTATKA-BJUDZHETA — команда не ограничена остатком бюджета листа;
 #   PATERN:KARTA-IZ-FAJLA   — карта вердикта читается рабочим файлом (Arb193V1);
 #   PATERN:KARTA-IZ-INDEXA  — карта вердикта читается индексом (Arb193V1);
 #   PATERN:LIB-BEZ-DUBLJA   — проверка дубля класса в lib отключена (Crit193V1);
@@ -30,7 +31,7 @@ stab_verdikt_iz_faila.sh	scripts/check_verdict_karta.sh	v05
 stab_verdikt_bez_schota.sh	scripts/check_verdict_karta.sh	v06
 stab_bez_markera.sh	scripts/check_sdacha.sh	s19
 stab_sdacha_verdikt_iz_rabochego.sh	scripts/check_sdacha.sh	s21
-stab_sdacha_bjudzhet_mezhdu.sh	scripts/check_sdacha.sh	s22
+PATERN:BEZ-OSTATKA-BJUDZHETA	scripts/check_sdacha.sh	s22
 PATERN:POSLED-ZAMOROZKA	scripts/check_sdacha.sh	s10
 PATERN:IZ-RABOCHEGO	scripts/check_sdacha.sh	s21
 PATERN:IZ-INDEXA	scripts/check_sdacha.sh	s24

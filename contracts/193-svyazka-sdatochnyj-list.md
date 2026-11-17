@@ -232,8 +232,8 @@ probe.py до вызова субъекта; привязки — stabs.tsv). З
    --model. Тогда: rc 0, `ИТОГ 193: rc=0 KLETKI=43 ZELENYE=43 KRASNYE=0`
    (замер пачки: 13 с).
    - `bash fixtures/workshop_project/sdacha_193/red_sdacha_193.sh --model`
-3. Дано: обманные реализации дверей (stabs/, 11 файлов-обманок) и адресные
-   мутации операций (13 паттернов PATERN:*: двери, lib и ноги — якорная
+3. Дано: обманные реализации дверей (stabs/, 10 файлов-обманок) и адресные
+   мутации операций (14 паттернов PATERN:*: двери, lib и ноги — якорная
    замена честной операции с проверкой применённости, Arb193V1 решения 1–2);
    все привязки к различающим входам живут в stabs.tsv (24 строки) и коде
    батареи — пар «обманка ↔ клетка» в тексте контракта нет (Н-39). Когда:
@@ -276,7 +276,7 @@ probe.py до вызова субъекта; привязки — stabs.tsv). З
 
 замер: `ls fixtures/workshop_project/sdacha_193/mir/*.md | wc -l` = 27 census fixtures/workshop_project/sdacha_193/mir/*.md
 замер: `ls fixtures/workshop_project/sdacha_193/mirskripty/*.sh | wc -l` = 7 census fixtures/workshop_project/sdacha_193/mirskripty/*.sh
-замер: `ls fixtures/workshop_project/sdacha_193/stabs/*.sh | wc -l` = 11 census fixtures/workshop_project/sdacha_193/stabs/*.sh
+замер: `ls fixtures/workshop_project/sdacha_193/stabs/*.sh | wc -l` = 10 census fixtures/workshop_project/sdacha_193/stabs/*.sh
 замер: `ls fixtures/workshop_project/sdacha_193/model/scripts/*.sh | wc -l` = 3 census fixtures/workshop_project/sdacha_193/model/scripts/*.sh
 
 

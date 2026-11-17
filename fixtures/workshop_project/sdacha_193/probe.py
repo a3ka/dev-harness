@@ -142,6 +142,10 @@ MUTACII_DVERI = {
         ('[ "$status" = \'блок\' ] || continue', 'continue'),
     # Crit193V1 recursion-marker: маркер рекурсии снят. Ловец — s19.
     'PATERN:BEZ-MARKERA': ('SDACHA_OKRUG=1 timeout', 'SDACHA_OKRUG=0 timeout'),
+    # Crit193V1 / Arb193V1: команда не ограничена остатком бюджета листа.
+    # Ловец — s22; прочие операции честной двери не изменяются.
+    'PATERN:BEZ-OSTATKA-BJUDZHETA':
+        ('(( ostalos < predel )) && predel="$ostalos"', ':'),
 }
 MUTACII_KARTY = {
     # Arb193V1 решение 1: источник карты — рабочий файл вместо HEAD-блоба,
@@ -174,7 +178,10 @@ def primenit(t: str, tablica: dict, imja: str) -> str:
     jakor, zamena = tablica[imja]
     if t.count(jakor) != 1:
         raise RuntimeError('JAKOR_NE_UNIKALEN: %s' % imja)
-    return t.replace(jakor, zamena, 1)
+    rezultat = t.replace(jakor, zamena, 1)
+    if rezultat == t:
+        raise RuntimeError('TEKST_NE_IZMENEN: %s' % imja)
+    return rezultat
 
 
 def tekst(imja: str) -> str:
@@ -736,14 +743,14 @@ def rezhim_stabs(vrem: Path) -> int:
                          karta_mutacija=karta_mut, lib_mutacija=lib_mut,
                          pre_mutacija=pre_mut, freeze_mutacija=freeze_mut,
                          dostroat_nogi=True)
-        miry = Miry(vrem / ('obmanka-' + imja.replace(':', '_')), ist)
-        K = kletki(miry)
-        kletka = next((k for k in K if k.imja.startswith(kletka_imja + '-')), None)
-        if kletka is None:
-            print('ORACLE_TAMPERED: клетка привязки не найдена: %s' % kletka_imja,
-                  file=sys.stderr)
-            return 2
         try:
+            miry = Miry(vrem / ('obmanka-' + imja.replace(':', '_')), ist)
+            K = kletki(miry)
+            kletka = next((k for k in K if k.imja.startswith(kletka_imja + '-')), None)
+            if kletka is None:
+                print('ORACLE_TAMPERED: клетка привязки не найдена: %s' % kletka_imja,
+                      file=sys.stderr)
+                return 2
             ulov = not sudit(kletka)  # обманка НЕ удовлетворяет ожиданию клетки
         except RuntimeError as e:
             # применённость мутации проверена якорем: нулевая замена — не поимка
