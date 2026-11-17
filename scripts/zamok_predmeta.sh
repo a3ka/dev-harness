@@ -435,8 +435,16 @@ sudit() {
     # [D199 izolyaciya] флаг изоляции — ТОЛЬКО из ПОЛЯ item (omp task wire
     # schema); отсутствие поля и любое иное значение нормализуются в false
     # (fail-closed). Слово «isolated:true» в тексте задания силы не имеет.
-    iso="$(jq -r "(.tasks // [.])[$i].isolated // false" "$EVENT" 2>/dev/null)" || iso=false
-    [ "$iso" = 'true' ] || iso=false
+    # СРАВНЕНИЕ СТРОГО ПО ТИПУ: jq `== true` истинно ТОЛЬКО для булева true —
+    # строка "true", число 1, [true], {x:true}, null, false и отсутствие поля
+    # дают false. Лакс-разбор (jq -r + текстовое [ "$iso" = 'true' ]) строку
+    # "true" от булева не отличал и принимал её как изоляцию (находка 1
+    # Adv199Impl, клетка d18; эталон model/zamok_predmeta_199.sh).
+    if jq -e "(.tasks // [.])[$i].isolated == true" "$EVENT" >/dev/null 2>&1; then
+      iso=true
+    else
+      iso=false
+    fi
     [ -n "$agent" ] || otp AGENT_NET "item $i: agent отсутствует"
     # [D28 proch-agent] роли вне классов (scout/task/sonic/arbiter/…) — пропуск.
     in_w=0; in_j=0
