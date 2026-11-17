@@ -311,3 +311,4 @@ step	check:roles-architecture-188-family-selftest	4	bash fixtures/workshop_proje
 step	check:forma-do-kritika-191-family-selftest	4	bash fixtures/workshop_project/forma_do_kritika_191/red_forma_do_kritika_191.sh --repo . && bash fixtures/workshop_project/forma_do_kritika_191/red_forma_do_kritika_191.sh --model && bash fixtures/workshop_project/forma_do_kritika_191/red_forma_do_kritika_191.sh --stabs
 step	check:normy-roley-svyazki-192-family-selftest	4	bash fixtures/workshop_project/normy_roley_svyazki_192/red_normy_roley_svyazki_192.sh --repo .
 step	check:ops-ci-artifacts-196-family-selftest	4	bash fixtures/workshop_project/ops_ci_artifacts_196/red_ops_ci_artifacts_196.sh --stabs
+step	check:okno-zamorozki-200-family-selftest	4	bash fixtures/workshop_project/okno_zamorozki_200/red_okno_zamorozki_200.sh --stabs
