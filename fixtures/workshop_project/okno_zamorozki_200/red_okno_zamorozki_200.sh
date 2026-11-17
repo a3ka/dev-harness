@@ -49,9 +49,11 @@
 #       (сохранение hold-ветки (в); стабами не ловится — их зона отбор (б))
 #   m10 удержание с другим блобом → rc 1 «не совпадает с локальным удержанием»
 #   m11 регрессия семьи 016 fixtures/check_contract_frozen/: исходы всех кейсов
-#       (rc/stdout/stderr) на живом субъекте и на модели побайтово равны — миры
-#       семьи линейны, фильтр окна не активируется, равенство ловит побочные
-#       изменения остальных ветвей двери (не ловится стабами — их зона отбор (б))
+#       (rc/stdout/stderr) на субъекте побайтово равны ЭТАЛОНУ golden_016/,
+#       записанному из прогона ДО-версии двери на закоммиченном блобе
+#       (golden_016_gen.sh; независимо от субъекта) — красит любую мутацию
+#       существующей проверки двери, меняющую исход кейса (не ловится стабами —
+#       их зона отбор (б))
 #   Операции с поведенчески неотличимой заменой на конформных мирах («=»):
 #     --no-renames в пробе пустоты p1-diff = с rename-детекцией: путь один,
 #       обе формы дают непустой diff при изменении/удалении/добавлении пути
@@ -66,7 +68,10 @@
 #   --model      — песочница podmena.py model: субъект + целевой блок окна;
 #   --stabs      — контроль модели зелёный, затем каждый стаб podmena.py:
 #                  красная клетка = стаб ПОЙМАН;
-#   --repo <R>   — корень дерева субъектов (CI/станция).
+#   --repo <R>   — корень дерева субъектов (CI/станция);
+#   --cell <id>  — прогнать ТОЛЬКО клетку <id> (m1…m11) поверх безфлагового
+#                  режима — для точечных проб (мутационное доказательство
+#                  mutacii_016.sh гонит так m11 на каждом мутанте).
 #
 # Миры — одноразовые git-репозитории вне ${TMPDIR:-/tmp}/dev-harness-verify
 # (ловушка Н-85/А-122: scratch-allowlist 025 не должен прикрывать pass).
@@ -75,13 +80,14 @@
 # клетка либо живой стаб; 2 — нечем проверить. Скрипт не печатает PASS.
 set -u
 
-MODE='osn'; ROOT_ARG=''
+MODE='osn'; ROOT_ARG=''; KLETKA=''
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --model) MODE='model' ;;
     --stabs) MODE='stabs' ;;
-    --repo)  ROOT_ARG="${2:?использование: [--model|--stabs] [--repo R]}"; shift ;;
-    *) printf 'использование: %s [--model|--stabs] [--repo R]\n' "$0" >&2; exit 2 ;;
+    --repo)  ROOT_ARG="${2:?использование: [--model|--stabs] [--repo R] [--cell mN]}"; shift ;;
+    --cell)  KLETKA="${2:?использование: [--model|--stabs] [--repo R] [--cell mN]}"; shift ;;
+    *) printf 'использование: %s [--model|--stabs] [--repo R] [--cell mN]\n' "$0" >&2; exit 2 ;;
   esac
   shift
 done
@@ -298,27 +304,37 @@ m10() {
   [ "$PR_RC" -eq 1 ] || { printf 'm10: rc=%s (нужен 1: удержание с другим блобом)\n' "$PR_RC" >&2; return 1; }
   grep -aq 'не совпадает с локальным удержанием' "$MIR/err" || { printf 'm10: нет отказа hold-ветки\n' >&2; return 1; }
 }
-m11() {  # регрессия семьи 016 fixtures/check_contract_frozen/: исходы кейсов на
-  # живом субъекте и на модели окна-200 побайтово равны (rc/stdout/stderr);
-  # миры семьи линейны — фильтр окна на них не активируется, равенство доказывает
-  # отсутствие побочных изменений остальных ветвей двери.
-  local sem="$ROOT/fixtures/check_contract_frozen"
+m11() {  # регрессия семьи 016 fixtures/check_contract_frozen/: исходы всех кейсов
+  # (rc/stdout/stderr) на СУБЪЕКТЕ побайтово равны ЭТАЛОНУ golden_016/ — он
+  # записан генератором golden_016_gen.sh из прогона ДО-версии двери на
+  # ЗАКОММИЧЕННОМ блобе (golden_016/istochnik.txt) и НЕЗАВИСИМ от проверяемого
+  # субъекта: подмена любой существующей проверки двери, меняющая исход кейса,
+  # расходит субъекта с эталоном и красит клетку (сравнение субъекта с его
+  # собственной копией идемпотентно и мутацию не ловит — вердикт Crit200V1b,
+  # К-08). Миры семьи линейны — фильтр окна на них не активируется.
+  local sem="$ROOT/fixtures/check_contract_frozen" gol="$HERE/golden_016"
   [ -d "$sem" ] || { printf 'm11: нет семьи регрессии: %s\n' "$sem" >&2; return 1; }
-  local sb; sb="$(pesochinka)" || { printf 'm11: песочница не собрана\n' >&2; return 1; }
-  local c w1 w2 r1 r2 raz=0 n=0 d="$WB/m11.d"
-  mkdir -p "$d"
+  [ -d "$gol" ] || { printf 'm11: нет эталона семьи: %s\n' "$gol" >&2; return 1; }
+  local c w imja n=0 net=0 raz=0 r gr
   for c in "$sem"/case_*.sh; do
     n=$((n + 1))
-    w1="$(mktemp -d "$WB/m11a.XXXXXX")"; w2="$(mktemp -d "$WB/m11b.XXXXXX")"
-    ( cd "$ROOT" && BARRIER="$ROOT/scripts/check_contract_frozen.sh" WORK="$w1" bash "$c" ) >"$d/a.out" 2>"$d/a.err"; r1=$?
-    ( cd "$ROOT" && BARRIER="$sb/scripts/check_contract_frozen.sh" WORK="$w2" bash "$c" ) >"$d/b.out" 2>"$d/b.err"; r2=$?
-    if [ "$r1" != "$r2" ] || ! cmp -s "$d/a.err" "$d/b.err" || ! cmp -s "$d/a.out" "$d/b.out"; then
-      printf 'm11: расхождение %s: rc %s vs %s\n' "$(basename "$c")" "$r1" "$r2" >&2
+    imja="$(basename "$c" .sh)"
+    if [ ! -f "$gol/$imja/rc" ] || [ ! -f "$gol/$imja/out" ] || [ ! -f "$gol/$imja/err" ]; then
+      printf 'm11: нет эталона для %s — семья выросла, эталон устарел (golden_016_gen.sh)\n' "$imja" >&2
+      net=$((net + 1))
+      continue
+    fi
+    w="$(mktemp -d "$WB/m11.XXXXXX")"
+    ( cd "$ROOT" && BARRIER="$SUBJEKT" WORK="$w" bash "$c" ) >"$w/out" 2>"$w/err"; r=$?
+    gr="$(cat "$gol/$imja/rc")"
+    if [ "$r" != "$gr" ] || ! cmp -s "$w/out" "$gol/$imja/out" || ! cmp -s "$w/err" "$gol/$imja/err"; then
+      printf 'm11: расхождение %s: rc %s, эталон rc %s\n' "$imja" "$r" "$gr" >&2
       raz=$((raz + 1))
     fi
-    rm -rf "$w1" "$w2"
+    rm -rf "$w"
   done
   [ "$n" -gt 0 ] || { printf 'm11: кейсов семьи не найдено\n' >&2; return 1; }
+  [ "$net" -eq 0 ] || { printf 'm11: без эталона %d из %d\n' "$net" "$n" >&2; return 1; }
   [ "$raz" -eq 0 ] || { printf 'm11: расхождений %d из %d\n' "$raz" "$n" >&2; return 1; }
 }
 
@@ -353,7 +369,7 @@ itog() { printf 'ИТОГ 200 (%s): клеток %d, красных %d, зелё
 
 case "$MODE" in
   osn)
-    run_cells $ALL_KLETKI
+    if [ -n "$KLETKA" ]; then run_cells "$KLETKA"; else run_cells $ALL_KLETKI; fi
     itog 'субъекты дерева'
     if [ "$CELL_RED" -gt 0 ]; then
       printf 'КРАСНОЕ 200: красных %d из %d (до реализации ожидаемо; после — дефект)\n' "$CELL_RED" "$CELL_TOTAL"
