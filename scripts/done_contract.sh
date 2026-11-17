@@ -242,8 +242,11 @@ if [ -x "$SELF_DIR/check_architecture_contract.sh" ]; then
         _a187_json=""
         _a187_crc=0
         _a187_json="$(curl "${_a187_args[@]}" "$_a187_url" 2>/dev/null)" || _a187_crc=$?
+        # Тот же класс (fail-open по rc): отказ транспорта (curl rc≠0) — ответ
+        # недоступен независимо от stdout; доказательством check-run он не
+        # является (контракт 187/2: «парные корректные входы rc 0»).
         _a187_n=0
-        if [ -n "$_a187_json" ]; then
+        if [ "$_a187_crc" -eq 0 ] && [ -n "$_a187_json" ]; then
           # 201 (г): имя check-run arch — «arch», «arch …», «arch (…)».
           # «archive», «architecture…», «march», «arche» — НЕ принимаются:
           # живой зелёный run бэкенда называется «arch (пин внешней
@@ -469,18 +472,21 @@ else
     _cmp_json=""
     _cmp_crc=0
     _cmp_json="$(curl "${_cmp_args[@]}" "$_cmp_url" 2>/dev/null)" || _cmp_crc=$?
+    # Отказ транспорта (curl rc≠0) — ответ НЕдоступен независимо от stdout:
+    # частичный ответ при ошибке транспорта доказательством влитости не
+    # является (контракт 201 §2(б): «ответ недоступен (curl rc≠0, …) →
+    # не проверена»; позитивный ответ требует УСПЕШНОГО compare, rc 0).
+    # Проверка rc — ДО разбора status: иначе behind|identical из stdout при
+    # ошибке транспорта составили бы тег done.
+    if [ "$_cmp_crc" -ne 0 ]; then
+      die "done: влитость в main продукта $place не проверена: curl rc=$_cmp_crc"
+    fi
     _cmp_status=""
     [ -n "$_cmp_json" ] && _cmp_status="$(printf '%s' "$_cmp_json" | jq -r 'if type == "object" then (.status // empty) else empty end' 2>/dev/null || true)"
     case "$_cmp_status" in
       identical|behind) : ;;
       ahead|diverged) die "done: OBJECT $object_sha не в main продукта $place — реализация не влита" ;;
-      *)
-        if [ "$_cmp_crc" -ne 0 ]; then
-          die "done: влитость в main продукта $place не проверена: curl rc=$_cmp_crc"
-        else
-          die "done: влитость в main продукта $place не проверена: ответ API без поля status"
-        fi
-        ;;
+      *) die "done: влитость в main продукта $place не проверена: ответ API без поля status" ;;
     esac
   fi
 fi
