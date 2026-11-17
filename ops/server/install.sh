@@ -84,13 +84,35 @@
 #           verify дополнительно сверяет пины ↔ установленное (если валидаторы
 #           установлены; станция без установки — не расхождение, а «не установлены»).
 #
+#   artifacts — поставить ЛОКАЛЬНОЕ ХРАНИЛИЩЕ АРТЕФАКТОВ CI станции (контракт 196):
+#           euid-гард ДО любых записей (не-root — rc 1 «ОТКАЗ: artifacts-часть требует
+#           euid 0»), затем предусловия ДО записей (четыре источника в ops/server/
+#           — чистильщик, два юнита, drop-in моб-раннера — и учётные записи владельцев
+#           корней getent'ом); копии с sha256-перечитыванием: скрипт →
+#           <SBIN_DST>/ci-artifacts-clean (755 root:root), юниты ci-artifacts-clean
+#           .service/.timer → <ETC_DST> (644 root:root); корни /var/lib/ci-artifacts
+#           идемпотентно по факту станции (корни созданы оператором: база root:root
+#           0755, корни репо 2750 с владельцами швов — существующий верный корень
+#           принимается БЕЗ chown/chmod, расходящийся — именованный отказ);
+#           drop-in'ы моб-раннеров (gh-runner-complior, gh-runner-complior-2) ставятся
+#           по наличию юнита в <ETC_DST> (юнита нет — drop-in не ставится, это не
+#           ошибка) и ДО daemon-reload; затем daemon-reload и
+#           `enable --now ci-artifacts-clean.timer`. rc 0 — «установлено: ci-artifacts…».
+#           verify дополнительно сверяет тройку (скрипт, service, timer) и корни репо
+#           ПОБАЙТНО/ПО СВОЙСТВАМ; не установлено вовсе — rc 0 «ci-artifacts: не
+#           установлены» (не расхождение, прецедент 189).
+#
 # Швы (инвариант 6): OPS_SERVER_SRC (умолчание — каталог скрипта), адресаты
 # OPS_SERVER_BIN_DST / OPS_SERVER_SBIN_DST / OPS_SERVER_ETC_DST, и OPS_SERVER_MAIN
 # (081 — корень основного чекаута, по умолчанию /home/harness/dev-harness).
 # Швы 189: OPS_SERVER_VALIDATORS_DEST (корень установки валидаторов) и
 # OPS_SERVER_VALIDATORS_ARCHIVES (каталог с готовыми архивами официальных релизов;
 # по умолчанию пусто — установщик сам скачивает архив по сети).
-# При шве скрипт не читает и не пишет умолчательный путь того же шва.
+# Швы 196: OPS_SERVER_CI_ARTIFACTS (корень хранилища артефактов, по умолчанию
+# /var/lib/ci-artifacts), OPS_SERVER_CI_ARTIFACTS_MOB_OWNER (harness),
+# OPS_SERVER_CI_ARTIFACTS_BACK_OWNER (ci-back), OPS_SERVER_CI_ARTIFACTS_GROUP
+# (harness), OPS_SERVER_SYSTEMCTL (система инициации, по умолчанию systemctl).
+# При шве скрипт не читает и не пишет умолчальный путь того же шва.
 # Швы OPS_SERVER_AGENT_USER / OPS_SERVER_AGENT_HOME (093, И-3) переопределяют
 # идентичность пользователя-агента; install.sh root провизионит их идемпотентно.
 # Шов OPS_SERVER_AGENT_ROOT (093, И-3 v2, Рв2-6) переопределяет корень
@@ -142,6 +164,27 @@ VALIDATORS_DEST="${OPS_SERVER_VALIDATORS_DEST-$HOME/.local/state/dev-harness/val
 VALIDATORS_ARCHIVES="${OPS_SERVER_VALIDATORS_ARCHIVES-}"
 # Временный каталог установки (глобальный: к нему обращается trap на выходе).
 VALIDATORS_TMP=""
+# ── контракт 196: локальное хранилище артефактов CI станции ──────────────────
+# Швы адресатов и владельцев; умолчания — факт станции 2026-11-16 (корни уже
+# созданы оператором: база root:root 0755, корни репо 2750 с владельцами швов).
+CIART_ROOT="${OPS_SERVER_CI_ARTIFACTS-/var/lib/ci-artifacts}"
+CIART_MOB_OWNER="${OPS_SERVER_CI_ARTIFACTS_MOB_OWNER-harness}"
+CIART_BACK_OWNER="${OPS_SERVER_CI_ARTIFACTS_BACK_OWNER-ci-back}"
+CIART_GROUP="${OPS_SERVER_CI_ARTIFACTS_GROUP-harness}"
+CIART_SYSTEMCTL="${OPS_SERVER_SYSTEMCTL-systemctl}"
+# Перечень юнитов предмета 196 — ОТДЕЛЬНАЯ переменная: строки UNITS= инвентаря
+# 074 не трогаются (грабли-074: «таблица пинов == адресаты инвентаря»).
+ARTIFACTS_UNITS='ci-artifacts-clean.service ci-artifacts-clean.timer'
+# Юниты моб-раннера станции (вне репо): drop-in ставится по наличию юнита.
+RUNNER_UNITS='gh-runner-complior gh-runner-complior-2'
+# Источники и адресаты предмета 196 (источник — шов OPS_SERVER_SRC, как у 074).
+CIART_CLEAN_SRC="$SRC_ROOT/root/ci-artifacts-clean"
+CIART_SVC_SRC="$SRC_ROOT/root/systemd/ci-artifacts-clean.service"
+CIART_TMR_SRC="$SRC_ROOT/root/systemd/ci-artifacts-clean.timer"
+CIART_DROPIN_SRC="$SRC_ROOT/root/gh-runner-complior-ci-artifacts.conf"
+CIART_CLEAN_DST="$SBIN_DST/ci-artifacts-clean"
+CIART_SVC_DST="$ETC_DST/ci-artifacts-clean.service"
+CIART_TMR_DST="$ETC_DST/ci-artifacts-clean.timer"
 
 # ── зависимости и источник (fail-closed rc 2) ────────────────────────────────
 command -v sha256sum >/dev/null 2>&1 \
@@ -151,7 +194,7 @@ command -v sha256sum >/dev/null 2>&1 \
 
 # ── помощники ────────────────────────────────────────────────────────────────
 usage() {
-  printf 'NOT_IMPLEMENTED: использование: ops/server/install.sh user|root|verify|verify-start|rollback|validators\n' >&2
+  printf 'NOT_IMPLEMENTED: использование: ops/server/install.sh user|root|verify|verify-start|rollback|validators|artifacts\n' >&2
   exit 2
 }
 die_write() {
@@ -402,6 +445,154 @@ oneshot_new_run_done() { # <юнит> <t0-ns>: rc 0 ⟺ Result=success И шта
   fi
   return 0
 }
+# ── контракт 196: локальное хранилище артефактов CI станции ──────────────────
+# Существующий каталог уже годен (режим/владелец верны) — не трогаем его: факт
+# станции 2026-11-16 — корни созданы оператором, дрейф chown/chmod запрещён;
+# владелец/группа читаются stat'ом (в шов-мире — шим конфигурации мира).
+ciart_matches() { # <каталог> <режим> <владелец:группа>
+  [ "$(stat -c %a -- "$1")" = "$2" ] || return 1
+  [ "$(stat -c %U:%G -- "$1")" = "$3" ] || return 1
+  return 0
+}
+ciart_refuse_existing() { # <путь> — расходящийся существующий корень
+  printf 'ОТКАЗ: существующий корень расходится: %s\n' "$1" >&2
+  exit 1
+}
+# Родительский корень артефактов: root:root 0755 (факт станции).
+ciart_provision_base() { # <каталог>
+  if [ -L "$1" ]; then
+    printf 'ОТКАЗ: репо — символьная ссылка: %s\n' "$1" >&2; exit 1
+  fi
+  if [ -e "$1" ]; then
+    [ -d "$1" ] || { printf 'ОТКАЗ: репо — символьная ссылка: %s\n' "$1" >&2; exit 1; }
+    ciart_matches "$1" 755 root:root || ciart_refuse_existing "$1"
+  else
+    mkdir -p -- "$1" || die_write "$1"
+    chown root:root -- "$1" || die_write "chown $1"
+    chmod 755 -- "$1" || die_write "chmod $1"
+  fi
+}
+# Корень репо: <владелец>, группа шва, режим 2750 (setgid: созданное писателями
+# наследует группу; группа читает, чужие — нет). Существующий верный корень
+# принимается идемпотентно БЕЗ chown/chmod; расходящийся — именованный отказ
+# без молчаливого переформатирования.
+ciart_provision_root() { # <каталог> <владелец>
+  if [ -L "$1" ]; then
+    printf 'ОТКАЗ: репо — символьная ссылка: %s\n' "$1" >&2; exit 1
+  fi
+  if [ -e "$1" ]; then
+    [ -d "$1" ] || { printf 'ОТКАЗ: репо — символьная ссылка: %s\n' "$1" >&2; exit 1; }
+    ciart_matches "$1" 2750 "$2:$CIART_GROUP" || ciart_refuse_existing "$1"
+  else
+    mkdir -p -- "$1" || die_write "$1"
+    chown "$2:$CIART_GROUP" -- "$1" || die_write "chown $1"
+    chmod 2750 -- "$1" || die_write "chmod $1"
+  fi
+}
+# Сверка корня репо (режим 2750, владелец и группа шва — оси независимы).
+ciart_check_root() { # <каталог> <владелец>
+  if [ ! -d "$1" ] || [ "$(stat -c %a -- "$1")" != "2750" ]; then
+    printf 'ОТКАЗ: расхождение ci-artifacts: %s\n' "$1" >&2
+    return 1
+  fi
+  if [ "$(stat -c %U:%G -- "$1")" != "$2:$CIART_GROUP" ]; then
+    printf 'ОТКАЗ: расхождение ci-artifacts: %s\n' "$1" >&2
+    return 1
+  fi
+  return 0
+}
+# Drop-in моб-раннера: ставится ТОЛЬКО при наличии юнита-раннера в $ETC_DST
+# (юнита нет — drop-in не ставится, это не ошибка); содержимое — байт-в-байт из
+# репо-источника (ровно ReadWritePaths на корень моба: без него
+# ProtectSystem=strict даёт EROFS записи CI моба), 644 root:root.
+ciart_install_dropin() { # <юнит>
+  local dropin_dir="$ETC_DST/$1.service.d"
+  local dropin_dst="$dropin_dir/ci-artifacts.conf"
+  mkdir -p -- "$dropin_dir" || die_write "$dropin_dir"
+  cp -- "$CIART_DROPIN_SRC" "$dropin_dst" || die_write "$dropin_dst"
+  chmod 644 -- "$dropin_dst" || die_write "$dropin_dst"
+  chown root:root -- "$dropin_dst" || die_write "$dropin_dst"
+  check_one "$dropin_dst" "$CIART_DROPIN_SRC" || exit 1
+}
+# Установка предмета 196: euid-гард и предусловия — ДО любых записей; копии с
+# sha256-перечитыванием; корни идемпотентно; drop-in'ы по наличию юнита —
+# ДО daemon-reload; затем daemon-reload и enable таймера.
+install_ci_artifacts() {
+  local src unit
+  # euid-гард ДО любых записей.
+  if [ "$(id -u)" -ne 0 ]; then
+    printf 'ОТКАЗ: artifacts-часть требует euid 0\n' >&2
+    exit 1
+  fi
+  # Предусловия ДО записей: четыре источника (включая drop-in-источник —
+  # предусловие безусловно) и три учётные записи.
+  for src in "$CIART_CLEAN_SRC" "$CIART_SVC_SRC" "$CIART_TMR_SRC" "$CIART_DROPIN_SRC"; do
+    [ -f "$src" ] || { printf 'ОТКАЗ: нет источника: %s\n' "$src" >&2; exit 1; }
+  done
+  getent passwd "$CIART_MOB_OWNER" >/dev/null 2>&1 \
+    || { printf 'ОТКАЗ: нет пользователя: %s\n' "$CIART_MOB_OWNER" >&2; exit 1; }
+  getent passwd "$CIART_BACK_OWNER" >/dev/null 2>&1 \
+    || { printf 'ОТКАЗ: нет пользователя: %s\n' "$CIART_BACK_OWNER" >&2; exit 1; }
+  getent group "$CIART_GROUP" >/dev/null 2>&1 \
+    || { printf 'ОТКАЗ: нет группы: %s\n' "$CIART_GROUP" >&2; exit 1; }
+  # Копии с sha256-перечитыванием.
+  mkdir -p -- "$SBIN_DST" "$ETC_DST" || die_write "$SBIN_DST $ETC_DST"
+  cp -- "$CIART_CLEAN_SRC" "$CIART_CLEAN_DST" || die_write "$CIART_CLEAN_DST"
+  chmod 755 -- "$CIART_CLEAN_DST" || die_write "$CIART_CLEAN_DST"
+  chown root:root -- "$CIART_CLEAN_DST" || die_write "$CIART_CLEAN_DST"
+  check_one "$CIART_CLEAN_DST" "$CIART_CLEAN_SRC" || exit 1
+  cp -- "$CIART_SVC_SRC" "$CIART_SVC_DST" || die_write "$CIART_SVC_DST"
+  chmod 644 -- "$CIART_SVC_DST" || die_write "$CIART_SVC_DST"
+  chown root:root -- "$CIART_SVC_DST" || die_write "$CIART_SVC_DST"
+  cp -- "$CIART_TMR_SRC" "$CIART_TMR_DST" || die_write "$CIART_TMR_DST"
+  chmod 644 -- "$CIART_TMR_DST" || die_write "$CIART_TMR_DST"
+  chown root:root -- "$CIART_TMR_DST" || die_write "$CIART_TMR_DST"
+  check_one "$CIART_SVC_DST" "$CIART_SVC_SRC" || exit 1
+  check_one "$CIART_TMR_DST" "$CIART_TMR_SRC" || exit 1
+  # Корни идемпотентно, по факту станции (существующие верные — без chown/chmod).
+  ciart_provision_base "$CIART_ROOT"
+  ciart_provision_root "$CIART_ROOT/Complior-mob" "$CIART_MOB_OWNER"
+  ciart_provision_root "$CIART_ROOT/Complior-back" "$CIART_BACK_OWNER"
+  # Drop-in'ы моб-раннера по наличию юнита — ДО daemon-reload.
+  for unit in $RUNNER_UNITS; do
+    if [ -f "$ETC_DST/$unit.service" ]; then
+      ciart_install_dropin "$unit"
+    fi
+  done
+  # Включение таймера: daemon-reload, ЗАТЕМ enable (порядок судится журналом).
+  command -v "$CIART_SYSTEMCTL" >/dev/null 2>&1 \
+    || { printf 'NOT_IMPLEMENTED: нет %s\n' "$CIART_SYSTEMCTL" >&2; exit 2; }
+  "$CIART_SYSTEMCTL" daemon-reload >/dev/null 2>&1 \
+    || { printf 'ОТКАЗ: systemctl daemon-reload\n' >&2; exit 1; }
+  "$CIART_SYSTEMCTL" enable --now ci-artifacts-clean.timer >/dev/null 2>&1 \
+    || { printf 'ОТКАЗ: ci-artifacts-clean.timer не включён\n' >&2; exit 1; }
+  printf 'установлено: ci-artifacts (скрипт + 2 юнита + корни %s)\n' "$CIART_ROOT"
+  exit 0
+}
+# Сверка предмета 196 (прецедент 189 — условность): не установлено вовсе — не
+# расхождение; частичная установка и дрейф — именованный отказ с путём.
+verify_ci_artifacts() {
+  local rc=0 unit
+  if [ ! -e "$CIART_CLEAN_DST" ] && [ ! -e "$CIART_SVC_DST" ] && [ ! -e "$CIART_TMR_DST" ]; then
+    printf 'ci-artifacts: не установлены (sudo bash ops/server/install.sh artifacts)\n'
+    return 0
+  fi
+  check_one "$CIART_CLEAN_DST" "$CIART_CLEAN_SRC" || rc=1
+  check_one "$CIART_SVC_DST" "$CIART_SVC_SRC" || rc=1
+  check_one "$CIART_TMR_DST" "$CIART_TMR_SRC" || rc=1
+  [ "$rc" -eq 0 ] || return 1
+  ciart_check_root "$CIART_ROOT/Complior-mob" "$CIART_MOB_OWNER" || return 1
+  ciart_check_root "$CIART_ROOT/Complior-back" "$CIART_BACK_OWNER" || return 1
+  # Drop-in'ы моб-раннера — условная сверка: юнит есть → сверяется sha256 с
+  # репо-источником, юнита нет → не расхождение.
+  for unit in $RUNNER_UNITS; do
+    if [ -f "$ETC_DST/$unit.service" ]; then
+      check_one "$ETC_DST/$unit.service.d/ci-artifacts.conf" "$CIART_DROPIN_SRC" || return 1
+    fi
+  done
+  printf 'ci-artifacts: сверка 3/3\n'
+  return 0
+}
 # ── разбор подкоманды ────────────────────────────────────────────────────────
 [ $# -eq 1 ] || usage
 case "$1" in
@@ -634,7 +825,17 @@ case "$1" in
     [ "$rc" -eq 0 ] && printf 'сверка: 10/10\n'
     # Контракт 189: сверка пинов валидаторов ↔ установленного (если установлены).
     check_validators || rc=1
+    # Контракт 196: сверка локального хранилища артефактов CI (условная: не
+    # установлено вовсе — не расхождение).
+    verify_ci_artifacts || rc=1
     exit "$rc"
+    ;;
+  artifacts)
+    # Контракт 196: локальное хранилище артефактов CI станции — отдельная
+    # root-подкоманда (не расширение root-прохода: у неё свои предусловия и
+    # свой отказ, базовая установка станции от неё не зависит).
+    install_ci_artifacts
+    exit $?
     ;;
   validators)
     # Контракт 189: стандартные валидаторы по пинам ops/server/validators.tsv.

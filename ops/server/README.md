@@ -145,6 +145,48 @@ python3 scripts/check_canon_fragment.py <workflow> <job-id> <канон>   # к�
 равны; при расхождении rc 1 и stderr `CANON_DIFF: <путь первого отличия>:
 <причина>`.
 
+## Локальные артефакты CI (контракт 196)
+
+Артефакты станционных прогонов CI хранятся локально на станции, и на GitHub артефакты не загружаются
+(квота GitHub Actions не расходуется). Интерфейс пути: `/var/lib/ci-artifacts/<репо>/<run_id>-<run_attempt>/<имя>/`.
+
+- Корни и владельцы: `/var/lib/ci-artifacts/Complior-mob/` — владелец `harness` (писатель моб-раннера),
+  `/var/lib/ci-artifacts/Complior-back/` — владелец `ci-back` (писатель бэк-раннера); оба — группа harness,
+  режим 2750 (setgid: созданное наследует группу; судьи группы читают, чужие — нет). Корни уже созданы
+  оператором станции — установщик принимает их идемпотентно, без chown/chmod; расходящийся корень —
+  именованный отказ, а не молчаливое переформатирование.
+- Судьи читают артефакты из группы harness; на GitHub артефакты не загружаются.
+
+Установка (root):
+
+```sh
+sudo bash ops/server/install.sh artifacts
+# → /usr/local/sbin/ci-artifacts-clean (755 root:root),
+#   /etc/systemd/system/ci-artifacts-clean.{service,timer} (644 root:root),
+#   корни /var/lib/ci-artifacts (root:root 0755) и корни репо (2750, владельцы швов).
+#   Drop-in моб-раннера (без него ProtectSystem=strict даёт EROFS на запись):
+#   /etc/systemd/system/gh-runner-complior.service.d/ci-artifacts.conf и
+#   /etc/systemd/system/gh-runner-complior-2.service.d/ci-artifacts.conf —
+#   ставится по наличию юнита раннера на станции; юнита нет — drop-in не ставится.
+
+sudo bash ops/server/install.sh verify
+# → «ci-artifacts: сверка 3/3» (установлено) либо «ci-artifacts: не установлены» —
+#   это не расхождение (до установки).
+```
+
+Таймер: `ci-artifacts-clean.timer` — ежедневно 04:30 Asia/Singapore, Persistent=true (пропущенная за простоем
+чистка навёрстывается). Включение/выключение: `sudo systemctl enable --now ci-artifacts-clean.timer` /
+`sudo systemctl disable --now ci-artifacts-clean.timer`.
+
+Срок хранения: 14 суток; шов `CI_ARTIFACTS_RETENTION_DAYS` (env юнита/чистильщика), меняется правкой юнита в репо
+(установленное == репо). Прочие швы чистильщика: `CI_ARTIFACTS_ROOT` (корень хранилища),
+`CI_ARTIFACTS_REPOS` (список репо, по умолчанию `Complior-mob Complior-back`).
+
+Семантика очистки: прогон молод, пока хотя бы одна запись его дерева (каталог или файл) моложе границы
+«сейчас − срок»; старые прогоны удаляются целиком; отклонения от грамматик имён — именованные отказы
+`ОТКАЗ:` с путём (например `ОТКАЗ: имя прогона вне грамматики <число>-<число>: <путь>`), при этом валидные
+прогоны того же репо всё равно вычищаются — квота не должна стоять из-за одной мусорной записи.
+
 ## Singleton (orch-loop, контракт 997, инв. 5)
 
 Один цикл на HOME: `flock -n 9` на каноническом пути
