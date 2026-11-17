@@ -176,6 +176,22 @@ while IFS= read -r f; do
       # evil merge, меняющий текст поверх первого родителя.
       pred_komity="$(g log -s --format=%H --no-renames --diff-merges=first-parent \
         "refs/tags/frozen/$dir/$NNN/$vmax"..HEAD -- "$f" 2>/dev/null || true)"
+      # 200: окно (б) — коммит входит в список ТОЛЬКО когда diff пути $f
+      # к ПЕРВОМУ родителю НЕ пуст. git log по пути в этом режиме отбирает
+      # и merge, равные первому родителю, но отличные от боковой ветки
+      # (int-merge без правки пути): такие merge текст контракта не меняют,
+      # а требовали РАЗРЕШИЛ и порождали ручные grandfather-пары. Обычные и
+      # корневые коммиты отбираются log по пути ровно правилу «изменил/
+      # добавил путь» — фильтр их не трогает.
+      otobr_200=""
+      while IFS= read -r c; do
+        [ -n "$c" ] || continue
+        if [ "$(g rev-list --parents -n 1 "$c" | wc -w)" -gt 2 ]; then
+          g diff --quiet --no-renames "${c}^1" "$c" -- "$f" 2>/dev/null && continue
+        fi
+        otobr_200="${otobr_200}${c}"$'\n'
+      done <<<"$pred_komity"
+      pred_komity="${otobr_200%$'\n'}"
     fi
     razrechen=0
     if [ -n "$pred_komity" ]; then
