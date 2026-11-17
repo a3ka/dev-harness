@@ -3,7 +3,7 @@
 # разметка профиля/уроков/ADR/трассы.
 #
 # Субъект: scripts/make_task.sh (грамматика — model/dover.sh, честная модель).
-# Клетки берут субъект из CP095_SUBJECT (раннер ставит real|model), дверь спавна
+# Клетки берут субъекта из CP095_SUBJECT (раннер ставит real|model), дверь спавна
 # — из CP095_SPAWN, корень дерева — из CP095_ROOT. Миры — ТОЛЬКО
 # /tmp/dev-harness-verify/context-pack-095-** (Н-85/А-122), каждая клетка
 # вычищает свой мир за собой (trap).
@@ -20,6 +20,11 @@
 #                                        (метки: path-glob | роль:<роль>);
 #   <repo>/registry/plan.tsv           — реестр плана (GOAL брифинга);
 #   <трасса>                           — TAB-строки: роль TAB модель TAB allowed|denied.
+# workflowPaths toy-мира — каноническая станционная раскладка с явным
+# state "." (арбитраж 095-granica-v2, решение 3: эффективные пути 996 по
+# умолчанию дают state=.harness — стражи 084/182 читают корневые
+# registry/plan.tsv, ROADMAP.md и HANDOFF.md, и мир с каноническим registry,
+# но state вне корня обязан уходить в NOT_RUN, а не в станционную зелень).
 set -uo pipefail
 
 t95_ni() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
@@ -55,7 +60,7 @@ _t95_world() {
   "repoId": "toy-repo",
   "language": "bash",
   "projectLayer": { "version": "1", "profilePath": "registry/harness-project.json" },
-  "workflowPaths": { "contracts": "contracts", "verdicts": "verdicts", "registry": "registry", "fixtures": "fixtures" },
+  "workflowPaths": { "contracts": "contracts", "verdicts": "verdicts", "registry": "registry", "fixtures": "fixtures", "state": "." },
   "commands": { "test": "bash fixtures/_krasnye_toy.sh", "build": "true", "typecheck": "true", "lint": "true" },
   "git": { "canonicalRemote": "ssh://git@example.invalid/toy/repo.git" },
   "ci": { "workflow": "ci.yml" },
@@ -83,7 +88,7 @@ EOF
   "workspaceId": "toy-workspace",
   "defaults": {
     "language": "bash",
-    "workflowPaths": { "contracts": "contracts", "verdicts": "verdicts", "registry": "registry", "fixtures": "fixtures" },
+    "workflowPaths": { "contracts": "contracts", "verdicts": "verdicts", "registry": "registry", "fixtures": "fixtures", "state": "." },
     "commands": { "test": "true", "build": "true", "typecheck": "true", "lint": "true" },
     "git": { "canonicalRemote": "ssh://git@example.invalid/toy/repo.git" },
     "ci": { "workflow": "ci.yml" },
@@ -103,6 +108,8 @@ EOF
   printf '# Правила кодинга toy\nПиши скучно.\n' >"$d/repo/DEVELOPMENT.md"
   printf '# Reuse\nПереиспользуй scripts/toy.sh.\n' >"$d/repo/MODULES.md"
   printf '# Дефолт слоя проекта\nКаждый pak из defaults.\n' >"$d/repo/DEFAULTS.md"
+  # ci.workflow объявлен профилем: ЕДИНЫЙ резолвер 996 требует наличия файла
+  printf '# toy ci\n' >"$d/repo/ci.yml"
 
   # реестр уроков: id TAB ОБЛАСТЬ (path-glob) TAB текст; кап выдачи — 5
   {
@@ -184,4 +191,43 @@ _t95_freeze() {
   printf 'frozen/contracts/777/1\n'
 }
 
+# _t95_plan_green <repo> — план-зелёные носители стражей 084/182: plan.tsv с
+# валидным источником docs/owner/*.md#<раздел>, реестр 777+888, pauzy, ROADMAP и
+# HANDOFF с generated-блоками ЕДИНОГО генератора gen_plan.sh --write (вторая
+# копия раскладки блока запрещена), коммит. Пробы PRECOND (И-16, v2 Б3) на этом
+# мире зелены: check_plan rc 0, orch_plan_slice rc 0.
+_t95_plan_green() {
+  local R="$1" root
+  root="${CP095_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+  mkdir -p "$R/docs/owner" || return 1
+  printf '# Контур toy-плана: один модуль, одна пара.\n' >"$R/docs/owner/PLAN-toy.md"
+  {
+    printf 'id\tпара\tэтап\tзависит\tисточник\tтрек\n'
+    printf '777\t1\tдо V-2\t-\tdocs/owner/PLAN-toy.md#Контур\ttrack\n'
+    printf '888\t1\tдо V-2\t777\tdocs/owner/PLAN-toy.md#Контур\ttrack\n'
+  } >"$R/registry/plan.tsv"
+  printf '777 → 0000000000000000000000000000000000000000\n888 → 0000000000000000000000000000000000000001\n' >"$R/registry/contracts.tsv"
+  : >"$R/registry/pauzy.tsv"
+  printf '# ROADMAP toy\n\n<!-- BEGIN GENERATED PLAN -->\n<!-- END GENERATED PLAN -->\n' >"$R/ROADMAP.md"
+  printf '# HANDOFF toy\n\n<!-- BEGIN GENERATED NEXT SESSION -->\n<!-- END GENERATED NEXT SESSION -->\n' >"$R/HANDOFF.md"
+  bash "$root/scripts/gen_plan.sh" --write --root "$R" >/dev/null 2>&1 || return 1
+  git -C "$R" add -A && git -C "$R" commit -qm 'plan-green' >/dev/null 2>&1
+}
+
+# _t95_origin_bare <world> <repo> — локальный bare-origin и push main (быстрый
+# ls-remote без сети); после push удалённый ref origin/main существует локально.
+_t95_origin_bare() {
+  local W="$1" R="$2"
+  git init -q --bare "$W/origin.git" || return 1
+  git -C "$R" remote remove origin >/dev/null 2>&1 || true
+  git -C "$R" remote add origin "$W/origin.git" || return 1
+  git -C "$R" push -q origin main || return 1
+  git -C "$R" fetch -q origin || return 1
+}
+
 _t95_cleanup() { rm -rf "${1:-/tmp/dev-harness-verify/context-pack-095-НЕТ}"; }
+
+# _t95_tail120 <текст> — первая строка, TAB → пробел, ≤120 символов: единый вид
+# нормализации хвоста PRECOND-строк для оракулов клеток И-16 (то же правило,
+# что несёт модель: первая строка stderr пробы, нормализованная и урезанная).
+_t95_tail120() { printf '%s\n' "$1" | LC_ALL=C.UTF-8 awk 'NR==1 { gsub(/\t/, " "); print substr($0, 1, 120); exit }'; }

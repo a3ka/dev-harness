@@ -20,9 +20,10 @@
 # свидетельство не той роли / профиль репо не найден /
 # нет файла слоя проекта / пин слоя проекта расходится / нет карты контекста /
 # источник недоступен / контракт не заморожен / нет выданного задания /
-# зона слишком широкая / режь задачу / брифинг только оркестратору. rc 2 —
-# NOT_IMPLEMENTED. Отказ печатается ДО выдачи пака: частичного stdout у
-# отказа нет (И-3: без молчаливого усечения).
+# зона слишком широкая / режь задачу / брифинг только оркестратору /
+# workflowPaths вне репо (отказ ЕДИНОГО резолвера путей 996 при снятии
+# предусловий И-16). rc 2 — NOT_IMPLEMENTED. Отказ печатается ДО выдачи пака:
+# частичного stdout у отказа нет (И-3: без молчаливого усечения).
 #
 # Инварианты контракта 095: И-0 грамматики, И-1 правила проекта не харнеса,
 # И-2 манифест разрешается, И-3 потерянная ссылка точна, И-4 роль меняет
@@ -32,7 +33,9 @@
 # И-8 свидетельство модели, И-9 бюджет вклейки, И-10 ADR и уроки по области,
 # И-11 происхождение фрагментов, И-12 брифинг — содержательный отдельный
 # режим, И-13 дословная доставка КОНТЕКСТ/§Существующее, И-14 два слоя
-# профиля → выдача.
+# профиля → выдача, И-16 предусловия брифа строками с rc (v2 Б3:
+# фактический rc стража и первая строка его stderr против NOT_RUN,
+# применимость по эффективным путям 996, бюджеты всего пути пробы).
 set -uo pipefail
 TAB="$(printf '\t')"
 
@@ -185,6 +188,104 @@ _adr_load() {  # печатает: id TAB область TAB решение (т�
   done
 }
 
+# ── И-16 (v2 Б3, слово владельца 2026-11-17): PRECOND — предусловия мира ────
+# ── ВХОДА строками с rc; пробы запускает ТОЛЬКО бриф — задачный пак их не ───
+# ── запускает вовсе. Замкнутый перечень трёх проб в фиксированном порядке: ──
+# sync_main, plan_gate, plan_slice. Снятие — ДО создания placeholder ci.yml,
+# как HEALTH: мир на момент ВХОДА. Красная проба НЕ роняет бриф: секция несёт
+# факты, решение за сессией. Семантика строки (арбитраж 095-granica-v2):
+#   фактический rc — проба ИСПОЛНИЛАСЬ: для plan_gate/plan_slice это rc
+#     вызванного стража и первая строка ЕГО stderr (не объединённого потока;
+#     нормализация TAB → пробел, ≤120 символов); именованный отказ стража об
+#     источнике (PLAN_SOURCE_UNAVAILABLE, «план недоступен…») — ФАКТИЧЕСКИЙ
+#     rc, НЕ NOT_RUN; для sync_main — rc/behind/ahead самой пробы;
+#   NOT_RUN rc=2 — обёртка НЕ исполнила пробу: нет инструмента стража, нет
+#     origin/main (sync_main), объявленная неприменимость, истечение бюджета;
+#     перечень причин замкнут: {нет origin/main, нет scripts/check_plan.sh,
+#     нет scripts/orch_plan_slice.sh, проектные workflowPaths вне стража,
+#     бюджет <N>с, проба не исполнилась}.
+# Применимость стражей 084/182 — по ЭФФЕКТИВНЫМ путям ЕДИНОГО резолвера 996
+# (project_paths_resolve): канонические корневые registry/, ROADMAP.md и
+# HANDOFF.md; наследуемый слой проекта или state вне корня уводит пробы в
+# NOT_RUN, не в ложное красное и не в станционную зелень. Отказ резолвера —
+# отказ двери «workflowPaths вне репо» ДО пака (канон строгого вызова
+# make_task), НЕ выдуманная станционная строка. Бюджет пробы (3/5/5 с)
+# ограничивает ВЕСЬ путь пробы, включая подготовку ref: неуспех подготовки
+# не висит мимо таймера.
+PRECOND_SEC=""
+if [ "$KIND" = "brief" ]; then # t95-m61: пробы предусловий — только брифу; задачный пак их не запускает
+  _pc_root="${CP095_ROOT:-$(cd "$(dirname "$0")/../../.." 2>/dev/null && pwd)}"
+  _pc_repo_abs="$(cd "$REPO" 2>/dev/null && pwd -P)"
+  _pc_add() { PRECOND_SEC="${PRECOND_SEC}PRECOND: $1 rc=$2${3:+ $3}
+"; }
+  _pc_tail() { printf '%s\n' "$1" | LC_ALL=C.UTF-8 awk 'NR==1 { gsub(/\t/, " "); print substr($0, 1, 120); exit }'; }
+  # ЕДИНЫЙ резолвер путей 996 — модель зовёт его сама (пакет уже вычислил его
+  # строгим вызовом; копий гард/слияния здесь нет)
+  if ! _pc_json="$( NEXT_ID_LIB=1; cd "$_pc_root" 2>/dev/null || exit 1
+      # shellcheck disable=SC1091
+      . ./scripts/next_id.sh 2>/dev/null || exit 1
+      [ "$(type -t project_paths_resolve)" = "function" ] || exit 1
+      project_paths_resolve "$_pc_repo_abs" )"; then
+    die "workflowPaths вне репо" # t95-m57: отказ резолвера — отказ двери, не станционная зелень
+  fi
+  _pc_reg="$(printf '%s' "$_pc_json" | jq -r '.registry')"
+  _pc_canon=1
+  [ "$_pc_reg" = "$_pc_repo_abs/registry" ] || _pc_canon=0 # t95-m55: эффективный registry слияния слоёв, не сырой ключ репо-JSON
+  _pc_rm="$(printf '%s' "$_pc_json" | jq -r '.roadmap')"
+  _pc_ho="$(printf '%s' "$_pc_json" | jq -r '.handoff')"
+  [ "$_pc_rm" = "$_pc_repo_abs/ROADMAP.md" ] && [ "$_pc_ho" = "$_pc_repo_abs/HANDOFF.md" ] || _pc_canon=0 # t95-m56: state вне корня — вне домена стражей 084/182
+  # (1) sync_main — локальный ref origin/main против HEAD, без сети; ВЕСЬ путь
+  # пробы (включая подготовку ref) — под бюджетом 3 с
+  _pc_ab=""; _pc_rc=0
+  _pc_ab="$(timeout 3 git -C "$REPO" rev-list --left-right --count origin/main...HEAD 2>/dev/null)" || _pc_rc=$? # t95-m50: фактический rc и behind/ahead самой пробы
+  if [ "$_pc_rc" -eq 0 ]; then
+    _pc_add sync_main 0 "behind=${_pc_ab%%$TAB*} ahead=${_pc_ab#*$TAB}"
+  elif [ "$_pc_rc" -eq 124 ]; then
+    _pc_add sync_main 2 "NOT_RUN бюджет 3с" # t95-m59: истечение бюджета — честный NOT_RUN, не зелёное
+  elif ! timeout 3 git -C "$REPO" rev-parse --verify -q origin/main >/dev/null 2>&1; then
+    _pc_add sync_main 2 "NOT_RUN нет origin/main"
+  else
+    _pc_add sync_main 2 "NOT_RUN проба не исполнилась"
+  fi
+  # (2) plan_gate — страж 084 по РАБОЧЕМУ дереву цели
+  if [ "$_pc_canon" = 0 ]; then
+    _pc_add plan_gate 2 "NOT_RUN проектные workflowPaths вне стража"
+  elif [ ! -f "$_pc_root/scripts/check_plan.sh" ]; then
+    _pc_add plan_gate 2 "NOT_RUN нет scripts/check_plan.sh"
+  else
+    _pc_o="$(mktemp 2>/dev/null || printf '/tmp/t95pc.%s.%s' "$$" "$RANDOM")"; _pc_e="${_pc_o}.e"
+    _pc_rc=0
+    timeout 5 bash "$_pc_root/scripts/check_plan.sh" --root "$REPO" >"$_pc_o" 2>"$_pc_e" || _pc_rc=$? # t95-m52: фактический rc стража 084
+    if [ "$_pc_rc" -eq 124 ]; then
+      _pc_add plan_gate 2 "NOT_RUN бюджет 5с" # t95-m58: истечение бюджета стража — честный NOT_RUN
+    elif [ "$_pc_rc" -eq 0 ]; then
+      _pc_add plan_gate 0
+    else
+      _pc_add plan_gate "$_pc_rc" "$(_pc_tail "$(cat "$_pc_e" 2>/dev/null)")"
+    fi
+    rm -f "$_pc_o" "$_pc_e"
+  fi
+  # (3) plan_slice — срез 182 по ОПУБЛИКОВАННОМУ origin/main
+  if [ "$_pc_canon" = 0 ]; then
+    _pc_add plan_slice 2 "NOT_RUN проектные workflowPaths вне стража"
+  elif [ ! -f "$_pc_root/scripts/orch_plan_slice.sh" ]; then
+    _pc_add plan_slice 2 "NOT_RUN нет scripts/orch_plan_slice.sh"
+  else
+    _pc_o="$(mktemp 2>/dev/null || printf '/tmp/t95pc.%s.%s' "$$" "$RANDOM")"; _pc_e="${_pc_o}.e"
+    _pc_rc=0
+    timeout 5 bash "$_pc_root/scripts/orch_plan_slice.sh" --repo "$REPO" >"$_pc_o" 2>"$_pc_e" || _pc_rc=$?
+    if [ "$_pc_rc" -eq 0 ]; then
+      _pc_sha="$(awk -F= '/^PLAN_SNAPSHOT: origin\/main=/{print $2; exit}' "$_pc_o")" # t95-m51: хвост зелёной строки — из PLAN_SNAPSHOT среза
+      _pc_add plan_slice 0 "origin/main=${_pc_sha:0:12}"
+    elif [ "$_pc_rc" -eq 124 ]; then
+      _pc_add plan_slice 2 "NOT_RUN бюджет 5с" # t95-m53: тайм-аут — NOT_RUN, не зелёное
+    else
+      _pc_add plan_slice "$_pc_rc" "$(_pc_tail "$(cat "$_pc_e" 2>/dev/null)")" # t95-m54: именованный отказ среза — фактический rc и его stderr, не NOT_RUN
+    fi
+    rm -f "$_pc_o" "$_pc_e"
+  fi
+fi
+
 if [ "$SKIP_TASK" = "0" ]; then
   # ── контракт: заморозка приоритетна; до заморозки — architect/critic ──────
   [ -n "$CONTRACT" ] || die "контракт не указан"
@@ -312,7 +413,9 @@ else
     done < <(_adr_load)
   fi
   HEALTH_SEC="$(printf 'HEALTH: branch=%s dirty=%s' "$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || printf '?')" "$(git -C "$REPO" status --porcelain 2>/dev/null | wc -l | tr -d ' ')")" # t95-m18
-  # Сначала неизменяемые секции, затем целые WORK-строки под тем же капом.
+  # Сначала неизменяемые секции (включая PRECOND — байты предусловий входят в
+  # базовый размер перед усечением WORK и в строку BUDGET), затем целые
+  # WORK-строки под тем же капом.
   WORK_HEAD="WORK: опущено: закрытых ${n_closed}, вне плана ${n_out}"$'\n'
   _pack_no_work() {
     printf '=== make_task contract=%s role=%s kind=%s ===\n' "${CONTRACT:-none}" "$ROLE" "$KIND"
@@ -322,6 +425,7 @@ else
     if [ -n "$GOAL_SEC" ]; then printf '=== GOAL ===\n%s\n' "$GOAL_SEC"; fi
     if [ -n "$DEC_SEC" ]; then printf '=== DECISIONS ===\n%s' "$DEC_SEC"; fi
     printf '=== HEALTH ===\n%s\n' "$HEALTH_SEC"
+    printf '=== PRECOND ===\n%s' "$PRECOND_SEC"
   }
   base="$(_pack_no_work | wc -c)"
   acc="$WORK_HEAD"; omitted=0
@@ -359,9 +463,10 @@ pack_body() {
     if [ -n "$WORK_SEC" ]; then printf '=== WORK ===\n%s' "$WORK_SEC"; fi
     if [ -n "$DEC_SEC" ]; then printf '=== DECISIONS ===\n%s' "$DEC_SEC"; fi
     printf '=== HEALTH ===\n%s\n' "$HEALTH_SEC"
+    if [ -n "$PRECOND_SEC" ]; then printf '=== PRECOND ===\n%s' "$PRECOND_SEC"; fi
   fi
 }
-VK="$(pack_body | wc -c | tr -d ' ')"
+VK="$(pack_body | wc -c | tr -d ' ')" # t95-m60: PRECOND-байты входят и в кап, и в строку BUDGET — без вычетов
 [ "$VK" -le 40000 ] || die "режь задачу: $VK > 40000" # t95-m9
 pack_body
 MAN_BODY="=== MANIFEST ===
