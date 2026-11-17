@@ -2,20 +2,26 @@
 """Красная батарея 201 — содержательная сверка done-двери (слово владельца
 2026-11-17 п.10). Четыре пункта:
 
-(а) accept ревьюера привязан к ПОСЛЕДНЕЙ заморозке: тег frozen/contracts/<NNN>/<vmax>
-    обязателен, свежий accept-вердикт несёт строку OBJECT=<40 hex> и закоммичен
-    не раньше коммита заморозки (F ⊆ CID, равенство проходит). Боль 141/991/999/109:
-    дверь выбирала accept старой версии и ставила done (замер консультанта
-    VerifyDone-1117-raw.json: rc 0 при неготовности).
+(а) accept ревьюера привязан к ПОСЛЕДНЕЙ заморозке: оракул САМ выбирает vmax из тегов
+    frozen/contracts/<NNN>/* мира (не из фактов сборки), свежий accept-вердикт несёт
+    строку OBJECT=<40 hex>, закоммичен не раньше F и СВЯЗАН с F самим объектом:
+    при F ⊊ CID — F ⊆ OBJECT (вердикт строго после заморозки судит реализацию этой
+    версии); при F == CID — OBJECT ⊆ F (вердикт в коммите заморозки: объект внутри
+    замороженной версии). Для OBJECT вне репо доказательство переноса — влитость в
+    main продукта (пункт б). Боль 141/991/999/109 и атака 201-v1 блок 1: пост-фактум
+    записанный вердикт на старый OBJECT — датирование файла вердикта связи не доказывает.
 (б) влитость: режим продукта (эффективный repoId ≠ dev-harness) — OBJECT обязан
-    разрешаться в репо и быть равным/предком HEAD («SHA ⊂ main» на момент done);
-    режим станции с OBJECT вне репо — контракт обязан объявить продукт строкой
-    `ПРОДУКТ: <owner>/<repo>`, влитость проверяется GitHub compare API
+    разрешаться в репо и быть равным/предком HEAD («SHA ⊂ main»); режим станции —
+    необходимость внешней проверки определяется ФАКТОМ внешней реализации: строкой
+    `ПРОДУКТ:` в ЗАМОРОЖЕННОМ тексте версии vmax (ровно одна, owner/repo), а НЕ
+    локальной разрешимостью OBJECT (класс 163): продукт объявлен и OBJECT локален —
+    отказ «обязан быть SHA продукта»; OBJECT внешен — GitHub compare API
     (main...OBJECT; identical|behind — влито) приёмом 187а (curl --max-time 30,
     GITHUB_TOKEN/GH_TOKEN). Недоступность API — честный отказ, не пропуск.
-(в) рисковым (строка класса в ЗАМОРОЖЕННОМ тексте → registry/risk-legacy.tsv по
-    blob → нет записи: рисковый, норма orchestrator) требуется свежий accept
-    АДВЕРСАРИЯ на ТОТ ЖЕ OBJECT (литеральное равенство 40-hex). Боль 157/111/123/995.
+(в) рисковым (строка класса в ЗАМОРОЖЕННОМ тексте выбранной заморозки →
+    registry/risk-legacy.tsv по blob → нет записи: рисковый, норма orchestrator)
+    требуется свежий accept АДВЕРСАРИЯ на ТОТ ЖЕ OBJECT (литеральное равенство
+    40-hex). Боль 157/111/123/995.
 (г) имя check-run arch: `arch`, `arch (…)`, `arch …` — принимаются;
     archive/architecture/march/arche — нет (боль: зелёный run бэкенда называется
     «arch (пин внешней архитектуры, model fitness + code-ratchet)», дверь искала
@@ -52,12 +58,15 @@ SVARKA = 'СВЕРКА-АРХИТЕКТУРЫ: identity.lookup; app/identity; п
 PH_A1 = 'done: нет заморозки frozen/contracts/777/* — привязка accept к последней версии невозможна'
 PH_A2 = 'done: вердикт {f} без строки OBJECT=<40 hex> — объект реализации не назван'
 PH_A3 = 'done: accept ревьюера {f} предшествует последней заморозке {t} — accept старой версии не открывает done новой'
+PH_A4 = 'done: OBJECT {o} не связан с последней заморозкой {t} — вердикт судит объект старой версии'
 PH_B1 = 'done: OBJECT {o} отсутствует в репо продукта — реализация не влита'
 PH_B2 = 'done: OBJECT {o} не предок HEAD — реализация не влита в main продукта'
 PH_B3 = 'done: OBJECT {o} вне репо контракта, а строки ПРОДУКТ: в контракте нет — влитость в продукт не проверяется'
 PH_B4 = 'done: строка ПРОДУКТ: вне грамматики: {s}'
 PH_B5 = 'done: влитость в main продукта {r} не проверена:'
 PH_B6 = 'done: OBJECT {o} не в main продукта {r} — реализация не влита'
+PH_B7 = 'done: OBJECT {o} разрешается в репо станции, а контракт объявил продукт {r} — OBJECT внешнего предмета обязан быть SHA продукта'
+PH_B7DUP = 'done: строка ПРОДУКТ: неоднозначна: {v}'
 PH_V1 = 'done: предмет рисковый, accept адверсария не найден:'
 PH_V2 = 'done: свежий вердикт адверсария {f} не accept'
 PH_V3 = 'done: вердикт адверсария {f} без строки OBJECT=<40 hex> — объект не назван'
@@ -184,6 +193,8 @@ CASES = (
     ('a-accept-staroj-versii', 'station', 1, 'предшествует последней заморозке'),
     ('a-net-zamorozki', 'station', 1, 'нет заморозки frozen/contracts/777/*'),
     ('a-verdikt-bez-object', 'station', 1, 'без строки OBJECT='),
+    ('a-object-do-zamorozki', 'station', 1, 'не связан с последней заморозкой'),
+    ('a-dve-zamorozki', 'station', 1, 'предшествует последней заморозке'),
     ('b-produkt-vlito', 'mob', 0, ''),
     ('b-produkt-object-mimo-main', 'mob', 1, 'не предок HEAD — реализация не влита в main продукта'),
     ('b-produkt-object-otsutstvuet', 'mob', 1, 'отсутствует в репо продукта'),
@@ -192,6 +203,8 @@ CASES = (
     ('b-vneshnij-bez-stroki', 'station', 1, 'строки ПРОДУКТ: в контракте нет'),
     ('b-vneshnij-stroka-krivaja', 'station', 1, 'ПРОДУКТ: вне грамматики'),
     ('b-vneshnij-api-nedostupen', 'station', 1, 'влитость в main продукта a3ka/toy-mob не проверена'),
+    ('b-vneshnij-object-stancionnyj', 'station', 1, 'обязан быть SHA продукта'),
+    ('b-vneshnij-dublikat-stroki', 'station', 1, 'строка ПРОДУКТ: неоднозначна'),
     ('v-riskovyi-sopostavimyj-object', 'station', 0, ''),
     ('v-riskovyi-bez-adversarii', 'station', 1, 'accept адверсария не найден'),
     ('v-riskovyi-drugoj-object', 'station', 1, ', ревьюера — на '),
@@ -211,6 +224,9 @@ CASES = (
 
 STABS = {
     's-a-prinimaet-ljubuju-versiju': 'a-accept-staroj-versii',
+    's-a-object-bez-svjazi': 'a-object-do-zamorozki',
+    's-a-staraja-zamorozka': 'a-dve-zamorozki',
+    's-b-stancionnyj-object-prohodit': 'b-vneshnij-object-stancionnyj',
     's-a-object-ne-nuzhen': 'a-verdikt-bez-object',
     's-b-vlitost-ne-proverjaetsja': 'b-produkt-object-mimo-main',
     's-b-api-vsegda-vlito': 'b-vneshnij-ne-vlit',
@@ -235,12 +251,14 @@ def build(base, label, kind, name=None):
                                       and label not in ('b-vneshnij-bez-stroki', 'b-vneshnij-stroka-krivaja')) else None
     if label == 'b-vneshnij-stroka-krivaja':
         product = 'toy-mob'  # без слэша — вне грамматики
-
     root, contract, registry = world(base, name or label, kind)
-    put(root, contract, contract_text(
+    text = contract_text(
         risk=None if risk is None else risk,
         product=product,
-        both_risks=(risk == 'оба')))
+        both_risks=(risk == 'оба'))
+    if label == 'b-vneshnij-dublikat-stroki':
+        text += 'ПРОДУКТ: a3ka/toy-back\n'  # вторая строка с другим значением — объявление неразборчиво
+    put(root, contract, text)
     git(root, 'add', '-A')
     git(root, 'commit', '-qm', 'baseline')
     b0 = git(root, 'rev-parse', 'HEAD')
@@ -258,6 +276,8 @@ def build(base, label, kind, name=None):
         object_sha = MISSING_OBJECT
     if label == 'a-verdikt-bez-object':
         object_sha = None
+    if label == 'b-vneshnij-object-stancionnyj':
+        object_sha = impl  # свежий accept на ЛОКАЛЬНЫЙ станционный OBJECT объявленного внешнего предмета (класс 163)
 
     # вердикт ревьюера
     put(root, review_path(kind), verdict_text(object_sha, svarka=(kind == 'back')))
@@ -293,13 +313,26 @@ def build(base, label, kind, name=None):
     f_target = b0
     if label == 'a-ravenstvo-frozen-verdikt':
         f_target = cid
-    if label == 'a-accept-staroj-versii':
+    if label == 'a-object-do-zamorozki':
+        f_target = impl  # заморозка на реализации
+    if label in ('a-accept-staroj-versii', 'a-dve-zamorozki'):
         put(root, 'AGENTS.md', '# Fixture 2\n')
         git(root, 'add', '-A')
         git(root, 'commit', '-qm', 'post-verdict freeze carrier')
         f_target = git(root, 'rev-parse', 'HEAD')
-    if label != 'a-net-zamorozki':
+    if label == 'a-dve-zamorozki':
+        # две версии: /1 ДО вердикта (старая), /2 ПОСЛЕ — судить обязана последняя /2
+        git(root, 'tag', 'frozen/contracts/777/1', b0)
+        git(root, 'tag', 'frozen/contracts/777/2', f_target)
+    elif label != 'a-net-zamorozki':
         git(root, 'tag', 'frozen/contracts/777/1', f_target)
+    if label == 'a-object-do-zamorozki':
+        # пост-фактум вердикт (строго после заморозки) на СТАРЫЙ объект — атака 201-v1 блок 1
+        put(root, review_path(kind), verdict_text(b0))
+        git(root, 'add', '-A')
+        git(root, 'commit', '-qm', 'post-freeze verdikt na staryj object')
+        cid = git(root, 'rev-parse', 'HEAD')
+        object_sha = b0
 
     # боковая невлитая ветка (клетка mimo-main)
     side = None
@@ -383,13 +416,35 @@ def model(root, f, mutant=''):
     def skip(name):
         return mutant == name
 
-    # (а)
-    if f['frozen'] is None:
+    # (а): заморозку оракул выбирает САМ из тегов мира — vmax, а не старейшая
+    # (вердикт 201-v1 блок 3: мутант «первый тег» не должен проходить батарею)
+    tags = sorted(git(root, 'tag', '-l', 'frozen/contracts/777/*').splitlines())
+    if not tags:
         return 1, PH_A1
-    if not skip('s-a-object-ne-nuzhen') and not re.fullmatch(r'[0-9a-f]{40}', f['object'] or ''):
+
+    def ver(t):
+        return int(t.rsplit('/', 1)[1])
+
+    if skip('s-a-staraja-zamorozka'):
+        ftag = min(tags, key=ver)   # мутант «старейшая заморозка вместо последней»
+    else:
+        ftag = max(tags, key=ver)
+    frozen = git(root, 'rev-parse', ftag + '^{commit}')
+    obj = f['object']
+    obj_local = bool(re.fullmatch(r'[0-9a-f]{40}', obj or '')) and obj in f['local_objects']
+    ext = bool(re.fullmatch(r'[0-9a-f]{40}', obj or '')) and obj not in f['local_objects']
+    frozen_text = git(root, 'show', f'{ftag}:{f["contract"]}')
+    if not skip('s-a-object-ne-nuzhen') and not re.fullmatch(r'[0-9a-f]{40}', obj or ''):
         return 1, PH_A2.format(f=f['review_file'])
-    if not skip('s-a-prinimaet-ljubuju-versiju') and not is_ancestor(root, f['frozen'], f['cid']):
-        return 1, PH_A3.format(f=f['review_file'], t='frozen/contracts/777/1')
+    if not skip('s-a-prinimaet-ljubuju-versiju'):
+        if not is_ancestor(root, frozen, f['cid']):
+            return 1, PH_A3.format(f=f['review_file'], t=ftag)
+        # связь ОБЪЕКТА с последней заморозкой (блок 1: датирование файла не доказывает)
+        if not skip('s-a-object-bez-svjazi') and obj_local:
+            bound = (is_ancestor(root, obj, frozen) if frozen == f['cid']
+                     else is_ancestor(root, frozen, obj))
+            if not bound:
+                return 1, PH_A4.format(o=obj, t=ftag)
     # (б)
     if not skip('s-b-vlitost-ne-proverjaetsja'):
         if f['kind'] != 'station':
@@ -397,31 +452,51 @@ def model(root, f, mutant=''):
                 return 1, PH_B1.format(o=f['object'])
             if not is_ancestor(root, f['object'], f['head']):
                 return 1, PH_B2.format(o=f['object'])
-        elif f['object'] not in f['local_objects']:
-            line = f['product']
-            if line is None:
-                return 1, PH_B3.format(o=f['object'])
-            if not PRODUCT_RE.match(f'ПРОДУКТ: {line}' if isinstance(line, str) else ''):
-                return 1, PH_B4.format(s=f'ПРОДУКТ: {line}')
-            status = f['compare_status']
-            if skip('s-b-api-vsegda-vlito'):
-                status = 'behind' if status else 'not-found-green'
-            if status in ('identical', 'behind', 'not-found-green'):
-                pass
-            elif status in ('ahead', 'diverged'):
-                return 1, PH_B6.format(o=f['object'], r=PRODUCT_OWNER_REPO)
+        else:
+            # необходимость внешней проверки — ФАКТ внешней реализации в замороженном
+            # тексте выбранной заморозки, не локальная разрешимость OBJECT (блок 2, класс 163)
+            plines = [ln for ln in frozen_text.splitlines() if ln.startswith('ПРОДУКТ:')]
+            declared = None
+            if len(plines) > 1:
+                return 1, PH_B7DUP.format(v='; '.join(plines))
+            if plines:
+                m = PRODUCT_RE.match(plines[0])
+                if not m:
+                    return 1, PH_B4.format(s=plines[0])
+                declared = m.group(1)
+            if declared is None:
+                if ext:
+                    return 1, PH_B3.format(o=f['object'])
+            elif obj_local:
+                if not skip('s-b-stancionnyj-object-prohodit'):
+                    return 1, PH_B7.format(o=f['object'], r=declared)
             else:
-                return 1, PH_B5.format(r=PRODUCT_OWNER_REPO) + ' API недоступен'
-    # (в)
-    klass = 'обычный'
-    if f['risk'] == 'оба':
+                status = f['compare_status']
+                if skip('s-b-api-vsegda-vlito'):
+                    status = 'behind' if status else 'not-found-green'
+                if status in ('identical', 'behind', 'not-found-green'):
+                    pass
+                elif status in ('ahead', 'diverged'):
+                    return 1, PH_B6.format(o=f['object'], r=declared)
+                else:
+                    return 1, PH_B5.format(r=declared) + ' API недоступен'
+    # (в): класс риска — из ЗАМОРОЖЕННОГО текста выбранной заморозки, как у двери
+    risks = {m.group(1) for m in RISK_RE.finditer(frozen_text)}
+    if len(risks) > 1:
         return 1, PH_V5
-    if f['risk'] == 'рисковый':
-        klass = 'рисковый'
-    elif f['risk'] is None:
-        klass = 'рисковый'  # нет строки и записи risk-legacy (клетка default; legacy-клетка зелёна без адверсария)
-        if f.get('legacy_obychnyj'):
-            klass = 'обычный'
+    klass = next(iter(risks)) if risks else None
+    if klass is None:
+        blob = git(root, 'rev-parse', f'{ftag}:{f["contract"]}')
+        legacy = ('registry/risk-legacy.tsv' if f['kind'] == 'station'
+                  else '.harness/registry/risk-legacy.tsv')
+        klass = 'рисковый'  # нет строки и записи — рисковый (норма orchestrator)
+        lp = root / legacy
+        if lp.is_file():
+            for row in lp.read_text().splitlines():
+                cols = row.split('\t')
+                if len(cols) > 1 and cols[0] == blob:
+                    klass = cols[1]
+                    break
     if klass == 'рисковый' and not skip('s-v-adversarij-ne-trebuetsja'):
         if not f['adversary']:
             return 1, PH_V1 + f' {f["review_file"].rsplit("/", 1)[0]}/contracts-777-*.md'
@@ -444,7 +519,6 @@ def model(root, f, mutant=''):
         if not ok_name:
             return 1, f'{PH_ARCH_CI}: успешного check-run arch на финальном SHA нет'
     return 0, ''
-
 
 def live(tools, root, contract, facts):
     env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
