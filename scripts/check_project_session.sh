@@ -72,7 +72,7 @@ SEV = (("config-yml", "config.yml"), ("models-db", "models.db"),
        ("skill-descriptions-db", "skill-descriptions.db"))
 AGENTDB = "agent.db"
 NIKOGDA = ("sessions", "history.db", "blobs", "terminal-sessions", "custom-session-files")
-ZAGOLOVOK_PRAVIL = "## Правила, каждое из которых уже стоило время"
+ZAGOLOVOK_PRAVIL = "## Правила, каждое из которых уже стоило времени"
 
 
 def nechem(prichina):
