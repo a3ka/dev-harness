@@ -240,6 +240,15 @@
 #   красны на этом merge (#1004); допущение только для этой пары; слово владельца 2026-11-16 «пара 49 — да»
 #   через консультанта)
 #
+#   be50743754cffbcd4e5a4741e9b9bd38838327c7  contracts/197-mob-ci-artefakty-lokalno.md
+#   e642c62099a417a98149900ca8e4cb321e237912  contracts/197-mob-ci-artefakty-lokalno.md
+#   4150211f935d0a0268c56387ec70f3d7d5d4ece9  contracts/197-mob-ci-artefakty-lokalno.md
+#   (50-я/51-я/52-я: merge-коммиты носителя 186 v+1 («интеграция wip/186/architect», «интеграция wip/186/arbiter-v2e», «интеграция wip/186/critic-v2e»)
+#   попадают в окно (б) check_contract_frozen для 197 отбором по пути (не TREESAME ко второму родителю), хотя
+#   diff к первому родителю по contracts/197 ПУСТ у каждого (блоб = frozen/contracts/197/1 d511b5f5); текст 197 не
+#   меняют; ложно валят носитель 197 v2 (#1019) — тот же класс, что пара 48; допущение только для этих трёх пар;
+#   слово владельца 2026-11-17 «пары 50–52 — да» через консультанта после перепроверки на head #1019 9ce15544)
+#
 # НЕ добавлять новые записи без прямого слова владельца в НОВОМ коммите с обоснованием.
 #
 # is_charter_path (контракт 019, ветвь 1 — единый источник предиката). Staged-путь
@@ -457,6 +466,12 @@ grandfather_pair() {
       [ "$p" = "contracts/999-cmp-mob-002-navigatsiya.md" ] && return 0 ;;
     2defcc46a1e2b3bfe5d22cdbaf90912d64246f20)
       [ "$p" = "contracts/147-gespraech-vhod-menu.md" ] && return 0 ;;
+    be50743754cffbcd4e5a4741e9b9bd38838327c7)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    e642c62099a417a98149900ca8e4cb321e237912)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    4150211f935d0a0268c56387ec70f3d7d5d4ece9)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
   esac
   return 1
 }
