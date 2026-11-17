@@ -570,6 +570,29 @@ def g01(subiekt, wf, shagi, _):
             return f'FORMA_NOSITELJA_VNE_GRAMMATIKI: {job_id}.{shag.get("name")}'
     return None
 
+@kletka('g02-rabochij-katalog-nositelja')
+def g02(subiekt, wf, shagi, _):
+    # 197 v+1 (урок mob#180): lanes объявлены в КОРНЕВОМ package.json; при
+    # defaults.run.working-directory: mobile шаг-носитель без собственного
+    # ключа исполняется в mobile/ — npm падает «Missing script», транспорт
+    # молча теряется (исправление продукта d089250a67). Эффективный рабочий
+    # каталог каждого носителя — корень workspace: умолчание отсутствует/корень
+    # либо шаговый литерал working-directory: ${{ github.workspace }}.
+    KOREN_WORKSPACE = '${{ github.workspace }}'
+    for job_id, shag, spisok, env in shagi:
+        if not _est_lane_v_shage(spisok):
+            continue
+        job = (wf.get('jobs') or {}).get(job_id) or {}
+        umolchanie = ((job.get('defaults') or {}).get('run') or {}).get('working-directory')
+        if umolchanie is None:
+            umolchanie = ((wf.get('defaults') or {}).get('run') or {}).get('working-directory')
+        shagovyj = shag.get('working-directory')
+        effektivnyj = shagovyj if shagovyj is not None else umolchanie
+        if effektivnyj is None or effektivnyj == KOREN_WORKSPACE:
+            continue
+        return f'NOSITEL_BEZ_WORKING_DIRECTORY: {job_id}.{shag.get("name")}: cwd={effektivnyj}'
+    return None
+
 # ── исполнимость и замкнутый инвентарь (писатели и читатели вместе) ──
 
 DOPUSTIMYE_IF_SHAGA = {'always()', 'success()'}
@@ -817,9 +840,8 @@ def r07(pesok):
         fakt = pesok.koren / f'sbor/{imja}/result.json'
         if not fakt.is_file() or fakt.read_text(encoding='utf-8') != ozhidanie:
             return f'SHABLON_NE_SOBRAL: {imja}'
-    p = pesok.vyzov(['chtenie', '--shablon', 'netu-*', '--kuda', 'sbor2'])
-    if p.returncode == 0 or 'SOVPADENIJ_NET' not in p.stderr:
-        return f'PUSTOJ_SHABLON_NE_KRASN: rc={p.returncode} {p.stderr.strip()}'
+    # 197 v+1: проверка пустого шаблона вынесена в r10-shablon-pusto
+    # (пустой выбор — rc 0 + CHTENIE_PUSTO + пустой --kuda)
     return None
 
 
@@ -842,6 +864,46 @@ def r09(pesok):
     if not (pesok.koren_artefaktov / '4242-1/odno/a').is_file() or \
        not (pesok.koren_artefaktov / '4242-2/drugoe/b').is_file():
         return 'POPYTKI_SLILIS: каталоги попыток не изолированы'
+    return None
+
+
+@_replay_kletka('r10-shablon-pusto')
+def r10(pesok):
+    # 197 v+1: пустой выбор ШАБЛОНА — НЕ отказ (семантика download-artifact
+    # с pattern): rc 0, именованная строка CHTENIE_PUSTO, каталог --kuda
+    # создан ПУСТЫМ. Каталог run'а при этом СУЩЕСТВУЕТ (другой артефакт
+    # написан) — судится именно ветвь пустого шаблона, а не fail-closed
+    # отсутствующего run'а. Ложной зелели нет: непустой выбор при пустом
+    # evidence — именованный отказ агрегата ci-aggregate (вне батареи).
+    pesok.zapis('drugoe/result.json', '{"ok":1}')
+    p = pesok.vyzov(['zapis', '--imja', 'drugoe', '--chto', 'src/drugoe'])
+    if p.returncode != 0:
+        return f'ZAPIS_OTKAZ: rc={p.returncode}'
+    p = pesok.vyzov(['chtenie', '--shablon', 'netu-*', '--kuda', 'sbor-pusto'])
+    if p.returncode != 0:
+        return f'SHABLON_PUSTO_OTKAZ: rc={p.returncode} {p.stderr.strip()}'
+    if 'CHTENIE_PUSTO' not in (p.stdout + p.stderr):
+        return f'CHTENIE_PUSTO_NET: stdout={p.stdout.strip()!r} stderr={p.stderr.strip()!r}'
+    sbor = pesok.koren / 'sbor-pusto'
+    if not sbor.is_dir():
+        return 'KUDA_PUSTOJ_NE_SOZDAN: каталог --kuda отсутствует'
+    if any(sbor.iterdir()):
+        return 'KUDA_PUSTOJ_NE_PUST: каталог --kuda не пуст'
+    return None
+
+
+@_replay_kletka('r11-tochnoe-imja-otsutstvuet')
+def r11(pesok):
+    # 197 v+1: смягчён ТОЛЬКО шаблонный пустой выбор; ТОЧНОЕ имя без
+    # совпадения — по-прежнему именованный отказ rc 2 (fail-closed
+    # сохранён): каталог run'а существует, имя в нём отсутствует.
+    pesok.zapis('drugoe/result.json', '{"ok":1}')
+    p = pesok.vyzov(['zapis', '--imja', 'drugoe', '--chto', 'src/drugoe'])
+    if p.returncode != 0:
+        return f'ZAPIS_OTKAZ: rc={p.returncode}'
+    p = pesok.vyzov(['chtenie', '--imja', 'netu-takogo', '--kuda', 'vychitka'])
+    if p.returncode == 0 or 'CHTENIE_OTSTUTSTVUET' not in p.stderr:
+        return f'TOCHNOE_IMJA_TICHO_PROSHLO: rc={p.returncode} {p.stderr.strip()}'
     return None
 
 
