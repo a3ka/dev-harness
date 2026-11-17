@@ -1,58 +1,63 @@
 accept
-OBJECT=250f46dc61166df88c1611a2398c37e57192319b
-КЛАСС=кодовый; риск=обычный — подтверждён: предмет меняет двери процесса (make_task/freeze_contract/pre_critic/done_contract/check_architecture_contract), права/роли БД, авторизация, деньги, ПД/health и юридически значимые действия не затрагиваются (контракт:4 «КЛАСС РИСКА: обычный»); оснований для повышения нет.
-СУД: repo=dev-harness; предмет=187; фаза=контракт v2 (УЗКИЙ вызов критика ПОСЛЕ АРБИТРАЖА о границе — слово владельца 2026-11-11 ~18:20 UTC, AGENTS.md §Арбитр); роль=critic; вызов=узкий 2/2 фазы v2, 5-й по предмету (кап 5 исчерпан этим вызовом); модель-план=zai/glm-5.3 (тир apex-sol); сессия=Crit187n; модель-факт=zai/glm-5.3; SHA=250f46dc61166df88c1611a2398c37e57192319b; предыдущий=verdicts/critic/contracts-187-v2-r1.md (FAIL, OBJECT 03a69e82e), затем арбитраж verdicts/arbitration/contracts-187-v2-granica.md (титул «(контракт 187)», модель-факт openai-codex/gpt-6-astra); исключение=узкий вызов после арбитража (только пп. 1–3 решения арбитра).
 
-# Вердикт критика — контракт 187 v2: узкий вызов после арбитража
+OBJECT=09e5c11543423b7d25e053ac54f4db192908e79b
+СУД: repo=dev-harness; предмет=187; фаза=контракт v+1 (до заморозки v2); роль=critic; вызов=1/1 (ОДИН узкий вызов по дельте, слово владельца 2026-11-16 ~09:39 UTC «187 v2 — да, но сначала убедись по правилам», через консультанта); модель-план=apex-sol (openai-codex/gpt-6.1-sol); модель-факт=zai/glm-5.3 (по окружению сессии судьи; расхождение с планом — вопрос маршрутинга харнесса, семейный запрет снят контрактом 166, на предмет суда не влияет); сессия=Crit187V2; SHA=09e5c11543 (tip origin/wip/187/architect-v2-1116); предыдущий=verdicts/critic/contracts-187-v1…v3 → frozen/contracts/187/1; исключение=слово владельца.
 
-Кандидат: tip `wip/187/architect` `250f46dc6` (в моём клоне `/tmp/dev-harness-verify/Crit187n/repo`, сверен `git rev-parse`), два коммита `Arch187Fix2` поверх `8f2de864d`: `ec0acbb82` (контракт, 15 строк) и `250f46dc6` (workflow_probe.py, +47/−6). Дельта касается только `contracts/187-arhitektura-v-processe.md` и семьи `fixtures/workshop_project/architecture_process_187/` (`git diff --stat`, 2 файла). Запись оркестратора — origin/main HANDOFF строка 2 (сессия=ожидается → дополнена фактом `сессия=Crit187n; модель-факт=zai/glm-5.3` в заголовке этого вердикта). `verdicts/critic/contracts-187-v2.md` в origin/main отсутствует (`git ls-tree`: только `contracts-187-v1*.md`, `contracts-187-v2-r1.md`); vmax `frozen/contracts/187/*` = 1 → имя заморозки по канону.
+# Предмет
 
-Область — ТОЛЬКО исполнение пп. 1–3 арбитража (замер M4–M6 дословно по командам арбитра, на OBJECT). Полные `--model`/`--stabs` — проверка сохранения батареи; `--repo .` — заявленная краснота до реализации. Новых классов не открываю: находок вне пунктов арбитра нет, кроме совета ниже. Совпадение модели критика с моделью автора отказа не даёт (контракт 166, §Независимость: выбор по назначению роли в config/agent_models.json); судится текст автора, не мой прежний вердикт — спор сторон решён арбитром другой модели.
+Дельта `git diff frozen/contracts/187/1^{commit} 09e5c11543 -- contracts/187-arhitektura-v-processe.md`: пять добавленных строк (четыре `ПОТРЕБИТЕЛЬ …` + census-замер) в конце раздела «Приёмочный критерий», перед «## Модель угроз». Инварианты, код, красные тесты, Модель угроз и Зоны 187 не тронуты. Ничего вне этих пяти строк не рассматривалось — неизменённые поверхности без нового риска по §Порог не исследуются (roles/critic.md §Контракт).
 
-## Пункт 1(a) — union-отказ семантический: ЗАКРЫТ
+# Проверка пяти пунктов задания (всё живыми прогонами)
 
-Наблюдатель `locate-union-foreign` (`workflow_probe.py:241-251` `refusal_ok`) требует сам код `ARCH_ZONE` (граница слова) и ЛЮБОЙ компонент объединения в позиции атрибуции; проверка rc 1 и отсутствие frozen-тега сохранены (`workflow_probe.py:875, 884-886`). Честный контроль называет не-первый компонент `union[-1]` (`workflow_probe.py:645-647`). Замеры (команды арбитра дословно, cwd=репо на OBJECT):
+Клон ssh://git@github.com/a3ka/dev-harness.git → /tmp/dev-harness-verify/Crit187V2/repo, свой .git, detached HEAD = OBJECT, `git status --porcelain` пуст. Push не делался, в общий чекаут не писалось, коммитов не создавалось, identity owner не использовалась.
 
-- M4 (был RED): `python3 -B -c '…p.live=lambda…CompletedProcess([],1,"","ARCH_ZONE: путь app/multi/x.js отнесён моделью к компоненту api.documents, а строка называет api.identity\n")…'` → `GREEN locate-union-foreign: rc=1 expected=1 reason=ARCH_ZONE`, `CELLS=1 STABS=0 FAILURES=0`, rc 0.
-- M5 (был GREEN): тот же вход с `PATH_WITHOUT_COMPONENT: … к компоненту api.hub` → `RED locate-union-foreign: rc=1 expected=1 reason=ARCH_ZONE output='PATH_WITHOUT_COMPONENT: … api.hub\n'`, `CELLS=1 … FAILURES=1`, rc 1. Клетка проверяет `ARCH_ZONE`, а не любой отказ.
-- Свойство множества, не перестановка литерала (мои пробы): `api.hub` (первый) → GREEN; `api.effects` (последний, имя честного контроля) → GREEN; `ARCH_ZONE` с вне-объединённым `api.identity` → RED (rc 1). Новый случайный литерал не закреплён.
-- Стабы: `union-refusal-wrong-code caught @ locate-union-foreign` (иной код отказа), `union-any-component` и `locate-first-match-component` по-прежнему caught (`--stabs`).
+(1) Дельта ровно +5/−0, остальное байт-в-байт — ДА.
+  $ git diff --stat frozen/contracts/187/1^{commit} 09e5c11543 -- contracts/187-arhitektura-v-processe.md
+   contracts/187-arhitektura-v-processe.md | 5 +++++
+   1 file changed, 5 insertions(+)
+  Один hunk, удалений нет, других hunks нет (унифицированный diff показал бы любое иное расхождение байтов). Старый файл 140 строк, новый 145. Добавленные строки — 45–49, без хвостовых пробелов (cat -A).
 
-## Пункт 1(b) — выданный пак при ARCH_CLASS_MISSING: ЗАКРЫТ
+(2) Четыре пробы живые и различающие — ДА.
+- Механизм гейта: scripts/check_consumers.sh:395-417 — проба извлекается из рабочего файла контракта регексом ^ПОТРЕБИТЕЛЬ <consumer>:, исполняется ( cd "$ROOT" && sh -c "$probe_line" ), таймаут 60×1 с с kill -9, требуется rc 0; п1-b требует census-строку. Потребители берутся ровно из scripts/consumers.d/*.tsv.
+- Census-маппинг на дереве: freeze_contract.sh → fixtures/check_check_contract_ready/, fixtures/drill_contract_change/, scripts/spawn_agent.sh; done_contract.sh → scripts/check_spec_ready.sh — ровно четыре пары, ровно четыре ПОТРЕБИТЕЛЬ-строки (45–48), пути побайтово совпадают с TSV. lib_registry.sh в окне не тронут (git log frozen/contracts/187/1..HEAD -- scripts/lib_registry.sh пуст) — его пары окном не судятся, проб на них не требуется.
+- Живой прогон гейта: `bash scripts/check_consumers.sh . contracts/187-arhitektura-v-processe.md` → rc=0 за 24.31 с. Непустота доказана xtrace: touched_writers+= ×2 (scripts/freeze_contract.sh, scripts/done_contract.sh — оба покрыты своей ЗОНА-строкой frozen 187/1, ветка И-6 zone_covers → return 0), извлечены и исполнены все четыре probe_line=, итог rc=0 ×4. Гейт не vacuous. Xtrace сохранён: /tmp/dev-harness-verify/Crit187V2/xtrace.log.
+- Индивидуальные пробы (последовательно, замок verify_antiplacebo):
+  $ bash fixtures/check_check_contract_ready/doc_048/probe_zhivoy_vyzov_048.sh
+    ok (зоны) без зон → RC≠0, названо «зон»; ok (зонаформ); ok (проба); ok (пробаф); ok (счёт); ok (арбитраж); ok (готов) готовый контракт → RC=0 + «OK»
+    check_check_contract_ready: ветви «all» зелены  [rc=0]
+  $ bash scripts/verify_antiplacebo.sh --scope drill_contract_change
+    ok drill_contract_change/case_procedura_ne_prinjata.sh: повторный прогон красный кодом 1
+    барьеров: 1 · фикстур: 1 · предъявлено красным повторным прогоном: 1  [rc=0]
+  $ bash scripts/verify_antiplacebo.sh --scope spawn_agent
+    ok spawn_agent/case_bez_identichnosti.sh: красный кодом 1 — «HEAD не main»
+    ok spawn_agent/case_octal_sdvig_znachenija.sh: красный кодом 1 — «уже существует»
+    барьеров: 1 · фикстур: 2 · предъявлено красным повторным прогоном: 2  [rc=0]
+  $ bash scripts/check_spec_ready.sh . contracts/187-arhitektura-v-processe.md → OK [rc=0]
+- Различаемость (правило 3 AGENTS.md): пробы 1–3 предъявляют красное внутри себя. Проба 4 различает мутацией числа census в изолированном NNN-файле: bash scripts/check_spec_ready.sh <корень> contracts/999-mutacija-census.md (= 7 вместо 6) → «спек-гейт 036: замер расходится: заявлено 7, команда даёт 6» [rc=1]; файл без NNN-имени → rc 2. После проб мутант удалён, git status чист.
 
-Наблюдатель судит реальный канал выдачи — строку заголовка пака в stdout (`PACK_MARKER = '=== make_task contract='`, `workflow_probe.py:192-196`; проверка `workflow_probe.py:876-877` и в stabilization `:896-898`), а не флаг субъекта. Замеры:
+(3) Census-строка по форме прецедента и значением 6 — ДА. Строка 49 побайтово той же формы, что frozen/122/4:63: замер: `cat scripts/consumers.d/*.tsv | wc -l` = 6 census scripts/consumers.d/*.tsv; размещение — в конце раздела критерия, как в 122/4. Живой пересчёт на дереве: 6. Сам check_consumers проверяет наличие строки (любое N); число живо перепроверяется веткой В2 пробы 4 и freeze-шагом §6а (036, две меры) — композиция замкнута.
 
-- M6 (был GREEN): команда арбитра дословно (настоящая дверь `make_task` исполняется, затем rc→1 + дописан `ARCH_CLASS_MISSING`) → `RED task-class-missing: rc=1 expected=1 reason=ARCH_CLASS_MISSING output='=== make_task contract=777 role=architect kind=task ===\n…'`, `PUBLIC_DOOR_RC=0 PACK_EMITTED=True CELL_RUNNER_RC=1`, rc 1. Поздний отказ над выданным паком больше не зелёнит клетку.
-- Честный ранний отказ зелёный: `--model`/`--stabs` → `GREEN task-class-missing: rc=1 expected=1 reason=ARCH_CLASS_MISSING` (без пака).
-- Стабы: `task-class-skip caught @ task-class-missing`, `task-pack-then-refuse caught @ task-class-missing` (`--stabs`).
-- Не ослаблено: положительная выдача пака (`task-valid` GREEN со структурным контролем `PINNED_BRIEF_187`/`WRONG_HEAD_BRIEF_187`/`STRUCTURE.md`/`RULES_FROM_PIN_187`, `workflow_probe.py:878-884`) и done-контроль отсутствия тега (`:884-886`, `done-class-missing` GREEN в `--model`) — обе проверки на месте.
+(4) РАЗРЕШИЛ-ВЛАДЕЛЕЦ — ДА. В теле 09e5c115 (автор и коммиттер architect <architect@dev-harness.local>, не owner), первая колонка:
+  РАЗРЕШИЛ-ВЛАДЕЛЕЦ: contracts/187-arhitektura-v-processe.md 187 v2: четыре пробы потребителей писателей freeze_contract.sh и done_contract.sh и census; остальной текст сохранён (слово владельца 2026-11-16 ~09:39 UTC «187 v2 — да, но сначала убедись по правилам», через консультанта)
+Путь дословен, причина непуста, цитата дословно совпадает со словом владельца в задании; дата и «через консультанта» — фактические уточнения маршрута. Механически: CHARTER_LIB=1 source scripts/check_charter.sh; razreshil 09e5c115… contracts/187-arhitektura-v-processe.md → rc=0. Тексто-меняющих коммитов после frozen/187/1 ровно один (09e5c115) — требование (б) check_contract_frozen закрыто целиком.
 
-## Пункт 1(c) — не ослаблен
+(5) Законность заморозки v2 и отсутствие «тихо зелёного done» — ДА.
+- scripts/freeze_contract.sh:347-355: check_consumers исполняется ДО создания тега (g tag -a — строка 562), окно = последний frozen-тег..HEAD на момент вызова = frozen/contracts/187/1..HEAD — непустое (380 не-merge коммитов; оба писателя тронуты судимыми коммитами 3a75e2d4, 56a4747b, de86f2d8, f387542d, автор implementer, своя ЗОНА 187). Заморозка v2 РЕАЛЬНО исполняет все четыре пробы по старому окну — доказано живым прогоном на точном SHA кандидата.
+- check_contract_frozen.sh:151-193: путь к v2 — (а) accept-вердикт критика v+1 на HEAD (этот вердикт) ∧ (б) razreshil в каждом текстовом коммите (rc=0). Ручной тег не нужен и запрещён.
+- После freeze окно done = frozen/187/2..HEAD пустое → check_consumers на done даёт vacuous rc 0 — штатная ветка контракта 038 (п2), не обход: пустое окно означает отсутствие непроверенных правок писателей ПОСЛЕ верифицированной заморозки; любая новая правка писателя вновь раскрыла бы окно и потребовала пробы. Доказательство старого окна живёт в зелёном прогоне check_consumers до тега (воспроизведён на SHA кандидата); выдавать будущий зелёный done за повторное исполнение проб не следует, но обязательств сверх этого не нарушено.
 
-- `--repo .`: `GREEN pin-foreign-hex: rc=1 expected=1 reason=ARCH_PIN`.
-- `--stabs`: `pin-net-for-hex caught @ pin-foreign-hex`.
-- Мой контроль M8 (замена только имени в результате настоящей двери `ARCH_PIN`→`ARCHITECTURE_NET`, команда арбитра дословно) → `RED pin-foreign-hex: rc=1 expected=1 reason=ARCH_PIN output='…ОТКАЗ: ARCHITECTURE_NET: коммит deadbeef…'`, rc 1.
+# Находки
 
-## Остаточные риски и «НЕ ЗАЩИЩАЕТ» — ЗАКРЫТО
+БЛОКИРУЮЩИХ нет.
 
-`contracts/187-arhitektura-v-processe.md:95-96` несут обе формулировки арбитра ДОСЛОВНО (программная сверка кавычек «НЕ ЗАЩИЩАЕТ…» из арбитражного файла со строками контракта: VERBATIM ×2, отличие только маркер булетра и точка в конце). Ловцы названы конкретно: хранитель 186 (сверка exact pin и diff модели), reviewer реализации 187 (числа 26/22 — не порог допуска; отдельно `deps-door-refusal` rc 2 ARCH_DEPS и `brief-npm-doorway` rc 0, мутации отказа npm/прямого node), CI (полная батарея `--repo .`). Справочный статус чисел 26/22 обозначен («справка, не порог допуска»).
+СОВЕТ contracts/187-arhitektura-v-processe.md:48 — различаемость пробы потребителя scripts/check_spec_ready.sh опирается на то, что 187 несёт census-строку 49 (ветка В2 срабатывает на ней): на NNN-файле без замер-строк гейт даёт vacuous OK (измерено на изолированном файле). Текст v2 строку несёт и она замораживается вместе с контрактом — свойство держится; замечание защищает строку 49 от «чистки» в будущих версиях без понимания этой связки.
 
-Обязательства v2-r1 не ослаблены: `git diff 8f2de864d..250f46dc6 -- contracts/187-arhitektura-v-processe.md` = ровно 2 ханка — (1) перечни клеток/стабов и счёты (55→57 стабов; ожидание `компоненту api.hub` заменено семантическим «rc 1 с кодом ARCH_ZONE и именем ЛЮБОГО компонента объединения» — это и есть приказ арбитра 1(a); bullet ARCH_CLASS_MISSING усилен наблюдателем канала выдачи — приказ 1(b)), (2) «НЕ ЗАЩИЩАЕТ»: старый bullet про 26/22 заменён дословной формулировкой арбитра, добавлен второй. Список 21 красной (17+4), 58 клеток, живые клетки, ПЕРЕСЕЧЕНИЯ — без изменений. Файл семьи — только `workflow_probe.py` (+47/−6: `refusal_ok`, `PACK_MARKER`, 2 стаба, `union[-1]`), обёртка и миры не тронуты.
+СОВЕТ contracts/187-arhitektura-v-processe.md:45 — пять строк вставлены без пустой строки-разделителя после последнего «Дано:»-буллета (строка 44); размещение в конце раздела критерия совпадает с прецедентом 122/4, парсинг гейта по ^ПОТРЕБИТЕЛЬ/^замер: не зависит от разделителя — чистая косметика.
 
-## Гейты и батареи (rc исполнением, cwd=OBJECT)
+# Остаток
 
-- `bash scripts/pre_critic.sh contracts/187-arhitektura-v-processe.md` → rc 0 («ok гейт предпосылок…», «КРИТИК: дверь зелёная»).
-- `bash scripts/check_precision_gate.sh . contracts/…` → rc 0 (OK; stderr-шум lib_zones о временных файлах на результат не влияет).
-- `bash scripts/check_threat_model.sh . contracts/…` → rc 0 («секция валидна (ЗАЩИЩАЕТ 5 буллет(ов), НЕ ЗАЩИЩАЕТ 5 буллет(ов))»).
-- `bash scripts/check_ceilings.sh .` → rc 0; `bash scripts/check_provodka.sh . contracts/…` → rc 0.
-- Батарея 187: `--model` → rc 0, `CELLS=58 STABS=0 FAILURES=0 SKIPPED=0`; `--stabs` → rc 0, `CELLS=58 STABS=57 FAILURES=0 SKIPPED=0`, 57 строк caught / 0 ZHIV; `--repo .` → rc 1, `CELLS=58 STABS=0 FAILURES=21 SKIPPED=2` — красны РОВНО заявленные 17 (`locate-json-conform`, `locate-json-foreign`, `zone-comma-list`, `path-unplaced-product`, `check-green-status-field`, `brief-npm-doorway`, `pin-symbolic`, `pin-lock-empty`, `model-root-unset`, `deps-door-refusal`, `precritic-full-zone`, `precritic-line-missing`, `precritic-draft`, `freeze-class-missing`, `precritic-class-missing`, `operation-optional`, `component-required-no-local`) + 4 из v2-r1 (`locate-union-conform`, `locate-union-foreign`, `task-class-missing`, `done-class-missing`) — список строкой в точности совпадает с контрактом:67; SKIP live-real-pin/live-real-union именованные (не зелёные).
-- Батарея 170 прежняя: `--model` rc 0; `--repo .` rc 0.
-- Счёты второй мерой: `python3` по модулю зонда → `CASES=58 STABS=57`, union = {api.hub, api.documents, api.effects} ↔ контракт:63 «58 клеток, 57 стабов», :65 «каждая из 58 клеток», :67 «57 обманных стабов пойманы».
+Миграция клетки k187 в fixtures/workshop_project/potrebiteli_116_195/ — зона architect 195, вне объекта этого суда (контракт 195 §Следствия :423-439 её предусматривает; bare/--model проверка клетки — на рефриз-пути 195). Прогоны сделаны в одноразовом SSH-клоне /tmp/dev-harness-verify/Crit187V2/repo (клон и xtrace-лог сохранены до лендинга вердикта); коммитов и push не было; identity owner не использовалась.
 
-## Советы (не блокируют)
+# Маршрут после accept (для оркестратора, не предмет суда)
 
-- СОВЕТ (вне пунктов арбитра, без механических последствий): коммит `ec0acbb82` несёт заголовок и строку РАЗРЕШИЛ-ВЛАДЕЛЕЦ от более раннего v+1 слова владельца («дверь 187а на настоящей модели», ~13:05 UTC), тогда как его содержание — исправления блока 1 арбитража (~18:20 UTC). Provenance-строка в теле коммита ссылается не на то решение, которое фактически исполнено; заморозке не мешает (freeze читает вердикт и контракт), но в будущих правках указывать фактическое основание.
-
-## Итог
-
-Пп. 1–3 арбитража исполнены и доказаны живыми прогонами (M4 зелёный, M5/M6 красные, свойство множества, стабы caught, дословные «НЕ ЗАЩИЩАЕТ» с ловцами), (c) не ослаблен, обязательства v2-r1 сохранены, гейты и обе батареи в заявленных состояниях. Блокирующих находок по пунктам арбитра нет — заморозка разрешена. Бюджет предмета этим вызовом исчерпан; `--repo .` остаётся заявленно красным до реализации — переход в зелёное состояние судит ревьюер реализации с ловцами deps/brief из «НЕ ЗАЩИЩАЕТ».
+Текст вердикта кладётся файлом verdicts/critic/contracts-187-v2.md (первая строка accept) коммитом в зоне critic, затем до нового тега: bash scripts/check_consumers.sh . contracts/187-arhitektura-v-processe.md и bash scripts/check_provodka.sh . contracts/187-arhitektura-v-processe.md (зафиксировать rc=0 при старом непустом окне, вывод четырёх проб сохранить), затем штатно bash scripts/freeze_contract.sh contracts/187-arhitektura-v-processe.md с причиной, несущей РАЗРЕШИЛ-ВЛАДЕЛЕЦ по грамматике. Ручной git tag недопустим.
