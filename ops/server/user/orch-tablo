@@ -87,6 +87,25 @@ for line in sh('git', '-C', REPO, 'log', 'origin/main', f'--since={WINDOW} minut
 done = set(re.findall(r'done/contracts/([0-9]{3})/', sh('git', '-C', REPO, 'tag', '-l', 'done/contracts/*')))
 frozen = set(re.findall(r'frozen/contracts/([0-9]{3})/', sh('git', '-C', REPO, 'tag', '-l', 'frozen/contracts/*')))
 
+# ── ведущий потока mob: отдельная сессия проекта Complior-mob (175 v2) ───────
+# Поток mob ведёт отдельная сессия проекта Complior-mob (контракт 125, дом 055 И-2):
+# её журнал лежит вне дерева станции и вне дерева проекта, запись в дереве его не
+# подделает. Ведущий есть, когда самый свежий jsonl — журнал самой сессии или её
+# субагента — не старше окна табло включительно; мера та же, что у журналов станции.
+# Состояние проекта (bin/wt/архив) и чужая сессия (Complior-back) ведущими не
+# считаются. Табло ничего не пишет.
+mob_ses = glob.glob(os.path.expanduser(
+    '~/.local/state/dev-harness-projects/complior-mob/home/.omp/profiles/dev'
+    '/agent/sessions/--home-harness-projects-Complior-mob--'))
+mob_last = []
+for b in mob_ses:
+    for f in glob.glob(b + '/*.jsonl') + glob.glob(b + '/*/*.jsonl'):
+        try:
+            mob_last.append(os.path.getmtime(f))
+        except OSError:
+            continue   # журнал исчез между поиском и замером — как его отсутствие
+mob_vedet = bool(mob_last) and max(mob_last) >= NOW.timestamp() - WINDOW * 60
+
 # ── открытые PR ───────────────────────────────────────────────────────────────
 prs = []   # (репо, номер, ветка, состояние, обновлён)
 # Complior-back ведёт сессия проекта (scripts/connect_project.sh, контракт 125) — её PR не строки станции.
@@ -210,6 +229,12 @@ print('  бэкенд: ведёт сессия проекта Complior-back — 
 for s in ('харнесс', 'mob'):
     if active.get(s):
         print(f'  {s}: в работе предметов — {active[s]}')
+    elif s == 'mob' and mob_vedet:
+        # Ведущий поток ведёт отдельная сессия проекта: станция его предметы НЕ
+        # исполняет и хода потока не требует — строка-факт, в счёт «стоит без хода»
+        # не входит (wait-guard контракта 128: строка без «СТОИТ» хода не требует).
+        print(f'  mob: ведёт сессия проекта Complior-mob (журнал '
+              f'{int((NOW.timestamp() - max(mob_last)) // 60)} мин назад) — станция поток не требует')
     else:
         stoit += 1
         idle = f'{mins(last[s])} мин' if s in last else f'больше {WINDOW} мин'
