@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # ОБМАННЫЙ СТАБ s20 «дверь принимает isolated:1 ЧИСЛОМ» — модель-эталон
-# двери 199 с единственной заменой: строгое сравнение по типу
-# (jq -e '… == true') заменено case-нормализацией true|1 (дефект по
-# находке 2 Adv199Impl, мутант B «isolated:1 принимается»; sed-машина
-# door1.sed адверсария). Различающий вход батареи: d18 (isolated:1) —
-# честная дверь отказывает NE_IZOLIROVAN до записей, стаб пускает и пишет
-# START с isolated:true. На остальных входах (булевы true/false, [true],
-# {…}, null, отсутствие) стаб побайтово честен — привязка КОДОМ движка
+# двери 199 с РОВНО ОДНОЙ заменой: строгому сравнению по типу
+# (jq -e '… == true') добавлена числовая ветвь == 1 (дефект по находке 2
+# Adv199Impl, мутант B «isolated:1 принимается»). Строка "true" ОТВЕРГАЕТСЯ
+# по типу, как в модели (Adv199Impl-2, К-08: прежний стаб нёс два дефекта
+# сразу — jq -r + case true|1 — и ловился d18 на чужой строковой форме).
+# Различающий вход батареи: d18 (isolated:1) — честная дверь отказывает
+# NE_IZOLIROVAN до записей, стаб пускает и пишет START с isolated:true.
+# На остальных входах (булевы true/false, строка "true", [true], {…},
+# null, отсутствие) стаб побайтово честен — привязка КОДОМ движка
 # (stab_kletki), не прозой контракта (Н-39).
 #
 # Использование (совпадает с субъектом):
@@ -82,10 +84,10 @@ while [ "$i" -lt "$N" ]; do
   agent="$(jq -r "(.tasks // [.])[$i].agent // \"\"" "$EVENT" 2>/dev/null)" || otp BITYJ_VHOD "item $i: agent не читается"
   name="$(jq -r "(.tasks // [.])[$i].name // \"\"" "$EVENT" 2>/dev/null)" || otp BITYJ_VHOD "item $i: name не читается"
   task="$(jq -r "(.tasks // [.])[$i].task // \"\"" "$EVENT" 2>/dev/null)" || otp BITYJ_VHOD "item $i: task не читается"
-  # ДЕФЕКТ СТАБА s20: числовое 1 принимается как истина (jq -r печатает 1,
-  # case-ветвь true|1 нормализует в true).
-  iso="$(jq -r "(.tasks // [.])[$i].isolated // false" "$EVENT" 2>/dev/null)" || iso=false
-  case "$iso" in true|1) iso=true ;; *) iso=false ;; esac
+  # ДЕФЕКТ СТАБА s20: РОВНО ОДИН дефект — ЧИСЛО 1 принимается как изоляция:
+  # jq -e сравнивает ПО ТИПУ (строка "true" и прочие формы — false), но к
+  # строгому == true добавлена ветвь == 1.
+  if jq -e "(.tasks // [.])[$i].isolated == true or (.tasks // [.])[$i].isolated == 1" "$EVENT" >/dev/null 2>&1; then iso=true; else iso=false; fi
   [ -n "$agent" ] || otp AGENT_NET "item $i: agent отсутствует"
   in_w=0; in_j=0
   for r in $WORKERS; do [ "$r" = "$agent" ] && in_w=1; done
