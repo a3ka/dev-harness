@@ -1,23 +1,30 @@
 #!/usr/bin/env python3
 """Красная батарея 201 — содержательная сверка done-двери (слово владельца
-2026-11-17 п.10). Четыре пункта:
+2026-11-17 п.10; решения 1–2 арбитража 1, verdicts/arbitration/
+201-granica-done-dveri.md). Четыре пункта:
 
-(а) accept ревьюера привязан к ПОСЛЕДНЕЙ заморозке: оракул САМ выбирает vmax из тегов
-    frozen/contracts/<NNN>/* мира (не из фактов сборки), свежий accept-вердикт несёт
-    строку OBJECT=<40 hex>, закоммичен не раньше F и СВЯЗАН с F самим объектом:
-    при F ⊊ CID — F ⊆ OBJECT (вердикт строго после заморозки судит реализацию этой
-    версии); при F == CID — OBJECT ⊆ F (вердикт в коммите заморозки: объект внутри
-    замороженной версии). Для OBJECT вне репо доказательство переноса — влитость в
-    main продукта (пункт б). Боль 141/991/999/109 и атака 201-v1 блок 1: пост-фактум
-    записанный вердикт на старый OBJECT — датирование файла вердикта связи не доказывает.
+(а) accept ревьюера привязан к ПОСЛЕДНЕЙ заморозке: оракул САМ выбирает vmax из
+    тегов frozen/contracts/<NNN>/* мира (не из фактов сборки), свежий
+    accept-вердикт несёт строку OBJECT=<40 hex>, закоммичен не раньше F и СВЯЗАН
+    с F самим объектом: при F ⊊ CID — F ⊆ OBJECT; при F == CID — одновременно
+    OBJECT ⊆ F И тождество Git-деревьев OBJECT и F за вычетом только точных
+    файлов судебных свидетельств (выбранный reviewer-файл; для рискового — ещё
+    выбранный accept-файл адверсария; решение 1: ancestry недостаточен — мир
+    B→I→F с OBJECT=B проходит родословную, но не содержит реализации; сам F,
+    добавляющий реализацию, тоже отказывается). Канон — git diff-tree -r --raw
+    --no-renames (пути, моды, OID, удаления, gitlinks). Для OBJECT вне репо
+    доказательство переноса — влитость в main продукта (пункт б).
 (б) влитость: режим продукта (эффективный repoId ≠ dev-harness) — OBJECT обязан
-    разрешаться в репо и быть равным/предком HEAD («SHA ⊂ main»); режим станции —
-    необходимость внешней проверки определяется ФАКТОМ внешней реализации: строкой
-    `ПРОДУКТ:` в ЗАМОРОЖЕННОМ тексте версии vmax (ровно одна, owner/repo), а НЕ
-    локальной разрешимостью OBJECT (класс 163): продукт объявлен и OBJECT локален —
-    отказ «обязан быть SHA продукта»; OBJECT внешен — GitHub compare API
-    (main...OBJECT; identical|behind — влито) приёмом 187а (curl --max-time 30,
-    GITHUB_TOKEN/GH_TOKEN). Недоступность API — честный отказ, не пропуск.
+    разрешаться в репо и быть равным/предком HEAD. Режим станции — ТРИ состояния
+    (решение 2): объявленная строка `ПРОДУКТ: станция` (OBJECT обязан быть
+    локальным); объявленный `ПРОДУКТ: <owner>/<repo>` (OBJECT обязан быть
+    внешним, влитость — GitHub compare API, main...OBJECT,
+    identical|behind — влито); место НЕ установлено — отказ fail-closed,
+    независимо от локальной разрешимости OBJECT (ни пустое поле, ни отсутствие
+    строки не означают «станция»). Для замороженных БЕЗ объявления — реестр
+    классификации registry/mesto-legacy.tsv по ключу (NNN, blob замороженного
+    текста): применимая запись даёт место; нет записи / конфликт / вне
+    грамматики — отказ. Запись от другого blob не действует.
 (в) рисковым (строка класса в ЗАМОРОЖЕННОМ тексте выбранной заморозки →
     registry/risk-legacy.tsv по blob → нет записи: рисковый, норма orchestrator)
     требуется свежий accept АДВЕРСАРИЯ на ТОТ ЖЕ OBJECT (литеральное равенство
@@ -28,13 +35,14 @@
     буквальное «arch», done_contract.sh:245).
 
 Миры — одноразовые git-репозитории по строительным приёмам
-architecture_process_187/probe.py (toy-профиль, ПРОВОДКА guard, bare origin).
-compare/check-runs подаются шимом curl из JSON-файлов ВНЕ мира
-(DONE201_COMPARE / DONE201_CHECKRUNS). Ожидания — в памяти раннера
-(правило 8), никогда в мире. Каждая клетка — одиночная мутация честного мира;
-зелёная обязана закончиться тегом done/contracts/777/1, красная — rc 1 с
-дословной причиной и без тега. Стабы — мутанты оракула, привязанные кодом к
-клетке своего пункта (Н-39).
+architecture_process_187/probe.py (toy-профиль, ПРОВОДКА guard, bare origin);
+станционные миры несут явное объявление `ПРОДУКТ: станция` (норма новых
+текстов), клетки места реализации его снимают. compare/check-runs подаются
+шимом curl из JSON-файлов ВНЕ мира (DONE201_COMPARE / DONE201_CHECKRUNS).
+Ожидания — в памяти раннера (правило 8), никогда в мире. Каждая клетка —
+одиночная мутация честного мира; зелёная обязана закончиться тегом
+done/contracts/777/1, красная — rc 1 с дословной причиной и без тега. Стабы —
+мутанты оракула, привязанные кодом к клетке своего пункта (Н-39).
 """
 import json
 import os
@@ -47,12 +55,14 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 TOOLS = HERE.parents[2]
 
+NN = '777'
 CONTRACT_STATION = 'contracts/777-work.md'
 CONTRACT_PROJECT = '.harness/contracts/777-work.md'
 EXTERNAL_OBJECT = 'e' * 40
 OTHER_OBJECT = 'd' * 40
 MISSING_OBJECT = 'f' * 40
 PRODUCT_OWNER_REPO = 'a3ka/toy-mob'
+STATION_DECL = 'ПРОДУКТ: станция'
 SVARKA = 'СВЕРКА-АРХИТЕКТУРЫ: identity.lookup; app/identity; привязки проверены'
 
 PH_A1 = 'done: нет заморозки frozen/contracts/777/* — привязка accept к последней версии невозможна'
@@ -61,12 +71,14 @@ PH_A3 = 'done: accept ревьюера {f} предшествует послед
 PH_A4 = 'done: OBJECT {o} не связан с последней заморозкой {t} — вердикт судит объект старой версии'
 PH_B1 = 'done: OBJECT {o} отсутствует в репо продукта — реализация не влита'
 PH_B2 = 'done: OBJECT {o} не предок HEAD — реализация не влита в main продукта'
-PH_B3 = 'done: OBJECT {o} вне репо контракта, а строки ПРОДУКТ: в контракте нет — влитость в продукт не проверяется'
 PH_B4 = 'done: строка ПРОДУКТ: вне грамматики: {s}'
 PH_B5 = 'done: влитость в main продукта {r} не проверена:'
 PH_B6 = 'done: OBJECT {o} не в main продукта {r} — реализация не влита'
 PH_B7 = 'done: OBJECT {o} разрешается в репо станции, а контракт объявил продукт {r} — OBJECT внешнего предмета обязан быть SHA продукта'
 PH_B7DUP = 'done: строка ПРОДУКТ: неоднозначна: {v}'
+PH_B8 = 'done: место реализации предмета {n} не установлено — нет объявления ПРОДУКТ: и нет применимой записи registry/mesto-legacy.tsv'
+PH_B8K = 'done: классификация места предмета {n} в registry/mesto-legacy.tsv неоднозначна или вне грамматики — отказ до исправления записи'
+PH_B9 = 'done: OBJECT {o} вне репо станции, а контракт объявил станционную реализацию — OBJECT обязан быть SHA станции'
 PH_V1 = 'done: предмет рисковый, accept адверсария не найден:'
 PH_V2 = 'done: свежий вердикт адверсария {f} не accept'
 PH_V3 = 'done: вердикт адверсария {f} без строки OBJECT=<40 hex> — объект не назван'
@@ -75,6 +87,7 @@ PH_V5 = 'done: класс риска контракта неоднозначен
 PH_ARCH_CI = 'ARCH_CI'
 
 PRODUCT_RE = re.compile(r'^ПРОДУКТ: ([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)$')
+MESTO_RE = re.compile(r'^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$')
 RISK_RE = re.compile(r'КЛАСС РИСКА:[ \t]*(обычный|рисковый)([ \t.,;]|$)')
 
 
@@ -195,16 +208,25 @@ CASES = (
     ('a-verdikt-bez-object', 'station', 1, 'без строки OBJECT='),
     ('a-object-do-zamorozki', 'station', 1, 'не связан с последней заморозкой'),
     ('a-dve-zamorozki', 'station', 1, 'предшествует последней заморозке'),
+    ('a-drevo-object-do-realizacii', 'station', 1, 'не связан с последней заморозкой'),
+    ('a-drevo-realizacija-v-f', 'station', 1, 'не связан с последней заморозкой'),
     ('b-produkt-vlito', 'mob', 0, ''),
     ('b-produkt-object-mimo-main', 'mob', 1, 'не предок HEAD — реализация не влита в main продукта'),
     ('b-produkt-object-otsutstvuet', 'mob', 1, 'отсутствует в репо продукта'),
     ('b-vneshnij-produkt-vlit', 'station', 0, ''),
     ('b-vneshnij-ne-vlit', 'station', 1, '— реализация не влита'),
-    ('b-vneshnij-bez-stroki', 'station', 1, 'строки ПРОДУКТ: в контракте нет'),
+    ('b-vneshnij-bez-stroki', 'station', 1, 'место реализации предмета 777 не установлено'),
     ('b-vneshnij-stroka-krivaja', 'station', 1, 'ПРОДУКТ: вне грамматики'),
     ('b-vneshnij-api-nedostupen', 'station', 1, 'влитость в main продукта a3ka/toy-mob не проверена'),
     ('b-vneshnij-object-stancionnyj', 'station', 1, 'обязан быть SHA продукта'),
     ('b-vneshnij-dublikat-stroki', 'station', 1, 'строка ПРОДУКТ: неоднозначна'),
+    ('b-stancionnyj-objavlennyj', 'station', 0, ''),
+    ('b-stancionnyj-object-vneshnij', 'station', 1, 'вне репо станции, а контракт объявил станционную реализацию'),
+    ('b-mesto-neizvestno', 'station', 1, 'место реализации предмета 777 не установлено'),
+    ('b-legacy-stancionnyj', 'station', 0, ''),
+    ('b-legacy-vneshnij-vlit', 'station', 0, ''),
+    ('b-legacy-vneshnij-ne-vlit', 'station', 1, '— реализация не влита'),
+    ('b-legacy-chuzhoj-blob', 'station', 1, 'место реализации предмета 777 не установлено'),
     ('v-riskovyi-sopostavimyj-object', 'station', 0, ''),
     ('v-riskovyi-bez-adversarii', 'station', 1, 'accept адверсария не найден'),
     ('v-riskovyi-drugoj-object', 'station', 1, ', ревьюера — на '),
@@ -226,10 +248,12 @@ STABS = {
     's-a-prinimaet-ljubuju-versiju': 'a-accept-staroj-versii',
     's-a-object-bez-svjazi': 'a-object-do-zamorozki',
     's-a-staraja-zamorozka': 'a-dve-zamorozki',
+    's-a-tolko-rodoslovnaja': 'a-drevo-object-do-realizacii',
     's-b-stancionnyj-object-prohodit': 'b-vneshnij-object-stancionnyj',
     's-a-object-ne-nuzhen': 'a-verdikt-bez-object',
     's-b-vlitost-ne-proverjaetsja': 'b-produkt-object-mimo-main',
     's-b-api-vsegda-vlito': 'b-vneshnij-ne-vlit',
+    's-b-mesto-po-umolchaniju-stancija': 'b-mesto-neizvestno',
     's-v-adversarij-ne-trebuetsja': 'v-riskovyi-bez-adversarii',
     's-v-object-adversarija-ignoriruetsja': 'v-riskovyi-drugoj-object',
     's-g-arch-kak-podstroka': 'g-archive',
@@ -247,10 +271,15 @@ def build(base, label, kind, name=None):
                   'обычный' if label == 'v-obychnyj-bez-adversarii' else 'рисковый')
     else:
         risk = 'обычный'
-    product = PRODUCT_OWNER_REPO if (label.startswith('b-vneshnij-')
-                                      and label not in ('b-vneshnij-bez-stroki', 'b-vneshnij-stroka-krivaja')) else None
+    # место реализации: станционные миры несут явное объявление (решение 2);
+    # клетки места/legacy-классификации его снимают или подменяют
+    product = 'станция' if kind == 'station' else None
+    if label.startswith('b-vneshnij-') and label not in ('b-vneshnij-bez-stroki', 'b-vneshnij-stroka-krivaja'):
+        product = PRODUCT_OWNER_REPO
     if label == 'b-vneshnij-stroka-krivaja':
         product = 'toy-mob'  # без слэша — вне грамматики
+    if label in ('b-vneshnij-bez-stroki', 'b-mesto-neizvestno') or label.startswith('b-legacy-'):
+        product = None  # замороженный текст без объявления — классифицирует реестр/отказ
     root, contract, registry = world(base, name or label, kind)
     text = contract_text(
         risk=None if risk is None else risk,
@@ -272,20 +301,35 @@ def build(base, label, kind, name=None):
     object_sha = impl
     if label.startswith('b-vneshnij-'):
         object_sha = EXTERNAL_OBJECT
+    if label in ('b-legacy-vneshnij-vlit', 'b-legacy-vneshnij-ne-vlit'):
+        object_sha = EXTERNAL_OBJECT  # внешний OBJECT без объявления — место даёт legacy-запись
     if label == 'b-produkt-object-otsutstvuet':
         object_sha = MISSING_OBJECT
     if label == 'a-verdikt-bez-object':
         object_sha = None
     if label == 'b-vneshnij-object-stancionnyj':
         object_sha = impl  # свежий accept на ЛОКАЛЬНЫЙ станционный OBJECT объявленного внешнего предмета (класс 163)
+    if label == 'b-stancionnyj-object-vneshnij':
+        object_sha = EXTERNAL_OBJECT  # объявлена станция, а OBJECT внешний
+    if label == 'a-drevo-object-do-realizacii':
+        object_sha = b0  # мир B→I→F: вердикт в коммите заморозки называет ДО-реализационный объект (решение 1)
 
     # вердикт ревьюера
     put(root, review_path(kind), verdict_text(object_sha, svarka=(kind == 'back')))
+    if label == 'a-drevo-realizacija-v-f':
+        put(root, 'app/identity/model.js', 'module.exports = 3;\n')  # реализация изменена в самом коммите F (решение 1)
     if label == 'v-legacy-obychnyj':
         blob = git(root, 'rev-parse', f'{b0}:{contract}')
         legacy = root / registry.replace('contracts.tsv', 'risk-legacy.tsv')
         legacy.parent.mkdir(parents=True, exist_ok=True)
         legacy.write_text(f'{blob}\tобычный\tfixtures 201 — клетка v-legacy-obychnyj\towner\n')
+    if label.startswith('b-legacy-'):
+        key_blob = '1' * 40 if label == 'b-legacy-chuzhoj-blob' else git(root, 'rev-parse', f'{b0}:{contract}')
+        place = 'станция' if label == 'b-legacy-stancionnyj' else PRODUCT_OWNER_REPO
+        mesto = root / registry.replace('contracts.tsv', 'mesto-legacy.tsv')
+        mesto.parent.mkdir(parents=True, exist_ok=True)
+        mesto.write_text('номер_предмета\tblob_контракта\tместо_реализации\tоснование\tзаписал\n'
+                         f'{NN}\t{key_blob}\t{place}\tfixtures 201 — клетка {label}\tarchitect\n')
     git(root, 'add', '-A')
     git(root, 'commit', '-qm', 'verdikt 777')
     cid = git(root, 'rev-parse', 'HEAD')
@@ -311,8 +355,8 @@ def build(base, label, kind, name=None):
 
     # заморозка: где висит тег F — суть клетки (а)
     f_target = b0
-    if label == 'a-ravenstvo-frozen-verdikt':
-        f_target = cid
+    if label in ('a-ravenstvo-frozen-verdikt', 'a-drevo-object-do-realizacii', 'a-drevo-realizacija-v-f'):
+        f_target = cid  # F == коммит вердикта: доказательство — тождество деревьев (решение 1)
     if label == 'a-object-do-zamorozki':
         f_target = impl  # заморозка на реализации
     if label in ('a-accept-staroj-versii', 'a-dve-zamorozki'):
@@ -353,12 +397,14 @@ def build(base, label, kind, name=None):
 
     # внешние ответы API — ВНЕ мира (шим curl читает env)
     compare_status = None
-    if label.startswith('b-vneshnij-'):
+    if label.startswith('b-'):
         compare_status = {'b-vneshnij-produkt-vlit': 'behind',
                           'b-vneshnij-ne-vlit': 'ahead',
                           'b-vneshnij-bez-stroki': 'behind',
                           'b-vneshnij-stroka-krivaja': 'behind',
-                          'b-vneshnij-api-nedostupen': 'not-found'}.get(label)
+                          'b-vneshnij-api-nedostupen': 'not-found',
+                          'b-legacy-vneshnij-vlit': 'behind',
+                          'b-legacy-vneshnij-ne-vlit': 'ahead'}.get(label)
     checkrun_name = {'g-arch-tochno-imja': 'arch',
                      'g-arch-v-skobkah': 'arch (пин внешней архитектуры, model fitness + code-ratchet)',
                      'g-arch-s-probelom': 'arch fitness',
@@ -412,6 +458,29 @@ def is_ancestor(root, a, b):
     return rc == 0
 
 
+def mesto_lookup(root, kind, blob):
+    """Классификация места по (NNN, blob) из закоммиченного на HEAD реестра
+    (канон risk-legacy). None — применимой записи нет; 'BAD' — конфликт
+    дублей или значение вне грамматики (решение 2: отказ, не fallback)."""
+    path = root / ('registry/mesto-legacy.tsv' if kind == 'station'
+                   else '.harness/registry/mesto-legacy.tsv')
+    if not path.is_file():
+        return None
+    hits = []
+    for row in path.read_text().splitlines():
+        cols = row.split('\t')
+        if len(cols) >= 3 and cols[0] == NN and cols[1] == blob:
+            hits.append(cols[2])
+    if not hits:
+        return None
+    if len(hits) > 1:
+        return 'BAD'
+    place = hits[0]
+    if place == 'станция' or MESTO_RE.fullmatch(place):
+        return place
+    return 'BAD'
+
+
 def model(root, f, mutant=''):
     def skip(name):
         return mutant == name
@@ -453,20 +522,32 @@ def model(root, f, mutant=''):
             if not is_ancestor(root, f['object'], f['head']):
                 return 1, PH_B2.format(o=f['object'])
         else:
-            # необходимость внешней проверки — ФАКТ внешней реализации в замороженном
-            # тексте выбранной заморозки, не локальная разрешимость OBJECT (блок 2, класс 163)
+            # три состояния станции (решение 2 арбитража): объявленная станция,
+            # объявленный продукт, место не установлено — fail-closed
             plines = [ln for ln in frozen_text.splitlines() if ln.startswith('ПРОДУКТ:')]
             declared = None
             if len(plines) > 1:
                 return 1, PH_B7DUP.format(v='; '.join(plines))
             if plines:
-                m = PRODUCT_RE.match(plines[0])
-                if not m:
-                    return 1, PH_B4.format(s=plines[0])
-                declared = m.group(1)
+                if plines[0] == STATION_DECL:
+                    declared = 'станция'
+                else:
+                    m = PRODUCT_RE.match(plines[0])
+                    if not m:
+                        return 1, PH_B4.format(s=plines[0])
+                    declared = m.group(1)
+            if declared is None and skip('s-b-mesto-po-umolchaniju-stancija'):
+                declared = 'станция'  # мутант «место по умолчанию станция» (решение 2)
             if declared is None:
+                mesto = mesto_lookup(root, f['kind'], git(root, 'rev-parse', f'{ftag}:{f["contract"]}'))
+                if mesto == 'BAD':
+                    return 1, PH_B8K.format(n=NN)
+                if mesto is None:
+                    return 1, PH_B8.format(n=NN)
+                declared = mesto
+            if declared == 'станция':
                 if ext:
-                    return 1, PH_B3.format(o=f['object'])
+                    return 1, PH_B9.format(o=f['object'])
             elif obj_local:
                 if not skip('s-b-stancionnyj-object-prohodit'):
                     return 1, PH_B7.format(o=f['object'], r=declared)
@@ -507,6 +588,21 @@ def model(root, f, mutant=''):
             return 1, PH_V3.format(f=adversary_path(f['kind'], 'a1'))
         if not skip('s-v-object-adversarija-ignoriruetsja') and a_object != f['object']:
             return 1, PH_V4.format(f=adversary_path(f['kind'], 'a1'), x=a_object, y=f['object'])
+    # (а²) тождество деревьев при F == CID — решение 1 арбитража: родословной
+    # недостаточно (мир B→I→F проходит OBJECT ⊆ F без реализации). Вычет —
+    # только точные файлы судебных свидетельств; вычет адверсария возможен
+    # после его выбора в (в), поэтому проверка замыкает 6б. Канон —
+    # git diff-tree -r --raw --no-renames: пути, моды, OID, удаления, gitlinks.
+    if frozen == f['cid'] and obj_local and not skip('s-a-tolko-rodoslovnaja'):
+        exempt = {f['review_file']}
+        if klass == 'рисковый' and f['adversary']:
+            exempt.add(adversary_path(f['kind'], 'a2' if len(f['adversary']) > 1 else 'a1'))
+        dt_rc, dt_out = run('git', '-C', root, '-c', 'diff.renames=false',
+                            'diff-tree', '-r', '--raw', '--no-renames', obj, frozen)
+        residue = [ln.split('\t', 1)[1] for ln in dt_out.splitlines()
+                   if ln.startswith(':') and '\t' in ln]
+        if dt_rc or [p for p in residue if p not in exempt]:
+            return 1, PH_A4.format(o=obj, t=ftag)
     # (г)
     if f['kind'] == 'back':
         name = f['checkrun_name']
