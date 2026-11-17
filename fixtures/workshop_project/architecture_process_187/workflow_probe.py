@@ -679,7 +679,7 @@ def ci_bin(root):
 def ci_record(root):
     return root.parent / (root.name + '-ci-187.json')
 
-def prepare(root, arch, pinned, variation):
+def prepare(root, arch, pinned, variation, action=''):
     if variation.startswith('wiring-'):
         commands = [BATTERY, DIRECT]
         if variation == 'wiring-omitted': commands.remove(BATTERY)
@@ -820,6 +820,17 @@ def prepare(root, arch, pinned, variation):
     # CI report mutations happen after commit: the report must reference the final SHA.
     git(root, 'add', '-A')
     git(root, 'commit', '-qm', 'isolated scenario ' + (variation or 'valid'))
+    if action == 'done':
+        # 201 (ПЕРЕСЕЧЕНИЕ architect контракта 201): миры done-клеток несут тег
+        # заморозки и OBJECT-строку вердикта — привязка accept к последней
+        # заморозке; семантика клеток 187 не меняется, вариации — прежние.
+        scenario_head = git(root, 'rev-parse', 'HEAD')
+        review = (root / REVIEW).read_text()
+        first, _, rest = review.partition('\n')
+        put(root, REVIEW, first + '\nOBJECT=' + scenario_head + '\n' + rest)
+        git(root, 'add', '-A')
+        git(root, 'commit', '-qm', 'verdikt 777: OBJECT=' + scenario_head[:8])
+        git(root, 'tag', 'frozen/contracts/777/1', scenario_head)
     if variation == 'no-rules':
         git(root, 'tag', 'frozen/contracts/777/1')
     record['check_runs'][0]['head_sha'] = git(root, 'rev-parse', 'HEAD')
@@ -1105,7 +1116,7 @@ def main():
             kind = 'mobile' if variation == 'mobile' else 'harness' if variation == 'harness' else 'backend'
             root = world(base, label, kind)
             arch, pinned = architecture(base, root, variation)
-            task, trace, role = prepare(root, arch, pinned, variation)
+            task, trace, role = prepare(root, arch, pinned, variation, action)
             honest_rc, honest_out = verdict(root, arch, pinned, action, task, role, variation=variation)
             if honest_rc != expected or (reason and reason not in honest_out):
                 raise RuntimeError(f'broken fixture: {label} expected {expected}/{reason}, got {honest_rc}/{honest_out}')
