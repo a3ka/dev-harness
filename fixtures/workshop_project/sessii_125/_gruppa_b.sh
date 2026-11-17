@@ -124,4 +124,77 @@ mkdir -p "$R2/.harness"; mv "$R2/.env" "$R2/$ENV_REL"; mv "$R2/config/harness_pi
 launch r2 "$R2"
 ok=0; [ "$(launch_n r2)" = 1 ] && ok=1
 v b11-harness-raskladka "$ok" "лаунчер не принял $ENV_REL и $PIN_REL (rc $RC): $(sed -n '1,2p' "$WORK/r2.err" | tr '\n' '|')"
+# ── 125 v2: фиксация фактов exec лаунчером (И-9) — b12–b16 ────────────────────
+# Оракул — НАБЛЮДЕНИЕ стаб-omp (argv/env СВОЕГО exec): запись лаунчера обязана быть
+# равна ему байт в байт (те же массивы — А-918), а не второй реконструкцией.
+SEXC=$(jq -r '.session_exec' "$SRC_JSON")
+ZSEXC="$ZONE_EXPECT/$SEXC"
+PSEXC="$H.state/dev-harness-projects/$PID_EXPECT/$SEXC"
+envline() { sed -n "s/^$2=//p" "$1" | head -1; }
+# b12: факты основной сессии — в $ZONE/session-exec (формула 028), перезаписаны СТАРТОМ
+launch dev2 dev
+ok=0
+if [ -s "$WORK/dev2.argv" ]; then
+  [ "$(cat "$ZSEXC/argv" 2>/dev/null)" = "$(cat "$WORK/dev2.argv")" ] \
+    && [ "$(envline "$ZSEXC/env" HOME)" = "$(envval dev2 HOME)" ] \
+    && [ "$(envline "$ZSEXC/env" PWD)" = "$(envval dev2 PWD)" ] \
+    && [ "$(jq -r .rezhim "$ZSEXC/meta" 2>/dev/null)" = main ] && ok=1
+fi
+v b12-fakty-osnovnoj "$ok" "запись фактов основной ≠ наблюдению стаб-omp: $ZSEXC"
+# b13: факты сессии проекта — в $PSTATE/session-exec (формула 055), meta несёт projectId
+launch proj3 proj
+ok=0
+if [ -s "$WORK/proj3.argv" ]; then
+  [ "$(cat "$PSEXC/argv" 2>/dev/null)" = "$(cat "$WORK/proj3.argv")" ] \
+    && [ "$(envline "$PSEXC/env" HOME)" = "$(envval proj3 HOME)" ] \
+    && [ "$(envline "$PSEXC/env" PWD)" = "$(envval proj3 PWD)" ] \
+    && [ "$(jq -r .rezhim "$PSEXC/meta" 2>/dev/null)" = project ] \
+    && [ "$(jq -r .projectId "$PSEXC/meta" 2>/dev/null)" = "$PID_EXPECT" ] && ok=1
+fi
+v b13-fakty-proekta "$ok" "запись фактов проекта ≠ наблюдению стаб-omp: $PSEXC"
+# b14: sev.json — ровно засеянное; sha источника/копии = фактическим байтам на момент старта
+why=""
+ok=0
+if [ -s "$WORK/proj3.argv" ] && [ -s "$PSEXC/sev.json" ]; then
+  PA3="$(envval proj3 HOME)/.omp/profiles/dev/agent"
+  [ "$(jq -r 'keys|length' "$PSEXC/sev.json")" = "${#SEV[@]}" ] || why="$why перечень записи ≠ перечню сева;"
+  for f in "${SEV[@]}"; do
+    [ "$(jq -r --arg f "$f" '.[$f]["sha-istochnik"]' "$PSEXC/sev.json")" = "$(sha256sum < "$ZA/$f" | cut -c1-64)" ] \
+      || why="$why $f sha-istochnik ≠ байтам зоны dev;"
+    [ "$(jq -r --arg f "$f" '.[$f]["sha-kopija"]' "$PSEXC/sev.json")" = "$(sha256sum < "$PA3/$f" | cut -c1-64)" ] \
+      || why="$why $f sha-kopija ≠ байтам дома проекта;"
+  done
+  [ -z "$why" ] && ok=1
+fi
+v b14-fakty-sev "$ok" "запись сева sev.json лжёт о байтах:$why"
+# b15: каждый старт ПЕРЕЗАПИСЫВАЕТ факты (дрейфа между стартами нет) — хвост различает старты
+launch_t() { # $1 имя; $2 сообщение хвоста — workshop <флаги> <репо> -- <MSG>
+  local n=$1 msg=$2
+  rm -f "$WORK/$n.calls" "$WORK/$n.argv" "$WORK/$n.env"
+  RC=0
+  ( cd "$WORK" && env PATH="$SHIMDIR:$PATH" HOME="$H" XDG_STATE_HOME="$H.state" \
+    HARNESS_PROJECT_LAYER_ROOT="$LAYER" ZAI_API_KEY=toy-key MINIMAX_API_KEY=toy-key \
+    METERING_PROXY_TOKEN=toy-token METERING_PROXY_URL=http://toy.invalid:1 \
+    SHIM_CALLS="$WORK/$n.calls" SHIM_ARGV="$WORK/$n.argv" SHIM_ENV="$WORK/$n.env" \
+    bash "$INSTALL/workshop" "$REPO" -- "$msg" > "$WORK/$n.out" 2> "$WORK/$n.err" ) || RC=$?
+}
+launch_t projm1 soobshchenie-odno
+launch_t projm2 soobshchenie-dva
+ok=0
+if [ -s "$WORK/projm1.argv" ] && [ -s "$WORK/projm2.argv" ]; then
+  [ "$(cat "$PSEXC/argv" 2>/dev/null)" = "$(cat "$WORK/projm2.argv")" ] \
+    && [ "$(cat "$PSEXC/argv")" != "$(cat "$WORK/projm1.argv")" ] \
+    && [ "$(envline "$PSEXC/env" HOME)" = "$(envval projm2 HOME)" ] && ok=1
+fi
+v b15-fakty-povtor "$ok" "повторный старт не перезаписал факты под второй запуск: $PSEXC/argv"
+# b16: факты — вне дерева проекта (Граница-7 054): опись всех путей до/после равна
+R3="$WORK/repo-fakty"; cp -R "$REPO" "$R3"; rm -rf -- "$R3/session-exec"
+inv() { find "$1" -mindepth 1 -printf '%y %P\n' 2>/dev/null | LC_ALL=C sort; }
+INV1=$(inv "$R3")
+launch r3 "$R3"
+ok=0
+if [ "$(launch_n r3)" = 1 ]; then
+  [ "$(inv "$R3")" = "$INV1" ] && ok=1
+fi
+v b16-fakty-vne-dereva "$ok" "дерево проекта изменилось стартом лаунчера (факты обязаны быть в PSTATE, не в дереве)"
 exit 0

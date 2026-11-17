@@ -594,7 +594,30 @@ if [ "$PRINT_CONTEXT" = "1" ]; then
   exec bash "$HERE/scripts/make_task.sh" --repo "$PROJECT" --role orchestrator --print-context
 fi
 
-# ── работа НАД инструментом ──────────────────────────────────────────────────
+# ── 125 v2 И-9: фиксация фактов exec — автосверка без человека ────────────────
+# check_project_session.sh --avto судит ЗАПИСЬ этих фактов: argv — из ТЕХ ЖЕ
+# массивов/переменных, что идут в exec (А-918: проба/запись доказывают то, что
+# исполняется, а не второе вычисление); env — РОВНО две строки HOME/PWD процесса;
+# meta — режим, projectId, pid, эпоха старта, роль. Запись атомарна (mktemp+mv)
+# и перезаписывается каждым стартом (дрейфа между стартами нет — как у сева И-1).
+# Каталог — вне дерева проекта: основной режим $ZONE/session-exec, режим проекта
+# $PSTATE/session-exec (формула 055 уже вычислена выше; $HOME подменён ДО exec).
+_125v2_zapisi_fakty() { # $1 каталог; $2 main|project; $3 projectId ('-' = null); $4 home; $5 pwd; далее — argv по элементам
+  # home/pwd — ЯВНЫЕ значения процесса на exec (те же переменные, что уходят в env),
+  # чтобы запись не зависела от места вызова до/после cd.
+  local _d="$1" _r="$2" _pid="$3" _home="$4" _pwd="$5" _t; shift 5
+  mkdir -p -- "$_d" || die "каталог фактов не создан: $_d"
+  _t=$(mktemp "$_d/argv.XXXXXX") || die "mktemp фактов не удался: $_d"
+  printf '%s\n' "$@" > "$_t" && mv -f -- "$_t" "$_d/argv" || die "запись argv фактов не удалась"
+  _t=$(mktemp "$_d/env.XXXXXX") || die "mktemp фактов не удался: $_d"
+  printf 'HOME=%s\nPWD=%s\n' "$_home" "$_pwd" > "$_t" && mv -f -- "$_t" "$_d/env" || die "запись env фактов не удалась"
+  _t=$(mktemp "$_d/meta.XXXXXX") || die "mktemp фактов не удался: $_d"
+  local _pidjson
+  if [ "$_pid" = "-" ]; then _pidjson=null; else _pidjson="\"$_pid\""; fi
+  printf '{"rezhim":"%s","projectId":%s,"pid":%s,"start":"%s","rol":"%s"}\n' \
+    "$_r" "$_pidjson" "$$" \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${SESSION_ROLE:-}" > "$_t" && mv -f -- "$_t" "$_d/meta" || die "запись meta фактов не удалась"
+}
 if [ -z "$PROJECT" ]; then
   # `--plan` остаётся опциональным указанием предмета. Если передан — проверяется файл.
   # Не передан — сессия стартует без явного предмета, и предмет согласуется в живой сессии
@@ -640,6 +663,10 @@ if [ -z "$PROJECT" ]; then
   if [ -n "$RESUME" ]; then
     printf '  продолжение  сессия %s (план был предъявлен при её старте)\n' "$RESUME" >&2
   fi
+  # 125 v2 И-9: факты основной сессии — теми же переменными, что идут в exec ниже
+  _125v2_zapisi_fakty "$ZONE/session-exec" main - "$ZONE" "$HERE" \
+    --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" "${RESUME_ARGS[@]}" \
+    "${YOLO_ARGS[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$TOOLS" "$@"
   exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" "${RESUME_ARGS[@]}" "${YOLO_ARGS[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$TOOLS" "$@"
 fi
 
@@ -1006,11 +1033,17 @@ printf 'METERING: project=%s role=%s\n' "$PROJECT_ID_VAL" "$SESSION_ROLE"
 SEV_SRC="$ZONE/.omp/profiles/$PROFILE/agent"
 SEV_DST="$PSTATE/home/.omp/profiles/$PROFILE/agent"
 mkdir -p -- "$SEV_DST"
+_SEVJSON=""
 for _sf in config.yml models.db skill-descriptions.db; do
   [ -f "$SEV_SRC/$_sf" ] || continue
+  # 125 v2 И-9: sha источника — ДО копирования, sha копии — ПОСЛЕ; запись сева
+  # собирается тем же кодом, что копирует (не вторым вычислением по факту)
+  _sha1=$(sha256sum -- "$SEV_SRC/$_sf" | cut -c1-64) || die "sha источника сева не взят: $_sf"
   rm -f -- "$SEV_DST/$_sf"
   cp -- "$SEV_SRC/$_sf" "$SEV_DST/$_sf.sev.$$" && mv -f -- "$SEV_DST/$_sf.sev.$$" "$SEV_DST/$_sf" \
     || die "сев $_sf из зоны dev не удался"
+  _sha2=$(sha256sum -- "$SEV_DST/$_sf" | cut -c1-64) || die "sha копии сева не взят: $_sf"
+  _SEVJSON="${_SEVJSON:+${_SEVJSON},}\"$_sf\":{\"sha-istochnik\":\"$_sha1\",\"sha-kopija\":\"$_sha2\"}"
 done
 unset _sf
 printf 'SEV: %s\n' "$SEV_SRC"
@@ -1226,5 +1259,12 @@ if [ -n "$RESUME" ]; then
   printf '  продолжение  сессия %s (план был предъявлен при её старте)\n' "$RESUME" >&2
 fi
 printf '  инвентарь    полный, всегда-ask\n\n' >&2
+# 125 v2 И-9: факты сессии проекта — теми же массивами, что идут в exec ниже;
+# sev.json — запись сева, собранная циклом сева выше (пустой перечень — «{}»)
+_125v2_zapisi_fakty "$PSTATE/session-exec" project "$PROJECT_ID_VAL" "$PSTATE/home" "$PROJECT" \
+  --profile "$PROFILE" --model "$LIVE_MODEL" --config "$POLICY_CFG" "${POLICY_EXT_ARGS[@]}" \
+  "${OVERLAY[@]}" "${RESUME_ARGS[@]}" "${YOLO_ARGS[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$TOOLS" "$@"
+_t=$(mktemp "$PSTATE/session-exec/sev.json.XXXXXX") || die "mktemp sev.json не удался"
+printf '{%s}\n' "$_SEVJSON" > "$_t" && mv -f -- "$_t" "$PSTATE/session-exec/sev.json" || die "запись sev.json не удалась"
 cd "$PROJECT"
 exec omp --profile "$PROFILE" --model "$LIVE_MODEL" --config "$POLICY_CFG" "${POLICY_EXT_ARGS[@]}" "${OVERLAY[@]}" "${RESUME_ARGS[@]}" "${YOLO_ARGS[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$TOOLS" "$@"

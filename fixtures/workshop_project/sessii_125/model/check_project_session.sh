@@ -15,29 +15,124 @@
 # не делит inode с файлом каталога агента dev; нет побайтной копии непустого файла живого
 # состояния ПОД ЛЮБЫМ именем в любом месте дома проекта. Содержимое не печатается.
 set -u
-MA= ME= PA= PE=
+MA= ME= PA= PE= AVTO=
 while [ $# -gt 0 ]; do
   case "$1" in
     --main-argv) MA=${2-}; shift ;;
     --main-env) ME=${2-}; shift ;;
     --project-argv) PA=${2-}; shift ;;
     --project-env) PE=${2-}; shift ;;
+    --avto) AVTO=${2-}; shift ;;
     *) printf 'НЕЧЕМ-ПРОВЕРИТЬ kljuch-neizvesten\n'; exit 2 ;;
   esac
   shift
 done
+if [ -n "$AVTO" ]; then
+  # 125 v2 И-10 «автосверка одной командой»: факты обеих сторон — ЗАПИСЬ лаунчера (И-9),
+  # не /proc живого PID и не дерево проекта. Здесь только адресация и пригодность записи;
+  # суждение полей — тот же код ниже (файл-режим без этих переменных неизменен).
+  # Базис PSTATE — та же env-цепочка, что у лаунчера: HARNESS_SCRATCH → XDG_STATE_HOME →
+  # $HOME/.local/state; сверку и дверь запускают с ОДНИМ базисом (норма оркестратора).
+  # Перечень причин rc 2 замкнут: kljuch-neizvesten koren-otsutstvuet projectid-vne-klassa
+  # fakty-osnovnoj-net fakty-proekta-net fakty-proekta-chuzhie sev-fakty-povverzdeny.
+  [ -z "$MA$ME$PA$PE" ] || { printf 'НЕЧЕМ-ПРОВЕРИТЬ kljuch-neizvesten\n'; exit 2; }
+  FAKTY5=$(python3 - "$AVTO" <<'PYAVTO'
+import json, os, re, sys
+koren = sys.argv[1]
+def otkaz(p):
+    print("НЕЧЕМ-ПРОВЕРИТЬ " + p); sys.exit(2)
+def godny(d, rezhim):
+    fa, fe, fm = (os.path.join(d, x) for x in ("argv", "env", "meta"))
+    if not all(os.path.isfile(x) and os.path.getsize(x) > 0 for x in (fa, fe, fm)):
+        return None
+    try:
+        meta = json.load(open(fm))
+    except Exception:
+        return None
+    if not isinstance(meta, dict) or meta.get("rezhim") != rezhim:
+        return None
+    env = {}
+    for ln in open(fe).read().split("\n"):
+        if "=" in ln:
+            k, v = ln.split("=", 1); env.setdefault(k, v)
+    if not env.get("HOME", "").startswith("/") or not env.get("PWD", "").startswith("/"):
+        return None
+    return fa, fe, meta
+seh = os.environ.get("HARNESS_SESSION_HOME", "")
+if not seh.startswith("/"):
+    otkaz("fakty-osnovnoj-net")
+moj = godny(os.path.join(seh, "session-exec"), "main")
+if moj is None:
+    otkaz("fakty-osnovnoj-net")
+if not os.path.isdir(koren):
+    otkaz("koren-otsutstvuet")
+pid = None
+pf = os.path.join(koren, "harness.project.json")
+if os.path.isfile(pf):
+    try:
+        pid = json.load(open(pf)).get("projectId")
+    except Exception:
+        pid = None
+if not isinstance(pid, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", pid):
+    otkaz("projectid-vne-klassa")
+baza = (os.environ.get("HARNESS_SCRATCH") or os.environ.get("XDG_STATE_HOME")
+        or os.path.join(os.environ.get("HOME", ""), ".local/state"))
+pdir = os.path.join(baza, "dev-harness-projects", pid, "session-exec")
+tvoj = godny(pdir, "project")
+if tvoj is None:
+    otkaz("fakty-proekta-net")
+if tvoj[2].get("projectId") != pid:
+    otkaz("fakty-proekta-chuzhie")
+fsev = os.path.join(pdir, "sev.json")
+shema = False
+try:
+    zap = json.load(open(fsev))
+    shema = isinstance(zap, dict) and all(
+        isinstance(v, dict) and set(v) == {"sha-istochnik", "sha-kopija"}
+        and all(re.fullmatch(r"[0-9a-f]{64}", str(x)) for x in v.values())
+        for v in zap.values())
+except Exception:
+    shema = False
+if not shema:
+    otkaz("sev-fakty-povverzdeny")
+print(moj[0]); print(moj[1]); print(tvoj[0]); print(tvoj[1]); print(fsev)
+PYAVTO
+) || { printf '%s\n' "$FAKTY5"; exit 2; }
+  MA=$(printf '%s\n' "$FAKTY5" | sed -n 1p)
+  ME=$(printf '%s\n' "$FAKTY5" | sed -n 2p)
+  PA=$(printf '%s\n' "$FAKTY5" | sed -n 3p)
+  PE=$(printf '%s\n' "$FAKTY5" | sed -n 4p)
+  S125_SEV_ZAPIS=$(printf '%s\n' "$FAKTY5" | sed -n 5p)
+  export S125_SEV_ZAPIS S125_AVTO=1
+fi
 for f in "$MA" "$ME" "$PA" "$PE"; do
   [ -n "$f" ] && [ -s "$f" ] || { printf 'НЕЧЕМ-ПРОВЕРИТЬ fakty-otsutstvuyut\n'; exit 2; }
 done
 exec python3 - "$MA" "$ME" "$PA" "$PE" <<'PY'
-import hashlib, os, stat, sys
+import hashlib, json, os, re, stat, sys
 POLYA = ["dom", "profil", "config-yml", "models-db", "skill-descriptions-db", "agent-db",
          "ne-sessii", "agenty", "pravila", "politika", "model", "instrumenty",
          "rasshireniya", "podtverzhdeniya"]
 SEV = (("config-yml", "config.yml"), ("models-db", "models.db"), ("skill-descriptions-db", "skill-descriptions.db"))
 NIKOGDA = ("sessions", "history.db", "blobs", "terminal-sessions", "custom-session-files")
 RULES_HDR = "## Правила, каждое из которых уже стоило время"
+# 125 v2: в режиме --avto сев судится ЗАПИСЬЮ старта (sev.json лаунчера, И-9) — живой omp
+# переписывает свои копии после старта (остаток R15), повторная побайтная сверка живых
+# байтов лгала бы; байты копий судит батарея на стаб-мире (b02/b03/b14).
+AVTO = os.environ.get("S125_AVTO") == "1"
+SEVZAP, SEV_LISHNEE = None, False
+if AVTO:
+    _z = None
+    try:
+        _z = json.load(open(os.environ.get("S125_SEV_ZAPIS", ""), "r"))
+    except Exception:
+        _z = None
+    if not isinstance(_z, dict):
+        print("НЕЧЕМ-ПРОВЕРИТЬ sev-fakty-povverzdeny"); sys.exit(2)
+    SEVZAP = {k: (v["sha-istochnik"], v["sha-kopija"]) for k, v in _z.items()}
+    SEV_LISHNEE = bool(set(SEVZAP) - {n for _, n in SEV})
 def nechem(p):
+    if AVTO: p = "fakty-osnovnoj-net"  # непригодности ядра — сторона основной; причины --avto замкнуты
     print("НЕЧЕМ-ПРОВЕРИТЬ " + p); sys.exit(2)
 def fakty(fa, fe):
     with open(fa) as h: argv = h.read().split("\n")
@@ -104,6 +199,7 @@ for pole, name in SEV[:2] + (("agent-db", "agent.db"),):
 for flag, pole in (("--model", "model"), ("--tools", "instrumenty"), ("--append-system-prompt", "pravila")):
     if odin(ma, flag) is None: nechem("osnovnaya-bez-" + pole)
 ras = set()
+if SEV_LISHNEE: ras.add("ne-sessii")  # запись сева заявляет файл вне перечня — «никогда не сеется»
 # dom: отдельный дом проекта — ни тот же, ни вложенный в дом dev (и наоборот)
 if phome is None or pod(phome, mhome) or pod(mhome, phome): ras.add("dom")
 if pprof != mprof: ras.add("profil")
@@ -111,6 +207,11 @@ for pole, name in SEV:
     m, p = os.path.join(MA_, name), os.path.join(PA_, name)
     if not os.path.isfile(m):
         if os.path.lexists(p): ras.add(pole)
+        continue
+    if AVTO:
+        # сев судится записью старта: обычный файл в доме, запись обязательна, sha источника = sha копии
+        if os.path.islink(p) or not os.path.isfile(p) or name not in SEVZAP or SEVZAP[name][0] != SEVZAP[name][1]:
+            ras.add(pole)
         continue
     if os.path.islink(p) or not os.path.isfile(p) or pod(rp(p), mhome) or os.path.samefile(p, m) or sha(p) != sha(m):
         ras.add(pole)
