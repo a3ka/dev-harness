@@ -9,9 +9,9 @@
     "zamer": "9 шагов actions/upload-artifact@v7, 3 шага actions/download-artifact@v7, 5 команд gh run download (замер grep этой пачки)"
   },
   "piny": {
-    ".github/workflows/mobile.yml": "5f071a18f824e98c4e9ed968aceb738d6a037afa0c7736803e40f247046cdbaf",
+    ".github/workflows/mobile.yml": "5e95399f12a9841f74c644c9f9474fbab5ed2dd8dffed6d203f25e7313fffbd6",
     "package.json": "33339210c643b6f2d42e1c1a54f5f9787ca32867b4467dac416fd466025c7b4c",
-    "mobile/scripts/ci-artefakty.cjs": "1a3a8860462dd9013eb785ba2ba0786f3adaa496a60194497b3432c0fae1d13b"
+    "mobile/scripts/ci-artefakty.cjs": "f09d7289a57a432b10535de52ad8ac0c9c2adbe068b9bb5f530b2657ad5a5571"
   },
   "stab_vhod": {
     "stab_a01_upload_ostalsja": {
@@ -143,6 +143,21 @@
       "kletka": "i01-nositel-ispolnim",
       "prichina": "PROVALY_PODAVLENY",
       "defekt": "strategy.continue-on-error: true у матричного носителя e2e-screen (мутация критика N8, совет 2 вердикта V2): провал потомков матрицы проглатывается"
+    },
+    "stab_r10_shablon_padaet": {
+      "kletka": "r10-shablon-pusto",
+      "prichina": "SHABLON_PUSTO_OTKAZ",
+      "defekt": "скрипт-канон отказывает на пустом выборе шаблона (поведение 197/1: SOVPADENIJ_NET rc 2) — ломает честный пустой выбор PR без новых экранов (дефект mob#180); байтовое расхождение ловит и e01-skript-pin"
+    },
+    "stab_r11_imja_ticho": {
+      "kletka": "r11-tochnoe-imja-otsutstvuet",
+      "prichina": "TOCHNOE_IMJA_TICHO_PROSHLO",
+      "defekt": "скрипт-канон молча выходит rc 0 при чтении отсутствующего ТОЧНОГО имени (ложная зелень: смягчение v+1 растянуто на точное имя); байтовое расхождение ловит и e01-skript-pin"
+    },
+    "stab_g02_kljuch_otsutstvuet": {
+      "kletka": "g02-rabochij-katalog-nositelja",
+      "prichina": "NOSITEL_BEZ_WORKING_DIRECTORY",
+      "defekt": "у носителя select-screens снят шаговый working-directory: ${{ github.workspace }} — при defaults.run.working-directory: mobile npm ищет lane в mobile/package.json (урок mob#180 «Missing script», исправление продукта d089250a67)"
     }
   },
   "krasnye_143_posle_197": [

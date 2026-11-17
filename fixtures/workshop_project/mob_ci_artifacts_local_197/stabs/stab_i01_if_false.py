@@ -9,10 +9,12 @@ d = Path(sys.argv[1]) / '.github/workflows/mobile.yml'
 s = d.read_text(encoding='utf-8')
 staryj = """      - name: 'Артефакт selection.json'
         if: always()
+        working-directory: ${{ github.workspace }}
         run: npm run ci:artefakt-zapis -- --imja selection --chto selection.json
 """
 novyj = """      - name: 'Артефакт selection.json'
         if: false
+        working-directory: ${{ github.workspace }}
         run: npm run ci:artefakt-zapis -- --imja selection --chto selection.json
 """
 if staryj not in s:
