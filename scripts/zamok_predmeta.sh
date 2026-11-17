@@ -54,13 +54,26 @@
 #   ГРУППЫ  — harness mob back («-» = вне лимитов станции);
 #   LEDGER  — строка uchet.jsonl {"t":…} (JSON: значения не сталкиваются
 #             с разделителями — склейка полей исключена);
+#   ISOLATED — булево поле item события спавна (omp task wire schema): норма
+#             «true» — и только из ПОЛЯ item; отсутствие поля и любое иное
+#             значение нормализуются в false (fail-closed);
 #   СРАВНЕНИЯ — только литеральные ([ = ] / grep -F); значения задания НИКОГДА
 #             не попадают в regex/glob.
+#
+# ИЗОЛЯЦИЯ РАБОЧЕГО (контракт 199, инвариант 1) — поверх семантики 140:
+# рабочий (классы WORKERS) обязан нести РЕАЛЬНЫЙ флаг isolated:true в ПОЛЕ
+# item события спавна (слово «isolated:true» в тексте задания силы не имеет);
+# рабочий с isolated=false — именованный отказ NE_IZOLIROVAN ДО START и любых
+# записей (в учёте не появляется ни одна строка пакета). Гейт НЕПОЗИЦИОНЕН:
+# судится КАЖДЫЙ item на ЛЮБОЙ позиции пакета (первый/середина/последний) —
+# отказ не зависит от позиции плохого рабочего. На судей требование НЕ
+# распространяется; строка START несёт факт isolated.
 #
 # ОТКАЗЫ rc 1 (именованные; первая причина; stderr «ОТКАЗ: <ИМЯ>: <детали>»):
 #   SUBJECT_NET_V_ZADANII SUBEKT_DVA_V_ZADANII GRAMMATIKA_SUBEKTA
 #   OBJECT_OTSTUTSVUET SUBEKT_DVA_OBJECTA GRAMMATIKA_OBJECTA
 #   PIN_NET GRAMMATIKA_PINA RASHOZHDENIE_PINA VETKA_NEDOSTUPNA
+#   NE_IZOLIROVAN (рабочий без реального isolated:true — контракт 199)
 #   IMJA_NET GRAMMATIKA_IMENI AGENT_NET BITYJ_VHOD
 #   DUBL_V_PAKETE RABOCHIJ_ZHIV SUDJA_ZHIV ZAMOK_BROSHEN ZANYATO_RESHENIEM
 #   AVTOR_ESHCHO_RABOTAET RABOCHEGO_NET OBJECT_RASHODITSJA OBJECT_UZHE_SUZHEN
@@ -411,7 +424,7 @@ sudit() {
 
   # проход 1: грамматика всех gated items; НИ ОДНОЙ записи до полного решения
   GATED=''
-  local i=0 agent name task in_w in_j s sv p wt br o obj klass rol r
+  local i=0 agent name task in_w in_j s sv p wt br o obj klass rol r iso
   while [ "$i" -lt "$N" ]; do
     agent="$(jq -r "(.tasks // [.])[$i].agent // \"\"" "$EVENT" 2>/dev/null)" \
       || otp BITYJ_VHOD "item $i: agent не читается"
@@ -419,6 +432,11 @@ sudit() {
       || otp BITYJ_VHOD "item $i: name не читается"
     task="$(jq -r "(.tasks // [.])[$i].task // \"\"" "$EVENT" 2>/dev/null)" \
       || otp BITYJ_VHOD "item $i: task не читается"
+    # [D199 izolyaciya] флаг изоляции — ТОЛЬКО из ПОЛЯ item (omp task wire
+    # schema); отсутствие поля и любое иное значение нормализуются в false
+    # (fail-closed). Слово «isolated:true» в тексте задания силы не имеет.
+    iso="$(jq -r "(.tasks // [.])[$i].isolated // false" "$EVENT" 2>/dev/null)" || iso=false
+    [ "$iso" = 'true' ] || iso=false
     [ -n "$agent" ] || otp AGENT_NET "item $i: agent отсутствует"
     # [D28 proch-agent] роли вне классов (scout/task/sonic/arbiter/…) — пропуск.
     in_w=0; in_j=0
@@ -448,6 +466,13 @@ sudit() {
         || otp RASHOZHDENIE_PINA "item $i: BRANCH=wip/$(printf '%s' "${br#wip/}" | cut -c1-3)/… ≠ SUBJECT=$sv"
       [ -d "$wt" ] || skip "worktree пина нет: $wt"
       git -C "$wt" rev-parse --git-dir >/dev/null 2>&1 || skip "worktree пина не репо: $wt"
+      # [D199 izolyaciya] ГЕЙТ ИЗОЛЯЦИИ РАБОЧЕГО — НЕПОЗИЦИОНЕН: судится
+      # КАЖДЫЙ item пакета на ЛЮБОЙ позиции (плохой рабочий первым, в
+      # середине, последним) — отказ NE_IZOLIROVAN до START и до любых
+      # записей (в учёте не появляется ни одна строка пакета). Источник флага —
+      # ПОЛЕ item события спавна, НЕ слово в тексте задания.
+      [ "$iso" = 'true' ] \
+        || otp NE_IZOLIROVAN "item $i: рабочий спавн без реального isolated:true (поле события)"
       obj='-'; klass='rabochij'; rol="$agent"
     else
       o="$(object_iz "$task")"
@@ -459,7 +484,7 @@ sudit() {
       esac
       wt='-'; br='-'; klass='sudja'; rol="$agent"
     fi
-    GATED="${GATED}${i}|${agent}|${name}|${sv}|${obj}|${wt}|${br}|${klass}|${rol}
+    GATED="${GATED}${i}|${agent}|${name}|${sv}|${obj}|${wt}|${br}|${klass}|${rol}|${iso}
 "
     i=$((i + 1))
   done
@@ -467,7 +492,7 @@ sudit() {
   if [ -z "$GATED" ]; then printf 'PROPUST: gated items нет\n'; exit 0; fi
 
   # ПАУЗА владельца — реестр; судится ДО замков, для всех gated предметов.
-  while IFS='|' read -r _ _ _ psv _ _ _ _ _; do
+  while IFS='|' read -r _ _ _ psv _ _ _ _ _ _; do
     [ -n "$psv" ] || continue
     na_pauze "$psv" && otp PAUZA_VLADELTSA "предмет $psv стоит на ПАУЗЕ владельца (registry/pauzy.tsv)"
   done <<EOF
@@ -492,7 +517,7 @@ $SUBJS
 EOF
 
   # [D26 paket-otkat] суд под мьютексами; записи — только после решения по ВСЕМУ пакету
-  while IFS='|' read -r idx agent name sv obj wt br klass rol; do
+  while IFS='|' read -r idx agent name sv obj wt br klass rol iso; do
     [ -n "$sv" ] || continue
     zdir="$(zamok_dir "$sv")"
     if [ -d "$zdir/zanyat" ] && [ -f "$zdir/zanyat/holder.json" ]; then
@@ -592,7 +617,7 @@ EOF
 
   # [D23 start-do-razdachi] решение «позволено ВСЕМ» → занятия + START, потом rc 0
   local grp2
-  while IFS='|' read -r idx agent name sv obj wt br klass rol; do
+  while IFS='|' read -r idx agent name sv obj wt br klass rol iso; do
     [ -n "$sv" ] || continue
     if [ "$klass" = 'rabochij' ]; then grp2="$(gruppa_iz_pina "$wt")"
     else grp2="$(gruppa_ledger "$sv")"; fi
@@ -600,10 +625,15 @@ EOF
     mkdir -p "$zdir/zanyat" 2>/dev/null || skip "занятие не создать: $zdir/zanyat"
     printf '{"holder":"%s","klass":"%s","rol":"%s","object":"%s","startedAt":"%s"}\n' \
       "$name" "$klass" "$rol" "$obj" "$(ts_now)" > "$zdir/zanyat/holder.json"
+    # [D199 izolyaciya] строка START несёт ФАКТ изоляции (для рабочего —
+    # isolated:true; для судьи — false: требование 199 на судей не
+    # распространяется). Факт — источник привязки сдачи (scripts/
+    # privjazka_sdachi.sh), а не свободный текст доклада ребёнка.
     jq -nc --arg t START --arg r "$REPO_ID" --arg s "$sv" --arg g "$grp2" \
           --arg h "$name" --arg k "$klass" --arg ro "$rol" --arg o "$obj" \
           --arg w "$wt" --arg b "$br" --arg at "$(ts_now)" \
-      '{t:$t,repoId:$r,subjectId:$s,group:$g,holder:$h,klass:$k,rol:$ro,object:$o,worktree:$w,branch:$b,at:$at}' \
+          --argjson iso "$([ "$iso" = 'true' ] && printf true || printf false)" \
+      '{t:$t,repoId:$r,subjectId:$s,group:$g,holder:$h,klass:$k,rol:$ro,object:$o,worktree:$w,branch:$b,at:$at,isolated:$iso}' \
       >> "$LEDGER"
     printf 'PUSCHEM %s %s/%s (%s/%s)\n' "$name" "$REPO_ID" "$sv" "$klass" "$rol"
   done <<EOF
