@@ -216,6 +216,7 @@ CASES = (
     ('b-produkt-object-mimo-main', 'mob', 1, 'не предок HEAD — реализация не влита в main продукта'),
     ('b-produkt-object-otsutstvuet', 'mob', 1, 'отсутствует в репо продукта'),
     ('b-vneshnij-produkt-vlit', 'station', 0, ''),
+    ('b-vneshnij-curl-s-oshibkoj', 'station', 1, 'влитость в main продукта a3ka/toy-mob не проверена: curl rc=1'),
     ('b-vneshnij-ne-vlit', 'station', 1, '— реализация не влита'),
     ('b-vneshnij-bez-stroki', 'station', 1, 'место реализации предмета 777 не установлено'),
     ('b-vneshnij-stroka-krivaja', 'station', 1, 'ПРОДУКТ: вне грамматики'),
@@ -234,6 +235,7 @@ CASES = (
     ('b-legacy-zakomchennaja-zapis', 'station', 0, ''),
     ('v-riskovyi-sopostavimyj-object', 'station', 0, ''),
     ('v-riskovyi-bez-adversarii', 'station', 1, 'accept адверсария не найден'),
+    ('v-riskovyi-head-obychnyj', 'station', 1, 'accept адверсария не найден'),
     ('v-riskovyi-drugoj-object', 'station', 1, ', ревьюера — на '),
     ('v-riskovyi-svezhij-fail', 'station', 1, 'вердикт адверсария'),
     ('v-adversarii-bez-object', 'station', 1, 'адверсария'),
@@ -245,8 +247,10 @@ CASES = (
     ('g-arch-tochno-imja', 'back', 0, ''),
     ('g-arch-v-skobkah', 'back', 0, ''),
     ('g-arch-s-probelom', 'back', 0, ''),
+    ('g-arch-curl-s-oshibkoj', 'back', 1, PH_ARCH_CI),
     ('g-archive', 'back', 1, PH_ARCH_CI),
     ('g-architecture', 'back', 1, PH_ARCH_CI),
+    ('g-arche', 'back', 1, PH_ARCH_CI),
     ('g-march', 'back', 1, PH_ARCH_CI),
 )
 
@@ -259,13 +263,17 @@ STABS = {
     's-a-object-ne-nuzhen': 'a-verdikt-bez-object',
     's-b-vlitost-ne-proverjaetsja': 'b-produkt-object-mimo-main',
     's-b-api-vsegda-vlito': 'b-vneshnij-ne-vlit',
+    's-b-curl-rc-tolko-default': 'b-vneshnij-curl-s-oshibkoj',
     's-b-mesto-po-umolchaniju-stancija': 'b-mesto-neizvestno',
     's-b-mesto-iz-rabochego-fajla': 'b-legacy-rabochaja-zapis',
     's-v-adversarij-ne-trebuetsja': 'v-riskovyi-bez-adversarii',
     's-v-risk-iz-rabochego-fajla': 'v-legacy-rabochaja-zapis',
+    's-v-risk-iz-head': 'v-riskovyi-head-obychnyj',
     's-v-object-adversarija-ignoriruetsja': 'v-riskovyi-drugoj-object',
     's-g-arch-kak-podstroka': 'g-archive',
     's-g-arch-tolko-literalno': 'g-arch-v-skobkah',
+    's-g-curl-rc-ignoriruetsja': 'g-arch-curl-s-oshibkoj',
+    's-g-arche-razresheno': 'g-arche',
 }
 
 
@@ -349,7 +357,7 @@ def build(base, label, kind, name=None):
     # адверсарий (только клетки (в))
     adversary = []
     if label.startswith('v-riskovyi') or label.startswith('v-adversarii'):
-        if label == 'v-riskovyi-bez-adversarii':
+        if label in ('v-riskovyi-bez-adversarii', 'v-riskovyi-head-obychnyj'):
             pass
         else:
             a_object = OTHER_OBJECT if label == 'v-riskovyi-drugoj-object' else object_sha
@@ -389,6 +397,13 @@ def build(base, label, kind, name=None):
         git(root, 'commit', '-qm', 'post-freeze verdikt na staryj object')
         cid = git(root, 'rev-parse', 'HEAD')
         object_sha = b0
+    if label in ('v-riskovyi-head-obychnyj', 'v-obychnyj-bez-adversarii'):
+        # Adv201: frozen-класс и HEAD различаются; тег остаётся на прежнем blob.
+        # Обратный честный контроль: frozen обычный, HEAD рисковый, адверсарий не нужен.
+        head_risk = 'обычный' if label == 'v-riskovyi-head-obychnyj' else 'рисковый'
+        put(root, contract, contract_text(risk=head_risk, product=product))
+        git(root, 'add', '-A')
+        git(root, 'commit', '-qm', 'post-freeze change risk only in HEAD')
 
     # боковая невлитая ветка (клетка mimo-main)
     side = None
@@ -429,6 +444,7 @@ def build(base, label, kind, name=None):
     compare_status = None
     if label.startswith('b-'):
         compare_status = {'b-vneshnij-produkt-vlit': 'behind',
+                          'b-vneshnij-curl-s-oshibkoj': 'behind',
                           'b-vneshnij-ne-vlit': 'ahead',
                           'b-vneshnij-bez-stroki': 'behind',
                           'b-vneshnij-stroka-krivaja': 'behind',
@@ -439,8 +455,11 @@ def build(base, label, kind, name=None):
                      'g-arch-v-skobkah': 'arch (пин внешней архитектуры, model fitness + code-ratchet)',
                      'g-arch-s-probelom': 'arch fitness',
                      'g-archive': 'archive',
+                     'g-arche': 'arche',
                      'g-architecture': 'architecture ratchet',
                      'g-march': 'march'}.get(label, 'arch')
+    compare_rc = int(label == 'b-vneshnij-curl-s-oshibkoj')
+    checkrun_rc = int(label == 'g-arch-curl-s-oshibkoj')
 
     bin_dir = root.parent / (root.name + '-bin')
     bin_dir.mkdir(exist_ok=True)
@@ -448,8 +467,12 @@ def build(base, label, kind, name=None):
     fake_curl.write_text(
         '#!/usr/bin/env bash\n'
         'case "${@: -1}" in\n'
-        '  *"/compare/"*) [ -n "$DONE201_COMPARE" ] && cat "$DONE201_COMPARE" || exit 31 ;;\n'
-        '  *"/check-runs?"*) [ -n "$DONE201_CHECKRUNS" ] && cat "$DONE201_CHECKRUNS" || exit 31 ;;\n'
+        '  *"/compare/"*)\n'
+        '    [ -n "$DONE201_COMPARE" ] && cat "$DONE201_COMPARE" || exit 31\n'
+        '    exit "$DONE201_COMPARE_RC" ;;\n'
+        '  *"/check-runs?"*)\n'
+        '    [ -n "$DONE201_CHECKRUNS" ] && cat "$DONE201_CHECKRUNS" || exit 31\n'
+        '    exit "$DONE201_CHECKRUNS_RC" ;;\n'
         '  *) exit 31 ;;\n'
         'esac\n')
     fake_curl.chmod(0o755)
@@ -471,6 +494,7 @@ def build(base, label, kind, name=None):
              'impl': impl, 'cid': cid, 'frozen': None if label == 'a-net-zamorozki' else f_target,
              'object': object_sha, 'adversary': adversary, 'risk': risk,
              'product': product, 'compare_status': compare_status,
+             'compare_rc': compare_rc, 'checkrun_rc': checkrun_rc,
              'checkrun_name': checkrun_name,
              'review_file': review_path(kind), 'side': side,
              'compare_file': compare_file, 'checkrun_file': checkrun_file,
@@ -592,6 +616,8 @@ def model(root, f, mutant=''):
                     return 1, PH_B7.format(o=f['object'], r=declared)
             else:
                 status = f['compare_status']
+                if f['compare_rc'] and not skip('s-b-curl-rc-tolko-default'):
+                    return 1, PH_B5.format(r=declared) + f' curl rc={f["compare_rc"]}'
                 if skip('s-b-api-vsegda-vlito'):
                     status = 'behind' if status else 'not-found-green'
                 if status in ('identical', 'behind', 'not-found-green'):
@@ -599,9 +625,11 @@ def model(root, f, mutant=''):
                 elif status in ('ahead', 'diverged'):
                     return 1, PH_B6.format(o=f['object'], r=declared)
                 else:
-                    return 1, PH_B5.format(r=declared) + ' API недоступен'
+                    reason = f' curl rc={f["compare_rc"]}' if f['compare_rc'] else ' API недоступен'
+                    return 1, PH_B5.format(r=declared) + reason
     # (в): класс риска — из ЗАМОРОЖЕННОГО текста выбранной заморозки, как у двери
-    risks = {m.group(1) for m in RISK_RE.finditer(frozen_text)}
+    risk_text = git(root, 'show', f'HEAD:{f["contract"]}') if skip('s-v-risk-iz-head') else frozen_text
+    risks = {m.group(1) for m in RISK_RE.finditer(risk_text)}
     if len(risks) > 1:
         return 1, PH_V5
     klass = next(iter(risks)) if risks else None
@@ -655,11 +683,15 @@ def model(root, f, mutant=''):
             return 1, PH_A4.format(o=obj, t=ftag)
     # (г)
     if f['kind'] == 'back':
+        if f['checkrun_rc'] and not skip('s-g-curl-rc-ignoriruetsja'):
+            return 1, f'{PH_ARCH_CI}: успешного check-run arch на финальном SHA нет (curl rc={f["checkrun_rc"]})'
         name = f['checkrun_name']
         if skip('s-g-arch-kak-podstroka'):
             ok_name = 'arch' in name
         elif skip('s-g-arch-tolko-literalno'):
             ok_name = name == 'arch'
+        elif skip('s-g-arche-razresheno'):
+            ok_name = name == 'arch' or name.startswith('arch ') or name == 'arche'
         else:
             ok_name = name == 'arch' or name.startswith('arch ') or name.startswith('arch (')
         if not ok_name:
@@ -672,6 +704,8 @@ def live(tools, root, contract, facts):
                HARNESS_PROJECT_LAYER_ROOT=str(root), HARNESS_WORKFLOW_ROOT=str(root),
                DONE201_COMPARE=str(facts['compare_file']),
                DONE201_CHECKRUNS=str(facts['checkrun_file']),
+               DONE201_COMPARE_RC=str(facts['compare_rc']),
+               DONE201_CHECKRUNS_RC=str(facts['checkrun_rc']),
                PATH=str(facts['bin_dir']) + os.pathsep + env.get('PATH', ''))
     return run('bash', tools / 'scripts/done_contract.sh', contract, 'батарея 201: клетка', root,
                cwd=root, env=env)

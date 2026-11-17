@@ -1,11 +1,191 @@
-# Сдаточный лист 201 — done-дверь: содержательная сверка (круг fix3: блок К-10 Crit201V3; круг fix2 — исполнение решений арбитража 1)
+# Сдаточный лист 201 — Круг: FAIL Adv201 (Arch201Fix2)
 
-Дата: 2026-11-17. Дерево: wip/201/architect (круг fix3 — поверх 477fda202c; главный чекаут не тронут).
-Все прогоны — из корня worktree, окружение без ambient `GIT_AUTHOR_*`/`GIT_COMMITTER_*`
-(`env -u …`). Оракул батареи — в памяти раннера и читает git-факты мира сам (теги,
-замороженный текст, risk-legacy и mesto-legacy — только `git show HEAD:<реестр>`,
-круг fix3), не из фактов сборки; краснота голого прогона — дефект ЖИВОЙ двери
-`scripts/done_contract.sh` (зона implementer), до её ремонта.
+Текущий круг — поверх `b135b249d48dbacc5ece61d405360d024984f1d3`, только
+`dver_probe.py` и этот лист в семье `done_dver_soderzhatelnaja_201/`; новых файлов нет.
+Замороженный контракт и реализация двери в worktree не менялись.
+Разделы начиная с «Круг fix3» ниже — ИСТОРИЯ до freeze, не текущие итоги.
+
+## Круг: FAIL Adv201 — предмет и существующее
+
+Основание: `48395539cd:verdicts/adversary/contracts-201-impl-v1.md`, блоки 1–3;
+актуализация задания `task-201-architect-fix2.md` о ремонте `fd72a87643`.
+Переиспользованы `CASES`, `STABS`, `build`, `model`, `live` и существующий внешний
+curl-shim; новая дверь, формат входа или второй раннер не вводятся. Публичный seam —
+`scripts/done_contract.sh`; наблюдение каждой live-клетки — rc, именованный отказ и
+наличие/отсутствие Git-тега. Модель снимает frozen-текст и ожидания до вызова двери.
+
+- Блок 1: `b-vneshnij-curl-s-oshibkoj` отличается от честного внешнего behind-мира
+  только ненулевым rc curl после валидного stdout. Отказ обязан содержать
+  `влитость в main продукта a3ka/toy-mob не проверена: curl rc=1`, тега нет.
+- Блок 2: `v-riskovyi-head-obychnyj` — frozen рисковый, после freeze контракт на HEAD
+  закоммичен обычным, тег не двигается, адверсария нет. Ожидается отказ
+  `accept адверсария не найден`. Прежний положительный контроль
+  `v-obychnyj-bez-adversarii` усилен обратной записью: frozen обычный, HEAD рисковый;
+  отсутствие адверсария не мешает done.
+- Блок 3: `g-arche` — completed/success check-run на точном HEAD, но имя `arche`;
+  ожидается ARCH_CI без тега. Контроли `arch`, `arch (…)`, `arch fitness` сохранены.
+- Актуализация блока 1: отдельная `g-arch-curl-s-oshibkoj` — валидный успешный `arch`
+  в stdout и rc curl 1; ожидается ARCH_CI без тега. Это самостоятельная клетка,
+  не объединённый case, который засчитывается по первому отказу.
+
+Конформность новых входов: штатные Git-коммиты после freeze без передвижения тега,
+документированные поля GitHub compare/check-runs и exit-status внешнего процесса.
+Шим и JSON остаются вне судимого мира; `DONE201_COMPARE_RC`/`DONE201_CHECKRUNS_RC`
+передаются из памяти раннера, не читаются с диска мира. Дефект каждого стаба
+наблюдаем на его кодовой привязке `STABS`; перечисления привязок в контракт не добавлены.
+Итоги раннера вычисляются существующими `len(CASES)`/`len(STABS)`: 49/19,
+без дублирующих чисел в shell-wrapper.
+
+### Среда и источники прогонов
+
+Каждый tool-bash запущен с cwd
+`/tmp/dev-harness-worktrees/c907157c/wip-201-architect`.
+Вложенные команды канона выполнялись в отдельном SSH-клоне
+`/tmp/dev-harness-verify/Arch201Fix2/repo` со своей `.git`:
+origin `ssh://git@github.com/a3ka/dev-harness.git`,
+исходный `HEAD=origin/main=34566df929d888543c45b1da00f72c1ea501161b`.
+Все прогоны — без ambient `GIT_AUTHOR_*`/`GIT_COMMITTER_*`
+(`env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u GIT_AUTHOR_DATE
+-u GIT_COMMITTER_NAME -u GIT_COMMITTER_EMAIL -u GIT_COMMITTER_DATE`;
+одноразовый драйвер также удалял все переменные этих двух префиксов).
+
+Скрипт двери и реестр места экспортированы `git archive | tar` из read-only
+основного репозитория: сначала `3ed2c21a7a`, затем
+`fd72a87643e467d1d83b17059248008bf005ca55`.
+Для ОБОИХ файлов ОБОИХ кандидатов `git show <sha>:<path> | cmp - <clone/path>`
+вернул 0. Батарея и прежняя правка 996 экспортированы из staged-tree
+`aa733acfbb1a12773210ca6d8dec3ec963b7ca12`; `cmp` dver_probe.py с worktree — 0.
+Сырой вывод подготовки:
+
+```text
+before sources and fixture cmp=0
+after sources cmp=0
+```
+
+### Прогоны до и после ремонта реализации
+
+Команды в таблице — `bash <путь>` из корня verification-клона; путь 201 —
+`fixtures/workshop_project/done_dver_soderzhatelnaja_201/red_done_dver_201.sh`,
+путь 187 — `fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh`.
+В таблице приведены буквальные итоговые строки, не пересчитанные результаты.
+
+| Дверь | Команда | rc | Сырой итог |
+|---|---|---:|---|
+| 3ed2c21a7a | 201, голый | 1 | `CELLS=49 STABS=0 FAILURES=2` |
+| 3ed2c21a7a | 201 `--repo .` | 1 | `CELLS=49 STABS=0 FAILURES=2` |
+| fd72a87643 | 201, голый | 0 | `CELLS=49 STABS=0 FAILURES=0` |
+| fd72a87643 | 201 `--repo .` | 0 | `CELLS=49 STABS=0 FAILURES=0` |
+| fd72a87643 | 201 `--model` | 0 | `CELLS=49 STABS=0 FAILURES=0` |
+| fd72a87643 | 201 `--stabs` | 0 | `CELLS=49 STABS=19 FAILURES=0` |
+| fd72a87643 | 187 `--repo .` | 0 | `CELLS=54 STABS=0 FAILURES=0` |
+| fd72a87643 | 187 `--model` | 0 | `CELLS=54 STABS=0 FAILURES=0` |
+| fd72a87643 | 187 `--stabs` | 0 | `CELLS=54 STABS=56 FAILURES=0` |
+| fd72a87643 | `bash fixtures/workshop_project/rezhim_996/probe.sh` | 0 | `996: examined=111 mutants=0 mismatches=0` |
+| fd72a87643 | `bash scripts/gen_ci_steps.sh --check` | 0 | stdout пуст |
+| fd72a87643 | `bash scripts/check_charter.sh .` | 0 | `уставных документов: 180 · изменений в них: 521 · с разрешения: 521` |
+
+До ремонта красны РОВНО две транспортные клетки; остальные 47 зелёные.
+Сырые строки голого прогона и `--repo .` совпали:
+
+```text
+RED b-vneshnij-curl-s-oshibkoj: rc=0 expected=1 reason=влитость в main продукта a3ka/toy-mob не проверена: curl rc=1 output=''
+RED g-arch-curl-s-oshibkoj: rc=0 expected=1 reason=ARCH_CI output=''
+CELLS=49 STABS=0 FAILURES=2
+rc=1
+```
+
+После ремонта, голый и `--repo .` (выдержка новых клеток и обратного контроля):
+
+```text
+GREEN b-vneshnij-curl-s-oshibkoj: rc=1 expected=1 reason=влитость в main продукта a3ka/toy-mob не проверена: curl rc=1
+GREEN v-riskovyi-head-obychnyj: rc=1 expected=1 reason=accept адверсария не найден
+GREEN v-obychnyj-bez-adversarii: rc=0 expected=0
+GREEN g-arch-curl-s-oshibkoj: rc=1 expected=1 reason=ARCH_CI
+GREEN g-arche: rc=1 expected=1 reason=ARCH_CI
+CELLS=49 STABS=0 FAILURES=0
+rc=0
+```
+
+Новые строки `--stabs` (все прежние стабы также caught):
+
+```text
+STAB s-b-curl-rc-tolko-default caught @ b-vneshnij-curl-s-oshibkoj
+STAB s-v-risk-iz-head caught @ v-riskovyi-head-obychnyj
+STAB s-g-curl-rc-ignoriruetsja caught @ g-arch-curl-s-oshibkoj
+STAB s-g-arche-razresheno caught @ g-arche
+CELLS=49 STABS=19 FAILURES=0
+rc=0
+```
+
+### Мутационные доказательства на ЖИВОЙ двери
+
+Каждый мутант — отдельная временная копия настоящего `scripts/`, а не мутант модели.
+Единственная предметная замена указана ниже; на каждом запущена полная 201-батарея
+`bash fixtures/workshop_project/done_dver_soderzhatelnaja_201/red_done_dver_201.sh --repo <копия>`.
+Перед этим независимые миры предъявлены честной и мутантной двери с печатью rc/тега.
+
+| Блок | Мутация реализации | Сырой итог полной батареи | rc |
+|---|---|---|---:|
+| 1 | `curl-default-only`: вернуть проверку `_cmp_crc` только в default-ветвь case, как в 3ed2c21a7a | `CELLS=49 STABS=0 FAILURES=1` | 1 |
+| 2 | `risk-from-HEAD`: `git cat-file -p "$frozen_tag:$TARGET_REL"` → `git cat-file -p "HEAD:$TARGET_REL"` | `CELLS=49 STABS=0 FAILURES=2` | 1 |
+| 3 | `accept-arche`: `startswith("arch ")` → `(startswith("arch ") or . == "arche")` | `CELLS=49 STABS=0 FAILURES=1` | 1 |
+| 1, check-run | `checkrun-curl-ignored`: убрать `_a187_crc == 0` из условия разбора stdout | `CELLS=49 STABS=0 FAILURES=1` | 1 |
+
+Две красные клетки мутанта риска — новый запрет и обратный положительный контроль,
+а не две причины одного объединённого case. Сырой адресный вывод:
+
+```text
+curl-default-only-honest: cell=b-vneshnij-curl-s-oshibkoj rc=1 tag='' output='done: влитость в main продукта a3ka/toy-mob не проверена: curl rc=1\n'
+curl-default-only-mutant: cell=b-vneshnij-curl-s-oshibkoj rc=0 tag='done/contracts/777/1' output=''
+risk-from-HEAD-honest: cell=v-riskovyi-head-obychnyj rc=1 tag='' output='done: предмет рисковый, accept адверсария не найден: verdicts/adversary/contracts-777-*.md\n'
+risk-from-HEAD-mutant: cell=v-riskovyi-head-obychnyj rc=0 tag='done/contracts/777/1' output=''
+accept-arche-honest: cell=g-arche rc=1 tag='' output='ARCH_CI: успешного check-run arch на финальном SHA d282b1b841ea4d3915e13e4e42918482c564dc32 нет (curl rc=0)\n'
+accept-arche-mutant: cell=g-arche rc=0 tag='done/contracts/777/1' output=''
+checkrun-curl-ignored-honest: cell=g-arch-curl-s-oshibkoj rc=1 tag='' output='ARCH_CI: успешного check-run arch на финальном SHA 18e2629d96ec9831d17a2e031f8bb5d550ba2e3a нет (curl rc=1)\n'
+checkrun-curl-ignored-mutant: cell=g-arch-curl-s-oshibkoj rc=0 tag='done/contracts/777/1' output=''
+risk-reverse-positive: cell=v-obychnyj-bez-adversarii rc=0 tag='done/contracts/777/1' output=''
+risk-reverse-positive: frozen=обычный HEAD=рисковый adversary=absent
+compare-positive: cell=b-vneshnij-produkt-vlit rc=0 tag='done/contracts/777/1' output=''
+g-arch-tochno-imja-positive: cell=g-arch-tochno-imja rc=0 tag='done/contracts/777/1' output=''
+g-arch-v-skobkah-positive: cell=g-arch-v-skobkah rc=0 tag='done/contracts/777/1' output=''
+g-arch-s-probelom-positive: cell=g-arch-s-probelom rc=0 tag='done/contracts/777/1' output=''
+verification-phase=mutations rc=0
+```
+
+Полная мутантная батарея красила ровно названную клетку каждого запрета; для риска
+также `v-obychnyj-bez-adversarii` (ложный отказ с HEAD-классом). Все прочие клетки,
+включая положительные arch-контроли, оставались зелёными.
+
+### Развилки
+
+- Актуализация разрешает ещё одну клетку check-run/curl, но сохраняет ожидаемые
+  48/18 от трёх основных находок. Она реализована отдельным миром и отдельным стабом:
+  фактический census — 49/19, до ремонта FAILURES=2, не 1. Новых файлов нет.
+- Замороженный текст 201 не менялся: его исторические 45 клеток / 15 стабов
+  устарели, как и старый pre-implementation замер FAILURES=30. Итоги этого круга —
+  таблицы выше, не молчаливая правка frozen-приёмки.
+- Клон взят с живого SSH-origin (34566df9), не с локального checkout; требуемые
+  blobs кандидатов перенесены разрешённым в актуализации `git archive | tar`
+  и побайтово сверены `cmp`. Основной checkout и чужие verify-клоны не изменялись.
+- Одноразовый драйвер после успешного 996 `rc=0` ошибочно ожидал итог без префикса
+  `996:` и завершился с AssertionError. Это ошибка драйвера, не дефект батареи:
+  сырой результат 111/0/0 выше. Завершённые проверки не повторялись; оставшиеся
+  gen_ci_steps/check_charter выполнены отдельно (`verification-phase=remaining rc=0`).
+
+### Остатки и рефлексия процесса
+
+- Реальные GitHub API и удалённый CI не вызывались: транспортные отказы и ответы
+  API заданы штатным внешним шимом. Локальный CI-generator проверен; выпуск
+  настоящего done-тега 201 не выполнялся.
+- 996 проверена только `probe.sh` с уже сданным `b135b249d4`; `--matrix` в этом
+  круге не запускалась. Исторические сообщения о её mismatch ниже не являются
+  результатом нынешнего круга.
+- Процессная помеха: актуализация оставила фиксированные счётчики от обязательной
+  тройки рядом с разрешённой дополнительной клеткой. Разрешено явным подсчётом
+  раннера и разделением миров, без ослабления инвариантов.
+  Общий `NABLIUDENIA_ARCHITECT.md` не изменён: он вне выданной зоны, запись в
+  wip-журнал запрещена. Рефлексия передаётся оркестратору этим листом без
+  самовольного общего номера.
 
 ## Круг fix3 — блок К-10 Crit201V3 (классификация места читала рабочую копию реестра)
 
