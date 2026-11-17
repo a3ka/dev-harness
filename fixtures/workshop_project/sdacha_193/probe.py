@@ -8,11 +8,14 @@ scripts/pre_critic.sh (вставлена патчем к реальной дв�
 и не дублируется) и нога карты в scripts/freeze_contract.sh (якорь
 «# ── 6а. SPEC-PREFLIGHT»).
 
-Режимы: --repo <корень> (умолчание — живое дерево: реальные субъекты; до
-реализации предметы красны rc 127/поведением), --model (честная модель из
-model/scripts; ноги pre_critic/freeze — патч к реальным дверям живого дерева),
---stabs (обманные реализации из stabs/ по привязкам stabs.tsv против модели;
-Н-39: привязки данными батареи, не прозой контракта).
+Режимы: --repo <корень> (умолчание — живое дерево) и голый: субъекты —
+ТОЛЬКО реальные файлы выбранного дерева, ноги pre_critic/freeze НЕ
+достраиваются патчем (К-11 Crit193V1: до реализации реальные ноги
+отсутствуют и клетки ног честно красны); --model (честная модель из
+model/scripts; ноги — патч к реальным дверям живого дерева, пост-реализация
+опознаётся меткой); --stabs (обманные реализации из stabs/ и мутации ног по
+привязкам stabs.tsv против модели; Н-39: привязки данными батареи,
+не прозой контракта).
 
 Оракул — в памяти пробы: ожидания сняты до вызова субъекта (К-11); таймаут
 убивает ГРУППУ процессов субъекта (рекурсивная обманка не переживает прогон).
@@ -72,6 +75,15 @@ if [ "${SDACHA_OKRUG:-0}" != "1" ] && [ -x "$ROOT/scripts/check_sdacha.sh" ]; th
 fi
 
 '''
+NOGA_PRE_CRITIC_VSEGDA_OTKAZ = '''# ── (к) СДАТОЧНЫЙ ЛИСТ — мутация PATERN:VSEGDA-OTKAZ (батарея 193) ──────────
+# Нога отказывает БЕЗ прогона двери: ложный отказ и на честном листе
+# (блок критика Crit193V1 К-14). Различающий вход — клетка p03: прямой
+# вызов с честным листом и зелёной вооружённой дверью обязан пройти.
+if [ "${SDACHA_OKRUG:-0}" != "1" ] && [ -x "$BASE/scripts/check_sdacha.sh" ]; then
+  refuse "сдаточный лист красен"
+fi
+
+'''
 YAKOR_PRE_CRITIC = "printf 'КРИТИК: дверь зелёная"
 
 NOGA_FREEZE = '''# ── 6-карта. КАРТА КЛАССОВ ВЕРДИКТА (контракт 193, Л2) ──────────────────────
@@ -82,6 +94,20 @@ NOGA_FREEZE = '''# ── 6-карта. КАРТА КЛАССОВ ВЕРДИКТ
 if printf '%s\\n' "$(g cat-file -p "HEAD:$TARGET" 2>/dev/null)" | grep -q '^СДАЧА: '; then
   if [ -x "$SELF_DIR/check_verdict_karta.sh" ]; then
     _k193_rc=0
+    _k193_out="$(bash "$SELF_DIR/check_verdict_karta.sh" "$ROOT" "$verdict" 2>&1)" || _k193_rc=$?
+    [ "$_k193_rc" -eq 0 ] || die "карта классов вердикта $verdict красна (rc=$_k193_rc): $(printf '%s' "$_k193_out" | head -n 1)"
+  fi
+fi
+
+'''
+NOGA_FREEZE_USPEH_KRASIT = '''# ── 6-карта — мутация PATERN:USPEH-KRASIT (батарея 193) ──────────────────────
+# Инициализация результата заменена на 1: успех двери карты его не обнуляет,
+# заморозка ложно отказывает и на зелёной карте (блок критика Crit193V1
+# К-14). Различающий вход — клетка f03: карта зелёная, честная нога обязана
+# пропустить заморозку дальше (отказ позже и по чужой причине).
+if printf '%s\\n' "$(g cat-file -p "HEAD:$TARGET" 2>/dev/null)" | grep -q '^СДАЧА: '; then
+  if [ -x "$SELF_DIR/check_verdict_karta.sh" ]; then
+    _k193_rc=1
     _k193_out="$(bash "$SELF_DIR/check_verdict_karta.sh" "$ROOT" "$verdict" 2>&1)" || _k193_rc=$?
     [ "$_k193_rc" -eq 0 ] || die "карта классов вердикта $verdict красна (rc=$_k193_rc): $(printf '%s' "$_k193_out" | head -n 1)"
   fi
@@ -112,16 +138,21 @@ def patched(istok: Path, jakor: str, noga: str, metka: str) -> str:
 
 
 class Istochniki:
-    """Субъекты мира: двери — из koren (живое дерево или модель), ноги — патч к
-    реальным pre_critic/freeze живого дерева; замены для режима --stabs."""
+    """Субъекты мира: двери — из koren (живое дерево или модель). Ноги
+    pre_critic/freeze — патч к реальным дверям живого дерева ТОЛЬКО при
+    dostroat_nogi (режимы --model/--stabs: модель — эталон переноса); в
+    режимах голый/--repo ноги — РЕАЛЬНЫЕ файлы выбранного дерева без
+    достройки проверяемого (К-11 Crit193V1: нет реальной ноги — клетки ног
+    красны). Замены для режима --stabs."""
 
     def __init__(self, koren: Path, dver_zamena=None, karta_zamena=None,
-                 pre_mutacija=None, freeze_mutacija=None):
+                 pre_mutacija=None, freeze_mutacija=None, dostroat_nogi=False):
         self.koren = koren
         self.dver_zamena = dver_zamena
         self.karta_zamena = karta_zamena
         self.pre_mutacija = pre_mutacija
         self.freeze_mutacija = freeze_mutacija
+        self.dostroat_nogi = dostroat_nogi
         self._kesh = {}
 
     def _skopirovat(self, imja: str, zamena):
@@ -132,26 +163,39 @@ class Istochniki:
 
     def pre_critic(self):
         if 'pre' not in self._kesh:
-            noga = NOGA_PRE_CRITIC
-            if self.pre_mutacija == 'PATERN:IZ-ROOTA':
-                noga = NOGA_PRE_CRITIC_IZ_ROOTA
-            t = patched(DEREVO / 'scripts' / 'pre_critic.sh',
-                        YAKOR_PRE_CRITIC, noga, '(к) СДАТОЧНЫЙ ЛИСТ')
-            vrem = Path(tempfile.mkdtemp(prefix='nog193-'))
-            (vrem / 'pre_critic.sh').write_text(t, encoding='utf-8')
-            self._kesh['pre'] = vrem / 'pre_critic.sh'
+            if self.dostroat_nogi:
+                noga = NOGA_PRE_CRITIC
+                if self.pre_mutacija == 'PATERN:IZ-ROOTA':
+                    noga = NOGA_PRE_CRITIC_IZ_ROOTA
+                elif self.pre_mutacija == 'PATERN:VSEGDA-OTKAZ':
+                    noga = NOGA_PRE_CRITIC_VSEGDA_OTKAZ
+                t = patched(DEREVO / 'scripts' / 'pre_critic.sh',
+                            YAKOR_PRE_CRITIC, noga, '(к) СДАТОЧНЫЙ ЛИСТ')
+                vrem = Path(tempfile.mkdtemp(prefix='nog193-'))
+                (vrem / 'pre_critic.sh').write_text(t, encoding='utf-8')
+                self._kesh['pre'] = vrem / 'pre_critic.sh'
+            else:
+                put = self.koren / 'scripts' / 'pre_critic.sh'
+                self._kesh['pre'] = put if put.exists() else None
         return self._kesh['pre']
 
     def freeze(self):
         if 'freeze' not in self._kesh:
-            if self.freeze_mutacija == 'PATERN:BEZ-NOGI':
-                t = (DEREVO / 'scripts' / 'freeze_contract.sh').read_text(encoding='utf-8')
+            if self.dostroat_nogi:
+                if self.freeze_mutacija == 'PATERN:BEZ-NOGI':
+                    t = (DEREVO / 'scripts' / 'freeze_contract.sh').read_text(encoding='utf-8')
+                elif self.freeze_mutacija == 'PATERN:USPEH-KRASIT':
+                    t = patched(DEREVO / 'scripts' / 'freeze_contract.sh',
+                                YAKOR_FREEZE, NOGA_FREEZE_USPEH_KRASIT, '6-карта')
+                else:
+                    t = patched(DEREVO / 'scripts' / 'freeze_contract.sh',
+                                YAKOR_FREEZE, NOGA_FREEZE, '6-карта')
+                vrem = Path(tempfile.mkdtemp(prefix='nog193-'))
+                (vrem / 'freeze_contract.sh').write_text(t, encoding='utf-8')
+                self._kesh['freeze'] = vrem / 'freeze_contract.sh'
             else:
-                t = patched(DEREVO / 'scripts' / 'freeze_contract.sh',
-                            YAKOR_FREEZE, NOGA_FREEZE, '6-карта')
-            vrem = Path(tempfile.mkdtemp(prefix='nog193-'))
-            (vrem / 'freeze_contract.sh').write_text(t, encoding='utf-8')
-            self._kesh['freeze'] = vrem / 'freeze_contract.sh'
+                put = self.koren / 'scripts' / 'freeze_contract.sh'
+                self._kesh['freeze'] = put if put.exists() else None
         return self._kesh['freeze']
 
 
@@ -200,11 +244,18 @@ def postroit_mir(kuda: Path, ist: Istochniki, kontrakt_f, sdacha_f=None,
         if libka.exists():
             shutil.copy2(libka, kuda / 'scripts' / 'lib_karta_sdachi.sh')
     if 'pre_critic' in dveri:
-        shutil.copy2(ist.pre_critic(), kuda / 'scripts' / 'pre_critic.sh')
+        subj = ist.pre_critic()
+        if subj is not None:
+            shutil.copy2(subj, kuda / 'scripts' / 'pre_critic.sh')
     if 'freeze' in dveri:
-        shutil.copy2(ist.freeze(), kuda / 'scripts' / 'freeze_contract.sh')
-        for f in FREEZE_LIBS:
-            shutil.copy2(DEREVO / 'scripts' / f, kuda / 'scripts' / f)
+        subj = ist.freeze()
+        if subj is not None:
+            shutil.copy2(subj, kuda / 'scripts' / 'freeze_contract.sh')
+            # libs заморозки — от того же источника, что и сама нога
+            lib_istok = DEREVO if ist.dostroat_nogi else ist.koren
+            for f in FREEZE_LIBS:
+                if (lib_istok / 'scripts' / f).exists():
+                    shutil.copy2(lib_istok / 'scripts' / f, kuda / 'scripts' / f)
     git(kuda, 'init', '-q', '-b', 'main')
     git(kuda, 'add', '-A')
     git(kuda, 'commit', '-qm', 'toy193: init')
@@ -240,6 +291,14 @@ SPECSY = {
     'delta_polnaja': dict(kontrakt_f='kontrakt_chestnyj.md',
                           sdacha_f='sdacha_delta_polnaja.md',
                           verdikt_f='verdikt_fail_s_kartoj.md', dveri=('sdacha',)),
+    'delta_head': dict(kontrakt_f='kontrakt_chestnyj.md',
+                       sdacha_f='sdacha_delta_polnaja.md',
+                       verdikt_f='verdikt_fail_s_kartoj.md', dveri=('sdacha',),
+                       posle_kommita=[(VERDIKT, tekst('verdikt_rabochij_bez_blokov.md'))]),
+    'delta_head_nepolnaja': dict(
+        kontrakt_f='kontrakt_chestnyj.md', sdacha_f='sdacha_delta_nepolnaja.md',
+        verdikt_f='verdikt_fail_s_kartoj.md', dveri=('sdacha',),
+        posle_kommita=[(VERDIKT, tekst('verdikt_rabochij_bez_blokov.md'))]),
     'sposob_vne': dict(kontrakt_f='kontrakt_chestnyj.md', sdacha_f='sdacha_sposob_vne.md',
                        verdikt_f='verdikt_fail_s_kartoj.md', dveri=('sdacha',)),
     'staryj': dict(kontrakt_f='kontrakt_zamorozhennyj.md', teg='zamorozhen',
@@ -251,6 +310,9 @@ SPECSY = {
                   dveri=('sdacha',)),
     'budzhet': dict(kontrakt_f='kontrakt_chestnyj.md', sdacha_f='sdacha_s_budzhetom.md',
                     dveri=('sdacha',)),
+    'budzhet_poslednej': dict(kontrakt_f='kontrakt_chestnyj.md',
+                              sdacha_f='sdacha_budzhet_poslednej.md',
+                              dveri=('sdacha',)),
     'pustoj_listok': dict(kontrakt_f='kontrakt_chestnyj.md', sdacha_f='sdacha_pustaja.md',
                           dveri=('sdacha',)),
     'put_vne': dict(kontrakt_f='kontrakt_so_sdachej_vne.md', dveri=('sdacha',)),
@@ -277,6 +339,9 @@ SPECSY = {
     'freeze_staryj': dict(kontrakt_f='kontrakt_zamorozhennyj.md',
                           verdikt_f='verdikt_accept_bez_karty.md',
                           dveri=('karta', 'freeze')),
+    'freeze_zelenyj': dict(kontrakt_f='kontrakt_chestnyj.md',
+                           verdikt_f='verdikt_chestnyj.md',
+                           dveri=('karta', 'freeze')),
     'noga_krasna': dict(kontrakt_f='kontrakt_novogo.md', dveri=('sdacha', 'pre_critic'),
                         toy_gejty=True),
     'repo_bez_dveri': dict(kontrakt_f='kontrakt_novogo.md'),
@@ -347,6 +412,19 @@ def kletki(miry: Miry) -> list:
                     ['вне грамматики']))
     K.append(Kletka('s19-rekursija-razorvana', dver('rekursija'), 0, ['лист зелёный'],
                     tajmaut=60))
+    # К-08 Crit193V1: предыдущий вердикт — ТОЛЬКО HEAD-блоб; рабочий файл
+    # вердикта скрывает блоки К-01/К-02 (закоммичены), суждение — по HEAD.
+    K.append(Kletka('s20-verdikt-tolko-head', dver('delta_head'), 0, ['лист зелёный']))
+    K.append(Kletka('s21-rabochij-verdikt-skryvaet-blok', dver('delta_head_nepolnaja'),
+                    1, ['К-02', 'не закрыт']))
+    # К-07 Crit193V1: бюджет листа ограничивает и ВЫПОЛНЯЮЩУЮСЯ (последнюю)
+    # команду; честная команда в пределах бюджета зелёная (s23).
+    K.append(Kletka('s22-bjudzhet-poslednej-komandy', dver('budzhet_poslednej'), 1,
+                    ['бюджет'],
+                    env={'SDACHA_BUDZHET_SEK': '1', 'SDACHA_TIMEOUT_SEK': '10'}))
+    K.append(Kletka('s23-bjudzhet-chestnyj-v-predelah', dver('budzhet_poslednej'), 0,
+                    ['лист зелёный'],
+                    env={'SDACHA_BUDZHET_SEK': '5', 'SDACHA_TIMEOUT_SEK': '10'}))
     # половина (б): дверь карты вердикта
     K.append(Kletka('v01-chestnyj-verdikt', karta('verdikt_chestnyj'), 0, ['17/17']))
     K.append(Kletka('v02-karta-16', karta('verdikt_karta_16'), 1, ['К-17']))
@@ -361,6 +439,11 @@ def kletki(miry: Miry) -> list:
                     ['карта классов вердикта']))
     K.append(Kletka('f02-freeze-staryj-bez-karty', zamorozka('freeze_staryj'), 1,
                     [], ['карта классов вердикта']))
+    # К-14 Crit193V1: положительный мир ноги карты — карта зелёная, честная
+    # нога пропускает заморозку дальше (отказ позже, по чужой причине —
+    # spec-preflight rc 127 в toy-мире); ложный отказ ноги различается.
+    K.append(Kletka('f03-freeze-noga-zelenaja', zamorozka('freeze_zelenyj'), 1,
+                    ['spec-preflight'], ne_markery=['карта классов вердикта']))
     # p01 моделирует ПРЯМОЙ вызов pre_critic оркестратором (маркер рекурсии
     # погашен явно): внутри прогона двери листа маркер наследуется — и нога (к)
     # по канону И6 молчит; прямому вызову маркер не положен.
@@ -372,6 +455,12 @@ def kletki(miry: Miry) -> list:
                     ['bash', str(miry['rekursija'] / 'scripts' / 'pre_critic.sh'),
                      '--repo', str(miry['repo_bez_dveri']), KONTRAKT], 0,
                     ['КРИТИК: дверь зелёная']))
+    # К-14 Crit193V1: положительный мир ноги (к) — честный лист, вооружённая
+    # зелёная дверь, прямой вызов (маркер погашен): нога обязана пропустить.
+    K.append(Kletka('p03-noga-listok-zelenyj',
+                    ['bash', str(miry['rekursija'] / 'scripts' / 'pre_critic.sh'),
+                     KONTRAKT], 0, ['КРИТИК: дверь зелёная'],
+                    env={'SDACHA_OKRUG': '0'}))
     return K
 
 
@@ -456,7 +545,8 @@ def rezhim_stabs(vrem: Path) -> int:
                       file=sys.stderr)
                 return 2
         ist = Istochniki(MODEL, dver_zamena=dver_zamena, karta_zamena=karta_zamena,
-                         pre_mutacija=pre_mut, freeze_mutacija=freeze_mut)
+                         pre_mutacija=pre_mut, freeze_mutacija=freeze_mut,
+                         dostroat_nogi=True)
         miry = Miry(vrem / ('obmanka-' + imja.replace(':', '_')), ist)
         K = kletki(miry)
         kletka = next((k for k in K if k.imja.startswith(kletka_imja + '-')), None)
@@ -488,7 +578,7 @@ def main() -> int:
         if args.stabs:
             rc = rezhim_stabs(vrem)
         elif args.model:
-            rc = rezhim_suda(Miry(vrem, Istochniki(MODEL)))
+            rc = rezhim_suda(Miry(vrem, Istochniki(MODEL, dostroat_nogi=True)))
         else:
             koren = Path(args.repo).resolve() if args.repo else DEREVO.resolve()
             rc = rezhim_suda(Miry(vrem, Istochniki(koren)))

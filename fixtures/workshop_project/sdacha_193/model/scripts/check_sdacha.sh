@@ -260,13 +260,22 @@ if [ -n "$PRED_VERDIKT" ]; then
 fi
 
 # ── прогон команд (бюджет; маркер рекурсии) ──────────────────────────────────
+# Бюджет листа (К-07 Crit193V1) ограничивает и ВЫПОЛНЯЮЩУЮСЯ команду: предельное
+# время команды — минимум её таймаута и остатка бюджета листа; убийство по
+# остатку бюджета — отказ «бюджет … исчерпан», по таймауту команды — «таймаут».
 start="$SECONDS"
 for i in "${!KOMANDY[@]}"; do
-    (( SECONDS - start > BUDZHET_SEK )) && otkaz "бюджет листа $BUDZHET_SEK исчерпан (строка ${GDE[$i]})"
+    ostalos=$(( BUDZHET_SEK - (SECONDS - start) ))
+    (( ostalos > 0 )) || otkaz "бюджет листа $BUDZHET_SEK исчерпан (строка ${GDE[$i]})"
+    predel="$TIMEOUT_SEK"
+    (( ostalos < predel )) && predel="$ostalos"
     fact=0
-    ( cd "$ROOT" && SDACHA_OKRUG=1 timeout "$TIMEOUT_SEK" bash -c "${KOMANDY[$i]}" ) >/dev/null 2>&1 || fact=$?
+    ( cd "$ROOT" && SDACHA_OKRUG=1 timeout "$predel" bash -c "${KOMANDY[$i]}" ) >/dev/null 2>&1 || fact=$?
     if [ "$fact" -eq 124 ]; then
-        otkaz "строка ${GDE[$i]}: таймаут $TIMEOUT_SEK с команды: ${KOMANDY[$i]}"
+        if (( TIMEOUT_SEK <= ostalos )); then
+            otkaz "строка ${GDE[$i]}: таймаут $TIMEOUT_SEK с команды: ${KOMANDY[$i]}"
+        fi
+        otkaz "строка ${GDE[$i]}: бюджет листа $BUDZHET_SEK исчерпан на команде: ${KOMANDY[$i]}"
     fi
     [ "$fact" = "${OZHIDALI[$i]}" ] || otkaz "строка ${GDE[$i]}: фактический rc=$fact ≠ заявленного ${OZHIDALI[$i]}: ${KOMANDY[$i]}"
 done
