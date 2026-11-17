@@ -13,9 +13,10 @@ scripts/pre_critic.sh (вставлена патчем к реальной дв�
 достраиваются патчем (К-11 Crit193V1: до реализации реальные ноги
 отсутствуют и клетки ног честно красны); --model (честная модель из
 model/scripts; ноги — патч к реальным дверям живого дерева, пост-реализация
-опознаётся меткой); --stabs (обманные реализации из stabs/ и мутации ног по
-привязкам stabs.tsv против модели; Н-39: привязки данными батареи,
-не прозой контракта).
+опознаётся меткой); --stabs (обманные реализации из stabs/ и адресные
+мутации операций PATERN:* по привязкам stabs.tsv против модели; мутации
+дверей/lib — якорная замена честной операции с проверкой применённости,
+Н-39: привязки данными батареи, не прозой контракта).
 
 Оракул — в памяти пробы: ожидания сняты до вызова субъекта (К-11); таймаут
 убивает ГРУППУ процессов субъекта (рекурсивная обманка не переживает прогон).
@@ -116,6 +117,65 @@ fi
 '''
 YAKOR_FREEZE = '# ── 6а. SPEC-PREFLIGHT'
 
+# ── адресные мутации операций (Arb193V1 решения 1–2: исполняемые изменения,
+# фактически предъявленные критиками V1/V2, хранятся батареей как обманные
+# стабы; якорь обязан встречаться в честном субъекте РОВНО один раз — нулевая
+# замена поимкой не считается, ORACLE_TAMPERED rc 2) ─────────────────────────
+MUTACII_DVERI = {
+    # Crit193V1 latest-tag: сравнение выбора последней заморозки повреждено
+    # (vmax остаётся 0 — не выбор минимума, а сохранение нуля). Ловец — s10.
+    'PATERN:POSLED-ZAMOROZKA':
+        ('(( 10#$k > vmax )) && vmax=$(( 10#$k ))',
+         '(( 10#$k < vmax )) && vmax=$(( 10#$k ))'),
+    # Crit193V1 head-verdict: предыдущий вердикт читается рабочим файлом
+    # вместо HEAD-блоба. Ловец — s21.
+    'PATERN:IZ-RABOCHEGO':
+        ('telo="$(git -C "$ROOT" cat-file -p "HEAD:$PRED_VERDIKT" 2>/dev/null)"',
+         'telo="$(cat "$ROOT/$PRED_VERDIKT" 2>/dev/null)"'),
+    # Crit193V2 staged: предыдущий вердикт читается индексом (git show :).
+    # Ловец — s24.
+    'PATERN:IZ-INDEXA':
+        ('cat-file -p "HEAD:$PRED_VERDIKT"', 'show ":$PRED_VERDIKT"'),
+    # Crit193V1 delta-coverage: фильтр «блок» снят — покрытие не судится.
+    # Ловец — s07.
+    'PATERN:PROPUSK-BLOKOV':
+        ('[ "$status" = \'блок\' ] || continue', 'continue'),
+    # Crit193V1 recursion-marker: маркер рекурсии снят. Ловец — s19.
+    'PATERN:BEZ-MARKERA': ('SDACHA_OKRUG=1 timeout', 'SDACHA_OKRUG=0 timeout'),
+}
+MUTACII_KARTY = {
+    # Arb193V1 решение 1: источник карты — рабочий файл вместо HEAD-блоба,
+    # прочие операции сохранены. Ловец — v07.
+    'PATERN:KARTA-IZ-FAJLA':
+        ('telo="$(git -C "$ROOT" cat-file -p "HEAD:$VERDICT" 2>/dev/null)"',
+         'telo="$(cat "$ROOT/$VERDICT" 2>/dev/null)"'),
+    # Arb193V1 решение 1: источник карты — индекс вместо HEAD-блоба.
+    # Ловец — v09.
+    'PATERN:KARTA-IZ-INDEXA':
+        ('cat-file -p "HEAD:$VERDICT"', 'show ":$VERDICT"'),
+}
+MUTACII_LIB = {
+    # Crit193V1 map-duplicate: проверка дубля класса в lib отключена.
+    # Ловец — v06 (отказ остаётся, но теряет имя «дубль»).
+    'PATERN:LIB-BEZ-DUBLJA':
+        ('if [ -n "${vidennye[$klass]:-}" ]; then', 'if false; then'),
+}
+MUTACII_NOGI_PRE = {
+    # Crit193V1 pre-leg: условие ноги (к) отключено — нога не выполняется.
+    # Ловец — p01.
+    'PATERN:BEZ-PRE-NOGI':
+        ('if [ "${SDACHA_OKRUG:-0}" != "1" ] && [ -x "$BASE/scripts/check_sdacha.sh" ]; then',
+         'if false; then'),
+}
+
+
+def primenit(t: str, tablica: dict, imja: str) -> str:
+    """Честный текст + одна адресная мутация; якорь ровно один, иначе отказ."""
+    jakor, zamena = tablica[imja]
+    if t.count(jakor) != 1:
+        raise RuntimeError('JAKOR_NE_UNIKALEN: %s' % imja)
+    return t.replace(jakor, zamena, 1)
+
 
 def tekst(imja: str) -> str:
     return (MIR / imja).read_text(encoding='utf-8')
@@ -138,18 +198,26 @@ def patched(istok: Path, jakor: str, noga: str, metka: str) -> str:
 
 
 class Istochniki:
-    """Субъекты мира: двери — из koren (живое дерево или модель). Ноги
+    """Субъекты мира: двери — из koren (живое дерево или модель); замены
+    обманок — файлы stabs/; адресные мутации операций (PATERN:*) — якорные
+    замены честного файла с проверкой применённости (Arb193V1). Ноги
     pre_critic/freeze — патч к реальным дверям живого дерева ТОЛЬКО при
     dostroat_nogi (режимы --model/--stabs: модель — эталон переноса); в
     режимах голый/--repo ноги — РЕАЛЬНЫЕ файлы выбранного дерева без
     достройки проверяемого (К-11 Crit193V1: нет реальной ноги — клетки ног
-    красны). Замены для режима --stabs."""
+    красны)."""
 
     def __init__(self, koren: Path, dver_zamena=None, karta_zamena=None,
-                 pre_mutacija=None, freeze_mutacija=None, dostroat_nogi=False):
+                 lib_zamena=None, dver_mutacija=None, karta_mutacija=None,
+                 lib_mutacija=None, pre_mutacija=None, freeze_mutacija=None,
+                 dostroat_nogi=False):
         self.koren = koren
         self.dver_zamena = dver_zamena
         self.karta_zamena = karta_zamena
+        self.lib_zamena = lib_zamena
+        self.dver_mutacija = dver_mutacija
+        self.karta_mutacija = karta_mutacija
+        self.lib_mutacija = lib_mutacija
         self.pre_mutacija = pre_mutacija
         self.freeze_mutacija = freeze_mutacija
         self.dostroat_nogi = dostroat_nogi
@@ -161,6 +229,38 @@ class Istochniki:
         shutil.copy2(zamena if zamena is not None else self.koren / 'scripts' / imja, cel)
         return cel
 
+    def _subjekt(self, kljuch, imja, zamena, mutacija, tablica):
+        """Субъект мира: честный файл корня | обманка-файл stabs/ | честный
+        файл + адресная мутация (применённость — якорем, режим сохраняется)."""
+        if kljuch not in self._kesh:
+            cel = None
+            if mutacija is not None:
+                istok = self.koren / 'scripts' / imja
+                vrem = Path(tempfile.mkdtemp(prefix='subj193-'))
+                cel = vrem / imja
+                shutil.copy2(istok, cel)
+                cel.write_text(primenit(istok.read_text(encoding='utf-8'),
+                                        tablica, mutacija), encoding='utf-8')
+            elif zamena is not None:
+                cel = self._skopirovat(imja, zamena)
+            else:
+                put = self.koren / 'scripts' / imja
+                cel = put if put.exists() else None
+            self._kesh[kljuch] = cel
+        return self._kesh[kljuch]
+
+    def dver(self):
+        return self._subjekt('dver', 'check_sdacha.sh', self.dver_zamena,
+                             self.dver_mutacija, MUTACII_DVERI)
+
+    def karta(self):
+        return self._subjekt('karta', 'check_verdict_karta.sh', self.karta_zamena,
+                             self.karta_mutacija, MUTACII_KARTY)
+
+    def lib(self):
+        return self._subjekt('lib', 'lib_karta_sdachi.sh', self.lib_zamena,
+                             self.lib_mutacija, MUTACII_LIB)
+
     def pre_critic(self):
         if 'pre' not in self._kesh:
             if self.dostroat_nogi:
@@ -169,6 +269,8 @@ class Istochniki:
                     noga = NOGA_PRE_CRITIC_IZ_ROOTA
                 elif self.pre_mutacija == 'PATERN:VSEGDA-OTKAZ':
                     noga = NOGA_PRE_CRITIC_VSEGDA_OTKAZ
+                elif self.pre_mutacija == 'PATERN:BEZ-PRE-NOGI':
+                    noga = primenit(noga, MUTACII_NOGI_PRE, self.pre_mutacija)
                 t = patched(DEREVO / 'scripts' / 'pre_critic.sh',
                             YAKOR_PRE_CRITIC, noga, '(к) СДАТОЧНЫЙ ЛИСТ')
                 vrem = Path(tempfile.mkdtemp(prefix='nog193-'))
@@ -201,12 +303,18 @@ class Istochniki:
 
 def postroit_mir(kuda: Path, ist: Istochniki, kontrakt_f, sdacha_f=None,
                  verdikt_f=None, teg=None, dveri=(), toy_gejty=False,
-                 posle_kommita=(), koren_sdacha=None, plany=False) -> Path:
+                 posle_kommita=(), posle_staging=(), posle_staging_rabochij=(),
+                 koren_sdacha=None, plany=False) -> Path:
     """Toy-мир батареи 193: git-репозиторий с контрактом, листом, вердиктом.
 
     dveri ⊆ {'sdacha','karta','pre_critic','freeze'} — субъекты в scripts/ мира
-    (замены субъекта берутся из ist: режим --stabs); toy_gejty — копии
-    настоящих гейтов живого дерева для ног (а)/(б)/(ж)/(з)/(и) pre_critic.
+    (замены и адресные мутации субъекта берутся из ist: режим --stabs);
+    toy_gejty — копии настоящих гейтов живого дерева для ног (а)/(б)/(ж)/(з)/(и)
+    pre_critic. posle_kommita — записи рабочих файлов ПОСЛЕ коммита (HEAD не
+    меняют); posle_staging — запись + git add (индекс расходится с HEAD,
+    рабочий файл следует индексу); posle_staging_rabochij — запись поверх
+    staging без add (рабочий файл расходится и с индексом: три источника
+    различаются — Arb193V1 решение 1).
     """
     for d in ('scripts', 'contracts', 'verdicts/critic', '.github/workflows', 'config'):
         (kuda / d).mkdir(parents=True, exist_ok=True)
@@ -231,18 +339,16 @@ def postroit_mir(kuda: Path, ist: Istochniki, kontrakt_f, sdacha_f=None,
     if toy_gejty:
         for f in TOY_GEJTY + LIBS + FORMA_GEJTY:
             shutil.copy2(DEREVO / 'scripts' / f, kuda / 'scripts' / f)
-    dver_est = ist.dver_zamena is not None or (ist.koren / 'scripts' / 'check_sdacha.sh').exists()
-    karta_est = ist.karta_zamena is not None or (ist.koren / 'scripts' / 'check_verdict_karta.sh').exists()
-    if 'sdacha' in dveri and dver_est:
-        shutil.copy2(ist._skopirovat('check_sdacha.sh', ist.dver_zamena),
-                     kuda / 'scripts' / 'check_sdacha.sh')
-    if 'karta' in dveri and karta_est:
-        shutil.copy2(ist._skopirovat('check_verdict_karta.sh', ist.karta_zamena),
-                     kuda / 'scripts' / 'check_verdict_karta.sh')
-    if ('sdacha' in dveri or 'karta' in dveri):
-        libka = ist.koren / 'scripts' / 'lib_karta_sdachi.sh'
-        if libka.exists():
-            shutil.copy2(libka, kuda / 'scripts' / 'lib_karta_sdachi.sh')
+    dver_subj = ist.dver()
+    if 'sdacha' in dveri and dver_subj is not None:
+        shutil.copy2(dver_subj, kuda / 'scripts' / 'check_sdacha.sh')
+    karta_subj = ist.karta()
+    if 'karta' in dveri and karta_subj is not None:
+        shutil.copy2(karta_subj, kuda / 'scripts' / 'check_verdict_karta.sh')
+    if 'sdacha' in dveri or 'karta' in dveri:
+        lib_subj = ist.lib()
+        if lib_subj is not None:
+            shutil.copy2(lib_subj, kuda / 'scripts' / 'lib_karta_sdachi.sh')
     if 'pre_critic' in dveri:
         subj = ist.pre_critic()
         if subj is not None:
@@ -267,6 +373,15 @@ def postroit_mir(kuda: Path, ist: Istochniki, kontrakt_f, sdacha_f=None,
         git(kuda, 'add', '-A')
         git(kuda, 'commit', '-qm', 'toy193: v+1 draft')
     for otn, soderzhimoe in posle_kommita:
+        cel = kuda / otn
+        cel.parent.mkdir(parents=True, exist_ok=True)
+        cel.write_text(soderzhimoe, encoding='utf-8')
+    for otn, soderzhimoe in posle_staging:
+        cel = kuda / otn
+        cel.parent.mkdir(parents=True, exist_ok=True)
+        cel.write_text(soderzhimoe, encoding='utf-8')
+        git(kuda, 'add', '--', otn)
+    for otn, soderzhimoe in posle_staging_rabochij:
         cel = kuda / otn
         cel.parent.mkdir(parents=True, exist_ok=True)
         cel.write_text(soderzhimoe, encoding='utf-8')
@@ -299,6 +414,21 @@ SPECSY = {
         kontrakt_f='kontrakt_chestnyj.md', sdacha_f='sdacha_delta_nepolnaja.md',
         verdikt_f='verdikt_fail_s_kartoj.md', dveri=('sdacha',),
         posle_kommita=[(VERDIKT, tekst('verdikt_rabochij_bez_blokov.md'))]),
+    # Arb193V1 решение 1 (К-08): индекс и рабочий файл расходятся с HEAD.
+    'delta_index_nepolnaja': dict(
+        kontrakt_f='kontrakt_chestnyj.md', sdacha_f='sdacha_delta_nepolnaja.md',
+        verdikt_f='verdikt_fail_s_kartoj.md', dveri=('sdacha',),
+        posle_staging=[(VERDIKT, tekst('verdikt_rabochij_bez_blokov.md'))],
+        posle_staging_rabochij=[(VERDIKT, tekst('verdikt_fail_s_kartoj.md'))]),
+    'delta_index_polnaja': dict(
+        kontrakt_f='kontrakt_chestnyj.md', sdacha_f='sdacha_delta_polnaja.md',
+        verdikt_f='verdikt_fail_s_kartoj.md', dveri=('sdacha',),
+        posle_staging=[(VERDIKT, tekst('verdikt_rabochij_bez_blokov.md'))],
+        posle_staging_rabochij=[(VERDIKT, tekst('verdikt_fail_s_kartoj.md'))]),
+    'delta_bez_verdikta_staged': dict(
+        kontrakt_f='kontrakt_chestnyj.md', sdacha_f='sdacha_delta_polnaja.md',
+        dveri=('sdacha',),
+        posle_staging=[(VERDIKT, tekst('verdikt_rabochij_bez_blokov.md'))]),
     'sposob_vne': dict(kontrakt_f='kontrakt_chestnyj.md', sdacha_f='sdacha_sposob_vne.md',
                        verdikt_f='verdikt_fail_s_kartoj.md', dveri=('sdacha',)),
     'staryj': dict(kontrakt_f='kontrakt_zamorozhennyj.md', teg='zamorozhen',
@@ -333,6 +463,27 @@ SPECSY = {
     'verdikt_ne_zakommlchen': dict(
         kontrakt_f='kontrakt_novogo.md', dveri=('karta',),
         posle_kommita=[(VERDIKT, tekst('verdikt_chestnyj.md'))]),
+    'verdikt_karta_rabochij': dict(
+        kontrakt_f='kontrakt_novogo.md', verdikt_f='verdikt_karta_16.md',
+        dveri=('karta',),
+        posle_kommita=[(VERDIKT, tekst('verdikt_chestnyj.md'))]),
+    'verdikt_karta_rabochij_chestnyj': dict(
+        kontrakt_f='kontrakt_novogo.md', verdikt_f='verdikt_chestnyj.md',
+        dveri=('karta',),
+        posle_kommita=[(VERDIKT, tekst('verdikt_karta_16.md'))]),
+    'verdikt_karta_index': dict(
+        kontrakt_f='kontrakt_novogo.md', verdikt_f='verdikt_karta_16.md',
+        dveri=('karta',),
+        posle_staging=[(VERDIKT, tekst('verdikt_chestnyj.md'))],
+        posle_staging_rabochij=[(VERDIKT, tekst('verdikt_karta_16.md'))]),
+    'verdikt_karta_index_chestnyj': dict(
+        kontrakt_f='kontrakt_novogo.md', verdikt_f='verdikt_chestnyj.md',
+        dveri=('karta',),
+        posle_staging=[(VERDIKT, tekst('verdikt_karta_16.md'))],
+        posle_staging_rabochij=[(VERDIKT, tekst('verdikt_chestnyj.md'))]),
+    'verdikt_staged_bez_head': dict(
+        kontrakt_f='kontrakt_novogo.md', dveri=('karta',),
+        posle_staging=[(VERDIKT, tekst('verdikt_chestnyj.md'))]),
     'freeze_karta': dict(kontrakt_f='kontrakt_chestnyj.md',
                          verdikt_f='verdikt_accept_bez_karty.md',
                          dveri=('karta', 'freeze')),
@@ -417,6 +568,15 @@ def kletki(miry: Miry) -> list:
     K.append(Kletka('s20-verdikt-tolko-head', dver('delta_head'), 0, ['лист зелёный']))
     K.append(Kletka('s21-rabochij-verdikt-skryvaet-blok', dver('delta_head_nepolnaja'),
                     1, ['К-02', 'не закрыт']))
+    # Arb193V1 решение 1 (К-08/К-09): индекс расходится с HEAD — staged-текст
+    # не скрывает закоммиченный блок (s24) и не ломает честный лист (s25);
+    # вердикта нет в HEAD — отказ и при staged-файле (s26).
+    K.append(Kletka('s24-indeks-verdikt-skryvaet-blok',
+                    dver('delta_index_nepolnaja'), 1, ['К-02', 'не закрыт']))
+    K.append(Kletka('s25-indeks-verdikt-chestnyj', dver('delta_index_polnaja'), 0,
+                    ['лист зелёный']))
+    K.append(Kletka('s26-verdikt-netu-v-head-staged', dver('delta_bez_verdikta_staged'),
+                    1, ['не закоммичен']))
     # К-07 Crit193V1: бюджет листа ограничивает и ВЫПОЛНЯЮЩУЮСЯ (последнюю)
     # команду; честная команда в пределах бюджета зелёная (s23).
     K.append(Kletka('s22-bjudzhet-poslednej-komandy', dver('budzhet_poslednej'), 1,
@@ -434,6 +594,19 @@ def kletki(miry: Miry) -> list:
     K.append(Kletka('v05-ne-zakommlchen', karta('verdikt_ne_zakommlchen'), 1,
                     ['не закоммичен']))
     K.append(Kletka('v06-dubl-klassa', karta('verdikt_dubl'), 1, ['дубль']))
+    # Arb193V1 решение 1: источник карты — только HEAD-блоб. Плохой HEAD не
+    # лечится рабочим файлом (v07) и индексом (v09); хороший HEAD не портится
+    # их «ухудшением» (v08/v10); пути нет в HEAD — отказ и при staged (v11).
+    K.append(Kletka('v07-rabochij-skryvaet-plohuju-kartu',
+                    karta('verdikt_karta_rabochij'), 1, ['К-17']))
+    K.append(Kletka('v08-rabochij-isportil-chestnyj',
+                    karta('verdikt_karta_rabochij_chestnyj'), 0, ['17/17']))
+    K.append(Kletka('v09-indeks-skryvaet-plohuju-kartu',
+                    karta('verdikt_karta_index'), 1, ['К-17']))
+    K.append(Kletka('v10-indeks-isportil-chestnyj',
+                    karta('verdikt_karta_index_chestnyj'), 0, ['17/17']))
+    K.append(Kletka('v11-staged-bez-head', karta('verdikt_staged_bez_head'), 1,
+                    ['не закоммичен']))
     # ноги: заморозка и pre_critic
     K.append(Kletka('f01-freeze-karta-krasna', zamorozka('freeze_karta'), 1,
                     ['карта классов вердикта']))
@@ -466,6 +639,11 @@ def kletki(miry: Miry) -> list:
 
 def sudit(k: Kletka) -> bool:
     env = dict(os.environ)
+    # гигиена среды: маркер внутреннего прогона двери листа не протекает в
+    # клетки — батарея, вызванная КАК команда листа (SDACHA_OKRUG=1 снаружи),
+    # судит клетки в их собственных состояниях (иначе обманки рекурсии и
+    # ноги (к) маскируются чужим маркером — измерено на door-check fix2)
+    env.pop('SDACHA_OKRUG', None)
     argv = list(k.argv)
     if k.env and 'PATH' in k.env and argv[0] == 'bash':
         argv[0] = shutil.which('bash') or '/bin/bash'
@@ -524,14 +702,21 @@ def rezhim_stabs(vrem: Path) -> int:
         svjazi.append(cols)
     poimano, zhivyh = 0, 0
     for imja, fail, kletka_imja in svjazi:
-        dver_zamena = karta_zamena = pre_mut = freeze_mut = None
+        dver_zamena = karta_zamena = lib_zamena = None
+        dver_mut = karta_mut = lib_mut = pre_mut = freeze_mut = None
         if imja.startswith('PATERN:'):
             if fail == 'scripts/pre_critic.sh':
                 pre_mut = imja
             elif fail == 'scripts/freeze_contract.sh':
                 freeze_mut = imja
+            elif fail == 'scripts/check_sdacha.sh':
+                dver_mut = imja
+            elif fail == 'scripts/check_verdict_karta.sh':
+                karta_mut = imja
+            elif fail == 'scripts/lib_karta_sdachi.sh':
+                lib_mut = imja
             else:
-                print('ORACLE_TAMPERED: PATERN вне алфавита ног: %s' % fail,
+                print('ORACLE_TAMPERED: PATERN вне алфавита субъектов: %s' % fail,
                       file=sys.stderr)
                 return 2
         else:
@@ -540,11 +725,15 @@ def rezhim_stabs(vrem: Path) -> int:
                 dver_zamena = put
             elif fail == 'scripts/check_verdict_karta.sh':
                 karta_zamena = put
+            elif fail == 'scripts/lib_karta_sdachi.sh':
+                lib_zamena = put
             else:
                 print('ORACLE_TAMPERED: заменяемый файл вне алфавита: %s' % fail,
                       file=sys.stderr)
                 return 2
         ist = Istochniki(MODEL, dver_zamena=dver_zamena, karta_zamena=karta_zamena,
+                         lib_zamena=lib_zamena, dver_mutacija=dver_mut,
+                         karta_mutacija=karta_mut, lib_mutacija=lib_mut,
                          pre_mutacija=pre_mut, freeze_mutacija=freeze_mut,
                          dostroat_nogi=True)
         miry = Miry(vrem / ('obmanka-' + imja.replace(':', '_')), ist)
@@ -554,7 +743,12 @@ def rezhim_stabs(vrem: Path) -> int:
             print('ORACLE_TAMPERED: клетка привязки не найдена: %s' % kletka_imja,
                   file=sys.stderr)
             return 2
-        ulov = not sudit(kletka)  # обманка НЕ удовлетворяет ожиданию клетки
+        try:
+            ulov = not sudit(kletka)  # обманка НЕ удовлетворяет ожиданию клетки
+        except RuntimeError as e:
+            # применённость мутации проверена якорем: нулевая замена — не поимка
+            print('ORACLE_TAMPERED: мутация не применена: %s' % e, file=sys.stderr)
+            return 2
         if ulov:
             poimano += 1
         else:
