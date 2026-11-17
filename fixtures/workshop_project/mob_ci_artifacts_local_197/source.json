@@ -1,5 +1,5 @@
 {
-  "_comment": "Контракт 197 (mob-ci-artefakty-lokalno): единый источник батареи. piny — sha256 файлов модели (честной реализации); bazovoje_derevo — живое дерево продукта, от которого модель выведена (проверяемо: замена артефактного транспорта + перенос пробы изоляции в e2e-pilot, см. krasnye_143_posle_197). stab_vhod — привязка каждого обманного стаба к клетке и именованной причине (Н-39: по коду мутатора, не по прозе контракта). krasnye_143_posle_197 — пин состава красных клеток батареи 143 на псевдо-продукте fda1fc8+модель (живой замер; сверяет sverka_inventarja_143.sh).",
+  "_comment": "Контракт 197 (mob-ci-artefakty-lokalno): единый источник батареи. piny — sha256 файлов модели (честной реализации); agregat_143 — пин живых байтов НЕИЗМЕННОГО потребителя стыка (ci-aggregate.cjs зоны 143, клетка s01); bazovoje_derevo — живое дерево продукта, от которого модель выведена (проверяемо: замена артефактного транспорта + перенос пробы изоляции в e2e-pilot, см. krasnye_143_posle_197). stab_vhod — привязка каждого обманного стаба к клетке и именованной причине (Н-39: по коду мутатора, не по прозе контракта). krasnye_143_posle_197 — пин состава красных клеток батареи 143 на псевдо-продукте fda1fc8+модель (живой замер; сверяет sverka_inventarja_143.sh).",
   "bazovoje_derevo": {
     "repo": "/home/harness/projects/Complior-mob",
     "ref": "origin/main",
@@ -9,9 +9,16 @@
     "zamer": "9 шагов actions/upload-artifact@v7, 3 шага actions/download-artifact@v7, 5 команд gh run download (замер grep этой пачки)"
   },
   "piny": {
-    ".github/workflows/mobile.yml": "5e95399f12a9841f74c644c9f9474fbab5ed2dd8dffed6d203f25e7313fffbd6",
+    ".github/workflows/mobile.yml": "4735880b08036757ff0ea7a8185421fe8538d6aa113ebc5143ecec0f3a1a2c06",
     "package.json": "33339210c643b6f2d42e1c1a54f5f9787ca32867b4467dac416fd466025c7b4c",
-    "mobile/scripts/ci-artefakty.cjs": "f09d7289a57a432b10535de52ad8ac0c9c2adbe068b9bb5f530b2657ad5a5571"
+    "mobile/scripts/ci-artefakty.cjs": "6e05c38cad900b3185dff4716b827ca04ca6d3ec718fb3e14d5c5bdf5f6f69b3"
+  },
+  "agregat_143": {
+    "repo": "/home/harness/projects/Complior-mob",
+    "commit": "fda1fc871960b8061d8e6f6d12f2cc38f5834cee",
+    "put": "mobile/scripts/ci-aggregate.cjs",
+    "sha256": "e486e353f319ed2c0a65fc1092a0f16f8c9d8314bab4aed6e1d3619630d8fec6",
+    "zamer": "живой скрипт зоны 143 (НЕИЗМЕННЫЙ потребитель стыка, клетка s01): станционный клон, git archive fda1fc8, только чтение; байты на fda1fc8 и на 91866aac1794fe3e5283f5a7ccad7105c8a854ec (чистая база реализации по вердикту Rev197, клон Push197) совпадают — sha256 e486e353… двумя мерами (замер v3 2026-11-17); 91866aa в станционном клоне отсутствует, пин снят с fda1fc8, доступного в клоне"
   },
   "stab_vhod": {
     "stab_a01_upload_ostalsja": {
@@ -158,6 +165,11 @@
       "kletka": "g02-rabochij-katalog-nositelja",
       "prichina": "NOSITEL_BEZ_WORKING_DIRECTORY",
       "defekt": "у носителя select-screens снят шаговый working-directory: ${{ github.workspace }} — при defaults.run.working-directory: mobile npm ищет lane в mobile/package.json (урок mob#180 «Missing script», исправление продукта d089250a67)"
+    },
+    "stab_s01_bez_pary": {
+      "kletka": "s01-styk-sbor-agregat",
+      "prichina": "STYK_AGREGATA_OTKAZ",
+      "defekt": "шаблонный сбор кладёт детей БЕЗ пары прогона в имени каталога (поведение head 70ad24e5b9, блок Б-1 вердикта Rev197): неизменный ci-aggregate.cjs зоны 143 ждёт screen-evidence-<id>-<run_id>-<attempt> — PEREPIS_DETEJ на любом непустом matrix-выборе; байтовое расхождение ловит и e01-skript-pin"
     }
   },
   "krasnye_143_posle_197": [
