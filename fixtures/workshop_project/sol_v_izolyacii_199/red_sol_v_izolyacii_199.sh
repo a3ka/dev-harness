@@ -596,6 +596,11 @@ BRANCH=wip/199/architect" '{tasks:[{agent:$a,name:"W199",task:$t,isolated:false}
   mk_sud_world "$w/sud" 'КЛАСС РИСКА: обычный' 1
   for j in critic critic-sol adversary reviewer; do
     sud_event "$w/evj.json" "$j" 199 "$SW_OBJ"
+    # Слой замка 140 субъекта: предыдущий судья (тот же holder SudjaT) СДАЛ —
+    # журнал holder-а с yield-литералом освобождает замок предмета до нового
+    # судьи (образец — mir_zhurnal … sdal=1 в батарее 140). Модель-эталон 199
+    # замок по судьям не читает — файл инертен в --model.
+    printf '{"toolName":"yield"}\n' > "$SW_ZHUR/SudjaT.jsonl"
     bash "$(dver)" --sudit --sostojanie "$SW_SOST" --zhurnaly "$SW_ZHUR" --repo "$SW_MAIN" "$w/evj.json" >/dev/null 2>"$w/err"; rc=$?
     [ "$rc" -eq 0 ] || { printf 'd15: судья %s rc=%s (нужен 0: требование только для рабочих): %s\n' "$j" "$rc" "$(tail -1 "$w/err")" >&2; return 1; }
   done
