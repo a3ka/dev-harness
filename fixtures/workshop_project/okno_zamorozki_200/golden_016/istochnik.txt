@@ -1,0 +1,6 @@
+источник эталона семьи 016 для клетки m11 батареи 200
+ref: 0b8d4a5b72a9b91b9dacd56d840261ad7e126d89
+коммит: 0b8d4a5b72a9b91b9dacd56d840261ad7e126d89
+блоб двери scripts/check_contract_frozen.sh: df9c24768caf61fe72624988ced16a6daf2870d3
+команда: bash fixtures/workshop_project/okno_zamorozki_200/golden_016_gen.sh 0b8d4a5b72a9b91b9dacd56d840261ad7e126d89
+кейсов: 10
