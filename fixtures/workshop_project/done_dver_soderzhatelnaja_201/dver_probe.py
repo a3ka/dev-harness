@@ -24,11 +24,13 @@
     строки не означают «станция»). Для замороженных БЕЗ объявления — реестр
     классификации registry/mesto-legacy.tsv по ключу (NNN, blob замороженного
     текста): применимая запись даёт место; нет записи / конфликт / вне
-    грамматики — отказ. Запись от другого blob не действует.
+    грамматики — отказ. Запись от другого blob не действует; источник записи —
+    закоммиченный на HEAD файл (git show; рабочая копия и индекс — не
+    свидетельство; блок К-10 krug 3).
 (в) рисковым (строка класса в ЗАМОРОЖЕННОМ тексте выбранной заморозки →
-    registry/risk-legacy.tsv по blob → нет записи: рисковый, норма orchestrator)
-    требуется свежий accept АДВЕРСАРИЯ на ТОТ ЖЕ OBJECT (литеральное равенство
-    40-hex). Боль 157/111/123/995.
+    registry/risk-legacy.tsv по blob, тоже только с HEAD → нет записи: рисковый,
+    норма orchestrator) требуется свежий accept АДВЕРСАРИЯ на ТОТ ЖЕ OBJECT
+    (литеральное равенство 40-hex). Боль 157/111/123/995.
 (г) имя check-run arch: `arch`, `arch (…)`, `arch …` — принимаются;
     archive/architecture/march/arche — нет (боль: зелёный run бэкенда называется
     «arch (пин внешней архитектуры, model fitness + code-ratchet)», дверь искала
@@ -227,6 +229,9 @@ CASES = (
     ('b-legacy-vneshnij-vlit', 'station', 0, ''),
     ('b-legacy-vneshnij-ne-vlit', 'station', 1, '— реализация не влита'),
     ('b-legacy-chuzhoj-blob', 'station', 1, 'место реализации предмета 777 не установлено'),
+    ('b-legacy-rabochaja-zapis', 'station', 1, 'место реализации предмета 777 не установлено'),
+    ('b-legacy-staged-zapis', 'station', 1, 'место реализации предмета 777 не установлено'),
+    ('b-legacy-zakomchennaja-zapis', 'station', 0, ''),
     ('v-riskovyi-sopostavimyj-object', 'station', 0, ''),
     ('v-riskovyi-bez-adversarii', 'station', 1, 'accept адверсария не найден'),
     ('v-riskovyi-drugoj-object', 'station', 1, ', ревьюера — на '),
@@ -235,6 +240,7 @@ CASES = (
     ('v-obychnyj-bez-adversarii', 'station', 0, ''),
     ('v-default-riskovyi-bez-zapisi', 'station', 1, 'accept адверсария не найден'),
     ('v-legacy-obychnyj', 'station', 0, ''),
+    ('v-legacy-rabochaja-zapis', 'station', 1, 'accept адверсария не найден'),
     ('v-klass-neodnoznachen', 'station', 1, 'класс риска контракта неоднозначен'),
     ('g-arch-tochno-imja', 'back', 0, ''),
     ('g-arch-v-skobkah', 'back', 0, ''),
@@ -254,7 +260,9 @@ STABS = {
     's-b-vlitost-ne-proverjaetsja': 'b-produkt-object-mimo-main',
     's-b-api-vsegda-vlito': 'b-vneshnij-ne-vlit',
     's-b-mesto-po-umolchaniju-stancija': 'b-mesto-neizvestno',
+    's-b-mesto-iz-rabochego-fajla': 'b-legacy-rabochaja-zapis',
     's-v-adversarij-ne-trebuetsja': 'v-riskovyi-bez-adversarii',
+    's-v-risk-iz-rabochego-fajla': 'v-legacy-rabochaja-zapis',
     's-v-object-adversarija-ignoriruetsja': 'v-riskovyi-drugoj-object',
     's-g-arch-kak-podstroka': 'g-archive',
     's-g-arch-tolko-literalno': 'g-arch-v-skobkah',
@@ -266,7 +274,8 @@ def build(base, label, kind, name=None):
     мир своего будущего не знает (правило 8). name — имя каталога мира (для
     стаб-копии той же клетки)."""
     if label.startswith('v-'):
-        risk = None if label in ('v-default-riskovyi-bez-zapisi', 'v-legacy-obychnyj') \
+        risk = None if label in ('v-default-riskovyi-bez-zapisi', 'v-legacy-obychnyj',
+                                 'v-legacy-rabochaja-zapis') \
             else ('оба' if label == 'v-klass-neodnoznachen' else
                   'обычный' if label == 'v-obychnyj-bez-adversarii' else 'рисковый')
     else:
@@ -318,13 +327,16 @@ def build(base, label, kind, name=None):
     put(root, review_path(kind), verdict_text(object_sha, svarka=(kind == 'back')))
     if label == 'a-drevo-realizacija-v-f':
         put(root, 'app/identity/model.js', 'module.exports = 3;\n')  # реализация изменена в самом коммите F (решение 1)
-    if label == 'v-legacy-obychnyj':
-        blob = git(root, 'rev-parse', f'{b0}:{contract}')
+    if label in ('v-legacy-obychnyj', 'v-legacy-rabochaja-zapis'):
+        blob = '1' * 40 if label == 'v-legacy-rabochaja-zapis' \
+            else git(root, 'rev-parse', f'{b0}:{contract}')
         legacy = root / registry.replace('contracts.tsv', 'risk-legacy.tsv')
         legacy.parent.mkdir(parents=True, exist_ok=True)
-        legacy.write_text(f'{blob}\tобычный\tfixtures 201 — клетка v-legacy-obychnyj\towner\n')
+        legacy.write_text(f'{blob}\tобычный\tfixtures 201 — клетка {label}\towner\n')
     if label.startswith('b-legacy-'):
-        key_blob = '1' * 40 if label == 'b-legacy-chuzhoj-blob' else git(root, 'rev-parse', f'{b0}:{contract}')
+        chuzhoj = label in ('b-legacy-chuzhoj-blob', 'b-legacy-rabochaja-zapis',
+                            'b-legacy-staged-zapis', 'b-legacy-zakomchennaja-zapis')
+        key_blob = '1' * 40 if chuzhoj else git(root, 'rev-parse', f'{b0}:{contract}')
         place = 'станция' if label == 'b-legacy-stancionnyj' else PRODUCT_OWNER_REPO
         mesto = root / registry.replace('contracts.tsv', 'mesto-legacy.tsv')
         mesto.parent.mkdir(parents=True, exist_ok=True)
@@ -393,6 +405,24 @@ def build(base, label, kind, name=None):
         git(root, 'commit', '-qm', 'verdikt 777 na side')
         cid = git(root, 'rev-parse', 'HEAD')
 
+    # К-10 krug 3 (Crit201V3): запись реестра места/класса — свидетельство
+    # ТОЛЬКО с HEAD; та же запись в рабочей копии или индексе не свидетельство
+    if label in ('b-legacy-rabochaja-zapis', 'b-legacy-staged-zapis',
+                 'b-legacy-zakomchennaja-zapis'):
+        key_blob = git(root, 'rev-parse', f'{b0}:{contract}')
+        mesto = root / registry.replace('contracts.tsv', 'mesto-legacy.tsv')
+        with mesto.open('a') as fh:
+            fh.write(f'{NN}\t{key_blob}\tстанция\tfixtures 201 — клетка {label}\tarchitect\n')
+        if label != 'b-legacy-rabochaja-zapis':
+            git(root, 'add', '-A')  # staged-запись: индекс тоже не свидетельство
+        if label == 'b-legacy-zakomchennaja-zapis':
+            git(root, 'commit', '-qm', 'mesto: zapis nastojashchego bloba stancija')
+    if label == 'v-legacy-rabochaja-zapis':
+        key_blob = git(root, 'rev-parse', f'{b0}:{contract}')
+        legacy = root / registry.replace('contracts.tsv', 'risk-legacy.tsv')
+        with legacy.open('a') as fh:
+            fh.write(f'{key_blob}\tобычный\tfixtures 201 — клетка {label}\towner\n')
+
     head = git(root, 'rev-parse', 'HEAD')
 
     # внешние ответы API — ВНЕ мира (шим curl читает env)
@@ -458,16 +488,25 @@ def is_ancestor(root, a, b):
     return rc == 0
 
 
-def mesto_lookup(root, kind, blob):
+def mesto_lookup(root, kind, blob, mutant=''):
     """Классификация места по (NNN, blob) из закоммиченного на HEAD реестра
-    (канон risk-legacy). None — применимой записи нет; 'BAD' — конфликт
+    (канон risk-legacy): `git show HEAD:<реестр>`; рабочая копия и индекс —
+    НЕ свидетельство (п.8 AGENTS.md; блок К-10 krug 3 критика). Нет файла
+    на HEAD — нет записи. None — применимой записи нет; 'BAD' — конфликт
     дублей или значение вне грамматики (решение 2: отказ, не fallback)."""
-    path = root / ('registry/mesto-legacy.tsv' if kind == 'station'
-                   else '.harness/registry/mesto-legacy.tsv')
-    if not path.is_file():
+    rel = ('registry/mesto-legacy.tsv' if kind == 'station'
+           else '.harness/registry/mesto-legacy.tsv')
+    if mutant == 's-b-mesto-iz-rabochego-fajla':
+        path = root / rel  # обманный стаб: читает РАБОЧУЮ копию (дефект К-10)
+        if not path.is_file():
+            return None
+        rc, text = 0, path.read_text()
+    else:
+        rc, text = run('git', '-C', root, 'show', f'HEAD:{rel}')
+    if rc:
         return None
     hits = []
-    for row in path.read_text().splitlines():
+    for row in text.splitlines():
         cols = row.split('\t')
         if len(cols) >= 3 and cols[0] == NN and cols[1] == blob:
             hits.append(cols[2])
@@ -539,7 +578,7 @@ def model(root, f, mutant=''):
             if declared is None and skip('s-b-mesto-po-umolchaniju-stancija'):
                 declared = 'станция'  # мутант «место по умолчанию станция» (решение 2)
             if declared is None:
-                mesto = mesto_lookup(root, f['kind'], git(root, 'rev-parse', f'{ftag}:{f["contract"]}'))
+                mesto = mesto_lookup(root, f['kind'], git(root, 'rev-parse', f'{ftag}:{f["contract"]}'), mutant)
                 if mesto == 'BAD':
                     return 1, PH_B8K.format(n=NN)
                 if mesto is None:
@@ -571,13 +610,24 @@ def model(root, f, mutant=''):
         legacy = ('registry/risk-legacy.tsv' if f['kind'] == 'station'
                   else '.harness/registry/risk-legacy.tsv')
         klass = 'рисковый'  # нет строки и записи — рисковый (норма orchestrator)
-        lp = root / legacy
-        if lp.is_file():
-            for row in lp.read_text().splitlines():
-                cols = row.split('\t')
-                if len(cols) > 1 and cols[0] == blob:
-                    klass = cols[1]
-                    break
+        if skip('s-v-risk-iz-rabochego-fajla'):
+            lp = root / legacy  # обманный стаб: читает РАБОЧУЮ копию (класс К-10)
+            if lp.is_file():
+                for row in lp.read_text().splitlines():
+                    cols = row.split('\t')
+                    if len(cols) > 1 and cols[0] == blob:
+                        klass = cols[1]
+                        break
+        else:
+            # запись — только из закоммиченного на HEAD файла: рабочая копия и
+            # индекс не свидетельство (п.8 AGENTS.md; блок К-10 krug 3)
+            lr, ltext = run('git', '-C', root, 'show', f'HEAD:{legacy}')
+            if not lr:
+                for row in ltext.splitlines():
+                    cols = row.split('\t')
+                    if len(cols) > 1 and cols[0] == blob:
+                        klass = cols[1]
+                        break
     if klass == 'рисковый' and not skip('s-v-adversarij-ne-trebuetsja'):
         if not f['adversary']:
             return 1, PH_V1 + f' {f["review_file"].rsplit("/", 1)[0]}/contracts-777-*.md'

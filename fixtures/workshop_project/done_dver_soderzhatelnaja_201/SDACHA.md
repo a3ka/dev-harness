@@ -1,10 +1,38 @@
-# Сдаточный лист 201 — done-дверь: содержательная сверка (круг fix2: исполнение решений арбитража 1)
+# Сдаточный лист 201 — done-дверь: содержательная сверка (круг fix3: блок К-10 Crit201V3; круг fix2 — исполнение решений арбитража 1)
 
-Дата: 2026-11-17. Дерево: wip/201/architect (поверх 498f26db84; главный чекаут не тронут).
+Дата: 2026-11-17. Дерево: wip/201/architect (круг fix3 — поверх 477fda202c; главный чекаут не тронут).
 Все прогоны — из корня worktree, окружение без ambient `GIT_AUTHOR_*`/`GIT_COMMITTER_*`
 (`env -u …`). Оракул батареи — в памяти раннера и читает git-факты мира сам (теги,
-замороженный текст, risk-legacy, mesto-legacy), не из фактов сборки; краснота голого
-прогона — дефект ЖИВОЙ двери `scripts/done_contract.sh` (зона implementer), до её ремонта.
+замороженный текст, risk-legacy и mesto-legacy — только `git show HEAD:<реестр>`,
+круг fix3), не из фактов сборки; краснота голого прогона — дефект ЖИВОЙ двери
+`scripts/done_contract.sh` (зона implementer), до её ремонта.
+
+## Круг fix3 — блок К-10 Crit201V3 (классификация места читала рабочую копию реестра)
+
+- **Блок**: `dver_probe.py` `mesto_lookup` читала `registry/mesto-legacy.tsv` через
+  `path.read_text()` (РАБОЧАЯ копия): в мире `b-legacy-chuzhoj-blob` (HEAD несёт запись
+  чужого blob) незакоммиченная строка настоящего blob со значением `станция` давала модели
+  `(0, '')` вместо rc 1 PH_B8 — при зелёной `--model` 41/41. Закрывающее свойство (вердикт):
+  модель и адресная батарея различают HEAD и рабочие/staged изменения; отсутствие записи в
+  HEAD не превращается в «станцию»; честная закоммиченная запись остаётся зелёной.
+- **Закрытие** (способ: канон/инструмент — git-факты через plumbing): `mesto_lookup` читает
+  реестр `git show HEAD:registry/mesto-legacy.tsv` (нет файла на HEAD — нет записи → PH_B8
+  fail-closed); той же мерой исправлен lookup `risk-legacy.tsv` в `model()` — единственный
+  другой чтение-рабочего-файла-как-свидетельства по аудиту задания п.1 (grep `read_text`/
+  `open(`/`cat` по `dver_probe.py`: два места, оба закрыты; прочие `read_text` —
+  build-сторона миров). Текст контракта :55/:61 уточнён: «источник — закоммиченный на HEAD
+  файл реестра; рабочая копия и индекс — не свидетельство (п.8 AGENTS.md); нет файла на
+  HEAD — нет записи»; новый пункт ЗАЩИЩАЕТ (модель угроз 9/9).
+- **Клетки** (вход критика и Controls): `b-legacy-rabochaja-zapis` rc1 «место реализации
+  предмета 777 не установлено» (вход критика дословно: HEAD — чужой blob, рабочий файл —
+  строка настоящего blob `станция`); `b-legacy-staged-zapis` rc1 той же причиной (та же
+  строка в индексе `git add`, не закоммичена); контроль `b-legacy-zakomchennaja-zapis` rc0
+  (та же строка ЗАКОММИЧЕНА на HEAD — честная зелёная, живой прогон тегирует);
+  `v-legacy-rabochaja-zapis` rc1 «accept адверсария не найден» (класс К-10 на реестре
+  класса: незакоммиченная строка настоящего blob «обычный» не снимает адверсария).
+- **Стабы** (Н-39 — привязка только кодом `STABS`): `s-b-mesto-iz-rabochego-fajla`
+  @ `b-legacy-rabochaja-zapis` и `s-v-risk-iz-rabochego-fajla` @
+  `v-legacy-rabochaja-zapis` — оба caught (`--stabs` rc 0, сырой вывод ниже).
 
 ## Исправление прежних заявлений круга fix1 (РЕШЕНИЕ арбитража 1 «Что исправить до freeze»)
 
@@ -19,7 +47,8 @@
   сужением данного владельцем обязательства «влитость проверяется»; арбитраж это
   отклонил. Исправлено РЕШЕНИЕМ 2 (ниже).
 - Числа круга fix1 (32 клетки / 11 стабов / 21 красная) нормой НЕ являются; этот лист
-  несёт числа ФАКТИЧЕСКИХ прогонов новой версии: 41 / 13 / 27.
+  несёт числа ФАКТИЧЕСКИХ прогонов новой версии круга fix3: 45 / 15 / 30
+  (круг fix2: 41 / 13 / 27; круг fix1: 32 / 11 / 21).
 
 ## Ответ на решения арбитража 1 (способ и доказательство)
 
@@ -104,44 +133,52 @@
 место — по ЗОНАМ implementer и карточкам замороженных текстов. Места не выдуманы: у 123
 записи нет.
 
-## Прогоны (числа из вывода, 2026-11-17, круг fix2)
+## Прогоны (числа из вывода, 2026-11-17, круг fix3)
 
 - Голый прогон против текущего дерева:
   `bash fixtures/workshop_project/done_dver_soderzhatelnaja_201/red_done_dver_201.sh`
-  → rc 1, `CELLS=41 STABS=0 FAILURES=27`. Красные 27: (а) `a-accept-staroj-versii`,
+  → rc 1, `CELLS=45 STABS=0 FAILURES=30`. Красные 30: (а) `a-accept-staroj-versii`,
   `a-net-zamorozki`, `a-verdikt-bez-object`, `a-object-do-zamorozki`, `a-dve-zamorozki`,
   `a-drevo-object-do-realizacii`, `a-drevo-realizacija-v-f`; (б)
   `b-produkt-object-mimo-main`, `b-produkt-object-otsutstvuet`, `b-vneshnij-ne-vlit`,
   `b-vneshnij-bez-stroki`, `b-vneshnij-stroka-krivaja`, `b-vneshnij-api-nedostupen`,
   `b-vneshnij-object-stancionnyj`, `b-vneshnij-dublikat-stroki`,
   `b-stancionnyj-object-vneshnij`, `b-mesto-neizvestno`, `b-legacy-vneshnij-ne-vlit`,
-  `b-legacy-chuzhoj-blob`; (в) `v-riskovyi-bez-adversarii`, `v-riskovyi-drugoj-object`,
+  `b-legacy-chuzhoj-blob`, `b-legacy-rabochaja-zapis`, `b-legacy-staged-zapis`; (в)
+  `v-riskovyi-bez-adversarii`, `v-riskovyi-drugoj-object`,
   `v-riskovyi-svezhij-fail`, `v-adversarii-bez-object`, `v-default-riskovyi-bez-zapisi`,
-  `v-klass-neodnoznachen`; (г) `g-arch-v-skobkah`, `g-arch-s-probelom`. Из 27:
-  двадцать пять — живой rc 0 вместо отказа (дверь ещё не несёт шаг 6б), две arch —
-  живой rc 1 вместо rc 0 (предикат (г) ещё буквальный). Зелёные 14:
-  `a-verdict-posle-zamorozki`, `a-ravenstvo-frozen-verdikt`, `b-produkt-vlito`,
+  `v-legacy-rabochaja-zapis`, `v-klass-neodnoznachen`; (г) `g-arch-v-skobkah`,
+  `g-arch-s-probelom`. Из 30: двадцать восемь — живой rc 0 вместо отказа (дверь ещё не
+  несёт шаг 6б), две arch — живой rc 1 вместо rc 0 (предикат (г) ещё буквальный).
+  Зелёные 15: `a-verdict-posle-zamorozki`, `a-ravenstvo-frozen-verdikt`, `b-produkt-vlito`,
   `b-vneshnij-produkt-vlit`, `b-stancionnyj-objavlennyj`, `b-legacy-stancionnyj`,
-  `b-legacy-vneshnij-vlit`, `v-riskovyi-sopostavimyj-object`, `v-obychnyj-bez-adversarii`,
+  `b-legacy-vneshnij-vlit`, `b-legacy-zakomchennaja-zapis` (контроль честной записи
+  круга 3 — живой тег создан), `v-riskovyi-sopostavimyj-object`, `v-obychnyj-bez-adversarii`,
   `v-legacy-obychnyj`, `g-arch-tochno-imja`, `g-archive`, `g-architecture`, `g-march`
   (у зелёных live-клеток тег `done/contracts/777/1` создан, у красных — отсутствует;
   проверено раннером по каждой клетке).
-- `--model` → rc 0, `CELLS=41 STABS=0 FAILURES=0`.
-- `--stabs` → rc 0, `CELLS=41 STABS=13 FAILURES=0` (все 13 стабов caught, каждый на
-  своей клетке; в том числе новые: s-a-tolko-rodoslovnaja @ a-drevo-object-do-realizacii,
-  s-b-mesto-po-umolchaniju-stancija @ b-mesto-neizvestno — привязка только кодом STABS).
+- `--repo .` → rc 1, `CELLS=45 STABS=0 FAILURES=30` (те же числа, tools из cwd).
+- `--model` → rc 0, `CELLS=45 STABS=0 FAILURES=0`.
+- `--stabs` → rc 0, `CELLS=45 STABS=15 FAILURES=0` (все 15 стабов caught, каждый на
+  своей клетке; в том числе круга 3: s-b-mesto-iz-rabochego-fajla @
+  b-legacy-rabochaja-zapis, s-v-risk-iz-rabochego-fajla @ v-legacy-rabochaja-zapis —
+  привязка только кодом STABS; сырые строки: `STAB s-b-mesto-iz-rabochego-fajla caught
+  @ b-legacy-rabochaja-zapis`, `STAB s-v-risk-iz-rabochego-fajla caught @
+  v-legacy-rabochaja-zapis`).
 - Соседи (сохранность): `architecture_process_187` — `--repo .` rc 0
   (`CELLS=54 STABS=0 FAILURES=0`), `--model` rc 0 (`54/0/0`), `--stabs` rc 0
   (`CELLS=54 STABS=56 FAILURES=0`). `rezhim_996 --matrix` → rc 1, `examined=111
   mutants=76 mismatches=1` — единственный пропуск (mutant skip-committed /
   done-committed-preserved) существует ДО предмета 201 (базлайн; то же значение в
-  прогонах критиков 201-v1/v1b).
-- Гейты (все с `env -u GIT_*`): `pre_critic --repo .` rc 0 («КРИТИК: дверь зелёная»,
-  модель угроз красна, потолки красны, проводка красна); `check_spec_ready` rc 0 (OK);
-  `check_precision_gate` rc 0 (OK); `check_threat_model` rc 0 (валидна: ЗАЩИЩАЕТ 8,
-  НЕ ЗАЩИЩАЕТ 9); `check_ceilings` rc 0 (потолки в порядке).
+  прогонах критиков 201-v1/v1b/V3).
+- Гейты (все с `env -u GIT_AUTHOR_* GIT_COMMITTER_*`): `pre_critic --repo .
+  contracts/201-…md` rc 0 («КРИТИК: дверь зелёная», модель угроз красна, потолки красны,
+  проводка красна); `check_spec_ready` rc 0 (OK); `check_precision_gate` rc 0 (OK);
+  `check_threat_model` rc 0 (валидна: ЗАЩИЩАЕТ 9, НЕ ЗАЩИЩАЕТ 9); `check_ceilings`
+  rc 0 (потолки в порядке); `check_charter` rc 0 (177 уставных, 511 изменений, все
+  с разрешения).
 
-## Мутационные доказательства (решения 1–2)
+## Мутационные доказательства (решения 1–2 и блок К-10 круга 3)
 
 - Решение 1, стаб `s-a-tolko-rodoslovnaja` (tree-проверка выключена — мутант «любой
   предок F достаточен»): на `a-drevo-object-do-realizacii` даёт rc 0 → caught.
@@ -152,8 +189,23 @@
   Исходниковая мутация `if declared is None and skip(…)` → `if declared is None:` роняет
   `--model` на `b-vneshnij-bez-stroki` (фраза «вне репо станции» вместо «место … не
   установлено»), rc 1.
-- Честные эквивалентные записи зелёны: `--model` rc 0 на всех 41 клетках без мутантов;
-  каждая зелёная клетка — контрпример к ложному отказу своего пункта.
+- Блок К-10 круга 3 (место), стаб `s-b-mesto-iz-rabochego-fajla` (mesto_lookup читает
+  РАБОЧУЮ копию — прежний дефектный код): на `b-legacy-rabochaja-zapis` даёт rc 0 →
+  caught (сырой вывод `--stabs`: `STAB s-b-mesto-iz-rabochego-fajla caught @
+  b-legacy-rabochaja-zapis`). Исходниковая мутация (возврат чтения рабочего файла в
+  `mesto_lookup`) роняет `--model` фикстурной проверкой на той же клетке, сырой хвост:
+  `RuntimeError: сломанная фикстура: b-legacy-rabochaja-zapis ожидалось 1/'место
+  реализации предмета 777 не установлено', модель дала 0/''`, rc 1 — наблюдение критика
+  воспроизведено и погашено.
+- Блок К-10 круга 3 (класс риска), стаб `s-v-risk-iz-rabochego-fajla` (lookup
+  risk-legacy читает РАБОЧУЮ копию): на `v-legacy-rabochaja-zapis` даёт rc 0 → caught
+  (сырой вывод: `STAB s-v-risk-iz-rabochego-fajla caught @ v-legacy-rabochaja-zapis`).
+  Исходниковая мутация (возврат чтения рабочего файла в lookup класса) роняет `--model`:
+  `RuntimeError: сломанная фикстура: v-legacy-rabochaja-zapis ожидалось 1/'accept
+  адверсария не найден', модель дала 0/''`, rc 1.
+- Честные эквивалентные записи зелёны: `--model` rc 0 на всех 45 клетках без мутантов;
+  каждая зелёная клетка — контрпример к ложному отказу своего пункта; контроль круга 3 —
+  `b-legacy-zakomchennaja-zapis` (та же запись, но закоммиченная) rc 0.
 
 ## Карта классов К-01…К-17 (roles/critic.md §Связка с автором)
 
@@ -172,26 +224,27 @@
   workflow_probe.py 187 в этом круге НЕ тронуты; реестр mesto-legacy — новая ЗОНА
   implementer, файл создаёт implementer, своих строк в чужие реестры не пишу.
 - К-05: чисто — каждый пункт приёмки несёт команду и rc (§Приёмка); числа приёмки
-  (27/41/13) равны выводам прогонов выше.
+  (30/45/15) равны выводам прогонов выше.
 - К-06: н/п — клеток отказа среды батарея не вводит; недоступность compare-API — честный
   rc 1 «не проверена» (клетка `b-vneshnij-api-nedostupen`), не rc 2.
-- К-07: чисто — голый прогон против ЖИВОЙ двери: 27 красных клеток наблюдают реальный
-  дефект, 14 зелёных проходят через настоящие check_provodka/check_consumers/187а в тех
+- К-07: чисто — голый прогон против ЖИВОЙ двери: 30 красных клеток наблюдают реальный
+  дефект, 15 зелёных проходят через настоящие check_provodka/check_consumers/187а в тех
   же мирах; двойника двери нет.
-- К-08: чисто — на каждое обязательство есть различающая клетка: 13 стабов каждый пойман
-  на своей клетке (`--stabs` rc 0); исходниковые мутации решений 1/2 роняют `--model`
-  (выводы выше).
+- К-08: чисто — на каждое обязательство есть различающая клетка: 15 стабов каждый пойман
+  на своей клетке (`--stabs` rc 0); исходниковые мутации решений 1/2 и блока К-10 круга 3
+  роняют `--model` (выводы выше).
 - К-09: чисто — конформные входы по ветвям: (а) 9 (нет заморозки/нет OBJECT/старый
   accept/равенство+дерево/потомок/OBJECT до заморозки/две заморозки/B→I→F/реализация
-  в F), (б) 17 (продукт: влито/мимо main/отсутствует; внешние: влито/не влито/нет
+  в F), (б) 20 (продукт: влито/мимо main/отсутствует; внешние: влито/не влито/нет
   строки/кривая строка/дубль/API 404/станционный OBJECT; станция: объявлена+локальный/
   объявлена+внешний; неизвестное место: внешний/локальный; legacy: станция/влито/не
-  влито/чужой blob), (в) 9, (г) 6.
+  влито/чужой blob/рабочая копия/staged/закоммиченная запись), (в) 10, (г) 6.
 - К-10: чисто — наблюдаемый эффект: rc двери + наличие/отсутствие тега
   `done/contracts/777/1` (проверяется раннером у каждой live-клетки), не строки мира.
 - К-11: чисто — ожидания в памяти раннера; оракул читает git-факты мира сам (теги →
-  vmax, замороженный текст, risk-legacy и mesto-legacy по (NNN, blob)); compare/
-  check-runs JSON — вне мира, шим curl в отдельном bin-каталоге.
+  vmax, замороженный текст, risk-legacy и mesto-legacy по (NNN, blob) — оба реестра
+  только `git show HEAD:<реестр>`, круг 3); compare/check-runs JSON — вне мира, шим curl
+  в отдельном bin-каталоге.
 - К-12: чисто — git-факты через plumbing (`merge-base --is-ancestor`, `rev-parse`,
   `tag -l`, `show <тег>:<путь>`, `diff-tree -r --raw --no-renames` — канон тождества
   деревьев), compare/check-runs — настоящий формат API GitHub; своего парсера форматов
@@ -202,8 +255,8 @@
   (F==CID с деревом «OBJECT + вердикт»), `b-stancionnyj-objavlennyj` (объявленная
   станция), `b-legacy-stancionnyj`/`b-legacy-vneshnij-vlit` (запись реестра), прочие
   прежние зелёные клетки всех пунктов.
-- К-15: чисто — числа из выводов прогонов (41/13/27; 187: 54/0/56; 996: 111/76/1;
-  ЗАЩИЩАЕТ 8 / НЕ ЗАЩИЩАЕТ 9); числа контракта сверены с этими выводами.
+- К-15: чисто — числа из выводов прогонов (45/15/30; 187: 54/0/56; 996: 111/76/1;
+  ЗАЩИЩАЕТ 9 / НЕ ЗАЩИЩАЕТ 9); числа контракта сверены с этими выводами.
 - К-16: чисто — класс риска: рисковый (гейт приёмки done, закрытый перечень слова
   владельца 2026-10-24); модель угроз по свойствам; две отвергнутых границы НЕ ЗАЩИЩАЕТ
   удалены, fail-closed для неизвестного места — в ЗАЩИЩАЕТ.
@@ -216,7 +269,8 @@
 - `scripts/check_sdacha.sh` отсутствует в дереве (норма 192 не реализована механизмом):
   лист исполнен вручную выше.
 - 996-матрица: единственный mismatches=1 существует до предмета 201 (базлайн).
-- Freeze и третий critic-вызов закрыты РЕШЕНИЕМ 3 арбитража 1 до явной санкции
-  владельца; этот круг — только исполнение решений 1–2.
+- Третий critic-вызов (Crit201V3, по санкции владельца №35) закрыл всё, кроме блока
+  К-10 — тот закрыт этим кругом fix3; четвёртый critic-вызов — ТОЛЬКО по слову
+  владельца (запрашивается оркестратором); freeze закрыт РЕШЕНИЕМ 3 арбитража 1.
 - Открытые вопросы владельцу 1–3 (117/139; смешанные/мультипродуктовые предметы;
   git-fallback вне GitHub) — решений воли/риска не принималось.
