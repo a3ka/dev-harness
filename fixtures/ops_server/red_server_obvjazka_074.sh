@@ -172,7 +172,7 @@ N_ADDR=$(( $(printf '%s\n' "$UNITS_LIST" | wc -l) + 2 ))   # orch-loop + orch-pe
 RECIPIENTS='user/orch-loop root/orch-peak'
 for u in $UNITS_LIST; do RECIPIENTS="$RECIPIENTS root/systemd/$u"; done
 declare -A PIN=( # фиксированные пины репо: tip реализации 186 (61b2b2bf8), сняты явным коммитом
-  ['user/orch-loop']='30d837128ab285b4f8430acce14a952b5e6b5f7cb7c22f54639fb25c0393dda7'
+  ['user/orch-loop']='d998bf12f5894400169bb4da82c8ddcea3f2d370db18e9ed632a5934e84e0692'
   ['root/orch-peak']='5f2a1f443352f8f4a68200abccf9fca8bc8238cd8b73c4c9011a8891815b7bf6'
   ['root/systemd/orch-peak@.service']='a7e4e4453ae5fdc4e47758143d8b313ce0fe2b97ad187e3a34c317eaabca1a8f'
   ['root/systemd/orch-peak-warn.timer']='c1aca85614566ce281b90e51001a3158d10bac6366470c09c29ba9ed0921bc01'
@@ -190,7 +190,7 @@ done
 # равна снимку). Обновляется пачкой, которая перезапускает root-установку
 # станции; к5b судит станцию по снимку, к5 — репо по фиксированной таблице пинов.
 declare -A SNAP=(
-  ['user/orch-loop']='30d837128ab285b4f8430acce14a952b5e6b5f7cb7c22f54639fb25c0393dda7'
+  ['user/orch-loop']='d998bf12f5894400169bb4da82c8ddcea3f2d370db18e9ed632a5934e84e0692'
   ['root/orch-peak']='6b4f2261c100eeb56c7e1e1aeaa6a4b8d3e3b40a046cb854c08056004720c37f'
   ['root/systemd/orch-peak@.service']='a7e4e4453ae5fdc4e47758143d8b313ce0fe2b97ad187e3a34c317eaabca1a8f'
   ['root/systemd/orch-peak-warn.timer']='c1aca85614566ce281b90e51001a3158d10bac6366470c09c29ba9ed0921bc01'
