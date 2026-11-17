@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "ci:zamer": "node mobile/scripts/run-mobile-ci.cjs --lane zamer"
+  }
+}
