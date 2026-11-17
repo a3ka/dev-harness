@@ -249,6 +249,18 @@
 #   меняют; ложно валят носитель 197 v2 (#1019) — тот же класс, что пара 48; допущение только для этих трёх пар;
 #   слово владельца 2026-11-17 «пары 50–52 — да» через консультанта после перепроверки на head #1019 9ce15544)
 #
+#   649777a14caebbf660931a2cfc97bf0fdacbadcb  contracts/197-mob-ci-artefakty-lokalno.md
+#   8a01ad9996b5c5ee9300f446f5ec5fd20d0cb792  contracts/197-mob-ci-artefakty-lokalno.md
+#   3718851c9ac1cedd1ccd360007423cce3c61f93c  contracts/197-mob-ci-artefakty-lokalno.md
+#   123d63c7bff0a98778b4b138a78986609e2e9a5d  contracts/197-mob-ci-artefakty-lokalno.md
+#   47a12d46a95dc8434c9bc759a43d479b412417e2  contracts/197-mob-ci-artefakty-lokalno.md
+#   f1e7b54e0036ffc83fe7cd7b7e1d2cd4972213fd  contracts/197-mob-ci-artefakty-lokalno.md
+#   735af7f633fce73bbd64dcba12f78ed8617f23d6  contracts/197-mob-ci-artefakty-lokalno.md
+#   236c860415cdebd55df75bdf732e5f38aa9025e1  contracts/197-mob-ci-artefakty-lokalno.md
+#   c4286a3b19ceb41667b6a8461fe0caa79b033fe9  contracts/197-mob-ci-artefakty-lokalno.md
+#   e6371ce8caa91e9a275e49ecee5140870832d9e5  contracts/197-mob-ci-artefakty-lokalno.md
+#   (53-я…62-я: merge-коммиты вливания носителей 999/188/196/129/187/195 в окне (б) check_contract_frozen для 197; diff к первому родителю по contracts/197 пуст у каждого; ложно валят носитель 197 v2 (#1043); класс пары 48; слово владельца 2026-11-17 через консультанта после проверки)
+#
 # НЕ добавлять новые записи без прямого слова владельца в НОВОМ коммите с обоснованием.
 #
 # is_charter_path (контракт 019, ветвь 1 — единый источник предиката). Staged-путь
@@ -471,6 +483,26 @@ grandfather_pair() {
     e642c62099a417a98149900ca8e4cb321e237912)
       [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
     4150211f935d0a0268c56387ec70f3d7d5d4ece9)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    649777a14caebbf660931a2cfc97bf0fdacbadcb)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    8a01ad9996b5c5ee9300f446f5ec5fd20d0cb792)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    3718851c9ac1cedd1ccd360007423cce3c61f93c)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    123d63c7bff0a98778b4b138a78986609e2e9a5d)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    47a12d46a95dc8434c9bc759a43d479b412417e2)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    f1e7b54e0036ffc83fe7cd7b7e1d2cd4972213fd)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    735af7f633fce73bbd64dcba12f78ed8617f23d6)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    236c860415cdebd55df75bdf732e5f38aa9025e1)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    c4286a3b19ceb41667b6a8461fe0caa79b033fe9)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    e6371ce8caa91e9a275e49ecee5140870832d9e5)
       [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
   esac
   return 1
