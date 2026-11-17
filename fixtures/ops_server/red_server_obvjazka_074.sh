@@ -41,7 +41,12 @@
 #       того же дерева — тавтология, Б-2 контракта 186; инвентарь и счёт
 #       адресатов — из install.sh, единый источник) + биекция «ключи
 #       таблицы пинов == адресаты инвентаря install.sh» (лишний юнит без
-#       пересъёма пина и висящий пин убранного юнита — красные);
+#       пересъёма пина и висящий пин убранного юнита — красные); биекция №2
+#       «каждый юнит в root/systemd объявлен»: ЛИБО в базовом UNITS=, ЛИБО в
+#       ARTIFACTS_UNITS install.sh (перечень предмета 196: юниты ставятся и
+#       сверяются подкомандами artifacts/verify, строки UNITS= не трогаются —
+#       грабли-074; биекция №1, пины и счёт N — только по UNITS=); посторонний
+#       юнит вне обоих перечней — красный (пробы биекции №2);
 #       к5b — станция против снимка 2026-10-02, пока файлы станции читаемы
 #       (в CI — пропуск с пометкой, не зелёное);
 #   к6  ops/server/README.md несёт чек-строки инвентаря: 9 имён механизмов
@@ -68,6 +73,10 @@
 #   s7 «user скопировал, но не перечитал» — перечитывание sha256 в
 #      user-ветви нейтрализовано; вход к1b: cp-шина портит запись —
 #      честный субъект отказывает rc 1, s7 молчит и даёт rc 0.
+#   s8 «биекция №2 принимает что угодно» — объявление rog-юнита закоммен-
+#      тированной строкой «# ARTIFACTS_UNITS='…'» в install.sh; наблюдаем на
+#      входе к5 (биекция №2): якорный разбор не считает комментарий объяв-
+#      лением, rog-юнит красен; жадный/неякорный разбор принял бы его.
 #
 # Семантика: rc 0 — честные клетки зелёные + все стабы пойманы + диффпроба
 # зелёная; rc 1 — «предмет отсутствует» (г0, ДО реализации), любая красная
@@ -125,29 +134,40 @@ red() { fails=$((fails + 1)); printf '  КРАСНО: %s\n' "$*"; }
 # Пересъём пина — только явный коммит в этой таблице (стоячая санкция №4:
 # только значения, клетки и логика неизменны). Дрейф грамматики install.sh →
 # отказ rc 2 (пустая выборка — красное, не зелёное).
-units_of() { # <install.sh>: итоговый UNITS по всем присваиваниям (в т.ч. UNITS="$UNITS …")
-  local line acc='' w
+inventory_of() { # <install.sh> <имя-переменной>: итоговый список по всем присваиваниям (в т.ч. VAR="$VAR …")
+  local line acc='' w prefix="$2="
   while IFS= read -r line; do
     case "$line" in
-      UNITS=*)
-        line="${line#UNITS=}"
+      "$prefix"*)
+        line="${line#"$prefix"}"
         line="${line#\"}"; line="${line%\"}"
         line="${line#\'}"; line="${line%\'}"
         acc="$acc $line" ;;
     esac
   done <"$1"
   for w in $acc; do
-    [ "$w" = '$UNITS' ] && continue
+    [ "$w" = "\$$2" ] && continue
     case "$w" in
       *.service|*.timer) printf '%s\n' "$w" ;;
-      *) printf 'ОТКАЗ: неожиданный элемент инвентаря UNITS: %s\n' "$w" >&2; exit 2 ;;
+      *) printf 'ОТКАЗ: неожиданный элемент инвентаря %s: %s\n' "$2" "$w" >&2; exit 2 ;;
     esac
   done
 }
+units_of() { inventory_of "$1" UNITS; }                    # базовый инвентарь станции (074)
+artifacts_units_of() { inventory_of "$1" ARTIFACTS_UNITS; } # перечень юнитов предмета 196
 hash_of() { sha256sum <"$1" | cut -d' ' -f1; }
 UNITS_LIST="$(units_of "$OPS_SRC/install.sh")" || exit 2
 [ -n "$UNITS_LIST" ] || { printf 'ОТКАЗ: UNITS не извлечён из %s\n' "$OPS_SRC/install.sh" >&2; exit 2; }
 UNITS="$(printf '%s ' $UNITS_LIST)"; UNITS="${UNITS% }"
+# Перечень юнитов предмета 196 (контракт 196/1) — та же грамматика присваиваний,
+# отдельная переменная ARTIFACTS_UNITS: эти юниты ставятся и сверяются
+# подкомандами artifacts/verify install.sh (судит батарея 196), поэтому для
+# биекции №2 к5 «объявлен» = UNITS ∪ ARTIFACTS_UNITS. Пустой ARTIFACTS_UNITS —
+# норма до-196 дерева; дрейф грамматики — тот же отказ rc 2. Биекция №1,
+# таблица пинов и счёт N — ТОЛЬКО базовый UNITS (грабли-074: строки UNITS=
+# предметом 196 не трогаются).
+AUNITS_LIST="$(artifacts_units_of "$OPS_SRC/install.sh")" || exit 2
+AUNITS="$(printf '%s ' $AUNITS_LIST)"; AUNITS="${AUNITS% }"
 N_ADDR=$(( $(printf '%s\n' "$UNITS_LIST" | wc -l) + 2 ))   # orch-loop + orch-peak + юниты
 RECIPIENTS='user/orch-loop root/orch-peak'
 for u in $UNITS_LIST; do RECIPIENTS="$RECIPIENTS root/systemd/$u"; done
@@ -548,14 +568,20 @@ cell_k5() { # пины репо: дерево субъекта побайтно 
     [ -f "$f" ] || { printf 'k5: нет ops/server/%s\n' "$rel"; return 1; }
     [ "$(hash_of "$f")" = "${PIN[$rel]}" ] || { printf 'k5: ops/server/%s разошёлся с фиксированным пином репо (пересъём — явный коммит, не молчаливая правка)\n' "$rel"; return 1; }
   done
-  # биекция №2: юнит-файл вне инвентаря install.sh не ставится и verify его не
-  # сверяет — дыра «sha256 репо == установленное»; лишний файл — красный
+  # биекция №2: юнит-файл вне инвентарей install.sh не ставится и verify его не
+  # сверяет — дыра «sha256 репо == установленное»; лишний файл — красный.
+  # Расширение 196 (контракт 196/1): «объявлен» = базовый UNITS= ИЛИ
+  # ARTIFACTS_UNITS (юниты предмета 196 ставятся и сверяются подкомандами
+  # artifacts/verify install.sh; строки UNITS= не трогаются — грабли-074;
+  # биекция №1, пины и счёт N — только по базовому UNITS=). Посторонний юнит
+  # НИ в одном из перечней — по-прежнему красный (пробы run_k5_bij2_pack:
+  # мир без объявлений + стаб s8 «комментарий-объявление»).
   for f in "$OPS_ROOT/ops/server/root/systemd"/*.service \
            "$OPS_ROOT/ops/server/root/systemd"/*.timer; do
     [ -e "$f" ] || continue
     u="${f##*/}"
-    case " $UNITS " in *" $u "*) ;; *)
-      printf 'k5: юнит %s вне инвентаря install.sh — не ставится, verify слеп\n' "$u"; return 1 ;;
+    case " $UNITS $AUNITS " in *" $u "*) ;; *)
+      printf 'k5: юнит %s вне инвентарей install.sh (UNITS=/ARTIFACTS_UNITS) — не ставится, verify слеп\n' "$u"; return 1 ;;
     esac
   done
   return 0
@@ -683,6 +709,64 @@ run_stub_pack() {
   return 0
 }
 
+# ── пробы биекции №2 к5 (расширение 196): «объявлен» = UNITS ∪ ARTIFACTS_UNITS ──
+# Миры — побайтовые копии ops/server батареи (throwaway): честный-196 (юниты
+# предмета 196 на диске + строка ARTIFACTS_UNITS в install.sh) обязан быть
+# ЗЕЛЁНЫМ на к5 — диффпроба расширения; посторонний (rog-юнит НИ в UNITS, НИ в
+# ARTIFACTS_UNITS) обязан КРАСНЕТЬ именем — расширение не ослабило биекцию;
+# стаб s8 «биекция №2 принимает что угодно» — объявление rog-юнита
+# закомментированной строкой «# ARTIFACTS_UNITS='…'»: якорный разбор обязан
+# краснеть (жадный/неякорный разбор принял бы юнит за объявленный). Инвентари
+# миров снимаются тем же единым разбором, что и на старте батареи, — проба
+# судит живой путь парсера, а не подставленные значения.
+run_k5_on() { # <мир>: к5 с инвентарями, снятыми из install.sh мира
+  local wl
+  wl="$(units_of "$1/ops/server/install.sh")" || return 2
+  UNITS="$(printf '%s ' $wl)"; UNITS="${UNITS% }"
+  wl="$(artifacts_units_of "$1/ops/server/install.sh")" || return 2
+  AUNITS="$(printf '%s ' $wl)"; AUNITS="${AUNITS% }"
+  OPS_ROOT="$1" cell_k5
+}
+
+run_k5_bij2_pack() {
+  local W="$SCRATCH/bij2" base out rc g=0 n=0
+  mkdir -p "$W/honest196/ops/server" "$W/rogue/ops/server" "$W/s8/ops/server"
+  for base in honest196 rogue s8; do cp -a -- "$OPS_SRC/." "$W/$base/ops/server/"; done
+  cp -- "$OPS_SRC/root/systemd/orch-ctx.timer" "$W/honest196/ops/server/root/systemd/ci-artifacts-clean.timer"
+  cp -- "$OPS_SRC/root/systemd/orch-peak-reenable.service" "$W/honest196/ops/server/root/systemd/ci-artifacts-clean.service"
+  printf "ARTIFACTS_UNITS='ci-artifacts-clean.service ci-artifacts-clean.timer'\n" >>"$W/honest196/ops/server/install.sh"
+  cp -- "$OPS_SRC/root/systemd/orch-ctx.timer" "$W/rogue/ops/server/root/systemd/orch-rogue-074.timer"
+  cp -- "$OPS_SRC/root/systemd/orch-ctx.timer" "$W/s8/ops/server/root/systemd/orch-rogue-074.timer"
+  printf "# ARTIFACTS_UNITS='orch-rogue-074.timer'\n" >>"$W/s8/ops/server/install.sh"
+  # диффпроба: честный-196 (юниты объявлены в ARTIFACTS_UNITS) — зелёный
+  diff_total=$((diff_total + 1))
+  if ( run_k5_on "$W/honest196" ) >/dev/null 2>&1; then
+    diffok=$((diffok + 1)); g=1
+    printf '  диффпроба: юниты 196, объявленные в ARTIFACTS_UNITS, зелёные на к5 (биекция №2)\n'
+  else
+    red 'диффпроба: к5 красна на юнитах 196, объявленных в ARTIFACTS_UNITS (расширение не работает)'
+  fi
+  # посторонний юнит вне обоих перечней — красный именем (не ослаблено)
+  out="$( ( run_k5_on "$W/rogue" ) 2>&1 )"; rc=$?
+  if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q 'orch-rogue-074\.timer'; then
+    n=1
+    printf '  посторонний юнит красен по имени: биекция №2 не ослаблена (UNITS ∪ ARTIFACTS_UNITS)\n'
+  else
+    red 'биекция №2 ослаблена: посторонний юнит (ни в UNITS, ни в ARTIFACTS_UNITS) не краснит к5 именем'
+  fi
+  # стаб s8 «биекция №2 принимает что угодно»: комментарий — не объявление
+  stub_total=$((stub_total + 1))
+  out="$( ( run_k5_on "$W/s8" ) 2>&1 )"; rc=$?
+  if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q 'orch-rogue-074\.timer'; then
+    caught=$((caught + 1))
+    printf '  стаб s8 пойман (вход cell_k5, биекция №2): комментарий — не объявление\n'
+  else
+    red 'стаб s8 жив: биекция №2 принимает что угодно (комментарий-«объявление» зелёнит юнит) (Н-39)'
+  fi
+  printf 'биекция №2: честная-196 зелёная %d/1, посторонний красный %d/1\n' "$g" "$n"
+  return 0
+}
+
 # ── канальные пробы к1b (B1/B3, адверсары r1/r2): на каждый механизм ───────────
 # копирования — ДВЕ вариации симуляции: честная (копирует механизмом,
 # перечитывает sha256 ПОСЛЕ записи) обязана ЗЕЛЕНЕТЬ на к1b — канал порчи
@@ -756,6 +840,7 @@ fi
 if [ ! -f "$SUBJ" ]; then
   printf 'ОТКАЗ: предмет отсутствует — в дереве нет ops/server/install.sh\n' >&2
   run_stub_pack
+  run_k5_bij2_pack
   printf 'итог 074: красных клеток=%d стабы=%d/%d\n' "$fails" "$caught" "$stub_total"
   exit 1
 fi
@@ -774,6 +859,7 @@ if cell_k7 "$OPS_ROOT"; then honest=$((honest + 1)); else red 'cell_k7'; fi
 printf 'честная часть: %d/%d зелёная\n' "$honest" "$htotal"
 
 run_stub_pack
+run_k5_bij2_pack
 run_k1b_channels
 
 printf 'итог 074: красных клеток=%d стабы=%d/%d\n' "$fails" "$caught" "$stub_total"

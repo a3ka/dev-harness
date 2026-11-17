@@ -308,3 +308,6 @@ step	check:hranitel-arhitektury-186-family-selftest	10	bash fixtures/workshop_pr
 step	check:standartnye-validatory-189-family-selftest	4	bash fixtures/workshop_project/standartnye_validatory_189/red_standartnye_validatory_189.sh --stabs
 step	check:zamer-svyazki-190-family-selftest	4	bash fixtures/workshop_project/zamer_svyazki_190/red_zamer_svyazki_190.sh --stabs && bash -n scripts/zamer_svyazki.sh && bash fixtures/workshop_project/zamer_svyazki_190/red_zamer_svyazki_190.sh
 step	check:roles-architecture-188-family-selftest	4	bash fixtures/workshop_project/roles_architecture_188/red_roles_architecture_188.sh --repo . && bash fixtures/workshop_project/roles_architecture_188/red_roles_architecture_188.sh --stabs
+step	check:forma-do-kritika-191-family-selftest	4	bash fixtures/workshop_project/forma_do_kritika_191/red_forma_do_kritika_191.sh --repo . && bash fixtures/workshop_project/forma_do_kritika_191/red_forma_do_kritika_191.sh --model && bash fixtures/workshop_project/forma_do_kritika_191/red_forma_do_kritika_191.sh --stabs
+step	check:normy-roley-svyazki-192-family-selftest	4	bash fixtures/workshop_project/normy_roley_svyazki_192/red_normy_roley_svyazki_192.sh --repo .
+step	check:ops-ci-artifacts-196-family-selftest	4	bash fixtures/workshop_project/ops_ci_artifacts_196/red_ops_ci_artifacts_196.sh --stabs

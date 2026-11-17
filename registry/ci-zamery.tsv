@@ -110,3 +110,6 @@ check:hranitel-arhitektury-186-family-selftest	10	8	0
 check:standartnye-validatory-189-family-selftest	4	1	0
 check:zamer-svyazki-190-family-selftest	2	1	0
 check:roles-architecture-188-family-selftest	4	8	0
+check:forma-do-kritika-191-family-selftest	4	8	0
+check:normy-roley-svyazki-192-family-selftest	4	8	0
+check:ops-ci-artifacts-196-family-selftest	4	8	0
