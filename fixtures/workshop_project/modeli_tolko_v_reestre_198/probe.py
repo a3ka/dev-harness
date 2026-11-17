@@ -36,10 +36,30 @@ Crit198V1, мутации MU-1/MU-2): красна ЛЮБАЯ форма соб�
 респелл-форму: переименование переменных, "fable"[ ]*:, смену способа
 чтения). Дословные токены прежнего кода — только дополнительная форма,
 не единственная.
+
+Текстовое окно судит содержимое, но не ДОСТИЖИМОСТЬ (вердикт Crit198V2,
+блок (2), мутации MU-4/MU-5): чтение, вынесенное из окна функцией того же
+файла НАД стражем FABLE либо файлом-хелпером с фолбеком на резолвер,
+проходило всю приёмку зелёным при живом собственном чтении. Закрытие
+КЛАССА — три слоя:
+  (а) достижимость: транзитивное замыкание функций того же файла, зовомых
+      из блока --fable, судится теми же свойствами, что и сам блок;
+  (б) поведение: в мире с ОТКАЗЫВАЮЩИМ резолвером (roles.ts заменён
+      отказником rc 2) дверь обязана fail-closed rc 2 с именованным отказом,
+      а путь --fable — падать громко ДО exec omp; ожидание/модель, пережившие
+      отказ резолвера, получены из иного источника — независимо от места и
+      формы чтения (окно/функция/файл-хелпер/кэш/литерал-фолбек/молчаливый
+      дефолт). Обе клетки несут позитивный контроль (прогон с родным
+      roles.ts обязан дойти до решения/exec) — отказ по чужой причине не
+      выдаёт себя за зелёное (анти-плацебо, 016);
+  (в) остаток (маскировка ИМЕНИ файла реестра конкатенацией/глобом) —
+      cognitive-only в контракте; поведенческим клеткам маскировка
+      безразлична: они судят источник, а не текст.
 """
 import argparse
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -1005,10 +1025,12 @@ def cell_repo_seam_fable_no_registry_values(root, tmp):
 
 
 def cell_repo_seam_door_resolver(root, tmp):
-    d = seam_text(root, 'scripts/check_sud_model.sh')
+    # КОД шва (комментарии вычёркнуты): упоминание резолвера в комментарии,
+    # как в мутациях MU-4/MU-5 вердикта Crit198V2, вызовом не является.
+    d = code_text(seam_text(root, 'scripts/check_sud_model.sh'))
     ok = 'roles.ts' in d and '--resolve-model' in d
     return check(ok, 'repo_seam_door_resolver',
-                 'дверь судейской модели обязана брать ожидание у единого резолвера (roles.ts --resolve-model)')
+                 'дверь судейской модели обязана ЗВАТЬ единый резолвер в коде (roles.ts --resolve-model), а не упоминать его в комментарии')
 
 
 def cell_repo_seam_fable_resolver(root, tmp):
@@ -1017,9 +1039,257 @@ def cell_repo_seam_fable_resolver(root, tmp):
     if blk is None:
         return check(False, 'repo_seam_fable_resolver',
                      'лаунчер отсутствует' if not w else 'блок --fable не найден (страж FABLE) — якорь шва отсутствует')
-    ok = 'roles.ts' in blk and '--resolve-model' in blk and 'consultant' in blk
+    # КОД блока (комментарии вычёркнуты): комментарий-упоминание резолвера
+    # при вызове функции-хелпера (MU-4 вердикта Crit198V2) вызовом не является.
+    code = code_text(blk)
+    ok = 'roles.ts' in code and '--resolve-model' in code and 'consultant' in code
     return check(ok, 'repo_seam_fable_resolver',
-                 'шов --fable обязан брать модель роли consultant через единый резолвер (roles.ts --resolve-model consultant)')
+                 'шов --fable обязан ЗВАТЬ резолвер роли consultant в коде блока (roles.ts --resolve-model consultant), а не упоминать его в комментарии')
+
+
+# ── (а) достижимость: вынос чтения из окна функцией того же файла (MU-4) ─────
+
+def shell_funcs(text):
+    """Функции bash-файла: имя → тело. Определение `name() {` от колонки 0;
+    однострочные (скобки закрыты на строке определения) — как есть,
+    многострочные — до балансирующей `}`."""
+    funcs = {}
+    lines = text.split('\n')
+    i = 0
+    while i < len(lines):
+        m = re.match(r'^([A-Za-z_][A-Za-z0-9_]*)\s*\(\)\s*\{', lines[i])
+        if m:
+            name = m.group(1)
+            if lines[i].count('{') <= lines[i].count('}'):
+                funcs[name] = lines[i]
+                i += 1
+                continue
+            depth = lines[i].count('{') - lines[i].count('}')
+            body = [lines[i]]
+            j = i + 1
+            while j < len(lines) and depth > 0:
+                depth += lines[j].count('{') - lines[j].count('}')
+                body.append(lines[j])
+                j += 1
+            funcs[name] = '\n'.join(body)
+            i = j
+            continue
+        i += 1
+    return funcs
+
+
+def fable_reachable_code(w_text):
+    """Код блока --fable ПЛЮС транзитивное замыкание функций того же файла,
+    которые блок зовёт (по вхождению имени функции границей слова в коде,
+    комментарии вычеркнуты). None — блок не найден."""
+    blk = fable_block(w_text)
+    if blk is None:
+        return None
+    funcs = shell_funcs(w_text)
+    code = code_text(blk)
+    seen = set()
+    bodies = []
+    front = [n for n in sorted(funcs) if re.search(r'\b%s\b' % re.escape(n), code)]
+    while front:
+        n = front.pop()
+        if n in seen:
+            continue
+        seen.add(n)
+        body = code_text(funcs[n])
+        bodies.append(body)
+        front.extend(m for m in sorted(funcs) if m not in seen
+                     and re.search(r'\b%s\b' % re.escape(m), body))
+    return code + '\n' + '\n'.join(bodies)
+
+
+def cell_repo_seam_fable_reachable_no_own_read(root, tmp):
+    """(а) ДОСТИЖИМОСТЬ (MU-4 вердикта Crit198V2): функции того же файла,
+    транзитивно зовомые из блока --fable (в т.ч. определённые ВЫШЕ стража
+    FABLE), судятся теми же свойствами, что и сам блок: не называют файл
+    реестра и не несут его значений. Вынос чтения из окна — правка того же
+    файла в зоне implementer — клеткой не прощается; код ВНЕ достижимости
+    (например die-сообщение оверлея :577) легитимно не судится."""
+    name = 'repo_seam_fable_reachable_no_own_read'
+    w = seam_text(root, 'workshop')
+    if not w:
+        return check(False, name, 'лаунчер отсутствует')
+    if fable_block(w) is None:
+        return check(False, name, 'блок --fable не найден (страж FABLE) — якорь шва отсутствует')
+    code = fable_reachable_code(w)
+    fams, ids = registry_values(root)
+    hits = []
+    if 'agent_models' in code:
+        hits.append('имя файла реестра')
+    hits += [v for v in fams + ids if v in code]
+    return check(not hits, name,
+                 'код, ДОСТИЖИМЫЙ из блока --fable (функции того же файла), несёт %r — собственное чтение/значения реестра вынесены из окна, источник только резолвер (Р3)'
+                 % (hits[:5],))
+
+
+# ── (б) поведение: мир с ОТКАЗЫВАЮЩИМ резолвером (MU-4/MU-5 вердикта Crit198V2) ──
+
+# «Резолвер-отказник»: НЕ голая заглушка — scripts/roles.ts в песочнице
+# продолжает предоставлять поверхность модуля импортёрам (gen-harness.ts и
+# прочие `import … from './roles.ts'` работают: оригинал копируется под
+# соседним именем и реэкспортируется), а при ПРЯМОМ запуске отвечает
+# именованным отказом rc 2 и НИКОГДА не даёт модель. Голая заглушка ломала
+# импортёров ДО шва — отказ по чужой причине выдавал себя за зелёное.
+def install_refuser(sb):
+    scripts = sb / 'scripts'
+    orig = scripts / 'roles.ts'
+    impl = scripts / 'roles_refuser_impl.ts'
+    val_names, type_names = set(), set()
+    for ts in sorted(scripts.glob('*.ts')):
+        for m in re.finditer(
+                r"import\s*\{([^}]*)\}\s*from\s*['\"]\./roles\.ts['\"]",
+                ts.read_text(encoding='utf-8')):
+            for part in m.group(1).split(','):
+                is_type = part.strip().startswith('type ')
+                n = part.strip().removeprefix('type ').strip()
+                if n:
+                    (type_names if is_type else val_names).add(n)
+    type_names -= val_names
+    has_impl = orig.is_file()
+    if has_impl:
+        shutil.copy2(orig, impl)
+    lines = [
+        '// ПЕСОЧНИЦА 198 (поведенческие клетки repo_seam_*_failclosed_resolver):',
+        '// «резолвер-отказник» — поверхность модуля прежняя (реэкспорт',
+        '// оригинала), собственного CLI нет: при прямом запуске — именованный',
+        '// отказ rc 2, модель НЕ даётся никогда.',
+    ]
+    if val_names and has_impl:
+        lines.append("export { %s } from './roles_refuser_impl.ts';" % ', '.join(sorted(val_names)))
+    if type_names and has_impl:
+        lines.append("export type { %s } from './roles_refuser_impl.ts';" % ', '.join(sorted(type_names)))
+    lines.append("if (process.argv[1] && (process.argv[1] === 'roles.ts' || "
+                 "process.argv[1].replace(/\\\\/g, '/').endsWith('/roles.ts'))) {")
+    lines.append("  process.stderr.write('ROLE_REFUSED_STUB\\n');")
+    lines.append('  process.exit(2);')
+    lines.append('}')
+    orig.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+
+# Стаб-omp: единственная команда на PATH песочницы шова --fable, фиксирует
+# argv, с которым лаунчер exec-нул сессию (сам никогда не падает).
+OMP_STUB_SH = """#!/usr/bin/env bash
+printf '%s\\n' "$*" >> "$OMP_STUB_LOG"
+exit 0
+"""
+
+
+def copy_launch_chain(root, dst):
+    """Выборочная копия цепочки запуска до блока --fable (песочницы
+    поведенческих клеток и полных мутант-корней): scripts/, roles/, config/,
+    .omp/, workshop, AGENTS.md, package.json. Секретов станционной среды
+    (.env) в песочнице нет — ключи-заглушки подаются окружением клетки."""
+    dst.mkdir(parents=True)
+    ign = shutil.ignore_patterns('.git')
+    for item in ('scripts', 'roles', 'config', '.omp'):
+        if (root / item).is_dir():
+            shutil.copytree(root / item, dst / item, ignore=ign)
+    for f in ('workshop', 'AGENTS.md', 'package.json'):
+        if (root / f).is_file():
+            shutil.copy2(root / f, dst / f)
+
+
+def beh_env(bin_dir, state, home, log):
+    """Окружение поведенческих прогонов: PATH со стаб-omp ВПЕРЁД, сессионный
+    state вне песочницы, ключи-заглушки (цепочка обязана дойти до блока, а не
+    умирать на станционных секретах), журнал стаб-omp."""
+    return {
+        'PATH': '%s:%s' % (bin_dir, os.environ.get('PATH', '/usr/bin:/bin')),
+        'HOME': str(home),
+        'XDG_STATE_HOME': str(state),
+        'OMP_STUB_LOG': str(log),
+        'ZAI_API_KEY': 'stub',
+        'METERING_PROXY_URL': 'http://stub',
+        'METERING_PROXY_TOKEN': 'stub',
+        'MINIMAX_API_KEY': 'stub',
+    }
+
+
+def omp_called(log):
+    return log.is_file() and bool(log.read_text(encoding='utf-8').strip())
+
+
+def cell_repo_seam_fable_failclosed_resolver(root, tmp):
+    """(б) ПОВЕДЕНИЕ шова --fable: при отказывающем roles.ts путь --fable
+    обязан падать ГРОМКО (rc≠0, die ДО exec omp) — модель режима идёт только
+    через резолвер; сессия не стартует. Позитивный контроль: с родным
+    roles.ts цепочка лаунчера обязана дойти до exec (стаб-omp в PATH
+    фиксирует argv) — иначе отказ по чужой причине выглядел бы зелёным.
+    Ловит ЛЮБОЙ иной источник модели, переживший отказ резолвера: функцию
+    того же файла (MU-4), файл-хелпер, кэш, литерал-фолбек, молчаливый
+    дефолт — независимо от места и формы чтения."""
+    name = 'repo_seam_fable_failclosed_resolver'
+    if not (root / 'workshop').is_file():
+        return check(False, name, 'лаунчер отсутствует в дереве')
+    base = Path(tmp) / 'beh-fable'
+    sb = base / 'sb'
+    home, state, bindir = base / 'home', base / 'state', base / 'bin'
+    for d in (home, state, bindir):
+        d.mkdir(parents=True)
+    copy_launch_chain(root, sb)
+    omp = bindir / 'omp'
+    omp.write_text(OMP_STUB_SH, encoding='utf-8')
+    os.chmod(omp, 0o755)
+    log_ctl, log_ref = base / 'omp-ctl.log', base / 'omp-ref.log'
+    ctl = run(['bash', str(sb / 'workshop'), '--fable'], home,
+              env=beh_env(bindir, state, home, log_ctl), timeout=240)
+    if not omp_called(log_ctl):
+        return check(False, name,
+                     'контроль: цепочка лаунчера не дошла до exec omp (rc=%d, stderr=%r) — поведенческий прогон невозможен'
+                     % (ctl.returncode, ctl.stderr.strip()[-160:]))
+    install_refuser(sb)
+    ref = run(['bash', str(sb / 'workshop'), '--fable'], home,
+              env=beh_env(bindir, state, home, log_ref), timeout=240)
+    ok = ref.returncode != 0 and not omp_called(log_ref) and bool(ref.stderr.strip())
+    return check(ok, name,
+                 'при отказавшем резолвере путь --fable обязан падать громко (rc≠0, без exec omp); rc=%d, exec-omp=%s, stderr=%r — модель режима получена из иного источника'
+                 % (ref.returncode, 'да' if omp_called(log_ref) else 'нет', ref.stderr.strip()[-120:]))
+
+
+def cell_repo_seam_door_failclosed_resolver(root, tmp):
+    """(б) ПОВЕДЕНИЕ двери: при отказывающем roles.ts дверь обязана
+    fail-closed rc 2 с именованным отказом (Р2: источник назначений не
+    молчит; решение по ожиданию из иного источника запрещено). Позитивный
+    контроль: с родным roles.ts дверь зелёна на назначенной primary.
+    Ловит чтение реестра файлом-хелпером с фолбеком (MU-5), кэшем,
+    литералом-фолбеком — независимо от места и формы чтения."""
+    name = 'repo_seam_door_failclosed_resolver'
+    door = root / 'scripts' / 'check_sud_model.sh'
+    reg_p = root / 'config' / 'agent_models.json'
+    if not door.is_file():
+        return check(False, name, 'дверь судейской модели отсутствует в дереве')
+    if not reg_p.is_file():
+        return check(False, name, 'реестр назначений отсутствует в дереве')
+    reg = json.loads(reg_p.read_text(encoding='utf-8'))
+    o = oracle(reg, 'critic')
+    if o[0] != 0:
+        return check(False, name, 'живой реестр неконформен: %r' % (o,))
+    primary = o[2]
+    # песочница — верная копия scripts/ ЦЕЛИКОМ: дверь может звать
+    # файлы-хелперы (MU-5: registry_lookup.sh с фолбеком на резолвер), и
+    # минимальная копия «дверь+roles.ts» стирала бы хелпер — дефект
+    # уходил в фолбек на резолвер и выглядел честным
+    sb = Path(tmp) / 'beh-door'
+    shutil.copytree(root / 'scripts', sb / 'scripts',
+                    ignore=shutil.ignore_patterns('.git'))
+    (sb / 'config').mkdir(parents=True)
+    shutil.copy2(reg_p, sb / 'config' / 'agent_models.json')
+    argv = ['bash', str(sb / 'scripts' / 'check_sud_model.sh'),
+            '--spawn', 'critic', primary, '--root', str(sb)]
+    ctl = run(argv, tmp)
+    if ctl.returncode != 0:
+        return check(False, name,
+                     'контроль: дверь не зелёна на назначенной primary (rc=%d, stderr=%r) — поведенческий прогон невозможен'
+                     % (ctl.returncode, ctl.stderr.strip()[:120]))
+    install_refuser(sb)
+    ref = run(argv, tmp)
+    ok = ref.returncode == 2 and bool(ref.stderr.strip())
+    return check(ok, name,
+                 'при отказавшем резолвере дверь обязана fail-closed rc 2 с именованным отказом; rc=%d stderr=%r — ожидание получено из иного источника'
+                 % (ref.returncode, ref.stderr.strip()[:120]))
 
 
 def cell_repo_pravila_live(root, tmp):
@@ -1041,6 +1311,9 @@ REPO_CELLS = [
     ('repo_seam_fable_no_registry_values', cell_repo_seam_fable_no_registry_values),
     ('repo_seam_door_resolver', cell_repo_seam_door_resolver),
     ('repo_seam_fable_resolver', cell_repo_seam_fable_resolver),
+    ('repo_seam_fable_reachable_no_own_read', cell_repo_seam_fable_reachable_no_own_read),
+    ('repo_seam_fable_failclosed_resolver', cell_repo_seam_fable_failclosed_resolver),
+    ('repo_seam_door_failclosed_resolver', cell_repo_seam_door_failclosed_resolver),
     ('repo_pravila_live', cell_repo_pravila_live),
 ]
 
@@ -1074,14 +1347,22 @@ def run_cell_for_stab(name, ctx):
     return bool(FAILED)
 
 
-def mutant_repo(ctx, decoy, rel):
+def mutant_repo(ctx, decoy, rel, full=False, extra=()):
+    """Мутант-корень для repo-клеток. full=True — копия всей цепочки запуска
+    (поведенческим клеткам шова --fable нужен живой лаунчер); extra —
+    компоненты двойника (ставятся вместе с ним, например файл-хелпер MU-5)."""
     root = Path(ctx['tmp']) / ('mutant-' + decoy)
-    (root / 'scripts').mkdir(parents=True)
-    (root / 'config').mkdir(parents=True)
+    if full:
+        copy_launch_chain(ctx['source'], root)
+    else:
+        (root / 'scripts').mkdir(parents=True)
+        (root / 'config').mkdir(parents=True)
     # реестр-структуры мир в мутант-корне: шовным клеткам нужны значения
     # (семейства/иды) живого-формы реестра для запрета в блоке --fable
     write_registry(root, toy_registry(ctx['source']))
     install_decoy(root, decoy, rel)
+    for rel_path, decoy_name in extra:
+        install_decoy(root, decoy_name, rel_path)
     return root
 
 
@@ -1117,6 +1398,12 @@ STAB_BIND = [
      lambda ctx, d: ctx.__setitem__('repo_root', mutant_repo(ctx, d, 'scripts/check_sud_model.sh'))),
     ('decoy_door_jq_respell.sh', 'repo_seam_door_no_own_parse',
      lambda ctx, d: ctx.__setitem__('repo_root', mutant_repo(ctx, d, 'scripts/check_sud_model.sh'))),
+    ('decoy_workshop_fable_helper.sh', 'repo_seam_fable_failclosed_resolver',
+     lambda ctx, d: ctx.__setitem__('repo_root', mutant_repo(ctx, d, 'workshop', full=True))),
+    ('decoy_door_helper_fallback.sh', 'repo_seam_door_failclosed_resolver',
+     lambda ctx, d: ctx.__setitem__('repo_root', mutant_repo(
+         ctx, d, 'scripts/check_sud_model.sh',
+         extra=(('scripts/registry_lookup.sh', 'decoy_registry_lookup_helper.sh'),)))),
 ]
 
 
