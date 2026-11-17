@@ -69,7 +69,7 @@ def world(base, name, kind='backend'):
         put(root, 'architecture/cli.js', "console.log('WRONG_LOCAL_BRIEF_187');\n")
         put(root, 'architecture/check-rc', '0\n')
         put(root, 'architecture/baseline/approved.json', '{}\n')
-    put(root, CONTRACT, '# Work\nКЛАСС ЗАДАЧИ: кодовый.\n'
+    put(root, CONTRACT, '# Work\nКЛАСС ЗАДАЧИ: кодовый.\nКЛАСС РИСКА: обычный.\n'
         'КОНТЕКСТ: AGENTS.md\n## Существующее\nThe brief is available.\n'
         '## Предмет\nWorking code\n'
         'АРХИТЕКТУРА: L1 api.identity\n'

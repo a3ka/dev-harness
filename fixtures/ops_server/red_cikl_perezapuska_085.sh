@@ -12,11 +12,13 @@
 # снимка `( while sleep 5; do` и `  done ) &` дословно.
 #
 # СУБЪЕКТЫ (дерево OPS_ROOT, по умолчанию — дерево батареи):
-#   ops/server/user/orch-loop — цикл перезапуска: станция ebc53f30 + потолок памяти;
+#   ops/server/user/orch-loop — цикл перезапуска: станция + потолок памяти; строка MSG —
+#   v2 контракта 085 (И-10: актуальные источники, слово владельца 2026-11-17);
 #   ops/server/root/orch-peak — сторож: слияние станции b3e354cd и версии 080.
 # ВХОДЫ-СНИМКИ (sha256 — пины в памяти батареи; сверяются копии в скратче ДО вызова
 # субъекта, оракулы р1/р2 и MSG станции читаются в память из сверенных копий):
-#   stancija.orch-loop, stancija.orch-peak — станция, живой съём 2026-10-05;
+#   stancija.orch-loop, stancija.orch-peak — станция, живой съём 2026-10-05
+#   (строка MSG снимка orch-loop заменена v2 контракта 085, 2026-11-17);
 #   slijanie.orch-peak — git merge-file -p -L stancija -L baza -L v080 (3 конфликта);
 #   repo-fad71b15.orch-loop, repo-8380d01f.orch-peak — прежние версии репо (стабы).
 #
@@ -26,6 +28,10 @@
 #       порядке (вставки допустимы), кроме строки kill_session со стоп-файлом (И-4д);
 #   р2  И-2: строки stancija.orch-loop есть в orch-loop в том же порядке, кроме строки
 #       запуска сессии (И-5); красное несёт текст первой пропавшей строки;
+#   т1  И-10 (v2): MSG автоперезапуска — актуальные источники: строк MSG='…' в субъекте
+#       ровно одна; несёт все обязательные ссылки (HANDOFF «ГДЕ МЫ», registry/plan.tsv,
+#       registry/pauzy.tsv, стартап-протокол роли, раздел «Автоперезапуск orch-loop
+#       и два слота»); без «Следующая сессия», «$» и «`»; ≤ 800 байт; == MSG снимка.
 #   л1-л10 И-3: цикл в скратче, сессия-подделка по плану, токен на сессию (early — маркер
 #       на 1 с; normal — на 8 с; exit/crash — выход 0/1; stopkill — ORCH_STOP и выход 143;
 #       cancel — маркер снят в GRACE, сам выход 0; termrm — снятие маркера на SIGTERM;
@@ -134,6 +140,12 @@ LIT_NOCAP='БЕЗ ПОТОЛКА ПАМЯТИ'
 # (Н-304: был «ресурсный предел не создан — запуск без потолка запрещён»,
 #  заменён на «запуск в scope не подтверждён» при переходе на channel-based).
 LIT_REFUSE093='запуск в scope не подтверждён — запуск без потолка запрещён (И-5, контракт 093)'
+# И-10 (v2 контракта 085): MSG автоперезапуска ссылается на актуальные источники
+# (верхняя секция HANDOFF «ГДЕ МЫ», registry/plan.tsv, registry/pauzy.tsv), не на
+# генерируемый блок «Следующая сессия»; слово владельца 2026-11-17 «085 v+1 — да».
+MSG_TOKENS=('HANDOFF «ГДЕ МЫ»' 'registry/plan.tsv' 'registry/pauzy.tsv' 'стартап-протокол роли' '«Автоперезапуск orch-loop и два слота»')
+MSG_FORBID=('Следующая сессия' '$' '`')
+MSG_MAX_BYTES=800
 LINE_LAUNCH='"$WORKSHOP" --yolo -- "$MSG"; rc=$?'
 LINE_KILLSTOP='  as_u touch "$UHOME/orch-loop.stop"   # намеренный останов: цикл не примет его за падение'
 PEAK_SESS='20261005T120000_00000000-0085-0085-0085-000000000001'
@@ -149,13 +161,13 @@ declare -A NAME=(
   [l1]=л1 [l2]=л2 [l3]=л3 [l4]=л4 [l5]=л5 [l6]=л6 [l7]=л7 [l8]=л8 [l9]=л9 [l10]=л10
   [p1]=п1 [p2]=п2 [p3]=п3 [p4]=п4 [p5w]='п5[warn]' [p5s]='п5[ctx550000]'
   [p5h]='п5[ctx650000]' [p5t]='п5[stop]' [p6]=п6 [p7]=п7 [p8]=п8 [p9]=п9 [p10]=п10 [p11]=п11 [p12]=п12
-  [m1]=м1 [m2]=м2 [m3]=м3 [m4]=м4 [m5]=м5 [m6]=м6
+  [m1]=м1 [m2]=м2 [m3]=м3 [m4]=м4 [m5]=м5 [m6]=м6 [t1]=т1
 )
 # Порядок запуска — длинные миры первыми; порядок печати — ORDER.
 CELLS_LOOP=(l9 l8 l2 l10 l6 l7 l1 l4 l3 l5)
 CELLS_MEM=(m3 m6 m1 m2 m4)
 CELLS_PEAK=(p1 p2 p9 p5h p5t p12 p3 p4 p5w p5s p6 p7 p8 p10 p11)
-ORDER=(r0 r1 r2 l1 l2 l3 l4 l5 l6 l7 l8 l9 l10 p1 p2 p3 p4 p5w p5s p5h p5t p6 p7 p8 p9 p10 p11 p12 m1 m2 m3 m4 m5 m6)
+ORDER=(r0 r1 r2 l1 l2 l3 l4 l5 l6 l7 l8 l9 l10 p1 p2 p3 p4 p5w p5s p5h p5t p6 p7 p8 p9 p10 p11 p12 m1 m2 m3 m4 m5 m6 t1)
 
 fails=0
 say_cell() { # <исход 0|1|3|4|9> <имя> <текст>
@@ -229,7 +241,7 @@ mkdir -p "$SCRATCH/snap" "$SCRATCH/w" "$SCRATCH/res" "$SCRATCH/shimbin"
 
 # ── р0: снимки == пинам в памяти; оракулы — в память из сверенных копий ──────
 declare -A PIN=(
-  [stancija.orch-loop]=ebc53f306a352ef8ec58d130d5d667ea685c6977d932a0439de755ca62038cd9
+  [stancija.orch-loop]=5fabbf959d3da14ac52b0d66c2eca5ec3d1f0e66e477008ad7273630cbce6a7c
   [stancija.orch-peak]=b3e354cd2aae1a28e50b1423c6d5164e2d0a7ca2dcec4e17f47ccb4b549824b3
   [slijanie.orch-peak]=74c3b631792c7462c34593c73dbebbf9442e2856dd31db8ebffadc144b9c88a0
   [repo-fad71b15.orch-loop]=fad71b1540965d84ed4f3f54759ba76b43628e2be9b91bc9405be62a34a63e2d
@@ -397,11 +409,21 @@ wr(os.path.join(S, 'fixsim', 'orch-peak'), peak)
 # мутация честной симуляции (якорь обязан встречаться ровно один раз).
 SIGN_OP = 'СТОРОЖ СТАНЦИИ (автоматически, orch-peak; это НЕ слово владельца и НЕ разрешение обходить гарды)'
 SIGN_CTX = 'СТОРОЖ СТАНЦИИ (автоматически, сторож контекста; это НЕ слово владельца'
+# т1 (v2): строка MSG честной симуляции (единый источник — снимок станции) и обманы
+# на ней: дословный прежний MSG v1 (снимок ebc53f30, сохранён здесь как обманная
+# мутация — Н-39) и разбиение одной строки на две.
+MSG_LINE = next(l for l in loop.splitlines() if l.startswith("MSG='"))
+OLD_MSG_LINE = ("MSG='АВТОПЕРЕЗАПУСК: выполни стартап-протокол роли; ПЕРВЫМ видимым действием — "
+                "todo из HANDOFF «Следующая сессия» (пары и пункты, текущий — в работе); "
+                "затем продолжай автономно по разделу «Автоперезапуск orch-loop и два слота», "
+                "слова владельца не жди.'")
+_semi = MSG_LINE.find('; затем')
+TWO_MSG_LINES = MSG_LINE[:_semi + 1] + "'\n" + "MSG='" + MSG_LINE[_semi + 2:]
 STUBS = [
   # р2: потеря станционных починок при установке из репо — строки станции пропали
   ('s01', 'r2', 'прежняя repo-версия цикла fad71b15', 'snap:repo-fad71b15.orch-loop', []),
   # м1: станционный цикл как есть — systemd-run для сессии не вызывается
-  ('s02', 'm1', 'станционный цикл ebc53f30 без потолка', 'snap:stancija.orch-loop', []),
+  ('s02', 'm1', 'снимок станции без потолка (строка MSG — v2)', 'snap:stancija.orch-loop', []),
   # п1: версия 080 без станционной дельты — маркер против сменившейся сессии (Н-189)
   ('s03', 'p1', 'прежняя repo-версия сторожа 8380d01f', 'snap:repo-8380d01f.orch-peak', []),
   # р1: станционный сторож с UHOME из 090 — строки дельты 080 по-прежнему отсутствуют
@@ -483,6 +505,22 @@ STUBS = [
   # истекает за первый опрос unsaved на нагруженном хосте → сообщения нет вовсе)
   ('s40', 'p12', 'сообщение отсрочки после проверки срока', 'peak',
    [('    if [ "$told" -eq 0 ]; then\n', '    if [ "$told" -eq 0 ] && [ "$(date +%s)" -lt "$deadline" ]; then\n')]),
+  # т1 (v2, И-10): мутации строки MSG честной симуляции — старый текст v1 (снимок
+  # станции ebc53f30, git show frozen/contracts/085/1) как обман; MSG без ссылки
+  # на registry/pauzy.tsv; подстановка $(…) в MSG; две строки MSG; MSG ≠ снимку
+  # при всех ссылках; MSG длиннее 800 байт.
+  ('s41', 't1', 'старый MSG: генерируемый блок «Следующая сессия» как истина', 'loop',
+   [(MSG_LINE, OLD_MSG_LINE)]),
+  ('s42', 't1', 'MSG без обязательной ссылки registry/pauzy.tsv', 'loop',
+   [(' registry/pauzy.tsv', '')]),
+  ('s43', 't1', 'MSG с подстановкой $(date …)', 'loop',
+   [('АВТОПЕРЕЗАПУСК: ', 'АВТОПЕРЕЗАПУСК $(date +%Y): ')]),
+  ('s44', 't1', 'две строки MSG', 'loop',
+   [(MSG_LINE, TWO_MSG_LINES)]),
+  ('s45', 't1', 'MSG отличается от снимка при всех ссылках', 'loop',
+   [('предмет выбирай по ней', 'предмет выбирай по верхней секции')]),
+  ('s46', 't1', 'MSG длиннее 800 байт при всех ссылках', 'loop',
+   [('слова владельца не жди.', 'слова владельца не жди. ' + 'наполнитель-' * 33)]),
 ]
 for sid, cell, label, base, edits in STUBS:
     try:
@@ -865,6 +903,27 @@ cell_m6() {
   return 0
 }
 
+# ── т1 (И-10, v2): текст MSG автоперезапуска — статическая клетка ─────────────
+cell_t1() { # <субъект> [<W> — не используется]: MSG — актуальные источники
+  local subj="$1" t nb
+  [ -f "$subj" ] || { printf 'нет файла %s' "$subj"; return 1; }
+  local -a m
+  mapfile -t m < <(sed -n "s/^MSG='\(.*\)'\$/\1/p" "$subj")
+  [ "${#m[@]}" -eq 1 ] || { printf 'строк MSG в субъекте %s (ожидалась ровно одна)' "${#m[@]}"; return 1; }
+  [ -n "${m[0]}" ] || { printf 'значение MSG пусто'; return 1; }
+  for t in "${MSG_TOKENS[@]}"; do
+    case "${m[0]}" in *"$t"*) ;; *) printf 'MSG без обязательной ссылки «%s» (И-10)' "$t"; return 1 ;; esac
+  done
+  for t in "${MSG_FORBID[@]}"; do
+    case "${m[0]}" in *"$t"*) printf 'MSG несёт запрещённое «%s» (генерируемый блок/подстановка — не источник)' "$t"; return 1 ;; esac
+  done
+  nb="$(printf '%s' "${m[0]}" | wc -c)"
+  [ "$nb" -le "$MSG_MAX_BYTES" ] || { printf 'длина MSG %s байт (предел %s)' "$nb" "$MSG_MAX_BYTES"; return 1; }
+  [ "${m[0]}" = "$MSG_STATION" ] || { printf 'MSG субъекта ≠ MSG снимка cikl_085/stancija.orch-loop — снимок не согласован с субъектом'; return 1; }
+  printf 'MSG: %s/%s обязательных ссылок, «Следующая сессия»/$/` нет, %s байт, == MSG снимка станции' "${#MSG_TOKENS[@]}" "${#MSG_TOKENS[@]}" "$nb"
+  return 0
+}
+
 # м5 — живой systemd-run --user: предусловие снимается один раз, до запуска клеток.
 M5_LIVE=0; M5_SKIP=''
 m5_probe() {
@@ -1202,7 +1261,7 @@ if [ "$MODE" = full ]; then
       STUB_STATUS[$k]="ERR синтаксис: $(tail -n 1 "$SCRATCH/res/$sid.syntax")"; continue
     fi
     case "$scell" in
-      r1|r2) static_job "$sid" "$scell" "$SCRATCH/stubs/$sid" ;;
+      r1|r2|t1) static_job "$sid" "$scell" "$SCRATCH/stubs/$sid" ;;
       *) spawn "$sid" "$scell" "$SCRATCH/stubs/$sid" ;;
     esac
   done
@@ -1211,6 +1270,7 @@ if [ "$MODE" = full ]; then
       case "$c" in
         r1) static_job "F-$c" r1 "$SCRATCH/fixsim/orch-peak" ;;
         r2) static_job "F-$c" r2 "$SCRATCH/fixsim/orch-loop" ;;
+        t1) static_job "F-$c" t1 "$SCRATCH/fixsim/orch-loop" ;;
         p*) spawn "F-$c" "$c" "$SCRATCH/fixsim/orch-peak" ;;
         *)  spawn "F-$c" "$c" "$SCRATCH/fixsim/orch-loop" ;;
       esac
@@ -1222,6 +1282,7 @@ fi
 if [ "$MODE" = full ]; then
   static_job S-r1 r1 "$SUBJ_PEAK"
   static_job S-r2 r2 "$SUBJ_LOOP"
+  static_job S-t1 t1 "$SUBJ_LOOP"
 fi
 wait
 
