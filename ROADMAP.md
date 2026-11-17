@@ -405,9 +405,9 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 1 | 082 | до V-2 | CI | - | e46ccf9 |
 | 1 | 083 | до V-2 | CI | - | docs/owner/2026-10-03-done-i-instrumenty.md#9.2 |
 | 1 | 090 | до V-2 | git-safety | - | fbf7f86 |
-| 2 | 085 | до V-2 | git-safety | 082 | a68156a |
 | 2 | 084 | до V-2 | plan-infra | - | docs/owner/2026-10-03-done-i-instrumenty.md#10.5 |
 | 2 | 091 | до V-2 | plan-infra | 090 | 78c1d66 |
+| 3 | 085 | до V-2 | git-safety | 082 | a68156a |
 | 3 | 079 | до V-2 | CI | - | 9606609 |
 | 3 | 093 | до V-2 | autonomy | 091 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 1 |
 | 3 | 092 | до V-2 | autonomy | 093 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 2 |
@@ -418,6 +418,9 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 103 | до V-2 | complior | - | docs/owner/2026-10-13-roadmap-variant-b.md#2 |
 | 3 | 104 | до V-2 | complior | - | docs/owner/2026-10-13-roadmap-variant-b.md#2 |
 | 3 | 105 | до V-2 | complior | - | 013ab88d |
+| 3 | 125 | до V-2 | autonomy | - | docs/owner/2026-11-17-remonty-avtonomnost-plan.md#Слово владельца |
+| 3 | 200 | до V-2 | CI | - | docs/owner/2026-11-17-remonty-avtonomnost-plan.md#Слово владельца |
+| 3 | 201 | до V-2 | architecture | - | docs/owner/2026-11-17-remonty-avtonomnost-plan.md#Слово владельца |
 | 3 | 991 | до V-2 | complior | - | 453d5b8db |
 | 3 | 992 | до V-2 | CI | - | docs/owner/2026-10-17-resheniya-back-992-993.md#2 |
 | 3 | 994 | до V-2 | CI | - | 97b1911f6 |

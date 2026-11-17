@@ -1,7 +1,7 @@
 id	пара	этап	зависит	источник	трек
 082	1	до V-2	-	e46ccf9	CI
 083	1	до V-2	-	docs/owner/2026-10-03-done-i-instrumenty.md#9.2	CI
-085	2	до V-2	082	a68156a	git-safety
+085	3	до V-2	082	a68156a	git-safety
 084	2	до V-2	-	docs/owner/2026-10-03-done-i-instrumenty.md#10.5	plan-infra
 079	3	до V-2	-	9606609	CI
 090	1	до V-2	-	fbf7f86	git-safety
@@ -24,6 +24,9 @@ CI-затронутое	13	параллельно с V-2	операционны�
 103	3	до V-2	-	docs/owner/2026-10-13-roadmap-variant-b.md#2	complior
 104	3	до V-2	-	docs/owner/2026-10-13-roadmap-variant-b.md#2	complior
 105	3	до V-2	-	013ab88d	complior
+125	3	до V-2	-	docs/owner/2026-11-17-remonty-avtonomnost-plan.md#Слово владельца	autonomy
+200	3	до V-2	-	docs/owner/2026-11-17-remonty-avtonomnost-plan.md#Слово владельца	CI
+201	3	до V-2	-	docs/owner/2026-11-17-remonty-avtonomnost-plan.md#Слово владельца	architecture
 991	3	до V-2	-	453d5b8db	complior
 992	3	до V-2	-	docs/owner/2026-10-17-resheniya-back-992-993.md#2	CI
 993	4	до V-2	-	docs/owner/2026-10-17-resheniya-back-992-993.md#4	complior
