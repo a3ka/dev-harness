@@ -13,6 +13,14 @@
 set -u
 SOST=''; REPO=''; SUBJ=''; SRC=''; BR=''; AUT=''; TIP=''
 while [ "$#" -gt 0 ]; do
+  # [Adv199-impl-1, находка 3] значение флага обязательно: флаг ПОСЛЕДНИМ
+  # аргументом без значения — rc 2 ДО любых сверок, без bash-диагностики
+  # «parameter null or not set» (rc 1) — для каждого обязательного и --tip.
+  case "$1" in
+    --sostojanie|--repo|--subject|--source|--branch|--author|--tip)
+      [ "$#" -ge 2 ] || { printf 'использование: --sostojanie D --repo R --subject NNN --source M --branch B --author A [--tip T] (нет значения: %s)\n' "$1" >&2; exit 2; }
+      ;;
+  esac
   case "$1" in
     --sostojanie) SOST="${2:?}"; shift ;;
     --repo)       REPO="${2:?}"; shift ;;

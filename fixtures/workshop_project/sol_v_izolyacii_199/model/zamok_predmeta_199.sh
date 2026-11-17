@@ -80,8 +80,11 @@ while [ "$i" -lt "$N" ]; do
   agent="$(jq -r "(.tasks // [.])[$i].agent // \"\"" "$EVENT" 2>/dev/null)" || otp BITYJ_VHOD "item $i: agent не читается"
   name="$(jq -r "(.tasks // [.])[$i].name // \"\"" "$EVENT" 2>/dev/null)" || otp BITYJ_VHOD "item $i: name не читается"
   task="$(jq -r "(.tasks // [.])[$i].task // \"\"" "$EVENT" 2>/dev/null)" || otp BITYJ_VHOD "item $i: task не читается"
-  iso="$(jq -r "(.tasks // [.])[$i].isolated // false" "$EVENT" 2>/dev/null)" || iso=false
-  [ "$iso" = 'true' ] || iso=false
+  # [Adv199-impl-1, находка 1] строгое сравнение ПО ТИПУ (инвариант 1):
+  # истина — ТОЛЬКО булево true; строка «true», 1, [true], {…}, null,
+  # отсутствие поля — false (fail-closed). jq -r + строковое сравнение строку
+  # «true» от булева не отличают — сравнение обязан делать jq по типу.
+  if jq -e "(.tasks // [.])[$i].isolated == true" "$EVENT" >/dev/null 2>&1; then iso=true; else iso=false; fi
   [ -n "$agent" ] || otp AGENT_NET "item $i: agent отсутствует"
   in_w=0; in_j=0
   for r in $WORKERS; do [ "$r" = "$agent" ] && in_w=1; done

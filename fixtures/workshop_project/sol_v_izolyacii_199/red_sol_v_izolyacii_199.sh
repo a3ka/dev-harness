@@ -35,6 +35,12 @@
 #     p13; p8-p9 — ротация, закрывают last→first; p13 — предусловия и
 #     имена: rc2 до сверки, NE_REPO, KOPIJA_CHUZHAYA без owner.json,
 #     NOSITEL_NEDOSTUPEN);
+#   * замыкание по вердикту адверсария Adv199Impl (2026-11-17, реализация):
+#     isolated двери — СТРОГО булево true: строка «true», 1, [true], {x:true},
+#     null, false, отсутствие поля → NE_IZOLIROVAN до любых записей (d18;
+#     стабы s19 s20); нормализация стража === true, не truthy (h4; стаб s21);
+#     флаг привязки последним аргументом без значения — rc 2 без bash-шума
+#     (p14; стаб s22);
 #   * канонические вставки roles/orchestrator.md §«Изолированный спавн»
 #     (маркеры 199-baza-*/199-nositel-*): синхробаза копии работника и
 #     синхронизация носителя после приёма исполняются и судятся (w1–w2,
@@ -68,6 +74,7 @@
 #                             → d15 (позитивы всех четырёх судей; не-гейт агент — PROPUST; agent отсутствует — AGENT_NET) → —
 #  чтения agent/name/task item → d1 d14 d15 d16 → —
 #  isolated: // false и ≠true→false (fail-closed) → d2 d3 → s03
+#  isolated строго по ТИПУ (=== true: "true"/1/[true]/{x:true}/null → false) → d18 → s19 s20
 #  слово в task не перевешивает поле → d4 → s01
 #  алфавит имени IMJA_NET     → d16 → —
 #  SUBJECT ровно одна ^SUBJECT=[0-9]{3}$ → d16 → —
@@ -90,8 +97,11 @@
 #  ADVERSARIJ_DO_REVJUERA     → d17 → —
 #  holder.json замка          → d14 → —
 #  строка START (все поля + isolated факт) → d1 d14 → —
+# СТРАЖ model/spawn_guard_199.ts:
+#  нормализация isolated === true, НЕ truthy (строка/1/[true]/{} → false) → h4 → s21
 # ПРИВЯЗКА model/privjazka_sdachi.sh:
 #  обязательные аргументы (rc2) → p13 → —
+#  флаг последним БЕЗ значения (rc2, без bash-диагностики) → p14 → s22
 #  [ -r LEDGER ] (rc2)       → p13 → —
 #  REPO cd + git-проверка (rc2) → p13 → —
 #  выборка t == START        = модель-дверь пишет только START; в рассмотренной реальной грамматике RELEASE не несёт klass=rabochij и отсекается сохранённым фильтром klass; появится иной тип записи с рабочим klass — предпосылка «=» пересматривается вместе с изменением грамматики (фильтр получает клетку той же пачкой)
@@ -226,7 +236,7 @@ mk_huk_world() {  # <dir> — установка с записывающей д�
   cat > "$inst/scripts/zamok_predmeta.sh" <<'SEV'
 #!/usr/bin/env bash
 ev="${@: -1}"
-cp "$ev" "$S199_RECORD"
+cat "$ev" >> "$S199_RECORD"
 exit 0
 SEV
   chmod +x "$inst/scripts/zamok_predmeta.sh"
@@ -714,6 +724,38 @@ d17() {  # судейские ворота двери: именованные о
   [ "$rc" -eq 0 ] || { printf 'd17: critic на рисковом rc=%s (нужен 0: порядок запрещает только ревьюера): %s\n' "$rc" "$(tail -1 "$w/e6")" >&2; return 1; }
 }
 
+d18() {  # [Adv199-impl-1, находка 1] isolated двери — СТРОГО булево true:
+  # строка "true", 1, [true], {x:true}, null, false и отсутствие поля — НЕ
+  # изоляция: rc 1 NE_IZOLIROVAN, учёт пуст; только булево true — rc 0, START
+  # несёт "isolated":true. Лакс-нормализация (jq -r + [ "$iso" = 'true' ])
+  # строку "true" от булева не отличает — красная здесь.
+  local w="$WBASE/d18"; mkdir -p "$w"; mk_dwer_world "$w"
+  local v rc
+  for v in '"true"' '1' '[true]' '{"x":true}' 'null' 'false'; do
+    jq -n --argjson iso "$v" --arg t "SUBJECT=199
+WORKTREE=$DW_CAR
+BRANCH=wip/199/architect" '{tasks:[{agent:"architect",name:"ArchD18",task:$t,isolated:$iso}]}' > "$w/ev.json"
+    bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev.json" >/dev/null 2>"$w/err"; rc=$?
+    [ "$rc" -eq 1 ] || { printf 'd18: isolated=%s rc=%s (нужен 1: не-булево значение — не изоляция)\n' "$v" "$rc" >&2; return 1; }
+    grep -q 'NE_IZOLIROVAN' "$w/err" || { printf 'd18: isolated=%s нет NE_IZOLIROVAN\n' "$v" >&2; return 1; }
+    [ ! -s "$DW_SOST/uchet.jsonl" ] || { printf 'd18: isolated=%s START записан вопреки отказу\n' "$v" >&2; return 1; }
+  done
+  jq -n --arg t "SUBJECT=199
+WORKTREE=$DW_CAR
+BRANCH=wip/199/architect" '{tasks:[{agent:"architect",name:"ArchD18",task:$t}]}' > "$w/ev.json"
+  bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev.json" >/dev/null 2>"$w/err"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'd18: отсутствие поля rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
+  grep -q 'NE_IZOLIROVAN' "$w/err" || { printf 'd18: отсутствие поля — нет NE_IZOLIROVAN\n' >&2; return 1; }
+  jq -n --arg t "SUBJECT=199
+WORKTREE=$DW_CAR
+BRANCH=wip/199/architect" '{tasks:[{agent:"architect",name:"ArchD18",task:$t,isolated:true}]}' > "$w/ev.json"
+  bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev.json" >/dev/null 2>"$w/err"; rc=$?
+  [ "$rc" -eq 0 ] || { printf 'd18: булево true rc=%s (нужен 0): %s\n' "$rc" "$(tail -1 "$w/err")" >&2; return 1; }
+  jq -e 'select(.t == "START" and .isolated == true)' "$DW_SOST/uchet.jsonl" >/dev/null 2>&1 \
+    || { printf 'd18: START без isolated:true\n' >&2; return 1; }
+}
+
+
 h_kletka() {  # <id> <item-json> <want-isolated>
   local w="$WBASE/$1"
   mkdir -p "$w"
@@ -732,6 +774,34 @@ h_kletka() {  # <id> <item-json> <want-isolated>
 h1() { h_kletka h1 '{"name":"H1","agent":"architect","task":"SUBJECT=199\nWORKTREE=/netu\nBRANCH=wip/199/architect","isolated":true}' true; }
 h2() { h_kletka h2 '{"name":"H2","agent":"architect","task":"SUBJECT=199\nWORKTREE=/netu\nBRANCH=wip/199/architect\nisolated:true","isolated":false}' false; }
 h3() { h_kletka h3 '{"name":"H3","agent":"architect","task":"SUBJECT=199\nWORKTREE=/netu\nBRANCH=wip/199/architect"}' false; }
+h4() {  # [Adv199-impl-1, находка 2] нормализация стража — === true, НЕ truthy:
+  # событие, дошедшее до двери, несёт isolated БУЛЕВО: строка "true", 1,
+  # [true], {x:true}, null и отсутствие поля → false; только булево true →
+  # true. Truthy-мутант (!!o.isolated) строку/число/массив/объект проносит
+  # как true — красный здесь (дверь-двойник ДОБАВЛЯЕТ события, не перезаписывает).
+  local w="$WBASE/h4"; mkdir -p "$w"; mk_huk_world "$w"
+  jq -n --arg t 'SUBJECT=199
+WORKTREE=/netu
+BRANCH=wip/199/architect' '
+  [["bool-true",true],["str-true","true"],["num-1",1],["arr",[true]],
+   ["obj",{"x":true}],["null",null],["absent","ABSENT"]]
+  | map(. as [$nm, $val] |
+      { name: ("h4-" + $nm), want: "pass",
+        event: { type: "tool_call", toolName: "task", toolCallId: ("h4-" + $nm),
+                 input: { context: "p", tasks: [
+                   (if $val == "ABSENT"
+                    then {name:"H4", agent:"architect", task:$t}
+                    else {name:"H4", agent:"architect", task:$t, isolated:$val} end)
+                 ] } } })' > "$w/cases.json"
+  local rc
+  S199_RECORD="$w/record.json" node "$w/driver.mjs" "$w/inst/.omp/extensions/spawn-guard.ts" \
+    "$w/cases.json" "$w/proj" "$w/zones/z/agent/sessions/S1.jsonl" >"$w/out" 2>"$w/err"; rc=$?
+  [ "$rc" -eq 0 ] || { printf 'h4: драйвер rc=%s %s\n' "$rc" "$(tail -1 "$w/err")" >&2; return 1; }
+  [ -f "$w/record.json" ] || { printf 'h4: события не дошли до двери\n' >&2; return 1; }
+  jq -cse 'map(.tasks[0].isolated) == [true,false,false,false,false,false,false]' "$w/record.json" >/dev/null 2>&1 \
+    || { printf 'h4: нормализация ≠ === true (порядок bool/str/1/arr/obj/null/absent): %s\n' \
+         "$(jq -cs 'map(.tasks[0].isolated)' "$w/record.json" 2>/dev/null)" >&2; return 1; }
+}
 
 p1() {
   local w="$WBASE/p1"; mkdir -p "$w"; mk_priv_world "$w"
@@ -865,6 +935,32 @@ p13() {  # предусловия/имена привязки: rc2 до свер
   grep -q 'NOSITEL_NEDOSTUPEN' "$w/e7" || { printf 'p13: нет NOSITEL_NEDOSTUPEN\n' >&2; return 1; }
 }
 
+p14() {  # [Adv199-impl-1, находка 3] флаг последним аргументом БЕЗ значения —
+  # rc 2 «нет обязательного аргумента» ДО любых сверок, stderr с причиной, БЕЗ
+  # bash-диагностики «parameter null or not set» (rc 1) — для КАЖДОГО
+  # обязательного флага и факультативного --tip (мутант rc 2 → rc 1 красен).
+  local w="$WBASE/p14"; mkdir -p "$w"; mk_priv_world "$w"
+  local f rc a
+  for f in --sostojanie --repo --subject --source --branch --author --tip; do
+    a=()
+    [ "$f" != --sostojanie ] && a+=(--sostojanie "$PW_SOST")
+    [ "$f" != --repo ]       && a+=(--repo "$PW_MAIN")
+    [ "$f" != --subject ]    && a+=(--subject 199)
+    [ "$f" != --source ]     && a+=(--source "$PW_M")
+    [ "$f" != --branch ]     && a+=(--branch wip/199/architect)
+    [ "$f" != --author ]     && a+=(--author architect)
+    [ "$f" != --tip ]        && a+=(--tip "$PW_TIP")
+    a+=("$f")
+    zov_priv "${a[@]}" >/dev/null 2>"$w/err"; rc=$?
+    [ "$rc" -eq 2 ] || { printf 'p14: %s без значения rc=%s (нужен 2)\n' "$f" "$rc" >&2; return 1; }
+    [ -s "$w/err" ] || { printf 'p14: %s без значения — stderr пуст, причины нет\n' "$f" >&2; return 1; }
+    if grep -q 'parameter null or not set' "$w/err"; then
+      printf 'p14: %s без значения — bash-диагностика вместо именованного отказа\n' "$f" >&2; return 1
+    fi
+  done
+}
+
+
 w1() {
   local w="$WBASE/w1"; mkdir -p "$w"; mk_wip_world "$w" 1
   local A2 A0 rc
@@ -972,7 +1068,7 @@ t2() {
 }
 
 # ── учёт клеток ──────────────────────────────────────────────────────────────
-ALL_KLETKI='d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 d11 d12 d13 d14 d15 d16 d17 h1 h2 h3 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 p12 p13 w1 w2 c1 c2 g1 g2 f1 f2 f3 t1 t2'
+ALL_KLETKI='d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 d11 d12 d13 d14 d15 d16 d17 d18 h1 h2 h3 h4 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 p12 p13 p14 w1 w2 c1 c2 g1 g2 f1 f2 f3 t1 t2'
 CELL_TOTAL=0; CELL_RED=0; CELL_MISS=0
 kletka() {  # <id> — ОДИН прогон клетки; диагностика — в файл мира
   local id="$1" dg
@@ -996,7 +1092,7 @@ run_cells() {  # <ids…>
 }
 
 # ── стабы: привязка к различающим входам — КОДОМ (Н-39) ─────────────────────
-STABI=(s01 s02 s03 s04 s05 s06 s07 s08 s09 s10 s11 s12 s13 s14 s15 s16 s17 s18)
+STABI=(s01 s02 s03 s04 s05 s06 s07 s08 s09 s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s20 s21 s22)
 stab_fajl() {
   case "$1" in
     s01) printf 'stabs/s01_dver_slovo.sh' ;;
@@ -1017,13 +1113,17 @@ stab_fajl() {
     s16) printf 'stabs/s16_priv_repo_root.sh' ;;
     s17) printf 'stabs/s17_priv_bez_klass.sh' ;;
     s18) printf 'stabs/s18_priv_bez_iso.sh' ;;
+    s19) printf 'stabs/s19_dver_iso_strokoj.sh' ;;
+    s20) printf 'stabs/s20_dver_iso_chislom.sh' ;;
+    s21) printf 'stabs/s21_huk_truthy.ts' ;;
+    s22) printf 'stabs/s22_priv_bez_znachenija.sh' ;;
   esac
 }
 stub_sreda() {  # <sNN> — переменная-шов субъекта
   case "$1" in
-    s01|s02|s03|s13|s15) printf 'S199_DOOR' ;;
-    s04|s05)     printf 'S199_GUARD' ;;
-    s06|s07|s12|s14|s16|s17|s18) printf 'S199_PRIV' ;;
+    s01|s02|s03|s13|s15|s19|s20) printf 'S199_DOOR' ;;
+    s04|s05|s21)     printf 'S199_GUARD' ;;
+    s06|s07|s12|s14|s16|s17|s18|s22) printf 'S199_PRIV' ;;
     s08|s09|s10|s11) printf 'S199_VSTAVKA' ;;
   esac
 }
@@ -1047,6 +1147,10 @@ stab_kletki() {
     s16) printf 'p10' ;;
     s17) printf 'p11' ;;
     s18) printf 'p12' ;;
+    s19) printf 'd18' ;;
+    s20) printf 'd18' ;;
+    s21) printf 'h4' ;;
+    s22) printf 'p14' ;;
   esac
 }
 
