@@ -2,8 +2,10 @@
 # Писатель тега done/contracts/<NNN>/<v> (контракт 038, Н-116): единственный
 # законный путь поставить done-тег. Проверяет ПРОВОДКА контракта через
 # check_provodka.sh (шаг 6), ПОТРЕБИТЕЛЕЙ через check_consumers.sh (шаг 6а —
-# после ПРОВОДКИ, до клапана), вердикт ревьюера, закоммиченность контракта и
-# клапан владельца. Тег ставится аннотированный; реестр заморозок НЕ пишется
+# после ПРОВОДКИ, до клапана), СОДЕРЖАТЕЛЬНУЮ сверку (шаг 6б, контракт 201:
+# привязка accept к последней заморозке, влитость реализации, адверсарий
+# рисковым, имя check-run arch), вердикт ревьюера, закоммиченность контракта
+# и клапан владельца. Тег ставится аннотированный; реестр заморозок НЕ пишется
 # (замер frontier §0; минт-строки пишет дверь 031).
 #
 # Грамматика — ЕДИНЫЙ источник контракт 038 §Инварианты 4; фразы отказов
@@ -242,7 +244,11 @@ if [ -x "$SELF_DIR/check_architecture_contract.sh" ]; then
         _a187_json="$(curl "${_a187_args[@]}" "$_a187_url" 2>/dev/null)" || _a187_crc=$?
         _a187_n=0
         if [ -n "$_a187_json" ]; then
-          _a187_n="$(printf '%s' "$_a187_json" | jq -r --arg sha "$_a187_sha" '[.check_runs[]? | select(.name == "arch" and .head_sha == $sha and .status == "completed" and .conclusion == "success")] | length' 2>/dev/null || printf '0')"
+          # 201 (г): имя check-run arch — «arch», «arch …», «arch (…)».
+          # «archive», «architecture…», «march», «arche» — НЕ принимаются:
+          # живой зелёный run бэкенда называется «arch (пин внешней
+          # архитектуры, model fitness + code-ratchet)» (ARCHCOL §5).
+          _a187_n="$(printf '%s' "$_a187_json" | jq -r --arg sha "$_a187_sha" '[.check_runs[]? | select((((.name // "") == "arch") or ((.name // "") | startswith("arch ")) or ((.name // "") | startswith("arch ("))) and (.head_sha == $sha) and (.status == "completed") and (.conclusion == "success"))] | length' 2>/dev/null || printf '0')"
         fi
         case "$_a187_n" in
           ''|*[!0-9]*) _a187_n=0 ;;
@@ -293,6 +299,279 @@ if [ "$cons_rc" -ne 0 ]; then
   fi
   first_cons_phrase="$(printf '%s' "$cons_out" | head -n 1)"
   die "done: потребители 116 красны: $first_cons_phrase"
+fi
+
+# ── 6б. СОДЕРЖАТЕЛЬНАЯ СВЕРКА (контракт 201) ────────────────────────────────
+# Порядок внутри 6б: (а) → (б) → (в) → (а²). Тождество деревьев при F==CID
+# замыкает шаг: вычет адверсария определён лишь accept-файлом, выбранным в (в).
+# Все отказы здесь — НОВЫЕ имена; отказы шагов 1–6а не тронуты.
+
+# (а) ПРИВЯЗКА ACCEPT К ПОСЛЕДНЕЙ ЗАМОРОЗКЕ ──────────────────────────────────
+# vmax — МАКСИМУМ по тегам refs/tags/frozen/contracts/<NNN>/* (не «первый
+# попавшийся»: боль 991/999 — accept эры старшей заморозки). Ошибка
+# перечисления — именованный отказ, версия не угадывается (канон 992).
+froz_rc=0
+froz_list="$(cd "$ROOT" && git for-each-ref --format='%(refname)' "refs/tags/frozen/contracts/$NNN/" 2>/dev/null)" || froz_rc=$?
+[ "$froz_rc" -eq 0 ] || die "done: перечень заморозок не читается (git for-each-ref rc=$froz_rc): refs/tags/frozen/contracts/$NNN/ — проверить невозможно, версия не угадывается"
+frozen_vmax=0
+while IFS= read -r _fref; do
+  [ -n "$_fref" ] || continue
+  _fvn="$(printf '%s' "$_fref" | sed -nE 's@.*frozen/contracts/[0-9]+/([0-9]+)@\1@p')"
+  [ -n "$_fvn" ] || continue
+  [ "$_fvn" -gt "$frozen_vmax" ] 2>/dev/null && frozen_vmax="$_fvn"
+done <<< "$froz_list"
+[ "$frozen_vmax" -gt 0 ] || die "done: нет заморозки frozen/contracts/$NNN/* — привязка accept к последней версии невозможна"
+frozen_tag="frozen/contracts/$NNN/$frozen_vmax"
+froz_rc=0
+frozen_commit="$(cd "$ROOT" && git rev-parse --verify --quiet "$frozen_tag^{commit}" 2>/dev/null)" || froz_rc=$?
+[ "$froz_rc" -eq 0 ] && [ -n "$frozen_commit" ] || die "done: заморозка $frozen_tag не читается (git rev-parse rc=$froz_rc) — версия не угадывается"
+
+# OBJECT-строка свежего accept-вердикта ревьюера: anchored ^OBJECT=<40 hex>$.
+object_sha=""
+object_sha="$(cd "$ROOT" && git cat-file -p "HEAD:$freshest" 2>/dev/null | tr -d '\r' | sed -nE 's/^OBJECT=([0-9a-f]{40})$/\1/p' | sed -n 1p)"
+[ -n "$object_sha" ] || die "done: вердикт $freshest без строки OBJECT=<40 hex> — объект реализации не назван"
+
+# Свежесть: коммит вердикта — потомок F (равенство проходит).
+fresh_rc=0
+( cd "$ROOT" && git merge-base --is-ancestor "$frozen_commit" "$freshest_cid" ) || fresh_rc=$?
+case "$fresh_rc" in
+  0) : ;;
+  1) die "done: accept ревьюера $freshest предшествует последней заморозке $frozen_tag — accept старой версии не открывает done новой" ;;
+  *) die "done: порядок заморозки и вердикта не читается (merge-base rc=$fresh_rc): $freshest — проверить невозможно" ;;
+esac
+
+# Связь ОБЪЕКТА с последней заморозкой — на самом OBJECT (датирование файла
+# вердикта связи не доказывает). Для локально разрешимого OBJECT.
+object_local=0
+object_commit="$(cd "$ROOT" && git rev-parse --verify --quiet "$object_sha^{commit}" 2>/dev/null || true)"
+[ -n "$object_commit" ] && object_local=1
+if [ "$object_local" = "1" ]; then
+  bind_rc=0
+  if [ "$frozen_commit" = "$freshest_cid" ]; then
+    # F == CID: OBJECT ⊆ F; тождество деревьев — в (а²), в конце 6б.
+    ( cd "$ROOT" && git merge-base --is-ancestor "$object_sha" "$frozen_commit" ) || bind_rc=$?
+  else
+    # F ⊊ CID: реализация этой версии пишется ПОСЛЕ заморозки — F ⊆ OBJECT.
+    ( cd "$ROOT" && git merge-base --is-ancestor "$frozen_commit" "$object_sha" ) || bind_rc=$?
+  fi
+  case "$bind_rc" in
+    0) : ;;
+    1) die "done: OBJECT $object_sha не связан с последней заморозкой $frozen_tag — вердикт судит объект старой версии" ;;
+    *) die "done: связь OBJECT $object_sha с заморозкой $frozen_tag не читается (merge-base rc=$bind_rc) — проверить невозможно" ;;
+  esac
+fi
+
+# ЗАМОРОЖЕННЫЙ текст версии vmax — источник объявления места реализации и
+# строки класса риска (не рабочая копия, не индекс).
+froz_rc=0
+frozen_text="$(cd "$ROOT" && git cat-file -p "$frozen_tag:$TARGET_REL" 2>/dev/null)" || froz_rc=$?
+[ "$froz_rc" -eq 0 ] && [ -n "$frozen_text" ] || die "done: замороженный текст контракта не читается (git show rc=$froz_rc): $frozen_tag:$TARGET_REL — проверить невозможно"
+frozen_text="$(printf '%s' "$frozen_text" | tr -d '\r')"
+frozen_blob="$(cd "$ROOT" && git rev-parse --verify --quiet "$frozen_tag:$TARGET_REL" 2>/dev/null || true)"
+
+# Реестры — профильные пути (996), относительные к корню (git show HEAD:<путь>).
+case "$_PROFILE_REGISTRY_PATH" in
+  "$ROOT"/*) _REGISTRY_REL="${_PROFILE_REGISTRY_PATH#"$ROOT"/}" ;;
+  *)         _REGISTRY_REL="${_PROFILE_REGISTRY_PATH#/}" ;;
+esac
+
+# (б) ВЛИТОСТЬ РЕАЛИЗАЦИИ ────────────────────────────────────────────────────
+# Режим — по эффективному repoId корня (резолвер профиля; тот же канал
+# чтения, что у arch187_scope). Ошибка резолвера — именованный rc 1.
+repo_id=""
+if [ -f "$ROOT/harness.project.json" ]; then
+  prc_rc=0
+  merged_profile="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$ROOT}" bash "$SELF_DIR/profile_resolver.sh" --repo "$ROOT" 2>/dev/null)" || prc_rc=$?
+  [ "$prc_rc" -eq 0 ] || die "ОТКАЗ: профиль не читается (profile_resolver rc=$prc_rc): repoId неизвестен — режим двери не определён"
+  repo_id="$(printf '%s' "$merged_profile" | jq -r 'if type == "object" then (if (.repoId | type) == "object" then (.repoId.value // empty) else (.repoId // empty) end) else empty end' 2>/dev/null || true)"
+  [ -n "$repo_id" ] || die "ОТКАЗ: профиль без repoId — режим двери не определён"
+else
+  # Профиля нет — корневая раскладка станции (LEGACY-FALLBACK
+  # project_paths_resolve); продуктовый режим без профиля неотличим от
+  # станционного, и место реализации всё равно проверяется явным объявлением.
+  repo_id="dev-harness"
+fi
+
+if [ "$repo_id" != "dev-harness" ]; then
+  # РЕЖИМ ПРОДУКТА: OBJECT обязан разрешаться в репо продукта и быть
+  # равен/предком HEAD (дверь работает на влитом main).
+  [ "$object_local" = "1" ] || die "done: OBJECT $object_sha отсутствует в репо продукта — реализация не влита"
+  anc_rc=0
+  ( cd "$ROOT" && git merge-base --is-ancestor "$object_sha" HEAD ) || anc_rc=$?
+  case "$anc_rc" in
+    0) : ;;
+    1) die "done: OBJECT $object_sha не предок HEAD — реализация не влита в main продукта" ;;
+    *) die "done: влитость OBJECT $object_sha в main продукта не читается (merge-base rc=$anc_rc) — проверить невозможно" ;;
+  esac
+else
+  # РЕЖИМ СТАНЦИИ: место реализации — ЯВНОЕ, три состояния (РЕШЕНИЕ 2
+  # арбитража 1): объявление ПРОДУКТ: в замороженном тексте vmax, запись
+  # реестра по (номер предмета, blob замороженного текста) — либо отказ.
+  place=""
+  plines=()
+  while IFS= read -r _pl; do
+    [ -n "$_pl" ] && plines+=("$_pl")
+  done < <(printf '%s\n' "$frozen_text" | grep '^ПРОДУКТ:' || true)
+  if [ "${#plines[@]}" -gt 1 ]; then
+    _pvals=""
+    for _pl in "${plines[@]}"; do
+      _pv="$(printf '%s' "${_pl#ПРОДУКТ:}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+      _pvals="${_pvals:+$_pvals; }$_pv"
+    done
+    die "done: строка ПРОДУКТ: неоднозначна: $_pvals"
+  elif [ "${#plines[@]}" -eq 1 ]; then
+    _pdecl="${plines[0]}"
+    if [ "$_pdecl" = "ПРОДУКТ: станция" ]; then
+      place="станция"
+    elif printf '%s' "$_pdecl" | grep -Eq '^ПРОДУКТ: [A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'; then
+      place="$(printf '%s' "$_pdecl" | sed -nE 's/^ПРОДУКТ: ([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)$/\1/p')"
+    else
+      die "done: строка ПРОДУКТ: вне грамматики: $_pdecl"
+    fi
+  fi
+  if [ -z "$place" ]; then
+    # Нет объявления → реестр классификации. Источник — закоммиченный на
+    # HEAD файл (рабочая копия и индекс — не свидетельство, п.8 AGENTS.md).
+    _mreg="${_REGISTRY_REL}/mesto-legacy.tsv"
+    _mrc=0
+    _mtext="$(cd "$ROOT" && git show "HEAD:$_mreg" 2>/dev/null)" || _mrc=$?
+    _mhits=0
+    _mval=""
+    if [ "$_mrc" -eq 0 ]; then
+      _mhits="$(printf '%s\n' "$_mtext" | awk -F'\t' -v n="$NNN" -v b="$frozen_blob" 'NF>=3 && $1==n && $2==b {c++} END {print c+0}')"
+      [ "$_mhits" -gt 0 ] && _mval="$(printf '%s\n' "$_mtext" | awk -F'\t' -v n="$NNN" -v b="$frozen_blob" 'NF>=3 && $1==n && $2==b {print $3; exit}')"
+    fi
+    if [ "$_mhits" -eq 0 ]; then
+      die "done: место реализации предмета $NNN не установлено — нет объявления ПРОДУКТ: и нет применимой записи registry/mesto-legacy.tsv"
+    elif [ "$_mhits" -gt 1 ]; then
+      die "done: классификация места предмета $NNN в registry/mesto-legacy.tsv неоднозначна или вне грамматики — отказ до исправления записи"
+    fi
+    case "$_mval" in
+      'станция') place="станция" ;;
+      *) if printf '%s' "$_mval" | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'; then
+           place="$_mval"
+         else
+           die "done: классификация места предмета $NNN в registry/mesto-legacy.tsv неоднозначна или вне грамматики — отказ до исправления записи"
+         fi ;;
+    esac
+  fi
+  if [ "$place" = "станция" ]; then
+    [ "$object_local" = "1" ] || die "done: OBJECT $object_sha вне репо станции, а контракт объявил станционную реализацию — OBJECT обязан быть SHA станции"
+  else
+    if [ "$object_local" = "1" ]; then
+      die "done: OBJECT $object_sha разрешается в репо станции, а контракт объявил продукт $place — OBJECT внешнего предмета обязан быть SHA продукта"
+    fi
+    # Влитость в main продукта — GitHub compare API приёмом 187а.
+    _cmp_url="https://api.github.com/repos/$place/compare/main...$object_sha"
+    _cmp_tok="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+    _cmp_args=(-sS --max-time 30 -H 'Accept: application/vnd.github+json')
+    [ -n "$_cmp_tok" ] && _cmp_args+=(-H "Authorization: Bearer $_cmp_tok")
+    _cmp_json=""
+    _cmp_crc=0
+    _cmp_json="$(curl "${_cmp_args[@]}" "$_cmp_url" 2>/dev/null)" || _cmp_crc=$?
+    _cmp_status=""
+    [ -n "$_cmp_json" ] && _cmp_status="$(printf '%s' "$_cmp_json" | jq -r 'if type == "object" then (.status // empty) else empty end' 2>/dev/null || true)"
+    case "$_cmp_status" in
+      identical|behind) : ;;
+      ahead|diverged) die "done: OBJECT $object_sha не в main продукта $place — реализация не влита" ;;
+      *)
+        if [ "$_cmp_crc" -ne 0 ]; then
+          die "done: влитость в main продукта $place не проверена: curl rc=$_cmp_crc"
+        else
+          die "done: влитость в main продукта $place не проверена: ответ API без поля status"
+        fi
+        ;;
+    esac
+  fi
+fi
+
+# (в) АДВЕРСАРИЙ РИСКОВЫМ ────────────────────────────────────────────────────
+# Класс — по ЗАМОРОЖЕННОМУ тексту vmax: все вхождения грамматики zamok
+# обязаны соглашаться; нет строки → реестр risk-legacy.tsv по blob (только из
+# закоммиченного на HEAD файла); нет записи → рисковый (норма оркестратора).
+_risk_vals="$(printf '%s\n' "$frozen_text" | grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//' | sort -u | sed '/^$/d' || true)"
+_nrisk="$(printf '%s\n' "$_risk_vals" | sed '/^$/d' | wc -l | tr -d ' ')"
+if [ "$_nrisk" -gt 1 ]; then
+  die "done: класс риска контракта неоднозначен — судьи не определены"
+fi
+if [ "$_nrisk" -eq 1 ]; then
+  risk_class="$_risk_vals"
+else
+  _lreg="${_REGISTRY_REL}/risk-legacy.tsv"
+  _lrc=0
+  _ltext="$(cd "$ROOT" && git show "HEAD:$_lreg" 2>/dev/null)" || _lrc=$?
+  risk_class=""
+  [ "$_lrc" -eq 0 ] && risk_class="$(printf '%s\n' "$_ltext" | awk -F'\t' -v b="$frozen_blob" 'b!="" && $1==b {print $2; exit}')"
+  case "$risk_class" in
+    'обычный'|'рисковый') : ;;
+    '') risk_class="рисковый" ;;   # нет записи — рисковый (норма оркестратора)
+    *) die "done: класс риска контракта неоднозначен — судьи не определены" ;;
+  esac
+fi
+afresh=""
+if [ "$risk_class" = "рисковый" ]; then
+  _adir="${_PROFILE_VERDICTS_DIR%/review}/adversary"
+  _afiles="$(cd "$ROOT" && git ls-tree -r --name-only HEAD -- "$_adir/" 2>/dev/null | grep -E "^${_adir}/contracts-$NNN-[^/]*\.md$" | sort -V || true)"
+  if [ -z "$_afiles" ]; then
+    die "done: предмет рисковый, accept адверсария не найден: $_adir/contracts-$NNN-*.md"
+  fi
+  # Свежий — по коммит-истории, тем же алгоритмом, что у review.
+  _afresh_cid=""
+  _afresh_first=""
+  while IFS= read -r _af; do
+    [ -n "$_af" ] || continue
+    _acid_rc=0
+    _acid="$(cd "$ROOT" && git log --format=%H -1 -- "$_af" 2>/dev/null)" || _acid_rc=$?
+    [ "$_acid_rc" -eq 0 ] && [ -n "$_acid" ] || die "done: история вердикта адверсария не читается: $_af — проверить невозможно"
+    _aanc_rc=1
+    if [ -n "$_afresh_cid" ]; then
+      _aanc_rc=0
+      ( cd "$ROOT" && git merge-base --is-ancestor "$_afresh_cid" "$_acid" 2>/dev/null ) || _aanc_rc=$?
+      [ "$_aanc_rc" -le 1 ] || die "done: порядок вердиктов адверсария не читается (merge-base rc=$_aanc_rc): $_af — проверить невозможно"
+    fi
+    if [ -z "$_afresh_cid" ] || [ "$_aanc_rc" -eq 0 ]; then
+      afresh="$_af"
+      _afresh_cid="$_acid"
+      _afresh_first="$(cd "$ROOT" && git cat-file -p "HEAD:$_af" 2>/dev/null | sed -n 1p | tr -d '\r')"
+      _afresh_first="${_afresh_first#"${_afresh_first%%[![:space:]]*}"}"
+      _afresh_first="${_afresh_first%"${_afresh_first##*[![:space:]]}"}"
+    fi
+  done <<< "$_afiles"
+  _anorm="$(printf '%s' "$_afresh_first" | tr '[:upper:]' '[:lower:]')"
+  [ "$_anorm" = "accept" ] || die "done: свежий вердикт адверсария $afresh не accept"
+  _aobject="$(cd "$ROOT" && git cat-file -p "HEAD:$afresh" 2>/dev/null | tr -d '\r' | sed -nE 's/^OBJECT=([0-9a-f]{40})$/\1/p' | sed -n 1p)"
+  [ -n "$_aobject" ] || die "done: вердикт адверсария $afresh без строки OBJECT=<40 hex> — объект не назван"
+  [ "$_aobject" = "$object_sha" ] || die "done: accept адверсария $afresh на объект $_aobject, ревьюера — на $object_sha: требуется тот же объект"
+fi
+
+# (а²) ТОЖДЕСТВО ГИТ-ДЕРЕВЬЕВ ПРИ F == CID ─────────────────────────────────
+# Канон — plumbing: git diff-tree -r --raw --no-renames (пути, моды, OID,
+# удаления, gitlinks). Вычет — ТОЛЬКО точные файлы судебных свидетельств
+# этого предмета: выбранный reviewer-файл и (для рискового) выбранный
+# accept-файл адверсария. Ошибка Git — не доказанное равенство.
+if [ "$frozen_commit" = "$freshest_cid" ] && [ "$object_local" = "1" ]; then
+  _exempt="$freshest"
+  if [ "$risk_class" = "рисковый" ] && [ -n "$afresh" ]; then
+    _exempt="$_exempt
+$afresh"
+  fi
+  _dt_rc=0
+  _dt_out="$(cd "$ROOT" && git -c diff.renames=false diff-tree -r --raw --no-renames "$object_sha" "$frozen_commit" 2>/dev/null)" || _dt_rc=$?
+  _residue=""
+  [ "$_dt_rc" -eq 0 ] && _residue="$(printf '%s\n' "$_dt_out" | awk -F'\t' '/^:/ && NF>=2 {print $2}')"
+  _bad=""
+  while IFS= read -r _p; do
+    [ -n "$_p" ] || continue
+    _ok=0
+    while IFS= read -r _e; do
+      [ -n "$_e" ] || continue
+      [ "$_p" = "$_e" ] && { _ok=1; break; }
+    done <<< "$_exempt"
+    [ "$_ok" -eq 1 ] || _bad="$_bad$_p"$'\n'
+  done <<< "$_residue"
+  if [ "$_dt_rc" -ne 0 ] || [ -n "$_bad" ]; then
+    die "done: OBJECT $object_sha не связан с последней заморозкой $frozen_tag — вердикт судит объект старой версии"
+  fi
 fi
 
 # ── 7. клапан: РАЗРЕШИЛ-ВЛАДЕЛЕЦ на v>1 или на красную ПРОВОДКУ ─────────────
