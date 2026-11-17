@@ -26,7 +26,9 @@
 #       --repo не репозиторий) — ДО любых сверок.
 #
 # ПРЕДУСЛОВИЯ (rc 2 до любых сверок): обязательные аргументы, читаемость
-# учёта D/uchet.jsonl, git-репозиторийность --repo.
+# учёта D/uchet.jsonl, git-репозиторийность --repo. Флаг, переданный
+# ПОСЛЕДНИМ аргументом без значения (любой из обязательных и --tip), —
+# именованный отказ rc 2 «нет значения: <флаг>» (не bash-диагностика).
 #
 # ОТКАЗЫ rc 1 (именованные; первая причина):
 #   SDACHA_NET_START   — в учёте нет строки START рабочего по предмету;
@@ -63,6 +65,15 @@ USAGE
   exit 2
 }
 
+# [Adv199-impl-1, находка 3] обязательный (и факультативный --tip) флаг
+# ПОСЛЕДНИМ аргументом без значения — rc 2 с именем флага ДО любых сверок.
+# bash-диагностика «parameter null or not set» (rc 1) недопустима: это не
+# именованный отказ и не «нечем проверить».
+flag_no_value() {
+  printf 'использование: --sostojanie D --repo R --subject NNN --source M --branch B --author A [--tip T] (нет значения: %s)\n' "$1" >&2
+  exit 2
+}
+
 otp()  { printf 'ОТКАЗ: %s: %s\n' "$1" "$2" >&2; exit 1; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$1" >&2; exit 2; }
 
@@ -71,14 +82,21 @@ command -v git >/dev/null 2>&1 || skip 'нет git'
 
 SOST=''; REPO=''; SUBJ=''; SRC=''; BR=''; AUT=''; TIP=''
 while [ "$#" -gt 0 ]; do
+  # [Adv199-impl-1, находка 3] значение флага обязательно: флаг ПОСЛЕДНИМ
+  # аргументом без значения — rc 2 с именем флага (flag_no_value) ДО любых
+  # сверок; ${2:?} здесь недопустим (bash-шум «parameter null or not set»).
   case "$1" in
-    --sostojanie) SOST="${2:?}"; shift ;;
-    --repo)       REPO="${2:?}"; shift ;;
-    --subject)    SUBJ="${2:?}"; shift ;;
-    --source)     SRC="${2:?}"; shift ;;
-    --branch)     BR="${2:?}"; shift ;;
-    --author)     AUT="${2:?}"; shift ;;
-    --tip)        TIP="${2:?}"; shift ;;
+    --sostojanie|--repo|--subject|--source|--branch|--author|--tip)
+      [ "$#" -ge 2 ] || flag_no_value "$1" ;;
+  esac
+  case "$1" in
+    --sostojanie) SOST="${2-}"; shift ;;
+    --repo)       REPO="${2-}"; shift ;;
+    --subject)    SUBJ="${2-}"; shift ;;
+    --source)     SRC="${2-}"; shift ;;
+    --branch)     BR="${2-}"; shift ;;
+    --author)     AUT="${2-}"; shift ;;
+    --tip)        TIP="${2-}"; shift ;;
     -h|--help)    usage ;;
     *) usage ;;
   esac
