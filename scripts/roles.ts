@@ -14,8 +14,9 @@
  * потому что `scripts/verify_antiplacebo.sh` требует фикстуру от каждого барьера и не
  * умеет догадываться: файл без объявленной роли — отказ.
  */
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 export interface Role {
   readonly slug: string
@@ -226,6 +227,38 @@ export function checkRoutingStrict(rolesDir?: string): { ok: true } | { ok: fals
 
 export class RoleParseError extends Error {}
 
+/** Именованные отказы резолвера НАЗНАЧЕНИЯ роли (контракт 198, Р1).
+ *  rc 1 — назначение не разрешается (роль/тир/семейство/пустая модель);
+ *  rc 2 — нечем читать реестр (файла нет / тело не разобрано).
+ *  Молчаливого дефолта модели нет: отказ отличается от разрешения по имени. */
+export type RoleModelRefusal =
+  | 'ROLE_UNKNOWN'
+  | 'TIER_MISSING'
+  | 'ALIAS_UNRESOLVED'
+  | 'MODEL_EMPTY'
+  | 'REGISTRY_MISSING'
+  | 'REGISTRY_INVALID'
+
+/** Отказ резолвера: имя отказа — в `code`, код возврата — в `rc`. */
+export class RoleModelError extends Error {
+  readonly code: RoleModelRefusal
+  readonly rc: 1 | 2
+  constructor(code: RoleModelRefusal, message: string) {
+    super(message)
+    this.name = 'RoleModelError'
+    this.code = code
+    this.rc = code === 'REGISTRY_MISSING' || code === 'REGISTRY_INVALID' ? 2 : 1
+  }
+}
+
+/** Назначение роли, разрешённое по реестру (роль → тир → модель/фолбек). */
+export interface RoleModel {
+  readonly tier: string
+  readonly model: string
+  readonly fallback: string | null
+  readonly autoFallback: boolean
+}
+
 /** `@семейство` → id из секции `models`; литерал — как есть. ЕДИНСТВЕННЫЙ разбор ссылки:
  *  генератор и лаунчер (через `gen-harness.ts --resolve-overlay`) зовут его, а не копию. */
 export function resolveModelRef(am: AgentModels, ref: string, where: string): string {
@@ -237,6 +270,110 @@ export function resolveModelRef(am: AgentModels, ref: string, where: string): st
     throw new RoleParseError(`неизвестное семейство «${ref}» в ${where}; объявлены: ${known}`)
   }
   return id
+}
+
+/** Модель тира: `@семейство` → id (ЕДИНСТВЕННЫЙ разбор ссылки — resolveModelRef),
+ *  литеральный id — как есть. Пустая строка — MODEL_EMPTY, неразрешённое
+ *  семейство — ALIAS_UNRESOLVED. */
+function resolveTierModel(am: AgentModels, ref: unknown, where: string): string {
+  if (typeof ref !== 'string' || ref === '') {
+    throw new RoleModelError('MODEL_EMPTY', `модель в ${where} не объявлена`)
+  }
+  let id: string
+  try {
+    id = resolveModelRef(am, ref, where)
+  } catch (err) {
+    if (err instanceof RoleParseError) {
+      throw new RoleModelError('ALIAS_UNRESOLVED', `семейство в ${where} не разрешается: ${err.message}`)
+    }
+    throw err
+  }
+  if (id === '') {
+    throw new RoleModelError('MODEL_EMPTY', `модель в ${where} разрешается в пустую строку`)
+  }
+  return id
+}
+
+/** ЕДИНСТВЕННАЯ точка резолва НАЗНАЧЕНИЯ роли (контракт 198, Р1): роль → тир →
+ *  модель/фолбек/autoFallback. Отказы именованные (ROLE_UNKNOWN, TIER_MISSING,
+ *  ALIAS_UNRESOLVED, MODEL_EMPTY) — молчаливого дефолта модели нет.
+ *  Семантический уровень семейств разбирает resolveModelRef: второй разбор
+ *  `@семейство` не заводится. */
+export function resolveRoleModel(am: AgentModels, role: string): RoleModel {
+  const roles = (am?.roles ?? {}) as Record<string, unknown>
+  if (!Object.prototype.hasOwnProperty.call(roles, role)) {
+    throw new RoleModelError('ROLE_UNKNOWN', `роль «${role}» в реестре назначений не объявлена`)
+  }
+  const tier = roles[role]
+  const tiers = (am?.tiers ?? {}) as Record<string, TierSpec>
+  if (typeof tier !== 'string' || !Object.prototype.hasOwnProperty.call(tiers, tier)) {
+    throw new RoleModelError('TIER_MISSING', `тир «${String(tier)}» роли «${role}» в реестре назначений не объявлен`)
+  }
+  const spec = tiers[tier]
+  const model = resolveTierModel(am, spec.model, `tiers.${tier}.model`)
+  const fallbackRaw = spec.fallback
+  const fallback = fallbackRaw === undefined || fallbackRaw === null
+    ? null
+    : resolveTierModel(am, fallbackRaw, `tiers.${tier}.fallback`)
+  return { tier, model, fallback, autoFallback: spec.autoFallback === true }
+}
+
+/** Чтение реестра назначений по корню: файла нет — REGISTRY_MISSING, тело не
+ *  разобрано — REGISTRY_INVALID (контракт 198, Р1). Отказ именованный: модель
+ *  по умолчанию не подставляется. */
+export function readAgentModels(root: string): AgentModels {
+  const p = join(root, 'config', 'agent_models.json')
+  if (!existsSync(p)) {
+    throw new RoleModelError('REGISTRY_MISSING', `реестр назначений не читается: ${p}`)
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(readFileSync(p, 'utf8'))
+  } catch {
+    throw new RoleModelError('REGISTRY_INVALID', `реестр назначений не разобрался: ${p}`)
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new RoleModelError('REGISTRY_INVALID', `реестр назначений не разобрался: ${p}`)
+  }
+  return parsed as AgentModels
+}
+
+/** CLI резолвера: `--resolve-model <роль> [--root <кат>]` — одна TSV-строка
+ *  «тир TAB модель TAB фолбек|- TAB autoFallback true|false».
+ *  rc 0 — назначение разрешено; rc 1 — именованный отказ назначения;
+ *  rc 2 — нечем читать реестр либо неверный вызов. */
+export function resolveModelCli(argv: string[]): number {
+  const at = argv.indexOf('--resolve-model')
+  const role = at >= 0 ? (argv[at + 1] ?? '') : ''
+  if (at < 0 || role === '' || role.startsWith('--')) {
+    process.stderr.write('использование: roles.ts --resolve-model <роль> [--root <кат>]\n')
+    return 2
+  }
+  const rootAt = argv.indexOf('--root')
+  const root = rootAt >= 0 && argv[rootAt + 1] !== undefined
+    ? argv[rootAt + 1]
+    : join(import.meta.dirname, '..')
+  let am: AgentModels
+  try {
+    am = readAgentModels(root)
+  } catch (err) {
+    if (err instanceof RoleModelError) {
+      process.stderr.write(`ОТКАЗ: ${err.code}: ${err.message}\n`)
+      return err.rc
+    }
+    throw err
+  }
+  try {
+    const r = resolveRoleModel(am, role)
+    process.stdout.write(`${r.tier}\t${r.model}\t${r.fallback ?? '-'}\t${r.autoFallback ? 'true' : 'false'}\n`)
+    return 0
+  } catch (err) {
+    if (err instanceof RoleModelError) {
+      process.stderr.write(`ОТКАЗ: ${err.code}: ${err.message}\n`)
+      return err.rc
+    }
+    throw err
+  }
 }
 
 /** Таблица моделей — ЛЕНИВО и терпимо к отсутствию файла. Фикстуры анти-плацебо собирают
@@ -307,4 +444,22 @@ export function loadRoles(dir: string): Role[] {
     }
   }
   return roles
+}
+
+/** Прямой запуск файла — единственный случай, когда CLI резолвера (Р1) живёт.
+ *  Сравнение — по РЕАЛЬНОМУ пути: копия модуля под другим именем (например,
+ *  переэкспорт в песочнице отказника) CLI не запускает, а импорт генератора
+ *  (`import … from './roles.ts'`) — тем более. */
+function isDirectRun(): boolean {
+  const arg = process.argv[1]
+  if (!arg) return false
+  try {
+    return realpathSync(arg) === realpathSync(fileURLToPath(import.meta.url))
+  } catch {
+    return false
+  }
+}
+
+if (isDirectRun()) {
+  process.exit(resolveModelCli(process.argv.slice(2)))
 }

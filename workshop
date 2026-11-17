@@ -518,7 +518,8 @@ while [ $# -gt 0 ]; do
     # (контракт 002 v5, критерий 1). Расширение `*` в glob ниже НЕ ловит ровно `--yolo`:
     # `case` берёт первое совпадение, и точная ветка стоит раньше glob.
     --yolo) YOLO=1 ;;
-    # КОНСУЛЬТАНТ. Параллельная совещательная сессия на семействе fable (config/agent_models.json), read-only
+    # КОНСУЛЬТАНТ. Параллельная совещательная сессия на модели роли consultant
+    # (назначение — по реестру, резолв roles.ts), read-only
     # (без edit/write/lsp) — дерево не трогает, с рабочим оркестратором не сталкивается.
     --fable) FABLE=1 ;;
     --approval-mode*|--approvals*|--yolo*|--dangerously-skip-permissions*) die "флаг $1 затирает политику подтверждений. Режим входа — always-ask из .omp/config.yml (контракт 002, критерий 1), и командная строка его не отменяет — клапан владельца называется ровно «--yolo»" ;;
@@ -634,11 +635,14 @@ if [ -z "$PROJECT" ]; then
   node "$HERE/scripts/gen-harness.ts" --prompt "$SESSION_ROLE" > "$PROMPT_FILE" \
     || die "не удалось получить промпт роли $SESSION_ROLE"
   if [ "$FABLE" = "1" ]; then
-    # Модель — семейство `fable` из config/agent_models.json (секция models), не литерал:
-    # версия правится там одной строкой. Читается grep'ом, как session_model() читает
-    # конфиг: этот путь не зовёт node (формат — одна пара «ключ: значение» на строку).
-    LIVE_MODEL="$(grep -oE '^\s+"fable":\s*"[^"]+"' "$HERE/config/agent_models.json" | sed 's/.*"\(.*\)"/\1/')"
-    [ -n "$LIVE_MODEL" ] || die "семейство fable не объявлено в config/agent_models.json (секция models)"
+    # Модель режима — НАЗНАЧЕНИЕ роли `consultant`, взятое у ЕДИНСТВЕННОГО
+    # резолвера (scripts/roles.ts, контракт 198, Р3): своего разбора реестра у
+    # лаунчера нет — иначе смена назначения в реестре не переключила бы режим
+    # сама. Отказ резолвера — громко и ДО exec omp: сессия не стартует вовсе.
+    FABLE_MODEL="$(node "$HERE/scripts/roles.ts" --resolve-model consultant --root "$HERE")" \
+      || die "назначение роли consultant не разрешено резолвером (scripts/roles.ts --resolve-model) — режим не стартует"
+    LIVE_MODEL="$(printf '%s' "$FABLE_MODEL" | cut -f2)"
+    [ -n "$LIVE_MODEL" ] || die "резолвер не вернул модель роли consultant — режим не стартует"
     TOOLS="read,grep,glob,bash,web_search,task,todo"
     FABLE_PROMPT="$HOME/session-prompt-fable.md"
     cp "$PROMPT_FILE" "$FABLE_PROMPT"
