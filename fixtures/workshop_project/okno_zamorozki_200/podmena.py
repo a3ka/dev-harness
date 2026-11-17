@@ -67,14 +67,22 @@ STAB_V_RAZRESHEN = (
 
 # Якорь вызова grandfather в (в)-ветке (ровно 1 вхождение): стаб-Г снимает его.
 ANCHOR_GRANDFATHER = '          grandfather_pair "$c" "$f" && continue\n'
+# Якорь условия числа родителей (ровно 1 вхождение в канонном блоке): стаб s06
+# снимает различение merge/обычный — проба окна делается на КАЖДОМ коммите
+# отбора. Живой обход Adv200: rc/вывод на мирах батареи те же, растёт лишь
+# число вызовов git diff --quiet (m1: 3 merge → 4 вызова у мутанта);
+# различается счётчиком шима раннера, не исходом прогона.
+ANCHOR_PARENTS = '        if [ "$(g rev-list --parents -n 1 "$c" | wc -w)" -gt 2 ]; then\n'
+STAB_PARENTS = '        if true; then\n'
 
 # Стабы заменяют БЛОК отбора целиком — не только черновую строку: на реализованном
 # дереве блок есть весь MODEL_BLOCK с фильтром, и замена одной лишь черновой
 # строки оставила бы фильтр живым (стаб молчал бы). s01 — прежний отбор (блок →
 # черновая строка; на черновике тождественно); s02 — обход только по первой
 # линии (пропускает носителей второй линии); s03 — пустое окно всегда разрешено
-# (дополнительно подменяет ветвление razrechen); s04 — модель минус вызов
-# grandfather в (в)-ветке; s05 — окно без отбора по пути (весь диапазон).
+# grandfather в (в)-ветке; s05 — окно без отбора по пути (весь диапазон);
+# s06 — модель минус проверка «только merge» (точечная замена условия,
+# не замена блока: блок отбора остаётся каноническим).
 STUB_SELECTION = {
     's01': ANCHOR_DRAFT,
     's02': ('      pred_komity="$(g log -s --format=%H --no-renames --first-parent \\\n'
@@ -153,6 +161,11 @@ def transform_subject(scripts, kind):
             text = text.replace(target_block(text), MODEL_BLOCK, 1)
         subst(path, ANCHOR_GRANDFATHER, '', 'стаб s04 (снят grandfather (в))')
         return 'стаб s04 подставлен (модель минус grandfather в (в)-ветке)'
+    if kind == 's06':
+        if text.count(MODEL_BLOCK) != 1:
+            write(path, text.replace(target_block(text), MODEL_BLOCK, 1))
+        subst(path, ANCHOR_PARENTS, STAB_PARENTS, 'стаб s06 (снято различение числа родителей)')
+        return 'стаб s06 подставлен (проба окна на каждом коммите отбора)'
     if kind in STUB_SELECTION:
         block = target_block(text)
         write(path, text.replace(block, STUB_SELECTION[kind], 1))
@@ -192,7 +205,7 @@ def shim_charter(scripts, sha, fpath):
 
 def main(argv):
     if len(argv) >= 1 and argv[0] == 'list':
-        for k in sorted(list(STUB_SELECTION) + ['s04']):
+        for k in sorted(list(STUB_SELECTION) + ['s04', 's06']):
             print(k)
         return 0
     if len(argv) == 3 and argv[0] in ('copy', 'model') or (len(argv) == 4 and argv[0] == 'stub'):
