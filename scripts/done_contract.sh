@@ -32,6 +32,40 @@ NEXT_ID_LIB=1
 
 die()  { printf '%s\n' "$*" >&2; exit 1; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
+
+# ── Полный разбор ровно одного JSON-документа (канон jq -s) ────────────────
+# Свидетельство принимается ТОЛЬКО после успешного ПОЛНОГО разбора входа:
+# ровно ОДИН JSON-документ, корень — объект. Пустой ввод, синтаксическая
+# ошибка в любом месте, ВТОРОЙ документ (в т.ч. `{}` после валидного первого)
+# и поток документов документом НЕ являются; частичный stdout при ненулевом
+# rc jq отбрасывается ЦЕЛИКОМ (rc проверяется ДО использования результата).
+# Внешний whitespace вокруг одного документа допустим.
+#
+# Вызов: _json_one_object <имя-переменной>   (вход — stdin)
+#   rc 0 — разобран ровно один JSON-объект: в переменной канонический JSON,
+#          _JSON_ERR пуст;
+#   rc 1 — отказ: переменная пуста, _JSON_ERR — правдивая причина.
+_JSON_ERR=""
+_json_one_object() {
+  local __var="${1:?имя переменной обязательно}" __in="" __out="" __rc=0 __diag=""
+  IFS= read -r -d '' __in || true
+  __out="$(printf '%s' "$__in" | jq -s -c 'if (length == 1 and (.[0] | type) == "object") then .[0] else error("ожидался ровно один JSON-документ-объект") end' 2>/dev/null)" || __rc=$?
+  if [ "$__rc" -eq 0 ]; then
+    printf -v "$__var" '%s' "$__out"
+    _JSON_ERR=""
+    return 0
+  fi
+  printf -v "$__var" '%s' ''
+  __diag="$(printf '%s' "$__in" | jq -s -r 'if length == 0 then "empty" elif length != 1 then "multiple" else "not-object" end' 2>/dev/null)" || true
+  case "$__diag" in
+    empty)      _JSON_ERR="пустой ввод: JSON-документов нет" ;;
+    multiple)   _JSON_ERR="в ответе несколько JSON-документов (ожидался ровно один)" ;;
+    not-object) _JSON_ERR="ответ не JSON-объект" ;;
+    *)          _JSON_ERR="синтаксическая ошибка JSON (jq rc=$__rc)" ;;
+  esac
+  return 1
+}
+
 TARGET="${1:?использование: $0 <contracts/NNN-*.md> \"<причина>\" [корень]}"
 REASON="${2-}"  # пустая причина допустима — проверяется ниже отдельной веткой
 # ROOT: 3-й аргумент ИЛИ (после env-гигиены) cwd-репозиторий — написатель ВДВОЙНЕ
@@ -48,9 +82,18 @@ fi
 # отдельным bash-процессом.
 _pr_paths="$(project_paths_resolve "$ROOT" 2>/dev/null)" \
   || die "ОТКАЗ: профиль битый или workflowPaths вне репо: $(project_paths_resolve "$ROOT" 2>&1 >/dev/null)"
-_PROFILE_VERDICTS_BASE="$(printf '%s' "$_pr_paths" | jq -r '.verdicts' 2>/dev/null || true)"
-_PROFILE_REGISTRY_PATH="$(printf '%s' "$_pr_paths" | jq -r '.registry' 2>/dev/null || true)"
-_PROFILE_CONTRACTS_BASE="$(printf '%s' "$_pr_paths" | jq -r '.contracts' 2>/dev/null || true)"
+# Полный разбор ОДНОГО документа (jq -s): три пути workflowPaths берутся ТОЛЬКО
+# из целого разобранного объекта. Повреждённый ответ или поток документов —
+# именованный отказ ДО любых побочных эффектов (ни один путь не используется).
+_pr_paths_obj=""
+_json_one_object _pr_paths_obj <<<"$_pr_paths" \
+  || die "ОТКАЗ: project_paths_resolve вернул не JSON-объект: $_JSON_ERR"
+_PROFILE_VERDICTS_BASE="$(printf '%s' "$_pr_paths_obj" | jq -r '.verdicts' 2>/dev/null)" \
+  || die "ОТКАЗ: project_paths_resolve: путь verdicts не извлечён"
+_PROFILE_REGISTRY_PATH="$(printf '%s' "$_pr_paths_obj" | jq -r '.registry' 2>/dev/null)" \
+  || die "ОТКАЗ: project_paths_resolve: путь registry не извлечён"
+_PROFILE_CONTRACTS_BASE="$(printf '%s' "$_pr_paths_obj" | jq -r '.contracts' 2>/dev/null)" \
+  || die "ОТКАЗ: project_paths_resolve: путь contracts не извлечён"
 [ -n "$_PROFILE_VERDICTS_BASE" ] && [ -n "$_PROFILE_REGISTRY_PATH" ] && [ -n "$_PROFILE_CONTRACTS_BASE" ] \
   || die "ОТКАЗ: project_paths_resolve вернул пустой путь"
 unset _pr_paths
@@ -226,7 +269,15 @@ if [ -x "$SELF_DIR/check_architecture_contract.sh" ]; then
         [ -n "$_a187_sha" ] || die "ARCH_CI: финальный SHA продукта (HEAD) не читается"
         _a187_or=""
         if [ -f "$ROOT/harness.project.json" ]; then
-          _a187_remote="$(jq -r '.git.canonicalRemote // empty' "$ROOT/harness.project.json" 2>/dev/null || true)"
+          # Полный разбор профиля: ровно один JSON-документ-объект. Ошибка
+          # разбора СУЩЕСТВУЮЩЕГО файла — отказ (не fallback на
+          # GITHUB_REPOSITORY и не адрес из префикса); штатно отсутствующее
+          # необязательное поле canonicalRemote — прежний допустимый fallback.
+          _a187_profile=""
+          _json_one_object _a187_profile < "$ROOT/harness.project.json" \
+            || die "ОТКАЗ: профиль не читается (JSON не разобран: $_JSON_ERR): $ROOT/harness.project.json — canonicalRemote неизвестен; check-run arch не проверен (ARCH_CI)"
+          _a187_remote="$(printf '%s' "$_a187_profile" | jq -r 'if (.git | type) == "object" then (.git.canonicalRemote // empty) else empty end' 2>/dev/null)" \
+            || die "ОТКАЗ: профиль не читается (canonicalRemote не извлечён): $ROOT/harness.project.json"
           case "$_a187_remote" in
             *github.com[:/]*)
               _a187_or="$(printf '%s' "$_a187_remote" | sed -E 's#.*github\.com[:/]+##; s#\.git$##; s#/+$##')"
@@ -251,7 +302,15 @@ if [ -x "$SELF_DIR/check_architecture_contract.sh" ]; then
           # «archive», «architecture…», «march», «arche» — НЕ принимаются:
           # живой зелёный run бэкенда называется «arch (пин внешней
           # архитектуры, model fitness + code-ratchet)» (ARCHCOL §5).
-          _a187_n="$(printf '%s' "$_a187_json" | jq -r --arg sha "$_a187_sha" '[.check_runs[]? | select((((.name // "") == "arch") or ((.name // "") | startswith("arch ")) or ((.name // "") | startswith("arch ("))) and (.head_sha == $sha) and (.status == "completed") and (.conclusion == "success"))] | length' 2>/dev/null || printf '0')"
+          # Полный разбор ответа: ровно один JSON-документ-объект. Ошибка
+          # разбора — отказ семейства ARCH_CI (причина — РАЗБОР, не curl);
+          # ошибочный stdout в счёт run не попадает.
+          _a187_obj=""
+          if ! _json_one_object _a187_obj <<<"$_a187_json"; then
+            die "ARCH_CI: ответ check-runs не разобран ($_JSON_ERR): ожидался ровно один JSON-документ — успешного check-run arch на финальном SHA $_a187_sha нет"
+          fi
+          _a187_n="$(printf '%s' "$_a187_obj" | jq -r --arg sha "$_a187_sha" '[.check_runs[]? | select((((.name // "") == "arch") or ((.name // "") | startswith("arch ")) or ((.name // "") | startswith("arch ("))) and (.head_sha == $sha) and (.status == "completed") and (.conclusion == "success"))] | length' 2>/dev/null)" \
+            || _a187_n=""
         fi
         case "$_a187_n" in
           ''|*[!0-9]*) _a187_n=0 ;;
@@ -386,7 +445,13 @@ if [ -f "$ROOT/harness.project.json" ]; then
   prc_rc=0
   merged_profile="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$ROOT}" bash "$SELF_DIR/profile_resolver.sh" --repo "$ROOT" 2>/dev/null)" || prc_rc=$?
   [ "$prc_rc" -eq 0 ] || die "ОТКАЗ: профиль не читается (profile_resolver rc=$prc_rc): repoId неизвестен — режим двери не определён"
-  repo_id="$(printf '%s' "$merged_profile" | jq -r 'if type == "object" then (if (.repoId | type) == "object" then (.repoId.value // empty) else (.repoId // empty) end) else empty end' 2>/dev/null || true)"
+  # Полный разбор merged-профиля: ровно один JSON-документ-объект. Ошибка
+  # разбора НЕ определяет режим и НЕ ведёт к legacy/station fallback.
+  _merged_profile_obj=""
+  _json_one_object _merged_profile_obj <<<"$merged_profile" \
+    || die "ОТКАЗ: профиль не читается (JSON не разобран: $_JSON_ERR): repoId неизвестен — режим двери не определён"
+  repo_id="$(printf '%s' "$_merged_profile_obj" | jq -r 'if (.repoId | type) == "object" then (.repoId.value // empty) else (.repoId // empty) end' 2>/dev/null)" \
+    || repo_id=""
   [ -n "$repo_id" ] || die "ОТКАЗ: профиль без repoId — режим двери не определён"
 else
   # Профиля нет — корневая раскладка станции (LEGACY-FALLBACK
@@ -482,7 +547,18 @@ else
       die "done: влитость в main продукта $place не проверена: curl rc=$_cmp_crc"
     fi
     _cmp_status=""
-    [ -n "$_cmp_json" ] && _cmp_status="$(printf '%s' "$_cmp_json" | jq -r 'if type == "object" then (.status // empty) else empty end' 2>/dev/null || true)"
+    if [ -n "$_cmp_json" ]; then
+      # Полный разбор ответа compare: ровно один JSON-документ-объект.
+      # Повреждённый ответ или поток документов — не свидетельство влитости;
+      # парсерная ошибка НЕ выдаётся за ahead/diverged и НЕ сводится к
+      # «нет поля status», если поле было в префиксе.
+      _cmp_obj=""
+      if ! _json_one_object _cmp_obj <<<"$_cmp_json"; then
+        die "done: влитость в main продукта $place не проверена: ответ API не разобран ($_JSON_ERR)"
+      fi
+      _cmp_status="$(printf '%s' "$_cmp_obj" | jq -r '.status // empty' 2>/dev/null)" \
+        || _cmp_status=""
+    fi
     case "$_cmp_status" in
       identical|behind) : ;;
       ahead|diverged) die "done: OBJECT $object_sha не в main продукта $place — реализация не влита" ;;
