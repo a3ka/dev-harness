@@ -546,9 +546,23 @@ def c_door_spawn_fallback(ctx):
 
 @cell('door_spawn_foreign_refused')
 def c_door_spawn_foreign(ctx):
+    """«Чужая» = primary ДРУГОГО судьи вне primary/объявленного фолбэка тира
+    критика — выбор ВЫЧИСЛЯЕТСЯ из реестра мира, не литералом роли: модель,
+    разделяемая ролями, для двери СОБСТВЕННАЯ (104 вход 10), owner-PR #1000
+    свёл primary critic и adversary к одному семейству. Нет судьи с чужой
+    primary — КРАСНОЕ с именованной причиной «реестр изменился», а не
+    молчаливый rc 0 клетки на собственной модели."""
     world = ctx['world_door']
     reg = world_reg(world)
-    m = primary_of(reg, 'adversary')  # модель чужой роли/тира
+    own = {primary_of(reg, 'critic'), fallback_of(reg, 'critic')}
+    chuzhie = [primary_of(reg, j) for j in JUDGES if j != 'critic'
+               and oracle(reg, j)[0] == 0 and primary_of(reg, j) not in own]
+    if not chuzhie:
+        return check(False, 'door_spawn_foreign_refused',
+                     'реестр изменился: нет чужой модели — primary всех '
+                     'судей совпадает с primary/фолбэком критика, '
+                     'отказ двери проверять нечем')
+    m = chuzhie[0]
     r = door(world, ['--spawn', 'critic', m, '--root', str(world)], world.parent)
     return check(r.returncode == 1 and 'не тира роли' in r.stderr,
                  'door_spawn_foreign_refused',
