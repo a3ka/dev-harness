@@ -115,3 +115,4 @@ check:normy-roley-svyazki-192-family-selftest	4	8	0
 check:ops-ci-artifacts-196-family-selftest	4	8	0
 check:okno-zamorozki-200-family-selftest	4	8	0
 check:mob-ci-artifacts-local-197-family-selftest	15	16	0
+check:done-dver-201-family-selftest	8	12	0
