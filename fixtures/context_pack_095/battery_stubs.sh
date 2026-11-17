@@ -133,5 +133,18 @@ zapest s44 t95-m40 red_naznachennaja_specializacija.sh \
   's@.*# t95-m40.*@: # t95-m40 порча: открыт любой алфавит включая vision@'
 zapest s45 t95-m3 red_orch_brief_bounded_work.sh \
   's@.*# t95-m3.*@    : # t95-m3 порча: mandatory потеря проглочена в brief@'
+# v2 Б3 (И-16, слово владельца 2026-11-17): стабы предусловий брифа.
+# Привязка по входам (Н-39): s50 пойман КРАСНЫМ миром клетки И-16 (честная
+# клетка знает behind=1/красный план); s51 — честным миром (ровно 3 строки);
+# s52 — красным миром (rc plan_gate обязан быть rc стража 084); s53 — миром
+# бюджета клетки И-16.2 (тайм-аут обязан быть NOT_RUN, не зелёным).
+zapest s46 t95-m50 red_orch_brief_precond.sh \
+  's@.*# t95-m50.*@_pc_ab="0'$'\t''0"; _pc_rc=0 # t95-m50 порча: всегда ok@'
+zapest s47 t95-m51 red_orch_brief_precond.sh \
+  's@.*# t95-m51.*@: # t95-m51 порча: строка пропущена@'
+zapest s48 t95-m52 red_orch_brief_precond.sh \
+  's@.*# t95-m52.*@_pc_out=""; _pc_rc=0; git -C "$REPO" rev-parse --git-dir >/dev/null 2>\&1 || _pc_rc=$? # t95-m52 порча: rc из неверного источника@'
+zapest s49 t95-m53 red_orch_brief_precond_notrun.sh \
+  's@.*# t95-m53.*@_pc_add plan_slice 0 "origin/main=000000000000" # t95-m53 порча: бюджет без NOT_RUN@'
 printf 'ИТОГ стаб-пак 095: rc=%s\n' "$itog"
 exit "$itog"

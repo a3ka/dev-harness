@@ -184,4 +184,38 @@ _t95_freeze() {
   printf 'frozen/contracts/777/1\n'
 }
 
+# _t95_plan_green <repo> — план-зелёные носители стражей 084/182: plan.tsv с
+# валидным источником docs/owner/*.md#<раздел>, реестр 777+888, pauzy, ROADMAP и
+# HANDOFF с generated-блоками ЕДИНОГО генератора gen_plan.sh --write (вторая
+# копия раскладки блока запрещена), коммит. Пробы PRECOND (И-16, v2 Б3) на этом
+# мире зелены: check_plan rc 0, orch_plan_slice rc 0.
+_t95_plan_green() {
+  local R="$1" root
+  root="${CP095_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+  mkdir -p "$R/docs/owner" || return 1
+  printf '# Контур toy-плана: один модуль, одна пара.\n' >"$R/docs/owner/PLAN-toy.md"
+  {
+    printf 'id\tпара\tэтап\tзависит\tисточник\tтрек\n'
+    printf '777\t1\tдо V-2\t-\tdocs/owner/PLAN-toy.md#Контур\ttrack\n'
+    printf '888\t1\tдо V-2\t777\tdocs/owner/PLAN-toy.md#Контур\ttrack\n'
+  } >"$R/registry/plan.tsv"
+  printf '777 → 0000000000000000000000000000000000000000\n888 → 0000000000000000000000000000000000000001\n' >"$R/registry/contracts.tsv"
+  : >"$R/registry/pauzy.tsv"
+  printf '# ROADMAP toy\n\n<!-- BEGIN GENERATED PLAN -->\n<!-- END GENERATED PLAN -->\n' >"$R/ROADMAP.md"
+  printf '# HANDOFF toy\n\n<!-- BEGIN GENERATED NEXT SESSION -->\n<!-- END GENERATED NEXT SESSION -->\n' >"$R/HANDOFF.md"
+  bash "$root/scripts/gen_plan.sh" --write --root "$R" >/dev/null 2>&1 || return 1
+  git -C "$R" add -A && git -C "$R" commit -qm 'plan-green' >/dev/null 2>&1
+}
+
+# _t95_origin_bare <world> <repo> — локальный bare-origin и push main (быстрый
+# ls-remote без сети); после push удалённый ref origin/main существует локально.
+_t95_origin_bare() {
+  local W="$1" R="$2"
+  git init -q --bare "$W/origin.git" || return 1
+  git -C "$R" remote remove origin >/dev/null 2>&1 || true
+  git -C "$R" remote add origin "$W/origin.git" || return 1
+  git -C "$R" push -q origin main || return 1
+  git -C "$R" fetch -q origin || return 1
+}
+
 _t95_cleanup() { rm -rf "${1:-/tmp/dev-harness-verify/context-pack-095-НЕТ}"; }

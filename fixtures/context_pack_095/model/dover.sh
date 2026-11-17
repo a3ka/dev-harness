@@ -312,6 +312,70 @@ else
     done < <(_adr_load)
   fi
   HEALTH_SEC="$(printf 'HEALTH: branch=%s dirty=%s' "$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || printf '?')" "$(git -C "$REPO" status --porcelain 2>/dev/null | wc -l | tr -d ' ')")" # t95-m18
+  # ── И-16 (v2 Б3, слово владельца 2026-11-17): PRECOND — предусловия мира ──
+  # ── ВХОДА строками с rc. Замкнутый перечень трёх проб в фиксированном ──────
+  # порядке: sync_main, plan_gate, plan_slice. Снятие — ДО создания placeholder
+  # ci.yml, как HEALTH: мир на момент ВХОДА. Красная проба НЕ роняет бриф:
+  # секция несёт факты, решение за сессией. rc в строке — фактический rc пробы
+  # (t95-m50), молчаливое «ok» запрещено; перечень имён замкнут (t95-m51);
+  # бюджет пробы — timeout, превышение → rc=2 NOT_RUN «бюджет <N>с» (t95-m53).
+  _pc_root="${CP095_ROOT:-$(cd "$(dirname "$0")/../../.." 2>/dev/null && pwd)}"
+  _pc_reg="$(jq -r '.workflowPaths.registry // "registry"' "$RJ" 2>/dev/null || printf 'registry')"
+  PRECOND_SEC=""
+  _pc_add() { PRECOND_SEC="${PRECOND_SEC}PRECOND: $1 rc=$2${3:+ $3}
+"; }
+  _pc_tail() { printf '%s\n' "$1" | LC_ALL=C.UTF-8 awk 'NR==1 { gsub(/\t/, " "); print substr($0, 1, 120); exit }'; }
+  # (1) sync_main — локальный ref origin/main против HEAD, без сети
+  if ! git -C "$REPO" rev-parse --verify -q origin/main >/dev/null 2>&1; then
+    _pc_add sync_main 2 "NOT_RUN нет origin/main"
+  else
+    _pc_ab=""; _pc_rc=0
+    _pc_ab="$(timeout 3 git -C "$REPO" rev-list --left-right --count origin/main...HEAD 2>/dev/null)" || _pc_rc=$? # t95-m50
+    if [ "$_pc_rc" -eq 0 ]; then
+      _pc_add sync_main 0 "behind=${_pc_ab%%$TAB*} ahead=${_pc_ab#*$TAB}"
+    elif [ "$_pc_rc" -eq 124 ]; then
+      _pc_add sync_main 2 "NOT_RUN бюджет 3с"
+    else
+      _pc_add sync_main 2 "NOT_RUN проба не исполнилась"
+    fi
+  fi
+  # (2) plan_gate — страж плана 084 по рабочему дереву цели
+  if [ "$_pc_reg" != "registry" ]; then
+    _pc_add plan_gate 2 "NOT_RUN проектные workflowPaths вне стража"
+  elif [ ! -f "$REPO/registry/plan.tsv" ]; then
+    _pc_add plan_gate 2 "NOT_RUN нет registry/plan.tsv"
+  elif [ ! -f "$_pc_root/scripts/check_plan.sh" ]; then
+    _pc_add plan_gate 2 "NOT_RUN нет scripts/check_plan.sh"
+  else
+    _pc_out=""; _pc_rc=0
+    _pc_out="$(timeout 5 bash "$_pc_root/scripts/check_plan.sh" --root "$REPO" 2>&1)" || _pc_rc=$? # t95-m52
+    if [ "$_pc_rc" -eq 124 ]; then
+      _pc_add plan_gate 2 "NOT_RUN бюджет 5с"
+    elif [ "$_pc_rc" -eq 0 ]; then
+      _pc_add plan_gate 0
+    else
+      _pc_add plan_gate "$_pc_rc" "$(_pc_tail "$_pc_out")"
+    fi
+  fi
+  # (3) plan_slice — срез плана по ОПУБЛИКОВАННОМУ origin/main (182)
+  if [ "$_pc_reg" != "registry" ]; then
+    _pc_add plan_slice 2 "NOT_RUN проектные workflowPaths вне стража"
+  elif ! git -C "$REPO" rev-parse --verify -q origin/main >/dev/null 2>&1; then
+    _pc_add plan_slice 2 "NOT_RUN нет origin/main"
+  elif [ ! -f "$_pc_root/scripts/orch_plan_slice.sh" ]; then
+    _pc_add plan_slice 2 "NOT_RUN нет scripts/orch_plan_slice.sh"
+  else
+    _pc_out=""; _pc_rc=0
+    _pc_out="$(timeout 5 bash "$_pc_root/scripts/orch_plan_slice.sh" --repo "$REPO" 2>&1)" || _pc_rc=$?
+    if [ "$_pc_rc" -eq 0 ]; then
+      _pc_sha="$(printf '%s\n' "$_pc_out" | awk -F= '/^PLAN_SNAPSHOT: origin\/main=/{print $2; exit}')"
+      _pc_add plan_slice 0 "origin/main=${_pc_sha:0:12}" # t95-m51
+    elif [ "$_pc_rc" -eq 124 ]; then
+      _pc_add plan_slice 2 "NOT_RUN бюджет 5с" # t95-m53
+    else
+      _pc_add plan_slice "$_pc_rc" "$(_pc_tail "$_pc_out")"
+    fi
+  fi
   # Сначала неизменяемые секции, затем целые WORK-строки под тем же капом.
   WORK_HEAD="WORK: опущено: закрытых ${n_closed}, вне плана ${n_out}"$'\n'
   _pack_no_work() {
@@ -322,6 +386,7 @@ else
     if [ -n "$GOAL_SEC" ]; then printf '=== GOAL ===\n%s\n' "$GOAL_SEC"; fi
     if [ -n "$DEC_SEC" ]; then printf '=== DECISIONS ===\n%s' "$DEC_SEC"; fi
     printf '=== HEALTH ===\n%s\n' "$HEALTH_SEC"
+    printf '=== PRECOND ===\n%s' "$PRECOND_SEC"
   }
   base="$(_pack_no_work | wc -c)"
   acc="$WORK_HEAD"; omitted=0
@@ -359,6 +424,7 @@ pack_body() {
     if [ -n "$WORK_SEC" ]; then printf '=== WORK ===\n%s' "$WORK_SEC"; fi
     if [ -n "$DEC_SEC" ]; then printf '=== DECISIONS ===\n%s' "$DEC_SEC"; fi
     printf '=== HEALTH ===\n%s\n' "$HEALTH_SEC"
+    if [ -n "$PRECOND_SEC" ]; then printf '=== PRECOND ===\n%s' "$PRECOND_SEC"; fi
   fi
 }
 VK="$(pack_body | wc -c | tr -d ' ')"

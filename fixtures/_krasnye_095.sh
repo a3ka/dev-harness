@@ -25,11 +25,12 @@ FAM="$HERE/context_pack_095"
 [ -d "$FAM" ] || { printf 'NOT_IMPLEMENTED: нет семьи %s\n' "$FAM" >&2; exit 2; }
 command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; exit 2; }
 
-# Census семейства после добавления bounded/no-plan/GLM-клеток.
-# Пустая выборка или потерянная клетка — отказ, не тихая зелень.
+# Census семейства после добавления bounded/no-plan/GLM-клеток и пары
+# предусловий v2 Б3 (И-16: red_orch_brief_precond*.sh, слово владельца
+# 2026-11-17). Пустая выборка или потерянная клетка — отказ, не тихая зелень.
 n="$(ls "$FAM"/red_*.sh 2>/dev/null | wc -l)"
-if [ "$n" -ne 19 ]; then
-  printf 'ОТКАЗ: клеток семьи %s, ожидалось 19 в критерийном срезе 095\n' "$n" >&2
+if [ "$n" -ne 21 ]; then
+  printf 'ОТКАЗ: клеток семьи %s, ожидалось 21 в критерийном срезе 095\n' "$n" >&2
   exit 2
 fi
 
