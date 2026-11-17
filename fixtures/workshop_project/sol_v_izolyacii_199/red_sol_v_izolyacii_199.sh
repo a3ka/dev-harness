@@ -127,8 +127,13 @@
 # РЕЖИМЫ:
 #   (без флага)  — субъекты дерева; до реализации красное (rc 1);
 #   --model      — субъекты model/ (эталоны целевой семантики); зелёное;
-#   --stabs      — контроль над model/ + обманные стабы stabs/; зелёное
-#                  означает: каждый стаб различим хотя бы одной клеткой;
+#   --stabs      — контроль над model/ + обманные стабы stabs/ + stabs_adv1/;
+#                  зелёное означает: каждый стаб различим хотя бы одной клеткой;
+#                  census (шапка батареи, НЕ контракт): stabs/ = 18
+#                  (ls fixtures/workshop_project/sol_v_izolyacii_199/stabs/*
+#                  | wc -l — замер контракта 199), stabs_adv1/ = 4
+#                  (ls fixtures/workshop_project/sol_v_izolyacii_199/
+#                  stabs_adv1/* | wc -l); движок гоняет все 22;
 #   --repo <R>   — корень дерева субъектов (CI/станция).
 #
 # КОДЫ: 0 — зелено; 1 — красная клетка либо живой стаб; 2 — нечем проверить.
@@ -1092,6 +1097,8 @@ run_cells() {  # <ids…>
 }
 
 # ── стабы: привязка к различающим входам — КОДОМ (Н-39) ─────────────────────
+# census: stabs/ = 18 (замер контракта 199), stabs_adv1/ = 4 (доп. стабы
+# замыкания Adv199Impl); движок --stabs гоняет все 22 из обоих каталогов.
 STABI=(s01 s02 s03 s04 s05 s06 s07 s08 s09 s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s20 s21 s22)
 stab_fajl() {
   case "$1" in
@@ -1113,10 +1120,10 @@ stab_fajl() {
     s16) printf 'stabs/s16_priv_repo_root.sh' ;;
     s17) printf 'stabs/s17_priv_bez_klass.sh' ;;
     s18) printf 'stabs/s18_priv_bez_iso.sh' ;;
-    s19) printf 'stabs/s19_dver_iso_strokoj.sh' ;;
-    s20) printf 'stabs/s20_dver_iso_chislom.sh' ;;
-    s21) printf 'stabs/s21_huk_truthy.ts' ;;
-    s22) printf 'stabs/s22_priv_bez_znachenija.sh' ;;
+    s19) printf 'stabs_adv1/s19_dver_iso_strokoj.sh' ;;
+    s20) printf 'stabs_adv1/s20_dver_iso_chislom.sh' ;;
+    s21) printf 'stabs_adv1/s21_huk_truthy.ts' ;;
+    s22) printf 'stabs_adv1/s22_priv_bez_znachenija.sh' ;;
   esac
 }
 stub_sreda() {  # <sNN> — переменная-шов субъекта
