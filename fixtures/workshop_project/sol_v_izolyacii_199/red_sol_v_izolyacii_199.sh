@@ -731,14 +731,17 @@ d17() {  # судейские ворота двери: именованные о
   [ "$rc" -eq 0 ] || { printf 'd17: critic на рисковом rc=%s (нужен 0: порядок запрещает только ревьюера): %s\n' "$rc" "$(tail -1 "$w/e6")" >&2; return 1; }
 }
 
-d18() {  # [Adv199-impl-1, находка 1; Adv199-impl-2, К-08] isolated двери —
-  # СТРОГО булево true: строка "true", 1, [true], {x:true}, null, false и
-  # отсутствие поля — НЕ изоляция: rc 1 NE_IZOLIROVAN, учёт не растёт; только
-  # булево true — rc 0, START несёт "isolated":true. КАЖДАЯ форма —
-  # НЕЗАВИСИМЫЙ прогон без раннего выхода (Н-39/К-08: двойной дефект стаба
-  # маскировался чужой строковой формой — d18 краснела на первой и до числа
-  # не доходила); все ошибочные формы собираются в ОДНО сообщение с именем
-  # каждой: стаб s19 краснет только формой "true", s20 — только формой 1.
+d18() {  # [Adv199-impl-1, находка 1; Adv199-impl-2, К-08; Arb199Impl, К-10]
+  # isolated двери — СТРОГО булево true: строка "true", 1, [true], {x:true},
+  # null, false и отсутствие поля — НЕ изоляция: rc 1 NE_IZOLIROVAN и учёт
+  # ПОБАЙТОВО неизменен — полный снимок содержимого ДО вызова сравнивается
+  # cmp НЕМЕДЛЕННО после отказа (запись в учёт без перевода строки счётчику
+  # строк невидима — К-10); только булево true — rc 0, START несёт
+  # "isolated":true. КАЖДАЯ форма — НЕЗАВИСИМЫЙ прогон без раннего выхода
+  # (Н-39/К-08: двойной дефект стаба маскировался чужой строковой формой —
+  # d18 краснела на первой и до числа не доходила); все ошибочные формы
+  # собираются в ОДНО сообщение с именем каждой: стаб s19 краснеет только
+  # формой "true", s20 — только формой 1.
   local w="$WBASE/d18"; mkdir -p "$w"; mk_dwer_world "$w"
   local v rc pred posle oshibki=''
   for v in '"true"' '1' '[true]' '{"x":true}' 'null' 'false' 'net-polja'; do
@@ -751,12 +754,21 @@ BRANCH=wip/199/architect" '{tasks:[{agent:"architect",name:"ArchD18",task:$t}]}'
 WORKTREE=$DW_CAR
 BRANCH=wip/199/architect" '{tasks:[{agent:"architect",name:"ArchD18",task:$t,isolated:$iso}]}' > "$w/ev.json"
     fi
-    if [ -f "$DW_SOST/uchet.jsonl" ]; then pred="$(wc -l < "$DW_SOST/uchet.jsonl")"; else pred=0; fi
+    # оракул ДО вызова субъекта (правило 8): полный БАЙТОВЫЙ снимок учёта
+    # ВНЕ файла учёта (снимок ничего не пишет в проверяемый учёт);
+    # отсутствующий учёт представлен пустым содержимым (Arb199Impl, РЕШЕНИЕ 2)
+    if [ -f "$DW_SOST/uchet.jsonl" ]; then cp "$DW_SOST/uchet.jsonl" "$w/uchet-do"; else : > "$w/uchet-do"; fi
     bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev.json" >/dev/null 2>"$w/err"; rc=$?
     if [ "$rc" -ne 1 ]; then oshibki="${oshibki}isolated=${v}:rc=${rc};"; continue; fi
     grep -q 'NE_IZOLIROVAN' "$w/err" || oshibki="${oshibki}isolated=${v}:нет-NE_IZOLIROVAN;"
-    if [ -f "$DW_SOST/uchet.jsonl" ]; then posle="$(wc -l < "$DW_SOST/uchet.jsonl")"; else posle=0; fi
-    [ "$posle" -eq "$pred" ] || oshibki="${oshibki}isolated=${v}:учёт-вырос(${pred}-${posle});"
+    # побайтовое сравнение СРАЗУ после отказа: cmp, НЕ счётчик строк;
+    # пропавший непустой учёт снимку тоже не равен; проверка не заходит
+    # за следующий вызов двери и позитивный контроль
+    if [ -f "$DW_SOST/uchet.jsonl" ]; then
+      cmp -s "$w/uchet-do" "$DW_SOST/uchet.jsonl" || oshibki="${oshibki}isolated=${v}:учёт-изменён-побайтово;"
+    else
+      [ ! -s "$w/uchet-do" ] || oshibki="${oshibki}isolated=${v}:учёт-исчез;"
+    fi
   done
   if [ -f "$DW_SOST/uchet.jsonl" ]; then pred="$(wc -l < "$DW_SOST/uchet.jsonl")"; else pred=0; fi
   jq -n --arg t "SUBJECT=199
@@ -771,7 +783,7 @@ BRANCH=wip/199/architect" '{tasks:[{agent:"architect",name:"ArchD18",task:$t,iso
   else
     oshibki="${oshibki}булево-true:rc=${rc};"
   fi
-  [ -z "$oshibki" ] || { printf 'd18: формы-не-изоляции не отвергнуты (нужен rc1+NE_IZOLIROVAN и учёт не растёт): %s\n' "$oshibki" >&2; return 1; }
+  [ -z "$oshibki" ] || { printf 'd18: формы-не-изоляции не отвергнуты (нужен rc1+NE_IZOLIROVAN и побайтово неизменный учёт): %s\n' "$oshibki" >&2; return 1; }
 }
 
 
