@@ -37,8 +37,10 @@
 #     NOSITEL_NEDOSTUPEN);
 #   * замыкание по вердикту адверсария Adv199Impl (2026-11-17, реализация):
 #     isolated двери — СТРОГО булево true: строка «true», 1, [true], {x:true},
-#     null, false, отсутствие поля → NE_IZOLIROVAN до любых записей (d18;
-#     стабы s19 s20); нормализация стража === true, не truthy (h4; стаб s21);
+#     null, false, отсутствие поля → NE_IZOLIROVAN до любых записей (d18 —
+#     КАЖДАЯ форма независимый прогон, ошибки в одном сообщении: Adv199Impl-2;
+#     стабы s19 s20 — s20 несёт РОВНО ОДИН дефект, число, строка отвергается);
+#     нормализация стража === true, не truthy (h4; стаб s21);
 #     флаг привязки последним аргументом без значения — rc 2 без bash-шума
 #     (p14; стаб s22);
 #   * канонические вставки roles/orchestrator.md §«Изолированный спавн»
@@ -729,35 +731,47 @@ d17() {  # судейские ворота двери: именованные о
   [ "$rc" -eq 0 ] || { printf 'd17: critic на рисковом rc=%s (нужен 0: порядок запрещает только ревьюера): %s\n' "$rc" "$(tail -1 "$w/e6")" >&2; return 1; }
 }
 
-d18() {  # [Adv199-impl-1, находка 1] isolated двери — СТРОГО булево true:
-  # строка "true", 1, [true], {x:true}, null, false и отсутствие поля — НЕ
-  # изоляция: rc 1 NE_IZOLIROVAN, учёт пуст; только булево true — rc 0, START
-  # несёт "isolated":true. Лакс-нормализация (jq -r + [ "$iso" = 'true' ])
-  # строку "true" от булева не отличает — красная здесь.
+d18() {  # [Adv199-impl-1, находка 1; Adv199-impl-2, К-08] isolated двери —
+  # СТРОГО булево true: строка "true", 1, [true], {x:true}, null, false и
+  # отсутствие поля — НЕ изоляция: rc 1 NE_IZOLIROVAN, учёт не растёт; только
+  # булево true — rc 0, START несёт "isolated":true. КАЖДАЯ форма —
+  # НЕЗАВИСИМЫЙ прогон без раннего выхода (Н-39/К-08: двойной дефект стаба
+  # маскировался чужой строковой формой — d18 краснела на первой и до числа
+  # не доходила); все ошибочные формы собираются в ОДНО сообщение с именем
+  # каждой: стаб s19 краснет только формой "true", s20 — только формой 1.
   local w="$WBASE/d18"; mkdir -p "$w"; mk_dwer_world "$w"
-  local v rc
-  for v in '"true"' '1' '[true]' '{"x":true}' 'null' 'false'; do
-    jq -n --argjson iso "$v" --arg t "SUBJECT=199
-WORKTREE=$DW_CAR
-BRANCH=wip/199/architect" '{tasks:[{agent:"architect",name:"ArchD18",task:$t,isolated:$iso}]}' > "$w/ev.json"
-    bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev.json" >/dev/null 2>"$w/err"; rc=$?
-    [ "$rc" -eq 1 ] || { printf 'd18: isolated=%s rc=%s (нужен 1: не-булево значение — не изоляция)\n' "$v" "$rc" >&2; return 1; }
-    grep -q 'NE_IZOLIROVAN' "$w/err" || { printf 'd18: isolated=%s нет NE_IZOLIROVAN\n' "$v" >&2; return 1; }
-    [ ! -s "$DW_SOST/uchet.jsonl" ] || { printf 'd18: isolated=%s START записан вопреки отказу\n' "$v" >&2; return 1; }
-  done
-  jq -n --arg t "SUBJECT=199
+  local v rc pred posle oshibki=''
+  for v in '"true"' '1' '[true]' '{"x":true}' 'null' 'false' 'net-polja'; do
+    if [ "$v" = 'net-polja' ]; then
+      jq -n --arg t "SUBJECT=199
 WORKTREE=$DW_CAR
 BRANCH=wip/199/architect" '{tasks:[{agent:"architect",name:"ArchD18",task:$t}]}' > "$w/ev.json"
-  bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev.json" >/dev/null 2>"$w/err"; rc=$?
-  [ "$rc" -eq 1 ] || { printf 'd18: отсутствие поля rc=%s (нужен 1)\n' "$rc" >&2; return 1; }
-  grep -q 'NE_IZOLIROVAN' "$w/err" || { printf 'd18: отсутствие поля — нет NE_IZOLIROVAN\n' >&2; return 1; }
+    else
+      jq -n --argjson iso "$v" --arg t "SUBJECT=199
+WORKTREE=$DW_CAR
+BRANCH=wip/199/architect" '{tasks:[{agent:"architect",name:"ArchD18",task:$t,isolated:$iso}]}' > "$w/ev.json"
+    fi
+    if [ -f "$DW_SOST/uchet.jsonl" ]; then pred="$(wc -l < "$DW_SOST/uchet.jsonl")"; else pred=0; fi
+    bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev.json" >/dev/null 2>"$w/err"; rc=$?
+    if [ "$rc" -ne 1 ]; then oshibki="${oshibki}isolated=${v}:rc=${rc};"; continue; fi
+    grep -q 'NE_IZOLIROVAN' "$w/err" || oshibki="${oshibki}isolated=${v}:нет-NE_IZOLIROVAN;"
+    if [ -f "$DW_SOST/uchet.jsonl" ]; then posle="$(wc -l < "$DW_SOST/uchet.jsonl")"; else posle=0; fi
+    [ "$posle" -eq "$pred" ] || oshibki="${oshibki}isolated=${v}:учёт-вырос(${pred}-${posle});"
+  done
+  if [ -f "$DW_SOST/uchet.jsonl" ]; then pred="$(wc -l < "$DW_SOST/uchet.jsonl")"; else pred=0; fi
   jq -n --arg t "SUBJECT=199
 WORKTREE=$DW_CAR
 BRANCH=wip/199/architect" '{tasks:[{agent:"architect",name:"ArchD18",task:$t,isolated:true}]}' > "$w/ev.json"
   bash "$(dver)" --sudit --sostojanie "$DW_SOST" --zhurnaly "$DW_ZHUR" --repo "$DW_MAIN" "$w/ev.json" >/dev/null 2>"$w/err"; rc=$?
-  [ "$rc" -eq 0 ] || { printf 'd18: булево true rc=%s (нужен 0): %s\n' "$rc" "$(tail -1 "$w/err")" >&2; return 1; }
-  jq -e 'select(.t == "START" and .isolated == true)' "$DW_SOST/uchet.jsonl" >/dev/null 2>&1 \
-    || { printf 'd18: START без isolated:true\n' >&2; return 1; }
+  if [ "$rc" -eq 0 ]; then
+    if [ -f "$DW_SOST/uchet.jsonl" ]; then posle="$(wc -l < "$DW_SOST/uchet.jsonl")"; else posle=0; fi
+    [ "$((posle - pred))" -eq 1 ] || oshibki="${oshibki}булево-true:START-не-дописан(${pred}-${posle});"
+    tail -n 1 "$DW_SOST/uchet.jsonl" | jq -e 'select(.t == "START" and .isolated == true)' >/dev/null 2>&1 \
+      || oshibki="${oshibki}булево-true:START-без-isolated:true;"
+  else
+    oshibki="${oshibki}булево-true:rc=${rc};"
+  fi
+  [ -z "$oshibki" ] || { printf 'd18: формы-не-изоляции не отвергнуты (нужен rc1+NE_IZOLIROVAN и учёт не растёт): %s\n' "$oshibki" >&2; return 1; }
 }
 
 
