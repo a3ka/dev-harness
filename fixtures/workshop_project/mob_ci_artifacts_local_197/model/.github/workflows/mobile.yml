@@ -101,6 +101,7 @@ jobs:
           '
       - name: 'Артефакт selection.json'
         if: always()
+        working-directory: ${{ github.workspace }}
         run: npm run ci:artefakt-zapis -- --imja selection --chto selection.json
   quality:
     runs-on: [self-hosted, linux, x64, complior]
@@ -504,6 +505,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - name: 'Артефакт APK (одна сборка на прогон)'
         if: always()
+        working-directory: ${{ github.workspace }}
         env:
           IMJA_ARTEFAKTA: ${{ steps.ident.outputs.artifact_name }}
         run: npm run ci:artefakt-zapis -- --imja "$IMJA_ARTEFAKTA" --chto mobile/android/app/build/outputs/apk/release/app-release.apk
@@ -694,6 +696,7 @@ jobs:
           python3 .harness123/scripts/sverka_maketa.py --manifest .harness123/fixtures/workshop_project/mob_sverka_123/kadry_117.json --kadry mobile/maestro-out-117 --repo . | tee mobile/maestro-out-117/sverka-123.tsv
       - name: Артефакты 117 (кадры по правилу (В), отчёт)
         if: always()
+        working-directory: ${{ github.workspace }}
         run: npm run ci:artefakt-zapis -- --imja maestro-117 --chto mobile/maestro-out-117
 
   # 143 (e2e-first-run): экранная пачка 135 (+ placement 111); валидатор 132 + cmp + происхождение, один повтор по сигнатуре (141); H: .harness135 + .harness123 (sverka пакета 135 живёт в .harness123/scripts — скрытая зависимость ekran.json)
@@ -886,6 +889,7 @@ jobs:
           python3 mobile/e2e-first-run/batareja/proverka_proiskhozdenija.py --pack mobile/e2e-first-run --repo . --harness .harness135
       - name: Артефакты 135 (кадры first-run-ekran, отчёт)
         if: always()
+        working-directory: ${{ github.workspace }}
         run: npm run ci:artefakt-zapis -- --imja maestro-first-run --chto mobile/maestro-out-first-run
 
   # 143 (e2e-erstinformation): экранная пачка 118; same-job session-Jest
@@ -1138,6 +1142,7 @@ jobs:
           python3 mobile/e2e-erstinformation/batareja/proverka_proiskhozdenija.py --pack "$PWD/mobile/e2e-erstinformation" --repo "$PWD" --harness .harness118 --jest-otchet e2e-erstinformation/jest-otchet.json
       - name: Артефакты 118 (кадры erstinformation, отчёт)
         if: always()
+        working-directory: ${{ github.workspace }}
         run: npm run ci:artefakt-zapis -- --imja maestro-erstinformation --chto mobile/maestro-out-erstinformation
 
   # 143 (e2e-start): поведенческий сценарий 108 (cmp-mob-004-start.yaml,
@@ -1296,6 +1301,7 @@ jobs:
           [ "$rc" -eq 0 ] || exit "$rc"
       - name: Артефакты 108 (отчёт start)
         if: always()
+        working-directory: ${{ github.workspace }}
         run: npm run ci:artefakt-zapis -- --imja maestro-start --chto mobile/maestro-out-start
   # 143 (e2e-pilot): межэкранная интеграционная приёмка 995 — фиксированный
   # набор P (pilot.yaml приватный из H, start, rehearsal, 999 tabs) на СВОЁМ
@@ -1430,6 +1436,7 @@ jobs:
         run: bash scripts/rehearsal-evidence.sh
       - name: Артефакты (скриншоты, отчёт)
         if: always()
+        working-directory: ${{ github.workspace }}
         run: npm run ci:artefakt-zapis -- --imja maestro --chto mobile/maestro-out
       - name: Check Maestro version
         id: rehearsal_version
@@ -1462,6 +1469,7 @@ jobs:
       - name: Изоляция раннера
         run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
       - name: Download the single APK
+        working-directory: ${{ github.workspace }}
         env:
           IMJA_ARTEFAKTA: ${{ needs.build-apk.outputs.artifact_name }}
           RUN_SBORKI: ${{ needs.build-apk.outputs.run_id }}
@@ -1491,6 +1499,7 @@ jobs:
           flock "/tmp/complior-ci-port-${AVD_PORT}.lock" node mobile/scripts/run-ci-screen.cjs --id "$SCREEN_ID" --pack "$SCREEN_PACK" --flow "$SCREEN_FLOW" --port "$AVD_PORT"
       - name: Publish child evidence
         if: always()
+        working-directory: ${{ github.workspace }}
         run: npm run ci:artefakt-zapis -- --imja "screen-evidence-${{ matrix.screen.id }}" --chto "mobile/screen-evidence/${{ matrix.screen.id }}/"
   # 143: fail-closed агрегат required-проверки android-e2e (имя сохранено —
   # меньше административного окна протекции веток). if: always() — падение
@@ -1517,6 +1526,7 @@ jobs:
       # каждого result.json (отсутствие/чужой result → именованный отказ).
       - name: Download child evidence
         if: always()
+        working-directory: ${{ github.workspace }}
         run: npm run ci:artefakt-chtenie -- --shablon 'screen-evidence-*' --kuda mobile/screen-evidence-collected
       - name: Verify selected children
         if: always()
@@ -1557,6 +1567,7 @@ jobs:
       # required агрегат (тот же ci-aggregate.cjs, тот же --evidence).
       - name: Download child evidence
         if: always()
+        working-directory: ${{ github.workspace }}
         run: npm run ci:artefakt-chtenie -- --shablon 'screen-evidence-*' --kuda mobile/screen-evidence-collected
       - name: Verify selected children
         if: always()
@@ -1573,4 +1584,5 @@ jobs:
           node mobile/scripts/ci-aggregate.cjs --needs needs.json --evidence mobile/screen-evidence-collected
       - name: 'Маркер полной регрессии (freshness-монитор)'
         if: always()
+        working-directory: ${{ github.workspace }}
         run: npm run ci:artefakt-zapis -- --imja regression-marker --chto needs.json
