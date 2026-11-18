@@ -6,7 +6,7 @@
 ЗАВЕДЁН: 2026-11-15T15:35:00Z
 АВТОР: anthropic/claude-sonnet-5-5
 БЛОКИРУЕТ: да
-ОТВЕЧЕНО: нет
+ОТВЕЧЕНО: снято — Д3 исправлен конформным каналом snapshot --out закреплённого CLI, а не вымышленным полем locate и не импортом module.js; Rev187DoorC accept на 5be0647b5d90c5bd29242ce6e8a63e891cb1cad2, ремонт в main через PR #970, консультант ConsBatch1118, модель openai-codex/gpt-6.1-sol.
 
 ВЕРДИКТ (полный текст, как есть): /tmp/dev-harness-verify/verdict-187-door-v1.md (18189 байт, sha256 32061c34760f9fa9cb0cc9bf…; первая строка FAIL; OBJECT=bd99c4b1d8e5563fba624f021e165a92d2ecf2b5; сессия Rev187DoorB; трасса `models_actual --bind --session Rev187DoorB`: anthropic/claude-opus-5-5 = план). Не закоммичен (материализация — по маршруту консультанта).
 Блоки: Б-1 (функциональный): на настоящем пине ветвь kind=outside недостижима — замер ревьюера на настоящей модели: `locate tests/auth/login.test.js` → rc=1 PATH_WITHOUT_COMPONENT; тексты бэкенда origin/main 7db5f008: 181 [код] rc=1 PATH_WITHOUT_COMPONENT: tests/auth/grant-writers.js; 185 [код] rc=1: tests/architecture/bindings.json (Д4 «вне модели: provenance.json» проходит). Б-2 (батарея): OUTSIDE_TESTS_MATCH/OPS_MATCH в toy-CLI кладут в матч поля outsideProductRuntime/emptyComponentsReason, которых настоящий CLI не выдаёт: клетки zone-outside-runtime и zone-outside-false-refused зелёные на вымышленной форме ответа; «различение по Н-39 мнимое». Советы (не блокируют) С-1…С-5: Д1 fail-open при отсутствующем/нестроковом requiredModelGate; toy для прочих файлов внутри CONTAINER_PREFIX отвечает UNRESOLVED с нулём матчей (настоящий — иначе); OBJECT — merge с f50aa6b58b, диапазон 7 коммитов (не 5); TOY_CLI из 20 .replace() (050); ветвь outside в arch187_zones пропускает путь молча.
