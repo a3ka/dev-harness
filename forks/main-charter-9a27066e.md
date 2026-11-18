@@ -6,7 +6,7 @@
 ЗАВЕДЁН: 2026-11-15T15:55:00Z
 АВТОР: anthropic/claude-sonnet-5-5
 БЛОКИРУЕТ: да
-ОТВЕЧЕНО: нет
+ОТВЕЧЕНО: снято — владелец разрешил точную grandfather-пару 47: 9a27066e9aedb4dbf8ee15288ba6000a373a969d × contracts/140-odin-agent-na-predmet.md, коммит 44f1df9fc8 в main; сброс кеша, перепись merge и универсальное исключение owner-коммитов не требуются, консультант ConsBatch1118, модель openai-codex/gpt-6.1-sol.
 
 СЫРОЙ ВЫВОД: `gh run view 43729783742 --log-failed` (PR #959, head d76918d18f, база wip/int-187/reviewer от origin/main 9a27066e9a): «FAIL уставной документ изменён без разрешения владельца: contracts/140-odin-agent-na-predmet.md в 9a27066e — тело коммита обязано нести строку «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: contracts/140-odin-agent-na-predmet.md <причина>» в первой колонке»; итог: «уставных документов: 172 · изменений в них: 15 · с разрешения: 14»; «lane: отказ ключа check:charter (rc=1)»; job legkij failure, tyazhelyj-itog skipped. `gh run list --branch main`: 9a27066e9a push completed failure; 0962c10347 success; dd63fc0c12 success. Остальные «ok … уставной с 0962c1034716…, коммитов в диапазоне 7».
 Затронуто: PR #959 (материализация FAIL 187), PR wip/140/implementer (bg_191, ожидаю тот же отказ: ветка содержит 9a27066e), PR #957 (187 door, база до #956 — после влития main в ветку или ленда тоже в окне); любой новый PR. Прежние зелёные: #957 CI (до #956).
