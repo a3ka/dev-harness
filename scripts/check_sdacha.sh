@@ -16,6 +16,9 @@
 #
 # Швы (объявлены контрактом 193, И3): SDACHA_TIMEOUT_SEK (умолчание 300 —
 # бюджет одной команды), SDACHA_BUDZHET_SEK (умолчание 900 — бюджет листа).
+# Команду, пережившую TERM, добивает SIGKILL через KILL_SEK=2 с (timeout -k):
+# rc 137 — именованный отказ «убита», предел стены — predel + KILL_SEK (Б-4
+# Rev193: бюджет ограничивает и ВЫПОЛНЯЮЩУЮСЯ команду, И3).
 # На время прогона команд листа выставляется SDACHA_OKRUG=1: нога (к) двери
 # pre_critic по маркеру пропускается — разрыв рекурсии лист↔дверь (И6).
 
@@ -51,6 +54,7 @@ NNN="$(printf '%s' "$base" | sed -nE 's/^([0-9]{3})-.*/\1/p')"
 
 TIMEOUT_SEK="${SDACHA_TIMEOUT_SEK:-300}"
 BUDZHET_SEK="${SDACHA_BUDZHET_SEK:-900}"
+KILL_SEK=2   # сек до SIGKILL после TERM (timeout -k, Б-4 Rev193)
 case "$TIMEOUT_SEK$BUDZHET_SEK" in
     *[!0-9]*) ni 'швы SDACHA_TIMEOUT_SEK/SDACHA_BUDZHET_SEK обязаны быть целыми секундами' ;;
 esac
@@ -60,7 +64,7 @@ put_ok() { # $1 путь; rc 0 — путь в грамматике
     case "$1" in
         ''|/*) return 1 ;;
     esac
-    printf '%s' "$1" | grep -qE '^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*[.]md$' || return 1
+    [[ "$1" =~ ^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*[.]md$ ]] || return 1
     local o; for o in ${1//\// }; do [ "$o" = '..' ] && return 1; done
     return 0
 }
@@ -117,7 +121,7 @@ razbit() { # $1 строка-ряд; массив CHASTI
     local s="${1//"$RAZDEL"/$'\x1f'}"
     IFS=$'\x1f' read -r -a CHASTI <<< "$s"
 }
-rc_ok() { printf '%s' "$1" | grep -qE '^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$'; }
+rc_ok() { [[ "$1" =~ ^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$ ]]; }
 
 # ── разбор секций ─────────────────────────────────────────────────────────────
 SEKCII=(Двери Карта_классов Дельта)   # «Карта классов» с пробелом — ключ отдельный
@@ -169,12 +173,12 @@ komanda_ok() { # $1 команда; rc 0 — существует и испол�
         second="$(printf '%s' "$1" | awk '{print $2}')"
         [ -n "$second" ] || return 1
         case "$second" in /*|*..*) return 1 ;; esac
-        printf '%s' "$second" | grep -qE '^[A-Za-z0-9._/-]+[.][A-Za-z0-9]+$' || return 1
+        [[ "$second" =~ ^[A-Za-z0-9._/-]+[.][A-Za-z0-9]+$ ]] || return 1
         [ -f "$ROOT/$second" ] || return 1
         [ -r "$ROOT/$second" ] || return 1
     else
         case "$first" in /*|*..*) return 1 ;; esac
-        printf '%s' "$first" | grep -qE '^[A-Za-z0-9._/-]+[.][A-Za-z0-9]+$' || return 1
+        [[ "$first" =~ ^[A-Za-z0-9._/-]+[.][A-Za-z0-9]+$ ]] || return 1
         [ -f "$ROOT/$first" ] || return 1
         [ -x "$ROOT/$first" ] || return 1
     fi
@@ -270,12 +274,25 @@ for i in "${!KOMANDY[@]}"; do
     predel="$TIMEOUT_SEK"
     (( ostalos < predel )) && predel="$ostalos"
     fact=0
-    ( cd "$ROOT" && SDACHA_OKRUG=1 timeout "$predel" bash -c "${KOMANDY[$i]}" ) >/dev/null 2>&1 || fact=$?
+    # И3: алфавит команды — `bash <файл> [аргументы]` либо исполняемый
+    # <файл> [аргументы]; разбор по словам и запуск ПРЯМЫМ argv без
+    # оболочки: хвост ряда («|| true», «; exit 0») остаётся литеральными
+    # аргументами, оператором shell не исполняется и rc не маскирует (Б-3).
+    read -r -a ARGV <<< "${KOMANDY[$i]}"
+    # TERM по predel; пережившего TERM добивает SIGKILL через KILL_SEK —
+    # дверь обязана завершаться в пределах бюджета листа + KILL_SEK (Б-4).
+    ( cd "$ROOT" && SDACHA_OKRUG=1 timeout -k "$KILL_SEK" "$predel" "${ARGV[@]}" ) >/dev/null 2>&1 || fact=$?
     if [ "$fact" -eq 124 ]; then
         if (( TIMEOUT_SEK <= ostalos )); then
             otkaz "строка ${GDE[$i]}: таймаут $TIMEOUT_SEK с команды: ${KOMANDY[$i]}"
         fi
         otkaz "строка ${GDE[$i]}: бюджет листа $BUDZHET_SEK исчерпан на команде: ${KOMANDY[$i]}"
+    fi
+    if [ "$fact" -eq 137 ]; then
+        if (( TIMEOUT_SEK <= ostalos )); then
+            otkaz "строка ${GDE[$i]}: таймаут $TIMEOUT_SEK с команды — убита SIGKILL по -k (rc=137): ${KOMANDY[$i]}"
+        fi
+        otkaz "строка ${GDE[$i]}: бюджет листа $BUDZHET_SEK исчерпан на команде — убита SIGKILL по -k (rc=137): ${KOMANDY[$i]}"
     fi
     [ "$fact" = "${OZHIDALI[$i]}" ] || otkaz "строка ${GDE[$i]}: фактический rc=$fact ≠ заявленного ${OZHIDALI[$i]}: ${KOMANDY[$i]}"
 done
