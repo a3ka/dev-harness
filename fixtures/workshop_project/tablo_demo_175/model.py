@@ -3,6 +3,10 @@
 v1: demo PR filter. v2: the mob stream led by the separate Complior-mob project
 session (its live journal in the project session home, 055 И-2) prints a fact
 line instead of «СТОИТ ПОТОК mob» and does not count into «стоит без хода».
+v3 (Б-1 Rev175): the session home is the UNION of the caller's $HOME and the
+passwd home (088 И-1) — the board is invoked under omp where HOME is the zone
+directory while the mob journals live in the real station home; a single-root
+form is a deceptive stub, not an honest control.
 No model code is shipped to ops/server.
 """
 from pathlib import Path
@@ -31,9 +35,14 @@ MOB_BLOCK = (
     "# вне дерева станции, журнал сессия пишет сама. Живой журнал = самый свежий jsonl\n"
     "# (сессия или её субагент) не старше окна табло; мера та же, что у журналов\n"
     "# станции. Наличие состояния проекта (bin/wt/архив) ведущим не считается.\n"
-    "mob_ses = glob.glob(os.path.expanduser(\n"
-    "    '~/.local/state/dev-harness-projects/complior-mob/home/.omp/profiles/dev'\n"
-    "    '/agent/sessions/--home-harness-projects-Complior-mob--'))\n"
+    "# Дом сессии — объединение корней $HOME запускающего и дома из passwd (088 И-1):\n"
+    "# табло зовут и из зоны omp, где HOME — каталог зоны, а журналы лежат в доме\n"
+    "# станции; совпавшие корни дают один и тот же каталог, дубль не считается.\n"
+    "import pwd\n"
+    "mob_ses = sorted({p for h in (os.path.expanduser('~'), pwd.getpwuid(os.getuid()).pw_dir)\n"
+    "                  for p in glob.glob(h + '/.local/state/dev-harness-projects/complior-mob'\n"
+    "                                     '/home/.omp/profiles/dev/agent/sessions'\n"
+    "                                     '/--home-harness-projects-Complior-mob--')})\n"
 )
 MOB_VEDET_LINE = 'mob_vedet = bool(mob_last) and max(mob_last) >= NOW.timestamp() - WINDOW * 60'
 MOB_VEDET_LINES = (
@@ -79,11 +88,12 @@ def honest_v2():
 # сессии; форма обращения к файловой системе не предписана: glob составного
 # пути (honest_v2), glob полного пути, find, обход каталога — каждый контроль
 # обязан быть зелёным на всех мирах; батарея судит поведение, не синтаксис.
+# v3 (Б-1): полный путь тоже идёт по объединению корней $HOME ∪ passwd.
 ALT_FULLPATH_SEARCH = (
-    "mob_last = [os.path.getmtime(f) for p in ('*.jsonl', '*/*.jsonl')\n"
-    "            for f in glob.glob(os.path.expanduser(\n"
-    "                '~/.local/state/dev-harness-projects/complior-mob/home/.omp/profiles/dev'\n"
-    "                '/agent/sessions/--home-harness-projects-Complior-mob--/' + p))]\n"
+    "mob_last = [os.path.getmtime(f) for h in (os.path.expanduser('~'), pwd.getpwuid(os.getuid()).pw_dir)\n"
+    "            for p in ('*.jsonl', '*/*.jsonl')\n"
+    "            for f in glob.glob(h + '/.local/state/dev-harness-projects/complior-mob/home/.omp'\n"
+    "                               '/profiles/dev/agent/sessions/--home-harness-projects-Complior-mob--/' + p)]\n"
 )
 ALT_FIND_SEARCH = (
     "mob_last = [os.path.getmtime(f) for b in mob_ses for f in sh(\n"
