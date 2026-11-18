@@ -36,9 +36,47 @@ def parse_rows(plan_text, roadmap_text):
     return plan, rows
 
 
-def statuses(repo, sha, plan, rows, pauses, registered):
-    tags = git(repo, 'ls-remote', '--tags', 'origin',
-               'refs/tags/frozen/contracts/*', 'refs/tags/done/contracts/*')
+def norm_rel(path):
+    """Рв182-3: снять хвостовые «/», свернуть «//»; путь без них не меняется
+    (зеркало norm_rel субъекта scripts/orch_plan_slice.sh)."""
+    while path.endswith('/'):
+        path = path[:-1]
+    while '//' in path:
+        path = path.replace('//', '/')
+    return path
+
+
+def tags_and_history(repo, sha, mutation=None, prefix=None):
+    """ls-remote + rev-list (Рв182-2): любой отказ чтения — именованный.
+    Проектный режим (prefix задан) несёт полный префикс И-7 и названный выход
+    «восстановить доступ к origin (fetch)»; станционная ветка — побайтно v1.
+    Обманные 'ls-remote-no-prefix'/'rev-list-no-prefix' дают станционную форму
+    отказа в проектном режиме (дефект 5aa2411642, найденный Rev182)."""
+    tags_run = subprocess.run(
+        ['git', '-C', repo, 'ls-remote', '--tags', 'origin',
+         'refs/tags/frozen/contracts/*', 'refs/tags/done/contracts/*'],
+        text=True, capture_output=True)
+    if tags_run.returncode:
+        if prefix is not None and mutation != 'ls-remote-no-prefix':
+            raise ValueError(
+                prefix + ': не читаются опубликованные теги origin в ' + repo
+                + '; выход: восстановить доступ к origin (fetch)')
+        raise ValueError(
+            'PLAN_SOURCE_UNAVAILABLE: не читаются опубликованные теги origin в ' + repo)
+    hist_run = subprocess.run(['git', '-C', repo, 'rev-list', sha],
+                              text=True, capture_output=True)
+    if hist_run.returncode:
+        if prefix is not None and mutation != 'rev-list-no-prefix':
+            raise ValueError(
+                prefix + ': не читается история origin/main=' + sha
+                + '; выход: восстановить доступ к origin (fetch)')
+        raise ValueError(
+            'PLAN_SOURCE_UNAVAILABLE: не читается история origin/main=' + sha)
+    return tags_run.stdout
+
+
+def statuses(repo, sha, plan, rows, pauses, registered, mutation=None, prefix=None):
+    tags = tags_and_history(repo, sha, mutation=mutation, prefix=prefix)
     published = set()
     for line in tags.splitlines():
         target, ref = line.split('\t')
@@ -92,8 +130,7 @@ def station_snapshot(repo, sha, mutation):
 
 
 def station_statuses(repo, sha, plan, rows, pauses, registered, mutation):
-    tags = git(repo, 'ls-remote', '--tags', 'origin',
-               'refs/tags/frozen/contracts/*', 'refs/tags/done/contracts/*')
+    tags = tags_and_history(repo, sha, mutation=mutation)
     published = set()
     for line in tags.splitlines():
         target, ref = line.split('\t')
@@ -154,6 +191,12 @@ def project_snapshot(repo, sha, mutation):
             registry, state = 'registry', '.'
     else:
         registry, state = 'registry', '.'
+    if mutation != 'no-slash-norm':
+        # Рв182-3: нормализация профильных путей (хвостовые «/», внутренние «//»)
+        # — как norm_rel субъекта; путь без них не меняется. Обманный
+        # 'no-slash-norm' её отбрасывает → ложный отказ «нет ops/ledger2//plan.tsv».
+        registry = norm_rel(registry)
+        state = norm_rel(state)
     if mutation == 'registry-hardcode':
         # Адресный стаб (мутация критика К-08): результат резолвера отброшен
         # в пользу захардкоженного стандартного пути.
@@ -209,7 +252,8 @@ def project_snapshot(repo, sha, mutation):
     registered = {line.split(' → ', 1)[0] for line in contracts_text.splitlines()
                   if ' → ' in line}
     result = [f'PLAN_SNAPSHOT: origin/main={sha}']
-    result += statuses(repo, sha, plan, rows, pauses, registered)
+    result += statuses(repo, sha, plan, rows, pauses, registered,
+                       mutation=mutation, prefix=prefix)
     return '\n'.join(result) + '\n'
 
 
@@ -229,7 +273,8 @@ if __name__ == '__main__':
         'no-project-mode', 'root-decoy', 'local-profile-plan', 'pauzy-required',
         'silent-empty', 'station-fallback', 'project-no-crosscheck',
         'resolver-fallback', 'legacy-fallback',
-        'registry-hardcode', 'vague-refusal', 'no-exit'])
+        'registry-hardcode', 'vague-refusal', 'no-exit',
+        'no-slash-norm', 'ls-remote-no-prefix', 'rev-list-no-prefix'])
     args = parser.parse_args()
     try:
         sys.stdout.write(snapshot(args.repo, args.mutation))

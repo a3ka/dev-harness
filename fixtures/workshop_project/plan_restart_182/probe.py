@@ -240,6 +240,46 @@ def project_expected(repo, *, pauzy=True):
         for num, status, nxt in rows]) + '\n'
 
 
+def dead_origin_project_world(tmp):
+    """Рв182-2: недоступный origin ПОСЛЕ fetch — URL origin перенаправлен в
+    несуществующий каталог (образец мира Rev182b P1); локальная ссылка
+    origin/main и все блобы снятого SHA остаются читаемыми."""
+    repo = project_world(tmp, plan=True, pauzy=True, stale=False)
+    checked('git', '-C', str(repo), 'remote', 'set-url', 'origin', str(tmp / 'gone.git'))
+    return repo
+
+
+def dead_origin_station_world(tmp):
+    """Станционное тело того же входа (Rev182b S2): v1-отказ побайтово."""
+    repo, _ = world(tmp)
+    checked('git', '-C', str(repo), 'remote', 'set-url', 'origin', str(tmp / 'gone.git'))
+    return repo
+
+
+def second_published_point(repo):
+    """Вторая опубликованная точка истории + удалённый loose-объект её родителя
+    (образец мира Rev182b P2/S3): tip-коммит цел, отказ даёт именно rev-list."""
+    checked('git', '-C', str(repo), '-c', 'user.name=architect',
+            '-c', 'user.email=architect@dev-harness.local', 'commit',
+            '--allow-empty', '-m', 'second published point')
+    checked('git', '-C', str(repo), 'push', 'origin', 'main')
+    checked('git', '-C', str(repo), 'fetch', 'origin', 'main')
+    parent = checked('git', '-C', str(repo), 'rev-parse', 'origin/main^')
+    (repo / '.git' / 'objects' / parent[:2] / parent[2:]).unlink()
+
+
+def broken_history_project_world(tmp):
+    repo = project_world(tmp, plan=True, pauzy=True, stale=False)
+    second_published_point(repo)
+    return repo
+
+
+def broken_history_station_world(tmp):
+    repo, _ = world(tmp)
+    second_published_point(repo)
+    return repo
+
+
 def assess(command, expected, errors):
     proc = run(*map(str, command))
     lines = proc.stdout.splitlines()
@@ -273,8 +313,11 @@ def assess_project(command, expected, errors, pause_cell, prefix='proj-'):
         f'{prefix}frozen': len(lines) > 2 and lines[2] == reference[2],
         pause_cell: len(lines) > 3 and lines[3] == reference[3],
         f'{prefix}draft': len(lines) > 4 and lines[4] == reference[4],
+        # С-4 (Rev182b): подстроки приманки ищутся только в строках плана
+        # (lines[1:]): строка PLAN_SNAPSHOT несёт SHA, иногда содержащий
+        # «147»/«148», и не судится — иначе ложная краснота ~5 % прогонов.
         f'{prefix}no-decoy': not any(('147' in line or '148' in line or 'V-2' in line)
-                                     for line in lines),
+                                     for line in lines[1:]),
         f'{prefix}local-isolation': 'после W-1' not in proc.stdout
                                     and 'ROADMAP=9/' not in proc.stdout,
         f'{prefix}structural': proc.stdout == expected,
@@ -295,8 +338,11 @@ def assess_project_nopauzy(command, expected, errors):
     checks = {
         'proj-pauzy-optional': (len(lines) > 3 and lines[3] == reference[3]
                                 and 'ПАУЗА' not in proc.stdout),
+        # С-4 (Rev182b): подстроки приманки ищутся только в строках плана
+        # (lines[1:]): строка PLAN_SNAPSHOT несёт SHA, иногда содержащий
+        # «147»/«148», и не судится — иначе ложная краснота ~5 % прогонов.
         'proj-no-decoy': not any(('147' in line or '148' in line or 'V-2' in line)
-                                 for line in lines),
+                                 for line in lines[1:]),
         'proj-no-pauzy-structural': proc.stdout == expected,
     }
     for label, matched in checks.items():
@@ -326,6 +372,23 @@ def refusal_no_plan(repo, plan_rel='.harness/registry/plan.tsv'):
             f'не подменяет; выход: план проекта заводит владелец коммитом в {plan_rel} (996)')
 
 
+def refusal_dead_origin(repo):
+    """Оракул И-7 (Рв182-2): недоступный origin после fetch (ls-remote) —
+    полный префикс, причина и названный выход, побайтово как у субъекта."""
+    return (unavailable_prefix(origin_sha(repo))
+            + f' не читаются опубликованные теги origin в {repo};'
+              ' выход: восстановить доступ к origin (fetch)')
+
+
+def refusal_broken_history(repo):
+    """Оракул И-7 (Рв182-2): отказ rev-list (удалён объект родителя) —
+    полный префикс, причина и названный выход, побайтово как у субъекта."""
+    sha = origin_sha(repo)
+    return (unavailable_prefix(sha)
+            + f' не читается история origin/main={sha};'
+              ' выход: восстановить доступ к origin (fetch)')
+
+
 def assess_refusal(command, errors, label, prefix, *fragments):
     proc = run(*map(str, command))
     err = proc.stderr.strip()
@@ -338,6 +401,33 @@ def assess_refusal(command, errors, label, prefix, *fragments):
         errors.append(label)
         print(f'RED {label}: rc={proc.returncode} stdout={proc.stdout[:90]!r} '
               f'stderr={err[:160]!r}')
+    return 1
+
+
+def assess_registry_slash(command, expected, errors, label):
+    """Клетка Рв182-3: профильный registry с хвостовыми/внутренними «/» — срез
+    НЕ отказывает (rc 0), выдача равна оракулу, в stderr нет «//»."""
+    proc = run(*map(str, command))
+    if proc.returncode == 0 and proc.stdout == expected and '//' not in proc.stderr:
+        print(f'GREEN {label}')
+    else:
+        errors.append(label)
+        print(f'RED {label}: rc={proc.returncode} stdout={proc.stdout[:90]!r} '
+              f'stderr={proc.stderr.strip()[:160]!r}')
+    return 1
+
+
+def assess_station_refusal(command, errors, label, expected_stderr):
+    """Станционная клетка Рв182-2: тот же вход — тройка (rc, stdout, stderr)
+    ПОБАЙТОВО как v1: сообщение v1 целиком, без префикса И-7 и выхода."""
+    proc = run(*map(str, command))
+    if (proc.returncode == 1 and proc.stdout == ''
+            and proc.stderr.strip() == expected_stderr):
+        print(f'GREEN {label}')
+    else:
+        errors.append(label)
+        print(f'RED {label}: rc={proc.returncode} stdout={proc.stdout[:90]!r} '
+              f'stderr={proc.stderr.strip()[:160]!r}')
     return 1
 
 
@@ -470,6 +560,53 @@ def main():
         alt_exp = project_expected(alt_repo, pauzy=True)
         proj_cells += assess_project(cli(alt_repo), alt_exp, errors,
                                      'proj-alt-pause', prefix='proj-alt-')
+        # ── Рв182-3 (Rev182b): нормализация «/» профильного registry ───────────
+        # Каждый вход — ОТДЕЛЬНАЯ клетка со своим миром и своим вызовом субъекта
+        # (не объединяется в один сценарий с ранним отказом).
+        station_cells = 0
+        for slash_label, slash_registry in (
+            ('proj-slash-trailing', 'ops/ledger2/'),
+            ('proj-slash-triple', 'ops/ledger2///'),
+            ('proj-slash-inner', 'ops//ledger9'),
+        ):
+            slash_dir = temp / slash_label
+            slash_dir.mkdir()
+            slash_repo = project_world(slash_dir, plan=True, pauzy=True, stale=True,
+                                       registry=slash_registry)
+            proj_cells += assess_registry_slash(
+                cli(slash_repo), project_expected(slash_repo, pauzy=True), errors, slash_label)
+        # ── Рв182-2 (Rev182): недоступный origin после fetch и отказ rev-list ───
+        # Проектный режим: полный префикс И-7, причина и названный выход.
+        dead_dir = temp / 'proj-dead-origin'
+        dead_dir.mkdir()
+        dead_repo = dead_origin_project_world(dead_dir)
+        proj_cells += assess_refusal(
+            cli(dead_repo), errors, 'proj-dead-origin-lsremote',
+            unavailable_prefix(origin_sha(dead_repo)),
+            'не читаются опубликованные теги origin',
+            'выход: восстановить доступ к origin (fetch)')
+        broken_dir = temp / 'proj-broken-history'
+        broken_dir.mkdir()
+        broken_repo = broken_history_project_world(broken_dir)
+        proj_cells += assess_refusal(
+            cli(broken_repo), errors, 'proj-broken-history-revlist',
+            unavailable_prefix(origin_sha(broken_repo)),
+            'не читается история origin/main',
+            'выход: восстановить доступ к origin (fetch)')
+        # Станционный режим: те же входы — отказ ПОБАЙТОВО как v1 (Рв182-2).
+        sdead_dir = temp / 'station-dead-origin'
+        sdead_dir.mkdir()
+        sdead_repo = dead_origin_station_world(sdead_dir)
+        station_cells += assess_station_refusal(
+            cli(sdead_repo), errors, 'station-dead-origin-v1',
+            'PLAN_SOURCE_UNAVAILABLE: не читаются опубликованные теги origin в '
+            f'{sdead_repo}')
+        sbroken_dir = temp / 'station-broken-history'
+        sbroken_dir.mkdir()
+        sbroken_repo = broken_history_station_world(sbroken_dir)
+        station_cells += assess_station_refusal(
+            cli(sbroken_repo), errors, 'station-broken-history-v1',
+            f'PLAN_SOURCE_UNAVAILABLE: не читается история origin/main={origin_sha(sbroken_repo)}')
         if args.stabs:
             # Each decoy is checked against its own distinguishing coordinate.
             mutations = {'handoff': 'no-stale', 'stale': 'no-stale',
@@ -510,6 +647,13 @@ def main():
                 'vague-refusal': ('no-plan', 'proj-no-plan-named'),
                 # названный выход удалён из отказа без плана (мутация критика К-10)
                 'no-exit': ('no-plan', 'proj-no-plan-exit'),
+                # Рв182-3: нет нормализации «/» профильного registry → ложный отказ
+                # «нет ops/ledger2//plan.tsv» при опубликованном плане
+                'no-slash-norm': ('slash-registry', 'proj-slash-trailing'),
+                # Рв182-2: отказ ls-remote в проектном режиме без префикса И-7 и выхода
+                'ls-remote-no-prefix': ('dead-origin', 'proj-dead-origin-lsremote'),
+                # Рв182-2: отказ rev-list в проектном режиме без префикса И-7 и выхода
+                'rev-list-no-prefix': ('broken-history', 'proj-broken-history-revlist'),
             }
             # Миры стабов — по одному на класс входа; оракул снят в память до прогона.
             stab_worlds = {}
@@ -525,6 +669,10 @@ def main():
                 ('alt-registry', lambda d: project_world(d, plan=True, pauzy=True, stale=True,
                                                          registry='.harness/ledger',
                                                          standard_decoy=True)),
+                ('slash-registry', lambda d: project_world(d, plan=True, pauzy=True, stale=True,
+                                                            registry='ops/ledger2/')),
+                ('dead-origin', dead_origin_project_world),
+                ('broken-history', broken_history_project_world),
             ):
                 d = temp / f'stabw-{key}'
                 d.mkdir()
@@ -538,6 +686,10 @@ def main():
                 'sync-marker': (1, '', None),
                 'alt-registry': (0, project_expected(stab_worlds['alt-registry'], pauzy=True),
                                  None),
+                'slash-registry': (0, project_expected(stab_worlds['slash-registry'],
+                                                        pauzy=True), None),
+                'dead-origin': (1, '', refusal_dead_origin(stab_worlds['dead-origin'])),
+                'broken-history': (1, '', refusal_broken_history(stab_worlds['broken-history'])),
             }
             for mutation, (kind, cell) in proj_stabs.items():
                 proc = run(sys.executable, str(MODEL), '--repo',
@@ -552,7 +704,7 @@ def main():
             total = len(mutations) + len(proj_stabs)
             print(f'STABS={total} CAUGHT={caught}')
             return int(caught != total or bool(errors))
-        total_cells = count + 3 + proj_cells
+        total_cells = count + 3 + proj_cells + station_cells
         print(f'CELLS={total_cells} GREEN={total_cells-len(errors)}')
         return int(bool(errors))
 
