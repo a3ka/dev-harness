@@ -87,7 +87,7 @@ BUDGET_EDITS = {
         "if pos <= 2:", "if pos <= 3:"),
     'compress-roles': ('count = len(starts)', 'count = len({r["rol"] for r in starts})'),
     'compress-object': ('count = len(starts)', 'count = len({r["object"] for r in starts})'),
-    'arbitration-unlimited': ('if pos == 4 and arbitrazh:', 'if arbitrazh:'),
+    'arbitration-unlimited': ('        choices = {', '        if arbitrazh:\n            continue\n        choices = {'),
     'sanction-object-ignored': (
         "return row['nomer'] == pos and row['object'] == obj", "return row['nomer'] == pos"),
     'sanction-nomer-ignored': (
@@ -109,7 +109,8 @@ BUDGET_EDITS = {
                   "starts = [r for r in judges if r.get('repoId') == repo_id]"),
     'all-judges': ("r.get('klass') == 'sudja' and r.get('rol') in ('critic', 'critic-sol')",
                    "r.get('klass') == 'sudja'"),
-    'sank-bad-ignored': ("elif r.get('t') == 'SANKTSIYA':", "elif r.get('t') == 'NOEVENT-154':"),
+    'sank-bad-ignored': ("elif r.get('t') in ('SANKTSIYA', 'ISPOLZOVANO'):",
+                         "elif r.get('t') == 'ISPOLZOVANO':"),
     'arb-bad-ignored': ("if r.get('t') == 'ARBITRAZH':", "if r.get('t') == 'NOEVENT-154':"),
     'contradictory-ledger': ('if not do_zhurnala and verdicts and not starts:',
                             'if False and not do_zhurnala and verdicts and not starts:'),
@@ -124,6 +125,18 @@ BUDGET_EDITS = {
                               tag, GRANICA_NOVYH], capture_output=True)""",
         """anc = subprocess.run(['git', '-C', repo, 'merge-base', '--is-ancestor',
                               GRANICA_NOVYH, tag], capture_output=True)"""),
+    'arb-reclassifies-used': ('        chosen = choices.pop()',
+                              "        chosen = choices.pop()\n        if pos == 4 and arbitrazh:\n            continue"),
+    'owner-reclassifies-used': ("        if chosen == 'arbitrazh':",
+                               "        if any(s['istochnik'] == 'vladelec' and sanction_matches(s, pos, obj) for s in sank):\n            continue\n        if chosen == 'arbitrazh':"),
+    'unused-grants-charged': ('    used = 0',
+                             "    used = sum(s['istochnik'] == 'konsultant' for s in sank)"),
+    'duplicate-grants-charged': ('            used += 1',
+                                 "            used += sum(s['istochnik'] == 'konsultant' and sanction_matches(s, pos, obj) for s in sank)"),
+    'owner-charged': ("        if grants and chosen in ('vladelec', 'orchestrator'):\n            continue",
+                      "        if grants and chosen in ('vladelec', 'orchestrator'):\n            used += chosen == 'vladelec'\n            continue"),
+    'selection-conflict-ignored': ('if len(choices) != 1:', 'if not choices:'),
+    'consultant-without-arbitration': ("and (pos <= 3 or arbitrazh)", "and True"),
 }
 # Условные реализации по зашитому КОНЕЧНОМУ подмножеству номеров (класс Б8,
 # вердикты Crit154c/Crit154d/Crit154e): вызов бюджета у обеих точек охраняется
@@ -280,7 +293,7 @@ def resolve_sank(spec, tip):
 def add_receipts(repo, rows, decorate=False):
     # Grammar/serialization only: this shared primitive is not the result oracle.
     from model.budget import receipt_line
-    events = [r for r in rows if r.get('t') in ('ARBITRAZH', 'SANKTSIYA')]
+    events = [r for r in rows if r.get('t') in ('ARBITRAZH', 'SANKTSIYA', 'ISPOLZOVANO')]
     if not events:
         return
     lines = [receipt_line(r) for r in events]
@@ -297,7 +310,7 @@ def add_receipts(repo, rows, decorate=False):
 def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phase='spawn',
           label='', foreign='', arb_ledger=0, sanktsii=(), history='', seed=None,
           novelty='new', objects='unique', live='', subject='', drugoj_repoid=False,
-          arb_first=''):
+          arb_first='', used_sources=()):
     # Ось Б8: судимый номер предмета и ключ репозитория мира — параметры мира,
     # не константы батареи: порог обязан не зависеть ни от того, ни от другого.
     sv = subject or NNN
@@ -437,6 +450,23 @@ def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phas
         if third_obj is not None:
             rows.append(dict(t='SANKTSIYA', repoId=rid, subjectId=sv, object=third_obj,
                              nomer=3, istochnik='orchestrator', at=AT_ZHURNAL))
+    # Selection is a separate append-only fact, not a choice made by the counter.
+    # Fixtures may select a different source explicitly while keeping grants fixed.
+    for pos, obj in enumerate([None] * offset + objs + ([tip] if phase == 'spawn' else []), 1):
+        if pos < 3 or obj is None:
+            continue
+        sources = [src for nom, _, src in sanktsii if nom == pos]
+        default = ('orchestrator' if pos == 3 else
+                   'arbitrazh' if pos == 4 and arb_ledger else
+                   'vladelec' if 'vladelec' in sources else
+                   'konsultant' if 'konsultant' in sources else 'vladelec')
+        chosen = dict(used_sources).get(pos, default)
+        if source == 'selection-missing' and pos == 4:
+            continue
+        rows.append(dict(t='ISPOLZOVANO', repoId=rid, subjectId=sv,
+                         object=obj, nomer=pos, istochnik=chosen, at=AT_ZHURNAL))
+        if source == 'selection-conflict' and pos == 4:
+            rows.append(dict(rows[-1], istochnik='vladelec'))
     for i, outcome in enumerate(outcomes):
         holder = f'Crit{i}b' if name_variant else f'Crit{i}a'
         rows.append(dict(t='START', repoId=rid, subjectId=sv,
@@ -515,7 +545,8 @@ def freeze(scripts, repo, state, subject=''):
 
 
 def oracle(n, phase, source='', foreign='', arb_ledger=0, sanktsii=(), history='',
-           seed=None, novelty='new', outcomes=None, objects='unique', arb_file=False):
+           seed=None, novelty='new', outcomes=None, objects='unique', arb_file=False,
+           used_sources=()):
     """Symbolic specification, captured before the subject; no filesystem reads."""
     if novelty == 'old':
         classes, prev = 0, object()
@@ -551,16 +582,25 @@ def oracle(n, phase, source='', foreign='', arb_ledger=0, sanktsii=(), history='
             continue
         if obj is None:
             return 'SCHET_NEIZVESTEN'
+        if pos == 4 and source in ('selection-missing', 'selection-conflict'):
+            return 'SCHET_NEIZVESTEN'
+        available = [src for num, _, src in sanktsii if num == pos]
+        default = ('orchestrator' if pos == 3 else
+                   'arbitrazh' if pos == 4 and arb_ledger else
+                   'vladelec' if 'vladelec' in available else
+                   'konsultant' if 'konsultant' in available else 'vladelec')
+        selected = dict(used_sources).get(pos, default)
+        if selected == 'arbitrazh' and pos == 4 and arb_ledger:
+            continue
+        matches = {(num, spec, src) for num, spec, src in sanktsii}
         if pos == 3 and source != 'third-missing':
-            continue
-        if pos == 4 and arb_ledger:
-            continue
-        matches = [src for num, spec, src in sanktsii if num == pos and spec == obj]
-        if 'vladelec' in matches or (pos == 3 and 'orchestrator' in matches):
-            continue
-        if 'konsultant' in matches and len(charged) < KONSULTANT_LIMIT:
-            charged.append(pos)
-            continue
+            matches.add((3, obj, 'orchestrator'))
+        if (pos, obj, selected) in matches:
+            if selected in ('vladelec', 'orchestrator'):
+                continue
+            if selected == 'konsultant' and (pos < 4 or arb_ledger) and len(charged) < KONSULTANT_LIMIT:
+                charged.append(pos)
+                continue
         return 'KAP_VYZOVOV_KRITIKA'
     return 'SCHET_RASHOZHDENIE' if phase == 'freeze' and n == 0 else ''
 
@@ -569,7 +609,7 @@ def scenario(name, n, phase, outcome='FAIL', arb_file=False, rename=False,
              source='', mode='repo', mutation='', foreign='', arb_ledger=0,
              sanktsii=(), history='', seed=None, novelty='new',
              outcomes_override=None, objects='unique', live='', subject='',
-             drugoj_repoid=False, arb_first=''):
+             drugoj_repoid=False, arb_first='', used_sources=()):
     sv = subject or NNN
     with tempfile.TemporaryDirectory(prefix='schet154-') as tmp:
         base = Path(tmp)
@@ -581,7 +621,7 @@ def scenario(name, n, phase, outcome='FAIL', arb_file=False, rename=False,
         repo, state, journals, event, ledger, granica = world(
             base, n, pattern, arb_file, rename, source, phase, name,
             foreign, arb_ledger, sanktsii, history, seed, novelty, objects, live,
-            subject, drugoj_repoid, arb_first)
+            subject, drugoj_repoid, arb_first, used_sources)
         scripts = prepare_scripts(base, mode, mutation, granica or '')
         before = ledger.read_bytes() if ledger.exists() and source != 'unreadable' else None
         tag_before = (cmd(['git', '-C', str(repo), 'tag', '-l', f'frozen/contracts/{sv}/*'])
@@ -591,7 +631,7 @@ def scenario(name, n, phase, outcome='FAIL', arb_file=False, rename=False,
         registry = repo / 'registry' / 'contracts.tsv'
         registry_before = registry.read_bytes() if phase == 'freeze' and registry.exists() else None
         expected = oracle(n, phase, source, foreign, arb_ledger, sanktsii, history,
-                          seed, novelty, pattern, objects, arb_file)
+                          seed, novelty, pattern, objects, arb_file, used_sources)
         if phase == 'spawn':
             result = gate(scripts, repo, state, journals, event)
         elif source == 'no-state':
@@ -730,6 +770,45 @@ CASES += [
      {'arb_ledger': 1, 'sanktsii': tuple((p, f'p{p}', 'vladelec') for p in range(5, 9))
                                     + ((9, 'tip', 'vladelec'),)}),
 ]
+# А154-1: paid sources are fixed independently of additional grants.
+ATTRIBUTION_CASES = []
+for _phase in ('spawn', 'freeze'):
+    _last = 'tip' if _phase == 'spawn' else 'p6'
+    _n = 5 if _phase == 'spawn' else 6
+    _three = ((4, 'p4', 'konsultant'), (5, 'p5', 'konsultant'),
+              (6, _last, 'konsultant'))
+    _selected = ((4, 'konsultant'), (5, 'konsultant'), (6, 'konsultant'))
+    for _variant, _grants, _sources, _arb in (
+        ('third-refused', _three, _selected, 1),
+        ('extra-arbitration-no-reset', _three, _selected, 2),
+        ('unused-owner-no-reclassification',
+         _three + ((4, 'p4', 'vladelec'),), _selected, 1),
+        ('owner-not-charged', _three + ((4, 'p4', 'vladelec'),),
+         ((4, 'vladelec'), (5, 'konsultant'), (6, 'konsultant')), 1),
+        ('two-with-duplicates', _three + _three + ((4, 'p4', 'vladelec'),
+                                                 (8, 'drugoj', 'konsultant')),
+         ((4, 'vladelec'), (5, 'konsultant'), (6, 'konsultant')), 1),
+    ):
+        ATTRIBUTION_CASES.append((
+            f'attribution-{_phase}-{_variant}', _n, _phase, 'FAIL', False, False, '',
+            {'arb_ledger': _arb, 'sanktsii': _grants, 'used_sources': _sources}))
+    _two_last = 'tip' if _phase == 'spawn' else 'p5'
+    ATTRIBUTION_CASES.append((
+        f'attribution-{_phase}-two-from-four', _n - 1, _phase, 'FAIL', False, False, '',
+        {'arb_ledger': 1, 'sanktsii': ((4, 'p4', 'konsultant'),
+                                      (5, _two_last, 'konsultant')),
+         'used_sources': ((4, 'konsultant'), (5, 'konsultant'))}))
+    for _src in ('selection-missing', 'selection-conflict'):
+        ATTRIBUTION_CASES.append((
+            f'attribution-{_phase}-{_src}', 3 if _phase == 'spawn' else 4,
+            _phase, 'FAIL', False, False, _src,
+            {'arb_ledger': 1, 'sanktsii': ((4, 'tip' if _phase == 'spawn' else 'p4', 'vladelec'),)}))
+    ATTRIBUTION_CASES.append((
+        f'attribution-{_phase}-consultant-needs-arbitration',
+        3 if _phase == 'spawn' else 4, _phase, 'FAIL', False, False, '',
+        {'sanktsii': ((4, 'tip' if _phase == 'spawn' else 'p4', 'konsultant'),),
+         'used_sources': ((4, 'konsultant'),)}))
+CASES += ATTRIBUTION_CASES
 
 # Ось новизны в repo-режиме БЕЗ границы: toy-репозитории без снимка судят новые
 # предметы — это строгий дефолт конструкции. repo-режим судит СТАРУЮ классификацию
@@ -800,6 +879,18 @@ STAB_CASES = [
     ('freeze-positions-flattened', 3, 'freeze', 'FAIL', False, False, 'third-missing', {}),
     ('freeze-side-effect', 4, 'freeze', 'FAIL', False, False, '', {}),
 ]
+for _case in ATTRIBUTION_CASES:
+    _name, _n, _phase, _outcome, _arb, _rename, _source, _kw = _case
+    _mutations = {
+        'third-refused': ('arb-reclassifies-used',),
+        'unused-owner-no-reclassification': ('owner-reclassifies-used',),
+        'owner-not-charged': ('owner-charged',),
+        'two-with-duplicates': ('unused-grants-charged', 'duplicate-grants-charged'),
+        'selection-conflict': ('selection-conflict-ignored',),
+        'consultant-needs-arbitration': ('consultant-without-arbitration',),
+    }.get(_name.removeprefix(f'attribution-{_phase}-'), ())
+    STAB_CASES += [(_m, _n, _phase, _outcome, _arb, _rename, _source, _kw)
+                   for _m in _mutations]
 
 DOMAIN = [
     (f'domain-{phase}-{n}', n, phase, 'FAIL', False, False, '', {})
@@ -915,6 +1006,7 @@ OLD_DOMAIN = [
      {'novelty': 'old',
       'outcomes_override': ['FAIL', 'accept', 'FAIL', 'accept', 'FAIL', 'accept']}),
 ]
+DOMAIN += ATTRIBUTION_CASES
 
 # Б6: живая классификация установленных scripts/ на снимке границы (Н4/С7) —
 # repo-режим без правки scripts: старый предмет (тег — предок границы) ведёт себя
@@ -1008,6 +1100,14 @@ def grammar_shard(k, nums, tmp):
             rows.append(dict(t='SANKTSIYA', repoId=REPO_ID, subjectId=sv,
                              nomer=3, object=f'{int(sv):03d}{2:037d}',
                              istochnik='orchestrator', at=AT_ZHURNAL))
+            rows.append(dict(t='ISPOLZOVANO', repoId=REPO_ID, subjectId=sv,
+                             nomer=3, object=f'{int(sv):03d}{2:037d}',
+                             istochnik='orchestrator', at=AT_ZHURNAL))
+        rows_door.append(dict(t='ISPOLZOVANO', repoId=REPO_ID, subjectId=sv,
+                              nomer=4, object=tip, istochnik='vladelec', at=AT_ZHURNAL))
+        rows_freeze.append(dict(t='ISPOLZOVANO', repoId=REPO_ID, subjectId=sv,
+                                nomer=4, object=f'{int(sv):03d}{3:037d}',
+                                istochnik='vladelec', at=AT_ZHURNAL))
     add_receipts(repo, rows_door + rows_freeze)
     (door_state / 'uchet.jsonl').write_text(
         ''.join(json.dumps(r) + '\n' for r in rows_door))

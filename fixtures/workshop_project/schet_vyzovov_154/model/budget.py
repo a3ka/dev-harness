@@ -38,7 +38,7 @@ def staryj_predmet(repo, subject):
 def receipt_line(row):
     """One representation, used verbatim by fixture receipt writers and reader."""
     fields = ('t', 'repoId', 'subjectId')
-    if row['t'] == 'SANKTSIYA':
+    if row['t'] in ('SANKTSIYA', 'ISPOLZOVANO'):
         fields += ('object', 'nomer', 'istochnik')
     return RECEIPT_PREFIX + json.dumps({k: row[k] for k in fields},
                                       ensure_ascii=False, sort_keys=True,
@@ -113,23 +113,26 @@ def main():
                         not isinstance(r.get('subjectId'), str) or not r['subjectId'] or
                         not isinstance(r.get('at'), str) or not r['at']):
                     raise ValueError('битая строка ARBITRAZH')
-            elif r.get('t') == 'SANKTSIYA':
+            elif r.get('t') in ('SANKTSIYA', 'ISPOLZOVANO'):
                 nom = r.get('nomer')
                 if (not isinstance(r.get('repoId'), str) or not r['repoId'] or
                         not isinstance(r.get('subjectId'), str) or not r['subjectId'] or
                         not isinstance(r.get('object'), str) or len(r['object']) != 40 or
                         any(c not in '0123456789abcdef' for c in r['object']) or
                         isinstance(nom, bool) or not isinstance(nom, int) or nom < 3 or
-                        r.get('istochnik') not in ISTOCHNIKI or
+                        r.get('istochnik') not in (ISTOCHNIKI + ('arbitrazh',)
+                                                  if r['t'] == 'ISPOLZOVANO' else ISTOCHNIKI) or
                         (r['istochnik'] == 'orchestrator' and nom != 3) or
                         not isinstance(r.get('at'), str) or not r['at']):
-                    raise ValueError('битая строка SANKTSIYA')
+                    raise ValueError('битая строка ' + r['t'])
         arbitrazh = [r for r in rows if r.get('t') == 'ARBITRAZH' and
                      r.get('repoId') == repo_id and r.get('subjectId') == a.subject]
         sank = [r for r in rows if r.get('t') == 'SANKTSIYA' and
                 r.get('repoId') == repo_id and r.get('subjectId') == a.subject]
+        selected = [r for r in rows if r.get('t') == 'ISPOLZOVANO' and
+                    r.get('repoId') == repo_id and r.get('subjectId') == a.subject]
         cache = {}
-        for r in arbitrazh + sank:
+        for r in arbitrazh + sank + selected:
             if not proof_ok(a.repo, r, cache):
                 return refuse(('ARBITRAZH_NE_PODTVERZHDEN' if r['t'] == 'ARBITRAZH'
                                else 'SANKTSIYA_NE_PODTVERZHDENA') + ': нет закоммиченной адресной строки')
@@ -174,13 +177,18 @@ def main():
             continue
         if obj is None:
             return _neizvesten('до-журнальная позиция без OBJECT: ' + str(pos))
-        if pos == 4 and arbitrazh:
+        choices = {s['istochnik'] for s in selected if sanction_matches(s, pos, obj)}
+        if len(choices) != 1:
+            return _neizvesten('неоднозначный использованный источник: ' + str(pos))
+        chosen = choices.pop()
+        if chosen == 'arbitrazh':
+            if pos == 4 and arbitrazh:
+                continue
+        grants = [s for s in sank if sanction_matches(s, pos, obj) and
+                  s['istochnik'] == chosen]
+        if grants and chosen in ('vladelec', 'orchestrator'):
             continue
-        grants = [s for s in sank if sanction_matches(s, pos, obj)]
-        if any(s['istochnik'] == 'vladelec' or
-               (pos == 3 and s['istochnik'] == 'orchestrator') for s in grants):
-            continue
-        if any(s['istochnik'] == 'konsultant' for s in grants) and used < KONSULTANT_LIMIT:
+        if grants and chosen == 'konsultant' and (pos <= 3 or arbitrazh) and used < KONSULTANT_LIMIT:
             used += 1
             continue
         return refuse('KAP_VYZOVOV_KRITIKA: предмет ' + a.subject + ': позиция ' +
