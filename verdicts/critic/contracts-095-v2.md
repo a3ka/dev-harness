@@ -1,122 +1,192 @@
-accept
+FAIL
 
-# Контракт 095, круг 2
+OBJECT=614b013bdef9152257029e5dab515b671d0e8934
+СУД: repo=dev-harness; предмет=095; фаза=контракт v2 до заморозки; роль=critic; вызов=один адресный узкий по слову владельца 2026-11-18 ~18:10 UTC, батч №3 №5; модель-план=openai-codex/gpt-6.1-terra; сессия=Crit095V5; модель-факт=openai-codex/gpt-6.1-terra allowed; SHA=614b013bdef9152257029e5dab515b671d0e8934; предыдущий=Crit095V4 FAIL, 70f9a6abcf; исключение=слово владельца, без нового полного суда и следующего автоматического вызова.
 
-Предмет: `contracts/095-profil-i-vhod-agenta-contextpack.md` на `origin/wip/095/architect`, HEAD `e75ccdfa2462b59f6e7d3b94479a4217e3b097ee`. Судилось закоммиченное дерево. Сравнивал с вердиктом `verdicts/critic/contracts-095-v1.md` (4 блокера Б1–Б4); читал контракт целиком, model/dover.sh, model/dver_spawn.sh, _toy.sh, battery_stubs.sh, все 15 клеток; правила 1/8, roles/critic.md, AGENTS.md §Воркфлоу п.1–2.
+## Блок
 
-## Краткое
+БЛОКИРУЕТ contracts/095-profil-i-vhod-agenta-contextpack.md:163 — адресная дельта расширяет батарею, но оставляет действующий критерий приёмки и сопряжённые счётные утверждения несовместимыми с этой батареей.
+ОБЯЗАТЕЛЬСТВО: п.1 требует для реализации v1 до Б3 ровно пять красных клеток И-16; пп.2–3, 12 и строки 16, 161, 171, 243 называют 24 клетки и 43 порчи. Критерии должны соответствовать реально используемой батарее и не ослаблять проверку отсутствия инструментов.
+СОСТОЯНИЕ: дельта 614b013b добавила две клетки И-16, три стаба и подняла census до 26; контракт не изменён. Сдаточный лист сам называет это расхождение и сообщает семь красных до реализации.
+НАБЛЮДЕНИЕ: модельная команда rc 0 печатает 26 зелёных клеток и 46 пойманных порч, а не 24 и 43; точные команды и вывод ниже. Новые клетки проверяют тот же вход без PRECOND и потому противоречат требованию ровно пяти красных при старом субъекте. Числа 24/43 встречаются также в contracts/095-profil-i-vhod-agenta-contextpack.md:164-165, :171, :243; семь вместо пяти относится также к :16 и :171. Это не историческое описание в п.1–3 и 12: там заданы обязательные результаты команд приёмки. Закрывающее свойство: критерии и все зависимые счётные утверждения соответствуют исполняемой батарее в мирах до и после реализации; при необходимости изменения защищённого текста применяется полномочный маршрут, не удаляя новые проверки.
+ПРОИСХОЖДЕНИЕ: дельта
+КЛАСС: К-15
 
-Все 4 блокера критика круга 1 закрыты КОНСТРУКТИВНО (не ослаблением критерия): новые клетки И-13/И-14/И-15 + перестроенные И-7/И-10/И-12. Сценарии обходов круга 1 повторно прогнаны на копии модели — красны. Сценарии обходов круга 1, не отмеченные критиком отдельно (например, «судья и автор на одной и той же модели glm-4.7» — не «glm-4.7 vs glm-5.3»), покрыты той же логикой семейства. Контракт 095 принимается.
+## Карта классов
 
-## Прогоны на e75ccdfa (клон /tmp/dev-harness-verify-critic-095, после `git fetch --tags`)
+К-01: н/п — двери и лист повторно не запускались по заданию; раннер --stabs не имеет такого режима.
+К-02: чисто — вход: OWNER-BATCH3-1118 №5 и station-batch2-1118 §9, узкая область К-08.
+К-03: чисто — вход: git diff 6c29afefde..614b013b; чужие обязательства дельтой не изменены.
+К-04: чисто — вход: две новые клетки и изменённые файлы батареи в зоне architect.
+К-05: блок — расхождение критериев с живой батареей, блок К-15.
+К-06: н/п — вне дельты, без изменений с Crit095V4.
+К-07: блок — достижимость точного результата п.1 нарушена расширением батареи, блок К-15.
+К-08: чисто — вход: s62–s64 в battery_stubs.sh; две независимые подмены проверяемого пути дали rc 1 нужных клеток, см. вывод ниже.
+К-09: чисто — вход: оба мира отсутствия и второй присутствующий инструмент проверены отдельными клетками.
+К-10: чисто — вход: клетки сверяют три полные строки PRECOND, независимые rev-list/rev-parse и запуск второго стража.
+К-11: чисто — вход: оракул второго стража до вызова субъекта в обеих новых клетках.
+К-12: чисто — вход: копии настоящих scripts и project_paths_resolve в обеих новых клетках.
+К-13: н/п — секреты не затронуты дельтой.
+К-14: чисто — честная эквивалентная запись `! test -f` на обеих новых клетках rc 0; --model rc 0.
+К-15: блок — числа и точный census приёмки не согласованы с дельтой.
+К-16: чисто — bash scripts/check_threat_model.sh . contracts/095-profil-i-vhod-agenta-contextpack.md rc 0; риск обычный.
+К-17: н/п — архитектурный cutover не входит в дельту.
 
-- `bash scripts/check_precision_gate.sh . contracts/095-profil-i-vhod-agenta-contextpack.md` — rc 0, `OK`.
-- `bash scripts/check_spec_ready.sh . contracts/095-profil-i-vhod-agenta-contextpack.md` — rc 0, `OK`.
-- `bash scripts/check_consumers.sh . contracts/095-profil-i-vhod-agenta-contextpack.md` — rc 0.
-- `bash scripts/check_skills.sh` — rc 0, барьер зелёный.
-- `bash scripts/pre_critic.sh contracts/095-profil-i-vhod-agenta-contextpack.md` — rc 0, `КРИТИК: дверь зелёная`.
-- `bash fixtures/_krasnye_095.sh --model` — rc 0; 15 клеток rc 0; 18 стабов пойманы (s1–s18); стаб-пак rc 0; итог `ИТОГ 095: rc=0`.
-- `bash fixtures/_krasnye_095.sh` (без предмета) — rc 1; все 15 клеток rc 1 с «КРАСНО: <клетка>: предмет отсутствует: scripts/make_task.sh»; стаб-пак rc 0; итог `красная: предмет отсутствует`.
-- Прогон отдельных новых клеток в model-режиме: И-13, И-14, И-15 — все rc 0.
-- Прогон battery_stubs.sh в model-режиме — все 18 стабов пойманы.
+## Проверки
 
-Прогон v1 Б3 (замена `## Существующее` на «Существующее не доставлено» в копии модели) и v1 Б4 (перезапись task-file после вычисления TASK_SHA в копии модели) — обе красны на стаб-логике s13/s7, плюс И-13 несёт независимый побайтовый оракул из frozen-блоба и И-7 несёт трипвайр неизменности task-file. v1 Б1 (чтение hand-TSV harness/context-map вместо профиля) — в v2-модели такого пути в toy-мире нет; клетка И-14(б) требует `MAP: PROJECT.md :: карта проекта` из РЕПО-слоя, И-14(а) требует defaults `DEFAULTS.md` при удалении репо-contextPack. v1 Б2 (одинаковая модель glm-4.7 у автора и судьи) — модель выдаёт `ОТКАЗ: судья на модели автора: glm` (семейство = первый компонент до `-`/`.`); клетка И-7(б) ловит через `glm-4.7` vs `glm-5.3`, та же логика покрывает и идентичные модели.
+Путь клона: `/tmp/dev-harness-verify/Crit095V5/repo`; HEAD до вердикта равен OBJECT. `git fetch --tags origin` rc 0. Строка разрешения в коммите 18647b39: `РАЗРЕШИЛ-ВЛАДЕЛЕЦ: contracts/095-profil-i-vhod-agenta-contextpack.md v+1 ...`: путь первый токен, причина непуста; относится к v+1 по слову владельца. Последняя дельта контракт не меняет. Н-39: привязки s62/s63/s64 находятся в коде battery_stubs.sh, не в тексте контракта.
 
-## Блокирующие находки круга 1 — статус
+Соседние проверки, сырой вывод (rc отмечены самой командой):
+```text
+PROVODKA_RC=0
+  ok   персоны: 13 файл(ов), потолок 81920 байт
+  ok   правила: 1 файл(ов), потолок 30720 байт
+  ok   раздел требований: 182 черновик(ов) судится, замороженные — по тегам
+потолки в порядке
+CEILINGS_RC=0
+модель угроз: секция валидна (ЗАЩИЩАЕТ 14 буллет(ов), НЕ ЗАЩИЩАЕТ 11 буллет(ов))
+THREAT_RC=0
+```
+Команды: `bash scripts/check_provodka.sh . contracts/095-profil-i-vhod-agenta-contextpack.md`, `bash scripts/check_ceilings.sh . contracts/095-profil-i-vhod-agenta-contextpack.md`, `bash scripts/check_threat_model.sh . contracts/095-profil-i-vhod-agenta-contextpack.md`.
 
-### Б1. Поверхностная демонстрация вместо реального потребления профиля/двери spawn_agent/ADR/брифинга
+Собственная соседняя мутация: в копии модели условие проверки наличия каждого из двух инструментов отдельно заменено на проверку существующего `scripts/next_id.sh`; честный контроль заменяет оба `[ ! -f ... ]` на эквивалентный `! test -f ...`. Запуск клеток с `CP095_ROOT="$PWD" CP095_SUBJECT=<копия> bash fixtures/context_pack_095/<клетка>`, сырой вывод:
+```text
+КРАСНО: precond-net-check-plan: нет scripts/check_plan.sh → plan_gate обязана rc=2 NOT_RUN с названием инструмента, а не запуск отсутствующего файла (rc=127/bash)
+ATTACK gate red_orch_brief_precond_net_check_plan.sh rc=1
+КРАСНО: precond-net-plan-slice: нет scripts/orch_plan_slice.sh → plan_slice обязана rc=2 NOT_RUN с названием инструмента, а не запуск отсутствующего файла (rc=127/bash)
+ATTACK slice red_orch_brief_precond_net_plan_slice.sh rc=1
+ATTACK honest red_orch_brief_precond_net_check_plan.sh rc=0
+ATTACK honest red_orch_brief_precond_net_plan_slice.sh rc=0
+```
 
-ЗАКРЫТО КОНСТРУКТИВНО.
+`bash fixtures/_krasnye_095.sh --model` rc 0; сырой вывод:
+```text
+— стаб s1 ПОЙМАН клеткой red_pravila_proekta_ne_harsa.sh
+— стаб s2 ПОЙМАН клеткой red_manifest_razreshaetsja.sh
+— стаб s3 ПОЙМАН клеткой red_poteryannaja_ssylka_tochna.sh
+— стаб s4 ПОЙМАН клеткой red_roli_menjajut_vydachu.sh
+— стаб s5 ПОЙМАН клеткой red_zony_iz_frozen_blobs.sh
+— стаб s6 ПОЙМАН клеткой red_rezhim_do_zamorozki.sh
+— стаб s7 ПОЙМАН клеткой red_revjer_poluchaet_vydannoe.sh
+— стаб s8 ПОЙМАН клеткой red_svidetelstvo_modeli.sh
+— стаб s9 ПОЙМАН клеткой red_bjudzhet_vklejki.sh
+— стаб s10 ПОЙМАН клеткой red_uroki_po_oblasti.sh
+— стаб s11 ПОЙМАН клеткой red_proishozhdenie_fragmentov.sh
+— стаб s12 ПОЙМАН клеткой red_orch_brief_starter.sh
+— стаб s13 ПОЙМАН клеткой red_kontekst_doslovno.sh
+— стаб s14 ПОЙМАН клеткой red_profil_dva_sloja.sh
+— стаб s15 ПОЙМАН клеткой red_dver_spawn_manifest.sh
+— стаб s16 ПОЙМАН клеткой red_uroki_po_oblasti.sh
+— стаб s17 ПОЙМАН клеткой red_revjer_poluchaet_vydannoe.sh
+— стаб s18 ПОЙМАН клеткой red_orch_brief_starter.sh
+— стаб s19 ПОЙМАН клеткой red_orch_brief_karta_legacy.sh
+— стаб s20 ПОЙМАН клеткой red_orch_brief_bounded_work.sh
+— стаб s21 ПОЙМАН клеткой red_orch_brief_bounded_work.sh
+— стаб s29 ПОЙМАН клеткой red_orch_brief_bounded_work.sh
+— стаб s30 ПОЙМАН клеткой red_orch_brief_rabota_bez_plana.sh
+— стаб s31 ПОЙМАН клеткой red_orch_brief_rabota_bez_plana.sh
+— стаб s32 ПОЙМАН клеткой red_orch_brief_rabota_bez_plana.sh
+— стаб s40 ПОЙМАН клеткой red_naznachennaja_specializacija.sh
+— стаб s41 ПОЙМАН клеткой red_naznachennaja_specializacija.sh
+— стаб s42 ПОЙМАН клеткой red_naznachennaja_specializacija.sh
+— стаб s43 ПОЙМАН клеткой red_rezhim_do_zamorozki.sh
+— стаб s44 ПОЙМАН клеткой red_naznachennaja_specializacija.sh
+— стаб s45 ПОЙМАН клеткой red_orch_brief_bounded_work.sh
+— стаб s46 ПОЙМАН клеткой red_orch_brief_precond.sh
+— стаб s47 ПОЙМАН клеткой red_orch_brief_precond.sh
+— стаб s48 ПОЙМАН клеткой red_orch_brief_precond.sh
+— стаб s49 ПОЙМАН клеткой red_orch_brief_precond_budget.sh
+— стаб s54 ПОЙМАН клеткой red_orch_brief_precond_notrun.sh
+— стаб s55 ПОЙМАН клеткой red_orch_brief_precond_notrun.sh
+— стаб s56 ПОЙМАН клеткой red_orch_brief_precond_notrun.sh
+— стаб s57 ПОЙМАН клеткой red_orch_brief_precond_notrun.sh
+— стаб s58 ПОЙМАН клеткой red_orch_brief_precond_budget_gate.sh
+— стаб s59 ПОЙМАН клеткой red_orch_brief_precond_budget.sh
+— стаб s60 ПОЙМАН клеткой red_orch_brief_precond_serial.sh
+— стаб s61 ПОЙМАН клеткой red_orch_brief_precond_budget.sh
+— стаб s62 ПОЙМАН клеткой red_orch_brief_precond_net_check_plan.sh
+— стаб s63 ПОЙМАН клеткой red_orch_brief_precond_net_plan_slice.sh
+— стаб s64 ПОЙМАН клеткой red_orch_brief_precond_net_check_plan.sh
+ИТОГ стаб-пак 095: rc=0
+— battery_stubs.sh: rc=0
+— red_bjudzhet_vklejki.sh: rc=0
+— red_dver_spawn_manifest.sh: rc=0
+— red_kontekst_doslovno.sh: rc=0
+— red_manifest_razreshaetsja.sh: rc=0
+— red_naznachennaja_specializacija.sh: rc=0
+— red_orch_brief_bounded_work.sh: rc=0
+— red_orch_brief_karta_legacy.sh: rc=0
+— red_orch_brief_precond.sh: rc=0
+— red_orch_brief_precond_budget.sh: rc=0
+— red_orch_brief_precond_budget_gate.sh: rc=0
+— red_orch_brief_precond_net_check_plan.sh: rc=0
+— red_orch_brief_precond_net_plan_slice.sh: rc=0
+— red_orch_brief_precond_notrun.sh: rc=0
+— red_orch_brief_precond_serial.sh: rc=0
+— red_orch_brief_rabota_bez_plana.sh: rc=0
+— red_orch_brief_starter.sh: rc=0
+— red_poteryannaja_ssylka_tochna.sh: rc=0
+— red_pravila_proekta_ne_harsa.sh: rc=0
+— red_profil_dva_sloja.sh: rc=0
+— red_proishozhdenie_fragmentov.sh: rc=0
+— red_revjer_poluchaet_vydannoe.sh: rc=0
+— red_rezhim_do_zamorozki.sh: rc=0
+— red_roli_menjajut_vydachu.sh: rc=0
+— red_svidetelstvo_modeli.sh: rc=0
+— red_uroki_po_oblasti.sh: rc=0
+— red_zony_iz_frozen_blobs.sh: rc=0
+ИТОГ 095: rc=0
+```
 
-(a) **Карта/правила из профиля** — И-1 (red_pravila_proekta_ne_harsa.sh): в toy-мире НЕТ файла `harness/context-map` (Frontier-профиль: «Toy-TSV `harness/context-map` как носитель КАРТЫ — отвергнуто кругом 1»). Клетка требует `RULES: DEVELOPMENT.md` и `MAP: PROJECT.md :: карта проекта` в паке; запрещает `AGENTS.md`/`CODING-STANDARDS.md`. Контракт и модель прошли rc 0; s1 (харнесовские правила вклеены) пойман.
+`bash fixtures/_krasnye_095.sh --stabs` rc 1: раннер распознаёт только `--model`, поэтому `--stabs` трактуется как корень, а не как режим. Встроенный стаб-пак до клеток отработал rc 0 и вывел те же 46 строк пойманных стабов, что выше. Далее все 26 клеток сообщили отсутствие субъекта; завершающий сырой вывод:
+```text
+красная: предмет отсутствует (субъект scripts/make_task.sh, корень --stabs)
+ИТОГ 095: rc=1
+```
+Это не ошибка стаб-пака; самостоятельная команда батареи стабов названа контрактом `bash fixtures/context_pack_095/battery_stubs.sh`, её выполнение входит в оба прогона раннера.
 
-(b) **Два слоя профиля** — И-14 (red_profil_dva_sloja.sh) новая: три ветви. (а) репо-contextPack удалён → defaults слоя проекта заполняют карту (`MAP: DEFAULTS.md :: проектный дефолт`); (б) репо-contextPack замещает defaults-rows ЦЕЛИКОМ (юнит-слияние массива, прецедент `barriers.mandatory` 054) — `DEFAULTS.md` НЕ в паке; (в) пин версии слоя расходится → «пин слоя проекта расходится: репо пинит '<X>', слой несёт '<Y>'» (фраза 054 дословно). Модель несёт ту же семантику напрямую через `jq -s '(.[1].defaults.contextPack // {}) * (.[0].contextPack // {})'`; продукт обязан через `scripts/profile_resolver.sh` (Решение 1, Frontier). s14 (слой проекта игнорируется) пойман.
+Счёт: `printf '%s\n' fixtures/context_pack_095/red_*.sh | wc -l` и `grep -c '^zapest ' fixtures/context_pack_095/battery_stubs.sh`:
+```text
+CELLS=26
+STUBS=46
+```
+Предсудебные двери и сдаточный лист не повторялись по заданию. Freeze и push не выполнялись.
 
-(c) **Дверь spawn_agent — обязательность пака** — И-15 (red_dver_spawn_manifest.sh) новая. (а) спавн без построенного пака → rc 1 «ОТКАЗ: нет манифеста make_task: 777» (фраза II-3 дословно); (б) make_task построил пак → манифест-файл `.omp/context/777.tsv` непуст и несёт `=== MANIFEST ===`, дверь этой причиной НЕ отказывает. Грамматика ноги в `fixtures/context_pack_095/model/dver_spawn.sh` (режим `--model`). s15 (нога снята с двери) пойман.
-
-(d) **ADR по области** — И-10 перестроена: путь-метка (001) выдан, заменённый (003) и предложенный (004) НЕ выданы, роль-метка (002) implementer'у НЕ выдана и архитектору выдана, >8 действующих области → «зона слишком широкая, режь задание» (потолок 8). Статус-фильтр (s16) и фильтр области уроков (s10) — оба пойманы.
-
-(e) **Брифинг — содержание** — И-12 перестроена: `--kind brief` несёт MAP/RULES/BUDGET + GOAL (байты `registry/plan.tsv` дословно, оракул в памяти ДО вызова, правило 8) + WORK (предмет строкой по каждому контракту) + DECISIONS (индекс действующих ADR) + HEALTH (живой git: branch/dirty); НЕ несёт ZONES/CONTEXT/TASK/LESSONS; `--kind task` тем же субъектом секции контракта несёт. s12 (брифинг = задачный пак) и s18 (содержание вынуто) — оба пойманы.
-
-Предмет строк 25–35 (карта/rules/reuse, манифест make_task с происхождением, зоны из frozen, ADR/уроки по области, видимость скилов, свидетельство модели трассой, брифинг с GOAL/WORK/DECISIONS/HEALTH, дверь требует манифест) и решений 3/5/8 — покрыт.
-
-### Б2. Независимость автора и судьи заменена передачей одинакового задания
-
-ЗАКРЫТО КОНСТРУКТИВНО.
-
-И-7 (red_revjer_poluchaet_vydannoe.sh) перестроена: (а) reviewer без `--task-file` → «ОТКАЗ: нет выданного задания: <NNN>»; (б) **судья и автор на одном семействе** → «ОТКАЗ: судья на модели автора: <семейство>» (ADR-005, семейство = первый компонент модели до провайдера/версии: `glm-4.7` и `glm-5.3` оба → `glm`); (в) свидетеля автора в трассе нет → «ОТКАЗ: свидетельство не той роли: implementer» (для critic — «architect»). Сопоставление ФАКТИЧЕСКИХ свидетельств трассы, не факт передачи задания. s17 (семейство не сверяется) пойман.
-
-### Б3. Дословная доставка §Существующее не проверялась
-
-ЗАКРЫТО КОНСТРУКТИВНО.
-
-И-13 (red_kontekst_doslovno.sh) новая. (а) Оракул ДО вызова: КОНТЕКСТ-строки и секция `## Существующее` извлекаются из frozen-блоба (`git show $TAG:contracts/777-toy.md | grep '^КОНТЕКСТ:'` и тот же awk-фильтр, что у модели) в память; (б) черновик МУТИРУЕТСЯ (дописываются `КОНТЕКСТ: ПОДМЕНА ЧЕРНОВИКА` и `- подмена черновика: Существующее не доставлено`); (в) вызов субъекта; (г) сверка побайтовая: `GOT` (тело секции `=== CONTEXT ===` из вывода) != `WANT` (байты из заморозки) → красна; (д) вывод не должен содержать `ПОДМЕНА ЧЕРНОВИКА`. s13 (извлечение подменено литералом `Существующее не доставлено`) пойман. Подмена вне секции §Существующее (например, `КОНТЕКСТ: ...` подделана) тоже ловится: WANT включает КОНТЕКСТ-строки дословно из заморозки.
-
-### Б4. Оракул выданного задания перечитывает территорию субъекта
-
-ЗАКРЫТО КОНСТРУКТИВНО.
-
-И-7 (red_revjer_poluchaet_vydannoe.sh) (г): (1) `WANT_SHA="$(sha256sum < "$W/task.md" | cut -d' ' -f1)"` и `WANT_BYTES="$(cat "$W/task.md")"` — оракул в памяти ДО вызова (правило 8); (2) вызов субъекта с `--task-file`; (3) сверка: вывод содержит `TASK: sha256=$WANT_SHA` (`grep -Fxq`); (4) `body` (sed от `=== TASK ===` до `=== MANIFEST ===` exclusive, `tail -n +2` для отреза sha-строки) — побайтово равен `WANT_BYTES`; (5) **трипвайр** `NOW_SHA="$(sha256sum < "$W/task.md" | cut -d' ' -f1)"` ПОСЛЕ вызова — равен `WANT_SHA`. Любая перезапись файла (v1-обход: «субъект переписал task-file после вычисления TASK_SHA») ловится трипвайром: даже если модель сохраняет исходный sha в `TASK:`, NOW_SHA расходится. s7 (TASK_BYTES пересобран) пойман.
-
-## Советы и границы исполнения круга 1 — статус
-
-СОВЕТ v1: «pre_critic.sh CLI». Контракт использует корректный CLI: `bash scripts/pre_critic.sh contracts/095-profil-i-vhod-agenta-contextpack.md` (без `.`). Живой прогон — rc 0, `КРИТИК: дверь зелёная`. ✓
-
-СОВЕТ v1: «`fixtures/profile_resolver/` отсутствует в ЗОНА implementer». В `ЗОНА implementer:` контракта добавлено `fixtures/profile_resolver/`; объявлено отдельное ПЕРЕСЕЧЕНИЕ 055. ✓
-
-СОВЕТ v1: «Frontier называет TSV `роль TAB модель TAB allowed|denied` каноном models_actual 028, а живой `scripts/models_actual.sh` его не имеет». Frontier теперь явно говорит: «адаптер `scripts/models_actual.sh --tsv` (новый, 028-дельта: тот же трейс-источник, машинная форма; человекочитаемый отчёт без --tsv не меняется)»; Решение 9 закрепляет. Регрессионная семантика 028 не ослабляется (ПЕРЕСЕЧЕНИЕ implementer в ЗОНА-блоке). ✓
-
-СОВЕТ v1: «`fixtures/_krasnye_016.sh` отсутствует; `grep -n 'orch_brief'` сам по rc не отличает статус от удаления». Из приёмки убрана команда `bash fixtures/_krasnye_016.sh`; вместо `grep -n 'orch_brief'` теперь `grep -n 'до готовности генератора' roles/orchestrator.md` → rc 1 (статусная строка удалена) — это позитивная проверка удаления, а не отрицательная по слову. ✓
-
-СОВЕТ v1: «форма `КОНТЕКСТ:` в самом контракте 095» — контракт содержит `КОНТЕКСТ:`-строку (шапка, строка 3) и `## Существующее` (строка 14). pre_critic (после реализации ноги формы 13.3) примет 095; откажет контракту без них. Сама нога формы — отдельный implementer-таск (Решение 6), замер в приёмка п.5. ✓
-
-## Новые обходы (поиск не только старых 4)
-
-Прогнал атаки в копии модели на `e75ccdfa`, красны:
-
-- **N1: «слой проекта + репо-contextPack = пустая карта» (юнит-слияние, но пустые)** — `jq 'del(.contextPack)'` репо + оставить defaults: defaults несёт 1 строку (DEFAULTS.md), И-14(а) проверяет её наличие. Если модель берёт `.[0]` (только репо) — defaults не приходят, тест красный. И-14(а) ловит через отсутствие `MAP: DEFAULTS.md`. s14 пойман. ✓
-- **N2: «происхождение фрагмента origin=profile для context/zones (а не frozen)»** — И-11(а) требует `origin=draft` для незамороженного; И-11(б) требует `origin=frozen` для замороженного. s11 (origin всегда frozen) пойман. ✓
-- **N3: «манифест неполон (есть map, нет rules)»** — И-2 проверяет каждый вид (map, rules, context, zones, trace); цикл также проверяет, что profile-пути существуют на диске (adr — каталог). s2 пойман. ✓
-- **N4: «пак для implementer на незамороженном контракте»** — И-6 (режим до заморозки): implementer → «ОТКАЗ: контракт не заморожен: 777»; architect/critic по черновику собираются. s6 пойман. ✓
-- **N5: «зоны из черновика при наличии frozen»** — И-5: ЗОНА-строка ПОБАЙТОВО из frozen, черновик мутируется; вывод не должен содержать `toy-DRAFT.sh`. s5 пойман. ✓
-- **N6: «mandatory не проверен»** — И-3(а): DEVELOPMENT.md удалён → «ОТКАЗ: источник недоступен: DEVELOPMENT.md», частичного пака нет. s3 пойман. ✓
-- **N7: «роль не меняет выдачу»** — И-4: architect видит grilling, implementer не видит, но видит tdd; выдачи байт-в-байт не равны; TASK только у reviewer. s4 пойман. ✓
-- **N8: «свидетельство модели не дословно из трассы»** — И-8(в): `TRACE: role=architect model=glm-5.3 fallback=denied` дословно. s8 пойман. ✓
-- **N9: «бюджет не считается / выдаётся сверхпотолочный пак»** — И-9(а): КОНТЕКСТ 41000 байт → «ОТКАЗ: режь задачу: 41001 > 40000», пака нет. И-9(б): `BUDGET: vklejka=N/40000` где N = пересчёт проверяющего до MANIFEST. s9 пойман. ✓
-- **N10: «ADR потолок 8 не действует»** — И-10(г): 9 действующих ADR области → «ОТКАЗ: зона слишком широкая, режь задание», частичного пака нет. ✓
-- **N11: «брифинг выдан не orchestrator'у»** — И-12(а): architect + `--kind brief` → «ОТКАЗ: брифинг только оркестратору». ✓
-- **N12: «брифинг без содержания (только MAP/RULES)»** — И-12(б): требует GOAL байт-в-байт из `registry/plan.tsv`, WORK по активным контрактам, DECISIONS по действующим, HEALTH по живому git; запрещает ZONES/CONTEXT/TASK/LESSONS. ✓
-- **N13: «дверь spawn принимает исполнительскую роль без манифеста»** — И-15(а) ловит. ✓
-- **N14: «манифест-файл двери без секции MANIFEST»** — И-15(б) ловит. ✓
-- **N15: «семейство модели судьи не отличается от автора»** — И-7(б) ловит через `glm-5.3` vs `glm-4.7`. ✓
-- **N16: «свидетельства автора нет в трассе»** — И-7(в) ловит. ✓
-- **N17: «оракул не в памяти ДО вызова (subject компрометирует)»** — И-7(г) ловит трипвайром и тело-сверкой. ✓
-- **N18: «§Существующее подменено / черновик попал в пак»** — И-13 ловит. ✓
-- **N19: «pin версии слоя проекта разошёлся»** — И-14(в) ловит. ✓
-
-## Пять вопросов роли — итог
-
-1. **Критерий слабее предмета?** — Нет. 15 клеток покрывают все именованные свойства Выхода (п.1–7) и Состава (п.2–7) предмета; стаб-пак ловит 18 снятий защит; новые клетки И-13/И-14/И-15 закрывают пробелы круга 1. Предметные решения (3, 5, 8) реализованы клетками, не описаны только на бумаге.
-2. **Доказуемость командами?** — Гейты precision/spec/consumers/skills/pre_critic живьём rc 0; `_krasnye_095.sh --model` rc 0 (15 зелёных, 18 стабов пойманы); `_krasnye_095.sh` без предмета rc 1 (15 красных, стаб-пак rc 0). Все сценарии приёмки п.1–7 — исполнимы.
-3. **Решения исполнителя** — Решения 1–9 закрепляют грамматику CLI и фразы (через `model/dover.sh` и `model/dver_spawn.sh`), слои профиля, происхождение, дверь, форму pre_critic, миграцию orchestrator/lessons-harness, профиль харнеса и адаптер трассы. Алгоритм внутренней реализации продукта не предписывается — только внешние фразы и структуры.
-4. **Границы** — architect/implementer ЗОНЫ, ПЕРЕСЕЧЕНИЯ перечислены, владелец `fixtures/profile_resolver/` — implementer. Контракт/фикстуры критиком не правлены. Сам «продукт» (scripts/make_task.sh, scripts/profile_resolver.sh, scripts/spawn_agent.sh, scripts/pre_critic.sh, scripts/models_actual.sh, scripts/check_skills.sh, harness.project.json, registry/harness-project.json, registry/lessons-harness.tsv, roles/orchestrator.md) ещё не написан — тестируется вход (модель) и форма (раннер, стабы, приёмка). Реализация — следующий шаг.
-5. **Нормы** — Правило 8 соблюдено: И-7, И-13, И-12 снимают оракулы в память ДО вызова. И-0 грамматика закреплена замкнутыми алфавитами; отказы именованные, rc 1 ДО пака (нет частичных stdout у отказа). Проводка-энфорсмент: guard в CI только ПОСЛЕ landing предмета (прецедент 074/093/094). Н-39: привязка 18 стабов к 11 клеткам (s10+s16 на И-10, s4 на И-4, s7+s17 на И-7, s12+s18 на И-12) — в коде `battery_stubs.sh`, не в прозе. Секция модели угроз присутствует. Н-85/А-122: миры только `/tmp/dev-harness-verify/context-pack-095-**`, вычистка за собой (`trap _t95_cleanup`).
-
-## Намеренные границы
-
-- **Path traversal в profile path** (грамматика `[A-Za-z0-9._/-]+` допускает `..`) — модель не валидирует; клетки не тестируют. Это реализационная граница продукта: `scripts/profile_resolver.sh` или продукт может добавить явный запрет `..`. Не объявляю новым блокером: контракт описывает алфавит значений явно; миграция 054-семьи — отдельная ответственность.
-- **Валидация `why` на TAB/переводы строк** — модель И-0 читает, но не валидирует. Клетки не тестируют. Аналогично реализационная граница: продукт через `scripts/profile_resolver.sh` может валидировать. Не блокер.
-- **Извлечение семейства модели** — функция `_t95_family` отрезает по `${1#*/}` (провайдер), затем `${x%%-*}` (версия), затем `${x%%.*}`. Краевые случаи (например, `qwen3-32b` vs `qwen-3.5` дают разные семейства) — следуют из формулировки контракта «первый компонент до провайдера/версии». Клетка И-7(б) ловит `glm-4.7` vs `glm-5.3` (одно семейство). Не блокер.
-- **Нога формы pre_critic (Решение 6)** — отдельный implementer-таск, в батарею не входит; проверяется приёмкой п.5 вручную (`bash scripts/pre_critic.sh <контракт-без-КОНТЕКСТ>` → rc 1 с именованным отказом). Сам 095-контракт проходит pre_critic с текущим CLI (rc 0).
-
-## Наблюдённые прогоны
-
-- pre_critic: rc 0 (`КРИТИК: дверь зелёная`).
-- precision-gate: rc 0 (`OK`).
-- spec-ready: rc 0 (`OK`).
-- consumers: rc 0.
-- skills: rc 0 (барьер зелёный).
-- `--model` батарея: rc 0 (15 клеток зелёных, 18 стабов пойманы).
-- Батарея без предмета: rc 1 (15 клеток «предмет отсутствует», стаб-пак rc 0).
-
-Пробные атаки круга 1 (Б1-Б4) и новые обходы (N1-N19) выполнены на копиях модели в `/tmp/dev-harness-verify-critic-095`; артефакты удалены, судимое дерево и клон не менялись. Полные CI/линтеры/проектные сборки не запускались — это не входит в приёмку текущей вехи. Оснований для ESCALATE нет: блокеры конструктивно закрыты, советы круга 1 приняты, новая критика — только намеренные границы реализации (path-traversal, why-валидация, форма pre_critic), которые не препятствуют приёмке контракта и устранимы продуктом. Круг второй, повторного спора нет.
+`bash fixtures/_krasnye_095.sh` на действительном субъекте до Б3: rc 1; стаб-пак вывел те же 46 строк, что в модельном прогоне выше. Сырой вывод клеток:
+```text
+— battery_stubs.sh: rc=0
+— red_bjudzhet_vklejki.sh: rc=0
+— red_dver_spawn_manifest.sh: rc=0
+— red_kontekst_doslovno.sh: rc=0
+— red_manifest_razreshaetsja.sh: rc=0
+— red_naznachennaja_specializacija.sh: rc=0
+— red_orch_brief_bounded_work.sh: rc=0
+— red_orch_brief_karta_legacy.sh: rc=0
+КРАСНО: precond: PRECOND-строк 0, ожидалось ровно 3 (замкнутый перечень)
+— red_orch_brief_precond.sh: rc=1
+КРАСНО: precond-budget: мир бюджета: PRECOND-строк не 3
+— red_orch_brief_precond_budget.sh: rc=1
+КРАСНО: precond-budget-gate: мир тяжёлого плана: PRECOND-строк не 3
+— red_orch_brief_precond_budget_gate.sh: rc=1
+КРАСНО: precond-net-check-plan: PRECOND-строк не 3 (замкнутый перечень)
+— red_orch_brief_precond_net_check_plan.sh: rc=1
+КРАСНО: precond-net-plan-slice: PRECOND-строк не 3 (замкнутый перечень)
+— red_orch_brief_precond_net_plan_slice.sh: rc=1
+КРАСНО: precond-notrun: мир A: PRECOND-строк не 3
+— red_orch_brief_precond_notrun.sh: rc=1
+КРАСНО: precond-serial: PRECOND-строк не 3 (замкнутый перечень потерян усечением?)
+— red_orch_brief_precond_serial.sh: rc=1
+— red_orch_brief_rabota_bez_plana.sh: rc=0
+— red_orch_brief_starter.sh: rc=0
+— red_poteryannaja_ssylka_tochna.sh: rc=0
+— red_pravila_proekta_ne_harsa.sh: rc=0
+— red_profil_dva_sloja.sh: rc=0
+— red_proishozhdenie_fragmentov.sh: rc=0
+— red_revjer_poluchaet_vydannoe.sh: rc=0
+— red_rezhim_do_zamorozki.sh: rc=0
+— red_roli_menjajut_vydachu.sh: rc=0
+— red_svidetelstvo_modeli.sh: rc=0
+— red_uroki_po_oblasti.sh: rc=0
+— red_zony_iz_frozen_blobs.sh: rc=0
+ИТОГ 095: rc=1
+```
