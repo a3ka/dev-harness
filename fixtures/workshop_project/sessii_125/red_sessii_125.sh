@@ -24,6 +24,9 @@ case "${1-}" in
   "") ;;
   --model) MODE=model ;;
   --stabs) MODE=stabs ;;
+  --repo)
+    [ -d "${2-}" ] || { printf 's125 ОТКАЗ: --repo: каталога нет: %s\n' "${2-}" >&2; exit 2; }
+    REPO=$(cd "${2-}" && pwd -P); MODE=red; shift ;;
   *) printf 's125 ОТКАЗ: неизвестный ключ: %s\n' "$1" >&2; exit 2 ;;
 esac
 jq -e '.stab_vhod | type == "object"' "$SRC_JSON" >/dev/null 2>&1 || { printf 's125: нет source.json:.stab_vhod\n' >&2; exit 2; }
