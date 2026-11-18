@@ -73,8 +73,11 @@ def world(base):
     put(root, '.github/workflows/toy.yml', 'name: toy\non: push\njobs:\n  check:\n    runs-on: ubuntu-latest\n    steps:\n      - run: bash check.sh\n')
     put(root, 'package.json', json.dumps({'private': True, 'scripts': {'check:toy': 'bash check.sh'}}))
     put(root, 'config/ci_parity_exceptions.txt', '# No exceptions: the sole command is executed in CI.\n')
+    # 201 (шаг 6б): toy-контракт несёт строку класса риска (обычный — судей
+    # рисковым дверь не зовёт) и ПОТРЕБИТЕЛЬ-пробу check.sh: в мирах done-клеток
+    # стоит тег заморозки, и окно гейта ПОТРЕБИТЕЛЕЙ больше не vacuous.
     contract = paths['contracts'] + '/777-toy.md'
-    put(root, contract, '# Toy\nКОНТЕКСТ: AGENTS.md\n## Существующее\nAGENTS.md\n## Предмет\nToy boundary\nЗОНА implementer: app/\nПРОВОДКА:\n- guard=check.sh\nПРОВОДКА-ЭНФОРСМЕНТ: чистый энфорсмент\n')
+    put(root, contract, '# Toy\nКЛАСС РИСКА: обычный\nКОНТЕКСТ: AGENTS.md\n## Существующее\nAGENTS.md\n## Предмет\nToy boundary\nЗОНА implementer: app/\nПОТРЕБИТЕЛЬ check.sh: bash check.sh\nПРОВОДКА:\n- guard=check.sh\nПРОВОДКА-ЭНФОРСМЕНТ: чистый энфорсмент\n')
     put(root, paths['verdicts'] + '/critic/contracts-777-v1.md', 'accept\n')
     put(root, paths['verdicts'] + '/review/contracts-777-v1.md', 'ACCEPT\n')
     for directory in paths.values():
@@ -259,6 +262,23 @@ def pack_world(base, root, p, contract, call):
     return taskf, trace
 
 
+def done_freeze_equip(root, p, tag=True):
+    """201: implementation -> OBJECT verdict, annotated freeze on implementation.
+
+    station-isolation lets the freeze door tag the verdict commit instead;
+    its tree differs from OBJECT only by the reviewer evidence.
+    """
+    put(root, 'app/implementation.txt', 'implementation 777\n')
+    commit(root, 'implementation 777')
+    impl = git(root, 'rev-parse', 'HEAD')
+    put(root, p['workflowPaths']['verdicts'] + '/review/contracts-777-v1.md',
+        'ACCEPT\nOBJECT=' + impl + '\n')
+    commit(root, 'verdikt 777: OBJECT=' + impl[:8])
+    if tag:
+        git(root, 'tag', '-a', 'frozen/contracts/777/1', '-m', 'freeze 777', impl)
+    return impl
+
+
 # Each door/gate has its own input; no aggregated case can hide a missed gate.
 # Tuples are (door, defect, public refusal marker).
 GATE_CASES = {
@@ -284,6 +304,8 @@ GATE_CASES = {
 
 def gate_test(case, mode, mutant, root, p, contract):
     op, defect, reason = GATE_CASES[case]
+    if op == 'done':
+        done_freeze_equip(root, p)
     original = (root / contract).read_text()
     changes = {}
 
@@ -518,8 +540,10 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         op = 'freeze' if case.startswith('freeze') else 'done'
         role = 'critic' if op == 'freeze' else 'review'
         path = p['workflowPaths']['verdicts'] + f'/{role}/contracts-777-v1.md'
+        object_line = ('OBJECT=' + done_freeze_equip(root, p) + '\n'
+                       if op == 'done' else '')
         first = 'ESCALATE' if case.endswith('escalate') else 'утверждено вне грамматики'
-        put(root, path, first + '\n')
+        put(root, path, first + '\n' + object_line)
         git(root, 'add', '.')
         git(root, 'commit', '--amend', '-qm', 'grammar refusal input')
         before = (git(root, 'rev-parse', 'HEAD'), git(root, 'show-ref'),
@@ -532,7 +556,7 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
                  {str(f.relative_to(root)): f.read_bytes()
                   for f in root.rglob('*') if f.is_file() and '.git' not in f.parts})
         expect(after == before, 'VERDICT_GRAMMAR_REFUSAL_MUTATED:' + case, r)
-        put(root, path, 'accept\n')
+        put(root, path, 'accept\n' + object_line)
         git(root, 'add', '.')
         git(root, 'commit', '--amend', '-qm', 'repair grammar input')
         r = call(op, contract)
@@ -561,6 +585,8 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         expect(r.returncode == 1 and 'workflowPaths' in r.stderr, 'SYMLINK_ESCAPE_ACCEPTED', r)
     elif case.startswith('canon-'):
         canon(root, p)
+        if case == 'canon-done-green':
+            done_freeze_equip(root, p)
         op = 'done' if case in ('canon-done-green', 'canon-stale-head') else 'pre_critic'
         reason = None
         if case == 'canon-stale-head':
@@ -608,7 +634,8 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
             expect(json.loads((root / 'gate-observed.json').read_text()) == expected,
                    'CANON_DOOR_EXEC_CONTEXT_WRONG')
             if op == 'done':
-                expect(git(root, 'tag', '-l') == 'done/contracts/777/1', 'CANON_DONE_TAG_MISSING')
+                expect(git(root, 'tag', '-l') ==
+                       'done/contracts/777/1\nfrozen/contracts/777/1', 'CANON_DONE_TAG_MISSING')
     elif case in ('zones-project', 'zones-green', 'staged-project', 'staged-green', 'lib-zones-project'):
         git(root, 'tag', '-a', 'frozen/contracts/777/1', '-m', 'freeze')
         if case == 'lib-zones-project':
@@ -1306,6 +1333,8 @@ def test(case, mode, base, mutant):
     elif case in ('freeze-profile', 'freeze-decoy', 'done-profile', 'done-decoy', 'done-fresh'):
         op = 'freeze' if case.startswith('freeze') else 'done'
         role = 'critic' if op == 'freeze' else 'review'
+        if case == 'done-profile':
+            done_freeze_equip(root, p)
         if case.endswith('decoy'):
             put(root, p['workflowPaths']['verdicts'] + f'/{role}/contracts-777-v1.md', 'FAIL\n')
             put(root, f'verdicts/{role}/contracts-777-v1.md', 'accept\n')
@@ -1371,6 +1400,7 @@ def test(case, mode, base, mutant):
         leak = lambda stage: run(['bash', install / 'scripts/check_no_leak.sh', stage, install], env=env)
         r = leak('--snapshot')
         expect(r.returncode == 0, 'LEAK_SNAPSHOT_FAILED', r)
+        done_freeze_equip(root, p, tag=False)
         r = subject(mode, 'freeze', root, contract, mutant=mutant, tools=install)
         expect(r.returncode == 0, 'STATION_FREEZE_FAILED', r)
         r = leak('--check')

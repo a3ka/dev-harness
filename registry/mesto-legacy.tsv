@@ -1,0 +1,15 @@
+номер_предмета	blob_контракта	место_реализации	основание	записал
+129	6a23c8a8b4379de7c622b3193482ba7d00568abb	станция	ЗОНА implementer: `.omp/extensions/fallback-route.ts` станции; честный контроль raw-замера	architect (арбитраж 1)
+132	598bf58a96f3698912dd963b673927849d81cdd9	станция	ЗОНА implementer: `scripts/ekran_shablon.py` станции («Где живёт валидатор — харнесс, не продукт»)	architect (арбитраж 1)
+157	440310bdde5419d2ee8759edae8e5ba9d5723f1b	станция	ЗОНА implementer: `.omp/extensions/spawn-guard.ts` станции (Complior-back в тексте — контекст сессий, не зона)	architect (арбитраж 1)
+186	42c02f928d8303e95a7d818a680de61ea2c31da6	станция	ЗОНА implementer: `roles/`, `scripts/`, `ops/` станции; честный контроль raw-замера	architect (арбитраж 1)
+190	d3a20c8f581177514c3ad39b6a4b98bb216eee34	станция	ЗОНА implementer: `scripts/zamer_svyazki.sh` `scripts/zamer_svyazki.py` `docs/190-zamer-svyazki.md` станции; честный контроль raw-замера	architect (арбитраж 1)
+109	c430e0134eff18389436392a7639541ba94f826d	a3ka/Complior-back	карточка a3ka/Complior-back#5; ЗОНА implementer: `server/`, `compose.dev.yml`, `.github/workflows/ci.yml` и пр. дерева продукта	architect (арбитраж 1)
+111	330250aae6f23de208707a5e1ec12c71fe804e3e	a3ka/Complior-mob	карточка a3ka/Complior-mob#109; ЗОНА implementer: `mobile/src/features/auth/first-run-screen.tsx`, `mobile/src/bootstrap/pilot-app.tsx`, `mobile/app.json`, `.github/workflows/mobile.yml`	architect (арбитраж 1)
+117	00626ff77369956412739fa4f6bb4374218a7735	a3ka/Complior-mob	карточка a3ka/Complior-mob#109; ЗОНА implementer: `mobile/src/bootstrap/pilot-app.tsx`, `mobile/.maestro/vkhod-117-splash-vhod.yaml`, `mobile/assets/images/`, `.github/workflows/mobile.yml`	architect (арбитраж 1)
+139	d7f360925b76f16d7640f34c42adb1400fe177f0	a3ka/Complior-mob	ЗОНА implementer: `.github/workflows/mobile-e2e-retry.yml` (репо Complior-mob)	architect (арбитраж 1)
+141	300c3e8e2ad62342d1956f2d35865d14de2031e2	a3ka/Complior-mob	v3: тела шагов переносятся в `mobile/scripts/ci-*.sh` продукта; ЗОНА implementer: `.github/workflows/mobile.yml` `mobile/scripts/ci-first-run-135.sh` `mobile/scripts/ci-erstinformation-118.sh` `mobile/scripts/ci-pilot-995.sh`	architect (арбитраж 1)
+163	b651af38c4776bd88cd8d595c1bf6771259aebd3	a3ka/Complior-mob	«реализация CI — в Complior-mob» (замер арбитража 1, п.4 Основания); продуктовые этапы A–F	architect (арбитраж 1)
+991	5ea6f83c9fc3c6a5d3e5ba459faf1ec0ea031381	a3ka/Complior-mob	«ОДИН PR в a3ka/Complior-mob, без Merge»; ЗОНА implementer: `mobile/src/features/start/`, `mobile/.maestro/rehearsal.yaml`, `.github/workflows/mobile.yml` `mobile-cloud-e2e.yml` `mobile/scripts/`	architect (арбитраж 1)
+999	59f44b100bd856bfd55a4548af5049fc1dee65ce	a3ka/Complior-mob	ЗОНА implementer: `mobile/src/app/` `mobile/src/ui/` `mobile/src/theme/` `mobile/src/i18n/` `mobile/src/bootstrap/tab-shell.tsx` `.github/workflows/mobile.yml` `mobile/.maestro/`	architect (арбитраж 1)
+201	9c7d34fa13a912955c2eaa74d964d933aadc630e	станция	ЗОНА implementer frozen/contracts/201/1: scripts/done_contract.sh и registry/mesto-legacy.tsv в dev-harness	implementer
