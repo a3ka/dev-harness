@@ -117,6 +117,8 @@
 - Дано: реализация implementer в дереве (шаг 6б, предикат (г), реестр `registry/mesto-legacy.tsv` со строками §Миграции); когда `bash fixtures/workshop_project/done_dver_soderzhatelnaja_201/red_done_dver_201.sh --repo .`; тогда rc 0 (FAILURES=0), зелёные клетки заканчиваются тегом done/contracts/777/1.
 - Дано: дооснащенные миры 187 (ПЕРЕСЕЧЕНИЕ architect); когда `bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo .`, затем с `--model`, затем с `--stabs`; тогда каждый rc 0 (CELLS=54). Когда `PYTHONDONTWRITEBYTECODE=1 python3 fixtures/workshop_project/rezhim_996/probe.py --matrix`; тогда не хуже базлайна: examined=111, mismatches ≤ 1 (единственный ранее существующий skip-committed).
 - Дано: исправленный черновик, окружение без ambient GIT_AUTHOR_*/GIT_COMMITTER_*; когда `bash scripts/pre_critic.sh --repo . contracts/201-done-dver-soderzhatelnaja-sverka.md`, затем `bash scripts/check_spec_ready.sh . contracts/201-done-dver-soderzhatelnaja-sverka.md`, затем `bash scripts/check_precision_gate.sh . contracts/201-done-dver-soderzhatelnaja-sverka.md`, затем `bash scripts/check_threat_model.sh . contracts/201-done-dver-soderzhatelnaja-sverka.md`, затем `bash scripts/check_ceilings.sh .`; тогда каждый rc 0. До freeze после подключения CI orchestrator: `bash scripts/gen_ci_steps.sh --write` затем `--check` rc 0 и `bash scripts/check_provodka.sh . contracts/201-done-dver-soderzhatelnaja-sverka.md` rc 0 (шаг и замер — зона orchestrator, контракт своих строк в реестр не пишет).
+ПОТРЕБИТЕЛЬ scripts/check_spec_ready.sh: bash scripts/verify_antiplacebo.sh --scope check_spec_ready
+замер: `cat scripts/consumers.d/*.tsv | wc -l` = 6 census scripts/consumers.d/*.tsv
 
 ## Миграция классификации замороженных предметов (РЕШЕНИЕ 2 арбитража 1)
 
@@ -139,6 +141,10 @@
 | 999 | frozen/contracts/999/2 | 59f44b100bd856bfd55a4548af5049fc1dee65ce | a3ka/Complior-mob | ЗОНА implementer: `mobile/src/app/` `mobile/src/ui/` `mobile/src/theme/` `mobile/src/i18n/` `mobile/src/bootstrap/tab-shell.tsx` `.github/workflows/mobile.yml` `mobile/.maestro/` |
 
 **Без записи** (остаются fail-closed до отдельной классификации): **123** — ЗОНА implementer смешанная (`scripts/sverka_maketa.py` станции + `.github/workflows/mobile.yml` продукта, frozen/contracts/123/3): одиночным значением места не представима, произвольный выбор одного запрещён (арбитраж 1: «нет полного доказательства — нет done»). Прочие замороженные без объявления и применимой записи — также отказ до классификации их предметами. Запись — классификация уже существующего обязательства, не разрешение риска и не доказательство влитости: внешний предмет после записи идёт через обязательную проверку продукта; если требуемый продуктовый объект/влитость предъявить нельзя — правильный исход отказ, недоступность API остаётся отказом (арбитраж 1 п.4). Последующие строки реестра — предметами классификации с основанием и автором в записи; дверь реестр только читает.
+
+## Место реализации
+
+ПРОДУКТ: станция
 
 ## Зоны и пересечения
 
