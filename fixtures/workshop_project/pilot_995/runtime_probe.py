@@ -16,6 +16,12 @@ CASES = {
     'HTTP_UNAVAILABLE': 'http', 'UNKNOWN_MODE': 'banana',
     'RUNTIME_RESPONSES': 'mock',
 }
+# 995 (запрос моба 165/995; консультант ConsProbe995, вариант (а) п.1):
+# HTTP_UNAVAILABLE обеспечивает конфигурацию сетевого сценария сам —
+# синтетический HTTPS base URL присваивается ЯВНО и перекрывает любой
+# родительский EXPO_PUBLIC_API_URL; без него 165 v2 при http-режиме без URL
+# законно показывает auth-unconfigured (Ф3, инв. 6) и до fetch не доходит.
+SYNTHETIC_API_URL = 'https://api.example.invalid'
 MUTANTS = [
     ('copied-model', 'SHIPPED_INVALID', 'auth-invalid'),
     ('any-code', 'SHIPPED_INVALID', 'auth-invalid'),
@@ -101,6 +107,7 @@ def run(repo, cases=None, model=None, values=None):
                            PILOT_995_MODEL=model or 'actual')
                 env.pop('PILOT_DEMO_CODE', None)
                 if CASES[case] is None: env.pop('EXPO_PUBLIC_API_MODE', None)
+                if case == 'HTTP_UNAVAILABLE': env['EXPO_PUBLIC_API_URL'] = SYNTHETIC_API_URL
                 cmd = ['node', str(mobile / 'node_modules/jest/bin/jest.js'), '--ci', '--runInBand',
                        '--runTestsByPath', str(workspace / 'runtime.test.tsx'), '--testNamePattern', '^995 runtime ' + case + '$',
                        '--json', '--outputFile', str(report)]
