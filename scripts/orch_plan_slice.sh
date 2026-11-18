@@ -149,6 +149,23 @@ if [ "$mode" = "project" ]; then
     || die "$prefix путь реестра вне корня; выход: починить профиль проекта (996)"
   road_rel="$(rel_inside "$road_abs")" \
     || die "$prefix путь ROADMAP вне корня; выход: починить профиль проекта (996)"
+  # Рв182-3: профиль registry «ops/ledger2/» (хвостовой «/») резолвер 996
+  # принимает, а срез собирал «ops/ledger2//plan.tsv» — ложный отказ при
+  # опубликованном плане. Нормализация относительной формы R: снять хвостовые
+  # «/», свернуть «//» (прецедент scripts/freeze_contract.sh:223); путь без
+  # хвостового «/» и без «//» не меняется.
+  norm_rel() {
+    local p="$1"
+    while :; do
+      case "$p" in */) p="${p%/}" ;; *) break ;; esac
+    done
+    while :; do
+      case "$p" in *//*) p="${p//\/\//\/}" ;; *) break ;; esac
+    done
+    printf '%s' "$p"
+  }
+  reg_rel="$(norm_rel "$reg_rel")"
+  road_rel="$(norm_rel "$road_rel")"
   if [ "$reg_rel" = "." ]; then reg_rel=""; fi
   if [ "$road_rel" = "." ]; then road_rel=""; fi
   if [ -n "$reg_rel" ]; then
@@ -238,11 +255,21 @@ pause_list="$(printf '%s\n' "$pauzy_blob" | awk -F'\t' '
   NF >= 4 && substr($0, 1, 1) != "#" { print $1 "\t" $4 }')"
 
 # ── опубликованные теги: ls-remote (не локальные) + предок origin/main ────────
-tags_out="$(git -C "$repo" ls-remote --tags origin \
-  'refs/tags/frozen/contracts/*' 'refs/tags/done/contracts/*' 2>/dev/null)" \
-  || die "PLAN_SOURCE_UNAVAILABLE: не читаются опубликованные теги origin в $repo"
-ancestors="$(git -C "$repo" rev-list "$sha" 2>/dev/null)" \
-  || die "PLAN_SOURCE_UNAVAILABLE: не читается история origin/main=$sha"
+# Рв182-2: в проектном режиме ЛЮБОЙ отказ чтения источников (ls-remote/rev-list)
+# несёт префикс И-7 и названный выход; станционная ветка побайтно как в v1.
+if [ "$mode" = "project" ]; then
+  tags_out="$(git -C "$repo" ls-remote --tags origin \
+    'refs/tags/frozen/contracts/*' 'refs/tags/done/contracts/*' 2>/dev/null)" \
+    || die "$prefix не читаются опубликованные теги origin в $repo; выход: восстановить доступ к origin (fetch)"
+  ancestors="$(git -C "$repo" rev-list "$sha" 2>/dev/null)" \
+    || die "$prefix не читается история origin/main=$sha; выход: восстановить доступ к origin (fetch)"
+else
+  tags_out="$(git -C "$repo" ls-remote --tags origin \
+    'refs/tags/frozen/contracts/*' 'refs/tags/done/contracts/*' 2>/dev/null)" \
+    || die "PLAN_SOURCE_UNAVAILABLE: не читаются опубликованные теги origin в $repo"
+  ancestors="$(git -C "$repo" rev-list "$sha" 2>/dev/null)" \
+    || die "PLAN_SOURCE_UNAVAILABLE: не читается история origin/main=$sha"
+fi
 
 declare -A anc=()
 while IFS= read -r c; do
