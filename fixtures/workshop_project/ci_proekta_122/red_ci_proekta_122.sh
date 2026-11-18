@@ -28,11 +28,22 @@ MODE=red; CELL=
 while [ $# -gt 0 ]; do
   case "$1" in
     --model) MODE=model ;;
+    --repo) REPO=$2; shift ;;
+    --stabs) MODE=stabs ;;
     --cell) CELL=$2; shift ;;
     *) printf 'ci122 ОТКАЗ: неизвестный ключ: %s\n' "$1" >&2; exit 2 ;;
   esac
   shift
 done
+if [ "$MODE" = stabs ]; then
+  exec python3 "$BATT/roots_probe.py" --repo "$REPO" --stabs
+fi
+if [ "$CELL" = r12 ]; then
+  if [ "$MODE" = model ]; then
+    exec python3 "$BATT/roots_probe.py" --repo "$REPO" --model
+  fi
+  exec python3 "$BATT/roots_probe.py" --repo "$REPO"
+fi
 if [ "$MODE" = model ]; then
   GEN=${CI_PROEKTA_122_GEN:-$BATT/model/gen_project_workflow.sh}
   PRE=${CI_PROEKTA_122_PREFLIGHT:-$BATT/model/ci_preflight.sh}
@@ -1082,4 +1093,10 @@ if [ "$TOTAL" -eq 0 ]; then
   exit 2
 fi
 printf 'ИТОГ 122 (%s): клеток %d, зелёных %d, красных %d\n' "$MODE" "$TOTAL" "$GREEN" "$RED"
-[ "$RED" = 0 ]; exit $?
+roots_rc=0
+if [ "$MODE" = model ]; then
+  python3 "$BATT/roots_probe.py" --repo "$REPO" --model || roots_rc=$?
+else
+  python3 "$BATT/roots_probe.py" --repo "$REPO" || roots_rc=$?
+fi
+[ "$RED" = 0 ] && [ "$roots_rc" = 0 ]; exit $?
