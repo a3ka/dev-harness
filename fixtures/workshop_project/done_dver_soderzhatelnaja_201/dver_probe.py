@@ -35,6 +35,20 @@
     archive/architecture/march/arche — нет (боль: зелёный run бэкенда называется
     «arch (пин внешней архитектуры, model fitness + code-ratchet)», дверь искала
     буквальное «arch», done_contract.sh:245).
+(д) полный разбор ровно ОДНОГО JSON-документа (РЕШЕНИЯ 1–3 арбитража 2,
+    verdicts/arbitration/201-granica-done-dveri-2.md; блок Adv201b
+    1fe7004d63): свидетельство compare/check-runs принимается только после
+    успешного ПОЛНОГО разбора ответа каноническим jq -s (length == 1,
+    тип-объект ДО извлечения поля, rc jq ДО использования результата):
+    повреждённый хвост при успешном префиксе, второй документ (включая
+    {}), ошибка jq — НЕ свидетельство; допустимый внешний whitespace
+    вокруг единственного документа отказом не является (парные
+    положительные контроли behind/identical и arch-имена). Профиль мира —
+    тот же механизм: пути/repoId/canonicalRemote не продолжают работу на
+    повреждённом/многодокументном профиле (без fallback), а штатное
+    ОТСУТСТВИЕ необязательного git.canonicalRemote — прежний допустимый
+    fallback. Карта jq-вызовов живой двери (весь разбор недоверенного
+    JSON — через _json_one_object) проверяется в live-режимах батареи.
 
 Миры — одноразовые git-репозитории по строительным приёмам
 architecture_process_187/probe.py (toy-профиль, ПРОВОДКА guard, bare origin);
@@ -217,7 +231,10 @@ CASES = (
     ('b-produkt-object-otsutstvuet', 'mob', 1, 'отсутствует в репо продукта'),
     ('b-vneshnij-produkt-vlit', 'station', 0, ''),
     ('b-vneshnij-curl-s-oshibkoj', 'station', 1, 'влитость в main продукта a3ka/toy-mob не проверена: curl rc=1'),
+    ('b-vneshnij-json-povrezhdjon-hvost', 'station', 1, 'влитость в main продукта a3ka/toy-mob не проверена: ответ API не разобран (синтаксическая ошибка JSON'),
+    ('b-vneshnij-dva-dokumenta', 'station', 1, 'влитость в main продукта a3ka/toy-mob не проверена: ответ API не разобран (в ответе несколько JSON-документов'),
     ('b-vneshnij-ne-vlit', 'station', 1, '— реализация не влита'),
+    ('b-vneshnij-identical', 'station', 0, ''),
     ('b-vneshnij-bez-stroki', 'station', 1, 'место реализации предмета 777 не установлено'),
     ('b-vneshnij-stroka-krivaja', 'station', 1, 'ПРОДУКТ: вне грамматики'),
     ('b-vneshnij-api-nedostupen', 'station', 1, 'влитость в main продукта a3ka/toy-mob не проверена'),
@@ -247,7 +264,12 @@ CASES = (
     ('g-arch-tochno-imja', 'back', 0, ''),
     ('g-arch-v-skobkah', 'back', 0, ''),
     ('g-arch-s-probelom', 'back', 0, ''),
+    ('g-profil-povrezhdyon-fajl', 'back', 1, 'ОТКАЗ: профиль битый или workflowPaths вне репо'),
+    ('g-profil-dva-dokumenta', 'back', 1, 'ОТКАЗ: профиль битый или workflowPaths вне репо'),
+    ('g-profil-bez-canonical-remote', 'back', 0, ''),
     ('g-arch-curl-s-oshibkoj', 'back', 1, PH_ARCH_CI),
+    ('g-arch-json-povrezhdjon-hvost', 'back', 1, 'ARCH_CI: ответ check-runs не разобран (синтаксическая ошибка JSON'),
+    ('g-arch-dva-dokumenta', 'back', 1, 'ARCH_CI: ответ check-runs не разобран (в ответе несколько JSON-документов'),
     ('g-archive', 'back', 1, PH_ARCH_CI),
     ('g-architecture', 'back', 1, PH_ARCH_CI),
     ('g-arche', 'back', 1, PH_ARCH_CI),
@@ -273,7 +295,12 @@ STABS = {
     's-g-arch-kak-podstroka': 'g-archive',
     's-g-arch-tolko-literalno': 'g-arch-v-skobkah',
     's-g-curl-rc-ignoriruetsja': 'g-arch-curl-s-oshibkoj',
+    's-b-json-hvost-ignoriruetsja': 'b-vneshnij-json-povrezhdjon-hvost',
+    's-b-potok-dokumentov-dopushhen': 'b-vneshnij-dva-dokumenta',
     's-g-arche-razresheno': 'g-arche',
+    's-g-json-hvost-ignoriruetsja': 'g-arch-json-povrezhdjon-hvost',
+    's-g-potok-dokumentov-dopushhen': 'g-arch-dva-dokumenta',
+    's-g-profil-potok-dopushhen': 'g-profil-dva-dokumenta',
 }
 
 
@@ -298,6 +325,18 @@ def build(base, label, kind, name=None):
     if label in ('b-vneshnij-bez-stroki', 'b-mesto-neizvestno') or label.startswith('b-legacy-'):
         product = None  # замороженный текст без объявления — классифицирует реестр/отказ
     root, contract, registry = world(base, name or label, kind)
+    # профиль мира (РЕШЕНИЕ 3 Arb201V2): клетки профильного маршрута портят
+    # harness.project.json ДО базового коммита — дверь читает файл с диска;
+    # положительный профильный контроль снимает НЕобязательный ключ git
+    # (штатное отсутствие canonicalRemote ≠ ошибка разбора)
+    if label in ('g-profil-povrezhdyon-fajl', 'g-profil-dva-dokumenta'):
+        prof = root / 'harness.project.json'
+        prof.write_text(prof.read_text() + '\n'
+                        + ('{broken' if label == 'g-profil-povrezhdyon-fajl' else '{}') + '\n')
+    if label == 'g-profil-bez-canonical-remote':
+        prof = root / 'harness.project.json'
+        prof.write_text(json.dumps({k: v for k, v in json.loads(prof.read_text()).items()
+                                    if k != 'git'}))
     text = contract_text(
         risk=None if risk is None else risk,
         product=product,
@@ -445,6 +484,9 @@ def build(base, label, kind, name=None):
     if label.startswith('b-'):
         compare_status = {'b-vneshnij-produkt-vlit': 'behind',
                           'b-vneshnij-curl-s-oshibkoj': 'behind',
+                          'b-vneshnij-json-povrezhdjon-hvost': 'behind',
+                          'b-vneshnij-dva-dokumenta': 'behind',
+                          'b-vneshnij-identical': 'identical',
                           'b-vneshnij-ne-vlit': 'ahead',
                           'b-vneshnij-bez-stroki': 'behind',
                           'b-vneshnij-stroka-krivaja': 'behind',
@@ -477,16 +519,37 @@ def build(base, label, kind, name=None):
         'esac\n')
     fake_curl.chmod(0o755)
 
+    # тело compare (РЕШЕНИЕ 3): повреждённый хвост/второй документ при
+    # положительном префиксе; положительные ответы — с допустимым внешним
+    # whitespace/переводом строки вокруг ЕДИНСТВЕННОГО документа
     compare_file = root.parent / (root.name + '-compare.json')
     if compare_status == 'not-found':
         compare_file.write_text(json.dumps({'message': 'Not Found', 'documentation_url': 'https://docs.github.com'}))
     elif compare_status:
-        compare_file.write_text(json.dumps({'status': compare_status, 'commits': []}))
+        body = json.dumps({'status': compare_status, 'commits': []})
+        if label == 'b-vneshnij-json-povrezhdjon-hvost':
+            body += '\n{broken'
+        elif label == 'b-vneshnij-dva-dokumenta':
+            body += '\n{}'
+        elif label == 'b-vneshnij-identical':
+            body = '\n  ' + body + '\n\n'
+        elif label == 'b-vneshnij-produkt-vlit':
+            body = '\n' + body + '\n'
+        compare_file.write_text(body)
+    # тело check-runs: тот же класс входов; положительные arch-имена — с
+    # внешним whitespace/переводом строки
     checkrun_file = root.parent / (root.name + '-checkruns.json')
     if kind == 'back':
-        checkrun_file.write_text(json.dumps({'total_count': 1, 'check_runs': [
+        cr = json.dumps({'total_count': 1, 'check_runs': [
             {'id': 1, 'name': checkrun_name, 'status': 'completed',
-             'conclusion': 'success', 'head_sha': head}]}))
+             'conclusion': 'success', 'head_sha': head}]})
+        if label == 'g-arch-json-povrezhdjon-hvost':
+            cr += '\n{broken'
+        elif label == 'g-arch-dva-dokumenta':
+            cr += '\n{}'
+        elif label in ('g-arch-tochno-imja', 'g-arch-v-skobkah', 'g-arch-s-probelom'):
+            cr = '\n' + cr + '\n  '
+        checkrun_file.write_text(cr)
 
     git(root, 'push', '-q', 'origin', 'main')
 
@@ -542,6 +605,61 @@ def mesto_lookup(root, kind, blob, mutant=''):
     if place == 'станция' or MESTO_RE.fullmatch(place):
         return place
     return 'BAD'
+
+CHECKRUN_COUNT = ('[.check_runs[]? | select((((.name // "") == "arch") '
+                  'or ((.name // "") | startswith("arch ")) '
+                  'or ((.name // "") | startswith("arch ("))) and (.head_sha == $sha) '
+                  'and (.status == "completed") and (.conclusion == "success"))] | length')
+
+
+def json_one_object(text):
+    """Канонический полный разбор ровно ОДНОГО JSON-документа-объекта — тот
+    же инструмент и грамматика, что у двери (jq -s; length == 1; тип
+    объекта ДО извлечения поля; rc ДО использования; РЕШЕНИЕ 1 Arb201V2).
+    Возвращает (объект, None) или (None, причина). Диагностика — второй
+    вызов jq, как у двери; никакой особой обработки строки «{broken»."""
+    p = subprocess.run(
+        ['jq', '-s', '-c', 'if (length == 1 and (.[0] | type) == "object") '
+         'then .[0] else error("ожидался ровно один JSON-документ-объект") end'],
+        input=text, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    if p.returncode == 0:
+        return json.loads(p.stdout), None
+    d = subprocess.run(
+        ['jq', '-s', '-r', 'if length == 0 then "empty" elif length != 1 '
+         'then "multiple" else "not-object" end'],
+        input=text, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    diag = d.stdout.strip()
+    if diag == 'empty':
+        return None, 'пустой ввод: JSON-документов нет'
+    if diag == 'multiple':
+        return None, 'в ответе несколько JSON-документов (ожидался ровно один)'
+    if diag == 'not-object':
+        return None, 'ответ не JSON-объект'
+    return None, f'синтаксическая ошибка JSON (jq rc={p.returncode})'
+
+
+def json_stream(text, flt, **args):
+    """Потоковый прогон jq БЕЗ slurp — форма ПРЕЖНЕЙ, додверной ошибки
+    (успешный префикс печатается ДО отказа разбора). Только обманные
+    стабы (Н-39); честный путь модели — json_one_object."""
+    cmd = ['jq', '-r']
+    for k, v in args.items():
+        cmd += ['--arg', k, str(v)]
+    p = subprocess.run(cmd + [flt], input=text, stdout=subprocess.PIPE,
+                       stderr=subprocess.DEVNULL, text=True)
+    return p.stdout
+
+
+def arch_name_ok(name, mutant=''):
+    """Предикат имени check-run arch (г) — как у двери; мутации имён —
+    обманные стабы s-g-arch-*."""
+    if mutant == 's-g-arch-kak-podstroka':
+        return 'arch' in name
+    if mutant == 's-g-arch-tolko-literalno':
+        return name == 'arch'
+    if mutant == 's-g-arche-razresheno':
+        return name == 'arch' or name.startswith('arch ') or name == 'arche'
+    return name == 'arch' or name.startswith('arch ') or name.startswith('arch (')
 
 
 def model(root, f, mutant=''):
@@ -615,9 +733,26 @@ def model(root, f, mutant=''):
                 if not skip('s-b-stancionnyj-object-prohodit'):
                     return 1, PH_B7.format(o=f['object'], r=declared)
             else:
-                status = f['compare_status']
                 if f['compare_rc'] and not skip('s-b-curl-rc-tolko-default'):
                     return 1, PH_B5.format(r=declared) + f' curl rc={f["compare_rc"]}'
+                # полный разбор ровно одного JSON-документа (РЕШЕНИЕ 3):
+                # факты — каноническим jq из тела ответа ВНЕ мира; успешный
+                # префикс при повреждённом теле свидетельством не является
+                body = f['compare_file'].read_text()
+                if skip('s-b-json-hvost-ignoriruetsja'):
+                    # стаб A: игнорирование rc/хвоста — успешный префикс
+                    status = f['compare_status'] or ''
+                elif skip('s-b-potok-dokumentov-dopushhen'):
+                    # стаб B: без length==1/slurp — первый документ потока
+                    status = json_stream(
+                        body, 'if type == "object" then (.status // empty) else empty end').strip()
+                elif not body:
+                    status = ''
+                else:
+                    cmp_obj, cmp_err = json_one_object(body)
+                    if cmp_obj is None:
+                        return 1, PH_B5.format(r=declared) + f' ответ API не разобран ({cmp_err})'
+                    status = cmp_obj.get('status') or ''
                 if skip('s-b-api-vsegda-vlito'):
                     status = 'behind' if status else 'not-found-green'
                 if status in ('identical', 'behind', 'not-found-green'):
@@ -681,21 +816,46 @@ def model(root, f, mutant=''):
                    if ln.startswith(':') and '\t' in ln]
         if dt_rc or [p for p in residue if p not in exempt]:
             return 1, PH_A4.format(o=obj, t=ftag)
-    # (г)
+    # (г) профиль мира (229/389, РЕШЕНИЕ 2–3 Arb201V2): полный разбор ровно
+    # одного JSON-документа; повреждённый/многодокументный профиль НЕ
+    # продолжает работу (именованный отказ до тега, без fallback); штатное
+    # отсутствие необязательного git.canonicalRemote — прежний fallback
+    # (положительный профильный контроль g-profil-bez-canonical-remote)
     if f['kind'] == 'back':
+        prof_obj, prof_err = json_one_object((root / 'harness.project.json').read_text())
+        if prof_obj is None and not skip('s-g-profil-potok-dopushhen'):
+            what = 'многодокументный' if 'несколько' in prof_err else 'повреждённый'
+            return 1, (f'ОТКАЗ: профиль битый или workflowPaths вне репо: {what} '
+                       f'harness.project.json ({prof_err})')
         if f['checkrun_rc'] and not skip('s-g-curl-rc-ignoriruetsja'):
             return 1, f'{PH_ARCH_CI}: успешного check-run arch на финальном SHA нет (curl rc={f["checkrun_rc"]})'
-        name = f['checkrun_name']
-        if skip('s-g-arch-kak-podstroka'):
-            ok_name = 'arch' in name
-        elif skip('s-g-arch-tolko-literalno'):
-            ok_name = name == 'arch'
-        elif skip('s-g-arche-razresheno'):
-            ok_name = name == 'arch' or name.startswith('arch ') or name == 'arche'
-        else:
-            ok_name = name == 'arch' or name.startswith('arch ') or name.startswith('arch (')
-        if not ok_name:
-            return 1, f'{PH_ARCH_CI}: успешного check-run arch на финальном SHA нет'
+        # полный разбор ровно одного JSON-документа ответа check-runs
+        # (РЕШЕНИЕ 3): факты — каноническим jq из тела ВНЕ мира
+        body = f['checkrun_file'].read_text()
+        n = 0
+        if body:
+            if skip('s-g-json-hvost-ignoriruetsja'):
+                # стаб A: счёт по успешному префиксу, rc jq игнорируется
+                lines = json_stream(body, CHECKRUN_COUNT, sha=f['head']).splitlines()
+                n = int(lines[0] or 0) if lines else 0
+            elif skip('s-g-potok-dokumentov-dopushhen'):
+                # стаб B: без slurp — счёт по КАЖДОМУ документу потока
+                n = sum(int(x or 0)
+                        for x in json_stream(body, CHECKRUN_COUNT, sha=f['head']).split())
+            else:
+                cr_obj, cr_err = json_one_object(body)
+                if cr_obj is None:
+                    return 1, (f'{PH_ARCH_CI}: ответ check-runs не разобран ({cr_err}): '
+                               'ожидался ровно один JSON-документ — успешного '
+                               'check-run arch на финальном SHA нет')
+                n = sum(1 for r in cr_obj.get('check_runs') or []
+                        if isinstance(r, dict)
+                        and r.get('status') == 'completed'
+                        and r.get('conclusion') == 'success'
+                        and r.get('head_sha') == f['head']
+                        and arch_name_ok(r.get('name') or '', mutant))
+        if n <= 0:
+            return 1, f'{PH_ARCH_CI}: успешного check-run arch на финальном SHA нет (curl rc={f["checkrun_rc"]})'
     return 0, ''
 
 def live(tools, root, contract, facts):
@@ -709,6 +869,47 @@ def live(tools, root, contract, facts):
                PATH=str(facts['bin_dir']) + os.pathsep + env.get('PATH', ''))
     return run('bash', tools / 'scripts/done_contract.sh', contract, 'батарея 201: клетка', root,
                cwd=root, env=env)
+
+VALIDATED_OBJ = ('_pr_paths_obj', '_a187_profile', '_a187_obj',
+                 '_merged_profile_obj', '_cmp_obj')
+
+
+def jq_callsite_map(tools):
+    """Проверяемая карта jq-вызовов ЖИВОЙ двери (РЕШЕНИЕ 3 Arb201V2,
+    разрешение «общая проверка механизма плюс карта всех вызовов»):
+    (1) механизм _json_one_object (полный slurp, ровно один документ)
+    вызывается на всех пяти недоверенных входах — пути/профиль/check-runs/
+    repoId/compare; (2) ни один jq-вызов ВНЕ механизма не читает
+    недоверенные байты: каждому разрешено потреблять только уже разобранные
+    канонические объекты. Возвращает список нарушений (пусто — карта чиста).
+    """
+    door = Path(tools) / 'scripts' / 'done_contract.sh'
+    lines = door.read_text().splitlines()
+    bad = []
+    n_mech = 0
+    inside = False
+    for i, ln in enumerate(lines, 1):
+        if ln.startswith('_json_one_object()'):
+            inside = True
+            continue
+        if inside and ln == '}':
+            inside = False
+            continue
+        if re.search(r'_json_one_object\s+\w', ln):
+            n_mech += 1
+            continue
+        if inside:
+            continue
+        if ln.lstrip().startswith('#'):
+            continue  # комментарии — не вызовы
+        if (' jq ' not in ln and not ln.lstrip().startswith('jq ')):
+            continue
+        if not any(v in ln for v in VALIDATED_OBJ):
+            bad.append(f'строка {i}: jq вне механизма полного разбора: {ln.strip()[:90]}')
+    if n_mech != len(VALIDATED_OBJ):
+        bad.append(f'механизм _json_one_object вызван {n_mech} раз '
+                   f'(ожидалось {len(VALIDATED_OBJ)}: пути/профиль/check-runs/repoId/compare)')
+    return bad
 
 
 def main():
@@ -751,6 +952,17 @@ def main():
                     print(f'STAB {name} {"caught" if caught else "ZHIV"} @ {label}')
                     if not caught:
                         failures.append(name)
+        # карта jq-вызовов — только live-режимы (голый/--repo): судится ДВЕРЬ,
+        # не модель (--model/--stabs дверь не вызывают)
+        if not (mode and mode[0] in ('--model', '--stabs')):
+            problems = jq_callsite_map(tools)
+            if problems:
+                failures.append('karta-jq-vyzovov')
+                for p in problems:
+                    print(f'RED karta-jq-vyzovov: {p}')
+            else:
+                print(f'GREEN karta-jq-vyzovov: механизм _json_one_object × {len(VALIDATED_OBJ)}, '
+                      'jq вне механизма не читает недоверенные байты')
     print(f'CELLS={len(CASES)} STABS={len(STABS) if mode and mode[0] == "--stabs" else 0} FAILURES={len(failures)}')
     return int(bool(failures))
 
