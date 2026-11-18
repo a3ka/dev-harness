@@ -10,7 +10,8 @@
 # p9-wd-dotdot-vne-kopii и p9-wd-simlink-pobeg (otsutstvuet вместо vne-kopii),
 # p9-wd-dotdot-vne-kopii-defaults-workflow и p9-wd-dotdot-vne-kopii-defaults-dzhoby
 # (побег унаследованным умолчанием — otsutstvuet вместо vne-kopii),
-# p10-uses-ne-suditsa (wd литералом — otsutstvuet вместо rc 0).
+# p10-uses-ne-suditsa (wd литералом — otsutstvuet вместо rc 0), p11-station-wd-vne-kopii
+# (побег каталога станции литералом — otsutstvuet вместо vne-kopii; дельта-205).
 # Маркер не ровно один раз — rc 2 ORACLE_TAMPERED (мутант не применён; молчаливой
 # копии модели не бывает).
 set -u

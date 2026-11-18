@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ЧЕСТНАЯ МОДЕЛЬ локального предполёта CI — контракт 122 «CI проекта» (Г2), v+1.
+# ЧЕСТНАЯ МОДЕЛЬ локального предполёта CI — контракт 122 «CI проекта» (Г2), v+1 + дельта-205.
 # Субъект-интерфейс: ci_preflight.sh --repo R [--workflow F] [--job J] [--contract C].
 # Синтаксис YAML; рабочий каталог каждого run-шага — по старшинству GitHub Actions:
 # working-directory шага > defaults.run.working-directory джобы > defaults.run.working-directory
@@ -16,9 +16,12 @@
 #     run-шага (working-directory, run, значения env цепочки) — отказ vyrazhenie-ne-podderzhano
 #     ДО исполнения шага: не молчаливый успех и не bash-падение. uses:-шаги не исполняются,
 #     их with: не судятся; if: не вычисляется (шаги исполняются безусловно).
+# (дельта-205) У station-джоб (литерал job.env.PREFLIGHT_CLASS: station) текст run и значения
+#     env этим отказом НЕ судятся — локально не исполняются; class читается ДО отказа
+#     выражений. uses/if — как выше.
 # station-джобы перечисляются, не исполняются (их секреты сверены по (а); их working-directory
-# разбирается теми же правилами). Строки с маркером мутации вырезают мутанты stabs/
-# (по одной строке на маркер; ровно один маркер каждого вида).
+#     разбирается теми же правилами — дельта-205 сохранена). Строки с маркером мутации
+#     вырезают мутанты stabs/ (по одной строке на маркер; ровно один маркер каждого вида).
 set -u
 R=; WF=.github/workflows/ci.yml; JOB=; C=
 while [ $# -gt 0 ]; do
@@ -194,6 +197,13 @@ if C:
     for kind, nm in tok_re.findall(scope):
         if nm not in declared['secret' if kind == 'secrets' else 'variable']:
             print('preflight ОТКАЗ: sekrety-ne-perechisleny: %s' % nm); sys.exit(1)
+# дельта-205 (слово владельца 2026-11-18 ~18:58 UTC, через консультанта 205): у джоб class
+# station (литерал job.env.PREFLIGHT_CLASS, принятая классификация 122) текст run и значения
+# env локально НЕ исполняются — отказ (г) на них не направлен; class читается ДО отказа
+# выражений. Сохранены: сверка (а) по всему файлу, YAML, разбор working-directory
+# с realpath-границей копии, перечисление STATION-JOB, все отказы local.
+ne_suditsya_run_env = set()
+ne_suditsya_run_env.add('station')  # МУТАЦИЯ-122:stantsiya-propusk
 root = '/tmp/dev-harness-verify' if os.path.isdir('/tmp/dev-harness-verify') else None
 tmp = tempfile.mkdtemp(prefix='ci122-pre-', dir=root)
 work = os.path.join(tmp, 'repo')
@@ -218,12 +228,15 @@ try:
                 print('preflight ОТКАЗ: yaml-nevaliden'); sys.exit(1)
             d = st['working-directory'] if isinstance(st.get('working-directory'), str) else wd
             # v+1 (б): исполнительная поверхность шага судится ДО исполнения: остаточное
-            # выражение вне вычисляемого алфавита — отказ (working-directory, run, env цепочки)
+            # выражение вне вычисляемого алфавита — отказ; working-directory — у ВСЕХ джоб
+            # (дельта-205 сохранена), текст run и значения env цепочки — только у local
+            # (дельта-205: station локально не исполняется)
             otkaz_vyrazhenija(d)
-            otkaz_vyrazhenija(st['run'])
-            for node in (doc, j, st):
-                for k, v in env_of(node).items():
-                    otkaz_vyrazhenija(lit(v))
+            if cls not in ne_suditsya_run_env:
+                otkaz_vyrazhenija(st['run'])
+                for node in (doc, j, st):
+                    for k, v in env_of(node).items():
+                        otkaz_vyrazhenija(lit(v))
             cherez_ws = bool(ws_re.search(d))
             d0 = d  # v+1 (К-10, Crit122V5): ИСХОДНОЕ значение поля — своё либо унаследованное
             # с любого уровня (шаг/джоба/workflow) — ДО подстановки; отказ о побеге несёт его

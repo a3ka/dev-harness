@@ -1,8 +1,8 @@
-# СДАЧА 122 v+1 (круг закрытия Crit122V5) — три блока вердикта: К-09 (скобка `}` в строковом аргументе), К-10 (исходное значение унаследованного working-directory), К-01 (прозаические привязки стабов в контракте)
+# СДАЧА 122 v+1 (дельта-205, слово владельца 2026-11-18 ~18:58 UTC, через консультанта 205) — у station-джоб не проверяется вычисляемый алфавит run/env; сохранность: сверка объявленности, YAML, разбор working-directory, STATION-JOB, все отказы local
 
 ПРЕДЫДУЩИЙ ВЕРДИКТ: verdicts/critic/contracts-122-v5.md
 
-Происхождение дельты (прозой): задание `/tmp/dev-harness-verify/task-122-architect-fix-v5.md` (исправительный круг, дельта-пакет) + вердикт `Crit122V5` (FAIL, OBJECT=ebf7ac6b62692c51753c6ad8e2767e2130af19fc); дельта = сканер границ выражений в модели (замена regexp `[^}]*` — маркер `МУТАЦИЯ-122:kavychki-vyrazhenija`), исходное значение `working-directory` до подстановки в отказе о побеге (`d0`), три новые клетки (p9-wd-dotdot-vne-kopii-defaults-workflow, p9-wd-dotdot-vne-kopii-defaults-dzhoby, p10-format-skobka-v-stroke), мутант `stab_preflight_kavychki_vyrazhenij.sh`, снятие прозаических привязок стаб→ветвь из строк 53/62/108 контракта (привязки остаются в шапках стабов — код), обновление чисел контракта по факту. Команды листа rc-стабильны; красное окно голого прогона (49/16) — приёмка контракта п.1: реализация v+1 — отдельная пачка implementer, здесь её нет.
+Происхождение дельты (прозой): задание `/tmp/dev-harness-verify/task-122-architect-delta205.md` (адресная дельта, дельта-пакет) + отчёт консультанта `/tmp/dev-harness-verify/consult205-report.md` (строки 126 и 132 — дословные формулировки; диагноз: в кандидате `otkaz_vyrazhenija` для run/env вызывается в `model/ci_preflight.sh:222–226` ДО ветки `if cls == 'station'` (:243)); база `a05247cdaa` (v5 + merge main `b5dc206db3`). Дельта = инвариант контракта (станция с литеральным маркером не судится по run/env, класс до отказа, всё прочее станции сохранено, `CIPREFLIGHT_OK jobs=0 station=N` ≠ required CI, §4(б) не расширяется), модель (`ne_suditsya_run_env`, маркер `МУТАЦИЯ-122:stantsiya-propusk`), девять клеток p11 (парные свидетели кодом `p11_par` — шаблон `@@KLASS@@`, различие только класс), два стаба (мутант «станция не пропускает», обёртка «пропускает всё»), обновление чисел контракта по факту. Команды листа rc-стабильны.
 
 ## Двери
 
@@ -11,44 +11,51 @@
 - precision-gate · bash scripts/check_precision_gate.sh . contracts/122-ci-proekta.md · 0 · 0
 - provodka-grammar · bash scripts/check_provodka.sh --grammar . contracts/122-ci-proekta.md · 0 · 0
 - threat-model · bash scripts/check_threat_model.sh . contracts/122-ci-proekta.md · 0 · 0
-- красное-до (голый прогон, дерево v1) · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh · 1 · 1
+- красное-до (голый прогон, субъект v1) · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh · 1 · 1
 - батарея --model (зелёное-после) · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model · 0 · 0
 - клетка p9 --model · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model --cell p9 · 0 · 0
 - клетка p10 --model · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model --cell p10 · 0 · 0
+- клетка p11 --model · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model --cell p11 · 0 · 0
 
 ## Карта классов
 
-- К-01 · чисто · вход: прозаические пары «стаб → ветвь/клетка» убраны из строк 53/62/108 (v5) и из буллетов модели угроз; контракт несёт инвариант и rc-команды, привязки — шапки stabs/ и диспетчер раннера (код) · - · -
-- К-02 · чисто · вход: задание fix-v5 + вердикт Crit122V5 (OBJECT=ebf7ac6b62, база ветки f4d581bdd1 — материализованный вердикт) · - · -
-- К-03 · чисто · вход: дельта — только contracts/122-ci-proekta.md и fixtures/workshop_project/ci_proekta_122/** (зона architect); 149/165, станционное исключение владельца, алфавит Г2 не расширен: выражение с функцией format(...) отказывает vyrazhenie-ne-podderzhano, не вычисляется · - · -
+- К-01 · чисто · вход: два новых стаба дельты несут привязки к клеткам в шапках (код), контракт пар «стаб ↔ ветвь» не утверждает (Н-39); прежние привязки не тронуты · - · -
+- К-02 · чисто · вход: задание delta205 + отчёт консультанта (строки 126/132 прочитаны целиком, цитаты в КОНТЕКСТ дельты-205 контракта) · - · -
+- К-03 · чисто · вход: дельта — только contracts/122-ci-proekta.md и fixtures/workshop_project/ci_proekta_122/** (зона architect); алфавит Г2 не расширен, фиктивные контексты не введены, §4(б) не расширен · - · -
 - К-04 · чисто · bash scripts/check_precision_gate.sh . contracts/122-ci-proekta.md · 0 · 0
-- К-05 · чисто · вход: приёмка п.1–9 — команды с rc; все числа контракта обновлены по фактическим прогонам (65/49/16, 65/65/0, 24/41, 41/24 и замеры стабов) · - · -
-- К-06 · чисто · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model --cell net-takoj · 2 · 2
+- К-05 · чисто · вход: приёмка п.1–9 — команды с rc; все числа контракта из прогонов этой пачки (74/54/20, 72/2, 74/74/0, 56/18, 40/34, 66/8, 0/74, 26/48, 48/26 и мутанты) · - · -
+- К-06 · н/п · средовая ветвь python-yaml-nedostupen rc 2 клетками не покрыта (PyYAML в окружении) · - · -
 - К-07 · чисто · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model · 0 · 0
-- К-08 · чисто · вход: мутанты красят ровно клетки своих шапок (замеры в прозе листа ниже); тамперы rc 2 замерены в обоих направлениях для нового мутанта · - · -
+- К-08 · чисто · вход: стабы дельты замерены штатным env-интерфейсом (72/2 и 69/5, красные клетки сверены с шапками), тампер мутанта дельты — оба направления rc 2 ORACLE_TAMPERED · - · -
 - К-09 · чисто · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model --cell p10 · 0 · 0
 - К-10 · чисто · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model --cell p9 · 0 · 0
-- К-11 · чисто · вход: ожидания — литералы кода батареи, сняты до вызова субъекта; миры одноразовые; --model судит честную модель, голый прогон — настоящий scripts/ci_preflight.sh · - · -
-- К-12 · чисто · вход: YAML — настоящий PyYAML; границы выражений — сканер в самой модели (единый источник с субъектом-моделью), сверка — литералами вывода · - · -
-- К-13 · н/п · секреты не предмет круга (в батарее заглушки и фикстурный gh; ПРЕДПОСЫЛКИ контракта — setting) · - · -
-- К-14 · чисто · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model --cell p9 · 0 · 0
-- К-15 · чисто · вход: числа — из ИТОГ-строк прогонов (65/49/16 голый, 65/65/0 модель, 47/18, 39/26, 57/8, 0/65, 0/65, 24/41, 41/24, 62/3, 62/3, 58/7, 60/5, 60/5, 54/11, 61/4, 60/5, 64/1); вторая мера — счёт по исходнику: 65 вызовов run_case, литерал rc 0 у 24, rc 1 у 41 · - · -
+- К-11 · чисто · вход: ожидания — литералы кода батареи, сняты до вызова субъекта; парность p11 — по построению кода p11_par (один шаблон, различие только значение класса); красное-до — голый прогон на настоящем субъекте · - · -
+- К-12 · чисто · вход: YAML — настоящий PyYAML; класс станции — литеральное сравнение в модели (единый источник), сверка — литералами вывода · - · -
+- К-13 · н/п · секреты не предмета круга (заглушки и фикстурный gh; ПРЕДПОСЫЛКИ контракта — setting) · - · -
+- К-14 · чисто · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model --cell p11 · 0 · 0
+- К-15 · чисто · вход: числа — из ИТОГ-строк прогонов; вторая мера — счёт по исходнику: 74 вызова run_case, литерал rc 0 у 26, rc 1 у 48 · - · -
 - К-16 · чисто · bash scripts/check_threat_model.sh . contracts/122-ci-proekta.md · 0 · 0
-- К-17 · н/п · tooling/checks/cli.js и бриф архитектуры 188 в объекте отсутствуют (предмет — механизм харнесса, не модуль проекта) · - · -
+- К-17 · н/п · tooling/checks/cli.js и бриф архитектуры 188 в объекте отсутствуют (предмет — механизм харнесса) · - · -
 
 ## Дельта
 
-- К-01 · снятие · bash scripts/pre_critic.sh contracts/122-ci-proekta.md · 0 · 0
+- К-11 · клетка · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh · 1 · 1
 - К-07 · клетка · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model · 0 · 0
+- К-08 · клетка · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model --cell p11 · 0 · 0
 - К-09 · клетка · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model --cell p10 · 0 · 0
 - К-10 · клетка · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model --cell p9 · 0 · 0
+- К-14 · клетка · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model --cell p11 · 0 · 0
 
-## Замеры стабов и мутантов (проза; env-интерфейс вне алфавита команд листа)
+## Замеры стабов, мутантов и красного-до (проза; env-интерфейс и git-извлечение — вне алфавита команд листа)
 
-Штатный интерфейс батареи — env-переменные CI_PROEKTA_122_GEN/_PREFLIGHT/_GATES; режима --stabs у батареи нет (замер: `bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --stabs` → «ci122 ОТКАЗ: неизвестный ключ: --stabs», rc 2) — привязки стабов проверяются прогоном мутантов через штатный env-интерфейс, как делал критик.
+Штатный интерфейс батареи — env-переменные CI_PROEKTA_122_GEN/_PREFLIGHT/_GATES; режима --stabs у батареи нет (замер прошлых кругов: `bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --stabs` → «ci122 ОТКАЗ: неизвестный ключ: --stabs», rc 2) — стабы дельты проверены прогоном через штатный env-интерфейс, как раньше.
 
-Мутанты (все rc 1; красные клетки сверены с шапками): stab_preflight_bez_workspace → «54/11» (все десять p9 + p10-uses-ne-suditsa); stab_preflight_ws_bez_granicy → «61/4» (четыре клетки побега: шаговые p9-wd-dotdot-vne-kopii, p9-wd-simlink-pobeg и унаследованные p9-wd-dotdot-vne-kopii-defaults-workflow, p9-wd-dotdot-vne-kopii-defaults-dzhoby); stab_preflight_bez_otkaza_vyrazhenij → «60/5» (пять клеток p10, кроме uses); stab_preflight_kavychki_vyrazhenij → «64/1» (ровно p10-format-skobka-v-stroke — молчаливый rc 0 вместо отказа). v1: stab_preflight_bez_podstanovki → «62/3»; stab_preflight_bez_workflow_defaults → «62/3» (третья красная — новая p9-wd-dotdot-vne-kopii-defaults-workflow, шапка дополнена); stab_preflight_bez_env → «58/7»; stab_preflight_sverka_tolko_run → «60/5»; stab_preflight_env_bez_podstanovki → «60/5». Регрессия прежних клеток p1–p10: в зелёном прогоне --model 65/65/0 — все 62 прежние клетки зелёны, красное-до на дереве 49 зелёных / 16 красных (13 прежних v+1 + 3 новых, ровно новые клетки p9/p10).
+Красное-до двумя мерами. Голый прогон (субъект v1 в дереве): `bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh` → rc 1, «клеток 74, зелёных 54, красных 20» — красны 16 клеток p9/p10 и поимённо 4 клетки p11 (p11-run-local-vyrazhenie, p11-env-local-vyrazhenie, p11-station-marker-ne-literal — у v1 нет vyrazhenie-ne-podderzhano; p11-station-wd-vne-kopii — нет working-directory-vne-kopii); 5 клеток p11 зелены у v1 (пропуск станции был и в v1). Модель без дельты: `git show a05247cdaa:fixtures/workshop_project/ci_proekta_122/model/ci_preflight.sh` в одноразовый файл под /tmp/dev-harness-verify, затем `CI_PROEKTA_122_PREFLIGHT=<файл> bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model` → rc 1, «клеток 74, зелёных 72, красных 2» — красны поимённо ровно p11-run-station-propusk и p11-env-station-propusk (кандидат до дельты отказывал станции); local-пары и сохранность зелены ДО и ПОСЛЕ.
 
-Тампер-замер нового мутанта (оба направления, одноразовые копии модели под /tmp/dev-harness-verify): маркер МУТАЦИЯ-122:kavychki-vyrazhenija удалён (0 вхождений) → rc 2 «ORACLE_TAMPERED: mutant ОТКАЗ: маркер … 0 раз, нужен 1»; маркер продублирован (2 вхождения) → rc 2 «… 2 раз, нужен 1».
+Стабы дельты (оба rc 1): `CI_PROEKTA_122_PREFLIGHT=fixtures/workshop_project/ci_proekta_122/stabs/stab_preflight_stantsiya_ne_propuskaet.sh` → «72/2» — красны ровно p11-run-station-propusk и p11-env-station-propusk (свидетели-пропуском; клетки сохранности зелены); `CI_PROEKTA_122_PREFLIGHT=fixtures/workshop_project/ci_proekta_122/stabs/stab_preflight_stantsiya_propuskaet_vse.sh` → «69/5» — красны ровно p2-working-directory-otsutstvuet, p5-station-sekret-ne-perechislen, p11-station-sekret-ne-perechislen, p11-station-var-ne-perechislena, p11-station-wd-vne-kopii (сохранность).
 
-Стабы п.4–5 приёмки: stab_gen_postojannyj → «47/18»; stab_preflight_tolko_sintaksis → «39/26»; stab_predposylki_slepoy → «57/8»; stab_vsegda_zelenyj (все три субъекта) → «0/65»; stab_vsegda_krasnyj (все три) → «0/65»; stab_rc0_chestnyj_tekst (все три) → rc 1 «24/41»; stab_rc1_chestnyj_tekst (все три) → rc 1 «41/24»; объединение красных 65 из 65, пересечение 0.
+Тампер-замер мутанта дельты (оба направления, одноразовые копии модели и стаба под /tmp/dev-harness-verify): маркер МУТАЦИЯ-122:stantsiya-propusk удалён (0 вхождений) → rc 2 «ORACLE_TAMPERED: mutant ОТКАЗ: маркер … 0 раз, нужен 1»; маркер продублирован (2 вхождения) → rc 2 «… 2 раз, нужен 1». У стаба-обёртки маркера нет — тампер неприменим (честная отметка).
+
+Стабы п.4–5 приёмки: stab_gen_postojannyj → «56/18»; stab_preflight_tolko_sintaksis → «40/34»; stab_predposylki_slepoy → «66/8»; stab_vsegda_zelenyj (все три субъекта) → «0/74»; stab_vsegda_krasnyj (все три) → «0/74»; stab_rc0_chestnyj_tekst (все три) → rc 1 «26/48»; stab_rc1_chestnyj_tekst (все три) → rc 1 «48/26»; объединение красных 74 из 74, пересечение 0.
+
+Мутанты (все rc 1; красные клетки сверены с шапками): v1 — stab_preflight_bez_podstanovki → «71/3»; stab_preflight_bez_workflow_defaults → «71/3»; stab_preflight_bez_env → «67/7»; stab_preflight_sverka_tolko_run → «67/7» (добавились p11-station-sekret/var — сверка только по run local); stab_preflight_env_bez_podstanovki → «69/5»; v+1 и круг Crit122V5 — stab_preflight_bez_workspace → «62/12» (добавилась p11-station-wd-vne-kopii — wd литералом); stab_preflight_ws_bez_granicy → «69/5» (добавилась p11-station-wd-vne-kopii — otsutstvuet вместо vne-kopii); stab_preflight_bez_otkaza_vyrazhenij → «66/8» (добавились обе local-пары p11 и маркер-негатив); stab_preflight_kavychki_vyrazhenij → «73/1». Шапки пяти стабов дополнены новыми клетками по факту (Н-39).

@@ -863,6 +863,138 @@ jobs:
 Y
   run_case p10-uses-ne-suditsa 0 'CIPREFLIGHT_OK jobs=1 station=0' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
 }
+p11_par() { # $1 klass (local|station), $2 poverhnost (run|env): ОДИН И ТОТ ЖЕ текст джобы —
+  # неподдержанное выражение ${{ github.run_id }} в run / ${{ github.sha }} в значении env;
+  # миры парных свидетелей различаются ТОЛЬКО значением PREFLIGHT_CLASS (шаблон @@KLASS@@)
+  local W; W=$(new_world)
+  if [ "$2" = run ]; then
+    cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  e2e-screen:
+    runs-on: [self-hosted, kvm]
+    env:
+      PREFLIGHT_CLASS: '@@KLASS@@'
+    steps:
+      - name: ident
+        run: echo ${{ github.run_id }}
+Y
+  else
+    cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  e2e-screen:
+    runs-on: [self-hosted, kvm]
+    env:
+      PREFLIGHT_CLASS: '@@KLASS@@'
+    steps:
+      - name: ident
+        env:
+          CI122_SHA: ${{ github.sha }}
+        run: "true"
+Y
+  fi
+  python3 - "$W/.github/workflows/ruchnoj.yml" "$1" <<'PY'
+import sys
+p, klass = sys.argv[1:3]
+s = open(p, encoding='utf-8').read()
+assert s.count('@@KLASS@@') == 1
+open(p, 'w', encoding='utf-8').write(s.replace('@@KLASS@@', klass))
+PY
+  printf '%s' "$W"
+}
+c_p11() { # дельта-205 (слово владельца 2026-11-18 ~18:58 UTC, через консультанта 205): у station-джоб
+  # (литерал job.env.PREFLIGHT_CLASS: station, принятая классификация 122) текст run и значения env
+  # вычисляемым алфавитом НЕ судятся — локально не исполняются; парные свидетели — один и тот же
+  # текст (p11_par), различие только класс: local отказывает, station пропускает; сохранность для
+  # station: необъявленный secret/variable → отказ, битый YAML → отказ, побег working-directory
+  # из копии → working-directory-vne-kopii; негатив: маркер НЕ литерал (вычисляемый) — станция
+  # не признаётся, вычисляемый алфавит судится; local — без изменений
+  local W
+  W=$(p11_par local run)
+  run_case p11-run-local-vyrazhenie 1 'vyrazhenie-ne-podderzhano: ${{ github.run_id }}' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  W=$(p11_par station run)
+  run_case p11-run-station-propusk 0 'STATION-JOB: e2e-screen' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  W=$(p11_par local env)
+  run_case p11-env-local-vyrazhenie 1 'vyrazhenie-ne-podderzhano: ${{ github.sha }}' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  W=$(p11_par station env)
+  run_case p11-env-station-propusk 0 'STATION-JOB: e2e-screen' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  # сохранность: необъявленный секрет в env station-джобы при неподдержанном run — сверка (а)
+  # по всему файлу ДО ветки класса; пропуск run/env у станции не расширяется на объявленность
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  e2e-screen:
+    runs-on: [self-hosted, kvm]
+    env:
+      PREFLIGHT_CLASS: station
+    steps:
+      - name: kod-vne-checkout
+        env:
+          PILOT_DEMO_CODE: ${{ secrets.PILOT_DEMO_CODE }}
+        run: echo ${{ github.run_id }}
+Y
+  run_case p11-station-sekret-ne-perechislen 1 'sekrety-ne-perechisleny: PILOT_DEMO_CODE' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml --contract "$W/contracts/kontrakt-drugoj-sekret.md"
+  # сохранность: необъявленная variable в env station-джобы при том же неподдержанном run
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  e2e-screen:
+    runs-on: [self-hosted, kvm]
+    env:
+      PREFLIGHT_CLASS: station
+    steps:
+      - name: adresa
+        env:
+          CI122_URL: ${{ vars.NPM_TOKEN }}
+        run: echo ${{ github.run_id }}
+Y
+  run_case p11-station-var-ne-perechislena 1 'sekrety-ne-perechisleny: NPM_TOKEN' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml --contract "$W/contracts/kontrakt-drugoj-sekret.md"
+  # сохранность: битый YAML у станции — разбор файла ДО классификации джоб
+  W=$(new_world)
+  printf 'name: ruchnoj\non: push\njobs:\n  e2e-screen:\n    runs-on: [self-hosted, kvm]\n    env:\n      PREFLIGHT_CLASS: station\n    steps: [ otkrytaya-skobka\n' > "$W/.github/workflows/ruchnoj.yml"
+  run_case p11-station-yaml-nevaliden 1 'yaml-nevaliden' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  # сохранность: побег working-directory из копии у станции разбирается теми же правилами
+  # (realpath-граница); шаг false — как в p9: непойманный побег не исполняется, причина
+  # клетки ровно одна (каталог), выражений на run/env-поверхности шага нет
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  e2e-screen:
+    runs-on: [self-hosted, kvm]
+    env:
+      PREFLIGHT_CLASS: station
+    steps:
+      - name: pobeg
+        working-directory: ${{ github.workspace }}/..
+        run: "false"
+Y
+  run_case p11-station-wd-vne-kopii 1 'working-directory-vne-kopii: ${{ github.workspace }}/..' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  # негатив: маркер НЕ литерал (вычисляемый) — станция не признаётся (как принято в 122),
+  # джоба судится как local: вычисляемый алфавит run проверяется
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  e2e-screen:
+    runs-on: [self-hosted, kvm]
+    env:
+      PREFLIGHT_CLASS: ${{ matrix.klass }}
+    steps:
+      - name: ident
+        run: echo ${{ github.run_id }}
+Y
+  run_case p11-station-marker-ne-literal 1 'vyrazhenie-ne-podderzhano: ${{ github.run_id }}' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+}
 c_z1() {
   local W; W=$(new_world)
   run_case z1-predposylki-otsutstvuyut 1 'predposylki-otsutstvuyut' env PATH="$W/bin:$PATH" bash "$GATE" "$W" "$W/contracts/kontrakt-ci.md"
@@ -933,7 +1065,7 @@ c_z9() { # --freeze, ТОЛЬКО variable: `gh variable list` rc 127 (обхо�
   run_case z9-variable-gh-oshibka 1 'gh-nedostupen' env PATH="$W/bin:$PATH" bash "$GATE" "$W" "$W/contracts/kontrakt-tolko-variable.md" --freeze
 }
 
-CELLS="k z5 g1 g2 g3 g4 g5 g6 g7 g8 p1 p2 p3 p4 p5 p5e p5f p6 p6e p6z p7 p8 p9 p10 z1 z2 z3 z4 z6 z7 z8 z9"
+CELLS="k z5 g1 g2 g3 g4 g5 g6 g7 g8 p1 p2 p3 p4 p5 p5e p5f p6 p6e p6z p7 p8 p9 p10 p11 z1 z2 z3 z4 z6 z7 z8 z9"
 if [ -n "$CELL" ]; then
   case " $CELLS " in
     *" $CELL "*) ;;

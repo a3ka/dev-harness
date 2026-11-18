@@ -8,7 +8,9 @@
 # p10-funkcija-tojson (rc 0 — МОЛЧАЛИВЫЙ УСПЕХ: выражение в кавычках/env ушло шагу литералом —
 # вместо отказа), p10-format-skobka-v-stroke (rc 0 — молчаливый успех: выражение со скобкой }
 # в строковом аргументе функции уходит в env литералом; Crit122V5 К-09), p10-otkaz-do-ispolnenija
-# (падает первый шаг exit 3 — shag-upal раньше, чем судится выражение второго).
+# (падает первый шаг exit 3 — shag-upal раньше, чем судится выражение второго); дельта-205:
+# p11-run-local-vyrazhenie и p11-station-marker-ne-literal (shag-upal bad substitution вместо
+# отказа — local-пары дельты), p11-env-local-vyrazhenie (rc 0 — молчаливый успех).
 set -u
 M=$(cd "$(dirname "$0")/../model" && pwd)/ci_preflight.sh
 MARK='МУТАЦИЯ-122:otkaz-vyrazhenij'

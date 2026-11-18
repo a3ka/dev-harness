@@ -7,7 +7,8 @@
 # Наблюдаемое расхождение (ровно эти клетки): p9-wd-dotdot-vne-kopii и p9-wd-simlink-pobeg
 # (причина shag-upal/otsutstvuet вместо working-directory-vne-kopii), p9-wd-dotdot-vne-kopii-defaults-workflow
 # и p9-wd-dotdot-vne-kopii-defaults-dzhoby (побег унаследованным умолчанием уровня workflow/джобы —
-# otsutstvuet с путём копии вместо vne-kopii с исходным значением поля; Crit122V5 К-10).
+# otsutstvuet с путём копии вместо vne-kopii с исходным значением поля; Crit122V5 К-10),
+# p11-station-wd-vne-kopii (побег каталога станции — otsutstvuet вместо vne-kopii; дельта-205).
 # Маркер не ровно один раз — rc 2 ORACLE_TAMPERED (мутант не применён).
 set -u
 M=$(cd "$(dirname "$0")/../model" && pwd)/ci_preflight.sh
