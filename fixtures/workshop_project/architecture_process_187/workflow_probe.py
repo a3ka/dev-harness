@@ -86,6 +86,13 @@ architecture/ и БЕЗ --arch-component — отказ ARCH_COMPONENT_NET, не
 пак без брифа; старое требование локального каталога (любой проект)
 сохраняется; требование флага и источник брифа — РАЗНЫЕ предикаты. Место
 истины требования — контракт 187 (дверь); 170 v2 — вход задания, не копия.
+187 v4 (блок К-10 вердикта Crit187V4, 2026-11-18): обе обязательные
+диагностики pin и КОНКРЕТНЫЙ входной pin судятся сами, не подстрокой
+ARCH_PIN: независимый оракул клетки (pin_required_diagnostic) выводит
+ожидание из ВХОДА (lock мира), никогда из результата модели; тексты
+диагностик — единый источник констант (ARCH_PIN_PREFIX/PIN_*_DIAG), модель
+и стабы-подмены несут их побайтово. Атака судьи (голый ARCH_PIN вместо
+диагностики при честных rc и токене) красна во всех режимах батареи.
 """
 import hashlib
 import json
@@ -203,6 +210,10 @@ CASES = (
     # грамматики); неразрешимый полный sha — прежний отказ ARCH_PIN (защита,
     # зелена до/после); HEAD-без-флага — ARCH_PIN, не ARCH_COMPONENT_NET
     # (порядок шва 170 v2: pin ДО флага; красна сегодня именем отказа) ─────
+    # 187 v4 (К-10): ожидание каждой pin-клетки — rc 1 + ARCH_PIN + СВОЯ
+    # диагностика с КОНКРЕТНЫМ pin входа (оракул pin_required_diagnostic из
+    # lock мира — вход, не вывод модели); той же подстрокой судится живая
+    # дверь — подстроки ARCH_PIN более не достаточно
     ('pin-symbolic-head', 'task', 'pin-head', 1, 'ARCH_PIN', 'task'),
     ('pin-symbolic-branch', 'task', 'pin-branch', 1, 'ARCH_PIN', 'task'),
     ('pin-short-sha', 'task', 'pin-short', 1, 'ARCH_PIN', 'task'),
@@ -316,6 +327,21 @@ STABS = {
     'pin-resolved-accepted-short': ('pin-short-sha', 'pin-resolved-accepted'),
     'pin-unresolved-green': ('pin-unresolvable-sha', 'pin-unresolved-green'),
     'pin-only-with-flag': ('pin-head-noflag', 'pin-only-with-flag'),
+    # 187 v4 стабы (блок К-10 Crit187V4): «диагностика заменена голым
+    # ARCH_PIN» (атака судьи дословно: rc 1 и токен честны, текст потерян) —
+    # каждой ветви своя клетка (неконформная HEAD / неразрешимый полный sha);
+    # «диагностики ветвей поменяны местами» — клетками обеих ветвей;
+    # «pin потерян в сообщении» и «pin подменён чужим» — клеткой
+    # динамического pin (pin-short: значение из lock мира, оракул независим
+    # от модели) и неразрешимой; различающий вход — свой (Н-39) ────────────
+    'pin-bare-reason-head': ('pin-symbolic-head', 'pin-bare-reason'),
+    'pin-bare-reason-unresolvable': ('pin-unresolvable-sha', 'pin-bare-reason'),
+    'pin-diagnostic-swapped-head': ('pin-symbolic-head', 'pin-swap-diagnostic'),
+    'pin-diagnostic-swapped-unresolvable': ('pin-unresolvable-sha', 'pin-swap-diagnostic'),
+    'pin-value-lost-short': ('pin-short-sha', 'pin-value-lost'),
+    'pin-value-lost-unresolvable': ('pin-unresolvable-sha', 'pin-value-lost'),
+    'pin-value-forged-short': ('pin-short-sha', 'pin-value-forged'),
+    'pin-value-forged-unresolvable': ('pin-unresolvable-sha', 'pin-value-forged'),
     'applicability-dir-only': ('applicability-lock-no-dir', 'applicability-dir-only'),
     'applicability-lock-only': ('applicability-dir-no-lock', 'applicability-lock-only'),
 }
@@ -468,6 +494,24 @@ PIN_VARIATIONS = frozenset(PIN_LOCK_VALUES)
 # (pin судится ДО вопроса о флаге: ARCH_PIN, не ARCH_COMPONENT_NET).
 NOFLAG_VARIATIONS = frozenset({'no-local-noflag', 'dir-only-noflag',
                                'pin-head-noflag'})
+
+# 187 v4 (блок К-10 вердикта Crit187V4): единый источник обязательных
+# диагностик pin — честные возвраты модели, стабы-подмены и оракул клеток
+# несут тексты побайтово отсюда; живая дверь может дописывать корень справа
+# («… в клоне модели: $root»), судится подстрока самого диагноза.
+ARCH_PIN_PREFIX = 'ARCH_PIN: '
+PIN_NONCONFORMING_DIAG = 'закреплённый pin не полный 40-hex SHA: {pin}'
+PIN_UNRESOLVABLE_DIAG = 'коммит {pin} не разрешается в клоне модели'
+
+
+def pin_required_diagnostic(root, variation):
+    """187 v4 (К-10): независимый оракул клетки — обязательная диагностика
+    pin с КОНКРЕТНЫМ входным pin; снимается из lock мира в память до вызова
+    модели или двери: ожидание — не вывод модели."""
+    pin = json.loads((root / 'architecture.lock.json').read_text())['commit']
+    if variation == 'pin-unresolvable':
+        return PIN_UNRESOLVABLE_DIAG.format(pin=pin)
+    return PIN_NONCONFORMING_DIAG.format(pin=pin)
 
 def digest(value):
     """Canonical SHA-256 of the real model: sorted keys, JSON.stringify bytes."""
@@ -980,10 +1024,29 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
                 # обман: грамматика только на флаговом пути — без флага дверь
                 # молчит (ниже ответит ARCH_COMPONENT_NET вместо ARCH_PIN)
                 pass
+            elif mutant == 'pin-bare-reason':
+                # К-10(а/д) — атака судьи Crit187V4 дословно: rc 1 и токен
+                # ARCH_PIN честны, обязательная диагностика с pin потеряна
+                return 1, 'ARCH_PIN'
+            elif mutant == 'pin-swap-diagnostic':
+                # К-10(б/в) — диагностики двух ветвей подменены друг другом
+                if variation == 'pin-unresolvable':
+                    return 1, ARCH_PIN_PREFIX + PIN_NONCONFORMING_DIAG.format(pin=pin)
+                return 1, ARCH_PIN_PREFIX + PIN_UNRESOLVABLE_DIAG.format(pin=pin)
+            elif mutant == 'pin-value-lost':
+                # К-10(г) — значение pin не попадает в сообщение отказа
+                if variation == 'pin-unresolvable':
+                    return 1, ARCH_PIN_PREFIX + 'коммит не разрешается в клоне модели'
+                return 1, ARCH_PIN_PREFIX + 'закреплённый pin не полный 40-hex SHA'
+            elif mutant == 'pin-value-forged':
+                # К-10(г) — в сообщение подставлен чужой pin
+                if variation == 'pin-unresolvable':
+                    return 1, ARCH_PIN_PREFIX + PIN_UNRESOLVABLE_DIAG.format(pin='wrong-' + pin)
+                return 1, ARCH_PIN_PREFIX + PIN_NONCONFORMING_DIAG.format(pin='wrong-' + pin)
             elif not re.fullmatch(r'[0-9a-f]{40}', pin):
-                return 1, f'ARCH_PIN: закреплённый pin не полный 40-hex SHA: {pin}'
+                return 1, ARCH_PIN_PREFIX + PIN_NONCONFORMING_DIAG.format(pin=pin)
             elif run('git', '-C', arch, 'cat-file', '-e', pin + '^{commit}').returncode:
-                return 1, f'ARCH_PIN: коммит {pin} не разрешается в клоне модели'
+                return 1, ARCH_PIN_PREFIX + PIN_UNRESOLVABLE_DIAG.format(pin=pin)
         if 'server/src/auth/' in text and mutant != 'allow-unmapped':
             return 1, 'PATH_WITHOUT_COMPONENT'
         if 'app/billing/' in text and mutant != 'allow-zone':
@@ -1248,6 +1311,9 @@ def main():
             root = world(base, label, kind)
             arch, pinned = architecture(base, root, variation)
             task, trace, role = prepare(root, arch, pinned, variation, action)
+            # Снять ожидание в память до вызова модели или публичной двери.
+            required_pin_diagnostic = (pin_required_diagnostic(root, variation)
+                                       if variation in PIN_VARIATIONS else '')
             honest_rc, honest_out = verdict(root, arch, pinned, action, task, role, variation=variation)
             if honest_rc != expected or (reason and reason not in honest_out):
                 raise RuntimeError(f'broken fixture: {label} expected {expected}/{reason}, got {honest_rc}/{honest_out}')
@@ -1257,6 +1323,12 @@ def main():
                 result = live(tools, root, arch, pinned, action, task, trace, role, variation)
                 rc, output = result.returncode, result.stdout + result.stderr
             ok = (rc == expected and (not reason or reason in output))
+            # 187 v4 (К-10 вердикта Crit187V4): обе обязательные диагностики
+            # pin и КОНКРЕТНЫЙ входной pin — независимым оракулом из lock
+            # мира (вход, не вывод модели), в любом режиме: --model, --stabs
+            # и живая дверь --repo; подстроки ARCH_PIN более не достаточно
+            if required_pin_diagnostic and required_pin_diagnostic not in output:
+                ok = False
             if action == 'task' and expected and PACK_MARKER in output:
                 ok = False
             if action == 'task' and not expected:
@@ -1279,6 +1351,10 @@ def main():
                     if case != label: continue
                     fake_rc, fake_out = verdict(root, arch, pinned, action, task, role, mutant, variation=variation)
                     caught = fake_rc != expected or (reason and reason not in fake_out)
+                    # 187 v4 (К-10): утрата/подмена диагностики либо значения
+                    # pin ловится независимым оракулом и на стабах
+                    if required_pin_diagnostic and required_pin_diagnostic not in fake_out:
+                        caught = True
                     if action == 'task' and expected and PACK_MARKER in fake_out:
                         caught = True
                     if not expected and action == 'task':
