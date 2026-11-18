@@ -40,7 +40,7 @@ pachka/, red_gespraech_tekst_149.sh), karta.json и piny.json побайтово
 - К-12 · чисто · fixtures/workshop_project/gespraech_tekst_149/red_ci_149.py --model · 0 · 0
 - К-13 · чисто · bash scripts/check_predposylki.sh . contracts/149-gespraech-tekst-chat.md · 0 · 0
 - К-14 · чисто · fixtures/workshop_project/gespraech_tekst_149/red_ci_149.py --model · 0 · 0
-- К-15 · чисто · вход: числа листа — из прогонов пачки (MODEL_OK; STAB 40/40; REGISTRACIJA_OK на кандидате; PACHKA_NEPOLNAJA на main; diff --stat ниже), не из головы · - · -
+- К-15 · чисто · вход: числа листа — из прогонов пачки (MODEL_OK; STAB 50/50; REGISTRACIJA_OK на кандидате; PACHKA_NEPOLNAJA на main; diff --stat ниже), не из головы · - · -
 - К-16 · чисто · вход: КЛАСС РИСКА: обычный — не менялся (поверхностей перечня ролей не добавлено: регистрация прав/секретов не заводит, PILOT_DEMO_CODE не передаётся работнику 149); модель угроз дополнена И-11/клетками и границами (старая батарея, семантика 122); обе ноги судятся дверью pre_critic выше · - · -
 - К-17 · н/п · tooling/checks/cli.js и бриф архитектуры 188 в дереве отсутствуют (замер ls этой пачки); дельта v+5 не добавляет схем операций продукта — клетки выведены из замкнутой модели дословного тела работника кандидата (И-11) · - · -
 
@@ -63,9 +63,15 @@ PILOT_DEMO_CODE строкой `- secret …`; приёмка новой CI-фо
 
 Способы: К-03 — снятия только перечнем «Снятие замороженных норм», каждое
 покрыто словом владельца 2026-11-18, форма листа/двери зелены; К-08/К-09 —
-40 стабов матрицы red_ci_149.py, каждый мутант красен СВОЕЙ именованной
+50 стабов матрицы red_ci_149.py, каждый мутант красен СВОЕЙ именованной
 причиной на своём входе (привязки — код STABY, не проза; Н-39), состав
-включает кадровую пару и шаг npm ci; К-12 — разбор workflow каноном
+включает кадровую пару и шаг npm ci; закрытие блока К-08 Crit149V5 —
+новые судимые роли setup-node и установка (активная команда с первым
+словом npm равна словам модели): замена на echo/true/:/пустой
+run/комментарий в теле, npm install, if: false, перенос в другой job
+красны мутациями БЕЗ сдвига позиций прочих шагов — собственной ветвью
+установки, не сдвигом валидатора (замер 7); К-12 — разбор workflow
+каноном
 (yaml.safe_load) и сравнение с единственной замкнутой моделью, самописного
 парсера формата нет (прецедент 141 v3 / 147 v5); К-13 — объявление секрета
 проверяется штатной дверью предпосылок (грамматика DECLARED_RE
@@ -106,7 +112,7 @@ produkt/gespraech-zond-149.test.tsx/source.json — отдельное слов�
 
 1. `red_ci_149.py --model` → rc 0, MODEL_OK (модель собирается и судится
    зелёным; снимок оракула — до субъекта).
-2. `red_ci_149.py --stabs` → rc 0: STAB 1/40 … 40/40, все «PRICHINA <имя
+2. `red_ci_149.py --stabs` → rc 0: STAB 1/50 … 50/50, все «PRICHINA <имя
    своей ветви>», зелёных и перепутанных причин нет (живая сводка в выводе).
 3. `red_ci_149.py --repo /tmp/dev-harness-verify/Impl149Fix/mob` (кандидат
    4205358b45) → rc 0, REGISTRACIJA_OK — честный мир регистрации зелён той
@@ -115,11 +121,17 @@ produkt/gespraech-zond-149.test.tsx/source.json — отдельное слов�
    (4182557eb9) → rc 1, PRICHINA PACHKA_NEPOLNAJA: нет каталога
    mobile/e2e-gespraech-tekst — честно красная до реализации.
 5. YAML-сверка модели и кандидата: job e2e-gespraech-tekst модели равен job
-   кандидата 4205358b45 (python3 yaml.safe_load, == True; шагов 9, роли
-   H-checkout/валидатор/артефакт на позициях 4/7/8).
+   4205358b45 (python3 yaml.safe_load, == True; шагов 9, роли
+   H-checkout/setup-node/установка/валидатор/артефакт на позициях
+   4/5/6/7/8).
 6. `git diff --stat <база>..HEAD` (база — e97e740ff8, пара ветки) — только
    contracts/149-gespraech-tekst-chat.md,
    fixtures/workshop_project/gespraech_tekst_149/SPEC.md,
    fixtures/workshop_project/gespraech_tekst_149/red_ci_149.py (новый),
    fixtures/workshop_project/gespraech_tekst_149/sdacha_149.md (новый);
    файлы старой батареи, karta.json, piny.json в diff отсутствуют.
+7. Атака судьи Crit149V5 (замена строки `- run: npm ci --no-audit
+   --no-fund` на `- run: echo installation-skipped` в одноразовом мире
+   postroj_model, дословный скрипт вердикта): до правки — клон 60496edac2,
+   rc 0 REGISTRACIJA_OK (обход воспроизведён); после правки — клон этой
+   пачки, rc 1 PRICHINA RABOTNIK_BEZ_USTANOVKI.

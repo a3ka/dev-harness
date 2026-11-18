@@ -8,9 +8,14 @@ wip/149/implementer-rebuild2, живая сверка YAML-равенством 
 была адаптацией ЭТОГО же работника 149; здесь адаптация обращена.
 Он разбирается в память ДО чтения субъекта (прецедент 141 v3
 upravlenie_job). Job: замкнутый алфавит и буквальное равенство полей,
-кроме steps; судимые шаги H-checkout/валидатор/артефакт: позиция,
-алфавит и значения полей против модели. Shell-команды сравниваются
-разобранными словами; данные heredoc, аргумент echo и комментарий
+кроме steps; судимые шаги H-checkout/setup-node/установка npm ci/
+валидатор/артефакт: позиция, алфавит и значения полей против модели.
+Установка судится по ИСПОЛНЯЕМОМУ смыслу (К-08 Crit149V5): активная
+команда с первым словом npm равна словам модели — замена на echo/true/:,
+пустой run, комментарий в теле, npm install, if: false или перенос в
+другой job красны БЕЗ сдвига позиций прочих шагов. Shell-команды
+сравниваются разобранными словами; данные heredoc, аргумент echo и
+комментарий
 вызовом валидатора не являются. Обёртка run тоже равна модели словами:
 определение без вызова не операция. Needs проверяются у android-e2e И
 mobile-regression-signal, не счётчиком.
@@ -85,6 +90,13 @@ SHAG_VYGRUZKI = 'actions/upload-artifact'
 KADRY_PUT = 'mobile/maestro-out-gespraech-tekst'
 KADRY_STRAZH = 'error'  # значение with['if-no-files-found']
 KADRY_STRAZH_STROKA = 'if-no-files-found: error'  # текстовый якорь мутаций
+
+USTANOVKA_STROKA = '      - run: npm ci --no-audit --no-fund'  # якорь мутаций
+SETUP_NODE_STROKA = '      - uses: actions/setup-node@v7'  # якорь мутаций
+SETUP_NODE_BLOK = (SETUP_NODE_STROKA + '\n        with:\n'
+                   '          node-version-file: .node-version\n'
+                   '          cache: npm\n'
+                   '          cache-dependency-path: mobile/package-lock.json')
 
 # Единственная модель управляющих полей и судимых шагов — MODEL_YML ниже.
 AGREGATY_IMENA = ('android-e2e', 'mobile-regression-signal')  # лекало 143/2
@@ -318,6 +330,41 @@ def sudi_kadry(shagi):
                  f'{KADRY_STRAZH_STROKA}) нет')
 
 
+def sudi_setup_node(shagi):
+    """setup-node работника — структурный шаг uses (версия node из
+    .node-version, кэш npm по mobile/package-lock.json): позиция и
+    алфавит полей против модели (К-08: замена шага на пустую операцию —
+    RABOTNIK_BEZ_SETUP_NODE)."""
+    for i, shag in enumerate(shagi):
+        if not isinstance(shag, dict):
+            continue
+        if str(shag.get('uses') or '').startswith('actions/setup-node'):
+            sudi_model_shaga(shag, i, 'setup-node')
+            return
+    raise Krasno('RABOTNIK_BEZ_SETUP_NODE',
+                 'шага actions/setup-node (node из .node-version, кэш npm '
+                 'по mobile/package-lock.json) нет — установка зависимостей '
+                 'не подготовлена')
+
+
+def sudi_ustanovku(shagi):
+    """ИСПОЛНЯЕМЫЙ смысл установки (К-08 Crit149V5): активная команда
+    шага с первым словом npm судится позицией и словами против модели —
+    замена на echo/true/:, пустой run, комментарий в теле, npm install,
+    if: false или перенос в другой job красны БЕЗ сдвига прочих шагов."""
+    for i, shag in enumerate(shagi):
+        if not isinstance(shag, dict) or not isinstance(shag.get('run'), str):
+            continue
+        if any((slova_komandy(k) or [''])[0] == 'npm'
+               for k in aktivnye_komandy(shag['run'])):
+            sudi_model_shaga(shag, i, 'установка')
+            return
+    raise Krasno('RABOTNIK_BEZ_USTANOVKI',
+                 "активной команды установки 'npm ci --no-audit --no-fund' "
+                 f"в job {RABOTNIK} нет — заменена, закомментирована, "
+                 f"выключена или перенесена в другой job")
+
+
 def sudi_rabotnika(root):
     joby = razbor_workflow(root)
     rab = joby.get(RABOTNIK)
@@ -330,6 +377,11 @@ def sudi_rabotnika(root):
     sudi_validatora(shagi)
     sudi_pina(shagi)
     sudi_kadry(shagi)
+    # установка судится ПОСЛЕ валидатора: удаление шага остаётся красным
+    # по сдвигу валидатора (существующий стаб), замена без сдвига —
+    # собственными ветвями setup-node/установка ниже (К-08 Crit149V5)
+    sudi_setup_node(shagi)
+    sudi_ustanovku(shagi)
 
 
 def sudi(root):
@@ -550,6 +602,12 @@ if yaml:
             MODEL_SHAGI['артефакт кадров'] = (i, shag)
         elif VAL_SKRIPT in shag.get('run', ''):
             MODEL_SHAGI['валидатор'] = (i, shag)
+        elif str(shag.get('uses') or '').startswith('actions/setup-node'):
+            MODEL_SHAGI['setup-node'] = (i, shag)
+        elif isinstance(shag.get('run'), str) and any(
+                (slova_komandy(k) or [''])[0] == 'npm'
+                for k in aktivnye_komandy(shag['run'])):
+            MODEL_SHAGI['установка'] = (i, shag)
     MODEL_SLOVA_VYZOVA = next(
         slova_komandy(k)
         for k in aktivnye_komandy(MODEL_SHAGI['валидатор'][1]['run'])
@@ -714,6 +772,19 @@ def _podmeni_agregaty(root):
     wf.write_text(tekst)
 
 
+def _perenesi_ustanovku(root):
+    """К-08: шаг установки переносится в ДРУГОЙ job (build-apk) — в
+    работнике операции нет; текст команды в файле остаётся."""
+    wf = root / WORKFLOW
+    stroki = wf.read_text().splitlines()
+    assert sum(1 for l in stroki if l == USTANOVKA_STROKA) == 1, \
+        'якорь шага установки не уникален'
+    bez = [l for l in stroki if l != USTANOVKA_STROKA]
+    k = next(i for i, l in enumerate(bez) if l.strip() == 'run_id: primer')
+    wf.write_text('\n'.join(bez[:k + 1] + ['    steps:', USTANOVKA_STROKA]
+                            + bez[k + 1:]) + '\n')
+
+
 STABY = [
     ('пачка без ekran.json', 'PACHKA_NEPOLNAJA',
      lambda r: (r / PACHKA / 'ekran.json').unlink()),
@@ -835,6 +906,43 @@ STABY = [
     ('шаг установки зависимостей (npm ci) удалён — стадия dvizhenie умрёт',
      'UPRAVLYAYUSHCHIJ_KLYUCH',
      lambda r: _udal_stroki(r, lambda l: l.strip() == '- run: npm ci --no-audit --no-fund')),
+    # ── К-08 Crit149V5: ИСПОЛНЯЕМЫЙ смысл установки зависимостей; мутации
+    #    БЕЗ сдвига позиций прочих шагов (атака судьи: echo вместо npm ci
+    #    проходила зелёным) — ловятся только ветвями установки ──────────
+    ('установка заменена на пустую операцию echo (атака судьи v5)',
+     'RABOTNIK_BEZ_USTANOVKI',
+     lambda r: _zameni(r, USTANOVKA_STROKA,
+                       '      - run: echo installation-skipped')),
+    ('установка заменена на no-op true',
+     'RABOTNIK_BEZ_USTANOVKI',
+     lambda r: _zameni(r, USTANOVKA_STROKA, '      - run: true')),
+    ('установка заменена на no-op ":"',
+     'RABOTNIK_BEZ_USTANOVKI',
+     lambda r: _zameni(r, USTANOVKA_STROKA, "      - run: ':'")),
+    ('пустой run шага установки',
+     'RABOTNIK_BEZ_USTANOVKI',
+     lambda r: _zameni(r, USTANOVKA_STROKA, "      - run: ''")),
+    ('npm ci закомментирован в теле шага, подстрока в файле (MA-2c)',
+     'RABOTNIK_BEZ_USTANOVKI',
+     lambda r: _zameni(r, USTANOVKA_STROKA,
+                       "      - run: |\n"
+                       "          # npm ci --no-audit --no-fund\n"
+                       "          echo installation-skipped")),
+    ('npm install вместо npm ci — другая команда установки',
+     'UPRAVLYAYUSHCHIJ_KLYUCH',
+     lambda r: _zameni(r, USTANOVKA_STROKA,
+                       '      - run: npm install --no-audit --no-fund')),
+    ('if: false на шаге установки — установка условна (m18)',
+     'UPRAVLYAYUSHCHIJ_KLYUCH',
+     lambda r: _vstav_posle(r, USTANOVKA_STROKA, ['        if: false'])),
+    ('установка перенесена в другой job (build-apk), в работнике её нет',
+     'UPRAVLYAYUSHCHIJ_KLYUCH', _perenesi_ustanovku),
+    ('setup-node заменён на пустую операцию echo — node не подготовлен',
+     'RABOTNIK_BEZ_SETUP_NODE',
+     lambda r: _zameni(r, SETUP_NODE_BLOK, '      - run: echo node-ready')),
+    ('if: false на шаге setup-node (m19)',
+     'UPRAVLYAYUSHCHIJ_KLYUCH',
+     lambda r: _vstav_posle(r, SETUP_NODE_STROKA, ['        if: false'])),
 ]
 
 
