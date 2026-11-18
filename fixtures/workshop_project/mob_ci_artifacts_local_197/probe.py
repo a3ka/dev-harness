@@ -18,6 +18,7 @@
 # Оракул: ожидания вычисляются ДО чтения субъекта; пины sha256 модели — в
 # source.json; рассинхрон → rc 2 ORACLE_TAMPERED. Субъект --repo НЕ служит
 # источником ожиданий никогда.
+import atexit
 import json
 import os
 import re
@@ -836,8 +837,11 @@ def r07(pesok):
     p = pesok.vyzov(['chtenie', '--shablon', 'screen-evidence-*', '--kuda', 'sbor'])
     if p.returncode != 0:
         return f'SHABLON_OTKAZ: rc={p.returncode} {p.stderr.strip()}'
+    # 197 v3 (Б-1 Rev197): имя каждого собранного каталога несёт пару
+    # контекста чтения <имя>-<run_id>-<run_attempt> (умолчание vyzov — 4242-1)
+    # — раскладка merge-multiple: false до 197.
     for imja, ozhidanie in (('screen-evidence-vhod', '{"ok":1}'), ('screen-evidence-taby', '{"ok":2}')):
-        fakt = pesok.koren / f'sbor/{imja}/result.json'
+        fakt = pesok.koren / f'sbor/{imja}-4242-1/result.json'
         if not fakt.is_file() or fakt.read_text(encoding='utf-8') != ozhidanie:
             return f'SHABLON_NE_SOBRAL: {imja}'
     # 197 v+1: проверка пустого шаблона вынесена в r10-shablon-pusto
@@ -907,6 +911,102 @@ def r11(pesok):
     return None
 
 
+# ── совместная клетка стыка с агрегатом 143 (С-4/Б-1 FAIL Rev197) ──
+
+_AGGREGAT_143 = None
+
+
+def _zhivoj_agregat_143():
+    """Живой ci-aggregate.cjs зоны 143 — НЕИЗМЕННЫЙ потребитель стыка.
+    Станционный клон продукта (read-only), git archive по пину
+    source.json:.agregat_143, байты сверяются с пином ДО прогона;
+    отсутствие клона/коммита или расхождение пина — rc 2 ORACLE_TAMPERED
+    (инструмент недоступен/подменён — судить нельзя, а не «зелено»)."""
+    global _AGGREGAT_143
+    if _AGGREGAT_143 is not None:
+        return _AGGREGAT_143
+    import hashlib
+    import io
+    import tarfile
+    opis = json.loads((ZDES / 'source.json').read_text(encoding='utf-8'))['agregat_143']
+    klon = Path(opis['repo'])
+    if not (klon / '.git').is_dir():
+        oshibka_orakula('агрегат 143: клон продукта отсутствует: ' + str(klon))
+    tip = subprocess.run(['git', '-C', str(klon), 'cat-file', '-t', opis['commit']],
+                         capture_output=True, text=True)
+    if tip.returncode != 0 or tip.stdout.strip() != 'commit':
+        oshibka_orakula('агрегат 143: коммит не найден в клоне: ' + opis['commit'])
+    arkhiv = subprocess.run(['git', '-C', str(klon), 'archive', opis['commit'], '--', opis['put']],
+                            capture_output=True)
+    if arkhiv.returncode != 0:
+        oshibka_orakula('агрегат 143: git archive не собрался')
+    with tarfile.open(fileobj=io.BytesIO(arkhiv.stdout)) as t:
+        chlen = t.extractfile(opis['put'])
+        if chlen is None:
+            oshibka_orakula('агрегат 143: в архиве нет ' + opis['put'])
+        bajty = chlen.read()
+    fakt = hashlib.sha256(bajty).hexdigest()
+    if fakt != opis['sha256']:
+        oshibka_orakula(f'агрегат 143: sha256 {fakt} != пина {opis["sha256"]}')
+    vremennoe = Path(tempfile.mkdtemp(prefix='agregat143-197-'))
+    atexit.register(shutil.rmtree, vremennoe, True)
+    _AGGREGAT_143 = vremennoe / 'ci-aggregate.cjs'
+    _AGGREGAT_143.write_bytes(bajty)
+    return _AGGREGAT_143
+
+
+@_replay_kletka('s01-styk-sbor-agregat')
+def s01(pesok):
+    # СОВМЕСТНАЯ клетка (С-4, блок Б-1 FAIL Rev197): канон-писатель →
+    # шаблонный сбор --shablon 'screen-evidence-*' → НЕИЗМЕННЫЙ агрегат 143
+    # на НЕПУСТОМ matrix-выборе (двое детей). Имя каждого собранного
+    # каталога несёт пару контекста чтения <имя>-<run_id>-<run_attempt> —
+    # ровно её ждёт агрегат (build.run_id того же прогона, attempt — env
+    # того же job'а: читатель и агрегат в workflow — соседние шаги);
+    # ожидаемое множество = выбранные экраны РОВНО. Оракул — живой скрипт
+    # зоны 143 (git archive, байтовый пин source.json:.agregat_143), не
+    # копия и не пере-реализация.
+    agregat = _zhivoj_agregat_143()
+    sha = 'a' * 64
+    deti = ('vkladki', 'taby')
+    legacy = ['e2e-splash', 'e2e-first-run', 'e2e-erstinformation', 'e2e-start', 'e2e-pilot']
+    for ekran in deti:
+        pesok.zapis(f'screen-evidence/{ekran}/result.json',
+                    json.dumps({'screen_id': ekran, 'status': 'success', 'apk_sha256': sha,
+                                'artifact_name': 'apk-x', 'run_id': '4242', 'run_attempt': '1'}))
+        p = pesok.vyzov(['zapis', '--imja', f'screen-evidence-{ekran}',
+                         '--chto', f'src/screen-evidence/{ekran}'])
+        if p.returncode != 0:
+            return f'STYK_ZAPIS_OTKAZ: {ekran} rc={p.returncode} {p.stderr.strip()}'
+    p = pesok.vyzov(['chtenie', '--shablon', 'screen-evidence-*',
+                     '--kuda', 'mobile/screen-evidence-collected'])
+    if p.returncode != 0:
+        return f'STYK_SBOR_OTKAZ: rc={p.returncode} {p.stderr.strip()}'
+    matrix = json.dumps({'include': [{'screen': {'id': e}} for e in deti]})
+    vybor = {'selected': [{'job': 'e2e-screen', 'id': e} for e in deti],
+             'excluded': [{'job': j, 'reason': 'NE_ZATRONUT'} for j in legacy],
+             'matrix': matrix}
+    needs = {'select-screens': {'result': 'success',
+                                'outputs': {'selection': json.dumps(vybor), 'matrix': matrix}},
+             'quality': {'result': 'success', 'outputs': {}},
+             'build-apk': {'result': 'success',
+                           'outputs': {'apk_sha256': sha, 'artifact_name': 'apk-x',
+                                       'run_id': '4242', 'run_attempt': '1'}},
+             'e2e-screen': {'result': 'success', 'outputs': {}}}
+    for j in legacy:
+        needs[j] = {'result': 'skipped', 'outputs': {}}
+    (pesok.koren / 'needs.json').write_text(json.dumps(needs), encoding='utf-8')
+    env = dict(os.environ)
+    env['GITHUB_RUN_ID'] = '4242'
+    env['GITHUB_RUN_ATTEMPT'] = '1'
+    protsess = subprocess.run(['node', str(agregat), '--needs', 'needs.json',
+                               '--evidence', 'mobile/screen-evidence-collected'],
+                              capture_output=True, text=True, env=env, cwd=str(pesok.koren))
+    if protsess.returncode != 0 or 'CHILD_EVIDENCE_OK' not in protsess.stdout:
+        return 'STYK_AGREGATA_OTKAZ: ' + (protsess.stdout + protsess.stderr).strip()
+    return None
+
+
 # ── прогон ──
 
 def sudit(koren_subiekta, orakul):
@@ -921,7 +1021,7 @@ def sudit(koren_subiekta, orakul):
     wf, shagi = razobrat_subiekta(subiekt)
     krasnye = 0
     for id_kletki, fn in KLETKI:
-        if id_kletki.startswith('r'):
+        if id_kletki.startswith(('r', 's')):  # r* и s* — replay-клетки (s — совместная клетка стыка)
             prichina = _sudit_replay(fn, subiekt, orakul)
         else:
             prichina = fn(subiekt, wf, shagi, orakul)
