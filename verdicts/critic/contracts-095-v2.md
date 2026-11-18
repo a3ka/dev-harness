@@ -1,42 +1,54 @@
-FAIL
+accept
 
-OBJECT=614b013bdef9152257029e5dab515b671d0e8934
-СУД: repo=dev-harness; предмет=095; фаза=контракт v2 до заморозки; роль=critic; вызов=один адресный узкий по слову владельца 2026-11-18 ~18:10 UTC, батч №3 №5; модель-план=openai-codex/gpt-6.1-terra; сессия=Crit095V5; модель-факт=openai-codex/gpt-6.1-terra allowed; SHA=614b013bdef9152257029e5dab515b671d0e8934; предыдущий=Crit095V4 FAIL, 70f9a6abcf; исключение=слово владельца, без нового полного суда и следующего автоматического вызова.
+OBJECT=a3453fe20a8a7aa17ffdf346016b1b0796cc6d50
+СУД: repo=dev-harness; предмет=095; фаза=контракт v2 до заморозки; роль=critic; вызов=один дополнительный узкий по слову владельца 2026-11-18 ~21:09 UTC; модель-план=openai-codex/gpt-6.1-terra; сессия=Crit095V6; модель-факт=openai-codex/gpt-6.1-terra allowed; SHA=a3453fe20a8a7aa17ffdf346016b1b0796cc6d50; предыдущий=Crit095V5 FAIL, 5dfaa96ca9; исключение=слово владельца, только К-15 и зависимый регресс, без нового полного суда и следующего вызова.
 
-## Блок
+К-15 закрыт: contracts/095-profil-i-vhod-agenta-contextpack.md:163 требует ровно семь красных и 19 зелёных на v1 до Б3, :164 — 26 зелёных и 46 пойманных порч на модели, :165 — 46 стабов; fixtures/context_pack_095/sdacha_095.md:13-16, :66-80 заявляет те же значения. Они совпали с прогонами ниже. Две клетки отсутствия инструментов не удалены: привязки s62–s64 к ветвям и клеткам — в коде fixtures/context_pack_095/battery_stubs.sh:164-176, изменения ветвей в fixtures/context_pack_095/model/dover.sh:253-254, :271-272; не в прозе контракта (Н-39). Дельта проверяющего кода и новых предикатов не вводит.
 
-БЛОКИРУЕТ contracts/095-profil-i-vhod-agenta-contextpack.md:163 — адресная дельта расширяет батарею, но оставляет действующий критерий приёмки и сопряжённые счётные утверждения несовместимыми с этой батареей.
-ОБЯЗАТЕЛЬСТВО: п.1 требует для реализации v1 до Б3 ровно пять красных клеток И-16; пп.2–3, 12 и строки 16, 161, 171, 243 называют 24 клетки и 43 порчи. Критерии должны соответствовать реально используемой батарее и не ослаблять проверку отсутствия инструментов.
-СОСТОЯНИЕ: дельта 614b013b добавила две клетки И-16, три стаба и подняла census до 26; контракт не изменён. Сдаточный лист сам называет это расхождение и сообщает семь красных до реализации.
-НАБЛЮДЕНИЕ: модельная команда rc 0 печатает 26 зелёных клеток и 46 пойманных порч, а не 24 и 43; точные команды и вывод ниже. Новые клетки проверяют тот же вход без PRECOND и потому противоречат требованию ровно пяти красных при старом субъекте. Числа 24/43 встречаются также в contracts/095-profil-i-vhod-agenta-contextpack.md:164-165, :171, :243; семь вместо пяти относится также к :16 и :171. Это не историческое описание в п.1–3 и 12: там заданы обязательные результаты команд приёмки. Закрывающее свойство: критерии и все зависимые счётные утверждения соответствуют исполняемой батарее в мирах до и после реализации; при необходимости изменения защищённого текста применяется полномочный маршрут, не удаляя новые проверки.
-ПРОИСХОЖДЕНИЕ: дельта
-КЛАСС: К-15
+Разрешение в теле коммита a3453fe20a8a7aa17ffdf346016b1b0796cc6d50 стоит в первой колонке, первый токен после `РАЗРЕШИЛ-ВЛАДЕЛЕЦ:` — `contracts/095-profil-i-vhod-agenta-contextpack.md`, причина непуста: v+1 Б3. Слово владельца зафиксировано docs/owner/2026-11-17-remonty-avtonomnost-plan.md в разделе «Слово владельца»; дельта согласует счёт приёмки v+1, не распространяет разрешение на другие пути. Независимость: автор изменения architect, автор предыдущего вердикта critic; модель по трассе allowed. Область этого вердикта ограничена порученным узким судом.
 
 ## Карта классов
 
-К-01: н/п — двери и лист повторно не запускались по заданию; раннер --stabs не имеет такого режима.
-К-02: чисто — вход: OWNER-BATCH3-1118 №5 и station-batch2-1118 §9, узкая область К-08.
-К-03: чисто — вход: git diff 6c29afefde..614b013b; чужие обязательства дельтой не изменены.
-К-04: чисто — вход: две новые клетки и изменённые файлы батареи в зоне architect.
-К-05: блок — расхождение критериев с живой батареей, блок К-15.
-К-06: н/п — вне дельты, без изменений с Crit095V4.
-К-07: блок — достижимость точного результата п.1 нарушена расширением батареи, блок К-15.
-К-08: чисто — вход: s62–s64 в battery_stubs.sh; две независимые подмены проверяемого пути дали rc 1 нужных клеток, см. вывод ниже.
-К-09: чисто — вход: оба мира отсутствия и второй присутствующий инструмент проверены отдельными клетками.
-К-10: чисто — вход: клетки сверяют три полные строки PRECOND, независимые rev-list/rev-parse и запуск второго стража.
-К-11: чисто — вход: оракул второго стража до вызова субъекта в обеих новых клетках.
-К-12: чисто — вход: копии настоящих scripts и project_paths_resolve в обеих новых клетках.
-К-13: н/п — секреты не затронуты дельтой.
-К-14: чисто — честная эквивалентная запись `! test -f` на обеих новых клетках rc 0; --model rc 0.
-К-15: блок — числа и точный census приёмки не согласованы с дельтой.
-К-16: чисто — bash scripts/check_threat_model.sh . contracts/095-profil-i-vhod-agenta-contextpack.md rc 0; риск обычный.
-К-17: н/п — архитектурный cutover не входит в дельту.
+К-01: чисто — вход: лист и предсудебные двери, результаты ниже.
+К-02: чисто — вход: слово владельца 2026-11-18 ~21:09 и docs/owner/2026-11-17-remonty-avtonomnost-plan.md, адресный К-15.
+К-03: чисто — вход: git show a3453fe: изменены только контракт 095 и его сдаточный лист, уставная строка в том же коммите.
+К-04: н/п — новых файлов и распределения дельта не вводит; без изменений с Crit095V5.
+К-05: чисто — вход: контракта строки 163–165 и наблюдаемые rc/числа ниже.
+К-06: н/п — механизм отказа среды без изменений с Crit095V5.
+К-07: чисто — `bash fixtures/_krasnye_095.sh .` rc 1: ровно семь красных при до-Б3 субъекте; `--model` rc 0.
+К-08: чисто — вход: battery_stubs.sh:171-176, s62–s64 пойманы; код без изменений с Crit095V5.
+К-09: н/п — без изменений с Crit095V5.
+К-10: н/п — без изменений с Crit095V5.
+К-11: н/п — без изменений с Crit095V5.
+К-12: н/п — без изменений с Crit095V5.
+К-13: н/п — секреты дельтой не затронуты.
+К-14: чисто — `bash fixtures/_krasnye_095.sh --model` rc 0, проверяющий код без изменений с Crit095V5.
+К-15: чисто — вход: контракт :163–165, лист :13–16, живой прогон 26 клеток/46 порч/семь красных ниже.
+К-16: чисто — `bash scripts/check_threat_model.sh . contracts/095-profil-i-vhod-agenta-contextpack.md` rc 0.
+К-17: н/п — архитектурная модель вне дельты и области поручения.
 
 ## Проверки
 
-Путь клона: `/tmp/dev-harness-verify/Crit095V5/repo`; HEAD до вердикта равен OBJECT. `git fetch --tags origin` rc 0. Строка разрешения в коммите 18647b39: `РАЗРЕШИЛ-ВЛАДЕЛЕЦ: contracts/095-profil-i-vhod-agenta-contextpack.md v+1 ...`: путь первый токен, причина непуста; относится к v+1 по слову владельца. Последняя дельта контракт не меняет. Н-39: привязки s62/s63/s64 находятся в коде battery_stubs.sh, не в тексте контракта.
+`bash scripts/pre_critic.sh --repo . contracts/095-profil-i-vhod-agenta-contextpack.md` rc 0; сырой вывод (первый запуск был прерван внешним таймаутом 300 с, повтор с бюджетом 1000 с):
+```text
+  ok   гейт предпосылок: PREDPOSYLKI_OK secrets=0 variables=0 environments=0 settings=1
+  ok   гейт трека: 
+  ok   дверь архитектуры 187а: ARCH_187A_SKIP: проект не в режиме 187а (repoId/пин модели)
+  ok   модель угроз красна
+  ok   потолки красны
+  ok   проводка красна
+  ok   сдаточный лист красен
+КРИТИК: дверь зелёная
+```
 
-Соседние проверки, сырой вывод (rc отмечены самой командой):
+Рабочий каталог `/tmp/dev-harness-verify/Crit095V6/repo`; `git fetch --tags origin` rc 0; HEAD до записи вердикта = OBJECT, ветка `wip/095/architect`. `git rev-parse HEAD:scripts/make_task.sh origin/main:scripts/make_task.sh` дал дважды `4963453278a50c663cab4adafa78341e6df74e60` — субъект на момент замера совпадает с origin/main до Б3.
+
+`bash scripts/check_sdacha.sh . contracts/095-profil-i-vhod-agenta-contextpack.md --run` rc 0, сырой вывод:
+```text
+СДАЧА: лист зелёный (двери=2 карта=17/17 дельта=3)
+```
+
+Соседние двери, сырой вывод команд `bash scripts/check_provodka.sh . contracts/095-profil-i-vhod-agenta-contextpack.md`, `bash scripts/check_ceilings.sh . contracts/095-profil-i-vhod-agenta-contextpack.md`, `bash scripts/check_threat_model.sh . contracts/095-profil-i-vhod-agenta-contextpack.md`:
 ```text
 PROVODKA_RC=0
   ok   персоны: 13 файл(ов), потолок 81920 байт
@@ -47,19 +59,8 @@ CEILINGS_RC=0
 модель угроз: секция валидна (ЗАЩИЩАЕТ 14 буллет(ов), НЕ ЗАЩИЩАЕТ 11 буллет(ов))
 THREAT_RC=0
 ```
-Команды: `bash scripts/check_provodka.sh . contracts/095-profil-i-vhod-agenta-contextpack.md`, `bash scripts/check_ceilings.sh . contracts/095-profil-i-vhod-agenta-contextpack.md`, `bash scripts/check_threat_model.sh . contracts/095-profil-i-vhod-agenta-contextpack.md`.
 
-Собственная соседняя мутация: в копии модели условие проверки наличия каждого из двух инструментов отдельно заменено на проверку существующего `scripts/next_id.sh`; честный контроль заменяет оба `[ ! -f ... ]` на эквивалентный `! test -f ...`. Запуск клеток с `CP095_ROOT="$PWD" CP095_SUBJECT=<копия> bash fixtures/context_pack_095/<клетка>`, сырой вывод:
-```text
-КРАСНО: precond-net-check-plan: нет scripts/check_plan.sh → plan_gate обязана rc=2 NOT_RUN с названием инструмента, а не запуск отсутствующего файла (rc=127/bash)
-ATTACK gate red_orch_brief_precond_net_check_plan.sh rc=1
-КРАСНО: precond-net-plan-slice: нет scripts/orch_plan_slice.sh → plan_slice обязана rc=2 NOT_RUN с названием инструмента, а не запуск отсутствующего файла (rc=127/bash)
-ATTACK slice red_orch_brief_precond_net_plan_slice.sh rc=1
-ATTACK honest red_orch_brief_precond_net_check_plan.sh rc=0
-ATTACK honest red_orch_brief_precond_net_plan_slice.sh rc=0
-```
-
-`bash fixtures/_krasnye_095.sh --model` rc 0; сырой вывод:
+`bash fixtures/_krasnye_095.sh .`, `bash fixtures/_krasnye_095.sh --model` и `bash fixtures/context_pack_095/battery_stubs.sh` выполнены последовательно. Раннер не имеет флагов `--repo` и `--stabs`: корень задаётся позиционным аргументом, стабы запускаются отдельной командой и встроены в оба прогона (fixtures/_krasnye_095.sh:20-25, :55-58). Сырой вывод стаба, одинаково полученный в каждом из трёх прогонов:
 ```text
 — стаб s1 ПОЙМАН клеткой red_pravila_proekta_ne_harsa.sh
 — стаб s2 ПОЙМАН клеткой red_manifest_razreshaetsja.sh
@@ -108,51 +109,9 @@ ATTACK honest red_orch_brief_precond_net_plan_slice.sh rc=0
 — стаб s63 ПОЙМАН клеткой red_orch_brief_precond_net_plan_slice.sh
 — стаб s64 ПОЙМАН клеткой red_orch_brief_precond_net_check_plan.sh
 ИТОГ стаб-пак 095: rc=0
-— battery_stubs.sh: rc=0
-— red_bjudzhet_vklejki.sh: rc=0
-— red_dver_spawn_manifest.sh: rc=0
-— red_kontekst_doslovno.sh: rc=0
-— red_manifest_razreshaetsja.sh: rc=0
-— red_naznachennaja_specializacija.sh: rc=0
-— red_orch_brief_bounded_work.sh: rc=0
-— red_orch_brief_karta_legacy.sh: rc=0
-— red_orch_brief_precond.sh: rc=0
-— red_orch_brief_precond_budget.sh: rc=0
-— red_orch_brief_precond_budget_gate.sh: rc=0
-— red_orch_brief_precond_net_check_plan.sh: rc=0
-— red_orch_brief_precond_net_plan_slice.sh: rc=0
-— red_orch_brief_precond_notrun.sh: rc=0
-— red_orch_brief_precond_serial.sh: rc=0
-— red_orch_brief_rabota_bez_plana.sh: rc=0
-— red_orch_brief_starter.sh: rc=0
-— red_poteryannaja_ssylka_tochna.sh: rc=0
-— red_pravila_proekta_ne_harsa.sh: rc=0
-— red_profil_dva_sloja.sh: rc=0
-— red_proishozhdenie_fragmentov.sh: rc=0
-— red_revjer_poluchaet_vydannoe.sh: rc=0
-— red_rezhim_do_zamorozki.sh: rc=0
-— red_roli_menjajut_vydachu.sh: rc=0
-— red_svidetelstvo_modeli.sh: rc=0
-— red_uroki_po_oblasti.sh: rc=0
-— red_zony_iz_frozen_blobs.sh: rc=0
-ИТОГ 095: rc=0
 ```
 
-`bash fixtures/_krasnye_095.sh --stabs` rc 1: раннер распознаёт только `--model`, поэтому `--stabs` трактуется как корень, а не как режим. Встроенный стаб-пак до клеток отработал rc 0 и вывел те же 46 строк пойманных стабов, что выше. Далее все 26 клеток сообщили отсутствие субъекта; завершающий сырой вывод:
-```text
-красная: предмет отсутствует (субъект scripts/make_task.sh, корень --stabs)
-ИТОГ 095: rc=1
-```
-Это не ошибка стаб-пака; самостоятельная команда батареи стабов названа контрактом `bash fixtures/context_pack_095/battery_stubs.sh`, её выполнение входит в оба прогона раннера.
-
-Счёт: `printf '%s\n' fixtures/context_pack_095/red_*.sh | wc -l` и `grep -c '^zapest ' fixtures/context_pack_095/battery_stubs.sh`:
-```text
-CELLS=26
-STUBS=46
-```
-Предсудебные двери и сдаточный лист не повторялись по заданию. Freeze и push не выполнялись.
-
-`bash fixtures/_krasnye_095.sh` на действительном субъекте до Б3: rc 1; стаб-пак вывел те же 46 строк, что в модельном прогоне выше. Сырой вывод клеток:
+После этого общего вывода сырой вывод клеток реального субъекта:
 ```text
 — battery_stubs.sh: rc=0
 — red_bjudzhet_vklejki.sh: rc=0
@@ -189,4 +148,40 @@ STUBS=46
 — red_uroki_po_oblasti.sh: rc=0
 — red_zony_iz_frozen_blobs.sh: rc=0
 ИТОГ 095: rc=1
+REPO_RC=1
 ```
+
+После общего вывода стаба сырой вывод клеток модели:
+```text
+— battery_stubs.sh: rc=0
+— red_bjudzhet_vklejki.sh: rc=0
+— red_dver_spawn_manifest.sh: rc=0
+— red_kontekst_doslovno.sh: rc=0
+— red_manifest_razreshaetsja.sh: rc=0
+— red_naznachennaja_specializacija.sh: rc=0
+— red_orch_brief_bounded_work.sh: rc=0
+— red_orch_brief_karta_legacy.sh: rc=0
+— red_orch_brief_precond.sh: rc=0
+— red_orch_brief_precond_budget.sh: rc=0
+— red_orch_brief_precond_budget_gate.sh: rc=0
+— red_orch_brief_precond_net_check_plan.sh: rc=0
+— red_orch_brief_precond_net_plan_slice.sh: rc=0
+— red_orch_brief_precond_notrun.sh: rc=0
+— red_orch_brief_precond_serial.sh: rc=0
+— red_orch_brief_rabota_bez_plana.sh: rc=0
+— red_orch_brief_starter.sh: rc=0
+— red_poteryannaja_ssylka_tochna.sh: rc=0
+— red_pravila_proekta_ne_harsa.sh: rc=0
+— red_profil_dva_sloja.sh: rc=0
+— red_proishozhdenie_fragmentov.sh: rc=0
+— red_revjer_poluchaet_vydannoe.sh: rc=0
+— red_rezhim_do_zamorozki.sh: rc=0
+— red_roli_menjajut_vydachu.sh: rc=0
+— red_svidetelstvo_modeli.sh: rc=0
+— red_uroki_po_oblasti.sh: rc=0
+— red_zony_iz_frozen_blobs.sh: rc=0
+ИТОГ 095: rc=0
+MODEL_RC=0
+```
+
+После отдельного прогона стаба — `STABS_RC=0`. Число файлов `printf '%s\n' fixtures/context_pack_095/red_*.sh | wc -l` = 26; у раннера census 26 (fixtures/_krasnye_095.sh:34-39).
