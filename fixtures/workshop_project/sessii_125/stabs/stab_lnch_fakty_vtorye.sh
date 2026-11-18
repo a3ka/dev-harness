@@ -6,8 +6,8 @@ set -eu
 python3 - "$1/workshop.sh" "$2" <<'PY'
 import sys
 src = open(sys.argv[1], encoding="utf-8").read()
-a = "  printf '%s\\n' \"$@\" > \"$_stage/argv\" || die \"запись argv фактов не удалась\"\n"
-b = "  printf '%s\\n' \"$*\" > \"$_stage/argv\" || die \"запись argv фактов не удалась\"  # СТАБ: склейка\n"
+a = "  printf '%s\\0' \"$@\" > \"$_stage/argv\" || die \"запись argv фактов не удалась\"\n"
+b = "  printf '%s\\0' \"$*\" > \"$_stage/argv\" || die \"запись argv фактов не удалась\"  # СТАБ: склейка\n"
 assert src.count(a) == 1, "точка правки модели не найдена: запись argv"
 src = src.replace(a, b)
 open(sys.argv[2], "w", encoding="utf-8").write(src)

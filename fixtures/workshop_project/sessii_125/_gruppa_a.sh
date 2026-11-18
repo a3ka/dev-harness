@@ -3,7 +3,8 @@
 # Мир: дом зоны dev Z (профиль dev; конфигурация + живое состояние dev), установка H
 # (политика, расширения, агенты), ОТДЕЛЬНЫЙ дом проекта P/home с честным севом
 # (побайтные копии перечня сева, agent.db — симлинк W8, своё состояние проекта), проект R.
-# Факты запусков пишет сама клетка в формате стаба-omp (argv по строке, env KEY=VALUE).
+# Файл-режим: формат стаба-omp 105 (argv по строке, env KEY=VALUE).
+# --avto: запись И-9 (argv с NUL-разделителем, env KEY=VALUE).
 # Оракул — литерал ТОЧНОГО stdout клетки (все причины в порядке перечня, ни одной посторонней),
 # снятый ДО вызова субъекта (правило 8); значения случайны.
 a_world() { # $1 = каталог мира
@@ -101,10 +102,10 @@ avto_new() {
   printf '{"schemaVersion":1,"version":"v1","projectId":"%s","workspaceId":"%s"}\n' "$AV_PID" "$AV_PID" > "$W/R/.harness/project-layer.json"
   ext=$(ls "$W"/H/.omp/extensions/*.ts)
   mkdir -p "$W/Z/session-exec" "$AV_PSTATE/session-exec"
-  printf '%s\n' --profile dev --model toy/m1 --append-system-prompt "$W/prompt-main.md" --tools read,bash > "$W/Z/session-exec/argv"
+  printf '%s\0' --profile dev --model toy/m1 --append-system-prompt "$W/prompt-main.md" --tools read,bash > "$W/Z/session-exec/argv"
   printf 'HOME=%s\nPWD=%s\n' "$W/Z" "$W/H" > "$W/Z/session-exec/env"
   printf '{"rezhim":"main","projectId":null,"pid":111,"start":"2026-11-17T00:00:00Z","rol":"orchestrator"}\n' > "$W/Z/session-exec/meta"
-  printf '%s\n' --profile dev --model toy/m1 --config "$W/H/.omp/config.yml" -e "$ext" --append-system-prompt "$W/prompt-proj.md" --tools read,bash > "$AV_PSTATE/session-exec/argv"
+  printf '%s\0' --profile dev --model toy/m1 --config "$W/H/.omp/config.yml" -e "$ext" --append-system-prompt "$W/prompt-proj.md" --tools read,bash > "$AV_PSTATE/session-exec/argv"
   printf 'HOME=%s\nPWD=%s\n' "$AV_PSTATE/home" "$W/R" > "$AV_PSTATE/session-exec/env"
   printf '{"rezhim":"project","projectId":"%s","pid":222,"start":"2026-11-17T00:00:01Z","rol":"orchestrator"}\n' "$AV_PID" > "$AV_PSTATE/session-exec/meta"
   { printf '{'; local sep=""
@@ -214,25 +215,28 @@ gruppa_a() {
   # честный мир + ПОДДЕЛЬНЫЕ факты в дереве проекта: сверка им не доверяет (п.8)
   avto_new
   mkdir -p "$W/R/.harness/session-exec"
-  printf '%s\n' --profile dev --model toy/m9 > "$W/R/.harness/session-exec/argv"
+  printf '%s\0' --profile dev --model toy/m9 > "$W/R/.harness/session-exec/argv"
   printf 'HOME=%s\nPWD=%s\n' "$W/R" "$W/R" > "$W/R/.harness/session-exec/env"
   printf '{"rezhim":"project","projectId":"%s","pid":9,"start":"x","rol":"o"}\n' "$AV_PID" > "$W/R/.harness/session-exec/meta"
   avto_cell a27-avto-chestnaya 0 "" "$W"
   # запись проектных фактов несёт чужую модель — сверка судит ЗАПИСЬ, не реконструкцию
   avto_new
-  awk -v m=toy/m2 '/^--model$/ {print; getline; print m; next} {print}' \
-    "$AV_PSTATE/session-exec/argv" > "$AV_PSTATE/session-exec/argv.t"
-  mv "$AV_PSTATE/session-exec/argv.t" "$AV_PSTATE/session-exec/argv"
+  python3 -c 'import sys
+p = sys.argv[1]; a = open(p, "rb").read().split(b"\0")
+i = a.index(b"--model"); a[i + 1] = b"toy/m2"
+open(p, "wb").write(b"\0".join(a))' "$AV_PSTATE/session-exec/argv"
   avto_cell a28-avto-model-chuzhoj 1 "$(r model)" "$W"
   avto_new
-  awk 'p==1 {p=0; next} /^--config$/ {p=1; next} {print}' \
-    "$AV_PSTATE/session-exec/argv" > "$AV_PSTATE/session-exec/argv.t"
-  mv "$AV_PSTATE/session-exec/argv.t" "$AV_PSTATE/session-exec/argv"
+  python3 -c 'import sys
+p = sys.argv[1]; a = open(p, "rb").read().split(b"\0")
+i = a.index(b"--config"); del a[i:i + 2]
+open(p, "wb").write(b"\0".join(a))' "$AV_PSTATE/session-exec/argv"
   avto_cell a29-avto-politika 1 "$(r politika)" "$W"
   avto_new
-  awk 'p==1 {p=0; next} /^-e$/ {p=1; next} {print}' \
-    "$AV_PSTATE/session-exec/argv" > "$AV_PSTATE/session-exec/argv.t"
-  mv "$AV_PSTATE/session-exec/argv.t" "$AV_PSTATE/session-exec/argv"
+  python3 -c 'import sys
+p = sys.argv[1]; a = open(p, "rb").read().split(b"\0")
+i = a.index(b"-e"); del a[i:i + 2]
+open(p, "wb").write(b"\0".join(a))' "$AV_PSTATE/session-exec/argv"
   avto_cell a30-avto-rasshireniya 1 "$(r rasshireniya)" "$W"
   # запись сева лжёт о побайтности (sha источника ≠ sha копии) — ровно своё поле
   avto_new
@@ -319,4 +323,15 @@ gruppa_a() {
   # решение 4: честный эквивалентный абсолютный путь базиса не отказывается
   avto_new; ln -s "$W" "$W/ekv-baza"
   avto_cell a53-avto-baza-ekvivalent 0 "" "$W" XDG_STATE_HOME="$W/ekv-baza"
+  # MSG двери 136 — один аргумент, строки внутри него не меняют флаги.
+  avto_new
+  printf '%s\0' -- $'задание\n--approval-mode\nyolo' >> "$AV_PSTATE/session-exec/argv"
+  avto_cell a54-avto-msg-mnogostrochnyj 0 "" "$W"
+  # Те же слова отдельными аргументами — настоящее изменение подтверждений.
+  avto_new
+  printf '%s\0' --approval-mode yolo >> "$AV_PSTATE/session-exec/argv"
+  avto_cell a55-avto-podtverzhdeniya-realnyj 1 "$(r podtverzhdeniya)" "$W"
+  avto_new
+  printf '%s\0' -- $'текст --, пробелы "кавычки" и литералы \\0 \\x00\n--config\n/tmp/netu-politiki\r\n' >> "$AV_PSTATE/session-exec/argv"
+  avto_cell a56-avto-msg-granicy 0 "" "$W"
 }

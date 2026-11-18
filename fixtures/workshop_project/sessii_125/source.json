@@ -68,6 +68,8 @@
     "stab_lnch_fakty_cherez_ssylku": ["b18-fakty-ne-cherez-ssylku"],
     "stab_lnch_sev_fakty_staryj": ["b19-fakty-povtor-komplekt"],
     "stab_lnch_fakty_pofajlovo": ["b20-fakty-atomarno"],
-    "stab_lnch_fakty_v_probe": ["b21-probe-fakty-net"]
+    "stab_lnch_fakty_v_probe": ["b21-probe-fakty-net"],
+    "stab_lnch_fakty_postrochno": ["b12-fakty-osnovnoj", "b13-fakty-proekta", "b23-msg-mnogostrochnyj"],
+    "stab_chk_avto_postrochno": ["a54-avto-msg-mnogostrochnyj", "a55-avto-podtverzhdeniya-realnyj", "a56-avto-msg-granicy"]
   }
 }

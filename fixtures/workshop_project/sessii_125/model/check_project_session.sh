@@ -2,7 +2,8 @@
 # ЧЕСТНАЯ МОДЕЛЬ субъекта scripts/check_project_session.sh (контракт 125, зона architect).
 # Сверяет ФАКТЫ двух запусков omp — основной сессии (дев-вход, дом зоны dev) и сессии
 # проекта (ОТДЕЛЬНЫЙ дом $PSTATE/home, 055 И-2) — по замкнутому перечню полей. Факт
-# запуска = argv (по строке на элемент) и env (KEY=VALUE) — формат стаба-omp 105.
+# запуска: файл-режим — argv по строке на элемент (105); --avto — argv с
+# NUL-разделителем (И-9); env в обоих режимах — KEY=VALUE.
 #   --main-argv F --main-env F --project-argv F --project-env F
 # stdout — РОВНО строки «РАСХОЖДЕНИЕ <поле>», по одной на каждое фактическое расхождение,
 # в порядке перечня, и никаких других (посторонняя причина = ложный диагноз).
@@ -157,7 +158,11 @@ def nechem(p):
     if AVTO: p = "fakty-osnovnoj-net"  # непригодности ядра — сторона основной; причины --avto замкнуты
     print("НЕЧЕМ-ПРОВЕРИТЬ " + p); sys.exit(2)
 def fakty(fa, fe):
-    with open(fa) as h: argv = h.read().split("\n")
+    # Файл-режим И-3 не меняется; запись И-9 сохраняет многострочный MSG 136.
+    if AVTO:
+        with open(fa, newline="") as h: argv = h.read().split("\0")
+    else:
+        with open(fa) as h: argv = h.read().split("\n")
     if argv and argv[-1] == "": argv.pop()
     env = {}
     with open(fe) as h:

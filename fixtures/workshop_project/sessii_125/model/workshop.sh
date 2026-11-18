@@ -598,6 +598,8 @@ fi
 # check_project_session.sh --avto судит ЗАПИСЬ этих фактов: argv — из ТЕХ ЖЕ
 # массивов/переменных, что идут в exec (А-918: запись доказывает то, что
 # исполняется, не второе вычисление); env — РОВНО две строки HOME/PWD процесса;
+# argv — NUL-разделённые элементы: exec не допускает NUL внутри аргумента,
+# но допускает переводы строк (многострочный MSG двери 136 И-4).
 # meta — режим, projectId, pid, эпоха старта, роль. Публикация комплекта
 # ОДНОГО старта атомарна как НАБОР (арбитраж 125-А1, решение 5): комплект
 # собирается целиком в каталоге-поколении ВНЕ канонического имени, каноническое
@@ -617,7 +619,7 @@ _125v2_zapisi_fakty() { # $1 каталог; $2 main|project; $3 projectId ('-' 
   _base=$(dirname -- "$_d"); _nm=$(basename -- "$_d")
   mkdir -p -- "$_base" || die "каталог фактов не создан: $_base"
   _stage=$(mktemp -d "$_base/.${_nm}.new.XXXXXX") || die "mktemp комплекта фактов не удался: $_base"
-  printf '%s\n' "$@" > "$_stage/argv" || die "запись argv фактов не удалась"
+  printf '%s\0' "$@" > "$_stage/argv" || die "запись argv фактов не удалась"
   printf 'HOME=%s\nPWD=%s\n' "$_home" "$_pwd" > "$_stage/env" || die "запись env фактов не удалась"
   if [ "$_pid" = "-" ]; then _pidjson=null; else _pidjson="\"$_pid\""; fi
   printf '{"rezhim":"%s","projectId":%s,"pid":%s,"start":"%s","rol":"%s"}\n' \

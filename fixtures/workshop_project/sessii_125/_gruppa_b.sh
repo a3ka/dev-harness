@@ -14,6 +14,17 @@ CHK_JUDGE=${CHK_JUDGE:-$B_DIR/model/check_project_session.sh}
 SRC_JSON="$B_DIR/source.json"
 # shellcheck source=../_mir_105.sh
 . "$B_DIR/../_mir_105.sh"
+# Дополняем наблюдатель 105 NUL-записью ЕГО argv, не меняя общий мир/файл-режим.
+# Так же наблюдает границы argv группа C (workshop.argv0, дверь 136).
+mv "$SHIMDIR/omp" "$SHIMDIR/omp105"
+cat > "$SHIMDIR/omp" <<'SHIM125'
+#!/usr/bin/env bash
+if [ "${1:-}" != "--version" ]; then
+  printf '%s\0' "$@" > "${SHIM_ARGV:?нет SHIM_ARGV}0"
+fi
+exec "$(dirname "$0")/omp105" "$@"
+SHIM125
+chmod +x "$SHIMDIR/omp"
 v() { if [ "$2" = 1 ]; then printf 'ЗЕЛЕНО %s\n' "$1"; else printf 'КРАСНО %s: %s\n' "$1" "$3"; fi; }
 mapfile -t SEV < <(jq -r '.sev[]' "$SRC_JSON")
 mapfile -t NIKOGDA < <(jq -r '.nikogda[]' "$SRC_JSON")
@@ -43,7 +54,7 @@ launch() { # $1 = имя; $2 = dev|proj|<путь репо>; далее — фл
   local n=$1 mode=$2; shift 2
   local tgt=()
   case "$mode" in dev) ;; proj) tgt=("$REPO") ;; *) tgt=("$mode") ;; esac
-  rm -f "$WORK/$n.calls" "$WORK/$n.argv" "$WORK/$n.env"
+  rm -f "$WORK/$n.calls" "$WORK/$n.argv" "$WORK/$n.argv0" "$WORK/$n.env"
   RC=0
   ( cd "$WORK" && env PATH="$SHIMDIR:$PATH" HOME="$H" XDG_STATE_HOME="$H.state" \
     HARNESS_PROJECT_LAYER_ROOT="$LAYER" ZAI_API_KEY=toy-key MINIMAX_API_KEY=toy-key \
@@ -125,8 +136,8 @@ launch r2 "$R2"
 ok=0; [ "$(launch_n r2)" = 1 ] && ok=1
 v b11-harness-raskladka "$ok" "лаунчер не принял $ENV_REL и $PIN_REL (rc $RC): $(sed -n '1,2p' "$WORK/r2.err" | tr '\n' '|')"
 # ── 125 v2: фиксация фактов exec лаунчером (И-9) — b12–b16 ────────────────────
-# Оракул — НАБЛЮДЕНИЕ стаб-omp (argv/env СВОЕГО exec): запись лаунчера обязана быть
-# равна ему байт в байт (те же массивы — А-918), а не второй реконструкцией.
+# Оракул — НАБЛЮДЕНИЕ стаб-omp (argv/env СВОЕГО exec): NUL-запись argv
+# лаунчера побайтно равна независимому наблюдению (те же массивы — А-918).
 SEXC=$(jq -r '.session_exec' "$SRC_JSON")
 ZSEXC="$ZONE_EXPECT/$SEXC"
 PSEXC="$H.state/dev-harness-projects/$PID_EXPECT/$SEXC"
@@ -135,7 +146,7 @@ envline() { sed -n "s/^$2=//p" "$1" | head -1; }
 launch dev2 dev
 ok=0
 if [ -s "$WORK/dev2.argv" ]; then
-  [ "$(cat "$ZSEXC/argv" 2>/dev/null)" = "$(cat "$WORK/dev2.argv")" ] \
+  cmp -s "$ZSEXC/argv" "$WORK/dev2.argv0" \
     && [ "$(envline "$ZSEXC/env" HOME)" = "$(envval dev2 HOME)" ] \
     && [ "$(envline "$ZSEXC/env" PWD)" = "$(envval dev2 PWD)" ] \
     && [ "$(jq -r .rezhim "$ZSEXC/meta" 2>/dev/null)" = main ] \
@@ -146,7 +157,7 @@ v b12-fakty-osnovnoj "$ok" "запись фактов основной ≠ на�
 launch proj3 proj
 ok=0
 if [ -s "$WORK/proj3.argv" ]; then
-  [ "$(cat "$PSEXC/argv" 2>/dev/null)" = "$(cat "$WORK/proj3.argv")" ] \
+  cmp -s "$PSEXC/argv" "$WORK/proj3.argv0" \
     && [ "$(envline "$PSEXC/env" HOME)" = "$(envval proj3 HOME)" ] \
     && [ "$(envline "$PSEXC/env" PWD)" = "$(envval proj3 PWD)" ] \
     && [ "$(jq -r .rezhim "$PSEXC/meta" 2>/dev/null)" = project ] \
@@ -172,7 +183,7 @@ v b14-fakty-sev "$ok" "запись сева sev.json лжёт о байтах:$
 # b15: каждый старт ПЕРЕЗАПИСЫВАЕТ факты (дрейфа между стартами нет) — хвост различает старты
 launch_t() { # $1 имя; $2 сообщение хвоста — workshop <флаги> <репо> -- <MSG>
   local n=$1 msg=$2
-  rm -f "$WORK/$n.calls" "$WORK/$n.argv" "$WORK/$n.env"
+  rm -f "$WORK/$n.calls" "$WORK/$n.argv" "$WORK/$n.argv0" "$WORK/$n.env"
   RC=0
   ( cd "$WORK" && env PATH="$SHIMDIR:$PATH" HOME="$H" XDG_STATE_HOME="$H.state" \
     HARNESS_PROJECT_LAYER_ROOT="$LAYER" ZAI_API_KEY=toy-key MINIMAX_API_KEY=toy-key \
@@ -184,8 +195,8 @@ launch_t projm1 soobshchenie-odno
 launch_t projm2 soobshchenie-dva
 ok=0
 if [ -s "$WORK/projm1.argv" ] && [ -s "$WORK/projm2.argv" ]; then
-  [ "$(cat "$PSEXC/argv" 2>/dev/null)" = "$(cat "$WORK/projm2.argv")" ] \
-    && [ "$(cat "$PSEXC/argv")" != "$(cat "$WORK/projm1.argv")" ] \
+  cmp -s "$PSEXC/argv" "$WORK/projm2.argv0" \
+    && ! cmp -s "$PSEXC/argv" "$WORK/projm1.argv0" \
     && [ "$(envline "$PSEXC/env" HOME)" = "$(envval projm2 HOME)" ] && ok=1
 fi
 v b15-fakty-povtor "$ok" "повторный старт не перезаписал факты под второй запуск: $PSEXC/argv"
@@ -204,7 +215,7 @@ launch2() { # $1 имя; $2 = dev|proj|<путь репо>; далее — фл�
   local n=$1 mode=$2; shift 2
   local tgt=()
   case "$mode" in dev) ;; proj) tgt=("$REPO") ;; *) tgt=("$mode") ;; esac
-  rm -f "$WORK/$n.calls" "$WORK/$n.argv" "$WORK/$n.env"
+  rm -f "$WORK/$n.calls" "$WORK/$n.argv" "$WORK/$n.argv0" "$WORK/$n.env"
   RC=0
   ( cd "$WORK" && env PATH="$SHIMDIR:$PATH" HOME="$H" XDG_STATE_HOME="$H.state" \
     HARNESS_PROJECT_LAYER_ROOT="$LAYER" ZAI_API_KEY=toy-key MINIMAX_API_KEY=toy-key \
@@ -245,7 +256,7 @@ ln -s "$R4/.harness/fakty" "$P4/$SEXC"
 launch r4 "$R4"
 if [ -s "$WORK/r4.argv" ]; then
   dr=$(readlink -f -- "$P4/$SEXC" 2>/dev/null)
-  [ "$(cat "$dr/argv" 2>/dev/null)" = "$(cat "$WORK/r4.argv")" ] \
+  cmp -s "$dr/argv" "$WORK/r4.argv0" \
     && [ "$(sha256sum < "$R4/.harness/fakty/argv" | cut -c1-64)" = "$FAKE1" ] \
     && [ ! -e "$R4/.harness/fakty/env" ] && ok1=1
 fi
@@ -256,7 +267,7 @@ launch r5 "$R4"
 if [ -s "$WORK/r5.argv" ]; then
   dr=$(readlink -f -- "$P4/$SEXC" 2>/dev/null)
   [ "$(find "$ZA" -type f | LC_ALL=C sort)" = "$ZA_F" ] \
-    && [ "$(cat "$dr/argv" 2>/dev/null)" = "$(cat "$WORK/r5.argv")" ] && ok2=1
+    && cmp -s "$dr/argv" "$WORK/r5.argv0" && ok2=1
 fi
 v b18-fakty-ne-cherez-ssylku "$([ "$ok1" = 1 ] && [ "$ok2" = 1 ] && echo 1 || echo 0)" "подготовленная ссылка на session-exec увела запись фактов в дерево проекта/зону dev"
 # b19: повторный старт заменяет комплект ЦЕЛИКОМ — argv/env/sev.json от второго старта
@@ -265,7 +276,7 @@ launch_t projm3 soobshchenie-tri
 why=""
 if [ -s "$WORK/projm3.argv" ]; then
   dr=$(readlink -f -- "$PSEXC" 2>/dev/null)
-  [ "$(cat "$dr/argv" 2>/dev/null)" = "$(cat "$WORK/projm3.argv")" ] || why="$why argv не от последнего старта;"
+  cmp -s "$dr/argv" "$WORK/projm3.argv0" || why="$why argv не от последнего старта;"
   [ "$(envline "$dr/env" HOME)" = "$(envval projm3 HOME)" ] || why="$why env HOME не от последнего старта;"
   [ "$(jq -r .projectId "$dr/meta" 2>/dev/null)" = "$PID_EXPECT" ] || why="$why meta projectId не тот;"
   while read -r f s; do
@@ -286,16 +297,16 @@ case "$dr" in "$H.state/dev-harness-projects/$PID_EXPECT"/*) ;; *) why="$why п�
 nz=0; for x in "$H.state/dev-harness-projects/$PID_EXPECT"/.$SEXC.new.*; do [ -d "$x" ] && nz=$((nz+1)); done
 [ "$nz" = 1 ] || why="$why хранилищ поколений не одно ($nz);"
 ls -d "$H.state/dev-harness-projects/$PID_EXPECT"/.$SEXC.old.* "$H.state/dev-harness-projects/$PID_EXPECT"/.$SEXC.link.* >/dev/null 2>&1 && why="$why хвосты публикации;"
-S_ARGV=$(cat "$dr/argv" 2>/dev/null)
+S_ARGV=$(sha256sum < "$dr/argv" 2>/dev/null)
 junk="$H.state/dev-harness-projects/$PID_EXPECT/.$SEXC.new.zZZmusor"
 mkdir -p "$junk"; printf 'musor\n' > "$junk/argv"
-[ "$(readlink -f -- "$PSEXC")" = "$dr" ] && [ "$(cat "$PSEXC/argv")" = "$S_ARGV" ] || why="$why прерванная публикация сменила канонический комплект;"
+[ "$(readlink -f -- "$PSEXC")" = "$dr" ] && [ "$(sha256sum < "$PSEXC/argv")" = "$S_ARGV" ] || why="$why прерванная публикация сменила канонический комплект;"
 rm -rf -- "$junk"
 v b20-fakty-atomarno "$([ -z "$why" ] && echo 1 || echo 0)" "публикация комплекта фактов не атомарна:$why"
 # b21: проба не создаёт и не обновляет факты (И-9.4)
-F1=$(cat "$PSEXC/argv" 2>/dev/null); F2=$(cat "$PSEXC/env" 2>/dev/null)
+F1=$(sha256sum < "$PSEXC/argv" 2>/dev/null); F2=$(cat "$PSEXC/env" 2>/dev/null)
 F3=$(cat "$PSEXC/meta" 2>/dev/null); F4=$(cat "$PSEXC/sev.json" 2>/dev/null)
-Z1=$(cat "$ZSEXC/argv" 2>/dev/null)
+Z1=$(sha256sum < "$ZSEXC/argv" 2>/dev/null)
 rm -f "$WORK/pr.calls" "$WORK/pr.argv" "$WORK/pr.env"
 RC=0
 ( cd "$WORK" && env PATH="$SHIMDIR:$PATH" HOME="$H" XDG_STATE_HOME="$H.state" \
@@ -305,9 +316,9 @@ RC=0
   bash "$INSTALL/workshop" --probe "$REPO" > "$WORK/pr.out" 2> "$WORK/pr.err" ) || RC=$?
 ok=0
 if [ -n "$F1" ] && [ "$RC" = 0 ]; then
-  [ "$(cat "$PSEXC/argv" 2>/dev/null)" = "$F1" ] && [ "$(cat "$PSEXC/env" 2>/dev/null)" = "$F2" ] \
+  [ "$(sha256sum < "$PSEXC/argv" 2>/dev/null)" = "$F1" ] && [ "$(cat "$PSEXC/env" 2>/dev/null)" = "$F2" ] \
     && [ "$(cat "$PSEXC/meta" 2>/dev/null)" = "$F3" ] && [ "$(cat "$PSEXC/sev.json" 2>/dev/null)" = "$F4" ] \
-    && [ "$(cat "$ZSEXC/argv" 2>/dev/null)" = "$Z1" ] && ok=1
+    && [ "$(sha256sum < "$ZSEXC/argv" 2>/dev/null)" = "$Z1" ] && ok=1
 fi
 v b21-probe-fakty-net "$ok" "проба создала/обновила факты (rc $RC)"
 # b22: нормальный путь (решения 6/7-д): connect_project.sh → workshop → запись → --avto,
@@ -327,4 +338,34 @@ JRC=0; JOUT=$(env HARNESS_SESSION_HOME="$ZONE_EXPECT" XDG_STATE_HOME="$H.state" 
 ok=0
 if [ "$RC" = 0 ] && [ -s "$WORK/door.argv" ] && [ "$JRC" = 0 ] && [ -z "$JOUT" ]; then ok=1; fi
 v b22-styk-dver-avto "$ok" "нормальный путь дверь→workshop→запись→--avto: rc=$RC avto rc=$JRC «$(printf '%s' "$JOUT" | tr '\n' '|')» $(sed -n '1,2p' "$WORK/door.err" | tr '\n' '|')"
+# b23: настоящая дверь 136 → текущий лаунчер → запись → --avto, многострочный MSG.
+# Ожидаемый MSG (включая пин известного toy-корня repo-p1) — в памяти ДО двери.
+MSGM=$'задание\n--approval-mode\nyolo\n--\nпробелы "кавычки", литералы \\0 \\x00'
+PIN_B23="$H.state/dev-harness-projects/repo-p1/wt/wip-136-demo"
+MSG_EXPECT="$MSGM
+WORKTREE=$PIN_B23
+BRANCH=wip/136/demo"
+printf '%s' "$MSGM" > "$WORK/msg-task"
+git -C "$REPO" add harness.project.json
+git -C "$REPO" -c user.name=toy -c user.email=toy@toy commit -qm 'мир 125: MSG двери 136' \
+  || { printf 'мир 125/B сломан: нет коммита для пина двери 136\n' >&2; exit 2; }
+launch msgmain dev --yolo
+RC=0
+( cd "$WORK" && env PATH="$SHIMDIR:$PATH" HOME="$H" XDG_STATE_HOME="$H.state" \
+  HARNESS_PROJECT_LAYER_ROOT="$LAYER" ZAI_API_KEY=toy-key MINIMAX_API_KEY=toy-key \
+  METERING_PROXY_TOKEN=toy-token METERING_PROXY_URL=http://toy.invalid:1 \
+  S136_PSTATE_BASE="$H.state/dev-harness-projects" S136_WORKSHOP="$INSTALL/workshop" \
+  SHIM_CALLS="$WORK/msgdoor.calls" SHIM_ARGV="$WORK/msgdoor.argv" SHIM_ENV="$WORK/msgdoor.env" \
+  bash "$ROOT/scripts/connect_project.sh" --task-file "$WORK/msg-task" "$REPO" \
+  > "$WORK/msgdoor.out" 2> "$WORK/msgdoor.err" ) || RC=$?
+JRC=0; JOUT=$(env HARNESS_SESSION_HOME="$ZONE_EXPECT" XDG_STATE_HOME="$H.state" HOME="$H" \
+  HARNESS_PROJECT_LAYER_ROOT="$LAYER" bash "$CHK_JUDGE" --avto "$REPO" 2>/dev/null) || JRC=$?
+FA=()
+[ -s "$WORK/msgdoor.argv0" ] && mapfile -d '' -t FA < "$WORK/msgdoor.argv0"
+ok=0
+if [ "$RC" = 0 ] && [ "$JRC" = 0 ] && [ -z "$JOUT" ] && [ "${#FA[@]}" -ge 2 ]; then
+  [ "${FA[${#FA[@]}-2]}" = -- ] && [ "${FA[${#FA[@]}-1]}" = "$MSG_EXPECT" ] \
+    && cmp -s "$PSEXC/argv" "$WORK/msgdoor.argv0" && ok=1
+fi
+v b23-msg-mnogostrochnyj "$ok" "дверь 136 с многострочным MSG: rc=$RC avto rc=$JRC «$(printf '%s' "$JOUT" | tr '\n' '|')» $(sed -n '1,2p' "$WORK/msgdoor.err" | tr '\n' '|')"
 exit 0
