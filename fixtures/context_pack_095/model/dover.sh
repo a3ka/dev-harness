@@ -250,7 +250,7 @@ if [ "$KIND" = "brief" ]; then # t95-m61: пробы предусловий — 
   # (2) plan_gate — страж 084 по РАБОЧЕМУ дереву цели
   if [ "$_pc_canon" = 0 ]; then
     _pc_add plan_gate 2 "NOT_RUN проектные workflowPaths вне стража"
-  elif [ ! -f "$_pc_root/scripts/check_plan.sh" ]; then
+  elif [ ! -f "$_pc_root/scripts/check_plan.sh" ]; then # t95-m62: отсутствие стража 084 — именованный NOT_RUN, не запуск отсутствующего файла
     _pc_add plan_gate 2 "NOT_RUN нет scripts/check_plan.sh"
   else
     _pc_o="$(mktemp 2>/dev/null || printf '/tmp/t95pc.%s.%s' "$$" "$RANDOM")"; _pc_e="${_pc_o}.e"
@@ -268,7 +268,7 @@ if [ "$KIND" = "brief" ]; then # t95-m61: пробы предусловий — 
   # (3) plan_slice — срез 182 по ОПУБЛИКОВАННОМУ origin/main
   if [ "$_pc_canon" = 0 ]; then
     _pc_add plan_slice 2 "NOT_RUN проектные workflowPaths вне стража"
-  elif [ ! -f "$_pc_root/scripts/orch_plan_slice.sh" ]; then
+  elif [ ! -f "$_pc_root/scripts/orch_plan_slice.sh" ]; then # t95-m63: отсутствие среза 182 — именованный NOT_RUN, не запуск отсутствующего файла
     _pc_add plan_slice 2 "NOT_RUN нет scripts/orch_plan_slice.sh"
   else
     _pc_o="$(mktemp 2>/dev/null || printf '/tmp/t95pc.%s.%s' "$$" "$RANDOM")"; _pc_e="${_pc_o}.e"

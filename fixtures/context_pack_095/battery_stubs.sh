@@ -161,5 +161,18 @@ zapest s60 t95-m60 red_orch_brief_precond_serial.sh \
   's@.*# t95-m60.*@VK="$(pack_body | wc -c | tr -d " ")"; [ -n "$PRECOND_SEC" ] && VK=$((VK - $(printf %s "$PRECOND_SEC" | wc -c) - 16)) # t95-m60 порча: байты PRECOND вычтены из BUDGET@'
 zapest s61 t95-m61 red_orch_brief_precond_budget.sh \
   's@.*# t95-m61.*@if [ 1 = 1 ]; then # t95-m61 порча: пробы исполняются и в task@'
+# К-08 вердикта Crit095V4: отсутствие инструментов И-16. Порча глушит ветвь
+# проверки отсутствия стража (elif false): на входе «корень-копия без
+# инструмента» мутант ИСПОЛНЯЕТ отсутствующий файл (rc=127, диагностика
+# bash) вместо rc=2 NOT_RUN с названием инструмента. Привязка по входам
+# (Н-39): s62/s64 — мир без check_plan.sh (клетка net_check_plan),
+# s63 — мир без orch_plan_slice.sh (клетка net_plan_slice); s64 — атака
+# судьи: сняты ОБЕ проверки сразу.
+zapest s62 t95-m62 red_orch_brief_precond_net_check_plan.sh \
+  's@.*# t95-m62.*@  elif false; then # t95-m62 порча: проверка отсутствия check_plan снята@'
+zapest s63 t95-m63 red_orch_brief_precond_net_plan_slice.sh \
+  's@.*# t95-m63.*@  elif false; then # t95-m63 порча: проверка отсутствия plan_slice снята@'
+zapest s64 t95-m62 red_orch_brief_precond_net_check_plan.sh \
+  's@.*# t95-m62.*@  elif false; then # t95-m62 порча: обе проверки сняты (атака К-08)@; s@.*# t95-m63.*@  elif false; then # t95-m63 порча: обе проверки сняты (атака К-08)@'
 printf 'ИТОГ стаб-пак 095: rc=%s\n' "$itog"
 exit "$itog"
