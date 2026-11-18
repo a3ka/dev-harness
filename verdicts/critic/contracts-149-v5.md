@@ -1,41 +1,40 @@
-FAIL
-OBJECT=bbcb39a063476ec80c516353893f6712271df2ec
-СУД: repo=dev-harness; предмет=149; фаза=контракт, один узкий вызов по К-08 и геометрии; роль=critic; вызов=ОДИН по адресной санкции владельца 2026-11-18 ~14:05 UTC, ранее ≥8 вердиктов и Crit149V5 FAIL; модель-план=openai-codex/gpt-6.1-terra; сессия=Crit149V6; модель-факт=openai-codex/gpt-6.1-terra (models_actual --bind: allowed); SHA=bbcb39a063476ec80c516353893f6712271df2ec; предыдущий=archive/149/crit149v5-verdict-298f21cbd8; исключение=слово владельца §7+§8 батча №2, ровно один узкий вызов.
+accept
+OBJECT=83069b598b9d9217a9653d766a1fc7a0029ba6fa
+СУД: repo=dev-harness; предмет=149; фаза=контракт, узкое исправление К-04 до freeze; роль=critic; вызов=санкция консультанта сессии №1 из 2 по ADR 2026-11-18 п.1; модель-план=openai-codex/gpt-6.1-terra; сессия=Crit149V7; модель-факт=openai-codex/gpt-6.1-terra (models_actual --bind: allowed); SHA=83069b598b9d9217a9653d766a1fc7a0029ba6fa; предыдущий=Crit149V6, FAIL К-04, 5e87fd56e6efa5481c52828970b7f8611b4ff4b8; исключение=адресная санкция Cons149Sign.
 
-Основание поиска: новый продуктовый путь и дельта геометрии; прежние неизменённые поверхности не пересуждаются. Автор OBJECT — architect, судья — critic. Запись СУД до вызова: state-HANDOFF, 15:21 UTC; дополнение фактической сессии и материализация — оркестратор. Повторный замер Chrome не проводился: заявленный автором отказ CDP не доказывает геометрию повторным измерением.
+Основание поиска: дельта 5e87fd56e6..OBJECT закрывает К-04 и меняет лист; суд ограничен этим закрытием и зависимым регрессом. Автор кандидата — architect, судья — critic. Прежний счёт не обнулён; санкция не разрешает автоматического следующего вызова или обхода дверей freeze.
 
-БЛОКИРУЕТ contracts/149-gespraech-tekst-chat.md:74,90,108-119,246 — новый обязательный продуктовый spec находится вне распределённых зон.
-ОБЯЗАТЕЛЬСТВО: И-12 и критерий 7 требуют реальный `docs/ux/05_Kompakt_D24/motion/motion-spec-gespraech-kompakt-149.json` и его пин; у каждого файла исполнения контракта должна быть названная зона исполнителя, а не последующая неразданная работа.
-СОСТОЯНИЕ: кандидат поручает создание spec implementer после freeze, но среди ЗОНА-строк пути `docs/ux/05_Kompakt_D24/motion/` нет; строка 246 прямо откладывает расширение зоны до отдельной раздачи оркестратора. Новая семантика пути внесена геометрической дельтой.
-НАБЛЮДЕНИЕ: исполнитель по замороженной раздаче не имеет зоны для необходимого файла: исполнение останавливается до внешней повторной раздачи либо выходит за границы. Закрывающее свойство: до freeze предъявить исполнимую раздачу требуемого файла с корректными границами и необходимыми пересечениями либо иной законный путь создания источника, совместимый с И-12 и приёмкой.
-ПРОИСХОЖДЕНИЕ: дельта
-КЛАСС: К-04
+К-04 закрыт: `contracts/149-gespraech-tekst-chat.md:117,122,250` раздаёт implementer точный файл, оставляя оригиналы, -147 и дизайнерский канон неизменными; исполнение, а не раздача, отложено до freeze. Пин входит в уже объявленную зону пачки. `scripts/check_zones.sh` читает права из frozen-зон; точный путь не перекрывает другие названные зоны контракта. Лист `fixtures/workshop_project/gespraech_tekst_149/sdacha_149.md:17,70-85` ссылается на прежний вердикт OBJECT, содержит дельту К-04 и rc-команду. Полный diff показывает только раздачу, её свидетель и лист: геометрические инварианты, K-08, PILOT_DEMO_CODE и предполёт 122 не изменены. Абзац листа о размере знака — открытый вопрос дизайнеру, не новая геометрическая норма. Строка РАЗРЕШИЛ в коммите OBJECT содержит путь первым токеном и причину в том же коммите (`scripts/check_charter.sh:23-36`); текст соответствует предъявленному слову ~14:05. Н-39: привязки стабов — в коде архитектора, не в прозе контракта.
 
-Проверка закрытия прежней атаки в одноразовом временном мире внутри клона:
-```sh
-python3 -c 'import importlib.util,tempfile,pathlib,subprocess,sys; p=pathlib.Path("fixtures/workshop_project/gespraech_tekst_149/red_ci_149.py"); s=importlib.util.spec_from_file_location("red",p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); t=tempfile.TemporaryDirectory(dir="."); r=pathlib.Path(t.name); m.postroj_model(r); w=r/m.WORKFLOW; text=w.read_text(); old="- run: npm ci --no-audit --no-fund"; assert text.count(old)==1; w.write_text(text.replace(old,"- run: echo installation-skipped")); q=subprocess.run([sys.executable,str(p),"--repo",str(r)],text=True,capture_output=True); print("mutation: npm ci -> echo installation-skipped"); print("rc:",q.returncode); print(q.stdout,end=""); print(q.stderr,end="")'
-mutation: npm ci -> echo installation-skipped
-rc: 1
-PRICHINA RABOTNIK_BEZ_USTANOVKI: активной команды установки 'npm ci --no-audit --no-fund' в job e2e-gespraech-tekst нет — заменена, закомментирована, выключена или перенесена в другой job
+Свидетель `check_zone_149.sh:4-8` проверяет точные строки зоны, границы и исполнения. В одноразовом временном файле внутри клона удалена только новая ЗОНА-строка; проверен тот же скрипт:
+
+```text
+python3 -c 'import pathlib,subprocess,tempfile; p=pathlib.Path("contracts/149-gespraech-tekst-chat.md"); s=p.read_text(); line="ЗОНА implementer: docs/ux/05_Kompakt_D24/motion/motion-spec-gespraech-kompakt-149.json\n"; assert s.count(line)==1; script="fixtures/workshop_project/gespraech_tekst_149/check_zone_149.sh"; a=subprocess.run(["bash",script],capture_output=True,text=True); print("OBJECT rc:",a.returncode,"stdout:",repr(a.stdout),"stderr:",repr(a.stderr)); f=tempfile.NamedTemporaryFile(mode="w",dir=".",encoding="utf8"); f.write(s.replace(line,"")); f.flush(); b=subprocess.run(["bash",script,f.name],capture_output=True,text=True); print("WITHOUT ZONE rc:",b.returncode,"stdout:",repr(b.stdout),"stderr:",repr(b.stderr)); assert (a.returncode,b.returncode)==(0,1)'
+OBJECT rc: 0 stdout: 'ZONA_149_VYDANA\n' stderr: ''
+WITHOUT ZONE rc: 1 stdout: '' stderr: ''
 ```
-`python3 fixtures/workshop_project/gespraech_tekst_149/red_ci_149.py --stabs` → rc 0, 50/50, включая адресный стаб 41 и setup-node 49–50. `python3 fixtures/workshop_project/gespraech_tekst_149/red_geo_149.py --stabs` → rc 0, `STABY 68 / 68 HONEST_CONTROLS 2`; `--model` → rc 0 `GEOMETRIJA_KOMPAKT_11`. Попытка отдельной соседней мутации setup-node с ошибочно выбранным якорем `actions/setup-node@v4` остановилась `AssertionError`, rc 1; это не наблюдение работы барьера (реальный якорь — v7).
+Команда завершилась rc 0. `bash scripts/check_precision_gate.sh /tmp/dev-harness-verify/Crit149V7/repo contracts/149-gespraech-tekst-chat.md` → rc 0, `OK`. Двери и батареи, сообщённые автором и оркестратором, повторно не запускались; Chrome и продуктовая приёмка не предъявляются как проверенные этим вызовом.
 
 ## Карта классов
 
-К-01: чисто — вход: двери и сдаточный лист rc 0 из задания; повтор не назначен.
-К-02: чисто — вход: motion-delta.md Kompakt-1.1, источник geometry и слово владельца в OBJECT; повторный Chrome-замер не доказан.
-К-03: чисто — вход: git diff 97c6b417f1..OBJECT и таблица снятия норм, геометрическая дельта адресная.
-К-04: блок — обязательный продуктовый spec вне распределённых зон.
-К-05: чисто — вход: contracts/149-gespraech-tekst-chat.md:90, команды геометрии и коды.
-К-06: н/п — отказ Chrome самостоятельно не воспроизведён; автор сообщает rc 2.
-К-07: чисто — python3 fixtures/workshop_project/gespraech_tekst_149/red_geo_149.py --model, rc 0; реальная реализация после freeze не предъявлена.
-К-08: чисто — атака Crit149V5 rc 1 RABOTNIK_BEZ_USTANOVKI; red_ci_149.py --stabs rc 0, 50/50.
-К-09: чисто — вход: red_geo_149.py judge/stabs, обе темы и концы прямоугольников; --stabs rc 0.
-К-10: чисто — вход: red_geo_149.py repository читает spec субъекта и проверяет пин; живой рендер отдельно за приёмкой.
-К-11: чисто — вход: red_geo_149.py oracle загружает запиненный носитель и архив до субъекта.
-К-12: чисто — вход: red_geo_149.py использует json и независимый носитель; сравнение с повторным Chrome не заявляется.
-К-13: чисто — вход: неизменённый PILOT_DEMO_CODE, git diff 97c6b417f1..OBJECT.
-К-14: чисто — red_geo_149.py --stabs rc 0, HONEST_CONTROLS 2, включая численные эквиваленты и порядок ключей.
-К-15: чисто — red_geo_149.py --stabs rc 0 68/68; red_ci_149.py --stabs rc 0 50/50.
-К-16: чисто — вход: модель угроз contracts/149-gespraech-tekst-chat.md и объявленная граница статической геометрии.
-К-17: н/п — архитектурная модель 188 в задании не предъявлена; дельта не меняет её операции.
+К-01: чисто — вход: лист OBJECT и предъявленные оркестратором двери rc 0; precision-gate rc 0.
+К-02: чисто — вход: diff 5e87fd56e6..OBJECT; геометрический канон и слово владельца не изменены.
+К-03: чисто — вход: diff контракта; замороженные геометрические обязательства не изменены.
+К-04: чисто — вход: контракт :117,122,250; свидетель зоны rc 0 на OBJECT и rc 1 без строки зоны.
+К-05: чисто — вход: лист :70-85 содержит rc-команду дельты К-04; критерии контракта не изменены.
+К-06: н/п — вход: независимый повтор отказа Chrome вне узкого вызова; предыдущий Crit149V6.
+К-07: чисто — вход: предыдущий Crit149V6 и неизменённая геометрическая батарея; реализация после freeze не предъявлена.
+К-08: чисто — вход: предыдущий Crit149V6 закрыл К-08; red_ci_149.py в дельте неизменён.
+К-09: чисто — вход: предыдущий Crit149V6; предметные предикаты в дельте неизменены.
+К-10: чисто — вход: предыдущий Crit149V6; субъект и проверка геометрии не изменены.
+К-11: чисто — вход: предыдущий Crit149V6; носитель и оракул не изменены.
+К-12: чисто — вход: предыдущий Crit149V6; структурное сравнение неизменено.
+К-13: чисто — вход: diff 5e87fd56e6..OBJECT; PILOT_DEMO_CODE и предполёт 122 неизменены.
+К-14: чисто — вход: предыдущий Crit149V6; геометрическая батарея неизменена.
+К-15: чисто — вход: лист OBJECT сохраняет исторические результаты с явной пометкой происхождения; новые rc зоны измерены выше.
+К-16: чисто — вход: предыдущий Crit149V6 и diff контракта; модель угроз не изменена.
+К-17: н/п — вход: предыдущий Crit149V6; архитектурная модель 188 не предъявлена и дельтой не меняется.
+
+## Развилки
+
+Вопрос размера знака 20/24/28 остаётся открытым дизайнеру и владельцу, как записано в листе; этот вердикт не утверждает новую геометрию. Продуктовый --repo и повторный Chrome-замер этим вызовом не выполнены. Freeze и последующая реализация остаются за штатными дверями и уполномоченными ролями.
