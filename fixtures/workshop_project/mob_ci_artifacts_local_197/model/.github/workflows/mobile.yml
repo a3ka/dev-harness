@@ -519,7 +519,6 @@ jobs:
       run_id: ${{ steps.ident.outputs.run_id }}
     runs-on: [self-hosted, linux, x64, kvm, complior]
     timeout-minutes: 40
-    # 143 (живая приёмка cutover, PR Complior-mob#136, run 40650367385):
     permissions:
       contents: read
       actions: read
@@ -709,7 +708,6 @@ jobs:
       run_id: ${{ steps.ident.outputs.run_id }}
     runs-on: [self-hosted, linux, x64, kvm, complior]
     timeout-minutes: 40
-    # 143 (живая приёмка cutover, PR Complior-mob#136, run 40650367385):
     permissions:
       contents: read
       actions: read
@@ -904,7 +902,6 @@ jobs:
       run_id: ${{ steps.ident.outputs.run_id }}
     runs-on: [self-hosted, linux, x64, kvm, complior]
     timeout-minutes: 40
-    # 143 (живая приёмка cutover, PR Complior-mob#136, run 40650367385):
     permissions:
       contents: read
       actions: read
@@ -1160,7 +1157,6 @@ jobs:
       run_id: ${{ steps.ident.outputs.run_id }}
     runs-on: [self-hosted, linux, x64, kvm, complior]
     timeout-minutes: 40
-    # 143 (живая приёмка cutover, PR Complior-mob#136, run 40650367385):
     permissions:
       contents: read
       actions: read
@@ -1317,7 +1313,6 @@ jobs:
       run_id: ${{ steps.ident.outputs.run_id }}
     runs-on: [self-hosted, linux, x64, kvm, complior]
     timeout-minutes: 40
-    # 143 (живая приёмка cutover, PR Complior-mob#136, run 40650367385):
     permissions:
       contents: read
       actions: read
@@ -1452,7 +1447,7 @@ jobs:
   # карты (mobile/ci-screens.json) через выход select-screens; пять прежних
   # работников (И-15) остаются без изменений. Каждый child: свой AVD/порт вне
   # legacy 5560/5562/5564/5566/5568, общий APK той же сборки (digest до
-  # установки), собственное доказательство screen-evidence-<id>-<run>-<attempt>.
+  # установки), собственное доказательство screen-evidence-<id> (пару прогона в имени собранного каталога несёт канон 197 v3).
   e2e-screen:
     needs: [select-screens, build-apk]
     if: ${{ needs.select-screens.result == 'success' && needs.build-apk.result == 'success' && needs.select-screens.outputs.matrix != '' }}
@@ -1520,10 +1515,10 @@ jobs:
       # проба изоляции ДО первого такого шага (буква build-apk/e2e-pilot).
       - name: Изоляция раннера (/home недоступен коду из PR)
         run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
-      # 143 v3: child-доказательства матричных детей — отдельные артефакты
-      # screen-evidence-<id>-<run_id>-<run_attempt>; merge-multiple: false —
-      # имена не сливаются; агрегат сверяет множество выбранных id и identity
-      # каждого result.json (отсутствие/чужой result → именованный отказ).
+      # 143 v3 + 197 v3: child-доказательства — шаблонный сбор канона кладёт
+      # каждого ребёнка каталогом screen-evidence-<id>-<run_id>-<run_attempt>
+      # (пара — контекст чтения, раскладка merge-multiple: false до 197);
+      # агрегат сверяет выбранные id и identity result.json (чужой → отказ).
       - name: Download child evidence
         if: always()
         working-directory: ${{ github.workspace }}
@@ -1536,9 +1531,9 @@ jobs:
         run: |
           set -euo pipefail
           # Каталог доказательств обязан существовать: пока ни один новый
-          # экран не подключён (matrix пуста), download-artifact ничего не
-          # скачивает и каталога нет — агрегат требует РОВНО множество
-          # выбранных id, а отсутствующий каталог ≠ пустое множество.
+          # экран не подключён (matrix пуста), шаблонный сбор собирает ноль
+          # детей (CHTENIE_PUSTO) и каталог пуст — агрегат требует РОВНО
+          # множество выбранных id, пустое ≠ непустому выбору.
           mkdir -p mobile/screen-evidence-collected
           printf '%s' "$NEEDS_KONTEKST" > needs.json
           node mobile/scripts/ci-aggregate.cjs --needs needs.json --evidence mobile/screen-evidence-collected
@@ -1576,9 +1571,9 @@ jobs:
           NEEDS_KONTEKST: ${{ toJSON(needs) }}
         run: |
           set -euo pipefail
-          # Каталог доказательств обязан существовать (пустая matrix — нет
-          # скачанных child-артефактов, каталога нет ⇒ агрегат отверг бы
-          # не «пустое множество», а отсутствие каталога).
+          # Каталог доказательств обязан существовать (пустая matrix — ноль
+          # детей, CHTENIE_PUSTO; mkdir — страховка): агрегат судит пустое
+          # множество выбранных id, а не отсутствие каталога.
           mkdir -p mobile/screen-evidence-collected
           printf '%s' "$NEEDS_KONTEKST" > needs.json
           node mobile/scripts/ci-aggregate.cjs --needs needs.json --evidence mobile/screen-evidence-collected

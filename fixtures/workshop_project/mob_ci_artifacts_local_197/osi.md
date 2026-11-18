@@ -80,14 +80,19 @@ glob-категориям (`apk-sborki`, `child-evidence`) — известна�
 | r04-imja-razdelitel | `--imja a/b` — отказ | `RAZDELITEL_PROPUSHCHEN` |
 | r05-run-nechislovoj | нечисловой `GITHUB_RUN_ID` — отказ | `NECHISLOvoj_PROPUSHCHEN` |
 | r06-nepolnaja-identifikacija | `--run-id` без `--run-attempt` — отказ | `NEPOLNAJA_PROPUSHCHENA` |
-| r07-shablon-sbor | glob собирает каждого ребёнка отдельным каталогом (эквивалент `merge-multiple: false`) | `SHABLON_NE_SOBRAL` |
+| r07-shablon-sbor | glob собирает каждого ребёнка отдельным каталогом `<имя>-<run_id>-<run_attempt>` (раскладка `merge-multiple: false` до 197; пара — контекста чтения; 197 v3) | `SHABLON_NE_SOBRAL` |
 | r08-istochnik-otsutstvuet | запись отсутствующего источника — отказ (аналог `if-no-files-found: error`) | `PUSTOJ_ZAPIS_NE_KRASN` |
 | r09-izoljacija-popytok | записи попыток 1 и 2 лежат в разных каталогах | `POPYTKI_SLILIS` |
 | r10-shablon-pusto | 197 v+1: пустой выбор ШАБЛОНА — НЕ отказ (семантика download-artifact с pattern): rc 0, именованная строка `CHTENIE_PUSTO`, каталог `--kuda` создан ПУСТЫМ; каталог run'а при этом существует (судится ветвь пустого шаблона, не fail-closed run'а); строгость ожидаемого множества держит потребитель ci-aggregate (непустой выбор при пустом evidence — именованный отказ агрегата) | `SHABLON_PUSTO_OTKAZ` / `CHTENIE_PUSTO_NET` / `KUDA_PUSTOJ_NE_SOZDAN` / `KUDA_PUSTOJ_NE_PUST` |
 | r11-tochnoe-imja-otsutstvuet | 197 v+1: ТОЧНОЕ имя без совпадения — по-прежнему именованный отказ rc 2 (смягчён только шаблонный пустой выбор; каталог run'а существует, имя в нём отсутствует) | `TOCHNOE_IMJA_TICHO_PROSHLO` |
 
-Итого 28 клеток (A3 + B3 + C3 + D2 + E2 + G2 + И2 + R11), 29 стабов (ветви:
-A1/A3/B1/C1/C2/C3×2/D1/D2/G10/И7/R11, где G10 — девять ветвей g01
+## S. Стык с агрегатом 143 (совместная клетка, С-4/Б-1 FAIL Rev197)
+
+| Клетка | Инвариант | Причина |
+|---|---|---|
+| s01-styk-sbor-agregat | совместный replay: канон-писатель → шаблонный сбор (`screen-evidence-*`) → НЕИЗМЕННЫЙ `ci-aggregate.cjs` зоны 143 (живой скрипт станционного клона по git archive, байтовый пин `source.json:.agregat_143`) на НЕПУСТОМ matrix-выборе (двое детей): имя каждого собранного каталога несёт пару контекста чтения `<имя>-<run_id>-<run_attempt>` — ровно её ждёт агрегат (`build.run_id` того же прогона, attempt — env того же job'а: читатель и агрегат — соседние шаги); ожидаемое множество = выбранные экраны РОВНО, чужой/отсутствующий ребёнок — именованный отказ агрегата в выводе клетки (воспроизведение replay вердикта Rev197: head 70ad24e5b9 красен `PEREPIS_DETEJ`) | `STYK_ZAPIS_OTKAZ` / `STYK_SBOR_OTKAZ` / `STYK_AGREGATA_OTKAZ: <вывод агрегата>` |
+Итого 29 клеток (A3 + B3 + C3 + D2 + E2 + G2 + И2 + R11 + S1), 30 стабов
+(ветви: A1/A3/B1/C1/C2/C3×2/D1/D2/G10/И7/R11/S1, где G10 — девять ветвей g01
 (посторонний спутник `cp`, кавычная охрана с чужой парой, экранированная
 кавычка B6, перенос после оператора B14, охрана `test false &&` до вызова,
 подавление `|| test`/`|| true`, хвост аргументов, повтор ключа) плюс снятие
@@ -98,8 +103,9 @@ e01); И7 — шесть ветвей i01 (`if: false` шага, job-услов�
 `false`, замаскированная ложь `${{ !always() }}`, `continue-on-error`
 шага, job-level `continue-on-error`, `strategy.continue-on-error`) плюс
 i02 heredoc-носитель; C3×2 — литеральная пара в честной форме, отсутствие
-пары у APK-читателя; привязки и ожидаемые причины —
-`source.json:.stab_vhod`).
+пары у APK-читателя; S1 — шаблонный сбор без пары прогона в имени каталога
+(v3, блок Б-1 вердикта Rev197: мутация канона, байтовое расхождение ловит
+и e01); привязки и ожидаемые причины — `source.json:.stab_vhod`).
 
 ## Модель
 
@@ -121,6 +127,11 @@ A–И судят только артефактный слой, исполним
 `defaults.run.working-directory: mobile` npm ищет lane в
 `mobile/package.json` и не находит — судит g02), шаблонных чтений в модели
 ровно два (`screen-evidence-*`: android-e2e и mobile-regression-signal).
-Состав красных батареи 143 на псевдо-продукте fda1fc8+модель пинирован
-(`source.json:.krasnye_143_posle_197`) и сверяется живым прогоном
-`sverka_inventarja_143.sh`.
+Канон v3 (Б-1 Rev197): шаблонный сбор несёт пару контекста чтения в имени
+каждого собранного каталога — раскладку, которую ждёт НЕИЗМЕННЫЙ агрегат
+143; живые байты агрегата пинированы отдельным полем
+`source.json:.agregat_143` (станционный клон, git archive fda1fc8; байты
+совпадают с 91866aa — базой реализации по вердикту Rev197, замер двумя
+мерами). Состав красных батареи 143 на псевдо-продукте fda1fc8+модель
+пинирован (`source.json:.krasnye_143_posle_197`) и сверяется живым
+прогоном `sverka_inventarja_143.sh`.
