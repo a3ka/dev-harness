@@ -10,6 +10,9 @@
 # predposylki-otsutstvuyut predposylki-nevaliden sekrety-ne-zavedeny gh-nedostupen
 # python-yaml-nedostupen (средовая ветвь rc 2, клеткой не покрыта).
 # Обманные стабы подключаются env: CI_PROEKTA_122_GEN / _PREFLIGHT / _GATES.
+# А10 (184): в --model модель генератора берёт projectId у модели резолвера
+# (CI_PROEKTA_122_RESOLVER=model/profile_resolver.sh); без --model реальный генератор вызывает
+# резолвер своей установки. Набор имён клеток закреплён литералом PINNED (удаление/подмена — rc 1).
 # Клетка зелена только при ФАКТИЧЕСКОМ rc субъекта == литералу клетки И наличии причины-литерала
 # в выводе (rc — первичная мера, причина — вторая; Б1 критика 122: отказ с rc 0 краснит клетку).
 set -u
@@ -22,6 +25,9 @@ WORLDS=/tmp/dev-harness-verify/ci122
 mkdir -p "$WORLDS"
 RUNDIR=$(mktemp -d "$WORLDS/run-XXXX") || exit 2
 trap 'rm -rf "$RUNDIR"' EXIT
+export HARNESS_PROJECT_LAYER_ROOT="$RUNDIR/layer"
+mkdir -p "$HARNESS_PROJECT_LAYER_ROOT/registry"
+printf '%s\n' '{"schemaVersion":1,"version":"v1","projectId":"complior-toy","workspaceId":"toy"}' > "$HARNESS_PROJECT_LAYER_ROOT/registry/harness-project.json"
 
 MODE=red; CELL=
 while [ $# -gt 0 ]; do
@@ -33,6 +39,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 if [ "$MODE" = model ]; then
+  export CI_PROEKTA_122_RESOLVER=${CI_PROEKTA_122_RESOLVER:-$BATT/model/profile_resolver.sh}
   GEN=${CI_PROEKTA_122_GEN:-$BATT/model/gen_project_workflow.sh}
   PRE=${CI_PROEKTA_122_PREFLIGHT:-$BATT/model/ci_preflight.sh}
   GATE=${CI_PROEKTA_122_GATES:-$BATT/model/check_predposylki.sh}
@@ -42,12 +49,12 @@ else
   GATE=${CI_PROEKTA_122_GATES:-$REPO/scripts/check_predposylki.sh}
 fi
 
-GREEN=0; RED=0
+GREEN=0; RED=0; NAMES=
 new_world() {
   local W
   W=$(mktemp -d "$RUNDIR/world-XXXX") || exit 2
   mkdir -p "$W/.harness" "$W/.github/workflows" "$W/bin" "$W/mobile/.maestro" "$W/contracts"
-  printf '%s\n' '{"schemaVersion":1,"projectId":"complior-toy","repoId":"complior-toy","language":"node"}' > "$W/.harness/harness.project.json"
+  printf '%s\n' '{"schemaVersion":1,"repoId":"complior-toy","language":"typescript","projectLayer":{"version":"v1","profilePath":"registry/harness-project.json"}}' > "$W/.harness/harness.project.json"
   cat > "$W/.harness/ci.json" <<'J'
 {"schemaVersion":1,"projectId":"complior-toy","jobs":{
 "ci":{"class":"local","workdir":".","steps":[{"key":"lint","run":"test -f package.json"},{"key":"gotov","run":"echo predpolet-ok"}]},
@@ -104,6 +111,7 @@ GH
 run_case() { # $1 имя $2 ожидаемый rc (литерал) $3 ожидаемая причина (литерал, пусто=любая) $4... команда
   local name=$1 want=$2 reason=$3; shift 3
   local out rc ok=1 why=
+  NAMES="$NAMES $name"
   out=$("$@" 2>&1); rc=$?
   if [ "$rc" != "$want" ]; then ok=0; why="rc $rc вместо $want"; fi
   if [ -n "$reason" ] && ! printf '%s\n' "$out" | grep -Fq -- "$reason"; then
@@ -184,6 +192,39 @@ c_g6() {
 c_g7() {
   local W; W=$(new_world)
   run_case g7-workflow-otsutstvuet 1 'workflow-otsutstvuet' bash "$GEN" --repo "$W" --check
+}
+# А10 (184), Г1: миры, где резолвер ОТКАЗЫВАЕТ, а raw-разбор профиля и слоя дал бы совпадающий
+# projectId. Отказ обязан быть до записи и нести первую строку отказа резолвера (происхождение).
+bez_zapisi() { # $1 мир $2 фраза резолвера (префикс строки) — gen --write; запись = rc 3, нет фразы = rc 4
+  local W=$1 phrase=$2 out rc
+  out=$(bash "$GEN" --repo "$W" --write 2>&1); rc=$?
+  printf '%s\n' "$out"
+  [ -e "$W/.github/workflows/ci.yml" ] && { printf 'gen ZAPISANO-DO-OTKAZA\n'; return 3; }
+  [ "$rc" = 0 ] && return 0
+  printf '%s\n' "$out" | grep -Fq -- "$phrase" || { printf 'gen NET-FRAZY-REZOLVERA: %s\n' "$phrase"; return 4; }
+  return "$rc"
+}
+c_g9() { # оба профиля (утверждённый отказ P10 054 v+1 / 184 legacy-root-profile)
+  local W; W=$(new_world)
+  cp "$W/.harness/harness.project.json" "$W/harness.project.json"
+  run_case g9-oba-profilja 1 'profil-rashozhdenie' bez_zapisi "$W" 'profile ОТКАЗ: корневой harness.project.json рядом с .harness/harness.project.json:'
+}
+c_g10() { # внутренний профиль — symlink на валидный файл вне R (класс b9 054: FD/inode-граница)
+  local W O; W=$(new_world); O=$(mktemp "$RUNDIR/outside-XXXX.json") || exit 2
+  cp "$W/.harness/harness.project.json" "$O"
+  rm -f "$W/.harness/harness.project.json"; ln -s "$O" "$W/.harness/harness.project.json"
+  run_case g10-profil-symlink-naruzhu 1 'profil-rashozhdenie' bez_zapisi "$W" 'profile ОТКАЗ: '
+}
+c_g11() { # байты, которые генератор пишет сам, без пути .harness/ и имени harness.project.json (А10)
+  local W; W=$(new_world)
+  run_case g11-bajty-bez-ssylki 0 'gen OK: bajty bez ssylki' bash -c '
+    W=$1; GEN=$2
+    bash "$GEN" --repo "$W" --write >/dev/null 2>&1 || { printf "gen OTKAZ: write\n"; exit 1; }
+    [ -f "$W/.github/workflows/ci.yml" ] || { printf "gen OTKAZ: workflow ne zapisan\n"; exit 6; }
+    if grep -Eq "(^|[^A-Za-z0-9_.-])(\.harness/|harness\.project\.json)" "$W/.github/workflows/ci.yml"; then
+      printf "gen OTKAZ: ssylka v bajtah generatora\n"; exit 5
+    fi
+    printf "gen OK: bajty bez ssylki\n"' _ "$W" "$GEN"
 }
 perevod() { # $1 файл $2 crlf|cr — меняются ТОЛЬКО байты переводов строк (CRLF во всех строках либо
   # одиночный CR вместо первого LF), прочие байты те же; файла нет — нечего менять
@@ -673,7 +714,7 @@ c_z9() { # --freeze, ТОЛЬКО variable: `gh variable list` rc 127 (обхо�
   run_case z9-variable-gh-oshibka 1 'gh-nedostupen' env PATH="$W/bin:$PATH" bash "$GATE" "$W" "$W/contracts/kontrakt-tolko-variable.md" --freeze
 }
 
-CELLS="k z5 g1 g2 g3 g4 g5 g6 g7 g8 p1 p2 p3 p4 p5 p5e p5f p6 p6e p6z p7 p8 z1 z2 z3 z4 z6 z7 z8 z9"
+CELLS="k z5 g1 g2 g3 g4 g5 g6 g7 g8 g9 g10 g11 p1 p2 p3 p4 p5 p5e p5f p6 p6e p6z p7 p8 z1 z2 z3 z4 z6 z7 z8 z9"
 if [ -n "$CELL" ]; then
   case " $CELLS " in
     *" $CELL "*) ;;
@@ -690,4 +731,26 @@ if [ "$TOTAL" -eq 0 ]; then
   exit 2
 fi
 printf 'ИТОГ 122 (%s): клеток %d, зелёных %d, красных %d\n' "$MODE" "$TOTAL" "$GREEN" "$RED"
+# Закреплённый набор имён клеток (литерал, отдельно от диспетчера): удаление клетки — отказ.
+PINNED_N=52
+PINNED_NAMES="k-gen-check k-preflight k-preflight-contract k-gates k-freeze z5-bez-ci-ne-trebuet
+g1-manifest-otsutstvuet g2-manifest-nevaliden g3-workflow-ruchnoj g3-write-vosstanavlivaet
+g4-gen-nedeterminirovan g5-profil-rashozhdenie g6-profil-otsutstvuet g7-workflow-otsutstvuet
+g8-crlf-ruchnoj g8-cr-ruchnoj g9-oba-profilja g10-profil-symlink-naruzhu g11-bajty-bez-ssylki
+p1-yaml-nevaliden p2-working-directory-otsutstvuet p3-shag-upal p4-station-skip
+p5-sekrety-ne-perechisleny p5-env-sekret-ne-perechislen p5-station-sekret-ne-perechislen
+p5-if-shag-sekret-ne-perechislen p5-if-dzhoba-var-ne-perechislena p5-with-sekret-ne-perechislen
+p6-sekret-podstavlyaetsya p6-sekret-shag-ispolnyaetsya p6-env-nositel-boli p6-env-cepochka
+p6-env-shag-ispolnyaetsya p6z-env-ne-literal p6z-env-ravno-run p6z-env-literal-otkaz
+p7-wd-workflow-otsutstvuet p7-wd-workflow-est p7-wd-pereopredelen-dzhoboj p7-wd-pereopredelen-shagom
+p8-wd-dvoetochie-vne-repo p8-wd-absolyutnyj-vne-repo p8-wd-absolyutnyj-r-bez-mutacii
+z1-predposylki-otsutstvuyut z2-sekrety-ne-zavedeny z3-gh-nedostupen z4-predposylki-nevaliden
+z6-variable-ne-zavedena z7-secret-ne-zaveden z8-secret-gh-oshibka z9-variable-gh-oshibka"
+GOT=$(printf '%s\n' $NAMES | LC_ALL=C sort | tr '\n' ' ')
+GOT_N=$(printf '%s\n' $NAMES | grep -c .)
+PINNED=$(printf '%s\n' $PINNED_NAMES | LC_ALL=C sort | tr '\n' ' ')
+if [ "$GOT_N" != "$PINNED_N" ] || [ "$GOT" != "$PINNED" ]; then
+  printf 'ci122 ОТКАЗ: набор клеток расходится с закреплённым (%s из %s)\n' "$GOT_N" "$PINNED_N"
+  exit 1
+fi
 [ "$RED" = 0 ]; exit $?

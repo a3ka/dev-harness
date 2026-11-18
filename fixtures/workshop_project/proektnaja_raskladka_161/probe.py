@@ -12,6 +12,14 @@ import tempfile
 
 ROOT = Path(os.environ.get('PROBE_161_ROOT', Path(__file__).resolve().parents[3])).resolve()
 NUMBER = '761'
+# А10 (054 v+1): репо-слой профиля — <R>/.harness/harness.project.json. Корневой
+# адрес миров выбирается ТОЛЬКО в --model/--stabs, когда резолвер установки ещё
+# не принимает внутренний профиль (до cutover 184); bare тогда — NOT_IMPLEMENTED.
+INTERNAL_PROFILE = '.harness/harness.project.json'
+PROFILE_REL = INTERNAL_PROFILE
+# 054 v+1 §Инварианты: тела фраз резолвера P1/P10 (дверь несёт отказ резолвера).
+A10_P1_BODY = 'нет .harness/harness.project.json: '
+A10_P10_BODY = 'корневой harness.project.json рядом с .harness/harness.project.json: '
 
 
 def run(*argv, cwd=None, env=None):
@@ -52,7 +60,7 @@ class World:
                                                ('rules', 'docs/rules.md', True),
                                                ('reuse', 'docs/reuse.md', False)]]
         self.rows = rows
-        self.put('harness.project.json', json.dumps({
+        self.put(PROFILE_REL, json.dumps({
             'schemaVersion': 1, 'repoId': name, 'language': 'typescript',
             'projectLayer': {'version': 'v1', 'profilePath': '.harness/project-layer.json'},
             'workflowPaths': {'contracts': '.harness/contracts', 'verdicts': '.harness/verdicts',
@@ -544,6 +552,125 @@ def actual(mutant=None, captured=None):
     return int(bool(failures))
 
 
+def installation_address():
+    """Which repo-layer address the installation's own resolver accepts (054 v+1, А10)."""
+    with tempfile.TemporaryDirectory(prefix='fixture-161-address-') as tmp:
+        world = World(Path(tmp), 'address')
+        env = dict(world.env, HARNESS_PROJECT_LAYER_ROOT=str(world.main))
+        resolve = lambda: run('bash', ROOT / 'scripts/profile_resolver.sh', '--repo', world.main, env=env)
+        internal = resolve()
+        if internal.returncode == 0:
+            return 'a10', ''
+        (world.main / INTERNAL_PROFILE).rename(world.main / 'harness.project.json')
+        legacy = resolve()
+        detail = (internal.stderr.strip().splitlines() or [''])[0][:200]
+        return ('legacy' if legacy.returncode == 0 else None), detail
+
+
+def a10_root_profile(door, state, mutant=None, captured=None):
+    """А10: root profile alone (P1) or next to the internal one (P10) is refused by the
+    door before MAP/manifest/branch/worktree; the refusal carries the resolver phrase."""
+    failures = []
+    phrase = A10_P10_BODY if state == 'both' else A10_P1_BODY
+    name = f'A10_ROOT_PROFILE: {door}-{state}'
+    with tempfile.TemporaryDirectory(prefix='fixture-161-a10-') as tmp:
+        base = Path(tmp)
+        world = World(base, 'Complior-mob')
+        state_dir = base / 'external-state'
+        state_dir.mkdir()
+        env = dict(world.env, TMPDIR=str(state_dir))
+        task = ['bash', ROOT / 'scripts/make_task.sh', '--repo', world.draft,
+                '--role', 'architect', '--kind', 'task', '--contract', NUMBER]
+        if door == 'spawn':
+            # A genuine external manifest and mint exist: the root profile is the only defect.
+            prepared = run(*task, env=env)
+            if prepared.returncode:
+                raise RuntimeError('NOT_IMPLEMENTED: A10 spawn world: cannot prepare manifest: '
+                                   + prepared.stderr.strip()[:200])
+            if state == 'root-only':
+                require(world.git('mv', INTERNAL_PROFILE, 'harness.project.json'), 'a10 mv')
+            else:
+                shutil.copyfile(world.main / INTERNAL_PROFILE, world.main / 'harness.project.json')
+                require(world.git('add', 'harness.project.json'), 'a10 add')
+            require(world.git('commit', '-qm', 'A10 ' + state), 'a10 commit')
+            require(world.git('push', '-q', 'origin', 'main'), 'a10 push')
+            world.mint()
+            target = world.main
+            argv = ['bash', ROOT / 'scripts/spawn_agent.sh', '--root', world.main,
+                    '--nnn', NUMBER, '--author', 'architect']
+        else:
+            target = world.draft
+            shutil.copyfile(target / INTERNAL_PROFILE, target / 'harness.project.json')
+            if state == 'root-only':
+                (target / INTERNAL_PROFILE).unlink()
+            argv = task
+        before = (world.snapshot(), require(world.git('branch', '--list'), 'a10 branches'),
+                  require(world.git('worktree', 'list', '--porcelain'), 'a10 worktrees'))
+        manifests = sorted(state_dir.rglob(f'{NUMBER}.tsv'))
+        result = (run(sys.executable, __file__, '--stub-invoke', mutant, target, *argv, env=env)
+                  if mutant else run(*argv, env=env))
+        check(result.returncode == 1 and not result.stdout
+              and any(phrase in line for line in result.stderr.splitlines()),
+              f'{name}: expected resolver refusal before output: rc={result.returncode} '
+              + result.stderr.strip()[:160], failures)
+        check(before == (world.snapshot(), require(world.git('branch', '--list'), 'a10 branches'),
+                         require(world.git('worktree', 'list', '--porcelain'), 'a10 worktrees')),
+              f'{name}: main, branch or worktree changed', failures)
+        check(sorted(state_dir.rglob(f'{NUMBER}.tsv')) == manifests,
+              f'{name}: manifest issued for a root profile', failures)
+    if captured is not None:
+        captured.extend(failures)
+    else:
+        for failure in failures:
+            print(failure, file=sys.stderr)
+    return int(bool(failures))
+
+
+def station_spawn_without_manifest(mutant=None, captured=None):
+    """The installation is itself a project under А10: its own spawn without a pack keeps
+    MANIFEST_MISSING (095 И-15), i.e. its profile lives at the internal address."""
+    failures = []
+    with tempfile.TemporaryDirectory(prefix='fixture-161-station-') as tmp:
+        base = Path(tmp)
+        station = base / 'station'
+        for rel in require(run('git', '-C', ROOT, 'ls-files'), 'station files').splitlines():
+            if rel.startswith(('fixtures/', 'verdicts/')):
+                continue
+            src = ROOT / rel
+            if src.is_file() and not src.is_symlink():
+                dst = station / rel
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
+        home = base / 'home'
+        home.mkdir()
+        env = dict(os.environ, HOME=str(home), TMPDIR=str(base),
+                   GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_SYSTEM='/dev/null')
+        env.pop('HARNESS_PROJECT_LAYER_ROOT', None)
+        git = lambda *a: run('git', '-C', station, '-c', 'user.name=architect',
+                             '-c', 'user.email=architect@dev-harness.local', *a, env=env)
+        require(git('init', '-q', '-b', 'main'), 'station init')
+        require(git('add', '-A'), 'station add')
+        require(git('commit', '-qm', 'station copy'), 'station commit')
+        before = (require(git('branch', '--list'), 'station branches'),
+                  require(git('worktree', 'list', '--porcelain'), 'station worktrees'))
+        argv = ['bash', station / 'scripts/spawn_agent.sh', '--root', station,
+                '--nnn', NUMBER, '--author', 'architect']
+        result = (run(sys.executable, __file__, '--stub-invoke', mutant, station, *argv, env=env)
+                  if mutant else run(*argv, env=env))
+        check(manifest_refusal(result),
+              'STATION_MANIFEST_MISSING: station spawn without pack not refused by manifest: rc='
+              + str(result.returncode) + ' ' + result.stderr.strip()[:160], failures)
+        check(before == (require(git('branch', '--list'), 'station branches'),
+                         require(git('worktree', 'list', '--porcelain'), 'station worktrees')),
+              'STATION_MANIFEST_MISSING: station branch or worktree created', failures)
+    if captured is not None:
+        captured.extend(failures)
+    else:
+        for failure in failures:
+            print(failure, file=sys.stderr)
+    return int(bool(failures))
+
+
 def stub_invoke(kind, value, argv):
     """Executable stand-ins at the public subject call, each delegates to the real door."""
     if kind == 'optional-skipped':
@@ -573,6 +700,34 @@ def stub_invoke(kind, value, argv):
         args = list(argv)
         args[args.index('--root') + 1] = value
         answer = run(*args)
+    elif kind == 'a10-root-as-profile':
+        # Door that takes the root profile for the repo layer (root fallback): the
+        # stand-in shows the real door the root file at the internal address.
+        root = Path(value)
+        internal, legacy = root / INTERNAL_PROFILE, root / 'harness.project.json'
+        legacy.rename(internal)
+        try:
+            answer = run(*argv)
+        finally:
+            internal.rename(legacy)
+    elif kind == 'a10-root-ignored':
+        # Door that never looks at the root next to the internal profile.
+        root = Path(value)
+        legacy = root / 'harness.project.json'
+        hidden = root.parent / ('hidden-root-profile-' + root.name)
+        legacy.rename(hidden)
+        try:
+            answer = run(*argv)
+        finally:
+            hidden.rename(legacy)
+    elif kind == 'station-root-profile':
+        # Installation whose own profile stayed at the root (no А10 move): the
+        # stand-in returns the station profile to the root before the real door.
+        root = Path(value)
+        internal, legacy = root / INTERNAL_PROFILE, root / 'harness.project.json'
+        if internal.exists():
+            internal.rename(legacy)
+        answer = run(*argv)
     elif kind == 'tmpdir-write':
         answer = run(*argv)
         cache = Path(value) / '.omp/state-161a'
@@ -631,7 +786,20 @@ def honest_control():
     return None, failures
 
 
-def model(stabs):
+A10_STABS = (
+    ('a10-root-as-profile', lambda reds, m: a10_root_profile('make', 'root-only', m, reds),
+     'A10_ROOT_PROFILE: make-root-only'),
+    ('a10-root-as-profile', lambda reds, m: a10_root_profile('spawn', 'root-only', m, reds),
+     'A10_ROOT_PROFILE: spawn-root-only'),
+    ('a10-root-ignored', lambda reds, m: a10_root_profile('make', 'both', m, reds),
+     'A10_ROOT_PROFILE: make-both'),
+    ('a10-root-ignored', lambda reds, m: a10_root_profile('spawn', 'both', m, reds),
+     'A10_ROOT_PROFILE: spawn-both'),
+    ('station-root-profile', lambda reds, m: station_spawn_without_manifest(m, reds),
+     'STATION_MANIFEST_MISSING:'))
+
+
+def model(stabs, a10=True):
     baseline, failures = honest_control()
     if baseline == 2:
         return 2
@@ -687,7 +855,43 @@ def model(stabs):
                 print(f'STAB_ZHIV: {name}: {reds}', file=sys.stderr)
                 return 1
             print(f'STAB_CAUGHT: {name}: {reason}', file=sys.stderr)
+        if not a10:
+            print('A10: резолвер установки ещё не принимает .harness/harness.project.json '
+                  '(до cutover 184) — клетки А10 и их подмены судит bare после cutover',
+                  file=sys.stderr)
+            return 0
+        for name, probe, reason in A10_STABS:
+            honest = []
+            if probe(honest, None) != 0:
+                for failure in honest:
+                    print(failure, file=sys.stderr)
+                print(f'CONTROL_INVALID: honest door red on the А10 cell of {name}', file=sys.stderr)
+                return 1
+            reds = []
+            rc = probe(reds, name)
+            if rc != 1 or not reds or not all(item.startswith(reason) for item in reds):
+                print(f'STAB_ZHIV: {name}: {reds}', file=sys.stderr)
+                return 1
+            print(f'STAB_CAUGHT: {name}: {reason}', file=sys.stderr)
     return 0
+
+
+def main(args, a10):
+    if not args:
+        outcomes = [actual(), no_manifest_for_other_project(poisoned=True),
+                    no_manifest_for_other_project(poisoned=True, tool='git'),
+                    tmpdir_must_not_enter_main(), tmpdir_must_not_enter_main(alias=True),
+                    tmpdir_must_not_enter_main(gitdir=True),
+                    unusable_hash_must_not_issue_packet(),
+                    *(state_symlink_must_not_enter_main(component, gitdir=gitdir, door=door)
+                      for door in ('make', 'spawn') for component, gitdir in
+                      (('state', False), ('state', True), ('key', False),
+                       ('context', True))),
+                    *(a10_root_profile(door, state) for door in ('make', 'spawn')
+                      for state in ('root-only', 'both')),
+                    station_spawn_without_manifest()]
+        return 2 if 2 in outcomes else int(any(outcomes))
+    return model(args == ['--stabs'], a10)
 
 
 if __name__ == '__main__':
@@ -702,20 +906,29 @@ if __name__ == '__main__':
         ROOT = root
         os.environ['PROBE_161_ROOT'] = str(root)
         args = args[2:]
-    if not args:
-        outcomes = [actual(), no_manifest_for_other_project(poisoned=True),
-                    no_manifest_for_other_project(poisoned=True, tool='git'),
-                    tmpdir_must_not_enter_main(), tmpdir_must_not_enter_main(alias=True),
-                    tmpdir_must_not_enter_main(gitdir=True),
-                    unusable_hash_must_not_issue_packet(),
-                    *(state_symlink_must_not_enter_main(component, gitdir=gitdir, door=door)
-                      for door in ('make', 'spawn') for component, gitdir in
-                      (('state', False), ('state', True), ('key', False),
-                       ('context', True)))]
-        sys.exit(2 if 2 in outcomes else int(any(outcomes)))
-    if args == ['--model']:
-        sys.exit(model(False))
-    if args == ['--stabs']:
-        sys.exit(model(True))
-    print('NOT_IMPLEMENTED: unsupported mode', file=sys.stderr)
-    sys.exit(2)
+    if args not in ([], ['--model'], ['--stabs']):
+        print('NOT_IMPLEMENTED: unsupported mode', file=sys.stderr)
+        sys.exit(2)
+    try:
+        address, detail = installation_address()
+    except RuntimeError as error:
+        print(f'NOT_IMPLEMENTED: {error}', file=sys.stderr)
+        sys.exit(2)
+    if address is None:
+        print('NOT_IMPLEMENTED: резолвер установки не принимает профиль ни по одному адресу: '
+              + detail, file=sys.stderr)
+        sys.exit(2)
+    if not args and address != 'a10':
+        print('NOT_IMPLEMENTED: А10 (184) не влит: резолвер установки не принимает '
+              '.harness/harness.project.json: ' + detail, file=sys.stderr)
+        sys.exit(2)
+    if address == 'legacy':
+        PROFILE_REL = 'harness.project.json'
+    try:
+        sys.exit(main(args, address == 'a10'))
+    except RuntimeError as error:
+        message = str(error)
+        print(message if message.startswith('NOT_IMPLEMENTED') else 'NOT_IMPLEMENTED: ' + message,
+              file=sys.stderr)
+        sys.exit(2)
+

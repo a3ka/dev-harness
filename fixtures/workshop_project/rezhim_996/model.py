@@ -23,8 +23,27 @@ def fail(reason):
     return 1
 
 
+# А10 (054 v+1 §Инварианты): тела фраз P1/P10 резолвера — дословно; дверь
+# несёт отказ резолвера (project_paths_resolve снимает префикс «profile ОТКАЗ: »),
+# своего валидатора профиля у двери нет.
+A10_P1 = 'нет .harness/harness.project.json: '
+A10_P10 = 'корневой harness.project.json рядом с .harness/harness.project.json: '
+
+
+def a10_refusal(root, mutant):
+    internal = root / '.harness/harness.project.json'
+    legacy = root / 'harness.project.json'
+    # door-ignores-root: дверь читает внутренний профиль, корень рядом не судит.
+    if os.path.lexists(legacy) and os.path.lexists(internal) and mutant != 'door-ignores-root':
+        return A10_P10 + str(legacy) + '. Инструкция: удалите корневой профиль — fallback нет'
+    # door-legacy-root: «только адрес» — нет внутреннего профиля → корневая раскладка.
+    if os.path.lexists(legacy) and not os.path.lexists(internal) and mutant != 'door-legacy-root':
+        return A10_P1 + str(internal) + '. Инструкция: создайте .harness/harness.project.json в репо'
+    return None
+
+
 def profile(root):
-    p = json.loads((root / 'harness.project.json').read_text())
+    p = json.loads((root / '.harness/harness.project.json').read_text())
     layer = Path(os.environ.get('HARNESS_PROJECT_LAYER_ROOT', str(root)))
     defaults = json.loads((layer / p['projectLayer']['profilePath']).read_text()).get('defaults', {})
     result = dict(defaults)
@@ -269,8 +288,15 @@ def main():
         value = 'ssh://git@example.invalid/dev-harness.git' if mutant == 'old-self-canon' else 'ssh://git@github.com/a3ka/dev-harness.git'
         print(json.dumps({'git': {'value': {'canonicalRemote': value}}}))
         return 0
+    refusal = a10_refusal(root, mutant)
+    if refusal:
+        print(refusal, file=sys.stderr)
+        return 1
     try:
-        p = profile(root)
+        if mutant == 'door-legacy-root' and not (root / '.harness/harness.project.json').exists():
+            p = {'schemaVersion': 1, 'repoId': 'legacy-root', 'git': {}}
+        else:
+            p = profile(root)
     except json.JSONDecodeError:
         if mutant == 'broken-profile-fallback' and op == 'gitw':
             return git(root, *args, check=False).returncode
