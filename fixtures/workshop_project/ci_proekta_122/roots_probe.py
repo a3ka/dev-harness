@@ -2,7 +2,7 @@
 """122/6: actual freeze CLI + real git; unrelated pre-freeze gates isolated.
 
 The explicit context is a subject-bound project_workflow transport, not a root
-argument: contract path/blob and station origin bind it to this subject; product
+argument: the committed subject declares its inventory project independently;
 identity and canonical origin are checked against the real profile resolver.
 Oracle snapshots are taken before calling freeze, retained only in memory.
 """
@@ -28,6 +28,12 @@ STABS = {
     'gh-error-ignored': 'gh-error',
     'project-writer': 'station-writes',
     'mono-rejected': 'mono',
+    'unbound-project': 'foreign-project',
+    'binding-missing-ignored': 'binding-missing',
+    'binding-duplicate-first': 'binding-duplicate',
+    'binding-invalid-ignored': 'binding-invalid',
+    'restricted-identity': 'identity-dot',
+    'remote-only-binding': 'foreign-identity',
 }
 CASES = {
     'project-secret': (0, None),
@@ -40,6 +46,15 @@ CASES = {
     'gh-error': (1, 'gh-nedostupen'),
     'mono': (0, None),
     'station-writes': (0, None),
+    'foreign-project': (1, 'project-workflow-rashozhdenie'),
+    'foreign-identity': (1, 'project-workflow-rashozhdenie'),
+    'binding-missing': (1, 'project-workflow-rashozhdenie'),
+    'binding-duplicate': (1, 'project-workflow-rashozhdenie'),
+    'binding-invalid': (1, 'project-workflow-rashozhdenie'),
+    'identity-dot': (0, None),
+    'identity-json': (0, None),
+    'identity-project-mismatch': (1, 'project-workflow-rashozhdenie'),
+    'identity-repo-mismatch': (1, 'project-workflow-rashozhdenie'),
 }
 
 
@@ -78,13 +93,13 @@ def commit(root):
     git(root, 'commit', '-qm', 'fixture122')
 
 
-def profile(root, remote):
+def profile(root, remote, project_id='toy-project', repo_id='toy-product'):
     put(root, 'harness.project.json', json.dumps({
-        'schemaVersion': 1, 'repoId': 'toy-product', 'language': 'typescript',
+        'schemaVersion': 1, 'repoId': repo_id, 'language': 'typescript',
         'projectLayer': {'version': '1', 'profilePath': 'registry/project.json'},
         'git': {'canonicalRemote': str(remote)}}))
     put(root, 'registry/project.json', json.dumps({
-        'schemaVersion': 1, 'version': '1', 'projectId': 'toy-project',
+        'schemaVersion': 1, 'version': '1', 'projectId': project_id,
         'workspaceId': 'toy-workspace', 'defaults': {}}))
 
 
@@ -105,9 +120,13 @@ def world(base, repo, case):
         remote = base / (r.name + '-origin.git')
         git(base, 'init', '--bare', '-q', str(remote))
         git(r, 'remote', 'add', 'origin', str(remote))
-    profile(product, base / 'product-origin.git')
-    put(station, TARGET, '# Toy CI subject\nЗОНА implementer: .github/workflows/mobile.yml\n'
-        'ПРЕДПОСЫЛКИ:\n- secret PILOT_DEMO_CODE\n')
+    project_id, repo_id = 'toy-project', 'toy-product'
+    if case in ('identity-dot', 'identity-project-mismatch', 'identity-repo-mismatch'):
+        project_id, repo_id = 'toy.project', 'toy.repo'
+    if case == 'identity-json':
+        # JSON escaping, not a line/delimiter or identifier regexp grammar.
+        project_id, repo_id = 'проект ".*"\n[?]', 'repo\t雪\\.*'
+    profile(product, base / 'product-origin.git', project_id, repo_id)
     put(station, 'verdicts/critic/contracts-731-v1.md', 'accept\nfixture122\n')
     # Established seam pattern: fixtures/freeze_contract/fail_closed_992.py.
     # Only unrelated prerequisites are isolated; freeze, libs, resolver and Г3
@@ -139,6 +158,18 @@ sys.exit(entry['rc'])
     if case == 'mono':
         product = station
         profile(station, base / 'station-origin.git')
+    declared = {'projectId': project_id, 'repoId': repo_id,
+                'canonicalRemote': git(product, 'remote', 'get-url', 'origin')}
+    binding = 'ПРОЕКТ-ПРЕДПОСЫЛОК: ' + json.dumps(declared, ensure_ascii=True) + '\n'
+    if case == 'binding-missing' or case == 'mono':
+        binding = ''
+    elif case == 'binding-duplicate':
+        binding += binding
+    elif case == 'binding-invalid':
+        binding = 'ПРОЕКТ-ПРЕДПОСЫЛОК: {"projectId":""}\n'
+    put(station, TARGET, '# Toy CI subject\n' + binding
+        + 'ЗОНА implementer: .github/workflows/mobile.yml\n'
+        + 'ПРЕДПОСЫЛКИ:\n- secret PILOT_DEMO_CODE\n')
     for r in {station, product}:
         commit(r)
     for r in {station, product}:
@@ -150,19 +181,41 @@ sys.exit(entry['rc'])
         'root': str(station), 'path': TARGET,
         'blob': git(station, 'rev-parse', 'HEAD:' + TARGET),
         'origin': git(station, 'remote', 'get-url', 'origin')},
-        'project': {'root': str(product), 'projectId': 'toy-project',
-                    'repoId': 'toy-product', 'canonicalRemote': origin}}
+        'project': {'root': str(product), **declared}}
+    if case in ('foreign-project', 'foreign-identity'):
+        # Only the transport is redirected. Both real repositories keep their
+        # genuine profiles/origins; the subject's HEAD declaration is unchanged.
+        other = base / 'other'
+        init(other)
+        other_origin = base / 'other-origin.git'
+        if case != 'foreign-identity':
+            git(base, 'init', '--bare', '-q', str(other_origin))
+        else:
+            other_origin = Path(origin)
+        git(other, 'remote', 'add', 'origin', str(other_origin))
+        other_id = 'different-project' if case == 'foreign-identity' else project_id
+        profile(other, other_origin, other_id, repo_id)
+        commit(other)
+        ctx['project'] = {'root': str(other), 'projectId': other_id,
+                          'repoId': repo_id, 'canonicalRemote': str(other_origin)}
     if case == 'wrong-origin':
         git(product, 'remote', 'set-url', 'origin', str(base / 'station-origin.git'))
     if case == 'wrong-project':
         ctx['project']['projectId'] = 'other-project'
     if case == 'wrong-subject':
         ctx['subject']['blob'] = '0' * 40
+    if case == 'identity-project-mismatch':
+        ctx['project']['projectId'] = 'toyXproject'
+    if case == 'identity-repo-mismatch':
+        ctx['project']['repoId'] = 'toyXrepo'
     context = put(base, 'context.json', json.dumps([ctx, ctx] if case == 'ambiguous-context' else ctx))
     if case == 'no-context':
         context.unlink()
     inventory = {origin: {'rc': 7 if case == 'gh-error' else 0,
-                         'names': [] if case == 'missing-secret' else ['PILOT_DEMO_CODE']}}
+                         'names': [] if case in ('missing-secret', 'foreign-project', 'foreign-identity')
+                         else ['PILOT_DEMO_CODE']}}
+    if case in ('foreign-project', 'foreign-identity'):
+        inventory[ctx['project']['canonicalRemote']] = {'rc': 0, 'names': ['PILOT_DEMO_CODE']}
     # A same-named secret at station cannot conceal its absence at product.
     if product != station:
         inventory[git(station, 'remote', 'get-url', 'origin')] = {
@@ -175,11 +228,17 @@ def observe(repo, case, mode='repo', mutant=None):
     with tempfile.TemporaryDirectory(prefix='roots122-') as tmp:
         base = Path(tmp)
         station, product, context, origin = world(base, repo, case)
-        before = {r: snapshot(r) for r in {station, product}}
+        before = {r: snapshot(r) for r in {station, product, base / 'other'} if r.exists()}
         env = dict(os.environ, PATH=str(base / 'bin') + ':' + os.environ['PATH'],
                    GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_SYSTEM='/dev/null')
         # No inherited product-layer override can change the context's identity.
         env.pop('HARNESS_PROJECT_LAYER_ROOT', None)
+        if case in ('identity-dot', 'identity-json'):
+            resolved = run(['bash', station / 'scripts/profile_resolver.sh', '--repo', product],
+                           env=dict(env, HARNESS_PROJECT_LAYER_ROOT=str(product)))
+            print(f'ROOTS122 PROFILE {case}: rc={resolved.returncode}')
+            if resolved.returncode:
+                raise RuntimeError('негодный совместимый профиль: ' + resolved.stderr)
         if mode == 'model':
             cmd = ['python3', HERE / 'roots_model.py', station, TARGET]
             if case != 'mono':
@@ -205,7 +264,7 @@ def observe(repo, case, mode='repo', mutant=None):
         if want == 1:
             if after != before:
                 problems.append('отказ изменил HEAD/теги/контракт/вердикт/реестр')
-            if case in ('no-context', 'wrong-origin', 'wrong-project', 'wrong-subject', 'ambiguous-context') and calls:
+            if reason != 'gh-nedostupen' and not reason.startswith('sekrety-ne-zavedeny:') and calls:
                 problems.append('gh вызван до валидации контекста')
         else:
             tag = run(['git', '-C', station, 'rev-parse', '--verify', TAG + '^{commit}'])
@@ -219,7 +278,7 @@ def observe(repo, case, mode='repo', mutant=None):
                 problems.append('контракт/вердикт станции изменён')
             if product != station and after[product] != before[product]:
                 problems.append('запись ушла в проект')
-        if case not in ('no-context', 'wrong-origin', 'wrong-project', 'wrong-subject', 'ambiguous-context'):
+        if want == 0 or reason == 'gh-nedostupen' or (reason and reason.startswith('sekrety-ne-zavedeny:')):
             if not calls or any(c != ['secret', 'list', '-R', origin] for c in calls):
                 problems.append('инвентарь не из project origin: ' + repr(calls))
         return not problems, result.returncode, problems, output
@@ -230,6 +289,7 @@ def main():
     p.add_argument('--repo', type=Path, default=TREE)
     p.add_argument('--model', action='store_true')
     p.add_argument('--stabs', action='store_true')
+    p.add_argument('--case', choices=CASES)
     args = p.parse_args()
     if args.stabs:
         caught = 0
@@ -244,14 +304,15 @@ def main():
         print(f'ROOTS122 STABS={len(STABS)} CAUGHT={caught}')
         return int(caught != len(STABS))
     green = 0
-    for case in CASES:
+    cases = [args.case] if args.case else list(CASES)
+    for case in cases:
         ok, rc, problems, output = observe(args.repo.resolve(), case, 'model' if args.model else 'repo')
         green += ok
         print(f'ROOTS122 {case}: rc={rc} ' + ('ЗЕЛЁНАЯ' if ok else 'КРАСНАЯ ' + '; '.join(problems)))
         if not ok:
             print(output)
-    print(f'ROOTS122 TOTAL={len(CASES)} GREEN={green} RED={len(CASES)-green}')
-    return int(green != len(CASES))
+    print(f'ROOTS122 TOTAL={len(cases)} GREEN={green} RED={len(cases)-green}')
+    return int(green != len(cases))
 
 
 if __name__ == '__main__':

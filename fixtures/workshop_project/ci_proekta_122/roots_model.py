@@ -73,7 +73,12 @@ def main():
         ctx = ctx[0]
     if mutant not in ('unchecked-context', 'missing-context-ignored'):
         try:
-            jsonschema.validate(ctx, json.loads((HERE / 'project_workflow.schema.json').read_text()))
+            schema = json.loads((HERE / 'project_workflow.schema.json').read_text())
+            jsonschema.validate(ctx, schema)
+            if mutant == 'restricted-identity':
+                # Prior 122/6 schema, incompatible with resolver contract 054.
+                jsonschema.validate(ctx['project']['projectId'],
+                                    {'pattern': '^[a-zA-Z0-9][a-zA-Z0-9_-]*$'})
             s = ctx['subject']
             assert Path(s['root']).resolve() == root
             assert s['path'] == target
@@ -93,11 +98,29 @@ def main():
                 assert ctx['project'][key] == prof[key]['value']
             remote = git(project, 'remote', 'get-url', 'origin')
             assert ctx['project']['canonicalRemote'] == prof['git']['value']['canonicalRemote'] == remote
+            if project != root and mutant not in (
+                    'unbound-project', 'binding-missing-ignored', 'binding-invalid-ignored'):
+                # Independent authority: the actual committed subject, never a
+                # declaration supplied by the transport or by the selected repo.
+                prefix = 'ПРОЕКТ-ПРЕДПОСЫЛОК: '
+                subject = git(root, 'show', 'HEAD:' + target)
+                bindings = [line[len(prefix):] for line in subject.split('\n')
+                            if line.startswith(prefix)]
+                if mutant != 'binding-duplicate-first':
+                    assert len(bindings) == 1
+                declared = json.loads(bindings[0])
+                jsonschema.validate(declared, {
+                    '$schema': schema['$schema'], '$defs': schema['$defs'],
+                    '$ref': '#/$defs/projectIdentity', 'unevaluatedProperties': False})
+                keys = (['canonicalRemote'] if mutant == 'remote-only-binding'
+                        else schema['$defs']['projectIdentity']['required'])
+                assert {key: declared[key] for key in keys} == {
+                    key: ctx['project'][key] for key in keys}
             # Resolve workflow context using the existing helper, not a new path convention.
             workflow = call(['bash', root / 'scripts/project_workflow.sh', '--repo', root])
             assert workflow.returncode == 0
             assert (root / target).resolve().is_relative_to(Path(json.loads(workflow.stdout)['contracts']).resolve())
-        except (AssertionError, KeyError, TypeError, ValueError, OSError, jsonschema.ValidationError):
+        except (AssertionError, IndexError, KeyError, TypeError, ValueError, OSError, jsonschema.ValidationError):
             return refusal('project-workflow-rashozhdenie')
     project = Path(ctx['project']['root'])
     if mutant == 'mono-rejected' and project.resolve() == root:
