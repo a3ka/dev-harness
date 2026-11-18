@@ -41,22 +41,66 @@ skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
 # rc jq отбрасывается ЦЕЛИКОМ (rc проверяется ДО использования результата).
 # Внешний whitespace вокруг одного документа допустим.
 #
-# Вызов: _json_one_object <имя-переменной>   (вход — stdin)
+# ВЫЗОВ: _json_one_object <имя-переменной> [<файл>]
+#   Без файла вход — stdin; он копируется в безопасный временный файл БЕЗ
+#   прохода через bash-строку. С файлом jq читает именно этот файл. Сырые NUL
+#   и любые другие байты поэтому не теряются и не мутируются до jq.
 #   rc 0 — разобран ровно один JSON-объект: в переменной канонический JSON,
 #          _JSON_ERR пуст;
 #   rc 1 — отказ: переменная пуста, _JSON_ERR — правдивая причина.
+#
+# Временные файлы двери удаляются на ВСЕХ выходах через EXIT-trap.
+_DONE_TMP_FILES=()
+_DONE_TMP_LAST=""
+_done_cleanup() {
+  local __f
+  for __f in "${_DONE_TMP_FILES[@]}"; do
+    [ -n "$__f" ] && rm -f -- "$__f"
+  done
+}
+trap '_done_cleanup' EXIT
+
+_new_done_tmp() {
+  local __f
+  __f="$(mktemp "${TMPDIR:-/tmp}/done-contract.XXXXXXXX" 2>/dev/null || true)"
+  if [ -z "$__f" ] || [ ! -f "$__f" ]; then
+    return 1
+  fi
+  _DONE_TMP_FILES+=("__f")
+  _DONE_TMP_LAST="$__f"
+  return 0
+}
+
 _JSON_ERR=""
 _json_one_object() {
-  local __var="${1:?имя переменной обязательно}" __in="" __out="" __rc=0 __diag=""
-  IFS= read -r -d '' __in || true
-  __out="$(printf '%s' "$__in" | jq -s -c 'if (length == 1 and (.[0] | type) == "object") then .[0] else error("ожидался ровно один JSON-документ-объект") end' 2>/dev/null)" || __rc=$?
+  local __var="${1:?имя переменной обязательно}" __file="${2:-}" __out="" __rc=0 __diag=""
+  if [ -n "$__file" ]; then
+    if [ ! -r "$__file" ]; then
+      printf -v "$__var" '%s' ''
+      _JSON_ERR="файл с JSON не читается"
+      return 1
+    fi
+  else
+    if ! _new_done_tmp; then
+      printf -v "$__var" '%s' ''
+      _JSON_ERR="временный файл для разбора JSON не создать"
+      return 1
+    fi
+    __file="$_DONE_TMP_LAST"
+    if ! cat > "$__file"; then
+      printf -v "$__var" '%s' ''
+      _JSON_ERR="вход JSON не скопирован во временный файл"
+      return 1
+    fi
+  fi
+  __out="$(jq -s -c 'if (length == 1 and (.[0] | type) == "object") then .[0] else error("ожидался ровно один JSON-документ-объект") end' "$__file" 2>/dev/null)" || __rc=$?
   if [ "$__rc" -eq 0 ]; then
     printf -v "$__var" '%s' "$__out"
     _JSON_ERR=""
     return 0
   fi
   printf -v "$__var" '%s' ''
-  __diag="$(printf '%s' "$__in" | jq -s -r 'if length == 0 then "empty" elif length != 1 then "multiple" else "not-object" end' 2>/dev/null)" || true
+  __diag="$(jq -s -r 'if length == 0 then "empty" elif length != 1 then "multiple" else "not-object" end' "$__file" 2>/dev/null)" || true
   case "$__diag" in
     empty)      _JSON_ERR="пустой ввод: JSON-документов нет" ;;
     multiple)   _JSON_ERR="в ответе несколько JSON-документов (ожидался ровно один)" ;;
@@ -290,23 +334,26 @@ if [ -x "$SELF_DIR/check_architecture_contract.sh" ]; then
         # --max-time: зависший API не должен hanging'ом держать done (совет С5).
         _a187_args=(-sS --max-time 30 -H 'Accept: application/vnd.github+json')
         [ -n "$_a187_tok" ] && _a187_args+=(-H "Authorization: Bearer $_a187_tok")
-        _a187_json=""
+        _new_done_tmp || die "ARCH_CI: временный файл ответа check-runs не создать"
+        _a187_body_file="$_DONE_TMP_LAST"
         _a187_crc=0
-        _a187_json="$(curl "${_a187_args[@]}" "$_a187_url" 2>/dev/null)" || _a187_crc=$?
+        curl "${_a187_args[@]}" "$_a187_url" > "$_a187_body_file" 2>/dev/null || _a187_crc=$?
         # Тот же класс (fail-open по rc): отказ транспорта (curl rc≠0) — ответ
         # недоступен независимо от stdout; доказательством check-run он не
-        # является (контракт 187/2: «парные корректные входы rc 0»).
+        # является (контракт 187/2: «парные корректные входы rc 0»). rc
+        # producer'а проверяется ДО разбора и ДО использования ответа.
         _a187_n=0
-        if [ "$_a187_crc" -eq 0 ] && [ -n "$_a187_json" ]; then
+        if [ "$_a187_crc" -eq 0 ]; then
           # 201 (г): имя check-run arch — «arch», «arch …», «arch (…)».
           # «archive», «architecture…», «march», «arche» — НЕ принимаются:
           # живой зелёный run бэкенда называется «arch (пин внешней
           # архитектуры, model fitness + code-ratchet)» (ARCHCOL §5).
           # Полный разбор ответа: ровно один JSON-документ-объект. Ошибка
           # разбора — отказ семейства ARCH_CI (причина — РАЗБОР, не curl);
-          # ошибочный stdout в счёт run не попадает.
+          # ошибочный stdout в счёт run не попадает. jq читает СЫРОЙ файл
+          # ответа: NUL и прочие байты не проходят через bash-строку.
           _a187_obj=""
-          if ! _json_one_object _a187_obj <<<"$_a187_json"; then
+          if ! _json_one_object _a187_obj "$_a187_body_file"; then
             die "ARCH_CI: ответ check-runs не разобран ($_JSON_ERR): ожидался ровно один JSON-документ — успешного check-run arch на финальном SHA $_a187_sha нет"
           fi
           _a187_n="$(printf '%s' "$_a187_obj" | jq -r --arg sha "$_a187_sha" '[.check_runs[]? | select((((.name // "") == "arch") or ((.name // "") | startswith("arch ")) or ((.name // "") | startswith("arch ("))) and (.head_sha == $sha) and (.status == "completed") and (.conclusion == "success"))] | length' 2>/dev/null)" \
@@ -534,35 +581,36 @@ else
     _cmp_tok="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
     _cmp_args=(-sS --max-time 30 -H 'Accept: application/vnd.github+json')
     [ -n "$_cmp_tok" ] && _cmp_args+=(-H "Authorization: Bearer $_cmp_tok")
-    _cmp_json=""
+    _new_done_tmp || die "done: влитость в main продукта $place не проверена: временный файл ответа compare не создать"
+    _cmp_body_file="$_DONE_TMP_LAST"
     _cmp_crc=0
-    _cmp_json="$(curl "${_cmp_args[@]}" "$_cmp_url" 2>/dev/null)" || _cmp_crc=$?
+    curl "${_cmp_args[@]}" "$_cmp_url" > "$_cmp_body_file" 2>/dev/null || _cmp_crc=$?
     # Отказ транспорта (curl rc≠0) — ответ НЕдоступен независимо от stdout:
     # частичный ответ при ошибке транспорта доказательством влитости не
     # является (контракт 201 §2(б): «ответ недоступен (curl rc≠0, …) →
     # не проверена»; позитивный ответ требует УСПЕШНОГО compare, rc 0).
-    # Проверка rc — ДО разбора status: иначе behind|identical из stdout при
+    # Проверка rc — ДО разбора status: иначе behind|identical из ответа при
     # ошибке транспорта составили бы тег done.
     if [ "$_cmp_crc" -ne 0 ]; then
       die "done: влитость в main продукта $place не проверена: curl rc=$_cmp_crc"
     fi
-    _cmp_status=""
-    if [ -n "$_cmp_json" ]; then
-      # Полный разбор ответа compare: ровно один JSON-документ-объект.
-      # Повреждённый ответ или поток документов — не свидетельство влитости;
-      # парсерная ошибка НЕ выдаётся за ahead/diverged и НЕ сводится к
-      # «нет поля status», если поле было в префиксе.
-      _cmp_obj=""
-      if ! _json_one_object _cmp_obj <<<"$_cmp_json"; then
-        die "done: влитость в main продукта $place не проверена: ответ API не разобран ($_JSON_ERR)"
-      fi
-      _cmp_status="$(printf '%s' "$_cmp_obj" | jq -r '.status // empty' 2>/dev/null)" \
-        || _cmp_status=""
+    # Полный разбор ответа compare: ровно один JSON-документ-объект.
+    # Повреждённый ответ или поток документов — не свидетельство влитости;
+    # парсерная ошибка НЕ выдаётся за ahead/diverged и НЕ сводится к
+    # «нет поля status», если поле было в префиксе. jq читает СЫРОЙ файл
+    # ответа: NUL и прочие байты не проходят через bash-строку.
+    _cmp_obj=""
+    if ! _json_one_object _cmp_obj "$_cmp_body_file"; then
+      die "done: влитость в main продукта $place не проверена: ответ API не разобран ($_JSON_ERR)"
     fi
-    case "$_cmp_status" in
+    _cmp_status_kind=""
+    _cmp_status_kind="$(printf '%s' "$_cmp_obj" | jq -r 'if (has("status") | not) then "absent" elif ((.status | type) == "string") and (.status == "identical") then "identical" elif ((.status | type) == "string") and (.status == "behind") then "behind" elif ((.status | type) == "string") and (.status == "ahead") then "ahead" elif ((.status | type) == "string") and (.status == "diverged") then "diverged" else "unsupported" end' 2>/dev/null)" \
+      || _cmp_status_kind="unsupported"
+    case "$_cmp_status_kind" in
       identical|behind) : ;;
       ahead|diverged) die "done: OBJECT $object_sha не в main продукта $place — реализация не влита" ;;
-      *) die "done: влитость в main продукта $place не проверена: ответ API без поля status" ;;
+      absent) die "done: влитость в main продукта $place не проверена: ответ API без поля status" ;;
+      *) die "done: влитость в main продукта $place не проверена: неподдерживаемое значение status" ;;
     esac
   fi
 fi
