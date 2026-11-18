@@ -148,7 +148,8 @@ mir_zhurnal() {  # <st> <holder> <sдал 0|1> <возраст-мин|->
 sobytie() {  # <файл> <agent> <name> <task-строки…>
   local f="$1" a="$2" n="$3"; shift 3
   local task; task="$(printf '%s\n' "$@")"
-  jq -cn --arg a "$a" --arg n "$n" --arg t "$task" '{agent:$a,name:$n,task:$t}' > "$f"
+  jq -cn --arg a "$a" --arg n "$n" --arg t "$task" \
+    '{agent:$a,name:$n,task:$t} + (if $a == "architect" or $a == "implementer" or $a == "implementer-glm" or $a == "implementer-vision" then {isolated:true} else {} end)' > "$f"
   printf '%s' "$f"
 }
 
