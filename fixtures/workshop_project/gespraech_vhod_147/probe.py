@@ -467,6 +467,7 @@ def postav_mir(tmp):
                      'screens', '393x852'),
         os.path.join(repo, 'docs', 'ux', '05_Kompakt_D24', 'frames'),
         os.path.join(repo, 'docs', 'ux', '05_Kompakt_D24', 'source'),
+        os.path.join(repo, 'docs', 'ux', '05_Kompakt_D24', 'motion'),
         os.path.join(repo, 'mobile', 'e2e-first-run'),
         os.path.join(repo, 'mobile', 'e2e-erstinformation'),
         os.path.join(repo, '.harness147', 'scripts'),
@@ -484,7 +485,8 @@ def postav_mir(tmp):
     shutil.copy(os.path.join(NOS, 'd24', 'manifest.json'),
                 os.path.join(d24, 'pack', 'gespraech-final2-manifest.json'))
     shutil.copy(os.path.join(NOS, 'd24', 'spec.json'),
-                os.path.join(d24, 'motion', 'motion-spec-gespraech.json'))
+                os.path.join(repo, 'docs', 'ux', '05_Kompakt_D24', 'motion',
+                             'motion-spec-gespraech-kompakt-147.json'))
     shutil.copy(os.path.join(NOS, 'd24', 'pozvonok.json'),
                 os.path.join(d24, 'motion', 'faden-poses-gespraech.json'))
     # старые макеты финала 2: вход мутации staroj-pin-d24 (старый пин
@@ -498,6 +500,9 @@ def postav_mir(tmp):
                                      f + '.png'))
     # кадры пакета D24-Kompakt-1.1 (байты == frames/SHA256SUMS) и токены
     k11 = os.path.join(repo, 'docs', 'ux', '05_Kompakt_D24')
+    for name in ('motion-delta.md', 'geometrija-147.json'):
+        shutil.copy(os.path.join(NOS, 'kompakt11', name),
+                    os.path.join(k11, 'motion', name))
     for ek, sost in (('GA-01', 'normal'), ('GA-15', 'menu'),
                      ('GA-16', 'menu')):
         for tema in ('dark', 'light'):
@@ -570,7 +575,7 @@ def postav_mir(tmp):
     # PATH-стенд-ин npm: раннер численной приёмки на машине мира
     mashina = os.path.join(repo, 'mobile', 'src', 'features',
                            'conversation', 'menu-machine.ts')
-    speka = os.path.join(d24, 'motion', 'motion-spec-gespraech.json')
+    speka = os.path.join(k11, 'motion', 'motion-spec-gespraech-kompakt-147.json')
     put = os.path.join(repo, 'bin', 'npm')
     open(put, 'w').write(
         '#!/usr/bin/env bash\nout=""; prev=""\nfor a in "$@"; do\n'

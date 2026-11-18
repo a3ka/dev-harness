@@ -12,7 +12,8 @@
       "source/tokens.json": "cb39fb94cb0d775c6c739561315eebe87c207c3244f0dab2c4a42660acd06cb2",
       "source/manifest.json": "3fc386adb04fcbffe60bad979b2b0d53085c013bdbc63a6a905af3e6a568a633",
       "source/copy-de.json": "c277661822e2d40670c0821ebd012c6823fd411de7dd4d3c50ed3045e024701e",
-      "frames/frames.json": "84e4b5fc52d4dd7e00f91c4c7b9fb56f7ccc5a119b0f4cd351a8199efab72a8b"
+      "frames/frames.json": "84e4b5fc52d4dd7e00f91c4c7b9fb56f7ccc5a119b0f4cd351a8199efab72a8b",
+      "motion/motion-delta.md": "4b16215f8eded6820a11bab762420e6f2f79c65feca4cef71738c88a184b3a82"
     }
   },
   "kadry": {
@@ -74,6 +75,18 @@
     "proizvodnye": {
       "menu_chitaetsja_k_ms": 300,
       "formula": "5×motion-stagger-tight + motion-fast = 5×30 + 150 = 300; «Sprechen» — пилюля 1 (наименьшая задержка)"
+    }
+  },
+  "dvizhenie": {
+    "sborka": "D24-Kompakt-1.1",
+    "osnovanie": "v+6: новый pin дельты, не перепин Final2 под именем Kompakt. Геометрия пяти переходов применена к прежней scenes/tokens-грамматике; manifest/poses и времена наследуются. Производные файлы 147 отдельны от 149 и оригинала 04.",
+    "base_spec_sha256": "064d7821428f425d431fbd1efd65cbec37263bb62ef974924746a07e769cd318",
+    "spec": "docs/ux/05_Kompakt_D24/motion/motion-spec-gespraech-kompakt-147.json",
+    "geometry": "docs/ux/05_Kompakt_D24/motion/geometrija-147.json",
+    "sha256": {
+      "nositeli/kompakt11/motion-delta.md": "4b16215f8eded6820a11bab762420e6f2f79c65feca4cef71738c88a184b3a82",
+      "nositeli/kompakt11/geometrija-147.json": "e791191182ef870120dbdeb40542434a47cb0dbe4570d9d1b50424858010da0b",
+      "nositeli/d24/spec.json": "6cf62d63737b3bea440d4ced532dc5f4ca910ede5e6369bafddccfc9b5ad701a"
     }
   },
   "avd": {

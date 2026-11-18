@@ -1,0 +1,49 @@
+{
+  "source": {
+    "build": "D24-Kompakt-1.1",
+    "delta": "motion/motion-delta.md",
+    "delta_sha256": "4b16215f8eded6820a11bab762420e6f2f79c65feca4cef71738c88a184b3a82",
+    "profile": "390x844",
+    "rectangles": "source/screens/390x844/GA-{01,15,16,17,34,56}{,-Hell}.html + source/ds/kompakt.css",
+    "measurement": "2026-11-18: getBoundingClientRect, Chrome headless, React loaded, file access enabled; coordinates in screen viewport (not iframe parent). Controls: nav49, pebble40x24/svg20, mark32, pill320x52/icon44, pending320x72, field48, voice60, header52/header-sign28. Logs: /tmp/dev-harness-verify/Arch147Geo/zamer/.",
+    "adaptive_trace": "T29: P shifts by 60-52=8 under P=H-T-A-C; targets/caps288 become232. With unchanged response and constant target, S_from'=round(32+(S_from-40)*(232-32)/(288-40),1). Start/end rectangles are measured GA-15/GA-34, not interpolated. T33 docked mini size28 preserved; measured header y16. workTop and timing unchanged.",
+    "limits": "Measured final rectangles, not re-rendered intermediate frames or RN implementation. Faden1.3 poses and Final2 timing/video pins unchanged."
+  },
+  "spec_path": "docs/ux/05_Kompakt_D24/motion/motion-spec-gespraech-kompakt-147.json",
+  "geometry_path": "docs/ux/05_Kompakt_D24/motion/geometrija-147.json",
+  "scenes": {
+    "GA-T28": {
+      "element": "#mkg",
+      "from_rect": ".L-start .p-nav-agent .p-nav-pebble svg",
+      "to_rect": ".ga-dial .p-dial-mark svg",
+      "rects": {"left": [185,179], "top": [802.5,415], "w": [20,32], "h": [20,32]},
+      "evidence": "motion-delta.md:44; GA-01 .p-nav-agent .p-nav-pebble svg -> GA-15 .p-dial-mark svg"
+    },
+    "GA-T29": {
+      "adaptive": {"top":52, "cap":232, "min":80, "start":{"P":632,"S":32,"x":179,"y":415}, "end":{"P":608.1,"S":232,"x":79,"y":228}, "S_from":[207.5,212.5,216.4,219.4,221.9,223.9,225.5,226.9], "P_from":[632,632,631.1,629.6,627.7,625.6,623.6,621.7], "P_to":[626.2,620.8,616.7,614,612.2,610.9,610,609.4]},
+      "evidence": "motion-delta.md:19-22,90; GA-34 [data-m=stage] .p-presence: x79/y228/w232/h232, .p-vbar h60"
+    },
+    "GA-T30": {
+      "element": "#morph",
+      "from_rect": ".ga-dial .p-dial-list > li:nth-child(2) .p-dial-item",
+      "to_rect": ".L-chat2 .p-chatcomp-field",
+      "rects": {"left": [35,68], "top": [575,452], "w": [320,250], "h": [52,48]},
+      "evidence": "motion-delta.md:120; GA-15 pill2 -> GA-17 .p-chatcomp-field (actual h48, not inferred from minimum)"
+    },
+    "GA-T31": {
+      "element": "#mkg",
+      "from_rect": ".ga-dial .p-dial-mark svg",
+      "to_rect": ".L-start .p-nav-agent .p-nav-pebble svg",
+      "rects": {"left": [179,185], "top": [415,802.5], "w": [32,20], "h": [32,20]},
+      "evidence": "motion-delta.md:68; reverse of measured GA-T28 rectangles; ty0->8 unchanged"
+    },
+    "GA-T33": {
+      "element": "#morph",
+      "from_rect": ".ga-dial .p-dial-pending",
+      "to_rect": "[id=b-card] .p-approval",
+      "rects": {"left": [35,16], "top": [403,344], "w": [320,358], "h": [72,408]},
+      "adaptive": {"top":52,"cap":80,"min":80,"start":{"S":28,"x":16,"y":16},"end":{"S":28,"x":16,"y":16}},
+      "evidence": "motion-delta.md:19-21,140; GA-16 pending actual320x72 (manifest touch_targets), NOT min56; GA-56 .p-approval actual358x408 (not GA-T21 auto406), .p-chattop svg28x28 at16/16"
+    }
+  }
+}

@@ -25,4 +25,12 @@ set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)" || exit 2
 command -v python3 >/dev/null 2>&1 || { echo 'NOT_IMPLEMENTED: нет python3' >&2; exit 2; }
 command -v node >/dev/null 2>&1 || { echo 'NOT_IMPLEMENTED: нет node' >&2; exit 2; }
+# v+6: адресная геометрия поверх прежней регрессии, не возобновление
+# экранных классов цикла 2. Существующие g01/g02 набора 158 вызывают оба
+# контроля тем же CI-маршрутом; своих новых CI-строк не требуется.
+case "${1:-}" in
+  --model|--stabs)
+    PYTHONDONTWRITEBYTECODE=1 python3 "$HERE/red_geo_147.py" "$1" || exit "$?"
+    ;;
+esac
 PYTHONDONTWRITEBYTECODE=1 exec python3 "$HERE/probe.py" "$@"
