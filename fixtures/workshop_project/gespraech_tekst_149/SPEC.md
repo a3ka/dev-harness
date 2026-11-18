@@ -3,7 +3,7 @@
 Спецификация для implementer. Контракт: `contracts/149-gespraech-tekst-chat.md` (ТРЕК: ЛЁГКИЙ).
 Общие свойства экранов (видимость/видимая надпись/зона/действие/достижимость/токен-связь/AVD-канон/маска 48)
 судит ОДИН раз набор `fixtures/workshop_project/ekrannyj_nabor_158/` (контракт 158, И-2/И-4);
-этот файл несёт ТОЛЬКО экран-уникальное: карта целей, пины, кадры, форма пачки, композер, условная CI-проводка.
+этот файл несёт ТОЛЬКО экран-уникальное: карта целей, пины, кадры, форма пачки ПОЛНОГО состава, композер, безусловная CI-регистрация (форма А, слово владельца 2026-11-18).
 
 Пачка экрана (эта): `karta.json` (карта целей), `piny.json` (пины: пакет/кадры/токены/маски/AVD/ключи копии), `SPEC.md` (этот файл).
 Прежняя полная батарея цикла 2 (probe.py, source.json, osi.md, model/, stubs/, nositeli/, teksty/, produkt/, pachka/, red_gespraech_tekst_149.sh)
@@ -50,8 +50,7 @@ T30 непрозрачный фон закрывает меню ДО постр�
 
 ## 3. Эталонные кадры и пачка в продукте
 
-`mobile/e2e-gespraech-tekst/` — ТОЛЬКО три файла: `e2e.sh`, `kadry.json` (профиль 390, 12 записей), `kadry_profil.json` (профиль 393, 12 записей).
-Прежние ekran.json/spec_api.json/batareja/dvizhenie.mjs/prokhod.sh/katalog_kopii.json/kontrakt.md/kadry-393.json полной батареи НЕ воспроизводятся.
+`mobile/e2e-gespraech-tekst/` — РОВНО 10 файлов ПОЛНОГО состава (форма А, слово владельца 2026-11-18; образец — кандидат `4205358b45` / mob#166): `e2e.sh`, `ekran.json`, `kadry.json` (профиль 390, 12 записей), `kadry-393.json` (профиль 393, 12 записей), `kontrakt.md`, `katalog_kopii.json`, `spec_api.json`, `dvizhenie.mjs`, `prokhod.sh`, `batareja/red_ekrana.sh`. Кадровая пара называется ТОЧНО так — `kadry.json` + `kadry-393.json`, НЕ `kadry_profil.json` (замороженное имя 149-кандидата; переименование не делается). Грамматику файлов пачки судит НЕИЗМЕННЫЙ валидатор 132 v3 пина sha256 `5fd1415e…` (замер кандидата: статика зелена, живое исполнение — работник CI); прежняя трёхфайловая форма v4 и «минимальный ekran.json» — сняты (раздел «Снятие замороженных норм» контракта).
 
 - Пиксельная сверка — ВСЕ 24 кадра зоны: GA-11/12/18/19 (normal) и GA-13/17 (keyboard) × {light,dark} × {390×844,393×852};
   имена == записи frames/frames.json пакета; пины sha256 == piny.json.kadry.sha256 == frames/SHA256SUMS;
@@ -60,8 +59,8 @@ T30 непрозрачный фон закрывает меню ДО постр�
   [0, 500, <ширина>, низ] — платформа, «принимается по видео»; собственные пиксели приложения вне зоны судятся.
 - `e2e.sh` — AVD-канон набора 158 (И-4) и пины piny.json.avd: последовательный жизненный цикл, кадры 390 на эмуляторе работника (порт 5580),
   остановка 390 с ПОДТВЕРЖДЕНИЕМ ухода (adb devices) до запуска 393 (порт 5582), не более двух живых AVD; клавиатура — inputText в поле.
-- Живая сверка против настоящих скриншотов — продуктовый CI работника по лекалу 143/2 (раннер 123 из H-пина, порог 0.600) — ПОСЛЕ ленда
-  предпосылки §5; до того — живые прогоны e2e.sh на R ветки экрана оркестратором (норма 146+: диагностический прогон до freeze).
+- Живая сверка против настоящих скриншотов — продуктовый работник e2e-gespraech-tekst по лекалу 143/2 (раннер 123 из H-пина, порог 0.600),
+  БЕЗУСЛОВНО в PR экрана (§5); живые прогоны e2e.sh на R ветки экрана — оркестратор (норма 146+: диагностический прогон до freeze).
 
 ## 4. Юнит-тесты экрана (jest; продукт)
 
@@ -84,37 +83,42 @@ T30 непрозрачный фон закрывает меню ДО постр�
 Матрица мутантов и обманные заглушки экрана НЕ заводятся (норма лёгкого трека): красное предъявление экрана — набор 158
 (негативные образцы на живом референсе по классам 1–13), не экранная батарея.
 
-## 5. CI-проводка (УСЛОВНАЯ; именованная предпосылка — общая для семьи 147/148/149)
+## 5. CI-регистрация (БЕЗУСЛОВНАЯ; форма А — слово владельца 2026-11-18, вслед за 147 v5/148 v5)
 
-НЕСОВМЕСТИМОСТЬ (живой прогон этой пачки на дереве харнесса): `python3 scripts/ekran_shablon.py --pack <трёхфайловая пачка> --repo . --harness .`
-→ rc 2, `PRICHINA SHABLON_NEVEREN ekran.json` — замороженный валидатор 132/146 безусловно читает `pack/ekran.json` (scripts/ekran_shablon.py:2064-2068),
-а грамматика не допускает «минимального честного ekran.json»: check_alfavit — замкнутые составы 17/20/21 ключей, check_fajly требует
-pack/kontrakt + pack/batareja + repo/{katalog_kopii,spec_api,audit_tokenov,e2e_scenarij} + kadry_dir, check_d24_triggery — GA-кадры тянут
-shablon:3+dvizhenie с живым jest-отчётом. Это машина полного трека, исключённая словом владельца 2026-11-03. Работник лекала 143/2
-(frozen, sha256 3675182e…) исполняет ровно этот вызов в run_priemka (screen-job.template.yml:163-171) — трёхфайловая пачка даёт вечно-красный job.
+Пишет implementer ОДНИМ PR экрана (append-only, чужие записи/тела/порядок не меняются), форма судится клетками
+`fixtures/workshop_project/gespraech_tekst_149/red_ci_149.py` (прецедент red_ci_147.py):
 
-ПРЕДПОСЫЛКА (зона владельцев 132/146/143 — экран её НЕ правит): лёгкий режим `ekran_shablon.py` (линия 132/146) ЛИБО вариант лекала
-экранного работника (143/2+). Условие закрытия предпосылки (дословно, семья 147/148/149): продуктовый работник на честной трёхфайловой пачке
-возвращает rc 0, на подмене кадра/имени — именованный ненулевой rc.
+1. запись `mobile/ci-screens.json`: id `gespraech-tekst`, kontrakty [`149`], status `in-development` (→ `approved` по принятой поставке),
+   job `e2e-gespraech-tekst`, pack `mobile/e2e-gespraech-tekst/`, flows [`mobile/.maestro/gespraech-tekst.yaml`,
+   `mobile/.maestro/gespraech-tekst-393.yaml`], child_flows [`mobile/.maestro/gespraech-tekst-prokhod.yaml`],
+   puti ⊇ {`mobile/src/features/conversation/`, `mobile/src/ui/conversation-composer/`, `mobile/src/mocks/`,
+   `mobile/e2e-gespraech-tekst/`}, h_checkout [`.harness149`], output_namespace `mobile/maestro-out-gespraech-tekst`;
+2. выход выбора `e2e-gespraech-tekst: ${{ steps.vybor.outputs.e2e-gespraech-tekst }}` в job `select-screens`;
+3. имя работника в needs ОБОИХ агрегатов лекала 143/2 (`android-e2e`, `mobile-regression-signal`).
 
-ДО ленда предпосылки implementer НЕ добавляет запись `mobile/ci-screens.json` и работника `.github/workflows/mobile.yml` (честная реализация
-не создаёт вечно-красный job); пачка `mobile/e2e-gespraech-tekst/` и флоу `mobile/.maestro/gespraech-tekst*.yaml` живут в ВЕТКЕ экрана
-(структурная инвентаризация продукта честно отказывает на незарегистрированной пачке — STRUCTURE.md/mobile/structure-policy.json);
-приёмка — живые прогоны e2e.sh на R ветки (оркестратор, диагностический прогон до freeze, норма 146+). ПОСЛЕ ленда предпосылки —
-`mobile/ci-screens.json`: ТОЛЬКО своя запись (id gespraech-tekst, kontrakty [149], job e2e-gespraech-tekst, pack mobile/e2e-gespraech-tekst/,
-flows gespraech-tekst.yaml + gespraech-tekst-393.yaml, h_checkout .harness149, output_namespace mobile/maestro-out-gespraech-tekst);
-`.github/workflows/mobile.yml`: ТОЛЬКО свой работник инстанциацией ЛЕКАЛА 143/2 (append-only, чужие тела/порядок не меняются);
-`mobile/.maestro/`: свои флоу + строки исключения config.yaml (прецедент 138). Landing 149 — ПОСЛЕ 148 и 147 (последний из трёх; рестарт на rebase,
-конфликт — исполнителя).
+Работник `e2e-gespraech-tekst` — инстанциация лекала 143/2 по образцу кандидата `4205358b45` (дословное тело — MODEL_YML
+red_ci_149.py): needs [select-screens, build-apk], if по выходу выбора, APK по имени артефакта сборки с digest-сверкой до
+установки, H-checkout a3ka/dev-harness @ `d01c9414ef792ea1382750c825759ab51a418ff4` → `.harness149` (валидатор sha256
+`5fd1415e…`), свой AVD порт 5580, setup-node+npm ci (стадия dvizhenie исполняет продуктовый jest — дефект mob#166 закрыт),
+run_priemka → `python3 .harness149/scripts/ekran_shablon.py --pack 'mobile/e2e-gespraech-tekst/' --repo . --harness '.harness149'`,
+артефакты `maestro-gespraech-tekst-*` с `if-no-files-found: error`, retention 14. Форма: `python3
+fixtures/workshop_project/gespraech_tekst_149/red_ci_149.py --repo <R>` → rc 0 REGISTRACIJA_OK; любое отличие от модели —
+именованный rc 1; на product main без пачки — rc 1 PACHKA_NEPOLNAJA (честно красная до реализации).
+
+Предпосылка «лёгкий режим валидатора» v4 СНЯТА (слово владельца 2026-11-18): полный состав пачки совместим с неизменным
+валидатором, вечно-красный job невозможен; вариант В — отдельный предмет с номером от владельца. `mobile/.maestro/`:
+свои флоу + строки исключения config.yaml (прецедент 138). Landing 149 — ПОСЛЕ 148 и 147 (последний из трёх; рестарт на
+rebase, конфликт — исполнителя).
 
 ## 6. Критерии готовности (сводка; полные rc-команды — контракт §Приёмочный критерий)
 
-1. `bash fixtures/workshop_project/ekrannyj_nabor_158/red_ekrannyj_nabor_158.sh --repo <R> --ekran 149` → rc 0 (по готовности 158; до того —
-   именованный rc 2, не зелень);
+1. `bash fixtures/workshop_project/ekrannyj_nabor_158/red_ekrannyj_nabor_158.sh --repo <R> --ekran 149` → rc 0 (по готовности
+   референсов 158/159; до того — именованный rc 2, не зелень);
 2. `cd mobile && npx jest src/features/conversation` → rc 0;
-3. пачка mobile/e2e-gespraech-tekst/ = e2e.sh + kadry.json + kadry_profil.json; имена/пины/маски == piny.json; AVD-канон == piny.json.avd;
-4. CI: по предпосылке §5 (до ленда — запись/работник ОТСУТСТВУЮТ, пачка/флоу в ветке; после — своя запись + свой работник по лекалу 143/2,
-   append-only, landing после 148/147);
+3. пачка mobile/e2e-gespraech-tekst/ — РОВНО 10 файлов полного состава с кадровой парой kadry.json + kadry-393.json;
+   имена/пины/маски == piny.json; AVD-канон == piny.json.avd;
+4. CI: регистрация БЕЗУСЛОВНА в PR экрана — запись карты + работник по лекалу 143/2 + output выбора + needs агрегатов;
+   `python3 fixtures/workshop_project/gespraech_tekst_149/red_ci_149.py --repo <R>` → rc 0 (зелёные пробы: `--model`, `--stabs`);
 5. суд: ОДИН круг критика (быстрый процесс) + ревьюер.
 
 Материал: прежняя реализация PR Complior-mob #148 (ветка wip/149/implementer, 21 файл: chat-host/chat-machine/chat-kopija, композер 175 строк
