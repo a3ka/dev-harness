@@ -1,18 +1,24 @@
 #!/usr/bin/env bash
-# ЧЕСТНАЯ МОДЕЛЬ локального предполёта CI — контракт 122 «CI проекта» (Г2).
+# ЧЕСТНАЯ МОДЕЛЬ локального предполёта CI — контракт 122 «CI проекта» (Г2), v+1.
 # Субъект-интерфейс: ci_preflight.sh --repo R [--workflow F] [--job J] [--contract C].
 # Синтаксис YAML; рабочий каталог каждого run-шага — по старшинству GitHub Actions:
 # working-directory шага > defaults.run.working-directory джобы > defaults.run.working-directory
 # workflow > корень; он обязан существовать В РЕПО: путь судится в одноразовой копии по realpath,
-# '..', абсолютный путь и симлинк наружу копии — working-directory-otsutstvuet (R не мутируется).
+# '..', абсолютный путь и симлинк наружу копии — working-directory-vne-kopii (v+1: побег ЧЕРЕЗ
+# выражение github.workspace) либо working-directory-otsutstvuet (буквальный путь; R не мутируется).
 # (а) С --contract C ДО исполнения — сверка объявленности по ВСЕМУ тексту файла (любое поле,
-# любой класс джобы, включая station): каждое упоминание токена secrets.X / vars.X обязано быть
-# объявлено в ПРЕДПОСЫЛКИ: контракта (текстовое сверх-приближение, правило 7).
-# (б) Шаги local-джоб исполняются в одноразовой копии в своём каталоге с окружением
-# env workflow < env джобы < env шага (литералы как есть); выражения точной формы
-# ${{ secrets.X }} / ${{ vars.X }} в значениях env и в тексте run — непустые заглушки.
-# station-джобы перечисляются, не исполняются (их секреты сверены по (а)).
-# Строки с маркером мутации вырезают мутанты stabs/ (по одной строке на маркер).
+#     любой класс джобы, включая station): каждое упоминание токена secrets.X / vars.X обязано быть
+#     объявлено в ПРЕДПОСЫЛКИ: контракта (текстовое сверх-приближение, правило 7).
+# (б) v+1 ВЫЧИСЛЯЕМЫЙ АЛФАВИТ ВЫРАЖЕНИЙ (замкнутый): точные формы ${{ secrets.X }} / ${{ vars.X }} —
+#     непустые заглушки; точная форма ${{ github.workspace }} — ТОЛЬКО корень внутренней
+#     одноразовой копии (working-directory шага и умолчаний, текст run, значения env цепочки
+#     workflow < джоба < шаг). ВСЯКОЕ иное выражение ${{ … }} на исполнительной поверхности
+#     run-шага (working-directory, run, значения env цепочки) — отказ vyrazhenie-ne-podderzhano
+#     ДО исполнения шага: не молчаливый успех и не bash-падение. uses:-шаги не исполняются,
+#     их with: не судятся; if: не вычисляется (шаги исполняются безусловно).
+# station-джобы перечисляются, не исполняются (их секреты сверены по (а); их working-directory
+# разбирается теми же правилами). Строки с маркером мутации вырезают мутанты stabs/
+# (по одной строке на маркер; ровно один маркер каждого вида).
 set -u
 R=; WF=.github/workflows/ci.yml; JOB=; C=
 while [ $# -gt 0 ]; do
@@ -63,9 +69,32 @@ def env_of(node):
 
 sec_re = re.compile(r'\$\{\{\s*(secrets|vars)\.([A-Z][A-Z0-9_]*)\s*\}\}')  # точная форма: подстановка
 tok_re = re.compile(r'\b(secrets|vars)\.([A-Z][A-Z0-9_]*)\b')  # токен где угодно: сверка объявленности
+ws_re = re.compile(r'\$\{\{\s*github\.workspace\s*\}\}')  # v+1: точная форма, корень копии
+expr_re = re.compile(r'\$\{\{[^}]*\}\}')  # любое выражение: остаток после подстановки — вне алфавита
+
+work = None  # корень одноразовой копии (заполняется до первого использования)
+
+def ws(s):
+    # v+1: github.workspace отображается ТОЛЬКО на корень внутренней копии
+    if work is None or not ws_re.search(s):
+        return s
+    s = ws_re.sub(lambda mm: work, s)  # МУТАЦИЯ-122:workspace-podstanovka
+    return s
+
+def podstanovka(s):
+    # вычисляемый алфавит целиком: workspace + заглушки secrets/vars
+    return sec_re.sub(lambda mm: 'PREFLIGHT-STUB-' + mm.group(2), ws(s))
+
+def otkaz_vyrazhenija(s):
+    # v+1: остаточное выражение (вне алфавита) на исполнительной поверхности — именованный
+    # отказ ДО исполнения шага; не молчаливый успех и не bash-падение
+    ost = expr_re.search(podstanovka(s))
+    if ost is None:
+        return
+    print('preflight ОТКАЗ: vyrazhenie-ne-podderzhano: %s' % ost.group(0)); sys.exit(1)  # МУТАЦИЯ-122:otkaz-vyrazhenij
 
 def stub(s):
-    return sec_re.sub(lambda mm: 'PREFLIGHT-STUB-' + mm.group(2), s)
+    return podstanovka(s)
 
 def lit(v):
     # литерал значения env как есть; булево — в записи GitHub Actions
@@ -75,7 +104,7 @@ def lit(v):
 
 def chain(*nodes):
     # окружение шага по старшинству GitHub Actions: env workflow < env джобы < env шага;
-    # значение — литерал как есть, выражения точной формы в нём — заглушки (строка с маркером)
+    # значение — литерал как есть, выражения вычисляемого алфавита в нём — подставлены
     out = {}
     for node in nodes:
         for k, v in env_of(node).items():
@@ -149,7 +178,7 @@ if C:
 root = '/tmp/dev-harness-verify' if os.path.isdir('/tmp/dev-harness-verify') else None
 tmp = tempfile.mkdtemp(prefix='ci122-pre-', dir=root)
 work = os.path.join(tmp, 'repo')
-shutil.copytree(R, work, ignore=shutil.ignore_patterns('.git'))
+shutil.copytree(R, work, ignore=shutil.ignore_patterns('.git'), symlinks=True)
 try:
     local = station = 0
     station_names = []
@@ -169,13 +198,25 @@ try:
             if not isinstance(st['run'], str):
                 print('preflight ОТКАЗ: yaml-nevaliden'); sys.exit(1)
             d = st['working-directory'] if isinstance(st.get('working-directory'), str) else wd
+            # v+1 (б): исполнительная поверхность шага судится ДО исполнения: остаточное
+            # выражение вне вычисляемого алфавита — отказ (working-directory, run, env цепочки)
+            otkaz_vyrazhenija(d)
+            otkaz_vyrazhenija(st['run'])
+            for node in (doc, j, st):
+                for k, v in env_of(node).items():
+                    otkaz_vyrazhenija(lit(v))
+            cherez_ws = bool(ws_re.search(d))
+            d = ws(d)
             # каталог обязан лежать В одноразовой копии (realpath); строки с маркерами: вложенность
-            # судится от копии, а не от исходного R, и судится вообще
+            # судится от копии, а не от исходного R, и судится вообще; побег ЧЕРЕЗ отображённое
+            # выражение github.workspace (..-хвост, симлинк, иной абсолютный результат) —
+            # vne-kopii с литералом ИСХОДНОГО поля, буквальный путь — прежние правила (otsutstvuet)
             kor = R
             kor = work  # МУТАЦИЯ-122:wd-ot-kopii
             p, k = os.path.realpath(os.path.join(kor, d)), os.path.realpath(kor)
             vnutri = True
             vnutri = p == k or p.startswith(k + os.sep)  # МУТАЦИЯ-122:wd-v-kopii
+            if not vnutri and cherez_ws: print('preflight ОТКАЗ: working-directory-vne-kopii: %s' % st.get('working-directory', d)); sys.exit(1)  # МУТАЦИЯ-122:granica-workspace
             if not vnutri or not os.path.isdir(os.path.join(work, d)):
                 print('preflight ОТКАЗ: working-directory-otsutstvuet: %s' % d); sys.exit(1)
             plan.append((st, d))
@@ -184,7 +225,7 @@ try:
             station_names.append(name)
             continue
         local += 1
-        # (б) окружение шага — цепочка env, заглушки в env и в run; шаг исполняется с ним
+        # (б) окружение шага — цепочка env, подстановки в env и в run; шаг исполняется с ним
         for st, d in plan:
             step_env = dict(os.environ)
             step_env.update(chain(doc, j, st))  # МУТАЦИЯ-122:env

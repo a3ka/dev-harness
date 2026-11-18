@@ -4,9 +4,10 @@
 # scripts/check_predposylki.sh (Г3). Без ключей — судит НАСТОЯЩЕЕ дерево харнесса
 # (сегодня красное: субъектов нет); --model — самодостаточная честная модель
 # (миры в /tmp/dev-harness-verify, без сети/docker/эмулятора).
-# Замкнутый алфавит причин (16): manifest-otsutstvuet manifest-nevaliden profil-otsutstvuet
-# profil-rashozhdenie workflow-otsutstvuet workflow-ruchnoj gen-nedeterminirovan
-# yaml-nevaliden working-directory-otsutstvuet shag-upal sekrety-ne-perechisleny
+# Замкнутый алфавит причин (18; v+1 — два последних, слово владельца 2026-11-18, OWNER-BATCH-1118 №2):
+# manifest-otsutstvuet manifest-nevaliden profil-otsutstvuet profil-rashozhdenie workflow-otsutstvuet
+# workflow-ruchnoj gen-nedeterminirovan yaml-nevaliden working-directory-otsutstvuet
+# working-directory-vne-kopii vyrazhenie-ne-podderzhano shag-upal sekrety-ne-perechisleny
 # predposylki-otsutstvuyut predposylki-nevaliden sekrety-ne-zavedeny gh-nedostupen
 # python-yaml-nedostupen (средовая ветвь rc 2, клеткой не покрыта).
 # Обманные стабы подключаются env: CI_PROEKTA_122_GEN / _PREFLIGHT / _GATES.
@@ -603,6 +604,214 @@ Y
     if [ -e "$W/MUTACIYA-R" ]; then printf "preflight OTKAZ: R mutirovan: %s/MUTACIYA-R\n" "$W" >&2; exit 3; fi
     exit "$rc"' _ "$W" "$PRE"
 }
+c_p9() { # v+1 (слово владельца 2026-11-18, OWNER-BATCH-1118 №2): вычисляемый алфавит — точная
+  # форма ${{ github.workspace }} отображается ТОЛЬКО на корень внутренней одноразовой копии
+  # (working-directory шага и умолчаний workflow/джобы, текст run, значения env цепочки);
+  # побег из копии (..-хвост, симлинк) — working-directory-vne-kopii, не otsutstvuet;
+  # каждый вход — свой мир, форма боли mobile.yml — последним миром
+  local W
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: wd-workspace
+        working-directory: ${{ github.workspace }}
+        run: test -f package.json
+Y
+  run_case p9-wd-workspace 0 'CIPREFLIGHT_OK jobs=1 station=0' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ws-v-run
+        working-directory: mobile
+        run: test -d "${{ github.workspace }}/mobile"
+Y
+  run_case p9-ws-v-run 0 'CIPREFLIGHT_OK jobs=1 station=0' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ws-v-env
+        env:
+          CI122_WS: ${{ github.workspace }}/mobile
+        run: test -d "$CI122_WS"
+Y
+  run_case p9-ws-v-env 0 'CIPREFLIGHT_OK jobs=1 station=0' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+defaults:
+  run:
+    working-directory: ${{ github.workspace }}
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: nasledie-workflow
+        run: test -f package.json
+Y
+  run_case p9-wd-defaults-workflow 0 'CIPREFLIGHT_OK jobs=1 station=0' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+defaults:
+  run:
+    working-directory: missing-directory
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    steps:
+      - name: pereopredelenie-dzhoboj
+        run: test -f package.json
+Y
+  run_case p9-wd-defaults-pereopredelenie 0 'CIPREFLIGHT_OK jobs=1 station=0' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: pobeg-tochka-tochka
+        working-directory: ${{ github.workspace }}/..
+        run: "false"
+Y
+  run_case p9-wd-dotdot-vne-kopii 1 'working-directory-vne-kopii: ${{ github.workspace }}/..' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  W=$(new_world)
+  ln -s /tmp "$W/vne-kopii-link"
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: pobeg-simlinkom
+        working-directory: ${{ github.workspace }}/vne-kopii-link
+        run: "false"
+Y
+  run_case p9-wd-simlink-pobeg 1 'working-directory-vne-kopii: ${{ github.workspace }}/vne-kopii-link' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  # форма носителя боли mobile.yml: defaults.run.working-directory уровня workflow + шаги с
+  # ${{ github.workspace }} + объявленный секрет в env шага (дословная цепочка baseline)
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+defaults:
+  run:
+    working-directory: mobile
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: koren
+        working-directory: ${{ github.workspace }}
+        run: test -f package.json
+      - name: podkatalog
+        working-directory: ${{ github.workspace }}/mobile
+        run: test -f .maestro/vkhod.yaml
+      - name: cepochka-env
+        env:
+          CI122_T: ${{ secrets.PILOT_DEMO_CODE }}
+          CI122_WS: ${{ github.workspace }}
+        run: test -n "$CI122_T" && test -d "$CI122_WS/mobile"
+Y
+  run_case p9-forma-mobile 0 'CIPREFLIGHT_OK jobs=1 station=0' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml --contract "$W/contracts/kontrakt-predposylki.md"
+}
+c_p10() { # v+1: всякое выражение вне вычисляемого алфавита на исполнительной поверхности
+  # run-шага (working-directory/run/env цепочки) — именованный отказ vyrazhenie-ne-podderzhano
+  # ДО исполнения; молчаливый успех (env-значение ушло шагу литералом) и bash-падение
+  # (bad substitution) не допускаются; uses-шаги не судятся выражением в with:
+  local W
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: kontekst-v-run
+        run: echo ${{ github.run_id }}
+Y
+  run_case p10-vyrazhenie-v-run 1 'vyrazhenie-ne-podderzhano: ${{ github.run_id }}' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: molchalivyj-env
+        env:
+          CI122_SHA: ${{ github.sha }}
+        run: "true"
+Y
+  run_case p10-vyrazhenie-v-env 1 'vyrazhenie-ne-podderzhano: ${{ github.sha }}' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: funkcija
+        run: echo '${{ toJSON(needs) }}'
+Y
+  run_case p10-funkcija-tojson 1 'vyrazhenie-ne-podderzhano: ${{ toJSON(needs) }}' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: pervyj-padaet
+        run: exit 3
+      - name: vyrazhenie-daleko
+        run: echo ${{ matrix.x }}
+Y
+  run_case p10-otkaz-do-ispolnenija 1 'vyrazhenie-ne-podderzhano: ${{ matrix.x }}' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: chuzhaja-akcija
+        uses: actions/checkout@v4
+        with:
+          token: ${{ matrix.tok }}
+      - name: localnyj-shag
+        working-directory: ${{ github.workspace }}
+        run: "true"
+Y
+  run_case p10-uses-ne-suditsa 0 'CIPREFLIGHT_OK jobs=1 station=0' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+}
 c_z1() {
   local W; W=$(new_world)
   run_case z1-predposylki-otsutstvuyut 1 'predposylki-otsutstvuyut' env PATH="$W/bin:$PATH" bash "$GATE" "$W" "$W/contracts/kontrakt-ci.md"
@@ -673,7 +882,7 @@ c_z9() { # --freeze, ТОЛЬКО variable: `gh variable list` rc 127 (обхо�
   run_case z9-variable-gh-oshibka 1 'gh-nedostupen' env PATH="$W/bin:$PATH" bash "$GATE" "$W" "$W/contracts/kontrakt-tolko-variable.md" --freeze
 }
 
-CELLS="k z5 g1 g2 g3 g4 g5 g6 g7 g8 p1 p2 p3 p4 p5 p5e p5f p6 p6e p6z p7 p8 z1 z2 z3 z4 z6 z7 z8 z9"
+CELLS="k z5 g1 g2 g3 g4 g5 g6 g7 g8 p1 p2 p3 p4 p5 p5e p5f p6 p6e p6z p7 p8 p9 p10 z1 z2 z3 z4 z6 z7 z8 z9"
 if [ -n "$CELL" ]; then
   case " $CELLS " in
     *" $CELL "*) ;;
