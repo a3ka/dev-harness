@@ -17,12 +17,19 @@ commit_all() { g "$1" add -A; g "$1" commit -q -m "$2"; }
 
 # make_drepo <каталог> <блок-ПРОВОДКА> — честная основа писателя: контракт с
 # полем, зелёная role-провока (guard-каналы несут R-семья, здесь минимум),
-# вердикт ревьюера v1 «accept», всё закоммичено. v3 (Б2, шаг 6а): сеем маппинг
-# файл-на-пару — 3 писателя-минимума, НИ один не тронут окном; шаг 6а
-# (check_consumers) в честных входах D-семьи проходит vacuous. v4 (арбитраж
-# 038-Б3 / b0e4beb, к3-Б1): сеем НАСТОЯЩИЕ пути писателей-минимум стабами по
-# коду реальных — предикат п1 судит поимённо именно эти три имени; toy-имена
-# делали честный зелёный D/G недостижимым.
+# всё закоммичено. v3 (Б2, шаг 6а): сеем маппинг файл-на-пару — 3 писателя-
+# минимума, НИ один не тронут окном; шаг 6а (check_consumers) в честных
+# входах D-семьи проходит vacuous. v4 (арбитраж 038-Б3 / b0e4beb, к3-Б1):
+# сеем НАСТОЯЩИЕ пути писателей-минимум стабами по коду реальных — предикат
+# п1 судит поимённо именно эти три имени; toy-имена делали честный зелёный
+# D/G недостижимым. v5 (ремонт предпосылок под дверь 201, 423389cfb9; образец
+# — case_verdikt_fail.sh той же пачки): замороженный текст несёт
+# «КЛАСС РИСКА: обычный» (не рисковый — accept адверсария не нужен) и
+# «ПРОДУКТ: станция» (место явное — mesto-legacy.tsv не нужен); на основании
+# F стоит заморозка frozen/contracts/001/1, вердикт ревьюера «accept» со
+# строкой OBJECT=F закоммичен ОТДЕЛЬНЫМ коммитом V ПОСЛЕ заморозки (F ⊊ V;
+# F==V не используем — дверь тогда сверяет тождество деревьев, (а²) 201).
+# Меняются предпосылки мира, НЕ критерии/ожидания сценариев D/G.
 make_drepo() {
   local r="$1" block="$2"
   mkdir -p "$r/contracts" "$r/roles" "$r/verdicts/review" "$r/scripts/consumers.d" "$r/fixtures"
@@ -36,12 +43,14 @@ make_drepo() {
   printf '#!/usr/bin/env bash\nexit 0\n' > "$r/scripts/speccer.sh"
   printf '# consumer fixture\n' > "$r/fixtures/reader.sh"
   printf '# role fixture\n\nNorma stroki roli v igrushke D.\n' > "$r/roles/fixer.md"
-  printf '# kontrakt 001\n\n## Predmet\npodstavnoj predmet\n\n## Norma-provodka\n%s\n' "$block" > "$r/contracts/001-x.md"
-  printf 'accept\ntelo verdikta\n' > "$r/verdicts/review/contracts-001-v1.md"
+  printf '# kontrakt 001\n\n## Predmet\npodstavnoj predmet\n\n## Norma-provodka\n%s\n\n## Klass riska\nКЛАСС РИСКА: обычный\n\n## Mesto realizacii\nПРОДУКТ: станция\n' "$block" > "$r/contracts/001-x.md"
   git -C "$r" init -q
   g "$r" config user.name Fixture
   g "$r" config user.email fixture@local
   commit_all "$r" 'osnovanie'
+  g "$r" tag -a frozen/contracts/001/1 -m 'zamorozka 001 v1'
+  printf 'accept\nOBJECT=%s\ntelo verdikta\n' "$(g "$r" rev-parse HEAD)" > "$r/verdicts/review/contracts-001-v1.md"
+  commit_all "$r" 'verdikt accept'
 }
 
 GREEN_PROVODKA='ПРОВОДКА:
