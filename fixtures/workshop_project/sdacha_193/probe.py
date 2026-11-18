@@ -20,10 +20,19 @@ model/scripts; ноги — патч к реальным дверям живог
 реальной ноге, в окне — к ноге модели; Н-39: привязки данными батареи,
 не прозой контракта).
 
+Проектная ось 193↔996 (С-10/С-6): клетка v13–v23/f05–f07 судит грамматику
+пути вердикта против ЭФФЕКТИВНОГО workflowPaths.verdicts (единый
+project_paths_resolve из next_id.sh живого дерева, доставляемого в мир
+вместе с profile_resolver.sh и настоящим harness.project.json): профильный
+путь честной карты зелёный, корневая приманка/чужая роль/битый профиль/
+побег за ROOT красны; интеграционные ноги freeze — по профильным
+contracts/verdicts.
+
 Оракул — в памяти пробы: ожидания сняты до вызова субъекта (К-11); таймаут
 убивает ГРУППУ процессов субъекта (рекурсивная обманка не переживает прогон).
 """
 import argparse
+import json
 import os
 import shutil
 import signal
@@ -59,6 +68,17 @@ VNESHNIJ_SKRIPT = ('#!/usr/bin/env bash\n'
 
 KONTRAKT = 'contracts/777-toy.md'
 VERDIKT = 'verdicts/critic/contracts-777-v1.md'
+
+# ── проектная ось 193↔996 (С-10/С-6, ConsKarta1118 §3б): профильная
+# раскладка workflowPaths — как у реального проекта режима 996. Резолвер
+# настоящий (scripts/next_id.sh + scripts/profile_resolver.sh живого дерева
+# доставляются в миры как sibling-зависимости двери), данные профиля —
+# настоящие harness.project.json + project-layer.json в корне мира.
+PROFIL_STANDART = {'contracts': '.harness/tasks', 'verdicts': '.harness/verdicts',
+                   'registry': '.harness/ledger', 'fixtures': '.harness/probes'}
+PROFIL_DRUGOJ = dict(PROFIL_STANDART, verdicts='workflow/judgements')
+PROFIL_VERDIKT = '.harness/verdicts/critic/contracts-777-v1.md'
+PROFIL_KONTRAKT = '.harness/tasks/777-toy.md'
 
 # ── ноги, вставляемые патчем в реальные двери (модель = реальное + нога) ──────
 NOGA_PRE_CRITIC = '''# ── (к) СДАТОЧНЫЙ ЛИСТ (контракт 193, Л2) ────────────────────────────────────
@@ -252,9 +272,26 @@ MUTACII_KARTY = {
     'PATERN:KONVEJER-KARTA':
         ('grep -q \'^## Карта классов$\' <<<"$telo"',
          'printf \'%s\\n\' "$telo" | grep -q \'^## Карта классов$\''),
-    # Rev193 С-1 M09: вердикт вне verdicts/critic/ принимается. Ловец — v12.
+    # Rev193 С-1 M09: вердикт вне грамматики critic-каталога принимается.
+    # Ловец — v12. Проектная ось: якорь ') : ;;' — единственная arm-ветка
+    # грамматики пути, ровно одно вхождение в двери ДО ремонта и в модели
+    # (якорь переживает ремонт: грамматика остаётся одним case-блоком).
     'PATERN:LJUBOJ-PREFIKS':
-        ('verdicts/critic/*) : ;;', '*) : ;;'),
+        (') : ;;', ') : ;;\n    *) : ;;'),
+    # Проектная ось 193↔996: дверь принимает чужую роль review (профильный
+    # префикс есть, critic-суффикса нет). Ловец — v16.
+    'PATERN:CHUZHAJA-ROL-PRINIMAETSJA':
+        (') : ;;', ') : ;;\n    .harness/verdicts/review/*) : ;;'),
+    # Проектная ось 193↔996: корневой verdicts/critic остаётся запасным
+    # источником при активном профильном каталоге. Ловец — v15.
+    'PATERN:KOREN-ZAPASNOJ':
+        (') : ;;', ') : ;;\n    verdicts/critic/*) : ;;'),
+    # Проектная ось: гард ''|/*|*..* снят — путь с побегом за корень проходит
+    # грамматику. Ловец — v23 (отказ теряет имя «вне грамматики»).
+    'PATERN:BEZ-GRAMMATIKI-PUTA':
+        ('\'\'|/*|*..*) otkaz "путь вердикта вне грамматики '
+         '(относительный, внутри корня): $VERDICT" ;;',
+         '*) : ;;'),
 }
 MUTACII_LIB = {
     # Crit193V1 map-duplicate: проверка дубля класса в lib отключена.
@@ -326,6 +363,14 @@ MUTACII_REALNOJ_NOGI_FREEZE = {
     'PATERN:FREEZE-RC2-PROPUSKAET':
         ('[ "$_k193_rc" -eq 0 ] || die',
          '[ "$_k193_rc" -eq 2 ] || [ "$_k193_rc" -eq 0 ] || die'),
+    # Проектная ось 193↔996: нога отрезает профильный префикс пути вердикта
+    # перед вызовом двери карты («простое отрезание .harness/ в freeze — не
+    # ремонт», ConsKarta1118 §3а: HEAD:verdicts/… адресует другой блоб).
+    # Ловец — f06.
+    'PATERN:PROFIL-PREFIKS-OTREZAN':
+        (YAKOR_REAL_FREEZE,
+         '_k193_out="$(bash "$SELF_DIR/check_verdict_karta.sh" '
+         '"$ROOT" "${verdict##*/}" 2>&1)"'),
 }
 
 
@@ -516,7 +561,9 @@ def postroit_mir(kuda: Path, ist: Istochniki, kontrakt_f, sdacha_f=None,
                  verdikt_f=None, teg=None, dveri=(), toy_gejty=False,
                  posle_kommita=(), posle_staging=(), posle_staging_rabochij=(),
                  koren_sdacha=None, plany=False, verdikt_put=None,
-                 bez_lib=False) -> Path:
+                 bez_lib=False, profil=None, profil_bityj=False,
+                 verdikts_simlink=False, kontrakt_put=None,
+                 dop_fajly=()) -> Path:
     """Toy-мир батареи 193: git-репозиторий с контрактом, листом, вердиктом.
 
     dveri ⊆ {'sdacha','karta','pre_critic','freeze'} — субъекты в scripts/ мира
@@ -527,6 +574,16 @@ def postroit_mir(kuda: Path, ist: Istochniki, kontrakt_f, sdacha_f=None,
     рабочий файл следует индексу); posle_staging_rabochij — запись поверх
     staging без add (рабочий файл расходится и с индексом: три источника
     различаются — Arb193V1 решение 1).
+
+    Проектная ось 193↔996: profil — workflowPaths проекта (настоящий
+    harness.project.json + project-layer.json в корне мира, профильные
+    каталоги создаются); profil_bityj — мусорный harness.project.json (битый
+    профиль, корневой приманки достаточно); verdikts_simlink — профильный
+    verdicts-каталог становится симлинком наружу мира (побег за ROOT);
+    kontrakt_put/dop_fajly — контракт и дополнительные файлы по своим путям
+    (до коммита). Настоящие sibling-зависимости резолвера (next_id.sh,
+    profile_resolver.sh живого дерева) доставляются рядом с дверью карты
+    и заморозкой всегда — обязательство не подменяется заранее зелёным JSON.
     """
     for d in ('scripts', 'contracts', 'verdicts/critic', '.github/workflows', 'config'):
         (kuda / d).mkdir(parents=True, exist_ok=True)
@@ -541,7 +598,10 @@ def postroit_mir(kuda: Path, ist: Istochniki, kontrakt_f, sdacha_f=None,
             '# План 007 — toy (батарея 193)\n\n## Незаполненные требования:\nнет\n',
             encoding='utf-8')
     else:
-        (kuda / KONTRAKT).write_text(tekst(kontrakt_f), encoding='utf-8')
+        cel_kontrakt = kuda / (kontrakt_put if kontrakt_put is not None
+                               else KONTRAKT)
+        cel_kontrakt.parent.mkdir(parents=True, exist_ok=True)
+        cel_kontrakt.write_text(tekst(kontrakt_f), encoding='utf-8')
     if sdacha_f is not None:
         (kuda / 'sdacha.md').write_text(tekst(sdacha_f), encoding='utf-8')
     if koren_sdacha is not None:
@@ -550,6 +610,48 @@ def postroit_mir(kuda: Path, ist: Istochniki, kontrakt_f, sdacha_f=None,
         cel_verdikt = verdikt_put if verdikt_put is not None else VERDIKT
         (kuda / cel_verdikt).parent.mkdir(parents=True, exist_ok=True)
         (kuda / cel_verdikt).write_text(tekst(verdikt_f), encoding='utf-8')
+    if profil is not None or profil_bityj:
+        if profil_bityj:
+            (kuda / 'harness.project.json').write_text(
+                'не JSON — мусорный профиль (батарея 193, проектная ось)\n',
+                encoding='utf-8')
+        else:
+            (kuda / 'harness.project.json').write_text(json.dumps({
+                'schemaVersion': 1,
+                'repoId': 'toy-193-profilnaya-os',
+                'language': 'bash',
+                'projectLayer': {'version': '1',
+                                 'profilePath': 'project-layer.json'},
+                'workflowPaths': profil,
+                'commands': {'test': 'bash scripts/progiban_ok.sh',
+                             'build': 'bash scripts/progiban_ok.sh',
+                             'typecheck': 'bash scripts/progiban_ok.sh',
+                             'lint': 'bash scripts/progiban_ok.sh'},
+                'git': {'canonicalRemote': 'https://example.invalid/toy-193.git'},
+                'ci': {'workflow': '.github/workflows/ci.yml'},
+                'barriers': {'mandatory': [], 'optional': []}},
+                indent=1, ensure_ascii=False) + '\n', encoding='utf-8')
+            (kuda / 'project-layer.json').write_text(json.dumps({
+                'schemaVersion': 1, 'version': '1', 'projectId': 'toy193',
+                'workspaceId': 'w193', 'defaults': {}},
+                indent=1, ensure_ascii=False) + '\n', encoding='utf-8')
+            for put_kataloga in profil.values():
+                if verdikts_simlink and put_kataloga == profil['verdicts']:
+                    # побег за ROOT: verdicts-каталог — симлинк наружу мира
+                    # (внутри — честная карта, недостижимая из HEAD мира)
+                    (kuda / put_kataloga).parent.mkdir(parents=True,
+                                                       exist_ok=True)
+                    vneshnij = kuda.parent / ('vneshne-' + kuda.name)
+                    (vneshnij / 'critic').mkdir(parents=True, exist_ok=True)
+                    (vneshnij / 'critic' / 'contracts-777-v1.md').write_text(
+                        tekst('verdikt_chestnyj.md'), encoding='utf-8')
+                    os.symlink(vneshnij, kuda / put_kataloga)
+                else:
+                    (kuda / put_kataloga).mkdir(parents=True, exist_ok=True)
+    for otn, imja_fajla in dop_fajly:
+        cel = kuda / otn
+        cel.parent.mkdir(parents=True, exist_ok=True)
+        cel.write_text(tekst(imja_fajla), encoding='utf-8')
     if toy_gejty:
         for f in TOY_GEJTY + LIBS + FORMA_GEJTY:
             shutil.copy2(DEREVO / 'scripts' / f, kuda / 'scripts' / f)
@@ -559,6 +661,10 @@ def postroit_mir(kuda: Path, ist: Istochniki, kontrakt_f, sdacha_f=None,
     karta_subj = ist.karta()
     if 'karta' in dveri and karta_subj is not None:
         shutil.copy2(karta_subj, kuda / 'scripts' / 'check_verdict_karta.sh')
+        # настоящие sibling-зависимости резолвера 996 — из живого дерева
+        # (модель заменяет только дверь, не резолвер и не данные профиля)
+        for f in ('next_id.sh', 'profile_resolver.sh'):
+            shutil.copy2(DEREVO / 'scripts' / f, kuda / 'scripts' / f)
     if 'sdacha' in dveri or 'karta' in dveri:
         if not bez_lib:
             lib_subj = ist.lib()
@@ -577,6 +683,9 @@ def postroit_mir(kuda: Path, ist: Istochniki, kontrakt_f, sdacha_f=None,
             for f in FREEZE_LIBS:
                 if (lib_istok / 'scripts' / f).exists():
                     shutil.copy2(lib_istok / 'scripts' / f, kuda / 'scripts' / f)
+            # профильному миру нужен настоящий profile_resolver.sh рядом
+            shutil.copy2(DEREVO / 'scripts' / 'profile_resolver.sh',
+                         kuda / 'scripts' / 'profile_resolver.sh')
     git(kuda, 'init', '-q', '-b', 'main')
     git(kuda, 'add', '-A')
     git(kuda, 'commit', '-qm', 'toy193: init')
@@ -750,6 +859,80 @@ SPECSY = {
     'freeze_bez_lib': dict(kontrakt_f='kontrakt_chestnyj.md',
                            verdikt_f='verdikt_accept_bez_karty.md',
                            dveri=('karta', 'freeze'), bez_lib=True),
+    # ── проектная ось 193↔996 (С-10/С-6): профильный verdicts-каталог ─────────
+    # Профиль .harness/verdicts, честная карта 17/17 на HEAD (>64 КиБ —
+    # проектный длинный вход прямой клетки).
+    'profil_chestnyj': dict(kontrakt_f='kontrakt_novogo.md',
+                            verdikt_f='verdikt_chestnyj.md',
+                            verdikt_put=PROFIL_VERDIKT, dveri=('karta',),
+                            profil=PROFIL_STANDART),
+    # Другой законный эффективный verdicts-каталог (не .harness) — та же
+    # семантика без привязки к имени.
+    'profil_drugoj': dict(kontrakt_f='kontrakt_novogo.md',
+                          verdikt_f='verdikt_chestnyj.md',
+                          verdikt_put='workflow/judgements/critic/'
+                                      'contracts-777-v1.md',
+                          dveri=('karta',), profil=PROFIL_DRUGOJ),
+    # При активном профильном каталоге честная корневая приманка (17/17)
+    # не открывает дверь.
+    'profil_primanka': dict(kontrakt_f='kontrakt_novogo.md',
+                            verdikt_f='verdikt_chestnyj.md', dveri=('karta',),
+                            profil=PROFIL_STANDART),
+    # Чужая роль review под профильным префиксом — с честной картой 17/17.
+    'profil_review': dict(kontrakt_f='kontrakt_novogo.md',
+                          verdikt_f='verdikt_chestnyj.md',
+                          verdikt_put='.harness/verdicts/review/'
+                                      'contracts-777-v1.md',
+                          dveri=('karta',), profil=PROFIL_STANDART),
+    # Битый профиль + честная корневая приманка: fallback на корень запрещён.
+    'profil_bityj': dict(kontrakt_f='kontrakt_novogo.md',
+                         verdikt_f='verdikt_chestnyj.md', dveri=('karta',),
+                         profil_bityj=True),
+    # Симлинк-побег verdicts-каталога за ROOT + честная корневая приманка.
+    'profil_pobeg': dict(kontrakt_f='kontrakt_novogo.md',
+                         verdikt_f='verdikt_chestnyj.md', dveri=('karta',),
+                         profil=PROFIL_STANDART, verdikts_simlink=True),
+    # Staged «починка» плохого профильного HEAD не делает карту зелёной.
+    'profil_staged_pochinka': dict(
+        kontrakt_f='kontrakt_novogo.md', verdikt_f='verdikt_karta_16.md',
+        verdikt_put=PROFIL_VERDIKT, dveri=('karta',), profil=PROFIL_STANDART,
+        posle_staging=[(PROFIL_VERDIKT, tekst('verdikt_chestnyj.md'))]),
+    # Незакоммиченное «ухудшение» честного профильного HEAD не делает её
+    # красной.
+    'profil_rab_uchudshenie': dict(
+        kontrakt_f='kontrakt_novogo.md', verdikt_f='verdikt_chestnyj.md',
+        verdikt_put=PROFIL_VERDIKT, dveri=('karta',), profil=PROFIL_STANDART,
+        posle_kommita=[(PROFIL_VERDIKT, tekst('verdikt_karta_16.md'))]),
+    # Профильного вердикта нет в HEAD (только staged) — отказ.
+    'profil_staged_bez_head': dict(
+        kontrakt_f='kontrakt_novogo.md', dveri=('karta',),
+        profil=PROFIL_STANDART,
+        posle_staging=[(PROFIL_VERDIKT, tekst('verdikt_chestnyj.md'))]),
+    # Путь с сегментом «..» сквозь корневую грамматику (без профиля):
+    # evil.md закоммичен в корне с честной картой — гард побега обязан
+    # отказать ДО чтения блоба.
+    'pobeg_dotdot': dict(kontrakt_f='kontrakt_novogo.md',
+                         verdikt_f='verdikt_chestnyj.md',
+                         verdikt_put='verdicts/critic/../../evil.md',
+                         dveri=('karta',)),
+    # Интеграция freeze: профильные contracts/verdicts, плохая карта — отказ
+    # ИМЕННО картой, без тега и записи реестра.
+    'freeze_profil_karta': dict(kontrakt_f='kontrakt_chestnyj.md',
+                                kontrakt_put=PROFIL_KONTRAKT,
+                                verdikt_f='verdikt_karta_16.md',
+                                verdikt_put=PROFIL_VERDIKT,
+                                dveri=('karta', 'freeze'),
+                                profil=PROFIL_STANDART),
+    # Интеграция freeze: честная карта проходит ИМЕННО карту и доходит до
+    # следующего контролируемого этапа (toy spec-preflight rc 127 — не полная
+    # успешная заморозка); контракт и вердикт >64 КиБ — проектный длинный
+    # вход ноги.
+    'freeze_profil_zelenyj': dict(kontrakt_f='kontrakt_chestnyj.md',
+                                  kontrakt_put=PROFIL_KONTRAKT,
+                                  verdikt_f='verdikt_chestnyj.md',
+                                  verdikt_put=PROFIL_VERDIKT,
+                                  dveri=('karta', 'freeze'),
+                                  profil=PROFIL_STANDART),
 }
 
 
@@ -791,6 +974,19 @@ def kletki(miry: Miry) -> list:
     def zamorozka(imja_mira):
         return lambda: ['bash', str(miry[imja_mira] / 'scripts' / 'freeze_contract.sh'),
                         KONTRAKT, 'toy-причина-193', str(miry[imja_mira])]
+
+    def karta_put(imja_mira, put):
+        # проектная ось: произвольный путь вердикта (put может быть callable —
+        # абсолютный путь требует адреса мира, который ленив)
+        return lambda: ['bash',
+                        str(miry[imja_mira] / 'scripts' / 'check_verdict_karta.sh'),
+                        str(miry[imja_mira]),
+                        put() if callable(put) else put]
+
+    def zamorozka_profilnaja(imja_mira):
+        return lambda: ['bash', str(miry[imja_mira] / 'scripts' / 'freeze_contract.sh'),
+                        PROFIL_KONTRAKT, 'toy-причина-193', str(miry[imja_mira])]
+
 
     # половина (а): дверь сдаточного листа
     K.append(Kletka('s01-novyj-bez-sdachi', dver('novyj'), 1, ['СДАЧА:', 'обязательна']))
@@ -887,6 +1083,52 @@ def kletki(miry: Miry) -> list:
                              str(miry['verdikt_vne_critic']),
                              'verdicts/other/contracts-777-v1.md'],
                     1, ['вне грамматики verdicts/critic']))
+    # ── проектная ось 193↔996 (С-10/С-6, ConsKarta1118 §3б) ───────────────────
+    # Прямой вызов двери на профильном пути: реальный профиль 996
+    # (.harness/verdicts) и другой законный каталог (workflow/judgements),
+    # HEAD accept с честной картой 17/17 — rc 0 «КАРТА: 17/17 зелёный».
+    K.append(Kletka('v13-profil-996-chestnyj',
+                    karta_put('profil_chestnyj', PROFIL_VERDIKT), 0, ['17/17']))
+    K.append(Kletka('v14-drugoj-verdiks-katalog',
+                    karta_put('profil_drugoj',
+                              'workflow/judgements/critic/contracts-777-v1.md'),
+                    0, ['17/17']))
+    # При активном профильном каталоге честная корневая приманка verdicts/critic
+    # (карта 17/17 на HEAD) не открывает дверь — корень не запасной источник.
+    K.append(Kletka('v15-kornevaja-primanka',
+                    karta_put('profil_primanka', VERDIKT), 1, ['вне грамматики']))
+    # Чужая роль review под профильным префиксом — с честной картой 17/17.
+    K.append(Kletka('v16-chuzhaja-rol-review',
+                    karta_put('profil_review',
+                              '.harness/verdicts/review/contracts-777-v1.md'),
+                    1, ['вне грамматики']))
+    # Битый профиль и симлинк-побег verdicts-каталога за ROOT: именованный
+    # отказ резолвера, без fallback на корневую приманку.
+    K.append(Kletka('v17-bityj-profil',
+                    karta_put('profil_bityj', VERDIKT), 1, ['профиль битый']))
+    K.append(Kletka('v18-simlink-pobeg-verdikts',
+                    karta_put('profil_pobeg', VERDIKT), 1, ['профиль битый']))
+    # HEAD-only на профильном пути: staged «починка» плохого HEAD не зелёная
+    # (v19), незакоммиченное «ухудшение» честного HEAD не красная (v20),
+    # отсутствующий HEAD-вердикт — отказ и при staged (v21).
+    K.append(Kletka('v19-staged-pochinka-plohogo',
+                    karta_put('profil_staged_pochinka', PROFIL_VERDIKT),
+                    1, ['К-17']))
+    K.append(Kletka('v20-rabochee-uhudshenie-chestnogo',
+                    karta_put('profil_rab_uchudshenie', PROFIL_VERDIKT),
+                    0, ['17/17']))
+    K.append(Kletka('v21-net-v-head-staged',
+                    karta_put('profil_staged_bez_head', PROFIL_VERDIKT),
+                    1, ['не закоммичен']))
+    # Абсолютный путь (файл существует) и путь с сегментом «..» (evil.md
+    # закоммичен в корне с честной картой) не проходят грамматику.
+    K.append(Kletka('v22-absoljutnyj-put',
+                    karta_put('profil_chestnyj',
+                              lambda: str(miry['profil_chestnyj'] / PROFIL_VERDIKT)),
+                    1, ['вне грамматики']))
+    K.append(Kletka('v23-tochki-za-koren',
+                    karta_put('pobeg_dotdot', 'verdicts/critic/../../evil.md'),
+                    1, ['вне грамматики']))
     # ноги: заморозка и pre_critic
     K.append(Kletka('f01-freeze-karta-krasna', zamorozka('freeze_karta'), 1,
                     ['карта классов вердикта']))
@@ -901,6 +1143,30 @@ def kletki(miry: Miry) -> list:
     # нога обязана отказать именованно («карта классов вердикта … красна»).
     K.append(Kletka('f04-karta-dver-r2', zamorozka('freeze_bez_lib'), 1,
                     ['карта классов вердикта']))
+    # Проектная ось 193↔996, интеграция freeze с профильными
+    # contracts/verdicts: плохая профильная карта отказывает ИМЕННО картой
+    # (К-17 в первой строке отказа), честная проходит карту и доходит до
+    # следующего контролируемого этапа — toy spec-preflight rc 127 (это НЕ
+    # полная успешная заморозка: контракт >64 КиБ и вердикт >64 КиБ —
+    # проектный длинный вход, чтобы ремонт не пропускал ногу молча).
+    K.append(Kletka('f05-freeze-profil-karta-krasna',
+                    zamorozka_profilnaja('freeze_profil_karta'), 1,
+                    ['карта классов вердикта', 'К-17']))
+    K.append(Kletka('f06-freeze-profil-noga-zelenaja',
+                    zamorozka_profilnaja('freeze_profil_zelenyj'), 1,
+                    ['spec-preflight'], ne_markery=['карта классов вердикта']))
+    # И8-атомарность на профильном мире: после отказа картой нет ни тега
+    # frozen/*, ни записи реестра .harness/ledger/contracts.tsv (мир тот же,
+    # что у f05 — клетки идут по порядку, мир кэшируется).
+    K.append(Kletka('f07-freeze-profil-bez-tega',
+                    lambda: ['bash', '-c',
+                             '_t="$(git -C "$1" tag --list "frozen/*")"; '
+                             '[ -z "$_t" ] && [ ! -e "$2" ]',
+                             'f07-193',
+                             str(miry['freeze_profil_karta']),
+                             str(miry['freeze_profil_karta']
+                                 / '.harness/ledger/contracts.tsv')],
+                    0))
     # p01 моделирует ПРЯМОЙ вызов pre_critic оркестратором (маркер рекурсии
     # погашен явно): внутри прогона двери листа маркер наследуется — и нога (к)
     # по канону И6 молчит; прямому вызову маркер не положен.
@@ -939,6 +1205,13 @@ def sudit(k: Kletka) -> bool:
     # судит клетки в их собственных состояниях (иначе обманки рекурсии и
     # ноги (к) маскируются чужим маркером — измерено на door-check fix2)
     env.pop('SDACHA_OKRUG', None)
+    # проектная ось 996: унаследованный HARNESS_PROJECT_LAYER_ROOT направил бы
+    # резолвер мира на чужой слой проекта (workshop экспортирует слой станции
+    # — измерено: заморозка мира тогда отказывает «нет файла слоя проекта»);
+    # HARNESS_WORKFLOW_ROOT — та же гигиена для $3-лестницы freeze. Клетки
+    # судятся в собственных состояниях мира, как в CI с чистой средой.
+    env.pop('HARNESS_PROJECT_LAYER_ROOT', None)
+    env.pop('HARNESS_WORKFLOW_ROOT', None)
     argv = k.argv() if callable(k.argv) else list(k.argv)
     if k.env and 'PATH' in k.env and argv[0] == 'bash':
         argv[0] = shutil.which('bash') or '/bin/bash'
