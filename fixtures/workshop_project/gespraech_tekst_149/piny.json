@@ -147,5 +147,11 @@
     "sprechen_kompozera": "48×48 (GA-12/17/18/19), в поле GA-13 — 44×44",
     "vkladki_390": "78×48 (все пять, включая Mitte-слот); 393: 79×48",
     "fakt_stroki_ga13": "325×74 и 325×54 (390) / 328 (393) — «ändern»-цели письма"
+  },
+  "dvizhenie": {
+    "geometrija": "nositeli/kompakt11/geometrija-149.json",
+    "sha256": "ec4b8607e73995533d1bf36e0c71f4703daff5880d6e0d607ca2934e03acd94a",
+    "spec_produkta": "docs/ux/05_Kompakt_D24/motion/motion-spec-gespraech-kompakt-149.json",
+    "istochnik": "motion-delta.md D24-Kompakt-1.1; измеренные конечные прямоугольники source/screens; архив цикла 2 не изменяется"
   }
 }

@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "source": {
+    "package": "D24-Kompakt-1.1",
+    "delta": "docs/ux/05_Kompakt_D24/motion/motion-delta.md",
+    "delta_sha256": "4b16215f8eded6820a11bab762420e6f2f79c65feca4cef71738c88a184b3a82",
+    "base": "nositeli/d24/spec.json",
+    "base_sha256": "064d7821428f425d431fbd1efd65cbec37263bb62ef974924746a07e769cd318",
+    "method": "measure_geo_149.py: Chrome getBoundingClientRect after fonts.ready + 2 rAF; dark and light measured separately, equal rectangles",
+    "sha256": {
+      "source/screens/390x844/GA-15.html": "0cb5e0b6c10ef3bc66a795ecc08547e517917391d26ff5e044fa0ac174550b3f",
+      "source/screens/390x844/GA-17.html": "40b3a354a5a31503be842440a8eb127418a5dc3b17e67a692fc5eb130117b1df",
+      "source/screens/390x844/GA-11.html": "2d0787c2c4f58574c1b99a8745fb326d7233734b4b72d71144b15d3ff35ef023",
+      "source/screens/390x844/GA-31.html": "11602a85b2a4b44d769374f004e4f86b9830ecaaf72ef1641b1e38300c63766e",
+      "source/screens/390x844/GA-12.html": "95772306371d4a8f41be552c178f2e462b2ea160ce07f0c8932958aa57a0f9ae",
+      "source/screens/390x844/GA-32.html": "4ac1cd873fed058dbbd42af10bfad5b25bbdfdf3b3b90be42c02c1d76029d037",
+      "source/screens/390x844/GA-42.html": "1ea537c5fe0fb6deb9174061f73459be22a5022de992a82a97d2db6829ef4c13",
+      "source/screens/390x844/GA-13.html": "b399df88e0a08fa5460db5e439ac9e33fc080d0171dd9dab3f82795c6c32dced",
+      "source/screens/390x844/GA-15-Hell.html": "bc2f56905a073eaad72b18fed51ea698256e9e061177591540be89c7d9fbdfb1",
+      "source/screens/390x844/GA-17-Hell.html": "3b557ab02787b3819f174e4dab37a78ac07ee5268de66ed8a8271008099851e7",
+      "source/screens/390x844/GA-11-Hell.html": "ab4104fe04a513abb057a852386ddaa37a535d0b18dce80d3ae6fd080feef467",
+      "source/screens/390x844/GA-31-Hell.html": "fa30e1c7aa2aabd52a9e9b881fd1647f02d445980a855dace39389b415b4d608",
+      "source/screens/390x844/GA-12-Hell.html": "c736c46c7fc8dee93c01e2cdca06ff5029161ee427a19e2a5b1f5aefe5d0172b",
+      "source/screens/390x844/GA-32-Hell.html": "7899f8ed0375c3ea9e937a292f19fb500d215570c4dd0ca4f159bfc8e4022e25",
+      "source/screens/390x844/GA-42-Hell.html": "e49f525c09d85cfd7d243586fec74a6eb0ef60ea28793b9d97ef549f649ec706",
+      "source/screens/390x844/GA-13-Hell.html": "1126233dc6e23647f9d71a8bd6725f21d6b51000f65c3ffd497bbcc5900b41e2",
+      "source/screens/393x852/GA-31.html": "98ed28a8293952e1a1a5f9a1bbcad1fc5e4f242c7cfc754d2033d1f0c7aa17ad",
+      "source/screens/393x852/GA-31-Hell.html": "0584b97e10e70b4825377673c6d3657b96da095c6e572087199b445ab149fa7e",
+      "source/ds/components/bundle.css": "f791ae4f17def5a258659cb75f4ce4f484204d8f349875246474fb13e1e29906",
+      "source/ds/components/bundle.js": "be3e69d1bdf5c256ff1a9af0d13f9bf28117d8ed846da1e11a9b6ab2aea69dc7",
+      "source/ds/kompakt.css": "81e4c35f1b9ba84a332560fb1143be9382924c0a03fc1b95eefb0f90a76ac107",
+      "source/ds/tokens.css": "49f50ad6695dbf372bdc4c06418421af69fd82bad6b22ed55742922a20cb254e",
+      "source/ds/fonts/DMMono-Regular.ttf": "f98ada968dc3b6b2c08d3f5caaf266977df0bfe0929372b93df5a06cf2ace450",
+      "source/ds/fonts/DMSans-Variable.ttf": "a023f465d2f26d8f56c6e3cac6aece08b7a66eb75b4d75eeef9df838c53c81f6",
+      "source/vendor/react-dom.js": "35f4f974f4b2bcd44da73963347f8952e341f83909e4498227d4e26b98f66f0d",
+      "source/vendor/react.js": "d949f1c3687aedadcedac85261865f29b17cd273997e7f6b2bfc53b2f9d4c4dd"
+    }
+  },
+  "field": {"min_height": 48, "padding_y": 10, "padding_x": 14, "radius": 22},
+  "scenes": {
+    "GA-T30": {"profile": "390x844", "rects": {"from": [35, 575, 320, 52], "to": [68, 452, 250, 48]}, "screens": ["GA-15 pill", "GA-17 field"]},
+    "GA-T34": {"profile": "390x844", "rects": {"from": [16, 322, 173, 44], "to": [16, 768, 358, 60]}, "screens": ["GA-11 mic", "GA-31 bar"], "adaptive": {"caps": [[-1000000000, 184]], "top": 52}},
+    "GA-T08": {"profile": "390x844", "rects": {"from": [217.3125, 673, 156.6875, 44], "to": [16, 768, 358, 60]}, "screens": ["GA-12 chip", "GA-32 bar"], "nav": [0, 49], "adaptive": {"caps": [[-1000000000, 80], [0, 184]], "top": 52}},
+    "GA-T37": {"profile": "390x844", "rects": {"from": [16, 768, 358, 60], "to": [68, 735, 250, 48]}, "screens": ["GA-32 bar", "GA-12 field"], "nav": [49, 0], "adaptive": {"caps": [[-1000000000, 128]], "top": 52}},
+    "GA-T17": {"profile": "390x844", "rects": {"from": [68, 438, 250, 62], "to": [16, 768, 358, 60]}, "screens": ["GA-13 field", "GA-42 bar"], "adaptive": {"caps": [[-1000000000, 128]], "top": 52}},
+    "GA-R2": {"profile": "390x844", "adaptive": {"caps": [[-1000000000, 184], [4820, 128]], "top": 52}},
+    "GA-R2-393": {"profile": "393x852", "adaptive": {"caps": [[-1000000000, 184], [4820, 128]], "top": 111}}
+  },
+  "adaptive_min": 80,
+  "preserved": ["GA-T32", "GA-T18", "GA-T19"]
+}
