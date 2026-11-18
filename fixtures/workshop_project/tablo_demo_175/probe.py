@@ -10,7 +10,19 @@ form-agnostic filesystem queries: any equivalent standard lookup of the
 session journals (glob of the full path, find, a directory walk) resolves the
 same virtual world, so honest subjects are judged by behaviour, not syntax.
 The clock is frozen: the world generator and the subject see one instant, so
-the boundary comparison is deterministic. Modes: bare / --repo R judge a real
+the boundary comparison is deterministic.
+
+v3 worlds split the session-home roots exactly as the real consumer does
+(Б-1 Rev175): the board runs under omp where HOME is the zone directory
+while the mob journals live in the passwd home. Every split world pins BOTH
+roots itself — the HOME environment and a shimmed pwd.getpwuid, both in
+checker memory — so home_only and passwd_only subjects go red whatever HOME
+the battery run itself sits under; a duplicate HOME == passwd home must not
+change the output. v3 also pins the minute arithmetic of the fact line:
+partial minutes floor (N min 59 s reads as N) and the NEWEST of several
+journals is named (С-2 Rev175b).
+
+Modes: bare / --repo R judge a real
 tree; --model the honest controls of every search form (must be green);
 --stabs runs every deceptive stub against its own bound input (Н-39: a stub
 is declared as a code mutation in the mutants list below, never in contract
@@ -28,6 +40,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from model import (MOB_MINS_EXPR, MOB_VEDET_LINE, MOB_VEDET_LINES, honest,
@@ -59,15 +72,44 @@ BACK_HOME = ('~/.local/state/dev-harness-projects/complior-back/home/.omp'
 ROOTS = {os.path.expanduser(MOB_HOME): 'synthetic-mob-session',
          os.path.expanduser(BACK_HOME): 'synthetic-back-session'}
 STATION_SUFFIX = '--home-harness-dev-harness--'
+MOB_TAIL = MOB_HOME[1:]  # хвост дома сессии после '~' — общий всем корням дома
+
+# v3 (Б-1 Rev175): расщеплённые корни дома сессии. Потребитель табло
+# (оркестратор, wait-guard 128) зовёт его под omp, где HOME — каталог зоны без
+# журналов mob, а журналы лежат в доме из passwd. Мир задаёт корни сам:
+# home_root — HOME среды субъекта (шим os.environ), pw_root — pw_dir (шим
+# pwd.getpwuid в памяти проверяющего), mob_gde — под каким корнем лежит каталог
+# сессии ('home' | 'passwd' | 'oba'). Совпавшие корни (dublikat) — один каталог.
+ZONE_ROOT = '/synthetic-omp-zone'      # HOME мира: зона omp, своих журналов mob нет
+PASSWD_ROOT = '/synthetic-passwd-dom'  # дом из passwd мира
+DUP_ROOT = '/synthetic-dom-dublikat'   # HOME мира равен дому из passwd
 
 
-def canon(path):
+def canon(path, roots=ROOTS):
     """Map an equivalent query spelling onto the canonical synthetic name."""
     p = os.path.expanduser(path)
-    for real, synthetic in ROOTS.items():
+    for real, synthetic in roots.items():
         if p == real or p.startswith(real + '/'):
             return synthetic + p[len(real):]
     return p
+
+
+def split_roots(world):
+    """Корни расщеплённого мира: путь корня → синтетическое имя каталога
+    сессии. Совпавшие корни дают один ключ — один и тот же каталог (dublikat)."""
+    roots = {}
+    if world.get('home_root') is not None:
+        roots[world['home_root']] = 'synthetic-session-home'
+    if world.get('pw_root') is not None:
+        roots[world['pw_root']] = 'synthetic-session-passwd'
+    return roots
+
+
+def world_roots(world):
+    """Корни канона мира: прежние (по ambient HOME) или расщеплённые (v3)."""
+    if 'home_root' in world or 'pw_root' in world:
+        return {root + MOB_TAIL: name for root, name in split_roots(world).items()}
+    return ROOTS
 
 
 def path_match(path, pattern):
@@ -133,8 +175,33 @@ NEW_WORLDS = {
     'otlozhennaja_sessija': dict(prs=[PR_GREEN], pstate=True, **NO_SESSION),
     'chuzhaja_sessija': dict(prs=[PR_GREEN], back_age_s=180, **NO_SESSION),
 }
+# v3 (Б-1 Rev175): журналы сессии ищутся по ОБЪЕДИНЕНИЮ корней дома — $HOME
+# запускающего и дом из passwd; клетка задаёт корни сама и кладёт журнал в
+# один из них, поэтому субъекты «только $HOME» и «только passwd» красны при
+# любом ambient HOME прогона. v3 (С-2 Rev175b): mob_age_starshij_s — возраст
+# старшего журнала того же каталога (назвать самый свежий, не самый старый);
+# хвост :59 — минута возраста округляется вниз, не потолком.
+NEW_WORLDS_V3 = {
+    'dom_zhurnal_v_passwd': dict(prs=[PR_GREEN], home_root=ZONE_ROOT,
+                                 pw_root=PASSWD_ROOT, mob_gde='passwd',
+                                 mob_dir=True, mob_files=True, mob_age_s=300),
+    'dom_zhurnal_v_home': dict(prs=[PR_GREEN], home_root=ZONE_ROOT,
+                               pw_root=PASSWD_ROOT, mob_gde='home',
+                               mob_dir=True, mob_files=True, mob_age_s=300),
+    'dom_zhurnal_nigde': dict(prs=[PR_GREEN], home_root=ZONE_ROOT,
+                              pw_root=PASSWD_ROOT, mob_gde='oba',
+                              mob_dir=True, mob_files=False, mob_age_s=None),
+    'dom_dublikat_kornej': dict(prs=[PR_GREEN], home_root=DUP_ROOT,
+                                pw_root=DUP_ROOT, mob_gde='oba',
+                                mob_dir=True, mob_files=True, mob_age_s=300),
+    'mob_granica_minuty': dict(prs=[PR_GREEN], mob_dir=True, mob_files=True,
+                               mob_age_s=5 * 60 + 59),
+    'mob_svezhij_i_starshij': dict(prs=[PR_GREEN], mob_dir=True, mob_files=True,
+                                   mob_age_s=180, mob_age_starshij_s=600),
+}
 WORLDS = {name: dict(prs=rows, **NO_SESSION) for name, rows in CASES.items()}
 WORLDS.update(NEW_WORLDS)
+WORLDS.update(NEW_WORLDS_V3)
 
 # Честные контроли разных равноправных форм поиска журналов (блок 3): каждая
 # форма обязана быть зелёной на всех мирах — батарея судит поведение, не синтаксис.
@@ -162,12 +229,27 @@ def vedet_line(minutes):
 def vfiles(world):
     """Virtual journals of the session homes: canonical path -> age (seconds)."""
     files = {}
+    if 'home_root' in world or 'pw_root' in world:
+        # v3 (Б-1): каталог сессии лежит под корнями мира — под HOME-корнем,
+        # под корнем passwd или под обоими; журнал виден под тем корнем, где
+        # лежит; совпавшие корни — один каталог, журнал не дублируется.
+        gde = world.get('mob_gde', 'oba')
+        names = split_roots(world)
+        for side, root in (('home', world.get('home_root')),
+                           ('passwd', world.get('pw_root'))):
+            if root is None or (gde != 'oba' and gde != side):
+                continue
+            if world['mob_files']:
+                files[names[root] + '/zhurnal.jsonl'] = world['mob_age_s']
+        return files
     if world['mob_dir'] and world['mob_files'] and world['mob_age_s'] is not None:
         layout = world.get('mob_layout', 'oba')
         if layout in ('prjamoj', 'oba'):
             files['synthetic-mob-session/zhurnal.jsonl'] = world['mob_age_s']
         if layout in ('vlozhennyj', 'oba'):
-            files['synthetic-mob-session/sub/zhurnal.jsonl'] = world['mob_age_s']
+            starshij = world.get('mob_age_starshij_s')
+            files['synthetic-mob-session/sub/zhurnal.jsonl'] = (
+                world['mob_age_s'] if starshij is None else starshij)
     if world.get('back_age_s') is not None:
         files['synthetic-back-session/zhurnal.jsonl'] = world['back_age_s']
     return files
@@ -186,6 +268,7 @@ def run_case(source, name, tag=''):
     }
     calls = []
     files = vfiles(world)
+    roots = world_roots(world)
 
     def fake_run(argv, **kwargs):
         calls.append(tuple(argv))
@@ -202,13 +285,18 @@ def run_case(source, name, tag=''):
         return subprocess.CompletedProcess(argv, 0, stdout=output, stderr='')
 
     def fake_glob(pattern):
-        p = canon(pattern)
+        p = canon(pattern, roots)
         if p.endswith(STATION_SUFFIX):
             return ['synthetic-root']
         if p == 'synthetic-mob-session':
             return ['synthetic-mob-session'] if world['mob_dir'] else []
         if p == 'synthetic-back-session':
             return ['synthetic-back-session'] if world.get('back_age_s') is not None else []
+        if p in ('synthetic-session-home', 'synthetic-session-passwd'):
+            # v3: каталог сессии есть ровно под теми корнями мира, где он лежит.
+            gde = world.get('mob_gde', 'oba')
+            side = 'home' if p == 'synthetic-session-home' else 'passwd'
+            return [p] if world['mob_dir'] and gde in (side, 'oba') else []
         if 'dev-harness-projects/*/home' in p:  # мутант «любая проектная сессия»
             dirs = []
             if world['mob_dir']:
@@ -221,13 +309,13 @@ def run_case(source, name, tag=''):
         return sorted(f for f in files if path_match(f, p))
 
     def fake_getmtime(path):
-        p = canon(path)
+        p = canon(path, roots)
         if p in files:
             return FROZEN_NOW.timestamp() - files[p]
         raise AssertionError(f'unexpected getmtime: {path!r}')
 
     def fake_find(argv):
-        root = canon(argv[1])
+        root = canon(argv[1], roots)
         rest = argv[2:]
         name, maxdepth = None, None
         i = 0
@@ -254,7 +342,7 @@ def run_case(source, name, tag=''):
         return '\n'.join(out)
 
     def fake_walk(top, *args, **kwargs):
-        top = canon(top)
+        top = canon(top, roots)
         all_entries = sorted(files) + sorted(vdirs(files))
         if not any(e == top or e.startswith(top + '/') for e in all_entries):
             return iter(())
@@ -282,15 +370,26 @@ def run_case(source, name, tag=''):
     stdout = io.StringIO()
     stderr = io.StringIO()
     code = 0
+    patches = [
+        patch('datetime.datetime', _FrozenDateTime),
+        patch('glob.glob', side_effect=fake_glob),
+        patch('os.path.getmtime', side_effect=fake_getmtime),
+        patch('os.walk', side_effect=fake_walk),
+        patch('subprocess.run', side_effect=fake_run),
+        patch.object(sys, 'argv', [BOARD, str(WINDOW_ARG)]),
+    ]
+    if 'home_root' in world or 'pw_root' in world:
+        # v3 (Б-1): корни дома задаёт МИР, а не окружение прогона — HOME среды
+        # и pw_dir подменяются шимами в памяти проверяющего на время субъекта.
+        patches.append(patch.dict(os.environ, {'HOME': world['home_root']}))
+        patches.append(patch('pwd.getpwuid', lambda uid: SimpleNamespace(
+            pw_dir=world.get('pw_root', world['home_root']))))
     try:
-        with patch('datetime.datetime', _FrozenDateTime), \
-             patch('glob.glob', side_effect=fake_glob), \
-             patch('os.path.getmtime', side_effect=fake_getmtime), \
-             patch('os.walk', side_effect=fake_walk), \
-             patch('subprocess.run', side_effect=fake_run), \
-             patch.object(sys, 'argv', [BOARD, str(WINDOW_ARG)]), \
-             contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-            exec(compile(source, BOARD, 'exec'), {'__name__': '__main__', '__file__': str(ROOT / BOARD)})
+        with contextlib.ExitStack() as stack:
+            for p in patches:
+                stack.enter_context(p)
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                exec(compile(source, BOARD, 'exec'), {'__name__': '__main__', '__file__': str(ROOT / BOARD)})
     except SystemExit as exc:
         code = exc.code if isinstance(exc.code, int) else 1
     except Exception as exc:
@@ -335,9 +434,10 @@ def run_case(source, name, tag=''):
 
 
 def v2_stabs(source):
-    """Deceptive v2 stubs: code mutations of the honest model, each bound to the
-    world where its defect is observable (Н-39)."""
+    """Deceptive v2/v3 stubs: code mutations of the honest model, each bound to
+    the world where its defect is observable (Н-39)."""
     glob_sum = "glob.glob(b + '/*.jsonl') + glob.glob(b + '/*/*.jsonl')"
+    union_roots = "(os.path.expanduser('~'), pwd.getpwuid(os.getuid()).pw_dir)"
     return [
         ('priznak_ignoriruetsja', replace_once(source, MOB_VEDET_LINE, 'mob_vedet = False'),
          'mob_session_zel_pr'),
@@ -350,10 +450,11 @@ def v2_stabs(source):
          "mob_vedet = bool(glob.glob(os.path.expanduser('~/.local/state/dev-harness-projects/complior-mob*')))\n"),
          'otlozhennaja_sessija'),
         ('ljuboj_proekt', replace_once(source,
-         "'~/.local/state/dev-harness-projects/complior-mob/home/.omp/profiles/dev'\n"
-         "    '/agent/sessions/--home-harness-projects-Complior-mob--'))",
-         "'~/.local/state/dev-harness-projects/*/home/.omp/profiles/dev'\n"
-         "    '/agent/sessions/*'))"),
+         "h + '/.local/state/dev-harness-projects/complior-mob'\n"
+         "                                     '/home/.omp/profiles/dev/agent/sessions'\n"
+         "                                     '/--home-harness-projects-Complior-mob--')",
+         "h + '/.local/state/dev-harness-projects/*'\n"
+         "                                     '/home/.omp/profiles/dev/agent/sessions/*')"),
          'chuzhaja_sessija'),
         ('schetyaet_v_stoit', replace_once(source, "    elif s == 'mob' and mob_vedet:",
          "    elif s == 'mob' and mob_vedet:\n        stoit += 1"),
@@ -376,6 +477,23 @@ def v2_stabs(source):
         ('okno_shire', replace_once(source, MOB_VEDET_LINE,
          MOB_VEDET_LINE.replace('WINDOW * 60', '(WINDOW * 60 + 90)')),
          'mob_za_granicej_okna'),
+        # v3 (Б-1 Rev175): выжившие корни дома — дефект ровно того класса, что
+        # был зелёным в старой батарее; каждая форма красна на СВОЁМ мире, где
+        # журнал лежит в другом корне.
+        ('tolko_home_koren', replace_once(source, union_roots,
+         "(os.path.expanduser('~'),)"),
+         'dom_zhurnal_v_passwd'),
+        ('tolko_passwd_koren', replace_once(source, union_roots,
+         "(pwd.getpwuid(os.getuid()).pw_dir,)"),
+         'dom_zhurnal_v_home'),
+        # v3 (С-2 Rev175b): возраст — полные минуты вниз (не потолком), из
+        # нескольких журналов называется самый свежий (не самый старый).
+        ('potolok_minut', replace_once(source, MOB_MINS_EXPR,
+         '-int(-(NOW.timestamp() - max(mob_last)) // 60)'),
+         'mob_granica_minuty'),
+        ('samyj_starshij_zhurnal', replace_once(source, MOB_MINS_EXPR,
+         'int((NOW.timestamp() - min(mob_last)) // 60)'),
+         'mob_svezhij_i_starshij'),
     ]
 
 
