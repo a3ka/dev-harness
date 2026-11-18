@@ -21,6 +21,10 @@
 #   PATERN:BEZ-NOGI         — freeze без ноги карты (Crit193V2);
 #   PATERN:VSEGDA-OTKAZ     — нога (к) отказывает без прогона двери (ложный отказ);
 #   PATERN:USPEH-KRASIT     — нога карты: успех двери не обнуляет rc (ложный отказ).
+# Ног-мутации (BEZ-PRE-NOGI, IZ-ROOTA, VSEGDA-OTKAZ, BEZ-NOGI, USPEH-KRASIT)
+# применяются к РЕАЛЬНОЙ ноге, когда реальная нога есть в дереве (якорь
+# вооружения в реальном файле, ровно одно вхождение), и к ноге модели —
+# в окне до реализации (реальных ног нет).
 stab_sdacha_vsegda_ok.sh	scripts/check_sdacha.sh	s01
 stab_sdacha_rc_iz_lista.sh	scripts/check_sdacha.sh	s03
 stab_sdacha_chitaet_koren.sh	scripts/check_sdacha.sh	s05
