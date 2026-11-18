@@ -236,8 +236,8 @@
  "dvizhenie": {
   "manifest": "docs/ux/04_Gespraech_D24/pack/gespraech-final2-manifest.json",
   "manifest_sha256": "b5bd859858853f708aea05e589cb187b21ea02d3c02af4081ad7ab8d5e76d6b7",
-  "spec": "docs/ux/04_Gespraech_D24/motion/motion-spec-gespraech.json",
-  "spec_sha256": "064d7821428f425d431fbd1efd65cbec37263bb62ef974924746a07e769cd318",
+  "spec": "docs/ux/05_Kompakt_D24/motion/motion-spec-gespraech-kompakt-147.json",
+  "spec_sha256": "6cf62d63737b3bea440d4ced532dc5f4ca910ede5e6369bafddccfc9b5ad701a",
   "pozvonok": "docs/ux/04_Gespraech_D24/motion/faden-poses-gespraech.json",
   "pozvonok_sha256": "9763fdc06b0c0a3c3138f7abac57bf5efbc714403f53d221c3b7c8d225c4f002",
   "ekrany": [
