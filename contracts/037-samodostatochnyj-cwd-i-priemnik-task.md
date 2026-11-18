@@ -549,8 +549,13 @@ implementer-раздачи, а НЕ факультативный довесок 
    - перед работой работник поднимает свою копию каноническим блоком
      синхробазы `199-baza-*` (§«Изолированный спавн» roles/orchestrator.md —
      ЕДИНЫЙ источник байтов блоков, этот контракт байты не дублирует): fetch
-     авторского tip с носителя → `switch -C` → `rev-parse HEAD`; расхождение
-     полученного tip с ожидаемым — СТОП и доклад, не работа;
+     авторского tip с носителя → `switch -C` → `rev-parse HEAD`; задание
+     пачки несёт ожидаемый tip авторской базы (`OZHIDAEMYJ_TIP`; носитель
+     может продвинуться после выдачи задания); расхождение полученного
+     tip с ожидаемым — обязательный останов до работы: сразу после блока
+     синхробазы в копии работника исполняется канонический блок останова
+     `037-baza-ostanov-*` (байты — модель церемонии ниже; расхождение —
+     именованный отказ, совпадающий tip — rc 0);
    - приём ведущей — только после сверки `scripts/privjazka_sdachi.sh`
      (роль/ветка/предмет/репозиторий/владелец копии/tip против последнего
      факта START замка — дверь 199) и каноническим блоком приёма
@@ -564,8 +569,14 @@ implementer-раздачи, а НЕ факультативный довесок 
    М1/М2 приёмника не меняются»). Байты расширения — модель
    fixtures/accept_task_commit/priem_izolyacii_037/model/orchestrator_ceremony_m3.md
    (implementer-круг v+1 переносит дословно, существующие абзацы раздела не
-   меняются). Маркер v+1: раздел М3 несёт якоря privjazka_sdachi.sh /
-   199-baza- / 199-nositel- / ПРИНЯТОГО tip — судит клетка ц0 батареи Р9.
+   меняются): модель несёт норма-строку role-канала ПРОВОДКА ОТДЕЛЬНОЙ
+   строкой тела (`grep -Fxq` scripts/check_provodka.sh, контракты 038/191 —
+   дословный перенос даёт Р7 rc 0 без правки перенесённых байтов) и
+   канонический блок останова `037-baza-ostanov-*` (исполняемый: расхождение
+   — именованный отказ, совпадение — rc 0). Маркеры v+1: раздел М3 несёт
+   якоря privjazka_sdachi.sh / 199-baza- / 199-nositel- / ПРИНЯТОГО tip
+   (судит клетка ц0 батареи Р9), блок останова (судит клетка ц6) и
+   отдельную норма-строку (судит клетка ц7).
 
 
 Маркер для приёмки: `grep -Fq 'accept_task_commit.sh' roles/orchestrator.md`
@@ -573,7 +584,7 @@ implementer-раздачи, а НЕ факультативный довесок 
 зелёное, не «После реализации»).
 
 ## Незаполненные требования:
-- (v+1, 2026-11-18) Расширение ceremony М3 (п.5 выше) НЕ приландено: раздел М3 roles/orchestrator.md не несёт якорей privjazka_sdachi.sh / 199-baza- / 199-nositel- / ПРИНЯТОГО tip; scripts/privjazka_sdachi.sh отсутствует (реализация 199); канонические блоки в §«Изолированный спавн» отсутствуют. Замер: `bash fixtures/accept_task_commit/red_priem_izolyacii_037.sh .` → rc 1, «КРАСНОЕ 037-М3: красных 6 из 6» (живой прогон этой пачки; субъекты дерева побайтно равны main). Закрывает implementer-круг v+1: перенос модели церемонии в раздел М3 (дословно); блоки и сверка — кругом 199 (ленд кода 199 строго после mint этого v+1). Буллеты ниже — исторический срез на момент mint /2 (М1 п8, М2 п6/п7 с тех пор закрыты implementer-кругом: 11/11 и 7/7 зелёные — замер в §Существующее).
+- (v+1, 2026-11-18) Расширение ceremony М3 (п.5 выше) НЕ приландено: раздел М3 roles/orchestrator.md не несёт якорей privjazka_sdachi.sh / 199-baza- / 199-nositel- / ПРИНЯТОГО tip, блока останова 037-baza-ostanov-* и отдельной норма-строки проводки; scripts/privjazka_sdachi.sh отсутствует (реализация 199); канонические блоки в §«Изолированный спавн» отсутствуют. Замер: `bash fixtures/accept_task_commit/red_priem_izolyacii_037.sh .` → rc 1, «КРАСНОЕ 037-М3: красных 8 из 8» (живой прогон этой пачки; субъекты дерева побайтно равны main). Закрывает implementer-круг v+1: перенос модели церемонии в раздел М3 (дословно; норма-строка role-канала ПРОВОДКА — отдельной строкой тела, блок останова — исполняемым блоком); блоки и сверка — кругом 199 (ленд кода 199 строго после mint этого v+1). Буллеты ниже — исторический срез на момент mint /2 (М1 п8, М2 п6/п7 с тех пор закрыты implementer-кругом: 11/11 и 7/7 зелёные — замер в §Существующее).
 
 - М1 (`.omp/extensions/path-guard.ts`, implementer-зона) — п.6 (анцестор-проверка; v2, блокер M1 вердикта `verdicts/adversary/contracts-037-m1m2-adversary.md`) не реализована; п.1–5 реализованы (`ef736e9`). Новая ветвь «п8» фикстуры `fixtures/self_contained_cwd/red_self_contained_cwd.sh` сегодня КРАСНАЯ: контроль `Outer` `pass` + атака `Inner` `pass` при ожидании `block` (живой прогон этой пачки против настоящего `--judge` на `origin/main` — байт-в-байт вывод адверсария). Implementer ОБЯЗАН перевести п8 в зелёное (атака — `block` по п.6), НЕ сломав п1–п7 (п1 позитив остаётся `pass`: у легитимного клона нет `.git`-несущих предков — живой замер цепи предков реального клона этой пачкой).
 - М2 (`scripts/accept_task_commit.sh`, implementer-зона) — мерж-политика 4а (v2) не реализована; новая ветвь «п7» фикстуры `fixtures/accept_task_commit/red_accept_task_commit.sh` сегодня КРАСНАЯ: честный мерж в диапазоне отказывает БЕЗЫМЯННО («ОТКАЗ: cherry-pick отказал (конфликт или иная ошибка)», живой прогон этой пачки), а не именованным отказом 4а с sha.
@@ -696,11 +707,17 @@ landed норма-правки orchestrator/implementer-каналом (012, 016
   contracts/037-samodostatochnyj-cwd-i-priemnik-task.md` → rc 0, «модель
   угроз: секция валидна (ЗАЩИЩАЕТ 6 буллет(ов), НЕ ЗАЩИЩАЕТ 5 буллет(ов))»
   (само-применение §Модель угроз — живой прогон architect, снят ЭТИМ вызовом).
-- Р7 (уже зелёное этой пачкой). `bash scripts/check_provodka.sh .
-  contracts/037-samodostatochnyj-cwd-i-priemnik-task.md` → rc 0 (все три
-  role= канала находят свою норму-строку побайтово в `roles/architect.md`/
-  `roles/orchestrator.md` — норм-строки вставлены ЭТИМ же вызовом, живой
-  прогон architect).
+- Р7 (три канала зелёные с mint v3; четвёртый — честный красный до
+  implementer-круга v+1). `bash scripts/check_provodka.sh .
+  contracts/037-samodostatochnyj-cwd-i-priemnik-task.md` → сегодня rc 1,
+  «проводка: норма-строка не найдена в role-файле: roles/orchestrator.md»
+  (живой прогон этой пачки): норма-строка v+1 («Штатный приём…») появится
+  в роли ТОЛЬКО дословным переносом тела модели — она ОТДЕЛЬНАЯ строка
+  тела (grep -Fxq), правки перенесённых байтов не требуется; после
+  implementer-круга v+1 → rc 0, все четыре role= канала побайтово в
+  `roles/architect.md`/`roles/orchestrator.md` (закрывающее свойство
+  блока К-07 вердикта v3: дословность переноса и зелёная проводка
+  совместимы).
 
 ### После реализации (implementer, красное → зелёное)
 
@@ -721,21 +738,26 @@ landed норма-правки orchestrator/implementer-каналом (012, 016
   отказ 4а с sha, ветка не сдвинута, временный worktree не протёк).
 - Р8 (новый, после). `bash fixtures/parsing_hygiene_battery/run_battery.sh accept_task_commit`
   → rc 0, «итог 4/4 классов закрыто» (М2's обязательная батарея, 041 §5).
-- Р3/Р4/Р5/Р6/Р7 остаются rc 0 (регресс — implementer-круг НЕ трогает
-  contracts/037-*.md/roles/*.md, только код implementer-зоны).
+- Р3/Р4/Р5/Р6 остаются rc 0 (регресс — implementer-круг НЕ трогает
+  contracts/037-*.md, только код implementer-зоны; Р7 — см. выше:
+  четвёртый канал зелёный после дословного переноса модели церемонии,
+  «Красное/зелёное v+1» ниже).
 
 
 ### Красное/зелёное v+1 (батарея расширения ceremony М3; замеры этой пачкой)
 
-- `bash fixtures/accept_task_commit/red_priem_izolyacii_037.sh .` → красная: КРАСНОЕ 037-М3
-- `bash fixtures/accept_task_commit/red_priem_izolyacii_037.sh --model` → rc 0 (модели-эталоны: церемония — модель этой пачки, блоки и сверка — модели 199; приёмник scripts/accept_task_commit.sh реальный)
-- `bash fixtures/accept_task_commit/red_priem_izolyacii_037.sh --stabs` → rc 0 (все 7 обманных заглушек различимы; привязка к различающим прогонам — код раннера, Н-39)
+- `bash fixtures/accept_task_commit/red_priem_izolyacii_037.sh .` → красная: КРАСНОЕ 037-М3: красных 8 из 8
+  (живой прогон этой пачки; субъекты дерева побайтно равны main)
+- `bash fixtures/accept_task_commit/red_priem_izolyacii_037.sh --model` → rc 0 (модели-эталоны: церемония — модель этой пачки, блоки и сверка — модели 199; приёмник scripts/accept_task_commit.sh реальный; клеток 8, зелёных 8)
+- `bash fixtures/accept_task_commit/red_priem_izolyacii_037.sh --stabs` → rc 0 (все 9 обманных заглушек различимы; привязка к различающим прогонам — код раннера, Н-39)
+- инвариант ц6 (закрытие блока К-08 вердикта v3): при расхождении полученного на синхробазе tip с ожидаемым приём обязан остановиться — канонический блок останова `037-baza-ostanov-*` даёт на достижимом расхождении rc 1 с именованным отказом, на совпадающем tip rc 0 (честный контроль); rc-команды: `bash fixtures/accept_task_commit/red_priem_izolyacii_037.sh --model` (ц6 ok) и `bash fixtures/accept_task_commit/red_priem_izolyacii_037.sh --stabs` (отмена останова различима прогоном ц6)
+- инвариант ц7 (закрытие блока К-07 вердикта v3): норма-строка role-канала ПРОВОДКА — отдельная строка раздела М3, дословный перенос даёт Р7 rc 0; rc-команды: `bash scripts/check_provodka.sh --grammar . contracts/037-samodostatochnyj-cwd-i-priemnik-task.md` → rc 0; `bash scripts/check_provodka.sh . contracts/037-samodostatochnyj-cwd-i-priemnik-task.md` → rc 1 именованный «норма-строка не найдена» до реализации / rc 0 после
 
-замер: `ls fixtures/accept_task_commit/priem_izolyacii_037/stabs/* | wc -l` = 7 census fixtures/accept_task_commit/priem_izolyacii_037/stabs/*
+замер: `ls fixtures/accept_task_commit/priem_izolyacii_037/stabs/* | wc -l` = 9 census fixtures/accept_task_commit/priem_izolyacii_037/stabs/*
 замер: `ls fixtures/accept_task_commit/priem_izolyacii_037/model/* | wc -l` = 1 census fixtures/accept_task_commit/priem_izolyacii_037/model/*
 
 После реализации v+1 (implementer-круг; красное → зелёное):
-- безфлаговый прогон батареи и `--repo .` → rc 0 «ЗЕЛЕНОЕ 037-М3» (раздел М3 несёт расширение по модели; блоки 199-baza/199-nositel в §«Изолированный спавн»; scripts/privjazka_sdachi.sh в дереве);
+- безфлаговый прогон батареи и `--repo .` → rc 0 «ЗЕЛЕНОЕ 037-М3» (раздел М3 несёт расширение по модели — включая блок останова 037-baza-ostanov-* и отдельную норма-строку проводки; блоки 199-baza/199-nositel в §«Изолированный спавн»; scripts/privjazka_sdachi.sh в дереве);
 - регрессии Р1–Р8 и батареи 199 остаются rc 0 (implementer-круг v+1 не трогает scripts/accept_task_commit.sh — алгоритмы приёмника не меняются; М1/М2-батареи не тронуты).
 
 
