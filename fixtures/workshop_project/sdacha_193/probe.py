@@ -14,9 +14,11 @@ scripts/pre_critic.sh (вставлена патчем к реальной дв�
 отсутствуют и клетки ног честно красны); --model (честная модель из
 model/scripts; ноги — патч к реальным дверям живого дерева, пост-реализация
 опознаётся меткой); --stabs (обманные реализации из stabs/ и адресные
-мутации операций PATERN:* по привязкам stabs.tsv против модели; мутации
-дверей/lib — якорная замена честной операции с проверкой применённости,
-Н-39: привязки данными батареи, не прозой контракта).
+мутации операций PATERN:* по привязкам stabs.tsv; мутации дверей/lib —
+якорная замена честной операции с проверкой применённости в РЕАЛЬНОМ файле
+живого дерева, в окне до реализации — в файле модели; мутации ног — к
+реальной ноге, в окне — к ноге модели; Н-39: привязки данными батареи,
+не прозой контракта).
 
 Оракул — в памяти пробы: ожидания сняты до вызова субъекта (К-11); таймаут
 убивает ГРУППУ процессов субъекта (рекурсивная обманка не переживает прогон).
@@ -50,6 +52,10 @@ CI_YML = ('name: toy-ci\non: [push]\njobs:\n  toy:\n    runs-on: ubuntu-latest\n
           '    steps:\n'
           '      - run: npm run check:precision-gate -- . contracts/777-toy.md\n'
           '      - run: npm run check:spec-ready -- . contracts/777-toy.md\n')
+
+VNESHNIJ_SKRIPT = ('#!/usr/bin/env bash\n'
+                   '# скрипт вне корня мира (Rev193 С-1 M04): существует и честно даёт rc 0\n'
+                   'exit 0\n')
 
 KONTRAKT = 'contracts/777-toy.md'
 VERDIKT = 'verdicts/critic/contracts-777-v1.md'
@@ -85,14 +91,30 @@ if [ "${SDACHA_OKRUG:-0}" != "1" ] && [ -x "$BASE/scripts/check_sdacha.sh" ]; th
 fi
 
 '''
+NOGA_PRE_CRITIC_RC2_MASKIRUET = '''# ── (к) СДАТОЧНЫЙ ЛИСТ — мутация PATERN:PRE-RC2-MASKIRUET (батарея 193, Rev193 С-1 M14)
+# Нога отказывает только на rc 1 двери: «нечем проверять» (rc 2) молча
+# считается зелёным — fail-open на NOT_IMPLEMENTED. Различающий вход —
+# клетка p04: нецелые швы двери дают rc 2, честная нога обязана отказать.
+if [ "${SDACHA_OKRUG:-0}" != "1" ] && [ -x "$BASE/scripts/check_sdacha.sh" ]; then
+  _r193=0; bash "$BASE/scripts/check_sdacha.sh" "$BASE" "$CONTRACT" --run >/dev/null 2>&1 || _r193=$?; [ "$_r193" -ne 1 ] || refuse "сдаточный лист красен (rc=$_r193)"
+fi
+
+'''
 YAKOR_PRE_CRITIC = "printf 'КРИТИК: дверь зелёная"
 
-NOGA_FREEZE = '''# ── 6-карта. КАРТА КЛАССОВ ВЕРДИКТА (контракт 193, Л2) ──────────────────────
-# Контракт со строкой «СДАЧА: » (предмет принял сдаточный лист) замораживается
-# только с вердиктом, несущим валидную карту классов; предмет без строки ведётся
-# как раньше (граница обязательности — по принятию листа, без ручных списков).
-# Двери карты в дереве нет (окно до реализации) — нога пропускается молча.
-if printf '%s\\n' "$(g cat-file -p "HEAD:$TARGET" 2>/dev/null)" | grep -q '^СДАЧА: '; then
+NOGA_FREEZE = '''# ── 6. КАРТА КЛАССОВ ВЕРДИКТА (контракт 193, Л2) ───────────────────────────────
+# Нога карты: ПОСЛЕ §6 (первая строка вердикта — accept/FAIL/ESCALATE) и ДО §6а
+# (spec-preflight): вердикт уже прочитан, тега ещё нет (И8 контракта 193).
+# Контракт, чей HEAD-блоб несёт строку «СДАЧА: », замораживается только при rc 0
+# двери карты классов на accept-вердикте этой версии; отказ — именованный
+# «карта классов вердикта … красна», тег не ставится (отказ атомарен — как §6а).
+# Контракт без строки «СДАЧА: » картой не судится (старые предметы — прежний
+# порядок). Двери карты в дереве нет — нога пропускается молча (окно
+# freeze..implementer, канон 191).
+# Условие — here-string, не конвейер: `printf | grep -q` под pipefail ловил
+# SIGPIPE на контракте >64 КиБ и молча пропускал ногу (Б-1 Rev193, И8).
+_k193_head="$(g cat-file -p "HEAD:$TARGET" 2>/dev/null || true)"
+if grep -q '^СДАЧА: ' <<<"$_k193_head"; then
   if [ -x "$SELF_DIR/check_verdict_karta.sh" ]; then
     _k193_rc=0
     _k193_out="$(bash "$SELF_DIR/check_verdict_karta.sh" "$ROOT" "$verdict" 2>&1)" || _k193_rc=$?
@@ -106,11 +128,39 @@ NOGA_FREEZE_USPEH_KRASIT = '''# ── 6-карта — мутация PATERN:US
 # заморозка ложно отказывает и на зелёной карте (блок критика Crit193V1
 # К-14). Различающий вход — клетка f03: карта зелёная, честная нога обязана
 # пропустить заморозку дальше (отказ позже и по чужой причине).
-if printf '%s\\n' "$(g cat-file -p "HEAD:$TARGET" 2>/dev/null)" | grep -q '^СДАЧА: '; then
+_k193_head="$(g cat-file -p "HEAD:$TARGET" 2>/dev/null || true)"
+if grep -q '^СДАЧА: ' <<<"$_k193_head"; then
   if [ -x "$SELF_DIR/check_verdict_karta.sh" ]; then
     _k193_rc=1
     _k193_out="$(bash "$SELF_DIR/check_verdict_karta.sh" "$ROOT" "$verdict" 2>&1)" || _k193_rc=$?
     [ "$_k193_rc" -eq 0 ] || die "карта классов вердикта $verdict красна (rc=$_k193_rc): $(printf '%s' "$_k193_out" | head -n 1)"
+  fi
+fi
+
+'''
+NOGA_FREEZE_STARY_KONVEJER = '''# ── 6-карта — мутация PATERN:KONVEJER-FREEZE (батарея 193, Rev193 Б-1) ────────
+# Возврат прежнего дефекта: условие — конвейер printf | grep -q под pipefail;
+# на контракте >64 КиБ grep -q закрывает трубу на строке СДАЧА, конвейер ловит
+# SIGPIPE 141 и нога молча пропускается (fail-open; И8). Ловец — f01.
+if printf '%s\\n' "$(g cat-file -p "HEAD:$TARGET" 2>/dev/null)" | grep -q '^СДАЧА: '; then
+  if [ -x "$SELF_DIR/check_verdict_karta.sh" ]; then
+    _k193_rc=0
+    _k193_out="$(bash "$SELF_DIR/check_verdict_karta.sh" "$ROOT" "$verdict" 2>&1)" || _k193_rc=$?
+    [ "$_k193_rc" -eq 0 ] || die "карта классов вердикта $verdict красна (rc=$_k193_rc): $(printf '%s' "$_k193_out" | head -n 1)"
+  fi
+fi
+
+'''
+NOGA_FREEZE_RC2 = '''# ── 6-карта — мутация PATERN:FREEZE-RC2-PROPUSKAET (батарея 193, Rev193 С-1 M12)
+# Отказ ноги только на rc 1: rc 2 двери карты (NOT_IMPLEMENTED — например, нет
+# lib рядом с дверью) пропускается — fail-open на «нечем проверить».
+# Различающий вход — клетка f04: мир без lib, честная нога обязана отказать.
+_k193_head="$(g cat-file -p "HEAD:$TARGET" 2>/dev/null || true)"
+if grep -q '^СДАЧА: ' <<<"$_k193_head"; then
+  if [ -x "$SELF_DIR/check_verdict_karta.sh" ]; then
+    _k193_rc=0
+    _k193_out="$(bash "$SELF_DIR/check_verdict_karta.sh" "$ROOT" "$verdict" 2>&1)" || _k193_rc=$?
+    [ "$_k193_rc" -eq 2 ] || [ "$_k193_rc" -eq 0 ] || die "карта классов вердикта $verdict красна (rc=$_k193_rc): $(printf '%s' "$_k193_out" | head -n 1)"
   fi
 fi
 
@@ -131,8 +181,7 @@ VYZOV_REAL_PRE = ('noga_formy "сдаточный лист красен" '
 BLOK_REAL_PRE = USLOVIE_REAL_PRE + '\n  ' + VYZOV_REAL_PRE + '\nfi'
 YAKOR_REAL_FREEZE = ('_k193_out="$(bash "$SELF_DIR/check_verdict_karta.sh" '
                      '"$ROOT" "$verdict" 2>&1)"')
-USLOVIE_REAL_FREEZE = ('if printf \'%s\\n\' "$_k193_head" '
-                       "| grep -q '^СДАЧА: '; then")
+USLOVIE_REAL_FREEZE = "if grep -q '^СДАЧА: ' <<<\"$_k193_head\"; then"
 
 # ── адресные мутации операций (Arb193V1 решения 1–2: исполняемые изменения,
 # фактически предъявленные критиками V1/V2, хранятся батареей как обманные
@@ -163,6 +212,30 @@ MUTACII_DVERI = {
     # Ловец — s22; прочие операции честной двери не изменяются.
     'PATERN:BEZ-OSTATKA-BJUDZHETA':
         ('(( ostalos < predel )) && predel="$ostalos"', ':'),
+    # Rev193 Б-3: исполнение ряда возвращено к bash -c — хвост «|| true»
+    # исполняется оболочкой и маскирует фактический rc команды. Ловец — s03.
+    'PATERN:BASH-C-SPRYATAN':
+        ('timeout -k "$KILL_SEK" "$predel" "${ARGV[@]}"',
+         'timeout "$predel" bash -c "${KOMANDY[$i]}"'),
+    # Rev193 Б-4: SIGKILL по -k снят — команда, переживающая TERM, держит
+    # дверь дольше бюджета (не завершается). Ловец — s27 (таймаут клетки).
+    'PATERN:BEZ-SIGKILL':
+        ('timeout -k "$KILL_SEK" "$predel"', 'timeout "$predel"'),
+    # Rev193 С-1 M01: дубль строки СДАЧА принимается дверью. Ловец — s28.
+    'PATERN:DUBL-SDACHA':
+        ('[ "$sdacha_strok" -le 1 ] || otkaz', 'true || otkaz'),
+    # Rev193 С-1 M03: заявленные rc ряда «Двери» не сверяются. Ловец — s29.
+    'PATERN:RC-RASHODJATSA':
+        ('[ "$o1" = "$o2" ] || otkaz "строка $nom: заявленные rc расходятся ($o1',
+         'true || otkaz "строка $nom: заявленные rc расходятся ($o1'),
+    # Rev193 С-1 M04: команда bash с путём за корнем (../) допускается.
+    # Ловец — s30.
+    'PATERN:PUT-VNE-KORNJA':
+        ('case "$second" in /*|*..*) return 1 ;; esac', ':'),
+    # Rev193 С-1 M05: ряд «- » вне машинной секции пропускается. Ловец — s31.
+    'PATERN:RJAD-VNE-SEKCII':
+        ('*) otkaz "строка $n: ряд таблицы',
+         '*) continue; otkaz "строка $n: ряд таблицы'),
 }
 MUTACII_KARTY = {
     # Arb193V1 решение 1: источник карты — рабочий файл вместо HEAD-блоба,
@@ -174,12 +247,28 @@ MUTACII_KARTY = {
     # Ловец — v09.
     'PATERN:KARTA-IZ-INDEXA':
         ('cat-file -p "HEAD:$VERDICT"', 'show ":$VERDICT"'),
+    # Rev193 Б-2: поиск раздела возвращён к конвейеру printf | grep -q — на
+    # вердикте >64 КиБ ложный отказ «без раздела» (SIGPIPE 141). Ловец — v01.
+    'PATERN:KONVEJER-KARTA':
+        ('grep -q \'^## Карта классов$\' <<<"$telo"',
+         'printf \'%s\\n\' "$telo" | grep -q \'^## Карта классов$\''),
+    # Rev193 С-1 M09: вердикт вне verdicts/critic/ принимается. Ловец — v12.
+    'PATERN:LJUBOJ-PREFIKS':
+        ('verdicts/critic/*) : ;;', '*) : ;;'),
 }
 MUTACII_LIB = {
     # Crit193V1 map-duplicate: проверка дубля класса в lib отключена.
     # Ловец — v06 (отказ остаётся, но теряет имя «дубль»).
     'PATERN:LIB-BEZ-DUBLJA':
         ('if [ -n "${vidennye[$klass]:-}" ]; then', 'if false; then'),
+    # Rev193 С-1 M10: строки вне секции карты судятся. Ловец — v01 (дубль
+    # К-01 в хвосте фикстуры verdikt_chestnyj).
+    'PATERN:VNE-SEKCII-SUDITSJA':
+        ('[ "$v_sekcii" -eq 1 ] || continue', ':'),
+    # Rev193 С-1 M11: секция карты не закрывается заголовком «## ».
+    # Ловец — v01 (тот же дубль в хвосте).
+    'PATERN:SEKCIJA-VECHNA':
+        ("'## '*) v_sekcii=0 ;;", "'## '*) : ;;"),
 }
 MUTACII_NOGI_PRE = {
     # Crit193V1 pre-leg: условие ноги (к) отключено — нога не выполняется.
@@ -211,6 +300,13 @@ MUTACII_REALNOJ_NOGI_PRE = {
     # (блок критика Crit193V1 К-14). Ловец — p03.
     'PATERN:VSEGDA-OTKAZ': (VYZOV_REAL_PRE,
                             'refuse "сдаточный лист красен"'),
+    # Rev193 С-1 M14: rc 2 двери листа маскируется ногой (отказ только на
+    # rc 1, NOT_IMPLEMENTED считается зелёным). Ловец — p04.
+    'PATERN:PRE-RC2-MASKIRUET': (VYZOV_REAL_PRE,
+                                 '_r193=0; bash "$BASE/scripts/check_sdacha.sh" '
+                                 '"$BASE" "$CONTRACT" --run >/dev/null 2>&1 || '
+                                 '_r193=$?; [ "$_r193" -ne 1 ] || refuse '
+                                 '"сдаточный лист красен (rc=$_r193)"'),
 }
 
 
@@ -220,6 +316,16 @@ MUTACII_REALNOJ_NOGI_FREEZE = {
     # успех двери карты не обнуляет rc — ложный отказ и на зелёной карте
     # (блок критика Crit193V1 К-14). Ловец — f03.
     'PATERN:USPEH-KRASIT': ('_k193_rc=0', '_k193_rc=1'),
+    # Rev193 Б-1: условие возвращено к конвейеру printf | grep -q — на
+    # контракте >64 КиБ нога молча пропускается (SIGPIPE 141). Ловец — f01.
+    'PATERN:KONVEJER-FREEZE': (USLOVIE_REAL_FREEZE,
+                               'if printf \'%s\\n\' "$_k193_head" '
+                               "| grep -q '^СДАЧА: '; then"),
+    # Rev193 С-1 M12: rc 2 двери карты пропускается ногой (fail-open на
+    # «нечем проверять»). Ловец — f04.
+    'PATERN:FREEZE-RC2-PROPUSKAET':
+        ('[ "$_k193_rc" -eq 0 ] || die',
+         '[ "$_k193_rc" -eq 2 ] || [ "$_k193_rc" -eq 0 ] || die'),
 }
 
 
@@ -296,7 +402,14 @@ class Istochniki:
         if kljuch not in self._kesh:
             cel = None
             if mutacija is not None:
+                # Н-39/Б-блоки Rev193: мутация применяется к РЕАЛЬНОМУ файлу
+                # живого дерева, когда предмет в нём реализован (якорь честной
+                # операции обязан быть в нём ровно один раз); в окне до
+                # реализации (реального файла нет) — к файлу модели.
                 istok = self.koren / 'scripts' / imja
+                real = DEREVO / 'scripts' / imja
+                if real.exists():
+                    istok = real
                 vrem = Path(tempfile.mkdtemp(prefix='subj193-'))
                 cel = vrem / imja
                 shutil.copy2(istok, cel)
@@ -348,6 +461,8 @@ class Istochniki:
                         noga = NOGA_PRE_CRITIC_VSEGDA_OTKAZ
                     elif self.pre_mutacija == 'PATERN:BEZ-PRE-NOGI':
                         noga = primenit(noga, MUTACII_NOGI_PRE, self.pre_mutacija)
+                    elif self.pre_mutacija == 'PATERN:PRE-RC2-MASKIRUET':
+                        noga = NOGA_PRE_CRITIC_RC2_MASKIRUET
                     t = patched(real, YAKOR_PRE_CRITIC, noga, '(к) СДАТОЧНЫЙ ЛИСТ')
                 vrem = Path(tempfile.mkdtemp(prefix='nog193-'))
                 (vrem / 'pre_critic.sh').write_text(t, encoding='utf-8')
@@ -380,6 +495,12 @@ class Istochniki:
                     elif self.freeze_mutacija == 'PATERN:USPEH-KRASIT':
                         t = patched(real, YAKOR_FREEZE,
                                     NOGA_FREEZE_USPEH_KRASIT, '6-карта')
+                    elif self.freeze_mutacija == 'PATERN:KONVEJER-FREEZE':
+                        t = patched(real, YAKOR_FREEZE,
+                                    NOGA_FREEZE_STARY_KONVEJER, '6-карта')
+                    elif self.freeze_mutacija == 'PATERN:FREEZE-RC2-PROPUSKAET':
+                        t = patched(real, YAKOR_FREEZE,
+                                    NOGA_FREEZE_RC2, '6-карта')
                     else:
                         t = patched(real, YAKOR_FREEZE, NOGA_FREEZE, '6-карта')
                 vrem = Path(tempfile.mkdtemp(prefix='nog193-'))
@@ -394,7 +515,8 @@ class Istochniki:
 def postroit_mir(kuda: Path, ist: Istochniki, kontrakt_f, sdacha_f=None,
                  verdikt_f=None, teg=None, dveri=(), toy_gejty=False,
                  posle_kommita=(), posle_staging=(), posle_staging_rabochij=(),
-                 koren_sdacha=None, plany=False) -> Path:
+                 koren_sdacha=None, plany=False, verdikt_put=None,
+                 bez_lib=False) -> Path:
     """Toy-мир батареи 193: git-репозиторий с контрактом, листом, вердиктом.
 
     dveri ⊆ {'sdacha','karta','pre_critic','freeze'} — субъекты в scripts/ мира
@@ -425,7 +547,9 @@ def postroit_mir(kuda: Path, ist: Istochniki, kontrakt_f, sdacha_f=None,
     if koren_sdacha is not None:
         (kuda / 'SDACHA.md').write_text(tekst(koren_sdacha), encoding='utf-8')
     if verdikt_f is not None:
-        (kuda / VERDIKT).write_text(tekst(verdikt_f), encoding='utf-8')
+        cel_verdikt = verdikt_put if verdikt_put is not None else VERDIKT
+        (kuda / cel_verdikt).parent.mkdir(parents=True, exist_ok=True)
+        (kuda / cel_verdikt).write_text(tekst(verdikt_f), encoding='utf-8')
     if toy_gejty:
         for f in TOY_GEJTY + LIBS + FORMA_GEJTY:
             shutil.copy2(DEREVO / 'scripts' / f, kuda / 'scripts' / f)
@@ -436,9 +560,10 @@ def postroit_mir(kuda: Path, ist: Istochniki, kontrakt_f, sdacha_f=None,
     if 'karta' in dveri and karta_subj is not None:
         shutil.copy2(karta_subj, kuda / 'scripts' / 'check_verdict_karta.sh')
     if 'sdacha' in dveri or 'karta' in dveri:
-        lib_subj = ist.lib()
-        if lib_subj is not None:
-            shutil.copy2(lib_subj, kuda / 'scripts' / 'lib_karta_sdachi.sh')
+        if not bez_lib:
+            lib_subj = ist.lib()
+            if lib_subj is not None:
+                shutil.copy2(lib_subj, kuda / 'scripts' / 'lib_karta_sdachi.sh')
     if 'pre_critic' in dveri:
         subj = ist.pre_critic()
         if subj is not None:
@@ -586,6 +711,45 @@ SPECSY = {
     'noga_krasna': dict(kontrakt_f='kontrakt_novogo.md', dveri=('sdacha', 'pre_critic'),
                         toy_gejty=True),
     'repo_bez_dveri': dict(kontrakt_f='kontrakt_novogo.md'),
+    # Rev193 С-1 M01: дубль строки СДАЧА (рабочий файл после коммита).
+    'dubl_sdacha': dict(kontrakt_f='kontrakt_chestnyj.md',
+                        sdacha_f='sdacha_chestnaja.md', dveri=('sdacha',),
+                        posle_kommita=[(KONTRAKT,
+                                        tekst('kontrakt_chestnyj.md')
+                                        + 'СДАЧА: drugaja.md\n')]),
+    # Rev193 С-1 M03: заявленные rc ряда «Двери» расходятся (0 ≠ 1).
+    'rashodka': dict(kontrakt_f='kontrakt_chestnyj.md',
+                     sdacha_f='sdacha_chestnaja.md', dveri=('sdacha',),
+                     posle_kommita=[('sdacha.md',
+                                     tekst('sdacha_chestnaja.md').replace(
+                                         'проба-ок · bash scripts/progiban_ok.sh · 0 · 0',
+                                         'проба-ок · bash scripts/progiban_ok.sh · 0 · 1'))]),
+    # Rev193 С-1 M04: команда bash с путём за корнем мира (../vneshnij.sh).
+    'bash_put_vne': dict(kontrakt_f='kontrakt_chestnyj.md',
+                    sdacha_f='sdacha_chestnaja.md', dveri=('sdacha',),
+                    posle_kommita=[('sdacha.md',
+                                    tekst('sdacha_chestnaja.md').replace(
+                                        'проба-ок · bash scripts/progiban_ok.sh',
+                                        'проба-vne · bash ../vneshnij.sh')),
+                                    ('../vneshnij.sh', VNESHNIJ_SKRIPT)]),
+    # Rev193 С-1 M05: ряд «- » до всякой машинной секции листа.
+    'vne_sekcii': dict(kontrakt_f='kontrakt_chestnyj.md',
+                       sdacha_f='sdacha_chestnaja.md', dveri=('sdacha',),
+                       posle_kommita=[('sdacha.md',
+                                       tekst('sdacha_chestnaja.md').replace(
+                                           '## Двери',
+                                           '- внесекционный ряд · вне машинных секций · 0 · 0\n\n'
+                                           '## Двери', 1))]),
+    # Rev193 С-1 M09: честный вердикт по пути вне verdicts/critic/.
+    'verdikt_vne_critic': dict(kontrakt_f='kontrakt_novogo.md',
+                               verdikt_f='verdikt_chestnyj.md',
+                               verdikt_put='verdicts/other/contracts-777-v1.md',
+                               dveri=('karta',)),
+    # Rev193 С-1 M12: дверь карты в мире без lib — rc 2 NOT_IMPLEMENTED,
+    # честная нога freeze обязана отказать именованно.
+    'freeze_bez_lib': dict(kontrakt_f='kontrakt_chestnyj.md',
+                           verdikt_f='verdikt_accept_bez_karty.md',
+                           dveri=('karta', 'freeze'), bez_lib=True),
 }
 
 
@@ -613,17 +777,20 @@ class Kletka:
 def kletki(miry: Miry) -> list:
     K = []
 
+    # argv клетки — леничный: мир строится к моменту ПРОГОНА клетки (не к
+    # построению списка) — режим --stabs строит один мир на привязку
+    # (Rev193: рост числа привязок не должен умножать время на все миры)
     def dver(imja_mira):
-        return ['bash', str(miry[imja_mira] / 'scripts' / 'check_sdacha.sh'),
-                str(miry[imja_mira]), KONTRAKT, '--run']
+        return lambda: ['bash', str(miry[imja_mira] / 'scripts' / 'check_sdacha.sh'),
+                        str(miry[imja_mira]), KONTRAKT, '--run']
 
     def karta(imja_mira):
-        return ['bash', str(miry[imja_mira] / 'scripts' / 'check_verdict_karta.sh'),
-                str(miry[imja_mira]), VERDIKT]
+        return lambda: ['bash', str(miry[imja_mira] / 'scripts' / 'check_verdict_karta.sh'),
+                        str(miry[imja_mira]), VERDIKT]
 
     def zamorozka(imja_mira):
-        return ['bash', str(miry[imja_mira] / 'scripts' / 'freeze_contract.sh'),
-                KONTRAKT, 'toy-причина-193', str(miry[imja_mira])]
+        return lambda: ['bash', str(miry[imja_mira] / 'scripts' / 'freeze_contract.sh'),
+                        KONTRAKT, 'toy-причина-193', str(miry[imja_mira])]
 
     # половина (а): дверь сдаточного листа
     K.append(Kletka('s01-novyj-bez-sdachi', dver('novyj'), 1, ['СДАЧА:', 'обязательна']))
@@ -639,8 +806,9 @@ def kletki(miry: Miry) -> list:
     K.append(Kletka('s10-staryj-zamorozhen', dver('staryj'), 0, ['не требуется']))
     K.append(Kletka('s11-vplus1-objazan', dver('vplus1'), 1, ['обязательна']))
     K.append(Kletka('s12-plan-vne',
-                    ['bash', str(miry['plan'] / 'scripts' / 'check_sdacha.sh'),
-                     str(miry['plan']), 'plans/007-toy.md', '--run'], 0, ['план']))
+                    lambda: ['bash', str(miry['plan'] / 'scripts' / 'check_sdacha.sh'),
+                             str(miry['plan']), 'plans/007-toy.md', '--run'],
+                    0, ['план']))
     K.append(Kletka('s13-net-git', dver('chestnyj'), 2, ['NOT_IMPLEMENTED', 'git'],
                     env={'PATH': '/nonexistent-193'}))
     K.append(Kletka('s14-tajmaut-komandy', dver('patom'), 1, ['таймаут'],
@@ -675,6 +843,21 @@ def kletki(miry: Miry) -> list:
     K.append(Kletka('s23-bjudzhet-chestnyj-v-predelah', dver('budzhet_poslednej'), 0,
                     ['лист зелёный'],
                     env={'SDACHA_BUDZHET_SEK': '5', 'SDACHA_TIMEOUT_SEK': '10'}))
+    # Rev193 Б-4: команда, переживающая TERM (SPAT_IGNOR_TERM=1), добивается
+    # SIGKILL по -k — дверь завершается в пределах бюджета + KILL_SEK с
+    # именованным отказом «убита SIGKILL»; дверь без -k не завершается сама —
+    # клетка краснеет своим жёстким пределом (25 с), а не виснет.
+    K.append(Kletka('s27-sigkill-posle-term', dver('patom'), 1, ['убита SIGKILL'],
+                    env={'SDACHA_TIMEOUT_SEK': '2', 'SDACHA_BUDZHET_SEK': '4',
+                         'SPAT_IGNOR_TERM': '1'}, tajmaut=25))
+    # Rev193 С-1 (M01/M03/M04/M05): грамматика листа и алфавит команды.
+    K.append(Kletka('s28-dubl-stroki-sdacha', dver('dubl_sdacha'), 1,
+                    ['обязана быть одна']))
+    K.append(Kletka('s29-zajavlennye-rc-rashodjatsja', dver('rashodka'), 1,
+                    ['заявленные rc расходятся']))
+    K.append(Kletka('s30-put-vne-kornja', dver('bash_put_vne'), 1, ['не существует']))
+    K.append(Kletka('s31-rjad-vne-mashinnoj-sekcii', dver('vne_sekcii'), 1,
+                    ['вне машинной секции']))
     # половина (б): дверь карты вердикта
     K.append(Kletka('v01-chestnyj-verdikt', karta('verdikt_chestnyj'), 0, ['17/17']))
     K.append(Kletka('v02-karta-16', karta('verdikt_karta_16'), 1, ['К-17']))
@@ -697,6 +880,13 @@ def kletki(miry: Miry) -> list:
                     karta('verdikt_karta_index_chestnyj'), 0, ['17/17']))
     K.append(Kletka('v11-staged-bez-head', karta('verdikt_staged_bez_head'), 1,
                     ['не закоммичен']))
+    # Rev193 С-1 M09: путь вердикта вне verdicts/critic/ — отказ грамматики.
+    K.append(Kletka('v12-put-vne-critic',
+                    lambda: ['bash',
+                             str(miry['verdikt_vne_critic'] / 'scripts' / 'check_verdict_karta.sh'),
+                             str(miry['verdikt_vne_critic']),
+                             'verdicts/other/contracts-777-v1.md'],
+                    1, ['вне грамматики verdicts/critic']))
     # ноги: заморозка и pre_critic
     K.append(Kletka('f01-freeze-karta-krasna', zamorozka('freeze_karta'), 1,
                     ['карта классов вердикта']))
@@ -707,23 +897,38 @@ def kletki(miry: Miry) -> list:
     # spec-preflight rc 127 в toy-мире); ложный отказ ноги различается.
     K.append(Kletka('f03-freeze-noga-zelenaja', zamorozka('freeze_zelenyj'), 1,
                     ['spec-preflight'], ne_markery=['карта классов вердикта']))
+    # Rev193 С-1 M12: дверь карты без lib даёт rc 2 NOT_IMPLEMENTED — честная
+    # нога обязана отказать именованно («карта классов вердикта … красна»).
+    K.append(Kletka('f04-karta-dver-r2', zamorozka('freeze_bez_lib'), 1,
+                    ['карта классов вердикта']))
     # p01 моделирует ПРЯМОЙ вызов pre_critic оркестратором (маркер рекурсии
     # погашен явно): внутри прогона двери листа маркер наследуется — и нога (к)
     # по канону И6 молчит; прямому вызову маркер не положен.
     K.append(Kletka('p01-noga-sdacha-krasna',
-                    ['bash', str(miry['noga_krasna'] / 'scripts' / 'pre_critic.sh'),
-                     KONTRAKT], 1, ['ОТКАЗ: сдаточный лист красен'],
+                    lambda: ['bash',
+                             str(miry['noga_krasna'] / 'scripts' / 'pre_critic.sh'),
+                             KONTRAKT], 1, ['ОТКАЗ: сдаточный лист красен'],
                     env={'SDACHA_OKRUG': '0'}))
     K.append(Kletka('p02-noga-propuskaet-chuzhoj-mir',
-                    ['bash', str(miry['rekursija'] / 'scripts' / 'pre_critic.sh'),
-                     '--repo', str(miry['repo_bez_dveri']), KONTRAKT], 0,
+                    lambda: ['bash',
+                             str(miry['rekursija'] / 'scripts' / 'pre_critic.sh'),
+                             '--repo', str(miry['repo_bez_dveri']), KONTRAKT], 0,
                     ['КРИТИК: дверь зелёная']))
     # К-14 Crit193V1: положительный мир ноги (к) — честный лист, вооружённая
     # зелёная дверь, прямой вызов (маркер погашен): нога обязана пропустить.
     K.append(Kletka('p03-noga-listok-zelenyj',
-                    ['bash', str(miry['rekursija'] / 'scripts' / 'pre_critic.sh'),
-                     KONTRAKT], 0, ['КРИТИК: дверь зелёная'],
+                    lambda: ['bash',
+                             str(miry['rekursija'] / 'scripts' / 'pre_critic.sh'),
+                             KONTRAKT], 0, ['КРИТИК: дверь зелёная'],
                     env={'SDACHA_OKRUG': '0'}))
+    # Rev193 С-1 M14: нецелые швы двери (SDACHA_TIMEOUT_SEK=abc) дают rc 2
+    # NOT_IMPLEMENTED — честная нога отказывает на ЛЮБОМ rc≠0 (И6), мутант
+    # «отказ только на rc 1» пропускает rc 2 молча.
+    K.append(Kletka('p04-noga-dver-r2',
+                    lambda: ['bash',
+                             str(miry['noga_krasna'] / 'scripts' / 'pre_critic.sh'),
+                             KONTRAKT], 1, ['сдаточный лист красен'],
+                    env={'SDACHA_OKRUG': '0', 'SDACHA_TIMEOUT_SEK': 'abc'}))
     return K
 
 
@@ -734,7 +939,7 @@ def sudit(k: Kletka) -> bool:
     # судит клетки в их собственных состояниях (иначе обманки рекурсии и
     # ноги (к) маскируются чужим маркером — измерено на door-check fix2)
     env.pop('SDACHA_OKRUG', None)
-    argv = list(k.argv)
+    argv = k.argv() if callable(k.argv) else list(k.argv)
     if k.env and 'PATH' in k.env and argv[0] == 'bash':
         argv[0] = shutil.which('bash') or '/bin/bash'
     if k.env:
