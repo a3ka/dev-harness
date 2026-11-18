@@ -3,7 +3,7 @@
 # contracts/199-sol-v-izolyacii.md:20, слово владельца 2026-11-18 ~14:05 UTC,
 # §4 батча №2; расширение ceremony М3 frozen 037 `:480-515`).
 #
-# ПРЕДМЕТ БАТАРЕИ (исполнимые клетки ц0–ц5; привязка обманных заглушек к
+# ПРЕДМЕТ БАТАРЕИ (исполнимые клетки ц0–ц7; привязка обманных заглушек к
 # различающим прогонам — КОДОМ ниже: stab_kletki/stub_sreda, Н-39 — не прозой
 # контракта):
 #   * ц0 — раздел «## Ceremony кодового `_task`-дозвона (контракт 037)»
@@ -27,7 +27,17 @@
 #     не тронут;
 #   * ц5 — следующий дозвон от принятого tip: СВЕЖАЯ копия, поднятая блоком
 #     199-baza от носителя ПОСЛЕ приёма, стоит ровно на принятом tip —
-#     не на устаревшем снимке и не на sha источника.
+#     не на устаревшем снимке и не на sha источника;
+#   * ц6 — обязательный останов при расхождении tip: задание пачки несёт
+#     ожидаемый tip авторской базы (OZHIDAEMYJ_TIP), носитель может
+#     продвинуться после выдачи; канонический блок останова
+#     037-baza-ostanov-* (тело церемонии) на расхождении даёт rc 1 с
+#     именованным отказом, на совпадающем tip — rc 0 (честный контроль);
+#   * ц7 — норма-строка проводки отдельной строкой: норма role-канала
+#     ПРОВОДКА контракта (role=roles/orchestrator.md «Штатный приём …»,
+#     grep -Fxq check_provodka, 038/191) обязана быть ОТДЕЛЬНОЙ строкой
+#     раздела М3 — дословный перенос модели даёт её, Р7 достижим без
+#     правки перенесённых байтов.
 #
 # СУБЪЕКТЫ: раздел М3 и канонические блоки — roles/orchestrator.md; сверка —
 # scripts/privjazka_sdachi.sh; приёмник — scripts/accept_task_commit.sh
@@ -276,9 +286,45 @@ c5() {
   [ "$(git -C "$w/kop2/m" rev-parse HEAD)" = "$T" ] || { printf 'ц5: свежая копия не на принятом tip\n' >&2; return 1; }
   [ "$(git -C "$w/kop2/m" rev-parse HEAD)" != "$W" ] || { printf 'ц5: свежая копия на sha источника, не на принятом tip\n' >&2; return 1; }
 }
+c6() {
+  local w="$WBASE/c6"; mkdir -p "$w"; mk_mir "$w" 1
+  local rc
+  # подъём копии каноническим блоком синхробазы (фактический tip = M_A2).
+  izvlek "$(bloki)" '# 199-baza-nachalo' '# 199-baza-konec' "$w/blk.sh" \
+    || { printf 'ц6: канонический блок синхробазы отсутствует в субъекте\n' >&2; return 1; }
+  ( cd "$M_KOP" && WORKTREE="$M_CAR" BRANCH=wip/037/architect bash "$w/blk.sh" ) >/dev/null 2>&1 \
+    || { printf 'ц6: блок синхробазы отказал\n' >&2; return 1; }
+  [ "$(git -C "$M_KOP" rev-parse HEAD)" = "$M_A2" ] \
+    || { printf 'ц6: копия не на фактическом tip носителя\n' >&2; return 1; }
+  # канонический блок останова — из церемонии (субъект/модель), единый источник.
+  izvlek "$(cerem)" '# 037-baza-ostanov-nachalo' '# 037-baza-ostanov-konec' "$w/ost.sh" \
+    || { printf 'ц6: канонический блок останова отсутствует в церемонии\n' >&2; return 1; }
+  # (а) достижимое расхождение: задание несло ожидаемый tip M_A1 (снимок
+  # выдачи), носитель продвинут до M_A2 — обязательный останов, не работа.
+  ( cd "$M_KOP" && OZHIDAEMYJ_TIP="$M_A1" bash "$w/ost.sh" ) >"$w/o1" 2>"$w/e1"; rc=$?
+  [ "$rc" -eq 1 ] || { printf 'ц6: расхождение tip не остановлено (rc=%s)\n' "$rc" >&2; return 1; }
+  grep -q 'ОТКАЗ' "$w/e1" || { printf 'ц6: останов без именованного отказа\n' >&2; return 1; }
+  # (б) честный контроль: совпадающий tip — блок обязан быть зелёным.
+  ( cd "$M_KOP" && OZHIDAEMYJ_TIP="$M_A2" bash "$w/ost.sh" ) >"$w/o2" 2>"$w/e2"; rc=$?
+  [ "$rc" -eq 0 ] || { printf 'ц6: останов отказывает на совпадающем tip (rc=%s)\n' "$rc" >&2; return 1; }
+}
+c7() {
+  local w="$WBASE/c7"; mkdir -p "$w"
+  m3_razdel "$(cerem)" "$w/m3.md" || { printf 'ц7: раздел М3 не найден в субъекте\n' >&2; return 1; }
+  # норма-строка role-канала ПРОВОДКА контракта — единый источник (038/191):
+  # дословный перенос тела церемонии обязан давать её ОТДЕЛЬНОЙ строкой.
+  local KONTR="$ROOT/contracts/037-samodostatochnyj-cwd-i-priemnik-task.md"
+  [ -r "$KONTR" ] || { printf 'ц7: контракт предмета не читается: %s\n' "$KONTR" >&2; return 1; }
+  local NORMA cnt
+  NORMA="$(sed -n 's/^- role=roles\/orchestrator\.md «\(Штатный приём[^»]*\)»$/\1/p' "$KONTR")"
+  cnt="$(printf '%s\n' "$NORMA" | grep -c .)"
+  [ "$cnt" -eq 1 ] || { printf 'ц7: норма-строка role-канала извлекается из контракта %s строками, нужно 1\n' "$cnt" >&2; return 1; }
+  grep -Fxq -- "$NORMA" "$w/m3.md" \
+    || { printf 'ц7: норма-строка проводки не является отдельной строкой раздела М3\n' >&2; return 1; }
+}
 
 # ── учёт клеток ──────────────────────────────────────────────────────────────
-ALL_KLETKI='c0 c1 c2 c3 c4 c5'
+ALL_KLETKI='c0 c1 c2 c3 c4 c5 c6 c7'
 CELL_TOTAL=0; CELL_RED=0
 kletka() {  # <id> — ОДИН прогон; диагностика — в файл мира
   local id="$1" dg
@@ -301,7 +347,7 @@ run_cells() {
 }
 
 # ── заглушки: привязка к различающим прогонам — КОДОМ (Н-39) ────────────────
-STABI=(s01 s02 s03 s04 s05 s06 s07)
+STABI=(s01 s02 s03 s04 s05 s06 s07 s08 s09)
 stab_fajl() {
   case "$1" in
     s01) printf 'priem_izolyacii_037/stabs/s01_ceremon_main.md' ;;
@@ -311,11 +357,13 @@ stab_fajl() {
     s05) printf 'priem_izolyacii_037/stabs/s05_nositel_bez_chistoty.md' ;;
     s06) printf 'priem_izolyacii_037/stabs/s06_nositel_bez_sinhronizacii.md' ;;
     s07) printf 'priem_izolyacii_037/stabs/s07_nositel_bez_priema.md' ;;
+    s08) printf 'priem_izolyacii_037/stabs/s08_ceremon_bez_ostanova_tip.md' ;;
+    s09) printf 'priem_izolyacii_037/stabs/s09_ceremon_norma_v_proze.md' ;;
   esac
 }
 stub_sreda() {
   case "$1" in
-    s01|s02) printf 'S037V_CEREM' ;;
+    s01|s02|s08|s09) printf 'S037V_CEREM' ;;
     s03|s05|s06|s07) printf 'S037V_BLOKI' ;;
     s04)     printf 'S037V_PRIV' ;;
   esac
@@ -329,6 +377,8 @@ stab_kletki() {
     s05) printf 'c3' ;;
     s06) printf 'c4' ;;
     s07) printf 'c2 c4 c5' ;;
+    s08) printf 'c6' ;;
+    s09) printf 'c7' ;;
   esac
 }
 
