@@ -2,7 +2,7 @@
 
 ## Двери
 
-- проба-ложь · bash scripts/progiban_rc1.sh · 0 · 0
+- проба-ложь · bash scripts/progiban_rc1.sh || true · 0 · 0
 
 ## Карта классов
 

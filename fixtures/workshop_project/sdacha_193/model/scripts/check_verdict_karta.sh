@@ -48,7 +48,7 @@ SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 telo="$(git -C "$ROOT" cat-file -p "HEAD:$VERDICT" 2>/dev/null)"
 [ -n "$telo" ] || otkaz "вердикт не закоммичен (AGENTS п.9): $VERDICT нет на HEAD"
 
-printf '%s\n' "$telo" | grep -q '^## Карта классов$' \
+grep -q '^## Карта классов$' <<<"$telo" \
     || otkaz "вердикт без раздела «## Карта классов»: $VERDICT"
 
 spisok="$(karta_proverit "$telo")" || otkaz "$VERDICT: $spisok"

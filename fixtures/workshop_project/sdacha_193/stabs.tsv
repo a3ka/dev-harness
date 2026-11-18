@@ -49,3 +49,33 @@ PATERN:IZ-ROOTA	scripts/pre_critic.sh	p02
 PATERN:BEZ-NOGI	scripts/freeze_contract.sh	f01
 PATERN:VSEGDA-OTKAZ	scripts/pre_critic.sh	p03
 PATERN:USPEH-KRASIT	scripts/freeze_contract.sh	f03
+#   PATERN:KONVEJER-FREEZE  — Б-1 Rev193: условие ноги карты — конвейер
+#                            printf | grep -q (SIGPIPE на >64 КиБ, fail-open);
+#   PATERN:KONVEJER-KARTA   — Б-2 Rev193: поиск раздела карты — конвейер
+#                            printf | grep -q (ложный отказ «без раздела»);
+#   PATERN:BASH-C-SPRYATAN  — Б-3 Rev193: исполнение ряда bash -c («|| true»
+#                            маскирует фактический rc);
+#   PATERN:BEZ-SIGKILL      — Б-4 Rev193: timeout без -k (переживающая TERM
+#                            команда держит дверь дольше бюджета);
+#   PATERN:DUBL-SDACHA      — С-1 M01: дубль строки СДАЧА принимается;
+#   PATERN:RC-RASHODJATSA   — С-1 M03: заявленные rc ряда «Двери» не сверяются;
+#   PATERN:PUT-VNE-KORNJA   — С-1 M04: команда bash с путём за корнем мира;
+#   PATERN:RJAD-VNE-SEKCII  — С-1 M05: ряд вне машинной секции пропускается;
+#   PATERN:LJUBOJ-PREFIKS   — С-1 M09: вердикт вне verdicts/critic/ принимается;
+#   PATERN:VNE-SEKCII-SUDITSJA — С-1 M10: строки вне секции карты судятся lib;
+#   PATERN:SEKCIJA-VECHNA   — С-1 M11: секция карты не закрывается заголовком;
+#   PATERN:FREEZE-RC2-PROPUSKAET — С-1 M12: rc 2 двери карты пропускается ногой;
+#   PATERN:PRE-RC2-MASKIRUET — С-1 M14: rc 2 двери листа маскируется ногой (к).
+PATERN:KONVEJER-FREEZE	scripts/freeze_contract.sh	f01
+PATERN:KONVEJER-KARTA	scripts/check_verdict_karta.sh	v01
+PATERN:BASH-C-SPRYATAN	scripts/check_sdacha.sh	s03
+PATERN:BEZ-SIGKILL	scripts/check_sdacha.sh	s27
+PATERN:DUBL-SDACHA	scripts/check_sdacha.sh	s28
+PATERN:RC-RASHODJATSA	scripts/check_sdacha.sh	s29
+PATERN:PUT-VNE-KORNJA	scripts/check_sdacha.sh	s30
+PATERN:RJAD-VNE-SEKCII	scripts/check_sdacha.sh	s31
+PATERN:LJUBOJ-PREFIKS	scripts/check_verdict_karta.sh	v12
+PATERN:VNE-SEKCII-SUDITSJA	scripts/lib_karta_sdachi.sh	v01
+PATERN:SEKCIJA-VECHNA	scripts/lib_karta_sdachi.sh	v01
+PATERN:FREEZE-RC2-PROPUSKAET	scripts/freeze_contract.sh	f04
+PATERN:PRE-RC2-MASKIRUET	scripts/pre_critic.sh	p04
