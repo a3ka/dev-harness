@@ -1,32 +1,53 @@
-FAIL
+accept
 
-OBJECT=461b8757bbbb28f4b326e7dd10e17ecacb74c0b1
-СУД: repo=dev-harness; предмет=187; фаза=контракт v3, узкое закрытие К-10 и зависимый регресс; роль=critic; вызов=один дополнительный 1/1 по слову владельца 2026-11-18 ~18:10 UTC, батч №3 №7, прежний счёт сохраняется; модель-план=config/agent_models.json (critic, apex-sol); сессия=Crit187V5; модель-факт=openai-codex/gpt-6.1-terra (models_actual --bind: allowed); SHA=461b8757bbbb28f4b326e7dd10e17ecacb74c0b1; предыдущий=Crit187V4 FAIL, archive/187/crit187v4-verdict; исключение=слово владельца на один узкий вызов.
+OBJECT=c2bdf5a74e74cc0a91c0e486392a68af26dc288e
+СУД: repo=dev-harness; предмет=187; фаза=контракт v3, узкое исполнение Arb187V1 и зависимый регресс; роль=critic; вызов=1/2 по отдельному счёту ADR, ровно один по санкции Cons187Sign; модель-план=openai-codex/gpt-6.1-terra; сессия=Crit187V6; модель-факт=openai-codex/gpt-6.1-terra, allowed; SHA=c2bdf5a74e74cc0a91c0e486392a68af26dc288e; предыдущий=Crit187V5 FAIL + Arb187V1 resolved; исключение=санкция Cons187Sign.
 
-## Блок
+## Основание и граница
 
-БЛОКИРУЕТ contracts/187-arhitektura-v-processe.md:33,51; fixtures/workshop_project/architecture_process_187/workflow_probe.py:1046,1328 — проверка подстроки не отличает входной pin от другого значения с тем же началом.
-ОБЯЗАТЕЛЬСТВО: отказ по неконформному pin содержит диагностику «закреплённый pin не полный 40-hex SHA: <pin>» с конкретным входным значением; приёмка различает честную и подменённую диагностику.
-СОСТОЯНИЕ: явно заявленные и присутствующие в CASES входы `HEAD`, имя ветки, сокращённый SHA и `HEAD` без флага. Исходная операция в `verdict` возвращает `PIN_NONCONFORMING_DIAG.format(pin=pin)`. В памяти процесса заменён результат этой операции добавлением `-wrong` к диагностике; например, при lock `HEAD` выдаётся `ARCH_PIN: закреплённый pin не полный 40-hex SHA: HEAD-wrong` вместо сообщения о `HEAD`.
-НАБЛЮДЕНИЕ: `required_pin_diagnostic not in output` принимает прежнее значение как префикс подменённого. Все четыре затронутые клетки и вся батарея зелёны, rc 0; привязанный стаб `pin-value-forged` проверяет лишь добавление префикса `wrong-` и не обнаруживает эту соседнюю подмену.
-ОБХОД: диагностировать `HEAD-wrong` вместо входного `HEAD`, сохранив остальной отказ; `--model` сообщает `CELLS=61 STABS=0 FAILURES=0`.
-ЗАКРЫВАЮЩЕЕ СВОЙСТВО: различать полное значение входного pin в диагностике, включая границу его окончания, и неправильное значение, оставляя честную допустимую диагностику зелёной; свойство действует также на публичной двери.
-ПРОИСХОЖДЕНИЕ: узкое-закрытие
-КЛАСС: К-10
+Проверено исполнение решения Arb187V1 по К-10, а не весь контракт. По `workflow_probe.py:529-570,1433-1454,1475-1483` ожидание снимается из lock до вызова; один предикат применяется к модельному, стабовому и живому выводу. За неконформным pin принимается конец вывода либо LF, за неразрешимым — фиксированное продолжение с допустимым путём. Честные эквивалентные формы и соседи прежней суффиксной подмены проверены ниже; `--stabs` сохраняет прежние различители и ловит четыре новые адресные подмены. Привязки — в коде, не в прозе контракта (Н-39). `pin-unresolvable-sha` имеет отдельную форму и не является различающим входом воспроизведённой мутации.
 
-Арбитр: повторная причина К-10 — достаточно ли приёмка связывает диагностику с точным входным pin; назначить решение конечной границы, автоматический следующий вызов не назначается.
+Связь поиска с дельтой: проверены новый предикат границы и его вызовы, соседние окончания и честные формы, а также зависимые стабы. Иные поверхности без основания не пересуждались. Предсудебные двери и сдаточный лист по заданию не повторялись. Живую дверь не запускал; факт общего пути установлен чтением кода, а не выдаётся за самостоятельный live-прогон.
 
-Связь поиска с дельтой: кандидат добавил проверку `required_pin_diagnostic in output` и стаб с префиксной подменой; проверена соседняя суффиксная подмена того же существующего возврата на заявленных входах. Это не новая область исследования.
+## Команды и наблюдения
 
-Команда мутации (только память процесса, файлы не менялись):
-
-```sh
-python3 -c 'import sys; sys.path.insert(0,"fixtures/workshop_project/architecture_process_187"); import workflow_probe as w; original=w.verdict; exec("def mutant(*a, **k):\n r,o=original(*a,**k)\n if a[3] == \"task\" and k.get(\"variation\", \u0022\u0022) in (\"pin-head\", \"pin-branch\", \"pin-short\", \"pin-head-noflag\") and r == 1 and \"закреплённый pin не полный\" in o: o += \"-wrong\"\n return r,o"); w.verdict=mutant; sys.argv=["workflow_probe.py","--model"]; sys.exit(w.main())'
-```
-
-Сырой вывод, rc 0:
+Рабочий каталог `/tmp/dev-harness-verify/Crit187V6/repo`, исходный HEAD — OBJECT. `git fetch --tags origin` rc 0. Модель установлена из `/home/harness/dev-harness`:
 
 ```text
+$ bash scripts/models_actual.sh --tsv --bind --session Crit187V6 | cut -f1-3
+critic	openai-codex/gpt-6.1-terra	allowed
+critic	openai-codex/gpt-6.1-terra	allowed
+```
+
+```text
+$ bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --model
+GREEN pin-diagnostic-boundary-selfcheck 9/9
+... 61 GREEN клетка ...
+CELLS=61 STABS=0 FAILURES=0
+rc=0
+$ bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --stabs
+GREEN pin-diagnostic-boundary-selfcheck 9/9
+... 61 GREEN клетка и 75 STAB caught ...
+STAB pin-suffix-forged-head caught @ pin-symbolic-head
+STAB pin-suffix-forged-branch caught @ pin-symbolic-branch
+STAB pin-suffix-forged-short caught @ pin-short-sha
+STAB pin-suffix-forged-noflag caught @ pin-head-noflag
+CELLS=61 STABS=75 FAILURES=0
+rc=0
+```
+
+Многоточие обозначает опущенный вывод; полный сырой вывод обеих команд сохранён в трассе сессии, не является дословной частью этого фрагмента. Прежние `pin-bare-reason`, `pin-diagnostic-swapped`, `pin-value-lost` и `pin-value-forged` также напечатаны как caught.
+
+Дословная мутация Crit187V5, только в памяти процесса:
+
+```sh
+env PYTHONDONTWRITEBYTECODE=1 python3 -c 'import sys; sys.path.insert(0,"fixtures/workshop_project/architecture_process_187"); import workflow_probe as w; original=w.verdict; exec("def mutant(*a, **k):\n r,o=original(*a,**k)\n if a[3] == \"task\" and k.get(\"variation\", \u0022\u0022) in (\"pin-head\", \"pin-branch\", \"pin-short\", \"pin-head-noflag\") and r == 1 and \"закреплённый pin не полный\" in o: o += \"-wrong\"\n return r,o"); w.verdict=mutant; sys.argv=["workflow_probe.py","--model"]; sys.exit(w.main())'
+```
+
+Сырой вывод (rc 1):
+
+```text
+GREEN pin-diagnostic-boundary-selfcheck 9/9
 GREEN task-valid: rc=0 expected=0
 GREEN task-line-missing: rc=1 expected=1 reason=ARCH_LINE_MISSING
 GREEN task-line-blank: rc=1 expected=1 reason=ARCH_LINE_MISSING
@@ -81,58 +102,50 @@ GREEN path-unresolved-zero-present: rc=0 expected=0 reason=вне модели: 
 GREEN path-area-without-component: rc=1 expected=1 reason=PATH_WITHOUT_COMPONENT
 GREEN zone-outside-snapshot-failed: rc=2 expected=2 reason=ARCH_NOT_EVALUATED
 GREEN zone-outside-snapshot-missing: rc=2 expected=2 reason=ARCH_NOT_EVALUATED
-GREEN pin-symbolic-head: rc=1 expected=1 reason=ARCH_PIN
-GREEN pin-symbolic-branch: rc=1 expected=1 reason=ARCH_PIN
-GREEN pin-short-sha: rc=1 expected=1 reason=ARCH_PIN
+RED pin-symbolic-head: rc=1 expected=1 reason=ARCH_PIN output='ARCH_PIN: закреплённый pin не полный 40-hex SHA: HEAD-wrong'
+RED pin-symbolic-branch: rc=1 expected=1 reason=ARCH_PIN output='ARCH_PIN: закреплённый pin не полный 40-hex SHA: main-wrong'
+RED pin-short-sha: rc=1 expected=1 reason=ARCH_PIN output='ARCH_PIN: закреплённый pin не полный 40-hex SHA: bfadace9481a-wrong'
 GREEN pin-unresolvable-sha: rc=1 expected=1 reason=ARCH_PIN
-GREEN pin-head-noflag: rc=1 expected=1 reason=ARCH_PIN
+RED pin-head-noflag: rc=1 expected=1 reason=ARCH_PIN output='ARCH_PIN: закреплённый pin не полный 40-hex SHA: HEAD-wrong'
 GREEN applicability-lock-no-dir: rc=1 expected=1 reason=ARCH_COMPONENT_NET
 GREEN applicability-dir-no-lock: rc=1 expected=1 reason=ARCH_COMPONENT_NET
-CELLS=61 STABS=0 FAILURES=0
+CELLS=61 STABS=0 FAILURES=4
 ```
 
-## Зависимый регресс
+Дополнительный адресный контроль предиката, не подмена живой двери:
 
-Выполнено в `/tmp/dev-harness-verify/Crit187V5/repo` на OBJECT. Сырые заключительные строки батарей (полный вывод находится в трассе сессии):
+```sh
+env PYTHONDONTWRITEBYTECODE=1 python3 -c 'import sys; sys.path.insert(0,"fixtures/workshop_project/architecture_process_187"); import workflow_probe as w; e=w.pin_expectation("pin-head","HEAD"); d=w.ARCH_PIN_PREFIX+w.PIN_NONCONFORMING_DIAG.format(pin="HEAD"); cases=[("без LF",d,True),("с LF и префиксом","ОТКАЗ: "+d+"\n",True),("суффикс digit",d+"9",False),("суффикс текст",d+" extra",False),("суффикс slash",d+"/other",False)]; p="e"*40; u=w.pin_expectation("pin-unresolvable",p); t="ОТКАЗ: "+w.ARCH_PIN_PREFIX+w.PIN_UNRESOLVABLE_DIAG.format(pin=p); cases += [("путь клона",t+": /tmp/clone\n",True),("подмена неразрешимого",t.replace(p,p+"9")+": /tmp/clone\n",False)]; results=[(name,w.pin_diagnostic_matched(out,u if name in ("путь клона","подмена неразрешимого") else e),wanted) for name,out,wanted in cases]; [print(f"{n}: actual={v} expected={want}") for n,v,want in results]; sys.exit(any(v!=want for _,v,want in results))'
+```
+
+Сырой вывод, rc 0:
 
 ```text
-$ bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --model
-CELLS=61 STABS=0 FAILURES=0
-rc=0
-$ bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --stabs
-CELLS=61 STABS=71 FAILURES=0
-rc=0
-$ bash scripts/check_provodka.sh . contracts/187-arhitektura-v-processe.md
-PROVODKA_RC=0
-$ bash scripts/check_ceilings.sh .
-  ok   персоны: 13 файл(ов), потолок 81920 байт
-  ok   правила: 1 файл(ов), потолок 30720 байт
-  ok   раздел требований: 182 черновик(ов) судится, замороженные — по тегам
-потолки в порядке
-CEILINGS_RC=0
-$ bash scripts/check_threat_model.sh . contracts/187-arhitektura-v-processe.md
-модель угроз: секция валидна (ЗАЩИЩАЕТ 4 буллет(ов), НЕ ЗАЩИЩАЕТ 3 буллет(ов))
-THREAT_RC=0
+без LF: actual=True expected=True
+с LF и префиксом: actual=True expected=True
+суффикс digit: actual=False expected=False
+суффикс текст: actual=False expected=False
+суффикс slash: actual=False expected=False
+путь клона: actual=True expected=True
+подмена неразрешимого: actual=False expected=False
 ```
-
-Восемь новых стабов привязаны в коде `workflow_probe.py:337-344` и пойманы своими клетками в `--stabs`; Н-39 не требует прозы контракта. Путь первым токеном в строке коммита `9d0bb077`, причина непуста; `git diff c8241548..461b8757` не меняет текст контракта и ограничен батареей и сдаточным листом. `pre_critic` и сдаточный лист по заданию не повторялись.
 
 ## Карта классов
 
-К-01: н/п — без изменений с вызова Crit187V4; двери по заданию не повторялись.
-К-02: чисто — вход: слово владельца батч №3 №7 и дельта c8241548..461b8757.
-К-03: н/п — без изменений с вызова Crit187V4.
-К-04: чисто — вход: дельта только в fixtures/workshop_project/architecture_process_187/, зона architect.
-К-05: н/п — текст контракта не изменён с вызова Crit187V4.
-К-06: н/п — без изменений с вызова Crit187V4.
-К-07: чисто — вход: workflow_probe.py:1314-1330, один предикат на модельном и живом пути.
-К-08: чисто — `red_architecture_process_187.sh --stabs`, rc 0, 71 стаб.
-К-09: н/п — без изменений с вызова Crit187V4; новые ветви входов не объявлены.
-К-10: блок — подмена суффикса конкретного pin проходит проверку.
-К-11: н/п — без изменений с вызова Crit187V4 в источнике lock.
-К-12: н/п — без изменений с вызова Crit187V4 в грамматике pin.
-К-13: н/п — секреты не затронуты.
-К-14: чисто — `red_architecture_process_187.sh --model`, rc 0, честные pin-клетки зелёны.
-К-15: чисто — `--model` CELLS=61, `--stabs` STABS=71, rc 0.
-К-16: чисто — `bash scripts/check_threat_model.sh . contracts/187-arhitektura-v-processe.md`, rc 0.
-К-17: н/п — sourceCanon не объявлен для этого станционного предмета; без изменений с Crit187V4.
+К-01: н/п — без изменений с Crit187V5; двери по заданию не повторялись.
+К-02: чисто — вход: санкция Cons187Sign, решение Arb187V1 и дельта e9c70d2706..OBJECT.
+К-03: н/п — без изменений с Crit187V5 в узкой дельте.
+К-04: чисто — вход: дельта contracts/187-arhitektura-v-processe.md и fixtures/workshop_project/architecture_process_187/.
+К-05: н/п — без изменений с Crit187V5, кроме числа стабов.
+К-06: н/п — без изменений с Crit187V5 в отказах среды.
+К-07: чисто — вход: workflow_probe.py:1433-1454,1475-1483, единый предикат модели, стабов и live.
+К-08: чисто — `red_architecture_process_187.sh --stabs`, rc 0, 75 пойманных стабов.
+К-09: н/п — без изменений с Crit187V5 в объявленной области входов.
+К-10: чисто — вход: воспроизведённая мутация Crit187V5 rc 1, четыре красные клетки; ожидание из lock до вызова.
+К-11: чисто — вход: workflow_probe.py:538-544,1433-1439, ожидание из входного lock.
+К-12: н/п — без изменений с Crit187V5 в грамматике pin.
+К-13: н/п — секреты не затронуты дельтой.
+К-14: чисто — вход: адресные формы без LF, с LF и префиксом, с путём клона и соседние суффиксы; rc 0.
+К-15: чисто — `--model` CELLS=61, `--stabs` STABS=75, оба rc 0; контракт изменяет число стабов на 75.
+К-16: н/п — без изменений с Crit187V5 в границе риска.
+К-17: н/п — без изменений с Crit187V5 в архитектурной модели.
