@@ -133,5 +133,33 @@ zapest s44 t95-m40 red_naznachennaja_specializacija.sh \
   's@.*# t95-m40.*@: # t95-m40 порча: открыт любой алфавит включая vision@'
 zapest s45 t95-m3 red_orch_brief_bounded_work.sh \
   's@.*# t95-m3.*@    : # t95-m3 порча: mandatory потеря проглочена в brief@'
+# v2 Б3 (И-16, слово владельца 2026-11-17; арбитраж 095-granica-v2):
+# стабы предусловий брифа. Привязка по входам (Н-39) — в ВЫЗОВАХ zapest ниже:
+# каждая порча наблюдаема на входе своей ловящей клетки (фактический rc,
+# источники/применимость 996, бюджеты, сериализация, task без проб).
+zapest s46 t95-m50 red_orch_brief_precond.sh \
+  's@.*# t95-m50.*@_pc_ab="$(printf "0\t0")"; _pc_rc=0 # t95-m50 порча: всегда ok@'
+zapest s47 t95-m51 red_orch_brief_precond.sh \
+  's@.*# t95-m51.*@: # t95-m51 порча: хвост строки потерян@'
+zapest s48 t95-m52 red_orch_brief_precond.sh \
+  's@.*# t95-m52.*@_pc_rc=0; git -C "$REPO" rev-parse --git-dir >/dev/null 2>\&1 || _pc_rc=$? # t95-m52 порча: rc из неверного источника@'
+zapest s49 t95-m53 red_orch_brief_precond_budget.sh \
+  's@.*# t95-m53.*@_pc_add plan_slice 0 "origin/main=000000000000" # t95-m53 порча: бюджет без NOT_RUN@'
+zapest s54 t95-m54 red_orch_brief_precond_notrun.sh \
+  's@.*# t95-m54.*@_pc_add plan_slice 2 "NOT_RUN проба не исполнилась" # t95-m54 порча: именованный отказ спрятан в NOT_RUN@'
+zapest s55 t95-m55 red_orch_brief_precond_notrun.sh \
+  's@.*# t95-m55.*@_pc_canon=1 # t95-m55 порча: применимость всегда канонична — сырой признак вместо эффективных путей@'
+zapest s56 t95-m56 red_orch_brief_precond_notrun.sh \
+  's@.*# t95-m56.*@: # t95-m56 порча: state/roadmap/handoff не судятся@'
+zapest s57 t95-m57 red_orch_brief_precond_notrun.sh \
+  's@.*# t95-m57.*@_pc_json="{\"registry\":\"$_pc_repo_abs/registry\",\"roadmap\":\"$_pc_repo_abs/ROADMAP.md\",\"handoff\":\"$_pc_repo_abs/HANDOFF.md\"}" # t95-m57 порча: отказ резолвера выдан станционной зеленью@'
+zapest s58 t95-m58 red_orch_brief_precond_budget_gate.sh \
+  's@.*# t95-m58.*@_pc_add plan_gate 0 # t95-m58 порча: тайм-аут стража выдан зелёным@'
+zapest s59 t95-m59 red_orch_brief_precond_budget.sh \
+  's@.*# t95-m59.*@_pc_add sync_main 0 "behind=0 ahead=0" # t95-m59 порча: тайм-аут sync выдан зелёным@'
+zapest s60 t95-m60 red_orch_brief_precond_serial.sh \
+  's@.*# t95-m60.*@VK="$(pack_body | wc -c | tr -d " ")"; [ -n "$PRECOND_SEC" ] && VK=$((VK - $(printf %s "$PRECOND_SEC" | wc -c) - 16)) # t95-m60 порча: байты PRECOND вычтены из BUDGET@'
+zapest s61 t95-m61 red_orch_brief_precond_budget.sh \
+  's@.*# t95-m61.*@if [ 1 = 1 ]; then # t95-m61 порча: пробы исполняются и в task@'
 printf 'ИТОГ стаб-пак 095: rc=%s\n' "$itog"
 exit "$itog"
