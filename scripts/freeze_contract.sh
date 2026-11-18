@@ -335,8 +335,10 @@ esac
 # Контракт без строки «СДАЧА: » картой не судится (старые предметы — прежний
 # порядок). Двери карты в дереве нет — нога пропускается молча (окно
 # freeze..implementer, канон 191).
+# Условие — here-string, не конвейер: `printf | grep -q` под pipefail ловил
+# SIGPIPE на контракте >64 КиБ и молча пропускал ногу (Б-1 Rev193, И8).
 _k193_head="$(g cat-file -p "HEAD:$TARGET" 2>/dev/null || true)"
-if printf '%s\n' "$_k193_head" | grep -q '^СДАЧА: '; then
+if grep -q '^СДАЧА: ' <<<"$_k193_head"; then
   if [ -x "$SELF_DIR/check_verdict_karta.sh" ]; then
     _k193_rc=0
     _k193_out="$(bash "$SELF_DIR/check_verdict_karta.sh" "$ROOT" "$verdict" 2>&1)" || _k193_rc=$?
@@ -367,7 +369,7 @@ if [ -f "$SELF_DIR/check_consumers.sh" ]; then
   cons_rc=0
   cons_out="$(cd "$ROOT" && bash "$SELF_DIR/check_consumers.sh" "$ROOT" "$TARGET" 2>&1)" || cons_rc=$?
   if [ "$cons_rc" -ne 0 ]; then
-    cons_first="$(printf '%s' "$cons_out" | head -n 1)"
+    cons_first="${cons_out%%$'\n'*}"
     die "потребители 116 красны: $cons_first"
   fi
 fi
@@ -405,7 +407,7 @@ if [ -f "$SELF_DIR/check_precision_gate.sh" ]; then
   pg_rc=0
   pg_out="$(cd "$ROOT" && bash "$SELF_DIR/check_precision_gate.sh" "$ROOT" "$TARGET" 2>&1)" || pg_rc=$?
   if [ "$pg_rc" -ne 0 ]; then
-    pg_first="$(printf '%s' "$pg_out" | head -n 1)"
+    pg_first="${pg_out%%$'\n'*}"
     die "precision-гейт 043 красен: $pg_first"
   fi
 fi
