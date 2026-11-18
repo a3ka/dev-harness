@@ -9,7 +9,7 @@
 ЖДЁТ CI (у ветки предмета идёт CI) либо СТОИТ N мин — с последним событием. Строка СТОИТ —
 несделанный следующий шаг: он важнее wait.
 """
-import glob, json, os, re, subprocess, sys, datetime as dt
+import glob, json, os, pwd, re, subprocess, sys, datetime as dt
 
 WINDOW = int(sys.argv[1]) if len(sys.argv) > 1 else 360
 ACTIVE_MIN = 5            # агент без yield, писавший в журнал не позже N мин назад, — работает
@@ -86,6 +86,30 @@ for line in sh('git', '-C', REPO, 'log', 'origin/main', f'--since={WINDOW} minut
         events[n] = (ts(t), subj[:90])
 done = set(re.findall(r'done/contracts/([0-9]{3})/', sh('git', '-C', REPO, 'tag', '-l', 'done/contracts/*')))
 frozen = set(re.findall(r'frozen/contracts/([0-9]{3})/', sh('git', '-C', REPO, 'tag', '-l', 'frozen/contracts/*')))
+
+# ── ведущий потока mob: отдельная сессия проекта Complior-mob (175 v2) ───────
+# Поток mob ведёт отдельная сессия проекта Complior-mob (контракт 125, дом 055 И-2):
+# её журнал лежит вне дерева станции и вне дерева проекта, запись в дереве его не
+# подделает. Ведущий есть, когда самый свежий jsonl — журнал самой сессии или её
+# субагента — не старше окна табло включительно; мера та же, что у журналов станции.
+# Состояние проекта (bin/wt/архив) и чужая сессия (Complior-back) ведущими не
+# считаются. Табло ничего не пишет.
+# Дом сессии ищется по объединению двух корней: $HOME запускающего и дом из
+# passwd (pwd.getpwuid) — оркестратор и wait-guard 128 зовут табло под omp,
+# где HOME — каталог зоны (088 И-1), а журналы лежат в настоящем доме станции;
+# совпавшие корни дают один и тот же каталог, дубликат не считается дважды.
+mob_ses = sorted({p for h in (os.path.expanduser('~'), pwd.getpwuid(os.getuid()).pw_dir)
+                  for p in glob.glob(h + '/.local/state/dev-harness-projects/complior-mob'
+                                     '/home/.omp/profiles/dev/agent/sessions'
+                                     '/--home-harness-projects-Complior-mob--')})
+mob_last = []
+for b in mob_ses:
+    for f in glob.glob(b + '/*.jsonl') + glob.glob(b + '/*/*.jsonl'):
+        try:
+            mob_last.append(os.path.getmtime(f))
+        except OSError:
+            continue   # журнал исчез между поиском и замером — как его отсутствие
+mob_vedet = bool(mob_last) and max(mob_last) >= NOW.timestamp() - WINDOW * 60
 
 # ── открытые PR ───────────────────────────────────────────────────────────────
 prs = []   # (репо, номер, ветка, состояние, обновлён)
@@ -210,6 +234,12 @@ print('  бэкенд: ведёт сессия проекта Complior-back — 
 for s in ('харнесс', 'mob'):
     if active.get(s):
         print(f'  {s}: в работе предметов — {active[s]}')
+    elif s == 'mob' and mob_vedet:
+        # Ведущий поток ведёт отдельная сессия проекта: станция его предметы НЕ
+        # исполняет и хода потока не требует — строка-факт, в счёт «стоит без хода»
+        # не входит (wait-guard контракта 128: строка без «СТОИТ» хода не требует).
+        print(f'  mob: ведёт сессия проекта Complior-mob (журнал '
+              f'{int((NOW.timestamp() - max(mob_last)) // 60)} мин назад) — станция поток не требует')
     else:
         stoit += 1
         idle = f'{mins(last[s])} мин' if s in last else f'больше {WINDOW} мин'
