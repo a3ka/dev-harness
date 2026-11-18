@@ -1,48 +1,63 @@
 FAIL
 
-OBJECT=e585b5c54f75c65d2d26ee77d417ac0ab0ca7251
-СУД: repo=dev-harness; предмет=140; фаза=контракт v4; роль=critic; вызов=1/3 по записи HANDOFF; модель-план=openai-codex/gpt-6.1-terra; сессия=Crit140V4; модель-факт=openai-codex/gpt-6.1-terra (allowed, scripts/models_actual.sh --tsv --bind); SHA=e585b5c54f75c65d2d26ee77d417ac0ab0ca7251; предыдущий=accept v3; исключение=слово владельца на адресный v+1, HANDOFF строка 5.
+OBJECT=cb06ddf8e086bc513e77845d9178b49b2f9efe49
+СУД: repo=dev-harness; предмет=140; фаза=контракт v4; роль=critic; вызов=2/3 (второй по v4); модель-план=openai-codex/gpt-6.1-terra; сессия=Crit140V4b; модель-факт=openai-codex/gpt-6.1-terra (allowed, `scripts/models_actual.sh --tsv --bind`); SHA=cb06ddf8e086bc513e77845d9178b49b2f9efe49; предыдущий=Crit140V4 FAIL; исключение=слово владельца на адресный v+1.
 
-БЛОКИРУЕТ contracts/140-odin-agent-na-predmet.md:64 — запрет поля isolated в судейском START противоречит замороженному контракту 199.
-ОБЯЗАТЕЛЬСТВО: contracts/199-sol-v-izolyacii.md:34 требует для судей записывать флаг фактом события, не применяя к ним требование изоляции; заявка 199:19 не разрешает менять это обязательство.
-СОСТОЯНИЕ: разрешённый по судейским воротам судья спавнится с item.isolated=true (или false); 140:64 требует, чтобы судейский START не содержал поля, тогда как 199:34 требует записать его фактическое значение.
-НАБЛЮДЕНИЕ: одна строка START не может одновременно содержать и не содержать это поле. Модель 140, model/zamok_predmeta.sh:606-618, явно удаляет поле для судей; тест s45 проверяет только отсутствие требования изоляции, не запись факта. Поставить обе реализации одновременно в соответствие frozen 199 и кандидату невозможно.
-ЗАКРЫВАЮЩЕЕ СВОЙСТВО: контракт и различающая проверка согласуют судейский START с действующей нормой 199, сохраняя неприменимость изоляционного отказа к судьям; при необходимости смены обязательства требуется решение полномочной роли.
-КЛАСС: К-03.
+БЛОКИРУЕТ contracts/140-odin-agent-na-predmet.md:64 — проверка судейского факта не различает получение поля другого элемента разрешённого пакета.
+ОБЯЗАТЕЛЬСТВО: START любой предметной роли несёт нормализованный факт isolated именно своего item; batch допустим (инварианты 1, 3, 7; frozen 199:34). Новые s45–s47 должны различать запись факта судьи, а не только его наличие.
+СОСТОЯНИЕ: поддерживаемый смешанный batch: первый item — рабочий другого предмета с isolated=true, второй — судья с isolated=false после сдачи автора и на верном OBJECT. В новой операции модели [D33] замена имеющегося индексирования `[$idx]` на `[0]` берёт поле первого элемента вместо текущего.
+НАБЛЮДЕНИЕ: все 85 имеющихся клеток остаются зелёными на этой мутации; отдельный такой batch разрешён с rc 0, но START судьи содержит `isolated:true` вместо false. s45–s47 проверяют отдельные однопозиционные события, а b01/b06 не предъявляют факт каждого START. Это продолжение прежнего блока о недоказанности факта START, выявленное соседней мутацией новой операции дельты, не поиск по неизменённой поверхности.
+ОБХОД: реализация с указанной заменой операции проходит все 85 клеток, хотя записывает чужой факт для судьи в штатном смешанном пакете. Команды и фактический вывод ниже.
+ЗАКРЫВАЮЩЕЕ СВОЙСТВО: проверка различает источник факта каждого item в разрешённом пакете при несовпадающих значениях, включая судью не на первой позиции; честная обработка такого пакета остаётся зелёной. Привязки стабов — по коду, не по прозе (Н-39).
+ПРОИСХОЖДЕНИЕ: узкое-закрытие
+КЛАСС: К-10
 
-БЛОКИРУЕТ contracts/140-odin-agent-na-predmet.md:52 — механическое противоречие числа клеток в предмете и приёмке.
-ОБЯЗАТЕЛЬСТВО: предмет должен однозначно определять полный набор проверяемых входов; приёмка contracts/140-odin-agent-na-predmet.md:72-77 требует 83 клетки.
-СОСТОЯНИЕ: кандидат одновременно утверждает, что безфлаговый режим гоняет «все 76 клеток», и требует 83 клетки, включая семь новых входов изоляции.
-НАБЛЮДЕНИЕ: jq '{kejsy:(.kejsy|length),stabs:(.stab_vhod|length),svjazi:([.stab_vhod[]|length]|add),nositeli:(.nositeli|length)}' fixtures/workshop_project/odin_agent_140/source.json → {"kejsy":83,"stabs":41,"svjazi":80,"nositeli":46}, rc 0; 76 — прежний, а не текущий набор. Других расхождений в пересчитанных числах 83/41/80/46 не обнаружено.
-ЗАКРЫВАЮЩЕЕ СВОЙСТВО: число полного набора в предмете и приёмке согласовано с реально предъявляемой батареей без сокращения её входов.
-КЛАСС: К-15.
+Арбитр: повторный FAIL по классу доказательства судейского факта START; предмет спора — достаточная проверка источника факта в пакетном событии. Исчерпан фазовый бюджет исправительного вызова; дальнейший маршрут — по действующему порядку арбитража.
 
 ## Карта классов
 
-К-01: чисто — сдаточный лист и двери автора предъявлены в задании; повтор не назначен, threat model и проводка прочитаны.
-К-02: чисто — вход: заявка contracts/199-sol-v-izolyacii.md:19 и слово владельца в HANDOFF:5.
-К-03: блок — судейский START противоречит contracts/199-sol-v-izolyacii.md:34.
-К-04: чисто — вход: ЗОНА 140 и frozen/contracts/140/3; implementer несёт оба существующих пути, пронос поля отнесён 199.
-К-05: чисто — вход: contracts/140-odin-agent-na-predmet.md:69-80, W и S с rc.
-К-06: чисто — вход: probe.py, ORACLE_TAMPERED и проверки инструментов.
-К-07: блок — несовместимые требования к судейскому START; честная общая реализация 140 и 199 недостижима.
-К-08: чисто — вход: --stabs, контроль модели и привязки s36–s40 красны; rc 1 из-за шести красных клеток поставленной старой двери.
-К-09: чисто — вход: w26–w30, s45, b07 в probe.py и source.json.
-К-10: блок — судейский факт START не проверяется в s45 при обязательстве 199:34.
-К-11: чисто — вход: probe.py, чтение source.json и проверка sha256 до запуска субъекта.
-К-12: чисто — вход: модель использует jq для JSON поля и учёта.
+К-01: чисто — вход: сдаточный лист и двери автора; повтор дверей, кроме явно заданных model/stabs, не назначен.
+К-02: чисто — вход: 199:19,34 и разрешение в коммите кандидата; без изменений с вызова 1 вне дельты.
+К-03: чисто — вход: инвариант 7 и 199:34; запрет судейского поля снят.
+К-04: чисто — вход: diff 86a77d35a2..cb06ddf8 ограничен контрактом и зоной батареи architect.
+К-05: чисто — вход: приёмка 140:71–80; W и S с кодами возврата.
+К-06: чисто — вход: без изменений с вызова 1.
+К-07: чисто — вход: `W --model` rc 0, 85 отдельных клеток; несовместимость запрета поля снята.
+К-08: блок — позиционная замена операции [D33] проходит все клетки.
+К-09: блок — смешанный batch с разными фактами обнаруживает неполноту проверки дельты.
+К-10: блок — START судьи получает факт другого item пакета.
+К-11: чисто — вход: без изменений с вызова 1; носители source.json закреплены.
+К-12: чисто — вход: новая операция [D33] использует jq.
 К-13: н/п — дельта не обрабатывает секреты.
-К-14: чисто — вход: w30 истинное булево значение, w26–w29 отказ, s45 исключение судьи.
-К-15: блок — в предмете 76 вместо 83; пересчёт jq: 83/41/80/46.
-К-16: чисто — вход: модель угроз contracts/140-odin-agent-na-predmet.md:172-200; изоляция и неприменимость к судьям заявлены.
+К-14: чисто — вход: s45/s46/s47, `W --model` rc 0; инверсия требования изоляции судьи ловится s39.
+К-15: чисто — вход: jq source.json: 85 клеток, 44 стаба, 89 связей, 49 носителей, 13 привязок x01; предмет 85.
+К-16: чисто — вход: 140:189 и 199:34; требование изоляции остаётся только у рабочих.
 К-17: н/п — дельта не меняет операции или схемы архитектуры 188.
 
-## Выполненная атака
+## Выполненная проверка
 
-Команда: `python3 -c 'import importlib.util,tempfile,pathlib; p="fixtures/workshop_project/odin_agent_140/probe.py"; s=importlib.util.spec_from_file_location("probe",p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); t=m.MODEL.read_text(); a="if . == true then"; assert a in t; f=tempfile.NamedTemporaryFile(mode="w",suffix=".sh"); f.write(t.replace(a,"if . == false then",1)); f.flush(); print("mutation: == true -> == false"); print("w30:",m.progon(pathlib.Path(f.name),"w30-rabochij-start-s-faktom",m.kejsy()["w30-rabochij-start-s-faktom"]["run"])); print("w27:",m.progon(pathlib.Path(f.name),"w27-rabochij-isolated-lozh",m.kejsy()["w27-rabochij-isolated-lozh"]["run"]))'` (rc 0). Сырой вывод:
+`bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --model` — rc 0, сырой вывод: 85 строк `CASE <имя> ok`, в том числе `CASE s45-sudja-izolirovan-ne-trebuetsja ok`, `CASE s46-sudja-start-fakt-istina ok`, `CASE s47-sudja-start-fakt-lozh ok`.
 
+`bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --stabs` — rc 1; сырой итог: `SVJAZI 89`, `SUBJEKT_KRASNO: 9 — поставленная дверь красна (свидетель критика пойман)`; s40–s43 на объявленных привязках печатают `KRASEN`. Полный вывод запуска: `artifact://11377`.
+
+Атака на соседнюю позицию новой операции — воспроизводимые команды из корня клона (промежуточная проверка с отсутствующим контрактом кандидата ошибочно дала `KLASS_RISKA_NET`; ниже исправленная подготовка мира):
+
+```sh
+python3 -c 'import importlib.util,tempfile,pathlib,json; p="fixtures/workshop_project/odin_agent_140/probe.py"; s=importlib.util.spec_from_file_location("probe",p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); t=m.MODEL.read_text(); a="(.tasks // [.])[$idx].isolated"; assert t.count(a)==1; d=tempfile.TemporaryDirectory(); f=pathlib.Path(d.name)/"door.sh"; f.write_text(t.replace(a,"(.tasks // [.])[0].isolated")); k=m.kejsy(); bad=[(n,m.progon(f,n,v["run"])) for n,v in k.items()]; print("mutation [D33] [$idx] -> [0]:",len(bad),"cases, failures:",[(n,e) for n,e in bad if e]); w=tempfile.TemporaryDirectory(); mir=m.Mir(w.name); wt,br,sha=mir.worktree("141"); mir.start("141","Avtor141",wt=wt,branch=br); mir.zhurnal("Avtor141",sdal=True); wt2,br2,sha2=mir.worktree("142"); ev=mir.sobytie("e.json",[m.item("architect","Arch142",["SUBJECT=142","WORKTREE="+wt2,"BRANCH="+br2],isolated=True),m.item("critic","Critic141",["SUBJECT=141","OBJECT="+sha],isolated=False)]); r=m.sudit(f,mir,ev); print("batch rc:",r.returncode,"stderr:",r.stderr.strip()); print("batch START:",[(x.get("holder"),x.get("isolated")) for x in map(json.loads,mir.ledger.read_text().splitlines()) if x.get("holder") in ("Arch142","Critic141")])'
+```
+Сырой вывод, rc 0:
 ```text
-mutation: == true -> == false
-w30: ['rc: rc 1 ≠ 0; stderr=/tmp/tmpxrqpbwo2.sh: line 63: ADVERSARIJ_DO_REVJUERA: command not found\nОТКАЗ: NE_IZOLIROVAN: item 0: рабочий Arch140 без реального isolated === true в ПОЛЕ ite', "выход: в stdout нет 'PUSCHEM Arch140 dev-harness/140 (rabochij/architect)' (есть '')", "start: строки START {'subjectId': '140', 'holder': 'Arch140', 'klass': 'rabochij', 'group': 'harness', 'isolated': True} нет в учёте", 'занятие: занятие 140 не создано']
-w27: ['rc: rc 0 ≠ 1; stderr=/tmp/tmpxrqpbwo2.sh: line 63: ADVERSARIJ_DO_REVJUERA: command not found', 'причина: причины NE_IZOLIROVAN нет в stderr: /tmp/tmpxrqpbwo2.sh: line 63: ADVERSARIJ_DO_REVJUERA: command not found', 'учёт: учёт не пуст (1 строк)', "занятие: занятие 140 живо (holder 'Arch140')"]
+mutation [D33] [$idx] -> [0]: 85 cases, failures: []
+batch rc: 1 stderr: ОТКАЗ: KLASS_RISKA_NET: предмет 141: класс риска неоднозначно определён (net_stroki); файлы: ни contracts/, ни .harness/contracts/ в дереве 345d50a391e39f8e9e4bd178befe680f8ddf3eaf нет
+batch START: []
+```
+
+```sh
+python3 -c 'import importlib.util,tempfile,pathlib,json; p="fixtures/workshop_project/odin_agent_140/probe.py"; s=importlib.util.spec_from_file_location("probe",p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); t=m.MODEL.read_text(); a="(.tasks // [.])[$idx].isolated"; d=tempfile.TemporaryDirectory(); f=pathlib.Path(d.name)/"door.sh"; f.write_text(t.replace(a,"(.tasks // [.])[0].isolated")); w=tempfile.TemporaryDirectory(); mir=m.Mir(w.name); mir.kontrakt("141","обычный"); wt,br,sha=mir.worktree("141",kontrakty=[("fajl","141-stub.md","# К\nКЛАСС РИСКА: обычный\n")]); mir.start("141","Avtor141",wt=wt,branch=br); mir.zhurnal("Avtor141",sdal=True); wt2,br2,sha2=mir.worktree("142"); ev=mir.sobytie("e.json",[m.item("architect","Arch142",["SUBJECT=142","WORKTREE="+wt2,"BRANCH="+br2],isolated=True),m.item("critic","Critic141",["SUBJECT=141","OBJECT="+sha],isolated=False)]); r=m.sudit(f,mir,ev); print("mutation [D33] [$idx] -> [0]"); print("batch rc:",r.returncode,"stderr:",r.stderr.strip()); print("batch START:",[(x.get("holder"),x.get("isolated")) for x in map(json.loads,mir.ledger.read_text().splitlines()) if x.get("holder") in ("Arch142","Critic141")])'
+```
+Сырой вывод, rc 0:
+```text
+mutation [D33] [$idx] -> [0]
+batch rc: 0 stderr: 
+batch START: [('Arch142', True), ('Critic141', True)]
 ```
