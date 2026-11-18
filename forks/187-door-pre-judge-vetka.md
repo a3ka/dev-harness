@@ -6,7 +6,7 @@
 ЗАВЕДЁН: 2026-11-15T14:50:00Z
 АВТОР: anthropic/claude-sonnet-5-5
 БЛОКИРУЕТ: да
-ОТВЕЧЕНО: нет
+ОТВЕЧЕНО: снято — расхождение удалённого имени преодолено согласованным merge -s ours старой истории f50aa6b58b в eb136a2664 с неизменным деревом, получен bd99c4b1d8 и fast-forward штатной wip/187/implementer; pre_judge prepare прошёл, суд состоялся, консультант ConsBatch1118, модель openai-codex/gpt-6.1-sol.
 
 СЫРОЙ ВЫВОД (rc 1): `bash scripts/pre_judge.sh prepare --repo /home/harness/dev-harness --branch wip/187/implementer --sostojanie /home/harness/.local/state/dev-harness-sessions/c907157c/zamok --timeout 30` →
 «ОТКАЗ: VETKA_NE_OPUBLIKOVANA», следом строка «bash scripts/gitw push origin wip/187/implementer»; check_no_leak перед этим rc 0. Код отказа — по контракту 172 «origin/B отсутствует либо tip разошёлся с локальным»: origin/wip/187/implementer = f50aa6b58b72c6cc194253cc9b72494071cca7bf (старая история implementer 187), локальная wip/187/implementer = eb136a2664 (поверх 174c68f676 architect-door). Push `wip/187/implementer:refs/heads/wip/187/implementer` был бы не fast-forward (force запрещён).

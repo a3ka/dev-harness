@@ -1,0 +1,15 @@
+ФОРК: 193-uzkij-kritik-povtor
+ВОПРОС: разрешить ОДИН узкий исправительный (первый сверх базового 1+1) вызов critic по 193 на ПЕРЕСОБРАННЫЙ OBJECT `a59921695a4d336960831c17468697082e07fa8e` (ADR docs/owner/adr/2026-11-17-uzkij-kritik-konsultant-sessii.md, правило 1) — отказ `Cons1117` по прежнему OBJECT `5f574a78fd` («в дереве кандидата нет предыдущего вердикта, на который ссылается лист») устранён?
+КЛАСС: инженерный
+ПРИЗНАК: прошлая подпись консультанта сессии (`/tmp/dev-harness-verify/Cons1117/otvet.md`, раздел 193) — НЕ РАЗРЕШАЮ именно из-за отсутствия `verdicts/critic/contracts-193-v1-krug1-fail.md` в `git ls-tree` кандидата; остальные условия (а)(в)(г) он не оспорил; вердикты Crit193V1/V2 FAIL теперь в main (PR #1074 → main `34566df929`)
+МАРШРУТ: консультант
+ЗАВЕДЁН: 2026-11-17T23:05:00Z
+АВТОР: anthropic/claude-sonnet-5-5
+БЛОКИРУЕТ: freeze 193 (сдаточный лист + карта классов), далее 154/194
+ОТВЕЧЕНО: снято — Cons1118 разрешил первый дополнительный узкий critic на a59921695a4d336960831c17468697082e07fa8e; Crit193V3 дал FAIL К-01, исполненный следующим адресным ремонтом и accept Crit193V4; опубликованы frozen/contracts/193/1 и done/contracts/193/1, консультант ConsBatch1118, модель openai-codex/gpt-6.1-sol.
+
+ФАКТЫ (дерево, не память):
+- Пересборка: ветка `wip/193/architect` пересажена на `origin/main` (`34566df929`): те же 4 коммита architect (author=committer=architect; заглушка `4cd4c970ad`, `06f1db55ab`, `41fe0785ba`, `5f574a78fd` — после пересадки новые SHA, tip `a59921695a4d336960831c17468697082e07fa8e`). `git diff 5f574a78fd a59921695a -- contracts/193-svyazka-sdatochnyj-list.md fixtures/workshop_project/sdacha_193` ПУСТ (содержимое контракта и батареи идентично прежнему кандидату); в дереве `a59921695a` лежат `verdicts/critic/contracts-193-v1-krug1-fail.md` и `contracts-193-v1-krug2-fail.md` (`git ls-tree --name-only a59921695a verdicts/critic/ | grep 193`). Ветка опубликована (принудительное обновление собственной заменённой ветки `41fe0785ba→a59921695a`).
+- Остальное по условиям — как в форке `forks/193-uzkij-kritik-ispravitelnyj.md` и ответе консультанта: прошлые вердикты FAIL с конкретными блоками (Crit193V1 5 блоков, Crit193V2 К-08/К-01), арбитраж `Arb193V1` resolved (`verdicts/arbitration/193-granica-sdachi.md`, в main), дельта `Arch193Fix2` (`5f574a78fd` ≡ tip по содержимому) — только `contracts/193-svyazka-sdatochnyj-list.md` и `fixtures/workshop_project/sdacha_193/{SDACHA.md,probe.py,stabs.tsv}`; прогоны architect: `--model` 43/43, `--stabs` 24/24, голый 4/43 до реализации.
+РЕКОМЕНДАЦИЯ: разрешить один узкий исправительный вызов critic на OBJECT `a59921695a4d336960831c17468697082e07fa8e` — только закрытие К-08/К-01 по Arb193V1 и зависимый регресс; карта критика обязана быть конформна алфавиту 192/1; freeze — только после accept.
+ОСНОВАНИЕ-ДЕРЕВО: `git ls-tree --name-only a59921695a verdicts/critic/`; `git diff 5f574a78fd a59921695a -- contracts/193-svyazka-sdatochnyj-list.md fixtures/workshop_project/sdacha_193`; `git log --format='%an %cn' origin/main..a59921695a`.

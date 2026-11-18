@@ -6,7 +6,7 @@
 ЗАВЕДЁН: 2026-11-15T11:40:00Z
 АВТОР: anthropic/claude-sonnet-5-5
 БЛОКИРУЕТ: да
-ОТВЕЧЕНО: нет
+ОТВЕЧЕНО: снято — узкий ремонт двери 187а получил отдельный носитель на батарее main, без отложенного v+1; история удалённой implementer согласована без force, после ремонта Д3 получен accept Rev187DoorC и код влит PR #970, консультант ConsBatch1118, модель openai-codex/gpt-6.1-sol.
 
 Факты. Arch187DoorRc сдал 897dbf7b9f (wip/187/architect, только workflow_probe.py +91/−3, отдельный коммит; мои `--model` CELLS=97 FAILURES=0 и `--stabs` CELLS=97 STABS=104 FAILURES=0). Стоп-проверка автора: клетки, требующей отказа при rc 0, в батарее нет — продолжаем. Новые клетки: check-green-latency-unresolved (rc 0 + status NOT_EVALUATED + requiredModelGate PASS → rc 0; красна сегодня), check-rc2-real-gate (rc 2 → ARCH_NOT_EVALUATED с rc 2 двери), check-rc1-real-gate (rc 1 → ARCH_CHECK; защита), check-rc0-gate-lie (rc 0 с gate NOT_EVALUATED → ARCH_NOT_EVALUATED) + 4 стаба. Указание автора для implementer: ремонт обязан доводить rc arch187_model_check до exit-кода двери (2→exit 2, 1→exit 1).
 Проблема носителя: (а) implementer-ветка: локально wip/187/implementer и её WT грязные (contracts +116, workflow_probe +866 — stale, нужна байтовая копия как для 140); базовая цепочка (f50aa6b58b) не предок 897dbf7b9f; (б) если базировать implementer на tip architect, в его ветку попадёт весь отложенный v+1 батареи (смешение) и сдвиг non-FF к origin/wip/187/implementer; (в) hotfix 0de333cfe6 уже в main, а батарея main и батарея architect-ветки расходятся.
