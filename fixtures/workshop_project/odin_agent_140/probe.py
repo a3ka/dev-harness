@@ -14,8 +14,11 @@
 v5 (слово владельца 2026-11-18 ~14:05 UTC, §4 батча №2; заявка 199:19):
 у рабочего item события спавна обязан иметь реальный isolated === true
 из ПОЛЯ item omp-события (НЕ слово в тексте задания): отсутствие/ложь —
-отказ NE_IZOLIROVAN до START и любых записей; строка START несёт факт
-isolated; на судей требование не распространяется.
+отказ NE_IZOLIROVAN до START и любых записей; строка START ЛЮБОЙ роли
+несёт факт isolated — нормализованное значение ПОЛЯ item (=== true →
+"isolated":true, отсутствие/ложь/иное → "isolated":false, 199:34); на
+судей ТРЕБОВАНИЕ изолированности не распространяется, факт записывается
+(s45/s46/s47; исправление по вердикту Crit140V4 К-03/К-07/К-10).
 
 Режимы:
   (без флага)   субъект = ПОСТАВЛЕННАЯ дверь дерева scripts/zamok_predmeta.sh
@@ -1281,17 +1284,48 @@ def kejsy():
 
     def s45(mir, door):
         # v5: требование изоляции — ТОЛЬКО рабочие; судья с isolated=false
-        # (и без поля — судейские клетки выше) проходит судейские ворота
-        # без новой причины
+        # проходит судейские ворота без новой причины, а строка START
+        # несёт ФАКТ события (199:34: ложь записывается как false —
+        # исправление по вердикту Crit140V4 К-03/К-10)
         wt, br, sha = _avtor_sdal(mir, '141')
         ev = mir.sobytie('e.json', [item('critic', 'Critic141',
                         ['суд контракта', 'SUBJECT=141', 'OBJECT=' + sha],
                         isolated=False)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 0, 'rc'),
-                k_stroka(mir, 'start', subjectId='141', holder='Critic141', klass='sudja'),
+                k_stroka(mir, 'start', subjectId='141', holder='Critic141',
+                         klass='sudja', isolated=False),
                 k_zanyat(mir, '141', 'Critic141', 'занятие')]
-    reg('s45-sudja-izolirovan-ne-trebuetsja', 'роль=судья;isolated=false;ворота=судейские-без-новой-причины', s45)
+    reg('s45-sudja-izolirovan-ne-trebuetsja', 'роль=судья;isolated=false;START=факт-false;ворота=без-новой-причины', s45)
+
+    def s46(mir, door):
+        # v5-фикс (Crit140V4 К-03; 199:34 «судьи: флаг записывается фактом
+        # события»): судья с isolated === true ИЗ ПОЛЯ — START несёт факт
+        # isolated:true (требование не применяется, от факта не зависит)
+        wt, br, sha = _avtor_sdal(mir, '141')
+        ev = mir.sobytie('e.json', [item('critic', 'Critic141',
+                        ['суд контракта', 'SUBJECT=141', 'OBJECT=' + sha],
+                        isolated=True)])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 0, 'rc'),
+                k_stroka(mir, 'start', subjectId='141', holder='Critic141',
+                         klass='sudja', isolated=True),
+                k_zanyat(mir, '141', 'Critic141', 'занятие')]
+    reg('s46-sudja-start-fakt-istina', 'роль=судья;isolated=true-из-поля;START=факт-true', s46)
+
+    def s47(mir, door):
+        # v5-фикс: у судьи БЕЗ поля факт нормализуется в false (199:34
+        # fail-closed: «отсутствие поля и любое иное значение
+        # нормализуются в false») и записывается в строку START
+        wt, br, sha = _avtor_sdal(mir, '141')
+        ev = mir.sobytie('e.json', [item('critic', 'Critic141',
+                        ['суд контракта', 'SUBJECT=141', 'OBJECT=' + sha])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 0, 'rc'),
+                k_stroka(mir, 'start', subjectId='141', holder='Critic141',
+                         klass='sudja', isolated=False),
+                k_zanyat(mir, '141', 'Critic141', 'занятие')]
+    reg('s47-sudja-start-fakt-lozh', 'роль=судья;isolated=поля-нет;START=факт-false', s47)
 
     # C. пакет: дубль в пакете × откат × гонка × режим
     def b01(mir, door):
@@ -1706,7 +1740,7 @@ def m_bez_starta(t):
     return _z(t, '''    jq -nc --arg t START --arg r "$REPO_ID" --arg s "$sv" --arg g "$grp2" \\
           --arg h "$name" --arg k "$klass" --arg ro "$rol" --arg o "$obj" \\
           --arg w "$wt" --arg b "$br" --arg at "$(ts_now)" --arg iz "$izl" \\
-      '{t:$t,repoId:$r,subjectId:$s,group:$g,holder:$h,klass:$k,rol:$ro,object:$o,worktree:$w,branch:$b,at:$at} + (if $iz == "true" then {isolated:true} else {} end)' \\
+      '{t:$t,repoId:$r,subjectId:$s,group:$g,holder:$h,klass:$k,rol:$ro,object:$o,worktree:$w,branch:$b,at:$at} + (if $iz == "true" then {isolated:true} elif $iz == "false" then {isolated:false} else {} end)' \\
       >> "$LEDGER"''', '''    : # стаб: строку START не пишем''')
 
 
@@ -1892,9 +1926,47 @@ def m_izolirovan_trebuet_sudi(t):
 
 
 def m_start_bez_fakta(t):
-    # [D33] снят: строка START рабочего не несёт факт isolated
-    return _z(t, "    izl='false'\n    [ \"$klass\" = 'rabochij' ] && izl='true'",
-              '''    izl='net' # стаб: факт isolated в строку START не пишем''')
+    # [D33] снят: строка START (рабочего и судьи) не несёт факт isolated
+    return _z(t, '''    izl="$(jq -r "(.tasks // [.])[$idx].isolated | if . == true then \\"true\\" else \\"false\\" end" "$EVENT" 2>/dev/null)" \\
+      || izl='false'
+''',
+              '''    izl='net' # стаб: факт isolated в строку START не пишем
+''')
+
+
+def m_sudej_fakt_po_klassu(t):
+    # [D33] судейский факт пишется КЛАССОМ (рабочий true / судья false),
+    # а не ПОЛЕМ item — судья с isolated === true из поля записан ложью
+    # (форма v5-до-фикса; красная на s46)
+    return _z(t, '''    izl="$(jq -r "(.tasks // [.])[$idx].isolated | if . == true then \\"true\\" else \\"false\\" end" "$EVENT" 2>/dev/null)" \\
+      || izl='false'
+''',
+              '''    izl='false'; [ "$klass" = 'rabochij' ] && izl='true' # стаб: судейский факт по классу, не по полю
+''')
+
+
+def m_sudej_fakt_vsegda_istina(t):
+    # [D33] факт всегда истина: судьи с isolated=false и без поля
+    # записаны истиной (источник — не ПОЛЕ item)
+    return _z(t, '''    izl="$(jq -r "(.tasks // [.])[$idx].isolated | if . == true then \\"true\\" else \\"false\\" end" "$EVENT" 2>/dev/null)" \\
+      || izl='false'
+''',
+              '''    izl='true' # стаб: факт isolated всегда истина
+''')
+
+
+def m_sudejskij_start_bez_fakta(t):
+    # [D33] судейская строка поля не несёт — форма v5-до-фикса,
+    # отвергнута вердиктом Crit140V4 К-03 (против замороженного 199:34:
+    # «судьи: флаг записывается фактом события»)
+    return _z(t, '''    izl="$(jq -r "(.tasks // [.])[$idx].isolated | if . == true then \\"true\\" else \\"false\\" end" "$EVENT" 2>/dev/null)" \\
+      || izl='false'
+''',
+              '''    izl="$(jq -r "(.tasks // [.])[$idx].isolated | if . == true then \\"true\\" else \\"false\\" end" "$EVENT" 2>/dev/null)" \\
+      || izl='false'
+    [ "$klass" = 'sudja' ] && izl='net' # стаб: судейская строка поля не несёт
+''')
+
 
 
 STAB_MUTACII = {
@@ -1938,6 +2010,9 @@ STAB_MUTACII = {
     's38-izolirovan-ne-bulo': m_izolirovan_ne_bulo,
     's39-izolirovan-trebuet-sudi': m_izolirovan_trebuet_sudi,
     's40-start-bez-fakta': m_start_bez_fakta,
+    's41-sudej-fakt-po-klassu': m_sudej_fakt_po_klassu,
+    's42-sudej-fakt-vsegda-istina': m_sudej_fakt_vsegda_istina,
+    's43-sudejskij-start-bez-fakta': m_sudejskij_start_bez_fakta,
     'x01-vsegda-puschem': m_vsegda_puschem,
 }
 

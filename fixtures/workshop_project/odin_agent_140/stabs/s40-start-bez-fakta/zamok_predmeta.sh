@@ -42,7 +42,10 @@
 #   ИМЯ     — [A-Za-z0-9._-]+ (грамматика session-id, норма 037);
 #   ISOLATED — поле item события isolated: у рабочего — РЕАЛЬНОЕ булево
 #             true (строгое === true, jq-сравнение); отсутствие поля, ложь и
-#             любое иное значение — NE_IZOLIROVAN; судей не касается;
+#             любое иное значение — NE_IZOLIROVAN; судей требование не
+#             касается, но факт записывается: строка START ЛЮБОЙ роли
+#             несёт нормализованное значение ПОЛЯ item (=== true →
+#             "isolated":true, иначе — "isolated":false, 199:34);
 #             источник — нормализация стража спавна (ПОЛЕ item omp-события),
 #             НЕ слово в тексте задания;
 #   РОЛИ    — рабочие: architect implementer implementer-glm implementer-vision;
@@ -60,7 +63,7 @@
 #   IMJA_NET GRAMMATIKA_IMENI AGENT_NET BITYJ_VHOD
 #   DUBL_V_PAKETE RABOCHIJ_ZHIV SUDJA_ZHIV ZAMOK_BROSHEN ZANYATO_RESHENIEM
 #   AVTOR_ESHCHO_RABOTAET RABOCHEGO_NET OBJECT_RASHODITSJA OBJECT_UZHE_SUZHEN
-   ADVERSARIJ_DO_REVJUERA KLASS_RISKA_NET PAUZA_VLADELTSA LIMIT_GRUPPY NE_IZOLIROVAN
+#   ADVERSARIJ_DO_REVJUERA KLASS_RISKA_NET PAUZA_VLADELTSA LIMIT_GRUPPY NE_IZOLIROVAN
 #   ZAMOK_ZHIV DERZHATEL_RASHODITSJA NET_ZAMKA
 # rc 0 — разрешено (замки заняты, START дописан ДО возврата) / исполнено / учёт.
 # rc 2 — NOT_IMPLEMENTED (нет jq/git/find, мир нечитаем): fail-closed; вызов
@@ -603,9 +606,13 @@ EOF
     [ -n "$sv" ] || continue
     if [ "$klass" = 'rabochij' ]; then grp2="$(gruppa_iz_pina "$wt")"
     else grp2="$(gruppa_ledger "$sv")"; fi
-    # [D33 start-fakt-izolirovan] v5: строка START рабочего несёт факт
-    # isolated (реальный true — гейт [D32] уже пройден); судейская строка
-    # поля не несёт (требование — только рабочие).
+    # [D33 start-fakt-izolirovan] v5: строка START ЛЮБОЙ роли несёт факт
+    # isolated — нормализованное значение ПОЛЯ item события (=== true →
+    # «true»; отсутствие поля/ложь/иное — «false», fail-closed; заморожено
+    # 199:34): у рабочего факт всегда true (гейт [D32] уже пройден), у
+    # судьи — записывается фактом события (требование не применяется).
+    # Значение «net» (пропуск поля) у честной двери недостижимо — якорь
+    # стабов s40/s43 в строке jq ниже.
     izl='net' # стаб: факт isolated в строку START не пишем
     zdir="$(zamok_dir "$sv")"
     mkdir -p "$zdir/zanyat" 2>/dev/null || skip "занятие не создать: $zdir/zanyat"
@@ -614,7 +621,7 @@ EOF
     jq -nc --arg t START --arg r "$REPO_ID" --arg s "$sv" --arg g "$grp2" \
           --arg h "$name" --arg k "$klass" --arg ro "$rol" --arg o "$obj" \
           --arg w "$wt" --arg b "$br" --arg at "$(ts_now)" --arg iz "$izl" \
-      '{t:$t,repoId:$r,subjectId:$s,group:$g,holder:$h,klass:$k,rol:$ro,object:$o,worktree:$w,branch:$b,at:$at} + (if $iz == "true" then {isolated:true} else {} end)' \
+      '{t:$t,repoId:$r,subjectId:$s,group:$g,holder:$h,klass:$k,rol:$ro,object:$o,worktree:$w,branch:$b,at:$at} + (if $iz == "true" then {isolated:true} elif $iz == "false" then {isolated:false} else {} end)' \
       >> "$LEDGER"
     printf 'PUSCHEM %s %s/%s (%s/%s)\n' "$name" "$REPO_ID" "$sv" "$klass" "$rol"
   done <<EOF
