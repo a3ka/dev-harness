@@ -92,7 +92,7 @@
 - `fixtures/workshop_project/gespraech_vhod_147/red_ci_147.py --model`
 - `fixtures/workshop_project/gespraech_vhod_147/red_ci_147.py --stabs`
 5. Правило (суд): ОДИН круг критика (быстрый процесс, roles/critic.md §Быстрый-процесс) по этому контракту + ревьюер; экран класса риска лёгким быть не может — ТРЕК-гейт 158 (нога д3) отклоняет (147 — обычный, поле выше).
-6. Правило (геометрия И-12): `fixtures/workshop_project/gespraech_vhod_147/red_geo_147.py --repo <R>` → rc 0 на продукте с производным spec и источниками Kompakt-1.1; Final2-геометрия даёт rc 1 `GEOMETRIJA_NE_KOMPAKT` отдельно по каждому переходу, отсутствие источника — rc 2 `ISTOCHNIK_OTSVTSTVUET`. Канон `teksty/gespraech-dvizhenie.test.ts` наследует все прежние проверки и добавляет from/to/resolved/adaptive из единого носителя. Самоконтроль (без запуска реализации/эмулятора), зелёные пробы 036:
+6. Правило (геометрия И-12): `fixtures/workshop_project/gespraech_vhod_147/red_geo_147.py --repo <R>` → rc 0 на продукте с производным spec и источниками Kompakt-1.1; оба продуктовых носителя — motion-spec-gespraech-kompakt-147.json и побайтовая копия закреплённого geometrija-147.json — доставляются implementer 147 после freeze в двух точных зонах ниже, вне пачки из 10 файлов. Final2-геометрия даёт rc 1 `GEOMETRIJA_NE_KOMPAKT` отдельно по каждому переходу, отсутствие источника — rc 2 `ISTOCHNIK_OTSVTSTVUET`. Канон `teksty/gespraech-dvizhenie.test.ts` наследует все прежние проверки и добавляет from/to/resolved/adaptive из единого носителя. Самоконтроль (без запуска реализации/эмулятора), зелёные пробы 036:
 - `fixtures/workshop_project/gespraech_vhod_147/red_geo_147.py --model`
 - `fixtures/workshop_project/gespraech_vhod_147/red_geo_147.py --stabs`
 
@@ -132,11 +132,12 @@
 ЗОНА implementer: .github/workflows/mobile.yml
 ЗОНА implementer: mobile/ci-screens.json
 ЗОНА implementer: docs/ux/05_Kompakt_D24/motion/motion-spec-gespraech-kompakt-147.json
+ЗОНА implementer: docs/ux/05_Kompakt_D24/motion/geometrija-147.json
 ЗОНА critic: verdicts/critic/
 ЗОНА reviewer: verdicts/review/
 ЗОНА orchestrator: registry/ci-steps.tsv registry/ci-zamery.tsv .github/workflows/ci.yml
 
-Пути продуктовых ЗОНА implementer — от корня Complior-mob. В docs/ux/05_Kompakt_D24/motion/ исполнитель 147 создаёт только motion-spec-gespraech-kompakt-147.json как производный источник И-12 с происхождением и sha256; оригиналы пакета, motion-delta.md, motion-delta-frames/, source/, frames/, README_RU.md, SHA256SUMS и производный motion-spec-gespraech-kompakt-149.json не меняются. Производный файл не становится новым дизайнерским каноном. Его доставка и dvizhenie.spec/spec_sha256 в mobile/e2e-gespraech-vhod/ekran.json — работа implementer 147 после freeze, в том же продуктовом PR, с приёмкой по И-12.
+Пути продуктовых ЗОНА implementer — от корня Complior-mob. В docs/ux/05_Kompakt_D24/motion/ исполнитель 147 создаёт только motion-spec-gespraech-kompakt-147.json как производный spec И-12 и geometrija-147.json как побайтовую копию закреплённого nositeli/kompakt11/geometrija-147.json из fixtures/workshop_project/gespraech_vhod_147/ харнесса; sha256 копии равен действующему пину piny.json.dvizhenie.sha256 этого носителя. Оригиналы пакета, motion-delta.md, motion-delta-frames/, source/, frames/, README_RU.md, SHA256SUMS и производный motion-spec-gespraech-kompakt-149.json не меняются. Производные файлы не становятся новым дизайнерским каноном. Доставка обоих файлов и dvizhenie.spec/spec_sha256 в mobile/e2e-gespraech-vhod/ekran.json — работа implementer 147 после freeze, в том же продуктовом PR, с приёмкой по И-12 и критерию 6. Оракул харнесса остаётся закреплённым fixture-носителем, загружаемым до продуктового spec, а не вычисляется из проверяемого продукта.
 
 Независимость судей: автор и критик на Sol допустимы — слово владельца 2026-11-05 ~12:43 UTC «я разрешаю авторство и критика на сол»
 ПЕРЕСЕЧЕНИЕ implementer: mobile/src/bootstrap/tab-shell.tsx — 108 файл заявлен с 108/1; 147 встраивает ТОЛЬКО Mitte (знак tier tab, меню, press-long), строки слота startScreen/меню и удержание живой подложки Start/Vorgänge ПОД размытием с отключением касаний (И-5); чужие секции не трогает.
@@ -267,7 +268,7 @@
 - CI-запись ci-screens.json и работник mobile.yml по лекалу 143/2 — implementer, БЕЗУСЛОВНО в PR экрана (слово владельца 2026-11-12, вариант А; И-11), append-only, landing после 148;
 - наборное предъявление `--repo <R> --ekran 147` — по готовности предметов 158/159 (отдельные предметы, в работе);
 - живые кадры 8/8 — работник CI в PR экрана (артефакт maestro-gespraech-vhod-*); scoped-повтор ревьюера Р147-Б1 — по кадрам работника;
-- доставка производного motion-spec-gespraech-kompakt-147.json в продукт и его пин в mobile/e2e-gespraech-vhod/ekran.json — implementer 147 после freeze в объявленной точной зоне docs/ux/05_Kompakt_D24/motion/motion-spec-gespraech-kompakt-147.json, в том же продуктовом PR, с приёмкой по И-12; текущая architect-пачка этих путей не пишет. До доставки `--repo` отказывает rc 2, это не зелёная приёмка и не изменение mob#169.
+- доставка двух файлов motion-spec-gespraech-kompakt-147.json и geometrija-147.json в продукт и dvizhenie.spec/spec_sha256 в mobile/e2e-gespraech-vhod/ekran.json — implementer 147 после freeze в двух объявленных точных зонах docs/ux/05_Kompakt_D24/motion/motion-spec-gespraech-kompakt-147.json и docs/ux/05_Kompakt_D24/motion/geometrija-147.json, без повторной раздачи, в том же продуктовом PR, с приёмкой по И-12 и критерию 6; geometry — побайтовая копия закреплённого fixture-носителя с sha256 = piny.json.dvizhenie.sha256, вне пачки из 10 файлов. Текущая architect-пачка этих продуктовых путей не пишет. До доставки `--repo` отказывает rc 2, это не зелёная приёмка и не изменение mob#169.
 - строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ к замороженному тексту (frozen/contracts/147/5) — оркестратор amend'ом по слову владельца;
 - подключение CI-шага/замера red_ci_147.py — orchestrator (окно freeze..done; check_provodka зелёный после проводки);
 - вариант В (лёгкий режим валидатора: лёгкая форма пачки в ekran_shablon.py либо вариант лекала) — ОТДЕЛЬНЫЙ предмет харнесса с номером от владельца, зона владельцев (линия 132/146 — валидатор; 143 — лекало), не экранная задача и НЕ предпосылка этого контракта.
