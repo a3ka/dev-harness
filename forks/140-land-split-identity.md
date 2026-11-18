@@ -6,7 +6,7 @@
 ЗАВЕДЁН: 2026-11-15T15:20:00Z
 АВТОР: anthropic/claude-sonnet-5-5
 БЛОКИРУЕТ: да
-ОТВЕЧЕНО: нет
+ОТВЕЧЕНО: снято — PR #956 с носителем 140 принят owner-merge 9a27066e9aedb4dbf8ee15288ba6000a373a969d, frozen/contracts/140/3 существует; последствие отсутствующей строки в merge закрыто владельческой парой 47 (44f1df9fc8), переписывать старые identity/hold задним числом не нужно, консультант ConsBatch1118, модель openai-codex/gpt-6.1-sol.
 
 СЫРОЙ ВЫВОД (rc 1): `bash scripts/land_agent.sh --branch wip/int-1401/architect --worktree /tmp/dev-harness-worktrees/c907157c/wip-int-1401-architect --root /home/harness/dev-harness` →
 «ОТКАЗ: identity расщеплена: 3572945e author=implementer committer=orchestrator — committer и author обязаны совпадать (И-9)». Скрипт: «STOP: land wip/int-1401/architect отказ». Детектор до: красный по 7 путям docs/owner/adr/** (owner-PR #953) — ручной `--snapshot` по стоячей санкции: (а) `git status --porcelain` пусто; (б) HEAD == origin/main == 0962c10347 после `gitw merge --ff-only origin/main`; (в) `0 0`; snapshot rc 0 (транскрипт — в теле ближайшего state-коммита).

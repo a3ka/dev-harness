@@ -6,7 +6,7 @@
 ЗАВЕДЁН: 2026-11-16T10:55:00Z
 АВТОР: anthropic/claude-sonnet-5-5
 БЛОКИРУЕТ: да
-ОТВЕЧЕНО: нет
+ОТВЕЧЕНО: снято — владелец 16.11 ~11:38 сказал «187/2 — отменить»: прежний hold e698aae9d9 сохранён в refs/frozen-cancelled, освобождён номер /2; затем принят и опубликован новый frozen/contracts/187/2 с ПОТРЕБИТЕЛЬ-правкой и done/contracts/187/1 с явным остатком 170, консультант ConsBatch1118, модель openai-codex/gpt-6.1-sol.
 
 СЫРОЙ ВЫВОД: `git log -1 --format='%h %an %s' refs/frozen-hold/contracts/187/2^{commit}` → e698aae9d9 critic «187 v3: accept критика — исправительный вызов 2 по дельте (Б-1 закрыт: MA1/MA2/MA3 глобально краснят ровно новые клетки; 68/7…»; `git cat-file -t refs/frozen-hold/contracts/187/2` → tag; тело тега «заморозка 187 v3: accept критика Crit187v3b (verdicts/critic/contracts-187-v3.md, OBJECT aaf46a817), слово владельца 2026-11-12»; `git diff --stat frozen/contracts/187/1^{commit} refs/frozen-hold/contracts/187/2^{commit} -- contracts/187-arhitektura-v-processe.md` → 95 insertions, 21 deletions.
 Варианты: см. ВОПРОС (а)/(б)/(в). Рекомендация: (а) — отложенный v+1 текст уже судим и принят; приземляем его штатно (носитель от main + merge, РАЗРЕШИЛ из тел коммитов), публикуем hold 187/2 по `gitw_teg_130.sh publish`; пробы потребителей — отдельной версией 187/3 с узким критиком по дельте (+5 строк); так done 187а получает ОБЕ правки. Мой текущий носитель #990 при этом перебазируется на текст 187/2.
