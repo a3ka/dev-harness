@@ -1,27 +1,15 @@
 FAIL
-OBJECT=6b22cb4ffd704be3f6cee4c4c8eb666ab61c0a56
-СУД: repo=dev-harness; предмет=995; фаза=реализация; роль=adversary; вызов=один дополнительный узкий по слову владельца ~14:05 UTC 2026-11-18, §2 батча №2; сессия=Adv995; модель-факт=openai-codex/gpt-6.1-terra (allowed; `bash scripts/models_actual.sh --tsv --bind --session Adv995 | cut -f1-3`); SHA=6b22cb4ffd704be3f6cee4c4c8eb666ab61c0a56.
+OBJECT=d532f36481ec980f139ededf42d1dfdf9c5072cc
+СУД: repo=dev-harness; предмет=995; фаза=реализация; роль=adversary; вызов=один дополнительный узкий по слову владельца 2026-11-18 ~21:09 UTC; сессия=Adv995b; модель-факт=openai-codex/gpt-6.1-terra (allowed; `bash scripts/models_actual.sh --tsv --bind --session Adv995b | cut -f1-3` из `/home/harness/dev-harness`); SHA=d532f36481ec980f139ededf42d1dfdf9c5072cc.
 
-БЛОКИРУЕТ `fixtures/workshop_project/pilot_995/env_override_regression.py:135-137`, `fixtures/workshop_project/pilot_995/runtime_probe.py:24,110` — проверка не доказывает обязательное синтетическое происхождение URL: ожидаемое значение берётся из самой проверяемой константы. `contracts/995-cmp-mob-001-android-pilot.md:41` требует синтетические адреса `.invalid`; санкционированная дельта прямо требует синтетический URL для HTTP_UNAVAILABLE и проверку URL с реальным хостом. Это недостаток доказательства свойства, а не утверждение, что кандидат уже использует реальный хост: в OBJECT стоит `https://api.example.invalid`. КЛАСС: К-11 (оракул из субъекта), ПРОИСХОЖДЕНИЕ: дельта.
+## Блок — матрица зелена при подмене URL
 
-СОСТОЯНИЕ: явно названная заданием негативная клетка «URL с реальным хостом»; вместо существующего присваивания константы строки 24 в одноразовой копии подставлено `https://example.com`. Источник механизма — замена именно добавленной операции, а не специальный запрет входа. Проверяемый процесс получает этот URL при отсутствии родительского и при чужом родительском URL; ожидаемое значение одновременно меняется вместе с ним. Сам факт реального сетевого запроса не заявляется: в `runtime.test.tsx:39` fetch подменён throw-fetch.
+БЛОКИРУЕТ `fixtures/workshop_project/pilot_995/runtime_probe.py:24,110,140-148`. Задание этого узкого вызова прямо требует: регресс, `--stabs` и `--matrix` краснеют именно на подмене URL/константы; честный мир зелёный. Контракт `contracts/995-cmp-mob-001-android-pilot.md:41` задаёт синтетические адреса `.invalid`. Матрица изолирована от нового регресса и запускает поведенческие модели без независимой проверки происхождения переданного URL. Проводка текущей quality в продукте `mobile.yml:242-247` вызывает именно `runtime_probe.py`, не этот отдельный регресс; перепин и правка продукта вне данного суда. Это отсутствие требуемого доказательства, а не утверждение о реальном сетевом запросе: `runtime.test.tsx:37-46` подменяет fetch бросающей функцией.
 
-ВХОД (все команды из `/tmp/dev-harness-verify/Adv995/repo`; продукт — локальная одноразовая копия Complior-mob `01e081b8dcc95c4f9cba353b656c70301fc4792c`, с установленными зависимостями; сеть не использовалась):
-```sh
-cp -a fixtures/workshop_project/pilot_995 .negative/real-host
-python3 -c "from pathlib import Path; p=Path('.negative/real-host/runtime_probe.py'); s=p.read_text(); a=\"SYNTHETIC_API_URL = 'https://api.example.invalid'\"; assert s.count(a)==1; p.write_text(s.replace(a, \"SYNTHETIC_API_URL = 'https://example.com'\"))"
-python3 .negative/real-host/env_override_regression.py --repo .product-negative --stabs
-python3 .negative/real-host/runtime_probe.py --repo .product-negative --matrix
-```
-НАБЛЮДЕНИЕ (дословные сигнальные строки; стеки Jest опущены):
+КЛАСС: К-11; ПРОИСХОЖДЕНИЕ: узкое-закрытие. Вход — прямо заданная в предыдущем вердикте и текущем задании замена существующей константы, не новая искусственная ветвь; механизм — тот же отправляемый в процесс URL без независимого свидетеля в двери матрицы.
+
+ОБХОД: одноразовая копия батареи OBJECT, `SYNTHETIC_API_URL = 'https://example.com'`; команда `python3 /tmp/dev-harness-verify/Adv995b/world-real/runtime_probe.py --repo /tmp/dev-harness-verify/Adv995b/product --matrix` возвращает сырой rc 0:
 ```text
-995 env-regress/control parent=EXPO_PUBLIC_API_URL:absent: rc=0 (nabljudenie vnutri processa + setevaja kletka)
-995 env-regress/control parent=EXPO_PUBLIC_API_URL:https://foreign-parent.example.com: rc=0 (nabljudenie vnutri processa + setevaja kletka)
-995 env-regress STAB no-override parent=no-url KRASEN (Error: expect(received).toBe(expected) // Object.is equality | Expected: "https://example.com" | Received: undefined)
-995 env-regress STAB no-override parent=foreign-url KRASEN (Error: expect(received).toBe(expected) // Object.is equality | Expected: "https://example.com" | Received: "https://foreign-parent.example.com")
-995 env-regress STAB setdefault parent=foreign-url KRASEN (Error: expect(received).toBe(expected) // Object.is equality | Expected: "https://example.com" | Received: "https://foreign-parent.example.com")
-995 env-regress SVJAZI 3 zhivykh 0
-REAL-HOST STABS rc=0
 995 runtime/honest/SHIPPED_INVALID: rc=0
 995 runtime/honest/SHIPPED_VALID: rc=0
 995 runtime/honest/DEFAULT_VALID: rc=0
@@ -37,61 +25,71 @@ REAL-HOST STABS rc=0
 995 runtime/wrong-session/RUNTIME_RESPONSES: rc=1
 995 runtime/wrong-disclosure/RUNTIME_RESPONSES: rc=1
 995 runtime runs=9 mismatches=0
-REAL-HOST MATRIX rc=0
+RAW_RC=0
 ```
-ЗАКРЫВАЮЩЕЕ СВОЙСТВО: независимое от значения, предоставленного проверяемой пробой, свидетельство синтетического `.invalid` URL в реально переданном окружении; негативная клетка с реальным хостом не зелёная, честный синтетический URL и оба родительских входа остаются зелёными.
+ЗАКРЫВАЮЩЕЕ СВОЙСТВО: адресная матрица отклоняет подмену адреса на не `.invalid`, честный мир и существующие поведенческие клетки остаются зелёными. Арбитраж конечной границы: повторная причина прежнего блока Adv995, но новый свидетель регресса уже работает; спорная граница — должна ли отдельно вызываемая матрица также отвергать подмену, как требует задание. Решение воли не подменяется данным вердиктом.
 
-Положительный контроль OBJECT и зависимый регресс (дословные сигнальные строки; стеки Jest опущены):
+## Измерения
+
+Рабочий каталог `/tmp/dev-harness-verify/Adv995b/repo`; продукт — отдельная копия `/tmp/dev-harness-verify/Adv995b/product` с зависимостями, исходный продукт `01e081b8dcc95c4f9cba353b656c70301fc4792c`. Копии батареи `world-{real,test,local,localhost,empty}`: в каждой ровно одно вхождение литерала строки `SYNTHETIC_API_URL = 'https://api.example.invalid'` заменено соответственно на `https://example.com`, `https://api.example.test`, `https://api.example.local`, `http://localhost`, пустую строку. Сценарии запускались последовательно без сети; `RAW_RC` — непосредственный код команды, а не переинтерпретация. Стек Jest ниже опущен, выводы в блоках — дословные строки.
+
+Для каждого мира выполнены `python3 world-X/env_override_regression.py --repo product`, та же команда `--stabs` и `python3 world-X/runtime_probe.py --repo product --matrix` (пути относительно `/tmp/dev-harness-verify/Adv995b`). Все 10 вызовов регресса отказали одинаково **до исполнения наблюдения**:
 ```text
-$ python3 fixtures/workshop_project/pilot_995/env_override_regression.py --repo .product
-995 runtime/actual/HTTP_UNAVAILABLE: rc=0
-995 env-regress/control parent=EXPO_PUBLIC_API_URL:absent: rc=0 (nabljudenie vnutri processa + setevaja kletka)
-995 runtime/actual/HTTP_UNAVAILABLE: rc=0
-995 env-regress/control parent=EXPO_PUBLIC_API_URL:https://foreign-parent.example.com: rc=0 (nabljudenie vnutri processa + setevaja kletka)
-CONTROL rc=0
-$ python3 fixtures/workshop_project/pilot_995/env_override_regression.py --repo .product --stabs
-995 env-regress STAB no-override parent=no-url KRASEN (Error: expect(received).toBe(expected) // Object.is equality | Expected: "https://api.example.invalid" | Received: undefined)
-995 env-regress STAB no-override parent=foreign-url KRASEN (Error: expect(received).toBe(expected) // Object.is equality | Expected: "https://api.example.invalid" | Received: "https://foreign-parent.example.com")
-995 env-regress STAB setdefault parent=foreign-url KRASEN (Error: expect(received).toBe(expected) // Object.is equality | Expected: "https://api.example.invalid" | Received: "https://foreign-parent.example.com")
-995 env-regress SVJAZI 3 zhivykh 0
-STABS rc=0
-$ python3 fixtures/workshop_project/pilot_995/runtime_probe.py --repo .product --matrix
-995 runtime/honest/SHIPPED_INVALID: rc=0
-995 runtime/honest/SHIPPED_VALID: rc=0
-995 runtime/honest/DEFAULT_VALID: rc=0
-995 runtime/honest/HTTP_UNAVAILABLE: rc=0
-995 runtime/honest/UNKNOWN_MODE: rc=0
-995 runtime/honest/RUNTIME_RESPONSES: rc=0
-995 runtime/copied-model/SHIPPED_INVALID: rc=1
-995 runtime/any-code/SHIPPED_INVALID: rc=1
-995 runtime/env-code/SHIPPED_INVALID: rc=1
-995 runtime/http-demo/HTTP_UNAVAILABLE: rc=1
-995 runtime/ignore-mode/UNKNOWN_MODE: rc=1
-995 runtime/bypass-ports/RUNTIME_RESPONSES: rc=1
-995 runtime/wrong-session/RUNTIME_RESPONSES: rc=1
-995 runtime/wrong-disclosure/RUNTIME_RESPONSES: rc=1
-995 runtime runs=9 mismatches=0
-MATRIX rc=0
-$ python3 fixtures/workshop_project/pilot_995/probe.py --repo .product --check-frozen
-995 actual/DIRECT_unknown: rc=0 assertion=passed
-995 actual/DIRECT_incomplete: rc=0 assertion=passed
-995 actual/INVALID_CODE: rc=0 assertion=passed
-995 actual/RESEND_UNCONFIRMED: rc=0 assertion=passed
-995 actual/RESEND_CONFIRMED: rc=0 assertion=passed
-995 actual/RESEND_COOLDOWN: rc=0 assertion=passed
-995 actual/EMAIL_STALE: rc=0 assertion=passed
-995 actual/RECOVERY_A07: rc=0 assertion=passed
-995 actual/AUTH_stale: rc=0 assertion=passed
-995 actual/AUTH_revoked: rc=0 assertion=passed
-995 actual/AUTH_missing_scope: rc=0 assertion=passed
-995 actual/SECRET: rc=0 assertion=passed
-995 actual/REPLAY: rc=0 assertion=passed
-995 actual/DEFAULT_OFFLINE: rc=0 assertion=passed
-995 runs=1 mismatches=0
-FROZEN rc=0
+995 env ORACLE_TAMPERED: якорь real-host не единственен (вхождений 0): "SYNTHETIC_API_URL = 'https://api.example.invalid'"
+RAW_RC=2
 ```
-Контракт побайтно: `git diff frozen/contracts/995/5 6b22cb4ffd -- contracts/995-cmp-mob-001-android-pilot.md` — пусто, rc 0. В OBJECT `runtime.test.tsx:37-46` сохраняет throw-fetch, auth-unavailable, запреты F02.01/protected-start и восстановление fetch. Прогон без инструмента: `PATH=/nonexistent /usr/bin/python3 .../runtime_probe.py --repo .product --case HTTP_UNAVAILABLE` → `995 INFRASTRUCTURE: [Errno 2] No such file or directory: 'node'`, rc 2. Пустой продукт: `.../runtime_probe.py --repo .negative/empty --case HTTP_UNAVAILABLE` → `995 PILOT_ABSENT`, rc 1. Неприменённая мутация: `.../env_override_regression.py --repo .product --mutation unapplied` → `995 env ORACLE_TAMPERED: якорь unapplied не единственен (вхождений 0)`, rc 2.
+Это fail-closed контроль применимости, не предметный красный rc 1. Для матриц `real`, `local`, `localhost`, `empty` получено соответственно по одному:
+```text
+995 runtime/honest/HTTP_UNAVAILABLE: rc=0
+995 runtime runs=9 mismatches=0
+RAW_RC=0
+```
+Для `test` честная HTTP-клетка тоже прошла, но возник нерелевантный таймаут mutant `http-demo`, поэтому rc 1 нельзя приписывать обнаружению адреса:
+```text
+995 runtime/honest/HTTP_UNAVAILABLE: rc=0
+995 runtime/http-demo/HTTP_UNAVAILABLE: rc=1
+995 runtime WRONG_RESULT:Error: thrown: "Exceeded timeout of 5000 ms for a test.
+995 runtime runs=9 mismatches=1
+RAW_RC=1
+```
 
-Дополнительное наблюдение той же границы оракула, не отдельный блок: в другой копии после строки присваивания добавлено `if case == 'HTTP_UNAVAILABLE' and model: env.pop('EXPO_PUBLIC_API_URL', None)`. При `env -u EXPO_PUBLIC_API_URL` контроль `--stabs` дал `SVJAZI 3 zhivykh 0`, rc 0, а `--matrix` дал `runs=9 mismatches=0`, rc 0: регресс наблюдает только actual, а runtime-модель не читает URL. Эта специально добавленная ветка сама по себе не предъявляется блоком по §Порог. Заявленный автором остаток о no-URL продуктовой приёмке здесь не закрывается и не переобъявляется доказанным.
+Проверка механизма независимого свидетеля отдельно от предзапускного контроля применимости: `python3 -c "import sys;sys.path.insert(0,sys.argv[1]);import env_override_regression as e;from pathlib import Path; r,f=e.drive(Path(sys.argv[2]),'no-url',None);print('DRIVE_RC=',r);print(e.excerpt(f));sys.exit(r)" world-real product` из `/tmp/dev-harness-verify/Adv995b`:
+```text
+995 runtime/actual/HTTP_UNAVAILABLE: rc=1
+Expected: "https://api.example.invalid"
+Received: "https://example.com"
+DRIVE_RC= 1
+Error: expect(received).toBe(expected) // Object.is equality | Expected: "https://api.example.invalid" | Received: "https://example.com"
+RAW_RC=1
+```
+Это диагностический вызов `drive`, не публичная команда регресса. `env_override_regression.py:75,147-153,170,220` задаёт отдельный литерал, вставляет ожидание в Jest и проверяет класс свидетеля, не читая URL из пробы; прежний механизм «ожидание из субъекта» в этом регрессе закрыт. Встроенный стаб real-host применяется после проверки якоря, поэтому доказывает различимость фактического окружения:
+```text
+995 env-regress STAB real-host parent=no-url KRASEN (Error: expect(received).toBe(expected) // Object.is equality | Expected: "https://api.example.invalid" | Received: "https://example.com")
+995 env-regress STAB real-host parent=foreign-url KRASEN (Error: expect(received).toBe(expected) // Object.is equality | Expected: "https://api.example.invalid" | Received: "https://example.com")
+995 env-regress SVJAZI 5 zhivykh 0
+RAW_RC=0
+```
 
-Развилки: нового полного поиска, повторов CI, сетевого fetch/push, изменения frozen и продукта не делал. Остатков `НЕ ЗАЩИЩАЕТ` с назначенным ловцом adversary в адресном срезе не обнаружено; остаток no-URL в сдаточном листе назначен решению владельца 165/995, не adversary.
+Положительный контроль: `python3 fixtures/workshop_project/pilot_995/env_override_regression.py --repo /tmp/dev-harness-verify/Adv995b/product` дал оба `995 runtime/actual/HTTP_UNAVAILABLE: rc=0` и оба control parent absent/foreign `rc=0`, RAW_RC=0. Та же команда `--stabs` дала вышеуказанные real-host ×2, no-override ×2, setdefault ×1, `SVJAZI 5 zhivykh 0`, RAW_RC=0. `--mutation unapplied`:
+```text
+995 env ORACLE_TAMPERED: якорь unapplied не единственен (вхождений 0): "env['EXPO_PUBLIC_API_URL'] = SYNTHETIC_API_URL_UNAPPLIED_995"
+RAW_RC=2
+```
+Честный `python3 fixtures/workshop_project/pilot_995/runtime_probe.py --repo /tmp/dev-harness-verify/Adv995b/product --matrix` дал те же 6 зелёных и 8 поимённых красных клеток, что в блоке, `runs=9 mismatches=0`, RAW_RC=0. `python3 fixtures/workshop_project/pilot_995/probe.py --repo /tmp/dev-harness-verify/Adv995b/product --check-frozen` — все 14 actual assertions passed, `995 runs=1 mismatches=0`, RAW_RC=0. `bash fixtures/workshop_project/pilot_995/restart/red_ci_e2e_restart_995.sh --stabs`:
+```text
+SVIP itog: N=20, krasnykh 0
+SVJAZI 69
+zhivykh 0
+RAW_RC=0
+```
+Нейтрализация HTTP override и setdefault адресно ловится вышеназванными встроенными стабами; отсутствие инструмента: `PATH=/nonexistent /usr/bin/python3 .../runtime_probe.py --repo product --case HTTP_UNAVAILABLE` → `995 INFRASTRUCTURE: [Errno 2] No such file or directory: 'node'`, RAW_RC=2. Пустой продукт: `python3 .../runtime_probe.py --repo empty --case HTTP_UNAVAILABLE` → `995 PILOT_ABSENT`, RAW_RC=1.
+
+## Дельта и сдаточный лист
+
+`git diff --name-status 6b22cb4ffd d532f36481` называет лист, `env_override_regression.py` и добавленный прежний вердикт. `git diff --exit-code 6b22cb4ffd d532f36481 -- fixtures/workshop_project/pilot_995/runtime.test.tsx fixtures/workshop_project/pilot_995/runtime_probe.py` пуст, rc 0: throw-fetch, `auth-unavailable`, запреты F02.01/protected-start, восстановление fetch и байты runtime-пробы не изменены. `git diff --exit-code frozen/contracts/995/5 d532f36481 -- contracts/995-cmp-mob-001-android-pilot.md` пуст, rc 0.
+
+`SDACHA_probe_http_unavailable.md:92-109,123-134` достоверно описывает независимый свидетель, `--stabs` rc 2 на подменённом якоре и зелёную матрицу на реальном хосте; авторская развилка о том, что матрица не расширялась, именно и противоречит адресному требованию вызова. Исторические замеры листа не выдаются за новые. Остатка `НЕ ЗАЩИЩАЕТ` с ловцом adversary в адресном срезе нет; no-URL приёмка листа оставлена решению владельца 165/995.
+
+## Развилки
+
+Принята буквальная проверка трёх названных дверей, не подмена её совокупным rc отдельного регресса. Положительное отличие: новый регресс имеет независимый свидетель и ловит real-host в наблюдении; отрицательное: сама матрица пропускает подмену. Не проверялись новый полный суд, живой CI/Android и сетевые обращения; продукт и предмет не менялись, push и тег не выполнялись.
