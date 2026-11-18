@@ -315,4 +315,4 @@ step	check:okno-zamorozki-200-family-selftest	4	bash fixtures/workshop_project/o
 step	check:mob-ci-artifacts-local-197-family-selftest	15	bash fixtures/workshop_project/mob_ci_artifacts_local_197/red_mob_ci_artifacts_local_197.sh --stabs
 step	check:modeli-reestra-198-family-selftest	4	bash fixtures/workshop_project/modeli_tolko_v_reestre_198/red_modeli_reestra_198.sh --repo . && bash fixtures/workshop_project/modeli_tolko_v_reestre_198/red_modeli_reestra_198.sh --model && bash fixtures/workshop_project/modeli_tolko_v_reestre_198/red_modeli_reestra_198.sh --stabs
 step	check:done-dver-201-family-selftest	8	bash fixtures/workshop_project/done_dver_soderzhatelnaja_201/red_done_dver_201.sh --stabs
-step	check:sdacha-193-family-selftest	8	bash fixtures/workshop_project/sdacha_193/red_sdacha_193.sh --model && bash fixtures/workshop_project/sdacha_193/red_sdacha_193.sh --stabs
+step	check:sdacha-193-family-selftest	8	bash fixtures/workshop_project/sdacha_193/red_sdacha_193.sh --repo . && bash fixtures/workshop_project/sdacha_193/red_sdacha_193.sh --model && bash fixtures/workshop_project/sdacha_193/red_sdacha_193.sh --stabs

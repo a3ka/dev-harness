@@ -326,6 +326,26 @@ case "$first" in
   *)        die "вердикт вне объявленной грамматики: первая строка «$first» в $verdict — грамматика роли критика допускает accept, FAIL, ESCALATE" ;;
 esac
 
+# ── 6. КАРТА КЛАССОВ ВЕРДИКТА (контракт 193, Л2) ───────────────────────────────
+# Нога карты: ПОСЛЕ §6 (первая строка вердикта — accept/FAIL/ESCALATE) и ДО §6а
+# (spec-preflight): вердикт уже прочитан, тега ещё нет (И8 контракта 193).
+# Контракт, чей HEAD-блоб несёт строку «СДАЧА: », замораживается только при rc 0
+# двери карты классов на accept-вердикте этой версии; отказ — именованный
+# «карта классов вердикта … красна», тег не ставится (отказ атомарен — как §6а).
+# Контракт без строки «СДАЧА: » картой не судится (старые предметы — прежний
+# порядок). Двери карты в дереве нет — нога пропускается молча (окно
+# freeze..implementer, канон 191).
+# Условие — here-string, не конвейер: `printf | grep -q` под pipefail ловил
+# SIGPIPE на контракте >64 КиБ и молча пропускал ногу (Б-1 Rev193, И8).
+_k193_head="$(g cat-file -p "HEAD:$TARGET" 2>/dev/null || true)"
+if grep -q '^СДАЧА: ' <<<"$_k193_head"; then
+  if [ -x "$SELF_DIR/check_verdict_karta.sh" ]; then
+    _k193_rc=0
+    _k193_out="$(bash "$SELF_DIR/check_verdict_karta.sh" "$ROOT" "$verdict" 2>&1)" || _k193_rc=$?
+    [ "$_k193_rc" -eq 0 ] || die "карта классов вердикта $verdict красна (rc=$_k193_rc): $(printf '%s' "$_k193_out" | head -n 1)"
+  fi
+fi
+
 # ── 6а. SPEC-PREFLIGHT (контракт 036 §Freeze) ────────────────────────────────
 # Класс-гейт спек-точности: каждая приёмочная проба/замер/СПАСЕНО черновика
 # проверены ДО записи тега. Красный прогон = rc 1 «ОТКАЗ: spec-preflight 036 красен:
@@ -349,7 +369,7 @@ if [ -f "$SELF_DIR/check_consumers.sh" ]; then
   cons_rc=0
   cons_out="$(cd "$ROOT" && bash "$SELF_DIR/check_consumers.sh" "$ROOT" "$TARGET" 2>&1)" || cons_rc=$?
   if [ "$cons_rc" -ne 0 ]; then
-    cons_first="$(printf '%s' "$cons_out" | head -n 1)"
+    cons_first="${cons_out%%$'\n'*}"
     die "потребители 116 красны: $cons_first"
   fi
 fi
@@ -387,7 +407,7 @@ if [ -f "$SELF_DIR/check_precision_gate.sh" ]; then
   pg_rc=0
   pg_out="$(cd "$ROOT" && bash "$SELF_DIR/check_precision_gate.sh" "$ROOT" "$TARGET" 2>&1)" || pg_rc=$?
   if [ "$pg_rc" -ne 0 ]; then
-    pg_first="$(printf '%s' "$pg_out" | head -n 1)"
+    pg_first="${pg_out%%$'\n'*}"
     die "precision-гейт 043 красен: $pg_first"
   fi
 fi
