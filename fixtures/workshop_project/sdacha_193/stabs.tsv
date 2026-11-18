@@ -79,3 +79,18 @@ PATERN:VNE-SEKCII-SUDITSJA	scripts/lib_karta_sdachi.sh	v01
 PATERN:SEKCIJA-VECHNA	scripts/lib_karta_sdachi.sh	v01
 PATERN:FREEZE-RC2-PROPUSKAET	scripts/freeze_contract.sh	f04
 PATERN:PRE-RC2-MASKIRUET	scripts/pre_critic.sh	p04
+#   Проектная ось 193↔996 (С-10/С-6): грамматика пути вердикта — против
+#   эффективного workflowPaths.verdicts (якорь ') : ;;' един в двери до
+#   ремонта и в модели — грамматика остаётся одним case-блоком):
+#   PATERN:KOREN-ZAPASNOJ — корневой verdicts/critic остаётся запасным
+#                            источником при активном профильном каталоге (v15);
+#   PATERN:CHUZHAJA-ROL-PRINIMAETSJA — чужая роль review под профильным
+#                            префиксом принимается (v16);
+#   PATERN:BEZ-GRAMMATIKI-PUTA — гард ''|/*|*..* снят, побег пути за корень
+#                            проходит грамматику (v23);
+#   PATERN:PROFIL-PREFIKS-OTREZAN — нога карты freeze отрезает профильный
+#                            префикс пути вердикта перед вызовом двери (f06).
+PATERN:KOREN-ZAPASNOJ	scripts/check_verdict_karta.sh	v15
+PATERN:CHUZHAJA-ROL-PRINIMAETSJA	scripts/check_verdict_karta.sh	v16
+PATERN:BEZ-GRAMMATIKI-PUTA	scripts/check_verdict_karta.sh	v23
+PATERN:PROFIL-PREFIKS-OTREZAN	scripts/freeze_contract.sh	f06
