@@ -260,6 +260,13 @@
 #   c4286a3b19ceb41667b6a8461fe0caa79b033fe9  contracts/197-mob-ci-artefakty-lokalno.md
 #   e6371ce8caa91e9a275e49ecee5140870832d9e5  contracts/197-mob-ci-artefakty-lokalno.md
 #   (53-я…62-я: merge-коммиты вливания носителей 999/188/196/129/187/195 в окне (б) check_contract_frozen для 197; diff к первому родителю по contracts/197 пуст у каждого; ложно валят носитель 197 v2 (#1043); класс пары 48; слово владельца 2026-11-17 через консультанта после проверки)
+#   f59fd2e82f9633a351e60f7be9217822e835e78d  ROADMAP.md
+#   (63-я: merge PR #1112 (строка плана 037) консультантом через GitHub (merge-on-green, gh pr merge
+#   --merge без --body) перенёс уже разрешённую правку ROADMAP.md (f016d0a6 — строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ
+#   в нём, регенерация блока плана gen_plan после строки 037) без переноса строки в тело merge-коммита;
+#   блоб ROADMAP.md в merge побайтно равен head PR f016d0a6 (5b9ad30f); нового содержания нет; тот же
+#   дефект, что пары 33/34/49; main и PR-прогоны legkij красны на этом merge; допущение только для этой
+#   пары; слово владельца 2026-11-18 «пара 63 — да» через консультанта)
 #
 # НЕ добавлять новые записи без прямого слова владельца в НОВОМ коммите с обоснованием.
 #
@@ -504,6 +511,8 @@ grandfather_pair() {
       [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
     e6371ce8caa91e9a275e49ecee5140870832d9e5)
       [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    f59fd2e82f9633a351e60f7be9217822e835e78d)
+      [ "$p" = "ROADMAP.md" ] && return 0 ;;
   esac
   return 1
 }
