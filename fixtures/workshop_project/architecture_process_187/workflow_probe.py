@@ -72,8 +72,20 @@ of the match module from the snapshot export by module id, never from the
 locate answer; snapshot rc≠0 or the module missing from the export is an
 HONEST ARCH_NOT_EVALUATED with the door's rc 2 (never a silent skip, never
 green); explicit false keeps PATH_WITHOUT_COMPONENT. The old match-level
-noflag cell died with its prefix stub: the distinction it guarded does not
-exist in the conformal grammar (the whole tests/ area is module.tests).
+187 v3 (арбитраж 1 по 170, выход А, адресный v+1 от frozen 187/2): шов
+применимости компонентного брифа и грамматика pin. (1) pin lock — ПОЛНЫЙ
+40-hex SHA (каноническая форма git, строчные [0-9a-f]): символьный (HEAD,
+ветка) и сокращённый pin НЕ принимаются — разрешимость git не заменяет
+грамматику, «сначала разрешить HEAD в SHA» — обман, не выполнение неизменного
+lock; неконформный либо неразрешимый pin — именованный ARCH_PIN, пустой
+stdout, brief не зовётся; судится ДО вопроса о флаге (шов 170 v2: строка/
+зоны/pin до флага; порядок двери: arch187_line → arch187_model_prepare →
+arch187_zones). (2) применимость требования компонента: кодовый --kind task
+при применимом lock (файл architecture.lock.json режима 187а) БЕЗ локальной
+architecture/ и БЕЗ --arch-component — отказ ARCH_COMPONENT_NET, не успешный
+пак без брифа; старое требование локального каталога (любой проект)
+сохраняется; требование флага и источник брифа — РАЗНЫЕ предикаты. Место
+истины требования — контракт 187 (дверь); 170 v2 — вход задания, не копия.
 """
 import hashlib
 import json
@@ -183,6 +195,26 @@ CASES = (
     # читает вовсе — PATH_WITHOUT_COMPONENT rc 1) ──────────────────────────
     ('zone-outside-snapshot-failed', 'door', 'outside-snapshot-fail', 2, 'ARCH_NOT_EVALUATED', 'door'),
     ('zone-outside-snapshot-missing', 'door', 'outside-snapshot-missing', 2, 'ARCH_NOT_EVALUATED', 'door'),
+    # ── 187 v3 (арбитраж 1 по 170, выход А; адресный v+1 от frozen 187/2):
+    # грамматика pin и применимость компонента. (1) pin lock — полный 40-hex
+    # SHA: символьный HEAD/ветка и сокращённый sha неконформны — разрешимость
+    # git НЕ заменяет грамматику; красны сегодня (дверь обслуживает: HEAD и
+    # ветка дают бриф unpinned-головы B, сокращённый sha — верный бриф без
+    # грамматики); неразрешимый полный sha — прежний отказ ARCH_PIN (защита,
+    # зелена до/после); HEAD-без-флага — ARCH_PIN, не ARCH_COMPONENT_NET
+    # (порядок шва 170 v2: pin ДО флага; красна сегодня именем отказа) ─────
+    ('pin-symbolic-head', 'task', 'pin-head', 1, 'ARCH_PIN', 'task'),
+    ('pin-symbolic-branch', 'task', 'pin-branch', 1, 'ARCH_PIN', 'task'),
+    ('pin-short-sha', 'task', 'pin-short', 1, 'ARCH_PIN', 'task'),
+    ('pin-unresolvable-sha', 'task', 'pin-unresolvable', 1, 'ARCH_PIN', 'task'),
+    ('pin-head-noflag', 'task', 'pin-head-noflag', 1, 'ARCH_PIN', 'task'),
+    # (2) применимость требования компонента: кодовый --kind task при
+    # применимом lock БЕЗ локальной architecture/ и БЕЗ флага — отказ
+    # ARCH_COMPONENT_NET, не успешный пак без брифа (красна сегодня: пак
+    # rc 0); каталог БЕЗ lock (старое требование 170/1, любой проект) —
+    # прежний отказ (защита от сужения одним backend, зелена до/после) ────
+    ('applicability-lock-no-dir', 'task', 'no-local-noflag', 1, 'ARCH_COMPONENT_NET', 'task'),
+    ('applicability-dir-no-lock', 'task', 'dir-only-noflag', 1, 'ARCH_COMPONENT_NET', 'task'),
 )
 STABS = {
     'task-no-line': ('task-line-missing', 'allow-line'),
@@ -268,6 +300,24 @@ STABS = {
     # каждая ветвь своей клетке, различающий вход — свой (Н-39) ────────────
     'outside-snapshot-error-green': ('zone-outside-snapshot-failed', 'snapshot-error-green'),
     'outside-snapshot-missing-guessed': ('zone-outside-snapshot-missing', 'snapshot-missing-guess'),
+    # ── 187 v3 стабы: «разрешимый pin принимается» (текущая дверь: cat-file
+    # и git archive обслуживают HEAD/ветку/префикс sha, грамматики нет) —
+    # ловится каждой грамматической клеткой СВОИМ входом (HEAD → бриф B,
+    # ветка → бриф B, сокращённый sha → верный бриф A без грамматики);
+    # «неразрешимый pin — зелёный пак» — клеткой неразрешимости; «грамматика
+    # только на флаговом пути» (ремонт лишь ветви с флагом) — безфлаговой
+    # клеткой (ARCH_COMPONENT_NET вместо ARCH_PIN); «применимость только по
+    # каталогу» (текущая дверь) — клеткой lock без каталога (пак без брифа);
+    # «применимость только по lock» (сужение старого требования одним
+    # backend) — клеткой каталога без lock; каждая ветвь своей клетке,
+    # различающий вход — свой (Н-39) ───────────────────────────────────────
+    'pin-resolved-accepted-head': ('pin-symbolic-head', 'pin-resolved-accepted'),
+    'pin-resolved-accepted-branch': ('pin-symbolic-branch', 'pin-resolved-accepted'),
+    'pin-resolved-accepted-short': ('pin-short-sha', 'pin-resolved-accepted'),
+    'pin-unresolved-green': ('pin-unresolvable-sha', 'pin-unresolved-green'),
+    'pin-only-with-flag': ('pin-head-noflag', 'pin-only-with-flag'),
+    'applicability-dir-only': ('applicability-lock-no-dir', 'applicability-dir-only'),
+    'applicability-lock-only': ('applicability-dir-no-lock', 'applicability-lock-only'),
 }
 
 # Approved snapshot inside the pinned tree (2.5.x layout of the real model, as run-arch.js
@@ -401,6 +451,23 @@ AMBIG_MATCHES = (
     {'module': 'module.entrypoints', 'components': [],
      'specification': 'server/entrypoints.js', 'explicit': False, 'matched': 'server/'},
 )
+
+# 187 v3 (арбитраж 1 по 170, выход А): грамматика pin lock — полный 40-hex
+# SHA в канонической форме git (строчные [0-9a-f]); символьные (HEAD, ветка)
+# и сокращённые ревизии неконформны: разрешимость git — НЕ грамматика
+# («сначала разрешить HEAD в SHA» — обман). Место истины требования —
+# контракт 187 (дверь); 170 v2 — вход задания. «pin-short» — первые 12 hex
+# закреплённого A (дописывается в prepare: значение зависит от мира).
+PIN_LOCK_VALUES = {'pin-head': 'HEAD', 'pin-branch': 'main',
+                   'pin-short': None, 'pin-unresolvable': 'e' * 40,
+                   'pin-head-noflag': 'HEAD'}
+PIN_VARIATIONS = frozenset(PIN_LOCK_VALUES)
+# Безфлаговые клетки применимости: «no-local-noflag» — применимый lock БЕЗ
+# каталога (новое требование шва), «dir-only-noflag» — каталог БЕЗ lock
+# (старое требование 170/1, любой проект), «pin-head-noflag» — порядок шва
+# (pin судится ДО вопроса о флаге: ARCH_PIN, не ARCH_COMPONENT_NET).
+NOFLAG_VARIATIONS = frozenset({'no-local-noflag', 'dir-only-noflag',
+                               'pin-head-noflag'})
 
 def digest(value):
     """Canonical SHA-256 of the real model: sorted keys, JSON.stringify bytes."""
@@ -718,7 +785,7 @@ def prepare(root, arch, pinned, variation, action=''):
     elif variation == 'document-no-local':
         put(root, CONTRACT, (root / CONTRACT).read_text().replace(
             'КЛАСС ЗАДАЧИ: кодовый.', 'КЛАСС ЗАДАЧИ: документальный.'))
-    if variation in ('no-local', 'inline-line-missing', 'document-no-local'):
+    if variation in ('no-local', 'inline-line-missing', 'document-no-local', 'no-local-noflag'):
         for file in (root / 'architecture').rglob('*'):
             if file.is_file(): file.unlink()
         for directory in sorted((root / 'architecture').rglob('*'), reverse=True):
@@ -817,6 +884,20 @@ def prepare(root, arch, pinned, variation, action=''):
         # 185) — прежний отказ PATH_WITHOUT_COMPONENT (зелена до/после; стаб
         # «всё безкомпонентное проходит» ловится здесь).
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('app/identity/model.js', 'server/newdir/x.js'))
+    elif variation in PIN_VARIATIONS:
+        # 187 v3: lock переписывается ДО коммита мира; «pin-short» — первые 12
+        # hex закреплённого A (разрешим в клоне модели — сегодняшняя дверь
+        # обслуживает его как ревизию); каталог и строки мира остаются
+        # конформными: различается ТОЛЬКО координата pin (Н-39).
+        lock = json.loads((root / 'architecture.lock.json').read_text())
+        lock['commit'] = (pinned[:12] if variation == 'pin-short'
+                          else PIN_LOCK_VALUES[variation])
+        put(root, 'architecture.lock.json', json.dumps(lock))
+    elif variation == 'dir-only-noflag':
+        # 187 v3: старое требование 170/1 — локальный каталог БЕЗ lock
+        # (применимость каталогом, не режимом 187а): флаг обязателен и здесь;
+        # различается ТОЛЬКО координата наличия lock (Н-39).
+        (root / 'architecture.lock.json').unlink()
     # CI report mutations happen after commit: the report must reference the final SHA.
     git(root, 'add', '-A')
     git(root, 'commit', '-qm', 'isolated scenario ' + (variation or 'valid'))
@@ -879,6 +960,30 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
             return 1, 'ARCH_LINE_MISSING'
         if 'АРХИТЕКТУРА: L3 ' in text and mutant != 'allow-l3':
             return 1, 'ARCH_OWNER'
+        # 187 v3 (арбитраж 170-1, выход А): грамматика pin судится ПОСЛЕ строки
+        # и ДО зон (порядок двери: arch187_line → arch187_model_prepare →
+        # arch187_zones): неконформный (символьный/сокращённый) либо
+        # неразрешимый pin — именованный ARCH_PIN, пустой stdout, brief не
+        # зовётся; «сначала разрешить HEAD в SHA» — обман: разрешимость git
+        # НЕ заменяет грамматику полного 40-hex SHA.
+        resolved_revision = None
+        if variation in PIN_VARIATIONS:
+            pin = json.loads((root / 'architecture.lock.json').read_text())['commit']
+            if mutant == 'pin-resolved-accepted':
+                # обман (текущая дверь): cat-file/git archive обслуживают
+                # HEAD/ветку/префикс sha — грамматики нет вовсе
+                resolved_revision = git(arch, 'rev-parse', pin)
+            elif mutant == 'pin-unresolved-green':
+                # обман: неразрешимый pin — зелёный пак без отказа
+                return 0, 'STRUCTURE.md'
+            elif mutant == 'pin-only-with-flag':
+                # обман: грамматика только на флаговом пути — без флага дверь
+                # молчит (ниже ответит ARCH_COMPONENT_NET вместо ARCH_PIN)
+                pass
+            elif not re.fullmatch(r'[0-9a-f]{40}', pin):
+                return 1, f'ARCH_PIN: закреплённый pin не полный 40-hex SHA: {pin}'
+            elif run('git', '-C', arch, 'cat-file', '-e', pin + '^{commit}').returncode:
+                return 1, f'ARCH_PIN: коммит {pin} не разрешается в клоне модели'
         if 'server/src/auth/' in text and mutant != 'allow-unmapped':
             return 1, 'PATH_WITHOUT_COMPONENT'
         if 'app/billing/' in text and mutant != 'allow-zone':
@@ -887,7 +992,29 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
             return 1, 'ARCH_ZONE: компонент { не объявлен'
         if variation.startswith('locate-') and mutant != 'guess-locate-status':
             return 1, 'ARCH_LOCATE_GRAMMAR'
-        revision = git(arch, 'rev-parse', 'HEAD') if mutant == 'use-head' else pinned
+        # 187 v3: применимость требования компонента (шов 187/170): кодовый
+        # предмет БЕЗ флага при применимом lock (режим 187а) ИЛИ локальном
+        # каталоге architecture/ (старое требование 170/1 — любой проект) —
+        # отказ ARCH_COMPONENT_NET с пустым stdout, не успешный пак без
+        # брифа; pin-мир без флага уже назвал свой отказ выше (pin ДО флага).
+        if variation in NOFLAG_VARIATIONS:
+            dir_present = (root / 'architecture').exists()
+            if mutant == 'applicability-dir-only' and not dir_present:
+                # обман (текущая дверь): применимость только по каталогу —
+                # lock без каталога получает успешный пак без брифа
+                return 0, PACK_MARKER + '777 role=architect kind=task ==='
+            if mutant == 'applicability-lock-only' and dir_present:
+                # обман: сужение одним backend — старое требование каталога
+                # снято; каталог без lock получает успешный пак без брифа
+                return 0, PACK_MARKER + '777 role=architect kind=task ==='
+            return 1, ('ARCH_COMPONENT_NET: требуется --arch-component '
+                       '(кодовый предмет, применимая архитектура)')
+        if resolved_revision is not None:
+            revision = resolved_revision
+        elif mutant == 'use-head':
+            revision = git(arch, 'rev-parse', 'HEAD')
+        else:
+            revision = pinned
         if mutant == 'requires-local' and not (root / 'architecture').exists():
             return 1, 'ARCHITECTURE_NET'
         model = git(arch, 'show', revision + ':tooling/checks/cli.js')
@@ -1077,7 +1204,7 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
             return 2, 'ARCH_NOT_EVALUATED: модуль матча module.tests отсутствует в выгрузке snapshot'
     raise RuntimeError('unknown action')
 
-def live(tools, root, arch, pinned, action, task, trace, role):
+def live(tools, root, arch, pinned, action, task, trace, role, variation=''):
     env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
     env.update(GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_SYSTEM='/dev/null',
                HARNESS_PROJECT_LAYER_ROOT=str(root), ARCHITECTURE_ROOT=str(arch))
@@ -1093,7 +1220,11 @@ def live(tools, root, arch, pinned, action, task, trace, role):
     if action == 'task':
         command = ['bash', tools / 'scripts/make_task.sh', '--repo', root, '--role', role,
                    '--kind', 'task', '--contract', '777', '--task-file', task,
-                   '--model-trace', trace, '--arch-component', 'api.identity']
+                   '--model-trace', trace]
+        # 187 v3: безфлаговые клетки применимости зовут дверь БЕЗ флага
+        # (NOFLAG_VARIATIONS); все прочие task-клетки — с --arch-component.
+        if variation not in NOFLAG_VARIATIONS:
+            command += ['--arch-component', 'api.identity']
     else:
         command = {'freeze': ['bash', tools / 'scripts/freeze_contract.sh', CONTRACT, 'toy reason', root],
                    'precritic': ['bash', tools / 'scripts/pre_critic.sh', '--repo', root, CONTRACT],
@@ -1123,7 +1254,7 @@ def main():
             if args.model or args.stabs:
                 rc, output = honest_rc, honest_out
             else:
-                result = live(tools, root, arch, pinned, action, task, trace, role)
+                result = live(tools, root, arch, pinned, action, task, trace, role, variation)
                 rc, output = result.returncode, result.stdout + result.stderr
             ok = (rc == expected and (not reason or reason in output))
             if action == 'task' and expected and PACK_MARKER in output:
