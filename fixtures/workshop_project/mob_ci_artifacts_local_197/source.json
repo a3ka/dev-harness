@@ -172,6 +172,11 @@
       "defekt": "шаблонный сбор кладёт детей БЕЗ пары прогона в имени каталога (поведение head 70ad24e5b9, блок Б-1 вердикта Rev197): неизменный ci-aggregate.cjs зоны 143 ждёт screen-evidence-<id>-<run_id>-<attempt> — PEREPIS_DETEJ на любом непустом matrix-выборе; байтовое расхождение ловит и e01-skript-pin"
     }
   },
+  "batareja_143_do": {
+    "commit": "9d3ad2bea4f1f15be15a9d975966bb20451a9a54",
+    "tree": "89ccddf8281b15842eda6aa1a316bdde579845ee",
+    "zamer": "дерево fixtures/workshop_project/mob_ci_143 в main до v5; git archive закреплённого коммита после сверки tree; соседний каталог не используется"
+  },
   "krasnye_143_posle_197": [
     "legacy: LEGACY_JOB_CHANGED",
     "evidence: CHILD_DOWNLOAD_ABSENT_android-e2e",
