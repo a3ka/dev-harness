@@ -8,6 +8,8 @@
 # p9-wd-defaults-pereopredelenie (то же), p9-ws-v-run и p9-ws-v-env (bash bad substitution /
 # пустой тест — shag-upal вместо rc 0), p9-forma-mobile (первый же шаг — otsutstvuet),
 # p9-wd-dotdot-vne-kopii и p9-wd-simlink-pobeg (otsutstvuet вместо vne-kopii),
+# p9-wd-dotdot-vne-kopii-defaults-workflow и p9-wd-dotdot-vne-kopii-defaults-dzhoby
+# (побег унаследованным умолчанием — otsutstvuet вместо vne-kopii),
 # p10-uses-ne-suditsa (wd литералом — otsutstvuet вместо rc 0).
 # Маркер не ровно один раз — rc 2 ORACLE_TAMPERED (мутант не применён; молчаливой
 # копии модели не бывает).

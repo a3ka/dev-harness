@@ -710,6 +710,40 @@ jobs:
         run: "false"
 Y
   run_case p9-wd-simlink-pobeg 1 'working-directory-vne-kopii: ${{ github.workspace }}/vne-kopii-link' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  # К-10 (Crit122V5): побег УНАСЛЕДОВАННЫМ умолчанием — шаг без собственного
+  # working-directory; отказ обязан нести ИСХОДНОЕ значение поля ДО подстановки
+  # при наследовании с любого уровня (workflow и джоба); шаг false — непойманный
+  # побег исполнился бы снаружи и упал (различим)
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+defaults:
+  run:
+    working-directory: ${{ github.workspace }}/..
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: pobeg-nasledie-workflow
+        run: "false"
+Y
+  run_case p9-wd-dotdot-vne-kopii-defaults-workflow 1 'working-directory-vne-kopii: ${{ github.workspace }}/..' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}/..
+    steps:
+      - name: pobeg-nasledie-dzhoby
+        run: "false"
+Y
+  run_case p9-wd-dotdot-vne-kopii-defaults-dzhoby 1 'working-directory-vne-kopii: ${{ github.workspace }}/..' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
   # форма носителя боли mobile.yml: defaults.run.working-directory уровня workflow + шаги с
   # ${{ github.workspace }} + объявленный секрет в env шага (дословная цепочка baseline)
   W=$(new_world)
@@ -780,6 +814,23 @@ jobs:
         run: echo '${{ toJSON(needs) }}'
 Y
   run_case p10-funkcija-tojson 1 'vyrazhenie-ne-podderzhano: ${{ toJSON(needs) }}' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  # К-09 (Crit122V5): скобка } ВНУТРИ строкового аргумента функции — границы выражения
+  # вычисляет сканер (терминатор }} вне кавычек), не regexp [^}]*: молчаливый успех
+  # (env-значение ушло шагу литералом, run зелёный) не допускается
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      VALUE: "${{ format('}', github.sha) }}"
+    steps:
+      - name: skobka-v-stroke
+        run: "true"
+Y
+  run_case p10-format-skobka-v-stroke 1 "vyrazhenie-ne-podderzhano: \${{ format('}', github.sha) }}" bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
   W=$(new_world)
   cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
 name: ruchnoj

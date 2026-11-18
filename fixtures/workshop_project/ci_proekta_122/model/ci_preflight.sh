@@ -70,7 +70,26 @@ def env_of(node):
 sec_re = re.compile(r'\$\{\{\s*(secrets|vars)\.([A-Z][A-Z0-9_]*)\s*\}\}')  # точная форма: подстановка
 tok_re = re.compile(r'\b(secrets|vars)\.([A-Z][A-Z0-9_]*)\b')  # токен где угодно: сверка объявленности
 ws_re = re.compile(r'\$\{\{\s*github\.workspace\s*\}\}')  # v+1: точная форма, корень копии
-expr_re = re.compile(r'\$\{\{[^}]*\}\}')  # любое выражение: остаток после подстановки — вне алфавита
+def pervoe_vyrazhenie(s):
+    # v+1 (К-09, Crit122V5): первое выражение ${{ … }} — СКАНЕРОМ, не regexp [^}]*:
+    # скобка } внутри строкового аргумента функции (format('}', …)) не рвёт поиск,
+    # терминатор }} — только ВНЕ кавычек ('…'/"…"); нет терминатора — нет выражения
+    b = s.find('${{')
+    if b < 0:
+        return None
+    j, q, n = b + 3, None, len(s)
+    while j < n:
+        ch = s[j]
+        if q is None and (ch == '"' or ch == "'"):
+            q = ch
+        else:
+            novyj = q  # по умолчанию состояние кавычки не меняется
+            novyj = None if q == ch else q  # МУТАЦИЯ-122:kavychki-vyrazhenija — закрытие кавычки тем же символом
+            q = novyj
+        if q is None and ch == '}' and s.startswith('}}', j):
+            return s[b:j + 2]
+        j += 1
+    return None
 
 work = None  # корень одноразовой копии (заполняется до первого использования)
 
@@ -88,10 +107,10 @@ def podstanovka(s):
 def otkaz_vyrazhenija(s):
     # v+1: остаточное выражение (вне алфавита) на исполнительной поверхности — именованный
     # отказ ДО исполнения шага; не молчаливый успех и не bash-падение
-    ost = expr_re.search(podstanovka(s))
+    ost = pervoe_vyrazhenie(podstanovka(s))
     if ost is None:
         return
-    print('preflight ОТКАЗ: vyrazhenie-ne-podderzhano: %s' % ost.group(0)); sys.exit(1)  # МУТАЦИЯ-122:otkaz-vyrazhenij
+    print('preflight ОТКАЗ: vyrazhenie-ne-podderzhano: %s' % ost); sys.exit(1)  # МУТАЦИЯ-122:otkaz-vyrazhenij
 
 def stub(s):
     return podstanovka(s)
@@ -206,8 +225,9 @@ try:
                 for k, v in env_of(node).items():
                     otkaz_vyrazhenija(lit(v))
             cherez_ws = bool(ws_re.search(d))
+            d0 = d  # v+1 (К-10, Crit122V5): ИСХОДНОЕ значение поля — своё либо унаследованное
+            # с любого уровня (шаг/джоба/workflow) — ДО подстановки; отказ о побеге несёт его
             d = ws(d)
-            # каталог обязан лежать В одноразовой копии (realpath); строки с маркерами: вложенность
             # судится от копии, а не от исходного R, и судится вообще; побег ЧЕРЕЗ отображённое
             # выражение github.workspace (..-хвост, симлинк, иной абсолютный результат) —
             # vne-kopii с литералом ИСХОДНОГО поля, буквальный путь — прежние правила (otsutstvuet)
@@ -216,7 +236,7 @@ try:
             p, k = os.path.realpath(os.path.join(kor, d)), os.path.realpath(kor)
             vnutri = True
             vnutri = p == k or p.startswith(k + os.sep)  # МУТАЦИЯ-122:wd-v-kopii
-            if not vnutri and cherez_ws: print('preflight ОТКАЗ: working-directory-vne-kopii: %s' % st.get('working-directory', d)); sys.exit(1)  # МУТАЦИЯ-122:granica-workspace
+            if not vnutri and cherez_ws: print('preflight ОТКАЗ: working-directory-vne-kopii: %s' % d0); sys.exit(1)  # МУТАЦИЯ-122:granica-workspace
             if not vnutri or not os.path.isdir(os.path.join(work, d)):
                 print('preflight ОТКАЗ: working-directory-otsutstvuet: %s' % d); sys.exit(1)
             plan.append((st, d))
