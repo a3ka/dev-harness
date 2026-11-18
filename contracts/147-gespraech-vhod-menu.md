@@ -131,9 +131,13 @@
 ЗОНА implementer: mobile/src/app/_layout.tsx
 ЗОНА implementer: .github/workflows/mobile.yml
 ЗОНА implementer: mobile/ci-screens.json
+ЗОНА implementer: docs/ux/05_Kompakt_D24/motion/motion-spec-gespraech-kompakt-147.json
 ЗОНА critic: verdicts/critic/
 ЗОНА reviewer: verdicts/review/
 ЗОНА orchestrator: registry/ci-steps.tsv registry/ci-zamery.tsv .github/workflows/ci.yml
+
+Пути продуктовых ЗОНА implementer — от корня Complior-mob. В docs/ux/05_Kompakt_D24/motion/ исполнитель 147 создаёт только motion-spec-gespraech-kompakt-147.json как производный источник И-12 с происхождением и sha256; оригиналы пакета, motion-delta.md, motion-delta-frames/, source/, frames/, README_RU.md, SHA256SUMS и производный motion-spec-gespraech-kompakt-149.json не меняются. Производный файл не становится новым дизайнерским каноном. Его доставка и dvizhenie.spec/spec_sha256 в mobile/e2e-gespraech-vhod/ekran.json — работа implementer 147 после freeze, в том же продуктовом PR, с приёмкой по И-12.
+
 Независимость судей: автор и критик на Sol допустимы — слово владельца 2026-11-05 ~12:43 UTC «я разрешаю авторство и критика на сол»
 ПЕРЕСЕЧЕНИЕ implementer: mobile/src/bootstrap/tab-shell.tsx — 108 файл заявлен с 108/1; 147 встраивает ТОЛЬКО Mitte (знак tier tab, меню, press-long), строки слота startScreen/меню и удержание живой подложки Start/Vorgänge ПОД размытием с отключением касаний (И-5); чужие секции не трогает.
 ПЕРЕСЕЧЕНИЕ implementer: mobile/src/bootstrap/tab-shell.tsx — 148 владелец геометрии/состава вкладок в лёгком цикле (148/v3); landing 147 ПОСЛЕ 148 (rebase), конфликт — исполнителя.
@@ -263,7 +267,7 @@
 - CI-запись ci-screens.json и работник mobile.yml по лекалу 143/2 — implementer, БЕЗУСЛОВНО в PR экрана (слово владельца 2026-11-12, вариант А; И-11), append-only, landing после 148;
 - наборное предъявление `--repo <R> --ekran 147` — по готовности предметов 158/159 (отдельные предметы, в работе);
 - живые кадры 8/8 — работник CI в PR экрана (артефакт maestro-gespraech-vhod-*); scoped-повтор ревьюера Р147-Б1 — по кадрам работника;
-- перенос производных spec/геометрии в 05_Kompakt_D24 продукта требует адресной зоны владельца продуктовых источников; текущая architect-пачка этих путей не пишет и ЗОНА implementer молча не расширяет. До разрешённой доставки `--repo` отказывает rc 2, это не зелёная приёмка и не изменение mob#169.
+- доставка производного motion-spec-gespraech-kompakt-147.json в продукт и его пин в mobile/e2e-gespraech-vhod/ekran.json — implementer 147 после freeze в объявленной точной зоне docs/ux/05_Kompakt_D24/motion/motion-spec-gespraech-kompakt-147.json, в том же продуктовом PR, с приёмкой по И-12; текущая architect-пачка этих путей не пишет. До доставки `--repo` отказывает rc 2, это не зелёная приёмка и не изменение mob#169.
 - строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ к замороженному тексту (frozen/contracts/147/5) — оркестратор amend'ом по слову владельца;
 - подключение CI-шага/замера red_ci_147.py — orchestrator (окно freeze..done; check_provodka зелёный после проводки);
 - вариант В (лёгкий режим валидатора: лёгкая форма пачки в ekran_shablon.py либо вариант лекала) — ОТДЕЛЬНЫЙ предмет харнесса с номером от владельца, зона владельцев (линия 132/146 — валидатор; 143 — лекало), не экранная задача и НЕ предпосылка этого контракта.
