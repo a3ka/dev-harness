@@ -1,11 +1,458 @@
-# Сдаточный лист 201 — done-дверь: содержательная сверка (круг fix3: блок К-10 Crit201V3; круг fix2 — исполнение решений арбитража 1)
+# Сдаточный лист 201 — Круг: красные клетки Adv201c (Arch201Cells)
 
-Дата: 2026-11-17. Дерево: wip/201/architect (круг fix3 — поверх 477fda202c; главный чекаут не тронут).
-Все прогоны — из корня worktree, окружение без ambient `GIT_AUTHOR_*`/`GIT_COMMITTER_*`
-(`env -u …`). Оракул батареи — в памяти раннера и читает git-факты мира сам (теги,
-замороженный текст, risk-legacy и mesto-legacy — только `git show HEAD:<реестр>`,
-круг fix3), не из фактов сборки; краснота голого прогона — дефект ЖИВОЙ двери
-`scripts/done_contract.sh` (зона implementer), до её ремонта.
+Текущий круг — один коммит поверх `154c73bbd8`, только `dver_probe.py` и
+этот лист; новых файлов нет (привязки стабов — в словаре STABS). Замороженный
+текст 201, дверь и реестр места не менялись; судимый кандидат —
+`b4d46ec66bb7ed7df58d28489cac922f8d66137f` (единый: реализация `1f0f8bee9d`
++ батарея `154c73bbd8` + строка реестра). Sha единственного коммита круга —
+в докладе оркестратору (коммит не может содержать собственный sha). Разделы
+ниже — ИСТОРИЯ (57/24, 49/19, 45/15); фактические числа этого круга —
+62 клетки / 27 стабов из выводов ниже.
+
+## Круг Adv201c — NUL-байты ответа до jq (оба маршрута) и числовой status
+
+Основание: вердикт третьего adversary — коммит `dcb26084b4`, ref
+`archive/201/adv201c-verdict-dcb26084b4`, блоки 1–2; инженерное решение
+консультанта `Cons201c` §2. Ответы сервера задаются исходными БАЙТАМИ вне
+toy-мира (`write_bytes`), curl rc 0; канонический jq батареи не менялся;
+ожидания — в памяти раннера (rc + подстрока причины + отсутствие тега).
+
+### Новые клетки
+
+| Клетка | Вход (байты) | Ожидание | Ветвь двери по коду |
+|---|---|---|---|
+| `b-vneshnij-nul-hvost` | compare `b'{"status":"behind"}\n\x00\x00'` | rc 1, «влитость … не проверена: ответ API не разобран (синтаксическая ошибка JSON», тега нет | compare-транспорт `:539` `$(curl …)`: bash теряет NUL ДО jq → ложный done |
+| `b-vneshnij-nul-v-znachenii` | compare `b'{"status": "beh\x00ind"}'` | rc 1, та же причина | тот же механизм: значение мутирует в `behind` |
+| `b-vneshnij-nul-v-klyuche` | compare `b'{"sta\x00tus":"behind"}'` | rc 1, та же причина | тот же механизм: ключ мутирует в `status` |
+| `b-vneshnij-status-chislo` | compare `b'{"status":5}'` — валидный ОДИН объект, поле ПРИСУТСТВУЕТ | rc 1, «…не проверена: неподдерживаемое значение status», тега нет | catch-all `:559-565`: присутствующее поле объявляется отсутствующим |
+| `g-arch-nul-hvost` | check-runs: успешный `arch` (completed/success) на точном HEAD + `b'\n\x00\x00'` | rc 1, «ARCH_CI: ответ check-runs не разобран (синтаксическая ошибка JSON», тега нет | check-runs-транспорт `:295` |
+
+Различающая пара: тот же behind без NUL-хвоста — положительный контроль
+`b-vneshnij-produkt-vlit` (зелёный, не дублирован, ссылка по клетке); для
+check-runs — `g-arch-tochno-imja`. Честное ОТСУТСТВИЕ поля status с числовым
+входом не смешано: модель вычисляет `status_present` по ключу разобранного
+объекта, прежняя ветка «нет поля»/«API недоступен» не тронута
+(`b-vneshnij-api-nedostupen` зелёный без изменений).
+
+### Модель и стабы (Н-39: привязка кодом STABS, не прозой)
+
+Модель: после полного разбора `status_present = isinstance(cmp_obj, dict)
+and 'status' in cmp_obj`; вне-словарное значение ПРИСУТСТВУЮЩЕГО поля даёт
+правдивую причину «неподдерживаемое значение status» (блок 2: называет
+фактическое состояние, не «без поля»). Обманные стабы — двойники ветвей
+живой двери:
+
+| Стаб | Мутант оракула | Клетка |
+|---|---|---|
+| `s-b-nul-transport-terjaet-bajty` | `body.replace('\x00','')` до `json_one_object` — двойник `$(curl …)` compare-маршрута (`:539`+`:51`) | `b-vneshnij-nul-hvost` |
+| `s-g-nul-transport-terjaet-bajty` | то же для тела check-runs — двойник `:295` | `g-arch-nul-hvost` |
+| `s-b-status-vne-slovarya-kak-otsutstvie` | присутствующее вне-словарное поле → «ответ API без поля status» (двойник `:559-565`) | `b-vneshnij-status-chislo` |
+
+### Прогоны: сырые итоги (клон `b4d46ec66b` + батарея круга)
+
+Судимое дерево — одноразовый SSH-клон `/tmp/dev-harness-verify/Arch201Cells/repo`
+(origin `ssh://git@github.com/a3ka/dev-harness.git`, собственная `.git`),
+ветка `proverka` на `b4d46ec66b`; поверх — `dver_probe.py` из WORKTREE
+(`cmp` побайтово — 0; `red_done_dver_201.sh` не менялся). Ambient
+`GIT_AUTHOR_*`/`GIT_COMMITTER_*` в среде прогонов отсутствуют (env-замер).
+
+| Дверь | Команда | rc | Итог |
+|---|---|---:|---|
+| `b4d46ec66b` | 201 `--repo .` | 1 | `CELLS=62 STABS=0 FAILURES=5` + `GREEN karta-jq-vyzovov: механизм _json_one_object × 5` |
+| `b4d46ec66b` | 201 `--model` | 0 | `CELLS=62 STABS=0 FAILURES=0` |
+| `b4d46ec66b` | 201 `--stabs` | 0 | `CELLS=62 STABS=27 FAILURES=0` |
+
+Красные строки — ровно пять новых клеток; прежние 57 зелёные:
+
+```text
+RED b-vneshnij-nul-hvost: rc=0 expected=1 … output='…done_contract.sh: line 539: warning: command substitution: ignored null byte in input\n'
+RED b-vneshnij-nul-v-znachenii: rc=0 expected=1 … (та же warning line 539)
+RED b-vneshnij-nul-v-klyuche: rc=0 expected=1 … (та же warning line 539)
+RED b-vneshnij-status-chislo: rc=1 expected=1 … output='done: влитость в main продукта a3ka/toy-mob не проверена: ответ API без поля status\n'
+RED g-arch-nul-hvost: rc=0 expected=1 … output='…done_contract.sh: line 295: warning: command substitution: ignored null byte in input\n'
+GREEN karta-jq-vyzovov: механизм _json_one_object × 5, jq вне механизма не читает недоверенные байты
+CELLS=62 STABS=0 FAILURES=5
+```
+
+Новые caught-строки `--stabs` (все 27 стабов caught, прежние 24 без изменений):
+
+```text
+STAB s-b-nul-transport-terjaet-bajty caught @ b-vneshnij-nul-hvost
+STAB s-b-status-vne-slovarya-kak-otsutstvie caught @ b-vneshnij-status-chislo
+STAB s-g-nul-transport-terjaet-bajty caught @ g-arch-nul-hvost
+CELLS=62 STABS=27 FAILURES=0
+```
+
+### Развилки этого круга
+
+- Клетки 1б/1в (NUL внутри значения/ключа) уложились в тот же механизм
+  (канонический jq rc 5 на всех трёх; `$(curl)` делает их валидными) —
+  добавлены; их дефектная ветвь одна с клеткой 1, стаб по ней один.
+- Карта jq-вызовов на кандидате GREEN и bash-транспорт байтов НЕ судит
+  (наблюдение-совет Adv201c): транспорт ловится новыми клетками, не картой.
+- Фраза «неподдерживаемое значение status» — норма модели этого круга:
+  ремонт двери обязан воспроизвести её подстрочно в причине отказа;
+  иная правдивая формулировка потребует синхронной правки клетки и модели.
+
+
+## Круг Arb201V2 — полный разбор ровно одного JSON-документа
+
+Основание: `verdicts/arbitration/201-granica-done-dveri-2.md` (арбитраж 2,
+РЕШЕНИЯ 1–3, «Что исправить → Батарея и сдача», «Остаточный риск»);
+воспроизведение дефекта — Adv201b `1fe7004d63:verdicts/adversary/
+contracts-201-impl-v2.md`: повреждённый хвост compare и два полных документа
+давали rc 0 и ложный тег `done/contracts/777/1`. Переиспользованы CASES/STABS/
+build/model/live и внешний curl-shim; второй раннер, stabs.tsv и новый
+контрактный формат не вводились.
+
+### Новые клетки (каждая — отдельный мир; не сценарий с ранним отказом)
+
+| Клетка | Вход | Ожидание | Привязка по коду двери |
+|---|---|---|---|
+| `b-vneshnij-json-povrezhdjon-hvost` | compare `{"status":"behind",…}` + `\n{broken`, curl rc 0, настоящий jq | rc 1, «влитость … не проверена: ответ API не разобран (синтаксическая ошибка JSON», тега нет | compare → `_json_one_object` (доремонтный адрес 485) |
+| `b-vneshnij-dva-dokumenta` | compare за положительным префиксом + `\n{}` | rc 1, «…не разобран (в ответе несколько JSON-документов», тега нет | тот же механизм; отказ именно по неединственности ответа |
+| `b-vneshnij-identical` | compare `identical`, внешний whitespace/переводы строк | rc 0 + тег | парный положительный контроль (не ложный отказ) |
+| `g-arch-json-povrezhdjon-hvost` | check-runs: успешный `arch` на точном HEAD (completed/success) + `\n{broken`, curl rc 0 | rc 1, «ARCH_CI: ответ check-runs не разобран (синтаксическая ошибка JSON», тега нет | check-runs → `_json_one_object` (доремонтный адрес 254); отрицательный контроль — дверь и раньше отказывала на этих байтах, но по побочной причине |
+| `g-arch-dva-dokumenta` | check-runs: успешный `arch` + `\n{}` | rc 1, «…не разобран (в ответе несколько JSON-документов», тега нет | отказ по неединственности, не по побочному предикату |
+| `g-profil-povrezhdyon-fajl` | harness.project.json мира + `\n{broken` | rc 1, «ОТКАЗ: профиль битый или workflowPaths вне репо», тега нет | профильный маршрут (229/389): работа не продолжается, fallback нет |
+| `g-profil-dva-dokumenta` | harness.project.json мира + `\n{}` | rc 1, та же причина | многодокументный профиль не продолжает работу |
+| `g-profil-bez-canonical-remote` | профиль без ключа `git` (штатное отсутствие НЕобязательного поля) | rc 0 + тег | прежний допустимый fallback canonicalRemote → GITHUB_REPOSITORY |
+
+Положительные контроли с внешним whitespace: тела `b-vneshnij-produkt-vlit`
+(behind), `b-vneshnij-identical` и трёх arch-положительных (`arch`,
+`arch (…)`, `arch fitness`) несут whitespace/перевод строки вокруг
+ЕДИНСТВЕННОГО документа — полный slurp их допускает. Прежние клетки
+(curl rc≠0 обоих маршрутов, ahead, not-found, `arche`/`archive`/`march`/
+`architecture`, frozen/HEAD-класс риска) не менялись и зелёные — регресса нет.
+
+### Модель: факты — каноническим инструментом
+
+Честный путь модели больше не доверяет `compare_status`: введён
+`json_one_object` — тот же канонический jq -s и та же грамматика, что у
+двери (`length == 1`, тип-объект ДО извлечения поля, rc ДО использования,
+диагностика вторым вызовом jq); никакой особой обработки строки `{broken`.
+Повреждённое тело не может остаться «успешным behind» в `--model`:
+отказ «ответ API не разобран (<причина>)» выводится из самого факта
+неразбора. Ожидания — по-прежнему в памяти раннера, тела ответов — вне мира.
+Обманные стабы используют `json_stream` (прежняя потоковая форма jq без
+slurp) — это их дефект по построению, честный путь её не касается.
+
+### Проверяемая карта jq-вызовов (live-режимы: голый и --repo)
+
+`jq_callsite_map` в каждом live-прогоне батареи: (1) механизм
+`_json_one_object` вызван ровно 5 раз (`_pr_paths_obj`/`_a187_profile`/
+`_a187_obj`/`_merged_profile_obj`/`_cmp_obj`); (2) ни один jq-вызов вне
+механизма не читает недоверенные байты (комментарии не считаются).
+На ремонте — `GREEN karta-jq-vyzovov`; на доремонтной `fd72a87643` — RED
+ровно по адресам 51/52/53/254/389/485 + «механизм вызван 0 раз».
+Входы 51–53/229/389 через файлы миров НЕтриггеримы: `project_paths_resolve`
+строит свой выход printf'ом (всегда один документ), а `profile_resolver`
+байт-валидирует оба слоя (`jq -e .`) и умирает на повреждённом профиле
+(«файл не JSON»), многодокументный — на двухстрочном `.projectLayer.
+profilePath` («нет файла слоя проекта»); замер — `/tmp/dev-harness-verify/
+Arch201Fix3/scratch/probe_resolvers.py`. Поэтому применено разрешение
+арбитра («общая проверка механизма плюс карта всех вызовов и положительные
+профильные контроли»): механизм доказан живыми клетками двух маршрутов,
+карта проверяема прогоном, профильные контроли живые (повреждённый/
+многодокументный профиль → именованный отказ; отсутствие необязательного
+поля → прежний fallback).
+
+### Новые стабы (Н-39: привязка кодом STABS, не прозой контракта)
+
+| Стаб | Мутант оракула | Клетка |
+|---|---|---|
+| `s-b-json-hvost-ignoriruetsja` | A: успешный префикс, rc/хвост игнорируются | `b-vneshnij-json-povrezhdjon-hvost` |
+| `s-b-potok-dokumentov-dopushhen` | B: без `length == 1`/slurp — первый документ потока | `b-vneshnij-dva-dokumenta` |
+| `s-g-json-hvost-ignoriruetsja` | A: счёт по успешному префиксу, rc jq игнорируется | `g-arch-json-povrezhdjon-hvost` |
+| `s-g-potok-dokumentov-dopushhen` | B: счёт по КАЖДОМУ документу потока | `g-arch-dva-dokumenta` |
+| `s-g-profil-potok-dopushhen` | B: многодокументный профиль читается по первому документу | `g-profil-dva-dokumenta` |
+
+Все 24 стаба caught (`--stabs` rc 0); стабы A и B — ровне возвраты прежних
+додверных ошибок из `fd72a87643`.
+
+### Среда и источники прогонов
+
+Каждый tool-bash — cwd WORKTREE `/tmp/dev-harness-worktrees/c907157c/
+wip-201-architect`; все гейты без ambient `GIT_AUTHOR_*`/`GIT_COMMITTER_*`
+(`env -u …`). Судимое дерево — одноразовый SSH-клон
+`/tmp/dev-harness-verify/Arch201Fix3/repo` (origin
+`ssh://git@github.com/a3ka/dev-harness.git`, `origin/main=90c4aa63c3…`),
+поверх: `scripts/done_contract.sh` из `1f0f8bee9d`,
+`registry/mesto-legacy.tsv` из `fd72a87643`,
+`fixtures/workshop_project/rezhim_996/probe.py` из `9e0e817eae`, батарея из
+WORKTREE; каждый оверлей сверен `cmp` побайтово (вывод `cmp ok` × 3).
+Доремонтный прогон — копия `scripts/` с дверью `fd72a87643` (`--repo
+/tmp/dev-harness-verify/Arch201Fix3/prerepo`, побайтово сверена).
+
+### Прогоны: сырые итоги
+
+| Дверь | Команда | rc | Итог |
+|---|---|---:|---|
+| `1f0f8bee9d` | 201, голый | 0 | `CELLS=57 STABS=0 FAILURES=0` + `GREEN karta-jq-vyzovov: механизм _json_one_object × 5` |
+| `1f0f8bee9d` | 201 `--repo .` | 0 | `CELLS=57 STABS=0 FAILURES=0` + GREEN карта |
+| `1f0f8bee9d` | 201 `--model` | 0 | `CELLS=57 STABS=0 FAILURES=0` |
+| `1f0f8bee9d` | 201 `--stabs` | 0 | `CELLS=57 STABS=24 FAILURES=0` |
+| `fd72a87643` (до ремонта) | 201 `--repo prerepo` | 1 | `CELLS=57 STABS=0 FAILURES=5` |
+| `1f0f8bee9d` | 187 `--repo .` / `--model` | 0 | `CELLS=54 STABS=0 FAILURES=0` (оба) |
+| `1f0f8bee9d` | 187 `--stabs` | 0 | `CELLS=54 STABS=56 FAILURES=0` |
+| `1f0f8bee9d` | `rezhim_996/probe.sh` | 0 | `996: examined=111 mutants=0 mismatches=0` |
+| `1f0f8bee9d` | `bash -n scripts/done_contract.sh` | 0 | stdout пуст |
+| `1f0f8bee9d` | `bash scripts/gen_ci_steps.sh --check` | 0 | stdout пуст |
+| `1f0f8bee9d` | `bash scripts/check_charter.sh .` | 0 | `уставных документов: 180 · изменений в них: 525 · с разрешения: 525` |
+
+Красные доремонтные строки (ровно блок Adv201b; check-run — «как показал
+код»: отказ был, но по побочной причине):
+
+```text
+RED b-vneshnij-json-povrezhdjon-hvost: rc=0 expected=1 … output=''
+RED b-vneshnij-dva-dokumenta: rc=0 expected=1 … output=''
+RED g-arch-json-povrezhdjon-hvost: rc=1 expected=1 … output='ARCH_CI: успешного check-run arch на финальном SHA … нет (curl rc=0)\n'
+RED g-arch-dva-dokumenta: rc=1 expected=1 … output='ARCH_CI: успешного check-run arch на финальном SHA … нет (curl rc=0)\n'
+RED karta-jq-vyzovov: строки 51, 52, 53, 254, 389, 485 + механизм вызван 0 раз
+```
+
+### Адресные мутации живой двери (одна операция; якорь ровно 1×; проверка применённости; честный контроль)
+
+Мутант — отдельная копия `scripts/` с единственной заменой в
+`done_contract.sh`; якорь каждого встречается в двери ровно один раз
+(проверено счётом до замены и после). Полная батарея `--repo <мутант>`
+обязана быть красной.
+
+| Мутант | Одна операция | Адресное наблюдение honest → mutant | Полная батарея |
+|---|---|---|---|
+| M1 compare-prefix | блок `_cmp_obj`/`_cmp_status` заменён додверной строкой 485 (`jq -r '…status // empty…' … \|\| true`) | honest rc 1/тега нет/«не разобран (синтаксическая ошибка JSON (jq rc=5))» → mutant rc 0 + `done/contracts/777/1` на ОБОИХ клетках (хвост и два документа) | rc 1, `FAILURES=3`: обе compare-клетки + карта (строка 556 вне механизма, механизм × 4) |
+| M2 potok-dokumentov | из фильтра механизма удалено `length == 1 and` (slurp сохранён) | на двух документах: compare rc 0 + тег И check-run rc 0 + тег (ложный done); на повреждённом хвосте — по-прежнему rc 1 «не разобран (синтаксическая ошибка JSON (jq rc=5))» | rc 1, `FAILURES=2`: ровно `b-vneshnij-dva-dokumenta` и `g-arch-dva-dokumenta` |
+| M3 rc-otkat | удалён только `\|\| __rc=$?` (явная rc-проверка) | на хвосте и двух документах rc 1 и тега НЕТ — мутант остаётся fail-closed благодаря полному slurp (stdout при ошибке пуст), причина деградирует до «ответ API без поля status»/«нет (curl rc=0)» | rc 1, `FAILURES=4`: все четыре клетки красны ТОЛЬКО по правдивости причины (rc сходится) |
+| M4 checkrun-prefix | блок `_a187_obj`/`_a187_n` заменён додверной строкой 254 (`… \|\| printf '0'`, конкат аварийного нуля) | rc 1 на обеих клетках, тега нет — прежняя форма случайно fail-closed («1\n0» нецифровое → 0 → ARCH_CI), причина побочная «нет (curl rc=0)» | rc 1, `FAILURES=3`: обе check-run клетки (по фразе) + карта (строка 308, механизм × 4) |
+
+НАБЛЮДЕНИЯ (требование арбитража о различающем входе):
+
+- M2 ловится входом «два документа», а НЕ тем же повреждённым хвостом: без
+  `length == 1` slurp продолжает ловить синтаксические ошибки — различающий
+  вход показан прогоном (`m2-compare-hvost-nabljudenie` rc 1).
+- M3 — случай «откат только явной rc-проверки может оставаться безопасным
+  благодаря полному slurp»: ложного done НЕТ ни на одном входе; батарея
+  красит его исключительно правдивостью причины. Ложно назвать его пойманным
+  по хвосту нельзя — это записано здесь как есть.
+- M4: доремонтная строка check-run не давала ложного done (конкат с «0»
+  ломал цифровую форму), но отказ был по побочному предикату; ремонт делает
+  причину правдивой — на этом клетки и ловят возврат.
+
+### НЕ ЗАЩИЩАЕТ (дословно из арбитража 2, «Остаточный риск»)
+
+> успешный полный разбор одного ответа API и положительный compare/check-run
+> не доказывают семантическую полноту реализации последней заморозки и
+> правдивость содержательного accept; ловцы — reviewer и adversary рискового
+> предмета на том же OBJECT, предметные проверки CI. Ошибка транспорта/разбора
+> или неединственный JSON-ответ в этот остаток не входят и должны закрывать done.
+
+### Развилки этого круга
+
+- 51–53/229/389: живые клетки на каждый вызов невозможны файлами миров
+  (входы контролируются резолверами origin/main, которые сами fail-closed —
+  замер выше); выбрано разрешение арбитра «механизм + карта + положительные
+  профильные контроли», а не выдуманный вход.
+- Карта вызовов судится только в live-режимах: `--model`/`--stabs` дверь не
+  вызывают, CI-шаг батареи (`--stabs`) от версии двери не зависит.
+- Профильные отказные клетки зелёны и на доремонтной двери (резолвер не
+  менялся ремонтом): их вклад — отсутствие fallback и положительный
+  контроль необязательного поля, различение до/после — не их задача.
+- Sha единственного коммита круга физически не помещается в SDACHA этого же
+  коммита; кандидат зафиксирован родителем `9e0e817eae` и докладом.
+
+### Остатки
+
+- Живые GitHub API и настоящий тег 201 не вызывались: транспорт и ответы —
+  штатный внешний шим; выпуск настоящего done-тега 201 не выполнялся.
+- Числа прежних кругов (45/15, 49/19) — исторические; текущие: 57/24.
+- `compare_status` в facts остаётся только для обманных стабов и книги;
+  честный путь модели его не использует.
+
+---
+
+## История: Круг FAIL Adv201 (Arch201Fix2)
+
+## Круг: FAIL Adv201 — предмет и существующее
+
+Основание: `48395539cd:verdicts/adversary/contracts-201-impl-v1.md`, блоки 1–3;
+актуализация задания `task-201-architect-fix2.md` о ремонте `fd72a87643`.
+Переиспользованы `CASES`, `STABS`, `build`, `model`, `live` и существующий внешний
+curl-shim; новая дверь, формат входа или второй раннер не вводятся. Публичный seam —
+`scripts/done_contract.sh`; наблюдение каждой live-клетки — rc, именованный отказ и
+наличие/отсутствие Git-тега. Модель снимает frozen-текст и ожидания до вызова двери.
+
+- Блок 1: `b-vneshnij-curl-s-oshibkoj` отличается от честного внешнего behind-мира
+  только ненулевым rc curl после валидного stdout. Отказ обязан содержать
+  `влитость в main продукта a3ka/toy-mob не проверена: curl rc=1`, тега нет.
+- Блок 2: `v-riskovyi-head-obychnyj` — frozen рисковый, после freeze контракт на HEAD
+  закоммичен обычным, тег не двигается, адверсария нет. Ожидается отказ
+  `accept адверсария не найден`. Прежний положительный контроль
+  `v-obychnyj-bez-adversarii` усилен обратной записью: frozen обычный, HEAD рисковый;
+  отсутствие адверсария не мешает done.
+- Блок 3: `g-arche` — completed/success check-run на точном HEAD, но имя `arche`;
+  ожидается ARCH_CI без тега. Контроли `arch`, `arch (…)`, `arch fitness` сохранены.
+- Актуализация блока 1: отдельная `g-arch-curl-s-oshibkoj` — валидный успешный `arch`
+  в stdout и rc curl 1; ожидается ARCH_CI без тега. Это самостоятельная клетка,
+  не объединённый case, который засчитывается по первому отказу.
+
+Конформность новых входов: штатные Git-коммиты после freeze без передвижения тега,
+документированные поля GitHub compare/check-runs и exit-status внешнего процесса.
+Шим и JSON остаются вне судимого мира; `DONE201_COMPARE_RC`/`DONE201_CHECKRUNS_RC`
+передаются из памяти раннера, не читаются с диска мира. Дефект каждого стаба
+наблюдаем на его кодовой привязке `STABS`; перечисления привязок в контракт не добавлены.
+Итоги раннера вычисляются существующими `len(CASES)`/`len(STABS)`: 49/19,
+без дублирующих чисел в shell-wrapper.
+
+### Среда и источники прогонов
+
+Каждый tool-bash запущен с cwd
+`/tmp/dev-harness-worktrees/c907157c/wip-201-architect`.
+Вложенные команды канона выполнялись в отдельном SSH-клоне
+`/tmp/dev-harness-verify/Arch201Fix2/repo` со своей `.git`:
+origin `ssh://git@github.com/a3ka/dev-harness.git`,
+исходный `HEAD=origin/main=34566df929d888543c45b1da00f72c1ea501161b`.
+Все прогоны — без ambient `GIT_AUTHOR_*`/`GIT_COMMITTER_*`
+(`env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u GIT_AUTHOR_DATE
+-u GIT_COMMITTER_NAME -u GIT_COMMITTER_EMAIL -u GIT_COMMITTER_DATE`;
+одноразовый драйвер также удалял все переменные этих двух префиксов).
+
+Скрипт двери и реестр места экспортированы `git archive | tar` из read-only
+основного репозитория: сначала `3ed2c21a7a`, затем
+`fd72a87643e467d1d83b17059248008bf005ca55`.
+Для ОБОИХ файлов ОБОИХ кандидатов `git show <sha>:<path> | cmp - <clone/path>`
+вернул 0. Батарея и прежняя правка 996 экспортированы из staged-tree
+`aa733acfbb1a12773210ca6d8dec3ec963b7ca12`; `cmp` dver_probe.py с worktree — 0.
+Сырой вывод подготовки:
+
+```text
+before sources and fixture cmp=0
+after sources cmp=0
+```
+
+### Прогоны до и после ремонта реализации
+
+Команды в таблице — `bash <путь>` из корня verification-клона; путь 201 —
+`fixtures/workshop_project/done_dver_soderzhatelnaja_201/red_done_dver_201.sh`,
+путь 187 — `fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh`.
+В таблице приведены буквальные итоговые строки, не пересчитанные результаты.
+
+| Дверь | Команда | rc | Сырой итог |
+|---|---|---:|---|
+| 3ed2c21a7a | 201, голый | 1 | `CELLS=49 STABS=0 FAILURES=2` |
+| 3ed2c21a7a | 201 `--repo .` | 1 | `CELLS=49 STABS=0 FAILURES=2` |
+| fd72a87643 | 201, голый | 0 | `CELLS=49 STABS=0 FAILURES=0` |
+| fd72a87643 | 201 `--repo .` | 0 | `CELLS=49 STABS=0 FAILURES=0` |
+| fd72a87643 | 201 `--model` | 0 | `CELLS=49 STABS=0 FAILURES=0` |
+| fd72a87643 | 201 `--stabs` | 0 | `CELLS=49 STABS=19 FAILURES=0` |
+| fd72a87643 | 187 `--repo .` | 0 | `CELLS=54 STABS=0 FAILURES=0` |
+| fd72a87643 | 187 `--model` | 0 | `CELLS=54 STABS=0 FAILURES=0` |
+| fd72a87643 | 187 `--stabs` | 0 | `CELLS=54 STABS=56 FAILURES=0` |
+| fd72a87643 | `bash fixtures/workshop_project/rezhim_996/probe.sh` | 0 | `996: examined=111 mutants=0 mismatches=0` |
+| fd72a87643 | `bash scripts/gen_ci_steps.sh --check` | 0 | stdout пуст |
+| fd72a87643 | `bash scripts/check_charter.sh .` | 0 | `уставных документов: 180 · изменений в них: 521 · с разрешения: 521` |
+
+До ремонта красны РОВНО две транспортные клетки; остальные 47 зелёные.
+Сырые строки голого прогона и `--repo .` совпали:
+
+```text
+RED b-vneshnij-curl-s-oshibkoj: rc=0 expected=1 reason=влитость в main продукта a3ka/toy-mob не проверена: curl rc=1 output=''
+RED g-arch-curl-s-oshibkoj: rc=0 expected=1 reason=ARCH_CI output=''
+CELLS=49 STABS=0 FAILURES=2
+rc=1
+```
+
+После ремонта, голый и `--repo .` (выдержка новых клеток и обратного контроля):
+
+```text
+GREEN b-vneshnij-curl-s-oshibkoj: rc=1 expected=1 reason=влитость в main продукта a3ka/toy-mob не проверена: curl rc=1
+GREEN v-riskovyi-head-obychnyj: rc=1 expected=1 reason=accept адверсария не найден
+GREEN v-obychnyj-bez-adversarii: rc=0 expected=0
+GREEN g-arch-curl-s-oshibkoj: rc=1 expected=1 reason=ARCH_CI
+GREEN g-arche: rc=1 expected=1 reason=ARCH_CI
+CELLS=49 STABS=0 FAILURES=0
+rc=0
+```
+
+Новые строки `--stabs` (все прежние стабы также caught):
+
+```text
+STAB s-b-curl-rc-tolko-default caught @ b-vneshnij-curl-s-oshibkoj
+STAB s-v-risk-iz-head caught @ v-riskovyi-head-obychnyj
+STAB s-g-curl-rc-ignoriruetsja caught @ g-arch-curl-s-oshibkoj
+STAB s-g-arche-razresheno caught @ g-arche
+CELLS=49 STABS=19 FAILURES=0
+rc=0
+```
+
+### Мутационные доказательства на ЖИВОЙ двери
+
+Каждый мутант — отдельная временная копия настоящего `scripts/`, а не мутант модели.
+Единственная предметная замена указана ниже; на каждом запущена полная 201-батарея
+`bash fixtures/workshop_project/done_dver_soderzhatelnaja_201/red_done_dver_201.sh --repo <копия>`.
+Перед этим независимые миры предъявлены честной и мутантной двери с печатью rc/тега.
+
+| Блок | Мутация реализации | Сырой итог полной батареи | rc |
+|---|---|---|---:|
+| 1 | `curl-default-only`: вернуть проверку `_cmp_crc` только в default-ветвь case, как в 3ed2c21a7a | `CELLS=49 STABS=0 FAILURES=1` | 1 |
+| 2 | `risk-from-HEAD`: `git cat-file -p "$frozen_tag:$TARGET_REL"` → `git cat-file -p "HEAD:$TARGET_REL"` | `CELLS=49 STABS=0 FAILURES=2` | 1 |
+| 3 | `accept-arche`: `startswith("arch ")` → `(startswith("arch ") or . == "arche")` | `CELLS=49 STABS=0 FAILURES=1` | 1 |
+| 1, check-run | `checkrun-curl-ignored`: убрать `_a187_crc == 0` из условия разбора stdout | `CELLS=49 STABS=0 FAILURES=1` | 1 |
+
+Две красные клетки мутанта риска — новый запрет и обратный положительный контроль,
+а не две причины одного объединённого case. Сырой адресный вывод:
+
+```text
+curl-default-only-honest: cell=b-vneshnij-curl-s-oshibkoj rc=1 tag='' output='done: влитость в main продукта a3ka/toy-mob не проверена: curl rc=1\n'
+curl-default-only-mutant: cell=b-vneshnij-curl-s-oshibkoj rc=0 tag='done/contracts/777/1' output=''
+risk-from-HEAD-honest: cell=v-riskovyi-head-obychnyj rc=1 tag='' output='done: предмет рисковый, accept адверсария не найден: verdicts/adversary/contracts-777-*.md\n'
+risk-from-HEAD-mutant: cell=v-riskovyi-head-obychnyj rc=0 tag='done/contracts/777/1' output=''
+accept-arche-honest: cell=g-arche rc=1 tag='' output='ARCH_CI: успешного check-run arch на финальном SHA d282b1b841ea4d3915e13e4e42918482c564dc32 нет (curl rc=0)\n'
+accept-arche-mutant: cell=g-arche rc=0 tag='done/contracts/777/1' output=''
+checkrun-curl-ignored-honest: cell=g-arch-curl-s-oshibkoj rc=1 tag='' output='ARCH_CI: успешного check-run arch на финальном SHA 18e2629d96ec9831d17a2e031f8bb5d550ba2e3a нет (curl rc=1)\n'
+checkrun-curl-ignored-mutant: cell=g-arch-curl-s-oshibkoj rc=0 tag='done/contracts/777/1' output=''
+risk-reverse-positive: cell=v-obychnyj-bez-adversarii rc=0 tag='done/contracts/777/1' output=''
+risk-reverse-positive: frozen=обычный HEAD=рисковый adversary=absent
+compare-positive: cell=b-vneshnij-produkt-vlit rc=0 tag='done/contracts/777/1' output=''
+g-arch-tochno-imja-positive: cell=g-arch-tochno-imja rc=0 tag='done/contracts/777/1' output=''
+g-arch-v-skobkah-positive: cell=g-arch-v-skobkah rc=0 tag='done/contracts/777/1' output=''
+g-arch-s-probelom-positive: cell=g-arch-s-probelom rc=0 tag='done/contracts/777/1' output=''
+verification-phase=mutations rc=0
+```
+
+Полная мутантная батарея красила ровно названную клетку каждого запрета; для риска
+также `v-obychnyj-bez-adversarii` (ложный отказ с HEAD-классом). Все прочие клетки,
+включая положительные arch-контроли, оставались зелёными.
+
+### Развилки
+
+- Актуализация разрешает ещё одну клетку check-run/curl, но сохраняет ожидаемые
+  48/18 от трёх основных находок. Она реализована отдельным миром и отдельным стабом:
+  фактический census — 49/19, до ремонта FAILURES=2, не 1. Новых файлов нет.
+- Замороженный текст 201 не менялся: его исторические 45 клеток / 15 стабов
+  устарели, как и старый pre-implementation замер FAILURES=30. Итоги этого круга —
+  таблицы выше, не молчаливая правка frozen-приёмки.
+- Клон взят с живого SSH-origin (34566df9), не с локального checkout; требуемые
+  blobs кандидатов перенесены разрешённым в актуализации `git archive | tar`
+  и побайтово сверены `cmp`. Основной checkout и чужие verify-клоны не изменялись.
+- Одноразовый драйвер после успешного 996 `rc=0` ошибочно ожидал итог без префикса
+  `996:` и завершился с AssertionError. Это ошибка драйвера, не дефект батареи:
+  сырой результат 111/0/0 выше. Завершённые проверки не повторялись; оставшиеся
+  gen_ci_steps/check_charter выполнены отдельно (`verification-phase=remaining rc=0`).
+
+### Остатки и рефлексия процесса
+
+- Реальные GitHub API и удалённый CI не вызывались: транспортные отказы и ответы
+  API заданы штатным внешним шимом. Локальный CI-generator проверен; выпуск
+  настоящего done-тега 201 не выполнялся.
+- 996 проверена только `probe.sh` с уже сданным `b135b249d4`; `--matrix` в этом
+  круге не запускалась. Исторические сообщения о её mismatch ниже не являются
+  результатом нынешнего круга.
+- Процессная помеха: актуализация оставила фиксированные счётчики от обязательной
+  тройки рядом с разрешённой дополнительной клеткой. Разрешено явным подсчётом
+  раннера и разделением миров, без ослабления инвариантов.
+  Общий `NABLIUDENIA_ARCHITECT.md` не изменён: он вне выданной зоны, запись в
+  wip-журнал запрещена. Рефлексия передаётся оркестратору этим листом без
+  самовольного общего номера.
 
 ## Круг fix3 — блок К-10 Crit201V3 (классификация места читала рабочую копию реестра)
 
