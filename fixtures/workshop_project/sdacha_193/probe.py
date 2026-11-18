@@ -117,6 +117,23 @@ fi
 '''
 YAKOR_FREEZE = '# ── 6а. SPEC-PREFLIGHT'
 
+# ── якоря РЕАЛЬНЫХ ног (пост-реализация): присутствие ноги опознаётся
+# ФУНКЦИОНАЛЬНЫМ якорем — вооружением двери в реальном файле, а не меткой-
+# комментарием (метки в ногах реализации ломают различение стабов: Impl193
+# Развилка 1 — с метками --stabs терял 5 мутаций, без меток 2); якорь
+# встречается либо 0 раз (окно до реализации), либо ровно 1 — больше
+# означает сломанное дерево субъектов: ORACLE_TAMPERED rc 2, не «поймана».
+# Ноги реализации перенесены с модели байт в байт — якоря общие с NOGA_* ──
+USLOVIE_REAL_PRE = ('if [ "${SDACHA_OKRUG:-0}" != "1" ] && '
+                    '[ -x "$BASE/scripts/check_sdacha.sh" ]; then')
+VYZOV_REAL_PRE = ('noga_formy "сдаточный лист красен" '
+                  '"scripts/check_sdacha.sh" "$BASE" "$CONTRACT" --run')
+BLOK_REAL_PRE = USLOVIE_REAL_PRE + '\n  ' + VYZOV_REAL_PRE + '\nfi'
+YAKOR_REAL_FREEZE = ('_k193_out="$(bash "$SELF_DIR/check_verdict_karta.sh" '
+                     '"$ROOT" "$verdict" 2>&1)"')
+USLOVIE_REAL_FREEZE = ('if printf \'%s\\n\' "$_k193_head" '
+                       "| grep -q '^СДАЧА: '; then")
+
 # ── адресные мутации операций (Arb193V1 решения 1–2: исполняемые изменения,
 # фактически предъявленные критиками V1/V2, хранятся батареей как обманные
 # стабы; якорь обязан встречаться в честном субъекте РОВНО один раз — нулевая
@@ -167,14 +184,49 @@ MUTACII_LIB = {
 MUTACII_NOGI_PRE = {
     # Crit193V1 pre-leg: условие ноги (к) отключено — нога не выполняется.
     # Ловец — p01.
-    'PATERN:BEZ-PRE-NOGI':
-        ('if [ "${SDACHA_OKRUG:-0}" != "1" ] && [ -x "$BASE/scripts/check_sdacha.sh" ]; then',
-         'if false; then'),
+    'PATERN:BEZ-PRE-NOGI': (USLOVIE_REAL_PRE, 'if false; then'),
+}
+
+
+MUTACII_REALNOJ_NOGI_PRE = {
+    # Те же дефекты на РЕАЛЬНОЙ ноге (дерево после реализации): якорная
+    # замена в копии реального файла, ровно одно вхождение — зеркально
+    # мутациям ноги модели (тот же дефект, та же клетка).
+    # условие ноги отключено — нога не выполняется. Ловец — p01.
+    'PATERN:BEZ-PRE-NOGI': (USLOVIE_REAL_PRE, 'if false; then'),
+    # нога вооружается из ROOT (дерева двери), а не BASE (судимого дерева):
+    # чужому --repo-миру навязывается дверь дерева двери; якорь — блок
+    # реальной ноги целиком. Ловец — p02.
+    'PATERN:IZ-ROOTA': (BLOK_REAL_PRE,
+                        'if [ "${SDACHA_OKRUG:-0}" != "1" ] && '
+                        '[ -x "$ROOT/scripts/check_sdacha.sh" ]; then\n'
+                        '  _r193=0\n'
+                        '  _o193="$(bash "$ROOT/scripts/check_sdacha.sh" '
+                        '"$BASE" "$CONTRACT" --run 2>&1)" || _r193=$?\n'
+                        '  [ "$_r193" -eq 0 ] || refuse "сдаточный лист '
+                        'красен (rc=$_r193): $(printf \'%s\' "$_o193" | '
+                        'head -n 1)"\n'
+                        'fi'),
+    # нога отказывает БЕЗ прогона двери — ложный отказ и на честном листе
+    # (блок критика Crit193V1 К-14). Ловец — p03.
+    'PATERN:VSEGDA-OTKAZ': (VYZOV_REAL_PRE,
+                            'refuse "сдаточный лист красен"'),
+}
+
+
+MUTACII_REALNOJ_NOGI_FREEZE = {
+    # нога карты отключена целиком — условие всегда ложно. Ловец — f01.
+    'PATERN:BEZ-NOGI': (USLOVIE_REAL_FREEZE, 'if false; then'),
+    # успех двери карты не обнуляет rc — ложный отказ и на зелёной карте
+    # (блок критика Crit193V1 К-14). Ловец — f03.
+    'PATERN:USPEH-KRASIT': ('_k193_rc=0', '_k193_rc=1'),
 }
 
 
 def primenit(t: str, tablica: dict, imja: str) -> str:
     """Честный текст + одна адресная мутация; якорь ровно один, иначе отказ."""
+    if imja not in tablica:
+        raise RuntimeError('NET_MUTACII: %s' % imja)
     jakor, zamena = tablica[imja]
     if t.count(jakor) != 1:
         raise RuntimeError('JAKOR_NE_UNIKALEN: %s' % imja)
@@ -208,11 +260,13 @@ class Istochniki:
     """Субъекты мира: двери — из koren (живое дерево или модель); замены
     обманок — файлы stabs/; адресные мутации операций (PATERN:*) — якорные
     замены честного файла с проверкой применённости (Arb193V1). Ноги
-    pre_critic/freeze — патч к реальным дверям живого дерева ТОЛЬКО при
-    dostroat_nogi (режимы --model/--stabs: модель — эталон переноса); в
-    режимах голый/--repo ноги — РЕАЛЬНЫЕ файлы выбранного дерева без
-    достройки проверяемого (К-11 Crit193V1: нет реальной ноги — клетки ног
-    красны)."""
+    pre_critic/freeze при dostroat_nogi (режимы --model/--stabs): реальная
+    нога в живом дереве ЕСТЬ (функциональный якорь вооружения, ровно одно
+    вхождение) — субъект: реальный файл, нога-мутации применяются к
+    РЕАЛЬНОЙ ноге; реальной ноги нет (окно до реализации) — патч ноги
+    модели к реальной двери (модель — эталон переноса). В режимах голый/
+    --repo ноги — РЕАЛЬНЫЕ файлы выбранного дерева без достройки
+    проверяемого (К-11 Crit193V1: нет реальной ноги — клетки ног красны)."""
 
     def __init__(self, koren: Path, dver_zamena=None, karta_zamena=None,
                  lib_zamena=None, dver_mutacija=None, karta_mutacija=None,
@@ -271,15 +325,30 @@ class Istochniki:
     def pre_critic(self):
         if 'pre' not in self._kesh:
             if self.dostroat_nogi:
-                noga = NOGA_PRE_CRITIC
-                if self.pre_mutacija == 'PATERN:IZ-ROOTA':
-                    noga = NOGA_PRE_CRITIC_IZ_ROOTA
-                elif self.pre_mutacija == 'PATERN:VSEGDA-OTKAZ':
-                    noga = NOGA_PRE_CRITIC_VSEGDA_OTKAZ
-                elif self.pre_mutacija == 'PATERN:BEZ-PRE-NOGI':
-                    noga = primenit(noga, MUTACII_NOGI_PRE, self.pre_mutacija)
-                t = patched(DEREVO / 'scripts' / 'pre_critic.sh',
-                            YAKOR_PRE_CRITIC, noga, '(к) СДАТОЧНЫЙ ЛИСТ')
+                real = DEREVO / 'scripts' / 'pre_critic.sh'
+                t_real = real.read_text(encoding='utf-8')
+                n_nog = t_real.count(VYZOV_REAL_PRE)
+                if n_nog > 1:
+                    raise RuntimeError('YAKOR_NE_UNIKALEN: реальная нога (к) '
+                                       'предъявлена %d раза' % n_nog)
+                if n_nog == 1:
+                    # пост-реализация: субъект — РЕАЛЬНАЯ нога; мутация —
+                    # одна локальная замена в копии реального файла; honest —
+                    # реальный файл как есть (второй ноги модели в мире нет)
+                    t = t_real
+                    if self.pre_mutacija is not None:
+                        t = primenit(t_real, MUTACII_REALNOJ_NOGI_PRE,
+                                     self.pre_mutacija)
+                else:
+                    # окно до реализации: патч ноги модели к реальной двери
+                    noga = NOGA_PRE_CRITIC
+                    if self.pre_mutacija == 'PATERN:IZ-ROOTA':
+                        noga = NOGA_PRE_CRITIC_IZ_ROOTA
+                    elif self.pre_mutacija == 'PATERN:VSEGDA-OTKAZ':
+                        noga = NOGA_PRE_CRITIC_VSEGDA_OTKAZ
+                    elif self.pre_mutacija == 'PATERN:BEZ-PRE-NOGI':
+                        noga = primenit(noga, MUTACII_NOGI_PRE, self.pre_mutacija)
+                    t = patched(real, YAKOR_PRE_CRITIC, noga, '(к) СДАТОЧНЫЙ ЛИСТ')
                 vrem = Path(tempfile.mkdtemp(prefix='nog193-'))
                 (vrem / 'pre_critic.sh').write_text(t, encoding='utf-8')
                 self._kesh['pre'] = vrem / 'pre_critic.sh'
@@ -291,14 +360,28 @@ class Istochniki:
     def freeze(self):
         if 'freeze' not in self._kesh:
             if self.dostroat_nogi:
-                if self.freeze_mutacija == 'PATERN:BEZ-NOGI':
-                    t = (DEREVO / 'scripts' / 'freeze_contract.sh').read_text(encoding='utf-8')
-                elif self.freeze_mutacija == 'PATERN:USPEH-KRASIT':
-                    t = patched(DEREVO / 'scripts' / 'freeze_contract.sh',
-                                YAKOR_FREEZE, NOGA_FREEZE_USPEH_KRASIT, '6-карта')
+                real = DEREVO / 'scripts' / 'freeze_contract.sh'
+                t_real = real.read_text(encoding='utf-8')
+                n_nog = t_real.count(YAKOR_REAL_FREEZE)
+                if n_nog > 1:
+                    raise RuntimeError('YAKOR_NE_UNIKALEN: реальная нога '
+                                       'карты предъявлена %d раза' % n_nog)
+                if n_nog == 1:
+                    # пост-реализация: субъект — РЕАЛЬНАЯ нога карты
+                    t = t_real
+                    if self.freeze_mutacija is not None:
+                        t = primenit(t_real, MUTACII_REALNOJ_NOGI_FREEZE,
+                                     self.freeze_mutacija)
                 else:
-                    t = patched(DEREVO / 'scripts' / 'freeze_contract.sh',
-                                YAKOR_FREEZE, NOGA_FREEZE, '6-карта')
+                    # окно до реализации: BEZ-NOGI — реальный файл без ноги
+                    # и есть мутант «ноги нет»; прочее — патч ноги модели
+                    if self.freeze_mutacija == 'PATERN:BEZ-NOGI':
+                        t = t_real
+                    elif self.freeze_mutacija == 'PATERN:USPEH-KRASIT':
+                        t = patched(real, YAKOR_FREEZE,
+                                    NOGA_FREEZE_USPEH_KRASIT, '6-карта')
+                    else:
+                        t = patched(real, YAKOR_FREEZE, NOGA_FREEZE, '6-карта')
                 vrem = Path(tempfile.mkdtemp(prefix='nog193-'))
                 (vrem / 'freeze_contract.sh').write_text(t, encoding='utf-8')
                 self._kesh['freeze'] = vrem / 'freeze_contract.sh'
