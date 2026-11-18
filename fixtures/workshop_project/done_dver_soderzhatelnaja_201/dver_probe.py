@@ -41,9 +41,15 @@
     успешного ПОЛНОГО разбора ответа каноническим jq -s (length == 1,
     тип-объект ДО извлечения поля, rc jq ДО использования результата):
     повреждённый хвост при успешном префиксе, второй документ (включая
-    {}), ошибка jq — НЕ свидетельство; допустимый внешний whitespace
+    {}), ошибка jq — НЕ свидетельство; сырые NUL-байты ответа (хвост,
+    внутри значения, внутри ключа — Adv201c блок 1) — тот же класс:
+    канонический jq эти байты отвергает (rc≠0), а bash-транспорт "$(curl …)"
+    двери теряет NUL ДО jq и мутирует ответ; допустимый внешний whitespace
     вокруг единственного документа отказом не является (парные
-    положительные контроли behind/identical и arch-имена). Профиль мира —
+    положительные контроли behind/identical и arch-имена). Поле status
+    со значением вне словаря — отказ с правдивой причиной «неподдерживаемое
+    значение status», а не «без поля» (Adv201c блок 2); честное отсутствие
+    поля — отдельная ветвь, с этим входом не смешивается. Профиль мира —
     тот же механизм: пути/repoId/canonicalRemote не продолжают работу на
     повреждённом/многодокументном профиле (без fallback), а штатное
     ОТСУТСТВИЕ необязательного git.canonicalRemote — прежний допустимый
@@ -233,6 +239,10 @@ CASES = (
     ('b-vneshnij-curl-s-oshibkoj', 'station', 1, 'влитость в main продукта a3ka/toy-mob не проверена: curl rc=1'),
     ('b-vneshnij-json-povrezhdjon-hvost', 'station', 1, 'влитость в main продукта a3ka/toy-mob не проверена: ответ API не разобран (синтаксическая ошибка JSON'),
     ('b-vneshnij-dva-dokumenta', 'station', 1, 'влитость в main продукта a3ka/toy-mob не проверена: ответ API не разобран (в ответе несколько JSON-документов'),
+    ('b-vneshnij-nul-hvost', 'station', 1, 'влитость в main продукта a3ka/toy-mob не проверена: ответ API не разобран (синтаксическая ошибка JSON'),
+    ('b-vneshnij-nul-v-znachenii', 'station', 1, 'влитость в main продукта a3ka/toy-mob не проверена: ответ API не разобран (синтаксическая ошибка JSON'),
+    ('b-vneshnij-nul-v-klyuche', 'station', 1, 'влитость в main продукта a3ka/toy-mob не проверена: ответ API не разобран (синтаксическая ошибка JSON'),
+    ('b-vneshnij-status-chislo', 'station', 1, 'влитость в main продукта a3ka/toy-mob не проверена: неподдерживаемое значение status'),
     ('b-vneshnij-ne-vlit', 'station', 1, '— реализация не влита'),
     ('b-vneshnij-identical', 'station', 0, ''),
     ('b-vneshnij-bez-stroki', 'station', 1, 'место реализации предмета 777 не установлено'),
@@ -274,6 +284,7 @@ CASES = (
     ('g-architecture', 'back', 1, PH_ARCH_CI),
     ('g-arche', 'back', 1, PH_ARCH_CI),
     ('g-march', 'back', 1, PH_ARCH_CI),
+    ('g-arch-nul-hvost', 'back', 1, 'ARCH_CI: ответ check-runs не разобран (синтаксическая ошибка JSON'),
 )
 
 STABS = {
@@ -297,10 +308,13 @@ STABS = {
     's-g-curl-rc-ignoriruetsja': 'g-arch-curl-s-oshibkoj',
     's-b-json-hvost-ignoriruetsja': 'b-vneshnij-json-povrezhdjon-hvost',
     's-b-potok-dokumentov-dopushhen': 'b-vneshnij-dva-dokumenta',
+    's-b-nul-transport-terjaet-bajty': 'b-vneshnij-nul-hvost',
+    's-b-status-vne-slovarya-kak-otsutstvie': 'b-vneshnij-status-chislo',
     's-g-arche-razresheno': 'g-arche',
     's-g-json-hvost-ignoriruetsja': 'g-arch-json-povrezhdjon-hvost',
     's-g-potok-dokumentov-dopushhen': 'g-arch-dva-dokumenta',
     's-g-profil-potok-dopushhen': 'g-profil-dva-dokumenta',
+    's-g-nul-transport-terjaet-bajty': 'g-arch-nul-hvost',
 }
 
 
@@ -536,6 +550,18 @@ def build(base, label, kind, name=None):
         elif label == 'b-vneshnij-produkt-vlit':
             body = '\n' + body + '\n'
         compare_file.write_text(body)
+    # Adv201c блок 1 (маршрут compare) и блок 2: исходные БАЙТЫ ответа —
+    # write_bytes, канонический jq модели получает именно их (NUL-байты
+    # хвоста/значения/ключа jq отвергает rc 5; status-число разбирается
+    # в один объект с полем нестрокового типа); дверь читает их шимом curl
+    RAW_COMPARE = {
+        'b-vneshnij-nul-hvost': b'{"status":"behind"}\n\x00\x00',
+        'b-vneshnij-nul-v-znachenii': b'{"status": "beh\x00ind"}',
+        'b-vneshnij-nul-v-klyuche': b'{"sta\x00tus":"behind"}',
+        'b-vneshnij-status-chislo': b'{"status":5}',
+    }
+    if label in RAW_COMPARE:
+        compare_file.write_bytes(RAW_COMPARE[label])
     # тело check-runs: тот же класс входов; положительные arch-имена — с
     # внешним whitespace/переводом строки
     checkrun_file = root.parent / (root.name + '-checkruns.json')
@@ -549,7 +575,12 @@ def build(base, label, kind, name=None):
             cr += '\n{}'
         elif label in ('g-arch-tochno-imja', 'g-arch-v-skobkah', 'g-arch-s-probelom'):
             cr = '\n' + cr + '\n  '
-        checkrun_file.write_text(cr)
+        if label == 'g-arch-nul-hvost':
+            # Adv201c блок 1 (маршрут check-runs): успешный arch на точном
+            # HEAD + исходный NUL-хвост — "$(curl …)" теряет NUL ДО jq
+            checkrun_file.write_bytes(cr.encode() + b'\n\x00\x00')
+        else:
+            checkrun_file.write_text(cr)
 
     git(root, 'push', '-q', 'origin', 'main')
 
@@ -739,6 +770,7 @@ def model(root, f, mutant=''):
                 # факты — каноническим jq из тела ответа ВНЕ мира; успешный
                 # префикс при повреждённом теле свидетельством не является
                 body = f['compare_file'].read_text()
+                status_present = False
                 if skip('s-b-json-hvost-ignoriruetsja'):
                     # стаб A: игнорирование rc/хвоста — успешный префикс
                     status = f['compare_status'] or ''
@@ -749,16 +781,31 @@ def model(root, f, mutant=''):
                 elif not body:
                     status = ''
                 else:
-                    cmp_obj, cmp_err = json_one_object(body)
+                    # стаб-двойник bash-транспорта "$(curl …)" живой двери
+                    # (Adv201c блок 1): NUL-байты теряются ДО jq — хвост,
+                    # значение и ключ становятся валидным JSON
+                    src = body.replace('\x00', '') \
+                        if skip('s-b-nul-transport-terjaet-bajty') else body
+                    cmp_obj, cmp_err = json_one_object(src)
                     if cmp_obj is None:
                         return 1, PH_B5.format(r=declared) + f' ответ API не разобран ({cmp_err})'
                     status = cmp_obj.get('status') or ''
+                    status_present = isinstance(cmp_obj, dict) and 'status' in cmp_obj
                 if skip('s-b-api-vsegda-vlito'):
                     status = 'behind' if status else 'not-found-green'
                 if status in ('identical', 'behind', 'not-found-green'):
                     pass
                 elif status in ('ahead', 'diverged'):
                     return 1, PH_B6.format(o=f['object'], r=declared)
+                elif status_present and not skip('s-b-status-vne-slovarya-kak-otsutstvie'):
+                    # Adv201c блок 2: поле status ПРИСУТСТВУЕТ, значение вне
+                    # словаря {identical, behind, ahead, diverged} — причина
+                    # обязана называть фактическое состояние, а не «без поля»
+                    return 1, PH_B5.format(r=declared) + ' неподдерживаемое значение status'
+                elif status_present:
+                    # стаб-двойник ветки :559-565 двери: присутствующее поле
+                    # с вне-словарным значением объявляется отсутствующим
+                    return 1, PH_B5.format(r=declared) + ' ответ API без поля status'
                 else:
                     reason = f' curl rc={f["compare_rc"]}' if f['compare_rc'] else ' API недоступен'
                     return 1, PH_B5.format(r=declared) + reason
@@ -843,7 +890,11 @@ def model(root, f, mutant=''):
                 n = sum(int(x or 0)
                         for x in json_stream(body, CHECKRUN_COUNT, sha=f['head']).split())
             else:
-                cr_obj, cr_err = json_one_object(body)
+                # стаб-двойник bash-транспорта "$(curl …)" маршрута check-runs
+                # (Adv201c блок 1): NUL-байты теряются ДО jq
+                src = body.replace('\x00', '') \
+                    if skip('s-g-nul-transport-terjaet-bajty') else body
+                cr_obj, cr_err = json_one_object(src)
                 if cr_obj is None:
                     return 1, (f'{PH_ARCH_CI}: ответ check-runs не разобран ({cr_err}): '
                                'ожидался ровно один JSON-документ — успешного '

@@ -1,14 +1,99 @@
-# Сдаточный лист 201 — Круг: РЕШЕНИЕ 3 арбитража 2 (Arch201Fix3)
+# Сдаточный лист 201 — Круг: красные клетки Adv201c (Arch201Cells)
 
-Текущий круг — один коммит поверх `9e0e817eae2ee7779a795952bb0aabda97e0f47e`,
-только `dver_probe.py` и этот лист; новых файлов нет (stabs.tsv по-прежнему
-нет — привязки стабов в словаре STABS). Замороженный текст 201 и дверь не
-менялись: реализация-ремонт — `1f0f8bee9d2e33c400e3665feea3544e53663a35`
-(Impl201Fix2, `wip/201/implementer`); этот круг — клетки/стабы/карта/лист по
-РЕШЕНИЮ 3. Sha единственного коммита круга — в докладе оркестратору (коммит
-не может содержать собственный sha). Разделы ниже — ИСТОРИЯ, их числа
-(45/15 замороженного текста, 49/19 листа) не актуальны; фактические числа
-этого круга — 57 клеток / 24 стаба из выводов ниже.
+Текущий круг — один коммит поверх `154c73bbd8`, только `dver_probe.py` и
+этот лист; новых файлов нет (привязки стабов — в словаре STABS). Замороженный
+текст 201, дверь и реестр места не менялись; судимый кандидат —
+`b4d46ec66bb7ed7df58d28489cac922f8d66137f` (единый: реализация `1f0f8bee9d`
++ батарея `154c73bbd8` + строка реестра). Sha единственного коммита круга —
+в докладе оркестратору (коммит не может содержать собственный sha). Разделы
+ниже — ИСТОРИЯ (57/24, 49/19, 45/15); фактические числа этого круга —
+62 клетки / 27 стабов из выводов ниже.
+
+## Круг Adv201c — NUL-байты ответа до jq (оба маршрута) и числовой status
+
+Основание: вердикт третьего adversary — коммит `dcb26084b4`, ref
+`archive/201/adv201c-verdict-dcb26084b4`, блоки 1–2; инженерное решение
+консультанта `Cons201c` §2. Ответы сервера задаются исходными БАЙТАМИ вне
+toy-мира (`write_bytes`), curl rc 0; канонический jq батареи не менялся;
+ожидания — в памяти раннера (rc + подстрока причины + отсутствие тега).
+
+### Новые клетки
+
+| Клетка | Вход (байты) | Ожидание | Ветвь двери по коду |
+|---|---|---|---|
+| `b-vneshnij-nul-hvost` | compare `b'{"status":"behind"}\n\x00\x00'` | rc 1, «влитость … не проверена: ответ API не разобран (синтаксическая ошибка JSON», тега нет | compare-транспорт `:539` `$(curl …)`: bash теряет NUL ДО jq → ложный done |
+| `b-vneshnij-nul-v-znachenii` | compare `b'{"status": "beh\x00ind"}'` | rc 1, та же причина | тот же механизм: значение мутирует в `behind` |
+| `b-vneshnij-nul-v-klyuche` | compare `b'{"sta\x00tus":"behind"}'` | rc 1, та же причина | тот же механизм: ключ мутирует в `status` |
+| `b-vneshnij-status-chislo` | compare `b'{"status":5}'` — валидный ОДИН объект, поле ПРИСУТСТВУЕТ | rc 1, «…не проверена: неподдерживаемое значение status», тега нет | catch-all `:559-565`: присутствующее поле объявляется отсутствующим |
+| `g-arch-nul-hvost` | check-runs: успешный `arch` (completed/success) на точном HEAD + `b'\n\x00\x00'` | rc 1, «ARCH_CI: ответ check-runs не разобран (синтаксическая ошибка JSON», тега нет | check-runs-транспорт `:295` |
+
+Различающая пара: тот же behind без NUL-хвоста — положительный контроль
+`b-vneshnij-produkt-vlit` (зелёный, не дублирован, ссылка по клетке); для
+check-runs — `g-arch-tochno-imja`. Честное ОТСУТСТВИЕ поля status с числовым
+входом не смешано: модель вычисляет `status_present` по ключу разобранного
+объекта, прежняя ветка «нет поля»/«API недоступен» не тронута
+(`b-vneshnij-api-nedostupen` зелёный без изменений).
+
+### Модель и стабы (Н-39: привязка кодом STABS, не прозой)
+
+Модель: после полного разбора `status_present = isinstance(cmp_obj, dict)
+and 'status' in cmp_obj`; вне-словарное значение ПРИСУТСТВУЮЩЕГО поля даёт
+правдивую причину «неподдерживаемое значение status» (блок 2: называет
+фактическое состояние, не «без поля»). Обманные стабы — двойники ветвей
+живой двери:
+
+| Стаб | Мутант оракула | Клетка |
+|---|---|---|
+| `s-b-nul-transport-terjaet-bajty` | `body.replace('\x00','')` до `json_one_object` — двойник `$(curl …)` compare-маршрута (`:539`+`:51`) | `b-vneshnij-nul-hvost` |
+| `s-g-nul-transport-terjaet-bajty` | то же для тела check-runs — двойник `:295` | `g-arch-nul-hvost` |
+| `s-b-status-vne-slovarya-kak-otsutstvie` | присутствующее вне-словарное поле → «ответ API без поля status» (двойник `:559-565`) | `b-vneshnij-status-chislo` |
+
+### Прогоны: сырые итоги (клон `b4d46ec66b` + батарея круга)
+
+Судимое дерево — одноразовый SSH-клон `/tmp/dev-harness-verify/Arch201Cells/repo`
+(origin `ssh://git@github.com/a3ka/dev-harness.git`, собственная `.git`),
+ветка `proverka` на `b4d46ec66b`; поверх — `dver_probe.py` из WORKTREE
+(`cmp` побайтово — 0; `red_done_dver_201.sh` не менялся). Ambient
+`GIT_AUTHOR_*`/`GIT_COMMITTER_*` в среде прогонов отсутствуют (env-замер).
+
+| Дверь | Команда | rc | Итог |
+|---|---|---:|---|
+| `b4d46ec66b` | 201 `--repo .` | 1 | `CELLS=62 STABS=0 FAILURES=5` + `GREEN karta-jq-vyzovov: механизм _json_one_object × 5` |
+| `b4d46ec66b` | 201 `--model` | 0 | `CELLS=62 STABS=0 FAILURES=0` |
+| `b4d46ec66b` | 201 `--stabs` | 0 | `CELLS=62 STABS=27 FAILURES=0` |
+
+Красные строки — ровно пять новых клеток; прежние 57 зелёные:
+
+```text
+RED b-vneshnij-nul-hvost: rc=0 expected=1 … output='…done_contract.sh: line 539: warning: command substitution: ignored null byte in input\n'
+RED b-vneshnij-nul-v-znachenii: rc=0 expected=1 … (та же warning line 539)
+RED b-vneshnij-nul-v-klyuche: rc=0 expected=1 … (та же warning line 539)
+RED b-vneshnij-status-chislo: rc=1 expected=1 … output='done: влитость в main продукта a3ka/toy-mob не проверена: ответ API без поля status\n'
+RED g-arch-nul-hvost: rc=0 expected=1 … output='…done_contract.sh: line 295: warning: command substitution: ignored null byte in input\n'
+GREEN karta-jq-vyzovov: механизм _json_one_object × 5, jq вне механизма не читает недоверенные байты
+CELLS=62 STABS=0 FAILURES=5
+```
+
+Новые caught-строки `--stabs` (все 27 стабов caught, прежние 24 без изменений):
+
+```text
+STAB s-b-nul-transport-terjaet-bajty caught @ b-vneshnij-nul-hvost
+STAB s-b-status-vne-slovarya-kak-otsutstvie caught @ b-vneshnij-status-chislo
+STAB s-g-nul-transport-terjaet-bajty caught @ g-arch-nul-hvost
+CELLS=62 STABS=27 FAILURES=0
+```
+
+### Развилки этого круга
+
+- Клетки 1б/1в (NUL внутри значения/ключа) уложились в тот же механизм
+  (канонический jq rc 5 на всех трёх; `$(curl)` делает их валидными) —
+  добавлены; их дефектная ветвь одна с клеткой 1, стаб по ней один.
+- Карта jq-вызовов на кандидате GREEN и bash-транспорт байтов НЕ судит
+  (наблюдение-совет Adv201c): транспорт ловится новыми клетками, не картой.
+- Фраза «неподдерживаемое значение status» — норма модели этого круга:
+  ремонт двери обязан воспроизвести её подстрочно в причине отказа;
+  иная правдивая формулировка потребует синхронной правки клетки и модели.
+
 
 ## Круг Arb201V2 — полный разбор ровно одного JSON-документа
 
