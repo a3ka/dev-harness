@@ -93,6 +93,16 @@ ARCH_PIN: независимый оракул клетки (pin_required_diagnos
 диагностик — единый источник констант (ARCH_PIN_PREFIX/PIN_*_DIAG), модель
 и стабы-подмены несут их побайтово. Атака судьи (голый ARCH_PIN вместо
 диагностики при честных rc и токене) красна во всех режимах батареи.
+187 v4b (арбитраж Arb187V1 по повторному К-10 вердикта Crit187V5,
+2026-11-18): различается ПОЛНОЕ значение входного pin в диагностике,
+включая границу окончания. Подстроки ожидания недостаточно: «…SHA: HEAD»
+остаётся префиксом подменённого «…SHA: HEAD-wrong» (суффиксная подмена при
+сохранённых rc и причине). За концом значения в честном сообщении идёт
+граница формы: конец вывода, перевод строки публичной двери либо
+фиксированное продолжение диагноза (неразрешимая ветвь; после него живой
+двери разрешён путь клона «: $root»); байт значения (дефис) границей не
+является. Один предикат pin_diagnostic_matched судит --model, --stabs и
+живую дверь; ожидание — тройка из lock мира, снятая в память до вызова.
 """
 import hashlib
 import json
@@ -210,10 +220,11 @@ CASES = (
     # грамматики); неразрешимый полный sha — прежний отказ ARCH_PIN (защита,
     # зелена до/после); HEAD-без-флага — ARCH_PIN, не ARCH_COMPONENT_NET
     # (порядок шва 170 v2: pin ДО флага; красна сегодня именем отказа) ─────
-    # 187 v4 (К-10): ожидание каждой pin-клетки — rc 1 + ARCH_PIN + СВОЯ
-    # диагностика с КОНКРЕТНЫМ pin входа (оракул pin_required_diagnostic из
-    # lock мира — вход, не вывод модели); той же подстрокой судится живая
-    # дверь — подстроки ARCH_PIN более не достаточно
+    # 187 v4/v4b (К-10): ожидание каждой pin-клетки — rc 1 + ARCH_PIN + СВОЯ
+    # диагностика с ПОЛНЫМ значением pin входа (оракул pin_required_diagnostic
+    # из lock мира — вход, не вывод модели); тем же предикатом — с границей
+    # окончания значения (v4b) — судится живая дверь; подстроки ARCH_PIN и
+    # подстроки-префикса значения более не достаточно
     ('pin-symbolic-head', 'task', 'pin-head', 1, 'ARCH_PIN', 'task'),
     ('pin-symbolic-branch', 'task', 'pin-branch', 1, 'ARCH_PIN', 'task'),
     ('pin-short-sha', 'task', 'pin-short', 1, 'ARCH_PIN', 'task'),
@@ -342,6 +353,15 @@ STABS = {
     'pin-value-lost-unresolvable': ('pin-unresolvable-sha', 'pin-value-lost'),
     'pin-value-forged-short': ('pin-short-sha', 'pin-value-forged'),
     'pin-value-forged-unresolvable': ('pin-unresolvable-sha', 'pin-value-forged'),
+    # 187 v4b стабы (Arb187V1 — суффиксная подмена повторного К-10):
+    # «окончание диагностируемого значения продолжено чужим хвостом при
+    # сохранённых rc и причине» — каждой неконформной клетке свой вход
+    # (HEAD / ветка / сокращённый sha / HEAD без флага); префиксная подмена
+    # pin-value-forged сохранена; различающий вход — свой (Н-39) ──────────
+    'pin-suffix-forged-head': ('pin-symbolic-head', 'pin-suffix-forged'),
+    'pin-suffix-forged-branch': ('pin-symbolic-branch', 'pin-suffix-forged'),
+    'pin-suffix-forged-short': ('pin-short-sha', 'pin-suffix-forged'),
+    'pin-suffix-forged-noflag': ('pin-head-noflag', 'pin-suffix-forged'),
     'applicability-dir-only': ('applicability-lock-no-dir', 'applicability-dir-only'),
     'applicability-lock-only': ('applicability-dir-no-lock', 'applicability-lock-only'),
 }
@@ -495,23 +515,106 @@ PIN_VARIATIONS = frozenset(PIN_LOCK_VALUES)
 NOFLAG_VARIATIONS = frozenset({'no-local-noflag', 'dir-only-noflag',
                                'pin-head-noflag'})
 
-# 187 v4 (блок К-10 вердикта Crit187V4): единый источник обязательных
-# диагностик pin — честные возвраты модели, стабы-подмены и оракул клеток
-# несут тексты побайтово отсюда; живая дверь может дописывать корень справа
-# («… в клоне модели: $root»), судится подстрока самого диагноза.
+# 187 v4/v4b (блок К-10 вердиктов Crit187V4/V5): единый источник
+# обязательных диагностик pin — честные возвраты модели, стабы-подмены и
+# оракул клеток несут тексты побайтово отсюда; живая дверь может нести
+# внешний префикс («ОТКАЗ: …») и дописывать корень справа («… в клоне
+# модели: $root»), судится само значение диагноза с границей окончания
+# pin (v4b: подстроки-префикса значения недостаточно).
 ARCH_PIN_PREFIX = 'ARCH_PIN: '
 PIN_NONCONFORMING_DIAG = 'закреплённый pin не полный 40-hex SHA: {pin}'
 PIN_UNRESOLVABLE_DIAG = 'коммит {pin} не разрешается в клоне модели'
 
 
+def pin_expectation(variation, pin):
+    """187 v4b (Arb187V1): ожидание клетки — тройка (полный диагноз,
+    голова формы до значения, само значение pin) из единого источника
+    шаблонов; значение — вход lock мира, не вывод субъекта."""
+    template = (PIN_UNRESOLVABLE_DIAG if variation == 'pin-unresolvable'
+                else PIN_NONCONFORMING_DIAG)
+    head = template.partition('{pin}')[0]
+    return template.format(pin=pin), head, pin
+
 def pin_required_diagnostic(root, variation):
-    """187 v4 (К-10): независимый оракул клетки — обязательная диагностика
-    pin с КОНКРЕТНЫМ входным pin; снимается из lock мира в память до вызова
-    модели или двери: ожидание — не вывод модели."""
+    """187 v4/v4b (К-10): независимый оракул клетки — обязательная
+    диагностика pin с КОНКРЕТНЫМ входным pin; снимается из lock мира в
+    память до вызова модели или двери: ожидание — не вывод субъекта.
+    Тройка несёт и границу окончания значения (голову формы до него)."""
     pin = json.loads((root / 'architecture.lock.json').read_text())['commit']
-    if variation == 'pin-unresolvable':
-        return PIN_UNRESOLVABLE_DIAG.format(pin=pin)
-    return PIN_NONCONFORMING_DIAG.format(pin=pin)
+    return pin_expectation(variation, pin)
+
+def pin_diagnostic_matched(output, expectation):
+    """187 v4b (Arb187V1, «исправить клеткой»): закрывающее свойство —
+    ПОЛНОЕ значение входного pin в диагностике, включая границу его
+    окончания. Подстроки ожидания недостаточно: «…SHA: HEAD» остаётся
+    префиксом подменённого «…SHA: HEAD-wrong». Во вхождении полного
+    диагноза за концом значения идёт граница формы: фиксированное
+    продолжение диагноза (неразрешимая ветвь), а когда значение закрывает
+    форму (неконформная ветвь) — конец вывода либо перевод строки публичной
+    двери; байт значения (дефис и другие) границей не является. Внешний
+    контекст (префикс «ОТКАЗ:», строки вокруг) не судится: равенства всего
+    вывода модельному литералу не требуется."""
+    expected, head, pin = expectation
+    tail = expected[len(head) + len(pin):]
+    start = 0
+    while True:
+        found = output.find(expected, start)
+        if found < 0:
+            return False
+        if tail:
+            # значение закрыто фиксированным продолжением формы диагноза;
+            # живой двери разрешён путь клона справа («…: $root»)
+            return True
+        after = output[found + len(expected):]
+        if not after or after[0] == '\n':
+            return True
+        start = found + 1
+
+def pin_boundary_selfcheck():
+    """187 v4b (Arb187V1): положительный/отрицательный контроль предиката
+    границы на формах публичной двери: внешний префикс «ОТКАЗ: », обычный
+    перевод строки двери (и его отсутствие у модельного возврата), путь
+    клона после фиксированного текста неразрешимой ветви. Подмены
+    окончания — дефисом (свидетель Crit187V5) и продолжением hex-цифрой —
+    отказываются; значение pin-short в мирах динамическое, здесь
+    представитель формы (12 hex). Возвращает (число образцов, имена
+    непройденных)."""
+    total, failed = 0, []
+    def check(name, output, expectation, must_match):
+        nonlocal total
+        total += 1
+        if pin_diagnostic_matched(output, expectation) != must_match:
+            failed.append(name)
+    door = 'ОТКАЗ: ' + ARCH_PIN_PREFIX
+    head_expectation = pin_expectation('pin-head', PIN_LOCK_VALUES['pin-head'])
+    branch_expectation = pin_expectation('pin-branch', PIN_LOCK_VALUES['pin-branch'])
+    short_expectation = pin_expectation('pin-short', '0123456789ab')
+    unresolvable_pin = PIN_LOCK_VALUES['pin-unresolvable']
+    unresolvable_expectation = pin_expectation('pin-unresolvable', unresolvable_pin)
+    nonconforming, unresolvable = PIN_NONCONFORMING_DIAG.format, PIN_UNRESOLVABLE_DIAG.format
+    # положительный контроль: честные формы модели и публичной двери
+    check('honest-head-door-newline', door + nonconforming(pin='HEAD') + '\n',
+          head_expectation, True)
+    check('honest-head-model-no-newline', ARCH_PIN_PREFIX + nonconforming(pin='HEAD'),
+          head_expectation, True)
+    check('honest-branch-door-newline', door + nonconforming(pin='main') + '\n',
+          branch_expectation, True)
+    check('honest-short-door-newline', door + nonconforming(pin='0123456789ab') + '\n',
+          short_expectation, True)
+    check('honest-unresolvable-clone-path',
+          door + unresolvable(pin=unresolvable_pin) + ': /tmp/clone-187\n',
+          unresolvable_expectation, True)
+    # отрицательный контроль: подмена окончания значения при честных rc/причине
+    check('suffix-head-hyphen', ARCH_PIN_PREFIX + nonconforming(pin='HEAD-wrong'),
+          head_expectation, False)
+    check('suffix-branch-hyphen', door + nonconforming(pin='main-wrong') + '\n',
+          branch_expectation, False)
+    check('suffix-short-hex-digit', ARCH_PIN_PREFIX + nonconforming(pin='0123456789abc'),
+          short_expectation, False)
+    check('suffix-unresolvable-inside',
+          door + unresolvable(pin=unresolvable_pin + '-wrong') + ': /tmp/clone-187\n',
+          unresolvable_expectation, False)
+    return total, failed
 
 def digest(value):
     """Canonical SHA-256 of the real model: sorted keys, JSON.stringify bytes."""
@@ -1043,6 +1146,15 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
                 if variation == 'pin-unresolvable':
                     return 1, ARCH_PIN_PREFIX + PIN_UNRESOLVABLE_DIAG.format(pin='wrong-' + pin)
                 return 1, ARCH_PIN_PREFIX + PIN_NONCONFORMING_DIAG.format(pin='wrong-' + pin)
+            elif mutant == 'pin-suffix-forged':
+                # Arb187V1 (суффиксная подмена повторного К-10): rc и причина
+                # честны, окончание диагностируемого значения продолжено
+                # чужим хвостом («…SHA: HEAD-wrong» вместо входного HEAD) —
+                # граница окончания значения обязана совпасть с концом
+                # входного pin (неконформная ветвь: значение закрывает
+                # форму, дефис его продолжает)
+                return 1, (ARCH_PIN_PREFIX
+                           + PIN_NONCONFORMING_DIAG.format(pin=pin) + '-wrong')
             elif not re.fullmatch(r'[0-9a-f]{40}', pin):
                 return 1, ARCH_PIN_PREFIX + PIN_NONCONFORMING_DIAG.format(pin=pin)
             elif run('git', '-C', arch, 'cat-file', '-e', pin + '^{commit}').returncode:
@@ -1304,6 +1416,15 @@ def main():
     args = p.parse_args()
     tools = args.repo.resolve() if args.repo else TOOLS
     failures = []
+    # 187 v4b (Arb187V1): положительный/отрицательный контроль предиката
+    # границы на формах публичной двери — до миров, тем же кодом, которым
+    # судятся клетки, стабы и живая дверь; красный образец — не клетка
+    boundary_total, boundary_failed = pin_boundary_selfcheck()
+    if boundary_failed:
+        failures.extend(boundary_failed)
+        print('RED pin-diagnostic-boundary-selfcheck: ' + ', '.join(boundary_failed))
+    else:
+        print(f'GREEN pin-diagnostic-boundary-selfcheck {boundary_total}/{boundary_total}')
     with tempfile.TemporaryDirectory(prefix='workflow-187-') as temp:
         base = Path(temp)
         for label, action, variation, expected, reason, _ in CASES:
@@ -1311,9 +1432,10 @@ def main():
             root = world(base, label, kind)
             arch, pinned = architecture(base, root, variation)
             task, trace, role = prepare(root, arch, pinned, variation, action)
-            # Снять ожидание в память до вызова модели или публичной двери.
-            required_pin_diagnostic = (pin_required_diagnostic(root, variation)
-                                       if variation in PIN_VARIATIONS else '')
+            # Снять ожидание в память до вызова модели или публичной двери:
+            # полный диагноз, голова формы и значение pin (граница окончания).
+            required_pin_expectation = (pin_required_diagnostic(root, variation)
+                                        if variation in PIN_VARIATIONS else None)
             honest_rc, honest_out = verdict(root, arch, pinned, action, task, role, variation=variation)
             if honest_rc != expected or (reason and reason not in honest_out):
                 raise RuntimeError(f'broken fixture: {label} expected {expected}/{reason}, got {honest_rc}/{honest_out}')
@@ -1323,11 +1445,13 @@ def main():
                 result = live(tools, root, arch, pinned, action, task, trace, role, variation)
                 rc, output = result.returncode, result.stdout + result.stderr
             ok = (rc == expected and (not reason or reason in output))
-            # 187 v4 (К-10 вердикта Crit187V4): обе обязательные диагностики
-            # pin и КОНКРЕТНЫЙ входной pin — независимым оракулом из lock
-            # мира (вход, не вывод модели), в любом режиме: --model, --stabs
-            # и живая дверь --repo; подстроки ARCH_PIN более не достаточно
-            if required_pin_diagnostic and required_pin_diagnostic not in output:
+            # 187 v4/v4b (К-10 вердиктов Crit187V4/V5, арбитраж Arb187V1):
+            # обе обязательные диагностики pin и ПОЛНОЕ значение входного pin
+            # с границей окончания — независимым оракулом из lock мира (вход,
+            # не вывод модели), в любом режиме: --model, --stabs и живая дверь
+            # --repo; подстроки-префикса значения недостаточно
+            if (required_pin_expectation
+                    and not pin_diagnostic_matched(output, required_pin_expectation)):
                 ok = False
             if action == 'task' and expected and PACK_MARKER in output:
                 ok = False
@@ -1351,9 +1475,11 @@ def main():
                     if case != label: continue
                     fake_rc, fake_out = verdict(root, arch, pinned, action, task, role, mutant, variation=variation)
                     caught = fake_rc != expected or (reason and reason not in fake_out)
-                    # 187 v4 (К-10): утрата/подмена диагностики либо значения
-                    # pin ловится независимым оракулом и на стабах
-                    if required_pin_diagnostic and required_pin_diagnostic not in fake_out:
+                    # 187 v4/v4b (К-10): утрата/подмена диагностики либо
+                    # значения pin, включая окончание (суффикс), ловится
+                    # независимым оракулом и на стабах
+                    if (required_pin_expectation
+                            and not pin_diagnostic_matched(fake_out, required_pin_expectation)):
                         caught = True
                     if action == 'task' and expected and PACK_MARKER in fake_out:
                         caught = True
