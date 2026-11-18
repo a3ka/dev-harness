@@ -9,7 +9,7 @@
 ЖДЁТ CI (у ветки предмета идёт CI) либо СТОИТ N мин — с последним событием. Строка СТОИТ —
 несделанный следующий шаг: он важнее wait.
 """
-import glob, json, os, re, subprocess, sys, datetime as dt
+import glob, json, os, pwd, re, subprocess, sys, datetime as dt
 
 WINDOW = int(sys.argv[1]) if len(sys.argv) > 1 else 360
 ACTIVE_MIN = 5            # агент без yield, писавший в журнал не позже N мин назад, — работает
@@ -94,9 +94,14 @@ frozen = set(re.findall(r'frozen/contracts/([0-9]{3})/', sh('git', '-C', REPO, '
 # субагента — не старше окна табло включительно; мера та же, что у журналов станции.
 # Состояние проекта (bin/wt/архив) и чужая сессия (Complior-back) ведущими не
 # считаются. Табло ничего не пишет.
-mob_ses = glob.glob(os.path.expanduser(
-    '~/.local/state/dev-harness-projects/complior-mob/home/.omp/profiles/dev'
-    '/agent/sessions/--home-harness-projects-Complior-mob--'))
+# Дом сессии ищется по объединению двух корней: $HOME запускающего и дом из
+# passwd (pwd.getpwuid) — оркестратор и wait-guard 128 зовут табло под omp,
+# где HOME — каталог зоны (088 И-1), а журналы лежат в настоящем доме станции;
+# совпавшие корни дают один и тот же каталог, дубликат не считается дважды.
+mob_ses = sorted({p for h in (os.path.expanduser('~'), pwd.getpwuid(os.getuid()).pw_dir)
+                  for p in glob.glob(h + '/.local/state/dev-harness-projects/complior-mob'
+                                     '/home/.omp/profiles/dev/agent/sessions'
+                                     '/--home-harness-projects-Complior-mob--')})
 mob_last = []
 for b in mob_ses:
     for f in glob.glob(b + '/*.jsonl') + glob.glob(b + '/*/*.jsonl'):
