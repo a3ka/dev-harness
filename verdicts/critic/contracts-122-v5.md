@@ -1,98 +1,158 @@
-accept
-OBJECT=1c75a7ec228a7bd3a30cf0041e3e99926fde3268
-КЛАСС=задача: контракт v+1 замороженного + красные тесты (смешанный); риск: обычный (подтверждён: источник identity генератора CI и байты заголовка; права, авторизация, деньги, ПД не затронуты — строка :4 контракта соответствует дельте); порог: прежний (122 заведён 2026-10-21, до 5ca237e4), действующих блоков нет
-СУД: repo=dev-harness; предмет=122; фаза=контракт (v+1 → v5, пакет 184 А10; Arch184Vplus4, коммит e8a091f02dc10376ab7e01c34616023956b97c45); роль=critic; вызов=1/2; модель-план=zai/glm-5.3 (fallback openai-codex/gpt-5.6-terra); сессия=Crit184Vplus8; модель-факт=zai/glm-5.3 (workstation сессии; провайдер поднят консультантом 10:10 UTC, healthz 200 — повторов не было); SHA=1c75a7ec228a7bd3a30cf0041e3e99926fde3268 (tip wip/184/architect); предыдущий=нет (нематериализованный FAIL Crit184Vplus `1f5845a4a994b13556918d529b4c43ae1c6a90bb` — обрыв без вердикта по модели вне тира; его блок проверен на закрытие ниже); исключение=нет
+FAIL
+OBJECT=ebf7ac6b62692c51753c6ad8e2767e2130af19fc
+СУД: repo=dev-harness; предмет=122; фаза=контракт v5, узкий суд дельты; роль=critic; вызов=один по слову владельца 2026-11-18 ~18:10 UTC; модель-план=openai-codex/gpt-6.1-terra; сессия=Crit122V5; модель-факт=openai-codex/gpt-6.1-terra (allowed, models_actual --bind); SHA=ebf7ac6b62692c51753c6ad8e2767e2130af19fc; предыдущий=accept v4; исключение=слово владельца, батч №3 №3.
 
-# Вердикт критика — контракт 122 v+1 (v5), пакет 184 (А10), вызов 1/2, повтор после обрыва
+БЛОКИРУЕТ contracts/122-ci-proekta.md:41 — обязательная модель допускает неподдерживаемое выражение с `}` в строковом аргументе функции.
+ОБЯЗАТЕЛЬСТВО: всякое выражение вне трёх разрешённых форм на run/env/working-directory получает `vyrazhenie-ne-podderzhano` до исполнения; обязательная честная модель должна ему соответствовать.
+СОСТОЯНИЕ: явно заявленная область включает функции `format` и значения env (`contracts/122-ci-proekta.md:112`); ручной workflow с `env: {VALUE: "${{ format('}', github.sha) }}"}` и `run: 'true'`. Модель `fixtures/workshop_project/ci_proekta_122/model/ci_preflight.sh:74` ищет выражение регулярным выражением `\$\{\{[^}]*\}\}`, которое не проходит через `}` внутри строкового аргумента.
+НАБЛЮДЕНИЕ: обязательная модель возвращает rc 0 `CIPREFLIGHT_OK jobs=1 station=0` вместо именованного отказа; её существующая операция обнаружения выражения пропускает достижимый через поддерживаемый рукописный workflow вход. Это не специально добавленный фильтр и не гипотетическая мутация.
+ЗАКРЫВАЮЩЕЕ СВОЙСТВО: модель и приёмка различают выражения вне замкнутого алфавита, включая строковые аргументы с `}`, и отказывают до исполнения; разрешённые формы остаются зелёными.
+ПРОИСХОЖДЕНИЕ: дельта
+КЛАСС: К-09
 
-## Кандидат, независимость, законность вызова
+БЛОКИРУЕТ contracts/122-ci-proekta.md:41 — модель теряет исходное значение унаследованного working-directory при отказе о побеге.
+ОБЯЗАТЕЛЬСТВО: `working-directory-vne-kopii: <исходное значение поля до подстановки>`; defaults workflow и джобы входят в v+1.
+СОСТОЯНИЕ: `defaults.run.working-directory: ${{ github.workspace }}/..`, шаг без собственного working-directory. В `fixtures/workshop_project/ci_proekta_122/model/ci_preflight.sh:210-221` модель берёт fallback после подстановки, а не исходный наследуемый путь.
+НАБЛЮДЕНИЕ: rc 1, но причина содержит `/tmp/dev-harness-verify/ci122-pre-gmlp3nga/repo/..` вместо `${{ github.workspace }}/..`. Батарея при этом зелена: обе клетки побега проверяют только поле шага.
+ЗАКРЫВАЮЩЕЕ СВОЙСТВО: исходное значение в диагностике сохраняется при наследовании с любого предусмотренного уровня и проверяется различающим входом; требование не диктует устройство реализации.
+ПРОИСХОЖДЕНИЕ: дельта
+КЛАСС: К-10
 
-- Клон `ssh://git@github.com/a3ka/dev-harness.git` в `/tmp/dev-harness-verify/Crit184Vplus8/repo`; OBJECT = tip `wip/184/architect` (ветка от `16a65dcb5`, main ушёл вперёд — сужено по diff коммита). Дельта предмета — коммит `e8a091f02dc10376ab7e01c34616023956b97c45`: контракт (+46/−27 против v+1 Arch184Vplus3), модель генератора (`ci_proekta_122/model/gen_project_workflow.sh` — projectId у резолвера, заголовок без `.harness/`), новая `model/profile_resolver.sh`, раннер (+клетки g9/g10/g11, PINNED), стабы `stab_gen_raw_profil.sh` и `stab_gen_zagolovok_harness.sh`. `frozen/contracts/122/4` ≡ базе `79b615f53`.
-- Автор — `architect <architect@dev-harness.local>` (Arch184Vplus4). Судья — Crit184Vplus8 (zai/glm-5.3, apex-sol), собственной работы не судит.
-- `РАЗРЕШИЛ-ВЛАДЕЛЕЦ:` в теле e8a091f02 дословно, ровно один раз: «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: contracts/122-ci-proekta.md — v+1 только в объёме решения А10 (предмет 184); слово владельца 2026-11-10 ~20:44 UTC «г да» через консультанта».
-- Имя файла — канон: vmax(`frozen/contracts/122/*`)=4 → `verdicts/critic/contracts-122-v5.md`; на main имени нет.
-- Повтор законен (см. вердикт 054); автор СОГЛАСЕН с блоком в §Позиция автора.
+БЛОКИРУЕТ contracts/122-ci-proekta.md:53,62,108 — новые пары «стаб → ветвь/клетка» записаны в прозе контракта, хотя Н-39 поручает привязку architect по коду, а контракту — инварианты и rc-команды.
+ОБЯЗАТЕЛЬСТВО: Н-39 дословно задан в поручении: привязки стаба к ветвям несёт код, не проза контракта.
+СОСТОЯНИЕ: строка 53 перечисляет три новых имени и соответствующие удалённые операции, строка 62 указывает именованные красные клетки каждого нового стаба, строка 108 — конкретный стаб и его ветвь.
+НАБЛЮДЕНИЕ: те же привязки уже находятся в шапках стаба и в коде модели; декларация строки 53 об отсутствии пар не устраняет их наличие в самом тексте.
+ЗАКРЫВАЮЩЕЕ СВОЙСТВО: убрать новые прозаические привязки из контракта, сохранив инварианты и rc-команды; привязки должны остаться проверяемыми по коду architect.
+ПРОИСХОЖДЕНИЕ: дельта
+КЛАСС: К-01
 
-## Что изменено против Arch184Vplus3 (76f93b0a → e8a091f02)
+## Выполненные пробы
 
-Приёмка Г1 дополнена мирами, где резолвер отказывает, а raw-разбор дал бы совпадение: g9-oba-profilja, g10-profil-symlink-naruzhu (`--write` → rc 1 `profil-rashozhdenie`, workflow не записан, в выводе фраза резолвера), g11-bajty-bez-ssylki. Счёты обновлены живыми замерами (52 клетки, PINNED_NAMES=52, 22 стаба); :13/:82 противоречие раздачи снято (architect правит toy-миры/модели/стабы до заморозки; implementer — только `scripts/gen_project_workflow.sh`); порядок ленда = (1) из 054 v+1. Г2/Г3, алфавит 16 причин, ПРЕДПОСЫЛКИ, ПРОВОДКА, предполёт не тронуты; буллет g5 модели угроз дополнен (второй парсер). Модель генератора в `--model` берёт projectId у модели резолвера — отдельного парсера больше нет.
-
-## Закрытие прежнего блока
-
-БЛОК (Г1: критерий не отличал генератор с raw-разбором от вызова резолвера) — ЗАКРЫТ.
-
-Живой прогон батареи на OBJECT:
-
+Вход первой пробы (`/tmp/dev-harness-verify/Crit122V5/world/workflow.yml`):
+```yaml
+name: example
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      VALUE: "${{ format('}', github.sha) }}"
+    steps:
+      - run: 'true'
 ```
-$ bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model
-ИТОГ 122 (model): клеток 52, зелёных 52, красных 0   [rc=0]
-$ … (bare)
-ИТОГ 122 (red): клеток 52, зелёных 34, красных 18    [rc=1]
-$ CI_PROEKTA_122_GEN=…/stabs/stab_gen_raw_profil.sh … --model
-CASE g9-oba-profilja: rc=3 want=1 причина=profil-rashozhdenie КРАСНАЯ (rc 3 вместо 1; нет причины)
-CASE g10-profil-symlink-naruzhu: rc=3 want=1 … КРАСНАЯ
-ИТОГ 122 (model): клеток 52, зелёных 50, красных 2   [rc=1]
-$ CI_PROEKTA_122_GEN=…/stabs/stab_gen_zagolovok_harness.sh … --model
-CASE g11-bajty-bez-ssylki: rc=5 want=0 … КРАСНАЯ
-ИТОГ 122 (model): клеток 52, зелёных 51, красных 1   [rc=1]
-$ … --model --cell g9|g10|g11   → зелёных 1, красных 0 каждая [rc=0]
 ```
-
-Мутант критика RAW прежнего вердикта (генератор без вызова резолвера, raw-разбор профиля и слоя — операция модели 122 после 76f93b0a) пойман клетками правки на честном дереве (резолвер H по 054 v+1 + перенос станции + сам генератор в `scripts/`):
-
+$ bash fixtures/workshop_project/ci_proekta_122/model/ci_preflight.sh --repo /tmp/dev-harness-verify/Crit122V5/world --workflow workflow.yml
+CIPREFLIGHT_OK jobs=1 station=0
+rc=0
 ```
-$ python3 mut122.py <tree> RAW|RES   (патч scripts/gen_project_workflow.sh)
-$ bash <mutW-raw>/…/red_ci_proekta_122.sh        → rc 1: g9, g10 КРАСНАЯ (rc 3 — workflow записан); 50/2
-$ bash <mutW-res>/…/red_ci_proekta_122.sh        → rc 0: ИТОГ 122 (red): клеток 52, зелёных 52, красных 0
-$ python3 gen122.py <tree>   (миры формы 184, --write)
-RES: clean rc=0 written; both rc=1 profil-rashozhdenie (фраза резолвера, не записан);
-     symlink-outside rc=1 profil-rashozhdenie (не записан)
-RAW: both rc=0 WRITTEN; symlink-outside rc=0 WRITTEN   — но эти миры краснят g9/g10 батареи
-$ python3 gen122root.py <tree>   (мир «только корень»)
-RES: rc=1 profil-otsutstvuet (фраза резолвера); RAW: rc=1 profil-otsutstvuet
+Вход второй пробы (`inherited.yml` в том же мире):
+```yaml
+name: example
+defaults:
+  run:
+    working-directory: ${{ github.workspace }}/..
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'true'
 ```
-
-Мутант «оставь `.harness/ci.json` в шапке» (RES + прежний HEADER) → `CASE g11-bajty-bez-ssylki: КРАСНАЯ (rc 5)`, rc 1 — прежде его видела только батарея 184, теперь и 122. «Удаление клетки»:
-
 ```
-(удалена g5 из CELLS раннера в копии дерева)
-$ bash <del122>/…/red_ci_proekta_122.sh --model
-ИТОГ 122 (model): клеток 51, зелёных 51, красных 0
-ci122 ОТКАЗ: набор клеток расходится с закреплённым (51 из 52)   [rc=1]
-```
-
-## Обязательные мутации
-
-«обход резолвера» — RAW выше; «оба профиля» — g9 + gen122 both; «симлинк наружу» — g10 + gen122 symlink-outside; «только корневой мир» — gen122root (RES отказывает фразой резолвера); «удаление клетки» — PINNED выше; «корневой профиль как вход/фолбэк» и «станция без манифеста» — вердикты 054/161 (резолвер и двери ниже по стеку).
-
-## Гейты и прогоны (OBJECT, сырой вывод)
-
-```
-$ bash scripts/pre_critic.sh contracts/122-ci-proekta.md        → «КРИТИК: дверь зелёная» [rc=0]
-$ bash scripts/check_precision_gate.sh . contracts/122-ci-proekta.md → OK [rc=0]
-$ bash scripts/check_threat_model.sh . contracts/122-ci-proekta.md   → валидна (ЗАЩИЩАЕТ 7, НЕ ЗАЩИЩАЕТ 6) [rc=0]
-$ bash scripts/check_provodka.sh . contracts/122-ci-proekta.md       → [rc=0] (122 done/1, проводка подключена)
-$ bash scripts/check_ceilings.sh .                                  → потолки в порядке [rc=0]
-$ CI_PROEKTA_122_{GEN,PREFLIGHT,GATES}=stabs/stab_rc0_chestnyj_tekst.sh … --model → зелёных 18, красных 34
-$ … stab_rc1_chestnyj_tekst.sh … → зелёных 34, красных 18
-$ stab_gen_check_tekstom.sh → 50/2 (g8 две) [rc=1]
+$ bash fixtures/workshop_project/ci_proekta_122/model/ci_preflight.sh --repo /tmp/dev-harness-verify/Crit122V5/world --workflow inherited.yml
+preflight ОТКАЗ: working-directory-vne-kopii: /tmp/dev-harness-verify/ci122-pre-gmlp3nga/repo/..
+rc=1
 ```
 
-## Механические сверки (живой прогон против приёмки v+1)
+`bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --stabs`:
+```
+ci122 ОТКАЗ: неизвестный ключ: --stabs
+```
+rc 2: у этой батареи нет такого режима; по её фактическому интерфейсу три новых стаба подключены через `CI_PROEKTA_122_PREFLIGHT`, каждый на `--model`. Они меняют существующие операции модели через единственные маркеры, а не добавляют запрет. Результаты: без workspace — rc 1, 53/9; без границы — rc 1, 60/2; без отказа выражений — rc 1, 58/4. Их дефекты пойманы, но это не устраняет два самостоятельных нарушения честной модели выше.
 
-52 клетки ✓; 22 стаба ✓ (`ls stabs/ | wc -l` = 22); bare 34/18 ✓; `--model` 52/52 ✓; подмена rc 18/34 и 34/18 ✓; стаб-замеры :4 совпали (raw 50/2, zagolovok 51/1, check_tekstom 50/2); `--cell g9/g10/g11` → зелёных 1 ✓; PINNED_N=52 ✓; провода rc 0 ✓. Прежний список 1–9 закрыт живыми замерами; исторические числа объявлены историей.
+`bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model`, rc 0, сырой вывод:
+```
+CASE k-gen-check: rc=0 want=0 причина=gen OK: check ЗЕЛЁНАЯ
+CASE k-preflight: rc=0 want=0 причина=CIPREFLIGHT_OK ЗЕЛЁНАЯ
+CASE k-preflight-contract: rc=0 want=0 причина=CIPREFLIGHT_OK ЗЕЛЁНАЯ
+CASE k-gates: rc=0 want=0 причина=PREDPOSYLKI_OK ЗЕЛЁНАЯ
+CASE k-freeze: rc=0 want=0 причина=PREDPOSYLKI_OK ЗЕЛЁНАЯ
+CASE z5-bez-ci-ne-trebuet: rc=0 want=0 причина=PREDPOSYLKI_OK ЗЕЛЁНАЯ
+CASE g1-manifest-otsutstvuet: rc=1 want=1 причина=manifest-otsutstvuet ЗЕЛЁНАЯ
+CASE g2-manifest-nevaliden: rc=1 want=1 причина=manifest-nevaliden ЗЕЛЁНАЯ
+CASE g3-workflow-ruchnoj: rc=1 want=1 причина=workflow-ruchnoj ЗЕЛЁНАЯ
+CASE g3-write-vosstanavlivaet: rc=0 want=0 причина=bajty vozvrashcheny ЗЕЛЁНАЯ
+CASE g4-gen-nedeterminirovan: rc=0 want=0 причина=gen-nedeterminirovan: net ЗЕЛЁНАЯ
+CASE g5-profil-rashozhdenie: rc=1 want=1 причина=profil-rashozhdenie ЗЕЛЁНАЯ
+CASE g6-profil-otsutstvuet: rc=1 want=1 причина=profil-otsutstvuet ЗЕЛЁНАЯ
+CASE g7-workflow-otsutstvuet: rc=1 want=1 причина=workflow-otsutstvuet ЗЕЛЁНАЯ
+CASE g8-crlf-ruchnoj: rc=1 want=1 причина=workflow-ruchnoj ЗЕЛЁНАЯ
+CASE g8-cr-ruchnoj: rc=1 want=1 причина=workflow-ruchnoj ЗЕЛЁНАЯ
+CASE p1-yaml-nevaliden: rc=1 want=1 причина=yaml-nevaliden ЗЕЛЁНАЯ
+CASE p2-working-directory-otsutstvuet: rc=1 want=1 причина=working-directory-otsutstvuet ЗЕЛЁНАЯ
+CASE p3-shag-upal: rc=1 want=1 причина=shag-upal: ci/lomaetsa ЗЕЛЁНАЯ
+CASE p4-station-skip: rc=0 want=0 причина=STATION-JOB: e2e ЗЕЛЁНАЯ
+CASE p5-sekrety-ne-perechisleny: rc=1 want=1 причина=sekrety-ne-perechisleny: PILOT_DEMO_CODE ЗЕЛЁНАЯ
+CASE p5-env-sekret-ne-perechislen: rc=1 want=1 причина=sekrety-ne-perechisleny: PILOT_DEMO_CODE ЗЕЛЁНАЯ
+CASE p5-station-sekret-ne-perechislen: rc=1 want=1 причина=sekrety-ne-perechisleny: PILOT_DEMO_CODE ЗЕЛЁНАЯ
+CASE p5-if-shag-sekret-ne-perechislen: rc=1 want=1 причина=sekrety-ne-perechisleny: CI122_IF_SHAG ЗЕЛЁНАЯ
+CASE p5-if-dzhoba-var-ne-perechislena: rc=1 want=1 причина=sekrety-ne-perechisleny: CI122_IF_DZHOBA ЗЕЛЁНАЯ
+CASE p5-with-sekret-ne-perechislen: rc=1 want=1 причина=sekrety-ne-perechisleny: CI122_WITH ЗЕЛЁНАЯ
+CASE p6-sekret-podstavlyaetsya: rc=0 want=0 причина=CIPREFLIGHT_OK jobs=1 station=1 ЗЕЛЁНАЯ
+CASE p6-sekret-shag-ispolnyaetsya: rc=1 want=1 причина=shag-upal: ci/sekret ЗЕЛЁНАЯ
+CASE p6-env-nositel-boli: rc=0 want=0 причина=CIPREFLIGHT_OK jobs=1 station=0 ЗЕЛЁНАЯ
+CASE p6-env-cepochka: rc=0 want=0 причина=CIPREFLIGHT_OK jobs=1 station=0 ЗЕЛЁНАЯ
+CASE p6-env-shag-ispolnyaetsya: rc=1 want=1 причина=shag-upal: verify/sekret-v-env ЗЕЛЁНАЯ
+CASE p6z-env-ne-literal: rc=0 want=0 причина=CIPREFLIGHT_OK jobs=1 station=0 ЗЕЛЁНАЯ
+CASE p6z-env-ravno-run: rc=0 want=0 причина=CIPREFLIGHT_OK jobs=1 station=0 ЗЕЛЁНАЯ
+CASE p6z-env-literal-otkaz: rc=1 want=1 причина=shag-upal: verify/env-raven-literalu ЗЕЛЁНАЯ
+CASE p7-wd-workflow-otsutstvuet: rc=1 want=1 причина=working-directory-otsutstvuet: missing-directory ЗЕЛЁНАЯ
+CASE p7-wd-workflow-est: rc=0 want=0 причина=CIPREFLIGHT_OK jobs=1 station=0 ЗЕЛЁНАЯ
+CASE p7-wd-pereopredelen-dzhoboj: rc=0 want=0 причина=CIPREFLIGHT_OK jobs=1 station=0 ЗЕЛЁНАЯ
+CASE p7-wd-pereopredelen-shagom: rc=0 want=0 причина=CIPREFLIGHT_OK jobs=1 station=0 ЗЕЛЁНАЯ
+CASE p8-wd-dvoetochie-vne-repo: rc=1 want=1 причина=working-directory-otsutstvuet: .. ЗЕЛЁНАЯ
+CASE p8-wd-absolyutnyj-vne-repo: rc=1 want=1 причина=working-directory-otsutstvuet: /tmp ЗЕЛЁНАЯ
+CASE p8-wd-absolyutnyj-r-bez-mutacii: rc=1 want=1 причина=working-directory-otsutstvuet: /tmp/dev-harness-verify/ci122/run-NIDE/world-nngX ЗЕЛЁНАЯ
+CASE p9-wd-workspace: rc=0 want=0 причина=CIPREFLIGHT_OK jobs=1 station=0 ЗЕЛЁНАЯ
+CASE p9-ws-v-run: rc=0 want=0 причина=CIPREFLIGHT_OK jobs=1 station=0 ЗЕЛЁНАЯ
+CASE p9-ws-v-env: rc=0 want=0 причина=CIPREFLIGHT_OK jobs=1 station=0 ЗЕЛЁНАЯ
+CASE p9-wd-defaults-workflow: rc=0 want=0 причина=CIPREFLIGHT_OK jobs=1 station=0 ЗЕЛЁНАЯ
+CASE p9-wd-defaults-pereopredelenie: rc=0 want=0 причина=CIPREFLIGHT_OK jobs=1 station=0 ЗЕЛЁНАЯ
+CASE p9-wd-dotdot-vne-kopii: rc=1 want=1 причина=working-directory-vne-kopii: ${{ github.workspace }}/.. ЗЕЛЁНАЯ
+CASE p9-wd-simlink-pobeg: rc=1 want=1 причина=working-directory-vne-kopii: ${{ github.workspace }}/vne-kopii-link ЗЕЛЁНАЯ
+CASE p9-forma-mobile: rc=0 want=0 причина=CIPREFLIGHT_OK jobs=1 station=0 ЗЕЛЁНАЯ
+CASE p10-vyrazhenie-v-run: rc=1 want=1 причина=vyrazhenie-ne-podderzhano: ${{ github.run_id }} ЗЕЛЁНАЯ
+CASE p10-vyrazhenie-v-env: rc=1 want=1 причина=vyrazhenie-ne-podderzhano: ${{ github.sha }} ЗЕЛЁНАЯ
+CASE p10-funkcija-tojson: rc=1 want=1 причина=vyrazhenie-ne-podderzhano: ${{ toJSON(needs) }} ЗЕЛЁНАЯ
+CASE p10-otkaz-do-ispolnenija: rc=1 want=1 причина=vyrazhenie-ne-podderzhano: ${{ matrix.x }} ЗЕЛЁНАЯ
+CASE p10-uses-ne-suditsa: rc=0 want=0 причина=CIPREFLIGHT_OK jobs=1 station=0 ЗЕЛЁНАЯ
+CASE z1-predposylki-otsutstvuyut: rc=1 want=1 причина=predposylki-otsutstvuyut ЗЕЛЁНАЯ
+CASE z2-sekrety-ne-zavedeny: rc=1 want=1 причина=sekrety-ne-zavedeny: PILOT_DEMO_CODE ЗЕЛЁНАЯ
+CASE z3-gh-nedostupen: rc=1 want=1 причина=gh-nedostupen ЗЕЛЁНАЯ
+CASE z4-predposylki-nevaliden: rc=1 want=1 причина=predposylki-nevaliden: - password Sekret ЗЕЛЁНАЯ
+CASE z6-variable-ne-zavedena: rc=1 want=1 причина=sekrety-ne-zavedeny: ONLY_VARIABLE ЗЕЛЁНАЯ
+CASE z7-secret-ne-zaveden: rc=1 want=1 причина=sekrety-ne-zavedeny: ONLY_SECRET ЗЕЛЁНАЯ
+CASE z8-secret-gh-oshibka: rc=1 want=1 причина=gh-nedostupen ЗЕЛЁНАЯ
+CASE z9-variable-gh-oshibka: rc=1 want=1 причина=gh-nedostupen ЗЕЛЁНАЯ
+ИТОГ 122 (model): клеток 62, зелёных 62, красных 0
+```
 
-## Пересечения пакета
+## Карта классов
 
-- 184/1: cells generator-good/wrong-id цитируются, не копируются; на честном дереве (RES) обе зелены, bare 184 red = только 5 reference-клеток (ноги 184).
-- 054 v+1: порядок ленда общий (054/122 заморозка до реализации; шаг CI 122 гоняет `--model` rc 0 — проверено).
-- 996/161 v+1: пересечений по путям нет.
+К-01: блок — Н-39: новые пары стаба с ветвью в тексте.
+К-02: чисто — вход: OWNER-BATCH-1118 №2 и батч №3 №3, OBJECT задан для узкого суда.
+К-03: чисто — вход: дельта не меняет 149/198/199, объявление PILOT_DEMO_CODE отдельно; исключение владельца для станционных джоб не расширяет алфавит.
+К-04: чисто — вход: contracts/122-ci-proekta.md:70–76, зоны architect и implementer, v+1 ограничен ci_preflight.
+К-05: чисто — вход: приёмка contracts/122-ci-proekta.md:56–65, rc-команды.
+К-06: н/п — средовая ветвь v1 не изменена дельтой, явный rc 2 в contracts/122-ci-proekta.md:43.
+К-07: блок — честная обязательная модель не исполняет два инварианта Г2 при зелёном --model.
+К-08: чисто — вход: три новых стаба изменяют существующие операции модели; прогоны 53/9, 60/2, 58/4.
+К-09: блок — неподдержанное выражение с `}` внутри аргумента функции принято моделью.
+К-10: блок — унаследованный путь побега в диагностике не равен исходному значению.
+К-11: н/п — независимость свидетеля v1 без изменений с accept v4.
+К-12: н/п — форматный оракул v1 без изменений с accept v4.
+К-13: н/п — секреты v1 без изменения; отдельная правка 149 вне этого предмета.
+К-14: чисто — вход: p9 --model зелёны 8 конформных/проверочных клеток, полный --model rc 0.
+К-15: чисто — вход: --model 62/62/0; новые мутанты 53/9, 60/2, 58/4; --stabs отсутствует, rc 2.
+К-16: чисто — вход: contracts/122-ci-proekta.md, модель угроз и НЕ ЗАЩИЩАЕТ; изоляция и контексты явно названы.
+К-17: н/п — архитектурный бриф 188 и tooling/checks/cli.js в данном предмете отсутствуют.
 
-## Советы (едут с accept)
-
-СОВЕТ contracts/122-ci-proekta.md:1 — «после реализации → rc 0 52/52» доказано на дереве критика (RES + резолвер H); при cutover реализатора стоит сверить именно полный bare (не только `--model`), как сделано здесь.
-СОВЕТ — стабы `stab_predposylki_*`/`stab_preflight_*` прежних кругов не перепрогонялись в этом вызове (не связаны дельтой); их счёт в :4 совпадает с живым `--model`-прогоном семейства, отдельные замеры 22×rc1 не снимались.
-
-## Итог
-
-`accept`: блок нематериализованного FAIL закрыт — генератор, обходящий резолвер, краснеет на g9/g10 (миры «оба профиля» и «symlink наружу», workflow записывается — наблюдаемый обход), заголовок с `.harness/ci.json` краснеет на g11, удаление клетки ломает PINNED, честный RES даёт 52/52 bare. Гейты зелёные, механика приёмки совпала живьём. Советы автор закрывает по усмотрению.
+Развилки: для baseline mobile.yml зелёный per-job предполёт на станции недостижим из-за шага изоляции раннера; по переданному слову владельца временное исключение относится только к станционным джобам PR экранов 149/147/148 до продуктовой разметки. Это не разрешает расширение алфавита заглушками.
