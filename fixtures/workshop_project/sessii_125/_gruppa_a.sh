@@ -3,7 +3,8 @@
 # Мир: дом зоны dev Z (профиль dev; конфигурация + живое состояние dev), установка H
 # (политика, расширения, агенты), ОТДЕЛЬНЫЙ дом проекта P/home с честным севом
 # (побайтные копии перечня сева, agent.db — симлинк W8, своё состояние проекта), проект R.
-# Факты запусков пишет сама клетка в формате стаба-omp (argv по строке, env KEY=VALUE).
+# Файл-режим: формат стаба-omp 105 (argv по строке, env KEY=VALUE).
+# --avto: запись И-9 (argv с NUL-разделителем, env KEY=VALUE).
 # Оракул — литерал ТОЧНОГО stdout клетки (все причины в порядке перечня, ни одной посторонней),
 # снятый ДО вызова субъекта (правило 8); значения случайны.
 a_world() { # $1 = каталог мира
@@ -63,6 +64,71 @@ a_cell() { # $1 = id клетки; $2 = ожидаемый rc; $3 = ТОЧНЫЙ
 }
 r() { local p s=""; for p in "$@"; do s="$s${s:+$'\n'}РАСХОЖДЕНИЕ $p"; done; printf '%s' "$s"; }
 a_new() { W=$(mktemp -d "$RUNDIR/a-XXXX"); a_world "$W"; a_main "$W"; PA="$W/P/home/.omp/profiles/dev/agent"; A="$W/Z/.omp/profiles/dev/agent"; }
+# ── 125 v2: автосверка одной командой (И-9/И-10) ─────────────────────────────
+# Мир a27+: дом проекта — ПО ФОРМУЛЕ 055 от XDG_STATE_HOME=<мир>; факты обеих сторон
+# записаны «честным лаунчером» (тот же формат, что пишет субъект-workshop) ДО вызова
+# субъекта; оракул — литерал ТОЧНОГО stdout/rc в памяти клетки (правило 8).
+avto_new() {
+  local f ext
+  AV_PID=proj125a
+  W=$(mktemp -d "$RUNDIR/av-XXXX")
+  A="$W/Z/.omp/profiles/dev/agent"
+  AV_PSTATE="$W/dev-harness-projects/$AV_PID"
+  PA="$AV_PSTATE/home/.omp/profiles/dev/agent"
+  mkdir -p "$A/sessions/2026" "$A/blobs" "$A/terminal-sessions" "$A/custom-session-files" "$A/agents" \
+    "$W/H/.omp/extensions" "$W/H/.omp/agents" "$W/R/.git" "$PA/sessions"
+  printf 'theme: toy-%s\n' "$RANDOM$RANDOM" > "$A/config.yml"
+  for f in models.db agent.db skill-descriptions.db history.db; do printf '%s-%s' "$f" "$RANDOM$RANDOM" > "$A/$f"; done
+  printf 'session-%s\n' "$RANDOM$RANDOM" > "$A/sessions/2026/s-$RANDOM.jsonl"
+  printf 'blob-%s' "$RANDOM$RANDOM" > "$A/blobs/b-$RANDOM"
+  printf 'term-%s\n' "$RANDOM" > "$A/terminal-sessions/t1"
+  printf 'csf-%s\n' "$RANDOM" > "$A/custom-session-files/f.txt"
+  printf '# role orchestrator %s\n' "$RANDOM" > "$A/agents/orchestrator.md"
+  printf 'modelRoles:\n  default: "toy/m-%s"\n' "$RANDOM" > "$W/H/.omp/config.yml"
+  printf '// ext\n' > "$W/H/.omp/extensions/guard-$RANDOM.ts"
+  printf '# local agent %s\n' "$RANDOM" > "$W/H/.omp/agents/architect.md"
+  cp "$W/H/.omp/agents/architect.md" "$A/agents/architect.md"
+  printf '# роль\n\n## Правила, каждое из которых уже стоило время\n- правило %s\n' "$RANDOM" > "$W/prompt-main.md"
+  { cat "$W/prompt-main.md"; printf '## Маршруты проекта (R1-R3, контракт 060)\nHARNESS_WORKFLOW_ROOT=%s\n' "$W/R"; } > "$W/prompt-proj.md"
+  for f in config.yml models.db skill-descriptions.db; do cp "$A/$f" "$PA/$f"; done
+  ln -s "$A/agent.db" "$PA/agent.db"
+  cp -R "$A/agents" "$PA/agents"
+  printf 'own-session-%s\n' "$RANDOM$RANDOM" > "$PA/sessions/own-$RANDOM.jsonl"
+  printf 'own-history-%s' "$RANDOM$RANDOM" > "$PA/history.db"
+  # 125-А1 (решение 6): профиль корня — В ФОРМЕ ДВЕРИ (резолвер 054): репо-слой
+  # harness.project.json → projectLayer.profilePath → слой проекта .projectId
+  mkdir -p "$W/R/.harness"
+  printf '{"schemaVersion":1,"repoId":"%s","projectLayer":{"profilePath":".harness/project-layer.json"}}\n' "$AV_PID" > "$W/R/harness.project.json"
+  printf '{"schemaVersion":1,"version":"v1","projectId":"%s","workspaceId":"%s"}\n' "$AV_PID" "$AV_PID" > "$W/R/.harness/project-layer.json"
+  ext=$(ls "$W"/H/.omp/extensions/*.ts)
+  mkdir -p "$W/Z/session-exec" "$AV_PSTATE/session-exec"
+  printf '%s\0' --profile dev --model toy/m1 --append-system-prompt "$W/prompt-main.md" --tools read,bash > "$W/Z/session-exec/argv"
+  printf 'HOME=%s\nPWD=%s\n' "$W/Z" "$W/H" > "$W/Z/session-exec/env"
+  printf '{"rezhim":"main","projectId":null,"pid":111,"start":"2026-11-17T00:00:00Z","rol":"orchestrator"}\n' > "$W/Z/session-exec/meta"
+  printf '%s\0' --profile dev --model toy/m1 --config "$W/H/.omp/config.yml" -e "$ext" --append-system-prompt "$W/prompt-proj.md" --tools read,bash > "$AV_PSTATE/session-exec/argv"
+  printf 'HOME=%s\nPWD=%s\n' "$AV_PSTATE/home" "$W/R" > "$AV_PSTATE/session-exec/env"
+  printf '{"rezhim":"project","projectId":"%s","pid":222,"start":"2026-11-17T00:00:01Z","rol":"orchestrator"}\n' "$AV_PID" > "$AV_PSTATE/session-exec/meta"
+  { printf '{'; local sep=""
+    for f in config.yml models.db skill-descriptions.db; do
+      printf '%s"%s":{"sha-istochnik":"%s","sha-kopija":"%s"}' "$sep" "$f" \
+        "$(sha256sum < "$A/$f" | cut -c1-64)" "$(sha256sum < "$PA/$f" | cut -c1-64)"; sep=,
+    done; printf '}\n'; } > "$AV_PSTATE/session-exec/sev.json"
+}
+avto_run() { # $1 = мир; далее env KEY=VAL → OUT, RC (сверка «из основной сессии»)
+  local W1=$1 kv
+  local envs=(HARNESS_SESSION_HOME="$W1/Z" XDG_STATE_HOME="$W1" HOME="$W1/hh")
+  for kv in "${@:2}"; do envs+=("${kv%%=*}=${kv#*=}"); done
+  RC=0
+  OUT=$(env "${envs[@]}" bash "$CHK" --avto "$W1/R" 2>"$W1/chk.err") || RC=$?
+}
+avto_cell() { # $1 id; $2 rc; $3 ТОЧНЫЙ stdout; $4 мир; далее env
+  local id=$1 want=$2 exp=$3 W1=$4; shift 4
+  avto_run "$W1" "$@"
+  local ok=1
+  [ "$RC" = "$want" ] || ok=0
+  [ "$OUT" = "$exp" ] || ok=0
+  verdict "$id" "$ok" "rc=$RC ждали $want; ждали stdout «$(printf '%s' "$exp" | tr '\n' '|')»; вывод: «$(printf '%s' "$OUT" | tr '\n' '|')»"
+}
 gruppa_a() {
   local W PA A pole fn
   a_new; a_proj "$W"
@@ -145,4 +211,127 @@ gruppa_a() {
   a_cell a17-nechem-pustye-fakty 2 "НЕЧЕМ-ПРОВЕРИТЬ fakty-otsutstvuyut" "$W"
   a_new; a_proj "$W"; rm "$A/config.yml"
   a_cell a18-nechem-osnovnaya-bez-config 2 "НЕЧЕМ-ПРОВЕРИТЬ osnovnaya-bez-config-yml" "$W"
+  # ── 125 v2: автосверка --avto <корень> (И-9/И-10); stdout/rc — ТОЧНЫЙ литерал ──
+  # честный мир + ПОДДЕЛЬНЫЕ факты в дереве проекта: сверка им не доверяет (п.8)
+  avto_new
+  mkdir -p "$W/R/.harness/session-exec"
+  printf '%s\0' --profile dev --model toy/m9 > "$W/R/.harness/session-exec/argv"
+  printf 'HOME=%s\nPWD=%s\n' "$W/R" "$W/R" > "$W/R/.harness/session-exec/env"
+  printf '{"rezhim":"project","projectId":"%s","pid":9,"start":"x","rol":"o"}\n' "$AV_PID" > "$W/R/.harness/session-exec/meta"
+  avto_cell a27-avto-chestnaya 0 "" "$W"
+  # запись проектных фактов несёт чужую модель — сверка судит ЗАПИСЬ, не реконструкцию
+  avto_new
+  python3 -c 'import sys
+p = sys.argv[1]; a = open(p, "rb").read().split(b"\0")
+i = a.index(b"--model"); a[i + 1] = b"toy/m2"
+open(p, "wb").write(b"\0".join(a))' "$AV_PSTATE/session-exec/argv"
+  avto_cell a28-avto-model-chuzhoj 1 "$(r model)" "$W"
+  avto_new
+  python3 -c 'import sys
+p = sys.argv[1]; a = open(p, "rb").read().split(b"\0")
+i = a.index(b"--config"); del a[i:i + 2]
+open(p, "wb").write(b"\0".join(a))' "$AV_PSTATE/session-exec/argv"
+  avto_cell a29-avto-politika 1 "$(r politika)" "$W"
+  avto_new
+  python3 -c 'import sys
+p = sys.argv[1]; a = open(p, "rb").read().split(b"\0")
+i = a.index(b"-e"); del a[i:i + 2]
+open(p, "wb").write(b"\0".join(a))' "$AV_PSTATE/session-exec/argv"
+  avto_cell a30-avto-rasshireniya 1 "$(r rasshireniya)" "$W"
+  # запись сева лжёт о побайтности (sha источника ≠ sha копии) — ровно своё поле
+  avto_new
+  jq --arg k "$(printf 'a%.0s' $(seq 64))" '.["models.db"]["sha-kopija"]=$k' \
+    "$AV_PSTATE/session-exec/sev.json" > "$AV_PSTATE/session-exec/sev.json.t"
+  mv "$AV_PSTATE/session-exec/sev.json.t" "$AV_PSTATE/session-exec/sev.json"
+  avto_cell a31-avto-sev-zapisi 1 "$(r models-db)" "$W"
+  # запись сева заявляет файл вне перечня (history.db — «никогда не сеется»)
+  avto_new
+  jq --arg k "$(printf 'b%.0s' $(seq 64))" '. + {"history.db":{"sha-istochnik":$k,"sha-kopija":$k}}' \
+    "$AV_PSTATE/session-exec/sev.json" > "$AV_PSTATE/session-exec/sev.json.t"
+  mv "$AV_PSTATE/session-exec/sev.json.t" "$AV_PSTATE/session-exec/sev.json"
+  avto_cell a32-avto-sev-lishnee 1 "$(r ne-sessii)" "$W"
+  avto_new; rm -rf "$W/Z/session-exec"
+  avto_cell a33-avto-fakty-osnovnoj 2 "НЕЧЕМ-ПРОВЕРИТЬ fakty-osnovnoj-net" "$W"
+  avto_new; rm -rf "$AV_PSTATE/session-exec"
+  avto_cell a34-avto-fakty-proekta 2 "НЕЧЕМ-ПРОВЕРИТЬ fakty-proekta-net" "$W"
+  # сверка, запущенная ВНУТРИ сессии проекта: фактов основной там нет — правдивый отказ
+  avto_new
+  avto_cell a35-avto-v-proektnoj 2 "НЕЧЕМ-ПРОВЕРИТЬ fakty-osnovnoj-net" "$W" HARNESS_SESSION_HOME="$AV_PSTATE/home"
+  # основная перегенерила агенты ПОСЛЕ старта проекта — устаревшая сторона, честное поле
+  avto_new; printf '\n- новая норма %s\n' "$RANDOM" >> "$A/agents/orchestrator.md"
+  avto_cell a36-avto-storona-staree 1 "$(r agenty)" "$W"
+  # живой omp переписал свою копию models.db после старта — сев судится записью (R15)
+  avto_new; printf 'catalog-%s' "$RANDOM$RANDOM" > "$PA/models.db"
+  avto_cell a37-avto-perezapis-omp 0 "" "$W"
+  # факты проекта — только через env-цепочку базиса (не дефолтный $HOME/.local/state)
+  avto_new
+  avto_cell a38-avto-baza-env 0 "" "$W"
+  avto_new; sed -i 's/"projectId":"proj125a"/"projectId":"Proj 125!"/' "$W/R/.harness/project-layer.json"
+  avto_cell a39-avto-projectid-vne-klassa 2 "НЕЧЕМ-ПРОВЕРИТЬ projectid-vne-klassa" "$W"
+  avto_new; sed -i 's/"projectId":"proj125a"/"projectId":"chuzhoj"/' "$AV_PSTATE/session-exec/meta"
+  avto_cell a40-avto-fakty-chuzhie 2 "НЕЧЕМ-ПРОВЕРИТЬ fakty-proekta-chuzhie" "$W"
+  avto_new; printf 'не json\n' > "$AV_PSTATE/session-exec/sev.json"
+  avto_cell a41-avto-sev-povverzhen 2 "НЕЧЕМ-ПРОВЕРИТЬ sev-fakty-povverzdeny" "$W"
+  avto_new; avto_run "$W"
+  RC2=0; OUT2=$(env HARNESS_SESSION_HOME="$W/Z" XDG_STATE_HOME="$W" HOME="$W/hh" bash "$CHK" --avto "$W/koren-netu" 2>/dev/null) || RC2=$?
+  ok=1; [ "$RC2" = 2 ] && [ "$OUT2" = "НЕЧЕМ-ПРОВЕРИТЬ koren-otsutstvuet" ] || ok=0
+  verdict a42-avto-koren-otsutstvuet "$ok" "rc=$RC2 вывод «$(printf '%s' "$OUT2" | tr '\n' '|')» ждали koren-otsutstvuet"
+  # предшествование базиса: HARNESS_SCRATCH выше XDG_STATE_HOME (как у лаунчера 055)
+  avto_new; W2=$(mktemp -d "$RUNDIR/av2-XXXX"); mv "$W/dev-harness-projects" "$W2/dev-harness-projects"
+  AV_PSTATE="$W2/dev-harness-projects/$AV_PID"
+  sed -i "s|^HOME=$W/dev-harness-projects/|HOME=$W2/dev-harness-projects/|" "$AV_PSTATE/session-exec/env"
+  avto_cell a43-avto-baza-predshhestvie 0 "" "$W" HARNESS_SCRATCH="$W2"
+  # ── 125-А1 (арбитраж 1): решения 3–6 — изоляция сева в --avto, именованные отказы, CLI-стык ──
+  # решение 3, класс (а): связь файла сева с dev видна и в --avto — inode всего перечня
+  # (замер арбитра 2: --avto принимал hardlink config.yml → rc 0); положительный
+  # контроль — a37 (omp-перезапись своей копии, rc 0): живые байты НЕ пересматриваются
+  avto_new; rm "$PA/config.yml"; ln "$A/config.yml" "$PA/config.yml"
+  rm "$PA/models.db"; ln "$A/models.db" "$PA/models.db"
+  rm "$PA/skill-descriptions.db"; ln "$A/skill-descriptions.db" "$PA/skill-descriptions.db"
+  avto_cell a44-avto-sev-inode 1 "$(r config-yml models-db skill-descriptions-db)" "$W"
+  avto_new; rm "$PA/models.db"; ln -s "$A/models.db" "$PA/models.db"
+  avto_cell a45-avto-sev-ssylka 1 "$(r models-db)" "$W"
+  # решение 6, класс (д): файл-ключ рядом с --avto — kljuch-neizvesten (И-10.1)
+  avto_new
+  RC2=0; OUT2=$(env HARNESS_SESSION_HOME="$W/Z" XDG_STATE_HOME="$W" HOME="$W/hh" \
+    bash "$CHK" --avto "$W/R" --main-argv "$W/Z/session-exec/argv" 2>/dev/null) || RC2=$?
+  ok=1; [ "$RC2" = 2 ] && [ "$OUT2" = "НЕЧЕМ-ПРОВЕРИТЬ kljuch-neizvesten" ] || ok=0
+  verdict a46-avto-fajl-kljuch "$ok" "rc=$RC2 вывод «$(printf '%s' "$OUT2" | tr '\n' '|')» ждали kljuch-neizvesten"
+  # решение 6: отсутствующий sev.json — fakty-proekta-net, НЕ sev-fakty-povverzdeny (замер арбитра 3)
+  avto_new; mv "$AV_PSTATE/session-exec/sev.json" "$AV_PSTATE/sev.saved"
+  avto_cell a47-avto-sev-netu 2 "НЕЧЕМ-ПРОВЕРИТЬ fakty-proekta-net" "$W"
+  avto_new; : > "$AV_PSTATE/session-exec/sev.json"
+  avto_cell a48-avto-sev-pustoj 2 "НЕЧЕМ-ПРОВЕРИТЬ fakty-proekta-net" "$W"
+  # неполная запись: файл сева есть, записи для него нет — расхождение своего поля (И-10.4)
+  avto_new; jq 'del(.["models.db"])' "$AV_PSTATE/session-exec/sev.json" > "$AV_PSTATE/session-exec/sev.json.t"
+  mv "$AV_PSTATE/session-exec/sev.json.t" "$AV_PSTATE/session-exec/sev.json"
+  avto_cell a49-avto-zapis-nepolnaya 1 "$(r models-db)" "$W"
+  # повреждённая СУЩЕСТВУЮЩАЯ запись: схема вне алфавита — povverzdeny
+  avto_new; jq '.["models.db"] = {"sha":"x"}' "$AV_PSTATE/session-exec/sev.json" > "$AV_PSTATE/session-exec/sev.json.t"
+  mv "$AV_PSTATE/session-exec/sev.json.t" "$AV_PSTATE/session-exec/sev.json"
+  avto_cell a50-avto-shema-vne-alfavita 2 "НЕЧЕМ-ПРОВЕРИТЬ sev-fakty-povverzdeny" "$W"
+  # объявленный порядок: чужая принадлежность прежде повреждённой записи
+  avto_new; sed -i 's/"projectId":"proj125a"/"projectId":"chuzhoj"/' "$AV_PSTATE/session-exec/meta"
+  printf 'не json\n' > "$AV_PSTATE/session-exec/sev.json"
+  avto_cell a51-avto-chuzhie-ranshe 2 "НЕЧЕМ-ПРОВЕРИТЬ fakty-proekta-chuzhie" "$W"
+  # решение 3, зависимый регресс: режим выбирается CLI, не служебными переменными среды
+  a_new; a_proj "$W"; rm "$PA/config.yml"; ln "$A/config.yml" "$PA/config.yml"
+  RC2=0; OUT2=$(env S125_AVTO=1 S125_SEV_ZAPIS=/dev/null bash "$CHK" \
+    --main-argv "$W/main.argv" --main-env "$W/main.env" --project-argv "$W/proj.argv" --project-env "$W/proj.env" 2>/dev/null) || RC2=$?
+  ok=1; [ "$RC2" = 1 ] && [ "$OUT2" = "$(r config-yml)" ] || ok=0
+  verdict a52-rezhim-tolko-cli "$ok" "rc=$RC2 вывод «$(printf '%s' "$OUT2" | tr '\n' '|')» ждали файл-режим РАСХОЖДЕНИЕ config-yml"
+  # решение 4: честный эквивалентный абсолютный путь базиса не отказывается
+  avto_new; ln -s "$W" "$W/ekv-baza"
+  avto_cell a53-avto-baza-ekvivalent 0 "" "$W" XDG_STATE_HOME="$W/ekv-baza"
+  # MSG двери 136 — один аргумент, строки внутри него не меняют флаги.
+  avto_new
+  printf '%s\0' -- $'задание\n--approval-mode\nyolo' >> "$AV_PSTATE/session-exec/argv"
+  avto_cell a54-avto-msg-mnogostrochnyj 0 "" "$W"
+  # Те же слова отдельными аргументами — настоящее изменение подтверждений.
+  avto_new
+  printf '%s\0' --approval-mode yolo >> "$AV_PSTATE/session-exec/argv"
+  avto_cell a55-avto-podtverzhdeniya-realnyj 1 "$(r podtverzhdeniya)" "$W"
+  avto_new
+  printf '%s\0' -- $'текст --, пробелы "кавычки" и литералы \\0 \\x00\n--config\n/tmp/netu-politiki\r\n' >> "$AV_PSTATE/session-exec/argv"
+  avto_cell a56-avto-msg-granicy 0 "" "$W"
 }
