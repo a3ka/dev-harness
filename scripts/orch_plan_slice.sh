@@ -24,6 +24,20 @@
 #                            тег подтверждает статус, только если ОПУБЛИКОВАН (ls-remote)
 #                            и указывает на предка origin/main.
 #
+# ДВА РЕЖИМА (контракт 182 v2, И-5/И-6):
+#   Станционный — маркера harness.project.json на снятом SHA нет: пути и сообщения
+#   побайтово как в v1, резолвер и jq не требуются.
+#   Проектный — маркер ОПУБЛИКОВАН (`git cat-file -e <sha>:harness.project.json`):
+#   пути источников — из ЕДИНОГО резолвера 996 `project_paths_resolve` (next_id.sh):
+#   план `<registry>/plan.tsv`, ROADMAP `<roadmap>`, паузы `<registry>/pauzy.tsv`
+#   (ОПЦИОНАЛЬНЫ — их отсутствие есть пустое множество пауз, не отказ), реестр выдачи
+#   `<registry>/contracts.tsv`. Корневая станционная раскладка в проектном режиме НЕ
+#   читается: опубликованная приманка — ловушка, а не источник. Живой корень без
+#   маркера при опубликованном маркере — рассинхрон и ИМЕНОВАННЫЙ отказ; отказ
+#   правдив: stdout пуст, stderr начинается с
+#   `PLAN_SOURCE_UNAVAILABLE: проектный режим (harness.project.json на origin/main=<sha>):`
+#   и называет причину с профильным путём и названный выход.
+#
 # Статус (приоритет по инварианту 2): done > ПАУЗА > frozen > черновик.
 # Единственный допустимый маркер ожидания в выдаче — санкционированная ПАУЗА;
 # строка «ЖДЁТ …» из HANDOFF в срез не попадает (её источник — архив решений).
@@ -69,6 +83,8 @@ if [ -z "$repo" ]; then
     || die "PLAN_SOURCE_UNAVAILABLE: не указан --repo, а корень скрипта не git-репозиторий"
 fi
 [ -d "$repo" ] || die "PLAN_SOURCE_UNAVAILABLE: нет каталога: $repo"
+repo_abs="$(cd -- "$repo" && pwd -P)" \
+  || die "PLAN_SOURCE_UNAVAILABLE: не разрешён корень: $repo"
 
 # ── снятый SHA published origin/main ──────────────────────────────────────────
 sha="$(git -C "$repo" rev-parse --verify origin/main 2>/dev/null)" \
@@ -78,15 +94,113 @@ case "$sha" in
 esac
 [ "${#sha}" -ge 40 ] || die "PLAN_SOURCE_UNAVAILABLE: origin/main не полный SHA: $sha"
 
+# ── РЕЖИМ ИСТОЧНИКА: маркер опубликованного дерева (И-5) ─────────────────────
+# Проектный режим — по НАЛИЧИЮ harness.project.json на СНЯТОМ SHA (опубликованное
+# дерево), а не по живому корню: опубликованный маркер без живого — рассинхрон
+# (именованный отказ), а не повод вернуться к станционной корневой раскладке.
+mode="station"
+if git -C "$repo" cat-file -e "$sha:harness.project.json" 2>/dev/null; then
+  mode="project"
+fi
+
+# Пути источников: станционная раскладка по умолчанию; в проектном режиме — из
+# ЕДИНОГО резолвера 996 (project_paths_resolve, scripts/next_id.sh): свой разбор
+# workflowPaths был бы вторым резолвером и разошёлся бы с остальными дверями.
+plan_rel="registry/plan.tsv"
+roadmap_rel="ROADMAP.md"
+pauzy_rel="registry/pauzy.tsv"
+contracts_rel="registry/contracts.tsv"
+
+if [ "$mode" = "project" ]; then
+  prefix="PLAN_SOURCE_UNAVAILABLE: проектный режим (harness.project.json на origin/main=$sha):"
+  # Живой корень: маркер опубликован, а в корне его нет — рассинхрон (И-6).
+  [ -f "$repo_abs/harness.project.json" ] \
+    || die "$prefix живой корень без harness.project.json — опубликованный и живой профиль расходятся; выход: синхронизировать корень (fetch/checkout), станционная раскладка не подменяется"
+  # Резолвер — ЕДИНЫЙ (996 Б-5/Б-9). jq и библиотека нужны ТОЛЬКО здесь: в
+  # станционном режиме они не требуются (И-5).
+  NEXT_ID_LIB=1
+  # shellcheck disable=SC1091
+  . "$SELF_DIR/next_id.sh" \
+    || die "$prefix резолвер путей профиля недоступен; выход: починить профиль проекта (996)"
+  [ "$(type -t project_paths_resolve)" = "function" ] \
+    || die "$prefix резолвер путей профиля недоступен; выход: починить профиль проекта (996)"
+  # ОДИН вызов резолвера: stdout (JSON) и stderr сходятся в одну переменную —
+  # при отказе причина не нужна (названный выход ниже), при успехе stdout — JSON.
+  ppr_out="$(HARNESS_PROJECT_LAYER_ROOT="$repo_abs" project_paths_resolve "$repo_abs" 2>&1)"
+  ppr_rc=$?
+  if [ "$ppr_rc" -ne 0 ]; then
+    ppr_reason="$(printf '%s' "$ppr_out" | tr '\n' ' ')"
+    die "$prefix профиль не разрешается (${ppr_reason:-workflowPaths вне репо}); выход: починить профиль проекта (996)"
+  fi
+  reg_abs="$(printf '%s' "$ppr_out" | jq -r '.registry // empty' 2>/dev/null)"
+  road_abs="$(printf '%s' "$ppr_out" | jq -r '.roadmap // empty' 2>/dev/null)"
+  if [ -z "$reg_abs" ] || [ -z "$road_abs" ]; then
+    die "$prefix профиль не разрешается (пустые пути профиля); выход: починить профиль проекта (996)"
+  fi
+  # Абсолютные пути резолвера → относительная форма внутри R (публикуемые пути).
+  rel_inside() {
+    case "$1" in
+      "$repo_abs") printf '%s' '' ;;
+      "$repo_abs"/*) printf '%s' "${1#"$repo_abs"/}" ;;
+      *) return 1 ;;
+    esac
+  }
+  reg_rel="$(rel_inside "$reg_abs")" \
+    || die "$prefix путь реестра вне корня; выход: починить профиль проекта (996)"
+  road_rel="$(rel_inside "$road_abs")" \
+    || die "$prefix путь ROADMAP вне корня; выход: починить профиль проекта (996)"
+  # Рв182-3: профиль registry «ops/ledger2/» (хвостовой «/») резолвер 996
+  # принимает, а срез собирал «ops/ledger2//plan.tsv» — ложный отказ при
+  # опубликованном плане. Нормализация относительной формы R: снять хвостовые
+  # «/», свернуть «//» (прецедент scripts/freeze_contract.sh:223); путь без
+  # хвостового «/» и без «//» не меняется.
+  norm_rel() {
+    local p="$1"
+    while :; do
+      case "$p" in */) p="${p%/}" ;; *) break ;; esac
+    done
+    while :; do
+      case "$p" in *//*) p="${p//\/\//\/}" ;; *) break ;; esac
+    done
+    printf '%s' "$p"
+  }
+  reg_rel="$(norm_rel "$reg_rel")"
+  road_rel="$(norm_rel "$road_rel")"
+  if [ "$reg_rel" = "." ]; then reg_rel=""; fi
+  if [ "$road_rel" = "." ]; then road_rel=""; fi
+  if [ -n "$reg_rel" ]; then
+    plan_rel="$reg_rel/plan.tsv"
+    contracts_rel="$reg_rel/contracts.tsv"
+    pauzy_rel="$reg_rel/pauzy.tsv"
+  else
+    plan_rel="plan.tsv"
+    contracts_rel="contracts.tsv"
+    pauzy_rel="pauzy.tsv"
+  fi
+  roadmap_rel="${road_rel:-ROADMAP.md}"
+fi
+
 # ── обязательные источники: только блобы снятого SHA ──────────────────────────
-plan_blob="$(git -C "$repo" show "$sha:registry/plan.tsv" 2>/dev/null)" \
-  || die "PLAN_SOURCE_UNAVAILABLE: нет registry/plan.tsv на origin/main=$sha"
-roadmap_blob="$(git -C "$repo" show "$sha:ROADMAP.md" 2>/dev/null)" \
-  || die "PLAN_SOURCE_UNAVAILABLE: нет ROADMAP.md на origin/main=$sha"
-pauzy_blob="$(git -C "$repo" show "$sha:registry/pauzy.tsv" 2>/dev/null)" \
-  || die "PLAN_SOURCE_UNAVAILABLE: нет registry/pauzy.tsv на origin/main=$sha"
-contracts_blob="$(git -C "$repo" show "$sha:registry/contracts.tsv" 2>/dev/null)" \
-  || die "PLAN_SOURCE_UNAVAILABLE: нет registry/contracts.tsv на origin/main=$sha"
+if [ "$mode" = "project" ]; then
+  # Профильные паузы ОПЦИОНАЛЬНЫ (И-8): их отсутствие — пустое множество пауз,
+  # а не отказ. Остальные источники обязательны.
+  plan_blob="$(git -C "$repo" show "$sha:$plan_rel" 2>/dev/null)" \
+    || die "$prefix нет $plan_rel на origin/main=$sha; станционный корневой реестр не подменяет; выход: план проекта заводит владелец коммитом в $plan_rel (996)"
+  roadmap_blob="$(git -C "$repo" show "$sha:$roadmap_rel" 2>/dev/null)" \
+    || die "$prefix нет $roadmap_rel на origin/main=$sha; выход: ROADMAP проекта заводит владелец коммитом в $roadmap_rel (996)"
+  contracts_blob="$(git -C "$repo" show "$sha:$contracts_rel" 2>/dev/null)" \
+    || die "$prefix нет $contracts_rel на origin/main=$sha; выход: реестр выдачи проекта заводит владелец коммитом в $contracts_rel (996)"
+  pauzy_blob="$(git -C "$repo" show "$sha:$pauzy_rel" 2>/dev/null)" || pauzy_blob=""
+else
+  plan_blob="$(git -C "$repo" show "$sha:$plan_rel" 2>/dev/null)" \
+    || die "PLAN_SOURCE_UNAVAILABLE: нет $plan_rel на origin/main=$sha"
+  roadmap_blob="$(git -C "$repo" show "$sha:$roadmap_rel" 2>/dev/null)" \
+    || die "PLAN_SOURCE_UNAVAILABLE: нет $roadmap_rel на origin/main=$sha"
+  pauzy_blob="$(git -C "$repo" show "$sha:$pauzy_rel" 2>/dev/null)" \
+    || die "PLAN_SOURCE_UNAVAILABLE: нет $pauzy_rel на origin/main=$sha"
+  contracts_blob="$(git -C "$repo" show "$sha:$contracts_rel" 2>/dev/null)" \
+    || die "PLAN_SOURCE_UNAVAILABLE: нет $contracts_rel на origin/main=$sha"
+fi
 
 # ── ROADMAP: карта id → (пара, этап, трек, зависит) ───────────────────────────
 # Источник карты — СТРОГО generated-блок ROADMAP (контракт 182 И-1/И-4): маркеры
@@ -141,11 +255,21 @@ pause_list="$(printf '%s\n' "$pauzy_blob" | awk -F'\t' '
   NF >= 4 && substr($0, 1, 1) != "#" { print $1 "\t" $4 }')"
 
 # ── опубликованные теги: ls-remote (не локальные) + предок origin/main ────────
-tags_out="$(git -C "$repo" ls-remote --tags origin \
-  'refs/tags/frozen/contracts/*' 'refs/tags/done/contracts/*' 2>/dev/null)" \
-  || die "PLAN_SOURCE_UNAVAILABLE: не читаются опубликованные теги origin в $repo"
-ancestors="$(git -C "$repo" rev-list "$sha" 2>/dev/null)" \
-  || die "PLAN_SOURCE_UNAVAILABLE: не читается история origin/main=$sha"
+# Рв182-2: в проектном режиме ЛЮБОЙ отказ чтения источников (ls-remote/rev-list)
+# несёт префикс И-7 и названный выход; станционная ветка побайтно как в v1.
+if [ "$mode" = "project" ]; then
+  tags_out="$(git -C "$repo" ls-remote --tags origin \
+    'refs/tags/frozen/contracts/*' 'refs/tags/done/contracts/*' 2>/dev/null)" \
+    || die "$prefix не читаются опубликованные теги origin в $repo; выход: восстановить доступ к origin (fetch)"
+  ancestors="$(git -C "$repo" rev-list "$sha" 2>/dev/null)" \
+    || die "$prefix не читается история origin/main=$sha; выход: восстановить доступ к origin (fetch)"
+else
+  tags_out="$(git -C "$repo" ls-remote --tags origin \
+    'refs/tags/frozen/contracts/*' 'refs/tags/done/contracts/*' 2>/dev/null)" \
+    || die "PLAN_SOURCE_UNAVAILABLE: не читаются опубликованные теги origin в $repo"
+  ancestors="$(git -C "$repo" rev-list "$sha" 2>/dev/null)" \
+    || die "PLAN_SOURCE_UNAVAILABLE: не читается история origin/main=$sha"
+fi
 
 declare -A anc=()
 while IFS= read -r c; do
@@ -172,7 +296,7 @@ done <<< "$tags_out"
 # Порядок потоков: карта ROADMAP, реестр выдачи, done-теги, frozen-теги, паузы,
 # строки plan.tsv. Строки печатаются ТОЛЬКО в END — при отказе stdout пуст.
 slice_rc=0
-slice="$(awk -v sha="$sha" '
+slice="$(awk -v sha="$sha" -v contracts_rel="$contracts_rel" '
   function fail(why, ident) {
     if (failed) return
     failed = 1
@@ -199,7 +323,7 @@ slice="$(awk -v sha="$sha" '
     split(rmap[id], r, "\t")
     if (r[1] != wave || r[2] != stage || r[3] != track || r[4] != deps)
       fail("plan.tsv расходится с generated-блоком ROADMAP", id)
-    if (id ~ /^[0-9]+$/ && !(id in reg)) fail("нет записи в registry/contracts.tsv", id)
+    if (id ~ /^[0-9]+$/ && !(id in reg)) fail("нет записи в " contracts_rel, id)
     dpref = "refs/tags/done/contracts/" id "/"
     fpref = "refs/tags/frozen/contracts/" id "/"
     isdone = 0; isfrozen = 0
