@@ -155,7 +155,7 @@
    "pachka/kadry-393.json": "d8ab7e85fae01e21056c2afebdd705e818171cfea16eedd9efe20ac0a49f7671",
    "pachka/kadry.json": "70a3f667397ee4fd2b3348e3febe281a6b104080cab8fb687acf6c73ad49e911",
    "pachka/katalog_kopii.json": "977e6661be5b3aeec6cc637a64c79a801c8091c625ee5b22bb172d85b6304be6",
-   "pachka/kontrakt.md": "670eedd64655c1dda2042c5c3c7afc5005ffa1c81c483bbc863affb33cae52c8",
+   "pachka/kontrakt.md": "80491d5828d79958be8e1ada1e8b7cd214d61386df6d785e5c16412b6b927294",
    "pachka/spec_api.json": "99096cdc07c90b209860fe59fa728584d0821db575442e82359e2410db904dbd",
    "stabs/stab_flo_staraq_forma.py": "3cf5a69ef04bf3f74b4869df383d82a5b0dc84f3248126a7e533dcce23a12809",
    "stabs/stab_lekalo_bez_zapuska_393.py": "84a92c596761a82b52696bc778c3b23165207f7e6e982b7abe213308bcee5924",
@@ -189,7 +189,7 @@
   },
   "kanon": {
    "mobile/src/features/conversation/__tests__/gespraech-dvizhenie.test.ts": "9d6035bdc6118d4580c90c1ee9e12328f2a65fec1c519aaf21ab132f6c3d3666",
-   "mobile/e2e-gespraech-vhod/kontrakt.md": "670eedd64655c1dda2042c5c3c7afc5005ffa1c81c483bbc863affb33cae52c8",
+   "mobile/e2e-gespraech-vhod/kontrakt.md": "80491d5828d79958be8e1ada1e8b7cd214d61386df6d785e5c16412b6b927294",
    "mobile/e2e-gespraech-vhod/kadry.json": "70a3f667397ee4fd2b3348e3febe281a6b104080cab8fb687acf6c73ad49e911",
    "mobile/e2e-gespraech-vhod/kadry-393.json": "d8ab7e85fae01e21056c2afebdd705e818171cfea16eedd9efe20ac0a49f7671",
    "mobile/e2e-gespraech-vhod/katalog_kopii.json": "977e6661be5b3aeec6cc637a64c79a801c8091c625ee5b22bb172d85b6304be6",

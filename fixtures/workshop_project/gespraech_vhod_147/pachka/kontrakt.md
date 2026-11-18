@@ -7,13 +7,12 @@
   профиль — слова владельца 2026-10-27 (~22:45 и ~23:45 UTC).
 
 ## Существующее
-- Движок знака — 145 (mobile/src/lib/faden, заморожен 145/3); токены движения — mobile/src/theme/motion-tokens.ts.
-- Оболочка — TabShell (999/995): вкладки, fade-оверлей; центральная кнопка «Gespräch» — предмет 147.
-- Кадры/токены/зоны касания — пакет D24-Kompakt-1.1 (docs/ux/05_Kompakt_D24; ЗАМЕНЯЕТ 1.0 и пин кадров
-  финала 2): имена кадров — frames/frames.json, якорь целостности — frames/SHA256SUMS, зоны — hw/hh
-  манифеста 1.1, токены — source/tokens.json. Геометрия T28/29/30/31/33 — motion/motion-delta.md
-  и конечные прямоугольники Kompakt-1.1; производный scenes/tokens-spec — motion-spec-gespraech-kompakt-147.json.
-  Манифест переходов и позы Faden1.3 из 04 сохранены только как унаследованные неизменные части 1.1.
+- Движок знака — 145 (mobile/src/lib/faden, frozen 145/3); движение — mobile/src/theme/motion-tokens.ts.
+- TabShell (999/995): вкладки, fade-оверлей; Mitte «Gespräch» — 147.
+- D24-Kompakt-1.1 (docs/ux/05_Kompakt_D24) заменяет 1.0/Final2: кадры — frames/frames.json,
+  пины — frames/SHA256SUMS, зоны hw/hh — манифест 1.1, токены — source/tokens.json.
+- Геометрия T28/29/30/31/33 — motion/motion-delta.md и конечные rect Kompakt-1.1;
+  scenes/tokens-spec — motion-spec-gespraech-kompakt-147.json; манифест/позы Faden1.3 из 04 неизменны.
 
 ## Инварианты
 - Экраны GA-01, GA-15, GA-16; кадры 6 + 6 (оба профиля, обе темы); переходы T28, T31, T35 — предмет 147;
