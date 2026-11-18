@@ -17,6 +17,7 @@ function arg(name) {
 
 const putMashiny = arg('--machine');
 const putSpecy = arg('--spec');
+const putGeometrii = arg('--geometry');
 const pravilo = arg('--pravilo');
 const outputFile = arg('--outputFile');
 if (!putMashiny || !putSpecy) {
@@ -28,7 +29,11 @@ if (!putMashiny || !putSpecy) {
 
 let spec;
 let mashinaModul;
+let geometrija;
 try {
+  // Оракул в память ДО субъекта; без флага прежний timing-only CLI
+  // остаётся дословно (регрессия закрытого цикла).
+  if (putGeometrii) geometrija = JSON.parse(readFileSync(putGeometrii, 'utf8'));
   spec = JSON.parse(readFileSync(putSpecy, 'utf8'));
   mashinaModul = await import(pathToFileURL(putMashiny).href);
 } catch (e) {
@@ -199,6 +204,58 @@ if (typeof mashinaModul.createMenuMachine !== 'function') {
 mashinaFn = mashinaModul.createMenuMachine;
 
 const P = pravila(mashinaFn);
+if (geometrija) {
+  for (const [id, etalon] of Object.entries(geometrija.scenes)) {
+    P['geometry-' + id] = () => {
+      const s = scena(id);
+      const bad = [];
+      for (const [property, values] of Object.entries(etalon.rects || {})) {
+        const tracks = s.tracks.filter((t) =>
+          t.element === etalon.element && t.property === property);
+        if (tracks.length !== 1) {
+          bad.push(property + ': трек отсутствует/дублирован');
+          continue;
+        }
+        const t = tracks[0];
+        const k = {left: 'x', top: 'y', w: 'w', h: 'h'}[property];
+        for (const [pole, rect] of [['from', etalon.from_rect], ['to', etalon.to_rect]]) {
+          if (t[pole]?.rect !== rect || t[pole]?.k !== k)
+            bad.push(property + '/' + pole + ': не свой прямоугольник');
+        }
+        for (const theme of ['dark', 'light']) {
+          const r = t.resolved?.[theme];
+          if (r?.from !== values[0] || r?.to !== values[1])
+            bad.push(property + '/' + theme + ': ' + JSON.stringify(r));
+        }
+      }
+      if (etalon.adaptive) {
+        const a = s.adaptive;
+        const e = etalon.adaptive;
+        if (a?.top !== e.top || a?.caps?.length !== 1
+            || a.caps[0][1] !== e.cap
+            || !a.rule.includes('S = max(' + e.min + ', min(cap, P − 64))')
+            || !a.rule.includes('P − 64 < ' + e.min + ';'))
+          bad.push('adaptive: top/cap/min');
+        for (const [field, values] of [['start', e.start], ['end', e.end]]) {
+          const actual = field === 'start' ? a?.timeline?.[0] : a?.end;
+          for (const [key, value] of Object.entries(values))
+            if (actual?.[key] !== value) bad.push(field + '/' + key);
+        }
+        if (e.S_from) {
+          const retargets = (a?.timeline || []).filter((t) => t.kind === 'retarget');
+          if (retargets.length !== e.S_from.length) bad.push('retarget: неполнота');
+          retargets.forEach((t, i) => {
+            if (t.cap !== e.cap || t.S_to !== e.cap
+                || t.S_from !== e.S_from[i] || t.P_from !== e.P_from[i]
+                || t.P_to !== e.P_to[i]) bad.push('retarget/' + i);
+          });
+        }
+      }
+      if (bad.length) throw new Error('GEOMETRIJA_NE_KOMPAKT ' + id + ': ' + bad.join('; '));
+      return id + ': конечные прямоугольники Kompakt-1.1';
+    };
+  }
+}
 const imena = pravilo ? [pravilo] : Object.keys(P);
 if (pravilo && !(pravilo in P)) {
   console.error('Runner: нет правила ' + pravilo);
