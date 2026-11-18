@@ -1429,6 +1429,32 @@ def kejsy():
                 k_svoboden(mir, '141', 'откат-141'), k_svoboden(mir, '140', 'откат-140')]
     reg('b07-paket-izolirovan-otkat', 'пакет=изоляция+без-изоляции;отказ=NE_IZOLIROVAN;откат=без-записей', b07)
 
+    def b08(mir, door):
+        # v5-исправление-2 (вердикт Crit140V4b К-08/К-09/К-10, решение
+        # арбитража Arb140V4): разрешённый смешанный пакет с НЕсовпадающими
+        # фактами isolated — первый item рабочий ДРУГОГО предмета
+        # (isolated=true из поля), судья НЕ на первой позиции
+        # (isolated=false, предусловия настоящие: автор сдал, OBJECT==tip,
+        # класс определён в дереве кандидата); START КАЖДОГО item несёт
+        # факт СВОЕГО поля (инвариант 7, 199:34), не соседнего по пакету
+        wt141, br141, sha = _avtor_sdal(mir, '141')
+        wt142, br142, _ = mir.worktree('142')
+        ev = mir.sobytie('e.json', [
+            item('architect', 'Arch142', ['SUBJECT=142', 'WORKTREE=' + wt142,
+                                          'BRANCH=' + br142], isolated=True),
+            item('critic', 'Critic141', ['суд контракта', 'SUBJECT=141',
+                                         'OBJECT=' + sha], isolated=False)])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 0, 'rc'),
+                k_stroka(mir, 'start-рабочего', subjectId='142',
+                         holder='Arch142', klass='rabochij', isolated=True),
+                k_stroka(mir, 'start-судьи', subjectId='141',
+                         holder='Critic141', klass='sudja', isolated=False),
+                k_zanyat(mir, '142', 'Arch142', 'занятие-рабочего'),
+                k_zanyat(mir, '141', 'Critic141', 'занятие-судьи')]
+    reg('b08-paket-fakt-kazhdogo-itema', 'пакет=смешанный;isolated=разные-факты;START=факт-своего-item', b08)
+
+
     # D. учёт/сторож
     def u01(mir, door):
         mir.kontrakt('141')
@@ -1968,6 +1994,19 @@ def m_sudejskij_start_bez_fakta(t):
 ''')
 
 
+def m_fakt_iz_pervogo_itema(t):
+    # [D33] источник подменён ПОЗИЦИЕЙ: факт isolated читается из ПЕРВОГО
+    # item пакета ([0]), а не из текущего ([$idx]) — свидетель Crit140V4b,
+    # воспроизведён арбитражем Arb140V4: в разрешённом смешанном пакете
+    # (рабочий true + судья false) судья не на первой позиции получает
+    # факт чужого item, rc 0 при неверном факте в START судьи
+    return _z(t, '''    izl="$(jq -r "(.tasks // [.])[$idx].isolated | if . == true then \\"true\\" else \\"false\\" end" "$EVENT" 2>/dev/null)" \\
+      || izl='false'
+''',
+              '''    izl="$(jq -r "(.tasks // [.])[0].isolated | if . == true then \\"true\\" else \\"false\\" end" "$EVENT" 2>/dev/null)" \\
+      || izl='false'
+''')
+
 
 STAB_MUTACII = {
     's01-bez-dublja-rabochego': m_bez_dublja,
@@ -2013,6 +2052,7 @@ STAB_MUTACII = {
     's41-sudej-fakt-po-klassu': m_sudej_fakt_po_klassu,
     's42-sudej-fakt-vsegda-istina': m_sudej_fakt_vsegda_istina,
     's43-sudejskij-start-bez-fakta': m_sudejskij_start_bez_fakta,
+    's44-fakt-iz-pervogo-itema': m_fakt_iz_pervogo_itema,
     'x01-vsegda-puschem': m_vsegda_puschem,
 }
 

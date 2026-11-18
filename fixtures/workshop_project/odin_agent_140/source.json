@@ -63,6 +63,7 @@
   "b05-izolirovannyj-invariant": "режим=изолированный/нет;инвариант=вердикт",
   "b06-paket-rabochij-plus-scout": "пакет=рабочий+не-гейт-роль",
   "b07-paket-izolirovan-otkat": "пакет=изоляция+без-изоляции;отказ=NE_IZOLIROVAN;откат=без-записей",
+  "b08-paket-fakt-kazhdogo-itema": "пакет=смешанный;isolated=разные-факты;START=факт-своего-item",
   "g01-prefiks-kollizija": "форма=префикс-коллизия;класс=delimiter-collision",
   "g02-dve-stroki-subject": "форма=две-строки;класс=regex-injection",
   "g03-tab-v-imeni": "форма=разделитель-в-имени;класс=delimiter-collision",
@@ -305,6 +306,9 @@
    "s46-sudja-start-fakt-istina",
    "s47-sudja-start-fakt-lozh"
   ],
+  "s44-fakt-iz-pervogo-itema": [
+   "b08-paket-fakt-kazhdogo-itema"
+  ],
   "x01-vsegda-puschem": [
    "w02-vtoroj-rabochij-zhiv",
    "w04-dubl-posle-restarta",
@@ -370,6 +374,7 @@
   "s41-sudej-fakt-po-klassu": "4887131f45b965c97b67bad1308d4391b4e2b33e5c3d1df722b7514b0f0b7ddb",
   "s42-sudej-fakt-vsegda-istina": "adb85136ba6fea9b471c2da712c9d348a31b52b56746e59af17220c7b799a317",
   "s43-sudejskij-start-bez-fakta": "ca60a5750b5c33c2ddc57849b401c94cc1debe0e85694b94ea254e4f25b788ee",
+  "s44-fakt-iz-pervogo-itema": "64df4d871ecb33a7e6f2959b49f78799e49761a22f056fe40b1d26488356fe08",
   "x01-vsegda-puschem": "3f5595f67d074ca67013f6c7fb7c66723e39289d0cd97bf2021c045e83e3d3e3"
  },
  "zametki": {
