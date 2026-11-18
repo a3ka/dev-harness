@@ -10,6 +10,8 @@ import subprocess
 import sys
 import tempfile
 
+from url_witness import matches_witness
+
 HERE = Path(__file__).resolve().parent
 CASES = {
     'SHIPPED_INVALID': 'mock', 'SHIPPED_VALID': 'mock', 'DEFAULT_VALID': None,
@@ -55,6 +57,9 @@ def installed(files):
 
 
 def run(repo, cases=None, model=None, values=None):
+    if 'HTTP_UNAVAILABLE' in (cases or CASES) and not matches_witness(SYNTHETIC_API_URL):
+        print('995 runtime URL_TAMPERED', file=sys.stderr)
+        return 1, 'URL_TAMPERED'
     repo = repo.resolve()
     if not repo.is_relative_to('/tmp/dev-harness-verify'): raise RuntimeError('DISPOSABLE_REQUIRED')
     mobile = repo / 'mobile'
@@ -137,6 +142,9 @@ def main():
     parser.add_argument('--model', choices=['honest'] + sorted({m for m, _, _ in MUTANTS}))
     parser.add_argument('--case', choices=CASES)
     args = parser.parse_args()
+    if (args.matrix or args.case in (None, 'HTTP_UNAVAILABLE')) and not matches_witness(SYNTHETIC_API_URL):
+        print('995 runtime URL_TAMPERED', file=sys.stderr)
+        return 1
     if not args.matrix: return run(args.repo, [args.case] if args.case else None, args.model)[0]
     rows = [('honest', None, 0, '')] + [(m, [c], 1, reason) for m, c, reason in MUTANTS]
     mismatches = 0

@@ -15,10 +15,9 @@ SYNTHETIC_API_URL в runtime_probe.py; эта проба держит ремон
 expect на process.env, а запускателем служит сам немодифицированный (для
 контроля) либо замутированный (для стабов) runtime_probe.run — машина
 окружения ровно та, что в CI. Ожидаемый mode читается из пробы (CASES);
-ожидаемый URL — НЕЗАВИСИМЫЙ СВИДЕТЕЛЬ регресса (Adv995, К-11 «оракул из
-субъекта»: оракулу запрещено брать ожидание из проверяемого значения):
-литерал WITNESS_SYNTHETIC_URL закреплён в этом файле и проверен правилом
-класса .invalid (https, хост на .invalid, без пути/учётных данных).
+ожидаемый URL — НЕЗАВИСИМЫЙ СВИДЕТЕЛЬ из url_witness.py (Adv995/Adv995b,
+К-11 «оракул из субъекта»). Его литерал и правило класса .invalid общие
+с отдельной матрицей, но НЕ читаются из проверяемого runtime_probe.py.
 Правило 8: байты батареи снимаются до запуска субъекта.
 
 Режимы:
@@ -37,10 +36,11 @@ expect на process.env, а запускателем служит сам нем�
                   setdefault   → только foreign-url (заполняет лишь
                       отсутствующий: на no-url мутант честно зелён и
                       красноты там не требуется);
-                  real-host   → оба входа (Adv995: константа пробы
-                      подменена на реальный хост https://example.com;
-                      наблюдение env: Received ≠ свидетель; сетевая клетка
-                      при throw-fetch не различает происхождение);
+                  real-host   → оба входа: независимый свидетель отвергает
+                      константу пробы до запуска продукта: rc 1 URL_TAMPERED.
+                Дополнительно пять URL-подмен × три публичные двери
+                (отдельная --matrix, регресс, регресс --stabs) обязаны
+                отказать rc 1 URL_TAMPERED, без таймаута.
   --mutation M  одна мутация (контроль + её входы);
   --mutation unapplied — положительный контроль машинерии применения:
                 якорь отсутствует по построению, применение обязано
@@ -48,8 +48,8 @@ expect на process.env, а запускателем служит сам нем�
                 зелёный контроля запрещён).
 
 Коды возврата: 0 — зелено (контроль зелёный, стабы красны на своих
-входах); 1 — контроль красный либо стаб прошёл (STAB_ZHIV); 2 —
-ORACLE_TAMPERED: нечем проверять (дрейф байтов батареи, якорь мутации
+входах); 1 — URL_TAMPERED, контроль красный либо стаб прошёл (STAB_ZHIV);
+2 — ORACLE_TAMPERED: нечем проверять (дрейф байтов батареи, якорь мутации
 или наблюдения не единственен, SYNTHETIC_API_URL не определён в пробе,
 свидетель вне класса .invalid, продукт вне одноразовой зоны).
 """
@@ -57,22 +57,22 @@ import argparse
 import importlib.util
 import os
 from pathlib import Path
-from urllib.parse import urlsplit
 import shutil
 import sys
+import subprocess
 import tempfile
 
+from url_witness import WITNESS_SYNTHETIC_URL, matches_witness
+
 HERE = Path(__file__).resolve().parent
-BATTERY_FILES = ('runtime_probe.py', 'runtime.test.tsx', 'source.json', 'model.tsx', 'runtime-model.ts')
+BATTERY_FILES = ('runtime_probe.py', 'runtime.test.tsx', 'source.json', 'model.tsx', 'runtime-model.ts',
+                 'url_witness.py', 'env_override_regression.py')
 PARENT_INPUTS = ('no-url', 'foreign-url')
 FOREIGN_PARENT_URL = 'https://foreign-parent.example.com'
 SCRATCH_ROOT = Path('/tmp/dev-harness-verify')
 OBSERVATION_ANCHOR = "it('HTTP_UNAVAILABLE', async () => {"
 
-# Adv995 (К-11 «оракул из субъекта»): ожидаемый URL — независимый свидетель
-# ЭТОГО регресса, а не значение проверяемой пробы. Класс происхождения по
-# контракту 995:41 (адреса .invalid) проверяется правилом synthetic_origin.
-WITNESS_SYNTHETIC_URL = 'https://api.example.invalid'
+# Independent witness shared by regression and standalone matrix, outside the probe.
 REAL_HOST_URL = 'https://example.com'
 
 
@@ -80,14 +80,6 @@ def fail_closed(message):
     raise RuntimeError(message)
 
 
-def synthetic_origin(url):
-    """Класс синтетического происхождения (контракт 995:41): схема https,
-    хост оканчивается на .invalid, без пути, запроса, фрагмента, порта
-    и учётных данных."""
-    part = urlsplit(url)
-    return (part.scheme == 'https' and part.username is None and part.password is None
-            and part.port is None and not part.path and not part.query and not part.fragment
-            and (part.hostname or '').endswith('.invalid'))
 
 
 def replace_once(text, anchor, replacement, name):
@@ -110,11 +102,26 @@ def mutation_setdefault(text):
     return replace_once(text, anchor, "env.setdefault('EXPO_PUBLIC_API_URL', SYNTHETIC_API_URL)", 'setdefault')
 
 
-# Adv995: стаб «реальный хост» — константа пробы подменена на посторонний
-# реальный хост; дефект наблюдаем в процессе на обоих родительских входах.
-def mutation_real_host(text):
+# Adv995/Adv995b: подмена константы различима до запуска продукта.
+def mutation_url(text, url):
     anchor = "SYNTHETIC_API_URL = 'https://api.example.invalid'"
-    return replace_once(text, anchor, "SYNTHETIC_API_URL = '%s'" % REAL_HOST_URL, 'real-host')
+    return replace_once(text, anchor, 'SYNTHETIC_API_URL = %r' % url, 'url')
+
+
+def mutation_real_host(text):
+    return mutation_url(text, REAL_HOST_URL)
+
+
+# Н-39: each URL defect is observable at all three public doors below.
+URL_INPUTS = {
+    'real': REAL_HOST_URL, 'test': 'https://api.example.test',
+    'local': 'https://api.example.local', 'localhost': 'http://localhost', 'empty': '',
+}
+URL_DOORS = (
+    ('matrix', 'runtime_probe.py', ('--matrix',)),
+    ('regression', 'env_override_regression.py', ()),
+    ('regression-stabs', 'env_override_regression.py', ('--stabs',)),
+)
 
 
 MUTATIONS = {'no-override': mutation_no_override, 'setdefault': mutation_setdefault, 'real-host': mutation_real_host}
@@ -155,7 +162,7 @@ def install_observation(root, mode, expected_url):
 
 
 def excerpt(failures):
-    keep = ('Expected:', 'Received:', 'Unable to find', 'expect(')
+    keep = ('Expected:', 'Received:', 'Unable to find', 'expect(', 'URL_TAMPERED')
     picked = [line.strip() for line in failures.splitlines() if any(k in line for k in keep)]
     return ' | '.join(picked[:6])[:600]
 
@@ -208,6 +215,32 @@ def stabs(repo, names):
     return 0 if living == 0 else 1
 
 
+def url_stabs(repo):
+    caught = living = 0
+    for name, url in URL_INPUTS.items():
+        root = prepare()
+        try:
+            path = root / 'runtime_probe.py'
+            path.write_text(mutation_url(path.read_text(), url))
+            for door, script, flags in URL_DOORS:
+                proc = subprocess.run(
+                    [sys.executable, str(root / script), '--repo', str(repo), *flags],
+                    capture_output=True, text=True, timeout=180)
+                output = proc.stdout + proc.stderr
+                if proc.returncode == 1 and 'URL_TAMPERED' in output:
+                    caught += 1
+                    print('995 url-regress STAB %s door=%s rc=%d URL_TAMPERED' %
+                          (name, door, proc.returncode))
+                else:
+                    living += 1
+                    print('995 url-regress STAB_ZHIV %s door=%s rc=%d %s' %
+                          (name, door, proc.returncode, output), file=sys.stderr)
+        finally:
+            shutil.rmtree(root)
+    print('995 url-regress SVJAZI %d zhivykh %d' % (caught, living))
+    return int(bool(living))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--repo', type=Path, required=True)
@@ -217,8 +250,10 @@ def main():
     repo = args.repo.resolve()
     if not repo.is_relative_to(SCRATCH_ROOT):
         fail_closed('DISPOSABLE_REQUIRED: продукт обязан быть одноразовым клоном под %s' % SCRATCH_ROOT)
-    if not synthetic_origin(WITNESS_SYNTHETIC_URL):
-        fail_closed('WITNESS_NOT_SYNTHETIC: свидетель вне класса .invalid (995:41)')
+    probe = load_probe(HERE)
+    if not matches_witness(probe.SYNTHETIC_API_URL):
+        print('995 env URL_TAMPERED', file=sys.stderr)
+        return 1
     # Применённость к ФАКТИЧЕСКИМ байтам батареи — до любого запуска.
     shipped = (HERE / 'runtime_probe.py').read_text()
     for name, mutate in sorted(MUTATIONS.items()):
@@ -229,13 +264,16 @@ def main():
         fail_closed('unapplied применился — машинерия сломана')
     if control(repo): return 1
     if args.mutation: return stabs(repo, [args.mutation])
-    if args.stabs: return stabs(repo, sorted(MUTATIONS))
+    if args.stabs:
+        env_rc = stabs(repo, sorted(MUTATIONS))
+        url_rc = url_stabs(repo)
+        return int(bool(env_rc or url_rc))
     return 0
 
 
 if __name__ == '__main__':
     try:
         sys.exit(main())
-    except (OSError, RuntimeError, ValueError, KeyError, AttributeError) as error:
+    except (OSError, RuntimeError, ValueError, KeyError, AttributeError, subprocess.TimeoutExpired) as error:
         print('995 env ORACLE_TAMPERED:', error, file=sys.stderr)
         sys.exit(2)
