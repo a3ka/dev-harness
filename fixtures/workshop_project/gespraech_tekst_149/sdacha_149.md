@@ -1,11 +1,12 @@
-# СДАЧА 149 — v+6: геометрия Kompakt-1.1; форма А v+5 сохранена
+# СДАЧА 149 — закрытие К-04 Crit149V6: точная продуктовая зона
 
-Кандидат поверх `97c6b417f1da1d12696153d8017846f0c9db1d72`.
-Источник дельты — слово владельца 2026-11-18 ~13:52/~14:05 UTC
-«149 — вместе с геометрией»; задание `/tmp/dev-harness-verify/task-149-architect-geo2.md`.
-Предмет — статический источник геометрии, не реализация продукта и не
-возобновление приёмки цикла 2. Привязки негативных образцов к ветвям —
-только код `red_geo_149.py:stabs` и `red_ci_149.py:STABY` (Н-39).
+Кандидат поверх `5e87fd56e6efa5481c52828970b7f8611b4ff4b8`.
+Источник дельты — вариант А консультанта Cons149Zone, §1–2,
+и задание `/tmp/dev-harness-verify/task-149-architect-zone.md`.
+Предмет — раздача уже обязательного производного motion-spec по И-12,
+не реализация продукта и не изменение батарей геометрии/регистрации.
+Привязки негативных образцов к ветвям остаются только в коде
+`red_geo_149.py:stabs` и `red_ci_149.py:STABY` (Н-39).
 Контракт несёт инварианты и rc-команды, лист — исполненные проверки и границы.
 
 Грамматика машинных таблиц ниже принадлежит `check_sdacha.sh`:
@@ -13,8 +14,7 @@
 В том же разделе дано представление `К-NN: статус — хвост` для
 `lib_karta_sdachi.sh`; это одна карта в двух форматах существующих потребителей,
 не две независимые привязки негативных образцов.
-Ссылка `ПРЕДЫДУЩИЙ ВЕРДИКТ:` не задаётся: вердикты цикла 2 предшествуют
-грамматике карты 192/193 и не пересуживаются этой дельтой.
+ПРЕДЫДУЩИЙ ВЕРДИКТ: verdicts/critic/contracts-149-v5.md
 
 ## Двери
 
@@ -25,13 +25,14 @@
 - registration-model · fixtures/workshop_project/gespraech_tekst_149/red_ci_149.py --model · 0 · 0
 - registration-stabs · fixtures/workshop_project/gespraech_tekst_149/red_ci_149.py --stabs · 0 · 0
 - predposylki · bash scripts/check_predposylki.sh . contracts/149-gespraech-tekst-chat.md · 0 · 0
+- zone-allocation · bash fixtures/workshop_project/gespraech_tekst_149/check_zone_149.sh · 0 · 0
 
 ## Карта классов
 
 К-01: чисто — bash scripts/pre_critic.sh contracts/149-gespraech-tekst-chat.md; rc 0.
 К-02: чисто — вход: геометрический источник Kompakt-1.1 и слово ~14:05; времена/кривые/прерывания/УД/позы и T32/T18/T19 сохранены.
 К-03: чисто — вход: адресная замена Final2-геометрии перечислена в «Снятие замороженных норм»; архив/source.json/зонд и набор 158 неизменны.
-К-04: чисто — вход: контракт 149 и gespraech_tekst_149; продукт и его docs/ux/05_Kompakt_D24/motion/ не меняются.
+К-04: чисто — bash fixtures/workshop_project/gespraech_tekst_149/check_zone_149.sh; rc 0: точный файл, границы оригиналов и соседнего -147, исполнение после freeze без повторной раздачи.
 К-05: чисто — вход: И-12 и критерий 7 несут --model/--stabs/--repo/--spec с именованным результатом и rc.
 К-06: чисто — вход: отказ предпосылки оракула/Chrome — NOT_IMPLEMENTED rc 2; отсутствующий spec субъекта — именованный rc 1.
 К-07: чисто — fixtures/workshop_project/gespraech_tekst_149/red_geo_149.py --model; rc 0.
@@ -49,7 +50,7 @@
 - К-01 · чисто · bash scripts/pre_critic.sh contracts/149-gespraech-tekst-chat.md · 0 · 0
 - К-02 · чисто · вход: Kompakt-1.1, слово ~14:05; времена/кривые/прерывания/УД/позы и T32/T18/T19 сохранены · - · -
 - К-03 · чисто · вход: адресная замена Final2-геометрии в «Снятие замороженных норм»; архив/source.json/зонд и набор 158 не меняются · - · -
-- К-04 · чисто · вход: только контракт 149 и gespraech_tekst_149; продукт и новый product-путь не меняются · - · -
+- К-04 · чисто · bash fixtures/workshop_project/gespraech_tekst_149/check_zone_149.sh · 0 · 0
 - К-05 · чисто · вход: критерий 7 — --model/--stabs/--repo/--spec и именованные rc · - · -
 - К-06 · чисто · вход: NOT_IMPLEMENTED rc 2 для отказа предпосылки оракула/Chrome; SPEC_NET_ILI_NE_JSON rc 1 для субъекта · - · -
 - К-07 · чисто · fixtures/workshop_project/gespraech_tekst_149/red_geo_149.py --model · 0 · 0
@@ -66,29 +67,25 @@
 
 ## Дельта
 
-Относительно v+5 (`97c6b417f1`): только адресный источник геометрии И-12,
-его пины, измеренный носитель, производитель замера и `red_geo_149.py`.
-Форма А, кадровая пара kadry.json/kadry-393.json, безусловная регистрация,
-PILOT_DEMO_CODE/предполёт 122 и К-08 (`red_ci_149.py`) сохранены.
-Новый источник продукта пишет implementer после freeze; эта пачка его не пишет.
-`karta.json`, `source.json`, `probe.py`, продуктовый зонд и архив Final2 не правятся.
-Движение T32/T18/T19 и негеометрическая часть изменённых сцен сравниваются с архивом.
+Относительно `5e87fd56e6`: добавлена точная продуктовая ЗОНА implementer
+одного производного файла -149.json и граница неизменности оригиналов/-147.
+Незаполненное требование ссылается на уже объявленную зону:
+исполнение остаётся после freeze в том же продуктовом PR, раздача не отложена.
+И-1…И-12, критерии, батареи и продукт не меняются.
 
-- К-03 · канон/инструмент · fixtures/workshop_project/gespraech_tekst_149/red_geo_149.py --model · 0 · 0
-- К-08 · клетка · fixtures/workshop_project/gespraech_tekst_149/red_geo_149.py --stabs · 0 · 0
-- К-09 · клетка · fixtures/workshop_project/gespraech_tekst_149/red_geo_149.py --stabs · 0 · 0
-- К-12 · канон/инструмент · fixtures/workshop_project/gespraech_tekst_149/red_geo_149.py --model · 0 · 0
-- К-14 · канон/инструмент · fixtures/workshop_project/gespraech_tekst_149/red_geo_149.py --stabs · 0 · 0
+- К-04 · канон/инструмент · bash fixtures/workshop_project/gespraech_tekst_149/check_zone_149.sh · 0 · 0
 
-Причина адресной клетки: снятие геометрии противоречит слову владельца;
-граница уже оставляет живой рендер продуктовой приёмке; стандартный JSON-разбор
-не знает предметных прямоугольников. Поэтому геометрия сравнивается с
-измеренным каноном, а её различимость предъявлена адресными негативными образцами.
-Перечень образцов/ветвей — код `stabs`, не самостоятельный список в контракте.
-Честные эквивалентные записи: порядок ключей/пробелы JSON и 52/52.0;
-честный контроль и эквивалентный контроль проходят ту же функцию judge.
+Доказательство — стандартный `grep -Fxq` по точной строке зоны, полной границе
+и строке оставшегося исполнения; текст сверки взят из задания/решения А.
+Отдельный короткий файл команды необходим по грамматике check_sdacha.sh:
+она исполняет argv файла, а не shell-выражение в поле таблицы.
+До правки контракт не проходит эту же команду (сырой rc 1); после правки — rc 0.
+Новых предикатов батарей, клеток и обязательств нет.
 
 ## Замеры v+6 (2026-11-18)
+
+Исторические замеры геометрического кандидата ниже сохранены как происхождение,
+а не выданы за повторные измерения этой дельты.
 
 Все команды проверки исполнены из изолированной копии architect.
 `R=/tmp/dev-harness-verify/Impl149Fix/mob`, HEAD
@@ -134,27 +131,36 @@ T37 [16,768,358,60]→[68,735,250,48]; T17 [68,438,250,62]→[16,768,358,60].
 ## Развилки
 
 Статический источник и пин в продукте отсутствуют до работы implementer;
---repo новой геометрии честно красен. Регистрация, напротив, уже зелена на R.
-Chrome этой копии не открыл CDP: производитель замера вернул rc 2;
-исходный измеренный носитель из задания сохранён без подмены новых чисел.
+--repo новой геометрии остаётся будущей продуктовой приёмкой.
+Точная зона для доставки уже раздана контрактом; оригиналы и -147 не затрагиваются.
 Строку владельца, freeze и CI-проводку выполняет orchestrator; push не делается.
 Журнал NABLIUDENIA_ARCHITECT.md не правится в wip-ветке и вне зоны.
-Процессное наблюдение для передачи в main: два существующих потребителя карт
-используют разные грамматики; лист явно несёт оба представления, без нового парсера.
+Процессное наблюдение для main: таблица check_sdacha исполняет только argv файла;
+для доказательства текстовой дельты требуется адресный файл команды, не shell в листе.
+ОТКРЫТЫЙ ВОПРОС ДИЗАЙНЕРУ (не блок, не скрывается; слово консультанта 15:40 UTC, диагностика моба `motion-kompakt-1118-scout.md` §6): внутри пакета Kompakt размер знака противоречив — motion-delta.md:22 даёт 28→20 (и 40→32), manifest.json:106 — 28→24, tokens.json presence-mini — 28 без изменения. По слову владельца (батч №2 §8) приоритет у motion-delta.md, поэтому батарея и замеры держат 20; вопрос размера знака (20/24/28) и единой машинной motion-spec Kompakt решает владелец (батч №3). Движок 145 (mobile/src/lib/faden/faden-motion.ts) держит размеры Final2 (TIERS 288/232/160/96, adaptiveMin 96, cap 288) и этой пачкой не затрагивается.
 
 ## Фактические двери формы
 
-`bash /home/harness/dev-harness/scripts/check_sdacha.sh <копия> contracts/149-gespraech-tekst-chat.md --run`
-→ `СДАЧА: лист зелёный (двери=7 карта=17/17 дельта=5)`, `RAW_RC=0`.
-`bash /home/harness/dev-harness/scripts/pre_critic.sh --repo <копия> contracts/149-gespraech-tekst-chat.md`
-→ `КРИТИК: дверь зелёная`, `RAW_RC=0`; обе двери судили эту копию.
-`bash /home/harness/dev-harness/scripts/check_project_sources.sh --repo <копия> --contract contracts/149-gespraech-tekst-chat.md --stage done`
-→ `RAW_RC=0`.
+Копия текущего прогона:
+`/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/tcdacd044e/m`,
+ветка `wip/149/architect`, база `5e87fd56e6efa5481c52828970b7f8611b4ff4b8`.
+`TMPDIR` равен корню этой копии; временные миры остаются внутри неё.
 
-Сухая done-проверка
-`bash /home/harness/dev-harness/scripts/check_provodka.sh <копия> contracts/149-gespraech-tekst-chat.md`
-→ `RAW_RC=1`,
-`проводка: guard не подключён: fixtures/workshop_project/gespraech_tekst_149/red_ci_149.py не вызывается в .githooks/ или .github/workflows/`.
-Это не зелёный done: CI-подключение всех guard остаётся объявленной зоной
-orchestrator в freeze..done, вне зоны данной пачки. Оно не обходилось
-правкой CI, сменой маршрута или ослаблением проверки.
+| Команда | Сырой rc | Вывод |
+|---|---:|---|
+| bash fixtures/workshop_project/gespraech_tekst_149/check_zone_149.sh (до правки контракта) | 1 | пустой stdout |
+| bash fixtures/workshop_project/gespraech_tekst_149/check_zone_149.sh (после правки) | 0 | ZONA_149_VYDANA |
+| bash /home/harness/dev-harness/scripts/check_sdacha.sh <копия> contracts/149-gespraech-tekst-chat.md --run | 0 | СДАЧА: лист зелёный (двери=8 карта=17/17 дельта=1) |
+| bash /home/harness/dev-harness/scripts/pre_critic.sh --repo <копия> contracts/149-gespraech-tekst-chat.md | 0 | КРИТИК: дверь зелёная |
+| fixtures/workshop_project/gespraech_tekst_149/red_geo_149.py --model | 0 | GEOMETRIJA_KOMPAKT_11 |
+| fixtures/workshop_project/gespraech_tekst_149/red_geo_149.py --stabs | 0 | STABY 68 / 68 HONEST_CONTROLS 2 |
+| fixtures/workshop_project/gespraech_tekst_149/red_ci_149.py --model | 0 | MODEL_OK |
+| fixtures/workshop_project/gespraech_tekst_149/red_ci_149.py --stabs | 0 | MODEL_OK; STAB 1/50 … 50/50 |
+
+Последние четыре команды дополнительно исполнены последовательной цепочкой `&&`;
+общий сырой rc 0, каждая команда достигнута. Машинные двери листа также
+перепрогнали неизменённые geometry-archive (ожидаемый rc 1) и predposylki (rc 0).
+Продуктовый --repo, Chrome и архивная батарея цикла 2 в этой дельте не запускались.
+Исторический done-отказ проводки не пересматривается этой пачкой:
+CI-подключение guard остаётся объявленной зоной orchestrator в freeze..done,
+вне зоны данной пачки; изменение CI и ослабление проверки не выполняются.

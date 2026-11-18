@@ -114,9 +114,13 @@
 ЗОНА implementer: mobile/e2e-gespraech-tekst/
 ЗОНА implementer: .github/workflows/mobile.yml
 ЗОНА implementer: mobile/ci-screens.json
+ЗОНА implementer: docs/ux/05_Kompakt_D24/motion/motion-spec-gespraech-kompakt-149.json
 ЗОНА critic: verdicts/critic/
 ЗОНА reviewer: verdicts/review/
 ЗОНА orchestrator: registry/ci-steps.tsv registry/ci-zamery.tsv .github/workflows/ci.yml
+
+Пути продуктовых ЗОНА implementer — от корня Complior-mob. В docs/ux/05_Kompakt_D24/motion/ исполнитель 149 создаёт только motion-spec-gespraech-kompakt-149.json как производный источник И-12 с происхождением и sha256; оригиналы пакета, motion-delta.md, motion-delta-frames/, source/, frames/, README_RU.md, SHA256SUMS и производный motion-spec-gespraech-kompakt-147.json не меняются. Производный файл не становится новым дизайнерским каноном. Его доставка и dvizhenie.spec/spec_sha256 в mobile/e2e-gespraech-tekst/ekran.json — работа implementer 149 после freeze, в том же продуктовом PR, с приёмкой по И-12 и критерию 7.
+
 ПЕРЕСЕЧЕНИЕ implementer: mobile/src/features/conversation/ — 147 зона хост-оболочки разговора (кандидат, заморозка до 149): 149 добавляет чат-хост/chat-machine/chat-kopija и свои тесты, НЕ трогает menu-machine.ts/меню; общая зона семьи D 2.4 (линейка 147→149→150, нарезка фазы 2).
 ПЕРЕСЕЧЕНИЕ implementer: mobile/src/ui/conversation-composer/ — 108 зона композера слайса-1 (CMP-MOB-004): 149 правит рост поля до шести строк + прокрутку, микрофон primary, голос в поле по CHANGELOG D 2.4; замороженные пробы 108 не трогаются (правка параметров роста/кнопок, не поверхности).
 ПЕРЕСЕЧЕНИЕ implementer: mobile/src/mocks/ — 108 зона моков: 149 добавляет gespraech-chat-mock.ts (тема/вопрос/чипы/вложения/T37 from-состояние GA-33), чужие моки не трогает.
@@ -243,7 +247,7 @@
 - юнит-сьюты (SPEC §4), пачка mobile/e2e-gespraech-tekst/ ПОЛНОГО состава и флоу mobile/.maestro/gespraech-tekst*.yaml — implementer в PR экрана (И-11; вместе с записью/работником);
 - CI-запись ci-screens.json и работник mobile.yml по лекалу 143/2 — implementer, БЕЗУСЛОВНО в PR экрана (слово владельца 2026-11-18; приёмка 4); подключение CI-шага/замера — orchestrator (окно freeze..done; check_provodka зелёный после проводки);
 - красные клетки новой формы на product main (red_ci_149.py --repo: PACHKA_NEPOLNAJA и прочие) — честно красные до реализации, закрываются implementer в PR экрана;
-- компактный источник motion-spec-gespraech-kompakt-149.json и новый dvizhenie.spec/spec_sha256 — implementer после заморозки; красный SPEC_NET_ILI_NE_JSON на прежнем кандидате не выдаётся за дефект регистрации К-08; расширение зоны docs/ux/05_Kompakt_D24/motion/ требует отдельной раздачи оркестратора до исполнения.
+- компактный источник motion-spec-gespraech-kompakt-149.json и новый dvizhenie.spec/spec_sha256 — implementer после заморозки в объявленной точной зоне docs/ux/05_Kompakt_D24/motion/motion-spec-gespraech-kompakt-149.json; красный SPEC_NET_ILI_NE_JSON на прежнем кандидате не выдаётся за дефект регистрации К-08.
 - Граница раздачи: после freeze реализация/пробы допустимы в wip-ветке экрана; PR экрана несёт пачку/флоу/запись/работника (И-10/И-11), но до выполнения ВСЕХ условий приёмки п. 6 сам PR 149 не вливается в product main целиком — ни код и общие файлы, ни пачка/флоу; при выполненных условиях ленд ПОСЛЕДНИМ после 148 и 147 (рестарт на rebase).
 - наборное предъявление `--repo <R> --ekran 149` — по готовности референсов 158/159 (батареи/гейты заморожены и в дереве);
 - вариант В (лёгкий режим валидатора) — отдельный предмет с номером от владельца, зона владельцев (132/146/143), не предпосылка этого контракта;
