@@ -30,6 +30,13 @@ ADR 2026-11-15 в свободном архитектурном слоте. Бо
 обязательства, алфавит карты (17 классов), роли, HEAD-only, rc и
 атомарность freeze — дословно frozen/contracts/193/1.
 
+Исправительный круг Crit193V5 (блоки К-05/К-07): inline-команды приёмки
+пп.7 и 9 записаны без разрыва пути переводом строки, формулировки пп.5/9
+согласованы с листом (красное-до — исторический замер прозой, зелёное
+реальных субъектов — обязательная послеремонтная приёмка вне рядов
+листа), ссылка предыдущего вердикта п.5 — Crit193V5; обязательства,
+инварианты и зоны не менялись.
+
 ## Существующее
 
 Сверено живьём на дереве этой пачки (2026-11-17); дерево — истина.
@@ -71,8 +78,7 @@ ADR 2026-11-15 в свободном архитектурном слоте. Бо
 - Первый образец листа — fixtures/workshop_project/sdacha_193/SDACHA.md (этой
   пачки): строки «Двери», карта самоконтроля К-01…К-17 и секция «Дельта» с
   предыдущим вердиктом — в формате, который задаёт этот предмет; прецеденты
-  ручных листов (окно_zamorozki_200/SDACHA.md, arch_component_170/
-  sdacha_170_v2.md) — свободная проза без грамматики.
+  ручных листов (окно_zamorozki_200/SDACHA.md и arch_component_170/sdacha_170_v2.md) — свободная проза без грамматики.
 
 ## Предмет и инварианты
 
@@ -265,11 +271,14 @@ probe.py до вызова субъекта; привязки — stabs.tsv). З
 5. Правило (дверь листа на САМОМ контракте 193): `bash scripts/check_sdacha.sh
    . contracts/193-svyazka-sdatochnyj-list.md --run` — до реализации rc 127
    (окно, как у 200), после реализации rc 0 `лист зелёный` (строка СДАЧА — в
-   шапке контракта; команды листа выбраны rc-стабильными до/после
-   реализации). Лист ссылается на предыдущий вердикт
-   verdicts/critic/contracts-193-v1.md — артефакт обязан быть
-   доступен на HEAD предъявляемого дерева (рабочая копия артефакт не
-   заменяет; перенос вердиктов в дерево — оркестратор, не автор и не судья).
+   шапке контракта; команды листа rc-стабильны до/после ремонта двери:
+   красное-до голого прогона — исторический замер прозой листа «## Красное-до
+   и приёмка после ремонта», не машинный ряд; зелёное реальных субъектов —
+   обязательная послеремонтная приёмка п.9, вне рядов листа). Лист ссылается
+   на предыдущий вердикт verdicts/critic/contracts-193-v2.md (Crit193V5) —
+   артефакт обязан быть доступен на HEAD предъявляемого дерева (рабочая копия
+   артефакт не заменяет; перенос вердиктов в дерево — оркестратор, не автор
+   и не судья).
 6. Правило (гейты на этом контракте): `bash scripts/pre_critic.sh
    contracts/193-svyazka-sdatochnyj-list.md` → rc 0; `bash
    scripts/check_threat_model.sh . contracts/193-svyazka-sdatochnyj-list.md` →
@@ -284,12 +293,10 @@ probe.py до вызова субъекта; привязки — stabs.tsv). З
    154/158/191); после строки и замера оркестратора → rc 0.
 7. Правило (регресс замороженных семей, файлы не правятся — не зона 193):
    `bash fixtures/_krasnye_103.sh` → rc 0 (toy-миры без двери листа: нога (к)
-   пропускается молча); `bash fixtures/workshop_project/forma_do_kritika_191/
-   red_forma_do_kritika_191.sh --model` → rc 0; `bash
-   fixtures/workshop_project/normy_roley_svyazki_192/red_normy_roley_svyazki_192.sh
-   --model` → rc 0; `bash fixtures/workshop_project/standartnye_validatory_189/
-   red_standartnye_validatory_189.sh --model` → rc 0; `bash
-   fixtures/workshop_project/zamer_svyazki_190/red_zamer_svyazki_190.sh --model`
+   пропускается молча); `bash fixtures/workshop_project/forma_do_kritika_191/red_forma_do_kritika_191.sh
+   --model` → rc 0; `bash fixtures/workshop_project/normy_roley_svyazki_192/red_normy_roley_svyazki_192.sh
+   --model` → rc 0; `bash fixtures/workshop_project/standartnye_validatory_189/red_standartnye_validatory_189.sh
+   --model` → rc 0; `bash fixtures/workshop_project/zamer_svyazki_190/red_zamer_svyazki_190.sh --model`
    → rc 0 (замер пачки: все пять зелёные на дереве этой пачки).
 8. Правило (проектная ось пути вердикта И7, v+1; слово владельца
    2026-11-18 №3; клетки батареи — ловцы, привязки стабов — только
@@ -309,19 +316,23 @@ probe.py до вызова субъекта; привязки — stabs.tsv). З
    (f07), честная (>64 КиБ контракт и >64 КиБ вердикт — проектный длинный
    вход) проходит карту и доходит до toy spec-preflight — следующего
    контролируемого этапа, это НЕ полная успешная заморозка (f06).
-9. Замер (красное-до/зелёное-после проектной оси; дерево этой пачки —
-   дверь ещё НЕ ремонтирована, ремонт — зона implementer после freeze
-   v+1): `bash fixtures/workshop_project/sdacha_193/red_sdacha_193.sh
+9. Замер (красное-до/зелёное-после проектной оси; дверь карты этой пачки
+   ещё НЕ ремонтирована, ремонт — зона implementer после freeze v+1;
+   красное-до — исторический замер, зелёное реальных субъектов —
+   обязательная послеремонтная приёмка, обе — прозой, не машинными рядами
+   листа): `bash fixtures/workshop_project/sdacha_193/red_sdacha_193.sh
    --repo .` → rc 1, `ИТОГ 193: rc=1 KLETKI=65 ZELENYE=55 KRASNYE=10` —
    красны ровно десять проектных клеток v13 v14 v15 v17 v18 v19 v20 v21
-   f05 f06, старые 51 зелёные (честное красное-до); `bash
+   f05 f06, старые 51 зелёные (честное красное-до, исторический замер на
+   OBJECT 9e6bc64c8e3abb61ae4e8a2ec5ffacc65fbef2d9); `bash
    fixtures/workshop_project/sdacha_193/red_sdacha_193.sh --model` → rc 0,
-   `ИТОГ 193: rc=0 KLETKI=65 ZELENYE=65 KRASNYE=0` (зелёное-после: модель —
-   эталон ремонта двери); `bash fixtures/workshop_project/sdacha_193/
-   red_sdacha_193.sh --stabs` → rc 0, `ИТОГ 193: rc=0 OBMANOK=41 POIMANY=41
-   ZHIVYH=0`; та же команда пункта 1 после ремонта implementer → rc 0
-   `ИТОГ 193: rc=0 KLETKI=65 ZELENYE=65 KRASNYE=0` (та же команда CI;
-   числа 43/24 и 51/37 пп.1–4 и прежних кругов — исторические замеры).
+   `ИТОГ 193: rc=0 KLETKI=65 ZELENYE=65 KRASNYE=0` (модель — эталон
+   ремонта двери); `bash fixtures/workshop_project/sdacha_193/red_sdacha_193.sh --stabs`
+   → rc 0, `ИТОГ 193: rc=0 OBMANOK=41 POIMANY=41 ZHIVYH=0`; та же команда
+   пункта 1 после ремонта implementer ОБЯЗАНА дать rc 0
+   `ИТОГ 193: rc=0 KLETKI=65 ZELENYE=65 KRASNYE=0` (обязательная
+   послеремонтная приёмка и та же команда CI; числа 43/24 и 51/37 пп.1–4
+   и прежних кругов — исторические замеры).
 
 замер: `ls fixtures/workshop_project/sdacha_193/mir/*.md | wc -l` = 27 census fixtures/workshop_project/sdacha_193/mir/*.md
 замер: `ls fixtures/workshop_project/sdacha_193/mirskripty/*.sh | wc -l` = 7 census fixtures/workshop_project/sdacha_193/mirskripty/*.sh
