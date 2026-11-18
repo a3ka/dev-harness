@@ -17,7 +17,8 @@
   "yield_predikat": "orch-tablo (ops/server/user/orch-tablo) читает toolCall name=yield разбором JSON; живой журнал станции: /home/harness/.local/state/dev-harness-sessions/<hash8>/zones/dev/.omp/profiles/dev/agent/sessions/<cwd>/<parent>/<AgentId>.jsonl; батарея пинит литерал отклика \"toolName\":\"yield\" (замер: Rev139.jsonl; Architect140.md появляется только после сдачи)",
   "object_grammatika": "контракт 104 Решение 5: ^OBJECT=[0-9a-f]{40}$; models_actual.sh --tsv --bind извлекает ту же строку",
   "sdacha_bez_yield": "слово владельца 2026-11-12 ~12:20 UTC (через консультанта; Sol S2 §2.1, Sol-слово стр. 212): «запись session_exit с \"kind\":\"normal\" в журнале держателя = сдача (как yield)»; замер 2026-11-12 по журналам станции omp 18.18.8: yield-литералов у субагентов 12.11 — 0, событий session_exit — 2516 normal / 231 signal, все записи type=custom; срочная реализация — owner-PR #909 (776d8cd8d, подстрочная форма), v+1 усиливает маркер до структурных полей события (jq .type/.customType/.data.kind)",
-  "klass_iz_kandidata": "слово владельца 2026-11-12 ~12:20 UTC (через консультанта; HANDOFF «РЕШЕНИЯ ВЛАДЕЛЬЦА 2026-11-12», строка 140 v+1; Sol S2 §2.1): класс риска судимого кандидата — из его OBJECT/worktree, НЕ из $REPO(main); боль 991 v3 — «обычный» в кандидате против «рисковый» в main → KLASS_RISKA_NET; реестр risk-legacy.tsv остаётся реестром $REPO (owner 0814d2f5a), blob для него — записи дерева OBJECT"
+  "klass_iz_kandidata": "слово владельца 2026-11-12 ~12:20 UTC (через консультанта; HANDOFF «РЕШЕНИЯ ВЛАДЕЛЬЦА 2026-11-12», строка 140 v+1; Sol S2 §2.1): класс риска судимого кандидата — из его OBJECT/worktree, НЕ из $REPO(main); боль 991 v3 — «обычный» в кандидате против «рисковый» в main → KLASS_RISKA_NET; реестр risk-legacy.tsv остаётся реестром $REPO (owner 0814d2f5a), blob для него — записи дерева OBJECT",
+  "izolirovan_rabochego": "слово владельца 2026-11-18 ~14:05 UTC (§4 батча №2, через оркестратора; заявка контракта 199:19): у рабочего item события спавна обязателен реальный isolated === true из ПОЛЯ item omp-события (нормализация стража спавна), НЕ слово в тексте задания; отсутствие/ложь — именованный отказ NE_IZOLIROVAN до START и любых записей; строка START несёт факт isolated; на судей требование не распространяется; ленд кода 199 — строго ПОСЛЕ mint 140 v+1"
  },
  "alfavity": {
   "worker_roles": [
@@ -130,7 +131,14 @@
   "s41-kandidat-bez-stroki": "риск=main-обычный;кандидат=строки-нет;реестр=нет-записи",
   "s42-risk-legacy-blob-kandidata": "риск=main-рисковый;кандидат=строки-нет;реестр=blob-кандидата-обычный",
   "s43-klass-iz-dereva-ne-gryazi": "риск=дерево-рисковый;рабочий-каталог=грязный-обычный;main=обычный",
-  "s44-klass-otkaz-bez-starta": "пакет=смешанный;отказ=KLASS_RISKA_NET;откат=без-START-и-замков"
+  "s44-klass-otkaz-bez-starta": "пакет=смешанный;отказ=KLASS_RISKA_NET;откат=без-START-и-замков",
+  "w26-rabochij-bez-isolated": "роль=рабочий;isolated=поля-нет;отказ=до-записей",
+  "w27-rabochij-isolated-lozh": "роль=рабочий;isolated=false;отказ=до-записей",
+  "w28-rabochij-isolated-slovo-v-tekste": "роль=рабочий;isolated=слово-в-тексте;поле=нет",
+  "w29-rabochij-isolated-stroka": "роль=рабочий;isolated=строка-true;алфавит=булево",
+  "w30-rabochij-start-s-faktom": "роль=рабочий;isolated=true-из-поля;START=факт-isolated",
+  "s45-sudja-izolirovan-ne-trebuetsja": "роль=судья;isolated=false;ворота=судейские-без-новой-причины",
+  "b07-paket-izolirovan-otkat": "пакет=изоляция+без-изоляции;отказ=NE_IZOLIROVAN;откат=без-записей"
  },
  "stab_vhod": {
   "s01-bez-dublja-rabochego": [
@@ -196,7 +204,8 @@
    "b02-dubl-v-pakete"
   ],
   "s20-otkaz-ne-ostanavlivaet": [
-   "b03-smeshannyj-otkat"
+   "b03-smeshannyj-otkat",
+   "b07-paket-izolirovan-otkat"
   ],
   "s21-bez-atomarnosti": [
    "b04-gonka-dva-protsessa"
@@ -244,7 +253,8 @@
    "s06-object-uzhe-suzhen",
    "s09-adv-do-rev",
    "b02-dubl-v-pakete",
-   "b04-gonka-dva-protsessa"
+   "b04-gonka-dva-protsessa",
+   "w26-rabochij-bez-isolated"
   ],
   "s29-klass-riska-tolko-nachalo-stroki": [
    "s29-klass-riska-realnaja-116",
@@ -275,46 +285,68 @@
    "s42-risk-legacy-blob-kandidata",
    "s43-klass-iz-dereva-ne-gryazi",
    "s44-klass-otkaz-bez-starta"
+  ],
+  "s36-izolirovan-ne-proverjaetsja": [
+   "w26-rabochij-bez-isolated",
+   "w27-rabochij-isolated-lozh",
+   "b07-paket-izolirovan-otkat"
+  ],
+  "s37-izolirovan-iz-teksta": [
+   "w28-rabochij-isolated-slovo-v-tekste"
+  ],
+  "s38-izolirovan-ne-bulo": [
+   "w29-rabochij-isolated-stroka"
+  ],
+  "s39-izolirovan-trebuet-sudi": [
+   "s45-sudja-izolirovan-ne-trebuetsja"
+  ],
+  "s40-start-bez-fakta": [
+   "w30-rabochij-start-s-faktom"
   ]
  },
  "nositeli": {
-  "model/zamok_predmeta.sh": "143a328aa293c19ec8c6f056bbf741825a176710dc3fe98366a3a8529aa60af7",
-  "s01-bez-dublja-rabochego": "e4a77cf081da54886dd6951068107dcec3cff377544e43990755fcaeb8b39913",
-  "s02-bez-yield-predikata": "e283ff5ff7622edee4f4f5cd01f9fa2b6874edbbad34e2617c0abdf1d6145e3d",
-  "s03-avto-relis-broshennogo": "e382c89012c8e5a33f2574fed4fc2dff3f91b88b1af3518b41f77f0bfe932db1",
-  "s04-osvobodit-zhivogo": "8ed6857788cb1996d6ea31b5dfb5ff6e0444516577528d1f33bc9084fe21e889",
-  "s05-subjekt-bez-jakorja": "a55634b83b5b022a9d157a94678dd359552cd9ebfc98536903efccd231d73278",
-  "s06-pin-bez-jakorja": "5226aebf292e7b584009586f48042df182ab0deaa4e4834f4a95ce91e4a90847",
-  "s07-object-fabricuet": "cfa10fd2ab7e164455824dbfd459e023cbbc003918005986bdb60efdeb5fd8d6",
-  "s08-bez-object-sverki": "b7349235805d864916fb8ce4a097ce269570e2a7e5bed1df3d4bf05a065a8f1c",
-  "s09-avtor-ne-sdal": "9cdfa56713ea5cf5b0e3e19251988282c355141b305d9860941b0ad79a3b9e45",
-  "s10-vtoroj-sudja": "7d205c4c5d4cb7d73472b125695bcae036939aa901f636621e02a106d7888974",
-  "s11-uzhe-suzhen": "8d8bc566fa8550d505c569f2354aef85ca912ed065cf06173be831f7549cdd16",
-  "s12-bez-rabochego": "b1ae0e76181b74435bac9791d91e025ceff2078e5194df8b086804096e4fc5e3",
-  "s13-klass-riska-mjagko": "aa17c30500434757e346dd461035b90171c3db17d968f961f7001adbb1238336",
-  "s14-bez-adv-do-rev": "ece14da3f70f101f07505c2fd7cc870b292669116378540c29f4eeb7b6f93c04",
-  "s15-bez-pauzy": "5cb49f48e16ab00c176520b65b064716736eac0be10b24791b334ae0116a9c04",
-  "s16-slovo-vsegda": "0eb9fb0770e034b8c0eda89a482279b9a6e40c03eb2944c69b6e4e4a885e3195",
-  "s17-done-net": "8c28a1522a5825bcb8acda74043df1d0243cfc93c8ecd9a2f8048120e4761865",
-  "s18-gruppa-vsegda-harness": "fa748f6bf778c027a5f094f235a4d8de7132353eef4d527b76fcf3ce4af44566",
-  "s19-bez-dublja-v-pakete": "d9b1aed8d9049fdedc2a025dba2f741fba9ab28862ad1c80c431549f0b1a54bf",
-  "s20-otkaz-ne-ostanavlivaet": "dbe0b5aa3b4353a0c7318dd8345beea1d8c923e3996ca7777a770ff8f4b53673",
-  "s21-bez-atomarnosti": "004c49f41020882b4012ccb7dd54a4123350cf2cdd423fad6ca2b5bac29d270b",
-  "s22-bez-starta": "aa6797e1b9d84fc5cf82fcb73f1297e86eb8c0cf3d5490c3eb5678e98fbef601",
-  "s23-pustota-prohodit": "86a87da8d79339fc60f149b18e4fdfdf55fcbd6d4a120589d02e0019ace8dc21",
-  "s24-sudi-propusk": "7d23397c2ba3adf8eaf73a5ae41a21ed02e8d7e7da7eaa9bfa58a6e298d20f62",
-  "s25-bez-pin-rashozhdenija": "3c98110b14c778b8a1cfd9e250a93b674f36710d11420c644f730a0d509295f8",
-  "s26-uchet-bez-zhurnala": "83849daf4a46a48c8196a91341746561ae4fd02725439f075e09394d153eec98",
-  "s27-pauza-schitaetsja": "ec488ff0956fdb4cfae0d702936a9034f7a0da552600e43330055a0a273e6b08",
-  "s28-pervyj-rezultat-find": "78e1b2f3212699d8f5e3518da3c62c4b503fc61b1896857dfc8d9d83174de4d8",
-  "s29-klass-riska-tolko-nachalo-stroki": "4662f28bae6fea79bdb6aee71ebcca0e2d07062d262cf46c409e24b4151ddcf0",
-  "s30-klass-riska-type-f": "cfd06177c8f546ec7a528132254b0bdcd17abbfa7bc302ecb42829b7bf8a9744",
-  "s31-session-exit-ne-sdacha": "8d12592a8c39d30bdd2b2e029fbbb521450a9e29248a4e091ea864e5c0e3adc5",
-  "s32-session-exit-ljuboj-kind": "3563d5f7a2251ec7f7843183a7bfad872d4e5cf0506614454f38d92040613709",
-  "s33-marker-podstrokoj": "6f5ee34ff191a7afc061b243cbca68ce20d246b7ec8f7744d65383cd641fb2ab",
-  "s34-klass-iz-gryazi": "97733c1eb59c3c0d9aa8596f65c252e03e2edb93eea3a2b45724decc18df00e4",
-  "s35-klass-iz-main": "ecdc9e51896bc2175cce3230d8722fdb7880181d13128be2a10a40d7ff44fdd5",
-  "x01-vsegda-puschem": "86d1fdd5ca8e90f0532f2525c8f7925ff775ca509024ffaafa32479c551cdd1c",
+  "model/zamok_predmeta.sh": "476f9d8287282abb8f61992e30b2204ca74e1957a1f037fd973dd525dc577a95",
+  "s01-bez-dublja-rabochego": "7bf3aa18f4bd34bdcb1083dfa7d837e70575952ab50a38fdeac36e671402d375",
+  "s02-bez-yield-predikata": "5ae6e62d689a6d7d655b381bbe0604aa994d8be687eee06b93803de9e5b4252b",
+  "s03-avto-relis-broshennogo": "97f2c4937f572771ef04b12dde5719514f6d207e8486867644f08e336a980892",
+  "s04-osvobodit-zhivogo": "021461b7b2ad2ccc8b8e098177f4acf039c7a6679bbed4da128d72d164d63a52",
+  "s05-subjekt-bez-jakorja": "f57508a9b1d12fa1cd69ae88d102d25b0cb102aec74e7252dbfb72d1279a596d",
+  "s06-pin-bez-jakorja": "1ec6d50e77a9d19df48f9e10988be2a9eb69ed66659a2024c6f4a171898ee5f8",
+  "s07-object-fabricuet": "9f0c99b4f0394311f7b4a5f47e7e247c3bb494ae9cfa2e872a34eca79202f8b5",
+  "s08-bez-object-sverki": "4b1099cbf6df5226c1787465cc0d7237753a2e61e1e2b4e15d67be15e4314e36",
+  "s09-avtor-ne-sdal": "e303aa87484e2bf68f18ac0a85b6e4ec97aa39d5bea3c296a4658d665791ecba",
+  "s10-vtoroj-sudja": "aee4e703a2227fe669d8d17fc7ca3826c8ef7924c6db10e0db1e50448d2c7f8c",
+  "s11-uzhe-suzhen": "3015f6d0005b2e9fea51c9044247c5420074a2ef1cba222d2ba67f822c0a963f",
+  "s12-bez-rabochego": "0e5eb3360b0448611cfb7b28529d98069d6c3fb3c20755236568548a67c02ce1",
+  "s13-klass-riska-mjagko": "89a6d770b6545dc2d0283be0c353aa340d5692093a9974cd12382d15183b94aa",
+  "s14-bez-adv-do-rev": "f897d714ee10609ac39ebd813efc59e342b088e9fb521131418b2ad8dd5700a2",
+  "s15-bez-pauzy": "1326784959a0687d97a6458a7e6ea8c5e6232a117731003fb462ea1f0b74ebc1",
+  "s16-slovo-vsegda": "a5368404782050bbca2a5df65a61ba2a55afcb21ffff406c9857c64811292007",
+  "s17-done-net": "babf647d07cf6ace7742d60b636fdaaffa9a1045935e8f37971a569b36d5453b",
+  "s18-gruppa-vsegda-harness": "aaabadd19ff51d0e6b870eaf0733bd1a9cad9ac6cb8b4baf788a72a9c2ceabd4",
+  "s19-bez-dublja-v-pakete": "6df1188ed8e016b42a3aa46993f59d78d2223b8ea1a27d940cc996bdb7cfb90c",
+  "s20-otkaz-ne-ostanavlivaet": "db30296770f4b07313d620752073fa3f8fa7d7fa1f278d018dffd04e6503d3a8",
+  "s21-bez-atomarnosti": "d6adadb5381bedeb7d8d6f619c2f83179114c642afc7b04c887b9ea0a3e92b01",
+  "s22-bez-starta": "66d8b65db19fc71c7fc858042a697cb588cddcd1fef57237c58b5e206fe4224d",
+  "s23-pustota-prohodit": "c1bf3ef565fb0c12eed08fad6983be94123140eb22274b8c21a9c64c9ab5caf8",
+  "s24-sudi-propusk": "29c683be9b3c59bc8114b4d69a5fc2917f9d32093bc81da6ee9a64b065658a1f",
+  "s25-bez-pin-rashozhdenija": "390a012cf5f43f8c7cb586b8dfe59516410c08be5f0f4a0723fac3c5ef34bb61",
+  "s26-uchet-bez-zhurnala": "12a5034997bf2620ed2387636ce8d451899a31ae6a935fbd85a637a3e34042f4",
+  "s27-pauza-schitaetsja": "bd59ab706f544e2071dd666807aa7142a08e91aff4705aface7179f763c2bc41",
+  "s28-pervyj-rezultat-find": "33835e7bd16faa22abcb87eacf55afa9a5e156daa70f4b7c63002535d7487d57",
+  "s29-klass-riska-tolko-nachalo-stroki": "b43bc4090aa7c1dc65cf8ce7101d25913c563bb5ef5e0e31ded75a9128a2d7ce",
+  "s30-klass-riska-type-f": "3917811cf08ad8cf1a2f7901208d45248843d59224144fd18e961f87feee80da",
+  "s31-session-exit-ne-sdacha": "a9ca4ef44c791b206106996994296c05410ac31733dc965d7952e5876d4bd1e0",
+  "s32-session-exit-ljuboj-kind": "73cd496a276e9c8e9c2e7b26eb5a7b30bf3d7b0a2437c6ac39433653c3c4578c",
+  "s33-marker-podstrokoj": "2dfb43f2fb48a68293fb3dbc4eae9b2253efa994f4d8beaa191803890ce05946",
+  "s34-klass-iz-gryazi": "d2defad4d442f23c6b8241b948e3ac30ecebc01ee7d7ed89fd4796c11a8a7d1b",
+  "s35-klass-iz-main": "af37fb80d552ab8fd20c7dd167284fa478a281be923e49dac1c8e20745de7ffb",
+  "s36-izolirovan-ne-proverjaetsja": "e903bcee0fe99542e20b111bd6cc426541d900f9b8ceac42e10e0d630903dba4",
+  "s37-izolirovan-iz-teksta": "8e8f8c44ae9aa7c8347517e9c8f606aa4ed395c1eaba2c4e1780f083edc9587f",
+  "s38-izolirovan-ne-bulo": "d72b675625a7d4153499a91af4f6a288f83a5de4a33fa4eaa603aaacf620099d",
+  "s39-izolirovan-trebuet-sudi": "81ee1cd8fc4b737b13dfaf471b8ffbf0813996ef7752b927c97c54898b50d76d",
+  "s40-start-bez-fakta": "2958b8a53c771adac5ad5a184b8a74ec10c71ec003e8594fb0206a38a3a6b1c7",
+  "x01-vsegda-puschem": "5054be64b44f4b320e804f5cb9791e3ad62df6277301d2710f82b8c5af8db37e",
   "materialy/116-stroka.md": "66657faf04ccafd2287fdf56343ba5e73104f8e85d3be7909b8c9215addefd72",
   "materialy/118-stroka.md": "a1b31a1729c529a76775f24099d2cdf9e995597d983f9655f9bceb9ec5009512",
   "materialy/139-stroka.md": "b765f4c3488022c70c81510060a1043bca822669d64a00d5d5b14e5ec1f03fc2",

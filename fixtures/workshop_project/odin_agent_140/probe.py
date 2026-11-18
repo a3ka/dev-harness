@@ -11,6 +11,11 @@
 атомарный замок (repoId, subjectId) на batch, судья после yield автора
 на зафиксированный OBJECT, единый учёт начатых предметов (лимиты 3/3/3 —
 слово владельца 2026-10-28: 1/3/2 → 3/3/3, только числа).
+v5 (слово владельца 2026-11-18 ~14:05 UTC, §4 батча №2; заявка 199:19):
+у рабочего item события спавна обязан иметь реальный isolated === true
+из ПОЛЯ item omp-события (НЕ слово в тексте задания): отсутствие/ложь —
+отказ NE_IZOLIROVAN до START и любых записей; строка START несёт факт
+isolated; на судей требование не распространяется.
 
 Режимы:
   (без флага)   субъект = ПОСТАВЛЕННАЯ дверь дерева scripts/zamok_predmeta.sh
@@ -274,8 +279,13 @@ class Mir:
         return json.loads(f.read_text(encoding='utf-8'))
 
 
-def item(agent, name, stroki):
-    return {'agent': agent, 'name': name, 'task': '\n'.join(stroki)}
+def item(agent, name, stroki, isolated=None):
+    # isolated — ПОЛЕ item события спавна (omp task wire schema →
+    # нормализация стража спавна → событие двери); None = поля в item нет.
+    d = {'agent': agent, 'name': name, 'task': '\n'.join(stroki)}
+    if isolated is not None:
+        d['isolated'] = isolated
+    return d
 
 
 def sudit(door, mir, event):
@@ -354,7 +364,7 @@ def kejsy():
     def w01(mir, door):
         wt, br, _ = mir.worktree('140')
         ev = mir.sobytie('e.json', [item('architect', 'Arch140',
-                        ['задание', 'SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+                        ['задание', 'SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 0, 'rc'), k_stdout(r, 'PUSCHEM Arch140 dev-harness/140 (rabochij/architect)', 'выход'),
                 k_stroka(mir, 'start', subjectId='140', holder='Arch140', klass='rabochij', group='harness'),
@@ -366,7 +376,7 @@ def kejsy():
         mir.start('140', 'Arch140', wt=wt, branch=br)
         mir.zhurnal('Arch140', sdal=False)
         ev = mir.sobytie('e.json', [item('architect', 'Arch140b',
-                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 1, 'rc'), k_prichina(r, 'RABOCHIJ_ZHIV', 'причина'),
                 k_chislo_startov(mir, 'учёт', 1)]
@@ -377,7 +387,7 @@ def kejsy():
         mir.start('140', 'Arch140', wt=wt, branch=br)
         mir.zhurnal('Arch140', sdal=True)
         ev = mir.sobytie('e.json', [item('implementer', 'Impl140',
-                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=wip/140/impl'])])
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=wip/140/impl'], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 0, 'rc'), k_stroka(mir, 'start', holder='Impl140', rol='implementer'),
                 k_zanyat(mir, '140', 'Impl140', 'занятие')]
@@ -388,7 +398,7 @@ def kejsy():
         mir.start('140', 'Arch140', wt=wt, branch=br)
         mir.zhurnal('Arch140', sdal=False, vozrast_min=BROSHEN_TTL_MIN + 60)
         ev = mir.sobytie('e.json', [item('architect', 'Arch140c',
-                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 1, 'rc'), k_prichina(r, 'ZAMOK_BROSHEN', 'причина'),
                 k_chislo_startov(mir, 'учёт', 1)]
@@ -400,7 +410,7 @@ def kejsy():
         mir.zhurnal('Arch140', sdal=False, vozrast_min=BROSHEN_TTL_MIN + 60)
         r0 = osvobodit(door, mir, '140', 'Arch140')
         ev = mir.sobytie('e.json', [item('architect', 'Arch140c',
-                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
         rel = [x for x in mir.ledg() if x.get('t') == 'RELEASE']
         return [k_rc(r0, 0, 'освобождение'), k_stdout(r0, 'OSVOBOZHDEN dev-harness/140', 'выход-освобождения'),
@@ -446,7 +456,7 @@ def kejsy():
         mir.pauza('140')
         wt, br, _ = mir.worktree('140')
         ev = mir.sobytie('e.json', [item('architect', 'Arch140',
-                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 1, 'rc'), k_prichina(r, 'PAUZA_VLADELTSA', 'причина'),
                 k_net_startov(mir, 'учёт')]
@@ -478,7 +488,7 @@ def kejsy():
         _harness_zhivoj(mir, ['141', '142', '143'])
         wt, br, _ = mir.worktree('144')
         ev = mir.sobytie('e.json', [item('architect', 'Arch144',
-                        ['SUBJECT=144', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+                        ['SUBJECT=144', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина')]
     reg('w13-limit-harness', 'учёт=лимит;группа=harness-3-из-3-занято', w13)
@@ -493,7 +503,7 @@ def kejsy():
         _mob_zhivoj(mir, ['150', '151'])
         wt, br, _ = mir.worktree('152', remote=MOB_REMOTE)
         ev = mir.sobytie('e.json', [item('implementer', 'Impl152',
-                        ['SUBJECT=152', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+                        ['SUBJECT=152', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 0, 'rc'), k_stroka(mir, 'start', subjectId='152', group='mob')]
     reg('w14-limit-mob-tri-ok', 'учёт=лимит;группа=mob-3-в-лимите', w14)
@@ -502,7 +512,7 @@ def kejsy():
         _mob_zhivoj(mir, ['150', '151', '152'])
         wt, br, _ = mir.worktree('153', remote=MOB_REMOTE)
         ev = mir.sobytie('e.json', [item('implementer', 'Impl153',
-                        ['SUBJECT=153', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+                        ['SUBJECT=153', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина')]
     reg('w15-limit-mob-chetyre', 'учёт=лимит;группа=mob-3-сверх', w15)
@@ -512,7 +522,7 @@ def kejsy():
         mir.slovo('153')
         wt, br, _ = mir.worktree('153', remote=MOB_REMOTE)
         ev = mir.sobytie('e.json', [item('implementer', 'Impl153',
-                        ['SUBJECT=153', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+                        ['SUBJECT=153', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 0, 'rc'), k_stroka(mir, 'start', subjectId='153', group='mob')]
     reg('w16-limit-slovo', 'учёт=лимит;СЛОВО=владельца', w16)
@@ -529,7 +539,7 @@ def kejsy():
         mir.done('130')
         wt131, br131, _ = mir.worktree('131', remote=MOB_REMOTE)
         ev = mir.sobytie('e.json', [item('architect', 'Arch131',
-                        ['SUBJECT=131', 'WORKTREE=' + wt131, 'BRANCH=' + br131])])
+                        ['SUBJECT=131', 'WORKTREE=' + wt131, 'BRANCH=' + br131], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 0, 'rc')]
     reg('w17-limit-done-osvobozhdaet', 'учёт=лимит;done=тег-реестра;группа=mob-2-живых', w17)
@@ -543,7 +553,7 @@ def kejsy():
         mir.pauza('130')
         wt131, br131, _ = mir.worktree('131', remote=MOB_REMOTE)
         ev = mir.sobytie('e.json', [item('architect', 'Arch131',
-                        ['SUBJECT=131', 'WORKTREE=' + wt131, 'BRANCH=' + br131])])
+                        ['SUBJECT=131', 'WORKTREE=' + wt131, 'BRANCH=' + br131], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 0, 'rc')]
     reg('w18-limit-pauza-osvobozhdaet', 'учёт=лимит;ПАУЗА=освобождает-слот;группа=mob-2-живых', w18)
@@ -551,7 +561,7 @@ def kejsy():
     def w19(mir, door):
         wt, br, _ = mir.worktree('118', remote=MOB_REMOTE)
         ev = mir.sobytie('e.json', [item('implementer', 'Impl118',
-                        ['SUBJECT=118', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+                        ['SUBJECT=118', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 0, 'rc'),
                 k_stroka(mir, 'start', subjectId='118', holder='Impl118', group='mob')]
@@ -563,7 +573,7 @@ def kejsy():
         _harness_zhivoj(mir, ['141', '142'])
         wt, br, _ = mir.worktree('143')
         ev = mir.sobytie('e.json', [item('architect', 'Arch143',
-                        ['SUBJECT=143', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+                        ['SUBJECT=143', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 0, 'rc'),
                 k_stroka(mir, 'start', subjectId='143', holder='Arch143', group='harness')]
@@ -581,7 +591,7 @@ def kejsy():
         _back_zhivoj(mir, ['160', '161'])
         wt, br, _ = mir.worktree('162', remote=BACK_REMOTE)
         ev = mir.sobytie('e.json', [item('implementer', 'Impl162',
-                        ['SUBJECT=162', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+                        ['SUBJECT=162', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 0, 'rc'),
                 k_stroka(mir, 'start', subjectId='162', holder='Impl162', group='back')]
@@ -593,7 +603,7 @@ def kejsy():
         _back_zhivoj(mir, ['160', '161', '162'])
         wt, br, _ = mir.worktree('163', remote=BACK_REMOTE)
         ev = mir.sobytie('e.json', [item('implementer', 'Impl163',
-                        ['SUBJECT=163', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+                        ['SUBJECT=163', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина')]
     reg('w22-limit-back-chetyre', 'учёт=лимит;группа=back-3-из-3-занято', w22)
@@ -610,7 +620,7 @@ def kejsy():
         mir.start('140', 'Arch140', wt=wt, branch=br)
         mir.zhurnal_vyhod('Arch140', kind='normal')
         ev = mir.sobytie('e.json', [item('implementer', 'Impl140',
-                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=wip/140/impl'])])
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=wip/140/impl'], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 0, 'rc'),
                 k_stroka(mir, 'start', holder='Impl140', rol='implementer'),
@@ -623,7 +633,7 @@ def kejsy():
         mir.start('140', 'Arch140', wt=wt, branch=br)
         mir.zhurnal_vyhod('Arch140', kind='signal')
         ev = mir.sobytie('e.json', [item('architect', 'Arch140b',
-                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 1, 'rc'), k_prichina(r, 'RABOCHIJ_ZHIV', 'причина'),
                 k_chislo_startov(mir, 'учёт', 1)]
@@ -637,11 +647,77 @@ def kejsy():
         mir.start('140', 'Arch140', wt=wt, branch=br)
         mir.zhurnal_vyhod('Arch140', poddelka=True)
         ev = mir.sobytie('e.json', [item('architect', 'Arch140b',
-                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 1, 'rc'), k_prichina(r, 'RABOCHIJ_ZHIV', 'причина'),
                 k_chislo_startov(mir, 'учёт', 1)]
     reg('w25-poddelnyj-marker-ne-sdacha', 'роль=рабочий;состояние=бежит;сдача=подделка-в-теле-записи', w25)
+
+    # A3. изоляция рабочего (v5 — слово владельца 2026-11-18 ~14:05 UTC,
+    #     §4 батча №2; заявка контракта 199:19): реальный isolated === true
+    #     обязателен в ПОЛЕ item события спавна; источник — нормализация
+    #     стража спавна из ПОЛЯ item omp-события, НЕ слово в тексте задания.
+    def w26(mir, door):
+        # поле isolated в item ОТСУТСТВУЕТ → именованный отказ до START
+        # и любых записей (учёт пуст, занятие не создано)
+        wt, br, _ = mir.worktree('140')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch140',
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'NE_IZOLIROVAN', 'причина'),
+                k_net_startov(mir, 'учёт'), k_svoboden(mir, '140', 'занятие')]
+    reg('w26-rabochij-bez-isolated', 'роль=рабочий;isolated=поля-нет;отказ=до-записей', w26)
+
+    def w27(mir, door):
+        # isolated === false — та же ветвь: ложь не изоляция
+        wt, br, _ = mir.worktree('140')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch140',
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br],
+                        isolated=False)])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'NE_IZOLIROVAN', 'причина'),
+                k_net_startov(mir, 'учёт'), k_svoboden(mir, '140', 'занятие')]
+    reg('w27-rabochij-isolated-lozh', 'роль=рабочий;isolated=false;отказ=до-записей', w27)
+
+    def w28(mir, door):
+        # слово «isolated:true» в ТЕКСТЕ задания при ОТСУТСТВИИ поля —
+        # источником является только ПОЛЕ item omp-события
+        wt, br, _ = mir.worktree('140')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch140',
+                        ['задание', 'SUBJECT=140', 'WORKTREE=' + wt,
+                         'BRANCH=' + br, 'isolated:true'])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'NE_IZOLIROVAN', 'причина'),
+                k_net_startov(mir, 'учёт'), k_svoboden(mir, '140', 'занятие')]
+    reg('w28-rabochij-isolated-slovo-v-tekste', 'роль=рабочий;isolated=слово-в-тексте;поле=нет', w28)
+
+    def w29(mir, door):
+        # замкнутый алфавит поля: РЕАЛЬНЫЙ isolated === true — строго
+        # булево true; строка «true» (и любое иное значение) изоляцией
+        # не является
+        wt, br, _ = mir.worktree('140')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch140',
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br],
+                        isolated='true')])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'NE_IZOLIROVAN', 'причина'),
+                k_net_startov(mir, 'учёт'), k_svoboden(mir, '140', 'занятие')]
+    reg('w29-rabochij-isolated-stroka', 'роль=рабочий;isolated=строка-true;алфавит=булево', w29)
+
+    def w30(mir, door):
+        # isolated === true из ПОЛЯ — штатный START, строка START несёт
+        # факт isolated
+        wt, br, _ = mir.worktree('140')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch140',
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br],
+                        isolated=True)])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 0, 'rc'),
+                k_stdout(r, 'PUSCHEM Arch140 dev-harness/140 (rabochij/architect)', 'выход'),
+                k_stroka(mir, 'start', subjectId='140', holder='Arch140',
+                         klass='rabochij', group='harness', isolated=True),
+                k_zanyat(mir, '140', 'Arch140', 'занятие')]
+    reg('w30-rabochij-start-s-faktom', 'роль=рабочий;isolated=true-из-поля;START=факт-isolated', w30)
 
     # B. судьи: состояние автора × OBJECT × порядок судей × риск
     def _avtor_sdal(mir, nnn, risk='обычный'):
@@ -1195,7 +1271,7 @@ def kejsy():
         wt142, br142, _ = mir.worktree('142')
         ev = mir.sobytie('e.json', [
             item('critic', 'Critic141', ['SUBJECT=141', 'OBJECT=' + sha141]),
-            item('architect', 'Arch142', ['SUBJECT=142', 'WORKTREE=' + wt142, 'BRANCH=' + br142])])
+            item('architect', 'Arch142', ['SUBJECT=142', 'WORKTREE=' + wt142, 'BRANCH=' + br142], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
                 k_chislo_startov(mir, 'учёт', 1),
@@ -1203,13 +1279,27 @@ def kejsy():
                 k_svoboden(mir, '142', 'откат-142')]
     reg('s44-klass-otkaz-bez-starta', 'пакет=смешанный;отказ=KLASS_RISKA_NET;откат=без-START-и-замков', s44)
 
+    def s45(mir, door):
+        # v5: требование изоляции — ТОЛЬКО рабочие; судья с isolated=false
+        # (и без поля — судейские клетки выше) проходит судейские ворота
+        # без новой причины
+        wt, br, sha = _avtor_sdal(mir, '141')
+        ev = mir.sobytie('e.json', [item('critic', 'Critic141',
+                        ['суд контракта', 'SUBJECT=141', 'OBJECT=' + sha],
+                        isolated=False)])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 0, 'rc'),
+                k_stroka(mir, 'start', subjectId='141', holder='Critic141', klass='sudja'),
+                k_zanyat(mir, '141', 'Critic141', 'занятие')]
+    reg('s45-sudja-izolirovan-ne-trebuetsja', 'роль=судья;isolated=false;ворота=судейские-без-новой-причины', s45)
+
     # C. пакет: дубль в пакете × откат × гонка × режим
     def b01(mir, door):
         wt141, br141, _ = mir.worktree('141')
         wt142, br142, _ = mir.worktree('142')
         ev = mir.sobytie('e.json', [
-            item('architect', 'Arch141', ['SUBJECT=141', 'WORKTREE=' + wt141, 'BRANCH=' + br141]),
-            item('architect', 'Arch142', ['SUBJECT=142', 'WORKTREE=' + wt142, 'BRANCH=' + br142])])
+            item('architect', 'Arch141', ['SUBJECT=141', 'WORKTREE=' + wt141, 'BRANCH=' + br141], isolated=True),
+            item('architect', 'Arch142', ['SUBJECT=142', 'WORKTREE=' + wt142, 'BRANCH=' + br142], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 0, 'rc'), k_chislo_startov(mir, 'учёт', 2),
                 k_zanyat(mir, '141', 'Arch141', 'занятие-141'),
@@ -1219,8 +1309,8 @@ def kejsy():
     def b02(mir, door):
         wt, br, _ = mir.worktree('140')
         ev = mir.sobytie('e.json', [
-            item('architect', 'Arch140', ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br]),
-            item('architect', 'Arch140b', ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+            item('architect', 'Arch140', ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True),
+            item('architect', 'Arch140b', ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 1, 'rc'), k_prichina(r, 'DUBL_V_PAKETE', 'причина'),
                 k_net_startov(mir, 'учёт'), k_svoboden(mir, '140', 'занятие')]
@@ -1230,7 +1320,7 @@ def kejsy():
         wt141, br141, _ = mir.worktree('141')
         mir.kontrakt('150')
         ev = mir.sobytie('e.json', [
-            item('architect', 'Arch141', ['SUBJECT=141', 'WORKTREE=' + wt141, 'BRANCH=' + br141]),
+            item('architect', 'Arch141', ['SUBJECT=141', 'WORKTREE=' + wt141, 'BRANCH=' + br141], isolated=True),
             item('critic', 'Critic150', ['SUBJECT=150', 'OBJECT=' + OBJECT_DUMMY])])
         r = sudit(door, mir, ev)
         return [k_rc(r, 1, 'rc'), k_prichina(r, 'RABOCHEGO_NET', 'причина'),
@@ -1240,7 +1330,7 @@ def kejsy():
     def b04(mir, door):
         wt, br, _ = mir.worktree('140')
         ev = mir.sobytie('e.json', [item('architect', 'Arch140',
-                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         import concurrent.futures
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
             f1 = ex.submit(sudit, door, mir, ev)
@@ -1281,12 +1371,29 @@ def kejsy():
     def b06(mir, door):
         wt141, br141, _ = mir.worktree('141')
         ev = mir.sobytie('e.json', [
-            item('architect', 'Arch141', ['SUBJECT=141', 'WORKTREE=' + wt141, 'BRANCH=' + br141]),
+            item('architect', 'Arch141', ['SUBJECT=141', 'WORKTREE=' + wt141, 'BRANCH=' + br141], isolated=True),
             item('scout', 'S1', ['рядом смотрит'])])
         r = sudit(door, mir, ev)
         return [k_rc(r, 0, 'rc'), k_chislo_startov(mir, 'учёт', 1),
                 k_stroka(mir, 'start', holder='Arch141')]
     reg('b06-paket-rabochij-plus-scout', 'пакет=рабочий+не-гейт-роль', b06)
+
+    def b07(mir, door):
+        # v5: отказ NE_IZOLIROVAN откатывает ПАКЕТ — изолированный рабочий
+        # рядом с не-изолированным не оставляет НИ ОДНОЙ записи (отказ до
+        # START и любых записей, инвариант атомарности 3)
+        wt140, br140, _ = mir.worktree('140')
+        wt141, br141, _ = mir.worktree('141')
+        ev = mir.sobytie('e.json', [
+            item('architect', 'Arch141', ['SUBJECT=141', 'WORKTREE=' + wt141,
+                                          'BRANCH=' + br141], isolated=True),
+            item('architect', 'Arch140', ['SUBJECT=140', 'WORKTREE=' + wt140,
+                                          'BRANCH=' + br140])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'NE_IZOLIROVAN', 'причина'),
+                k_net_startov(mir, 'учёт-пакет-откат'),
+                k_svoboden(mir, '141', 'откат-141'), k_svoboden(mir, '140', 'откат-140')]
+    reg('b07-paket-izolirovan-otkat', 'пакет=изоляция+без-изоляции;отказ=NE_IZOLIROVAN;откат=без-записей', b07)
 
     # D. учёт/сторож
     def u01(mir, door):
@@ -1390,7 +1497,7 @@ def kejsy():
         wt = str(HERE.parent.parent.parent)          # корень клона харнесса батареи
         ev = mir.sobytie('e.json', [item('implementer', 'Impl140',
                         ['реализация двери замка', 'SUBJECT=140',
-                         'WORKTREE=' + wt, 'BRANCH=wip/140/architect'])])
+                         'WORKTREE=' + wt, 'BRANCH=wip/140/architect'], isolated=True)])
         r = sudit(door, mir, ev)
         return [k_rc(r, 0, 'rc'), k_stroka(mir, 'start', subjectId='140', holder='Impl140')]
     reg('g05-samo-prolozhenie', 'класс=self-application-green', g05)
@@ -1598,8 +1705,8 @@ def m_bez_atomarnosti(t):
 def m_bez_starta(t):
     return _z(t, '''    jq -nc --arg t START --arg r "$REPO_ID" --arg s "$sv" --arg g "$grp2" \\
           --arg h "$name" --arg k "$klass" --arg ro "$rol" --arg o "$obj" \\
-          --arg w "$wt" --arg b "$br" --arg at "$(ts_now)" \\
-      '{t:$t,repoId:$r,subjectId:$s,group:$g,holder:$h,klass:$k,rol:$ro,object:$o,worktree:$w,branch:$b,at:$at}' \\
+          --arg w "$wt" --arg b "$br" --arg at "$(ts_now)" --arg iz "$izl" \\
+      '{t:$t,repoId:$r,subjectId:$s,group:$g,holder:$h,klass:$k,rol:$ro,object:$o,worktree:$w,branch:$b,at:$at} + (if $iz == "true" then {isolated:true} else {} end)' \\
       >> "$LEDGER"''', '''    : # стаб: строку START не пишем''')
 
 
@@ -1738,6 +1845,57 @@ def m_klass_iz_main(t):
           | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"''')
     return t
 
+def m_izolirovan_ne_proverjaetsja(t):
+    # [D32] снят: не-изолированный рабочий проходит до START и записей
+    # (боль 199 Существующее 2/Г4: спавн не-изолированного рабочего
+    # открывает запись мимо изоляции)
+    return _z(t, '''      # [D32 izolirovan-rabochego] v5 (слово владельца 2026-11-18 ~14:05 UTC,
+      # §4 батча №2; заявка контракта 199:19): рабочий обязан нести РЕАЛЬНЫЙ
+      # isolated === true из ПОЛЯ item события (поле проносит нормализация
+      # стража спавна из omp task wire schema); слово в тексте задания
+      # источником НЕ является. Отсутствие поля, ложь и любое иное значение
+      # (строка «true» и прочее) — именованный отказ ДО START и любых записей;
+      # судей (klass=sudja, ветка ниже) требование не касается.
+      iz="$(jq -r "(.tasks // [.])[$i].isolated | if . == true then \\"true\\" else \\"false\\" end" "$EVENT" 2>/dev/null)" \\
+        || otp BITYJ_VHOD "item $i: isolated не читается"
+      [ "$iz" = 'true' ] \\
+        || otp NE_IZOLIROVAN "item $i: рабочий $name без реального isolated === true в ПОЛЕ item события (слово в тексте задания источником не является)"''',
+              '''      : # стаб: изолированность рабочего не проверяем''')
+
+
+def m_izolirovan_iz_teksta(t):
+    # [D32] источник подменён: изолированность читается СЛОВОМ в тексте
+    # задания, а не ПОЛЕМ item omp-события (заявка 199:19: слово источником
+    # не является)
+    return _z(t, '''      iz="$(jq -r "(.tasks // [.])[$i].isolated | if . == true then \\"true\\" else \\"false\\" end" "$EVENT" 2>/dev/null)" \\
+        || otp BITYJ_VHOD "item $i: isolated не читается"
+      [ "$iz" = 'true' ] \\
+        || otp NE_IZOLIROVAN "item $i: рабочий $name без реального isolated === true в ПОЛЕ item события (слово в тексте задания источником не является)"''',
+              '''      printf '%s\\n' "$task" | grep -Fq 'isolated:true' \\
+        || otp NE_IZOLIROVAN "стаб: изолированность словом в тексте задания"''')
+
+
+def m_izolirovan_ne_bulo(t):
+    # [D32] алфавит поля ослаблен: «не false и не null» вместо строгого
+    # === true — строка «true» и прочие значения проходят за изоляцию
+    return _z(t, '''      iz="$(jq -r "(.tasks // [.])[$i].isolated | if . == true then \\"true\\" else \\"false\\" end" "$EVENT" 2>/dev/null)" \\''',
+              '''      iz="$(jq -r "(.tasks // [.])[$i].isolated | if (. != false and . != null) then \\"true\\" else \\"false\\" end" "$EVENT" 2>/dev/null)" \\''')
+
+
+def m_izolirovan_trebuet_sudi(t):
+    # [D32] распространён на судей: судья без isolated === true тоже
+    # отказывается (заявка 199:19: на судей требование не распространяется)
+    return _z(t, '''      wt='-'; br='-'; klass='sudja'; rol="$agent"''',
+              '''      wt='-'; br='-'; klass='sudja'; rol="$agent"
+      iz="$(jq -r "(.tasks // [.])[$i].isolated | if . == true then \\"true\\" else \\"false\\" end" "$EVENT" 2>/dev/null)"
+      [ "$iz" = 'true' ] || otp NE_IZOLIROVAN "стаб: судья тоже обязан isolated"''')
+
+
+def m_start_bez_fakta(t):
+    # [D33] снят: строка START рабочего не несёт факт isolated
+    return _z(t, "    izl='false'\n    [ \"$klass\" = 'rabochij' ] && izl='true'",
+              '''    izl='net' # стаб: факт isolated в строку START не пишем''')
+
 
 STAB_MUTACII = {
     's01-bez-dublja-rabochego': m_bez_dublja,
@@ -1775,6 +1933,11 @@ STAB_MUTACII = {
     's33-marker-podstrokoj': m_marker_podstrokoj,
     's34-klass-iz-gryazi': m_klass_iz_gryazi,
     's35-klass-iz-main': m_klass_iz_main,
+    's36-izolirovan-ne-proverjaetsja': m_izolirovan_ne_proverjaetsja,
+    's37-izolirovan-iz-teksta': m_izolirovan_iz_teksta,
+    's38-izolirovan-ne-bulo': m_izolirovan_ne_bulo,
+    's39-izolirovan-trebuet-sudi': m_izolirovan_trebuet_sudi,
+    's40-start-bez-fakta': m_start_bez_fakta,
     'x01-vsegda-puschem': m_vsegda_puschem,
 }
 
