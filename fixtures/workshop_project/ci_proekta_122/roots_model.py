@@ -79,12 +79,37 @@ def main():
                 # Prior 122/6 schema, incompatible with resolver contract 054.
                 jsonschema.validate(ctx['project']['projectId'],
                                     {'pattern': '^[a-zA-Z0-9][a-zA-Z0-9_-]*$'})
+            project = Path(ctx['project']['root']).resolve(strict=True)
+            if (mutant not in ('unbound-project', 'binding-missing-ignored',
+                               'binding-invalid-ignored')
+                    and not (project == root and (
+                        mutant == 'station-binding-unchecked'
+                        or (mutant == 'implicit-binding-unchecked' and args.context is None)))):
+                # The committed declaration governs ANY inventory choice,
+                # including the station and the legacy implicit context.
+                prefix = 'ПРОЕКТ-ПРЕДПОСЫЛОК: '
+                subject = git(root, 'show', 'HEAD:' + target)
+                bindings = [line[len(prefix):] for line in subject.split('\n')
+                            if line.startswith(prefix)]
+                if mutant == 'mono-binding-rejected' and project == root and bindings:
+                    return refusal('project-workflow-rashozhdenie')
+                # Only a genuinely single-repository subject may omit it.
+                if bindings or project != root or mutant == 'mono-declaration-required':
+                    if mutant != 'binding-duplicate-first':
+                        assert len(bindings) == 1
+                    declared = json.loads(bindings[0])
+                    jsonschema.validate(declared, {
+                        '$schema': schema['$schema'], '$defs': schema['$defs'],
+                        '$ref': '#/$defs/projectIdentity', 'unevaluatedProperties': False})
+                    keys = (['canonicalRemote'] if mutant == 'remote-only-binding'
+                            else schema['$defs']['projectIdentity']['required'])
+                    assert {key: declared[key] for key in keys} == {
+                        key: ctx['project'][key] for key in keys}
             s = ctx['subject']
             assert Path(s['root']).resolve() == root
             assert s['path'] == target
             assert s['blob'] == git(root, 'rev-parse', 'HEAD:' + target)
             assert s['origin'] == git(root, 'remote', 'get-url', 'origin')
-            project = Path(ctx['project']['root']).resolve(strict=True)
             # Bind both the project and the exact repository within that project.
             # A path supplied by argv/env never supplies identity by itself.
             env = dict(os.environ)
@@ -98,24 +123,6 @@ def main():
                 assert ctx['project'][key] == prof[key]['value']
             remote = git(project, 'remote', 'get-url', 'origin')
             assert ctx['project']['canonicalRemote'] == prof['git']['value']['canonicalRemote'] == remote
-            if project != root and mutant not in (
-                    'unbound-project', 'binding-missing-ignored', 'binding-invalid-ignored'):
-                # Independent authority: the actual committed subject, never a
-                # declaration supplied by the transport or by the selected repo.
-                prefix = 'ПРОЕКТ-ПРЕДПОСЫЛОК: '
-                subject = git(root, 'show', 'HEAD:' + target)
-                bindings = [line[len(prefix):] for line in subject.split('\n')
-                            if line.startswith(prefix)]
-                if mutant != 'binding-duplicate-first':
-                    assert len(bindings) == 1
-                declared = json.loads(bindings[0])
-                jsonschema.validate(declared, {
-                    '$schema': schema['$schema'], '$defs': schema['$defs'],
-                    '$ref': '#/$defs/projectIdentity', 'unevaluatedProperties': False})
-                keys = (['canonicalRemote'] if mutant == 'remote-only-binding'
-                        else schema['$defs']['projectIdentity']['required'])
-                assert {key: declared[key] for key in keys} == {
-                    key: ctx['project'][key] for key in keys}
             # Resolve workflow context using the existing helper, not a new path convention.
             workflow = call(['bash', root / 'scripts/project_workflow.sh', '--repo', root])
             assert workflow.returncode == 0

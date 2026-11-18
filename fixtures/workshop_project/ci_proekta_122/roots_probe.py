@@ -34,6 +34,10 @@ STABS = {
     'binding-invalid-ignored': 'binding-invalid',
     'restricted-identity': 'identity-dot',
     'remote-only-binding': 'foreign-identity',
+    'station-binding-unchecked': 'station-explicit',
+    'implicit-binding-unchecked': 'station-implicit',
+    'mono-declaration-required': 'mono-explicit',
+    'mono-binding-rejected': 'mono-declared',
 }
 CASES = {
     'project-secret': (0, None),
@@ -55,7 +59,18 @@ CASES = {
     'identity-json': (0, None),
     'identity-project-mismatch': (1, 'project-workflow-rashozhdenie'),
     'identity-repo-mismatch': (1, 'project-workflow-rashozhdenie'),
+    'station-explicit': (1, 'project-workflow-rashozhdenie'),
+    'station-implicit': (1, 'project-workflow-rashozhdenie'),
+    'station-unresolved': (1, 'project-workflow-otsutstvuet'),
+    'station-binding-duplicate': (1, 'project-workflow-rashozhdenie'),
+    'station-binding-invalid': (1, 'project-workflow-rashozhdenie'),
+    'mono-explicit': (0, None),
+    'mono-declared': (0, None),
+    'mono-declared-explicit': (0, None),
 }
+STATION_CASES = ('station-explicit', 'station-implicit', 'station-unresolved',
+                 'station-binding-duplicate', 'station-binding-invalid')
+LEGACY_CASES = ('mono', 'mono-declared', 'station-implicit', 'station-unresolved')
 
 
 def run(args, **kwargs):
@@ -155,17 +170,20 @@ for name in entry['names']:
 sys.exit(entry['rc'])
 ''')
     gh.chmod(0o755)
-    if case == 'mono':
+    if case.startswith('mono'):
         product = station
         profile(station, base / 'station-origin.git')
+    elif case in STATION_CASES and case != 'station-unresolved':
+        # Genuine station identity/origin, not an invalid-profile false red.
+        profile(station, base / 'station-origin.git', 'station-project', 'station-repo')
     declared = {'projectId': project_id, 'repoId': repo_id,
                 'canonicalRemote': git(product, 'remote', 'get-url', 'origin')}
     binding = 'ПРОЕКТ-ПРЕДПОСЫЛОК: ' + json.dumps(declared, ensure_ascii=True) + '\n'
-    if case == 'binding-missing' or case == 'mono':
+    if case in ('binding-missing', 'mono', 'mono-explicit'):
         binding = ''
-    elif case == 'binding-duplicate':
+    elif case in ('binding-duplicate', 'station-binding-duplicate'):
         binding += binding
-    elif case == 'binding-invalid':
+    elif case in ('binding-invalid', 'station-binding-invalid'):
         binding = 'ПРОЕКТ-ПРЕДПОСЫЛОК: {"projectId":""}\n'
     put(station, TARGET, '# Toy CI subject\n' + binding
         + 'ЗОНА implementer: .github/workflows/mobile.yml\n'
@@ -182,6 +200,11 @@ sys.exit(entry['rc'])
         'blob': git(station, 'rev-parse', 'HEAD:' + TARGET),
         'origin': git(station, 'remote', 'get-url', 'origin')},
         'project': {'root': str(product), **declared}}
+    if case in STATION_CASES:
+        # Preserve the external declaration in HEAD; change only inventory choice.
+        ctx['project'] = {'root': str(station), 'projectId': 'station-project',
+                          'repoId': 'station-repo',
+                          'canonicalRemote': git(station, 'remote', 'get-url', 'origin')}
     if case in ('foreign-project', 'foreign-identity'):
         # Only the transport is redirected. Both real repositories keep their
         # genuine profiles/origins; the subject's HEAD declaration is unchanged.
@@ -212,14 +235,14 @@ sys.exit(entry['rc'])
     if case == 'no-context':
         context.unlink()
     inventory = {origin: {'rc': 7 if case == 'gh-error' else 0,
-                         'names': [] if case in ('missing-secret', 'foreign-project', 'foreign-identity')
+                         'names': [] if case in ('missing-secret', 'foreign-project', 'foreign-identity', *STATION_CASES)
                          else ['PILOT_DEMO_CODE']}}
     if case in ('foreign-project', 'foreign-identity'):
         inventory[ctx['project']['canonicalRemote']] = {'rc': 0, 'names': ['PILOT_DEMO_CODE']}
     # A same-named secret at station cannot conceal its absence at product.
     if product != station:
         inventory[git(station, 'remote', 'get-url', 'origin')] = {
-            'rc': 0, 'names': ['PILOT_DEMO_CODE'] if case == 'missing-secret' else []}
+            'rc': 0, 'names': ['PILOT_DEMO_CODE'] if case in ('missing-secret', *STATION_CASES) else []}
     put(base, 'inventory.json', json.dumps(inventory))
     return station, product, context, origin
 
@@ -241,14 +264,14 @@ def observe(repo, case, mode='repo', mutant=None):
                 raise RuntimeError('негодный совместимый профиль: ' + resolved.stderr)
         if mode == 'model':
             cmd = ['python3', HERE / 'roots_model.py', station, TARGET]
-            if case != 'mono':
+            if case not in LEGACY_CASES:
                 cmd += [context]
             if mutant:
                 cmd += ['--mutant', mutant]
         else:
             cmd = ['bash', station / 'scripts/freeze_contract.sh', TARGET,
                    'fixture122 roots', station]
-            if case != 'mono':
+            if case not in LEGACY_CASES:
                 cmd += ['--project-workflow', context]
         result = run(cmd, env=env)
         after = {r: snapshot(r) for r in before}
