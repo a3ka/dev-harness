@@ -68,6 +68,12 @@ case "$_k193_verdicts_abs" in
     "$ROOT"/*) _k193_verdicts_rel="${_k193_verdicts_abs#"$ROOT"/}" ;;
     *)         otkaz "workflowPaths.verdicts вне корня: ${_k193_verdicts_abs:-<пусто>}" ;;
 esac
+# Хвостовой `/` в значении workflowPaths.verdicts резолвер 996 (project_paths_resolve)
+# отдаёт как есть: critic-каталог тогда собирается как `<каталог>//critic` и законный
+# путь `<каталог>/critic/…` отвергается. Нормализация та же, что у второго читателя
+# того же вывода резолвера (scripts/freeze_contract.sh, `%/`), — оба собирают один
+# и тот же critic-каталог.
+_k193_verdicts_rel="${_k193_verdicts_rel%/}"
 unset _k193_verdicts_abs
 
 case "$VERDICT" in
