@@ -119,27 +119,47 @@ def prepare(base, case, source):
     observe = lambda: None
     fault_setup = lambda: None
     if subject in ('freeze_contract.sh', 'done_contract.sh'):
-        put(root / 'contracts/001-x.md', '# fixture\n')
-        put(root / 'verdicts/critic/contracts-001-v1.md', 'accept\n')
-        put(root / 'verdicts/review/contracts-001-v1.md', 'accept\n')
-        # No remote is needed by registry_state: standalone authoritative toy.
-        commit(root)
-        if case in ('A-done-log', 'A-done-order'):
-            put(root / 'verdicts/review/contracts-001-v2.md', 'accept\n')
+        if subject == 'done_contract.sh':
+            # Честные предпосылки 6б (контракт 201): основание F с замороженным
+            # текстом класса/места, тег frozen/contracts/001/1 на F и ОТДЕЛЬНЫЙ
+            # accept после F с OBJECT=F (F ⊆ OBJECT, вердикт свежее заморозки).
+            put(root / 'contracts/001-x.md', '# fixture\n\nКЛАСС РИСКА: обычный\nПРОДУКТ: станция\n')
+            put(root / 'verdicts/critic/contracts-001-v1.md', 'accept\n')
             commit(root)
-            condition = "'log' in a and a[-1]=='verdicts/review/contracts-001-v2.md'"
-            if case == 'A-done-order':
-                condition = "'merge-base' in a and '--is-ancestor' in a"
-        elif case.endswith('versions'):
-            prefix = 'frozen' if subject.startswith('freeze') else 'done'
-            # Missing v1 but existing v2 detects fabricated v1, not tag collision.
-            git(root, 'tag', f'{prefix}/contracts/001/2')
-            put(root / 'verdicts/critic/contracts-001-v3.md', 'accept\n')
+            f_sha = git(root, 'rev-parse', 'HEAD')
+            git(root, 'tag', 'frozen/contracts/001/1')
+            put(root / 'verdicts/review/contracts-001-v1.md', f'accept\nOBJECT={f_sha}\n')
             commit(root)
-            condition = f"'for-each-ref' in a and 'refs/tags/{prefix}/contracts/001/' in a"
+            if case in ('A-done-log', 'A-done-order'):
+                # Два различных коммита вердиктов; fault по-прежнему бьёт в чтение
+                # истории/порядка вердиктов (шаг двери до 6б).
+                put(root / 'verdicts/review/contracts-001-v2.md', f'accept\nOBJECT={f_sha}\n')
+                commit(root)
+                condition = "'log' in a and a[-1]=='verdicts/review/contracts-001-v2.md'"
+                if case == 'A-done-order':
+                    condition = "'merge-base' in a and '--is-ancestor' in a"
+            else:
+                # B-done-versions: done v2 без v1 — различающий вход 992; fault
+                # по-прежнему бьёт в перечисление done-версий (шаг двери после 6б).
+                git(root, 'tag', 'done/contracts/001/2')
+                put(root / 'verdicts/critic/contracts-001-v3.md', 'accept\n')
+                commit(root)
+                condition = "'for-each-ref' in a and 'refs/tags/done/contracts/001/' in a"
         else:
-            condition = 'False'
-            put(scripts / 'check_spec_ready.sh', '#!/bin/bash\necho OK\nif [ "$FC_FAULT" = 1 ]; then echo hit >> "$FC_HIT"; exit 7; fi\n', True)
+            put(root / 'contracts/001-x.md', '# fixture\n')
+            put(root / 'verdicts/critic/contracts-001-v1.md', 'accept\n')
+            put(root / 'verdicts/review/contracts-001-v1.md', 'accept\n')
+            # No remote is needed by registry_state: standalone authoritative toy.
+            commit(root)
+            if case.endswith('versions'):
+                # Missing v1 but existing v2 detects fabricated v1, not tag collision.
+                git(root, 'tag', 'frozen/contracts/001/2')
+                put(root / 'verdicts/critic/contracts-001-v3.md', 'accept\n')
+                commit(root)
+                condition = "'for-each-ref' in a and 'refs/tags/frozen/contracts/001/' in a"
+            else:
+                condition = 'False'
+                put(scripts / 'check_spec_ready.sh', '#!/bin/bash\necho OK\nif [ "$FC_FAULT" = 1 ]; then echo hit >> "$FC_HIT"; exit 7; fi\n', True)
         shim(bindir, 'git', condition, GIT)
         args = ['contracts/001-x.md', 'fixture РАЗРЕШИЛ-ВЛАДЕЛЕЦ: toy only', root]
         observe = lambda: (git(root, 'show-ref', '--tags') if git(root, 'tag', '-l') else '', git(root, 'rev-parse', 'HEAD'), (root / 'registry/contracts.tsv').read_bytes() if (root / 'registry/contracts.tsv').exists() else None)

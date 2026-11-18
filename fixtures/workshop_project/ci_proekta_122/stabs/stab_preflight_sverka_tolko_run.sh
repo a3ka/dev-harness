@@ -6,7 +6,9 @@
 # local-джобы, run: true), p5-station-sekret-ne-perechislen (необъявленный секрет в env шага
 # station-джобы — боль 995 п.4, android-e2e), p5-if-shag-sekret-ne-perechislen,
 # p5-if-dzhoba-var-ne-perechislena и p5-with-sekret-ne-perechislen (необъявленный токен только в if
-# шага/джобы, в with шага) обязаны дать rc 1 sekrety-ne-perechisleny; мутант даёт rc 0. Клетка p5
+# шага/джобы, в with шага) обязаны дать rc 1 sekrety-ne-perechisleny; мутант даёт rc 0;
+# дельта-205: p11-station-sekret-ne-perechislen и p11-station-var-ne-perechislena
+# (необъявленные secret/variable станции при неподдержанном run — та же сверка). Клетка p5
 # (секрет в тексте run) зелена. Маркер не ровно один раз — rc 2 (мутант не применён).
 set -u
 M=$(cd "$(dirname "$0")/../model" && pwd)/ci_preflight.sh

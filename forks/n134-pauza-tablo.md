@@ -7,4 +7,4 @@
 АВТОР: orchestrator (anthropic/claude-sonnet-5-5)
 ВЫЗВАН:
 БЛОКИРУЕТ: нет
-ОТВЕЧЕНО: нет
+ОТВЕЧЕНО: снято — 134 зарегистрирован в registry/pauzy.tsv по слову владельца 22.10; orch-tablo читает этот реестр из origin/main и печатает ПАУЗА с continue до счётчика СТОИТ; ждать агентов из-за 134 больше не требует снятия паузы или обхода wait-guard, консультант ConsBatch1118, модель openai-codex/gpt-6.1-sol.

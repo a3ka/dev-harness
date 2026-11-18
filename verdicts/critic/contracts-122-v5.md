@@ -1,98 +1,107 @@
 accept
-OBJECT=1c75a7ec228a7bd3a30cf0041e3e99926fde3268
-КЛАСС=задача: контракт v+1 замороженного + красные тесты (смешанный); риск: обычный (подтверждён: источник identity генератора CI и байты заголовка; права, авторизация, деньги, ПД не затронуты — строка :4 контракта соответствует дельте); порог: прежний (122 заведён 2026-10-21, до 5ca237e4), действующих блоков нет
-СУД: repo=dev-harness; предмет=122; фаза=контракт (v+1 → v5, пакет 184 А10; Arch184Vplus4, коммит e8a091f02dc10376ab7e01c34616023956b97c45); роль=critic; вызов=1/2; модель-план=zai/glm-5.3 (fallback openai-codex/gpt-5.6-terra); сессия=Crit184Vplus8; модель-факт=zai/glm-5.3 (workstation сессии; провайдер поднят консультантом 10:10 UTC, healthz 200 — повторов не было); SHA=1c75a7ec228a7bd3a30cf0041e3e99926fde3268 (tip wip/184/architect); предыдущий=нет (нематериализованный FAIL Crit184Vplus `1f5845a4a994b13556918d529b4c43ae1c6a90bb` — обрыв без вердикта по модели вне тира; его блок проверен на закрытие ниже); исключение=нет
+OBJECT=ae1e592529e1d2a34cbca8055ea912233a33d21c
+СУД: repo=dev-harness; предмет=122; фаза=контракт v5, один узкий вызов по слову владельца ~18:58 UTC; роль=critic; вызов=1/1; модель-план=openai-codex/gpt-6.1-terra; сессия=Crit122V5c; модель-факт=openai-codex/gpt-6.1-terra (allowed, models_actual --bind); SHA=ae1e592529e1d2a34cbca8055ea912233a33d21c; предыдущий=accept Crit122V5b на 5bf840b09e; исключение=слово владельца на объединённую дельту 205 и зависимый регресс.
 
-# Вердикт критика — контракт 122 v+1 (v5), пакет 184 (А10), вызов 1/2, повтор после обрыва
+Область — изменённая семантика station дельты 205 и зависимый регресс К-01/К-09/К-10, не новый полный суд. Класс берётся из job.env до проверки run/env; станцию определяет только буквальное значение station. Общая сверка secrets/vars и синтаксический разбор предшествуют этому, working-directory с наследованием и realpath-границей проверяется независимо от класса. p11 содержит парные свидетельства local/station и негатив вычисляемого маркера; сохранность демонстрируют p11 и мутанты. Код диагностики исходного пути и сканер кавычек остались действующими; p9/p10 зелены, соответствующие мутанты красны. В прозе контракта пары конкретного стаба с конкретной ветвью не добавлены; привязки находятся в шапках кода стабов (Н-39). Алфавит не расширен, заглушек новых контекстов нет; jobs=0/station=N прямо обозначен структурной проверкой, не заменой required CI, §4(б) не расширен. Оба разрешения находятся в коммите изменения, начинаются с пути и причины, их адресная область указана; 11 изменённых файлов входят в зону architect, зоны не изменены.
 
-## Кандидат, независимость, законность вызова
+## Карта классов
 
-- Клон `ssh://git@github.com/a3ka/dev-harness.git` в `/tmp/dev-harness-verify/Crit184Vplus8/repo`; OBJECT = tip `wip/184/architect` (ветка от `16a65dcb5`, main ушёл вперёд — сужено по diff коммита). Дельта предмета — коммит `e8a091f02dc10376ab7e01c34616023956b97c45`: контракт (+46/−27 против v+1 Arch184Vplus3), модель генератора (`ci_proekta_122/model/gen_project_workflow.sh` — projectId у резолвера, заголовок без `.harness/`), новая `model/profile_resolver.sh`, раннер (+клетки g9/g10/g11, PINNED), стабы `stab_gen_raw_profil.sh` и `stab_gen_zagolovok_harness.sh`. `frozen/contracts/122/4` ≡ базе `79b615f53`.
-- Автор — `architect <architect@dev-harness.local>` (Arch184Vplus4). Судья — Crit184Vplus8 (zai/glm-5.3, apex-sol), собственной работы не судит.
-- `РАЗРЕШИЛ-ВЛАДЕЛЕЦ:` в теле e8a091f02 дословно, ровно один раз: «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: contracts/122-ci-proekta.md — v+1 только в объёме решения А10 (предмет 184); слово владельца 2026-11-10 ~20:44 UTC «г да» через консультанта».
-- Имя файла — канон: vmax(`frozen/contracts/122/*`)=4 → `verdicts/critic/contracts-122-v5.md`; на main имени нет.
-- Повтор законен (см. вердикт 054); автор СОГЛАСЕН с блоком в §Позиция автора.
+К-01: чисто — вход: contracts/122-ci-proekta.md:53–68 и шапки двух новых stabs, Н-39.
+К-02: чисто — вход: задание Crit122V5c и consult205-report.md:126,132; только дельта 205.
+К-03: чисто — вход: contracts/122-ci-proekta.md:114–116, слово владельца и сообщение коммита OBJECT.
+К-04: чисто — вход: git diff --name-status a05247cdaa..OBJECT и contracts/122-ci-proekta.md:72–80.
+К-05: чисто — вход: contracts/122-ci-proekta.md:56–68, приёмочные rc-команды дельты.
+К-06: н/п — средовая ветвь без изменений с Crit122V5b.
+К-07: чисто — bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model, rc 0, 74/74/0.
+К-08: чисто — два стаба station и соседняя мутация условия классификации, rc 1; результаты ниже.
+К-09: чисто — вход: p10-format-skobka-v-stroke в --model и stab_preflight_kavychki_vyrazhenij, rc 1, 73/1.
+К-10: чисто — вход: p9-наследование и побег в --model, stab_preflight_ws_bez_granicy rc 1, 69/5.
+К-11: чисто — вход: p11_par в red_ci_proekta_122.sh:866–917, один шаблон на каждую пару, независимые литералы ожиданий.
+К-12: н/п — форматный оракул без изменений с Crit122V5b.
+К-13: чисто — вход: p11-station-sekret/var и stab_preflight_sverka_tolko_run, rc 1, 67/7; проверяется объявленность, не секретные значения.
+К-14: чисто — вход: p11 station/local и вычисляемый маркер; соседняя мутация и честные station-пары ниже.
+К-15: чисто — вход: --model 74/74/0; мутанты дельты 72/2 и 69/5, регресс 62/12, 69/5, 66/8, 73/1 и 67/7.
+К-16: чисто — вход: contracts/122-ci-proekta.md:109–116; структурная зелень и станционный NOT_RUN названы остатком.
+К-17: н/п — бриф архитектуры 188 отсутствует, без изменений с Crit122V5b.
 
-## Что изменено против Arch184Vplus3 (76f93b0a → e8a091f02)
+## Сырые результаты
 
-Приёмка Г1 дополнена мирами, где резолвер отказывает, а raw-разбор дал бы совпадение: g9-oba-profilja, g10-profil-symlink-naruzhu (`--write` → rc 1 `profil-rashozhdenie`, workflow не записан, в выводе фраза резолвера), g11-bajty-bez-ssylki. Счёты обновлены живыми замерами (52 клетки, PINNED_NAMES=52, 22 стаба); :13/:82 противоречие раздачи снято (architect правит toy-миры/модели/стабы до заморозки; implementer — только `scripts/gen_project_workflow.sh`); порядок ленда = (1) из 054 v+1. Г2/Г3, алфавит 16 причин, ПРЕДПОСЫЛКИ, ПРОВОДКА, предполёт не тронуты; буллет g5 модели угроз дополнен (второй парсер). Модель генератора в `--model` берёт projectId у модели резолвера — отдельного парсера больше нет.
+Ниже выдержки фактического вывода полных запусков; показаны все клетки p11 у честной модели, отличающиеся клетки у двух новых стабов и итоги. `B=fixtures/workshop_project/ci_proekta_122`.
 
-## Закрытие прежнего блока
+```text
+$ bash $B/red_ci_proekta_122.sh --model
+CASE p11-run-local-vyrazhenie: rc=1 want=1 причина=vyrazhenie-ne-podderzhano: ${{ github.run_id }} ЗЕЛЁНАЯ
+CASE p11-run-station-propusk: rc=0 want=0 причина=STATION-JOB: e2e-screen ЗЕЛЁНАЯ
+CASE p11-env-local-vyrazhenie: rc=1 want=1 причина=vyrazhenie-ne-podderzhano: ${{ github.sha }} ЗЕЛЁНАЯ
+CASE p11-env-station-propusk: rc=0 want=0 причина=STATION-JOB: e2e-screen ЗЕЛЁНАЯ
+CASE p11-station-sekret-ne-perechislen: rc=1 want=1 причина=sekrety-ne-perechisleny: PILOT_DEMO_CODE ЗЕЛЁНАЯ
+CASE p11-station-var-ne-perechislena: rc=1 want=1 причина=sekrety-ne-perechisleny: NPM_TOKEN ЗЕЛЁНАЯ
+CASE p11-station-yaml-nevaliden: rc=1 want=1 причина=yaml-nevaliden ЗЕЛЁНАЯ
+CASE p11-station-wd-vne-kopii: rc=1 want=1 причина=working-directory-vne-kopii: ${{ github.workspace }}/.. ЗЕЛЁНАЯ
+CASE p11-station-marker-ne-literal: rc=1 want=1 причина=vyrazhenie-ne-podderzhano: ${{ github.run_id }} ЗЕЛЁНАЯ
+ИТОГ 122 (model): клеток 74, зелёных 74, красных 0
+rc=0
 
-БЛОК (Г1: критерий не отличал генератор с raw-разбором от вызова резолвера) — ЗАКРЫТ.
+$ CI_PROEKTA_122_PREFLIGHT=$B/stabs/stab_preflight_stantsiya_ne_propuskaet.sh bash $B/red_ci_proekta_122.sh --model
+CASE p11-run-station-propusk: rc=1 want=0 причина=STATION-JOB: e2e-screen КРАСНАЯ (rc 1 вместо 0; нет причины)
+    | preflight ОТКАЗ: vyrazhenie-ne-podderzhano: ${{ github.run_id }}
+CASE p11-env-station-propusk: rc=1 want=0 причина=STATION-JOB: e2e-screen КРАСНАЯ (rc 1 вместо 0; нет причины)
+    | preflight ОТКАЗ: vyrazhenie-ne-podderzhano: ${{ github.sha }}
+ИТОГ 122 (model): клеток 74, зелёных 72, красных 2
+rc=1
 
-Живой прогон батареи на OBJECT:
-
-```
-$ bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model
-ИТОГ 122 (model): клеток 52, зелёных 52, красных 0   [rc=0]
-$ … (bare)
-ИТОГ 122 (red): клеток 52, зелёных 34, красных 18    [rc=1]
-$ CI_PROEKTA_122_GEN=…/stabs/stab_gen_raw_profil.sh … --model
-CASE g9-oba-profilja: rc=3 want=1 причина=profil-rashozhdenie КРАСНАЯ (rc 3 вместо 1; нет причины)
-CASE g10-profil-symlink-naruzhu: rc=3 want=1 … КРАСНАЯ
-ИТОГ 122 (model): клеток 52, зелёных 50, красных 2   [rc=1]
-$ CI_PROEKTA_122_GEN=…/stabs/stab_gen_zagolovok_harness.sh … --model
-CASE g11-bajty-bez-ssylki: rc=5 want=0 … КРАСНАЯ
-ИТОГ 122 (model): клеток 52, зелёных 51, красных 1   [rc=1]
-$ … --model --cell g9|g10|g11   → зелёных 1, красных 0 каждая [rc=0]
-```
-
-Мутант критика RAW прежнего вердикта (генератор без вызова резолвера, raw-разбор профиля и слоя — операция модели 122 после 76f93b0a) пойман клетками правки на честном дереве (резолвер H по 054 v+1 + перенос станции + сам генератор в `scripts/`):
-
-```
-$ python3 mut122.py <tree> RAW|RES   (патч scripts/gen_project_workflow.sh)
-$ bash <mutW-raw>/…/red_ci_proekta_122.sh        → rc 1: g9, g10 КРАСНАЯ (rc 3 — workflow записан); 50/2
-$ bash <mutW-res>/…/red_ci_proekta_122.sh        → rc 0: ИТОГ 122 (red): клеток 52, зелёных 52, красных 0
-$ python3 gen122.py <tree>   (миры формы 184, --write)
-RES: clean rc=0 written; both rc=1 profil-rashozhdenie (фраза резолвера, не записан);
-     symlink-outside rc=1 profil-rashozhdenie (не записан)
-RAW: both rc=0 WRITTEN; symlink-outside rc=0 WRITTEN   — но эти миры краснят g9/g10 батареи
-$ python3 gen122root.py <tree>   (мир «только корень»)
-RES: rc=1 profil-otsutstvuet (фраза резолвера); RAW: rc=1 profil-otsutstvuet
-```
-
-Мутант «оставь `.harness/ci.json` в шапке» (RES + прежний HEADER) → `CASE g11-bajty-bez-ssylki: КРАСНАЯ (rc 5)`, rc 1 — прежде его видела только батарея 184, теперь и 122. «Удаление клетки»:
-
-```
-(удалена g5 из CELLS раннера в копии дерева)
-$ bash <del122>/…/red_ci_proekta_122.sh --model
-ИТОГ 122 (model): клеток 51, зелёных 51, красных 0
-ci122 ОТКАЗ: набор клеток расходится с закреплённым (51 из 52)   [rc=1]
-```
-
-## Обязательные мутации
-
-«обход резолвера» — RAW выше; «оба профиля» — g9 + gen122 both; «симлинк наружу» — g10 + gen122 symlink-outside; «только корневой мир» — gen122root (RES отказывает фразой резолвера); «удаление клетки» — PINNED выше; «корневой профиль как вход/фолбэк» и «станция без манифеста» — вердикты 054/161 (резолвер и двери ниже по стеку).
-
-## Гейты и прогоны (OBJECT, сырой вывод)
-
-```
-$ bash scripts/pre_critic.sh contracts/122-ci-proekta.md        → «КРИТИК: дверь зелёная» [rc=0]
-$ bash scripts/check_precision_gate.sh . contracts/122-ci-proekta.md → OK [rc=0]
-$ bash scripts/check_threat_model.sh . contracts/122-ci-proekta.md   → валидна (ЗАЩИЩАЕТ 7, НЕ ЗАЩИЩАЕТ 6) [rc=0]
-$ bash scripts/check_provodka.sh . contracts/122-ci-proekta.md       → [rc=0] (122 done/1, проводка подключена)
-$ bash scripts/check_ceilings.sh .                                  → потолки в порядке [rc=0]
-$ CI_PROEKTA_122_{GEN,PREFLIGHT,GATES}=stabs/stab_rc0_chestnyj_tekst.sh … --model → зелёных 18, красных 34
-$ … stab_rc1_chestnyj_tekst.sh … → зелёных 34, красных 18
-$ stab_gen_check_tekstom.sh → 50/2 (g8 две) [rc=1]
+$ CI_PROEKTA_122_PREFLIGHT=$B/stabs/stab_preflight_stantsiya_propuskaet_vse.sh bash $B/red_ci_proekta_122.sh --model
+CASE p2-working-directory-otsutstvuet: rc=0 want=1 причина=working-directory-otsutstvuet КРАСНАЯ (rc 0 вместо 1; нет причины)
+    | STATION-JOB: e2e
+    | CIPREFLIGHT_OK jobs=1 station=1
+CASE p5-station-sekret-ne-perechislen: rc=0 want=1 причина=sekrety-ne-perechisleny: PILOT_DEMO_CODE КРАСНАЯ (rc 0 вместо 1; нет причины)
+    | STATION-JOB: android-e2e
+    | CIPREFLIGHT_OK jobs=0 station=1
+CASE p11-station-sekret-ne-perechislen: rc=0 want=1 причина=sekrety-ne-perechisleny: PILOT_DEMO_CODE КРАСНАЯ (rc 0 вместо 1; нет причины)
+    | STATION-JOB: e2e-screen
+    | CIPREFLIGHT_OK jobs=0 station=1
+CASE p11-station-var-ne-perechislena: rc=0 want=1 причина=sekrety-ne-perechisleny: NPM_TOKEN КРАСНАЯ (rc 0 вместо 1; нет причины)
+    | STATION-JOB: e2e-screen
+    | CIPREFLIGHT_OK jobs=0 station=1
+CASE p11-station-wd-vne-kopii: rc=0 want=1 причина=working-directory-vne-kopii: ${{ github.workspace }}/.. КРАСНАЯ (rc 0 вместо 1; нет причины)
+    | STATION-JOB: e2e-screen
+    | CIPREFLIGHT_OK jobs=0 station=1
+ИТОГ 122 (model): клеток 74, зелёных 69, красных 5
+rc=1
 ```
 
-## Механические сверки (живой прогон против приёмки v+1)
+Зависимый регресс, полные прогоны через `CI_PROEKTA_122_PREFLIGHT=$B/stabs/<имя> bash $B/red_ci_proekta_122.sh --model`, сырые итоговые строки:
 
-52 клетки ✓; 22 стаба ✓ (`ls stabs/ | wc -l` = 22); bare 34/18 ✓; `--model` 52/52 ✓; подмена rc 18/34 и 34/18 ✓; стаб-замеры :4 совпали (raw 50/2, zagolovok 51/1, check_tekstom 50/2); `--cell g9/g10/g11` → зелёных 1 ✓; PINNED_N=52 ✓; провода rc 0 ✓. Прежний список 1–9 закрыт живыми замерами; исторические числа объявлены историей.
+```text
+stab_preflight_bez_workspace.sh: ИТОГ 122 (model): клеток 74, зелёных 62, красных 12
+stab_preflight_ws_bez_granicy.sh: ИТОГ 122 (model): клеток 74, зелёных 69, красных 5
+stab_preflight_bez_otkaza_vyrazhenij.sh: ИТОГ 122 (model): клеток 74, зелёных 66, красных 8
+stab_preflight_kavychki_vyrazhenij.sh: ИТОГ 122 (model): клеток 74, зелёных 73, красных 1
+stab_preflight_sverka_tolko_run.sh: ИТОГ 122 (model): клеток 74, зелёных 67, красных 7
+```
 
-## Пересечения пакета
+Каждый из пяти вернул rc 1. Остальные прежние стабы в этом узком вызове отдельно не перезапускались; новые двери и сдаточный лист не повторялись по заданию.
 
-- 184/1: cells generator-good/wrong-id цитируются, не копируются; на честном дереве (RES) обе зелены, bare 184 red = только 5 reference-клеток (ноги 184).
-- 054 v+1: порядок ленда общий (054/122 заморозка до реализации; шаг CI 122 гоняет `--model` rc 0 — проверено).
-- 996/161 v+1: пересечений по путям нет.
+## Собственная соседняя мутация
 
-## Советы (едут с accept)
+В одноразовой обёртке `mutant-critic-122.sh` существующее условие `if cls not in ne_suditsya_run_env:` заменено на `if cls == 'local':`: любой иной маркер ошибочно получает пропуск. Исходный достижимый вход — поддерживаемый workflow с вычисляемым маркером p11; мутация меняет операцию классификации из дельты. Честная модель на этом входе отказывает как local, а пара с буквальной станцией проходит. Обёртка удалена после пробы.
 
-СОВЕТ contracts/122-ci-proekta.md:1 — «после реализации → rc 0 52/52» доказано на дереве критика (RES + резолвер H); при cutover реализатора стоит сверить именно полный bare (не только `--model`), как сделано здесь.
-СОВЕТ — стабы `stab_predposylki_*`/`stab_preflight_*` прежних кругов не перепрогонялись в этом вызове (не связаны дельтой); их счёт в :4 совпадает с живым `--model`-прогоном семейства, отдельные замеры 22×rc1 не снимались.
+```text
+$ CI_PROEKTA_122_PREFLIGHT=mutant-critic-122.sh bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model --cell p11
+CASE p11-run-local-vyrazhenie: rc=1 want=1 причина=vyrazhenie-ne-podderzhano: ${{ github.run_id }} ЗЕЛЁНАЯ
+CASE p11-run-station-propusk: rc=0 want=0 причина=STATION-JOB: e2e-screen ЗЕЛЁНАЯ
+CASE p11-env-local-vyrazhenie: rc=1 want=1 причина=vyrazhenie-ne-podderzhano: ${{ github.sha }} ЗЕЛЁНАЯ
+CASE p11-env-station-propusk: rc=0 want=0 причина=STATION-JOB: e2e-screen ЗЕЛЁНАЯ
+CASE p11-station-sekret-ne-perechislen: rc=1 want=1 причина=sekrety-ne-perechisleny: PILOT_DEMO_CODE ЗЕЛЁНАЯ
+CASE p11-station-var-ne-perechislena: rc=1 want=1 причина=sekrety-ne-perechisleny: NPM_TOKEN ЗЕЛЁНАЯ
+CASE p11-station-yaml-nevaliden: rc=1 want=1 причина=yaml-nevaliden ЗЕЛЁНАЯ
+CASE p11-station-wd-vne-kopii: rc=1 want=1 причина=working-directory-vne-kopii: ${{ github.workspace }}/.. ЗЕЛЁНАЯ
+CASE p11-station-marker-ne-literal: rc=1 want=1 причина=vyrazhenie-ne-podderzhano: ${{ github.run_id }} КРАСНАЯ (нет причины)
+    | preflight ОТКАЗ: shag-upal: e2e-screen/ident
+ИТОГ 122 (--cell p11): зелёных 8, красных 1
+rc=1
+```
 
-## Итог
+## Развилки
 
-`accept`: блок нематериализованного FAIL закрыт — генератор, обходящий резолвер, краснеет на g9/g10 (миры «оба профиля» и «symlink наружу», workflow записывается — наблюдаемый обход), заголовок с `.harness/ci.json` краснеет на g11, удаление клетки ломает PINNED, честный RES даёт 52/52 bare. Гейты зелёные, механика приёмки совпала живьём. Советы автор закрывает по усмотрению.
+Дельта не делает станционные джобы выполненными и не заменяет живой required CI; дальнейшая продуктовая разметка и станционные прогоны лежат вне этого суда.
