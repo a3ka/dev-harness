@@ -66,7 +66,7 @@ _new_done_tmp() {
   if [ -z "$__f" ] || [ ! -f "$__f" ]; then
     return 1
   fi
-  _DONE_TMP_FILES+=("__f")
+  _DONE_TMP_FILES+=("$__f")
   _DONE_TMP_LAST="$__f"
   return 0
 }
