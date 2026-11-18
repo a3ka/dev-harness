@@ -7,15 +7,20 @@
 # харнесса: суд спавна «один рабочий агент на предмет», атомарный замок
 # (repoId, subjectId) на batch целиком, единый учёт начатых предметов
 # (лимиты harness 3 / mob 3 / back 3, START до первой раздачи, слот до
-# done/ПАУЗЫ). Норма — контракт 140 (заморожен frozen/contracts/140/3);
+# done/ПАУЗЫ). Норма — контракт 140 (заморожен frozen/contracts/140/4);
 # эталон той же семантики — fixtures/workshop_project/odin_agent_140/model/
 # zamok_predmeta.sh, а батарея судит ЭТОТ файл: безфлаговый режим — все
-# 76 клеток против поставленной двери, --stabs — та же матрица обманных
+# 86 клеток против поставленной двери, --stabs — та же матрица обманных
 # дверей над её текстом (строгие якоря [Dn]/[X1]; потеря маркера = STAB_ZHIV).
 # v+1 (слово владельца 2026-11-12, Sol S2 §2.1): сдача держателя — событие
 # рантайма session_exit kind=normal (структурные поля ПОСЛЕДНЕЙ строки
 # журнала) наравне с yield-литералом; класс риска судимого кандидата — из
 # ДЕРЕВА его OBJECT, а не из $REPO (main).
+# v5 (слово владельца 2026-11-18 ~14:05 UTC, §4 батча №2; заявка контракта
+# 199:19): у рабочего item события спавна обязателен реальный isolated
+# === true из ПОЛЯ item (слово в тексте задания источником НЕ является);
+# отсутствие/ложь — именованный отказ NE_IZOLIROVAN до START и любых
+# записей; строка START ЛЮБОЙ роли несёт факт isolated ([D32]/[D33]).
 #
 # ПИНЫ (инвариант 1): дверь вызывается расширением .omp/extensions/
 # spawn-guard.ts по расположению расширения, а не по env; корни состояний
@@ -49,6 +54,14 @@
 #             (построчная форма грамматики 066; NNN ветки == SUBJECT; байт TAB
 #             исключён из класса значения ЛИТЕРАЛЬНО — ERE-скобки не знают \t);
 #   ИМЯ     — [A-Za-z0-9._-]+ (грамматика session-id, норма 037);
+#   ISOLATED — поле item события isolated: у рабочего — РЕАЛЬНОЕ булево
+#             true (строгое === true, jq-сравнение); отсутствие поля, ложь и
+#             любое иное значение — NE_IZOLIROVAN; судей требование не
+#             касается, но факт записывается: строка START ЛЮБОЙ роли
+#             несёт нормализованное значение ПОЛЯ item (=== true →
+#             "isolated":true, иначе — "isolated":false, 199:34);
+#             источник — нормализация стража спавна (ПОЛЕ item omp-события),
+#             НЕ слово в тексте задания;
 #   РОЛИ    — рабочие: architect implementer implementer-glm implementer-vision;
 #             судьи:  critic critic-sol adversary reviewer;
 #   ГРУППЫ  — harness mob back («-» = вне лимитов станции);
@@ -64,7 +77,7 @@
 #   IMJA_NET GRAMMATIKA_IMENI AGENT_NET BITYJ_VHOD
 #   DUBL_V_PAKETE RABOCHIJ_ZHIV SUDJA_ZHIV ZAMOK_BROSHEN ZANYATO_RESHENIEM
 #   AVTOR_ESHCHO_RABOTAET RABOCHEGO_NET OBJECT_RASHODITSJA OBJECT_UZHE_SUZHEN
-#   ADVERSARIJ_DO_REVJUERA KLASS_RISKA_NET PAUZA_VLADELTSA LIMIT_GRUPPY
+#   ADVERSARIJ_DO_REVJUERA KLASS_RISKA_NET PAUZA_VLADELTSA LIMIT_GRUPPY NE_IZOLIROVAN
 #   ZAMOK_ZHIV DERZHATEL_RASHODITSJA NET_ZAMKA
 # rc 0 — разрешено (замки заняты, START дописан ДО возврата) / исполнено / учёт.
 # rc 2 — NOT_IMPLEMENTED (нет jq/git/find, мир нечитаем): fail-closed; вызов
@@ -411,7 +424,7 @@ sudit() {
 
   # проход 1: грамматика всех gated items; НИ ОДНОЙ записи до полного решения
   GATED=''
-  local i=0 agent name task in_w in_j s sv p wt br o obj klass rol r
+  local i=0 agent name task in_w in_j s sv p wt br o obj klass rol r iz
   while [ "$i" -lt "$N" ]; do
     agent="$(jq -r "(.tasks // [.])[$i].agent // \"\"" "$EVENT" 2>/dev/null)" \
       || otp BITYJ_VHOD "item $i: agent не читается"
@@ -448,6 +461,17 @@ sudit() {
         || otp RASHOZHDENIE_PINA "item $i: BRANCH=wip/$(printf '%s' "${br#wip/}" | cut -c1-3)/… ≠ SUBJECT=$sv"
       [ -d "$wt" ] || skip "worktree пина нет: $wt"
       git -C "$wt" rev-parse --git-dir >/dev/null 2>&1 || skip "worktree пина не репо: $wt"
+      # [D32 izolirovan-rabochego] v5 (слово владельца 2026-11-18 ~14:05 UTC,
+      # §4 батча №2; заявка контракта 199:19): рабочий обязан нести РЕАЛЬНЫЙ
+      # isolated === true из ПОЛЯ item события (поле проносит нормализация
+      # стража спавна из omp task wire schema); слово в тексте задания
+      # источником НЕ является. Отсутствие поля, ложь и любое иное значение
+      # (строка «true» и прочее) — именованный отказ ДО START и любых записей;
+      # судей (klass=sudja, ветка ниже) требование не касается.
+      iz="$(jq -r "(.tasks // [.])[$i].isolated | if . == true then \"true\" else \"false\" end" "$EVENT" 2>/dev/null)" \
+        || otp BITYJ_VHOD "item $i: isolated не читается"
+      [ "$iz" = 'true' ] \
+        || otp NE_IZOLIROVAN "item $i: рабочий $name без реального isolated === true в ПОЛЕ item события (слово в тексте задания источником не является)"
       obj='-'; klass='rabochij'; rol="$agent"
     else
       o="$(object_iz "$task")"
@@ -591,19 +615,28 @@ $GATED
 EOF
 
   # [D23 start-do-razdachi] решение «позволено ВСЕМ» → занятия + START, потом rc 0
-  local grp2
+  local grp2 izl
   while IFS='|' read -r idx agent name sv obj wt br klass rol; do
     [ -n "$sv" ] || continue
     if [ "$klass" = 'rabochij' ]; then grp2="$(gruppa_iz_pina "$wt")"
     else grp2="$(gruppa_ledger "$sv")"; fi
+    # [D33 start-fakt-izolirovan] v5: строка START ЛЮБОЙ роли несёт факт
+    # isolated — нормализованное значение ПОЛЯ item события (=== true →
+    # «true»; отсутствие поля/ложь/иное — «false», fail-closed; заморожено
+    # 199:34): у рабочего факт всегда true (гейт [D32] уже пройден), у
+    # судьи — записывается фактом события (требование не применяется).
+    # Значение «net» (пропуск поля) у честной двери недостижимо — якорь
+    # стабов s40/s43 в строке jq ниже.
+    izl="$(jq -r "(.tasks // [.])[$idx].isolated | if . == true then \"true\" else \"false\" end" "$EVENT" 2>/dev/null)" \
+      || izl='false'
     zdir="$(zamok_dir "$sv")"
     mkdir -p "$zdir/zanyat" 2>/dev/null || skip "занятие не создать: $zdir/zanyat"
     printf '{"holder":"%s","klass":"%s","rol":"%s","object":"%s","startedAt":"%s"}\n' \
       "$name" "$klass" "$rol" "$obj" "$(ts_now)" > "$zdir/zanyat/holder.json"
     jq -nc --arg t START --arg r "$REPO_ID" --arg s "$sv" --arg g "$grp2" \
           --arg h "$name" --arg k "$klass" --arg ro "$rol" --arg o "$obj" \
-          --arg w "$wt" --arg b "$br" --arg at "$(ts_now)" \
-      '{t:$t,repoId:$r,subjectId:$s,group:$g,holder:$h,klass:$k,rol:$ro,object:$o,worktree:$w,branch:$b,at:$at}' \
+          --arg w "$wt" --arg b "$br" --arg at "$(ts_now)" --arg iz "$izl" \
+      '{t:$t,repoId:$r,subjectId:$s,group:$g,holder:$h,klass:$k,rol:$ro,object:$o,worktree:$w,branch:$b,at:$at} + (if $iz == "true" then {isolated:true} elif $iz == "false" then {isolated:false} else {} end)' \
       >> "$LEDGER"
     printf 'PUSCHEM %s %s/%s (%s/%s)\n' "$name" "$REPO_ID" "$sv" "$klass" "$rol"
   done <<EOF

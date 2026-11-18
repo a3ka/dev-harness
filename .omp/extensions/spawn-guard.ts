@@ -167,10 +167,19 @@ function stateRoots(sessionFile: string): Roots | null {
   return null;
 }
 
-// Событие двери — items {agent, name, task}; та же нормализация 104 (batch
-// разворачивается в список, flat — один элемент). Значения задания в дверь
+// Событие двери — items {agent, name, task, isolated}; та же нормализация 104
+// (batch разворачивается в список, flat — один элемент). Значения задания в дверь
 // попадают байт-в-байт: дверь разбирает их своими замкнутыми алфавитами.
-type TaskItem = { agent: string; name: string; task: string };
+//
+// ФЛАГ ИЗОЛЯЦИИ (контракт 140 v5 / 199:19,34) — нормализация item ОБЯЗАНА
+// донести до двери РЕАЛЬНЫЙ факт изоляции: значение берётся ИЗ ПОЛЯ item
+// (omp task wire schema), а не из текста задания, и нормализуется в булево
+// (`=== true` — истина; всё прочее — отсутствие поля, «true» строкой, 1, null —
+// false, fail-closed). Расширение не решает, изолирован ли рабочий: дверь
+// отказывает рабочему без реального isolated:true (NE_IZOLIROVAN, до START и
+// любых записей). Требование на судей НЕ распространяется; строка START несёт
+// факт.
+type TaskItem = { agent: string; name: string; task: string; isolated: boolean };
 
 function taskItems(input: unknown): TaskItem[] {
   const raw: unknown[] =
@@ -184,6 +193,7 @@ function taskItems(input: unknown): TaskItem[] {
       agent: typeof o.agent === 'string' ? o.agent : '',
       name: typeof o.name === 'string' ? o.name : '',
       task: typeof o.task === 'string' ? o.task : '',
+      isolated: o.isolated === true,
     });
   }
   return out;
