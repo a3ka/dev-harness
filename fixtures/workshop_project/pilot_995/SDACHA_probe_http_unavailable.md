@@ -53,23 +53,108 @@ runtime MUTANTS (включая http-demo) и все CASES сохранены �
 батареи байтовым якорем (ровно 1 вхождение, иначе rc 2) в блок
 `it('HTTP_UNAVAILABLE', …)` вставляются
 `expect(process.env.EXPO_PUBLIC_API_MODE).toBe('http')` и
-`expect(process.env.EXPO_PUBLIC_API_URL).toBe(SYNTHETIC_API_URL)`; запускатель
+`expect(process.env.EXPO_PUBLIC_API_URL).toBe(<свидетель>)`; запускатель
 — сам (копия) `runtime_probe.run`: машина окружения ровно та, что в CI.
-Ожидания читаются из модуля пробы (`CASES`, `SYNTHETIC_API_URL`) — единый
-источник. Мутации применяются к копии `runtime_probe.py` с доказанной
+Ожидаемый mode читается из модуля пробы (`CASES`); ожидаемый URL —
+НЕЗАВИСИМЫЙ СВИДЕТЕЛЬ регресса (закрытие Adv995, К-11): литерал
+`WITNESS_SYNTHETIC_URL = 'https://api.example.invalid'` закреплён в самом
+регрессе и проверен правилом класса `.invalid` (https, хост на `.invalid`,
+без пути/учётных данных) — оракул не читает ожидание из проверяемой
+константы. Мутации применяются к копии `runtime_probe.py` с доказанной
 применимостью (якорь встречается ровно 1 раз, иначе rc 2):
 
 | мутация | входы (где утрата НАБЛЮДАЕМА) | наблюдаемая ветвь |
 |---|---|---|
 | `no-override` (строка присваивания удалена) | no-url И foreign-url | наблюдение env: Received undefined / foreign; на no-url красна и сетевая клетка (auth-unconfigured, до-репро ниже) |
 | `setdefault` (`env.setdefault` вместо присваивания) | только foreign-url | наблюдение env: Received foreign (на no-url мутант честно зелён — краснота не требуется) |
+| `real-host` (константа пробы → `https://example.com`; Adv995) | no-url И foreign-url | наблюдение env: Expected `"https://api.example.invalid"`, Received `"https://example.com"`; сетевая клетка при throw-fetch не различает происхождение |
 | `unapplied` (положительный контроль машинерии) | — | якорь отсутствует по построению → rc 2 ORACLE_TAMPERED, не «пойман» |
 
 Сетевая клетка сама по себе НЕ различает утрату на foreign-url (посторонний
 валидный URL + throw-fetch тоже даёт network_error → unavailable, честно
 зелёно) — различает только наблюдение env; на no-url различают оба. Числа:
-новые контроли = 3 связки + 1 положительный контроль, учтены отдельно от
-восьми прежних MUTANTS.
+новые контроли = 5 связок (no-override ×2, setdefault ×1, real-host ×2)
++ 1 положительный контроль, учтены отдельно от восьми прежних MUTANTS.
+
+## Закрытие блока Adv995 (К-11 «оракул из субъекта»; verdicts/adversary/contracts-995-impl-v1.md, FAIL на 6b22cb4ffd)
+
+Блок: регресс брал ожидаемый `EXPO_PUBLIC_API_URL` из самой проверяемой
+константы (`probe.SYNTHETIC_API_URL` в `drive()`), а проба тем же значением
+заполняла env (`runtime_probe.py:24,110`) — подмена константы на реальный
+хост меняла ожидание вместе с фактом, «синтетическое происхождение URL»
+(995:41, адреса `.invalid`) не было доказано.
+
+Ремонт (поверх 63f3b4c67b) — один файл кода
+`env_override_regression.py` и этот сдаточный лист;
+`runtime_probe.py`, `runtime.test.tsx`, матрица и все прежние стабы
+не менялись:
+
+- свидетель: литерал `WITNESS_SYNTHETIC_URL = 'https://api.example.invalid'`
+  закреплён в регрессе; наблюдение внутри процесса сверяет фактический
+  `process.env.EXPO_PUBLIC_API_URL` с этим литералом; регресс больше не
+  читает ожидание из пробы (mode по-прежнему из `CASES` — не предмет
+  свойства). Валидность самого свидетеля — правилом `synthetic_origin`
+  (https, хост на `.invalid`, без пути/учётных данных/порта/запроса):
+  выпадение из класса даёт rc 2 `WITNESS_NOT_SYNTHETIC`;
+- стаб `real-host` (Н-39, привязка в коде: `mutation_real_host`,
+  `STAB_INPUTS['real-host'] = ('no-url', 'foreign-url')`): якорь
+  `SYNTHETIC_API_URL = 'https://api.example.invalid'` (ровно 1 вхождение
+  в `runtime_probe.py`, иначе rc 2) подменяется на `https://example.com`
+  в одноразовой копии; красен ровно наблюдением env на обоих входах;
+- развилки: (1) отдельный стаб «субдомен без `.invalid`» не заведён —
+  литеральный свидетель ловит любое отклонение значения от закреплённого
+  синтетического URL, а класс-правило проверяет сам литерал; (2) матрица
+  не расширялась — свойство происхождения несёт регресс-свидетель,
+  матрица судит поведенческих мутантов (и в вердикте, и здесь подмена
+  оставляет её rc 0).
+
+Воспроизведение ВХОДа adversary (подмена — дословный one-liner вердикта,
+префикс каталога свой; H — батарея ветки, негативная копия
+`/tmp/dev-harness-verify/.arch995fix-negative/real-host`,
+P=`/tmp/dev-harness-verify/Arch995Probe/product`@`01e081b8dcc9`,
+node v26.5.1; rc сырые):
+
+- `cp -a <H>/fixtures/workshop_project/pilot_995 …/real-host`;
+- python3-подмена в копии `runtime_probe.py` строки 24:
+  `SYNTHETIC_API_URL = 'https://api.example.invalid'` → `'https://example.com'`;
+- `python3 env_override_regression.py --repo P --stabs` (cwd = копия);
+- `python3 runtime_probe.py --repo P --matrix` (cwd = копия).
+
+- ДО (батарея 63f3b4c67b, sha регресса `af43e2b7…`): `--stabs` rc=0
+  (`SVJAZI 3 zhivykh 0`; в выдержках дословно `Expected:
+  "https://example.com"` — оракул взял ожидание из подмены), `--matrix`
+  rc=0 — FAIL вердикта воспроизведён на этой станции до правки;
+- ПОСЛЕ (этот коммит): `--stabs` rc=2 `995 env ORACLE_TAMPERED: якорь
+  real-host не единственен (вхождений 0)` — подменённая батарея отказывает
+  fail-closed; `--matrix` rc=0 `runs=9 mismatches=0` (без изменений, как
+  и в вердикте). Различимость стаба прогоном на честной батарее:
+  `--stabs` rc=0 `SVJAZI 5 zhivykh 0`, real-host KRASEN ×2 (Expected
+  `"https://api.example.invalid"` / Received `"https://example.com"`) —
+  красн от наблюдения в процессе, не от гейта якоря: якорь валидирован в
+  shipped, подмена живёт в одноразовой копии.
+
+Прогоны после ремонта (P как выше; rc сырые):
+
+- `python3 env_override_regression.py --repo P` → rc=0: оба родительских
+  входа (absent, foreign) зелёны.
+- `EXPO_PUBLIC_API_MODE=mock
+  EXPO_PUBLIC_API_URL=http://dirty-parent.example.com/x python3
+  env_override_regression.py --repo P` → rc=0 (грязный родитель
+  перекрыт).
+- `… --stabs` → rc=0: `SVJAZI 5 zhivykh 0` (no-override ×2, setdefault
+  ×1, real-host ×2).
+- `… --mutation unapplied` → rc=2 `ORACLE_TAMPERED` (прежний контроль).
+- `python3 runtime_probe.py --repo P --matrix` → rc=0: `runs=9
+  mismatches=0` (honest 6/6; восемь мутантов поимённо красны).
+- `python3 probe.py --repo P --check-frozen` → rc=0: actual 14/14, байты
+  равны. (`runtime_probe.py` флага `--check-frozen` не имеет и не имел —
+  frozen-проверка батареи это `probe.py --check-frozen`.)
+
+Пины после ремонта: `env_override_regression.py` sha256
+`79f8eca407a133ac40ce65a23b153ad6fe493019bf2e0002f58be702676fd381`
+(потребителей-пинов не имеет); `runtime_probe.py` `b4a32677…` и
+`runtime.test.tsx` `c9aa30fa…` байт в байт равны пинам ниже — не менялись.
+Клон продукта после прогонов чист (`git status --short` = 0 строк).
 
 ## НЕ ЗАЩИЩАЕТ (п.4 задания)
 
@@ -150,6 +235,11 @@ probe.py, red_ci_e2e_restart_995.sh — `git show --stat HEAD` = 2 файла),
 переснимались. Новый `env_override_regression.py` потребителей-пинов не
 имеет; sha256 фактических байтов `af43e2b73ef940e4a785fa0495dca03f043e887358057fc4d4090015268a8430`,
 `runtime_probe.py` после правки `b4a32677841f395cdb7fa183d8f78b70dea31dff5dba13db4fe562567485bb0e`.
+
+(после закрытия Adv995 `env_override_regression.py` заменён — актуальный
+sha256 `79f8eca407a133ac40ce65a23b153ad6fe493019bf2e0002f58be702676fd381`
+в разделе «Закрытие блока Adv995» выше; `runtime_probe.py` `b4a32677…`
+байт в байт не менялся.)
 
 ## Граница
 
