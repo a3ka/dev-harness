@@ -27,9 +27,12 @@
 # «страж сломан»); p14 --uchet живого мира (приёмка 5в); m01 обманная
 # интеграция — блок вызова двери снят, приёмка обязана видеть симптом
 # (проход судьи до yield) — проверка проверяющего (tdd: не tautological).
-# p10 предъявляет false/true/отсутствие у судьи; p15 — false/отсутствие у
-# рабочего последним в пакете (NE_IZOLIROVAN, состояние побайтово неизменно);
-# p16 — смешанный пакет, START каждого item несёт именно его факт.
+# p10 предъявляет false/true/missing/string/number/object у судьи; p15 —
+# false/missing/string/number/object у последнего рабочего пакета с пустым учётом;
+# p16 — смешанный пакет со своим фактом; p17/p18 — отказ без предсозданного
+# учёта (один/пакет), p19 — неизменность существующего учёта/занятия;
+# p20 — первый честный рабочий в новом корне. normalizacija_140.py привязывает
+# truthiness/константу к адресным клеткам и проверяет строгий зелёный контроль.
 set -uo pipefail
 ZDES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 KOREN="$(cd "$ZDES/../../.." && pwd -P)"
@@ -156,12 +159,19 @@ mir_zhurnal() {  # <st> <holder> <sдал 0|1> <возраст-мин|->
   if [ "$4" != - ]; then touch -d "$4 minutes ago" "$f"; fi
 }
 
-sobytie() {  # <файл> <agent> <name> <true|false|missing> <task-строки…>
-  local f="$1" a="$2" n="$3" iso="$4"; shift 4
-  case "$iso" in true|false|missing) ;; *) return 2 ;; esac
+sobytie() {  # <файл> <agent> <name> <true|false|missing|string|number|object> <task…>
+  local f="$1" a="$2" n="$3" iso="$4" json; shift 4
+  case "$iso" in
+    true|false) json="$iso" ;;
+    missing) json=null ;;
+    string) json='"true"' ;;
+    number) json=1 ;;
+    object) json='{}' ;;
+    *) return 2 ;;
+  esac
   local task; task="$(printf '%s\n' "$@")"
-  jq -cn --arg a "$a" --arg n "$n" --arg t "$task" --arg iso "$iso" \
-    '{agent:$a,name:$n,task:$t} + (if $iso == "missing" then {} else {isolated:($iso == "true")} end)' > "$f"
+  jq -cn --arg a "$a" --arg n "$n" --arg t "$task" --arg iso "$iso" --argjson value "$json" \
+    '{agent:$a,name:$n,task:$t} + (if $iso == "missing" then {} else {isolated:$value} end)' > "$f"
   printf '%s' "$f"
 }
 
@@ -340,7 +350,7 @@ begi() {  # <хук> <cases> → вывод драйвера
 }
 
 # ── p10 пропуск судьи после yield + START пишет РАСШИРЕНИЕ ───────────────────
-for ISO in false true missing; do
+for ISO in false true missing string number object; do
   P="$W/p10-$ISO"
   ST="$P/st"; RE="$P/repo"; WT="$P/wt141"
   mkdir -p "$ST/zamok" "$(dirname "$(mir_sess "$ST")")" "$RE" "$WT"
@@ -428,10 +438,9 @@ done
   fi
 }
 
-# ── p15 пронос false/отсутствия: последний рабочий красит ВЕСЬ пакет ───────
-# Адресный вход для мутации isolated: o.isolated === true → isolated: true:
-# честный первый рабочий не должен получить START/замок при отказе второго.
-for ISO in false missing; do
+# ── p15 последний рабочий красит ВЕСЬ пакет; пустой учёт УЖЕ существует ──
+# Не заменять этим миром новый корень p17/p18: отсутствие файла — часть оракула.
+for ISO in false missing string number object; do
   P="$W/p15-$ISO"
   ST="$P/st"; RE="$P/repo"; WT="$P/wt140"; WT142="$P/wt142"
   mkdir -p "$ST/zamok" "$(dirname "$(mir_sess "$ST")")" "$RE" "$WT" "$WT142"
@@ -453,8 +462,8 @@ done
 
 # ── p16 разрешённый смешанный пакет: свой факт у каждого item ────────────
 # Соседняя форма той же мутации: судью нельзя записать true по классу/соседу.
-{
-  P="$W/p16"; ST="$P/st"; RE="$P/repo"; WT="$P/wt141"; WT142="$P/wt142"
+for ISO in false string number object; do
+  P="$W/p16-$ISO"; ST="$P/st"; RE="$P/repo"; WT="$P/wt141"; WT142="$P/wt142"
   mkdir -p "$ST/zamok" "$(dirname "$(mir_sess "$ST")")" "$RE" "$WT" "$WT142"
   mir_github "$RE" 'ssh://git@github.com/a3ka/dev-harness.git'
   mir_github "$WT" 'ssh://git@github.com/a3ka/dev-harness.git'
@@ -466,9 +475,9 @@ done
   mir_start "$ST" 141 Avtor141 rabochij architect harness "$SHA" "$WT" wip/141/avtor
   mir_zhurnal "$ST" Avtor141 1 -
   sobytie "$P/worker.json" architect Arch142 true 'SUBJECT=142' "WORKTREE=$WT142" 'BRANCH=wip/142/avtor' > /dev/null
-  sobytie "$P/judge.json" critic Critic141 false 'SUBJECT=141' "OBJECT=$SHA" > /dev/null
+  sobytie "$P/judge.json" critic Critic141 "$ISO" 'SUBJECT=141' "OBJECT=$SHA" > /dev/null
   jq -s '{tasks:.}' "$P/worker.json" "$P/judge.json" > "$P/ev.json"
-  kejs "$P/c.json" p16 pass "$P/ev.json" "$(mir_sess "$ST")" "$RE"
+  kejs "$P/c.json" "p16-$ISO" pass "$P/ev.json" "$(mir_sess "$ST")" "$RE"
   out="$(begi "$HUK" "$P/c.json")"; rc=$?
   if [ "$rc" -eq 0 ] && jq -se '
       [.[] | select(.t=="START") | {holder,subjectId,isolated}] ==
@@ -478,9 +487,70 @@ done
       "$ST/zamok/uchet.jsonl" > /dev/null 2>&1 \
       && [ -e "$ST/zamok/zamki/dev-harness/142/zanyat/holder.json" ] \
       && [ -e "$ST/zamok/zamki/dev-harness/141/zanyat/holder.json" ]; then
-    proba p16-int-smeshannyj-paket ok
+    proba "p16-int-smeshannyj-paket-$ISO" ok
   else
-    proba p16-int-smeshannyj-paket krasno "$out; START пакета обязан нести Arch142=true, Critic141=false и оба занятия"
+    proba "p16-int-smeshannyj-paket-$ISO" krasno "$out; START пакета обязан нести Arch142=true, Critic141=false и оба занятия"
+  fi
+done
+
+# ── p17/p18 новый корень; p19 ранее существующие учёт И занятие ──────────
+# snapshot() драйвера снимает имена и байты ДО хука. В p17/p18 zamok пуст,
+# ucheт НЕ создаётся построителем; p19 содержит чужой живой предмет.
+for WORLD in p17 p18 p19; do
+  for ISO in false missing string number object; do
+    P="$W/$WORLD-$ISO"; ST="$P/st"; RE="$P/repo"; WT="$P/wt140"; WT142="$P/wt142"
+    mkdir -p "$ST/zamok" "$(dirname "$(mir_sess "$ST")")" "$RE" "$WT" "$WT142"
+    mir_github "$RE" 'ssh://git@github.com/a3ka/dev-harness.git'
+    mir_github "$WT" 'ssh://git@github.com/a3ka/dev-harness.git'
+    mir_github "$WT142" 'ssh://git@github.com/a3ka/dev-harness.git'
+    git -C "$WT" checkout -q -b wip/140/avtor 2>/dev/null
+    git -C "$WT142" checkout -q -b wip/142/avtor 2>/dev/null
+    if [ "$WORLD" = p19 ]; then
+      mir_start "$ST" 143 Avtor143 rabochij architect harness - - -
+      mir_zhurnal "$ST" Avtor143 0 -
+    fi
+    sobytie "$P/bad.json" architect Arch140 "$ISO" 'SUBJECT=140' "WORKTREE=$WT" 'BRANCH=wip/140/avtor' > /dev/null
+    if [ "$WORLD" = p17 ]; then
+      cp "$P/bad.json" "$P/ev.json"
+      ITEM=0
+      NAME="p17-int-novyj-uchet-odin-$ISO"
+    else
+      sobytie "$P/good.json" architect Arch142 true 'SUBJECT=142' "WORKTREE=$WT142" 'BRANCH=wip/142/avtor' > /dev/null
+      jq -s '{tasks:.}' "$P/good.json" "$P/bad.json" > "$P/ev.json"
+      ITEM=1
+      if [ "$WORLD" = p18 ]; then
+        NAME="p18-int-novyj-uchet-paket-$ISO"
+      else
+        NAME="p19-int-sushchestvujushchij-uchet-$ISO"
+      fi
+    fi
+    kejs "$P/c0.json" "$NAME" "block:ОТКАЗ: NE_IZOLIROVAN: item $ITEM:" "$P/ev.json" "$(mir_sess "$ST")" "$RE"
+    jq --arg root "$ST/zamok" '.[0].unchanged=$root' "$P/c0.json" > "$P/c.json"
+    out="$(begi "$HUK" "$P/c.json")" \
+      && proba "$NAME" ok \
+      || proba "$NAME" krasno "$out"
+  done
+done
+
+# ── p20 первый честный спавн: отсутствие учёта не означает отказ всем ────
+{
+  P="$W/p20"; ST="$P/st"; RE="$P/repo"; WT="$P/wt140"
+  mkdir -p "$ST/zamok" "$(dirname "$(mir_sess "$ST")")" "$RE" "$WT"
+  mir_github "$RE" 'ssh://git@github.com/a3ka/dev-harness.git'
+  mir_github "$WT" 'ssh://git@github.com/a3ka/dev-harness.git'
+  git -C "$WT" checkout -q -b wip/140/avtor 2>/dev/null
+  sobytie "$P/ev.json" architect Arch140 true 'SUBJECT=140' "WORKTREE=$WT" 'BRANCH=wip/140/avtor' > /dev/null
+  kejs "$P/c.json" p20 pass "$P/ev.json" "$(mir_sess "$ST")" "$RE"
+  out="$(begi "$HUK" "$P/c.json")"; rc=$?
+  if [ "$rc" -eq 0 ] && jq -se '
+      [.[] | {t,holder,subjectId,klass,isolated}] ==
+      [{t:"START",holder:"Arch140",subjectId:"140",klass:"rabochij",isolated:true}]' \
+      "$ST/zamok/uchet.jsonl" > /dev/null 2>&1 \
+      && jq -e '.holder=="Arch140" and .klass=="rabochij" and .rol=="architect"' \
+        "$ST/zamok/zamki/dev-harness/140/zanyat/holder.json" > /dev/null 2>&1; then
+    proba p20-int-pervyj-rabochij-true ok
+  else
+    proba p20-int-pervyj-rabochij-true krasno "$out; ожидались собственный START isolated=true и занятие"
   fi
 }
 

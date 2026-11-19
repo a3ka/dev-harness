@@ -65,9 +65,9 @@ MATER = HERE / 'materialy'
 # (HERE = <корень>/fixtures/workshop_project/odin_agent_140).
 REEPOR = HERE.parents[2]
 SUBJEKT_DVERI = REEPOR / 'scripts' / 'zamok_predmeta.sh'
-# станционные клетки интеграции хука (osi.md: p01–p16 + m01, параметры
-# p10/p15) — закрыты КОМАНДОЙ приёмки stancija_odin_agent_140.sh
-STANCIONNYH_KLETOK = 20
+# станционные клетки интеграции хука (osi.md: p01–p20 + m01, параметры
+# p10/p15/p16/p17/p18/p19) — команда приёмки stancija_odin_agent_140.sh
+STANCIONNYH_KLETOK = 45
 BASH = '/usr/bin/bash' if Path('/usr/bin/bash').is_file() else 'bash'
 TAB = '\t'
 GIT_ENV = {'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_SYSTEM': '/dev/null',
@@ -2077,7 +2077,7 @@ def rezhim_plain(K):
         print('SUBJECT_ABSENT: субъекта-двери нет: %s — зелень без субъекта невозможна' % d)
         for imja in sorted(K):
             print('CASE %s KRASNO (SUBJECT_ABSENT: %s)' % (imja, d))
-        print('STANCIONNYE: %d клеток интеграции хука (p01-p16,m01; параметры p10/p15, osi.md) — команда приёмки bash %s'
+        print('STANCIONNYE: %d клеток интеграции хука (p01-p20,m01; параметры p10/p15/p16/p17/p18/p19, osi.md) — команда приёмки bash %s'
               % (STANCIONNYH_KLETOK, HERE / 'stancija_odin_agent_140.sh'))
         return 1
     krasnyh = 0
@@ -2090,7 +2090,7 @@ def rezhim_plain(K):
         else:
             print('CASE %s ok' % imja)
     print('SUBJEKT: %s' % d)
-    print('STANCIONNYE: %d клеток интеграции хука (p01-p16,m01; параметры p10/p15, osi.md) — команда приёмки bash %s'
+    print('STANCIONNYE: %d клеток интеграции хука (p01-p20,m01; параметры p10/p15/p16/p17/p18/p19, osi.md) — команда приёмки bash %s'
           % (STANCIONNYH_KLETOK, HERE / 'stancija_odin_agent_140.sh'))
     print('KLETKI %d KRASNYH %d' % (len(K), krasnyh))
     return 1 if krasnyh else 0
