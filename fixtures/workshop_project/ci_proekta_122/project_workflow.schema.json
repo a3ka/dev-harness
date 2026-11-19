@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "subject", "project"],
+  "$defs": {
+    "identity": {"type": "string", "minLength": 1},
+    "remote": {"type": "string", "minLength": 1, "pattern": "^[^\\u0000\\r\\n]+$"},
+    "projectIdentity": {
+      "type": "object",
+      "required": ["projectId", "repoId", "canonicalRemote"],
+      "properties": {
+        "projectId": {"$ref": "#/$defs/identity"},
+        "repoId": {"$ref": "#/$defs/identity"},
+        "canonicalRemote": {"$ref": "#/$defs/remote"}
+      }
+    }
+  },
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "subject": {
+      "type": "object", "additionalProperties": false,
+      "required": ["root", "path", "blob", "origin"],
+      "properties": {
+        "root": {"type": "string", "pattern": "^/[^\\u0000\\r\\n]+$"},
+        "path": {"type": "string", "pattern": "^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*[.]md$"},
+        "blob": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+        "origin": {"type": "string", "minLength": 1, "pattern": "^[^\\u0000\\r\\n]+$"}
+      }
+    },
+    "project": {
+      "allOf": [{"$ref": "#/$defs/projectIdentity"}],
+      "unevaluatedProperties": false,
+      "required": ["root"],
+      "properties": {
+        "root": {"type": "string", "pattern": "^/[^\\u0000\\r\\n]+$"}
+      }
+    }
+  }
+}
