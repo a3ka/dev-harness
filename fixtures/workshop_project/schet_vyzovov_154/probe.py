@@ -158,11 +158,28 @@ def subject_guard_cond(mutation, var):
         for n in nums)
 
 
+def bypass_call(call, mutation, repo, subject, phase):
+    """Production-side regressions: bypass the honest counter in copied CLI doors."""
+    if mutation == 'registry-fallback-old':
+        condition = f'git -C "{repo}" log -1 --format=%H -G"^{subject} → " -- registry/contracts.tsv | grep -q .'
+    elif mutation == 'empty-marker-old' or (
+            mutation == 'freeze-empty-marker-old' and phase == 'freeze'):
+        condition = (
+            f'git -C "{repo}" rev-list --ancestry-path "refs/tags/id/CONTRACT/{subject}..HEAD"'
+            ' | { while read -r sha; do\n'
+            f'  [ -z "$(git -C "{repo}" diff-tree --root --no-commit-id --name-only -r "$sha")" ] && exit 0\n'
+            'done; exit 1; }')
+    else:
+        return call
+    return f'if {condition}; then b154=3; else\n{call}fi\n'
+
+
 def freeze_block(budget, old6v, mutation=''):
     """Новый §6в: одна функция бюджета; rc 3 — старый предмет, прежний §6в дословно."""
     guard = 'st154=\'\'\n[ "$#" -ge 4 ] && st154="$4"\n'
     call = (f'python3 "{budget}" --sostojanie "$st154" --repo "$ROOT" '
             '--subject "$NNN" --phase freeze || b154=$?\n')
+    call = bypass_call(call, mutation, '$ROOT', '$NNN', 'freeze')
     branch = ('if [ "$b154" -eq 3 ]; then\n'
               + old6v +
               'elif [ "$b154" -ne 0 ]; then\n'
@@ -232,6 +249,10 @@ def prepare_scripts(world, mode, mutation='', granica=''):
         if granica or mutation:
             budget = world / 'budget154.py'
             budget.write_text(body)
+        lock = lock.replace('#!/usr/bin/env bash\n',
+                            '#!/usr/bin/env bash\n'
+                            'if [ "${1:-}" = --schet-kritika ]; then\n'
+                            f'  shift; exec python3 "{budget}" "$@"\nfi\n', 1)
         old_init = '[ -r "$LEDGER" ] || : >> "$LEDGER" || skip "учёт не создать: $LEDGER"'
         new_init = '[ -r "$LEDGER" ] || { [ -e "$LEDGER" ] && otp SCHET_NEIZVESTEN "ledger unreadable"; : >> "$LEDGER" || skip "учёт не создать: $LEDGER"; }'
         if lock.count(old_init) != 1:
@@ -245,6 +266,7 @@ def prepare_scripts(world, mode, mutation='', granica=''):
                             '[ -f "$LEDGER" ] || LEDGER_154_EXISTED=0\n', 1)
         call_spawn = (f'        python3 "{budget}" --sostojanie "$SOST" --repo "$REPO" '
                       '--zhurnaly "$ZHUR" --subject "$sv" --object "$obj" --phase spawn || b154=$?\n')
+        call_spawn = bypass_call(call_spawn, mutation, '$REPO', '$sv', 'spawn')
         if mutation in SUBSET_GUARDS:
             # Стабы Б8 — атака критика дословно в модельной вставке двери:
             # бюджет охраняется условием номера предмета ($sv); на номерах вне
@@ -310,7 +332,7 @@ def add_receipts(repo, rows, decorate=False):
 def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phase='spawn',
           label='', foreign='', arb_ledger=0, sanktsii=(), history='', seed=None,
           novelty='new', objects='unique', live='', subject='', drugoj_repoid=False,
-          arb_first='', used_sources=()):
+          arb_first='', used_sources=(), boundary_trace=''):
     # Ось Б8: судимый номер предмета и ключ репозитория мира — параметры мира,
     # не константы батареи: порог обязан не зависеть ни от того, ни от другого.
     sv = subject or NNN
@@ -395,7 +417,7 @@ def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phas
         # graft даёт те же rc без shallow и без ошибок по недостающим деревьям.
         # Ставится ПОСЛЕ worker-клона: репозиторий с обрезанной историей не отдаёт
         # объекты upload-pack'у, клон из него умирает (замер). gc.auto=0 — от repack.
-        if live in ('old', 'new-tag'):
+        if live in ('old', 'new-tag', 'branch'):
             packdir = repo / '.git' / 'objects' / 'pack'
             packdir.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(GRANICA_PACK, packdir / GRANICA_PACK.name)
@@ -413,6 +435,26 @@ def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phas
         elif live in ('new-tag', 'no-granica'):
             ensure(cmd(['git', '-C', str(repo), 'tag', 'id/CONTRACT/' + sv, 'HEAD']),
                    'mint numbered subject')
+        elif live == 'branch':
+            ensure(cmd(['git', '-C', str(repo), 'branch', 'id/CONTRACT/' + sv,
+                        parent.stdout.strip()]), 'branch is not a subject tag')
+    if boundary_trace:
+        absent = cmd(['git', '-C', str(repo), 'cat-file', '-e', GRANICA_SHA + '^{commit}'])
+        if absent.returncode == 0:
+            raise RuntimeError('no-boundary fixture unexpectedly contains boundary')
+        if boundary_trace == 'registry':
+            registry = repo / 'registry' / 'contracts.tsv'
+            registry.parent.mkdir(exist_ok=True)
+            registry.write_text(f'{sv} → {tip}\n')
+            ensure(cmd(['git', '-C', str(repo), 'add', '-A']), 'add registry trace')
+            gcommit(repo, 'first registry trace without boundary')
+        elif boundary_trace == 'empty':
+            ensure(cmd(['git', '-C', str(repo), 'tag', 'id/CONTRACT/' + sv]), 'late tag')
+            ensure(cmd(['git', '-C', str(repo), '-c', 'user.name=battery',
+                        '-c', 'user.email=b@t', 'commit', '-q', '--allow-empty',
+                        '-m', 'not a delivered boundary']), 'untrusted empty commit')
+        else:
+            raise RuntimeError('unknown boundary trace: ' + boundary_trace)
     rows = [dict(t='START', repoId=rid, subjectId=sv, group='harness',
                  holder='Worker154', klass='rabochij', rol='architect',
                  object='-', worktree=str(wt), branch=f'wip/{sv}/architect',
@@ -443,7 +485,7 @@ def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phas
             raise RuntimeError('pair-aborted: нет строки после aborted для пары')
         objs[k + 1] = objs[k]
     offset = seed if history == 'do-zhurnala' and isinstance(seed, int) and seed > 0 else 0
-    if source != 'third-missing':
+    if source not in ('third-missing', 'uncovered'):
         third = 2 - offset
         third_obj = objs[third] if 0 <= third < len(objs) else (
             tip if phase == 'spawn' and len(objs) + offset == 2 else None)
@@ -453,7 +495,7 @@ def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phas
     # Selection is a separate append-only fact, not a choice made by the counter.
     # Fixtures may select a different source explicitly while keeping grants fixed.
     for pos, obj in enumerate([None] * offset + objs + ([tip] if phase == 'spawn' else []), 1):
-        if pos < 3 or obj is None:
+        if pos < 3 or obj is None or source == 'uncovered':
             continue
         sources = [src for nom, _, src in sanktsii if nom == pos]
         default = ('orchestrator' if pos == 3 else
@@ -580,7 +622,7 @@ def oracle(n, phase, source='', foreign='', arb_ledger=0, sanktsii=(), history='
     for pos, obj in enumerate(calls, 1):
         if pos < 3:
             continue
-        if obj is None:
+        if obj is None or source == 'uncovered':
             return 'SCHET_NEIZVESTEN'
         if pos == 4 and source in ('selection-missing', 'selection-conflict'):
             return 'SCHET_NEIZVESTEN'
@@ -609,7 +651,8 @@ def scenario(name, n, phase, outcome='FAIL', arb_file=False, rename=False,
              source='', mode='repo', mutation='', foreign='', arb_ledger=0,
              sanktsii=(), history='', seed=None, novelty='new',
              outcomes_override=None, objects='unique', live='', subject='',
-             drugoj_repoid=False, arb_first='', used_sources=()):
+             drugoj_repoid=False, arb_first='', used_sources=(), boundary_trace='',
+             refreeze=False):
     sv = subject or NNN
     with tempfile.TemporaryDirectory(prefix='schet154-') as tmp:
         base = Path(tmp)
@@ -621,8 +664,28 @@ def scenario(name, n, phase, outcome='FAIL', arb_file=False, rename=False,
         repo, state, journals, event, ledger, granica = world(
             base, n, pattern, arb_file, rename, source, phase, name,
             foreign, arb_ledger, sanktsii, history, seed, novelty, objects, live,
-            subject, drugoj_repoid, arb_first, used_sources)
+            subject, drugoj_repoid, arb_first, used_sources, boundary_trace)
         scripts = prepare_scripts(base, mode, mutation, granica or '')
+        if refreeze:
+            # A real lawful v1 creates the registry trace; v2 must not inherit
+            # legacy status from that very side effect. Keep the oracle in memory.
+            full_ledger = ledger.read_bytes()
+            first = [json.loads(line) for line in full_ledger.splitlines()
+                     if json.loads(line).get('t') == 'START'][:2]
+            ledger.write_text(''.join(json.dumps(row) + '\n' for row in first))
+            initial = freeze(scripts, repo, state, subject)
+            if initial.returncode != 0:
+                return f'{name}: lawful v1 expected rc 0, actual {initial.returncode}: {initial.stderr[-280:]}'
+            if not cmd(['git', '-C', str(repo), 'tag', '-l', f'frozen/contracts/{sv}/1']).stdout:
+                return f'{name}: lawful v1 did not create tag'
+            if f'{sv} → ' not in (repo / 'registry/contracts.tsv').read_text():
+                return f'{name}: lawful v1 did not create registry trace'
+            contract = repo / 'contracts' / (sv + '-x.md')
+            contract.write_text(contract.read_text() + '\nv2 delta\n')
+            (repo / 'verdicts/critic' / f'contracts-{sv}-v2.md').write_text('accept\nv2\n')
+            ensure(cmd(['git', '-C', str(repo), 'add', '-A']), 'add v2')
+            gcommit(repo, 'v2 after lawful first freeze')
+            ledger.write_bytes(full_ledger)
         before = ledger.read_bytes() if ledger.exists() and source != 'unreadable' else None
         tag_before = (cmd(['git', '-C', str(repo), 'tag', '-l', f'frozen/contracts/{sv}/*'])
                       if phase == 'freeze' else None)
@@ -632,12 +695,29 @@ def scenario(name, n, phase, outcome='FAIL', arb_file=False, rename=False,
         registry_before = registry.read_bytes() if phase == 'freeze' and registry.exists() else None
         expected = oracle(n, phase, source, foreign, arb_ledger, sanktsii, history,
                           seed, novelty, pattern, objects, arb_file, used_sources)
+        if boundary_trace or refreeze or live == 'branch':
+            # The same immutable input is presented read-only before either door.
+            check = cmd(['bash', str(scripts / 'zamok_predmeta.sh'), '--schet-kritika',
+                         '--sostojanie', str(state), '--repo', str(repo), '--subject', sv,
+                         '--phase', phase, '--object', '0' * 39 + '7'])
+            check_error = (None if check.returncode == 1 and expected in check.stderr else
+                           f'counter expected rc 1 {expected}, actual rc {check.returncode}: {check.stderr[-180:]}')
+        else:
+            check_error = None
         if phase == 'spawn':
             result = gate(scripts, repo, state, journals, event)
         elif source == 'no-state':
             result = freeze(scripts, repo, None, subject)
         else:
             result = freeze(scripts, repo, state, subject)
+        if expected and phase == 'freeze':
+            tag_after = cmd(['git', '-C', str(repo), 'tag', '-l', f'frozen/contracts/{sv}/*'])
+            ensure(tag_after, 'tag after freeze')
+            registry_after = registry.read_bytes() if registry.exists() else None
+            if tag_after.stdout != tag_before.stdout or registry_after != registry_before:
+                return f'{name}: expected rc 1 {expected}; actual rc {result.returncode}; declined freeze changed frozen tag or registry'
+        if check_error:
+            return f'{name}: {check_error}; door actual rc {result.returncode}'
         if not expected and result.returncode != 0:
             return f'{name}: expected rc 0, actual {result.returncode}: {result.stderr[-280:]}'
         if expected and (result.returncode != 1 or expected not in result.stderr):
@@ -651,12 +731,6 @@ def scenario(name, n, phase, outcome='FAIL', arb_file=False, rename=False,
             appended = [json.loads(line) for line in after[len(before):].splitlines()]
             if len(appended) != 1 or appended[0].get('t') != 'START':
                 return f'{name}: green spawn did not append exactly one START'
-        if expected and phase == 'freeze':
-            tag_after = cmd(['git', '-C', str(repo), 'tag', '-l', f'frozen/contracts/{sv}/*'])
-            ensure(tag_after, 'tag after freeze')
-            registry_after = registry.read_bytes() if registry.exists() else None
-            if tag_after.stdout != tag_before.stdout or registry_after != registry_before:
-                return f'{name}: declined freeze changed frozen tag or registry'
         if not expected and phase == 'freeze':
             # С3/Н7: положительная заморозка обязана создать тег и запись реестра —
             # rc 0 без них равносилен тихим потерям заморозки; сверка снимками.
@@ -810,6 +884,20 @@ for _phase in ('spawn', 'freeze'):
          'used_sources': ((4, 'konsultant'),)}))
 CASES += ATTRIBUTION_CASES
 
+# А154-2 / Б-1: no snapshot means new even after registry/empty-commit
+# traces. One shared list is consumed by repo, live, domain and mutation controls.
+B1_CASES = [
+    (f'b1-no-boundary-{trace}-{phase}', 5, phase, 'accept', False, False, 'uncovered',
+     {'boundary_trace': trace})
+    for trace in ('registry', 'empty') for phase in ('spawn', 'freeze')
+] + [
+    ('b1-branch-not-tag-spawn', 5, 'spawn', 'accept', False, False, 'uncovered',
+     {'live': 'branch'}),
+    ('b1-refreeze-v2-six-start', 6, 'freeze', 'accept', False, False, 'third-missing',
+     {'refreeze': True}),
+]
+CASES += B1_CASES
+
 # Ось новизны в repo-режиме БЕЗ границы: toy-репозитории без снимка судят новые
 # предметы — это строгий дефолт конструкции. repo-режим судит СТАРУЮ классификацию
 # режимом --live по снимку границы (Б6).
@@ -889,6 +977,15 @@ for _case in ATTRIBUTION_CASES:
         'selection-conflict': ('selection-conflict-ignored',),
         'consultant-needs-arbitration': ('consultant-without-arbitration',),
     }.get(_name.removeprefix(f'attribution-{_phase}-'), ())
+    STAB_CASES += [(_m, _n, _phase, _outcome, _arb, _rename, _source, _kw)
+                   for _m in _mutations]
+for _case in B1_CASES:
+    _name, _n, _phase, _outcome, _arb, _rename, _source, _kw = _case
+    _mutations = (('registry-fallback-old',) if _kw.get('boundary_trace') == 'registry'
+                  else ('empty-marker-old', 'freeze-empty-marker-old')
+                  if _kw.get('boundary_trace') == 'empty' and _phase == 'freeze'
+                  else ('empty-marker-old',) if _kw.get('boundary_trace') == 'empty'
+                  else ())
     STAB_CASES += [(_m, _n, _phase, _outcome, _arb, _rename, _source, _kw)
                    for _m in _mutations]
 
@@ -1007,6 +1104,7 @@ OLD_DOMAIN = [
       'outcomes_override': ['FAIL', 'accept', 'FAIL', 'accept', 'FAIL', 'accept']}),
 ]
 DOMAIN += ATTRIBUTION_CASES
+DOMAIN += B1_CASES
 
 # Б6: живая классификация установленных scripts/ на снимке границы (Н4/С7) —
 # repo-режим без правки scripts: старый предмет (тег — предок границы) ведёт себя
@@ -1037,6 +1135,7 @@ LIVE_CASES = [
       'arb_first': 'РЕШЕНИЕ',
       'outcomes_override': ['FAIL', 'accept', 'FAIL', 'accept', 'FAIL', 'accept']}),
 ]
+LIVE_CASES += B1_CASES
 
 
 def grammar_numbers(limit=0):
