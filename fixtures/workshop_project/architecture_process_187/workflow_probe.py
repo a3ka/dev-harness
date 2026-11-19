@@ -1061,6 +1061,12 @@ def prepare(root, arch, pinned, variation, action=''):
         git(root, 'tag', 'frozen/contracts/777/1', scenario_head)
     if variation == 'no-rules':
         git(root, 'tag', 'frozen/contracts/777/1')
+    if action == 'freeze':
+        # 154 Б-1: explicit fixture boundary, never production's empty-commit
+        # heuristic. The subject tag is a proven ancestor of this snapshot.
+        git(root, 'tag', 'id/CONTRACT/777')
+        git(root, 'commit', '-q', '--allow-empty', '-m', 'delivered toy boundary 154')
+        git(root, 'tag', 'toy/boundary154')
     record['check_runs'][0]['head_sha'] = git(root, 'rev-parse', 'HEAD')
     if variation == 'ci-missing': record = {'total_count': 0, 'check_runs': []}
     if variation == 'ci-other-sha': record['check_runs'][0]['head_sha'] = 'f' * 40
@@ -1383,6 +1389,30 @@ def live(tools, root, arch, pinned, action, task, trace, role, variation=''):
     env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
     env.update(GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_SYSTEM='/dev/null',
                HARNESS_PROJECT_LAYER_ROOT=str(root), ARCHITECTURE_ROOT=str(arch))
+    state = None
+    if action == 'freeze':
+        # Private copies follow the same boundary-delivery seam as battery 154.
+        private = root.parent / (root.name + '-tools154')
+        scripts = private / 'scripts'
+        scripts.mkdir(parents=True)
+        boundary = git(root, 'rev-parse', 'refs/tags/toy/boundary154')
+        git(root, 'merge-base', '--is-ancestor', 'refs/tags/id/CONTRACT/777', boundary)
+        canonical = '5ca237e4e6bc980c460ede8ee6d85af8a33d0601'
+        for source in (tools / 'scripts').iterdir():
+            if not source.is_file():
+                continue
+            target = scripts / source.name
+            if source.name in ('zamok_predmeta.sh', 'freeze_contract.sh'):
+                text = source.read_text()
+                if canonical not in text:
+                    raise RuntimeError('lost 154 boundary in ' + source.name)
+                target.write_text(text.replace(canonical, boundary))
+            else:
+                target.symlink_to(source.resolve())
+        tools = private
+        state = private / 'state154'
+        state.mkdir()
+        (state / 'uchet.jsonl').write_text('')
     if action == 'done':
         env['ARCH187_CURL_RESPONSE'] = str(ci_record(root))
         env['PATH'] = str(ci_bin(root)) + os.pathsep + env.get('PATH', '')
@@ -1404,6 +1434,8 @@ def live(tools, root, arch, pinned, action, task, trace, role, variation=''):
         command = {'freeze': ['bash', tools / 'scripts/freeze_contract.sh', CONTRACT, 'toy reason', root],
                    'precritic': ['bash', tools / 'scripts/pre_critic.sh', '--repo', root, CONTRACT],
                    'done': ['bash', tools / 'scripts/done_contract.sh', CONTRACT, 'toy reason', root]}[action]
+        if action == 'freeze':
+            command.append(state)
     return run(*command, cwd=root, env=env)
 
 def main():
