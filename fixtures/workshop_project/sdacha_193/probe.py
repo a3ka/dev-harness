@@ -341,6 +341,10 @@ MUTACII_LIB = {
     'PATERN:REF-PREV-HVOST-LJUBOJ':
         (r'^без\ изменений\ с\ предыдущего\ вызова([.]|\ —\ .+)?$',
          r'^без\ изменений\ с\ предыдущего\ вызова'),
+    # Crit193V7 К-09: раскрыт только запрошенный класс, полные карты
+    # достигнутых источников не обходятся. Остальные операции честные.
+    'PATERN:REF-TOLKO-ZAPROSHENNYJ-KLASS':
+        ('ochered+=("$sledujushchie")', ':'),
 }
 MUTACII_NOGI_PRE = {
     # Crit193V1 pre-leg: условие ноги (к) отключено — нога не выполняется.
@@ -1084,6 +1088,37 @@ def kletki_ssylok(miry):
         ('r49-prjamoj-status-s-poyasneniem',
          karta_vyzova('03', zamena={2: 'чисто — ' + previous, 13: 'н/п — без изменений с вызова 99.'}),
          [], (), 0, 'лист зелёный'),
+        # Crit193V7: текущий К-02 ведёт в прямой К-02 исторического 03,
+        # но другая строка источника обязана раскрыться полностью.
+        ('r50-drugoj-klass-net-vyzova', karta_vyzova('04', zamena={2: previous}),
+         [(pred, karta_vyzova('03', zamena={3: previous}))],
+         (), 1, 'отсутствует вызов 2'),
+        ('r51-drugoj-klass-glubzhe', karta_vyzova('04', zamena={2: previous}),
+         [(vtoroj, karta_vyzova('02', zamena={1: previous})),
+          (pred, karta_vyzova('03', zamena={17: 'без изменений с вызова 02.'}))],
+         (), 1, 'отсутствует вызов 1'),
+        ('r52-drugoj-klass-chestnyj', karta_vyzova('04', zamena={2: previous}),
+         [(vtoroj, karta_vyzova('02')),
+          (pred, karta_vyzova('03', zamena={3: previous}))],
+         (), 0, 'лист зелёный'),
+        ('r53-drugoj-klass-glubzhe-chestnyj', karta_vyzova('04', zamena={2: previous}),
+         [(pervyj, karta_vyzova('01')),
+          (vtoroj, karta_vyzova('02', zamena={1: previous})),
+          (pred, karta_vyzova('03', zamena={17: 'без изменений с вызова 02.'}))],
+         (), 0, 'лист зелёный'),
+        ('r54-drugoj-klass-cikl', karta_vyzova('04', zamena={2: previous}),
+         [(vtoroj, karta_vyzova('02', zamena={3: 'без изменений с вызова 03.'})),
+          (pred, karta_vyzova('03', zamena={3: previous}))],
+         (), 1, 'цикл ссылок'),
+        ('r55-drugoj-klass-neodnoznachnost', karta_vyzova('04', zamena={2: previous}),
+         [(vtoroj, karta_vyzova('02')),
+          (pervyj, karta_vyzova('02', zamena={3: 'блок — вход: иной вызов'})),
+          (pred, karta_vyzova('03', zamena={3: previous}))],
+         (), 1, 'неоднозначный вызов 2'),
+        # Цикл карт не равен циклу пары вызов/класс: обе цепи прямые.
+        ('r56-drugoj-klass-vstrechnye-karty', karta_vyzova('04', zamena={2: previous}),
+         [(pred, karta_vyzova('03', zamena={3: 'без изменений с вызова 04.'}))],
+         (), 0, 'лист зелёный'),
     ])
     # Каждый класс последнего FAIL проверяется своим предъявлением, не первой
     # красной точкой объединённого входа; два класса не считаются одним тестом.
@@ -1107,7 +1142,11 @@ def kletki_ssylok(miry):
                     'r43-javnyj-na-predydushchij', 'r44-predydushchij-bez-konteksta',
                     'r45-predydushchij-pervyj', 'r46-predydushchij-vne-grammatiki',
                     'r47-predydushchij-nuli', 'r48-predydushchij-bolshoj',
-                    'r49-prjamoj-status-s-poyasneniem'}:
+                    'r49-prjamoj-status-s-poyasneniem',
+                    'r50-drugoj-klass-net-vyzova', 'r51-drugoj-klass-glubzhe',
+                    'r52-drugoj-klass-chestnyj', 'r53-drugoj-klass-glubzhe-chestnyj',
+                    'r54-drugoj-klass-cikl', 'r55-drugoj-klass-neodnoznachnost',
+                    'r56-drugoj-klass-vstrechnye-karty'}:
                 continue
             exp_rc, exp_marker = rc, marker
             if door == 'karta' and name == 'r11-staged-skryvaet-cel':

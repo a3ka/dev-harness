@@ -111,3 +111,7 @@ PATERN:REF-PREV-BEZ-PERVOGO	scripts/lib_karta_sdachi.sh	r45
 PATERN:REF-PREV-HVOST-LJUBOJ	scripts/lib_karta_sdachi.sh	r46
 PATERN:REF-BEZ-LAST-FAIL	scripts/check_sdacha.sh	r39
 PATERN:REF-BEZ-LAST-FAIL	scripts/check_sdacha.sh	r41
+# Crit193V7 К-09: историческая ссылка другого класса пропущена.
+PATERN:REF-TOLKO-ZAPROSHENNYJ-KLASS	scripts/lib_karta_sdachi.sh	r50
+PATERN:REF-TOLKO-ZAPROSHENNYJ-KLASS	scripts/lib_karta_sdachi.sh	r51
+PATERN:REF-TOLKO-ZAPROSHENNYJ-KLASS	scripts/lib_karta_sdachi.sh	r54

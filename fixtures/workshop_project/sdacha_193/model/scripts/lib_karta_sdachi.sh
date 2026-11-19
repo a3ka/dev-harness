@@ -187,11 +187,32 @@ karta_klass() { # класс, статус, стек пар вызов:клас�
 }
 
 karta_raskryt() {
-    local ryady="$1" klass status resolved result=()
-    while IFS=$'\t' read -r klass status; do
-        resolved="$(karta_klass "$klass" "$status" '')" || { printf '%s' "$resolved"; return 1; }
-        result+=("$klass"$'\t'"$resolved")
-    done <<< "$ryady"
+    local ryady="$1" klass status resolved nom sledujushchie i=0 result=()
+    local -a ochered=("$1")
+    local -A videli=()
+    # Проверяем всю карту каждого достигнутого источника, а не только класс
+    # исходной ссылки. Очередь обходит карты один раз; karta_klass отдельно
+    # различает циклы пар вызов/класс, не запрещая честные встречные ссылки.
+    while (( i < ${#ochered[@]} )); do
+        ryady="${ochered[$i]}"
+        i=$((i + 1))
+        while IFS=$'\t' read -r klass status; do
+            resolved="$(karta_klass "$klass" "$status" '')" || { printf '%s' "$resolved"; return 1; }
+            if [ "$i" -eq 1 ]; then
+                result+=("$klass"$'\t'"$resolved")
+            fi
+            case "$status" in
+                ссылка:*)
+                    nom="${status#ссылка:}"
+                    [ -z "${videli[$nom]:-}" ] || continue
+                    videli[$nom]=1
+                    sledujushchie="$(karta_stroki "${K193_TEKST[$nom]}")" \
+                        || { printf 'вызов %s: %s' "$nom" "$sledujushchie"; return 1; }
+                    ochered+=("$sledujushchie")
+                    ;;
+            esac
+        done <<< "$ryady"
+    done
     printf '%s\n' "${result[@]}"
 }
 
