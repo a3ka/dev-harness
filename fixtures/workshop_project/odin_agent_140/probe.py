@@ -171,7 +171,25 @@ class Mir:
             run(['git', '-c', 'user.name=b', '-c', 'user.email=b@t', 'commit',
                  '-q', '--allow-empty', '-m', 'w'], cwd=str(wt), env=GIT_ENV)
         sha = run(['git', 'rev-parse', 'HEAD'], cwd=str(wt), env=GIT_ENV).stdout.strip()
+        if kontrakty:
+            self.pin_frozen(nnn, wt, sha)
         return str(wt), br, sha
+
+    def pin_frozen(self, nnn, wt, commit):
+        """Fixture-only frozen owner snapshot, independent of later OBJECT/main."""
+        result = self.git(['fetch', '-q', str(wt), commit])
+        assert result.returncode == 0, result.stderr
+        tag = 'frozen/contracts/%s/1' % nnn
+        result = self.git(['tag', '-a', tag, '-m', 'fixture frozen', commit])
+        assert result.returncode == 0, result.stderr
+        obj = self.git(['rev-parse', tag]).stdout.strip()
+        registry = self.repo / 'registry/contracts.tsv'
+        rows = registry.read_text().splitlines() if registry.exists() else []
+        rows = [row for row in rows if not row.startswith(nnn+' → ')]
+        registry.write_text('\n'.join(rows+[nnn+' → '+obj])+'\n')
+        self.git(['add', 'registry/contracts.tsv'])
+        result = self.git(['commit', '-qm', 'pin frozen '+nnn])
+        assert result.returncode == 0, result.stderr
 
     def amend(self, nnn):
         wt = self.root / ('wt%s' % nnn)
@@ -2230,6 +2248,7 @@ def nagrudit_staby():
     src = json.loads(source.read_text(encoding='utf-8'))
     paths = {'model/zamok_predmeta.sh': MODEL}
     src['stab_vhod'].update(object_140.BINDINGS)
+    src['stab_vhod'].update(produkt_140.BINDINGS)
     src['kejsy'] = {k: v['osi'] for k, v in sorted(kejsy().items())}
     paths.update({k: HERE / k for k in src['nositeli'] if k.startswith('materialy/')})
     paths.update({k: STABS / k / 'zamok_predmeta.sh' for k in STAB_MUTACII})

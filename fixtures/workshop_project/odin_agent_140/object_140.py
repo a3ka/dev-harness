@@ -21,6 +21,10 @@ CASES = {
     'q14-chuzhoj-object-v-seredine': 'каждый-вердикт-связан-с-тем-же-OBJECT',
     'q15-ispolnimyj-verdikt': 'mode-100755-не-прозрачен',
     'q16-pustoj-kommit': 'пустой-коммит-в-хвосте-не-сдача',
+    'q25-verdikt-i-review': 'проверенный-reviewer;verdict+.review;OBJECT-сохранён',
+    'q26-review-i-postoronnij-put': 'verdict+.review+product;новый-OBJECT',
+    'q27-review-symlink': '.review-только-mode100644;отказ-без-START',
+    'q28-review-bez-verdikta': '.review-only;канонический-OBJECT-родителя;допуск',
 }
 BINDINGS = {
     's62-object-tolko-tip': ['q01-verdikt-ne-sdvigaet-object', 'q11-object-tolko-chitaet'],
@@ -30,6 +34,8 @@ BINDINGS = {
     's66-verdikt-bez-binding': ['q14-chuzhoj-object-v-seredine'],
     's67-verdikt-bez-mode': ['q15-ispolnimyj-verdikt'],
     's68-verdikt-pustoj': ['q16-pustoj-kommit'],
+    's73-review-ne-prozrachen': ['q25-verdikt-i-review'],
+    's74-review-only-novyj-koren': ['q28-review-bez-verdikta'],
 }
 CASES.update(co_review_140.CASES)
 BINDINGS.update(co_review_140.BINDINGS)
@@ -53,7 +59,8 @@ def dobavit(K, p):
         return wt, br, obj
 
     def verdict(wt, obj, role='adversary', subject='140', suffix='impl-v1',
-                duplicate=False, executable=False, symlink=False, mixed=False):
+                duplicate=False, executable=False, symlink=False, mixed=False,
+                review=False, review_symlink=False):
         channel = 'review' if role == 'reviewer' else 'adversary'
         path = wt / ('verdicts/%s/contracts-%s-%s.md' % (channel, subject, suffix))
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -66,6 +73,13 @@ def dobavit(K, p):
             path.write_text(body)
             if executable:
                 path.chmod(0o755)
+        if review:
+            note = wt / '.review/2026-11-19-140.md'
+            note.parent.mkdir(exist_ok=True)
+            if review_symlink:
+                note.symlink_to('untrusted')
+            else:
+                note.write_text('---\nobject: '+obj+'\n---\n# Findings\n')
         if mixed:
             # All other fields look honest; the path whitelist alone must refuse this.
             (wt / 'verdicts/adversary/product.py').write_text('OBJECT='+obj+'\n')
@@ -131,8 +145,26 @@ def dobavit(K, p):
             verdict(wt, obj, suffix='exec', executable=True)
         elif name == 'q16-pustoj-kommit':
             git(wt, 'commit', '-q', '--allow-empty', '-m', 'empty')
+        elif name in ('q25-verdikt-i-review', 'q26-review-i-postoronnij-put',
+                      'q27-review-symlink', 'q28-review-bez-verdikta'):
+            verdict(wt, obj, role='reviewer', suffix='review', review=True,
+                    review_symlink=(name == 'q27-review-symlink'))
+            if name == 'q26-review-i-postoronnij-put':
+                (wt / 'product.txt').write_text('not a verdict artifact\n')
+                git(wt, 'add', '-A')
+                git(wt, 'commit', '-qm', 'new product', role='architect')
+                requested = git(wt, 'rev-parse', br)
+                want = 0
+            elif name == 'q28-review-bez-verdikta':
+                (wt / '.review/2026-11-19-140.md').write_text('# standalone findings\n')
+                git(wt, 'commit', '-qam', 'standalone review', role='reviewer')
+                want = 0
+            elif name == 'q25-verdikt-i-review':
+                want = 0
         if name not in ('q05-chuzhoj-predmet', 'q06-chuzhoj-avtor',
-                        'q07-dva-object', 'q08-symlink'):
+                        'q07-dva-object', 'q08-symlink',
+                        'q25-verdikt-i-review', 'q26-review-i-postoronnij-put',
+                        'q27-review-symlink', 'q28-review-bez-verdikta'):
             verdict(wt, obj, suffix='last')
         if name == 'q01-verdikt-ne-sdvigaet-object':
             # A second honest judge commit with a different body, same independent OBJECT.
@@ -176,7 +208,7 @@ def mutacii(z):
             '  entries="$(git -C "$wt" rev-list "$base..$tip")" || return 1',
             '  entries="$tip" # стаб: нет истории'),
         's64-verdikt-bez-puti': lambda t: z(t,
-            '      [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\\.md$ ]] || return 1',
+            '      [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\\.md$ \\\n        || "$p" =~ ^\\.review/[A-Za-z0-9._-]+\\.md$ ]] || return 1',
             '      : # стаб: любой путь'),
         's65-verdikt-bez-avtora': lambda t: z(t,
             '      [ "$(git -C "$wt" show -s --format=%an "$c")" = "$role" ] \\\n        && [ "$(git -C "$wt" show -s --format=%cn "$c")" = "$role" ] || return 1',
@@ -190,6 +222,12 @@ def mutacii(z):
         's68-verdikt-pustoj': lambda t: z(t,
             '    [ -n "$paths" ] || return 1',
             '    [ -n "$paths" ] || continue # стаб: пустой коммит прозрачен'),
+        's73-review-ne-prozrachen': lambda t: z(t,
+            '      || "$p" =~ ^\\.review/[A-Za-z0-9._-]+\\.md$ ]] \\',
+            '      ]] \\'),
+        's74-review-only-novyj-koren': lambda t: z(t,
+            '    base="$(object_kandidata "$wt" "$n" "$tip^1")" || return 1',
+            '    printf \'%s\\n\' "$tip"; return 0 # стаб: .review-only новый корень'),
         **co_review_140.mutacii(z),
     }
 
@@ -252,6 +290,10 @@ def main():
         return prepare(p)
     K = p.kejsy()
     failed = 0
+    bindings = dict(BINDINGS)
+    bindings.update({key: [name for name in inputs if name.startswith('q')]
+                     for key, inputs in p.produkt_140.BINDINGS.items()
+                     if any(name.startswith('q') for name in inputs)})
     for name in CASES:
         problems = p.progon(p.MODEL, name, K[name]['run'])
         print('MODEL', name, problems or 'ok')
@@ -259,9 +301,9 @@ def main():
     # Mutants live only in this isolated fixture world, never in production.
     with tempfile.TemporaryDirectory(prefix='object140-') as directory:
         base = p.MODEL.read_text()
-        for mutant, inputs in BINDINGS.items():
+        for mutant, inputs in bindings.items():
             path = Path(directory) / (mutant+'.sh')
-            path.write_text(mutacii(p._z)[mutant](base))
+            path.write_text(p.STAB_MUTACII[mutant](base))
             syntax = p.run([p.BASH, '-n', str(path)])
             if syntax.returncode:
                 print('INVALID_MUTANT', mutant, syntax.stderr)
@@ -278,7 +320,7 @@ def main():
         failed += not bool(problems)
     failed += prepare(p, before=True)
     print('OBJECT140_COUNTS cases=%d mutants=%d bindings=%d all_cases=%d' %
-          (len(CASES), len(BINDINGS), sum(map(len, BINDINGS.values())), len(K)))
+          (len(CASES), len(bindings), sum(map(len, bindings.values())), len(K)))
     print('OBJECT140_FAILURES', failed)
     return int(bool(failed))
 

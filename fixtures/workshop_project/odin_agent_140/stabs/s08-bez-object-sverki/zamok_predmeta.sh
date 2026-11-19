@@ -8,7 +8,7 @@
 # мутации по маркерам [Dn]. v+1 (слово владельца 2026-11-12, Sol S2 §2.1):
 # сдача держателя — событие рантайма session_exit kind=normal (структурные
 # поля ПОСЛЕДНЕЙ строки журнала) наравне с yield-литералом; класс риска
-# судимого кандидата — из ДЕРЕВА его OBJECT, а не из $REPO (main). v5
+# судимого предмета — из закреплённого frozen его владельца. v5
 # (слово владельца 2026-11-18 ~14:05 UTC, §4 батча №2; заявка контракта
 # 199:19): у рабочего item события спавна обязателен реальный isolated
 # === true из ПОЛЯ item; строка START несёт факт isolated ([D32]/[D33]).
@@ -30,8 +30,8 @@
 #   --repo      R  — реестр: registry/pauzy.tsv (ПАУЗА владельца), теги
 #                    done/contracts/<NNN>/* (слот закрыт), registry/
 #                    risk-legacy.tsv (класс старых frozen по blob, [D30]);
-#                    contracts/<NNN>-*.md суда класса НЕ несут — [D31] класс
-#                    судимого кандидата читается из ДЕРЕВА его OBJECT.
+#                    registry/contracts.tsv закрепляет точный frozen владельца;
+#                    декларации OBJECT не меняют обязательства суда.
 #
 # ЗАМКНУТЫЕ АЛФАВИТЫ (норма 041; байты-разделители исключены из классов значений):
 #   SUBJECT — строка задания `^SUBJECT=[0-9]{3}$`, ровно одна (/m, якорь ^…$);
@@ -104,19 +104,31 @@ USAGE
 otp()  { printf 'ОТКАЗ: %s: %s\n' "$1" "$2" >&2; exit 1; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$1" >&2; exit 2; }
 
+# Дельта tip всегда против первого родителя линии wip; root — против пустого дерева.
+puti_kommita() {  # <worktree> <commit>
+  local parent
+  if parent="$(git -C "$1" rev-parse --verify "$2^1" 2>/dev/null)"; then
+    git -C "$1" diff-tree --no-commit-id --name-only --no-renames -r "$parent" "$2"
+  else
+    git -C "$1" diff-tree --root --no-commit-id --name-only --no-renames -r "$2"
+  fi
+}
+
 # [D43 verdict-object] Один resolver для D9, передачи и pre_judge.
 # Только линейный хвост обычных verdict-файлов этого предмета прозрачен.
 object_kandidata() {  # <worktree> <NNN> <ref> → исходный OBJECT
   local wt="$1" n="$2" ref="$3" tip paths p base='' c parents role dir body value entries
   tip="$(git -C "$wt" rev-parse --verify "$ref^{commit}" 2>/dev/null)" || return 1
-  paths="$(git -C "$wt" diff-tree --root --no-commit-id --name-only --no-renames -r "$tip")" || return 1
+  paths="$(puti_kommita "$wt" "$tip")" || return 1
   [ -n "$paths" ] || return 1 # [D50 empty-tip]
   # Непредметный/смешанный коммит — новая кодовая граница, не вердиктный хвост.
   while IFS= read -r p; do
-    [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\.md$ ]] \
+    [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\.md$ \
+      || "$p" =~ ^\.review/[A-Za-z0-9._-]+\.md$ ]] \
       || { printf '%s\n' "$tip"; return 0; }
   done <<< "$paths"
   while IFS= read -r p; do
+    [[ "$p" == .review/* ]] && continue
     body="$(git -C "$wt" show "$tip:$p" 2>/dev/null)" || return 1
     value="$(printf '%s\n' "$body" | grep '^OBJECT=')" || return 1
     [[ "$value" =~ ^OBJECT=[0-9a-f]{40}$ ]] || return 1
@@ -124,7 +136,11 @@ object_kandidata() {  # <worktree> <NNN> <ref> → исходный OBJECT
     [ -z "$base" ] || [ "$base" = "$value" ] || return 1
     base="$value"
   done <<< "$paths"
-  [ "$base" != "$tip" ] || return 1
+  # .review-only не самодекларирует корень: наследует канонический OBJECT родителя.
+  if [ -z "$base" ]; then
+    base="$(object_kandidata "$wt" "$n" "$tip^1")" || return 1
+  fi
+  [ -n "$base" ] && [ "$base" != "$tip" ] || return 1
   git -C "$wt" merge-base --is-ancestor "$base" "$tip" 2>/dev/null || return 1
   # [D49 object-root] Строгий предок сам обязан быть кодовой границей.
   # Рекурсия убывает по ancestry; V1(OBJECT=C) не становится новым корнем V2.
@@ -139,14 +155,16 @@ object_kandidata() {  # <worktree> <NNN> <ref> → исходный OBJECT
     [ -n "$paths" ] || return 1
     while IFS= read -r p; do
       # [D45 verdict-path] Белый список, а не исключение «всё кроме scripts».
-      [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\.md$ ]] || return 1
+      [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\.md$ \
+        || "$p" =~ ^\.review/[A-Za-z0-9._-]+\.md$ ]] || return 1
       dir="${p#verdicts/}"; dir="${dir%%/*}"
-      case "$dir" in review) role=reviewer ;; *) role="$dir" ;; esac
+      case "$dir" in review|.review) role=reviewer ;; *) role="$dir" ;; esac
       # [D46 verdict-author] Автор и коммиттер того же судейского канала.
       [ "$(git -C "$wt" show -s --format=%an "$c")" = "$role" ] \
         && [ "$(git -C "$wt" show -s --format=%cn "$c")" = "$role" ] || return 1
       # [D47 verdict-blob] Не удаление/симлинк/исполняемый файл.
       [[ "$(git -C "$wt" ls-tree "$c" -- "$p")" == "100644 blob "* ]] || return 1
+      [[ "$p" == .review/* ]] && continue
       body="$(git -C "$wt" show "$c:$p" 2>/dev/null)" || return 1
       value="$(printf '%s\n' "$body" | grep '^OBJECT=')" || return 1
       # [D48 verdict-binding] Ровно одна самостоятельная строка, тот же OBJECT.
@@ -261,11 +279,9 @@ na_pauze() {  # <NNN>
 # [D18 done-uchet] done-тег закрывает слот предмета (локальные теги чекаута).
 predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # [D13 klass-riska] строка «КЛАСС РИСКА:» обязательна: нет декларации — класс
-# не определён (fail-closed, слово владельца 24.10). [D31 klass-iz-kandidata]
-# (слово владельца 2026-11-12): ИСТОЧНИК класса судимого кандидата — ДЕРЕВО
-# его OBJECT (git-объекты репозитория автора), НЕ $REPO/contracts (main) и НЕ
-# грязный рабочий каталог автора; боль 991 v3: «обычный» в кандидате против
-# «рисковый» в main молча отказывала спавн критика KLASS_RISKA_NET.
+# не определён (fail-closed, слово владельца 24.10). [D31 frozen-risk]
+# По слову 19.11 класс — дерево закреплённого frozen владельца предмета,
+# не дерево OBJECT, main/latest или грязный рабочий каталог.
 # Каталог контрактов кандидата: contracts/, у сессии проекта — .harness/
 # contracts/ (измерено 02.11: адверсарий по бэкенд 148 не спавнился); при
 # обоих приоритет у contracts/. Записи не-blob (симлинк/каталог с именем
@@ -342,13 +358,18 @@ rabochij_json() {
   jq -cSrs --arg r "$REPO_ID" --arg n "$1" \
     '[.[] | select(.t=="START" and .repoId==$r and .subjectId==$n and .klass=="rabochij")] | last // empty' "$LEDGER"
 }
-kontrakt_v_kandidate() {
-  local dir entries
-  for dir in contracts .harness/contracts; do
-    entries="$(git -C "$2" ls-tree "$3:$dir" 2>/dev/null \
-      | awk -F'\t' -v n="$1" '$2 ~ "^" n "-[^/]*[.]md$" {print $2}')"
-    [ -z "$entries" ] || return 0
-  done
+frozen_predmeta() {  # <NNN> → commit закреплённого annotated frozen
+  local row object ref
+  row="$(git -C "$REPO" show HEAD:registry/contracts.tsv 2>/dev/null | grep -E "^$1 → [0-9a-f]{40}$")" || return 1
+  [[ "$row" =~ ^$1\ →\ [0-9a-f]{40}$ ]] || return 1
+  object="${row#* → }"
+  [ "$(git -C "$REPO" cat-file -t "$object" 2>/dev/null)" = tag ] || return 1
+  while IFS= read -r ref; do
+    if [ "$ref" = "$object" ]; then
+      git -C "$REPO" rev-parse --verify "$object^{commit}"
+      return $?
+    fi
+  done < <(git -C "$REPO" for-each-ref --format='%(objectname)' "refs/tags/frozen/contracts/$1/")
   return 1
 }
 peredacha_iz_ucheta() {
@@ -431,7 +452,7 @@ sys.exit(1 if next(Draft202012Validator(schema).iter_errors(document), None) els
     || perenos_otkaz PEREDACHA_REMOTE 'origin продукта не канонический'
   # Пустой OBJECT свидетельства — дефект результата, не расхождение носителя.
   # Проверяем до resolver: [D50] иначе делает этот прежний отказ недостижимым.
-  [ -n "$(git -C "$P_WT" diff-tree --root --no-commit-id --name-only -r "$P_OBJECT" 2>/dev/null)" ] \
+  [ -n "$(puti_kommita "$P_WT" "$P_OBJECT")" ] \
     || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'пустой продуктовый результат'
   [ "$(object_kandidata "$P_WT" "$n" "refs/heads/$P_BRANCH")" = "$P_OBJECT" ] \
     || perenos_otkaz OBJECT_RASHODITSJA 'живой tip продукта изменился'
@@ -799,16 +820,14 @@ EOF
         otp OBJECT_RASHODITSJA "предмет $sv: вердиктный хвост не сохраняет OBJECT"
       }
       : # стаб: сверка OBJECT с веткой снята
-      # Строка КЛАСС РИСКА обязательна (слово владельца 2026-10-24); [D29] класс
-      # определён только при согласии ВСЕХ contracts/<NNN>-*.md предмета — иначе
-      # отказ с перечнем неоднозначных файлов (голый net_stroki — от мутаций
-      # стабов над klass_riska — отказывается тем же именем); [D31] ИСТОЧНИК —
-      # ДЕРЕВО OBJECT судимого кандидата (tip уже сверен), НЕ $REPO/contracts.
-      kr="$(klass_riska "$sv" "$r_wt" "$obj")"
-      # [D42 frozen-fallback] Только отсутствие контракта, не испорченный кандидат.
-      if [ -n "$P_FROZEN" ] && ! kontrakt_v_kandidate "$sv" "$r_wt" "$obj"; then
-        kr="$(klass_riska "$sv" "$REPO" "$P_FROZEN")"
+      # [D42 frozen-risk] Всегда frozen соответствующего владельца, не OBJECT.
+      if [ -z "$P_FROZEN" ]; then
+        P_FROZEN="$(frozen_predmeta "$sv")" || {
+          mutexi_snyat_vse
+          otp KLASS_RISKA_NET "предмет $sv: закреплённый frozen недоступен"
+        }
       fi
+      kr="$(klass_riska "$sv" "$REPO" "$P_FROZEN")"
       case "$kr" in
         risikovyj|obychnyj) : ;;
         *)

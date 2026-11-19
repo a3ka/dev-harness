@@ -11,11 +11,17 @@ CASES = {
     'q21-runtime-source-md': 'mode100644;source-md;runtime-из-OBJECT',
     'q22-runtime-python-md': 'mode100644;runpy-md;runtime-из-OBJECT',
     'q23-runtime-chestnyj-ekvivalent': 'инертная-правка-тела;законный-хвост-зелён',
+    'q24-nepustoj-finalnyj-merge': 'merge;дельта-к-первому-родителю;новый-OBJECT-допущен',
+    'q29-stancija-frozen-obychnyj-object-riskovyj': 'станционный-владелец;frozen-обычный;OBJECT-рисковый;допуск',
+    'q30-stancija-frozen-riskovyj-object-obychnyj': 'станционный-владелец;frozen-рисковый;OBJECT-обычный;отказ',
+    'q31-stancija-frozen-net': 'станционный-владелец;frozen-tag-нет;fail-closed',
 }
 BINDINGS = {
     's69-object-bez-kornja': ['q17-object-predydushchego-verdikta', 'q18-object-root-resolver'],
     's70-object-pustoj-tip': ['q19-pustoj-finalnyj-tip', 'q20-pustoj-finalnyj-merge'],
     's71-runtime-iz-tip': ['q21-runtime-source-md', 'q22-runtime-python-md'],
+    's72-merge-bez-pervogo-roditelja': ['q24-nepustoj-finalnyj-merge'],
+    's75-stancija-bez-frozen-ref': ['q31-stancija-frozen-net'],
 }
 
 
@@ -36,8 +42,9 @@ def dobavit(K, p):
         return git(wt, 'rev-parse', 'HEAD')
 
     def cell(m, door, name, baseline_runtime=False):
+        risk = 'рисковый' if name == 'q30-stancija-frozen-riskovyj-object-obychnyj' else 'обычный'
         wt, br, obj = m.worktree('140', kontrakty=[
-            ('fajl', '140-fixture.md', 'КЛАСС РИСКА: обычный\n')])
+            ('fajl', '140-fixture.md', 'КЛАСС РИСКА: '+risk+'\n')])
         wt = Path(wt)
         runtime = name in ('q21-runtime-source-md', 'q22-runtime-python-md',
                            'q23-runtime-chestnyj-ekvivalent')
@@ -52,6 +59,28 @@ def dobavit(K, p):
             obj = git(wt, 'rev-parse', 'HEAD')
         m.start('140', 'Arch140', wt=str(wt), branch=br)
         m.zhurnal('Arch140', sdal=True)
+        if name.startswith(('q29-', 'q30-', 'q31-')):
+            before = m.ledger.read_bytes()
+            if name == 'q31-stancija-frozen-net':
+                m.git(['tag', '-d', 'frozen/contracts/140/1'])
+                want, reason = 1, 'KLASS_RISKA_NET'
+            else:
+                opposite = 'обычный' if risk == 'рисковый' else 'рисковый'
+                (wt / 'contracts/140-fixture.md').write_text('КЛАСС РИСКА: '+opposite+'\n')
+                git(wt, 'commit', '-qam', 'different OBJECT risk', role='architect')
+                obj = git(wt, 'rev-parse', br)
+                want, reason = (1, 'ADVERSARIJ_DO_REVJUERA') if risk == 'рисковый' else (0, None)
+            event = m.sobytie('judge.json', [p.item('reviewer', 'Risk140',
+                                ['SUBJECT=140', 'OBJECT='+obj])])
+            r = p.sudit(door, m, event)
+            problems = [p.k_rc(r, want, 'frozen-станционного-владельца')]
+            if want:
+                problems += [p.k_prichina(r, reason, 'причина'),
+                             None if m.ledger.read_bytes() == before else 'отказ изменил START/счёт']
+            else:
+                problems += [None if m.ledger.read_bytes().startswith(before) else 'START переписан',
+                             None if len(m.ledg()) == 2 and m.ledg()[-1].get('object') == obj else 'счёт/OBJECT сдвинут']
+            return problems
         m.start('140', 'Adv140', klass='sudja', rol='adversary', obj=obj, zanyat=False)
         m.zhurnal('Adv140', sdal=True)
         before = m.ledger.read_bytes()
@@ -72,6 +101,21 @@ def dobavit(K, p):
             git(wt, 'commit', '-q', '--allow-empty', '-m', 'empty main')
             git(wt, 'merge', '-q', '--no-ff', 'empty-side', '-m', 'empty merge')
             requested = git(wt, 'rev-parse', 'HEAD')
+        elif name == 'q24-nepustoj-finalnyj-merge':
+            git(wt, 'switch', '-q', '-c', 'code-side')
+            (wt / 'product.py').write_text('real_merge = True\n')
+            git(wt, 'add', '-A')
+            git(wt, 'commit', '-qm', 'side code', role='architect')
+            git(wt, 'switch', '-q', br)
+            git(wt, 'merge', '-q', '--no-ff', 'code-side', '-m', 'nonempty merge', role='architect')
+            tip = git(wt, 'rev-parse', br)
+            event = m.sobytie('judge.json', [p.item('reviewer', 'Merge140',
+                                ['SUBJECT=140', 'OBJECT='+tip])])
+            r = p.sudit(door, m, event)
+            return [p.k_rc(r, 0, 'непустой-merge'),
+                    None if m.ledger.read_bytes().startswith(before) else 'переписан START',
+                    None if len(m.ledg()) == 3 and m.ledg()[-1].get('object') == tip else 'не новый OBJECT',
+                    None if git(wt, 'rev-parse', br) == tip else 'сдвинута рабочая ветка']
         else:
             honest = name == 'q23-runtime-chestnyj-ekvivalent'
             body = ('print("TIP_RUNTIME")\n' if python else 'printf "TIP_RUNTIME\\n"\n') if not honest else '# unchanged runtime\n'+body
@@ -130,6 +174,12 @@ def mutacii(z):
         's71-runtime-iz-tip': lambda t: z(t,
             '  git -C "$REPO" -c core.hooksPath=/dev/null worktree add --quiet --detach "$EVENT" "$resolved" \\',
             '  git -C "$REPO" -c core.hooksPath=/dev/null worktree add --quiet --detach "$EVENT" "refs/heads/$HOLDER_ARG" \\'),
+        's72-merge-bez-pervogo-roditelja': lambda t: z(t,
+            '  paths="$(puti_kommita "$wt" "$tip")" || return 1',
+            '  paths="$(git -C "$wt" diff-tree --root --no-commit-id --name-only --no-renames -r "$tip")" || return 1'),
+        's75-stancija-bez-frozen-ref': lambda t: z(t,
+            '  return 1\n}\nperedacha_iz_ucheta()',
+            '  git -C "$REPO" rev-parse --verify "$object^{commit}"\n}\nperedacha_iz_ucheta()'),
     }
 
 

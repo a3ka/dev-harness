@@ -11,8 +11,8 @@ CASES = {
     'p04-produkt-bez-kontrakta': 'суд-продукта;точный-frozen-станции',
     'p05-frozen-riskovyj': 'frozen-рисковый;ревьюер-до-адверсария',
     'p06-frozen-ne-main-ne-latest': 'frozen-точный;новый-main-и-tag-не-источники',
-    'p07-kontrakt-kandidata-prioritet': 'кандидат-обычный;frozen-рисковый;без-fallback',
-    'p08-kontrakt-kandidata-isporchen': 'кандидат-без-декларации;fallback-запрещён',
+    'p07-kontrakt-kandidata-prioritet': 'OBJECT-обычный;frozen-рисковый;приоритет-frozen',
+    'p08-kontrakt-kandidata-isporchen': 'OBJECT-без-декларации;frozen-обычный;приоритет-frozen',
     'p09-frozen-net': 'передача;нет-frozen;отказ-до-записей',
     'p10-frozen-podmenen': 'передача;tag-object-подменён',
     'p11-avtor-produkta-chuzhoj': 'передача;автор-продуктового-коммита-не-рабочий',
@@ -36,6 +36,17 @@ CASES = {
     'p29-net-svidetelstva': 'суд;подложная-PEREDACHA-без-Git-свидетельства',
     'p30-pravka-nositelya-posle-peredachi': 'суд;remote-после-передачи-перепроверяется',
     'p31-verdikt-posle-peredachi': 'передача;вердиктный-хвост;OBJECT-и-proof-неизменны',
+    'p32-frozen-obychnyj-object-riskovyj': 'OBJECT-рисковый;frozen-обычный;reviewer-допущен',
+    'p33-peredacha-nepustogo-merge': 'передача-197;непустой-merge;author-и-START-сохранены',
+}
+
+BINDINGS = {
+    's56-frozen-vmesto-kandidata': [
+        'p07-kontrakt-kandidata-prioritet', 'p08-kontrakt-kandidata-isporchen',
+        'p32-frozen-obychnyj-object-riskovyj',
+        'q29-stancija-frozen-obychnyj-object-riskovyj',
+        'q30-stancija-frozen-riskovyj-object-obychnyj'],
+    's76-receipt-merge-bez-roditelja': ['p33-peredacha-nepustogo-merge'],
 }
 
 
@@ -44,7 +55,7 @@ def dobavit(K, p):
         return p.run([p.BASH, str(door), '--peredat', '--sostojanie', str(m.sost),
                       '--zhurnaly', str(m.zhurnaly), '--repo', str(m.repo), '197', receipt])
 
-    def product(m, contract=None, author='implementer', empty=False):
+    def product(m, contract=None, author='implementer', empty=False, merge=False):
         wt = m.root / 'product'
         wt.mkdir()
         def git(*args):
@@ -63,10 +74,17 @@ def dobavit(K, p):
             (wt / 'contracts/197-product.md').write_text(contract, encoding='utf-8')
         git('add', '-A')
         git('commit', '-q', '--allow-empty', '-m', 'delivered')
+        if merge:
+            git('switch', '-q', '-c', 'merge-side')
+            (wt / 'merged.txt').write_text('nonempty delivery against first parent\n')
+            git('add', '-A')
+            git('commit', '-qm', 'side payload')
+            git('switch', '-q', branch)
+            git('merge', '-q', '--no-ff', 'merge-side', '-m', 'delivered merge')
         return wt, branch, git('rev-parse', 'HEAD')
 
     def setup(m, contract=None, risk='обычный', author='implementer', empty=False,
-              receipt_author='orchestrator', extra=False, conflict=False):
+              receipt_author='orchestrator', extra=False, conflict=False, merge=False):
         m.kontrakt('197', risk)
         if conflict:
             (m.repo / 'contracts/197-second.md').write_text('КЛАСС РИСКА: рисковый\n', encoding='utf-8')
@@ -79,7 +97,7 @@ def dobavit(K, p):
         wt0, br0, _ = m.worktree('197')
         m.start('197', 'Impl197', rol='implementer', wt=wt0, branch=br0)
         m.zhurnal('Impl197', sdal=True)
-        wt, branch, obj = product(m, contract, author, empty)
+        wt, branch, obj = product(m, contract, author, empty, merge)
         worker = m.ledg()[0]
         digest = hashlib.sha256(json.dumps(worker, sort_keys=True, separators=(',', ':'),
                                           ensure_ascii=False).encode()).hexdigest()
@@ -124,6 +142,7 @@ def dobavit(K, p):
 
     def p01(m, door):
         wt, br, obj = product(m, 'КЛАСС РИСКА: обычный\n')
+        m.pin_frozen('197', wt, obj)
         event = m.sobytie('start.json', [p.item('implementer', 'Impl197',
                            ['SUBJECT=197', 'WORKTREE='+str(wt), 'BRANCH='+br], isolated=True)])
         r = p.sudit(door, m, event)
@@ -140,8 +159,8 @@ def dobavit(K, p):
         return refusal(judge(door, m, dict(obj=obj), obj=p.OBJECT_DUMMY), 'OBJECT_RASHODITSJA')
     cell('p02-produktovyj-object-chuzhoj', p02)
 
-    def p03(m, door):
-        s = setup(m)
+    def p03(m, door, merge=False):
+        s = setup(m, merge=merge)
         before = p.snimok_fajlov(m.sost)
         tip0 = p.run(['git', 'rev-parse', s['old_br']], cwd=s['old_wt']).stdout
         r = command(door, m, s['receipt'])
@@ -159,6 +178,7 @@ def dobavit(K, p):
                 None if p.run(['git','rev-parse',s['old_br']],cwd=s['old_wt']).stdout==tip0 else 'ветка рабочего сдвинута',
                 None if p.run(['git','rev-parse',s['branch']],cwd=str(s['wt'])).stdout.strip()==s['obj'] else 'продукт сдвинут']
     cell('p03-peredacha-zapis', p03)
+    cell('p33-peredacha-nepustogo-merge', lambda m, d: p03(m, d, merge=True))
 
     def judge_case(m, door, variant):
         contract = None
@@ -167,9 +187,10 @@ def dobavit(K, p):
         reason = None
         if variant in ('risky','present'):
             risk='рисковый'; role='reviewer'
-        if variant=='risky': reason='ADVERSARIJ_DO_REVJUERA'
+        if variant in ('risky', 'present'): reason='ADVERSARIJ_DO_REVJUERA'
         if variant=='present': contract='КЛАСС РИСКА: обычный\n'
-        if variant=='bad-contract': contract='# no declaration\n'; reason='KLASS_RISKA_NET'
+        if variant=='bad-contract': contract='# no declaration\n'; role='reviewer'
+        if variant=='opposite': contract='КЛАСС РИСКА: рисковый\n'; role='reviewer'
         if variant=='conflict': reason='KLASS_RISKA_NET'
         s=setup(m,contract=contract,risk=risk,conflict=(variant=='conflict'))
         fixture_transfer(m,s)
@@ -209,6 +230,7 @@ def dobavit(K, p):
     for name, variant in [
         ('p04-produkt-bez-kontrakta','good'),('p05-frozen-riskovyj','risky'),
         ('p06-frozen-ne-main-ne-latest','newer'),('p07-kontrakt-kandidata-prioritet','present'),
+        ('p32-frozen-obychnyj-object-riskovyj','opposite'),
         ('p08-kontrakt-kandidata-isporchen','bad-contract'),('p20-pravka-ucheta','ledger'),
         ('p21-pustoj-start-ne-peredacha','new-start'),('p22-povtornyj-sud','repeat'),
         ('p25-uchet-start-podmenen','start-edit'),('p28-frozen-derevo-protivorechivo','conflict'),
@@ -337,19 +359,22 @@ def mutacii(z):
             '        [ "$(printf \'%s\' "$transfer" | jq -cS .proof)" = "$(printf \'%s\' "$P_JSON" | jq -cS .)" ] \\',
             '        true \\'),
         's56-frozen-vmesto-kandidata': lambda t:z(t,
-            '      if [ -n "$P_FROZEN" ] && ! kontrakt_v_kandidate "$sv" "$r_wt" "$obj"; then',
-            '      if [ -n "$P_FROZEN" ]; then'),
+            '      kr="$(klass_riska "$sv" "$REPO" "$P_FROZEN")"',
+            '      kr="$(klass_riska "$sv" "$r_wt" "$obj")"'),
         's57-frozen-iz-main': lambda t:z(t,
-            '        kr="$(klass_riska "$sv" "$REPO" "$P_FROZEN")"',
-            '        kr="$(klass_riska "$sv" "$REPO" HEAD)"'),
+            '      kr="$(klass_riska "$sv" "$REPO" "$P_FROZEN")"',
+            '      kr="$(klass_riska "$sv" "$REPO" HEAD)"'),
         's58-receipt-bez-append': lambda t:z(t,
             '    \'{t:"PEREDACHA",repoId:$r,subjectId:$n,receipt:$c,proof:$proof,at:$at}\' >> "$LEDGER"',
             '    \'{t:"PEREDACHA",repoId:$r,subjectId:$n,receipt:$c,proof:$proof,at:$at}\' > /dev/null'),
         's59-receipt-bez-reestra': lambda t:z(t,
             '  [ "$reg" = "$n → $pobj" ] \\', '  true \\'),
         's60-receipt-pustoj-rezultat': lambda t:z(t,
-            '  [ -n "$(git -C "$P_WT" diff-tree --root --no-commit-id --name-only -r "$P_OBJECT" 2>/dev/null)" ] \\',
+            '  [ -n "$(puti_kommita "$P_WT" "$P_OBJECT")" ] \\',
             '  true \\'),
+        's76-receipt-merge-bez-roditelja': lambda t:z(t,
+            '  [ -n "$(puti_kommita "$P_WT" "$P_OBJECT")" ] \\',
+            '  [ -n "$(git -C "$P_WT" diff-tree --root --no-commit-id --name-only -r "$P_OBJECT" 2>/dev/null)" ] \\'),
         's61-receipt-bez-grammatiki': lambda t:z(t,
             "    1) perenos_otkaz PEREDACHA_NEDOSTOVERNA 'схема свидетельства' ;;",
             "    1) : ;; # стаб: схема игнорируется"),
