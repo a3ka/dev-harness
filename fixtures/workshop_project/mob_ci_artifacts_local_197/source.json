@@ -185,6 +185,48 @@
       "kletka": "s01-styk-sbor-agregat",
       "prichina": "ORACLE_TAMPERED: агрегат 143: снимок отсутствует:",
       "defekt": "поставляемый оригинал удалён при прежнем source.json; пропуск s01 или NOT_RUN вместо отказа запрещён"
+    },
+    "stab_s01_snimok_net_bez_skripta": {
+      "oblast": "orakul",
+      "rc": 2,
+      "kletka": "s01-styk-sbor-agregat",
+      "prichina": "ORACLE_TAMPERED: агрегат 143: снимок отсутствует:",
+      "defekt": "снимок удалён при удалённом скрипте отдельного субъекта; целостность оракула обязана предшествовать SKRIPT_NET"
+    },
+    "stab_s01_snimok_net_bez_subiekta": {
+      "oblast": "orakul",
+      "rc": 2,
+      "kletka": "s01-styk-sbor-agregat",
+      "prichina": "ORACLE_TAMPERED: агрегат 143: снимок отсутствует:",
+      "defekt": "снимок удалён при отсутствующем workflow отдельного субъекта; целостность оракула обязана предшествовать SUBJECT_ABSENT"
+    },
+    "stab_s01_snimok_porcha_bez_skripta": {
+      "oblast": "orakul",
+      "rc": 2,
+      "kletka": "s01-styk-sbor-agregat",
+      "prichina": "ORACLE_TAMPERED: агрегат 143: sha256",
+      "defekt": "байт снимка испорчен при удалённом скрипте отдельного субъекта; целостность оракула обязана предшествовать SKRIPT_NET"
+    },
+    "stab_s01_snimok_porcha_bez_subiekta": {
+      "oblast": "orakul",
+      "rc": 2,
+      "kletka": "s01-styk-sbor-agregat",
+      "prichina": "ORACLE_TAMPERED: агрегат 143: sha256",
+      "defekt": "байт снимка испорчен при отсутствующем workflow отдельного субъекта; целостность оракула обязана предшествовать SUBJECT_ABSENT"
+    },
+    "stab_s01_snimok_pin_bez_skripta": {
+      "oblast": "orakul",
+      "rc": 2,
+      "kletka": "s01-styk-sbor-agregat",
+      "prichina": "ORACLE_TAMPERED: агрегат 143: sha256",
+      "defekt": "пин sha256 подменён при прежнем снимке и удалённом скрипте отдельного субъекта; отказ оракула предшествует SKRIPT_NET"
+    },
+    "stab_s01_snimok_pin_bez_subiekta": {
+      "oblast": "orakul",
+      "rc": 2,
+      "kletka": "s01-styk-sbor-agregat",
+      "prichina": "ORACLE_TAMPERED: агрегат 143: sha256",
+      "defekt": "пин sha256 подменён при прежнем снимке и отсутствующем workflow отдельного субъекта; отказ оракула предшествует SUBJECT_ABSENT"
     }
   },
   "batareja_143_do": {
