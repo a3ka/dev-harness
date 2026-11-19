@@ -103,3 +103,11 @@ PATERN:REF-BEZ-ODNOZNACHNOSTI	scripts/lib_karta_sdachi.sh	r06
 PATERN:REF-OBJECT-KAK-REVIZIJA	scripts/lib_karta_sdachi.sh	r10
 PATERN:REF-PEREPISAT-OBJECT	scripts/lib_karta_sdachi.sh	r10
 PATERN:REF-BEZ-LAST-FAIL	scripts/check_sdacha.sh	r07
+# Относительная форма: наследование, N−1, контекст и границы грамматики.
+PATERN:REF-PREV-VSEGDA-CHISTO	scripts/lib_karta_sdachi.sh	r35
+PATERN:REF-PREV-NE-VYCHITAET	scripts/lib_karta_sdachi.sh	r43
+PATERN:REF-PREV-BEZ-KONTEKSTA	scripts/lib_karta_sdachi.sh	r44
+PATERN:REF-PREV-BEZ-PERVOGO	scripts/lib_karta_sdachi.sh	r45
+PATERN:REF-PREV-HVOST-LJUBOJ	scripts/lib_karta_sdachi.sh	r46
+PATERN:REF-BEZ-LAST-FAIL	scripts/check_sdacha.sh	r39
+PATERN:REF-BEZ-LAST-FAIL	scripts/check_sdacha.sh	r41

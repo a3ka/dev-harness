@@ -329,6 +329,18 @@ MUTACII_LIB = {
          '            telo="${telo/OBJECT=????????????????????????????????????????/'
          'OBJECT=$(git -C "$root" rev-parse HEAD)}"\n'
          '            printf \'%s\\n\' "$telo" > "$root/$f"'),
+    'PATERN:REF-PREV-VSEGDA-CHISTO':
+        ('status="$(karta_predydushchij "$1")"',
+         'videl+=("$klass"$\'\\tчисто\'); continue; status=""'),
+    'PATERN:REF-PREV-NE-VYCHITAET':
+        ('nom="${nom%?}$((cifra - 1))$nuli"', 'nom="$K193_VYZOV"'),
+    'PATERN:REF-PREV-BEZ-KONTEKSTA':
+        ('[ "$K193_ROL" = critic ] && [ -n "$K193_VYZOV" ]', 'true'),
+    'PATERN:REF-PREV-BEZ-PERVOGO':
+        ('[ "$K193_VYZOV" != 1 ] ||', 'true ||'),
+    'PATERN:REF-PREV-HVOST-LJUBOJ':
+        (r'^без\ изменений\ с\ предыдущего\ вызова([.]|\ —\ .+)?$',
+         r'^без\ изменений\ с\ предыдущего\ вызова'),
 }
 MUTACII_NOGI_PRE = {
     # Crit193V1 pre-leg: условие ноги (к) отключено — нога не выполняется.
@@ -1021,6 +1033,58 @@ def kletki_ssylok(miry):
          [(pred, chistyj)], (), 0, 'лист зелёный'),
         ('r16-istoriya-togo-zhe-puti', fail, [(VERDIKT, chistyj)], (11,), 0, 'лист зелёный'),
     ]
+    previous = 'без изменений с предыдущего вызова'
+    previous_fail = karta_vyzova('04', 'FAIL', {2: previous, 11: 'блок — вход: новый дефект'})
+    previous_history = [(vtoroj, karta_vyzova('02')), (pred, karta_vyzova('03', zamena={2: previous}))]
+    cases.extend([
+        ('r34-predydushchij', karta_vyzova('03', zamena={2: previous}),
+         [(vtoroj, karta_vyzova('02'))], (), 0, 'лист зелёный'),
+        ('r35-predydushchij-blok', karta_vyzova('03', zamena={2: previous}),
+         [(vtoroj, karta_vyzova('02', zamena={2: 'блок — вход: унаследованный блок'}))],
+         (), 1, 'блок К-02'),
+        ('r36-predydushchij-cepochka', karta_vyzova('04', zamena={2: previous + '.'}),
+         [(vtoroj, karta_vyzova('02', zamena={2: 'блок — вход: унаследованный блок'})),
+          (pred, karta_vyzova('03', zamena={2: previous}))], (2,), 0, 'лист зелёный'),
+        ('r37-predydushchij-net-vyzova', karta_vyzova('03', zamena={2: previous}),
+         [(pervyj, karta_vyzova('01'))], (), 1, 'отсутствует вызов 2'),
+        ('r38-predydushchij-istoriya', karta_vyzova('03', zamena={2: previous}),
+         [(VERDIKT, karta_vyzova('02', zamena={2: 'блок — вход: исторический блок'}))],
+         (2,), 0, 'лист зелёный'),
+        ('r39-predydushchij-posle-fail', karta_vyzova('03', zamena={2: previous}),
+         [(vtoroj, karta_vyzova('02')), (VERDIKT, previous_fail)],
+         (), 1, 'блок К-11'),
+        ('r40-predydushchij-fail-zakryt', karta_vyzova('03', zamena={2: previous}),
+         [(vtoroj, karta_vyzova('02')), (VERDIKT, previous_fail)],
+         (11,), 0, 'лист зелёный'),
+        ('r41-predydushchij-istoricheskij-fail', karta_vyzova('03', zamena={2: previous}),
+         previous_history + [(VERDIKT, previous_fail),
+                             (VERDIKT, karta_vyzova('05', 'FAIL', {11: previous}))],
+         (), 1, 'блок К-11'),
+        ('r42-predydushchij-istoricheskij-fail-zakryt', karta_vyzova('03', zamena={2: previous}),
+         previous_history + [(VERDIKT, previous_fail),
+                             (VERDIKT, karta_vyzova('05', 'FAIL', {11: previous}))],
+         (11,), 0, 'лист зелёный'),
+        # Относительная ссылка принадлежит историческому 03, а не 04/HEAD.
+        ('r43-javnyj-na-predydushchij', karta_vyzova('04', zamena={2: 'без изменений с вызова 03.'}),
+         [(vtoroj, karta_vyzova('02', zamena={2: 'блок — вход: исторический блок'})),
+          (pred, karta_vyzova('03', zamena={2: previous + ' — тот же класс'}))],
+         (2,), 0, 'лист зелёный'),
+        ('r44-predydushchij-bez-konteksta',
+         '\n'.join(line for line in karta_vyzova('03', zamena={2: previous}).splitlines()
+                   if not line.startswith('СУД:')) + '\n',
+         [(vtoroj, karta_vyzova('02'))], (), 1, 'предыдущий вызов требует СУД'),
+        ('r45-predydushchij-pervyj', karta_vyzova('01', zamena={2: previous}),
+         [], (), 1, 'у вызова 1 нет предыдущего вызова'),
+        ('r46-predydushchij-vne-grammatiki', karta_vyzova('03', zamena={2: previous + 'X'}),
+         [(vtoroj, karta_vyzova('02'))], (), 1, 'ссылка вне грамматики'),
+        ('r47-predydushchij-nuli', karta_vyzova('0010', zamena={2: previous}),
+         [(vtoroj, karta_vyzova('0009'))], (), 0, 'лист зелёный'),
+        ('r48-predydushchij-bolshoj', karta_vyzova('100000000000000000000', zamena={2: previous}),
+         [(vtoroj, karta_vyzova('99999999999999999999'))], (), 0, 'лист зелёный'),
+        ('r49-prjamoj-status-s-poyasneniem',
+         karta_vyzova('03', zamena={2: 'чисто — ' + previous, 13: 'н/п — без изменений с вызова 99.'}),
+         [], (), 0, 'лист зелёный'),
+    ])
     # Каждый класс последнего FAIL проверяется своим предъявлением, не первой
     # красной точкой объединённого входа; два класса не считаются одним тестом.
     for klass in range(1, 18):
@@ -1037,7 +1101,13 @@ def kletki_ssylok(miry):
                     'r05-cikl', 'r06-neodnoznachnost', 'r10-istoricheskij-object',
                     'r11-staged-skryvaet-cel', 'r12-staged-portit-chestnuju-cel',
                     'r13-staged-ne-sozdaet-vyzov', 'r14-chuzhoj-predmet',
-                    'r15-vedushchie-nuli', 'r16-istoriya-togo-zhe-puti'}:
+                    'r15-vedushchie-nuli', 'r16-istoriya-togo-zhe-puti',
+                    'r34-predydushchij', 'r36-predydushchij-cepochka',
+                    'r37-predydushchij-net-vyzova', 'r38-predydushchij-istoriya',
+                    'r43-javnyj-na-predydushchij', 'r44-predydushchij-bez-konteksta',
+                    'r45-predydushchij-pervyj', 'r46-predydushchij-vne-grammatiki',
+                    'r47-predydushchij-nuli', 'r48-predydushchij-bolshoj',
+                    'r49-prjamoj-status-s-poyasneniem'}:
                 continue
             exp_rc, exp_marker = rc, marker
             if door == 'karta' and name == 'r11-staged-skryvaet-cel':
@@ -1063,7 +1133,7 @@ def kletki_ssylok(miry):
                     (root / path).write_text(text, encoding='utf-8')
                     git(root, 'add', '-A')
                     git(root, 'commit', '-qm', 'toy193: historical call')
-                path = pred if name.startswith(('r07-', 'r08-', 'r09-')) or '-last-fail-' in name else VERDIKT
+                path = pred if name.startswith(('r07-', 'r08-', 'r09-', 'r39-', 'r40-', 'r41-', 'r42-')) or '-last-fail-' in name else VERDIKT
                 (root / path).write_text(current, encoding='utf-8')
                 sheet = ('ПРЕДЫДУЩИЙ ВЕРДИКТ: ' + path + '\n\n' + tekst('sdacha_chestnaja.md')
                          + '\n## Дельта\n\n'

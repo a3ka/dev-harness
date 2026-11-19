@@ -53,15 +53,19 @@ karta_stroki() { # Синтаксис один для обеих дверей и
                     'чисто — '|'блок — '|'н/п — '|'чисто —'|'блок —'|'н/п —')
                         printf '%s: %s без команды или входа' "$klass" "${rest%% — *}"
                         return 1 ;;
-                    'без изменений с вызова '*)
+                    'без изменений с вызова '*|'без изменений с предыдущего вызова'*)
                         if [[ "$rest" =~ ^без\ изменений\ с\ вызова\ ([0-9]+)([.]|\ —\ .+)?$ ]]; then
                             status="${BASH_REMATCH[1]}"
                             while [[ "$status" == 0* ]]; do status="${status#0}"; done
                             [ -n "$status" ] || { printf '%s: номер вызова вне грамматики' "$klass"; return 1; }
-                            videl+=("$klass"$'\t'"ссылка:$status")
-                            continue
+                        elif [[ "$rest" =~ ^без\ изменений\ с\ предыдущего\ вызова([.]|\ —\ .+)?$ ]]; then
+                            status="$(karta_predydushchij "$1")" \
+                                || { printf '%s: %s' "$klass" "$status"; return 1; }
+                        else
+                            printf '%s: ссылка вне грамматики' "$klass"; return 1
                         fi
-                        printf '%s: ссылка вне грамматики' "$klass"; return 1 ;;
+                        videl+=("$klass"$'\t'"ссылка:$status")
+                        continue ;;
                     'чисто — '*|'блок — '*|'н/п — '*) : ;;
                     *) printf 'статус вне алфавита (чисто|блок|н/п|ссылка) или нет « — »: %s' "$stroka"; return 1 ;;
                 esac
@@ -109,6 +113,21 @@ karta_metadannye() {
             fi
         done
     done <<< "$1"
+}
+
+karta_predydushchij() { # N−1 именно источника строки, не последнего вызова/HEAD.
+    local nom nuli='' cifra
+    karta_metadannye "$1"
+    [ "$K193_ROL" = critic ] && [ -n "$K193_VYZOV" ] \
+        || { printf 'предыдущий вызов требует СУД с роль=critic и номером вызова'; return 1; }
+    [ "$K193_VYZOV" != 1 ] || { printf 'у вызова 1 нет предыдущего вызова'; return 1; }
+    nom="$K193_VYZOV"
+    # Номер — десятичная строка без ограничения разрядностью bash.
+    while [[ "$nom" == *0 ]]; do nom="${nom%0}"; nuli="${nuli}9"; done
+    cifra="${nom: -1}"
+    nom="${nom%?}$((cifra - 1))$nuli"
+    while [[ "$nom" == 0* ]]; do nom="${nom#0}"; done
+    printf '%s' "$nom"
 }
 
 karta_index() { # ROOT, путь предъявленного вердикта, его неизменённый текст
