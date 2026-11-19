@@ -161,7 +161,24 @@ def prepare(base, case, source):
                 condition = 'False'
                 put(scripts / 'check_spec_ready.sh', '#!/bin/bash\necho OK\nif [ "$FC_FAULT" = 1 ]; then echo hit >> "$FC_HIT"; exit 7; fi\n', True)
         shim(bindir, 'git', condition, GIT)
-        args = ['contracts/001-x.md', 'fixture РАЗРЕШИЛ-ВЛАДЕЛЕЦ: toy only', root]
+        # [154] Единица §6в — позиция платного START (контракт 154), а не круг
+        # вердикта. Барьер считает её соседом двери (scripts/zamok_predmeta.sh)
+        # из КАРКАСА, где лежит копия барьера, и журналом станции — корнем
+        # состояния (4-й аргумент заморозки). Одноразовый репозиторий клетки
+        # строит честный положительный контроль: сосед-счётчик РЯДО с барьером
+        # и toy-журнал с ОДНОЙ платной сессией (позиция 1 — свободна).
+        # Без этого окружения §6в отказывал fail-closed («счётчик недоступен»)
+        # ДО предмета клетки — красным падал сам ПОЛОЖИТЕЛЬНЫЙ контроль, а не
+        # клетка. Ожидания клеток (rc и тексты отказов) не тронуты.
+        shutil.copy2(ROOT / 'scripts' / 'zamok_predmeta.sh', scripts / 'zamok_predmeta.sh')
+        state = base / 'state154-001'
+        state.mkdir(parents=True, exist_ok=True)
+        put(state / 'uchet.jsonl', json.dumps({
+            't': 'START', 'repoId': root.name, 'subjectId': '001',
+            'group': 'harness', 'holder': 'Crit1', 'klass': 'sudja',
+            'rol': 'critic', 'object': '%040x' % 1, 'worktree': '-',
+            'branch': '-', 'at': '2020-01-01T00:00:00Z'}, ensure_ascii=False) + '\n')
+        args = ['contracts/001-x.md', 'fixture РАЗРЕШИЛ-ВЛАДЕЛЕЦ: toy only', root, str(state)]
         observe = lambda: (git(root, 'show-ref', '--tags') if git(root, 'tag', '-l') else '', git(root, 'rev-parse', 'HEAD'), (root / 'registry/contracts.tsv').read_bytes() if (root / 'registry/contracts.tsv').exists() else None)
     elif subject == 'check_charter.sh':
         put(root / 'AGENTS.md', 'base\n')
