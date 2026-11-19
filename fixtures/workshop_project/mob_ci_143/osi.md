@@ -282,3 +282,57 @@ actions/checkout, живая семантика платформы (needs/if/con
 Честный контроль: `--model` — 397/397 matrix + 80/80 legacy;
 `--stabs` — 408 matrix-стабов (417 привязок, живых 0) и 62 legacy-стаба
 (78 привязок). Продуктовый `--repo` требует исправленного кандидата.
+
+## Дополнение v+1 (v5, окно ленда 197): двойная форма артефактного транспорта
+
+Замороженная норма 197 §1 требует, чтобы замена артефактных шагов lane-ами
+не ломала защитные инварианты 143: до v+1 батарея краснела на псевдо-продукте
+fda1fc8+197 ровно на шести клетках (`legacy: LEGACY_JOB_CHANGED`;
+`evidence: CHILD_DOWNLOAD_ABSENT_android-e2e`;
+`workflow-build-apk-outputs`; `workflow-build-apk-run-step-7`;
+`a17: РЕНДЕР_ВНЕ_АЛФАВИТА: needs.build-apk.outputs.run_attempt`;
+`y19: outputs build-apk [4 ключа]`) — состав пинирован
+`mob_ci_artifacts_local_197/source.json:.krasnye_143_posle_197`, сверка
+`sverka_inventarja_143.sh` rc 0 на батарее frozen 143/4.
+
+Единственный источник lane-формы — модель 197 ПО ССЫЛКЕ
+(`forma_transporta.py`, путь и структурный пин в `source.json:.ssylki`):
+байты модели 197 пинирует батарея 197 в своей зоне; здесь пинируется
+структурный канон (safe_load + нормализация run-шагов агрегатов правилом
+sweep — срезка комментариев и одиночный mkdir), инвариантный к правкам
+комментариев 197 v2→v3 (замер: каноны равны) и красный при иной
+структурной правке (rc 2 ORACLE_TAMPERED до клеток).
+
+Форма транспорта ЦЕЛА: `lane` ⇔ ни один из пяти legacy-работников не несёт
+канал артефактов GitHub (upload/download-artifact@, `gh run download`);
+иначе `old`. Клетки судят ПО ФОРМЕ: `legacy` — работники равны ЦЕЛОМУ
+либо старому эталону, либо lane-модели 197 (смешение форм — красное
+LEGACY_JOB_CHANGED); `evidence` — канал GitHub требует download-artifact
+с pattern/merge-multiple, lane требует шаблонное чтение
+`ci:artefakt-chtenie -- --shablon 'screen-evidence-*'` и запись child
+`ci:artefakt-zapis` c `screen-evidence-${{ matrix.screen.id }}` под
+`always()`; sweep (`workflow-*`) — базир равен форме субъекта
+(`sweep_bazir`); `y19` — outputs сборки РОВНО три ключа (old) либо четыре
+с продюсерской `run_attempt` (lane); `a17` — алфавит рендера дополнен
+`needs.build-apk.outputs.run_attempt`, digest-шаг в lane обязан нести пару
+литералов run_id/run_attempt в env и `--run-id/--run-attempt` в вызове
+(`ПАРА_NE_IZ_SBORKI` — попытка собственного прогона не проходит);
+`apk` (e2e-screen) — то же требование пары у матричного читателя
+(`MATRIX_APK_BEZ_PARY`). Replay песочницы несут lanes канона подложным
+`ci-artefakty.cjs` (доставка подложного APK digest-шагу — тот же приём,
+что подложный `gh run download`; грамматику пути судит батарея 197).
+
+Lane-стабы (мутации модели 197, Н-39 — каждая на СВОЕМ входе): matrix —
+`lane-agg-download-vernut` (evidence: CHILD_DOWNLOAD_ABSENT_android-e2e),
+`lane-worker-gh-vernut` (legacy: смешение форм), `lane-child-zapis-bez-always`
+(evidence: CHILD_UPLOAD_ABSENT), `lane-ident-bez-popytki`
+(workflow-build-apk-run-step-7), `lane-matrix-chitatel-bez-pary` (apk:
+MATRIX_APK_BEZ_PARY); файлы — `stab_a17_popytka_ne_iz_sborki`,
+`stab_a17_chtenie_bez_pary` (a17: ПАРА_NE_IZ_SBORKI),
+`stab_y19_vyhod_vne_alfavita`, `stab_y19_popytka_snjata` (y19: состав
+outputs; снятие run_attempt красно ТОЛЬКО в lane-форме — на старой форме
+той же правки нет в составе, Н-39). Честные контроли: `--model` — 397/397
+matrix + 5/5 модель-197; 80/80 legacy + 79/79 модель-197 (все клетки на
+копии эталона с mobile.yml 197, семантика --v3); `--stabs` — 413 matrix-стабов
+(422 привязки) и 66 legacy-стабов (82 привязки); `--repo`: чистый fda1fc8 —
+396/396 + 79/79, псевдо-продукт fda1fc8+197 — 403/403 + 79/79, красных 0.
