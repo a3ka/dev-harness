@@ -23,7 +23,7 @@ def refuse(reason):
 
 
 def staryj_predmet(repo, subject):
-    tag = 'id/CONTRACT/' + subject
+    tag = 'refs/tags/id/CONTRACT/' + subject
     try:
         if subprocess.run(['git', '-C', repo, 'cat-file', '-e', tag + '^{commit}'],
                           capture_output=True).returncode:
