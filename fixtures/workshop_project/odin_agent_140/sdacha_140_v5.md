@@ -1,107 +1,132 @@
-# СДАЧА 140 — точный объект продуктового суда
+# СДАЧА 140 v+1 — модель, красное production и двери формы
 
-BASE: 412ae68ced3f366973f175c18e3fc8507023b68e.
-Рабочая копия: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/tfecd630e8/m
-Ветка: wip/140/architect-v5. Собственная .git внутри этой копии, не git-dir доставки.
-Origin: ssh://git@github.com/a3ka/dev-harness.git. Push не выполнялся.
+БАЗА: 2bda5651096e666f8665f0cc9b860c72bd917651.
+Объект этой пачки — только этот лист; контракт, scripts/ и батарея неизменны.
+Рабочая копия: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t99b06189d/m
+Ветка: wip/140/architect-v5; git-dir — собственный .git внутри рабочей копии.
+Origin: ssh://git@github.com/a3ka/dev-harness.git. Push не выполняется.
 
 ## Предмет и существующее
 
-Принятая база уже несла общий resolver OBJECT, D49/D50/D51, receipt-передачу,
-JSON Schema и runtime source/runpy-клетки. Исправлены только требования разъяснения
-19.11 16:23: first-parent непустота merge, frozen обоих владельцев вместо OBJECT,
-прозрачность проверенных verdict+.review и .review-only. Предыдущий verdict
-не становится новым корнем. Production и соседние предметы не редактировались.
+Контракт 140, разделы «Инварианты» и «Приёмочный критерий», остаётся источником
+обязательств. В принятой базе уже есть общий resolver OBJECT, D49/D50/D51,
+передача с опубликованным receipt и JSON Schema, detached runtime-checkout,
+source/runpy-пробы, first-parent проверка непустоты commit/merge, pinned frozen
+обоих владельцев предмета и прозрачные проверенные verdicts/ и .review/.
+Прежние замок, сдача, isolated каждого item, batch-атомарность, исторические
+START/author/count, ограничения повторного суда и лимиты 3/3/3 не исключены.
 
-Блокирующие уточнения Main прочитаны в его текущем history после отказа обратного
-канала Н-85: владельцы — станционный/продуктовый, не code/не-code; companion для
-.review-only не требуется. .review наследует канонический OBJECT родителя,
-а не самодекларирует новый корень полем заметки.
+Слово владельца и адресные уточнения перечислены в контракте, включая 19.11
+16:23. Замок судит продуктовый результат, а не очередной записанный verdict;
+риск берётся из pinned frozen соответствующего владельца, не из OBJECT.
+Исполняемые привязки мутаций — object_140.py/produkt_140.py и source.json;
+этот лист не задаёт их заново. Предыдущий принятый суд —
+verdicts/critic/contracts-140-v4.md (accept); эта пачка чинит форму листа,
+не меняет обещания и не является исправительным кругом нового verdict.
 
-## Измеренные команды
+## Среда и чтение результатов
 
-Все команды исполнялись в собственной копии. TMPDIR:
-/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/tfecd630e8/m/.tmp-140-merge-Arch140MergeRisk
-PYTHONDONTWRITEBYTECODE=1; интерпретатор /usr/bin/python3.
+Для прогона листа и pre_critic вызывающая оболочка задаёт
+`TMPDIR=/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t99b06189d/m/.scratch-140-sheet-Arch140SheetFix`,
+`PYTHONDONTWRITEBYTECODE=1`, `PATH=/usr/bin:/bin`.
+Scratch создан внутри собственной копии; Git-миры батареи создаются под TMPDIR
+и имеют собственные .git. Гейты формы используют также tmp/ этой же копии.
+Доставка /tmp/dev-harness-verify/dev-harness-worktrees/c907157c/wip-140-architect-v5
+не используется как cwd, git-dir или scratch.
 
-| Команда (пути относительно копии) | Сырой rc | Наблюдение |
-|---|---:|---|
-| python3 fixtures/workshop_project/odin_agent_140/probe.py --sgeneriruj-staby | 0 | штатная материализация мутаций и пинов, не поведенческий прогон |
-| python3 fixtures/workshop_project/odin_agent_140/probe.py --sintaksis | 0 | SINTAKSIS FILES 78 |
-| python3 fixtures/workshop_project/odin_agent_140/object_140.py --check | 0 | OBJECT140_COUNTS cases=31 mutants=15 bindings=20 all_cases=158; OBJECT140_FAILURES 0 |
+В машинных строках ниже два rc — ожидаемый и предъявляемый проверке; они не
+заменяют итог фактического запуска check_sdacha. Команды запускаются прямо,
+без shell-хвостов, подавления отказов или подмены поставленной двери моделью.
+До реализации W и W --stabs обязаны быть красными по контракту §Приёмка п.3:
+rc 1 — наблюдаемый недостаток production, НЕ готовность реализации и НЕ
+ошибка среды. После реализации обе строки требуют rc 0 и нового измерения.
+NOT_IMPLEMENTED/ORACLE_TAMPERED rc 2 не засчитываются вместо предметного rc 1.
 
-Единственное финальное предъявление после завершения правок кода: все 31 q-клетки
-модели зелены; каждая из 20 адресных связей 15 мутантов поймана. Включены обе
-станционные полярности s56. q24 допускает непустой merge, q19/q20 отказывают
-пустым tip/merge; q25/q28 сохраняют OBJECT verdict+.review/.review-only;
-q26 разрешает новый OBJECT постороннего пути; q17/q18 отвергают корень-verdict;
-q21–q23 исполняют source/runpy в detached checkout OBJECT, не в tip.
-
-Поставленная старая дверь предъявлена только как отрицательный контроль:
-q01 отказала OBJECT_RASHODITSJA вместо разрешения исходного OBJECT;
-q02 пропустила tip-verdict вместо отказа. PREPARE_BEFORE published/leak/unpublished
-— все ok на настоящем pre_judge с прежним detector seam. Это не приёмка будущей
-реализации pre_judge/runtime-потребителя.
-
-Независимая мера source.json: cases=158, mutants=77, bindings=136,
-object_cases=31. Привязки s56 и s72–s76 получены из BINDINGS кода, не из контракта.
+Из входной пользовательской приёмки точной БАЗЫ, а не нового собственного
+прогона: W --model rc 0, 158/158; W --stabs rc 1, MODEL_ZHIVYH 0,
+SVJAZI 136, только SUBJEKT_KRASNO 59. Старое утверждение об отсутствии
+jsonschema снято: владелец установил engine; чистая среда проверяется отдельно.
+Независимый подсчёт текущего source.json командой
+`jq '{cases:(.kejsy|length), mutants:(.stab_vhod|length), bindings:([.stab_vhod[]|length]|add), carriers:(.nositeli|length)}' fixtures/workshop_project/odin_agent_140/source.json`
+дал rc 0: cases=158, mutants=77, bindings=136, carriers=82.
 
 ## Двери
 
-NOT_RUN: полная W --model, W --stabs и безфлаговая W; receipt-клетки p07/p08/p32/p33
-и их продуктовые связи мутаций; check_precision_gate, check_threat_model,
-check_provodka, check_sdacha --run, полный pre_critic. Они НЕ объявлены зелёными.
-До реализации обязательный production-слой --stabs сохраняет ожидаемый rc 1.
-
-Внешняя предпосылка принята из листа BASE: системный /usr/bin/python3 не несёт
-jsonschema==4.26.0. Локальных .venv* в новой isolated-копии не найдено. Сообщённое
-отсутствие engine не перепроверялось тестовым повтором. Поставка системного engine
-и чистого CI runtime вне architect-зоны; окружение, PYTHONPATH, vendoring и
-валидатор не подменялись. Блокер сразу сообщён Main. Продуктовая модель написана,
-но её поведенческий результат здесь не измерен.
-
-NOT_RUN: S и normalizacija в копии под внешним /zones/ — их вывод корней мог бы
-писать вне своей копии. Живой omp/runtime-checkout и реальный pre_judge --prepare
-после реализации предъявляет оркестратор в безопасном checkout.
-
-Этот лист не разрешает платный critic: после поставки среды Main выполняет полную
-приёмку/ворота, вносит измеренные rc в машинные строки листа и только затем зовёт
-совмещённый critic вместо со-ревью+critic по слову владельца. Неизмеренные rc не
-подставлены нулями ради формы check_sdacha.
+- W-model — честный контроль всех обязательств · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --model · 0 · 0
+- W-stabs — модельная матрица и обязательное красное production до реализации · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --stabs · 1 · 1
+- W-production — реальная поставленная дверь до реализации · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh · 1 · 1
+- W-sintaksis — носители семейства · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --sintaksis · 0 · 0
+- Precision — зоны и паритет CI · bash scripts/check_precision_gate.sh . contracts/140-odin-agent-na-predmet.md · 0 · 0
+- Spec-ready — форма контракта · bash scripts/check_spec_ready.sh . contracts/140-odin-agent-na-predmet.md · 0 · 0
+- Predposylki — форма объявленных предпосылок · bash scripts/check_predposylki.sh . contracts/140-odin-agent-na-predmet.md · 0 · 0
+- Threat-model — форма границы угроз · bash scripts/check_threat_model.sh . contracts/140-odin-agent-na-predmet.md · 0 · 0
+- Ceilings — потолки и незаполненные требования · bash scripts/check_ceilings.sh . · 0 · 0
+- Provodka-grammar — грамматика каналов · bash scripts/check_provodka.sh --grammar . contracts/140-odin-agent-na-predmet.md · 0 · 0
+- Provodka — подключение guard-канала · bash scripts/check_provodka.sh . contracts/140-odin-agent-na-predmet.md · 0 · 0
+- Pre-critic — все предсудебные ноги формы · bash scripts/pre_critic.sh --repo . contracts/140-odin-agent-na-predmet.md · 0 · 0
 
 ## Карта классов
 
-- К-01 · чисто · вход: ниже назван средовой блокер; узкая зелень не объявлена полной готовностью · - · -
-- К-02 · чисто · вход: ровно требования 1–3 и runtime/совмещённый critic из слова владельца · - · -
-- К-03 · чисто · вход: работа от точного BASE, не от запрещённых 6d294f0/397dfa2 · - · -
-- К-04 · чисто · вход: изменены contracts/140 и семейство odin_agent_140, не production/соседи · - · -
-- К-05 · чисто · вход: настоящие --object/--snapshot/--sudit; receipt-клетки --peredat сохранены, здесь NOT_RUN · - · -
-- К-06 · чисто · вход: отсутствие JSON Schema engine не маскируется предметным успехом · - · -
-- К-07 · чисто · вход: финальные OBJECT140_FAILURES 0 и SINTAKSIS FILES 78, полная W NOT_RUN · - · -
-- К-08 · чисто · вход: runtime source/runpy q21–q23; production-потребитель остаётся работой implementer · - · -
-- К-09 · чисто · вход: q24/q19/q20 различают непустой merge и пустые commit/merge; q29/q30 обе полярности frozen · - · -
-- К-10 · чисто · вход: 20 scoped связей пойманы; остальные связи полной W NOT_RUN · - · -
-- К-11 · чисто · вход: root рекурсивно канонизируется; receipt доказательство не заменено ledger; source pins материализованы до субъекта · - · -
-- К-12 · чисто · вход: Git plumbing, JSON Schema из BASE, bash -n всех 78 носителей; YAML заметки не разбирается самописно · - · -
-- К-13 · н/п · секреты не вводятся · - · -
-- К-14 · чисто · вход: .review-only без companion зелена; frozen обычный при рисковом OBJECT зелён в q29, обратная q30 отказана · - · -
-- К-15 · чисто · вход: source.json содержит 158/77/136; scoped driver сообщает 31/15/20, не весь набор · - · -
-- К-16 · чисто · вход: доверие Git author/committer и refs явно не криптографическая подпись; sandbox не обещан · - · -
-- К-17 · н/п · L1/L2-модель 188 не меняется; предметная исполняемая модель двери изменена · - · -
+- К-01 · чисто · вход: машинные двери выше; check_sdacha --run сверяет фактические rc, pre_critic внутри листа использует штатный SDACHA_OKRUG=1 для разрыва рекурсии; отдельный внешний pre_critic обязан проверить лист целиком · - · -
+- К-02 · чисто · вход: контракт §§Воля владельца, Существующее, Инварианты и Приёмочный критерий; требования 19.11 к продуктовому OBJECT, непустому tip, frozen и runtime сохранены; после pre_critic совмещённый critic вместо со-ревью+critic · - · -
+- К-03 · чисто · вход: действующие обязательства 104/167 и 140 сохранены; передача 197 и порядок интеграции 199 не заменены новыми обещаниями листа; контракт и реализация этой пачкой не меняются · - · -
+- К-04 · чисто · вход: единственный изменяемый путь fixtures/workshop_project/odin_agent_140/sdacha_140_v5.md находится в architect-зоне 140; материализация пинов и стабов не выполняется · - · -
+- К-05 · чисто · вход: строки дверей соответствуют командам и rc §Приёмка 1–3/9; пункты 4–6 предъявляются полной W-model, п.8 отдельной чистой средой; станционные и постреализационные пункты явно отделены ниже · - · -
+- К-06 · чисто · вход: W различает NOT_IMPLEMENTED и ORACLE_TAMPERED rc 2, красную клетку/субъект rc 1 и честную модель rc 0; отсутствие engine не допускается как ожидаемая краснота production · - · -
+- К-07 · чисто · вход: полный W-model rc 0 требуется в дверях, не только scoped object_140 --check; зелень модели не объявляет готовыми production, pre_judge или станционную интеграцию · - · -
+- К-08 · чисто · вход: W-stabs исполняет адресную матрицу модели из кода и обязательный слой настоящего scripts/zamok_predmeta.sh; ожидаемый rc 1 только до реализации; исходная приёмка БАЗЫ дала MODEL_ZHIVYH 0 и SVJAZI 136 · - · -
+- К-09 · чисто · вход: полная W-model включает обе полярности isolated и frozen, непустой merge и пустые commit/merge, verdict+.review/.review-only без companion и посторонний путь, структурную сдачу и неконформные подмены, receipt и runtime; source.json — перечень 158 входов · - · -
+- К-10 · чисто · вход: клетки проверяют START каждого item, атомарность записей, автора/учёт/счёт, опубликованную передачу и реальные source/runpy эффекты detached OBJECT; один marker/ref не заменяет поведение; настоящий pre_judge после реализации остаётся отдельной приёмкой · - · -
+- К-11 · чисто · вход: probe.py загружает source.json и sha256-пины до субъекта; current source.json содержит 82 носителя; неизменённые object_140.py/produkt_140.py задают исполняемые привязки, лист не перечитывает диск субъекта как оракул · - · -
+- К-12 · чисто · вход: Git plumbing для ancestry/first-parent/blob/tag, стандартный JSON Schema engine для receipt, jq для JSON событий и bash -n штатного W-sintaksis; новый проверяющий код или собственный парсер формата не вводятся · - · -
+- К-13 · н/п · лист не вводит обработку секретов; публичные Git metadata и пины не объявляются криптографическим удостоверением · - · -
+- К-14 · чисто · вход: W-model требует зелёные честные эквиваленты запрещающих ветвей, включая непустой merge, .review-only без companion и класс frozen вопреки OBJECT; мутанты предъявляются только своим кодовым связям · - · -
+- К-15 · чисто · вход: jq source.json rc 0 дал 158 клеток, 77 мутантов, 136 связей, 82 носителя; MODEL_ZHIVYH 0 и SUBJEKT_KRASNO 59 атрибутированы пользовательскому замеру БАЗЫ, не выданы за собственный новый вывод · - · -
+- К-16 · чисто · вход: КЛАСС РИСКА рисковый; контракт §Модель угроз оставляет sandbox, криптографическую подлинность полномочного Git-писателя и интеграцию живого omp за пределами модельного доказательства с adversary/reviewer как ловцами · - · -
+- К-17 · н/п · лист не меняет L1/L2-модель 188, схемы операций или writers/isolationKeys; предметная исполняемая модель двери уже находится в БАЗЕ · - · -
 
 ## Дельта
 
-Это разъяснение владельца, не новый круг исправления verdict. Первые способы:
-канон Git first-parent вместо default diff-tree; механизм pinned frozen вместо
-fallback; канонический родитель .review-only вместо companion-ограничения.
-Новые самописные оракулы форматов и дополнительные обязанности не введены.
+Изменена только форма и актуальность листа: реальные машинные строки вместо
+NOT_RUN для доступных команд; ожидания красного production не заменены нулями.
+Нового предиката проверяющего кода, клетки или предметного обязательства нет.
+Последний принятый verdict не содержит открытых блоков для этой правки листа.
+
+## Отдельные обязательства и непройденные этапы
+
+Чистая среда (§Приёмка п.8): команда
+`env -i PATH=/usr/bin:/bin HOME=$TMPDIR TMPDIR=$TMPDIR bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --model`
+должна дать rc 0 с системным JSON Schema engine. Она исполняется отдельно:
+грамматика машинной команды check_sdacha не допускает env первым словом.
+Результат отдельного прогона и двух внешних дверей — в докладе этой пачки;
+неизмеренный результат не считается зелёным.
+
+NOT_RUN: S (`bash fixtures/workshop_project/odin_agent_140/stancija_odin_agent_140.sh`)
+и normalizacija в этой копии. Внешний компонент /zones/ позволяет станционному
+коду вывести корни вне своей копии; одной установки TMPDIR недостаточно.
+Это предусмотренная граница §Приёмка п.7, а не отмена станционной приёмки:
+оркестратор/adversary выполняют S в безопасном checkout после реализации,
+ожидая rc 0 и ноль KRASNYH, плюс негативную пробу обманной интеграции rc 1.
+
+NOT_RUN: приёмка будущего production/runtime-потребителя
+`python3 fixtures/workshop_project/odin_agent_140/object_140.py --prepare`.
+После реализации она должна дать rc 0 на настоящем pre_judge, сохранив отказы
+leak/unpublished. Scoped PREPARE_BEFORE прежней пачки не заменяет эту проверку.
+Профиль `bash fixtures/parsing_hygiene_battery/run_battery.sh zamok_predmeta`,
+живой omp-спавн и пронос isolated через интеграцию 199 остаются проверками
+реализационной пачки/adversary; здесь NOT_RUN, не модельная зелень.
+
+Порядок неизменен: внешние check_sdacha --run и полный pre_critic → совмещённый
+critic → freeze → implementer → adversary → reviewer → проводка/done.
+После реализации W/W --stabs/pre_judge должны стать зелёными; оркестратор
+переключает CI с предварительного --model на безфлаговую реальную дверь,
+материализует gen_ci_steps --write/--check и предъявляет done. До того
+зелёный лист подтверждает честные rc и форму, не готовность production.
 
 ## Процессная рефлексия
 
-Н-85 блокирует ответ Main через agent://, хотя вопрос доставляется ему. Цена —
-две блокирующие неоднозначности и риск лишнего повторного вызова architect.
-Получены уже данные Main ответы через текущий history, без предположений за
-владельца. А-журнал не менялся: вне зоны, запись разрешена только в main.
-Наблюдение для Main: исправить двусторонний канал, не повторять готовую пачку
-ради доставки уточнений. Второй урок — q20 пустой merge не доказывал допуск
-непустого merge; адресная честная q24 и независимая receipt p33 теперь существуют.
+Входной дефект конструкции: заголовок «Двери» без машинных строк скрывал
+доступную приёмку за устаревшим средовым блокером. Закрытие — штатная грамматика
+check_sdacha и полный pre_critic на точной БАЗЕ, без новых проверяющих механизмов.
+Отдельная А-запись не создаётся: общий журнал вне единственного разрешённого
+пути этой пачки и допускает запись только в main.
