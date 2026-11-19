@@ -274,7 +274,20 @@
     "141-v2-draft.md": "6d51538ecdda9077f190c2a71ef1a73584d3ad21969a4bf2c5bbfc528f929a3b",
     "995-v5-draft.md": "c4581c2c13f4ed7a52beba89d0b3e54967306024d1e5f540313d9950e958f53d"
   },
+  "ssylki": {
+    "model-197": {
+      "put": "../mob_ci_artifacts_local_197/model/.github/workflows/mobile.yml",
+      "sha256_struktury": "412017180a133d6596ee20547e5362f754b57eef44a449314faafc0d4d8b0ffd",
+      "kommentarij": "143 v+1 (окно ленда 197): lane-эталон по ССЫЛКЕ, байты пинирует батарея 197 в своей зоне; здесь — структурный канон (safe_load + нормализация run-шагов агрегатов правилом sweep), инвариантен к правкам комментариев v2→v3, красен при иной структурной правке"
+    }
+  },
   "stab_vhod": {
+    "stab_a17_chtenie_bez_pary": [
+      "a17-digest-do-ustanovki"
+    ],
+    "stab_a17_popytka_ne_iz_sborki": [
+      "a17-digest-do-ustanovki"
+    ],
     "stab_agregat_echo": [
       "a01-pustoj-nabor",
       "a03-vybrannyj-skip",
@@ -327,6 +340,12 @@
       "s03-novyj-pack",
       "s04-novyj-potok",
       "s05-potok-dvoe-vladeltsev"
+    ],
+    "stab_y19_popytka_snjata": [
+      "y19-outputs-provodka"
+    ],
+    "stab_y19_vyhod_vne_alfavita": [
+      "y19-outputs-provodka"
     ],
     "stab_y_139_zhiv": [
       "y09-sobytija-i-net-139"
