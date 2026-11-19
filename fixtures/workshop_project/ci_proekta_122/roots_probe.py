@@ -38,6 +38,10 @@ STABS = {
     'implicit-binding-unchecked': 'station-implicit',
     'mono-declaration-required': 'mono-explicit',
     'mono-binding-rejected': 'mono-declared',
+    'damaged-marker-absent-mono': 'r13-mono-marker-no-space',
+    'damaged-marker-absent-station': 'r13-station-marker-no-space',
+    'damaged-marker-absent-space': 'r13-station-marker-extra-space',
+    'damaged-marker-absent-tab': 'r13-mono-marker-tab',
 }
 CASES = {
     'project-secret': (0, None),
@@ -68,6 +72,21 @@ CASES = {
     'mono-declared': (0, None),
     'mono-declared-explicit': (0, None),
 }
+# The first two reproduce Crit122V6c verbatim at the HEAD/subject.blob seam.
+# Other separators/case and a mixed duplicate exercise the same marker grammar.
+MARKER_CASES = {
+    'r13-mono-marker-no-space': ('mono-declared-explicit', 'ПРОЕКТ-ПРЕДПОСЫЛОК:'),
+    'r13-station-marker-no-space': ('station-explicit', 'ПРОЕКТ-ПРЕДПОСЫЛОК:'),
+    'r13-project-marker-no-space': ('project-secret', 'ПРОЕКТ-ПРЕДПОСЫЛОК:'),
+    'r13-station-marker-extra-space': ('mono-declared-explicit', 'ПРОЕКТ-ПРЕДПОСЫЛОК:  '),
+    'r13-project-marker-tab': ('project-secret', 'ПРОЕКТ-ПРЕДПОСЫЛОК:\t'),
+    'r13-mono-marker-tab': ('mono-declared-explicit', 'ПРОЕКТ-ПРЕДПОСЫЛОК:\t'),
+    'r13-station-marker-case': ('station-explicit', 'проект-предпосылок: '),
+    'r13-project-marker-case': ('project-secret', 'проект-предпосылок: '),
+    'r13-station-marker-duplicate': ('mono-declared-explicit', None),
+    'r13-project-marker-duplicate': ('project-secret', None),
+}
+CASES.update({case: (1, 'project-workflow-rashozhdenie') for case in MARKER_CASES})
 STATION_CASES = ('station-explicit', 'station-implicit', 'station-unresolved',
                  'station-binding-duplicate', 'station-binding-invalid')
 LEGACY_CASES = ('mono', 'mono-declared', 'station-implicit', 'station-unresolved')
@@ -126,6 +145,23 @@ def snapshot(root):
 
 
 def world(base, repo, case):
+    if case in MARKER_CASES:
+        original, marker = MARKER_CASES[case]
+        station, product, context, origin = world(base, repo, original)
+        target = station / TARGET
+        text = target.read_text()
+        prefix = 'ПРОЕКТ-ПРЕДПОСЫЛОК: '
+        if marker is None:
+            line = next(line for line in text.splitlines() if line.startswith(prefix))
+            text += line.replace(prefix, 'ПРОЕКТ-ПРЕДПОСЫЛОК:', 1) + '\n'
+        else:
+            text = text.replace(prefix, marker)
+        target.write_text(text)
+        commit(station)
+        ctx = json.loads(context.read_text())
+        ctx['subject']['blob'] = git(station, 'rev-parse', 'HEAD:' + TARGET)
+        context.write_text(json.dumps(ctx))
+        return station, product, context, origin
     station, product = base / 'station', base / 'product'
     init(station)
     init(product)
@@ -277,6 +313,10 @@ def observe(repo, case, mode='repo', mutant=None):
         after = {r: snapshot(r) for r in before}
         calls_path = base / 'calls.jsonl'
         calls = [json.loads(s) for s in calls_path.read_text().splitlines()] if calls_path.exists() else []
+        if case in MARKER_CASES:
+            tag_rc = run(['git', '-C', station, 'rev-parse', '--verify', TAG]).returncode
+            print(f'ROOTS122 EVIDENCE {case}: subject_rc={result.returncode} '
+                  f'gh={json.dumps(calls)} tag_rc={tag_rc} unchanged={after == before}')
         want, reason = CASES[case]
         output = result.stdout + result.stderr
         problems = []
@@ -313,6 +353,7 @@ def main():
     p.add_argument('--model', action='store_true')
     p.add_argument('--stabs', action='store_true')
     p.add_argument('--case', choices=CASES)
+    p.add_argument('--cell', choices=('r13',))
     args = p.parse_args()
     if args.stabs:
         caught = 0
@@ -327,7 +368,8 @@ def main():
         print(f'ROOTS122 STABS={len(STABS)} CAUGHT={caught}')
         return int(caught != len(STABS))
     green = 0
-    cases = [args.case] if args.case else list(CASES)
+    cases = ([args.case] if args.case else
+             list(MARKER_CASES) if args.cell == 'r13' else list(CASES))
     for case in cases:
         ok, rc, problems, output = observe(args.repo.resolve(), case, 'model' if args.model else 'repo')
         green += ok

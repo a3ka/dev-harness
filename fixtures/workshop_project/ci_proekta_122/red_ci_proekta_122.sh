@@ -38,11 +38,13 @@ done
 if [ "$MODE" = stabs ]; then
   exec python3 "$BATT/roots_probe.py" --repo "$REPO" --stabs
 fi
-if [ "$CELL" = r12 ]; then
+if [ "$CELL" = r12 ] || [ "$CELL" = r13 ]; then
+  ROOTS_ARGS=()
+  if [ "$CELL" = r13 ]; then ROOTS_ARGS+=(--cell r13); fi
   if [ "$MODE" = model ]; then
-    exec python3 "$BATT/roots_probe.py" --repo "$REPO" --model
+    exec python3 "$BATT/roots_probe.py" --repo "$REPO" --model "${ROOTS_ARGS[@]}"
   fi
-  exec python3 "$BATT/roots_probe.py" --repo "$REPO"
+  exec python3 "$BATT/roots_probe.py" --repo "$REPO" "${ROOTS_ARGS[@]}"
 fi
 if [ "$MODE" = model ]; then
   GEN=${CI_PROEKTA_122_GEN:-$BATT/model/gen_project_workflow.sh}

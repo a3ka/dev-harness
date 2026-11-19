@@ -89,15 +89,22 @@ def main():
                 # including the station and the legacy implicit context.
                 prefix = 'ПРОЕКТ-ПРЕДПОСЫЛОК: '
                 subject = git(root, 'show', 'HEAD:' + target)
-                bindings = [line[len(prefix):] for line in subject.split('\n')
-                            if line.startswith(prefix)]
+                bindings = [line for line in subject.split('\n')
+                            if line.casefold().startswith(
+                                'ПРОЕКТ-ПРЕДПОСЫЛОК'.casefold())]
+                damaged_marker_absent = mutant.startswith('damaged-marker-absent-')
+                if damaged_marker_absent:
+                    # Crit122V6c: recognize only the already-valid separator.
+                    bindings = [line for line in bindings if line.startswith(prefix)]
                 if mutant == 'mono-binding-rejected' and project == root and bindings:
                     return refusal('project-workflow-rashozhdenie')
                 # Only a genuinely single-repository subject may omit it.
                 if bindings or project != root or mutant == 'mono-declaration-required':
                     if mutant != 'binding-duplicate-first':
                         assert len(bindings) == 1
-                    declared = json.loads(bindings[0])
+                    if not damaged_marker_absent:
+                        assert bindings[0].startswith(prefix + '{')
+                    declared = json.loads(bindings[0][len(prefix):])
                     jsonschema.validate(declared, {
                         '$schema': schema['$schema'], '$defs': schema['$defs'],
                         '$ref': '#/$defs/projectIdentity', 'unevaluatedProperties': False})
