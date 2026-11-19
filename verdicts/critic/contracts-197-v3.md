@@ -1,74 +1,166 @@
-accept
+FAIL
 
-OBJECT=35bb27a4369c2a1845af70e34f6056f02b4f852d
-СУД: repo=dev-harness; предмет=197; фаза=контракт v3 до заморозки; роль=critic; вызов=один дополнительный узкий по слову владельца 2026-11-18 ~21:09 UTC, прежний счёт сохраняется; модель-план=openai-codex/gpt-6.1-terra; сессия=Crit197V9; модель-факт=openai-codex/gpt-6.1-terra (models_actual --bind: allowed); SHA=35bb27a4369c2a1845af70e34f6056f02b4f852d; предыдущий=Crit197V8 FAIL, OBJECT 0abf3c086791e97fcfa72af3ac97257c04434edc; исключение=слово владельца 21:09, один узкий вызов К-02 и зависимый регресс.
+OBJECT=95235b366a5d5d62807be58a37709d1bc7a0bc3d
+СУД: repo=dev-harness; предмет=197; фаза=контракт v4 до заморозки; роль=critic; вызов=один узкий по дельте (г) по слову владельца 2026-11-19 ~00:18 UTC, прежний счёт сохраняется; модель-план=openai-codex/gpt-6.1-terra; сессия=Crit197V10; модель-факт=openai-codex/gpt-6.1-terra (models_actual --bind: allowed); SHA=95235b366a5d5d62807be58a37709d1bc7a0bc3d; предыдущий=Crit197V9 accept OBJECT 35bb27a4369c2a1845af70e34f6056f02b4f852d; исключение=слово владельца, один узкий вызов по дельте (г).
 
-## Решение
-
-К-02 Crit197V8 закрыт. Слово владельца в state-HANDOFF :12 разрешает commit `9d3ad2bea4f1f15be15a9d975966bb20451a9a54` и tree `89ccddf8281b15842eda6aa1a316bdde579845ee` вместо frozen/143/4, без ослабления шести красных. `contracts/197-mob-ci-artefakty-lokalno.md:26,79`, `fixtures/workshop_project/mob_ci_artifacts_local_197/sdacha_197.md:68-70` и `source.json` называют те же пины и шесть поимённых красных; `git rev-parse '9d3ad2bea4f1f15be15a9d975966bb20451a9a54:fixtures/workshop_project/mob_ci_143'` rc 0: `89ccddf8281b15842eda6aa1a316bdde579845ee`. В сдаточном листе сохранено историческое основание fix-v6b, новое слово зафиксировано в самом контракте. Дельта от f25c238613 — одна строка контракта; пины и лист не менялись.
-
-СУД ограничен К-02 и зависимым регрессом. По поправке задания рассмотрен потомок, а не SHA 0abf3c0867, указанный в слове: предвызовная запись state-HANDOFF :7 фиксирует отказ двери `OBJECT_UZHE_SUZHEN`, новый SHA и передачу расхождения консультанту. Новый полный суд не проводился, новый автоматический вызов этим вердиктом не разрешается.
-
-СОВЕТ contracts/197-mob-ci-artefakty-lokalno.md:82 — `check_provodka` в предъявленном дереве уже возвращает rc 0, а не названный до freeze rc 1; строка батареи присутствует в `registry/ci-steps.tsv:315`. Это прежнее состояние вне дельты К-02; отдельно согласовать формулировку с фактической проводкой.
+БЛОКИРУЕТ contracts/197-mob-ci-artefakty-lokalno.md:93,194 — целостность оракула проверяется лишь при достижении s01, после зависящих от субъекта ранних выходов.
+ОБЯЗАТЕЛЬСТВО: отсутствие/порча снимка — rc 2 `ORACLE_TAMPERED` во всех автономных режимах; область задания также требует того же при подмене пина.
+СОСТОЯНИЕ: `--repo` получает копию модели с удалённым скриптом канона — прямо заявленный негативный сценарий контракта :77; одновременно в копии семьи отсутствует снимок (существующая мутация `stab_s01_snimok_otsutstvuet`) либо подменён его sha256. `_sudit_replay` в `fixtures/workshop_project/mob_ci_artifacts_local_197/probe.py:739-741` возвращает `SKRIPT_NET` до вызова `_zhivoj_agregat_143` :915; при несуществующем субъекте ранний выход также в :987-992.
+НАБЛЮДЕНИЕ: в обоих вариантах с читаемым workflow получены rc 1 и 13 красных `SKRIPT_NET`, включая s01, без `ORACLE_TAMPERED`; при отсутствующем субъекте также rc 1 `SUBJECT_ABSENT`. Зелёные 32 стаба этого сочетания не различают: новые мутации запускаются на неповреждённой модели. Источник входа — обязательный сценарий удаления скрипта и добавленные мутации снимка; причина — расположение новой проверки за существующим ранним возвратом.
+ЗАКРЫВАЮЩЕЕ СВОЙСТВО: в каждом автономном режиме, включая `--repo` с отсутствующим скриптом или субъектом и дочерние запуски, независимая проверка снимка/пина предшествует предметным отказам и при его недоступности/несовпадении возвращает rc 2 `ORACLE_TAMPERED`; адресные проверки различают также это сочетание, а не только честный субъект.
+ПРОИСХОЖДЕНИЕ: дельта
+КЛАСС: К-06
 
 ## Проверки
 
-Клон `/tmp/dev-harness-verify/Crit197V9/repo`, OBJECT как выше; проверка — отдельный `git clone --no-hardlinks` и `checkout --detach` этого OBJECT в `/tmp/dev-harness-verify/Crit197V9/measurement`, обе команды rc 0, `git fetch --tags origin` в исходном клоне rc 0. Все следующие команды исполнены из measurement:
+Рабочий клон `/tmp/dev-harness-verify/Crit197V10/repo`. `git show` оригинала fda1fc8 и `sha256sum` снимка дали одинаковый `e486e353f319ed2c0a65fc1092a0f16f8c9d8314bab4aed6e1d3619630d8fec6`, rc 0. Diff реестра, `scripts/run_ci_lane.sh` и `.github/workflows/ci.yml` пуст. `bash scripts/run_ci_lane.sh check:mob-ci-artifacts-local-197-family-selftest` rc 0: модель 29/29, стабов 32, непойманных 0; `stab_s01_bez_pary` пойман по `s01-styk-sbor-agregat`/`STYK_AGREGATA_OTKAZ`, новые два — каждый по своей rc 2/именованной причине. Привязка по коду, не по прозе. `sverka_inventarja_143.sh до` rc 0: побайтовая сверка, 197 29/29, шесть названных красных при commit `9d3ad2bea4f1f15be15a9d975966bb20451a9a54` и tree `89ccddf8281b15842eda6aa1a316bdde579845ee`; `proverka_sverki_143.sh --ref 0d391630a037d3c3e71d0795866dddba55f1fc57` rc 0, 12/12, ноль красных после. Строка РАЗРЕШИЛ в изменяющем коммите называет контракт первым токеном и цитирует адресное слово. Предел исторических байтов и станционный baseline сохранены.
 
-- `bash scripts/pre_critic.sh --repo . contracts/197-mob-ci-artefakty-lokalno.md` rc 0: `КРИТИК: дверь зелёная`.
-- `bash scripts/check_sdacha.sh . contracts/197-mob-ci-artefakty-lokalno.md --run` rc 0: `СДАЧА: лист зелёный (двери=4 карта=17/17 дельта=2)`.
-- `bash fixtures/workshop_project/mob_ci_artifacts_local_197/red_mob_ci_artifacts_local_197.sh --repo .` rc 1: `SUBJECT_ABSENT`, 29 клеток, 0 зелёных, 29 красных — ожидаемая проверка харнесса без продукта.
-- Та же батарея `--model` rc 0: 29 клеток, 29 зелёных, 0 красных; `--stabs` rc 0: 29/29, стабов 30, непойманных 0.
-- `bash scripts/check_provodka.sh . contracts/197-mob-ci-artefakty-lokalno.md` rc 0, вывода нет; расхождение с прежней формулировкой названо советом.
+### Атаки в одноразовой копии
 
-`bash fixtures/workshop_project/mob_ci_artifacts_local_197/proverka_sverki_143.sh --ref 0d391630a037d3c3e71d0795866dddba55f1fc57` rc 0, сырой вывод обоих режимов и отрицательных контролей:
+Команда из корня клона:
+
+```sh
+mkdir -p /tmp/dev-harness-verify/Crit197V10/attack && cp -a fixtures/workshop_project/mob_ci_artifacts_local_197 /tmp/dev-harness-verify/Crit197V10/attack/family && python3 /tmp/dev-harness-verify/Crit197V10/attack/family/stabs/stab_s01_snimok_otsutstvuet.py /tmp/dev-harness-verify/Crit197V10/attack/family && bash /tmp/dev-harness-verify/Crit197V10/attack/family/red_mob_ci_artifacts_local_197.sh --repo /tmp/dev-harness-verify/Crit197V10/attack
+```
+
+Сырой вывод, rc 1:
 
 ```text
-КЛЕТКА_СВЕРКИ do-bez-sosednej-batarei ЗЕЛЕНА: rc=0; ИНВЕНТАРЬ_143_СОВПАЛ: красных 6 из 6
-БАТАРЕЯ_143: режим до; commit 9d3ad2bea4f1f15be15a9d975966bb20451a9a54; tree 89ccddf8281b15842eda6aa1a316bdde579845ee
-ПСЕВДО-ПРОДУКТ: fda1fc871960b8061d8e6f6d12f2cc38f5834cee + модель 197 → /tmp/sverka143-197-94j0m6vi/produkt
-БАТАРЕЯ_197_ЗЕЛЕНА: клеток 29, зелёных 29, красных 0
-КРАСНАЯ_143: a17-digest-do-ustanovki: e2e-splash: РЕНДЕР_ВНЕ_АЛФАВИТА: needs.build-apk.outputs.run_attempt
-КРАСНАЯ_143: evidence: CHILD_DOWNLOAD_ABSENT_android-e2e
-КРАСНАЯ_143: legacy: LEGACY_JOB_CHANGED
-КРАСНАЯ_143: workflow-build-apk-outputs: WORKFLOW_CONTROL_workflow-build-apk-outputs
-КРАСНАЯ_143: workflow-build-apk-run-step-7: WORKFLOW_CONTROL_workflow-build-apk-run-step-7
-КРАСНАЯ_143: y19-outputs-provodka: outputs build-apk: ['apk_sha256', 'artifact_name', 'run_attempt', 'run_id']
-ИНВЕНТАРЬ_143_СОВПАЛ: красных 6 из 6 пина, поимённо
-КЛЕТКА_СВЕРКИ posle-ref ЗЕЛЕНА: rc=0; ИНВЕНТАРЬ_143_НОЛЬ_КРАСНЫХ: ноль красных
-КЛЕТКА_СВЕРКИ posle-katalog-ekvivalent ЗЕЛЕНА: rc=0; ИНВЕНТАРЬ_143_НОЛЬ_КРАСНЫХ: ноль красных
-КЛЕТКА_СВЕРКИ posle-staraja-versija ЗЕЛЕНА: rc=1; БАТАРЕЯ_143_ОТКАЗ: rc=1, ожидался 0
-КЛЕТКА_СВЕРКИ posle-bez-istochnika ЗЕЛЕНА: rc=2; REZHIM_143
-КЛЕТКА_СВЕРКИ posle-net-ref ЗЕЛЕНА: rc=2; BATAREJA_143_COMMIT_NET
-КЛЕТКА_СВЕРКИ do-net-commita ЗЕЛЕНА: rc=2; BATAREJA_143_COMMIT_NET
-КЛЕТКА_СВЕРКИ do-tree-rashozhdenie ЗЕЛЕНА: rc=2; BATAREJA_143_TREE_RASHOZHDENIE
-КЛЕТКА_СВЕРКИ do-drugaja-versija ЗЕЛЕНА: rc=2; BATAREJA_143_TREE_RASHOZHDENIE
-КЛЕТКА_СВЕРКИ posle-pustoj-vyvod ЗЕЛЕНА: rc=1; БАТАРЕЯ_143_ОТКАЗ
-КЛЕТКА_СВЕРКИ posle-oshibka-sredy ЗЕЛЕНА: rc=1; БАТАРЕЯ_143_ОТКАЗ
-КЛЕТКА_СВЕРКИ posle-lishnjaja-krasnaja ЗЕЛЕНА: rc=1; ИНВЕНТАРЬ_143_РАСХОДИТСЯ
-клеток сверки 12, зелёных 12, красных 0
+SUBJECT_ABSENT: .github/workflows/mobile.yml не читается
+CASE a01-upload-artefakt-ostalsja KRASNO: SUBJECT_ABSENT
+CASE a02-download-artefakt-ostalsja KRASNO: SUBJECT_ABSENT
+CASE a03-gh-kanal-v-run KRASNO: SUBJECT_ABSENT
+CASE b01-forma-pisatelja KRASNO: SUBJECT_ABSENT
+CASE b02-imja-pisatelja-razreshimo KRASNO: SUBJECT_ABSENT
+CASE b03-pisatel-s-run-argumentom KRASNO: SUBJECT_ABSENT
+CASE c01-forma-chitatelja KRASNO: SUBJECT_ABSENT
+CASE c02-imja-bez-pisatelja KRASNO: SUBJECT_ABSENT
+CASE c03-run-para-iz-sborki KRASNO: SUBJECT_ABSENT
+CASE d01-koren-vne-skripta KRASNO: SUBJECT_ABSENT
+CASE d02-vyhod-za-koren KRASNO: SUBJECT_ABSENT
+CASE e01-skript-pin KRASNO: SUBJECT_ABSENT
+CASE e02-linei-npm KRASNO: SUBJECT_ABSENT
+CASE g01-forma-nositelja KRASNO: SUBJECT_ABSENT
+CASE g02-rabochij-katalog-nositelja KRASNO: SUBJECT_ABSENT
+CASE i01-nositel-ispolnim KRASNO: SUBJECT_ABSENT
+CASE i02-zamknutyj-inventar KRASNO: SUBJECT_ABSENT
+CASE r01-krug-zapisi-chtenija KRASNO: SUBJECT_ABSENT
+CASE r02-popytka-prodjusera KRASNO: SUBJECT_ABSENT
+CASE r03-imja-pobeg KRASNO: SUBJECT_ABSENT
+CASE r04-imja-razdelitel KRASNO: SUBJECT_ABSENT
+CASE r05-run-nechislovoj KRASNO: SUBJECT_ABSENT
+CASE r06-nepolnaja-identifikacija KRASNO: SUBJECT_ABSENT
+CASE r07-shablon-sbor KRASNO: SUBJECT_ABSENT
+CASE r08-istochnik-otsutstvuet KRASNO: SUBJECT_ABSENT
+CASE r09-izoljacija-popytok KRASNO: SUBJECT_ABSENT
+CASE r10-shablon-pusto KRASNO: SUBJECT_ABSENT
+CASE r11-tochnoe-imja-otsutstvuet KRASNO: SUBJECT_ABSENT
+CASE s01-styk-sbor-agregat KRASNO: SUBJECT_ABSENT
+клеток 29, зелёных 0, красных 29
+```
+
+Команда при уже удалённом снимке:
+
+```sh
+cp -a fixtures/workshop_project/mob_ci_artifacts_local_197/model /tmp/dev-harness-verify/Crit197V10/attack/subject && python3 -c "from pathlib import Path; Path('/tmp/dev-harness-verify/Crit197V10/attack/subject/mobile/scripts/ci-artefakty.cjs').unlink()" && bash /tmp/dev-harness-verify/Crit197V10/attack/family/red_mob_ci_artifacts_local_197.sh --repo /tmp/dev-harness-verify/Crit197V10/attack/subject
+```
+
+Сырой вывод, rc 1:
+
+```text
+CASE a01-upload-artefakt-ostalsja ok
+CASE a02-download-artefakt-ostalsja ok
+CASE a03-gh-kanal-v-run ok
+CASE b01-forma-pisatelja ok
+CASE b02-imja-pisatelja-razreshimo ok
+CASE b03-pisatel-s-run-argumentom ok
+CASE c01-forma-chitatelja ok
+CASE c02-imja-bez-pisatelja ok
+CASE c03-run-para-iz-sborki ok
+CASE d01-koren-vne-skripta ok
+CASE d02-vyhod-za-koren ok
+CASE e01-skript-pin KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE e02-linei-npm ok
+CASE g01-forma-nositelja ok
+CASE g02-rabochij-katalog-nositelja ok
+CASE i01-nositel-ispolnim ok
+CASE i02-zamknutyj-inventar ok
+CASE r01-krug-zapisi-chtenija KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r02-popytka-prodjusera KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r03-imja-pobeg KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r04-imja-razdelitel KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r05-run-nechislovoj KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r06-nepolnaja-identifikacija KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r07-shablon-sbor KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r08-istochnik-otsutstvuet KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r09-izoljacija-popytok KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r10-shablon-pusto KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r11-tochnoe-imja-otsutstvuet KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE s01-styk-sbor-agregat KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+клеток 29, зелёных 16, красных 13
+```
+
+Команда с тем же субъектом и подменой пина вместо удаления снимка:
+
+```sh
+cp fixtures/workshop_project/mob_ci_artifacts_local_197/oracle143/ci-aggregate.cjs /tmp/dev-harness-verify/Crit197V10/attack/family/oracle143/ci-aggregate.cjs && python3 -c "import json; from pathlib import Path; p=Path('/tmp/dev-harness-verify/Crit197V10/attack/family/source.json'); d=json.loads(p.read_text()); d['agregat_143']['sha256']='0'*64; p.write_text(json.dumps(d))" && bash /tmp/dev-harness-verify/Crit197V10/attack/family/red_mob_ci_artifacts_local_197.sh --repo /tmp/dev-harness-verify/Crit197V10/attack/subject
+```
+
+Сырой вывод, rc 1 (в точности тот же вывод, что у предыдущей команды):
+
+```text
+CASE a01-upload-artefakt-ostalsja ok
+CASE a02-download-artefakt-ostalsja ok
+CASE a03-gh-kanal-v-run ok
+CASE b01-forma-pisatelja ok
+CASE b02-imja-pisatelja-razreshimo ok
+CASE b03-pisatel-s-run-argumentom ok
+CASE c01-forma-chitatelja ok
+CASE c02-imja-bez-pisatelja ok
+CASE c03-run-para-iz-sborki ok
+CASE d01-koren-vne-skripta ok
+CASE d02-vyhod-za-koren ok
+CASE e01-skript-pin KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE e02-linei-npm ok
+CASE g01-forma-nositelja ok
+CASE g02-rabochij-katalog-nositelja ok
+CASE i01-nositel-ispolnim ok
+CASE i02-zamknutyj-inventar ok
+CASE r01-krug-zapisi-chtenija KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r02-popytka-prodjusera KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r03-imja-pobeg KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r04-imja-razdelitel KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r05-run-nechislovoj KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r06-nepolnaja-identifikacija KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r07-shablon-sbor KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r08-istochnik-otsutstvuet KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r09-izoljacija-popytok KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r10-shablon-pusto KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE r11-tochnoe-imja-otsutstvuet KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+CASE s01-styk-sbor-agregat KRASNO: SKRIPT_NET: mobile/scripts/ci-artefakty.cjs
+клеток 29, зелёных 16, красных 13
 ```
 
 ## Карта классов
 
-К-01: чисто — вход: Crit197V8 К-01; `check_sdacha --run` rc 0.
-К-02: чисто — вход: слово владельца state-HANDOFF :12, контракт :26, пины source.json, `proverka_sverki_143.sh` rc 0 и git tree выше.
-К-03: чисто — вход: Crit197V8 К-03; приёмка 143 v+1 и шестиклеточное обязательство сохранены.
-К-04: чисто — вход: Crit197V8 К-04, изменение контракта в зоне architect.
-К-05: чисто — вход: Crit197V8 К-05, п.8 контракта не менялся.
-К-06: чисто — вход: Crit197V8 К-06; проверка шва rc 0, отрицательные клетки rc 2 выше.
-К-07: чисто — вход: Crit197V8 К-07; обе честные формы после и до прошли проверку шва.
-К-08: чисто — вход: Crit197V8 К-08; `--stabs` rc 0, 30 поймано.
-К-09: чисто — вход: Crit197V8 К-09; оба источника после прошли проверку шва.
-К-10: чисто — вход: Crit197V8 К-10; шесть имён выше совпали с оракулом source.json.
-К-11: чисто — вход: Crit197V8 К-11; независимое извлечение по git commit/tree в проверке шва.
-К-12: чисто — вход: Crit197V8 К-12; проверка шва использует runner 143 из git archive.
-К-13: н/п — вход: Crit197V8 К-13, секреты вне адресной дельты.
-К-14: чисто — вход: Crit197V8 К-14; ref и эквивалентный каталог после зелёны.
-К-15: чисто — вход: Crit197V8 К-15; `--model` 29/29, `--stabs` 30/30, проверка шва 12/12.
-К-16: чисто — вход: Crit197V8 К-16, риск и модель угроз не менялись.
-К-17: н/п — вход: Crit197V8 К-17, архитектурная модель 188 не менялась.
+К-01: чисто — вход: лист `sdacha_197.md`, форма 193, слово владельца и разрешение в коммите.
+К-02: чисто — вход: задание 197 вариант (г), консультация Cons197Ci и контракт :13,53,79,93,104.
+К-03: чисто — вход: станционная проверка 143 до/после и 12/12; шесть имён и два пина сохранены.
+К-04: чисто — вход: `git diff 98ca14e7a1 95235b366a --stat`, зоны контракта и пустой diff трёх CI-файлов.
+К-05: чисто — вход: контракт :69-79, прежние команды и rc сохранены в затронутом срезе.
+К-06: блок — целостность оракула проверяется лишь при достижении s01.
+К-07: чисто — вход: selftest lane rc 0, 29/29 и 32/32; station до и после rc 0.
+К-08: чисто — вход: selftest lane rc 0, кодовые мутации s01 и двух снимков пойманы своими причинами.
+К-09: блок — тот же класс раннего обхода проверки оракула на `--repo` с отсутствующим скриптом.
+К-10: чисто — вход: s01 и ожидаемая причина стаба, независимая поимённая сверка шести красных 143.
+К-11: чисто — вход: независимый пин source.json и совпадающие хеши извлечённого оригинала и снимка вне model/.
+К-12: чисто — вход: `git show`, sha256 и node-оригинал, не двойник.
+К-13: н/п — секреты вне узкой дельты.
+К-14: чисто — вход: побайтовый оригинал зелён в полном selftest; станционная сверка 12/12.
+К-15: чисто — вход: lane rc 0, 29/29 и 32/32; станция шесть красных и проверка 12/12.
+К-16: чисто — вход: контракт :3,93,104, класс риска неизменен и предел исторического снимка явно назван.
+К-17: н/п — архитектурная модель 188 вне дельты.
 
 ## Развилки
 
-Расхождение указанного в слове владельца OBJECT и потомка, предъявленного из-за отказа двери, уже передано консультанту согласно state-HANDOFF :7; этот вердикт не подменяет решение о маршруте. После freeze 143 требуется повторить режим после на фактическом новом frozen с записью ref/commit/tree и rc в карточке ленда, как требует контракт.
+После исправления нельзя переносить этот вердикт на новый OBJECT; дальнейший маршрут суда определяется адресным словом владельца и действующим бюджетом. После фактического freeze 143 остаётся обязательный повтор `после --ref <фактический frozen>` с карточкой ref/commit/tree/rc.
