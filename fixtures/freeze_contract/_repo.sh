@@ -88,13 +88,39 @@ make_repo() {
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" -c commit.gpgsign=false push -q origin main
 }
 
-# [154] Старый предмет: тег id/CONTRACT/<NNN> на старте предмета и маркер
-# границы (пустой коммит после него) — прежний §6в действует дословно.
-old_subject() { # <репо> <NNN>
-  local r="$1" nnn="$2"
-  if ! git -C "$r" rev-parse --verify --quiet "refs/tags/id/CONTRACT/$nnn" >/dev/null; then
-    git -C "$r" tag "id/CONTRACT/$nnn"
-    g "$r" commit -q --allow-empty -m 'граница 154'
+# [154] СНИМОК ГРАНИЦЫ для toy-миров. Предмет «старый» доказывается ТОЛЬКО
+# ДОСТУПНЫМ снимком границы: без него предмет новый при любом следе (И-7 —
+# «отсутствие доступного снимка границы трактуется строго как новый»). Снимок —
+# два реальных commit-объекта границы (granica154.pack/.idx батареи 154, тот же
+# артефакт, что в её live-режиме); обход истории — graft, а НЕ .git/shallow:
+# shallow-флаг роняет чужой гейт freeze (замер батареи), graft даёт те же rc.
+# СЛЕД предмета — тег id/CONTRACT/<NNN> на РОДИТЕЛЕ границы: доказуемый предок
+# снимка. Пустой коммит после тега снимком границы НЕ является (обход Б-1) —
+# прежний маркерный путь снят.
+FRZ_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+GRANICA154_SHA='5ca237e4e6bc980c460ede8ee6d85af8a33d0601'
+GRANICA154_PACK="$FRZ_ROOT/fixtures/workshop_project/schet_vyzovov_154/granica154.pack"
+GRANICA154_IDX="$FRZ_ROOT/fixtures/workshop_project/schet_vyzovov_154/granica154.idx"
+
+granica154_deliver() {  # <репо> → sha родителя границы (предок снимка)
+  local r="$1" packdir parent
+  [ -f "$GRANICA154_PACK" ] && [ -f "$GRANICA154_IDX" ] || return 1
+  packdir="$r/.git/objects/pack"
+  mkdir -p "$packdir"
+  cp "$GRANICA154_PACK" "$packdir/granica154.pack" || return 1
+  cp "$GRANICA154_IDX" "$packdir/granica154.idx" || return 1
+  parent="$(g "$r" rev-parse "$GRANICA154_SHA^")" || return 1
+  g "$r" replace --graft "$parent" || return 1
+  g "$r" config gc.auto 0
+  printf '%s\n' "$parent"
+}
+
+old_subject() { # <репо> <NNN> — старый предмет: снимок границы доставлен,
+                 # след предмета — тег на доказуемом предке снимка
+  local r="$1" nnn="$2" parent
+  if ! g "$r" rev-parse --verify --quiet "refs/tags/id/CONTRACT/$nnn" >/dev/null; then
+    parent="$(granica154_deliver "$r")" || return 1
+    g "$r" tag "id/CONTRACT/$nnn" "$parent" || return 1
   fi
 }
 
