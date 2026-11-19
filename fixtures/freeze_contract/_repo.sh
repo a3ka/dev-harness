@@ -51,10 +51,14 @@ commit_all() { g "$1" add -A; g "$1" commit -q -m "$2"; }
 
 # Вердикт критика с заданной первой строкой: три исхода грамматики разводятся отдельными
 # фикстурами, потому что у барьера у них РАЗНЫЕ диагнозы.
-put_verdict() {  # <корень> <версия> <первая строка>
-  local r="$1" v="$2" first="$3"
+put_verdict_nnn() {  # <корень> <NNN> <версия> <первая строка>
+  local r="$1" nnn="$2" v="$3" first="$4"
   mkdir -p "$r/verdicts/critic"
-  printf '%s\nтело вердикта\n' "$first" > "$r/verdicts/critic/contracts-001-v${v}.md"
+  printf '%s\nтело вердикта\n' "$first" > "$r/verdicts/critic/contracts-$nnn-v${v}.md"
+}
+
+put_verdict() {  # <корень> <версия> <первая строка>
+  put_verdict_nnn "$1" 001 "$2" "$3"
 }
 
 make_repo() {
@@ -82,4 +86,107 @@ make_repo() {
   git -C "${r%/}-origin.git" symbolic-ref HEAD refs/heads/main
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" remote add origin "${r%/}-origin.git"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" -c commit.gpgsign=false push -q origin main
+}
+
+# [154] Старый предмет: тег id/CONTRACT/<NNN> на старте предмета и маркер
+# границы (пустой коммит после него) — прежний §6в действует дословно.
+old_subject() { # <репо> <NNN>
+  local r="$1" nnn="$2"
+  if ! git -C "$r" rev-parse --verify --quiet "refs/tags/id/CONTRACT/$nnn" >/dev/null; then
+    git -C "$r" tag "id/CONTRACT/$nnn"
+    g "$r" commit -q --allow-empty -m 'граница 154'
+  fi
+}
+
+# [154] Счётчик платных вызовов — сосед двери (scripts/zamok_predmeta.sh).
+# Проверка анти-плацебо запускает КОПИЮ барьера в своём каталоге, поэтому соседа
+# копирует фикстура; прямая копия барьера уже лежит рядом с ним.
+lock154() {
+  [ -n "${REPO:-}" ] || return 0
+  [ -f "$REPO/scripts/zamok_predmeta.sh" ] || return 0
+  mkdir -p "$WORK/scripts"
+  cp "$REPO/scripts/zamok_predmeta.sh" "$WORK/scripts/zamok_predmeta.sh"
+}
+
+# [154] toy-корень состояния станции: журнал учёта платных START роли critic.
+# state154 <репо> <NNN> <число платных сессий> [санкция-на-3] [арбитраж-на-4] [слово-владельца-на-4]
+# Печатает путь корня состояния. Позиции 1–2 свободны; позиция 3+ требует
+# адресного основания, доказанного ЗАКОММИЧЕННОЙ строкой «БЮДЖЕТ-154: …»
+# в basisCommit:basisPath: санкции — в HANDOFF.md, арбитраж — в
+# verdicts/arbitration/budget154.md. Выбранный источник по позиции — отдельный
+# факт журнала (ISPOLZOVANO); сам по себе он позицию не открывает.
+state154() {
+  local r="$1" nnn="$2" n="$3" third="${4:-0}" arb="${5:-0}" owner4="${6:-0}"
+  local st rid obj i pos src dokaz
+  st="$(dirname "$r")/state154-$nnn"
+  mkdir -p "$st"
+  rid="$(basename "$(git -C "$r" remote get-url origin 2>/dev/null || printf '%s' "$r")")"
+  rid="${rid%.git}"
+  : > "$st/uchet.jsonl"
+  i=1
+  while [ "$i" -le "$n" ]; do
+    obj="$(printf '%040x' "$i")"
+    printf '{"t":"START","repoId":"%s","subjectId":"%s","group":"harness","holder":"Crit%d","klass":"sudja","rol":"critic","object":"%s","worktree":"-","branch":"-","at":"2020-01-01T00:00:00Z"}\n' \
+      "$rid" "$nnn" "$i" "$obj" >> "$st/uchet.jsonl"
+    i=$((i + 1))
+  done
+  dokaz=""
+  pos=3
+  while [ "$pos" -le "$n" ]; do
+    src=vladelec
+    [ "$pos" = 3 ] && src=orchestrator
+    if [ "$pos" = 4 ]; then
+      [ "$arb" = 1 ] && src=arbitrazh
+      [ "$owner4" = 1 ] && src=vladelec
+    fi
+    obj="$(printf '%040x' "$pos")"
+    printf '{"t":"ISPOLZOVANO","repoId":"%s","subjectId":"%s","object":"%s","nomer":%s,"istochnik":"%s","at":"2020-01-01T00:00:00Z"}\n' \
+      "$rid" "$nnn" "$obj" "$pos" "$src" >> "$st/uchet.jsonl"
+    dokaz="${dokaz}БЮДЖЕТ-154: {\"istochnik\":\"$src\",\"nomer\":$pos,\"object\":\"$obj\",\"repoId\":\"$rid\",\"subjectId\":\"$nnn\",\"t\":\"ISPOLZOVANO\"}
+"
+    if [ "$pos" = 3 ] && [ "$third" = 1 ]; then
+      printf '{"t":"SANKTSIYA","repoId":"%s","subjectId":"%s","object":"%s","nomer":3,"istochnik":"orchestrator","at":"2020-01-01T00:00:00Z"}\n' \
+        "$rid" "$nnn" "$obj" >> "$st/uchet.jsonl"
+      dokaz="${dokaz}БЮДЖЕТ-154: {\"istochnik\":\"orchestrator\",\"nomer\":3,\"object\":\"$obj\",\"repoId\":\"$rid\",\"subjectId\":\"$nnn\",\"t\":\"SANKTSIYA\"}
+"
+    fi
+    if [ "$pos" = 4 ] && [ "$owner4" = 1 ]; then
+      printf '{"t":"SANKTSIYA","repoId":"%s","subjectId":"%s","object":"%s","nomer":4,"istochnik":"vladelec","at":"2020-01-01T00:00:00Z"}\n' \
+        "$rid" "$nnn" "$obj" >> "$st/uchet.jsonl"
+      dokaz="${dokaz}БЮДЖЕТ-154: {\"istochnik\":\"vladelec\",\"nomer\":4,\"object\":\"$obj\",\"repoId\":\"$rid\",\"subjectId\":\"$nnn\",\"t\":\"SANKTSIYA\"}
+"
+    fi
+    pos=$((pos + 1))
+  done
+  # Основание — закоммиченные строки: документ санкций HANDOFF.md, документ
+  # арбитража — verdicts/arbitration/budget154.md.
+  if [ -n "$dokaz" ]; then
+    printf '%s' "$dokaz" >> "$r/HANDOFF.md"
+    commit_all "$r" 'основание бюджета критика: санкции'
+  fi
+  local sha_sank=""
+  [ -n "$dokaz" ] && sha_sank="$(git -C "$r" rev-parse HEAD)"
+  if [ "$arb" = 1 ]; then
+    mkdir -p "$r/verdicts/arbitration"
+    printf 'РЕШЕНИЕ (контракт %s)\nБЮДЖЕТ-154: {"repoId":"%s","subjectId":"%s","t":"ARBITRAZH"}\n' \
+      "$nnn" "$rid" "$nnn" > "$r/verdicts/arbitration/budget154.md"
+    commit_all "$r" 'основание бюджета критика: арбитраж'
+    printf '{"t":"ARBITRAZH","repoId":"%s","subjectId":"%s","at":"2020-01-01T00:00:00Z"}\n' \
+      "$rid" "$nnn" >> "$st/uchet.jsonl"
+  fi
+  local sha_arb=""
+  [ "$arb" = 1 ] && sha_arb="$(git -C "$r" rev-parse HEAD)"
+  # проставить основание в строки журнала
+  local tmp="$st/uchet.jsonl.tmp"
+  while IFS= read -r line; do
+    case "$line" in
+      *'"t":"SANKTSIYA"'*|*'"t":"ISPOLZOVANO"'*)
+        printf '%s,"basisCommit":"%s","basisPath":"HANDOFF.md"}\n' "${line%?}" "$sha_sank" >> "$tmp" ;;
+      *'"t":"ARBITRAZH"'*)
+        printf '%s,"basisCommit":"%s","basisPath":"verdicts/arbitration/budget154.md"}\n' "${line%?}" "$sha_arb" >> "$tmp" ;;
+      *) printf '%s\n' "$line" >> "$tmp" ;;
+    esac
+  done < "$st/uchet.jsonl"
+  mv "$tmp" "$st/uchet.jsonl"
+  printf '%s' "$st"
 }

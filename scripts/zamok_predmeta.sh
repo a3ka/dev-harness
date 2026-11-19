@@ -22,10 +22,17 @@
 # (--sostojanie/--zhurnaly/--repo) выводит расширение из ЖИВОГО ctx сессии
 # omp. Здесь env не читается: GIT_DIR/GIT_WORK_TREE и прочие снимаются.
 #
-# ВЫЗОВ (грамматика argv замкнута, ровно три формы):
+# ВЫЗОВ (грамматика argv замкнута, ровно четыре формы):
 #   zamok_predmeta.sh --sudit     --sostojanie D --zhurnaly D --repo R <event.json>
 #   zamok_predmeta.sh --osvobodit --sostojanie D --zhurnaly D --repo R <NNN> <holder>
 #   zamok_predmeta.sh --uchet     --sostojanie D --zhurnaly D --repo R
+#   zamok_predmeta.sh --schet-kritika --sostojanie D --repo R --subject NNN
+#                      --phase spawn|freeze [--object <40-hex>]
+#     [154] read-only счёт платных START роли critic по предмету: тот же
+#     журнал, тот же ключ (repoId,subjectId), то же адресное основание.
+#     НЕ пишет ничего; rc 0 — бюджет покрыт, rc 1 — именованный отказ,
+#     rc 3 — прежний предмет (прежний порядок §6в действует дословно).
+#     Режим заморозки зовёт его тем же state (И-6 контракта 154).
 #
 # ИСТОЧНИКИ СОБЫТИЙ (ось «источник»):
 #   --sostojanie D — замки D/zamki/<repoId>/<NNN>/{mutex,zanyat}/holder.json и
@@ -93,6 +100,8 @@ usage() {
   $0 --sudit     --sostojanie D --zhurnaly D --repo R <event.json>
   $0 --osvobodit --sostojanie D --zhurnaly D --repo R <NNN> <holder>
   $0 --uchet     --sostojanie D --zhurnaly D --repo R
+  $0 --schet-kritika --sostojanie D --repo R --subject NNN --phase spawn|freeze
+                    [--object <40-hex>]
 rc 0 — разрешено/исполнено; rc 1 — именованный отказ; rc 2 — нечем проверить.
 USAGE
   exit 2
@@ -101,17 +110,342 @@ USAGE
 otp()  { printf 'ОТКАЗ: %s: %s\n' "$1" "$2" >&2; exit 1; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$1" >&2; exit 2; }
 
+# ── [154] СЧЁТ ПЛАТНЫХ START роли критика ─────────────────────────────────────
+# Единая реализация для двух фаз: дверь спавна (--phase spawn) и заморозка
+# (--phase freeze). Количество вызовов — по журналу станции (append-only),
+# область — точный ключ (repoId,subjectId), роли critic|critic-sol — один
+# расход. Позиции 1–2 свободны; позиция 3+ требует адресного основания
+# (SANKTSIYA/ISPOLZOVANO/ARBITRAZH) с подтверждённой закоммиченной строкой.
+# Ничего не пишется: отказ — только чтение.
+# rc 0 — бюджет покрыт; rc 1 — именованный отказ; rc 3 — прежний предмет.
+schet_kritika_154() {  # <фаза> <предмет> <OBJECT|-> <корень состояния|-> <репозиторий>
+  python3 - --phase "$1" --subject "$2" --object "$3" --sostojanie "$4" \
+    --repo "$5" <<'SCHET_154_PY'
+import argparse
+import datetime as _dt
+import json
+import os
+import pathlib
+import subprocess
+import sys
+
+GRANICA_NOVYH = '5ca237e4e6bc980c460ede8ee6d85af8a33d0601'
+KONSULTANT_LIMIT = 2
+ISTOCHNIKI = ('vladelec', 'konsultant', 'orchestrator')
+RECEIPT_PREFIX = 'БЮДЖЕТ-154: '
+
+
+def refuse(reason):
+    print('ОТКАЗ: ' + reason, file=sys.stderr)
+    return 1
+
+
+def _neizvesten(what):
+    return refuse('SCHET_NEIZVESTEN: ' + what)
+
+
+def _git(repo, args):
+    return subprocess.run(['git', '-C', repo] + args, capture_output=True, text=True)
+
+
+def _est_commit(repo, rev):
+    return _git(repo, ['cat-file', '-e', rev + '^{commit}']).returncode == 0
+
+
+def _revid(repo, rev):
+    return _git(repo, ['rev-parse', '--verify', '--quiet',
+                       rev + '^{commit}']).stdout.strip()
+
+
+def _predok(repo, a, b):
+    return _git(repo, ['merge-base', '--is-ancestor', a, b]).returncode == 0
+
+
+def _profile_paths(repo):
+    """Пути профиля (996): реестр заморозок и каталог вердиктов — от репо."""
+    reg, verd = 'registry', 'verdicts'
+    f = pathlib.Path(repo) / 'harness.project.json'
+    if f.is_file():
+        try:
+            prof = json.loads(f.read_text(encoding='utf-8'))
+        except (OSError, ValueError, UnicodeError):
+            prof = None
+        wp = prof.get('workflowPaths') if isinstance(prof, dict) else None
+        if isinstance(wp, dict):
+            w = wp.get('registry')
+            if isinstance(w, str) and w:
+                reg = w
+            w = wp.get('verdicts')
+            if isinstance(w, str) and w:
+                verd = w
+    base = os.path.abspath(repo)
+
+    def rel(p):
+        p = p.rstrip('/')
+        if p.startswith(base + '/'):
+            return p[len(base) + 1:]
+        return p
+    return rel(reg), rel(verd)
+
+
+def _pustoj(repo, sha):
+    """Коммит не меняет дерево (пустой)."""
+    out = _git(repo, ['diff-tree', '--root', '--no-commit-id', '--name-only',
+                      '-r', sha]).stdout
+    return out.strip() == ''
+
+
+def _marker(repo, sled_sha):
+    """Маркер границы в репозитории БЕЗ канонического коммита: первый ПУСТОЙ
+    коммит (дерево не изменилось) после старта предмета. В игрушечных мирах
+    границу минтит сценарий — отдельным пустым коммитом сразу после старта."""
+    if not sled_sha:
+        return None
+    for sha in _git(repo, ['rev-list', '--ancestry-path', '--reverse',
+                           sled_sha + '..HEAD']).stdout.split():
+        if _pustoj(repo, sha):
+            return sha
+    return None
+
+
+def staryj_predmet(repo, subject, reg_rel):
+    """Прежний предмет — его след заморозки СТАРШЕ границы новых предметов.
+
+    Следы: тег id/CONTRACT/<NNN> и строка реестра заморозок «<NNN> → …».
+    Граница — канонический коммит 5ca237e4e6… (2026-10-24); в репозитории без
+    него границей считается маркерный пустой коммит после старта предмета.
+    Границы нет вовсе — предмет новый (строгий дефолт), кроме предмета,
+    уже записанного в реестр заморозок: его перевод на новый порядок —
+    отдельное решение владельца (адресный перевод старого предмета).
+    """
+    tag_sha = None
+    tag = 'id/CONTRACT/' + subject
+    if _est_commit(repo, tag):
+        tag_sha = _revid(repo, tag) or None
+    reg_sha = None
+    if reg_rel:
+        reg_sha = _git(repo, ['log', '-1', '--format=%H', '-G^' + subject + ' → ',
+                              '--', reg_rel]).stdout.strip() or None
+    if _est_commit(repo, GRANICA_NOVYH):
+        granica = GRANICA_NOVYH
+    else:
+        granica = _marker(repo, tag_sha) or _marker(repo, reg_sha)
+    if granica:
+        for sha in (tag_sha, reg_sha):
+            if sha and _predok(repo, sha, granica):
+                return True
+        return False
+    # Снимка границы нет, но предмет УЖЕ БЫЛ В РЕЕСТРЕ (И-7: «уже был в реестре»
+    # — прежний §6в действует дословно; перевод старого предмета на новый порядок —
+    # отдельное решение владельца). Следа нет вовсе — предмет новый.
+    return bool(reg_sha)
+
+
+def receipt_line(row):
+    """Единственный сериализатор строки основания: UTF-8, sorted keys, без пробелов."""
+    fields = ('t', 'repoId', 'subjectId')
+    if row['t'] in ('SANKTSIYA', 'ISPOLZOVANO'):
+        fields += ('object', 'nomer', 'istochnik')
+    return RECEIPT_PREFIX + json.dumps({k: row[k] for k in fields},
+                                      ensure_ascii=False, sort_keys=True,
+                                      separators=(',', ':'))
+
+
+def proof_ok(repo, row, cache, arb_dir):
+    """Основание подтверждено закоммиченной строкой в basisCommit:basisPath."""
+    sha, path = row.get('basisCommit', ''), row.get('basisPath', '')
+    if not isinstance(sha, str) or len(sha) != 40 or \
+            any(c not in '0123456789abcdef' for c in sha):
+        return False
+    if not isinstance(path, str) or path.startswith('/') or \
+            any(p in ('', '.', '..') for p in path.split('/')):
+        return False
+    if path != 'HANDOFF.md' and not (path.startswith(arb_dir)
+                                     and path.endswith('.md')):
+        return False
+    key = (sha, path)
+    if key not in cache:
+        exists = subprocess.run(['git', '-C', repo, 'cat-file', '-e',
+                                 sha + '^{commit}'], capture_output=True)
+        data = subprocess.run(['git', '-C', repo, 'show', sha + ':' + path],
+                              capture_output=True, text=True)
+        cache[key] = data.stdout.splitlines() if not exists.returncode \
+            and not data.returncode else []
+    return receipt_line(row) in cache[key]
+
+
+def sanction_matches(row, pos, obj):
+    return row['nomer'] == pos and row['object'] == obj
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument('--sostojanie', default='')
+    p.add_argument('--repo', required=True)
+    p.add_argument('--subject', required=True)
+    p.add_argument('--object', default='')
+    p.add_argument('--phase', choices=('spawn', 'freeze'), required=True)
+    a = p.parse_args()
+    repo = os.path.abspath(a.repo)
+    reg_rel, verd_rel = _profile_paths(repo)
+    reg_rel = reg_rel + '/contracts.tsv'
+    verd_dir = verd_rel + '/critic'
+    arb_dir = verd_rel + '/arbitration/'
+    if staryj_predmet(repo, a.subject, reg_rel):
+        return 3
+    if not a.sostojanie:
+        return _neizvesten('корень состояния не передан')
+    ledger = pathlib.Path(a.sostojanie) / 'uchet.jsonl'
+    if not ledger.is_file() or not os.access(ledger, os.R_OK):
+        return _neizvesten('учёт START недоступен: ' + str(ledger))
+    seed_k = 0
+    try:
+        rows = [json.loads(s) for s in ledger.read_text().splitlines() if s]
+        if any(not isinstance(r, dict) for r in rows):
+            raise ValueError('битая JSONL-строка')
+        remote = subprocess.run(['git', '-C', repo, 'remote', 'get-url', 'origin'],
+                                capture_output=True, text=True).stdout.strip()
+        repo_id = remote.rsplit('/', 1)[-1] if remote else ''
+        if repo_id.endswith('.git'):
+            repo_id = repo_id[:-len('.git')]
+        if not repo_id:
+            repo_id = pathlib.Path(repo).name
+        judges = [r for r in rows if r.get('t') == 'START' and
+                  r.get('klass') == 'sudja' and
+                  r.get('rol') in ('critic', 'critic-sol')]
+        starts = [r for r in judges if r.get('repoId') == repo_id and
+                  r.get('subjectId') == a.subject]
+        if any(not isinstance(r.get('holder'), str) or not r['holder'] or
+               not isinstance(r.get('object'), str) or
+               not isinstance(r.get('at'), str) or not r['at'] for r in starts):
+            raise ValueError('битая START-строка')
+        for r in rows:
+            if r.get('t') == 'ARBITRAZH':
+                if (not isinstance(r.get('repoId'), str) or not r['repoId'] or
+                        not isinstance(r.get('subjectId'), str) or
+                        not r['subjectId'] or
+                        not isinstance(r.get('at'), str) or not r['at']):
+                    raise ValueError('битая строка ARBITRAZH')
+            elif r.get('t') in ('SANKTSIYA', 'ISPOLZOVANO'):
+                nom = r.get('nomer')
+                if (not isinstance(r.get('repoId'), str) or not r['repoId'] or
+                        not isinstance(r.get('subjectId'), str) or
+                        not r['subjectId'] or
+                        not isinstance(r.get('object'), str) or
+                        len(r['object']) != 40 or
+                        any(c not in '0123456789abcdef' for c in r['object']) or
+                        isinstance(nom, bool) or not isinstance(nom, int) or
+                        nom < 3 or
+                        r.get('istochnik') not in (ISTOCHNIKI + ('arbitrazh',)
+                                                   if r['t'] == 'ISPOLZOVANO'
+                                                   else ISTOCHNIKI) or
+                        (r['istochnik'] == 'orchestrator' and nom != 3) or
+                        not isinstance(r.get('at'), str) or not r['at']):
+                    raise ValueError('битая строка ' + r['t'])
+        arbitrazh = [r for r in rows if r.get('t') == 'ARBITRAZH' and
+                     r.get('repoId') == repo_id and
+                     r.get('subjectId') == a.subject]
+        sank = [r for r in rows if r.get('t') == 'SANKTSIYA' and
+                r.get('repoId') == repo_id and
+                r.get('subjectId') == a.subject]
+        selected = [r for r in rows if r.get('t') == 'ISPOLZOVANO' and
+                    r.get('repoId') == repo_id and
+                    r.get('subjectId') == a.subject]
+        cache = {}
+        for r in arbitrazh + sank + selected:
+            if not proof_ok(repo, r, cache, arb_dir):
+                return refuse(('ARBITRAZH_NE_PODTVERZHDEN' if r['t'] == 'ARBITRAZH'
+                               else 'SANKTSIYA_NE_PODTVERZHDENA') +
+                              ': нет закоммиченной адресной строки')
+        t0 = None
+        for r in judges:
+            ts = _dt.datetime.fromisoformat(r['at'].replace('Z', '+00:00'))
+            if t0 is None or ts < t0:
+                t0 = ts
+        verdicts = list((pathlib.Path(repo) / verd_dir).glob(
+            'contracts-' + a.subject + '-*.md'))
+        for f in verdicts:
+            first = f.read_text(encoding='utf-8').splitlines()
+            if not first or first[0].strip() not in ('accept', 'FAIL', 'ESCALATE'):
+                raise ValueError('битый вердикт: ' + str(f))
+        log = subprocess.run(['git', '-C', repo, 'log', '--format=%at', '--',
+                              verd_dir + '/contracts-' + a.subject + '-*.md'],
+                             capture_output=True, text=True, check=True).stdout.split()
+        c0 = min(int(x) for x in log) if log else None
+        do_zhurnala = t0 is not None and c0 is not None and c0 < t0.timestamp()
+        if do_zhurnala:
+            seed_path = pathlib.Path(a.sostojanie) / 'zasev_kritika.jsonl'
+            if not seed_path.is_file() or not os.access(seed_path, os.R_OK):
+                return _neizvesten('история критика старше журнала, записи-засева нет')
+            srows = [json.loads(s) for s in
+                     seed_path.read_text().splitlines() if s]
+            match = [r for r in srows if isinstance(r, dict) and
+                     r.get('subjectId') == a.subject and r.get('repoId') == repo_id]
+            k = match[-1].get('doZhurnala') if match else None
+            if not isinstance(k, int) or isinstance(k, bool) or k < 1:
+                return _neizvesten('засев без целого doZhurnala >= 1')
+            seed_k = k
+        if not do_zhurnala and verdicts and not starts:
+            return refuse('SCHET_RASHOZHDENIE: вердикт есть без START')
+    except (ValueError, TypeError, UnicodeError, OSError, IndexError, KeyError,
+            subprocess.CalledProcessError) as e:
+        return _neizvesten('учёт/вердикты не читаются: ' + str(e))
+    count = len(starts)
+    objs = [None] * seed_k + [r['object'] for r in starts][:count]
+    if a.phase == 'spawn':
+        objs.append(a.object)
+    used = 0
+    for pos, obj in enumerate(objs, 1):
+        if pos <= 2:
+            continue
+        if obj is None:
+            return _neizvesten('до-журнальная позиция без OBJECT: ' + str(pos))
+        choices = {s['istochnik'] for s in selected if sanction_matches(s, pos, obj)}
+        if len(choices) != 1:
+            return _neizvesten('неоднозначный использованный источник: ' + str(pos))
+        chosen = choices.pop()
+        if chosen == 'arbitrazh':
+            if pos == 4 and arbitrazh:
+                continue
+        grants = [s for s in sank if sanction_matches(s, pos, obj) and
+                  s['istochnik'] == chosen]
+        if grants and chosen in ('vladelec', 'orchestrator'):
+            continue
+        if grants and chosen == 'konsultant' and (pos <= 3 or arbitrazh) and \
+                used < KONSULTANT_LIMIT:
+            used += 1
+            continue
+        return refuse('KAP_VYZOVOV_KRITIKA: предмет ' + a.subject + ': позиция ' +
+                      str(pos) + ' не покрыта; консультантских вызовов=' + str(used))
+    if a.phase == 'freeze' and count == 0:
+        return refuse('SCHET_RASHOZHDENIE: accept без START')
+    return 0
+
+
+sys.exit(main())
+SCHET_154_PY
+}
+
 command -v jq   >/dev/null 2>&1 || skip 'нет jq'
 command -v git  >/dev/null 2>&1 || skip 'нет git'
 command -v find >/dev/null 2>&1 || skip 'нет find'
 
 MODE=''; SOST=''; ZHUR=''; REPO=''; EVENT=''; NNN_ARG=''; HOLDER_ARG=''
+SUBJECT_154=''; OBJECT_154=''; PHASE_154=''
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --sudit|--osvobodit|--uchet) MODE="$1" ;;
-    --sostojanie) SOST="${2:?}"; shift ;;
+    --sudit|--osvobodit|--uchet|--schet-kritika) MODE="$1" ;;
+    --sostojanie)
+      # Пустое значение допустимо только в read-only режиме счёта: нет корня
+      # станции — счёт нечем читать (SCHET_NEIZVESTEN). В остальных режимах
+      # значение обязательно.
+      if [ "$MODE" = '--schet-kritika' ]; then SOST="${2-}"; else SOST="${2:?}"; fi
+      shift ;;
     --zhurnaly)   ZHUR="${2:?}"; shift ;;
     --repo)       REPO="${2:?}"; shift ;;
+    --subject)    SUBJECT_154="${2:?}"; shift ;;
+    --object)     OBJECT_154="${2:?}"; shift ;;
+    --phase)      PHASE_154="${2:?}"; shift ;;
     --help|-h)    usage ;;
     *) if [ "$MODE" = '--sudit' ]; then EVENT="$1"
        elif [ "$MODE" = '--osvobodit' ]; then
@@ -121,13 +455,35 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 [ -n "$MODE" ] || usage
+
+# [154] read-only счёт платных START — ДО обычного разбора: журнал не
+# создаётся, ничего не пишется. Тот же state, что и у фазы спавна (И-6).
+if [ "$MODE" = '--schet-kritika' ]; then
+  [ -n "$SUBJECT_154" ] || usage
+  case "$PHASE_154" in spawn|freeze) ;; *) usage ;; esac
+  [ -n "$REPO" ] || usage
+  command -v python3 >/dev/null 2>&1 || skip 'нет python3 — счёт критика нечем считать'
+  b154=0
+  schet_kritika_154 "$PHASE_154" "$SUBJECT_154" "$OBJECT_154" "$SOST" "$REPO" || b154=$?
+  exit "$b154"
+fi
 [ -n "$SOST" ] && [ -n "$ZHUR" ] && [ -n "$REPO" ] || usage
 [ -d "$SOST" ] || skip "состояния нет: $SOST"
 [ -d "$ZHUR" ] || skip "журналов нет: $ZHUR"
 REPO="$(cd "$REPO" 2>/dev/null && pwd -P)" || skip "репо нет: $REPO"
 git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 || skip "не репозиторий: $REPO"
 LEDGER="$SOST/uchet.jsonl"
-[ -r "$LEDGER" ] || : >> "$LEDGER" || skip "учёт не создать: $LEDGER"
+# [154] Журнал учёта — источник счёта платных START: его отсутствие или
+# нечитаемость — неизвестность (SCHET_NEIZVESTEN), а не «нулевой счёт».
+# Флаг «был ли журнал ДО вызова» — ноль START отличает от пустого журнала.
+LEDGER_154_EXISTED=1
+[ -f "$LEDGER" ] || LEDGER_154_EXISTED=0
+if [ ! -r "$LEDGER" ]; then
+  if [ -e "$LEDGER" ]; then
+    otp SCHET_NEIZVESTEN "учёт START нечитаем: $LEDGER"
+  fi
+  : >> "$LEDGER" || skip "учёт не создать: $LEDGER"
+fi
 
 # [D17 repo-id] repoId — пространство имён замка: репозиторий РЕЕСТРА предмета
 # (--repo), литеральный basename origin; общий у рабочих и судей предмета.
@@ -525,6 +881,27 @@ EOF
       otp OBJECT_UZHE_SUZHEN "предмет $sv: OBJECT $obj уже судился ролью $rol; исправительный круг — новый sha"
     fi
     if [ "$klass" = 'sudja' ]; then
+      # [154] СЧЁТ ПЛАТНЫХ START: под предметным мьютексом, ДО START и ДО
+      # занятия. Позиции 1–2 свободны; позиция 3+ — только при адресном
+      # основании (SANKTSIYA/ISPOLZOVANO/ARBITRAZH) с подтверждённой
+      # закоммиченной строкой. Отказ ничего не пишет в журнал.
+      if [ "$rol" = 'critic' ] || [ "$rol" = 'critic-sol' ]; then
+        if [ "$LEDGER_154_EXISTED" != '1' ]; then
+          mutexi_snyat_vse
+          rm -f "$LEDGER"
+          otp SCHET_NEIZVESTEN "журнал учёта отсутствовал до вызова: $LEDGER"
+        fi
+        b154=0
+        schet_kritika_154 spawn "$sv" "$obj" "$SOST" "$REPO" || b154=$?
+        if [ "$b154" -eq 1 ]; then
+          mutexi_snyat_vse
+          exit 1
+        fi
+        if [ "$b154" -ne 0 ] && [ "$b154" -ne 3 ]; then
+          mutexi_snyat_vse
+          skip "бюджет критика не читается (rc=$b154)"
+        fi
+      fi
       rab="$(poslednij_rabochij "$sv")"
       if [ -z "$rab" ]; then
         # [D12 rabochego-net] судья без автора предмета — судить нечего.
