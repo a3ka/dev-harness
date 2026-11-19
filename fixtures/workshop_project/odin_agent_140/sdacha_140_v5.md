@@ -328,3 +328,87 @@ SUBJEKT_KRASNO: 52, а не моделью или живым стабом.
 Ремонт сохраняет старый отказ и отдельно проверяет общий --object на том же
 входе, вместо подгонки ожидаемой причины под новый порядок кода.
 Журнал А-* не изменён: вне зоны, запись допускается только в main.
+
+## Разбор привязок s52/p13 и s60/p14 (Arch140Bindings)
+
+Исходный принятый tip: `8d3d37d682c4cf05417f282bee608706fb446053`.
+pwd собственной копии:
+`/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/tc0863e7d2/m`.
+Выбрана уже существующая собственная ветка `wip/140/architect-v5`,
+указывавшая ровно на этот tip; delivery WT/shared .git не использовались.
+
+Существующие источники: `probe.py:2320–2327,2393–2436`,
+`produkt_140.py:218–269,327–352`, `source.json:400–427`,
+`model/zamok_predmeta.sh:432–442`; предыдущая сдача прочитана выше и из
+результата `agent://Arch140P14`. Исторический consult через `seance`
+отказал алфавитом; журнал сессии не читался и не переигрывался.
+
+`STAB ... KRASEN` означает ПОЙМАННЫЙ обманный стаб, не провал честной
+модели: progon возвращает список нарушенных ожиданий клетки; при непустом
+списке runner печатает KRASEN, а при пустом увеличивает zhivye и печатает
+STAB_ZHIV. До матрицы все клетки обязаны пройти на честной модели.
+После MODEL_ZHIVYH 0 runner отдельно возвращает результат обязательного
+слоя поставленной двери; SUBJEKT_KRASNO 52 даёт общий rc 1.
+
+Связи установлены кодом/оракулом, не этим пояснением:
+
+| Стаб → вход | Наблюдаемое отличие, которое ловит вход |
+|---|---|
+| s52-receipt-bez-tip → p13-tip-produkta-sdvinut | Удалена сверка resolver==P_OBJECT; p13 создаёт другой НЕПУСТОЙ кодовый tip, требует rc 1 / OBJECT_RASHODITSJA и неизменное долговечное состояние. |
+| s60-receipt-pustoj-rezultat → p14-pustoj-rezultat | Удалена проверка пустого receipt OBJECT до resolver; p14 требует прежний rc 1 / PEREDACHA_NEDOSTOVERNA для --peredat. D50 остаётся и отвергает пустой tip другой причиной; это различение диагностики, не утверждение, что мутант допускает пустой кандидат. На том же входе отдельный --object обязан дать OBJECT_RASHODITSJA. |
+
+Ошибка клеток/привязок не подтверждена. Модель, стабы, p13/p14, честные
+p03/p31 и q23 не менялись; ради общего зелёного production-слой не отключён.
+Frozen-текст не менялся: смысл owner-условия «непустой tip» ещё уточняется.
+
+### Независимый одноразовый финальный контроль
+
+Новый локальный venv создан `/usr/bin/python3 -m venv`.
+Реальный пакет установлен командой `P -m pip install jsonschema==4.26.0`;
+P — абсолютный
+`/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/tc0863e7d2/m/.venv-140-bindings/bin/python3`.
+Его sys.executable совпал с P, sys._base_executable — `/usr/bin/python3.12`;
+importlib.metadata.version("jsonschema") дал `4.26.0`, модуль загружен из
+`.venv-140-bindings/lib/python3.12/site-packages/jsonschema/__init__.py`.
+Системный runtime не подменялся и не объявлен подготовленным.
+
+В таблице R — указанный pwd, F — `R/fixtures/workshop_project/odin_agent_140`,
+B — read-only baseline
+`/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/tcb1bfeda0/m/fixtures/workshop_project/odin_agent_140/model/zamok_predmeta.sh`.
+Каждая команда вызвана из R с
+`env PYTHONDONTWRITEBYTECODE=1 TMPDIR=R/.venv-140-bindings PATH=R/.venv-140-bindings/bin:/usr/bin:/bin`.
+--stabs выполнен один раз как независимый контроль значения сообщений
+вместе с чтением runner, не как подтверждение сообщённого исходного FAIL.
+
+| Блок → способ | Исполненная команда | rc | Сырой итог |
+|---|---|---|---|
+| Честная модель → поведение | `P F/probe.py --model` | 0 | MODEL_KLETKI 148 KRASNYH 0; p03/p13/p14/p31, q19/q20/q23 ok |
+| Поимённые мутации → независимый контроль | `P F/probe.py --stabs` | 1 | Все поимённые связи KRASEN; SVJAZI 128; MODEL_ZHIVYH 0; SUBJEKT_KRASNO: 52 |
+| Прежняя модель → СОревью-контрпример | `P F/co_review_140.py --baseline B` | 0 | CO_REVIEW140_COUNTS cases=23 mutants=10 bindings=14; CO_REVIEW140_FAILURES 0 |
+
+Точные строки независимого --stabs:
+
+```text
+STAB s52-receipt-bez-tip p13-tip-produkta-sdvinut KRASEN
+STAB s60-receipt-pustoj-rezultat p14-pustoj-rezultat KRASEN
+SVJAZI 128
+MODEL_ZHIVYH 0
+SUBJEKT_KRASNO: 52 — поставленная дверь красна (свидетель критика пойман)
+```
+
+СОревью воспроизвёл прежние q17–q20 на baseline (rc 0 вместо требуемого
+отказа), q21/q22 — OBJECT=C при runtime=TIP_RUNTIME. Новая модель прошла
+все свои q-клетки; каждая поимённая связь s62–s71 была caught.
+Это авторская проверка конструкции, не вердикт судьи.
+
+NOT_RUN: системный `/usr/bin/python3 -I` / очищенный env-i, чистый CI,
+полный check_sdacha/pre_critic и прочие системные/станционные двери.
+Поставка runtime и уточнение frozen-текста остаются внешними предпосылками;
+этот контроль не разрешает critic/freeze/done и не является неожиданной
+продуктовой ошибкой на незамороженной/неустановленной реализации.
+
+Процессная рефлексия для main: смешение «мутант пойман» и «барьер красен»
+устраняется чтением ветвей счётчиков runner; здесь ложный ремонт не сделан.
+Повторно встретился уже записанный отказ алфавита seance; использован
+готовый результат роли, без чтения исторического jsonl. Общий журнал
+А-* не менялся (вне зоны; добавление только в main).
