@@ -18,18 +18,32 @@
 # ЗАКРЕПЛЁННАЯ МОДЕЛЬ — единственный источник архитектурных сведений:
 #   клон модели → $ARCHITECTURE_ROOT (verify-pin клон, который даёт проектный
 #                  CI; в нём лежит коммит из architecture.lock.json);
-#   коммит      → .commit в architecture.lock.json;
+#   коммит      → .commit в architecture.lock.json — ПОЛНЫЙ 40-hex SHA в
+#                  канонической форме git (строчные [0-9a-f]{40}). Символьный
+#                  pin (`HEAD`, имя ветки) и сокращённый НЕ принимаются:
+#                  разрешимость git не заменяет грамматику, «сначала
+#                  разрешить HEAD в SHA» — не выполнение неизменного lock
+#                  (после перемещения HEAD клона источником остался бы тот же
+#                  полный SHA). Неконформный pin — именованный отказ ARCH_PIN
+#                  («закреплённый pin не полный 40-hex SHA: <pin>»),
+#                  неразрешимый полный SHA — ARCH_PIN («коммит <pin> не
+#                  разрешается в клоне модели»); обе ветви — rc 1, пустой
+#                  stdout, бриф не зовётся;
 #   чтение     → materialize дерева ЭТОГО коммита (`git archive`) и вызовы
 #                `node tooling/checks/cli.js <brief|locate|check|snapshot>` ВНУТРИ
 #                этого дерева. Ни HEAD клона, ни локальная `architecture/` продукта
 #                источником не являются (две разные версии модели в одном
 #                пакете не смешиваются).
 #
-# ЧТО СУДИТСЯ:
+# ЧТО СУДИТСЯ (порядок шва: строка → pin → зоны):
 #   * строка `АРХИТЕКТУРА: L1|L2|L3 <id,…>` — самостоятельная строка; список
 #     непустой, без дублей и прозы (id: [A-Za-z0-9_][A-Za-z0-9._-]*). Пустая или
 #     отсутствующая строка — ARCH_LINE_MISSING; L3 — отказ до решения владельца
 #     (ARCH_OWNER);
+#   * грамматика закреплённого pin — сразу ПОСЛЕ строки «АРХИТЕКТУРА:» и ДО
+#     зон (arch187_line → arch187_model_prepare → arch187_zones), и ДО вопроса
+#     о флаге `--arch-component`: неконформный либо неразрешимый pin — отказ
+#     ARCH_PIN (см. «ЗАКРЕПЛЁННАЯ МОДЕЛЬ»), а не ARCH_COMPONENT_NET;
 #   * продуктовые пути `ЗОНА implementer:` — `locate --path` закреплённой
 #     модели. Ответ модели — многострочный JSON: разбирается ЦЕЛИКОМ, а
 #     компоненты — объединение matches[].components всех матчей; класс ответа
@@ -125,6 +139,28 @@ arch187_pin() {
   jq -r '.commit // empty' "$1/architecture.lock.json" 2>/dev/null || true
 }
 
+# arch187_pin_full_sha <pin> — значение закреплённого pin конформен грамматике
+# контракта 187 (v3, обязательство 1 арбитража 170-1): ПОЛНЫЙ 40-hex SHA в
+# канонической форме git (строчные [0-9a-f]{40}).
+#
+# Символьный pin (`HEAD`, имя ветки) и сокращённый (12 hex) НЕ принимаются:
+# разрешимость git (`cat-file -e '<pin>^{commit}'`) НЕ заменяет грамматику —
+# «сначала разрешить HEAD в SHA» не является выполнением неизменного lock
+# (после перемещения HEAD клона источником остался бы тот же полный SHA).
+# Проверка посимвольная и НЕ зависит от локали (набор символов задан
+# перечислением, а не диапазоном).
+arch187_pin_full_sha() {
+  local pin="${1:-}" i
+  [ "${#pin}" -eq 40 ] || return 1
+  for (( i = 0; i < 40; i++ )); do
+    case "${pin:i:1}" in
+      0|1|2|3|4|5|6|7|8|9|a|b|c|d|e|f) ;;
+      *) return 1 ;;
+    esac
+  done
+  return 0
+}
+
 # arch187_snapshot_digest <repo> — digest утверждённого снимка из lock (167).
 # Пусто — утверждённого снимка нет: сравнивать не с чем.
 arch187_snapshot_digest() {
@@ -140,6 +176,20 @@ arch187_model_prepare() {
   # Прежнее развёрнутое дерево — в мусор: повторный вызов (суд зон, затем
   # бриф) не должен оставлять в /tmp копию модели.
   arch187_cleanup
+  # Грамматика закреплённого pin (контракт 187 v3) — ПЕРВЫЙ отказ модели:
+  # значение `.commit` обязано быть ПОЛНЫМ 40-hex SHA в канонической форме
+  # git. Символьный pin и сокращённый обслуживать НЕЛЬЗЯ: разрешимость git
+  # не заменяет грамматику (см. arch187_pin_full_sha). Это свойство самого
+  # lock — судится ДО вопроса о клоне модели и ДО вопроса о флаге.
+  pin="$(arch187_pin "$repo")"
+  if [ -z "$pin" ]; then
+    ARCH187_REFUSAL="ARCH_PIN: в architecture.lock.json нет закреплённого коммита"
+    return 1
+  fi
+  if ! arch187_pin_full_sha "$pin"; then
+    ARCH187_REFUSAL="ARCH_PIN: закреплённый pin не полный 40-hex SHA: $pin"
+    return 1
+  fi
   root="${ARCHITECTURE_ROOT:-}"
   if [ -z "$root" ] && [ -f "$repo/architecture.lock.json" ]; then
     root="$(jq -r '.clone // empty' "$repo/architecture.lock.json" 2>/dev/null || true)"
@@ -150,11 +200,6 @@ arch187_model_prepare() {
   fi
   if [ ! -d "$root" ]; then
     ARCH187_REFUSAL="ARCH_PIN: клон модели не найден: $root"
-    return 1
-  fi
-  pin="$(arch187_pin "$repo")"
-  if [ -z "$pin" ]; then
-    ARCH187_REFUSAL="ARCH_PIN: в architecture.lock.json нет закреплённого коммита"
     return 1
   fi
   if ! git -C "$root" cat-file -e "${pin}^{commit}" 2>/dev/null; then
