@@ -126,7 +126,11 @@ done
 REPO="$(cd "$REPO" 2>/dev/null && pwd -P)" || skip "репо нет: $REPO"
 git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 || skip "не репозиторий: $REPO"
 LEDGER="$SOST/uchet.jsonl"
-[ -r "$LEDGER" ] || : >> "$LEDGER" || skip "учёт не создать: $LEDGER"
+# [D34 uchet-lazy] Готовность без создания файла: отказ до записи не
+# оставляет учёт; --uchet остаётся читающим.
+if ! { [ -r "$LEDGER" ] || { [ ! -e "$LEDGER" ] && [ -w "$SOST" ]; }; }; then
+  skip "учёт не создать: $LEDGER"
+fi
 
 # [D17 repo-id] repoId — пространство имён замка: репозиторий РЕЕСТРА предмета
 # (--repo), литеральный basename origin; общий у рабочих и судей предмета.
@@ -206,14 +210,14 @@ klass_riska() {  # <NNN> <worktree> <OBJECT> → risikovyj|obychnyj|net_stroki:<
   else printf 'net_stroki:ни contracts/, ни .harness/contracts/ в дереве %s нет' "$obj"; return 0; fi
   spisok="$(git -C "$wt" ls-tree "$obj:$kat" 2>/dev/null \
     | awk -F'\t' -v n="$n" '$2 ~ "^" n "-[^/]*[.]md$" {print $1 "\t" $2}' \
-    | LC_ALL=C sort | sed -n '1p')" # стаб: только первый результат
+    | LC_ALL=C sort -t "$TAB" -k2,2 | sed -n '1p')" # стаб: только первое имя файла
   if [ -z "$spisok" ]; then printf 'net_stroki:файлов %s/%s-*.md в дереве %s нет' "$kat" "$n" "$obj"; return 0; fi
   while IFS= read -r zap; do
     [ -n "$zap" ] || continue
     put="$(printf '%s' "$zap" | cut -f2)"
     tip_zap="$(printf '%s' "$zap" | cut -f1 | cut -d' ' -f2)"
     blob="$(printf '%s' "$zap" | cut -f1 | cut -d' ' -f3)"
-    case "$zap" in 120000*|*' 'tree'*) continue ;; esac # стаб: симлинк/каталог молча выпадают
+    case "$zap" in 120000*|*" tree "*) continue ;; esac # стаб: симлинк/каталог молча выпадают
     if git -C "$wt" show "$obj:$kat/$put" 2>/dev/null | grep -q '^КЛАСС РИСКА: рисковый'; then val='рисковый'
     elif git -C "$wt" show "$obj:$kat/$put" 2>/dev/null | grep -q '^КЛАСС РИСКА:'; then val='обычный'
     else val=''; fi # стаб: историческая форма чтения
@@ -241,6 +245,16 @@ EOF
 }
 
 # ── учёт (jq над JSONL; значения из замкнутых алфавитов) ────────────────────
+# [D34 uchet-lazy] Создание только перед первой записью START/RELEASE.
+uchet_gotov() {  # 0 — запись возможна | 1 — нет
+  if [ -e "$LEDGER" ]; then
+    [ -f "$LEDGER" ] && [ -w "$LEDGER" ] || return 1
+    return 0
+  fi
+  [ -w "$SOST" ] || return 1
+  : >> "$LEDGER" 2>/dev/null || return 1
+  return 0
+}
 poslednij_rabochij() {  # <NNN> → «holder<TAB>object<TAB>worktree<TAB>branch» | пусто
   jq -rs --arg r "$REPO_ID" --arg n "$1" '
     [ .[] | select(.t == "START" and .repoId == $r and .subjectId == $n and .klass == "rabochij") ]
@@ -602,6 +616,11 @@ EOF
 
   # [D23 start-do-razdachi] решение «позволено ВСЕМ» → занятия + START, потом rc 0
   local grp2
+  # [D34 uchet-lazy] После решения всего пакета, ДО занятия и START.
+  if ! uchet_gotov; then
+    mutexi_snyat_vse
+    skip "учёт не создать: $LEDGER"
+  fi
   while IFS='|' read -r idx agent name sv obj wt br klass rol; do
     [ -n "$sv" ] || continue
     if [ "$klass" = 'rabochij' ]; then grp2="$(gruppa_iz_pina "$wt")"
@@ -719,6 +738,11 @@ osvobodit() {
     else
       prichina='obryv_bez_verdikta'
     fi
+  fi
+  # [D34 uchet-lazy] Готовность RELEASE — ДО снятия занятия.
+  if ! uchet_gotov; then
+    rmdir "$zdir/mutex" 2>/dev/null
+    skip "учёт не создать: $LEDGER"
   fi
   rm -rf "$zdir/zanyat"
   jq -nc --arg t RELEASE --arg r "$REPO_ID" --arg s "$NNN_ARG" --arg h "$h_holder" \
