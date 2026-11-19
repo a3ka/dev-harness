@@ -53,6 +53,9 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from types import SimpleNamespace
+import produkt_140
+import object_140
 
 HERE = Path(__file__).resolve().parent
 MODEL = HERE / 'model' / 'zamok_predmeta.sh'
@@ -65,9 +68,9 @@ MATER = HERE / 'materialy'
 # (HERE = <корень>/fixtures/workshop_project/odin_agent_140).
 REEPOR = HERE.parents[2]
 SUBJEKT_DVERI = REEPOR / 'scripts' / 'zamok_predmeta.sh'
-# станционные клетки интеграции хука (osi.md: p01–p14 + m01) — закрыты
-# КОМАНДОЙ приёмки stancija_odin_agent_140.sh, не молчаливым пропуском
-STANCIONNYH_KLETOK = 15
+# станционные клетки интеграции хука (osi.md: p01–p20 + m01, параметры
+# p10/p15/p16/p17/p18/p19) — команда приёмки stancija_odin_agent_140.sh
+STANCIONNYH_KLETOK = 45
 BASH = '/usr/bin/bash' if Path('/usr/bin/bash').is_file() else 'bash'
 TAB = '\t'
 GIT_ENV = {'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_SYSTEM': '/dev/null',
@@ -354,6 +357,12 @@ def k_svoboden(mir, nnn, chto):
 
 def k_stdout(r, pod, chto):
     return None if pod in r.stdout else '%s: в stdout нет %r (есть %r)' % (chto, pod, r.stdout[:160])
+
+
+def snimok_fajlov(root):
+    """Имена и байты долговечных файлов; ожидание снимается ДО двери."""
+    return {str(p.relative_to(root)): p.read_bytes()
+            for p in root.rglob('*') if p.is_file()}
 
 
 # ── КЕЙСЫ (таблица осей; каждая клетка — свой вход и своё предъявление) ──────
@@ -1454,6 +1463,121 @@ def kejsy():
                 k_zanyat(mir, '141', 'Critic141', 'занятие-судьи')]
     reg('b08-paket-fakt-kazhdogo-itema', 'пакет=смешанный;isolated=разные-факты;START=факт-своего-item', b08)
 
+    # Arb140V5 К-10: прежние миры с существующим учётом сохраняются.
+    # Эти клетки начинают с отсутствующего файла, а не пустого содержимого.
+    def w31(mir, door):
+        wt, br, _ = mir.worktree('140')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch140',
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+        mir.ledger.unlink()
+        before = snimok_fajlov(mir.sost)
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'NE_IZOLIROVAN', 'причина'),
+                None if snimok_fajlov(mir.sost) == before else 'отказ создал/изменил файл',
+                k_svoboden(mir, '140', 'занятие')]
+    reg('w31-otkaz-bez-fajla-ucheta', 'учёт=нет-файла;isolated=нет;отказ=без-долговечных-записей', w31)
+
+    def b09(mir, door):
+        wt140, br140, _ = mir.worktree('140')
+        wt141, br141, _ = mir.worktree('141')
+        ev = mir.sobytie('e.json', [
+            item('architect', 'Arch140', ['SUBJECT=140', 'WORKTREE=' + wt140,
+                                          'BRANCH=' + br140], isolated=True),
+            item('architect', 'Arch141', ['SUBJECT=141', 'WORKTREE=' + wt141,
+                                          'BRANCH=' + br141], isolated=False)])
+        mir.ledger.unlink()
+        before = snimok_fajlov(mir.sost)
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'NE_IZOLIROVAN', 'причина'),
+                None if snimok_fajlov(mir.sost) == before else 'пакет создал/изменил файл',
+                k_svoboden(mir, '140', 'откат-140'), k_svoboden(mir, '141', 'откат-141')]
+    reg('b09-otkat-bez-fajla-ucheta', 'учёт=нет-файла;пакет=последний-неизолирован;откат=без-долговечных-записей', b09)
+
+    def w32(mir, door):
+        wt, br, _ = mir.worktree('140')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch140',
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
+        mir.ledger.unlink()
+        r = sudit(door, mir, ev)
+        if not mir.ledger.is_file():
+            return [k_rc(r, 0, 'rc'), 'первый START: учёт не создан']
+        return [k_rc(r, 0, 'rc'), k_chislo_startov(mir, 'первый-START', 1),
+                k_stroka(mir, 'собственный-START', subjectId='140', holder='Arch140', isolated=True),
+                k_zanyat(mir, '140', 'Arch140', 'первое-занятие')]
+    reg('w32-pervyj-start-sozdaet-uchet', 'учёт=нет-файла;isolated=true;запись=первый-START', w32)
+
+    def w33(mir, door):
+        wt, br, _ = mir.worktree('140')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch140',
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
+        mir.ledger.unlink()
+        mir.ledger.mkdir()
+        before = snimok_fajlov(mir.sost)
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 2, 'rc-необычный-учёт'),
+                None if 'учёт не создать:' in r.stderr else 'нет причины учёт не создать',
+                None if snimok_fajlov(mir.sost) == before else 'неисправный учёт: изменены файлы',
+                k_svoboden(mir, '140', 'занятие-до-готовности')]
+    reg('w33-neobychnyj-uchet-do-zanjatija', 'учёт=каталог;отказ=rc2-до-занятия', w33)
+
+    def w34(mir, door):
+        wt, br, _ = mir.worktree('140')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch140',
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
+        mir.ledger.chmod(0o444)
+        # Оракул эффективных прав — ОС до вызова, не биты режима:
+        # root может писать 0444 и обязан пройти с собственным START.
+        writable = os.access(mir.ledger, os.W_OK, effective_ids=True)
+        before = snimok_fajlov(mir.sost)
+        try:
+            r = sudit(door, mir, ev)
+            if writable:
+                return [k_rc(r, 0, 'rc-эффективно-записываемый'),
+                        k_stroka(mir, 'START-привилегированного', holder='Arch140', isolated=True),
+                        k_zanyat(mir, '140', 'Arch140', 'занятие')]
+            return [k_rc(r, 2, 'rc-незаписываемый-учёт'),
+                    None if 'учёт не создать:' in r.stderr else 'нет причины учёт не создать',
+                    None if snimok_fajlov(mir.sost) == before else 'отказ изменил файлы',
+                    k_svoboden(mir, '140', 'занятие-до-готовности')]
+        finally:
+            mir.ledger.chmod(0o644)
+    reg('w34-uchet-prava-zapisi', 'учёт=0444;оракул=эффективные-права-ОС;START=только-при-доступе', w34)
+
+    def u03(mir, door):
+        mir.ledger.unlink()
+        before = snimok_fajlov(mir.sost)
+        r = uchet(door, mir)
+        return [k_rc(r, 0, 'rc-чтение'),
+                k_stdout(r, 'GRP\tharness\t0\t3', 'пустая-группа'),
+                None if snimok_fajlov(mir.sost) == before else '--uchet создал/изменил файл']
+    reg('u03-chtenie-ne-sozdaet-uchet', 'режим=uchet;учёт=нет-файла;эффект=только-чтение', u03)
+
+    def u04(mir, door):
+        mir.start('140', 'Arch140')
+        mir.zhurnal('Arch140', sdal=True)
+        mir.ledger.unlink()
+        r = osvobodit(door, mir, '140', 'Arch140')
+        if not mir.ledger.is_file():
+            return [k_rc(r, 0, 'rc'), 'первый RELEASE: учёт не создан']
+        rows = mir.ledg()
+        return [k_rc(r, 0, 'rc'), k_svoboden(mir, '140', 'освобождение'),
+                None if len(rows) == 1 and rows[0].get('t') == 'RELEASE'
+                and rows[0].get('holder') == 'Arch140' else 'нет собственного первого RELEASE']
+    reg('u04-pervyj-release-sozdaet-uchet', 'режим=osvobodit;учёт=нет-файла;запись=первый-RELEASE', u04)
+
+    def u05(mir, door):
+        mir.start('140', 'Arch140')
+        mir.zhurnal('Arch140', sdal=True)
+        mir.ledger.unlink()
+        mir.ledger.mkdir()
+        before = snimok_fajlov(mir.sost)
+        r = osvobodit(door, mir, '140', 'Arch140')
+        return [k_rc(r, 2, 'rc-готовность-RELEASE'),
+                None if 'учёт не создать:' in r.stderr else 'нет причины учёт не создать',
+                None if snimok_fajlov(mir.sost) == before else 'занятие изменено до готовности RELEASE',
+                k_zanyat(mir, '140', 'Arch140', 'занятие-сохранено')]
+    reg('u05-release-proverjaet-do-snjatija', 'режим=osvobodit;учёт=каталог;отказ=rc2-занятие-сохранено', u05)
+
 
     # D. учёт/сторож
     def u01(mir, door):
@@ -1571,6 +1695,8 @@ def kejsy():
         return [k_rc(r, 1, 'rc'), k_prichina(r, 'PIN_NET', 'причина')]
     reg('g06-podstroka-pina', 'форма=пин-подстрокой;класс=delimiter-collision', g06)
 
+    produkt_140.dobavit(K, SimpleNamespace(**globals()))
+    object_140.dobavit(K, SimpleNamespace(**globals()))
     return K
 
 
@@ -1652,7 +1778,8 @@ def m_avtor_ne_sdal(t):
 def m_vtoroj_sudja(t):
     return _z(t, '''            # [D21 vtoroj-sudja] живой судья — второй судья на предмет запрещён.
             otp SUDJA_ZHIV "предмет $sv: судья $h_holder бежит без сдачи — второй судья запрещён"
-''', '')
+''', '''            : # стаб: второй живой судья разрешён
+''')
 
 
 def m_uzhe_suzhen(t):
@@ -1692,9 +1819,9 @@ def m_pervyj_rezultat_find(t):
     # молча выпадают): краснота на реальных формах наследуется. После v+1
     # источник первый-по-списку записи ДЕРЕВА OBJECT (перечень стабилен LC_ALL=C).
     t = _z(t, '''    | LC_ALL=C sort)"''',
-              '''    | LC_ALL=C sort | sed -n '1p')" # стаб: только первый результат''')
+              '''    | LC_ALL=C sort -t "$TAB" -k2,2 | sed -n '1p')" # стаб: только первое имя файла''')
     t = _z(t, '''    if [ "$tip_zap" != blob ]; then ploh="${ploh:+$ploh }$put"; continue; fi''',
-              '''    case "$zap" in 120000*|*' 'tree'*) continue ;; esac # стаб: симлинк/каталог молча выпадают''')
+              '''    case "$zap" in 120000*|*" tree "*) continue ;; esac # стаб: симлинк/каталог молча выпадают''')
     t = _z(t, '''    val="$(git -C "$wt" show "$obj:$kat/$put" 2>/dev/null \\
           | grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' \\
           | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"''',
@@ -2008,6 +2135,30 @@ def m_fakt_iz_pervogo_itema(t):
 ''')
 
 
+def m_uchet_rano(t):
+    # Точный прежний побочный эффект до [D32]; различим только без файла.
+    return _z(t, 'LEDGER="$SOST/uchet.jsonl"\n',
+              'LEDGER="$SOST/uchet.jsonl"\n[ -r "$LEDGER" ] || : >> "$LEDGER" || skip "учёт не создать: $LEDGER"\n')
+
+
+def m_uchet_chtenie_sozdaet(t):
+    return _z(t, 'uchet() {\n', 'uchet() {\n  : >> "$LEDGER" # стаб: чтение создаёт файл\n')
+
+
+def m_uchet_neobychnyj(t):
+    return _z(t, '    [ -f "$LEDGER" ] && [ -w "$LEDGER" ] || return 1',
+              '    : # стаб: существующий учёт принимаем без готовности')
+
+
+def m_release_ranshe_gotovnosti(t):
+    star = '''  if ! uchet_gotov; then
+    rmdir "$zdir/mutex" 2>/dev/null
+    skip "учёт не создать: $LEDGER"
+  fi'''
+    return _z(t, star, '  rm -rf "$zdir/zanyat" # стаб: снятие до готовности RELEASE\n' + star)
+
+
+
 STAB_MUTACII = {
     's01-bez-dublja-rabochego': m_bez_dublja,
     's02-bez-yield-predikata': m_bez_yield,
@@ -2053,8 +2204,14 @@ STAB_MUTACII = {
     's42-sudej-fakt-vsegda-istina': m_sudej_fakt_vsegda_istina,
     's43-sudejskij-start-bez-fakta': m_sudejskij_start_bez_fakta,
     's44-fakt-iz-pervogo-itema': m_fakt_iz_pervogo_itema,
+    's45-uchet-do-proverki': m_uchet_rano,
+    's46-uchet-chtenie-sozdaet': m_uchet_chtenie_sozdaet,
+    's47-uchet-neobychnyj-prohodit': m_uchet_neobychnyj,
+    's48-release-do-gotovnosti': m_release_ranshe_gotovnosti,
     'x01-vsegda-puschem': m_vsegda_puschem,
 }
+STAB_MUTACII.update(produkt_140.mutacii(_z))
+STAB_MUTACII.update(object_140.mutacii(_z))
 
 
 def nagrudit_staby():
@@ -2068,6 +2225,16 @@ def nagrudit_staby():
         f.write_text(tekst, encoding='utf-8')
         f.chmod(0o755)
         print('STAB %s записан (%d байт)' % (imja, len(tekst.encode("utf-8"))))
+    # Обслуживание, НЕ прогон: фиксируем вычисленные носители до суда.
+    source = HERE / 'source.json'
+    src = json.loads(source.read_text(encoding='utf-8'))
+    paths = {'model/zamok_predmeta.sh': MODEL}
+    src['stab_vhod'].update(object_140.BINDINGS)
+    src['kejsy'] = {k: v['osi'] for k, v in sorted(kejsy().items())}
+    paths.update({k: HERE / k for k in src['nositeli'] if k.startswith('materialy/')})
+    paths.update({k: STABS / k / 'zamok_predmeta.sh' for k in STAB_MUTACII})
+    src['nositeli'] = {k: sha256_bytes(p.read_bytes()) for k, p in paths.items()}
+    source.write_text(json.dumps(src, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
 
 
 # ── безфлаговый режим: судит ПОСТАВЛЕННУЮ дверь дерева ──────────────────────
@@ -2077,7 +2244,7 @@ def rezhim_plain(K):
         print('SUBJECT_ABSENT: субъекта-двери нет: %s — зелень без субъекта невозможна' % d)
         for imja in sorted(K):
             print('CASE %s KRASNO (SUBJECT_ABSENT: %s)' % (imja, d))
-        print('STANCIONNYE: %d клеток интеграции хука (p01-p14,m01, osi.md) — команда приёмки bash %s'
+        print('STANCIONNYE: %d клеток интеграции хука (p01-p20,m01; параметры p10/p15/p16/p17/p18/p19, osi.md) — команда приёмки bash %s'
               % (STANCIONNYH_KLETOK, HERE / 'stancija_odin_agent_140.sh'))
         return 1
     krasnyh = 0
@@ -2090,7 +2257,7 @@ def rezhim_plain(K):
         else:
             print('CASE %s ok' % imja)
     print('SUBJEKT: %s' % d)
-    print('STANCIONNYE: %d клеток интеграции хука (p01-p14,m01, osi.md) — команда приёмки bash %s'
+    print('STANCIONNYE: %d клеток интеграции хука (p01-p20,m01; параметры p10/p15/p16/p17/p18/p19, osi.md) — команда приёмки bash %s'
           % (STANCIONNYH_KLETOK, HERE / 'stancija_odin_agent_140.sh'))
     print('KLETKI %d KRASNYH %d' % (len(K), krasnyh))
     return 1 if krasnyh else 0
@@ -2164,11 +2331,21 @@ def main():
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument('--model', action='store_true')
     ap.add_argument('--stabs', '--matrix', dest='stabs', action='store_true')
+    ap.add_argument('--sintaksis', action='store_true')
     ap.add_argument('--sgeneriruj-staby', action='store_true')
     a = ap.parse_args()
 
     if a.sgeneriruj_staby:
         nagrudit_staby()
+        return 0
+    if a.sintaksis:
+        files = [MODEL] + [STABS / name / 'zamok_predmeta.sh' for name in sorted(STAB_MUTACII)]
+        for path in files:
+            result = run([BASH, '-n', str(path)])
+            if result.returncode:
+                print('STAB_SYNTAX_INVALID: %s: %s' % (path, result.stderr), file=sys.stderr)
+                return 2
+        print('SINTAKSIS FILES %d' % len(files))
         return 0
 
     for tool in ('bash', 'git', 'jq'):
@@ -2215,15 +2392,18 @@ def main():
 
     # --model: контроль входов на эталоне
     vse_ok = True
+    model_krasnyh = 0
     if a.model or a.stabs:
         for imja in sorted(K):
             problems = progon(MODEL, imja, K[imja]['run'])
             if problems:
                 vse_ok = False
+                model_krasnyh += 1
                 for p in problems:
                     print('CASE %s KRASNO: %s' % (imja, p))
             else:
                 print('CASE %s ok' % imja)
+        print('MODEL_KLETKI %d KRASNYH %d' % (len(K), model_krasnyh))
         if not vse_ok:
             return 1
 
@@ -2245,6 +2425,7 @@ def main():
                 else:
                     print('STAB %s %s KRASEN' % (stab, vhod))
         print('SVJAZI %d' % svjazi)
+        print('MODEL_ZHIVYH %d' % zhivye)
         if zhivye:
             print('STAB_ZHIV: %d' % zhivye)
             return 1

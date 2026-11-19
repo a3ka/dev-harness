@@ -13,10 +13,11 @@
 # 199:19): у рабочего item события спавна обязателен реальный isolated
 # === true из ПОЛЯ item; строка START несёт факт isolated ([D32]/[D33]).
 #
-# ВЫЗОВ (грамматика argv замкнута, ровно три формы):
+# ВЫЗОВ (грамматика argv замкнута, четыре формы):
 #   zamok_predmeta.sh --sudit     --sostojanie D --zhurnaly D --repo R <event.json>
 #   zamok_predmeta.sh --osvobodit --sostojanie D --zhurnaly D --repo R <NNN> <holder>
 #   zamok_predmeta.sh --uchet     --sostojanie D --zhurnaly D --repo R
+#   zamok_predmeta.sh --peredat --sostojanie D --zhurnaly D --repo R <NNN> <receipt commit>
 #
 # ИСТОЧНИКИ СОБЫТИЙ (ось «источник»):
 #   --sostojanie D — замки D/zamki/<repoId>/<NNN>/{mutex,zanyat}/holder.json и
@@ -92,6 +93,9 @@ usage() {
   $0 --sudit     --sostojanie D --zhurnaly D --repo R <event.json>
   $0 --osvobodit --sostojanie D --zhurnaly D --repo R <NNN> <holder>
   $0 --uchet     --sostojanie D --zhurnaly D --repo R
+  $0 --peredat  --sostojanie D --zhurnaly D --repo R <NNN> <receipt commit>
+  $0 --object --repo R <NNN> <BRANCH>
+  $0 --snapshot --repo R <NNN> <BRANCH> <новый абсолютный runtime-worktree>
 rc 0 — разрешено/исполнено; rc 1 — именованный отказ; rc 2 — нечем проверить.
 USAGE
   exit 2
@@ -100,6 +104,58 @@ USAGE
 otp()  { printf 'ОТКАЗ: %s: %s\n' "$1" "$2" >&2; exit 1; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$1" >&2; exit 2; }
 
+# [D43 verdict-object] Один resolver для D9, передачи и pre_judge.
+# Только линейный хвост обычных verdict-файлов этого предмета прозрачен.
+object_kandidata() {  # <worktree> <NNN> <ref> → исходный OBJECT
+  local wt="$1" n="$2" ref="$3" tip paths p base='' c parents role dir body value entries
+  tip="$(git -C "$wt" rev-parse --verify "$ref^{commit}" 2>/dev/null)" || return 1
+  paths="$(git -C "$wt" diff-tree --root --no-commit-id --name-only --no-renames -r "$tip")" || return 1
+  [ -n "$paths" ] || return 1 # [D50 empty-tip]
+  # Непредметный/смешанный коммит — новая кодовая граница, не вердиктный хвост.
+  while IFS= read -r p; do
+    [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\.md$ ]] \
+      || { printf '%s\n' "$tip"; return 0; }
+  done <<< "$paths"
+  while IFS= read -r p; do
+    body="$(git -C "$wt" show "$tip:$p" 2>/dev/null)" || return 1
+    value="$(printf '%s\n' "$body" | grep '^OBJECT=')" || return 1
+    [[ "$value" =~ ^OBJECT=[0-9a-f]{40}$ ]] || return 1
+    value="${value#OBJECT=}"
+    [ -z "$base" ] || [ "$base" = "$value" ] || return 1
+    base="$value"
+  done <<< "$paths"
+  [ "$base" != "$tip" ] || return 1
+  git -C "$wt" merge-base --is-ancestor "$base" "$tip" 2>/dev/null || return 1
+  # [D49 object-root] Строгий предок сам обязан быть кодовой границей.
+  # Рекурсия убывает по ancestry; V1(OBJECT=C) не становится новым корнем V2.
+  [ "$(object_kandidata "$wt" "$n" "$base")" = "$base" ] || return 1
+  entries="$(git -C "$wt" rev-list "$base..$tip")" || return 1
+  [ -n "$entries" ] || return 1
+  while IFS= read -r c; do
+    # [D44 verdict-history] Проверяется КАЖДЫЙ коммит, не нетто-diff.
+    parents="$(git -C "$wt" show -s --format=%P "$c")" || return 1
+    [[ "$parents" =~ ^[0-9a-f]{40}$ ]] || return 1
+    paths="$(git -C "$wt" diff-tree --no-commit-id --name-only --no-renames -r "$c")" || return 1
+    [ -n "$paths" ] || return 1
+    while IFS= read -r p; do
+      # [D45 verdict-path] Белый список, а не исключение «всё кроме scripts».
+      [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\.md$ ]] || return 1
+      dir="${p#verdicts/}"; dir="${dir%%/*}"
+      case "$dir" in review) role=reviewer ;; *) role="$dir" ;; esac
+      # [D46 verdict-author] Автор и коммиттер того же судейского канала.
+      [ "$(git -C "$wt" show -s --format=%an "$c")" = "$role" ] \
+        && [ "$(git -C "$wt" show -s --format=%cn "$c")" = "$role" ] || return 1
+      # [D47 verdict-blob] Не удаление/симлинк/исполняемый файл.
+      [[ "$(git -C "$wt" ls-tree "$c" -- "$p")" == "100644 blob "* ]] || return 1
+      body="$(git -C "$wt" show "$c:$p" 2>/dev/null)" || return 1
+      value="$(printf '%s\n' "$body" | grep '^OBJECT=')" || return 1
+      # [D48 verdict-binding] Ровно одна самостоятельная строка, тот же OBJECT.
+      [ "$value" = "OBJECT=$base" ] || return 1
+    done <<< "$paths"
+  done <<< "$entries"
+  printf '%s\n' "$base"
+}
+
 command -v jq   >/dev/null 2>&1 || skip 'нет jq'
 command -v git  >/dev/null 2>&1 || skip 'нет git'
 command -v find >/dev/null 2>&1 || skip 'нет find'
@@ -107,26 +163,49 @@ command -v find >/dev/null 2>&1 || skip 'нет find'
 MODE=''; SOST=''; ZHUR=''; REPO=''; EVENT=''; NNN_ARG=''; HOLDER_ARG=''
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --sudit|--osvobodit|--uchet) MODE="$1" ;;
+    --sudit|--osvobodit|--uchet|--peredat|--object|--snapshot) MODE="$1" ;;
     --sostojanie) SOST="${2:?}"; shift ;;
     --zhurnaly)   ZHUR="${2:?}"; shift ;;
     --repo)       REPO="${2:?}"; shift ;;
     --help|-h)    usage ;;
     *) if [ "$MODE" = '--sudit' ]; then EVENT="$1"
-       elif [ "$MODE" = '--osvobodit' ]; then
-         if [ -z "$NNN_ARG" ]; then NNN_ARG="$1"; else HOLDER_ARG="$1"; fi
+       elif [ "$MODE" = '--osvobodit' ] || [ "$MODE" = '--peredat' ] || [ "$MODE" = '--object' ] || [ "$MODE" = '--snapshot' ]; then
+         if [ -z "$NNN_ARG" ]; then NNN_ARG="$1"
+         elif [ -z "$HOLDER_ARG" ]; then HOLDER_ARG="$1"; else EVENT="$1"; fi
        else usage; fi ;;
   esac
   shift
 done
 [ -n "$MODE" ] || usage
+if [ "$MODE" = '--snapshot' ]; then
+  [[ "$NNN_ARG" =~ ^[0-9]{3}$ ]] && [[ "$HOLDER_ARG" =~ ^wip/$NNN_ARG/[^/]+$ ]] \
+    && [[ "$EVENT" = /* ]] && [ ! -e "$EVENT" ] || usage
+  resolved="$(object_kandidata "$REPO" "$NNN_ARG" "refs/heads/$HOLDER_ARG")" \
+    || otp OBJECT_RASHODITSJA 'носитель не сохраняет судимый OBJECT'
+  # [D51 runtime-object] Runtime получает checkout OBJECT, не checkout носителя.
+  # Git создаёт отдельный detached worktree; ветка автора не сдвигается.
+  git -C "$REPO" -c core.hooksPath=/dev/null worktree add --quiet --detach "$EVENT" "$resolved" \
+    || skip 'не создан runtime-worktree OBJECT'
+  printf 'OBJECT=%s\nRUNTIME_WORKTREE=%s\n' "$resolved" "$EVENT"
+  exit 0
+fi
+if [ "$MODE" = '--object' ]; then
+  [[ "$NNN_ARG" =~ ^[0-9]{3}$ ]] && [[ "$HOLDER_ARG" =~ ^wip/$NNN_ARG/[^/]+$ ]] || usage
+  object_kandidata "$REPO" "$NNN_ARG" "refs/heads/$HOLDER_ARG" \
+    || otp OBJECT_RASHODITSJA 'носитель не сохраняет судимый OBJECT'
+  exit 0
+fi
 [ -n "$SOST" ] && [ -n "$ZHUR" ] && [ -n "$REPO" ] || usage
 [ -d "$SOST" ] || skip "состояния нет: $SOST"
 [ -d "$ZHUR" ] || skip "журналов нет: $ZHUR"
 REPO="$(cd "$REPO" 2>/dev/null && pwd -P)" || skip "репо нет: $REPO"
 git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 || skip "не репозиторий: $REPO"
 LEDGER="$SOST/uchet.jsonl"
-[ -r "$LEDGER" ] || : >> "$LEDGER" || skip "учёт не создать: $LEDGER"
+# [D34 uchet-lazy] Готовность без создания файла: отказ до записи не
+# оставляет учёт; --uchet остаётся читающим.
+if ! { [ -r "$LEDGER" ] || { [ ! -e "$LEDGER" ] && [ -w "$SOST" ]; }; }; then
+  skip "учёт не создать: $LEDGER"
+fi
 
 # [D17 repo-id] repoId — пространство имён замка: репозиторий РЕЕСТРА предмета
 # (--repo), литеральный basename origin; общий у рабочих и судей предмета.
@@ -241,11 +320,157 @@ EOF
 }
 
 # ── учёт (jq над JSONL; значения из замкнутых алфавитов) ────────────────────
+# [D34 uchet-lazy] Создание только перед первой записью START/RELEASE.
+uchet_gotov() {  # 0 — запись возможна | 1 — нет
+  if [ -e "$LEDGER" ]; then
+    [ -f "$LEDGER" ] && [ -w "$LEDGER" ] || return 1
+    return 0
+  fi
+  [ -w "$SOST" ] || return 1
+  : >> "$LEDGER" 2>/dev/null || return 1
+  return 0
+}
 poslednij_rabochij() {  # <NNN> → «holder<TAB>object<TAB>worktree<TAB>branch» | пусто
   jq -rs --arg r "$REPO_ID" --arg n "$1" '
     [ .[] | select(.t == "START" and .repoId == $r and .subjectId == $n and .klass == "rabochij") ]
     | last // empty
     | [ .holder, .object, .worktree, .branch ] | @tsv' "$LEDGER" 2>/dev/null
+}
+
+# v+1: последняя реальная работа остаётся START, передача — отдельный факт.
+rabochij_json() {
+  jq -cSrs --arg r "$REPO_ID" --arg n "$1" \
+    '[.[] | select(.t=="START" and .repoId==$r and .subjectId==$n and .klass=="rabochij")] | last // empty' "$LEDGER"
+}
+kontrakt_v_kandidate() {
+  local dir entries
+  for dir in contracts .harness/contracts; do
+    entries="$(git -C "$2" ls-tree "$3:$dir" 2>/dev/null \
+      | awk -F'\t' -v n="$1" '$2 ~ "^" n "-[^/]*[.]md$" {print $2}')"
+    [ -z "$entries" ] || return 0
+  done
+  return 1
+}
+peredacha_iz_ucheta() {
+  jq -crs --arg r "$REPO_ID" --arg n "$1" '
+    reduce .[] as $e (null;
+      if $e.repoId!=$r or $e.subjectId!=$n then .
+      elif $e.t=="START" and $e.klass=="rabochij" then null
+      elif $e.t=="PEREDACHA" then $e else . end) // empty' "$LEDGER" 2>/dev/null
+}
+perenos_otkaz() {
+  mutexi_snyat_vse
+  otp "$1" "проверяемая передача: $2"
+}
+proverit_peredachu() {  # <subject> <receipt commit>; результат — P_* в памяти
+  local n="$1" c="$2" worker digest path reg ptag pobj pcommit
+  [[ "$c" =~ ^[0-9a-f]{40}$ ]] \
+    || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'commit вне алфавита'
+  # [D35 receipt-origin] Только неизменяемое свидетельство станции на origin/main.
+  git -C "$REPO" merge-base --is-ancestor "$c" refs/remotes/origin/main 2>/dev/null \
+    || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'свидетельство не опубликовано на origin/main'
+  [ "$(git -C "$REPO" show -s --format=%an "$c")" = orchestrator ] \
+    && [ "$(git -C "$REPO" show -s --format=%cn "$c")" = orchestrator ] \
+    || perenos_otkaz PEREDACHA_AVTOR 'свидетельство не оркестратора'
+  path="registry/dostavki/$n.json"
+  [ "$(git -C "$REPO" ls-tree "$c" -- "$path" | cut -d' ' -f1)" = 100644 ] \
+    || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'свидетельство не обычный файл'
+  P_JSON="$(git -C "$REPO" show "$c:$path" 2>/dev/null)" \
+    || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'нет свидетельства'
+  # Формат судится JSON Schema стандартным движком, не набором shell-предикатов.
+  local schema_rc=0
+  python3 -c '
+import json, sys
+try:
+    from jsonschema import Draft202012Validator
+except ImportError:
+    sys.exit(2)
+n, r = sys.argv[2:4]
+def string(pattern):
+    return {"type":"string", "pattern":pattern+"(?![\\s\\S])"}
+properties = {
+    "version":{"const":1}, "repoId":{"const":r}, "subjectId":{"const":n},
+    "holder":string("^[A-Za-z0-9._-]+$"),
+    "author":{"enum":sys.argv[4].split()},
+    "workerStart":string("^[0-9a-f]{64}$"), "object":string("^[0-9a-f]{40}$"),
+    "frozenObject":string("^[0-9a-f]{40}$"), "frozenCommit":string("^[0-9a-f]{40}$"),
+    "frozenTag":string("^frozen/contracts/"+n+"/[1-9][0-9]*$"),
+    "branch":string("^wip/"+n+"/[A-Za-z0-9._-]+$"),
+    "worktree":string("^/[^\\x00-\\x1f|]+$"),
+    "canonicalRemote":string("^ssh://git@github[.]com/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+[.]git$")
+}
+schema = {"type":"object", "additionalProperties":False,
+          "properties":properties, "required":list(properties)}
+try:
+    document = json.loads(sys.argv[1])
+except ValueError:
+    sys.exit(1)
+sys.exit(1 if next(Draft202012Validator(schema).iter_errors(document), None) else 0)
+' "$P_JSON" "$n" "$REPO_ID" "$WORKERS" || schema_rc=$?
+  case "$schema_rc" in
+    0) : ;;
+    1) perenos_otkaz PEREDACHA_NEDOSTOVERNA 'схема свидетельства' ;;
+    *) mutexi_snyat_vse; skip 'JSON Schema: python3/jsonschema недоступны' ;;
+  esac
+  worker="$(rabochij_json "$n")"
+  [ -n "$worker" ] || perenos_otkaz RABOCHEGO_NET 'нет реального рабочего START'
+  digest="$(printf '%s' "$worker" | sha256sum | cut -d' ' -f1)"
+  # [D36 receipt-worker] Свидетельство связано со всей исходной строкой START.
+  [ "$digest" = "$(printf '%s' "$P_JSON" | jq -r .workerStart)" ] \
+    && [ "$(printf '%s' "$worker" | jq -r .holder)" = "$(printf '%s' "$P_JSON" | jq -r .holder)" ] \
+    || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'последний START изменён или другой'
+  [ "$(stare_holder "$(printf '%s' "$worker" | jq -r .holder)")" = yield ] \
+    || perenos_otkaz AVTOR_ESHCHO_RABOTAET 'исходный автор не сдал'
+  [ "$(printf '%s' "$worker" | jq -r .rol)" = "$(printf '%s' "$P_JSON" | jq -r .author)" ] \
+    || perenos_otkaz PEREDACHA_AVTOR 'роль исходного автора'
+  P_WT="$(printf '%s' "$P_JSON" | jq -r .worktree)"
+  P_BRANCH="$(printf '%s' "$P_JSON" | jq -r .branch)"
+  P_OBJECT="$(printf '%s' "$P_JSON" | jq -r .object)"
+  # [D37 receipt-remote] CanonicalRemote удостоверен станцией, не basename продукта.
+  [ "$(git -C "$P_WT" remote get-url origin 2>/dev/null)" = "$(printf '%s' "$P_JSON" | jq -r .canonicalRemote)" ] \
+    || perenos_otkaz PEREDACHA_REMOTE 'origin продукта не канонический'
+  [ "$(object_kandidata "$P_WT" "$n" "refs/heads/$P_BRANCH")" = "$P_OBJECT" ] \
+    || perenos_otkaz OBJECT_RASHODITSJA 'живой tip продукта изменился'
+  [ "$(printf '%s' "$P_JSON" | jq -r .canonicalRemote)" != "$REPO_URL" ] \
+    || perenos_otkaz PEREDACHA_REMOTE 'носитель не внешний продукт'
+  # [D38 receipt-author] Доставлен настоящий непустой результат того же автора.
+  [ "$(git -C "$P_WT" show -s --format=%an "$P_OBJECT" 2>/dev/null)" = "$(printf '%s' "$P_JSON" | jq -r .author)" ] \
+    || perenos_otkaz PEREDACHA_AVTOR 'автор продуктового коммита'
+  [ -n "$(git -C "$P_WT" diff-tree --root --no-commit-id --name-only -r "$P_OBJECT" 2>/dev/null)" ] \
+    || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'пустой продуктовый результат'
+  ptag="$(printf '%s' "$P_JSON" | jq -r .frozenTag)"
+  pobj="$(printf '%s' "$P_JSON" | jq -r .frozenObject)"
+  pcommit="$(printf '%s' "$P_JSON" | jq -r .frozenCommit)"
+  # [D39 receipt-frozen] Версия из реестра В ДЕРЕВЕ свидетельства, не latest/main.
+  reg="$(git -C "$REPO" show "$c:registry/contracts.tsv" 2>/dev/null | LC_ALL=C grep -E "^$n → " )"
+  [ "$reg" = "$n → $pobj" ] \
+    && [ "$(git -C "$REPO" rev-parse --verify "refs/tags/$ptag" 2>/dev/null)" = "$pobj" ] \
+    && [ "$(git -C "$REPO" cat-file -t "$pobj" 2>/dev/null)" = tag ] \
+    && [ "$(git -C "$REPO" rev-parse --verify "$pobj^{commit}" 2>/dev/null)" = "$pcommit" ] \
+    || perenos_otkaz KLASS_RISKA_NET 'точная frozen-версия не удостоверена'
+  P_FROZEN="$pcommit"
+}
+
+peredat() {
+  [[ "$NNN_ARG" =~ ^[0-9]{3}$ ]] || otp GRAMMATIKA_SUBEKTA 'передача без NNN'
+  SUBJS="$NNN_ARG"
+  mutex_zajavit "$NNN_ARG" || otp ZANYATO_RESHENIEM 'передача: предмет занят решением'
+  na_pauze "$NNN_ARG" && perenos_otkaz PAUZA_VLADELTSA 'предмет на паузе'
+  local z h
+  z="$(zamok_dir "$NNN_ARG")/zanyat/holder.json"
+  if [ -f "$z" ]; then
+    h="$(jq -r .holder "$z")"
+    [ "$(stare_holder "$h")" = yield ] \
+      || perenos_otkaz ZAMOK_ZHIV 'передача при несданном держателе'
+  fi
+  proverit_peredachu "$NNN_ARG" "$HOLDER_ARG"
+  uchet_gotov || { mutexi_snyat_vse; skip "учёт не создать: $LEDGER"; }
+  # [D40 receipt-append] Никакого START/RELEASE, смены занятия, ветки или счёта суда.
+  jq -nc --arg r "$REPO_ID" --arg n "$NNN_ARG" --arg c "$HOLDER_ARG" \
+    --argjson proof "$P_JSON" --arg at "$(ts_now)" \
+    '{t:"PEREDACHA",repoId:$r,subjectId:$n,receipt:$c,proof:$proof,at:$at}' >> "$LEDGER"
+  mutexi_snyat_vse
+  printf 'PEREDANO %s/%s %s\n' "$REPO_ID" "$NNN_ARG" "$P_OBJECT"
 }
 gruppa_ledger() {  # <NNN> → группа последнего рабочего START предмета | -
   local g
@@ -411,6 +636,7 @@ sudit() {
   # проход 1: грамматика всех gated items; НИ ОДНОЙ записи до полного решения
   GATED=''
   local i=0 agent name task in_w in_j s sv p wt br o obj klass rol r
+  local transfer P_JSON P_WT P_BRANCH P_OBJECT P_FROZEN
   while [ "$i" -lt "$N" ]; do
     agent="$(jq -r "(.tasks // [.])[$i].agent // \"\"" "$EVENT" 2>/dev/null)" \
       || otp BITYJ_VHOD "item $i: agent не читается"
@@ -547,10 +773,25 @@ EOF
         mutexi_snyat_vse
         otp AVTOR_ESHCHO_RABOTAET "предмет $sv: автор $r_holder не сдал (yield в журнале отсутствует)"
       }
-      # [D9 object-sovpadaet] OBJECT == живой tip ветки автора.
-      tip="$(git -C "$r_wt" rev-parse --verify "$r_br" 2>/dev/null)" || {
+      P_FROZEN=''
+      transfer="$(peredacha_iz_ucheta "$sv")"
+      if [ -n "$transfer" ]; then
+        # [D41 receipt-recheck] Ledger не оракул: proof сверяется с origin-свидетельством.
+        proverit_peredachu "$sv" "$(printf '%s' "$transfer" | jq -r .receipt)"
+        [ "$(printf '%s' "$transfer" | jq -cS .proof)" = "$(printf '%s' "$P_JSON" | jq -cS .)" ] \
+          || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'поля учёта изменены'
+        r_wt="$P_WT"; r_br="$P_BRANCH"
+        [ "$obj" = "$P_OBJECT" ] \
+          || perenos_otkaz OBJECT_RASHODITSJA 'OBJECT не переданный результат'
+      fi
+      # [D9 object-sovpadaet] Вердиктный хвост не становится новым объектом суда.
+      git -C "$r_wt" rev-parse --verify "$r_br^{commit}" >/dev/null 2>&1 || {
         mutexi_snyat_vse
         otp VETKA_NEDOSTUPNA "предмет $sv: ветка $r_br в $r_wt не читается — OBJECT не сверить"
+      }
+      tip="$(object_kandidata "$r_wt" "$sv" "$r_br")" || {
+        mutexi_snyat_vse
+        otp OBJECT_RASHODITSJA "предмет $sv: вердиктный хвост не сохраняет OBJECT"
       }
       [ "$tip" = "$obj" ] || {
         mutexi_snyat_vse
@@ -562,6 +803,10 @@ EOF
       # стабов над klass_riska — отказывается тем же именем); [D31] ИСТОЧНИК —
       # ДЕРЕВО OBJECT судимого кандидата (tip уже сверен), НЕ $REPO/contracts.
       kr="$(klass_riska "$sv" "$r_wt" "$obj")"
+      # [D42 frozen-fallback] Только отсутствие контракта, не испорченный кандидат.
+      if [ -n "$P_FROZEN" ] && ! kontrakt_v_kandidate "$sv" "$r_wt" "$obj"; then
+        kr="$(klass_riska "$sv" "$REPO" "$P_FROZEN")"
+      fi
       case "$kr" in
         risikovyj|obychnyj) : ;;
         *)
@@ -599,6 +844,11 @@ EOF
 
   # [D23 start-do-razdachi] решение «позволено ВСЕМ» → занятия + START, потом rc 0
   local grp2
+  # [D34 uchet-lazy] После решения всего пакета, ДО занятия и START.
+  if ! uchet_gotov; then
+    mutexi_snyat_vse
+    skip "учёт не создать: $LEDGER"
+  fi
   while IFS='|' read -r idx agent name sv obj wt br klass rol; do
     [ -n "$sv" ] || continue
     if [ "$klass" = 'rabochij' ]; then grp2="$(gruppa_iz_pina "$wt")"
@@ -717,6 +967,11 @@ osvobodit() {
       prichina='obryv_bez_verdikta'
     fi
   fi
+  # [D34 uchet-lazy] Готовность RELEASE — ДО снятия занятия.
+  if ! uchet_gotov; then
+    rmdir "$zdir/mutex" 2>/dev/null
+    skip "учёт не создать: $LEDGER"
+  fi
   rm -rf "$zdir/zanyat"
   jq -nc --arg t RELEASE --arg r "$REPO_ID" --arg s "$NNN_ARG" --arg h "$h_holder" \
         --arg p "$prichina" --arg at "$(ts_now)" \
@@ -756,5 +1011,6 @@ case "$MODE" in
   --sudit)     sudit ;;
   --osvobodit) osvobodit ;;
   --uchet)     uchet ;;
+  --peredat)   peredat ;;
   *) usage ;;
 esac
