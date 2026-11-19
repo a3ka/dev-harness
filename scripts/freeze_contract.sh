@@ -59,7 +59,9 @@ skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
 # связанного project_workflow-контекста предмета, а не произвольный корень:
 # корень инвентаря выводится из контекста и из HEAD-декларации, а не из argv.
 # Ключи читаются вне позиционных, поэтому «freeze … --project-workflow» без
-# значения — именованный отказ, а не тихая потеря флага.
+# значения — именованный отказ, а не тихая потеря флага; ПОВТОР флага — тоже
+# именованный отказ (project-workflow-neodnoznachen), а не молчаливая
+# перезапись ранее указанного контекста.
 # ПОЗИЦИОННЫЕ ПАРАМЕТРЫ НЕ СДВИГАЮТСЯ: $1…$N остаются как были — соседняя нога
 # заморозки (контракт 154, счёт платных START) читает свой корень состояния из
 # $4, и перебор аргументов со сдвигом сломал бы её (слияние веток — работа
@@ -71,8 +73,15 @@ while [ "$_scan" -le "$#" ]; do
   case "${!_scan}" in
     --project-workflow)
       _next=$((_scan + 1))
-      PROJECT_WORKFLOW="${!_next-}"
-      [ -n "$PROJECT_WORKFLOW" ] || die "--project-workflow требует путь к JSON-файлу контекста"
+      _value="${!_next-}"
+      [ -n "$_value" ] || die "--project-workflow требует путь к JSON-файлу контекста"
+      # ПОВТОР флага — ИМЕНОВАННЫЙ отказ, а не молчаливая перезапись: первый
+      # явно указанный контекст (даже нечитаемый) теряться не должен, иначе
+      # плохой контекст подменяется следующим хорошим (контракт 122 §v6:
+      # «несколько контекстов вместо одного — rc 1 project-workflow-neodnoznachen»).
+      [ -z "$PROJECT_WORKFLOW" ] \
+        || die "project-workflow-neodnoznachen: контекстов больше одного"
+      PROJECT_WORKFLOW="$_value"
       _scan=$((_next + 1)) ;;
     --*) die "неизвестный ключ заморозки: ${!_scan}" ;;
     *) POSITIONAL+=("${!_scan}"); _scan=$((_scan + 1)) ;;
@@ -776,6 +785,17 @@ else:
         raise SystemExit(0)
     chosen = prof
     project_root = ROOT
+    # ЖИВОЙ origin корня — единственный источник инвентаря для гейта Г3
+    # (check_predposylki.sh спрашивает `git -C R remote get-url origin`).
+    # Канонический origin профиля (с которым обязано совпасть и объявление
+    # HEAD) обязан совпадать с живым origin корня: иначе инвентарь читается
+    # из ЧУЖОГО репозитория, а заморозка проходит (Rev122V6 Б-1).
+    # Отсутствующий origin — не расхождение, а случай гейта (gh-nedostupen:
+    # «у R нет origin»), и он остаётся fail-closed rc 1 у Г3.
+    root_remote = git(ROOT, 'remote', 'get-url', 'origin')
+    if root_remote and chosen['canonicalRemote'] != root_remote:
+        refuse('project-workflow-rashozhdenie',
+               'canonicalRemote не совпадает с живым origin корня')
 
 if declared is not None:
     # Объявление HEAD управляет ЛЮБЫМ выбором корня, включая станцию и неявный
