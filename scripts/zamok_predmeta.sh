@@ -66,7 +66,10 @@
 #             судьи:  critic critic-sol adversary reviewer;
 #   ГРУППЫ  — harness mob back («-» = вне лимитов станции);
 #   LEDGER  — строка uchet.jsonl {"t":…} (JSON: значения не сталкиваются
-#             с разделителями — склейка полей исключена);
+#             с разделителями — склейка полей исключена); ФАЙЛ учёта создаётся
+#             ЛЕНИВО — записью, ПОСЛЕ решения по пакету: отказ (в т.ч.
+#             NE_IZOLIROVAN) не оставляет в состоянии ни файла учёта, ни папок
+#             занятия/замка; отсутствие файла = пустой учёт (чтение безопасно);
 #   СРАВНЕНИЯ — только литеральные ([ = ] / grep -F); значения задания НИКОГДА
 #             не попадают в regex/glob.
 #
@@ -140,7 +143,16 @@ done
 REPO="$(cd "$REPO" 2>/dev/null && pwd -P)" || skip "репо нет: $REPO"
 git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 || skip "не репозиторий: $REPO"
 LEDGER="$SOST/uchet.jsonl"
-[ -r "$LEDGER" ] || : >> "$LEDGER" || skip "учёт не создать: $LEDGER"
+# [D34 uchet-lazy] Учёт создаётся ЛЕНИВО: файл появляется ТОЛЬКО записью и
+# только ПОСЛЕ решения по пакету — отказ (NE_IZOLIROVAN и любой другой) не
+# оставляет в $SOST ни файла учёта, ни папок занятия/замка. Отсутствие файла
+# = ПУСТОЙ учёт: все чтения идут через jq -s с подавлением stderr, поэтому
+# чтение отсутствующего учёта остаётся безопасным. Готовность записи
+# проверяется БЕЗ создания файла — тот же fail-closed (rc 2 — «страж сломан»),
+# что и прежде.
+if ! { [ -r "$LEDGER" ] || { [ ! -e "$LEDGER" ] && [ -w "$SOST" ]; }; }; then
+  skip "учёт не создать: $LEDGER"
+fi
 
 # [D17 repo-id] repoId — пространство имён замка: репозиторий РЕЕСТРА предмета
 # (--repo), литеральный basename origin; общий у рабочих и судей предмета.
@@ -255,6 +267,21 @@ EOF
 }
 
 # ── учёт (jq над JSONL; значения из замкнутых алфавитов) ────────────────────
+# [D34 uchet-lazy] Запись учёта: файл создаётся ЗДЕСЬ — единственное место его
+# появления; вызывается ПОСЛЕ решения по пакету (до любых записей и занятий).
+# Недоступность записи = «страж сломан» (rc 2), а не тихий пропуск с
+# разрешённым спавном без START.
+uchet_gotov() {  # 0 — запись возможна | 1 — нет
+  if [ -e "$LEDGER" ]; then
+    # существующий учёт — обычный файл, доступный на запись
+    [ -f "$LEDGER" ] && [ -w "$LEDGER" ] || return 1
+    return 0
+  fi
+  # отсутствующий — каталог состояния доступен на запись; файл создаётся здесь
+  [ -w "$SOST" ] || return 1
+  : >> "$LEDGER" 2>/dev/null || return 1
+  return 0
+}
 poslednij_rabochij() {  # <NNN> → «holder<TAB>object<TAB>worktree<TAB>branch» | пусто
   jq -rs --arg r "$REPO_ID" --arg n "$1" '
     [ .[] | select(.t == "START" and .repoId == $r and .subjectId == $n and .klass == "rabochij") ]
@@ -616,6 +643,13 @@ EOF
 
   # [D23 start-do-razdachi] решение «позволено ВСЕМ» → занятия + START, потом rc 0
   local grp2 izl
+  # [D34 uchet-lazy] запись учёта — ПОСЛЕ решения по ВСЕМУ пакету: до этого
+  # момента $SOST не тронут. Готовность проверяется ДО занятия: отказ по
+  # записи не оставляет ни файла учёта, ни папки занятия.
+  if ! uchet_gotov; then
+    mutexi_snyat_vse
+    skip "учёт не создать: $LEDGER"
+  fi
   while IFS='|' read -r idx agent name sv obj wt br klass rol; do
     [ -n "$sv" ] || continue
     if [ "$klass" = 'rabochij' ]; then grp2="$(gruppa_iz_pina "$wt")"
@@ -733,6 +767,13 @@ osvobodit() {
     else
       prichina='obryv_bez_verdikta'
     fi
+  fi
+  # [D34 uchet-lazy] запись учёта (RELEASE) — файл создаётся здесь; готовность
+  # проверяется ДО снятия занятия: отказ по записи не оставил бы предмет без
+  # занятия и без записи об освобождении.
+  if ! uchet_gotov; then
+    rmdir "$zdir/mutex" 2>/dev/null
+    skip "учёт не создать: $LEDGER"
   fi
   rm -rf "$zdir/zanyat"
   jq -nc --arg t RELEASE --arg r "$REPO_ID" --arg s "$NNN_ARG" --arg h "$h_holder" \
