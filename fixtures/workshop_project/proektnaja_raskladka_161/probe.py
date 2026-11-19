@@ -530,7 +530,7 @@ def actual(mutant=None, captured=None):
         require(mob.git('worktree', 'add', '-q', '-b', 'wip/760/architect', lock_wt), 'lock worktree')
         event = base / 'pause-event.json'
         event.write_text(json.dumps({'tasks': [{'agent': 'architect', 'name': 'Arch760',
-                          'task': f'SUBJECT=760\nOBJECT={"a" * 40}\nWORKTREE={lock_wt}\nBRANCH=wip/760/architect'}]}))
+                          'task': f'SUBJECT=760\nOBJECT={"a" * 40}\nWORKTREE={lock_wt}\nBRANCH=wip/760/architect', 'isolated': True}]}))
         mob.put('.harness/registry/pauzy.tsv', '760\t2026-11-05\tвладелец\tпозже\n')
         locked = run('bash', ROOT / 'scripts/zamok_predmeta.sh', '--sudit', '--sostojanie',
                      state, '--zhurnaly', journals, '--repo', mob.main, event, env=mob.env)

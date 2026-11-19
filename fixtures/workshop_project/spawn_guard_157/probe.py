@@ -214,8 +214,20 @@ def case(base, guard, label, home_parts, profile, tail, state_parts, outcome, ro
              for i, r in enumerate(batch_roles)] if batch_roles else [
                  {'agent': role, 'name': 'Agent157',
                   'task': 'SUBJECT=157\nWORKTREE=/tmp/fixture\nBRANCH=wip/157/architect'}]
+    for task in tasks:
+        if task['agent'] in ('architect', 'implementer', 'implementer-glm', 'implementer-vision'):
+            task['isolated'] = True
     task_input = {'tasks': tasks} if batch_roles else tasks[0]
-    expected_event = json.dumps({'tasks': tasks}, separators=(',', ':'), ensure_ascii=False).encode()
+    # 157 judges roots and the complete ordered batch, across both frozen
+    # wire schemas: pre-140 (three fields) and 140 v5 (normalized boolean).
+    # Capture both complete canonical payloads before invoking the subject;
+    # a missing/reordered item or a mixture of schemas matches neither.
+    legacy_tasks = [{k: task[k] for k in ('agent', 'name', 'task')} for task in tasks]
+    normalized_tasks = [dict(task, isolated=task.get('isolated') is True) for task in tasks]
+    expected_events = {
+        json.dumps({'tasks': items}, separators=(',', ':'), ensure_ascii=False).encode()
+        for items in (legacy_tasks, normalized_tasks)
+    }
     env = dict(os.environ, PROBE_DOOR_LOG=str(log), PROBE_DOOR_EVENT=str(event_log),
                HARNESS_SESSION_HOME=str(case_root / 'forged-home'))
     result = subprocess.run(['node', str(HERE / 'driver.mjs'), str(install / '.omp/extensions/spawn-guard.ts'),
@@ -252,7 +264,7 @@ def case(base, guard, label, home_parts, profile, tail, state_parts, outcome, ro
     assert answer == expected, (label, expected, answer)
     assert log.exists(), (label, 'root returned without door check')
     assert event_log.exists(), (label, 'door event absent')
-    assert event_log.read_bytes() == expected_event, (label, 'door did not judge every batch item')
+    assert event_log.read_bytes() in expected_events, (label, 'door did not judge every batch item')
     args = log.read_bytes().split(b'\0')
     assert args[-1] == b'', (label, args)
     argv = [os.fsdecode(value) for value in args[:-1]]

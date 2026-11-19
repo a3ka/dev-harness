@@ -323,13 +323,13 @@ class MirZamok:
         return str(p)
 
 
-def item(agent, name, stroki):
-    return {'agent': agent, 'name': name, 'task': '\n'.join(stroki)}
+def item(agent, name, stroki, **fields):
+    return {'agent': agent, 'name': name, 'task': '\n'.join(stroki), **fields}
 
 
 def rabochij(name):
     return item('architect', name,
-                ['SUBJECT=152', 'WORKTREE=|WT|', 'BRANCH=wip/152/avtor'])
+                ['SUBJECT=152', 'WORKTREE=|WT|', 'BRANCH=wip/152/avtor'], isolated=True)
 
 
 def sudja(name, obj):
