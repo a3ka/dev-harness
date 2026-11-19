@@ -91,20 +91,20 @@ FILES 63; --model ДО исправления SUBJS rc 1, MODEL_KLETKI 124 KRASN
 jsonschema 4.26.0 в user-site станции не является зависимостью чистого CI.
 Исследованные существующие механизмы:
 
-- `ops/server/validators.tsv:8` закрепляет jsonschema 4.26.0; однако
+1. `ops/server/validators.tsv:8` закрепляет jsonschema 4.26.0; однако
   `ops/server/install.sh:251–255` для пина `-` лишь печатает
   «установка не требуется» и продолжает цикл, Python-пакет не устанавливает.
-- `contracts/189-standartnye-validatory-i-kanon.md:10,14,25` прямо описывает
+2. `contracts/189-standartnye-validatory-i-kanon.md:10,14,25` прямо описывает
   зависимый от HOME user-site, уже установленный движок и отказ ENGINE_MISSING.
   Это не обещание поставки движка в чистую среду 140.
-- `scripts/validate_std_json.py:69–85` проверяет существующий движок и его версию;
+3. `scripts/validate_std_json.py:69–85` проверяет существующий движок и его версию;
   обёртка 189 не устанавливает его. Подключение этой обёртки не снимет отсутствие.
-- `fixtures/workshop_project/standartnye_validatory_189/probe.py:133–140`
+4. `fixtures/workshop_project/standartnye_validatory_189/probe.py:133–140`
   обнаруживает user-site и передаёт его через PYTHONPATH; это станционный образец,
   не решение для обещанного 140 `env -i PATH=/usr/bin:/bin HOME=$TMPDIR`.
-- `fixtures/workshop_project/pilot_995/requirements.txt` содержит
+5. `fixtures/workshop_project/pilot_995/requirements.txt` содержит
   `jsonschema==4.26.0`, но наличие манифеста не устанавливает пакет для 140.
-- `.github/workflows/ci.yml:262–297`: ubuntu-24.04, checkout, strip,
+6. `.github/workflows/ci.yml:262–297`: ubuntu-24.04, checkout, strip,
   setup-node и run_ci_lane; установки Python/jsonschema нет.
   `package.json:5` намеренно не несёт дерева зависимостей.
 
@@ -267,3 +267,64 @@ runtime-команды судьи исполняются в этом checkout, �
 повтор использовал абсолютный путь, уже явно предписанный заданием,
 строго внутри собственной копии. Общий журнал А-* не правился (вне зоны,
 добавление только на main); исходный маршрут WORKTREE доставки не использован.
+
+## Адресный ремонт p14 и формы листа (Arch140P14)
+
+Рабочая копия:
+`/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t580a7b1a2/m`.
+Её собственная ветка `wip/140/architect-v5` уже указывала на принятый
+`3be3ea407f3538cf482d6d6653f65c8f434d177c`; выбрана без изменения delivery WT.
+Frozen contracts/140 и production не редактировались.
+
+Причина установлена по коду: D50 отвергает пустой tip раньше прежнего
+проверяющего предиката пустого доставленного OBJECT. Последний тем самым
+становился недостижимым. Сохранён прежний отдельный отказ передачи:
+пустой payload receipt → PEREDACHA_NEDOSTOVERNA до resolver; непустой
+payload и другой кодовый tip → OBJECT_RASHODITSJA. Не ослаблены D49/D50:
+p14 предъявляет тот же пустой tip команде --object и требует именно
+OBJECT_RASHODITSJA; q19/q20 сохраняют пустые final tip/merge. p13 создаёт
+непустой сдвиг, отделяя несоответствие пары от пустоты tip.
+Уточнение будущего законного текста выше: отказ выбора пустого кандидата
+не заменяет прежнюю диагностику пустого payload операции --peredat.
+Слова владельца и frozen-текст этим уточнением не изменяются.
+
+Стабы регенерированы штатным probe.py --sgeneriruj-staby, вместе с пинами
+source.json; привязки не перенесены в прозу контракта и не ослаблены.
+Честные контроли p03/p31 сохраняют действительную передачу и хвост вердикта.
+Для ремонта формы сохранён весь runtime-блок; только шесть исторических
+пунктов исследования среды превращены из маркированных в нумерованные.
+
+Фактический интерпретатор проверок:
+`/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t580a7b1a2/m/.venv-140-p14/bin/python3`.
+Это новый локальный venv, созданный `/usr/bin/python3 -m venv`;
+установлены реальные jsonschema==4.26.0, attrs==26.1.0,
+jsonschema-specifications==2025.9.1, referencing==0.37.0,
+rpds-py==2026.9.1, typing-extensions==4.16.0.
+Это НЕ установка jsonschema в `/usr/bin/python3`, НЕ закрытие системной/CI
+предпосылки. PATH начинался с bin этого venv, завершался /usr/bin:/bin;
+TMPDIR=<рабочая копия>/.tmp-140-p14, PYTHONDONTWRITEBYTECODE=1.
+
+Ниже P — указанный абсолютный интерпретатор, F —
+fixtures/workshop_project/odin_agent_140, R — абсолютная рабочая копия.
+
+| Блок | Способ | Исполненная команда / свидетельство | rc |
+|---|---|---|---|
+| Синтаксис носителей | канон/инструмент | `P F/probe.py --sintaksis`: SINTAKSIS FILES 73 | 0 |
+| p14 / прежняя граница передачи | существующий механизм | `P F/probe.py --model`: MODEL_KLETKI 148 KRASNYH 0, включая p03/p13/p14/p31 и q19/q20 | 0 |
+| Наблюдаемость двух отказов | адресные стабы | `P F/probe.py --stabs`: s52/p13 и s60/p14 KRASEN; SVJAZI 128, MODEL_ZHIVYH 0 | 1 |
+| Прежние СОревью-гипотезы | канон/инструмент | `P F/co_review_140.py --baseline /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/tcb1bfeda0/m/fixtures/workshop_project/odin_agent_140/model/zamok_predmeta.sh`: cases=23 mutants=10 bindings=14, CO_REVIEW140_FAILURES 0 | 0 |
+| Форма листа | настоящий парсер 193 | `env SDACHA_BUDZHET_SEK=0 bash scripts/check_sdacha.sh R contracts/140-odin-agent-na-predmet.md --run`: разбор всех секций прошёл, затем «бюджет листа 0 исчерпан (строка 142)» | 1 |
+
+Общий --stabs красен ОБЯЗАТЕЛЬНЫМ production-слоем:
+SUBJEKT_KRASNO: 52, а не моделью или живым стабом.
+Проверка формы с нулевым бюджетом намеренно не исполняет команды листа:
+это свидетельство исправления разбора, НЕ зелёный check_sdacha/pre_critic.
+Полный pre_critic, чистый env-i CI и станционные команды здесь NOT_RUN.
+Системная предпосылка и предварительное слово владельца для frozen-текста
+остаются открытыми; эта сдача сама не разрешает critic/freeze/done.
+
+Процессная рефлексия для main: новый общий resolver сделал существующую
+предметную диагностику недостижимой; ловец — полная честная модель p14.
+Ремонт сохраняет старый отказ и отдельно проверяет общий --object на том же
+входе, вместо подгонки ожидаемой причины под новый порядок кода.
+Журнал А-* не изменён: вне зоны, запись допускается только в main.

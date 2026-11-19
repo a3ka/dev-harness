@@ -228,7 +228,10 @@ def dobavit(K, p):
         if variant=='remote':
             p.run(['git','remote','set-url','origin',p.BACK_REMOTE],cwd=str(s['wt'])); reason='PEREDACHA_REMOTE'
         if variant=='tip':
-            p.run(['git','-c','user.name=implementer','-c','user.email=i@t','commit','-q','--allow-empty','-m','moved'],cwd=str(s['wt']))
+            # Непустой новый кандидат: именно расхождение OBJECT, не [D50].
+            (s['wt'] / 'moved.txt').write_text('different delivered change\n')
+            p.run(['git','add','moved.txt'],cwd=str(s['wt']))
+            p.run(['git','-c','user.name=implementer','-c','user.email=i@t','commit','-q','-m','moved'],cwd=str(s['wt']))
             reason='OBJECT_RASHODITSJA'
         if variant=='start':
             rows=m.ledg(); rows[0]['at']='different'
@@ -247,7 +250,14 @@ def dobavit(K, p):
             m.git(['update-ref','refs/remotes/origin/main',s['receipt']]); reason='KLASS_RISKA_NET'
         before=p.snimok_fajlov(m.sost)
         r=command(door,m,s['receipt'])
-        return refusal(r,reason)+[None if p.snimok_fajlov(m.sost)==before else 'отказ передачи изменил долговечное состояние']
+        problems=refusal(r,reason)
+        if variant=='empty':
+            # Тот же пустой tip не является OBJECT для судьи; --peredat выше
+            # диагностирует прежде всего пустой payload удостоверенной передачи.
+            resolved=p.run([p.BASH,str(door),'--object','--repo',str(s['wt']),
+                            '197',s['branch']])
+            problems+=refusal(resolved,'OBJECT_RASHODITSJA')
+        return problems+[None if p.snimok_fajlov(m.sost)==before else 'отказ передачи изменил долговечное состояние']
 
     for name,variant in [
         ('p09-frozen-net','no-frozen'),('p10-frozen-podmenen','bad-tag'),

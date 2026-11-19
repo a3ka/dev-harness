@@ -429,6 +429,10 @@ sys.exit(1 if next(Draft202012Validator(schema).iter_errors(document), None) els
   # [D37 receipt-remote] CanonicalRemote удостоверен станцией, не basename продукта.
   true \
     || perenos_otkaz PEREDACHA_REMOTE 'origin продукта не канонический'
+  # Пустой OBJECT свидетельства — дефект результата, не расхождение носителя.
+  # Проверяем до resolver: [D50] иначе делает этот прежний отказ недостижимым.
+  [ -n "$(git -C "$P_WT" diff-tree --root --no-commit-id --name-only -r "$P_OBJECT" 2>/dev/null)" ] \
+    || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'пустой продуктовый результат'
   [ "$(object_kandidata "$P_WT" "$n" "refs/heads/$P_BRANCH")" = "$P_OBJECT" ] \
     || perenos_otkaz OBJECT_RASHODITSJA 'живой tip продукта изменился'
   [ "$(printf '%s' "$P_JSON" | jq -r .canonicalRemote)" != "$REPO_URL" ] \
@@ -436,8 +440,6 @@ sys.exit(1 if next(Draft202012Validator(schema).iter_errors(document), None) els
   # [D38 receipt-author] Доставлен настоящий непустой результат того же автора.
   [ "$(git -C "$P_WT" show -s --format=%an "$P_OBJECT" 2>/dev/null)" = "$(printf '%s' "$P_JSON" | jq -r .author)" ] \
     || perenos_otkaz PEREDACHA_AVTOR 'автор продуктового коммита'
-  [ -n "$(git -C "$P_WT" diff-tree --root --no-commit-id --name-only -r "$P_OBJECT" 2>/dev/null)" ] \
-    || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'пустой продуктовый результат'
   ptag="$(printf '%s' "$P_JSON" | jq -r .frozenTag)"
   pobj="$(printf '%s' "$P_JSON" | jq -r .frozenObject)"
   pcommit="$(printf '%s' "$P_JSON" | jq -r .frozenCommit)"
