@@ -60,18 +60,23 @@ skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
 # корень инвентаря выводится из контекста и из HEAD-декларации, а не из argv.
 # Ключи читаются вне позиционных, поэтому «freeze … --project-workflow» без
 # значения — именованный отказ, а не тихая потеря флага.
+# ПОЗИЦИОННЫЕ ПАРАМЕТРЫ НЕ СДВИГАЮТСЯ: $1…$N остаются как были — соседняя нога
+# заморозки (контракт 154, счёт платных START) читает свой корень состояния из
+# $4, и перебор аргументов со сдвигом сломал бы её (слияние веток — работа
+# оркестратора).
 POSITIONAL=()
 PROJECT_WORKFLOW=""
-while [ $# -gt 0 ]; do
-  case "$1" in
+_scan=1
+while [ "$_scan" -le "$#" ]; do
+  case "${!_scan}" in
     --project-workflow)
-      PROJECT_WORKFLOW="${2-}"
+      _next=$((_scan + 1))
+      PROJECT_WORKFLOW="${!_next-}"
       [ -n "$PROJECT_WORKFLOW" ] || die "--project-workflow требует путь к JSON-файлу контекста"
-      shift ;;
-    --*) die "неизвестный ключ заморозки: $1" ;;
-    *) POSITIONAL+=("$1") ;;
+      _scan=$((_next + 1)) ;;
+    --*) die "неизвестный ключ заморозки: ${!_scan}" ;;
+    *) POSITIONAL+=("${!_scan}"); _scan=$((_scan + 1)) ;;
   esac
-  shift
 done
 TARGET="${POSITIONAL[0]:-}"
 REASON="${POSITIONAL[1]:-}"
