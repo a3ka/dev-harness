@@ -49,7 +49,7 @@ def oshibka_orakula(prichina):
 
 
 def zaghruzit_orakul():
-    """Пины модели читаются и сверяются ДО любого обращения к субъекту."""
+    """Все пины и снимок сверяются один раз ДО обращения к субъекту."""
     import hashlib
     src = json.loads((ZDES / 'source.json').read_text(encoding='utf-8'))
     for otnositelno, ozhidanyj in sorted(src['piny'].items()):
@@ -59,6 +59,7 @@ def zaghruzit_orakul():
         fakt = hashlib.sha256(put.read_bytes()).hexdigest()
         if fakt != ozhidanyj:
             oshibka_orakula(f'пин: sha256 {otnositelno}: {fakt} != {ozhidanyj}')
+    src['_agregat_143_bajty'] = _zhivoj_agregat_143(src['agregat_143'])
     return src
 
 
@@ -702,11 +703,12 @@ def i02(subiekt, wf, shagi, _):
 # ── replay клеток: скрипт субъекта в замкнутой песочнице ──
 
 class Pesok:
-    def __init__(self, skript):
+    def __init__(self, skript, agregat_143_bajty):
         self.koren = Path(tempfile.mkdtemp(prefix='artefakt197-'))
         self.koren_artefaktov = self.koren / 'koren'
         self.koren_artefaktov.mkdir()
         self.skript = skript
+        self.agregat_143_bajty = agregat_143_bajty
         self.istochniki = self.koren / 'src'
         (self.istochniki / 'ekran').mkdir(parents=True)
 
@@ -739,7 +741,7 @@ def _replay_kletka(id_kletki):
 def _sudit_replay(fn, subiekt, orakul):
     if not subiekt.skript_put.is_file():
         return 'SKRIPT_NET: mobile/scripts/ci-artefakty.cjs'
-    pesok = Pesok(subiekt.skript_put)
+    pesok = Pesok(subiekt.skript_put, orakul['_agregat_143_bajty'])
     try:
         return fn(pesok)
     finally:
@@ -836,8 +838,11 @@ def r07(pesok):
     p = pesok.vyzov(['chtenie', '--shablon', 'screen-evidence-*', '--kuda', 'sbor'])
     if p.returncode != 0:
         return f'SHABLON_OTKAZ: rc={p.returncode} {p.stderr.strip()}'
+    # 197 v3 (Б-1 Rev197): имя каждого собранного каталога несёт пару
+    # контекста чтения <имя>-<run_id>-<run_attempt> (умолчание vyzov — 4242-1)
+    # — раскладка merge-multiple: false до 197.
     for imja, ozhidanie in (('screen-evidence-vhod', '{"ok":1}'), ('screen-evidence-taby', '{"ok":2}')):
-        fakt = pesok.koren / f'sbor/{imja}/result.json'
+        fakt = pesok.koren / f'sbor/{imja}-4242-1/result.json'
         if not fakt.is_file() or fakt.read_text(encoding='utf-8') != ozhidanie:
             return f'SHABLON_NE_SOBRAL: {imja}'
     # 197 v+1: проверка пустого шаблона вынесена в r10-shablon-pusto
@@ -907,6 +912,76 @@ def r11(pesok):
     return None
 
 
+# ── совместная клетка стыка с агрегатом 143 (С-4/Б-1 FAIL Rev197) ──
+
+def _zhivoj_agregat_143(opis):
+    """Независимый снимок/пин загружается до любых предметных отказов.
+    Проверенные байты остаются в памяти; s01 не перечитывает источник."""
+    import hashlib
+    agregat = ZDES / opis['fixture']
+    try:
+        bajty = agregat.read_bytes()
+    except OSError:
+        oshibka_orakula('агрегат 143: снимок отсутствует: ' + str(agregat))
+    fakt = hashlib.sha256(bajty).hexdigest()
+    if fakt != opis['sha256']:
+        oshibka_orakula(f'агрегат 143: sha256 {fakt} != пина {opis["sha256"]}')
+    return bajty
+
+
+@_replay_kletka('s01-styk-sbor-agregat')
+def s01(pesok):
+    # СОВМЕСТНАЯ клетка (С-4, блок Б-1 FAIL Rev197): канон-писатель →
+    # шаблонный сбор --shablon 'screen-evidence-*' → НЕИЗМЕННЫЙ агрегат 143
+    # на НЕПУСТОМ matrix-выборе (двое детей). Имя каждого собранного
+    # каталога несёт пару контекста чтения <имя>-<run_id>-<run_attempt> —
+    # ровно её ждёт агрегат (build.run_id того же прогона, attempt — env
+    # того же job'а: читатель и агрегат в workflow — соседние шаги);
+    # ожидаемое множество = выбранные экраны РОВНО. Оракул — оригинальные
+    # байты зоны 143, поставляемые снимком вне model/ (пин в source.json),
+    # не пере-реализация и не файл из дерева субъекта.
+    agregat = pesok.koren / 'ci-aggregate.cjs'
+    agregat.write_bytes(pesok.agregat_143_bajty)
+    sha = 'a' * 64
+    deti = ('vkladki', 'taby')
+    legacy = ['e2e-splash', 'e2e-first-run', 'e2e-erstinformation', 'e2e-start', 'e2e-pilot']
+    for ekran in deti:
+        pesok.zapis(f'screen-evidence/{ekran}/result.json',
+                    json.dumps({'screen_id': ekran, 'status': 'success', 'apk_sha256': sha,
+                                'artifact_name': 'apk-x', 'run_id': '4242', 'run_attempt': '1'}))
+        p = pesok.vyzov(['zapis', '--imja', f'screen-evidence-{ekran}',
+                         '--chto', f'src/screen-evidence/{ekran}'])
+        if p.returncode != 0:
+            return f'STYK_ZAPIS_OTKAZ: {ekran} rc={p.returncode} {p.stderr.strip()}'
+    p = pesok.vyzov(['chtenie', '--shablon', 'screen-evidence-*',
+                     '--kuda', 'mobile/screen-evidence-collected'])
+    if p.returncode != 0:
+        return f'STYK_SBOR_OTKAZ: rc={p.returncode} {p.stderr.strip()}'
+    matrix = json.dumps({'include': [{'screen': {'id': e}} for e in deti]})
+    vybor = {'selected': [{'job': 'e2e-screen', 'id': e} for e in deti],
+             'excluded': [{'job': j, 'reason': 'NE_ZATRONUT'} for j in legacy],
+             'matrix': matrix}
+    needs = {'select-screens': {'result': 'success',
+                                'outputs': {'selection': json.dumps(vybor), 'matrix': matrix}},
+             'quality': {'result': 'success', 'outputs': {}},
+             'build-apk': {'result': 'success',
+                           'outputs': {'apk_sha256': sha, 'artifact_name': 'apk-x',
+                                       'run_id': '4242', 'run_attempt': '1'}},
+             'e2e-screen': {'result': 'success', 'outputs': {}}}
+    for j in legacy:
+        needs[j] = {'result': 'skipped', 'outputs': {}}
+    (pesok.koren / 'needs.json').write_text(json.dumps(needs), encoding='utf-8')
+    env = dict(os.environ)
+    env['GITHUB_RUN_ID'] = '4242'
+    env['GITHUB_RUN_ATTEMPT'] = '1'
+    protsess = subprocess.run(['node', str(agregat), '--needs', 'needs.json',
+                               '--evidence', 'mobile/screen-evidence-collected'],
+                              capture_output=True, text=True, env=env, cwd=str(pesok.koren))
+    if protsess.returncode != 0 or 'CHILD_EVIDENCE_OK' not in protsess.stdout:
+        return 'STYK_AGREGATA_OTKAZ: ' + (protsess.stdout + protsess.stderr).strip()
+    return None
+
+
 # ── прогон ──
 
 def sudit(koren_subiekta, orakul):
@@ -921,7 +996,7 @@ def sudit(koren_subiekta, orakul):
     wf, shagi = razobrat_subiekta(subiekt)
     krasnye = 0
     for id_kletki, fn in KLETKI:
-        if id_kletki.startswith('r'):
+        if id_kletki.startswith(('r', 's')):  # r* и s* — replay-клетки (s — совместная клетка стыка)
             prichina = _sudit_replay(fn, subiekt, orakul)
         else:
             prichina = fn(subiekt, wf, shagi, orakul)
@@ -946,8 +1021,19 @@ def rezhim_stabov(orakul):
     for imja_staba, svjazka in sorted(orakul['stab_vhod'].items()):
         vsego += 1
         vremennoe = Path(tempfile.mkdtemp(prefix='stab197-'))
-        kopiya = vremennoe / 'model'
-        shutil.copytree(MODEL, kopiya)
+        orakul_mutiruetsja = svjazka.get('oblast') == 'orakul'
+        if orakul_mutiruetsja:
+            semja = vremennoe / 'family'
+            shutil.copytree(ZDES, semja)
+            kopiya = semja
+            proba = semja / 'probe.py'
+            subiekt = semja / 'subject'
+            shutil.copytree(MODEL, subiekt)
+        else:
+            kopiya = vremennoe / 'model'
+            shutil.copytree(MODEL, kopiya)
+            proba = ZDES / 'probe.py'
+            subiekt = kopiya
         try:
             mutator = ZDES / 'stabs' / f'{imja_staba}.py'
             if not mutator.is_file():
@@ -958,16 +1044,28 @@ def rezhim_stabov(orakul):
             if protsess.returncode != 0:
                 print(f'STAB {imja_staba} MUTACIJA_SLLOMALAS: {protsess.stderr.strip()}', file=sys.stderr)
                 return 2
-            vyvod = subprocess.run([sys.executable, str(ZDES / 'probe.py'), '--repo', str(kopiya)],
-                                   capture_output=True, text=True)
-            kletka = svjazka['kletka']
-            prichina = svjazka['prichina']
-            stroka = f'CASE {kletka} KRASNO'
-            if vyvod.returncode != 1 or stroka not in vyvod.stdout or prichina not in vyvod.stdout:
-                print(f'STAB {imja_staba} PROPUSHCHEN: rc={vyvod.returncode}; искали {stroka}: {prichina}')
-                print(vyvod.stdout[-2000:], file=sys.stderr)
-                return 1
-            print(f'STAB {imja_staba} KRASEN: {kletka}: {prichina}')
+            rezhimy = [[], ['--model'], ['--stabs'], ['--repo', str(subiekt)]] if orakul_mutiruetsja else [
+                ['--repo', str(subiekt)]]
+            for argumenty in rezhimy:
+                vyvod = subprocess.run([sys.executable, str(proba)] + argumenty,
+                                       capture_output=True, text=True)
+                kletka = svjazka['kletka']
+                prichina = svjazka['prichina']
+                if orakul_mutiruetsja:
+                    nuzhen_rc = svjazka['rc']
+                    stroka = prichina
+                    najdeno = any(s.startswith(stroka) for s in vyvod.stderr.splitlines())
+                else:
+                    nuzhen_rc = 1
+                    stroka = f'CASE {kletka} KRASNO: {prichina}'
+                    najdeno = any(s.startswith(stroka) for s in vyvod.stdout.splitlines())
+                if vyvod.returncode != nuzhen_rc or not najdeno:
+                    print(f'STAB {imja_staba} PROPUSHCHEN: режим={argumenty}; rc={vyvod.returncode}; искали rc={nuzhen_rc} {stroka}')
+                    print((vyvod.stdout + vyvod.stderr)[-2000:], file=sys.stderr)
+                    return 1
+                if orakul_mutiruetsja:
+                    print(f'STAB {imja_staba} REZHIM {argumenty}: rc={vyvod.returncode}: {prichina}')
+            print(f'STAB {imja_staba} KRASEN: {kletka}: rc={vyvod.returncode}: {prichina}')
             pojmali += 1
         finally:
             shutil.rmtree(vremennoe, ignore_errors=True)

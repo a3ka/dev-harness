@@ -22,7 +22,10 @@
 // rc 0, строка CHTENIE_PUSTO и ПУСТОЙ созданный --kuda (семантика
 // actions/download-artifact с pattern); строгость ожидаемого множества
 // держит потребитель — ci-aggregate.cjs сверяет выбранные экраны с
-// evidence-каталогом ровно.
+// evidence-каталогом ровно. Имя каждого СОБРАННОГО каталога несёт пару
+// контекста чтения <имя-совпадения>-<run_id>-<run_attempt> (197 v3, Б-1
+// Rev197) — ту самую раскладку merge-multiple: false до 197, которую ждёт
+// НЕИЗМЕННЫЙ агрегат 143; workflow имя не строит (d01).
 
 'use strict';
 
@@ -186,10 +189,18 @@ function main() {
     console.log('CHTENIE_PUSTO: ' + shablon);
     return;
   }
+  // 197 v3 (Б-1 Rev197): имя собранного каталога несёт пару контекста
+  // чтения — <имя-совпадения>-<run_id>-<run_attempt>. Это раскладка
+  // download-artifact merge-multiple: false до 197 (пару в имени артефакта
+  // строил писатель) и ровно её ждёт НЕИЗМЕННЫЙ ci-aggregate.cjs (зона
+  // 143): build.run_id — тот же прогон, attempt — env того же job'а
+  // (шаблонный читатель и агрегат — соседние шаги). Workflow имя не
+  // строит: пара — из env канона (d01).
+  const para = `-${k.id}-${k.popytka}`;
   for (const imja of sovpadenija) {
-    skopirovat(path.join(katalog_runa, imja), path.join(kuda, imja));
+    skopirovat(path.join(katalog_runa, imja), path.join(kuda, imja + para));
   }
-  console.log('CHTENIE_PO_SHABLONU ' + sovpadenija.length + ': ' + sovpadenija.join(', '));
+  console.log('CHTENIE_PO_SHABLONU ' + sovpadenija.length + ': ' + sovpadenija.map((imja) => imja + para).join(', '));
 }
 
 main();
