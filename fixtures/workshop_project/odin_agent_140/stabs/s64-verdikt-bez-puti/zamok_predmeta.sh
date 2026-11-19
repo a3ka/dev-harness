@@ -357,18 +357,18 @@ rabochij_json() {
   jq -cSrs --arg r "$REPO_ID" --arg n "$1" \
     '[.[] | select(.t=="START" and .repoId==$r and .subjectId==$n and .klass=="rabochij")] | last // empty' "$LEDGER"
 }
-frozen_predmeta() {  # <NNN> → commit закреплённого annotated frozen
-  local row object ref
-  row="$(git -C "$REPO" show HEAD:registry/contracts.tsv 2>/dev/null | grep -E "^$1 → [0-9a-f]{40}$")" || return 1
+frozen_predmeta() {  # <NNN> <репозиторий владельца> → commit annotated frozen
+  local row object ref owner="${2:-$REPO}"
+  row="$(git -C "$owner" show HEAD:registry/contracts.tsv 2>/dev/null | grep -E "^$1 → [0-9a-f]{40}$")" || return 1
   [[ "$row" =~ ^$1\ →\ [0-9a-f]{40}$ ]] || return 1
   object="${row#* → }"
-  [ "$(git -C "$REPO" cat-file -t "$object" 2>/dev/null)" = tag ] || return 1
+  [ "$(git -C "$owner" cat-file -t "$object" 2>/dev/null)" = tag ] || return 1
   while IFS= read -r ref; do
     if [ "$ref" = "$object" ]; then
-      git -C "$REPO" rev-parse --verify "$object^{commit}"
+      git -C "$owner" rev-parse --verify "$object^{commit}"
       return $?
     fi
-  done < <(git -C "$REPO" for-each-ref --format='%(objectname)' "refs/tags/frozen/contracts/$1/")
+  done < <(git -C "$owner" for-each-ref --format='%(objectname)' "refs/tags/frozen/contracts/$1/")
   return 1
 }
 peredacha_iz_ucheta() {
@@ -466,9 +466,9 @@ sys.exit(1 if next(Draft202012Validator(schema).iter_errors(document), None) els
   # [D39 receipt-frozen] Версия из реестра В ДЕРЕВЕ свидетельства, не latest/main.
   reg="$(git -C "$REPO" show "$c:registry/contracts.tsv" 2>/dev/null | LC_ALL=C grep -E "^$n → " )"
   [ "$reg" = "$n → $pobj" ] \
-    && [ "$(git -C "$REPO" rev-parse --verify "refs/tags/$ptag" 2>/dev/null)" = "$pobj" ] \
-    && [ "$(git -C "$REPO" cat-file -t "$pobj" 2>/dev/null)" = tag ] \
-    && [ "$(git -C "$REPO" rev-parse --verify "$pobj^{commit}" 2>/dev/null)" = "$pcommit" ] \
+    && [ "$(git -C "$P_WT" rev-parse --verify "refs/tags/$ptag" 2>/dev/null)" = "$pobj" ] \
+    && [ "$(git -C "$P_WT" cat-file -t "$pobj" 2>/dev/null)" = tag ] \
+    && [ "$(git -C "$P_WT" rev-parse --verify "$pobj^{commit}" 2>/dev/null)" = "$pcommit" ] \
     || perenos_otkaz KLASS_RISKA_NET 'точная frozen-версия не удостоверена'
   P_FROZEN="$pcommit"
 }
@@ -658,7 +658,7 @@ sudit() {
   # проход 1: грамматика всех gated items; НИ ОДНОЙ записи до полного решения
   GATED=''
   local i=0 agent name task in_w in_j s sv p wt br o obj klass rol r
-  local transfer P_JSON P_WT P_BRANCH P_OBJECT P_FROZEN
+  local transfer P_JSON P_WT P_BRANCH P_OBJECT P_FROZEN risk_repo
   while [ "$i" -lt "$N" ]; do
     agent="$(jq -r "(.tasks // [.])[$i].agent // \"\"" "$EVENT" 2>/dev/null)" \
       || otp BITYJ_VHOD "item $i: agent не читается"
@@ -799,13 +799,17 @@ EOF
         otp AVTOR_ESHCHO_RABOTAET "предмет $sv: автор $r_holder не сдал (yield в журнале отсутствует)"
       }
       P_FROZEN=''
+      risk_repo="$REPO"
+      if [ "$(git -C "$r_wt" remote get-url origin 2>/dev/null)" != "$REPO_URL" ]; then
+        risk_repo="$r_wt"
+      fi
       transfer="$(peredacha_iz_ucheta "$sv")"
       if [ -n "$transfer" ]; then
         # [D41 receipt-recheck] Ledger не оракул: proof сверяется с origin-свидетельством.
         proverit_peredachu "$sv" "$(printf '%s' "$transfer" | jq -r .receipt)"
         [ "$(printf '%s' "$transfer" | jq -cS .proof)" = "$(printf '%s' "$P_JSON" | jq -cS .)" ] \
           || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'поля учёта изменены'
-        r_wt="$P_WT"; r_br="$P_BRANCH"
+        r_wt="$P_WT"; r_br="$P_BRANCH"; risk_repo="$P_WT"
         [ "$obj" = "$P_OBJECT" ] \
           || perenos_otkaz OBJECT_RASHODITSJA 'OBJECT не переданный результат'
       fi
@@ -824,12 +828,12 @@ EOF
       }
       # [D42 frozen-risk] Всегда frozen соответствующего владельца, не OBJECT.
       if [ -z "$P_FROZEN" ]; then
-        P_FROZEN="$(frozen_predmeta "$sv")" || {
+        P_FROZEN="$(frozen_predmeta "$sv" "$risk_repo")" || {
           mutexi_snyat_vse
           otp KLASS_RISKA_NET "предмет $sv: закреплённый frozen недоступен"
         }
       fi
-      kr="$(klass_riska "$sv" "$REPO" "$P_FROZEN")"
+      kr="$(klass_riska "$sv" "$risk_repo" "$P_FROZEN")"
       case "$kr" in
         risikovyj|obychnyj) : ;;
         *)

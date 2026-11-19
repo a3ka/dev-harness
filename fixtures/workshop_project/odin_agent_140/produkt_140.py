@@ -8,7 +8,7 @@ CASES = {
     'p01-produktovyj-start': 'продуктовая-пара;контракт-в-OBJECT;START-настоящий',
     'p02-produktovyj-object-chuzhoj': 'продуктовая-пара;OBJECT-не-tip',
     'p03-peredacha-zapis': 'передача;append-PEREDACHA;без-START-и-сдвига-веток',
-    'p04-produkt-bez-kontrakta': 'суд-продукта;точный-frozen-станции',
+    'p04-produkt-bez-kontrakta': 'суд-продукта;точный-frozen-только-продукта',
     'p05-frozen-riskovyj': 'frozen-рисковый;ревьюер-до-адверсария',
     'p06-frozen-ne-main-ne-latest': 'frozen-точный;новый-main-и-tag-не-источники',
     'p07-kontrakt-kandidata-prioritet': 'OBJECT-обычный;frozen-рисковый;приоритет-frozen',
@@ -38,6 +38,10 @@ CASES = {
     'p31-verdikt-posle-peredachi': 'передача;вердиктный-хвост;OBJECT-и-proof-неизменны',
     'p32-frozen-obychnyj-object-riskovyj': 'OBJECT-рисковый;frozen-обычный;reviewer-допущен',
     'p33-peredacha-nepustogo-merge': 'передача-197;непустой-merge;author-и-START-сохранены',
+    'p34-produkt-riskovyj-stancija-obychnyj': 'продукт-рисковый;станция-обычная;владелец-не-подменён',
+    'p35-produkt-obychnyj-stancija-riskovaja': 'продукт-обычный;станция-рисковая;владелец-не-подменён',
+    'p36-produkt-frozen-commit-podmenen': 'передача;commit-продуктового-frozen-не-совпадает',
+    'p37-produkt-pin-net': 'прямой-продуктовый-START;pin-отсутствует-у-владельца',
 }
 
 BINDINGS = {
@@ -47,6 +51,11 @@ BINDINGS = {
         'q29-stancija-frozen-obychnyj-object-riskovyj',
         'q30-stancija-frozen-riskovyj-object-obychnyj'],
     's76-receipt-merge-bez-roditelja': ['p33-peredacha-nepustogo-merge'],
+    's77-frozen-stancija-vmesto-vladelca': [
+        'p01-produktovyj-start', 'p03-peredacha-zapis', 'p04-produkt-bez-kontrakta',
+        'p34-produkt-riskovyj-stancija-obychnyj', 'p35-produkt-obychnyj-stancija-riskovaja'],
+    's78-risk-stancija-vmesto-produkta': [
+        'p34-produkt-riskovyj-stancija-obychnyj', 'p35-produkt-obychnyj-stancija-riskovaja'],
 }
 
 
@@ -55,7 +64,8 @@ def dobavit(K, p):
         return p.run([p.BASH, str(door), '--peredat', '--sostojanie', str(m.sost),
                       '--zhurnaly', str(m.zhurnaly), '--repo', str(m.repo), '197', receipt])
 
-    def product(m, contract=None, author='implementer', empty=False, merge=False):
+    def product(m, contract=None, author='implementer', empty=False, merge=False,
+                risk='обычный', conflict=False):
         wt = m.root / 'product'
         wt.mkdir()
         def git(*args):
@@ -65,15 +75,32 @@ def dobavit(K, p):
             return r.stdout.strip()
         git('init', '-q')
         git('remote', 'add', 'origin', p.MOB_REMOTE)
+        # Frozen и реестр принадлежат продукту; станция этих объектов не получает.
+        git('checkout', '-q', '-b', 'frozen-owner')
+        (wt / 'contracts').mkdir()
+        (wt / 'contracts/197-product.md').write_text('КЛАСС РИСКА: '+risk+'\n')
+        if conflict:
+            (wt / 'contracts/197-second.md').write_text('КЛАСС РИСКА: рисковый\n')
+        git('add', '-A')
+        git('commit', '-qm', 'product frozen')
+        tag = 'frozen/contracts/197/3'
+        git('tag', '-a', tag, '-m', 'frozen')
+        (wt / 'registry').mkdir()
+        (wt / 'registry/contracts.tsv').write_text('197 → '+git('rev-parse', tag)+'\n')
+        git('add', '-A')
+        git('commit', '-qm', 'product pin')
         branch = 'wip/197/implementer-v3'
         git('checkout', '-q', '-b', branch)
+        for path in (wt / 'contracts').iterdir():
+            path.unlink()
         if not empty:
             (wt / 'product.txt').write_text('real delivered change\n')
         if contract is not None:
-            (wt / 'contracts').mkdir()
             (wt / 'contracts/197-product.md').write_text(contract, encoding='utf-8')
         git('add', '-A')
-        git('commit', '-q', '--allow-empty', '-m', 'delivered')
+        git('commit', '-q', '-m', 'delivered')
+        if empty:
+            git('commit', '-q', '--allow-empty', '-m', 'empty final result')
         if merge:
             git('switch', '-q', '-c', 'merge-side')
             (wt / 'merged.txt').write_text('nonempty delivery against first parent\n')
@@ -84,20 +111,21 @@ def dobavit(K, p):
         return wt, branch, git('rev-parse', 'HEAD')
 
     def setup(m, contract=None, risk='обычный', author='implementer', empty=False,
-              receipt_author='orchestrator', extra=False, conflict=False, merge=False):
-        m.kontrakt('197', risk)
-        if conflict:
-            (m.repo / 'contracts/197-second.md').write_text('КЛАСС РИСКА: рисковый\n', encoding='utf-8')
-            m.git(['add', '-A'])
-            m.git(['commit', '-q', '-m', 'conflicting frozen'])
-        tag = 'frozen/contracts/197/3'
-        assert m.git(['tag', '-a', tag, '-m', 'frozen']).returncode == 0
-        tag_object = m.git(['rev-parse', tag]).stdout.strip()
-        frozen = m.git(['rev-parse', tag+'^{commit}']).stdout.strip()
+              receipt_author='orchestrator', extra=False, conflict=False, merge=False,
+              bad_commit=False):
         wt0, br0, _ = m.worktree('197')
         m.start('197', 'Impl197', rol='implementer', wt=wt0, branch=br0)
         m.zhurnal('Impl197', sdal=True)
-        wt, branch, obj = product(m, contract, author, empty, merge)
+        wt, branch, obj = product(m, contract, author, empty, merge, risk, conflict)
+        tag = 'frozen/contracts/197/3'
+        def product_git(*args):
+            r = p.run(['git', *args], cwd=str(wt))
+            assert r.returncode == 0, r.stderr
+            return r.stdout.strip()
+        tag_object = product_git('rev-parse', tag)
+        frozen = product_git('rev-parse', tag+'^{commit}')
+        if bad_commit:
+            frozen = obj
         worker = m.ledg()[0]
         digest = hashlib.sha256(json.dumps(worker, sort_keys=True, separators=(',', ':'),
                                           ensure_ascii=False).encode()).hexdigest()
@@ -142,7 +170,7 @@ def dobavit(K, p):
 
     def p01(m, door):
         wt, br, obj = product(m, 'КЛАСС РИСКА: обычный\n')
-        m.pin_frozen('197', wt, obj)
+        assert m.git(['cat-file', '-e', obj]).returncode != 0
         event = m.sobytie('start.json', [p.item('implementer', 'Impl197',
                            ['SUBJECT=197', 'WORKTREE='+str(wt), 'BRANCH='+br], isolated=True)])
         r = p.sudit(door, m, event)
@@ -192,12 +220,31 @@ def dobavit(K, p):
         if variant=='bad-contract': contract='# no declaration\n'; role='reviewer'
         if variant=='opposite': contract='КЛАСС РИСКА: рисковый\n'; role='reviewer'
         if variant=='conflict': reason='KLASS_RISKA_NET'
+        if variant=='station-ordinary': risk='рисковый'
         s=setup(m,contract=contract,risk=risk,conflict=(variant=='conflict'))
+        if variant in ('station-ordinary', 'station-risky'):
+            m.kontrakt('197', 'обычный' if variant=='station-ordinary' else 'рисковый')
+            m.git(['tag', '-a', 'frozen/contracts/197/3', '-m', 'station frozen'])
+            station_pin=m.git(['rev-parse','frozen/contracts/197/3']).stdout.strip()
+            # HEAD станции конфликтует; опубликованный receipt остаётся неизменным.
+            (m.repo/'registry/contracts.tsv').write_text('197 → '+station_pin+'\n')
+            m.git(['add','-A']); m.git(['commit','-qm','station pin'])
+            role='reviewer'
+            reason='ADVERSARIJ_DO_REVJUERA' if variant=='station-ordinary' else None
         fixture_transfer(m,s)
         if variant=='newer':
             role='reviewer'
-            m.kontrakt('197','рисковый')
-            m.git(['tag','-a','frozen/contracts/197/4','-m','newer'])
+            # Новые main/tag самого владельца не подменяют pinned receipt.
+            r=p.run(['git','switch','-q','-c','newer-frozen'],cwd=str(s['wt']))
+            assert r.returncode==0,r.stderr
+            (s['wt']/'contracts/197-product.md').write_text('КЛАСС РИСКА: рисковый\n')
+            for args in (['add','-A'], ['-c','user.name=implementer','-c','user.email=i@t',
+                                      'commit','-qm','newer contract'],
+                         ['-c','user.name=implementer','-c','user.email=i@t',
+                          'tag','-a','frozen/contracts/197/4','-m','newer'],
+                         ['switch','-q',s['branch']]):
+                r=p.run(['git',*args],cwd=str(s['wt']))
+                assert r.returncode==0,r.stderr
         if variant=='ledger':
             rows=m.ledg(); rows[-1]['proof']['canonicalRemote']=p.BACK_REMOTE
             m.ledger.write_text(''.join(json.dumps(x,ensure_ascii=False)+'\n' for x in rows))
@@ -240,12 +287,15 @@ def dobavit(K, p):
     def rejected_transfer(m,door,variant):
         s=setup(m,author=('architect' if variant=='author' else 'implementer'),
                 empty=(variant=='empty'),receipt_author=('battery' if variant=='receipt-author' else 'orchestrator'),
-                extra=(variant=='schema'))
+                extra=(variant=='schema'),bad_commit=(variant=='bad-commit'))
         reason='PEREDACHA_NEDOSTOVERNA'
         if variant=='no-frozen':
-            m.git(['tag','-d','frozen/contracts/197/3']); reason='KLASS_RISKA_NET'
+            p.run(['git','tag','-d','frozen/contracts/197/3'],cwd=str(s['wt'])); reason='KLASS_RISKA_NET'
         if variant=='bad-tag':
-            m.git(['tag','-f','-a','frozen/contracts/197/3','-m','tampered']); reason='KLASS_RISKA_NET'
+            p.run(['git','-c','user.name=implementer','-c','user.email=i@t',
+                   'tag','-f','-a','frozen/contracts/197/3','-m','tampered'],cwd=str(s['wt']))
+            reason='KLASS_RISKA_NET'
+        if variant=='bad-commit': reason='KLASS_RISKA_NET'
         if variant in ('author','receipt-author'): reason='PEREDACHA_AVTOR'
         if variant=='remote':
             p.run(['git','remote','set-url','origin',p.BACK_REMOTE],cwd=str(s['wt'])); reason='PEREDACHA_REMOTE'
@@ -287,6 +337,7 @@ def dobavit(K, p):
         ('p13-tip-produkta-sdvinut','tip'),('p14-pustoj-rezultat','empty'),
         ('p15-start-ne-tot','start'),('p16-svidetelstvo-ne-opublikovano','unpublished'),
         ('p17-svidetelstvo-ne-orchestrator','receipt-author'),('p18-avtor-ne-sdal','active'),
+        ('p36-produkt-frozen-commit-podmenen','bad-commit'),
         ('p19-zhivoj-sudja','judge'),('p24-receipt-schema','schema'),('p26-frozen-ne-po-reestru','registry')]:
         cell(name,lambda m,d,v=variant:rejected_transfer(m,d,v))
 
@@ -302,7 +353,7 @@ def dobavit(K, p):
     def p27(m,door):
         s=setup(m)
         fixture_transfer(m,s)
-        m.git(['tag','-d','frozen/contracts/197/3'])
+        p.run(['git','tag','-d','frozen/contracts/197/3'],cwd=str(s['wt']))
         wt,br,_=m.worktree('198')
         event=m.sobytie('batch.json',[
             p.item('architect','Arch198',['SUBJECT=198','WORKTREE='+wt,'BRANCH='+br],isolated=True),
@@ -333,6 +384,26 @@ def dobavit(K, p):
                 else 'ветка сдвинута']
     cell('p31-verdikt-posle-peredachi', p31)
 
+    cell('p34-produkt-riskovyj-stancija-obychnyj',
+         lambda m,d: judge_case(m,d,'station-ordinary'))
+    cell('p35-produkt-obychnyj-stancija-riskovaja',
+         lambda m,d: judge_case(m,d,'station-risky'))
+
+    def p37(m, door):
+        wt, br, obj = product(m)
+        m.start('197','Impl197',rol='implementer',wt=str(wt),branch=br)
+        m.zhurnal('Impl197',sdal=True)
+        (wt/'registry/contracts.tsv').write_text('')
+        for args in (['add','-A'], ['-c','user.name=implementer','-c','user.email=i@t',
+                                  'commit','-qm','remove product pin']):
+            r=p.run(['git',*args],cwd=str(wt))
+            assert r.returncode==0,r.stderr
+        obj=p.run(['git','rev-parse','HEAD'],cwd=str(wt)).stdout.strip()
+        before=m.ledger.read_bytes()
+        return refusal(judge(door,m,dict(obj=obj)),'KLASS_RISKA_NET')+[
+            None if m.ledger.read_bytes()==before else 'отказ дописал учёт']
+    cell('p37-produkt-pin-net',p37)
+
 
 def mutacii(z):
     """Адресные удаления/замены существующих операций модели; привязки — source.json."""
@@ -353,17 +424,17 @@ def mutacii(z):
             '  [ "$(git -C "$P_WT" show -s --format=%an "$P_OBJECT" 2>/dev/null)" = "$(printf \'%s\' "$P_JSON" | jq -r .author)" ] \\',
             '  true \\'),
         's54-receipt-bez-frozen-ref': lambda t:z(t,
-            '    && [ "$(git -C "$REPO" rev-parse --verify "refs/tags/$ptag" 2>/dev/null)" = "$pobj" ] \\',
+            '    && [ "$(git -C "$P_WT" rev-parse --verify "refs/tags/$ptag" 2>/dev/null)" = "$pobj" ] \\',
             '    && true \\'),
         's55-receipt-ne-pereproverjaet-proof': lambda t:z(t,
             '        [ "$(printf \'%s\' "$transfer" | jq -cS .proof)" = "$(printf \'%s\' "$P_JSON" | jq -cS .)" ] \\',
             '        true \\'),
         's56-frozen-vmesto-kandidata': lambda t:z(t,
-            '      kr="$(klass_riska "$sv" "$REPO" "$P_FROZEN")"',
+            '      kr="$(klass_riska "$sv" "$risk_repo" "$P_FROZEN")"',
             '      kr="$(klass_riska "$sv" "$r_wt" "$obj")"'),
         's57-frozen-iz-main': lambda t:z(t,
-            '      kr="$(klass_riska "$sv" "$REPO" "$P_FROZEN")"',
-            '      kr="$(klass_riska "$sv" "$REPO" HEAD)"'),
+            '      kr="$(klass_riska "$sv" "$risk_repo" "$P_FROZEN")"',
+            '      kr="$(klass_riska "$sv" "$risk_repo" HEAD)"'),
         's58-receipt-bez-append': lambda t:z(t,
             '    \'{t:"PEREDACHA",repoId:$r,subjectId:$n,receipt:$c,proof:$proof,at:$at}\' >> "$LEDGER"',
             '    \'{t:"PEREDACHA",repoId:$r,subjectId:$n,receipt:$c,proof:$proof,at:$at}\' > /dev/null'),
@@ -378,4 +449,55 @@ def mutacii(z):
         's61-receipt-bez-grammatiki': lambda t:z(t,
             "    1) perenos_otkaz PEREDACHA_NEDOSTOVERNA 'схема свидетельства' ;;",
             "    1) : ;; # стаб: схема игнорируется"),
+        's77-frozen-stancija-vmesto-vladelca': lambda t: z(z(z(z(t,
+            'git -C "$P_WT" rev-parse --verify "refs/tags/$ptag"',
+            'git -C "$REPO" rev-parse --verify "refs/tags/$ptag"'),
+            'git -C "$P_WT" cat-file -t "$pobj"',
+            'git -C "$REPO" cat-file -t "$pobj"'),
+            'git -C "$P_WT" rev-parse --verify "$pobj^{commit}"',
+            'git -C "$REPO" rev-parse --verify "$pobj^{commit}"'),
+            'frozen_predmeta "$sv" "$risk_repo"', 'frozen_predmeta "$sv" "$REPO"'),
+        's78-risk-stancija-vmesto-produkta': lambda t:z(t,
+            '      kr="$(klass_riska "$sv" "$risk_repo" "$P_FROZEN")"',
+            '      kr="$(klass_riska "$sv" "$REPO" "$(frozen_predmeta "$sv")")"'),
     }
+
+
+def owner_check(p, before=False):
+    """Один и тот же конформный мир против принятой модели до/после К-02/К-16."""
+    import tempfile
+    K = p.kejsy()
+    distinguishing = BINDINGS['s77-frozen-stancija-vmesto-vladelca']
+    controls = ['p09-frozen-net', 'p10-frozen-podmenen', 'p26-frozen-ne-po-reestru',
+                'p33-peredacha-nepustogo-merge', 'p36-produkt-frozen-commit-podmenen',
+                'p37-produkt-pin-net', 'q29-stancija-frozen-obychnyj-object-riskovyj',
+                'q30-stancija-frozen-riskovyj-object-obychnyj']
+    failed = 0
+    with tempfile.TemporaryDirectory(prefix='owner140-') as directory:
+        door = p.MODEL
+        if before:
+            old = p.run(['git', 'show',
+                         'f7bbd1fca64a21b575f30365821e7446320784ab:'
+                         'fixtures/workshop_project/odin_agent_140/model/zamok_predmeta.sh'],
+                        cwd=str(p.REEPOR))
+            if old.returncode:
+                print('OWNER140_BASE_ABSENT', old.stderr)
+                return 2
+            door = Path(directory) / 'before.sh'
+            door.write_text(old.stdout)
+        for name in distinguishing if before else distinguishing + controls:
+            problems = p.progon(door, name, K[name]['run'])
+            print('OWNER_BEFORE' if before else 'OWNER_MODEL', name, problems or 'ok')
+            failed += bool(problems)
+        if not before:
+            base = p.MODEL.read_text()
+            for mutant in ('s77-frozen-stancija-vmesto-vladelca',
+                           's78-risk-stancija-vmesto-produkta'):
+                path = Path(directory) / (mutant+'.sh')
+                path.write_text(p.STAB_MUTACII[mutant](base))
+                for name in BINDINGS[mutant]:
+                    problems = p.progon(path, name, K[name]['run'])
+                    print('OWNER_MUTANT', mutant, name, problems or 'LIVE')
+                    failed += not bool(problems)
+    print('OWNER140_FAILURES', failed)
+    return int(bool(failed))

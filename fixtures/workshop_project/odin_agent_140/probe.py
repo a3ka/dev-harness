@@ -2352,6 +2352,8 @@ def main():
     ap.add_argument('--stabs', '--matrix', dest='stabs', action='store_true')
     ap.add_argument('--sintaksis', action='store_true')
     ap.add_argument('--sgeneriruj-staby', action='store_true')
+    ap.add_argument('--owner-before', action='store_true')
+    ap.add_argument('--owner-check', action='store_true')
     a = ap.parse_args()
 
     if a.sgeneriruj_staby:
@@ -2403,6 +2405,8 @@ def main():
         return oshibka_orakula('константы source.json != канону батареи')
     if src['konstanty']['yield_literal'] != YIELD_LITERAL:
         return oshibka_orakula('литерал yield разошёлся')
+    if a.owner_before or a.owner_check:
+        return produkt_140.owner_check(SimpleNamespace(**globals()), before=a.owner_before)
 
     if not (a.model or a.stabs):
         # безфлаговый режим судит ПОСТАВЛЕННУЮ дверь дерева (вердикт критика
