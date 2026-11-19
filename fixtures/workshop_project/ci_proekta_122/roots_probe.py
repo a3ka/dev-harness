@@ -374,9 +374,14 @@ def observe(repo, case, mode='repo', mutant=None):
         problems = []
         if result.returncode != want:
             problems.append(f'rc={result.returncode} want={want}')
-        if reason and not any(line == 'ОТКАЗ: ' + reason
-                              or line.startswith('ОТКАЗ: ' + reason + ': ')
-                              for line in output.splitlines()):
+        prefixes = ('ОТКАЗ: ',)
+        if case in ('missing-secret', 'gh-error'):
+            # Г3 emits its own refusal, optionally wrapped by the freeze gate.
+            prefixes += ('predposylki ОТКАЗ: ',
+                         'ОТКАЗ: гейт предпосылок 122 красен (rc=1): predposylki ОТКАЗ: ')
+        if reason and not any(line == prefix + reason
+                              or line.startswith(prefix + reason + ': ')
+                              for line in output.splitlines() for prefix in prefixes):
             problems.append('нет причины ' + reason)
         if want == 1:
             if after != before:
