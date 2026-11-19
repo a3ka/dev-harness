@@ -5,6 +5,10 @@ The explicit context is a subject-bound project_workflow transport, not a root
 argument: the committed subject declares its inventory project independently;
 identity and canonical origin are checked against the real profile resolver.
 Oracle snapshots are taken before calling freeze, retained only in memory.
+
+Rev122V6 Б-1/Б-2: mismatched implicit origin and repeated CLI contexts are
+independent worlds with the same rc/reason/no-gh/atomicity oracle as r12.
+The committed contract and historical handoff sheet are not rewritten.
 """
 import argparse
 import json
@@ -42,6 +46,11 @@ STABS = {
     'damaged-marker-absent-station': 'r13-station-marker-no-space',
     'damaged-marker-absent-space': 'r13-station-marker-extra-space',
     'damaged-marker-absent-tab': 'r13-mono-marker-tab',
+    'implicit-origin-unchecked': 'mono-origin-mismatch',
+    'repeated-context-last-valid': 'cli-repeat-valid',
+    'repeated-context-last-missing': 'cli-repeat-missing-first',
+    'repeated-context-last-invalid': 'cli-repeat-invalid-first',
+    'repeated-context-first': 'cli-repeat-missing-last',
 }
 CASES = {
     'project-secret': (0, None),
@@ -87,9 +96,30 @@ MARKER_CASES = {
     'r13-project-marker-duplicate': ('project-secret', None),
 }
 CASES.update({case: (1, 'project-workflow-rashozhdenie') for case in MARKER_CASES})
+# Reuse honest worlds, changing only the input from the reviewer's finding.
+# Both orders distinguish silent first/last-wins parsers from ambiguity refusal.
+ORIGIN_CASES = {
+    'mono-origin-mismatch': 'mono-declared',
+    'mono-origin-mismatch-explicit': 'mono-declared-explicit',
+}
+REPEATED_CONTEXT_CASES = {
+    'cli-repeat-valid': ('valid', 'valid'),
+    'cli-repeat-missing-first': ('missing', 'valid'),
+    'cli-repeat-invalid-first': ('invalid', 'valid'),
+    'cli-repeat-missing-last': ('valid', 'missing'),
+}
+CASES.update({case: (1, 'project-workflow-rashozhdenie') for case in ORIGIN_CASES})
+CASES.update({case: (1, 'project-workflow-neodnoznachen')
+              for case in REPEATED_CONTEXT_CASES})
+# Per-input outcome protection, including each successful paired control.
+STABS.update({'rc-zero-' + case: case
+              for case in (*ORIGIN_CASES, *REPEATED_CONTEXT_CASES)})
+STABS.update({'rc-one-' + case: case
+              for case in ('mono-declared', 'mono-declared-explicit', 'project-secret')})
 STATION_CASES = ('station-explicit', 'station-implicit', 'station-unresolved',
                  'station-binding-duplicate', 'station-binding-invalid')
-LEGACY_CASES = ('mono', 'mono-declared', 'station-implicit', 'station-unresolved')
+LEGACY_CASES = ('mono', 'mono-declared', 'station-implicit', 'station-unresolved',
+                'mono-origin-mismatch')
 
 
 def run(args, **kwargs):
@@ -145,6 +175,25 @@ def snapshot(root):
 
 
 def world(base, repo, case):
+    if case in ORIGIN_CASES:
+        station, product, context, origin = world(base, repo, ORIGIN_CASES[case])
+        # HEAD declaration and canonical profile stay unchanged. Only actual
+        # origin changes; its secret must not conceal the declared one's absence.
+        other_origin = base / 'other-origin.git'
+        git(base, 'init', '--bare', '-q', str(other_origin))
+        git(station, 'remote', 'set-url', 'origin', str(other_origin))
+        git(other_origin, 'fetch', '-q', str(station), 'main:refs/heads/main')
+        ctx = json.loads(context.read_text())
+        ctx['subject']['origin'] = str(other_origin)
+        context.write_text(json.dumps(ctx))
+        put(base, 'inventory.json', json.dumps({
+            origin: {'rc': 0, 'names': []},
+            str(other_origin): {'rc': 0, 'names': ['PILOT_DEMO_CODE']}}))
+        return station, product, context, origin
+    if case in REPEATED_CONTEXT_CASES:
+        station, product, context, origin = world(base, repo, 'project-secret')
+        put(base, 'invalid.json', '{not-json\n')
+        return station, product, context, origin
     if case in MARKER_CASES:
         original, marker = MARKER_CASES[case]
         station, product, context, origin = world(base, repo, original)
@@ -298,22 +347,25 @@ def observe(repo, case, mode='repo', mutant=None):
             print(f'ROOTS122 PROFILE {case}: rc={resolved.returncode}')
             if resolved.returncode:
                 raise RuntimeError('негодный совместимый профиль: ' + resolved.stderr)
+        contexts = [] if case in LEGACY_CASES else [context]
+        if case in REPEATED_CONTEXT_CASES:
+            paths = {'valid': context, 'missing': base / 'missing.json',
+                     'invalid': base / 'invalid.json'}
+            contexts = [paths[kind] for kind in REPEATED_CONTEXT_CASES[case]]
         if mode == 'model':
-            cmd = ['python3', HERE / 'roots_model.py', station, TARGET]
-            if case not in LEGACY_CASES:
-                cmd += [context]
+            cmd = ['python3', HERE / 'roots_model.py', station, TARGET, *contexts]
             if mutant:
                 cmd += ['--mutant', mutant]
         else:
             cmd = ['bash', station / 'scripts/freeze_contract.sh', TARGET,
                    'fixture122 roots', station]
-            if case not in LEGACY_CASES:
-                cmd += ['--project-workflow', context]
+            for path in contexts:
+                cmd += ['--project-workflow', path]
         result = run(cmd, env=env)
         after = {r: snapshot(r) for r in before}
         calls_path = base / 'calls.jsonl'
         calls = [json.loads(s) for s in calls_path.read_text().splitlines()] if calls_path.exists() else []
-        if case in MARKER_CASES:
+        if case in MARKER_CASES or case in ORIGIN_CASES or case in REPEATED_CONTEXT_CASES:
             tag_rc = run(['git', '-C', station, 'rev-parse', '--verify', TAG]).returncode
             print(f'ROOTS122 EVIDENCE {case}: subject_rc={result.returncode} '
                   f'gh={json.dumps(calls)} tag_rc={tag_rc} unchanged={after == before}')
@@ -322,7 +374,9 @@ def observe(repo, case, mode='repo', mutant=None):
         problems = []
         if result.returncode != want:
             problems.append(f'rc={result.returncode} want={want}')
-        if reason and not any(reason in line for line in output.splitlines()):
+        if reason and not any(line == 'ОТКАЗ: ' + reason
+                              or line.startswith('ОТКАЗ: ' + reason + ': ')
+                              for line in output.splitlines()):
             problems.append('нет причины ' + reason)
         if want == 1:
             if after != before:
