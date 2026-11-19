@@ -89,6 +89,26 @@ arkhiv = subprocess.run(['git', '-C', str(klon), 'archive', baza['commit']], cap
 if arkhiv.returncode != 0:
     otkaz('git archive не собрался: ' + arkhiv.stderr.decode('utf-8', 'replace').strip())
 
+# Независимая станционная сверка происхождения поставляемого снимка:
+# тот же commit/path продукта, тот же пин, побайтовое равенство до батарей.
+agregat = src['agregat_143']
+klon_agregata = Path(agregat['repo']).resolve()
+if not (klon_agregata / '.git').exists():
+    otkaz(f'агрегат 143: клон продукта отсутствует: {klon_agregata}')
+original = subprocess.run(['git', '-C', str(klon_agregata), 'show',
+                           agregat['commit'] + ':' + agregat['put']], capture_output=True)
+if original.returncode:
+    otkaz('агрегат 143: commit/path отсутствует: ' + agregat['commit'] + ':' + agregat['put'])
+sha_originala = hashlib.sha256(original.stdout).hexdigest()
+if sha_originala != agregat['sha256']:
+    otkaz(f'агрегат 143: sha256 {sha_originala} != пина {agregat["sha256"]}')
+snimok = zdes / agregat['fixture']
+if not snimok.is_file():
+    otkaz('агрегат 143: снимок отсутствует: ' + str(snimok))
+if snimok.read_bytes() != original.stdout:
+    otkaz('агрегат 143: снимок не совпадает побайтно с оригиналом')
+print('АГРЕГАТ_143_СНИМОК_СОВПАЛ: ' + sha_originala, flush=True)
+
 with tempfile.TemporaryDirectory(prefix='sverka143-197-') as tmp:
     koren = Path(tmp)
     mesto_143 = koren / 'batareja' / put_143

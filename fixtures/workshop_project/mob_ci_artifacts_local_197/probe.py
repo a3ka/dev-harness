@@ -18,7 +18,6 @@
 # Оракул: ожидания вычисляются ДО чтения субъекта; пины sha256 модели — в
 # source.json; рассинхрон → rc 2 ORACLE_TAMPERED. Субъект --repo НЕ служит
 # источником ожиданий никогда.
-import atexit
 import json
 import os
 import re
@@ -913,46 +912,20 @@ def r11(pesok):
 
 # ── совместная клетка стыка с агрегатом 143 (С-4/Б-1 FAIL Rev197) ──
 
-_AGGREGAT_143 = None
-
-
 def _zhivoj_agregat_143():
-    """Живой ci-aggregate.cjs зоны 143 — НЕИЗМЕННЫЙ потребитель стыка.
-    Станционный клон продукта (read-only), git archive по пину
-    source.json:.agregat_143, байты сверяются с пином ДО прогона;
-    отсутствие клона/коммита или расхождение пина — rc 2 ORACLE_TAMPERED
-    (инструмент недоступен/подменён — судить нельзя, а не «зелено»)."""
-    global _AGGREGAT_143
-    if _AGGREGAT_143 is not None:
-        return _AGGREGAT_143
+    """Неизменный оригинал 143 поставляется вне мутируемой модели.
+    Происхождение и единственный пин — source.json:.agregat_143;
+    отсутствие/порча снимка — rc 2 ORACLE_TAMPERED, без пропуска s01."""
     import hashlib
-    import io
-    import tarfile
     opis = json.loads((ZDES / 'source.json').read_text(encoding='utf-8'))['agregat_143']
-    klon = Path(opis['repo'])
-    if not (klon / '.git').is_dir():
-        oshibka_orakula('агрегат 143: клон продукта отсутствует: ' + str(klon))
-    tip = subprocess.run(['git', '-C', str(klon), 'cat-file', '-t', opis['commit']],
-                         capture_output=True, text=True)
-    if tip.returncode != 0 or tip.stdout.strip() != 'commit':
-        oshibka_orakula('агрегат 143: коммит не найден в клоне: ' + opis['commit'])
-    arkhiv = subprocess.run(['git', '-C', str(klon), 'archive', opis['commit'], '--', opis['put']],
-                            capture_output=True)
-    if arkhiv.returncode != 0:
-        oshibka_orakula('агрегат 143: git archive не собрался')
-    with tarfile.open(fileobj=io.BytesIO(arkhiv.stdout)) as t:
-        chlen = t.extractfile(opis['put'])
-        if chlen is None:
-            oshibka_orakula('агрегат 143: в архиве нет ' + opis['put'])
-        bajty = chlen.read()
+    agregat = ZDES / opis['fixture']
+    if not agregat.is_file():
+        oshibka_orakula('агрегат 143: снимок отсутствует: ' + str(agregat))
+    bajty = agregat.read_bytes()
     fakt = hashlib.sha256(bajty).hexdigest()
     if fakt != opis['sha256']:
         oshibka_orakula(f'агрегат 143: sha256 {fakt} != пина {opis["sha256"]}')
-    vremennoe = Path(tempfile.mkdtemp(prefix='agregat143-197-'))
-    atexit.register(shutil.rmtree, vremennoe, True)
-    _AGGREGAT_143 = vremennoe / 'ci-aggregate.cjs'
-    _AGGREGAT_143.write_bytes(bajty)
-    return _AGGREGAT_143
+    return agregat
 
 
 @_replay_kletka('s01-styk-sbor-agregat')
@@ -963,9 +936,9 @@ def s01(pesok):
     # каталога несёт пару контекста чтения <имя>-<run_id>-<run_attempt> —
     # ровно её ждёт агрегат (build.run_id того же прогона, attempt — env
     # того же job'а: читатель и агрегат в workflow — соседние шаги);
-    # ожидаемое множество = выбранные экраны РОВНО. Оракул — живой скрипт
-    # зоны 143 (git archive, байтовый пин source.json:.agregat_143), не
-    # копия и не пере-реализация.
+    # ожидаемое множество = выбранные экраны РОВНО. Оракул — оригинальные
+    # байты зоны 143, поставляемые снимком вне model/ (пин в source.json),
+    # не пере-реализация и не файл из дерева субъекта.
     agregat = _zhivoj_agregat_143()
     sha = 'a' * 64
     deti = ('vkladki', 'taby')
@@ -1046,8 +1019,18 @@ def rezhim_stabov(orakul):
     for imja_staba, svjazka in sorted(orakul['stab_vhod'].items()):
         vsego += 1
         vremennoe = Path(tempfile.mkdtemp(prefix='stab197-'))
-        kopiya = vremennoe / 'model'
-        shutil.copytree(MODEL, kopiya)
+        orakul_mutiruetsja = svjazka.get('oblast') == 'orakul'
+        if orakul_mutiruetsja:
+            semja = vremennoe / 'family'
+            shutil.copytree(ZDES, semja)
+            kopiya = semja
+            proba = semja / 'probe.py'
+            subiekt = semja / 'model'
+        else:
+            kopiya = vremennoe / 'model'
+            shutil.copytree(MODEL, kopiya)
+            proba = ZDES / 'probe.py'
+            subiekt = kopiya
         try:
             mutator = ZDES / 'stabs' / f'{imja_staba}.py'
             if not mutator.is_file():
@@ -1058,16 +1041,23 @@ def rezhim_stabov(orakul):
             if protsess.returncode != 0:
                 print(f'STAB {imja_staba} MUTACIJA_SLLOMALAS: {protsess.stderr.strip()}', file=sys.stderr)
                 return 2
-            vyvod = subprocess.run([sys.executable, str(ZDES / 'probe.py'), '--repo', str(kopiya)],
+            vyvod = subprocess.run([sys.executable, str(proba), '--repo', str(subiekt)],
                                    capture_output=True, text=True)
             kletka = svjazka['kletka']
             prichina = svjazka['prichina']
-            stroka = f'CASE {kletka} KRASNO'
-            if vyvod.returncode != 1 or stroka not in vyvod.stdout or prichina not in vyvod.stdout:
-                print(f'STAB {imja_staba} PROPUSHCHEN: rc={vyvod.returncode}; искали {stroka}: {prichina}')
-                print(vyvod.stdout[-2000:], file=sys.stderr)
+            if orakul_mutiruetsja:
+                nuzhen_rc = svjazka['rc']
+                stroka = prichina
+                najdeno = any(s.startswith(stroka) for s in vyvod.stderr.splitlines())
+            else:
+                nuzhen_rc = 1
+                stroka = f'CASE {kletka} KRASNO: {prichina}'
+                najdeno = any(s.startswith(stroka) for s in vyvod.stdout.splitlines())
+            if vyvod.returncode != nuzhen_rc or not najdeno:
+                print(f'STAB {imja_staba} PROPUSHCHEN: rc={vyvod.returncode}; искали rc={nuzhen_rc} {stroka}')
+                print((vyvod.stdout + vyvod.stderr)[-2000:], file=sys.stderr)
                 return 1
-            print(f'STAB {imja_staba} KRASEN: {kletka}: {prichina}')
+            print(f'STAB {imja_staba} KRASEN: {kletka}: rc={vyvod.returncode}: {prichina}')
             pojmali += 1
         finally:
             shutil.rmtree(vremennoe, ignore_errors=True)

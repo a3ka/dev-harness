@@ -18,6 +18,7 @@
     "commit": "fda1fc871960b8061d8e6f6d12f2cc38f5834cee",
     "put": "mobile/scripts/ci-aggregate.cjs",
     "sha256": "e486e353f319ed2c0a65fc1092a0f16f8c9d8314bab4aed6e1d3619630d8fec6",
+    "fixture": "oracle143/ci-aggregate.cjs",
     "zamer": "живой скрипт зоны 143 (НЕИЗМЕННЫЙ потребитель стыка, клетка s01): станционный клон, git archive fda1fc8, только чтение; байты на fda1fc8 и на 91866aac1794fe3e5283f5a7ccad7105c8a854ec (чистая база реализации по вердикту Rev197, клон Push197) совпадают — sha256 e486e353… двумя мерами (замер v3 2026-11-17); 91866aa в станционном клоне отсутствует, пин снят с fda1fc8, доступного в клоне"
   },
   "stab_vhod": {
@@ -170,6 +171,20 @@
       "kletka": "s01-styk-sbor-agregat",
       "prichina": "STYK_AGREGATA_OTKAZ",
       "defekt": "шаблонный сбор кладёт детей БЕЗ пары прогона в имени каталога (поведение head 70ad24e5b9, блок Б-1 вердикта Rev197): неизменный ci-aggregate.cjs зоны 143 ждёт screen-evidence-<id>-<run_id>-<attempt> — PEREPIS_DETEJ на любом непустом matrix-выборе; байтовое расхождение ловит и e01-skript-pin"
+    },
+    "stab_s01_snimok_isporchen": {
+      "oblast": "orakul",
+      "rc": 2,
+      "kletka": "s01-styk-sbor-agregat",
+      "prichina": "ORACLE_TAMPERED: агрегат 143: sha256",
+      "defekt": "один байт поставляемого оригинала изменён при прежнем source.json; выполнение подменённого оракула запрещено"
+    },
+    "stab_s01_snimok_otsutstvuet": {
+      "oblast": "orakul",
+      "rc": 2,
+      "kletka": "s01-styk-sbor-agregat",
+      "prichina": "ORACLE_TAMPERED: агрегат 143: снимок отсутствует:",
+      "defekt": "поставляемый оригинал удалён при прежнем source.json; пропуск s01 или NOT_RUN вместо отказа запрещён"
     }
   },
   "batareja_143_do": {
