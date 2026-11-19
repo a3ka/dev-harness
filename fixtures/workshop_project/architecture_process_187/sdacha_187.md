@@ -128,3 +128,107 @@ rc 0, `CELLS=61 STABS=0 FAILURES=0`; `--model` → rc 0 с тем же итог�
 Интеграционная предпосылка: в базе a9a602bc389edd03156cc4f937849b86562b5621
 нет реализации 154 и canonical boundary SHA в обоих CLI. Живой `--repo`
 на строгой реализации 154 Б-1 здесь не предъявлен; нужен её точный носитель.
+
+## Узкая интеграционная проба с опубликованным seed 154
+
+Это дополнительный замер Arch187Seed, не пересмотр frozen-контракта,
+не свидетельство авторства 154 и не done 187.
+
+Субъект: точный опубликованный seed реализации 154
+`042c48cd2dab054654596dcf93f19f0907edcc6f`, а не последующая голова
+ветки. В отдельный `.git` внутри собственной изолированной копии получен
+командой `bash "$OWN/scripts/gitw" -C "$TEST" fetch --no-tags origin
+042c48cd2dab054654596dcf93f19f0907edcc6f`, rc 0;
+origin = `ssh://git@github.com/a3ka/dev-harness.git`.
+Снимок всего seed извлечён через `git archive`; поверх положена только
+семья `fixtures/workshop_project/architecture_process_187/` из принятого
+локального `434ec5549a1177475c9e73153eb863282f4383a3`.
+Попытка получить также этот fixture-коммит с origin дала `not our ref`;
+поэтому источник fixture — предоставленный локальный объект, не
+несуществующая публикация. Повторная загрузка одного seed 154 успешна.
+
+`OWN=/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t938eed683/m`;
+`TEST=$OWN/.scratch-187-seed-shw9nLaC`.
+Тестовый снимок записан отдельным корневым коммитом architect
+`8db61ed3dd743a5892d82acc0ea4dc211beff38d` (tree
+`f41f123c471ab957d5df8324db7bdd391f244a46`), без родителей:
+`git rev-list --count HEAD` в TEST → `1`. Чужая история не включена в
+сдаваемую ветку.
+
+Доказательство байтов субъекта ДО единственного запуска:
+
+- `HEAD:scripts` и `042c48cd2dab054654596dcf93f19f0907edcc6f:scripts`
+  в TEST → один tree `ff08f98b97a7069fac4c7d8ac7de39c24d7d2914`;
+  `git diff --exit-code 042c48cd2dab054654596dcf93f19f0907edcc6f -- scripts`
+  → rc 0, вывод пустой. Совпадает вся директория scripts, не только
+  два файла предполагаемого шва.
+- `scripts/zamok_predmeta.sh` → blob
+  `cc88f40037f3f7e907e1a28e7a289ab0014b0e48`;
+  `scripts/freeze_contract.sh` → blob
+  `8d79c4cbf7008178da058ec267c7c0485ee16cc3`.
+- `HEAD:fixtures/workshop_project/architecture_process_187` в TEST и
+  тот же путь принятого 434ec554 → tree
+  `cdd855f6e9ceb0eb708025e48fc3b99bfd5b53de`;
+  `workflow_probe.py` → принятый blob
+  `e125189047681bd53033f8718b28e0a7368f4881`.
+- Разница собранного snapshot с seed — только лист sdacha_187.md
+  (17 строк diff, 13 добавленных и 4 удалённых); код дверей и батареи
+  не исправлялся. Перед и после прогона
+  `git diff --exit-code HEAD -- scripts fixtures/workshop_project/architecture_process_187`
+  → rc 0.
+
+Единственный живой запуск:
+`TMPDIR="$TEST" bash "$TEST/fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh" --repo "$TEST"`
+→ rc 0, 64.85 s, `CELLS=61 STABS=0 FAILURES=0`.
+Самоконтроль диагностики отдельно: `GREEN pin-diagnostic-boundary-selfcheck 9/9`.
+Ниже отдельные результаты наблюдавшихся ветвей; все перечисленные
+клетки GREEN, фактический rc совпал с ожидаемым:
+
+| Клетки | Фактический rc / причина |
+|---|---|
+| task-valid | 0 |
+| task-line-missing, task-line-blank, brief-inline-line-missing | 1 / ARCH_LINE_MISSING |
+| task-l3 | 1 / ARCH_OWNER |
+| task-unmapped | 1 / PATH_WITHOUT_COMPONENT |
+| task-foreign | 1 / ARCH_ZONE |
+| task-locate-json-malformed, task-locate-status-missing, task-locate-status-unknown | 1 / ARCH_LOCATE_GRAMMAR |
+| brief-lock, brief-no-local-copy, brief-document-no-local, brief-no-rules | 0 / PINNED_BRIEF_187 |
+| brief-with-rules | 0 / RULES_FROM_PIN_187 |
+| freeze-valid | 0 |
+| freeze-no-line | 1 / ARCH_LINE_MISSING |
+| freeze-foreign | 1 / ARCH_ZONE |
+| freeze-unmapped | 1 / PATH_WITHOUT_COMPONENT |
+| freeze-draft, freeze-draft-marker, freeze-draft-schema | 1 / ARCH_DRAFT |
+| check-valid, check-green-latency-unresolved | 0 |
+| check-failure, check-digest-mismatch, check-rc1-real-gate | 1 / ARCH_CHECK |
+| check-not-evaluated | 1 / ARCH_NOT_EVALUATED |
+| check-rc2-real-gate, check-rc0-gate-lie | 2 / ARCH_NOT_EVALUATED |
+| done-valid | 0 |
+| done-review-missing | 1 / ARCH_REVIEW |
+| done-ci-missing, done-ci-other-sha, done-ci-red, done-ci-skipped, done-ci-head-ahead | 1 / ARCH_CI |
+| legacy-mob, legacy-harness, wiring-valid | 0 |
+| wiring-omitted, wiring-no-repo, wiring-python | 1 / CI_BATTERY_187_MISSING_OR_NOT_EXACT |
+| wiring-direct-missing | 1 / CI_DIRECT_ARCH_187_MISSING |
+| zone-container-file, zone-outside-runtime | 0 |
+| zone-container-escape | 1 / ARCH_ZONE |
+| path-unplaced-absent, zone-outside-false-refused, path-area-without-component | 1 / PATH_WITHOUT_COMPONENT |
+| path-unresolved-zero-absent | 0 / вне модели: scripts/ci-helper.sh |
+| path-unresolved-zero-present | 0 / вне модели: provenance.json |
+| zone-outside-snapshot-failed, zone-outside-snapshot-missing | 2 / ARCH_NOT_EVALUATED |
+| pin-symbolic-head, pin-symbolic-branch, pin-short-sha, pin-unresolvable-sha, pin-head-noflag | 1 / ARCH_PIN |
+| applicability-lock-no-dir, applicability-dir-no-lock | 1 / ARCH_COMPONENT_NET |
+
+Поведенческих расхождений с ожиданиями принятой батареи не обнаружено.
+По отношению к историческому голому прогону выше пять прежних красных
+pin/applicability-клеток зелёные на данном seed; повторного прогона старого
+дерева здесь не было. `--model`, `--stabs` и отдельный `--wiring` этой
+пачкой не повторялись: результаты 61/61, 75/75 и rc 0 выше принадлежат
+Arch187Fixture; wiring-клетки внутри единственного `--repo` исполнены.
+
+После прогона refs TEST: только
+`refs/heads/seed-snapshot 8db61ed3dd743a5892d82acc0ea4dc211beff38d`,
+тегов нет. Frozen/done-теги 187 не создавались, публикации/push не было,
+доставочный WORKTREE не использовался. История seed 154 остаётся только
+в экспериментальном `.git` как источник байтов, не как авторская поставка.
+Санкционированный v+1 170 и законное место реализации по-прежнему
+блокируют done 187; этот зелёный замер их не заменяет.
