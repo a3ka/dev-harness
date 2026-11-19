@@ -44,6 +44,8 @@ from pathlib import Path
 
 import yaml
 
+import forma_transporta
+
 HERE = Path(__file__).resolve().parent
 MODEL = HERE / "model"
 NOSITELI = HERE / "nositeli"
@@ -184,6 +186,12 @@ def zhestkij_kanon(src):
         return "retired-нагрузка: файла нет %s" % RETIRED_OTN
     if sha256_faila(RETIRED_NOSITEL) != RETIRED_SHA256:
         return "retired-нагрузка: sha256 %s" % RETIRED_OTN
+    # v5 (окно ленда 197): ссылка на модель 197 — структурный канон
+    # (forma_transporta) сверен с source.json:.ssylki ДО клеток; дрейф
+    # модели 197 сверх нормализованного пина = ORACLE_TAMPERED.
+    _, oshibka197 = forma_transporta.model_197(src)
+    if oshibka197:
+        return "модель-197: %s" % oshibka197
     return None
 
 
@@ -596,6 +604,44 @@ def _razreshi_node():
 
 
 NODE_BIN = _razreshi_node()
+
+
+def _razreshi_npm():
+    """npm для lane-вызовов канона 197 в замкнутых песочницах (v5): обычно
+    лежит рядом с node (одно распределение); иначе — shutil.which."""
+    kandidat = Path(NODE_BIN).parent / "npm" if NODE_BIN else None
+    if kandidat is not None and kandidat.is_file():
+        return str(kandidat.resolve())
+    najden = shutil.which("npm")
+    return None if najden is None else str(Path(najden).resolve())
+
+
+NPM_BIN = _razreshi_npm()
+
+
+SHIM_ARTEFAKTY = """#!/usr/bin/env node
+// Подложный транспорт канона 197 для replay батареи 143 (v5): чтение
+// доставляет ПОДЛОТЫЙ APK (digest заведомо != ZHELANYJ_DIGEST прогона —
+// тот же приём, что подложный gh run download), запись — no-op rc 0;
+// каждый вызов пишется в ARTEFAKT_LOG. Грамматику пути, алфавит имени и
+// fail-closed судит батарея 197 (e01/r01-r11/s01), не эта копия-двойник.
+const fs = require('fs');
+const path = require('path');
+const a = process.argv.slice(2);
+fs.appendFileSync(process.env.ARTEFAKT_LOG || '/dev/null',
+                  'ARTEFAKT ' + a.join(' ') + '\\n');
+let kuda = null;
+for (let i = 0; i < a.length; i++) {
+  if (a[i] === '--kuda' && a[i + 1] !== undefined) { kuda = a[i + 1]; i++; }
+}
+if (kuda !== null) {
+  fs.mkdirSync(kuda, { recursive: true });
+  fs.writeFileSync(path.join(kuda, 'app-release.apk'),
+                   'PODKOLYOT-APK-BAJTY-995-143\\n');
+}
+"""
+
+
 def postroj_pesochitsu(tmp, maestro_scenarij=None):
     """Замкнутая среда прогона: workspace, bin/ с подложными adb/emulator/
     maestro/gh/sleep/pkill, фиктивный ANDROID_HOME с avdmanager-подложкой,
@@ -625,8 +671,21 @@ def postroj_pesochitsu(tmp, maestro_scenarij=None):
     # симлинка теряет node на раннере CI (setup-node кладёт его вне
     # /usr/bin, живой отказ PR dev-harness#451)
     os.symlink(NODE_BIN, bin_dir / "node")
+    # v5 (окно ленда 197): npm и lanes канона в песочнице — lane-шаги модели
+    # 197 («npm run ci:artefakt-chtenie -- …») исполняются подложным
+    # транспортом, как прежде исполнялся подложный gh run download.
+    if NPM_BIN is None:
+        raise SystemExit("NOT_IMPLEMENTED: нет npm для lane-транспорта 197")
+    os.symlink(NPM_BIN, bin_dir / "npm")
+    (ws / "mobile" / "scripts").mkdir(parents=True, exist_ok=True)
+    (ws / "package.json").write_text(json.dumps({"scripts": {
+        "ci:artefakt-zapis": "node mobile/scripts/ci-artefakty.cjs",
+        "ci:artefakt-chtenie": "node mobile/scripts/ci-artefakty.cjs",
+    }}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    _napishi_shim(ws / "mobile" / "scripts" / "ci-artefakty.cjs", SHIM_ARTEFAKTY)
     logi = {}
-    for imja in ("ADB_LOG", "MAESTRO_LOG", "GH_LOG", "AVDMANAGER_LOG", "PKILL_LOG"):
+    for imja in ("ADB_LOG", "MAESTRO_LOG", "GH_LOG", "AVDMANAGER_LOG", "PKILL_LOG",
+                 "ARTEFAKT_LOG"):
         f = koren / (imja.lower() + ".txt")
         f.write_text("", encoding="utf-8")
         logi[imja] = str(f)
@@ -666,6 +725,10 @@ def konteksty_rendera(ws, sborka, needs_joba):
             "needs.build-apk.outputs.apk_sha256": sborka["apk_sha256"],
             "needs.build-apk.outputs.artifact_name": sborka["artifact_name"],
             "needs.build-apk.outputs.run_id": sborka["run_id"],
+            # v5 (И-4 197): продюсерская попытка сборки — законный output
+            # сборки в lane-форме; алфавит остаётся замкнутым: попытка
+            # СВОЕГО прогона и чужого needs судятся парой a17/y19.
+            "needs.build-apk.outputs.run_attempt": sborka.get("run_attempt", "1"),
         })
     return zn
 
@@ -704,7 +767,8 @@ def replej_rabotnika(wf, job_imja, tmp, do_posle=None, maestro_scenarij=None):
     oshibka|None)."""
     ws, env = postroj_pesochitsu(tmp, maestro_scenarij)
     digest = hashlib.sha256(b"ETALON-APK-143\n").hexdigest()
-    sborka = {"apk_sha256": digest, "artifact_name": "apk-4242-" + digest[:12], "run_id": "4242"}
+    sborka = {"apk_sha256": digest, "artifact_name": "apk-4242-" + digest[:12],
+              "run_id": "4242", "run_attempt": "1"}
     znach = konteksty_rendera(ws, sborka, set((wf.get("jobs", {}).get(job_imja) or {}).get("needs") or []))
     shagi = (wf.get("jobs", {}).get(job_imja) or {}).get("steps") or []
     itog = 0
@@ -1094,10 +1158,24 @@ def sud_digest_replej(subject_root, tmp):
         wf = yaml.safe_load(wf_p.read_text(encoding="utf-8"))
     except Exception as e:
         return False, "MOBILE_YML_NE_YAML: %s" % e
+    forma = forma_transporta.forma_transporta(wf)
     for j in rabotniki_subiekta(d):
         shagi = (wf.get("jobs", {}).get(j) or {}).get("steps") or []
         if not any((s.get("name") or "") == IMJA_DIGEST_SHAGA for s in shagi):
             return False, "%s без шага digest" % j
+        if forma == "lane":
+            # v5 (И-4 197 на работниках 143): digest-чтение APK в lane-форме
+            # обязано нести ПРОДЮСЕРСКУЮ пару run_id/run_attempt литералами
+            # needs.build-apk.outputs (выборочный повтор работника не теряет
+            # сборку); попытка собственного прогона/чужого needs — красна.
+            shag = next(s for s in shagi if (s.get("name") or "") == IMJA_DIGEST_SHAGA)
+            env_znach = set(str(v) for v in (shag.get("env") or {}).values())
+            run_tek = str(shag.get("run") or "")
+            if (not set(forma_transporta.PARA_SBORKI) <= env_znach or
+                    "ci:artefakt-chtenie" not in run_tek or
+                    "--run-id" not in run_tek or "--run-attempt" not in run_tek):
+                return False, ("ПАРА_NE_IZ_SBORKI: %s: digest-чтение APK без "
+                               "продюсерской пары run_id/run_attempt из needs.build-apk.outputs" % j)
         podtmp = Path(tmp) / ("digest-%s" % j)
         podtmp.mkdir(exist_ok=True)
         rc, hvost, ustanovlen, osh = replej_rabotnika(
@@ -1781,8 +1859,12 @@ def sud_provodka(wf, rep=None):
     digest), и checkout (persist-credentials: false) в ОБОИХ
     агрегирующих задачах ДО шага запуска ci-aggregate.cjs."""
     kjuchi = ("apk_sha256", "artifact_name", "run_id")
+    # v5 (окно ленда 197): состав outputs сборки — ПО ФОРМЕ ТРАНСПОРТА:
+    # lane добавляет продюсерскую попытку run_attempt (И-4 197); у
+    # работников — по-прежнему ровно три ключа в обеих формах.
+    kjuchi_sborki = kjuchi + ("run_attempt",) if forma_transporta.forma_transporta(wf) == "lane" else kjuchi
     build = wf.get("jobs", {}).get("build-apk", {})
-    if sorted((build.get("outputs") or {}).keys()) != sorted(kjuchi):
+    if sorted((build.get("outputs") or {}).keys()) != sorted(kjuchi_sborki):
         return False, "outputs build-apk: %s" % sorted((build.get("outputs") or {}).keys())
     if not any(s.get("id") == "ident" for s in build.get("steps") or []):
         return False, "у шага идентичности сборки нет id"
@@ -1895,7 +1977,8 @@ def sud_tojson_needs(wf, rep=None, subject_root=None, tmp=None):
     podtmp.mkdir(exist_ok=True)
     ws, env = postroj_pesochitsu(podtmp)
     digest = hashlib.sha256(b"ETALON-APK-143\n").hexdigest()
-    sborka = {"apk_sha256": digest, "artifact_name": "apk-4242-" + digest[:12], "run_id": "4242"}
+    sborka = {"apk_sha256": digest, "artifact_name": "apk-4242-" + digest[:12],
+              "run_id": "4242", "run_attempt": "1"}
     znach = konteksty_rendera(ws, sborka, set((wf.get("jobs", {}).get("e2e-start") or {}).get("needs") or []))
     apk_dir = ws / "mobile" / "android" / "app" / "build" / "outputs" / "apk" / "release"
     apk_dir.mkdir(parents=True, exist_ok=True)
@@ -2923,6 +3006,44 @@ def glavnaja():
             print("КЛЕТКА %s ОТЛОЖЕНА" % o)
         if otlozhennye:
             print("NOT_IMPLEMENTED: NEEDS_PRECEDENT %d — клетка не зелёная и не красная, место названо выше" % len(otlozhennye))
+        if rezhim in ("model", "stabs"):
+            # v5 (окно ленда 197): контроль lane-эталона — копия модели этой
+            # батареи с mobile.yml модели 197 (ссылка; байты 197 пинирует
+            # своя батарея), ВСЕ клетки зелёны; в --stabs это честный
+            # контроль ДО lane-мутаций (стабы ниже мутируют ту же основу).
+            bajty197, oshibka_bajtov = forma_transporta.bajty_modeli_197()
+            if oshibka_bajtov:
+                return oshibka_orakula("модель-197: %s" % oshibka_bajtov)
+            kopia197 = Path(vrem) / "model-197"
+            shutil.copytree(MODEL, kopia197)
+            (kopia197 / ".github" / "workflows" / "mobile.yml").write_bytes(bajty197)
+            # lane-модель несёт универсального работника e2e-screen — клетки
+            # судят её семантикой --v3 (инвентарь: e2e-screen служебный при
+            # matrix-проводке), как судят живой продукт в --repo --v3.
+            staryj_matrix_v3 = MATRIX_V3
+            globals()["MATRIX_V3"] = True
+            zel197 = 0
+            kras197 = []
+            try:
+                for imja in vse_kletki:
+                    if imja == "i06-lekalo-rabotnika":
+                        continue
+                    ok, prichina = odna_kletka(imja, kopia197, vrem)
+                    if ok:
+                        zel197 += 1
+                    else:
+                        kras197.append("%s: %s" % (imja, prichina))
+            finally:
+                globals()["MATRIX_V3"] = staryj_matrix_v3
+            print("модель-197 (lane-транспорт): клеток %d, зелёных %d, красных %d"
+                  % (len(vse_kletki) - 1, zel197, len(kras197)))
+            for k in kras197:
+                print("КЛЕТКА-197 %s КРАСНА" % k)
+            if kras197:
+                if rezhim != "stabs":
+                    return 1
+                print("KONTROL_197_KRASEN — стабы не гоняются", file=sys.stderr)
+                return 1
         if rezhim != "stabs":
             if krasnye:
                 return 1
