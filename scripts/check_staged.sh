@@ -915,8 +915,8 @@ for f in "${staged[@]}"; do
                 fi
                 # Разовые допущения (слово владельца 2026-11-19 ~23:55 UTC через консультанта): REPLACE для 140/3, 140/4
                 # и 193/2 не приземлялись — догон строки реестра 140 с v2 прямо на v5 и 193 с v1 прямо на v3.
-                for skip in "140 5 2" "193 3 1"; do
-                  read -r skip_nnn skip_v skip_prev <<< "$skip"
+                for skip in 140:5:2 193:3:1; do
+                  skip_nnn=${skip%%:*}; skip_rest=${skip#*:}; skip_v=${skip_rest%%:*}; skip_prev=${skip_rest#*:}
                   if [ "$old_ok" -eq 0 ] && [ "$add_nnn" = "$skip_nnn" ] && [ "$vmax" = "$skip_v" ]; then
                     ref_skip="refs/tags/frozen/contracts/$skip_nnn/$skip_prev"
                     if git -C "$ROOT" show-ref --verify --quiet "$ref_skip" \
