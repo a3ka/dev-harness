@@ -439,6 +439,49 @@ if [ -n "${_doc_type_tmp:-}" ]; then
   esac
 fi
 
+# ── 6в. СЧЁТ ПЛАТНЫХ START роли критика (контракт 154) ───────────────────────
+# НОВЫЕ предметы: заморозка пересчитывает платные START по журналу станции —
+# тот же state, что и у фазы спавна, передаётся read-only режиму существующего
+# замка (--schet-kritika). Единица — позиция START, не круг вердикта: непокрытая
+# позиция — отказ ДО тега и реестра (заморозка не легализует прежнее
+# превышение). Старые предметы (след заморозки СТАРШЕ границы новых предметов
+# 5ca237e4e6…) — прежний §6в ниже ДОСЛОВНО (счёт отдаёт rc 3).
+# 4-й аргумент — корень состояния станции; без него счёт нечем читать.
+_st154=''
+[ "$#" -ge 4 ] && _st154="$4"
+_b154=0
+# [154] Старый предмет — след заморозки СТАРШЕ границы новых предметов. Тот же
+# признак, что у замка: метка id/CONTRACT/<NNN> и её отношение к границе
+# (канонический коммит 5ca237e4e6… либо маркерный пустой коммит после старта).
+_staryj_154() {
+  local r="$1" nnn="$2" sha
+  local tag="id/CONTRACT/$nnn"
+  git -C "$r" rev-parse --verify --quiet "refs/tags/$tag" >/dev/null 2>&1 || return 1
+  if git -C "$r" cat-file -e 5ca237e4e6bc980c460ede8ee6d85af8a33d0601^{commit} 2>/dev/null; then
+    git -C "$r" merge-base --is-ancestor "$tag" 5ca237e4e6bc980c460ede8ee6d85af8a33d0601 2>/dev/null && return 0
+    return 1
+  fi
+  for sha in $(git -C "$r" rev-list --ancestry-path --reverse "$tag..HEAD" 2>/dev/null); do
+    if [ -z "$(git -C "$r" diff-tree --root --no-commit-id --name-only -r "$sha" 2>/dev/null)" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+# Счётчик — сосед двери (scripts/zamok_predmeta.sh). Копия барьера в чужом
+# каталоге берёт канонический инструментарий из HARNESS_TOOLS_ROOT.
+_LOCK154="$SELF_DIR/zamok_predmeta.sh"
+[ -f "$_LOCK154" ] || _LOCK154="${HARNESS_TOOLS_ROOT:-}/scripts/zamok_predmeta.sh"
+if [ -f "$_LOCK154" ]; then
+  bash "$_LOCK154" --schet-kritika --sostojanie "$_st154" \
+    --repo "$ROOT" --subject "$NNN" --phase freeze || _b154=$?
+elif _staryj_154 "$ROOT" "$NNN"; then
+  # Счётчика нет рядом, но предмет старый — прежний §6в дословно.
+  _b154=3
+else
+  die "ОТКАЗ: счётчик платных вызовов критика недоступен: нет $_LOCK154"
+fi
+if [ "$_b154" -eq 3 ]; then
 # ── 6в. КАП КРУГОВ: третий круг — арбитр или владелец ──────────────────────────
 # Решение владельца 2026-08-20 (D3): по контракту 005 автор прошёл ДЕВЯТЬ кругов
 # критика и не остановился ни на третьем, ни на шестом — правило в роли не
@@ -538,6 +581,9 @@ if [ "$circles" -ge 3 ]; then
   else
     printf '  ok   кап кругов: %s кругов, заморозка словом владельца\n' "$circles" >&2
   fi
+fi
+elif [ "$_b154" -ne 0 ]; then
+  die "ОТКАЗ бюджета критика (154): предмет $NNN — счёт платных START не покрыт (см. stderr выше)"
 fi
 
 

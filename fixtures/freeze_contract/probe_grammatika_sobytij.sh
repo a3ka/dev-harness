@@ -43,6 +43,9 @@ base_repo() {  # <каталог> — основание БЕЗ вердикто
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   commit_all "$r" 'основание'
+  # [154] Старый предмет (след заморозки СТАРШЕ границы): прежний §6в — счёт
+  # кругов по сменам первой строки — действует дословно.
+  old_subject "$r" 001
 }
 sud() {  # <корень> <причина> — вызов заморозки; код и вывод в RC/OUT
   set +e

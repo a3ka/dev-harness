@@ -11,7 +11,7 @@ set -euo pipefail
 . "$(dirname "$0")/_repo.sh"
 S="$WORK/source"
 make_repo "$S"
-"$BARRIER" contracts/001-x.md "полный реестр" "$S"
+"$BARRIER" contracts/001-x.md "полный реестр" "$S" "$(state154 "$S" 001 1)"
 
 # `--depth 1` обрезает историю: `rev-parse --is-shallow-repository` даёт true, и библиотека
 # сообщает `shallow`. Клонируется файловым URL, иначе git делает жёсткие ссылки и глубина не режется.
