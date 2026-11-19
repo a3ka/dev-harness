@@ -889,6 +889,9 @@ judge д3
 mkf() {  # <каталог> [без-коммита] — make_repo + plan.tsv (+ closed-without-done.tsv) из модели, done/frozen-теги
   local t="$1" id
   make_repo "$t" >"$WORK/mkf.log" 2>&1 || return 1
+  # [154] Старый предмет (след заморозки СТАРШЕ границы): прежний §6в дословно;
+  # клетки 084 судят гейт плана, а не счёт вызовов.
+  old_subject "$t" 001
   p84_resolve_src "$(git -C "$t" rev-parse HEAD)"
   mkdir -p "$t/registry"
   p84_emit_plan > "$t/registry/plan.tsv"

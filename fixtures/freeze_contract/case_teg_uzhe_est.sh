@@ -15,9 +15,9 @@ set -euo pipefail
 . "$(dirname "$0")/_repo.sh"
 R="$WORK/repo"
 make_repo "$R"
-"$BARRIER" contracts/001-x.md "первая версия" "$R"
+"$BARRIER" contracts/001-x.md "первая версия" "$R" "$(state154 "$R" 001 1)"
 
 put_verdict "$R" 2 accept
 commit_all "$R" 'вердикт v2'
 g "$R" tag -a frozen/contracts/001/2/pometka -m 'ссылка, занимающая имя следующей версии'
-"$BARRIER" contracts/001-x.md "вторая версия в занятое имя" "$R"
+"$BARRIER" contracts/001-x.md "вторая версия в занятое имя" "$R" "$(state154 "$R" 001 1)"

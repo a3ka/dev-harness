@@ -29,6 +29,9 @@ GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$R" config user.
 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$R" config commit.gpgsign false
 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$R" config core.hooksPath /dev/null
 commit_all "$R" 'основание'
+# [154] Старый предмет (след заморозки СТАРШЕ границы): прежний §6в — счёт
+# кругов по сменам первой строки — действует дословно.
+old_subject "$R" 001
 V1="$R/verdicts/critic/contracts-001-v1.md"
 V2="$R/verdicts/critic/contracts-001-v2.md"
 

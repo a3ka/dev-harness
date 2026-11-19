@@ -44,6 +44,9 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
+# Канонический инструментарий для соседей барьера: копия дрилла в чужом
+# каталоге (проверка анти-плацебо) берёт счётчик вызовов из него.
+export HARNESS_TOOLS_ROOT="${HARNESS_TOOLS_ROOT:-${REPO:-$ROOT}}"
 
 FREEZE="$HERE/freeze_contract.sh"
 FROZEN="$HERE/check_contract_frozen.sh"
@@ -121,10 +124,27 @@ base_or_skip env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git ini
 base_or_skip env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$W" remote add origin "$W_ORIGIN"
 base_or_skip g add -A
 base_or_skip g commit -q -m 'основание: контракт, вердикт критика, норма и роадмап'
+# [154] Старый предмет (след заморозки СТАРШЕ границы новых предметов): прежний §6в
+# дословно. Дрилл судят ПРОЦЕДУРУ, а не счёт платных вызовов; новая ветвь §6в
+# живёт в фикстурах freeze_contract/ и в батарее 154.
+base_or_skip g tag id/CONTRACT/001
+base_or_skip g commit -q --allow-empty -m 'граница 154'
 ok 'шаг 1: контракт и вердикт критика v1 закоммичены'
 
+# ── 1б. toy-корень состояния станции (контракт 154) ───────────────────────────
+# Заморозка пересчитывает платные START роли критика по журналу станции (тот же
+# state, что и у фазы спавна). Подставной журнал дрилла: одна сессия критика по
+# предмету 001 — позиция 1 свободна, расхода нет. Ключ журнала — тот же
+# (repoId,subjectId), что считает замок: repoId — basename origin.
+STATE="$W/state154"
+mkdir -p "$STATE"
+RID="$(basename "$(git -C "$W" remote get-url origin 2>/dev/null || printf '%s' "$W")")"
+RID="${RID%.git}"
+printf '{"t":"START","repoId":"%s","subjectId":"001","group":"harness","holder":"Crit001","klass":"sudja","rol":"critic","object":"%s","worktree":"-","branch":"-","at":"2020-01-01T00:00:00Z"}\n' \
+  "$RID" "0000000000000000000000000000000000000001" > "$STATE/uchet.jsonl"
+
 # ── 2. заморозка v1 ───────────────────────────────────────────────────────────
-if ! bash "$FREEZE" contracts/001-x.md "контракт стабилен" "$W" > "$out" 2>&1; then
+if ! bash "$FREEZE" contracts/001-x.md "контракт стабилен" "$W" "$STATE" > "$out" 2>&1; then
   otkaz 'заморозка v1' "$?" "$out"
 fi
 grep -qx 'v1' "$out" || otkaz 'заморозка v1 напечатала не v1' 0 "$out"
@@ -146,7 +166,7 @@ MSG
 ok 'шаг 4: правка, вердикт v2 и строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ в ОДНОМ коммите'
 
 # ── 5. заморозка v2 ───────────────────────────────────────────────────────────
-if ! bash "$FREEZE" contracts/001-x.md "вторая версия по решению владельца" "$W" > "$out" 2>&1; then
+if ! bash "$FREEZE" contracts/001-x.md "вторая версия по решению владельца" "$W" "$STATE" > "$out" 2>&1; then
   otkaz 'заморозка v2' "$?" "$out"
 fi
 grep -qx 'v2' "$out" || otkaz 'заморозка v2 напечатала не v2' 0 "$out"

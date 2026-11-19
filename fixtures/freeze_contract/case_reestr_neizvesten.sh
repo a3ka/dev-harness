@@ -14,7 +14,7 @@ set -euo pipefail
 . "$(dirname "$0")/_repo.sh"
 R="$WORK/repo"
 make_repo "$R"
-"$BARRIER" contracts/001-x.md "origin не объявлен — сравнивать не с чем" "$R"
+"$BARRIER" contracts/001-x.md "origin не объявлен — сравнивать не с чем" "$R" "$(state154 "$R" 001 1)"
 
 put_verdict "$R" 2 accept
 commit_all "$R" 'вердикт v2'
