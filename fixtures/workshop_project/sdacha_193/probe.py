@@ -256,6 +256,9 @@ MUTACII_DVERI = {
     'PATERN:RJAD-VNE-SEKCII':
         ('*) otkaz "строка $n: ряд таблицы',
          '*) continue; otkaz "строка $n: ряд таблицы'),
+    'PATERN:REF-BEZ-LAST-FAIL':
+        ('poslednij="$(karta_poslednij_fail "$ROOT" "$PRED_VERDIKT" "$telo")" \\\n'
+         '        || otkaz "последний FAIL: $poslednij"', 'poslednij=""'),
 }
 MUTACII_KARTY = {
     # Arb193V1 решение 1: источник карты — рабочий файл вместо HEAD-блоба,
@@ -306,6 +309,26 @@ MUTACII_LIB = {
     # Ловец — v01 (тот же дубль в хвосте).
     'PATERN:SEKCIJA-VECHNA':
         ("'## '*) v_sekcii=0 ;;", "'## '*) : ;;"),
+    'PATERN:REF-VSEGDA-CHISTO':
+        ('resolved="$(karta_klass "$klass" "$status" \'\')"',
+         'resolved=чисто'),
+    'PATERN:REF-BEZ-CIKLA':
+        ('*"|$nom:$klass|"*)', 'NEVER_CYCLE)'),
+    'PATERN:REF-BEZ-NALICHIJA':
+        ('[ -n "${K193_TEKST[$nom]:-}" ] ||', 'true ||'),
+    'PATERN:REF-BEZ-ODNOZNACHNOSTI':
+        ('[ -n "${K193_BLOB[$nom]:-}" ] &&', 'false &&'),
+    'PATERN:REF-OBJECT-KAK-REVIZIJA':
+        ('telo="$(git -C "$root" cat-file -p "$blob")"',
+         'telo="$(git -C "$root" cat-file -p "$blob")"; '
+         'telo="$(git -C "$root" cat-file -p '
+         '"${telo#*OBJECT=}:$f" 2>/dev/null)"'),
+    'PATERN:REF-PEREPISAT-OBJECT':
+        ('K193_TEKST[$nom]="$telo"',
+         'K193_TEKST[$nom]="$telo"\n'
+         '            telo="${telo/OBJECT=????????????????????????????????????????/'
+         'OBJECT=$(git -C "$root" rev-parse HEAD)}"\n'
+         '            printf \'%s\\n\' "$telo" > "$root/$f"'),
 }
 MUTACII_NOGI_PRE = {
     # Crit193V1 pre-leg: условие ноги (к) отключено — нога не выполняется.
@@ -453,7 +476,8 @@ class Istochniki:
                 # реализации (реального файла нет) — к файлу модели.
                 istok = self.koren / 'scripts' / imja
                 real = DEREVO / 'scripts' / imja
-                if real.exists():
+                if real.exists() and not (mutacija.startswith('PATERN:REF-')
+                                          and tablica[mutacija][0] not in real.read_text(encoding='utf-8')):
                     istok = real
                 vrem = Path(tempfile.mkdtemp(prefix='subj193-'))
                 cel = vrem / imja
@@ -936,6 +960,135 @@ SPECSY = {
 }
 
 
+# Ось ссылок v3: входы порождаются из одного шаблона 17 строк; ожидания ниже
+# литеральны и сняты до вызова двери. Никаких чтений исходников из OBJECT.
+def karta_vyzova(n, result='accept', zamena=None, tema='777'):
+    zamena = zamena or {}
+    stroki = [result, 'OBJECT=' + 'a' * 40,
+              'СУД: repo=toy; предмет=%s; роль=critic; вызов=%s/9;' % (tema, n),
+              '', '## Карта классов', '']
+    for k in range(1, 18):
+        status = 'н/п — вход: не предмет' if k in (13, 17) else 'чисто — вход: честный контроль'
+        stroki.append('К-%02d: %s' % (k, zamena.get(k, status)))
+    return '\n'.join(stroki) + '\n'
+
+
+def kletki_ssylok(miry):
+    pred = 'verdicts/critic/contracts-777-call-03.md'
+    pervyj = 'verdicts/critic/contracts-777-call-01.md'
+    vtoroj = 'verdicts/critic/contracts-777-call-02.md'
+    chastye = {k: 'без изменений с вызова 03.' for k in (1, 2, 3, 4, 5, 6, 12, 13, 16, 17)}
+    chistyj = karta_vyzova('03')
+    fail = karta_vyzova('04', 'FAIL', chastye | {11: 'блок — вход: новый дефект оракула'})
+    chain = [(pervyj, karta_vyzova('01', zamena={2: 'блок — вход: исходный блок'})),
+             (vtoroj, karta_vyzova('02', zamena={2: 'без изменений с вызова 01.'})),
+             (pred, karta_vyzova('03', zamena={2: 'без изменений с вызова 02 — цепочка'}))]
+    # имя, предъявленный текст, артефакты истории, покрытые классы, rc, причина
+    cases = [
+        ('r01-prjamaja', fail, [(pred, chistyj)], (11,), 0, 'лист зелёный'),
+        ('r02-cepochka', karta_vyzova('04', zamena={2: 'без изменений с вызова 03.'}),
+         chain, (2,), 0, 'лист зелёный'),
+        ('r03-unasledovannyj-blok', karta_vyzova('04', zamena={2: 'без изменений с вызова 03.'}),
+         chain, (), 1, 'блок К-02'),
+        ('r04-net-vyzova', karta_vyzova('04', zamena={2: 'без изменений с вызова 99.'}),
+         [(pred, chistyj)], (), 1, 'отсутствует вызов 99'),
+        ('r05-cikl', karta_vyzova('04', zamena={2: 'без изменений с вызова 03.'}),
+         [(pred, karta_vyzova('03', zamena={2: 'без изменений с вызова 02.'})),
+          (vtoroj, karta_vyzova('02', zamena={2: 'без изменений с вызова 03.'}))],
+         (), 1, 'цикл ссылок'),
+        ('r06-neodnoznachnost', fail,
+         [(pred, chistyj), (pervyj, karta_vyzova('03', zamena={2: 'блок — вход: иной вызов'}))],
+         (11,), 1, 'неоднозначный вызов 3'),
+        # Воспроизведение 206: лист ссылается на старый accept 03, HEAD хранит
+        # более новый FAIL 04 с К-11, а не «закрытие» этого блока из вызова 03.
+        ('r07-staryj-accept-ne-skryvaet-fail', chistyj,
+         [(VERDIKT, fail)], (), 1, 'блок К-11'),
+        ('r08-poslednij-fail-zakryt', chistyj,
+         [(VERDIKT, fail)], (11,), 0, 'лист зелёный'),
+        ('r09-poslednij-fail-nepolnaja-karta', chistyj,
+         [(VERDIKT, '\n'.join(x for x in fail.splitlines() if not x.startswith('К-17:')) + '\n')],
+         (11,), 1, 'К-17'),
+        ('r10-istoricheskij-object', fail, [(pred, chistyj)], (11,), 0, 'лист зелёный'),
+        ('r11-staged-skryvaet-cel', karta_vyzova('04', zamena={2: 'без изменений с вызова 03.'}),
+         chain, (), 1, 'блок К-02'),
+        ('r12-staged-portit-chestnuju-cel', fail, [(pred, chistyj)], (11,), 0, 'лист зелёный'),
+        ('r13-staged-ne-sozdaet-vyzov', karta_vyzova('04', zamena={2: 'без изменений с вызова 03.'}),
+         [], (), 1, 'отсутствует вызов 3'),
+        ('r14-chuzhoj-predmet', fail,
+         [(pred, chistyj), (pervyj, karta_vyzova('09', 'FAIL', {1: 'блок — чужой'}, tema='888'))],
+         (11,), 0, 'лист зелёный'),
+        ('r15-vedushchie-nuli', karta_vyzova('04', zamena={2: 'без изменений с вызова 003.'}),
+         [(pred, chistyj)], (), 0, 'лист зелёный'),
+        ('r16-istoriya-togo-zhe-puti', fail, [(VERDIKT, chistyj)], (11,), 0, 'лист зелёный'),
+    ]
+    # Каждый класс последнего FAIL проверяется своим предъявлением, не первой
+    # красной точкой объединённого входа; два класса не считаются одним тестом.
+    for klass in range(1, 18):
+        cases.append(('r%02d-last-fail-k%02d' % (16 + klass, klass), chistyj,
+                      [(VERDIKT, karta_vyzova('04', 'FAIL', {klass: 'блок — вход: непокрытый класс'}))],
+                      (), 1, 'блок К-%02d' % klass))
+
+    K = []
+    for name, current, history, closed, rc, marker in cases:
+        for door in ('sdacha', 'karta'):
+            # Покрытие дельты — только дверь листа; остальные свойства общие.
+            if door == 'karta' and name not in {
+                    'r01-prjamaja', 'r02-cepochka', 'r04-net-vyzova',
+                    'r05-cikl', 'r06-neodnoznachnost', 'r10-istoricheskij-object',
+                    'r11-staged-skryvaet-cel', 'r12-staged-portit-chestnuju-cel',
+                    'r13-staged-ne-sozdaet-vyzov', 'r14-chuzhoj-predmet',
+                    'r15-vedushchie-nuli', 'r16-istoriya-togo-zhe-puti'}:
+                continue
+            exp_rc, exp_marker = rc, marker
+            if door == 'karta' and name == 'r11-staged-skryvaet-cel':
+                exp_rc = 0
+            if door == 'karta' and exp_rc == 0:
+                exp_marker = 'КАРТА: 17/17 зелёный'
+            state = {}
+
+            def snapshot(root):
+                files = tuple((str(p.relative_to(root)), p.read_bytes())
+                              for p in sorted((root / 'verdicts/critic').glob('*.md')))
+                head = subprocess.run(['git', '-C', str(root), 'rev-parse', 'HEAD'],
+                                      check=True, capture_output=True).stdout
+                index = (root / '.git/index').read_bytes()
+                return files, head, index
+
+            def argv(name=name, current=current, history=history, closed=closed,
+                     door=door, state=state):
+                root = postroit_mir(miry.vrem / (name + '-' + door), miry.ist,
+                                    'kontrakt_chestnyj.md', 'sdacha_chestnaja.md',
+                                    dveri=('sdacha', 'karta'))
+                for path, text in history:
+                    (root / path).write_text(text, encoding='utf-8')
+                    git(root, 'add', '-A')
+                    git(root, 'commit', '-qm', 'toy193: historical call')
+                path = pred if name.startswith(('r07-', 'r08-', 'r09-')) or '-last-fail-' in name else VERDIKT
+                (root / path).write_text(current, encoding='utf-8')
+                sheet = ('ПРЕДЫДУЩИЙ ВЕРДИКТ: ' + path + '\n\n' + tekst('sdacha_chestnaja.md')
+                         + '\n## Дельта\n\n'
+                         + ''.join('- К-%02d · клетка · bash scripts/progiban_ok.sh · 0 · 0\n' % k
+                                   for k in closed))
+                (root / 'sdacha.md').write_text(sheet, encoding='utf-8')
+                git(root, 'add', '-A')
+                git(root, 'commit', '-qm', 'toy193: current call and sheet')
+                if name.startswith(('r11-', 'r12-', 'r13-')):
+                    bad = karta_vyzova('03', zamena={2: 'блок — вход: staged ухудшение'})
+                    (root / pred).write_text(bad if name.startswith('r12-') else chistyj,
+                                             encoding='utf-8')
+                    git(root, 'add', '--', pred)
+                state['root'], state['before'] = root, snapshot(root)
+                command = ['bash', str(root / 'scripts' / ('check_sdacha.sh' if door == 'sdacha'
+                                                          else 'check_verdict_karta.sh'))]
+                return command + [str(root), KONTRAKT, '--run'] if door == 'sdacha' \
+                    else command + [str(root), path]
+
+            K.append(Kletka(name + '-' + door, argv, exp_rc, [exp_marker],
+                            tajmaut=12,
+                            posle=lambda state=state: snapshot(state['root']) == state['before']))
+    return K
+
+
 class Miry:
     """Миры строятся ленично и по одному; клетка ссылается на свой мир."""
 
@@ -951,10 +1104,11 @@ class Miry:
 
 
 class Kletka:
-    def __init__(self, imja, argv, rc, markery=(), ne_markery=(), env=None, tajmaut=90):
+    def __init__(self, imja, argv, rc, markery=(), ne_markery=(), env=None, tajmaut=90, posle=None):
         self.imja, self.argv, self.rc = imja, argv, rc
         self.markery, self.ne_markery = list(markery), list(ne_markery)
         self.env, self.tajmaut = env, tajmaut
+        self.posle = posle
 
 
 def kletki(miry: Miry) -> list:
@@ -1195,6 +1349,7 @@ def kletki(miry: Miry) -> list:
                              str(miry['noga_krasna'] / 'scripts' / 'pre_critic.sh'),
                              KONTRAKT], 1, ['сдаточный лист красен'],
                     env={'SDACHA_OKRUG': '0', 'SDACHA_TIMEOUT_SEK': 'abc'}))
+    K.extend(kletki_ssylok(miry))
     return K
 
 
@@ -1231,7 +1386,8 @@ def sudit(k: Kletka) -> bool:
         rc, vyvod = None, 'SUBJECT_ABSENT'
     ok = (rc == k.rc
           and all(m in vyvod for m in k.markery)
-          and all(m not in vyvod for m in k.ne_markery))
+          and all(m not in vyvod for m in k.ne_markery)
+          and (k.posle is None or k.posle()))
     pervyj = (vyvod.strip().splitlines() or ['<пусто>'])[0]
     print('193 %s %s rc=%s %s' % (k.imja, 'ok' if ok else 'KRASNO', rc, pervyj[:110]))
     return ok

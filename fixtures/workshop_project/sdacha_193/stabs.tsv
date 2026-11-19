@@ -94,3 +94,12 @@ PATERN:KOREN-ZAPASNOJ	scripts/check_verdict_karta.sh	v15
 PATERN:CHUZHAJA-ROL-PRINIMAETSJA	scripts/check_verdict_karta.sh	v16
 PATERN:BEZ-GRAMMATIKI-PUTA	scripts/check_verdict_karta.sh	v23
 PATERN:PROFIL-PREFIKS-OTREZAN	scripts/freeze_contract.sh	f06
+# Ось ссылок v3. До реализации новых операций мутируется модель; после
+# появления якоря — реальная операция. Нулевой замены как поимки нет.
+PATERN:REF-VSEGDA-CHISTO	scripts/lib_karta_sdachi.sh	r03
+PATERN:REF-BEZ-CIKLA	scripts/lib_karta_sdachi.sh	r05
+PATERN:REF-BEZ-NALICHIJA	scripts/lib_karta_sdachi.sh	r04
+PATERN:REF-BEZ-ODNOZNACHNOSTI	scripts/lib_karta_sdachi.sh	r06
+PATERN:REF-OBJECT-KAK-REVIZIJA	scripts/lib_karta_sdachi.sh	r10
+PATERN:REF-PEREPISAT-OBJECT	scripts/lib_karta_sdachi.sh	r10
+PATERN:REF-BEZ-LAST-FAIL	scripts/check_sdacha.sh	r07
