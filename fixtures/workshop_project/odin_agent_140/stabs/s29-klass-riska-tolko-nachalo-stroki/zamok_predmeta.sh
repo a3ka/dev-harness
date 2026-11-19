@@ -314,11 +314,12 @@ klass_riska() {  # <NNN> <worktree> <OBJECT> → risikovyj|obychnyj|net_stroki:<
     # [D30 risk-legacy] старый frozen без строки класса (до слова владельца 24.10):
     # класс — из registry/risk-legacy.tsv по blob файла (колонки: blob, класс,
     # основание, подтвердил; норма roles/orchestrator.md §«Порядок судей и класс
-    # риска»). blob — записи ДЕРЕВА OBJECT кандидата; сам реестр — $REPO (реестр
-    # владельца, 0814d2f5a). Литеральное сравнение blob (awk -F'\t' $1==b), нет
-    # записи — класс не определён (fail-closed).
-    if [ -z "$val" ] && [ -f "$REPO/registry/risk-legacy.tsv" ]; then
-      val="$(awk -F'\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}' "$REPO/registry/risk-legacy.tsv")"
+    # риска»). blob — записи ДЕРЕВА закреплённого frozen; сам реестр — $wt
+    # владельца предмета (станции либо продукта, 0814d2f5a).
+    # Литеральное сравнение blob (awk -F'\t' $1==b), нет записи — класс
+    # не определён (fail-closed).
+    if [ -z "$val" ] && [ -f "$wt/registry/risk-legacy.tsv" ]; then
+      val="$(awk -F'\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}' "$wt/registry/risk-legacy.tsv")"
     fi
     case "$val" in
       обычный)  val='obychnyj' ;;
