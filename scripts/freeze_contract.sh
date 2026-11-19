@@ -451,22 +451,23 @@ _st154=''
 [ "$#" -ge 4 ] && _st154="$4"
 _b154=0
 # [154] Старый предмет — след заморозки СТАРШЕ границы новых предметов. Тот же
-# признак, что у замка: метка id/CONTRACT/<NNN> и её отношение к границе
-# (канонический коммит 5ca237e4e6… либо маркерный пустой коммит после старта).
+# признак, что у замка (scripts/zamok_predmeta.sh): явный тег
+# refs/tags/id/CONTRACT/<NNN> и ПЕРВАЯ строка реестра — оба должны быть
+# ПРЕДКАМИ ДОСТУПНОГО снимка границы 5ca237e4e6…. Снимка нет — предмет новый
+# (И-7): ни строка реестра, ни поздний тег, ни пустой коммит после тега
+# снимком границы не являются.
 _staryj_154() {
-  local r="$1" nnn="$2" sha
-  local tag="id/CONTRACT/$nnn"
-  git -C "$r" rev-parse --verify --quiet "refs/tags/$tag" >/dev/null 2>&1 || return 1
-  if git -C "$r" cat-file -e 5ca237e4e6bc980c460ede8ee6d85af8a33d0601^{commit} 2>/dev/null; then
-    git -C "$r" merge-base --is-ancestor "$tag" 5ca237e4e6bc980c460ede8ee6d85af8a33d0601 2>/dev/null && return 0
-    return 1
+  local r="$1" nnn="$2" sha reg
+  local tag="refs/tags/id/CONTRACT/$nnn"
+  local granica=5ca237e4e6bc980c460ede8ee6d85af8a33d0601
+  git -C "$r" cat-file -e "$granica^{commit}" 2>/dev/null || return 1
+  if git -C "$r" cat-file -e "$tag^{commit}" 2>/dev/null; then
+    git -C "$r" merge-base --is-ancestor "$tag" "$granica" 2>/dev/null && return 0
   fi
-  for sha in $(git -C "$r" rev-list --ancestry-path --reverse "$tag..HEAD" 2>/dev/null); do
-    if [ -z "$(git -C "$r" diff-tree --root --no-commit-id --name-only -r "$sha" 2>/dev/null)" ]; then
-      return 0
-    fi
-  done
-  return 1
+  reg="${_PROFILE_REGISTRY_PATH%/}/contracts.tsv"
+  sha="$(git -C "$r" log --format=%H -G"^$nnn → " -- "$reg" 2>/dev/null | tail -n 1)"
+  [ -n "$sha" ] || return 1
+  git -C "$r" merge-base --is-ancestor "$sha" "$granica" 2>/dev/null
 }
 # Счётчик — сосед двери (scripts/zamok_predmeta.sh). Копия барьера в чужом
 # каталоге берёт канонический инструментарий из HARNESS_TOOLS_ROOT.

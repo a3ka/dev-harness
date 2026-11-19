@@ -188,57 +188,35 @@ def _profile_paths(repo):
     return rel(reg), rel(verd)
 
 
-def _pustoj(repo, sha):
-    """Коммит не меняет дерево (пустой)."""
-    out = _git(repo, ['diff-tree', '--root', '--no-commit-id', '--name-only',
-                      '-r', sha]).stdout
-    return out.strip() == ''
-
-
-def _marker(repo, sled_sha):
-    """Маркер границы в репозитории БЕЗ канонического коммита: первый ПУСТОЙ
-    коммит (дерево не изменилось) после старта предмета. В игрушечных мирах
-    границу минтит сценарий — отдельным пустым коммитом сразу после старта."""
-    if not sled_sha:
-        return None
-    for sha in _git(repo, ['rev-list', '--ancestry-path', '--reverse',
-                           sled_sha + '..HEAD']).stdout.split():
-        if _pustoj(repo, sha):
-            return sha
-    return None
-
-
 def staryj_predmet(repo, subject, reg_rel):
     """Прежний предмет — его след заморозки СТАРШЕ границы новых предметов.
 
-    Следы: тег id/CONTRACT/<NNN> и строка реестра заморозок «<NNN> → …».
-    Граница — канонический коммит 5ca237e4e6… (2026-10-24); в репозитории без
-    него границей считается маркерный пустой коммит после старта предмета.
-    Границы нет вовсе — предмет новый (строгий дефолт), кроме предмета,
-    уже записанного в реестр заморозок: его перевод на новый порядок —
-    отдельное решение владельца (адресный перевод старого предмета).
+    Следы: тег refs/tags/id/CONTRACT/<NNN> и ПЕРВАЯ строка реестра заморозок
+    «<NNN> → …». Граница — канонический коммит 5ca237e4e6… (2026-10-24).
+    Старость доказывается ТОЛЬКО при ДОСТУПНОМ снимке границы: снимка нет —
+    предмет новый (И-7: «отсутствие доступного снимка границы трактуется строго
+    как новый»). Строка реестра, поздний тег и пустой коммит после тега снимком
+    границы НЕ являются: доказать старшество можно только отношением предка
+    следа к САМОМУ снимку.
+
+    Тег — ЯВНЫЙ refs/tags/: ветка-псевдоним id/CONTRACT/<NNN> не тег (С-1).
     """
+    if not _est_commit(repo, GRANICA_NOVYH):
+        # Снимка границы нет — предмет новый при любом следе (строгий дефолт И-7).
+        return False
     tag_sha = None
-    tag = 'id/CONTRACT/' + subject
+    tag = 'refs/tags/id/CONTRACT/' + subject
     if _est_commit(repo, tag):
         tag_sha = _revid(repo, tag) or None
     reg_sha = None
     if reg_rel:
-        reg_sha = _git(repo, ['log', '-1', '--format=%H', '-G^' + subject + ' → ',
-                              '--', reg_rel]).stdout.strip() or None
-    if _est_commit(repo, GRANICA_NOVYH):
-        granica = GRANICA_NOVYH
-    else:
-        granica = _marker(repo, tag_sha) or _marker(repo, reg_sha)
-    if granica:
-        for sha in (tag_sha, reg_sha):
-            if sha and _predok(repo, sha, granica):
-                return True
-        return False
-    # Снимка границы нет, но предмет УЖЕ БЫЛ В РЕЕСТРЕ (И-7: «уже был в реестре»
-    # — прежний §6в действует дословно; перевод старого предмета на новый порядок —
-    # отдельное решение владельца). Следа нет вовсе — предмет новый.
-    return bool(reg_sha)
+        sledy = _git(repo, ['log', '--format=%H', '-G^' + subject + ' → ',
+                            '--', reg_rel]).stdout.split()
+        reg_sha = sledy[-1] if sledy else None
+    for sha in (tag_sha, reg_sha):
+        if sha and _predok(repo, sha, GRANICA_NOVYH):
+            return True
+    return False
 
 
 def receipt_line(row):
