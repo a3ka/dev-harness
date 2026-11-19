@@ -54,10 +54,29 @@ NEXT_ID_LIB=1
 die()  { printf 'ОТКАЗ: %s\n' "$*" >&2; exit 1; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
 
-TARGET="${1:-}"
-REASON="${2:-}"
+# Разбор CLI: позиционные <предмет> <причина> [корень] плюс необязательный хвост
+# --project-workflow <абсолютный JSON-файл> (контракт 122 §v6). Флаг — ТРАНСПОРТ
+# связанного project_workflow-контекста предмета, а не произвольный корень:
+# корень инвентаря выводится из контекста и из HEAD-декларации, а не из argv.
+# Ключи читаются вне позиционных, поэтому «freeze … --project-workflow» без
+# значения — именованный отказ, а не тихая потеря флага.
+POSITIONAL=()
+PROJECT_WORKFLOW=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --project-workflow)
+      PROJECT_WORKFLOW="${2-}"
+      [ -n "$PROJECT_WORKFLOW" ] || die "--project-workflow требует путь к JSON-файлу контекста"
+      shift ;;
+    --*) die "неизвестный ключ заморозки: $1" ;;
+    *) POSITIONAL+=("$1") ;;
+  esac
+  shift
+done
+TARGET="${POSITIONAL[0]:-}"
+REASON="${POSITIONAL[1]:-}"
 ROOT_DEFAULT="$(cd "$SELF_DIR/.." && pwd)"
-ROOT="${3:-}"
+ROOT="${POSITIONAL[2]:-}"
 
 [ -n "$TARGET" ] || die "не назван предмет: bash scripts/freeze_contract.sh <plans/NNN-*.md|contracts/NNN-*.md> \"<причина>\" [корень]"
 
@@ -541,12 +560,247 @@ if [ "$circles" -ge 3 ]; then
 fi
 
 
+# ── 6г-0. КОРНИ ПРЕДПОСЫЛОК (контракт 122 §v6) ───────────────────────────────
+# Корень записи заморозки (ROOT) и корень инвентаря предпосылок (PROJECT_ROOT) —
+# РАЗНЫЕ деревья: станция хранит контракт и пишет тег/вердикт/реестр, а секреты
+# объявляет и проверяет проект предмета. До gh и любой записи обязательна сверка
+# СВЯЗИ предмета с проектом, и независимый источник этой связи — декларация в
+# HEAD-блобе предмета (`ПРОЕКТ-ПРЕДПОСЫЛОК: <JSON>`), а НЕ выбранный каталог и не
+# самосогласованность поставщика контекста (арбитраж 122-granica-svyazi): станция
+# с собственным корректным профилем и одноимённым секретом не становится проектом
+# предмета только потому, что её указали.
+#
+# Три именованных отказа контекста дополняют алфавит Г1–Г3:
+#   project-workflow-otsutstvuet  — контекст не задан/не читается/не разрешается;
+#   project-workflow-neodnoznachen — контекстов больше одного;
+#   project-workflow-rashozhdenie — контекст, декларация, профиль или origin не совпали.
+# Все три — ДО gh и ДО записи тега/реестра: отказ атомарен (HEAD, теги, контракт,
+# вердикт и реестр не тронуты).
+_v6_blob="$(mktemp "${TMPDIR:-/tmp}/freeze122.XXXXXX" 2>/dev/null || true)"
+if [ -z "${_v6_blob:-}" ] || ! g cat-file -p "HEAD:$TARGET" > "$_v6_blob" 2>/dev/null; then
+  [ -n "${_v6_blob:-}" ] && rm -f "$_v6_blob"
+  die "HEAD-блок предмета не читается: $TARGET"
+fi
+_v6_rc=0
+PROJECT_ROOT="$(python3 - "$ROOT" "$TARGET" "$PROJECT_WORKFLOW" "$SELF_DIR" "$_v6_blob" <<'PY'
+import json
+import os
+import re
+import subprocess
+import sys
+
+ROOT, TARGET, CONTEXT, SELF, BLOB = sys.argv[1:6]
+ROOT = os.path.realpath(ROOT)
+# Имя маркера объявления: кандидатом объявления считается строка, начинающаяся
+# с ИМЕНИ маркера без учёта регистра. Повреждённый разделитель или регистр —
+# кандидат, а не отсутствие объявления (Crit122V6c): JSON Schema не различает
+# «строки нет» и «маркер повреждён», поэтому предикат — текстовый.
+MARKER = 'ПРОЕКТ-ПРЕДПОСЫЛОК'
+PREFIX = MARKER + ': '
+ABS_PATH_RE = re.compile(r'^/[^\x00\r\n]+$')
+CONTRACT_PATH_RE = re.compile(r'^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*[.]md$')
+BLOB_RE = re.compile(r'^[a-f0-9]{40}$')
+IDENTITY_KEYS = ('projectId', 'repoId', 'canonicalRemote')
+
+
+def refuse(reason, detail=''):
+    """Именованный отказ: причина печатается ОДНОЙ строкой (её читает и замер)."""
+    text = 'ОТКАЗ: ' + reason + (': ' + detail if detail else '')
+    sys.stderr.write(' '.join(text.split('\n')) + '\n')
+    sys.exit(1)
+
+
+def git(root, *args):
+    try:
+        p = subprocess.run(['git', '-C', root] + list(args), capture_output=True,
+                           text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return p.stdout.strip() if p.returncode == 0 else None
+
+
+def profile_of(root):
+    """Штатный резолвер профиля: None — профиль не разрешается (нет файла/слоя/прав)."""
+    resolver = os.path.join(SELF, 'profile_resolver.sh')
+    if not os.path.isfile(resolver):
+        return None
+    env = dict(os.environ)
+    env['HARNESS_PROJECT_LAYER_ROOT'] = root
+    try:
+        p = subprocess.run(['bash', resolver, '--repo', root], env=env,
+                           capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if p.returncode:
+        return None
+    try:
+        prof = json.loads(p.stdout)
+        return {'root': root,
+                'projectId': prof['projectId']['value'],
+                'repoId': prof['repoId']['value'],
+                'canonicalRemote': prof['git']['value']['canonicalRemote']}
+    except (ValueError, KeyError, TypeError):
+        return None
+
+
+def declared_identity(path):
+    """Декларация проекта из HEAD-блоба предмета; None — декларации нет.
+
+    Кандидат — строка с началом ИМЕНИ маркера (регистр не важен). Единственность
+    считается по ВСЕМ кандидатам, включая смесь корректной и повреждённой.
+    Каноническая форма — маркер, ровно один ASCII-пробел и JSON-объект identity
+    (projectId/repoId/canonicalRemote — любые непустые строки, без regexp)."""
+    with open(path, encoding='utf-8') as f:
+        text = f.read()
+    candidates = [line for line in text.split('\n')
+                  if line.casefold().startswith(MARKER.casefold())]
+    if len(candidates) > 1:
+        refuse('project-workflow-rashozhdenie', 'объявлений проекта в HEAD больше одного')
+    if not candidates:
+        return None
+    line = candidates[0]
+    if not line.startswith(PREFIX + '{'):
+        refuse('project-workflow-rashozhdenie', 'разделитель объявления проекта повреждён')
+    try:
+        declared = json.loads(line[len(PREFIX):])
+    except ValueError:
+        refuse('project-workflow-rashozhdenie', 'объявление проекта не читается как JSON')
+    if not isinstance(declared, dict) or set(declared) != set(IDENTITY_KEYS):
+        refuse('project-workflow-rashozhdenie', 'объявление проекта вне канона identity')
+    for key, value in declared.items():
+        if not isinstance(value, str) or not value:
+            refuse('project-workflow-rashozhdenie', 'identity не непустая строка: ' + key)
+    if re.search(r'[\x00\r\n]', declared['canonicalRemote']):
+        refuse('project-workflow-rashozhdenie', 'canonicalRemote вне канона')
+    return declared
+
+
+def remote_ok(value):
+    return isinstance(value, str) and value and not re.search(r'[\x00\r\n]', value)
+
+
+def identity_ok(value):
+    return isinstance(value, str) and bool(value)
+
+
+def check_context(ctx):
+    """Канон контекста — fixtures/workshop_project/ci_proekta_122/project_workflow.schema.json.
+
+    Схема лежит в зоне architect'а, а в дереве станции её нет (в заморозке
+    доступны только scripts/), поэтому её ограничения перенесены сюда дословно:
+    тот же набор ключей, тот же алфавит, тот же запрет лишних ключей."""
+    if set(ctx) != {'schemaVersion', 'subject', 'project'}:
+        refuse('project-workflow-rashozhdenie', 'ключи контекста вне канона')
+    version = ctx['schemaVersion']
+    if not isinstance(version, int) or isinstance(version, bool) or version != 1:
+        refuse('project-workflow-rashozhdenie', 'schemaVersion вне канона')
+    subject = ctx['subject']
+    if not isinstance(subject, dict) or set(subject) != {'root', 'path', 'blob', 'origin'}:
+        refuse('project-workflow-rashozhdenie', 'subject вне канона')
+    if not isinstance(subject['root'], str) or not ABS_PATH_RE.match(subject['root']):
+        refuse('project-workflow-rashozhdenie', 'subject.root вне канона')
+    if not isinstance(subject['path'], str) or not CONTRACT_PATH_RE.match(subject['path']):
+        refuse('project-workflow-rashozhdenie', 'subject.path вне канона')
+    if not isinstance(subject['blob'], str) or not BLOB_RE.match(subject['blob']):
+        refuse('project-workflow-rashozhdenie', 'subject.blob вне канона')
+    if not remote_ok(subject['origin']):
+        refuse('project-workflow-rashozhdenie', 'subject.origin вне канона')
+    project = ctx['project']
+    if not isinstance(project, dict) or set(project) != set(IDENTITY_KEYS) | {'root'}:
+        refuse('project-workflow-rashozhdenie', 'project вне канона')
+    if not isinstance(project['root'], str) or not ABS_PATH_RE.match(project['root']):
+        refuse('project-workflow-rashozhdenie', 'project.root вне канона')
+    for key in ('projectId', 'repoId'):
+        if not identity_ok(project[key]):
+            refuse('project-workflow-rashozhdenie', 'identity не непустая строка: ' + key)
+    if not remote_ok(project['canonicalRemote']):
+        refuse('project-workflow-rashozhdenie', 'canonicalRemote вне канона')
+
+
+declared = declared_identity(BLOB)
+
+if CONTEXT:
+    try:
+        with open(CONTEXT, encoding='utf-8') as f:
+            ctx = json.load(f)
+    except (OSError, ValueError):
+        refuse('project-workflow-otsutstvuet', 'контекст не читается: ' + CONTEXT)
+    if isinstance(ctx, list):
+        refuse('project-workflow-neodnoznachen', 'контекстов больше одного')
+    if not isinstance(ctx, dict):
+        refuse('project-workflow-rashozhdenie', 'контекст не объект')
+    check_context(ctx)
+    subject, project = ctx['subject'], ctx['project']
+    project_root = os.path.realpath(project['root'])
+    if not os.path.isdir(project_root):
+        refuse('project-workflow-rashozhdenie', 'корень проекта не существует')
+    # Сверки ПРЕДМЕТА: контекст обязан быть привязан к этой заморозке.
+    if os.path.realpath(subject['root']) != ROOT:
+        refuse('project-workflow-rashozhdenie', 'subject.root — не корень станции')
+    if subject['path'] != TARGET:
+        refuse('project-workflow-rashozhdenie', 'subject.path — не предмет заморозки')
+    if subject['blob'] != (git(ROOT, 'rev-parse', 'HEAD:' + TARGET) or ''):
+        refuse('project-workflow-rashozhdenie', 'subject.blob — не блоб предмета на HEAD')
+    if subject['origin'] != (git(ROOT, 'remote', 'get-url', 'origin') or ''):
+        refuse('project-workflow-rashozhdenie', 'subject.origin — не origin станции')
+    # Сверки ПРОЕКТА: identity и канонический origin — из штатного резолвера и из
+    # живого origin, а не из самого контекста.
+    prof = profile_of(project_root)
+    if prof is None:
+        refuse('project-workflow-rashozhdenie', 'профиль объявленного проекта не разрешается')
+    for key in ('projectId', 'repoId'):
+        if project[key] != prof[key]:
+            refuse('project-workflow-rashozhdenie',
+                   'identity контекста не совпадает с профилем: ' + key)
+    remote = git(project_root, 'remote', 'get-url', 'origin')
+    if project['canonicalRemote'] != prof['canonicalRemote']:
+        refuse('project-workflow-rashozhdenie', 'canonicalRemote не совпадает с профилем')
+    if project['canonicalRemote'] != (remote or ''):
+        refuse('project-workflow-rashozhdenie', 'canonicalRemote не совпадает с origin проекта')
+    chosen = {'projectId': project['projectId'], 'repoId': project['repoId'],
+              'canonicalRemote': project['canonicalRemote']}
+else:
+    # Неявный контекст: штатный project_workflow/эффективный профиль ROOT.
+    prof = profile_of(ROOT)
+    if prof is None:
+        if declared is not None:
+            refuse('project-workflow-otsutstvuet',
+                   'неявный контекст не разрешается, а объявление проекта обязательно')
+        # Действительно однорепозиторный путь без объявления: прежнее поведение.
+        print(ROOT)
+        raise SystemExit(0)
+    chosen = prof
+    project_root = ROOT
+
+if declared is not None:
+    # Объявление HEAD управляет ЛЮБЫМ выбором корня, включая станцию и неявный
+    # контекст: сверка — буквальная, по тройке identity, без нормализации.
+    for key in IDENTITY_KEYS:
+        if declared[key] != chosen[key]:
+            refuse('project-workflow-rashozhdenie',
+                   'объявление проекта не совпадает с контекстом: ' + key)
+elif project_root != ROOT:
+    # Объявления нет — внешний корень не доказывает связь сам собой.
+    refuse('project-workflow-rashozhdenie', 'внешний корень без объявления проекта')
+
+print(project_root)
+PY
+)" || _v6_rc=$?
+rm -f "$_v6_blob"
+if [ "$_v6_rc" -ne 0 ]; then
+  exit 1
+fi
+[ -n "$PROJECT_ROOT" ] || die "корень проекта не разрешён"
+
+
 # ── 6г. ГЕЙТ ПРЕДПОСЫЛОК (контракт 122 §Г3) ───────────────────────────────────
 # Контракт, текст которого заявляет CI-пути (.github/workflows/ или
 # .harness/ci.json), обязан нести поле `ПРЕДПОСЫЛКИ:`; при --freeze каждый
-# объявленный secret/variable обязан уже существовать в репозитории проекта
+# объявленный secret/variable обязан уже существовать в репозитории ПРОЕКТА
 # (`gh secret|variable list -R <origin>`) — заморозка не заводит предпосылку,
 # она фиксирует, что предпосылка заведена (незаведённый секрет = мигающий CI).
+# ПЕРВЫМ аргументом гейта идёт PROJECT_ROOT (корень инвентаря, §v6), вторым —
+# ROOT/TARGET (предмет заморозки): корень записи остаётся прежним.
 # ФЛАГ --freeze ОБЯЗАТЕЛЕН (§Г3 «Подключение: freeze_contract — с --freeze»): без
 # него гейт судит только грамматику поля, и контракт с незаведённым секретом
 # замораживался бы, напечатав PREDPOSYLKI_OK (боль 995 п.4).
@@ -563,7 +817,7 @@ if [ ! -r "$SELF_DIR/check_predposylki.sh" ]; then
   exit 1
 fi
 pp_rc=0
-pp_out="$(bash "$SELF_DIR/check_predposylki.sh" "$ROOT" "$ROOT/$TARGET" --freeze 2>&1)" || pp_rc=$?
+pp_out="$(bash "$SELF_DIR/check_predposylki.sh" "$PROJECT_ROOT" "$ROOT/$TARGET" --freeze 2>&1)" || pp_rc=$?
 if [ "$pp_rc" -ne 0 ]; then
   printf 'ОТКАЗ: гейт предпосылок 122 красен (rc=%s): %s\n' \
     "$pp_rc" "$(printf '%s' "$pp_out" | head -n 1)" >&2
