@@ -16,10 +16,17 @@ Crit187V5, resolved). Обязательства контракта этой п�
 - pre_critic · bash scripts/pre_critic.sh contracts/187-arhitektura-v-processe.md · 0 · 0
 - battery-model · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --model · 0 · 0
 - battery-stabs · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --stabs · 0 · 0
-- battery-repo-bare · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo . · 1 · 1
+- battery-repo-bare · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo . · 0 · 0
 - provodka · bash scripts/check_provodka.sh . contracts/187-arhitektura-v-processe.md · 0 · 0
 - ceilings · bash scripts/check_ceilings.sh . · 0 · 0
 - threat-model · bash scripts/check_threat_model.sh . contracts/187-arhitektura-v-processe.md · 0 · 0
+
+Текущая строка battery-repo-bare опирается на фактический прогон
+оркестратора на BASE `9929cb85adb5b8db2e6d208347406f3911ea449d`:
+`--repo .` → rc 0, `CELLS=61 STABS=0 FAILURES=0`.
+Исторические rc 1 и пять красных клеток в Замере 4 ниже сохранены как
+свидетельство дерева до реализации, не как результат текущей двери.
+Автор этой правки прогонов не выполнял; изменён только сдаточный лист.
 
 ## Карта классов
 
