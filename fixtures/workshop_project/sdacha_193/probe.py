@@ -345,6 +345,10 @@ MUTACII_LIB = {
     # достигнутых источников не обходятся. Остальные операции честные.
     'PATERN:REF-TOLKO-ZAPROSHENNYJ-KLASS':
         ('ochered+=("$sledujushchie")', ':'),
+    # Rev193Impl Б-1: упрощение истории скрывает FAIL на стороне слияния.
+    # До ремонта production якорь берётся из модели, после — из реальной lib.
+    'PATERN:REF-BEZ-FULL-HISTORY':
+        ('--full-history HEAD -- "${put%/*}/"', 'HEAD -- "${put%/*}/"'),
 }
 MUTACII_NOGI_PRE = {
     # Crit193V1 pre-leg: условие ноги (к) отключено — нога не выполняется.
@@ -1119,6 +1123,8 @@ def kletki_ssylok(miry):
         ('r56-drugoj-klass-vstrechnye-karty', karta_vyzova('04', zamena={2: previous}),
          [(pred, karta_vyzova('03', zamena={3: 'без изменений с вызова 04.'}))],
          (), 0, 'лист зелёный'),
+        # И5/НЕ ЗАЩИЩАЕТ п.4: старый accept на B не скрывает достижимый FAIL A.
+        ('r57-merge-ne-skryvaet-fail', chistyj, [], (), 1, 'блок К-11'),
     ])
     # Каждый класс последнего FAIL проверяется своим предъявлением, не первой
     # красной точкой объединённого входа; два класса не считаются одним тестом.
@@ -1172,7 +1178,7 @@ def kletki_ssylok(miry):
                     (root / path).write_text(text, encoding='utf-8')
                     git(root, 'add', '-A')
                     git(root, 'commit', '-qm', 'toy193: historical call')
-                path = pred if name.startswith(('r07-', 'r08-', 'r09-', 'r39-', 'r40-', 'r41-', 'r42-')) or '-last-fail-' in name else VERDIKT
+                path = pred if name.startswith(('r07-', 'r08-', 'r09-', 'r39-', 'r40-', 'r41-', 'r42-', 'r57-')) or '-last-fail-' in name else VERDIKT
                 (root / path).write_text(current, encoding='utf-8')
                 sheet = ('ПРЕДЫДУЩИЙ ВЕРДИКТ: ' + path + '\n\n' + tekst('sdacha_chestnaja.md')
                          + '\n## Дельта\n\n'
@@ -1181,6 +1187,24 @@ def kletki_ssylok(miry):
                 (root / 'sdacha.md').write_text(sheet, encoding='utf-8')
                 git(root, 'add', '-A')
                 git(root, 'commit', '-qm', 'toy193: current call and sheet')
+                if name.startswith('r57-'):
+                    # A: FAIL 04 закоммичен и удалён; B (main): accept 03 и
+                    # посторонний коммит. HEAD — merge --no-ff A в B, critic-
+                    # каталог равен B: обычный path-limited rev-list скрывает A.
+                    git(root, 'switch', '-qc', 'merge193-a')
+                    (root / VERDIKT).write_text(
+                        karta_vyzova('04', 'FAIL', {11: 'блок — вход: новый дефект'}),
+                        encoding='utf-8')
+                    git(root, 'add', '--', VERDIKT)
+                    git(root, 'commit', '-qm', 'toy193: side A FAIL 04')
+                    git(root, 'rm', '-q', '--', VERDIKT)
+                    git(root, 'commit', '-qm', 'toy193: side A remove FAIL 04')
+                    git(root, 'switch', '-q', 'main')
+                    (root / 'other.txt').write_text('side B\n', encoding='utf-8')
+                    git(root, 'add', '--', 'other.txt')
+                    git(root, 'commit', '-qm', 'toy193: side B unrelated change')
+                    git(root, 'merge', '-q', '--no-ff', 'merge193-a',
+                        '-m', 'toy193: merge A into B')
                 if name.startswith(('r11-', 'r12-', 'r13-')):
                     bad = karta_vyzova('03', zamena={2: 'блок — вход: staged ухудшение'})
                     (root / pred).write_text(bad if name.startswith('r12-') else chistyj,
