@@ -3,6 +3,8 @@
 
 The accepted owner patch cf4054e8e is the reference for --model; this
 worktree's hook is the live subject. Stub-to-cell mappings live in code.
+The TaskItem wire-type declaration selects the pre/post-199 event schema;
+both retain exact byte comparison, including strict boolean isolation.
 """
 import json
 import os
@@ -64,6 +66,8 @@ def reference():
 # задач (verdicts/adversary/contracts-157-impl-v3.md: обходы подменяют именно
 # её, честно передавая batch короче порога — мутанты повторяют тот же шов).
 BATCH_SEAM = 'JSON.stringify({ tasks: taskItems(call.input) })'
+ISOLATED_TYPE = 'type TaskItem = { agent: string; name: string; task: string; isolated: boolean };'
+ISOLATED_SEAM = '      isolated: o.isolated === true,'
 
 
 # Класс «batch >= 4» (закрытие FAIL вызова 3): дверь обязана получить КАЖДУЮ
@@ -160,6 +164,10 @@ def mutation(source, name):
     elif name in BATCH_DROPS:
         anchor = BATCH_SEAM
         replacement = BATCH_DROPS[name]
+    elif name in ('isolated-always-false', 'isolated-truthy'):
+        anchor = ISOLATED_SEAM
+        replacement = ('      isolated: false,' if name == 'isolated-always-false'
+                       else '      isolated: Boolean(o.isolated),')
     else:
         raise ValueError('unknown mutant')
     if source.count(anchor) != 1:
@@ -188,7 +196,7 @@ def build(base, label, home_parts, profile, tail, state_parts):
 
 
 def case(base, guard, label, home_parts, profile, tail, state_parts, outcome, role='architect',
-         batch_roles=None):
+         batch_roles=None, isolated=None, carries_isolated=False):
     case_root, install, home, state = build(base, label, home_parts, profile, tail, state_parts)
     (install / '.omp/extensions/spawn-guard.ts').write_text(guard)
     cfg = install / 'config/agent_models.json'
@@ -214,8 +222,15 @@ def case(base, guard, label, home_parts, profile, tail, state_parts, outcome, ro
              for i, r in enumerate(batch_roles)] if batch_roles else [
                  {'agent': role, 'name': 'Agent157',
                   'task': 'SUBJECT=157\nWORKTREE=/tmp/fixture\nBRANCH=wip/157/architect'}]
+    if isolated is not None:
+        for item in tasks:
+            item['isolated'] = isolated
     task_input = {'tasks': tasks} if batch_roles else tasks[0]
-    expected_event = json.dumps({'tasks': tasks}, separators=(',', ':'), ensure_ascii=False).encode()
+    expected_tasks = [
+        {key: item[key] for key in ('agent', 'name', 'task')} |
+        ({'isolated': item.get('isolated') is True} if carries_isolated else {})
+        for item in tasks]
+    expected_event = json.dumps({'tasks': expected_tasks}, separators=(',', ':'), ensure_ascii=False).encode()
     env = dict(os.environ, PROBE_DOOR_LOG=str(log), PROBE_DOOR_EVENT=str(event_log),
                HARNESS_SESSION_HOME=str(case_root / 'forged-home'))
     result = subprocess.run(['node', str(HERE / 'driver.mjs'), str(install / '.omp/extensions/spawn-guard.ts'),
@@ -289,7 +304,7 @@ def scenarios():
     live_station_state = live_prefix + station_state
     live_project = live_prefix + project
     live_project_state = live_prefix + project_state
-    return [
+    return [row + (None,) for row in [
         ('station-deny', station, 'dev', TAIL, station_state, 'deny', 'architect'),
         ('station-allow', station, 'dev', TAIL, station_state, 'allow', 'architect'),
         ('station-alt', station_alt, 'dev', TAIL, ('dev-harness-sessions', STATION_ALT[0]), 'deny', 'architect'),
@@ -334,20 +349,27 @@ def scenarios():
         ('foreign-deny', ('foreign-layout', 'flat'), 'dev', TAIL, None, 'deny', 'architect'),
         ('malformed-session', station, 'dev', ('history', 'Agent157.jsonl'), None, 'deny', 'architect'),
         ('project-alphabet', project, 'dev', TAIL, project_state, 'deny', 'task'),
+    ]] + [
+        ('project-isolated-true', project, 'dev', TAIL, project_state, 'allow', 'architect', True),
+        ('project-isolated-string', project, 'dev', TAIL, project_state, 'deny', 'architect', 'true'),
     ]
 
 
 def run(source, tag):
     failed = []
     all_scenarios = scenarios()
+    # Schema selection uses the declared wire type, not the normalization
+    # expression: broken normalization must not change the oracle.
+    carries_isolated = ISOLATED_TYPE in source
     with tempfile.TemporaryDirectory(prefix='spawn-guard-157-') as temp:
-        for name, home, profile, tail, state, outcome, role in all_scenarios:
+        for name, home, profile, tail, state, outcome, role, isolated in all_scenarios:
             try:
                 if isinstance(role, tuple):
                     case(Path(temp), source, name, home, profile, tail, state, outcome,
-                         batch_roles=role)
+                         batch_roles=role, isolated=isolated, carries_isolated=carries_isolated)
                 else:
-                    case(Path(temp), source, name, home, profile, tail, state, outcome, role)
+                    case(Path(temp), source, name, home, profile, tail, state, outcome, role,
+                         isolated=isolated, carries_isolated=carries_isolated)
                 print(f'CASE {tag} {name} OK')
             except (AssertionError, OSError, subprocess.TimeoutExpired) as error:
                 failed.append(name)
@@ -430,7 +452,22 @@ def main():
                 print(f'STAB_ZHIV: {name}: expected exactly {sorted(observed)}, got {sorted(fails)}',
                       file=sys.stderr)
                 return 1
-        print(f'STABY {len(targets) + len(exact_targets)} NEPOIMANNYH 0')
+        isolation_targets = {}
+        if ISOLATED_TYPE in source:
+            if run(source, 'isolated-control'):
+                print('NOT_IMPLEMENTED: live isolation control failed', file=sys.stderr)
+                return 2
+            isolation_targets = {
+                'isolated-always-false': {'project-isolated-true'},
+                'isolated-truthy': {'project-isolated-string'},
+            }
+            for name, observed in isolation_targets.items():
+                fails = run(mutation(source, name), name)
+                if fails != observed:
+                    print(f'STAB_ZHIV: {name}: expected exactly {sorted(observed)}, got {sorted(fails)}',
+                          file=sys.stderr)
+                    return 1
+        print(f'STABY {len(targets) + len(exact_targets) + len(isolation_targets)} NEPOIMANNYH 0')
         return 0
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         print(str(error), file=sys.stderr)
