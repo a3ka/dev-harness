@@ -58,13 +58,25 @@ zp_expect() {  # <rc> <причина|-> <метка>
   return 0
 }
 
-# Событие: один элемент {agent,name,task}.
+# Событие: один элемент {agent,name,task[,isolated]}.
+# v5 (контракт 140, заявка 199:19): у РАБОЧЕГО item события спавна обязателен
+# реальный isolated === true из ПОЛЯ item (omp task wire schema → нормализация
+# стража спавна → событие двери); слово в тексте задания источником не
+# является. Миграция входов рабочих: поле несёт сам вход. Судьям требование
+# не распространяется (факт записывается, но не требуется).
 zp_event() {  # <файл> <agent> <name> <строки-задания…>
   local f="$1" a="$2" n="$3"
   shift 3
   local task
   task="$(printf '%s\n' "$@")"
-  jq -cn --arg a "$a" --arg n "$n" --arg t "$task" '{agent:$a,name:$n,task:$t}' > "$f"
+  case "$a" in
+    architect|implementer|implementer-glm|implementer-vision)
+      jq -cn --arg a "$a" --arg n "$n" --arg t "$task" \
+        '{agent:$a,name:$n,task:$t,isolated:true}' > "$f" ;;
+    *)
+      jq -cn --arg a "$a" --arg n "$n" --arg t "$task" \
+        '{agent:$a,name:$n,task:$t}' > "$f" ;;
+  esac
 }
 
 # Событие: пакет из готовых элементов.

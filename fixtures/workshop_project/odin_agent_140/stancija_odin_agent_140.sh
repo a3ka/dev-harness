@@ -139,6 +139,18 @@ mir_kontrakt() {  # <реестр> <nnn> <риск>
   git -C "$1" -c user.name=b -c user.email=b@t -c commit.gpgsign=false commit -q -m "c$2" 2>/dev/null
 }
 
+mir_frozen_kontrakt() {  # <репозиторий владельца> <nnn> <риск>
+  local pin tag="frozen/contracts/$2/1"
+  mir_kontrakt "$@"
+  # Сначала замораживаем контракт, затем коммитим pin TAG-объекта, не commit.
+  git -C "$1" -c user.name=b -c user.email=b@t -c tag.gpgsign=false tag -a "$tag" -m "frozen$2"
+  pin="$(git -C "$1" rev-parse "refs/tags/$tag")"
+  mkdir -p "$1/registry"
+  printf '%s → %s\n' "$2" "$pin" >> "$1/registry/contracts.tsv"
+  git -C "$1" add registry/contracts.tsv
+  git -C "$1" -c user.name=b -c user.email=b@t -c commit.gpgsign=false commit -q -m "pin$2"
+}
+
 mir_start() {  # <st> <nnn> <holder> <klass> <rol> <group> <object> <wt> <branch>
   mkdir -p "$1/zamok"
   jq -cn --arg s "$2" --arg h "$3" --arg k "$4" --arg r "$5" --arg g "$6" --arg o "$7" --arg w "$8" --arg b "$9" \
@@ -254,11 +266,11 @@ begi() {  # <хук> <cases> → вывод драйвера
   mir_github "$RE" 'ssh://git@github.com/a3ka/dev-harness.git'
   mir_github "$WT" 'ssh://git@github.com/a3ka/dev-harness.git'
   git -C "$WT" checkout -q -b wip/141/avtor 2>/dev/null
-  # v+1 (класс из ДЕРЕВА OBJECT): контракт — в ДЕРЕВЕ кандидата ДО снятия sha;
-  # класс судится из дерева OBJECT, $RE — прежний мир main-реестра.
+  # OBJECT сохраняет непустую дельту кандидата; класс берётся из frozen RE
+  # (одинаковый origin у RE и WT), а не из дерева OBJECT.
   mir_kontrakt "$WT" 141 рисковый
   SHA="$(git -C "$WT" rev-parse HEAD)"
-  mir_kontrakt "$RE" 141 рисковый
+  mir_frozen_kontrakt "$RE" 141 рисковый
   mir_start "$ST" 141 Avtor141 rabochij architect harness "$SHA" "$WT" wip/141/avtor
   mir_zhurnal "$ST" Avtor141 1 -
   sobytie "$W/p05/ev.json" reviewer Rev141 missing 'SUBJECT=141' "OBJECT=$SHA" > /dev/null
@@ -357,10 +369,10 @@ for ISO in false true missing string number object; do
   mir_github "$RE" 'ssh://git@github.com/a3ka/dev-harness.git'
   mir_github "$WT" 'ssh://git@github.com/a3ka/dev-harness.git'
   git -C "$WT" checkout -q -b wip/141/avtor 2>/dev/null
-  # v+1 (класс из ДЕРЕВА OBJECT): контракт — в ДЕРЕВЕ кандидата ДО снятия sha.
+  # Контракт кандидата даёт непустой OBJECT; pinned frozen владельца — в RE.
   mir_kontrakt "$WT" 141 обычный
   SHA="$(git -C "$WT" rev-parse HEAD)"
-  mir_kontrakt "$RE" 141 обычный
+  mir_frozen_kontrakt "$RE" 141 обычный
   mir_start "$ST" 141 Avtor141 rabochij architect harness "$SHA" "$WT" wip/141/avtor
   mir_zhurnal "$ST" Avtor141 1 -
   sobytie "$P/ev.json" critic Critic141 "$ISO" 'SUBJECT=141' "OBJECT=$SHA" > /dev/null
@@ -472,6 +484,7 @@ for ISO in false string number object; do
   git -C "$WT142" checkout -q -b wip/142/avtor 2>/dev/null
   mir_kontrakt "$WT" 141 обычный
   SHA="$(git -C "$WT" rev-parse HEAD)"
+  mir_frozen_kontrakt "$RE" 141 обычный
   mir_start "$ST" 141 Avtor141 rabochij architect harness "$SHA" "$WT" wip/141/avtor
   mir_zhurnal "$ST" Avtor141 1 -
   sobytie "$P/worker.json" architect Arch142 true 'SUBJECT=142' "WORKTREE=$WT142" 'BRANCH=wip/142/avtor' > /dev/null

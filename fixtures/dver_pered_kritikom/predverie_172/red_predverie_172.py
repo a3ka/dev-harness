@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""End-to-end Git cells; each case owns an isolated bare origin and worktrees."""
+"""End-to-end Git cells; installed doors include their real sibling dependencies."""
 import argparse
 import os
 from pathlib import Path
@@ -39,6 +39,7 @@ def setup(base):
     install.mkdir(parents=True)
     (install / 'check_no_leak.sh').write_text('#!/bin/sh\n[ ! -e "$2/leak.flag" ]\n')
     (install / 'pre_judge.sh').write_bytes(SUBJECT.read_bytes() if SUBJECT.is_file() else b'')
+    (install / 'zamok_predmeta.sh').write_bytes((REPO / 'scripts/zamok_predmeta.sh').read_bytes())
     (install / 'reference.py').write_bytes(REFERENCE.read_bytes())
     git(root, 'push', '-u', 'origin', 'main')
     git(bare, 'symbolic-ref', 'HEAD', 'refs/heads/main')
@@ -175,6 +176,10 @@ def check(name, model, mutant='', local_fake=False):
             assert not (root / 'remote').exists(), 'publisher file was present before sync'
         before = git(root, 'rev-parse', 'main') if name == 'nonff_sync' else ''
         expected, rc, witness = CASES[name]
+        if name == 'published':
+            tip = git(root, 'rev-parse', 'refs/remotes/origin/wip/172/architect')
+            runtime = state.resolve() / 'runtime/172/wip_172_architect'
+            runtime_required = not model and b'RUNTIME_WORKTREE=' in SUBJECT.read_bytes()
         result = evaluate(mode, name, root, state, model, mutant)
         stream = result.stdout if rc == 0 else result.stderr
         ok = (result.returncode == rc
@@ -182,8 +187,16 @@ def check(name, model, mutant='', local_fake=False):
                    else 'ОТКАЗ: ' + expected in stream.splitlines())
               and (not witness or witness in stream))
         if name == 'published' and ok:
-            tip = git(root, 'rev-parse', 'refs/remotes/origin/wip/172/architect')
-            ok = ('OBJECT=' + tip) in result.stdout and ('SOSTOJANIE=' + str(state.resolve())) in result.stdout
+            lines = result.stdout.splitlines()
+            ok = ('OBJECT=' + tip) in lines and ('SOSTOJANIE=' + str(state.resolve())) in lines
+            if runtime_required and ok:
+                # v5 must materialize the published object, not merely print its path.
+                ok = (('RUNTIME_WORKTREE=' + str(runtime)) in lines
+                      and (runtime / '.git').is_file()
+                      and git(runtime, 'rev-parse', 'HEAD') == tip
+                      and run('git', '-C', runtime, 'symbolic-ref', '-q', 'HEAD').returncode == 1
+                      and (runtime / 'README').is_file()
+                      and (runtime / 'README').read_text() == 'author\n')
         if name == 'ff_sync' and ok:
             ok = (git(root, 'rev-parse', 'main') == git(root, 'rev-parse', 'origin/main')
                   and (root / 'remote').is_file()

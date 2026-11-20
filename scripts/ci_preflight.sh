@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ЛОКАЛЬНЫЙ ПРЕДПОЛЁТ CI проекта — контракт 122 «CI проекта» (Г2).
+# ЛОКАЛЬНЫЙ ПРЕДПОЛЁТ CI проекта — контракт 122 «CI проекта» (Г2), v+1 + дельта-205.
 #
 #   bash scripts/ci_preflight.sh --repo R [--workflow F] [--job J] [--contract C]
 #
@@ -17,14 +17,31 @@
 #       в репозитории: путь канонизируется (realpath) и проверяется «под
 #       одноразовой копией», иначе working-directory-otsutstvuet — абсолютный путь
 #       и `..` не исполняются (иначе шаг исполнился бы в самом R и мутировал его).
-#       Джобы PREFLIGHT_CLASS: local (умолчание для
-#       рукописных) исполняются в одноразовой копии R (R не мутируется): каждый
-#       run-шаг — `bash -c` В ЭТОМ каталоге с окружением
-#       env workflow < env джобы < env шага (литералы как есть); выражения точной
-#       формы ${{ secrets.X }} / ${{ vars.X }} и в значениях env, и в тексте run
-#       заменяются непустыми заглушками. Джобы station (эмулятор/облако) не
-#       исполняются, перечисляются строкой `STATION-JOB: <key>`; их секреты сверены
-#       по (а). Честный конец — `CIPREFLIGHT_OK jobs=<n> station=<m>` rc 0.
+#       v+1: побег из копии ЧЕРЕЗ отображённое выражение ${{ github.workspace }}
+#       (например `..`-хвост или симлинк наружу) — отдельная причина
+#       working-directory-vne-kopii с ИСХОДНЫМ значением поля (до подстановки).
+#   (в) ВЫЧИСЛЯЕМЫЙ АЛФАВИТ ВЫРАЖЕНИЙ (v+1, замкнутый): точные формы
+#       ${{ secrets.X }} / ${{ vars.X }} — непустые заглушки; точная форма
+#       ${{ github.workspace }} — ТОЛЬКО корень внутренней одноразовой копии
+#       (working-directory шага и умолчаний workflow/джобы, текст run, значения env
+#       цепочки). ВСЯКОЕ иное выражение ${{ … }} на исполнительной поверхности
+#       run-шага (working-directory, run, значения env цепочки) — отказ
+#       vyrazhenie-ne-podderzhano ДО исполнения шага: не молчаливый успех и не
+#       bash-падение. Границы выражения вычисляет СКАНЕР: терминатор `}}` ищется
+#       вне кавычек, поэтому скобка `}` внутри строкового аргумента функции
+#       (format('}', …)) выражение не рвёт. uses:-шаги не исполняются, их `with:`
+#       выражением не судятся; `if:` не вычисляется.
+#       ДЕЛЬТА-205: у джоб class station (литерал job.env.PREFLIGHT_CLASS: station)
+#       текст run и значения env вычисляемым алфавитом НЕ судятся — локально они
+#       не исполняются; класс читается ДО отказа выражений. Сохранены для station:
+#       сверка (а) по всему файлу, YAML, разбор working-directory с realpath-границей
+#       копии и перечисление STATION-JOB.
+# Джобы PREFLIGHT_CLASS: local (умолчание для рукописных) исполняются в одноразовой
+# копии R (R не мутируется): каждый run-шаг — `bash -c` В ЭТОМ каталоге с окружением
+# env workflow < env джобы < env шага (литералы как есть; выражения вычисляемого
+# алфавита подставлены). Джобы station (эмулятор/облако) не исполняются,
+# перечисляются строкой `STATION-JOB: <key>`; их секреты сверены по (а). Честный
+# конец — `CIPREFLIGHT_OK jobs=<n> station=<m>` rc 0.
 #
 # Коды возврата: 0 — предполёт зелёный; 1 — именованный отказ из алфавита 122
 # (`preflight ОТКАЗ: <причина>[: детали]` на stderr); 2 — ошибка вызова и средовая
@@ -70,6 +87,11 @@ STUB_PREFIX = 'PREFLIGHT-STUB-'
 EXPR_RE = re.compile(r'\$\{\{\s*(secrets|vars)\.([A-Z][A-Z0-9_]*)\s*\}\}')
 TOKEN_RE = re.compile(r'\b(secrets|vars)\.([A-Z][A-Z0-9_]*)\b')
 DECLARED_RE = re.compile(r'^- (secret|variable) ([A-Z][A-Z0-9_]*)$')
+# v+1: точная форма ${{ github.workspace }} — единственное отображение на корень
+# внутренней одноразовой копии (не на путь исходного R: шаг исполняется в копии).
+WS_RE = re.compile(r'\$\{\{\s*github\.workspace\s*\}\}')
+# Корень копии для подстановки workspace; до создания копии подстановки нет.
+COPY_ROOT = None
 
 
 def refuse(reason, detail=None, rc=1):
@@ -100,9 +122,41 @@ def default_workdir(node, inherited):
     return value if isinstance(value, str) and value else inherited
 
 
-def stub(text):
-    """Непустая заглушка объявленного secret/variable — значение выбирает реализация."""
+def first_expression(text):
+    """Первое выражение ${{ … }} — СКАНЕРОМ, не regexp [^}]*: терминатор `}}`
+    ищется ВНЕ кавычек, поэтому `}` внутри строкового аргумента функции
+    (format('}', …)) выражение не рвёт; терминатора нет — выражения нет."""
+    begin = text.find('${{')
+    if begin < 0:
+        return None
+    index, quote, length = begin + 3, None, len(text)
+    while index < length:
+        char = text[index]
+        if quote is None and (char == '"' or char == "'"):
+            quote = char
+        elif quote is not None and quote == char:
+            quote = None
+        elif quote is None and char == '}' and text.startswith('}}', index):
+            return text[begin:index + 2]
+        index += 1
+    return None
+
+
+def substitute(text):
+    """Вычисляемый алфавит целиком: ${{ github.workspace }} — корень копии,
+    ${{ secrets.X }}/${{ vars.X }} — непустые заглушки."""
+    if COPY_ROOT is not None:
+        text = WS_RE.sub(lambda m: COPY_ROOT, text)
     return EXPR_RE.sub(lambda m: STUB_PREFIX + m.group(2), text)
+
+
+def refuse_expression(text):
+    """Остаточное выражение вне вычисляемого алфавита на исполнительной
+    поверхности — именованный отказ ДО исполнения шага (v+1): не молчаливый
+    успех (значение ушло шагу литералом) и не bash-падение (bad substitution)."""
+    rest = first_expression(substitute(text))
+    if rest is not None:
+        refuse('vyrazhenie-ne-podderzhano', rest)
 
 
 def literal(value):
@@ -117,7 +171,7 @@ def step_env(doc, job, step):
     chain = dict(os.environ)
     for node in (doc, job, step):
         for key, value in env_of(node).items():
-            chain[str(key)] = stub(literal(value))
+            chain[str(key)] = substitute(literal(value))
     return chain
 
 
@@ -190,19 +244,27 @@ def resolve_workdir(step_wd):
 
     os.path.join на абсолютном step_wd отбрасывает префикс копии (шаг исполнился бы
     в самом R и мутировал его), а `..` выводил за её корень. Канонизируем и
-    спрашиваем: каталог существует и лежит под копией — иначе именованный отказ
-    working-directory-otsutstvuet (§Г2 «обязан существовать в репо», «без мутации R»).
+    спрашиваем: каталог существует и лежит под копией — иначе именованный отказ.
+    v+1: побег из копии ЧЕРЕЗ отображённое выражение github.workspace — своя
+    причина (working-directory-vne-kopii), буквальный путь наружу — прежняя
+    (working-directory-otsutstvuet). Возвращает (каталог, причина).
     """
-    wd = os.path.realpath(os.path.join(copy, step_wd))
-    if wd != copy_real and not wd.startswith(copy_real + os.sep):
-        return None
-    return wd if os.path.isdir(wd) else None
+    resolved = os.path.realpath(os.path.join(copy, substitute(step_wd)))
+    inside = resolved == copy_real or resolved.startswith(copy_real + os.sep)
+    if not inside:
+        if WS_RE.search(step_wd):
+            return None, 'working-directory-vne-kopii'
+        return None, 'working-directory-otsutstvuet'
+    if not os.path.isdir(resolved):
+        return None, 'working-directory-otsutstvuet'
+    return resolved, None
 
 
 try:
     # symlinks=True: симлинки переносятся симлинками (как делает checkout на GitHub),
     # и битый симлинк в R не роняет копирование трассировкой shutil.Error.
     shutil.copytree(ROOT, copy, ignore=shutil.ignore_patterns('.git'), symlinks=True)
+    COPY_ROOT = copy
     local_count = 0
     station_names = []
     for name in selected:
@@ -224,16 +286,29 @@ try:
                 refuse('yaml-nevaliden', 'джоба %s: run — не строка' % name)
             step_wd = step['working-directory'] \
                 if isinstance(step.get('working-directory'), str) else job_workdir
-            step_dir = resolve_workdir(step_wd)
-            if step_dir is None:
-                refuse('working-directory-otsutstvuet', step_wd)
+            # v+1: исполнительная поверхность шага судится ДО исполнения —
+            # остаточное выражение вне вычисляемого алфавита отказывает.
+            # working-directory — у ВСЕХ джоб (дельта-205 сохраняет разбор
+            # каталога), текст run и значения env цепочки — только у local
+            # (станция локально не исполняется; класс прочитан ДО отказа).
+            refuse_expression(step_wd)
+            if job_class != 'station':
+                refuse_expression(step['run'])
+                for node in (doc, job, step):
+                    for value in env_of(node).values():
+                        refuse_expression(literal(value))
+            step_dir, reason = resolve_workdir(step_wd)
+            if reason is not None:
+                # Отказ несёт ИСХОДНОЕ значение поля (до подстановки
+                # github.workspace): иначе побег читается как путь копии.
+                refuse(reason, step_wd)
             runnable.append((step, step_dir))
         if job_class == 'station':
             station_names.append(name)
             continue
         local_count += 1
         for step, step_dir in runnable:
-            proc = subprocess.run(['bash', '-c', stub(step['run'])],
+            proc = subprocess.run(['bash', '-c', substitute(step['run'])],
                                   cwd=step_dir,
                                   env=step_env(doc, job, step),
                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT)

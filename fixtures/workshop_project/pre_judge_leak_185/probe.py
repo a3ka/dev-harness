@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""185: real pre_judge prepare against independent project and harness Git trees."""
+"""185: installed detector against project roots, with legacy or 140 runtime prepare."""
 import os
 from pathlib import Path
 import subprocess
@@ -48,8 +48,14 @@ class World:
         (self.harness / 'scripts').mkdir(parents=True)
         self.project.mkdir()
         (self.harness / 'scripts/pre_judge.sh').write_text(script, encoding='utf-8')
-        (self.harness / 'scripts/check_no_leak.sh').write_bytes(
-            (ROOT / 'scripts/check_no_leak.sh').read_bytes())
+        for name in ('check_no_leak.sh', 'zamok_predmeta.sh'):
+            (self.harness / 'scripts' / name).write_bytes(
+                (ROOT / 'scripts' / name).read_bytes())
+        # The trusted installation fixes the protocol before model/stab mutations.
+        runtime_output = '  printf \'RUNTIME_WORKTREE=%s\\n\' "$RUNTIME_WT"\n'
+        self.runtime = (self.state / 'runtime/185/wip_185_architect'
+                        if runtime_output in (ROOT / 'scripts/pre_judge.sh').read_text(
+                            encoding='utf-8') else None)
         for root in (self.harness, self.project):
             git(root, 'init', '-q', '-b', 'main')
             (root / 'tracked.txt').write_text('clean\n', encoding='utf-8')
@@ -84,21 +90,32 @@ def check(label, script, variant):
             (world.project / 'scripts/check_no_leak.sh').write_text('#!/bin/sh\nexit 0\n', encoding='utf-8')
         if variant in ('missing_harness', 'missing_harness_local_fake'):
             world.detector.unlink()
-        got = world.invoke()
         if variant in ('dirty', 'local_fake'):
             expected_rc, reason = 1, 'ОТКАЗ: CHECK_NO_LEAK_KRASEN\n'
         elif variant in ('missing_harness', 'missing_harness_local_fake'):
             expected_rc, reason = 2, 'NOT_IMPLEMENTED: нет детектора утечки харнесса:'
         else:
             expected_rc, reason = 0, ''
-        expected_out = (f'OBJECT={world.oid}\nSOSTOJANIE={world.state}\n'
-                        if expected_rc == 0 else '')
-        # Oracle is captured before invoking the subject, never from project files afterward.
+        # Capture the complete oracle before invoking the subject.
+        expected_out = ''
+        if expected_rc == 0:
+            expected_out = f'OBJECT={world.oid}\n'
+            if world.runtime is not None:
+                expected_out += f'RUNTIME_WORKTREE={world.runtime}\n'
+            expected_out += f'SOSTOJANIE={world.state}\n'
+        got = world.invoke()
+        runtime_ok = True
+        if expected_rc == 0 and got.returncode == 0 and world.runtime is not None:
+            runtime_ok = (world.runtime.is_dir() and
+                          git(world.runtime, 'rev-parse', 'HEAD') == world.oid and
+                          git(world.runtime, 'rev-parse', '--abbrev-ref', 'HEAD') == 'HEAD' and
+                          git(world.runtime, 'rev-parse', '--show-toplevel') == str(world.runtime))
         reason_ok = (not got.stderr if not reason else
                      (got.stderr.startswith(reason) if expected_rc == 2 else
                       got.stderr.startswith('ОТКАЗ: основной чекаут загрязнён: ') and
                       reason in got.stderr.splitlines(keepends=True)))
-        ok = (got.returncode == expected_rc and got.stdout == expected_out and reason_ok)
+        ok = (got.returncode == expected_rc and got.stdout == expected_out and
+              reason_ok and runtime_ok)
         print(f'185 {label} {"ZELENO" if ok else "KRASNO"} '
               f'rc={got.returncode} stdout={got.stdout!r} stderr={got.stderr!r}', flush=True)
         return ok
@@ -108,15 +125,15 @@ def source(mode):
     actual = (ROOT / 'scripts/pre_judge.sh').read_text(encoding='utf-8')
     if mode == '--repo':
         return actual
-    # Stable seams belong to 172's manifest wait and OBJECT emission. The
-    # entire detector block between them comes from NEW, even after the
-    # subject's own detector implementation has changed.
+    # Replace only the detector block. The common resolver and runtime checkout
+    # after its final refusal stay real; legacy prepare continues at OBJECT.
     before = '    sleep 0.02\n  done\n\n'
-    after = '  printf \'OBJECT=%s\\n\' "$remote_tip"\n'
+    after = ('    refuse CHECK_NO_LEAK_KRASEN '
+             '"scripts/check_no_leak.sh --check $R вернул rc=$leak_rc"\n  fi\n')
     if actual.count(before) != 1 or actual.count(after) != 1:
         raise RuntimeError('prepare model seams changed')
     start = actual.index(before) + len(before)
-    end = actual.index(after, start)
+    end = actual.index(after, start) + len(after)
     return actual[:start] + NEW + '\n' + actual[end:]
 
 
