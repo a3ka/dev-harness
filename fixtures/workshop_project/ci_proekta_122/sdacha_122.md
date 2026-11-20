@@ -75,3 +75,20 @@ AST-подсчёт словарей, независимо от исполнен�
 ## Граница и развилки
 
 Только контракт, исполняемая модель, батарея и лист; корни писателя/инвентаря, штатные резолверы, JSON Schema, прежняя когорта Г1–Г3/v5/205, риск поставщика/гонки и арбитражная таблица не меняются. Живые gh/GitHub/продукт/CI — NOT_RUN. Реализация production-ноги — implementer после штатного суда/заморозки. Новых дверей сверх блока нет: r13 — селектор уже существующей батареи. Общий журнал NABLIUDENIA_ARCHITECT вне зоны; запись в нём не делается. Наблюдение для передачи оркестратору: hardcoded scratch батареи мешает полному прогону в изолированной копии; временную инфраструктуру не расширяем этим предметом.
+
+## Fixture-only совместимость ROOTS122 со счётом START 154 — 2026-11-20
+
+База: `11137c50a4f610f9306a5febf7074d7b67475065`. В toy-станцию копируется настоящий `scripts/zamok_predmeta.sh` этого кандидата. После всех преобразований мира создаётся отдельный `state154/uchet.jsonl` вне git-деревьев: один critic START предмета `731`, repoId — basename фактического origin станции без `.git`, object и at — коммит и author-date вердикта. Поэтому mono-origin-mismatch получает `other-origin`, остальные миры — `station-origin`, не identity продукта. Freeze получает каталог state четвёртым позиционным аргументом до хвоста контекстов. CASES/STABS, модель, причины и оракулы атомарности не менялись; production и контракт не правились.
+
+Сырой итог приёмки в собранной копии; `B=fixtures/workshop_project/ci_proekta_122`, `TMPDIR=/tmp/dev-harness-verify/arch122r-2786069`, `PYTHONDONTWRITEBYTECODE=1`:
+
+| Команда | Сырой вывод | rc |
+|---|---|---|
+| `python3 $B/roots_probe.py --repo .` | `ROOTS122 TOTAL=43 GREEN=43 RED=0`; `ROOTS_REPO_RC=0` | 0 |
+| `python3 $B/roots_probe.py --repo . --model` | `ROOTS122 TOTAL=43 GREEN=43 RED=0`; `ROOTS_MODEL_RC=0` | 0 |
+| `bash $B/red_ci_proekta_122.sh --repo . --cell r13` | `ROOTS122 TOTAL=10 GREEN=10 RED=0`; `R13_REPO_RC=0` | 0 |
+| `bash $B/red_ci_proekta_122.sh --stabs` | `ROOTS122 STABS=36 CAUGHT=36`; `STABS_RC=0` | 0 |
+| `bash $B/red_ci_proekta_122.sh --model` | `ИТОГ 122 (model): клеток 74, зелёных 74, красных 0`; `ROOTS122 TOTAL=43 GREEN=43 RED=0`; `BATTERY_MODEL_RC=0` | 0 |
+| `bash $B/red_ci_proekta_122.sh --repo .` | `ИТОГ 122 (red): клеток 74, зелёных 74, красных 0`; `ROOTS122 TOTAL=43 GREEN=43 RED=0`; `BATTERY_REPO_RC=0` | 0 |
+
+Все адресные стабы пойманы при зелёных честных контролях. На каждом r13/ORIGIN/REPEATED_CONTEXT негативе настоящего freeze напечатано `subject_rc=1 gh=[] tag_rc=128 unchanged=True`; успешные клетки проверили тег/реестр только станции и неизменность продукта. Новый critic не вызывался; остальные двери формы этим заданием не прогонялись.
