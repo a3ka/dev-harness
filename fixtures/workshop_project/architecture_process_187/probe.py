@@ -24,6 +24,9 @@ def put(root, name, text):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text)
 
+def critic_state(root):
+    return root.parent / (root.name + '-state154')
+
 def world(base, name, kind='backend'):
     root = base / name
     root.mkdir()
@@ -76,9 +79,27 @@ def world(base, name, kind='backend'):
         '## Архитектура\nОПЕРАЦИЯ: identity.lookup; вход schema.query; выход schema.record\n'
         'ЗОНА implementer: app/identity/model.js\n'
         'ПРОВОДКА:\n- guard=check.sh\nПРОВОДКА-ЭНФОРСМЕНТ: только механизм\n')
-    put(root, '.harness/verdicts/critic/contracts-777-v1.md', 'accept\n')
     put(root, REVIEW, 'ACCEPT\nСВЕРКА-АРХИТЕКТУРЫ: identity.lookup; app/identity; привязки и долг проверены\n')
     git(root, 'add', '-A')
     git(root, 'commit', '-qm', 'baseline')
+    # A new toy subject has its own START ledger, not a substituted old-subject
+    # boundary. Match the counter's origin key, not the architecture profile ID.
+    judged = git(root, 'rev-parse', 'HEAD')
+    started = git(root, 'log', '-1', '--format=%aI')
+    origin_id = git(root, 'remote', 'get-url', 'origin').rsplit('/', 1)[-1].removesuffix('.git')
+    state = critic_state(root)
+    state.mkdir()
+    put(state, 'uchet.jsonl', json.dumps({
+        't': 'START', 'repoId': origin_id, 'subjectId': '777', 'group': '-',
+        'holder': 'Crit187Toy', 'klass': 'sudja', 'rol': 'critic',
+        'object': judged, 'worktree': '-', 'branch': '-', 'at': started,
+    }) + '\n')
+    critic = '.harness/verdicts/critic/contracts-777-v1.md'
+    put(root, critic, 'accept\n')
+    git(root, 'add', '--', critic)
+    # Git records seconds: equality with START is intentional, so the verdict's
+    # author-date cannot be mistaken for pre-ledger history requiring a seed.
+    git(root, '-c', 'user.name=critic', '-c', 'user.email=critic@fixture.local',
+        'commit', '-qm', 'critic accept 777', '--date', started)
     git(root, 'push', '-q', 'origin', 'main')
     return root
