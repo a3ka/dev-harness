@@ -255,7 +255,10 @@ if [ -n "$PRED_VERDIKT" ]; then
     # shellcheck disable=SC1091
     [ -r "$SELF_DIR/lib_karta_sdachi.sh" ] || ni 'нет lib_karta_sdachi.sh рядом с дверью'
     . "$SELF_DIR/lib_karta_sdachi.sh"
-    spisok="$(karta_proverit "$telo")" || otkaz "предыдущий вердикт: $spisok"
+    spisok="$(karta_proverit "$telo" "$ROOT" "$PRED_VERDIKT")" || otkaz "предыдущий вердикт: $spisok"
+    poslednij="$(karta_poslednij_fail "$ROOT" "$PRED_VERDIKT" "$telo")" \
+        || otkaz "последний FAIL: $poslednij"
+    spisok="$spisok"$'\n'"$poslednij"
     while IFS=$'\t' read -r klass status; do
         [ -n "$klass" ] || continue
         [ "$status" = 'блок' ] || continue
