@@ -78,6 +78,6 @@ telo="$(git -C "$ROOT" cat-file -p "HEAD:$VERDICT" 2>/dev/null)"
 grep -q '^## Карта классов$' <<<"$telo" \
     || otkaz "вердикт без раздела «## Карта классов»: $VERDICT"
 
-spisok="$(karta_proverit "$telo")" || otkaz "$VERDICT: $spisok"
+spisok="$(karta_proverit "$telo" "$ROOT" "$VERDICT")" || otkaz "$VERDICT: $spisok"
 printf 'КАРТА: 17/17 зелёный\n'
 exit 0

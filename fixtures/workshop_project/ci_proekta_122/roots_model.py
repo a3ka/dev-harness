@@ -40,9 +40,28 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('root', type=Path)
     parser.add_argument('target')
-    parser.add_argument('context', type=Path, nargs='?')
+    parser.add_argument('context', type=Path, nargs='*')
     parser.add_argument('--mutant', default='')
     args = parser.parse_args()
+    result = freeze(args)
+    if args.mutant.startswith('rc-zero-'):
+        return 0
+    if args.mutant.startswith('rc-one-'):
+        return 1
+    return result
+
+
+def freeze(args):
+    # Model transport cardinality before reading any file, just like the CLI
+    # promise. A bad first context cannot be replaced by a later good one.
+    if len(args.context) > 1:
+        if args.mutant.startswith('repeated-context-last-'):
+            args.context = args.context[-1:]
+        elif args.mutant == 'repeated-context-first':
+            args.context = args.context[:1]
+        else:
+            return refusal('project-workflow-neodnoznachen')
+    args.context = args.context[0] if args.context else None
     root, target, mutant = args.root.resolve(), args.target, args.mutant
     try:
         if args.context is None:
@@ -129,7 +148,9 @@ def main():
             for key in ('projectId', 'repoId'):
                 assert ctx['project'][key] == prof[key]['value']
             remote = git(project, 'remote', 'get-url', 'origin')
-            assert ctx['project']['canonicalRemote'] == prof['git']['value']['canonicalRemote'] == remote
+            assert ctx['project']['canonicalRemote'] == prof['git']['value']['canonicalRemote']
+            if mutant != 'implicit-origin-unchecked' or args.context is not None:
+                assert ctx['project']['canonicalRemote'] == remote
             # Resolve workflow context using the existing helper, not a new path convention.
             workflow = call(['bash', root / 'scripts/project_workflow.sh', '--repo', root])
             assert workflow.returncode == 0

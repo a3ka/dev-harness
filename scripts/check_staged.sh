@@ -913,6 +913,19 @@ for f in "${staged[@]}"; do
                     old_ok=1
                   fi
                 fi
+                # Разовые допущения (слово владельца 2026-11-19 ~23:55 UTC через консультанта): REPLACE для 140/3, 140/4
+                # и 193/2 не приземлялись — догон строки реестра 140 с v2 прямо на v5 и 193 с v1 прямо на v3.
+                for skip in 140:5:2 193:3:1; do
+                  skip_nnn=${skip%%:*}; skip_rest=${skip#*:}; skip_v=${skip_rest%%:*}; skip_prev=${skip_rest#*:}
+                  if [ "$old_ok" -eq 0 ] && [ "$add_nnn" = "$skip_nnn" ] && [ "$vmax" = "$skip_v" ]; then
+                    ref_skip="refs/tags/frozen/contracts/$skip_nnn/$skip_prev"
+                    if git -C "$ROOT" show-ref --verify --quiet "$ref_skip" \
+                       && [ "$(git -C "$ROOT" cat-file -t "$ref_skip" 2>/dev/null || true)" = "tag" ] \
+                       && [ "$(git -C "$ROOT" rev-parse "$ref_skip" 2>/dev/null || true)" = "$rem_sha" ]; then
+                      old_ok=1
+                    fi
+                  fi
+                done
                 if [ "$old_ok" -eq 0 ]; then
                   door_rc=1; door_msg="дверь минта 031: sha старой строки ≠ ни tag-object id/CONTRACT/$add_nnn, ни tag-object frozen/contracts/$add_nnn/$vmax_prev"
                 fi
