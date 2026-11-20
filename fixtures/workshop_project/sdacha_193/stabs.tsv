@@ -94,3 +94,24 @@ PATERN:KOREN-ZAPASNOJ	scripts/check_verdict_karta.sh	v15
 PATERN:CHUZHAJA-ROL-PRINIMAETSJA	scripts/check_verdict_karta.sh	v16
 PATERN:BEZ-GRAMMATIKI-PUTA	scripts/check_verdict_karta.sh	v23
 PATERN:PROFIL-PREFIKS-OTREZAN	scripts/freeze_contract.sh	f06
+# Ось ссылок v3. До реализации новых операций мутируется модель; после
+# появления якоря — реальная операция. Нулевой замены как поимки нет.
+PATERN:REF-VSEGDA-CHISTO	scripts/lib_karta_sdachi.sh	r03
+PATERN:REF-BEZ-CIKLA	scripts/lib_karta_sdachi.sh	r05
+PATERN:REF-BEZ-NALICHIJA	scripts/lib_karta_sdachi.sh	r04
+PATERN:REF-BEZ-ODNOZNACHNOSTI	scripts/lib_karta_sdachi.sh	r06
+PATERN:REF-OBJECT-KAK-REVIZIJA	scripts/lib_karta_sdachi.sh	r10
+PATERN:REF-PEREPISAT-OBJECT	scripts/lib_karta_sdachi.sh	r10
+PATERN:REF-BEZ-LAST-FAIL	scripts/check_sdacha.sh	r07
+# Относительная форма: наследование, N−1, контекст и границы грамматики.
+PATERN:REF-PREV-VSEGDA-CHISTO	scripts/lib_karta_sdachi.sh	r35
+PATERN:REF-PREV-NE-VYCHITAET	scripts/lib_karta_sdachi.sh	r43
+PATERN:REF-PREV-BEZ-KONTEKSTA	scripts/lib_karta_sdachi.sh	r44
+PATERN:REF-PREV-BEZ-PERVOGO	scripts/lib_karta_sdachi.sh	r45
+PATERN:REF-PREV-HVOST-LJUBOJ	scripts/lib_karta_sdachi.sh	r46
+PATERN:REF-BEZ-LAST-FAIL	scripts/check_sdacha.sh	r39
+PATERN:REF-BEZ-LAST-FAIL	scripts/check_sdacha.sh	r41
+# Crit193V7 К-09: историческая ссылка другого класса пропущена.
+PATERN:REF-TOLKO-ZAPROSHENNYJ-KLASS	scripts/lib_karta_sdachi.sh	r50
+PATERN:REF-TOLKO-ZAPROSHENNYJ-KLASS	scripts/lib_karta_sdachi.sh	r51
+PATERN:REF-TOLKO-ZAPROSHENNYJ-KLASS	scripts/lib_karta_sdachi.sh	r54
