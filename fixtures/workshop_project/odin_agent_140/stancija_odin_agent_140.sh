@@ -27,6 +27,12 @@
 # «страж сломан»); p14 --uchet живого мира (приёмка 5в); m01 обманная
 # интеграция — блок вызова двери снят, приёмка обязана видеть симптом
 # (проход судьи до yield) — проверка проверяющего (tdd: не tautological).
+# p10 предъявляет false/true/missing/string/number/object у судьи; p15 —
+# false/missing/string/number/object у последнего рабочего пакета с пустым учётом;
+# p16 — смешанный пакет со своим фактом; p17/p18 — отказ без предсозданного
+# учёта (один/пакет), p19 — неизменность существующего учёта/занятия;
+# p20 — первый честный рабочий в новом корне. normalizacija_140.py привязывает
+# truthiness/константу к адресным клеткам и проверяет строгий зелёный контроль.
 set -uo pipefail
 ZDES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 KOREN="$(cd "$ZDES/../../.." && pwd -P)"
@@ -60,7 +66,7 @@ proba() {  # <имя> <ok|krasno> <деталь>
 # env-подсказки корней (HARNESS_*/OMP_*/ODIN*) СТЁРТЫ: корни — только из ctx.
 cat > "$W/drajver.mjs" <<'MJS'
 import { pathToFileURL } from 'node:url';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 const [huk, casesFile] = process.argv.slice(2);
 for (const k of Object.keys(process.env)) {
   if (k.startsWith('HARNESS_') || k.startsWith('OMP_') || k.startsWith('ODIN')) delete process.env[k];
@@ -80,9 +86,16 @@ reg(pi);
 if (handlers.length < 1) { console.error('НЕТ обработчика'); process.exit(2); }
 const handler = handlers[handlers.length - 1];
 const cases = JSON.parse(readFileSync(casesFile, 'utf8'));
+function snapshot(root) {
+  return readdirSync(root).sort().map(name => {
+    const path = root + '/' + name;
+    return [name, statSync(path).isDirectory() ? snapshot(path) : readFileSync(path).toString('hex')];
+  });
+}
 let bad = 0;
 for (const c of cases) {
   let got;
+  const before = c.unchanged ? JSON.stringify(snapshot(c.unchanged)) : null;
   try {
     if (c.cwd) process.chdir(c.cwd);
     const verdict = await Promise.race([
@@ -96,10 +109,11 @@ for (const c of cases) {
   } catch (e) {
     got = 'сбой:' + String(e && e.message ? e.message : e).slice(0, 120);
   }
-  const ok = c.want === 'pass' ? got === 'pass'
-    : (got.startsWith('блок:') && got.includes(c.want.slice(6)));
+  const unchanged = !c.unchanged || JSON.stringify(snapshot(c.unchanged)) === before;
+  const ok = unchanged && (c.want === 'pass' ? got === 'pass'
+    : (got.startsWith('блок:') && got.includes(c.want.slice(6))));
   if (!ok) bad++;
-  console.log(`GOT ${c.name} ${ok ? 'ok' : 'fail'} want=${c.want} got=${got}`);
+  console.log(`GOT ${c.name} ${ok ? 'ok' : 'fail'} want=${c.want} got=${got} unchanged=${unchanged}`);
 }
 console.log(`СЛУЧАЕВ ${cases.length} ПРОВАЛЕНО ${bad}`);
 process.exit(bad > 0 ? 1 : 0);
@@ -145,10 +159,19 @@ mir_zhurnal() {  # <st> <holder> <sдал 0|1> <возраст-мин|->
   if [ "$4" != - ]; then touch -d "$4 minutes ago" "$f"; fi
 }
 
-sobytie() {  # <файл> <agent> <name> <task-строки…>
-  local f="$1" a="$2" n="$3"; shift 3
+sobytie() {  # <файл> <agent> <name> <true|false|missing|string|number|object> <task…>
+  local f="$1" a="$2" n="$3" iso="$4" json; shift 4
+  case "$iso" in
+    true|false) json="$iso" ;;
+    missing) json=null ;;
+    string) json='"true"' ;;
+    number) json=1 ;;
+    object) json='{}' ;;
+    *) return 2 ;;
+  esac
   local task; task="$(printf '%s\n' "$@")"
-  jq -cn --arg a "$a" --arg n "$n" --arg t "$task" '{agent:$a,name:$n,task:$t}' > "$f"
+  jq -cn --arg a "$a" --arg n "$n" --arg t "$task" --arg iso "$iso" --argjson value "$json" \
+    '{agent:$a,name:$n,task:$t} + (if $iso == "missing" then {} else {isolated:$value} end)' > "$f"
   printf '%s' "$f"
 }
 
@@ -171,7 +194,7 @@ begi() {  # <хук> <cases> → вывод драйвера
   SHA="$(git -C "$WT" rev-parse HEAD)"
   mir_start "$ST" 140 Arch140 rabochij architect harness - "$WT" wip/140/avtor
   mir_zhurnal "$ST" Arch140 0 -
-  sobytie "$W/p01/ev.json" architect Arch140b 'SUBJECT=140' "WORKTREE=$WT" 'BRANCH=wip/140/avtor' > /dev/null
+  sobytie "$W/p01/ev.json" architect Arch140b true 'SUBJECT=140' "WORKTREE=$WT" 'BRANCH=wip/140/avtor' > /dev/null
   kejs "$W/p01/c.json" p01 'block:RABOCHIJ_ZHIV' "$W/p01/ev.json" "$(mir_sess "$ST")" "$RE"
   out="$(begi "$HUK" "$W/p01/c.json")" && proba p01-int-dubl-rabochego ok || proba p01-int-dubl-rabochego krasno "$(printf '%s' "$out" | grep '^GOT' | head -1)"
 }
@@ -187,7 +210,7 @@ begi() {  # <хук> <cases> → вывод драйвера
   mir_kontrakt "$RE" 140 обычный
   mir_start "$ST" 140 Arch140 rabochij architect harness "$SHA" "$WT" wip/140/avtor
   mir_zhurnal "$ST" Arch140 0 -
-  sobytie "$W/p02/ev.json" critic Critic140 'SUBJECT=140' "OBJECT=$SHA" > /dev/null
+  sobytie "$W/p02/ev.json" critic Critic140 missing 'SUBJECT=140' "OBJECT=$SHA" > /dev/null
   kejs "$W/p02/c.json" p02 'block:RABOCHIJ_ZHIV' "$W/p02/ev.json" "$(mir_sess "$ST")" "$RE"
   out="$(begi "$HUK" "$W/p02/c.json")" && proba p02-int-sudja-do-yield ok || proba p02-int-sudja-do-yield krasno "$(printf '%s' "$out" | grep '^GOT' | head -1)"
 }
@@ -203,7 +226,7 @@ begi() {  # <хук> <cases> → вывод драйвера
   mir_kontrakt "$RE" 141 обычный
   mir_start "$ST" 141 Avtor141 rabochij architect harness "$SHA" "$WT" wip/141/avtor
   mir_zhurnal "$ST" Avtor141 1 -
-  sobytie "$W/p03/ev.json" critic Critic141 'SUBJECT=141' 'суд без строки объекта' > /dev/null
+  sobytie "$W/p03/ev.json" critic Critic141 missing 'SUBJECT=141' 'суд без строки объекта' > /dev/null
   kejs "$W/p03/c.json" p03 'block:OBJECT_OTSTUTSVUET' "$W/p03/ev.json" "$(mir_sess "$ST")" "$RE"
   out="$(begi "$HUK" "$W/p03/c.json")" && proba p03-int-sudja-bez-object ok || proba p03-int-sudja-bez-object krasno "$(printf '%s' "$out" | grep '^GOT' | head -1)"
 }
@@ -219,7 +242,7 @@ begi() {  # <хук> <cases> → вывод драйвера
   mir_kontrakt "$RE" 141 обычный
   mir_start "$ST" 141 Avtor141 rabochij architect harness "$SHA" "$WT" wip/141/avtor
   mir_zhurnal "$ST" Avtor141 1 -
-  sobytie "$W/p04/ev.json" critic Critic141 'SUBJECT=141' 'OBJECT=1234567890123456789012345678901234567890' > /dev/null
+  sobytie "$W/p04/ev.json" critic Critic141 missing 'SUBJECT=141' 'OBJECT=1234567890123456789012345678901234567890' > /dev/null
   kejs "$W/p04/c.json" p04 'block:OBJECT_RASHODITSJA' "$W/p04/ev.json" "$(mir_sess "$ST")" "$RE"
   out="$(begi "$HUK" "$W/p04/c.json")" && proba p04-int-object-rashoditsja ok || proba p04-int-object-rashoditsja krasno "$(printf '%s' "$out" | grep '^GOT' | head -1)"
 }
@@ -238,7 +261,7 @@ begi() {  # <хук> <cases> → вывод драйвера
   mir_kontrakt "$RE" 141 рисковый
   mir_start "$ST" 141 Avtor141 rabochij architect harness "$SHA" "$WT" wip/141/avtor
   mir_zhurnal "$ST" Avtor141 1 -
-  sobytie "$W/p05/ev.json" reviewer Rev141 'SUBJECT=141' "OBJECT=$SHA" > /dev/null
+  sobytie "$W/p05/ev.json" reviewer Rev141 missing 'SUBJECT=141' "OBJECT=$SHA" > /dev/null
   kejs "$W/p05/c.json" p05 'block:ADVERSARIJ_DO_REVJUERA' "$W/p05/ev.json" "$(mir_sess "$ST")" "$RE"
   out="$(begi "$HUK" "$W/p05/c.json")" && proba p05-int-porjadok-adv-rev ok || proba p05-int-porjadok-adv-rev krasno "$(printf '%s' "$out" | grep '^GOT' | head -1)"
 }
@@ -263,7 +286,7 @@ begi() {  # <хук> <cases> → вывод драйвера
   mir_zhurnal "$ST" Arch142 0 -
   mir_start "$ST" 143 Arch143 rabochij architect harness - "$WT143" wip/143/avtor
   mir_zhurnal "$ST" Arch143 0 -
-  sobytie "$W/p06/ev.json" architect Arch144 'SUBJECT=144' "WORKTREE=$WT144" 'BRANCH=wip/144/avtor' > /dev/null
+  sobytie "$W/p06/ev.json" architect Arch144 true 'SUBJECT=144' "WORKTREE=$WT144" 'BRANCH=wip/144/avtor' > /dev/null
   kejs "$W/p06/c.json" p06 'block:LIMIT_GRUPPY' "$W/p06/ev.json" "$(mir_sess "$ST")" "$RE"
   out="$(begi "$HUK" "$W/p06/c.json")" && proba p06-int-limit-harness ok || proba p06-int-limit-harness krasno "$(printf '%s' "$out" | grep '^GOT' | head -1)"
 }
@@ -275,8 +298,8 @@ begi() {  # <хук> <cases> → вывод драйвера
   mir_github "$RE" 'ssh://git@github.com/a3ka/dev-harness.git'
   mir_github "$WT" 'ssh://git@github.com/a3ka/dev-harness.git'
   git -C "$WT" checkout -q -b wip/140/avtor 2>/dev/null
-  sobytie "$W/p07/a.json" architect Arch140 'SUBJECT=140' "WORKTREE=$WT" 'BRANCH=wip/140/avtor' > /dev/null
-  sobytie "$W/p07/b.json" architect Arch140b 'SUBJECT=140' "WORKTREE=$WT" 'BRANCH=wip/140/avtor' > /dev/null
+  sobytie "$W/p07/a.json" architect Arch140 true 'SUBJECT=140' "WORKTREE=$WT" 'BRANCH=wip/140/avtor' > /dev/null
+  sobytie "$W/p07/b.json" architect Arch140b true 'SUBJECT=140' "WORKTREE=$WT" 'BRANCH=wip/140/avtor' > /dev/null
   jq -s '{tasks:.}' "$W/p07/a.json" "$W/p07/b.json" > "$W/p07/ev.json"
   kejs "$W/p07/c.json" p07 'block:DUBL_V_PAKETE' "$W/p07/ev.json" "$(mir_sess "$ST")" "$RE"
   out="$(begi "$HUK" "$W/p07/c.json")"
@@ -294,7 +317,7 @@ begi() {  # <хук> <cases> → вывод драйвера
   mir_github "$RE" 'ssh://git@github.com/a3ka/dev-harness.git'
   mir_github "$WT" 'ssh://git@github.com/a3ka/dev-harness.git'
   git -C "$WT" checkout -q -b wip/143/avtor 2>/dev/null
-  sobytie "$W/p08/ev.json" architect Arch143 'SUBJECT=143' "WORKTREE=$WT" 'BRANCH=wip/143/avtor' > /dev/null
+  sobytie "$W/p08/ev.json" architect Arch143 true 'SUBJECT=143' "WORKTREE=$WT" 'BRANCH=wip/143/avtor' > /dev/null
   kejs "$W/p08/ca.json" p08a 'pass' "$W/p08/ev.json" "$(mir_sess "$ST")" "$RE"
   kejs "$W/p08/cb.json" p08b 'pass' "$W/p08/ev.json" "$(mir_sess "$ST")" "$RE"
   begi "$HUK" "$W/p08/ca.json" > "$W/p08/oa.txt" &
@@ -321,14 +344,15 @@ begi() {  # <хук> <cases> → вывод драйвера
   git -C "$WT" checkout -q -b wip/140/avtor 2>/dev/null
   mir_start "$ST" 140 Arch140 rabochij architect harness - "$WT" wip/140/avtor
   mir_zhurnal "$ST" Arch140 0 120
-  sobytie "$W/p09/ev.json" architect Arch140c 'SUBJECT=140' "WORKTREE=$WT" 'BRANCH=wip/140/avtor' > /dev/null
+  sobytie "$W/p09/ev.json" architect Arch140c true 'SUBJECT=140' "WORKTREE=$WT" 'BRANCH=wip/140/avtor' > /dev/null
   kejs "$W/p09/c.json" p09 'block:ZAMOK_BROSHEN' "$W/p09/ev.json" "$(mir_sess "$ST")" "$RE"
   out="$(begi "$HUK" "$W/p09/c.json")" && proba p09-int-dubl-posle-restarta ok || proba p09-int-dubl-posle-restarta krasno "$(printf '%s' "$out" | grep '^GOT' | head -1)"
 }
 
 # ── p10 пропуск судьи после yield + START пишет РАСШИРЕНИЕ ───────────────────
-{
-  ST="$W/p10/st"; RE="$W/p10/repo"; WT="$W/p10/wt141"
+for ISO in false true missing string number object; do
+  P="$W/p10-$ISO"
+  ST="$P/st"; RE="$P/repo"; WT="$P/wt141"
   mkdir -p "$ST/zamok" "$(dirname "$(mir_sess "$ST")")" "$RE" "$WT"
   mir_github "$RE" 'ssh://git@github.com/a3ka/dev-harness.git'
   mir_github "$WT" 'ssh://git@github.com/a3ka/dev-harness.git'
@@ -339,22 +363,27 @@ begi() {  # <хук> <cases> → вывод драйвера
   mir_kontrakt "$RE" 141 обычный
   mir_start "$ST" 141 Avtor141 rabochij architect harness "$SHA" "$WT" wip/141/avtor
   mir_zhurnal "$ST" Avtor141 1 -
-  sobytie "$W/p10/ev.json" critic Critic141 'SUBJECT=141' "OBJECT=$SHA" > /dev/null
-  kejs "$W/p10/c.json" p10 'pass' "$W/p10/ev.json" "$(mir_sess "$ST")" "$RE"
-  out="$(begi "$HUK" "$W/p10/c.json")"; rc=$?
-  if [ $rc -eq 0 ] && jq -e 'select(.t=="START" and .holder=="Critic141" and .klass=="sudja")' "$ST/zamok/uchet.jsonl" > /dev/null 2>&1 && [ -e "$ST/zamok/zamki/dev-harness/141/zanyat/holder.json" ]; then
-    proba p10-int-propusk-posle-yield ok
+  sobytie "$P/ev.json" critic Critic141 "$ISO" 'SUBJECT=141' "OBJECT=$SHA" > /dev/null
+  kejs "$P/c.json" "p10-$ISO" 'pass' "$P/ev.json" "$(mir_sess "$ST")" "$RE"
+  # Оракул — значение клетки, снятое ДО вызова; отсутствие нормализуется в false.
+  FACT=false; [ "$ISO" != true ] || FACT=true
+  out="$(begi "$HUK" "$P/c.json")"; rc=$?
+  if [ $rc -eq 0 ] && jq -se --argjson fact "$FACT" \
+      '[.[] | select(.t=="START" and .holder=="Critic141" and .klass=="sudja")] |
+       length == 1 and .[0].isolated == $fact' "$ST/zamok/uchet.jsonl" > /dev/null 2>&1 \
+      && [ -e "$ST/zamok/zamki/dev-harness/141/zanyat/holder.json" ]; then
+    proba "p10-int-propusk-posle-yield-$ISO" ok
   else
-    proba p10-int-propusk-posle-yield krasno "$(printf '%s' "$out" | grep '^GOT' | head -1); START-судьи=$(jq -e 'select(.t=="START" and .holder=="Critic141")' "$ST/zamok/uchet.jsonl" > /dev/null 2>&1 && printf есть || printf нет)"
+    proba "p10-int-propusk-posle-yield-$ISO" krasno "$out; ожидался ровно один START судьи isolated=$FACT и занятие"
   fi
-}
+done
 
 # ── p11 алфавит 104 не ослаблен (вне алфавита — блок) ────────────────────────
 {
   ST="$W/p11/st"; RE="$W/p11/repo"
   mkdir -p "$ST/zamok" "$(dirname "$(mir_sess "$ST")")" "$RE"
   mir_github "$RE" 'ssh://git@github.com/a3ka/dev-harness.git'
-  sobytie "$W/p11/ev.json" hacker H1 'SUBJECT=140' 'злой агент' > /dev/null
+  sobytie "$W/p11/ev.json" hacker H1 missing 'SUBJECT=140' 'злой агент' > /dev/null
   kejs "$W/p11/c.json" p11 'block:вне алфавита' "$W/p11/ev.json" "$(mir_sess "$ST")" "$RE"
   out="$(begi "$HUK" "$W/p11/c.json")" && proba p11-int-alfavit-104 ok || proba p11-int-alfavit-104 krasno "$(printf '%s' "$out" | grep '^GOT' | head -1)"
 }
@@ -376,7 +405,7 @@ begi() {  # <хук> <cases> → вывод драйвера
   mir_github "$WT" 'ssh://git@github.com/a3ka/dev-harness.git'
   git -C "$WT" checkout -q -b wip/140/avtor 2>/dev/null
   chmod 000 "$ST/zamok"
-  sobytie "$W/p13/ev.json" architect Arch140 'SUBJECT=140' "WORKTREE=$WT" 'BRANCH=wip/140/avtor' > /dev/null
+  sobytie "$W/p13/ev.json" architect Arch140 true 'SUBJECT=140' "WORKTREE=$WT" 'BRANCH=wip/140/avtor' > /dev/null
   kejs "$W/p13/c.json" p13 'block:сломан' "$W/p13/ev.json" "$(mir_sess "$ST")" "$RE"
   out="$(begi "$HUK" "$W/p13/c.json")" && proba p13-int-fail-closed ok || proba p13-int-fail-closed krasno "$(printf '%s' "$out" | grep '^GOT' | head -1)"
   chmod 755 "$ST/zamok"
@@ -409,6 +438,122 @@ begi() {  # <хук> <cases> → вывод драйвера
   fi
 }
 
+# ── p15 последний рабочий красит ВЕСЬ пакет; пустой учёт УЖЕ существует ──
+# Не заменять этим миром новый корень p17/p18: отсутствие файла — часть оракула.
+for ISO in false missing string number object; do
+  P="$W/p15-$ISO"
+  ST="$P/st"; RE="$P/repo"; WT="$P/wt140"; WT142="$P/wt142"
+  mkdir -p "$ST/zamok" "$(dirname "$(mir_sess "$ST")")" "$RE" "$WT" "$WT142"
+  : > "$ST/zamok/uchet.jsonl"
+  mir_github "$RE" 'ssh://git@github.com/a3ka/dev-harness.git'
+  mir_github "$WT" 'ssh://git@github.com/a3ka/dev-harness.git'
+  mir_github "$WT142" 'ssh://git@github.com/a3ka/dev-harness.git'
+  git -C "$WT" checkout -q -b wip/140/avtor 2>/dev/null
+  git -C "$WT142" checkout -q -b wip/142/avtor 2>/dev/null
+  sobytie "$P/good.json" architect Arch142 true 'SUBJECT=142' "WORKTREE=$WT142" 'BRANCH=wip/142/avtor' > /dev/null
+  sobytie "$P/bad.json" architect Arch140 "$ISO" 'SUBJECT=140' "WORKTREE=$WT" 'BRANCH=wip/140/avtor' > /dev/null
+  jq -s '{tasks:.}' "$P/good.json" "$P/bad.json" > "$P/ev.json"
+  kejs "$P/c0.json" "p15-$ISO" 'block:ОТКАЗ: NE_IZOLIROVAN: item 1:' "$P/ev.json" "$(mir_sess "$ST")" "$RE"
+  jq --arg root "$ST/zamok" '.[0].unchanged=$root' "$P/c0.json" > "$P/c.json"
+  out="$(begi "$HUK" "$P/c.json")" \
+    && proba "p15-int-rabochij-$ISO" ok \
+    || proba "p15-int-rabochij-$ISO" krasno "$out"
+done
+
+# ── p16 разрешённый смешанный пакет: свой факт у каждого item ────────────
+# Соседняя форма той же мутации: судью нельзя записать true по классу/соседу.
+for ISO in false string number object; do
+  P="$W/p16-$ISO"; ST="$P/st"; RE="$P/repo"; WT="$P/wt141"; WT142="$P/wt142"
+  mkdir -p "$ST/zamok" "$(dirname "$(mir_sess "$ST")")" "$RE" "$WT" "$WT142"
+  mir_github "$RE" 'ssh://git@github.com/a3ka/dev-harness.git'
+  mir_github "$WT" 'ssh://git@github.com/a3ka/dev-harness.git'
+  mir_github "$WT142" 'ssh://git@github.com/a3ka/dev-harness.git'
+  git -C "$WT" checkout -q -b wip/141/avtor 2>/dev/null
+  git -C "$WT142" checkout -q -b wip/142/avtor 2>/dev/null
+  mir_kontrakt "$WT" 141 обычный
+  SHA="$(git -C "$WT" rev-parse HEAD)"
+  mir_start "$ST" 141 Avtor141 rabochij architect harness "$SHA" "$WT" wip/141/avtor
+  mir_zhurnal "$ST" Avtor141 1 -
+  sobytie "$P/worker.json" architect Arch142 true 'SUBJECT=142' "WORKTREE=$WT142" 'BRANCH=wip/142/avtor' > /dev/null
+  sobytie "$P/judge.json" critic Critic141 "$ISO" 'SUBJECT=141' "OBJECT=$SHA" > /dev/null
+  jq -s '{tasks:.}' "$P/worker.json" "$P/judge.json" > "$P/ev.json"
+  kejs "$P/c.json" "p16-$ISO" pass "$P/ev.json" "$(mir_sess "$ST")" "$RE"
+  out="$(begi "$HUK" "$P/c.json")"; rc=$?
+  if [ "$rc" -eq 0 ] && jq -se '
+      [.[] | select(.t=="START") | {holder,subjectId,isolated}] ==
+      [{holder:"Avtor141",subjectId:"141",isolated:null},
+       {holder:"Arch142",subjectId:"142",isolated:true},
+       {holder:"Critic141",subjectId:"141",isolated:false}]' \
+      "$ST/zamok/uchet.jsonl" > /dev/null 2>&1 \
+      && [ -e "$ST/zamok/zamki/dev-harness/142/zanyat/holder.json" ] \
+      && [ -e "$ST/zamok/zamki/dev-harness/141/zanyat/holder.json" ]; then
+    proba "p16-int-smeshannyj-paket-$ISO" ok
+  else
+    proba "p16-int-smeshannyj-paket-$ISO" krasno "$out; START пакета обязан нести Arch142=true, Critic141=false и оба занятия"
+  fi
+done
+
+# ── p17/p18 новый корень; p19 ранее существующие учёт И занятие ──────────
+# snapshot() драйвера снимает имена и байты ДО хука. В p17/p18 zamok пуст,
+# ucheт НЕ создаётся построителем; p19 содержит чужой живой предмет.
+for WORLD in p17 p18 p19; do
+  for ISO in false missing string number object; do
+    P="$W/$WORLD-$ISO"; ST="$P/st"; RE="$P/repo"; WT="$P/wt140"; WT142="$P/wt142"
+    mkdir -p "$ST/zamok" "$(dirname "$(mir_sess "$ST")")" "$RE" "$WT" "$WT142"
+    mir_github "$RE" 'ssh://git@github.com/a3ka/dev-harness.git'
+    mir_github "$WT" 'ssh://git@github.com/a3ka/dev-harness.git'
+    mir_github "$WT142" 'ssh://git@github.com/a3ka/dev-harness.git'
+    git -C "$WT" checkout -q -b wip/140/avtor 2>/dev/null
+    git -C "$WT142" checkout -q -b wip/142/avtor 2>/dev/null
+    if [ "$WORLD" = p19 ]; then
+      mir_start "$ST" 143 Avtor143 rabochij architect harness - - -
+      mir_zhurnal "$ST" Avtor143 0 -
+    fi
+    sobytie "$P/bad.json" architect Arch140 "$ISO" 'SUBJECT=140' "WORKTREE=$WT" 'BRANCH=wip/140/avtor' > /dev/null
+    if [ "$WORLD" = p17 ]; then
+      cp "$P/bad.json" "$P/ev.json"
+      ITEM=0
+      NAME="p17-int-novyj-uchet-odin-$ISO"
+    else
+      sobytie "$P/good.json" architect Arch142 true 'SUBJECT=142' "WORKTREE=$WT142" 'BRANCH=wip/142/avtor' > /dev/null
+      jq -s '{tasks:.}' "$P/good.json" "$P/bad.json" > "$P/ev.json"
+      ITEM=1
+      if [ "$WORLD" = p18 ]; then
+        NAME="p18-int-novyj-uchet-paket-$ISO"
+      else
+        NAME="p19-int-sushchestvujushchij-uchet-$ISO"
+      fi
+    fi
+    kejs "$P/c0.json" "$NAME" "block:ОТКАЗ: NE_IZOLIROVAN: item $ITEM:" "$P/ev.json" "$(mir_sess "$ST")" "$RE"
+    jq --arg root "$ST/zamok" '.[0].unchanged=$root' "$P/c0.json" > "$P/c.json"
+    out="$(begi "$HUK" "$P/c.json")" \
+      && proba "$NAME" ok \
+      || proba "$NAME" krasno "$out"
+  done
+done
+
+# ── p20 первый честный спавн: отсутствие учёта не означает отказ всем ────
+{
+  P="$W/p20"; ST="$P/st"; RE="$P/repo"; WT="$P/wt140"
+  mkdir -p "$ST/zamok" "$(dirname "$(mir_sess "$ST")")" "$RE" "$WT"
+  mir_github "$RE" 'ssh://git@github.com/a3ka/dev-harness.git'
+  mir_github "$WT" 'ssh://git@github.com/a3ka/dev-harness.git'
+  git -C "$WT" checkout -q -b wip/140/avtor 2>/dev/null
+  sobytie "$P/ev.json" architect Arch140 true 'SUBJECT=140' "WORKTREE=$WT" 'BRANCH=wip/140/avtor' > /dev/null
+  kejs "$P/c.json" p20 pass "$P/ev.json" "$(mir_sess "$ST")" "$RE"
+  out="$(begi "$HUK" "$P/c.json")"; rc=$?
+  if [ "$rc" -eq 0 ] && jq -se '
+      [.[] | {t,holder,subjectId,klass,isolated}] ==
+      [{t:"START",holder:"Arch140",subjectId:"140",klass:"rabochij",isolated:true}]' \
+      "$ST/zamok/uchet.jsonl" > /dev/null 2>&1 \
+      && jq -e '.holder=="Arch140" and .klass=="rabochij" and .rol=="architect"' \
+        "$ST/zamok/zamki/dev-harness/140/zanyat/holder.json" > /dev/null 2>&1; then
+    proba p20-int-pervyj-rabochij-true ok
+  else
+    proba p20-int-pervyj-rabochij-true krasno "$out; ожидались собственный START isolated=true и занятие"
+  fi
+}
+
 # ── m01 обманная интеграция: блок вызова двери снят — симптом обязан быть виден ─
 # Мутация хука КОДОМ по якорям контракта (маркеры [ZAMOK140] начала/конца блока
 # вызова двери): блок вырезается. Приёмка обязана видеть симптом — судья до
@@ -436,7 +581,7 @@ begi() {  # <хук> <cases> → вывод драйвера
     mir_kontrakt "$RE" 140 обычный
     mir_start "$ST" 140 Arch140 rabochij architect harness "$SHA" "$WT" wip/140/avtor
     mir_zhurnal "$ST" Arch140 0 -
-    sobytie "$W/m01/ev.json" critic Critic140 'SUBJECT=140' "OBJECT=$SHA" > /dev/null
+    sobytie "$W/m01/ev.json" critic Critic140 missing 'SUBJECT=140' "OBJECT=$SHA" > /dev/null
     kejs "$W/m01/c.json" m01 'block:RABOCHIJ_ZHIV' "$W/m01/ev.json" "$(mir_sess "$ST")" "$RE"
     out="$(begi "$INST/.omp/extensions/spawn-guard.ts" "$W/m01/c.json")"; rc=$?
     # ожидание обманки: водитель ХУКА пропускает (fail) — симптом воспроизведён,
