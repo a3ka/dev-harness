@@ -13,8 +13,9 @@
 #   bash scripts/pre_judge.sh archive   --repo R
 #
 # Коды возврата:
-#   0 — преддверие готово. Машинный вывод — stdout (OBJECT=, SOSTOJANIE=, MAIN=,
-#        VERDICT_BRANCH=, ARCHIVE_WORKTREE=), диагностика — stderr.
+#   0 — преддверие готово. Машинный вывод — stdout (OBJECT=, RUNTIME_WORKTREE=,
+#        SOSTOJANIE=, MAIN=, VERDICT_BRANCH=, ARCHIVE_WORKTREE=), диагностика —
+#        stderr.
 #   1 — именованный отказ: ПЕРВАЯ строка stderr — «ОТКАЗ: <КОД>», следом —
 #        готовая команда или пояснение (никогда в той же строке).
 #   2 — нечем проверить (NOT_IMPLEMENTED): нет git/bash, нет репозитория, нет
@@ -26,6 +27,10 @@
 #   VETKA_NE_FIT_AUTORA   — --branch не вида wip/<NNN>/<автор>
 #   VETKA_NET_LOKALNO     — локальной ветки --branch в репозитории нет
 #   VETKA_NE_OPUBLIKOVANA — origin/B отсутствует либо tip разошёлся с локальным
+#   OBJECT_NE_KANONICHEN — носитель не сохраняет канонический OBJECT предмета:
+#                           общий resolver (scripts/zamok_predmeta.sh --object)
+#                           отверг tip (пустая дельта, неразрешённый вердиктный
+#                           хвост) либо runtime-checkout не создан
 #   SOSTOJANIE_V_CHECKOUT — состояние внутри основного чекаута
 #   SOSTOJANIE_NE_NAIDEN  — каталога состояния по --sostojanie нет
 #   MANIFESTY_NE_UBRANY   — манифесты .omp/context/*.tsv не убраны за --timeout
@@ -255,7 +260,50 @@ if [ "$MODE" = 'prepare' ]; then
     refuse CHECK_NO_LEAK_KRASEN "scripts/check_no_leak.sh --check $R вернул rc=$leak_rc"
   fi
 
-  printf 'OBJECT=%s\n' "$remote_tip"
+  # Канонический OBJECT носителя — общий resolver предмета (контракт 140,
+  # инвариант 5/5б): дверь scripts/zamok_predmeta.sh РЯДОМ с этим файлом
+  # (пин по расположению — тот же, что у детектора утечки). Тот же resolver
+  # у D9 (суд двери) и у проверяемой передачи: вердиктный хвост не сдвигает
+  # объект суда, пустой tip сдачи — отказ.
+  NNN="${BRANCH#wip/}"; NNN="${NNN%%/*}"
+  DOOR="$HARNESS_SCRIPTS/zamok_predmeta.sh"
+  [ -f "$DOOR" ] || skip "нет двери предмета: $DOOR"
+  obj_out="$(bash "$DOOR" --object --repo "$R" "$NNN" "$BRANCH" 2>&1)"; obj_rc=$?
+  case "$obj_rc" in
+    0) : ;;
+    1) refuse OBJECT_NE_KANONICHEN "resolver предмета отверг носитель: $obj_out" ;;
+    *) skip "resolver предмета не ответил (rc=$obj_rc): $obj_out" ;;
+  esac
+  CANON_OBJECT="$(printf '%s\n' "$obj_out" | sed -n '1p')"
+  printf '%s' "$CANON_OBJECT" | grep -Eq '^[0-9a-f]{40}$' \
+    || refuse OBJECT_NE_KANONICHEN "resolver вернул не 40-hex OBJECT: $CANON_OBJECT"
+
+  # Runtime-checkout канонического OBJECT: отдельный detached worktree
+  # (контракт 140, инвариант 5б). Ветка носителя и исходный START не
+  # сдвигаются, учёт не пишется; фактический cwd runtime-команд судьи —
+  # этот checkout, не tip носителя.
+  RUNTIME_ROOT="$S_CANON/runtime"
+  SAFE_BRANCH="$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9._-' '_')"
+  RT_DIR="$RUNTIME_ROOT/$NNN/$SAFE_BRANCH"
+  mkdir -p "$RUNTIME_ROOT/$NNN" 2>/dev/null \
+    || skip "каталог runtime не создать: $RUNTIME_ROOT/$NNN"
+  if [ -e "$RT_DIR" ]; then
+    # Прежний checkout этого предмета — не новый объект: снимаем ровно его.
+    git -C "$R" worktree remove --force "$RT_DIR" >/dev/null 2>&1 || rm -rf -- "$RT_DIR"
+    git -C "$R" worktree prune >/dev/null 2>&1 || true
+  fi
+  snap_out="$(bash "$DOOR" --snapshot --repo "$R" "$NNN" "$BRANCH" "$RT_DIR" 2>&1)"; snap_rc=$?
+  case "$snap_rc" in
+    0) : ;;
+    1) refuse OBJECT_NE_KANONICHEN "runtime-checkout OBJECT не создан: $snap_out" ;;
+    *) skip "runtime-checkout OBJECT не создан (rc=$snap_rc): $snap_out" ;;
+  esac
+  RUNTIME_WT="$(printf '%s\n' "$snap_out" | sed -n 's/^RUNTIME_WORKTREE=//p' | sed -n '1p')"
+  [ -n "$RUNTIME_WT" ] && [ -d "$RUNTIME_WT" ] \
+    || skip "runtime-checkout не подтверждён: $snap_out"
+
+  printf 'OBJECT=%s\n' "$CANON_OBJECT"
+  printf 'RUNTIME_WORKTREE=%s\n' "$RUNTIME_WT"
   printf 'SOSTOJANIE=%s\n' "$S_CANON"
   exit 0
 fi
