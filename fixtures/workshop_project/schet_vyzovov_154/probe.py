@@ -68,12 +68,14 @@ def ensure(result, label):
         raise RuntimeError(f'{label}: rc {result.returncode}: {result.stderr[-400:]}')
 
 
-def gcommit(repo, msg, date=DATA_NORMAL):
+def gcommit(repo, msg, date=DATA_NORMAL, role='battery'):
     r = subprocess.run(
-        ['git', '-C', str(repo), '-c', 'user.name=battery', '-c', 'user.email=b@t',
-         'commit', '-q', '-m', msg],
+        ['git', '-C', str(repo), '-c', 'user.name=' + role,
+         '-c', 'user.email=' + role + '@t', 'commit', '-q', '-m', msg],
         capture_output=True, text=True, timeout=180,
         env={**os.environ, 'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_SYSTEM': '/dev/null',
+             'GIT_AUTHOR_NAME': role, 'GIT_AUTHOR_EMAIL': role + '@t',
+             'GIT_COMMITTER_NAME': role, 'GIT_COMMITTER_EMAIL': role + '@t',
              'GIT_AUTHOR_DATE': date, 'GIT_COMMITTER_DATE': date})
     if r.returncode:
         raise RuntimeError(f'commit {msg}: rc {r.returncode}: {r.stderr[-300:]}')
@@ -332,7 +334,7 @@ def add_receipts(repo, rows, decorate=False):
 def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phase='spawn',
           label='', foreign='', arb_ledger=0, sanktsii=(), history='', seed=None,
           novelty='new', objects='unique', live='', subject='', drugoj_repoid=False,
-          arb_first='', used_sources=(), boundary_trace=''):
+          arb_first='', used_sources=(), boundary_trace='', verdict_tail=True):
     # Ось Б8: судимый номер предмета и ключ репозитория мира — параметры мира,
     # не константы батареи: порог обязан не зависеть ни от того, ни от другого.
     sv = subject or NNN
@@ -366,27 +368,34 @@ def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phas
         if r.returncode:
             raise RuntimeError('boundary commit: rc %d: %s' % (r.returncode, r.stderr[-200:]))
         granica = cmd(['git', '-C', str(repo), 'rev-parse', 'HEAD']).stdout.strip()
+    # Ordinary code roots are distinct from the critic-only history, including
+    # the old-subject world's otherwise empty boundary commit.
+    (repo / 'candidate.py').write_text('revision = 1\n')
+    ensure(cmd(['git', '-C', str(repo), 'add', 'candidate.py']), 'add historical code')
+    gcommit(repo, 'historical code OBJECT')
+    history_object = cmd(['git', '-C', str(repo), 'rev-parse', 'HEAD']).stdout.strip()
     vdate = DATA_DO_ZHURNALA if history == 'do-zhurnala' else DATA_NORMAL
     for i, outcome in enumerate(outcomes):
         if outcome != 'aborted':
-            verdict.write_text(f'{outcome}\nsession={i}\n')
+            verdict.write_text(f'{outcome}\nOBJECT={history_object}\nsession={i}\n')
             ensure(cmd(['git', '-C', str(repo), 'add', '-A']), 'add verdict')
-            gcommit(repo, f'verdict {i}', vdate)
+            gcommit(repo, f'verdict {i}', vdate, role='critic')
     if not outcomes and phase == 'freeze':
-        verdict.write_text('accept\norphan without START\n')
+        verdict.write_text(f'accept\nOBJECT={history_object}\norphan without START\n')
     if source == 'orphan-verdict':
-        verdict.write_text('FAIL\norphan verdict without START\n')
+        verdict.write_text(f'FAIL\nOBJECT={history_object}\norphan verdict without START\n')
     if label in ('renamed-object', 'verdict-vplus') or (
         label.startswith('domain-spawn-') and name_variant and verdict.exists()
     ):
         dest = verdict.with_name(f'contracts-{sv}-v1b-fail.md' if label != 'verdict-vplus'
                                  else f'contracts-{sv}-v2.md')
         verdict.rename(dest)
+        verdict = dest
     if label.startswith('domain-freeze-') and name_variant and len(outcomes) > 1:
         # A historical earlier verdict is republished under another filename;
         # the latest accept remains the freeze target for the honest script.
         older = verdict.with_name(f'contracts-{sv}-v1b-fail.md')
-        older.write_text(f'{outcomes[-2]}\nrenamed historical verdict\n')
+        older.write_text(f'{outcomes[-2]}\nOBJECT={history_object}\nrenamed historical verdict\n')
     if label == 'verdict-copy':
         extra = repo / 'copied'
         extra.mkdir()
@@ -399,7 +408,7 @@ def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phas
         (a / f'contracts-{sv}-arbitraz.md').write_text(first + f' (контракт {sv})\n')
     ensure(cmd(['git', '-C', str(repo), 'add', '-A']), 'add scenario')
     if cmd(['git', '-C', str(repo), 'diff', '--cached', '--quiet']).returncode:
-        gcommit(repo, 'scenario')
+        gcommit(repo, 'scenario', vdate, role='critic')
     s = base / 'state'
     j = base / 'journals'
     s.mkdir(); j.mkdir()
@@ -407,7 +416,12 @@ def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phas
     wt = base / 'worker'
     ensure(cmd(['git', 'clone', '-q', str(repo), str(wt)]), 'worker clone')
     ensure(cmd(['git', '-C', str(wt), 'checkout', '-q', '-b', f'wip/{sv}/architect']), 'branch')
-    tip = cmd(['git', '-C', str(wt), 'rev-parse', 'HEAD']).stdout.strip()
+    # This is the same owner, not a transferred product: a local clone URL must
+    # not accidentally select D42's external-product risk repository.
+    origin = cmd(['git', '-C', str(repo), 'remote', 'get-url', 'origin'])
+    ensure(origin, 'owner origin')
+    ensure(cmd(['git', '-C', str(wt), 'remote', 'set-url', 'origin', origin.stdout.strip()]),
+           'canonical worker origin')
     (j / 'Worker154.jsonl').write_text('{"toolName":"yield"}\n')
     if live:
         # Живая граница — снимок (Н4/С7): pack несёт два реальных commit-объекта
@@ -445,7 +459,7 @@ def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phas
         if boundary_trace == 'registry':
             registry = repo / 'registry' / 'contracts.tsv'
             registry.parent.mkdir(exist_ok=True)
-            registry.write_text(f'{sv} → {tip}\n')
+            registry.write_text(f'{sv} → {history_object}\n')
             ensure(cmd(['git', '-C', str(repo), 'add', '-A']), 'add registry trace')
             gcommit(repo, 'first registry trace without boundary')
         elif boundary_trace == 'empty':
@@ -455,9 +469,27 @@ def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phas
                         '-m', 'not a delivered boundary']), 'untrusted empty commit')
         else:
             raise RuntimeError('unknown boundary trace: ' + boundary_trace)
+    if phase == 'spawn':
+        # D42 reads the owner's committed annotated-tag pin, not the candidate.
+        # Freeze worlds deliberately have no such tag: their first freeze is v1.
+        tag = f'frozen/contracts/{sv}/1'
+        ensure(cmd(['git', '-C', str(repo), '-c', 'tag.gpgsign=false',
+                    'tag', '-a', tag, '-m', 'fixture frozen owner']), 'pin frozen owner')
+        pin = cmd(['git', '-C', str(repo), 'rev-parse', 'refs/tags/' + tag]).stdout.strip()
+        registry = repo / 'registry' / 'contracts.tsv'
+        registry.parent.mkdir(exist_ok=True)
+        rows = registry.read_text().splitlines() if registry.exists() else []
+        rows = [row for row in rows if not row.startswith(sv + ' → ')]
+        registry.write_text('\n'.join(rows + [f'{sv} → {pin}']) + '\n')
+        ensure(cmd(['git', '-C', str(repo), 'add', 'registry/contracts.tsv']), 'add frozen pin')
+        gcommit(repo, 'committed frozen owner pin')
+    (wt / 'candidate.py').write_text('revision = 2\n')
+    ensure(cmd(['git', '-C', str(wt), 'add', 'candidate.py']), 'add current code')
+    gcommit(wt, 'current code OBJECT')
+    tip = cmd(['git', '-C', str(wt), 'rev-parse', 'HEAD']).stdout.strip()
     rows = [dict(t='START', repoId=rid, subjectId=sv, group='harness',
                  holder='Worker154', klass='rabochij', rol='architect',
-                 object='-', worktree=str(wt), branch=f'wip/{sv}/architect',
+                 object=tip, worktree=str(wt), branch=f'wip/{sv}/architect',
                  at=AT_ZHURNAL)]
     # Арбитраж о конечной границе и адресные санкции — строки ТОГО ЖЕ журнала
     # (единственный источник истины; журнал только дописывается).
@@ -543,6 +575,19 @@ def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phas
                              istochnik=istochnik, at=AT_ZHURNAL))
     before_receipts = cmd(['git', '-C', str(repo), 'rev-parse', 'HEAD']).stdout.strip()
     add_receipts(repo, rows, source == 'receipt-substring')
+    # Receipts belong to the owner, not to the worker's candidate line: a grant
+    # can name its code OBJECT without a self-referential receipt commit hash.
+    # Capture the unchanged code root after those commits, then append only a
+    # role-authored verdict; D9 must resolve the tail back to this exact OBJECT.
+    tip = cmd(['git', '-C', str(wt), 'rev-parse', 'HEAD']).stdout.strip()
+    if verdict_tail and verdict.exists():
+        worker_verdict = wt / verdict.relative_to(repo)
+        body = [line for line in worker_verdict.read_text().splitlines()
+                if not line.startswith('OBJECT=')]
+        body.insert(1, 'OBJECT=' + tip)
+        worker_verdict.write_text('\n'.join(body) + '\n')
+        ensure(cmd(['git', '-C', str(wt), 'add', str(worker_verdict)]), 'add worker verdict')
+        gcommit(wt, 'verdict-only candidate tail', vdate, role='critic')
     if source in ('receipt-missing', 'receipt-uncommitted'):
         for r in rows:
             if r.get('t') == 'SANKTSIYA' and r.get('nomer', 0) >= 4:
@@ -661,10 +706,15 @@ def scenario(name, n, phase, outcome='FAIL', arb_file=False, rename=False,
             pattern = ['FAIL' if i % 2 == 0 else 'accept' for i in range(n)]
         if pattern and phase == 'freeze':
             pattern[-1] = 'accept'
+        # The pinned pre-v5 reference CLI compares the raw branch tip. Only
+        # a CLI with the real transparent-tail resolver can consume that tail;
+        # the budget inputs and oracle stay identical in both environments.
+        verdict_tail = (mode != 'model' and 'object_kandidata() {' in
+                        (ROOT / 'scripts/zamok_predmeta.sh').read_text())
         repo, state, journals, event, ledger, granica = world(
             base, n, pattern, arb_file, rename, source, phase, name,
             foreign, arb_ledger, sanktsii, history, seed, novelty, objects, live,
-            subject, drugoj_repoid, arb_first, used_sources, boundary_trace)
+            subject, drugoj_repoid, arb_first, used_sources, boundary_trace, verdict_tail)
         scripts = prepare_scripts(base, mode, mutation, granica or '')
         if refreeze:
             # A real lawful v1 creates the registry trace; v2 must not inherit
@@ -682,9 +732,13 @@ def scenario(name, n, phase, outcome='FAIL', arb_file=False, rename=False,
                 return f'{name}: lawful v1 did not create registry trace'
             contract = repo / 'contracts' / (sv + '-x.md')
             contract.write_text(contract.read_text() + '\nv2 delta\n')
-            (repo / 'verdicts/critic' / f'contracts-{sv}-v2.md').write_text('accept\nv2\n')
-            ensure(cmd(['git', '-C', str(repo), 'add', '-A']), 'add v2')
+            ensure(cmd(['git', '-C', str(repo), 'add', str(contract)]), 'add v2 code')
             gcommit(repo, 'v2 after lawful first freeze')
+            v2_object = cmd(['git', '-C', str(repo), 'rev-parse', 'HEAD']).stdout.strip()
+            (repo / 'verdicts/critic' / f'contracts-{sv}-v2.md').write_text(
+                f'accept\nOBJECT={v2_object}\nv2\n')
+            ensure(cmd(['git', '-C', str(repo), 'add', '-A']), 'add v2 verdict')
+            gcommit(repo, 'v2 verdict-only tail', role='critic')
             ledger.write_bytes(full_ledger)
         before = ledger.read_bytes() if ledger.exists() and source != 'unreadable' else None
         tag_before = (cmd(['git', '-C', str(repo), 'tag', '-l', f'frozen/contracts/{sv}/*'])

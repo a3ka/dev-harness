@@ -94,3 +94,51 @@ check_contract_frozen rc 1 из-за lightweight frozen-тегов изолир�
 Это не зелёный общий frozen-гейт и не основание менять теги или тексты.
 
 
+## Конформные toy-миры двери 140 v5
+
+База реализации — `11137c50a4f610f9306a5febf7074d7b67475065`.
+Изменён только `probe.py` и этот лист; контракт, production, оракул и
+списки предъявлений не менялись. Переиспользованы `world`, `gcommit`,
+`add_receipts` и существующий канон annotated frozen/pin семьи 140.
+
+Исторические verdict-коммиты имеют кодовый предок, одну строку OBJECT,
+author=committer critic и прежние author-date. Рабочий кандидат получает
+отдельную непустую кодовую правку; его START, санкции текущей позиции и
+задание судьи называют этот кодовый OBJECT, не SHA verdict-коммита.
+Receipt-коммиты остаются в репозитории владельца, вне линии кандидата:
+нет самоссылочного SHA и нет замены исторических START новым OBJECT.
+После receipts кодовый корень кандидата снимается заново; для двери с
+`object_kandidata` добавляется обычный critic-only хвост с тем же OBJECT.
+Закреплённый до-v5 модельный CLI сравнивает сырой tip и получает кодовый
+кандидат без этого хвоста; бюджетные входы и ожидания от этого не меняются.
+
+Spawn-миры несут настоящий annotated frozen, ref и закоммиченный pin
+TAG-объекта с risk в закреплённом дереве. Canonical origin рабочего клона
+совпадает с владельцем: локальный адрес клонирования не превращает
+станционный мир в переданный продукт. Freeze-миры не получают подаренной
+v1; законная первая заморозка и отказ refreeze-v2 сохраняют прежний смысл.
+В refreeze кодовая v2 и её critic-only verdict разделены.
+
+Все команды ниже выполнялись с `TMPDIR=/tmp/dev-harness-verify/arch154w-2786069`
+и `PYTHONDONTWRITEBYTECODE=1`; `W` определён приёмкой контракта.
+
+| Команда | rc | Сырой итог |
+|---|---|---|
+| W --repo | 0 | CELLS=93 GREEN=93 |
+| W --domain | 0 | CELLS=219 GREEN=219 |
+| W --live | 0 | CELLS=15 GREEN=15 |
+| W --model | 0 | CELLS=96 GREEN=96 |
+| W --domain-model | 0 | CELLS=223 GREEN=223 |
+| W --grammar | 0 | GRAMMAR=1000 CELLS=2000 GREEN=2000 |
+| W --stabs | 0 | SVJAZI=51 CAUGHT=51 LIVE=0 |
+| python3 fixtures/workshop_project/schet_vyzovov_154/installed_control.py | 0 | INSTALLED_CONTROL repo/domain/live/grammar rc=0; 93/93, 219/219, 15/15, 2000/2000 |
+| W --family140 | 0 | FAMILY140_BASE=76006c7c84306cdc1fd4da50e7eddd2aa426180e rc=0 red=; FAMILY140_CANDIDATE rc=0 red=; GREEN family140-baseline |
+| bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --stabs | 0 | MODEL_KLETKI 172 KRASNYH 0; SVJAZI 159; MODEL_ZHIVYH 0; SUBJEKT_SVJAZI 159 |
+
+Различимость соседних дверей проверена существующей матрицей 140 над
+настоящим production: `s08-bez-object-sverki` на `s03-object-rashoditsja`,
+`s66-verdikt-bez-binding` на `q14-chuzhoj-object-v-seredine` и
+`s75-stancija-bez-frozen-ref` на `q31-stancija-frozen-net` дали
+`SUBJEKT STAB … KRASEN`; честные пары зелёные. Бюджетные регрессы по-прежнему
+ловит неизменённая матрица 154. Никакая соседняя дверь ради toy не ослаблена.
+
