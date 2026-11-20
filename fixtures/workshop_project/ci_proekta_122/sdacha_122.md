@@ -4,6 +4,8 @@
 
 Предыдущий FAIL: Crit122V6c, OBJECT 2de882ec83367a742b4d0769dc0aef10a7a5a754; материализован на 13610cb0a4, родитель 2de882ec83. Исправительный вход: `/tmp/dev-harness-verify/task-122-architect-v6fix3.md`. Арбитраж `verdicts/arbitration/122-granica-svyazi-predmeta-s-proektom.md` прочитан целиком и не пересматривается. Один класс: распознавание только корректного разделителя превращало повреждённое объявление в отсутствие. Production-скрипты, схема identity, Г1–Г3/v5/205 и остаточная граница не меняются.
 
+После реализации `f284fc8f07ad4e2e0c39a3a58edfe3d654bb78ad` машинные строки дверей описывают реализованное дерево: `--repo .` дал rc 0, 74/74/0 и ROOTS122 TOTAL=43 GREEN=43 RED=0. Поэтому обе repo-двери переведены из honest-red в production с ожидаемым rc 0. Прежние замеры 37/22, ограничения среды и статус реализации в разделах ниже — история предыдущей сдачи, не результаты этого кандидата; контракт и его критерии не меняются.
+
 ## Двери
 
 - pre_critic · bash scripts/pre_critic.sh --repo . contracts/122-ci-proekta.md · 0 · 0
@@ -13,9 +15,9 @@
 - threat-model · bash scripts/check_threat_model.sh . contracts/122-ci-proekta.md · 0 · 0
 - батарея model · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model · 0 · 0
 - батарея stabs v6 · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --stabs · 0 · 0
-- батарея repo honest-red · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --repo . · 1 · 1
+- батарея repo production · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --repo . · 0 · 0
 - корни model · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model --cell r12 · 0 · 0
-- корни repo honest-red · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --repo . --cell r12 · 1 · 1
+- корни repo production · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --repo . --cell r12 · 0 · 0
 - маркеры model · bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model --cell r13 · 0 · 0
 
 ## Карта классов
