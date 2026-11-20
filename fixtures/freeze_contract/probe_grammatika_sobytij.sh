@@ -35,14 +35,25 @@ trap 'rm -rf "$W"' EXIT
 fails=0
 base_repo() {  # <каталог> — основание БЕЗ вердиктов: таймлайн глоба чист
   local r="$1"
-  mkdir -p "$r/contracts" "$r/verdicts/critic" "$r/tmp"
+  # [043] Сверка CI-паритета на заморозке ВАКУУМНА: toy-дерево без .github/,
+  # package.json и списка исключений получает от гейта rc=2 «нечего проверить»,
+  # который freeze_contract.sh трактует fail-closed (036 §Freeze) — ветвь краснела
+  # бы отсутствием окружения, а не счётом кругов. Те же три записи даёт каркас
+  # make_repo.
+  mkdir -p "$r/contracts" "$r/verdicts/critic" "$r/tmp" "$r/.github/workflows" "$r/config"
   printf 'предмет, критерий готовности, РАБОТА НЕ РАЗДАЁТСЯ: кодификация\n' > "$r/contracts/001-x.md"
+  printf 'name: ci\non: push\njobs: {}\n' > "$r/.github/workflows/ci.yml"
+  printf '{"scripts": {}}\n' > "$r/package.json"
+  : > "$r/config/ci_parity_exceptions.txt"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name Фикстура
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email fixture@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   commit_all "$r" 'основание'
+  # [154] Старый предмет (след заморозки СТАРШЕ границы): прежний §6в — счёт
+  # кругов по сменам первой строки — действует дословно.
+  old_subject "$r" 001
 }
 sud() {  # <корень> <причина> — вызов заморозки; код и вывод в RC/OUT
   set +e

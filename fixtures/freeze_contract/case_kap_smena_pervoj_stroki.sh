@@ -33,6 +33,9 @@ set -euo pipefail
 
 RA="$WORK/repo-kontrol"
 make_repo "$RA"
+# [154] Старый предмет (след заморозки СТАРШЕ границы): прежний §6в — счёт
+# кругов по сменам первой строки — действует дословно.
+old_subject "$RA" 001
 "$BARRIER" contracts/001-x.md "контроль: один круг, один вердикт" "$RA"
 
 RB="$WORK/repo-shum"
@@ -49,6 +52,8 @@ GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$RB" config user
 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$RB" config commit.gpgsign false
 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$RB" config core.hooksPath /dev/null
 commit_all "$RB" 'основание'
+# [154] Старый предмет (след заморозки СТАРШЕ границы): прежний §6в дословно.
+old_subject "$RB" 001
 g "$RB" tag -a frozen/contracts/001/1 -m 'v1 утверждена до истории вердиктов'
 
 put_verdict "$RB" 2 FAIL

@@ -19,7 +19,7 @@ G="$WORK/green"; make_repo "$G"
 write_contract_ "$G" '- `bash ok.sh` → красная: ПРИЧИНА_Г5Б'
 printf 'echo ПРИЧИНА_Г5Б >&2\nexit 1\n' > "$G/ok.sh"
 g "$G" add -A && g "$G" commit -q -m 'проба'
-"$BARRIER" contracts/001-x.md "заморозка честного черновика" "$G"
+"$BARRIER" contracts/001-x.md "заморозка честного черновика" "$G" "$(state154 "$G" 001 1)"
 
 # Красное: env-красная проба при заявленной фразе (выход 2, посторонний вывод).
 R="$WORK/red_draft"; make_repo "$R"
