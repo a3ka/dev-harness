@@ -6,7 +6,11 @@
 #
 # Судит ТОЛЬКО форму и согласованность: грамматику листа, существование и
 # прогон команд (бюджет), равенство заявленных и фактических rc, покрытие
-# дельтой блоков предыдущего ЗАКОММИЧЕННОГО вердикта. Смысл («доказательство
+# дельтой блоков предыдущего ЗАКОММИЧЕННОГО вердикта. Карта вердикта раскрывается
+# единой библиотекой (И5/И7): ссылка «без изменений с вызова N» наследует статус
+# ТОГО ЖЕ класса вызова N (исторический OBJECT остаётся записью, а не ревизией
+# чтения); кроме предъявленной карты покрытием судится последний FAIL той же
+# темы и роли critic — старый accept его не скрывает. Смысл («доказательство
 # доказывает») судит критик — дверь смысла не разбирает.
 #
 # Коды возврата:
@@ -255,7 +259,10 @@ if [ -n "$PRED_VERDIKT" ]; then
     # shellcheck disable=SC1091
     [ -r "$SELF_DIR/lib_karta_sdachi.sh" ] || ni 'нет lib_karta_sdachi.sh рядом с дверью'
     . "$SELF_DIR/lib_karta_sdachi.sh"
-    spisok="$(karta_proverit "$telo")" || otkaz "предыдущий вердикт: $spisok"
+    spisok="$(karta_proverit "$telo" "$ROOT" "$PRED_VERDIKT")" || otkaz "предыдущий вердикт: $spisok"
+    poslednij="$(karta_poslednij_fail "$ROOT" "$PRED_VERDIKT" "$telo")" \
+        || otkaz "последний FAIL: $poslednij"
+    spisok="$spisok"$'\n'"$poslednij"
     while IFS=$'\t' read -r klass status; do
         [ -n "$klass" ] || continue
         [ "$status" = 'блок' ] || continue
