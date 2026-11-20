@@ -45,12 +45,12 @@ frozen и pin владельца, старый файл без декларац�
 TMPDIR=/tmp/dev-harness-verify, PYTHONDONTWRITEBYTECODE=1; каждый Git-мир имеет
 свою .git. Delivery WORKTREE не используется для записи; push не выполняется.
 
-Собственный red-до на точной БАЗЕ: OWNER140_FAILURES 8, rc 1. После исправления:
-W --model rc 0, MODEL_KLETKI 172 KRASNYH 0; W --owner-check rc 0,
-OWNER140_FAILURES 0. W --stabs rc 1: MODEL_KLETKI 172 KRASNYH 0,
-SVJAZI 159, MODEL_ZHIVYH 0; красен только поставленный субъект,
-SUBJEKT_KRASNO: 72. Это ожидаемая предметная краснота до реализации,
-не NOT_IMPLEMENTED/ORACLE_TAMPERED.
+Собственный red-до на точной БАЗЕ: OWNER140_FAILURES 8, rc 1. После реализации
+на ae5dbf6b8137f8c1b8c192611a6fc710613cbfce: W --model rc 0,
+MODEL_KLETKI 172 KRASNYH 0; W --owner-check rc 0, OWNER140_FAILURES 0.
+W --stabs rc 0, MODEL_ZHIVYH 0; безфлаговый W rc 0, KRASNYH 0.
+Прежняя предметная краснота production до реализации — исторический замер,
+не ожидаемый результат текущего кандидата.
 
 jq по source.json: cases=172, mutants=82, bindings=159, carriers=87,
 legacy_cases=10. Независимый обход исполняемой батареи — MODEL_KLETKI 172;
@@ -63,8 +63,8 @@ Rc в рядах ниже проверяет фактический check_sdacha
 - Owner-before — legacy-дефект точной базы · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --owner-before · 1 · 1
 - Owner-check — продукт, станция и адресные мутации · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --owner-check · 0 · 0
 - W-model — все прежние и новые клетки · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --model · 0 · 0
-- W-stabs — адресная матрица и production до реализации · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --stabs · 1 · 1
-- W-production — настоящая дверь до реализации · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh · 1 · 1
+- W-stabs — адресная матрица и production после реализации · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --stabs · 0 · 0
+- W-production — настоящая дверь после реализации · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh · 0 · 0
 - W-sintaksis — все носители · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --sintaksis · 0 · 0
 - Precision · bash scripts/check_precision_gate.sh . contracts/140-odin-agent-na-predmet.md · 0 · 0
 - Spec-ready · bash scripts/check_spec_ready.sh . contracts/140-odin-agent-na-predmet.md · 0 · 0
@@ -82,8 +82,8 @@ Rc в рядах ниже проверяет фактический check_sdacha
 - К-03 · чисто · вход: frozen-текст, production и прежние инварианты 104/167/197/199 неизменны; прежние клетки входят в W-model · - · -
 - К-04 · чисто · вход: модель, миры, лист и производные носители только в fixtures/workshop_project/odin_agent_140/ architect-зоны · - · -
 - К-05 · чисто · вход: каждая дверь несёт команду и rc, соответствующие прежней приёмке 140 · - · -
-- К-06 · чисто · вход: ожидаемый rc 1 W-stabs только от слоя production; MODEL_ZHIVYH 0, не rc 2 ошибки среды/оракула · - · -
-- К-07 · чисто · вход: честная модель проходит W-model, реальная production остаётся красной до реализации; станция не выдается за проверенную · - · -
+- К-06 · чисто · вход: после реализации ожидаемый rc 0 W-stabs, MODEL_ZHIVYH 0; rc 1 предметной красноты и rc 2 ошибки среды/оракула не считаются успехом · - · -
+- К-07 · чисто · вход: честная модель проходит W-model, реальная production после реализации проходит W-production и W-stabs; станция не выдается за проверенную · - · -
 - К-08 · чисто · вход: полный W-stabs; подмена обоих legacy-корней и отдельные подмены проверки/чтения красны адресными входами · - · -
 - К-09 · чисто · вход: legacy-продукт прямой/переданный, обе полярности, отсутствующая и конфликтующая станция, отсутствующая привязка владельца; отдельный станционный контроль обеих полярностей · - · -
 - К-10 · чисто · вход: реальный --sudit/--peredat в независимых .git; сверяются rc/причина, START, proof и неизменность состояния при отказе · - · -
@@ -114,6 +114,10 @@ fail-closed и станционный legacy. Обратная подмена wt
 эквиваленты (реестр владельца при отсутствующей/посторонней станционной
 привязке и прежняя станционная привязка) зелены теми же командами.
 Новых дверей и обязательств сверх блока нет.
+
+После реализации заявленные rc W-stabs и W-production приведены к 0
+по приёмке 3 контракта; пояснения К-06/К-07 отражают то же состояние.
+Команды, классы, численность машинных секций и прежняя дельта неизменны.
 
 ## Границы и процессная рефлексия
 
