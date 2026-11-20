@@ -163,21 +163,21 @@ origin = `ssh://git@github.com/a3ka/dev-harness.git`.
 
 Доказательство байтов субъекта ДО единственного запуска:
 
-- `HEAD:scripts` и `042c48cd2dab054654596dcf93f19f0907edcc6f:scripts`
+• `HEAD:scripts` и `042c48cd2dab054654596dcf93f19f0907edcc6f:scripts`
   в TEST → один tree `ff08f98b97a7069fac4c7d8ac7de39c24d7d2914`;
   `git diff --exit-code 042c48cd2dab054654596dcf93f19f0907edcc6f -- scripts`
   → rc 0, вывод пустой. Совпадает вся директория scripts, не только
   два файла предполагаемого шва.
-- `scripts/zamok_predmeta.sh` → blob
+• `scripts/zamok_predmeta.sh` → blob
   `cc88f40037f3f7e907e1a28e7a289ab0014b0e48`;
   `scripts/freeze_contract.sh` → blob
   `8d79c4cbf7008178da058ec267c7c0485ee16cc3`.
-- `HEAD:fixtures/workshop_project/architecture_process_187` в TEST и
+• `HEAD:fixtures/workshop_project/architecture_process_187` в TEST и
   тот же путь принятого 434ec554 → tree
   `cdd855f6e9ceb0eb708025e48fc3b99bfd5b53de`;
   `workflow_probe.py` → принятый blob
   `e125189047681bd53033f8718b28e0a7368f4881`.
-- Разница собранного snapshot с seed — только лист sdacha_187.md
+• Разница собранного snapshot с seed — только лист sdacha_187.md
   (17 строк diff, 13 добавленных и 4 удалённых); код дверей и батареи
   не исправлялся. Перед и после прогона
   `git diff --exit-code HEAD -- scripts fixtures/workshop_project/architecture_process_187`
@@ -256,8 +256,8 @@ ARCH_* ожидания, отрицательные клетки и привяз
 Исторический зелёный seed выше не является проверкой этой дельты.
 Приёмка ведущей сессией на собранном кандидате с реализацией 154:
 
-- `bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo .`
-- `bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --model`
-- `bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --stabs`
-- `bash scripts/check_sdacha.sh . contracts/187-arhitektura-v-processe.md --run`
+• `bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo .`
+• `bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --model`
+• `bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --stabs`
+• `bash scripts/check_sdacha.sh . contracts/187-arhitektura-v-processe.md --run`
 
