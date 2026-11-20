@@ -54,6 +54,7 @@ import tempfile
 import time
 from pathlib import Path
 from types import SimpleNamespace
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import produkt_140
 import object_140
 
@@ -140,7 +141,9 @@ class Mir:
     def done(self, nnn):
         self.git(['tag', 'done/contracts/%s/1' % nnn])
 
-    def worktree(self, nnn, remote=HARNESS_REMOTE, kontrakty=None):
+    def worktree(self, nnn, remote=None, kontrakty=None):
+        if remote is None:
+            remote = self.git(['remote', 'get-url', 'origin']).stdout.strip() or HARNESS_REMOTE
         # v+1 (класс из дерева OBJECT, слово владельца 2026-11-12): kontrakty —
         # записи [(вид, имя, данные)] вида 'fajl' (данные — текст), 'symlink'
         # (данные — цель), 'dir'; коммитятся в contracts/ КАНДИДАТА до снятия
