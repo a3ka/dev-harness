@@ -1198,12 +1198,17 @@ while IFS=$'\t' read -r nnn since; do
         # Пятая пара 6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca / registry/contracts.tsv —
         # гонка двух tag-object frozen/contracts/991/2 за 7 с (forks/n991-v2-retag-6b3ab628.md),
         # слово владельца 2026-10-18; принятие риска только этой пары.
+        # Пары fd81f057a709e1a7751bda285022fbd522c6f747 и 6dbee81755ac83f6d79fa649613a1e664bfae801 /
+        # registry/contracts.tsv — опубликованные REPLACE 140 a0abca82→42f063a6 (v2→v5) и 193 6a61b981→f33c5f91
+        # (v1→v3), автор orchestrator; разрешены словом владельца 2026-11-19 «реестр 140 и 193 да» (догон
+        # реестра; дверь 031 в check_staged.sh — owner #1148). Принятие риска только этих двух пар, в т.ч.
+        # при импорте main вторым родителем PR-ветки; прочие SHA/пути/авторы/проверки неизменны.
         case "$c" in
           78bae300867ffce3cfce0ae20768fd8658e97e5a|8ce382ae8260cdc18e9dae9b736070b4ed19df56|7f54f1f60bea573487da5ba2f2eb0603a05b1df3)
             skip_path=1
             continue
             ;;
-          8f1c25f011921721934d870914f562f9f3ff815c|8c734d93b91fb3ff38528d6591d519a5145de325|6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca|eb5df0064ac94551cc361e466e991f8099c0fcca|c663dd0fb0b233e56368707aef6940baaf254a30|56f62ed687a6acde05d2e1af76cf6a2ac489a45e|80ea54402c91c9f4ac6791fc10f09371623a5b70|bcd5b796a1e9328ba9440b358ea1f7e0068d8fec)
+          8f1c25f011921721934d870914f562f9f3ff815c|8c734d93b91fb3ff38528d6591d519a5145de325|6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca|eb5df0064ac94551cc361e466e991f8099c0fcca|c663dd0fb0b233e56368707aef6940baaf254a30|56f62ed687a6acde05d2e1af76cf6a2ac489a45e|80ea54402c91c9f4ac6791fc10f09371623a5b70|bcd5b796a1e9328ba9440b358ea1f7e0068d8fec|fd81f057a709e1a7751bda285022fbd522c6f747|6dbee81755ac83f6d79fa649613a1e664bfae801)
             skip_path=1
             continue
             ;;
