@@ -36,6 +36,15 @@
 // возврата: rc 0 — пропуск, rc 1 — именованный отказ двери (первая строка
 // stderr), rc 2 — «страж замка сломан» (fail-closed).
 //
+// ИЗОЛЯЦИЯ РАБОЧЕГО (контракт 199, инвариант 1) — слой нормализации item:
+// событие двери несёт items {agent, name, task, isolated}; флаг изоляции
+// берётся ИЗ ПОЛЯ item (omp task wire schema), НЕ из текста задания, и
+// нормализуется в булево (`=== true`; всё прочее — false, fail-closed).
+// Расширение не решает, изолирован ли рабочий, — оно лишь доносит факт до
+// двери, которая отказывает рабочему без реального isolated:true
+// (NE_IZOLIROVAN, до START и любых записей). Требование на судей НЕ
+// распространяется.
+//
 // КОРНИ состояний — из ЖИВОГО контекста сессии omp (ctx.sessionManager.
 // getSessionFile(), прецедент wait-guard.ts): корень журналов — каталог
 // agent/sessions над файлом сессии; корень состояний (формула 028) — префикс
@@ -167,10 +176,16 @@ function stateRoots(sessionFile: string): Roots | null {
   return null;
 }
 
-// Событие двери — items {agent, name, task}; та же нормализация 104 (batch
-// разворачивается в список, flat — один элемент). Значения задания в дверь
-// попадают байт-в-байт: дверь разбирает их своими замкнутыми алфавитами.
-type TaskItem = { agent: string; name: string; task: string };
+// Событие двери — items {agent, name, task, isolated}; та же нормализация 104
+// (batch разворачивается в список, flat — один элемент). Значения задания в
+// дверь попадают байт-в-байт: дверь разбирает их своими замкнутыми алфавитами.
+//
+// ИНВАРИАНТ 199: нормализация item ОБЯЗАНА проносить РЕАЛЬНЫЙ флаг изоляции
+// в событие двери — из ПОЛЯ item (omp task wire schema), а не из текста task.
+// Значение нормализуется в булево: `isolated === true` — истина, ВСЁ остальное
+// (отсутствие поля, «true» строкой, 1, null) — false (fail-closed у двери:
+// рабочий без реального isolated:true отклоняется NE_IZOLIROVAN).
+type TaskItem = { agent: string; name: string; task: string; isolated: boolean };
 
 function taskItems(input: unknown): TaskItem[] {
   const raw: unknown[] =
@@ -184,6 +199,7 @@ function taskItems(input: unknown): TaskItem[] {
       agent: typeof o.agent === 'string' ? o.agent : '',
       name: typeof o.name === 'string' ? o.name : '',
       task: typeof o.task === 'string' ? o.task : '',
+      isolated: o.isolated === true,
     });
   }
   return out;
