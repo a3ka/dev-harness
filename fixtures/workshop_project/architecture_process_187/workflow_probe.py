@@ -113,7 +113,7 @@ import subprocess
 import sys
 import tempfile
 
-from probe import world, put, git, run, CONTRACT, REVIEW, TOOLS
+from probe import world, critic_state, put, git, run, CONTRACT, REVIEW, TOOLS
 from ci_wiring import BATTERY, DIRECT
 
 # Expected answers are immutable tuples in the verifier, never read back from the subject.
@@ -1401,7 +1401,8 @@ def live(tools, root, arch, pinned, action, task, trace, role, variation=''):
         if variation not in NOFLAG_VARIATIONS:
             command += ['--arch-component', 'api.identity']
     else:
-        command = {'freeze': ['bash', tools / 'scripts/freeze_contract.sh', CONTRACT, 'toy reason', root],
+        command = {'freeze': ['bash', tools / 'scripts/freeze_contract.sh', CONTRACT, 'toy reason', root,
+                              critic_state(root)],
                    'precritic': ['bash', tools / 'scripts/pre_critic.sh', '--repo', root, CONTRACT],
                    'done': ['bash', tools / 'scripts/done_contract.sh', CONTRACT, 'toy reason', root]}[action]
     return run(*command, cwd=root, env=env)

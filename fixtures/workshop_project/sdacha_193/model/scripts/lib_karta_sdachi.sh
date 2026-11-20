@@ -138,7 +138,8 @@ karta_index() { # ROOT, путь предъявленного вердикта, 
     declare -gA K193_TEKST=() K193_BLOB=()
     [ -n "$tema" ] && [ "$K193_ROL" = critic ] || return 0
     local -A videli=()
-    commits="$(git -C "$root" rev-list HEAD -- "${put%/*}/")" || return 1
+    # Полная достижимая история, включая FAIL на упрощаемой стороне слияния.
+    commits="$(git -C "$root" rev-list --full-history HEAD -- "${put%/*}/")" || return 1
     for commit in $commits; do
         files="$(git -C "$root" ls-tree -r --name-only "$commit" -- "${put%/*}/")" || return 1
         while IFS= read -r f; do
