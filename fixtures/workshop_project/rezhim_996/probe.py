@@ -284,11 +284,13 @@ def done_freeze_equip(root, p, tag=True):
 GATE_CASES = {
     'freeze-gate-preserved': ('freeze', 'spec', 'spec-preflight 036'),
     'freeze-consumers-preserved': ('freeze', 'consumers', 'потребители 116'),
+    'freeze-precision-preserved': ('freeze', 'precision', 'precision-гейт 043'),
     'freeze-doc-preserved': ('freeze', 'doc', 'doc-preflight'),
     'freeze-doc-malformed': ('freeze', 'doc-malformed', 'doc-preflight'),
     'done-gate-preserved': ('done', 'provodka', 'ПРОВОДКА'),
     'done-consumers-preserved': ('done', 'consumers', 'потребители 116'),
     'precritic-spec-preserved': ('pre_critic', 'spec-probe', 'spec-ready'),
+    'precritic-precision-preserved': ('pre_critic', 'precision', 'precision-gate'),
     'precritic-n39-preserved': ('pre_critic', 'n39', 'Н-39'),
     'precritic-context-preserved': ('pre_critic', 'context', 'форма:'),
     'precritic-existing-preserved': ('pre_critic', 'existing', 'форма:'),
@@ -322,6 +324,10 @@ def gate_test(case, mode, mutant, root, p, contract):
     elif defect == 'consumers':
         # Real registered mapping, not an injected failing gate executable.
         change('scripts/consumers.d/absent.sh__check_sh.tsv', 'scripts/absent.sh\tcheck.sh\n')
+    elif defect == 'precision':
+        # Active leg (а), not CI parity (warning-only after Б-10).
+        # As in project_paths_103 i2г, malformed overlap syntax must refuse.
+        body += '\nПЕРЕСЕЧЕНИЕ architect: bad\n'
     elif defect.startswith('doc'):
         spec = {'type': 'documentation', 'version': 1, 'profile': 'product',
                 'outputs': {'markdown': 'guide.md', 'evidence': 'guide.json'},
@@ -1529,6 +1535,7 @@ MUTANTS.update({
 })
 MUTANTS['skip-gates'] = tuple(GATE_CASES)
 for gate, defects in {'spec': ('spec', 'spec-probe'), 'consumers': ('consumers',),
+                      'precision': ('precision',),
                       'doc': ('doc', 'doc-malformed'),
                       'provodka': ('provodka',), 'n39': ('n39',),
                       'form': ('context', 'existing'), 'plan': ('plan', 'closures', 'worktree-plan'),
@@ -1538,7 +1545,7 @@ for gate, defects in {'spec': ('spec', 'spec-probe'), 'consumers': ('consumers',
 
 
 def execute(case, mode, mutant=''):
-    with tempfile.TemporaryDirectory(prefix='architect996-', dir='/tmp') as tmp:
+    with tempfile.TemporaryDirectory(prefix='architect996-') as tmp:
         try:
             test(case, mode, Path(tmp), mutant)
             return 0, ''
