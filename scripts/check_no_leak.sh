@@ -19,6 +19,18 @@
 # Относительный путь в обоих режимах ⇒ rc 1 «корень обязан быть абсолютным» ДО какого-либо cd
 # (блокер 5 вердикта 4d1d265).
 #
+# АВТОСНИМОК (Б-7). --check БЕЗ снимка: если ОДНОВРЕМЕННО (а) рабочее дерево
+# чисто (git status --porcelain пуст), (б) HEAD == refs/remotes/origin/main,
+# (в) `git rev-list --left-right --count origin/main...HEAD` == «0 0» — детектор
+# снимает первоначальный снимок САМ (тот же внутренний do_snapshot, тот же
+# канон root+манифест+verify, mode 0444, симлинк-защита) и печатает стенограмму
+# «АВТОСНИМОК: снят (а)∧(б)∧(в): <корень> HEAD=<sha>» в stderr и в stdout
+# (журнал детектора), после чего сверка продолжается как обычный --check.
+# Область доказуется локально (только локальные refs — сеть не нужна). Вне
+# области — ПРЕЖНИЙ fail-closed отказ «снимок отсутствует» rc 1 БЕЗ снимка.
+# Существующий снимок автоснимком не перезаписывается; ручные режимы
+# (--snapshot/--retake/--retake-bulk/--retake-ahead) не меняются.
+#
 # КОРНЕВОЙ СРЕЗ ИСТОЧНИКА МАНИФЕСТА (v6, 2026-09-15, путь 1 владельца; Н-89: порочность
 # перечисления носителей ослепления, 8 классов / 8 адверсарий-кругов).
 # Манифест — ОБЪЕДИНЕНИЕ трёх ног, единый sort:
@@ -129,6 +141,10 @@
 #               «снимок: verify-строка отсутствует — обязательна для прод-снимков»
 #               — кейс v4: чтение снимка cat||true тот же класс
 #               «отказ producer ≠ молчаливый успех», имя дано);
+#               Автоснимок (Б-7) — ровно одна строка «АВТОСНИМОК: снят (а)∧(б)∧(в):
+#               <корень> HEAD=<sha>» в stderr и в stdout на СНЯТЫЙ автоснимок;
+#               вне доказанной области (а)∧(б)∧(в) такой строки нет — там
+#               прежний отказ «снимок отсутствует» rc 1 БЕЗ снимка;
 #               2 — окружение не годится (нет утилит закрытого списка, sha256sum не
 #               прошёл sanity-хэш, git status rc≠0, нет git, каталог/репозиторий
 #               недоступны, sha256sum не смог прочесть tracked-файл, HEAD submodule
@@ -233,6 +249,7 @@ P_CHISTO='основной чекаут чист'
 P_NET_SNIMKA='снимок отсутствует'
 P_ABS='корень обязан быть абсолютным'
 P_CHUZH='снимок чужого корня'
+P_AVTO='АВТОСНИМОК'
 
 usage() {
   printf 'ОТКАЗ диспетчер: использование: check_no_leak.sh --snapshot|--check|--retake|--retake-bulk|--retake-ahead <абс-корень>\n' >&2
@@ -1046,13 +1063,68 @@ do_snapshot() {
     || { "$RM" -f -- "$tmp_snap"; printf 'NOT_IMPLEMENTED: переименование снимка отказало\n' >&2; exit 2; }
 }
 
+# ─── АВТОСНИМОК (Б-7) ──────────────────────────────────────────────────────────
+# Первоначальный снимок детектора снимает САМ детектор — когда ОДНОВРЕМЕННО
+# доказаны три условия области:
+#   (а) рабочее дерево чисто — `git status --porcelain` отработал (rc=0) и пуст;
+#   (б) HEAD == refs/remotes/origin/main — тот же sha;
+#   (в) `git rev-list --left-right --count origin/main...HEAD` == «0 0».
+# Область доказуется ЛОКАЛЬНО (только локальные refs — сеть не нужна).
+# Снимок снимается ТОЙ ЖЕ внутренней функцией do_snapshot, что и ручной
+# --snapshot (тот же канон: root + манифест + verify, mode 0444, симлинк-защита) —
+# различие только в инициаторе. СУЩЕСТВУЮЩИЙ снимок автоснимком НЕ
+# перезаписывается (функция отказывается, если снимок на месте).
+# Стенограмма: ОДНА точная строка «АВТОСНИМОК: снят (а)∧(б)∧(в): <корень>
+# HEAD=<sha>» — в stderr (явный канал) И в stdout (журнал детектора — stdout-
+# стенограмма, как у --retake*). Любое из (а)(б)(в) не доказано или не
+# вычислено (нет origin/main, git отказал, симлинк на месте снимка) — вызывающий
+# печатает ПРЕЖНИЙ fail-closed отказ «снимок отсутствует» rc 1, снимок НЕ
+# создаётся. Ручные режимы (--snapshot/--retake/--retake-bulk/--retake-ahead)
+# этой функцией НЕ пользуются — их поведение не меняется.
+auto_snapshot() {
+  local head_sha origin_sha lr_out lr_left lr_right porcelain_out auto_line
+  # (б) HEAD == refs/remotes/origin/main — тот же sha, обе ссылки разрешимы.
+  head_sha="$("$GIT" -C "$CANON" rev-parse --verify HEAD 2>/dev/null)" || return 1
+  origin_sha="$("$GIT" -C "$CANON" rev-parse --verify refs/remotes/origin/main 2>/dev/null)" || return 1
+  [ -n "$head_sha" ] || return 1
+  [ "$head_sha" = "$origin_sha" ] || return 1
+  # (в) Расхождения с origin/main нет: «0 0» (слева — origin/main, справа — HEAD).
+  lr_out="$("$GIT" -C "$CANON" rev-list --left-right --count origin/main...HEAD 2>/dev/null)" || return 1
+  IFS=$' \t' read -r lr_left lr_right <<< "$lr_out"
+  [ "$lr_left" = "0" ] || return 1
+  [ "$lr_right" = "0" ] || return 1
+  # (а) Рабочее дерево чисто (rc git обязателен: отказавший status — не «чисто»).
+  porcelain_out="$("$GIT" -C "$CANON" status --porcelain 2>/dev/null)" || return 1
+  [ -z "$porcelain_out" ] || return 1
+  # Симлинк-защита (мера 1/1б/1в) — на месте снимка автоснимок НЕ пишет.
+  if [ -L "$SNAP" ] || [ -L "$SNAP_DIR" ] || [ -L "$TMPDIR_BASE/dev-harness-leak" ]; then
+    return 1
+  fi
+  # Существующий снимок автоснимком не перезаписывается.
+  if [ -e "$SNAP" ]; then
+    return 1
+  fi
+  # Снимок — той же функцией, что ручной --snapshot (тот же канон, mode 0444).
+  do_snapshot
+  # Стенограмма автоснимка: одна строка в stderr и одна в stdout.
+  auto_line="$P_AVTO: снят (а)∧(б)∧(в): $CANON HEAD=$head_sha"
+  printf '%s\n' "$auto_line" >&2
+  printf '%s\n' "$auto_line"
+  return 0
+}
+
 do_check() {
   local first base cur delta names l p manifest_rc snap_mode verify_line verify_stored verify_recomp
   # И-4 fail-closed: снимок отсутствует — отказ, НЕ пропуск.
+  # Б-7: в доказанной области (чистое дерево ∧ HEAD == origin/main ∧ «0 0»)
+  # первоначальный снимок снимает сам детектор (auto_snapshot → do_snapshot) и
+  # сверка продолжается как обычный --check; вне области — ПРЕЖНИЙ отказ.
   if [ ! -e "$SNAP" ]; then
-    printf 'ОТКАЗ: %s (%s) — снимок ДО спавна пачки обязателен: без него сверка отказывает, а не пропускает (fail-closed)\n' \
-      "$P_NET_SNIMKA" "$SNAP" >&2
-    exit 1
+    if ! auto_snapshot; then
+      printf 'ОТКАЗ: %s (%s) — снимок ДО спавна пачки обязателен: без него сверка отказывает, а не пропускает (fail-closed)\n' \
+        "$P_NET_SNIMKA" "$SNAP" >&2
+      exit 1
+    fi
   fi
   # ЗАЩИТА-СНИМКА — мера 1: явный запрет симлинков. Контрпример S-external-snapshot-symlink
   # адверсария к2 01ed097: после baseline-снимка файл `$SNAP` заменяется симлинком на
