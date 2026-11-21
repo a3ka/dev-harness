@@ -42,7 +42,24 @@
 # frozen недоступен»; (с) основной реестр есть, строки предмета в нём нет, а в
 # проектном пути строка есть — отказ: запасной путь основной НЕ подменяет.
 #
-# Мир — в mktemp; сеть и omp не нужны; git/jq/bash обязательны.
+# И ещё четыре клетки СОПОСТАВЛЕНИЯ кругов и реестра при передаче (р1, р2, р3,
+# р4) — по FAIL Adv140V9 (мутанты сопоставления RELEASE и реестра D39).
+# Соотнесение START↔RELEASE: RELEASE закрывает ПОСЛЕДНИЙ открытый START СВОЕГО
+# holder'а в том же repoId/subjectId; фильтр по роли/OBJECT/классу — ПОСЛЕ
+# соотнесения. (р1) промежуточный START того же держателя (другая роль/OBJECT)
+# и обрыв того же держателя: обрыв закрывает ПРОМЕЖУТОЧНЫЙ круг, первый круг
+# судьи не стёрт → следующий запрос той же роли на том же OBJECT — отказ
+# OBJECT_UZHE_SUZHEN; (р2) RELEASE ЧУЖОГО держателя не закрывает открытый
+# START круга судьи → тот же отказ; (р3) промежуточный START ДРУГОГО класса/
+# роли/OBJECT между кругом и обрывом: фильтр применяется ПОСЛЕ соотнесения →
+# тот же отказ. (р4) D39 с ПРОЕКТНЫМ реестром (строка предмета только в
+# .harness/registry/contracts.tsv): проверяемая передача ПРИНЯТА (rc 0
+# PEREDANO) — дверь, читающая реестр только по основному пути, отказала бы
+# «точная frozen-версия не удостоверена».
+#
+# Мир — в mktemp; сеть и omp не нужны; git/jq/bash обязательны, а для клетки
+# (р4) — python3 с jsonschema (иначе дверь отвечает NOT_IMPLEMENTED и клетка
+# НЕ измерена: это не «класс закрыт честно», и профиль об этом сообщает).
 ZP_REPO="$(cd "$HERE/../.." && pwd -P)"
 ZP_SUBJ="$ZP_REPO/scripts/zamok_predmeta.sh"
 ZP_T=''
@@ -178,6 +195,24 @@ zp_avtor_sdal() {  # <NNN> <holder> <worktree> <branch>
 zp_sdal() {  # <holder>
   printf '{"timestamp":"2026-11-21T00:00:00.000Z","message":{"role":"assistant"}}\n{"type":"toolResult","toolCallId":"toolu_x","toolName":"yield","content":[{"type":"text","text":"Result submitted."}]}\n' \
       > "$ZP_T/zhurnaly/$1.jsonl"
+}
+
+# START-запись произвольного класса/роли/OBJECT — промежуточный круг в
+# последовательности START держателя (формат учёта прежний, как пишет дверь).
+zp_start_zapis() {  # <NNN> <holder> <klass> <rol> <object> <worktree> <branch>
+  jq -nc --arg s "$1" --arg h "$2" --arg k "$3" --arg ro "$4" --arg o "$5" \
+      --arg w "$6" --arg b "$7" --arg at '2026-11-21T00:00:00Z' \
+      '{t:"START",repoId:"dev-harness",subjectId:$s,group:"harness",holder:$h,
+        klass:$k,rol:$ro,object:$o,worktree:$w,branch:$b,at:$at}' \
+      >> "$ZP_T/sost/uchet.jsonl"
+}
+
+# RELEASE-запись держателя: обрыв круга (формат учёта прежний, как пишет дверь).
+zp_release_zapis() {  # <NNN> <holder> <prichina>
+  jq -nc --arg t RELEASE --arg r dev-harness --arg s "$1" --arg h "$2" \
+      --arg p "$3" --arg at '2026-11-21T00:00:00Z' \
+      '{t:$t,repoId:$r,subjectId:$s,holder:$h,prichina:$p,at:$at}' \
+      >> "$ZP_T/sost/uchet.jsonl"
 }
 
 # Число START-записей держателя по предмету в учёте — контроль «отказ не
@@ -402,6 +437,10 @@ battery_silent_drop() {
   zp_kletka_reestr_proekt || kletka_probit=1
   zp_kletka_reestr_net || kletka_probit=1
   zp_kletka_reestr_osnovnoy || kletka_probit=1
+  zp_kletka_release_poslednij_start || kletka_probit=1
+  zp_kletka_release_chuzhoy_holder || kletka_probit=1
+  zp_kletka_release_filtr_posle_sootneseniya || kletka_probit=1
+  zp_kletka_d39_proektny_reestr || kletka_probit=1
   [ "$kletka_probit" -eq 0 ] || return 1
   return 0
 }
@@ -630,6 +669,63 @@ zp_kletka_povtor_obryv_ten_imya() {
   return 0
 }
 
+# (р1) Промежуточный START того же держателя (другая роль/OBJECT) и обрыв
+#     (`obryv_bez_verdikta`) того же держателя: RELEASE закрывает ПОСЛЕДНИЙ
+#     открытый START СВОЕГО holder'а — то есть промежуточный, а НЕ состоявшийся
+#     первый круг судьи. Первый круг не стёрт → следующий запрос той же роли на
+#     том же OBJECT — отказ OBJECT_UZHE_SUZHEN. Дверь, закрывающая ПЕРВЫЙ
+#     открытый START держателя, стёрла бы первый круг — и запрос прошёл бы
+#     молча (rc 0), без слова владельца.
+zp_kletka_release_poslednij_start() {
+  zp_mir_povtora 215 || return 1
+  zp_start_zapis 215 'Critic215' 'sudja' 'adversary' \
+      '1111111111111111111111111111111111111111' "$ZP_WT" "$ZP_BR" || return 1
+  zp_release_zapis 215 'Critic215' 'obryv_bez_verdikta' || return 1
+  zp_event "$ZP_T/e2.json" critic 'Critic215b' 'SUBJECT=215' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e2.json"
+  zp_kletka '(р1) обрыв закрывает ПОСЛЕДНИЙ открытый START своего держателя' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN \
+      '(р1) обрыв закрывает ПОСЛЕДНИЙ открытый START своего держателя' || return 1
+  return 0
+}
+
+# (р2) RELEASE ЧУЖОГО держателя: он закрывает последний открытый START СВОЕГО
+#     holder'а, и открытый START круга судьи (другой держатель) закрывать не
+#     вправе. Поэтому состоявшийся первый круг судьи жив → следующий запрос
+#     той же роли на том же OBJECT — отказ OBJECT_UZHE_SUZHEN. Дверь, закрывающая
+#     последний открытый START вообще (без holder'а), стёрла бы круг судьи —
+#     запрос прошёл бы молча (rc 0).
+zp_kletka_release_chuzhoy_holder() {
+  zp_mir_povtora 216 || return 1
+  zp_release_zapis 216 'Avtor216' 'obryv_bez_verdikta' || return 1
+  zp_event "$ZP_T/e2.json" critic 'Critic216b' 'SUBJECT=216' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e2.json"
+  zp_kletka '(р2) RELEASE чужого держателя не закрывает открытый START круга' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN \
+      '(р2) RELEASE чужого держателя не закрывает открытый START круга' || return 1
+  return 0
+}
+
+# (р3) Соотнесение START↔RELEASE при промежуточном START ДРУГОГО класса/роли/
+#     OBJECT: RELEASE соотносится по ПОСЛЕДОВАТЕЛЬНОСТИ START своего holder'а,
+#     а фильтр по роли/OBJECT/классу применяется ПОСЛЕ соотнесения. Промежуточный
+#     START другого класса поглощает обрыв, первый круг судьи (sudja/critic/
+#     OBJECT) остаётся → следующий запрос той же роли на том же OBJECT — отказ
+#     OBJECT_UZHE_SUZHEN. Дверь, отбирающая START по роли/OBJECT/классу ДО
+#     соотнесения, закрыла бы первый круг — запрос прошёл бы молча (rc 0).
+zp_kletka_release_filtr_posle_sootneseniya() {
+  zp_mir_povtora 217 || return 1
+  zp_start_zapis 217 'Critic217' 'rabochij' 'implementer' \
+      '2222222222222222222222222222222222222222' "$ZP_WT" "$ZP_BR" || return 1
+  zp_release_zapis 217 'Critic217' 'obryv_bez_verdikta' || return 1
+  zp_event "$ZP_T/e2.json" critic 'Critic217b' 'SUBJECT=217' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e2.json"
+  zp_kletka '(р3) фильтр по роли/OBJECT/классу — ПОСЛЕ соотнесения START↔RELEASE' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN \
+      '(р3) фильтр по роли/OBJECT/классу — ПОСЛЕ соотнесения START↔RELEASE' || return 1
+  return 0
+}
+
 # (п) Проектная раскладка реестра контрактов: реестр лежит ТОЛЬКО в
 #     .harness/registry/contracts.tsv (в registry/ такого файла нет), у
 #     предмета аннотированный frozen-тег и строка реестра → судья ДОПУСКАЕТСЯ
@@ -692,6 +788,112 @@ zp_kletka_reestr_osnovnoy() {
   zp_kletka '(с) основной реестр есть, строки предмета нет' "$ZP_RC"
   zp_expect_prichina 1 KLASS_RISKA_NET 'закреплённый frozen недоступен' \
       '(с) основной реестр есть, строки предмета нет' || return 1
+  return 0
+}
+
+# ── проверяемая передача (D39): проектный реестр контрактов ─────────────────
+# Реестр предмета у владельца лежит в registry/contracts.tsv, у ПРОЕКТА — в
+# .harness/registry/contracts.tsv (та же стенка, что и в клетках (п)(р)(с)).
+# [D39] версия frozen берётся из реестра В ДЕРЕВЕ СВИДЕТЕЛЬСТВА: если основной
+# путь в дереве свидетельства НЕТ — берётся проектный. Дверь, читающая реестр
+# только по основному пути, отказала бы «точная frozen-версия не удостоверена»
+# — клетка (р4) различает.
+
+# Вызов двери в режиме проверяемой передачи.
+zp_peredat() {  # <репозиторий> <NNN> <коммит-свидетельство> → ZP_OUT, ZP_RC
+  ZP_OUT="$(bash "$ZP_SUBJ" --peredat --sostojanie "$ZP_T/sost" \
+      --zhurnaly "$ZP_T/zhurnaly" --repo "$1" "$2" "$3" 2>&1)"
+  ZP_RC=$?
+}
+
+# Мир проверяемой передачи: продуктовый worktree (внешний продукт, иной
+# канонический remote), рабочий START автора в учёте с журналом со сдачей,
+# аннотированный frozen-тег в продукте и коммит-свидетельство на origin/main
+# станции. Реестр предмета — ПРОЕКТНЫЙ: строка лежит ТОЛЬКО в
+# .harness/registry/contracts.tsv (в registry/ такого файла нет).
+# Печатает sha коммита-свидетельства.
+zp_mir_peredachi() {  # <NNN>
+  local n="$1" repo wt br obj pobj pcommit worker digest receipt
+  repo="$ZP_T/repo4"
+  rm -rf "$repo"; mkdir -p "$repo"
+  git -C "$repo" init -q . 2>/dev/null || return 1
+  git -C "$repo" remote add origin 'ssh://git@github.com/a3ka/dev-harness.git' || return 1
+  git -C "$repo" -c user.name=b -c user.email=b@t -c commit.gpgsign=false \
+      commit -q --allow-empty -m w || return 1
+  # Продукт: иной канонический remote, frozen-тег и доставленный результат.
+  wt="$ZP_T/prod$n"
+  rm -rf "$wt"; mkdir -p "$wt/contracts"
+  git -C "$wt" init -q . 2>/dev/null || return 1
+  git -C "$wt" remote add origin 'ssh://git@github.com/a3ka/Complior-mob.git' || return 1
+  git -C "$wt" -c user.name=implementer -c user.email=i@t -c commit.gpgsign=false \
+      checkout -q -b frozen-owner 2>/dev/null || return 1
+  printf 'КЛАСС РИСКА: обычный\n' > "$wt/contracts/$n-product.md" || return 1
+  git -C "$wt" add -A
+  git -C "$wt" -c user.name=implementer -c user.email=i@t -c commit.gpgsign=false \
+      commit -q -m 'product frozen' || return 1
+  git -C "$wt" -c user.name=implementer -c user.email=i@t -c tag.gpgsign=false \
+      tag -a "frozen/contracts/$n/1" -m frozen || return 1
+  pobj="$(git -C "$wt" rev-parse "refs/tags/frozen/contracts/$n/1")" || return 1
+  pcommit="$(git -C "$wt" rev-parse "refs/tags/frozen/contracts/$n/1^{commit}")" || return 1
+  br="wip/$n/implementer"
+  git -C "$wt" -c user.name=implementer -c user.email=i@t -c commit.gpgsign=false \
+      checkout -q -b "$br" || return 1
+  printf 'real delivered change\n' > "$wt/product.txt" || return 1
+  git -C "$wt" add -A
+  git -C "$wt" -c user.name=implementer -c user.email=i@t -c commit.gpgsign=false \
+      commit -q -m delivered || return 1
+  obj="$(git -C "$wt" rev-parse HEAD)" || return 1
+  # Рабочий START автора в учёте + журнал со сдачей.
+  jq -nc --arg s "$n" --arg h "Impl$n" --arg w "$wt" --arg b "$br" --arg o "$obj" \
+      '{t:"START",repoId:"dev-harness",subjectId:$s,group:"harness",holder:$h,
+        klass:"rabochij",rol:"implementer",object:$o,worktree:$w,branch:$b,
+        at:"2026-11-21T00:00:00Z"}' >> "$ZP_T/sost/uchet.jsonl"
+  zp_sdal "Impl$n"
+  worker="$(jq -cSrs --arg r dev-harness --arg n "$n" \
+      '[.[] | select(.t=="START" and .repoId==$r and .subjectId==$n and .klass=="rabochij")] | last // empty' \
+      "$ZP_T/sost/uchet.jsonl")" || return 1
+  digest="$(printf '%s' "$worker" | sha256sum | cut -d' ' -f1)" || return 1
+  # Свидетельство — ровно поля схемы двери.
+  mkdir -p "$repo/registry/dostavki" "$repo/.harness/registry" || return 1
+  jq -cn --arg r dev-harness --arg n "$n" --arg h "Impl$n" --arg ws "$digest" \
+      --arg cr 'ssh://git@github.com/a3ka/Complior-mob.git' --arg wt "$wt" --arg br "$br" \
+      --arg o "$obj" --arg ft "frozen/contracts/$n/1" --arg fo "$pobj" --arg fc "$pcommit" \
+      '{version:1,repoId:$r,subjectId:$n,holder:$h,author:"implementer",workerStart:$ws,
+        canonicalRemote:$cr,worktree:$wt,branch:$br,object:$o,frozenTag:$ft,
+        frozenObject:$fo,frozenCommit:$fc}' > "$repo/registry/dostavki/$n.json" || return 1
+  # ПРОЕКТНЫЙ реестр: строка предмета ТОЛЬКО в .harness/registry/contracts.tsv.
+  printf '%s → %s\n' "$n" "$pobj" > "$repo/.harness/registry/contracts.tsv" || return 1
+  git -C "$repo" add -A || return 1
+  git -C "$repo" -c user.name=orchestrator -c user.email=o@t -c commit.gpgsign=false \
+      commit -q -m receipt || return 1
+  receipt="$(git -C "$repo" rev-parse HEAD)" || return 1
+  git -C "$repo" update-ref refs/remotes/origin/main "$receipt" || return 1
+  printf '%s' "$receipt"
+}
+
+# (р4) D39 с ПРОЕКТНЫМ реестром: строка предмета лежит ТОЛЬКО в
+#     .harness/registry/contracts.tsv (в registry/ такого файла нет) — проверяемая
+#     передача ПРИНЯТА (rc 0 PEREDANO). Дверь, читающая реестр только по
+#     основному пути registry/contracts.tsv, отказала бы «точная frozen-версия
+#     не удостоверена» — клетка различает.
+# Требуется python3 с jsonschema: без него дверь отвечает NOT_IMPLEMENTED, и
+# клетка не измерена — это НЕ «класс закрыт честно» (сообщается явно).
+zp_kletka_d39_proektny_reestr() {
+  zp_world || return 1
+  if ! python3 -c 'import jsonschema' >/dev/null 2>&1; then
+    printf 'zamok_predmeta: (р4) D39 с проектным реестром: python3/jsonschema недоступны — клетка НЕ измерена\n' >&2
+    return 1
+  fi
+  local receipt
+  receipt="$(zp_mir_peredachi 218)" || return 1
+  zp_peredat "$ZP_T/repo4" 218 "$receipt"
+  zp_kletka '(р4) D39 с проектным реестром: передача принята' "$ZP_RC"
+  zp_expect 0 - '(р4) D39 с проектным реестром: передача принята' || return 1
+  if ! printf '%s' "$ZP_OUT" | grep -Fq 'PEREDANO'; then
+    printf 'zamok_predmeta: (р4) D39 с проектным реестром: нет PEREDANO; вывод: %s\n' \
+        "$ZP_OUT" >&2
+    return 1
+  fi
   return 0
 }
 
