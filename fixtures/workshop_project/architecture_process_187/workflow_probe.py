@@ -116,6 +116,7 @@ import tempfile
 from probe import world, critic_state, put, git, run, CONTRACT, REVIEW, TOOLS
 from ci_wiring import BATTERY, DIRECT
 import brief_stderr
+import brief_signals
 
 
 # Б-3: warning text is a model answer, not the verifier's byte-for-byte oracle.
@@ -1580,8 +1581,10 @@ def main():
                     if not caught: failures.append(name)
         failures.extend(brief_stderr.run_cases(
             base, tools, args.model, args.stabs, world, architecture, prepare, live))
-        cells = len(CASES) + len(brief_stderr.CASES) + 1
-        stabs = len(STABS) + len(brief_stderr.STABS) if args.stabs else 0
+        failures.extend(brief_signals.run_cases(base, tools, args.model, args.stabs))
+        cells = len(CASES) + len(brief_stderr.CASES) + len(brief_signals.CASES) + 1
+        stabs = (len(STABS) + len(brief_stderr.STABS) + len(brief_signals.STABS)
+                 if args.stabs else 0)
         print(f'CELLS={cells} STABS={stabs} FAILURES={len(failures)}')
     return int(bool(failures))
 

@@ -16,7 +16,21 @@ def main():
     logs = Path(os.environ.get('TMPDIR', tempfile.gettempdir()))
     failed = False
     for mode in modes:
-        command = ['bash', str(HERE / 'red_architecture_process_187.sh'), '--' + mode]
+        if mode in ('signals', 'signals-base', 'signals-control'):
+            tools = ROOT
+            if mode == 'signals-base':
+                tools = logs / (stage + '-base')
+                (tools / 'scripts').mkdir(parents=True, exist_ok=True)
+                source = subprocess.check_output(
+                    ['git', '-C', str(ROOT), 'show',
+                     'a4f87d04a1:scripts/check_architecture_contract.sh'])
+                (tools / 'scripts/check_architecture_contract.sh').write_bytes(source)
+            command = [sys.executable, str(HERE / 'brief_signals.py'), '--repo', str(tools)]
+            if mode == 'signals-control':
+                command.append('--control')
+        else:
+            command = ['bash', str(HERE / 'red_architecture_process_187.sh'), '--' + mode]
+        # Signal modes intentionally accept an isolated library snapshot.
         if mode in ('repo', 'wiring'):
             command.append(str(ROOT))
         result = subprocess.run(command, cwd=ROOT, capture_output=True, timeout=300)

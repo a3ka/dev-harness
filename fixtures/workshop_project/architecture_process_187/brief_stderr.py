@@ -44,6 +44,7 @@ STABS = {
        for branch in ('noisy', 'quiet')},
     'brief-empty-output-skipped': ('brief-empty-output-noisy', 'devnull'),
     'brief-empty-output-quiet-skipped': ('brief-empty-output-quiet', 'empty-missing'),
+    'brief-signal-S3-early-delete': ('brief-stderr-plain', 'early-delete'),
 }
 CONFIG = {label: {'rc': rc, 'stdout': out.decode(), 'stderr': err.decode(),
                   'rules': rules}
@@ -94,6 +95,8 @@ def model(case, scratch, mutant=''):
         answer.stderr = PREFIX + err
     elif mutant == 'empty-missing':
         answer.stderr = PREFIX + b'\n' + (REFUSAL if seam == 'task' else b'')
+    elif mutant == 'early-delete':
+        answer.stderr = PREFIX + EMPTY + b'\n' + (REFUSAL if seam == 'task' else b'')
     elif mutant == 'append':
         answer.stdout = out + b'\n'
     elif mutant == 'leak':
