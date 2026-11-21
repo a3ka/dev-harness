@@ -902,8 +902,8 @@ W → `KLETKI 194 KRASNYH 61`, rc 1; W --stabs →
 |---|---|---|
 | r11 | reviewer без рабочего START, неизвестный риск | rc 1 ADVERSARIJ_DO_REVJUERA; состояние неизменно |
 | r12/r13 | adversary/critic без рабочего START | rc 0, RABOCHEGO_NET в stderr и warn, собственный START |
-| r14 | битый harness.project.json, реальная пауза 140 | rc 1, именованный отказ паузы/профиля; состояние неизменно |
-| r15 | битый профиль без записи паузы | адресный контроль формы fail-closed/предупреждения |
+| r14 | битый harness.project.json, реальная пауза 140 | rc 1 PROFIL_NEDOSTUPEN либо PAUZA_VLADELTSA; состояние неизменно |
+| r15 | битый профиль без записи в default-реестре; настоящий путь неизвестен | тот же именованный rc 1, без START/override |
 | r16/r17 | корректная санкция плюс дубль с extra/не-hex OBJECT | rc 1; ни override, ни START, состояние неизменно |
 | r18/r19 | frozen только в .x/contracts / .other/contracts | профиль прочитан: reviewer обычного допущен, рискового отвергнут по порядку |
 

@@ -335,7 +335,7 @@ stare_holder() {  # <holder> → yield|bezhit|broshen|net_fajla
 # [D15 pauza] ПАУЗА владельца — в реестре профиля.
 na_pauze() {  # <NNN>
   local f l
-  f="$(reestr_put "$REPO" pauzy.tsv)" || return 1
+  f="$(reestr_put "$REPO" pauzy.tsv)" || return 2
   [ -r "$f" ] || return 1
   while IFS= read -r l; do
     case "$l" in '#'*|'') continue ;; esac
@@ -872,7 +872,14 @@ sudit() {
   # ПАУЗА владельца — реестр; судится ДО замков, для всех gated предметов.
   while IFS='|' read -r pidx _ _ psv pobj _ _ _ _; do
     [ -n "$psv" ] || continue
-    na_pauze "$psv" || continue
+    if na_pauze "$psv"; then
+      :
+    else
+      case "$?" in
+        1) continue ;;
+        *) otp PROFIL_NEDOSTUPEN "путь реестра паузы предмета $psv не удостоверен" ;;
+      esac
+    fi
     if zamok_stroka_razreshayet "$pidx" "$psv" 'PAUZA_VLADELTSA' "$pobj"; then
       zapis_override "$psv" 'PAUZA_VLADELTSA' "$ZAMOK_STROKA_OBJ"
       continue

@@ -130,19 +130,17 @@ def dobavit(K, p):
             ['SUBJECT=140', 'WORKTREE='+wt, 'BRANCH='+br], isolated=True)])
         before = p.snimok_fajlov(m.sost)
         result = p.sudit(door, m, event)
-        if paused:
-            # The product may report PAUZA or a named profile failure. A JSON
-            # parser's incidental stderr is not an intentional refusal.
-            return [p.k_rc(result, 1, 'битый-профиль-пауза'),
-                    None if any(line.startswith('ОТКАЗ: ') and ': ' in line[7:]
-                                for line in result.stderr.splitlines()) else 'нет именованного отказа',
-                    None if p.snimok_fajlov(m.sost) == before else 'отказ изменил состояние']
-        return [p.k_rc(result, 0, 'битый-профиль-без-паузы'),
-                p.k_stroka(m, 'START-без-паузы', holder='BrokenProfile', subjectId='140')]
+        # A broken profile cannot establish where the pause registry lives,
+        # even when the default registry contains no pause for this subject.
+        reasons = ('PROFIL_NEDOSTUPEN', 'PAUZA_VLADELTSA')
+        return [p.k_rc(result, 1, 'битый-профиль'),
+                None if any(p.k_prichina(result, reason, 'профиль') is None
+                            for reason in reasons) else 'нет отказа профиля/паузы',
+                None if p.snimok_fajlov(m.sost) == before else 'отказ изменил состояние']
 
     register('r14-profile-broken-pauza', 'профиль=битый;пауза=140;нет-записей',
              lambda m,d: broken_profile(m,d,True))
-    register('r15-profile-broken-bez-pauzy', 'профиль=битый;паузы=нет;START',
+    register('r15-profile-broken-bez-pauzy', 'профиль=битый;пауза=неопределима;нет-записей',
              lambda m,d: broken_profile(m,d,False))
 
     def duplicate_override(m, door, suffix):
