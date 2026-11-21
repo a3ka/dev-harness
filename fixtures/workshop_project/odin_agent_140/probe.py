@@ -1756,13 +1756,9 @@ def m_bez_yield(t):
 
 
 def m_avto_relis(t):
-    return _z(t, '''        broshen|net_fajla)
-          mutexi_snyat_vse
-          # [D3 broshennyj-zamok] рестарт ≠ разрешение: дубль после рестарта — отказ.
-          otp ZAMOK_BROSHEN "предмет $sv: holder $h_holder без сдачи и без записей >${BROSHEN_TTL_MIN} мин — только --osvobodit, НЕ авто-перезапуск"
-          ;;''',
-              '''        broshen|net_fajla)
-          : # стаб: брошенный замок считаем свободным''')
+    # D3: автоматический допуск без предупреждения о прежнем держателе.
+    return _z(t, '''          predupr "$sv" 'ZAMOK_BROSHEN' "предмет $sv: holder $h_holder без сдачи и без записей >${BROSHEN_TTL_MIN} мин — замок освобождается автоматически" "$obj"''',
+              '''          : # стаб: брошенность не протоколируется''')
 
 
 def m_osvobodit_zhivogo(t):
@@ -1799,10 +1795,8 @@ def m_object_fabricuet(t):
 
 
 def m_bez_object_sverki(t):
-    return _z(t, '''      [ "$tip" = "$obj" ] || {
-        mutexi_snyat_vse
-        otp OBJECT_RASHODITSJA "предмет $sv: OBJECT задания $obj ≠ tip ветки $r_br ($tip)"
-      }''', '''      : # стаб: сверка OBJECT с веткой снята''')
+    return _z(t, '''        elif [ "$tip" != "$obj" ]; then''',
+              '''        elif false; then # стаб: расхождение OBJECT не проверяется''')
 
 
 def m_avtor_ne_sdal(t):
@@ -1825,10 +1819,8 @@ def m_uzhe_suzhen(t):
 
 
 def m_bez_rabochego(t):
-    return _z(t, '''      if [ -z "$rab" ]; then
-        # [D12 rabochego-net] судья без автора предмета — судить нечего.
-        mutexi_snyat_vse; otp RABOCHEGO_NET "предмет $sv: рабочего START в учёте нет"
-      fi''', '''      if [ -z "$rab" ]; then rab="$(printf 'X\\t-\\t-\\t-')"; fi''')
+    return _z(t, '''        predupr "$sv" 'RABOCHEGO_NET' "предмет $sv: рабочего START в учёте нет" "$obj"''',
+              '''        : # стаб: судья без рабочего не протоколируется''')
 
 
 def m_klass_riska_mjagko(t):
@@ -2249,6 +2241,7 @@ STAB_MUTACII = {
 }
 STAB_MUTACII.update(produkt_140.mutacii(_z))
 STAB_MUTACII.update(object_140.mutacii(_z))
+STAB_MUTACII.update(uproshchenie_140.mutacii(_z))
 
 
 def nagrudit_staby():
@@ -2268,6 +2261,7 @@ def nagrudit_staby():
     paths = {'model/zamok_predmeta.sh': MODEL}
     src['stab_vhod'].update(object_140.BINDINGS)
     src['stab_vhod'].update(produkt_140.BINDINGS)
+    src['stab_vhod'].update(uproshchenie_140.BINDINGS)
     src['kejsy'] = {k: v['osi'] for k, v in sorted(kejsy().items())}
     paths.update({k: HERE / k for k in src['nositeli'] if k.startswith('materialy/')})
     paths.update({k: STABS / k / 'zamok_predmeta.sh' for k in STAB_MUTACII})

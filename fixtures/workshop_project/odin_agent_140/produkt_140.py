@@ -52,6 +52,7 @@ CASES = {
     'p45-legacy-peredannyj-net-zapisi': 'переданный-продукт;legacy-нет-записи;станция-обычная;fail-closed',
     'p46-legacy-stancija-obychnyj': 'станционный-предмет;legacy-обычный;кандидат-рисковый',
     'p47-legacy-stancija-riskovyj': 'станционный-предмет;legacy-рисковый;кандидат-обычный',
+    'p48-override-peredacha-schema': 'общая-строка;передача;прерывание-после-schema;разовый-пропуск',
 }
 
 BINDINGS = {
@@ -63,8 +64,9 @@ BINDINGS = {
         'p46-legacy-stancija-obychnyj', 'p47-legacy-stancija-riskovyj'],
     's76-receipt-merge-bez-roditelja': ['p33-peredacha-nepustogo-merge'],
     's77-frozen-stancija-vmesto-vladelca': [
-        'p01-produktovyj-start', 'p03-peredacha-zapis', 'p04-produkt-bez-kontrakta',
-        'p34-produkt-riskovyj-stancija-obychnyj', 'p35-produkt-obychnyj-stancija-riskovaja'],
+        # Прямой critic без станционного frozen использует bootstrap; рисковый
+        # fallback неотличим от честного риска. Различимы только эти входы:
+        'p03-peredacha-zapis', 'p35-produkt-obychnyj-stancija-riskovaja'],
     's78-risk-stancija-vmesto-produkta': [
         'p34-produkt-riskovyj-stancija-obychnyj', 'p35-produkt-obychnyj-stancija-riskovaja'],
     's79-legacy-stancija-vmesto-vladelca': [
@@ -575,6 +577,40 @@ def dobavit(K, p):
 
     cell('p46-legacy-stancija-obychnyj',lambda m,d:legacy_station(m,d,'обычный'))
     cell('p47-legacy-stancija-riskovyj',lambda m,d:legacy_station(m,d,'рисковый'))
+
+    def override_transfer(m, door):
+        s = setup(m, extra=True)
+        # Два независимых дефекта: schema (лишнее поле), затем worker digest.
+        # Санкция ровно на первый; честная дверь не исполняет второй этап.
+        s['proof']['workerStart'] = '0' * 64
+        receipt_path = m.repo / 'registry/dostavki/197.json'
+        receipt_path.write_text(json.dumps(s['proof'])+'\n')
+        m.git(['add', '-A'])
+        r = p.run(['git', '-c', 'user.name=orchestrator', '-c', 'user.email=o@t',
+                   'commit', '-qm', 'schema and digest input'], cwd=str(m.repo))
+        assert r.returncode == 0, r.stderr
+        s['receipt'] = m.git(['rev-parse', 'HEAD']).stdout.strip()
+        m.git(['update-ref', 'refs/remotes/origin/main', s['receipt']])
+        fixture_transfer(m, s)
+        line = 'РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК: 197 PEREDACHA_NEDOSTOVERNA '+s['obj']
+        it = p.item('critic', 'Override197', ['SUBJECT=197', 'OBJECT='+s['obj'], line])
+        before = m.ledger.read_bytes()
+        r = p.sudit(door, m, m.sobytie('override.json', [it]))
+        overrides = [row for row in m.ledg() if row.get('t') == 'override'
+                     and row.get('subjectId') == '197'
+                     and row.get('kod') == 'PEREDACHA_NEDOSTOVERNA'
+                     and row.get('object') == s['obj']]
+        problems = [p.k_rc(r, 0, 'прерывание-передачи'),
+                    p.k_stroka(m, 'START-после-санкции', holder='Override197', object=s['obj']),
+                    None if len(overrides) == 1 else 'не записано ровно одно применение',
+                    None if m.ledger.read_bytes().startswith(before) else 'переписан исходный учёт']
+        m.zhurnal('Override197', sdal=True)
+        before2 = m.ledger.read_bytes()
+        r2 = p.sudit(door, m, m.sobytie('again.json', [dict(it, name='Again197')]))
+        return problems + refusal(r2, 'PEREDACHA_NEDOSTOVERNA') + [
+            None if m.ledger.read_bytes() == before2 else 'повтор санкции изменил учёт']
+
+    cell('p48-override-peredacha-schema', override_transfer)
 
 
 def mutacii(z):

@@ -101,3 +101,56 @@ def dobavit(K, p):
         register('o04-risk-default-'+role+'-'+str(int(adv)),
             'риск=нет-записи;по-умолчанию=рисковый;роль='+role+';адверсарий='+str(adv),
             lambda m,d,r=role,a=adv:default_risk(m,d,r,a))
+
+
+# Привязки сняты с операций двери cb9713b0ee, не из прозы контракта.
+BINDINGS = {
+    # b03 теперь предупреждает, а не вызывает otp; s31 с потерянной
+    # декларацией по умолчанию рисковый, как и честный вход. Это не различающие
+    # предъявления данным мутациям после упрощения (Н-39).
+    's20-otkaz-ne-ostanavlivaet': ['b07-paket-izolirovan-otkat'],
+    's28-pervyj-rezultat-find': [
+        's23-klass-riska-konflikt-ab', 's24-klass-riska-konflikt-ba',
+        's25-klass-riska-net-stroki-vo-vtorom', 's28-klass-riska-shest-fajlov',
+        's29-klass-riska-realnaja-116', 's30-klass-riska-realnaja-139',
+        's33-klass-riska-dve-deklaracii-odinakovye', 's35-klass-riska-vne-alfavita',
+        's36-klass-riska-simlink', 's37-klass-riska-citata-shablona'],
+    's29-klass-riska-tolko-nachalo-stroki': [
+        's29-klass-riska-realnaja-116', 's30-klass-riska-realnaja-139',
+        's37-klass-riska-citata-shablona'],
+    's82-override-bez-zapisi': ['o01-pauza-once', 'o01-pauza-bound'],
+    's83-override-bez-abort': ['p48-override-peredacha-schema'],
+    's84-preduprezhdenie-bez-zapisi': [
+        's08-rabochego-net', 'w13-limit-harness', 'p17-svidetelstvo-ne-orchestrator'],
+    's85-broshennyj-bez-release': ['w04-dubl-posle-restarta'],
+    's86-start-zaproshennyj-object': ['s03-object-rashoditsja', 'p02-produktovyj-object-chuzhoj'],
+}
+
+
+def mutacii(z):
+    def no_abort(t):
+        # Все три D55: одна операция раннего возврата на разных этапах receipt.
+        old = '  [ -z "$PEREDACHA_PRORYVAN" ] || return 1'
+        if t.count(old) != 3:
+            raise RuntimeError('D55: ожидались три этапа прерывания передачи')
+        return t.replace(old, '  : # стаб: продолжаем после пропущенного отказа')
+
+    def no_warn_record(t):
+        old = '''  [ -n "$ZAPISI" ] && printf '%s\\n' "$ZAPISI" >> "$LEDGER"'''
+        if t.count(old) != 2:
+            raise RuntimeError('D56: ожидались запись передачи и запись спавна')
+        return t.replace(old, '  : # стаб: буфер предупреждений в учёт не пишется')
+
+    return {
+        's82-override-bez-zapisi': lambda t: z(t,
+            '''  zapis_dodat "$(jq -nc --arg t override''',
+            '''  : "$(jq -nc --arg t override'''),
+        's83-override-bez-abort': no_abort,
+        's84-preduprezhdenie-bez-zapisi': no_warn_record,
+        's85-broshennyj-bez-release': lambda t: z(t,
+            '''  zapis_dodat "$(jq -nc --arg t RELEASE''',
+            '''  : "$(jq -nc --arg t RELEASE'''),
+        's86-start-zaproshennyj-object': lambda t: z(t,
+            '''    [ -n "$fakt" ] && obj="$fakt"''',
+            '''    : # стаб: START сохраняет запрошенный, не фактический OBJECT'''),
+    }
