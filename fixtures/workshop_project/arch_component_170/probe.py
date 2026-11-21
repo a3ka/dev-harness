@@ -111,14 +111,14 @@ def world(*, arch=True, code=True, class_line=None, context_padding=0):
     return Path(built), repo
 
 
-def invoke(subject, repo, role, component=None, *, kind='task', env=None):
+def invoke(subject, repo, role, component=None, *, kind='task', env=None, prefix=()):
     argv = ['bash', str(subject), '--repo', str(repo), '--role', role,
             '--kind', kind, '--contract', '777', '--model-trace', str(repo / 'registry/trace.tsv')]
     if role == 'reviewer' and kind == 'task':
         argv += ['--task-file', str(repo / 'contracts/777-toy.md')]
     if component is not None:
         argv += ['--arch-component', component]
-    return subprocess.run(argv, capture_output=True, timeout=40, env=env)
+    return subprocess.run([*prefix, *argv], capture_output=True, timeout=40, env=env)
 
 
 CLASS_LINES = {
@@ -240,7 +240,7 @@ def capture(function, item):
 
 def run_parallel(function, items):
     results = []
-    with ProcessPoolExecutor(max_workers=4) as pool:
+    with ProcessPoolExecutor(max_workers=6) as pool:
         for result, output in pool.map(capture, repeat(function), items):
             # Only the parent writes complete records, in input order.
             print(output, end='', flush=True)

@@ -246,3 +246,171 @@ rc=0
 дальнейшие записи используют заранее предписанные абсолютные пути этой копии.
 Это наблюдение процесса передаётся через сдаточный лист; общий журнал main
 не меняется и номер А-NNN в wip не выдаётся.
+
+## Исправление Crit170V4, К-14 на базе 1b811cea97d71ef416271083212ed46b541ead93
+
+Обещание: приёмка принимает разрешённое системное пояснение после
+канонического префикса отказа, сохраняя rc 1 и пустой stdout.
+Существующее: `pinned.refusal` уже проверяет первую строку префиксом;
+`probe.invoke` — бинарный публичный шов; READER/pointer — единый канон.
+Frozen-обязательства, production, текст контракта и READER не меняются.
+
+### Полная сверка stderr-сравнений
+
+Просмотрены все пять файлов задания, не только две строки из вердикта.
+Номера «до» относятся к базе; «после» — к этой пачке.
+
+| Место до → после | Было → стало | Основание контракта |
+|---|---|---|
+| pinned.py:131 → :142, producer loop | весь список stderr равен единственной строке unavailable → `refusal(result, 'unavailable')`: rc 1, пустой stdout, непустой stderr, первая строка startswith каноническим префиксом | :29 «системное пояснение допустимо после префикса» |
+| pinned.py:199 → :210, reader loop | то же точное равенство списка → `refusal(checked, 'unavailable')` | :31 первая строка `ОТКАЗ: ARCH_BRIEF_PIN:`; :29 именует unavailable; :27 канон READER не меняется |
+| pinned.py:45–47 → :49–53, общий refusal | уже prefix, не точное равенство → сохранён prefix, добавлен необязательный именованный reason для двух loop-проверок | :29/:31 отказ до любых stdout-байтов, первая строка, не весь stderr |
+| probe.py:194–202 | уже rc 1, пустой stdout и startswith для ARCH_COMPONENT_NET/ID, ARCHITECTURE_NET, ARCH_BRIEF_OTKAZ; сравнения всего stderr нет → без изменения предикатов | :17 отдельная первая строка ARCH_COMPONENT_NET и подсказка; :19 именованные отказы; :41 ARCHITECTURE_NET; :42 ARCH_BRIEF_OTKAZ с worker.events |
+| pinned_model.py | проверок stderr равенством нет; только генерация и передача именованного отказа → без изменения | :27 канон команды; :29 имена причин и допустимое пояснение |
+| npm_stub.py | сравнений stderr нет, только генерация stderr npm → без изменения | :19/:42 отказ npm, включая частичный stdout перед rc 17 |
+| regressions.py | сравнений stderr нет → без изменения | прежние утверждения 095/169 остаются в своих батареях |
+
+Точных отказных stderr-сравнений, требуемых контрактом и подлежащих
+сохранению, в этих файлах нет. `not read.stderr` (pinned.py:175 → :186)
+относится к УСПЕШНОМУ чтению, не к отказу: оно не менялось. Проверки
+потолка используют startswith и число 40000, не равенство stderr.
+Точные строки pointer/READ_REQUIRED и байты полного брифа не ослаблены.
+
+### Различающий контроль и стабы
+
+Две новые explained-клетки воспроизводят самоссылку по hash-пути
+45000-байтного брифа. `refusal_output.py` исполняет реальный producer
+либо настоящий argv READ_COMMAND и только для уже наблюдённого rc 1,
+пустого stdout и первой строки unavailable дописывает `: symbolic link loop`.
+Он не синтезирует именованный отказ из traceback или иной ошибки,
+не изменяет каноническую READ_COMMAND и не перечитывает диск как оракул.
+
+Перед заменой точных сравнений новые входы на старом предикате дали:
+
+```text
+170 brief_pin_symlink_loop_explained KRASNO rc=1 stderr='ОТКАЗ: ARCH_BRIEF_PIN: unavailable: symbolic link loop'
+170 brief_read_symlink_loop_explained KRASNO rc=0 stderr=''
+170 PIN_CONTROL_INVALID
+rc=2
+```
+
+После исправления:
+
+```text
+170 brief_pin_symlink_loop_explained ok rc=1 stderr='ОТКАЗ: ARCH_BRIEF_PIN: unavailable: symbolic link loop'
+170 brief_read_symlink_loop_explained ok rc=0 stderr=''
+170 STAB exact_producer_refusal caught @ brief_pin_symlink_loop_explained
+170 STAB exact_reader_refusal caught @ brief_read_symlink_loop_explained
+```
+
+rc 0 в read-строке — rc producer; внутри отдельно проверяется чтец.
+`CHECKER_MUTANTS` меняет reason-specific startswith на точное равенство
+в одноразовой копии проверяющего: честная модель с пояснением становится
+красной на каждой из двух ветвей, а тот же отказ без пояснения остаётся
+зелёным на этом же мутанте (обязательный соседний контроль).
+Общий префикс без reason не мутируется. Отдельные subject-envelope мутации
+меняют rc на 17, добавляют stdout, убирают префикс, очищают stderr либо
+ставят traceback первой строкой. Каждое предъявление поймано отдельно;
+прежний unchecked_issue с rc 0 также остаётся пойманным.
+Привязки входов — только код MUTANTS/CHECKER_MUTANTS (Н-39).
+
+Состав по AST деклараций базы/current: клетки 52 → 54, предъявления
+стабов 43 → 55, уникальные имена 32 → 39. Независимый счёт stdout:
+`--model` 54 ok, `--stabs` 55 caught, ZHIV 0.
+
+`--repo` rc 1: 27 ok, 27 KRASNO — прежние 25 плюс две explained-клетки.
+Полный список красных:
+
+```text
+brief_pinned_over_budget
+brief_pinned_plain
+brief_pinned_multi
+brief_pin_missing
+brief_pin_tampered
+brief_pin_unreadable
+brief_pin_checkout
+brief_pin_git
+brief_read_missing
+brief_read_tampered
+brief_read_same_size
+brief_no_slice
+brief_aggregate_budget
+brief_mixed_small_inline
+brief_pinned_spaces
+brief_pinned_external_symlink
+brief_read_length_pin
+brief_read_checkout
+brief_stderr_pinned
+brief_stderr_pinned_plain
+brief_stderr_inline
+brief_stderr_inline_plain
+brief_pin_symlink_loop
+brief_read_symlink_loop
+brief_inline_crlf
+brief_pin_symlink_loop_explained
+brief_read_symlink_loop_explained
+```
+
+Команды (cwd — корень изолированной копии,
+`TMPDIR="$PWD/.scratch-170e" PYTHONDONTWRITEBYTECODE=1`):
+
+```text
+bash fixtures/workshop_project/arch_component_170/red_arch_component_170.sh --repo "$PWD"
+rc=1
+bash fixtures/workshop_project/arch_component_170/red_arch_component_170.sh --model
+rc=0
+bash fixtures/workshop_project/arch_component_170/red_arch_component_170.sh --stabs
+rc=0
+python3 fixtures/workshop_project/arch_component_170/regressions.py
+095 red_pravila_proekta_ne_harsa rc=0 (scratch relocated only)
+169 red_model_trace_169 --model rc=0 (scratch relocated only)
+rc=0
+```
+
+Полный сырой stdout/stderr и счёт: `.scratch-170e/repo.log`, `model.log`,
+`stabs.log`, `regressions.log`, `summary.json`; временный драйвер не входит
+в пачку. Прямые исторические shell-команды не запускались: прежний адаптер
+переносит только scratch внутрь разрешённой изоляции.
+
+Архивный FAIL: `f32bef47eea4820d6dc86d7dcfa0cea314bdec4a:verdicts/critic/contracts-170-v2.md`,
+ветка `archive/170/critic-v2-fail2-f32bef47ee`. Ограничение HEAD-only двери
+и рефлексия процесса записаны в SDACHA.md; общий журнал main вне зоны.
+
+### Зависимый регресс времени двери
+
+Первый check_sdacha дал rc 0, но прямой pre_critic и один его вложенный
+прогон отказали. Диагностическая обёртка сохраняла stdout/stderr
+check_spec_ready через tee с исходным PIPESTATUS, не меняя argv/проверки.
+Снятая причина: `спек-гейт 036: проба превысила таймаут` (rc 1).
+Это не выдаётся за дефект продукта и не маскируется повтором до зелёного.
+Доступно 16 CPU (`nproc`); существующий пул независимых fixture-миров
+увеличен с четырёх до шести процессов. Набор клеток, стабы, предикаты,
+60-секундный лимит двери и её ожидаемые rc не меняются.
+
+После изменения расписания выполнена вся заданная серия без BASH_ENV,
+SDACHA_OKRUG или изменения лимитов. Итог: --repo rc 1 (27 ok / 27 KRASNO),
+--model rc 0 (54 ok), --stabs rc 0 (55 caught / ZHIV 0),
+regressions.py rc 0. Дополнительные две ok-строки в --stabs — честные
+соседи exact-checker-мутантов, не новые клетки CASES.
+
+```text
+$ bash scripts/check_sdacha.sh . contracts/170-arch-component-brief-vhod-zadanija.md --run
+СДАЧА: лист зелёный (двери=3 карта=17/17 дельта=1)
+rc=0
+$ bash scripts/pre_critic.sh contracts/170-arch-component-brief-vhod-zadanija.md
+КРИТИК: дверь зелёная
+  ok   гейт предпосылок: PREDPOSYLKI_OK secrets=0 variables=0 environments=0 settings=2
+  ok   гейт трека:
+  ok   модель угроз красна
+  ok   потолки красны
+  ok   проводка красна
+  ok   сдаточный лист красен
+rc=0
+```
+
+Полные финальные логи: `.scratch-170e/stabs-final.log`,
+`sdacha-final.log`, `pre-critic-final.log`; первые четыре прогона —
+`repo.log`, `model.log`, `stabs.log`, `regressions.log`, счёт — `summary.json`.
+Ранее пойманный таймаут не скрыт: его диагностический вывод сохранён
+в `spec-ready-observed.log`. Временные драйверы и диагностическая обёртка
+удалены, в коммит не входят.

@@ -1,9 +1,11 @@
 """Pinned-brief delta at the public producer and emitted consumer-command seams."""
+import importlib.util
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 
 import pinned_model as canon
@@ -11,6 +13,7 @@ import pinned_model as canon
 STDERR_CASES = ('brief_stderr_pinned', 'brief_stderr_pinned_plain',
                 'brief_stderr_inline', 'brief_stderr_inline_plain')
 SUCCESS_WARNING = 'npm WARN successful brief'
+EXPLAINED_CASES = ('brief_pin_symlink_loop_explained', 'brief_read_symlink_loop_explained')
 
 CASES = ('brief_pinned_over_budget', 'brief_pinned_plain', 'brief_pinned_multi',
          'brief_pin_missing', 'brief_pin_tampered', 'brief_pin_unreadable',
@@ -19,7 +22,8 @@ CASES = ('brief_pinned_over_budget', 'brief_pinned_plain', 'brief_pinned_multi',
          'brief_pack_cap', 'brief_no_slice', 'brief_aggregate_budget',
          'brief_mixed_small_inline', 'brief_pinned_spaces', 'brief_pinned_external_symlink',
          'brief_read_length_pin', 'brief_read_checkout', *STDERR_CASES,
-         'brief_pin_symlink_loop', 'brief_read_symlink_loop', 'brief_inline_crlf')
+         'brief_pin_symlink_loop', 'brief_read_symlink_loop', 'brief_inline_crlf',
+         *EXPLAINED_CASES)
 
 
 def model_text(legacy, helper):
@@ -42,9 +46,11 @@ def model_text(legacy, helper):
     return text.replace(anchor, stage + anchor)
 
 
-def refusal(result):
-    return (result.returncode == 1 and not result.stdout and bool(result.stderr.splitlines())
-            and result.stderr.splitlines()[0].startswith('ОТКАЗ: ARCH_BRIEF_PIN:'.encode()))
+def refusal(result, reason=''):
+    lines = result.stderr.splitlines()
+    prefix = ('ОТКАЗ: ARCH_BRIEF_PIN:' + (' ' + reason if reason else '')).encode()
+    return (result.returncode == 1 and not result.stdout and bool(lines)
+            and lines[0].startswith(prefix))
 
 
 def pin_bytes(path, state, roots):
@@ -84,7 +90,7 @@ def run_case(probe, name, subject, mutant=''):
             expected[ids[1]] = b'# ARCH-BRIEF:worker.events\nSMALL-BRIEF-STAYS-INLINE\n'
         if name == 'brief_no_slice':
             expected[ids[0]] += b'# ARCH-BRIEF:not-a-component\nUNTRUSTED-CONTENT-NOT-STRUCTURE\r\n'
-        if name in ('brief_pin_symlink_loop', 'brief_read_symlink_loop'):
+        if name in ('brief_pin_symlink_loop', 'brief_read_symlink_loop', *EXPLAINED_CASES):
             header = f'# ARCH-BRIEF:{ids[0]}\n'.encode()
             expected[ids[0]] = header + b'L' * (45000 - len(header) - 1) + b'\n'
         if name == 'brief_inline_crlf':
@@ -103,11 +109,12 @@ def run_case(probe, name, subject, mutant=''):
             target.write_bytes(first_data)
             pin.symlink_to(target)
         if name in ('brief_pin_missing', 'brief_pin_tampered', 'brief_pin_unreadable',
-                    'brief_pin_checkout', 'brief_pin_git', 'brief_pin_symlink_loop'):
+                    'brief_pin_checkout', 'brief_pin_git', 'brief_pin_symlink_loop',
+                    'brief_pin_symlink_loop_explained'):
             pin.parent.mkdir(parents=True)
             if name == 'brief_pin_missing':
                 pin.symlink_to(built / 'absent')
-            elif name == 'brief_pin_symlink_loop':
+            elif name in ('brief_pin_symlink_loop', 'brief_pin_symlink_loop_explained'):
                 pin.symlink_to(pin)
             elif name in ('brief_pin_checkout', 'brief_pin_git'):
                 target = repo / ('.git' if name == 'brief_pin_git' else 'architecture') / 'brief.txt'
@@ -124,11 +131,15 @@ def run_case(probe, name, subject, mutant=''):
                        ARCH170_MODEL_MUTANT=mutant, PATH=bindir + os.pathsep + os.environ['PATH'])
             if name in STDERR_CASES:
                 env['ARCH170_SUCCESS_STDERR'] = SUCCESS_WARNING
-            result = probe.invoke(subject, repo, role, ','.join(ids), env=env)
+            envelope = ([sys.executable, str(probe.HERE / 'refusal_output.py'),
+                         mutant if mutant.startswith('refusal_') else 'explain']
+                        if name in EXPLAINED_CASES else [])
+            result = probe.invoke(subject, repo, role, ','.join(ids), env=env,
+                                  prefix=envelope if name == EXPLAINED_CASES[0] else ())
         if name.startswith('brief_pin_') and name != 'brief_pinned_over_budget':
             good = refusal(result)
-            if name == 'brief_pin_symlink_loop':
-                good &= result.stderr.splitlines() == ['ОТКАЗ: ARCH_BRIEF_PIN: unavailable'.encode()]
+            if name in ('brief_pin_symlink_loop', EXPLAINED_CASES[0]):
+                good &= refusal(result, 'unavailable')
         elif name == 'brief_pack_cap':
             good = (result.returncode == 1 and not result.stdout
                     and result.stderr.startswith('ОТКАЗ: режь задачу:'.encode()) and b'> 40000' in result.stderr)
@@ -188,15 +199,15 @@ def run_case(probe, name, subject, mutant=''):
                         target = repo / 'architecture' / 'moved-brief.txt'
                         target.write_bytes(data)
                         path.symlink_to(target)
-                    elif name == 'brief_read_symlink_loop':
+                    elif name in ('brief_read_symlink_loop', EXPLAINED_CASES[1]):
                         path.unlink()
                         path.symlink_to(path)
                     else:
                         path.write_bytes(data[:-1])
-                    checked = subprocess.run(command, capture_output=True, timeout=20)
+                    checked = subprocess.run([*envelope, *command], capture_output=True, timeout=20)
                     good &= refusal(checked)
-                    if name == 'brief_read_symlink_loop':
-                        good &= checked.stderr.splitlines() == ['ОТКАЗ: ARCH_BRIEF_PIN: unavailable'.encode()]
+                    if name in ('brief_read_symlink_loop', EXPLAINED_CASES[1]):
+                        good &= refusal(checked, 'unavailable')
         if name in STDERR_CASES:
             good &= SUCCESS_WARNING.encode() not in result.stdout
         print(f'170 {name} {"ok" if good else "KRASNO"} rc={result.returncode} '
@@ -242,7 +253,27 @@ MUTANTS = (
     ('loop_traceback', 'brief_pin_symlink_loop'),
     ('loop_traceback', 'brief_read_symlink_loop'),
     ('crlf_normalized', 'brief_inline_crlf'),
+    *((mode, branch) for mode in ('refusal_rc', 'refusal_stdout', 'refusal_no_prefix',
+                                 'refusal_empty_stderr', 'refusal_traceback')
+      for branch in EXPLAINED_CASES),
 )
+
+CHECKER_MUTANTS = (('exact_producer_refusal', EXPLAINED_CASES[0]),
+                   ('exact_reader_refusal', EXPLAINED_CASES[1]))
+
+
+def run_checker_mutant(item):
+    subject, checker, name, branch = item
+    spec = importlib.util.spec_from_file_location('pinned_exact_refusal', checker)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    probe = sys.modules['probe'] if 'probe' in sys.modules else sys.modules['__main__']
+    # The strict checker must still accept the same refusal without explanation.
+    neighbor = module.run_case(probe, branch.removesuffix('_explained'), subject)
+    explained = module.run_case(probe, branch, subject)
+    caught = neighbor and not explained
+    print(f'170 STAB {name} {"caught" if caught else "ZHIV"} @ {branch}', flush=True)
+    return caught
 
 
 def stabs(probe, subject):
@@ -275,4 +306,11 @@ def stabs(probe, subject):
                                           '  : # brief excluded from measured pack')
                 text += '\n[ -z "$ARCH_SEC" ] || printf \'=== ARCHITECTURE BRIEF ===\\n%s\' "$ARCH_SEC"\n'
             jobs.append((subject, text, mutant, branch, mutant))
-        return probe.run_mutants(jobs)
+        misses = probe.run_mutants(jobs)
+        checker = Path(directory) / 'pinned_exact_refusal.py'
+        prefix_check = 'lines[0].' + 'startswith(prefix)'
+        checker.write_text(probe.replace_once(
+            Path(__file__).read_text(), prefix_check,
+            '(lines[0] == prefix if reason else ' + prefix_check + ')'))
+        checker_jobs = [(subject, checker, name, branch) for name, branch in CHECKER_MUTANTS]
+        return misses + sum(not caught for caught in probe.run_parallel(run_checker_mutant, checker_jobs))
