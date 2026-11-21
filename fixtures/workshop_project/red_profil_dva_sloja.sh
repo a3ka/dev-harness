@@ -15,6 +15,16 @@
 # Прогон: bash red_profil_dva_sloja.sh [корень worktree]
 #   rc 0 — стаб-пак пойман И честные клетки зелёные.
 #   rc 1 — расхождение.
+#
+# М-0 (контракт 184; ADR владельца 2026-11-21-plan-fable п.3 и
+# 2026-11-21-plan-v9 п.6): обязательства замороженных контрактов, требовавшие
+# ОТКАЗА на неизвестное имя (P4), этим решением ЗАМЕНЕНЫ — ключ вне алфавита
+# даёт предупреждение и rc 0. Поэтому клетки к4, к4б и b1 (неизвестный ключ
+# репо-слоя / слоя проекта / defaults) ждут теперь ПРЕДУПРЕЖДЕНИЕ с точным
+# путём ключа при rc 0, а не отказ; стаб-пак теряет не предмет: обманные
+# стабы (STUB_IGNORE_UNKNOWN, STUB_DEFAULTS_SCAN_SHALLOW) не печатают
+# предупреждение вовсе и потому по-прежнему убиваются на своих клетках.
+# Замороженные тексты 054/057 не правятся; заменена ячейка батареи.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # Корневой путь worktree: $1 (если --probe == ДОСЛОВНЫЙ корень worktree) или
@@ -382,21 +392,21 @@ cell_k3b() { # resolver: layer dir без файла → P3
   { [ "$rc" -eq 1 ] && grep -qF 'нет файла слоя проекта:' <<<"$out"; } && return 0
   return 1
 }
-cell_k4() { # resolver: workflowPaths.contrete → P4 (ГЛУХОЙ-АЛФАВИТ)
+cell_k4() { # resolver: workflowPaths.contrete → ПРЕДУПРЕЖДЕНИЕ (М-0), не отказ
   local r="$WORK/k4-repo" out rc
   rm -rf "$r"; repo_make "$r" typescript 1 1 v10
   jq '.workflowPaths.contrete = "x"' "$r/harness.project.json" > "$r/_n" && mv "$r/_n" "$r/harness.project.json"
   out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" bash "$1" --repo "$r" 2>&1)"; rc=$?
-  { [ "$rc" -eq 1 ] && grep -qF 'неизвестный ключ' <<<"$out" && grep -qF 'workflowPaths.contrete' <<<"$out"; } && return 0
+  { [ "$rc" -eq 0 ] && grep -qF 'неизвестный ключ репо-слой: workflowPaths.contrete' <<<"$out"; } && return 0
   return 1
 }
-cell_k4b() { # resolver: лишний ключ слоя проекта → P4
+cell_k4b() { # resolver: лишний ключ слоя проекта → ПРЕДУПРЕЖДЕНИЕ (М-0), не отказ
   local r="$WORK/k4b-repo" layer="$WORK/k4b-layer" out rc
   rm -rf "$r" "$layer"; repo_make "$r" rust 1 1 v10
   layer_make "$layer"
   jq '.boguskey = "x"' "$layer/registry/harness-project.json" > "$layer/_n" && mv "$layer/_n" "$layer/registry/harness-project.json"
   out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$1" --repo "$r" 2>&1)"; rc=$?
-  { [ "$rc" -eq 1 ] && grep -qF 'неизвестный ключ' <<<"$out" && grep -qF 'boguskey' <<<"$out"; } && return 0
+  { [ "$rc" -eq 0 ] && grep -qF 'неизвестный ключ слой-проекта: boguskey' <<<"$out"; } && return 0
   return 1
 }
 cell_k5() { # resolver: language python → P6
@@ -545,7 +555,7 @@ cell_b1() { # nested-defaults-unknown: ключ вне алфавита в defau
 EOF
   repo_make "$r" typescript 1 1 v10
   out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$1" --repo "$r" 2>&1)"; rc=$?
-  { [ "$rc" -eq 1 ] && grep -qF 'неизвестный ключ слой-проекта: defaults.workflowPaths.unseen' <<<"$out"; } && return 0
+  { [ "$rc" -eq 0 ] && grep -qF 'неизвестный ключ слой-проекта: defaults.workflowPaths.unseen' <<<"$out"; } && return 0
   return 1
 }
 cell_b2() { # empty-command-value: commands.test: "" принимался как валидная строка
@@ -1708,7 +1718,7 @@ cell_workshop_run() {
 
 # Запустить клетку с resolver в качестве субъекта
 cell_resolver_run() {
-  local cell="$1" r out rc
+  local cell="$1" r out rc warn
   case "$cell" in
     k2) r="$WORK/k2-r"; repo_make "$r" typescript 1 1 v10; rm -f "$r/harness.project.json"
         out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>&1)"; rc=$?
@@ -1721,13 +1731,19 @@ cell_resolver_run() {
           { [ "$rc" -eq 1 ] && grep -qF 'нет файла слоя проекта:' <<<"$out"; } || return 1 ;;
     k4) r="$WORK/k4-r"; repo_make "$r" typescript 1 1 v10
         jq '.workflowPaths.contrete = "x"' "$r/harness.project.json" > "$r/_n" && mv "$r/_n" "$r/harness.project.json"
-        out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>&1)"; rc=$?
-        { [ "$rc" -eq 1 ] && grep -qF 'неизвестный ключ' <<<"$out" && grep -qF 'workflowPaths.contrete' <<<"$out"; } || return 1 ;;
+        # Б-1 (контракт 184): предупреждение — ОТДЕЛЬНЫЙ канал stderr, stdout
+        # несёт JSON. При слитых каналах (`2>&1`) дверь не пишет предупреждение
+        # в общий поток, и grep по слитому потоку его не находит. Читаем stderr
+        # отдельным файлом: stdout — труба, stderr — файл, это РАЗНЫЕ объекты.
+        out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>"$WORK/k4-warn")"; rc=$?
+        warn="$(cat "$WORK/k4-warn")"
+        { [ "$rc" -eq 0 ] && grep -qF 'неизвестный ключ репо-слой: workflowPaths.contrete' <<<"$warn"; } || return 1 ;;
     k4b) r="$WORK/k4b-r"; mkdir -p "$WORK/k4b-layer"
           repo_make "$r" rust 1 1 v10; layer_make "$WORK/k4b-layer"
           jq '.boguskey = "x"' "$WORK/k4b-layer/registry/harness-project.json" > "$WORK/k4b-layer/_n" && mv "$WORK/k4b-layer/_n" "$WORK/k4b-layer/registry/harness-project.json"
-          out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/k4b-layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>&1)"; rc=$?
-          { [ "$rc" -eq 1 ] && grep -qF 'неизвестный ключ' <<<"$out" && grep -qF 'boguskey' <<<"$out"; } || return 1 ;;
+          out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/k4b-layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>"$WORK/k4b-warn")"; rc=$?
+          warn="$(cat "$WORK/k4b-warn")"
+          { [ "$rc" -eq 0 ] && grep -qF 'неизвестный ключ слой-проекта: boguskey' <<<"$warn"; } || return 1 ;;
     k5) r="$WORK/k5-r"; repo_make "$r" rust 1 1 v10
         jq '.language = "python"' "$r/harness.project.json" > "$r/_n" && mv "$r/_n" "$r/harness.project.json"
         out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>&1)"; rc=$?
@@ -1752,8 +1768,9 @@ cell_resolver_run() {
 {"schemaVersion":1,"version":"v10","projectId":"p1","workspaceId":"w1","defaults":{"language":"typescript","workflowPaths":{"contracts":"contracts","unseen":"BOGUS"}}}
 EOF2
          r="$WORK/b1-r"; repo_make "$r" typescript 1 1 v10
-         out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>&1)"; rc=$?
-         { [ "$rc" -eq 1 ] && grep -qF 'неизвестный ключ слой-проекта: defaults.workflowPaths.unseen' <<<"$out"; } || return 1 ;;
+         out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>"$WORK/b1-warn")"; rc=$?
+         warn="$(cat "$WORK/b1-warn")"
+         { [ "$rc" -eq 0 ] && grep -qF 'неизвестный ключ слой-проекта: defaults.workflowPaths.unseen' <<<"$warn"; } || return 1 ;;
     b2) r="$WORK/b2-r"; repo_make "$r" typescript 1 1 v10
          jq '.commands.test = ""' "$r/harness.project.json" > "$r/_n" && mv "$r/_n" "$r/harness.project.json"
          out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>&1)"; rc=$?
