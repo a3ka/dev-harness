@@ -19,6 +19,19 @@
 # v5 (слово владельца 2026-11-18 ~14:05 UTC, §4 батча №2; заявка контракта
 # 199:19): у рабочего item события спавна обязателен реальный isolated
 # === true из ПОЛЯ item; строка START несёт факт isolated ([D32]/[D33]).
+# v6 (слово владельца 2026-11-21 «самое простое решение»): первый critic
+# НОВОГО предмета — у которого у владельца НЕТ НИ ОДНОГО тега
+# frozen/contracts/<NNN>/* — читает класс риска из ДЕРЕВА OBJECT ([D52]);
+# иначе critic требует frozen, а freeze требует accept критика (цикл, боль
+# 203). Bootstrap ТОЛЬКО при нуле frozen-тегов и ТОЛЬКО для critic/critic-sol;
+# при живом frozen-теге pinned frozen обязателен как прежде (битый pin →
+# KLASS_RISKA_NET), остальные роли (adversary/reviewer) — как прежде.
+# v7 (слово владельца 2026-11-21 00:16, «самое простое решение»): реестр
+# контрактов владельца в ПРОЕКТЕ лежит в .harness/registry/contracts.tsv (в
+# registry/ такого файла нет) — frozen_predmeta и проверка receipt (D39)
+# читают запасной путь, но ТОЛЬКО когда основного в дереве нет ([D53]);
+# основной путь найден — он и источник (строки предмета в нём нет — отказ
+# как прежде, запасной путь основной не подменяет).
 #
 # ПИНЫ (инвариант 1): дверь вызывается расширением .omp/extensions/
 # spawn-guard.ts по расположению расширения, а не по env; корни состояний
@@ -51,7 +64,8 @@
 #   --repo      R  — реестр: registry/pauzy.tsv (ПАУЗА владельца), теги
 #                    done/contracts/<NNN>/* (слот закрыт), registry/
 #                    risk-legacy.tsv (класс старых frozen по blob, [D30]);
-#                    registry/contracts.tsv закрепляет точный frozen владельца;
+#                    registry/contracts.tsv закрепляет точный frozen владельца
+#                    (у ПРОЕКТА — .harness/registry/contracts.tsv, [D53]);
 #                    декларации OBJECT не меняют обязательства суда.
 #
 # ЗАМКНУТЫЕ АЛФАВИТЫ (норма 041; байты-разделители исключены из классов значений):
@@ -61,6 +75,13 @@
 #   PIN     — пара строк `^WORKTREE=/[^TAB]+$` и `^BRANCH=wip/[0-9]{3}/[^TAB]+$`
 #             (построчная форма грамматики 066; NNN ветки == SUBJECT; байт TAB
 #             исключён из класса значения ЛИТЕРАЛЬНО — ERE-скобки не знают \t);
+#   ПОВТОР  — необязательная строка задания судьи (слово владельца 21.11 00:55)
+#             `^РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: [0-9]{3} (critic|critic-sol|adversary|
+#             reviewer) [0-9a-f]{40}$`; ровно одна; адресное разрешение владельца
+#             на ОДИН повторный круг той же роли на том же OBJECT (предмет/роль/
+#             OBJECT в строке — те же, что у события); строки вне формата, две
+#             и более строк, чужие значения — разрешения НЕ дают (отказ как
+#             прежде), новых имён отказа не добавляет;
 #   ИМЯ     — [A-Za-z0-9._-]+ (грамматика session-id, норма 037);
 #   ISOLATED — поле item события isolated: у рабочего — РЕАЛЬНОЕ булево
 #             true (строгое === true, jq-сравнение); отсутствие поля, ложь и
@@ -381,9 +402,28 @@ rabochij_json() {
   jq -cSrs --arg r "$REPO_ID" --arg n "$1" \
     '[.[] | select(.t=="START" and .repoId==$r and .subjectId==$n and .klass=="rabochij")] | last // empty' "$LEDGER"
 }
+# [D53 registry-proekta] Реестр контрактов владельца в дереве: основной путь
+# registry/contracts.tsv; если его в дереве НЕТ — проектная раскладка
+# .harness/registry/contracts.tsv (та же стенка, что каталог контрактов и
+# паузы проекта: измерено 02.11/04.11 — без неё судья ПРОЕКТА не проходит:
+# «KLASS_RISKA_NET: закреплённый frozen недоступен»). Основной путь найден —
+# он и источник: запасной его НЕ подменяет (строки предмета в основном нет —
+# отказ как прежде, молчаливого перехода на запасной нет). Печатает путь
+# существующего файла; ничего — реестра нет нигде.
+reestr_contracts_put() {  # <репозиторий> <ревизия> → путь | пусто
+  local repo="$1" rev="$2" p
+  for p in 'registry/contracts.tsv' '.harness/registry/contracts.tsv'; do
+    if git -C "$repo" cat-file -t "$rev:$p" >/dev/null 2>&1; then
+      printf '%s' "$p"
+      return 0
+    fi
+  done
+  return 1
+}
 frozen_predmeta() {  # <NNN> <репозиторий владельца> → commit annotated frozen
-  local row object ref owner="${2:-$REPO}"
-  row="$(git -C "$owner" show HEAD:registry/contracts.tsv 2>/dev/null | grep -E "^$1 → [0-9a-f]{40}$")" || return 1
+  local row object ref owner="${2:-$REPO}" put
+  put="$(reestr_contracts_put "$owner" HEAD)" || return 1
+  row="$(git -C "$owner" show "HEAD:$put" 2>/dev/null | grep -E "^$1 → [0-9a-f]{40}$")" || return 1
   [[ "$row" =~ ^$1\ →\ [0-9a-f]{40}$ ]] || return 1
   object="${row#* → }"
   [ "$(git -C "$owner" cat-file -t "$object" 2>/dev/null)" = tag ] || return 1
@@ -407,7 +447,7 @@ perenos_otkaz() {
   otp "$1" "проверяемая передача: $2"
 }
 proverit_peredachu() {  # <subject> <receipt commit>; результат — P_* в памяти
-  local n="$1" c="$2" worker digest path reg ptag pobj pcommit
+  local n="$1" c="$2" worker digest path reg reg_put ptag pobj pcommit
   [[ "$c" =~ ^[0-9a-f]{40}$ ]] \
     || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'commit вне алфавита'
   # [D35 receipt-origin] Только неизменяемое свидетельство станции на origin/main.
@@ -488,7 +528,13 @@ sys.exit(1 if next(Draft202012Validator(schema).iter_errors(document), None) els
   pobj="$(printf '%s' "$P_JSON" | jq -r .frozenObject)"
   pcommit="$(printf '%s' "$P_JSON" | jq -r .frozenCommit)"
   # [D39 receipt-frozen] Версия из реестра В ДЕРЕВЕ свидетельства, не latest/main.
-  reg="$(git -C "$REPO" show "$c:registry/contracts.tsv" 2>/dev/null | LC_ALL=C grep -E "^$n → " )"
+  # [D53 registry-proekta] Раскладка реестра владельца — как в frozen_predmeta:
+  # основной путь, а если его в дереве свидетельства НЕТ — проектный.
+  reg_put="$(reestr_contracts_put "$REPO" "$c")" || reg_put=''
+  reg=''
+  if [ -n "$reg_put" ]; then
+    reg="$(git -C "$REPO" show "$c:$reg_put" 2>/dev/null | LC_ALL=C grep -E "^$n → " )"
+  fi
   [ "$reg" = "$n → $pobj" ] \
     && [ "$(git -C "$P_WT" rev-parse --verify "refs/tags/$ptag" 2>/dev/null)" = "$pobj" ] \
     && [ "$(git -C "$P_WT" cat-file -t "$pobj" 2>/dev/null)" = tag ] \
@@ -550,20 +596,48 @@ EOF
 # (контракт 167: оборванный судья — START без закоммиченного вердикта — круг D11
 # не тратит; его release даёт ровно один повтор, а новый START повторного судьи
 # снова учитывается). Первый запрос — «был ли START вообще»: без него круг не
-# состоялся. Второй — по каждому судье отдельно: круг закрыт только его
-# собственным release.
+# состоялся. Второй — общий счётчик кругов (krugov_suda): состоявшихся кругов
+# ≥ 1. Признак и число — ОДНО свойство: расходиться им нельзя.
 subekt_suzhen_sudej_obj() {  # <NNN> <rol> <object>
   jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" 'any(.[]; .t == "START" and .repoId == $r and .subjectId == $n and .klass == "sudja" and .rol == $roli and .object == $o)' "$LEDGER" >/dev/null 2>&1 || return 1
+  local krug
+  krug="$(krugov_suda "$1" "$2" "$3")"
+  case "$krug" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$krug" -ge 1 ]
+}
+# [D11 uzhe-suzhen] Круги суда роли ROL на OBJECT по предмету NNN — ЧИСЛОМ
+# (учёт: START + его собственный RELEASE; оборванный судья — release
+# `obryv_bez_verdikta` — круг не тратит, контракт 167). 1 — повтор ещё не
+# использован (слово владельца 21.11 00:55 разрешает ровно один); 2 и больше —
+# разрешение исчерпано. Счёт по учёту, не по наличию замка.
+#
+# КРУГ — ЗАПИСЬ START со своим состоянием, а НЕ карта «holder → состояние»:
+# имя держателя не идентификатор круга (между сессиями имена не
+# уникализируются, дверь пишет START по запрошенному имени ДО omp), поэтому
+# повторное имя не должно стирать состоявшиеся круги и превращать исчерпанную
+# строку РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР в бесконечное разрешение. RELEASE (роли и
+# OBJECT не несёт) закрывает ПОСЛЕДНИЙ открытый START своего holder в том же
+# repoId/subjectId — соотнесение идёт по последовательности START этого holder,
+# включая промежуточный START иного OBJECT/роли/класса; фильтр по
+# роли/OBJECT/class — ПОСЛЕ соотнесения (иначе RELEASE чужого круга закрыл бы
+# старый открытый круг).
+krugov_suda() {  # <NNN> <rol> <object> → число кругов
   jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" '
-    reduce .[] as $l ({};
-      if $l.repoId != $r or $l.subjectId != $n then .
-      elif $l.t == "START" and $l.klass == "sudja" and $l.rol == $roli and $l.object == $o
-        then .[$l.holder] = "open"
-      elif $l.t == "RELEASE" and .[$l.holder] == "open" and $l.prichina == "obryv_bez_verdikta"
-        then .[$l.holder] = "interrupted"
-      elif $l.t == "RELEASE" and .[$l.holder] == "open" then .[$l.holder] = "judged"
-      else . end
-    ) | any(.[]; . != "interrupted")' "$LEDGER" >/dev/null 2>&1
+    reduce .[] as $l
+      ([];
+        if $l.repoId != $r or $l.subjectId != $n then .
+        elif $l.t == "START" then
+          . + [{h: $l.holder, s: "open", r: $l.rol, o: $l.object, k: $l.klass}]
+        elif $l.t == "RELEASE" then
+          ([ to_entries[] | select(.value.h == $l.holder and .value.s == "open") ]
+           | last | .key) as $i
+          | if $i == null then .
+            else .[$i].s = (if $l.prichina == "obryv_bez_verdikta" then "obryv" else "sud" end)
+            end
+        else . end
+      )
+    | [ .[] | select(.k == "sudja" and .r == $roli and .o == $o and .s != "obryv") ]
+    | length' "$LEDGER" 2>/dev/null
 }
 # [D16 slovo] СЛОВО владельца — строка SLOVO в учёте (санкция сверх лимита).
 slovo_vladelca() {  # <NNN>
@@ -668,6 +742,23 @@ pin_iz() {  # <task> → «ok:<wt>|<br>»|net|gramm
   b="$(printf '%s\n' "$t" | grep -E "$rxb" | sed -n '1p' | cut -c8-)"
   printf 'ok:%s|%s' "$w" "$b"
 }
+# [D11 uzhe-suzhen] СЛОВО владельца (21.11 00:55) — адресное разрешение на
+# ОДИН повторный круг той же роли на том же OBJECT: строка задания судьи
+# `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: <NNN> <роль> <OBJECT-40hex>`. Строка
+# необязательная; формат закрытый (норма 041), предмет/роль/OBJECT в строке —
+# те же, что у события. Разбирается ОТДЕЛЬНО от SUBJECT/OBJECT/PIN: прежние
+# отказы грамматики (лишние/повторные строки иных ключей) не меняются, новых
+# имён отказа не появляется. Разрешение выдаётся только при РОВНО одной
+# строке нужного формата: две и более строк, строка вне формата или чужие
+# значения = разрешения нет (отказ OBJECT_UZHE_SUZHEN как прежде) — молчаливого
+# пропуска нет.
+povtor_iz() {  # <task> → «ok:<NNN>|<роль>|<OBJECT>»|net
+  local t="$1" c line
+  c="$(kolvo_strok "$t" '^РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: [0-9]{3} (critic|critic-sol|adversary|reviewer) [0-9a-f]{40}$')"
+  [ "$c" = '1' ] || { printf 'net'; return 0; }
+  line="$(printf '%s\n' "$t" | grep -E '^РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: [0-9]{3} (critic|critic-sol|adversary|reviewer) [0-9a-f]{40}$' | sed -n '1p')"
+  printf 'ok:%s' "$(printf '%s' "$line" | cut -d' ' -f2- | tr ' ' '|')"
+}
 
 # ══════════════════════════════ --sudit ══════════════════════════════════════
 sudit() {
@@ -682,7 +773,9 @@ sudit() {
   # проход 1: грамматика всех gated items; НИ ОДНОЙ записи до полного решения
   GATED=''
   local i=0 agent name task in_w in_j s sv p wt br o obj klass rol r
+  local pov psv2 prol2 pobj2
   local transfer P_JSON P_WT P_BRANCH P_OBJECT P_FROZEN risk_repo
+  local kl_bootstrap kl_frozen
   while [ "$i" -lt "$N" ]; do
     agent="$(jq -r "(.tasks // [.])[$i].agent // \"\"" "$EVENT" 2>/dev/null)" \
       || otp BITYJ_VHOD "item $i: agent не читается"
@@ -803,8 +896,26 @@ EOF
     # Суд идёт и при освобождённом замке (контракт 167): круг судейства считается
     # по учёту (START и его собственный RELEASE), а не по наличию замка.
     if [ "$klass" = 'sudja' ] && subekt_suzhen_sudej_obj "$sv" "$rol" "$obj"; then
-      mutexi_snyat_vse
-      otp OBJECT_UZHE_SUZHEN "предмет $sv: OBJECT $obj уже судился ролью $rol; исправительный круг — новый sha"
+      # [D11 uzhe-suzhen] СЛОВО владельца 21.11 00:55: ОДИН повторный круг
+      # той же роли на том же OBJECT пропускается, если в задании судьи есть
+      # ровно одна строка `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: <NNN> <роль> <OBJECT>` с
+      # теми же предметом, ролью и OBJECT И повтор ещё не использован (кругов
+      # суда роли на этом OBJECT по этому предмету — ровно один). Строка вне
+      # формата, дубль строки, чужие предмет/роль/OBJECT, исчерпанное
+      # разрешение — повтор НЕ пропускается: отказ OBJECT_UZHE_SUZHEN как
+      # прежде (молчаливого пропуска нет).
+      pov="$(povtor_iz "$(jq -r "(.tasks // [.])[$idx].task // \"\"" "$EVENT" 2>/dev/null)")"
+      psv2=''; prol2=''; pobj2=''
+      case "$pov" in
+        ok:*) psv2="${pov#ok:}"; psv2="${psv2%%|*}"
+              prol2="${pov#ok:}"; prol2="${prol2#*|}"; prol2="${prol2%%|*}"
+              pobj2="${pov#ok:}"; pobj2="${pobj2##*|}" ;;
+      esac
+      if [ "$psv2" != "$sv" ] || [ "$prol2" != "$rol" ] || [ "$pobj2" != "$obj" ] \
+         || [ "$(krugov_suda "$sv" "$rol" "$obj")" != '1' ]; then
+        mutexi_snyat_vse
+        otp OBJECT_UZHE_SUZHEN "предмет $sv: OBJECT $obj уже судился ролью $rol; исправительный круг — новый sha"
+      fi
     fi
     if [ "$klass" = 'sudja' ]; then
       rab="$(poslednij_rabochij "$sv")"
@@ -851,13 +962,34 @@ EOF
         otp OBJECT_RASHODITSJA "предмет $sv: OBJECT задания $obj ≠ tip ветки $r_br ($tip)"
       }
       # [D42 frozen-risk] Всегда frozen соответствующего владельца, не OBJECT.
+      # [D52 bootstrap-kritika] Первый critic НОВОГО предмета (ни одного
+      # frozen/contracts/<NNN>/* у владельца) читает класс риска из OBJECT:
+      # иначе critic требует frozen, а freeze требует accept критика — цикл
+      # (боль 203; слово владельца 21.11 — «самое простое решение»). Bootstrap
+      # ТОЛЬКО при НУЛЕ frozen-тегов и ТОЛЬКО для роли critic/critic-sol; при
+      # живом frozen-теге pinned frozen обязателен как прежде (битый pin →
+      # прежний отказ KLASS_RISKA_NET). Класс читается из ДЕРЕВА OBJECT в
+      # репозитории носителя (r_wt — там D9 уже сверил tip ветки с OBJECT).
+      kr=''; kl_bootstrap=0; kl_frozen=''
       if [ -z "$P_FROZEN" ]; then
-        P_FROZEN="$(frozen_predmeta "$sv" "$risk_repo")" || {
-          mutexi_snyat_vse
-          otp KLASS_RISKA_NET "предмет $sv: закреплённый frozen недоступен"
-        }
+        case "$rol" in
+          critic|critic-sol)
+            kl_frozen="$(git -C "$risk_repo" for-each-ref --format='%(objectname)' \
+                         "refs/tags/frozen/contracts/$sv/" 2>/dev/null)" || kl_frozen='NET'
+            [ -n "$kl_frozen" ] || kl_bootstrap=1 ;;
+        esac
       fi
-      kr="$(klass_riska "$sv" "$risk_repo" "$P_FROZEN")"
+      if [ "$kl_bootstrap" = 1 ]; then
+        kr="$(klass_riska "$sv" "$r_wt" "$obj")"
+      else
+        if [ -z "$P_FROZEN" ]; then
+          P_FROZEN="$(frozen_predmeta "$sv" "$risk_repo")" || {
+            mutexi_snyat_vse
+            otp KLASS_RISKA_NET "предмет $sv: закреплённый frozen недоступен"
+          }
+        fi
+        kr="$(klass_riska "$sv" "$risk_repo" "$P_FROZEN")"
+      fi
       case "$kr" in
         risikovyj|obychnyj) : ;;
         *)
