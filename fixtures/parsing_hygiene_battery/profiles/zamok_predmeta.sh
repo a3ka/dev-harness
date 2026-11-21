@@ -116,6 +116,10 @@ zp_world() {  # мир строится один раз на прогон про
   fi
   rm -rf "$ZP_T/sost" "$ZP_T/zhurnaly"
   mkdir -p "$ZP_T/sost" "$ZP_T/zhurnaly"
+  # Профиль проекта — состояние КЛЕТКИ, а не мира: клетка, которой путь реестра
+  # нужен, объявляет его сама (zp_profil_reestr). Иначе объявление утекает в
+  # следующие клетки и меняет их путь реестра.
+  rm -rf "$ZP_T/repo/harness.project.json" "$ZP_T/repo/.profile" || return 1
   return 0
 }
 
@@ -386,11 +390,11 @@ zp_git_obvertka() {  # → каталог с обёрткой (в PATH клад�
 }
 
 # ── раскладка реестра контрактов у владельца (клетки п, р, с) ──────────────
-# Станция держит реестр контрактов в registry/contracts.tsv, ПРОЕКТ — в
-# .harness/registry/contracts.tsv (та же стенка, что каталог контрактов и
-# паузы проекта: измерено 02.11/04.11). Клетки судят РАСКЛАДКУ, а не текст:
-# пина предмета нет нигде / пин только в проектном пути / основной путь
-# есть, а строки предмета в нём нет.
+# Путь реестра — ДАННЫЕ ПРОФИЛЯ (workflowPaths.registry); без профиля —
+# реестр репозитория (registry/). Клетки судят РАСКЛАДКУ, а не текст:
+# пина предмета нет нигде / пин только в объявленном профилем пути /
+# объявленный путь есть, а строки предмета в нём нет (в необъявленном
+# каталоге строка есть — она реестром НЕ является).
 
 # Убрать оба пути реестра у владельца (раскладка задаётся клеткой явно).
 zp_reestr_snyat() {
@@ -399,6 +403,25 @@ zp_reestr_snyat() {
   if ! git -C "$ZP_T/repo" diff --cached --quiet; then
     git -C "$ZP_T/repo" -c user.name=b -c user.email=b@t -c commit.gpgsign=false \
         commit -q -m 'reestr snyat' || return 1
+  fi
+  return 0
+}
+
+# Профиль проекта, объявляющий путь реестра (workflowPaths.registry): путь
+# реестра — данные профиля, а не угадывание по дереву. Слой проекта —
+# .profile/project.json (не в каталоге реестра: клетка реестр снимает).
+zp_profil_reestr() {  # <репозиторий> <путь реестра относительно корня>
+  local repo="$1" reg="$2"
+  mkdir -p "$repo/.profile" "$repo/$reg" "$repo/contracts" "$repo/verdicts" \
+           "$repo/fixtures" || return 1
+  printf '%s\n' '{"schemaVersion":1,"repoId":"dev-harness","language":"bash","projectLayer":{"version":"1","profilePath":".profile/project.json"},"workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"'"$reg"'","fixtures":"fixtures"}}' \
+      > "$repo/harness.project.json" || return 1
+  printf '%s\n' '{"schemaVersion":1,"version":"1","projectId":"toy","workspaceId":"toy","defaults":{}}' \
+      > "$repo/.profile/project.json" || return 1
+  git -C "$repo" add -A || return 1
+  if ! git -C "$repo" diff --cached --quiet; then
+    git -C "$repo" -c user.name=b -c user.email=b@t -c commit.gpgsign=false \
+        commit -q -m 'profil proekta' || return 1
   fi
   return 0
 }
@@ -827,12 +850,13 @@ zp_kletka_povtor_obryv_ten_imya() {
   return 0
 }
 
-# (п) Проектная раскладка реестра контрактов: реестр лежит ТОЛЬКО в
-#     .harness/registry/contracts.tsv (в registry/ такого файла нет), у
-#     предмета аннотированный frozen-тег и строка реестра → судья ДОПУСКАЕТСЯ
-#     дверью (rc 0 PUSCHEM). Дверь, ищущая реестр только по
-#     registry/contracts.tsv, отказывает «закреплённый frozen недоступен» —
-#     клетка различает.
+# (п) Проектная раскладка реестра контрактов: путь реестра ОБЪЯВЛЕН профилем
+#     (workflowPaths.registry = .harness/registry), строка реестра лежит
+#     ТОЛЬКО там (в registry/ такого файла нет), у предмета аннотированный
+#     frozen-тег и строка реестра → судья ДОПУСКАЕТСЯ дверью (rc 0 PUSCHEM) и
+#     класс определён (предупреждения KLASS_RISKA_NET нет). Дверь, читающая
+#     реестр только по реестру репозитория, отказывает «закреплённый frozen
+#     недоступен» — клетка различает.
 zp_kletka_reestr_proekt() {
   zp_world || return 1
   zp_kandidat 212 || return 1
@@ -841,6 +865,7 @@ zp_kletka_reestr_proekt() {
   zp_reestr_snyat || return 1
   tagobj="$(zp_vladelec_frozen 212)" || return 1
   zp_reestr_stroka '.harness/registry/contracts.tsv' 212 "$tagobj" || return 1
+  zp_profil_reestr "$ZP_T/repo" '.harness/registry' || return 1
   zp_event "$ZP_T/e9.json" adversary Adv212 'SUBJECT=212' "OBJECT=$ZP_SHA"
   zp_sudit "$ZP_T/e9.json"
   zp_kletka '(п) реестр проекта только в .harness/registry/contracts.tsv' "$ZP_RC"
@@ -849,6 +874,10 @@ zp_kletka_reestr_proekt() {
     printf 'zamok_predmeta: (п) реестр проекта: нет PUSCHEM; вывод: %s\n' "$ZP_OUT" >&2
     return 1
   fi
+  # Пин прочитан из ОБЪЯВЛЕННОГО профилем реестра: предупреждения о
+  # непрочитанном frozen нет (иначе клетка прошла бы вхолостую — «рисковый по
+  # умолчанию» при непрочитанном классе).
+  zp_net_predupr KLASS_RISKA_NET '(п) реестр проекта только в .harness/registry/contracts.tsv' || return 1
   return 0
 }
 
@@ -872,10 +901,12 @@ zp_kletka_reestr_net() {
   return 0
 }
 
-# (с) Основной реестр ЕСТЬ, строки предмета в нём НЕТ, а в проектном пути
-#     строка есть → класс НЕ ОПРЕДЕЛЁН: ПРЕДУПРЕЖДЕНИЕ с записью. Запасной
-#     путь основной НЕ подменяет (иначе дверь признала бы запись чужого
-#     реестра) — предупреждение остаётся, класс не читается.
+# (с) Реестр репозитория ЕСТЬ, строки предмета в нём НЕТ, а в НЕОБЪЯВЛЕННОМ
+#     каталоге (.harness/registry/) строка есть → класс НЕ ОПРЕДЕЛЁН:
+#     ПРЕДУПРЕЖДЕНИЕ с записью. Путь реестра — объявленный профилем (без
+#     профиля — реестр репозитория); файл в необъявленном каталоге реестром
+#     НЕ является, и дверь его не подменяет (иначе дверь признала бы запись
+#     чужого реестра) — предупреждение остаётся, класс не читается.
 zp_kletka_reestr_osnovnoy() {
   zp_world || return 1
   zp_kandidat 214 || return 1
@@ -1102,12 +1133,13 @@ zp_kletka_release_filtr_posle_sootneseniya() {
 }
 
 # ── проверяемая передача (D39): проектный реестр контрактов ─────────────────
-# Реестр предмета у владельца лежит в registry/contracts.tsv, у ПРОЕКТА — в
-# .harness/registry/contracts.tsv (та же стенка, что и в клетках (п)(р)(с)).
-# [D39] версия frozen берётся из реестра В ДЕРЕВЕ СВИДЕТЕЛЬСТВА: если основной
-# путь в дереве свидетельства НЕТ — берётся проектный. Дверь, читающая реестр
-# только по основному пути, отказала бы «точная frozen-версия не удостоверена»
-# — клетка (р4) различает.
+# Путь реестра предмета у владельца — объявленный профилем
+# (workflowPaths.registry = .harness/registry; без профиля — реестр
+# репозитория; та же раскладка, что и в клетках (п)(р)(с)).
+# [D39] версия frozen берётся из реестра В ДЕРЕВЕ СВИДЕТЕЛЬСТВА: реестр —
+# объявленный профилем путь. Дверь, читающая реестр только по реестру
+# репозитория, отказала бы «точная frozen-версия не удостоверена» —
+# клетка (р4) различает.
 
 # Вызов двери в режиме проверяемой передачи.
 zp_peredat() {  # <репозиторий> <NNN> <коммит-свидетельство> → ZP_OUT, ZP_RC
@@ -1119,7 +1151,8 @@ zp_peredat() {  # <репозиторий> <NNN> <коммит-свидетел�
 # Мир проверяемой передачи: продуктовый worktree (внешний продукт, иной
 # канонический remote), рабочий START автора в учёте с журналом со сдачей,
 # аннотированный frozen-тег в продукте и коммит-свидетельство на origin/main
-# станции. Реестр предмета — ПРОЕКТНЫЙ: строка лежит ТОЛЬКО в
+# станции. Реестр предмета — ПРОЕКТНЫЙ: путь объявлен профилем
+# (workflowPaths.registry = .harness/registry), строка лежит ТОЛЬКО в
 # .harness/registry/contracts.tsv (в registry/ такого файла нет).
 # Печатает sha коммита-свидетельства.
 zp_mir_peredachi() {  # <NNN>
@@ -1164,6 +1197,7 @@ zp_mir_peredachi() {  # <NNN>
       "$ZP_T/sost/uchet.jsonl")" || return 1
   digest="$(printf '%s' "$worker" | sha256sum | cut -d' ' -f1)" || return 1
   # Свидетельство — ровно поля схемы двери.
+  zp_profil_reestr "$repo" '.harness/registry' || return 1
   mkdir -p "$repo/registry/dostavki" "$repo/.harness/registry" || return 1
   jq -cn --arg r dev-harness --arg n "$n" --arg h "Impl$n" --arg ws "$digest" \
       --arg cr 'ssh://git@github.com/a3ka/Complior-mob.git' --arg wt "$wt" --arg br "$br" \
@@ -1181,15 +1215,16 @@ zp_mir_peredachi() {  # <NNN>
   printf '%s' "$receipt"
 }
 
-# (р4) D39 с ПРОЕКТНЫМ реестром: строка предмета лежит ТОЛЬКО в
-#     .harness/registry/contracts.tsv (в registry/ такого файла нет) — проверяемая
-#     передача ПРИНЯТА (rc 0 PEREDANO). В A2 «точная frozen-версия не
-#     удостоверена» — ПРЕДУПРЕЖДЕНИЕ с записью, а не отказ, поэтому различие
+# (р4) D39 с ПРОЕКТНЫМ реестром: путь реестра объявлен профилем
+#     (workflowPaths.registry = .harness/registry), строка предмета лежит
+#     ТОЛЬКО в .harness/registry/contracts.tsv (в registry/ такого файла нет) —
+#     проверяемая передача ПРИНЯТА (rc 0 PEREDANO). В A2 «точная frozen-версия
+#     не удостоверена» — ПРЕДУПРЕЖДЕНИЕ с записью, а не отказ, поэтому различие
 #     честной и мутантной двери — НАЛИЧИЕ этого предупреждения (и записи
-#     warn): честная дверь прочитала проектный реестр — предупреждения нет;
-#     дверь, читающая реестр только по основному пути (мутант `reg_put`),
-#     выдаст «ПРЕДУПРЕЖДЕНИЕ: KLASS_RISKA_NET: проверяемая передача: точная
-#     frozen-версия не удостоверена» и запишет warn.
+#     warn): честная дверь прочитала объявленный профилем реестр —
+#     предупреждения нет; дверь, читающая реестр только по реестру репозитория
+#     (мутант `reg_put`), выдаст «ПРЕДУПРЕЖДЕНИЕ: KLASS_RISKA_NET: проверяемая
+#     передача: точная frozen-версия не удостоверена» и запишет warn.
 # Требуется python3 с jsonschema: без него дверь отвечает NOT_IMPLEMENTED, и
 # клетка не измерена — это НЕ «класс закрыт честно» (сообщается явно).
 zp_kletka_d39_proektny_reestr() {

@@ -26,12 +26,6 @@
 # 203). Bootstrap ТОЛЬКО при нуле frozen-тегов и ТОЛЬКО для critic/critic-sol;
 # при живом frozen-теге pinned frozen обязателен как прежде (битый pin →
 # KLASS_RISKA_NET), остальные роли (adversary/reviewer) — как прежде.
-# v7 (слово владельца 2026-11-21 00:16, «самое простое решение»): реестр
-# контрактов владельца в ПРОЕКТЕ лежит в .harness/registry/contracts.tsv (в
-# registry/ такого файла нет) — frozen_predmeta и проверка receipt (D39)
-# читают запасной путь, но ТОЛЬКО когда основного в дереве нет ([D53]);
-# основной путь найден — он и источник (строки предмета в нём нет — отказ
-# как прежде, запасной путь основной не подменяет).
 # v8 (слово владельца 2026-11-21 12:06 UTC, «замок: упростить одним проходом»):
 # отказ — ТОЛЬКО за реальный вред (один рабочий на предмет, взаимное
 # исключение, изоляция рабочего, судья до сдачи автора, порядок рискового
@@ -45,6 +39,12 @@
 # определён — предмет считается РИСКОВЫМ (норма «нет записи — рисковый») с
 # предупреждением. Частная строка `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР` (D11) более не
 # действует — её заменила общая строка.
+# v9 (слово владельца 2026-11-21, Ш-2 «путь реестра и паузы из профиля»):
+# путь файлов реестра/паузы и путь каталога контрактов — ДАННЫЕ ПРОФИЛЯ
+# проекта (workflowPaths.registry, workflowPaths.contracts), а не жёсткий
+# путь в дереве; без профиля — реестр и каталог контрактов репозитория.
+# Чтение профиля — ТОЛЬКО существующим резолвером scripts/next_id.sh
+# (project_paths_resolve): своих ключей профиля дверь не вводит.
 #
 # ПИНЫ (инвариант 1): дверь вызывается расширением .omp/extensions/
 # spawn-guard.ts по расположению расширения, а не по env; корни состояний
@@ -74,12 +74,14 @@
 #                    (факт отклика инструмента yield; orch-tablo читает тот же
 #                    факт) ИЛИ [D2b] событие рантайма session_exit kind=normal
 #                    (omp 18.18.8 завершает субагентов без yield);
-#   --repo      R  — реестр: registry/pauzy.tsv (ПАУЗА владельца), теги
-#                    done/contracts/<NNN>/* (слот закрыт), registry/
-#                    risk-legacy.tsv (класс старых frozen по blob, [D30]);
-#                    registry/contracts.tsv закрепляет точный frozen владельца
-#                    (у ПРОЕКТА — .harness/registry/contracts.tsv, [D53]);
-#                    декларации OBJECT не меняют обязательства суда.
+#   --repo      R  — реестр: pauzy.tsv (ПАУЗА владельца), теги
+#                    done/contracts/<NNN>/* (слот закрыт), risk-legacy.tsv
+#                    (класс старых frozen по blob, [D30]); contracts.tsv
+#                    закрепляет точный frozen владельца; путь реестра и путь
+#                    каталога контрактов — из профиля проекта
+#                    (workflowPaths.registry / workflowPaths.contracts), без
+#                    профиля — репозитория; декларации OBJECT не меняют
+#                    обязательства суда.
 #
 # ЗАМКНУТЫЕ АЛФАВИТЫ (норма 041; байты-разделители исключены из классов значений):
 #   SUBJECT — строка задания `^SUBJECT=[0-9]{3}$`, ровно одна (/m, якорь ^…$);
@@ -414,12 +416,54 @@ stare_holder() {  # <holder> → yield|bezhit|broshen|net_fajla
   fi
 }
 
-# [D15 pauza] ПАУЗА владельца — только строка registry/pauzy.tsv.
+# [registry-profile] Пути профиля проекта — ЕДИНЫМ существующим резолвером
+# scripts/next_id.sh (project_paths_resolve): своих ключей профиля дверь не
+# вводит и своего парсера не заводит. Слой проекта — корень, объявленный
+# окружением (HARNESS_PROJECT_LAYER_ROOT), иначе корень того же репозитория.
+# Вызов — в подshell: резолвер экспортирует свой умолчаний, и подshell не
+# оставляет его в окружении двери (иначе второй репозиторий получил бы слой
+# первого).
+profile_paths() {  # <репозиторий> → JSON резолвера (абсолютные пути)
+  local repo="$1" abs root lib
+  abs="$(cd "$repo" 2>/dev/null && pwd -P)" || return 1
+  root="${HARNESS_PROJECT_LAYER_ROOT:-}"
+  [ -n "$root" ] || root="$abs"
+  lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/next_id.sh" || return 1
+  (
+    NEXT_ID_LIB=1 source "$lib" || exit 1
+    export HARNESS_PROJECT_LAYER_ROOT="$root"
+    project_paths_resolve "$abs"
+  )
+}
+# [registry-profile] Путь файла реестра/паузы: workflowPaths.registry профиля
+# (без профиля — реестр репозитория). ОДНА функция на реестр и на паузу.
+reestr_put() {  # <репозиторий> <имя> → абсолютный путь
+  local repo="$1" name="$2" paths
+  if [ ! -f "$repo/harness.project.json" ]; then
+    printf '%s/registry/%s' "$repo" "$name"
+    return 0
+  fi
+  paths="$(profile_paths "$repo")" || return 1
+  printf '%s\n' "$paths" | jq -er --arg name "$name" '.registry + "/" + $name'
+}
+# [registry-profile] Каталог контрактов кандидата: workflowPaths.contracts
+# профиля владельца (без профиля — contracts/). Путь — относительный ко
+# репозиторию: по нему ищем каталог в дереве OBJECT.
+kontrakt_kat() {  # <репозиторий владельца> → относительный каталог | пусто
+  local repo="$1" abs paths kat
+  if [ ! -f "$repo/harness.project.json" ]; then
+    printf 'contracts'
+    return 0
+  fi
+  abs="$(cd "$repo" 2>/dev/null && pwd -P)" || return 1
+  paths="$(profile_paths "$repo")" || return 1
+  kat="$(printf '%s\n' "$paths" | jq -er '.contracts')" || return 1
+  printf '%s' "${kat#"$abs/"}"
+}
+# [D15 pauza] ПАУЗА владельца — строка pauzy.tsv в реестре профиля.
 na_pauze() {  # <NNN>
-  local f="$REPO/registry/pauzy.tsv" l
-  # Проектная раскладка (04.11, та же стенка, что каталог контрактов в #500): реестр
-  # проекта лежит в .harness/registry/ — без этого паузу предмета проекта не записать.
-  [ -r "$f" ] || f="$REPO/.harness/registry/pauzy.tsv"
+  local f l
+  f="$(reestr_put "$REPO" pauzy.tsv)" || return 1
   [ -r "$f" ] || return 1
   while IFS= read -r l; do
     case "$l" in '#'*|'') continue ;; esac
@@ -433,10 +477,10 @@ predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # не определён (fail-closed, слово владельца 24.10). [D31 frozen-risk]
 # По слову 19.11 класс — дерево закреплённого frozen владельца предмета,
 # не дерево OBJECT, main/latest или грязный рабочий каталог.
-# Каталог контрактов кандидата: contracts/, у сессии проекта — .harness/
-# contracts/ (измерено 02.11: адверсарий по бэкенд 148 не спавнился); при
-# обоих приоритет у contracts/. Записи не-blob (симлинк/каталог с именем
-# <NNN>-*.md) — нечитаемая запись канона (как D36) → neodnoznachno.
+# Каталог контрактов кандидата — из профиля владельца: workflowPaths.contracts
+# (без профиля — contracts/); путь относительный ко репозиторию, по нему
+# ищем каталог в дереве закреплённого frozen. Записи не-blob (симлинк/каталог
+# с именем <NNN>-*.md) — нечитаемая запись канона (как D36) → neodnoznachno.
 # [D29 odnoznachnyj-istochnik-riska] класс читается по ВСЕМ файлам предмета:
 # ноль файлов, нет строки в любом из них, значение вне алфавита (обычный|
 # рисковый) или РАЗНЫЕ значения — класс не определён; «первый результат»
@@ -447,9 +491,15 @@ predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # roles/architect.md), вторая декларация в файле — неоднозначность.
 klass_riska() {  # <NNN> <worktree> <OBJECT> → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
   local n="$1" wt="$2" obj="$3" kat spisok zap tip_zap blob put val znach='' ploh=''
-  if [ "$(git -C "$wt" cat-file -t "$obj:contracts" 2>/dev/null)" = tree ]; then kat='contracts'
-  elif [ "$(git -C "$wt" cat-file -t "$obj:.harness/contracts" 2>/dev/null)" = tree ]; then kat='.harness/contracts'
-  else printf 'net_stroki:ни contracts/, ни .harness/contracts/ в дереве %s нет' "$obj"; return 0; fi
+  kat="$(kontrakt_kat "$wt")" || kat=''
+  if [ -z "$kat" ]; then
+    printf 'net_stroki:каталог контрактов в профиле владельца не объявлен'
+    return 0
+  fi
+  if [ "$(git -C "$wt" cat-file -t "$obj:$kat" 2>/dev/null)" != tree ]; then
+    printf 'net_stroki:каталога %s в дереве %s нет' "$kat" "$obj"
+    return 0
+  fi
   spisok="$(git -C "$wt" ls-tree "$obj:$kat" 2>/dev/null \
     | awk -F'\t' -v n="$n" '$2 ~ "^" n "-[^/]*[.]md$" {print $1 "\t" $2}' \
     | LC_ALL=C sort)"
@@ -510,27 +560,14 @@ rabochij_json() {
   jq -cSrs --arg r "$REPO_ID" --arg n "$1" \
     '[.[] | select(.t=="START" and .repoId==$r and .subjectId==$n and .klass=="rabochij")] | last // empty' "$LEDGER"
 }
-# [D53 registry-proekta] Реестр контрактов владельца в дереве: основной путь
-# registry/contracts.tsv; если его в дереве НЕТ — проектная раскладка
-# .harness/registry/contracts.tsv (та же стенка, что каталог контрактов и
-# паузы проекта: измерено 02.11/04.11 — без неё судья ПРОЕКТА не проходит:
-# «KLASS_RISKA_NET: закреплённый frozen недоступен»). Основной путь найден —
-# он и источник: запасной его НЕ подменяет (строки предмета в основном нет —
-# отказ как прежде, молчаливого перехода на запасной нет). Печатает путь
-# существующего файла; ничего — реестра нет нигде.
-reestr_contracts_put() {  # <репозиторий> <ревизия> → путь | пусто
-  local repo="$1" rev="$2" p
-  for p in 'registry/contracts.tsv' '.harness/registry/contracts.tsv'; do
-    if git -C "$repo" cat-file -t "$rev:$p" >/dev/null 2>&1; then
-      printf '%s' "$p"
-      return 0
-    fi
-  done
-  return 1
-}
+# [registry-profile] Реестр контрактов владельца — файл РЕЕСТРА ПРОФИЛЯ
+# (workflowPaths.registry); без профиля — реестр репозитория. Запасного пути
+# нет: путь реестра — данные профиля, а не угадывание по дереву.
 frozen_predmeta() {  # <NNN> <репозиторий владельца> → commit annotated frozen
-  local row object ref owner="${2:-$REPO}" put
-  put="$(reestr_contracts_put "$owner" HEAD)" || return 1
+  local row object ref owner put
+  owner="$(cd "${2:-$REPO}" 2>/dev/null && pwd -P)" || return 1
+  put="$(reestr_put "$owner" contracts.tsv)" || return 1
+  put="${put#"$owner/"}"
   row="$(git -C "$owner" show "HEAD:$put" 2>/dev/null | grep -E "^$1 → [0-9a-f]{40}$")" || return 1
   [[ "$row" =~ ^$1\ →\ [0-9a-f]{40}$ ]] || return 1
   object="${row#* → }"
@@ -659,9 +696,10 @@ sys.exit(1 if next(Draft202012Validator(schema).iter_errors(document), None) els
   pobj="$(printf '%s' "$P_JSON" | jq -r .frozenObject)"
   pcommit="$(printf '%s' "$P_JSON" | jq -r .frozenCommit)"
   # [D39 receipt-frozen] Версия из реестра В ДЕРЕВЕ свидетельства, не latest/main.
-  # [D53 registry-proekta] Раскладка реестра владельца — как в frozen_predmeta:
-  # основной путь, а если его в дереве свидетельства НЕТ — проектный.
-  reg_put="$(reestr_contracts_put "$REPO" "$c")" || reg_put=''
+  # [registry-profile] Путь реестра — тот же, что в frozen_predmeta: реестр
+  # профиля (без профиля — реестр репозитория).
+  reg_put="$(reestr_put "$REPO" contracts.tsv)" || reg_put=''
+  reg_put="${reg_put#"$REPO/"}"
   reg=''
   if [ -n "$reg_put" ]; then
     reg="$(git -C "$REPO" show "$c:$reg_put" 2>/dev/null | LC_ALL=C grep -E "^$n → " )"
@@ -984,7 +1022,7 @@ sudit() {
       zapis_override "$psv" 'PAUZA_VLADELTSA' "$ZAMOK_STROKA_OBJ"
       continue
     fi
-    otp PAUZA_VLADELTSA "предмет $psv стоит на ПАУЗЕ владельца (registry/pauzy.tsv)"
+    otp PAUZA_VLADELTSA "предмет $psv стоит на ПАУЗЕ владельца (реестр профиля)"
   done <<EOF
 $GATED
 EOF
