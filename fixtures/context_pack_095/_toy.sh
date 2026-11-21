@@ -4,8 +4,8 @@
 #
 # Субъект: scripts/make_task.sh (грамматика — model/dover.sh, честная модель).
 # Клетки берут субъект из CP095_SUBJECT (раннер ставит real|model), дверь спавна
-# — из CP095_SPAWN, корень дерева — из CP095_ROOT. Миры — ТОЛЬКО
-# /tmp/dev-harness-verify/context-pack-095-** (Н-85/А-122), каждая клетка
+# — из CP095_SPAWN, корень дерева — из CP095_ROOT. Миры — под TMPDIR
+# (по умолчанию /tmp/dev-harness-verify, Н-85/А-122), каждая клетка
 # вычищает свой мир за собой (trap).
 #
 # Носители круга 2 — РЕАЛЬНЫЕ пути и грамматики (Б1 вердикта критика круга 1:
@@ -42,7 +42,7 @@ _t95_door() {  # путь двери спавна: CP095_SPAWN | <корень>/
 # брифинга) клетки снимают в память ДО вызова субъекта (правило 8).
 _t95_world() {
   local slug="$1" d
-  d="/tmp/dev-harness-verify/context-pack-095-${slug}-$$-${RANDOM}"
+  d="${TMPDIR:-/tmp/dev-harness-verify}/context-pack-095-${slug}-$$-${RANDOM}"
   mkdir -p "$d/repo/contracts" "$d/repo/registry" "$d/repo/decisions" || t95_ni "мир не строится: $d"
   git init -q --initial-branch=main "$d/repo" 2>/dev/null || t95_ni "git init"
   git -C "$d/repo" config user.name architect
@@ -184,4 +184,4 @@ _t95_freeze() {
   printf 'frozen/contracts/777/1\n'
 }
 
-_t95_cleanup() { rm -rf "${1:-/tmp/dev-harness-verify/context-pack-095-НЕТ}"; }
+_t95_cleanup() { [ -z "${1:-}" ] || rm -rf "$1"; }

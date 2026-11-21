@@ -107,6 +107,31 @@ LV="$(jq -r '.version // ""' "$PJ")"
 [ "$PIN" = "$LV" ] || die "пин слоя проекта расходится: репо пинит '$PIN', слой несёт '$LV'"
 CP="$(jq -s '(.[1].defaults.contextPack // {}) * (.[0].contextPack // {})' "$RJ" "$PJ")" # t95-m14: defaults слоя проекта × репо-слой, массивы — юнит-слияние
 
+# Б-4: JSON-тип сохраняет лексическую разницу 100000 и 1e5.
+# Модель читает профиль напрямую; продукт использует только profile_resolver.
+MAX="$(python3 - "$RJ" <<'PY'
+import json
+import sys
+def refuse(message):
+    print('ОТКАЗ: ' + message, file=sys.stderr)
+    sys.exit(1)
+profile = json.load(open(sys.argv[1]))
+pack = profile.get('pack', {})
+if not isinstance(pack, dict):
+    refuse('pack.maxBytes: pack должен быть объектом')
+for key in pack:
+    if key != 'maxBytes':
+        refuse('неизвестный ключ репо-слой: pack.' + key)
+value = pack.get('maxBytes', 40000)
+minimum = 40000  # t95-b4-min
+if type(value) is not int or not minimum <= value <= 1000000:
+    refuse('pack.maxBytes: целое десятичное в [40000, 1000000]')  # t95-b4-invalid
+print(value)
+PY
+)" || exit 1
+: # t95-b4-cap
+WORK_MAX=$((MAX - 200)) # t95-b4-work
+
 # ── карта проекта из contextPack (И-1: правила проекта, не харнеса) ─────────
 NROWS="$(printf '%s' "$CP" | jq -r '(.rows // []) | length')"
 [ "$NROWS" -gt 0 ] || die "нет карты контекста: contextPack"
@@ -328,7 +353,7 @@ else
   while IFS= read -r line; do
     [ -n "$line" ] || continue
     bytes="$(printf '%s%s\n' "$acc" "$line" | wc -c)"
-    if [ "$omitted" -eq 0 ] && [ "$((base + bytes + 13))" -le 39800 ]; then # t95-m29
+    if [ "$omitted" -eq 0 ] && [ "$((base + bytes + 13))" -le "$WORK_MAX" ]; then # t95-m29
       acc="${acc}${line}"$'\n'
     else
       omitted=$((omitted + 1))
@@ -362,12 +387,12 @@ pack_body() {
   fi
 }
 VK="$(pack_body | wc -c | tr -d ' ')"
-[ "$VK" -le 40000 ] || die "режь задачу: $VK > 40000" # t95-m9
+[ "$VK" -le "$MAX" ] || die "режь задачу: $VK > $MAX" # t95-m9
 pack_body
 MAN_BODY="=== MANIFEST ===
 ${MAP_MAN}${CTX_MAN}${ADR_MAN}${LESSONS_MAN}${TASK_MAN}${TRACE_MAN}"
 printf '%s' "$MAN_BODY" # t95-m2: манифест обязателен и полон
-printf '=== BUDGET ===\nBUDGET: vklejka=%s/40000\n' "$VK"
+printf '=== BUDGET ===\nBUDGET: vklejka=%s/%s\n' "$VK" "$MAX" # t95-b4-budget
 # Решение 5: манифест-файл пака — вход новой ноги двери spawn_agent (И-15)
 if [ "$KIND" = "task" ] && [ -n "$CONTRACT" ]; then
   mkdir -p "$REPO/.omp/context"
