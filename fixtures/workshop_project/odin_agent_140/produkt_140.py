@@ -209,7 +209,9 @@ def dobavit(K, p):
         wt, br, obj = product(m, 'КЛАСС РИСКА: обычный\n')
         m.start('197', 'Impl197', rol='implementer', wt=str(wt), branch=br)
         m.zhurnal('Impl197', sdal=True)
-        return refusal(judge(door, m, dict(obj=obj), obj=p.OBJECT_DUMMY), 'OBJECT_RASHODITSJA')
+        r = judge(door, m, dict(obj=obj), obj=p.OBJECT_DUMMY)
+        return p.k_warn(r, m, 'OBJECT_RASHODITSJA', '197') + [
+            p.k_stroka(m, 'фактический-OBJECT', holder='Judge197', object=obj)]
     cell('p02-produktovyj-object-chuzhoj', p02)
 
     def p03(m, door, merge=False):
@@ -244,7 +246,7 @@ def dobavit(K, p):
         if variant=='present': contract='КЛАСС РИСКА: обычный\n'
         if variant=='bad-contract': contract='# no declaration\n'; role='reviewer'
         if variant=='opposite': contract='КЛАСС РИСКА: рисковый\n'; role='reviewer'
-        if variant=='conflict': reason='KLASS_RISKA_NET'
+        if variant=='conflict': role='critic'; reason='KLASS_RISKA_NET'
         if variant=='station-ordinary': risk='рисковый'
         s=setup(m,contract=contract,risk=risk,conflict=(variant=='conflict'))
         if variant in ('station-ordinary', 'station-risky'):
@@ -295,6 +297,9 @@ def dobavit(K, p):
             reason='OBJECT_UZHE_SUZHEN'
         before=m.ledger.read_bytes()
         r=judge(door,m,s,role)
+        if reason in ('KLASS_RISKA_NET', 'OBJECT_RASHODITSJA', 'OBJECT_UZHE_SUZHEN'):
+            return p.k_warn(r, m, reason, '197') + [
+                None if m.ledger.read_bytes().startswith(before) else 'переписан исходный учёт']
         if reason:
             return refusal(r,reason)+[None if m.ledger.read_bytes()==before else 'отказ дописал учёт']
         return [p.k_rc(r,0,'суд-переданного'),p.k_stroka(m,'START-судьи',holder='Judge197',object=s['obj'])]
@@ -308,6 +313,44 @@ def dobavit(K, p):
         ('p25-uchet-start-podmenen','start-edit'),('p28-frozen-derevo-protivorechivo','conflict'),
         ('p29-net-svidetelstva','no-receipt'),('p30-pravka-nositelya-posle-peredachi','remote-late')]:
         cell(name,lambda m,d,v=variant:judge_case(m,d,v))
+
+    def transfer_override(m, door, code, variant):
+        s = setup(m)
+        fixture_transfer(m, s)
+        if code == 'PEREDACHA_REMOTE':
+            p.run(['git','remote','set-url','origin',p.BACK_REMOTE],cwd=str(s['wt']))
+        else:
+            rows = m.ledg()
+            rows[-1]['proof']['canonicalRemote'] = p.BACK_REMOTE
+            m.ledger.write_text(''.join(json.dumps(row)+'\n' for row in rows))
+        n = '198' if variant == 'subject' else '197'
+        c = 'PAUZA_VLADELTSA' if variant == 'code' else code
+        target = p.OBJECT_DUMMY if variant == 'object' else s['obj']
+        line = 'РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК: '+n+' '+c+' '+target
+        def event(name):
+            return m.sobytie(name+'.json', [p.item('critic',name,
+                ['SUBJECT=197','OBJECT='+s['obj'],line])])
+        before = m.ledger.read_bytes()
+        r = p.sudit(door,m,event('Override197'))
+        if variant != 'once':
+            return refusal(r,code)+[
+                None if m.ledger.read_bytes()==before else 'чужая санкция изменила учёт']
+        rows = [row for row in m.ledg() if row.get('t')=='override'
+                and row.get('kod')==code and row.get('subjectId')=='197']
+        problems = [p.k_rc(r,0,'разовая-передача'),
+            p.k_stroka(m,'START',holder='Override197'),
+            None if len(rows)==1 else 'нет единственного override передачи']
+        m.zhurnal('Override197',sdal=True)
+        before = m.ledger.read_bytes()
+        r2 = p.sudit(door,m,event('Again197'))
+        return problems+refusal(r2,code)+[
+            None if m.ledger.read_bytes()==before else 'повтор санкции изменил учёт']
+
+    for code in ('PEREDACHA_NEDOSTOVERNA','PEREDACHA_REMOTE'):
+        for variant in ('once','subject','code','object'):
+            name = 'o03-'+code.lower()+'-'+variant
+            K[name] = dict(osi='общая-строка;'+code+';'+variant,
+                run=lambda m,d,c=code,v=variant:transfer_override(m,d,c,v))
 
     def rejected_transfer(m,door,variant):
         s=setup(m,author=('architect' if variant=='author' else 'implementer'),
@@ -347,13 +390,18 @@ def dobavit(K, p):
             m.git(['update-ref','refs/remotes/origin/main',s['receipt']]); reason='KLASS_RISKA_NET'
         before=p.snimok_fajlov(m.sost)
         r=command(door,m,s['receipt'])
-        problems=refusal(r,reason)
+        warning = reason in ('KLASS_RISKA_NET', 'OBJECT_RASHODITSJA', 'PEREDACHA_AVTOR')
+        problems = p.k_warn(r, m, reason, '197', start=False) if warning else refusal(r,reason)
         if variant=='empty':
             # Тот же пустой tip не является OBJECT для судьи; --peredat выше
             # диагностирует прежде всего пустой payload удостоверенной передачи.
             resolved=p.run([p.BASH,str(door),'--object','--repo',str(s['wt']),
                             '197',s['branch']])
             problems+=refusal(resolved,'OBJECT_RASHODITSJA')
+        if warning:
+            return problems + [p.k_chislo_startov(m, 'передача-без-START', 1),
+                None if any(row.get('t')=='PEREDACHA' for row in m.ledg())
+                else 'предупреждение не записало передачу']
         return problems+[None if p.snimok_fajlov(m.sost)==before else 'отказ передачи изменил долговечное состояние']
 
     for name,variant in [
@@ -372,7 +420,7 @@ def dobavit(K, p):
         r=p.osvobodit(door,m,'197','Impl197')
         m.zhurnal('Impl197',sdal=True)
         r2=judge(door,m,s)
-        return [p.k_rc(r,0,'освобождение')]+refusal(r2,'OBJECT_RASHODITSJA')
+        return [p.k_rc(r,0,'освобождение')]+p.k_warn(r2,m,'OBJECT_RASHODITSJA','197')
     cell('p23-release-ne-menjaet-object',p23)
 
     def p27(m,door):
@@ -385,7 +433,10 @@ def dobavit(K, p):
             p.item('critic','Judge197',['SUBJECT=197','OBJECT='+s['obj']])])
         before=p.snimok_fajlov(m.sost)
         r=p.sudit(door,m,event)
-        return refusal(r,'KLASS_RISKA_NET')+[None if p.snimok_fajlov(m.sost)==before else 'пакет оставил частичную запись']
+        return p.k_warn(r,m,'KLASS_RISKA_NET','197') + [
+            p.k_chislo_startov(m,'пакет-записан',3),
+            p.k_zanyat(m,'198','Arch198','рабочий-пакета'),
+            p.k_zanyat(m,'197','Judge197','судья-пакета')]
     cell('p27-paket-frozen-otkat',p27)
 
     def p31(m, door):
@@ -425,8 +476,8 @@ def dobavit(K, p):
             assert r.returncode==0,r.stderr
         obj=p.run(['git','rev-parse','HEAD'],cwd=str(wt)).stdout.strip()
         before=m.ledger.read_bytes()
-        return refusal(judge(door,m,dict(obj=obj)),'KLASS_RISKA_NET')+[
-            None if m.ledger.read_bytes()==before else 'отказ дописал учёт']
+        return p.k_warn(judge(door,m,dict(obj=obj)),m,'KLASS_RISKA_NET','197')+[
+            None if m.ledger.read_bytes().startswith(before) else 'START переписан']
     cell('p37-produkt-pin-net',p37)
 
     def legacy_product(m, door, transferred, risk, station, missing=False):
@@ -473,11 +524,12 @@ def dobavit(K, p):
                          else 'legacy-передача не записала настоящий proof']
         before = p.snimok_fajlov(m.sost)
         r = judge(door, m, s, 'reviewer')
-        reason = 'KLASS_RISKA_NET' if missing else (
-            'ADVERSARIJ_DO_REVJUERA' if risk=='рисковый' else None)
+        reason = 'ADVERSARIJ_DO_REVJUERA' if missing or risk=='рисковый' else None
         if reason:
             return problems+refusal(r, reason)+[
-                None if p.snimok_fajlov(m.sost)==before else 'отказ legacy изменил состояние']
+                None if {k:v for k,v in p.snimok_fajlov(m.sost).items() if k!='uchet.jsonl'} ==
+                        {k:v for k,v in before.items() if k!='uchet.jsonl'}
+                else 'отказ legacy изменил замок']
         return problems+[p.k_rc(r, 0, 'legacy-reviewer'),
                          p.k_stroka(m, 'legacy-START', holder='Judge197', object=s['obj'])]
 
