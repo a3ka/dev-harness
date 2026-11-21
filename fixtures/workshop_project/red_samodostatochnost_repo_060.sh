@@ -132,6 +132,19 @@ TOY_F="$WORK/toy_freeze"; mk_toy_freeze "$TOY_F" 001
 TOYB="$WORK/toyB";       mk_toy_freeze "$TOYB" 002
 TOYE="$WORK/toyE";       mk_toy_freeze "$TOYE" 003
 
+# [154] toy-корень состояния станции для заморозки: журнал учёта с одной
+# платной сессией критика по предмету (позиция 1 свободна, расхода нет).
+# Ключ журнала — тот же (repoId,subjectId), что считает замок: repoId —
+# basename репозитория (origin у toy-дерева нет).
+station_state154() { # <toy-репо> <NNN> → путь корня состояния
+  local repo="$1" nnn="$2" st
+  st="$WORK/state154-$nnn"
+  mkdir -p "$st"
+  printf '{"t":"START","repoId":"%s","subjectId":"%s","group":"harness","holder":"Crit%s","klass":"sudja","rol":"critic","object":"0000000000000000000000000000000000000001","worktree":"-","branch":"-","at":"2020-01-01T00:00:00Z"}\n' \
+    "$(basename "$repo")" "$nnn" "$nnn" > "$st/uchet.jsonl"
+  printf '%s' "$st"
+}
+
 # ── стаб-omp для к8: живой режим заканчивается exec omp (поиск по PATH); стаб
 #    пишет факт СВОЕГО окружения — субъект наблюдения экспорта руки (055 h7/h8)
 SHIM8="$WORK/shim8"; mkdir -p "$SHIM8"
@@ -176,7 +189,7 @@ k2() { # (д) серия: второй номер 002 тоже на репо-с�
 k3() { # (е) freeze: строка реестра + самокоммит в toy ∧ реестр копии байт-в-байт
   local before after
   before="$(sha256sum "$COPY/registry/contracts.tsv" 2>/dev/null || printf 'ABSENT')"
-  HARNESS_WORKFLOW_ROOT="$TOY_F" bash "$COPY/scripts/freeze_contract.sh" contracts/001-x.md "k3" >/dev/null 2>&1 || return 1
+  HARNESS_WORKFLOW_ROOT="$TOY_F" bash "$COPY/scripts/freeze_contract.sh" contracts/001-x.md "k3" "" "$(station_state154 "$TOY_F" 001)" >/dev/null 2>&1 || return 1
   grep -qF '001 → ' "$TOY_F/registry/contracts.tsv" 2>/dev/null || return 1
   git -C "$TOY_F" show --stat --oneline HEAD -- registry/contracts.tsv 2>/dev/null | grep -qF 'registry/contracts.tsv' || return 1
   after="$(sha256sum "$COPY/registry/contracts.tsv" 2>/dev/null || printf 'ABSENT')"
@@ -228,7 +241,7 @@ k6() { # КОНТРОЛЬ (зелёная всегда): env не установ
   git -C "$COPY" for-each-ref --format='%(refname)' refs/tags/id/ | grep -Fxq "refs/tags/id/CONTRACT/$out" || return 1
 }
 k6b() { # КОНТРОЛЬ (зелёная всегда): явный корень-аргумент $3 сильнее env (freeze)
-  HARNESS_WORKFLOW_ROOT="$TOY_F" bash "$COPY/scripts/freeze_contract.sh" contracts/002-x.md 'k6b' "$TOYB" >/dev/null 2>&1 || return 1
+  HARNESS_WORKFLOW_ROOT="$TOY_F" bash "$COPY/scripts/freeze_contract.sh" contracts/002-x.md 'k6b' "$TOYB" "$(station_state154 "$TOYB" 002)" >/dev/null 2>&1 || return 1
   grep -qF '002 → ' "$TOYB/registry/contracts.tsv" 2>/dev/null || return 1
   if [ -f "$TOY_F/registry/contracts.tsv" ] && grep -qF '002 → ' "$TOY_F/registry/contracts.tsv"; then return 1; fi
 }
@@ -264,7 +277,7 @@ k6d() { # КОНТРОЛЬ (зелёная всегда): валидный ар�
 k6e() { # КОНТРОЛЬ: валидный $3 + относительный неиспользуемый env у freeze → аргумент побеждает (критик 060-к2 Б1)
   local before after rc
   before="$(sha256sum "$COPY/registry/contracts.tsv" 2>/dev/null || printf 'ABSENT')"
-  HARNESS_WORKFLOW_ROOT='relative/path' bash "$COPY/scripts/freeze_contract.sh" contracts/003-x.md 'k6e' "$TOYE" >/dev/null 2>"$WORK/k6e.err"; rc=$?
+  HARNESS_WORKFLOW_ROOT='relative/path' bash "$COPY/scripts/freeze_contract.sh" contracts/003-x.md 'k6e' "$TOYE" "$(station_state154 "$TOYE" 003)" >/dev/null 2>"$WORK/k6e.err"; rc=$?
   [ $rc -eq 0 ] || return 1
   if grep -qF "$N1P" "$WORK/k6e.err" 2>/dev/null; then return 1; fi
   grep -qF '003 → ' "$TOYE/registry/contracts.tsv" 2>/dev/null || return 1

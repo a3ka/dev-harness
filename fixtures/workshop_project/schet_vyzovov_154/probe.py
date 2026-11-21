@@ -24,10 +24,12 @@ accept — ОДИН арбитраж (строка ARBITRAZH журнала) и 
 номера 000–999), включая номера без тега id/CONTRACT/* на момент запуска —
 очередной конечный список свидетелей класс не закрывает (вердикт Crit154e Б8).
 """
+import ctypes
 import json
 import os
 import shutil
 import subprocess
+import select
 import sys
 import tempfile
 from pathlib import Path
@@ -68,12 +70,14 @@ def ensure(result, label):
         raise RuntimeError(f'{label}: rc {result.returncode}: {result.stderr[-400:]}')
 
 
-def gcommit(repo, msg, date=DATA_NORMAL):
+def gcommit(repo, msg, date=DATA_NORMAL, role='battery'):
     r = subprocess.run(
-        ['git', '-C', str(repo), '-c', 'user.name=battery', '-c', 'user.email=b@t',
-         'commit', '-q', '-m', msg],
+        ['git', '-C', str(repo), '-c', 'user.name=' + role,
+         '-c', 'user.email=' + role + '@t', 'commit', '-q', '-m', msg],
         capture_output=True, text=True, timeout=180,
         env={**os.environ, 'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_SYSTEM': '/dev/null',
+             'GIT_AUTHOR_NAME': role, 'GIT_AUTHOR_EMAIL': role + '@t',
+             'GIT_COMMITTER_NAME': role, 'GIT_COMMITTER_EMAIL': role + '@t',
              'GIT_AUTHOR_DATE': date, 'GIT_COMMITTER_DATE': date})
     if r.returncode:
         raise RuntimeError(f'commit {msg}: rc {r.returncode}: {r.stderr[-300:]}')
@@ -332,7 +336,7 @@ def add_receipts(repo, rows, decorate=False):
 def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phase='spawn',
           label='', foreign='', arb_ledger=0, sanktsii=(), history='', seed=None,
           novelty='new', objects='unique', live='', subject='', drugoj_repoid=False,
-          arb_first='', used_sources=(), boundary_trace=''):
+          arb_first='', used_sources=(), boundary_trace='', verdict_tail=True):
     # Ось Б8: судимый номер предмета и ключ репозитория мира — параметры мира,
     # не константы батареи: порог обязан не зависеть ни от того, ни от другого.
     sv = subject or NNN
@@ -366,27 +370,34 @@ def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phas
         if r.returncode:
             raise RuntimeError('boundary commit: rc %d: %s' % (r.returncode, r.stderr[-200:]))
         granica = cmd(['git', '-C', str(repo), 'rev-parse', 'HEAD']).stdout.strip()
+    # Ordinary code roots are distinct from the critic-only history, including
+    # the old-subject world's otherwise empty boundary commit.
+    (repo / 'candidate.py').write_text('revision = 1\n')
+    ensure(cmd(['git', '-C', str(repo), 'add', 'candidate.py']), 'add historical code')
+    gcommit(repo, 'historical code OBJECT')
+    history_object = cmd(['git', '-C', str(repo), 'rev-parse', 'HEAD']).stdout.strip()
     vdate = DATA_DO_ZHURNALA if history == 'do-zhurnala' else DATA_NORMAL
     for i, outcome in enumerate(outcomes):
         if outcome != 'aborted':
-            verdict.write_text(f'{outcome}\nsession={i}\n')
+            verdict.write_text(f'{outcome}\nOBJECT={history_object}\nsession={i}\n')
             ensure(cmd(['git', '-C', str(repo), 'add', '-A']), 'add verdict')
-            gcommit(repo, f'verdict {i}', vdate)
+            gcommit(repo, f'verdict {i}', vdate, role='critic')
     if not outcomes and phase == 'freeze':
-        verdict.write_text('accept\norphan without START\n')
+        verdict.write_text(f'accept\nOBJECT={history_object}\norphan without START\n')
     if source == 'orphan-verdict':
-        verdict.write_text('FAIL\norphan verdict without START\n')
+        verdict.write_text(f'FAIL\nOBJECT={history_object}\norphan verdict without START\n')
     if label in ('renamed-object', 'verdict-vplus') or (
         label.startswith('domain-spawn-') and name_variant and verdict.exists()
     ):
         dest = verdict.with_name(f'contracts-{sv}-v1b-fail.md' if label != 'verdict-vplus'
                                  else f'contracts-{sv}-v2.md')
         verdict.rename(dest)
+        verdict = dest
     if label.startswith('domain-freeze-') and name_variant and len(outcomes) > 1:
         # A historical earlier verdict is republished under another filename;
         # the latest accept remains the freeze target for the honest script.
         older = verdict.with_name(f'contracts-{sv}-v1b-fail.md')
-        older.write_text(f'{outcomes[-2]}\nrenamed historical verdict\n')
+        older.write_text(f'{outcomes[-2]}\nOBJECT={history_object}\nrenamed historical verdict\n')
     if label == 'verdict-copy':
         extra = repo / 'copied'
         extra.mkdir()
@@ -399,7 +410,7 @@ def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phas
         (a / f'contracts-{sv}-arbitraz.md').write_text(first + f' (контракт {sv})\n')
     ensure(cmd(['git', '-C', str(repo), 'add', '-A']), 'add scenario')
     if cmd(['git', '-C', str(repo), 'diff', '--cached', '--quiet']).returncode:
-        gcommit(repo, 'scenario')
+        gcommit(repo, 'scenario', vdate, role='critic')
     s = base / 'state'
     j = base / 'journals'
     s.mkdir(); j.mkdir()
@@ -407,7 +418,12 @@ def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phas
     wt = base / 'worker'
     ensure(cmd(['git', 'clone', '-q', str(repo), str(wt)]), 'worker clone')
     ensure(cmd(['git', '-C', str(wt), 'checkout', '-q', '-b', f'wip/{sv}/architect']), 'branch')
-    tip = cmd(['git', '-C', str(wt), 'rev-parse', 'HEAD']).stdout.strip()
+    # This is the same owner, not a transferred product: a local clone URL must
+    # not accidentally select D42's external-product risk repository.
+    origin = cmd(['git', '-C', str(repo), 'remote', 'get-url', 'origin'])
+    ensure(origin, 'owner origin')
+    ensure(cmd(['git', '-C', str(wt), 'remote', 'set-url', 'origin', origin.stdout.strip()]),
+           'canonical worker origin')
     (j / 'Worker154.jsonl').write_text('{"toolName":"yield"}\n')
     if live:
         # Живая граница — снимок (Н4/С7): pack несёт два реальных commit-объекта
@@ -445,7 +461,7 @@ def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phas
         if boundary_trace == 'registry':
             registry = repo / 'registry' / 'contracts.tsv'
             registry.parent.mkdir(exist_ok=True)
-            registry.write_text(f'{sv} → {tip}\n')
+            registry.write_text(f'{sv} → {history_object}\n')
             ensure(cmd(['git', '-C', str(repo), 'add', '-A']), 'add registry trace')
             gcommit(repo, 'first registry trace without boundary')
         elif boundary_trace == 'empty':
@@ -455,9 +471,27 @@ def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phas
                         '-m', 'not a delivered boundary']), 'untrusted empty commit')
         else:
             raise RuntimeError('unknown boundary trace: ' + boundary_trace)
+    if phase == 'spawn':
+        # D42 reads the owner's committed annotated-tag pin, not the candidate.
+        # Freeze worlds deliberately have no such tag: their first freeze is v1.
+        tag = f'frozen/contracts/{sv}/1'
+        ensure(cmd(['git', '-C', str(repo), '-c', 'tag.gpgsign=false',
+                    'tag', '-a', tag, '-m', 'fixture frozen owner']), 'pin frozen owner')
+        pin = cmd(['git', '-C', str(repo), 'rev-parse', 'refs/tags/' + tag]).stdout.strip()
+        registry = repo / 'registry' / 'contracts.tsv'
+        registry.parent.mkdir(exist_ok=True)
+        rows = registry.read_text().splitlines() if registry.exists() else []
+        rows = [row for row in rows if not row.startswith(sv + ' → ')]
+        registry.write_text('\n'.join(rows + [f'{sv} → {pin}']) + '\n')
+        ensure(cmd(['git', '-C', str(repo), 'add', 'registry/contracts.tsv']), 'add frozen pin')
+        gcommit(repo, 'committed frozen owner pin')
+    (wt / 'candidate.py').write_text('revision = 2\n')
+    ensure(cmd(['git', '-C', str(wt), 'add', 'candidate.py']), 'add current code')
+    gcommit(wt, 'current code OBJECT')
+    tip = cmd(['git', '-C', str(wt), 'rev-parse', 'HEAD']).stdout.strip()
     rows = [dict(t='START', repoId=rid, subjectId=sv, group='harness',
                  holder='Worker154', klass='rabochij', rol='architect',
-                 object='-', worktree=str(wt), branch=f'wip/{sv}/architect',
+                 object=tip, worktree=str(wt), branch=f'wip/{sv}/architect',
                  at=AT_ZHURNAL)]
     # Арбитраж о конечной границе и адресные санкции — строки ТОГО ЖЕ журнала
     # (единственный источник истины; журнал только дописывается).
@@ -543,6 +577,19 @@ def world(base, n, outcomes, arb_file=False, name_variant=False, source='', phas
                              istochnik=istochnik, at=AT_ZHURNAL))
     before_receipts = cmd(['git', '-C', str(repo), 'rev-parse', 'HEAD']).stdout.strip()
     add_receipts(repo, rows, source == 'receipt-substring')
+    # Receipts belong to the owner, not to the worker's candidate line: a grant
+    # can name its code OBJECT without a self-referential receipt commit hash.
+    # Capture the unchanged code root after those commits, then append only a
+    # role-authored verdict; D9 must resolve the tail back to this exact OBJECT.
+    tip = cmd(['git', '-C', str(wt), 'rev-parse', 'HEAD']).stdout.strip()
+    if verdict_tail and verdict.exists():
+        worker_verdict = wt / verdict.relative_to(repo)
+        body = [line for line in worker_verdict.read_text().splitlines()
+                if not line.startswith('OBJECT=')]
+        body.insert(1, 'OBJECT=' + tip)
+        worker_verdict.write_text('\n'.join(body) + '\n')
+        ensure(cmd(['git', '-C', str(wt), 'add', str(worker_verdict)]), 'add worker verdict')
+        gcommit(wt, 'verdict-only candidate tail', vdate, role='critic')
     if source in ('receipt-missing', 'receipt-uncommitted'):
         for r in rows:
             if r.get('t') == 'SANKTSIYA' and r.get('nomer', 0) >= 4:
@@ -661,10 +708,15 @@ def scenario(name, n, phase, outcome='FAIL', arb_file=False, rename=False,
             pattern = ['FAIL' if i % 2 == 0 else 'accept' for i in range(n)]
         if pattern and phase == 'freeze':
             pattern[-1] = 'accept'
+        # The pinned pre-v5 reference CLI compares the raw branch tip. Only
+        # a CLI with the real transparent-tail resolver can consume that tail;
+        # the budget inputs and oracle stay identical in both environments.
+        verdict_tail = (mode != 'model' and 'object_kandidata() {' in
+                        (ROOT / 'scripts/zamok_predmeta.sh').read_text())
         repo, state, journals, event, ledger, granica = world(
             base, n, pattern, arb_file, rename, source, phase, name,
             foreign, arb_ledger, sanktsii, history, seed, novelty, objects, live,
-            subject, drugoj_repoid, arb_first, used_sources, boundary_trace)
+            subject, drugoj_repoid, arb_first, used_sources, boundary_trace, verdict_tail)
         scripts = prepare_scripts(base, mode, mutation, granica or '')
         if refreeze:
             # A real lawful v1 creates the registry trace; v2 must not inherit
@@ -682,9 +734,13 @@ def scenario(name, n, phase, outcome='FAIL', arb_file=False, rename=False,
                 return f'{name}: lawful v1 did not create registry trace'
             contract = repo / 'contracts' / (sv + '-x.md')
             contract.write_text(contract.read_text() + '\nv2 delta\n')
-            (repo / 'verdicts/critic' / f'contracts-{sv}-v2.md').write_text('accept\nv2\n')
-            ensure(cmd(['git', '-C', str(repo), 'add', '-A']), 'add v2')
+            ensure(cmd(['git', '-C', str(repo), 'add', str(contract)]), 'add v2 code')
             gcommit(repo, 'v2 after lawful first freeze')
+            v2_object = cmd(['git', '-C', str(repo), 'rev-parse', 'HEAD']).stdout.strip()
+            (repo / 'verdicts/critic' / f'contracts-{sv}-v2.md').write_text(
+                f'accept\nOBJECT={v2_object}\nv2\n')
+            ensure(cmd(['git', '-C', str(repo), 'add', '-A']), 'add v2 verdict')
+            gcommit(repo, 'v2 verdict-only tail', role='critic')
             ledger.write_bytes(full_ledger)
         before = ledger.read_bytes() if ledger.exists() and source != 'unreadable' else None
         tag_before = (cmd(['git', '-C', str(repo), 'tag', '-l', f'frozen/contracts/{sv}/*'])
@@ -741,6 +797,251 @@ def scenario(name, n, phase, outcome='FAIL', arb_file=False, rename=False,
                 return f'{name}: green freeze did not mint frozen tag'
             if registry_green == registry_before:
                 return f'{name}: green freeze did not update registry'
+        return None
+
+
+def race_mutant(lock, mutation):
+    """Reviewer S1/S2/S3/S4 and earlier K-08 mutations, on real copied doors."""
+    if not mutation:
+        return lock
+    calls = [line for line in lock.splitlines()
+             if ('schet_kritika_154 spawn ' in line or
+                 '--phase spawn || b154=$?' in line)]
+    start = '  # [D23 start-do-razdachi]'
+    if len(calls) != 1 or lock.count(start) != 1:
+        raise RuntimeError('race mutation: lost counter/START seam')
+    call = calls[0]
+    reacquire = ('  while IFS= read -r ms; do [ -z "$ms" ] || '
+                 'mutex_zajavit "$ms" || exit 1; done <<< "$SUBJS"\n')
+    if mutation == 'counter-outside-mutex':
+        return lock.replace(call, '        mutexi_snyat_vse\n' + call +
+                            '\n        mutex_zajavit "$sv" || exit 1', 1)
+    releases = {
+        'mutex-gap-after-counter': '        mutexi_snyat_vse',
+        'mutex-direct-gap-s1': '        rmdir "$(zamok_dir "$sv")/mutex"',
+        'mutex-inline-gap-s2': (
+            '        while IFS= read -r s; do\n'
+            '          [ -n "$s" ] && rmdir "$(zamok_dir "$s")/mutex" 2>/dev/null\n'
+            '        done <<< "$SUBJS"'),
+        'mutex-reverse-gap-s3': '        mutexi_snyat_vse',
+        'mutex-immediate-gap-s4': (
+            '        rmdir "$(zamok_dir "$sv")/mutex"\n'
+            '        mutex_zajavit "$sv" || exit 1'),
+    }
+    if mutation not in releases:
+        raise RuntimeError('race: unknown mutation: ' + mutation)
+    lock = lock.replace(call, call + '\n' + releases[mutation], 1)
+    if mutation == 'mutex-reverse-gap-s3':
+        reacquire = ('  while IFS= read -r ms; do [ -z "$ms" ] || '
+                     'mutex_zajavit "$ms" || exit 1; '
+                     'done < <(printf "%s\\n" "$SUBJS" | tac)\n')
+    if mutation != 'mutex-immediate-gap-s4':
+        lock = lock.replace(start, reacquire + start, 1)
+    return lock
+
+
+class MutexObservation:
+    """Observe the actual directory inode, including remove/recreate in one command.
+
+    inotify is the Linux filesystem's event source, not a parser of the door's
+    release spelling. DEBUG checkpoints only let the parent choose an interleaving.
+    """
+    def __init__(self, path):
+        self.path = path
+        self.fd = None
+        self.identity = None
+        try:
+            stat = path.stat()
+        except FileNotFoundError:
+            return
+        self.identity = (stat.st_dev, stat.st_ino)
+        libc = ctypes.CDLL(None, use_errno=True)
+        fd = libc.inotify_init1(os.O_NONBLOCK | os.O_CLOEXEC)
+        if fd < 0:
+            raise OSError(ctypes.get_errno(), 'inotify_init1')
+        # IN_DELETE_SELF | IN_MOVE_SELF; removal also queues IN_IGNORED.
+        if libc.inotify_add_watch(fd, os.fsencode(path), 0x400 | 0x800) < 0:
+            error = ctypes.get_errno()
+            os.close(fd)
+            raise OSError(error, 'inotify_add_watch')
+        self.fd = fd
+
+    def held(self):
+        if self.fd is None or select.select([self.fd], [], [], 0)[0]:
+            return False
+        try:
+            stat = self.path.stat()
+            same = (stat.st_dev, stat.st_ino) == self.identity
+            self.path.mkdir()
+        except FileExistsError:
+            return same
+        except FileNotFoundError:
+            return False
+        # A successful competing mkdir is itself evidence that it was not held.
+        self.path.rmdir()
+        return False
+
+    def close(self):
+        if self.fd is not None:
+            os.close(self.fd)
+
+
+def concurrent_start(name, mode, mutation='', window=False):
+    """Two real --sudit processes; one base position and one immutable oracle.
+
+    The original schedule pauses after counting. The window schedule watches the
+    actual mutex inode from count to the START writer and probes competing mkdir
+    at command boundaries, independently of the release helper or spelling.
+    """
+    with tempfile.TemporaryDirectory(prefix='schet154-race-') as tmp:
+        base = Path(tmp)
+        verdict_tail = (mode != 'model' and 'object_kandidata() {' in
+                        (ROOT / 'scripts/zamok_predmeta.sh').read_text())
+        repo, state, journals, event, ledger, _ = world(
+            base, 1, ['FAIL'], source='third-missing', label=name,
+            verdict_tail=verdict_tail)
+        scripts = prepare_scripts(base, mode)
+        door = scripts / 'zamok_predmeta.sh'
+        lock = race_mutant(door.read_text(), mutation)
+        calls = [line for line in lock.splitlines()
+                 if ('schet_kritika_154 spawn ' in line or
+                     '--phase spawn || b154=$?' in line)]
+        if len(calls) != 1:
+            raise RuntimeError('race: lost spawn counter seam')
+        call = calls[0]
+        pause = ('\n        printf "counted\\n" >&"$RACE154_STATUS_FD"\n'
+                 '        IFS= read -r -u "$RACE154_RELEASE_FD" race154_release || exit 2')
+        if window:
+            # Every main-shell command yields to the parent while armed.
+            # inotify keeps deletions observable even if an external command
+            # removes AND recreates the directory before its next checkpoint.
+            checkpoint = r'''
+race154_observe() {
+  if [[ "${RACE154_ARMED:-0}" = 1 && "$BASHPID" = "$RACE154_PID" ]]; then
+    printf 'inspect\n' >&"$RACE154_STATUS_FD"
+    IFS= read -r -u "$RACE154_RELEASE_FD" race154_release || exit 2
+    if [[ "$race154_release" = stop ]]; then RACE154_ARMED=0; fi
+  fi
+}
+race154_arm() {
+  RACE154_PID=$BASHPID
+  printf 'armed\n' >&"$RACE154_STATUS_FD"
+  IFS= read -r -u "$RACE154_RELEASE_FD" race154_release || exit 2
+  if [[ "$race154_release" = stop ]]; then return; fi
+  set -T
+  trap race154_observe DEBUG
+  RACE154_ARMED=1
+}
+race154_checkpoint() {
+  if [[ "${RACE154_ARMED:-0}" = 1 ]]; then
+    RACE154_ARMED=0
+    printf 'counted\n' >&"$RACE154_STATUS_FD"
+    IFS= read -r -u "$RACE154_RELEASE_FD" race154_release || exit 2
+  fi
+}
+'''
+            start = '    jq -nc --arg t START --arg r "$REPO_ID" --arg s "$sv" --arg g "$grp2" \\'
+            if lock.count(start) != 1:
+                raise RuntimeError('race: lost START writer seam')
+            lock = checkpoint + lock
+            lock = lock.replace(call, call + '\n        race154_arm', 1)
+            lock = lock.replace(start, '    race154_checkpoint\n' + start, 1)
+        else:
+            lock = lock.replace(call, call + pause, 1)
+        acquire = '    mkdir "$d/mutex" 2>/dev/null && return 0'
+        if lock.count(acquire) != 1:
+            raise RuntimeError('race: lost mutex acquisition seam')
+        lock = lock.replace(acquire, acquire +
+                            '\n    if [ "${RACE154_BLOCKED:-0}" = 0 ]; then\n'
+                            '      RACE154_BLOCKED=1\n'
+                            '      printf "blocked\\n" >&"$RACE154_STATUS_FD"\n'
+                            '      IFS= read -r -u "$RACE154_RELEASE_FD" race154_release || exit 2\n'
+                            '    fi', 1)
+        door.write_text(lock)
+        # Immutable expectation: one new critic START, not two free position-2
+        # decisions. Capture the history before either subject starts.
+        before = ledger.read_bytes()
+        argv = ['bash', str(door), '--sudit', '--sostojanie', str(state),
+                '--zhurnaly', str(journals), '--repo', str(repo), str(event)]
+        processes, descriptors = [], []
+        observations = {}
+        continuity_lost = False
+        mutex = state / 'zamki' / REPO_ID / NNN
+        mutex = mutex / 'mutex'
+
+        def launch():
+            read_fd, write_fd = os.pipe()
+            release_fd, resume_fd = os.pipe()
+            descriptors.extend((read_fd, write_fd, release_fd, resume_fd))
+            process = subprocess.Popen(
+                argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                pass_fds=(write_fd, release_fd),
+                env={**os.environ, 'GIT_CONFIG_GLOBAL': '/dev/null',
+                     'GIT_CONFIG_SYSTEM': '/dev/null',
+                     'RACE154_STATUS_FD': str(write_fd),
+                     'RACE154_RELEASE_FD': str(release_fd)})
+            processes.append(process)
+            return process, read_fd, resume_fd
+
+        def status(fd, resume_fd):
+            nonlocal continuity_lost
+            while True:
+                if not select.select([fd], [], [], 30)[0]:
+                    raise RuntimeError('race: synchronization timed out')
+                value = os.read(fd, 64).decode().strip()
+                if window and value in ('armed', 'inspect', 'counted'):
+                    if value == 'armed':
+                        observations[fd] = MutexObservation(mutex)
+                    if fd not in observations:
+                        raise RuntimeError('race: inspection before observation')
+                    if not observations[fd].held():
+                        continuity_lost = True
+                        return 'released'
+                    if value != 'counted':
+                        os.write(resume_fd, b'go\n')
+                        continue
+                if value not in ('counted', 'blocked', 'released'):
+                    raise RuntimeError('race: invalid synchronization: ' + repr(value))
+                return value
+
+        try:
+            first, first_fd, first_resume = launch()
+            reached = status(first_fd, first_resume)
+            if reached not in (('counted', 'released') if window else ('counted',)):
+                raise RuntimeError('race: first contender did not reach counter')
+            second, second_fd, second_resume = launch()
+            competing = status(second_fd, second_resume)
+            # A lost directory pauses BEFORE reacquisition, so the competitor
+            # can count the same position. Honest contenders see the held mutex.
+            os.write(first_resume, b'stop\n' if reached == 'released' else b'go\n')
+            first_out, first_err = first.communicate(timeout=180)
+            os.write(second_resume, b'stop\n' if competing == 'released' else b'go\n')
+            second_out, second_err = second.communicate(timeout=180)
+        finally:
+            for process in processes:
+                if process.poll() is None:
+                    process.kill()
+                process.communicate()
+            for fd in descriptors:
+                os.close(fd)
+            for observation in observations.values():
+                observation.close()
+        after = ledger.read_bytes()
+        appended = ([json.loads(line) for line in after[len(before):].splitlines()]
+                    if after.startswith(before) else [])
+        valid_start = (len(appended) == 1 and appended[0].get('t') == 'START' and
+                       appended[0].get('repoId') == REPO_ID and
+                       appended[0].get('subjectId') == NNN and
+                       appended[0].get('rol') in ('critic', 'critic-sol'))
+        if (continuity_lost or first.returncode != 0 or second.returncode != 1 or
+                'ОТКАЗ: ZAMOK_BROSHEN:' not in second_err or not valid_start):
+            return (f'{name}: expected mutex-held=count-through-START '
+                    f'rc=[0,1] ZAMOK_BROSHEN added-critic-START=1; '
+                    f'actual rc=[{first.returncode},{second.returncode}] '
+                    f'appended={len(appended)} competing={competing} '
+                    f'mutex-continuity={"lost" if continuity_lost else "held"}; '
+                    f'stdout={first_out.strip()!r},{second_out.strip()!r}; '
+                    f'stderr={first_err.strip()!r},{second_err.strip()!r}')
         return None
 
 
@@ -1137,6 +1438,29 @@ LIVE_CASES = [
 ]
 LIVE_CASES += B1_CASES
 
+# K-08 / Adv154V7b: the paid critic boundary, not the worker-only family-140
+# race. The same input is exercised by installed, reference and stab modes.
+CONCURRENT_CASE = ('concurrent-start-last-base-position', 1, 'spawn', 'FAIL',
+                   False, False, 'third-missing', {'concurrent': True})
+CASES.append(CONCURRENT_CASE)
+DOMAIN.append(CONCURRENT_CASE)
+LIVE_CASES.append(CONCURRENT_CASE)
+STAB_CASES.append(('counter-outside-mutex',) + CONCURRENT_CASE[1:])
+
+# K-08' / Adv154N4: distinguish release/reacquire AFTER the protected count.
+# The original counter-outside-mutex case and its schedule remain unchanged.
+CONCURRENT_WINDOW_CASE = (
+    'concurrent-start-count-start-window', 1, 'spawn', 'FAIL',
+    False, False, 'third-missing', {'concurrent': True, 'window': True})
+CASES.append(CONCURRENT_WINDOW_CASE)
+DOMAIN.append(CONCURRENT_WINDOW_CASE)
+LIVE_CASES.append(CONCURRENT_WINDOW_CASE)
+STAB_CASES.append(('mutex-gap-after-counter',) + CONCURRENT_WINDOW_CASE[1:])
+for _mutation in ('mutex-direct-gap-s1', 'mutex-inline-gap-s2',
+                  'mutex-reverse-gap-s3', 'mutex-immediate-gap-s4',
+                  'counter-outside-mutex'):
+    STAB_CASES.append((_mutation,) + CONCURRENT_WINDOW_CASE[1:])
+
 
 def grammar_numbers(limit=0):
     """Домен номеров предмета = ВЕСЬ замкнутый алфавит грамматики двери
@@ -1293,6 +1617,8 @@ def grammar_run(limit=0):
 
 def run_case(c, mode, mutation=''):
     name, n, phase, outcome, arb_file, rename, source, kw = c
+    if kw.get('concurrent'):
+        return concurrent_start(name, mode, mutation, window=kw.get('window', False))
     return scenario(name, n, phase, outcome, arb_file, rename, source, mode, mutation, **kw)
 
 

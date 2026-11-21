@@ -10,7 +10,7 @@ set -euo pipefail
 . "$(dirname "$0")/_repo.sh"
 R="$WORK/repo"
 make_repo "$R"
-"$BARRIER" contracts/001-x.md "стабилен после трёх переписываний" "$R"
+"$BARRIER" contracts/001-x.md "стабилен после трёх переписываний" "$R" "$(state154 "$R" 001 1)"
 
 printf 'черновик\n' > "$R/contracts/draft.md"
 commit_all "$R" 'черновик без номера'

@@ -21,14 +21,24 @@ R="$W/repo"
 
 # Основание БЕЗ вердиктов (как repo-shum в case_kap_smena_pervoj_stroki): таймлайн
 # глоба начинается с первого реплей-коммита, событие контроля в него не входит.
-mkdir -p "$R/contracts" "$R/tmp"
+# [043] Сверка CI-паритета на заморозке ВАКУУМНА: toy-дерево без .github/,
+# package.json и списка исключений получает от гейта rc=2 «нечего проверить»,
+# который freeze_contract.sh трактует fail-closed (036 §Freeze) — проба краснела
+# бы отсутствием окружения, а не предметом. Те же три записи даёт каркас make_repo.
+mkdir -p "$R/contracts" "$R/tmp" "$R/.github/workflows" "$R/config"
 printf 'предмет, критерий готовности, РАБОТА НЕ РАЗДАЁТСЯ: кодификация\n' > "$R/contracts/001-x.md"
+printf 'name: ci\non: push\njobs: {}\n' > "$R/.github/workflows/ci.yml"
+printf '{"scripts": {}}\n' > "$R/package.json"
+: > "$R/config/ci_parity_exceptions.txt"
 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$R"
 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$R" config user.name Фикстура
 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$R" config user.email fixture@local
 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$R" config commit.gpgsign false
 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$R" config core.hooksPath /dev/null
 commit_all "$R" 'основание'
+# [154] Старый предмет (след заморозки СТАРШЕ границы): прежний §6в — счёт
+# кругов по сменам первой строки — действует дословно.
+old_subject "$R" 001
 V1="$R/verdicts/critic/contracts-001-v1.md"
 V2="$R/verdicts/critic/contracts-001-v2.md"
 

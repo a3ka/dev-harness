@@ -9,7 +9,7 @@ set -euo pipefail
 . "$(dirname "$0")/_repo.sh"
 R="$WORK/repo"
 make_repo "$R"
-"$BARRIER" contracts/001-x.md "accept прочитан" "$R"
+"$BARRIER" contracts/001-x.md "accept прочитан" "$R" "$(state154 "$R" 001 1)"
 
 put_verdict "$R" 2 FAIL
 commit_all "$R" 'вердикт v2: FAIL'

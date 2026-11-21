@@ -23,6 +23,96 @@ def fail(reason):
     return 1
 
 
+def receipt_line(row):
+    """Каноническая строка основания (единственный сериализатор, как у замка)."""
+    fields = ('t', 'repoId', 'subjectId')
+    if row['t'] in ('SANKTSIYA', 'ISPOLZOVANO'):
+        fields += ('object', 'nomer', 'istochnik')
+    return 'БЮДЖЕТ-154: ' + json.dumps({k: row[k] for k in fields},
+                                      ensure_ascii=False, sort_keys=True,
+                                      separators=(',', ':'))
+
+
+def budget_reason(root, p, n, state):
+    """[154] Покрыта ли платная позиция START по предмету.
+
+    Позиции 1–2 свободны; позиция 3+ требует адресного основания (строки
+    SANKTSIYA/ISPOLZOVANO/ARBITRAZH журнала станции) с ЗАКОММИЧЕННОЙ строкой
+    в basisCommit:basisPath. Возвращает (покрыто, причина отказа).
+    """
+    if not state:
+        return False, 'SCHET_NEIZVESTEN: корень состояния не передан'
+    ledger = Path(state) / 'uchet.jsonl'
+    if not ledger.is_file():
+        return False, 'SCHET_NEIZVESTEN: учёт START недоступен'
+    try:
+        rows = [json.loads(s) for s in ledger.read_text().splitlines() if s]
+    except (OSError, ValueError):
+        return False, 'SCHET_NEIZVESTEN: учёт START не читается'
+    origin = git(root, 'remote', 'get-url', 'origin', check=False).stdout.strip()
+    rid = origin.rsplit('/', 1)[-1] if origin else Path(root).name
+    if rid.endswith('.git'):
+        rid = rid[:-len('.git')]
+    verdicts = Path(p.get('workflowPaths', {}).get('verdicts', 'verdicts'))
+    arb_dir = str(verdicts / 'arbitration') + '/'
+
+    def proven(row):
+        sha = row.get('basisCommit', '')
+        path = row.get('basisPath', '')
+        if not isinstance(sha, str) or len(sha) != 40:
+            return False
+        if path != 'HANDOFF.md' and not (path.startswith(arb_dir)
+                                         and path.endswith('.md')):
+            return False
+        blob = git(root, 'show', sha + ':' + path, check=False)
+        if blob.returncode:
+            return False
+        return receipt_line(row) in blob.stdout.splitlines()
+
+    starts = [r for r in rows if r.get('t') == 'START' and r.get('klass') == 'sudja'
+              and r.get('rol') in ('critic', 'critic-sol')
+              and r.get('repoId') == rid and r.get('subjectId') == n]
+    arbitrazh = [r for r in rows if r.get('t') == 'ARBITRAZH'
+                 and r.get('repoId') == rid and r.get('subjectId') == n]
+    sank = [r for r in rows if r.get('t') == 'SANKTSIYA'
+            and r.get('repoId') == rid and r.get('subjectId') == n]
+    selected = [r for r in rows if r.get('t') == 'ISPOLZOVANO'
+                and r.get('repoId') == rid and r.get('subjectId') == n]
+    for r in arbitrazh:
+        if not proven(r):
+            return False, 'ARBITRAZH_NE_PODTVERZHDEN: нет закоммиченной адресной строки'
+    for r in sank + selected:
+        if not proven(r):
+            return False, 'SANKTSIYA_NE_PODTVERZHDENA: нет закоммиченной адресной строки'
+    used = 0
+    for pos, row in enumerate(starts, 1):
+        if pos <= 2:
+            continue
+        obj = row.get('object')
+        choices = {s['istochnik'] for s in selected
+                   if s.get('nomer') == pos and s.get('object') == obj}
+        if len(choices) != 1:
+            return False, 'SCHET_NEIZVESTEN: неоднозначный использованный источник'
+        chosen = choices.pop()
+        if chosen == 'arbitrazh':
+            if pos == 4 and arbitrazh:
+                continue
+            return False, 'KAP_VYZOVOV_KRITIKA: позиция ' + str(pos) + ' не покрыта'
+        grants = [s for s in sank if s.get('nomer') == pos and s.get('object') == obj
+                  and s.get('istochnik') == chosen]
+        if chosen in ('vladelec', 'orchestrator'):
+            if grants:
+                continue
+            return False, 'KAP_VYZOVOV_KRITIKA: позиция ' + str(pos) + ' не покрыта'
+        if chosen == 'konsultant':
+            if grants and (pos <= 3 or arbitrazh) and used < 2:
+                used += 1
+                continue
+            return False, 'KAP_VYZOVOV_KRITIKA: позиция ' + str(pos) + ' не покрыта'
+        return False, 'KAP_VYZOVOV_KRITIKA: позиция ' + str(pos) + ' не покрыта'
+    return True, ''
+
+
 def profile(root):
     p = json.loads((root / 'harness.project.json').read_text())
     layer = Path(os.environ.get('HARNESS_PROJECT_LAYER_ROOT', str(root)))
@@ -510,18 +600,12 @@ def main():
                 if not body.returncode:
                     return fail('вердикт вне объявленной грамматики: ' + first)
                 return fail('критик заморозку не разрешил')
-            events = []
-            commits = git(root, 'log', '--reverse', '--format=%H', '--',
-                          str(verdict_root / 'critic')).stdout.splitlines()
-            for rev in commits:
-                event = git(root, 'show', rev + ':' + str(verdict), check=False).stdout.splitlines()
-                if event and (not events or event[0] != events[-1]):
-                    events.append(event[0])
-            arbroot = root / ('verdicts' if mutant == 'root-arbitration' else verdict_root) / 'arbitration'
-            arbiters = list(arbroot.glob('*.md')) if arbroot.exists() else []
-            permitted = any('(контракт ' + n + ')' in f.read_text().splitlines()[0] for f in arbiters)
-            if len(events) >= 3 and not permitted and mutant != 'ignore-project-cap':
-                return fail('кап кругов')
+            # [154] Единица счёта — платная позиция START (не круг вердикта):
+            # та же область, что у новых предметов; арбитраж покрывает
+            # позицию 4 и только.
+            covered, reason = budget_reason(root, p, n, args[1] if len(args) > 1 else '')
+            if not covered and mutant != 'ignore-project-cap':
+                return fail(reason)
             tag = f'frozen/contracts/{n}/1'
         else:
             rows = git(root, 'log', '--format=', '--name-only', '--',

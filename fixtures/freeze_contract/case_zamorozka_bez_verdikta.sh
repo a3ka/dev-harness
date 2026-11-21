@@ -10,6 +10,6 @@ set -euo pipefail
 . "$(dirname "$0")/_repo.sh"
 R="$WORK/repo"
 make_repo "$R"
-"$BARRIER" contracts/001-x.md "вердикт v1 лежит на HEAD" "$R"
+"$BARRIER" contracts/001-x.md "вердикт v1 лежит на HEAD" "$R" "$(state154 "$R" 001 1)"
 
 "$BARRIER" contracts/001-x.md "вторая версия без гейта" "$R"
