@@ -13,6 +13,12 @@
 # теряется молча — класс риска берётся из ДЕРЕВА OBJECT; и негатив к нему —
 # предмет с ОДНИМ живым frozen-тегом и битым pin отклоняется как прежде
 # (bootstrap применяется ТОЛЬКО при нуле frozen-тегов).
+# Сверх того — ещё три клетки различения (е, ж, з): класс нового предмета
+# берётся из ДЕРЕВА OBJECT, поэтому ОТСУТСТВИЕ файла контракта (net_stroki) и
+# SYMLINK вместо него (neodnoznachno) отказом с названной причиной, а не
+# «обычным» по умолчанию; и ошибка чтения списка frozen-тегов (git
+# for-each-ref → rc 127) — fail-closed («закреплённый frozen недоступен»), а
+# не bootstrap (ошибка инструмента ≠ пустой список тегов).
 #
 # Мир — в mktemp; сеть и omp не нужны; git/jq/bash обязательны.
 ZP_REPO="$(cd "$HERE/../.." && pwd -P)"
@@ -59,6 +65,18 @@ zp_expect() {  # <rc> <причина|-> <метка>
   fi
   if [ "$2" != '-' ] && ! printf '%s' "$ZP_OUT" | grep -Fq "ОТКАЗ: $2:"; then
     printf 'zamok_predmeta: %s: нет причины %s; вывод: %s\n' "$3" "$2" "$ZP_OUT" >&2
+    return 1
+  fi
+  return 0
+}
+
+# Ожидание: код возврата + ИМЯ отказа + ПРИЧИНА внутри отказа.
+# Одного имени мало: KLASS_RISKA_NET бывает и от битого pin (клетка (д)), и
+# от нечитаемого класса риска (клетки (е)/(ж)) — различает фрагмент причины.
+zp_expect_prichina() {  # <rc> <имя-отказа> <фрагмент-причины> <метка>
+  zp_expect "$1" "$2" "$4" || return 1
+  if ! printf '%s' "$ZP_OUT" | grep -Fq "$3"; then
+    printf 'zamok_predmeta: %s: нет причины «%s»; вывод: %s\n' "$4" "$3" "$ZP_OUT" >&2
     return 1
   fi
   return 0
@@ -132,6 +150,24 @@ zp_avtor_sdal() {  # <NNN> <holder> <worktree> <branch>
         at:"2026-11-21T00:00:00Z"}' >> "$ZP_T/sost/uchet.jsonl"
   printf '{"timestamp":"2026-11-21T00:00:00.000Z","message":{"role":"assistant"}}\n{"type":"toolResult","toolCallId":"toolu_x","toolName":"yield","content":[{"type":"text","text":"Result submitted."}]}\n' \
       > "$ZP_T/zhurnaly/$h.jsonl"
+}
+
+# Настоящий git ДО подмены PATH: обёртка клетки (з) зовёт его по абсолютному
+# пути, иначе обёртка вызвала бы саму себя.
+ZP_REAL_GIT="$(command -v git 2>/dev/null || true)"
+case "$ZP_REAL_GIT" in /*) : ;; *) ZP_REAL_GIT=/usr/bin/git ;; esac
+[ -x "$ZP_REAL_GIT" ] || ZP_REAL_GIT=/usr/bin/git
+
+# Обёртка git: `for-each-ref` отдаёт ОШИБКУ (rc 127), прочее — настоящий git.
+# Ошибка инструмента ≠ пустой список тегов: дверь обязана закрыться
+# (fail-closed), а не считать предмет новым и пойти в bootstrap.
+zp_git_obvertka() {  # → каталог с обёрткой (в PATH кладёт вызывающий)
+  local d="$ZP_T/gitwrap"
+  mkdir -p "$d" || return 1
+  printf '#!/bin/bash\nfor x in "$@"; do [ "$x" = for-each-ref ] && exit 127; done\nexec %s "$@"\n' \
+      "$ZP_REAL_GIT" > "$d/git" || return 1
+  chmod +x "$d/git" || return 1
+  printf '%s' "$d"
 }
 
 # ── класс 1: delimiter-collision ─────────────────────────────────────────────
@@ -242,6 +278,82 @@ battery_silent_drop() {
   zp_event "$ZP_T/e5.json" critic Critic204 'SUBJECT=204' "OBJECT=$ZP_SHA"
   zp_sudit "$ZP_T/e5.json"
   zp_expect 1 KLASS_RISKA_NET 'предмет с frozen-тегом и битым pin' || return 1
+  # (е)(ж)(з) — три клетки различения вокруг класса риска и ошибки инструмента.
+  # Каждая идёт ОТДЕЛЬНО и печатает свой rc: иначе первый пробитый скрыл бы
+  # остальные (мутант двери ломает их по-разному), и профиль не показал бы,
+  # КАКОЙ именно вход не различился.
+  local kletka_probit=0
+  zp_kletka_net_stroki || kletka_probit=1
+  zp_kletka_symlink || kletka_probit=1
+  zp_kletka_failref || kletka_probit=1
+  [ "$kletka_probit" -eq 0 ] || return 1
+  return 0
+}
+
+# Отчёт по клетке: имя + код возврата (сырой вывод приёмки читается по клеткам).
+zp_kletka() {  # <имя-клетки> <rc>
+  printf 'БАТАРЕЯ %s: клетка %s — rc %s\n' "${PROFILE_NAME:-zamok_predmeta}" "$1" "$2"
+}
+
+# (е) Первый critic НОВОГО предмета, у которого OBJECT БЕЗ файла контракта.
+#     Класс риска берётся из ДЕРЕВА OBJECT: файла нет — класс НЕ ОПРЕДЕЛЁН, дверь
+#     обязана отказать (KLASS_RISKA_NET, причина net_stroki), а не считать
+#     предмет «обычным». Дверь, подставляющая класс константой, такой предмет
+#     пропускает — клетка различает.
+zp_kletka_net_stroki() {
+  zp_world || return 1
+  zp_kandidat 205 || return 1
+  zp_avtor_sdal 205 Avtor205 "$ZP_WT" "$ZP_BR"
+  git -C "$ZP_WT" rm -q 'contracts/205-novyi.md' || return 1
+  git -C "$ZP_WT" -c user.name=b -c user.email=b@t -c commit.gpgsign=false \
+      commit -q -m 'net kontrakta' || return 1
+  ZP_SHA="$(git -C "$ZP_WT" rev-parse HEAD)"
+  zp_event "$ZP_T/e6.json" critic Critic205 'SUBJECT=205' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e6.json"
+  zp_kletka '(е) critic нового предмета: OBJECT без файла контракта' "$ZP_RC"
+  zp_expect_prichina 1 KLASS_RISKA_NET '(net_stroki)' \
+      '(е) critic нового предмета: OBJECT без файла контракта' || return 1
+  return 0
+}
+
+# (ж) Тот же critic, но файл контракта в OBJECT — SYMLINK: запись не читается
+#     как канон → класс не определён → отказ KLASS_RISKA_NET (neodnoznachno).
+zp_kletka_symlink() {
+  zp_world || return 1
+  zp_kandidat 206 || return 1
+  zp_avtor_sdal 206 Avtor206 "$ZP_WT" "$ZP_BR"
+  rm -f "$ZP_WT/contracts/206-novyi.md"
+  ln -s 'cel-neizvestno.md' "$ZP_WT/contracts/206-novyi.md"
+  git -C "$ZP_WT" add -A || return 1
+  git -C "$ZP_WT" -c user.name=b -c user.email=b@t -c commit.gpgsign=false \
+      commit -q -m 'symlink vmesto kontrakta' || return 1
+  ZP_SHA="$(git -C "$ZP_WT" rev-parse HEAD)"
+  zp_event "$ZP_T/e7.json" critic Critic206 'SUBJECT=206' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e7.json"
+  zp_kletka '(ж) critic нового предмета: symlink вместо файла контракта' "$ZP_RC"
+  zp_expect_prichina 1 KLASS_RISKA_NET '(neodnoznachno)' \
+      '(ж) critic нового предмета: symlink вместо файла контракта' || return 1
+  return 0
+}
+
+# (з) Первый critic НОВОГО предмета, когда git НЕ ЧИТАЕТ перечень frozen-тегов
+#     (for-each-ref → rc 127): ошибка инструмента ≠ пустой перечень. Дверь
+#     обязана закрыться (KLASS_RISKA_NET, «закреплённый frozen недоступен»), а
+#     не считать перечень пустым и пойти в bootstrap. Дверь, трактующая ошибку
+#     как пустой перечень, такого critic пропускает — клетка различает.
+zp_kletka_failref() {
+  local old_path="$PATH" wrap
+  zp_world || return 1
+  zp_kandidat 207 || return 1
+  zp_avtor_sdal 207 Avtor207 "$ZP_WT" "$ZP_BR"
+  wrap="$(zp_git_obvertka)" || return 1
+  PATH="$wrap:$PATH"; export PATH
+  zp_event "$ZP_T/e8.json" critic Critic207 'SUBJECT=207' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e8.json"
+  PATH="$old_path"; export PATH
+  zp_kletka '(з) critic нового предмета: git for-each-ref недоступен' "$ZP_RC"
+  zp_expect_prichina 1 KLASS_RISKA_NET 'закреплённый frozen недоступен' \
+      '(з) critic нового предмета: git for-each-ref недоступен' || return 1
   return 0
 }
 
