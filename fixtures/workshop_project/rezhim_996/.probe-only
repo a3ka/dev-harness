@@ -6,3 +6,36 @@ reserve_project_contract, check_project_sources, pre_critic; check_no_leak
 probe.sh --matrix: честная модель и предъявления мутаций, привязанные в коде.
 CI dev-harness обязан вызвать продуктовый probe.sh после реализации 996;
 --matrix отдельно доказывает различимость, не заменяет продуктовую команду.
+
+Б-10 (2026-11-21): удалено обязательство отказа при красном паритете CI.
+Основание: решение владельца в task-b10-996fix.md; precision-гейт теперь
+предупреждает о rc 1 паритета, не блокируя freeze/pre_critic.
+Удалённые клетки (исходные строки probe.py):
+- freeze-precision-preserved (:287);
+- precritic-precision-preserved (:293).
+Ссылка обеих клеток на неизменяемый контракт:
+contracts/996-rezhim-proekta-polnyj-cikl.md:87 (перечень GATE_CASES);
+общий контекст вызова precision сохранён в том же контракте :51 и :77.
+Удалены генератор дефекта precision/check:unwired и мутант skip-precision,
+предъявлявшийся только удалённым клеткам. skip-gates остаётся на остальных
+GATE_CASES; привязки вычисляются из этого словаря, не из текста контракта.
+Модель по-прежнему вызывает настоящий check_precision_gate.sh: другие причины
+его отказа не отменены. Новая предупреждение-клетка не вводится.
+Счёт семьи до → после:
+CASES 111 → 109; GATE_CASES 17 → 15; MUTANTS 76 → 75;
+предъявления мутантов 149 → 145.
+Привязка broken-profile-fallback сохранена, включая freeze-broken-profile.
+Клетки битого профиля требуют именованную причину самой двери, а не любой
+ОТКАЗ: после Б-10 ошибка инструмента паритета (rc 2) маскировала fallback
+отказом precision. Модель теперь называет отказ разбора профиля явно.
+Иные проверки этих клеток (HEAD, теги, реестр) не изменены.
+Замер на базе e4185ea1b68f81fd7783a3d9ab7865e4854c4f66:
+npm run check:rezhim-996-family-selftest → rc 1, examined=111, mismatches=2
+(обе удалённые precision-клетки); локальный запуск повторил CI.
+После исправления:
+npm run check:rezhim-996-family-selftest → rc 0, examined=109, mismatches=0.
+bash fixtures/workshop_project/rezhim_996/probe.sh --model → rc 0, 109/0.
+bash fixtures/workshop_project/rezhim_996/probe.sh --matrix → rc 0, 109/75/0;
+живых предъявлений мутантов нет (LIVE 0).
+bash fixtures/_krasnye_043.sh → rc 0, 26 файлов, провалов 0.
+У семьи нет режимов --stabs/--census и собственного parsing_hygiene-профиля.

@@ -284,13 +284,11 @@ def done_freeze_equip(root, p, tag=True):
 GATE_CASES = {
     'freeze-gate-preserved': ('freeze', 'spec', 'spec-preflight 036'),
     'freeze-consumers-preserved': ('freeze', 'consumers', 'потребители 116'),
-    'freeze-precision-preserved': ('freeze', 'precision', 'precision-гейт 043'),
     'freeze-doc-preserved': ('freeze', 'doc', 'doc-preflight'),
     'freeze-doc-malformed': ('freeze', 'doc-malformed', 'doc-preflight'),
     'done-gate-preserved': ('done', 'provodka', 'ПРОВОДКА'),
     'done-consumers-preserved': ('done', 'consumers', 'потребители 116'),
     'precritic-spec-preserved': ('pre_critic', 'spec-probe', 'spec-ready'),
-    'precritic-precision-preserved': ('pre_critic', 'precision', 'precision-gate'),
     'precritic-n39-preserved': ('pre_critic', 'n39', 'Н-39'),
     'precritic-context-preserved': ('pre_critic', 'context', 'форма:'),
     'precritic-existing-preserved': ('pre_critic', 'existing', 'форма:'),
@@ -324,11 +322,6 @@ def gate_test(case, mode, mutant, root, p, contract):
     elif defect == 'consumers':
         # Real registered mapping, not an injected failing gate executable.
         change('scripts/consumers.d/absent.sh__check_sh.tsv', 'scripts/absent.sh\tcheck.sh\n')
-    elif defect == 'precision':
-        package = json.loads((root / 'package.json').read_text())
-        package['scripts']['check:unwired'] = 'bash omitted.sh'
-        change('package.json', json.dumps(package))
-        change('omitted.sh', '#!/bin/sh\nexit 0\n')
     elif defect.startswith('doc'):
         spec = {'type': 'documentation', 'version': 1, 'profile': 'product',
                 'outputs': {'markdown': 'guide.md', 'evidence': 'guide.json'},
@@ -816,7 +809,8 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         commit(root, 'broken profile with root decoy')
         before = git(root, 'rev-parse', 'HEAD')
         r = call(op, decoy)
-        expect(r.returncode == 1 and 'ОТКАЗ' in r.stderr,
+        expect(r.returncode == 1 and r.stderr.startswith(
+                   ('ОТКАЗ: профиль битый', 'ОТКАЗ: ОТКАЗ: профиль битый')),
                'BROKEN_PROFILE_ROOT_FALLBACK:' + op, r)
         expect(not git(root, 'tag', '-l') and git(root, 'rev-parse', 'HEAD') == before
                and not (root / 'registry' / 'contracts.tsv').exists(),
@@ -1535,7 +1529,7 @@ MUTANTS.update({
 })
 MUTANTS['skip-gates'] = tuple(GATE_CASES)
 for gate, defects in {'spec': ('spec', 'spec-probe'), 'consumers': ('consumers',),
-                      'precision': ('precision',), 'doc': ('doc', 'doc-malformed'),
+                      'doc': ('doc', 'doc-malformed'),
                       'provodka': ('provodka',), 'n39': ('n39',),
                       'form': ('context', 'existing'), 'plan': ('plan', 'closures', 'worktree-plan'),
                       'committed': ('committed',)}.items():
