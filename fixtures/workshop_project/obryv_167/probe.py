@@ -15,16 +15,18 @@ spec = importlib.util.spec_from_file_location('odin_agent_140', ROOT / 'fixtures
 old = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(old)
 
-# The control model IS the frozen 140 reference: since 140 v4 the baseline
-# carries the full 167 semantics verbatim (reduce-form subekt_suzhen_sudej_obj
-# with a circle closed only by RELEASE obryv_bez_verdikta, verdict_sessii
-# receipt check, the verdikt_zakommiten/obryv_bez_verdikta release seam, judge
-# refs sync before classification).  The fixture refuses missing anchors
-# rather than blessing a partially carried model.
+# The control is the current 140 reference, including the 167 release
+# classification and refs synchronization. krugov_suda closes the holder's
+# latest open START; only obryv_bez_verdikta excludes it from the count.
+# Refuse missing or ambiguous anchors instead of blessing a partial model.
 ANCHORS = (
-    ('subekt_suzhen_sudej_obj reduce (контракт 167)',
-     '      elif $l.t == "RELEASE" and .[$l.holder] == "open" and $l.prichina == "obryv_bez_verdikta"\n'
-     '        then .[$l.holder] = "interrupted"\n'),
+    ('krugov_suda RELEASE (контракт 167)',
+     '        elif $l.t == "RELEASE" then\n'
+     '          ([ to_entries[] | select(.value.h == $l.holder and .value.s == "open") ]\n'
+     '           | last | .key) as $i\n'
+     '          | if $i == null then .\n'
+     '            else .[$i].s = (if $l.prichina == "obryv_bez_verdikta" then "obryv" else "sud" end)\n'
+     '            end\n'),
     ('verdict_sessii (контракт 167)',
      'verdict_sessii() {  # <NNN> <holder> <rol> <OBJECT>\n'),
     ('шов освобождения судьи verdikt_zakommiten/obryv_bez_verdikta',
@@ -72,7 +74,7 @@ def case(door, kind):
         m.release(nnn, 'Author167')
         m.start(nnn, 'Critic167First', klass='sudja', rol=role, obj=obj)
         m.zhurnal('Critic167First', sdal=True)
-        if kind in ('verdict', 'verdict_no_receipt', 'reviewer_verdict') or bad_verdict:
+        if kind in ('verdict', 'reviewer_verdict') or bad_verdict:
             verdict_path = (f'verdicts/{verdict_dir}/other.md' if kind == 'verdict_wrong_path'
                             else f'verdicts/{verdict_dir}/contracts-141-v1.md')
             verdict = m.repo / verdict_path
@@ -94,16 +96,17 @@ def case(door, kind):
             if any(r.get('t') == 'RELEASE' and r.get('holder') == 'Critic167First' for r in m.ledg()):
                 return 'REMOTE_WROTE_FALSE_RELEASE'
             return None
-        accounting = None
-        if kind != 'verdict_no_receipt':
-            released = old.osvobodit(door, m, nnn, 'Critic167First')
-            accounting = check(released, 0, 'release')
-            if accounting:
-                return accounting
-            rows = [r for r in m.ledg() if r.get('t') == 'RELEASE' and r.get('holder') == 'Critic167First']
-            expected = 'verdikt_zakommiten' if kind in ('verdict', 'reviewer_verdict') else 'obryv_bez_verdikta'
-            if len(rows) != 1 or rows[0].get('prichina') != expected:
-                accounting = f'ACCOUNTING: RELEASE={rows!r}, expected={expected}'
+        released = old.osvobodit(door, m, nnn, 'Critic167First')
+        accounting = check(released, 0, 'release')
+        if accounting:
+            return accounting
+        rows = [r for r in m.ledg() if r.get('t') == 'RELEASE' and r.get('holder') == 'Critic167First']
+        expected = 'verdikt_zakommiten' if kind in ('verdict', 'reviewer_verdict') else 'obryv_bez_verdikta'
+        if len(rows) != 1 or rows[0].get('prichina') != expected:
+            accounting = f'ACCOUNTING: RELEASE={rows!r}, expected={expected}'
+        # A2 removed the repetition refusal, not RELEASE classification.
+        if kind in ('verdict', 'reviewer_verdict'):
+            return accounting
         event = m.sobytie('repeat.json', [old.item(role, 'Critic167Again',
                               ['SUBJECT=141', 'OBJECT=' + obj])])
         repeat = old.sudit(door, m, event)
@@ -115,18 +118,11 @@ def case(door, kind):
                 starts = [r for r in m.ledg() if r.get('t') == 'START' and r.get('holder') == 'Critic167Again']
                 if len(starts) != 1:
                     return f'RETRY_START_MISSING {starts!r}'
-                m.zhurnal('Critic167Again', sdal=True)
-                third = m.sobytie('third.json', [old.item('critic', 'Critic167Third',
-                                        ['SUBJECT=141', 'OBJECT=' + obj])])
-                again = old.sudit(door, m, third)
-                err = check(again, 1, 'second repeat', 'OBJECT_UZHE_SUZHEN')
-                return '; '.join(x for x in (accounting, err) if x) or None
             return accounting
-        err = check(repeat, 1, 'committed verdict blocks repetition', 'OBJECT_UZHE_SUZHEN')
-        return '; '.join(x for x in (accounting, err) if x) or None
+        return accounting
 
 
-JUDGE_CASES = ('interrupted', 'verdict', 'verdict_no_receipt', 'reviewer_verdict',
+JUDGE_CASES = ('interrupted', 'verdict', 'reviewer_verdict',
                'remote_unavailable', 'verdict_wrong_author', 'verdict_wrong_path',
                'verdict_wrong_object', 'verdict_wrong_session')
 
@@ -152,10 +148,8 @@ def main():
             if error:
                 failures.append(name)
         if mode == '--stabs':
-            stubs = {'ignore_all_starts': ('verdict', 'interrupted'),
-                     'yield_is_verdict': ('interrupted',),
+            stubs = {'yield_is_verdict': ('interrupted',),
                      'always_block': ('interrupted',),
-                     'no_retry_limit': ('interrupted',),
                      'skip_remote_check': ('remote_unavailable',),
                      'no_author_check': ('verdict_wrong_author',),
                      'broader_path': ('verdict_wrong_path',),
@@ -167,12 +161,11 @@ def main():
                     # Isolate a mutated control in a fresh ephemeral tree.
                     candidate = Path(tmp) / (stub + '.sh')
                     src = control.read_text()
-                    if stub == 'ignore_all_starts':
-                        src = src.replace('any(.[]; . != "interrupted")', 'false', 1)
-                    elif stub == 'yield_is_verdict':
+                    if stub == 'yield_is_verdict':
                         src = src.replace("prichina='obryv_bez_verdikta'", "prichina='verdikt_zakommiten'", 1)
                     elif stub == 'always_block':
-                        src = src.replace('  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3"', '  return 0 # bad: unconditionally blocks\n  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3"', 1)
+                        anchor = 'subekt_suzhen_sudej_obj() {  # <NNN> <rol> <object>\n'
+                        src = src.replace(anchor, anchor + '  otp OBJECT_UZHE_SUZHEN "bad: unconditionally blocks"\n', 1)
                     elif stub == 'skip_remote_check':
                         src = src.replace('    if ! git -C "$REPO" ls-remote --heads origin >/dev/null 2>&1; then\n'
                                           '      rmdir "$zdir/mutex" 2>/dev/null\n'
@@ -190,8 +183,6 @@ def main():
                         src = src.replace('      printf \'%s\\n\' "$blob" | grep -Fxq "OBJECT=$4" || continue\n', '')
                     elif stub == 'no_session_check':
                         src = src.replace('      printf \'%s\\n\' "$fields" | tr \';\' \'\\n\' | sed \'s/^ *//;s/ *$//\' | grep -Fxq "сессия=$2" || continue\n', '')
-                    else:
-                        src = src.replace('any(.[]; . != "interrupted")', 'false')
                     if src == control.read_text():
                         raise RuntimeError(f'STAB_NOT_MUTATED {stub}')
                     candidate.write_text(src)
