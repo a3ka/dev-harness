@@ -118,7 +118,7 @@ def invoke(subject, repo, role, component=None, *, kind='task', env=None):
         argv += ['--task-file', str(repo / 'contracts/777-toy.md')]
     if component is not None:
         argv += ['--arch-component', component]
-    return subprocess.run(argv, capture_output=True, text=True, timeout=40, env=env)
+    return subprocess.run(argv, capture_output=True, timeout=40, env=env)
 
 
 CLASS_LINES = {
@@ -176,6 +176,9 @@ def run_case(name, subject):
                 profile.write_text(json.dumps(data))
             result = invoke(subject, repo, role, component, kind='brief' if name == 'brief_kind' else 'task', env=env)
             npm_calls = len(calls.read_text().splitlines()) if calls.exists() else 0
+        # Only legacy line-oriented assertions decode; the subprocess seam stays binary.
+        result = subprocess.CompletedProcess(result.args, result.returncode,
+                                             result.stdout.decode(), result.stderr.decode())
         lines = result.stdout.splitlines()
         manifest = result.stdout.split('=== MANIFEST ===\n', 1)[-1].split('=== BUDGET ===', 1)[0].splitlines()
         reject = {'required': 'ARCH_COMPONENT_NET', 'wrong_project': 'ARCH_COMPONENT_NET',

@@ -16,8 +16,10 @@ try:
  if not p.is_file() or not os.access(p,os.R_OK) or not p.stat().st_mode & 292: raise ValueError("unavailable")
  b=p.read_bytes()
  if len(b)!=int(sys.argv[2]) or hashlib.sha256(b).hexdigest()!=sys.argv[3]: raise ValueError("integrity")
-except (OSError,ValueError) as e:
- print("ОТКАЗ: ARCH_BRIEF_PIN: "+("unavailable: " if isinstance(e,OSError) else "")+str(e),file=sys.stderr); sys.exit(1)
+except (OSError,RuntimeError):
+ print("ОТКАЗ: ARCH_BRIEF_PIN: unavailable",file=sys.stderr); sys.exit(1)
+except ValueError as e:
+ print("ОТКАЗ: ARCH_BRIEF_PIN: "+str(e),file=sys.stderr); sys.exit(1)
 sys.stdout.buffer.write(b)
 '''
 READ_REQUIRED = 'ОБЯЗАТЕЛЬНОЕ ЧТЕНИЕ: выполни READ_COMMAND до работы; при rc != 0 остановись; прочитай stdout целиком.'
@@ -107,6 +109,9 @@ def main():
 if __name__ == '__main__':
     try:
         sys.exit(main())
-    except (OSError, ValueError) as error:
+    except (OSError, RuntimeError):
+        print('ОТКАЗ: ARCH_BRIEF_PIN: unavailable', file=sys.stderr)
+        sys.exit(1)
+    except ValueError as error:
         print('ОТКАЗ: ARCH_BRIEF_PIN: ' + str(error), file=sys.stderr)
         sys.exit(1)

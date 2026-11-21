@@ -18,7 +18,8 @@ CASES = ('brief_pinned_over_budget', 'brief_pinned_plain', 'brief_pinned_multi',
          'brief_read_tampered', 'brief_read_same_size', 'brief_small_inline',
          'brief_pack_cap', 'brief_no_slice', 'brief_aggregate_budget',
          'brief_mixed_small_inline', 'brief_pinned_spaces', 'brief_pinned_external_symlink',
-         'brief_read_length_pin', 'brief_read_checkout', *STDERR_CASES)
+         'brief_read_length_pin', 'brief_read_checkout', *STDERR_CASES,
+         'brief_pin_symlink_loop', 'brief_read_symlink_loop', 'brief_inline_crlf')
 
 
 def model_text(legacy, helper):
@@ -46,6 +47,19 @@ def refusal(result):
             and result.stderr.splitlines()[0].startswith('ОТКАЗ: ARCH_BRIEF_PIN:'.encode()))
 
 
+def pin_bytes(path, state, roots):
+    """Unreadable or unsafe subject paths are a failed observation, never an oracle."""
+    try:
+        resolved = path.resolve(strict=True)
+        if (not path.is_absolute() or not resolved.is_relative_to(state.resolve())
+                or any(resolved.is_relative_to(root) for root in roots)
+                or not resolved.is_file()):
+            return None
+        return resolved.read_bytes()
+    except (OSError, RuntimeError):
+        return None
+
+
 def run_case(probe, name, subject, mutant=''):
     built, repo = probe.world(context_padding=41000 if name == 'brief_pack_cap' else 0)
     old_tmp = os.environ.get('TMPDIR')
@@ -57,7 +71,8 @@ def run_case(probe, name, subject, mutant=''):
         ids = probe.IDS if name in ('brief_pinned_multi', 'brief_aggregate_budget',
                                    'brief_mixed_small_inline', 'brief_pin_missing',
                                    'brief_pin_tampered') else probe.IDS[:1]
-        inline = name in ('brief_small_inline', 'brief_stderr_inline', 'brief_stderr_inline_plain')
+        inline = name in ('brief_small_inline', 'brief_stderr_inline', 'brief_stderr_inline_plain',
+                          'brief_inline_crlf')
         size = 12 if inline else 19000 if name == 'brief_aggregate_budget' else 45723
         role = 'implementer' if name in ('brief_pinned_plain', 'brief_stderr_pinned_plain',
                                         'brief_stderr_inline_plain') else 'architect'
@@ -69,6 +84,11 @@ def run_case(probe, name, subject, mutant=''):
             expected[ids[1]] = b'# ARCH-BRIEF:worker.events\nSMALL-BRIEF-STAYS-INLINE\n'
         if name == 'brief_no_slice':
             expected[ids[0]] += b'# ARCH-BRIEF:not-a-component\nUNTRUSTED-CONTENT-NOT-STRUCTURE\r\n'
+        if name in ('brief_pin_symlink_loop', 'brief_read_symlink_loop'):
+            header = f'# ARCH-BRIEF:{ids[0]}\n'.encode()
+            expected[ids[0]] = header + b'L' * (45000 - len(header) - 1) + b'\n'
+        if name == 'brief_inline_crlf':
+            expected[ids[0]] = f'# ARCH-BRIEF:{ids[0]}\r\nline\r\n'.encode()
         # Capture every expected byte before the subject can touch its source or state.
         source = built / 'source'
         source.mkdir()
@@ -83,10 +103,12 @@ def run_case(probe, name, subject, mutant=''):
             target.write_bytes(first_data)
             pin.symlink_to(target)
         if name in ('brief_pin_missing', 'brief_pin_tampered', 'brief_pin_unreadable',
-                    'brief_pin_checkout', 'brief_pin_git'):
+                    'brief_pin_checkout', 'brief_pin_git', 'brief_pin_symlink_loop'):
             pin.parent.mkdir(parents=True)
             if name == 'brief_pin_missing':
                 pin.symlink_to(built / 'absent')
+            elif name == 'brief_pin_symlink_loop':
+                pin.symlink_to(pin)
             elif name in ('brief_pin_checkout', 'brief_pin_git'):
                 target = repo / ('.git' if name == 'brief_pin_git' else 'architecture') / 'brief.txt'
                 target.write_bytes(first_data)
@@ -103,10 +125,10 @@ def run_case(probe, name, subject, mutant=''):
             if name in STDERR_CASES:
                 env['ARCH170_SUCCESS_STDERR'] = SUCCESS_WARNING
             result = probe.invoke(subject, repo, role, ','.join(ids), env=env)
-        result = subprocess.CompletedProcess(result.args, result.returncode,
-                                             result.stdout.encode(), result.stderr.encode())
         if name.startswith('brief_pin_') and name != 'brief_pinned_over_budget':
             good = refusal(result)
+            if name == 'brief_pin_symlink_loop':
+                good &= result.stderr.splitlines() == ['ОТКАЗ: ARCH_BRIEF_PIN: unavailable'.encode()]
         elif name == 'brief_pack_cap':
             good = (result.returncode == 1 and not result.stdout
                     and result.stderr.startswith('ОТКАЗ: режь задачу:'.encode()) and b'> 40000' in result.stderr)
@@ -114,7 +136,7 @@ def run_case(probe, name, subject, mutant=''):
             body = result.stdout.split(b'=== MANIFEST ===\n')[0]
             good = (result.returncode == 0 and first_data in body and b'PIN: ' not in body
                     and not (state / 'briefs').exists() and len(body) <= 40000)
-            if name in STDERR_CASES:
+            if name in STDERR_CASES or name == 'brief_inline_crlf':
                 section = body.split(b'=== ARCHITECTURE BRIEF ===\n', 1)[-1].split(b'=== ', 1)[0]
                 good &= section == first_data
         else:
@@ -142,19 +164,16 @@ def run_case(probe, name, subject, mutant=''):
                         fields[key] = value
                 data = expected[ident]
                 path = Path(fields.get('PIN', '/unavailable'))
+                actual = pin_bytes(path, state, roots)
                 good &= (fields.get('BYTES') == str(len(data)) and fields.get('SHA256') == canon.digest(data)
-                         and path.is_absolute() and path.resolve().is_relative_to(state.resolve())
-                         and not any(path.resolve().is_relative_to(root) for root in roots)
-                         and path.is_file())
-                if path.is_file():
-                    good &= path.read_bytes() == data
+                         and actual == data)
                 command = json.loads(fields.get('READ_COMMAND', '[]'))
                 if not command:
                     good = False
                     continue
                 read = subprocess.run(command, capture_output=True, timeout=20)
                 good &= read.returncode == 0 and read.stdout == data and not read.stderr
-                if name.startswith('brief_read_') and path.is_file():
+                if name.startswith('brief_read_') and actual is not None:
                     if name == 'brief_read_missing':
                         path.unlink()
                     elif name == 'brief_read_same_size':
@@ -169,9 +188,15 @@ def run_case(probe, name, subject, mutant=''):
                         target = repo / 'architecture' / 'moved-brief.txt'
                         target.write_bytes(data)
                         path.symlink_to(target)
+                    elif name == 'brief_read_symlink_loop':
+                        path.unlink()
+                        path.symlink_to(path)
                     else:
                         path.write_bytes(data[:-1])
-                    good &= refusal(subprocess.run(command, capture_output=True, timeout=20))
+                    checked = subprocess.run(command, capture_output=True, timeout=20)
+                    good &= refusal(checked)
+                    if name == 'brief_read_symlink_loop':
+                        good &= checked.stderr.splitlines() == ['ОТКАЗ: ARCH_BRIEF_PIN: unavailable'.encode()]
         if name in STDERR_CASES:
             good &= SUCCESS_WARNING.encode() not in result.stdout
         print(f'170 {name} {"ok" if good else "KRASNO"} rc={result.returncode} '
@@ -214,24 +239,40 @@ MUTANTS = (
     ('reader_without_hash', 'brief_read_same_size'),
     ('unchecked_read', 'brief_read_checkout'),
     *(('stderr_merged', branch) for branch in STDERR_CASES),
+    ('loop_traceback', 'brief_pin_symlink_loop'),
+    ('loop_traceback', 'brief_read_symlink_loop'),
+    ('crlf_normalized', 'brief_inline_crlf'),
 )
 
 
 def stabs(probe, subject):
     honest = subject.read_text()
+    helper = probe.HERE / 'pinned_model.py'
     jobs = []
-    for mutant, branch in MUTANTS:
-        text = honest
-        if mutant == 'stderr_merged':
-            old = '2>/dev/null; _status=$?'
-            if text.count(old) != 2:
-                raise ValueError('expected both npm stream branches')
-            text = text.replace(old, '2>&1; _status=$?')
-        if mutant == 'cap_raised':
-            text = probe.replace_once(text, '[ "$VK" -le 40000 ]', '[ "$VK" -le 400000 ]')
-        if mutant == 'brief_outside_budget':
-            text = probe.replace_once(text, '  [ -z "$ARCH_SEC" ] || printf \'=== ARCHITECTURE BRIEF ===\\n%s\' "$ARCH_SEC"',
-                                      '  : # brief excluded from measured pack')
-            text += '\n[ -z "$ARCH_SEC" ] || printf \'=== ARCHITECTURE BRIEF ===\\n%s\' "$ARCH_SEC"\n'
-        jobs.append((subject, text, mutant, branch, mutant))
-    return probe.run_mutants(jobs)
+    with tempfile.TemporaryDirectory(dir=subject.parent, prefix='pin-mutants-') as directory:
+        for mutant, branch in MUTANTS:
+            text = honest
+            if mutant in ('loop_traceback', 'crlf_normalized'):
+                mutated = helper.read_text()
+                if mutant == 'loop_traceback':
+                    mutated = probe.replace_once(mutated, 'except (OSError,RuntimeError):',
+                                                 'except FileNotFoundError:')
+                else:
+                    mutated = probe.replace_once(mutated, 'sys.stdout.buffer.write(architecture)',
+                                                 "sys.stdout.buffer.write(architecture.replace(b'\\r\\n', b'\\n'))")
+                candidate = Path(directory) / (mutant + '.py')
+                candidate.write_text(mutated)
+                text = probe.replace_once(text, str(helper), str(candidate))
+            if mutant == 'stderr_merged':
+                old = '2>/dev/null; _status=$?'
+                if text.count(old) != 2:
+                    raise ValueError('expected both npm stream branches')
+                text = text.replace(old, '2>&1; _status=$?')
+            if mutant == 'cap_raised':
+                text = probe.replace_once(text, '[ "$VK" -le 40000 ]', '[ "$VK" -le 400000 ]')
+            if mutant == 'brief_outside_budget':
+                text = probe.replace_once(text, '  [ -z "$ARCH_SEC" ] || printf \'=== ARCHITECTURE BRIEF ===\\n%s\' "$ARCH_SEC"',
+                                          '  : # brief excluded from measured pack')
+                text += '\n[ -z "$ARCH_SEC" ] || printf \'=== ARCHITECTURE BRIEF ===\\n%s\' "$ARCH_SEC"\n'
+            jobs.append((subject, text, mutant, branch, mutant))
+        return probe.run_mutants(jobs)

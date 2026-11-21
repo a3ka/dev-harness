@@ -153,3 +153,96 @@ Inline-секция ограничена следующим заголовком
 `bash scripts/check_sdacha.sh . contracts/170-arch-component-brief-vhod-zadanija.md --run`
 → rc 0; `bash scripts/pre_critic.sh contracts/170-arch-component-brief-vhod-zadanija.md`
 → rc 0. Внешний журнал и контракт не менялись, push не выполнялся.
+
+## Исправление Crit170V3, К-07 на базе e9497eecbdc5f0c6be44f599df9a09925ebfafc2
+
+Обещание: недоступный pin до выдачи любых байтов отказывает rc 1 с первой
+строкой `ОТКАЗ: ARCH_BRIEF_PIN: unavailable`; inline CRLF сохраняется побайтно.
+Frozen-обязательства не меняются; текст контракта и production вне правки.
+Существующее: единый `pinned_model.py:READER` уже обслуживает producer
+и READ_COMMAND; `probe.invoke` — общий subprocess-шов; `pinned.run_case`
+снимает независимый оракул в память до вызова.
+
+| Находка | Место и правка | Клетка | Стаб |
+|---|---|---|---|
+| Необработанный цикл pin до выдачи | READER ловит OSError и RuntimeError как unavailable; producer-обёртка так же именует ошибки файловых операций | `brief_pin_symlink_loop`: полный brief ровно 45000 байт, самоссылка по hash-пути | `loop_traceback` |
+| Необработанный цикл при чтении | Тот же канон, после честного полного чтения файл заменяется самоссылкой | `brief_read_symlink_loop` | `loop_traceback` |
+| Transport скрывает потерю CR | invoke возвращает bytes; pinned больше не делает encode после text=True | `brief_inline_crlf`: `# ARCH-BRIEF:api.identity\r\nline\r\n` | `crlf_normalized` |
+
+Обманные helpers создаются внутри временного каталога субъекта: первый
+сужает catch READER до FileNotFoundError (цикл снова даёт traceback),
+второй нормализует реальные inline-байты CRLF→LF. Producer/read привязаны
+к разным входам кодом MUTANTS; замена оракула или результата тестом не делается.
+`pin_bytes` переводит недоступный/зацикленный путь субъекта в неуспешное
+наблюдение, а не traceback проверяющего; expected по-прежнему из памяти.
+
+До правки канона и transport новые клетки на старой модели дали:
+
+```text
+170 brief_pin_symlink_loop KRASNO rc=1
+170 brief_read_symlink_loop KRASNO rc=0 stderr=''
+170 brief_inline_crlf KRASNO rc=0 stderr=''
+170 PIN_CONTROL_INVALID
+```
+
+Это выдержка: stderr producer начинался `Traceback (most recent call last):`.
+Обёртка `--model` вернула rc 1. После правки та же команда вернула rc 0:
+
+```text
+170 brief_pin_symlink_loop ok rc=1 stderr='ОТКАЗ: ARCH_BRIEF_PIN: unavailable'
+170 brief_read_symlink_loop ok rc=0 stderr=''
+170 brief_inline_crlf ok rc=0 stderr=''
+170 STAB loop_traceback caught @ brief_pin_symlink_loop
+170 STAB loop_traceback caught @ brief_read_symlink_loop
+170 STAB crlf_normalized caught @ brief_inline_crlf
+```
+
+rc=0 в read-клетке относится к producer; внутри отдельно проверены rc=1
+чтеца, пустой stdout и единственная строка unavailable. Честные соседи:
+`brief_pinned_external_symlink`, `brief_small_inline`, `brief_no_slice`;
+прежний dangling `brief_pin_missing` ожидаемо отказывает без traceback.
+Все прежние клетки и предъявления стабов сохранены.
+
+Счёт из деклараций базы/current (AST + импорт), независимо — из логов:
+клетки 49 → 52, предъявления стабов 40 → 43, уникальные имена 30 → 32;
+`model.log`: 52 ok; `stabs.log`: 43 caught, ZHIV 0.
+`repo.log`: 27 ok, 25 KRASNO; красные — прежние 18 pinned из :39,
+четыре STDERR_CASES и три новых входа. Для прежней production-двери
+CRLF-клетка также различает утрату завершающего LF.
+
+Текущие команды исполняются с `TMPDIR="$PWD/.scratch-170d"` и
+`PYTHONDONTWRITEBYTECODE=1` внутри копии; scratch не входит в коммит.
+`--repo` rc 1, `--model` rc 0, `--stabs` rc 0;
+`python3 fixtures/workshop_project/arch_component_170/regressions.py` rc 0.
+Сырые stdout: `.scratch-170d/repo.log`, `model.log`, `stabs.log`,
+`regressions.log`. Регрессии 095/169 используют прежний адаптер только scratch.
+
+Предыдущий FAIL — `verdicts/critic/contracts-170-v2.md` в коммите
+`0bd289f8dd912f648a8e7cdbf5c3d65e2baf1f57`, архивная ветка
+`archive/170/critic-v2-fail-0bd289f8dd`. Ограничение
+ПРЕДЫДУЩИЙ_ВЕРДИКТ_ВНЕ_HEAD: дверь сдаточного листа умеет только HEAD:<путь>;
+в листе точная ссылка приведена цитатой, а не машинной ссылкой на иной блоб.
+К-07 покрыт явной дельтой; автоматическое покрытие архивного FAIL не заявлено.
+
+Финальные двери на этом кандидате, с тем же локальным TMPDIR:
+
+```text
+$ bash scripts/check_sdacha.sh . contracts/170-arch-component-brief-vhod-zadanija.md --run
+СДАЧА: лист зелёный (двери=3 карта=17/17 дельта=1)
+rc=0
+$ bash scripts/pre_critic.sh contracts/170-arch-component-brief-vhod-zadanija.md
+  ok   гейт предпосылок: PREDPOSYLKI_OK secrets=0 variables=0 environments=0 settings=2
+  ok   гейт трека:
+  ok   модель угроз красна
+  ok   потолки красны
+  ok   проводка красна
+КРИТИК: дверь зелёная
+  ok   сдаточный лист красен
+rc=0
+```
+
+Полный вывод дверей: `.scratch-170d/sdacha.log`, `pre-critic.log`.
+Относительный путь первого edit был отклонён Н-85 без изменения файлов;
+дальнейшие записи используют заранее предписанные абсолютные пути этой копии.
+Это наблюдение процесса передаётся через сдаточный лист; общий журнал main
+не меняется и номер А-NNN в wip не выдаётся.
