@@ -6,19 +6,81 @@
 # Читает два слоя: <корень>/harness.project.json и
 # ${HARNESS_PROJECT_LAYER_ROOT}/<projectLayer.profilePath> (умолчание
 # registry/harness-project.json). Замкнутые алфавиты перечислены ниже ОДНИМ
-# массивом; ключ вне алфавита любого уровня — rc 1, P4 с точным путём ключа.
+# массивом; ключ вне алфавита любого уровня — НЕ отказ (см. «М-0» ниже).
 # Слияние скалярное: ключ репо перекрывает defaults слоя проекта; вывод —
 # {"<лист>": {"value": ..., "origin": "repo"|"project"}}. `projectId`/`workspaceId`
 # всегда origin `project`, `repoId` — `repo`. Пин версии слоя проекта
 # (`projectLayer.version` репо == `version` слоя) сверяется буквально (И-5).
 #
+# М-0 (контракт 184; ADR владельца 2026-11-21-plan-fable п.3 и
+# 2026-11-21-plan-v9 п.6): обязательства замороженных контрактов, требовавшие
+# ОТКАЗА на неизвестное имя (P4), этим решением ЗАМЕНЕНЫ. Ключ вне алфавита
+# любого уровня — одна строка предупреждения на stderr с точным путём ключа
+# («профиль ПРЕДУПРЕЖДЕНИЕ: неизвестный ключ <уровень>: <путь>»), rc 0; в
+# выходной JSON такой ключ не попадает (merged перечисляет только известные
+# листы). ИЗВЕСТНЫЙ ключ с неверным значением и отсутствие обязательных полей —
+# отказ как прежде (P1..P7). Замороженные тексты не правятся.
+#
+# БИБЛИОТЕЧНЫЙ ШОВ (тот же М-0): `PROFILE_RESOLVER_LIB=1 source
+# scripts/profile_resolver.sh` — определена функция `profile_get`, основной код
+# НЕ исполняется (соглашение `NEXT_ID_LIB=1 source next_id.sh`).
+#   profile_get <корень репо> <jq-путь> <умолчание>
+# Печатает значение ключа из СЫРОГО <корень>/harness.project.json одним
+# jq-вызовом; нет файла / нет ключа / битый JSON → умолчание; слой проекта
+# (HARNESS_PROJECT_LAYER_ROOT) тут не читается. На stdout — значение и перевод
+# строки: строка как есть, прочее — JSON.
+#
 # Коды возврата: 0 — успех (JSON на stdout), 1 — отказ с именованной причиной P1..P7 на stderr.
 # Возвращает:
-#   0 — успех, JSON на stdout
+#   0 — успех, JSON на stdout (предупреждения об неизвестных ключах — на stderr)
 #   1 — отказ с именованной причиной на stderr (P1..P7, дословно)
 #
 # Сообщения P1..P7 — строки контракта, и фикстуры сверяют их grep -F; любые
 # сокращения/перефразирования ЗДЕСЬ ломают проверку. Байт-в-байт.
+
+# ── ФУНКЦИЯ profile_get (М-0, контракт 184) ─────────────────────────────────
+# profile_get <корень репо> <jq-путь> <умолчание>
+#   Один jq-вызов по СЫРОМУ <корень>/harness.project.json. Нет файла, нет ключа
+#   или битый JSON → печатается умолчание. Слой проекта не читается: значение
+#   берётся из корневого профиля репо, а не из defaults слоя.
+#   На stdout — значение и перевод строки: строка как есть, прочее — JSON.
+#   Префикс S:/J: различает строку и прочее; при отсутствии значения jq не
+#   печатает ничего (rc 4) — тогда умолчание.
+profile_get() {
+  local repo="${1-}" jq_path="${2-}" default="${3-}"
+  local file="$repo/harness.project.json" out rc=0
+  if [ -f "$file" ]; then
+    out="$(jq -er --arg p "$jq_path" '
+          ($p | ltrimstr(".") | split(".") | map(select(length > 0))) as $parts
+          | getpath($parts) as $v
+          | if $v == null then empty
+            elif ($v | type) == "string" then "S:" + $v
+            else "J:" + ($v | tojson)
+            end
+        ' "$file" 2>/dev/null)" || rc=$?
+  else
+    rc=4
+  fi
+  if [ "$rc" -ne 0 ] || [ -z "$out" ]; then
+    printf '%s\n' "$default"
+    return 0
+  fi
+  case "$out" in
+    S:*) printf '%s\n' "${out#S:}" ;;
+    J:*) printf '%s\n' "${out#J:}" ;;
+    *)   printf '%s\n' "$default" ;;
+  esac
+}
+
+# ── ИМПОРТ КАК БИБЛИОТЕКА ────────────────────────────────────────────────────
+# PROFILE_RESOLVER_LIB=1 source scripts/profile_resolver.sh → определена
+# profile_get, основной код НЕ исполняется. Ранний возврат стоит ДО
+# `set -uo pipefail`: иначе импортирующий скрипт унаследовал бы nounset и
+# pipefail от резолвера (прецедент next_id.sh, NEXT_ID_LIB).
+if [ "${PROFILE_RESOLVER_LIB:-}" = "1" ]; then
+  return 0 2>/dev/null || exit 0
+fi
+
 set -uo pipefail
 
 # ── алфавиты И-3 — ОДИН массив (прецедент lib_zones/lib_registry) ────────────
@@ -134,6 +196,17 @@ SCHEMA_LEVELS='
 '
 
 die_p() { printf 'profile ОТКАЗ: %s\n' "$*" >&2; exit 1; }
+
+# ── М-0: неизвестный ключ — ПРЕДУПРЕЖДЕНИЕ, не отказ ─────────────────────────
+# Контракт 184; ADR владельца 2026-11-21-plan-fable п.3 и 2026-11-21-plan-v9
+# п.6: обязательства замороженных контрактов, требовавшие отказа на
+# неизвестное имя, ЗАМЕНЕНЫ. Одна строка на stderr с точным путём ключа; rc 0.
+# Известный ключ с неверным значением и отсутствие обязательных полей —
+# отказ как прежде (die_p). Формат строки — дословно:
+#   профиль ПРЕДУПРЕЖДЕНИЕ: неизвестный ключ <репо-слой|слой-проекта>: <путь>
+warn_unknown() {  # <уровень> <путь ключа>
+  printf 'профиль ПРЕДУПРЕЖДЕНИЕ: неизвестный ключ %s: %s\n' "$1" "$2" >&2
+}
 
 # ── разбор argv ──────────────────────────────────────────────────────────────
 REPO=""
@@ -296,7 +369,8 @@ scan_levels() {
   roots="$(jq -r 'keys_unsorted[]' "$file" 2>/dev/null)" || die_p "файл не JSON: $file"
   while IFS= read -r k; do
     [ -z "$k" ] && continue
-    _key_in_schema "  ${level}:${k}:" || die_p "неизвестный ключ ${level_label}: ${k}"
+    # М-0: ключ вне алфавита — предупреждение, не отказ (см. warn_unknown).
+    _key_in_schema "  ${level}:${k}:" || warn_unknown "${level_label}" "${k}"
   done <<<"$roots"
 
   # Дочерние ветви корня. Здесь НЕЛЬЗЯ использовать `piped-while`: каждый
@@ -316,7 +390,8 @@ local known_branches="projectLayer workflowPaths commands git ci barriers contex
       [ "$dk_rc" -le 1 ] || die_p "defaults: перечисление ключей ветви не выполнилось (jq rc=$dk_rc) — авария jq не равна пустой ветви"
       while IFS= read -r k; do
         [ -z "$k" ] && continue
-        _key_in_schema "  project:defaults:${k}:" || die_p "неизвестный ключ ${level_label}: defaults.${k}"
+        # М-0: ключ вне алфавита — предупреждение, не отказ.
+        _key_in_schema "  project:defaults:${k}:" || warn_unknown "${level_label}" "defaults.${k}"
       done <<<"$dk"
     fi
   fi
@@ -359,7 +434,8 @@ local known_branches="projectLayer workflowPaths commands git ci barriers contex
     local branch_colon="${branch//./:}"
     while IFS= read -r k2; do
       [ -z "$k2" ] && continue
-      _key_in_schema "  ${level}:${branch_colon}:${k2}:" || die_p "неизвестный ключ ${level_label}: ${branch}.${k2}"
+      # М-0: ключ вне алфавита — предупреждение, не отказ.
+      _key_in_schema "  ${level}:${branch_colon}:${k2}:" || warn_unknown "${level_label}" "${branch}.${k2}"
     done <<<"$bk"
   done
 }
