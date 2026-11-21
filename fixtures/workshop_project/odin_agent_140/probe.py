@@ -57,6 +57,8 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import produkt_140
 import object_140
+import uproshchenie_140
+import reestr_140
 
 HERE = Path(__file__).resolve().parent
 MODEL = HERE / 'model' / 'zamok_predmeta.sh'
@@ -344,6 +346,22 @@ def k_prichina(r, imja, chto):
     return None
 
 
+def k_warn(r, mir, kod, subject, start=True):
+    """Публичные эффекты предупреждения: stderr, JSONL и START."""
+    prefix = 'ПРЕДУПРЕЖДЕНИЕ: %s: ' % kod
+    rows = mir.ledg()
+    return [
+        k_rc(r, 0, 'предупреждение'),
+        None if any(line.startswith(prefix) and len(line) > len(prefix)
+                    for line in r.stderr.splitlines()) else 'нет строки '+prefix,
+        None if any(row.get('t') == 'warn' and row.get('kod') == kod
+                    and row.get('subjectId') == subject for row in rows)
+        else 'нет warn %s/%s' % (subject, kod),
+        None if not start or any(row.get('t') == 'START'
+                                and row.get('subjectId') == subject for row in rows)
+        else 'предупреждение не завершилось START',
+    ]
+
 def k_stroka(mir, chto, **pola):
     for row in mir.ledg():
         if row.get('t') == 'START' and all(row.get(k) == v for k, v in pola.items()):
@@ -433,8 +451,11 @@ def kejsy():
         ev = mir.sobytie('e.json', [item('architect', 'Arch140c',
                         ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
-        return [k_rc(r, 1, 'rc'), k_prichina(r, 'ZAMOK_BROSHEN', 'причина'),
-                k_chislo_startov(mir, 'учёт', 1)]
+        return k_warn(r, mir, 'ZAMOK_BROSHEN', '140') + [
+                k_chislo_startov(mir, 'учёт', 2),
+                k_zanyat(mir, '140', 'Arch140c', 'автоматическая-ротация'),
+                None if any(row.get('t') == 'RELEASE' and row.get('holder') == 'Arch140'
+                            for row in mir.ledg()) else 'нет автоматического RELEASE']
     reg('w04-dubl-posle-restarta', 'роль=рабочий;состояние=оборван-рестарт;дубль=после-рестарта', w04)
 
     def w05(mir, door):
@@ -523,7 +544,7 @@ def kejsy():
         ev = mir.sobytie('e.json', [item('architect', 'Arch144',
                         ['SUBJECT=144', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
-        return [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина')]
+        return k_warn(r, mir, 'LIMIT_GRUPPY', '144')
     reg('w13-limit-harness', 'учёт=лимит;группа=harness-3-из-3-занято', w13)
 
     def _mob_zhivoj(mir, nnn_list):
@@ -547,7 +568,7 @@ def kejsy():
         ev = mir.sobytie('e.json', [item('implementer', 'Impl153',
                         ['SUBJECT=153', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
-        return [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина')]
+        return k_warn(r, mir, 'LIMIT_GRUPPY', '153')
     reg('w15-limit-mob-chetyre', 'учёт=лимит;группа=mob-3-сверх', w15)
 
     def w16(mir, door):
@@ -574,7 +595,8 @@ def kejsy():
         ev = mir.sobytie('e.json', [item('architect', 'Arch131',
                         ['SUBJECT=131', 'WORKTREE=' + wt131, 'BRANCH=' + br131], isolated=True)])
         r = sudit(door, mir, ev)
-        return [k_rc(r, 0, 'rc')]
+        return [k_rc(r, 0, 'rc'),
+                None if 'ПРЕДУПРЕЖДЕНИЕ: LIMIT_GRUPPY:' not in r.stderr else 'done не освободил слот']
     reg('w17-limit-done-osvobozhdaet', 'учёт=лимит;done=тег-реестра;группа=mob-2-живых', w17)
 
     def w18(mir, door):
@@ -588,7 +610,8 @@ def kejsy():
         ev = mir.sobytie('e.json', [item('architect', 'Arch131',
                         ['SUBJECT=131', 'WORKTREE=' + wt131, 'BRANCH=' + br131], isolated=True)])
         r = sudit(door, mir, ev)
-        return [k_rc(r, 0, 'rc')]
+        return [k_rc(r, 0, 'rc'),
+                None if 'ПРЕДУПРЕЖДЕНИЕ: LIMIT_GRUPPY:' not in r.stderr else 'пауза не освободила слот']
     reg('w18-limit-pauza-osvobozhdaet', 'учёт=лимит;ПАУЗА=освобождает-слот;группа=mob-2-живых', w18)
 
     def w19(mir, door):
@@ -638,7 +661,7 @@ def kejsy():
         ev = mir.sobytie('e.json', [item('implementer', 'Impl163',
                         ['SUBJECT=163', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
-        return [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина')]
+        return k_warn(r, mir, 'LIMIT_GRUPPY', '163')
     reg('w22-limit-back-chetyre', 'учёт=лимит;группа=back-3-из-3-занято', w22)
 
     # A2. сдача держателя без yield: событие рантайма session_exit (слово
@@ -868,7 +891,8 @@ def kejsy():
         ev = mir.sobytie('e.json', [item('critic', 'Critic141',
                         ['SUBJECT=141', 'OBJECT=' + OBJECT_DUMMY])])
         r = sudit(door, mir, ev)
-        return [k_rc(r, 1, 'rc'), k_prichina(r, 'OBJECT_RASHODITSJA', 'причина')]
+        return k_warn(r, mir, 'OBJECT_RASHODITSJA', '141') + [
+                k_stroka(mir, 'фактический-OBJECT', holder='Critic141', object=sha)]
     reg('s03-object-rashoditsja', 'OBJECT=чужой-sha', s03)
 
     def s04(mir, door):
@@ -901,7 +925,8 @@ def kejsy():
         ev = mir.sobytie('e.json', [item('critic', 'Critic141b',
                         ['SUBJECT=141', 'OBJECT=' + sha])])
         r = sudit(door, mir, ev)
-        return [k_rc(r, 1, 'rc'), k_prichina(r, 'OBJECT_UZHE_SUZHEN', 'причина')]
+        return k_warn(r, mir, 'OBJECT_UZHE_SUZHEN', '141') + [
+                k_chislo_startov(mir, 'повтор-записан', 3)]
     reg('s06-object-uzhe-suzhen', 'OBJECT=повтор-того-же-sha', s06)
 
     def s07(mir, door):
@@ -920,7 +945,7 @@ def kejsy():
         ev = mir.sobytie('e.json', [item('critic', 'Critic141',
                         ['SUBJECT=141', 'OBJECT=' + OBJECT_DUMMY])])
         r = sudit(door, mir, ev)
-        return [k_rc(r, 1, 'rc'), k_prichina(r, 'RABOCHEGO_NET', 'причина')]
+        return k_warn(r, mir, 'RABOCHEGO_NET', '141')
     reg('s08-rabochego-net', 'состояние=автора-нет', s08)
 
     def s09(mir, door):
@@ -958,7 +983,7 @@ def kejsy():
         ev = mir.sobytie('e.json', [item('critic', 'Critic141',
                         ['SUBJECT=141', 'OBJECT=' + sha])])
         r = sudit(door, mir, ev)
-        return [k_rc(r, 1, 'rc'), k_prichina(r, 'VETKA_NEDOSTUPNA', 'причина')]
+        return k_warn(r, mir, 'VETKA_NEDOSTUPNA', '141')
     reg('s12-vetka-nedostupna', 'OBJECT=ветка-утеряна', s12)
 
     def s13(mir, door):
@@ -975,7 +1000,7 @@ def kejsy():
         ev = mir.sobytie('e.json', [item('critic', 'Critic141',
                         ['SUBJECT=141', 'OBJECT=' + sha])])
         r = sudit(door, mir, ev)
-        return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина')]
+        return k_warn(r, mir, 'KLASS_RISKA_NET', '141')
     reg('s13-klass-riska-net', 'риск=строки-нет', s13)
 
     def s14(mir, door):
@@ -993,22 +1018,24 @@ def kejsy():
         return mir.sobytie('e.json', [item('reviewer', 'Rev141',
                         ['SUBJECT=141', 'OBJECT=' + sha])])
 
+    def _neizvestnyj_risk(mir, door, sha):
+        event = mir.sobytie('risk.json', [item('critic', 'Critic141',
+                            ['SUBJECT=141', 'OBJECT='+sha])])
+        return k_warn(sudit(door, mir, event), mir, 'KLASS_RISKA_NET', '141') + [
+            k_stroka(mir, 'START-критика', holder='Critic141', object=sha)]
+
     def s23(mir, door):
         # [D29] конфликт значений: 141-a обычный, 141-b рисковый — ревьюер без
         # адверсария обязан получить отказ, а не «класс по одному файлу»
         wt, br, sha = _avtor_sdal_fajly(mir, '141', [('a', 'обычный'), ('b', 'рисковый')])
-        r = sudit(door, mir, _revjuer(mir, sha))
-        return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
-                k_chislo_startov(mir, 'учёт', 1)]
+        return _neizvestnyj_risk(mir, door, sha)
     reg('s23-klass-riska-konflikt-ab', 'риск=два-файла;значения=обычный+рисковый', s23)
 
     def s24(mir, door):
         # [D29] тот же конфликт с обратным порядком имён (a рисковый, b обычный):
         # порядок обхода файлов не должен влиять на вердикт
         wt, br, sha = _avtor_sdal_fajly(mir, '141', [('a', 'рисковый'), ('b', 'обычный')])
-        r = sudit(door, mir, _revjuer(mir, sha))
-        return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
-                k_chislo_startov(mir, 'учёт', 1)]
+        return _neizvestnyj_risk(mir, door, sha)
     reg('s24-klass-riska-konflikt-ba', 'риск=два-файла;значения=рисковый+обычный', s24)
 
     def s25(mir, door):
@@ -1019,9 +1046,7 @@ def kejsy():
         # файл со строкой и молча пропускают бесстрочный 141-c.md
         # (замер пачки: BC_PERVYJ=141-b.md)
         wt, br, sha = _avtor_sdal_fajly(mir, '141', [('b', 'обычный'), ('c', None)])
-        r = sudit(door, mir, _revjuer(mir, sha))
-        return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
-                k_chislo_startov(mir, 'учёт', 1)]
+        return _neizvestnyj_risk(mir, door, sha)
     reg('s25-klass-riska-net-stroki-vo-vtorom', 'риск=два-файла;строка=нет-во-втором', s25)
 
     def s26(mir, door):
@@ -1044,9 +1069,7 @@ def kejsy():
         wt, br, sha = _avtor_sdal_fajly(mir, '141', [
             ('a', 'обычный'), ('b', 'рисковый'), ('c', 'обычный'),
             ('d', 'обычный'), ('e', 'обычный'), ('f', 'обычный')])
-        r = sudit(door, mir, _revjuer(mir, sha))
-        return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
-                k_chislo_startov(mir, 'учёт', 1)]
+        return _neizvestnyj_risk(mir, door, sha)
     reg('s28-klass-riska-shest-fajlov', 'риск=шесть-файлов;один=рисковый', s28)
 
     # B3. реальные формы декларации «КЛАСС РИСКА:» (РЕШЕНИЕ арбитража 140 от
@@ -1115,9 +1138,7 @@ def kejsy():
         wt, br, sha = _avtor_sdal_stroki(mir, '141',
                         [('141-a.md', 'stroki', ['КЛАСС РИСКА: обычный',
                                                 'КЛАСС РИСКА: обычный'])])
-        r = sudit(door, mir, _revjuer(mir, sha))
-        return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
-                k_chislo_startov(mir, 'учёт', 1)]
+        return _neizvestnyj_risk(mir, door, sha)
     reg('s33-klass-riska-dve-deklaracii-odinakovye', 'риск=две-декларации-в-файле;значения=одинаковые', s33)
 
     def s34(mir, door):
@@ -1125,9 +1146,7 @@ def kejsy():
         # алфавита нет) — не декларация: класса нет, отказ
         wt, br, sha = _avtor_sdal_stroki(mir, '141',
                         [('141-a.md', 'stroka', 'строка `КЛАСС РИСКА:` обязательна')])
-        r = sudit(door, mir, _revjuer(mir, sha))
-        return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
-                k_chislo_startov(mir, 'учёт', 1)]
+        return _neizvestnyj_risk(mir, door, sha)
     reg('s34-klass-riska-upominanie-bez-deklaracii', 'риск=упоминание-без-декларации', s34)
 
     def s35(mir, door):
@@ -1140,9 +1159,7 @@ def kejsy():
             def odin(m, stroka=stroka):
                 wt, br, sha = _avtor_sdal_stroki(m, '141',
                                 [('141-a.md', 'stroka', stroka)])
-                r = sudit(door, m, _revjuer(m, sha))
-                return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
-                        k_chislo_startov(m, 'учёт', 1)]
+                return _neizvestnyj_risk(m, door, sha)
             for p in _podmir(odin):
                 if p:
                     prob.append('s35 %r: %s' % (stroka, p))
@@ -1165,9 +1182,7 @@ def kejsy():
         for dannye in ('symlink-risk', 'symlink-bityj', 'dir'):
             def odin(m, dannye=dannye):
                 wt, br, sha = _avtor_sdal_stroki(m, '141', zapisi(dannye))
-                r = sudit(door, m, _revjuer(m, sha))
-                return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
-                        k_chislo_startov(m, 'учёт', 1)]
+                return _neizvestnyj_risk(m, door, sha)
             for p in _podmir(odin):
                 if p:
                     prob.append('s36 %s: %s' % (dannye, p))
@@ -1260,8 +1275,8 @@ def kejsy():
         ev = mir.sobytie('e.json', [item('critic', 'Critic141',
                         ['SUBJECT=141', 'OBJECT=' + sha])])
         r = sudit(door, mir, ev)
-        return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
-                k_chislo_startov(mir, 'учёт', 1)]
+        return k_warn(r, mir, 'KLASS_RISKA_NET', '141') + [
+                k_chislo_startov(mir, 'учёт', 2)]
     reg('s41-kandidat-bez-stroki', 'риск=main-обычный;кандидат=строки-нет;реестр=нет-записи', s41)
 
     def s42(mir, door):
@@ -1306,11 +1321,11 @@ def kejsy():
             item('critic', 'Critic141', ['SUBJECT=141', 'OBJECT=' + sha141]),
             item('architect', 'Arch142', ['SUBJECT=142', 'WORKTREE=' + wt142, 'BRANCH=' + br142], isolated=True)])
         r = sudit(door, mir, ev)
-        return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
-                k_chislo_startov(mir, 'учёт', 1),
-                k_zanyat(mir, '141', 'Avtor141', 'замок-141-при-авторе'),
-                k_svoboden(mir, '142', 'откат-142')]
-    reg('s44-klass-otkaz-bez-starta', 'пакет=смешанный;отказ=KLASS_RISKA_NET;откат=без-START-и-замков', s44)
+        return k_warn(r, mir, 'KLASS_RISKA_NET', '141') + [
+                k_chislo_startov(mir, 'учёт', 3),
+                k_zanyat(mir, '141', 'Critic141', 'замок-судьи'),
+                k_zanyat(mir, '142', 'Arch142', 'замок-рабочего')]
+    reg('s44-klass-otkaz-bez-starta', 'пакет=смешанный;предупреждение=KLASS_RISKA_NET;START=обоих', s44)
 
     def s45(mir, door):
         # v5: требование изоляции — ТОЛЬКО рабочие; судья с isolated=false
@@ -1387,9 +1402,10 @@ def kejsy():
             item('architect', 'Arch141', ['SUBJECT=141', 'WORKTREE=' + wt141, 'BRANCH=' + br141], isolated=True),
             item('critic', 'Critic150', ['SUBJECT=150', 'OBJECT=' + OBJECT_DUMMY])])
         r = sudit(door, mir, ev)
-        return [k_rc(r, 1, 'rc'), k_prichina(r, 'RABOCHEGO_NET', 'причина'),
-                k_net_startov(mir, 'учёт-пакет-откат'), k_svoboden(mir, '141', 'откат-141')]
-    reg('b03-smeshannyj-otkat', 'пакет=смешанный;отказ=всему-пакету', b03)
+        return k_warn(r, mir, 'RABOCHEGO_NET', '150') + [
+                k_chislo_startov(mir, 'учёт-пакета', 2),
+                k_zanyat(mir, '141', 'Arch141', 'занятие-141')]
+    reg('b03-smeshannyj-otkat', 'пакет=смешанный;предупреждение=RABOCHEGO_NET;START=обоих', b03)
 
     def b04(mir, door):
         wt, br, _ = mir.worktree('140')
@@ -1717,7 +1733,9 @@ def kejsy():
     reg('g06-podstroka-pina', 'форма=пин-подстрокой;класс=delimiter-collision', g06)
 
     produkt_140.dobavit(K, SimpleNamespace(**globals()))
+    uproshchenie_140.dobavit(K, SimpleNamespace(**globals()))
     object_140.dobavit(K, SimpleNamespace(**globals()))
+    reestr_140.dobavit(K, SimpleNamespace(**globals()))
     return K
 
 
@@ -1740,13 +1758,9 @@ def m_bez_yield(t):
 
 
 def m_avto_relis(t):
-    return _z(t, '''        broshen|net_fajla)
-          mutexi_snyat_vse
-          # [D3 broshennyj-zamok] рестарт ≠ разрешение: дубль после рестарта — отказ.
-          otp ZAMOK_BROSHEN "предмет $sv: holder $h_holder без сдачи и без записей >${BROSHEN_TTL_MIN} мин — только --osvobodit, НЕ авто-перезапуск"
-          ;;''',
-              '''        broshen|net_fajla)
-          : # стаб: брошенный замок считаем свободным''')
+    # D3: автоматический допуск без предупреждения о прежнем держателе.
+    return _z(t, '''          predupr "$sv" 'ZAMOK_BROSHEN' "предмет $sv: holder $h_holder без сдачи и без записей >${BROSHEN_TTL_MIN} мин — замок освобождается автоматически" "$obj"''',
+              '''          : # стаб: брошенность не протоколируется''')
 
 
 def m_osvobodit_zhivogo(t):
@@ -1783,10 +1797,8 @@ def m_object_fabricuet(t):
 
 
 def m_bez_object_sverki(t):
-    return _z(t, '''      [ "$tip" = "$obj" ] || {
-        mutexi_snyat_vse
-        otp OBJECT_RASHODITSJA "предмет $sv: OBJECT задания $obj ≠ tip ветки $r_br ($tip)"
-      }''', '''      : # стаб: сверка OBJECT с веткой снята''')
+    return _z(t, '''        elif [ "$tip" != "$obj" ]; then''',
+              '''        elif false; then # стаб: расхождение OBJECT не проверяется''')
 
 
 def m_avtor_ne_sdal(t):
@@ -1809,10 +1821,8 @@ def m_uzhe_suzhen(t):
 
 
 def m_bez_rabochego(t):
-    return _z(t, '''      if [ -z "$rab" ]; then
-        # [D12 rabochego-net] судья без автора предмета — судить нечего.
-        mutexi_snyat_vse; otp RABOCHEGO_NET "предмет $sv: рабочего START в учёте нет"
-      fi''', '''      if [ -z "$rab" ]; then rab="$(printf 'X\\t-\\t-\\t-')"; fi''')
+    return _z(t, '''        predupr "$sv" 'RABOCHEGO_NET' "предмет $sv: рабочего START в учёте нет" "$obj"''',
+              '''        : # стаб: судья без рабочего не протоколируется''')
 
 
 def m_klass_riska_mjagko(t):
@@ -2035,10 +2045,23 @@ def m_klass_iz_main(t):
     # v+1 (боль 991 v3: «рисковый» старого main против «обычный» кандидата
     # молча отказывала KLASS_RISKA_NET); перечисление find по main, blob —
     # hash-object файлов main, содержимое — cat файлов main
-    t = _z(t, '''  if [ "$(git -C "$wt" cat-file -t "$obj:contracts" 2>/dev/null)" = tree ]; then kat='contracts'
+    # Модель несёт прежний выбор каталога, production Ш-2 — kontrakt_kat.
+    # В обоих случаях подменяем источник целиком на рабочий каталог станции.
+    if '  kat="$(kontrakt_kat "$wt")" || kat=\'\'' in t:
+        vybor = '''  kat="$(kontrakt_kat "$wt")" || kat=''
+  if [ -z "$kat" ]; then
+    printf 'net_stroki:каталог контрактов в профиле владельца не объявлен'
+    return 0
+  fi
+  if [ "$(git -C "$wt" cat-file -t "$obj:$kat" 2>/dev/null)" != tree ]; then
+    printf 'net_stroki:каталога %s в дереве %s нет' "$kat" "$obj"
+    return 0
+  fi'''
+    else:
+        vybor = '''  if [ "$(git -C "$wt" cat-file -t "$obj:contracts" 2>/dev/null)" = tree ]; then kat='contracts'
   elif [ "$(git -C "$wt" cat-file -t "$obj:.harness/contracts" 2>/dev/null)" = tree ]; then kat='.harness/contracts'
-  else printf 'net_stroki:ни contracts/, ни .harness/contracts/ в дереве %s нет' "$obj"; return 0; fi''',
-              '''  if [ -d "$REPO/contracts" ]; then kat="$REPO/contracts"
+  else printf 'net_stroki:ни contracts/, ни .harness/contracts/ в дереве %s нет' "$obj"; return 0; fi'''
+    t = _z(t, vybor, '''  if [ -d "$REPO/contracts" ]; then kat="$REPO/contracts"
   elif [ -d "$REPO/.harness/contracts" ]; then kat="$REPO/.harness/contracts"
   else printf 'net_stroki:ни contracts/, ни .harness/contracts/ в %s нет' "$REPO"; return 0; fi''')
     t = _z(t, '''  spisok="$(git -C "$wt" ls-tree "$obj:$kat" 2>/dev/null \\
@@ -2233,6 +2256,8 @@ STAB_MUTACII = {
 }
 STAB_MUTACII.update(produkt_140.mutacii(_z))
 STAB_MUTACII.update(object_140.mutacii(_z))
+STAB_MUTACII.update(uproshchenie_140.mutacii(_z))
+STAB_MUTACII.update(reestr_140.mutacii(_z))
 
 
 def nagrudit_staby():
@@ -2252,6 +2277,8 @@ def nagrudit_staby():
     paths = {'model/zamok_predmeta.sh': MODEL}
     src['stab_vhod'].update(object_140.BINDINGS)
     src['stab_vhod'].update(produkt_140.BINDINGS)
+    src['stab_vhod'].update(uproshchenie_140.BINDINGS)
+    src['stab_vhod'].update(reestr_140.BINDINGS)
     src['kejsy'] = {k: v['osi'] for k, v in sorted(kejsy().items())}
     paths.update({k: HERE / k for k in src['nositeli'] if k.startswith('materialy/')})
     paths.update({k: STABS / k / 'zamok_predmeta.sh' for k in STAB_MUTACII})
@@ -2278,10 +2305,11 @@ def rezhim_plain(K):
                 print('CASE %s KRASNO: %s' % (imja, p))
         else:
             print('CASE %s ok' % imja)
+    krasnyh += reestr_140.grammar(SimpleNamespace(**globals()), d)
     print('SUBJEKT: %s' % d)
     print('STANCIONNYE: %d клеток интеграции хука (p01-p20,m01; параметры p10/p15/p16/p17/p18/p19, osi.md) — команда приёмки bash %s'
           % (STANCIONNYH_KLETOK, HERE / 'stancija_odin_agent_140.sh'))
-    print('KLETKI %d KRASNYH %d' % (len(K), krasnyh))
+    print('KLETKI %d KRASNYH %d' % (len(K)+1, krasnyh))
     return 1 if krasnyh else 0
 
 
@@ -2293,7 +2321,7 @@ def sloj_subjekta(K, stab_vhod):
               'над МОДЕЛЬЮ как опора уже прогнано (предварительное доказательство)' % d)
         return 0
     baza = d.read_text(encoding='utf-8')
-    krasnyh = 0
+    krasnyh = reestr_140.grammar(SimpleNamespace(**globals()), d)
     for imja in sorted(K):
         problems = progon(d, imja, K[imja]['run'])
         if problems:
@@ -2357,7 +2385,13 @@ def main():
     ap.add_argument('--sgeneriruj-staby', action='store_true')
     ap.add_argument('--owner-before', action='store_true')
     ap.add_argument('--owner-check', action='store_true')
+    ap.add_argument('--domain', action='store_true',
+                    help='Ш-2: только клетки профиля реестра на поставленной двери')
+    ap.add_argument('--grammar', action='store_true',
+                    help='точный статический критерий Ш-2 (без сужения алфавита)')
     a = ap.parse_args()
+    if a.grammar:
+        return reestr_140.grammar(SimpleNamespace(**globals()), SUBJEKT_DVERI)
 
     if a.sgeneriruj_staby:
         nagrudit_staby()
@@ -2410,6 +2444,8 @@ def main():
         return oshibka_orakula('литерал yield разошёлся')
     if a.owner_before or a.owner_check:
         return produkt_140.owner_check(SimpleNamespace(**globals()), before=a.owner_before)
+    if a.domain:
+        K = {k:v for k,v in K.items() if k.startswith('r')}
 
     if not (a.model or a.stabs):
         # безфлаговый режим судит ПОСТАВЛЕННУЮ дверь дерева (вердикт критика
