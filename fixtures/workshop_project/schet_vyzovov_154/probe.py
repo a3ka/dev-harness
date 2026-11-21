@@ -799,7 +799,7 @@ def scenario(name, n, phase, outcome='FAIL', arb_file=False, rename=False,
         return None
 
 
-def concurrent_start(name, mode, mutation=''):
+def concurrent_start(name, mode, mutation='', window=False):
     """One remaining base position, two real --sudit processes on the same state.
 
     The copied door pauses after counting. A competing process either encounters
@@ -826,11 +826,44 @@ def concurrent_start(name, mode, mutation=''):
             # Adv154V7b, K-08: all other checks keep their original mutex.
             lock = lock.replace(call, '        mutexi_snyat_vse\n' + call +
                                 '\n        mutex_zajavit "$sv" || exit 1', 1)
+        elif mutation == 'mutex-gap-after-counter':
+            # Adv154N4, K-08': the count is protected, but START is not atomic
+            # with it. Keep every check and reacquire all subjects before START.
+            start = '  # [D23 start-do-razdachi]'
+            if lock.count(start) != 1:
+                raise RuntimeError('race: lost START seam')
+            lock = lock.replace(call, call + '\n        mutexi_snyat_vse', 1)
+            lock = lock.replace(
+                start, '  while IFS= read -r ms; do [ -z "$ms" ] || '
+                'mutex_zajavit "$ms" || exit 1; done <<< "$SUBJS"\n' + start, 1)
         elif mutation:
             raise RuntimeError('race: unknown mutation: ' + mutation)
         pause = ('\n        printf "counted\\n" >&"$RACE154_STATUS_FD"\n'
                  '        IFS= read -r -u "$RACE154_RELEASE_FD" race154_release || exit 2')
-        lock = lock.replace(call, call + pause, 1)
+        if window:
+            # Arm after the real count, then stop at the FIRST release or START.
+            # Unlike the older after-count pause, a release anywhere in this
+            # interval lets the competitor count before either START is written.
+            checkpoint = (
+                '\nrace154_checkpoint() {\n'
+                '  if [ "${RACE154_ARMED:-0}" = 1 ]; then\n'
+                '    RACE154_ARMED=0\n'
+                '    printf "%s\\n" "$1" >&"$RACE154_STATUS_FD"\n'
+                '    IFS= read -r -u "$RACE154_RELEASE_FD" race154_release || exit 2\n'
+                '  fi\n'
+                '}\n')
+            release_end = '\nEOF\n}\n# [D19 gruppa-pina]'
+            start = '  # [D23 start-do-razdachi]'
+            if lock.count(release_end) != 1 or lock.count(start) != 1:
+                raise RuntimeError('race: lost release/START checkpoint seam')
+            lock = checkpoint + lock
+            lock = lock.replace(call, call + '\n        RACE154_ARMED=1', 1)
+            lock = lock.replace(release_end, '\nEOF\n'
+                                '  race154_checkpoint released\n}\n'
+                                '# [D19 gruppa-pina]', 1)
+            lock = lock.replace(start, '  race154_checkpoint counted\n' + start, 1)
+        else:
+            lock = lock.replace(call, call + pause, 1)
         acquire = '    mkdir "$d/mutex" 2>/dev/null && return 0'
         if lock.count(acquire) != 1:
             raise RuntimeError('race: lost mutex acquisition seam')
@@ -866,19 +899,19 @@ def concurrent_start(name, mode, mutation=''):
             if not select.select([fd], [], [], 30)[0]:
                 raise RuntimeError('race: synchronization timed out')
             value = os.read(fd, 64).decode().strip()
-            if value not in ('counted', 'blocked'):
+            if value not in ('counted', 'blocked', 'released'):
                 raise RuntimeError('race: invalid synchronization: ' + repr(value))
             return value
 
         try:
             first, first_fd, first_resume = launch()
-            if status(first_fd) != 'counted':
+            if status(first_fd) not in (('counted', 'released') if window else ('counted',)):
                 raise RuntimeError('race: first contender did not reach counter')
             second, second_fd, second_resume = launch()
             competing = status(second_fd)
-            # The second has now either hit the real held mutex (honest), or
-            # counted the same remaining position (mutant). Finish the first
-            # before resuming the second, avoiding unrelated append/write races.
+            # In the window case, released means the mutex is already absent:
+            # both contenders count before either writes START. An honest door
+            # instead holds the mutex through the pre-START checkpoint.
             os.write(first_resume, b'go\n')
             first_out, first_err = first.communicate(timeout=180)
             os.write(second_resume, b'go\n')
@@ -1309,6 +1342,16 @@ DOMAIN.append(CONCURRENT_CASE)
 LIVE_CASES.append(CONCURRENT_CASE)
 STAB_CASES.append(('counter-outside-mutex',) + CONCURRENT_CASE[1:])
 
+# K-08' / Adv154N4: distinguish release/reacquire AFTER the protected count.
+# The original counter-outside-mutex case and its schedule remain unchanged.
+CONCURRENT_WINDOW_CASE = (
+    'concurrent-start-count-start-window', 1, 'spawn', 'FAIL',
+    False, False, 'third-missing', {'concurrent': True, 'window': True})
+CASES.append(CONCURRENT_WINDOW_CASE)
+DOMAIN.append(CONCURRENT_WINDOW_CASE)
+LIVE_CASES.append(CONCURRENT_WINDOW_CASE)
+STAB_CASES.append(('mutex-gap-after-counter',) + CONCURRENT_WINDOW_CASE[1:])
+
 
 def grammar_numbers(limit=0):
     """Домен номеров предмета = ВЕСЬ замкнутый алфавит грамматики двери
@@ -1466,7 +1509,7 @@ def grammar_run(limit=0):
 def run_case(c, mode, mutation=''):
     name, n, phase, outcome, arb_file, rename, source, kw = c
     if kw.get('concurrent'):
-        return concurrent_start(name, mode, mutation)
+        return concurrent_start(name, mode, mutation, window=kw.get('window', False))
     return scenario(name, n, phase, outcome, arb_file, rename, source, mode, mutation, **kw)
 
 

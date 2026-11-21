@@ -23,7 +23,7 @@
 - К-05 · чисто · вход: таблица приёмки задаёт команды и rc до/после реализации; предписанные consumer-команды не объявлены уже прогнанными · - · -
 - К-06 · чисто · вход: probe.py инфраструктурные RuntimeError/OSError/ValueError завершает NOT_IMPLEMENTED rc 2; отсутствующий предметный state является проверяемым отказом rc 1 · - · -
 - К-07 · чисто · вход: python3 fixtures/workshop_project/schet_vyzovov_154/installed_control.py — rc 0; честная вставка в настоящие копии CLI: repo 87/87, domain 213/213, live 9/9, grammar 2000/2000, каждый rc 0; production не менялся · - · -
-- К-08 · чисто · вход: STAB_CASES связывает counter-outside-mutex с concurrent-start-last-base-position; два настоящих --sudit при одной базовой позиции; честная установленная/модельная дверь зелена, мутант обеих дверей даёт rc=[0,0] и две новые START · - · -
+- К-08 · чисто · вход: STAB_CASES связывает counter-outside-mutex с concurrent-start-last-base-position и mutex-gap-after-counter с concurrent-start-count-start-window; два настоящих --sudit при одной базовой позиции; честная установленная/модельная дверь зелена, каждый мутант даёт rc=[0,0] и две новые START · - · -
 - К-09 · чисто · вход: две фазы, история, источник, адресный OBJECT/nomer/роль/ключ, третий и consultant-бюджет; весь SUBJECT 000…999, GRAMMAR=1000 CELLS=2000 · - · -
 - К-10 · чисто · вход: успешный spawn добавляет ровно START, отказ сохраняет ledger; freeze сравнивает tag И registry; freeze-side-effect выявлен именно изменением снимка, не аварией · - · -
 - К-11 · чисто · вход: oracle — чистая функция параметров до субъекта; снимки результатов до вызова в памяти; после субъекта ожидания не перечитываются · - · -
@@ -216,3 +216,84 @@ contracts/154-schet-vyzovov-kritika.md` → rc 0,
 `КРИТИК: дверь зелёная`; `bash scripts/check_sdacha.sh "$PWD"
 contracts/154-schet-vyzovov-kritika.md --run` → rc 0,
 `СДАЧА: лист зелёный (двери=9 карта=17/17 дельта=1)`.
+
+## Окно счёт → START — Adv154N4, К-08′
+
+> ПРЕДЫДУЩИЙ ВЕРДИКТ: verdicts/adversary/contracts-154-v8.md
+
+Основание: FAIL К-08′, OBJECT
+`b8d8d277615249572b3f1cf8c14630bb16cc3a4c`; committed verdict находится
+в `9e31b938e915a8e49c2e17ba583de4e783177011`,
+ветка `archive/154/adversary-v8-fail-9e31b938e9`, не в main/HEAD.
+
+Именованное ограничение формы: машинная строка без цитирования даёт
+`check_sdacha --run` rc 1:
+`ОТКАЗ: предыдущий вердикт не закоммичен (AGENTS п.9): verdicts/adversary/contracts-154-v8.md`.
+Дверь читает только HEAD:path, не archive/commit:path. Поэтому архивная
+ссылка выше цитируется, а не выдаётся за доступный HEAD-вердикт.
+Покрытие К-08′ предъявляется клеткой и существующей строкой Дельта;
+автоматическая сверка карты архивного вердикта этой дверью не заявлена.
+
+Добавлены одна клетка `concurrent-start-count-start-window` и одна
+связь `mutex-gap-after-counter` в коде STAB_CASES. Существующая
+`concurrent-start-last-base-position` и её связь не ослаблены.
+Модель бюджета, production и frozen-контракт не меняются.
+
+Счётчик только взводит checkpoint; копия двери останавливается при
+первом снятии mutex после счёта или непосредственно перед START.
+Снятие перехватывается внутри `mutexi_snyat_vse`, после удаления mutex:
+перенос вызова снятия/повторного захвата в пределах этого интервала
+не возвращает прежний ложно-зелёный порядок. При снятии оба процесса
+успевают сосчитать одну позицию до первого START; при честном удержании
+второй останавливается на занятом mutex. Ожидание и снимок ledger
+сохранены до процессов: rc=[0,1], ZAMOK_BROSHEN и одна новая START
+critic|critic-sol своего ключа, исходный префикс ledger не меняется.
+
+Адресные контроли repo/domain/live/model: честные две клетки rc 0,
+каждый связанный мутант rc клетки 1; новый мутант даёт
+`actual rc=[0,0] appended=2 competing=released`. Это изменение
+расписания настоящих --sudit, без подмены результата счётчика и sleep.
+
+Процессное наблюдение: предыдущее расписание останавливало процесс
+до возможного снятия mutex, поэтому сериализовало именно соседний
+дефект. Новый checkpoint ждёт наблюдаемого снятия либо границы START.
+Журнал А-NNN в main не менялся: он вне fixture-only зоны задания.
+
+Приёмка дельты с `TMPDIR="$PWD/.scratch-154r3"` и
+`PYTHONDONTWRITEBYTECODE=1`:
+
+| Команда | rc | Сырой итог |
+|---|---|---|
+| W | 0 | CELLS=95 GREEN=95 |
+| W --domain | 0 | CELLS=221 GREEN=221 |
+| W --live | 0 | CELLS=17 GREEN=17 |
+| W --model | 0 | CELLS=98 GREEN=98 |
+| W --domain-model | 0 | CELLS=225 GREEN=225 |
+| W --grammar | 0 | GRAMMAR=1000 CELLS=2000 GREEN=2000 |
+| W --stabs | 0 | SVJAZI=53 CAUGHT=53 LIVE=0 |
+| python3 fixtures/workshop_project/schet_vyzovov_154/installed_control.py | 0 | INSTALLED_CONTROL repo/domain/live/grammar rc=0; 95/95, 221/221, 17/17, 2000/2000 |
+| bash scripts/check_sdacha.sh "$PWD" contracts/154-schet-vyzovov-kritika.md --run | 0 | СДАЧА: лист зелёный (двери=9 карта=17/17 дельта=1) |
+
+Независимый импорт коллекций: CASES 95 DOMAIN 221 LIVE 17 MODEL 98
+DOMAIN_MODEL 225 STABS 53. До → после: W 94→95, domain 220→221,
+live 16→17, model 97→98, domain-model 224→225, stabs 52→53;
+grammar 2000→2000. Исторические числа выше не переписаны.
+
+Воспроизведение — собственный одноразовый git-клон внутри scratch.
+Дословный Python из `9e31b938e9:verdicts/adversary/contracts-154-v8.md`
+выполнен без изменения: rc скрипта 0; старые клетки repo/domain/live
+rc 0 GREEN; независимая гонка `actual rc 0` дважды, `critic-starts 3`.
+Тот же скрипт с единственной заменой вызова старой клетки на
+`concurrent_start('concurrent-start-count-start-window', mode, window=True)`:
+rc скрипта 0; НОВАЯ клетка repo/domain/live rc 1,
+`actual rc=[0,0] appended=2 competing=released`; независимая гонка
+по-прежнему даёт две rc 0 и `critic-starts 3`. Нулевой rc скрипта
+воспроизведения не выдаётся за зелёный результат мутантной клетки.
+
+`W --family140` в рабочем worktree: rc 1,
+`FAMILY140_MEASUREMENT_UNKNOWN: command rc=128: … scripts/gitw ls-remote`.
+В том же одноразовом клоне с origin, указывающим внутрь своей копии:
+rc 0,
+`FAMILY140_BASE=9f1e70492caddd7a09707c616da352360f2c4572 rc=0 red=`,
+`FAMILY140_CANDIDATE rc=0 red=`, `GREEN family140-baseline`.
+Это отдельный замер разрешённой среды, не подавление первого отказа.
