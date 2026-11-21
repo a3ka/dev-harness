@@ -77,6 +77,18 @@ carriers=99; численность динамических клеток под
 завершился rc 0: `СДАЧА: лист зелёный (двери=16 карта=17/17 дельта=3)`.
 Прогоны выполнены последовательно; scratch удалён перед коммитом.
 
+## Переход к приёмке после реализации
+
+Impl140A2c сообщил результаты на `272f8b9734`:
+W rc 0, KLETKI 214 KRASNYH 0; --domain rc 0, KLETKI 19 KRASNYH 0;
+--stabs rc 0, SVJAZI 171, MODEL_ZHIVYH 0, SUBJEKT_SVJAZI 171.
+Адресные s90–s93 пойманы и над production. Поэтому три машинных
+ряда W-stabs/W-production/W-domain переведены в после-реализационные
+rc 0 согласно пункту 3 приёмки frozen 140/5. Это замер implementer,
+не повторный прогон architect; красные замеры OBJECT выше исторические.
+После интеграции кода и этой правки check_sdacha/pre_critic запускает
+ведущий. На одной базе architect без реализации эти три rc не применимы.
+
 ## Развилки исправления Adv140A2
 
 §16 прежнего задания требовал rc 0 для битого профиля без паузы;
@@ -220,9 +232,9 @@ Rc в рядах ниже проверяет фактический check_sdacha
 - Owner-before — legacy-дефект точной базы · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --owner-before · 1 · 1
 - Owner-check — продукт, станция и адресные мутации · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --owner-check · 0 · 0
 - W-model — честная fail-closed модель · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --model · 0 · 0
-- W-stabs — модель, адресная матрица и красные К-02/03/04 на базе · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --stabs · 1 · 1
-- W-production — прежняя семья зелена, новые адресные дефекты красны · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh · 1 · 1
-- W-domain — профиль/пауза/каталог и новые адресные дефекты · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --domain · 1 · 1
+- W-stabs — после реализации: модель и обе адресные матрицы зелёные · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --stabs · 0 · 0
+- W-production — после реализации: прежняя семья и новые клетки зелёные · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh · 0 · 0
+- W-domain — после реализации: профиль/пауза/каталог зелёные · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --domain · 0 · 0
 - W-grammar — исходный критерий Ш-2 без подгонки · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --grammar · 0 · 0
 - W-sintaksis — все носители · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --sintaksis · 0 · 0
 - Precision · bash scripts/check_precision_gate.sh . contracts/140-odin-agent-na-predmet.md · 0 · 0
