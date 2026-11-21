@@ -1,11 +1,11 @@
 # СДАЧА 187 — Б-5: причина отказа brief не теряется
 
 Основание: `docs/owner/adr/2026-11-21-plan-fable.md:10,13`.
-Задание: `/tmp/dev-harness-verify/task-b5-architect.md`.
-База: `94b2edff9072abaca3a5c2a848e08fa90de9869e`.
-Это красное предъявление architect ДО реализации двери, не done общего PR.
-Код двери и frozen-контракты этой пачкой не меняются; после интеграции
-implementer живой `--repo` должен дать rc 0 вместо зафиксированного здесь rc 1.
+Задание обновления листа: `/tmp/dev-harness-verify/task-b5-architect-sheet.md`.
+База после реализации: `8cc43759830eb16c82b729e4156dd15965673fc3`.
+Это лист ПОСЛЕ реализации двери, не done общего PR. Код двери, клетки,
+модель, стабы и frozen-контракты этой пачкой не меняются.
+Красный замер ДО реализации сохранён ниже как историческое свидетельство.
 
 ## Существующее
 
@@ -24,13 +24,13 @@ toy-контракт получает собственный frozen-тег, ка
 
 - battery-model · fixtures/workshop_project/architecture_process_187/census_b5.py sdacha-model model · 0 · 0
 - battery-stabs · fixtures/workshop_project/architecture_process_187/census_b5.py sdacha-stabs stabs · 0 · 0
-- battery-repo-before-implementation · fixtures/workshop_project/architecture_process_187/census_b5.py sdacha-repo repo · 1 · 1
+- battery-repo-after-implementation · fixtures/workshop_project/architecture_process_187/census_b5.py sdacha-repo repo · 0 · 0
 - wiring · fixtures/workshop_project/architecture_process_187/census_b5.py sdacha-wiring wiring · 0 · 0
 
 `census_b5.py` исполняет тот же bash-runner, сохраняет сырой stdout/stderr
 в TMPDIR (по умолчанию системный tmp), печатает фактический rc каждого режима
 и возвращает ненулевой код при любом ненулевом режиме, не маскируя красное.
-Рабочий TMPDIR этой сдачи — `$PWD/.scratch-b5a`, в коммит не включается.
+Рабочий TMPDIR этой сдачи — `$PWD/.scratch-b5s`, в коммит не включается.
 `pre_critic` по заданию не требуется.
 
 ## Карта классов
@@ -39,7 +39,7 @@ toy-контракт получает собственный frozen-тег, ка
 - К-02 · чисто · вход: один отказ — потеря причины brief; прочие rc и именованный ARCH_BRIEF_OTKAZ сохранены · - · -
 - К-03 · чисто · вход: существующие world/architecture/prepare/live и pinned toy CLI переиспользованы · - · -
 - К-04 · чисто · вход: только семья architecture_process_187; контракты, 170 и код двери не меняются · - · -
-- К-05 · чисто · вход: неизменённая база зелена; новые диагностические клетки красны отдельно от cleanup и успехов · - · -
+- К-05 · чисто · вход: красный замер ДО реализации сохранён; после реализации живой repo зелён, диагностические клетки, cleanup и успехи не менялись · - · -
 - К-06 · чисто · вход: настоящий bash/node/git, без новой зависимости; implementer-миры несут frozen prerequisite · - · -
 - К-07 · чисто · вход: stdout/stderr раздельны; байты и rc ожидаются из входа CASES до вызова, TMPDIR — наблюдаемый эффект · - · -
 - К-08 · чисто · вход: привязки S1…S7 и дополнительных empty-output стабов заданы кодом brief_stderr.STABS · - · -
@@ -49,7 +49,7 @@ toy-контракт получает собственный frozen-тег, ка
 - К-12 · чисто · вход: CLI читает CONFIG из единого источника; статический Fable-предикат запускается настоящими bash/grep · - · -
 - К-13 · н/п · секретов, сети и внешнего API в новых клетках нет · - · -
 - К-14 · чисто · вход: успех с шумом имеет пустой stderr; успех без шума побайтово тот же; cleanup базы честно зелён · - · -
-- К-15 · чисто · вход: итоговые счётчики CASES/STABS печатает раннер; старые клетки и стабы не удалялись · - · -
+- К-15 · чисто · вход: после реализации repo/model rc 0, CELLS=78 STABS=0 FAILURES=0; stabs rc 0, CELLS=78 STABS=105 FAILURES=0; клетки и стабы не менялись · - · -
 - К-16 · чисто · вход: новый результат — диагностика, не иной rc; cleanup проверяется после успеха и отказа раздельно · - · -
 - К-17 · н/п · sourceCanon, модель продукта и его pin не меняются · - · -
 
@@ -59,6 +59,42 @@ toy-контракт получает собственный frozen-тег, ка
 и клеток, один reviewer. Привязки стабов находятся в коде, не frozen-прозе.
 
 ## Census и клетки
+
+### После реализации
+
+На базе `8cc43759830eb16c82b729e4156dd15965673fc3` живой
+`fixtures/workshop_project/architecture_process_187/census_b5.py sdacha-repo repo`
+→ rc 0, `CELLS=78 STABS=0 FAILURES=0`,
+`CENSUS sdacha-repo --repo rc=0`.
+Сырые stdout/stderr — `$TMPDIR/sdacha-repo-repo.stdout` и `.stderr`.
+
+Отдельный прямой `red_architecture_process_187.sh --repo .` → rc 0,
+`CELLS=78 STABS=0 FAILURES=0`. Повторные режимы через
+`census_b5.py post-implementation model stabs wiring`:
+`CENSUS post-implementation --model rc=0`,
+`CELLS=78 STABS=0 FAILURES=0`;
+`CENSUS post-implementation --stabs rc=0`,
+`CELLS=78 STABS=105 FAILURES=0`;
+`CENSUS post-implementation --wiring rc=0`, вывод самой двери пустой.
+Сырые логи — `$TMPDIR/post-implementation-{model,stabs,wiring}.{stdout,stderr}`.
+
+Проверка обновлённого листа:
+`bash scripts/check_sdacha.sh "$PWD" contracts/187-arhitektura-v-processe.md --run`
+→ rc 0: `СДАЧА: лист зелёный (двери=4 карта=17/17 дельта=0)`.
+Независимая мера `wc -l` сырых stdout: sdacha-repo-repo=80,
+post-implementation-model=80, post-implementation-stabs=185.
+За вычетом selfcheck и summary — 78 клеток; разность 185−80 — 105 стабов.
+
+Рефлексия обновления: красный rc ДО нельзя оставлять текущей дверью
+после совместной поставки; история отделена от действующей строки repo.
+Общий журнал не менялся: эта пачка ограничена листом, журнал пишется в main.
+
+### Исторический замер ДО реализации
+
+Исходное задание: `/tmp/dev-harness-verify/task-b5-architect.md`;
+база ДО: `94b2edff9072abaca3a5c2a848e08fa90de9869e`.
+Все замеры до таблицы ниже относятся к этому красному предъявлению;
+текущая строка двери repo выше требует rc 0 после ремонта.
 
 Неизменённая семья на базе: `--repo` rc 0, CELLS=67 STABS=0 FAILURES=0;
 `--model` rc 0, CELLS=67 STABS=0 FAILURES=0; `--stabs` rc 0,
@@ -80,7 +116,7 @@ sdacha-model=80, sdacha-stabs=185, sdacha-repo=80.
 За вычетом selfcheck и summary это 67/78 клеток;
 разности stab/model дают 93 и 105 предъявлений соответственно.
 
-| Клетка | rc субъекта на базе | До реализации | После реализации (требование, не замер) |
+| Клетка | rc субъекта ДО | До реализации | После реализации (живой замер на базе выше) |
 | --- | --- | --- | --- |
 | brief-stderr-plain | 1 | красная: нет ARCH_BRIEF_STDERR | зелёная, rc 1 |
 | brief-stderr-rules | 1 | красная: нет ARCH_BRIEF_STDERR | зелёная, rc 1 |
