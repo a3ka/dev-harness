@@ -145,7 +145,7 @@ ZAMOK_STROKA_RE='^РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК: [0-9]{3} [A-Z][A
 ZAMOK_STROKA_KODY='PAUZA_VLADELTSA PEREDACHA_NEDOSTOVERNA PEREDACHA_REMOTE'
 zamok_stroka_iz() {  # <task> → "ok:<NNN>|<КОД>|<OBJECT или пусто>"|net
   local t="$1" c line
-  c="$(kolvo_strok "$t" "$ZAMOK_STROKA_RE")"
+  c="$(kolvo_strok "$t" '^РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК:')"
   [ "$c" = '1' ] || { printf 'net'; return 0; }
   line="$(printf '%s\n' "$t" | grep -E "$ZAMOK_STROKA_RE" | sed -n '1p')"
   printf 'ok:%s' "$(printf '%s' "$line" | cut -d' ' -f2- | tr ' ' '|')"
@@ -351,10 +351,9 @@ predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # не определён (fail-closed, слово владельца 24.10). [D31 frozen-risk]
 # По слову 19.11 класс — дерево закреплённого frozen владельца предмета,
 # не дерево OBJECT, main/latest или грязный рабочий каталог.
-# Каталог контрактов кандидата: contracts/, у сессии проекта — .harness/
-# contracts/ (измерено 02.11: адверсарий по бэкенд 148 не спавнился); при
-# обоих приоритет у contracts/. Записи не-blob (симлинк/каталог с именем
-# <NNN>-*.md) — нечитаемая запись канона (как D36) → neodnoznachno.
+# Каталог контрактов — workflowPaths.contracts владельца; без профиля —
+# contracts/. Записи не-blob (симлинк/каталог с именем <NNN>-*.md) —
+# нечитаемая запись канона (как D36) → neodnoznachno.
 # [D29 odnoznachnyj-istochnik-riska] класс читается по ВСЕМ файлам предмета:
 # ноль файлов, нет строки в любом из них, значение вне алфавита (обычный|
 # рисковый) или РАЗНЫЕ значения — класс не определён; «первый результат»
@@ -428,16 +427,34 @@ rabochij_json() {
 }
 # [registry-profile] Модель использует настоящий резолвер установки.
 # Модель и временные стабы запускаются батареей из корня установки.
+profile_paths() {  # <репозиторий> → JSON резолвера
+  local repo="$1" lib
+  lib="$(git rev-parse --show-toplevel)/scripts/next_id.sh" || return 1
+  (
+    NEXT_ID_LIB=1 source "$lib" || exit 1
+    export HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$repo}"
+    project_paths_resolve "$repo"
+  )
+}
 reestr_put() {  # <репозиторий> <имя> → абсолютный путь
-  local repo="$1" name="$2" lib paths
+  local repo="$1" name="$2" paths
   if [ ! -f "$repo/harness.project.json" ]; then
     printf '%s/registry/%s' "$repo" "$name"
     return 0
   fi
-  lib="$(git rev-parse --show-toplevel)/scripts/next_id.sh" || return 1
-  NEXT_ID_LIB=1 source "$lib" || return 1
-  paths="$(project_paths_resolve "$repo")" || return 1
+  paths="$(profile_paths "$repo")" || return 1
   printf '%s\n' "$paths" | jq -er --arg name "$name" '.registry + "/" + $name'
+}
+kontrakt_kat() {  # <репозиторий владельца> → относительный каталог
+  local repo="$1" abs paths kat
+  if [ ! -f "$repo/harness.project.json" ]; then
+    printf 'contracts'
+    return 0
+  fi
+  abs="$(cd "$repo" 2>/dev/null && pwd -P)" || return 1
+  paths="$(profile_paths "$repo")" || return 1
+  kat="$(printf '%s\n' "$paths" | jq -er '.contracts')" || return 1
+  printf '%s' "${kat#"$abs/"}"
 }
 frozen_predmeta() {  # <NNN> <репозиторий владельца> → commit annotated frozen
   local row object ref owner="${2:-$REPO}" put
@@ -922,6 +939,11 @@ EOF
         predupr "$sv" 'RABOCHEGO_NET' "предмет $sv: рабочего START в учёте нет" "$obj"
         obj_fakt="$obj"
         fakt_zapis "$idx" "$obj_fakt"
+        # [D59 noauthor-reviewer] Неизвестный риск не отменяет порядок.
+        if [ "$rol" = 'reviewer' ] && ! subekt_suzhen_sudej "$sv" 'adversary'; then
+          mutexi_snyat_vse
+          otp ADVERSARIJ_DO_REVJUERA "предмет $sv: риск без автора неизвестен, завершённого адверсария нет"
+        fi
         continue
       fi
       r_holder="$(printf '%s' "$rab" | cut -f1)"
