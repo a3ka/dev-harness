@@ -26,6 +26,14 @@
 # повтор со строкой — пропуск (rc 0); (л) третий круг с той же строкой —
 # отказ (разрешение одно, повтор уже использован); (м) чужая строка (чужой
 # OBJECT, чужая роль, чужой предмет, строка вне формата) — отказ.
+# И ещё две клетки того же слова — про ПОВТОР ИМЕНИ держателя (н, о): имя
+# держателя не идентификатор круга. (н) состоявшийся первый круг и разрешённый
+# второй — под ТЕМ ЖЕ именем: после сдачи второго третий круг с той же строкой
+# — отказ OBJECT_UZHE_SUZHEN, новой START-записи нет. (о) тот же повтор, но его
+# RELEASE — технический обрыв `obryv_bez_verdikta`: обрыв не стирает состоявшийся
+# первый круг и не расходует разрешение — следующий запрос БЕЗ строки отказ
+# OBJECT_UZHE_SUZHEN (новая START-запись не появилась), запрос СО строкой —
+# пропуск (обрыв круг не тратит).
 #
 # Мир — в mktemp; сеть и omp не нужны; git/jq/bash обязательны.
 ZP_REPO="$(cd "$HERE/../.." && pwd -P)"
@@ -163,6 +171,14 @@ zp_avtor_sdal() {  # <NNN> <holder> <worktree> <branch>
 zp_sdal() {  # <holder>
   printf '{"timestamp":"2026-11-21T00:00:00.000Z","message":{"role":"assistant"}}\n{"type":"toolResult","toolCallId":"toolu_x","toolName":"yield","content":[{"type":"text","text":"Result submitted."}]}\n' \
       > "$ZP_T/zhurnaly/$1.jsonl"
+}
+
+# Число START-записей держателя по предмету в учёте — контроль «отказ не
+# записал круг» (поведение двери, а не текст счётчика).
+zp_startov() {  # <NNN> <holder>
+  jq -r --arg n "$1" --arg h "$2" \
+      'select(.t=="START" and .subjectId==$n and .holder==$h) | .holder' \
+      "$ZP_T/sost/uchet.jsonl" 2>/dev/null | wc -l
 }
 
 # Мир повтора суда: предмет с кандидатом (контракт в дереве OBJECT), автор
@@ -317,6 +333,7 @@ battery_silent_drop() {
   # без строки — отказ; со строкой — один пропуск; третий круг с той же
   # строкой — отказ; чужая строка (чужой OBJECT/роль/предмет, вне формата) —
   # отказ.
+  # (н)(о) — две клетки ПОВТОРА ИМЕНИ держателя: имя не идентификатор круга.
   local kletka_probit=0
   zp_kletka_net_stroki || kletka_probit=1
   zp_kletka_symlink || kletka_probit=1
@@ -325,6 +342,8 @@ battery_silent_drop() {
   zp_kletka_povtor_so_stroka || kletka_probit=1
   zp_kletka_povtor_tretiy || kletka_probit=1
   zp_kletka_povtor_chuzhaya || kletka_probit=1
+  zp_kletka_povtor_tretiy_ten_imya || kletka_probit=1
+  zp_kletka_povtor_obryv_ten_imya || kletka_probit=1
   [ "$kletka_probit" -eq 0 ] || return 1
   return 0
 }
@@ -470,6 +489,86 @@ zp_kletka_povtor_chuzhaya() {
   zp_sudit "$ZP_T/e5.json"
   zp_kletka '(м) строка разрешения вне формата' "$ZP_RC"
   zp_expect 1 OBJECT_UZHE_SUZHEN '(м) строка разрешения вне формата' || return 1
+  return 0
+}
+
+# (н) Третий круг под ТЕМ ЖЕ именем держателя, что и первый: имя держателя —
+#     НЕ идентификатор круга (между сессиями имена не уникализируются).
+#     Состоявшийся первый круг и разрешённый второй (под тем же именем)
+#     считаются ОБА; после сдачи второго третий круг с той же строкой
+#     разрешения — отказ OBJECT_UZHE_SUZHEN, и новой START-записи нет.
+#     Клетка судит ПОВЕДЕНИЕ двери (rc + имя отказа + отсутствие записи), а не
+#     текст счётчика.
+zp_kletka_povtor_tretiy_ten_imya() {
+  zp_mir_povtora 210 || return 1
+  local h='Critic210' n_start
+  # Разрешённый второй круг ПОД ТЕМ ЖЕ ИМЕНЕМ (та же строка разрешения).
+  zp_event "$ZP_T/e2.json" critic "$h" 'SUBJECT=210' "OBJECT=$ZP_SHA" \
+      "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 210 critic $ZP_SHA"
+  zp_sudit "$ZP_T/e2.json"
+  if [ "$ZP_RC" -ne 0 ]; then
+    printf 'zamok_predmeta: разрешённый повтор под тем же именем не пропущен (rc %s): %s\n' \
+        "$ZP_RC" "$ZP_OUT" >&2
+    return 1
+  fi
+  zp_sdal "$h"
+  n_start="$(zp_startov 210 "$h")"
+  # Третий круг под тем же именем с той же строкой — разрешение исчерпано.
+  zp_event "$ZP_T/e3.json" critic "$h" 'SUBJECT=210' "OBJECT=$ZP_SHA" \
+      "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 210 critic $ZP_SHA"
+  zp_sudit "$ZP_T/e3.json"
+  zp_kletka '(н) третий круг под тем же именем держателя' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(н) третий круг под тем же именем держателя' || return 1
+  if [ "$(zp_startov 210 "$h")" != "$n_start" ]; then
+    printf 'zamok_predmeta: отказ записал новый START держателя %s\n' "$h" >&2
+    return 1
+  fi
+  return 0
+}
+
+# (о) Тот же повтор под тем же именем, но его RELEASE — ТЕХНИЧЕСКИЙ ОБРЫВ
+#     `obryv_bez_verdikta`: обрыв закрывает только свой круг — состоявшийся
+#     первый круг не стирается и разрешение не расходуется (обрыв круг не
+#     тратит). Поэтому следующий запрос БЕЗ строки — отказ OBJECT_UZHE_SUZHEN
+#     (новая START-запись не появилась: первый круг уцелел), а запрос СО
+#     строкой — пропуск (rc 0).
+zp_kletka_povtor_obryv_ten_imya() {
+  zp_mir_povtora 211 || return 1
+  local h='Critic211' n_start
+  # Разрешённый второй круг ПОД ТЕМ ЖЕ ИМЕНЕМ (та же строка разрешения).
+  zp_event "$ZP_T/e2.json" critic "$h" 'SUBJECT=211' "OBJECT=$ZP_SHA" \
+      "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 211 critic $ZP_SHA"
+  zp_sudit "$ZP_T/e2.json"
+  if [ "$ZP_RC" -ne 0 ]; then
+    printf 'zamok_predmeta: разрешённый повтор под тем же именем не пропущен (rc %s): %s\n' \
+        "$ZP_RC" "$ZP_OUT" >&2
+    return 1
+  fi
+  # Технический обрыв второго круга: RELEASE судьи без закоммиченного вердикта.
+  # Строку пишет сама дверь (--osvobodit); в офлайн-мире судью не освободить
+  # (нужен ls-remote origin), поэтому строка обрыва пишется в учёт прямо — тем
+  # же форматом, что пишет дверь (формат учёта прежний).
+  jq -nc --arg t RELEASE --arg r dev-harness --arg s 211 --arg h "$h" \
+      --arg p obryv_bez_verdikta --arg at '2026-11-21T00:00:00Z' \
+      '{t:$t,repoId:$r,subjectId:$s,holder:$h,prichina:$p,at:$at}' \
+      >> "$ZP_T/sost/uchet.jsonl"
+  n_start="$(zp_startov 211 "$h")"
+  # Запрос БЕЗ строки: состоявшийся первый круг не стёрт — отказ.
+  zp_event "$ZP_T/e3.json" critic "$h" 'SUBJECT=211' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e3.json"
+  zp_kletka '(о) запрос без строки после обрыва повтора под тем же именем' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN \
+      '(о) запрос без строки после обрыва повтора под тем же именем' || return 1
+  if [ "$(zp_startov 211 "$h")" != "$n_start" ]; then
+    printf 'zamok_predmeta: отказ записал новый START держателя %s\n' "$h" >&2
+    return 1
+  fi
+  # Запрос СО строкой: обрыв круг не тратит — разрешение ещё не исчерпано.
+  zp_event "$ZP_T/e4.json" critic "$h" 'SUBJECT=211' "OBJECT=$ZP_SHA" \
+      "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 211 critic $ZP_SHA"
+  zp_sudit "$ZP_T/e4.json"
+  zp_kletka '(о) запрос со строкой после обрыва повтора под тем же именем' "$ZP_RC"
+  zp_expect 0 - '(о) запрос со строкой после обрыва повтора под тем же именем' || return 1
   return 0
 }
 

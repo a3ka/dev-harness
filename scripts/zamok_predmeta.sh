@@ -564,38 +564,48 @@ EOF
 # (контракт 167: оборванный судья — START без закоммиченного вердикта — круг D11
 # не тратит; его release даёт ровно один повтор, а новый START повторного судьи
 # снова учитывается). Первый запрос — «был ли START вообще»: без него круг не
-# состоялся. Второй — по каждому судье отдельно: круг закрыт только его
-# собственным release.
+# состоялся. Второй — общий счётчик кругов (krugov_suda): состоявшихся кругов
+# ≥ 1. Признак и число — ОДНО свойство: расходиться им нельзя.
 subekt_suzhen_sudej_obj() {  # <NNN> <rol> <object>
   jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" 'any(.[]; .t == "START" and .repoId == $r and .subjectId == $n and .klass == "sudja" and .rol == $roli and .object == $o)' "$LEDGER" >/dev/null 2>&1 || return 1
-  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" '
-    reduce .[] as $l ({};
-      if $l.repoId != $r or $l.subjectId != $n then .
-      elif $l.t == "START" and $l.klass == "sudja" and $l.rol == $roli and $l.object == $o
-        then .[$l.holder] = "open"
-      elif $l.t == "RELEASE" and .[$l.holder] == "open" and $l.prichina == "obryv_bez_verdikta"
-        then .[$l.holder] = "interrupted"
-      elif $l.t == "RELEASE" and .[$l.holder] == "open" then .[$l.holder] = "judged"
-      else . end
-    ) | any(.[]; . != "interrupted")' "$LEDGER" >/dev/null 2>&1
+  local krug
+  krug="$(krugov_suda "$1" "$2" "$3")"
+  case "$krug" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$krug" -ge 1 ]
 }
-# [D11 uzhe-suzhen] Круги суда роли ROL на OBJECT по предмету NNN — тот же
-# счёт, что у subekt_suzhen_sudej_obj (учёт: START + собственный RELEASE;
-# оборванный судья — release `obryv_bez_verdikta` — круг не тратит, контракт
-# 167), но ЧИСЛОМ, а не признаком. 1 — повтор ещё не использован (слово
-# владельца 21.11 00:55 разрешает ровно один); 2 и больше — разрешение
-# исчерпано. Счёт по учёту, не по наличию замка.
+# [D11 uzhe-suzhen] Круги суда роли ROL на OBJECT по предмету NNN — ЧИСЛОМ
+# (учёт: START + его собственный RELEASE; оборванный судья — release
+# `obryv_bez_verdikta` — круг не тратит, контракт 167). 1 — повтор ещё не
+# использован (слово владельца 21.11 00:55 разрешает ровно один); 2 и больше —
+# разрешение исчерпано. Счёт по учёту, не по наличию замка.
+#
+# КРУГ — ЗАПИСЬ START со своим состоянием, а НЕ карта «holder → состояние»:
+# имя держателя не идентификатор круга (между сессиями имена не
+# уникализируются, дверь пишет START по запрошенному имени ДО omp), поэтому
+# повторное имя не должно стирать состоявшиеся круги и превращать исчерпанную
+# строку РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР в бесконечное разрешение. RELEASE (роли и
+# OBJECT не несёт) закрывает ПОСЛЕДНИЙ открытый START своего holder в том же
+# repoId/subjectId — соотнесение идёт по последовательности START этого holder,
+# включая промежуточный START иного OBJECT/роли/класса; фильтр по
+# роли/OBJECT/class — ПОСЛЕ соотнесения (иначе RELEASE чужого круга закрыл бы
+# старый открытый круг).
 krugov_suda() {  # <NNN> <rol> <object> → число кругов
   jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" '
-    reduce .[] as $l ({};
-      if $l.repoId != $r or $l.subjectId != $n then .
-      elif $l.t == "START" and $l.klass == "sudja" and $l.rol == $roli and $l.object == $o
-        then .[$l.holder] = "open"
-      elif $l.t == "RELEASE" and .[$l.holder] == "open" and $l.prichina == "obryv_bez_verdikta"
-        then .[$l.holder] = "obryv"
-      elif $l.t == "RELEASE" and .[$l.holder] == "open" then .[$l.holder] = "sud"
-      else . end
-    ) | [ .[] | select(. != "obryv") ] | length' "$LEDGER" 2>/dev/null
+    reduce .[] as $l
+      ([];
+        if $l.repoId != $r or $l.subjectId != $n then .
+        elif $l.t == "START" then
+          . + [{h: $l.holder, s: "open", r: $l.rol, o: $l.object, k: $l.klass}]
+        elif $l.t == "RELEASE" then
+          ([ to_entries[] | select(.value.h == $l.holder and .value.s == "open") ]
+           | last | .key) as $i
+          | if $i == null then .
+            else .[$i].s = (if $l.prichina == "obryv_bez_verdikta" then "obryv" else "sud" end)
+            end
+        else . end
+      )
+    | [ .[] | select(.k == "sudja" and .r == $roli and .o == $o and .s != "obryv") ]
+    | length' "$LEDGER" 2>/dev/null
 }
 # [D16 slovo] СЛОВО владельца — строка SLOVO в учёте (санкция сверх лимита).
 slovo_vladelca() {  # <NNN>
