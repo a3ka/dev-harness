@@ -32,6 +32,16 @@ CASES = {
     'empty_tokens': ('', '', None, False),
     'denied': ('A', 'B', 'A', True),
     'denied_gh': (None, 'T', 'T', True),
+    'empty_github': ('A', None, 'A', False),
+    'empty_gh': (None, 'T', 'T', False),
+    'missing_field_github': ('A', None, 'A', False),
+    'missing_field_gh': (None, 'T', 'T', False),
+}
+RESPONSE_FAULTS = {
+    'empty_github': 'empty',
+    'empty_gh': 'empty',
+    'missing_field_github': 'missing_field',
+    'missing_field_gh': 'missing_field',
 }
 FALLBACK = '${GITHUB_TOKEN:-${GH_TOKEN:-}}'
 
@@ -52,7 +62,7 @@ def curl():
     if record != json.loads(os.environ['B13_EXPECT_REQUEST']) or os.environ['B13_DENIED'] == '1':
         print('curl: (22) HTTP 403', file=sys.stderr)
         return 22
-    print(os.environ['B13_RESPONSE'])
+    sys.stdout.write(os.environ['B13_RESPONSE'])
     return 0
 
 
@@ -132,6 +142,10 @@ def observe(parent, branch, case, code):
         root, subject, args, bindir, url, response, row = prepare(base, branch, code)
         values = {key: 'b13_' + secrets.token_hex(18) for key in ('T', 'A', 'B')}
         github, gh, expected, denied = CASES[case]
+        response_fault = RESPONSE_FAULTS.get(case)
+        if response_fault == 'missing_field':
+            response.pop('workflow_runs' if branch == 'land' else 'total_count')
+        response_body = '' if response_fault == 'empty' else json.dumps(response)
         env = dict(fc.BASE_ENV)
         env.pop('GITHUB_TOKEN', None)
         env.pop('GH_TOKEN', None)
@@ -142,12 +156,12 @@ def observe(parent, branch, case, code):
                    [digest('Authorization: Bearer ' + values[expected])]}
         env.update(PATH=f'{bindir}:{env["PATH"]}', TMPDIR=str(base),
                    B13_REQUESTS=str(base / 'requests'), B13_EXPECT_REQUEST=json.dumps(request),
-                   B13_RESPONSE=json.dumps(response), B13_DENIED=str(int(denied)),
+                   B13_RESPONSE=response_body, B13_DENIED=str(int(denied)),
                    GITW_PREFLIGHT_071_API='https://api.github.com/repos/fixture/fixture')
         # Oracle and initial journal bytes captured before the subject executes.
-        expected_rc = 1 if denied else 0
+        expected_rc = 1 if denied or response_fault else 0
         journal = root / 'registry/candidates.tsv'
-        expected_journal = row.encode() if branch == 'writer' and not denied else journal.read_bytes()
+        expected_journal = row.encode() if branch == 'writer' and expected_rc == 0 else journal.read_bytes()
         p = fc.run(['bash', subject, *args], root, env)
         records = [json.loads(line) for line in (base / 'requests').read_text().splitlines()] if (base / 'requests').exists() else []
         output = p.stdout + p.stderr
@@ -156,6 +170,10 @@ def observe(parent, branch, case, code):
         request_ok = records == [request]
         effect_ok = journal_bytes == expected_journal
         diagnosis_ok = not denied or ('CI не ответил' if branch != 'land' else 'PR-CI не сверяем: API') in output
+        if response_fault:
+            reason = ('gitw ПРЕДПОЛЁТ-ОТКАЗ: land без зелёного PR-CI:'
+                      if branch == 'land' else 'ОТКАЗ: ответ CI не разобран:')
+            diagnosis_ok = any(line.startswith(reason) for line in output.splitlines())
         accepted = p.returncode == expected_rc and request_ok and effect_ok and leak_free and diagnosis_ok
         return dict(branch=branch, case=case, rc=p.returncode, expected_rc=expected_rc,
                     request_ok=int(request_ok), effect_ok=int(effect_ok), leak_free=int(leak_free),
@@ -199,6 +217,16 @@ def mutants(model):
         for branch in SUBJECTS:
             if branch != kept:
                 yield f'S5-only-{kept}-missing-{branch}', branch, 'gh_unset', code
+    # Adv992B13 block 3: the same writer fail-closed operation, neutralized
+    # without changing authentication or any other request site.
+    rejection = 'die "ответ CI не разобран: total_count нет — $(printf \'%s\' "$body" | head -c 200)"'
+    for label, replacement in (('S-M7', ':'), ('S-M10', 'exit 0')):
+        code = dict(model)
+        if rejection not in code['check_ci_gate.sh']:
+            raise RuntimeError('writer response rejection anchor missing')
+        code['check_ci_gate.sh'] = code['check_ci_gate.sh'].replace(rejection, replacement, 1)
+        for case in RESPONSE_FAULTS:
+            yield label, 'writer', case, code
 
 
 def compatibility(root):
@@ -278,6 +306,9 @@ def main():
             # Distinguish a leak mutant by the leak predicate, not incidental rc.
             if label.startswith('S4-'):
                 caught = not result['leak_free'] and result['rc'] == 0 and result['request_ok'] and result['effect_ok']
+            if label in ('S-M7', 'S-M10'):
+                caught = (not result['accepted'] and result['request_ok'] and result['leak_free']
+                          and (result['rc'] == 0 or not result['diagnosis_ok'] or not result['effect_ok']))
             bindings += 1
             live += not caught
             print(f'stab={label} branch={branch}/{case} caught={int(caught)} ' + json.dumps(result, sort_keys=True))
