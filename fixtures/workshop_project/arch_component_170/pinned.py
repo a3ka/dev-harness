@@ -1,0 +1,221 @@
+"""Pinned-brief delta at the public producer and emitted consumer-command seams."""
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+
+import pinned_model as canon
+
+CASES = ('brief_pinned_over_budget', 'brief_pinned_plain', 'brief_pinned_multi',
+         'brief_pin_missing', 'brief_pin_tampered', 'brief_pin_unreadable',
+         'brief_pin_checkout', 'brief_pin_git', 'brief_read_missing',
+         'brief_read_tampered', 'brief_read_same_size', 'brief_small_inline',
+         'brief_pack_cap', 'brief_no_slice', 'brief_aggregate_budget',
+         'brief_mixed_small_inline', 'brief_pinned_spaces', 'brief_pinned_external_symlink',
+         'brief_read_length_pin', 'brief_read_checkout')
+
+
+def model_text(legacy, helper):
+    # Only the acceptance model is extended; no production file is changed.
+    legacy = legacy.replace('ARCH_SEC=""', 'ARCH_SEC=""; ARCH170_ITEMS=""', 1)
+    text = legacy.replace('2>&1)"', '2>&1; _status=$?; printf \'\\037\'; exit "$_status")"')
+    text = text.replace('      [ -n "$_arch_text" ]', '      _arch_text="${_arch_text%$\'\\037\'}"\n      [ -n "$_arch_text" ]')
+    collection = '''_arch_item="$(printf '%s' "$_arch_text" | python3 -c 'import json,sys; print(json.dumps([sys.argv[1], sys.stdin.read()]))' "$_arch_id")"
+      ARCH170_ITEMS="${ARCH170_ITEMS}${_arch_item}
+"
+      ARCH_SEC="${ARCH_SEC}${_arch_text}"'''
+    text = text.replace('ARCH_SEC="${ARCH_SEC}${_arch_text}\n"', collection)
+    anchor = 'VK="$(pack_body | wc -c | tr -d \' \')"'
+    stage = ("ARCH_SEC=\"$( { pack_body; printf '\\0%s\\0%s' \"$ARCH_SEC\" \"$ARCH170_ITEMS\"; } | "
+             f'python3 "{helper}" "$REPO"; _status=$?; printf \'\\037\'; exit "$_status")" || exit 1\n'
+             'ARCH_SEC="${ARCH_SEC%$\'\\037\'}"\n')
+    if text.count(anchor) != 1:
+        raise ValueError('pinned model budget anchor')
+    return text.replace(anchor, stage + anchor)
+
+
+def refusal(result):
+    return (result.returncode == 1 and not result.stdout and bool(result.stderr.splitlines())
+            and result.stderr.splitlines()[0].startswith('ОТКАЗ: ARCH_BRIEF_PIN:'.encode()))
+
+
+def run_case(probe, name, subject, mutant=''):
+    built, repo = probe.world(context_padding=41000 if name == 'brief_pack_cap' else 0)
+    old_tmp = os.environ.get('TMPDIR')
+    try:
+        state_base = built / ('state with spaces' if name == 'brief_pinned_spaces' else 'state')
+        state_base.mkdir()
+        os.environ['TMPDIR'] = str(state_base)
+        state, roots = canon.state_directory(repo)
+        ids = probe.IDS if name in ('brief_pinned_multi', 'brief_aggregate_budget',
+                                   'brief_mixed_small_inline', 'brief_pin_missing',
+                                   'brief_pin_tampered') else probe.IDS[:1]
+        size = 12 if name == 'brief_small_inline' else 19000 if name == 'brief_aggregate_budget' else 45723
+        role = 'implementer' if name == 'brief_pinned_plain' else 'architect'
+        expected = {ident: (f'# ARCH-BRIEF:{ident}\nBEGIN:{name}:{ident}\n' + 'ю' * size
+                            + f'\nEND:{name}:{ident}\n\n').encode() for ident in ids}
+        if name == 'brief_small_inline':
+            expected = {ident: data[:-1] for ident, data in expected.items()}
+        if name == 'brief_mixed_small_inline':
+            expected[ids[1]] = b'# ARCH-BRIEF:worker.events\nSMALL-BRIEF-STAYS-INLINE\n'
+        if name == 'brief_no_slice':
+            expected[ids[0]] += b'# ARCH-BRIEF:not-a-component\nUNTRUSTED-CONTENT-NOT-STRUCTURE\r\n'
+        # Capture every expected byte before the subject can touch its source or state.
+        source = built / 'source'
+        source.mkdir()
+        for ident, data in expected.items():
+            (source / (ident + '.txt')).write_bytes(data)
+        first_data = expected[ids[0]]
+        pin_data = expected[ids[-1]]
+        pin = state / 'briefs' / (canon.digest(pin_data) + '.txt')
+        if name == 'brief_pinned_external_symlink':
+            pin.parent.mkdir(parents=True)
+            target = pin.parent / 'honest-equivalent.txt'
+            target.write_bytes(first_data)
+            pin.symlink_to(target)
+        if name in ('brief_pin_missing', 'brief_pin_tampered', 'brief_pin_unreadable',
+                    'brief_pin_checkout', 'brief_pin_git'):
+            pin.parent.mkdir(parents=True)
+            if name == 'brief_pin_missing':
+                pin.symlink_to(built / 'absent')
+            elif name in ('brief_pin_checkout', 'brief_pin_git'):
+                target = repo / ('.git' if name == 'brief_pin_git' else 'architecture') / 'brief.txt'
+                target.write_bytes(first_data)
+                pin.symlink_to(target)
+            else:
+                pin.write_bytes(b'corrupted' if name == 'brief_pin_tampered' else pin_data)
+                if name == 'brief_pin_unreadable':
+                    pin.chmod(0)
+        with tempfile.TemporaryDirectory(dir=probe.VERIFY, prefix='arch170-pin-bin-') as bindir:
+            Path(bindir, 'npm').symlink_to(probe.HERE / 'npm_stub.py')
+            env = dict(os.environ, ARCH170_PROJECT=str(repo), ARCH170_NONCE=name,
+                       ARCH170_CALLS=str(built / 'calls'), ARCH170_BRIEF_DIR=str(source),
+                       ARCH170_MODEL_MUTANT=mutant, PATH=bindir + os.pathsep + os.environ['PATH'])
+            result = probe.invoke(subject, repo, role, ','.join(ids), env=env)
+        result = subprocess.CompletedProcess(result.args, result.returncode,
+                                             result.stdout.encode(), result.stderr.encode())
+        if name.startswith('brief_pin_') and name != 'brief_pinned_over_budget':
+            good = refusal(result)
+        elif name == 'brief_pack_cap':
+            good = (result.returncode == 1 and not result.stdout
+                    and result.stderr.startswith('ОТКАЗ: режь задачу:'.encode()) and b'> 40000' in result.stderr)
+        elif name == 'brief_small_inline':
+            body = result.stdout.split(b'=== MANIFEST ===\n')[0]
+            good = (result.returncode == 0 and first_data in body and b'PIN: ' not in body
+                    and not (state / 'briefs').exists() and len(body) <= 40000)
+        else:
+            good = result.returncode == 0
+            body = result.stdout.split(b'=== MANIFEST ===\n')[0]
+            good &= len(body) <= 40000 and b'/40000\n' in result.stdout
+            good &= b'MAP: STRUCTURE.md :: all modules\n' in body and b'RULES: COMMON-RULES.md\n' in body
+            section = body.split(b'=== ARCHITECTURE BRIEF ===\n', 1)[-1].split(b'=== ', 1)[0].decode()
+            blocks = section.split('COMPONENT: ')[1:]
+            good &= len(blocks) == len(ids)
+            for ident, block in zip(ids, blocks):
+                lines = block.splitlines()
+                good &= lines[0] == ident
+                if name == 'brief_mixed_small_inline' and ident == ids[1]:
+                    good &= block.split('\n', 1)[-1].encode() == expected[ident]
+                    good &= 'PIN: ' not in block
+                    continue
+                good &= canon.READ_REQUIRED in lines
+                fields = {}
+                for line in lines[1:]:
+                    key, sep, value = line.partition(': ')
+                    if sep:
+                        if key in fields:
+                            good = False
+                        fields[key] = value
+                data = expected[ident]
+                path = Path(fields.get('PIN', '/unavailable'))
+                good &= (fields.get('BYTES') == str(len(data)) and fields.get('SHA256') == canon.digest(data)
+                         and path.is_absolute() and path.resolve().is_relative_to(state.resolve())
+                         and not any(path.resolve().is_relative_to(root) for root in roots)
+                         and path.is_file())
+                if path.is_file():
+                    good &= path.read_bytes() == data
+                command = json.loads(fields.get('READ_COMMAND', '[]'))
+                if not command:
+                    good = False
+                    continue
+                read = subprocess.run(command, capture_output=True, timeout=20)
+                good &= read.returncode == 0 and read.stdout == data and not read.stderr
+                if name.startswith('brief_read_') and path.is_file():
+                    if name == 'brief_read_missing':
+                        path.unlink()
+                    elif name == 'brief_read_same_size':
+                        path.write_bytes(bytes([data[0] ^ 1]) + data[1:])
+                    elif name == 'brief_read_length_pin':
+                        if len(command) < 5:
+                            good = False
+                            continue
+                        command[4] = str(len(data) + 1)
+                    elif name == 'brief_read_checkout':
+                        path.unlink()
+                        target = repo / 'architecture' / 'moved-brief.txt'
+                        target.write_bytes(data)
+                        path.symlink_to(target)
+                    else:
+                        path.write_bytes(data[:-1])
+                    good &= refusal(subprocess.run(command, capture_output=True, timeout=20))
+        print(f'170 {name} {"ok" if good else "KRASNO"} rc={result.returncode} '
+              f'stderr={result.stderr.decode().strip()!r}', flush=True)
+        return bool(good)
+    finally:
+        if old_tmp is None:
+            os.environ.pop('TMPDIR', None)
+        else:
+            os.environ['TMPDIR'] = old_tmp
+        shutil.rmtree(built)
+
+
+def cells(probe, subject):
+    return {name: run_case(probe, name, subject) for name in CASES}
+
+
+# Each mutation has its own observable input; no prose-maintained branch map.
+MUTANTS = (
+    ('small_pinned', 'brief_small_inline'),
+    ('slice', 'brief_no_slice'),
+    ('inside_checkout', 'brief_pinned_over_budget'),
+    ('inside_git', 'brief_pinned_over_budget'),
+    ('unchecked_issue', 'brief_pin_missing'),
+    ('unchecked_issue', 'brief_pin_tampered'),
+    ('unchecked_issue', 'brief_pin_unreadable'),
+    ('unchecked_issue', 'brief_pin_checkout'),
+    ('unchecked_issue', 'brief_pin_git'),
+    ('no_instruction', 'brief_pinned_over_budget'),
+    ('wrong_component', 'brief_pinned_over_budget'),
+    ('wrong_bytes', 'brief_pinned_over_budget'),
+    ('wrong_hash', 'brief_pinned_over_budget'),
+    ('unchecked_read', 'brief_read_missing'),
+    ('unchecked_read', 'brief_read_tampered'),
+    ('unchecked_read', 'brief_read_same_size'),
+    ('all_pinned', 'brief_mixed_small_inline'),
+    ('cap_raised', 'brief_pack_cap'),
+    ('brief_outside_budget', 'brief_pinned_over_budget'),
+    ('reader_without_length', 'brief_read_length_pin'),
+    ('reader_without_hash', 'brief_read_same_size'),
+    ('unchecked_read', 'brief_read_checkout'),
+)
+
+
+def stabs(probe, subject):
+    misses = 0
+    honest = subject.read_text()
+    for mutant, branch in MUTANTS:
+        text = honest
+        if mutant == 'cap_raised':
+            text = probe.replace_once(text, '[ "$VK" -le 40000 ]', '[ "$VK" -le 400000 ]')
+        if mutant == 'brief_outside_budget':
+            text = probe.replace_once(text, '  [ -z "$ARCH_SEC" ] || printf \'=== ARCHITECTURE BRIEF ===\\n%s\' "$ARCH_SEC"',
+                                      '  : # brief excluded from measured pack')
+            text += '\n[ -z "$ARCH_SEC" ] || printf \'=== ARCHITECTURE BRIEF ===\\n%s\' "$ARCH_SEC"\n'
+        subject.write_text(text)
+        caught = not run_case(probe, branch, subject, mutant)
+        print(f'170 STAB {mutant} caught @ {branch}' if caught else f'170 STAB {mutant} ZHIV @ {branch}', flush=True)
+        misses += not caught
+    subject.write_text(honest)
+    return misses

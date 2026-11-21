@@ -25,6 +25,9 @@ if component not in ('api.identity', 'worker.events'):
 if os.environ.get('ARCH170_FAIL_ID') == component:
     print('npm notice: brief command failed', file=sys.stderr)
     sys.exit(17)
+if os.environ.get('ARCH170_BRIEF_DIR'):
+    sys.stdout.buffer.write((Path(os.environ['ARCH170_BRIEF_DIR']) / (component + '.txt')).read_bytes())
+    sys.exit(0)
 print('# ARCH-BRIEF:' + component)
 print('OWN-CONTRACT:' + component + ':' + os.environ['ARCH170_NONCE'])
 if os.environ.get('ARCH170_PADDING'):

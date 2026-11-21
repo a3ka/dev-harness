@@ -8,11 +8,12 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import pinned
 
 ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
 TOY = ROOT / 'fixtures/context_pack_095/_toy.sh'
-VERIFY = Path('/tmp/dev-harness-verify')
+VERIFY = Path(os.environ.get('TMPDIR', ROOT / '.scratch-170')).resolve()
 BASE = 'frozen/contracts/166/2:scripts/make_task.sh'
 IDS = ('api.identity', 'worker.events')  # architecture/README.md and checks/test/workflow-v242.test.js
 RULE_ROLES = ('architect', 'critic', 'arbiter')
@@ -71,8 +72,9 @@ def model_text():
     return text
 
 
-def world(*, arch=True, code=True, class_line=None):
-    built = subprocess.run(['bash', '-c', '. "$1"; _t95_world arch-170', '_', str(TOY)],
+def world(*, arch=True, code=True, class_line=None, context_padding=0):
+    toy = TOY.read_text().replace('/tmp/dev-harness-verify', str(VERIFY))
+    built = subprocess.run(['bash', '-c', toy + '\n_t95_world arch-170'],
                            capture_output=True, text=True, check=True).stdout.strip()
     repo = Path(built) / 'repo'
     profile = repo / 'harness.project.json'
@@ -93,6 +95,8 @@ def world(*, arch=True, code=True, class_line=None):
     contract.write_text((class_line if class_line is not None else
                          'КЛАСС ЗАДАЧИ: ' + ('кодовый' if code else 'документальный'))
                         + '\n' + contract.read_text())
+    if context_padding:
+        contract.write_text(contract.read_text() + '\nКОНТЕКСТ: ' + 'Z' * context_padding + '\n')
     (repo / 'registry/trace.tsv').write_text(''.join(
         f'{role}\topenai-codex/gpt-6-sol\tallowed\n' for role in ('orchestrator',) + RULE_ROLES + PLAIN_ROLES))
     if arch:
@@ -138,7 +142,8 @@ def run_case(name, subject):
                  'api.identity' if name in ('architect_rules', 'critic_rules', 'arbiter_rules',
                     'implementer_plain', 'adversary_plain', 'reviewer_plain', 'lose_map',
                     'lose_rules', 'malformed_id', 'architecture_missing', 'brief_over_budget') else None)
-    built, repo = world(arch=arch, code=code, class_line=CLASS_LINES.get(name))
+    built, repo = world(arch=arch, code=code, class_line=CLASS_LINES.get(name),
+                        context_padding=41000 if name == 'brief_over_budget' else 0)
     try:
         expected_ids = IDS if name == 'multi_component' else IDS[:1]
         nonce = 'SENTINEL-170-' + name
@@ -156,7 +161,9 @@ def run_case(name, subject):
                         'adversary_brief_failure', 'reviewer_brief_failure'):
                 env['ARCH170_FAIL_ID'] = 'worker.events'
             if name == 'brief_over_budget':
-                env['ARCH170_PADDING'] = '41000'
+                # The old cap invariant remains; only the authorized brief-overflow
+                # behavior moves to brief_pinned_over_budget in the delta suite.
+                env['ARCH170_PADDING'] = '100'
             if name == 'wrong_project':
                 # Profile cannot accidentally decide applicability: project identity changes.
                 profile = repo / 'harness.project.json'
@@ -236,7 +243,8 @@ def main():
             if not subject.is_file():
                 print('170 SUBJECT_ABSENT', file=sys.stderr)
                 return 2
-            return 0 if all(cells(subject).values()) else 1
+            results = [*cells(subject).values(), *pinned.cells(sys.modules[__name__], subject).values()]
+            return 0 if all(results) else 1
         with tempfile.TemporaryDirectory(dir=VERIFY, prefix='arch170-model-') as tmp:
             directory = Path(tmp) / 'scripts'
             directory.mkdir()
@@ -246,7 +254,13 @@ def main():
             honest = model_text()
             subject = directory / 'make_task.sh'
             subject.write_text(honest)
-            control = cells(subject)
+            pin_subject = directory / 'make_task_pinned.sh'
+            pin_subject.write_text(pinned.model_text(honest, HERE / 'pinned_model.py'))
+            control = cells(pin_subject)
+            pin_control = pinned.cells(sys.modules[__name__], pin_subject)
+            if not all(pin_control.values()):
+                print('170 PIN_CONTROL_INVALID', file=sys.stderr)
+                return 2
             if not all(control.values()):
                 print('170 CONTROL_INVALID', file=sys.stderr)
                 return 2
@@ -293,11 +307,9 @@ def main():
       case "$_arch_id" in ''|[!A-Za-z0-9_]*|*[^A-Za-z0-9._-]*|*..*) die "ARCH_COMPONENT_ID: неконформный id" ;; esac
     done
 """, '', 'second_malformed_id'),
-                ('brief_outside_budget',
-                 '  [ -z "$ARCH_SEC" ] || printf \'=== ARCHITECTURE BRIEF ===\\n%s\' "$ARCH_SEC"',
-                 '  : # brief deferred past budget', 'brief_over_budget'),
             )
             misses = 0
+            misses += pinned.stabs(sys.modules[__name__], pin_subject)
             for name, old, new, branch in mutants:
                 if name == 'npm_failure_ignored':
                     if honest.count(old) != 2:
@@ -310,11 +322,6 @@ def main():
                         mutated, '      _arch_rules=""',
                         """      case "$_arch_id" in ''|[!A-Za-z0-9_]*|*[^A-Za-z0-9._-]*|*..*) die "ARCH_COMPONENT_ID: неконформный id" ;; esac
       _arch_rules=""")
-                if name == 'brief_outside_budget':
-                    mutated = replace_once(
-                        mutated, 'pack_body\nprintf \'%s\' "$MAN_BODY"',
-                        'pack_body\n  [ -z "$ARCH_SEC" ] || printf \'=== ARCHITECTURE BRIEF ===\\n%s\' "$ARCH_SEC"\n'
-                        'printf \'%s\' "$MAN_BODY"')
                 subject.write_text(mutated)
                 caught = not cells(subject, branch)[branch]
                 print(f'170 STAB {name} {"caught" if caught else "ZHIV"} @ {branch}', flush=True)
