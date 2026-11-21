@@ -1,11 +1,11 @@
 # СДАЧА 187 — Б-5: stderr и его время жизни
 
-Исправительный fixture-пакет: `/tmp/dev-harness-verify/task-b5c-architect.md`.
-Субъект ДО ремонта: `d23d301ddd5a023caa7eb3a2a7afcf65da7320e0`.
-Двери и frozen-контракты не менялись. Живой repo сейчас обязан быть
-красным ровно на TERM/INT группе; строка repo ниже явно заявляет rc 1.
-После интеграции реализации её меняют на rc 0 с новым живым замером.
-Зелёный исполняемый контроль не выдаётся за замер будущей реализации.
+Обновление листа после ремонта: `/tmp/dev-harness-verify/task-b5d-architect.md`.
+Субъект ПОСЛЕ ремонта: `6956c8c891b8cd44dd4882189f1b7e2b6af44828`.
+В этой пачке меняется только лист; двери, клетки, модель, стабы и
+frozen-контракты не менялись. Живой repo после ремонта зелёный:
+rc 0, `CELLS=82 STABS=0 FAILURES=0`. Красное предъявление ДО ремонта
+на `d23d301ddd5a023caa7eb3a2a7afcf65da7320e0` сохранено ниже как история.
 
 ## Существующее
 
@@ -24,14 +24,14 @@ toy-контракт получает собственный frozen-тег, ка
 
 - battery-model · fixtures/workshop_project/architecture_process_187/census_b5.py b5c-sheet-model model · 0 · 0
 - battery-stabs · fixtures/workshop_project/architecture_process_187/census_b5.py b5c-sheet-stabs stabs · 0 · 0
-- battery-repo-before-signal-repair · fixtures/workshop_project/architecture_process_187/census_b5.py b5c-sheet-repo repo · 1 · 1
+- battery-repo-after-signal-repair · fixtures/workshop_project/architecture_process_187/census_b5.py b5c-sheet-repo repo · 0 · 0
 - wiring · fixtures/workshop_project/architecture_process_187/census_b5.py b5c-sheet-wiring wiring · 0 · 0
 - signal-base-and-honest-control · fixtures/workshop_project/architecture_process_187/census_b5.py b5c-sheet-controls signals-base signals-control · 0 · 0
 
 `census_b5.py` исполняет тот же bash-runner, сохраняет сырой stdout/stderr
 в TMPDIR (по умолчанию системный tmp), печатает фактический rc каждого режима
 и возвращает ненулевой код при любом ненулевом режиме, не маскируя красное.
-Рабочий TMPDIR этой сдачи — `$PWD/.scratch-b5c`, в коммит не включается.
+Рабочий TMPDIR этой сдачи — `$PWD/.scratch-b5d`, в коммит не включается.
 `pre_critic` по заданию не требуется.
 
 ## Карта классов
@@ -39,8 +39,8 @@ toy-контракт получает собственный frozen-тег, ка
 - К-01 · чисто · вход: пять дверей листа и карта К-01…К-17; исправительный маршрут Rev187B5 без нового critic · - · -
 - К-02 · чисто · вход: один блок Б-1 — время жизни stderr при сигнале группе; прежние rc и диагностика сохранены · - · -
 - К-03 · чисто · вход: существующий library-шов brief_stderr и command substitution вызывающего; настоящий bash/node · - · -
-- К-04 · чисто · вход: изменяется только семья architecture_process_187; контракт и дверь не меняются · - · -
-- К-05 · чисто · вход: живой OBJECT красен ровно на двух новых клетках; база a4f87d04a1 и честный контроль зелены · - · -
+- К-04 · чисто · вход: изменяется только sdacha_187.md; контракт, дверь, клетки и стабы не меняются · - · -
+- К-05 · чисто · вход: живой OBJECT после ремонта зелён на всех 82 клетках; исторические две красные сохранены ниже · - · -
 - К-06 · чисто · вход: модель пишет stderr и ready-маркер до сигнала; ожидание ограничено, отсутствие ready красное · - · -
 - К-07 · чисто · вход: ожидания NEIGHBOR и пустого scratch в памяти до субъекта; после выхода судится эффект в двух каталогах · - · -
 - К-08 · чисто · вход: исполняемые S1/S2/S4 привязаны в brief_signals.STABS; S3 — brief_stderr.STABS к plain-отказу · - · -
@@ -50,18 +50,18 @@ toy-контракт получает собственный frozen-тег, ка
 - К-12 · чисто · вход: сигналы доставляет os.killpg реальной группе новой сессии; без разбора bash своими предикатами · - · -
 - К-13 · н/п · секретов, сети и внешнего API в новых клетках нет · - · -
 - К-14 · чисто · вход: та же клетка зелена на настоящей базе без capture и на честном контроле с capture; сосед остаётся · - · -
-- К-15 · чисто · вход: model rc 0 CELLS=82, stabs rc 0 STABS=110 ZHIV=0; repo rc 1 FAILURES=2, прежние 78 зелены · - · -
+- К-15 · чисто · вход: model rc 0 CELLS=82, stabs rc 0 STABS=110 ZHIV=0; repo rc 0 FAILURES=0 после ремонта · - · -
 - К-16 · чисто · вход: stderr не переживает группу; более узкий сигнал родителю остаётся зелёной охраной · - · -
 - К-17 · н/п · sourceCanon, модель продукта и его pin не меняются · - · -
 
 ## Дельта
 
-Блок Rev187B5 закрывается клетками, а не изменением обязательства.
-Привязки стабов находятся в коде, не frozen-прозе; реализацию делает implementer.
+Блок Rev187B5 закрыт ремонтом implementer; обязательство и клетки сохранены.
+Эта пачка обновляет только лист; привязки стабов остаются в коде, не frozen-прозе.
 
 ## Census и клетки
 
-### После реализации
+### Исторический замер после первой реализации Б-5
 
 На базе `8cc43759830eb16c82b729e4156dd15965673fc3` живой
 `fixtures/workshop_project/architecture_process_187/census_b5.py sdacha-repo repo`
@@ -311,6 +311,38 @@ ARCH_* ожидания, отрицательные клетки и привяз
 
 ## Исправление FAIL Rev187B5
 
+После ремонта Impl187B5c на `6956c8c891b8cd44dd4882189f1b7e2b6af44828`
+исполнен `census_b5.py b5d model stabs repo wiring`: сырые rc режимов
+соответственно 0, 0, 0, 0. Model и repo: `CELLS=82 STABS=0 FAILURES=0`;
+stabs: `CELLS=82 STABS=110 FAILURES=0`, ZHIV=0.
+Прямой `red_architecture_process_187.sh --repo .` также дал rc 0,
+`CELLS=82 STABS=0 FAILURES=0`.
+Сырые логи census: `$TMPDIR/b5d-{model,stabs,repo,wiring}.{stdout,stderr}`.
+
+| Клетка после ремонта | rc вызывающего | Наблюдение в borrowed и managed |
+| --- | --- | --- |
+| brief-signal-group-term | -15 | GREEN, ready=True, leftover=[], neighbor=True |
+| brief-signal-group-int | -2 | GREEN, ready=True, leftover=[], neighbor=True |
+| brief-signal-parent-term | -15 | GREEN, ready=True, leftover=[], neighbor=True |
+| brief-cleanup-neighbor | 0 | GREEN, ready=True, leftover=[], neighbor=True |
+
+Независимая мера `wc -l .scratch-b5d/b5d-{model,stabs,repo}.stdout`:
+84, 194, 84 строки; без selfcheck/summary — 82 клетки;
+194−84 — 110 пойманных стабов, живых 0.
+
+Рефлексия обновления: историческое красное предъявление не является текущей
+дверью после ремонта; строка repo и карта теперь описывают зелёный субъект.
+Общий А-журнал не менялся: разрешённая зона этой пачки — только лист,
+а общий журнал пополняется только в main.
+
+Проверка обновлённого листа после ремонта:
+`TMPDIR="$PWD/.scratch-b5d" bash scripts/check_sdacha.sh "$PWD" contracts/187-arhitektura-v-processe.md --run`
+→ rc 0, `СДАЧА: лист зелёный (двери=5 карта=17/17 дельта=0)`.
+Исполнены все пять дверей, включая `signals-base` и `signals-control`;
+текущий repo заявлен и измерен как rc 0.
+
+### Историческое красное предъявление ДО ремонта
+
 Б-1: «файл захвата stderr брифа остаётся, когда сигнал доходит до всей группы процессов. Место: scripts/check_architecture_contract.sh:504 (mktemp внутри функции) и :512-515 (rm только при нормальном возврате). Вызов идёт в $(...) из scripts/make_task.sh:1070, а EXIT-ловушка make_task.sh:565 этого файла не знает. Обязательство из тела PR: «удаляется ВСЕГДА»; в задании: «в т. ч. при сигнале». Проба: `GROUPKILL=1 bash .scratch-rev187b5/signal_probe.sh scripts/check_architecture_contract.sh object-timeout-group TERM` → caller_rc=124, leftover=[tmp.OHk5oKEG1g] с текстом 'slow-model-first'; файл на месте и через 22 с после конца модели. С INT то же. База a4f87d04a1 → leftover=[]. Если TERM получает только родитель, утечки нет: подоболочка доживает до конца модели и убирает файл. Закрывающее свойство: файл не переживает TERM/INT, доставленный группе, пока работает CLI модели; клетка красная на OBJECT. Более простые формы уже есть в дереве: файл выделяет вызывающий и убирает своя EXIT-ловушка, как _NPM_ERR_FILE (make_task.sh:1051, :565), либо файл лежит под ARCH187_MODEL_TMP.»
 
 Обещание: файл захвата stderr не переживает TERM/INT группе во время CLI.
@@ -323,7 +355,7 @@ Borrowed-модель лежит вне TMPDIR и не принадлежит cl
 Проверяются оба режима владения моделью; имя capture не предписывается.
 Frozen-обязательства и перечень заменяемых обязательств выше не менялись.
 
-| Клетка | OBJECT: rc вызывающего / оценка | Честный исполняемый контроль: rc / оценка |
+| Клетка | OBJECT ДО: rc вызывающего / оценка | Честный исполняемый контроль: rc / оценка |
 | --- | --- | --- |
 | brief-signal-group-term | -15 / RED, файл остался в обоих режимах | -15 / GREEN, leftover=[] |
 | brief-signal-group-int | -2 / RED, файл остался в обоих режимах | -2 / GREEN, leftover=[] |
@@ -333,9 +365,9 @@ Frozen-обязательства и перечень заменяемых об�
 | brief-cleanup-success | 0 / GREEN, прежняя охрана | прежняя model-клетка: 0 / GREEN |
 | brief-stderr-* | 1 / GREEN, ровно одна строка ARCH_BRIEF_STDERR | прежние model-клетки: 1 / GREEN |
 
-Последняя колонка — контроль `signals-control`/`--model`, НЕ live-прогон
-после реализации. После интеграции закрывающее требование: `--repo .` rc 0,
-`CELLS=82 STABS=0 FAILURES=0`; здесь будущий результат не заявлен измеренным.
+Последняя колонка — исторический контроль `signals-control`/`--model`,
+НЕ live-прогон после реализации. Закрывающий живой замер после ремонта
+приведён в начале этого раздела; прежние красные результаты сохранены ниже.
 
 Команда воспроизведения и дифференциального контроля:
 `fixtures/workshop_project/architecture_process_187/census_b5.py b5c signals signals-base signals-control`.
@@ -350,7 +382,7 @@ RED brief-signal-group-int: mode=borrowed ready=True caller_rc=-2 leftover=['tmp
 GREEN brief-signal-parent-term: mode=borrowed ready=True caller_rc=-15 leftover=[] neighbor=True stdout=b'' stderr=b'' | mode=managed ready=True caller_rc=-15 leftover=[] neighbor=True stdout=b'' stderr=b''
 ```
 
-Текущая семья: 78 → 82 клетки; 105 → 110 стабов. Независимая мера
+Историческая fixture-пачка: 78 → 82 клетки; 105 → 110 стабов. Независимая мера
 `wc -l .scratch-b5c/b5c-{model,stabs,repo}.stdout` → 84, 194, 84;
 за вычетом selfcheck/summary — 82 клетки, разность 194−84 — 110 стабов.
 `census_b5.py b5c model stabs repo wiring` дал соответственно rc 0, 0, 1, 0.
@@ -368,9 +400,9 @@ EXIT-cleanup при INT, оставляя честный TERM; S3 теряет �
 на стандартный ESM import до предъявления; отсутствие ready остаётся красным.
 Общий А-журнал в wip не менялся: запись разрешена только в main.
 
-Требуемая проверка обновлённого листа:
+Историческая проверка листа ДО ремонта:
 `TMPDIR="$PWD/.scratch-b5c" bash scripts/check_sdacha.sh "$PWD" contracts/187-arhitektura-v-processe.md --run`
 → rc 0, `СДАЧА: лист зелёный (двери=5 карта=17/17 дельта=0)`.
 Она повторно исполнила все пять дверей, включая оба режима контроля;
-repo здесь намеренно заявлен как красное предъявление ДО ремонта.
+repo в том историческом листе был заявлен как красное предъявление ДО ремонта.
 
