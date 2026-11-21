@@ -172,7 +172,7 @@ def run_case(probe, name, subject, mutant=''):
 
 
 def cells(probe, subject):
-    return {name: run_case(probe, name, subject) for name in CASES}
+    return probe.run_cells(CASES, subject)
 
 
 # Each mutation has its own observable input; no prose-maintained branch map.
@@ -203,8 +203,8 @@ MUTANTS = (
 
 
 def stabs(probe, subject):
-    misses = 0
     honest = subject.read_text()
+    jobs = []
     for mutant, branch in MUTANTS:
         text = honest
         if mutant == 'cap_raised':
@@ -213,9 +213,5 @@ def stabs(probe, subject):
             text = probe.replace_once(text, '  [ -z "$ARCH_SEC" ] || printf \'=== ARCHITECTURE BRIEF ===\\n%s\' "$ARCH_SEC"',
                                       '  : # brief excluded from measured pack')
             text += '\n[ -z "$ARCH_SEC" ] || printf \'=== ARCHITECTURE BRIEF ===\\n%s\' "$ARCH_SEC"\n'
-        subject.write_text(text)
-        caught = not run_case(probe, branch, subject, mutant)
-        print(f'170 STAB {mutant} caught @ {branch}' if caught else f'170 STAB {mutant} ZHIV @ {branch}', flush=True)
-        misses += not caught
-    subject.write_text(honest)
-    return misses
+        jobs.append((subject, text, mutant, branch, mutant))
+    return probe.run_mutants(jobs)

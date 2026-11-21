@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """170: public make_task boundary, honest control and branch-specific mutants."""
 import argparse
+from concurrent.futures import ProcessPoolExecutor
+from contextlib import redirect_stdout
+from io import StringIO
+from itertools import repeat
 import json
 import os
 from pathlib import Path
@@ -225,8 +229,54 @@ CASES = ('required', 'legacy', 'document', 'brief_kind', 'architect_rules',
          'class_upper_c', 'second_malformed_id')
 
 
+def capture(function, item):
+    with redirect_stdout(StringIO()) as output:
+        result = function(item)
+    return result, output.getvalue()
+
+
+def run_parallel(function, items):
+    results = []
+    with ProcessPoolExecutor(max_workers=4) as pool:
+        for result, output in pool.map(capture, repeat(function), items):
+            # Only the parent writes complete records, in input order.
+            print(output, end='', flush=True)
+            results.append(result)
+    return results
+
+
+def run_cell(item):
+    name, subject = item
+    return (run_case(name, subject) if name in CASES else
+            pinned.run_case(sys.modules[__name__], name, subject))
+
+
+def run_cells(names, subject):
+    # Worlds and pinned TMPDIR changes stay in separate processes. Keep the
+    # complete honest control within spec-ready's existing per-probe budget.
+    names = tuple(names)
+    return dict(zip(names, run_parallel(run_cell, ((name, subject) for name in names))))
+
+
 def cells(subject, selected=None):
-    return {name: run_case(name, subject) for name in CASES if selected is None or name == selected}
+    return run_cells((name for name in CASES if selected is None or name == selected), subject)
+
+
+def run_mutant(item):
+    subject, text, name, branch, mutant = item
+    # A mutation never races another worker over the subject's script.
+    with tempfile.NamedTemporaryFile(mode='w', dir=subject.parent, suffix='.sh') as script:
+        script.write(text)
+        script.flush()
+        candidate = Path(script.name)
+        caught = not (run_case(branch, candidate) if branch in CASES else
+                      pinned.run_case(sys.modules[__name__], branch, candidate, mutant))
+    print(f'170 STAB {name} {"caught" if caught else "ZHIV"} @ {branch}', flush=True)
+    return caught
+
+
+def run_mutants(items):
+    return sum(not caught for caught in run_parallel(run_mutant, items))
 
 
 def main():
@@ -310,6 +360,7 @@ def main():
             )
             misses = 0
             misses += pinned.stabs(sys.modules[__name__], pin_subject)
+            jobs = []
             for name, old, new, branch in mutants:
                 if name == 'npm_failure_ignored':
                     if honest.count(old) != 2:
@@ -322,10 +373,8 @@ def main():
                         mutated, '      _arch_rules=""',
                         """      case "$_arch_id" in ''|[!A-Za-z0-9_]*|*[^A-Za-z0-9._-]*|*..*) die "ARCH_COMPONENT_ID: неконформный id" ;; esac
       _arch_rules=""")
-                subject.write_text(mutated)
-                caught = not cells(subject, branch)[branch]
-                print(f'170 STAB {name} {"caught" if caught else "ZHIV"} @ {branch}', flush=True)
-                misses += not caught
+                jobs.append((subject, mutated, name, branch, ''))
+            misses += run_mutants(jobs)
             return 1 if misses else 0
     except (ValueError, subprocess.CalledProcessError, OSError) as error:
         print(f'170 CONTROL_INVALID: {error}', file=sys.stderr)
