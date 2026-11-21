@@ -24,6 +24,7 @@ accept — ОДИН арбитраж (строка ARBITRAZH журнала) и 
 номера 000–999), включая номера без тега id/CONTRACT/* на момент запуска —
 очередной конечный список свидетелей класс не закрывает (вердикт Crit154e Б8).
 """
+import ctypes
 import json
 import os
 import shutil
@@ -799,12 +800,98 @@ def scenario(name, n, phase, outcome='FAIL', arb_file=False, rename=False,
         return None
 
 
-def concurrent_start(name, mode, mutation='', window=False):
-    """One remaining base position, two real --sudit processes on the same state.
+def race_mutant(lock, mutation):
+    """Reviewer S1/S2/S3/S4 and earlier K-08 mutations, on real copied doors."""
+    if not mutation:
+        return lock
+    calls = [line for line in lock.splitlines()
+             if ('schet_kritika_154 spawn ' in line or
+                 '--phase spawn || b154=$?' in line)]
+    start = '  # [D23 start-do-razdachi]'
+    if len(calls) != 1 or lock.count(start) != 1:
+        raise RuntimeError('race mutation: lost counter/START seam')
+    call = calls[0]
+    reacquire = ('  while IFS= read -r ms; do [ -z "$ms" ] || '
+                 'mutex_zajavit "$ms" || exit 1; done <<< "$SUBJS"\n')
+    if mutation == 'counter-outside-mutex':
+        return lock.replace(call, '        mutexi_snyat_vse\n' + call +
+                            '\n        mutex_zajavit "$sv" || exit 1', 1)
+    releases = {
+        'mutex-gap-after-counter': '        mutexi_snyat_vse',
+        'mutex-direct-gap-s1': '        rmdir "$(zamok_dir "$sv")/mutex"',
+        'mutex-inline-gap-s2': (
+            '        while IFS= read -r s; do\n'
+            '          [ -n "$s" ] && rmdir "$(zamok_dir "$s")/mutex" 2>/dev/null\n'
+            '        done <<< "$SUBJS"'),
+        'mutex-reverse-gap-s3': '        mutexi_snyat_vse',
+        'mutex-immediate-gap-s4': (
+            '        rmdir "$(zamok_dir "$sv")/mutex"\n'
+            '        mutex_zajavit "$sv" || exit 1'),
+    }
+    if mutation not in releases:
+        raise RuntimeError('race: unknown mutation: ' + mutation)
+    lock = lock.replace(call, call + '\n' + releases[mutation], 1)
+    if mutation == 'mutex-reverse-gap-s3':
+        reacquire = ('  while IFS= read -r ms; do [ -z "$ms" ] || '
+                     'mutex_zajavit "$ms" || exit 1; '
+                     'done < <(printf "%s\\n" "$SUBJS" | tac)\n')
+    if mutation != 'mutex-immediate-gap-s4':
+        lock = lock.replace(start, reacquire + start, 1)
+    return lock
 
-    The copied door pauses after counting. A competing process either encounters
-    the held mutex or finishes its own count. Pipes, not scheduler delays, choose
-    the interleaving; no production file or counter result is replaced.
+
+class MutexObservation:
+    """Observe the actual directory inode, including remove/recreate in one command.
+
+    inotify is the Linux filesystem's event source, not a parser of the door's
+    release spelling. DEBUG checkpoints only let the parent choose an interleaving.
+    """
+    def __init__(self, path):
+        self.path = path
+        self.fd = None
+        self.identity = None
+        try:
+            stat = path.stat()
+        except FileNotFoundError:
+            return
+        self.identity = (stat.st_dev, stat.st_ino)
+        libc = ctypes.CDLL(None, use_errno=True)
+        fd = libc.inotify_init1(os.O_NONBLOCK | os.O_CLOEXEC)
+        if fd < 0:
+            raise OSError(ctypes.get_errno(), 'inotify_init1')
+        # IN_DELETE_SELF | IN_MOVE_SELF; removal also queues IN_IGNORED.
+        if libc.inotify_add_watch(fd, os.fsencode(path), 0x400 | 0x800) < 0:
+            error = ctypes.get_errno()
+            os.close(fd)
+            raise OSError(error, 'inotify_add_watch')
+        self.fd = fd
+
+    def held(self):
+        if self.fd is None or select.select([self.fd], [], [], 0)[0]:
+            return False
+        try:
+            stat = self.path.stat()
+            same = (stat.st_dev, stat.st_ino) == self.identity
+            self.path.mkdir()
+        except FileExistsError:
+            return same
+        except FileNotFoundError:
+            return False
+        # A successful competing mkdir is itself evidence that it was not held.
+        self.path.rmdir()
+        return False
+
+    def close(self):
+        if self.fd is not None:
+            os.close(self.fd)
+
+
+def concurrent_start(name, mode, mutation='', window=False):
+    """Two real --sudit processes; one base position and one immutable oracle.
+
+    The original schedule pauses after counting. The window schedule watches the
+    actual mutex inode from count to the START writer and probes competing mkdir
+    at command boundaries, independently of the release helper or spelling.
     """
     with tempfile.TemporaryDirectory(prefix='schet154-race-') as tmp:
         base = Path(tmp)
@@ -815,53 +902,50 @@ def concurrent_start(name, mode, mutation='', window=False):
             verdict_tail=verdict_tail)
         scripts = prepare_scripts(base, mode)
         door = scripts / 'zamok_predmeta.sh'
-        lock = door.read_text()
+        lock = race_mutant(door.read_text(), mutation)
         calls = [line for line in lock.splitlines()
                  if ('schet_kritika_154 spawn ' in line or
                      '--phase spawn || b154=$?' in line)]
         if len(calls) != 1:
             raise RuntimeError('race: lost spawn counter seam')
         call = calls[0]
-        if mutation == 'counter-outside-mutex':
-            # Adv154V7b, K-08: all other checks keep their original mutex.
-            lock = lock.replace(call, '        mutexi_snyat_vse\n' + call +
-                                '\n        mutex_zajavit "$sv" || exit 1', 1)
-        elif mutation == 'mutex-gap-after-counter':
-            # Adv154N4, K-08': the count is protected, but START is not atomic
-            # with it. Keep every check and reacquire all subjects before START.
-            start = '  # [D23 start-do-razdachi]'
-            if lock.count(start) != 1:
-                raise RuntimeError('race: lost START seam')
-            lock = lock.replace(call, call + '\n        mutexi_snyat_vse', 1)
-            lock = lock.replace(
-                start, '  while IFS= read -r ms; do [ -z "$ms" ] || '
-                'mutex_zajavit "$ms" || exit 1; done <<< "$SUBJS"\n' + start, 1)
-        elif mutation:
-            raise RuntimeError('race: unknown mutation: ' + mutation)
         pause = ('\n        printf "counted\\n" >&"$RACE154_STATUS_FD"\n'
                  '        IFS= read -r -u "$RACE154_RELEASE_FD" race154_release || exit 2')
         if window:
-            # Arm after the real count, then stop at the FIRST release or START.
-            # Unlike the older after-count pause, a release anywhere in this
-            # interval lets the competitor count before either START is written.
-            checkpoint = (
-                '\nrace154_checkpoint() {\n'
-                '  if [ "${RACE154_ARMED:-0}" = 1 ]; then\n'
-                '    RACE154_ARMED=0\n'
-                '    printf "%s\\n" "$1" >&"$RACE154_STATUS_FD"\n'
-                '    IFS= read -r -u "$RACE154_RELEASE_FD" race154_release || exit 2\n'
-                '  fi\n'
-                '}\n')
-            release_end = '\nEOF\n}\n# [D19 gruppa-pina]'
-            start = '  # [D23 start-do-razdachi]'
-            if lock.count(release_end) != 1 or lock.count(start) != 1:
-                raise RuntimeError('race: lost release/START checkpoint seam')
+            # Every main-shell command yields to the parent while armed.
+            # inotify keeps deletions observable even if an external command
+            # removes AND recreates the directory before its next checkpoint.
+            checkpoint = r'''
+race154_observe() {
+  if [[ "${RACE154_ARMED:-0}" = 1 && "$BASHPID" = "$RACE154_PID" ]]; then
+    printf 'inspect\n' >&"$RACE154_STATUS_FD"
+    IFS= read -r -u "$RACE154_RELEASE_FD" race154_release || exit 2
+    if [[ "$race154_release" = stop ]]; then RACE154_ARMED=0; fi
+  fi
+}
+race154_arm() {
+  RACE154_PID=$BASHPID
+  printf 'armed\n' >&"$RACE154_STATUS_FD"
+  IFS= read -r -u "$RACE154_RELEASE_FD" race154_release || exit 2
+  if [[ "$race154_release" = stop ]]; then return; fi
+  set -T
+  trap race154_observe DEBUG
+  RACE154_ARMED=1
+}
+race154_checkpoint() {
+  if [[ "${RACE154_ARMED:-0}" = 1 ]]; then
+    RACE154_ARMED=0
+    printf 'counted\n' >&"$RACE154_STATUS_FD"
+    IFS= read -r -u "$RACE154_RELEASE_FD" race154_release || exit 2
+  fi
+}
+'''
+            start = '    jq -nc --arg t START --arg r "$REPO_ID" --arg s "$sv" --arg g "$grp2" \\'
+            if lock.count(start) != 1:
+                raise RuntimeError('race: lost START writer seam')
             lock = checkpoint + lock
-            lock = lock.replace(call, call + '\n        RACE154_ARMED=1', 1)
-            lock = lock.replace(release_end, '\nEOF\n'
-                                '  race154_checkpoint released\n}\n'
-                                '# [D19 gruppa-pina]', 1)
-            lock = lock.replace(start, '  race154_checkpoint counted\n' + start, 1)
+            lock = lock.replace(call, call + '\n        race154_arm', 1)
+            lock = lock.replace(start, '    race154_checkpoint\n' + start, 1)
         else:
             lock = lock.replace(call, call + pause, 1)
         acquire = '    mkdir "$d/mutex" 2>/dev/null && return 0'
@@ -880,6 +964,10 @@ def concurrent_start(name, mode, mutation='', window=False):
         argv = ['bash', str(door), '--sudit', '--sostojanie', str(state),
                 '--zhurnaly', str(journals), '--repo', str(repo), str(event)]
         processes, descriptors = [], []
+        observations = {}
+        continuity_lost = False
+        mutex = state / 'zamki' / REPO_ID / NNN
+        mutex = mutex / 'mutex'
 
         def launch():
             read_fd, write_fd = os.pipe()
@@ -895,26 +983,39 @@ def concurrent_start(name, mode, mutation='', window=False):
             processes.append(process)
             return process, read_fd, resume_fd
 
-        def status(fd):
-            if not select.select([fd], [], [], 30)[0]:
-                raise RuntimeError('race: synchronization timed out')
-            value = os.read(fd, 64).decode().strip()
-            if value not in ('counted', 'blocked', 'released'):
-                raise RuntimeError('race: invalid synchronization: ' + repr(value))
-            return value
+        def status(fd, resume_fd):
+            nonlocal continuity_lost
+            while True:
+                if not select.select([fd], [], [], 30)[0]:
+                    raise RuntimeError('race: synchronization timed out')
+                value = os.read(fd, 64).decode().strip()
+                if window and value in ('armed', 'inspect', 'counted'):
+                    if value == 'armed':
+                        observations[fd] = MutexObservation(mutex)
+                    if fd not in observations:
+                        raise RuntimeError('race: inspection before observation')
+                    if not observations[fd].held():
+                        continuity_lost = True
+                        return 'released'
+                    if value != 'counted':
+                        os.write(resume_fd, b'go\n')
+                        continue
+                if value not in ('counted', 'blocked', 'released'):
+                    raise RuntimeError('race: invalid synchronization: ' + repr(value))
+                return value
 
         try:
             first, first_fd, first_resume = launch()
-            if status(first_fd) not in (('counted', 'released') if window else ('counted',)):
+            reached = status(first_fd, first_resume)
+            if reached not in (('counted', 'released') if window else ('counted',)):
                 raise RuntimeError('race: first contender did not reach counter')
             second, second_fd, second_resume = launch()
-            competing = status(second_fd)
-            # In the window case, released means the mutex is already absent:
-            # both contenders count before either writes START. An honest door
-            # instead holds the mutex through the pre-START checkpoint.
-            os.write(first_resume, b'go\n')
+            competing = status(second_fd, second_resume)
+            # A lost directory pauses BEFORE reacquisition, so the competitor
+            # can count the same position. Honest contenders see the held mutex.
+            os.write(first_resume, b'stop\n' if reached == 'released' else b'go\n')
             first_out, first_err = first.communicate(timeout=180)
-            os.write(second_resume, b'go\n')
+            os.write(second_resume, b'stop\n' if competing == 'released' else b'go\n')
             second_out, second_err = second.communicate(timeout=180)
         finally:
             for process in processes:
@@ -923,6 +1024,8 @@ def concurrent_start(name, mode, mutation='', window=False):
                 process.communicate()
             for fd in descriptors:
                 os.close(fd)
+            for observation in observations.values():
+                observation.close()
         after = ledger.read_bytes()
         appended = ([json.loads(line) for line in after[len(before):].splitlines()]
                     if after.startswith(before) else [])
@@ -930,11 +1033,13 @@ def concurrent_start(name, mode, mutation='', window=False):
                        appended[0].get('repoId') == REPO_ID and
                        appended[0].get('subjectId') == NNN and
                        appended[0].get('rol') in ('critic', 'critic-sol'))
-        if (first.returncode != 0 or second.returncode != 1 or
+        if (continuity_lost or first.returncode != 0 or second.returncode != 1 or
                 'ОТКАЗ: ZAMOK_BROSHEN:' not in second_err or not valid_start):
-            return (f'{name}: expected rc=[0,1] ZAMOK_BROSHEN added-critic-START=1; '
+            return (f'{name}: expected mutex-held=count-through-START '
+                    f'rc=[0,1] ZAMOK_BROSHEN added-critic-START=1; '
                     f'actual rc=[{first.returncode},{second.returncode}] '
-                    f'appended={len(appended)} competing={competing}; '
+                    f'appended={len(appended)} competing={competing} '
+                    f'mutex-continuity={"lost" if continuity_lost else "held"}; '
                     f'stdout={first_out.strip()!r},{second_out.strip()!r}; '
                     f'stderr={first_err.strip()!r},{second_err.strip()!r}')
         return None
@@ -1351,6 +1456,10 @@ CASES.append(CONCURRENT_WINDOW_CASE)
 DOMAIN.append(CONCURRENT_WINDOW_CASE)
 LIVE_CASES.append(CONCURRENT_WINDOW_CASE)
 STAB_CASES.append(('mutex-gap-after-counter',) + CONCURRENT_WINDOW_CASE[1:])
+for _mutation in ('mutex-direct-gap-s1', 'mutex-inline-gap-s2',
+                  'mutex-reverse-gap-s3', 'mutex-immediate-gap-s4',
+                  'counter-outside-mutex'):
+    STAB_CASES.append((_mutation,) + CONCURRENT_WINDOW_CASE[1:])
 
 
 def grammar_numbers(limit=0):
