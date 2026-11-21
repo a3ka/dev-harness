@@ -2045,10 +2045,23 @@ def m_klass_iz_main(t):
     # v+1 (боль 991 v3: «рисковый» старого main против «обычный» кандидата
     # молча отказывала KLASS_RISKA_NET); перечисление find по main, blob —
     # hash-object файлов main, содержимое — cat файлов main
-    t = _z(t, '''  if [ "$(git -C "$wt" cat-file -t "$obj:contracts" 2>/dev/null)" = tree ]; then kat='contracts'
+    # Модель несёт прежний выбор каталога, production Ш-2 — kontrakt_kat.
+    # В обоих случаях подменяем источник целиком на рабочий каталог станции.
+    if '  kat="$(kontrakt_kat "$wt")" || kat=\'\'' in t:
+        vybor = '''  kat="$(kontrakt_kat "$wt")" || kat=''
+  if [ -z "$kat" ]; then
+    printf 'net_stroki:каталог контрактов в профиле владельца не объявлен'
+    return 0
+  fi
+  if [ "$(git -C "$wt" cat-file -t "$obj:$kat" 2>/dev/null)" != tree ]; then
+    printf 'net_stroki:каталога %s в дереве %s нет' "$kat" "$obj"
+    return 0
+  fi'''
+    else:
+        vybor = '''  if [ "$(git -C "$wt" cat-file -t "$obj:contracts" 2>/dev/null)" = tree ]; then kat='contracts'
   elif [ "$(git -C "$wt" cat-file -t "$obj:.harness/contracts" 2>/dev/null)" = tree ]; then kat='.harness/contracts'
-  else printf 'net_stroki:ни contracts/, ни .harness/contracts/ в дереве %s нет' "$obj"; return 0; fi''',
-              '''  if [ -d "$REPO/contracts" ]; then kat="$REPO/contracts"
+  else printf 'net_stroki:ни contracts/, ни .harness/contracts/ в дереве %s нет' "$obj"; return 0; fi'''
+    t = _z(t, vybor, '''  if [ -d "$REPO/contracts" ]; then kat="$REPO/contracts"
   elif [ -d "$REPO/.harness/contracts" ]; then kat="$REPO/.harness/contracts"
   else printf 'net_stroki:ни contracts/, ни .harness/contracts/ в %s нет' "$REPO"; return 0; fi''')
     t = _z(t, '''  spisok="$(git -C "$wt" ls-tree "$obj:$kat" 2>/dev/null \\
