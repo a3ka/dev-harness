@@ -19,6 +19,13 @@
 # «обычным» по умолчанию; и ошибка чтения списка frozen-тегов (git
 # for-each-ref → rc 127) — fail-closed («закреплённый frozen недоступен»), а
 # не bootstrap (ошибка инструмента ≠ пустой список тегов).
+# И ещё четыре клетки повтора суда (и, к, л, м) — по слову владельца
+# 21.11 00:55: строка задания судьи `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: <NNN> <роль>
+# <OBJECT>` разрешает ОДИН повторный круг той же роли на том же OBJECT.
+# (и) повтор без строки — отказ OBJECT_UZHE_SUZHEN (как прежде); (к) тот же
+# повтор со строкой — пропуск (rc 0); (л) третий круг с той же строкой —
+# отказ (разрешение одно, повтор уже использован); (м) чужая строка (чужой
+# OBJECT, чужая роль, чужой предмет, строка вне формата) — отказ.
 #
 # Мир — в mktemp; сеть и omp не нужны; git/jq/bash обязательны.
 ZP_REPO="$(cd "$HERE/../.." && pwd -P)"
@@ -152,6 +159,29 @@ zp_avtor_sdal() {  # <NNN> <holder> <worktree> <branch>
       > "$ZP_T/zhurnaly/$h.jsonl"
 }
 
+# Журнал держателя с признаком сдачи (yield) — судья сдал свой круг.
+zp_sdal() {  # <holder>
+  printf '{"timestamp":"2026-11-21T00:00:00.000Z","message":{"role":"assistant"}}\n{"type":"toolResult","toolCallId":"toolu_x","toolName":"yield","content":[{"type":"text","text":"Result submitted."}]}\n' \
+      > "$ZP_T/zhurnaly/$1.jsonl"
+}
+
+# Мир повтора суда: предмет с кандидатом (контракт в дереве OBJECT), автор
+# сдал, ПЕРВЫЙ critic сдал — круг суда роли на этом OBJECT состоялся.
+# Возвращает ZP_WT/ZP_BR/ZP_SHA кандидата.
+zp_mir_povtora() {  # <NNN>
+  zp_world || return 1
+  zp_kandidat "$1" || return 1
+  zp_avtor_sdal "$1" "Avtor$1" "$ZP_WT" "$ZP_BR" || return 1
+  zp_sdal "Critic$1"
+  zp_event "$ZP_T/e1.json" critic "Critic$1" "SUBJECT=$1" "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e1.json"
+  if [ "$ZP_RC" -ne 0 ]; then
+    printf 'zamok_predmeta: первый critic не пропущен (rc %s): %s\n' "$ZP_RC" "$ZP_OUT" >&2
+    return 1
+  fi
+  return 0
+}
+
 # Настоящий git ДО подмены PATH: обёртка клетки (з) зовёт его по абсолютному
 # пути, иначе обёртка вызвала бы саму себя.
 ZP_REAL_GIT="$(command -v git 2>/dev/null || true)"
@@ -282,10 +312,19 @@ battery_silent_drop() {
   # Каждая идёт ОТДЕЛЬНО и печатает свой rc: иначе первый пробитый скрыл бы
   # остальные (мутант двери ломает их по-разному), и профиль не показал бы,
   # КАКОЙ именно вход не различился.
+  # (и)(к)(л)(м) — четыре клетки повтора суда вокруг строки разрешения
+  # владельца `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР:` (слово владельца 21.11 00:55):
+  # без строки — отказ; со строкой — один пропуск; третий круг с той же
+  # строкой — отказ; чужая строка (чужой OBJECT/роль/предмет, вне формата) —
+  # отказ.
   local kletka_probit=0
   zp_kletka_net_stroki || kletka_probit=1
   zp_kletka_symlink || kletka_probit=1
   zp_kletka_failref || kletka_probit=1
+  zp_kletka_povtor_bez_stroki || kletka_probit=1
+  zp_kletka_povtor_so_stroka || kletka_probit=1
+  zp_kletka_povtor_tretiy || kletka_probit=1
+  zp_kletka_povtor_chuzhaya || kletka_probit=1
   [ "$kletka_probit" -eq 0 ] || return 1
   return 0
 }
@@ -354,6 +393,83 @@ zp_kletka_failref() {
   zp_kletka '(з) critic нового предмета: git for-each-ref недоступен' "$ZP_RC"
   zp_expect_prichina 1 KLASS_RISKA_NET 'закреплённый frozen недоступен' \
       '(з) critic нового предмета: git for-each-ref недоступен' || return 1
+  return 0
+}
+
+# (и) Второй круг ТОЙ ЖЕ роли на ТОМ ЖЕ OBJECT БЕЗ строки разрешения —
+#     отказ OBJECT_UZHE_SUZHEN (как прежде): дверь не теряет правило молча.
+zp_kletka_povtor_bez_stroki() {
+  zp_mir_povtora 208 || return 1
+  zp_event "$ZP_T/e2.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e2.json"
+  zp_kletka '(и) повтор той же роли на том же OBJECT без строки разрешения' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN \
+      '(и) повтор той же роли на том же OBJECT без строки разрешения' || return 1
+  return 0
+}
+
+# (к) Тот же повтор СО строкой разрешения владельца
+#     (`РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: <NNN> <роль> <OBJECT>` с теми же
+#     предметом/ролью/OBJECT) — пропускается (rc 0): слово владельца
+#     21.11 00:55 разрешает ОДИН такой повтор.
+zp_kletka_povtor_so_stroka() {
+  zp_mir_povtora 208 || return 1
+  zp_event "$ZP_T/e2.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA" \
+      "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 208 critic $ZP_SHA"
+  zp_sudit "$ZP_T/e2.json"
+  zp_kletka '(к) повтор той же роли со строкой разрешения' "$ZP_RC"
+  zp_expect 0 - '(к) повтор той же роли со строкой разрешения' || return 1
+  return 0
+}
+
+# (л) ТРЕТИЙ круг той же роли на том же OBJECT с той же строкой разрешения —
+#     отказ OBJECT_UZHE_SUZHEN: разрешение владельца одно, повтор уже
+#     использован (кругов суда роли на этом OBJECT — два).
+zp_kletka_povtor_tretiy() {
+  zp_mir_povtora 208 || return 1
+  zp_event "$ZP_T/e2.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA" \
+      "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 208 critic $ZP_SHA"
+  zp_sudit "$ZP_T/e2.json"
+  if [ "$ZP_RC" -ne 0 ]; then
+    printf 'zamok_predmeta: разрешённый повтор не пропущен (rc %s): %s\n' "$ZP_RC" "$ZP_OUT" >&2
+    return 1
+  fi
+  zp_sdal Critic208b
+  zp_event "$ZP_T/e3.json" critic Critic208c 'SUBJECT=208' "OBJECT=$ZP_SHA" \
+      "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 208 critic $ZP_SHA"
+  zp_sudit "$ZP_T/e3.json"
+  zp_kletka '(л) третий круг той же роли с той же строкой разрешения' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN \
+      '(л) третий круг той же роли с той же строкой разрешения' || return 1
+  return 0
+}
+
+# (м) Строка разрешения с ЧУЖИМ предметом/ролью/OBJECT (и вне формата) —
+#     отказ OBJECT_UZHE_SUZHEN: адресное разрешение адресовано другому
+#     повтору, чужое значение разрешением не является (молчаливого пропуска
+#     нет). Мир — с ОДНИМ кругом суда: иначе отказ был бы и без строки.
+zp_kletka_povtor_chuzhaya() {
+  zp_mir_povtora 208 || return 1
+  zp_event "$ZP_T/e2.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA" \
+      'РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 208 critic 0000000000000000000000000000000000000000'
+  zp_sudit "$ZP_T/e2.json"
+  zp_kletka '(м) строка разрешения с чужим OBJECT' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(м) строка разрешения с чужим OBJECT' || return 1
+  zp_event "$ZP_T/e3.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA" \
+      "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 208 adversary $ZP_SHA"
+  zp_sudit "$ZP_T/e3.json"
+  zp_kletka '(м) строка разрешения с чужой ролью' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(м) строка разрешения с чужой ролью' || return 1
+  zp_event "$ZP_T/e4.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA" \
+      "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 209 critic $ZP_SHA"
+  zp_sudit "$ZP_T/e4.json"
+  zp_kletka '(м) строка разрешения с чужим предметом' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(м) строка разрешения с чужим предметом' || return 1
+  zp_event "$ZP_T/e5.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA" \
+      'РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 208 critic ne-40hex'
+  zp_sudit "$ZP_T/e5.json"
+  zp_kletka '(м) строка разрешения вне формата' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(м) строка разрешения вне формата' || return 1
   return 0
 }
 

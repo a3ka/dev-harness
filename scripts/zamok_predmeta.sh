@@ -68,6 +68,13 @@
 #   PIN     — пара строк `^WORKTREE=/[^TAB]+$` и `^BRANCH=wip/[0-9]{3}/[^TAB]+$`
 #             (построчная форма грамматики 066; NNN ветки == SUBJECT; байт TAB
 #             исключён из класса значения ЛИТЕРАЛЬНО — ERE-скобки не знают \t);
+#   ПОВТОР  — необязательная строка задания судьи (слово владельца 21.11 00:55)
+#             `^РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: [0-9]{3} (critic|critic-sol|adversary|
+#             reviewer) [0-9a-f]{40}$`; ровно одна; адресное разрешение владельца
+#             на ОДИН повторный круг той же роли на том же OBJECT (предмет/роль/
+#             OBJECT в строке — те же, что у события); строки вне формата, две
+#             и более строк, чужие значения — разрешения НЕ дают (отказ как
+#             прежде), новых имён отказа не добавляет;
 #   ИМЯ     — [A-Za-z0-9._-]+ (грамматика session-id, норма 037);
 #   ISOLATED — поле item события isolated: у рабочего — РЕАЛЬНОЕ булево
 #             true (строгое === true, jq-сравнение); отсутствие поля, ложь и
@@ -572,6 +579,24 @@ subekt_suzhen_sudej_obj() {  # <NNN> <rol> <object>
       else . end
     ) | any(.[]; . != "interrupted")' "$LEDGER" >/dev/null 2>&1
 }
+# [D11 uzhe-suzhen] Круги суда роли ROL на OBJECT по предмету NNN — тот же
+# счёт, что у subekt_suzhen_sudej_obj (учёт: START + собственный RELEASE;
+# оборванный судья — release `obryv_bez_verdikta` — круг не тратит, контракт
+# 167), но ЧИСЛОМ, а не признаком. 1 — повтор ещё не использован (слово
+# владельца 21.11 00:55 разрешает ровно один); 2 и больше — разрешение
+# исчерпано. Счёт по учёту, не по наличию замка.
+krugov_suda() {  # <NNN> <rol> <object> → число кругов
+  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" '
+    reduce .[] as $l ({};
+      if $l.repoId != $r or $l.subjectId != $n then .
+      elif $l.t == "START" and $l.klass == "sudja" and $l.rol == $roli and $l.object == $o
+        then .[$l.holder] = "open"
+      elif $l.t == "RELEASE" and .[$l.holder] == "open" and $l.prichina == "obryv_bez_verdikta"
+        then .[$l.holder] = "obryv"
+      elif $l.t == "RELEASE" and .[$l.holder] == "open" then .[$l.holder] = "sud"
+      else . end
+    ) | [ .[] | select(. != "obryv") ] | length' "$LEDGER" 2>/dev/null
+}
 # [D16 slovo] СЛОВО владельца — строка SLOVO в учёте (санкция сверх лимита).
 slovo_vladelca() {  # <NNN>
   jq -se --arg r "$REPO_ID" --arg n "$1" \
@@ -675,6 +700,23 @@ pin_iz() {  # <task> → «ok:<wt>|<br>»|net|gramm
   b="$(printf '%s\n' "$t" | grep -E "$rxb" | sed -n '1p' | cut -c8-)"
   printf 'ok:%s|%s' "$w" "$b"
 }
+# [D11 uzhe-suzhen] СЛОВО владельца (21.11 00:55) — адресное разрешение на
+# ОДИН повторный круг той же роли на том же OBJECT: строка задания судьи
+# `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: <NNN> <роль> <OBJECT-40hex>`. Строка
+# необязательная; формат закрытый (норма 041), предмет/роль/OBJECT в строке —
+# те же, что у события. Разбирается ОТДЕЛЬНО от SUBJECT/OBJECT/PIN: прежние
+# отказы грамматики (лишние/повторные строки иных ключей) не меняются, новых
+# имён отказа не появляется. Разрешение выдаётся только при РОВНО одной
+# строке нужного формата: две и более строк, строка вне формата или чужие
+# значения = разрешения нет (отказ OBJECT_UZHE_SUZHEN как прежде) — молчаливого
+# пропуска нет.
+povtor_iz() {  # <task> → «ok:<NNN>|<роль>|<OBJECT>»|net
+  local t="$1" c line
+  c="$(kolvo_strok "$t" '^РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: [0-9]{3} (critic|critic-sol|adversary|reviewer) [0-9a-f]{40}$')"
+  [ "$c" = '1' ] || { printf 'net'; return 0; }
+  line="$(printf '%s\n' "$t" | grep -E '^РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: [0-9]{3} (critic|critic-sol|adversary|reviewer) [0-9a-f]{40}$' | sed -n '1p')"
+  printf 'ok:%s' "$(printf '%s' "$line" | cut -d' ' -f2- | tr ' ' '|')"
+}
 
 # ══════════════════════════════ --sudit ══════════════════════════════════════
 sudit() {
@@ -689,6 +731,7 @@ sudit() {
   # проход 1: грамматика всех gated items; НИ ОДНОЙ записи до полного решения
   GATED=''
   local i=0 agent name task in_w in_j s sv p wt br o obj klass rol r
+  local pov psv2 prol2 pobj2
   local transfer P_JSON P_WT P_BRANCH P_OBJECT P_FROZEN risk_repo
   local kl_bootstrap kl_frozen
   while [ "$i" -lt "$N" ]; do
@@ -811,8 +854,26 @@ EOF
     # Суд идёт и при освобождённом замке (контракт 167): круг судейства считается
     # по учёту (START и его собственный RELEASE), а не по наличию замка.
     if [ "$klass" = 'sudja' ] && subekt_suzhen_sudej_obj "$sv" "$rol" "$obj"; then
-      mutexi_snyat_vse
-      otp OBJECT_UZHE_SUZHEN "предмет $sv: OBJECT $obj уже судился ролью $rol; исправительный круг — новый sha"
+      # [D11 uzhe-suzhen] СЛОВО владельца 21.11 00:55: ОДИН повторный круг
+      # той же роли на том же OBJECT пропускается, если в задании судьи есть
+      # ровно одна строка `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: <NNN> <роль> <OBJECT>` с
+      # теми же предметом, ролью и OBJECT И повтор ещё не использован (кругов
+      # суда роли на этом OBJECT по этому предмету — ровно один). Строка вне
+      # формата, дубль строки, чужие предмет/роль/OBJECT, исчерпанное
+      # разрешение — повтор НЕ пропускается: отказ OBJECT_UZHE_SUZHEN как
+      # прежде (молчаливого пропуска нет).
+      pov="$(povtor_iz "$(jq -r "(.tasks // [.])[$idx].task // \"\"" "$EVENT" 2>/dev/null)")"
+      psv2=''; prol2=''; pobj2=''
+      case "$pov" in
+        ok:*) psv2="${pov#ok:}"; psv2="${psv2%%|*}"
+              prol2="${pov#ok:}"; prol2="${prol2#*|}"; prol2="${prol2%%|*}"
+              pobj2="${pov#ok:}"; pobj2="${pobj2##*|}" ;;
+      esac
+      if [ "$psv2" != "$sv" ] || [ "$prol2" != "$rol" ] || [ "$pobj2" != "$obj" ] \
+         || [ "$(krugov_suda "$sv" "$rol" "$obj")" != '1' ]; then
+        mutexi_snyat_vse
+        otp OBJECT_UZHE_SUZHEN "предмет $sv: OBJECT $obj уже судился ролью $rol; исправительный круг — новый sha"
+      fi
     fi
     if [ "$klass" = 'sudja' ]; then
       rab="$(poslednij_rabochij "$sv")"
