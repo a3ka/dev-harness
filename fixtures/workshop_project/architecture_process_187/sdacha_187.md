@@ -1,12 +1,12 @@
 # СДАЧА 187 — Б-3: ARCH_REVIEW предупреждает, ARCH_CI сохраняет отказ
 
 Основание: `docs/owner/adr/2026-11-21-plan-fable.md`, решение 2–3.
-Задание: `/tmp/dev-harness-verify/task-b3-architect.md`.
-База: `01df50efe70fdb860e84cdb06440c6998fff3bfc`.
-Это авторская поставка клеток для одного PR Б-3, не новая версия контракта
-и не исправительный круг critic. Frozen-тексты и публичная дверь не менялись.
-Ниже до раздела «Исторический ремонт» — актуальный лист; последующие
-разделы сохраняют исторические замеры, не результаты Б-3.
+Задание: `/tmp/dev-harness-verify/task-b3-architect-sdacha.md`.
+База после реализации двери: `f708b72398c8a92b17b021bc66e6710816277051`.
+Это лист общего PR Б-3 после реализации двери, не новая версия контракта
+и не исправительный круг critic. Frozen-тексты, клетки, модель и стабы
+этой правкой не менялись. Исторические замеры до реализации ниже
+сохранены отдельно от актуальных результатов.
 
 ## Существующее
 
@@ -22,14 +22,14 @@
 
 - battery-model · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --model · 0 · 0
 - battery-stabs · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --stabs · 0 · 0
-- battery-repo-before-implementation · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo . · 1 · 1
+- battery-repo-after-implementation · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo . · 0 · 0
 - wiring · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --wiring . · 0 · 0
 
-Строка repo отражает намеренно КРАСНОЕ предъявление до реализации:
-на неизменённой двери красны только новые warns-клетки. После реализации
-Б-3 тот же режим должен дать rc 0; при сборке общего PR строка repo
-обновляется на фактический зелёный результат. `pre_critic` не требуется:
-контракт неизменен, маршрут ADR — один reviewer общего PR.
+Строка repo отражает живой прогон после реализации Б-3:
+rc 0, `CELLS=67 STABS=0 FAILURES=0`. ARCH_REVIEW предупреждает,
+ARCH_CI сохраняет отказ; прежние красные замеры ниже — история
+предъявления до реализации. `pre_critic` не требуется: контракт
+неизменен, маршрут ADR — один reviewer общего PR.
 
 ## Карта классов
 
@@ -47,7 +47,7 @@
 - К-12 · чисто · вход: CI_VARIATIONS порождает warn-пары; REVIEW и DONE_TAG — единые адреса, формат документа не парсится новым гардом · - · -
 - К-13 · н/п · секретов, токенов или внешнего API в новых клетках нет · - · -
 - К-14 · чисто · вход: модель зелена на inline-упоминании и heading-форме с предупреждением, на самостоятельной строке без предупреждения; все исходные CI-отказы зелены · - · -
-- К-15 · чисто · вход: вывод --model CELLS=67 STABS=0 FAILURES=0; --stabs CELLS=67 STABS=93 FAILURES=0; --repo CELLS=67 STABS=0 FAILURES=7 · - · -
+- К-15 · чисто · вход: вывод --model CELLS=67 STABS=0 FAILURES=0; --stabs CELLS=67 STABS=93 FAILURES=0; --repo после реализации CELLS=67 STABS=0 FAILURES=0 · - · -
 - К-16 · чисто · вход: ARCH_CI судится и со строкой reviewer, и после ARCH_REVIEW-предупреждения; при отказе done-тег отсутствует; содержательная архитектурная оценка не расширялась · - · -
 - К-17 · н/п · sourceCanon не вводится; архитектурная модель продукта и её pin не меняются · - · -
 
@@ -64,7 +64,7 @@
 идёт предупреждение, затем ARCH_CI-отказ и тег не создаётся.
 Стабы привязаны по коду, не в прозе frozen-контракта (Н-39).
 
-## Замер Б-3
+## Исторический замер Б-3 до реализации двери
 
 Корень прогона — собственная изолированная копия
 `/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t291b4aff6/m`.
