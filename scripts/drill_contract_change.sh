@@ -44,6 +44,9 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
+# Канонический инструментарий для соседей барьера: копия дрилла в чужом
+# каталоге (проверка анти-плацебо) берёт счётчик вызовов из него.
+export HARNESS_TOOLS_ROOT="${HARNESS_TOOLS_ROOT:-${REPO:-$ROOT}}"
 
 FREEZE="$HERE/freeze_contract.sh"
 FROZEN="$HERE/check_contract_frozen.sh"
@@ -121,10 +124,64 @@ base_or_skip env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git ini
 base_or_skip env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$W" remote add origin "$W_ORIGIN"
 base_or_skip g add -A
 base_or_skip g commit -q -m 'основание: контракт, вердикт критика, норма и роадмап'
+# [154] Старый предмет (след заморозки СТАРШЕ границы новых предметов): прежний §6в
+# дословно. «Старым» предмет делает ДОСТУПНЫЙ снимок границы, а след предмета —
+# его доказуемый предок. Снимок доставляется в мир ДРИЛЛА: настоящий коммит
+# «доставленный снимок границы 154» (пустой коммит — содержимое явно доставленного
+# снимка), а след предмета — тег id/CONTRACT/001 на его ПРЕДКЕ. Приватные копии
+# замка и freeze получают SHA этого снимка ЯВНО: каноническая константа границы в
+# production не подменяется молча. Пустой коммит после тега снимком границы НЕ
+# является (контракт 154, И-7) — прежний маркерный путь снят.
+#
+# Почему приватные копии, а не pack-снимок канонической границы: копия дрилла в
+# чужом каталоге (проверка анти-плацебо) лежит рядом с барьерами, а не в дереве
+# харнесса, — артефакт снимка из дерева ей недоступен. Способ доставки — тот же,
+# что в батарее 154 (probe.py: prepare_scripts) и в ремонте 187.
+base_or_skip g tag id/CONTRACT/001
+base_or_skip g commit -q --allow-empty -m 'доставленный снимок границы 154'
+GRANICA154_SHA="$(git -C "$W" rev-parse HEAD)"
+base_or_skip g tag toy/boundary154 "$GRANICA154_SHA"
+# Приватный инструментарий дрилла: соседи — симлинки на соседей рядом, замок и
+# freeze — копии с подставленным SHA доставленного снимка.
+TOOLS154="$W/tools154"
+mkdir -p "$TOOLS154/scripts"
+for f in "$HERE"/*.sh; do
+  b="$(basename "$f")"
+  case "$b" in
+    zamok_predmeta.sh|freeze_contract.sh) continue ;;
+  esac
+  ln -sf "$f" "$TOOLS154/scripts/$b"
+done
+for b in zamok_predmeta.sh freeze_contract.sh; do
+  [ -f "$HERE/$b" ] || continue   # сосед-счётчик рядом может отсутствовать (копия дрилла в чужом каталоге)
+  sed "s/5ca237e4e6bc980c460ede8ee6d85af8a33d0601/$GRANICA154_SHA/g" "$HERE/$b" > "$TOOLS154/scripts/$b"
+  chmod +x "$TOOLS154/scripts/$b"
+  grep -q "$GRANICA154_SHA" "$TOOLS154/scripts/$b" \
+    || { printf 'NOT_IMPLEMENTED: в %s нет закреплённого SHA границы — нечем доставить снимок\n' "$b" >&2; exit 2; }
+done
+[ -f "$TOOLS154/scripts/freeze_contract.sh" ] \
+  || { printf 'NOT_IMPLEMENTED: рядом нет freeze_contract.sh — нечем доставить границу\n' >&2; exit 2; }
+# Барьер заморозки — приватная копия (граница доставлена); читатели устава и
+# барьеров — НАСТОЯЩИЕ, рядом: их подмена проверяющим обязана быть видна дриллу.
+FREEZE="$TOOLS154/scripts/freeze_contract.sh"
+FROZEN="$HERE/check_contract_frozen.sh"
+CHARTER="$HERE/check_charter.sh"
 ok 'шаг 1: контракт и вердикт критика v1 закоммичены'
 
+# ── 1б. toy-корень состояния станции (контракт 154) ───────────────────────────
+# Заморозка пересчитывает платные START роли критика по журналу станции (тот же
+# state, что и у фазы спавна). Подставной журнал дрилла: одна сессия критика по
+# предмету 001 — позиция 1 свободна, расхода нет. Ключ журнала — тот же
+# (repoId,subjectId), что считает замок: repoId — basename origin.
+STATE="$W/state154"
+mkdir -p "$STATE"
+RID="$(basename "$(git -C "$W" remote get-url origin 2>/dev/null || printf '%s' "$W")")"
+RID="${RID%.git}"
+printf '{"t":"START","repoId":"%s","subjectId":"001","group":"harness","holder":"Crit001","klass":"sudja","rol":"critic","object":"%s","worktree":"-","branch":"-","at":"2020-01-01T00:00:00Z"}\n' \
+  "$RID" "0000000000000000000000000000000000000001" > "$STATE/uchet.jsonl"
+
 # ── 2. заморозка v1 ───────────────────────────────────────────────────────────
-if ! bash "$FREEZE" contracts/001-x.md "контракт стабилен" "$W" > "$out" 2>&1; then
+if ! bash "$FREEZE" contracts/001-x.md "контракт стабилен" "$W" "$STATE" > "$out" 2>&1; then
   otkaz 'заморозка v1' "$?" "$out"
 fi
 grep -qx 'v1' "$out" || otkaz 'заморозка v1 напечатала не v1' 0 "$out"
@@ -146,7 +203,7 @@ MSG
 ok 'шаг 4: правка, вердикт v2 и строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ в ОДНОМ коммите'
 
 # ── 5. заморозка v2 ───────────────────────────────────────────────────────────
-if ! bash "$FREEZE" contracts/001-x.md "вторая версия по решению владельца" "$W" > "$out" 2>&1; then
+if ! bash "$FREEZE" contracts/001-x.md "вторая версия по решению владельца" "$W" "$STATE" > "$out" 2>&1; then
   otkaz 'заморозка v2' "$?" "$out"
 fi
 grep -qx 'v2' "$out" || otkaz 'заморозка v2 напечатала не v2' 0 "$out"

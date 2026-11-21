@@ -234,7 +234,8 @@ def world(base, repo, case):
     scripts = station / 'scripts'
     scripts.mkdir()
     for name in ('freeze_contract.sh', 'next_id.sh', 'lib_registry.sh',
-                 'profile_resolver.sh', 'project_workflow.sh', 'check_predposylki.sh'):
+                 'profile_resolver.sh', 'project_workflow.sh', 'check_predposylki.sh',
+                 'zamok_predmeta.sh'):
         shutil.copy2(repo / 'scripts' / name, scripts / name)
     put(station, 'scripts/check_spec_ready.sh', '#!/bin/bash\nexit 0\n')
     put(station, 'scripts/doc_contract.ts', 'process.exit(1);\n')
@@ -336,6 +337,18 @@ def observe(repo, case, mode='repo', mutant=None):
     with tempfile.TemporaryDirectory(prefix='roots122-') as tmp:
         base = Path(tmp)
         station, product, context, origin = world(base, repo, case)
+        # The real freeze counter reads station STARTs from an independent state
+        # root. Build it after world mutations so an origin-mismatch case still
+        # reaches the 122 gate; the verdict's author date needs no historical seed.
+        state = base / 'state154'
+        verdict, at = git(station, 'log', '-1', '--format=%H %aI', '--',
+                          'verdicts/critic/contracts-731-v1.md').split()
+        station_repo_id = git(station, 'remote', 'get-url', 'origin').rsplit('/', 1)[-1]
+        put(state, 'uchet.jsonl', json.dumps({
+            't': 'START', 'repoId': station_repo_id.removesuffix('.git'),
+            'subjectId': '731', 'group': 'harness', 'holder': 'Crit122',
+            'klass': 'sudja', 'rol': 'critic', 'object': verdict,
+            'worktree': str(station), 'branch': 'main', 'at': at}) + '\n')
         before = {r: snapshot(r) for r in {station, product, base / 'other'} if r.exists()}
         env = dict(os.environ, PATH=str(base / 'bin') + ':' + os.environ['PATH'],
                    GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_SYSTEM='/dev/null')
@@ -358,7 +371,7 @@ def observe(repo, case, mode='repo', mutant=None):
                 cmd += ['--mutant', mutant]
         else:
             cmd = ['bash', station / 'scripts/freeze_contract.sh', TARGET,
-                   'fixture122 roots', station]
+                   'fixture122 roots', station, state]
             for path in contexts:
                 cmd += ['--project-workflow', path]
         result = run(cmd, env=env)

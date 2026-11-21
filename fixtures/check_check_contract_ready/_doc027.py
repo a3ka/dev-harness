@@ -447,6 +447,25 @@ def oracle_selftest(root, s, p):
             print(f'CONTROL DOC-oracle/{label}: rc={rc}, исходный проект сохранён')
 
 
+def station_state(root, subject='001'):
+    """[154] toy-корень состояния станции для заморозки.
+
+    Заморозка пересчитывает платные START роли критика по журналу станции (тот
+    же state, что и у фазы спавна). Подставной журнал: одна сессия критика по
+    предмету — позиция 1 свободна, расхода нет. Ключ журнала — тот же
+    (repoId,subjectId), что считает замок: repoId — basename репозитория
+    (origin у toy-дерева нет)."""
+    state = root.parent / 'state154'
+    state.mkdir(parents=True, exist_ok=True)
+    row = {'t': 'START', 'repoId': Path(root).name, 'subjectId': subject,
+           'group': 'harness', 'holder': 'Crit' + subject, 'klass': 'sudja',
+           'rol': 'critic', 'object': '0' * 39 + '1', 'worktree': '-',
+           'branch': '-', 'at': '2020-01-01T00:00:00Z'}
+    (state / 'uchet.jsonl').write_text(json.dumps(row, ensure_ascii=False) + '\n',
+                                        encoding='utf-8')
+    return state
+
+
 def lifecycle(root, s, p):
     expect(run(['bash', REPO / 'scripts/check_contract_ready.sh', root], root), 0, 'ready-control')
     for tag in git(root, 'tag', '--list', 'frozen/*').splitlines():
@@ -472,7 +491,8 @@ def lifecycle(root, s, p):
     save(root, s, p)
     commit(root, 'исправлены обязательства')
     expect(run(['bash', REPO / 'scripts/check_contract_ready.sh', root], root), 0, 'ready-doc-control')
-    expect(run(['bash', REPO / 'scripts/freeze_contract.sh', 'contracts/001-yozh.md', 'Ёж', root], root), 0, 'freeze-doc-control')
+    expect(run(['bash', REPO / 'scripts/freeze_contract.sh', 'contracts/001-yozh.md', 'Ёж',
+                root, station_state(root)], root), 0, 'freeze-doc-control')
     # Реестровый шаг церемонии (036 §Freeze, г5б «писатель остаётся единственным»)
     # в Н-132-семантике (4807c1d, предписание владельца): freeze САМ коммитит
     # registry/contracts.tsv identity-оркестратора тем же актом, что и тег, —

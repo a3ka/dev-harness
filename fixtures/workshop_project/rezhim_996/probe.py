@@ -45,6 +45,108 @@ def commit(root, message):
     git(root, 'commit', '-qm', message)
 
 
+def receipt_line(row):
+    """Каноническая строка основания (единственный сериализатор, как у замка)."""
+    fields = ('t', 'repoId', 'subjectId')
+    if row['t'] in ('SANKTSIYA', 'ISPOLZOVANO'):
+        fields += ('object', 'nomer', 'istochnik')
+    return 'БЮДЖЕТ-154: ' + json.dumps({k: row[k] for k in fields},
+                                      ensure_ascii=False, sort_keys=True,
+                                      separators=(',', ':'))
+
+
+def station_state(root, subject='777', starts=1, sanction3=False, arbitrazh=False,
+                  arbitrazh_path=None):
+    """[154] toy-корень состояния станции: журнал учёта платных START критика.
+
+    Заморозка пересчитывает платные START по журналу станции (тот же state, что
+    и у фазы спавна). starts — число платных сессий критика по предмету
+    (позиции 1..N); sanction3 — адресная санкция оркестратора на позицию 3;
+    arbitrazh — строка ARBITRAZH на позицию 4 (доказуемость — закоммиченная
+    строка в arbitrazh_path). Основание доказывается строкой в ЗАКОММИЧЕННОМ
+    документе: basisCommit — коммит с этой строкой, basisPath — путь документа.
+    """
+    state = root.parent / 'state154'
+    state.mkdir(parents=True, exist_ok=True)
+    rid = Path(git(root, 'remote', 'get-url', 'origin').strip()).name
+    if rid.endswith('.git'):
+        rid = rid[:-len('.git')]
+    rows = []
+    objects = []
+    for i in range(starts):
+        obj = '%040x' % (i + 1)
+        objects.append(obj)
+        rows.append({'t': 'START', 'repoId': rid, 'subjectId': subject,
+                     'group': 'harness', 'holder': 'Crit%d' % i, 'klass': 'sudja',
+                     'rol': 'critic', 'object': obj, 'worktree': '-', 'branch': '-',
+                     'at': '2020-01-01T00:00:00Z'})
+    # Выбранный источник по каждой позиции 3+ — отдельный факт журнала; он не
+    # является вызовом и сам по себе позицию не открывает.
+    sel_rows = []
+    for pos in range(3, starts + 1):
+        if pos == 3:
+            source = 'orchestrator'
+        elif pos == 4 and arbitrazh:
+            source = 'arbitrazh'
+        else:
+            source = 'vladelec'
+        sel = {'t': 'ISPOLZOVANO', 'repoId': rid, 'subjectId': subject,
+               'object': objects[pos - 1], 'nomer': pos, 'istochnik': source,
+               'at': '2020-01-01T00:00:00Z'}
+        rows.append(sel)
+        sel_rows.append(sel)
+    sank = []
+    if sanction3 and len(objects) >= 3:
+        row = {'t': 'SANKTSIYA', 'repoId': rid, 'subjectId': subject,
+               'object': objects[2], 'nomer': 3, 'istochnik': 'orchestrator',
+               'at': '2020-01-01T00:00:00Z'}
+        rows.append(row)
+        sank.append(row)
+    arb = []
+    if arbitrazh and len(objects) >= 4:
+        row = {'t': 'ARBITRAZH', 'repoId': rid, 'subjectId': subject,
+               'at': '2020-01-01T00:00:00Z'}
+        rows.append(row)
+        arb.append(row)
+    # Основание — закоммиченные строки: санкции в HANDOFF.md, арбитраж — в
+    # документе арбитража (путь выбирает сценарий).
+    def dokaz(rows_, path):
+        if not rows_:
+            return None
+        file = root / path
+        file.parent.mkdir(parents=True, exist_ok=True)
+        text = file.read_text(encoding='utf-8') if file.exists() else ''
+        body = '\n'.join(receipt_line(r) for r in rows_)
+        file.write_text(text + ('\n' if text and not text.endswith('\n') else '') +
+                        body + '\n', encoding='utf-8')
+        commit(root, 'основание бюджета критика: ' + path)
+        return git(root, 'rev-parse', 'HEAD')
+    sha_sank = dokaz(sank + sel_rows, 'HANDOFF.md')
+    sha_arb = dokaz(arb, arbitrazh_path or 'verdicts/arbitration/toy.md')
+    for r in rows:
+        if r['t'] == 'ARBITRAZH':
+            r['basisCommit'] = sha_arb
+            r['basisPath'] = arbitrazh_path or 'verdicts/arbitration/toy.md'
+        elif r['t'] in ('SANKTSIYA', 'ISPOLZOVANO'):
+            r['basisCommit'] = sha_sank
+            r['basisPath'] = 'HANDOFF.md'
+    (state / 'uchet.jsonl').write_text(
+        ''.join(json.dumps(r, ensure_ascii=False) + '\n' for r in rows),
+        encoding='utf-8')
+    return state
+
+
+def state154(root, subject='777'):
+    """Станция по умолчанию: одна платная сессия критика (позиция 1 свободна).
+
+    Сценарий, которому нужен другой набор позиций, готовит станцию сам
+    (station_state) ДО вызова двери; здесь состояние не переписывается."""
+    state = root.parent / 'state154'
+    if not (state / 'uchet.jsonl').exists():
+        station_state(root, subject, starts=1)
+    return state
+
+
 def world(base):
     global PARITY_CHECKED
     root = base / 'project'
@@ -106,6 +208,8 @@ def subject(mode, op, root, *args, mutant='', tools=None, extra_env=None):
     env.update(extra_env or {})
     if mode == 'model':
         cmd = [sys.executable, tools / 'fixtures/workshop_project/rezhim_996/model.py', op, root, *args]
+        if op == 'freeze':
+            cmd.append(str(state154(root)))
     else:
         commands = {
             'paths': ['bash', tools / 'scripts/project_workflow.sh', '--repo', root],
@@ -132,6 +236,8 @@ def subject(mode, op, root, *args, mutant='', tools=None, extra_env=None):
             'workshop_probe': ['bash', tools / 'workshop', '--probe', root],
         }
         cmd = commands[op]
+        if op == 'freeze':
+            cmd = cmd + [str(state154(root))]
     return run(cmd, cwd=root, env=env)
 
 
@@ -516,21 +622,33 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         expect(not git(root, 'tag', '-l') and git(root, 'rev-parse', 'HEAD') == before,
                'ROOT_FALLBACK_MUTATED')
     elif case in ('freeze-cap', 'freeze-root-arbitration', 'freeze-project-arbitration'):
+        # [154] Единица счёта — платная позиция START, не круг вердикта:
+        # позиции 1–2 свободны, позиция 3+ требует адресного основания.
+        # Арбитраж покрывает позицию 4 и только; профильный арбитраж доказуем
+        # строкой в ЗАКОММИЧЕННОМ документе по профильному пути, корневой —
+        # не профильный (996: корень не запасной источник), и потому не
+        # покрывает позицию.
         verdict = p['workflowPaths']['verdicts'] + '/critic/contracts-777-v1.md'
         for status in ('FAIL', 'accept'):
             put(root, verdict, status + '\n')
             commit(root, 'critic ' + status)
-        if case != 'freeze-cap':
+        if case == 'freeze-cap':
+            station_state(root, '777', starts=3)
+        else:
             directory = 'verdicts' if case == 'freeze-root-arbitration' else p['workflowPaths']['verdicts']
-            put(root, directory + '/arbitration/toy.md', 'РЕШЕНИЕ (контракт 777)\nСохранить критерий.\n')
+            path = directory + '/arbitration/toy.md'
+            put(root, path, 'РЕШЕНИЕ (контракт 777)\nСохранить критерий.\n')
             commit(root, 'arbitration')
+            station_state(root, '777', starts=4, sanction3=True, arbitrazh=True,
+                         arbitrazh_path=path)
         before = git(root, 'rev-parse', 'HEAD')
         r = call('freeze', contract)
         if case == 'freeze-project-arbitration':
             expect(r.returncode == 0 and git(root, 'tag', '-l') == 'frozen/contracts/777/1',
                    'PROJECT_ARBITRATION_NOT_READ', r)
         else:
-            expect(r.returncode == 1 and 'кап кругов' in r.stderr and not git(root, 'tag', '-l')
+            reason = 'KAP_VYZOVOV_KRITIKA' if case == 'freeze-cap' else 'ARBITRAZH_NE_PODTVERZHDEN'
+            expect(r.returncode == 1 and reason in r.stderr and not git(root, 'tag', '-l')
                    and git(root, 'rev-parse', 'HEAD') == before, 'PROJECT_CAP_BYPASSED', r)
     elif case in ('freeze-escalate', 'freeze-ungrammatical', 'done-escalate', 'done-ungrammatical'):
         # First-line grammar of profile verdicts (arbiter П3, K10). The refusal
