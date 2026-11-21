@@ -116,6 +116,16 @@ import tempfile
 from probe import world, critic_state, put, git, run, CONTRACT, REVIEW, TOOLS
 from ci_wiring import BATTERY, DIRECT
 
+
+# Б-3: warning text is a model answer, not the verifier's byte-for-byte oracle.
+REVIEW_WARNING_PREFIX = 'ПРЕДУПРЕЖДЕНИЕ: ARCH_REVIEW:'
+REVIEW_WARNING = (f'{REVIEW_WARNING_PREFIX} в вердикте ревьюера {REVIEW} нет '
+                  'самостоятельной строки «СВЕРКА-АРХИТЕКТУРЫ:»; напиши '
+                  'самостоятельную строку «СВЕРКА-АРХИТЕКТУРЫ: <вывод>»')
+DONE_TAG = 'done/contracts/777/1'
+CI_VARIATIONS = ('ci-missing', 'ci-other-sha', 'ci-red', 'ci-skipped', 'ci-head-ahead')
+WARN_VARIATIONS = ('review-missing', 'review-heading',
+                   *(f'{variation}-warns' for variation in CI_VARIATIONS))
 # Expected answers are immutable tuples in the verifier, never read back from the subject.
 # Mutation is one named coordinate at a time; each mutant is paired with its OWN red case.
 CASES = (
@@ -146,12 +156,15 @@ CASES = (
     ('check-not-evaluated', 'precritic', 'check-2', 1, 'ARCH_NOT_EVALUATED', 'precritic'),
     ('check-digest-mismatch', 'precritic', 'digest-mismatch', 1, 'ARCH_CHECK', 'precritic'),
     ('done-valid', 'done', '', 0, '', 'done'),
-    ('done-review-missing', 'done', 'review-missing', 1, 'ARCH_REVIEW', 'done'),
+    ('done-review-missing-warns', 'done', 'review-missing', 0, '', 'done'),
+    ('done-review-heading-warns', 'done', 'review-heading', 0, '', 'done'),
     ('done-ci-missing', 'done', 'ci-missing', 1, 'ARCH_CI', 'done'),
     ('done-ci-other-sha', 'done', 'ci-other-sha', 1, 'ARCH_CI', 'done'),
     ('done-ci-red', 'done', 'ci-red', 1, 'ARCH_CI', 'done'),
     ('done-ci-skipped', 'done', 'ci-skipped', 1, 'ARCH_CI', 'done'),
     ('done-ci-head-ahead', 'done', 'ci-head-ahead', 1, 'ARCH_CI', 'done'),
+    *((f'done-{variation}-warns', 'done', f'{variation}-warns', 1, 'ARCH_CI', 'done')
+      for variation in CI_VARIATIONS),
     ('legacy-mob', 'freeze', 'mobile', 0, '', 'freeze'),
     ('legacy-harness', 'freeze', 'harness', 0, '', 'freeze'),
     ('wiring-valid', 'wiring', 'wiring-valid', 0, '', 'wiring'),
@@ -271,7 +284,14 @@ STABS = {
     'check-base-without-snapshot': ('check-valid', 'bare-base'),
     'check-digest-omitted': ('check-valid', 'omit-digest'),
     'check-digest-self-computed': ('check-digest-mismatch', 'self-digest'),
-    'reviewer-line-ignored': ('done-review-missing', 'ignore-review'),
+    **{f'reviewer-{form}-{defect}': (f'done-review-{form}-warns', defect)
+       for form in ('missing', 'heading')
+       for defect in ('ignore-review', 'refuse-review', 'warning-on-stdout',
+                      'warning-no-verdict', 'warning-no-advice', 'no-done-tag')},
+    'reviewer-valid-warned': ('done-valid', 'warn-valid'),
+    **{f'{variation}-warning-omitted': (f'done-{variation}-warns', 'ignore-review')
+       for variation in CI_VARIATIONS},
+    'ci-warning-after-refusal': ('done-ci-red-warns', 'warning-after-ci'),
     'ci-not-read': ('done-ci-missing', 'ignore-ci'),
     'ci-sha-ignored': ('done-ci-other-sha', 'ignore-ci'),
     'ci-conclusion-ignored': ('done-ci-red', 'ignore-ci'),
@@ -957,8 +977,10 @@ def prepare(root, arch, pinned, variation, action=''):
             'ОПЕРАЦИЯ: identity.lookup;', 'ОПЕРАЦИЯ: identity.lookup (DRAFT);'))
     elif variation == 'draft-schema':
         put(root, CONTRACT, (root / CONTRACT).read_text().replace('вход schema.query', 'вход schema.draft'))
-    elif variation == 'review-missing':
+    elif variation in ('review-missing', *(f'{v}-warns' for v in CI_VARIATIONS)):
         put(root, REVIEW, 'ACCEPT\nNote: СВЕРКА-АРХИТЕКТУРЫ: mentioned in a quote, not reported by reviewer\n')
+    elif variation == 'review-heading':
+        put(root, REVIEW, 'ACCEPT\n## СВЕРКА-АРХИТЕКТУРЫ\nidentity.lookup; привязки и долг проверены\n')
     elif variation == 'container-file':
         # 187а-ремонт-2: зона — ФАЙЛ в модуле-контейнере: locate каталога —
         # module.email с ПУСТЫМИ components, locate файла — [api.email-current]
@@ -1062,6 +1084,8 @@ def prepare(root, arch, pinned, variation, action=''):
     if variation == 'no-rules':
         git(root, 'tag', 'frozen/contracts/777/1')
     record['check_runs'][0]['head_sha'] = git(root, 'rev-parse', 'HEAD')
+    if variation.endswith('-warns'):
+        variation = variation.removesuffix('-warns')
     if variation == 'ci-missing': record = {'total_count': 0, 'check_runs': []}
     if variation == 'ci-other-sha': record['check_runs'][0]['head_sha'] = 'f' * 40
     if variation == 'ci-red': record['check_runs'][0]['conclusion'] = 'failure'
@@ -1324,10 +1348,20 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
         if check_rc and mutant != 'skip-check': return 1, 'ARCH_CHECK'
         return 0, ''
     if action == 'done':
-        if not any(line.startswith('СВЕРКА-АРХИТЕКТУРЫ:') and
-                   line[len('СВЕРКА-АРХИТЕКТУРЫ:'):].strip()
-                   for line in (root / REVIEW).read_text().splitlines()) and mutant != 'ignore-review':
-            return 1, 'ARCH_REVIEW'
+        missing_review = not any(
+            line.startswith('СВЕРКА-АРХИТЕКТУРЫ:') and
+            line[len('СВЕРКА-АРХИТЕКТУРЫ:'):].strip()
+            for line in (root / REVIEW).read_text().splitlines())
+        warning = ''
+        if missing_review or mutant == 'warn-valid':
+            if mutant == 'refuse-review':
+                return 1, 'ARCH_REVIEW'
+            if mutant != 'ignore-review':
+                warning = REVIEW_WARNING + '\n'
+                if mutant == 'warning-no-verdict':
+                    warning = warning.replace(REVIEW, 'unknown.md')
+                if mutant == 'warning-no-advice':
+                    warning = warning.split('; напиши', 1)[0] + '\n'
         response = json.loads(ci_record(root).read_text())
         runs = response['check_runs']
         arch_runs = [r for r in runs if r.get('name') == 'arch']
@@ -1336,8 +1370,9 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
                                       arch_runs[-1].get('head_sha') != final or
                                       arch_runs[-1].get('status') != 'completed' or
                                       arch_runs[-1].get('conclusion') != 'success'):
-            return 1, 'ARCH_CI'
-        return 0, ''
+            return 1, ('ARCH_CI\n' + warning if mutant == 'warning-after-ci'
+                       else warning + 'ARCH_CI')
+        return 0, warning
     if action == 'door':
         if variation == 'real-gate-ne':
             # 187а-ремонт: rc 2 инструмента — requiredModelGate NOT_EVALUATED
@@ -1407,6 +1442,34 @@ def live(tools, root, arch, pinned, action, task, trace, role, variation=''):
                    'done': ['bash', tools / 'scripts/done_contract.sh', CONTRACT, 'toy reason', root]}[action]
     return run(*command, cwd=root, env=env)
 
+def model_done(root, rc, output, mutant=''):
+    """Model the public result channels and the real Git effect in its own toy."""
+    if git(root, 'tag', '-l', DONE_TAG):
+        git(root, 'tag', '-d', DONE_TAG)
+    if rc == 0 and mutant != 'no-done-tag':
+        git(root, 'tag', DONE_TAG)
+    if mutant == 'warning-on-stdout':
+        return subprocess.CompletedProcess([], rc, output, '')
+    return subprocess.CompletedProcess([], rc, '', output)
+
+
+def done_observed(root, expected, stderr, warns, final_sha):
+    """Observe stderr separately; expected SHA and warning state predate the call."""
+    target = run('git', '-C', root, 'rev-parse', '--verify',
+                 f'refs/tags/{DONE_TAG}^{{commit}}')
+    tag_ok = (target.returncode == 0 and target.stdout.strip() == final_sha
+              if expected == 0 else target.returncode != 0)
+    if not warns:
+        return tag_ok and not any(line.startswith('ПРЕДУПРЕЖДЕНИЕ:')
+                                  for line in stderr.splitlines())
+    lines = stderr.splitlines()
+    warning_ok = (bool(lines) and lines[0].startswith(REVIEW_WARNING_PREFIX)
+                  and REVIEW in lines[0]
+                  and 'напиши самостоятельную строку' in lines[0]
+                  and 'СВЕРКА-АРХИТЕКТУРЫ: <вывод>' in lines[0])
+    ci_ok = expected == 0 or any('ARCH_CI' in line for line in lines[1:])
+    return tag_ok and warning_ok and ci_ok
+
 def main():
     import argparse
     p = argparse.ArgumentParser()
@@ -1437,15 +1500,22 @@ def main():
             # полный диагноз, голова формы и значение pin (граница окончания).
             required_pin_expectation = (pin_required_diagnostic(root, variation)
                                         if variation in PIN_VARIATIONS else None)
+            final_sha = git(root, 'rev-parse', 'HEAD') if action == 'done' else None
+            warns = variation in WARN_VARIATIONS
             honest_rc, honest_out = verdict(root, arch, pinned, action, task, role, variation=variation)
             if honest_rc != expected or (reason and reason not in honest_out):
                 raise RuntimeError(f'broken fixture: {label} expected {expected}/{reason}, got {honest_rc}/{honest_out}')
             if args.model or args.stabs:
-                rc, output = honest_rc, honest_out
+                if action == 'done':
+                    result = model_done(root, honest_rc, honest_out)
+                else:
+                    result = subprocess.CompletedProcess([], honest_rc, honest_out, '')
             else:
                 result = live(tools, root, arch, pinned, action, task, trace, role, variation)
-                rc, output = result.returncode, result.stdout + result.stderr
+            rc, output = result.returncode, result.stdout + result.stderr
             ok = (rc == expected and (not reason or reason in output))
+            if action == 'done':
+                ok = ok and done_observed(root, expected, result.stderr, warns, final_sha)
             # 187 v4/v4b (К-10 вердиктов Crit187V4/V5, арбитраж Arb187V1):
             # обе обязательные диагностики pin и ПОЛНОЕ значение входного pin
             # с границей окончания — независимым оракулом из lock мира (вход,
@@ -1476,6 +1546,10 @@ def main():
                     if case != label: continue
                     fake_rc, fake_out = verdict(root, arch, pinned, action, task, role, mutant, variation=variation)
                     caught = fake_rc != expected or (reason and reason not in fake_out)
+                    if action == 'done':
+                        fake = model_done(root, fake_rc, fake_out, mutant)
+                        caught = caught or not done_observed(
+                            root, expected, fake.stderr, warns, final_sha)
                     # 187 v4/v4b (К-10): утрата/подмена диагностики либо
                     # значения pin, включая окончание (суффикс), ловится
                     # независимым оракулом и на стабах
