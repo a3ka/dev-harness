@@ -271,7 +271,7 @@ def main():
         return 0
     try:
         p = profile(root)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as error:
         if mutant == 'broken-profile-fallback' and op == 'gitw':
             return git(root, *args, check=False).returncode
         if mutant == 'broken-profile-fallback' and op in ('freeze', 'done'):
@@ -280,7 +280,7 @@ def main():
                  {'contracts': 'contracts', 'verdicts': 'verdicts',
                   'registry': 'registry', 'fixtures': 'fixtures'}, 'git': {}}
         else:
-            raise
+            return fail('профиль битый: ' + str(error))
     try:
         paths = layout(root, p, mutant, op)
     except ValueError:
