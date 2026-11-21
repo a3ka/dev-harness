@@ -26,6 +26,12 @@
 # 203). Bootstrap ТОЛЬКО при нуле frozen-тегов и ТОЛЬКО для critic/critic-sol;
 # при живом frozen-теге pinned frozen обязателен как прежде (битый pin →
 # KLASS_RISKA_NET), остальные роли (adversary/reviewer) — как прежде.
+# v7 (слово владельца 2026-11-21 00:16, «самое простое решение»): реестр
+# контрактов владельца в ПРОЕКТЕ лежит в .harness/registry/contracts.tsv (в
+# registry/ такого файла нет) — frozen_predmeta и проверка receipt (D39)
+# читают запасной путь, но ТОЛЬКО когда основного в дереве нет ([D53]);
+# основной путь найден — он и источник (строки предмета в нём нет — отказ
+# как прежде, запасной путь основной не подменяет).
 #
 # ПИНЫ (инвариант 1): дверь вызывается расширением .omp/extensions/
 # spawn-guard.ts по расположению расширения, а не по env; корни состояний
@@ -58,7 +64,8 @@
 #   --repo      R  — реестр: registry/pauzy.tsv (ПАУЗА владельца), теги
 #                    done/contracts/<NNN>/* (слот закрыт), registry/
 #                    risk-legacy.tsv (класс старых frozen по blob, [D30]);
-#                    registry/contracts.tsv закрепляет точный frozen владельца;
+#                    registry/contracts.tsv закрепляет точный frozen владельца
+#                    (у ПРОЕКТА — .harness/registry/contracts.tsv, [D53]);
 #                    декларации OBJECT не меняют обязательства суда.
 #
 # ЗАМКНУТЫЕ АЛФАВИТЫ (норма 041; байты-разделители исключены из классов значений):
@@ -395,9 +402,28 @@ rabochij_json() {
   jq -cSrs --arg r "$REPO_ID" --arg n "$1" \
     '[.[] | select(.t=="START" and .repoId==$r and .subjectId==$n and .klass=="rabochij")] | last // empty' "$LEDGER"
 }
+# [D53 registry-proekta] Реестр контрактов владельца в дереве: основной путь
+# registry/contracts.tsv; если его в дереве НЕТ — проектная раскладка
+# .harness/registry/contracts.tsv (та же стенка, что каталог контрактов и
+# паузы проекта: измерено 02.11/04.11 — без неё судья ПРОЕКТА не проходит:
+# «KLASS_RISKA_NET: закреплённый frozen недоступен»). Основной путь найден —
+# он и источник: запасной его НЕ подменяет (строки предмета в основном нет —
+# отказ как прежде, молчаливого перехода на запасной нет). Печатает путь
+# существующего файла; ничего — реестра нет нигде.
+reestr_contracts_put() {  # <репозиторий> <ревизия> → путь | пусто
+  local repo="$1" rev="$2" p
+  for p in 'registry/contracts.tsv' '.harness/registry/contracts.tsv'; do
+    if git -C "$repo" cat-file -t "$rev:$p" >/dev/null 2>&1; then
+      printf '%s' "$p"
+      return 0
+    fi
+  done
+  return 1
+}
 frozen_predmeta() {  # <NNN> <репозиторий владельца> → commit annotated frozen
-  local row object ref owner="${2:-$REPO}"
-  row="$(git -C "$owner" show HEAD:registry/contracts.tsv 2>/dev/null | grep -E "^$1 → [0-9a-f]{40}$")" || return 1
+  local row object ref owner="${2:-$REPO}" put
+  put="$(reestr_contracts_put "$owner" HEAD)" || return 1
+  row="$(git -C "$owner" show "HEAD:$put" 2>/dev/null | grep -E "^$1 → [0-9a-f]{40}$")" || return 1
   [[ "$row" =~ ^$1\ →\ [0-9a-f]{40}$ ]] || return 1
   object="${row#* → }"
   [ "$(git -C "$owner" cat-file -t "$object" 2>/dev/null)" = tag ] || return 1
@@ -421,7 +447,7 @@ perenos_otkaz() {
   otp "$1" "проверяемая передача: $2"
 }
 proverit_peredachu() {  # <subject> <receipt commit>; результат — P_* в памяти
-  local n="$1" c="$2" worker digest path reg ptag pobj pcommit
+  local n="$1" c="$2" worker digest path reg reg_put ptag pobj pcommit
   [[ "$c" =~ ^[0-9a-f]{40}$ ]] \
     || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'commit вне алфавита'
   # [D35 receipt-origin] Только неизменяемое свидетельство станции на origin/main.
@@ -502,7 +528,13 @@ sys.exit(1 if next(Draft202012Validator(schema).iter_errors(document), None) els
   pobj="$(printf '%s' "$P_JSON" | jq -r .frozenObject)"
   pcommit="$(printf '%s' "$P_JSON" | jq -r .frozenCommit)"
   # [D39 receipt-frozen] Версия из реестра В ДЕРЕВЕ свидетельства, не latest/main.
-  reg="$(git -C "$REPO" show "$c:registry/contracts.tsv" 2>/dev/null | LC_ALL=C grep -E "^$n → " )"
+  # [D53 registry-proekta] Раскладка реестра владельца — как в frozen_predmeta:
+  # основной путь, а если его в дереве свидетельства НЕТ — проектный.
+  reg_put="$(reestr_contracts_put "$REPO" "$c")" || reg_put=''
+  reg=''
+  if [ -n "$reg_put" ]; then
+    reg="$(git -C "$REPO" show "$c:$reg_put" 2>/dev/null | LC_ALL=C grep -E "^$n → " )"
+  fi
   [ "$reg" = "$n → $pobj" ] \
     && [ "$(git -C "$P_WT" rev-parse --verify "refs/tags/$ptag" 2>/dev/null)" = "$pobj" ] \
     && [ "$(git -C "$P_WT" cat-file -t "$pobj" 2>/dev/null)" = tag ] \

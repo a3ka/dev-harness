@@ -34,6 +34,13 @@
 # первый круг и не расходует разрешение — следующий запрос БЕЗ строки отказ
 # OBJECT_UZHE_SUZHEN (новая START-запись не появилась), запрос СО строкой —
 # пропуск (обрыв круг не тратит).
+# И ещё три клетки РАСКЛАДКИ реестра контрактов у владельца (п, р, с) —
+# проектный реестр: у проекта он лежит в .harness/registry/contracts.tsv (в
+# registry/ такого файла нет). (п) реестр ТОЛЬКО в проектном пути, у предмета
+# аннотированный frozen-тег и строка реестра — судья ДОПУСКАЕТСЯ дверью
+# (rc 0 PUSCHEM); (р) реестра нет нигде — отказ KLASS_RISKA_NET «закреплённый
+# frozen недоступен»; (с) основной реестр есть, строки предмета в нём нет, а в
+# проектном пути строка есть — отказ: запасной путь основной НЕ подменяет.
 #
 # Мир — в mktemp; сеть и omp не нужны; git/jq/bash обязательны.
 ZP_REPO="$(cd "$HERE/../.." && pwd -P)"
@@ -216,6 +223,50 @@ zp_git_obvertka() {  # → каталог с обёрткой (в PATH клад�
   printf '%s' "$d"
 }
 
+# ── раскладка реестра контрактов у владельца (клетки п, р, с) ──────────────
+# Станция держит реестр контрактов в registry/contracts.tsv, ПРОЕКТ — в
+# .harness/registry/contracts.tsv (та же стенка, что каталог контрактов и
+# паузы проекта: измерено 02.11/04.11). Клетки судят РАСКЛАДКУ, а не текст:
+# пина предмета нет нигде / пин только в проектном пути / основной путь
+# есть, а строки предмета в нём нет.
+
+# Убрать оба пути реестра у владельца (раскладка задаётся клеткой явно).
+zp_reestr_snyat() {
+  rm -rf "$ZP_T/repo/registry" "$ZP_T/repo/.harness/registry" || return 1
+  git -C "$ZP_T/repo" add -A || return 1
+  if ! git -C "$ZP_T/repo" diff --cached --quiet; then
+    git -C "$ZP_T/repo" -c user.name=b -c user.email=b@t -c commit.gpgsign=false \
+        commit -q -m 'reestr snyat' || return 1
+  fi
+  return 0
+}
+
+# Строка реестра контрактов в указанном пути у владельца (путь — раскладка).
+zp_reestr_stroka() {  # <путь> <NNN> <объект-тега>
+  local p="$1" n="$2" obj="$3"
+  mkdir -p "$ZP_T/repo/$(dirname "$p")" || return 1
+  printf '%s → %s\n' "$n" "$obj" > "$ZP_T/repo/$p" || return 1
+  git -C "$ZP_T/repo" add -A || return 1
+  git -C "$ZP_T/repo" -c user.name=b -c user.email=b@t -c commit.gpgsign=false \
+      commit -q -m "reestr $n" || return 1
+  return 0
+}
+
+# Владелец предмета: контракт в дереве frozen + аннотированный тег
+# frozen/contracts/<NNN>/1 (класс риска дверь читает из дерева этого
+# коммита). Печатает объект аннотированного тега — его ждёт строка реестра.
+zp_vladelec_frozen() {  # <NNN> → объект аннотированного тега
+  local n="$1"
+  mkdir -p "$ZP_T/repo/contracts" || return 1
+  printf '# контракт %s\nКЛАСС РИСКА: обычный\n' "$n" > "$ZP_T/repo/contracts/$n-proekt.md" || return 1
+  git -C "$ZP_T/repo" add -A || return 1
+  git -C "$ZP_T/repo" -c user.name=b -c user.email=b@t -c commit.gpgsign=false \
+      commit -q -m "kontrakt $n" || return 1
+  git -C "$ZP_T/repo" -c user.name=b -c user.email=b@t -c tag.gpgsign=false \
+      tag -a "frozen/contracts/$n/1" -m frozen || return 1
+  git -C "$ZP_T/repo" rev-parse "refs/tags/frozen/contracts/$n/1"
+}
+
 # ── класс 1: delimiter-collision ─────────────────────────────────────────────
 battery_delimiter_collision() {
   # (а) TAB в ИМЕНИ holder'а — байт ВНЕ алфавита имени, а не разделитель
@@ -334,6 +385,10 @@ battery_silent_drop() {
   # строкой — отказ; чужая строка (чужой OBJECT/роль/предмет, вне формата) —
   # отказ.
   # (н)(о) — две клетки ПОВТОРА ИМЕНИ держателя: имя не идентификатор круга.
+  # (п)(р)(с) — три клетки РАСКЛАДКИ реестра контрактов у владельца (проект):
+  # реестр только в .harness/registry/contracts.tsv — судья допускается; реестра
+  # нет нигде — отказ; основной реестр есть, строки предмета в нём нет (в
+  # проектном пути она есть) — отказ: запасной путь основной НЕ подменяет.
   local kletka_probit=0
   zp_kletka_net_stroki || kletka_probit=1
   zp_kletka_symlink || kletka_probit=1
@@ -344,6 +399,9 @@ battery_silent_drop() {
   zp_kletka_povtor_chuzhaya || kletka_probit=1
   zp_kletka_povtor_tretiy_ten_imya || kletka_probit=1
   zp_kletka_povtor_obryv_ten_imya || kletka_probit=1
+  zp_kletka_reestr_proekt || kletka_probit=1
+  zp_kletka_reestr_net || kletka_probit=1
+  zp_kletka_reestr_osnovnoy || kletka_probit=1
   [ "$kletka_probit" -eq 0 ] || return 1
   return 0
 }
@@ -569,6 +627,71 @@ zp_kletka_povtor_obryv_ten_imya() {
   zp_sudit "$ZP_T/e4.json"
   zp_kletka '(о) запрос со строкой после обрыва повтора под тем же именем' "$ZP_RC"
   zp_expect 0 - '(о) запрос со строкой после обрыва повтора под тем же именем' || return 1
+  return 0
+}
+
+# (п) Проектная раскладка реестра контрактов: реестр лежит ТОЛЬКО в
+#     .harness/registry/contracts.tsv (в registry/ такого файла нет), у
+#     предмета аннотированный frozen-тег и строка реестра → судья ДОПУСКАЕТСЯ
+#     дверью (rc 0 PUSCHEM). Дверь, ищущая реестр только по
+#     registry/contracts.tsv, отказывает «закреплённый frozen недоступен» —
+#     клетка различает.
+zp_kletka_reestr_proekt() {
+  zp_world || return 1
+  zp_kandidat 212 || return 1
+  zp_avtor_sdal 212 Avtor212 "$ZP_WT" "$ZP_BR" || return 1
+  local tagobj
+  zp_reestr_snyat || return 1
+  tagobj="$(zp_vladelec_frozen 212)" || return 1
+  zp_reestr_stroka '.harness/registry/contracts.tsv' 212 "$tagobj" || return 1
+  zp_event "$ZP_T/e9.json" adversary Adv212 'SUBJECT=212' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e9.json"
+  zp_kletka '(п) реестр проекта только в .harness/registry/contracts.tsv' "$ZP_RC"
+  zp_expect 0 - '(п) реестр проекта только в .harness/registry/contracts.tsv' || return 1
+  if ! printf '%s' "$ZP_OUT" | grep -Fq 'PUSCHEM'; then
+    printf 'zamok_predmeta: (п) реестр проекта: нет PUSCHEM; вывод: %s\n' "$ZP_OUT" >&2
+    return 1
+  fi
+  return 0
+}
+
+# (р) Реестра нет НИГДЕ (ни registry/, ни .harness/registry/) — предмет с
+#     аннотированным frozen-тегом: дверь обязана отказать KLASS_RISKA_NET
+#     («закреплённый frozen недоступен»), как прежде. Клетка — негатив к (п):
+#     запасной путь не является «созданием» реестра.
+zp_kletka_reestr_net() {
+  zp_world || return 1
+  zp_kandidat 213 || return 1
+  zp_avtor_sdal 213 Avtor213 "$ZP_WT" "$ZP_BR" || return 1
+  zp_reestr_snyat || return 1
+  zp_vladelec_frozen 213 >/dev/null || return 1
+  zp_event "$ZP_T/e10.json" adversary Adv213 'SUBJECT=213' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e10.json"
+  zp_kletka '(р) реестра нет нигде' "$ZP_RC"
+  zp_expect_prichina 1 KLASS_RISKA_NET 'закреплённый frozen недоступен' \
+      '(р) реестра нет нигде' || return 1
+  return 0
+}
+
+# (с) Основной реестр ЕСТЬ, строки предмета в нём НЕТ, а в проектном пути
+#     строка есть → отказ (rc 1 KLASS_RISKA_NET): запасной путь основной НЕ
+#     подменяет (иначе дверь признала бы запись чужого реестра).
+zp_kletka_reestr_osnovnoy() {
+  zp_world || return 1
+  zp_kandidat 214 || return 1
+  zp_avtor_sdal 214 Avtor214 "$ZP_WT" "$ZP_BR" || return 1
+  local tagobj
+  zp_reestr_snyat || return 1
+  tagobj="$(zp_vladelec_frozen 214)" || return 1
+  # основной путь — с чужой строкой (предмета 214 в нём нет)
+  zp_reestr_stroka 'registry/contracts.tsv' 999 "$tagobj" || return 1
+  # проектный путь — со строкой предмета: перекрывать основной он не вправе
+  zp_reestr_stroka '.harness/registry/contracts.tsv' 214 "$tagobj" || return 1
+  zp_event "$ZP_T/e11.json" adversary Adv214 'SUBJECT=214' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e11.json"
+  zp_kletka '(с) основной реестр есть, строки предмета нет' "$ZP_RC"
+  zp_expect_prichina 1 KLASS_RISKA_NET 'закреплённый frozen недоступен' \
+      '(с) основной реестр есть, строки предмета нет' || return 1
   return 0
 }
 
