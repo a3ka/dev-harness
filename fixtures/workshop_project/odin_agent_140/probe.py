@@ -58,6 +58,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import produkt_140
 import object_140
 import uproshchenie_140
+import reestr_140
 
 HERE = Path(__file__).resolve().parent
 MODEL = HERE / 'model' / 'zamok_predmeta.sh'
@@ -1734,6 +1735,7 @@ def kejsy():
     produkt_140.dobavit(K, SimpleNamespace(**globals()))
     uproshchenie_140.dobavit(K, SimpleNamespace(**globals()))
     object_140.dobavit(K, SimpleNamespace(**globals()))
+    reestr_140.dobavit(K, SimpleNamespace(**globals()))
     return K
 
 
@@ -2242,6 +2244,7 @@ STAB_MUTACII = {
 STAB_MUTACII.update(produkt_140.mutacii(_z))
 STAB_MUTACII.update(object_140.mutacii(_z))
 STAB_MUTACII.update(uproshchenie_140.mutacii(_z))
+STAB_MUTACII.update(reestr_140.mutacii(_z))
 
 
 def nagrudit_staby():
@@ -2262,6 +2265,7 @@ def nagrudit_staby():
     src['stab_vhod'].update(object_140.BINDINGS)
     src['stab_vhod'].update(produkt_140.BINDINGS)
     src['stab_vhod'].update(uproshchenie_140.BINDINGS)
+    src['stab_vhod'].update(reestr_140.BINDINGS)
     src['kejsy'] = {k: v['osi'] for k, v in sorted(kejsy().items())}
     paths.update({k: HERE / k for k in src['nositeli'] if k.startswith('materialy/')})
     paths.update({k: STABS / k / 'zamok_predmeta.sh' for k in STAB_MUTACII})
@@ -2288,10 +2292,11 @@ def rezhim_plain(K):
                 print('CASE %s KRASNO: %s' % (imja, p))
         else:
             print('CASE %s ok' % imja)
+    krasnyh += reestr_140.grammar(SimpleNamespace(**globals()), d)
     print('SUBJEKT: %s' % d)
     print('STANCIONNYE: %d клеток интеграции хука (p01-p20,m01; параметры p10/p15/p16/p17/p18/p19, osi.md) — команда приёмки bash %s'
           % (STANCIONNYH_KLETOK, HERE / 'stancija_odin_agent_140.sh'))
-    print('KLETKI %d KRASNYH %d' % (len(K), krasnyh))
+    print('KLETKI %d KRASNYH %d' % (len(K)+1, krasnyh))
     return 1 if krasnyh else 0
 
 
@@ -2303,7 +2308,7 @@ def sloj_subjekta(K, stab_vhod):
               'над МОДЕЛЬЮ как опора уже прогнано (предварительное доказательство)' % d)
         return 0
     baza = d.read_text(encoding='utf-8')
-    krasnyh = 0
+    krasnyh = reestr_140.grammar(SimpleNamespace(**globals()), d)
     for imja in sorted(K):
         problems = progon(d, imja, K[imja]['run'])
         if problems:
@@ -2367,7 +2372,13 @@ def main():
     ap.add_argument('--sgeneriruj-staby', action='store_true')
     ap.add_argument('--owner-before', action='store_true')
     ap.add_argument('--owner-check', action='store_true')
+    ap.add_argument('--domain', action='store_true',
+                    help='Ш-2: только клетки профиля реестра на поставленной двери')
+    ap.add_argument('--grammar', action='store_true',
+                    help='точный статический критерий Ш-2 (без сужения алфавита)')
     a = ap.parse_args()
+    if a.grammar:
+        return reestr_140.grammar(SimpleNamespace(**globals()), SUBJEKT_DVERI)
 
     if a.sgeneriruj_staby:
         nagrudit_staby()
@@ -2420,6 +2431,8 @@ def main():
         return oshibka_orakula('литерал yield разошёлся')
     if a.owner_before or a.owner_check:
         return produkt_140.owner_check(SimpleNamespace(**globals()), before=a.owner_before)
+    if a.domain:
+        K = {k:v for k,v in K.items() if k.startswith('r')}
 
     if not (a.model or a.stabs):
         # безфлаговый режим судит ПОСТАВЛЕННУЮ дверь дерева (вердикт критика

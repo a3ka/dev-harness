@@ -334,12 +334,10 @@ stare_holder() {  # <holder> → yield|bezhit|broshen|net_fajla
   fi
 }
 
-# [D15 pauza] ПАУЗА владельца — только строка registry/pauzy.tsv.
+# [D15 pauza] ПАУЗА владельца — в реестре профиля.
 na_pauze() {  # <NNN>
-  local f="$REPO/registry/pauzy.tsv" l
-  # Проектная раскладка (04.11, та же стенка, что каталог контрактов в #500): реестр
-  # проекта лежит в .harness/registry/ — без этого паузу предмета проекта не записать.
-  [ -r "$f" ] || f="$REPO/.harness/registry/pauzy.tsv"
+  local f l
+  f="$(reestr_put "$REPO" pauzy.tsv)" || return 1
   [ -r "$f" ] || return 1
   while IFS= read -r l; do
     case "$l" in '#'*|'') continue ;; esac
@@ -430,20 +428,23 @@ rabochij_json() {
   jq -cSrs --arg r "$REPO_ID" --arg n "$1" \
     '[.[] | select(.t=="START" and .repoId==$r and .subjectId==$n and .klass=="rabochij")] | last // empty' "$LEDGER"
 }
-# [D53 registry-proekta] Запасной путь только при отсутствии основного.
-reestr_contracts_put() {  # <репозиторий> <ревизия>
-  local repo="$1" rev="$2" p
-  for p in 'registry/contracts.tsv' '.harness/registry/contracts.tsv'; do
-    if git -C "$repo" cat-file -t "$rev:$p" >/dev/null 2>&1; then
-      printf '%s' "$p"
-      return 0
-    fi
-  done
-  return 1
+# [registry-profile] Модель использует настоящий резолвер установки.
+# Модель и временные стабы запускаются батареей из корня установки.
+reestr_put() {  # <репозиторий> <имя> → абсолютный путь
+  local repo="$1" name="$2" lib paths
+  if [ ! -f "$repo/harness.project.json" ]; then
+    printf '%s/registry/%s' "$repo" "$name"
+    return 0
+  fi
+  lib="$(git rev-parse --show-toplevel)/scripts/next_id.sh" || return 1
+  NEXT_ID_LIB=1 source "$lib" || return 1
+  paths="$(project_paths_resolve "$repo")" || return 1
+  printf '%s\n' "$paths" | jq -er --arg name "$name" '.registry + "/" + $name'
 }
 frozen_predmeta() {  # <NNN> <репозиторий владельца> → commit annotated frozen
   local row object ref owner="${2:-$REPO}" put
-  put="$(reestr_contracts_put "$owner" HEAD)" || return 1
+  put="$(reestr_put "$owner" contracts.tsv)" || return 1
+  put="${put#"$owner/"}"
   row="$(git -C "$owner" show "HEAD:$put" 2>/dev/null | grep -E "^$1 → [0-9a-f]{40}$")" || return 1
   [[ "$row" =~ ^$1\ →\ [0-9a-f]{40}$ ]] || return 1
   object="${row#* → }"
@@ -564,7 +565,8 @@ sys.exit(1 if next(Draft202012Validator(schema).iter_errors(document), None) els
   pobj="$(printf '%s' "$P_JSON" | jq -r .frozenObject)"
   pcommit="$(printf '%s' "$P_JSON" | jq -r .frozenCommit)"
   # [D39 receipt-frozen] Версия из реестра В ДЕРЕВЕ свидетельства, не latest/main.
-  reg_put="$(reestr_contracts_put "$REPO" "$c")" || reg_put=''
+  reg_put="$(reestr_put "$REPO" contracts.tsv)" || reg_put=''
+  reg_put="${reg_put#"$REPO/"}"
   reg=''
   if [ -n "$reg_put" ]; then
     reg="$(git -C "$REPO" show "$c:$reg_put" 2>/dev/null | LC_ALL=C grep -E "^$n → " )"
@@ -852,7 +854,7 @@ sudit() {
       zapis_override "$psv" 'PAUZA_VLADELTSA' "$ZAMOK_STROKA_OBJ"
       continue
     fi
-    otp PAUZA_VLADELTSA "предмет $psv стоит на ПАУЗЕ владельца (registry/pauzy.tsv)"
+    otp PAUZA_VLADELTSA "предмет $psv стоит на ПАУЗЕ владельца (реестр профиля)"
   done <<EOF
 $GATED
 EOF
