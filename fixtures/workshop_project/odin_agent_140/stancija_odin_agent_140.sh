@@ -18,11 +18,12 @@
 # 2 — нечем проверять (нет node/git/jq, хука или драйвера).
 #
 # КЛЕТКИ (osi.md): p01 дубль живого рабочего (приёмка 5а); p02 судья до yield
-# (класс свидетеля критика); p03 судья без OBJECT (приёмка 5б); p04 OBJECT≠tip;
-# p05 порядок адверсарий→ревьюер; p06 лимит harness 3 из 3 (слово владельца 2026-10-28: 1/3/2 → 3/3/3); p07 атомарный пакет
+# (класс свидетеля критика); p03 судья без OBJECT (приёмка 5б); p04 OBJECT≠tip
+# (предупреждение + фактический OBJECT); p05 порядок адверсарий→ревьюер;
+# p06 лимит harness 3 из 3 (предупреждение + START); p07 атомарный пакет
 # (дубль предмета в batch — блок всего пакета, занятий ноль); p08 гонка двух
-# tool_call — ровно один пропуск; p09 дубль после рестарта; p10 пропуск судьи
-# после yield + START пишет РАСШИРЕНИЕ; p11 алфавит 104 не ослаблен; p12 чужой
+# tool_call — ровно один пропуск; p09 брошенный замок (предупреждение + RELEASE);
+# p10 после yield + START пишет РАСШИРЕНИЕ; p11 алфавит 104 не ослаблен; p12 чужой
 # инструмент (toolName≠task) не трогается; p13 fail-closed (дверь rc 2 → блок
 # «страж сломан»); p14 --uchet живого мира (приёмка 5в); m01 обманная
 # интеграция — блок вызова двери снят, приёмка обязана видеть симптом
@@ -67,6 +68,18 @@ proba() {  # <имя> <ok|krasno> <деталь>
 cat > "$W/drajver.mjs" <<'MJS'
 import { pathToFileURL } from 'node:url';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
+import childProcess from 'node:child_process';
+import { syncBuiltinESMExports } from 'node:module';
+// Наблюдаем stderr и rc НАСТОЯЩЕГО дочернего процесса: хук при rc 0 их
+// наружу не передаёт. Дверь и её результат не заменяются двойником.
+const spawned = [];
+const realSpawnSync = childProcess.spawnSync;
+childProcess.spawnSync = (...args) => {
+  const result = realSpawnSync(...args);
+  if (Array.isArray(args[1]) && args[1].includes('--sudit')) spawned.push(result);
+  return result;
+};
+syncBuiltinESMExports();
 const [huk, casesFile] = process.argv.slice(2);
 for (const k of Object.keys(process.env)) {
   if (k.startsWith('HARNESS_') || k.startsWith('OMP_') || k.startsWith('ODIN')) delete process.env[k];
@@ -95,6 +108,7 @@ function snapshot(root) {
 let bad = 0;
 for (const c of cases) {
   let got;
+  spawned.length = 0;
   const before = c.unchanged ? JSON.stringify(snapshot(c.unchanged)) : null;
   try {
     if (c.cwd) process.chdir(c.cwd);
@@ -110,10 +124,29 @@ for (const c of cases) {
     got = 'сбой:' + String(e && e.message ? e.message : e).slice(0, 120);
   }
   const unchanged = !c.unchanged || JSON.stringify(snapshot(c.unchanged)) === before;
-  const ok = unchanged && (c.want === 'pass' ? got === 'pass'
+  let warning = true;
+  if (c.warn) {
+    const prefix = `ПРЕДУПРЕЖДЕНИЕ: ${c.warn}: `;
+    const emitted = spawned.some(r => r.status === 0 &&
+      String(r.stderr ?? '').split('\n').some(line => line.startsWith(prefix) && line.length > prefix.length));
+    let rows = [];
+    try {
+      rows = readFileSync(c.ledger, 'utf8').trim().split('\n').map(line => JSON.parse(line));
+    } catch {}
+    const recorded = rows.some(r => r.t === 'warn' && r.repoId === 'dev-harness' &&
+      r.subjectId === c.subject && r.kod === c.warn);
+    const started = rows.some(r => r.t === 'START' && r.repoId === 'dev-harness' &&
+      r.subjectId === c.subject && r.holder === c.holder &&
+      (!c.object || r.object === c.object));
+    const released = !c.release || rows.some(r => r.t === 'RELEASE' &&
+      r.repoId === 'dev-harness' && r.subjectId === c.subject &&
+      r.holder === c.release && r.prichina === 'broshen');
+    warning = emitted && recorded && started && released;
+  }
+  const ok = unchanged && warning && (c.want === 'pass' ? got === 'pass'
     : (got.startsWith('блок:') && got.includes(c.want.slice(6))));
   if (!ok) bad++;
-  console.log(`GOT ${c.name} ${ok ? 'ok' : 'fail'} want=${c.want} got=${got} unchanged=${unchanged}`);
+  console.log(`GOT ${c.name} ${ok ? 'ok' : 'fail'} want=${c.want} got=${got} unchanged=${unchanged} warning=${warning}`);
 }
 console.log(`СЛУЧАЕВ ${cases.length} ПРОВАЛЕНО ${bad}`);
 process.exit(bad > 0 ? 1 : 0);
@@ -192,6 +225,14 @@ kejs() {  # <файл> <name> <want> <event.json> <sessfile> <cwd>
     '[{name:$n,want:$w,event:{type:"tool_call",toolName:"task",toolCallId:$n,input:$e[0]},sessfile:$s,cwd:$c}]' > "$1"
 }
 
+kejs_warn() {  # файл имя код subject holder event sessfile cwd ledger [object] [release]
+  jq -cn --arg n "$2" --arg k "$3" --arg sub "$4" --arg h "$5" \
+    --slurpfile e "$6" --arg s "$7" --arg c "$8" --arg l "$9" \
+    --arg o "${10:-}" --arg rel "${11:-}" \
+    '[{name:$n,want:"pass",warn:$k,subject:$sub,holder:$h,ledger:$l,object:$o,release:$rel,
+       event:{type:"tool_call",toolName:"task",toolCallId:$n,input:$e[0]},sessfile:$s,cwd:$c}]' > "$1"
+}
+
 begi() {  # <хук> <cases> → вывод драйвера
   ( cd / && node "$W/drajver.mjs" "$1" "$2" )
 }
@@ -255,7 +296,7 @@ begi() {  # <хук> <cases> → вывод драйвера
   mir_start "$ST" 141 Avtor141 rabochij architect harness "$SHA" "$WT" wip/141/avtor
   mir_zhurnal "$ST" Avtor141 1 -
   sobytie "$W/p04/ev.json" critic Critic141 missing 'SUBJECT=141' 'OBJECT=1234567890123456789012345678901234567890' > /dev/null
-  kejs "$W/p04/c.json" p04 'block:OBJECT_RASHODITSJA' "$W/p04/ev.json" "$(mir_sess "$ST")" "$RE"
+  kejs_warn "$W/p04/c.json" p04 OBJECT_RASHODITSJA 141 Critic141 "$W/p04/ev.json" "$(mir_sess "$ST")" "$RE" "$ST/zamok/uchet.jsonl" "$SHA"
   out="$(begi "$HUK" "$W/p04/c.json")" && proba p04-int-object-rashoditsja ok || proba p04-int-object-rashoditsja krasno "$(printf '%s' "$out" | grep '^GOT' | head -1)"
 }
 
@@ -299,7 +340,7 @@ begi() {  # <хук> <cases> → вывод драйвера
   mir_start "$ST" 143 Arch143 rabochij architect harness - "$WT143" wip/143/avtor
   mir_zhurnal "$ST" Arch143 0 -
   sobytie "$W/p06/ev.json" architect Arch144 true 'SUBJECT=144' "WORKTREE=$WT144" 'BRANCH=wip/144/avtor' > /dev/null
-  kejs "$W/p06/c.json" p06 'block:LIMIT_GRUPPY' "$W/p06/ev.json" "$(mir_sess "$ST")" "$RE"
+  kejs_warn "$W/p06/c.json" p06 LIMIT_GRUPPY 144 Arch144 "$W/p06/ev.json" "$(mir_sess "$ST")" "$RE" "$ST/zamok/uchet.jsonl"
   out="$(begi "$HUK" "$W/p06/c.json")" && proba p06-int-limit-harness ok || proba p06-int-limit-harness krasno "$(printf '%s' "$out" | grep '^GOT' | head -1)"
 }
 
@@ -357,7 +398,7 @@ begi() {  # <хук> <cases> → вывод драйвера
   mir_start "$ST" 140 Arch140 rabochij architect harness - "$WT" wip/140/avtor
   mir_zhurnal "$ST" Arch140 0 120
   sobytie "$W/p09/ev.json" architect Arch140c true 'SUBJECT=140' "WORKTREE=$WT" 'BRANCH=wip/140/avtor' > /dev/null
-  kejs "$W/p09/c.json" p09 'block:ZAMOK_BROSHEN' "$W/p09/ev.json" "$(mir_sess "$ST")" "$RE"
+  kejs_warn "$W/p09/c.json" p09 ZAMOK_BROSHEN 140 Arch140c "$W/p09/ev.json" "$(mir_sess "$ST")" "$RE" "$ST/zamok/uchet.jsonl" '' Arch140
   out="$(begi "$HUK" "$W/p09/c.json")" && proba p09-int-dubl-posle-restarta ok || proba p09-int-dubl-posle-restarta krasno "$(printf '%s' "$out" | grep '^GOT' | head -1)"
 }
 
