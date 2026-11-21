@@ -273,6 +273,15 @@
 #   разрешено заморозкой; нового содержания нет; тот же класс, что пары 33/49/63; полный check_charter на main
 #   краснел только на этом merge; допущение только для этой пары; слово владельца 2026-11-19 «пара 64 — да»
 #   через консультанта)
+#   40a93f1da02d18d7323764007aac094989ee8c74  contracts/995-cmp-mob-001-android-pilot.md
+#   8ef0e9b971993f079f65cd78f595fbbafcb37985  contracts/995-cmp-mob-001-android-pilot.md
+#   a3665a5691bb6b6a85e6b703c10406bc05e10ca9  contracts/995-cmp-mob-001-android-pilot.md
+#   a60dfde5370ffd66f0f4faf15aecd956758143af  contracts/995-cmp-mob-001-android-pilot.md
+#   cf3742d171a0c2a0c672edfbad7a8402c7201573  contracts/995-cmp-mob-001-android-pilot.md
+#   (65–69-я: черновые architect-коммиты ветки wip/995/architect (2026-10-18) до заморозки 995 v5, без строки
+#   РАЗРЕШИЛ в теле; нетто-дельта int-ветки 995 (PR #1189) к main путь не меняет — блоб в main и на PR один
+#   (bcb0e33fb7, frozen 995/5); переписать ветку нельзя без смены OBJECT суда e06e3a84cd; ровно эти пять пар
+#   названы check_charter в CI #1189 (run 44935563048); слово владельца 2026-11-21 ~19:15 «1. да» через консультанта)
 #
 # НЕ добавлять новые записи без прямого слова владельца в НОВОМ коммите с обоснованием.
 #
@@ -521,6 +530,8 @@ grandfather_pair() {
       [ "$p" = "ROADMAP.md" ] && return 0 ;;
     b428ff6d03f254f02a8ed3319f01abcf06f775e2)
       [ "$p" = "contracts/154-schet-vyzovov-kritika.md" ] && return 0 ;;
+    40a93f1da02d18d7323764007aac094989ee8c74|8ef0e9b971993f079f65cd78f595fbbafcb37985|a3665a5691bb6b6a85e6b703c10406bc05e10ca9|a60dfde5370ffd66f0f4faf15aecd956758143af|cf3742d171a0c2a0c672edfbad7a8402c7201573)
+      [ "$p" = "contracts/995-cmp-mob-001-android-pilot.md" ] && return 0 ;;
   esac
   return 1
 }
