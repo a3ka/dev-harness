@@ -1,0 +1,84 @@
+[
+  {
+    "command": [
+      "bash",
+      "/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/fixtures/workshop_project/external_connection_184/red_external_connection_184.sh"
+    ],
+    "rc": 1,
+    "stdout": "CELL clean: RED (expected=ok, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-4rfd8tr4/clean/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL internal-reference: RED (expected=ok, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-4rfd8tr4/internal-reference/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL ci-reference: RED (expected=ssylka, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-4rfd8tr4/ci-reference/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL readme-reference: RED (expected=ssylka, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-4rfd8tr4/readme-reference/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL configuration-reference: RED (expected=ssylka, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-4rfd8tr4/configuration-reference/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL ignore-reference: RED (expected=ssylka, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-4rfd8tr4/ignore-reference/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL nested-code-reference: RED (expected=ssylka, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-4rfd8tr4/nested-code-reference/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL legacy-root-profile: RED (expected=profil, got=ok)\nCELL swapped-identity: ok (expected=profil, got=profil)\nCELL generator-good: RED (expected=ok, got=profil)\n  gen ОТКАЗ: profil-rashozhdenie: профиль=None манифест='toy-184'\nCELL generator-wrong-id: ok (expected=profil, got=profil)\nCELL ci-entrypoint: ok\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/fixtures/workshop_project/external_connection_184/red_external_connection_184.sh",
+      "--model"
+    ],
+    "rc": 0,
+    "stdout": "CELL clean: ok (expected=ok, got=ok)\nCELL internal-reference: ok (expected=ok, got=ok)\nCELL ci-reference: ok (expected=ssylka, got=ssylka)\nCELL readme-reference: ok (expected=ssylka, got=ssylka)\nCELL configuration-reference: ok (expected=ssylka, got=ssylka)\nCELL ignore-reference: ok (expected=ssylka, got=ssylka)\nCELL nested-code-reference: ok (expected=ssylka, got=ssylka)\nCELL legacy-root-profile: ok (expected=profil, got=profil)\nCELL swapped-identity: ok (expected=profil, got=profil)\nCELL generator-good: ok (expected=ok, got=ok)\nCELL generator-wrong-id: ok (expected=profil, got=profil)\nCELL ci-entrypoint: ok\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/fixtures/workshop_project/external_connection_184/red_external_connection_184.sh",
+      "--stabs"
+    ],
+    "rc": 0,
+    "stdout": "STAB scan-internal@internal-reference: caught (expected=ok, got=ssylka)\nSTAB no-ci@ci-reference: caught (expected=ssylka, got=ok)\nSTAB no-docs@readme-reference: caught (expected=ssylka, got=ok)\nSTAB no-config@configuration-reference: caught (expected=ssylka, got=ok)\nSTAB no-ignore@ignore-reference: caught (expected=ssylka, got=ok)\nSTAB root-only@nested-code-reference: caught (expected=ssylka, got=ok)\nSTAB root-profile@legacy-root-profile: caught (expected=profil, got=ok)\nSTAB trust-any-profile@swapped-identity: caught (expected=profil, got=ok)\nSTAB duplicate-profile@generator-good: caught (expected=ok, got=profil)\nSTAB trust-manifest@generator-wrong-id: caught (expected=profil, got=ok)\nSTAB absent-entrypoint@ci-entrypoint: caught\nSTAB invalid-entrypoint@ci-entrypoint: caught\nSTAB no-probe@ci-entrypoint: caught\nSTAB swallowed-rc@ci-entrypoint: caught\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/fixtures/workshop_project/external_connection_184/red_external_connection_184.sh",
+      "--repo",
+      "/home/harness/projects/Complior-back"
+    ],
+    "rc": 1,
+    "stdout": "CELL clean: RED (expected=ok, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-apqky5qo/clean/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL internal-reference: RED (expected=ok, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-apqky5qo/internal-reference/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL ci-reference: RED (expected=ssylka, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-apqky5qo/ci-reference/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL readme-reference: RED (expected=ssylka, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-apqky5qo/readme-reference/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL configuration-reference: RED (expected=ssylka, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-apqky5qo/configuration-reference/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL ignore-reference: RED (expected=ssylka, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-apqky5qo/ignore-reference/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL nested-code-reference: RED (expected=ssylka, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-apqky5qo/nested-code-reference/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL legacy-root-profile: RED (expected=profil, got=ok)\nCELL swapped-identity: ok (expected=profil, got=profil)\nCELL generator-good: RED (expected=ok, got=profil)\n  gen ОТКАЗ: profil-rashozhdenie: профиль=None манифест='toy-184'\nCELL generator-wrong-id: ok (expected=profil, got=profil)\nCELL ci-entrypoint: ok\nPRODUCT_REF .github/workflows/ci.yml:4\nPRODUCT_REF .github/workflows/ci.yml:5\nPRODUCT_REF .github/workflows/ci.yml:45\nPRODUCT_REF .github/workflows/ci.yml:53\nPRODUCT_REF .github/workflows/ci.yml:170\nPRODUCT_REF .github/workflows/ci.yml:344\nPRODUCT_REF .github/workflows/ci.yml:346\nPRODUCT_REF .github/workflows/ci.yml:348\nPRODUCT_REF .gitignore:12\nPRODUCT_REF .prettierignore:13\nPRODUCT_REF .review/2026-10-22-01.md:5\nPRODUCT_REF .review/2026-10-22-02.md:5\nPRODUCT_REF_COUNT 285\nPRODUCT_ROOT_PROFILE harness.project.json\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/fixtures/workshop_project/external_connection_184/red_external_connection_184.sh",
+      "--repo",
+      "/home/harness/projects/Complior-mob"
+    ],
+    "rc": 1,
+    "stdout": "CELL clean: RED (expected=ok, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-59avc_x1/clean/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL internal-reference: RED (expected=ok, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-59avc_x1/internal-reference/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL ci-reference: RED (expected=ssylka, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-59avc_x1/ci-reference/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL readme-reference: RED (expected=ssylka, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-59avc_x1/readme-reference/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL configuration-reference: RED (expected=ssylka, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-59avc_x1/configuration-reference/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL ignore-reference: RED (expected=ssylka, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-59avc_x1/ignore-reference/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL nested-code-reference: RED (expected=ssylka, got=profil)\n  profile ОТКАЗ: нет harness.project.json: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/.scratch-m0a/a10-184-59avc_x1/nested-code-reference/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\nCELL legacy-root-profile: RED (expected=profil, got=ok)\nCELL swapped-identity: ok (expected=profil, got=profil)\nCELL generator-good: RED (expected=ok, got=profil)\n  gen ОТКАЗ: profil-rashozhdenie: профиль=None манифест='toy-184'\nCELL generator-wrong-id: ok (expected=profil, got=profil)\nCELL ci-entrypoint: ok\nPRODUCT_REF .github/workflows/mobile.yml:186\nPRODUCT_REF .github/workflows/mobile.yml:187\nPRODUCT_REF .github/workflows/mobile.yml:235\nPRODUCT_REF .github/workflows/mobile.yml:237\nPRODUCT_REF .github/workflows/mobile.yml:243\nPRODUCT_REF .github/workflows/mobile.yml:244\nPRODUCT_REF .github/workflows/mobile.yml:245\nPRODUCT_REF .github/workflows/mobile.yml:246\nPRODUCT_REF .github/workflows/mobile.yml:247\nPRODUCT_REF .github/workflows/mobile.yml:248\nPRODUCT_REF .github/workflows/mobile.yml:249\nPRODUCT_REF .github/workflows/mobile.yml:250\nPRODUCT_REF_COUNT 44\nPRODUCT_ROOT_PROFILE harness.project.json\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "python3",
+      "/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/fixtures/workshop_project/external_connection_184/probe.py",
+      "--model"
+    ],
+    "rc": 0,
+    "stdout": "CELL clean: ok (expected=ok, got=ok)\nCELL internal-reference: ok (expected=ok, got=ok)\nCELL ci-reference: ok (expected=ssylka, got=ssylka)\nCELL readme-reference: ok (expected=ssylka, got=ssylka)\nCELL configuration-reference: ok (expected=ssylka, got=ssylka)\nCELL ignore-reference: ok (expected=ssylka, got=ssylka)\nCELL nested-code-reference: ok (expected=ssylka, got=ssylka)\nCELL legacy-root-profile: ok (expected=profil, got=profil)\nCELL swapped-identity: ok (expected=profil, got=profil)\nCELL generator-good: ok (expected=ok, got=ok)\nCELL generator-wrong-id: ok (expected=profil, got=profil)\nCELL ci-entrypoint: ok\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "python3",
+      "/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t5ac1a2ee9/m/fixtures/workshop_project/external_connection_184/probe.py",
+      "--stabs"
+    ],
+    "rc": 0,
+    "stdout": "STAB scan-internal@internal-reference: caught (expected=ok, got=ssylka)\nSTAB no-ci@ci-reference: caught (expected=ssylka, got=ok)\nSTAB no-docs@readme-reference: caught (expected=ssylka, got=ok)\nSTAB no-config@configuration-reference: caught (expected=ssylka, got=ok)\nSTAB no-ignore@ignore-reference: caught (expected=ssylka, got=ok)\nSTAB root-only@nested-code-reference: caught (expected=ssylka, got=ok)\nSTAB root-profile@legacy-root-profile: caught (expected=profil, got=ok)\nSTAB trust-any-profile@swapped-identity: caught (expected=profil, got=ok)\nSTAB duplicate-profile@generator-good: caught (expected=ok, got=profil)\nSTAB trust-manifest@generator-wrong-id: caught (expected=profil, got=ok)\nSTAB absent-entrypoint@ci-entrypoint: caught\nSTAB invalid-entrypoint@ci-entrypoint: caught\nSTAB no-probe@ci-entrypoint: caught\nSTAB swallowed-rc@ci-entrypoint: caught\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "bash",
+      "scripts/verify_antiplacebo.sh",
+      "--scope",
+      "profile_resolver"
+    ],
+    "rc": 0,
+    "stdout": "",
+    "stderr": "SCOPED: барьеров 1 из выборки — не для приёмки\n  ok   profile_resolver/case_context_pack_yunit_sliyanie.sh: зелёный контроль есть, повторный прогон красный кодом 1 — «значение вне алфавита: contextPack.rows»\n  ok   profile_resolver/case_defaults_vne_alfavita.sh: зелёный контроль есть, повторный прогон красный кодом 1 — «значение вне алфавита: defaults.barriers.mandatory»\n  ok   profile_resolver/case_fail_ne_json.sh: зелёный контроль есть, повторный прогон красный кодом 1 — «файл не JSON»\n  ok   profile_resolver/case_neizvestnyj_kljuch_repo_sloja.sh: зелёный контроль есть, повторный прогон красный кодом 1 — «неизвестный ключ репо-слой: workflowPaths.contrete»\n  ok   profile_resolver/case_neizvestnyj_kljuch_sloja_proekta.sh: зелёный контроль есть, повторный прогон красный кодом 1 — «неизвестный ключ слой-проекта: boguskey»\n  ok   profile_resolver/case_net_fajla_repo_sloja.sh: зелёный контроль есть, повторный прогон красный кодом 1 — «нет harness.project.json»\n  ok   profile_resolver/case_net_fajla_sloja_proekta.sh: зелёный контроль есть, повторный прогон красный кодом 1 — «нет файла слоя проекта»\n  ok   profile_resolver/case_rashozhdenie_pina_sloja.sh: зелёный контроль есть, повторный прогон красный кодом 1 — «пин слоя проекта расходится»\n  ok   profile_resolver/case_vneshnij_symlink_repo_sloja.sh: зелёный контроль есть, повторный прогон красный кодом 1 — «не symlink на внешний файл»\n  ok   profile_resolver/case_znachenie_vne_alfavita.sh: зелёный контроль есть, повторный прогон красный кодом 1 — «значение вне алфавита: language»\n\nбарьеров: 1 · фикстур: 10 · предъявлено красным повторным прогоном: 10\n"
+  }
+]
