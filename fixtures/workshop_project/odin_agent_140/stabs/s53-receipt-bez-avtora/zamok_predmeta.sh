@@ -12,6 +12,10 @@
 # (слово владельца 2026-11-18 ~14:05 UTC, §4 батча №2; заявка контракта
 # 199:19): у рабочего item события спавна обязателен реальный isolated
 # === true из ПОЛЯ item; строка START несёт факт isolated ([D32]/[D33]).
+# Упрощение по слову владельца 21.11 12:06, дверь cb9713b0ee:
+# диагностические расхождения — предупреждения с записью; неизвестный риск —
+# рисковый; брошенный замок освобождается автоматически. Общая разовая строка
+# РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК заменяет частные исключения, но не реальные запреты.
 #
 # ВЫЗОВ (грамматика argv замкнута, четыре формы):
 #   zamok_predmeta.sh --sudit     --sostojanie D --zhurnaly D --repo R <event.json>
@@ -60,12 +64,13 @@
 # ОТКАЗЫ rc 1 (именованные; первая причина; stderr «ОТКАЗ: <ИМЯ>: <детали>»):
 #   SUBJECT_NET_V_ZADANII SUBEKT_DVA_V_ZADANII GRAMMATIKA_SUBEKTA
 #   OBJECT_OTSTUTSVUET SUBEKT_DVA_OBJECTA GRAMMATIKA_OBJECTA
-#   PIN_NET GRAMMATIKA_PINA RASHOZHDENIE_PINA VETKA_NEDOSTUPNA
+#   PIN_NET GRAMMATIKA_PINA RASHOZHDENIE_PINA
 #   IMJA_NET GRAMMATIKA_IMENI AGENT_NET BITYJ_VHOD
-#   DUBL_V_PAKETE RABOCHIJ_ZHIV SUDJA_ZHIV ZAMOK_BROSHEN ZANYATO_RESHENIEM
-#   AVTOR_ESHCHO_RABOTAET RABOCHEGO_NET OBJECT_RASHODITSJA OBJECT_UZHE_SUZHEN
-#   ADVERSARIJ_DO_REVJUERA KLASS_RISKA_NET PAUZA_VLADELTSA LIMIT_GRUPPY NE_IZOLIROVAN
-#   ZAMOK_ZHIV DERZHATEL_RASHODITSJA NET_ZAMKA
+#   DUBL_V_PAKETE RABOCHIJ_ZHIV SUDJA_ZHIV ZANYATO_RESHENIEM
+#   AVTOR_ESHCHO_RABOTAET ADVERSARIJ_DO_REVJUERA PAUZA_VLADELTSA NE_IZOLIROVAN
+#   ZAMOK_ZHIV DERZHATEL_RASHODITSJA NET_ZAMKA PEREDACHA_NEDOSTOVERNA PEREDACHA_REMOTE
+# ПРЕДУПРЕЖДЕНИЯ с записью warn: KLASS_RISKA_NET OBJECT_RASHODITSJA
+# VETKA_NEDOSTUPNA RABOCHEGO_NET OBJECT_UZHE_SUZHEN LIMIT_GRUPPY ZAMOK_BROSHEN PEREDACHA_AVTOR.
 # rc 0 — разрешено (замки заняты, START дописан ДО возврата) / исполнено / учёт.
 # rc 2 — NOT_IMPLEMENTED (нет jq/git/find, мир нечитаем): fail-closed; вызов
 #        расширением трактуется как блок «страж сломан» — молчаливого пропуска нет.
@@ -103,6 +108,72 @@ USAGE
 
 otp()  { printf 'ОТКАЗ: %s: %s\n' "$1" "$2" >&2; exit 1; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$1" >&2; exit 2; }
+
+# Записи решения буферуются до допуска всего пакета.
+ZAPISI=''
+zapis_dodat() { ZAPISI="${ZAPISI}${ZAPISI:+$'\n'}$1"; }
+PEREDACHA_N=''
+PEREDACHA_IDX=''
+PEREDACHA_OBJ=''
+predupr() {  # <предмет> <КОД> <детали> [фактический OBJECT] [номер повтора]
+  local n="$1" kod="$2" det="$3" ob="${4:-}" pov="${5:-}"
+  printf 'ПРЕДУПРЕЖДЕНИЕ: %s: %s\n' "$kod" "$det" >&2
+  zapis_dodat "$(jq -nc --arg t warn --arg r "$REPO_ID" --arg s "$n" --arg k "$kod" \
+        --arg o "$ob" --arg p "$pov" --arg at "$(ts_now)" \
+        '{t:$t,repoId:$r,subjectId:$s,kod:$k,at:$at} + (if $o == "" then {} else {object:$o} end) + (if $p == "" then {} else {povtor:($p|tonumber)} end)')"
+}
+# [D54 override-pisanie] Применение строки фиксируется в решении и учёте.
+ZAMOK_STROKA_ISPOLNENO=''
+zapis_override() {  # <предмет> <КОД> <OBJECT или '-'>
+  ZAMOK_STROKA_ISPOLNENO="${ZAMOK_STROKA_ISPOLNENO}${ZAMOK_STROKA_ISPOLNENO:+$'\n'}$1|$2|$3"
+  zapis_dodat "$(jq -nc --arg t override --arg r "$REPO_ID" --arg s "$1" --arg k "$2" \
+        --arg o "$3" --arg at "$(ts_now)" \
+        '{t:$t,repoId:$r,subjectId:$s,kod:$k,object:$o,at:$at}')"
+}
+# [D57 osvobozhdenie-broshennogo] Старый держатель получает RELEASE.
+zapis_release_broshennogo() {  # <предмет> <holder>
+  zapis_dodat "$(jq -nc --arg t RELEASE --arg r "$REPO_ID" --arg s "$1" --arg h "$2" \
+        --arg p broshen --arg at "$(ts_now)" \
+        '{t:$t,repoId:$r,subjectId:$s,holder:$h,prichina:$p,at:$at}')"
+}
+FAKT=''
+fakt_zapis() { FAKT="${FAKT}${FAKT:+$'\n'}$1|$2"; }
+fakt_dlya() {  # <idx> → фактический OBJECT
+  printf '%s\n' "$FAKT" | grep -E "^$1\|" | sed -n '1p' | cut -d'|' -f2
+}
+ZAMOK_STROKA_RE='^РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК: [0-9]{3} [A-Z][A-Z_]*( [0-9a-f]{40})?$'
+ZAMOK_STROKA_KODY='PAUZA_VLADELTSA PEREDACHA_NEDOSTOVERNA PEREDACHA_REMOTE'
+zamok_stroka_iz() {  # <task> → "ok:<NNN>|<КОД>|<OBJECT или пусто>"|net
+  local t="$1" c line
+  c="$(kolvo_strok "$t" "$ZAMOK_STROKA_RE")"
+  [ "$c" = '1' ] || { printf 'net'; return 0; }
+  line="$(printf '%s\n' "$t" | grep -E "$ZAMOK_STROKA_RE" | sed -n '1p')"
+  printf 'ok:%s' "$(printf '%s' "$line" | cut -d' ' -f2- | tr ' ' '|')"
+}
+zamok_stroka_razreshayet() {  # <idx> <предмет> <КОД> <OBJECT события>
+  local idx="$1" n="$2" kod="$3" item_o="$4" task stroka sn sk so
+  task="$(jq -r "(.tasks // [.])[$idx].task // \"\"" "$EVENT" 2>/dev/null)" || return 1
+  stroka="$(zamok_stroka_iz "$task")"
+  case "$stroka" in ok:*) : ;; *) return 1 ;; esac
+  stroka="${stroka#ok:}"
+  sn="${stroka%%|*}"; stroka="${stroka#*|}"
+  sk="${stroka%%|*}"; so=''
+  case "$stroka" in *\|*) so="${stroka#*|}" ;; esac
+  [ "$sn" = "$n" ] || return 1
+  [ "$sk" = "$kod" ] || return 1
+  case " $ZAMOK_STROKA_KODY " in *" $kod "*) : ;; *) return 1 ;; esac
+  if [ -n "$so" ]; then
+    [ "$so" = "$item_o" ] || return 1
+  fi
+  ZAMOK_STROKA_OBJ="${so:--}"
+  jq -se --arg r "$REPO_ID" --arg n "$n" --arg k "$kod" --arg o "$ZAMOK_STROKA_OBJ" \
+    'any(.[]; .t == "override" and .repoId == $r and .subjectId == $n and .kod == $k and .object == $o)' \
+    "$LEDGER" >/dev/null 2>&1 && return 1
+  case "$ZAMOK_STROKA_ISPOLNENO" in
+    *"$n|$kod|$ZAMOK_STROKA_OBJ"*) return 1 ;;
+  esac
+  return 0
+}
 
 # Дельта tip всегда против первого родителя линии wip; root — против пустого дерева.
 puti_kommita() {  # <worktree> <commit>
@@ -263,12 +334,10 @@ stare_holder() {  # <holder> → yield|bezhit|broshen|net_fajla
   fi
 }
 
-# [D15 pauza] ПАУЗА владельца — только строка registry/pauzy.tsv.
+# [D15 pauza] ПАУЗА владельца — в реестре профиля.
 na_pauze() {  # <NNN>
-  local f="$REPO/registry/pauzy.tsv" l
-  # Проектная раскладка (04.11, та же стенка, что каталог контрактов в #500): реестр
-  # проекта лежит в .harness/registry/ — без этого паузу предмета проекта не записать.
-  [ -r "$f" ] || f="$REPO/.harness/registry/pauzy.tsv"
+  local f l
+  f="$(reestr_put "$REPO" pauzy.tsv)" || return 1
   [ -r "$f" ] || return 1
   while IFS= read -r l; do
     case "$l" in '#'*|'') continue ;; esac
@@ -359,9 +428,24 @@ rabochij_json() {
   jq -cSrs --arg r "$REPO_ID" --arg n "$1" \
     '[.[] | select(.t=="START" and .repoId==$r and .subjectId==$n and .klass=="rabochij")] | last // empty' "$LEDGER"
 }
+# [registry-profile] Модель использует настоящий резолвер установки.
+# Модель и временные стабы запускаются батареей из корня установки.
+reestr_put() {  # <репозиторий> <имя> → абсолютный путь
+  local repo="$1" name="$2" lib paths
+  if [ ! -f "$repo/harness.project.json" ]; then
+    printf '%s/registry/%s' "$repo" "$name"
+    return 0
+  fi
+  lib="$(git rev-parse --show-toplevel)/scripts/next_id.sh" || return 1
+  NEXT_ID_LIB=1 source "$lib" || return 1
+  paths="$(project_paths_resolve "$repo")" || return 1
+  printf '%s\n' "$paths" | jq -er --arg name "$name" '.registry + "/" + $name'
+}
 frozen_predmeta() {  # <NNN> <репозиторий владельца> → commit annotated frozen
-  local row object ref owner="${2:-$REPO}"
-  row="$(git -C "$owner" show HEAD:registry/contracts.tsv 2>/dev/null | grep -E "^$1 → [0-9a-f]{40}$")" || return 1
+  local row object ref owner="${2:-$REPO}" put
+  put="$(reestr_put "$owner" contracts.tsv)" || return 1
+  put="${put#"$owner/"}"
+  row="$(git -C "$owner" show "HEAD:$put" 2>/dev/null | grep -E "^$1 → [0-9a-f]{40}$")" || return 1
   [[ "$row" =~ ^$1\ →\ [0-9a-f]{40}$ ]] || return 1
   object="${row#* → }"
   [ "$(git -C "$owner" cat-file -t "$object" 2>/dev/null)" = tag ] || return 1
@@ -381,11 +465,22 @@ peredacha_iz_ucheta() {
       elif $e.t=="PEREDACHA" then $e else . end) // empty' "$LEDGER" 2>/dev/null
 }
 perenos_otkaz() {
+  if [ -n "${PEREDACHA_IDX:-}" ] \
+     && zamok_stroka_razreshayet "$PEREDACHA_IDX" "$PEREDACHA_N" "$1" "${PEREDACHA_OBJ:-}"; then
+    zapis_override "$PEREDACHA_N" "$1" "$ZAMOK_STROKA_OBJ"
+    PEREDACHA_PRORYVAN=1
+    return 1
+  fi
   mutexi_snyat_vse
   otp "$1" "проверяемая передача: $2"
 }
+perenos_predupr() {  # <КОД> <детали>
+  predupr "$PEREDACHA_N" "$1" "проверяемая передача: $2" "${P_OBJECT:-}"
+}
 proverit_peredachu() {  # <subject> <receipt commit>; результат — P_* в памяти
-  local n="$1" c="$2" worker digest path reg ptag pobj pcommit
+  local n="$1" c="$2" worker digest path reg reg_put ptag pobj pcommit
+  PEREDACHA_N="$n"
+  PEREDACHA_PRORYVAN=''
   [[ "$c" =~ ^[0-9a-f]{40}$ ]] \
     || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'commit вне алфавита'
   # [D35 receipt-origin] Только неизменяемое свидетельство станции на origin/main.
@@ -393,7 +488,7 @@ proverit_peredachu() {  # <subject> <receipt commit>; результат — P_*
     || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'свидетельство не опубликовано на origin/main'
   [ "$(git -C "$REPO" show -s --format=%an "$c")" = orchestrator ] \
     && [ "$(git -C "$REPO" show -s --format=%cn "$c")" = orchestrator ] \
-    || perenos_otkaz PEREDACHA_AVTOR 'свидетельство не оркестратора'
+    || perenos_predupr PEREDACHA_AVTOR 'свидетельство не оркестратора'
   path="registry/dostavki/$n.json"
   [ "$(git -C "$REPO" ls-tree "$c" -- "$path" | cut -d' ' -f1)" = 100644 ] \
     || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'свидетельство не обычный файл'
@@ -434,8 +529,10 @@ sys.exit(1 if next(Draft202012Validator(schema).iter_errors(document), None) els
     1) perenos_otkaz PEREDACHA_NEDOSTOVERNA 'схема свидетельства' ;;
     *) mutexi_snyat_vse; skip 'JSON Schema: python3/jsonschema недоступны' ;;
   esac
+  # [D55 override-abort] Пропущенный отказ прерывает проверку передачи.
+  [ -z "$PEREDACHA_PRORYVAN" ] || return 1
   worker="$(rabochij_json "$n")"
-  [ -n "$worker" ] || perenos_otkaz RABOCHEGO_NET 'нет реального рабочего START'
+  [ -n "$worker" ] || perenos_predupr RABOCHEGO_NET 'нет реального рабочего START'
   digest="$(printf '%s' "$worker" | sha256sum | cut -d' ' -f1)"
   # [D36 receipt-worker] Свидетельство связано со всей исходной строкой START.
   [ "$digest" = "$(printf '%s' "$P_JSON" | jq -r .workerStart)" ] \
@@ -444,10 +541,12 @@ sys.exit(1 if next(Draft202012Validator(schema).iter_errors(document), None) els
   [ "$(stare_holder "$(printf '%s' "$worker" | jq -r .holder)")" = yield ] \
     || perenos_otkaz AVTOR_ESHCHO_RABOTAET 'исходный автор не сдал'
   [ "$(printf '%s' "$worker" | jq -r .rol)" = "$(printf '%s' "$P_JSON" | jq -r .author)" ] \
-    || perenos_otkaz PEREDACHA_AVTOR 'роль исходного автора'
+    || perenos_predupr PEREDACHA_AVTOR 'роль исходного автора'
   P_WT="$(printf '%s' "$P_JSON" | jq -r .worktree)"
   P_BRANCH="$(printf '%s' "$P_JSON" | jq -r .branch)"
   P_OBJECT="$(printf '%s' "$P_JSON" | jq -r .object)"
+  # [D55 override-abort] Отказ пропущен — проверка передачи прервана.
+  [ -z "$PEREDACHA_PRORYVAN" ] || return 1
   # [D37 receipt-remote] CanonicalRemote удостоверен станцией, не basename продукта.
   [ "$(git -C "$P_WT" remote get-url origin 2>/dev/null)" = "$(printf '%s' "$P_JSON" | jq -r .canonicalRemote)" ] \
     || perenos_otkaz PEREDACHA_REMOTE 'origin продукта не канонический'
@@ -456,23 +555,31 @@ sys.exit(1 if next(Draft202012Validator(schema).iter_errors(document), None) els
   [ -n "$(puti_kommita "$P_WT" "$P_OBJECT")" ] \
     || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'пустой продуктовый результат'
   [ "$(object_kandidata "$P_WT" "$n" "refs/heads/$P_BRANCH")" = "$P_OBJECT" ] \
-    || perenos_otkaz OBJECT_RASHODITSJA 'живой tip продукта изменился'
+    || perenos_predupr OBJECT_RASHODITSJA 'живой tip продукта изменился'
   [ "$(printf '%s' "$P_JSON" | jq -r .canonicalRemote)" != "$REPO_URL" ] \
     || perenos_otkaz PEREDACHA_REMOTE 'носитель не внешний продукт'
   # [D38 receipt-author] Доставлен настоящий непустой результат того же автора.
   true \
-    || perenos_otkaz PEREDACHA_AVTOR 'автор продуктового коммита'
+    || perenos_predupr PEREDACHA_AVTOR 'автор продуктового коммита'
   ptag="$(printf '%s' "$P_JSON" | jq -r .frozenTag)"
   pobj="$(printf '%s' "$P_JSON" | jq -r .frozenObject)"
   pcommit="$(printf '%s' "$P_JSON" | jq -r .frozenCommit)"
   # [D39 receipt-frozen] Версия из реестра В ДЕРЕВЕ свидетельства, не latest/main.
-  reg="$(git -C "$REPO" show "$c:registry/contracts.tsv" 2>/dev/null | LC_ALL=C grep -E "^$n → " )"
+  reg_put="$(reestr_put "$REPO" contracts.tsv)" || reg_put=''
+  reg_put="${reg_put#"$REPO/"}"
+  reg=''
+  if [ -n "$reg_put" ]; then
+    reg="$(git -C "$REPO" show "$c:$reg_put" 2>/dev/null | LC_ALL=C grep -E "^$n → " )"
+  fi
+  P_FROZEN=''
   [ "$reg" = "$n → $pobj" ] \
     && [ "$(git -C "$P_WT" rev-parse --verify "refs/tags/$ptag" 2>/dev/null)" = "$pobj" ] \
     && [ "$(git -C "$P_WT" cat-file -t "$pobj" 2>/dev/null)" = tag ] \
     && [ "$(git -C "$P_WT" rev-parse --verify "$pobj^{commit}" 2>/dev/null)" = "$pcommit" ] \
-    || perenos_otkaz KLASS_RISKA_NET 'точная frozen-версия не удостоверена'
-  P_FROZEN="$pcommit"
+    && P_FROZEN="$pcommit" \
+    || perenos_predupr KLASS_RISKA_NET 'точная frozen-версия не удостоверена'
+  # [D55 override-abort] Отказ пропущен — проверка передачи прервана.
+  [ -z "$PEREDACHA_PRORYVAN" ] || return 1
 }
 
 peredat() {
@@ -489,6 +596,8 @@ peredat() {
   fi
   proverit_peredachu "$NNN_ARG" "$HOLDER_ARG"
   uchet_gotov || { mutexi_snyat_vse; skip "учёт не создать: $LEDGER"; }
+  # [D56 preduprezhdenie-zapis] Предупреждения — перед записью передачи.
+  [ -n "$ZAPISI" ] && printf '%s\n' "$ZAPISI" >> "$LEDGER"
   # [D40 receipt-append] Никакого START/RELEASE, смены занятия, ветки или счёта суда.
   jq -nc --arg r "$REPO_ID" --arg n "$NNN_ARG" --arg c "$HOLDER_ARG" \
     --argjson proof "$P_JSON" --arg at "$(ts_now)" \
@@ -528,20 +637,32 @@ EOF
 # (контракт 167: оборванный судья — START без закоммиченного вердикта — круг D11
 # не тратит; его release даёт ровно один повтор, а новый START повторного судьи
 # снова учитывается). Первый запрос — «был ли START вообще»: без него круг не
-# состоялся. Второй — по каждому судье отдельно: круг закрыт только его
-# собственным release.
+# состоялся. Второй — общий счётчик состоявшихся кругов.
 subekt_suzhen_sudej_obj() {  # <NNN> <rol> <object>
   jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" 'any(.[]; .t == "START" and .repoId == $r and .subjectId == $n and .klass == "sudja" and .rol == $roli and .object == $o)' "$LEDGER" >/dev/null 2>&1 || return 1
+  local krug
+  krug="$(krugov_suda "$1" "$2" "$3")"
+  case "$krug" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$krug" -ge 1 ]
+}
+# RELEASE закрывает последний открытый START своего holder, включая иной OBJECT.
+krugov_suda() {  # <NNN> <rol> <object> → число кругов
   jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" '
-    reduce .[] as $l ({};
-      if $l.repoId != $r or $l.subjectId != $n then .
-      elif $l.t == "START" and $l.klass == "sudja" and $l.rol == $roli and $l.object == $o
-        then .[$l.holder] = "open"
-      elif $l.t == "RELEASE" and .[$l.holder] == "open" and $l.prichina == "obryv_bez_verdikta"
-        then .[$l.holder] = "interrupted"
-      elif $l.t == "RELEASE" and .[$l.holder] == "open" then .[$l.holder] = "judged"
-      else . end
-    ) | any(.[]; . != "interrupted")' "$LEDGER" >/dev/null 2>&1
+    reduce .[] as $l
+      ([];
+        if $l.repoId != $r or $l.subjectId != $n then .
+        elif $l.t == "START" then
+          . + [{h: $l.holder, s: "open", r: $l.rol, o: $l.object, k: $l.klass}]
+        elif $l.t == "RELEASE" then
+          ([ to_entries[] | select(.value.h == $l.holder and .value.s == "open") ]
+           | last | .key) as $i
+          | if $i == null then .
+            else .[$i].s = (if $l.prichina == "obryv_bez_verdikta" then "obryv" else "sud" end)
+            end
+        else . end
+      )
+    | [ .[] | select(.k == "sudja" and .r == $roli and .o == $o and .s != "obryv") ]
+    | length' "$LEDGER" 2>/dev/null
 }
 # [D16 slovo] СЛОВО владельца — строка SLOVO в учёте (санкция сверх лимита).
 slovo_vladelca() {  # <NNN>
@@ -661,6 +782,7 @@ sudit() {
   GATED=''
   local i=0 agent name task in_w in_j s sv p wt br o obj klass rol r
   local transfer P_JSON P_WT P_BRANCH P_OBJECT P_FROZEN risk_repo
+  local kl_bootstrap kl_frozen
   while [ "$i" -lt "$N" ]; do
     agent="$(jq -r "(.tasks // [.])[$i].agent // \"\"" "$EVENT" 2>/dev/null)" \
       || otp BITYJ_VHOD "item $i: agent не читается"
@@ -727,9 +849,14 @@ sudit() {
   if [ -z "$GATED" ]; then printf 'PROPUST: gated items нет\n'; exit 0; fi
 
   # ПАУЗА владельца — реестр; судится ДО замков, для всех gated предметов.
-  while IFS='|' read -r _ _ _ psv _ _ _ _ _; do
+  while IFS='|' read -r pidx _ _ psv pobj _ _ _ _; do
     [ -n "$psv" ] || continue
-    na_pauze "$psv" && otp PAUZA_VLADELTSA "предмет $psv стоит на ПАУЗЕ владельца (registry/pauzy.tsv)"
+    na_pauze "$psv" || continue
+    if zamok_stroka_razreshayet "$pidx" "$psv" 'PAUZA_VLADELTSA' "$pobj"; then
+      zapis_override "$psv" 'PAUZA_VLADELTSA' "$ZAMOK_STROKA_OBJ"
+      continue
+    fi
+    otp PAUZA_VLADELTSA "предмет $psv стоит на ПАУЗЕ владельца (реестр профиля)"
   done <<EOF
 $GATED
 EOF
@@ -754,6 +881,7 @@ EOF
   # [D26 paket-otkat] суд под мьютексами; записи — только после решения по ВСЕМУ пакету
   while IFS='|' read -r idx agent name sv obj wt br klass rol; do
     [ -n "$sv" ] || continue
+    obj_fakt='-'
     zdir="$(zamok_dir "$sv")"
     if [ -d "$zdir/zanyat" ] && [ -f "$zdir/zanyat/holder.json" ]; then
       h_holder="$(jq -r '.holder // ""' "$zdir/zanyat/holder.json" 2>/dev/null)"
@@ -769,26 +897,34 @@ EOF
           # [D1 dubl-rabochego] живой рабочий — дубль запрещён (боль 122: v4+v4b).
           otp RABOCHIJ_ZHIV "предмет $sv: рабочий $h_holder бежит без сдачи — дубль запрещён"
           ;;
-        broshen|net_fajla)
-          mutexi_snyat_vse
-          # [D3 broshennyj-zamok] рестарт ≠ разрешение: дубль после рестарта — отказ.
-          otp ZAMOK_BROSHEN "предмет $sv: holder $h_holder без сдачи и без записей >${BROSHEN_TTL_MIN} мин — только --osvobodit, НЕ авто-перезапуск"
+        broshen)
+          # [D3 broshennyj-zamok] Автоосвобождение с предупреждением.
+          predupr "$sv" 'ZAMOK_BROSHEN' "предмет $sv: holder $h_holder без сдачи и без записей >${BROSHEN_TTL_MIN} мин — замок освобождается автоматически" "$obj"
+          zapis_release_broshennogo "$sv" "$h_holder"
+          ;;
+        net_fajla)
+          if [ -n "$(find "$zdir/zanyat/holder.json" -mmin +"$BROSHEN_TTL_MIN" -print 2>/dev/null)" ]; then
+            predupr "$sv" 'ZAMOK_BROSHEN' "предмет $sv: holder $h_holder без журнала, замок старше ${BROSHEN_TTL_MIN} мин — освобождается автоматически" "$obj"
+            zapis_release_broshennogo "$sv" "$h_holder"
+          else
+            mutexi_snyat_vse
+            otp ZAMOK_ZHIV "предмет $sv: holder $h_holder без журнала, замок свежий — освободить только --osvobodit"
+          fi
           ;;
       esac
     fi
-    # [D11 uzhe-suzhen] повторный круг ТОЙ ЖЕ РОЛИ на ТОМ ЖЕ OBJECT — отказ
-    # (боль 117: 7×); другая роль тот же OBJECT судит свободно (конвейер).
-    # Суд идёт и при освобождённом замке (контракт 167): круг судейства считается
-    # по учёту (START и его собственный RELEASE), а не по наличию замка.
+    # [D11 uzhe-suzhen] Повтор роли/OBJECT — предупреждение с номером.
     if [ "$klass" = 'sudja' ] && subekt_suzhen_sudej_obj "$sv" "$rol" "$obj"; then
-      mutexi_snyat_vse
-      otp OBJECT_UZHE_SUZHEN "предмет $sv: OBJECT $obj уже судился ролью $rol; исправительный круг — новый sha"
+      predupr "$sv" 'OBJECT_UZHE_SUZHEN' "предмет $sv: OBJECT $obj уже судился ролью $rol; исправительный круг — новый sha" "$obj" "$(($(krugov_suda "$sv" "$rol" "$obj") + 1))"
     fi
     if [ "$klass" = 'sudja' ]; then
       rab="$(poslednij_rabochij "$sv")"
       if [ -z "$rab" ]; then
-        # [D12 rabochego-net] судья без автора предмета — судить нечего.
-        mutexi_snyat_vse; otp RABOCHEGO_NET "предмет $sv: рабочего START в учёте нет"
+        # [D12 rabochego-net] Нет автора — предупреждение с записью START.
+        predupr "$sv" 'RABOCHEGO_NET' "предмет $sv: рабочего START в учёте нет" "$obj"
+        obj_fakt="$obj"
+        fakt_zapis "$idx" "$obj_fakt"
+        continue
       fi
       r_holder="$(printf '%s' "$rab" | cut -f1)"
       r_wt="$(printf '%s' "$rab" | cut -f3)"
@@ -808,39 +944,66 @@ EOF
       transfer="$(peredacha_iz_ucheta "$sv")"
       if [ -n "$transfer" ]; then
         # [D41 receipt-recheck] Ledger не оракул: proof сверяется с origin-свидетельством.
-        proverit_peredachu "$sv" "$(printf '%s' "$transfer" | jq -r .receipt)"
-        [ "$(printf '%s' "$transfer" | jq -cS .proof)" = "$(printf '%s' "$P_JSON" | jq -cS .)" ] \
-          || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'поля учёта изменены'
+        transfer_ok=1
+        PEREDACHA_IDX="$idx"; PEREDACHA_OBJ="$obj"
+        proverit_peredachu "$sv" "$(printf '%s' "$transfer" | jq -r .receipt)" || transfer_ok=0
+        if [ "$transfer_ok" = 0 ]; then
+          P_WT="$(printf '%s' "$transfer" | jq -r .proof.worktree)"
+          P_BRANCH="$(printf '%s' "$transfer" | jq -r .proof.branch)"
+          P_OBJECT="$(printf '%s' "$transfer" | jq -r .proof.object)"
+        else
+          [ "$(printf '%s' "$transfer" | jq -cS .proof)" = "$(printf '%s' "$P_JSON" | jq -cS .)" ] \
+            || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'поля учёта изменены'
+        fi
+        PEREDACHA_IDX=''; PEREDACHA_OBJ=''
         r_wt="$P_WT"; r_br="$P_BRANCH"; risk_repo="$P_WT"
         [ "$obj" = "$P_OBJECT" ] \
-          || perenos_otkaz OBJECT_RASHODITSJA 'OBJECT не переданный результат'
+          || perenos_predupr OBJECT_RASHODITSJA 'OBJECT не переданный результат'
       fi
       # [D9 object-sovpadaet] Вердиктный хвост не становится новым объектом суда.
-      git -C "$r_wt" rev-parse --verify "$r_br^{commit}" >/dev/null 2>&1 || {
-        mutexi_snyat_vse
-        otp VETKA_NEDOSTUPNA "предмет $sv: ветка $r_br в $r_wt не читается — OBJECT не сверить"
-      }
-      tip="$(object_kandidata "$r_wt" "$sv" "$r_br")" || {
-        mutexi_snyat_vse
-        otp OBJECT_RASHODITSJA "предмет $sv: вердиктный хвост не сохраняет OBJECT"
-      }
-      [ "$tip" = "$obj" ] || {
-        mutexi_snyat_vse
-        otp OBJECT_RASHODITSJA "предмет $sv: OBJECT задания $obj ≠ tip ветки $r_br ($tip)"
-      }
-      # [D42 frozen-risk] Всегда frozen соответствующего владельца, не OBJECT.
-      if [ -z "$P_FROZEN" ]; then
-        P_FROZEN="$(frozen_predmeta "$sv" "$risk_repo")" || {
-          mutexi_snyat_vse
-          otp KLASS_RISKA_NET "предмет $sv: закреплённый frozen недоступен"
-        }
+      obj_fakt="$obj"; tip=''
+      if git -C "$r_wt" rev-parse --verify "$r_br^{commit}" >/dev/null 2>&1; then
+        tip="$(object_kandidata "$r_wt" "$sv" "$r_br")" || tip=''
+        if [ -z "$tip" ]; then
+          tip="$(git -C "$r_wt" rev-parse --verify "$r_br^{commit}" 2>/dev/null)" || tip=''
+          predupr "$sv" 'OBJECT_RASHODITSJA' "предмет $sv: вердиктный хвост не сохраняет OBJECT" "$tip"
+          obj_fakt="$tip"
+        elif [ "$tip" != "$obj" ]; then
+          predupr "$sv" 'OBJECT_RASHODITSJA' "предмет $sv: OBJECT задания $obj ≠ tip ветки $r_br ($tip)" "$tip"
+          obj_fakt="$tip"
+        fi
+      else
+        predupr "$sv" 'VETKA_NEDOSTUPNA' "предмет $sv: ветка $r_br в $r_wt не читается — OBJECT не сверить" "$obj"
       fi
-      kr="$(klass_riska "$sv" "$risk_repo" "$P_FROZEN")"
+      # [D42 frozen-risk] Всегда frozen соответствующего владельца, не OBJECT.
+      # [D52 bootstrap-kritika] Новый critic без frozen читает дерево OBJECT.
+      kr=''; kl_bootstrap=0; kl_frozen=''; kr_det=''
+      if [ -z "$P_FROZEN" ]; then
+        case "$rol" in
+          critic|critic-sol)
+            kl_frozen="$(git -C "$risk_repo" for-each-ref --format='%(objectname)' \
+                         "refs/tags/frozen/contracts/$sv/" 2>/dev/null)" || kl_frozen='NET'
+            [ -n "$kl_frozen" ] || kl_bootstrap=1 ;;
+        esac
+      fi
+      if [ "$kl_bootstrap" = 1 ]; then
+        kr="$(klass_riska "$sv" "$r_wt" "$obj_fakt")"
+      else
+        if [ -z "$P_FROZEN" ]; then
+          P_FROZEN="$(frozen_predmeta "$sv" "$risk_repo")" || { P_FROZEN=''; kr_det='закреплённый frozen недоступен'; }
+        fi
+        if [ -n "$P_FROZEN" ]; then
+          kr="$(klass_riska "$sv" "$risk_repo" "$P_FROZEN")"
+        else
+          kr='net_stroki'
+        fi
+      fi
       case "$kr" in
         risikovyj|obychnyj) : ;;
         *)
-          mutexi_snyat_vse
-          otp KLASS_RISKA_NET "предмет $sv: класс риска неоднозначно определён (${kr%%:*}); файлы: ${kr#*:}"
+          [ -n "$kr_det" ] || kr_det="класс риска неоднозначно определён (${kr%%:*}); файлы: ${kr#*:}"
+          predupr "$sv" 'KLASS_RISKA_NET' "предмет $sv: $kr_det — класс не определён, предмет считается рисковым" "$obj_fakt"
+          kr='risikovyj'
           ;;
       esac
       # [D14 adv-do-rev] рисковый предмет: ревьюер — после завершённого адверсария.
@@ -862,11 +1025,11 @@ EOF
         zhivo="$(zhivykh_v_gruppe "$grp" "$sv")"
         # [D25 limit-gruppy] слот 3/3/3 (слово владельца 2026-11-07 «по 3-4»); СЛОВО и done — в учёте (реестр).
         if [ "$zhivo" -ge "$cap" ] && ! slovo_vladelca "$sv"; then
-          mutexi_snyat_vse
-          otp LIMIT_GRUPPY "группа $grp: занято $zhivo из $cap (предмет $sv); сверх лимита — только СЛОВО владельца (строка SLOVO)"
+          predupr "$sv" 'LIMIT_GRUPPY' "группа $grp: занято $zhivo из $cap (предмет $sv)" "$obj"
         fi
       fi
     fi
+    fakt_zapis "$idx" "$obj_fakt"
   done <<EOF
 $GATED
 EOF
@@ -878,8 +1041,13 @@ EOF
     mutexi_snyat_vse
     skip "учёт не создать: $LEDGER"
   fi
+  # [D56 preduprezhdenie-zapis] Накопленные записи — до START всего пакета.
+  [ -n "$ZAPISI" ] && printf '%s\n' "$ZAPISI" >> "$LEDGER"
   while IFS='|' read -r idx agent name sv obj wt br klass rol; do
     [ -n "$sv" ] || continue
+    # [D58 preduprezhdenie-object] START несёт фактический OBJECT.
+    fakt="$(fakt_dlya "$idx")"
+    [ -n "$fakt" ] && obj="$fakt"
     if [ "$klass" = 'rabochij' ]; then grp2="$(gruppa_iz_pina "$wt")"
     else grp2="$(gruppa_ledger "$sv")"; fi
     # [D33 start-fakt-izolirovan] v5: строка START ЛЮБОЙ роли несёт факт
