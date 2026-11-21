@@ -10,12 +10,20 @@ import subprocess
 import sys
 import tempfile
 
+from url_witness import matches_witness
+
 HERE = Path(__file__).resolve().parent
 CASES = {
     'SHIPPED_INVALID': 'mock', 'SHIPPED_VALID': 'mock', 'DEFAULT_VALID': None,
     'HTTP_UNAVAILABLE': 'http', 'UNKNOWN_MODE': 'banana',
     'RUNTIME_RESPONSES': 'mock',
 }
+# 995 (запрос моба 165/995; консультант ConsProbe995, вариант (а) п.1):
+# HTTP_UNAVAILABLE обеспечивает конфигурацию сетевого сценария сам —
+# синтетический HTTPS base URL присваивается ЯВНО и перекрывает любой
+# родительский EXPO_PUBLIC_API_URL; без него 165 v2 при http-режиме без URL
+# законно показывает auth-unconfigured (Ф3, инв. 6) и до fetch не доходит.
+SYNTHETIC_API_URL = 'https://api.example.invalid'
 MUTANTS = [
     ('copied-model', 'SHIPPED_INVALID', 'auth-invalid'),
     ('any-code', 'SHIPPED_INVALID', 'auth-invalid'),
@@ -49,6 +57,9 @@ def installed(files):
 
 
 def run(repo, cases=None, model=None, values=None):
+    if 'HTTP_UNAVAILABLE' in (cases or CASES) and not matches_witness(SYNTHETIC_API_URL):
+        print('995 runtime URL_TAMPERED', file=sys.stderr)
+        return 1, 'URL_TAMPERED'
     repo = repo.resolve()
     if not repo.is_relative_to('/tmp/dev-harness-verify'): raise RuntimeError('DISPOSABLE_REQUIRED')
     mobile = repo / 'mobile'
@@ -101,6 +112,7 @@ def run(repo, cases=None, model=None, values=None):
                            PILOT_995_MODEL=model or 'actual')
                 env.pop('PILOT_DEMO_CODE', None)
                 if CASES[case] is None: env.pop('EXPO_PUBLIC_API_MODE', None)
+                if case == 'HTTP_UNAVAILABLE': env['EXPO_PUBLIC_API_URL'] = SYNTHETIC_API_URL
                 cmd = ['node', str(mobile / 'node_modules/jest/bin/jest.js'), '--ci', '--runInBand',
                        '--runTestsByPath', str(workspace / 'runtime.test.tsx'), '--testNamePattern', '^995 runtime ' + case + '$',
                        '--json', '--outputFile', str(report)]
@@ -130,6 +142,9 @@ def main():
     parser.add_argument('--model', choices=['honest'] + sorted({m for m, _, _ in MUTANTS}))
     parser.add_argument('--case', choices=CASES)
     args = parser.parse_args()
+    if (args.matrix or args.case in (None, 'HTTP_UNAVAILABLE')) and not matches_witness(SYNTHETIC_API_URL):
+        print('995 runtime URL_TAMPERED', file=sys.stderr)
+        return 1
     if not args.matrix: return run(args.repo, [args.case] if args.case else None, args.model)[0]
     rows = [('honest', None, 0, '')] + [(m, [c], 1, reason) for m, c, reason in MUTANTS]
     mismatches = 0
