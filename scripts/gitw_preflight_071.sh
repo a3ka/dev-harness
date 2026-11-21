@@ -388,8 +388,8 @@ if [ "${#land_merges[@]}" -gt 0 ]; then
     fi
     gh_args=(-H 'Accept: application/vnd.github+json' \
              -H 'X-GitHub-Api-Version: 2022-11-28')
-    if [ -n "${GITHUB_TOKEN:-}" ]; then
-      gh_args+=(-H "Authorization: Bearer $GITHUB_TOKEN")
+    if [ -n "${GITHUB_TOKEN:-${GH_TOKEN:-}}" ]; then
+      gh_args+=(-H "Authorization: Bearer ${GITHUB_TOKEN:-${GH_TOKEN:-}}")
     fi
     if ! body="$(curl -fsS -m 20 \
           "${gh_args[@]}" \
