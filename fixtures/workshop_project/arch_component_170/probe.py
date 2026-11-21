@@ -40,9 +40,9 @@ if [ "$KIND" = task ]; then
       _arch_rules=""
       case "$ROLE" in architect|critic|arbiter) _arch_rules="--with-rules" ;; esac
       if [ -n "$_arch_rules" ]; then
-        _arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --with-rules --component "$_arch_id" 2>&1)" || die "ARCH_BRIEF_OTKAZ: $_arch_id"
+        _arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --with-rules --component "$_arch_id" 2>/dev/null)" || die "ARCH_BRIEF_OTKAZ: $_arch_id"
       else
-        _arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --component "$_arch_id" 2>&1)" || die "ARCH_BRIEF_OTKAZ: $_arch_id"
+        _arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --component "$_arch_id" 2>/dev/null)" || die "ARCH_BRIEF_OTKAZ: $_arch_id"
       fi
       [ -n "$_arch_text" ] || die "ARCH_BRIEF_OTKAZ: пустой $_arch_id"
       ARCH_SEC="${ARCH_SEC}${_arch_text}
@@ -324,8 +324,8 @@ def main():
                  '_arch_rules="--with-rules"\n      case "$ROLE"', 'implementer_plain'),
                 ('only_first_id', '      ARCH_SEC="${ARCH_SEC}${_arch_text}\n"',
                  '      ARCH_SEC="${ARCH_SEC}${_arch_text}\n"\n      _arch_rest=""', 'multi_component'),
-                ('fixed_id', '--with-rules --component "$_arch_id" 2>&1)',
-                 '--with-rules --component "api.identity" 2>&1)', 'multi_component'),
+                ('fixed_id', '--with-rules --component "$_arch_id" 2>/dev/null)',
+                 '--with-rules --component "api.identity" 2>/dev/null)', 'multi_component'),
                 ('map_removed', "  printf '=== MAP ===\\n%s' \"$MAP_LINES\"",
                  "  printf '=== MAP ===\\n%s' \"\"", 'architect_rules'),
                 ('rules_removed', "  printf '=== RULES ===\\n%s' \"$RULES_LINES\"",
@@ -339,8 +339,8 @@ def main():
                 ('npm_failure_ignored', ' || die "ARCH_BRIEF_OTKAZ: $_arch_id"',
                  ' || :', 'brief_failure'),
                 ('plain_npm_failure_ignored',
-                 '_arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --component "$_arch_id" 2>&1)" || die "ARCH_BRIEF_OTKAZ: $_arch_id"',
-                 '_arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --component "$_arch_id" 2>&1)" || :',
+                 '_arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --component "$_arch_id" 2>/dev/null)" || die "ARCH_BRIEF_OTKAZ: $_arch_id"',
+                 '_arch_text="$(npm --prefix "$REPO/architecture" run brief -- --compact --component "$_arch_id" 2>/dev/null)" || :',
                  'implementer_brief_failure'),
                 ('exact_class_line',
                  "grep -Eq '^КЛАСС ЗАДАЧИ:[[:space:]]*(кодовый|КОДОВЫЙ)([^[:alnum:]_]|$)'",

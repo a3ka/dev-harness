@@ -23,8 +23,11 @@ if component not in ('api.identity', 'worker.events'):
     sys.stderr.write('UNKNOWN_COMPONENT\n')
     sys.exit(42)
 if os.environ.get('ARCH170_FAIL_ID') == component:
+    print('PARTIAL-BRIEF:' + component, flush=True)
     print('npm notice: brief command failed', file=sys.stderr)
     sys.exit(17)
+if os.environ.get('ARCH170_SUCCESS_STDERR'):
+    print(os.environ['ARCH170_SUCCESS_STDERR'], file=sys.stderr)
 if os.environ.get('ARCH170_BRIEF_DIR'):
     sys.stdout.buffer.write((Path(os.environ['ARCH170_BRIEF_DIR']) / (component + '.txt')).read_bytes())
     sys.exit(0)

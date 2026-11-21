@@ -8,19 +8,24 @@ import tempfile
 
 import pinned_model as canon
 
+STDERR_CASES = ('brief_stderr_pinned', 'brief_stderr_pinned_plain',
+                'brief_stderr_inline', 'brief_stderr_inline_plain')
+SUCCESS_WARNING = 'npm WARN successful brief'
+
 CASES = ('brief_pinned_over_budget', 'brief_pinned_plain', 'brief_pinned_multi',
          'brief_pin_missing', 'brief_pin_tampered', 'brief_pin_unreadable',
          'brief_pin_checkout', 'brief_pin_git', 'brief_read_missing',
          'brief_read_tampered', 'brief_read_same_size', 'brief_small_inline',
          'brief_pack_cap', 'brief_no_slice', 'brief_aggregate_budget',
          'brief_mixed_small_inline', 'brief_pinned_spaces', 'brief_pinned_external_symlink',
-         'brief_read_length_pin', 'brief_read_checkout')
+         'brief_read_length_pin', 'brief_read_checkout', *STDERR_CASES)
 
 
 def model_text(legacy, helper):
     # Only the acceptance model is extended; no production file is changed.
     legacy = legacy.replace('ARCH_SEC=""', 'ARCH_SEC=""; ARCH170_ITEMS=""', 1)
-    text = legacy.replace('2>&1)"', '2>&1; _status=$?; printf \'\\037\'; exit "$_status")"')
+    text = legacy.replace('--component "$_arch_id" 2>/dev/null)"',
+                          '--component "$_arch_id" 2>/dev/null; _status=$?; printf \'\\037\'; exit "$_status")"')
     text = text.replace('      [ -n "$_arch_text" ]', '      _arch_text="${_arch_text%$\'\\037\'}"\n      [ -n "$_arch_text" ]')
     collection = '''_arch_item="$(printf '%s' "$_arch_text" | python3 -c 'import json,sys; print(json.dumps([sys.argv[1], sys.stdin.read()]))' "$_arch_id")"
       ARCH170_ITEMS="${ARCH170_ITEMS}${_arch_item}
@@ -52,11 +57,13 @@ def run_case(probe, name, subject, mutant=''):
         ids = probe.IDS if name in ('brief_pinned_multi', 'brief_aggregate_budget',
                                    'brief_mixed_small_inline', 'brief_pin_missing',
                                    'brief_pin_tampered') else probe.IDS[:1]
-        size = 12 if name == 'brief_small_inline' else 19000 if name == 'brief_aggregate_budget' else 45723
-        role = 'implementer' if name == 'brief_pinned_plain' else 'architect'
+        inline = name in ('brief_small_inline', 'brief_stderr_inline', 'brief_stderr_inline_plain')
+        size = 12 if inline else 19000 if name == 'brief_aggregate_budget' else 45723
+        role = 'implementer' if name in ('brief_pinned_plain', 'brief_stderr_pinned_plain',
+                                        'brief_stderr_inline_plain') else 'architect'
         expected = {ident: (f'# ARCH-BRIEF:{ident}\nBEGIN:{name}:{ident}\n' + 'ю' * size
                             + f'\nEND:{name}:{ident}\n\n').encode() for ident in ids}
-        if name == 'brief_small_inline':
+        if inline:
             expected = {ident: data[:-1] for ident, data in expected.items()}
         if name == 'brief_mixed_small_inline':
             expected[ids[1]] = b'# ARCH-BRIEF:worker.events\nSMALL-BRIEF-STAYS-INLINE\n'
@@ -93,6 +100,8 @@ def run_case(probe, name, subject, mutant=''):
             env = dict(os.environ, ARCH170_PROJECT=str(repo), ARCH170_NONCE=name,
                        ARCH170_CALLS=str(built / 'calls'), ARCH170_BRIEF_DIR=str(source),
                        ARCH170_MODEL_MUTANT=mutant, PATH=bindir + os.pathsep + os.environ['PATH'])
+            if name in STDERR_CASES:
+                env['ARCH170_SUCCESS_STDERR'] = SUCCESS_WARNING
             result = probe.invoke(subject, repo, role, ','.join(ids), env=env)
         result = subprocess.CompletedProcess(result.args, result.returncode,
                                              result.stdout.encode(), result.stderr.encode())
@@ -101,10 +110,13 @@ def run_case(probe, name, subject, mutant=''):
         elif name == 'brief_pack_cap':
             good = (result.returncode == 1 and not result.stdout
                     and result.stderr.startswith('ОТКАЗ: режь задачу:'.encode()) and b'> 40000' in result.stderr)
-        elif name == 'brief_small_inline':
+        elif inline:
             body = result.stdout.split(b'=== MANIFEST ===\n')[0]
             good = (result.returncode == 0 and first_data in body and b'PIN: ' not in body
                     and not (state / 'briefs').exists() and len(body) <= 40000)
+            if name in STDERR_CASES:
+                section = body.split(b'=== ARCHITECTURE BRIEF ===\n', 1)[-1].split(b'=== ', 1)[0]
+                good &= section == first_data
         else:
             good = result.returncode == 0
             body = result.stdout.split(b'=== MANIFEST ===\n')[0]
@@ -160,6 +172,8 @@ def run_case(probe, name, subject, mutant=''):
                     else:
                         path.write_bytes(data[:-1])
                     good &= refusal(subprocess.run(command, capture_output=True, timeout=20))
+        if name in STDERR_CASES:
+            good &= SUCCESS_WARNING.encode() not in result.stdout
         print(f'170 {name} {"ok" if good else "KRASNO"} rc={result.returncode} '
               f'stderr={result.stderr.decode().strip()!r}', flush=True)
         return bool(good)
@@ -199,6 +213,7 @@ MUTANTS = (
     ('reader_without_length', 'brief_read_length_pin'),
     ('reader_without_hash', 'brief_read_same_size'),
     ('unchecked_read', 'brief_read_checkout'),
+    *(('stderr_merged', branch) for branch in STDERR_CASES),
 )
 
 
@@ -207,6 +222,11 @@ def stabs(probe, subject):
     jobs = []
     for mutant, branch in MUTANTS:
         text = honest
+        if mutant == 'stderr_merged':
+            old = '2>/dev/null; _status=$?'
+            if text.count(old) != 2:
+                raise ValueError('expected both npm stream branches')
+            text = text.replace(old, '2>&1; _status=$?')
         if mutant == 'cap_raised':
             text = probe.replace_once(text, '[ "$VK" -le 40000 ]', '[ "$VK" -le 400000 ]')
         if mutant == 'brief_outside_budget':

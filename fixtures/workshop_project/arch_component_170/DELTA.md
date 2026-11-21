@@ -9,6 +9,7 @@
 | Малый бриф остаётся inline, включая смешанный пак | `brief_small_inline`, `brief_mixed_small_inline` |
 | Путь, byte length, sha256, обязательное чтение, исполняемая проверка | `brief_pinned_over_budget`; адресные мутации метаданных в `pinned.MUTANTS` |
 | Полный stdout, не срез и не нормализация переводов строк | `brief_no_slice`: UTF-8, два завершающих LF, CRLF, маркер другого компонента внутри данных; побайтовый оракул в памяти |
+| Успешный stderr npm не часть stdout брифа | `STDERR_CASES`: pinned/inline × rules/plain; точные байты, метаданные, чтец и отсутствие предупреждения в паке |
 | Доступность и целостность до выдачи; без частичного пака | `brief_pin_missing`, `brief_pin_tampered`: второй pin в двухкомпонентном паке недоступен/изменён; stdout пуст |
 | Читаемость и размещение вне checkout/.git | `brief_pin_unreadable`, `brief_pin_checkout`, `brief_pin_git` |
 | Честные эквивалентные пути | `brief_pinned_spaces`, `brief_pinned_external_symlink` |
@@ -64,3 +65,91 @@
 сдаточный лист для отличающегося от frozen текста; добавлен `SDACHA.md`
 с существующей грамматикой двери 193. Текущие raw-логи и коды возврата
 передаются в `.scratch-170b`; прежние замеры выше относятся к прошлой пачке.
+
+## Исправление Crit170V2 на базе 7fc5639f75411a6c2768429ed78f957844c65c48
+
+Контракт :19 требует полный stdout, :29 связывает с ним длину и sha256;
+успешный stderr не является частью stdout. Противоречия с frozen 170/1
+нет: отказ npm по-прежнему rc 1, stdout пуст, первая строка stderr —
+`ОТКАЗ: ARCH_BRIEF_OTKAZ: <id>`. Текст контракта не изменён.
+
+Найдено два места смешивания в MODEL_BODY (`probe.py`), с rules и без;
+`pinned.py:model_text` наследовал оба через shell-подстановки с `2>&1`.
+`pinned_model.py` сам npm не вызывает и уже разделяет потоки чтеца через
+capture_output. Модель теперь отбрасывает npm stderr отдельно от stdout,
+не выпуская его перед именованным отказом; точный stdout с завершающими LF
+сохранён прежним сентинелом, привязанным только к npm-argv.
+
+Новые входы: `brief_stderr_pinned`, `brief_stderr_pinned_plain`,
+`brief_stderr_inline`, `brief_stderr_inline_plain`. Fixture npm пишет
+`npm WARN successful brief` только в stderr успешного запуска. Для pin
+используются прежние точные сверки байтов, длины, sha256 и живого чтения;
+inline дополнительно сверяется целой секцией. Оракул в памяти до субъекта.
+Во всех четырёх входах предупреждение отсутствует в stdout пака.
+Мутант `stderr_merged` предъявляется каждой ветви кодом pinned.MUTANTS.
+Честные соседи — прежние inline/pinned-клетки без предупреждения.
+
+До исправления модели новые клетки на прежнем OBJECT различают дефект:
+
+```text
+170 brief_stderr_pinned KRASNO rc=0 stderr=''
+170 brief_stderr_pinned_plain KRASNO rc=0 stderr=''
+170 brief_stderr_inline KRASNO rc=0 stderr=''
+170 brief_stderr_inline_plain KRASNO rc=0 stderr=''
+170 PIN_CONTROL_INVALID
+```
+
+`red_arch_component_170.sh --model` → rc 1, `.scratch-170c/red-before.log`;
+прежние клетки остались зелёными. Состав получен независимо AST-чтением
+исходных списков из git и импортом текущих кортежей: клетки 45 → 49
+(25 прежних + 20 → 24 pinned); предъявления стабов 36 → 40
+(14 прежних + 22 → 26 pinned), один новый мутант на четырёх входах.
+
+Все текущие логи — `.scratch-170c/`. Регрессии 095/169 исполняются через
+прежний regressions.py: только scratch перенесён внутрь копии, теперь
+адаптер уважает TMPDIR; production/argv/утверждения не меняются.
+Прямые исторические shell-обёртки с жёстким внешним scratch не запускались.
+
+На реальной до-v+1 двери `--repo` → rc 1: 27 зелёных, 22 красных —
+18 прежних pinned-клеток из :39 и четыре новых STDERR_CASES.
+Полный список и сырой вывод — `.scratch-170c/repo.log`.
+Адаптированные 095/169 → rc 0, `.scratch-170c/regressions.log`:
+
+```text
+095 red_pravila_proekta_ne_harsa rc=0 (scratch relocated only)
+169 project_no_arg ok rc=0 stderr=''
+169 explicit_model_string ok rc=1 stderr='ОТКАЗ: --model-trace ожидает путь к TSV-файлу трассы (роль<TAB>модель<TAB>allowed); в проектном корне аргумент можно опустить — берётся <registry>/trace.tsv'
+169 explicit_missing_path ok rc=1 stderr='ОТКАЗ: --model-trace ожидает путь к TSV-файлу трассы (роль<TAB>модель<TAB>allowed); в проектном корне аргумент можно опустить — берётся <registry>/trace.tsv'
+169 no_trace_anywhere ok rc=1 stderr='ОТКАЗ: нет свидетельства модели: orchestrator'
+169 orchestrator_step_0 ok
+169 red_model_trace_169 --model rc=0 (scratch relocated only)
+```
+
+После разделения потоков отказный npm по-прежнему выдаёт непустой stdout
+перед rc 17 (обязательство :42): npm_stub.py явно печатает PARTIAL-BRIEF.
+Иначе прежние npm_failure_ignored ложно ловились бы только проверкой
+пустого брифа, а не rc npm. Их собственные входы и ожидания сохранены.
+Inline-секция ограничена следующим заголовком тем же способом, что
+прежние pinned-сверки: последующие TASK/PROJECT-секции не часть брифа.
+
+Итог на исправленном кандидате (TMPDIR внутри копии):
+`--model` rc 0, 49 зелёных; `--stabs` rc 0, 40 caught, ни одного ZHIV.
+Сырые логи: `.scratch-170c/model-final.log`, `stabs-final.log`,
+`sdacha-final.log`, `pre-critic-final.log`; коды и счёт — `final-summary.json`.
+
+```text
+170 brief_stderr_pinned ok rc=0 stderr=''
+170 brief_stderr_pinned_plain ok rc=0 stderr=''
+170 brief_stderr_inline ok rc=0 stderr=''
+170 brief_stderr_inline_plain ok rc=0 stderr=''
+170 STAB stderr_merged caught @ brief_stderr_pinned
+170 STAB stderr_merged caught @ brief_stderr_pinned_plain
+170 STAB stderr_merged caught @ brief_stderr_inline
+170 STAB stderr_merged caught @ brief_stderr_inline_plain
+СДАЧА: лист зелёный (двери=3 карта=17/17 дельта=0)
+КРИТИК: дверь зелёная
+```
+
+`bash scripts/check_sdacha.sh . contracts/170-arch-component-brief-vhod-zadanija.md --run`
+→ rc 0; `bash scripts/pre_critic.sh contracts/170-arch-component-brief-vhod-zadanija.md`
+→ rc 0. Внешний журнал и контракт не менялись, push не выполнялся.

@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 def main():
-    scratch = ROOT / '.scratch-170'
+    scratch = Path(os.environ.get('TMPDIR', ROOT / '.scratch-170')).resolve()
     scratch.mkdir(exist_ok=True)
     os.environ['TMPDIR'] = str(scratch)
     with tempfile.TemporaryDirectory(dir=scratch, prefix='regressions-') as name:
