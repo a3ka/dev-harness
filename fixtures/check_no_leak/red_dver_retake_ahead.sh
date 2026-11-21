@@ -192,7 +192,7 @@ ozhid_otkaz() {  # <клетка> <фраза>
   ok "$imja" "отказ именован, снимок не тронут, дельта видна"
 }
 
-WORKTOP="$(mktemp -d /tmp/red056-ahead.XXXXXX)"   # А-78: свежий WORK вне дерева
+WORKTOP="$(mktemp -d "${TMPDIR:-/tmp}/red056-ahead.XXXXXX")"   # скратч вызывающего, вне toy-корня
 trap 'rm -rf "$WORKTOP"' EXIT
 
 # ── ДВА прогона подряд с РАЗНЫМИ случайными входами (контракт §Приёмочный

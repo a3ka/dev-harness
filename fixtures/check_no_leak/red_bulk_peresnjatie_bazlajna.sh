@@ -152,7 +152,7 @@ SUBJ="$REPO/scripts/check_no_leak.sh"
 P_ZAGR='основной чекаут загрязнён'
 P_CHISTO='основной чекаут чист'
 
-WORK="$(mktemp -d /tmp/red044-bulk.XXXXXX)"   # А-78: свежий WORK вне дерева
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/red044-bulk.XXXXXX")"   # скратч вызывающего, вне toy-корня
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/snaps"
 export TMPDIR="$WORK/snaps"                       # снимки субъекта — в скратч прогона
