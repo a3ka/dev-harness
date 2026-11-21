@@ -28,6 +28,7 @@ import json
 import os
 import shutil
 import subprocess
+import select
 import sys
 import tempfile
 from pathlib import Path
@@ -798,6 +799,114 @@ def scenario(name, n, phase, outcome='FAIL', arb_file=False, rename=False,
         return None
 
 
+def concurrent_start(name, mode, mutation=''):
+    """One remaining base position, two real --sudit processes on the same state.
+
+    The copied door pauses after counting. A competing process either encounters
+    the held mutex or finishes its own count. Pipes, not scheduler delays, choose
+    the interleaving; no production file or counter result is replaced.
+    """
+    with tempfile.TemporaryDirectory(prefix='schet154-race-') as tmp:
+        base = Path(tmp)
+        verdict_tail = (mode != 'model' and 'object_kandidata() {' in
+                        (ROOT / 'scripts/zamok_predmeta.sh').read_text())
+        repo, state, journals, event, ledger, _ = world(
+            base, 1, ['FAIL'], source='third-missing', label=name,
+            verdict_tail=verdict_tail)
+        scripts = prepare_scripts(base, mode)
+        door = scripts / 'zamok_predmeta.sh'
+        lock = door.read_text()
+        calls = [line for line in lock.splitlines()
+                 if ('schet_kritika_154 spawn ' in line or
+                     '--phase spawn || b154=$?' in line)]
+        if len(calls) != 1:
+            raise RuntimeError('race: lost spawn counter seam')
+        call = calls[0]
+        if mutation == 'counter-outside-mutex':
+            # Adv154V7b, K-08: all other checks keep their original mutex.
+            lock = lock.replace(call, '        mutexi_snyat_vse\n' + call +
+                                '\n        mutex_zajavit "$sv" || exit 1', 1)
+        elif mutation:
+            raise RuntimeError('race: unknown mutation: ' + mutation)
+        pause = ('\n        printf "counted\\n" >&"$RACE154_STATUS_FD"\n'
+                 '        IFS= read -r -u "$RACE154_RELEASE_FD" race154_release || exit 2')
+        lock = lock.replace(call, call + pause, 1)
+        acquire = '    mkdir "$d/mutex" 2>/dev/null && return 0'
+        if lock.count(acquire) != 1:
+            raise RuntimeError('race: lost mutex acquisition seam')
+        lock = lock.replace(acquire, acquire +
+                            '\n    if [ "${RACE154_BLOCKED:-0}" = 0 ]; then\n'
+                            '      RACE154_BLOCKED=1\n'
+                            '      printf "blocked\\n" >&"$RACE154_STATUS_FD"\n'
+                            '      IFS= read -r -u "$RACE154_RELEASE_FD" race154_release || exit 2\n'
+                            '    fi', 1)
+        door.write_text(lock)
+        # Immutable expectation: one new critic START, not two free position-2
+        # decisions. Capture the history before either subject starts.
+        before = ledger.read_bytes()
+        argv = ['bash', str(door), '--sudit', '--sostojanie', str(state),
+                '--zhurnaly', str(journals), '--repo', str(repo), str(event)]
+        processes, descriptors = [], []
+
+        def launch():
+            read_fd, write_fd = os.pipe()
+            release_fd, resume_fd = os.pipe()
+            descriptors.extend((read_fd, write_fd, release_fd, resume_fd))
+            process = subprocess.Popen(
+                argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                pass_fds=(write_fd, release_fd),
+                env={**os.environ, 'GIT_CONFIG_GLOBAL': '/dev/null',
+                     'GIT_CONFIG_SYSTEM': '/dev/null',
+                     'RACE154_STATUS_FD': str(write_fd),
+                     'RACE154_RELEASE_FD': str(release_fd)})
+            processes.append(process)
+            return process, read_fd, resume_fd
+
+        def status(fd):
+            if not select.select([fd], [], [], 30)[0]:
+                raise RuntimeError('race: synchronization timed out')
+            value = os.read(fd, 64).decode().strip()
+            if value not in ('counted', 'blocked'):
+                raise RuntimeError('race: invalid synchronization: ' + repr(value))
+            return value
+
+        try:
+            first, first_fd, first_resume = launch()
+            if status(first_fd) != 'counted':
+                raise RuntimeError('race: first contender did not reach counter')
+            second, second_fd, second_resume = launch()
+            competing = status(second_fd)
+            # The second has now either hit the real held mutex (honest), or
+            # counted the same remaining position (mutant). Finish the first
+            # before resuming the second, avoiding unrelated append/write races.
+            os.write(first_resume, b'go\n')
+            first_out, first_err = first.communicate(timeout=180)
+            os.write(second_resume, b'go\n')
+            second_out, second_err = second.communicate(timeout=180)
+        finally:
+            for process in processes:
+                if process.poll() is None:
+                    process.kill()
+                process.communicate()
+            for fd in descriptors:
+                os.close(fd)
+        after = ledger.read_bytes()
+        appended = ([json.loads(line) for line in after[len(before):].splitlines()]
+                    if after.startswith(before) else [])
+        valid_start = (len(appended) == 1 and appended[0].get('t') == 'START' and
+                       appended[0].get('repoId') == REPO_ID and
+                       appended[0].get('subjectId') == NNN and
+                       appended[0].get('rol') in ('critic', 'critic-sol'))
+        if (first.returncode != 0 or second.returncode != 1 or
+                'ОТКАЗ: ZAMOK_BROSHEN:' not in second_err or not valid_start):
+            return (f'{name}: expected rc=[0,1] ZAMOK_BROSHEN added-critic-START=1; '
+                    f'actual rc=[{first.returncode},{second.returncode}] '
+                    f'appended={len(appended)} competing={competing}; '
+                    f'stdout={first_out.strip()!r},{second_out.strip()!r}; '
+                    f'stderr={first_err.strip()!r},{second_err.strip()!r}')
+        return None
+
+
 # ── безфлаговый W: именованные RED до реализации, rc 1 ────────────────────────
 CASES = [
     # позиции нового порядка на двери
@@ -1191,6 +1300,15 @@ LIVE_CASES = [
 ]
 LIVE_CASES += B1_CASES
 
+# K-08 / Adv154V7b: the paid critic boundary, not the worker-only family-140
+# race. The same input is exercised by installed, reference and stab modes.
+CONCURRENT_CASE = ('concurrent-start-last-base-position', 1, 'spawn', 'FAIL',
+                   False, False, 'third-missing', {'concurrent': True})
+CASES.append(CONCURRENT_CASE)
+DOMAIN.append(CONCURRENT_CASE)
+LIVE_CASES.append(CONCURRENT_CASE)
+STAB_CASES.append(('counter-outside-mutex',) + CONCURRENT_CASE[1:])
+
 
 def grammar_numbers(limit=0):
     """Домен номеров предмета = ВЕСЬ замкнутый алфавит грамматики двери
@@ -1347,6 +1465,8 @@ def grammar_run(limit=0):
 
 def run_case(c, mode, mutation=''):
     name, n, phase, outcome, arb_file, rename, source, kw = c
+    if kw.get('concurrent'):
+        return concurrent_start(name, mode, mutation)
     return scenario(name, n, phase, outcome, arb_file, rename, source, mode, mutation, **kw)
 
 

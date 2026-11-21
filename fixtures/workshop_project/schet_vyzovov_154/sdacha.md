@@ -23,7 +23,7 @@
 - К-05 · чисто · вход: таблица приёмки задаёт команды и rc до/после реализации; предписанные consumer-команды не объявлены уже прогнанными · - · -
 - К-06 · чисто · вход: probe.py инфраструктурные RuntimeError/OSError/ValueError завершает NOT_IMPLEMENTED rc 2; отсутствующий предметный state является проверяемым отказом rc 1 · - · -
 - К-07 · чисто · вход: python3 fixtures/workshop_project/schet_vyzovov_154/installed_control.py — rc 0; честная вставка в настоящие копии CLI: repo 87/87, domain 213/213, live 9/9, grammar 2000/2000, каждый rc 0; production не менялся · - · -
-- К-08 · чисто · вход: STAB_CASES привязывает мутации к различающим предъявлениям по коду; каждый модельный контроль зелёный, SVJAZI=46 CAUGHT=46 LIVE=0 · - · -
+- К-08 · чисто · вход: STAB_CASES связывает counter-outside-mutex с concurrent-start-last-base-position; два настоящих --sudit при одной базовой позиции; честная установленная/модельная дверь зелена, мутант обеих дверей даёт rc=[0,0] и две новые START · - · -
 - К-09 · чисто · вход: две фазы, история, источник, адресный OBJECT/nomer/роль/ключ, третий и consultant-бюджет; весь SUBJECT 000…999, GRAMMAR=1000 CELLS=2000 · - · -
 - К-10 · чисто · вход: успешный spawn добавляет ровно START, отказ сохраняет ledger; freeze сравнивает tag И registry; freeze-side-effect выявлен именно изменением снимка, не аварией · - · -
 - К-11 · чисто · вход: oracle — чистая функция параметров до субъекта; снимки результатов до вызова в памяти; после субъекта ожидания не перечитываются · - · -
@@ -142,3 +142,77 @@ v1; законная первая заморозка и отказ refreeze-v2 �
 `SUBJEKT STAB … KRASEN`; честные пары зелёные. Бюджетные регрессы по-прежнему
 ловит неизменённая матрица 154. Никакая соседняя дверь ради toy не ослаблена.
 
+
+## Дельта
+
+- К-08 · клетка · bash fixtures/workshop_project/schet_vyzovov_154/red_schet_vyzovov_154.sh --stabs · 0 · 0
+
+## Конкурентный START — Adv154V7b
+
+Основание — прочитанный файл `/tmp/dev-harness-verify/adv154-verdict-v7.md`,
+OBJECT `8d37c09ea6cdcc15884eca607d58ca4d9ac68297`. Это adversary FAIL,
+не новый critic-вердикт и не выдуманная карта классов; прежняя история листа
+сохранена. Поле «ПРЕДЫДУЩИЙ ВЕРДИКТ» не добавляется: файл вне HEAD
+не удовлетворяет git-проверке `check_sdacha.sh`.
+
+Переиспользованы world/prepare_scripts и закреплённая модельная вставка.
+Одна новая клетка `concurrent-start-last-base-position` добавлена в
+repo/domain/live/model/domain-model, одна связь `counter-outside-mutex`
+добавлена в STAB_CASES. Ни прежние предъявления, ни production, ни контракт
+не изменены. Модель бюджета не меняется: её существующая вставка держит
+счёт и START под тем же mutex и проходит тот же конкурентный вход.
+
+В копии двери две pipe-точки останавливают процессы после счёта либо при
+неудавшемся захвате mutex. Первый процесс завершает START только после
+того, как второй наблюдал занятый mutex (честная дверь) или уже сосчитал
+ту же позицию (мутант). Затем завершается второй. Окно расширяется
+барьером, без sleep и без правки production. Отдельные file descriptors
+не забирают stdin у существующих heredoc-циклов двери.
+
+Ожидание сохранено до обоих процессов: rc=[0,1], именованный
+ZAMOK_BROSHEN второго, неизменный префикс журнала и ровно одна добавленная
+START critic|critic-sol своего ключа. Установка мутанта — дословное
+снятие mutex до счётчика и повторный захват после; прочие проверки прежние.
+На настоящей установленной двери и на модельной вставке мутант наблюдался
+как rc=[0,0], appended=2, competing=counted; честные пары зелёные.
+
+Независимый импорт коллекций: CASES=94 DOMAIN=220 LIVE=16 MODEL=97
+DOMAIN_MODEL=224 STABS=52. До → после: repo 93→94, domain 219→220,
+live 15→16, model 96→97, domain-model 223→224, stabs 51→52;
+grammar остаётся 2000. Исторические числа выше относятся к своим дельтам.
+
+Развилки: канон бюджета и frozen-обязательство И-1 уже определены;
+прозой запрет не доказать, поэтому добавлена одна поведенческая клетка.
+Новый отказ/новый продуктовый механизм не вводятся.
+
+Приёмка дельты с `PYTHONDONTWRITEBYTECODE=1`:
+
+| Команда | rc | Сырой итог |
+|---|---|---|
+| W | 0 | CELLS=94 GREEN=94 |
+| W --domain | 0 | CELLS=220 GREEN=220 |
+| W --live | 0 | CELLS=16 GREEN=16 |
+| W --model | 0 | CELLS=97 GREEN=97 |
+| W --domain-model | 0 | CELLS=224 GREEN=224 |
+| W --grammar | 0 | GRAMMAR=1000 CELLS=2000 GREEN=2000 |
+| W --stabs | 0 | SVJAZI=52 CAUGHT=52 LIVE=0 |
+| python3 fixtures/workshop_project/schet_vyzovov_154/installed_control.py | 0 | INSTALLED_CONTROL repo/domain/live/grammar rc=0 |
+| concurrent_start(..., 'repo', 'counter-outside-mutex'), rc по результату клетки | 1 | RED concurrent-start-last-base-position; actual rc=[0,0] appended=2 competing=counted |
+
+В изолированном worktree `W --family140` вернул rc 1
+`FAMILY140_MEASUREMENT_UNKNOWN: command rc=128: … scripts/gitw ls-remote`.
+В отдельном клоне с собственным .git и ssh-origin на базе поезда:
+rc 0, `FAMILY140_BASE=8768512a6aad43a7c9fb12f73872858e203250b7 rc=0 red=`,
+`FAMILY140_CANDIDATE rc=0 red=`, `GREEN family140-baseline`.
+Это замер среды, не подавление отказа и не смена ожидания.
+
+Процессное наблюдение: stdin двери занят heredoc-циклами; синхронизация
+через stdin дала ложный rc 2. Устранено выделенными pipe descriptors и
+проверено честной парой плюс обеими мутациями. Общий журнал А-NNN в main
+не менялся: он вне разрешённой fixture-only зоны и не пишется в wip.
+
+Двери на этой дельте: `bash scripts/pre_critic.sh --repo .
+contracts/154-schet-vyzovov-kritika.md` → rc 0,
+`КРИТИК: дверь зелёная`; `bash scripts/check_sdacha.sh "$PWD"
+contracts/154-schet-vyzovov-kritika.md --run` → rc 0,
+`СДАЧА: лист зелёный (двери=9 карта=17/17 дельта=1)`.
