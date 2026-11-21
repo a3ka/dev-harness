@@ -19,6 +19,13 @@
 # v5 (слово владельца 2026-11-18 ~14:05 UTC, §4 батча №2; заявка контракта
 # 199:19): у рабочего item события спавна обязателен реальный isolated
 # === true из ПОЛЯ item; строка START несёт факт isolated ([D32]/[D33]).
+# v6 (слово владельца 2026-11-21 «самое простое решение»): первый critic
+# НОВОГО предмета — у которого у владельца НЕТ НИ ОДНОГО тега
+# frozen/contracts/<NNN>/* — читает класс риска из ДЕРЕВА OBJECT ([D52]);
+# иначе critic требует frozen, а freeze требует accept критика (цикл, боль
+# 203). Bootstrap ТОЛЬКО при нуле frozen-тегов и ТОЛЬКО для critic/critic-sol;
+# при живом frozen-теге pinned frozen обязателен как прежде (битый pin →
+# KLASS_RISKA_NET), остальные роли (adversary/reviewer) — как прежде.
 #
 # ПИНЫ (инвариант 1): дверь вызывается расширением .omp/extensions/
 # spawn-guard.ts по расположению расширения, а не по env; корни состояний
@@ -683,6 +690,7 @@ sudit() {
   GATED=''
   local i=0 agent name task in_w in_j s sv p wt br o obj klass rol r
   local transfer P_JSON P_WT P_BRANCH P_OBJECT P_FROZEN risk_repo
+  local kl_bootstrap kl_frozen
   while [ "$i" -lt "$N" ]; do
     agent="$(jq -r "(.tasks // [.])[$i].agent // \"\"" "$EVENT" 2>/dev/null)" \
       || otp BITYJ_VHOD "item $i: agent не читается"
@@ -851,13 +859,34 @@ EOF
         otp OBJECT_RASHODITSJA "предмет $sv: OBJECT задания $obj ≠ tip ветки $r_br ($tip)"
       }
       # [D42 frozen-risk] Всегда frozen соответствующего владельца, не OBJECT.
+      # [D52 bootstrap-kritika] Первый critic НОВОГО предмета (ни одного
+      # frozen/contracts/<NNN>/* у владельца) читает класс риска из OBJECT:
+      # иначе critic требует frozen, а freeze требует accept критика — цикл
+      # (боль 203; слово владельца 21.11 — «самое простое решение»). Bootstrap
+      # ТОЛЬКО при НУЛЕ frozen-тегов и ТОЛЬКО для роли critic/critic-sol; при
+      # живом frozen-теге pinned frozen обязателен как прежде (битый pin →
+      # прежний отказ KLASS_RISKA_NET). Класс читается из ДЕРЕВА OBJECT в
+      # репозитории носителя (r_wt — там D9 уже сверил tip ветки с OBJECT).
+      kr=''; kl_bootstrap=0; kl_frozen=''
       if [ -z "$P_FROZEN" ]; then
-        P_FROZEN="$(frozen_predmeta "$sv" "$risk_repo")" || {
-          mutexi_snyat_vse
-          otp KLASS_RISKA_NET "предмет $sv: закреплённый frozen недоступен"
-        }
+        case "$rol" in
+          critic|critic-sol)
+            kl_frozen="$(git -C "$risk_repo" for-each-ref --format='%(objectname)' \
+                         "refs/tags/frozen/contracts/$sv/" 2>/dev/null)" || kl_frozen='NET'
+            [ -n "$kl_frozen" ] || kl_bootstrap=1 ;;
+        esac
       fi
-      kr="$(klass_riska "$sv" "$risk_repo" "$P_FROZEN")"
+      if [ "$kl_bootstrap" = 1 ]; then
+        kr="$(klass_riska "$sv" "$r_wt" "$obj")"
+      else
+        if [ -z "$P_FROZEN" ]; then
+          P_FROZEN="$(frozen_predmeta "$sv" "$risk_repo")" || {
+            mutexi_snyat_vse
+            otp KLASS_RISKA_NET "предмет $sv: закреплённый frozen недоступен"
+          }
+        fi
+        kr="$(klass_riska "$sv" "$risk_repo" "$P_FROZEN")"
+      fi
       case "$kr" in
         risikovyj|obychnyj) : ;;
         *)

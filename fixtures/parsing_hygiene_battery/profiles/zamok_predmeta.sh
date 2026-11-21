@@ -8,12 +8,18 @@
 # regex-injection, silent-drop, self-application-green. Клетки g01–g06 батареи
 # 140 покрывают эти же классы на модели; здесь — на ПОСТАВЛЕННОЙ двери
 # (scripts/zamok_predmeta.sh), а не на эталоне.
+# Класс silent-drop несёт ещё две клетки поведения двери (г, д): первый critic
+# НОВОГО предмета (ни одного frozen/contracts/<NNN>/* у владельца) не
+# теряется молча — класс риска берётся из ДЕРЕВА OBJECT; и негатив к нему —
+# предмет с ОДНИМ живым frozen-тегом и битым pin отклоняется как прежде
+# (bootstrap применяется ТОЛЬКО при нуле frozen-тегов).
 #
 # Мир — в mktemp; сеть и omp не нужны; git/jq/bash обязательны.
 ZP_REPO="$(cd "$HERE/../.." && pwd -P)"
 ZP_SUBJ="$ZP_REPO/scripts/zamok_predmeta.sh"
 ZP_T=''
 ZP_TAB=$'\t'
+ZP_WT=''; ZP_BR=''; ZP_SHA=''; ZP_PIN=''
 
 # ── мир: состояние + журналы + реестр + репозиторий пина ─────────────────────
 zp_world() {  # мир строится один раз на прогон профиля; состояние — чистое на каждый класс
@@ -100,6 +106,34 @@ zp_zhivoy_derzhatel() {  # <NNN> <holder> <klass>
       > "$ZP_T/zhurnaly/$h.jsonl"
 }
 
+# Кандидат предмета: контракт в ДЕРЕВЕ OBJECT (класс риска читается оттуда),
+# ветка wip/<NNN>/avtor — рабочая ветка носителя.
+zp_kandidat() {  # <NNN> → ZP_WT, ZP_BR, ZP_SHA
+  local n="$1"
+  local wt="$ZP_T/kand$n"
+  rm -rf "$wt"
+  mkdir -p "$wt/contracts"
+  git -C "$wt" init -q . 2>/dev/null
+  git -C "$wt" remote add origin 'ssh://git@github.com/a3ka/dev-harness.git'
+  printf '# контракт %s\nКЛАСС РИСКА: обычный\n' "$n" > "$wt/contracts/$n-novyi.md"
+  git -C "$wt" checkout -q -b "wip/$n/avtor" 2>/dev/null
+  git -C "$wt" add -A
+  git -C "$wt" -c user.name=b -c user.email=b@t -c commit.gpgsign=false \
+      commit -q -m "k$n"
+  ZP_WT="$wt"; ZP_BR="wip/$n/avtor"; ZP_SHA="$(git -C "$wt" rev-parse HEAD)"
+}
+
+# Автор предмета сдал результат: START рабочего в учёте + журнал с yield.
+zp_avtor_sdal() {  # <NNN> <holder> <worktree> <branch>
+  local n="$1" h="$2" wt="$3" br="$4"
+  jq -cn --arg s "$n" --arg h "$h" --arg w "$wt" --arg b "$br" \
+      '{t:"START",repoId:"dev-harness",subjectId:$s,group:"harness",holder:$h,
+        klass:"rabochij",rol:"implementer",object:"-",worktree:$w,branch:$b,
+        at:"2026-11-21T00:00:00Z"}' >> "$ZP_T/sost/uchet.jsonl"
+  printf '{"timestamp":"2026-11-21T00:00:00.000Z","message":{"role":"assistant"}}\n{"type":"toolResult","toolCallId":"toolu_x","toolName":"yield","content":[{"type":"text","text":"Result submitted."}]}\n' \
+      > "$ZP_T/zhurnaly/$h.jsonl"
+}
+
 # ── класс 1: delimiter-collision ─────────────────────────────────────────────
 battery_delimiter_collision() {
   # (а) TAB в ИМЕНИ holder'а — байт ВНЕ алфавита имени, а не разделитель
@@ -178,6 +212,36 @@ battery_silent_drop() {
         "$n140" "$n141" >&2
     return 1
   fi
+  # (г) Первый critic НОВОГО предмета (у владельца НИ ОДНОГО тега
+  #     frozen/contracts/<NNN>/*) НЕ теряется молча: класс риска берётся из
+  #     ДЕРЕВА OBJECT, спавн разрешён. Иначе дверь, требующая frozen до
+  #     первого критика, отказывала бы законному входу молча и без записей
+  #     (слово владельца 21.11 — «самое простое решение»).
+  zp_world || return 1
+  zp_kandidat 203 || return 1
+  zp_avtor_sdal 203 Avtor203 "$ZP_WT" "$ZP_BR"
+  zp_event "$ZP_T/e4.json" critic Critic203 'SUBJECT=203' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e4.json"
+  zp_expect 0 - 'critic нового предмета без frozen' || return 1
+  # (д) Негатив к (г): bootstrap применяется ТОЛЬКО при НУЛЕ frozen-тегов.
+  #     Предмет с ОДНИМ живым frozen-тегом и битым pin (строка реестра указывает
+  #     не на frozen-тег) — отказ как прежде: KLASS_RISKA_NET. Иначе bootstrap
+  #     превратился бы в безусловный допуск мимо пина владельца.
+  zp_kandidat 204 || return 1
+  zp_avtor_sdal 204 Avtor204 "$ZP_WT" "$ZP_BR"
+  git -C "$ZP_T/repo" -c user.name=b -c user.email=b@t -c tag.gpgsign=false \
+      tag -a 'frozen/contracts/204/1' -m frozen
+  git -C "$ZP_T/repo" -c user.name=b -c user.email=b@t -c tag.gpgsign=false \
+      tag -a 'id/CONTRACT/204' -m mint
+  ZP_PIN="$(git -C "$ZP_T/repo" rev-parse 'refs/tags/id/CONTRACT/204')"
+  mkdir -p "$ZP_T/repo/registry"
+  printf '204 → %s\n' "$ZP_PIN" > "$ZP_T/repo/registry/contracts.tsv"
+  git -C "$ZP_T/repo" add -A
+  git -C "$ZP_T/repo" -c user.name=b -c user.email=b@t -c commit.gpgsign=false \
+      commit -q -m 'pin 204'
+  zp_event "$ZP_T/e5.json" critic Critic204 'SUBJECT=204' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e5.json"
+  zp_expect 1 KLASS_RISKA_NET 'предмет с frozen-тегом и битым pin' || return 1
   return 0
 }
 
