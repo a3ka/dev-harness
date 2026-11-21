@@ -39,11 +39,17 @@ battery_delimiter_collision() {
   # «неизвестный ключ репо-слой: injected»; прежний «repo:» был устаревшим и
   # не срабатывал (grep не был последней командой функции — замечание критика
   # к 057, contracts-057-v1.md:163).
-  local out rc msg
-  out="$(HARNESS_PROJECT_LAYER_ROOT="$w/layer" bash "$PR_SUBJ" --repo "$w/repo" 2>&1)"; rc=$?
+  # КАНАЛ ПРЕДУПРЕЖДЕНИЯ (Б-1, контракт 184): предупреждение читается из
+  # ОТДЕЛЬНОГО stderr, stdout — отдельно. При слитых каналах (`2>&1`) дверь
+  # не пишет строку предупреждения в общий поток (иначе JSON ломается), и
+  # grep по слитому потоку её не находит. Канал stderr — файл, stdout — труба:
+  # это РАЗНЫЕ объекты, дверь пишет предупреждение в stderr как прежде.
+  local out rc warn
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$w/layer" bash "$PR_SUBJ" --repo "$w/repo" 2>"$w/warn")"; rc=$?
+  warn="$(cat "$w/warn")"
   rm -rf "$w"
   [ "$rc" -eq 0 ] || return 1
-  printf '%s\n' "$out" | grep -Fq 'неизвестный ключ репо-слой: injected' || return 1
+  printf '%s\n' "$warn" | grep -Fq 'неизвестный ключ репо-слой: injected' || return 1
 
   # PACKS-вариант (контракт 055, И-10): элемент packs с байтами `:` или `"`
   # (те, что грамматика JSON использует как разделители) — отказ должен
@@ -61,20 +67,21 @@ battery_regex_injection() {
   # Regex-инъекция: путь «unknown-key» (с `-`) — имя ключа с байтом, который
   # похож на разделитель; jq не интерпретирует `-` как regex-метасимвол, имя
   # ходит литерально. Подделка интерпретации привела бы к «не нашёл ключ».
-  local w out rc
+  local w out rc warn
   w="$(mktemp -d "${TMPDIR:-/tmp}/battery_pr_ri.XXXXXX")"
   layer_make "$w/layer"
   repo_make "$w/repo" '"unknown-key":"y"'
   set +e
-  out="$(HARNESS_PROJECT_LAYER_ROOT="$w/layer" bash "$PR_SUBJ" --repo "$w/repo" 2>&1)"
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$w/layer" bash "$PR_SUBJ" --repo "$w/repo" 2>"$w/warn")"
   rc=$?
   set -e
+  warn="$(cat "$w/warn")"
   rm -rf "$w"
   # М-0 (контракт 184): неизвестный ключ — ПРЕДУПРЕЖДЕНИЕ и rc 0. Класс
   # прежний: имя ключа в сообщении ПОЛНОЕ (с дефисом), не режется и не
   # трактуется как regex-метасимвол.
   [ "$rc" -eq 0 ] || return 1
-  printf '%s' "$out" | grep -Fq 'неизвестный ключ репо-слой: unknown-key' || return 1
+  printf '%s' "$warn" | grep -Fq 'неизвестный ключ репо-слой: unknown-key' || return 1
 
   # PACKS-вариант (контракт 055, И-10): элемент-метасимвол `[` (квадратная
   # скобка — типичный regex-метасимвол) отвергается классом

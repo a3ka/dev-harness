@@ -1,5 +1,6 @@
 # ПРИЧИНА: значение вне алфавита: defaults.commands.test: пусто
 # ОКРУЖЕНИЕ: HARNESS_PROJECT_LAYER_ROOT=$WORK/layer
+# ОКРУЖЕНИЕ: PROFILE_RESOLVER_WARN_FILE=$WORK/warn.log
 #
 # Контракт 184 (М-0; ADR владельца 2026-11-21-plan-fable п.3 и
 # 2026-11-21-plan-v9 п.6): обязательство «неизвестный ключ слоя проекта — отказ
@@ -40,7 +41,13 @@ printf '{"schemaVersion":1,"repoId":"r1","language":"rust","barriers":{"mandator
 : > "$G_REPO/ci.yml"
 ln -sfn "$GREEN_LAYER" "$WORK/layer"
 GREEN_OUT="$(BARRIER_ROOT="$WORK" "$BARRIER" --repo "$G_REPO")"
-case "$GREEN_OUT" in
+# КАНАЛ ПРЕДУПРЕЖДЕНИЯ (Б-1, контракт 184): предупреждение — НЕ в stdout
+# (stdout несёт merged-профиль) и в слитом канале барьера (проверяющий сводит
+# stdout и stderr барьера в один поток) оно не идёт и в stderr — дверь пишет
+# его в ОТДЕЛЬНЫЙ журнал PROFILE_RESOLVER_WARN_FILE. Читаем предупреждение из
+# этого канала, JSON — из stdout.
+GREEN_WARN="$(cat "$WORK/warn.log" 2>/dev/null || true)"
+case "$GREEN_WARN" in
   *"профиль ПРЕДУПРЕЖДЕНИЕ: неизвестный ключ слой-проекта: boguskey"*) ;;
   *) printf 'ОШИБКА: нет предупреждения об неизвестном ключе слоя проекта\n' >&2; exit 1 ;;
 esac
