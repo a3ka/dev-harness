@@ -199,6 +199,210 @@ def judge(case, response, snapshot):
         return False
 
 
+# Rev184M0: the same public CLI, now through its real 2>&1 consumers.
+CONSUMERS = {
+    'b1a-ci': 'gen_ci_workflow.sh',
+    'b1b-merge': 'check_merge_gate.sh',
+    'b1v-connection': 'check_project_connection.sh',
+}
+M0B_CASES = (
+    *((f'm0-{name}-{scope}', 'consumer', scope, script)
+      for name, script in CONSUMERS.items() for scope in ('repo', 'project')),
+    *((f'm0-b1g-warning-{scope}', 'warning', scope, '')
+      for scope in ('repo', 'project')),
+    *((f'm0-b1d-merged-{scope}', 'merged', scope, '')
+      for scope in ('repo', 'project')),
+    ('m0-b2a-context-leak', 'context', 'leak', ''),
+    ('m0-b2b-context-order0', 'context', 'order0', ''),
+    ('m0-b2b-context-order1', 'context', 'order1', ''),
+    ('m0-b2v-context-override', 'context', 'override', ''),
+)
+# Each binding is exercised independently; unrelated redness never catches a stub.
+M0B_STABS = {
+    'Sa-merged-warning': tuple(c[0] for c in M0B_CASES if c[1] in ('consumer', 'merged')),
+    'Sb-warning-lost': tuple(c[0] for c in M0B_CASES if c[1] == 'warning'),
+    'Sv-context-leak': ('m0-b2a-context-leak',),
+    'Sg-context-rebuilt': ('m0-b2b-context-order0', 'm0-b2b-context-order1'),
+}
+CONTEXT_ORDERS = (
+    ('lessonsPath', 'rows', 'adrPath'),
+    ('adrPath', 'lessonsPath', 'rows'),
+)
+CONTEXT_VALUES = {
+    'rows': [{'kind': 'map', 'path': 'map.md'}],
+    'adrPath': 'adr',
+    'lessonsPath': 'lessons.md',
+}
+
+
+def prepare_m0b(base, cell, snapshots):
+    name, group, scope, script = cell
+    root, profile, layer = prepare(base, Case(name, 'legacy'), snapshots)
+    if group == 'context':
+        profile.pop('contextPack', None)
+        order = CONTEXT_ORDERS[scope == 'order1']
+        layer['defaults'] = {'contextPack': {k: deepcopy(CONTEXT_VALUES[k]) for k in order}}
+        if scope == 'override':
+            profile['contextPack'] = {'rows': [{'kind': 'rules', 'path': 'repo.md'}],
+                                      'adrPath': 'repo-adr'}
+    if group == 'consumer':
+        for value in profile['workflowPaths'].values():
+            (root / value).mkdir(parents=True, exist_ok=True)
+        for source in profile['sourceCanon']['sources']:
+            target = root / source['path']
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.touch()
+        target = root / 'tests/tools/gen-contracts.js'
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text('process.exit(0);\n')
+        (root / 'package.json').write_text(json.dumps({'scripts': {
+            k: 'node tests/tools/gen-contracts.js' for k in ('test', 'smoke:image', 'lint')}}))
+        verdict = root / profile['workflowPaths']['verdicts'] / 'review/control.md'
+        verdict.parent.mkdir(parents=True, exist_ok=True)
+        verdict.write_text('accept\n')
+        git_env = dict(os.environ, GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_SYSTEM='/dev/null')
+        for args in (('init', '-q'), ('remote', 'add', 'origin', profile['git']['canonicalRemote']),
+                     ('add', '.'), ('-c', 'user.name=architect',
+                                   '-c', 'user.email=architect@dev-harness.local',
+                                   'commit', '-qm', '184 fixture control')):
+            subprocess.run(['git', '-C', str(root), *args], env=git_env,
+                           check=True, capture_output=True)
+    (root / 'harness.project.json').write_text(json.dumps(profile))
+    (root / profile['projectLayer']['profilePath']).write_text(json.dumps(layer))
+    return root, profile, layer
+
+
+def dirty_m0b(root, cell, profile, layer):
+    _, group, scope, _ = cell
+    if group == 'context':
+        if scope in ('leak', 'override'):
+            layer['defaults']['contextPack']['rowz'] = 'typo'
+    else:
+        # pack is one unknown root name; maxBytes is its project-owned payload.
+        target = layer.setdefault('defaults', {}) if scope == 'project' else profile
+        target['pack'] = {'maxBytes': 40000}
+    (root / 'harness.project.json').write_text(json.dumps(profile))
+    (root / profile['projectLayer']['profilePath']).write_text(json.dumps(layer))
+
+
+def actual_m0b(root, cell, profile):
+    _, group, _, script = cell
+    resolver = ROOT / 'scripts/profile_resolver.sh'
+    command = ['bash', str(resolver), '--repo', str(root)]
+    if group == 'consumer':
+        command = ['bash', str(ROOT / 'scripts' / script), '--repo', str(root)]
+    elif group == 'merged':
+        # Real descriptor alias, not concatenation of separately captured strings.
+        command = ['bash', '-c', 'exec bash "$1" --repo "$2" 2>&1',
+                   'm0-merged', str(resolver), str(root)]
+    response = subprocess.run(command, cwd=ROOT, capture_output=True,
+                              env=dict(os.environ, HARNESS_PROJECT_LAYER_ROOT=str(root)))
+    # Decode without universal-newline conversion: CRLF must not equal LF.
+    workflow = (root / profile['ci']['workflow']).read_bytes().decode() if group == 'consumer' else ''
+    return response.returncode, response.stdout.decode(), response.stderr.decode(), workflow
+
+
+def expected_m0b(cell, root, oracle):
+    _, group, scope, script = cell
+    if group == 'consumer':
+        return tuple(oracle['consumers'][script])
+    key = scope if group == 'context' and scope not in ('leak',) else 'order0'
+    if group != 'context':
+        key = 'plain'
+    out = oracle['context'][key].replace(json.dumps('${M0B_ROOT}'), json.dumps(str(root)))
+    err = ''
+    if group == 'warning':
+        err = WARNING + ('слой-проекта: defaults.pack' if scope == 'project' else 'репо-слой: pack') + '\n'
+    elif group == 'context' and scope in ('leak', 'override'):
+        err = WARNING + 'слой-проекта: defaults.contextPack.rowz\n'
+    return 0, out, err, ''
+
+
+def judge_m0b(cell, response, expected):
+    if cell[1] != 'consumer':
+        return response == expected
+    rc, out, err, workflow = response
+    warning = WARNING + ('слой-проекта: defaults.pack' if cell[2] == 'project' else 'репо-слой: pack') + '\n'
+    # Consumers may forward the warning separately, but never parse it as JSON.
+    return (rc, out, workflow) == (expected[0], expected[1], expected[3]) and err in ('', warning)
+
+
+def mutate_m0b(cell, response, stub):
+    _, group, scope, _ = cell
+    rc, out, err, workflow = response
+    if stub == 'Sa-merged-warning' and group in ('consumer', 'merged'):
+        warning = WARNING + ('слой-проекта: defaults.pack' if scope == 'project' else 'репо-слой: pack') + '\n'
+        if group == 'merged':
+            out = warning + out
+        elif cell[3] == 'gen_ci_workflow.sh':
+            workflow, err = '', 'ci-генератор: профиль не объявляет ci.workflow — генерировать некуда\n'
+        else:
+            rc, err = 1, 'profile JSON parse failed\n'
+    elif stub == 'Sb-warning-lost' and group == 'warning':
+        err = ''
+    elif stub == 'Sv-context-leak' and scope == 'leak':
+        data = json.loads(out)
+        data['contextPack']['value']['rowz'] = 'typo'
+        out = json.dumps(data, ensure_ascii=False, indent=2) + '\n'
+    elif stub == 'Sg-context-rebuilt' and scope in ('order0', 'order1'):
+        data = json.loads(out)
+        value = data['contextPack']['value']
+        data['contextPack']['value'] = {k: value[k] for k in ('rows', 'adrPath', 'lessonsPath')}
+        out = json.dumps(data, ensure_ascii=False, indent=2) + '\n'
+    return rc, out, err, workflow
+
+
+def run_m0b(mode, snapshots):
+    # Frozen clean OBJECT outputs, loaded before invoking any candidate.
+    oracle = json.loads((HERE / 'm0b_baseline.json').read_text())
+    with tempfile.TemporaryDirectory(prefix='m0b-184-') as tmp:
+        worlds = [(cell, *prepare_m0b(Path(tmp), cell, snapshots)) for cell in M0B_CASES]
+        expectations = {cell[0]: expected_m0b(cell, root, oracle)
+                        for cell, root, _, _ in worlds}
+        if mode == 'stabs':
+            live = 0
+            for stub, targets in M0B_STABS.items():
+                for target in targets:
+                    cell = next(c for c in M0B_CASES if c[0] == target)
+                    expected = expectations[target]
+                    if not judge_m0b(cell, expected, expected):
+                        raise RuntimeError('honest M0B control is red: ' + target)
+                    if cell[1] == 'consumer':
+                        warning = WARNING + ('слой-проекта: defaults.pack' if cell[2] == 'project' else 'репо-слой: pack') + '\n'
+                        forwarded = (expected[0], expected[1], warning, expected[3])
+                        if not judge_m0b(cell, forwarded, expected):
+                            raise RuntimeError('forwarded warning is red: ' + target)
+                    caught = not judge_m0b(cell, mutate_m0b(cell, expected, stub), expected)
+                    print(f'M0B_STAB {stub}@{target}: {"caught" if caught else "LIVE"}')
+                    live += not caught
+            print(f'M0B_STABS={len(M0B_STABS)} LIVE={live}')
+            return int(live != 0)
+        failures = 0
+        for cell, root, profile, layer in worlds:
+            expected = expectations[cell[0]]
+            control = actual_m0b(root, cell, profile) if mode == 'repo' else (
+                expected if cell[1] == 'consumer' else (0, expected[1], '', ''))
+            # Clean controls must succeed; the generator must really write CI.
+            clean_expected = expected if cell[1] == 'consumer' else (0, expected[1], '', '')
+            control_ok = control == clean_expected and control[0] == 0
+            if cell[1] == 'consumer':
+                control_ok &= control[1] == ''
+                if cell[3] == 'gen_ci_workflow.sh':
+                    control_ok &= len(control[3].encode()) > 0
+                # Reset file to its initial empty state before the dirty invocation.
+                (root / profile['ci']['workflow']).write_text('')
+            dirty_m0b(root, cell, profile, layer)
+            response = actual_m0b(root, cell, profile) if mode == 'repo' else expected
+            ok = control_ok and judge_m0b(cell, response, expected)
+            print(f'CELL {cell[0]}: {"ok" if ok else "RED"} (subject_rc={response[0]})')
+            if not ok:
+                print('  M0B_OBSERVATION ' + json.dumps(dict(
+                    control=control, expected=expected, actual=response), ensure_ascii=False))
+            failures += not ok
+        print(f'M0B_CELLS={len(M0B_CASES)} GREEN={len(M0B_CASES) - failures} RED={failures}')
+        return int(failures != 0)
+
+
 def run(mode):
     # Read ALL expectations before invoking any candidate. Never reopen them afterward.
     snapshots = json.loads((HERE / 'm0_baseline.json').read_text())['profiles']
@@ -228,7 +432,7 @@ def run(mode):
                 print(f'M0_STAB {stub}@{target}: {"caught" if caught else "LIVE"}')
                 live += not caught
             print(f'M0_STABS={len(STABS)} LIVE={live}')
-            return int(live != 0)
+            return int(live != 0) | run_m0b(mode, snapshots)
         for case, root, profile, layer in worlds:
             snapshot = expected[case.name]
             response = (actual(root, case) if mode == 'repo' else
@@ -240,4 +444,4 @@ def run(mode):
                                                      ensure_ascii=False))
             failures += not ok
     print(f'M0_CELLS={len(CASES)} GREEN={len(CASES) - failures} RED={failures}')
-    return int(failures != 0)
+    return int(failures != 0) | run_m0b(mode, snapshots)
