@@ -14,6 +14,8 @@ import stat
 import subprocess
 import tempfile
 import sys
+import threading
+import time
 
 REPO = Path(__file__).resolve().parents[2]
 DETECTOR = REPO / "scripts/check_no_leak.sh"
@@ -29,11 +31,22 @@ BINDINGS = {
     "S5": ("clean-auto",),
     "S6": ("missing-ref",),
     "S7": ("dangling-symlink", "existing-symlink"),
+    # Б-2 (Rev044B7): дверь без проверки полного refs/remotes/origin/main (:1090)
+    # — короткое имя (в) даёт «0 0» за локальной веткой origin/main.
+    "S-M2": ("branch-shadow-only-b",),
+    # Б-1 (Rev044B7): поведение OBJECT — нет повторного доказательства
+    # (а)(б)(в) для состояния, лёгшего в снимок.
+    "S-race": ("race-write-during-snapshot",),
+    # Б-3 (Rev044B7): унаследованный GIT_CONFIG_PARAMETERS не снят (:235-239),
+    # porcelain слепнет к untracked, манифест (ls-files) остаётся честным.
+    "S-cfg": ("git-config-parameters",),
 }
 CASES = (
     "clean-auto", "dirty-tracked", "dirty-untracked", "ahead", "behind",
     "missing-ref", "broken-ref", "git-failure", "existing-clean", "existing-dirty",
     "dangling-symlink", "existing-symlink", "snapshot-replaced", "double-check",
+    # Исправление FAIL Rev044B7 (Б-1/Б-2/Б-3).
+    "race-write-during-snapshot", "branch-shadow-only-b", "git-config-parameters",
 )
 
 
@@ -67,12 +80,52 @@ def image(path):
     s = path.stat()
     return (path.read_bytes(), s.st_ino, s.st_mtime_ns, stat.S_IMODE(s.st_mode))
 
+def drop_snapshot(snap):
+    if snap.is_symlink() or snap.exists():
+        if not snap.is_symlink():
+            snap.chmod(0o644)
+        snap.unlink()
+
+
+def start_race_writer(root, env):
+    """Б-1: запись в дерево ВНУТРИ окна двери проверка→манифест.
+
+    Дверь пинит ВСЕ утилиты через TRUSTED_PATH (:309-410), поэтому PATH-обёртка
+    git её не перехватывает. Наблюдаемый шов — первый «голый» `$MKTEMP` из
+    emit_tracked_manifest (:494): он открывается в $TMPDIR ПОСЛЕ доказанных
+    (а)(б)(в) и ДО обхода дерева манифестом. Поллер (0.2 мс) ловит его и пишет
+    утечку — наблюдатель того же класса, что race.sh ревьюера (5/5), без
+    секундных окон. Пустая выборка (наблюдатель не сработал) — красная.
+    """
+    tmp = Path(env["TMPDIR"])
+    seen = {p.name for p in tmp.iterdir()}
+    stop, fired = threading.Event(), threading.Event()
+
+    def watch():
+        while not stop.is_set():
+            for p in tmp.iterdir():
+                if p.name.startswith("tmp.") and p.name not in seen:
+                    (root / "leak.txt").write_text("race leak\n")
+                    (root / "tracked.txt").write_text("raced\n")
+                    fired.set()
+                    return
+            time.sleep(0.0002)
+
+    threading.Thread(target=watch, daemon=True).start()
+    return stop, fired
+
 
 def real(mode, root, env):
     return command(["bash", str(DETECTOR), mode, str(root)], env)
 
 
-def subject(mode, root, env, variant):
+def refused():
+    # Model refusal of the REPAIRED door: rc 1, named diagnosis, no snapshot.
+    return subprocess.CompletedProcess(("model-refusal",), 1, "",
+                                       f"ОТКАЗ: {MISSING} (model)\n")
+
+
+def subject(mode, root, env, variant, case=None, fired=None):
     if variant == "repo" or mode != "--check":
         return real(mode, root, env)
     snap = snapshot(root, env)
@@ -80,16 +133,26 @@ def subject(mode, root, env, variant):
     exists = snap.exists() or snap.is_symlink()
     if exists and variant != "S3" and not (variant == "S7" and snap.is_symlink()):
         return real(mode, root, env)
-    status = git(root, env, "status", "--porcelain")
-    head = git(root, env, "rev-parse", "--verify", "HEAD")
-    origin = git(root, env, "rev-parse", "--verify", "refs/remotes/origin/main")
-    lr = git(root, env, "rev-list", "--left-right", "--count", "origin/main...HEAD")
+    # The repaired door neutralises inherited GIT_CONFIG_PARAMETERS exactly as
+    # it already neutralises GIT_CONFIG_COUNT; honest probes mirror that. S-cfg
+    # models the OBJECT defect and keeps the poison for its own view.
+    probe = env
+    if variant != "S-cfg":
+        probe = {k: v for k, v in env.items() if k != "GIT_CONFIG_PARAMETERS"}
+    status = git(root, probe, "status", "--porcelain")
+    head = git(root, probe, "rev-parse", "--verify", "HEAD")
+    origin = git(root, probe, "rev-parse", "--verify", "refs/remotes/origin/main")
+    lr = git(root, probe, "rev-list", "--left-right", "--count", "origin/main...HEAD")
     clean = status.returncode == 0 and not status.stdout.strip()
     same = (head.returncode == origin.returncode == lr.returncode == 0
             and head.stdout == origin.stdout and lr.stdout.split() == ["0", "0"])
     permitted = clean and same
     if variant == "S1":
         permitted = clean
+    elif variant == "S-M2":
+        # Б-2: проверки полного refs/remotes/origin/main нет (:1090 удалена),
+        # короткое имя (в) выживает за локальной веткой origin/main.
+        permitted = clean and lr.returncode == 0 and lr.stdout.split() == ["0", "0"]
     elif variant == "S2":
         permitted = same
     elif variant == "S3" and exists:
@@ -99,7 +162,16 @@ def subject(mode, root, env, variant):
     elif variant == "S7" and snap.is_symlink():
         permitted = clean and same
     if not permitted or (snap.is_symlink() and variant != "S7"):
+        if variant == "model" and case == "git-config-parameters":
+            # Контроль ПОЧИНЕННОЙ двери: отказ без снимка; делегирование
+            # непочиненной двери импортировало бы её дефект в контроль.
+            return refused()
         return real(mode, root, env)
+    if variant == "S-race":
+        # Дефект Б-1: запись ложится между доказанными проверками и манифестом;
+        # непочиненная дверь снимает это состояние без повторного доказательства.
+        (root / "leak.txt").write_text("race leak\n")
+        (root / "tracked.txt").write_text("raced\n")
     if variant == "S7" and snap.is_symlink():
         snap.unlink()
     taken = real("--snapshot", root, env)
@@ -107,6 +179,17 @@ def subject(mode, root, env, variant):
         return taken
     if variant == "S5":
         snap.chmod(0o644)
+    if variant == "model" and case == "race-write-during-snapshot":
+        # Контроль починенной двери: (а) доказывается ЗАНОВО для состояния,
+        # лёгшего в снимок; запись наблюдателя делает его грязным → отказ,
+        # снимок удалён, строки АВТОСНИМОК нет.
+        if fired is not None:
+            fired.wait(5)
+        post = git(root, probe, "status", "--porcelain")
+        if post.returncode or post.stdout.strip():
+            snap.chmod(0o644)
+            snap.unlink()
+            return refused()
     message = AUTO.format(root=root, head=head.stdout.strip()) + "\n"
     checked = real(mode, root, env)
     return subprocess.CompletedProcess(checked.args, checked.returncode,
@@ -182,12 +265,41 @@ def trial(case, variant, base):
             snap.chmod(0o644)
             snap.write_bytes(b"root /foreign-root\nverify invalid\n")
             snap.chmod(0o444)
+        if case == "branch-shadow-only-b":
+            # Б-2 (Rev044B7): закоммиченная утечка опережает НАСТОЯЩИЙ
+            # refs/remotes/origin/main, локальная ветка origin/main даёт
+            # короткому имени (в) «0 0» (ambiguous refname). Нарушено ТОЛЬКО (б).
+            (root / "leak.txt").write_text("committed leak\n")
+            required(git(root, env, "add", "leak.txt"))
+            required(git(root, env, "commit", "-qm", "shadow leak"))
+            required(git(root, env, "branch", "origin/main"))
+        if case == "git-config-parameters":
+            # Б-3 (Rev044B7): унаследованный GIT_CONFIG_PARAMETERS слепит
+            # porcelain к untracked; ноги манифеста (ls-files) честны.
+            (root / "u.txt").write_text("untracked leak\n")
         before = image(snap)
         calls = 2 if case == "double-check" else 1
         results, states = [], []
-        for _ in range(calls):
-            results.append(subject("--check", root, env, variant))
-            states.append(image(snap))
+        stop = fired = None
+        if case == "race-write-during-snapshot" and variant in ("repo", "model"):
+            stop, fired = start_race_writer(root, env)
+        if case == "git-config-parameters":
+            rules = work / "exclude-rules"
+            rules.write_text("u.txt\n")
+            poisons = ["'status.showUntrackedFiles'='no'",
+                       "'core.excludesFile'='%s'" % rules]
+            for poison in poisons:
+                env["GIT_CONFIG_PARAMETERS"] = poison
+                results.append(subject("--check", root, env, variant, case, fired))
+                states.append(image(snap))
+                drop_snapshot(snap)
+            env.pop("GIT_CONFIG_PARAMETERS", None)
+        else:
+            for _ in range(calls):
+                results.append(subject("--check", root, env, variant, case, fired))
+                states.append(image(snap))
+        if stop is not None:
+            stop.set()
         after = image(snap)
         errors = []
 
@@ -215,6 +327,13 @@ def trial(case, variant, base):
             if calls == 2:
                 need(states[0] is not None and states[0] == states[1],
                      "second check rewrote snapshot bytes/mtime/inode/mode")
+        elif case == "git-config-parameters":
+            for i, (r, s) in enumerate(zip(results, states)):
+                need(r.returncode == 1,
+                     f"check rc={r.returncode}, expected 1 (poison {i})")
+                need(MISSING in r.stdout + r.stderr,
+                     "missing fail-closed diagnosis under inherited GIT_CONFIG_PARAMETERS")
+                need(s is None, f"poison {i} left a snapshot")
         elif existing_clean:
             need(results[0].returncode == 0, f"check rc={results[0].returncode}, expected 0")
             need(after == before, "existing snapshot bytes/mtime/inode/mode changed")
@@ -234,6 +353,9 @@ def trial(case, variant, base):
         if not automatic:
             need(all("АВТОСНИМОК" not in r.stdout + r.stderr for r in results),
                  "refusal/existing snapshot emitted AUTO transcript")
+        if case == "race-write-during-snapshot" and variant in ("repo", "model"):
+            need(fired is not None and fired.is_set(),
+                 "race writer never observed the manifest window (empty sample)")
         need(image(target) == target_before, "symlink target changed")
         need(not (work / "absent-target").exists(), "dangling symlink target created")
         return errors, [r.returncode for r in results]
