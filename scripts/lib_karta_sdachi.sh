@@ -21,6 +21,13 @@
 #   классов — ровно К-01…К-17, каждый ровно один раз;
 #   строки класса вне секции не судятся (проза вердикта вправе упоминать К-NN).
 #
+# 204 (И2/И3/И4): вызов идентифицируется тройкой (предмет, фаза, номер).
+# Фаза выводится из ИМЕНИ файла (karta_faza_puti), не из прозы СУД и не по
+# времени коммита. Индекс, раскрытие ссылок и последний FAIL ограничены
+# фазой предъявленного вердикта: вызов, живущий только в другой фазе, для
+# предъявленного вердикта ОТСУТСТВУЕТ; два разных blob-а одного номера
+# внутри одной фазы — по-прежнему отказ «неоднозначный вызов N».
+#
 # API:
 #   karta_stroki <текст-вердикта>
 #     rc 0 — карта разобрана; stdout: 17 строк «К-NN<TAB>СТАТУС», где СТАТУС —
@@ -136,6 +143,20 @@ karta_metadannye() {
     done <<< "$1"
 }
 
+# 204 (И1): фаза вызова — из ИМЕНИ исторического/предъявленного файла, не из
+# прозы СУД и не по времени коммита. База имени — `contracts-<NNN>-v<VERSION>`:
+# фаза — захваченная десятичная строка целиком (без ведущих нулей; все нули →
+# 0), суффикс после цифрового префикса версии в фазу не входит (`v2d` → 2).
+# Имени без версионного префикса — историческая фаза 1.
+karta_faza_puti() { # 204: версия имени; без версии — историческая фаза v1.
+    local imja="${1##*/}" faza=1
+    if [[ "$imja" =~ ^contracts-[0-9]+-v([0-9]+) ]]; then
+        faza="${BASH_REMATCH[1]}"
+        while [[ "$faza" == 0* ]] && [ "${#faza}" -gt 1 ]; do faza="${faza#0}"; done
+    fi
+    printf '%s' "$faza"
+}
+
 karta_predydushchij() { # N−1 именно источника строки, не последнего вызова/HEAD.
     local nom nuli='' cifra
     karta_metadannye "$1"
@@ -152,13 +173,17 @@ karta_predydushchij() { # N−1 именно источника строки, н
 }
 
 karta_index() { # ROOT, путь предъявленного вердикта, его неизменённый текст
-    local root="$1" put="$2" tema f blob telo nom objects stroka
+    local root="$1" put="$2" tema f blob telo nom objects stroka faza
     karta_metadannye "$3"
     tema="$K193_TEMA"
+    faza="$(karta_faza_puti "$put")"
     K193_POSLED_FAIL=''
     declare -gA K193_TEKST=() K193_BLOB=()
     [ -n "$tema" ] && [ "$K193_ROL" = critic ] || return 0
     local -A videli=()
+    local -A put_videli=()
+    local -a puti=()
+    local names
     # Источники — закоммиченные артефакты critic-каталога предъявленного
     # вердикта и его достижимой из HEAD истории. Один обход git plumbing
     # (`rev-list --objects --full-history` по каталогу) перечисляет блобы
@@ -168,7 +193,25 @@ karta_index() { # ROOT, путь предъявленного вердикта, 
     # последний FAIL с другой стороны слияния, достижимый из HEAD, выпадает
     # из индекса (Б-1 Rev193Impl; И5). Состав — тот же, что и поход по
     # коммитам с ls-tree, но без тысяч вызовов plumbing на реальном дереве.
-    objects="$(git -C "$root" rev-list --objects --full-history HEAD -- "${put%/*}/")" || return 1
+    #
+    # 204 (И1/И2/И5): индекс ограничен ФАЗОЙ предъявленного вердикта, а фаза
+    # выводится из имени файла. Поэтому сначала собираются исторические ИМЕНА
+    # (`git log --name-only --full-history -m --no-renames` — два обхода
+    # plumbing, без ls-tree на каждом коммите), и только потом обходятся
+    # объекты по выбранным путям: `rev-list --objects` печатает для общего
+    # blob-а лишь ОДНО имя, и имя фазы иначе потерялось бы до выбора scope.
+    # Один blob вправе носить имена разных фаз — фаза выбирается по именам
+    # ДО дедупликации объектов (И5).
+    names="$(git -C "$root" log --format= --name-only --no-renames --full-history -m HEAD -- "${put%/*}/")" || return 1
+    while IFS= read -r f; do
+        [[ "$f" == *.md ]] || continue
+        [ "$(karta_faza_puti "$f")" = "$faza" ] || continue
+        [ -z "${put_videli[$f]:-}" ] || continue
+        put_videli[$f]=1
+        puti+=("$f")
+    done <<< "$names"
+    [ "${#puti[@]}" -gt 0 ] || return 0
+    objects="$(git -C "$root" rev-list --objects --full-history HEAD -- "${puti[@]}")" || return 1
     while IFS= read -r stroka; do
         blob="${stroka%% *}"
         f="${stroka#* }"
