@@ -14,7 +14,7 @@
 
 ## Карта классов
 
-- К-01 · чисто · вход: команды формы и модели в разделе Двери; полный pre_critic до CI-строки красен как объявлено контрактом · - · -
+- К-01 · чисто · вход: команды формы и модели в разделе Двери; полный pre_critic до CI-строки зелён, полный check_provodka до CI-строки красен как объявлено контрактом · - · -
 - К-02 · чисто · вход: задание 204, боль на истории 197, явная фаза предъявленного вердикта, fallback без версии и прежняя семья 193 в приёмке · - · -
 - К-03 · чисто · вход: И5/И7 frozen 193 уточняются фазовым scope; внутри него номер/ссылки/последний FAIL и HEAD-only сохраняются · - · -
 - К-04 · чисто · вход: architect меняет только контракт и свою семью; производственная lib отдана implementer, CI реестр и workflow orchestrator · - · -
@@ -39,8 +39,7 @@
 После переноса implementer та же команда обязана дать rc 0, KRASNYE=0.
 Старая семья 193: --repo, --model, --stabs до ремонта rc 0; модель 204
 должна сохранить --repo старой семьи через --regress193 --model.
-Полный check_provodka до новой CI-строки красен («guard не подключён»),
-pre_critic сообщает свой действительный отказ; чужие двери не чинятся.
+Полный check_provodka до новой CI-строки красен («guard не подключён»); pre_critic до CI-строки зелён; чужие двери не чинились.
 
 ## Измерения пачки
 
@@ -60,7 +59,7 @@ check_spec_ready: rc 0 (OK); check_ids: rc 0; check_provodka --grammar: rc 0; ch
 
 Полный check_provodka: rc 1, «проводка: guard не подключён: fixtures/workshop_project/karta_vyzova_204/red_karta_vyzova_204.sh не вызывается в .githooks/ или .github/workflows/».
 
-pre_critic: rc 1, «ОТКАЗ: precision-gate красен: contracts/204-karta-vyzova-po-faze.md». Диагностический check_precision_gate: rc 1, zone-union CI-workflow с 002/implementer, требует ПЕРЕСЕЧЕНИЕ orchestrator для 002. Отказ передан orchestrator; чужие двери не изменялись.
+pre_critic: rc 0, «КРИТИК: дверь зелёная». Диагностический check_precision_gate: rc 0 (OK).
 
 bash -n модели и обёртки: rc 0. shellcheck не установлен: rc 127 «shellcheck: command not found»; его зелёность не заявляется.
 
