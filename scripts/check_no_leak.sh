@@ -521,7 +521,8 @@ enc_path() {
 # строке TRACKED, новая строка ⇒ дельта ⇒ rc 1) — замер E8 матрицы 2026-09-15.
 # Все rc-отказы producer'а распространяются вверх через `|| return 2` (Н-84).
 emit_tracked_manifest() {  # <канон-корень> <префикс-путей>
-  local root="$1" prefix="$2" tmpf_s tmpf_p path full mode sha1 fp head
+  local root="$1" prefix="$2" tmpf_s tmpf_p tmpf_sum path full mode sha1 fp head
+  local -a hash_full=() hash_rel=()
   tmpf_s="$("$MKTEMP")" || {
     printf 'NOT_IMPLEMENTED: mktemp отказал в emit_tracked_manifest\n' >&2
     return 2
@@ -556,6 +557,10 @@ emit_tracked_manifest() {  # <канон-корень> <префикс-путе�
     printf 'NOT_IMPLEMENTED: git ls-files отказал в %s\n' "$root" >&2
     return 2
   fi
+  # ПРОХОД 1 — раскладка путей: gitlink (рекурсия) / маркер MISSING / путь в
+  # список на пакетное хеширование (проход 2). ПОРЯДОК строк внутри ноги не
+  # значим: тело манифеста сортируется единым sort в manifest() — байты тела
+  # (и снимка) от перестановки строк НЕ меняются.
   while IFS= read -r -d '' path; do
     info="${TRACKED_INFO[$path]:-::}"
     mode="${info%%:*}"
@@ -595,19 +600,91 @@ emit_tracked_manifest() {  # <канон-корень> <префикс-путе�
     # Превентив v4 (ERR-константа): нечитаемый/отсутствующий файл — маркер
     # MISSING, чтобы дельта ловила появление/удаление/повреждение.
     if [ -f "$full" ] && [ -r "$full" ]; then
-      if ! fp="$("$SHA256SUM" -- "$full" 2>/dev/null)"; then
-        "$RM" -f -- "$tmpf_p"
-        printf 'NOT_IMPLEMENTED: не смог прочитать %s\n' "$full" >&2
-        return 2
-      fi
-      fp="${fp%% *}"
-      printf 'TRACKED:%s:%s\t%s\n' "$fp" "$sha1" "$(enc_path "${prefix}${path}")"
+      hash_full+=("$full")
+      hash_rel+=("$path")
     else
       printf 'TRACKED:MISSING:%s\t%s\n' "$sha1" "$(enc_path "${prefix}${path}")"
     fi
   done < "$tmpf_p"
   "$RM" -f -- "$tmpf_p"
+  # ПРОХОД 2 — ПАКЕТНОЕ хеширование: один spawn sha256sum на чанк (≤64KB
+  # argv, тот же приём, что в UNTRACKED-ноге) вместо spawn-на-файл. Байты
+  # строк TRACKED те же — те же sha256, те же пути, тот же формат: порядок
+  # вывода sha256sum совпадает с порядком аргументов, поэтому спаривание идёт
+  # ПО ИНДЕКСУ (разбор пути из вывода дал бы неверный путь для имени с '\n':
+  # coreutils экранирует его, и разбор не восстановил бы исходное имя).
+  if [ "${#hash_full[@]}" -gt 0 ]; then
+    local chunk_bytes p pb sha_line i
+    local -a chunk=()
+    tmpf_sum="$tmpf_p.sum"
+    : > "$tmpf_sum" || {
+      printf 'NOT_IMPLEMENTED: не смог создать %s\n' "$tmpf_sum" >&2
+      return 2
+    }
+    chunk_bytes=0
+    for p in "${hash_full[@]}"; do
+      pb=${#p}
+      if [ "$chunk_bytes" -gt 0 ] && [ $((chunk_bytes + pb + 1)) -gt 65536 ]; then
+        if ! "$SHA256SUM" -- "${chunk[@]}" >> "$tmpf_sum" 2>/dev/null; then
+          # Отказ батча — тот же именованный отказ v4, что и у пофайлового
+          # хеширования: виновник ищется пофайловым проходом (редкий путь).
+          if ! bad="$(sha256sum_first_failure "${chunk[@]}")"; then
+            "$RM" -f -- "$tmpf_sum"
+            printf 'NOT_IMPLEMENTED: не смог прочитать %s\n' "$bad" >&2
+            return 2
+          fi
+        fi
+        chunk=()
+        chunk_bytes=0
+      fi
+      chunk+=("$p")
+      chunk_bytes=$((chunk_bytes + pb + 1))
+    done
+    if [ "${#chunk[@]}" -gt 0 ]; then
+      if ! "$SHA256SUM" -- "${chunk[@]}" >> "$tmpf_sum" 2>/dev/null; then
+        if ! bad="$(sha256sum_first_failure "${chunk[@]}")"; then
+          "$RM" -f -- "$tmpf_sum"
+          printf 'NOT_IMPLEMENTED: не смог прочитать %s\n' "$bad" >&2
+          return 2
+        fi
+      fi
+    fi
+    i=0
+    while IFS= read -r sha_line; do
+      if [ "$i" -ge "${#hash_rel[@]}" ]; then
+        "$RM" -f -- "$tmpf_sum"
+        printf 'NOT_IMPLEMENTED: хешей больше, чем путей, в %s\n' "$root" >&2
+        return 2
+      fi
+      fp="${sha_line%% *}"
+      info="${TRACKED_INFO[${hash_rel[$i]}]:-::}"
+      sha1="${info#*:}"
+      printf 'TRACKED:%s:%s\t%s\n' "$fp" "$sha1" "$(enc_path "${prefix}${hash_rel[$i]}")"
+      i=$((i + 1))
+    done < "$tmpf_sum"
+    if [ "$i" -ne "${#hash_rel[@]}" ]; then
+      "$RM" -f -- "$tmpf_sum"
+      printf 'NOT_IMPLEMENTED: хешей меньше, чем путей, в %s\n' "$root" >&2
+      return 2
+    fi
+    "$RM" -f -- "$tmpf_sum"
+  fi
   unset TRACKED_INFO
+}
+
+# ПЕРВЫЙ НЕЧИТАЕМЫЙ sha256sum (пофайловый проход по чанку): нужен ТОЛЬКО для
+# именованного отказа v4 «не смог прочитать <путь>» — пакетный sha256sum
+# отказывает сразу по всему чанку и имя виновника не называет. Путь печатается
+# в stdout, отказ — rc 1.
+sha256sum_first_failure() {
+  local q
+  for q in "$@"; do
+    if ! "$SHA256SUM" -- "$q" >/dev/null 2>&1; then
+      printf '%s\n' "$q"
+      return 1
+    fi
+  done
+  return 0
 }
 # НОГА-2 — UNTRACKED (untracked-байты). Источник — `git ls-files --others -z`
 # БЕЗ `--exclude-standard`. КАЖДЫЙ неотслеживаемый путь с sha256 байтов,
