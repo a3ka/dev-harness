@@ -1,5 +1,122 @@
 # СДАЧА 140 — К-03б (A2e, FAIL Adv140A2b); предыдущие исправления сохранены
 
+## A2f: матрица недоступности (К-03б — общее закрытие, слово владельца 22.11 ~12:09)
+
+OBJECT: `5f31ee3dc11311a212eae7350cad3e7b45056192` (wip/int-140/orch-sh2f).
+Вердикт: `archive/140/adversary-a2c-fail-f65b05da10:verdicts/adversary/contracts-140-v12.md`.
+Дверь `scripts/zamok_predmeta.sh` и контракты этой пачкой НЕ меняются:
+правка двери — отдельный шаг implementer; здесь клетки, модель и стабы.
+
+§Существующее: `reestr_140.py` (r01–r19, k03b01–k03b07 — недоступность
+ЗАПИСИ профиля), `probe.Mir`/`sudit`/`snimok_fajlov`, настоящий
+`project_paths_resolve` с его гардами (вне репо, алфавит workflowPaths,
+FALLBACK-NO-WORKFLOW). Всё переиспользовано, новый парсер не вводится.
+Новое — одна таблица данных `matrix_nedostupnosti` в
+`matrix_nedostupnosti_140.py` (клетка на строку, 20 строк) и её прогонщик.
+
+Обещание: источник паузы читается ТРЁХЗНАЧНО. ЕСТЬ — читаемый файл,
+цель всех ссылок внутри репо; НЕТ — лист заведомо отсутствует по
+ЗАМКНУТОМУ правилу (`-e`/`-L` ложь по листу и вся цепочка родителей до
+корня репо — настоящие каталоги без ссылок, с правом обхода); НЕДОСТУПНО —
+любое иное состояние → rc 1 `PROFIL_NEDOSTUPEN`, учёт пуст, санкция PAUZA
+не расходуется (строка события входит в миры «плохих» строк и обязана
+остаться нетронутой). Чтение — одним открытием. Наблюдение: rc,
+самостоятельная строка отказа, побайтовая неизменность состояния;
+оракул снят в память до вызова двери.
+
+| клетка | форма | rc на OBJECT | после ремонта модели |
+|---|---|---|---|
+| n01-registry-dangling | `.x/reg` → висячий симлинк | 0 PUSCHEM + START — красна | 1 PROFIL_NEDOSTUPEN, учёт пуст |
+| n02-registry-cycle | `.x/reg` → цикл | 1 PROFIL_NEDOSTUPEN — уже честна | тот же отказ |
+| n03-registry-external-symlink | `.x/reg` → вне репо | 1 PROFIL_NEDOSTUPEN — уже честна | тот же отказ |
+| n04-parent-dangling | `.x` → висячий симлинк | 1 PROFIL_NEDOSTUPEN — уже честна | тот же отказ |
+| n05-parent-cycle | `.x` → цикл | 1 PROFIL_NEDOSTUPEN — уже честна | тот же отказ |
+| n06-pause-dangling | pauzy.tsv → висячий симлинк | 0 PUSCHEM + START — красна | 1 PROFIL_NEDOSTUPEN, учёт пуст |
+| n07-pause-cycle | pauzy.tsv → цикл | 0 PUSCHEM + START — красна | 1 PROFIL_NEDOSTUPEN, учёт пуст |
+| n08-pause-directory | pauzy.tsv — каталог | 0 PUSCHEM + START — красна | 1 PROFIL_NEDOSTUPEN, учёт пуст |
+| n09-pause-chmod000 | pauzy.tsv chmod 000 | 0 PUSCHEM + START — красна | 1 PROFIL_NEDOSTUPEN, учёт пуст |
+| n10-registry-dir-chmod000 | `.x/reg` chmod 000 | 0 PUSCHEM + START — красна | 1 PROFIL_NEDOSTUPEN, учёт пуст |
+| n11-registry-empty-string | registry = "" | 1 (вне алфавита резолвера) | тот же отказ |
+| n12-registry-number | registry = 42 | 1 (вне алфавита) | тот же отказ |
+| n13-registry-array | registry = [".x/reg"] | 1 (вне алфавита) | тот же отказ |
+| n14-registry-dotdot | registry = ../outside | 1 (вне репо) | тот же отказ |
+| n15-registry-absolute-outside | registry = абсолютный вне репо | 1 (вне репо) | тот же отказ |
+| n16-contracts-dangling | contracts.tsv → висячий симлинк | 1 PAUZA_VLADELTSA — честна | тот же отказ (охр.) |
+| n17-profile-dangling | запись профиля → висячий симлинк | 1 PROFIL_NEDOSTUPEN — честна (прежний К-03б) | тот же отказ |
+| n18-profile-invalid-json | запись = {broken | 1 PROFIL_NEDOSTUPEN — честна (r14) | тот же отказ |
+| n19-profile-without-workflowpaths | профиль без workflowPaths | 0 PUSCHEM + START — честна | тот же допуск (охр.) |
+| n20-race-chitaem-potom-ischez | пауза исчезает между проверкой и чтением | 1 PAUZA_VLADELTSA — честна | тот же отказ (охр.) |
+
+Развилки (выбор по коду, ожидания зафиксированы явно):
+· n19: по коду `scripts/next_id.sh:393-419` (FALLBACK-NO-WORKFLOW) профиль
+  без объявленных ключей — НЕ битый профиль: реестр — дефолтный registry/,
+  в нём пауз нет → rc 0 START с собственным START в учёте. Замкнутое
+  правило НЕТ живо и без объявления workflowPaths.
+· n09/n10 (chmod 000): эффективные права ОС, прецедент k03b05 — если 000
+  не запрещает текущему uid, клетка печатает SKIP и доказательством не
+  служит; в этом прогоне запрещает (uid не root), пропусков не было.
+· n20: подменяемая обёртка `cat` в PATH мира удаляет pauzy.tsv при чтении
+  именно его; модель читает ОДНИМ открытием (перенаправление), cat не
+  вызывает → пауза судится rc 1 PAUZA_VLADELTSA. Ловит s102 (проверка и
+  чтение раздельно). Исчезновение листа ДО проверки — не гонка, а
+  замкнутое правило НЕТ (n19); обе стороны покрыты раздельными клетками.
+· n16: контрактный файл реестра не участвует в суде паузы — ожидание
+  rc 1 PAUZA_VLADELTSA (та же картина в пробах вердикта v12).
+· n02–n05, n11–n15 уже fail-closed на OBJECT (гарды резолвера) — охрана
+  регресса, не выдуманная краснота (Н-39).
+
+Стабы (Н-39, привязки — только код `matrix_nedostupnosti_140.BINDINGS`
+→ source.json:.stab_vhod): s99-pauza-r — «`[ -r "$f" ] || return 1`»
+(поведение OBJECT внутри единой функции) красит n01/n06/n08;
+s100-pauza-L — проверка симлинка только на листе → n01;
+s101-pauza-second — цикл :1081 читает мимо единой функции → n01/n06;
+s102-pauza-race — чтение через cat (второе открытие) → n20;
+s103-pauza-warn — недоступно → предупреждение + START → n01/n06;
+s104-pauza-all — fail-closed для adversary/critic без автора, нарушение
+«предупреждения» К-02 (охранный) → r12/r13. s15-bez-pauzy перепривязан
+к восстановленному телу [D63] (прежний якорь «[ -r ] || return 1» ушёл из
+модели вместе с дефектом); семантика прежняя, красит w10-pauza.
+Честные эквиваленты адресно зелёны (8 пар: s99×k03b06/n16/n19,
+s100×k03b07, s101×w10, s102×w10, s103×k03b07, s104×r11 — CELL_RC 0).
+
+Счёт семьи: W 222 → 242 (динамические 221 → 241); стабы 99 → 105,
+связи 185 → 196, носители 104 → 110, sintaksis 100 → 106. Прежние клетки
+не удалены и не переименованы; --domain (r-семья) 19/0 без изменения.
+
+Сырой адресный замер двери OBJECT и модели — командой
+`python3 fixtures/workshop_project/odin_agent_140/matrix_nedostupnosti_140.py`
+(rc/stdout/stderr/ledger на каждую форму). Независимое воспроизведение
+блока вердикта на OBJECT выполнено ДО правок сырыми пробами в scratch
+(вывод — в докладе сдачи); scratch удалён до коммита.
+
+Фактическая приёмка (последовательно, `TMPDIR="$PWD/.scratch-a2f"`,
+`PYTHONDONTWRITEBYTECODE=1`; боевой замок и реальные журналы НЕ
+запускались — только песочницы батареи):
+
+| команда | rc | наблюдённый итог |
+|---|---|---|
+| W (безфлагово) | 1 | KLETKI 242 KRASNYH 6 — красны РОВНО n01,n06,n07,n08,n09,n10; прежние 236 зелены |
+| W --model | 0 | MODEL_KLETKI 241 KRASNYH 0 |
+| W --stabs | 1 | SVJAZI 196, MODEL_ZHIVYH 0; s99–s104 и s15 пойманы каждый своим входом; SUBJEKT_KRASNO: 6 (до правки двери) |
+| W --domain | 0 | KLETKI 19 KRASNYH 0 |
+| W --grammar | 0 | CASE r10-sh2-bez-literalov ok |
+| W --sintaksis | 0 | SINTAKSIS FILES 106 |
+| bash fixtures/parsing_hygiene_battery/run_battery.sh zamok_predmeta | 0 | итог 4/4 классов закрыто |
+| bash -n scripts/zamok_predmeta.sh | 0 | дверь дерева не менялась |
+| bash fixtures/workshop_project/obryv_167/red_obryv_167.sh --repo | 0 | проба обрыва + merge зелены на чиненой модели |
+| bash fixtures/workshop_project/obryv_167/red_obryv_167.sh --stabs | 0 | якоря 167 живы после [D63] |
+| python3 fixtures/workshop_project/obryv_167/merge_probe.py --repo | 0 | merge_167 зелёный |
+| bash scripts/check_sdacha.sh "$PWD" contracts/140-odin-agent-na-predmet.md --run | 0 | СДАЧА: лист зелёный (двери=17 карта=17/17 дельта=4) |
+
+Строки «Двери» W-stabs/W-production переведены в честное до-реализационное
+состояние (1 · 1: субъект красен ровно на шести новых клетках) — этого
+требует фактический rc `check_sdacha --run` на данном шаге; после правки
+двери implementer они возвращаются к 0 · 0 по пункту 3 приёмки
+frozen 140/5 (прецедент A2c). Матрица над production до исправления двери
+не исполняется: существующий контроль слоя останавливает её на
+SUBJEKT_KRASNO: 6; это не зелёная production-матрица и не замена
+дальнейшему прогону ведущего.
+
 ## К-03б (FAIL Adv140A2b)
 
 OBJECT: `14e3fb2ac987e6e56c2feff9d4226ea46acd02ab`.
@@ -373,11 +490,12 @@ Rc в рядах ниже проверяет фактический check_sdacha
 - Owner-before — legacy-дефект точной базы · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --owner-before · 1 · 1
 - Owner-check — продукт, станция и адресные мутации · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --owner-check · 0 · 0
 - W-model — честная fail-closed модель · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --model · 0 · 0
-- W-stabs — после реализации: модель и обе адресные матрицы зелёные · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --stabs · 0 · 0
-- W-production — после реализации: прежняя семья и новые клетки зелёные · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh · 0 · 0
-- W-domain — после реализации: профиль/пауза/каталог зелёные · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --domain · 0 · 0
+- W-stabs — A2f до правки двери: модель зелёна, стабы пойманы, субъект красен ровно на 6 новых клетках · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --stabs · 1 · 1
+- W-production — A2f до правки двери: красны ровно n01/n06/n07/n08/n09/n10, прежние 236 зелены · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh · 1 · 1
+- W-domain — профиль/пауза/каталог зелёные · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --domain · 0 · 0
 - W-grammar — исходный критерий Ш-2 без подгонки · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --grammar · 0 · 0
 - W-sintaksis — все носители · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --sintaksis · 0 · 0
+- Obryv-167-repo — соседняя батарея 167 на чиненой модели (проба обрыва + merge) · bash fixtures/workshop_project/obryv_167/red_obryv_167.sh --repo · 0 · 0
 - Precision · bash scripts/check_precision_gate.sh . contracts/140-odin-agent-na-predmet.md · 0 · 0
 - Spec-ready · bash scripts/check_spec_ready.sh . contracts/140-odin-agent-na-predmet.md · 0 · 0
 - Predposylki · bash scripts/check_predposylki.sh . contracts/140-odin-agent-na-predmet.md · 0 · 0
@@ -394,16 +512,16 @@ Rc в рядах ниже проверяет фактический check_sdacha
 - К-03 · чисто · вход: frozen-текст, production и прежние инварианты 104/167/197/199 неизменны; прежние клетки входят в W-model · - · -
 - К-04 · чисто · вход: модель, миры, лист и производные носители только в fixtures/workshop_project/odin_agent_140/ architect-зоны · - · -
 - К-05 · чисто · вход: каждая дверь несёт команду и rc, соответствующие прежней приёмке 140 · - · -
-- К-06 · чисто · вход: W/stabs ожидаемо rc 1 на четырёх новых дефектах OBJECT; --domain 19/0, grammar зелена внутри W; production/frozen не менялись · - · -
-- К-07 · чисто · вход: W 222 (221 динамическая + r10), прежние 215 сохранены; красны ровно k03b01–k03b04; S из этой копии не запускался · - · -
-- К-08 · чисто · вход: s96–s98 привязаны кодом к различающим ветвям, s90–s93 и К-05 literal r18/r19 сохранены; MODEL_ZHIVYH 0 · - · -
-- К-09 · чисто · вход: k03b01–k03b07 добавляют формы записи профиля и честные полярности симлинка; прежние r01–r19 сохранены, --domain 19/0 · - · -
+- К-06 · чисто · вход: W/stabs ожидаемо rc 1 на шести новых дефектах OBJECT (n01,n06–n10); --domain 19/0, grammar зелена внутри W; production/frozen не менялись · - · -
+- К-07 · чисто · вход: W 242 (241 динамическая + r10), прежние 222 сохранены; красны ровно n01/n06/n07/n08/n09/n10; S из этой копии не запускался · - · -
+- К-08 · чисто · вход: s99–s104 и перепривязанный s15 привязаны кодом к различающим ветвям, s90–s98 и К-05 literal r18/r19 сохранены; MODEL_ZHIVYH 0 · - · -
+- К-09 · чисто · вход: n01–n20 (матрица недоступности как данные) добавляют формы реестра паузы и честные полярности; прежние k03b01–k03b07 и r01–r19 сохранены, --domain 19/0 · - · -
 - К-10 · чисто · вход: реальный --sudit/--peredat в независимых .git; сверяются rc/причина, START, proof и неизменность состояния при отказе · - · -
 - К-11 · чисто · вход: ожидания и source.json снимаются в память до вызова двери; материализация носителей выполняется до приёмки · - · -
 - К-12 · чисто · вход: прежние Git plumbing и JSON Schema; TSV-сравнение не меняется, новый парсер не вводится · - · -
 - К-13 · н/п · новые секретные входы и наружные строки с секретами не вводятся · - · -
-- К-14 · чисто · вход: MODEL_KLETKI 221 KRASNYH 0; честные эквиваленты под s96/s97/s98 проверены адресно; w04/w04b и охранные прежних исправлений зелены · - · -
-- К-15 · чисто · вход: source.json cases=221 mutants=99 bindings=185 carriers=104; независимые W 222, SVJAZI 185 и sintaksis 100 носителей · - · -
+- К-14 · чисто · вход: MODEL_KLETKI 241 KRASNYH 0; честные эквиваленты под s99–s104 проверены адресно; w04/w04b, k03b01–k03b07 и охранные прежних исправлений зелены · - · -
+- К-15 · чисто · вход: source.json cases=241 mutants=105 bindings=196 carriers=110; независимые W 242, SVJAZI 196 и sintaksis 106 носителей · - · -
 - К-16 · чисто · вход: класс берётся по blob закреплённого frozen в реестре владельца, не станции/OBJECT продукта; отсутствие привязки не открывает reviewer · - · -
 - К-17 · н/п · схема операций/writers/isolationKeys 188 не меняется; исправляется исполняемая модель батареи 140 · - · -
 

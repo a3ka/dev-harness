@@ -59,6 +59,7 @@ import produkt_140
 import object_140
 import uproshchenie_140
 import reestr_140
+import matrix_nedostupnosti_140
 
 HERE = Path(__file__).resolve().parent
 MODEL = HERE / 'model' / 'zamok_predmeta.sh'
@@ -1753,6 +1754,7 @@ def kejsy():
     uproshchenie_140.dobavit(K, SimpleNamespace(**globals()))
     object_140.dobavit(K, SimpleNamespace(**globals()))
     reestr_140.dobavit(K, SimpleNamespace(**globals()))
+    matrix_nedostupnosti_140.dobavit(K, SimpleNamespace(**globals()))
     return K
 
 
@@ -1933,12 +1935,12 @@ def m_bez_adv_do_rev(t):
 
 
 def m_bez_pauzy(t):
-    return _z(t, '''  [ -r "$f" ] || return 1
-  while IFS= read -r l; do
-    case "$l" in '#'*|'') continue ;; esac
-    [ "${l%%$'\\t'*}" = "$1" ] && return 0
-  done < "$f"
-  return 1''', '''  return 1 # стаб: ПАУЗ нет никогда''')
+    # A2f: якорь — восстановленное [D63 pauza-trio] тело (прежний якорь
+    # «[ -r ] || return 1» исчез из модели вместе с дефектом К-03б);
+    # семаника стаба та же: ПАУЗ нет никогда.
+    return _z(t, matrix_nedostupnosti_140.jakor_bez_pauzy(),
+              '''  return 1 # стаб: ПАУЗ нет никогда
+''')
 
 
 def m_slovo_vsegda(t):
@@ -2323,6 +2325,7 @@ STAB_MUTACII.update(produkt_140.mutacii(_z))
 STAB_MUTACII.update(object_140.mutacii(_z))
 STAB_MUTACII.update(uproshchenie_140.mutacii(_z))
 STAB_MUTACII.update(reestr_140.mutacii(_z))
+STAB_MUTACII.update(matrix_nedostupnosti_140.mutacii(_z))
 
 
 def nagrudit_staby():
@@ -2344,6 +2347,7 @@ def nagrudit_staby():
     src['stab_vhod'].update(produkt_140.BINDINGS)
     src['stab_vhod'].update(uproshchenie_140.BINDINGS)
     src['stab_vhod'].update(reestr_140.BINDINGS)
+    src['stab_vhod'].update(matrix_nedostupnosti_140.BINDINGS)
     src['kejsy'] = {k: v['osi'] for k, v in sorted(kejsy().items())}
     paths.update({k: HERE / k for k in src['nositeli'] if k.startswith('materialy/')})
     paths.update({k: STABS / k / 'zamok_predmeta.sh' for k in STAB_MUTACII})
