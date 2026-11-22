@@ -1,71 +1,67 @@
-# СДАЧА 147 — v+6, геометрия пяти переходов Kompakt-1.1
+# СДАЧА 147 — v+7 (v6): CI-модель на транспорт 197 и паритетно допустимая lane-форма шага валидатора
 
-Дельта К-04/К-07 Crit147G1: две точные ЗОНА implementer на motion-spec-gespraech-kompakt-147.json и geometrija-147.json в Complior-mob объявлены до freeze. Geometry — побайтовая копия закреплённого fixture-носителя nositeli/kompakt11/geometrija-147.json с sha256 = piny.json.dvizhenie.sha256. Доставка обоих файлов и dvizhenie.spec/spec_sha256 в mobile/e2e-gespraech-vhod/ekran.json — implementer 147 после freeze в том же продуктовом PR, без повторной раздачи; оригиналы пакета и производный -149.json неизменны. Оракул харнесса загружает закреплённый fixture-носитель до продуктового spec, не вычисляет ожидания из продукта. Пачка mobile/e2e-gespraech-vhod/ остаётся ровно из 10 файлов, оба носителя вне неё. Реализация mob#169, scripts/, батарея, пины, токены, кадры, позы, CI-регистрация и прежние сроки/кривые/УД не меняются. Команды листа и двери pre_critic/check_sdacha исполняются в своей изолированной копии; лист не объявляет RN-реализацию принятой.
+Дельта слова владельца 22.11 ~10:53 UTC (п.(4)«А»), переданного заданием дословно: требования GitHub-артефактного шага в red_ci_147.py заменены lane-вызовом канона 197 — публикация кадров `npm run ci:artefakt-zapis -- --imja maestro-gespraech-vhod --chto mobile/maestro-out-gespraech` с сохранением `if: always()` (кадры при красной приёмке), источника кадров `mobile/maestro-out-gespraech` (семантика не меняется; имя каталогу `<имя>-<run_id>-<run_attempt>` строит скрипт-канон 197 — workflow имя не строит, d01) и отказа ошибочной публикации (без continue-on-error/`if: success()`/`|| true`; страж источника — fail-closed канона 197, `ISTOCHNIK_OTSTUTSTVUET`, эквивалент `if-no-files-found: error` v5). Экранная приёмка остаётся ОБЯЗАТЕЛЬНЫМ шагом работника и переведена в паритетно допустимую форму (163/1): lane `npm run ci:ekran-gespraech-vhod` (ключ в КОРНЕВОМ package.json, тело — `mobile/scripts/ci-ekran-gespraech-vhod.sh`, зона implementer); читатель APK — измеренный контекст P+L+Q канона 197 с продюсерской парой `--run-id/--run-attempt` из `needs.build-apk.outputs`. Новая ветвь LANEJA_NET судит объявление lane в корневом package.json (npm run без ключа падает в прогоне и красит паритет). Модель MODEL_YML — каркас и судимые шаги v5 (адаптация работника 149 mob@60a62ecb6, сверен с worker-147.yml автора и build_honest.py критика) с заменой ТОЛЬКО транспорта; стабы 44, каждый красен своей именованной причиной (Н-39, привязки в коде STABY). Контракт: И-11/критерий 4 переписаны, «Снятие замороженных норм» +2 строки, зоны/пересечения package.json (011/015/197) и mobile/scripts, SPEC §5/§6-4, Порядок v+7. Геометрия v+6, пачка из 10 файлов, наборная приёмка и все прочие обязательства /5 не тронуты; frozen/contracts/147/5 не перемещался.
 
-ПРЕДЫДУЩИЙ ВЕРДИКТ: verdicts/critic/contracts-147-v5-geometrija-fail.md
+ПРЕДЫДУЩИЙ ВЕРДИКТ: verdicts/critic/contracts-147-v5.md
 
 ## Двери
 
-- geometry-model · fixtures/workshop_project/gespraech_vhod_147/red_geo_147.py --model · 0 · 0
-- geometry-stabs · fixtures/workshop_project/gespraech_vhod_147/red_geo_147.py --stabs · 0 · 0
+- ci-model · fixtures/workshop_project/gespraech_vhod_147/red_ci_147.py --model · 0 · 0
+- ci-stabs · fixtures/workshop_project/gespraech_vhod_147/red_ci_147.py --stabs · 0 · 0
 - legacy-model · bash fixtures/workshop_project/gespraech_vhod_147/red_gespraech_vhod_147.sh --model · 0 · 0
 - legacy-stabs · bash fixtures/workshop_project/gespraech_vhod_147/red_gespraech_vhod_147.sh --stabs · 0 · 0
 - threat-form · bash scripts/check_threat_model.sh . contracts/147-gespraech-vhod-menu.md · 0 · 0
 - provodka-grammar · bash scripts/check_provodka.sh --grammar . contracts/147-gespraech-vhod-menu.md · 0 · 0
 - product-spec-zone · bash scripts/check_precision_gate.sh . contracts/147-gespraech-vhod-menu.md · 0 · 0
 - product-carrier-zones · bash fixtures/workshop_project/gespraech_vhod_147/check_zone_147.sh · 0 · 0
+- spec-ready · bash scripts/check_spec_ready.sh . contracts/147-gespraech-vhod-menu.md · 0 · 0
 
 ## Карта классов
 
-- К-01 · чисто · bash scripts/check_provodka.sh --grammar . contracts/147-gespraech-vhod-menu.md · 0 · 0
-- К-02 · чисто · вход: слово владельца 13:52/~14:05 UTC 18.11 и Cons147Motion; источник motion-delta.md sha4b16215f8e плюс измеренные конечные прямоугольники 05, не имя пакета на старых числах · - · -
-- К-03 · чисто · вход: прежняя scenes/tokens-форма и 132 v3/146 не меняются; manifest/poses/etalony остаются побайтно; контроль inherited-obligations сравнивает неизменные поля со frozen/147/4 · - · -
+- К-01 · чисто · вход: провода guard= строки и грамматика — provodka-grammar rc 0; CI-подключение шага red_ci_147.py — orchestrator в окне freeze..done (Незаполненные требования) · - · -
+- К-02 · чисто · вход: слово владельца 22.11 ~10:53 UTC п.(4)«А» скопировано в §Воля владельца дословно; источник — задание v6; санкцию к заморозке добавляет orchestrator · - · -
+- К-03 · чисто · вход: frozen/contracts/147/5 не перемещался (тег на месте); геометрия И-12, пачка 10 файлов, критерии 1–3/5–6 и SPEC §7–§8 не правлены этой пачкой · - · -
 - К-04 · чисто · bash fixtures/workshop_project/gespraech_vhod_147/check_zone_147.sh · 0 · 0
-- К-05 · чисто · вход: критерий 6 и SPEC8 содержат CLI с rc0/1/2, отсутствующий источник не выдаётся за зелень · - · -
-- К-06 · чисто · вход: red_geo_147.py возвращает rc2 при отсутствии git/node/frozen-tag/источника либо повреждении оракула; ошибки загрузки не засчитываются убитым стабом · - · -
+- К-05 · чисто · вход: критерий 4 несёт rc 0 REGISTRACIJA_OK и именованные rc 1 (PACHKA_*/ZAPIS_*/LANEJA_NET/RABOTNIK_*/UPRAVLYAYUSHCHIJ_KLYUCH); rc 2 NOT_IMPLEMENTED без режима/PyYAML · - · -
+- К-06 · чисто · вход: отсутствие PyYAML/режима/каталога — rc 2 NOT_IMPLEMENTED с именованной причиной, не пустая зелень; битый YAML — RABOTNIKA_NET · - · -
 - К-07 · чисто · bash fixtures/workshop_project/gespraech_vhod_147/check_zone_147.sh · 0 · 0
-- К-08 · чисто · fixtures/workshop_project/gespraech_vhod_147/red_geo_147.py --stabs · 0 · 0
-- К-09 · чисто · вход: пять собственных ветвей, обе темы resolved, symbolic from/to с k, adaptive top/cap/min/start/end; контраст заменяет ровно одну сцену на исходную Final2, остальные геометрические ветви и все timing-rules зелены · - · -
-- К-10 · чисто · вход: проверяются разобранные численные поля и полный структурный runner-report; один маркер не достаточен, геометрические результаты обязаны покрывать все пять ID, timing-набор непуст · - · -
-- К-11 · чисто · вход: oracle() загружает pinned geometry/delta и frozen-spec до spec-субъекта; --repo не черпает ожидания из продукта, исходная Final2-геометрия служит только контрастом · - · -
-- К-12 · чисто · вход: JSON разбирается стандартным json/JSON.parse и сравнивается структурно; самописной грамматики JSON/Markdown нет; применённый spec не подменён compact-manifest · - · -
-- К-13 · н/п · секреты/учётные данные и внешняя сеть не предмет геометрической проверки · - · -
-- К-14 · чисто · вход: equivalent-json переставляет ключи и меняет пробелы без изменения результата на честном и явно предъявленном субъекте; числовое равенство не зависит от текстовой записи 32/32.0 · - · -
-- К-15 · чисто · вход: IDS и STABS в red_geo_147.py задают множество пяти переходов; счёт клеток и пойманных стабов печатает сам прогон, прежний цикл2 имеет собственную отдельную сводку · - · -
+- К-08 · чисто · fixtures/workshop_project/gespraech_vhod_147/red_ci_147.py --stabs · 0 · 0
+- К-09 · чисто · вход: каждая мутация новых требований красна своей именованной причиной — lane-ключи (LANEJA_NET), lane-слова в echo/heredoc/no-op/`|| true` (RABOTNIK_BEZ_VALIDATORA), `--imja`/`--chto`/`|| true` писателя (RABOTNIK_BEZ_KADROV), `if: false`/`if: success()` на публикации (UPRAVLYAYUSHCHIJ_KLYUCH); привязки — код STABY, не контракт (Н-39) · - · -
+- К-10 · чисто · вход: судятся разобранные shell-слова (lane/--imja/--chto — самостоятельные слова), полные поля шагов и позиции против MODEL_YML; комментарий/echo/heredoc-данные вызовом не являются · - · -
+- К-11 · чисто · вход: MODEL_YML/MODEL_PKG разбираются в память ДО субъекта; --repo не читает ожидания из продукта; прецедент 141 v3 upravlenie_job · - · -
+- К-12 · чисто · вход: YAML — python3-pyyaml (та же предпосылка семей 143/149), JSON — stdlib json; самописного разбора формата нет · - · -
+- К-13 · н/п · секреты/учётные данные и внешняя сеть не предмет формы CI-регистрации; новых секретов/variables/environments нет · - · -
+- К-14 · чисто · вход: структурное равенство ravno_modeli не зависит от порядка ключей и текстовой записи; YAML-алиасы/дубли ключей судятся фактическим последним значением · - · -
+- К-15 · чисто · вход: счёт клеток и стабов печатает сам прогон (44/44, каждая PRICHINA поимённо); цифры листа взяты из вывода, не из головы · - · -
 - К-16 · чисто · bash scripts/check_threat_model.sh . contracts/147-gespraech-vhod-menu.md · 0 · 0
-- К-17 · н/п · модель модулей/writers/consumes и новые продуктовые операции в геометрической дельте не вводятся · - · -
+- К-17 · чисто · вход: новых продуктовых операций не вводится — lane-вызовы потребляют канон 197 (ci-artefakty.cjs не копируется, пины 197 не трогаются); модель потребления — И-11 v+7 контракта · - · -
 
 ## Дельта
 
-- К-04 · канон/инструмент · bash fixtures/workshop_project/gespraech_vhod_147/check_zone_147.sh · 0 · 0
-- К-07 · канон/инструмент · bash fixtures/workshop_project/gespraech_vhod_147/check_zone_147.sh · 0 · 0
+- К-09 · клетка · fixtures/workshop_project/gespraech_vhod_147/red_ci_147.py --stabs · 0 · 0
 
-Свидетель следует check_zone_149.sh (83069b598b9d9217a9653d766a1fc7a0029ba6fa): стандартный grep -Fxq сверяет самостоятельные строки обеих зон, полную границу из варианта А Cons147Carrier и строку доставки двух файлов после freeze. Это каноническая текстовая сверка раздачи, не новый механизм приёмки геометрии и не самописный разбор Markdown. Контракт до правки: та же команда дала сырой rc 1 (stdout пуст); геометрический оракул, критерий 6 и его rc0/1/2 неизменны.
+Карта предыдущего вердикта (contracts-147-v5.md, accept) блоков не несёт; последний FAIL темы (contracts-147-v5-geometrija-fail.md) закрыт в v+6 строками К-04/К-07 прежнего листа, его классы не входили в дельту этого круга; настоящий круг меняет И-11/критерий 4, и его единственная новая клетка — К-09 (стаб-матрица lane-транспорта), закрывается прогоном ci-stabs.
 
 ## Развилки
 
-Предыдущий FAIL Crit147G1 материализован в базе e200b972a9; его секция «## Карта классов» соответствует scripts/lib_karta_sdachi.sh и содержит блоки К-04 и К-07. Обе строки закрываются командами дельты выше; прежняя зелень check_precision_gate сама по себе не доказывает раздачу недостающего носителя.
+Развилок воли владельца не осталось: слово 22.11 предписывает форму (канон 197, ничего нового), сохранение четырёх свойств и неперемещение /5 — всё исполнено. Имя lane приёмки `ci:ekran-gespraech-vhod` и скрипт `mobile/scripts/ci-ekran-gespraech-vhod.sh` — не новый транспорт, а паритетно допустимая обёртка для прежнего тела шага (163/1: `run:` — `npm run <NAME>`); значение lane — зона implementer, батареёй судится только наличие непустого ключа. Красное-до (живой замер 2026-11-22, базовая батарея /5 ДО правки): `red_ci_147.py --repo <дерево PR #248 @ d3a17dd2>` → rc 1 `PRICHINA RABOTNIK_BEZ_KADROV: шага upload-artifact (mobile/maestro-out-gespraech + if-no-files-found: error) нет` — требования GitHub-артефактного шага краснили lane-реализацию; после v+7 то же дерево красно rc 1 `LANEJA_NET: lane ci:ekran-gespraech-vhod не объявлена в корневом package.json` — честный вход implementer (PR уже несёт lane-писателя кадров и lane-читателя APK). Продуктовая батарея приёма 209 пинует байты red_ci_147.py — перепин после freeze v6 на стороне продукта (orchestrator/консультант), не этой пачкой.
 
-Раздача motion-spec-gespraech-kompakt-147.json и geometrija-147.json завершена двумя точными ЗОНА implementer в контракте; product-spec-zone проверяет union живых зон, product-carrier-zones — наличие обеих зон, неизменность оригиналов и доставку обоих файлов одним implementer 147 после freeze, без будущей раздачи. Доставка и пин в mobile/e2e-gespraech-vhod/ekran.json остаются работой implementer в том же продуктовом PR, не имитацией прошедшей --repo-приёмки реального mob; mob#169 не тронут. У 149 отдельный носитель -149 и другая граница перепина архива; общий переход T30 согласован численно (390:35/575/320/52 → 68/452/250/48). Строку санкции владельца добавляет orchestrator, не architect.
+## Фактические двери v6
 
-РЕШЕНО (знак 20 — слово владельца 2026-11-18 ~19:35 UTC, решено с дизайнером): размер знака в Kompakt = 20 px по `motion-delta.md:22` (40→32 над вопросом); расхождения `manifest.json:106` (28→24) и `tokens.json` presence-mini/presence.figure (28, s28→24px) — несогласованность пакета, исправляется в предмете моба №14 (единая машинная motion-spec Kompakt), не альтернатива; батарея и замеры (20↔32) держат 20; движок 145 этой пачкой не меняется.
-
-
-## Фактические двери исправления К-04/К-07
-
-Копия: `/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/ta50d0e4ea/m`;
-ветка `wip/147/architect`, база `e200b972a9`.
-`TMPDIR` равен корню этой копии; продуктовые файлы не создавались.
+Копия: `/tmp/dev-harness-verify/dev-harness-worktrees/3afca10b/wip-147-architect`, ветка `wip/147/architect`, база `3d8fe3e4b48d934cb7a2fdd0b96b8047d27e4980` (origin/main); `TMPDIR` — scratch внутри копии, scratch удалён до доклада. Продукт — scratch-клон `https://github.com/a3ka/Complior-mob.git` (SSH-маршрут задания вернул «Repository not found»; HTTPS — тот же репозиторий, sha ветки сверен с живым клоном станции), дерево PR #248 `wip/209/implementer` @ `d3a17dd247a2c876890a823686b47304d65370ef`.
 
 | Команда (из корня копии) | Сырой rc | Вывод |
 |---|---:|---|
-| bash fixtures/workshop_project/gespraech_vhod_147/check_zone_147.sh — исходный контракт | 1 | stdout пуст |
-| bash fixtures/workshop_project/gespraech_vhod_147/check_zone_147.sh — исправленный контракт | 0 | ZONA_147_VYDANA |
-| bash fixtures/workshop_project/gespraech_vhod_147/red_gespraech_vhod_147.sh --model | 0 | геометрия 8/8; прежняя регрессия 76/76 |
-| bash fixtures/workshop_project/gespraech_vhod_147/red_gespraech_vhod_147.sh --stabs | 0 | геометрия 8/8, поймано 5/5; прежняя регрессия 76/76, SVJAZI 18 |
-| bash /home/harness/dev-harness/scripts/check_sdacha.sh &lt;копия&gt; contracts/147-gespraech-vhod-menu.md --run | 0 | СДАЧА: лист зелёный (двери=8 карта=17/17 дельта=2) |
-| bash /home/harness/dev-harness/scripts/pre_critic.sh --repo &lt;копия&gt; contracts/147-gespraech-vhod-menu.md | 0 | КРИТИК: дверь зелёная |
-
-Последние пять команд выполнены последовательной цепочкой `&&`, итоговый сырой rc 0: каждая достигнута. Машинные двери листа также исполнили geometry-model/geometry-stabs, threat-form, provodka-grammar и product-spec-zone с rc 0. Счёт дверей и полнота карты взяты из вывода check_sdacha, не из прежней зелени precision-gate. До будущей продуктовой доставки `--repo` остаётся обязательной приёмкой с честным отказом rc 2 при отсутствии источника; продукт, RN/Jest, эмулятор и mob#169 здесь не запускались.
-
-Формат нового shell-свидетеля: `bash -n fixtures/workshop_project/gespraech_vhod_147/check_zone_147.sh` — rc 0; следующий `shellcheck fixtures/workshop_project/gespraech_vhod_147/check_zone_147.sh` — rc 127 (`shellcheck: command not found`), lint не подтверждён. Журнал NABLIUDENIA_ARCHITECT.md в wip-ветке и вне зоны не менялся; отсутствие shellcheck передаётся оркестратору как ограничение среды, не как зелёная проверка.
+| red_ci_147.py --model (батарея /5, ДО правки) | 0 | MODEL_OK |
+| red_ci_147.py --stabs (батарея /5, ДО правки) | 0 | 38/38, непойманных 0 |
+| red_ci_147.py --repo <PR #248> (батарея /5, ДО правки — красное-до) | 1 | PRICHINA RABOTNIK_BEZ_KADROV: шага upload-artifact (… if-no-files-found: error) нет |
+| red_ci_147.py --model (v+7) | 0 | MODEL_OK |
+| red_ci_147.py --stabs (v+7) | 0 | 44/44, каждая PRICHINA своя, непойманных 0 |
+| red_ci_147.py --repo <каталог модели> | 0 | REGISTRACIJA_OK |
+| red_ci_147.py --repo <PR #248> (v+7) | 1 | PRICHINA LANEJA_NET: lane ci:ekran-gespraech-vhod не объявлена — вход implementer |
+| bash scripts/verify_ci_parity.sh <PR #248> | 1 | расхождений 172 против 29 базы — рост от шагов, переставших быть непрозрачными (переписаны без $(...) без объявления команд); закрывается lane-формой судимых шагов, живой замер зафиксирован; «не хуже базы» — обязательство PR-кандидата |
+| bash scripts/verify_ci_parity.sh <main 425b769> | 1 | расхождений 29 — база сравнения |
+| bash scripts/check_sdacha.sh <копия> contracts/147-gespraech-vhod-menu.md --run | 1 | ОТКАЗ: последний FAIL: неоднозначный вызов 1 — известный дефект `lib_karta_sdachi.sh::karta_index` (номер вызова не уникален между фазами 147: v2a-fail 1/5, v2L-fail 1/лёгкий, v4 1/3, v5-vyzov1 1/3), зона scripts/verdicts — НЕ этой пачки; по заданию v6 докладывается, не чинится; двери листа по отдельности зелёные (таблица выше) |
+| bash scripts/pre_critic.sh contracts/147-gespraech-vhod-menu.md | 1 | то же основание через внутреннюю дверь сдаточного листа (Н-39-эвристика, потолки, проводка — зелёные в её выводе); до правки формулировки И-11 давал «Н-39: привязка стаба в прозе, строка 81» — устранено перефразированием (пара s147+вход+«падает») |
+| bash scripts/check_provodka.sh . contracts/147-gespraech-vhod-menu.md | 1 | именованный «guard не подключён: red_ci_147.py не вызывается в .githooks/ или .github/workflows/» — ожидаемое ДО проводки; подключение CI-шага — orchestrator в окне freeze..done |
+Эмулятор, Maestro, RN/Jest и живой CI продукта не запускались: предмет круга — форма CI-модели, исполняемость пачки судит валидатор 132 v3 на работнике (критерий 3/4 прежние). `bash -n` на изменённый shell не применялся — правок .sh в этой пачке нет; shellcheck на станции отсутствует (ограничение среды, НЕ зелёная проверка). Проводка CI-шага red_ci_147.py — orchestrator в окне freeze..done; check_provodka до проводки даёт именованный rc 1 (строка батареи ещё не подключена) — не зелень и не блокер этого круга.
