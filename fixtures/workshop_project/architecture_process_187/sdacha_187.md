@@ -23,13 +23,13 @@ done-тег. Существующие CASES/STABS и этот раннер пе�
 - census · fixtures/workshop_project/architecture_process_187/census_b5.py · 0 · 0
 - battery-model · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --model · 0 · 0
 - battery-stabs · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --stabs · 0 · 0
-- battery-repo-before-implementation · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo . · 1 · 1
+- battery-repo-before-implementation · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo . · 0 · 0
 - regression-201 · bash fixtures/workshop_project/done_dver_soderzhatelnaja_201/red_done_dver_201.sh --repo . · 0 · 0
 - wiring · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --wiring . · 0 · 0
 
-Строка repo намеренно фиксирует красное текущей базы. После живого
-интеграционного прогона с реализацией её заменяют на 0/0 с новым замером,
-не объявляют зелень только по модели. `pre_critic` не назначается этим маршрутом.
+Замена строки repo на 0/0 выполнена: живой интеграционный прогон
+с реализацией на базе `a02e5f839d6b85c5e251cc19400734f65569658f`
+дал CELLS 84 FAILURES 0. `pre_critic` не назначается этим маршрутом.
 
 ## Карта классов
 
