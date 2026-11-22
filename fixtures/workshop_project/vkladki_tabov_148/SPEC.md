@@ -44,37 +44,63 @@ ekrannyj_nabor_158 в разделе приёмки контракта, грам
 hide-offset 84, header.height 60) — НЕ пинятся; литерал равного числа в месте, где
 грамматика экрана требует чтения токена, запрещён (И-8 контракта, класс 2 перечня).
 
-## 3. Эталонные кадры (16; имена из frames/frames.json, байты — frames/SHA256SUMS)
+## 3. Эталонные кадры (390 — 8 кадров пакета, имена из frames/frames.json, байты — frames/SHA256SUMS; 393 — ПРОИЗВОДНЫЕ safe-area, v6)
+
+### 3а. Профиль 390 (kadry.json): кадры пакета
 
 | кадр | sha256 |
 |---|---|
 | `GA-02_normal_dark_390x844.png` | `f9e8648c8dedb8446c0eee32b2a5105e6a6155c8f870a8c3102f206eb3ed2782` |
-| `GA-02_normal_dark_393x852.png` | `3943a93fc91b3e0adf6382ae6655cd525cc067369b698f24e51fb7bb161a53b8` |
 | `GA-02_normal_light_390x844.png` | `2d508bb14ec703530bb215c24a5b203e9ee60c3bbceb1854b4f0b0e0090559a5` |
-| `GA-02_normal_light_393x852.png` | `0f8699969953a2bec50644c1e8dc1d20273d85eff2a62a70caed57693d2b650c` |
 | `GA-03_normal_dark_390x844.png` | `66b4c02273dcf04d359fd0a7feefe3362182ba68ac732858039b11d377597556` |
-| `GA-03_normal_dark_393x852.png` | `34ced494cf3bd16969e16619d49e00053d480c3227c800d2f84453aac909510e` |
 | `GA-03_normal_light_390x844.png` | `4d0a4c0d981e9936920955a4beb2da8be52e414c4026519a86c706946947aa17` |
-| `GA-03_normal_light_393x852.png` | `d60bf486da8dca2cee092f9e5c4a2e8cfdbf9579e66584151eba49c7d2753736` |
 | `GA-04_normal_dark_390x844.png` | `087a17167b58fce478d384e2c62fc36cda92f61edf93a476dff3298298f8de0b` |
-| `GA-04_normal_dark_393x852.png` | `4b54ce6f0eba87f9e663399f37894b8c63a2f02f326c77ca7b9d747d5c31d57e` |
 | `GA-04_normal_light_390x844.png` | `ac9dd85c4326b912979c02baabdae09de63dd62ed6efd1dc5bfabd0b56736bcb` |
-| `GA-04_normal_light_393x852.png` | `91373fc599d77898a14df0d93235b75e2ac22f9444514a70d491052633dce580` |
 | `GA-09_normal_dark_390x844.png` | `86f884df687fa4d6fdc88f815e6101ad2c7aa69af2e2a95801de9dcef79f0f4c` |
-| `GA-09_normal_dark_393x852.png` | `039509874abfde53b71962036e807f43295cbae6883cdc199535a05071d3fc8e` |
 | `GA-09_normal_light_390x844.png` | `d29692de3533bfba75fe5a9d8e0a78017b343c0a8d2ea83c9f861074acc8e47e` |
-| `GA-09_normal_light_393x852.png` | `cd7902e20b2d5a269b5e7a81df5489e6cf2c1c47d50612b905e40f34c8379144` |
+
+### 3б. Профиль 393 (kadry_profil.json): ПРОИЗВОДНЫЕ эталоны safe-area (v6 — слово владельца 2026-11-22)
+
+Эталон 393 = D24-390 + системные полосы 393, контент неизменен (1:1, без
+ресэмплинга). Построение ДЕТЕРМИНИРОВАННО: построитель
+`fixtures/workshop_project/vkladki_tabov_148/etalony_safe_area/postroit.py`
+(константы — только из оракула source.json: vyrez 59 / домашняя полоса 34 /
+nav.height 49 / полоса 390 36), манифест `etalony_safe_area/manifest.json`
+(provenance: источники-основы + sha, операции, версии инструментов python
+3.12.3 / zlib 1.3, mera 48/20, porog 0.6); перестройка `--proverit` — rc 0,
+байты совпадают. implementer кладёт файлы в `mobile/etalony-vkladki-393/`,
+байты == выводу построителя, sha256 — из манифеста:
+
+| кадр | sha256 |
+|---|---|
+| `GA-02_normal_dark_393x852.png` | `e87d82d332d16ac7f02365204db572fa9cde75986e1d4e7e22a661dbf976b309` |
+| `GA-02_normal_light_393x852.png` | `5b89171df76253bc5fd96ee3866e3fb4f07e16c81b002ea29f5e37766b5f164b` |
+| `GA-03_normal_dark_393x852.png` | `132e246e0c9eb8d467c09a1b4556506ac866d2217a2c69b5f8da72c02e199cbe` |
+| `GA-03_normal_light_393x852.png` | `e036ab50269be3def04dc458e8b29d57b4cbf571336ae656345ed35724685ee2` |
+| `GA-04_normal_dark_393x852.png` | `055e4a3f834c573f70fe7e3bbb28496d95ca6c0af910e86ed8d3650672eda252` |
+| `GA-04_normal_light_393x852.png` | `4991df3b483e3e023820d1854876e262b44ab190ee5e33ce19947a6e88ffa767` |
+| `GA-09_normal_dark_393x852.png` | `626feb0290d814e1fb445e262905bba5c09f246e615569b8afdb618f070bf4ed` |
+| `GA-09_normal_light_393x852.png` | `4f7819d2bd575f327b1805dc957411198191318fb0955fbf2fdc53f29d96993d` |
+
+Кадры пакета 393 (`*_393x852.png` в frames/, нарисованы дизайнером без
+системных полос) эталоном для kadry_profil.json НЕ являются (v6; до v6
+таблица пинила их — снимок таблицы v5 в истории контракта).
 
 Геометрия лейсте по манифесту (все четыре экрана состояния): 390×844 — y 795, h 49;
-393×852 — y 785, h 49 (`nav.height`); слоты вкладок 78×48 (390) / 79×48 (393)
+393×852 — y 769, h 49 (`nav.height`; вырез 59 / домашняя полоса 34 — карта
+vtoroj_profil: шапка y59, лейсте y769); слоты вкладок 78×48 (390) / 79×48 (393)
 (`nav.item.min-height` 48).
 
-Сверка — раннер 123, порог 0.600. Маски системного хрома в манифестах пачки
-(kadry.json — 390, kadry_profil.json — 393): шапка chrome_verh_pt 36 (390, пилюли
-нет) / 48 (393 — пилюля Dynamic Island x133–258, y11–47, слово владельца 31.10);
-низ chrome_niz_pt 20 (пилюля home-индикатора y839–843). Имя записи кадра в
-kadry*.json обязано соответствовать её идентификатору (GA-02 dark → кадр GA-02;
-класс 5 перечня: подмена соседним кадром того же пакета — отказ).
+Сверка — раннер 123, порог 0.600 У КАЖДОЙ записи (без ослабления — v6).
+Маски системного хрома в манифестах пачки (kadry.json — 390,
+kadry_profil.json — 393): шапка chrome_verh_pt 36 (390, пилюли нет) /
+48 (393 — пилюля Dynamic Island x133–258, y11–47, слово владельца 31.10;
+v6: производный эталон полос не несёт — строка статуса эмулятора и пилюля
+закрываются маской 48, при 36 сверка красна); низ chrome_niz_pt 20
+(пилюля home-индикатора y839–843). Имя записи кадра в kadry*.json обязано
+соответствовать её идентификатору (GA-02 dark → кадр GA-02; класс 5
+перечня: подмена соседним кадром — отказ; байт производного эталона не из
+манифеста — ETALON_393_NE_PROIZVODNYJ, porog ≠ 0.600 — POROG_NE_0_600).
 
 Состояния экрана: GA-02/GA-04 — Mitte «In Arbeit» (working); GA-03 — бейдж Mitte
 «Ihre Rückmeldung nötig» (needs_user); GA-09 — скролл: контент идёт ПОД лейсте,
@@ -312,7 +338,9 @@ hitSlop, flexBasis), СВОЁ действие со свежим счётчик�
 cd /home/harness/dev-harness-projects/complior-mob/wt/wip-136-demo/docs/ux/05_Kompakt_D24
 sha256sum source/tokens.json source/manifest.json source/copy-de.json frames/frames.json frames/SHA256SUMS
 # пины §1: 5 строк, сверены генератором с заявленными значениями (assert 5/5)
-# кадры экрана: имена из frames.json (16), sha256 каждого == записи SHA256SUMS (16/16, assert)
+# кадры экрана 390: имена из frames.json (8), sha256 == записи SHA256SUMS (8/8, assert);
+# производные 393 (v6): sha256 каждого == etalony_safe_area/manifest.json (8/8, assert),
+# перестройка postroit.py --proverit — rc 0 (детерминизм, assert батареей --model)
 # карта целей: len(touch_targets[профиль]) по GA-02/03/04/09 → §4; nav y/h → §3 (assert)
 # ключи копии: union(copy_keys четырёх экранов) → 65 уникальных, все в entries (264, assert)
 ```
