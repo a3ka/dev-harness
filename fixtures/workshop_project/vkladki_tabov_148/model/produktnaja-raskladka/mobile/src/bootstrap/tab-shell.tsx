@@ -21,11 +21,11 @@ import {
 import { SafeAreaInsetsContext, SafeAreaView } from 'react-native-safe-area-context';
 import { TAB_ORDER, themeTokens, type ColorScheme, type ShellSectionId, type ThemeTokens } from '../theme/tokens';
 import { ThemeContext } from '../theme/context';
-// v3b (Crit148k2b Б1): значения nav-токенов пакета 1.1 — модуль
-// kompakt-tokens (каноническое извлечение из source/tokens.json,
-// гейт байтов у продукт-судьи); высота лейсте, minHeight вкладок и
+// v3b (Crit148k2b Б1) / v6: значения nav-токенов пакета 1.1 —
+// проекция theme/nav-tokens (значения — извлечение source/tokens.json,
+// гейт значений у продукт-судьи); высота лейсте, minHeight вкладок и
 // типографика надписей СЛЕДУЮТ за токеном (не литералы).
-import { navTokens } from './kompakt-tokens';
+import { NAV } from '../theme/nav-tokens';
 import { SECTION_TITLE_KEYS, TAB_LABEL_KEYS, uiCopyDe } from '../i18n/ui-copy';
 
 export type ShellSection = ShellSectionId;
@@ -348,7 +348,7 @@ export function TabShell({
     <View
       style={[
         styles.tabbarOverlay,
-        { backgroundColor: tokens.panel, height: navTokens.height + rezervNiz },
+        { backgroundColor: tokens.panel, height: NAV.height + rezervNiz },
       ]}
     >
       <TabBar
@@ -402,20 +402,20 @@ const styles = StyleSheet.create({
      надписи — nav.label.font-size/line-height 10/12 ($value; v3a
      Crit148k2a Б2/Б3); фоновая подложка снята: коробка лейсте =
      строка вкладок (манифест 1.1: коробка y769–818 = 49 высотой,
-     внешний padding убран). Значения — модуль kompakt-tokens. */
+     внешний padding убран). Значения — проекция nav-tokens. */
   tabbar: {
     alignItems: 'center',
     flexDirection: 'row',
-    height: navTokens.height,
+    height: NAV.height,
     justifyContent: 'space-around',
   },
   tab: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    minHeight: navTokens.itemMinHeight,
+    minHeight: NAV.item.minHeight,
   },
   tabLabel: {
-    fontSize: navTokens.labelFontSize,
-    lineHeight: navTokens.labelLineHeight,
+    fontSize: NAV.label.fontSize,
+    lineHeight: NAV.label.lineHeight,
   },
 });
