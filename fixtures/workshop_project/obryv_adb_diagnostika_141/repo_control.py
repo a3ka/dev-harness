@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
-"""Independent --repo control: copies pinned fixture scripts as product-owned files."""
+"""Independent --repo controls over disposable product-owned files.
+
+Each pinned LF script is green; changing only its line endings to CRLF must
+produce its exact named pin refusal. Replay is also compared with the original
+bytes held in memory using real cmp, independently of script execution or pins.
+"""
 from pathlib import Path
+import shlex
 import shutil
 import subprocess
 import sys
@@ -19,7 +25,9 @@ def run(root):
 
 
 def main():
-    with tempfile.TemporaryDirectory(prefix='control141-') as d:
+    src = probe.load_source()
+    model_text, _, model_steps, model_scripts = probe.zagruzit_model(src)
+    with tempfile.TemporaryDirectory(prefix='control141-', dir=HERE) as d:
         root = Path(d)
         workflow = root / '.github/workflows/mobile.yml'
         workflow.parent.mkdir(parents=True)
@@ -34,10 +42,45 @@ def main():
                   (green.returncode, green.stdout, green.stderr), file=sys.stderr)
             return 1
         print('CONTROL_REPO_GREEN rc=0 cases=46')
+        for number, path in src['skripty'].items():
+            original = model_scripts[number]
+            green_line = 'CASE struktura-shag%s ok' % number
+            if (not original or b'\r' in original or b'\n' not in original
+                    or green.stdout.splitlines().count(green_line) != 1):
+                print('CONTROL_LF_NOT_GREEN %s' % number, file=sys.stderr)
+                return 1
+            print('CONTROL_LF_GREEN %s rc=0' % number)
+            crlf = original.replace(b'\n', b'\r\n')
+            target = root / path
+            target.write_bytes(crlf)
+            red = run(root)
+            target.write_bytes(original)
+            expected = ('CASE struktura-shag%s KRASNO '
+                        '(SKRIPT_PIN_RASHOZHDENIE: %s)' % (number, number))
+            if red.returncode != 1 or red.stdout.splitlines().count(expected) != 1:
+                print('CONTROL_CRLF_NOT_RED %s: rc=%d\n%s\n%s' %
+                      (number, red.returncode, red.stdout, red.stderr),
+                      file=sys.stderr)
+                return 1
+            print('CONTROL_CRLF_RED %s rc=1 SKRIPT_PIN_RASHOZHDENIE: %s' %
+                  (number, number))
+            # Expected bytes are embedded from memory before invoking replay;
+            # neither the sandbox file nor the product file is our oracle.
+            for label, script in (('LF', original), ('CRLF', crlf)):
+                compare = "cmp -- %s <(printf '%%s' %s)" % (
+                    shlex.quote(path), shlex.quote(script.decode('utf-8')))
+                for environment in ('CHISTYJ', 'ACTIONS'):
+                    actual, error = probe.ispolnit_replay(
+                        compare, number, {}, environment, root, path, script)
+                    reason = error or probe.sravnit_replay(actual, {'rc': 0})
+                    if reason:
+                        print('CONTROL_REPLAY_BYTES_RED %s %s %s: %s' %
+                              (number, label, environment, reason), file=sys.stderr)
+                        return 1
+                    print('CONTROL_REPLAY_BYTES_GREEN %s %s %s rc=0' %
+                          (number, label, environment))
         # Replay the mutated product script directly: no structural case and no
         # SHA pin can account for a missing DeviceServerDiedException here.
-        src = probe.load_source()
-        model_text, _, model_steps, model_scripts = probe.zagruzit_model(src)
         _, mutant_scripts = probe.sdelat_stab(
             's-podmena-signatury-diag-118', model_text, model_scripts,
             src['signatury_regex'])
@@ -59,7 +102,7 @@ def main():
             print('CONTROL_DIAG118_REPLAY_RED %s: нет маркера вывода: %r' %
                   (environment, marker))
         target = scripts / SCRIPTS[0]
-        target.write_text(target.read_text() + '# не меняет исполнение, меняет байты\n')
+        target.write_bytes(target.read_bytes() + '# не меняет исполнение, меняет байты\n'.encode('utf-8'))
         red = run(root)
         if red.returncode != 1 or 'CASE struktura-shag135 KRASNO (SKRIPT_PIN_RASHOZHDENIE' not in red.stdout:
             print('CONTROL_PIN_NOT_RED: rc=%d\n%s\n%s' %

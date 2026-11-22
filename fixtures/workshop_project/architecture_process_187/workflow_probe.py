@@ -115,6 +115,7 @@ import tempfile
 
 from probe import world, critic_state, put, git, run, CONTRACT, REVIEW, TOOLS
 from ci_wiring import BATTERY, DIRECT
+import ci_ancestor
 
 
 # Б-3: warning text is a model answer, not the verifier's byte-for-byte oracle.
@@ -165,6 +166,7 @@ CASES = (
     ('done-ci-head-ahead', 'done', 'ci-head-ahead', 1, 'ARCH_CI', 'done'),
     *((f'done-{variation}-warns', 'done', f'{variation}-warns', 1, 'ARCH_CI', 'done')
       for variation in CI_VARIATIONS),
+    *ci_ancestor.CASES,
     ('legacy-mob', 'freeze', 'mobile', 0, '', 'freeze'),
     ('legacy-harness', 'freeze', 'harness', 0, '', 'freeze'),
     ('wiring-valid', 'wiring', 'wiring-valid', 0, '', 'wiring'),
@@ -252,6 +254,7 @@ CASES = (
     ('applicability-dir-no-lock', 'task', 'dir-only-noflag', 1, 'ARCH_COMPONENT_NET', 'task'),
 )
 STABS = {
+    **ci_ancestor.STABS,
     'task-no-line': ('task-line-missing', 'allow-line'),
     'task-blank-accepted': ('task-line-blank', 'allow-line'),
     'structure-dropped': ('task-valid', 'omit-structure'),
@@ -1084,12 +1087,19 @@ def prepare(root, arch, pinned, variation, action=''):
     if variation == 'no-rules':
         git(root, 'tag', 'frozen/contracts/777/1')
     record['check_runs'][0]['head_sha'] = git(root, 'rev-parse', 'HEAD')
+    if action == 'done':
+        # Keep old HEAD-success controls valid on both old and ancestor-aware doors.
+        product_run = dict(record['check_runs'][0], head_sha=scenario_head)
+        record['check_runs'].insert(0, product_run)
     if variation.endswith('-warns'):
         variation = variation.removesuffix('-warns')
     if variation == 'ci-missing': record = {'total_count': 0, 'check_runs': []}
-    if variation == 'ci-other-sha': record['check_runs'][0]['head_sha'] = 'f' * 40
-    if variation == 'ci-red': record['check_runs'][0]['conclusion'] = 'failure'
-    if variation == 'ci-skipped': record['check_runs'][0]['conclusion'] = 'skipped'
+    if variation == 'ci-other-sha':
+        for check_run in record['check_runs']: check_run['head_sha'] = 'f' * 40
+    if variation == 'ci-red':
+        for check_run in record['check_runs']: check_run['conclusion'] = 'failure'
+    if variation == 'ci-skipped':
+        for check_run in record['check_runs']: check_run['conclusion'] = 'skipped'
     ci_record(root).write_text(json.dumps(record))
     git(root, 'push', '-q', 'origin', 'main')
     if variation == 'ci-head-ahead':
@@ -1102,6 +1112,7 @@ def prepare(root, arch, pinned, variation, action=''):
     fake_curl.write_text('#!/usr/bin/env bash\n'
                          'case \"${@: -1}\" in *\"/commits/\"*\"/check-runs?\"*) cat \"$ARCH187_CURL_RESPONSE\" ;; *) exit 31 ;; esac\n')
     fake_curl.chmod(0o755)
+    ci_ancestor.prepare(root, variation)
     return task, trace, role
 
 def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
@@ -1348,6 +1359,8 @@ def verdict(root, arch, pinned, action, task, role, mutant='', variation=''):
         if check_rc and mutant != 'skip-check': return 1, 'ARCH_CHECK'
         return 0, ''
     if action == 'done':
+        if variation.startswith('ancestor-'):
+            return ci_ancestor.model(root, mutant)
         missing_review = not any(
             line.startswith('СВЕРКА-АРХИТЕКТУРЫ:') and
             line[len('СВЕРКА-АРХИТЕКТУРЫ:'):].strip()
@@ -1447,7 +1460,7 @@ def model_done(root, rc, output, mutant=''):
     if git(root, 'tag', '-l', DONE_TAG):
         git(root, 'tag', '-d', DONE_TAG)
     if rc == 0 and mutant != 'no-done-tag':
-        git(root, 'tag', DONE_TAG)
+        git(root, 'tag', DONE_TAG, ci_ancestor.tag_target(root, mutant))
     if mutant == 'warning-on-stdout':
         return subprocess.CompletedProcess([], rc, output, '')
     return subprocess.CompletedProcess([], rc, '', output)
@@ -1502,6 +1515,7 @@ def main():
                                         if variation in PIN_VARIATIONS else None)
             final_sha = git(root, 'rev-parse', 'HEAD') if action == 'done' else None
             warns = variation in WARN_VARIATIONS
+            ancestor_context = ci_ancestor.expectation(root, variation)
             honest_rc, honest_out = verdict(root, arch, pinned, action, task, role, variation=variation)
             if honest_rc != expected or (reason and reason not in honest_out):
                 raise RuntimeError(f'broken fixture: {label} expected {expected}/{reason}, got {honest_rc}/{honest_out}')
@@ -1511,11 +1525,14 @@ def main():
                 else:
                     result = subprocess.CompletedProcess([], honest_rc, honest_out, '')
             else:
+                if ancestor_context is not None:
+                    ci_record(root).with_suffix('.queries.jsonl').unlink(missing_ok=True)
                 result = live(tools, root, arch, pinned, action, task, trace, role, variation)
             rc, output = result.returncode, result.stdout + result.stderr
             ok = (rc == expected and (not reason or reason in output))
             if action == 'done':
                 ok = ok and done_observed(root, expected, result.stderr, warns, final_sha)
+                ok = ok and ci_ancestor.observed(root, ancestor_context, output)
             # 187 v4/v4b (К-10 вердиктов Crit187V4/V5, арбитраж Arb187V1):
             # обе обязательные диагностики pin и ПОЛНОЕ значение входного pin
             # с границей окончания — независимым оракулом из lock мира (вход,
@@ -1550,6 +1567,8 @@ def main():
                         fake = model_done(root, fake_rc, fake_out, mutant)
                         caught = caught or not done_observed(
                             root, expected, fake.stderr, warns, final_sha)
+                        caught = caught or not ci_ancestor.observed(
+                            root, ancestor_context, fake_out)
                     # 187 v4/v4b (К-10): утрата/подмена диагностики либо
                     # значения pin, включая окончание (суффикс), ловится
                     # независимым оракулом и на стабах

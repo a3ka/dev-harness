@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+import m0_probe
 
 TOOLS = Path(__file__).resolve().parents[3]
 REF = re.compile(r"(?<![\w.-])(?:\.harness/|harness\.project\.json\b)")
@@ -271,10 +272,12 @@ def main():
     group.add_argument('--model', action='store_true')
     group.add_argument('--stabs', action='store_true')
     group.add_argument('--repo', metavar='PRODUCT_ROOT', type=Path)
+    parser.add_argument('--m0', action='store_true', help='run only the M-0 profile acceptance slice')
     args = parser.parse_args()
     mode = 'model' if args.model else 'stabs' if args.stabs else 'repo'
-    result = run(mode, args.repo)
-    if args.repo:
+    result = 0 if args.m0 else run(mode, args.repo)
+    result |= m0_probe.run(mode)
+    if args.repo and not args.m0:
         root = args.repo.resolve()
         if not (root / '.git').exists():
             parser.error('--repo требует git checkout со своим .git')
