@@ -12,16 +12,21 @@
   "r06-vperjod-verdikt-hvost": "OBJECT-вердикткоммит впереди кандидата — отказ: не кодовая граница",
   "r07-vperjod-ne-opublikovan": "OBJECT впереди кандидата без публикации — именованный отказ",
   "r08-merge-pustaja-delta": "merge с пустой дельтой против первого родителя — допуск tip (боль 152/177)",
-  "r09-pustoj-ne-merge-tip": "пустой НЕ-merge tip — прежний отказ D50",
-  "r10-mimo-novoj-raboty": "расхождение (не предок и не потомок) — прежний отказ, причина и выход в тексте",
+  "r09-pustoj-ne-merge-tip": "пустой НЕ-merge tip — поведение двери A2: предупреждение, rc 0, START на tip",
+  "r10-mimo-novoj-raboty": "расхождение (не предок и не потомок) — отказ с причиной и выходом",
   "r11-sankcija-v-uchete": "повтор роли по записанной санкции SANKCIJA — допуск (боль 152/177)",
   "r12-sankcija-chuzhoj-object": "санкция на чужой OBJECT — повтор запрещён",
   "r13-sankcija-iscerpana": "санкция при исчерпанном круге (krugov 2) — повтор запрещён",
-  "r14-razreshil-vladelec-povtor": "строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР (слово 21.11 00:55) — допуск, механизм не тронут",
-  "r15-povtor-bez-razreshenija": "повтор без строки и без санкции — прежний отказ",
-  "r16-pauza-vladelca": "ПАУЗА владельца — прежний отказ (не ослаблен)",
-  "r17-vetka-nedostupna": "ветка носителя не читается — прежний отказ VETKA_NEDOSTUPNA",
-  "r18-merge-verdikt-neodnoznachnyj": "merge c неоднозначным вердиктным хвостом — прежний отказ резолвера"
+  "r14-povtor-stroka-ne-dejstvuet": "строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР снята словом 21.11 12:06 (A2 v8) — без санкции повтор запрещён",
+  "r15-povtor-bez-razreshenija": "повтор без санкции — именованный отказ",
+  "r16-pauza-vladelca": "ПАУЗА владельца — отказ (не ослаблен)",
+  "r17-vetka-nedostupna": "ветка носителя не читается — поведение двери A2: предупреждение, rc 0",
+  "r18-merge-verdikt-neodnoznachnyj": "merge c неоднозначным вердиктным хвостом — поведение резолвера A2",
+  "r19-sankcija-chuzhoj-predmet": "санкция чужого предмета (subjectId 209) — повтор запрещён (К-08)",
+  "r20-sankcija-chuzhaja-rol": "санкция чужой роли (reviewer) — повтор запрещён (К-08)",
+  "r21-sankcija-chuzhoj-repo": "санкция чужого repoId (other-repo) — повтор запрещён (К-08)",
+  "r22-predok-cherez-vtorogo-roditelja": "OBJECT достижим только через второго родителя merge — допуск (К-09)",
+  "r23-porjadok-roditelej-merge": "порядок родителей merge не меняет допуск (инвариант 4, К-14)"
  },
  "stab_vhod": {
   "st01-ravenstvo-tolko": [
@@ -45,40 +50,69 @@
   "st06-merge-ljuboj-tip": [
    "r09-pustoj-ne-merge-tip"
   ],
-  "st07-sankcija-bez-sverki": [
+  "st07-sankcija-bez-object": [
    "r12-sankcija-chuzhoj-object"
   ],
   "st08-sankcija-bez-krugov": [
    "r13-sankcija-iscerpana"
   ],
-  "st09-bez-razreshil-stroki": [
-   "r14-razreshil-vladelec-povtor"
+  "st09-stroka-kak-sankcija": [
+   "r14-povtor-stroka-ne-dejstvuet"
   ],
   "st10-otkaz-bez-vyhoda": [
    "r10-mimo-novoj-raboty"
   ],
   "st11-predki-pereputany": [
    "r02-predok-opublikovan-v-main",
-   "r03-predok-opublikovan-v-vetke"
+   "r03-predok-opublikovan-v-vetke",
+   "r23-porjadok-roditelej-merge"
   ],
   "st12-publikacija-tolko-main": [
    "r03-predok-opublikovan-v-vetke"
+  ],
+  "st13-sankcija-bez-subjectid": [
+   "r19-sankcija-chuzhoj-predmet"
+  ],
+  "st14-sankcija-bez-roli": [
+   "r20-sankcija-chuzhaja-rol"
+  ],
+  "st15-sankcija-bez-repo": [
+   "r21-sankcija-chuzhoj-repo"
+  ],
+  "st16-predok-tolko-pervyj-roditel": [
+   "r22-predok-cherez-vtorogo-roditelja"
+  ],
+  "st17-diagnostika-r04": [
+   "r04-predok-ne-opublikovan"
+  ],
+  "st18-diagnostika-r06": [
+   "r06-vperjod-verdikt-hvost"
+  ],
+  "st19-diagnostika-r07": [
+   "r07-vperjod-ne-opublikovan"
   ]
  },
  "nositeli": {
-  "model/zamok_predmeta.sh": "d3b030f3b2d4ae4a9b201e0c879222ea348fb7e19ae7631d9059e7fb52debdee",
-  "stabs/st01-ravenstvo-tolko/zamok_predmeta.sh": "7419ed795162bd7e3a0f876ccd4919a678f163ed9e766fb661287f2f79a70117",
-  "stabs/st02-predok-bez-publikacii/zamok_predmeta.sh": "0b9f0d2f9dcfb4b28ac5762c6a1bf2daaa1aa5012329b844af1e220adfb74e32",
-  "stabs/st03-vperjod-bez-granicy/zamok_predmeta.sh": "5b6da818e238ad7ea0edcf039163bf5f3b0c54e14fd93a5c847500947bf456e0",
-  "stabs/st04-vperjod-bez-publikacii/zamok_predmeta.sh": "2161c766c31211dcd1462e5e76c460439ac9d566ff2adebe36c1e5bc80dba504",
-  "stabs/st05-merge-bez-pustoty/zamok_predmeta.sh": "7d7e3ec2dbfd16bd1179b0d095db44cfca2563195264dee77596d1e7d7ca6720",
-  "stabs/st06-merge-ljuboj-tip/zamok_predmeta.sh": "00ac3576e8d54c18c7d7513696d17a26395ea8a03445fe19fad407d38ae7dfe8",
-  "stabs/st07-sankcija-bez-sverki/zamok_predmeta.sh": "fcb86d455bfc074a8b7f1b4db0bbc9b606f3d36ee5d0c55989c37ad7e0f08bc0",
-  "stabs/st08-sankcija-bez-krugov/zamok_predmeta.sh": "796856db2bce35862dcc551c80d7820fa964bde09ca53fc05147cc23e7f53194",
-  "stabs/st09-bez-razreshil-stroki/zamok_predmeta.sh": "54756fd260752956e892625e31dc65c9f76d858cfc7bfe96cc6a962c44d9b11a",
-  "stabs/st10-otkaz-bez-vyhoda/zamok_predmeta.sh": "bb3382c3936fcf893d8bc1943ebce5ea21877cffd4347e30af75fd6b0f032ea6",
-  "stabs/st11-predki-pereputany/zamok_predmeta.sh": "0c34cc070ab996e89f7e2c6005582c30be37673459cb1631ee391ddcdc3bb118",
-  "stabs/st12-publikacija-tolko-main/zamok_predmeta.sh": "e3c51cc0cecc95dea8e598c013d905d538bcd611f3e55ea1bbacfc746db18f72"
+  "model/zamok_predmeta.sh": "d79af60e82c7c698c35015f6289cf8cb3feb57e4b80a833e96930057aa588734",
+  "stabs/st01-ravenstvo-tolko/zamok_predmeta.sh": "3635d32ce386d7a5df0d892129628ff8c727f1ce7f2210233fd059ec1ee5ad47",
+  "stabs/st02-predok-bez-publikacii/zamok_predmeta.sh": "bcdef0f21ea3a070846e994cafdebd0d51a063341da8cc13dff2a9a68ddb1793",
+  "stabs/st03-vperjod-bez-granicy/zamok_predmeta.sh": "f30d68e152612ddb68e8c09119ee812614928b3e840f36c16ddd3dc6ab0abb3a",
+  "stabs/st04-vperjod-bez-publikacii/zamok_predmeta.sh": "0b2e5c139d8a42b0d888c02f710f3143a8d3677413255267c69a277681830ebd",
+  "stabs/st05-merge-bez-pustoty/zamok_predmeta.sh": "c1ab8f33224161423dfcef4ab11d02055e8a7fceaa632cbeb172e12e6c2ab847",
+  "stabs/st06-merge-ljuboj-tip/zamok_predmeta.sh": "632343f6d51ffc9ba5bd418d99ee05517f37fbe47be4370372b067feaa6d1bad",
+  "stabs/st07-sankcija-bez-object/zamok_predmeta.sh": "694cf5f3ddb2ba5e7ed814fc961ffd2b7acd4a2bca90b215ad6db1cd0413b966",
+  "stabs/st08-sankcija-bez-krugov/zamok_predmeta.sh": "830a07eec19d3aa6b57aed7a8db5e799cf108cf0db24dfb7693d712dca87358e",
+  "stabs/st09-stroka-kak-sankcija/zamok_predmeta.sh": "a7684e7296f4991959952cb9e0254b0c7e0c7ad9d786d4a77dc763e82b13e851",
+  "stabs/st10-otkaz-bez-vyhoda/zamok_predmeta.sh": "03bc42cf1318d40a26319ec571472a1671d032694caed8c702ed1d5df06678b6",
+  "stabs/st11-predki-pereputany/zamok_predmeta.sh": "bb8992e0ab1491a5b78817ae8c10221314fb6f6b1215ec63ec8ac1f0e2e8e02e",
+  "stabs/st12-publikacija-tolko-main/zamok_predmeta.sh": "904f6f948f82bf48a2b88458aee10259461f157ef30186667d2f2c273814dbce",
+  "stabs/st13-sankcija-bez-subjectid/zamok_predmeta.sh": "3093cafd80bf253e5f2deb2bbad8cbca694e2c687458c9592da904641eca5596",
+  "stabs/st14-sankcija-bez-roli/zamok_predmeta.sh": "ba4663050e73d94bfbf7fb245044a12074d2df195e21f5921cf40cf4d29f6cbc",
+  "stabs/st15-sankcija-bez-repo/zamok_predmeta.sh": "f791d63b4de49a66c5f98c55c29b1b8efe09d9af42fe8dea20abbbfcb2efaf43",
+  "stabs/st16-predok-tolko-pervyj-roditel/zamok_predmeta.sh": "342d67e7903de2e780ff7153adca088e49625056e64457fe83736efef4cc5c0e",
+  "stabs/st17-diagnostika-r04/zamok_predmeta.sh": "5c8f25832d1bbea6a8e1c2aafd9e989cce0f64041890191389f2b2b89e0ef602",
+  "stabs/st18-diagnostika-r06/zamok_predmeta.sh": "1791d7c4ebc84a7c89ab39d965988b9c5162635afcafa4ac066e6c2fcedcc502",
+  "stabs/st19-diagnostika-r07/zamok_predmeta.sh": "703c74770625c9964b71383b4b7b6458eb3550eecfd4d53d097a91fcd8aa7ce8"
  },
  "zametki": "привязки стаб↔клетка — единственный источник (Н-39); якорь каждой мутации — кратность 1 в тексте модели"
 }
