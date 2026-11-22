@@ -388,8 +388,8 @@ if [ "${#land_merges[@]}" -gt 0 ]; then
     fi
     gh_args=(-H 'Accept: application/vnd.github+json' \
              -H 'X-GitHub-Api-Version: 2022-11-28')
-    if [ -n "${GITHUB_TOKEN:-}" ]; then
-      gh_args+=(-H "Authorization: Bearer $GITHUB_TOKEN")
+    if [ -n "${GITHUB_TOKEN:-${GH_TOKEN:-}}" ]; then
+      gh_args+=(-H "Authorization: Bearer ${GITHUB_TOKEN:-${GH_TOKEN:-}}")
     fi
     if ! body="$(curl -fsS -m 20 \
           "${gh_args[@]}" \
@@ -397,7 +397,8 @@ if [ "${#land_merges[@]}" -gt 0 ]; then
       printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI не сверяем: API\n' >&2
       exit 1
     fi
-    n="$(printf '%s' "$body" | jq -r '[.workflow_runs[]? | select((.event=="pull_request") and (.conclusion=="success"))] | length' 2>/dev/null)"
+    n="$(printf '%s' "$body" | jq -r '[.workflow_runs[]? | select((.event=="pull_request") and (.conclusion=="success"))] | length' 2>/dev/null)" \
+      || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI не сверяем: ответ не разобран\n' >&2; exit 1; }
     n="${n:-0}"
     if ! [[ "$n" =~ ^[0-9]+$ ]]; then n=0; fi
     if [ "$n" -lt 1 ]; then
