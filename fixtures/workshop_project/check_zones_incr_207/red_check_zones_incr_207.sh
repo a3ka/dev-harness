@@ -14,5 +14,6 @@ case "${1:---repo}" in
     python3 "$here/probe.py" --repo "${1:-$(cd "$here/../../.." && pwd -P)}" ;;
   --model) shift; python3 "$here/probe.py" --model "$@" ;;
   --stabs) shift; python3 "$here/probe.py" --stabs "$@" ;;
+  --catalog) shift; python3 -B "$here/probe.py" --catalog "$@" ;;
   *) printf 'NOT_IMPLEMENTED: invalid mode\n' >&2; exit 2 ;;
 esac

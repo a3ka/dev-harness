@@ -13,6 +13,7 @@
 """
 import argparse
 import ast
+import hashlib
 import os
 import re
 import shutil
@@ -30,36 +31,246 @@ STABS_TSV = HERE / 'stabs.tsv'
 
 C_STRING = r'"(?:\\.|[^"\\])*"'
 EXECVE_RE = re.compile(r'execve\((' + C_STRING + r'), (\[(?:' +
-                       C_STRING + r'(?:, )?)*\]), .* = 0$')
+                       C_STRING + r'(?:, )?)*\]), .* = (-?\d+)(?: .*)?$')
+TRACE_CALLS = ('execve', 'chdir', 'fchdir', 'clone', 'clone3', 'fork', 'vfork')
+TRACE_OPTIONS = ['-ff', '-ttt', '-yy', '-s', '131072', '-e',
+                 'trace=' + ','.join(TRACE_CALLS)]
 
 
-def window_counters(traces, base):
-    """Успешные execve настоящего git, операция определяется argv, не /usr/bin."""
-    anchors = {
-        'rk_rev': ('rev-list', '--no-merges', '--reverse', f'{base}..HEAD'),
-        'rk_merges': ('rev-list', '--merges', f'{base}..HEAD'),
-        'ak': ('log', '--no-walk'),
-        'dt': ('diff-tree',),
-    }
-    counts = dict.fromkeys(anchors, 0)
-    seen = 0
+def c_string(text):
+    """strace C-строка: octal/hex — байты имени, не Unicode code points."""
+    return os.fsdecode(ast.literal_eval('b' + text))
+
+
+class GitInventory:
+    """Доверенные установки снимаются ДО субъекта, не из его argv0/PATH."""
+
+    def __init__(self):
+        self.git = shutil.which('git')
+        if not self.git:
+            raise Prerequisite('нет установленного git')
+        rc, out, _ = command([self.git, '--exec-path'])
+        if rc:
+            raise Prerequisite('git --exec-path недоступен')
+        self.exec_path = Path(os.fsdecode(out).strip())
+        rc, out, _ = command([self.git, '--list-cmds=builtins'])
+        if rc or not out.strip():
+            raise Prerequisite('нет канонического списка Git builtins')
+        self.builtins = set(out.decode().splitlines())
+        paths = [Path(self.git)] + [self.exec_path / name for name in
+                                   ('git', 'git-log', 'git-rev-list', 'git-diff-tree')]
+        self.identities = set()
+        self.digests = set()
+        self.cache = {}
+        for path in paths:
+            stat, digest = self.fingerprint(path)
+            self.identities.add((stat.st_dev, stat.st_ino))
+            self.digests.add(digest)
+
+    def fingerprint(self, path):
+        try:
+            stat = path.stat()
+            key = (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns)
+            if key not in self.cache:
+                with path.open('rb') as stream:
+                    self.cache[key] = hashlib.file_digest(stream, 'sha256').digest()
+            return stat, self.cache[key]
+        except OSError as exc:
+            raise Prerequisite(f'нет свидетельства идентичности execve {path}: {exc}') from exc
+
+    def trusted(self, path):
+        stat, digest = self.fingerprint(path)
+        return ((stat.st_dev, stat.st_ino) in self.identities or digest in self.digests)
+
+    def dispatch(self, argv):
+        if not argv:
+            raise Prerequisite('пустой argv доверенного Git')
+        name = Path(argv[0]).name
+        if name.startswith('git-'):
+            return name[4:], argv[1:]
+        i = 1
+        while i < len(argv):
+            arg = argv[i]
+            if arg in ('-C', '-c'):
+                if i + 1 == len(argv):
+                    raise Prerequisite(f'неполный глобальный префикс Git {arg}')
+                i += 2
+            elif arg in ('--no-pager', '--paginate', '--bare', '--no-replace-objects',
+                         '--literal-pathspecs', '--no-optional-locks'):
+                i += 1
+            elif any(arg.startswith(prefix) for prefix in
+                     ('--git-dir=', '--work-tree=', '--exec-path=')):
+                i += 1
+            elif arg in ('--version', '--exec-path', '--html-path', '--man-path', '--info-path'):
+                if i + 1 != len(argv):
+                    raise Prerequisite(f'неоднозначный глобальный dispatch Git {arg}')
+                return None, []
+            elif arg.startswith('-'):
+                raise Prerequisite(f'неразобранный глобальный dispatch Git {arg}')
+            else:
+                return arg, argv[i + 1:]
+        raise Prerequisite('нет команды доверенного Git')
+
+
+def revision_options(args):
+    """Отдельные флаги/значения/ревизии; после -- начинаются пути."""
+    flags, operands = set(), []
+    values = {'--format', '--pretty', '--encoding', '--author', '--committer',
+              '--grep', '--since', '--until', '--max-count', '--skip', '--diff-merges'}
+    switches = {'--stdin', '--no-walk', '--no-merges', '--merges', '--reverse',
+                '--raw', '--always', '--no-renames', '--no-commit-id', '--name-only',
+                '--root', '--first-parent', '--count', '-r', '-z', '-s'}
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == '--':
+            break
+        if arg == '--end-of-options':
+            operands.extend(args[i + 1:])
+            break
+        key, equals, value = arg.partition('=')
+        if key in values:
+            if not equals:
+                i += 1
+                if i == len(args):
+                    raise Prerequisite(f'нет значения Git-опции {arg}')
+        elif key == '--no-walk' and equals:
+            if value not in ('sorted', 'unsorted'):
+                raise Prerequisite(f'неразобранный режим {arg}')
+            flags.add(key)
+        elif arg in switches:
+            flags.add(arg)
+        elif re.fullmatch(r'-[0-9]+', arg):
+            flags.add('--max-count')
+        elif arg.startswith('-'):
+            raise Prerequisite(f'неразобранная опция предметной Git-операции {arg}')
+        else:
+            operands.append(arg)
+        i += 1
+    return flags, operands
+
+
+def trace_events(traces):
+    """Полные per-PID записи настоящего strace, включая наследование cwd."""
+    events, pids = [], set()
     for trace in traces:
-        for line in trace.read_text(errors='strict').splitlines():
-            match = EXECVE_RE.search(line)
+        try:
+            pid = int(trace.suffix[1:])
+            text = trace.read_text(errors='strict')
+        except (OSError, UnicodeError, ValueError) as exc:
+            raise Prerequisite(f'нечитаемая трасса strace: {exc}') from exc
+        pids.add(pid)
+        if not text.endswith('\n'):
+            raise Prerequisite('неполная трасса strace: нет терминатора')
+        lines = text.splitlines()
+        if not lines or not re.fullmatch(r'\d+\.\d+ \+\+\+ (?:exited with \d+|killed by .+) \+\+\+',
+                                         lines[-1]):
+            raise Prerequisite('неполная трасса strace: нет завершения PID')
+        pending = None
+        for line in lines:
+            match = re.fullmatch(r'(\d+\.\d+) (.*)', line)
             if not match:
-                if 'execve(' in line and line.endswith(' = 0'):
-                    raise Prerequisite('не разобран успешный execve strace')
+                raise Prerequisite('неразобранная строка strace')
+            stamp, body = match.groups()
+            if body.endswith('<unfinished ...>'):
+                if pending is not None:
+                    raise Prerequisite('вложенная незавершённая запись strace')
+                pending = stamp, body[:-len('<unfinished ...>')]
                 continue
-            seen += 1
-            exe, argv = (ast.literal_eval(part) for part in match.groups())
-            if not argv or not (Path(argv[0]).name == 'git' or
-                                Path(exe).resolve().name == 'git'):
+            if body.startswith('<... '):
+                resumed = re.fullmatch(r'<\.\.\. (\w+) resumed>(.*)', body)
+                if not resumed or pending is None or not pending[1].startswith(resumed[1] + '('):
+                    raise Prerequisite('неразобранное продолжение strace')
+                stamp, prefix = pending
+                body = prefix + resumed[2]
+                pending = None
+            if body.startswith(('--- ', '+++ ')):
                 continue
-            args = tuple(argv[1:])
-            for key, anchor in anchors.items():
-                if any(args[i:i + len(anchor)] == anchor
-                       for i in range(len(args) - len(anchor) + 1)):
-                    counts[key] += 1
+            call = body.split('(', 1)[0]
+            if call not in TRACE_CALLS or not re.search(r' = (?:-?\d+|\?)', body):
+                raise Prerequisite(f'неразобранный syscall strace: {call}')
+            events.append((stamp, 0 if call in ('clone', 'clone3', 'fork', 'vfork') else 1,
+                           pid, call, body))
+        if pending is not None:
+            raise Prerequisite('неполная трасса strace: незавершённый syscall')
+    if not events:
+        raise Prerequisite('strace не предъявил событий')
+    return sorted(events), pids
+
+
+def window_counters(traces, base, inventory, caller_cwd):
+    """Единый нормализатор execve; обёртки не интерпретируются как shell-текст."""
+    events, pids = trace_events(traces)
+    children = {}
+    for _, _, parent, call, body in events:
+        if call in ('clone', 'clone3', 'fork', 'vfork'):
+            child = re.search(r' = (\d+)$', body)
+            if child:
+                children[int(child[1])] = parent
+    roots = pids - children.keys()
+    if len(roots) != 1 or not children.keys() <= pids:
+        raise Prerequisite('неполная генеалогия PID strace')
+    cwd = {roots.pop(): [Path(caller_cwd).resolve()]}
+    counts = dict.fromkeys(('rk_rev', 'rk_merges', 'ak', 'dt'), 0)
+    aliases, dispatched = [], []
+    seen = 0
+    for stamp, _, pid, call, body in events:
+        if pid not in cwd:
+            raise Prerequisite('нет cwd вызывавшего процесса strace')
+        if call in ('clone', 'clone3', 'fork', 'vfork'):
+            child = re.search(r' = (\d+)$', body)
+            if child:
+                cwd[int(child[1])] = cwd[pid] if 'CLONE_FS' in body else list(cwd[pid])
+            continue
+        if call in ('chdir', 'fchdir'):
+            if not body.endswith(' = 0'):
+                continue
+            pattern = (r'chdir\((' + C_STRING + r')\)\s+= 0' if call == 'chdir'
+                       else r'fchdir\(\d+<([^>]+)>\)\s+= 0')
+            match = re.fullmatch(pattern, body)
+            if not match:
+                raise Prerequisite(f'нет разрешимого cwd в strace: {body}')
+            target = c_string(match[1]) if call == 'chdir' else match[1]
+            cwd[pid][0] = (cwd[pid][0] / target).resolve()
+            continue
+        match = EXECVE_RE.fullmatch(body)
+        if not match:
+            raise Prerequisite('не разобран execve strace (возможно, обрезан argv)')
+        if match[3] != '0':
+            continue
+        seen += 1
+        exe = cwd[pid][0] / c_string(match[1])
+        if not inventory.trusted(exe):
+            continue
+        argv = [c_string(m[0]) for m in re.finditer(C_STRING, match[2])]
+        cmd, args = inventory.dispatch(argv)
+        if cmd is None:
+            continue
+        if cmd not in inventory.builtins:
+            aliases.append((pid, stamp, cmd))
+            continue
+        dispatched.append((pid, stamp))
+        if cmd not in ('log', 'rev-list', 'diff-tree'):
+            continue
+        flags, operands = revision_options(args)
+        if cmd == 'log' and {'--no-walk', '--stdin'} <= flags:
+            counts['ak'] += 1
+        elif cmd == 'diff-tree' and '--stdin' in flags:
+            counts['dt'] += 1
+        elif cmd == 'rev-list' and f'{base}..HEAD' in operands:
+            if {'--no-merges', '--reverse'} <= flags:
+                counts['rk_rev'] += 1
+            if '--merges' in flags:
+                counts['rk_merges'] += 1
+    for parent, stamp, name in aliases:
+        def expanded(child):
+            while child in children:
+                child = children[child]
+                if child == parent:
+                    return True
+            return False
+        if not any(when >= stamp and expanded(child) for child, when in dispatched):
+            raise Prerequisite(f'неразобранный dispatch Git {name}: нет раскрытого дочернего builtin')
     if not seen:
         raise Prerequisite('strace не предъявил ни одного успешного execve')
     return counts
@@ -179,6 +390,7 @@ class World:
 class Battery:
     def __init__(self, repo_root):
         self.repo = repo_root
+        self.inventory = GitInventory()
         self.scratch = Path(tempfile.mkdtemp(prefix='check_zones_incr_207.'))
         self.worlds = {}
 
@@ -364,6 +576,14 @@ class Battery:
             first = w.sha('HEAD')
             w.c('architect', 'second', {'plans/second.md': '2\n'})
             second = w.sha('HEAD')
+            # sort обязан отличаться от хронологии, независимо от случайного SHA.
+            for nonce in range(256):
+                if second < first:
+                    break
+                git(w.root, 'commit', '--amend', '-q', '-m', f'second-{nonce}', author='architect')
+                second = w.sha('HEAD')
+            else:
+                raise Prerequisite('не построен конформный контрпример sort/replay')
             info.update(base=w.sha('HEAD~2'), head=second, n=2, rc=1, fails=2,
                         commits=2, checked=2, cache_stays=True,
                         fail_lines=[
@@ -446,10 +666,9 @@ class Battery:
         if strace:
             for old_trace in self.scratch.glob(trace.name + '.*'):
                 old_trace.unlink()
-            # -ff: каждый PID в своём файле, нет разорванных interleaved execve.
-            # Запас длины для полного argv мира; обрезанный execve — rc 2, не ноль.
-            proc = subprocess.Popen(['strace', '-ff', '-s', '131072', '-e', 'trace=execve',
-                                     '-o', str(trace)] + argv, cwd=world, env=environment(),
+            # Внешняя генеалогия PID/cwd разрешает относительный execve у ребёнка.
+            proc = subprocess.Popen(['strace'] + TRACE_OPTIONS +
+                                    ['-o', str(trace)] + argv, cwd=world, env=environment(),
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                     start_new_session=True)
             try:
@@ -468,10 +687,11 @@ class Battery:
             traces = list(self.scratch.glob(trace.name + '.*'))
             if not traces:
                 raise Prerequisite('strace не создал трассу execve')
-            counters = window_counters(traces, winfo['base'])
+            counters = window_counters(traces, winfo['base'], self.inventory, world)
         cache_after = cache.read_text().strip() if (incr and cache.exists()) else None
         return {'rc': rc, 'out': out, 'err': err, 'cache': cache_after,
-                'counters': counters, 'seconds': seconds}
+                'counters': counters, 'seconds': seconds,
+                'traces': traces if strace else []}
 
     @staticmethod
     def strip_marker(err_bytes):
@@ -582,13 +802,49 @@ class Runner:
         else:
             raise Prerequisite(f'неизвестная клетка {name}')
 
-    def git_form_cell(self, name, replacement):
+    def git_form_cell(self, name, pattern):
         scr = self.b.make_scratch(name, MODEL)
-        (scr / 'check_zones.sh').write_text(model_text(
-            name, 'g() { git -C "$ROOT" "$@"; }', replacement))
+        (scr / 'check_zones.sh').write_text(model_text(name, *pattern))
         r = Runner(self.b, dict(self.s, subj=scr), self.tree)
         r.eq_cell(name, 'w1', counters=(1, 1, 1, 1))
         self.results.extend(r.results)
+
+    def trace_failure_cell(self, name, kind):
+        """Непригодность измерителя — ожидаемый rc 2, никогда поимка стаба."""
+        w = self.b.world('w1')
+        scr = self.b.make_scratch(name, MODEL)
+        honest = self.b.door(scr, w, strace=True)
+        if honest['rc'] != 0 or self.counter_problems(honest, (1, 1, 1, 1)):
+            raise Prerequisite(f'честный контроль трассы {name} непригоден')
+        expected = TRACE_FAILURES[name][1]
+        if kind == 'dispatch':
+            (scr / 'check_zones.sh').write_text(model_text(
+                name, G_ANCHOR, 'export PROBE207_COLOR=false\n'
+                'g() { git --config-env=color.ui=PROBE207_COLOR -C "$ROOT" "$@"; }'))
+        else:
+            events, _ = trace_events(honest['traces'])
+            trace = next(p for p in honest['traces'] if int(p.suffix[1:]) == events[0][2])
+            text = trace.read_text()
+            if kind == 'truncated':
+                trace.write_text(text[:-1])
+            elif kind == 'argv':
+                trace.write_text(text.replace('execve(', 'execve(...', 1))
+            elif kind == 'ancestry':
+                child = next(p for p in honest['traces'] if p != trace)
+                child.unlink()
+            else:
+                raise Prerequisite(f'неизвестный контроль трассы {kind}')
+        try:
+            if kind == 'dispatch':
+                self.b.door(scr, w, strace=True)
+            else:
+                remaining = [p for p in honest['traces'] if p.exists()]
+                window_counters(remaining, w['base'], self.b.inventory, w['root'])
+        except Prerequisite as exc:
+            ok = expected in str(exc)
+            self.results.append((name, ok, f'rc=2 NOT_IMPLEMENTED: {exc}', 0.0))
+        else:
+            self.results.append((name, False, 'непригодный измеритель принят (не rc 2)', 0.0))
 
 
 EQ_CELLS = {
@@ -596,6 +852,7 @@ EQ_CELLS = {
     'e2-chuzhaja-zona': 'w2',
     'e3-arhitektor-v-zone-implementer': 'w3',
     'e4-merge-okno-svoi-chuzhie': 'w4',
+    'e4b-merge-svoi-narushitel': 'w4b',
     'e5-pustoe-okno': 'w5',
     'e6-okno-odin-kommit': 'w6',
     'e7-spaseno-replay': 'w7',
@@ -616,12 +873,72 @@ COUNTER_CELLS = {
     'c5-nezavisimost-k8': ('wdif8', 1, 1, 1, 1),
     'c6-nezavisimost-k24': ('wdif24', 1, 1, 1, 1),
 }
+G_ANCHOR = 'g() { git -C "$ROOT" "$@"; }'
+LOOKUP_ANCHOR = "    if ! g log --no-walk --format='%H%x00%an%x00' --stdin"
+LOOKUP_EXTRA_ANCHOR = '    if ! g log --no-walk'
+LOOKUP_ARGS = 'log --no-walk --format=\'%H%x00%an%x00\' --stdin'
 GIT_FORMS = {
-    'h1-bin-git': 'g() { /bin/git -C "$ROOT" "$@"; }',
-    'h2-command-git': 'g() { command git -C "$ROOT" "$@"; }',
-    'h3-simlink-git': ('ln -sf /usr/bin/git "$SELF_DIR/alias207-link"\n'
-                       'g() { "$SELF_DIR/alias207-link" -C "$ROOT" "$@"; }'),
-    'h4-exec-a': 'g() { ( exec -a alias207 /usr/bin/git -C "$ROOT" "$@" ); }',
+    'h1-bin-git': (G_ANCHOR, 'g() { /bin/git -C "$ROOT" "$@"; }'),
+    'h2-command-git': (G_ANCHOR, 'g() { command git -C "$ROOT" "$@"; }'),
+    'h3-simlink-git': (G_ANCHOR, 'ln -sf /usr/bin/git "$SELF_DIR/alias207-link"\n'
+                     'g() { "$SELF_DIR/alias207-link" -C "$ROOT" "$@"; }'),
+    'h4-exec-a': (G_ANCHOR,
+                  'g() { ( exec -a alias207 /usr/bin/git -C "$ROOT" "$@" ); }'),
+    'h5-git-log': (LOOKUP_ANCHOR, '    if ! GIT_DIR="$ROOT/.git" '
+                  '"$(git --exec-path)/git-log" --no-walk --format=\'%H%x00%an%x00\' --stdin'),
+    'h6-flag-order': (LOOKUP_ANCHOR,
+                     '    if ! g log --format=\'%H%x00%an%x00\' --stdin --no-walk'),
+    'h7-global-options': (G_ANCHOR,
+                         'g() { git --no-pager -c color.ui=false -C "$ROOT" "$@"; }'),
+    'h8-shell-env': (G_ANCHOR,
+                    'g() { sh -c \'exec env git -C "$@"\' sh "$ROOT" "$@"; }'),
+    'h9-alias': (LOOKUP_ANCHOR, '    if ! git -C "$ROOT" -c alias.lookup=log '
+                'lookup --no-walk --format=\'%H%x00%an%x00\' --stdin'),
+    'h10-git-log-exec-path': (LOOKUP_ANCHOR, '    if ! GIT_DIR="$ROOT/.git" '
+                            'GIT_EXEC_PATH="$(git --exec-path)" "$(git --exec-path)/git-log" '
+                            '--no-walk --format=\'%H%x00%an%x00\' --stdin'),
+    'h11-xargs': (G_ANCHOR, 'g() { xargs -0 -a <(printf \'%s\\0\' "$@") '
+                 '/usr/bin/git -C "$ROOT"; }'),
+    'h12-relative-cwd': (G_ANCHOR, 'mkdir -p "$SELF_DIR/bin207"\n'
+                        'ln -sf /usr/bin/git "$SELF_DIR/bin207/git"\n'
+                        'g() { ( cd "$SELF_DIR"; ./bin207/git -C "$ROOT" "$@" ); }'),
+    'h13-hardlink-copy': (G_ANCHOR, 'cp /usr/bin/git "$SELF_DIR/git207-copy"\n'
+                         'ln "$SELF_DIR/git207-copy" "$SELF_DIR/git207-hard"\n'
+                         'g() { "$SELF_DIR/git207-hard" -C "$ROOT" "$@"; }'),
+    'h14-redirect-exec-path': (G_ANCHOR, 'mkdir -p "$SELF_DIR/exec207"\n'
+                             'ln -sf "$(git --exec-path)/git" "$SELF_DIR/exec207/git"\n'
+                             'export GIT_EXEC_PATH="$SELF_DIR/exec207"\n'
+                             'lookup207() { git --exec-path="$SELF_DIR/exec207" -C "$ROOT" '
+                             '-c alias.lookup=log lookup "$@"; }\n'
+                             'g() { if [ "$1" = log ]; then shift; lookup207 "$@"; '
+                             'else git --exec-path="$SELF_DIR/exec207" -C "$ROOT" "$@"; fi; }'),
+    'h15-global-combination': (G_ANCHOR,
+        'g() { git --bare --git-dir="$ROOT/.git" --work-tree="$ROOT" '
+        '--paginate --no-pager -C "$ROOT" -c color.ui=false -c probe.command=log "$@"; }'),
+    'h16-no-walk-sorted': (LOOKUP_ANCHOR,
+        '    if ! g log --format=\'%H%x00%an%x00\' --stdin --no-walk=sorted'),
+    'h17-no-walk-unsorted': (LOOKUP_ANCHOR,
+        '    if ! g log --stdin --no-walk=unsorted --format=\'%H%x00%an%x00\''),
+    'h18-foreign-argv0': (LOOKUP_EXTRA_ANCHOR,
+        '    ( exec -a git /usr/bin/true log --no-walk --stdin )\n' + LOOKUP_EXTRA_ANCHOR),
+    'h19-option-value-boundary': (LOOKUP_EXTRA_ANCHOR,
+        '    g log -1 --format="format:log --no-walk --stdin" HEAD -- plans/no-match > /dev/null\n'
+        + LOOKUP_EXTRA_ANCHOR),
+    'h20-builtin-rev-diff': (G_ANCHOR,
+        'g() { case "$1" in rev-list|diff-tree) local cmd="$1"; shift; '
+        'GIT_DIR="$ROOT/.git" "$(git --exec-path)/git-$cmd" "$@" ;; '
+        '*) git -C "$ROOT" "$@" ;; esac; }'),
+    'h21-foreign-exec-path': (LOOKUP_EXTRA_ANCHOR,
+        '    mkdir -p "$SELF_DIR/foreign207"\n'
+        '    cp /usr/bin/true "$SELF_DIR/foreign207/git-log"\n'
+        '    GIT_EXEC_PATH="$SELF_DIR/foreign207" "$SELF_DIR/foreign207/git-log" '
+        '--no-walk --stdin\n' + LOOKUP_EXTRA_ANCHOR),
+}
+TRACE_FAILURES = {
+    'n1-unknown-dispatch': ('dispatch', 'неразобранный глобальный dispatch'),
+    'n2-truncated-trace': ('truncated', 'неполная трасса'),
+    'n3-malformed-argv': ('argv', 'не разобран execve'),
+    'n4-incomplete-ancestry': ('ancestry', 'неполная генеалогия'),
 }
 
 
@@ -631,8 +948,10 @@ def cells(runner):
     runner.run_cell('k0-bez-zon')
     for name in COUNTER_CELLS:
         runner.run_cell(name)
-    for name, replacement in GIT_FORMS.items():
-        runner.git_form_cell(name, replacement)
+    for name, pattern in GIT_FORMS.items():
+        runner.git_form_cell(name, pattern)
+    for name, (kind, _) in TRACE_FAILURES.items():
+        runner.trace_failure_cell(name, kind)
 
 
 def report(results, extra):
@@ -666,10 +985,22 @@ def main():
     ap.add_argument('--repo', nargs='?', default=None)
     ap.add_argument('--model', action='store_true')
     ap.add_argument('--stabs', action='store_true')
+    ap.add_argument('--catalog', action='store_true', help='пересчёт клеток, связей и якорей')
     ap.add_argument('--mutation', help='с --model: одно адресное предъявление, сырой rc клетки')
     ap.add_argument('--delta', choices=('k0', 'replay', 'stdout', 'git'), action='append',
                     help='с --stabs: адресная группа дельта-листа; можно повторить')
     args = ap.parse_args()
+    if args.catalog:
+        rows = load_stabs()
+        if len({row[0] for row in rows}) != len(rows):
+            raise Prerequisite('повтор имени стаба')
+        for name, (anchor, replacement) in PATERNS.items():
+            model_text(name, anchor, replacement)
+        count = len(EQ_CELLS) + len(COUNTER_CELLS) + len(GIT_FORMS) + len(TRACE_FAILURES) + 1
+        print(f'EQ={len(EQ_CELLS)} C={len(COUNTER_CELLS)} H={len(GIT_FORMS)} '
+              f'N={len(TRACE_FAILURES)} K0=1 KLETKI={count} '
+              f'STABS={len(rows)} PATERNS={len(PATERNS)} ANCHORS=1')
+        return 0
 
     repo = Path(args.repo).resolve() if args.repo else TREE
     if not (repo / 'scripts/check_zones.sh').exists():
@@ -824,6 +1155,66 @@ PATERNS = {
         '    if ! g log --no-walk',
         '    ( exec -a alias207 /usr/bin/git -C "$ROOT" log --no-walk --format=\'%H%x00%an%x00\' --stdin < "$TMP/w_commits" > /dev/null )\n'
         '    if ! g log --no-walk'),
+    'PATERN:REPLAY-SORT': (
+        '  cp "$TMP/w_commits" "$TMP/commits"',
+        '  sort "$TMP/w_commits" > "$TMP/commits"'),
+    'PATERN:REPLAY-DEDUP': (
+        '  done < "$TMP/commits"',
+        '  done < "$TMP/commits"\n  break'),
+    'PATERN:FIRST-CONTRACT-AUTHORS': (
+        '  sort -u "$TMP/w_union_raw" > "$TMP/authors"',
+        '  read -r first207 < "$TMP/w_part"\n'
+        '  awk -F\'\\t\' -v n="$first207" \'$3 == n { print $1 }\' '
+        '"$TMP/zones_scoped" | sort -u > "$TMP/authors"'),
+    'PATERN:IGNORE-OTHER-ZONES': (
+        '    awk -F\'\\t\' -v a="$an" \'$1 == a { print $2 }\' "$TMP/zones_scoped" | sort -u > "$TMP/mine"',
+        '    awk -F\'\\t\' -v a="$an" -v n="$nnn0" \'$1 == a && $3 == n { print $2 }\' '
+        '"$TMP/zones_scoped" | sort -u > "$TMP/mine"'),
+    'PATERN:STDOUT-NEWLINE': (
+        'printf \'\\nпроцессных вне суда:%s\\n\' "${process_list:+ $process_list}" >&2',
+        'printf \'\\nпроцессных вне суда:%s\\n\' "${process_list:+ $process_list}" >&2\n'
+        'echo'),
+    'PATERN:GIT-LOG-DUBL': (
+        LOOKUP_EXTRA_ANCHOR,
+        '    GIT_DIR="$ROOT/.git" "$(git --exec-path)/git-log" '
+        '--no-walk --format=\'%H%x00%an%x00\' --stdin < "$TMP/w_commits" > /dev/null\n'
+        + LOOKUP_EXTRA_ANCHOR),
+    'PATERN:GIT-LOG-TRACE2-OFF': (
+        LOOKUP_EXTRA_ANCHOR,
+        '    GIT_TRACE2_EVENT=/dev/null GIT_DIR="$ROOT/.git" "$(git --exec-path)/git-log" '
+        '--no-walk --format=\'%H%x00%an%x00\' --stdin < "$TMP/w_commits" > /dev/null\n'
+        + LOOKUP_EXTRA_ANCHOR),
+    'PATERN:GIT-ALIAS-DUBL': (
+        LOOKUP_EXTRA_ANCHOR,
+        '    git -C "$ROOT" -c alias.lookup=log lookup ' + LOOKUP_ARGS.removeprefix('log ') +
+        ' < "$TMP/w_commits" > /dev/null\n' + LOOKUP_EXTRA_ANCHOR),
+    'PATERN:GIT-COMMAND-V-DUBL': (
+        LOOKUP_EXTRA_ANCHOR,
+        '    "$(command -v git)" -C "$ROOT" ' + LOOKUP_ARGS +
+        ' < "$TMP/w_commits" > /dev/null\n' + LOOKUP_EXTRA_ANCHOR),
+    'PATERN:GIT-ENV-DUBL': (
+        LOOKUP_EXTRA_ANCHOR,
+        '    env git -C "$ROOT" ' + LOOKUP_ARGS +
+        ' < "$TMP/w_commits" > /dev/null\n' + LOOKUP_EXTRA_ANCHOR),
+    'PATERN:GIT-REV-LIST-DUBL': (
+        '  if ! g rev-list --no-merges --reverse "$range"',
+        '  g rev-list "$range" --reverse --no-merges > /dev/null\n'
+        '  if ! g rev-list --no-merges --reverse "$range"'),
+    'PATERN:GIT-DIFF-TREE-DUBL': (
+        '    g diff-tree -r --no-renames --raw --always -z --stdin',
+        '    GIT_DIR="$ROOT/.git" "$(git --exec-path)/git-diff-tree" '
+        '--stdin -z --always --raw --no-renames -r < "$TMP/w_matched" > /dev/null\n'
+        '    g diff-tree -r --no-renames --raw --always -z --stdin'),
+    'PATERN:GIT-REORDER-DUBL': (
+        LOOKUP_EXTRA_ANCHOR,
+        '    g log --format=\'%H%x00%an%x00\' --stdin --no-walk=unsorted '
+        '< "$TMP/w_commits" > /dev/null\n' + LOOKUP_EXTRA_ANCHOR),
+    'PATERN:GIT-EXEC-PATH-DUBL': (
+        LOOKUP_EXTRA_ANCHOR,
+        '    GIT_EXEC_PATH="$(git --exec-path)" GIT_DIR="$ROOT/.git" '
+        '"$(git --exec-path)/git-log" --stdin --no-walk=sorted '
+        '--format=\'%H%x00%an%x00\' < "$TMP/w_commits" > /dev/null\n'
+        + LOOKUP_EXTRA_ANCHOR),
 }
 
 

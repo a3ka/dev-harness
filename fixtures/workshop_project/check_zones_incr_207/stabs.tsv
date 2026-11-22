@@ -33,3 +33,17 @@ PATERN:STDOUT-DUBL	scripts/check_zones.sh	e1-chistoe-okno
 PATERN:STDOUT-SPASENO	scripts/check_zones.sh	e7-spaseno-replay
 PATERN:GIT-INYM-PUTEM	scripts/check_zones.sh	c1-okno-odin-raz
 PATERN:GIT-EXEC-A-DUBL	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:REPLAY-SORT	scripts/check_zones.sh	e14-porjadok-replay
+PATERN:REPLAY-DEDUP	scripts/check_zones.sh	e2-chuzhaja-zona
+PATERN:FIRST-CONTRACT-AUTHORS	scripts/check_zones.sh	e3-arhitektor-v-zone-implementer
+PATERN:IGNORE-OTHER-ZONES	scripts/check_zones.sh	e8-peresechenie-zon
+PATERN:STDOUT-NEWLINE	scripts/check_zones.sh	e1-chistoe-okno
+PATERN:GIT-LOG-DUBL	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:GIT-LOG-TRACE2-OFF	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:GIT-ALIAS-DUBL	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:GIT-COMMAND-V-DUBL	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:GIT-ENV-DUBL	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:GIT-REV-LIST-DUBL	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:GIT-DIFF-TREE-DUBL	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:GIT-REORDER-DUBL	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:GIT-EXEC-PATH-DUBL	scripts/check_zones.sh	c1-okno-odin-raz
