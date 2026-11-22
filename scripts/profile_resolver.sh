@@ -206,6 +206,15 @@ SCHEMA_LEVELS='
   project:defaults:contextPack:rows:optional
   project:defaults:contextPack:adrPath:optional
   project:defaults:contextPack:lessonsPath:optional
+
+  # Б-4 (контракт 095, Решение 2; основание — ADR
+  # docs/owner/adr/2026-11-21-plan-fable.md): pack — кап пака вклейки, который
+  # проект проекта объявляет профилем. Ключ НЕОБЯЗАТЕЛЕН и живёт ТОЛЬКО в
+  # репо-слое; внутри — единственный необязательный ключ maxBytes (десятичное
+  # целое в [40000,1000000]). Прочие ключи внутри pack — как любой неизвестный
+  # ключ: ПРЕДУПРЕЖДЕНИЕ и rc 0 (М-0), scan_levels ниже.
+  repo:pack:optional
+  repo:pack:maxBytes:optional
 '
 
 die_p() { printf 'profile ОТКАЗ: %s\n' "$*" >&2; exit 1; }
@@ -465,7 +474,7 @@ scan_levels() {
   # ТОЛЬКО из него (родитель — scan_levels — продолжал бы работу молча; см.
   # отладочную историю). Поэтому обход — здесь же, через одну переменную-список.
   # Каждая ветвь — если она задана как объект, проверяются её ключи.
-local known_branches="projectLayer workflowPaths commands git ci barriers contextPack sourceCanon"
+local known_branches="projectLayer workflowPaths commands git ci barriers contextPack sourceCanon pack"
   if [ "$level" = "project" ]; then
     known_branches="$known_branches defaults.workflowPaths defaults.commands defaults.git defaults.ci defaults.barriers defaults.contextPack defaults.sourceCanon"
     if jq -e 'has("defaults") and (.defaults|type)=="object"' "$file" >/dev/null 2>&1; then
@@ -889,6 +898,37 @@ check_packs_array() {
 check_packs_array repo    packs
 check_packs_array project defaults.packs
 
+# ── Б-4: pack.maxBytes — кап пака вклейки (репо-слой) ───────────────────────
+# Ключ `pack` необязателен и живёт только в репо-слое (в SCHEMA_LEVELS выше);
+# внутри — единственный необязательный ключ `maxBytes`. Прочие ключи внутри
+# pack предупреждены РАНЬШЕ (scan_levels: «профиль ПРЕДУПРЕЖДЕНИЕ: неизвестный
+# ключ репо-слой: pack.<ключ>», rc 0) — здесь значения допустимого ключа.
+#
+# ФОРМА значения: «десятичное целое» — это не то же, что «число, записанное
+# иначе» (1e5 → «1E+5», 130000.5 → «130000.5», 1.0 → «1.0»). jq печатает число
+# его исходной записью, поэтому форма судится по tostring, а не по floor:
+# floor от экспоненты не отличает. Диапазон [40000,1000000] судится jq'ом
+# (целое любой длины — не переполнение арифметики оболочки).
+#
+# Отказ — именованный (P6, прецедент 054): ключ в тексте отказа.
+if jq -e 'has("pack")' "$REPO_JSON_FD" >/dev/null 2>&1; then
+  jq -e '.pack | type == "object"' "$REPO_JSON_FD" >/dev/null 2>&1 \
+    || die_p "значение вне алфавита: pack.maxBytes: pack не объект"
+  if jq -e '.pack | has("maxBytes")' "$REPO_JSON_FD" >/dev/null 2>&1; then
+    _PACK_MB_TYPE="$(jq -r '.pack.maxBytes | type' "$REPO_JSON_FD" 2>/dev/null)" \
+      || die_p "pack.maxBytes: тип значения не прочитан"
+    [ "$_PACK_MB_TYPE" = "number" ] \
+      || die_p "значение вне алфавита: pack.maxBytes: <${_PACK_MB_TYPE}>"
+    _PACK_MB_LEX="$(jq -r '.pack.maxBytes | tostring' "$REPO_JSON_FD" 2>/dev/null)" \
+      || die_p "pack.maxBytes: значение не прочитано"
+    case "$_PACK_MB_LEX" in
+      ''|*[!0-9]*) die_p "значение вне алфавита: pack.maxBytes: не десятичное целое: ${_PACK_MB_LEX}" ;;
+    esac
+    jq -e '.pack.maxBytes >= 40000 and .pack.maxBytes <= 1000000' "$REPO_JSON_FD" >/dev/null 2>&1 \
+      || die_p "значение вне алфавита: pack.maxBytes: вне диапазона [40000,1000000]: ${_PACK_MB_LEX}"
+  fi
+fi
+
 # ── И-5: пин версии слоя проекта ───────────────────────────────────────────
 PIN="$(jq -r '.projectLayer.version' "$REPO_JSON_FD")"
 LAYER_VER="$(jq -r '.version' "$PROJECT_JSON_FD")"
@@ -1012,6 +1052,17 @@ MERGED=$(jq -n \
     sourceCanon: (
       if $r.sourceCanon != null then { value: $r.sourceCanon, origin: "repo" }
       elif $p.defaults and $p.defaults.sourceCanon != null then { value: $p.defaults.sourceCanon, origin: "project" }
+      else null end
+    ),
+    # Б-4: pack — кап пака вклейки. Ключ необязателен и живёт только в
+    # репо-слое, поэтому слияния нет: значение — объявленное репо-слой.
+    # Не объявлен — merged не несёт pack (потребитель берёт умолчание 40000).
+    # М-0 (контракт 184): в merged уходят ТОЛЬКО известные ключи pack
+    # (maxBytes) — with_entries, как defaults.contextPack ниже: неизвестный
+    # ключ внутри pack (например rowz) до stdout не доходит, о нём —
+    # предупреждение scan_levels с путём `pack.rowz` (rc 0).
+    pack: (
+      if $r.pack != null then { value: ($r.pack | with_entries(select(.key == "maxBytes"))), origin: "repo" }
       else null end
     )
   }

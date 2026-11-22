@@ -31,10 +31,11 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODEL="$HERE/model/dover.sh"
 DOOR_MODEL="$HERE/model/dver_spawn.sh"
+RESOLVER="$HERE/../../scripts/profile_resolver.sh"
 [ -f "$MODEL" ] || { printf 'NOT_IMPLEMENTED: нет модели %s\n' "$MODEL" >&2; exit 2; }
 [ -f "$DOOR_MODEL" ] || { printf 'NOT_IMPLEMENTED: нет модели %s\n' "$DOOR_MODEL" >&2; exit 2; }
 command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; exit 2; }
-WORK="/tmp/dev-harness-verify/context-pack-095-stubs-$$-${RANDOM}"
+WORK="${TMPDIR:-/tmp/dev-harness-verify}/context-pack-095-stubs-$$-${RANDOM}"
 mkdir -p "$WORK" || { printf 'ОТКАЗ: мир стабов не строится\n' >&2; exit 2; }
 trap 'rm -rf "$WORK"' EXIT
 
@@ -52,20 +53,56 @@ build_stub() {
   printf '%s' "$f"
 }
 
-itog=0
-zapest() {  # <стаб-имя> <маркер> <клетка-файл> <sed-выражение> [<источник>]
-  local name="$1" marker="$2" cell="$3" expr="$4" src="${5:-$MODEL}" f rc
-  f="$(build_stub "$src" "$name" "$marker" "$expr")"; rc=$?
-  [ "$rc" -eq 0 ] || { printf 'ОТКАЗ: стаб %s не строится (якорь/порча)\n' "$name" >&2; itog=2; return; }
-  if [ "$src" = "$DOOR_MODEL" ]; then
-    CP095_SPAWN="$f" CP095_SUBJECT="$MODEL" bash "$HERE/$cell" >/dev/null 2>&1; rc=$?
-  else
-    CP095_SUBJECT="$f" bash "$HERE/$cell" >/dev/null 2>&1; rc=$?
-  fi
-  if [ "$rc" -eq 1 ]; then
+# zapest_resolver <имя> <якорь-BRE> <клетка> <sed-флаги> <sed-выражение>
+#                  <причина> — порча ДВЕРИ (scripts/profile_resolver.sh, зона
+# implementer; вердикт Rev095B4, Б-2/Б-4). Якорь — буквальный BRE, встречается
+# в источнике ровно один раз; порча обязана оставить метку «порча» и
+# синтаксис (bash -n). Клетка получает копию в CP095_RESOLVER и судит её
+# прямым вызовом с раздельными потоками (Н-39: привязка к коду, не к прозе).
+zapest_resolver() {
+  local name="$1" anchor="$2" cell="$3" flags="$4" expr="$5" reason="$6" f rc n
+  [ -f "$RESOLVER" ] || { printf 'NOT_IMPLEMENTED: нет резолвера %s\n' "$RESOLVER" >&2; itog=2; return; }
+  n="$(grep -Ec -- "$anchor" "$RESOLVER")" || n=0
+  [ "$n" -eq 1 ] || { printf 'ОТКАЗ: якорь %s встречается %s раз в %s\n' "$anchor" "$n" "$RESOLVER" >&2; itog=2; return; }
+  f="$WORK/$name.sh"
+  cp "$RESOLVER" "$f" || { itog=2; return; }
+  # -z: многострочная порча merged-выражения (одна pattern space на файл).
+  sed -i ${flags:-} "$expr" "$f" || { itog=2; return; }
+  grep -Fq 'порча' "$f" || { itog=2; return; }
+  bash -n "$f" || { itog=2; return; }
+  chmod +x "$f"
+  CP095_RESOLVER="$f" bash "$HERE/$cell" >"$WORK/result" 2>&1; rc=$?
+  if [ "$rc" -eq 1 ] && grep -Fq "$reason" "$WORK/result"; then
+    caught=$((caught + 1))
     printf -- '— стаб %s ПОЙМАН клеткой %s\n' "$name" "$cell"
   else
     printf 'СТАБ УШЁЛ: %s не пойман клеткой %s (rc=%s)\n' "$name" "$cell" "$rc" >&2
+    live=$((live + 1))
+    cat "$WORK/result" >&2
+    itog=1
+  fi
+}
+itog=0
+caught=0
+live=0
+zapest() {  # <стаб-имя> <маркер> <клетка-файл> <sed-выражение> [<источник>]
+  local name="$1" marker="$2" cell="$3" expr="$4" src="${5:-$MODEL}" f rc reason="${6:-}"
+  f="$(build_stub "$src" "$name" "$marker" "$expr")"; rc=$?
+  [ "$rc" -eq 0 ] || { printf 'ОТКАЗ: стаб %s не строится (якорь/порча)\n' "$name" >&2; itog=2; return; }
+  # Новые Б-4 предъявления: синтаксис и адресная причина, не смерть за компанию.
+  if [ -n "$reason" ]; then bash -n "$f" || { itog=2; return; }; fi
+  if [ "$src" = "$DOOR_MODEL" ]; then
+    CP095_SPAWN="$f" CP095_SUBJECT="$MODEL" bash "$HERE/$cell" >"$WORK/result" 2>&1; rc=$?
+  else
+    CP095_SUBJECT="$f" bash "$HERE/$cell" >"$WORK/result" 2>&1; rc=$?
+  fi
+  if [ "$rc" -eq 1 ] && { [ -z "$reason" ] || grep -Fq "$reason" "$WORK/result"; }; then
+    caught=$((caught + 1))
+    printf -- '— стаб %s ПОЙМАН клеткой %s\n' "$name" "$cell"
+  else
+    printf 'СТАБ УШЁЛ: %s не пойман клеткой %s (rc=%s)\n' "$name" "$cell" "$rc" >&2
+    live=$((live + 1))
+    cat "$WORK/result" >&2
     itog=1
   fi
 }
@@ -133,5 +170,42 @@ zapest s44 t95-m40 red_naznachennaja_specializacija.sh \
   's@.*# t95-m40.*@: # t95-m40 порча: открыт любой алфавит включая vision@'
 zapest s45 t95-m3 red_orch_brief_bounded_work.sh \
   's@.*# t95-m3.*@    : # t95-m3 порча: mandatory потеря проглочена в brief@'
+# Б-4: отдельные порчи и различающие входы. Н-39: привязки только здесь.
+# S1: большой пак проходит, но тот же мир БЕЗ ключа обязан отказать.
+zapest B4-S1 t95-b4-cap red_pack_maxbytes.sh \
+  's@.*# t95-b4-cap.*@MAX=130000 # t95-b4-cap порча@' "$MODEL" 'pack-maxbytes/raised: отказ rc=0'
+# S2: pack распознан, но большой пак всё ещё режется по 40000.
+zapest B4-S2 t95-b4-cap red_pack_maxbytes.sh \
+  's@.*# t95-b4-cap.*@MAX=40000 # t95-b4-cap порча@' "$MODEL" 'pack-maxbytes/raised: успех rc=1: ОТКАЗ: режь задачу:'
+# S3: WORK >39800 и <129800 при MAX=130000 не должен усекаться.
+zapest B4-S3 t95-b4-work red_pack_maxbytes_brief.sh \
+  's@.*# t95-b4-work.*@WORK_MAX=39800 # t95-b4-work порча@' "$MODEL" 'pack-maxbytes/brief: WORK преждевременно усечён'
+# S4: maxBytes=30000 не должен приниматься.
+zapest B4-S4 t95-b4-min red_pack_maxbytes_values.sh \
+  's@.*# t95-b4-min.*@minimum = 30000  # t95-b4-min порча@' "$MODEL" 'pack-maxbytes/values: отказ rc=0'
+# S5: JSON-строка "130000" не должна молча стать умолчанием.
+zapest B4-S5 t95-b4-invalid red_pack_maxbytes_values.sh \
+  's@.*# t95-b4-invalid.*@    value = 40000  # t95-b4-invalid порча@' "$MODEL" 'pack-maxbytes/values: отказ rc=0'
+# S6: успешный большой пак обязан назвать профильный знаменатель.
+zapest B4-S6 t95-b4-budget red_pack_maxbytes.sh \
+  's@"\$VK" "\$MAX" # t95-b4-budget@"$VK" 40000 # t95-b4-budget порча@' "$MODEL" 'pack-maxbytes/raised: BUDGET'
+# S7: ровно MAX байт — допустимый вход, в отличие от MAX+1.
+zapest B4-S7 t95-m9 red_pack_maxbytes_boundary.sh \
+  's@-le "\$MAX"@-lt "$MAX"@; s@# t95-m9@# t95-m9 порча@' "$MODEL" 'pack-maxbytes/boundary: успех rc=1: ОТКАЗ: режь задачу: 40000 > 40000'
+# Порчи ДВЕРИ (scripts/profile_resolver.sh, зона implementer) — вердикт
+# Rev095B4 вызов 1, блоки Б-2 и Б-4; зона architect правит только батарею.
+# S8: pack копируется в merged целиком (поведение OBJECT базы) — неизвестный
+# ключ pack.rowz доходит до stdout; ловит red_pack_maxbytes_merged.sh.
+# Якорь $r.pack обязан оставаться единственным вхождением в leaf pack merged
+# (для слияния капа jq требует скобки вокруг pipe: «{ value: ($r.pack …»).
+zapest_resolver B4-S8 '\$r\.pack([^s]|$)' red_pack_maxbytes_merged.sh '-z' \
+  's@{ value: (\$r\.pack[^}]*}@{ value: $r.pack, origin: "repo" }@; $a# t95-b4-whole порча: pack копируется целиком' \
+  'pack-maxbytes/merged: неизвестный ключ pack.rowz'
+# S9 (мутант M7 вердикта): repo:pack:maxBytes:optional удалён из SCHEMA_LEVELS
+# — известный ключ предупреждён; ловит red_pack_maxbytes_bez_preduprezhdenija.sh.
+zapest_resolver B4-S9 '^  repo:pack:maxBytes:optional$' red_pack_maxbytes_bez_preduprezhdenija.sh '' \
+  's@^  repo:pack:maxBytes:optional$@  # t95-b4-schema порча: repo:pack:maxBytes:optional удалён@' \
+  'pack-maxbytes/bez-preduprezhdenija: предупреждение о известном ключе'
+printf 'STABS 095: CAUGHT=%s LIVE=%s\n' "$caught" "$live"
 printf 'ИТОГ стаб-пак 095: rc=%s\n' "$itog"
 exit "$itog"
