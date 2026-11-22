@@ -293,6 +293,14 @@
 #   только для этой пары; слово владельца 2026-11-22 «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: scripts/check_charter.sh — grandfather merge
 #   409836ed5d (#1240, текст контракта 204 внесён до публикации тега)» через консультанта)
 #
+#   66a37efff06a1da72febe8e36b9bb37f8ff6d3eb  contracts/204-karta-vyzova-po-faze.md
+#   (71-я: merge «Merge branch 'main' into wip/205/orch-freeze3» — синхронизация PR #1241 с main через GitHub
+#   (sync-door консультанта, родители 8cf449060c, 409836ed5d) принесла в ветку тот же текст контракта 204; блоб
+#   contracts/204 в 66a37eff = 9288a6cd69 = блоб в frozen/contracts/204/1 и в 409836ed5d; нового содержания нет;
+#   CI #1241 (run 45067553641) краснеет на этой паре и на паре 70; допущение только для этой пары; слово владельца
+#   2026-11-22 «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: scripts/check_charter.sh — grandfather merge 66a37eff (синхронизация #1241 с main
+#   принесла тот же текст контракта 204, побайтно равный frozen-тегу)» через консультанта)
+#
 # НЕ добавлять новые записи без прямого слова владельца в НОВОМ коммите с обоснованием.
 #
 # is_charter_path (контракт 019, ветвь 1 — единый источник предиката). Staged-путь
@@ -542,7 +550,7 @@ grandfather_pair() {
       [ "$p" = "contracts/154-schet-vyzovov-kritika.md" ] && return 0 ;;
     40a93f1da02d18d7323764007aac094989ee8c74|8ef0e9b971993f079f65cd78f595fbbafcb37985|a3665a5691bb6b6a85e6b703c10406bc05e10ca9|a60dfde5370ffd66f0f4faf15aecd956758143af|cf3742d171a0c2a0c672edfbad7a8402c7201573)
       [ "$p" = "contracts/995-cmp-mob-001-android-pilot.md" ] && return 0 ;;
-    409836ed5d918d4ecb16f132b8f6e26d287b32cc)
+    409836ed5d918d4ecb16f132b8f6e26d287b32cc|66a37efff06a1da72febe8e36b9bb37f8ff6d3eb)
       [ "$p" = "contracts/204-karta-vyzova-po-faze.md" ] && return 0 ;;
   esac
   return 1
