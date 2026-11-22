@@ -36,6 +36,12 @@ CASES = {
     'empty_gh': (None, 'T', 'T', False),
     'missing_field_github': ('A', None, 'A', False),
     'missing_field_gh': (None, 'T', 'T', False),
+    'partial_open_github': ('A', None, 'A', False),
+    'partial_open_gh': (None, 'T', 'T', False),
+    'partial_cut_github': ('A', None, 'A', False),
+    'partial_cut_gh': (None, 'T', 'T', False),
+    'partial_trash_github': ('A', None, 'A', False),
+    'partial_trash_gh': (None, 'T', 'T', False),
 }
 RESPONSE_FAULTS = {
     'empty_github': 'empty',
@@ -43,6 +49,29 @@ RESPONSE_FAULTS = {
     'missing_field_github': 'missing_field',
     'missing_field_gh': 'missing_field',
 }
+# Partial stream tails (Adv992B13b M11): jq emits the FIRST document's
+# value, then fails on the tail — partial output plus a lost parse error.
+PARTIAL_TAILS = {
+    'partial_open': '\n{',
+    'partial_cut': '\n{"total_count":',
+    'partial_trash': '\nXX',
+}
+PARTIAL_FAULTS = {
+    'partial_open_github': 'partial_open',
+    'partial_open_gh': 'partial_open',
+    'partial_cut_github': 'partial_cut',
+    'partial_cut_gh': 'partial_cut',
+    'partial_trash_github': 'partial_trash',
+    'partial_trash_gh': 'partial_trash',
+}
+# Only gate/writer parse total_count via jq; land reads workflow_runs.
+PARTIAL_BRANCHES = ('gate', 'writer')
+
+
+def cases_for(branch):
+    return [case for case in CASES
+            if branch in PARTIAL_BRANCHES or case not in PARTIAL_FAULTS]
+
 FALLBACK = '${GITHUB_TOKEN:-${GH_TOKEN:-}}'
 
 
@@ -143,9 +172,12 @@ def observe(parent, branch, case, code):
         values = {key: 'b13_' + secrets.token_hex(18) for key in ('T', 'A', 'B')}
         github, gh, expected, denied = CASES[case]
         response_fault = RESPONSE_FAULTS.get(case)
+        partial_fault = PARTIAL_FAULTS.get(case)
         if response_fault == 'missing_field':
             response.pop('workflow_runs' if branch == 'land' else 'total_count')
         response_body = '' if response_fault == 'empty' else json.dumps(response)
+        if partial_fault:
+            response_body += PARTIAL_TAILS[partial_fault]
         env = dict(fc.BASE_ENV)
         env.pop('GITHUB_TOKEN', None)
         env.pop('GH_TOKEN', None)
@@ -159,7 +191,7 @@ def observe(parent, branch, case, code):
                    B13_RESPONSE=response_body, B13_DENIED=str(int(denied)),
                    GITW_PREFLIGHT_071_API='https://api.github.com/repos/fixture/fixture')
         # Oracle and initial journal bytes captured before the subject executes.
-        expected_rc = 1 if denied or response_fault else 0
+        expected_rc = 1 if denied or response_fault or partial_fault else 0
         journal = root / 'registry/candidates.tsv'
         expected_journal = row.encode() if branch == 'writer' and expected_rc == 0 else journal.read_bytes()
         p = fc.run(['bash', subject, *args], root, env)
@@ -170,7 +202,7 @@ def observe(parent, branch, case, code):
         request_ok = records == [request]
         effect_ok = journal_bytes == expected_journal
         diagnosis_ok = not denied or ('CI не ответил' if branch != 'land' else 'PR-CI не сверяем: API') in output
-        if response_fault:
+        if response_fault or partial_fault:
             reason = ('gitw ПРЕДПОЛЁТ-ОТКАЗ: land без зелёного PR-CI:'
                       if branch == 'land' else 'ОТКАЗ: ответ CI не разобран:')
             diagnosis_ok = any(line.startswith(reason) for line in output.splitlines())
@@ -227,6 +259,16 @@ def mutants(model):
         code['check_ci_gate.sh'] = code['check_ci_gate.sh'].replace(rejection, replacement, 1)
         for case in RESPONSE_FAULTS:
             yield label, 'writer', case, code
+    # Adv992B13b call 2 (M11): `|| total=-1` → `|| true` — the jq failure
+    # after partial output is lost. The expression sits at BOTH total_count
+    # seams (writer and gate); the binding neutralizes every occurrence.
+    code = dict(model)
+    if model['check_ci_gate.sh'].count('|| total=-1') != 2:
+        raise RuntimeError('total_count fallback anchors missing')
+    code['check_ci_gate.sh'] = model['check_ci_gate.sh'].replace('|| total=-1', '|| true')
+    for branch in PARTIAL_BRANCHES:
+        for case in PARTIAL_FAULTS:
+            yield 'S-M11', branch, case, code
 
 
 def compatibility(root):
@@ -275,7 +317,7 @@ def main():
     opts = parser.parse_args()
     if opts.list:
         for branch in SUBJECTS:
-            for case in CASES:
+            for case in cases_for(branch):
                 print(f'{branch}/{case}')
         return 0
     for binary in ('git', 'jq', 'bash', 'python3', 'npm'):
@@ -289,12 +331,12 @@ def main():
     observations = 0
     # Honest control is mandatory before any mutation is judged.
     for branch in SUBJECTS:
-        for case in CASES:
+        for case in cases_for(branch):
             result = observe(parent, branch, case, code)
             print(json.dumps(result, sort_keys=True))
             observations += 1
             failures += not result['accepted']
-    print(f'cases={len(SUBJECTS) * len(CASES)} observations={observations} failures={failures}')
+    print(f'cases={sum(len(cases_for(b)) for b in SUBJECTS)} observations={observations} failures={failures}')
     if opts.stabs:
         if failures:
             return 1
@@ -309,6 +351,14 @@ def main():
             if label in ('S-M7', 'S-M10'):
                 caught = (not result['accepted'] and result['request_ok'] and result['leak_free']
                           and (result['rc'] == 0 or not result['diagnosis_ok'] or not result['effect_ok']))
+            if label == 'S-M11':
+                # Writer: the lost parse error turns into a successful check
+                # row (rc0, journal changed). Gate: the named parse refusal
+                # is gone while the journal stays untouched.
+                caught = result['request_ok'] and result['leak_free'] and (
+                    (result['rc'] == 0 and not result['effect_ok'])
+                    if branch == 'writer'
+                    else (result['rc'] != 1 and result['effect_ok'] and not result['diagnosis_ok']))
             bindings += 1
             live += not caught
             print(f'stab={label} branch={branch}/{case} caught={int(caught)} ' + json.dumps(result, sort_keys=True))
