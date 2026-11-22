@@ -10,6 +10,15 @@
 safe-area (etalony_safe_area/, семья mobile/etalony-vkladki-393/, маска
 48, порог 0.600); токенный гейт судит ЗНАЧЕНИЯ проекции
 mobile/src/theme/nav-tokens.ts (kompakt-tokens.ts снят).
+v6c (слово владельца 22.11 ~14:35, вариант Б — FAIL Crit148V6):
+производные эталоны 393 строятся с поэкранным удалением ровно 85
+измеренных пустых строк полотна основы (НЕпустой контент 1:1, в
+порядке; правило — postroit.py pravilo_udalenija, манифест);
+сохранение содержания судит НЕЗАВИСИМЫЙ оракул
+etalony_safe_area/orakul_soderzhanija.py (субъект C, другой код:
+кодек движка probe.py, своя мера пустоты и геометрия): +11 клеток
+(etalon-393-*: содержание/84/86/порядок/дубль/якоря/маска/порог/
+v6-потеря), +5 стабов (s102-s106).
 
 Субъекты (Н-39: стабы привязаны к ветвям ОБОИХ субъектов по stab_vhod
 source.json, не по прозе контракта):
@@ -67,6 +76,8 @@ GEJT_PUSTOGO_PRODUKTA = H_ROOT / 'scripts' / 'check_pustoj_produkt.sh'
 DOVERENNYY_BASH = '/usr/bin/bash'
 STUBS = HERE / 'stubs'
 ETALONY_393 = HERE / 'etalony_safe_area'
+# независимый оракул содержания 393 (субъект C; v6c, вариант Б)
+ORAKUL_393 = ETALONY_393 / 'orakul_soderzhanija.py'
 NOS_MAKET = HERE / 'nositeli/maket'
 NOS_MAKET_FINAL2 = HERE / 'nositeli/maket-final2'
 NOS_D24 = HERE / 'nositeli/d24'
@@ -998,6 +1009,312 @@ MUTACII_PRODUKTA = {
 }
 
 
+# --- мутации эталонов 393 (субъект C — независимый оракул содержания;
+# v6c — вариант Б, слово владельца 22.11 ~14:35, FAIL Crit148V6 К-11) ---
+
+def _kopija_etalonov(tmp):
+    """Временная копия артефактов etalony_safe_area (8 PNG + manifest +
+    postroit.py) — проверяемый субъект; оракул и основы остаются
+    оракульной стороной батареи (правило 8)."""
+    koren = tmp / 'etalony_safe_area'
+    koren.mkdir(parents=True)
+    for f in sorted(ETALONY_393.iterdir()):
+        if f.name.endswith('.png') or f.name in ('manifest.json',
+                                                 'postroit.py'):
+            shutil.copyfile(f, koren / f.name)
+    return koren
+
+
+def _fon_stroka(rows, w):
+    return bytes(rows[0][0:4]) * w
+
+
+def _kodek_produkt_suda():
+    """Рабочий PNG-кодек батареи — produkt_sud.py (декод и код одним
+    кодеком; кодек движка _png_kodirovat_rgba в истории несёт спасённые
+    литералы и выход не декодирует — мутации его не касаются)."""
+    import importlib.util as _ilu
+    _s = _ilu.spec_from_file_location('produkt_sud_148_kodek', PRODUKT_SUD)
+    _m = _ilu.module_from_spec(_s)
+    _s.loader.exec_module(_m)
+    return _m
+
+
+def _pravit_png(put, pravka):
+    """Байтовая правка PNG эталона: декод → pravka → код (codec
+    produkt_sud.py)."""
+    _m = _kodek_produkt_suda()
+    w, h, ch, rows = _m._png_dekodirovat(put.read_bytes())
+    if ch != 4:
+        raise ValueError('эталон не RGBA')
+    put.write_bytes(_m._png_kodirovat_rgba(w, h, 4, pravka(w, h, rows)))
+
+
+def mut_et_udalena_ne_pustaja(tmp, src):
+    # построитель удалил НЕпустую строку полотна (GA-02 light: первая
+    # непустая строка зоны — строка основы y=19): непустая последова-
+    # тельность короче на одну — ветка proverka_soderzhanija оракула
+    koren = _kopija_etalonov(tmp)
+
+    def pravka(w, h, rows):
+        fon = _fon_stroka(rows, w)
+        j = next(i for i in range(59, 769) if rows[i] != fon)
+        return rows[:j] + rows[j + 1:769] + [fon] + rows[769:]
+
+    _pravit_png(koren / 'GA-02_normal_light_393x852.png', pravka)
+    return koren
+
+
+def mut_et_udaleno_84(tmp, src):
+    # бюджет 84: полотно (711 строк) не влезает в зону 710 — лейсте
+    # сдвинута на строку вниз (строка 769 зоны — фон): ветка
+    # proverka_leiste (геометрия кадра)
+    koren = _kopija_etalonov(tmp)
+
+    def pravka(w, h, rows):
+        fon = _fon_stroka(rows, w)
+        return rows[:769] + [fon] + rows[769:818] + [fon] * 33
+
+    _pravit_png(koren / 'GA-02_normal_light_393x852.png', pravka)
+    return koren
+
+
+def mut_et_udaleno_86(tmp, src):
+    # бюджет 86: лишнее удаление съедает единственный сохранившийся
+    # разделитель между блоками (первый внутренний пустой прогон длины
+    # 1 зоны полотна GA-02 light) — блоки слипаются: ветка
+    # proverka_razdelenija (наблюдаемая форма «на одну строку больше»)
+    koren = _kopija_etalonov(tmp)
+
+    def pravka(w, h, rows):
+        fon = _fon_stroka(rows, w)
+        j = next(i for i in range(60, 768)
+                 if rows[i] == fon and rows[i - 1] != fon
+                 and rows[i + 1] != fon)
+        return rows[:j] + rows[j + 1:769] + [fon] + rows[769:]
+
+    _pravit_png(koren / 'GA-02_normal_light_393x852.png', pravka)
+    return koren
+
+
+def mut_et_porjadok_sdvint(tmp, src):
+    # порядок сдвинут: две соседние непустые строки зоны полотна
+    # поменяны местами — классификация «порядок сдвинут» оракула
+    koren = _kopija_etalonov(tmp)
+
+    def pravka(w, h, rows):
+        fon = _fon_stroka(rows, w)
+        j = next(i for i in range(59, 768)
+                 if rows[i] != fon and rows[i + 1] != fon)
+        rows[j], rows[j + 1] = rows[j + 1], rows[j]
+        return rows
+
+    _pravit_png(koren / 'GA-02_normal_light_393x852.png', pravka)
+    return koren
+
+
+def mut_et_stroka_dublirovana(tmp, src):
+    # строка задублирована: лишняя непустая строка в последовательности
+    # зоны (последняя строка зоны обязана быть фоновой — GA-02 light)
+    koren = _kopija_etalonov(tmp)
+
+    def pravka(w, h, rows):
+        fon = _fon_stroka(rows, w)
+        j = next(i for i in range(59, 769) if rows[i] != fon)
+        if rows[768] != fon:
+            raise ValueError('последняя строка зоны не фон')
+        return rows[:j + 1] + [rows[j]] + rows[j + 1:768] + rows[769:]
+
+    _pravit_png(koren / 'GA-02_normal_light_393x852.png', pravka)
+    return koren
+
+
+def mut_et_poterjan_logotip(tmp, src):
+    # потерян якорь «логотип/профиль» (GA-03 light: первые 17 строк
+    # первого непустого блока зоны — строки основы 19..35): якорь +
+    # содержание; блок в GA-03 длиннее якоря (21 строка, 19..39) —
+    # удаляются ровно якорные 17, хвост 36..39 остаётся
+    koren = _kopija_etalonov(tmp)
+
+    def pravka(w, h, rows):
+        fon = _fon_stroka(rows, w)
+        j0 = next(i for i in range(59, 769) if rows[i] != fon)
+        j1 = j0
+        while rows[j1] != fon:
+            j1 += 1
+        if j1 - j0 < 17:
+            raise ValueError('первый блок %d < 17 строк' % (j1 - j0))
+        return rows[:j0] + rows[j0 + 17:769] + [fon] * 17 + rows[769:]
+
+    _pravit_png(koren / 'GA-03_normal_light_393x852.png', pravka)
+    return koren
+
+
+def mut_et_poterjan_dokumente(tmp, src):
+    # потерян якорь «Dokumente» (GA-03 light: последний непустой блок
+    # зоны — строки основы 759..771, 13 строк): якорь + содержание
+    koren = _kopija_etalonov(tmp)
+
+    def pravka(w, h, rows):
+        fon = _fon_stroka(rows, w)
+        j1 = next(i for i in range(768, 58, -1) if rows[i] != fon)
+        j0 = j1
+        while rows[j0 - 1] != fon:
+            j0 -= 1
+        if j1 - j0 + 1 != 13:
+            raise ValueError('последний блок %d != 13 строк' % (j1 - j0 + 1))
+        return (rows[:j0] + rows[j1 + 1:769] + [fon] * (j1 - j0 + 1)
+                + rows[769:])
+
+    _pravit_png(koren / 'GA-03_normal_light_393x852.png', pravka)
+    return koren
+
+
+def mut_et_maska_sdvinuta(tmp, src):
+    # маска производных сдвинута 48 -> 47 в манифесте построителя:
+    # часовой значений (слово владельца: маска 48 без изменений)
+    koren = _kopija_etalonov(tmp)
+    put = koren / 'manifest.json'
+    man = json.loads(put.read_text(encoding='utf-8'))
+    man['mera']['chrome_verh_pt'] = 47
+    put.write_text(json.dumps(man, ensure_ascii=False, indent=1) + '\n',
+                   encoding='utf-8')
+    return koren
+
+
+def mut_et_porog_izmenen(tmp, src):
+    # порог производных ослаблен 0.600 -> 0.5 в манифесте построителя:
+    # часовой значений (слово владельца: порог без изменений)
+    koren = _kopija_etalonov(tmp)
+    put = koren / 'manifest.json'
+    man = json.loads(put.read_text(encoding='utf-8'))
+    man['porog'] = 0.5
+    put.write_text(json.dumps(man, ensure_ascii=False, indent=1) + '\n',
+                   encoding='utf-8')
+    return koren
+
+
+MUTANT_POSTROIT_V6 = r'''#!/usr/bin/env python3
+# МУТАНТ (клетка etalon-393-v6-poterja батареи 148): построитель
+# производных эталонов в форме v6 — переносит только строки основы
+# 36..745 и 795..843; строки 0..35 (логотип/профиль) и 746..794
+# («Dokumente») в выход не попадают. Именно это поведение заблокировал
+# критик v6 (К-02/К-10/К-11); мутант детерминирован и воспроизводим —
+# на нём наблюдаем дефект стаба-таутологии s106 (перестройка тем же
+# построителем содержание не судит).
+import importlib.util
+import json
+import platform
+import zlib
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+BATAREJA = HERE.parent
+
+_spec = importlib.util.spec_from_file_location(
+    'produkt_sud_148_mutant', BATAREJA / 'produkt_sud.py')
+_ps = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_ps)
+
+
+def postroit_v(kuda: Path):
+    src = json.loads((BATAREJA / 'source.json').read_text(encoding='utf-8'))
+    vp = src['ekran_forma_prod']['vtoroj_profil']
+    vyrez, home, nav = int(vp['vyrez']), int(vp['home']), 49
+    etalony, istochniki = [], []
+    for z in src['kadry_manifest']['kadry']:
+        imja = Path(z['maket']).name
+        w, h, ch, rows = _ps._png_dekodirovat(
+            (BATAREJA / 'nositeli' / 'maket' / imja).read_bytes())
+        fon = bytes(rows[0][0:4]) if ch == 4 else bytes(rows[0][0:3]) + b'\xff'
+        W, H = 393, 852
+        kanva = [bytearray(fon * W) for _ in range(H)]
+
+        def vlozhit(src_y0, kanva_y0, span):
+            for i in range(span):
+                stroka, cel = rows[src_y0 + i], kanva[kanva_y0 + i]
+                for x in range(w):
+                    if ch == 4:
+                        cel[x * 4:x * 4 + 4] = stroka[x * 4:x * 4 + 4]
+                    else:
+                        cel[x * 4:x * 4 + 3] = stroka[x * 3:x * 3 + 3]
+
+        vlozhit(36, vyrez, 710)
+        vlozhit(h - nav, H - home - nav, nav)
+        imja_393 = imja.replace('_390x844.png', '_393x852.png')
+        (kuda / imja_393).write_bytes(
+            _ps._png_kodirovat_rgba(W, H, 4, [bytes(r) for r in kanva]))
+        etalony.append({'id': z['id'] + ' 393', 'imja': imja_393,
+                        'sha256': _ps.sha256_fajla(kuda / imja_393)})
+        istochniki.append({'id': z['id'], 'osnova': 'nositeli/maket/' + imja,
+                           'osnova_sha256': z['maket_sha256']})
+    manifest = {
+        '_comment': 'v6-мутант батареи 148 (клетка etalon-393-v6-poterja)',
+        'konstanty': {'vyrez': vyrez, 'domashnjaja_polosa': home,
+                      'nav_height': nav,
+                      'polosa_390': int(
+                          src['kadry_manifest']['mera']['chrome_verh_pt'])},
+        'operacii': [
+            'канва 393x852, заливка фоном основы (пиксель (0,0))',
+            'контент основы строки 36..745 -> канва 59..768 (1:1)',
+            'лейсте основы строки 795..843 -> канва 769..817 (1:1)',
+            'столбцы 390..392 — заливка фоном'],
+        'instrumenty': {'python': platform.python_version(),
+                        'zlib': zlib.ZLIB_RUNTIME_VERSION},
+        'mera': {'chrome_verh_pt': 48, 'chrome_niz_pt': 20},
+        'porog': 0.6,
+        'istochniki': istochniki,
+        'etalony': etalony,
+    }
+    (kuda / 'manifest.json').write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=1) + '\n',
+        encoding='utf-8')
+    return manifest
+
+
+if __name__ == '__main__':
+    postroit_v(HERE)
+'''
+
+
+def mut_et_v6_poterja(tmp, src):
+    # воспроизведение блока критика v6 (К-02/К-10/К-11): построитель в
+    # koren — мутант v6 (теряет логотип/профиль/«Dokumente»); честный
+    # оракул краснеет по содержанию, оракул-таутология (стаб s106) — нет
+    # зеркало батареи глубиной в три уровня (produkt_sud считает
+    # HERE.parents[2] — корень зеркала обязан существовать)
+    zerkalo = tmp / 'h' / 'fixtures' / 'batareja'
+    (zerkalo / 'nositeli' / 'maket').mkdir(parents=True)
+    shutil.copyfile(PRODUKT_SUD, zerkalo / 'produkt_sud.py')
+    shutil.copyfile(HERE / 'source.json', zerkalo / 'source.json')
+    for z in src['kadry_manifest']['kadry']:
+        shutil.copyfile(NOS_MAKET / Path(z['maket']).name,
+                        zerkalo / 'nositeli' / 'maket' / Path(z['maket']).name)
+    koren = zerkalo / 'etalony_safe_area'
+    koren.mkdir()
+    (koren / 'postroit.py').write_text(MUTANT_POSTROIT_V6, encoding='utf-8')
+    p = subprocess.run([sys.executable, str(koren / 'postroit.py')],
+                       capture_output=True, text=True)
+    if p.returncode != 0:
+        raise RuntimeError('мутант v6 не построился: %s' % p.stderr)
+    return koren
+
+
+MUTACII_ETALONOV = {
+    'etalon-393-soderzhanie': None,
+    'etalon-393-udalena-ne-pustaja': mut_et_udalena_ne_pustaja,
+    'etalon-393-udaleno-84': mut_et_udaleno_84,
+    'etalon-393-udaleno-86': mut_et_udaleno_86,
+    'etalon-393-porjadok-sdvint': mut_et_porjadok_sdvint,
+    'etalon-393-stroka-dublirovana': mut_et_stroka_dublirovana,
+    'etalon-393-poterjan-logotip': mut_et_poterjan_logotip,
+    'etalon-393-poterjan-dokumente': mut_et_poterjan_dokumente,
+    'etalon-393-maska-sdvinuta': mut_et_maska_sdvinuta,
+    'etalon-393-porog-izmenen': mut_et_porog_izmenen,
+    'etalon-393-v6-poterja': mut_et_v6_poterja,
+}
+
+
 # --- суд входов -------------------------------------------------------------
 
 def run_forma(subject, name, src, obertka=True):
@@ -1039,6 +1356,23 @@ def run_produkt(subject, name, src, repo_koren=None):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def run_etalonov(subject, name, src):
+    """Суд содержания (субъект C): оракул (или стаб) судит эталоны 393 —
+    честный вход: артефакты дерева батареи (etalony_safe_area/); мутации:
+    временная копия с правкой (Н-39: дефект стаба наблюдаем на своём
+    входе, обёртки нет — ложь стаба не гасится)."""
+    tmp = Path(tempfile.mkdtemp(prefix='vkladki148-e-'))
+    try:
+        koren = (ETALONY_393 if MUTACII_ETALONOV[name] is None
+                 else MUTACII_ETALONOV[name](tmp, src))
+        p = subprocess.run(
+            [sys.executable, str(subject), '--koren', str(koren)],
+            capture_output=True, text=True, cwd=HERE)
+        return p.returncode, p.stdout, p.stderr
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def stroka_shoditsja(exp_line, act_line, dopusk):
     e, a = exp_line.split('\t'), act_line.split('\t')
     if len(e) != len(a):
@@ -1072,7 +1406,8 @@ def judge(name, src, rc, out, err):
 
 
 def vhody(src):
-    return list(MUTACII_FORMY) + list(MUTACII_PRODUKTA)
+    return (list(MUTACII_FORMY) + list(MUTACII_PRODUKTA)
+            + list(MUTACII_ETALONOV))
 
 
 def snapshot(src):
@@ -1124,6 +1459,8 @@ def main():
     for name in vhody(src):
         if name in MUTACII_FORMY:
             rc, out, err = run_forma(subject_a, name, src)
+        elif name in MUTACII_ETALONOV:
+            rc, out, err = run_etalonov(ORAKUL_393, name, src)
         else:
             # Субъект B: --model/--stabs — эталонная раскладка (мутанты
             # красны, честная зелена); --repo R — живой продукт (только
@@ -1156,6 +1493,8 @@ def main():
             svjazi += 1
             if v in MUTACII_FORMY:
                 rc, out, err = run_forma(STUBS / stub, v, src, obertka=False)
+            elif v in MUTACII_ETALONOV:
+                rc, out, err = run_etalonov(STUBS / stub, v, src)
             else:
                 rc, out, err = run_produkt(STUBS / stub, v, src)
             if judge(v, src, rc, out, err):

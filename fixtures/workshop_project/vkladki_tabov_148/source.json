@@ -1227,7 +1227,7 @@
     "tema": "dark",
     "snimok": "vkladki-vorgaenge-393",
     "maket": "mobile/etalony-vkladki-393/GA-02_normal_dark_393x852.png",
-    "maket_sha256": "e87d82d332d16ac7f02365204db572fa9cde75986e1d4e7e22a661dbf976b309",
+    "maket_sha256": "8c6678d9a227259bfcb490a4ebbf592ccea24689322f980711d1bbf132bebd1f",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1274,7 +1274,7 @@
     "tema": "light",
     "snimok": "vkladki-vorgaenge-393",
     "maket": "mobile/etalony-vkladki-393/GA-02_normal_light_393x852.png",
-    "maket_sha256": "5b89171df76253bc5fd96ee3866e3fb4f07e16c81b002ea29f5e37766b5f164b",
+    "maket_sha256": "178dad600ff67062b964edaf0fd5d4acbe687a53d9f5b3fbff01a18b33b6e1f9",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1321,7 +1321,7 @@
     "tema": "dark",
     "snimok": "vkladki-schutz-393",
     "maket": "mobile/etalony-vkladki-393/GA-03_normal_dark_393x852.png",
-    "maket_sha256": "132e246e0c9eb8d467c09a1b4556506ac866d2217a2c69b5f8da72c02e199cbe",
+    "maket_sha256": "e393571077385cfdce3f1b1a852caf1ad2a37a35388a12218e5b94f9109abac2",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1368,7 +1368,7 @@
     "tema": "light",
     "snimok": "vkladki-schutz-393",
     "maket": "mobile/etalony-vkladki-393/GA-03_normal_light_393x852.png",
-    "maket_sha256": "e036ab50269be3def04dc458e8b29d57b4cbf571336ae656345ed35724685ee2",
+    "maket_sha256": "0a7eb55a5fa6743da25f177d6dd78deb31904325c18c312687e35c07f82781cb",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1415,7 +1415,7 @@
     "tema": "dark",
     "snimok": "vkladki-post-393",
     "maket": "mobile/etalony-vkladki-393/GA-04_normal_dark_393x852.png",
-    "maket_sha256": "055e4a3f834c573f70fe7e3bbb28496d95ca6c0af910e86ed8d3650672eda252",
+    "maket_sha256": "c92247a2e11d3ba43a72ac38598432620e469a4824d0ee21b1fb3d2eead98ab4",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1462,7 +1462,7 @@
     "tema": "light",
     "snimok": "vkladki-post-393",
     "maket": "mobile/etalony-vkladki-393/GA-04_normal_light_393x852.png",
-    "maket_sha256": "4991df3b483e3e023820d1854876e262b44ab190ee5e33ce19947a6e88ffa767",
+    "maket_sha256": "1a22679eeb7723d5a87ac41f7e70ee1945825a49d7b2fbf0fb81fe213bf33bac",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1509,7 +1509,7 @@
     "tema": "dark",
     "snimok": "vkladki-vorgaenge-skroll-393",
     "maket": "mobile/etalony-vkladki-393/GA-09_normal_dark_393x852.png",
-    "maket_sha256": "626feb0290d814e1fb445e262905bba5c09f244e615569b8afdb618f070bf4ed",
+    "maket_sha256": "98682aaad849067bef0982aaa1532e919f1cdf6ad54009659a352c1b093603a3",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1556,7 +1556,7 @@
     "tema": "light",
     "snimok": "vkladki-vorgaenge-skroll-393",
     "maket": "mobile/etalony-vkladki-393/GA-09_normal_light_393x852.png",
-    "maket_sha256": "4f7819d2bd575f327b1805dc957411198191318fb0955fbf2fdc53f29d96993d",
+    "maket_sha256": "6a7638d25b3b0adbe56c05b28d4a46d9c015344038b623aafcd3e0dad40554ec",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1786,15 +1786,15 @@
    "produkt/vkladki-zond-148.test.tsx": "364e19a5b8cce3fa58c707df02bf94c101bf27a2b32bfbdbdc98204ae438ce45"
   },
   "etalony_safe_area": {
-   "etalony_safe_area/manifest.json": "3d058f7dba458559b4ef63f2476302cbab7e7d645ce1b4a34b6cf9019d99c65e",
-   "etalony_safe_area/GA-02_normal_dark_393x852.png": "e87d82d332d16ac7f02365204db572fa9cde75986e1d4e7e22a661dbf976b309",
-   "etalony_safe_area/GA-02_normal_light_393x852.png": "5b89171df76253bc5fd96ee3866e3fb4f07e16c81b002ea29f5e37766b5f164b",
-   "etalony_safe_area/GA-03_normal_dark_393x852.png": "132e246e0c9eb8d467c09a1b4556506ac866d2217a2c69b5f8da72c02e199cbe",
-   "etalony_safe_area/GA-03_normal_light_393x852.png": "e036ab50269be3def04dc458e8b29d57b4cbf571336ae656345ed35724685ee2",
-   "etalony_safe_area/GA-04_normal_dark_393x852.png": "055e4a3f834c573f70fe7e3bbb28496d95ca6c0af910e86ed8d3650672eda252",
-   "etalony_safe_area/GA-04_normal_light_393x852.png": "4991df3b483e3e023820d1854876e262b44ab190ee5e33ce19947a6e88ffa767",
-   "etalony_safe_area/GA-09_normal_dark_393x852.png": "626feb0290d814e1fb445e262905bba5c09f244e615569b8afdb618f070bf4ed",
-   "etalony_safe_area/GA-09_normal_light_393x852.png": "4f7819d2bd575f327b1805dc957411198191318fb0955fbf2fdc53f29d96993d"
+   "etalony_safe_area/manifest.json": "7b0f6e88a6243dfe87045f0de08f55b8aef76972fbaf05c9aa6bfccd642191bc",
+   "etalony_safe_area/GA-02_normal_dark_393x852.png": "8c6678d9a227259bfcb490a4ebbf592ccea24689322f980711d1bbf132bebd1f",
+   "etalony_safe_area/GA-02_normal_light_393x852.png": "178dad600ff67062b964edaf0fd5d4acbe687a53d9f5b3fbff01a18b33b6e1f9",
+   "etalony_safe_area/GA-03_normal_dark_393x852.png": "e393571077385cfdce3f1b1a852caf1ad2a37a35388a12218e5b94f9109abac2",
+   "etalony_safe_area/GA-03_normal_light_393x852.png": "0a7eb55a5fa6743da25f177d6dd78deb31904325c18c312687e35c07f82781cb",
+   "etalony_safe_area/GA-04_normal_dark_393x852.png": "c92247a2e11d3ba43a72ac38598432620e469a4824d0ee21b1fb3d2eead98ab4",
+   "etalony_safe_area/GA-04_normal_light_393x852.png": "1a22679eeb7723d5a87ac41f7e70ee1945825a49d7b2fbf0fb81fe213bf33bac",
+   "etalony_safe_area/GA-09_normal_dark_393x852.png": "98682aaad849067bef0982aaa1532e919f1cdf6ad54009659a352c1b093603a3",
+   "etalony_safe_area/GA-09_normal_light_393x852.png": "6a7638d25b3b0adbe56c05b28d4a46d9c015344038b623aafcd3e0dad40554ec"
   }
  },
  "dopusk_score": 0.01,
@@ -1985,6 +1985,15 @@
   },
   "profil-maska-36": {
    "rc": 1,
+   "prichiny": [
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-02 dark 393\tscore=0.531 porog=0.600 hudshij=shapka",
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-02 light 393\tscore=0.526 porog=0.600 hudshij=shapka",
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-03 dark 393\tscore=0.372 porog=0.600 hudshij=shapka",
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-03 light 393\tscore=0.366 porog=0.600 hudshij=shapka",
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-04 dark 393\tscore=0.589 porog=0.600 hudshij=shapka",
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-04 light 393\tscore=0.400 porog=0.600 hudshij=shapka",
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-09 light 393\tscore=0.545 porog=0.600 hudshij=shapka"
+   ],
    "stdout": [
     "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
     "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
@@ -1994,16 +2003,6 @@
     "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
     "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
     "KADR\tGA-09 light\t1.000\t0.600\tG\tOK"
-   ],
-   "prichiny": [
-    "PRICHINA\tKADR_NIZHE_POROGA\tGA-02 dark 393\tscore=0.472 porog=0.600 hudshij=shapka",
-    "PRICHINA\tKADR_NIZHE_POROGA\tGA-02 light 393\tscore=0.466 porog=0.600 hudshij=shapka",
-    "PRICHINA\tKADR_NIZHE_POROGA\tGA-03 dark 393\tscore=0.263 porog=0.600 hudshij=shapka",
-    "PRICHINA\tKADR_NIZHE_POROGA\tGA-03 light 393\tscore=0.256 porog=0.600 hudshij=shapka",
-    "PRICHINA\tKADR_NIZHE_POROGA\tGA-04 dark 393\tscore=0.237 porog=0.600 hudshij=shapka",
-    "PRICHINA\tKADR_NIZHE_POROGA\tGA-04 light 393\tscore=0.195 porog=0.600 hudshij=shapka",
-    "PRICHINA\tKADR_NIZHE_POROGA\tGA-09 dark 393\tscore=0.492 porog=0.600 hudshij=shapka",
-    "PRICHINA\tKADR_NIZHE_POROGA\tGA-09 light 393\tscore=0.486 porog=0.600 hudshij=shapka"
    ]
   },
   "profil-maska-ne-48": {
@@ -2493,6 +2492,204 @@
     "PRICHINA\tPOROG_NE_0_600: kadry_profil.json: GA-02 dark 393: porog=0.5, порог сверки раннера 123 ослаблен (без ослабления порога — слово владельца 22.11)"
    ],
    "prichiny": []
+  },
+  "etalon-393-soderzhanie": {
+   "rc": 0,
+   "prichiny": [],
+   "stdout": [
+    "ETALON\tGA-02 dark 393\tOK",
+    "ETALON\tGA-02 light 393\tOK",
+    "ETALON\tGA-03 dark 393\tOK",
+    "ETALON\tGA-03 light 393\tOK",
+    "ETALON\tGA-04 dark 393\tOK",
+    "ETALON\tGA-04 light 393\tOK",
+    "ETALON\tGA-09 dark 393\tOK",
+    "ETALON\tGA-09 light 393\tOK",
+    "ZNACHENIJA\tOK"
+   ]
+  },
+  "etalon-393-udalena-ne-pustaja": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tETALON_393_SODERZHANIE_UTRACHENO: GA-02 light 393: непустых строк 556, в основе 557 (зона полотна 710 строк, основа 795; первое расхождение №0: строка основы y=19)"
+   ],
+   "stdout": [
+    "ETALON\tGA-02 dark 393\tOK",
+    "ETALON\tGA-02 light 393\tKRASNO",
+    "ETALON\tGA-03 dark 393\tOK",
+    "ETALON\tGA-03 light 393\tOK",
+    "ETALON\tGA-04 dark 393\tOK",
+    "ETALON\tGA-04 light 393\tOK",
+    "ETALON\tGA-09 dark 393\tOK",
+    "ETALON\tGA-09 light 393\tOK",
+    "ZNACHENIJA\tOK"
+   ]
+  },
+  "etalon-393-udaleno-84": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tETALON_393_LEISTE: GA-02 light 393: строка лейсте №0 (основа y=795, эталон y=769) отличается — геометрия кадра сдвинута"
+   ],
+   "stdout": [
+    "ETALON\tGA-02 dark 393\tOK",
+    "ETALON\tGA-02 light 393\tKRASNO",
+    "ETALON\tGA-03 dark 393\tOK",
+    "ETALON\tGA-03 light 393\tOK",
+    "ETALON\tGA-04 dark 393\tOK",
+    "ETALON\tGA-04 light 393\tOK",
+    "ETALON\tGA-09 dark 393\tOK",
+    "ETALON\tGA-09 light 393\tOK",
+    "ZNACHENIJA\tOK"
+   ]
+  },
+  "etalon-393-udaleno-86": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tETALON_393_BLOKI_SLITY: GA-02 light 393: блоки основы y=39 и y=70 (пустых между ними 30) в эталоне слиплись (y=98 и y=99)"
+   ],
+   "stdout": [
+    "ETALON\tGA-02 dark 393\tOK",
+    "ETALON\tGA-02 light 393\tKRASNO",
+    "ETALON\tGA-03 dark 393\tOK",
+    "ETALON\tGA-03 light 393\tOK",
+    "ETALON\tGA-04 dark 393\tOK",
+    "ETALON\tGA-04 light 393\tOK",
+    "ETALON\tGA-09 dark 393\tOK",
+    "ETALON\tGA-09 light 393\tOK",
+    "ZNACHENIJA\tOK"
+   ]
+  },
+  "etalon-393-porjadok-sdvint": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tETALON_393_SODERZHANIE_UTRACHENO: GA-02 light 393: порядок сдвинут (№0: строки основы y=19 и y=20 поменялись местами)"
+   ],
+   "stdout": [
+    "ETALON\tGA-02 dark 393\tOK",
+    "ETALON\tGA-02 light 393\tKRASNO",
+    "ETALON\tGA-03 dark 393\tOK",
+    "ETALON\tGA-03 light 393\tOK",
+    "ETALON\tGA-04 dark 393\tOK",
+    "ETALON\tGA-04 light 393\tOK",
+    "ETALON\tGA-09 dark 393\tOK",
+    "ETALON\tGA-09 light 393\tOK",
+    "ZNACHENIJA\tOK"
+   ]
+  },
+  "etalon-393-stroka-dublirovana": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tETALON_393_SODERZHANIE_UTRACHENO: GA-02 light 393: непустых строк 558, в основе 557 (зона полотна 710 строк, основа 795; первое расхождение №1: строка основы y=20)"
+   ],
+   "stdout": [
+    "ETALON\tGA-02 dark 393\tOK",
+    "ETALON\tGA-02 light 393\tKRASNO",
+    "ETALON\tGA-03 dark 393\tOK",
+    "ETALON\tGA-03 light 393\tOK",
+    "ETALON\tGA-04 dark 393\tOK",
+    "ETALON\tGA-04 light 393\tOK",
+    "ETALON\tGA-09 dark 393\tOK",
+    "ETALON\tGA-09 light 393\tOK",
+    "ZNACHENIJA\tOK"
+   ]
+  },
+  "etalon-393-poterjan-logotip": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tETALON_393_SODERZHANIE_UTRACHENO: GA-03 light 393: непустых строк 476, в основе 493 (зона полотна 710 строк, основа 795; первое расхождение №0: строка основы y=19)",
+    "PRICHINA\tETALON_393_JAKOR_UTRACHEN: GA-03 light 393: логотип/профиль (шапка) — строки основы y=19..35 не найдены в эталоне по порядку (первая пропавшая y=19)"
+   ],
+   "stdout": [
+    "ETALON\tGA-02 dark 393\tOK",
+    "ETALON\tGA-02 light 393\tOK",
+    "ETALON\tGA-03 dark 393\tOK",
+    "ETALON\tGA-03 light 393\tKRASNO",
+    "ETALON\tGA-04 dark 393\tOK",
+    "ETALON\tGA-04 light 393\tOK",
+    "ETALON\tGA-09 dark 393\tOK",
+    "ETALON\tGA-09 light 393\tOK",
+    "ZNACHENIJA\tOK"
+   ]
+  },
+  "etalon-393-poterjan-dokumente": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tETALON_393_SODERZHANIE_UTRACHENO: GA-03 light 393: непустых строк 480, в основе 493 (зона полотна 710 строк, основа 795; первое расхождение №за пределами: строка основы y=—)",
+    "PRICHINA\tETALON_393_JAKOR_UTRACHEN: GA-03 light 393: заголовок «Dokumente» (над таб-баром) — строки основы y=759..771 не найдены в эталоне по порядку (первая пропавшая y=759)"
+   ],
+   "stdout": [
+    "ETALON\tGA-02 dark 393\tOK",
+    "ETALON\tGA-02 light 393\tOK",
+    "ETALON\tGA-03 dark 393\tOK",
+    "ETALON\tGA-03 light 393\tKRASNO",
+    "ETALON\tGA-04 dark 393\tOK",
+    "ETALON\tGA-04 light 393\tOK",
+    "ETALON\tGA-09 dark 393\tOK",
+    "ETALON\tGA-09 light 393\tOK",
+    "ZNACHENIJA\tOK"
+   ]
+  },
+  "etalon-393-maska-sdvinuta": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tETALON_393_MASKA_NE_48: manifest mera.chrome_verh_pt=47 != 48 (слово владельца: маска 48 без изменений)"
+   ],
+   "stdout": [
+    "ETALON\tGA-02 dark 393\tOK",
+    "ETALON\tGA-02 light 393\tOK",
+    "ETALON\tGA-03 dark 393\tOK",
+    "ETALON\tGA-03 light 393\tOK",
+    "ETALON\tGA-04 dark 393\tOK",
+    "ETALON\tGA-04 light 393\tOK",
+    "ETALON\tGA-09 dark 393\tOK",
+    "ETALON\tGA-09 light 393\tOK",
+    "ZNACHENIJA\tKRASNO"
+   ]
+  },
+  "etalon-393-porog-izmenen": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tETALON_393_POROG_NE_0_600: manifest porog=0.5 != 0.600 (слово владельца: порог без изменений)"
+   ],
+   "stdout": [
+    "ETALON\tGA-02 dark 393\tOK",
+    "ETALON\tGA-02 light 393\tOK",
+    "ETALON\tGA-03 dark 393\tOK",
+    "ETALON\tGA-03 light 393\tOK",
+    "ETALON\tGA-04 dark 393\tOK",
+    "ETALON\tGA-04 light 393\tOK",
+    "ETALON\tGA-09 dark 393\tOK",
+    "ETALON\tGA-09 light 393\tOK",
+    "ZNACHENIJA\tKRASNO"
+   ]
+  },
+  "etalon-393-v6-poterja": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tETALON_393_SODERZHANIE_UTRACHENO: GA-02 dark 393: непустых строк 506, в основе 557 (зона полотна 710 строк, основа 795; первое расхождение №0: строка основы y=19)",
+    "PRICHINA\tETALON_393_SODERZHANIE_UTRACHENO: GA-02 light 393: непустых строк 506, в основе 557 (зона полотна 710 строк, основа 795; первое расхождение №0: строка основы y=19)",
+    "PRICHINA\tETALON_393_SODERZHANIE_UTRACHENO: GA-03 dark 393: непустых строк 463, в основе 493 (зона полотна 710 строк, основа 795; первое расхождение №0: строка основы y=19)",
+    "PRICHINA\tETALON_393_JAKOR_UTRACHEN: GA-03 dark 393: логотип/профиль (шапка) — строки основы y=19..35 не найдены в эталоне по порядку (первая пропавшая y=19)",
+    "PRICHINA\tETALON_393_JAKOR_UTRACHEN: GA-03 dark 393: заголовок «Dokumente» (над таб-баром) — строки основы y=759..771 не найдены в эталоне по порядку (первая пропавшая y=759)",
+    "PRICHINA\tETALON_393_SODERZHANIE_UTRACHENO: GA-03 light 393: непустых строк 463, в основе 493 (зона полотна 710 строк, основа 795; первое расхождение №0: строка основы y=19)",
+    "PRICHINA\tETALON_393_JAKOR_UTRACHEN: GA-03 light 393: логотип/профиль (шапка) — строки основы y=19..35 не найдены в эталоне по порядку (первая пропавшая y=19)",
+    "PRICHINA\tETALON_393_JAKOR_UTRACHEN: GA-03 light 393: заголовок «Dokumente» (над таб-баром) — строки основы y=759..771 не найдены в эталоне по порядку (первая пропавшая y=759)",
+    "PRICHINA\tETALON_393_SODERZHANIE_UTRACHENO: GA-04 dark 393: непустых строк 524, в основе 577 (зона полотна 710 строк, основа 795; первое расхождение №0: строка основы y=19)",
+    "PRICHINA\tETALON_393_SODERZHANIE_UTRACHENO: GA-04 light 393: непустых строк 524, в основе 577 (зона полотна 710 строк, основа 795; первое расхождение №0: строка основы y=19)",
+    "PRICHINA\tETALON_393_SODERZHANIE_UTRACHENO: GA-09 dark 393: непустых строк 530, в основе 557 (зона полотна 710 строк, основа 795; первое расхождение №0: строка основы y=0)",
+    "PRICHINA\tETALON_393_SODERZHANIE_UTRACHENO: GA-09 light 393: непустых строк 530, в основе 557 (зона полотна 710 строк, основа 795; первое расхождение №0: строка основы y=0)"
+   ],
+   "stdout": [
+    "ETALON\tGA-02 dark 393\tKRASNO",
+    "ETALON\tGA-02 light 393\tKRASNO",
+    "ETALON\tGA-03 dark 393\tKRASNO",
+    "ETALON\tGA-03 light 393\tKRASNO",
+    "ETALON\tGA-04 dark 393\tKRASNO",
+    "ETALON\tGA-04 light 393\tKRASNO",
+    "ETALON\tGA-09 dark 393\tKRASNO",
+    "ETALON\tGA-09 light 393\tKRASNO",
+    "ZNACHENIJA\tOK"
+   ]
   }
  },
  "stab_vhod": {
@@ -2625,6 +2822,53 @@
   ],
   "s99_etalon393_propuskaet.py": [
    "pr-etalon-393-chuzhoj-bajt"
+  ],
+  "s102_soderzhanie_propuskaet.py": [
+   "etalon-393-udalena-ne-pustaja",
+   "etalon-393-porjadok-sdvint",
+   "etalon-393-stroka-dublirovana",
+   "etalon-393-poterjan-logotip",
+   "etalon-393-poterjan-dokumente",
+   "etalon-393-v6-poterja"
+  ],
+  "s103_leiste_propuskaet.py": [
+   "etalon-393-udaleno-84"
+  ],
+  "s104_bloki_propuskaet.py": [
+   "etalon-393-udaleno-86"
+  ],
+  "s105_znachenija_propuskajut.py": [
+   "etalon-393-maska-sdvinuta",
+   "etalon-393-porog-izmenen"
+  ],
+  "s106_sha_tavtologija.py": [
+   "etalon-393-v6-poterja"
   ]
- }
+ },
+ "jakorja_soderzhanija": [
+  {
+   "kadr": "GA-03",
+   "temy": [
+    "light",
+    "dark"
+   ],
+   "diapazon": [
+    19,
+    35
+   ],
+   "imja": "логотип/профиль (шапка)"
+  },
+  {
+   "kadr": "GA-03",
+   "temy": [
+    "light",
+    "dark"
+   ],
+   "diapazon": [
+    759,
+    771
+   ],
+   "imja": "заголовок «Dokumente» (над таб-баром)"
+  }
+ ]
 }
