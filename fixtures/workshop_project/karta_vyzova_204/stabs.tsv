@@ -7,4 +7,6 @@ PATERN:PO-OBHODU	c1-porjadok-ne-faza
 PATERN:IZ-SUD	g1-bez-versii-kak-v1
 PATERN:BEZ-VERSII-0	g3-bez-versii-ssylka
 PATERN:BEZ-FAZY	f7-ssylka-ne-iz-chuzhoj-fazy
+PATERN:PERVAJA-CIFRA	v10-otdelno-ot-v1
+PATERN:CUT-C1	v10-otdelno-ot-v1
 PATERN:POSLE-OBEKTOV	h1-odin-blob-dve-fazy

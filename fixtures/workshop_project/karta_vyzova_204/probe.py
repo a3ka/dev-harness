@@ -49,6 +49,8 @@ MUTATIONS = {
         (OBJECTS, 'objects="$(git -C "$root" rev-list --objects --full-history HEAD -- "${put%/*}/")" || return 1'),
         ('[ "$blob" != "$f" ] || continue', '[ "$blob" != "$f" ] || continue\n        ' + PHASE_FILTER),
     ),
+    'PATERN:PERVAJA-CIFRA': (("printf '%s' \"$faza\"", "printf '%s' \"${faza:0:1}\""),),
+    'PATERN:CUT-C1': (("printf '%s' \"$faza\"", "printf '%s' \"$faza\" | cut -c1"),),
 }
 
 
@@ -189,6 +191,19 @@ def cells(real197):
         Cell('f9-nulevaja-versija', 'karta', p('contracts-777-v0-call-02.md'),
              verdict('2', changes={2: 'без изменений с вызова 1.'}),
              ((p('contracts-777-v000-call-01.md'), verdict('1')),)),
+        Cell('v10-otdelno-ot-v1', 'karta', p('contracts-777-v10-call-02.md'),
+             verdict('2', changes={2: 'без изменений с вызова 1.'}),
+             ((v1, verdict('1')),),
+             rc=1, output='ОТКАЗ: ' + p('contracts-777-v10-call-02.md')
+             + ': отсутствует вызов 1 (К-02)'),
+        Cell('v11-otdelno-ot-v1', 'karta', p('contracts-777-v11-call-02.md'),
+             verdict('2', changes={2: 'без изменений с вызова 1.'}),
+             ((v1, verdict('1')),),
+             rc=1, output='ОТКАЗ: ' + p('contracts-777-v11-call-02.md')
+             + ': отсутствует вызов 1 (К-02)'),
+        Cell('v10-ssylka-svoej-fazy', 'karta', p('contracts-777-v10-call-02.md'),
+             verdict('2', changes={2: 'без изменений с вызова 1.'}),
+             ((p('contracts-777-v10-call-01.md'), verdict('1')),)),
         Cell('h1-odin-blob-dve-fazy', 'karta', cur3,
              verdict('2', changes={2: 'без изменений с вызова 1.'}),
              ((v1, common_blob), (v3, common_blob))),
@@ -280,6 +295,8 @@ def mutant_expected(name, cell):
         return 0, green_sheet()
     if name == 'PATERN:BEZ-VERSII-0':
         return 1, 'ОТКАЗ: предыдущий вердикт: отсутствует вызов 1 (К-02)'
+    if name in ('PATERN:PERVAJA-CIFRA', 'PATERN:CUT-C1'):
+        return 0, KARTA_OK
     return 1, 'ОТКАЗ: ' + cell.path + ': отсутствует вызов 1 (К-02)'
 
 
