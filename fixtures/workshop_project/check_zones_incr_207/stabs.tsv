@@ -25,3 +25,11 @@ PATERN:SCHETCHIK-CHECKED	scripts/check_zones.sh	e1-chistoe-okno
 PATERN:KESH-NE-PISHETSJA	scripts/check_zones.sh	e1-chistoe-okno
 PATERN:PROPUSK-MERGE-ISKL	scripts/check_zones.sh	e4-merge-okno-svoi-chuzhie
 PATERN:SPASENO-NE-CHITAETSJA	scripts/check_zones.sh	e7-spaseno-replay
+PATERN:K0-SUDIT-OKNO	scripts/check_zones.sh	k0-bez-zon
+PATERN:K0-NEMOJ-VYHOD	scripts/check_zones.sh	k0-bez-zon
+PATERN:REPLAY-TAC	scripts/check_zones.sh	e14-porjadok-replay
+PATERN:REPLAY-PUTI-TAC	scripts/check_zones.sh	e15-porjadok-putej
+PATERN:STDOUT-DUBL	scripts/check_zones.sh	e1-chistoe-okno
+PATERN:STDOUT-SPASENO	scripts/check_zones.sh	e7-spaseno-replay
+PATERN:GIT-INYM-PUTEM	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:GIT-EXEC-A-DUBL	scripts/check_zones.sh	c1-okno-odin-raz

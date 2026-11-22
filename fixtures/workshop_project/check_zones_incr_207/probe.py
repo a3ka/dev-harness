@@ -4,14 +4,15 @@
 --repo [ROOT] — субъект scripts/check_zones.sh выбранного дерева (по умолчанию
 дерево батареи): эквивалентность incr↔полный прогон на той же двери, счётчики
 судов окна под strace (красное до реализации), нарушения зон по классам.
---model — добавляет модель (окно судится один раз): байт-в-байт равенство с
-базовой дверью на каждом мире, счётчики == 1.
+--model — модель окна-один-раз: rc и полные байты обоих каналов равны
+базовой двери на каждом мире; счётчики по И1 (в том числе ноль при K=0).
 --stabs — адресные мутации модели и обманные стабы по stabs.tsv (Н-39):
 честный контроль зелёный, мутация различима на связанной клетке; ZHIVYH == 0.
 Оракул (ожидания, sha, маркеры, сводки) снимается в память ДО вызова субъекта;
 субъект пишет только в одноразовых git-мирах и свой скратч.
 """
 import argparse
+import ast
 import os
 import re
 import shutil
@@ -27,7 +28,48 @@ TREE = HERE.parents[2]
 MODEL = HERE / 'model' / 'check_zones.sh'
 STABS_TSV = HERE / 'stabs.tsv'
 
-FAIL_RE = re.compile(r'^  FAIL ', re.M)
+C_STRING = r'"(?:\\.|[^"\\])*"'
+EXECVE_RE = re.compile(r'execve\((' + C_STRING + r'), (\[(?:' +
+                       C_STRING + r'(?:, )?)*\]), .* = 0$')
+
+
+def window_counters(traces, base):
+    """Успешные execve настоящего git, операция определяется argv, не /usr/bin."""
+    anchors = {
+        'rk_rev': ('rev-list', '--no-merges', '--reverse', f'{base}..HEAD'),
+        'rk_merges': ('rev-list', '--merges', f'{base}..HEAD'),
+        'ak': ('log', '--no-walk'),
+        'dt': ('diff-tree',),
+    }
+    counts = dict.fromkeys(anchors, 0)
+    seen = 0
+    for trace in traces:
+        for line in trace.read_text(errors='strict').splitlines():
+            match = EXECVE_RE.search(line)
+            if not match:
+                if 'execve(' in line and line.endswith(' = 0'):
+                    raise Prerequisite('не разобран успешный execve strace')
+                continue
+            seen += 1
+            exe, argv = (ast.literal_eval(part) for part in match.groups())
+            if not argv or not (Path(argv[0]).name == 'git' or
+                                Path(exe).resolve().name == 'git'):
+                continue
+            args = tuple(argv[1:])
+            for key, anchor in anchors.items():
+                if any(args[i:i + len(anchor)] == anchor
+                       for i in range(len(args) - len(anchor) + 1)):
+                    counts[key] += 1
+    if not seen:
+        raise Prerequisite('strace не предъявил ни одного успешного execve')
+    return counts
+
+
+def model_text(name, anchor, replacement):
+    text = MODEL.read_text()
+    if text.count(anchor) != 1:
+        raise Prerequisite(f'ORACLE_TAMPERED: якорь {name} встречается {text.count(anchor)} раз')
+    return text.replace(anchor, replacement)
 
 
 class Prerequisite(RuntimeError):
@@ -311,6 +353,33 @@ class Battery:
                         fail_line=f'  FAIL коммит вне зоны: architect {viol[:8]} plans/y.md — '
                                   f'зона автора (объединение всех замороженных): zones/w13/ ',
                         cache_stays=True)
+        elif name == 'wk0':
+            w.seed([('001', ['РАБОТА НЕ РАЗДАЁТСЯ: документирует норму'], None)])
+            w.c('architect', 'k0-1', {'plans/k0.md': 'k\n'})
+            info.update(base=w.sha('HEAD~1'), head=w.sha('HEAD'), n=1, rc=0, fails=0,
+                        commits=0, checked=0, cache_stays=True, no_zones=True)
+        elif name == 'w14':
+            w.seed([('001', ['ЗОНА architect: zones/a/'], None)])
+            w.c('architect', 'first', {'plans/first.md': '1\n'})
+            first = w.sha('HEAD')
+            w.c('architect', 'second', {'plans/second.md': '2\n'})
+            second = w.sha('HEAD')
+            info.update(base=w.sha('HEAD~2'), head=second, n=2, rc=1, fails=2,
+                        commits=2, checked=2, cache_stays=True,
+                        fail_lines=[
+                            f'  FAIL коммит вне зоны: architect {sha[:8]} plans/{path}.md — '
+                            'зона автора (объединение всех замороженных): zones/a/ '
+                            for sha, path in ((first, 'first'), (second, 'second'))])
+        elif name == 'w15':
+            w.seed([('001', ['ЗОНА architect: zones/a/'], None)])
+            w.c('architect', 'two-paths', {'plans/b.md': 'b\n', 'plans/a.md': 'a\n'})
+            sha = w.sha('HEAD')
+            info.update(base=w.sha('HEAD~1'), head=sha, n=1, rc=1, fails=2,
+                        commits=1, checked=1, cache_stays=True,
+                        fail_lines=[
+                            f'  FAIL коммит вне зоны: architect {sha[:8]} plans/{path}.md — '
+                            'зона автора (объединение всех замороженных): zones/a/ '
+                            for path in ('a', 'b')])
         elif name.startswith('wdif'):
             k = 8 if name == 'wdif8' else 24
             w.seed([(f'{i:03d}', ['ЗОНА architect: zones/d/'], None) for i in range(1, k + 1)])
@@ -348,6 +417,22 @@ class Battery:
         return dst
 
     # ── вызов двери ──────────────────────────────────────────────────────────
+    def full_world(self, winfo):
+        """Для e10 полный канон судит то же окно: frozen/1 перенесён на кеш-базу.
+
+        Это отдельный поддержанный git-мир; субъект исходных refs не меняет.
+        """
+        if winfo.get('compare_full', True):
+            return winfo
+        dst = self.scratch / (winfo['root'].name + '_full')
+        if not dst.exists():
+            shutil.copytree(winfo['root'], dst)
+            for nnn in ('001', '002'):
+                tag = f'frozen/contracts/{nnn}/1'
+                git(dst, 'tag', '-d', tag)
+                git(dst, 'tag', '-a', tag, '-m', 'полный канон окна', winfo['base'])
+        return dict(winfo, root=dst)
+
     def door(self, scripts, winfo, incr=True, strace=False, timeout=300):
         world = winfo['root']
         cache = self.scratch / f'cache.{world.name}.{scripts.name}.{"i" if incr else "f"}'
@@ -359,9 +444,11 @@ class Battery:
         trace = self.scratch / f'trace.{world.name}.{scripts.name}.{"i" if incr else "f"}'
         t0 = time.time()
         if strace:
-            if trace.exists():
-                trace.unlink()
-            proc = subprocess.Popen(['strace', '-f', '-s', '400', '-e', 'trace=execve',
+            for old_trace in self.scratch.glob(trace.name + '.*'):
+                old_trace.unlink()
+            # -ff: каждый PID в своём файле, нет разорванных interleaved execve.
+            # Запас длины для полного argv мира; обрезанный execve — rc 2, не ноль.
+            proc = subprocess.Popen(['strace', '-ff', '-s', '131072', '-e', 'trace=execve',
                                      '-o', str(trace)] + argv, cwd=world, env=environment(),
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                     start_new_session=True)
@@ -377,18 +464,11 @@ class Battery:
             rc, out, err = command(argv, cwd=world, timeout=timeout)
         seconds = time.time() - t0
         counters = None
-        if strace and trace.exists():
-            lines = trace.read_text(errors='replace').splitlines()
-            rng = f'"{winfo["base"]}..HEAD"'
-            counters = {
-                'rk_rev': sum(1 for l in lines
-                              if '"rev-list", "--no-merges", "--reverse", ' + rng in l),
-                'rk_merges': sum(1 for l in lines if '"rev-list", "--merges", ' + rng in l),
-                'ak': sum(1 for l in lines
-                          if '"log", "--no-walk"' in l and 'execve("/usr/bin/git"' in l),
-                'dt': sum(1 for l in lines
-                          if '"diff-tree"' in l and 'execve("/usr/bin/git"' in l),
-            }
+        if strace:
+            traces = list(self.scratch.glob(trace.name + '.*'))
+            if not traces:
+                raise Prerequisite('strace не создал трассу execve')
+            counters = window_counters(traces, winfo['base'])
         cache_after = cache.read_text().strip() if (incr and cache.exists()) else None
         return {'rc': rc, 'out': out, 'err': err, 'cache': cache_after,
                 'counters': counters, 'seconds': seconds}
@@ -405,6 +485,9 @@ class Battery:
 
     @staticmethod
     def summary_of(winfo):
+        if winfo.get('no_zones'):
+            return (f'\nзамороженных контрактов: {winfo["contracts"]} · '
+                    'зон не объявлено — проверять нечего')
         return (f'\nзамороженных контрактов: {winfo["contracts"]} · объявленных авторов: '
                 f'{winfo["authors"]} · коммитов в диапазонах: {winfo["commits"]} · '
                 f'проверено по зонам: {winfo["checked"]}')
@@ -423,26 +506,40 @@ class Runner:
         self.tree = tree_door      # полная производственная дверь дерева (full-прогон)
         self.results = []
 
-    def eq_cell(self, name, wname, seconds_observed=False):
+    @staticmethod
+    def counter_problems(run, expected):
+        if run['counters'] is None:
+            raise Prerequisite('трасса не снята (нет strace?)')
+        return [f'{key}={run["counters"][key]} ≠ {want} (судов окна)'
+                for key, want in zip(('rk_rev', 'rk_merges', 'ak', 'dt'), expected)
+                if run['counters'][key] != want]
+
+    def eq_cell(self, name, wname, counters=None):
         w = self.b.world(wname)
         w['contracts'] = {'w1': 3, 'w2': 3, 'w3': 2, 'w4': 2, 'w4b': 2, 'w5': 2, 'w6': 2,
                           'w7': 2, 'w8': 2, 'w9': 2, 'w10': 2, 'w11': 1, 'w12': 1,
-                          'w13': 1, 'wdif8': 8, 'wdif24': 24, 'wa2': 20}[wname]
-        w['authors'] = 1 if wname not in ('w3', 'w12') else 1
-        subj = self.b.door(self.s['subj'], w, incr=True, strace=seconds_observed,
-                           timeout=300 if wname == 'wa2' else 120)
+                          'w13': 1, 'w14': 1, 'w15': 1, 'wk0': 1,
+                          'wdif8': 8, 'wdif24': 24, 'wa2': 20}[wname]
+        w['authors'] = 1
+        marker = self.b.marker_of(w)
+        want_summary = self.b.summary_of(w)
+        # Все канонические байты и rc — в памяти ДО вызова субъекта.
+        full = self.b.door(self.tree, self.b.full_world(w), incr=False)
+        baserun = (self.b.door(self.s['base'], w, incr=True, strace=w.get('no_zones', False))
+                   if self.s.get('base') is not None else None)
+        subj = self.b.door(self.s['subj'], w, incr=True, strace=counters is not None)
         problems = []
         if subj['rc'] != w['rc']:
             problems.append(f'rc={subj["rc"]} ≠ {w["rc"]}')
-        marker = self.b.marker_of(w)
+        if subj['rc'] != full['rc']:
+            problems.append('rc incr ≠ полному прогону производственной двери')
+        if subj['out'] != full['out']:
+            problems.append('stdout incr ≠ полному прогону производственной двери (байты)')
+        if self.b.strip_marker(subj['err']) != full['err']:
+            problems.append('stderr incr (без маркера) ≠ полному прогону производственной двери (байты)')
         err = subj['err'].decode(errors='replace')
         if marker not in err.splitlines():
             problems.append(f'нет маркера «{marker}»')
-        if w.get('compare_full', True):
-            full = self.b.door(self.tree, w, incr=False)
-            if self.b.strip_marker(subj['err']) != full['err']:
-                problems.append('вывод incr (без маркера) ≠ полному прогону производственной двери')
-        want_summary = self.b.summary_of(w)
         if want_summary not in err:
             problems.append(f'нет сводки «{want_summary.strip()}»')
         fails = self.b.fails_in(subj['err'])
@@ -450,72 +547,92 @@ class Runner:
             problems.append(f'FAIL-строк {len(fails)} ≠ {w["fails"]}')
         if 'fail_line' in w and fails and fails[0] != w['fail_line']:
             problems.append(f'диагноз «{fails[0][:100]}…» ≠ ожидаемому')
+        if 'fail_lines' in w and fails != w['fail_lines']:
+            problems.append('порядок полных FAIL-строк ≠ ожидаемому')
         if 'ok_line' in w:
             oks = [l for l in err.splitlines() if l.startswith('  ok   контракт')]
             if oks != [w['ok_line']]:
                 problems.append(f'СПАСЕНО-строки {oks} ≠ ожидаемой одной')
-        if subj['cache'] is not None:
-            if w.get('cache_stays'):
-                if subj['cache'] != w['base']:
-                    problems.append(f'кеш {subj["cache"][:8]} перезаписан при rc={subj["rc"]}')
-            else:
-                if subj['cache'] != w['head']:
-                    problems.append(f'кеш {subj["cache"][:8] if subj["cache"] else "пусто"} ≠ HEAD {w["head"][:8]}')
-        if self.s.get('base') is not None:
-            baserun = self.b.door(self.s['base'], w, incr=True)
-            if baserun['err'] != subj['err'] or baserun['rc'] != subj['rc']:
-                problems.append('вывод модели ≠ выводу базовой двери (байты)')
-        detail = f"rc={subj['rc']} FAIL={len(fails)}"
-        if seconds_observed:
-            detail += f" сек={subj['seconds']:.1f}"
+        want_cache = w['base'] if w.get('cache_stays') else w['head']
+        if subj['cache'] != want_cache:
+            problems.append(f'кеш {subj["cache"]} ≠ {want_cache}')
+        if baserun is not None:
+            for channel in ('rc', 'out', 'err'):
+                if baserun[channel] != subj[channel]:
+                    problems.append(f'{channel} модели ≠ базовой двери (полные байты/rc)')
+        if counters is not None:
+            problems.extend(self.counter_problems(subj, counters))
+            if baserun is not None and w.get('no_zones'):
+                problems.extend('база: ' + p for p in self.counter_problems(baserun, counters))
+        detail = f"rc={subj['rc']} FAIL={len(fails)} stdout={len(subj['out'])} stderr={len(subj['err'])}"
+        if counters is not None:
+            detail += f" судов={subj['counters']} сек={subj['seconds']:.1f}"
         self.results.append((name, not problems, '; '.join(problems) or detail, subj['seconds']))
 
-    def counter_cell(self, name, wname, rk_rev, rk_merges, ak, dt, budget=False):
-        w = self.b.world(wname)
-        w['contracts'] = {'w1': 3, 'w5': 2, 'w9': 2, 'wdif8': 8, 'wdif24': 24, 'wa2': 20}[wname]
-        w['authors'] = 1
-        subj = self.b.door(self.s['subj'], w, incr=True, strace=True,
-                           timeout=300)
-        problems = []
-        if subj['counters'] is None:
-            problems.append('трасса не снята (нет strace?)')
+    def counter_cell(self, name, wname, rk_rev, rk_merges, ak, dt):
+        self.eq_cell(name, wname, counters=(rk_rev, rk_merges, ak, dt))
+
+    def run_cell(self, name):
+        if name in EQ_CELLS:
+            self.eq_cell(name, EQ_CELLS[name])
+        elif name == 'k0-bez-zon':
+            self.eq_cell(name, 'wk0', counters=(0, 0, 0, 0))
+        elif name in COUNTER_CELLS:
+            self.counter_cell(name, *COUNTER_CELLS[name])
         else:
-            c = subj['counters']
-            for key, want in (('rk_rev', rk_rev), ('rk_merges', rk_merges), ('ak', ak), ('dt', dt)):
-                if c[key] != want:
-                    problems.append(f'{key}={c[key]} ≠ {want} (судов окна больше одного)')
-        if budget:
-            if subj['rc'] != w['rc']:
-                problems.append(f"rc={subj['rc']} ≠ {w['rc']}")
-            if subj['cache'] != w['head']:
-                problems.append('кеш не перезаписан HEAD')
-            if plural(w['n']) not in subj['err'].decode(errors='replace'):
-                problems.append('нет маркера окна')
-        detail = (f"судов={subj['counters']} сек={subj['seconds']:.1f}" if subj['counters']
-                  else 'нет счётчиков')
-        self.results.append((name, not problems, '; '.join(problems) or detail, subj['seconds']))
+            raise Prerequisite(f'неизвестная клетка {name}')
+
+    def git_form_cell(self, name, replacement):
+        scr = self.b.make_scratch(name, MODEL)
+        (scr / 'check_zones.sh').write_text(model_text(
+            name, 'g() { git -C "$ROOT" "$@"; }', replacement))
+        r = Runner(self.b, dict(self.s, subj=scr), self.tree)
+        r.eq_cell(name, 'w1', counters=(1, 1, 1, 1))
+        self.results.extend(r.results)
+
+
+EQ_CELLS = {
+    'e1-chistoe-okno': 'w1',
+    'e2-chuzhaja-zona': 'w2',
+    'e3-arhitektor-v-zone-implementer': 'w3',
+    'e4-merge-okno-svoi-chuzhie': 'w4',
+    'e5-pustoe-okno': 'w5',
+    'e6-okno-odin-kommit': 'w6',
+    'e7-spaseno-replay': 'w7',
+    'e8-peresechenie-zon': 'w8',
+    'e9-fon-okno': 'w9',
+    'e10-seredina-i-do-bazy': 'w10',
+    'e11-draft-priznanie': 'w11',
+    'e12-mint-priznanie': 'w12',
+    'e13-processnye-vne-suda': 'w13',
+    'e14-porjadok-replay': 'w14',
+    'e15-porjadok-putej': 'w15',
+}
+COUNTER_CELLS = {
+    'c1-okno-odin-raz': ('w1', 1, 1, 1, 1),
+    'c2-pustoe-okno-schet': ('w5', 1, 1, 0, 0),
+    'c3-fon-okno-schet': ('w9', 1, 1, 1, 0),
+    'c4-byudzhet-a2': ('wa2', 1, 1, 1, 1),
+    'c5-nezavisimost-k8': ('wdif8', 1, 1, 1, 1),
+    'c6-nezavisimost-k24': ('wdif24', 1, 1, 1, 1),
+}
+GIT_FORMS = {
+    'h1-bin-git': 'g() { /bin/git -C "$ROOT" "$@"; }',
+    'h2-command-git': 'g() { command git -C "$ROOT" "$@"; }',
+    'h3-simlink-git': ('ln -sf /usr/bin/git "$SELF_DIR/alias207-link"\n'
+                       'g() { "$SELF_DIR/alias207-link" -C "$ROOT" "$@"; }'),
+    'h4-exec-a': 'g() { ( exec -a alias207 /usr/bin/git -C "$ROOT" "$@" ); }',
+}
 
 
 def cells(runner):
-    runner.eq_cell('e1-chistoe-okno', 'w1')
-    runner.eq_cell('e2-chuzhaja-zona', 'w2')
-    runner.eq_cell('e3-arhitektor-v-zone-implementer', 'w3')
-    runner.eq_cell('e4-merge-okno-svoi-chuzhie', 'w4')
-    runner.eq_cell('e5-pustoe-okno', 'w5')
-    runner.eq_cell('e6-okno-odin-kommit', 'w6')
-    runner.eq_cell('e7-spaseno-replay', 'w7')
-    runner.eq_cell('e8-peresechenie-zon', 'w8')
-    runner.eq_cell('e9-fon-okno', 'w9')
-    runner.eq_cell('e10-seredina-i-do-bazy', 'w10')
-    runner.eq_cell('e11-draft-priznanie', 'w11')
-    runner.eq_cell('e12-mint-priznanie', 'w12')
-    runner.eq_cell('e13-processnye-vne-suda', 'w13')
-    runner.counter_cell('c1-okno-odin-raz', 'w1', 1, 1, 1, 1)
-    runner.counter_cell('c2-pustoe-okno-schet', 'w5', 1, 1, 0, 0)
-    runner.counter_cell('c3-fon-okno-schet', 'w9', 1, 1, 1, 0)
-    runner.counter_cell('c4-byudzhet-a2', 'wa2', 1, 1, 1, 1, budget=True)
-    runner.counter_cell('c5-nezavisimost-k8', 'wdif8', 1, 1, 1, 1)
-    runner.counter_cell('c6-nezavisimost-k24', 'wdif24', 1, 1, 1, 1)
+    for name in EQ_CELLS:
+        runner.run_cell(name)
+    runner.run_cell('k0-bez-zon')
+    for name in COUNTER_CELLS:
+        runner.run_cell(name)
+    for name, replacement in GIT_FORMS.items():
+        runner.git_form_cell(name, replacement)
 
 
 def report(results, extra):
@@ -549,6 +666,9 @@ def main():
     ap.add_argument('--repo', nargs='?', default=None)
     ap.add_argument('--model', action='store_true')
     ap.add_argument('--stabs', action='store_true')
+    ap.add_argument('--mutation', help='с --model: одно адресное предъявление, сырой rc клетки')
+    ap.add_argument('--delta', choices=('k0', 'replay', 'stdout', 'git'), action='append',
+                    help='с --stabs: адресная группа дельта-листа; можно повторить')
     args = ap.parse_args()
 
     repo = Path(args.repo).resolve() if args.repo else TREE
@@ -560,6 +680,8 @@ def main():
         return 2
     b = Battery(repo)
     try:
+        if args.delta and not args.stabs:
+            raise Prerequisite('--delta требует --stabs')
         if args.stabs:
             for tool in ('strace',):
                 if shutil.which(tool) is None:
@@ -570,16 +692,17 @@ def main():
             honest = b.make_scratch('scr_model', MODEL)
             tree = b.make_scratch('scr_tree')
             rows = load_stabs()
+            if args.delta:
+                prefixes = tuple('PATERN:' + group.upper() + '-' for group in args.delta)
+                rows = [row for row in rows if row[0].startswith(prefixes)]
+            if not rows:
+                raise Prerequisite('пустая выборка адресных мутаций')
             mutacii = poimany = svjazi = 0
             results = []
             for name, subj_path, cell_name in rows:
-                cell_fn = {'e1-chistoe-okno': ('w1',), 'e2-chuzhaja-zona': ('w2',),
-                           'e4-merge-okno-svoi-chuzhie': ('w4',),
-                           'e7-spaseno-replay': ('w7',),
-                           'e10-seredina-i-do-bazy': ('w10',)}[cell_name]
                 def run_cell(subject_dir):
                     r = Runner(b, {'subj': subject_dir, 'base': base_scr}, tree)
-                    r.eq_cell(cell_name, cell_fn[0])
+                    r.run_cell(cell_name)
                     return r.results[-1]
                 ok_name, ok_honest, det_honest, _ = run_cell(honest)
                 if not ok_honest:
@@ -588,13 +711,8 @@ def main():
                     return 2
                 if name.startswith('PATERN:'):
                     anchor, replacement = PATERNS[name]
-                    text = MODEL.read_text()
-                    if text.count(anchor) != 1:
-                        print(f'ORACLE_TAMPERED: якорь {name} встречается {text.count(anchor)} раз',
-                              file=sys.stderr)
-                        return 2
                     mut = b.make_scratch('scr_mut')
-                    (mut / 'check_zones.sh').write_text(text.replace(anchor, replacement))
+                    (mut / 'check_zones.sh').write_text(model_text(name, anchor, replacement))
                     subject_dir = mut
                 else:
                     stab = HERE / 'stabs' / name
@@ -630,8 +748,19 @@ def main():
             subjects = {'subj': b.make_scratch('scr_model', MODEL), 'base': b.make_scratch('scr_base')}
         else:
             subjects = {'subj': tree, 'base': None}
-        r = Runner(b, subjects, tree)
-        cells(r)
+        if args.mutation:
+            bindings = {name: cell for name, _, cell in load_stabs()}
+            if not args.model or args.mutation not in PATERNS or args.mutation not in bindings:
+                raise Prerequisite('--mutation требует --model и имя адресной мутации')
+            subject = b.make_scratch('scr_mut')
+            (subject / 'check_zones.sh').write_text(model_text(
+                args.mutation, *PATERNS[args.mutation]))
+            subjects['subj'] = subject
+            r = Runner(b, subjects, tree)
+            r.run_cell(bindings[args.mutation])
+        else:
+            r = Runner(b, subjects, tree)
+            cells(r)
         extra = []
         wa2 = b.worlds.get('wa2')
         if wa2:
@@ -666,6 +795,35 @@ PATERNS = {
     'PATERN:SPASENO-NE-CHITAETSJA': (
         '    if grep -qxF "$(printf \'%s\\t%s\\t%s\' "$an" "$c" "$nnn")" "$TMP/saved"; then',
         '    if false; then'),
+    'PATERN:K0-SUDIT-OKNO': (
+        'if [ ! -s "$TMP/zones_scoped" ]; then',
+        'if [ ! -s "$TMP/zones_scoped" ]; then\n'
+        '  g rev-list --no-merges --reverse "$INCR_BASE..HEAD" > /dev/null'),
+    'PATERN:K0-NEMOJ-VYHOD': (
+        '  printf \'\\nзамороженных контрактов: %d · зон не объявлено — проверять нечего\\n\' "$contracts" >&2',
+        '  : # потеря вывода при K=0'),
+    'PATERN:REPLAY-TAC': (
+        '  cp "$TMP/w_commits" "$TMP/commits"',
+        '  tac "$TMP/w_commits" > "$TMP/commits"'),
+    'PATERN:REPLAY-PUTI-TAC': (
+        '      done < "$TMP/w_dec/$c.bad"',
+        '      done < <(tac -s \'\' "$TMP/w_dec/$c.bad")'),
+    'PATERN:STDOUT-DUBL': (
+        'printf \'\\nпроцессных вне суда:%s\\n\' "${process_list:+ $process_list}" >&2',
+        'printf \'\\nпроцессных вне суда:%s\\n\' "${process_list:+ $process_list}" >&2\n'
+        'printf \'\\nпроцессных вне суда:%s\\n\' "${process_list:+ $process_list}"'),
+    'PATERN:STDOUT-SPASENO': (
+        '      printf \'  ok   контракт %s: коммит %s (%s) — СПАСЕНО, из суда зон выведен\\n\' "$nnn" "${c:0:8}" "$an" >&2',
+        '      printf \'  ok   контракт %s: коммит %s (%s) — СПАСЕНО, из суда зон выведен\\n\' "$nnn" "${c:0:8}" "$an" >&2\n'
+        '      printf \'  ok   контракт %s: коммит %s (%s) — СПАСЕНО, из суда зон выведен\\n\' "$nnn" "${c:0:8}" "$an"'),
+    'PATERN:GIT-INYM-PUTEM': (
+        '    if ! g log --no-walk',
+        '    /bin/git -C "$ROOT" log --no-walk --format=\'%H%x00%an%x00\' --stdin < "$TMP/w_commits" > /dev/null\n'
+        '    if ! g log --no-walk'),
+    'PATERN:GIT-EXEC-A-DUBL': (
+        '    if ! g log --no-walk',
+        '    ( exec -a alias207 /usr/bin/git -C "$ROOT" log --no-walk --format=\'%H%x00%an%x00\' --stdin < "$TMP/w_commits" > /dev/null )\n'
+        '    if ! g log --no-walk'),
 }
 
 
