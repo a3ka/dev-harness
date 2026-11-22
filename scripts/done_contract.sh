@@ -349,7 +349,13 @@ if [ -x "$SELF_DIR/check_architecture_contract.sh" ]; then
           fi
           _new_done_tmp || die "ARCH_CI: временный файл списка путей не создать"
           _a187_paths_file="$_DONE_TMP_LAST"
-          ( cd "$ROOT" && git diff --name-only -z "$_a187_p1" "$_a187_sel" ) > "$_a187_paths_file" 2>/dev/null || true
+          # Список путей коммита ПОЛОН: обе стороны переименования и каждый
+          # изменённый gitlink. `--no-renames` выключает rename-детект
+          # (умолчание diff.renames=true скрывает старый путь), а
+          # `--ignore-submodules=none` снимает и diff.ignoreSubmodules, и
+          # `submodule.<name>.ignore` из .gitmodules: флаги команды сильнее
+          # конфигурации пользователя и окружения.
+          ( cd "$ROOT" && git diff --no-renames --ignore-submodules=none --name-only -z "$_a187_p1" "$_a187_sel" ) > "$_a187_paths_file" 2>/dev/null || true
           _a187_only=1
           _a187_npaths=0
           while IFS= read -r -d '' _a187_path; do
