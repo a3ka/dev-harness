@@ -440,12 +440,16 @@ profile_paths() {  # <репозиторий> → JSON резолвера
     project_paths_resolve "$repo"
   )
 }
+# [D62 profil-entry] Резерв допустим только без самого пути профиля.
+# Битая/цикличная ссылка и каталог — существующая, но недоступная запись,
+# не отсутствие профиля; резолвер не должен превращать её в default-пути.
 reestr_put() {  # <репозиторий> <имя> → абсолютный путь
   local repo="$1" name="$2" paths
-  if [ ! -f "$repo/harness.project.json" ]; then
+  if [ ! -e "$repo/harness.project.json" ] && [ ! -L "$repo/harness.project.json" ]; then
     printf '%s/registry/%s' "$repo" "$name"
     return 0
   fi
+  [ -f "$repo/harness.project.json" ] || return 1
   paths="$(profile_paths "$repo")" || return 1
   printf '%s\n' "$paths" | jq -er --arg name "$name" '.registry + "/" + $name'
 }

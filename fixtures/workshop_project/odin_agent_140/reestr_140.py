@@ -1,5 +1,6 @@
 """Ш-2: registry is profile data; public seam is --sudit plus START/warn."""
 import json
+import os
 from pathlib import Path
 
 BINDINGS = {
@@ -10,6 +11,17 @@ BINDINGS = {
     's91-profile-error-bez-pauzy': ['r14-profile-broken-pauza'],
     's92-override-polnaja-grammatika': ['r16-override-dubl-extra', 'r17-override-dubl-object'],
     's93-kontrakty-literal': ['r18-kontrakty-profil-obychnyj', 'r19-kontrakty-profil-riskovyj'],
+    's96-profil-f-flag': ['k03b01-profil-dangl-symlink',
+                          'k03b02-profil-cikl-symlink',
+                          'k03b03-profil-katalog',
+                          'k03b04-profil-symlink-na-katalog'],
+    's97-profil-ljubaja-nechitajemost': ['r15-profile-broken-bez-pauzy',
+                                       'k03b01-profil-dangl-symlink',
+                                       'k03b02-profil-cikl-symlink',
+                                       'k03b03-profil-katalog',
+                                       'k03b04-profil-symlink-na-katalog'],
+    's98-profil-otkaz-i-bez-profilja': ['r03-reestr-bez-profilja',
+                                      'r08-pauza-bez-profilja-svoj'],
 }
 
 
@@ -167,6 +179,83 @@ def dobavit(K, p):
                  'registry=.x/reg;contracts='+contracts+';frozen='+risk,
                  lambda m,d,r=risk,c=contracts: judge(m,d,'.x/reg',r,contracts=c))
 
+    def profile_entry(m, door, form, paused=True):
+        # К-03б: pause data stays in the profile registry; the fallback is empty.
+        wt, br, _ = m.worktree('140')
+        paths = dict(contracts='contracts', verdicts='.profile/verdicts',
+                     fixtures='.profile/fixtures', registry='.x/reg')
+        for rel in paths.values():
+            (m.repo / rel).mkdir(parents=True, exist_ok=True)
+        (m.repo / '.profile/project.json').write_text(json.dumps(dict(
+            schemaVersion=1, version='1', projectId='toy140', workspaceId='toy',
+            defaults={}))+'\n')
+        target = m.repo / '.profile/profile.json'
+        target.write_text(json.dumps(dict(
+            schemaVersion=1, repoId=p.REPO_ID, language='bash',
+            projectLayer=dict(version='1', profilePath='.profile/project.json'),
+            workflowPaths=paths))+'\n')
+        entry = m.repo / 'harness.project.json'
+        entry.symlink_to('.profile/profile.json')
+        (m.repo / '.x/reg/pauzy.tsv').write_text(
+            '140\t2026-11-21\towner\tpause\n' if paused else '')
+        assert not (m.repo / 'registry/pauzy.tsv').exists()
+        if form == 'dangl':
+            target.unlink()
+            assert entry.is_symlink() and not entry.exists()
+        elif form == 'cikl':
+            entry.unlink()
+            entry.symlink_to('harness.project.json')
+            assert entry.readlink() == Path('harness.project.json')
+        elif form == 'katalog':
+            entry.unlink()
+            entry.mkdir()
+            assert entry.is_dir() and not entry.is_symlink()
+        elif form == 'symlink-na-katalog':
+            entry.unlink()
+            entry.symlink_to('.profile')
+            assert entry.is_symlink() and entry.is_dir()
+        elif form == 'bez-prav':
+            target.chmod(0o000)
+            # Effective OS rights, not mode bits: privileged processes may read 000.
+            if os.access(entry, os.R_OK, effective_ids=True):
+                print('SKIP k03b05-profil-bez-prav: chmod 000 не запрещает чтение '
+                      'текущему uid=%d' % os.geteuid())
+                return []
+        else:
+            assert form == 'valid' and entry.is_file() and entry.is_symlink()
+        event = m.sobytie('profile-entry.json', [p.item(
+            'architect', 'ProfileEntry140',
+            ['SUBJECT=140', 'WORKTREE='+wt, 'BRANCH='+br], isolated=True)])
+        before = p.snimok_fajlov(m.sost)
+        result = p.sudit(door, m, event)
+        if form == 'valid' and not paused:
+            return [p.k_rc(result, 0, 'валидный-симлинк-без-паузы'),
+                    None if 'PUSCHEM ProfileEntry140 dev-harness/140 (rabochij/architect)'
+                    in result.stdout.splitlines() else 'нет собственной строки PUSCHEM',
+                    p.k_chislo_startov(m, 'учёт', 1),
+                    p.k_stroka(m, 'START-валидного-симлинка', subjectId='140',
+                               holder='ProfileEntry140', isolated=True)]
+        reason = 'PAUZA_VLADELTSA' if form == 'valid' else 'PROFIL_NEDOSTUPEN'
+        return [p.k_rc(result, 1, 'профиль='+form),
+                None if any(line.startswith('ОТКАЗ: '+reason+':')
+                            for line in result.stderr.splitlines())
+                else 'нет самостоятельной строки отказа '+reason,
+                p.k_net_startov(m, 'отказ-без-START/override'),
+                None if p.snimok_fajlov(m.sost) == before else 'отказ изменил состояние']
+
+    # Separate prefix keeps the established --domain r01–r19 gate at 19/0.
+    for name, form, paused in (
+        ('k03b01-profil-dangl-symlink', 'dangl', True),
+        ('k03b02-profil-cikl-symlink', 'cikl', True),
+        ('k03b03-profil-katalog', 'katalog', True),
+        ('k03b04-profil-symlink-na-katalog', 'symlink-na-katalog', True),
+        ('k03b05-profil-bez-prav', 'bez-prav', True),
+        ('k03b06-profil-valid-symlink-pauza', 'valid', True),
+        ('k03b07-profil-valid-symlink-bez-pauzy', 'valid', False),
+    ):
+        register(name, 'К-03б;профиль='+form+';пауза='+str(paused),
+                 lambda m,d,f=form,pa=paused: profile_entry(m,d,f,pa))
+
 def statika(p, door):
     # Exact approved Ш-2 criterion; legal .harness/contracts also makes it red.
     # Kept separate from semantic --model: scope decision is reported, not hidden.
@@ -215,6 +304,41 @@ def mutacii(z):
   return 1
 }
 ''', z)
+    def profile_file_test(t):
+        # S-dangl: OBJECT's regular-file test mistakes an unreadable entry for absence.
+        return replace_function(t, 'reestr_put', '''reestr_put() {
+  local repo="$1" name="$2" paths
+  if [ ! -f "$repo/harness.project.json" ]; then
+    printf '%s/registry/%s' "$repo" "$name"
+    return 0
+  fi
+  paths="$(profile_paths "$repo")" || return 1
+  printf '%s\\n' "$paths" | jq -er --arg name "$name" '.registry + "/" + $name'
+}
+''', z)
+
+    def profile_any_fallback(t):
+        # S-any: resolution errors, like an absent profile, use the old registry.
+        return replace_function(t, 'reestr_put', '''reestr_put() {
+  local repo="$1" name="$2" paths
+  if paths="$(profile_paths "$repo")"; then
+    printf '%s\\n' "$paths" | jq -er --arg name "$name" '.registry + "/" + $name' && return 0
+  fi
+  printf '%s/registry/%s' "$repo" "$name"
+}
+''', z)
+
+    def profile_absent_refusal(t):
+        # S-all: a false refusal when the profile path is wholly absent.
+        return replace_function(t, 'reestr_put', '''reestr_put() {
+  local repo="$1" name="$2" paths
+  [ -e "$repo/harness.project.json" ] || [ -L "$repo/harness.project.json" ] || return 1
+  [ -f "$repo/harness.project.json" ] || return 1
+  paths="$(profile_paths "$repo")" || return 1
+  printf '%s\\n' "$paths" | jq -er --arg name "$name" '.registry + "/" + $name'
+}
+''', z)
+
     return {
         's87-reestr-literal-proekta': lambda t: fixed(t, '.harness/registry'),
         's88-pauza-ignoriruet-profil': lambda t: pause_source(t, '  f="$REPO/registry/pauzy.tsv"'),
@@ -234,6 +358,9 @@ def mutacii(z):
 ''', '''  c="$(kolvo_strok "$t" "$ZAMOK_STROKA_RE")"
 '''),
         's93-kontrakty-literal': lambda t: fixed_contracts(t, z),
+        's96-profil-f-flag': profile_file_test,
+        's97-profil-ljubaja-nechitajemost': profile_any_fallback,
+        's98-profil-otkaz-i-bez-profilja': profile_absent_refusal,
     }
 
 
@@ -252,7 +379,7 @@ if __name__ == '__main__':
     p.sudit = observed
     cases = p.kejsy()
     selected = sorted(k for k in cases if k.startswith(
-        tuple('r%02d-' % n for n in range(11, 20))))
+        tuple('r%02d-' % n for n in range(11, 20))+('k03b',)))
     for name in selected:
         print('BASE '+name)
         problems = p.progon(p.SUBJEKT_DVERI, name, cases[name]['run'])
