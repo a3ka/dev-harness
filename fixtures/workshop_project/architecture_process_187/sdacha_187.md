@@ -1,10 +1,13 @@
 # СДАЧА 187 — ARCH_CI: подъём SHA* через merge
 
-Текущая пачка — `/tmp/dev-harness-verify/task-arch187merge.md`, слово
-консультанта 22.11 ~12:19; её замеры и заменяемые обязательства — раздел
-«ARCH_CI: подъём SHA* через merge (слово консультанта 22.11 12:19)».
-Ни дверь `scripts/done_contract.sh`, ни frozen-контракты здесь не меняются.
-Ниже сохранена история объединения ARCH_CI и Б-5.
+Текущая пачка — `/tmp/dev-harness-verify/task-arch187merge2.md` (шаг 3
+merge-walk: лист и привязки стабов после реализации двери); предыдущая —
+`task-arch187merge.md` со словом консультанта 22.11 ~12:19, её замеры и
+заменяемые обязательства — раздел «ARCH_CI: подъём SHA* через merge
+(слово консультанта 22.11 12:19)». Дверь `scripts/done_contract.sh`
+реализована implementer'ом в `23a512aa7d`; эта пачка двери и
+frozen-контракты не меняет. Ниже сохранена история объединения ARCH_CI
+и Б-5.
 
 Основание: задание `/tmp/dev-harness-verify/task-b5reconcile.md`. Ветка
 `wip/187/final-b5` (accept Rev187B5c на OBJECT `27983f424a`, вердикт
@@ -41,18 +44,23 @@ done-тег. `ci_ancestor.py` строит настоящие Git-истории
 - census · fixtures/workshop_project/architecture_process_187/census_b5.py · 0 · 0
 - battery-model · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --model · 0 · 0
 - battery-stabs · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --stabs · 0 · 0
-- battery-repo-before-implementation · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo . · 1 · 1
+- battery-repo · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo . · 0 · 0
 - regression-201 · bash fixtures/workshop_project/done_dver_soderzhatelnaja_201/red_done_dver_201.sh --repo . · 0 · 0
 - wiring · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --wiring . · 0 · 0
 - b5-battery-model · fixtures/workshop_project/architecture_process_187/census_b5.py b5c-sheet-model model · 0 · 0
 - b5-battery-stabs · fixtures/workshop_project/architecture_process_187/census_b5.py b5c-sheet-stabs stabs · 0 · 0
-- b5-battery-repo · fixtures/workshop_project/architecture_process_187/census_b5.py b5c-sheet-repo repo · 1 · 1
+- b5-battery-repo · fixtures/workshop_project/architecture_process_187/census_b5.py b5c-sheet-repo repo · 0 · 0
 - b5-wiring · fixtures/workshop_project/architecture_process_187/census_b5.py b5c-sheet-wiring wiring · 0 · 0
 - b5-signals-base-and-control · fixtures/workshop_project/architecture_process_187/census_b5.py b5c-sheet-controls signals-base signals-control · 0 · 0
 
-Для текущей merge-пачки обе repo-строки заявлены `1 · 1`: дверь main
-не ремонтировалась, красное предъявление — ровно семь клеток merge-подъёма,
-перечисленных ниже. Остальные девять строк требуют rc 0. Историческая
+Реализация двери пришла коммитом `23a512aa7d` (implementer 187, ТОЛЬКО
+`scripts/done_contract.sh` +18/−5: обход двухродительского PR-merge
+по `.harness`-only дельте к первому родителю, именованный отказ octopus).
+Живые прогоны после неё: `red_architecture_process_187.sh --repo .` rc 0
+(CELLS=111 FAILURES=0), census `merge-main repo` rc 0 и census
+`b5c-sheet-repo repo` rc 0 — обе repo-строки переведены в `0 · 0` по
+факту живого зелёного прогона; имя строки 44 освобождено от оговорки
+«before-implementation». Остальные девять строк требуют rc 0. Историческая
 сдача объединения обеих семей с rc 0 сохранена в разделе «Census
 объединённого дерева». `census_b5.py` без аргументов считает обе семьи;
 с аргументами сохраняет сырой stdout/stderr в TMPDIR и возвращает
@@ -81,11 +89,15 @@ TMPDIR текущей пачки — `$PWD/.scratch-187m`; перед докла
 
 ## Дельта
 
-Текущая пачка не закрывает блоков critic: это предписанный merge-дефект
+Пачки merge/merge2 не закрывают блоков critic: это предписанный merge-дефект
 той же двери по слову консультанта 22.11 12:19. Новых зон и frozen-правок
-нет. Дельта данных: девять добавленных клеток, одна заменённая merge-клетка,
-шесть дополнительных привязок стабов; прежний ancestor-cross-merge
-сохранён и перенесён на различающий его вход merge-product.
+нет. Дельта данных merge: девять добавленных клеток, одна заменённая
+merge-клетка, шесть дополнительных привязок стабов; прежний
+ancestor-cross-merge сохранён и перенесён на различающий его вход
+merge-product. Дельта merge2 (шаг 3): только этот лист — обе repo-строки
+переведены в `0 · 0` по живому зелёному прогону реализованной двери,
+имя строки 44 освобождено от оговорки «before-implementation», добавлен
+раздел диагноза строки 48; ни одна клетка, привязка и дверь не менялись.
 
 ## Census объединённого дерева
 
@@ -230,7 +242,7 @@ root и предел 50 сохранены, octopus требует назван�
 ранее согласованный SHA* уточняется только способом прохождения merge.
 Контракты и дверь architect не редактировал.
 
-### Сырые rc и census текущей пачки
+### Сырые rc и census пачки merge (до реализации двери)
 
 Команды запускались последовательно с TMPDIR=`$PWD/.scratch-187m`:
 `census_b5.py merge-model model` → rc 0, CELLS=111 STABS=0 FAILURES=0;
@@ -262,6 +274,64 @@ contracts/187-arhitektura-v-processe.md --run` → rc 0:
 сообщение инструменту отправлено в xd://report_issue. Общий журнал
 NABLIUDENIA_ARCHITECT.md в wip не менялся: записи А-* допускаются только
 коммитом main, а зона этой пачки ограничена fixtures.
+
+### Шаг 3 (merge2): диагноз строки 48 и лист после реализации
+
+Основание: задание `/tmp/dev-harness-verify/task-arch187merge2.md`.
+Отправной отказ оркестратора: строка 48 листа — «фактический rc=1
+≠ заявленного 0» на census `b5c-sheet-stabs stabs` при измеренных
+им же зелёных `merge-main repo` (rc 0, FAILURES=0) и `merge-stabs
+stabs` (rc 0, STABS=134).
+
+Диагноз прогонами, не проза:
+
+• Команда строки 48 на `23a512aa7d` — пять прогонов, все rc 0,
+CELLS=111 STABS=134 FAILURES=0 (прямой, в прогоне листа и три
+подряд); на родителе `755c23c35b` — rc 0, те же счётчики. Якоря
+стабов не сместились: стабы — именованные мутанты модели
+(`ci_ancestor.select`, `brief_stderr.model`, CONTROL-скрипты
+`brief_signals.override`), текст `scripts/done_contract.sh` стабами
+не патчится вовсе; правка двери +18/−5 не могла отвязать привязки —
+и не отвязала: обе версии двери различают все 134 стаба (Н-39 —
+привязка по коду, проверено прогоном на обоих коммитах).
+• Живая батарея `--repo .` — пять прогонов rc 0: обычная среда,
+точное окружение двери листа (`SDACHA_OKRUG=1`,
+`GIT_CONFIG_GLOBAL=/dev/null`, `GIT_CONFIG_SYSTEM=/dev/null`,
+`timeout -k 2 300`) и ещё три подряд. В прогоне листа строка 44
+дала rc=1 в 14:22, а та же батарея census-обёрткой строки 49 —
+rc=0 в 14:25: один вход за три минуты менял исход; дверь листа
+гасит stdout/stderr команды в /dev/null, клетка-виновник
+не наблюдаема.
+• Сигнальное семя честных клеток — 14 прогонов подряд зелёные
+(8 при фоновой нагрузке ~10 и 6 при двукратной переподписке CPU:
+32 грузчика на 16 ядер). Самая тяжёлая живая done-клетка
+(merge-limit-50, 50 обходов merge) — 11.1 с против границы 45 с
+одного вызова (`probe.run`); /tmp 55 ГБ свободно, OOM-событий нет,
+пользователь станции один — коллизий записи журнала census нет.
+
+Вывод: rc=1 — недетерминированный транзиент честных клеток
+с реальными подпроцессами под пиковой многосессионной нагрузкой
+станции (устойчиво 10–12 на 16 ядрах, десятки параллельных агентов);
+ни один прогон-повтор не воспроизвёл отказ, число пойманных стабов
+не падало ни в одном прогоне. Предметный дефект двери или привязок
+исключён прогонами; транзиент закрывается немедленным повтором
+команды листа.
+
+Сырые rc шага 3 (TMPDIR=`$PWD/.scratch-187m`, каждый прожит):
+`census_b5.py merge-model model` → rc 0, CELLS=111 FAILURES=0;
+`census_b5.py merge-stabs stabs` → rc 0, CELLS=111 STABS=134
+FAILURES=0; `census_b5.py merge-main repo` → rc 0, CELLS=111
+FAILURES=0; `census_b5.py b5c-sheet-stabs stabs` → rc 0 (5
+прогонов); `red_architecture_process_187.sh --repo .` → rc 0
+(5 прогонов); `census_b5.py b5c-sheet-repo repo` → rc 0;
+`census_b5.py` без аргументов → rc 0; `bash -n
+scripts/done_contract.sh` → rc 0.
+
+Итоговый прогон листа: `TMPDIR="$PWD/.scratch-187m" bash
+scripts/check_sdacha.sh "$PWD" contracts/187-arhitektura-v-processe.md
+--run` → rc 0: `СДАЧА: лист зелёный (двери=11 карта=17/17 дельта=0)` —
+все одиннадцать дверей (обе repo-строки теперь `0 · 0`) исполнены
+последовательно с фактическим rc 0.
 
 ## Исторический прогон листа объединения Б-5
 
