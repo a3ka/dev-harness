@@ -121,17 +121,18 @@ def values():
         cap(130000)
         good(130000)
         print(f'B4 value {raw} refused; valid repeat accepted')
+    # М-0 (вердикт Rev095B4, Б-1): неизвестный ключ внутри pack — ПРЕДУПРЕЖДЕНИЕ,
+    # не отказ: rc 0, пак с BUDGET по объявленному капу. make_task прячет stderr
+    # резолвера при успехе (make_task.sh:569-572), поэтому строка предупреждения
+    # судится прямым вызовом резолвера клеткой red_pack_maxbytes_merged.sh.
     configure('{"maxBytes":130000,"foo":1}')
-    lines = refused('pack.foo', exact=False)
-    assert any('неизвестный ключ' in line for line in lines), 'pack.foo не отказан как неизвестный ключ'
-    cap(130000)
     good(130000)
     for raw in ('{}', None):
         configure(raw)
         good(40000)
     cap(1000000)
     good(1000000)
-    print('B4 values unknown refused; absent/empty-pack default; upper bound accepted')
+    print('B4 values unknown key warned (M-0) and pack issued by declared cap; absent/empty-pack default; upper bound accepted')
 
 
 def brief():

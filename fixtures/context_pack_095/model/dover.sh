@@ -121,7 +121,12 @@ if not isinstance(pack, dict):
     refuse('pack.maxBytes: pack должен быть объектом')
 for key in pack:
     if key != 'maxBytes':
-        refuse('неизвестный ключ репо-слой: pack.' + key)
+        # М-0 (вердикт Rev095B4, Б-1): неизвестный ключ — ПРЕДУПРЕЖДЕНИЕ, не
+        # отказ: rc 0, пак с BUDGET по объявленному капу; ключ в выдачу не
+        # попадает. Формат — дословно warn_unknown резолвера (раздельные
+        # потоки: python stderr проходит наружу из-под подстановки MAX).
+        print('профиль ПРЕДУПРЕЖДЕНИЕ: неизвестный ключ репо-слой: pack.' + key,
+              file=sys.stderr)
 value = pack.get('maxBytes', 40000)
 minimum = 40000  # t95-b4-min
 if type(value) is not int or not minimum <= value <= 1000000:
