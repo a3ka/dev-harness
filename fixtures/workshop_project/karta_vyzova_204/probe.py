@@ -51,6 +51,7 @@ MUTATIONS = {
     ),
     'PATERN:PERVAJA-CIFRA': (("printf '%s' \"$faza\"", "printf '%s' \"${faza:0:1}\""),),
     'PATERN:CUT-C1': (("printf '%s' \"$faza\"", "printf '%s' \"$faza\" | cut -c1"),),
+    'PATERN:REGEX-ODNA-CIFRA': (('contracts-[0-9]+-v([0-9]+)', 'contracts-[0-9]+-v([0-9])'),),
 }
 
 
@@ -297,6 +298,10 @@ def mutant_expected(name, cell):
         return 1, 'ОТКАЗ: предыдущий вердикт: отсутствует вызов 1 (К-02)'
     if name in ('PATERN:PERVAJA-CIFRA', 'PATERN:CUT-C1'):
         return 0, KARTA_OK
+    if name == 'PATERN:REGEX-ODNA-CIFRA':
+        return {
+            'f4-vedushchie-nuli': (0, green_sheet()),
+        }[cell.name]
     return 1, 'ОТКАЗ: ' + cell.path + ': отсутствует вызов 1 (К-02)'
 
 
