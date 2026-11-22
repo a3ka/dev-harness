@@ -37,6 +37,10 @@ BINDINGS = {
     # Б-1 (Rev044B7): поведение OBJECT — нет повторного доказательства
     # (а)(б)(в) для состояния, лёгшего в снимок.
     "S-race": ("race-write-during-snapshot",),
+    # Б-1 (Rev044B7c, вызов 2): тело манифеста $m не сверяется с доказанным
+    # состоянием — запись с откатом (A→B→A) в окне манифеста ложится в снимок.
+    "S-aba-u": ("aba-untracked-during-snapshot",),
+    "S-aba-t": ("aba-tracked-during-snapshot",),
     # Б-3 (Rev044B7): унаследованный GIT_CONFIG_PARAMETERS не снят (:235-239),
     # porcelain слепнет к untracked, манифест (ls-files) остаётся честным.
     "S-cfg": ("git-config-parameters",),
@@ -47,6 +51,8 @@ CASES = (
     "dangling-symlink", "existing-symlink", "snapshot-replaced", "double-check",
     # Исправление FAIL Rev044B7 (Б-1/Б-2/Б-3).
     "race-write-during-snapshot", "branch-shadow-only-b", "git-config-parameters",
+    # Исправление FAIL Rev044B7c (Б-1, вызов 2: запись и откат во время автоснимка).
+    "aba-untracked-during-snapshot", "aba-tracked-during-snapshot",
 )
 
 
@@ -114,6 +120,59 @@ def start_race_writer(root, env):
     threading.Thread(target=watch, daemon=True).start()
     return stop, fired
 
+ABA_CASES = ("aba-untracked-during-snapshot", "aba-tracked-during-snapshot")
+
+
+def start_aba_observer(root, env, snap, kind):
+    """Б-1 (Rev044B7c, вызов 2): запись и откат (A→B→A) в окне манифеста.
+
+    Наблюдатель класса aba2.py ревьюера Rev044B7c (untracked 5/5, tracked 3/3):
+    на первом «голом» tmp.* в $TMPDIR (начало манифеста — mktemp из
+    emit_tracked_manifest) пишет в дерево состояние B; на появлении
+    .porcelain.tmp.* в каталоге снимка (тело $m уже собрано, гвард ещё не
+    начался) откатывает запись в состояние A. Гвард двери доказывает чистое
+    A, а тело $m несёт B. Оба события обязаны наблюдаться: пустая выборка
+    любого из них — красная, а не зелёная.
+    """
+    tmp = Path(env["TMPDIR"])
+    seen = {p.name for p in tmp.iterdir()}
+    stop, fired, restored = threading.Event(), threading.Event(), threading.Event()
+
+    def write():
+        if kind == "untracked":
+            (root / "aba-leak.txt").write_text("aba leak\n")
+        else:
+            (root / "tracked.txt").write_text("secret edit\n")
+
+    def rollback():
+        if kind == "untracked":
+            leak = root / "aba-leak.txt"
+            if leak.exists():
+                leak.unlink()
+        else:
+            (root / "tracked.txt").write_text("baseline\n")
+
+    def watch():
+        wrote = False
+        while not stop.is_set():
+            if not wrote:
+                for p in tmp.iterdir():
+                    if p.name.startswith("tmp.") and p.name not in seen:
+                        write()
+                        wrote = True
+                        fired.set()
+                        break
+            elif snap.parent.is_dir():
+                for p in snap.parent.iterdir():
+                    if p.name.startswith(".porcelain.tmp."):
+                        rollback()
+                        restored.set()
+                        return
+            time.sleep(0.0002)
+
+    threading.Thread(target=watch, daemon=True).start()
+    return stop, fired, restored
+
 
 def real(mode, root, env):
     return command(["bash", str(DETECTOR), mode, str(root)], env)
@@ -172,11 +231,24 @@ def subject(mode, root, env, variant, case=None, fired=None):
         # непочиненная дверь снимает это состояние без повторного доказательства.
         (root / "leak.txt").write_text("race leak\n")
         (root / "tracked.txt").write_text("raced\n")
+    if variant == "S-aba-u":
+        # Дефект OBJECT (Rev044B7c Б-1): тело $m не сверяется с доказанным
+        # состоянием — снимок узаконивает untracked-байты из окна манифеста.
+        (root / "aba-leak.txt").write_text("aba leak\n")
+    if variant == "S-aba-t":
+        # Тот же дефект: в снимок ложатся tracked-байты «secret edit».
+        (root / "tracked.txt").write_text("secret edit\n")
     if variant == "S7" and snap.is_symlink():
         snap.unlink()
     taken = real("--snapshot", root, env)
     if taken.returncode:
         return taken
+    if variant == "S-aba-u":
+        leak = root / "aba-leak.txt"
+        if leak.exists():
+            leak.unlink()
+    if variant == "S-aba-t":
+        (root / "tracked.txt").write_text("baseline\n")
     if variant == "S5":
         snap.chmod(0o644)
     if variant == "model" and case == "race-write-during-snapshot":
@@ -187,6 +259,17 @@ def subject(mode, root, env, variant, case=None, fired=None):
             fired.wait(5)
         post = git(root, probe, "status", "--porcelain")
         if post.returncode or post.stdout.strip():
+            snap.chmod(0o644)
+            snap.unlink()
+            return refused()
+    if variant == "model" and case in ABA_CASES:
+        # Контроль починенной двери: каждая строка автоснимка происходит из
+        # состояния с доказанными (а)∧(б)(в), привязанного к самому телу $m.
+        # Наблюдатель сработал в окне манифеста → тело недоказуемо → отказ,
+        # снимок удалён, строки АВТОСНИМОК нет.
+        if fired is not None:
+            fired.wait(5)
+        if fired is not None and fired.is_set():
             snap.chmod(0o644)
             snap.unlink()
             return refused()
@@ -281,8 +364,13 @@ def trial(case, variant, base):
         calls = 2 if case == "double-check" else 1
         results, states = [], []
         stop = fired = None
+        restored = None
         if case == "race-write-during-snapshot" and variant in ("repo", "model"):
             stop, fired = start_race_writer(root, env)
+        if case in ABA_CASES and variant in ("repo", "model"):
+            stop, fired, restored = start_aba_observer(
+                root, env, snap,
+                "untracked" if case == "aba-untracked-during-snapshot" else "tracked")
         if case == "git-config-parameters":
             rules = work / "exclude-rules"
             rules.write_text("u.txt\n")
@@ -356,6 +444,11 @@ def trial(case, variant, base):
         if case == "race-write-during-snapshot" and variant in ("repo", "model"):
             need(fired is not None and fired.is_set(),
                  "race writer never observed the manifest window (empty sample)")
+        if case in ABA_CASES and variant in ("repo", "model"):
+            need(fired is not None and fired.is_set(),
+                 "aba observer never observed the manifest window (empty sample)")
+            need(restored is not None and restored.is_set(),
+                 "aba observer never observed the rollback window (late rollback)")
         need(image(target) == target_before, "symlink target changed")
         need(not (work / "absent-target").exists(), "dangling symlink target created")
         return errors, [r.returncode for r in results]
