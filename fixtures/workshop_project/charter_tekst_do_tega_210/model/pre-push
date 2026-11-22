@@ -1,0 +1,461 @@
+#!/usr/bin/env bash
+# Барьер пуша (контракт 022, ветвь A): scoped чартер-суд диапазона пуша.
+#
+# Зачем: между рабочим деревом и origin не было механического судьи устава —
+# pre-commit судит staged, CI судит origin ПОСЛЕ пуша (необратимо); remote-side
+# pre-receive на plain GitHub недоступен. Этот хук судит КАЖДЫЙ пушимый ref на
+# ВХОДЕ, до необратимого шага. Обходы (`--no-verify`, fresh clone без хука) —
+# когнитивный остаток, названный прямо в контракте; ловец — CI check:charter.
+#
+# КОМАНДА GIT. Git подаёт хуку на stdin строки (по одной на пушимый ref):
+#   <local_ref> SP <local_sha> SP <remote_ref> SP <remote_sha> LF
+# local_sha для ветки = коммит, для АННОТИРОВАННОГО тега = tag-object. remote_sha
+# нулевой (40 нулей) для нового ref. Отказ хука (rc≠0) валит ВЕСЬ пуш.
+#
+# СУД. Договор — четыре пункта:
+#  1. **Все remote**, не только origin: каждая строка stdin судится независимо от
+#     имени remote. Сегодня remote один, но семантика «все» дешевле специального
+#     случая.
+#  2. **Аннотированные теги разыменовываются ^{commit} ДО Суда**: object локального
+#     ref для тега — tag-object, не коммит; `rev-list` требует коммитов. Разыменование
+#     делает `$deref` тем коммитом, чей diff судим. Если этот коммит уже достижим
+#     из ЖИВЫХ ref'ов origin, диапазон по п.3 пуст и origin получает лишь метку
+#     на чужой коммит — без новой публичности; если нет — коммит попадает в
+#     судимое множество целиком, и Н-78(3) «тег без своей линии» ловится как
+#     красный коммит в диапазоне (не как особая форма).
+#  3. **Диапазон (ВСЕГДА одинаковый)**: `$deref --not <живые_SHA_origin...>`.
+#     Судимое множество = коммиты, достижимые из $deref, минус коммиты,
+#     достижимые хотя бы из одного живого ref'а origin на момент пуша.
+#     Решение владельца Н-86(б): пере-суд уже принятой истории =
+#     «краснеет на неисправимом прошлом», каждый устав-коммит судится ровно раз
+#     — при первом попадании на origin. Поведение едино для нового ref (нулевой
+#     $remote_sha) и обновления (ненулевой, включая force-push и лечение): для
+#     первого пуша тега/ветки, чьи коммиты УЖЕ достижимы из живых origin-ref'ов
+#     (форма Н-78: бэкап-пуш мимо хука), диапазон пуст → повторный пуш не
+#     наказывается. Никакого blanket-пропуска класса «уже публичное», никаких
+#     маркеров в теле коммитов: каждый коммит в судимом — легитимно чужой origin'у.
+#  4. **База исключения — СНИМОК ЖИВОГО origin, не локальное зеркало** (Н-86, вердикт
+#     адверсария c000ed1). `refs/remotes/origin/*` — локальный снимок, может быть
+#     stale (ветка удалена на origin, локальный tracking жив) либо указывать на
+#     коммит, никогда не принятый origin'ом; обычный live push проходит без суда,
+#     если красный commit присутствует лишь в stale `refs/remotes/origin/ghost`.
+#     На старте хука (ДО перебора пуш-строк) делается ОДИН `git ls-remote origin`:
+#     собираются SHA всех живых ref'ов origin; они и есть база исключения.
+#     Если remote `origin` не настроен либо `ls-remote` возвращает rc≠0 (сеть,
+#     неверный URL, таймаут) — fail-closed именованным отказом класса
+#     «авторитет недоступен»: пуш сам бы не состоялся, защита не должна
+#     проходить с пустой базой. `ls-remote rc=0` с пустым выводом — пустой
+#     origin (только что создан, ни одного ref): база пуста, всё пушимое
+#     попадает в судимое, легит-первый-пуш проходит, красный умирает по
+#     обычной грамматике кольца. Локальные `refs/remotes/*` НЕ истина.
+#
+# КОЛЬЦО ОДНО. Судимое множество и вердикт наследуют scoped-семантику check_charter:
+# импорт `CHARTER_LIB=1` из scripts/check_charter.sh даёт is_charter_path,
+# charter_diff_paths, razreshil. Вторая реализация кольца запрещена (прецедент
+# lib_zones/lib_registry). razreshil перемещён выше точки возврата CHARTER_LIB в
+# scripts/check_charter.sh (контракт 022, И-2 круга 1).
+#
+# ПОИСК КОЛЬЦА. `$ROOT/scripts/check_charter.sh` — основной путь (рядом с хуком в
+# продакшене, копируется в $T/scripts/ фикстурами). Защита от toy-дефекта «add -A
+# втянул scripts/ в историю toy, последующий reset --hard BASE снёс каталог»
+# (прецедент И-3 круга 2 фикстуры red_push_lechenie): если основного пути нет,
+# хук поднимает check_charter.sh из любого коммита, когда-либо содержавшего
+# scripts/check_charter.sh — откат на источник в обход удалённого рабочего
+# дерева. В продакшене ветка такого пути не достигает.
+#
+# КРАСНЫЙ ВЕРДИКТ — ПОЛНЫЙ ДИАГНОЗ: ref (полный, refs/heads/… либо refs/tags/…),
+# коммит (полный sha; для тега — разыменованного), путь уставного файла. Тройка
+# равномерна в КАЖДОЙ честной красной фазе фикстур (арбитраж b43d7a0).
+set -uo pipefail
+
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -z "$ROOT" ] || [ ! -d "$ROOT" ]; then
+  printf 'pre-push: не удалось определить корень репозитория\n' >&2
+  exit 1
+fi
+
+# ИМПОРТ КОЛЬЦА — единственная реализация (CHARTER_LIB=1 возвращает после
+# определения трёх функций). check_charter устанавливает set -e/pipefail —
+# это нужно кольцу (команды с rc≠0 терпят крах с понятной ошибкой), но
+# хуку set -e не нужен: отказ суда выражен ИМЕНОВАННОЙ причиной и rc≠0 явно
+# в конце, без -e кратчайшая запись.
+CHARTER_LIB=1
+CHARTER_LOADED=0
+if [ -f "$ROOT/scripts/check_charter.sh" ]; then
+  # shellcheck disable=SC1091
+  . "$ROOT/scripts/check_charter.sh" && CHARTER_LOADED=1
+elif cc_in_history="$(git -C "$ROOT" rev-list --all --reflog -- scripts/check_charter.sh 2>/dev/null | head -n 1)" \
+     && [ -n "$cc_in_history" ]; then
+  # Поднимаем scripts/check_charter.sh из любого коммита, где он жил. Сценарий
+  # фикстуры: cp + add -A + commit подняли скрипт в историю; reset --hard к
+  # ранней заморозке снёс его из рабочего дерева; коммит с восстановлением не
+  # случился (фаза 4 lechenie). Кольцо импортируется из истории — это тот же
+  # скрипт, та же грамматика razreshil, тот же набор предикатов. check_charter
+  # при импорте подтягивает next_id.sh и lib_registry.sh относительно $SELF_DIR,
+  # потому поднимаем весь scripts/, а не один check_charter.sh.
+  TMP_CC_DIR="$(mktemp -d -t pre-push-cc.XXXXXX)" || {
+    printf 'pre-push: не удалось создать временный каталог для кольца\n' >&2
+    exit 1
+  }
+  if git -C "$ROOT" archive "${cc_in_history}" scripts/ 2>/dev/null \
+     | tar -x -C "$TMP_CC_DIR" 2>/dev/null \
+     && [ -f "$TMP_CC_DIR/scripts/check_charter.sh" ]; then
+    # shellcheck disable=SC1091
+    . "$TMP_CC_DIR/scripts/check_charter.sh" && CHARTER_LOADED=1
+  fi
+  rm -rf "$TMP_CC_DIR"
+fi
+if [ "$CHARTER_LOADED" -ne 1 ]; then
+  printf 'pre-push: scripts/check_charter.sh недоступен ни в рабочем дереве, ни в истории — суд диапазона пропущен (CI check:charter ловит на main)\n' >&2
+  exit 0
+fi
+set +e
+
+# razreshil() вызывает `g` (git -C $ROOT) и `bad` (печать имени причины).
+# Эти имена живут ТОЛЬКО в основном теле check_charter.sh ниже точки возврата;
+# вызвать razreshil из хука можно, лишь определив их в среде вызова. `bad` —
+# печать в stderr без счётчика; `g` — обёртка git -C.
+g() { git -C "$ROOT" "$@"; }
+bad() { printf '%s\n' "$*" >&2; }
+
+ZERO=0000000000000000000000000000000000000000
+rc=0
+
+# Устав не введён — у хука нечего судить; пропускаем (аналог «нет правил —
+# нет нарушения»; CI check:charter ловит на main). Без этой проверки
+# is_charter_path вернул бы rc 2 на каждом пути, размывая полезный сигнал.
+if ! git -C "$ROOT" rev-parse --verify --quiet 'refs/tags/ustav/1' >/dev/null 2>&1; then
+  if ! git -C "$ROOT" for-each-ref --format='%(refname)' 'refs/tags/frozen/' 2>/dev/null \
+     | grep -q '^refs/tags/frozen/.*/[0-9]\+/1$'; then
+    exit 0
+  fi
+fi
+
+# ─ СНИМОК ЖИВОГО origin (см. шапку, п.4) — единственный источник истины для
+# базы исключения диапазона. `git ls-remote origin` читает АВТОРИТЕТНОЕ
+# состояние origin (для file://bare — с диска; для ssh/http — с сервера);
+# локальные refs/remotes/origin/* НЕ участвуют. Один вызов на хук — все
+# пуш-строки используют тот же снимок.
+#   - remote `origin` не настроен → fail-closed (нет авторитета, защита не
+#     работает, пуш сам бы не состоялся);
+#   - `ls-remote` rc≠0 (origin недоступен: сеть, неверный URL, таймаут) →
+#     fail-closed (тот же класс «авторитет недоступен»: пуш сам бы не
+#     состоялся);
+#   - `ls-remote` rc=0, пустой вывод → LIVE_EXCLUDES пуст → весь пушимый
+#     диапазон судим, легит-первый-пуш зелёный, красный умирает по кольцу;
+#   - `ls-remote` rc=0, непустой вывод → LIVE_EXCLUDES = SHA всех живых
+#     ref'ов origin (refs/heads/*, refs/tags/*, HEAD если есть).
+LIVE_EXCLUDES=()
+# Проверка наличия remote `origin`: git config --get rc=1 при отсутствии ключа,
+# rc=0 при наличии (включая пустую строку — тоже считаем «не настроен»: `git
+# remote add` всегда кладёт непустой url). Имя отсутствующего remote — отдельная
+# именованная причина fail-closed: точнее, чем «ls-remote rc=128».
+origin_url=""
+origin_url_rc=0
+origin_url="$(git -C "$ROOT" config --get remote.origin.url 2>/dev/null)" || origin_url_rc=$?
+if [ "$origin_url_rc" -ne 0 ] || [ -z "$origin_url" ]; then
+  printf 'pre-push: remote origin не настроен (remote.origin.url пуст или отсутствует) — авторитет недоступен, защита диапазона невозможна (пуш сам бы не состоялся)\n' >&2
+  exit 1
+fi
+lsremote_out="$(git -C "$ROOT" ls-remote origin 2>/dev/null)"
+lsremote_rc=$?
+if [ "$lsremote_rc" -ne 0 ]; then
+  printf 'pre-push: git ls-remote origin (url=%s) вернул rc=%s — авторитет недоступен, защита диапазона невозможна (пуш сам бы не состоялся)\n' \
+    "$origin_url" "$lsremote_rc" >&2
+  exit 1
+fi
+# Собираем SHA живых origin-ref'ов в массив. Пустые строки и нулевые SHA (теоретически
+# встречаются для unborn ref) отбрасываем — база остаётся пустой, судья работает
+# по всему пушимому диапазону.
+LIVE_MAIN=""
+while IFS=$'\t' read -r lsr_sha lsr_refname; do
+  [ -n "$lsr_sha" ] || continue
+  [ "$lsr_sha" != "$ZERO" ] || continue
+  [ "$lsr_refname" = "refs/heads/main" ] && LIVE_MAIN="$lsr_sha"
+  # Объекта нет в локальной базе (ветка/тег origin, которые сюда не фетчились) — он не может
+  # быть предком пушимого коммита, исключать его не нужно. Раньше он попадал в `rev-list --not`,
+  # тот падал «bad object», ошибка глушилась, диапазон выходил пустым — и хук молча пропускал
+  # ЛЮБОЙ пуш (замер 2026-10-16: 21 из 883 живых SHA origin отсутствовали в основном чекауте;
+  # так прошли b0c39a58, 868d386f, 926f9bcf).
+  git -C "$ROOT" cat-file -e "${lsr_sha}^{commit}" 2>/dev/null || continue
+  LIVE_EXCLUDES+=( "$lsr_sha" )
+done <<< "$lsremote_out"
+
+# [167 merge-main-v-pr] Узкое исключение из запрета merge main→wip: полный merge
+# ЖИВОГО origin/main в ветку PR (wip — первый родитель, main — второй). Разрешён
+# ТОЛЬКО если: ветка PR — именованная wip-ветка предмета (wip/<NNN>/<автор>);
+# второй родитель — ровно живой origin/main (прошлый локальный main не авторитетен);
+# первый родитель не предок main (иначе это int-форма, а не полный merge ветки);
+# дельты main и ветки от merge-base не пересекаются по путям — либо единственное
+# пересечение — registry/contracts.tsv, и тогда результат содержит объединение
+# строк обеих сторон с однозначными ключами и без потери/перезаписи строки.
+# Неполный merge (`-s ours`), любая другая ветка, любое другое пересечение,
+# неопределённость — отказ (как и прежде). Грамматика строки реестра:
+# `^[0-9]{3} → [0-9a-f]{40}$`, ключ — первые три цифры.
+merge_167_razreshen() {  # <коммит> <remote ref> → 0 (разрешено) | 1 (запрещено)
+  local c="$1" ref="$2" p1 p2 base tree auto auto1 r line key val path
+  local r1 r2 ours theirs peresech reestr
+  local -a parents d1 d2 cm cm2
+  declare -A L=() R=() M=()
+  case "$ref" in refs/heads/wip/[0-9][0-9][0-9]/*) ;; *) return 1 ;; esac
+  [ -n "$LIVE_MAIN" ] || return 1
+  line="$(git -C "$ROOT" rev-list --parents -n 1 "$c" 2>/dev/null)" || return 1
+  read -r -a parents <<< "$line"
+  [ "${#parents[@]}" -eq 3 ] || return 1
+  p1="${parents[1]}"; p2="${parents[2]}"
+  [ "$p2" = "$LIVE_MAIN" ] || return 1
+  git -C "$ROOT" merge-base --is-ancestor "$p1" "$p2" 2>/dev/null; r=$?
+  [ "$r" -eq 1 ] || return 1
+  base="$(git -C "$ROOT" merge-base "$p1" "$p2" 2>/dev/null)" || return 1
+  [ -n "$base" ] || return 1
+  mapfile -t d1 < <(git -C "$ROOT" diff --no-renames --name-only "$base" "$p1" 2>/dev/null)
+  mapfile -t d2 < <(git -C "$ROOT" diff --no-renames --name-only "$base" "$p2" 2>/dev/null)
+  peresech=0; reestr=0
+  for path in "${d1[@]}"; do
+    for val in "${d2[@]}"; do
+      [ "$path" = "$val" ] || continue
+      if [ "$path" = 'registry/contracts.tsv' ]; then reestr=1; else peresech=1; fi
+    done
+  done
+  [ "$peresech" -eq 0 ] || return 1
+  tree="$(git -C "$ROOT" rev-parse "$c^{tree}" 2>/dev/null)" || return 1
+  auto="$(git -C "$ROOT" merge-tree --write-tree "$p1" "$p2" 2>/dev/null)"; r=$?
+  IFS= read -r auto1 <<< "$auto"
+  [ -n "$auto1" ] || return 1
+  if [ "$reestr" -eq 0 ]; then
+    # дельты раздельны — результат обязан быть полным merge main в ветку
+    [ "$r" -eq 0 ] || return 1
+    [ "$auto1" = "$tree" ] || return 1
+    return 0
+  fi
+  # единственное пересечение — реестр: строки обеих сторон должны уцелеть
+  for path in "$p1" "$p2" "$c"; do
+    git -C "$ROOT" show "$path:registry/contracts.tsv" >/dev/null 2>&1 || return 1
+  done
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    reg_167_stroka "$line" || return 1
+    key="${line%% *}"
+    [ -z "${L[$key]+x}" ] || return 1
+    L["$key"]="$line"
+  done < <(git -C "$ROOT" show "$p1:registry/contracts.tsv" 2>/dev/null)
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    reg_167_stroka "$line" || return 1
+    key="${line%% *}"
+    [ -z "${R[$key]+x}" ] || return 1
+    R["$key"]="$line"
+  done < <(git -C "$ROOT" show "$p2:registry/contracts.tsv" 2>/dev/null)
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    reg_167_stroka "$line" || return 1
+    key="${line%% *}"
+    [ -z "${M[$key]+x}" ] || return 1
+    M["$key"]="$line"
+  done < <(git -C "$ROOT" show "$c:registry/contracts.tsv" 2>/dev/null)
+  for key in "${!L[@]}"; do
+    if [ -n "${R[$key]+x}" ] && [ "${R[$key]}" != "${L[$key]}" ]; then return 1; fi
+    [ "${M[$key]-}" = "${L[$key]}" ] || return 1
+  done
+  for key in "${!R[@]}"; do
+    [ "${M[$key]-}" = "${R[$key]}" ] || return 1
+  done
+  for key in "${!M[@]}"; do
+    [ -n "${L[$key]+x}" ] || [ -n "${R[$key]+x}" ] || return 1
+  done
+  # прочие пути результата — как в независимом трёхстороннем слиянии
+  mapfile -t cm < <(git -C "$ROOT" diff --no-renames --name-only "$p1" "$c" 2>/dev/null)
+  mapfile -t cm2 < <(git -C "$ROOT" diff --no-renames --name-only "$p2" "$c" 2>/dev/null)
+  for path in "${cm[@]}" "${cm2[@]}"; do
+    [ "$path" = 'registry/contracts.tsv' ] && continue
+    ours="$(git -C "$ROOT" rev-parse "$c:$path" 2>/dev/null)"; r1=$?
+    theirs="$(git -C "$ROOT" rev-parse "$auto1:$path" 2>/dev/null)"; r2=$?
+    [ "$r1" -eq "$r2" ] || return 1
+    [ "$ours" = "$theirs" ] || return 1
+  done
+  return 0
+}
+# Строка реестра по грамматике 167: `^[0-9]{3} → [0-9a-f]{40}$` → 0 | 1.
+reg_167_stroka() {  # <строка>
+  local line="$1" key rest val
+  key="${line%% *}"
+  [ "${#key}" -eq 3 ] || return 1
+  case "$key" in [0-9][0-9][0-9]) ;; *) return 1 ;; esac
+  rest="${line#* }"
+  case "$rest" in '→ '*) val="${rest#→ }" ;; *) return 1 ;; esac
+  [ "${#val}" -eq 40 ] || return 1
+  case "$val" in *[!0-9a-f]*) return 1 ;; esac
+  return 0
+}
+
+# Merge main в ветку (норма арбитража merge-wip-protiv-main-konflikt-norm.md). Судится каждый
+# коммит-слияние в пуше в refs/heads/* кроме main. Свежесть к main — только через ленд или
+# int-ветку wip/int-<N>/<автор> от текущего main (main первым родителем).
+# Три исхода (ревью prepush-failopen-v1, Рв-PP-1/2): 0 — нарушение (причина в MM_REASON),
+# 1 — нарушения нет, 2 — проверить невозможно (вызывающий отказывает: неизвестность ≠ чисто).
+#   (а) int-форма: первый родитель — коммит из истории живого main; разрешена только в wip/int-*;
+#   (б) любой НЕ первый родитель приносит историю живого main, которой нет у первого родителя:
+#       хоть одна merge-base(родитель, живой main) не предок первого родителя. Ловит и merge
+#       локального main, ушедшего вперёд от живого (Рв-PP-2).
+MM_REASON=""
+merge_main_verdict() {  # <коммит> <remote ref>
+  local c="$1" ref="$2" line p1 p b r
+  local -a parents bases
+  MM_REASON=""
+  line="$(git -C "$ROOT" rev-list --parents -n 1 "$c")" || { MM_REASON="не читаются родители $c"; return 2; }
+  read -r -a parents <<< "$line"
+  [ "${#parents[@]}" -ge 3 ] || return 1
+  if [ -z "$LIVE_MAIN" ] || ! git -C "$ROOT" cat-file -e "${LIVE_MAIN}^{commit}" 2>/dev/null; then
+    MM_REASON="живого main origin нет в локальной базе — сделайте git fetch origin main и повторите push"
+    return 2
+  fi
+  p1="${parents[1]}"
+  # [167] узкое исключение: полный merge живого origin/main в ветку PR — только
+  # он и только по правилам merge_167_razreshen; любой другой merge main→wip
+  # остаётся запрещённым (норма арбитража merge-wip-protiv-main-konflikt-norm).
+  if merge_167_razreshen "$c" "$ref"; then
+    return 1
+  fi
+  git -C "$ROOT" merge-base --is-ancestor "$p1" "$LIVE_MAIN"; r=$?
+  if [ "$r" -eq 0 ]; then
+    case "$ref" in
+      refs/heads/wip/int-*) ;;
+      *) MM_REASON="первый родитель — коммит main (int-форма) вне ветки wip/int-*"; return 0 ;;
+    esac
+  elif [ "$r" -ne 1 ]; then
+    MM_REASON="merge-base --is-ancestor $p1 rc=$r"; return 2
+  fi
+  # Ориентиры main: живой снимок origin и локальный refs/heads/main, если он есть и отличается
+  # (Рв-PP-9: невыпущенная история локального main тоже не должна попадать в ветку).
+  local -a mains=( "$LIVE_MAIN" )
+  local lm
+  lm="$(git -C "$ROOT" rev-parse --verify --quiet 'refs/heads/main^{commit}' 2>/dev/null)" || lm=""
+  [ -n "$lm" ] && [ "$lm" != "$LIVE_MAIN" ] && mains+=( "$lm" )
+  for m in "${mains[@]}"; do
+    for p in "${parents[@]:2}"; do
+      mapfile -t bases < <(git -C "$ROOT" merge-base --all "$p" "$m")
+      [ "${#bases[@]}" -gt 0 ] || continue   # нет общей истории с main — истории main не несёт
+      for b in "${bases[@]}"; do
+        git -C "$ROOT" merge-base --is-ancestor "$b" "$p1"; r=$?
+        if [ "$r" -eq 1 ]; then
+          MM_REASON="родитель $p приносит историю main, которой нет у первого родителя"; return 0
+        elif [ "$r" -ne 0 ]; then
+          MM_REASON="merge-base --is-ancestor $b rc=$r"; return 2
+        fi
+      done
+    done
+  done
+  return 1
+}
+
+# docs/owner/ — канал владельца: путь, ВНЕСЁННЫЙ этим коммитом (для слияния — отличный от
+# всех родителей, т.е. чистое слияние чужой owner-правки не судится), при авторе ≠ owner.
+owner_docs_paths() {  # <коммит> → пути docs/owner/, внесённые коммитом
+  local c="$1" np
+  np=$(git -C "$ROOT" rev-list --parents -n 1 "$c" | awk '{print NF-1}')
+  if [ "$np" -ge 2 ]; then
+    git -C "$ROOT" diff-tree --cc --no-commit-id --name-only -r "$c" -- docs/owner/
+  else
+    git -C "$ROOT" diff-tree --root --no-commit-id --name-only -r "$c" -- docs/owner/
+  fi
+}
+
+while IFS=' ' read -r lref lsha rref rsha; do
+  [ -n "$lref" ] || continue
+  # Удаление ref (local_sha нулевой): пушимых коммитов нет — судить нечего.
+  [ "$lsha" != "$ZERO" ] || continue
+  # local_sha аннотированного тега — объект тега; разыменовываем до коммита.
+  # Если lsha не разыменовывается (lightweight tag, ветка), используем как есть.
+  case "$lref" in
+    refs/tags/*)
+      deref="$(git -C "$ROOT" rev-parse --verify --quiet "$lsha^{commit}" 2>/dev/null || printf '%s' "$lsha")"
+      ;;
+    *)
+      deref="$lsha"
+      ;;
+  esac
+
+  # Диапазон суда (Н-86, решение (б)): ВСЕГДА `$deref --not <живые_SHA_origin>` —
+  # коммиты, достижимые из $deref, минус коммиты, достижимые хотя бы из одного
+  # живого ref'а origin на момент пуша (см. шапку, п.3 и п.4 — снимок живой,
+  # не локальное зеркало refs/remotes/origin/*, которое может быть stale и
+  # указывать на коммит, никогда не принятый origin'ом). Поведение едино для
+  # нового ref (нулевой $remote_sha) и обновления (ненулевой, включая force-push
+  # и лечение): исторические owner-коммиты, уже на origin, повторно НЕ судятся.
+  # LIVE_EXCLUDES собран на старте хука ОДИН РАЗ (`git ls-remote origin` —
+  # фиксируется до перебора пуш-строк; см. блок выше перебора). Пустая база
+  # (новый origin, ls-remote rc=0 с пустым выводом) → всё пушимое судимо —
+  # легит-первый-пуш проходит, красный умирает по кольцу.
+  range_args=( "$deref" --not "${LIVE_EXCLUDES[@]}" )
+  # Диапазон считается ДО суда и с проверкой кода возврата: ошибка rev-list — отказ (fail-closed),
+  # а не пустой диапазон, который раньше молча пропускал пуш.
+  range_err="$(mktemp)"
+  if ! range_out="$(git -C "$ROOT" rev-list "${range_args[@]}" 2>"$range_err")"; then
+    printf 'ОТКАЗ: pre-push: не удалось вычислить диапазон пуша ref=%s (%s) — суд невозможен\n' \
+      "$lref" "$(head -n 1 "$range_err")" >&2
+    rm -f "$range_err"
+    rc=1
+    continue
+  fi
+  rm -f "$range_err"
+
+  # Судим КАЖДЫЙ коммит диапазона. charter_diff_paths сам различает merge (по ^1)
+  # и не-merge (по ^) — грамматика единая.
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      # is_charter_path: AGENTS.md/ROADMAP.md при живом ustav/1; plans|contracts/NNN-*
+      # при живом frozen/<dir>/<NNN>/1. rc 0/1 — да/нет; rc 2 — нечем проверить
+      # (тогда считаем «не уставной», судим только проверяемое).
+      is_charter_path "$f" "$ROOT" || continue
+      # Разрешение лежит В ТОМ ЖЕ коммите (Н-78, иначе индульгенция — см. шапку
+      # check_charter). razreshil возвращает 0, если строка валидна и зовёт
+      # раз; rc 1 — нет разрешения / строка вне грамматики.
+      if ! razreshil "$c" "$f"; then
+        publication_rc=0; charter_frozen_publication "$c" "$f" "$ROOT" || publication_rc=$?
+        if [ "$publication_rc" -eq 2 ]; then
+          printf 'ОТКАЗ: pre-push: не могу проверить публикацию заморозки: ref=%s коммит=%s путь=%s\n' \
+            "$lref" "$c" "$f" >&2
+          rc=1
+        elif [ "$publication_rc" -ne 0 ]; then
+          printf 'ОТКАЗ: pre-push: устав-дельта M/D без РАЗРЕШИЛ-ВЛАДЕЛЕЦ: ref=%s коммит=%s путь=%s\n' \
+            "$lref" "$c" "$f" >&2
+          rc=1
+        fi
+      fi
+    done < <(charter_diff_paths "$c" "$ROOT")
+
+    author="$(git -C "$ROOT" log -1 --format=%an "$c")"
+    if [ "$author" != "owner" ]; then
+      while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        printf 'ОТКАЗ: pre-push: docs/owner/ пишет только owner (канал владельца): ref=%s коммит=%s автор=%s путь=%s\n' \
+          "$lref" "$c" "$author" "$f" >&2
+        rc=1
+      done < <(owner_docs_paths "$c")
+    fi
+
+    case "$rref" in
+      refs/heads/main) ;;
+      refs/heads/*)
+        merge_main_verdict "$c" "$rref"; mv=$?
+        if [ "$mv" -eq 0 ]; then
+          printf 'ОТКАЗ: pre-push: merge main в ветку запрещён (арбитраж merge-wip-protiv-main-konflikt-norm): ref=%s коммит=%s — %s; свежесть к main — ленд или int-ветка wip/int-<N>/<автор> от main\n' \
+            "$rref" "$c" "$MM_REASON" >&2
+          rc=1
+        elif [ "$mv" -eq 2 ]; then
+          printf 'ОТКАЗ: pre-push: проверить слияние на merge main невозможно: ref=%s коммит=%s — %s\n' \
+            "$rref" "$c" "$MM_REASON" >&2
+          rc=1
+        fi
+        ;;
+    esac
+  done <<< "$range_out"
+done
+
+exit "$rc"
