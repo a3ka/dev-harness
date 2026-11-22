@@ -21,18 +21,33 @@
 # (git for-each-ref → rc 127) — ошибка инструмента ≠ пустой список тегов:
 # класс не определён → предупреждение, а не bootstrap.
 # И ещё четыре клетки повтора суда (и, к, л, м): повторный круг той же роли на
-# том же OBJECT — ПРЕДУПРЕЖДЕНИЕ с записью (номер повтора в учёте), сверку
-# ведёт ревьюер. (и) повтор без строки — предупреждение; (к) тот же повтор со
-# СТАРОЙ частной строкой `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР:` — то же предупреждение и
-# НИКАКОГО применения разрешения (частная строка убрана, её заменила общая);
-# (л) третий круг — то же предупреждение; (м) чужая частная строка (чужой
-# OBJECT, чужая роль, чужой предмет, строка вне формата) — то же предупреждение.
+# том же OBJECT — по контракту 208 (слово владельца 22.11, вариант А) ОТКАЗ
+# OBJECT_UZHE_SUZHEN (rc 1, учёт не меняется), а не предупреждение: повтор
+# допускается ТОЛЬКО по записанной в учёте санкции SANKCIJA с ПОЛНЫМ адресом
+# (repoId+subjectId+rol+object) и только пока круг не исчерпан. (и) повтор без
+# санкции — отказ; (к) тот же повтор со СТАРОЙ частной строкой
+# `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР:` — тот же отказ и НИКАКОГО применения разрешения
+# (частная строка убрана, её заменила общая); (л) третий круг — тот же отказ;
+# (м) чужая частная строка (чужой OBJECT, чужая роль, чужой предмет, строка
+# вне формата) — тот же отказ.
+# И ещё шесть клеток ГРАММАТИКИ записи санкции SANKCIJA (т, у, ш, щ, ю, к1) —
+# контракт 208, инвариант 6: запись санкции несёт ПОЛНЫЙ адрес, сравнение
+# ЛИТЕРАЛЬНОЕ, алфавиты замкнуты (repoId — идентификатор репозитория,
+# subjectId — [0-9]{3}, rol — роль из JUDGES, object — 40-hex). (т) санкция с
+# полным адресом — повтор ДОПУСКАЕТСЯ (круг записан); (у) санкция с чужим
+# полем адреса (OBJECT, роль, предмет, repoId) — повтор отказ; (ш) санкция при
+# исчерпанном круге (круги суда кончились) — отказ: санкция допускает ОДИН
+# круг; (щ) SLOVO и снятая владельцем частная строка санкцией НЕ являются —
+# отказ; (ю) значения полей с метасимволами, чужим регистром, лишним пробелом
+# или неверной длиной — санкцией не являются (сравнение литеральное) — отказ;
+# (к1) значение поля «склеено» (40-hex и хвост через пробел) — не санкция —
+# отказ.
 # И ещё две клетки того же слова — про ПОВТОР ИМЕНИ держателя (н, о): имя
 # держателя не идентификатор круга. (н) состоявшийся первый круг и второй —
-# под ТЕМ ЖЕ именем: третий круг — то же предупреждение, круг записывается.
-# (о) тот же повтор, но его RELEASE — технический обрыв `obryv_bez_verdikta`:
-# обрыв не стирает состоявшийся первый круг — следующий запрос то же
-# предупреждение (круг считается по учёту).
+# под ТЕМ ЖЕ именем: повтор виден двери → ОТКАЗ, круг НЕ записывается (отказ
+# учёт не меняет). (о) тот же повтор, но его RELEASE — технический обрыв
+# `obryv_bez_verdikta`: обрыв не стирает состоявшийся первый круг — следующий
+# запрос — тот же отказ (круг считается по учёту).
 # И ещё три клетки РАСКЛАДКИ реестра контрактов у владельца (п, р, с) —
 # проектный реестр: у проекта он лежит в .harness/registry/contracts.tsv (в
 # registry/ такого файла нет). (п) реестр ТОЛЬКО в проектном пути, у предмета
@@ -72,6 +87,21 @@
 # вовсе и записи warn нет; честная дверь пишет и предупреждение, и запись.
 # Сверка счётчика — номер повтора в записи warn (2 = первый круг жив): при
 # «съеденном» первом круге номер был бы 1.
+#
+# АДАПТАЦИЯ ПОД СЕМАНТИКУ 208 (слово владельца 22.11, вариант А): повтор той
+# же роли на том же OBJECT — ИМЕНОВАННЫЙ ОТКАЗ OBJECT_UZHE_SUZHEN (rc 1, учёт
+# не меняется, записи warn нет), а не предупреждение; допуск — только по
+# санкции SANKCIJA полного адреса (repoId+subjectId+rol+object) и только пока
+# круг не исчерпан. Поэтому клетки повтора ((и)–(о), (р1)–(р3)) судят ОТКАЗ,
+# а различает их прежний мутант сопоставления START↔RELEASE: «съеденный» им
+# первым кругом даёт НЕ отказ, а ПРОПУСК повтора (rc 0) — различие остаётся
+# различающим (и острее прежнего: наблюдение «предупреждение» сменилось
+# наблюдением «отказ»). Клетка (т) — положительный контроль грамматики
+# санкции: санкция с полным адресом повтор ДОПУСКАЕТ (rc 0, круг записан);
+# клетки (у), (ш), (щ), (ю), (к1) — негативы грамматики (чужие поля адреса,
+# исчерпанный круг, SLOVO и снятая частная строка как «санкция», значения
+# полей с метасимволами/регистром/пробелом/неверной длиной, «склеенное»
+# значение поля) — ни одна из них санкцией НЕ является.
 #
 # НЕРАЗДЕЛИМОСТЬ МУТАНТОВ (наблюдение implementer Impl140K01, подтверждено
 # прогоном; Н-39: привязка стабов — по коду, не прозой): мутанты `first`
@@ -354,6 +384,26 @@ zp_release_zapis() {  # <NNN> <holder> <prichina>
       >> "$ZP_T/sost/uchet.jsonl"
 }
 
+# Строка учёта — СЫРАЯ, значения полей задаёт клетка: грамматику записи
+# санкции SANKCIJA (контракт 208, инвариант 6) проверяет дверь, а не клетка.
+zp_uchet_stroka() {  # <json-строка>
+  printf '%s\n' "$1" >> "$ZP_T/sost/uchet.jsonl"
+}
+
+# Снимок учёта и его сверка: отказ (контракт 208) учёт НЕ меняет — ни START'а,
+# ни записи warn. Снимок снимается ПОСЛЕ подготовки мира клетки (сама санкция
+# SANKCIJA — часть подготовки, а не следствие вызова).
+zp_uchet_snimok() {
+  cp "$ZP_T/sost/uchet.jsonl" "$ZP_T/uchet.snimok" || return 1
+}
+zp_uchet_nezmenen() {  # <метка>
+  if ! cmp -s "$ZP_T/sost/uchet.jsonl" "$ZP_T/uchet.snimok"; then
+    printf 'zamok_predmeta: %s: отказ изменил учёт\n' "$1" >&2
+    return 1
+  fi
+  return 0
+}
+
 # Мир повтора суда: предмет с кандидатом (контракт в дереве OBJECT), автор
 # сдал, ПЕРВЫЙ critic сдал — круг суда роли на этом OBJECT состоялся.
 # Возвращает ZP_WT/ZP_BR/ZP_SHA кандидата.
@@ -474,6 +524,10 @@ battery_delimiter_collision() {
       'SUBJECT=140' "WORKTREE=$ZP_T/wt" "BRANCH=wip/140/avtor${ZP_TAB}podstroka"
   zp_sudit "$ZP_T/e3.json"
   zp_expect 1 PIN_NET 'TAB внутри BRANCH' || return 1
+  # (г) «склеенное» значение поля записи санкции SANKCIJA (контракт 208): хвост
+  #     соседнего поля внутри значения — значение НЕ разбирается по
+  #     разделителю и не обрезается: такая запись санкцией не является.
+  zp_kletka_sankcija_skleennyj_znach || return 1
   return 0
 }
 
@@ -498,6 +552,10 @@ battery_regex_injection() {
       'SUBJECT=140' 'SUBJECT=141' "WORKTREE=$ZP_T/wt" 'BRANCH=wip/140/avtor'
   zp_sudit "$ZP_T/e3.json"
   zp_expect 1 SUBEKT_DVA_V_ZADANII 'две строки SUBJECT' || return 1
+  # (г) Метасимволы и чужие форматы в полях записи санкции SANKCIJA (контракт
+  #     208): значение поля — литерал, шаблон НЕ разворачивается и не
+  #     подгоняется; такая запись санкцией не является.
+  zp_kletka_sankcija_grammatika || return 1
   return 0
 }
 
@@ -568,11 +626,15 @@ battery_silent_drop() {
   # Каждая идёт ОТДЕЛЬНО и печатает свой rc: иначе первый пробитый скрыл бы
   # остальные (мутант двери ломает их по-разному), и профиль не показал бы,
   # КАКОЙ именно вход не различился.
-  # (и)(к)(л)(м) — четыре клетки повтора суда вокруг строки разрешения
-  # владельца `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР:` (слово владельца 21.11 00:55):
-  # без строки — отказ; со строкой — один пропуск; третий круг с той же
-  # строкой — отказ; чужая строка (чужой OBJECT/роль/предмет, вне формата) —
-  # отказ.
+  # (и)(к)(л)(м) — четыре клетки повтора суда вокруг снятой владельцем строки
+  # `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР:` (слово владельца 21.11 12:06; контракт 208 —
+  # вариант А): повтор той же роли на том же OBJECT — именованный отказ, пока
+  # нет записанной в учёте санкции SANKCIJA полного адреса; снятая строка
+  # санкцией не является (ни сама по себе, ни чужая по предмету/роли/OBJECT).
+  # (т)(у)(ш)(щ) — четыре клетки ГРАММАТИКИ записи санкции (контракт 208):
+  # санкция полного адреса допускает повтор (не теряется молча), санкция с
+  # чужим полем адреса и санкция при исчерпанном круге — нет; SLOVO и снятая
+  # строка санкцией не являются.
   # (н)(о) — две клетки ПОВТОРА ИМЕНИ держателя: имя не идентификатор круга.
   # (п)(р)(с) — три клетки РАСКЛАДКИ реестра контрактов у владельца (проект):
   # реестр только в .harness/registry/contracts.tsv — судья допускается; реестра
@@ -599,6 +661,10 @@ battery_silent_drop() {
   zp_kletka_release_chuzhoy_holder || kletka_probit=1
   zp_kletka_release_filtr_posle_sootneseniya || kletka_probit=1
   zp_kletka_d39_proektny_reestr || kletka_probit=1
+  zp_kletka_sankcija_polnyj_adres || kletka_probit=1
+  zp_kletka_sankcija_chuzhye_pole || kletka_probit=1
+  zp_kletka_sankcija_krug_ischerpan || kletka_probit=1
+  zp_kletka_sankcija_ne_sankcija || kletka_probit=1
   [ "$kletka_probit" -eq 0 ] || return 1
   return 0
 }
@@ -674,76 +740,82 @@ zp_kletka_failref() {
   return 0
 }
 
-# (и) Второй круг ТОЙ ЖЕ роли на ТОМ ЖЕ OBJECT БЕЗ строки разрешения —
-#     ПРЕДУПРЕЖДЕНИЕ с записью (слово владельца 21.11 12:06): повтор судьи
-#     той же роли на том же OBJECT — не отказ, а факт для ревьюера (номер
-#     повтора пишется в запись).
+# (и) Второй круг ТОЙ ЖЕ роли на ТОМ ЖЕ OBJECT БЕЗ санкции SANKCIJA —
+#     ИМЕНОВАННЫЙ ОТКАЗ (контракт 208, слово владельца 22.11, вариант А):
+#     повтор допускается только по записанной в учёте санкции полного
+#     адреса; отказ учёт не меняет и записи warn не пишет.
 zp_kletka_povtor_bez_stroki() {
   zp_mir_povtora 208 || return 1
+  zp_uchet_snimok || return 1
   zp_event "$ZP_T/e2.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA"
   zp_sudit "$ZP_T/e2.json"
-  zp_kletka '(и) повтор той же роли на том же OBJECT без строки разрешения' "$ZP_RC"
-  zp_expect 0 - \
-      '(и) повтор той же роли на том же OBJECT без строки разрешения' || return 1
-  zp_est_predupr OBJECT_UZHE_SUZHEN \
-      '(и) повтор той же роли на том же OBJECT без строки разрешения' || return 1
-  zp_est_warn OBJECT_UZHE_SUZHEN 208 \
-      '(и) повтор той же роли на том же OBJECT без строки разрешения' || return 1
+  zp_kletka '(и) повтор той же роли на том же OBJECT без санкции — отказ' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN \
+      '(и) повтор той же роли на том же OBJECT без санкции — отказ' || return 1
+  zp_net_warn OBJECT_UZHE_SUZHEN 208 \
+      '(и) повтор той же роли на том же OBJECT без санкции — отказ' || return 1
+  zp_uchet_nezmenen \
+      '(и) повтор той же роли на том же OBJECT без санкции — отказ' || return 1
   return 0
 }
 
 # (к) Тот же повтор СО ЧАСТНОЙ строкой `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР:` — частная
 #     строка УБРАНА (её заменила общая `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК:`, слово
-#     владельца 21.11 12:06): повтор — то же предупреждение, и никакого
-#     применения разрешения в учёте.
+#     владельца 21.11 12:06; контракт 208 — санкцией повтора она не является):
+#     повтор — тот же отказ, и никакого применения разрешения в учёте.
 zp_kletka_povtor_so_stroka() {
   zp_mir_povtora 208 || return 1
+  zp_uchet_snimok || return 1
   zp_event "$ZP_T/e2.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA" \
       "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 208 critic $ZP_SHA"
   zp_sudit "$ZP_T/e2.json"
   zp_kletka '(к) повтор той же роли со частной строкой (не действует)' "$ZP_RC"
-  zp_expect 0 - '(к) повтор той же роли со частной строкой (не действует)' || return 1
-  zp_est_predupr OBJECT_UZHE_SUZHEN \
+  zp_expect 1 OBJECT_UZHE_SUZHEN \
       '(к) повтор той же роли со частной строкой (не действует)' || return 1
   if [ "$(zp_override_schet OBJECT_UZHE_SUZHEN 208)" != '0' ]; then
     printf 'zamok_predmeta: (к) частная строка дала применение разрешения в учёте\n' >&2
     return 1
   fi
+  zp_uchet_nezmenen \
+      '(к) повтор той же роли со частной строкой (не действует)' || return 1
   return 0
 }
 
-# (л) ТРЕТИЙ круг той же роли на том же OBJECT — то же предупреждение: кругов
-#     суда роли на этом OBJECT уже два, номер повтора растёт (слово владельца
-#     21.11 12:06: повтор — факт для ревьюера, а не отказ).
+# (л) ТРЕТИЙ круг той же роли на том же OBJECT — отказ (контракт 208): снятая
+#     владельцем частная строка санкцией повтора НЕ является, поэтому ни второй,
+#     ни третий круг не проходят; отказ учёт не меняет, круг не записывается.
 zp_kletka_povtor_tretiy() {
   zp_mir_povtora 208 || return 1
+  zp_uchet_snimok || return 1
   zp_event "$ZP_T/e2.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA" \
       "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 208 critic $ZP_SHA"
   zp_sudit "$ZP_T/e2.json"
-  if [ "$ZP_RC" -ne 0 ]; then
-    printf 'zamok_predmeta: разрешённый повтор не пропущен (rc %s): %s\n' "$ZP_RC" "$ZP_OUT" >&2
-    return 1
-  fi
+  zp_kletka '(л) второй круг той же роли той же строкой — отказ' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN \
+      '(л) второй круг той же роли той же строкой — отказ' || return 1
   zp_sdal Critic208b
   zp_event "$ZP_T/e3.json" critic Critic208c 'SUBJECT=208' "OBJECT=$ZP_SHA" \
       "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 208 critic $ZP_SHA"
   zp_sudit "$ZP_T/e3.json"
-  zp_kletka '(л) третий круг той же роли той же строкой' "$ZP_RC"
-  zp_expect 0 - '(л) третий круг той же роли той же строкой' || return 1
-  zp_est_predupr OBJECT_UZHE_SUZHEN '(л) третий круг той же роли той же строкой' || return 1
+  zp_kletka '(л) третий круг той же роли той же строкой — отказ' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN \
+      '(л) третий круг той же роли той же строкой — отказ' || return 1
+  zp_uchet_nezmenen \
+      '(л) третий круг той же роли той же строкой — отказ' || return 1
   return 0
 }
 
 # (м) Частная строка с ЧУЖИМ предметом/ролью/OBJECT (и вне формата) — тем
-#     более не действует: повтор — предупреждение, применения в учёте нет.
+#     более не действует: повтор — отказ (контракт 208), применения разрешения
+#     в учёте нет, учёт не меняется.
 zp_kletka_povtor_chuzhaya() {
   zp_mir_povtora 208 || return 1
+  zp_uchet_snimok || return 1
   zp_event "$ZP_T/e2.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA" \
       'РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 208 critic 0000000000000000000000000000000000000000'
   zp_sudit "$ZP_T/e2.json"
   zp_kletka '(м) частная строка с чужим OBJECT' "$ZP_RC"
-  zp_expect 0 - '(м) частная строка с чужим OBJECT' || return 1
-  zp_est_predupr OBJECT_UZHE_SUZHEN '(м) частная строка с чужим OBJECT' || return 1
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(м) частная строка с чужим OBJECT' || return 1
   # Судья сдал (журнал с yield) — иначе следующий запрос упёрся бы в живой
   # замок прежнего судьи, а не в правило строки.
   zp_sdal Critic208b
@@ -751,78 +823,77 @@ zp_kletka_povtor_chuzhaya() {
       "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 208 adversary $ZP_SHA"
   zp_sudit "$ZP_T/e3.json"
   zp_kletka '(м) частная строка с чужой ролью' "$ZP_RC"
-  zp_expect 0 - '(м) частная строка с чужой ролью' || return 1
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(м) частная строка с чужой ролью' || return 1
   zp_sdal Critic208b
   zp_event "$ZP_T/e4.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA" \
       "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 209 critic $ZP_SHA"
   zp_sudit "$ZP_T/e4.json"
   zp_kletka '(м) частная строка с чужим предметом' "$ZP_RC"
-  zp_expect 0 - '(м) частная строка с чужим предметом' || return 1
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(м) частная строка с чужим предметом' || return 1
   zp_sdal Critic208b
   zp_event "$ZP_T/e5.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA" \
       'РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 208 critic ne-40hex'
   zp_sudit "$ZP_T/e5.json"
   zp_kletka '(м) частная строка вне формата' "$ZP_RC"
-  zp_expect 0 - '(м) частная строка вне формата' || return 1
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(м) частная строка вне формата' || return 1
   if [ "$(zp_override_schet OBJECT_UZHE_SUZHEN 208)" != '0' ]; then
     printf 'zamok_predmeta: (м) чужая частная строка дала применение разрешения в учёте\n' >&2
     return 1
   fi
+  zp_uchet_nezmenen '(м) чужая частная строка' || return 1
   return 0
 }
 
 # (н) Третий круг под ТЕМ ЖЕ именем держателя, что и первый: имя держателя —
 #     НЕ идентификатор круга (между сессиями имена не уникализируются).
-#     Состоявшийся первый круг и второй (под тем же именем) считаются ОБА:
-#     третий круг — то же ПРЕДУПРЕЖДЕНИЕ (номер повтора растёт), круг
-#     записывается (START появляется). Клетка судит ПОВЕДЕНИЕ двери (rc +
-#     предупреждение + запись), а не текст счётчика.
+#     Состоявшийся первый круг виден двери и под ТЕМ ЖЕ именем: повтор —
+#     ИМЕНОВАННЫЙ ОТКАЗ (контракт 208), круг НЕ записывается, учёт не меняется.
+#     Клетка судит ПОВЕДЕНИЕ двери (rc + отказ + неизменность учёта), а не текст
+#     счётчика.
 zp_kletka_povtor_tretiy_ten_imya() {
   zp_mir_povtora 210 || return 1
   local h='Critic210' n_start
-  # Второй круг ПОД ТЕМ ЖЕ ИМЕНЕМ.
+  n_start="$(zp_startov 210 "$h")"
+  zp_uchet_snimok || return 1
+  # Второй круг ПОД ТЕМ ЖЕ ИМЕНЕМ — тот же повтор: отказ.
   zp_event "$ZP_T/e2.json" critic "$h" 'SUBJECT=210' "OBJECT=$ZP_SHA" \
       "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 210 critic $ZP_SHA"
   zp_sudit "$ZP_T/e2.json"
-  if [ "$ZP_RC" -ne 0 ]; then
-    printf 'zamok_predmeta: разрешённый повтор под тем же именем не пропущен (rc %s): %s\n' \
-        "$ZP_RC" "$ZP_OUT" >&2
+  zp_kletka '(н) второй круг под тем же именем держателя — отказ' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN \
+      '(н) второй круг под тем же именем держателя — отказ' || return 1
+  if [ "$(zp_startov 210 "$h")" -ne "$n_start" ]; then
+    printf 'zamok_predmeta: (н) отказ повтора записал круг START %s\n' "$h" >&2
     return 1
   fi
   zp_sdal "$h"
-  n_start="$(zp_startov 210 "$h")"
-  # Третий круг под тем же именем — то же предупреждение, круг записывается.
+  # Третий круг под тем же именем — тот же отказ.
   zp_event "$ZP_T/e3.json" critic "$h" 'SUBJECT=210' "OBJECT=$ZP_SHA" \
       "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 210 critic $ZP_SHA"
   zp_sudit "$ZP_T/e3.json"
   zp_kletka '(н) третий круг под тем же именем держателя' "$ZP_RC"
-  zp_expect 0 - '(н) третий круг под тем же именем держателя' || return 1
-  zp_est_predupr OBJECT_UZHE_SUZHEN '(н) третий круг под тем же именем держателя' || return 1
-  if [ "$(zp_startov 210 "$h")" -le "$n_start" ]; then
-    printf 'zamok_predmeta: повтор под тем же именем не записал круга START %s\n' "$h" >&2
-    return 1
-  fi
+  zp_expect 1 OBJECT_UZHE_SUZHEN \
+      '(н) третий круг под тем же именем держателя' || return 1
+  zp_uchet_nezmenen '(н) третий круг под тем же именем держателя' || return 1
   return 0
 }
 
 # (о) Тот же повтор под тем же именем, но его RELEASE — ТЕХНИЧЕСКИЙ ОБРЫВ
-#     `obryv_bez_verdikta`: обрыв закрывает только свой круг — состоявшийся
-#     первый круг не стирается (обрыв круг не тратит). Поэтому следующий
-#     запрос — то же ПРЕДУПРЕЖДЕНИЕ о повторе (круг считается по учёту), и
-#     круг записывается.
+#     `obryv_bez_verdikta`: обрыв закрывает только свой круг — обрыв круг НЕ
+#     тратит (круг считается по учёту). Порядок наблюдений при контракте 208
+#     (повтор — отказ): второй круг — отказ (первый круг жив); обрыв закрывает
+#     этот первый круг — следующий запрос круг начинает заново (rc 0, круг
+#     записан); после него — тот же повтор, отказ.
 zp_kletka_povtor_obryv_ten_imya() {
   zp_mir_povtora 211 || return 1
   local h='Critic211' n_start
-  # Второй круг ПОД ТЕМ ЖЕ ИМЕНЕМ.
+  # Второй круг ПОД ТЕМ ЖЕ ИМЕНЕМ: первый круг жив — повтор виден дверью.
   zp_event "$ZP_T/e2.json" critic "$h" 'SUBJECT=211' "OBJECT=$ZP_SHA" \
       "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 211 critic $ZP_SHA"
   zp_sudit "$ZP_T/e2.json"
-  if [ "$ZP_RC" -ne 0 ]; then
-    printf 'zamok_predmeta: разрешённый повтор под тем же именем не пропущен (rc %s): %s\n' \
-        "$ZP_RC" "$ZP_OUT" >&2
-    return 1
-  fi
-  # Технический обрыв второго круга: RELEASE судьи без закоммиченного вердикта.
+  zp_kletka '(о) второй круг под тем же именем — отказ' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(о) второй круг под тем же именем — отказ' || return 1
+  # Технический обрыв круга судьи: RELEASE судьи без закоммиченного вердикта.
   # Строку пишет сама дверь (--osvobodit); в офлайн-мире судью не освободить
   # (нужен ls-remote origin), поэтому строка обрыва пишется в учёт прямо — тем
   # же форматом, что пишет дверь (формат учёта прежний).
@@ -831,21 +902,26 @@ zp_kletka_povtor_obryv_ten_imya() {
       '{t:$t,repoId:$r,subjectId:$s,holder:$h,prichina:$p,at:$at}' \
       >> "$ZP_T/sost/uchet.jsonl"
   n_start="$(zp_startov 211 "$h")"
-  # Запрос без строки: первый круг уцелел — повтор виден дверью.
+  # Запрос без строки: обрыв круг не тратит — дверь считает круг НУЛЕВЫМ, круг
+  # начинается заново (допуск), и круг записывается.
   zp_event "$ZP_T/e3.json" critic "$h" 'SUBJECT=211' "OBJECT=$ZP_SHA"
   zp_sudit "$ZP_T/e3.json"
   zp_kletka '(о) запрос без строки после обрыва повтора под тем же именем' "$ZP_RC"
   zp_expect 0 - \
       '(о) запрос без строки после обрыва повтора под тем же именем' || return 1
-  zp_est_predupr OBJECT_UZHE_SUZHEN \
-      '(о) запрос без строки после обрыва повтора под тем же именем' || return 1
-  # Запрос со строкой: обрыв круг не тратит — тот же повтор.
+  if [ "$(zp_startov 211 "$h")" -le "$n_start" ]; then
+    printf 'zamok_predmeta: (о) круг после обрыва не записан START %s\n' "$h" >&2
+    return 1
+  fi
+  # Запрос со строкой: круг состоялся — тот же повтор, отказ.
+  zp_uchet_snimok || return 1
   zp_event "$ZP_T/e4.json" critic "$h" 'SUBJECT=211' "OBJECT=$ZP_SHA" \
       "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 211 critic $ZP_SHA"
   zp_sudit "$ZP_T/e4.json"
   zp_kletka '(о) запрос со строкой после обрыва повтора под тем же именем' "$ZP_RC"
-  zp_expect 0 - '(о) запрос со строкой после обрыва повтора под тем же именем' || return 1
-  zp_est_predupr OBJECT_UZHE_SUZHEN \
+  zp_expect 1 OBJECT_UZHE_SUZHEN \
+      '(о) запрос со строкой после обрыва повтора под тем же именем' || return 1
+  zp_uchet_nezmenen \
       '(о) запрос со строкой после обрыва повтора под тем же именем' || return 1
   return 0
 }
@@ -1059,24 +1135,23 @@ BRANCH=wip/215/avtor
 #     (`obryv_bez_verdikta`) того же держателя: RELEASE закрывает ПОСЛЕДНИЙ
 #     открытый START СВОЕГО holder'а — то есть промежуточный, а НЕ состоявшийся
 #     первый круг судьи. Первый круг не стёрт → дверь видит повтор круга:
-#     ПРЕДУПРЕЖДЕНИЕ OBJECT_UZHE_SUZHEN с записью (номер повтора 2).
+#     ОТКАЗ OBJECT_UZHE_SUZHEN (контракт 208), учёт не меняется.
 #     Дверь, закрывающая ПЕРВЫЙ открытый START держателя (мутант `first`),
-#     стёрла бы первый круг — предупреждения не было бы вовсе.
+#     стёрла бы первый круг — отказа не было бы вовсе (повтор прошёл бы).
 zp_kletka_release_poslednij_start() {
   zp_mir_povtora 216 || return 1
   zp_start_zapis 216 'Critic216' 'sudja' 'adversary' \
       '1111111111111111111111111111111111111111' "$ZP_WT" "$ZP_BR" || return 1
   zp_release_zapis 216 'Critic216' 'obryv_bez_verdikta' || return 1
+  zp_uchet_snimok || return 1
   zp_event "$ZP_T/e2.json" critic 'Critic216b' 'SUBJECT=216' "OBJECT=$ZP_SHA"
   zp_sudit "$ZP_T/e2.json"
   zp_kletka '(р1) обрыв закрывает ПОСЛЕДНИЙ открытый START своего держателя' "$ZP_RC"
-  zp_expect 0 - \
+  zp_expect 1 OBJECT_UZHE_SUZHEN \
       '(р1) обрыв закрывает ПОСЛЕДНИЙ открытый START своего держателя' || return 1
-  zp_est_predupr OBJECT_UZHE_SUZHEN \
+  zp_net_warn OBJECT_UZHE_SUZHEN 216 \
       '(р1) обрыв закрывает ПОСЛЕДНИЙ открытый START своего держателя' || return 1
-  zp_est_warn OBJECT_UZHE_SUZHEN 216 \
-      '(р1) обрыв закрывает ПОСЛЕДНИЙ открытый START своего держателя' || return 1
-  zp_est_povtor OBJECT_UZHE_SUZHEN 216 2 \
+  zp_uchet_nezmenen \
       '(р1) обрыв закрывает ПОСЛЕДНИЙ открытый START своего держателя' || return 1
   return 0
 }
@@ -1084,22 +1159,21 @@ zp_kletka_release_poslednij_start() {
 # (р2) RELEASE ЧУЖОГО держателя: он закрывает последний открытый START СВОЕГО
 #     holder'а, и открытый START круга судьи (другой держатель) закрывать не
 #     вправе. Поэтому состоявшийся первый круг судьи жив → дверь видит повтор:
-#     ПРЕДУПРЕЖДЕНИЕ OBJECT_UZHE_SUZHEN с записью (номер повтора 2). Дверь,
+#     ОТКАЗ OBJECT_UZHE_SUZHEN (контракт 208), учёт не меняется. Дверь,
 #     закрывающая последний открытый START вообще (без holder'а; мутант
-#     `foreignholder`), стёрла бы круг судьи — предупреждения не было бы.
+#     `foreignholder`), стёрла бы круг судьи — отказа не было бы (повтор прошёл бы).
 zp_kletka_release_chuzhoy_holder() {
   zp_mir_povtora 217 || return 1
   zp_release_zapis 217 'Avtor217' 'obryv_bez_verdikta' || return 1
+  zp_uchet_snimok || return 1
   zp_event "$ZP_T/e2.json" critic 'Critic217b' 'SUBJECT=217' "OBJECT=$ZP_SHA"
   zp_sudit "$ZP_T/e2.json"
   zp_kletka '(р2) RELEASE чужого держателя не закрывает открытый START круга' "$ZP_RC"
-  zp_expect 0 - \
+  zp_expect 1 OBJECT_UZHE_SUZHEN \
       '(р2) RELEASE чужого держателя не закрывает открытый START круга' || return 1
-  zp_est_predupr OBJECT_UZHE_SUZHEN \
+  zp_net_warn OBJECT_UZHE_SUZHEN 217 \
       '(р2) RELEASE чужого держателя не закрывает открытый START круга' || return 1
-  zp_est_warn OBJECT_UZHE_SUZHEN 217 \
-      '(р2) RELEASE чужого держателя не закрывает открытый START круга' || return 1
-  zp_est_povtor OBJECT_UZHE_SUZHEN 217 2 \
+  zp_uchet_nezmenen \
       '(р2) RELEASE чужого держателя не закрывает открытый START круга' || return 1
   return 0
 }
@@ -1108,27 +1182,230 @@ zp_kletka_release_chuzhoy_holder() {
 #     OBJECT: RELEASE соотносится по ПОСЛЕДОВАТЕЛЬНОСТИ START своего holder'а,
 #     а фильтр по роли/OBJECT/классу применяется ПОСЛЕ соотнесения. Промежуточный
 #     START другого класса (rabochiy) поглощает обрыв, первый круг судьи
-#     (sudja/critic/OBJECT) остаётся → дверь видит повтор: ПРЕДУПРЕЖДЕНИЕ
-#     OBJECT_UZHE_SUZHEN с записью (номер повтора 2). Дверь, отбирающая START
+#     (sudja/critic/OBJECT) остаётся → дверь видит повтор: ОТКАЗ
+#     OBJECT_UZHE_SUZHEN (контракт 208), учёт не меняется. Дверь, отбирающая START
 #     по роли/OBJECT/классу ДО соотнесения (мутант `preselect`) либо закрывшая
 #     ПЕРВЫЙ открытый START (мутант `first`), закрыла бы первый круг —
-#     предупреждения не было бы.
+#     отказа не было бы (повтор прошёл бы).
 zp_kletka_release_filtr_posle_sootneseniya() {
   zp_mir_povtora 218 || return 1
   zp_start_zapis 218 'Critic218' 'rabochiy' 'implementer' \
       '2222222222222222222222222222222222222222' "$ZP_WT" "$ZP_BR" || return 1
   zp_release_zapis 218 'Critic218' 'obryv_bez_verdikta' || return 1
+  zp_uchet_snimok || return 1
   zp_event "$ZP_T/e2.json" critic 'Critic218b' 'SUBJECT=218' "OBJECT=$ZP_SHA"
   zp_sudit "$ZP_T/e2.json"
   zp_kletka '(р3) фильтр по роли/OBJECT/классу — ПОСЛЕ соотнесения START↔RELEASE' "$ZP_RC"
-  zp_expect 0 - \
+  zp_expect 1 OBJECT_UZHE_SUZHEN \
       '(р3) фильтр по роли/OBJECT/классу — ПОСЛЕ соотнесения START↔RELEASE' || return 1
-  zp_est_predupr OBJECT_UZHE_SUZHEN \
+  zp_net_warn OBJECT_UZHE_SUZHEN 218 \
       '(р3) фильтр по роли/OBJECT/классу — ПОСЛЕ соотнесения START↔RELEASE' || return 1
-  zp_est_warn OBJECT_UZHE_SUZHEN 218 \
+  zp_uchet_nezmenen \
       '(р3) фильтр по роли/OBJECT/классу — ПОСЛЕ соотнесения START↔RELEASE' || return 1
-  zp_est_povtor OBJECT_UZHE_SUZHEN 218 2 \
-      '(р3) фильтр по роли/OBJECT/классу — ПОСЛЕ соотнесения START↔RELEASE' || return 1
+  return 0
+}
+
+# ── грамматика записи санкции SANKCIJA (контракт 208, инвариант 6) ─────────
+# Санкция повтора — строка учёта {"t":"SANKCIJA","repoId":…,"subjectId":…,
+# "rol":…,"object":…} с ПОЛНЫМ адресом, равным событию; сравнение ЛИТЕРАЛЬНОЕ,
+# алфавиты замкнуты (repoId — идентификатор репозитория, subjectId — [0-9]{3},
+# rol — роль из JUDGES, object — 40-hex). Клетки ниже — гигиена ПАРСИНГА этой
+# записи: подходящая запись допускает повтор; неподходящая (чужое поле адреса,
+# чужой формат, чужой регистр, лишний пробел, «склеенное» значение, запись
+# вовсе не о санкции) — санкцией НЕ является.
+
+# (т) Санкция с ПОЛНЫМ адресом — повтор той же роли на том же OBJECT
+#     ДОПУСКАЕТСЯ (rc 0), круг записывается. Дверь, читающая санкцию не по
+#     полному адресу (или не читающая её вовсе), отказала бы в повторе.
+zp_kletka_sankcija_polnyj_adres() {
+  zp_mir_povtora 219 || return 1
+  zp_uchet_stroka "$(jq -nc --arg r dev-harness --arg s 219 --arg ro critic \
+      --arg o "$ZP_SHA" \
+      '{t:"SANKCIJA",repoId:$r,subjectId:$s,rol:$ro,object:$o}')" || return 1
+  zp_event "$ZP_T/e2.json" critic Critic219b 'SUBJECT=219' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e2.json"
+  zp_kletka '(т) санкция SANKCIJA с полным адресом — повтор допущен' "$ZP_RC"
+  zp_expect 0 - '(т) санкция SANKCIJA с полным адресом — повтор допущен' || return 1
+  if [ "$(zp_startov 219 Critic219b)" -lt 1 ]; then
+    printf 'zamok_predmeta: (т) допущенный повтор не записал круга START Critic219b\n' >&2
+    return 1
+  fi
+  return 0
+}
+
+# (у) Санкция с ЧУЖИМ полем адреса (OBJECT / роль / предмет / repoId) — санкцией
+#     НЕ является: адрес не равен событию. Повтор — отказ, учёт не меняется.
+zp_kletka_sankcija_chuzhye_pole() {
+  local chuhoi='4444444444444444444444444444444444444444'
+  zp_mir_povtora 220 || return 1
+  # (у1) чужой OBJECT.
+  zp_uchet_stroka "$(jq -nc --arg r dev-harness --arg s 220 --arg ro critic \
+      --arg o "$chuhoi" '{t:"SANKCIJA",repoId:$r,subjectId:$s,rol:$ro,object:$o}')"
+  zp_uchet_snimok || return 1
+  zp_event "$ZP_T/e2.json" critic Critic220b 'SUBJECT=220' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e2.json"
+  zp_kletka '(у) санкция с чужим OBJECT — отказ' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(у) санкция с чужим OBJECT — отказ' || return 1
+  zp_uchet_nezmenen '(у) санкция с чужим OBJECT — отказ' || return 1
+  # (у2) чужая роль (роль из JUDGES: critic/adversary/reviewer).
+  zp_uchet_stroka "$(jq -nc --arg r dev-harness --arg s 220 --arg ro reviewer \
+      --arg o "$ZP_SHA" '{t:"SANKCIJA",repoId:$r,subjectId:$s,rol:$ro,object:$o}')"
+  zp_uchet_snimok || return 1
+  zp_event "$ZP_T/e3.json" critic Critic220c 'SUBJECT=220' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e3.json"
+  zp_kletka '(у) санкция с чужой ролью — отказ' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(у) санкция с чужой ролью — отказ' || return 1
+  zp_uchet_nezmenen '(у) санкция с чужой ролью — отказ' || return 1
+  # (у3) чужой предмет.
+  zp_uchet_stroka "$(jq -nc --arg r dev-harness --arg s 225 --arg ro critic \
+      --arg o "$ZP_SHA" '{t:"SANKCIJA",repoId:$r,subjectId:$s,rol:$ro,object:$o}')"
+  zp_uchet_snimok || return 1
+  zp_event "$ZP_T/e4.json" critic Critic220d 'SUBJECT=220' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e4.json"
+  zp_kletka '(у) санкция с чужим предметом — отказ' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(у) санкция с чужим предметом — отказ' || return 1
+  zp_uchet_nezmenen '(у) санкция с чужим предметом — отказ' || return 1
+  # (у4) чужой repoId (пространство имён замка).
+  zp_uchet_stroka "$(jq -nc --arg r other-repo --arg s 220 --arg ro critic \
+      --arg o "$ZP_SHA" '{t:"SANKCIJA",repoId:$r,subjectId:$s,rol:$ro,object:$o}')"
+  zp_uchet_snimok || return 1
+  zp_event "$ZP_T/e5.json" critic Critic220e 'SUBJECT=220' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e5.json"
+  zp_kletka '(у) санкция с чужим repoId — отказ' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(у) санкция с чужим repoId — отказ' || return 1
+  zp_uchet_nezmenen '(у) санкция с чужим repoId — отказ' || return 1
+  return 0
+}
+
+# (ш) Санкция есть, но круг ИСЧЕРПАН: допуск — только пока кругов суда один
+#     (инвариант 6). Второй круг санкцией допускается (и круг записывается);
+#     после его закрытия кругов два — следующий повтор отказ, санкция в учёте
+#     не помогает.
+zp_kletka_sankcija_krug_ischerpan() {
+  zp_mir_povtora 221 || return 1
+  zp_uchet_stroka "$(jq -nc --arg r dev-harness --arg s 221 --arg ro critic \
+      --arg o "$ZP_SHA" '{t:"SANKCIJA",repoId:$r,subjectId:$s,rol:$ro,object:$o}')"
+  zp_event "$ZP_T/e2.json" critic Critic221b 'SUBJECT=221' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e2.json"
+  zp_kletka '(ш) санкция при неисчерпанном круге — повтор допущен' "$ZP_RC"
+  zp_expect 0 - '(ш) санкция при неисчерпанном круге — повтор допущен' || return 1
+  if [ "$(zp_startov 221 Critic221b)" -lt 1 ]; then
+    printf 'zamok_predmeta: (ш) допущенный повтор не записал круга START Critic221b\n' >&2
+    return 1
+  fi
+  zp_sdal Critic221b
+  # Круг закрыт собственным RELEASE holder'а: кругов суда стало два.
+  zp_release_zapis 221 Critic221b 'verdikt_zakommiten' || return 1
+  zp_uchet_snimok || return 1
+  zp_event "$ZP_T/e3.json" critic Critic221c 'SUBJECT=221' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e3.json"
+  zp_kletka '(ш) санкция при исчерпанном круге — отказ' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(ш) санкция при исчерпанном круге — отказ' || return 1
+  zp_uchet_nezmenen '(ш) санкция при исчерпанном круге — отказ' || return 1
+  return 0
+}
+
+# (щ) Запись учёта, санкцией НЕ являющаяся: SLOVO (лимит группы) и снятая
+#     владельцем частная строка задания `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР:` — ни то,
+#     ни другое повтор не разрешает. Повтор — отказ, учёт не меняется.
+zp_kletka_sankcija_ne_sankcija() {
+  zp_mir_povtora 222 || return 1
+  # (щ1) SLOVO в учёте.
+  zp_uchet_stroka "$(jq -nc --arg r dev-harness --arg s 222 \
+      '{t:"SLOVO",repoId:$r,subjectId:$s}')"
+  zp_uchet_snimok || return 1
+  zp_event "$ZP_T/e2.json" critic Critic222b 'SUBJECT=222' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e2.json"
+  zp_kletka '(щ) SLOVO в учёте — не санкция повтора, отказ' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(щ) SLOVO в учёте — не санкция повтора, отказ' || return 1
+  zp_uchet_nezmenen '(щ) SLOVO в учёте — не санкция повтора, отказ' || return 1
+  # (щ2) снятая владельцем частная строка задания.
+  zp_event "$ZP_T/e3.json" critic Critic222c 'SUBJECT=222' "OBJECT=$ZP_SHA" \
+      "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 222 critic $ZP_SHA"
+  zp_sudit "$ZP_T/e3.json"
+  zp_kletka '(щ) снятая частная строка — не санкция, отказ' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(щ) снятая частная строка — не санкция, отказ' || return 1
+  zp_uchet_nezmenen '(щ) снятая частная строка — не санкция, отказ' || return 1
+  return 0
+}
+
+# (ю) Грамматика значений записи: метасимволы, чужой регистр, лишний пробел,
+#     неверная длина — санкцией НЕ являются (сравнение литеральное, склейки
+#     из чужого текста нет). Повтор — отказ, учёт не меняется.
+zp_kletka_sankcija_grammatika() {
+  zp_mir_povtora 223 || return 1
+  # (ю1) object короче 40-hex.
+  zp_uchet_stroka "$(jq -nc --arg r dev-harness --arg s 223 --arg ro critic \
+      --arg o "${ZP_SHA%?}" '{t:"SANKCIJA",repoId:$r,subjectId:$s,rol:$ro,object:$o}')"
+  zp_uchet_snimok || return 1
+  zp_event "$ZP_T/e2.json" critic Critic223b 'SUBJECT=223' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e2.json"
+  zp_kletka '(ю) object не 40-hex — не санкция, отказ' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(ю) object не 40-hex — не санкция, отказ' || return 1
+  zp_uchet_nezmenen '(ю) object не 40-hex — не санкция, отказ' || return 1
+  # (ю2) subjectId с метасимволами.
+  zp_uchet_stroka "$(jq -nc --arg r dev-harness --arg s '223 OR 1=1' --arg ro critic \
+      --arg o "$ZP_SHA" '{t:"SANKCIJA",repoId:$r,subjectId:$s,rol:$ro,object:$o}')"
+  zp_uchet_snimok || return 1
+  zp_event "$ZP_T/e3.json" critic Critic223c 'SUBJECT=223' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e3.json"
+  zp_kletka '(ю) subjectId с метасимволами — не санкция, отказ' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(ю) subjectId с метасимволами — не санкция, отказ' || return 1
+  zp_uchet_nezmenen '(ю) subjectId с метасимволами — не санкция, отказ' || return 1
+  # (ю3) роль вне JUDGES (с метасимволом).
+  zp_uchet_stroka "$(jq -nc --arg r dev-harness --arg s 223 --arg ro 'critic.*' \
+      --arg o "$ZP_SHA" '{t:"SANKCIJA",repoId:$r,subjectId:$s,rol:$ro,object:$o}')"
+  zp_uchet_snimok || return 1
+  zp_event "$ZP_T/e4.json" critic Critic223d 'SUBJECT=223' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e4.json"
+  zp_kletka '(ю) роль вне JUDGES — не санкция, отказ' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(ю) роль вне JUDGES — не санкция, отказ' || return 1
+  zp_uchet_nezmenen '(ю) роль вне JUDGES — не санкция, отказ' || return 1
+  # (ю4) тип записи в чужом регистре.
+  zp_uchet_stroka "$(jq -nc --arg r dev-harness --arg s 223 --arg ro critic \
+      --arg o "$ZP_SHA" '{t:"sankcija",repoId:$r,subjectId:$s,rol:$ro,object:$o}')"
+  zp_uchet_snimok || return 1
+  zp_event "$ZP_T/e5.json" critic Critic223e 'SUBJECT=223' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e5.json"
+  zp_kletka '(ю) тип записи в чужом регистре — не санкция, отказ' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(ю) тип записи в чужом регистре — не санкция, отказ' || return 1
+  zp_uchet_nezmenen '(ю) тип записи в чужом регистре — не санкция, отказ' || return 1
+  # (ю5) repoId с лишним пробелом.
+  zp_uchet_stroka "$(jq -nc --arg r 'dev-harness ' --arg s 223 --arg ro critic \
+      --arg o "$ZP_SHA" '{t:"SANKCIJA",repoId:$r,subjectId:$s,rol:$ro,object:$o}')"
+  zp_uchet_snimok || return 1
+  zp_event "$ZP_T/e6.json" critic Critic223f 'SUBJECT=223' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e6.json"
+  zp_kletka '(ю) repoId с лишним пробелом — не санкция, отказ' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(ю) repoId с лишним пробелом — не санкция, отказ' || return 1
+  zp_uchet_nezmenen '(ю) repoId с лишним пробелом — не санкция, отказ' || return 1
+  return 0
+}
+
+# (к1) «СКЛЕЕННОЕ» значение поля: значение несёт хвост соседнего поля
+#      (40-hex и роль через пробел) — дверь не должна ни обрезать, ни
+#      разобрать значение по разделителю: санкцией такая запись НЕ является.
+zp_kletka_sankcija_skleennyj_znach() {
+  zp_mir_povtora 224 || return 1
+  # (к1а) object = 40-hex + пробел + роль.
+  zp_uchet_stroka "$(jq -nc --arg r dev-harness --arg s 224 --arg ro critic \
+      --arg o "$ZP_SHA critic" \
+      '{t:"SANKCIJA",repoId:$r,subjectId:$s,rol:$ro,object:$o}')"
+  zp_uchet_snimok || return 1
+  zp_event "$ZP_T/e2.json" critic Critic224b 'SUBJECT=224' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e2.json"
+  zp_kletka '(к1а) object «склеен» с ролью — не санкция, отказ' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(к1а) object «склеен» с ролью — не санкция, отказ' || return 1
+  zp_uchet_nezmenen '(к1а) object «склеен» с ролью — не санкция, отказ' || return 1
+  # (к1б) роль = роль + пробел + 40-hex.
+  zp_uchet_stroka "$(jq -nc --arg r dev-harness --arg s 224 --arg ro "critic $ZP_SHA" \
+      --arg o "$ZP_SHA" '{t:"SANKCIJA",repoId:$r,subjectId:$s,rol:$ro,object:$o}')"
+  zp_uchet_snimok || return 1
+  zp_event "$ZP_T/e3.json" critic Critic224c 'SUBJECT=224' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e3.json"
+  zp_kletka '(к1б) роль «склеена» с OBJECT — не санкция, отказ' "$ZP_RC"
+  zp_expect 1 OBJECT_UZHE_SUZHEN '(к1б) роль «склеена» с OBJECT — не санкция, отказ' || return 1
+  zp_uchet_nezmenen '(к1б) роль «склеена» с OBJECT — не санкция, отказ' || return 1
   return 0
 }
 
