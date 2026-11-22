@@ -21,6 +21,15 @@
 # у продукт-судьи), стабы s95/s96, зондовые тесты Б-3 и исполняемые
 # мутанты safe-rezerv-nul/safe-konstanta; прежние клетки не ослаблены
 # (63 клетки, 34 стаба, 53 привязки).
+# v6-перевод (2026-11-22, слово владельца ~10:53): токенный гейт судит
+# ЗНАЧЕНИЯ проекции mobile/src/theme/nav-tokens.ts (kompakt-tokens.ts
+# снят); записи 393 — ПРОИЗВОДНЫЕ эталоны safe-area
+# (etalony_safe_area/postroit.py + manifest.json, семья
+# mobile/etalony-vkladki-393/), гейты ETALON_393_NE_PROIZVODNYJ и
+# POROG_NE_0_600 у обоих судей; +4 клетки (porog-oslablen,
+# etalon-393-nizhe-poroga, pr-etalon-393-chuzhoj-bajt,
+# pr-porog-oslablen), +3 стаба (s99/s100/s101) — 67 клеток, 37 стабов,
+# 56 привязок; порог 0.600 и прежние клетки не ослаблены.
 # v5-перенацел (2026-11-15): статические якоря продукт-судьи сняты с
 # формы PR #147 (замещена v5) — MITTE-маркеры судят ключи каталога
 # ui.mission.group.*, KOPII — только каталог 1.1 + запреты финала-2 и

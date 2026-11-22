@@ -1,7 +1,16 @@
-# Оси батареи 148 (vkladki-tabov) — 63 клетки, 34 стаба, 53 привязки
-# (`--model` rc 0 63/63; `--stabs` rc 0, контроль 63/63,
-# «SVJAZI 53», живых 0; без флага — rc 1, зелёных 37 /
-# красных 26: продукта в дереве харнесса нет).
+# Оси батареи 148 (vkladki-tabov) — 67 клеток, 37 стабов, 56 привязки
+# (`--model` rc 0 67/67; `--stabs` rc 0, контроль 67/67,
+# «SVJAZI 56», живых 0; без флага — rc 1: продукта в дереве харнесса
+# нет — живые красноты поимённо).
+# v6-перевод (2026-11-22, слово владельца ~10:53): токенный гейт судит
+# ЗНАЧЕНИЯ проекции mobile/src/theme/nav-tokens.ts (модуль
+# kompakt-tokens.ts снят); записи 393 — ПРОИЗВОДНЫЕ эталоны safe-area
+# (etalony_safe_area/postroit.py + manifest.json, семья
+# mobile/etalony-vkladki-393/), гейты ETALON_393_NE_PROIZVODNYJ и
+# POROG_NE_0_600 у обоих судей; клетки porog-oslablen /
+# etalon-393-nizhe-poroga / pr-etalon-393-chuzhoj-bajt /
+# pr-porog-oslablen, стабы s99/s100/s101; порог 0.600 и прежние
+# клетки не ослаблены (снимок kejsy переснят, честные базы rc 0).
 # v5-перенацел (2026-11-15): статические якоря продукт-судьи сняты с
 # формы PR #147 (замещена v5): MITTE-маркеры судят КЛЮЧИ каталога 1.1
 # (не имена внутренних полей), KOPII — только ключи каталога + ЗАПРЕТ
@@ -19,7 +28,9 @@ source.json — привязка кодом, не прозой):
   nositeli/paket/SHA256SUMS пакета D24-Kompakt-1.1; возврат пина
   D 2.4 Final 2 — PAKET_1_1_NE_PRIPINEN; v3a Crit148k2a Б1: гейт ИМЁН
   KADR_PODMENEN — пин каждой записи ↔ её идентификатор по оракулу
-  kadry_manifest/profil_kadry) ПОСЛЕ визуального суда
+  kadry_manifest/profil_kadry; v6: гейт ПОРОГА — porog каждой записи
+  обоих манифестов == 0.600 — POROG_NE_0_600 «без ослабления порога»)
+  ПОСЛЕ визуального суда
   делегата `--sud` (живой `scripts/ekran_shablon.py` или эталон) на
   модельной пачке «vkladki» (shablon 3; носители — 16 кадров
   GA-02/03/04/09 пакета D24-Kompakt-1.1 по ИМЕНАМ пакета, байты
@@ -38,6 +49,15 @@ source.json — привязка кодом, не прозой):
 - **B (продукт)** — `produkt_sud.py --repo R`: маркеры шва/контента,
   пины кадров по каноническим путям R (docs/ux/05_Kompakt_D24/frames/,
   гейт пакета PAKET_1_1_NE_PRIPINEN — те же sha, что у судьи формы),
+  v6: токенный гейт судит ЗНАЧЕНИЯ проекции mobile/src/theme/nav-tokens.ts
+  (пять листьев NAV.height/NAV.item.minHeight/NAV.label.fontSize/
+  NAV.label.lineHeight/TOUCH_TARGET.min против извлечения из
+  source/tokens.json — TOKENY_MODUL_NE_IZ_ISTOCHNIKA на дрейф; модуль
+  kompakt-tokens.ts снят), гейт ПРОИЗВОДНОСТИ 393 (sha каждой записи
+  kadry_profil.json == manifest.json построителя — ETALON_393_NE_PROIZVODNYJ)
+  и гейт ПОРОГА (porog == 0.600 — POROG_NE_0_600); записи 393 судит
+  paket-гейт только префиксом пути (mobile/etalony-vkladki-393/ —
+  атрибуция причин производности отдельно от пакета);
   снимки обоих профилей и pressable (зона hw/hh); v3a Crit148k2a: гейты KADR_PODMENEN (имя записи ↔ идентификатор) и TOKENY_ISTOCHNIK_NEVEREN (байты ds/tokens.css == пину frames.json пакета); И-11 — исполняемый
   e2e.sh в одноразовом cwd с двойниками adb/emulator/maestro/sleep в
   PATH+ANDROID_HOME, состояние живых серийников и журнал KILL/START;
@@ -71,9 +91,15 @@ source.json — привязка кодом, не прозой):
 Оракул — source.json (kejsy: rc/prichiny/stdout с допуском 0.01 на
 KADR-числа; stubs ↔ stab_vhod — рассинхрон rc 2 ORACLE_TAMPERED ДО
 клеток; пины носителей и эталонной раскладки сверяются ДО клеток —
-правило 8). Честные кадры stand-in — перегонка макетов (декодер ct 2/6,
-энкодер RGBA: пиксели те же, байты иные — приём 118/132; KADR 1.000 во
-всех восьми строках обеих баз). Временные репо/пачки — mktemp, без
+правило 8; v6: пины производной семьи etalony_safe_area — то же
+правило ДО клеток, плюс проверка детерминизма построения — importlib
+запускает etalony_safe_area/postroit.py:proverit(), перестройка в
+mktemp обязана совпасть байтами). Честные кадры stand-in — перегонка
+макетов (декодер ct 2/6, энкодер RGBA: пиксели те же, байты иные —
+приём 118/132; KADR 1.000 во всех восьми строках обеих баз; v6:
+снимки 393 дополнительно несут строку статуса эмулятора y 12..47 —
+живой скриншот несёт её; производные эталоны полос не несут, маска
+48 закрывает строку). Временные репо/пачки — mktemp, без
 сети/omp/живого эмулятора.
 
 ## Базы (две, обе честные, rc 0)
@@ -97,11 +123,15 @@ KADR-числа; stubs ↔ stab_vhod — рассинхрон rc 2 ORACLE_TAMPER
   — SHABLON_NEVEREN «priemka» (замкнутый состав трёх команд); без
   prokhodimost — PROKHODIMOST_OTSVTSTVUET; без vtoroj_profil —
   VTOROJ_PROFIL_OTSVTSTVUET.
-- **Кадры/макеты** (5): байты макета GA-03 изменены при том же пине —
+- **Кадры/макеты** (6): байты макета GA-03 изменены при том же пине —
   MAKET_PODMENEN; кадр GA-03 dark с залитой полосой Mitte —
   KADR_NIZHE_POROGA; кадры положены ДО команды и команда молчит —
   KADR_USTAREVSHIJ (оба манифеста — два одноимённых отказа); e2e rc 1 —
-  E2E_NE_PROSHLA; id кадра == id живой пачки 132 — CHUZHIE_KADRY.
+  E2E_NE_PROSHLA; id кадра == id живой пачки 132 — CHUZHIE_KADRY;
+  v6: полоса деградации Mitte y 772..818 в живом снимке GA-03 dark 393
+  (мода цвета фона) при честных пинах — KADR_NIZHE_POROGA на 393-записи
+  (вход etalon-393-nizhe-poroga; порог 0.600 ловит и геометрический
+  дрейф против производного эталона, не только подмену файла).
 - **Проходимость** (6): pressable без izmenenie — PRESSABLE_BEZ_IZMENENIJA;
   Mitte vysota 36 — KASANIE_MENSHE_NORMY; цель в вырезе (y 40) —
   KASANIE_V_SAFE_ZONE; demo-метка в составе — DEMO_V_SOSTAVE; демо-цель
@@ -112,15 +142,18 @@ KADR-числа; stubs ↔ stab_vhod — рассинхрон rc 2 ORACLE_TAMPER
   оговорён); vyrez 0 — PROFIL_BEZ_INSETOV; одна тема — ODNA_TEMA; флоу
   без токена tabshell — MARSHRUT_BEZ_OBOLOCHKI; флоу без снимка
   профиля — MARSHRUT_BEZ_SNIMKA; возврат маски шапки 36 (v2, слово
-  владельца 31.10: пилюля Dynamic Island стёрта из стенд-ин снимков —
-  эмулятор вырез не рисует; в кадрах 1.1 пилюля x133–258, y11–47) —
-  KADR_NIZHE_POROGA на светлых GA-03/GA-04 393 (0.595/0.565 < 0.600,
-  кадры 1.1; GA-02 light 393, тёмные и GA-09 при 36 зелёны — кадры
-  1.1 в зоне пилюли мягче финала-2, порог и механизм не меняются;
+  владельца 31.10; v6-механизм: стенд-ин 393 рисует строку статуса
+  эмулятора y 12..47 во всю ширину — живой скриншот несёт её; эталон
+  производный полос не несит, маска 36 строку НЕ закрывает, 48 —
+  закрывает) — KADR_NIZHE_POROGA на записях 393 (производные эталоны
+  при маске 36 красны по всем восьми записям; пилюля выреза в кадрах
+  1.1 x133–258, y11–47 остаётся закрытой маской 36 — история v2:
   живой прообраз Q1б краснел тройкой 0.425/0.414/0.392); значение
   маски 47 при визуально зелёных кадрах (правка Crit148v2, блок 3) —
   PROFIL_MASKA_NE_48: инвариант ТОЧНОГО значения 48 судит судья
-  формы ПОСЛЕ визуального суда.
+  формы ПОСЛЕ визуального суда; v6: порог записи ослаблен (0.5) при
+  зелёной сверке — POROG_NE_0_600 у судьи формы (вход porog-oslablen)
+  и у продукт-судьи (вход pr-porog-oslablen).
 - **Пакет 1.1 / имена кадров** (3; v+1 слово 2026-11-02 + v3a
   Crit148k2a Б1): пин кадров возвращён на D 2.4 Final 2 (пути
   04_Gespraech_D24/pack/screens/, файлы и sha честны, валидатор ЗЕЛЁН
@@ -140,11 +173,14 @@ KADR-числа; stubs ↔ stab_vhod — рассинхрон rc 2 ORACLE_TAMPER
 - **Движение-пусто** (3): perehody += GA-T28 (∩ = ∅) — PEREHOD_LISHNIJ;
   пин спеки неверен — ISTOCHNIK_NE_SOVPADAET; пути источника нет —
   ISTOCHNIK_OTSVTSTVUET (rc 2 fail-closed, инфраструктура).
-- **Продукт** (26): шов без слотов — SHOV_NET; подмена имени кадра
+- **Продукт** (28): шов без слотов — SHOV_NET; подмена имени кадра
   в пачке R при честных файле и sha — KADR_PODMENEN (v3a, вход
   pr-kadry-podmenen); дрейф байтов источника токенов —
   TOKENY_ISTOCHNIK_NEVEREN (И-12; живые обходы Б2/Б3 роняют контроль
-  зонда — ISPOLNIMYJ_KONTROL_KRASEN, приёмка 16); Mitte с tab-ролью —
+  зонда — ISPOLNIMYJ_KONTROL_KRASEN, приёмка 16); v6: значения
+  проекции nav-tokens.ts не из источника (NAV.height 71) —
+  TOKENY_MODUL_NE_IZ_ISTOCHNIKA (вход pr-tokeny-modul; байтов канона
+  больше нет — судятся ЗНАЧЕНИЯ пяти листьев); Mitte с tab-ролью —
   MITTE_V_TAB; пачка удалена — PACHKA_ABSENT; пин макета неверен либо
   PNG удалён по каноническому пути — MAKET_PIN_NEVEREN; пин пачки R
   на Final 2 при честных файлах — PAKET_1_1_NE_PRIPINEN (v+1, вход
@@ -171,7 +207,13 @@ KADR-числа; stubs ↔ stab_vhod — рассинхрон rc 2 ORACLE_TAMPER
   реального `adb … emu kill` — EMULJATORY_ODNOVREMENNO по журналу
   (четыре независимых входа); PORT_393=5571 — PORT_393_NE_5576;
   маска профиля R 47 при визуально зелёных кадрах —
-  PROFIL_MASKA_NE_48; v+1 (слово владельца 2026-11-11, Б-3): корень
+  PROFIL_MASKA_NE_48; v6 (слово владельца 22.11): байты производного
+  эталона GA-02 dark 393 подменены файлом GA-04 при перепиненом sha —
+  ETALON_393_NE_PROIZVODNYJ (вход pr-etalon-393-chuzhoj-bajt; судит
+  гейт производности против manifest.json, paket-гейт для 393 —
+  только префикс пути: атрибуция причин); порог записи R ослаблен
+  (0.5) при зелёной сверке — POROG_NE_0_600 у продукт-судьи (вход
+  pr-porog-oslablen); v+1 (слово владельца 2026-11-11, Б-3): корень
   приложения без <SafeAreaProvider — SAFE_AREA_BEZ_PROVAJDERA;
   tab-shell без чтения инсета (useContext(SafeAreaInsetsContext)/
   useSafeAreaInsets) — SAFE_AREA_INSETY_NE_CHITAJUTSJA; зондовый
@@ -179,7 +221,7 @@ KADR-числа; stubs ↔ stab_vhod — рассинхрон rc 2 ORACLE_TAMPER
   ≥ на 393, bottom 0) убивает исполняемых мутантов
   safe-rezerv-nul/safe-konstanta; честная база — rc 0.
 
-## Стабы (s65–s98: 14 ветвей эталона A/судьи формы + 20 ветвей продукт-судьи B)
+## Стабы (s65–s101: 15 ветвей эталона A/судьи формы + 22 ветви продукт-судьи B)
 
 Каждый стаб подменяет РОВНО свою ветвь (файл stubs/, загрузчики
 _model.py/_produkt.py) и обязан быть пойман на КАЖДОМ входе своей записи
@@ -222,14 +264,23 @@ s93 гасит гейт имён продукт-судьи — та же под�
 (v3a, вход pr-kadry-podmenen, ветка B proverka_imen_kadrov
 produkt_sud.py) — ловцы привязаны к входам, где дефект наблюдаем.
 
-s94 гасит гейт производности модуля токенов — kompakt-tokens.ts,
-переписанный руками (71) при честном источнике, проходит (v3b
-Crit148k2b Б1, вход pr-tokeny-modul, ветка B
-proverka_modulja_tokenov); s95 гасит гейт провайдера — корень без
-<SafeAreaProvider проходит суд (v+1, слово 2026-11-11, вход
-pr-safe-bez-provaidera, ветка B proverka_provaidera produkt_sud.py);
-s96 гасит гейт чтения инсета — лейсте без safe-area инсета проходит
-(v+1, вход pr-safe-insety-ne-chitajutsja, ветка B proverka_insetov);
-стабы s82 (гасит исполняемый суд целиком) и s95/s96 закрывают и
+s94 гасит гейт производности значений проекции — nav-tokens.ts,
+переписанный руками (NAV.height 71) при честном источнике, проходит
+(v3b Crit148k2b Б1 + v6-перевод значений, вход pr-tokeny-modul, ветка
+B proverka_modulja_tokenov produkt_sud.py); s95 гасит гейт
+провайдера — корень без <SafeAreaProvider проходит суд (v+1, слово
+владельца 2026-11-11, вход pr-safe-bez-provaidera, ветка B
+proverka_provaidera produkt_sud.py); s96 гасит гейт чтения инсета —
+лейсте без safe-area инсета проходит (v+1, вход
+pr-safe-insety-ne-chitajutsja, ветка B proverka_insetov); v6 (слово
+владельца 22.11): s99 гасит гейт производности 393 — байты GA-02,
+подменённые файлом GA-04 при перепиненом sha, проходят (вход
+pr-etalon-393-chuzhoj-bajt, ветка B proverka_etalonov_393); s100
+гасит гейт порога продукт-судьи — запись 393 с porog 0.5 проходит
+(вход pr-porog-oslablen, ветка B proverka_poroga); s101 гасит гейт
+порога судьи формы — манифест с porog 0.5 проходит (вход
+porog-oslablen, ветка A proverka_poroga model/sud_formy_148.py;
+делегата --sud доставляет сам, как s88/s90/s92); стабы s82 (гасит
+исполняемый суд целиком) и s95/s96 закрывают и
 зондовые ассерты Б-3: s82 гасит исполнение резерва, s95/s96 —
 статические ветви; ловцы привязаны к входам, где дефект наблюдаем.

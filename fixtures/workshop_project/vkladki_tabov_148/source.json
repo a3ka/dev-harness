@@ -1209,7 +1209,7 @@
   ]
  },
  "profil_kadry": {
-  "_comment": "кадры 393 — пакет D24-Kompakt-1.1; маска шапки 48 (пилюля y11-47 в светлых кадрах, замер)",
+  "_comment": "кадры 393 — ПРОИЗВОДНЫЕ эталоны safe-area (v6, слово владельца 22.11): D24-390 + системные полосы 393, контент неизменен; построение детерминировано (etalony_safe_area/postroit.py, manifest.json), маска шапки 48, низа 20, порог 0.6 не меняется",
   "mera": {
    "chernila_T": 40,
    "kletka_pt": 6,
@@ -1226,8 +1226,8 @@
     "id": "GA-02 dark 393",
     "tema": "dark",
     "snimok": "vkladki-vorgaenge-393",
-    "maket": "docs/ux/05_Kompakt_D24/frames/GA-02_normal_dark_393x852.png",
-    "maket_sha256": "3943a93fc91b3e0adf6382ae6655cd525cc067369b698f24e51fb7bb161a53b8",
+    "maket": "mobile/etalony-vkladki-393/GA-02_normal_dark_393x852.png",
+    "maket_sha256": "e87d82d332d16ac7f02365204db572fa9cde75986e1d4e7e22a661dbf976b309",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1273,8 +1273,8 @@
     "id": "GA-02 light 393",
     "tema": "light",
     "snimok": "vkladki-vorgaenge-393",
-    "maket": "docs/ux/05_Kompakt_D24/frames/GA-02_normal_light_393x852.png",
-    "maket_sha256": "0f8699969953a2bec50644c1e8dc1d20273d85eff2a62a70caed57693d2b650c",
+    "maket": "mobile/etalony-vkladki-393/GA-02_normal_light_393x852.png",
+    "maket_sha256": "5b89171df76253bc5fd96ee3866e3fb4f07e16c81b002ea29f5e37766b5f164b",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1320,8 +1320,8 @@
     "id": "GA-03 dark 393",
     "tema": "dark",
     "snimok": "vkladki-schutz-393",
-    "maket": "docs/ux/05_Kompakt_D24/frames/GA-03_normal_dark_393x852.png",
-    "maket_sha256": "34ced494cf3bd16969e16619d49e00053d480c3227c800d2f84453aac909510e",
+    "maket": "mobile/etalony-vkladki-393/GA-03_normal_dark_393x852.png",
+    "maket_sha256": "132e246e0c9eb8d467c09a1b4556506ac866d2217a2c69b5f8da72c02e199cbe",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1367,8 +1367,8 @@
     "id": "GA-03 light 393",
     "tema": "light",
     "snimok": "vkladki-schutz-393",
-    "maket": "docs/ux/05_Kompakt_D24/frames/GA-03_normal_light_393x852.png",
-    "maket_sha256": "d60bf486da8dca2cee092f9e5c4a2e8cfdbf9579e66584151eba49c7d2753736",
+    "maket": "mobile/etalony-vkladki-393/GA-03_normal_light_393x852.png",
+    "maket_sha256": "e036ab50269be3def04dc458e8b29d57b4cbf571336ae656345ed35724685ee2",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1414,8 +1414,8 @@
     "id": "GA-04 dark 393",
     "tema": "dark",
     "snimok": "vkladki-post-393",
-    "maket": "docs/ux/05_Kompakt_D24/frames/GA-04_normal_dark_393x852.png",
-    "maket_sha256": "4b54ce6f0eba87f9e663399f37894b8c63a2f02f326c77ca7b9d747d5c31d57e",
+    "maket": "mobile/etalony-vkladki-393/GA-04_normal_dark_393x852.png",
+    "maket_sha256": "055e4a3f834c573f70fe7e3bbb28496d95ca6c0af910e86ed8d3650672eda252",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1461,8 +1461,8 @@
     "id": "GA-04 light 393",
     "tema": "light",
     "snimok": "vkladki-post-393",
-    "maket": "docs/ux/05_Kompakt_D24/frames/GA-04_normal_light_393x852.png",
-    "maket_sha256": "91373fc599d77898a14df0d93235b75e2ac22f9444514a70d491052633dce580",
+    "maket": "mobile/etalony-vkladki-393/GA-04_normal_light_393x852.png",
+    "maket_sha256": "4991df3b483e3e023820d1854876e262b44ab190ee5e33ce19947a6e88ffa767",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1508,8 +1508,8 @@
     "id": "GA-09 dark 393",
     "tema": "dark",
     "snimok": "vkladki-vorgaenge-skroll-393",
-    "maket": "docs/ux/05_Kompakt_D24/frames/GA-09_normal_dark_393x852.png",
-    "maket_sha256": "039509874abfde53b71962036e807f43295cbae6883cdc199535a05071d3fc8e",
+    "maket": "mobile/etalony-vkladki-393/GA-09_normal_dark_393x852.png",
+    "maket_sha256": "626feb0290d814e1fb445e262905bba5c09f244e615569b8afdb618f070bf4ed",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1555,8 +1555,8 @@
     "id": "GA-09 light 393",
     "tema": "light",
     "snimok": "vkladki-vorgaenge-skroll-393",
-    "maket": "docs/ux/05_Kompakt_D24/frames/GA-09_normal_light_393x852.png",
-    "maket_sha256": "cd7902e20b2d5a269b5e7a81df5489e6cf2c1c47d50612b905e40f34c8379144",
+    "maket": "mobile/etalony-vkladki-393/GA-09_normal_light_393x852.png",
+    "maket_sha256": "4f7819d2bd575f327b1805dc957411198191318fb0955fbf2fdc53f29d96993d",
     "porog": 0.6,
     "maski_pt": [],
     "elementy": [
@@ -1700,7 +1700,7 @@
  },
  "standiny": {
   "e2e": "#!/usr/bin/env bash\n# Стенд-ин priemka.e2e (батарея 148): эмулятора нет — кадры\n# кладёт перегонка макетов (пиксели те же, байты иные).\nset -eu\nexec python3 \"$(dirname \"$0\")/../e2e-standin-vkladki/e2e-stand-in.py\" \"$@\"\n",
-  "e2e_py": "#!/usr/bin/env python3\n# Стенд-ин e2e батареи 148 (v+1, пакет D24-Kompakt-1.1): перекодированные\n# макеты → Maestro-раскладка kadry_dir/<тема>/aa/bb/takeScreenshot/\n# <snimok>.png (оба манифеста). Профиль 393 ЧЕСТЕН к вырезу камеры\n# (доказательство Q1б 31.10, раннер 123 на живых кадрах PR #147):\n# в кадрах 1.1 393 есть пилюля Dynamic Island (чёрная, x133-258, y11-47),\n# эмулятор вырез в screencap НЕ рисует — стенд-ин замещает пилюлю фоном\n# строки (сэмпл x=60 той же строки; в тёмных макетах пилюля чёрная на\n# чёрном — замещение ничего не меняет). Маска mera.chrome_verh_pt=48\n# закрывает пилюлю целиком; возврат 36 оставляет срез y36-47 в судимой\n# области — светлые кадры 393 ниже порога (живой замер Q1б:\n# 0.425/0.414/0.392 при 36; 0.800/0.783/0.805/0.880 при 48).\nimport json\nimport sys\nfrom pathlib import Path\n\nsys.path.insert(0, str(Path(__file__).resolve().parent))\nfrom stand_in_png import dekodirovat, kodirovat_rgba\n\nREPO = Path(__file__).resolve().parents[2]\nPACK = Path(__file__).resolve().parents[1] / 'e2e-vkladki'\nOUT = REPO / 'mobile/maestro-out-vkladki'\nPILJULA = (133, 258)  # x-диапазон пилюли выреза (замер кадра 1.1, вкл.)\n\n\ndef stirat_piljulju(w, h, ch, rows):\n    \"\"\"Пилюля выреза → фон строки: эмулятор вырез не рисует (Q1б).\"\"\"\n    for y in range(11, 48):\n        row = bytearray(rows[y])\n        fon = bytes(row[60 * ch:60 * ch + ch])\n        for x in range(PILJULA[0], PILJULA[1] + 1):\n            row[x * ch:x * ch + ch] = fon\n        rows[y] = bytes(row)\n    return rows\n\n\nfor imja in ('kadry.json', 'kadry_profil.json'):\n    man = json.loads((PACK / imja).read_text(encoding='utf-8'))\n    for k in man['kadry']:\n        w, h, ch, rows = dekodirovat((REPO / k['maket']).read_bytes())\n        if imja == 'kadry_profil.json':\n            rows = stirat_piljulju(w, h, ch, rows)\n        kadr = kodirovat_rgba(w, h, ch, rows)\n        d = OUT / k['tema'] / 'aa' / 'bb' / 'takeScreenshot'\n        d.mkdir(parents=True, exist_ok=True)\n        (d / (k['snimok'] + '.png')).write_bytes(kadr)\nprint('E2E_STAND_IN: кадры обоих профилей положены (393 без пилюли выреза)')\n",
+  "e2e_py": "#!/usr/bin/env python3\n# Стенд-ин e2e батареи 148 (v+1, пакет D24-Kompakt-1.1): перекодированные\n# макеты → Maestro-раскладка kadry_dir/<тема>/aa/bb/takeScreenshot/\n# <snimok>.png (оба манифеста). Профиль 393 ЧЕСТЕН к вырезу камеры\n# (доказательство Q1б 31.10, раннер 123 на живых кадрах PR #147):\n# в кадрах 1.1 393 есть пилюля Dynamic Island (чёрная, x133-258, y11-47),\n# эмулятор вырез в screencap НЕ рисует — стенд-ин замещает пилюлю фоном\n# строки (сэмпл x=60 той же строки; в тёмных макетах пилюля чёрная на\n# чёрном — замещение ничего не меняет). Маска mera.chrome_verh_pt=48\n# закрывает пилюлю целиком; возврат 36 оставляет срез y36-47 в судимой\n# области — светлые кадры 393 ниже порога (живой замер Q1б:\n# 0.425/0.414/0.392 при 36; 0.800/0.783/0.805/0.880 при 48).\nimport json\nimport sys\nfrom pathlib import Path\n\nsys.path.insert(0, str(Path(__file__).resolve().parent))\nfrom stand_in_png import dekodirovat, kodirovat_rgba\n\nREPO = Path(__file__).resolve().parents[2]\nPACK = Path(__file__).resolve().parents[1] / 'e2e-vkladki'\nOUT = REPO / 'mobile/maestro-out-vkladki'\nPILJULA = (133, 258)  # x-диапазон пилюли выреза (замер кадра 1.1, вкл.)\n# v6 (производные эталоны 393): строка статуса эмулятора — живой скриншот\n# несёт её (часы/значки), производный эталон — нет; сплошная полоса\n# 12..47px контрастна фону, маска chrome_verh_pt=48 закрывает её целиком\nSTROKA_SOSTOJANIJA = (12, 47)  # px, включительно\n\n\ndef stirat_piljulju(w, h, ch, rows):\n    \"\"\"Пилюля выреза → фон строки: эмулятор вырез не рисует (Q1б).\n    На производных эталонах v1.1-пилюли нет — замещение пусто.\"\"\"\n    for y in range(11, 48):\n        row = bytearray(rows[y])\n        fon = bytes(row[60 * ch:60 * ch + ch])\n        for x in range(PILJULA[0], PILJULA[1] + 1):\n            row[x * ch:x * ch + ch] = fon\n        rows[y] = bytes(row)\n    return rows\n\n\ndef narisovat_stroku_sostojanija(tema, w, h, ch, rows):\n    \"\"\"Строка статуса эмулятора 393 (v6): сплошные чернила 12..47px,\n    цвет контрастен фону по теме (чернила раннера: |канал-фон|>40).\"\"\"\n    pil = bytes((0x1c, 0x1c, 0x1a) if tema == 'light'\n                else (0xf2, 0xf2, 0xed))\n    if ch == 4:\n        pil += b'\\xff'  # noqa: той же длины, что слот — строка не сжимается\n    for y in range(STROKA_SOSTOJANIJA[0], STROKA_SOSTOJANIJA[1] + 1):\n        row = bytearray(rows[y])\n        for x in range(w):\n            row[x * ch:x * ch + ch] = pil\n        rows[y] = bytes(row)\n    return rows\n\n\nfor imja in ('kadry.json', 'kadry_profil.json'):\n    man = json.loads((PACK / imja).read_text(encoding='utf-8'))\n    for k in man['kadry']:\n        w, h, ch, rows = dekodirovat((REPO / k['maket']).read_bytes())\n        if imja == 'kadry_profil.json':\n            rows = stirat_piljulju(w, h, ch, rows)\n            rows = narisovat_stroku_sostojanija(k['tema'], w, h, ch, rows)\n        kadr = kodirovat_rgba(w, h, ch, rows)\n        d = OUT / k['tema'] / 'aa' / 'bb' / 'takeScreenshot'\n        d.mkdir(parents=True, exist_ok=True)\n        (d / (k['snimok'] + '.png')).write_bytes(kadr)\nprint('E2E_STAND_IN: кадры обоих профилей положены (393: строка статуса эмулятора)')\n",
   "png": "#!/usr/bin/env python3\n# Перегонка PNG (батарея 148): декодер ct 2 (RGB) и 6 (RGBA); энкодер\n# всегда RGBA — пиксели те же, байты иные (приём 118/132).\nimport struct\nimport zlib\n\n\ndef dekodirovat(blob):\n    pos, idat, ihdr = 8, bytearray(), None\n    while pos < len(blob):\n        ln, typ = struct.unpack('>I4s', blob[pos:pos + 8])\n        body = blob[pos + 8:pos + 8 + ln]\n        if typ == b'IHDR':\n            ihdr = body\n        elif typ == b'IDAT':\n            idat += body\n        pos += 12 + ln\n    w, h, bd, ct = struct.unpack('>IIBB', ihdr[:10])\n    assert bd == 8 and ct in (2, 6), 'ожидался RGB/RGBA'\n    ch = 3 if ct == 2 else 4\n    raw = zlib.decompress(bytes(idat))\n    stride = w * ch\n    rows, prev = [], bytearray(stride)\n    i = 0\n    for _y in range(h):\n        f = raw[i]\n        i += 1\n        line = bytearray(raw[i:i + stride])\n        i += stride\n        if f == 1:\n            for x in range(ch, stride):\n                line[x] = (line[x] + line[x - ch]) & 0xFF\n        elif f == 2:\n            for x in range(stride):\n                line[x] = (line[x] + prev[x]) & 0xFF\n        elif f == 3:\n            for x in range(stride):\n                a = line[x - ch] if x >= ch else 0\n                line[x] = (line[x] + ((a + prev[x]) >> 1)) & 0xFF\n        elif f == 4:\n            for x in range(stride):\n                a = line[x - ch] if x >= ch else 0\n                b = prev[x]\n                c = prev[x - ch] if x >= ch else 0\n                p = a + b - c\n                pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)\n                pr = a if (pa <= pb and pa <= pc) else (b if pb <= pc else c)\n                line[x] = (line[x] + pr) & 0xFF\n        prev = line\n        rows.append(bytes(line))\n    return w, h, ch, rows\n\n\ndef kodirovat_rgba(w, h, ch, rows):\n    def chunk(t, d):\n        return (struct.pack('>I', len(d)) + t + d\n                + struct.pack('>I', zlib.crc32(t + d) & 0xFFFFFFFF))\n    if ch == 3:\n        rows = [b''.join(bytes(r[x:x + 3]) + b'\\xff' for x in range(0, len(r), 3))\n                for r in rows]\n    raw2 = b''.join(b'\\x00' + r for r in rows)\n    return (b'\\x89PNG\\r\\n\\x1a\\n'\n            + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0))\n            + chunk(b'IDAT', zlib.compress(raw2, 1)) + chunk(b'IEND', b''))\n\n\ndef perekodirovat(blob):\n    w, h, ch, rows = dekodirovat(blob)\n    return kodirovat_rgba(w, h, ch, rows)\n",
   "e2e_padaet": "#!/usr/bin/env bash\n# Мутант: e2e не прошла (rc 1) — кадры не кладутся.\nexit 1\n",
   "e2e_molchit": "#!/usr/bin/env bash\n# Мутант: rc 0, кадров не кладёт — KADR_OTSUTSTVUET.\nexit 0\n",
@@ -1715,7 +1715,9 @@
   "prokhod": "#!/usr/bin/env bash\n# Стенд-ин priemka.prokhod: проход честно зелён.\nexit 0\n",
   "prokhod_padaet": "#!/usr/bin/env bash\n# Мутант: проход не прошёл (rc 1).\nexit 1\n",
   "jest_zelenyj": "#!/bin/sh\n# фиктивный jest живой стадии 148 (клетка мутанта-живца): НЕ продуктовый\n# движок — всегда зелёный итог, чтобы суд классифицировал мутантов ЖИВЫМИ\nprintf '%s\\n' '{\"success\":true,\"numPassedTests\":4,\"numTotalTestSuites\":1,\"numTotalTests\":4,\"testResults\":[{\"assertionResults\":[{\"status\":\"passed\"},{\"status\":\"passed\"},{\"status\":\"passed\"},{\"status\":\"passed\"}]}]}'\n",
-  "jest_krasnyj": "#!/bin/sh\n# фиктивный jest живой стадии 148 (клетка красного контроля): НЕ продуктовый\n# движок — всегда красный итог, чтобы контроль исходного кода краснел именованно\nprintf '%s\\n' '{\"success\":false,\"numPassedTests\":0,\"numFailedTests\":4,\"numTotalTestSuites\":1,\"numTotalTests\":4,\"testResults\":[{\"assertionResults\":[{\"status\":\"failed\"},{\"status\":\"failed\"},{\"status\":\"failed\"},{\"status\":\"failed\"}]}]}'\n"
+  "jest_krasnyj": "#!/bin/sh\n# фиктивный jest живой стадии 148 (клетка красного контроля): НЕ продуктовый\n# движок — всегда красный итог, чтобы контроль исходного кода краснел именованно\nprintf '%s\\n' '{\"success\":false,\"numPassedTests\":0,\"numFailedTests\":4,\"numTotalTestSuites\":1,\"numTotalTests\":4,\"testResults\":[{\"assertionResults\":[{\"status\":\"failed\"},{\"status\":\"failed\"},{\"status\":\"failed\"},{\"status\":\"failed\"}]}]}'\n",
+  "e2e_393_nizhe_poroga": "#!/usr/bin/env bash\n# Мутант (v6): кадр GA-03 dark 393 с залитой полосой Mitte профиля.\nset -eu\nexec python3 \"$(dirname \"$0\")/../e2e-standin-vkladki/e2e-393-nizhe-poroga.py\" \"$@\"\n",
+  "e2e_393_nizhe_poroga_py": "#!/usr/bin/env python3\n# Мутант ниже порога (148 v6): честные кадры, КРОМЕ GA-03 dark 393 —\n# полоса Mitte профиля [157,772,236,818] залита модой цвета полосы:\n# эталон 393, отличающийся от снимка сверх порога, остаётся красным\n# (порог 0.600 производных НЕ ослаблен). Остальное — честный стенд-ин. Профиль 393 ЧЕСТЕН к вырезу камеры\n# (доказательство Q1б 31.10, раннер 123 на живых кадрах PR #147):\n# в кадрах 1.1 393 есть пилюля Dynamic Island (чёрная, x133-258, y11-47),\n# эмулятор вырез в screencap НЕ рисует — стенд-ин замещает пилюлю фоном\n# строки (сэмпл x=60 той же строки; в тёмных макетах пилюля чёрная на\n# чёрном — замещение ничего не меняет). Маска mera.chrome_verh_pt=48\n# закрывает пилюлю целиком; возврат 36 оставляет срез y36-47 в судимой\n# области — светлые кадры 393 ниже порога (живой замер Q1б:\n# 0.425/0.414/0.392 при 36; 0.800/0.783/0.805/0.880 при 48).\nimport json\nimport sys\nfrom collections import Counter\nfrom pathlib import Path\n\nsys.path.insert(0, str(Path(__file__).resolve().parent))\nfrom stand_in_png import dekodirovat, kodirovat_rgba\n\nREPO = Path(__file__).resolve().parents[2]\nPACK = Path(__file__).resolve().parents[1] / 'e2e-vkladki'\nOUT = REPO / 'mobile/maestro-out-vkladki'\nPILJULA = (133, 258)  # x-диапазон пилюли выреза (замер кадра 1.1, вкл.)\n# v6 (производные эталоны 393): строка статуса эмулятора — живой скриншот\n# несёт её (часы/значки), производный эталон — нет; сплошная полоса\n# 12..47px контрастна фону, маска chrome_verh_pt=48 закрывает её целиком\nSTROKA_SOSTOJANIJA = (12, 47)  # px, включительно\n\n\ndef stirat_piljulju(w, h, ch, rows):\n    \"\"\"Пилюля выреза → фон строки: эмулятор вырез не рисует (Q1б).\n    На производных эталонах v1.1-пилюли нет — замещение пусто.\"\"\"\n    for y in range(11, 48):\n        row = bytearray(rows[y])\n        fon = bytes(row[60 * ch:60 * ch + ch])\n        for x in range(PILJULA[0], PILJULA[1] + 1):\n            row[x * ch:x * ch + ch] = fon\n        rows[y] = bytes(row)\n    return rows\n\n\ndef narisovat_stroku_sostojanija(tema, w, h, ch, rows):\n    \"\"\"Строка статуса эмулятора 393 (v6): сплошные чернила 12..47px,\n    цвет контрастен фону по теме (чернила раннера: |канал-фон|>40).\"\"\"\n    pil = bytes((0x1c, 0x1c, 0x1a) if tema == 'light'\n                else (0xf2, 0xf2, 0xed))\n    if ch == 4:\n        pil += b'\\xff'  # noqa: той же длины, что слот — строка не сжимается\n    for y in range(STROKA_SOSTOJANIJA[0], STROKA_SOSTOJANIJA[1] + 1):\n        row = bytearray(rows[y])\n        for x in range(w):\n            row[x * ch:x * ch + ch] = pil\n        rows[y] = bytes(row)\n    return rows\n\n\nfor imja in ('kadry.json', 'kadry_profil.json'):\n    man = json.loads((PACK / imja).read_text(encoding='utf-8'))\n    for k in man['kadry']:\n        w, h, ch, rows = dekodirovat((REPO / k['maket']).read_bytes())\n        if imja == 'kadry_profil.json':\n            rows = stirat_piljulju(w, h, ch, rows)\n            rows = narisovat_stroku_sostojanija(k['tema'], w, h, ch, rows)\n            if k['id'] == 'GA-03 dark 393':\n                x0, y0, x1, y1 = 157, 772, 236, 818\n                nib = []\n                for y in range(y0, min(y1, h)):\n                    row = rows[y]\n                    for x in range(x0, min(x1, w)):\n                        nib.append(tuple(row[x * ch:x * ch + ch]))\n                moda = Counter(nib).most_common(1)[0][0]\n                for y in range(y0, min(y1, h)):\n                    row = bytearray(rows[y])\n                    for x in range(x0, min(x1, w)):\n                        row[x * ch:x * ch + ch] = moda\n                    rows[y] = bytes(row)\n        kadr = kodirovat_rgba(w, h, ch, rows)\n        d = OUT / k['tema'] / 'aa' / 'bb' / 'takeScreenshot'\n        d.mkdir(parents=True, exist_ok=True)\n        (d / (k['snimok'] + '.png')).write_bytes(kadr)\nprint('E2E_393_NIZHE_POROGA: кадры положены (GA-03 dark 393 испорчен)')\n"
  },
  "piny": {
   "nositeli": {
@@ -1769,19 +1771,30 @@
    "model/produktnaja-raskladka/mobile/.maestro/vkladki.yaml": "91cf8de5ad9cf2024b09b250d1a9373e018bc3025d3def6bca1b8000724cf475",
    "model/produktnaja-raskladka/mobile/e2e-vkladki/e2e.sh": "ebfabb499009c4b9355ce30970b79ea679c66e923529e64e75f76264ae1af17f",
    "model/produktnaja-raskladka/mobile/src/app/(tabs)/[section].tsx": "64495569d54189b8b4f515fc50a260a7a4e447f9bb62809b1c43c4248693307e",
-  "model/produktnaja-raskladka/mobile/src/app/_layout.tsx": "87e6685d74fbbbaf041991693408b718a73be466fdd80e412ab6eeee68a8ec8f",
-   "model/produktnaja-raskladka/mobile/src/bootstrap/gespraech-mitte.tsx": "31deee252ac24ce96e6af56c4adb9d4d7f1c07b50184d63938a3776fd5880331",
-   "model/produktnaja-raskladka/mobile/src/bootstrap/tab-shell.tsx": "44ed59a93a017dd1c81c772afc9512f74c958b07d643e228b26dc6f5f95e3b31",
+   "model/produktnaja-raskladka/mobile/src/app/_layout.tsx": "87e6685d74fbbbaf041991693408b718a73be466fdd80e412ab6eeee68a8ec8f",
+   "model/produktnaja-raskladka/mobile/src/bootstrap/gespraech-mitte.tsx": "2a684e4093fca304f835d1c057087d8c15d019887be573a8a11c49a547a300d8",
+   "model/produktnaja-raskladka/mobile/src/bootstrap/tab-shell.tsx": "0ce6f2af82f2496e226fbea1c5160bd0b31f364ca1abb8240abb019c39ea412f",
    "model/produktnaja-raskladka/mobile/src/features/missions/components/VorgaengeListe.tsx": "256fd30e9c3a8bd9d10469bf90f34435b47670b8fb32458b6cd115d49e59cf61",
    "model/produktnaja-raskladka/mobile/src/features/missions/model/vkladki-dannye.ts": "9dd6fe0a0fb92d4eaab6b196c64c44f534f2b03e58aeeebbfa837886cade07e5",
    "model/produktnaja-raskladka/mobile/src/features/post/components/PostEingang.tsx": "34821e7420ff66e1adaf10330e0b26f53a84f94c07196fafd8d6d0f37d97e169",
    "model/produktnaja-raskladka/mobile/src/features/protection/components/SchutzUebersicht.tsx": "87230cb331ee2f0f53bdc7f5e08f2293b9ed62d7315bf2c3c3c9dd4b8aa9a38f",
    "model/produktnaja-raskladka/mobile/src/features/protection/model/schutz-dannye.ts": "0e7de216209dcbe5b7e29cd50ce00b08ca4017c008e0d9ad3b9e53bfdfbdd210",
    "model/produktnaja-raskladka/mobile/src/i18n/ui-copy.ts": "64bd900b21caaf1e1be79c71aecf79a057328d1d3105e1c93d270ff6287e1e29",
-   "model/produktnaja-raskladka/mobile/src/bootstrap/kompakt-tokens.ts": "2261a3e5c2d4a5ee9ad4b70d46773569a0205e6c200cd6e0d3bf54ea46a660ec"
+   "model/produktnaja-raskladka/mobile/src/theme/nav-tokens.ts": "53ffa0a2c28cd165c1f03875be5b787d3b491afd052132eb7b7bf5e5c2ddd66b"
   },
   "produkt": {
-   "produkt/vkladki-zond-148.test.tsx": "d6fb96c0f8907df903a81973d392e58eb64fc48e6b6ec11e68b3bd2a0b825f73"
+   "produkt/vkladki-zond-148.test.tsx": "364e19a5b8cce3fa58c707df02bf94c101bf27a2b32bfbdbdc98204ae438ce45"
+  },
+  "etalony_safe_area": {
+   "etalony_safe_area/manifest.json": "3d058f7dba458559b4ef63f2476302cbab7e7d645ce1b4a34b6cf9019d99c65e",
+   "etalony_safe_area/GA-02_normal_dark_393x852.png": "e87d82d332d16ac7f02365204db572fa9cde75986e1d4e7e22a661dbf976b309",
+   "etalony_safe_area/GA-02_normal_light_393x852.png": "5b89171df76253bc5fd96ee3866e3fb4f07e16c81b002ea29f5e37766b5f164b",
+   "etalony_safe_area/GA-03_normal_dark_393x852.png": "132e246e0c9eb8d467c09a1b4556506ac866d2217a2c69b5f8da72c02e199cbe",
+   "etalony_safe_area/GA-03_normal_light_393x852.png": "e036ab50269be3def04dc458e8b29d57b4cbf571336ae656345ed35724685ee2",
+   "etalony_safe_area/GA-04_normal_dark_393x852.png": "055e4a3f834c573f70fe7e3bbb28496d95ca6c0af910e86ed8d3650672eda252",
+   "etalony_safe_area/GA-04_normal_light_393x852.png": "4991df3b483e3e023820d1854876e262b44ab190ee5e33ce19947a6e88ffa767",
+   "etalony_safe_area/GA-09_normal_dark_393x852.png": "626feb0290d814e1fb445e262905bba5c09f244e615569b8afdb618f070bf4ed",
+   "etalony_safe_area/GA-09_normal_light_393x852.png": "4f7819d2bd575f327b1805dc957411198191318fb0955fbf2fdc53f29d96993d"
   }
  },
  "dopusk_score": 0.01,
@@ -1983,8 +1996,14 @@
     "KADR\tGA-09 light\t1.000\t0.600\tG\tOK"
    ],
    "prichiny": [
-    "PRICHINA\tKADR_NIZHE_POROGA\tGA-03 light 393\tscore=0.595 porog=0.600 hudshij=shapka",
-    "PRICHINA\tKADR_NIZHE_POROGA\tGA-04 light 393\tscore=0.565 porog=0.600 hudshij=shapka"
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-02 dark 393\tscore=0.472 porog=0.600 hudshij=shapka",
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-02 light 393\tscore=0.466 porog=0.600 hudshij=shapka",
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-03 dark 393\tscore=0.263 porog=0.600 hudshij=shapka",
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-03 light 393\tscore=0.256 porog=0.600 hudshij=shapka",
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-04 dark 393\tscore=0.237 porog=0.600 hudshij=shapka",
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-04 light 393\tscore=0.195 porog=0.600 hudshij=shapka",
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-09 dark 393\tscore=0.492 porog=0.600 hudshij=shapka",
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-09 light 393\tscore=0.486 porog=0.600 hudshij=shapka"
    ]
   },
   "profil-maska-ne-48": {
@@ -2004,6 +2023,39 @@
     "PRICHINA\tPROFIL_MASKA_NE_48: kadry_profil.json: mera.chrome_verh_pt=47, а маска системной шапки профиля 393 — 48 pt (слово владельца 31.10, Q1б; значение — независимо от визуальной меры)"
    ]
   },
+  "porog-oslablen": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.500\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tvkladki\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tPOROG_NE_0_600: kadry.json: GA-02 dark: porog=0.5, порог сверки ослаблен (без ослабления порога — слово владельца 22.11)"
+   ]
+  },
+  "etalon-393-nizhe-poroga": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tKADR_NIZHE_POROGA\tGA-03 dark 393\tscore=0.000 porog=0.600 hudshij=mitte"
+   ]
+  },
   "paket-final2": {
    "rc": 1,
    "stdout": [
@@ -2019,6 +2071,23 @@
    ],
    "prichiny": [
     "PRICHINA\tPAKET_1_1_NE_PRIPINEN: kadry.json: GA-02 dark: пин вне пакета D24-Kompakt-1.1 (frames/SHA256SUMS)"
+   ]
+  },
+  "kadry-podmenen": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tvkladki\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tKADR_PODMENEN: kadry.json: GA-02 dark: пин GA-04_normal_dark_390x844.png — имя записи не соответствует её идентификатору (пакет 1.1 пинит GA-02_normal_dark_390x844.png)"
    ]
   },
   "marshrut-bez-obolochki": {
@@ -2209,6 +2278,22 @@
    ],
    "prichiny": []
   },
+  "pr-kadry-podmenen": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tvkladki\tOK",
+    "PRICHINA\tKADR_PODMENEN: kadry.json: GA-02 dark: пин GA-04_normal_dark_390x844.png — имя записи не соответствует её идентификатору (пакет 1.1 пинит GA-02_normal_dark_390x844.png)"
+   ],
+   "prichiny": []
+  },
   "pr-scenarij-net": {
    "rc": 1,
    "stdout": [
@@ -2314,7 +2399,7 @@
    "prichiny": []
   },
   "pr-live-mutant-zhiv": {
-   "rc": 1,
+   "rc": 2,
    "stdout": [
     "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
     "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
@@ -2325,40 +2410,7 @@
     "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
     "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
     "SHABLON\tvkladki\tOK",
-    "PRICHINA\tISPOLNIMYJ_MUTANT_ZHIV: tabs, badge, skroll, kasanie, tokeny, nav-final2, nav-literal, disabled, filter-bez-dejstvija, vorgaenge-stroki-net, padding-tolko-gorizontal, badge-opacity, vkladki-opacity, mitte-opacity-predok, nadpis-lozhnaja, schutz-rebenok, oblasti-opacity, stroki-opacity, soobschenie-display-none, nadpis-za-ekranom, badge-vsegda, pointer-events, safe-rezerv-nul, safe-konstanta"
-   ],
-   "prichiny": []
-  },
-  "kadry-podmenen": {
-   "rc": 1,
-   "stdout": [
-    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
-    "SHABLON\tvkladki\tOK"
-   ],
-   "prichiny": [
-    "PRICHINA\tKADR_PODMENEN: kadry.json: GA-02 dark: пин GA-04_normal_dark_390x844.png — имя записи не соответствует её идентификатору (пакет 1.1 пинит GA-02_normal_dark_390x844.png)"
-   ]
-  },
-  "pr-kadry-podmenen": {
-   "rc": 1,
-   "stdout": [
-    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
-    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
-    "SHABLON\tvkladki\tOK",
-    "PRICHINA\tKADR_PODMENEN: kadry.json: GA-02 dark: пин GA-04_normal_dark_390x844.png — имя записи не соответствует её идентификатору (пакет 1.1 пинит GA-02_normal_dark_390x844.png)"
+    "PRICHINA\tLIVE_MUTACIJA_NEPRIMENIMA: vkladki-opacity: нет ни одной формы входа в mobile/src/bootstrap/tab-shell.tsx"
    ],
    "prichiny": []
   },
@@ -2374,7 +2426,7 @@
     "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
     "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
     "SHABLON\tvkladki\tOK",
-    "PRICHINA\tTOKENY_MODUL_NE_IZ_ISTOCHNIKA: mobile/src/bootstrap/kompakt-tokens.ts != извлечению из docs/ux/05_Kompakt_D24/source/tokens.json (ветки nav.*/touch-target.min; модуль руками не редактируется)"
+    "PRICHINA\tTOKENY_MODUL_NE_IZ_ISTOCHNIKA: mobile/src/theme/nav-tokens.ts: NAV.height = 71, а извлечение из docs/ux/05_Kompakt_D24/source/tokens.json = 49 (ветки nav.*/touch-target.min; значения проекции — из источника, не руками)"
    ],
    "prichiny": []
   },
@@ -2409,9 +2461,47 @@
     "PRICHINA\tSAFE_AREA_INSETY_NE_CHITAJUTSJA: tab-shell.tsx не читает safe-area инсет (useContext(SafeAreaInsetsContext)/useSafeAreaInsets — оба публичных API пакета) — низ лейсте не поднимается над системной жестовой полосой (Б-3, слово владельца 2026-11-11)"
    ],
    "prichiny": []
+  },
+  "pr-etalon-393-chuzhoj-bajt": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tvkladki\tOK",
+    "PRICHINA\tETALON_393_NE_PROIZVODNYJ: kadry_profil.json: GA-02 dark 393: пин GA-02_normal_dark_393x852.png не из манифеста производных (etalony_safe_area/)"
+   ],
+   "prichiny": []
+  },
+  "pr-porog-oslablen": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tGA-02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-03 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-04 light\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tGA-09 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tvkladki\tOK",
+    "PRICHINA\tPOROG_NE_0_600: kadry_profil.json: GA-02 dark 393: porog=0.5, порог сверки раннера 123 ослаблен (без ослабления порога — слово владельца 22.11)"
+   ],
+   "prichiny": []
   }
  },
  "stab_vhod": {
+  "s100_porog_propuskaet.py": [
+   "pr-porog-oslablen"
+  ],
+  "s101_porog_forma_propuskaet.py": [
+   "porog-oslablen"
+  ],
   "s65_prokhodimost_propuskaet.py": [
    "stroka-bez-izmenenija",
    "kasanie-menshe-normy",
@@ -2532,6 +2622,9 @@
   ],
   "s98_prokhod_kanon_propuskaet.py": [
    "pr-prokhod-bez-pressable"
+  ],
+  "s99_etalon393_propuskaet.py": [
+   "pr-etalon-393-chuzhoj-bajt"
   ]
  }
 }

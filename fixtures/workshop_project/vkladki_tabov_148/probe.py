@@ -5,7 +5,11 @@
 """Батарея 148 (vkladki-tabov): нижнее меню/таб-бар D 2.4 — GA-02/03/04/09,
 16 кадров (оба профиля × обе темы), Mitte со знаком 145 (tier tab 28 px),
 бейдж «Ihre Rückmeldung nötig», контент вкладок, скролл под лейсте (GA-09);
-переходов нет (∩-правило манифеста D 2.4).
+переходов нет (∩-правило манифеста D 2.4). v6 (слово владельца 22.11):
+записи 390 — кадры пакета (маска 36), записи 393 — ПРОИЗВОДНЫЕ эталоны
+safe-area (etalony_safe_area/, семья mobile/etalony-vkladki-393/, маска
+48, порог 0.600); токенный гейт судит ЗНАЧЕНИЯ проекции
+mobile/src/theme/nav-tokens.ts (kompakt-tokens.ts снят).
 
 Субъекты (Н-39: стабы привязаны к ветвям ОБОИХ субъектов по stab_vhod
 source.json, не по прозе контракта):
@@ -62,6 +66,7 @@ GEJT_PUSTOGO_PRODUKTA = H_ROOT / 'scripts' / 'check_pustoj_produkt.sh'
 # именованный fail-closed rc 2 NOT_IMPLEMENTED, обращения к PATH нет.
 DOVERENNYY_BASH = '/usr/bin/bash'
 STUBS = HERE / 'stubs'
+ETALONY_393 = HERE / 'etalony_safe_area'
 NOS_MAKET = HERE / 'nositeli/maket'
 NOS_MAKET_FINAL2 = HERE / 'nositeli/maket-final2'
 NOS_D24 = HERE / 'nositeli/d24'
@@ -92,12 +97,26 @@ def load_source():
         print('ORACLE_TAMPERED: stubs/ != stab_vhod (%s)' % imejutsa,
               file=sys.stderr)
         raise SystemExit(2)
-    for gruppa, koren in (('nositeli', HERE), ('etalon_raskladka', HERE), ('produkt', HERE)):
+    for gruppa, koren in (('nositeli', HERE), ('etalon_raskladka', HERE),
+                          ('produkt', HERE), ('etalony_safe_area', HERE)):
         for rel, pin in src['piny'][gruppa].items():
             p = koren / rel
             if not p.is_file() or sha256_fajla(p) != pin:
-                print('ORACLE_TAMPERED: %s %s' % (gruppa, rel), file=sys.stderr)
+                print('ORACLE_TAMPERED: %s %s' % (gruppa, rel),
+                      file=sys.stderr)
                 raise SystemExit(2)
+    # v6 (слово владельца 22.11): производные эталоны 393 построены
+    # ДЕТЕРМИНИРОВАННО — перестройка из пинных входов даёт те же байты
+    # (один вызов на прогон батареи; расхождение — именованный отказ
+    # ДО клеток, правило 8)
+    import importlib.util as _ilu
+    _sp = _ilu.spec_from_file_location(
+        'postroit_etalony_148', ETALONY_393 / 'postroit.py')
+    _pb = _ilu.module_from_spec(_sp)
+    _sp.loader.exec_module(_pb)
+    for otkaz in _pb.proverit():
+        print(otkaz, file=sys.stderr)
+        raise SystemExit(2)
     if sha256_fajla(MODEL_A) != '5fd1415e40b257e5e7b97c7bf9bc8fe31e94dcea9e05c4c3ac44d68802db453b':
         print('ORACLE_TAMPERED: пин эталона v3 (model/ekran_shablon.py)',
               file=sys.stderr)
@@ -113,12 +132,19 @@ def zapis(pack: Path, forma):
 
 
 def postavit_makety(repo: Path, kadry_spiski):
+    """Макеты по каноническим путям репо: записи ОСНОВНОГО профиля —
+    носители пакета (nositeli/maket), записи 393 (v6) — ПРОИЗВОДНЫЕ
+    эталоны safe-area (etalony_safe_area/); источник — по префиксу
+    пути записи, имена файлов семей не пересекаются."""
     for man in kadry_spiski:
         for k in man['kadry']:
             kuda = repo / k['maket']
             if not kuda.parent.exists():
                 kuda.parent.mkdir(parents=True)
-            shutil.copyfile(NOS_MAKET / Path(k['maket']).name, kuda)
+            if k['maket'].startswith('mobile/etalony-vkladki-393/'):
+                shutil.copyfile(ETALONY_393 / Path(k['maket']).name, kuda)
+            else:
+                shutil.copyfile(NOS_MAKET / Path(k['maket']).name, kuda)
 
 
 def perepin_final2(koren: Path, pachka: Path):
@@ -168,6 +194,8 @@ def postavit_standiny(repo: Path, src, kljuch_e2e='e2e'):
         src['standiny']['e2e_ustarevshij_py'], encoding='utf-8')
     (pomm / 'e2e-nizhe-poroga.py').write_text(
         src['standiny']['e2e_nizhe_poroga_py'], encoding='utf-8')
+    (pomm / 'e2e-393-nizhe-poroga.py').write_text(
+        src['standiny']['e2e_393_nizhe_poroga_py'], encoding='utf-8')
     (pomm / 'stand_in_png.py').write_text(src['standiny']['png'], encoding='utf-8')
     (pachka / 'dvizhenie.sh').write_text(src['standiny']['dvizhenie'], encoding='utf-8')
     (pomm / 'dvizhenie-stand-in.py').write_text(
@@ -467,6 +495,27 @@ def mut_profil_maska_ne_48(pack, repo, src):
         json.dumps(profil, ensure_ascii=False, indent=1), encoding='utf-8')
 
 
+def mut_porog_oslablen(pack, repo, src):
+    # v6 (слово владельца 22.11): порог сверки записи ослаблен 0.6→0.5
+    # — визуальный суд при 0.5 зелен, значение судит гейт порога
+    man = json.loads((pack / 'kadry.json').read_text(encoding='utf-8'))
+    man['kadry'][0]['porog'] = 0.5
+    (pack / 'kadry.json').write_text(
+        json.dumps(man, ensure_ascii=False, indent=1), encoding='utf-8')
+    # пин 123 в репо собирается из пачки ДО мутации — обновить
+    pin123 = repo / '.harness123' / 'kadry.json'
+    if pin123.is_file():
+        shutil.copyfile(pack / 'kadry.json', pin123)
+
+
+def mut_etalon_393_nizhe_poroga(pack, repo, src):
+    # v6: эталон 393, отличающийся от снимка сверх порога, остаётся
+    # красным сверкой раннера 123 (порог 0.600 НЕ ослаблен): стенд-ин
+    # кладёт честные кадры, КРОМЕ GA-03 dark 393 — полоса Mitte профиля
+    # залита модой цвета полосы (как kadr-nizhe-poroga, но запись 393)
+    postavit_standiny(repo, src, 'e2e_393_nizhe_poroga')
+
+
 def mut_marshrut_bez_obolochki(pack, repo, src):
     put = repo / 'mobile/.maestro/vkladki-tabshell-393.yaml'
     put.write_text(
@@ -568,6 +617,8 @@ MUTACII_FORMY = {
     'odna-tema': mut_odna_tema,
     'profil-maska-36': mut_profil_maska_36,
     'profil-maska-ne-48': mut_profil_maska_ne_48,
+    'porog-oslablen': mut_porog_oslablen,
+    'etalon-393-nizhe-poroga': mut_etalon_393_nizhe_poroga,
     'paket-final2': mut_paket_final2,
     'kadry-podmenen': mut_kadry_podmenen,
     'marshrut-bez-obolochki': mut_marshrut_bez_obolochki,
@@ -827,13 +878,14 @@ def mut_pr_maska_ne_48(repo, src):
 
 
 def mut_pr_tokeny_modul(repo, src):
-    # v3b (Crit148k2b, Б1): модуль значений навигационных токенов
-    # дрейфовал от источника (руками переписан на final2 71) при
-    # честном соседнем source/tokens.json — красит статический гейт
-    # производности (TOKENY_MODUL_NE_IZ_ISTOCHNIKA)
-    put = repo / 'mobile/src/bootstrap/kompakt-tokens.ts'
+    # v3b (Crit148k2b, Б1) / v6: проекция nav-токенов theme/nav-tokens.ts
+    # дрейфовала от источника (руками переписан NAV.height на final2 71)
+    # при честном соседнем source/tokens.json — красит статический гейт
+    # производности значений (TOKENY_MODUL_NE_IZ_ISTOCHNIKA)
+    put = repo / 'mobile/src/theme/nav-tokens.ts'
     put.write_text(put.read_text(encoding='utf-8').replace(
         'height: 49,', 'height: 71,'), encoding='utf-8')
+
 
 
 def mut_pr_safe_bez_provaidera(repo, src):
@@ -883,6 +935,36 @@ def mut_pr_live_mutant_zhiv(repo, src):
     _fejk_jest_sreda(repo, src, 'jest_zelenyj')
 
 
+def mut_pr_etalon_393_chuzhoj_bajt(repo, src):
+    # v6: байты производного эталона 393 в R — ДРУГОГО производного
+    # (GA-04 dark), пин записи перепинен на фактический sha файла:
+    # пин-проверка/гейт пакета зелены (путь семейства верен), красит
+    # гейт производности (sha не из манифеста детерминированного
+    # построения — ETALON_393_NE_PROIZVODNYJ)
+    fajl = repo / 'mobile/etalony-vkladki-393/GA-02_normal_dark_393x852.png'
+    chuzhoj = (ETALONY_393 / 'GA-04_normal_dark_393x852.png').read_bytes()
+    fajl.write_bytes(chuzhoj)
+    put = repo / 'mobile/e2e-vkladki/kadry_profil.json'
+    man = json.loads(put.read_text(encoding='utf-8'))
+    for k in man['kadry']:
+        if k['id'] == 'GA-02 dark 393':
+            k['maket_sha256'] = hashlib.sha256(chuzhoj).hexdigest()
+    put.write_text(json.dumps(man, ensure_ascii=False, indent=1),
+                   encoding='utf-8')
+
+
+def mut_pr_porog_oslablen(repo, src):
+    # v6: порог записи профиля 393 ослаблен 0.6→0.5 — визуально зелёная
+    # сверка проходит, значение судит гейт порога продукт-судьи
+    put = repo / 'mobile/e2e-vkladki/kadry_profil.json'
+    man = json.loads(put.read_text(encoding='utf-8'))
+    for k in man['kadry']:
+        if k['id'] == 'GA-02 dark 393':
+            k['porog'] = 0.5
+    put.write_text(json.dumps(man, ensure_ascii=False, indent=1),
+                   encoding='utf-8')
+
+
 MUTACII_PRODUKTA = {
     'pr-chestnaja': None,
     'pr-shov-net': mut_pr_shov_net,
@@ -911,6 +993,8 @@ MUTACII_PRODUKTA = {
     'pr-tokeny-modul': mut_pr_tokeny_modul,
     'pr-safe-bez-provaidera': mut_pr_safe_bez_provaidera,
     'pr-safe-insety-ne-chitajutsja': mut_pr_safe_insety_ne_chitajutsja,
+    'pr-etalon-393-chuzhoj-bajt': mut_pr_etalon_393_chuzhoj_bajt,
+    'pr-porog-oslablen': mut_pr_porog_oslablen,
 }
 
 

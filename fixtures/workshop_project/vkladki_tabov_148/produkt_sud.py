@@ -40,22 +40,25 @@ TOKENY_IMJA = 'vkladki-tokeny-148.json'
 # ds/tokens.css (frames.json _meta.source_files_sha256)
 NOS_PAKET_FRAMES = HERE / 'nositeli' / 'paket' / 'frames.json'
 
-# v3b (Crit148k2b, Б1): источник ЗНАЧЕНИЙ nav-токенов — source/tokens.json
-# пакета (ветка nav; ds/tokens.css несёт цвета/базу D 2.3 и nav-размеров
-# не содержит — замер пачки), потребитель — модуль приложения, модуль —
-# каноническое извлечение (tokeny_modul), руками не редактируется
+# v6 (слово владельца 22.11 ~10:53): источник ЗНАЧЕНИЙ nav-токенов —
+# source/tokens.json пакета (ветка nav; ds/tokens.css несёт цвета/базу
+# D 2.3 и nav-размеров не содержит — замер пачки), потребитель —
+# нативная проекция mobile/src/theme/nav-tokens.ts (И-8), ВТОРОЙ модуль
+# значений (bootstrap/kompakt-tokens.ts) НЕ заводится: судья сверяет
+# ЗНАЧЕНИЯ проекции с извлечением из источника (не байты канонического
+# текста), подмену значения и реальную связь потребителей судит зонд
+# (Crit148k2b Б1, инварианты сохранены)
 ISTOCHNIK_TOKENOV = Path('docs/ux/05_Kompakt_D24/source/tokens.json')
-MODUL_TOKENOV = Path('mobile/src/bootstrap/kompakt-tokens.ts')
-
+MODUL_TOKENOV = Path('mobile/src/theme/nav-tokens.ts')
 
 def _nav_znachenija(ist: dict):
-    """(имя поля модуля, число) из веток nav/touch-target источника;
+    """(имя листа, число) из веток nav/touch-target источника;
     $type dimension, $value Npx — иначе ValueError (грамматика едина)."""
     para = (('height', ('nav', 'height')),
-            ('itemMinHeight', ('nav', 'item.min-height')),
-            ('labelFontSize', ('nav', 'label.font-size')),
-            ('labelLineHeight', ('nav', 'label.line-height')),
-            ('touchTargetMin', ('touch-target', 'min')))
+            ('minHeight', ('nav', 'item.min-height')),
+            ('fontSize', ('nav', 'label.font-size')),
+            ('lineHeight', ('nav', 'label.line-height')),
+            ('min', ('touch-target', 'min')))
     znachenija = []
     for imja, put_kljuca in para:
         uzel = ist
@@ -74,26 +77,53 @@ def _nav_znachenija(ist: dict):
     return znachenija
 
 
-def tokeny_modul(ist: dict) -> str:
-    """Канонический текст mobile/src/bootstrap/kompakt-tokens.ts по
-    значениям источника (единственная производная значений; сверяется
-    байтами гейтом TOKENY_MODUL_NE_IZ_ISTOCHNIKA)."""
-    stroki = ''.join('  %s: %d,\n' % (i, z) for i, z in _nav_znachenija(ist))
-    return (
-        '// 148 vkladki-tabov (И-12): значения nav/touch-target токенов\n'
-        '// пакета D24-Kompakt-1.1 для РЕАЛЬНЫХ компонентов лейсте —\n'
-        '// каноническое извлечение из docs/ux/05_Kompakt_D24/source/\n'
-        '// tokens.json (nav.height, nav.item.min-height,\n'
-        '// nav.label.font-size, nav.label.line-height, touch-target.min;\n'
-        '// поле $value, размерность px). Генерируется извлечением\n'
-        '// батареи 148 (produkt_sud.tokeny_modul) и руками не правится:\n'
-        '// продукт-судья сверяет байты с источником\n'
-        '// (TOKENY_MODUL_NE_IZ_ISTOCHNIKA), зонд судит СВЯЗЬ компонента\n'
-        '// с токеном подменой значения в изолированной копии (Crit148k2b\n'
-        '// Б1: высота лейсте и minHeight вкладок следуют за токеном).\n'
-        'export const navTokens = {\n'
-        + stroki +
-        '} as const;\n')
+def _blok_const(tekst: str, imja: str):
+    """(начало, конец) тела `export const <imja> = { … }` по скобочному
+    балансу; ValueError — нет объявления или объект не закрыт (грамматика
+    проекции замкнута: строки/комментарии скобок <имени> не несут —
+    значения только числа и вложенные объекты)."""
+    m = re.search(r'export const %s = \{' % re.escape(imja), tekst)
+    if m is None:
+        raise ValueError('нет export const %s' % imja)
+    i, glubina = m.end(), 1
+    while i < len(tekst):
+        if tekst[i] == '{':
+            glubina += 1
+        elif tekst[i] == '}':
+            glubina -= 1
+            if glubina == 0:
+                return m.end(), i
+        i += 1
+    raise ValueError('объект %s не закрыт' % imja)
+
+
+def _chislja_glubini0(tekst: str, nach: int, konets: int):
+    """[(kljuch, (nach,konets), chislo)] числовых литералов ВЕРХНЕГО
+    уровня блока: спаны точны, вложенные объекты пропускаются целиком,
+    строчные комментарии — до конца строки."""
+    i, glubina, para = nach, 0, []
+    while i < konets:
+        if tekst.startswith('//', i):
+            nl = tekst.find('\n', i)
+            if nl < 0 or nl >= konets:
+                break
+            i = nl
+            continue
+        c = tekst[i]
+        if c == '{':
+            glubina += 1
+        elif c == '}':
+            glubina -= 1
+        elif glubina == 0:
+            m = re.match(r'\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*:\s*(\d+)\s*,?',
+                         tekst[i:konets])
+            if m is not None:
+                para.append((m.group(1), (i + m.start(2), i + m.end(2)),
+                             int(m.group(2))))
+                i += m.end()
+                continue
+        i += 1
+    return para
 
 
 def _plus_dva(znach):
@@ -101,6 +131,93 @@ def _plus_dva(znach):
     if m is None:
         raise ValueError('$value %r не Npx — подмена не определена' % znach)
     return '%dpx' % (int(m.group(1)) + 2)
+
+
+def znachenija_modulja(tekst: str):
+    """{imja: (chislo, (nach,konets))} пяти пинируемых листьев проекции
+    nav-tokens.ts (NAV.height, NAV.item.minHeight, NAV.label.fontSize,
+    NAV.label.lineHeight, TOUCH_TARGET.min): ValueError с именем листа,
+    если листа нет или он не число (грамматика И-8 v6)."""
+    lista = (('NAV.height', 'NAV', ('height',)),
+             ('NAV.item.minHeight', 'NAV', ('item', 'minHeight')),
+             ('NAV.label.fontSize', 'NAV', ('label', 'fontSize')),
+             ('NAV.label.lineHeight', 'NAV', ('label', 'lineHeight')),
+             ('TOUCH_TARGET.min', 'TOUCH_TARGET', ('min',)))
+    nakhodki = {}
+    bloki = {}
+    for imja, konst, put in lista:
+        if konst not in bloki:
+            bloki[konst] = _blok_const(tekst, konst)
+        nach, konets = bloki[konst]
+        for kusok in put[:-1]:
+            nach, konets = _podblok(tekst, nach, konets, kusok)
+        para = _chislja_glubini0(tekst, nach, konets)
+        najdeno = [p for p in para if p[0] == put[-1]]
+        if len(najdeno) != 1:
+            raise ValueError('лист %s: найдено %d числовых литералов'
+                             % (imja, len(najdeno)))
+        kljuch, (n0, n1), chislo = najdeno[0]
+        nakhodki[imja] = (chislo, (n0, n1))
+    return nakhodki
+
+def zamenit_znachenija_modulja(tekst: str, novye: dict):
+    """Текст проекции с заменёнными числовыми литералами листьев
+    (только изолированная копия суда — контроль svjaz: значения
+    источника подменены N+2px, проекция регенерируется по спанам,
+    потребитель следует за проекцией)."""
+    nakhodki = znachenija_modulja(tekst)
+    for imja in novye:
+        if imja not in nakhodki:
+            raise ValueError('лист %s не найден' % imja)
+    dlja_zameny = sorted(((nakhodki[imja][1], str(novye[imja]))
+                          for imja in novye), reverse=True)
+    for (n0, n1), znach in dlja_zameny:
+        tekst = tekst[:n0] + znach + tekst[n1:]
+    return tekst
+
+
+def _podblok(tekst: str, nach: int, konets: int, kljuch: str):
+    """(nach, konets) тела вложенного объекта `<kljuch>: { … }` ВЕРХНЕГО
+    уровня блока; ValueError — ключа нет (замкнутая грамматика)."""
+    for kljuch_span, p_nach, p_konets in _kljuchi_bloka(tekst, nach, konets):
+        if kljuch_span == kljuch:
+            return p_nach, p_konets
+    raise ValueError('нет вложенного объекта %s' % kljuch)
+
+
+def _kljuchi_bloka(tekst: str, nach: int, konets: int):
+    """[(kljuch, nach_tela, konets_tela)] объектов-значений верхнего
+    уровня блока (только `kljuch: {` — числам/строкам тел нет)."""
+    i, glubina, spisyok = nach, 0, []
+    while i < konets:
+        if tekst.startswith('//', i):
+            nl = tekst.find('\n', i)
+            if nl < 0 or nl >= konets:
+                break
+            i = nl
+            continue
+        c = tekst[i]
+        if c == '{':
+            if glubina == 0:
+                m = re.search(r'([A-Za-z_$][A-Za-z0-9_$]*)\s*:\s*\{',
+                              tekst[max(nach, i - 80):i + 1])
+                imja_kljucha = m.group(1) if m else None
+                j, vnutr = i + 1, 1
+                while j < konets and vnutr > 0:
+                    if tekst[j] == '{':
+                        vnutr += 1
+                    elif tekst[j] == '}':
+                        vnutr -= 1
+                    j += 1
+                if imja_kljucha is not None and vnutr == 0:
+                    spisyok.append((imja_kljucha, i + 1, j - 1))
+                i = j
+                continue
+            glubina += 1
+        elif c == '}':
+            glubina -= 1
+        i += 1
+    return spisyok
 
 
 def podmena_istochnika_tokenov(ist: dict):
@@ -120,30 +237,50 @@ def podmena_istochnika_tokenov(ist: dict):
 
 
 def proverka_modulja_tokenov(repo: Path):
-    """v3b (Crit148k2b, Б1): модуль значений навигационных токенов в R —
-    извлечение source/tokens.json (байты == tokeny_modul): рукописный
-    дрейф значений при честном соседнем источнике — именованный отказ
-    ДО исполнения зонда (клетка pr-tokeny-modul, стаб s94)."""
+    """v6 (слово владельца 22.11): проекция mobile/src/theme/nav-tokens.ts
+    в R несёт ЗНАЧЕНИЯ извлечения source/tokens.json (пять листьев И-8);
+    рукописный дрейф значения при честном соседнем источнике —
+    именованный отказ ДО исполнения зонда (клетка pr-tokeny-modul,
+    стаб s94; байтов канонического текста не требуется — единственный
+    источник значений source/tokens.json, И-8)."""
     istochnik = repo / ISTOCHNIK_TOKENOV
     if not istochnik.is_file():
         return ('TOKENY_MODUL_NE_IZ_ISTOCHNIKA: нет %s — источник значений '
-                'токенов навигации пакета 1.1 (И-12)' % ISTOCHNIK_TOKENOV)
+                'токенов навигации пакета 1.1 (И-8)' % ISTOCHNIK_TOKENOV)
     try:
-        ozhidaemyj = tokeny_modul(
-            json.loads(istochnik.read_text(encoding='utf-8')))
+        ozhidaemye = dict(_nav_znachenija(
+            json.loads(istochnik.read_text(encoding='utf-8'))))
     except (ValueError, KeyError, TypeError) as e:
         return ('TOKENY_MODUL_NE_IZ_ISTOCHNIKA: %s не несёт ветки '
                 'nav/touch-target в грамматике Npx (%s)'
                 % (ISTOCHNIK_TOKENOV, e))
     modul = repo / MODUL_TOKENOV
     if not modul.is_file():
-        return ('TOKENY_MODUL_NE_IZ_ISTOCHNIKA: нет %s — модуль значений '
-                'токенов лейсте (генерируется извлечением из %s)'
-                % (MODUL_TOKENOV, ISTOCHNIK_TOKENOV))
-    if modul.read_text(encoding='utf-8') != ozhidaemyj:
-        return ('TOKENY_MODUL_NE_IZ_ISTOCHNIKA: %s != извлечению из %s '
-                '(ветки nav.*/touch-target.min; модуль руками не '
-                'редактируется)' % (MODUL_TOKENOV, ISTOCHNIK_TOKENOV))
+        return ('TOKENY_MODUL_NE_IZ_ISTOCHNIKA: нет %s — проекция значений '
+                'токенов экрана (И-8; второй модуль значений '
+                'bootstrap/kompakt-tokens.ts не заводится, слово владельца '
+                '22.11)' % MODUL_TOKENOV)
+    try:
+        fakticheskie = znachenija_modulja(
+            modul.read_text(encoding='utf-8'))
+    except ValueError as e:
+        return ('TOKENY_MODUL_NE_IZ_ISTOCHNIKA: %s не несёт пинируемых '
+                'листьев грамматики И-8 (%s)' % (MODUL_TOKENOV, e))
+    # соответствие листьев: height/minHeight/fontSize/lineHeight/min
+    sootvetstvie = {'height': 'NAV.height', 'minHeight': 'NAV.item.minHeight',
+                    'fontSize': 'NAV.label.fontSize',
+                    'lineHeight': 'NAV.label.lineHeight', 'min': 'TOUCH_TARGET.min'}
+    for ist_imja, modul_imja in sootvetstvie.items():
+        if modul_imja not in fakticheskie:
+            return ('TOKENY_MODUL_NE_IZ_ISTOCHNIKA: %s: нет листа %s '
+                    '(грамматика проекции И-8)' % (MODUL_TOKENOV, modul_imja))
+        if fakticheskie[modul_imja][0] != ozhidaemye[ist_imja]:
+            return ('TOKENY_MODUL_NE_IZ_ISTOCHNIKA: %s: %s = %d, а '
+                    'извлечение из %s = %d (ветки nav.*/touch-target.min; '
+                    'значения проекции — из источника, не руками)'
+                    % (MODUL_TOKENOV, modul_imja,
+                       fakticheskie[modul_imja][0], ISTOCHNIK_TOKENOV,
+                       ozhidaemye[ist_imja]))
     return None
 
 def proverka_provaidera(repo: Path):
@@ -233,20 +370,28 @@ MUTACII_ISPOLNIMYE = [
              "filtrKnopka: { alignItems: 'flex-start', justifyContent: 'center', paddingVertical: 8 }")])]},
     # v3a (Crit148k2a, Б3): рабочий токен подменён на Final 2 (nav.label.
     # font-size $value 10 → final2 11) — убивается равенством $value 1.1;
-    # v3b: якорь перенесён в модуль значений (компонент читает модуль)
+    # v6: якорь — лист NAV.label.fontSize проекции theme/nav-tokens.ts
+    # (живая форма; вторая форма — плоская компакта, снята)
     {'imja': 'tokeny', 'mutacii': [
         (str(MODUL_TOKENOV), [
-            ('labelFontSize: 10,', 'labelFontSize: 11,')])]},
+            ('fontSize: 10,', 'fontSize: 11,')])]},
     # v3b (Crit148k2b, Б1): старый токен Final 2 в рабочем компоненте —
-    # высота лейсте 71 != nav.height 49 (равенство $value 1.1)
+    # высота лейсте 71 != nav.height 49 (равенство $value 1.1); v6: якорь —
+    # живая форма шва артборда (artboard.y(NAV.height)); вторая форма —
+    # плоская компакта раскладки (height: NAV.height + rezervNiz)
     {'imja': 'nav-final2', 'mutacii': [
         ('mobile/src/bootstrap/tab-shell.tsx', [
-            ('height: navTokens.height,', 'height: 71,')])]},
+            ('const vysotaLejste = artboard.y(NAV.height) + rezervNiz;',
+             'const vysotaLejste = 71 + rezervNiz;'),
+            ('height: NAV.height + rezervNiz', 'height: 71 + rezervNiz')])]},
     # v3b (Crit148k2b, Б1): литерал 49 вместо токена — на пиннованном
     # пакете зелён (совпадение числа), красен ПОД ПОДМЕНОЙ источника
+    # (v6: те же две формы якоря, что у nav-final2)
     {'imja': 'nav-literal', 'podmena': True, 'mutacii': [
         ('mobile/src/bootstrap/tab-shell.tsx', [
-            ('height: navTokens.height,', 'height: 49,')])]},
+            ('const vysotaLejste = artboard.y(NAV.height) + rezervNiz;',
+             'const vysotaLejste = 49 + rezervNiz;'),
+            ('height: NAV.height + rezervNiz', 'height: 49 + rezervNiz')])]},
     # v3b (Crit148k2b, Б2): обязательная цель контента отключена —
     # проходит зоны/кадры, красна проверкой действующей цели зонда
     {'imja': 'disabled', 'mutacii': [
@@ -681,16 +826,102 @@ def proverka_maski_profilja(repo: Path):
 
 def proverka_paketa(repo: Path):
     """v+1 (слово владельца 2026-11-02): пин пачки R — пакет
-    D24-Kompakt-1.1: каждый кадр обоих манифестов лежит в
+    D24-Kompakt-1.1: кадры ОСНОВНОГО манифеста (kadry.json, 390) лежат в
     docs/ux/05_Kompakt_D24/frames/ и maket_sha256 == записи
-    frames/SHA256SUMS. Старый пин Final 2 (файлы честны) проходят и
-    пин-проверку, и эталон — красит ТОЛЬКО этот гейт (клетка
+    frames/SHA256SUMS. v6 (слово владельца 22.11): записи ВТОРОГО
+    профиля (393) судит proverka_etalonov_393 (производные эталоны
+    safe-area), здесь для них допустимы пути пакета И производных —
+    старый пин Final 2 (файлы честны) всё ещё красит этот гейт (клетка
     pr-paket-final2, стаб s91)."""
     sums = {}
     for line in (HERE / 'nositeli/paket/SHA256SUMS').read_text(
             encoding='utf-8').splitlines():
         sha, imja = line.split(maxsplit=1)
         sums[imja.strip().lstrip('*')] = sha
+    pachka = repo / 'mobile/e2e-vkladki'
+    try:
+        forma = json.loads((pachka / 'ekran.json').read_text(encoding='utf-8'))
+        profil = forma.get('vtoroj_profil', {}).get('kadry',
+                                                    'kadry_profil.json')
+    except (OSError, ValueError):
+        return None
+    for imja in ('kadry.json', profil):
+        try:
+            kadry = json.loads((pachka / imja).read_text(encoding='utf-8'))['kadry']
+        except (OSError, ValueError, KeyError):
+            return None
+        for k in kadry:
+            put = k.get('maket', '')
+            imja_fajla = put.rsplit('/', 1)[-1]
+            v_pakete = (put.startswith('docs/ux/05_Kompakt_D24/frames/')
+                        and sums.get(imja_fajla) == k.get('maket_sha256'))
+            # sha производных судит ТОЛЬКО proverka_etalonov_393 (после
+            # этого гейта) — здесь принадлежность пути, не подмена пина
+            proizvodnyj = put.startswith(PUT_ETALONOV_393)
+            if imja != 'kadry.json' and proizvodnyj:
+                continue
+            if not v_pakete:
+                return ('PAKET_1_1_NE_PRIPINEN: %s: %s: пин вне пакета '
+                        'D24-Kompakt-1.1 (frames/SHA256SUMS)' % (imja, k.get('id')))
+    return None
+
+
+def manifest_etalonov():
+    """Манифест производных эталонов 393 (etalony_safe_area/manifest.json,
+    пин байтов — source.json:.piny.etalony_safe_area, сверяется
+    probe.load_source ДО клеток): единый источник пинов производных."""
+    return json.loads((HERE / 'etalony_safe_area' / 'manifest.json')
+                      .read_text(encoding='utf-8'))
+
+
+PUT_ETALONOV_393 = 'mobile/etalony-vkladki-393/'
+
+
+def proverka_etalonov_393(repo: Path):
+    """v6 (слово владельца 22.11, п.(6)«Д» + А-964): эталон экрана на
+    393 — ПРОИЗВОДНЫЙ (D24-390 + системные полосы 393, контент
+    неизменен): каждая запись kadry_profil пинит файл в
+    mobile/etalony-vkladki-393/ с maket_sha256 == записи манифеста
+    производных (построение детерминировано,Судит батарея перестройкой
+    в probe.load_source). Байты файла вне манифеста — подмена
+    производного (клетка pr-etalon-393-chuzhoj-bajt, стаб s99)."""
+    pachka = repo / 'mobile/e2e-vkladki'
+    try:
+        forma = json.loads((pachka / 'ekran.json').read_text(encoding='utf-8'))
+        imja = forma.get('vtoroj_profil', {}).get('kadry', 'kadry_profil.json')
+        kadry = json.loads((pachka / imja).read_text(encoding='utf-8'))['kadry']
+    except (OSError, ValueError, KeyError):
+        return None
+    piny = {e['imja']: e['sha256'] for e in manifest_etalonov()['etalony']}
+    for k in kadry:
+        put = k.get('maket', '')
+        imja_fajla = put.rsplit('/', 1)[-1]
+        if not put.startswith(PUT_ETALONOV_393):
+            return ('ETALON_393_NE_PROIZVODNYJ: %s: %s: пин вне '
+                    '%s (производные эталоны safe-area 393, слово '
+                    'владельца 22.11; кадры пакета 393 эталонами '
+                    'экрана не являются)' % (imja, k.get('id'), PUT_ETALONOV_393))
+        if piny.get(imja_fajla) != k.get('maket_sha256'):
+            return ('ETALON_393_NE_PROIZVODNYJ: %s: %s: пин %s не из '
+                    'манифеста производных (etalony_safe_area/)'
+                    % (imja, k.get('id'), imja_fajla))
+        fajl = repo / put
+        if not fajl.is_file() or sha256_fajla(fajl) != k.get('maket_sha256'):
+            return ('ETALON_393_NE_PROIZVODNYJ: %s: %s: нет файла/байты '
+                    'отличаются от пина (%s)'
+                    % (imja, k.get('id'), put))
+    return None
+
+
+POROG_SVERKI = 0.6
+
+
+def proverka_poroga(repo: Path):
+    """v6 (слово владельца 22.11): порог сверки НЕ ослабляется — поле
+    porog КАЖДОЙ записи обоих манифестов обязано остаться 0.600
+    (число/метрика не меняются; маски/мера — гейты маски и валидатора).
+    Ослабление записи — именованный отказ (клетка pr-porog-oslablen,
+    стаб s100)."""
     pachka = repo / 'mobile/e2e-vkladki'
     try:
         forma = json.loads((pachka / 'ekran.json').read_text(encoding='utf-8'))
@@ -704,12 +935,15 @@ def proverka_paketa(repo: Path):
         except (OSError, ValueError, KeyError):
             return None
         for k in kadry:
-            put = k.get('maket', '')
-            imja_fajla = put.rsplit('/', 1)[-1]
-            if (not put.startswith('docs/ux/05_Kompakt_D24/frames/')
-                    or sums.get(imja_fajla) != k.get('maket_sha256')):
-                return ('PAKET_1_1_NE_PRIPINEN: %s: %s: пин вне пакета '
-                        'D24-Kompakt-1.1 (frames/SHA256SUMS)' % (imja, k.get('id')))
+            try:
+                if float(k.get('porog')) != POROG_SVERKI:
+                    return ('POROG_NE_0_600: %s: %s: porog=%s, порог сверки '
+                            'раннера 123 ослаблен (без ослабления порога — '
+                            'слово владельца 22.11)'
+                            % (imja, k.get('id'), k.get('porog')))
+            except (TypeError, ValueError):
+                return ('POROG_NE_0_600: %s: %s: porog=%r не число'
+                        % (imja, k.get('id'), k.get('porog')))
     return None
 
 def proverka_imen_kadrov(repo: Path, src):
@@ -830,7 +1064,11 @@ def _png_dekodirovat(blob):
 
 
 def _png_kodirovat_rgba(w, h, ch, rows):
-    """Кодирование в RGBA (ct 6): RGB-строки расширяются альфой 255."""
+    """Кодирование в RGBA (ct 6): RGB-строки расширяются альфой 255.
+    v6: восстановлены байтовые литералы PNG-подписи/фильтра/альфы —
+    до v6 литералы несли ДВОЙНОЙ обратный слеш (мёртвый код: функция
+    не вызывалась ни одной клеткой; строитель производных эталонов
+    393 — первый потребитель, замер: подпись была текстом «\\x89PNG…»)."""
     import struct
     import zlib
 
@@ -838,10 +1076,10 @@ def _png_kodirovat_rgba(w, h, ch, rows):
         return (struct.pack('>I', len(d)) + t + d
                 + struct.pack('>I', zlib.crc32(t + d) & 0xFFFFFFFF))
     if ch == 3:
-        rows = [b''.join(bytes(r[x:x + 3]) + b'\\xff' for x in range(0, len(r), 3))
+        rows = [b''.join(bytes(r[x:x + 3]) + b'\xff' for x in range(0, len(r), 3))
                 for r in rows]
-    raw2 = b''.join(b'\\x00' + r for r in rows)
-    return (b'\\x89PNG\\r\\n\\x1a\\n'
+    raw2 = b''.join(b'\x00' + r for r in rows)
+    return (b'\x89PNG\r\n\x1a\n'
             + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0))
             + chunk(b'IDAT', zlib.compress(raw2, 1)) + chunk(b'IEND', b''))
 
@@ -1169,9 +1407,10 @@ def ispolnimyj_sud(repo: Path, src):
                 ishodnye[rel] = put.read_text(encoding='utf-8')
 
         # v3b (Crit148k2b Б1): состояния источника токенов — пиннованный
-        # и ПОДМЕНЁННЫЙ (N+2px): модуль копии регенерирован извлечением
-        # из подменённого источника, носитель зонда несёт те же
-        # значения; подмена ТОЛЬКО в изолированной копии суда (R не
+        # и ПОДМЕНЁННЫЙ (N+2px); v6: проекция копии несёт подменённые
+        # ЗНАЧЕНИЯ (замена литералов по спанам znachenija_modulja —
+        # байтов канонического текста больше нет), носитель зонда — те
+        # же значения; подмена ТОЛЬКО в изолированной копии суда (R не
         # трогается). Литерал в компоненте совпадением числа проходит
         # пиннованный прогон — подмену НЕ следует: красен.
         modul_kopii = kopija / Path(str(MODUL_TOKENOV)).relative_to('mobile')
@@ -1183,7 +1422,17 @@ def ispolnimyj_sud(repo: Path, src):
                 (repo / ISTOCHNIK_TOKENOV).read_text(encoding='utf-8'))
             ist_podmena, opisanie_podmeny = podmena_istochnika_tokenov(
                 istochnik)
-            modul_podmena = tokeny_modul(ist_podmena)
+            zameny = {'NAV.height': None, 'NAV.item.minHeight': None,
+                      'NAV.label.fontSize': None, 'NAV.label.lineHeight': None}
+            sootvetstvie_listev = {'height': 'NAV.height',
+                                   'minHeight': 'NAV.item.minHeight',
+                                   'fontSize': 'NAV.label.fontSize',
+                                   'lineHeight': 'NAV.label.lineHeight'}
+            for imja, znach in _nav_znachenija(ist_podmena):
+                if imja in sootvetstvie_listev:
+                    zameny[sootvetstvie_listev[imja]] = znach
+            modul_podmena = zamenit_znachenija_modulja(
+                modul_ishodnyj, zameny)
             nos_podmena = json.loads(nositel_ishodnyj)
             for kljuch in ('height', 'item.min-height', 'label.font-size',
                            'label.line-height'):
@@ -1370,6 +1619,14 @@ def main():
     paket = proverka_paketa(repo)
     if paket:
         print('PRICHINA\t%s' % paket)
+        return 1
+    porog = proverka_poroga(repo)
+    if porog:
+        print('PRICHINA\t%s' % porog)
+        return 1
+    etalony = proverka_etalonov_393(repo)
+    if etalony:
+        print('PRICHINA\t%s' % etalony)
         return 1
     imena = proverka_imen_kadrov(repo, src)
     if imena:

@@ -45,16 +45,81 @@ def proverka_maski_profilja(pack: Path):
     return None
 
 def proverka_paketa(pack: Path):
-    """v+1 (слово владельца 2026-11-02): пин пачки — пакет D24-Kompakt-1.1:
-    каждый кадр обоих манифестов лежит в docs/ux/05_Kompakt_D24/frames/ и
-    его maket_sha256 == записи frames/SHA256SUMS пакета. Старый пин
-    D 2.4 Final 2 валидатор ПРИНИМАЕТ (файлы честны) — красит его ТОЛЬКО
-    этот гейт (клетка paket-final2, стаб s90)."""
+    """v+1 (слово владельца 2026-11-02): пин пачки — пакет
+    D24-Kompakt-1.1: кадры ОСНОВНОГО манифеста (kadry.json, 390) лежат в
+    docs/ux/05_Kompakt_D24/frames/ с maket_sha256 == записи
+    frames/SHA256SUMS. v6 (слово владельца 22.11): записи ВТОРОГО
+    профиля (393) — производные эталоны safe-area
+    (proverka_etalonov_393), здесь для них допустимы пути пакета И
+    производных; старый пин D 2.4 Final 2 (файлы честны) по-прежнему
+    красит этот гейт (клетка paket-final2, стаб s90)."""
     sums = {}
     for line in (HERE.parent / 'nositeli/paket/SHA256SUMS').read_text(
             encoding='utf-8').splitlines():
         sha, imja = line.split(maxsplit=1)
         sums[imja.strip().lstrip('*')] = sha
+    try:
+        forma = json.loads((pack / 'ekran.json').read_text(encoding='utf-8'))
+        profil = forma.get('vtoroj_profil', {}).get('kadry', 'kadry_profil.json')
+    except (OSError, ValueError):
+        return None
+    for imja in ('kadry.json', profil):
+        try:
+            kadry = json.loads((pack / imja).read_text(encoding='utf-8'))['kadry']
+        except (OSError, ValueError, KeyError):
+            return None
+        for k in kadry:
+            put = k.get('maket', '')
+            imja_fajla = put.rsplit('/', 1)[-1]
+            v_pakete = (put.startswith('docs/ux/05_Kompakt_D24/frames/')
+                        and sums.get(imja_fajla) == k.get('maket_sha256'))
+            # sha производных судит ТОЛЬКО proverka_etalonov_393
+            proizvodnyj = put.startswith(PUT_ETALONOV_393)
+            if imja != 'kadry.json' and proizvodnyj:
+                continue
+            if not v_pakete:
+                return ('PAKET_1_1_NE_PRIPINEN: %s: %s: пин вне пакета '
+                        'D24-Kompakt-1.1 (frames/SHA256SUMS)' % (imja, k.get('id')))
+    return None
+
+
+def manifest_etalonov():
+    """Манифест производных эталонов 393 — единый источник пинов
+    (etalony_safe_area/manifest.json; байты запинены source.json)."""
+    return json.loads((HERE.parent / 'etalony_safe_area' / 'manifest.json')
+                      .read_text(encoding='utf-8'))
+
+
+PUT_ETALONOV_393 = 'mobile/etalony-vkladki-393/'
+
+
+def proverka_etalonov_393(pack: Path):
+    """v6 (слово владельца 22.11): эталон экрана на 393 — ПРОИЗВОДНЫЙ
+    (D24-390 + системные полосы 393, контент неизменен, маска 48):
+    каждая запись манифеста профиля пинит mobile/etalony-vkladki-393/
+    с sha из манифеста производных; пин кадра пакета 393 — отказ."""
+    try:
+        forma = json.loads((pack / 'ekran.json').read_text(encoding='utf-8'))
+        imja = forma.get('vtoroj_profil', {}).get('kadry', 'kadry_profil.json')
+        kadry = json.loads((pack / imja).read_text(encoding='utf-8'))['kadry']
+    except (OSError, ValueError, KeyError):
+        return None
+    piny = {e['imja']: e['sha256'] for e in manifest_etalonov()['etalony']}
+    for k in kadry:
+        put = k.get('maket', '')
+        imja_fajla = put.rsplit('/', 1)[-1]
+        if (not put.startswith(PUT_ETALONOV_393)
+                or piny.get(imja_fajla) != k.get('maket_sha256')):
+            return ('ETALON_393_NE_PROIZVODNYJ: %s: %s: пин %s вне '
+                    'манифеста производных (mobile/etalony-vkladki-393/, '
+                    'слово владельца 22.11)' % (imja, k.get('id'), put))
+    return None
+
+
+def proverka_poroga(pack: Path):
+    """v6 (слово владельца 22.11): порог сверки НЕ ослабляется — porog
+    каждой записи обоих манифестов 0.600 (клетка porog-oslablen,
+    стаб s101)."""
     try:
         forma = json.loads((pack / 'ekran.json').read_text(encoding='utf-8'))
         imena = ['kadry.json',
@@ -67,12 +132,14 @@ def proverka_paketa(pack: Path):
         except (OSError, ValueError, KeyError):
             return None
         for k in kadry:
-            put = k.get('maket', '')
-            imja_fajla = put.rsplit('/', 1)[-1]
-            if (not put.startswith('docs/ux/05_Kompakt_D24/frames/')
-                    or sums.get(imja_fajla) != k.get('maket_sha256')):
-                return ('PAKET_1_1_NE_PRIPINEN: %s: %s: пин вне пакета '
-                        'D24-Kompakt-1.1 (frames/SHA256SUMS)' % (imja, k.get('id')))
+            try:
+                if float(k.get('porog')) != 0.6:
+                    return ('POROG_NE_0_600: %s: %s: porog=%s, порог сверки '
+                            'ослаблен (без ослабления порога — слово '
+                            'владельца 22.11)' % (imja, k.get('id'), k.get('porog')))
+            except (TypeError, ValueError):
+                return ('POROG_NE_0_600: %s: %s: porog=%r не число'
+                        % (imja, k.get('id'), k.get('porog')))
     return None
 
 def proverka_imen_kadrov(pack: Path):
@@ -128,6 +195,14 @@ def main():
             print('PRICHINA\t%s' % prichina, file=sys.stderr)
             return 1
         prichina = proverka_paketa(Path(a.pack))
+        if prichina:
+            print('PRICHINA\t%s' % prichina, file=sys.stderr)
+            return 1
+        prichina = proverka_poroga(Path(a.pack))
+        if prichina:
+            print('PRICHINA\t%s' % prichina, file=sys.stderr)
+            return 1
+        prichina = proverka_etalonov_393(Path(a.pack))
         if prichina:
             print('PRICHINA\t%s' % prichina, file=sys.stderr)
             return 1
