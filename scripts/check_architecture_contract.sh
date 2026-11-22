@@ -489,19 +489,57 @@ arch187_locate() {
 
 # arch187_brief <component> <with_rules 0|1> — бриф компонента из
 # закреплённого дерева. 0 — бриф в stdout, 1 — модель брифа не отдала.
-arch187_brief() {
-  local comp="${1:-}" rules="${2:-0}" out rc=0
+#
+# STDERR МОДЕЛИ НЕ ГЛОТАЕТСЯ: он снимается во временный файл (mktemp), и
+# файл удаляется ВСЕГДА — и при отказе, и при успехе. Отказ (rc≠0 ИЛИ пустой
+# stdout брифа) печатает в stderr двери РОВНО одну строку
+# `ARCH_BRIEF_STDERR: <первая непустая строка stderr модели>`; пустой stderr
+# модели даёт `ARCH_BRIEF_STDERR: (stderr модели пуст)`. Прежний возврат 1 и
+# прежний именованный отказ вызывающего (ARCH_BRIEF_OTKAZ) сохраняются.
+# При успехе stdout брифа идёт побайтно как прежде, а stderr двери пуст:
+# шум модели при rc 0 не печатается.
+#
+# ФАЙЛ ЗАХВАТА НЕ ПЕРЕЖИВАЕТ СИГНАЛ ГРУППЕ ПРОЦЕССОВ. Вызов брифа идёт в $(…)
+# у вызывающего, а его EXIT-ловушка этот файл не знает: при TERM/INT,
+# доставленных ВСЕЙ группе, вызывающий умирает — и файл остался бы лежать в
+# TMPDIR. Поэтому тело функции — ПОДОБОЛОЧКА с ловушками: EXIT убирает РОВНО
+# свой файл, TERM/INT завершают подоболочку с 128+N, и EXIT-ловушка убирает
+# файл. Ловушка INT НЕ снимает EXIT-ловушку (иначе файл пережил бы INT) и
+# трогает только свой файл — чужие файлы TMPDIR не удаляются.
+arch187_brief() (
+  local comp="${1:-}" rules="${2:-0}" out rc=0 err errf first="" rest line
   [ -n "${ARCH187_MODEL_DIR:-}" ] || return 1
+  errf=""
+  trap 'if [ -n "${errf:-}" ]; then rm -f "$errf"; fi' EXIT
+  trap 'exit 143' TERM
+  trap 'exit 130' INT
+  errf="$(mktemp 2>/dev/null || true)"
+  if [ -z "$errf" ] || [ ! -f "$errf" ]; then errf=""; fi
   if [ "$rules" = "1" ]; then
-    out="$(cd "$ARCH187_MODEL_DIR" && node tooling/checks/cli.js brief --compact --with-rules --component "$comp" 2>/dev/null)" || rc=$?
+    out="$(cd "$ARCH187_MODEL_DIR" && node tooling/checks/cli.js brief --compact --with-rules --component "$comp" 2>"${errf:-/dev/null}")" || rc=$?
   else
-    out="$(cd "$ARCH187_MODEL_DIR" && node tooling/checks/cli.js brief --compact --component "$comp" 2>/dev/null)" || rc=$?
+    out="$(cd "$ARCH187_MODEL_DIR" && node tooling/checks/cli.js brief --compact --component "$comp" 2>"${errf:-/dev/null}")" || rc=$?
   fi
-  [ "$rc" -eq 0 ] || return 1
-  [ -n "$out" ] || return 1
+  err=""
+  if [ -n "$errf" ]; then
+    err="$(cat "$errf" 2>/dev/null || true)"
+    rm -f "$errf"
+  fi
+  if [ "$rc" -ne 0 ] || [ -z "$out" ]; then
+    # Первая НЕПУСТАЯ строка stderr модели: пустая строка причиной не является.
+    rest="$err"
+    while [ -n "$rest" ]; do
+      line="${rest%%$'\n'*}"
+      if [ "$line" = "$rest" ]; then rest=""; else rest="${rest#*$'\n'}"; fi
+      if [ -n "$line" ]; then first="$line"; break; fi
+    done
+    [ -n "$first" ] || first="(stderr модели пуст)"
+    printf 'ARCH_BRIEF_STDERR: %s\n' "$first" >&2
+    return 1
+  fi
   printf '%s\n' "$out"
   return 0
-}
+)
 
 # arch187_model_check <repo> — `check --base` закреплённой модели против
 # УТВЕРЖДЁННОГО снимка.

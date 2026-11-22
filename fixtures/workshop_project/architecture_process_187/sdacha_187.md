@@ -1,22 +1,34 @@
-# СДАЧА 187 — ARCH_CI: ближайший продуктовый предок
+# СДАЧА 187 — сверка Б-5 с влитым ARCH_CI (объединение семьи)
 
-Основание: задание `/tmp/dev-harness-verify/task-archci-architect.md`,
-слово консультанта 23:52; маршрут А как Б-3: один общий PR и reviewer,
-без новой версии frozen-контрактов. База: `f9f029592bbed952b4aebb94aec42fb65232b9e0`;
-`git ls-remote ssh://git@github.com/a3ka/dev-harness.git refs/heads/main`
-вернул этот SHA, rc 0. Production и контракты этой пачкой не меняются.
-Ниже предъявлено красное до реализации, не заявление о готовности done.
+Основание: задание `/tmp/dev-harness-verify/task-b5reconcile.md`. Ветка
+`wip/187/final-b5` (accept Rev187B5c на OBJECT `27983f424a`, вердикт
+`1870d62500`, закрытие ревью `.review/126`) после ленда ARCH_CI в main
+конфликтовала в трёх файлах семьи: `census_b5.py` (add/add), `workflow_probe.py`
+и `sdacha_187.md`. Слияние `wip/187/architect-b5m`: origin/main
+`e517385a5b8edc447f9eea0f6afdc82fedd065f5` + `wip/187/final-b5`
+`7223880c6d98d0040875ff707ac86b58265b8232`, база
+`f9f029592bbed952b4aebb94aec42fb65232b9e0`, identity architect.
+Разрешение сохраняет ОБЕ стороны: клетки/стабы ARCH_CI (87/111,
+ANCESTOR 20/18) и клетки/стабы Б-5 (brief_stderr 10/13, brief_signals 4/4).
+Двери `scripts/*` в конфликте не состояли и взяты сторонами целиком без
+правок: `scripts/done_contract.sh` — из main (rename/gitlink, Б-1 Rev187Ci),
+`scripts/check_architecture_contract.sh` — из Б-5 (время жизни stderr при
+сигнале группе, Б-1 Rev187B5).
 
 ## Существующее
 
-`probe.py` создаёт независимые Git-миры; `workflow_probe.py` уже проводит
-их через публичные двери, OBJECT/frozen, ARCH_REVIEW-warning и настоящий
-done-тег. Существующие CASES/STABS и этот раннер переиспользованы.
-Новый модуль `ci_ancestor.py` строит настоящие Git-истории и SHA-адресованный
-ответ внешнего curl; реализация Git и done не подменяется.
-Оракул HEAD/SHA*/причины снимается в память до вызова субъекта;
-после вызова читаются только эффект тега и журнал запросов API.
-Формат JSON обслуживает стандартный json, Git-факты — plumbing.
+`probe.py` создаёт независимые Git-миры; `workflow_probe.py` проводит их
+через публичные двери, OBJECT/frozen, ARCH_REVIEW-warning и настоящий
+done-тег. `ci_ancestor.py` строит настоящие Git-истории и SHA-адресованный
+ответ внешнего curl; реализация Git и done не подменяется. Семья Б-5
+использует тот же toy CLI и конфигурацию `brief-response.json` в
+ЗАКРЕПЛЁННОМ дереве, а не подмену node или самой двери; `brief_stderr.py`
+хранит входы, ожидаемые байты и привязки стабов, `brief_signals.py` —
+сигнальные клетки и контроли; оракул снят до субъекта, после вызова
+читаются только наблюдаемый TMPDIR, эффект тега и журнал запросов API.
+Публичные швы: `make_task`, импортируемый `arch187_brief`, census-раннер
+`census_b5.py` с побайтовым stdout/stderr и cleanup. Ожидания в памяти
+до субъекта; формат JSON обслуживает стандартный json, Git-факты — plumbing.
 
 ## Двери
 
@@ -26,42 +38,95 @@ done-тег. Существующие CASES/STABS и этот раннер пе�
 - battery-repo-before-implementation · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo . · 0 · 0
 - regression-201 · bash fixtures/workshop_project/done_dver_soderzhatelnaja_201/red_done_dver_201.sh --repo . · 0 · 0
 - wiring · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --wiring . · 0 · 0
+- b5-battery-model · fixtures/workshop_project/architecture_process_187/census_b5.py b5c-sheet-model model · 0 · 0
+- b5-battery-stabs · fixtures/workshop_project/architecture_process_187/census_b5.py b5c-sheet-stabs stabs · 0 · 0
+- b5-battery-repo · fixtures/workshop_project/architecture_process_187/census_b5.py b5c-sheet-repo repo · 0 · 0
+- b5-wiring · fixtures/workshop_project/architecture_process_187/census_b5.py b5c-sheet-wiring wiring · 0 · 0
+- b5-signals-base-and-control · fixtures/workshop_project/architecture_process_187/census_b5.py b5c-sheet-controls signals-base signals-control · 0 · 0
 
-Замена строки repo на 0/0 выполнена: правка двери (Б-1 вердикта
-Rev187Ci) реализована в `fbc26bf57b060ee53cdeb90302d35a521fa2b011`,
-живой интеграционный прогон на ней дал CELLS=87 FAILURES=0 (красное
-ДО правки — rc 1, ровно клетки rename/submodule — сохранено в разделе
-«Исправление FAIL Rev187Ci (Б-1)»). `pre_critic` не назначается
-этим маршрутом.
+Все одиннадцать дверей прожиты на объединённом дереве с фактическим rc 0
+(сырые rc — раздел «Census объединённого дерева»); строки repo обеих
+сторон — `0 · 0`: правка двери Б-1 Rev187Ci (`fbc26bf57b060ee53cdeb90302d35a521fa2b011`,
+только `scripts/done_contract.sh`) и ремонт сигнального cleanup Б-1 Rev187B5
+(`6956c8c891b8cd44dd4882189f1b7e2b6af44828`) пришли в слияние сторонами
+без правок архитектора. `census_b5.py` без аргументов печатает цензус обеих
+семей; с аргументами `<stage> <режимы>` исполняет тот же bash-runner,
+сохраняет сырой stdout/stderr в TMPDIR, печатает фактический rc каждого
+режима и возвращает ненулевой код при любом ненулевом режиме, не маскируя
+красное. Рабочий TMPDIR этой сдачи — `$PWD/.scratch-b5m`, в коммит не
+включается и перед сдачей удаляется.
 
 ## Карта классов
 
-- К-01 · чисто · вход: предметный лист, машинные двери и все К-01…К-17; один общий reviewer, без новой версии контракта · - · -
-- К-02 · чисто · вход: задание 23:52 разрешает только harness-only предка; перечень заменяемых обязательств приведён ниже · - · -
-- К-03 · чисто · вход: повторно использованы world, prepare, live, done_observed; продуктовые скрипты и соседняя семья 201 неизменны · - · -
-- К-04 · чисто · вход: workflow_probe.py, ci_ancestor.py, census_b5.py, sdacha_187.md внутри выданной architect-зоны · - · -
-- К-05 · чисто · вход: база 67/67 зелена; после новых клеток 10 RED только done-ancestor, прежние 67 GREEN · - · -
-- К-06 · чисто · вход: реальные Git/Python/bash, автономный PATH-curl по SHA; новых зависимостей нет · - · -
-- К-07 · чисто · вход: rc из SPECS, HEAD и SHA* из конструкции мира до субъекта; наблюдаются запрос API, stderr и настоящий тег · - · -
-- К-08 · чисто · вход: stabs 87/111/0, стабов семьи 18, ZHIV=0; привязки только в ci_ancestor.STABS · - · -
-- К-09 · чисто · вход: реальные однородительские цепочки и два родителя merge, конформные JSON check-runs; граница 50/51 и root · - · -
-- К-10 · чисто · вход: пойманы произвольный предок, лишние каталоги, merge-обход, отсутствие лимита, тег на SHA*, prefix без слеша, утрата диагностики и скрытые rename/gitlink пути · - · -
-- К-11 · чисто · вход: ожидаемые SHA/причина в памяти до вызова; субъект не становится источником ожидаемого результата · - · -
-- К-12 · чисто · вход: SPECS и LIMIT едины для новых клеток и census; ожидания rc литеральны, не вычисляются селектором модели · - · -
-- К-13 · н/п · новые клетки используют автономный curl без сетевого запроса; токены не выводятся · - · -
-- К-14 · чисто · вход: one/three/limit/head/tag-head зелены на честной модели; docs/github/product/mixed/prefix остаются отказами · - · -
-- К-15 · чисто · вход: census 87 клеток, 111 стабов, 20 клеток семьи, 18 стабов семьи; dangling пуст; repo 87/0/2 до правки двери, regression-201 62/0/0 · - · -
-- К-16 · чисто · вход: ARCH_REVIEW-warning и прежние CI-отказы сохранены; тег только на HEAD, при отказе тега нет · - · -
-- К-17 · н/п · sourceCanon и модель архитектуры продукта не меняются; предмет — механическая done-дверь · - · -
+- К-01 · чисто · вход: объединённый лист несёт одиннадцать дверей обеих сторон и полную карту К-01…К-17; решения Rev187B5c (accept 1870d62500) и Rev187Ci (Б-1, fbc26bf57b) уже в истории слияния · - · -
+- К-02 · чисто · вход: два предмета — предок .harness-only (слово консультанта 23:52, harness-only) и время жизни stderr при сигнале группе (блок Б-1 Rev187B5); прежние rc и диагностики обеих сторон сохранены · - · -
+- К-03 · чисто · вход: переиспользованы world, prepare, live, done_observed, ci_ancestor, library-швы brief_stderr/brief_signals и command substitution вызывающего; настоящий bash/node; дверные скрипты правились только сторонами · - · -
+- К-04 · чисто · вход: слияние правит только fixtures/workshop_project/architecture_process_187/; конфликты workflow_probe.py, census_b5.py и sdacha_187.md разрешены сохранением обеих сторон; двери scripts/* пришли от сторон без правок · - · -
+- К-05 · чисто · вход: живая дверь --repo на объединённом дереве rc 0, CELLS=102 FAILURES=0; исторические красные предъявления обеих сторон сохранены в разделах ниже · - · -
+- К-06 · чисто · вход: модель пишет stderr и ready-маркер до сигнала; ожидание ограничено, отсутствие ready красное; SHA-адресованный curl-ответ предка снимается в память до субъекта · - · -
+- К-07 · чисто · вход: ожидания NEIGHBOR и пустого scratch в памяти до субъекта; HEAD, SHA* и причины из конструкции мира; после вызова читаются только эффект тега, журнал запросов API и наблюдаемый TMPDIR · - · -
+- К-08 · чисто · вход: стабы 128 из 128 caught, ZHIV=0; семьи ancestor 18 и Б-5 17 (S1/S2/S4 в brief_signals.STABS, S3 в brief_stderr.STABS); привязки только в коде, не в прозе · - · -
+- К-09 · чисто · вход: реальные однородительские цепочки и merge с двумя родителями, конформные JSON check-runs; TERM/INT группе, TERM родителю, нормальные rc 0/1, чужой сосед; граница 50/51 и root · - · -
+- К-10 · чисто · вход: пойманы произвольный предок, лишние каталоги, merge-обход, отсутствие лимита, тег на SHA*, prefix без слеша, утрата диагностики, скрытые rename/gitlink пути; прежнее точное равенство stderr сохранено · - · -
+- К-11 · чисто · вход: ожидаемые SHA, причины и байты stderr в памяти до вызова; субъект не источник ожиданий; cleanup не требует имени и способа аллокации, сосед сравнивается с независимой константой · - · -
+- К-12 · чисто · вход: SPECS и LIMIT едины для новых клеток и census; сигналы доставляет os.killpg реальной группе новой сессии; ожидания rc литеральны, без разбора bash своими предикатами · - · -
+- К-13 · н/п · новых сетевых вызовов и секретов в клетках нет: автономный curl без сети, токены не выводятся · - · -
+- К-14 · чисто · вход: one/three/limit/head/tag-head и честные сигнальные контроли зелены на честной модели (signals-control); docs/github/product/mixed/prefix остаются отказами · - · -
+- К-15 · чисто · вход: census 87/111 workflow и 14/17 Б-5, батарея 102/128, dangling пуст; живой repo 102/0/0; regression-201 62/0/0 · - · -
+- К-16 · чисто · вход: ARCH_REVIEW-warning и прежние CI-отказы сохранены; тег только на HEAD, при отказе тега нет; stderr не переживает группу, узкий сигнал родителю остаётся зелёной охраной · - · -
+- К-17 · н/п · sourceCanon, модель продукта и его pin не меняются · - · -
 
 ## Дельта
 
-Блоков critic эта пачка не закрывает. Новый предметный отказ — неверный
-ARCH_CI при служебном хвосте истории; scope не расширен за задание.
-Для прежних done-миров внешний ответ дополнен успехом на scenario SHA:
-их reviewer-коммит меняет только .harness, поэтому после cutover он
-перестаёт быть проверяемым продуктовым SHA. Исходный успех на HEAD
-сохранён; прежние отрицательные мутации применены к обоим run.
+Сверка слияния блоков critic не закрывает: оба предмета закрыты своими
+решениями (Rev187Ci Б-1 — правкой двери `fbc26bf57b`, Rev187B5c — accept
+`1870d62500`). Конфликтные файлы разрешены сохранением обеих сторон:
+`workflow_probe.py` — импорты, клетки и ветвление обеих семей;
+`census_b5.py` — цензус обеих семей плюс режимный раннер; `sdacha_187.md` —
+машины дверей/карты объединены, исторические разделы обеих сторон сохранены.
+
+## Census объединённого дерева
+
+`census_b5.py` без аргументов (цензус ОБЕИХ семей, rc 0):
+CELLS=87, STABS=111, ANCESTOR_CELLS=20, ANCESTOR_STABS=18,
+B5_STDERR_CELLS=10, B5_STDERR_STABS=13, B5_SIGNAL_CELLS=4,
+B5_SIGNAL_STABS=4, B5_CELLS=14, B5_STABS=17, OLD_CELLS=67, OLD_STABS=93,
+BATTERY_CELLS=102, BATTERY_STABS=128, DANGLING=[]. Имена семей:
+ANCESTOR_LABELS — 20 клеток `done-ancestor-*`; B5_LABELS — 14 клеток
+`brief-stderr-*`, `brief-empty-output-*`, `brief-success-*`,
+`brief-cleanup-*`, `brief-signal-*`.
+
+Сырые замеры объединённого дерева (каждая команда прожита, rc из прогона):
+
+• `bash …/red_architecture_process_187.sh --model` → rc 0,
+CELLS=102 STABS=0 FAILURES=0, все клетки обеих семей GREEN.
+• `bash …/red_architecture_process_187.sh --stabs` → rc 0,
+CELLS=102 STABS=128 FAILURES=0, 128 строк STAB, живых (ZHIV) 0.
+• `bash …/red_architecture_process_187.sh --repo .` (живая дверь) → rc 0,
+CELLS=102 STABS=0 FAILURES=0; красных клеток Б-5 из-за дверей нет —
+сигнальный ремонт и ancestor-дверь пришли сторонами.
+• `bash …/red_architecture_process_187.sh --wiring .` → rc 0.
+• `…/census_b5.py b5m-sheet-repo repo` → `CENSUS b5m-sheet-repo --repo rc=0`.
+• `…/census_b5.py b5m-sheet-controls signals-base signals-control` →
+`CENSUS … --signals-base rc=0`, `CENSUS … --signals-control rc=0`.
+• `bash fixtures/workshop_project/done_dver_soderzhatelnaja_201/red_done_dver_201.sh --repo .`
+→ rc 0, CELLS=62 STABS=0 FAILURES=0.
+
+Стороны до слияния (по листам сторон): ARCH_CI — 87/111, семья 20/18,
+repo 87/0 после правки двери; Б-5 — 82/110 на своей стороне (67 workflow +
+14 Б-5 + selfcheck). Объединение: 102 клетки батареи = 87 workflow (в т.ч.
+20 ancestor) + 14 Б-5 + 1 самоконтроль pin-границы; 128 стабов =
+111 workflow (в т.ч. 18 ancestor) + 17 Б-5. Счётчик исторических листов
+82/110 не пропал: его носитель — разделы «Census и клетки» и
+«Исправление FAIL Rev187B5» ниже; текущий счётчик един — BATTERY_*.
+
+## Прогон листа текущей пачки
+
+`TMPDIR="$PWD/.scratch-b5m" bash scripts/check_sdacha.sh "$PWD"
+contracts/187-arhitektura-v-processe.md --run` → rc 0:
+`СДАЧА: лист зелёный (двери=11 карта=17/17 дельта=0)`; все одиннадцать
+дверей исполнены дверью листа последовательно с фактическим rc 0.
+Scratch удаляется перед коммитом; push не выполняется.
 
 ## Исправление FAIL Rev187Ci (Б-1)
 
@@ -210,20 +275,6 @@ root/корневой либо depth/limit/лимит/глубина, не по 
 повтором 108/108 caught. В общий NABLIUDENIA_ARCHITECT.md не записано:
 он допускает только main-коммиты, а выданная зона — только эта семья.
 
-## Прогон листа текущей пачки
-
-Первая пачка: `TMPDIR="$PWD/.scratch-archci" bash scripts/check_sdacha.sh
-"$PWD" contracts/187-arhitektura-v-processe.md --run` → rc 0:
-`СДАЧА: лист зелёный (двери=6 карта=17/17 дельта=0)`.
-
-Пачка Б-1 (эта): `TMPDIR="$PWD/.scratch-archci3" bash
-scripts/check_sdacha.sh "$PWD" contracts/187-arhitektura-v-processe.md
---run` → rc 0: `СДАЧА: лист зелёный (двери=6 карта=17/17 дельта=0)`;
-repo-дверь заявлена 1·1 и прожита rc 1 (красные ровно rename/submodule).
-Двери исполнялись последовательно; тяжёлые батареи не перекрывались.
-Scratch удаляется перед коммитом; push не выполняется.
-
-
 ## Исторический замер Б-3 до реализации двери
 
 Корень прогона — собственная изолированная копия
@@ -273,6 +324,204 @@ Frozen-документы этой поставкой не редактирую�
 допускаются только коммитом main. Известное разделение probe.py /
 workflow_probe.py учтено чтением фактического entrypoint, не номерами
 строк старого задания; клетки и модель здесь живут в workflow_probe.py.
+
+## Census и клетки
+
+### Исторический замер после первой реализации Б-5
+
+На базе `8cc43759830eb16c82b729e4156dd15965673fc3` живой
+`fixtures/workshop_project/architecture_process_187/census_b5.py sdacha-repo repo`
+→ rc 0, `CELLS=78 STABS=0 FAILURES=0`,
+`CENSUS sdacha-repo --repo rc=0`.
+Сырые stdout/stderr — `$TMPDIR/sdacha-repo-repo.stdout` и `.stderr`.
+
+Отдельный прямой `red_architecture_process_187.sh --repo .` → rc 0,
+`CELLS=78 STABS=0 FAILURES=0`. Повторные режимы через
+`census_b5.py post-implementation model stabs wiring`:
+`CENSUS post-implementation --model rc=0`,
+`CELLS=78 STABS=0 FAILURES=0`;
+`CENSUS post-implementation --stabs rc=0`,
+`CELLS=78 STABS=105 FAILURES=0`;
+`CENSUS post-implementation --wiring rc=0`, вывод самой двери пустой.
+Сырые логи — `$TMPDIR/post-implementation-{model,stabs,wiring}.{stdout,stderr}`.
+
+Проверка обновлённого листа:
+`bash scripts/check_sdacha.sh "$PWD" contracts/187-arhitektura-v-processe.md --run`
+→ rc 0: `СДАЧА: лист зелёный (двери=4 карта=17/17 дельта=0)`.
+Независимая мера `wc -l` сырых stdout: sdacha-repo-repo=80,
+post-implementation-model=80, post-implementation-stabs=185.
+За вычетом selfcheck и summary — 78 клеток; разность 185−80 — 105 стабов.
+
+Рефлексия обновления: красный rc ДО нельзя оставлять текущей дверью
+после совместной поставки; история отделена от действующей строки repo.
+Общий журнал не менялся: эта пачка ограничена листом, журнал пишется в main.
+
+### Исторический замер ДО реализации
+
+Исходное задание: `/tmp/dev-harness-verify/task-b5-architect.md`;
+база ДО: `94b2edff9072abaca3a5c2a848e08fa90de9869e`.
+Все замеры до таблицы ниже относятся к этому красному предъявлению;
+текущая строка двери repo выше требует rc 0 после ремонта.
+
+Неизменённая семья на базе: `--repo` rc 0, CELLS=67 STABS=0 FAILURES=0;
+`--model` rc 0, CELLS=67 STABS=0 FAILURES=0; `--stabs` rc 0,
+CELLS=67 STABS=93 FAILURES=0; `--wiring` rc 0, вывод пуст.
+Исходный `--repo` — сырой tool-вывод; прочие исходные логи — `before-*`.
+
+После добавления клеток на ТОЙ ЖЕ двери: `--model` rc 0,
+CELLS=78 STABS=0 FAILURES=0; `--stabs` rc 0,
+CELLS=78 STABS=105 FAILURES=0; LIVE/ZHIV=0; `--wiring` rc 0.
+Живой `--repo` до реализации: rc 1, CELLS=78 STABS=0 FAILURES=7,
+красны ровно семь диагностических/static-клеток из таблицы; все прежние зелёные.
+Итоговые сырые логи — `sdacha-model-model.stdout`,
+`sdacha-stabs-stabs.stdout`, `sdacha-repo-repo.stdout`,
+`sdacha-wiring-wiring.stdout` и одноимённые `.stderr` в TMPDIR.
+`bash scripts/check_sdacha.sh "$PWD" contracts/187-arhitektura-v-processe.md --run`
+→ rc 0: `СДАЧА: лист зелёный (двери=4 карта=17/17 дельта=0)`.
+Независимая мера `wc -l` логов: before-model=69, before-stabs=162,
+sdacha-model=80, sdacha-stabs=185, sdacha-repo=80.
+За вычетом selfcheck и summary это 67/78 клеток;
+разности stab/model дают 93 и 105 предъявлений соответственно.
+
+| Клетка | rc субъекта ДО | До реализации | После реализации (живой замер на базе выше) |
+| --- | --- | --- | --- |
+| brief-stderr-plain | 1 | красная: нет ARCH_BRIEF_STDERR | зелёная, rc 1 |
+| brief-stderr-rules | 1 | красная: нет ARCH_BRIEF_STDERR | зелёная, rc 1 |
+| brief-stderr-empty | 1 | красная: нет пояснения пустого stderr | зелёная, rc 1 |
+| brief-stderr-leading-blank | 1 | красная: нет первой непустой строки | зелёная, rc 1 |
+| brief-empty-output-noisy | 1 | красная: rc модели 0, но stdout пуст | зелёная, rc 1 |
+| brief-empty-output-quiet | 1 | красная: rc модели 0, оба канала пусты | зелёная, rc 1 |
+| brief-success-noisy | 0 | зелёная: stdout=BODY, stderr пуст | зелёная, rc 0 |
+| brief-success-quiet | 0 | зелёная: stdout=BODY, stderr пуст | зелёная, rc 0 |
+| brief-cleanup-failure | 1 | зелёная: TMPDIR пуст | зелёная, rc 1 |
+| brief-cleanup-success | 0 | зелёная: TMPDIR пуст | зелёная, rc 0 |
+| brief-stderr-fable-static | 1 | красная: brief в /dev/null | зелёная, rc 0 |
+
+## Развилки и заменяемые обязательства
+
+Задание требует красноты cleanup на базе, но база вообще не создаёт
+stderr-scratch: TMPDIR пуст и после отказа, и после успеха. Краснить такую
+реализацию за отсутствие утечки было бы ложью. Эти клетки оставлены
+зелёными регресс-стражами; S6 отдельно создаёт утечку и ловится.
+Для полноты условия «rc≠0 ИЛИ пустой stdout» добавлены две адресные клетки.
+
+Поиск `2>/dev/null|stderr` в contracts/187-arhitektura-v-processe.md
+не даёт строк. Явного frozen-обещания глотать stderr в 187 нет.
+В contracts/170-arch-component-brief-vhod-zadanija.md:28 объявлена первая
+строка `ОТКАЗ: ARCH_BRIEF_OTKAZ: worker.events`; при переносе этой формы
+на pinned-ветвь она заменяется предшествующей строкой ARCH_BRIEF_STDERR
+по ADR. Локальный npm-путь 170 остаётся прежним. Строки 170:15,27
+(ARCH_COMPONENT_NET/ARCHITECTURE_NET) не относятся к изменению и сохранены.
+
+В fixtures/workshop_project/arch_component_170/probe.py:174–186 первая
+строка stderr сравнивается для brief_failure, implementer_brief_failure,
+adversary_brief_failure, reviewer_brief_failure; эта семья не правилась.
+Её npm_stub.py:25–27 выдаёт отказ npm, не pinned node CLI.
+Контракты и версию 170 эта поставка не замораживает.
+
+## Рефлексия процесса Б-5
+
+Новый риск конструкции: требование красноты cleanup против базы без
+аллокации ведёт к ложному красному. Закрыто независимой cleanup-клеткой
+и утечкой S6, а не добавлением искусственного дефекта в базу.
+Общий журнал в wip не менялся: его разрешено пополнять только в main.
+
+## Исправление FAIL Rev187B5
+
+После ремонта Impl187B5c на `6956c8c891b8cd44dd4882189f1b7e2b6af44828`
+исполнен `census_b5.py b5d model stabs repo wiring`: сырые rc режимов
+соответственно 0, 0, 0, 0. Model и repo: `CELLS=82 STABS=0 FAILURES=0`;
+stabs: `CELLS=82 STABS=110 FAILURES=0`, ZHIV=0.
+Прямой `red_architecture_process_187.sh --repo .` также дал rc 0,
+`CELLS=82 STABS=0 FAILURES=0`.
+Сырые логи census: `$TMPDIR/b5d-{model,stabs,repo,wiring}.{stdout,stderr}`.
+
+| Клетка после ремонта | rc вызывающего | Наблюдение в borrowed и managed |
+| --- | --- | --- |
+| brief-signal-group-term | -15 | GREEN, ready=True, leftover=[], neighbor=True |
+| brief-signal-group-int | -2 | GREEN, ready=True, leftover=[], neighbor=True |
+| brief-signal-parent-term | -15 | GREEN, ready=True, leftover=[], neighbor=True |
+| brief-cleanup-neighbor | 0 | GREEN, ready=True, leftover=[], neighbor=True |
+
+Независимая мера `wc -l .scratch-b5d/b5d-{model,stabs,repo}.stdout`:
+84, 194, 84 строки; без selfcheck/summary — 82 клетки;
+194−84 — 110 пойманных стабов, живых 0.
+
+Рефлексия обновления: историческое красное предъявление не является текущей
+дверью после ремонта; строка repo и карта теперь описывают зелёный субъект.
+Общий А-журнал не менялся: разрешённая зона этой пачки — только лист,
+а общий журнал пополняется только в main.
+
+Проверка обновлённого листа после ремонта:
+`TMPDIR="$PWD/.scratch-b5d" bash scripts/check_sdacha.sh "$PWD" contracts/187-arhitektura-v-processe.md --run`
+→ rc 0, `СДАЧА: лист зелёный (двери=5 карта=17/17 дельта=0)`.
+Исполнены все пять дверей, включая `signals-base` и `signals-control`;
+текущий repo заявлен и измерен как rc 0.
+
+### Историческое красное предъявление ДО ремонта
+
+Б-1: «файл захвата stderr брифа остаётся, когда сигнал доходит до всей группы процессов. Место: scripts/check_architecture_contract.sh:504 (mktemp внутри функции) и :512-515 (rm только при нормальном возврате). Вызов идёт в $(...) из scripts/make_task.sh:1070, а EXIT-ловушка make_task.sh:565 этого файла не знает. Обязательство из тела PR: «удаляется ВСЕГДА»; в задании: «в т. ч. при сигнале». Проба: `GROUPKILL=1 bash .scratch-rev187b5/signal_probe.sh scripts/check_architecture_contract.sh object-timeout-group TERM` → caller_rc=124, leftover=[tmp.OHk5oKEG1g] с текстом 'slow-model-first'; файл на месте и через 22 с после конца модели. С INT то же. База a4f87d04a1 → leftover=[]. Если TERM получает только родитель, утечки нет: подоболочка доживает до конца модели и убирает файл. Закрывающее свойство: файл не переживает TERM/INT, доставленный группе, пока работает CLI модели; клетка красная на OBJECT. Более простые формы уже есть в дереве: файл выделяет вызывающий и убирает своя EXIT-ловушка, как _NPM_ERR_FILE (make_task.sh:1051, :565), либо файл лежит под ARCH187_MODEL_TMP.»
+
+Обещание: файл захвата stderr не переживает TERM/INT группе во время CLI.
+Наблюдение: после естественного выхода вызывающего TMPDIR не содержит
+ничего, кроме побайтно неизменного чужого `tmp.neighbor-187`; управляемое
+ARCH187_MODEL_TMP тоже убрано. Ожидание не берётся из дерева субъекта.
+Borrowed-модель лежит вне TMPDIR и не принадлежит cleanup двери.
+Сигнал отправляется после маркера CLI, который следует за записью stderr.
+Клетка воспроизводит вложенный `$(arch187_brief ...)` публичного вызывающего.
+Проверяются оба режима владения моделью; имя capture не предписывается.
+Frozen-обязательства и перечень заменяемых обязательств выше не менялись.
+
+| Клетка | OBJECT ДО: rc вызывающего / оценка | Честный исполняемый контроль: rc / оценка |
+| --- | --- | --- |
+| brief-signal-group-term | -15 / RED, файл остался в обоих режимах | -15 / GREEN, leftover=[] |
+| brief-signal-group-int | -2 / RED, файл остался в обоих режимах | -2 / GREEN, leftover=[] |
+| brief-signal-parent-term | -15 / GREEN, leftover=[] | -15 / GREEN, leftover=[] |
+| brief-cleanup-neighbor | 0 / GREEN, neighbor=True | 0 / GREEN, neighbor=True |
+| brief-cleanup-failure | 1 / GREEN, прежняя охрана | прежняя model-клетка: 1 / GREEN |
+| brief-cleanup-success | 0 / GREEN, прежняя охрана | прежняя model-клетка: 0 / GREEN |
+| brief-stderr-* | 1 / GREEN, ровно одна строка ARCH_BRIEF_STDERR | прежние model-клетки: 1 / GREEN |
+
+Последняя колонка — исторический контроль `signals-control`/`--model`,
+НЕ live-прогон после реализации. Закрывающий живой замер после ремонта
+приведён в начале этого раздела; прежние красные результаты сохранены ниже.
+
+Команда воспроизведения и дифференциального контроля:
+`fixtures/workshop_project/architecture_process_187/census_b5.py b5c signals signals-base signals-control`.
+Её сырой итог: `CENSUS b5c --signals rc=1`,
+`CENSUS b5c --signals-base rc=0`, `CENSUS b5c --signals-control rc=0`.
+`signals-base` извлекает только настоящий library-файл из `a4f87d04a1`;
+остальной контур и входы идентичны. Сырые отдельные наблюдения:
+
+```text
+RED brief-signal-group-term: mode=borrowed ready=True caller_rc=-15 leftover=['tmp.wA2aKB1AwH'] neighbor=True stdout=b'' stderr=b'' | mode=managed ready=True caller_rc=-15 leftover=['tmp.pcGBhWMTyS'] neighbor=True stdout=b'' stderr=b''
+RED brief-signal-group-int: mode=borrowed ready=True caller_rc=-2 leftover=['tmp.rZY6yGavsD'] neighbor=True stdout=b'' stderr=b'' | mode=managed ready=True caller_rc=-2 leftover=['tmp.HkeFknjE4L'] neighbor=True stdout=b'' stderr=b''
+GREEN brief-signal-parent-term: mode=borrowed ready=True caller_rc=-15 leftover=[] neighbor=True stdout=b'' stderr=b'' | mode=managed ready=True caller_rc=-15 leftover=[] neighbor=True stdout=b'' stderr=b''
+```
+
+Историческая fixture-пачка: 78 → 82 клетки; 105 → 110 стабов. Независимая мера
+`wc -l .scratch-b5c/b5c-{model,stabs,repo}.stdout` → 84, 194, 84;
+за вычетом selfcheck/summary — 82 клетки, разность 194−84 — 110 стабов.
+`census_b5.py b5c model stabs repo wiring` дал соответственно rc 0, 0, 1, 0.
+В repo красны ТОЛЬКО group-term и group-int, `FAILURES=2`;
+в stabs все предъявления caught, ZHIV=0.
+Логи: `$TMPDIR/b5c-{model,stabs,repo,wiring,signals,signals-base,signals-control}.{stdout,stderr}`.
+
+S1 исполняет normal-only cleanup отдельно на TERM и INT; S2 снимает
+EXIT-cleanup при INT, оставляя честный TERM; S3 теряет прочитанную причину
+и ловится прежним точным stderr-предикатом; S4 удаляет `tmp.*` и ловится
+исчезновением чужого соседа. Честный контроль с точечным cleanup зелён.
+
+Рефлексия процесса: Node наследует тип модуля родительского package.json;
+первая версия toy использовала require в ESM и не достигала ready. Исправлено
+на стандартный ESM import до предъявления; отсутствие ready остаётся красным.
+Общий А-журнал в wip не менялся: запись разрешена только в main.
+
+Историческая проверка листа ДО ремонта:
+`TMPDIR="$PWD/.scratch-b5c" bash scripts/check_sdacha.sh "$PWD" contracts/187-arhitektura-v-processe.md --run`
+→ rc 0, `СДАЧА: лист зелёный (двери=5 карта=17/17 дельта=0)`.
+Она повторно исполнила все пять дверей, включая оба режима контроля;
+repo в том историческом листе был заявлен как красное предъявление ДО ремонта.
 
 ## Исторический ремонт предпосылки 154 Б-1
 
