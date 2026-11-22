@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
+import pty
 import subprocess
 import tempfile
 
@@ -403,6 +404,166 @@ def run_m0b(mode, snapshots):
         return int(failures != 0)
 
 
+# Rev184M0Д (блок Б-3 вердикта Rev184M0b): терминал оператора — fd1 и fd2 на
+# ОДНОМ pty — обязан показывать строку предупреждения; захваты со слитыми
+# каналами (труба `$(… 2>&1)`, fifo инструмента агента) остаются побайтно
+# чистыми (Б-1 не возвращается). Свойства (а2) и (а3) НЕ дублируются: слитый
+# захват — m0-b1d-merged-*, журнал PROFILE_RESOLVER_WARN_FILE — семья
+# fixtures/profile_resolver, раздельные потоки — m0-b1g-warning-* и m0-a-*.
+PTY_WARNING = WARNING + 'репо-слой: pack'
+M0D_CASES = (
+    ('m0-b3a-pty-terminal', 'pty', 'dirty'),  # (а1): fd0=fd1=fd2=slave pty, pack.maxBytes
+    ('m0-b3a-pty-clean', 'pty', 'clean'),     # (а4): охранная — pty на чистом профиле
+    ('m0-b3a-pty-split', 'split', 'dirty'),   # (а5): охранная — fd1=pty, fd2=файл
+)
+# Н-39: каждый стаб привязан к единственному входу, где он РАЗЛИЧИМ с честной
+# реализацией; объединённый case не засчитывается по первой красной точке.
+M0D_STABS = {
+    # Поведение OBJECT: при fd1==fd2 строка НИКОГДА не попадает на терминал —
+    # различим только на (а1); на merged/split входах он совпадает с честным.
+    'S-pty': ('m0-b3a-pty-terminal',),
+    # Поведение вызова 1 (11dfc5a64f): строка на stderr ВСЕГДА; в слитом
+    # захвате она приходит в общий поток — различим только на (а2) = merged.
+    'S-pipe': ('m0-b1d-merged-repo', 'm0-b1d-merged-project'),
+    # Наивная проверка `-t 8` без различения dev:inode: pty-stdout с файлом-
+    # stderr прочитаны как «слитые», строка потеряна — различим только на (а5).
+    'S-all': ('m0-b3a-pty-split',),
+}
+
+
+def conformant_stdout(snapshots, root):
+    """Чистый stdout этого мира: замороженный снимок, заменён только полный
+    JSON-токен временного layerRoot — той же подстановкой, что в run()."""
+    snapshot = snapshots['back']['stdout']
+    old_root = json.loads(snapshot)['projectLayer']['value']['layerRoot']
+    return snapshot.replace(json.dumps(old_root), json.dumps(str(root)))
+
+
+def run_on_pty(command, env, stderr_path=None):
+    """Живой терминал: fd0=fd1=fd2=slave pty (при stderr_path — fd2=файл)."""
+    master, slave = pty.openpty()
+    err_file = open(stderr_path, 'wb') if stderr_path else None
+    proc = subprocess.Popen(command, stdin=slave, stdout=slave,
+                            stderr=err_file or slave, env=env, cwd=str(ROOT))
+    os.close(slave)
+    chunks = []
+    while True:
+        try:
+            data = os.read(master, 65536)
+        except OSError:  # Linux: EIO, когда закрыт последний slave-дескриптор
+            break
+        if not data:
+            break
+        chunks.append(data)
+    os.close(master)
+    rc = proc.wait()
+    err_text = None
+    if err_file is not None:
+        err_file.close()
+        err_text = Path(stderr_path).read_text(errors='replace')
+    return rc, b''.join(chunks).decode(errors='replace'), err_text
+
+
+def actual_m0d(root, cell, base):
+    stderr_path = base / (cell[0] + '.stderr') if cell[1] == 'split' else None
+    env = dict(os.environ, HARNESS_PROJECT_LAYER_ROOT=str(root))
+    env.pop('PROFILE_RESOLVER_WARN_FILE', None)
+    env.pop(LIB_FLAG, None)
+    resolver = ROOT / 'scripts/profile_resolver.sh'
+    return run_on_pty(['bash', str(resolver), '--repo', str(root)], env, stderr_path)
+
+
+def model_m0d(cell, expected_json, stub=''):
+    """Поведенческий контроль ИСПРАВЛЕННОЙ двери на терминале, не пересадка."""
+    _, group, scope = cell
+    on_terminal = group == 'pty' and scope == 'dirty'
+    err_text = PTY_WARNING + '\n' if group == 'split' and scope == 'dirty' else None
+    # Замер вызова 1 (11dfc5a64f): строка приходит на терминал ДО JSON.
+    terminal = ((PTY_WARNING + '\n') if on_terminal else '') + expected_json
+    if stub == 'S-pty' and group == 'pty' and scope == 'dirty':
+        terminal = expected_json
+    elif stub == 'S-all' and group == 'split' and scope == 'dirty':
+        err_text = ''
+    return 0, terminal, err_text
+
+
+def judge_m0d(cell, response, expected_json):
+    _, group, scope = cell
+    rc, terminal, err_text = response
+    # Терминальные \r снимаются ДО сверки — приказ задания (а1).
+    text = terminal.replace('\r', '')
+    warn = [line for line in text.splitlines() if line.startswith(WARNING)]
+    payload = '\n'.join(line for line in text.splitlines() if not line.startswith(WARNING))
+    try:
+        same = json.loads(payload) == json.loads(expected_json)
+    except ValueError:
+        same = False
+    if group == 'pty':
+        wanted = [PTY_WARNING] if scope == 'dirty' else []
+        return rc == 0 and warn == wanted and same
+    # (а5): строка — в файле stderr, на терминале её нет.
+    return rc == 0 and warn == [] and same and err_text == PTY_WARNING + '\n'
+
+
+def run_m0d(mode, snapshots):
+    oracle = json.loads((HERE / 'm0b_baseline.json').read_text())
+    with tempfile.TemporaryDirectory(prefix='m0d-184-') as tmp:
+        base = Path(tmp)
+        worlds = []
+        for cell in M0D_CASES:
+            root, profile, _ = prepare(base, Case(cell[0], 'legacy'), snapshots)
+            if cell[2] == 'dirty':
+                # Один неизвестный ключ репо-слоя, как в замере судьи Б-3.
+                profile['pack'] = {'maxBytes': 40000}
+                (root / 'harness.project.json').write_text(json.dumps(profile))
+            worlds.append((cell, root, conformant_stdout(snapshots, root)))
+        if mode == 'stabs':
+            live = 0
+            for stub, targets in M0D_STABS.items():
+                for target in targets:
+                    if stub == 'S-pipe':
+                        # (а2) — переиспользованные merged-клетки семьи M0B.
+                        cell = next(c for c in M0B_CASES if c[0] == target)
+                        root, _, _ = prepare_m0b(base, cell, snapshots)
+                        expected = expected_m0b(cell, root, oracle)
+                        if not judge_m0b(cell, expected, expected):
+                            raise RuntimeError('honest M0B control is red: ' + target)
+                        warning = WARNING + ('слой-проекта: defaults.pack'
+                                             if cell[2] == 'project' else 'репо-слой: pack') + '\n'
+                        # Вызов 1: строка на stderr всегда — в слитом захвате
+                        # она приходит в общий поток ДО JSON.
+                        mutated = (expected[0], warning + expected[1], expected[2], expected[3])
+                        caught = not judge_m0b(cell, mutated, expected)
+                    else:
+                        cell = next(c for c in M0D_CASES if c[0] == target)
+                        expected_json = next(text for c, _, text in worlds if c[0] == target)
+                        honest = model_m0d(cell, expected_json)
+                        if not judge_m0d(cell, honest, expected_json):
+                            raise RuntimeError('honest M0D control is red: ' + target)
+                        caught = not judge_m0d(
+                            cell, model_m0d(cell, expected_json, stub), expected_json)
+                    print(f'M0D_STAB {stub}@{target}: {"caught" if caught else "LIVE"}')
+                    live += not caught
+            print(f'M0D_STABS={len(M0D_STABS)} LIVE={live}')
+            return int(live != 0)
+        failures = 0
+        for cell, root, expected_json in worlds:
+            response = (actual_m0d(root, cell, base) if mode == 'repo'
+                        else model_m0d(cell, expected_json))
+            ok = judge_m0d(cell, response, expected_json)
+            print(f'CELL {cell[0]}: {"ok" if ok else "RED"} (subject_rc={response[0]})')
+            if not ok:
+                rc, terminal, err_text = response
+                text = terminal.replace('\r', '')
+                warn = [line for line in text.splitlines() if line.startswith(WARNING)]
+                print('  M0D_OBSERVATION ' + json.dumps(dict(
+                    rc=rc, warning_on_terminal=warn, stderr_file=err_text,
+                    terminal_head=text[:120]), ensure_ascii=False))
+            failures += not ok
+        print(f'M0D_CELLS={len(M0D_CASES)} GREEN={len(M0D_CASES) - failures} RED={failures}')
+        return int(failures != 0)
+
+
 def run(mode):
     # Read ALL expectations before invoking any candidate. Never reopen them afterward.
     snapshots = json.loads((HERE / 'm0_baseline.json').read_text())['profiles']
@@ -432,7 +593,7 @@ def run(mode):
                 print(f'M0_STAB {stub}@{target}: {"caught" if caught else "LIVE"}')
                 live += not caught
             print(f'M0_STABS={len(STABS)} LIVE={live}')
-            return int(live != 0) | run_m0b(mode, snapshots)
+            return int(live != 0) | run_m0b(mode, snapshots) | run_m0d(mode, snapshots)
         for case, root, profile, layer in worlds:
             snapshot = expected[case.name]
             response = (actual(root, case) if mode == 'repo' else
@@ -444,4 +605,4 @@ def run(mode):
                                                      ensure_ascii=False))
             failures += not ok
     print(f'M0_CELLS={len(CASES)} GREEN={len(CASES) - failures} RED={failures}')
-    return int(failures != 0) | run_m0b(mode, snapshots)
+    return int(failures != 0) | run_m0b(mode, snapshots) | run_m0d(mode, snapshots)
