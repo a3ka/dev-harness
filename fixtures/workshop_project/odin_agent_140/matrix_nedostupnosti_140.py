@@ -56,8 +56,14 @@ matrix_nedostupnosti = [
      'profile-invalid-json', 'nedostupno'),
     ('n19-profile-without-workflowpaths', 'К-03б;профиль=без-workflowPaths;охр=замкнутое-правило-НЕТ',
      'profile-without-workflowpaths', 'start'),
-    ('n20-race-chitaem-potom-ischez', 'К-03б;гонка=читаем-потом-исчез;пауза=140;охр=одно-открытие',
+    ('n20-race-chitaem-potom-ischez', 'К-03б;обёртка=cat-удаляет-лист;пауза=140;охр=чтение-без-cat',
      'race', 'pauza'),
+    ('n21-registry-regular-file', 'К-03б;реестр=обычный-файл;лист=отсутствует;Б-1=Rev140A2',
+     'registry-regular-file', 'nedostupno'),
+    ('n22-pause-external-empty', 'К-03б;лист=симлинк-вне-репо;пауза=нет;Б-2=Rev140A2',
+     'pause-external-empty', 'nedostupno'),
+    ('n23-pause-external-paused', 'К-03б;лист=симлинк-вне-репо;пауза=140;санкция=PAUZA;Б-2=Rev140A2',
+     'pause-external-paused', 'nedostupno'),
 ]
 
 BINDINGS = {
@@ -68,6 +74,24 @@ BINDINGS = {
     's102-pauza-race': ['n20-race-chitaem-potom-ischez'],
     's103-pauza-warn': ['n01-registry-dangling', 'n06-pause-dangling'],
     's104-pauza-all': ['r12-noauthor-adversary', 'r13-noauthor-critic'],
+    # Адресные мутации Rev140A2; m11 уже совпадает с s100-предикатом.
+    's105-pauza-m1-net-vmesto-nedostupno': ['n01-registry-dangling',
+                                         'n06-pause-dangling'],
+    's106-pauza-m2-dangling-kak-pauza': ['n06-pause-dangling'],
+    's107-pauza-m3-sudja-po-klassu': ['r12-noauthor-adversary',
+                                    'r13-noauthor-critic'],
+    's108-pauza-m4a-net-kak-nedostupno': ['n19-profile-without-workflowpaths'],
+    's109-pauza-m4b-prochitan-net-kak-nedostupno': ['k03b07-profil-valid-symlink-bez-pauzy'],
+    's110-pauza-m6a-nedostupno-continue': ['n21-registry-regular-file',
+                                        'n22-pause-external-empty'],
+    's111-pauza-m6b-nedostupno-kak-pauza': ['n21-registry-regular-file',
+                                         'n22-pause-external-empty'],
+    's112-pauza-m6c-nedostupno-override': ['n21-registry-regular-file',
+                                        'n23-pause-external-paused'],
+    's113-pauza-m8-list-vne-repo': ['n22-pause-external-empty',
+                                  'n23-pause-external-paused'],
+    's114-pauza-m9-bez-prava-obhoda': ['n10-registry-dir-chmod000'],
+    's115-pauza-m10-roditel-ne-katalog': ['n21-registry-regular-file'],
 }
 
 def nedostupnost(m, p, forma):
@@ -129,6 +153,15 @@ def nedostupnost(m, p, forma):
     elif forma == 'pause-directory':
         pauza.unlink()
         pauza.mkdir()
+    elif forma == 'registry-regular-file':
+        shutil.rmtree(reg)
+        reg.write_text('обычный файл вместо каталога реестра\n')
+    elif forma in ('pause-external-empty', 'pause-external-paused'):
+        vne = m.root / 'vne-repo-pauzy.tsv'
+        vne.write_text(pauza.read_text() if forma == 'pause-external-paused'
+                       else '')
+        pauza.unlink()
+        pauza.symlink_to(vne)
     elif forma == 'pause-chmod000':
         pauza.chmod(0)
     elif forma == 'registry-dir-chmod000':
@@ -180,24 +213,29 @@ def dobavit(K, p):
             star = p.GIT_ENV['PATH']
             p.GIT_ENV['PATH'] = str(bindir) + ':' + star
             privjazka = star
-        if forma == 'pause-chmod000':
-            if os.access(pauza, os.R_OK, effective_ids=True):
-                print('SKIP n09-pause-chmod000: chmod 000 не запрещает чтение '
-                      'текущему uid=%d' % os.geteuid())
-                return []
-        if forma == 'registry-dir-chmod000':
-            if os.access(reg, os.X_OK, effective_ids=True):
-                print('SKIP n10-registry-dir-chmod000: chmod 000 не запрещает '
-                      'обход текущему uid=%d' % os.geteuid())
-                return []
-        sobytie = m.sobytie('matrix-nedostupnosti.json', [p.item(
-            'architect', 'Matrix140', stroki, isolated=True)])
-        before = p.snimok_fajlov(m.sost)
         try:
+            if forma == 'pause-chmod000':
+                if os.access(pauza, os.R_OK, effective_ids=True):
+                    print('SKIP n09-pause-chmod000: chmod 000 не запрещает чтение '
+                          'текущему uid=%d' % os.geteuid())
+                    return []
+            if forma == 'registry-dir-chmod000':
+                if os.access(reg, os.X_OK, effective_ids=True):
+                    print('SKIP n10-registry-dir-chmod000: chmod 000 не запрещает '
+                          'обход текущему uid=%d' % os.geteuid())
+                    return []
+            sobytie = m.sobytie('matrix-nedostupnosti.json', [p.item(
+                'architect', 'Matrix140', stroki, isolated=True)])
+            before = p.snimok_fajlov(m.sost)
             r = p.sudit(door, m, sobytie)
         finally:
             if privjazka is not None:
                 p.GIT_ENV['PATH'] = privjazka
+            # Включая SKIP/исключение: rmtree должен обойти мир n10 (С-8).
+            if forma == 'registry-dir-chmod000':
+                reg.chmod(reg.stat().st_mode | 0o700)
+            if forma == 'pause-chmod000':
+                pauza.chmod(pauza.stat().st_mode | 0o600)
         if ozhidanie == 'start':
             return [p.k_rc(r, 0, 'замкнутое-правило-НЕТ'),
                     None if 'PUSCHEM Matrix140 dev-harness/140 (rabochij/architect)'
@@ -284,6 +322,44 @@ def mutacii(z):
     [ -n "$psv" ] || continue
     case "$agent" in critic|adversary) otp PROFIL_NEDOSTUPEN "ошибка профиля" ;; esac
     if na_pauze "$psv"; then'''),
+        's105-pauza-m1-net-vmesto-nedostupno': lambda t: z(
+            t, _BLOK_TRIO, _BLOK_TRIO.replace('return 2', 'return 1')),
+        's106-pauza-m2-dangling-kak-pauza': lambda t: z(
+            t, '    [ -f "$l" ] || return 2\n',
+            '    [ -e "$l" ] || return 0\n'
+            '    [ -f "$l" ] || return 2\n'),
+        's107-pauza-m3-sudja-po-klassu': lambda t: z(
+            t, '''  while IFS='|' read -r pidx _ _ psv pobj _ _ _ _; do
+    [ -n "$psv" ] || continue
+    if na_pauze "$psv"; then''', '''  while IFS='|' read -r pidx _ _ psv pobj _ _ pklass _; do
+    [ -n "$psv" ] || continue
+    [ "$pklass" != sudja ] || otp PROFIL_NEDOSTUPEN "стаб m3: судья по классу"
+    if na_pauze "$psv"; then'''),
+        's108-pauza-m4a-net-kak-nedostupno': lambda t: z(
+            t, _BLOK_TRIO, _BLOK_TRIO.replace(
+                '    return 1\n  fi\n', '    return 2\n  fi\n')),
+        's109-pauza-m4b-prochitan-net-kak-nedostupno': lambda t: z(
+            t, '  done < "$f"\n  return 1\n}',
+            '  done < "$f"\n  return 2\n}'),
+        's110-pauza-m6a-nedostupno-continue': lambda t: z(
+            t, _CIKL_PAUZY, _CIKL_PAUZY.replace(
+                '        *) otp PROFIL_NEDOSTUPEN "путь реестра паузы предмета $psv не удостоверен" ;;',
+                '        *) continue ;;')),
+        's111-pauza-m6b-nedostupno-kak-pauza': lambda t: z(
+            t, _CIKL_PAUZY, _CIKL_PAUZY.replace(
+                '        *) otp PROFIL_NEDOSTUPEN "путь реестра паузы предмета $psv не удостоверен" ;;',
+                '        *) otp PAUZA_VLADELTSA "стаб m6b: недоступность как пауза" ;;')),
+        's112-pauza-m6c-nedostupno-override': lambda t: z(
+            t, _CIKL_PAUZY, _CIKL_PAUZY.replace(
+                '        *) otp PROFIL_NEDOSTUPEN "путь реестра паузы предмета $psv не удостоверен" ;;',
+                '        *) : ;;')),
+        's113-pauza-m8-list-vne-repo': lambda t: z(
+            t, '    case "$l" in "$koren"/*) ;; *) return 2 ;; esac\n', ''),
+        's114-pauza-m9-bez-prava-obhoda': lambda t: z(
+            t, '        [ -x "$d" ] || return 2\n',
+            '        : # стаб m9: право обхода не проверяется\n'),
+        's115-pauza-m10-roditel-ne-katalog': lambda t: z(
+            t, '      elif [ -e "$d" ]; then\n        return 2\n', ''),
     }
 
 def jakor_bez_pauzy():
@@ -319,11 +395,13 @@ if __name__ == '__main__':
                     stroki.append(OVERRIDE)
                 sobytie = m.sobytie('m.json', [p.item(
                     'architect', 'Matrix140', stroki, isolated=True)])
-                r = p.sudit(subjekt, m, sobytie)
-                print('%s %s rc=%d stdout=%r stderr=%r ledger=%r' % (
-                    subjekt.name, forma, r.returncode, r.stdout,
-                    r.stderr, m.ledg()), flush=True)
-                if forma == 'pause-chmod000' and pauza.exists():
-                    pauza.chmod(0o644)
-                if forma == 'registry-dir-chmod000':
-                    reg.chmod(0o755)
+                try:
+                    r = p.sudit(subjekt, m, sobytie)
+                    print('%s %s rc=%d stdout=%r stderr=%r ledger=%r' % (
+                        subjekt.name, forma, r.returncode, r.stdout,
+                        r.stderr, m.ledg()), flush=True)
+                finally:
+                    if forma == 'pause-chmod000':
+                        pauza.chmod(pauza.stat().st_mode | 0o600)
+                    if forma == 'registry-dir-chmod000':
+                        reg.chmod(reg.stat().st_mode | 0o700)
