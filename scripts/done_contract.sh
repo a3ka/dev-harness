@@ -310,12 +310,68 @@ if [ -x "$SELF_DIR/check_architecture_contract.sh" ]; then
           # двери продолжается; отказом остаётся ARCH_CI (2).
           printf 'ПРЕДУПРЕЖДЕНИЕ: ARCH_REVIEW: в вердикте ревьюера %s нет самостоятельной строки «СВЕРКА-АРХИТЕКТУРЫ:»; напиши самостоятельную строку «СВЕРКА-АРХИТЕКТУРЫ: <вывод>»\n' "$freshest" >&2
         fi
-        # (2) check-run arch на ФИНАЛЬНОМ SHA продукта — на ТОМ ЖЕ, на который
-        # встанет тег done (HEAD). Отставший tracking-ref origin/main не
-        # берётся: зелёный run на старом/чужом SHA не засчитывается за этот
-        # коммит — иначе тег встал бы на один SHA, а сверено было бы другое.
+        # (2) check-run arch на ПРОДУКТОВОМ SHA линии поставки. Продуктовый
+        # SHA — БЛИЖАЙШИЙ предок HEAD, после которого все изменения только
+        # в `.harness/**` (служебный хвост: вердикты/реестр/HANDOFF проекта).
+        # На таком хвосте CI `arch` пропускает (skipped) — зелёный run искать
+        # надо на ближайшем продукте, а не на служебном коммите (слово
+        # консультанта 23:52; контракт 187/2). Отставший tracking-ref
+        # origin/main не берётся: зелёный run на старом/чужом SHA не
+        # засчитывается за этот коммит. Тег done встаёт на HEAD, как прежде;
+        # оба SHA (HEAD и SHA*) названы в диагностике ARCH_CI.
         _a187_sha="$(cd "$ROOT" && git rev-parse --verify --quiet HEAD 2>/dev/null || true)"
         [ -n "$_a187_sha" ] || die "ARCH_CI: финальный SHA продукта (HEAD) не читается"
+        # SHA* — подъём по ПЕРВОМУ родителю, пока коммит меняет ТОЛЬКО пути
+        # каталога `.harness/` (граница каталога: `.harnessx/…` — НЕ
+        # `.harness`). Merge не обходится: у merge два родителя — проверяется
+        # сам merge. Предел глубины: 50 служебных коммитов разрешены, 51 —
+        # отказ с названной причиной; корневой коммит — отказ с названной
+        # причиной.
+        _a187_sel="$_a187_sha"
+        _a187_why=""
+        _a187_max=50
+        _a187_skipped=0
+        while :; do
+          _a187_parents="$(cd "$ROOT" && git rev-list --parents -n 1 "$_a187_sel" 2>/dev/null || true)"
+          _a187_rest="${_a187_parents#* }"
+          [ "$_a187_rest" = "$_a187_parents" ] && _a187_rest=""
+          _a187_np="$(printf '%s' "$_a187_rest" | wc -w | tr -d '[:space:]')"
+          case "$_a187_np" in
+            ''|*[!0-9]*) _a187_np=0 ;;
+          esac
+          if [ "$_a187_np" -eq 0 ]; then
+            _a187_why="корневой коммит: родителей нет — подниматься некуда"
+            break
+          fi
+          _a187_p1="${_a187_rest%% *}"
+          if [ "$_a187_np" -gt 1 ]; then
+            break
+          fi
+          _new_done_tmp || die "ARCH_CI: временный файл списка путей не создать"
+          _a187_paths_file="$_DONE_TMP_LAST"
+          ( cd "$ROOT" && git diff --name-only -z "$_a187_p1" "$_a187_sel" ) > "$_a187_paths_file" 2>/dev/null || true
+          _a187_only=1
+          _a187_npaths=0
+          while IFS= read -r -d '' _a187_path; do
+            _a187_npaths=$((_a187_npaths + 1))
+            case "$_a187_path" in
+              .harness/*) : ;;
+              *) _a187_only=0 ;;
+            esac
+          done < "$_a187_paths_file"
+          if [ "$_a187_npaths" -eq 0 ] || [ "$_a187_only" -ne 1 ]; then
+            break
+          fi
+          if [ "$_a187_skipped" -ge "$_a187_max" ]; then
+            _a187_why="лимит глубины подъёма ($_a187_max) исчерпан"
+            break
+          fi
+          _a187_skipped=$((_a187_skipped + 1))
+          _a187_sel="$_a187_p1"
+        done
+        if [ -n "$_a187_why" ]; then
+          die "ARCH_CI: HEAD=$_a187_sha; SHA*=$_a187_sel; $_a187_why — успешного check-run arch нет"
+        fi
         _a187_or=""
         if [ -f "$ROOT/harness.project.json" ]; then
           # Полный разбор профиля: ровно один JSON-документ-объект. Ошибка
@@ -334,7 +390,7 @@ if [ -x "$SELF_DIR/check_architecture_contract.sh" ]; then
           esac
         fi
         [ -n "$_a187_or" ] || _a187_or="${GITHUB_REPOSITORY:-unknown/unknown}"
-        _a187_url="https://api.github.com/repos/$_a187_or/commits/$_a187_sha/check-runs?per_page=100"
+        _a187_url="https://api.github.com/repos/$_a187_or/commits/$_a187_sel/check-runs?per_page=100"
         _a187_tok="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
         # --max-time: зависший API не должен hanging'ом держать done (совет С5).
         _a187_args=(-sS --max-time 30 -H 'Accept: application/vnd.github+json')
@@ -359,15 +415,22 @@ if [ -x "$SELF_DIR/check_architecture_contract.sh" ]; then
           # ответа: NUL и прочие байты не проходят через bash-строку.
           _a187_obj=""
           if ! _json_one_object _a187_obj "$_a187_body_file"; then
-            die "ARCH_CI: ответ check-runs не разобран ($_JSON_ERR): ожидался ровно один JSON-документ — успешного check-run arch на финальном SHA $_a187_sha нет"
+            die "ARCH_CI: ответ check-runs не разобран ($_JSON_ERR): ожидался ровно один JSON-документ — успешного check-run arch нет (HEAD=$_a187_sha; SHA*=$_a187_sel)"
           fi
-          _a187_n="$(printf '%s' "$_a187_obj" | jq -r --arg sha "$_a187_sha" '[.check_runs[]? | select((((.name // "") == "arch") or ((.name // "") | startswith("arch ")) or ((.name // "") | startswith("arch ("))) and (.head_sha == $sha) and (.status == "completed") and (.conclusion == "success"))] | length' 2>/dev/null)" \
+          # Зелёный run засчитывается на ПРОДУКТОВОМ SHA (SHA*) — правило
+          # 187/2 (слово консультанта 23:52). Замороженное обязательство
+          # 201/4(г) «head_sha == HEAD» НЕ отменяется: зелёный run на
+          # финальном SHA линии поставки остаётся достаточным (на живой
+          # GitHub-API SHA-адресованный ответ для SHA* несёт run только
+          # этого SHA; HEAD совпадает с SHA*, когда служебного хвоста нет).
+          _a187_n="$(printf '%s' "$_a187_obj" | jq -r --arg sha "$_a187_sel" --arg head "$_a187_sha" '[.check_runs[]? | select((((.name // "") == "arch") or ((.name // "") | startswith("arch ")) or ((.name // "") | startswith("arch ("))) and ((.head_sha == $sha) or (.head_sha == $head)) and (.status == "completed") and (.conclusion == "success"))] | length' 2>/dev/null)" \
             || _a187_n=""
         fi
         case "$_a187_n" in
           ''|*[!0-9]*) _a187_n=0 ;;
         esac
-        [ "$_a187_n" -gt 0 ] || die "ARCH_CI: успешного check-run arch на финальном SHA $_a187_sha нет (curl rc=$_a187_crc)"
+        [ "$_a187_n" -gt 0 ] || die "ARCH_CI: HEAD=$_a187_sha; SHA*=$_a187_sel; успешного check-run arch нет (curl rc=$_a187_crc)"
+        printf 'ARCH_CI: HEAD=%s; SHA*=%s; успешный check-run arch засчитан\n' "$_a187_sha" "$_a187_sel" >&2
       fi
       rm -f "$_a187_txt"
     fi
@@ -738,8 +801,10 @@ fi
 
 # ── 8. тег done/contracts/<NNN>/<v> с причиной в аннотации ──────────────────
 tag="done/contracts/$NNN/$v"
-# Цель тега — ТОТ ЖЕ SHA, который сверен с check-run arch (187а): иначе тег
-# мог бы встать на коммит, для которого зелёного run нет. Пусто — предмет не
+# Цель тега — финальный SHA линии поставки (HEAD), как прежде: правило
+# 187/2 (слово консультанта 23:52) ищет check-run arch на ближайшем
+# ПРОДУКТОВОМ предке (SHA*), но тег done остаётся на HEAD — служебный
+# хвост `.harness/**` частью поставки не является. Пусто — предмет не
 # backend: цель по умолчанию (HEAD), как прежде.
 _a187_tag_target="${_a187_sha:-}"
 if [ -n "$_a187_tag_target" ]; then
