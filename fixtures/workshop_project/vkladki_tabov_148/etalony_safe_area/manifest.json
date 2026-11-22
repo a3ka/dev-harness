@@ -1,16 +1,26 @@
 {
- "_comment": "производные эталоны safe-area 393 (148 v6): D24-390 + системные полосы 393, контент неизменен; построено postroit.py, руками не правится",
+ "_comment": "производные эталоны safe-area 393 (148 v6, вариант Б — слово владельца 22.11 ~14:35): D24-390 с поэкранным удалением 85 измеренных пустых строк полотна + системные полосы 393, непустой контент 1:1; построено postroit.py, руками не правится",
  "konstanty": {
   "vyrez": 59,
   "domashnjaja_polosa": 34,
   "nav_height": 49,
-  "polosa_390": 36
+  "polosa_390": 36,
+  "shirina": 393,
+  "vysota": 852
+ },
+ "pravilo_udalenija": {
+  "mera": "строка полотна пустая <=> все её пиксели равны фоновому пикселю (0,0) основы (поэкранная мера)",
+  "porjadok": "пустые прогоны полотна по убыванию длины (равенство — меньший y), из прогона сверху вниз, бюджет 85 на кадр",
+  "ogranichenie": "внутренний прогон (обе соседние строки непустые) оставляет >= 1 строку; краевые прогоны (y=0 / низ полотна) — без ограничения",
+  "bjudzet": 85,
+  "arifmetika": "полотно 795 (844 − nav 49) − зона 710 (852 − vyrez 59 − home 34 − nav 49)"
  },
  "operacii": [
   "канва 393x852, заливка фоном основы (пиксель (0,0))",
-  "контент основы строки 36..745 -> канва 59..768 (1:1)",
+  "полотно основы строки 0..794 минус 85 пустых (правило pravilo_udalenija) -> канва 59..768 (1:1, порядок сохранён)",
   "лейсте основы строки 795..843 -> канва 769..817 (1:1)",
-  "столбцы 390..392 — заливка фоном"
+  "столбцы 390..392 — заливка фоном",
+  "строки 0..58 (вырез) и 818..851 (домашняя полоса) — фон, закрыты масками сверки"
  ],
  "instrumenty": {
   "python": "3.12.3",
@@ -67,42 +77,178 @@
   {
    "id": "GA-02 dark 393",
    "imja": "GA-02_normal_dark_393x852.png",
-   "sha256": "e87d82d332d16ac7f02365204db572fa9cde75986e1d4e7e22a661dbf976b309"
+   "sha256": "8c6678d9a227259bfcb490a4ebbf592ccea24689322f980711d1bbf132bebd1f",
+   "udalennye_diapazony": [
+    [
+     40,
+     68
+    ],
+    [
+     114,
+     142
+    ],
+    [
+     354,
+     380
+    ]
+   ],
+   "udaleno_strok": 85,
+   "pustyh_v_polotne": 238,
+   "ne_pustyh_v_polotne": 557
   },
   {
    "id": "GA-02 light 393",
    "imja": "GA-02_normal_light_393x852.png",
-   "sha256": "5b89171df76253bc5fd96ee3866e3fb4f07e16c81b002ea29f5e37766b5f164b"
+   "sha256": "178dad600ff67062b964edaf0fd5d4acbe687a53d9f5b3fbff01a18b33b6e1f9",
+   "udalennye_diapazony": [
+    [
+     40,
+     68
+    ],
+    [
+     114,
+     142
+    ],
+    [
+     354,
+     380
+    ]
+   ],
+   "udaleno_strok": 85,
+   "pustyh_v_polotne": 238,
+   "ne_pustyh_v_polotne": 557
   },
   {
    "id": "GA-03 dark 393",
    "imja": "GA-03_normal_dark_393x852.png",
-   "sha256": "132e246e0c9eb8d467c09a1b4556506ac866d2217a2c69b5f8da72c02e199cbe"
+   "sha256": "e393571077385cfdce3f1b1a852caf1ad2a37a35388a12218e5b94f9109abac2",
+   "udalennye_diapazony": [
+    [
+     723,
+     757
+    ],
+    [
+     40,
+     71
+    ],
+    [
+     447,
+     464
+    ]
+   ],
+   "udaleno_strok": 85,
+   "pustyh_v_polotne": 302,
+   "ne_pustyh_v_polotne": 493
   },
   {
    "id": "GA-03 light 393",
    "imja": "GA-03_normal_light_393x852.png",
-   "sha256": "e036ab50269be3def04dc458e8b29d57b4cbf571336ae656345ed35724685ee2"
+   "sha256": "0a7eb55a5fa6743da25f177d6dd78deb31904325c18c312687e35c07f82781cb",
+   "udalennye_diapazony": [
+    [
+     723,
+     757
+    ],
+    [
+     40,
+     71
+    ],
+    [
+     447,
+     464
+    ]
+   ],
+   "udaleno_strok": 85,
+   "pustyh_v_polotne": 302,
+   "ne_pustyh_v_polotne": 493
   },
   {
    "id": "GA-04 dark 393",
    "imja": "GA-04_normal_dark_393x852.png",
-   "sha256": "055e4a3f834c573f70fe7e3bbb28496d95ca6c0af910e86ed8d3650672eda252"
+   "sha256": "c92247a2e11d3ba43a72ac38598432620e469a4824d0ee21b1fb3d2eead98ab4",
+   "udalennye_diapazony": [
+    [
+     40,
+     72
+    ],
+    [
+     682,
+     711
+    ],
+    [
+     93,
+     114
+    ]
+   ],
+   "udaleno_strok": 85,
+   "pustyh_v_polotne": 218,
+   "ne_pustyh_v_polotne": 577
   },
   {
    "id": "GA-04 light 393",
    "imja": "GA-04_normal_light_393x852.png",
-   "sha256": "4991df3b483e3e023820d1854876e262b44ab190ee5e33ce19947a6e88ffa767"
+   "sha256": "1a22679eeb7723d5a87ac41f7e70ee1945825a49d7b2fbf0fb81fe213bf33bac",
+   "udalennye_diapazony": [
+    [
+     40,
+     72
+    ],
+    [
+     682,
+     711
+    ],
+    [
+     93,
+     114
+    ]
+   ],
+   "udaleno_strok": 85,
+   "pustyh_v_polotne": 218,
+   "ne_pustyh_v_polotne": 577
   },
   {
    "id": "GA-09 dark 393",
    "imja": "GA-09_normal_dark_393x852.png",
-   "sha256": "626feb0290d814e1fb445e262905bba5c09f244e615569b8afdb618f070bf4ed"
+   "sha256": "98682aaad849067bef0982aaa1532e919f1cdf6ad54009659a352c1b093603a3",
+   "udalennye_diapazony": [
+    [
+     12,
+     40
+    ],
+    [
+     86,
+     114
+    ],
+    [
+     326,
+     352
+    ]
+   ],
+   "udaleno_strok": 85,
+   "pustyh_v_polotne": 238,
+   "ne_pustyh_v_polotne": 557
   },
   {
    "id": "GA-09 light 393",
    "imja": "GA-09_normal_light_393x852.png",
-   "sha256": "4f7819d2bd575f327b1805dc957411198191318fb0955fbf2fdc53f29d96993d"
+   "sha256": "6a7638d25b3b0adbe56c05b28d4a46d9c015344038b623aafcd3e0dad40554ec",
+   "udalennye_diapazony": [
+    [
+     12,
+     40
+    ],
+    [
+     86,
+     114
+    ],
+    [
+     326,
+     352
+    ]
+   ],
+   "udaleno_strok": 85,
+   "pustyh_v_polotne": 238,
+   "ne_pustyh_v_polotne": 557
   }
  ]
 }
