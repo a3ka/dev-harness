@@ -174,7 +174,10 @@
 #       путь к фейковому бинарю, и вся защита TRUSTED_PATH обходится.
 #   (2) S-git-dir-work-tree-injection (к4 блокер 2): `unset GIT_DIR GIT_WORK_TREE
 #       GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_OBJECT_DATABASE
-#       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES`
+#       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
+#       GIT_COMMON_DIR` (GIT_COMMON_DIR — общий каталог refs/objects, уводящий
+#       git в чужой репозиторий; снят в scripts/spawn_agent.sh:52 и
+#       scripts/make_task.sh:84 — тот же класс (2), ранее здесь пропущенный)
 #       снимает переменные, перенаправляющие ВСЕ git-вызовы на чужой репозиторий
 #       даже при запиненном пути к `git`-бинарю. Объединение списков из
 #       scripts/spawn_agent.sh:38-40 и scripts/check_ci_gate.sh:25-26 (включая
@@ -206,6 +209,21 @@
 #       GIT_CONFIG_VALUE_0=/path/to/rules` перед запуском детектора, и
 #       porcelain прячет утечку как и в (4), но мимо снятого
 #       GIT_CONFIG_GLOBAL (потому что окружение первичнее).
+#   (6) S-git-config-parameters-env (Б-3 вердикта Rev044B7 97f246db5a):
+#       `unset GIT_CONFIG_PARAMETERS` снимает НАСЛЕДОВАННЫЙ env-конфиг git —
+#       переменная подсовывает `status.showUntrackedFiles=no` либо
+#       `core.excludesFile=<rules>` ОДНОЙ строкой. Класс тот же, что (4)/(5):
+#       канал ОКРУЖЕНИЯ первичнее файловых конфигов (GIT_CONFIG_GLOBAL/SYSTEM/
+#       NOSYSTEM сняты — и не помогают) и НЕ связан со счётчиком
+#       GIT_CONFIG_COUNT (тот — счётчик семейства KEY_n/VALUE_n, а не сам
+#       конфиг). Эффект ровно как в (4): porcelain слепнет к untracked-мусору,
+#       а ноги манифеста (ls-files --others) честны ⇒ ложный rc 0 «чисто» и
+#       утечка внутри снимка. Родственники, проверенные тем же кругом:
+#       GIT_CONFIG_KEY_<n>/VALUE_<n> без COUNT git игнорирует (git-config(1))
+#       ⇒ уже снято снятием COUNT; GIT_CONFIG_GLOBAL/SYSTEM/NOSYSTEM сняты;
+#       GIT_NAMESPACE на ЛОКАЛЬНОЕ разрешение refs не влияет (проба: с
+#       GIT_NAMESPACE=evil rev-parse/rev-list дают тот же sha и «1 0», что и
+#       честно — вектор не живой) ⇒ не снимаем.
 #
 # ПОБОЧНЫЙ ЭФФЕКТ отказа от `env -i PATH=$TRUSTED_PATH`: фикс регрессии приёмочной
 # команды `bash fixtures/check_judge_gate/red_detektor_utechek.sh` ворот 16
@@ -234,9 +252,9 @@ unset -f command 2>/dev/null || true
 unset BASH_ENV ENV
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_OBJECT_DATABASE GIT_ALTERNATE_OBJECT_DIRECTORIES \
-      GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES \
+      GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES GIT_COMMON_DIR \
       GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM GIT_CONFIG_NOSYSTEM \
-      GIT_CONFIG_COUNT
+      GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS
 unset HOME XDG_CONFIG_HOME XDG_DATA_HOME XDG_CACHE_HOME
 unset IFS
 
@@ -1010,7 +1028,13 @@ manifest() {
 }
 
 do_snapshot() {
-  local m manifest_rc
+  # Режим `guard` — ТОЛЬКО автоснимок (Б-1): после сборки манифеста область
+  # доказывается ЗАНОВО и сверяется с моментом ДО сборки; расхождение →
+  # временный файл удаляется, снимок НЕ появляется на диске, вызывающий
+  # отказывает прежним «снимок отсутствует» rc 1 (без строки АВТОСНИМОК).
+  # Ручные режимы (--snapshot/--retake/--retake-bulk/--retake-ahead) зовут
+  # do_snapshot БЕЗ аргумента — их поведение не меняется.
+  local guarded="${1:-}" m manifest_rc
   m="$(manifest "$CANON" '')"
   manifest_rc=$?
   if [ "$manifest_rc" -ne 0 ]; then
@@ -1054,6 +1078,16 @@ do_snapshot() {
   verify_sha="$("$SHA256SUM" < "$tmp_snap" | "$HEAD" -n1)"
   verify_sha="${verify_sha%% *}"
   printf 'verify %s\n' "$verify_sha" >> "$tmp_snap"
+  # ГВАРД (Б-1) — между записью во временный файл и публикацией: атомарная
+  # запись (tmp → проверка → mv). Снимок публикуется только если область
+  # доказана ЗАНОВО и для того же состояния, что легло в манифест; при
+  # расхождении временный файл удаляется, снимка НЕТ, вызывающий отказывает.
+  if [ "$guarded" = "guard" ]; then
+    if ! guard_scope; then
+      "$RM" -f -- "$tmp_snap"
+      return 1
+    fi
+  fi
   # Mode-lock: только-read для всех — defense-in-depth (иммутабельность файла
   # после записи; атакующий, чтобы переписать содержимое, обязан сначала снять
   # бит записи). На check — sanity mode (бит 0444 присутствует); см. do_check.
@@ -1063,26 +1097,30 @@ do_snapshot() {
     || { "$RM" -f -- "$tmp_snap"; printf 'NOT_IMPLEMENTED: переименование снимка отказало\n' >&2; exit 2; }
 }
 
-# ─── АВТОСНИМОК (Б-7) ──────────────────────────────────────────────────────────
-# Первоначальный снимок детектора снимает САМ детектор — когда ОДНОВРЕМЕННО
-# доказаны три условия области:
+# ─── ОБЛАСТЬ (а)(б)(в): ЕДИНЫЙ НОСИТЕЛЬ ДОКАЗАТЕЛЬСТВА ───────────────────────
+# Область доказывает ОДИН носитель prove_scope — и первый шаг автоснимка, и его
+# гвард (Б-1). Одна копия проверок, а не две: свойство «(б) нарушено» (Б-2)
+# проверяется РОВНО ОДНОЙ проверкой, и её удаление действительно открывает
+# дверь (мутант М2 судьи).
+#
 #   (а) рабочее дерево чисто — `git status --porcelain` отработал (rc=0) и пуст;
-#   (б) HEAD == refs/remotes/origin/main — тот же sha;
+#   (б) HEAD == refs/remotes/origin/main — тот же sha (ПОЛНАЯ ссылка: короткое
+#       имя `origin/main` разрешается в локальную ветку-тень — см. Б-2);
 #   (в) `git rev-list --left-right --count origin/main...HEAD` == «0 0».
-# Область доказуется ЛОКАЛЬНО (только локальные refs — сеть не нужна).
-# Снимок снимается ТОЙ ЖЕ внутренней функцией do_snapshot, что и ручной
-# --snapshot (тот же канон: root + манифест + verify, mode 0444, симлинк-защита) —
-# различие только в инициаторе. СУЩЕСТВУЮЩИЙ снимок автоснимком НЕ
-# перезаписывается (функция отказывается, если снимок на месте).
-# Стенограмма: ОДНА точная строка «АВТОСНИМОК: снят (а)∧(б)∧(в): <корень>
-# HEAD=<sha>» — в stderr (явный канал) И в stdout (журнал детектора — stdout-
-# стенограмма, как у --retake*). Любое из (а)(б)(в) не доказано или не
-# вычислено (нет origin/main, git отказал, симлинк на месте снимка) — вызывающий
-# печатает ПРЕЖНИЙ fail-closed отказ «снимок отсутствует» rc 1, снимок НЕ
-# создаётся. Ручные режимы (--snapshot/--retake/--retake-bulk/--retake-ahead)
-# этой функцией НЕ пользуются — их поведение не меняется.
-auto_snapshot() {
-  local head_sha origin_sha lr_out lr_left lr_right porcelain_out auto_line
+#
+# СЛЕД доказательства (SCOPE_*) и его СЛЕДОК ДО сборки манифеста (SCOPE_PRE_*)
+# — эталон гварда: снимок публикуется только если доказанное ПОСЛЕ сборки
+# состояние — то же, что доказанное ДО неё.
+SCOPE_HEAD=""
+SCOPE_ORIGIN=""
+SCOPE_LR=""
+SCOPE_PRE_HEAD=""
+SCOPE_PRE_ORIGIN=""
+SCOPE_PRE_LR=""
+SCOPE_PRE_LIST=""
+
+prove_scope() {
+  local head_sha origin_sha lr_out lr_left lr_right porcelain_out
   # (б) HEAD == refs/remotes/origin/main — тот же sha, обе ссылки разрешимы.
   head_sha="$("$GIT" -C "$CANON" rev-parse --verify HEAD 2>/dev/null)" || return 1
   origin_sha="$("$GIT" -C "$CANON" rev-parse --verify refs/remotes/origin/main 2>/dev/null)" || return 1
@@ -1096,6 +1134,70 @@ auto_snapshot() {
   # (а) Рабочее дерево чисто (rc git обязателен: отказавший status — не «чисто»).
   porcelain_out="$("$GIT" -C "$CANON" status --porcelain 2>/dev/null)" || return 1
   [ -z "$porcelain_out" ] || return 1
+  SCOPE_HEAD="$head_sha"
+  SCOPE_ORIGIN="$origin_sha"
+  SCOPE_LR="$lr_out"
+  return 0
+}
+
+# ГВАРД АВТОСНИМОКА (Б-1): доказательство области повторяется ПОСЛЕ сборки
+# манифеста и сверяется с моментом ДО сборки. Без гварда запись в дерево в
+# окне «доказано → манифест» попадала в снимок, а детектор печатал АВТОСНИМОК и
+# отдавал rc 0 при грязном porcelain. Расхождение → снимок НЕ публикуется,
+# вызывающий печатает ПРЕЖНИЙ fail-closed отказ «снимок отсутствует» rc 1 без
+# строки АВТОСНИМОК.
+guard_scope() {
+  local list_now
+  # (1) Область доказывается ЗАНОВО — тем же носителем, что и до сборки.
+  prove_scope || return 1
+  # (2) Доказанное состояние — то же, что ДО сборки манифеста: HEAD и
+  #     origin/main не сдвинулись, расхождений по-прежнему нет.
+  [ "$SCOPE_HEAD" = "$SCOPE_PRE_HEAD" ] || return 1
+  [ "$SCOPE_ORIGIN" = "$SCOPE_PRE_ORIGIN" ] || return 1
+  [ "$SCOPE_LR" = "$SCOPE_PRE_LR" ] || return 1
+  # (3) Список tracked-путей дерева — тот же, что ДО сборки манифеста
+  #     (git ls-files; untracked-часть дерева закрыта (а) — porcelain пуст).
+  list_now="$("$GIT" -C "$CANON" ls-files 2>/dev/null)" || return 1
+  [ "$list_now" = "$SCOPE_PRE_LIST" ] || return 1
+  return 0
+}
+
+# ─── АВТОСНИМОК (Б-7) ──────────────────────────────────────────────────────────
+# Первоначальный снимок детектора снимает САМ детектор — когда ОДНОВРЕМЕННО
+# доказаны три условия области:
+#   (а) рабочее дерево чисто — `git status --porcelain` отработал (rc=0) и пуст;
+#   (б) HEAD == refs/remotes/origin/main — тот же sha;
+#   (в) `git rev-list --left-right --count origin/main...HEAD` == «0 0».
+# Область доказуется ЛОКАЛЬНО (только локальные refs — сеть не нужна).
+# Снимок снимается ТОЙ ЖЕ внутренней функцией do_snapshot, что и ручной
+# --snapshot (тот же канон: root + манифест + verify, mode 0444, симлинк-защита) —
+# различие только в инициаторе. СУЩЕСТВУЮЩИЙ снимок автоснимком НЕ
+# перезаписывается (функция отказывается, если снимок на месте).
+# ГВАРД (Б-1): доказательство области и сборка манифеста — РАЗНЫЕ моменты
+# времени; запись в дерево между ними попадала в снимок, а детектор печатал
+# АВТОСНИМОК и отдавал rc 0 при грязном porcelain. Поэтому do_snapshot в
+# режиме `guard` повторяет доказательство области ПОСЛЕ сборки манифеста и
+# сверяет его с моментом ДО сборки (guard_scope); расхождение → временный
+# файл удаляется, снимок НЕ появляется, вызывающий печатает ПРЕЖНИЙ отказ
+# «снимок отсутствует» rc 1. Публикация атомарная: tmp → проверка → mv.
+# Стенограмма: ОДНА точная строка «АВТОСНИМОК: снят (а)∧(б)∧(в): <корень>
+# HEAD=<sha>» — в stderr (явный канал) И в stdout (журнал детектора — stdout-
+# стенограмма, как у --retake*). Любое из (а)(б)(в) не доказано или не
+# вычислено (нет origin/main, git отказал, симлинк на месте снимка) — вызывающий
+# печатает ПРЕЖНИЙ fail-closed отказ «снимок отсутствует» rc 1, снимок НЕ
+# создаётся. Ручные режимы (--snapshot/--retake/--retake-bulk/--retake-ahead)
+# этой функцией НЕ пользуются — их поведение не меняется.
+auto_snapshot() {
+  local auto_line
+  # Область (а)∧(б)∧(в) доказывает ЕДИНЫЙ носитель prove_scope — он же
+  # доказывает её повторно в гварде (Б-1).
+  prove_scope || return 1
+  # СЛЕД доказательства и список tracked-путей ДО сборки манифеста — эталон
+  # гварда: после сборки область доказывается ЗАНОВО и сверяется с ним.
+  SCOPE_PRE_HEAD="$SCOPE_HEAD"
+  SCOPE_PRE_ORIGIN="$SCOPE_ORIGIN"
+  SCOPE_PRE_LR="$SCOPE_LR"
+  SCOPE_PRE_LIST="$("$GIT" -C "$CANON" ls-files 2>/dev/null)" || return 1
   # Симлинк-защита (мера 1/1б/1в) — на месте снимка автоснимок НЕ пишет.
   if [ -L "$SNAP" ] || [ -L "$SNAP_DIR" ] || [ -L "$TMPDIR_BASE/dev-harness-leak" ]; then
     return 1
@@ -1104,10 +1206,13 @@ auto_snapshot() {
   if [ -e "$SNAP" ]; then
     return 1
   fi
-  # Снимок — той же функцией, что ручной --snapshot (тот же канон, mode 0444).
-  do_snapshot
+  # Снимок — той же функцией, что ручной --snapshot (тот же канон: root +
+  # манифест + verify, mode 0444, симлинк-защита); режим guard — гвард Б-1
+  # (доказательство области повторяется ПОСЛЕ сборки манифеста; расхождение →
+  # снимок НЕ публикуется, вызывающий печатает прежний отказ rc 1).
+  do_snapshot guard || return 1
   # Стенограмма автоснимка: одна строка в stderr и одна в stdout.
-  auto_line="$P_AVTO: снят (а)∧(б)∧(в): $CANON HEAD=$head_sha"
+  auto_line="$P_AVTO: снят (а)∧(б)∧(в): $CANON HEAD=$SCOPE_HEAD"
   printf '%s\n' "$auto_line" >&2
   printf '%s\n' "$auto_line"
   return 0
