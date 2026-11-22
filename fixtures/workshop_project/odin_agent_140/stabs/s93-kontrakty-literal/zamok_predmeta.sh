@@ -14,7 +14,8 @@
 # === true из ПОЛЯ item; строка START несёт факт isolated ([D32]/[D33]).
 # Упрощение по слову владельца 21.11 12:06, дверь cb9713b0ee:
 # диагностические расхождения — предупреждения с записью; неизвестный риск —
-# рисковый; брошенный замок освобождается автоматически. Общая разовая строка
+# рисковый. Брошенный замок — именованный отказ без записей (К-01, консультант
+# 00:22; frozen 140/5 :46). Общая разовая строка
 # РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК заменяет частные исключения, но не реальные запреты.
 #
 # ВЫЗОВ (грамматика argv замкнута, четыре формы):
@@ -66,11 +67,11 @@
 #   OBJECT_OTSTUTSVUET SUBEKT_DVA_OBJECTA GRAMMATIKA_OBJECTA
 #   PIN_NET GRAMMATIKA_PINA RASHOZHDENIE_PINA
 #   IMJA_NET GRAMMATIKA_IMENI AGENT_NET BITYJ_VHOD
-#   DUBL_V_PAKETE RABOCHIJ_ZHIV SUDJA_ZHIV ZANYATO_RESHENIEM
+#   DUBL_V_PAKETE RABOCHIJ_ZHIV SUDJA_ZHIV ZAMOK_BROSHEN ZANYATO_RESHENIEM
 #   AVTOR_ESHCHO_RABOTAET ADVERSARIJ_DO_REVJUERA PAUZA_VLADELTSA NE_IZOLIROVAN
 #   ZAMOK_ZHIV DERZHATEL_RASHODITSJA NET_ZAMKA PEREDACHA_NEDOSTOVERNA PEREDACHA_REMOTE
 # ПРЕДУПРЕЖДЕНИЯ с записью warn: KLASS_RISKA_NET OBJECT_RASHODITSJA
-# VETKA_NEDOSTUPNA RABOCHEGO_NET OBJECT_UZHE_SUZHEN LIMIT_GRUPPY ZAMOK_BROSHEN PEREDACHA_AVTOR.
+# VETKA_NEDOSTUPNA RABOCHEGO_NET OBJECT_UZHE_SUZHEN LIMIT_GRUPPY PEREDACHA_AVTOR.
 # rc 0 — разрешено (замки заняты, START дописан ДО возврата) / исполнено / учёт.
 # rc 2 — NOT_IMPLEMENTED (нет jq/git/find, мир нечитаем): fail-closed; вызов
 #        расширением трактуется как блок «страж сломан» — молчаливого пропуска нет.
@@ -130,12 +131,8 @@ zapis_override() {  # <предмет> <КОД> <OBJECT или '-'>
         --arg o "$3" --arg at "$(ts_now)" \
         '{t:$t,repoId:$r,subjectId:$s,kod:$k,object:$o,at:$at}')"
 }
-# [D57 osvobozhdenie-broshennogo] Старый держатель получает RELEASE.
-zapis_release_broshennogo() {  # <предмет> <holder>
-  zapis_dodat "$(jq -nc --arg t RELEASE --arg r "$REPO_ID" --arg s "$1" --arg h "$2" \
-        --arg p broshen --arg at "$(ts_now)" \
-        '{t:$t,repoId:$r,subjectId:$s,holder:$h,prichina:$p,at:$at}')"
-}
+# [D57 osvobozhdenie-broshennogo] RELEASE брошенного держателя пишется ТОЛЬКО
+# явным --osvobodit (sudit-путь отказывает без записей: К-01, frozen 140/5 :46).
 FAKT=''
 fakt_zapis() { FAKT="${FAKT}${FAKT:+$'\n'}$1|$2"; }
 fakt_dlya() {  # <idx> → фактический OBJECT
@@ -917,19 +914,10 @@ EOF
           # [D1 dubl-rabochego] живой рабочий — дубль запрещён (боль 122: v4+v4b).
           otp RABOCHIJ_ZHIV "предмет $sv: рабочий $h_holder бежит без сдачи — дубль запрещён"
           ;;
-        broshen)
-          # [D3 broshennyj-zamok] Автоосвобождение с предупреждением.
-          predupr "$sv" 'ZAMOK_BROSHEN' "предмет $sv: holder $h_holder без сдачи и без записей >${BROSHEN_TTL_MIN} мин — замок освобождается автоматически" "$obj"
-          zapis_release_broshennogo "$sv" "$h_holder"
-          ;;
-        net_fajla)
-          if [ -n "$(find "$zdir/zanyat/holder.json" -mmin +"$BROSHEN_TTL_MIN" -print 2>/dev/null)" ]; then
-            predupr "$sv" 'ZAMOK_BROSHEN' "предмет $sv: holder $h_holder без журнала, замок старше ${BROSHEN_TTL_MIN} мин — освобождается автоматически" "$obj"
-            zapis_release_broshennogo "$sv" "$h_holder"
-          else
-            mutexi_snyat_vse
-            otp ZAMOK_ZHIV "предмет $sv: holder $h_holder без журнала, замок свежий — освободить только --osvobodit"
-          fi
+        broshen|net_fajla)
+          mutexi_snyat_vse
+          # [D3 broshennyj-zamok] рестарт ≠ разрешение: дубль после рестарта — отказ.
+          otp ZAMOK_BROSHEN "предмет $sv: holder $h_holder без сдачи и без записей >${BROSHEN_TTL_MIN} мин — только --osvobodit, НЕ авто-перезапуск"
           ;;
       esac
     fi

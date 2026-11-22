@@ -122,7 +122,9 @@ BINDINGS = {
     's83-override-bez-abort': ['p48-override-peredacha-schema'],
     's84-preduprezhdenie-bez-zapisi': [
         's08-rabochego-net', 'w13-limit-harness', 'p17-svidetelstvo-ne-orchestrator'],
-    's85-broshennyj-bez-release': ['w04-dubl-posle-restarta'],
+    # К-01: авто-RELEASE в sudit-пути больше нет; различающий вход стаба —
+    # явный --osvobodit брошенного держателя (RELEASE обязан быть записан).
+    's85-broshennyj-bez-release': ['w05-osvobodit-broshennyj'],
     's86-start-zaproshennyj-object': ['s03-object-rashoditsja', 'p02-produktovyj-object-chuzhoj'],
 }
 
@@ -148,8 +150,10 @@ def mutacii(z):
         's83-override-bez-abort': no_abort,
         's84-preduprezhdenie-bez-zapisi': no_warn_record,
         's85-broshennyj-bez-release': lambda t: z(t,
-            '''  zapis_dodat "$(jq -nc --arg t RELEASE''',
-            '''  : "$(jq -nc --arg t RELEASE'''),
+            '''  jq -nc --arg t RELEASE --arg r "$REPO_ID" --arg s "$NNN_ARG" --arg h "$h_holder" \\
+        --arg p "$prichina" --arg at "$(ts_now)" \\
+    '{t:$t,repoId:$r,subjectId:$s,holder:$h,prichina:$p,at:$at}' >> "$LEDGER"''',
+            '''  : # стаб: явное --osvobodit не пишет RELEASE брошенного держателя'''),
         's86-start-zaproshennyj-object': lambda t: z(t,
             '''    [ -n "$fakt" ] && obj="$fakt"''',
             '''    : # стаб: START сохраняет запрошенный, не фактический OBJECT'''),

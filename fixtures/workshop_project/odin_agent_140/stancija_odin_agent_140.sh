@@ -22,7 +22,7 @@
 # (предупреждение + фактический OBJECT); p05 порядок адверсарий→ревьюер;
 # p06 лимит harness 3 из 3 (предупреждение + START); p07 атомарный пакет
 # (дубль предмета в batch — блок всего пакета, занятий ноль); p08 гонка двух
-# tool_call — ровно один пропуск; p09 брошенный замок (предупреждение + RELEASE);
+# tool_call — ровно один пропуск; p09 дубль после рестарта (К-01: блок);
 # p10 после yield + START пишет РАСШИРЕНИЕ; p11 алфавит 104 не ослаблен; p12 чужой
 # инструмент (toolName≠task) не трогается; p13 fail-closed (дверь rc 2 → блок
 # «страж сломан»); p14 --uchet живого мира (приёмка 5в); m01 обманная
@@ -398,7 +398,7 @@ begi() {  # <хук> <cases> → вывод драйвера
   mir_start "$ST" 140 Arch140 rabochij architect harness - "$WT" wip/140/avtor
   mir_zhurnal "$ST" Arch140 0 120
   sobytie "$W/p09/ev.json" architect Arch140c true 'SUBJECT=140' "WORKTREE=$WT" 'BRANCH=wip/140/avtor' > /dev/null
-  kejs_warn "$W/p09/c.json" p09 ZAMOK_BROSHEN 140 Arch140c "$W/p09/ev.json" "$(mir_sess "$ST")" "$RE" "$ST/zamok/uchet.jsonl" '' Arch140
+  kejs "$W/p09/c.json" p09 'block:ZAMOK_BROSHEN' "$W/p09/ev.json" "$(mir_sess "$ST")" "$RE"
   out="$(begi "$HUK" "$W/p09/c.json")" && proba p09-int-dubl-posle-restarta ok || proba p09-int-dubl-posle-restarta krasno "$(printf '%s' "$out" | grep '^GOT' | head -1)"
 }
 

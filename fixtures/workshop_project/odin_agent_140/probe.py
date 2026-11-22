@@ -379,6 +379,11 @@ def k_chislo_startov(mir, chto, n):
     m = len([r for r in mir.ledg() if r.get('t') == 'START'])
     return None if m == n else '%s: START-строк %d ≠ %d' % (chto, m, n)
 
+def k_net_release(mir, chto):
+    # К-01: брошенный замок не разбирается сам — RELEASE пишет только --osvobodit.
+    rel = [x for x in mir.ledg() if x.get('t') == 'RELEASE']
+    return None if not rel else '%s: RELEASE-строк %d без --osvobodit (авто-освобождение)' % (chto, len(rel))
+
 
 def k_zanyat(mir, nnn, holder, chto):
     z = mir.zanyat_holder(nnn)
@@ -451,12 +456,24 @@ def kejsy():
         ev = mir.sobytie('e.json', [item('architect', 'Arch140c',
                         ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
         r = sudit(door, mir, ev)
-        return k_warn(r, mir, 'ZAMOK_BROSHEN', '140') + [
-                k_chislo_startov(mir, 'учёт', 2),
-                k_zanyat(mir, '140', 'Arch140c', 'автоматическая-ротация'),
-                None if any(row.get('t') == 'RELEASE' and row.get('holder') == 'Arch140'
-                            for row in mir.ledg()) else 'нет автоматического RELEASE']
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'ZAMOK_BROSHEN', 'причина'),
+                k_chislo_startov(mir, 'учёт', 1)]
     reg('w04-dubl-posle-restarta', 'роль=рабочий;состояние=оборван-рестарт;дубль=после-рестарта', w04)
+
+    def w04b(mir, door):
+        # К-01 (слово консультанта 00:22): возраст за порогом — глубоко за TTL —
+        # НЕ открывает авто-освобождения: тот же именованный отказ, учёт без
+        # новых записей (нет RELEASE/START), занятие у прежнего держателя.
+        wt, br, _ = mir.worktree('140')
+        mir.start('140', 'Arch140', wt=wt, branch=br)
+        mir.zhurnal('Arch140', sdal=False, vozrast_min=100000)
+        ev = mir.sobytie('e.json', [item('architect', 'Arch140c',
+                        ['SUBJECT=140', 'WORKTREE=' + wt, 'BRANCH=' + br], isolated=True)])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'ZAMOK_BROSHEN', 'причина'),
+                k_chislo_startov(mir, 'учёт', 1), k_net_release(mir, 'учёт'),
+                k_zanyat(mir, '140', 'Arch140', 'занятие-прежнего-держателя')]
+    reg('w04b-gluboko-broshennyj', 'роль=рабочий;состояние=оборван;возраст=100000-мин;учёт=без-новых-записей', w04b)
 
     def w05(mir, door):
         wt, br, _ = mir.worktree('140')
@@ -1758,9 +1775,55 @@ def m_bez_yield(t):
 
 
 def m_avto_relis(t):
-    # D3: автоматический допуск без предупреждения о прежнем держателе.
-    return _z(t, '''          predupr "$sv" 'ZAMOK_BROSHEN' "предмет $sv: holder $h_holder без сдачи и без записей >${BROSHEN_TTL_MIN} мин — замок освобождается автоматически" "$obj"''',
-              '''          : # стаб: брошенность не протоколируется''')
+    # S1 «авто-освобождение по таймеру» — поведение A2 (3611ad996f): предупреждение,
+    # RELEASE прежнего держателя и допуск второго рабочего по одному таймеру
+    # (К-01 Adv140A2/консультант 00:22: регресс против frozen 140/5 :46).
+    return _z(t, '''        broshen|net_fajla)
+          mutexi_snyat_vse
+          # [D3 broshennyj-zamok] рестарт ≠ разрешение: дубль после рестарта — отказ.
+          otp ZAMOK_BROSHEN "предмет $sv: holder $h_holder без сдачи и без записей >${BROSHEN_TTL_MIN} мин — только --osvobodit, НЕ авто-перезапуск"
+          ;;''',
+              '''        broshen)
+          # стаб: авто-освобождение по таймеру (поведение A2 3611ad996f)
+          predupr "$sv" 'ZAMOK_BROSHEN' "предмет $sv: holder $h_holder без сдачи и без записей >${BROSHEN_TTL_MIN} мин — замок освобождается автоматически" "$obj"
+          zapis_dodat "$(jq -nc --arg t RELEASE --arg r "$REPO_ID" --arg s "$sv" --arg h "$h_holder" --arg p broshen --arg at "$(ts_now)" '{t:$t,repoId:$r,subjectId:$s,holder:$h,prichina:$p,at:$at}')"
+          ;;
+        net_fajla)
+          if [ -n "$(find "$zdir/zanyat/holder.json" -mmin +"$BROSHEN_TTL_MIN" -print 2>/dev/null)" ]; then
+            predupr "$sv" 'ZAMOK_BROSHEN' "предмет $sv: holder $h_holder без журнала, замок старше ${BROSHEN_TTL_MIN} мин — освобождается автоматически" "$obj"
+            zapis_dodat "$(jq -nc --arg t RELEASE --arg r "$REPO_ID" --arg s "$sv" --arg h "$h_holder" --arg p broshen --arg at "$(ts_now)" '{t:$t,repoId:$r,subjectId:$s,holder:$h,prichina:$p,at:$at}')"
+          else
+            mutexi_snyat_vse
+            otp ZAMOK_ZHIV "предмет $sv: holder $h_holder без журнала, замок свежий — освободить только --osvobodit"
+          fi
+          ;;''')
+
+
+def m_broshennyj_start_bez_release(t):
+    # S2 «ZAMOK_BROSHEN как предупреждение с START без RELEASE»: второй рабочий
+    # всё равно допущен, учёт растёт (warn + START), RELEASE нет — половинчатая
+    # правка К-01; красит клетку «учёт без новых записей»/rc (w04b).
+    return _z(t, '''        broshen|net_fajla)
+          mutexi_snyat_vse
+          # [D3 broshennyj-zamok] рестарт ≠ разрешение: дубль после рестарта — отказ.
+          otp ZAMOK_BROSHEN "предмет $sv: holder $h_holder без сдачи и без записей >${BROSHEN_TTL_MIN} мин — только --osvobodit, НЕ авто-перезапуск"
+          ;;''',
+              '''        broshen|net_fajla)
+          # стаб: брошенный замок — предупреждение и допуск без RELEASE
+          predupr "$sv" 'ZAMOK_BROSHEN' "предмет $sv: holder $h_holder без сдачи и без записей >${BROSHEN_TTL_MIN} мин — замок освобождается автоматически" "$obj"
+          ;;''')
+
+
+def m_broshennyj_ljuboj(t):
+    # S3 «отказ при любом возрасте включая живого»: TTL не смотрится вовсе —
+    # свежий держатель (0 мин, bezhit) отказан как ZAMOK_BROSHEN, а не
+    # RABOCHIJ_ZHIV; красит охранную клетку живого держателя (w02).
+    return _z(t, '''  if [ -n "$(find "$jf" -mmin +"$BROSHEN_TTL_MIN" -print)" ]; then
+    printf 'broshen'
+  else
+    printf 'bezhit'
+  fi''',
+              '''  printf 'broshen' # стаб: любой возраст — брошен''')
 
 
 def m_osvobodit_zhivogo(t):
@@ -2207,6 +2270,8 @@ STAB_MUTACII = {
     's01-bez-dublja-rabochego': m_bez_dublja,
     's02-bez-yield-predikata': m_bez_yield,
     's03-avto-relis-broshennogo': m_avto_relis,
+    's94-broshennyj-start-bez-release': m_broshennyj_start_bez_release,
+    's95-broshennyj-ljuboj-vozrast': m_broshennyj_ljuboj,
     's04-osvobodit-zhivogo': m_osvobodit_zhivogo,
     's05-subjekt-bez-jakorja': m_subjekt_bez_jakorja,
     's06-pin-bez-jakorja': m_pin_bez_jakorja,
