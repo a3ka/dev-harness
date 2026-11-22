@@ -19,6 +19,31 @@
 # Относительный путь в обоих режимах ⇒ rc 1 «корень обязан быть абсолютным» ДО какого-либо cd
 # (блокер 5 вердикта 4d1d265).
 #
+# АВТОСНИМОК (Б-7). --check БЕЗ снимка: если ОДНОВРЕМЕННО (а) рабочее дерево
+# чисто (git status --porcelain пуст), (б) HEAD == refs/remotes/origin/main,
+# (в) `git rev-list --left-right --count origin/main...HEAD` == «0 0» — детектор
+# снимает первоначальный снимок САМ (тот же внутренний do_snapshot, тот же
+# канон root+манифест+verify, mode 0444, симлинк-защита) и печатает стенограмму
+# «АВТОСНИМОК: снят (а)∧(б)∧(в): <корень> HEAD=<sha>» в stderr и в stdout
+# (журнал детектора), после чего сверка продолжается как обычный --check.
+# Область доказуется локально (только локальные refs — сеть не нужна). Вне
+# области — ПРЕЖНИЙ fail-closed отказ «снимок отсутствует» rc 1 БЕЗ снимка.
+# Существующий снимок автоснимком не перезаписывается; ручные режимы
+# (--snapshot/--retake/--retake-bulk/--retake-ahead) не меняются.
+#
+# ПРИВЯЗКА ДОКАЗАТЕЛЬСТВА К ТЕЛУ СНИМКА (Б-1, вызов 2 — гонка A→B→A). Область
+# доказывается ДО сборки манифеста, гвард — ПОСЛЕ неё, но САМО тело манифеста
+# с доказанным состоянием не сверялось: запись в дерево и её ОТКАТ (A→B→A) в
+# окне манифеста ложились в снимок, а гвард видел уже откатанное состояние A —
+# «доказанное состояние» и «байты в снимке» относились к разным моментам
+# дерева. Поэтому в режиме `guard` тело манифеста пересобирается ПОСЛЕ
+# доказательства области, и публикуется ТОЛЬКО то тело, которое пересборка
+# воспроизвела байт-в-байт (body_bound_to_scope): доказанное (а)∧(б)∧(в)
+# относится к тем же байтам, что в публикуемом снимке. Расхождение тел →
+# снимок НЕ публикуется, вызывающий отказывает ПРЕЖНИМ fail-closed «снимок
+# отсутствует» rc 1 (без строки АВТОСНИМОК). Ручные режимы тело манифеста
+# пересобирают по-прежнему ОДИН раз — их поведение не меняется.
+#
 # КОРНЕВОЙ СРЕЗ ИСТОЧНИКА МАНИФЕСТА (v6, 2026-09-15, путь 1 владельца; Н-89: порочность
 # перечисления носителей ослепления, 8 классов / 8 адверсарий-кругов).
 # Манифест — ОБЪЕДИНЕНИЕ трёх ног, единый sort:
@@ -129,6 +154,10 @@
 #               «снимок: verify-строка отсутствует — обязательна для прод-снимков»
 #               — кейс v4: чтение снимка cat||true тот же класс
 #               «отказ producer ≠ молчаливый успех», имя дано);
+#               Автоснимок (Б-7) — ровно одна строка «АВТОСНИМОК: снят (а)∧(б)∧(в):
+#               <корень> HEAD=<sha>» в stderr и в stdout на СНЯТЫЙ автоснимок;
+#               вне доказанной области (а)∧(б)∧(в) такой строки нет — там
+#               прежний отказ «снимок отсутствует» rc 1 БЕЗ снимка;
 #               2 — окружение не годится (нет утилит закрытого списка, sha256sum не
 #               прошёл sanity-хэш, git status rc≠0, нет git, каталог/репозиторий
 #               недоступны, sha256sum не смог прочесть tracked-файл, HEAD submodule
@@ -158,7 +187,10 @@
 #       путь к фейковому бинарю, и вся защита TRUSTED_PATH обходится.
 #   (2) S-git-dir-work-tree-injection (к4 блокер 2): `unset GIT_DIR GIT_WORK_TREE
 #       GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_OBJECT_DATABASE
-#       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES`
+#       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
+#       GIT_COMMON_DIR` (GIT_COMMON_DIR — общий каталог refs/objects, уводящий
+#       git в чужой репозиторий; снят в scripts/spawn_agent.sh:52 и
+#       scripts/make_task.sh:84 — тот же класс (2), ранее здесь пропущенный)
 #       снимает переменные, перенаправляющие ВСЕ git-вызовы на чужой репозиторий
 #       даже при запиненном пути к `git`-бинарю. Объединение списков из
 #       scripts/spawn_agent.sh:38-40 и scripts/check_ci_gate.sh:25-26 (включая
@@ -190,6 +222,21 @@
 #       GIT_CONFIG_VALUE_0=/path/to/rules` перед запуском детектора, и
 #       porcelain прячет утечку как и в (4), но мимо снятого
 #       GIT_CONFIG_GLOBAL (потому что окружение первичнее).
+#   (6) S-git-config-parameters-env (Б-3 вердикта Rev044B7 97f246db5a):
+#       `unset GIT_CONFIG_PARAMETERS` снимает НАСЛЕДОВАННЫЙ env-конфиг git —
+#       переменная подсовывает `status.showUntrackedFiles=no` либо
+#       `core.excludesFile=<rules>` ОДНОЙ строкой. Класс тот же, что (4)/(5):
+#       канал ОКРУЖЕНИЯ первичнее файловых конфигов (GIT_CONFIG_GLOBAL/SYSTEM/
+#       NOSYSTEM сняты — и не помогают) и НЕ связан со счётчиком
+#       GIT_CONFIG_COUNT (тот — счётчик семейства KEY_n/VALUE_n, а не сам
+#       конфиг). Эффект ровно как в (4): porcelain слепнет к untracked-мусору,
+#       а ноги манифеста (ls-files --others) честны ⇒ ложный rc 0 «чисто» и
+#       утечка внутри снимка. Родственники, проверенные тем же кругом:
+#       GIT_CONFIG_KEY_<n>/VALUE_<n> без COUNT git игнорирует (git-config(1))
+#       ⇒ уже снято снятием COUNT; GIT_CONFIG_GLOBAL/SYSTEM/NOSYSTEM сняты;
+#       GIT_NAMESPACE на ЛОКАЛЬНОЕ разрешение refs не влияет (проба: с
+#       GIT_NAMESPACE=evil rev-parse/rev-list дают тот же sha и «1 0», что и
+#       честно — вектор не живой) ⇒ не снимаем.
 #
 # ПОБОЧНЫЙ ЭФФЕКТ отказа от `env -i PATH=$TRUSTED_PATH`: фикс регрессии приёмочной
 # команды `bash fixtures/check_judge_gate/red_detektor_utechek.sh` ворот 16
@@ -218,9 +265,9 @@ unset -f command 2>/dev/null || true
 unset BASH_ENV ENV
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_OBJECT_DATABASE GIT_ALTERNATE_OBJECT_DIRECTORIES \
-      GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES \
+      GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES GIT_COMMON_DIR \
       GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM GIT_CONFIG_NOSYSTEM \
-      GIT_CONFIG_COUNT
+      GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS
 unset HOME XDG_CONFIG_HOME XDG_DATA_HOME XDG_CACHE_HOME
 unset IFS
 
@@ -233,6 +280,7 @@ P_CHISTO='основной чекаут чист'
 P_NET_SNIMKA='снимок отсутствует'
 P_ABS='корень обязан быть абсолютным'
 P_CHUZH='снимок чужого корня'
+P_AVTO='АВТОСНИМОК'
 
 usage() {
   printf 'ОТКАЗ диспетчер: использование: check_no_leak.sh --snapshot|--check|--retake|--retake-bulk|--retake-ahead <абс-корень>\n' >&2
@@ -473,7 +521,8 @@ enc_path() {
 # строке TRACKED, новая строка ⇒ дельта ⇒ rc 1) — замер E8 матрицы 2026-09-15.
 # Все rc-отказы producer'а распространяются вверх через `|| return 2` (Н-84).
 emit_tracked_manifest() {  # <канон-корень> <префикс-путей>
-  local root="$1" prefix="$2" tmpf_s tmpf_p path full mode sha1 fp head
+  local root="$1" prefix="$2" tmpf_s tmpf_p tmpf_sum path full mode sha1 fp head
+  local -a hash_full=() hash_rel=()
   tmpf_s="$("$MKTEMP")" || {
     printf 'NOT_IMPLEMENTED: mktemp отказал в emit_tracked_manifest\n' >&2
     return 2
@@ -508,6 +557,10 @@ emit_tracked_manifest() {  # <канон-корень> <префикс-путе�
     printf 'NOT_IMPLEMENTED: git ls-files отказал в %s\n' "$root" >&2
     return 2
   fi
+  # ПРОХОД 1 — раскладка путей: gitlink (рекурсия) / маркер MISSING / путь в
+  # список на пакетное хеширование (проход 2). ПОРЯДОК строк внутри ноги не
+  # значим: тело манифеста сортируется единым sort в manifest() — байты тела
+  # (и снимка) от перестановки строк НЕ меняются.
   while IFS= read -r -d '' path; do
     info="${TRACKED_INFO[$path]:-::}"
     mode="${info%%:*}"
@@ -547,19 +600,91 @@ emit_tracked_manifest() {  # <канон-корень> <префикс-путе�
     # Превентив v4 (ERR-константа): нечитаемый/отсутствующий файл — маркер
     # MISSING, чтобы дельта ловила появление/удаление/повреждение.
     if [ -f "$full" ] && [ -r "$full" ]; then
-      if ! fp="$("$SHA256SUM" -- "$full" 2>/dev/null)"; then
-        "$RM" -f -- "$tmpf_p"
-        printf 'NOT_IMPLEMENTED: не смог прочитать %s\n' "$full" >&2
-        return 2
-      fi
-      fp="${fp%% *}"
-      printf 'TRACKED:%s:%s\t%s\n' "$fp" "$sha1" "$(enc_path "${prefix}${path}")"
+      hash_full+=("$full")
+      hash_rel+=("$path")
     else
       printf 'TRACKED:MISSING:%s\t%s\n' "$sha1" "$(enc_path "${prefix}${path}")"
     fi
   done < "$tmpf_p"
   "$RM" -f -- "$tmpf_p"
+  # ПРОХОД 2 — ПАКЕТНОЕ хеширование: один spawn sha256sum на чанк (≤64KB
+  # argv, тот же приём, что в UNTRACKED-ноге) вместо spawn-на-файл. Байты
+  # строк TRACKED те же — те же sha256, те же пути, тот же формат: порядок
+  # вывода sha256sum совпадает с порядком аргументов, поэтому спаривание идёт
+  # ПО ИНДЕКСУ (разбор пути из вывода дал бы неверный путь для имени с '\n':
+  # coreutils экранирует его, и разбор не восстановил бы исходное имя).
+  if [ "${#hash_full[@]}" -gt 0 ]; then
+    local chunk_bytes p pb sha_line i
+    local -a chunk=()
+    tmpf_sum="$tmpf_p.sum"
+    : > "$tmpf_sum" || {
+      printf 'NOT_IMPLEMENTED: не смог создать %s\n' "$tmpf_sum" >&2
+      return 2
+    }
+    chunk_bytes=0
+    for p in "${hash_full[@]}"; do
+      pb=${#p}
+      if [ "$chunk_bytes" -gt 0 ] && [ $((chunk_bytes + pb + 1)) -gt 65536 ]; then
+        if ! "$SHA256SUM" -- "${chunk[@]}" >> "$tmpf_sum" 2>/dev/null; then
+          # Отказ батча — тот же именованный отказ v4, что и у пофайлового
+          # хеширования: виновник ищется пофайловым проходом (редкий путь).
+          if ! bad="$(sha256sum_first_failure "${chunk[@]}")"; then
+            "$RM" -f -- "$tmpf_sum"
+            printf 'NOT_IMPLEMENTED: не смог прочитать %s\n' "$bad" >&2
+            return 2
+          fi
+        fi
+        chunk=()
+        chunk_bytes=0
+      fi
+      chunk+=("$p")
+      chunk_bytes=$((chunk_bytes + pb + 1))
+    done
+    if [ "${#chunk[@]}" -gt 0 ]; then
+      if ! "$SHA256SUM" -- "${chunk[@]}" >> "$tmpf_sum" 2>/dev/null; then
+        if ! bad="$(sha256sum_first_failure "${chunk[@]}")"; then
+          "$RM" -f -- "$tmpf_sum"
+          printf 'NOT_IMPLEMENTED: не смог прочитать %s\n' "$bad" >&2
+          return 2
+        fi
+      fi
+    fi
+    i=0
+    while IFS= read -r sha_line; do
+      if [ "$i" -ge "${#hash_rel[@]}" ]; then
+        "$RM" -f -- "$tmpf_sum"
+        printf 'NOT_IMPLEMENTED: хешей больше, чем путей, в %s\n' "$root" >&2
+        return 2
+      fi
+      fp="${sha_line%% *}"
+      info="${TRACKED_INFO[${hash_rel[$i]}]:-::}"
+      sha1="${info#*:}"
+      printf 'TRACKED:%s:%s\t%s\n' "$fp" "$sha1" "$(enc_path "${prefix}${hash_rel[$i]}")"
+      i=$((i + 1))
+    done < "$tmpf_sum"
+    if [ "$i" -ne "${#hash_rel[@]}" ]; then
+      "$RM" -f -- "$tmpf_sum"
+      printf 'NOT_IMPLEMENTED: хешей меньше, чем путей, в %s\n' "$root" >&2
+      return 2
+    fi
+    "$RM" -f -- "$tmpf_sum"
+  fi
   unset TRACKED_INFO
+}
+
+# ПЕРВЫЙ НЕЧИТАЕМЫЙ sha256sum (пофайловый проход по чанку): нужен ТОЛЬКО для
+# именованного отказа v4 «не смог прочитать <путь>» — пакетный sha256sum
+# отказывает сразу по всему чанку и имя виновника не называет. Путь печатается
+# в stdout, отказ — rc 1.
+sha256sum_first_failure() {
+  local q
+  for q in "$@"; do
+    if ! "$SHA256SUM" -- "$q" >/dev/null 2>&1; then
+      printf '%s\n' "$q"
+      return 1
+    fi
+  done
+  return 0
 }
 # НОГА-2 — UNTRACKED (untracked-байты). Источник — `git ls-files --others -z`
 # БЕЗ `--exclude-standard`. КАЖДЫЙ неотслеживаемый путь с sha256 байтов,
@@ -993,7 +1118,13 @@ manifest() {
 }
 
 do_snapshot() {
-  local m manifest_rc
+  # Режим `guard` — ТОЛЬКО автоснимок (Б-1): после сборки манифеста область
+  # доказывается ЗАНОВО и сверяется с моментом ДО сборки; расхождение →
+  # временный файл удаляется, снимок НЕ появляется на диске, вызывающий
+  # отказывает прежним «снимок отсутствует» rc 1 (без строки АВТОСНИМОК).
+  # Ручные режимы (--snapshot/--retake/--retake-bulk/--retake-ahead) зовут
+  # do_snapshot БЕЗ аргумента — их поведение не меняется.
+  local guarded="${1:-}" m manifest_rc
   m="$(manifest "$CANON" '')"
   manifest_rc=$?
   if [ "$manifest_rc" -ne 0 ]; then
@@ -1037,6 +1168,28 @@ do_snapshot() {
   verify_sha="$("$SHA256SUM" < "$tmp_snap" | "$HEAD" -n1)"
   verify_sha="${verify_sha%% *}"
   printf 'verify %s\n' "$verify_sha" >> "$tmp_snap"
+  # ГВАРД (Б-1) — между записью во временный файл и публикацией: атомарная
+  # запись (tmp → проверка → mv). Снимок публикуется только если область
+  # доказана ЗАНОВО и для того же состояния, что легло в манифест; при
+  # расхождении временный файл удаляется, снимка НЕТ, вызывающий отказывает.
+  if [ "$guarded" = "guard" ]; then
+    if ! guard_scope; then
+      "$RM" -f -- "$tmp_snap"
+      return 1
+    fi
+    # ПРИВЯЗКА ДОКАЗАТЕЛЬСТВА К САМОМУ ТЕЛУ $m (Б-1, вызов 2 — гонка A→B→A).
+    # Гвард выше доказывает область ЗАНОВО, но САМО тело $m с доказанным
+    # состоянием не сверялось: запись в дерево и её ОТКАТ (A→B→A) в окне
+    # манифеста ложились в снимок, а гвард видел уже откатанное состояние A.
+    # Закрытие — ПОВТОРНАЯ сборка манифеста ПОСЛЕ доказательства области:
+    # публикуется ТОЛЬКО то тело, которое пересборка воспроизвела байт-в-байт.
+    # Тогда доказанное (а)∧(б)∧(в) относится к тем же байтам, что в
+    # публикуемом снимке; расхождение тел → снимок НЕ публикуется.
+    if ! body_bound_to_scope "$m"; then
+      "$RM" -f -- "$tmp_snap"
+      return 1
+    fi
+  fi
   # Mode-lock: только-read для всех — defense-in-depth (иммутабельность файла
   # после записи; атакующий, чтобы переписать содержимое, обязан сначала снять
   # бит записи). На check — sanity mode (бит 0444 присутствует); см. do_check.
@@ -1046,13 +1199,181 @@ do_snapshot() {
     || { "$RM" -f -- "$tmp_snap"; printf 'NOT_IMPLEMENTED: переименование снимка отказало\n' >&2; exit 2; }
 }
 
+# ─── ОБЛАСТЬ (а)(б)(в): ЕДИНЫЙ НОСИТЕЛЬ ДОКАЗАТЕЛЬСТВА ───────────────────────
+# Область доказывает ОДИН носитель prove_scope — и первый шаг автоснимка, и его
+# гвард (Б-1). Одна копия проверок, а не две: свойство «(б) нарушено» (Б-2)
+# проверяется РОВНО ОДНОЙ проверкой, и её удаление действительно открывает
+# дверь (мутант М2 судьи).
+#
+#   (а) рабочее дерево чисто — `git status --porcelain` отработал (rc=0) и пуст;
+#   (б) HEAD == refs/remotes/origin/main — тот же sha (ПОЛНАЯ ссылка: короткое
+#       имя `origin/main` разрешается в локальную ветку-тень — см. Б-2);
+#   (в) `git rev-list --left-right --count origin/main...HEAD` == «0 0».
+#
+# СЛЕД доказательства (SCOPE_*) и его СЛЕДОК ДО сборки манифеста (SCOPE_PRE_*)
+# — эталон гварда: снимок публикуется только если доказанное ПОСЛЕ сборки
+# состояние — то же, что доказанное ДО неё.
+SCOPE_HEAD=""
+SCOPE_ORIGIN=""
+SCOPE_LR=""
+SCOPE_PRE_HEAD=""
+SCOPE_PRE_ORIGIN=""
+SCOPE_PRE_LR=""
+SCOPE_PRE_LIST=""
+
+prove_scope() {
+  local head_sha origin_sha lr_out lr_left lr_right porcelain_out
+  # (б) HEAD == refs/remotes/origin/main — тот же sha, обе ссылки разрешимы.
+  head_sha="$("$GIT" -C "$CANON" rev-parse --verify HEAD 2>/dev/null)" || return 1
+  origin_sha="$("$GIT" -C "$CANON" rev-parse --verify refs/remotes/origin/main 2>/dev/null)" || return 1
+  [ -n "$head_sha" ] || return 1
+  [ "$head_sha" = "$origin_sha" ] || return 1
+  # (в) Расхождения с origin/main нет: «0 0» (слева — origin/main, справа — HEAD).
+  lr_out="$("$GIT" -C "$CANON" rev-list --left-right --count origin/main...HEAD 2>/dev/null)" || return 1
+  IFS=$' \t' read -r lr_left lr_right <<< "$lr_out"
+  [ "$lr_left" = "0" ] || return 1
+  [ "$lr_right" = "0" ] || return 1
+  # (а) Рабочее дерево чисто (rc git обязателен: отказавший status — не «чисто»).
+  porcelain_out="$("$GIT" -C "$CANON" status --porcelain 2>/dev/null)" || return 1
+  [ -z "$porcelain_out" ] || return 1
+  SCOPE_HEAD="$head_sha"
+  SCOPE_ORIGIN="$origin_sha"
+  SCOPE_LR="$lr_out"
+  return 0
+}
+
+# ГВАРД АВТОСНИМОКА (Б-1): доказательство области повторяется ПОСЛЕ сборки
+# манифеста и сверяется с моментом ДО сборки. Без гварда запись в дерево в
+# окне «доказано → манифест» попадала в снимок, а детектор печатал АВТОСНИМОК и
+# отдавал rc 0 при грязном porcelain. Расхождение → снимок НЕ публикуется,
+# вызывающий печатает ПРЕЖНИЙ fail-closed отказ «снимок отсутствует» rc 1 без
+# строки АВТОСНИМОК.
+guard_scope() {
+  local list_now
+  # (1) Область доказывается ЗАНОВО — тем же носителем, что и до сборки.
+  prove_scope || return 1
+  # (2) Доказанное состояние — то же, что ДО сборки манифеста: HEAD и
+  #     origin/main не сдвинулись, расхождений по-прежнему нет.
+  [ "$SCOPE_HEAD" = "$SCOPE_PRE_HEAD" ] || return 1
+  [ "$SCOPE_ORIGIN" = "$SCOPE_PRE_ORIGIN" ] || return 1
+  [ "$SCOPE_LR" = "$SCOPE_PRE_LR" ] || return 1
+  # (3) Список tracked-путей дерева — тот же, что ДО сборки манифеста
+  #     (git ls-files; untracked-часть дерева закрыта (а) — porcelain пуст).
+  list_now="$("$GIT" -C "$CANON" ls-files 2>/dev/null)" || return 1
+  [ "$list_now" = "$SCOPE_PRE_LIST" ] || return 1
+  return 0
+}
+
+# ПРИВЯЗКА ДОКАЗАТЕЛЬСТВА ОБЛАСТИ К САМОМУ ТЕЛУ СНИМКА (Б-1, вызов 2 — гонка
+# A→B→A). Гвард guard_scope доказывает область (а)∧(б)∧(в) ЗАНОВО, но САМО
+# тело манифеста $m с доказанным состоянием не сверялось: запись в дерево и её
+# ОТКАТ (A→B→A) в окне манифеста ложились в снимок, а гвард видел уже откатанное
+# состояние A — «доказанное состояние» и «байты в снимке» относились к РАЗНЫМ
+# моментам дерева.
+#
+# Закрытие — повторная сборка манифеста (тот же приём двойного прочтёма, что
+# в do_check, фикс Б4 адверсария contracts-024-k8): тело пересобирается ПОСЛЕ
+# доказательства области, и публикуется ТОЛЬКО то тело, которое пересборка
+# воспроизвела БАЙТ-в-БАЙТ. Тогда доказанное (а)∧(б)∧(в) относится к тем же
+# байтам, что в публикуемом снимке: любая запись в окне манифеста — с откатом
+# или без — расводит тела (запись меняет байты/состав тела, откат возвращает
+# дерево, но тело остаётся записанным). Расхождение → снимок НЕ публикуется,
+# вызывающий отказывает ПРЕЖНИМ fail-closed «снимок отсутствует» rc 1 (без
+# строки АВТОСНИМОК). Тело $m публикуется (не пересобранное) — оно и есть
+# доказанное: пересборка его воспроизвела.
+body_bound_to_scope() {
+  local published="$1" rebuilt rebuilt_rc
+  rebuilt="$(manifest "$CANON" '')"
+  rebuilt_rc=$?
+  if [ "$rebuilt_rc" -ne 0 ]; then
+    # rc=2 NOT_IMPLEMENTED — среда не годится (как и в первой сборке): rc 2
+    # контракта 024 сохраняется, а не превращается в rc 1 «ОТКАЗ».
+    [ "$rebuilt_rc" -eq 2 ] && exit 2
+    printf 'ОТКАЗ: status отказал в %s (rc=%d)\n' "$CANON" "$rebuilt_rc" >&2
+    return 1
+  fi
+  if [ "$rebuilt" != "$published" ]; then
+    printf 'ОТКАЗ: тело манифеста разошлось с пересборкой — дерево мутировало во время автоснимка (запись в окне манифеста, с откатом или без); снимок НЕ публикуется\n' >&2
+    return 1
+  fi
+  return 0
+}
+
+# ─── АВТОСНИМОК (Б-7) ──────────────────────────────────────────────────────────
+# Первоначальный снимок детектора снимает САМ детектор — когда ОДНОВРЕМЕННО
+# доказаны три условия области:
+#   (а) рабочее дерево чисто — `git status --porcelain` отработал (rc=0) и пуст;
+#   (б) HEAD == refs/remotes/origin/main — тот же sha;
+#   (в) `git rev-list --left-right --count origin/main...HEAD` == «0 0».
+# Область доказуется ЛОКАЛЬНО (только локальные refs — сеть не нужна).
+# Снимок снимается ТОЙ ЖЕ внутренней функцией do_snapshot, что и ручной
+# --snapshot (тот же канон: root + манифест + verify, mode 0444, симлинк-защита) —
+# различие только в инициаторе. СУЩЕСТВУЮЩИЙ снимок автоснимком НЕ
+# перезаписывается (функция отказывается, если снимок на месте).
+# ГВАРД (Б-1): доказательство области и сборка манифеста — РАЗНЫЕ моменты
+# времени; запись в дерево между ними попадала в снимок, а детектор печатал
+# АВТОСНИМОК и отдавал rc 0 при грязном porcelain. Поэтому do_snapshot в
+# режиме `guard` повторяет доказательство области ПОСЛЕ сборки манифеста и
+# сверяет его с моментом ДО сборки (guard_scope); расхождение → временный
+# файл удаляется, снимок НЕ появляется, вызывающий печатает ПРЕЖНИЙ отказ
+# «снимок отсутствует» rc 1. Публикация атомарная: tmp → проверка → mv.
+# ПРИВЯЗКА К ТЕЛУ (Б-1, вызов 2 — гонка A→B→A): гвард доказывает область
+# ПОСЛЕ сборки, но САМО тело манифеста с доказанным состоянием не сверялось —
+# запись с ОТКАТОМ в окне манифеста ложилась в снимок, а гвард видел уже
+# откатанное состояние. Поэтому в режиме `guard` тело пересобирается ПОСЛЕ
+# доказательства области, и публикуется ТОЛЬКО то, что пересборка воспроизвела
+# байт-в-байт (body_bound_to_scope); расхождение → тот же отказ rc 1, снимка
+# НЕТ.
+# Стенограмма: ОДНА точная строка «АВТОСНИМОК: снят (а)∧(б)∧(в): <корень>
+# HEAD=<sha>» — в stderr (явный канал) И в stdout (журнал детектора — stdout-
+# стенограмма, как у --retake*). Любое из (а)(б)(в) не доказано или не
+# вычислено (нет origin/main, git отказал, симлинк на месте снимка) — вызывающий
+# печатает ПРЕЖНИЙ fail-closed отказ «снимок отсутствует» rc 1, снимок НЕ
+# создаётся. Ручные режимы (--snapshot/--retake/--retake-bulk/--retake-ahead)
+# этой функцией НЕ пользуются — их поведение не меняется.
+auto_snapshot() {
+  local auto_line
+  # Область (а)∧(б)∧(в) доказывает ЕДИНЫЙ носитель prove_scope — он же
+  # доказывает её повторно в гварде (Б-1).
+  prove_scope || return 1
+  # СЛЕД доказательства и список tracked-путей ДО сборки манифеста — эталон
+  # гварда: после сборки область доказывается ЗАНОВО и сверяется с ним.
+  SCOPE_PRE_HEAD="$SCOPE_HEAD"
+  SCOPE_PRE_ORIGIN="$SCOPE_ORIGIN"
+  SCOPE_PRE_LR="$SCOPE_LR"
+  SCOPE_PRE_LIST="$("$GIT" -C "$CANON" ls-files 2>/dev/null)" || return 1
+  # Симлинк-защита (мера 1/1б/1в) — на месте снимка автоснимок НЕ пишет.
+  if [ -L "$SNAP" ] || [ -L "$SNAP_DIR" ] || [ -L "$TMPDIR_BASE/dev-harness-leak" ]; then
+    return 1
+  fi
+  # Существующий снимок автоснимком не перезаписывается.
+  if [ -e "$SNAP" ]; then
+    return 1
+  fi
+  # Снимок — той же функцией, что ручной --snapshot (тот же канон: root +
+  # манифест + verify, mode 0444, симлинк-защита); режим guard — гвард Б-1
+  # (доказательство области повторяется ПОСЛЕ сборки манифеста; расхождение →
+  # снимок НЕ публикуется, вызывающий печатает прежний отказ rc 1).
+  do_snapshot guard || return 1
+  # Стенограмма автоснимка: одна строка в stderr и одна в stdout.
+  auto_line="$P_AVTO: снят (а)∧(б)∧(в): $CANON HEAD=$SCOPE_HEAD"
+  printf '%s\n' "$auto_line" >&2
+  printf '%s\n' "$auto_line"
+  return 0
+}
+
 do_check() {
   local first base cur delta names l p manifest_rc snap_mode verify_line verify_stored verify_recomp
   # И-4 fail-closed: снимок отсутствует — отказ, НЕ пропуск.
+  # Б-7: в доказанной области (чистое дерево ∧ HEAD == origin/main ∧ «0 0»)
+  # первоначальный снимок снимает сам детектор (auto_snapshot → do_snapshot) и
+  # сверка продолжается как обычный --check; вне области — ПРЕЖНИЙ отказ.
   if [ ! -e "$SNAP" ]; then
-    printf 'ОТКАЗ: %s (%s) — снимок ДО спавна пачки обязателен: без него сверка отказывает, а не пропускает (fail-closed)\n' \
-      "$P_NET_SNIMKA" "$SNAP" >&2
-    exit 1
+    if ! auto_snapshot; then
+      printf 'ОТКАЗ: %s (%s) — снимок ДО спавна пачки обязателен: без него сверка отказывает, а не пропускает (fail-closed)\n' \
+        "$P_NET_SNIMKA" "$SNAP" >&2
+      exit 1
+    fi
   fi
   # ЗАЩИТА-СНИМКА — мера 1: явный запрет симлинков. Контрпример S-external-snapshot-symlink
   # адверсария к2 01ed097: после baseline-снимка файл `$SNAP` заменяется симлинком на
