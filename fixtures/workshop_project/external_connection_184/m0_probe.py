@@ -61,11 +61,11 @@ CASES = (
     Case('m0-e-two-unknown', 'two'),
     *(Case(f'm0-zh-{label}', 'legacy', label=label) for label in ('back', 'mob', 'station')),
     Case('m0-z-present', 'get', get_path='.repoId', expected='Complior-back\n'),
-    Case('m0-z-nested', 'get', get_path='.pack.maxBytes', expected='321\n'),
-    Case('m0-z-missing-key', 'get', get_path='.pack.absent', expected='fallback\n'),
+    Case('m0-z-nested', 'get', get_path='.zzprobe.maxBytes', expected='321\n'),
+    Case('m0-z-missing-key', 'get', get_path='.zzprobe.absent', expected='fallback\n'),
     Case('m0-z-missing-file', 'get', get_path='.repoId', expected='fallback\n'),
     Case('m0-z-broken-json', 'get', get_path='.repoId', expected='fallback\n'),
-    Case('m0-z-wrong-layer', 'get', get_path='.pack.maxBytes', expected='321\n'),
+    Case('m0-z-wrong-layer', 'get', get_path='.zzprobe.maxBytes', expected='321\n'),
 )
 
 # Н-39: only executable bindings, never inferred from prose or the first red cell.
@@ -102,9 +102,9 @@ def prepare(base, case, snapshots):
     if case.group == 'two':
         profile.update(novyj={'x': 1}, drugoj={'x': 2})
     if case.group == 'get':
-        profile['pack'] = {'maxBytes': 321}
+        profile['zzprobe'] = {'maxBytes': 321}
         # Deliberately different raw and layer values, even for a known key.
-        layer['defaults'] = {'pack': {'maxBytes': 999}, 'repoId': 'wrong-layer'}
+        layer['defaults'] = {'zzprobe': {'maxBytes': 999}, 'repoId': 'wrong-layer'}
     path = root / json.loads(snapshot['profile'])['projectLayer']['profilePath']
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(layer))
@@ -279,9 +279,9 @@ def dirty_m0b(root, cell, profile, layer):
         if scope in ('leak', 'override'):
             layer['defaults']['contextPack']['rowz'] = 'typo'
     else:
-        # pack is one unknown root name; maxBytes is its project-owned payload.
+        # zzprobe is one unknown root name; maxBytes is its project-owned payload.
         target = layer.setdefault('defaults', {}) if scope == 'project' else profile
-        target['pack'] = {'maxBytes': 40000}
+        target['zzprobe'] = {'maxBytes': 40000}
     (root / 'harness.project.json').write_text(json.dumps(profile))
     (root / profile['projectLayer']['profilePath']).write_text(json.dumps(layer))
 
@@ -313,7 +313,7 @@ def expected_m0b(cell, root, oracle):
     out = oracle['context'][key].replace(json.dumps('${M0B_ROOT}'), json.dumps(str(root)))
     err = ''
     if group == 'warning':
-        err = WARNING + ('слой-проекта: defaults.pack' if scope == 'project' else 'репо-слой: pack') + '\n'
+        err = WARNING + ('слой-проекта: defaults.zzprobe' if scope == 'project' else 'репо-слой: zzprobe') + '\n'
     elif group == 'context' and scope in ('leak', 'override'):
         err = WARNING + 'слой-проекта: defaults.contextPack.rowz\n'
     return 0, out, err, ''
@@ -323,7 +323,7 @@ def judge_m0b(cell, response, expected):
     if cell[1] != 'consumer':
         return response == expected
     rc, out, err, workflow = response
-    warning = WARNING + ('слой-проекта: defaults.pack' if cell[2] == 'project' else 'репо-слой: pack') + '\n'
+    warning = WARNING + ('слой-проекта: defaults.zzprobe' if cell[2] == 'project' else 'репо-слой: zzprobe') + '\n'
     # Consumers may forward the warning separately, but never parse it as JSON.
     return (rc, out, workflow) == (expected[0], expected[1], expected[3]) and err in ('', warning)
 
@@ -332,7 +332,7 @@ def mutate_m0b(cell, response, stub):
     _, group, scope, _ = cell
     rc, out, err, workflow = response
     if stub == 'Sa-merged-warning' and group in ('consumer', 'merged'):
-        warning = WARNING + ('слой-проекта: defaults.pack' if scope == 'project' else 'репо-слой: pack') + '\n'
+        warning = WARNING + ('слой-проекта: defaults.zzprobe' if scope == 'project' else 'репо-слой: zzprobe') + '\n'
         if group == 'merged':
             out = warning + out
         elif cell[3] == 'gen_ci_workflow.sh':
@@ -369,7 +369,7 @@ def run_m0b(mode, snapshots):
                     if not judge_m0b(cell, expected, expected):
                         raise RuntimeError('honest M0B control is red: ' + target)
                     if cell[1] == 'consumer':
-                        warning = WARNING + ('слой-проекта: defaults.pack' if cell[2] == 'project' else 'репо-слой: pack') + '\n'
+                        warning = WARNING + ('слой-проекта: defaults.zzprobe' if cell[2] == 'project' else 'репо-слой: zzprobe') + '\n'
                         forwarded = (expected[0], expected[1], warning, expected[3])
                         if not judge_m0b(cell, forwarded, expected):
                             raise RuntimeError('forwarded warning is red: ' + target)
@@ -410,9 +410,9 @@ def run_m0b(mode, snapshots):
 # чистыми (Б-1 не возвращается). Свойства (а2) и (а3) НЕ дублируются: слитый
 # захват — m0-b1d-merged-*, журнал PROFILE_RESOLVER_WARN_FILE — семья
 # fixtures/profile_resolver, раздельные потоки — m0-b1g-warning-* и m0-a-*.
-PTY_WARNING = WARNING + 'репо-слой: pack'
+PTY_WARNING = WARNING + 'репо-слой: zzprobe'
 M0D_CASES = (
-    ('m0-b3a-pty-terminal', 'pty', 'dirty'),  # (а1): fd0=fd1=fd2=slave pty, pack.maxBytes
+    ('m0-b3a-pty-terminal', 'pty', 'dirty'),  # (а1): fd0=fd1=fd2=slave pty, zzprobe.maxBytes
     ('m0-b3a-pty-clean', 'pty', 'clean'),     # (а4): охранная — pty на чистом профиле
     ('m0-b3a-pty-split', 'split', 'dirty'),   # (а5): охранная — fd1=pty, fd2=файл
 )
@@ -514,7 +514,7 @@ def run_m0d(mode, snapshots):
             root, profile, _ = prepare(base, Case(cell[0], 'legacy'), snapshots)
             if cell[2] == 'dirty':
                 # Один неизвестный ключ репо-слоя, как в замере судьи Б-3.
-                profile['pack'] = {'maxBytes': 40000}
+                profile['zzprobe'] = {'maxBytes': 40000}
                 (root / 'harness.project.json').write_text(json.dumps(profile))
             worlds.append((cell, root, conformant_stdout(snapshots, root)))
         if mode == 'stabs':
@@ -528,8 +528,8 @@ def run_m0d(mode, snapshots):
                         expected = expected_m0b(cell, root, oracle)
                         if not judge_m0b(cell, expected, expected):
                             raise RuntimeError('honest M0B control is red: ' + target)
-                        warning = WARNING + ('слой-проекта: defaults.pack'
-                                             if cell[2] == 'project' else 'репо-слой: pack') + '\n'
+                        warning = WARNING + ('слой-проекта: defaults.zzprobe'
+                                             if cell[2] == 'project' else 'репо-слой: zzprobe') + '\n'
                         # Вызов 1: строка на stderr всегда — в слитом захвате
                         # она приходит в общий поток ДО JSON.
                         mutated = (expected[0], warning + expected[1], expected[2], expected[3])
