@@ -65,7 +65,7 @@ W — `bash fixtures/workshop_project/karta_vyzova_204/red_karta_vyzova_204.sh`.
 4. Правило сохранения 193 до ремонта: `bash fixtures/workshop_project/sdacha_193/red_sdacha_193.sh --repo .` → rc 0, KLETKI=152 ZELENYE=152 KRASNYE=0 (замер пачки). После переноса модели в производственную lib — та же команда rc 0. До переноса эта послеремонтная обязанность проверена настоящим прежним раннером против scratch-копии реальных скриптов с моделью: `bash fixtures/workshop_project/karta_vyzova_204/red_karta_vyzova_204.sh --regress193 --model` → rc 0, те же 152/152. Код, миры и ожидания старой семьи не изменяются; её клетки включают обе двери и ноги check_sdacha/pre_critic/freeze.
 5. Правило старых эталонов: `bash fixtures/workshop_project/sdacha_193/red_sdacha_193.sh --model` → rc 0, 152/152; `bash fixtures/workshop_project/sdacha_193/red_sdacha_193.sh --stabs` → rc 0, OBMANOK=59 POIMANY=59 ZHIVYH=0 (замеры пачки). Это прежние команды CI-строки семьи 193, не замена реальной регрессии пункта 4.
 6. Правило сдаточного листа: `bash scripts/check_sdacha.sh . contracts/204-karta-vyzova-po-faze.md --run` → rc 0, двери=5 карта=17/17 дельта=0 (замер пачки); лист содержит rc-стабильные --model/--stabs, красное-до реального субъекта записано прозой.
-7. Правило формы: `bash scripts/check_spec_ready.sh . contracts/204-karta-vyzova-po-faze.md` → rc 0; `bash scripts/check_ids.sh .` → rc 0; `bash scripts/check_provodka.sh --grammar . contracts/204-karta-vyzova-po-faze.md` → rc 0 (замеры пачки). Полный `bash scripts/check_provodka.sh . contracts/204-karta-vyzova-po-faze.md` до CI-строки → rc 1 «guard не подключён», после строки orchestrator → rc 0. Предписанный `bash scripts/pre_critic.sh contracts/204-karta-vyzova-po-faze.md` измерен rc 1 «ОТКАЗ: precision-gate красен: contracts/204-karta-vyzova-po-faze.md»; диагностический `bash scripts/check_precision_gate.sh . contracts/204-karta-vyzova-po-faze.md` → rc 1: зона CI-workflow уже принадлежит implementer по 002, требуется ПЕРЕСЕЧЕНИЕ orchestrator для этой зоны с 002. Предпосылка передана orchestrator; по заданию двери не чинятся и отказ не обходится.
+7. Правило формы: `bash scripts/check_spec_ready.sh . contracts/204-karta-vyzova-po-faze.md` → rc 0; `bash scripts/check_ids.sh .` → rc 0; `bash scripts/check_provodka.sh --grammar . contracts/204-karta-vyzova-po-faze.md` → rc 0 (замеры пачки). Полный `bash scripts/check_provodka.sh . contracts/204-karta-vyzova-po-faze.md` до CI-строки → rc 1 «guard не подключён», после строки orchestrator → rc 0. Предписанный `bash scripts/pre_critic.sh contracts/204-karta-vyzova-po-faze.md` до CI-строки → rc 0 «КРИТИК: дверь зелёная»; диагностический `bash scripts/check_precision_gate.sh . contracts/204-karta-vyzova-po-faze.md` → rc 0 (замеры пачки).
 8. Дано: реализация implementer; когда: `bash fixtures/workshop_project/karta_vyzova_204/red_karta_vyzova_204.sh --repo .`; тогда: rc 0, KRASNYE=0; это обязательная послеремонтная приёмка и команда нового CI self-test. Артефакты 197 не переписываются, регрессия пункта 4 зелена.
 
 ## Незаполненные требования:
@@ -82,11 +82,72 @@ W — `bash fixtures/workshop_project/karta_vyzova_204/red_karta_vyzova_204.sh`.
 
 ПЕРЕСЕЧЕНИЕ implementer: scripts/lib_karta_sdachi.sh — 193 только ключ вызова в karta_index и общий извлекатель фазы пути (+ места чтения индекса по ключу при необходимости); остальные функции, CLI дверей check_sdacha/pre_critic/freeze_contract, rc-семантика и маркеры 193 не меняются
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 193 только новая строка self-test 204; чужие строки сохраняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 083 только новая строка self-test 204; чужие строки сохраняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 084 только новая строка self-test 204; чужие строки сохраняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 087 только новая строка self-test 204; чужие строки сохраняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 090 только новая строка self-test 204; чужие строки сохраняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 092 только новая строка self-test 204; чужие строки сохраняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 093 только новая строка self-test 204; чужие строки сохраняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 094 только новая строка self-test 204; чужие строки сохраняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 095 только новая строка self-test 204; чужие строки сохраняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 103 только новая строка self-test 204; чужие строки сохраняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 110 только новая строка self-test 204; чужие строки сохраняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 112 только новая строка self-test 204; чужие строки сохраняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 113 только новая строка self-test 204; чужие строки сохраняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 114 только новая строка self-test 204; чужие строки сохраняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 994 только новая строка self-test 204; чужие строки сохраняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 996 только новая строка self-test 204; чужие строки сохраняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 997 только новая строка self-test 204; чужие строки сохраняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 998 только новая строка self-test 204; чужие строки сохраняются
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 193 только замер нового self-test 204; чужие замеры сохраняются
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 193 только генерация строки нового self-test 204 из реестра; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 114 только замер нового self-test 204; чужие замеры сохраняются
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 002 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 003 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 004 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 005 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 006 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 007 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 008 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 011 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 015 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 016 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 020 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 021 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 027 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 036 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 038 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 039 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 040 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 043 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 045 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 057 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 058 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 059 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 060 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 062 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 063 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 070 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 071 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 072 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 078 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 083 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 084 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 087 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 090 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 092 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 093 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 094 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 095 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 099 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 100 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 109 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 110 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 112 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 114 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 996 только производная материализация генератором (`gen_ci_steps.sh`) строки нового self-test 204 из `registry/ci-steps.tsv`; чужая проводка сохраняется
 
 ПРЕДПОСЫЛКИ:
-- CI харнесса уже предоставляет bash, Python 3, git, jq, awk, sed и timeout; новых secrets, variables, environments и настроек репозитория нет; данным REAL197 доступны названные git blob-ы (не shallow-клон без них). Одноразовые репозитории под TMPDIR, без сети, удаляются после каждого предъявления и при выходе.
+- setting CI харнесса уже предоставляет bash, Python 3, git, jq, awk, sed и timeout; новых secrets, variables, environments и настроек репозитория нет; данным REAL197 доступны названные git blob-ы (не shallow-клон без них). Одноразовые репозитории под TMPDIR, без сети, удаляются после каждого предъявления и при выходе.
 
 Порядок: architect (контракт, батарея, модель и мутации одной пачкой; исполняемый канон прогнан на станции) → двери формы → critic → freeze → implementer (перенос узкой правки в существующую lib) → orchestrator (CI-строка, замер, gen_ci_steps --check rc 0) → reviewer → done. Риск обычный, отдельный adversary для реализации не требуется действующим быстрым процессом.
 
