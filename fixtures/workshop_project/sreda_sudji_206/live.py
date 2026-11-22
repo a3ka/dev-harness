@@ -9,13 +9,17 @@ import sys
 ROLES = ('critic', 'adversary', 'reviewer')
 
 
-def assess(rows, since, repo_id, subject):
+def assess(rows, since, repo_id, subject, object_id):
+    if any(not isinstance(row, dict) for row in rows):
+        raise ValueError('NEVALIDNYJ_ZHURNAL')
     cutoff = datetime.fromisoformat(since.replace('Z', '+00:00'))
     selected = [r for r in rows if r.get('repoId') == repo_id and str(r.get('subjectId')) == subject
                 and datetime.fromisoformat(r['at'].replace('Z', '+00:00')) >= cutoff]
     starts = [r for r in selected if r.get('t') == 'START' and r.get('klass') == 'sudja' and r.get('rol') in ROLES]
     if len(starts) != 3 or tuple(r['rol'] for r in starts) != ROLES or len({r['holder'] for r in starts}) != 3:
         return 1, 'TRI_SUDA_NE_PREDJAVLENY'
+    if any(start.get('object') != object_id for start in starts):
+        return 1, 'OBJECT_NE_SOVPADAET'
     if any(r.get('t') == 'RELEASE' and r.get('prichina') == 'obryv_bez_verdikta' for r in selected):
         return 1, 'OBRYV_BEZ_VERDIKTA'
     previous = -1
@@ -34,13 +38,17 @@ def main():
     p.add_argument('--since', required=True)
     p.add_argument('--repo-id', required=True)
     p.add_argument('--subject', required=True)
+    p.add_argument('--object', required=True)
     args = p.parse_args()
     try:
         # Snapshot before assessment, never ask the judged project for expectations.
-        rows = [json.loads(line) for line in args.ledger.read_bytes().splitlines()]
-        rc, message = assess(rows, args.since, args.repo_id, args.subject)
-    except (OSError, ValueError, KeyError, TypeError) as error:
+        rows = [json.loads(line) for line in args.ledger.read_bytes().decode('utf-8').splitlines()]
+        rc, message = assess(rows, args.since, args.repo_id, args.subject, args.object)
+    except OSError as error:
         print(f'NOT_IMPLEMENTED: {error}', file=sys.stderr)
+        return 2
+    except (ValueError, KeyError, TypeError):
+        print('NOT_IMPLEMENTED: NEVALIDNYJ_ZHURNAL', file=sys.stderr)
         return 2
     print(message)
     return rc

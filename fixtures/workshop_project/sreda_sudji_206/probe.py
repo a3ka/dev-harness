@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from live_control import suite as observer_suite
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -58,9 +59,24 @@ MUTATIONS = [
     ('verdict-main-ignored', 'verdict-main', 'scripts/pre_judge.sh', 'refuse VERDIKT_V_MAIN', ': VERDIKT_V_MAIN'),
     ('verdict-outside-ignored', 'verdict-outside', 'scripts/pre_judge.sh', 'refuse VERDIKT_VNE_REPO "файл вердикта вне репозитория: $VFILE"', 'VREL=verdicts/fake.md'),
     *[(f'role-{role}-no-rule', f'role-{role}', f'roles/{role}.md', model.NORM, 'Судья пишет в WORKTREE задания.') for role in model.ROLES],
+    ('hint-refuse', 'guard-pin-mismatch', '.omp/extensions/path-guard.ts', "  if (result.decision === 'pass') return result;", "  if (result.decision === 'pass' || result.decision === 'refuse') return result;"),
+    ('boundary-no-inside', 'verdict-outside', 'scripts/pre_judge.sh', 'if path_inside "$vcanon" "$R" && [ "$vcanon" != "$R" ]; then', 'if [ "$vcanon" != "$R" ]; then'),
+    ('observer-no-sequence', 'observer-overlapping-judges', 'fixtures/workshop_project/sreda_sudji_206/live.py', 'if i <= previous or len(releases) != 1', 'if len(releases) != 1'),
+    ('options-after-separator', 'guard-cp-dash-outside', '.omp/extensions/path-guard.ts', "if (options && arg.startsWith('-')) continue;", "if (arg.startsWith('-')) continue;"),
+    ('mkdir-options-after-separator', 'guard-mkdir-dash-outside', '.omp/extensions/path-guard.ts', "if (options && arg.startsWith('-')) continue;", "if (arg.startsWith('-')) continue;"),
+    ('options-before-separator', 'guard-mkdir-flag-before-separator', '.omp/extensions/path-guard.ts', "if (options && arg.startsWith('-')) continue;", "/* options become operands */"),
+    ('mkdir-only-first-operand', 'guard-mkdir-multiple-outside', '.omp/extensions/path-guard.ts', 'for (const path of paths) pushOp(path);', 'if (paths.length) pushOp(paths[0]);'),
+    ('relative-boundary-ignored', 'verdict-relative-outside', 'scripts/pre_judge.sh', 'if path_inside "$vcanon" "$R" && [ "$vcanon" != "$R" ]; then', 'if { [[ "$VFILE" != /* ]] || path_inside "$vcanon" "$R"; } && [ "$vcanon" != "$R" ]; then'),
+    ('relative-normalization-ignored', 'verdict-relative-parent-outside', 'scripts/pre_judge.sh', 'vcanon="$(realpath -m -- "$vcandidate")"', 'vcanon="$vcandidate"'),
+    ('relative-symlink-ignored', 'verdict-relative-symlink-outside', 'scripts/pre_judge.sh', 'realpath -m -- "$vcandidate"', 'realpath -ms -- "$vcandidate"'),
+    ('observer-object-ignored', 'observer-different-objects', 'fixtures/workshop_project/sreda_sudji_206/live.py', "if any(start.get('object') != object_id for start in starts):", 'if False:'),
+    ('observer-object-not-assigned', 'observer-unassigned-object', 'fixtures/workshop_project/sreda_sudji_206/live.py', "if any(start.get('object') != object_id for start in starts):", "if len({start.get('object') for start in starts}) != 1:"),
+    ('observer-invalid-is-incomplete', 'observer-null', 'fixtures/workshop_project/sreda_sudji_206/live.py', "raise ValueError('NEVALIDNYJ_ZHURNAL')", "return 1, 'TRI_SUDA_NE_PREDJAVLENY'"),
+    ('observer-invalid-array-is-incomplete', 'observer-array', 'fixtures/workshop_project/sreda_sudji_206/live.py', "raise ValueError('NEVALIDNYJ_ZHURNAL')", "return 1, 'TRI_SUDA_NE_PREDJAVLENY'"),
+    ('observer-bom-accepted', 'observer-bom', 'fixtures/workshop_project/sreda_sudji_206/live.py', ".decode('utf-8').splitlines()", ".decode('utf-8-sig').splitlines()"),
 ]
 
-def suite(subject, sandbox, verbose=True):
+def suite(subject, sandbox, verbose=True, only=None):
     home = sandbox / 'home'
     copy = home / 'wt/owner/m'
     init(copy)
@@ -92,6 +108,8 @@ def suite(subject, sandbox, verbose=True):
     base = dict(worktree=str(delivery), skipActualCheck=True, sessionCwd=str(copy), sessionName='Judge206')
 
     def guard_case(name, tool, args, decision='pass', reason=None, extra=None):
+        if only is not None and name != only:
+            return
         value = dict(base, tool=tool, args=args)
         value.update(extra or {})
         expected = {'decision': decision}
@@ -121,6 +139,18 @@ def suite(subject, sandbox, verbose=True):
     guard_case('guard-cp-quoted-outside', 'bash', {'command': f'cp "{state}/HANDOFF.md" "{other}/space name"', 'cwd': str(copy)}, 'block', outside(other / 'space name'))
     guard_case('guard-mkdir-outside', 'bash', {'command': f'mkdir -p {other}/new', 'cwd': str(copy)}, 'block', outside(other / 'new'))
     guard_case('guard-mkdir-absolute-outside', 'bash', {'command': f'/bin/mkdir -p {other}/new', 'cwd': str(copy)}, 'block', outside(other / 'new'))
+    for command, label in [('cp', 'cp'), ('/bin/cp', 'absolute-cp')]:
+        guard_case(f'guard-{label}-dash-outside', 'bash', {'command': f'{command} -- {state}/HANDOFF.md -outside', 'cwd': str(other)},
+                   'block', f'запись в чекаут из непиннованной сессии запрещена — Н-85/А-122: путь {other}/-outside не в null-allowlist ({sandbox}/tmp/dev-harness-verify/**, artifact://)', {'worktree': None})
+        guard_case(f'guard-{label}-dash-inside', 'bash', {'command': f'{command} -- {state}/HANDOFF.md -inside-ok', 'cwd': str(copy)})
+    guard_case('guard-cp-flag-before-separator', 'bash', {'command': f'cp -x -- {state}/HANDOFF.md {copy}/scratch/dst', 'cwd': str(copy)})
+    guard_case('guard-mkdir-flag-before-separator', 'bash', {'command': f'mkdir -p -- {copy}/scratch/flag-ok', 'cwd': str(other)})
+    guard_case('guard-cp-multiple-sources', 'bash', {'command': 'cp -p -- -source other-source -inside-ok', 'cwd': str(copy)})
+    for command, label in [('mkdir', 'mkdir'), ('/bin/mkdir', 'absolute-mkdir')]:
+        guard_case(f'guard-{label}-dash-outside', 'bash', {'command': f'{command} -- -outside', 'cwd': str(other)},
+                   'block', f'запись в чекаут из непиннованной сессии запрещена — Н-85/А-122: путь {other}/-outside не в null-allowlist ({sandbox}/tmp/dev-harness-verify/**, artifact://)', {'worktree': None})
+        guard_case(f'guard-{label}-dash-inside', 'bash', {'command': f'{command} -p -- -inside-ok -another', 'cwd': str(copy)})
+    guard_case('guard-mkdir-multiple-outside', 'bash', {'command': f'mkdir -- {copy}/scratch/allowed -outside', 'cwd': str(other)}, 'block', outside(other / '-outside'))
     guard_case('guard-mkdir-no-cwd', 'bash', {'command': 'mkdir -p scratch/new'}, 'block', 'запись относительным путём без cwd запрещена — Н-85: используй cwd или абсолютный путь')
     guard_case('guard-state-write', 'write', {'path': str(state / 'HANDOFF.md')}, 'block', outside(state / 'HANDOFF.md'))
     guard_case('guard-foreign-worktree', 'write', {'path': str(other / 'bad')}, 'block', outside(other / 'bad'))
@@ -165,11 +195,34 @@ process.stdout.write(JSON.stringify(result??null)+'\\n');
     check('verdict-detached', run(['bash', str(script), 'verdict', '--repo', str(copy), '--file', str(verdict)], other, env), (1, b'', ('ОТКАЗ: NE_SUDJSKAJA_VETKA\nветка \'отсоединённый HEAD\' не судейская\nФОРМА: в своей копии git switch -c wip/<NNN>/<роль>; не коммить в detached runtime-checkout\n').encode()))
     git(copy, 'switch', '-q', 'wip/206/reviewer')
     check('verdict-outside', run(['bash', str(script), 'verdict', '--repo', str(copy), '--file', str(other / 'verdict.md')], other, env), (1, b'', (f'ОТКАЗ: VERDIKT_VNE_REPO\nфайл вердикта вне репозитория: {other}/verdict.md\nФОРМА: --repo <своя-копия> --file <абсолют-вердикта-в-своей-копии>\n').encode()))
+    for name, vfile in [('relative-outside', '../outside.md'),
+                        ('relative-parent-outside', 'a/../../outside.md'),
+                        ('relative-symlink-outside', 'escape/verdict.md'),
+                        ('relative-file-symlink-outside', 'verdict-link.md')]:
+        if name == 'relative-file-symlink-outside':
+            (copy / vfile).symlink_to(other / 'verdict.md')
+        check('verdict-' + name, run(['bash', str(script), 'verdict', '--repo', str(copy), '--file', vfile], other, env),
+              (1, b'', (f'ОТКАЗ: VERDIKT_VNE_REPO\nфайл вердикта вне репозитория: {vfile}\nФОРМА: --repo <своя-копия> --file <абсолют-вердикта-в-своей-копии>\n').encode()))
+    (copy / 'verdict-link-inside.md').symlink_to(verdict)
+    for name, vfile in [('relative-inside', str(verdict.relative_to(copy))),
+                        ('relative-symlink-inside', 'verdict-link-inside.md'),
+                        ('relative-normalized-inside', 'missing/../' + str(verdict.relative_to(copy)))]:
+        check('verdict-' + name, run(['bash', str(script), 'verdict', '--repo', str(copy), '--file', vfile], other, env),
+              (0, b'VERDICT_BRANCH=wip/206/reviewer\n', b''))
     git(copy, 'switch', '-q', '-C', 'main')
     vrel = verdict.relative_to(copy)
     check('verdict-main', run(['bash', str(script), 'verdict', '--repo', str(copy), '--file', str(verdict)], other, env), (1, b'', f'ОТКАЗ: VERDIKT_V_MAIN\nвердикт {vrel} уже в main (staged/committed)\n'.encode()))
     check('state-unchanged', (state / 'HANDOFF.md').read_bytes(), before_state)
     check('foreign-unchanged', git(other, 'rev-parse', 'HEAD'), before_foreign)
+    observer = subject / 'fixtures/workshop_project/sreda_sudji_206/live.py'
+    for name, ok in observer_suite(observer, sandbox / 'observer', only).items():
+        results[name] = ok
+        if verbose:
+            print(f'{name}: {"ZELEN" if ok else "KRASEN"}')
+    if only is not None:
+        if only not in results:
+            raise RuntimeError(f'MUTATION_CELL_MISSING: {only}')
+        return {only: results[only]}
     return results
 
 
@@ -198,7 +251,7 @@ def main():
                 shutil.copytree(subject, mutant)
                 target = mutant / path
                 target.write_text(model.replace(target.read_text(), old, new))
-                result = suite(mutant, tmp / f'world-{n}', False)
+                result = suite(mutant, tmp / f'world-{n}', False, cell)
                 killed = not result[cell]
                 caught += killed
                 print(f'{name}: {cell}: {"POIMAN" if killed else "ZHIV"}')

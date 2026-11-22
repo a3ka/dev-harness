@@ -1,6 +1,7 @@
 """Reference delta over the real, immutable guard/preflight; never installed in scripts/."""
 import json
 import subprocess
+from pathlib import Path
 
 BASE = 'db56f44d1012854b6098a7076fccdae0855badeb'
 NORM = ('В изолированном суде WORKTREE задания — адрес доставки, место записи — собственная копия pwd; '
@@ -29,13 +30,31 @@ def materialize(repo, dest):
   const c = stripQuotes(cmd);
   if (''')
             data = replace(data, '    const head = argv[0];', "    const head = argv[0].split('/').pop() ?? argv[0];")
-            data = replace(data, '    // mkdir DIR [DIR …] — каждый не-флаг аргумент.', '''    // cp reads its sources; only the destination is a write operand.
-    if (head === 'cp') {
-      const paths = argv.slice(1).filter((a) => !a.startsWith('-'));
-      if (paths.length >= 2) pushOp(paths[paths.length - 1]);
+            data = replace(data, '''    // mkdir DIR [DIR …] — каждый не-флаг аргумент.
+    if (head === 'mkdir') {
+      for (let i = 1; i < argv.length; i++) {
+        if (!argv[i].startsWith('-')) pushOp(argv[i]);
+      }
       continue;
-    }
-    // mkdir DIR [DIR …] — каждый не-флаг аргумент.''')
+    }''', '''    // Only options before -- may be discarded; later tokens are literal paths.
+    if (head === 'cp' || head === 'mkdir') {
+      const paths: string[] = [];
+      let options = true;
+      for (const arg of argv.slice(1)) {
+        if (options && arg === '--') { options = false; continue; }
+        if (options && arg.startsWith('-')) continue;
+        paths.push(arg);
+      }
+      // cp reads all sources and writes only its final destination.
+      if (head === 'cp') {
+        if (paths.length >= 2) pushOp(paths[paths.length - 1]);
+        continue;
+      }
+      if (head === 'mkdir') {
+        for (const path of paths) pushOp(path);
+      }
+      continue;
+    }''')
             data = replace(data, "  if (!cmd) return { decision: 'pass' };", '''  if (!cmd) return { decision: 'pass' };
   if (cmd.includes('\\0')) return { decision: 'block', reason: 'Н-85: NUL в команде' };''')
             # One public wrapper also covers the factory, not merely the CLI.
@@ -55,6 +74,35 @@ def materialize(repo, dest):
   esac
   exit 1
 }''')
+            data = replace(data, '''  case "$VFILE" in
+    /*)
+      vdir="$(dirname "$VFILE")"; vbase="$(basename "$VFILE")"
+      if [ -d "$vdir" ]; then
+        vcanon="$(canon_dir "$vdir")/$vbase"
+      else
+        vcanon="$VFILE"
+      fi
+      if path_inside "$vcanon" "$R" && [ "$vcanon" != "$R" ]; then
+        VREL="${vcanon#"$R"/}"
+      else
+        refuse VERDIKT_VNE_REPO "файл вердикта вне репозитория: $VFILE"
+      fi
+      ;;
+    *)
+      VREL="${VFILE#./}"
+      [ -n "$VREL" ] || refuse VERDIKT_VNE_REPO "пустой --file"
+      ;;
+  esac''', '''  command -v realpath >/dev/null 2>&1 || skip 'нет realpath'
+  case "$VFILE" in
+    /*) vcandidate="$VFILE" ;;
+    *) vcandidate="$R/$VFILE" ;;
+  esac
+  vcanon="$(realpath -m -- "$vcandidate")" || skip 'не канонизирован --file'
+  if path_inside "$vcanon" "$R" && [ "$vcanon" != "$R" ]; then
+    VREL="${vcanon#"$R"/}"
+  else
+    refuse VERDIKT_VNE_REPO "файл вердикта вне репозитория: $VFILE"
+  fi''')
         else:
             if name == 'roles/critic.md':
                 data = replace(data, 'Работаешь в своём клоне (`git clone <основной> ./tmp/critic/repo`), но вердикт коммитишь в\n**ОСНОВНОЙ** репозиторий', 'Работаешь в своей изолированной копии; вердикт коммитишь в\nсобственную копию')
@@ -64,3 +112,6 @@ def materialize(repo, dest):
         target = dest / name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(data)
+    observer = dest / 'fixtures/workshop_project/sreda_sudji_206/live.py'
+    observer.parent.mkdir(parents=True, exist_ok=True)
+    observer.write_bytes((Path(__file__).resolve().parents[1] / 'live.py').read_bytes())
