@@ -1,0 +1,84 @@
+{
+ "versija": 1,
+ "kontrakt": "contracts/208-zamok-object-predok.md",
+ "subjekt": "scripts/zamok_predmeta.sh",
+ "model": "model/zamok_predmeta.sh",
+ "kejsy": {
+  "r01-ravenstvo-dopusk": "OBJECT == кандидат последнего START — допуск как прежде (rc 0, START)",
+  "r02-predok-opublikovan-v-main": "OBJECT-предок кандидата, опубликован в origin/main — допуск (боль 179)",
+  "r03-predok-opublikovan-v-vetke": "OBJECT-предок кандидата, опубликован в ветке предмета на origin — допуск",
+  "r04-predok-ne-opublikovan": "OBJECT-предок без публикации — именованный отказ с причиной и выходом",
+  "r05-vperjod-opublikovan": "кандидат — предок OBJECT (кодовая граница, main) — допуск (боли 007/182)",
+  "r06-vperjod-verdikt-hvost": "OBJECT-вердикткоммит впереди кандидата — отказ: не кодовая граница",
+  "r07-vperjod-ne-opublikovan": "OBJECT впереди кандидата без публикации — именованный отказ",
+  "r08-merge-pustaja-delta": "merge с пустой дельтой против первого родителя — допуск tip (боль 152/177)",
+  "r09-pustoj-ne-merge-tip": "пустой НЕ-merge tip — прежний отказ D50",
+  "r10-mimo-novoj-raboty": "расхождение (не предок и не потомок) — прежний отказ, причина и выход в тексте",
+  "r11-sankcija-v-uchete": "повтор роли по записанной санкции SANKCIJA — допуск (боль 152/177)",
+  "r12-sankcija-chuzhoj-object": "санкция на чужой OBJECT — повтор запрещён",
+  "r13-sankcija-iscerpana": "санкция при исчерпанном круге (krugov 2) — повтор запрещён",
+  "r14-razreshil-vladelec-povtor": "строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР (слово 21.11 00:55) — допуск, механизм не тронут",
+  "r15-povtor-bez-razreshenija": "повтор без строки и без санкции — прежний отказ",
+  "r16-pauza-vladelca": "ПАУЗА владельца — прежний отказ (не ослаблен)",
+  "r17-vetka-nedostupna": "ветка носителя не читается — прежний отказ VETKA_NEDOSTUPNA",
+  "r18-merge-verdikt-neodnoznachnyj": "merge c неоднозначным вердиктным хвостом — прежний отказ резолвера"
+ },
+ "stab_vhod": {
+  "st01-ravenstvo-tolko": [
+   "r04-predok-ne-opublikovan",
+   "r06-vperjod-verdikt-hvost",
+   "r07-vperjod-ne-opublikovan",
+   "r10-mimo-novoj-raboty"
+  ],
+  "st02-predok-bez-publikacii": [
+   "r04-predok-ne-opublikovan"
+  ],
+  "st03-vperjod-bez-granicy": [
+   "r06-vperjod-verdikt-hvost"
+  ],
+  "st04-vperjod-bez-publikacii": [
+   "r07-vperjod-ne-opublikovan"
+  ],
+  "st05-merge-bez-pustoty": [
+   "r18-merge-verdikt-neodnoznachnyj"
+  ],
+  "st06-merge-ljuboj-tip": [
+   "r09-pustoj-ne-merge-tip"
+  ],
+  "st07-sankcija-bez-sverki": [
+   "r12-sankcija-chuzhoj-object"
+  ],
+  "st08-sankcija-bez-krugov": [
+   "r13-sankcija-iscerpana"
+  ],
+  "st09-bez-razreshil-stroki": [
+   "r14-razreshil-vladelec-povtor"
+  ],
+  "st10-otkaz-bez-vyhoda": [
+   "r10-mimo-novoj-raboty"
+  ],
+  "st11-predki-pereputany": [
+   "r02-predok-opublikovan-v-main",
+   "r03-predok-opublikovan-v-vetke"
+  ],
+  "st12-publikacija-tolko-main": [
+   "r03-predok-opublikovan-v-vetke"
+  ]
+ },
+ "nositeli": {
+  "model/zamok_predmeta.sh": "d3b030f3b2d4ae4a9b201e0c879222ea348fb7e19ae7631d9059e7fb52debdee",
+  "stabs/st01-ravenstvo-tolko/zamok_predmeta.sh": "7419ed795162bd7e3a0f876ccd4919a678f163ed9e766fb661287f2f79a70117",
+  "stabs/st02-predok-bez-publikacii/zamok_predmeta.sh": "0b9f0d2f9dcfb4b28ac5762c6a1bf2daaa1aa5012329b844af1e220adfb74e32",
+  "stabs/st03-vperjod-bez-granicy/zamok_predmeta.sh": "5b6da818e238ad7ea0edcf039163bf5f3b0c54e14fd93a5c847500947bf456e0",
+  "stabs/st04-vperjod-bez-publikacii/zamok_predmeta.sh": "2161c766c31211dcd1462e5e76c460439ac9d566ff2adebe36c1e5bc80dba504",
+  "stabs/st05-merge-bez-pustoty/zamok_predmeta.sh": "7d7e3ec2dbfd16bd1179b0d095db44cfca2563195264dee77596d1e7d7ca6720",
+  "stabs/st06-merge-ljuboj-tip/zamok_predmeta.sh": "00ac3576e8d54c18c7d7513696d17a26395ea8a03445fe19fad407d38ae7dfe8",
+  "stabs/st07-sankcija-bez-sverki/zamok_predmeta.sh": "fcb86d455bfc074a8b7f1b4db0bbc9b606f3d36ee5d0c55989c37ad7e0f08bc0",
+  "stabs/st08-sankcija-bez-krugov/zamok_predmeta.sh": "796856db2bce35862dcc551c80d7820fa964bde09ca53fc05147cc23e7f53194",
+  "stabs/st09-bez-razreshil-stroki/zamok_predmeta.sh": "54756fd260752956e892625e31dc65c9f76d858cfc7bfe96cc6a962c44d9b11a",
+  "stabs/st10-otkaz-bez-vyhoda/zamok_predmeta.sh": "bb3382c3936fcf893d8bc1943ebce5ea21877cffd4347e30af75fd6b0f032ea6",
+  "stabs/st11-predki-pereputany/zamok_predmeta.sh": "0c34cc070ab996e89f7e2c6005582c30be37673459cb1631ee391ddcdc3bb118",
+  "stabs/st12-publikacija-tolko-main/zamok_predmeta.sh": "e3c51cc0cecc95dea8e598c013d905d538bcd611f3e55ea1bbacfc746db18f72"
+ },
+ "zametki": "привязки стаб↔клетка — единственный источник (Н-39); якорь каждой мутации — кратность 1 в тексте модели"
+}
