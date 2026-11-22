@@ -1,4 +1,220 @@
-# СДАЧА 140 v5 — legacy-реестр владельца, К-02 / К-09 / К-16
+# СДАЧА 140 — исправление FAIL Adv140A2: К-02…К-05 + К-01 (A2d, консультант 00:22)
+
+## Исправление FAIL Adv140A2
+
+OBJECT: `60463b6dab6407b30de4f2d33ec989069e71f412`.
+База продолжения: `5a458a6f7a75a94761226fe956ea6a34a23657df`.
+Вердикт: `ee9dd0af773db495dc40bcb2bcfb695ef2249f60`,
+`verdicts/adversary/contracts-140-v10.md` в архивном ref станции.
+Production, frozen-контракт и чужие зоны не меняются.
+
+§Существующее: `probe.Mir`, `m.sobytie`, `p.item`, `p.sudit` и
+`p.snimok_fajlov` дают независимые .git-миры, реальный --sudit и снимок
+состояния ДО вызова. `reestr_140.py` строит профиль и pin frozen;
+`uproshchenie_140.py` проверяет разовую санкцию o01-pauza-once/bound.
+Переиспользован настоящий project_paths_resolve, новый парсер не введён.
+
+Обещание: отсутствие автора не отменяет порядок reviewer/adversary;
+ошибка чтения профиля не снимает паузу; некорректный дубль общей строки
+не расходует санкцию; каталог frozen берётся из workflowPaths.contracts.
+Наблюдение: rc/именованный отказ, START/warn/override и побайтовая
+неизменность долговечных файлов при отказе. Ожидания снимаются до двери.
+
+| блок / клетка | rc двери на OBJECT | rc честной модели после исправления |
+|---|---|---|
+| К-02 / r11-noauthor-reviewer | 0, START reviewer — красен | 1 ADVERSARIJ_DO_REVJUERA, без записей |
+| К-02' / r12-noauthor-adversary, r13-noauthor-critic | 0, RABOCHEGO_NET + START | тот же 0 + warn + START |
+| К-03 / r14-profile-broken-pauza | 0, START при паузе — красен | 1 PROFIL_NEDOSTUPEN, без записей |
+| К-03' / r15-profile-broken-bez-pauzy | 0, START — красен | 1 PROFIL_NEDOSTUPEN, без записей |
+| К-04 / r16-override-dubl-extra, r17-override-dubl-object | 0, override + START — красны | 1, без расходования override и записей |
+| К-04' / прежние o01-pauza-once/bound | 0, одна санкция + START; повтор 1 | прежнее поведение |
+| К-05 / r18-kontrakty-profil-obychnyj | 0; мутант contracts: 1 — красен | 0, START, без KLASS_RISKA_NET |
+| К-05 / r19-kontrakty-profil-riskovyj | 1; мутант contracts: 1 + KLASS_RISKA_NET — красен | 1 ADVERSARIJ_DO_REVJUERA без KLASS_RISKA_NET |
+
+Клетки r14/r15 принимают только PROFIL_NEDOSTUPEN либо PAUZA_VLADELTSA,
+rc 1 и неизменное состояние, не произвольную ошибку парсера.
+К-05 — дефект достаточности батареи, а не product-двери: новые входы
+на OBJECT зелены; красен её реальный мутант konstanta contracts.
+Frozen-миры несут только объявленный нестандартный каталог
+(.x/contracts / .other/contracts); отсутствие contracts/ в frozen
+удостоверяется Git plumbing до вызова. Значения имён/SHA не оракул.
+Привязки s90–s93 к различающим ветвям — код BINDINGS, не проза контракта.
+Честные эквиваленты — обе раскладки/полярности К-05, adversary/critic
+К-02', штатный профиль/отсутствующий профиль прежних r03/r08/r09,
+существующая одиночная санкция К-04'.
+
+## К-01 (слово консультанта 00:22)
+
+«К-01 остаточным НЕ принимаю: база отказывает, A2 впервые вытесняет живого
+держателя — это регресс, чини в той же ветке до вызова 2». Прежнее
+обязательство этого листа «К-01 НЕ чиним: решение владельца 21.11 12:06
+„брошенный замок освобождается автоматически“; таймерная красная клетка не
+добавлена» СНЯТО: слово владельца авто-освобождения не упоминает —
+формулировка была интерпретацией; действует frozen 140/5 :46 (TTL-автоосвобождение
+ОТКЛОНЕНО, именованный отказ ZAMOK_BROSHEN + явный --osvobodit).
+
+Факт (дверь меняется аргументом; миры батареи): база f9f029592b на возрастах
+120 и 100000 мин — rc 1 «ОТКАЗ: ZAMOK_BROSHEN … только --osvobodit, НЕ
+авто-перезапуск», учёт без изменений; A2 3611ad996f — rc 0, «ПРЕДУПРЕЖДЕНИЕ:
+ZAMOK_BROSHEN … замок освобождается автоматически», фиктивный RELEASE и новый
+START: второй рабочий допущен по одному таймеру.
+
+Целевое поведение = база. Возраст >порога без сдачи → rc 1 ОТКАЗ:
+ZAMOK_BROSHEN, учёт БЕЗ новых записей (нет RELEASE/START), занятие прежнего
+держателя; возраст ≤порога → RABOCHIJ_ZHIV; выход — явный --osvobodit.
+Клетки: w04 восстановлена базой (rc/причина/START-ровно-1); новая
+w04b-gluboko-broshennyj — возраст 100000 мин, предъявления rc, причина,
+START-ровно-1, нет-RELEASE, занятие-прежнего-держателя; охранные клетки
+прежние: w02 (0 мин → RABOCHIJ_ZHIV), w05 (--osvobodit освобождает и
+допускает), станционная p09 — блок ZAMOK_BROSHEN. Обманные стабы — мутации
+модели КОДОМ (Н-39), входы — source.json:.stab_vhod: s03-avto-relis-broshennogo
+(S1 «авто-освобождение по таймеру», поведение A2) красит w04/w04b;
+s94-broshennyj-start-bez-release (S2 «предупреждение с START без RELEASE»)
+красит w04b; s95-broshennyj-ljuboj-vozrast (S3 «отказ при любом возрасте
+включая живого») красит w02; s85-broshennyj-bez-release перепривязан к w05 —
+RELEASE обязан писать явный --osvobodit. LIVE-клеток не добавлено (0).
+
+Дверь правит implementer в той же ветке до вызова 2; ниже — фактические rc
+этой копии на двери A2 (до правки) и заявленные ПОСЛЕ реализации (строки
+дверей «Двери» ниже — 0·0, выставленные Arch140A2c, не откатывались):
+
+| прогон этой копии | rc на A2 3611ad996f | ожидание после правки двери |
+|---|---|---|
+| bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh | 1: KLETKI 215 KRASNYH 2 — ровно w04/w04b, остальные зелены | 0: KLETKI 215 KRASNYH 0 |
+| то же --model | 0: MODEL_KLETKI 214 KRASNYH 0 | 0 (от двери не зависит) |
+| то же --stabs | 1: SUBJEKT_KRASNO 2 (w04/w04b); SVJAZI 174, MODEL_ZHIVYH 0 | 0: SUBJEKT_SVJAZI 174, живых 0 |
+| то же --domain | 0: KLETKI 19 KRASNYH 0 | 0 |
+| bash fixtures/parsing_hygiene_battery/run_battery.sh zamok_predmeta | 0: итог 4/4 классов закрыто | 0: 4/4 |
+
+Счёт семьи A2d: клетки 213 → 214 динамических (W 215 с r10); стабы 94 → 96
+(+s94/s95); связи 171 → 174 (s03 +w04b, s94 +1, s95 +1; s85 перепривязан 1→1);
+носители 99 → 101; sintaksis 97 файлов. К-02…К-05-клетки не краснеют
+(единственные красные — w04/w04b). Замеры сняты последовательно в этой копии,
+TMPDIR=.scratch-a2d, scratch удалён перед коммитом.
+
+## Замер пачки A2c (история; счёт семьи до A2d)
+
+Сырой адресный замер воспроизводится командой
+`python3 fixtures/workshop_project/odin_agent_140/reestr_140.py`:
+RAW rc/stdout/stderr/ledger для каждого нового входа и отдельного
+К-05-мутанта; CELL_RC — вердикт клетки. TMPDIR под собственной копией.
+На OBJECT r11/r14/r15/r16/r17: RAW rc=0, CELL_RC=1;
+r12/r13/r18: RAW rc=0, CELL_RC=0; r19: RAW rc=1, CELL_RC=0.
+На К-05-мутанте r18/r19: RAW rc=1, CELL_RC=1.
+После исправления модели: MODEL_KLETKI 213 KRASNYH 0, rc 0.
+После production-реализации те же клетки обязаны стать зелёными;
+результат production после реализации здесь НЕ утверждается.
+
+Счёт семьи: прежние W 205 → 214 (213 динамических + r10);
+профильный W-domain 10 → 19; прежние клетки не удалены.
+Фактические последовательные прогоны продолжения (TMPDIR=.scratch-a2c):
+W rc 1, KLETKI 214 KRASNYH 5; --domain rc 1, KLETKI 19 KRASNYH 5.
+В обоих красны РОВНО r11/r14/r15/r16/r17; прежние 205 зелены.
+--model rc 0, MODEL_KLETKI 213 KRASNYH 0.
+--stabs rc 1: SVJAZI 171, MODEL_ZHIVYH 0; все s90–s93 пойманы
+своими кодовыми привязками; слой production даёт SUBJEKT_KRASNO: 5.
+Матрица над production до исправления двери не исполняется — так
+устроен существующий контроль слоя, он не выдаётся за зелёный.
+--grammar rc 0; --sintaksis rc 0, SINTAKSIS FILES 95.
+parsing_hygiene rc 0, итог 4/4 классов закрыто.
+Независимый jq source.json: cases=213, mutants=94, bindings=171,
+carriers=99; численность динамических клеток подтверждена --model,
+связей — --stabs. S/stancija_* из этой копии не запускались.
+`bash scripts/check_sdacha.sh "$PWD" contracts/140-odin-agent-na-predmet.md --run`
+завершился rc 0: `СДАЧА: лист зелёный (двери=16 карта=17/17 дельта=3)`.
+Прогоны выполнены последовательно; scratch удалён перед коммитом.
+
+## Переход к приёмке после реализации
+
+Impl140A2c сообщил результаты на `272f8b9734`:
+W rc 0, KLETKI 214 KRASNYH 0; --domain rc 0, KLETKI 19 KRASNYH 0;
+--stabs rc 0, SVJAZI 171, MODEL_ZHIVYH 0, SUBJEKT_SVJAZI 171.
+Адресные s90–s93 пойманы и над production. Поэтому три машинных
+ряда W-stabs/W-production/W-domain переведены в после-реализационные
+rc 0 согласно пункту 3 приёмки frozen 140/5. Это замер implementer,
+не повторный прогон architect; красные замеры OBJECT выше исторические.
+После интеграции кода и этой правки check_sdacha/pre_critic запускает
+ведущий. На одной базе architect без реализации эти три rc не применимы.
+
+## Развилки исправления Adv140A2
+
+§16 прежнего задания требовал rc 0 для битого профиля без паузы;
+§9 запрещает пропуск при неопределимости пути реестра. Решение
+оркестратора в task-a2b-architect-2.md: §9 приоритетнее, именованный
+fail-closed разрешён. Битый JSON не доказывает отсутствие паузы,
+поэтому r15 теперь требует тот же отказ, что r14. Модель различает
+ошибку резолвера (2) и отсутствие записи (1); спавн при ошибке
+отказывает PROFIL_NEDOSTUPEN до START/override. Production не менялась.
+Новых развилок за пределами решения не вводится.
+
+Процессная рефлексия: содержательный конфликт был остановлен без
+самовольного fallback; явное решение позволило исправить полярность
+двух клеток и модель, не нарастив контракт или парсер. Общий А-NNN
+журнал вне зоны и пишется только в main; здесь он не меняется.
+
+## Предыдущая пачка Ш-2 (история)
+
+### Пачка Ш-2 (2026-11-21, до Adv140A2)
+
+БАЗА сборки Ш-2 после реализации: 92a4a8e3187b82eeb020953f754d48606104d931.
+Прежние замеры «до» сохранены ниже как история, не rc текущего кандидата.
+Замороженный контракт и production этой пачкой не изменяются.
+
+§Существующее: Mir.worktree/pin_frozen уже создают annotated frozen и pin;
+Mir.start/zhurnal — сданного рабочего; --sudit и START/warn — наблюдаемый шов.
+project_paths_resolve в scripts/next_id.sh уже читает закрытый профиль.
+Модель использует именно этот резолвер, новых ключей и парсера нет.
+Все миры и временные стабы — внутри TMPDIR своей копии, со своей .git.
+
+Обещание: contracts.tsv и pauzy.tsv берутся из объявленного реестра;
+без профиля — прежний registry/. Reviewer обычного frozen допускается со
+START; рискового — ADVERSARIJ_DO_REVJUERA без изменения состояния.
+KLASS_RISKA_NET не принимается за доказательство чтения pin: после A2 он
+означает рисковый по умолчанию и маскирует пропущенный реестр.
+Демаркация: действительный двухслойный профиль существующей грамматики,
+полный workflowPaths, annotated frozen с pin, сданный рабочий, точный OBJECT.
+Значения SHA/имени/пути не являются ожиданием; различение — допуск/причина,
+START, отсутствие предупреждения неизвестного риска и неизменность отказа.
+
+Клетки (а)–(г) и ожидаемое состояние до/после:
+
+| вход | до Ш-2 | после Ш-2 |
+|---|---|---|
+| r01 (.x/reg, обычный) | красен: reviewer отвергнут | rc 0, START, без KLASS_RISKA_NET |
+| r02 (.x/reg, рисковый) | красен: риск не прочитан | rc 1 ADVERSARIJ_DO_REVJUERA, без записей |
+| r03 (без профиля) | зелён | прежний rc 0, START |
+| r04 (.x/reg, пауза 140) | красен: пауза пропущена | rc 1 PAUZA_VLADELTSA, без записей |
+| r05 (.x/reg, пауза 141) | красен: pin не прочитан | rc 0, START |
+| r06/r07 (штатный профиль, пауза 140/141) | зелены | соответственно отказ/допуск |
+| r08/r09 (без профиля, пауза 140/141) | зелены | соответственно отказ/допуск |
+| r10 (точный статический критерий) | красен | rc 0, исходный критерий без сужения |
+
+Привязки s87/s88/s89 — код reestr_140.py и производный source.json.
+Каждый стаб предъявляется только своему различающему входу.
+--model проверяет семантику; r10 — отдельная --grammar, также обязательная
+часть W/--domain и слоя production в --stabs. Исходный критерий не ослаблен.
+Машинные rc ниже приведены к состоянию ПОСЛЕ реализации Ш-2;
+оба столбца — фактический rc кандидата (формат check_sdacha).
+
+## Развилки Ш-2
+
+S-station ОТЛОЖЕН по поправке задания: запустит оркестратор вне /zones/.
+Прямой и косвенный запуск S из этой копии запрещён; поэтому S не включён
+в машинную секцию дверей этой сдачи. Обязательство S контракта сохранено.
+Режим --live отсутствовал на базе; --domain и --grammar добавлены этой
+пачкой. --sintaksis — существующий синтаксический режим, не подмена --grammar.
+
+Историческая развилка до реализации: точный критерий (г) находил также
+executable-упоминания .harness/contracts и registry/pauzy.tsv в диагностике.
+Предложенное сужение критерия НЕ применено. Реализация Ш-2 устранила
+литералы: kontrakt_kat использует workflowPaths.contracts существующего
+резолвера, без профиля — contracts/. Поэтому исходная r10 зелена.
+У s35 прежний якорь выбора каталога заменён на блок вызова kontrakt_kat
+для production; модель сохраняет прежний якорь. Обе формы мутации читают
+класс из рабочего каталога станции, а не из закреплённого дерева владельца.
+Прежние шесть различающих входов и их кодовые привязки сохранены.
+
+## История legacy-пачки
 
 БАЗА: 971a5dfc2b681e519dbd544f2ffc6c72110239a8.
 Исторический FAIL verdicts/critic/contracts-140-v5-r2.md (блоки К-02/К-16) закрыт в «## Дельта».
@@ -62,10 +278,11 @@ Rc в рядах ниже проверяет фактический check_sdacha
 
 - Owner-before — legacy-дефект точной базы · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --owner-before · 1 · 1
 - Owner-check — продукт, станция и адресные мутации · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --owner-check · 0 · 0
-- W-model — все прежние и новые клетки · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --model · 0 · 0
-- W-stabs — адресная матрица и production после реализации · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --stabs · 0 · 0
-- W-production — настоящая дверь после реализации · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh · 0 · 0
-- S-station — поставленный хук и frozen-миры владельца · bash fixtures/workshop_project/odin_agent_140/stancija_odin_agent_140.sh · 0 · 0
+- W-model — честная fail-closed модель · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --model · 0 · 0
+- W-stabs — после реализации: модель и обе адресные матрицы зелёные · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --stabs · 0 · 0
+- W-production — после реализации: прежняя семья и новые клетки зелёные · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh · 0 · 0
+- W-domain — после реализации: профиль/пауза/каталог зелёные · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --domain · 0 · 0
+- W-grammar — исходный критерий Ш-2 без подгонки · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --grammar · 0 · 0
 - W-sintaksis — все носители · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --sintaksis · 0 · 0
 - Precision · bash scripts/check_precision_gate.sh . contracts/140-odin-agent-na-predmet.md · 0 · 0
 - Spec-ready · bash scripts/check_spec_ready.sh . contracts/140-odin-agent-na-predmet.md · 0 · 0
@@ -83,21 +300,22 @@ Rc в рядах ниже проверяет фактический check_sdacha
 - К-03 · чисто · вход: frozen-текст, production и прежние инварианты 104/167/197/199 неизменны; прежние клетки входят в W-model · - · -
 - К-04 · чисто · вход: модель, миры, лист и производные носители только в fixtures/workshop_project/odin_agent_140/ architect-зоны · - · -
 - К-05 · чисто · вход: каждая дверь несёт команду и rc, соответствующие прежней приёмке 140 · - · -
-- К-06 · чисто · вход: после реализации ожидаемый rc 0 W-stabs, MODEL_ZHIVYH 0; rc 1 предметной красноты и rc 2 ошибки среды/оракула не считаются успехом · - · -
-- К-07 · чисто · вход: полный W-stabs, W-production и S-station зелены; normalizacija различает адресные мутации при зелёном строгом контроле · - · -
-- К-08 · чисто · вход: полный W-stabs; подмена обоих legacy-корней и отдельные подмены проверки/чтения красны адресными входами · - · -
-- К-09 · чисто · вход: legacy-продукт прямой/переданный, обе полярности, отсутствующая и конфликтующая станция, отсутствующая привязка владельца; отдельный станционный контроль обеих полярностей · - · -
+- К-06 · чисто · вход: W/domain/stabs ожидаемо rc 1 на адресных дефектах OBJECT; grammar rc 0; production/frozen не менялись · - · -
+- К-07 · чисто · вход: W 215 (A2d: 214 динамических + r10), прежние 205 сохранены; красные A2d — ровно w04/w04b; адресные красные r11/r14/r15/r16/r17 закрыты реализацией A2c; S запрещён из этой копии · - · -
+- К-08 · чисто · вход: s90–s93 привязаны кодом к собственным различающим входам; К-05 literal красен отдельно на r18/r19 · - · -
+- К-09 · чисто · вход: r11–r19 добавляют автора-нет, битый профиль, некорректный дубль и не-default contracts; прежние r01–r09 сохранены · - · -
 - К-10 · чисто · вход: реальный --sudit/--peredat в независимых .git; сверяются rc/причина, START, proof и неизменность состояния при отказе · - · -
 - К-11 · чисто · вход: ожидания и source.json снимаются в память до вызова двери; материализация носителей выполняется до приёмки · - · -
 - К-12 · чисто · вход: прежние Git plumbing и JSON Schema; TSV-сравнение не меняется, новый парсер не вводится · - · -
 - К-13 · н/п · новые секретные входы и наружные строки с секретами не вводятся · - · -
-- К-14 · чисто · вход: честные legacy-миры зелены при отсутствии и противоположном классе станции; обычная станция продолжает допускать, рисковая сохраняет отказ · - · -
-- К-15 · чисто · вход: jq source.json cases=172 mutants=82 bindings=159 carriers=87 legacy_cases=10; исполняемый обход MODEL_KLETKI 172 и SVJAZI 159 · - · -
+- К-14 · чисто · вход: MODEL_KLETKI 214 KRASNYH 0; w04/w04b отказывают именованно, охранные w02/w05 и честные эквиваленты К-02…К-05 зелены · - · -
+- К-15 · чисто · вход: source.json cases=214 mutants=96 bindings=174 carriers=101; независимые W 215 и sintaksis 97 носителей · - · -
 - К-16 · чисто · вход: класс берётся по blob закреплённого frozen в реестре владельца, не станции/OBJECT продукта; отсутствие привязки не открывает reviewer · - · -
 - К-17 · н/п · схема операций/writers/isolationKeys 188 не меняется; исправляется исполняемая модель батареи 140 · - · -
 
 ## Дельта
 
+- К-01 · клетка · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --model · 0 · 0
 - К-02 · канон/инструмент · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --owner-check · 0 · 0
 - К-09 · клетка · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --owner-check · 0 · 0
 - К-16 · канон/инструмент · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --owner-check · 0 · 0
@@ -116,9 +334,12 @@ fail-closed и станционный legacy. Обратная подмена wt
 привязке и прежняя станционная привязка) зелены теми же командами.
 Новых дверей и обязательств сверх блока нет.
 
-После реализации заявленные rc W-stabs и W-production приведены к 0
-по приёмке 3 контракта; пояснения К-06/К-07 отражают то же состояние.
-Команды, классы, численность машинных секций и прежняя дельта неизменны.
+К-01 (A2d): регресс авто-освобождения закрыт клеткой — w04 восстановлена
+базой, w04b добавлена; стабы s03/s94/s95/s85 привязаны кодом к различающим
+входам (раздел «К-01 (слово консультанта 00:22)»). После правки двери
+implementer заявленные rc W-stabs и W-production равны 0 по приёмке 3
+контракта; пояснения К-06/К-07 отражают то же состояние. Прежняя дельта
+К-02/К-09/К-16 не менялась.
 
 ## Границы и процессная рефлексия
 
@@ -248,6 +469,121 @@ COMMAND: bash scripts/check_sdacha.sh . contracts/140-odin-agent-na-predmet.md -
 COMMAND_RC=0
 
 COMMAND: bash scripts/pre_critic.sh --repo . contracts/140-odin-agent-na-predmet.md
+  ok   гейт предпосылок: PREDPOSYLKI_OK secrets=0 variables=0 environments=0 settings=7
+  ok   гейт трека: 
+  ok   дверь архитектуры 187а: ARCH_187A_SKIP: проект не в режиме 187а (repoId/пин модели)
+  ok   модель угроз красна
+  ok   потолки красны
+  ok   проводка красна
+  ok   сдаточный лист красен
+КРИТИК: дверь зелёная
+COMMAND_RC=0
+```
+
+## Собственный замер Ш-2
+
+pwd:
+`/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/tc48dcbb0c/m`
+TMPDIR — `.scratch-sh2` под этой копией; scratch не коммитится.
+Полный сырой вывод: `.scratch-sh2/base.log`, `.scratch-sh2/sh2.log`.
+
+```text
+БАЗА ddbd3bfc5ea99198934b2bf14648be2b27fc426b:
+W: KLETKI 195 KRASNYH 0; COMMAND_RC=0
+W --model: MODEL_KLETKI 195 KRASNYH 0; COMMAND_RC=0
+W --sintaksis: SINTAKSIS FILES 88; COMMAND_RC=0
+W --stabs: SVJAZI 162; MODEL_ZHIVYH 0; SUBJEKT_SVJAZI 162; COMMAND_RC=0
+
+С НОВЫМИ КЛЕТКАМИ, production на той же базе:
+W: KLETKI 205 KRASNYH 5; COMMAND_RC=1
+W --model: MODEL_KLETKI 204 KRASNYH 0; COMMAND_RC=0
+W --sintaksis: SINTAKSIS FILES 91; COMMAND_RC=0
+W --stabs:
+STAB s87-reestr-literal-proekta r01-reestr-profil-obychnyj KRASEN
+STAB s88-pauza-ignoriruet-profil r04-pauza-profil-svoj KRASEN
+STAB s89-reestr-tolko-stancija r01-reestr-profil-obychnyj KRASEN
+SVJAZI 165
+MODEL_ZHIVYH 0
+SUBJEKT_KRASNO: 5 — поставленная дверь красна (свидетель критика пойман)
+COMMAND_RC=1
+W --domain: KLETKI 10 KRASNYH 5; COMMAND_RC=1
+W --grammar:
+CASE r10-sh2-bez-literalov KRASNO: Ш-2-без-литералов: rc 1 ≠ 0; stderr=
+COMMAND_RC=1
+check_sdacha --run:
+СДАЧА: лист зелёный (двери=16 карта=17/17 дельта=3)
+COMMAND_RC=0
+```
+
+Красные production-входы ровно r01/r02/r04/r05/r10. Прежние входы зелены.
+r04 на базе отказывает не из-за паузы, а ADVERSARIJ_DO_REVJUERA после
+KLASS_RISKA_NET; клетка различает причину, а не засчитывает любой rc 1.
+Это исторический замер ДО реализации; текущие rc приведены в дверях выше.
+
+Рефлексия процесса: широкий grep-критерий смешивает путь реестра с
+законным каталогом contracts; барьер оставлен точным и красным, конфликт
+назван до передачи implementer. Отдельно неизвестный риск после A2
+маскирует неполученный pin — поэтому наблюдаются warn и именованная причина,
+а не только rc. Общий журнал А-NNN не изменён: вне зоны и только main.
+
+## Сборка после реализации Ш-2 — 2026-11-21
+
+pwd:
+`/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/tef18fd95d/m`
+База: `92a4a8e3187b82eeb020953f754d48606104d931`.
+TMPDIR — `.scratch-sh2c` под этой копией; scratch не коммитится.
+Полный сырой вывод приёмки: `.scratch-sh2c/acceptance.log`.
+Контракт, production, профиль parsing_hygiene_battery и source.json неизменны.
+Материализованный s35 модели побайтно прежний; меняется только выбор
+строгого якоря при наложении той же мутации на production.
+
+```text
+W:
+KLETKI 205 KRASNYH 0
+COMMAND_RC=0
+W --domain:
+KLETKI 10 KRASNYH 0
+COMMAND_RC=0
+W --grammar:
+CASE r10-sh2-bez-literalov ok
+COMMAND_RC=0
+W --model:
+MODEL_KLETKI 204 KRASNYH 0
+COMMAND_RC=0
+W --sintaksis:
+SINTAKSIS FILES 91
+COMMAND_RC=0
+W --stabs:
+SVJAZI 165
+MODEL_ZHIVYH 0
+SUBJEKT STAB s35-klass-iz-main s39-main-riskovyj-kandidat-obychnyj KRASEN
+SUBJEKT STAB s35-klass-iz-main s40-main-obychnyj-kandidat-riskovyj KRASEN
+SUBJEKT STAB s35-klass-iz-main s41-kandidat-bez-stroki KRASEN
+SUBJEKT STAB s35-klass-iz-main s42-risk-legacy-blob-kandidata KRASEN
+SUBJEKT STAB s35-klass-iz-main s43-klass-iz-dereva-ne-gryazi KRASEN
+SUBJEKT STAB s35-klass-iz-main s44-klass-otkaz-bez-starta KRASEN
+SUBJEKT_SVJAZI 165
+COMMAND_RC=0
+bash fixtures/parsing_hygiene_battery/run_battery.sh zamok_predmeta:
+БАТАРЕЯ zamok_predmeta: итог 4/4 классов закрыто
+COMMAND_RC=0
+```
+
+STAB_ZHIV и SUBJEKT_KRASNO в выводе отсутствуют: живых стабов и красных
+входов честного субъекта нет. S-station не запускался.
+
+Рефлексия: текстовый якорь стаба отстал от замены операции выбора каталога.
+Исправлена привязка к реальному блоку двери, не ослаблены r10 или входы;
+история красного замера не подменяет текущие rc машинного листа.
+Общий журнал А-NNN вне зоны и допускает запись только в main.
+
+Ворота этой сборки, полный сырой вывод `.scratch-sh2c/gates.log`:
+
+```text
+check_sdacha.sh "$PWD" contracts/140-odin-agent-na-predmet.md --run:
+СДАЧА: лист зелёный (двери=16 карта=17/17 дельта=3)
+COMMAND_RC=0
+pre_critic.sh --repo "$PWD" contracts/140-odin-agent-na-predmet.md:
   ok   гейт предпосылок: PREDPOSYLKI_OK secrets=0 variables=0 environments=0 settings=7
   ok   гейт трека: 
   ok   дверь архитектуры 187а: ARCH_187A_SKIP: проект не в режиме 187а (repoId/пин модели)
