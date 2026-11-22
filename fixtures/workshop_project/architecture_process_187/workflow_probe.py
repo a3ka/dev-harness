@@ -116,6 +116,8 @@ import tempfile
 from probe import world, critic_state, put, git, run, CONTRACT, REVIEW, TOOLS
 from ci_wiring import BATTERY, DIRECT
 import ci_ancestor
+import brief_stderr
+import brief_signals
 
 
 # Б-3: warning text is a model answer, not the verifier's byte-for-byte oracle.
@@ -756,6 +758,12 @@ def locate_answer(path):
 TOY_CLI = '''const fs=require('fs');
 const a=process.argv.slice(2); const name=a[0];
 if (name==='brief') {
+ if(fs.existsSync('brief-response.json')){
+  const response=JSON.parse(fs.readFileSync('brief-response.json','utf8'));
+  if(a.includes('--with-rules')!==response.rules) process.exit(43);
+  fs.writeSync(1,response.stdout); fs.writeSync(2,response.stderr);
+  process.exit(response.rc);
+ }
  const id=a[a.indexOf('--component')+1];
  if(id!=='api.identity') process.exit(1);
  console.log('PINNED_BRIEF_187 '+id);
@@ -890,6 +898,8 @@ def architecture(base, root, variation):
     put(arch, 'tooling/checks/cli.js', TOY_CLI)
     put(arch, 'check-rc', CHECK_RC_TOKENS.get(variation, '0') + '\n')
     put(arch, 'locate-boundary', variation + '\n')
+    if variation in brief_stderr.CONFIG:
+        put(arch, 'brief-response.json', json.dumps(brief_stderr.CONFIG[variation]))
     export = snapshot_export(variation)
     put(arch, 'snapshot-model',
         'fail\n' if export == 'fail' else json.dumps(export, indent=2))
@@ -1431,6 +1441,8 @@ def live(tools, root, arch, pinned, action, task, trace, role, variation=''):
     env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
     env.update(GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_SYSTEM='/dev/null',
                HARNESS_PROJECT_LAYER_ROOT=str(root), ARCHITECTURE_ROOT=str(arch))
+    if variation in brief_stderr.CONFIG:
+        env['TMPDIR'] = str(root.parent / (variation + '-tmp'))
     if action == 'done':
         env['ARCH187_CURL_RESPONSE'] = str(ci_record(root))
         env['PATH'] = str(ci_bin(root)) + os.pathsep + env.get('PATH', '')
@@ -1586,7 +1598,13 @@ def main():
                             (role in ('architect', 'critic', 'arbiter') and 'RULES_FROM_PIN_187' not in fake_out))
                     print(f'STAB {name} {"caught" if caught else "ZHIV"} @ {label}')
                     if not caught: failures.append(name)
-        print(f'CELLS={len(CASES)} STABS={len(STABS) if args.stabs else 0} FAILURES={len(failures)}')
+        failures.extend(brief_stderr.run_cases(
+            base, tools, args.model, args.stabs, world, architecture, prepare, live))
+        failures.extend(brief_signals.run_cases(base, tools, args.model, args.stabs))
+        cells = len(CASES) + len(brief_stderr.CASES) + len(brief_signals.CASES) + 1
+        stabs = (len(STABS) + len(brief_stderr.STABS) + len(brief_signals.STABS)
+                 if args.stabs else 0)
+        print(f'CELLS={cells} STABS={stabs} FAILURES={len(failures)}')
     return int(bool(failures))
 
 if __name__ == '__main__':
