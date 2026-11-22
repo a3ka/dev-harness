@@ -1,0 +1,13 @@
+# Мутация<TAB>различающая клетка. Н-39: привязки только здесь и в probe.py.
+# BEZ-FAZY предъявляется отдельно на слиянии номеров, последнем FAIL и ссылке.
+PATERN:BEZ-FAZY	a1-tri-fazy-sdacha
+PATERN:PERVYJ-BLOB	b1-dva-bloba-v-faze
+PATERN:BEZ-FAZY	v1-fail-tolko-svoej-fazy
+PATERN:PO-OBHODU	c1-porjadok-ne-faza
+PATERN:IZ-SUD	g1-bez-versii-kak-v1
+PATERN:BEZ-VERSII-0	g3-bez-versii-ssylka
+PATERN:BEZ-FAZY	f7-ssylka-ne-iz-chuzhoj-fazy
+PATERN:PERVAJA-CIFRA	v10-otdelno-ot-v1
+PATERN:CUT-C1	v10-otdelno-ot-v1
+PATERN:REGEX-ODNA-CIFRA	f4-vedushchie-nuli
+PATERN:POSLE-OBEKTOV	h1-odin-blob-dve-fazy
