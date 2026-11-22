@@ -34,11 +34,11 @@
 # `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК: <NNN> <КОД> [<OBJECT 40hex>]` пропускает ровно
 # один отказ (PAUZA_VLADELTSA, PEREDACHA_NEDOSTOVERNA, PEREDACHA_REMOTE) для
 # предмета (и OBJECT, если указан) ОДИН раз; повторное использование той же
-# строки — отказ; на неотменяемые отказы (изоляция, живой рабочий, мьютекс,
-# живой судья, дубль пакета, живой автор) строка не действует. Класс риска не
-# определён — предмет считается РИСКОВЫМ (норма «нет записи — рисковый») с
-# предупреждением. Частная строка `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР` (D11) более не
-# действует — её заменила общая строка.
+# строка — отказ; на неотменяемые отказы (изоляция, живой рабочий, мьютекс,
+# живой судья, дубль пакета, живой автор, брошенный замок) строка не действует.
+# Класс риска не определён — предмет считается РИСКОВЫМ (норма «нет записи —
+# рисковый») с предупреждением. Частная строка `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР` (D11)
+# более не действует — её заменила общая строка.
 # v9 (слово владельца 2026-11-21, Ш-2 «путь реестра и паузы из профиля»):
 # путь файлов реестра/паузы и путь каталога контрактов — ДАННЫЕ ПРОФИЛЯ
 # проекта (workflowPaths.registry, workflowPaths.contracts), а не жёсткий
@@ -62,6 +62,12 @@
 #     `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК:`, а не только строки полной грамматики:
 #     любая вторая строка маркера (даже вне грамматики) — отказ, разрешение
 #     не расходуется.
+# v11 (К-01, слово консультанта 2026-11-22 00:22): TTL-автоосвобождение
+# брошенного замка ОТКЛОНЕНО (frozen 140/5 :46) — брошенный замок = именованный
+# отказ ZAMOK_BROSHEN БЕЗ записей (нет RELEASE/START), занятие прежнего
+# держателя сохраняется; выход из брошенного замка — только явный --osvobodit.
+# Прочие упрощения v8 (предупреждение вместо отказа), общая строка владельца,
+# пути реестра из профиля (Ш-2) и К-02…К-05 — как прежде.
 #
 # ПИНЫ (инвариант 1): дверь вызывается расширением .omp/extensions/
 # spawn-guard.ts по расположению расширения, а не по env; корни состояний
@@ -143,7 +149,7 @@
 #   OBJECT_OTSTUTSVUET SUBEKT_DVA_OBJECTA GRAMMATIKA_OBJECTA
 #   PIN_NET GRAMMATIKA_PINA RASHOZHDENIE_PINA
 #   IMJA_NET GRAMMATIKA_IMENI AGENT_NET BITYJ_VHOD
-#   DUBL_V_PAKETE RABOCHIJ_ZHIV SUDJA_ZHIV ZANYATO_RESHENIEM
+#   DUBL_V_PAKETE RABOCHIJ_ZHIV SUDJA_ZHIV ZAMOK_BROSHEN ZANYATO_RESHENIEM
 #   AVTOR_ESHCHO_RABOTAET
 #   ADVERSARIJ_DO_REVJUERA PAUZA_VLADELTSA NE_IZOLIROVAN
 #   PROFIL_NEDOSTUPEN (путь реестра паузы не удостоверен: битый/нечитаемый
@@ -153,7 +159,7 @@
 # ПРЕДУПРЕЖДЕНИЯ v8 (stderr «ПРЕДУПРЕЖДЕНИЕ: <КОД>: <детали>», запись
 # {"t":"warn",…} в uchet.jsonl, rc 0, START пишется):
 #   KLASS_RISKA_NET OBJECT_RASHODITSJA VETKA_NEDOSTUPNA RABOCHEGO_NET
-#   OBJECT_UZHE_SUZHEN LIMIT_GRUPPY ZAMOK_BROSHEN PEREDACHA_AVTOR
+#   OBJECT_UZHE_SUZHEN LIMIT_GRUPPY PEREDACHA_AVTOR
 # rc 0 — разрешено (замки заняты, START дописан ДО возврата) / исполнено / учёт.
 # rc 2 — NOT_IMPLEMENTED (нет jq/git/find, мир нечитаем): fail-closed; вызов
 #        расширением трактуется как блок «страж сломан» — молчаливого пропуска нет.
@@ -221,14 +227,8 @@ zapis_override() {  # <предмет> <КОД> <OBJECT или '-'>
         --arg o "$3" --arg at "$(ts_now)" \
         '{t:$t,repoId:$r,subjectId:$s,kod:$k,object:$o,at:$at}')"
 }
-# [D57 osvobozhdenie-broshennogo] автоматическое освобождение брошенного
-# замка: запись RELEASE прежнего держателя (тем же форматом, что и
-# --osvobodit), чтобы круг держателя был закрыт.
-zapis_release_broshennogo() {  # <предмет> <holder>
-  zapis_dodat "$(jq -nc --arg t RELEASE --arg r "$REPO_ID" --arg s "$1" --arg h "$2" \
-        --arg p broshen --arg at "$(ts_now)" \
-        '{t:$t,repoId:$r,subjectId:$s,holder:$h,prichina:$p,at:$at}')"
-}
+# [D57 osvobozhdenie-broshennogo] RELEASE брошенного держателя пишется ТОЛЬКО
+# явным --osvobodit (sudit-путь отказывает без записей: К-01, frozen 140/5 :46).
 # Фактический OBJECT каждого item пакета (то, что пишется в START): буфер
 # "idx|OBJECT" — решение по пакету принимается до раздачи, START пишется
 # после, а фактический OBJECT известен только по итогам решения.
@@ -239,8 +239,8 @@ fakt_dlya() {  # <idx> → фактический OBJECT (пусто, если �
 }
 # Отказы, которые общая строка владельца пропускает (слово владельца
 # 21.11 12:06). Неотменяемые (изоляция, живой рабочий, мьютекс решения, живой
-# судья, дубль пакета, живой автор) в перечень НЕ входят — строка на них не
-# действует.
+# судья, дубль пакета, живой автор, брошенный замок) в перечень НЕ входят —
+# строка на них не действует.
 ZAMOK_STROKA_RE='^РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК: [0-9]{3} [A-Z][A-Z_]*( [0-9a-f]{40})?$'
 ZAMOK_STROKA_KODY='PAUZA_VLADELTSA PEREDACHA_NEDOSTOVERNA PEREDACHA_REMOTE'
 zamok_stroka_iz() {  # <task> → "ok:<NNN>|<КОД>|<OBJECT или пусто>"|net
@@ -1103,25 +1103,10 @@ EOF
           # [D1 dubl-rabochego] живой рабочий — дубль запрещён (боль 122: v4+v4b).
           otp RABOCHIJ_ZHIV "предмет $sv: рабочий $h_holder бежит без сдачи — дубль запрещён"
           ;;
-        broshen)
-          # [D3 broshennyj-zamok] брошенный замок освобождается АВТОМАТИЧЕСКИ
-          # (слово владельца 21.11 12:06): журнал держателя старше TTL — следа
-          # жизни нет; предупреждение с записью, RELEASE прежнего держателя,
-          # новое занятие.
-          predupr "$sv" 'ZAMOK_BROSHEN' "предмет $sv: holder $h_holder без сдачи и без записей >${BROSHEN_TTL_MIN} мин — замок освобождается автоматически" "$obj"
-          zapis_release_broshennogo "$sv" "$h_holder"
-          ;;
-        net_fajla)
-          # Журнала держателя нет вовсе: доказательств его смерти нет. Если и
-          # сам замок старше TTL — он брошен (тот же автоматический разбор);
-          # свежий замок — живой (держатель ещё не оставил журнала): отказ.
-          if [ -n "$(find "$zdir/zanyat/holder.json" -mmin +"$BROSHEN_TTL_MIN" -print 2>/dev/null)" ]; then
-            predupr "$sv" 'ZAMOK_BROSHEN' "предмет $sv: holder $h_holder без журнала, замок старше ${BROSHEN_TTL_MIN} мин — освобождается автоматически" "$obj"
-            zapis_release_broshennogo "$sv" "$h_holder"
-          else
-            mutexi_snyat_vse
-            otp ZAMOK_ZHIV "предмет $sv: holder $h_holder без журнала, замок свежий — освободить только --osvobodit"
-          fi
+        broshen|net_fajla)
+          mutexi_snyat_vse
+          # [D3 broshennyj-zamok] рестарт ≠ разрешение: дубль после рестарта — отказ.
+          otp ZAMOK_BROSHEN "предмет $sv: holder $h_holder без сдачи и без записей >${BROSHEN_TTL_MIN} мин — только --osvobodit, НЕ авто-перезапуск"
           ;;
       esac
     fi
