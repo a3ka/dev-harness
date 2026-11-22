@@ -11,3 +11,4 @@ PATERN:PERVAJA-CIFRA	v10-otdelno-ot-v1
 PATERN:CUT-C1	v10-otdelno-ot-v1
 PATERN:REGEX-ODNA-CIFRA	f4-vedushchie-nuli
 PATERN:POSLE-OBEKTOV	h1-odin-blob-dve-fazy
+PATERN:BEZ-M	m1-fail-v-samom-merge
