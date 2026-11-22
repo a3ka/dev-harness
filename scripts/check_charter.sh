@@ -283,6 +283,16 @@
 #   (bcb0e33fb7, frozen 995/5); переписать ветку нельзя без смены OBJECT суда e06e3a84cd; ровно эти пять пар
 #   названы check_charter в CI #1189 (run 44935563048); слово владельца 2026-11-21 ~19:15 «1. да» через консультанта)
 #
+#   409836ed5d918d4ecb16f132b8f6e26d287b32cc  contracts/204-karta-vyzova-po-faze.md
+#   (70-я: merge PR #1240 («Merge pull request #1240 from a3ka/wip/204/orch-freeze2») консультантом через GitHub
+#   (sync-door) внёс в main текст контракта 204 v1 (int-ветка станции wip/int-204/orch-freeze2 = architect +
+#   Crit204V3 accept + owner-переименование вердикта) ДО публикации frozen/contracts/204/1 (порядок «тег после
+#   текста», контракт 130 И-8); блоб contracts/204 в merge побайтно равен frozen/contracts/204/1 (объект тега
+#   58117ad6fc → fd294feda1); нового содержания нет; строки РАЗРЕШИЛ в теле GitHub-merge нет; полный check_charter
+#   на main краснеет только на этом merge (sync-door Д3 #1243/#1241); тот же класс, что пары 36/37–39/46/64; допущение
+#   только для этой пары; слово владельца 2026-11-22 «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: scripts/check_charter.sh — grandfather merge
+#   409836ed5d (#1240, текст контракта 204 внесён до публикации тега)» через консультанта)
+#
 # НЕ добавлять новые записи без прямого слова владельца в НОВОМ коммите с обоснованием.
 #
 # is_charter_path (контракт 019, ветвь 1 — единый источник предиката). Staged-путь
@@ -532,6 +542,8 @@ grandfather_pair() {
       [ "$p" = "contracts/154-schet-vyzovov-kritika.md" ] && return 0 ;;
     40a93f1da02d18d7323764007aac094989ee8c74|8ef0e9b971993f079f65cd78f595fbbafcb37985|a3665a5691bb6b6a85e6b703c10406bc05e10ca9|a60dfde5370ffd66f0f4faf15aecd956758143af|cf3742d171a0c2a0c672edfbad7a8402c7201573)
       [ "$p" = "contracts/995-cmp-mob-001-android-pilot.md" ] && return 0 ;;
+    409836ed5d918d4ecb16f132b8f6e26d287b32cc)
+      [ "$p" = "contracts/204-karta-vyzova-po-faze.md" ] && return 0 ;;
   esac
   return 1
 }
