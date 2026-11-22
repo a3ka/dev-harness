@@ -6,9 +6,9 @@
 # Использование:
 #   bash fixtures/_krasnye_095.sh [корень]         # субъект scripts/make_task.sh, дверь scripts/spawn_agent.sh
 #   bash fixtures/_krasnye_095.sh --model [корень] # субъект model/dover.sh, дверь model/dver_spawn.sh
-#
+#   bash fixtures/_krasnye_095.sh --stabs         # только обманные стабы
 # Семантика (контракт 095 §Приёмка): rc 0 ⟺ стаб-пак battery_stubs.sh rc 0 И
-# каждая клетка семьи rc 0 (критерийный срез пакета А: 19 клеток); rc 1 — есть
+# каждая клетка семьи rc 0 (23 клетки, включая Б-4); rc 1 — есть
 # красная клетка (в том числе «предмет отсутствует» на дереве ДО реализации —
 # вывод несёт строку «красная: предмет отсутствует»); rc 2 — нечем проверять
 # (нет семьи/модели/раннера клетки, git). Guard подключается в CI ТОЛЬКО
@@ -19,17 +19,19 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODE="real"
 case "${1:-}" in
   --model) MODE="model"; shift ;;
+  --stabs) exec bash "$HERE/context_pack_095/battery_stubs.sh" ;;
 esac
 ROOT="${1:-$(cd "$HERE/.." && pwd)}"
 FAM="$HERE/context_pack_095"
 [ -d "$FAM" ] || { printf 'NOT_IMPLEMENTED: нет семьи %s\n' "$FAM" >&2; exit 2; }
 command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; exit 2; }
 
-# Census семейства после добавления bounded/no-plan/GLM-клеток.
+# Census семейства: прежние клетки и Б-4.
 # Пустая выборка или потерянная клетка — отказ, не тихая зелень.
-n="$(ls "$FAM"/red_*.sh 2>/dev/null | wc -l)"
-if [ "$n" -ne 19 ]; then
-  printf 'ОТКАЗ: клеток семьи %s, ожидалось 19 в критерийном срезе 095\n' "$n" >&2
+cells=("$FAM"/red_*.sh)
+n="${#cells[@]}"
+if [ "$n" -ne 23 ]; then
+  printf 'ОТКАЗ: клеток семьи %s, ожидалось 23 в критерийном срезе 095\n' "$n" >&2
   exit 2
 fi
 
