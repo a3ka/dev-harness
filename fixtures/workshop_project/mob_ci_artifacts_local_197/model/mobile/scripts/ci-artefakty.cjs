@@ -9,6 +9,8 @@
 // Глаголы (замкнутый набор):
 //   zapis   --imja M --chto P            записать P (файл или каталог) в свой
 //                                        run-контекст; P обязан существовать
+//                                        (211: имя той же пары пишется ОДИН
+//                                        раз — повторный zapis отказывает)
 //   chtenie (--imja M | --shablon G) --kuda D [--run-id R --run-attempt T]
 //                                        прочитать в D; пара --run-id/--run-attempt
 //                                        (оба или ни один) задаёт контекст
@@ -22,7 +24,14 @@
 // rc 0, строка CHTENIE_PUSTO и ПУСТОЙ созданный --kuda (семантика
 // actions/download-artifact с pattern); строгость ожидаемого множества
 // держит потребитель — ci-aggregate.cjs сверяет выбранные экраны с
-// evidence-каталогом ровно. Имя каждого СОБРАННОГО каталога несёт пару
+// evidence-каталогом ровно.
+// 211: запись пути <koren>/<run_id>-<run_attempt>/<imja> — ОДИН раз на пару.
+// Повторный zapis, если такая запись УЖЕ есть (файл, каталог — включая пустой
+// и частично записанный, symlink — включая битый), отказывает rc 2, пустым
+// stdout и единственной строкой stderr
+//   ARTEFAKT_OTKAZ: ARTEFAKT_UZHE_ZAPISAN: <run_id>-<run_attempt>/<imja>
+// и НЕ меняет ни байты, ни множество записей, ни цель symlink (никакого
+// слияния/удаления). Имя каждого СОБРАННОГО каталога несёт пару
 // контекста чтения <имя-совпадения>-<run_id>-<run_attempt> (197 v3, Б-1
 // Rev197) — ту самую раскладку merge-multiple: false до 197, которую ждёт
 // НЕИЗМЕННЫЙ агрегат 143; workflow имя не строит (d01).
@@ -114,6 +123,21 @@ function skopirovat(istochnik, naznachenie) {
   }
 }
 
+function zapis_zanyat(naznachenie) {
+  // 211 (И-1/И-2): единица неизменности — запись пути назначения ЦЕЛИКОМ.
+  // Занято = ЛЮБАЯ запись ФС по этому пути: файл, каталог (в т.ч. пустой и
+  // частично записанный), symlink на каталог и битый symlink. Именно lstat,
+  // НЕ exists: exists следует за symlink и считает битую ссылку свободным
+  // именем. Проверка ничего не создаёт и не меняет.
+  try {
+    fs.lstatSync(naznachenie);
+    return true;
+  } catch (e) {
+    if (e.code === 'ENOENT') return false;
+    throw e;
+  }
+}
+
 function glob_v_regex(shablon) {
   // '*' — любой набор символов КРОМЕ '/' (имя — один сегмент каталога).
   const ekran = shablon.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*');
@@ -137,12 +161,20 @@ function main() {
     // множество файлов, чтение получает их в --kuda верхним уровнем).
     const naznachenie = katalog_artefakta(k, imja);
     const stat = fs.lstatSync(chto);
+    if (!stat.isDirectory() && !stat.isFile()) {
+      otkaz('ISTOCHNIK_NE_FAIJ_NI_KATALOG: ' + chto);
+    }
+    // 211 (И-1): та же пара run_id/run_attempt пишет каждое имя ОДИН раз.
+    // Отказ ДО копирования: уже записанный артефакт не сливается, не
+    // удаляется и не перезаписывается — не меняются ни байты, ни множество
+    // записей, ни цель symlink.
+    if (zapis_zanyat(naznachenie)) {
+      otkaz('ARTEFAKT_UZHE_ZAPISAN: ' + path.relative(baza, naznachenie));
+    }
     if (stat.isDirectory()) {
       skopirovat(chto, naznachenie);
-    } else if (stat.isFile()) {
-      skopirovat(chto, path.join(naznachenie, path.basename(chto)));
     } else {
-      otkaz('ISTOCHNIK_NE_FAIJ_NI_KATALOG: ' + chto);
+      skopirovat(chto, path.join(naznachenie, path.basename(chto)));
     }
     console.log('ZAPIS ' + path.relative(baza, naznachenie));
     return;
