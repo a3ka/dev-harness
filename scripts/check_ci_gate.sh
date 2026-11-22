@@ -15,8 +15,8 @@
 #   1. sha (умолчание HEAD) разрешается в коммит корня;
 #   2. sha лежит на origin/main (git merge-base --is-ancestor): незапушенное
 #      не имеет прогона CI вовсе — «судить нечего» называется явно;
-#   3. GitHub API отдаёт check-runs коммита (curl; GITHUB_TOKEN опционален —
-#      публичному репозиторию хватит и без него);
+#   3. GitHub API отдаёт check-runs коммита (curl; токен опционален —
+#      GITHUB_TOKEN, иначе GH_TOKEN; публичному репозиторию хватит и без него);
 #   4. прогонов ≥ 1 и ВСЕ conclusion == success.
 #
 #   bash scripts/check_ci_gate.sh [корень] [sha]
@@ -108,7 +108,7 @@ if [ "$MODE" = writer ]; then
   repo="$(printf '%s' "$repo" | sed -E 's/\.git$//')"
   [ -n "$repo" ] || die "из «$remote_url» не извлекается OWNER/REPO github — гейт понимает ssh://git@github.com/, git@github.com: и https://github.com/ формы"
   auth=()
-  if [ -n "${GITHUB_TOKEN:-}" ]; then auth=(-H "Authorization: Bearer $GITHUB_TOKEN"); fi
+  if [ -n "${GITHUB_TOKEN:-${GH_TOKEN:-}}" ]; then auth=(-H "Authorization: Bearer ${GITHUB_TOKEN:-${GH_TOKEN:-}}"); fi
   if ! body="$(curl -fsS -m 20 -H 'Accept: application/vnd.github+json' \
         -H 'X-GitHub-Api-Version: 2022-11-28' "${auth[@]}" \
         "https://api.github.com/repos/${repo}/commits/${MSHA}/check-runs?per_page=100" 2>&1)"; then
@@ -185,8 +185,8 @@ repo="$(printf '%s' "$repo" | sed -E 's/\.git$//')"
 [ -n "$repo" ] || die "из «$remote_url» не извлекается OWNER/REPO github — гейт понимает ssh://git@github.com/, git@github.com: и https://github.com/ формы"
 
 auth=()
-if [ -n "${GITHUB_TOKEN:-}" ]; then
-  auth=(-H "Authorization: Bearer $GITHUB_TOKEN")
+if [ -n "${GITHUB_TOKEN:-${GH_TOKEN:-}}" ]; then
+  auth=(-H "Authorization: Bearer ${GITHUB_TOKEN:-${GH_TOKEN:-}}")
 fi
 
 # 4. check-runs: любой сбой сети/HTTP — «не ответил», не молчание
