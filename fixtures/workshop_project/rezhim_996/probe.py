@@ -325,10 +325,9 @@ def gate_test(case, mode, mutant, root, p, contract):
         # Real registered mapping, not an injected failing gate executable.
         change('scripts/consumers.d/absent.sh__check_sh.tsv', 'scripts/absent.sh\tcheck.sh\n')
     elif defect == 'precision':
-        package = json.loads((root / 'package.json').read_text())
-        package['scripts']['check:unwired'] = 'bash omitted.sh'
-        change('package.json', json.dumps(package))
-        change('omitted.sh', '#!/bin/sh\nexit 0\n')
+        # Active leg (а), not CI parity (warning-only after Б-10).
+        # As in project_paths_103 i2г, malformed overlap syntax must refuse.
+        body += '\nПЕРЕСЕЧЕНИЕ architect: bad\n'
     elif defect.startswith('doc'):
         spec = {'type': 'documentation', 'version': 1, 'profile': 'product',
                 'outputs': {'markdown': 'guide.md', 'evidence': 'guide.json'},
@@ -816,7 +815,8 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         commit(root, 'broken profile with root decoy')
         before = git(root, 'rev-parse', 'HEAD')
         r = call(op, decoy)
-        expect(r.returncode == 1 and 'ОТКАЗ' in r.stderr,
+        expect(r.returncode == 1 and r.stderr.startswith(
+                   ('ОТКАЗ: профиль битый', 'ОТКАЗ: ОТКАЗ: профиль битый')),
                'BROKEN_PROFILE_ROOT_FALLBACK:' + op, r)
         expect(not git(root, 'tag', '-l') and git(root, 'rev-parse', 'HEAD') == before
                and not (root / 'registry' / 'contracts.tsv').exists(),
@@ -1535,7 +1535,8 @@ MUTANTS.update({
 })
 MUTANTS['skip-gates'] = tuple(GATE_CASES)
 for gate, defects in {'spec': ('spec', 'spec-probe'), 'consumers': ('consumers',),
-                      'precision': ('precision',), 'doc': ('doc', 'doc-malformed'),
+                      'precision': ('precision',),
+                      'doc': ('doc', 'doc-malformed'),
                       'provodka': ('provodka',), 'n39': ('n39',),
                       'form': ('context', 'existing'), 'plan': ('plan', 'closures', 'worktree-plan'),
                       'committed': ('committed',)}.items():
@@ -1544,7 +1545,7 @@ for gate, defects in {'spec': ('spec', 'spec-probe'), 'consumers': ('consumers',
 
 
 def execute(case, mode, mutant=''):
-    with tempfile.TemporaryDirectory(prefix='architect996-', dir='/tmp') as tmp:
+    with tempfile.TemporaryDirectory(prefix='architect996-') as tmp:
         try:
             test(case, mode, Path(tmp), mutant)
             return 0, ''

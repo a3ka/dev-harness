@@ -6,3 +6,63 @@ reserve_project_contract, check_project_sources, pre_critic; check_no_leak
 probe.sh --matrix: честная модель и предъявления мутаций, привязанные в коде.
 CI dev-harness обязан вызвать продуктовый probe.sh после реализации 996;
 --matrix отдельно доказывает различимость, не заменяет продуктовую команду.
+
+Б-10 / Б-10б (2026-11-21): клетки паритета CI удалены по решению Б-10
+(замена 043:213-218), клетки активной ноги (а)/(б) восстановлены —
+996:87 держится. Frozen-контракт не изменён.
+В GATE_CASES восстановлены:
+- freeze-precision-preserved;
+- precritic-precision-preserved.
+Вместо check:unwired (теперь предупреждение, не отказ) дефект precision
+добавляет в контракт строку «ПЕРЕСЕЧЕНИЕ architect: bad». Это неконформное
+объявление пересечения: активная нога (а) настоящего precision-гейта
+обязана отказать. Прецедент класса — project_paths_103 i2г.
+Обе клетки требуют rc 1 и собственный маркер двери, отсутствие мутации
+HEAD/refs/байтов, затем чинят тот же вход и требуют rc 0.
+skip-precision возвращён; как и skip-gates, привязан к этим входам
+в коде матрицы, не в прозе контракта. model.py уже вызывает настоящий
+check_precision_gate.sh и поддерживает skip-precision, правка не нужна.
+
+Счёт семьи (CASES / GATE_CASES / MUTANTS / предъявления):
+база до Б-10: 111 / 17 / 76 / 149;
+OBJECT 22118296c154a212d4263b10f196c152ea15c509: 109 / 15 / 75 / 145;
+Б-10б: 111 / 17 / 76 / 149.
+Обе клетки возвращены; к skip-gates вернулись два предъявления,
+к skip-precision — два. Счёт измерен импортом probe.py.
+Привязка broken-profile-fallback сохранена, включая freeze-broken-profile.
+Усиленная проверка битого профиля по именованной причине самой двери
+сохранена: отказ постороннего гейта не считается обнаружением fallback.
+TemporaryDirectory теперь использует TMPDIR: scratch-миры прогона
+можно удерживать внутри собственной копии.
+
+Мутации дверей — только в disposable-копии, не в коммите.
+ДО: М8f3 (freeze игнорирует красный precision на профильном пути),
+полный продуктовый probe.sh: rc 0,
+996: examined=109 mutants=0 mismatches=0 (слепая зона воспроизведена).
+ПОСЛЕ: М8f3, --case freeze-precision-preserved: rc 1,
+PROJECT_GATE_BYPASSED:precision rc=0 (дефектная дверь создала freeze-тег).
+ПОСЛЕ: М8p (pre_critic пропускает precision при --repo),
+--case precritic-precision-preserved: rc 1,
+PROJECT_GATE_BYPASSED:precision rc=0 (дефектная дверь разрешила критика).
+У семьи нет режимов --stabs/--census и собственного parsing_hygiene-профиля.
+
+Среда Б-10б: при TMPDIR внутри TOOLS исходный оракул context-* запрещает
+сам префикс установки в stdout; вложенный проект несёт этот префикс.
+Первая проба из корня копии дала rc 1 у product/model/matrix, ровно
+7 ROLE_CONTEXT_LEAKS_INSTALLATION; обе precision-клетки зелёные.
+Проверка контекста не ослаблена: честная disposable-установка помещена
+в .scratch-b10b/mutant, миры TMPDIR — рядом с ней в .scratch-b10b,
+а не внутри неё. Оба дерева остаются внутри собственной копии.
+bash fixtures/_krasnye_043.sh → rc 0, итог: 26 файлов, провалов 0.
+
+Приёмка честного снимка OBJECT + Б-10б в этой раздельной раскладке:
+npm run check:rezhim-996-family-selftest → rc 0,
+996: examined=111 mutants=0 mismatches=0.
+bash fixtures/workshop_project/rezhim_996/probe.sh --model → rc 0,
+996: examined=111 mutants=0 mismatches=0.
+bash fixtures/workshop_project/rezhim_996/probe.sh --matrix → rc 0,
+996: examined=111 mutants=76 mismatches=0.
+Независимый подсчёт строк mutation в выводе: предъявлений 149,
+CAUGHT 149, LIVE 0; skip-precision — 2, broken-profile-fallback — 3.
+Честные freeze-precision-preserved и precritic-precision-preserved:
+rc 0 в продуктовом прогоне и модели; обходы обеих дверей — rc 1.
