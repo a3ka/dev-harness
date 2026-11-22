@@ -32,13 +32,24 @@ battery_delimiter_collision() {
   w="$(mktemp -d "${TMPDIR:-/tmp}/battery_pr_dc.XXXXXX")"
   layer_make "$w/layer"
   repo_make "$w/repo" '"injected":"v"'
-  # Получаем первое попавшееся сообщение об отказе (P4) и сверяем, что оно
-  # содержит СЫРОЙ ПУТЬ через точки. У резолвера путь «injected».
-  local out rc msg
-  out="$(HARNESS_PROJECT_LAYER_ROOT="$w/layer" bash "$PR_SUBJ" --repo "$w/repo" 2>&1)"; rc=$?
+  # М-0 (контракт 184; ADR владельца 2026-11-21-plan-fable п.3 и
+  # 2026-11-21-plan-v9 п.6): неизвестный ключ — ПРЕДУПРЕЖДЕНИЕ и rc 0, а не
+  # отказ. Класс суда прежний — путь ключа назван ЦЕЛИКОМ (точками), не
+  # усечённым по первому разделителю. Литерал текущий (057 Ч-3):
+  # «неизвестный ключ репо-слой: injected»; прежний «repo:» был устаревшим и
+  # не срабатывал (grep не был последней командой функции — замечание критика
+  # к 057, contracts-057-v1.md:163).
+  # КАНАЛ ПРЕДУПРЕЖДЕНИЯ (Б-1, контракт 184): предупреждение читается из
+  # ОТДЕЛЬНОГО stderr, stdout — отдельно. При слитых каналах (`2>&1`) дверь
+  # не пишет строку предупреждения в общий поток (иначе JSON ломается), и
+  # grep по слитому потоку её не находит. Канал stderr — файл, stdout — труба:
+  # это РАЗНЫЕ объекты, дверь пишет предупреждение в stderr как прежде.
+  local out rc warn
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$w/layer" bash "$PR_SUBJ" --repo "$w/repo" 2>"$w/warn")"; rc=$?
+  warn="$(cat "$w/warn")"
   rm -rf "$w"
-  if [ "$rc" -ne 1 ]; then return 1; fi
-  printf '%s\n' "$out" | grep -Fq 'неизвестный ключ repo: injected'
+  [ "$rc" -eq 0 ] || return 1
+  printf '%s\n' "$warn" | grep -Fq 'неизвестный ключ репо-слой: injected' || return 1
 
   # PACKS-вариант (контракт 055, И-10): элемент packs с байтами `:` или `"`
   # (те, что грамматика JSON использует как разделители) — отказ должен
@@ -56,18 +67,21 @@ battery_regex_injection() {
   # Regex-инъекция: путь «unknown-key» (с `-`) — имя ключа с байтом, который
   # похож на разделитель; jq не интерпретирует `-` как regex-метасимвол, имя
   # ходит литерально. Подделка интерпретации привела бы к «не нашёл ключ».
-  local w out rc
+  local w out rc warn
   w="$(mktemp -d "${TMPDIR:-/tmp}/battery_pr_ri.XXXXXX")"
   layer_make "$w/layer"
   repo_make "$w/repo" '"unknown-key":"y"'
   set +e
-  out="$(HARNESS_PROJECT_LAYER_ROOT="$w/layer" bash "$PR_SUBJ" --repo "$w/repo" 2>&1)"
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$w/layer" bash "$PR_SUBJ" --repo "$w/repo" 2>"$w/warn")"
   rc=$?
   set -e
+  warn="$(cat "$w/warn")"
   rm -rf "$w"
-  if [ "$rc" -ne 1 ]; then return 1; fi
-  # Получено P4 — название ключа в причине ПОЛНОЕ (с дефисом), не режется
-  printf '%s' "$out" | grep -Fq 'unknown-key'
+  # М-0 (контракт 184): неизвестный ключ — ПРЕДУПРЕЖДЕНИЕ и rc 0. Класс
+  # прежний: имя ключа в сообщении ПОЛНОЕ (с дефисом), не режется и не
+  # трактуется как regex-метасимвол.
+  [ "$rc" -eq 0 ] || return 1
+  printf '%s' "$warn" | grep -Fq 'неизвестный ключ репо-слой: unknown-key' || return 1
 
   # PACKS-вариант (контракт 055, И-10): элемент-метасимвол `[` (квадратная
   # скобка — типичный regex-метасимвол) отвергается классом
