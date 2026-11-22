@@ -11,38 +11,88 @@
 # Класс silent-drop несёт ещё две клетки поведения двери (г, д): первый critic
 # НОВОГО предмета (ни одного frozen/contracts/<NNN>/* у владельца) не
 # теряется молча — класс риска берётся из ДЕРЕВА OBJECT; и негатив к нему —
-# предмет с ОДНИМ живым frozen-тегом и битым pin отклоняется как прежде
-# (bootstrap применяется ТОЛЬКО при нуле frozen-тегов).
+# предмет с ОДНИМ живым frozen-тегом и битым pin: класс не определён (bootstrap
+# применяется ТОЛЬКО при нуле frozen-тегов) → ПРЕДУПРЕЖДЕНИЕ с записью.
 # Сверх того — ещё три клетки различения (е, ж, з): класс нового предмета
 # берётся из ДЕРЕВА OBJECT, поэтому ОТСУТСТВИЕ файла контракта (net_stroki) и
-# SYMLINK вместо него (neodnoznachno) отказом с названной причиной, а не
-# «обычным» по умолчанию; и ошибка чтения списка frozen-тегов (git
-# for-each-ref → rc 127) — fail-closed («закреплённый frozen недоступен»), а
-# не bootstrap (ошибка инструмента ≠ пустой список тегов).
-# И ещё четыре клетки повтора суда (и, к, л, м) — по слову владельца
-# 21.11 00:55: строка задания судьи `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: <NNN> <роль>
-# <OBJECT>` разрешает ОДИН повторный круг той же роли на том же OBJECT.
-# (и) повтор без строки — отказ OBJECT_UZHE_SUZHEN (как прежде); (к) тот же
-# повтор со строкой — пропуск (rc 0); (л) третий круг с той же строкой —
-# отказ (разрешение одно, повтор уже использован); (м) чужая строка (чужой
-# OBJECT, чужая роль, чужой предмет, строка вне формата) — отказ.
+# SYMLINK вместо него (neodnoznachno) — класс НЕ ОПРЕДЕЛЁН, а по слову
+# владельца 21.11 12:06 это ПРЕДУПРЕЖДЕНИЕ с записью (предмет считается
+# рисковым), а не «обычный» по умолчанию; и ошибка чтения списка frozen-тегов
+# (git for-each-ref → rc 127) — ошибка инструмента ≠ пустой список тегов:
+# класс не определён → предупреждение, а не bootstrap.
+# И ещё четыре клетки повтора суда (и, к, л, м): повторный круг той же роли на
+# том же OBJECT — ПРЕДУПРЕЖДЕНИЕ с записью (номер повтора в учёте), сверку
+# ведёт ревьюер. (и) повтор без строки — предупреждение; (к) тот же повтор со
+# СТАРОЙ частной строкой `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР:` — то же предупреждение и
+# НИКАКОГО применения разрешения (частная строка убрана, её заменила общая);
+# (л) третий круг — то же предупреждение; (м) чужая частная строка (чужой
+# OBJECT, чужая роль, чужой предмет, строка вне формата) — то же предупреждение.
 # И ещё две клетки того же слова — про ПОВТОР ИМЕНИ держателя (н, о): имя
-# держателя не идентификатор круга. (н) состоявшийся первый круг и разрешённый
-# второй — под ТЕМ ЖЕ именем: после сдачи второго третий круг с той же строкой
-# — отказ OBJECT_UZHE_SUZHEN, новой START-записи нет. (о) тот же повтор, но его
-# RELEASE — технический обрыв `obryv_bez_verdikta`: обрыв не стирает состоявшийся
-# первый круг и не расходует разрешение — следующий запрос БЕЗ строки отказ
-# OBJECT_UZHE_SUZHEN (новая START-запись не появилась), запрос СО строкой —
-# пропуск (обрыв круг не тратит).
+# держателя не идентификатор круга. (н) состоявшийся первый круг и второй —
+# под ТЕМ ЖЕ именем: третий круг — то же предупреждение, круг записывается.
+# (о) тот же повтор, но его RELEASE — технический обрыв `obryv_bez_verdikta`:
+# обрыв не стирает состоявшийся первый круг — следующий запрос то же
+# предупреждение (круг считается по учёту).
 # И ещё три клетки РАСКЛАДКИ реестра контрактов у владельца (п, р, с) —
 # проектный реестр: у проекта он лежит в .harness/registry/contracts.tsv (в
 # registry/ такого файла нет). (п) реестр ТОЛЬКО в проектном пути, у предмета
 # аннотированный frozen-тег и строка реестра — судья ДОПУСКАЕТСЯ дверью
-# (rc 0 PUSCHEM); (р) реестра нет нигде — отказ KLASS_RISKA_NET «закреплённый
-# frozen недоступен»; (с) основной реестр есть, строки предмета в нём нет, а в
-# проектном пути строка есть — отказ: запасной путь основной НЕ подменяет.
+# (rc 0 PUSCHEM); (р) реестра нет нигде — класс не определён → ПРЕДУПРЕЖДЕНИЕ
+# с записью; (с) основной реестр есть, строки предмета в нём нет, а в
+# проектном пути строка есть — то же предупреждение: запасной путь основной
+# НЕ подменяет.
+# И ещё четыре клетки ОБЩЕЙ СТРОКИ ВЛАДЕЛЬЦА (а, б, в, г) — слово владельца
+# 21.11 12:06: `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК: <NNN> <КОД> [<OBJECT 40hex>]`
+# пропускает ровно ОДИН отказ для предмета (и OBJECT, если указан): (а) пропуск
+# один раз (PAUZA) с записью применения; (б) повтор той же строки — отказ, учёт
+# не меняется; (в) чужие предмет/код/OBJECT — отказ; (г) отказ, который строка
+# не отменяет (изоляция рабочего), — отказ.
 #
-# Мир — в mktemp; сеть и omp не нужны; git/jq/bash обязательны.
+# И ещё четыре клетки СОПОСТАВЛЕНИЯ кругов и реестра при передаче (р1, р2, р3,
+# р4) — перенос с ветки #1173 (ремонт теста по FAIL Adv140V9) на дверь
+# УПРОЩЕНИЯ ЗАМКА (A2). Источник клеток: f728e83553 (ветка
+# wip/140/implementer-k01); здесь они адаптированы под A2.
+# Соотнесение START↔RELEASE: RELEASE закрывает ПОСЛЕДНИЙ открытый START СВОЕГО
+# holder'а в том же repoId/subjectId; фильтр по роли/OBJECT/классу — ПОСЛЕ
+# соотнесения. (р1) промежуточный START того же держателя (другая роль/OBJECT)
+# и обрыв того же держателя: обрыв закрывает ПРОМЕЖУТОЧНЫЙ круг, первый круг
+# судьи не стёрт → дверь видит повтор круга; (р2) RELEASE ЧУЖОГО держателя не
+# закрывает открытый START круга судьи → тот же повтор; (р3) промежуточный
+# START ДРУГОГО класса/роли/OBJECT между кругом и обрывом: фильтр применяется
+# ПОСЛЕ соотнесения → тот же повтор; (р4) D39 с ПРОЕКТНЫМ реестром (строка
+# предмета только в .harness/registry/contracts.tsv): проверяемая передача
+# ПРИНЯТА (rc 0 PEREDANO).
+#
+# АДАПТАЦИЯ ПОД СЕМАНТИКУ A2 (слово владельца 21.11 12:06): в A2 отказ
+# OBJECT_UZHE_SUZHEN — не отказ, а ПРЕДУПРЕЖДЕНИЕ с записью в учёт
+# (rc 0, «ПРЕДУПРЕЖДЕНИЕ: OBJECT_UZHE_SUZHEN: …», запись {"t":"warn",…}).
+# Поэтому клетки (р1)–(р3) судят НЕ отказ, а РАЗЛИЧИЕ честной и мутантной
+# двери по соотнесению START↔RELEASE, и различие в A2 остаётся различающим:
+# мутант сопоставления считает круг НУЛЕВЫМ → предупреждения о повторе нет
+# вовсе и записи warn нет; честная дверь пишет и предупреждение, и запись.
+# Сверка счётчика — номер повтора в записи warn (2 = первый круг жив): при
+# «съеденном» первом круге номер был бы 1.
+#
+# НЕРАЗДЕЛИМОСТЬ МУТАНТОВ (наблюдение implementer Impl140K01, подтверждено
+# прогоном; Н-39: привязка стабов — по коду, не прозой): мутанты `first`
+# (RELEASE закрывает ПЕРВЫЙ открытый START своего holder'а) и `preselect`
+# (START'ы отбираются по klass/rol/object ДО сопоставления) НЕ разделяются
+# НИКАКИМ миром. Доказательство на входе: оба мутанта закрывают ОДНУ И ТУ ЖЕ
+# запись тогда и только тогда, когда открытый START круга судьи есть и он —
+# первый из открытых START'ов своего holder'а, переживших отбор `preselect`
+# (у круга судьи klass=sudja, rol=роль судьи, object=OBJECT круга). В (р1) у
+# holder'а ровно два открытых START'а — круг судьи и промежуточный
+# (sudja/adversary/чуждой OBJECT): `preselect` промежуточный отбрасывает (роль
+# и OBJECT чужие), `first` берёт первый из оставшихся — круг судьи. Оба
+# закрывают круг судьи → счёт кругов и наблюдаемая разница совпадают.
+# Измерение: оба мутанта краснят ОДНИ И ТЕ ЖЕ клетки — (р1) и (р3), и ни
+# одной другой; (р2) обоих проходит. Различает их обоих клетка (р1) (и (р3));
+# чистый разликатель для `foreignholder` (RELEASE закрывает последний открытый
+# START вообще, без holder'а) — клетка (р2): там закрывается чужой holder.
+#
+# Мир — в mktemp; сеть и omp не нужны; git/jq/bash обязательны, а для клетки
+# (р4) — python3 с jsonschema (иначе дверь отвечает NOT_IMPLEMENTED и клетка
+# НЕ измерена: это не «класс закрыт честно», и профиль об этом сообщает).
 ZP_REPO="$(cd "$HERE/../.." && pwd -P)"
 ZP_SUBJ="$ZP_REPO/scripts/zamok_predmeta.sh"
 ZP_T=''
@@ -66,6 +116,10 @@ zp_world() {  # мир строится один раз на прогон про
   fi
   rm -rf "$ZP_T/sost" "$ZP_T/zhurnaly"
   mkdir -p "$ZP_T/sost" "$ZP_T/zhurnaly"
+  # Профиль проекта — состояние КЛЕТКИ, а не мира: клетка, которой путь реестра
+  # нужен, объявляет его сама (zp_profil_reestr). Иначе объявление утекает в
+  # следующие клетки и меняет их путь реестра.
+  rm -rf "$ZP_T/repo/harness.project.json" "$ZP_T/repo/.profile" || return 1
   return 0
 }
 
@@ -188,6 +242,118 @@ zp_startov() {  # <NNN> <holder>
       "$ZP_T/sost/uchet.jsonl" 2>/dev/null | wc -l
 }
 
+# Предупреждение двери (слово владельца 21.11 12:06): отказ только за реальный
+# вред, остальное — строка stderr «ПРЕДУПРЕЖДЕНИЕ: <КОД>: <детали>» и запись
+# {"t":"warn",…} в учёт. Клетки ниже судят ОБА эффекта.
+zp_est_predupr() {  # <КОД> <метка>
+  if ! printf '%s' "$ZP_OUT" | grep -Fq "ПРЕДУПРЕЖДЕНИЕ: $1:"; then
+    printf 'zamok_predmeta: %s: нет строки «ПРЕДУПРЕЖДЕНИЕ: %s:»; вывод: %s\n' \
+        "$2" "$1" "$ZP_OUT" >&2
+    return 1
+  fi
+  return 0
+}
+
+# Запись warn в учёте: {"t":"warn","kod":…,"subjectId":…}.
+zp_est_warn() {  # <КОД> <предмет> <метка>
+  [ -f "$ZP_T/sost/uchet.jsonl" ] || {
+    printf 'zamok_predmeta: %s: нет учёта — нет записи warn %s/%s\n' "$3" "$2" "$1" >&2
+    return 1
+  }
+  if ! jq -se --arg k "$1" --arg s "$2" \
+      'any(.[]; .t == "warn" and .kod == $k and .subjectId == $s)' \
+      "$ZP_T/sost/uchet.jsonl" >/dev/null 2>&1; then
+    printf 'zamok_predmeta: %s: нет записи warn %s/%s\n' "$3" "$2" "$1" >&2
+    return 1
+  fi
+  return 0
+}
+
+# Запись override в учёте: применение общей строки владельца.
+zp_est_override() {  # <КОД> <предмет> <метка>
+  [ -f "$ZP_T/sost/uchet.jsonl" ] || {
+    printf 'zamok_predmeta: %s: нет учёта — нет записи override %s/%s\n' "$3" "$2" "$1" >&2
+    return 1
+  }
+  if ! jq -se --arg k "$1" --arg s "$2" \
+      'any(.[]; .t == "override" and .kod == $k and .subjectId == $s)' \
+      "$ZP_T/sost/uchet.jsonl" >/dev/null 2>&1; then
+    printf 'zamok_predmeta: %s: нет записи override %s/%s\n' "$3" "$2" "$1" >&2
+    return 1
+  fi
+  return 0
+}
+
+# Число записей override по коду и предмету — контроль одноразовости строки.
+zp_override_schet() {  # <КОД> <предмет>
+  [ -f "$ZP_T/sost/uchet.jsonl" ] || { printf '0'; return 0; }
+  jq -se --arg k "$1" --arg s "$2" \
+      '[.[] | select(.t == "override" and .kod == $k and .subjectId == $s)] | length' \
+      "$ZP_T/sost/uchet.jsonl" 2>/dev/null | tail -n 1
+}
+
+# Номер повтора в записи warn — сверка счётчика кругов суда: «круг считается
+# по учёту», и номер повтора в записи — наблюдаемый след этого счёта.
+zp_est_povtor() {  # <КОД> <предмет> <ожидаемый номер> <метка>
+  [ -f "$ZP_T/sost/uchet.jsonl" ] || {
+    printf 'zamok_predmeta: %s: нет учёта — нет номера повтора %s/%s\n' "$4" "$2" "$1" >&2
+    return 1
+  }
+  local got
+  got="$(jq -sr --arg k "$1" --arg s "$2" \
+      '[.[] | select(.t == "warn" and .kod == $k and .subjectId == $s) | .povtor] | last // empty' \
+      "$ZP_T/sost/uchet.jsonl" 2>/dev/null | tail -n 1)"
+  if [ "$got" != "$3" ]; then
+    printf 'zamok_predmeta: %s: номер повтора %s ≠ %s (запись warn %s/%s)\n' \
+        "$4" "${got:-нет}" "$3" "$2" "$1" >&2
+    return 1
+  fi
+  return 0
+}
+
+# Отсутствие предупреждения двери: в A2 отказ — только за реальный вред,
+# остальное — предупреждение с записью, поэтому «предупреждения НЕТ» —
+# самостоятельное наблюдаемое различие (клетка (р4): честная дверь прочитала
+# ПРОЕКТНЫЙ реестр — предупреждения о неудостоверенной frozen-версии нет).
+zp_net_predupr() {  # <КОД> <метка>
+  if printf '%s' "$ZP_OUT" | grep -Fq "ПРЕДУПРЕЖДЕНИЕ: $1:"; then
+    printf 'zamok_predmeta: %s: неожиданное «ПРЕДУПРЕЖДЕНИЕ: %s:»; вывод: %s\n' \
+        "$2" "$1" "$ZP_OUT" >&2
+    return 1
+  fi
+  return 0
+}
+
+# Отсутствие записи warn по коду и предмету — второе плечо того же различия.
+zp_net_warn() {  # <КОД> <предмет> <метка>
+  [ -f "$ZP_T/sost/uchet.jsonl" ] || return 0
+  if jq -se --arg k "$1" --arg s "$2" \
+      'any(.[]; .t == "warn" and .kod == $k and .subjectId == $s)' \
+      "$ZP_T/sost/uchet.jsonl" >/dev/null 2>&1; then
+    printf 'zamok_predmeta: %s: неожиданная запись warn %s/%s\n' "$3" "$2" "$1" >&2
+    return 1
+  fi
+  return 0
+}
+
+# START-запись произвольного класса/роли/OBJECT — промежуточный круг в
+# последовательности START держателя (формат учёта прежний, как пишет дверь).
+zp_start_zapis() {  # <NNN> <holder> <klass> <rol> <object> <worktree> <branch>
+  jq -nc --arg s "$1" --arg h "$2" --arg k "$3" --arg ro "$4" --arg o "$5" \
+      --arg w "$6" --arg b "$7" --arg at '2026-11-21T00:00:00Z' \
+      '{t:"START",repoId:"dev-harness",subjectId:$s,group:"harness",holder:$h,
+        klass:$k,rol:$ro,object:$o,worktree:$w,branch:$b,at:$at}' \
+      >> "$ZP_T/sost/uchet.jsonl"
+}
+
+# RELEASE-запись держателя: обрыв круга (формат учёта прежний, как пишет дверь).
+zp_release_zapis() {  # <NNN> <holder> <prichina>
+  jq -nc --arg t RELEASE --arg r dev-harness --arg s "$1" --arg h "$2" \
+      --arg p "$3" --arg at '2026-11-21T00:00:00Z' \
+      '{t:$t,repoId:$r,subjectId:$s,holder:$h,prichina:$p,at:$at}' \
+      >> "$ZP_T/sost/uchet.jsonl"
+}
+
 # Мир повтора суда: предмет с кандидатом (контракт в дереве OBJECT), автор
 # сдал, ПЕРВЫЙ critic сдал — круг суда роли на этом OBJECT состоялся.
 # Возвращает ZP_WT/ZP_BR/ZP_SHA кандидата.
@@ -224,11 +390,11 @@ zp_git_obvertka() {  # → каталог с обёрткой (в PATH клад�
 }
 
 # ── раскладка реестра контрактов у владельца (клетки п, р, с) ──────────────
-# Станция держит реестр контрактов в registry/contracts.tsv, ПРОЕКТ — в
-# .harness/registry/contracts.tsv (та же стенка, что каталог контрактов и
-# паузы проекта: измерено 02.11/04.11). Клетки судят РАСКЛАДКУ, а не текст:
-# пина предмета нет нигде / пин только в проектном пути / основной путь
-# есть, а строки предмета в нём нет.
+# Путь реестра — ДАННЫЕ ПРОФИЛЯ (workflowPaths.registry); без профиля —
+# реестр репозитория (registry/). Клетки судят РАСКЛАДКУ, а не текст:
+# пина предмета нет нигде / пин только в объявленном профилем пути /
+# объявленный путь есть, а строки предмета в нём нет (в необъявленном
+# каталоге строка есть — она реестром НЕ является).
 
 # Убрать оба пути реестра у владельца (раскладка задаётся клеткой явно).
 zp_reestr_snyat() {
@@ -237,6 +403,25 @@ zp_reestr_snyat() {
   if ! git -C "$ZP_T/repo" diff --cached --quiet; then
     git -C "$ZP_T/repo" -c user.name=b -c user.email=b@t -c commit.gpgsign=false \
         commit -q -m 'reestr snyat' || return 1
+  fi
+  return 0
+}
+
+# Профиль проекта, объявляющий путь реестра (workflowPaths.registry): путь
+# реестра — данные профиля, а не угадывание по дереву. Слой проекта —
+# .profile/project.json (не в каталоге реестра: клетка реестр снимает).
+zp_profil_reestr() {  # <репозиторий> <путь реестра относительно корня>
+  local repo="$1" reg="$2"
+  mkdir -p "$repo/.profile" "$repo/$reg" "$repo/contracts" "$repo/verdicts" \
+           "$repo/fixtures" || return 1
+  printf '%s\n' '{"schemaVersion":1,"repoId":"dev-harness","language":"bash","projectLayer":{"version":"1","profilePath":".profile/project.json"},"workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"'"$reg"'","fixtures":"fixtures"}}' \
+      > "$repo/harness.project.json" || return 1
+  printf '%s\n' '{"schemaVersion":1,"version":"1","projectId":"toy","workspaceId":"toy","defaults":{}}' \
+      > "$repo/.profile/project.json" || return 1
+  git -C "$repo" add -A || return 1
+  if ! git -C "$repo" diff --cached --quiet; then
+    git -C "$repo" -c user.name=b -c user.email=b@t -c commit.gpgsign=false \
+        commit -q -m 'profil proekta' || return 1
   fi
   return 0
 }
@@ -358,8 +543,10 @@ battery_silent_drop() {
   zp_expect 0 - 'critic нового предмета без frozen' || return 1
   # (д) Негатив к (г): bootstrap применяется ТОЛЬКО при НУЛЕ frozen-тегов.
   #     Предмет с ОДНИМ живым frozen-тегом и битым pin (строка реестра указывает
-  #     не на frozen-тег) — отказ как прежде: KLASS_RISKA_NET. Иначе bootstrap
-  #     превратился бы в безусловный допуск мимо пина владельца.
+  #     не на frozen-тег) — класс НЕ ОПРЕДЕЛЁН: по слову владельца 21.11 12:06
+  #     это ПРЕДУПРЕЖДЕНИЕ с записью (предмет считается рисковым), а не отказ.
+  #     Отличие от (г) — в наличии предупреждения: там класс читается из ДЕРЕВА
+  #     OBJECT (bootstrap), здесь frozen владельца недоступен.
   zp_kandidat 204 || return 1
   zp_avtor_sdal 204 Avtor204 "$ZP_WT" "$ZP_BR"
   git -C "$ZP_T/repo" -c user.name=b -c user.email=b@t -c tag.gpgsign=false \
@@ -374,7 +561,9 @@ battery_silent_drop() {
       commit -q -m 'pin 204'
   zp_event "$ZP_T/e5.json" critic Critic204 'SUBJECT=204' "OBJECT=$ZP_SHA"
   zp_sudit "$ZP_T/e5.json"
-  zp_expect 1 KLASS_RISKA_NET 'предмет с frozen-тегом и битым pin' || return 1
+  zp_expect 0 - 'предмет с frozen-тегом и битым pin' || return 1
+  zp_est_predupr KLASS_RISKA_NET 'предмет с frozen-тегом и битым pin' || return 1
+  zp_est_warn KLASS_RISKA_NET 204 'предмет с frozen-тегом и битым pin' || return 1
   # (е)(ж)(з) — три клетки различения вокруг класса риска и ошибки инструмента.
   # Каждая идёт ОТДЕЛЬНО и печатает свой rc: иначе первый пробитый скрыл бы
   # остальные (мутант двери ломает их по-разному), и профиль не показал бы,
@@ -402,6 +591,14 @@ battery_silent_drop() {
   zp_kletka_reestr_proekt || kletka_probit=1
   zp_kletka_reestr_net || kletka_probit=1
   zp_kletka_reestr_osnovnoy || kletka_probit=1
+  zp_kletka_zamok_stroka_raz || kletka_probit=1
+  zp_kletka_zamok_stroka_povtor || kletka_probit=1
+  zp_kletka_zamok_stroka_chuzhaya || kletka_probit=1
+  zp_kletka_zamok_stroka_neotmenyaemaya || kletka_probit=1
+  zp_kletka_release_poslednij_start || kletka_probit=1
+  zp_kletka_release_chuzhoy_holder || kletka_probit=1
+  zp_kletka_release_filtr_posle_sootneseniya || kletka_probit=1
+  zp_kletka_d39_proektny_reestr || kletka_probit=1
   [ "$kletka_probit" -eq 0 ] || return 1
   return 0
 }
@@ -412,10 +609,10 @@ zp_kletka() {  # <имя-клетки> <rc>
 }
 
 # (е) Первый critic НОВОГО предмета, у которого OBJECT БЕЗ файла контракта.
-#     Класс риска берётся из ДЕРЕВА OBJECT: файла нет — класс НЕ ОПРЕДЕЛЁН, дверь
-#     обязана отказать (KLASS_RISKA_NET, причина net_stroki), а не считать
-#     предмет «обычным». Дверь, подставляющая класс константой, такой предмет
-#     пропускает — клетка различает.
+#     Класс риска берётся из ДЕРЕВА OBJECT: файла нет — класс НЕ ОПРЕДЕЛЁН. По
+#     слову владельца 21.11 12:06 это ПРЕДУПРЕЖДЕНИЕ с записью (предмет
+#     считается рисковым), а не отказ; дверь, подставляющая класс константой,
+#     такой предмет пропускает БЕЗ предупреждения — клетка различает.
 zp_kletka_net_stroki() {
   zp_world || return 1
   zp_kandidat 205 || return 1
@@ -427,13 +624,14 @@ zp_kletka_net_stroki() {
   zp_event "$ZP_T/e6.json" critic Critic205 'SUBJECT=205' "OBJECT=$ZP_SHA"
   zp_sudit "$ZP_T/e6.json"
   zp_kletka '(е) critic нового предмета: OBJECT без файла контракта' "$ZP_RC"
-  zp_expect_prichina 1 KLASS_RISKA_NET '(net_stroki)' \
-      '(е) critic нового предмета: OBJECT без файла контракта' || return 1
+  zp_expect 0 - '(е) critic нового предмета: OBJECT без файла контракта' || return 1
+  zp_est_predupr KLASS_RISKA_NET '(е) critic нового предмета: OBJECT без файла контракта' || return 1
+  zp_est_warn KLASS_RISKA_NET 205 '(е) critic нового предмета: OBJECT без файла контракта' || return 1
   return 0
 }
 
 # (ж) Тот же critic, но файл контракта в OBJECT — SYMLINK: запись не читается
-#     как канон → класс не определён → отказ KLASS_RISKA_NET (neodnoznachno).
+#     как канон → класс не определён → ПРЕДУПРЕЖДЕНИЕ с записью.
 zp_kletka_symlink() {
   zp_world || return 1
   zp_kandidat 206 || return 1
@@ -447,16 +645,18 @@ zp_kletka_symlink() {
   zp_event "$ZP_T/e7.json" critic Critic206 'SUBJECT=206' "OBJECT=$ZP_SHA"
   zp_sudit "$ZP_T/e7.json"
   zp_kletka '(ж) critic нового предмета: symlink вместо файла контракта' "$ZP_RC"
-  zp_expect_prichina 1 KLASS_RISKA_NET '(neodnoznachno)' \
-      '(ж) critic нового предмета: symlink вместо файла контракта' || return 1
+  zp_expect 0 - '(ж) critic нового предмета: symlink вместо файла контракта' || return 1
+  zp_est_predupr KLASS_RISKA_NET '(ж) critic нового предмета: symlink вместо файла контракта' || return 1
+  zp_est_warn KLASS_RISKA_NET 206 '(ж) critic нового предмета: symlink вместо файла контракта' || return 1
   return 0
 }
 
-# (з) Первый critic НОВОГО предмета, когда git НЕ ЧИТАЕТ перечень frozen-тегов
+# (з) Первый critic нового предмета, когда git НЕ ЧИТАЕТ перечень frozen-тегов
 #     (for-each-ref → rc 127): ошибка инструмента ≠ пустой перечень. Дверь
-#     обязана закрыться (KLASS_RISKA_NET, «закреплённый frozen недоступен»), а
-#     не считать перечень пустым и пойти в bootstrap. Дверь, трактующая ошибку
-#     как пустой перечень, такого critic пропускает — клетка различает.
+#     обязана ЗАКРЫТЬСЯ (KLASS_RISKA_NET: класс не определён — предупреждение
+#     с записью), а не считать перечень пустым и пойти в bootstrap: дверь,
+#     трактующая ошибку как пустой перечень, читает класс из ДЕРЕВА OBJECT и
+#     обходится БЕЗ предупреждения — клетка различает.
 zp_kletka_failref() {
   local old_path="$PATH" wrap
   zp_world || return 1
@@ -468,40 +668,53 @@ zp_kletka_failref() {
   zp_sudit "$ZP_T/e8.json"
   PATH="$old_path"; export PATH
   zp_kletka '(з) critic нового предмета: git for-each-ref недоступен' "$ZP_RC"
-  zp_expect_prichina 1 KLASS_RISKA_NET 'закреплённый frozen недоступен' \
-      '(з) critic нового предмета: git for-each-ref недоступен' || return 1
+  zp_expect 0 - '(з) critic нового предмета: git for-each-ref недоступен' || return 1
+  zp_est_predupr KLASS_RISKA_NET '(з) critic нового предмета: git for-each-ref недоступен' || return 1
+  zp_est_warn KLASS_RISKA_NET 207 '(з) critic нового предмета: git for-each-ref недоступен' || return 1
   return 0
 }
 
 # (и) Второй круг ТОЙ ЖЕ роли на ТОМ ЖЕ OBJECT БЕЗ строки разрешения —
-#     отказ OBJECT_UZHE_SUZHEN (как прежде): дверь не теряет правило молча.
+#     ПРЕДУПРЕЖДЕНИЕ с записью (слово владельца 21.11 12:06): повтор судьи
+#     той же роли на том же OBJECT — не отказ, а факт для ревьюера (номер
+#     повтора пишется в запись).
 zp_kletka_povtor_bez_stroki() {
   zp_mir_povtora 208 || return 1
   zp_event "$ZP_T/e2.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA"
   zp_sudit "$ZP_T/e2.json"
   zp_kletka '(и) повтор той же роли на том же OBJECT без строки разрешения' "$ZP_RC"
-  zp_expect 1 OBJECT_UZHE_SUZHEN \
+  zp_expect 0 - \
+      '(и) повтор той же роли на том же OBJECT без строки разрешения' || return 1
+  zp_est_predupr OBJECT_UZHE_SUZHEN \
+      '(и) повтор той же роли на том же OBJECT без строки разрешения' || return 1
+  zp_est_warn OBJECT_UZHE_SUZHEN 208 \
       '(и) повтор той же роли на том же OBJECT без строки разрешения' || return 1
   return 0
 }
 
-# (к) Тот же повтор СО строкой разрешения владельца
-#     (`РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: <NNN> <роль> <OBJECT>` с теми же
-#     предметом/ролью/OBJECT) — пропускается (rc 0): слово владельца
-#     21.11 00:55 разрешает ОДИН такой повтор.
+# (к) Тот же повтор СО ЧАСТНОЙ строкой `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР:` — частная
+#     строка УБРАНА (её заменила общая `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК:`, слово
+#     владельца 21.11 12:06): повтор — то же предупреждение, и никакого
+#     применения разрешения в учёте.
 zp_kletka_povtor_so_stroka() {
   zp_mir_povtora 208 || return 1
   zp_event "$ZP_T/e2.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA" \
       "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 208 critic $ZP_SHA"
   zp_sudit "$ZP_T/e2.json"
-  zp_kletka '(к) повтор той же роли со строкой разрешения' "$ZP_RC"
-  zp_expect 0 - '(к) повтор той же роли со строкой разрешения' || return 1
+  zp_kletka '(к) повтор той же роли со частной строкой (не действует)' "$ZP_RC"
+  zp_expect 0 - '(к) повтор той же роли со частной строкой (не действует)' || return 1
+  zp_est_predupr OBJECT_UZHE_SUZHEN \
+      '(к) повтор той же роли со частной строкой (не действует)' || return 1
+  if [ "$(zp_override_schet OBJECT_UZHE_SUZHEN 208)" != '0' ]; then
+    printf 'zamok_predmeta: (к) частная строка дала применение разрешения в учёте\n' >&2
+    return 1
+  fi
   return 0
 }
 
-# (л) ТРЕТИЙ круг той же роли на том же OBJECT с той же строкой разрешения —
-#     отказ OBJECT_UZHE_SUZHEN: разрешение владельца одно, повтор уже
-#     использован (кругов суда роли на этом OBJECT — два).
+# (л) ТРЕТИЙ круг той же роли на том же OBJECT — то же предупреждение: кругов
+#     суда роли на этом OBJECT уже два, номер повтора растёт (слово владельца
+#     21.11 12:06: повтор — факт для ревьюера, а не отказ).
 zp_kletka_povtor_tretiy() {
   zp_mir_povtora 208 || return 1
   zp_event "$ZP_T/e2.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA" \
@@ -515,52 +728,59 @@ zp_kletka_povtor_tretiy() {
   zp_event "$ZP_T/e3.json" critic Critic208c 'SUBJECT=208' "OBJECT=$ZP_SHA" \
       "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 208 critic $ZP_SHA"
   zp_sudit "$ZP_T/e3.json"
-  zp_kletka '(л) третий круг той же роли с той же строкой разрешения' "$ZP_RC"
-  zp_expect 1 OBJECT_UZHE_SUZHEN \
-      '(л) третий круг той же роли с той же строкой разрешения' || return 1
+  zp_kletka '(л) третий круг той же роли той же строкой' "$ZP_RC"
+  zp_expect 0 - '(л) третий круг той же роли той же строкой' || return 1
+  zp_est_predupr OBJECT_UZHE_SUZHEN '(л) третий круг той же роли той же строкой' || return 1
   return 0
 }
 
-# (м) Строка разрешения с ЧУЖИМ предметом/ролью/OBJECT (и вне формата) —
-#     отказ OBJECT_UZHE_SUZHEN: адресное разрешение адресовано другому
-#     повтору, чужое значение разрешением не является (молчаливого пропуска
-#     нет). Мир — с ОДНИМ кругом суда: иначе отказ был бы и без строки.
+# (м) Частная строка с ЧУЖИМ предметом/ролью/OBJECT (и вне формата) — тем
+#     более не действует: повтор — предупреждение, применения в учёте нет.
 zp_kletka_povtor_chuzhaya() {
   zp_mir_povtora 208 || return 1
   zp_event "$ZP_T/e2.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA" \
       'РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 208 critic 0000000000000000000000000000000000000000'
   zp_sudit "$ZP_T/e2.json"
-  zp_kletka '(м) строка разрешения с чужим OBJECT' "$ZP_RC"
-  zp_expect 1 OBJECT_UZHE_SUZHEN '(м) строка разрешения с чужим OBJECT' || return 1
+  zp_kletka '(м) частная строка с чужим OBJECT' "$ZP_RC"
+  zp_expect 0 - '(м) частная строка с чужим OBJECT' || return 1
+  zp_est_predupr OBJECT_UZHE_SUZHEN '(м) частная строка с чужим OBJECT' || return 1
+  # Судья сдал (журнал с yield) — иначе следующий запрос упёрся бы в живой
+  # замок прежнего судьи, а не в правило строки.
+  zp_sdal Critic208b
   zp_event "$ZP_T/e3.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA" \
       "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 208 adversary $ZP_SHA"
   zp_sudit "$ZP_T/e3.json"
-  zp_kletka '(м) строка разрешения с чужой ролью' "$ZP_RC"
-  zp_expect 1 OBJECT_UZHE_SUZHEN '(м) строка разрешения с чужой ролью' || return 1
+  zp_kletka '(м) частная строка с чужой ролью' "$ZP_RC"
+  zp_expect 0 - '(м) частная строка с чужой ролью' || return 1
+  zp_sdal Critic208b
   zp_event "$ZP_T/e4.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA" \
       "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 209 critic $ZP_SHA"
   zp_sudit "$ZP_T/e4.json"
-  zp_kletka '(м) строка разрешения с чужим предметом' "$ZP_RC"
-  zp_expect 1 OBJECT_UZHE_SUZHEN '(м) строка разрешения с чужим предметом' || return 1
+  zp_kletka '(м) частная строка с чужим предметом' "$ZP_RC"
+  zp_expect 0 - '(м) частная строка с чужим предметом' || return 1
+  zp_sdal Critic208b
   zp_event "$ZP_T/e5.json" critic Critic208b 'SUBJECT=208' "OBJECT=$ZP_SHA" \
       'РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 208 critic ne-40hex'
   zp_sudit "$ZP_T/e5.json"
-  zp_kletka '(м) строка разрешения вне формата' "$ZP_RC"
-  zp_expect 1 OBJECT_UZHE_SUZHEN '(м) строка разрешения вне формата' || return 1
+  zp_kletka '(м) частная строка вне формата' "$ZP_RC"
+  zp_expect 0 - '(м) частная строка вне формата' || return 1
+  if [ "$(zp_override_schet OBJECT_UZHE_SUZHEN 208)" != '0' ]; then
+    printf 'zamok_predmeta: (м) чужая частная строка дала применение разрешения в учёте\n' >&2
+    return 1
+  fi
   return 0
 }
 
 # (н) Третий круг под ТЕМ ЖЕ именем держателя, что и первый: имя держателя —
 #     НЕ идентификатор круга (между сессиями имена не уникализируются).
-#     Состоявшийся первый круг и разрешённый второй (под тем же именем)
-#     считаются ОБА; после сдачи второго третий круг с той же строкой
-#     разрешения — отказ OBJECT_UZHE_SUZHEN, и новой START-записи нет.
-#     Клетка судит ПОВЕДЕНИЕ двери (rc + имя отказа + отсутствие записи), а не
-#     текст счётчика.
+#     Состоявшийся первый круг и второй (под тем же именем) считаются ОБА:
+#     третий круг — то же ПРЕДУПРЕЖДЕНИЕ (номер повтора растёт), круг
+#     записывается (START появляется). Клетка судит ПОВЕДЕНИЕ двери (rc +
+#     предупреждение + запись), а не текст счётчика.
 zp_kletka_povtor_tretiy_ten_imya() {
   zp_mir_povtora 210 || return 1
   local h='Critic210' n_start
-  # Разрешённый второй круг ПОД ТЕМ ЖЕ ИМЕНЕМ (та же строка разрешения).
+  # Второй круг ПОД ТЕМ ЖЕ ИМЕНЕМ.
   zp_event "$ZP_T/e2.json" critic "$h" 'SUBJECT=210' "OBJECT=$ZP_SHA" \
       "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 210 critic $ZP_SHA"
   zp_sudit "$ZP_T/e2.json"
@@ -571,14 +791,15 @@ zp_kletka_povtor_tretiy_ten_imya() {
   fi
   zp_sdal "$h"
   n_start="$(zp_startov 210 "$h")"
-  # Третий круг под тем же именем с той же строкой — разрешение исчерпано.
+  # Третий круг под тем же именем — то же предупреждение, круг записывается.
   zp_event "$ZP_T/e3.json" critic "$h" 'SUBJECT=210' "OBJECT=$ZP_SHA" \
       "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 210 critic $ZP_SHA"
   zp_sudit "$ZP_T/e3.json"
   zp_kletka '(н) третий круг под тем же именем держателя' "$ZP_RC"
-  zp_expect 1 OBJECT_UZHE_SUZHEN '(н) третий круг под тем же именем держателя' || return 1
-  if [ "$(zp_startov 210 "$h")" != "$n_start" ]; then
-    printf 'zamok_predmeta: отказ записал новый START держателя %s\n' "$h" >&2
+  zp_expect 0 - '(н) третий круг под тем же именем держателя' || return 1
+  zp_est_predupr OBJECT_UZHE_SUZHEN '(н) третий круг под тем же именем держателя' || return 1
+  if [ "$(zp_startov 210 "$h")" -le "$n_start" ]; then
+    printf 'zamok_predmeta: повтор под тем же именем не записал круга START %s\n' "$h" >&2
     return 1
   fi
   return 0
@@ -586,14 +807,13 @@ zp_kletka_povtor_tretiy_ten_imya() {
 
 # (о) Тот же повтор под тем же именем, но его RELEASE — ТЕХНИЧЕСКИЙ ОБРЫВ
 #     `obryv_bez_verdikta`: обрыв закрывает только свой круг — состоявшийся
-#     первый круг не стирается и разрешение не расходуется (обрыв круг не
-#     тратит). Поэтому следующий запрос БЕЗ строки — отказ OBJECT_UZHE_SUZHEN
-#     (новая START-запись не появилась: первый круг уцелел), а запрос СО
-#     строкой — пропуск (rc 0).
+#     первый круг не стирается (обрыв круг не тратит). Поэтому следующий
+#     запрос — то же ПРЕДУПРЕЖДЕНИЕ о повторе (круг считается по учёту), и
+#     круг записывается.
 zp_kletka_povtor_obryv_ten_imya() {
   zp_mir_povtora 211 || return 1
   local h='Critic211' n_start
-  # Разрешённый второй круг ПОД ТЕМ ЖЕ ИМЕНЕМ (та же строка разрешения).
+  # Второй круг ПОД ТЕМ ЖЕ ИМЕНЕМ.
   zp_event "$ZP_T/e2.json" critic "$h" 'SUBJECT=211' "OBJECT=$ZP_SHA" \
       "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 211 critic $ZP_SHA"
   zp_sudit "$ZP_T/e2.json"
@@ -611,31 +831,32 @@ zp_kletka_povtor_obryv_ten_imya() {
       '{t:$t,repoId:$r,subjectId:$s,holder:$h,prichina:$p,at:$at}' \
       >> "$ZP_T/sost/uchet.jsonl"
   n_start="$(zp_startov 211 "$h")"
-  # Запрос БЕЗ строки: состоявшийся первый круг не стёрт — отказ.
+  # Запрос без строки: первый круг уцелел — повтор виден дверью.
   zp_event "$ZP_T/e3.json" critic "$h" 'SUBJECT=211' "OBJECT=$ZP_SHA"
   zp_sudit "$ZP_T/e3.json"
   zp_kletka '(о) запрос без строки после обрыва повтора под тем же именем' "$ZP_RC"
-  zp_expect 1 OBJECT_UZHE_SUZHEN \
+  zp_expect 0 - \
       '(о) запрос без строки после обрыва повтора под тем же именем' || return 1
-  if [ "$(zp_startov 211 "$h")" != "$n_start" ]; then
-    printf 'zamok_predmeta: отказ записал новый START держателя %s\n' "$h" >&2
-    return 1
-  fi
-  # Запрос СО строкой: обрыв круг не тратит — разрешение ещё не исчерпано.
+  zp_est_predupr OBJECT_UZHE_SUZHEN \
+      '(о) запрос без строки после обрыва повтора под тем же именем' || return 1
+  # Запрос со строкой: обрыв круг не тратит — тот же повтор.
   zp_event "$ZP_T/e4.json" critic "$h" 'SUBJECT=211' "OBJECT=$ZP_SHA" \
       "РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: 211 critic $ZP_SHA"
   zp_sudit "$ZP_T/e4.json"
   zp_kletka '(о) запрос со строкой после обрыва повтора под тем же именем' "$ZP_RC"
   zp_expect 0 - '(о) запрос со строкой после обрыва повтора под тем же именем' || return 1
+  zp_est_predupr OBJECT_UZHE_SUZHEN \
+      '(о) запрос со строкой после обрыва повтора под тем же именем' || return 1
   return 0
 }
 
-# (п) Проектная раскладка реестра контрактов: реестр лежит ТОЛЬКО в
-#     .harness/registry/contracts.tsv (в registry/ такого файла нет), у
-#     предмета аннотированный frozen-тег и строка реестра → судья ДОПУСКАЕТСЯ
-#     дверью (rc 0 PUSCHEM). Дверь, ищущая реестр только по
-#     registry/contracts.tsv, отказывает «закреплённый frozen недоступен» —
-#     клетка различает.
+# (п) Проектная раскладка реестра контрактов: путь реестра ОБЪЯВЛЕН профилем
+#     (workflowPaths.registry = .harness/registry), строка реестра лежит
+#     ТОЛЬКО там (в registry/ такого файла нет), у предмета аннотированный
+#     frozen-тег и строка реестра → судья ДОПУСКАЕТСЯ дверью (rc 0 PUSCHEM) и
+#     класс определён (предупреждения KLASS_RISKA_NET нет). Дверь, читающая
+#     реестр только по реестру репозитория, отказывает «закреплённый frozen
+#     недоступен» — клетка различает.
 zp_kletka_reestr_proekt() {
   zp_world || return 1
   zp_kandidat 212 || return 1
@@ -644,6 +865,7 @@ zp_kletka_reestr_proekt() {
   zp_reestr_snyat || return 1
   tagobj="$(zp_vladelec_frozen 212)" || return 1
   zp_reestr_stroka '.harness/registry/contracts.tsv' 212 "$tagobj" || return 1
+  zp_profil_reestr "$ZP_T/repo" '.harness/registry' || return 1
   zp_event "$ZP_T/e9.json" adversary Adv212 'SUBJECT=212' "OBJECT=$ZP_SHA"
   zp_sudit "$ZP_T/e9.json"
   zp_kletka '(п) реестр проекта только в .harness/registry/contracts.tsv' "$ZP_RC"
@@ -652,13 +874,18 @@ zp_kletka_reestr_proekt() {
     printf 'zamok_predmeta: (п) реестр проекта: нет PUSCHEM; вывод: %s\n' "$ZP_OUT" >&2
     return 1
   fi
+  # Пин прочитан из ОБЪЯВЛЕННОГО профилем реестра: предупреждения о
+  # непрочитанном frozen нет (иначе клетка прошла бы вхолостую — «рисковый по
+  # умолчанию» при непрочитанном классе).
+  zp_net_predupr KLASS_RISKA_NET '(п) реестр проекта только в .harness/registry/contracts.tsv' || return 1
   return 0
 }
 
 # (р) Реестра нет НИГДЕ (ни registry/, ни .harness/registry/) — предмет с
-#     аннотированным frozen-тегом: дверь обязана отказать KLASS_RISKA_NET
-#     («закреплённый frozen недоступен»), как прежде. Клетка — негатив к (п):
-#     запасной путь не является «созданием» реестра.
+#     аннотированным frozen-тегом: класс риска НЕ ОПРЕДЕЛЁН → по слову
+#     владельца 21.11 12:06 это ПРЕДУПРЕЖДЕНИЕ с записью (предмет считается
+#     рисковым), а не отказ. Клетка — негатив к (п): запасной путь не является
+#     «созданием» реестра, и предупреждение остаётся.
 zp_kletka_reestr_net() {
   zp_world || return 1
   zp_kandidat 213 || return 1
@@ -668,14 +895,18 @@ zp_kletka_reestr_net() {
   zp_event "$ZP_T/e10.json" adversary Adv213 'SUBJECT=213' "OBJECT=$ZP_SHA"
   zp_sudit "$ZP_T/e10.json"
   zp_kletka '(р) реестра нет нигде' "$ZP_RC"
-  zp_expect_prichina 1 KLASS_RISKA_NET 'закреплённый frozen недоступен' \
-      '(р) реестра нет нигде' || return 1
+  zp_expect 0 - '(р) реестра нет нигде' || return 1
+  zp_est_predupr KLASS_RISKA_NET '(р) реестра нет нигде' || return 1
+  zp_est_warn KLASS_RISKA_NET 213 '(р) реестра нет нигде' || return 1
   return 0
 }
 
-# (с) Основной реестр ЕСТЬ, строки предмета в нём НЕТ, а в проектном пути
-#     строка есть → отказ (rc 1 KLASS_RISKA_NET): запасной путь основной НЕ
-#     подменяет (иначе дверь признала бы запись чужого реестра).
+# (с) Реестр репозитория ЕСТЬ, строки предмета в нём НЕТ, а в НЕОБЪЯВЛЕННОМ
+#     каталоге (.harness/registry/) строка есть → класс НЕ ОПРЕДЕЛЁН:
+#     ПРЕДУПРЕЖДЕНИЕ с записью. Путь реестра — объявленный профилем (без
+#     профиля — реестр репозитория); файл в необъявленном каталоге реестром
+#     НЕ является, и дверь его не подменяет (иначе дверь признала бы запись
+#     чужого реестра) — предупреждение остаётся, класс не читается.
 zp_kletka_reestr_osnovnoy() {
   zp_world || return 1
   zp_kandidat 214 || return 1
@@ -690,8 +921,332 @@ zp_kletka_reestr_osnovnoy() {
   zp_event "$ZP_T/e11.json" adversary Adv214 'SUBJECT=214' "OBJECT=$ZP_SHA"
   zp_sudit "$ZP_T/e11.json"
   zp_kletka '(с) основной реестр есть, строки предмета нет' "$ZP_RC"
-  zp_expect_prichina 1 KLASS_RISKA_NET 'закреплённый frozen недоступен' \
-      '(с) основной реестр есть, строки предмета нет' || return 1
+  zp_expect 0 - '(с) основной реестр есть, строки предмета нет' || return 1
+  zp_est_predupr KLASS_RISKA_NET '(с) основной реестр есть, строки предмета нет' || return 1
+  zp_est_warn KLASS_RISKA_NET 214 '(с) основной реестр есть, строки предмета нет' || return 1
+  return 0
+}
+
+# ПАУЗА предмета у владельца (реестр registry/pauzy.tsv) — коммит только при
+# изменении содержимого (иначе git commit без изменений возвращает rc 1).
+zp_pauza_predmet() {  # <NNN>
+  local n="$1"
+  mkdir -p "$ZP_T/repo/registry" || return 1
+  printf '%s\t2026-11-21\tвладелец\tпозже\n' "$n" > "$ZP_T/repo/registry/pauzy.tsv" || return 1
+  git -C "$ZP_T/repo" add -A || return 1
+  if ! git -C "$ZP_T/repo" diff --cached --quiet; then
+    git -C "$ZP_T/repo" -c user.name=b -c user.email=b@t -c commit.gpgsign=false \
+        commit -q -m "pauza $n" || return 1
+  fi
+  return 0
+}
+
+# ── ОБЩАЯ СТРОКА ВЛАДЕЛЬЦА (слово владельца 21.11 12:06) ──────────────────
+# `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК: <NNN> <КОД> [<OBJECT 40hex>]` — ОДНОРАЗОВОЕ
+# разрешение ровно одного отказа для предмета (и OBJECT, если указан).
+# Четыре клетки: (а) пропуск один раз; (б) повтор — отказ; (в) чужие
+# предмет/код/OBJECT — отказ; (г) отказ, который строка не отменяет
+# (изоляция рабочего), — отказ.
+
+# (а) Пропуск ровно один раз: предмет на ПАУЗЕ + строка владельца → rc 0,
+#     START пишется, применение строки — в учёте (override).
+zp_kletka_zamok_stroka_raz() {
+  zp_world || return 1
+  zp_pauza_predmet 215 || return 1
+  zp_event "$ZP_T/e12.json" architect Arch215 \
+      'SUBJECT=215' "WORKTREE=$ZP_T/wt" 'BRANCH=wip/215/avtor' \
+      'РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК: 215 PAUZA_VLADELTSA'
+  zp_sudit "$ZP_T/e12.json"
+  zp_kletka '(а) общая строка: пропуск один раз' "$ZP_RC"
+  zp_expect 0 - '(а) общая строка: пропуск один раз' || return 1
+  zp_est_override PAUZA_VLADELTSA 215 '(а) общая строка: пропуск один раз' || return 1
+  if [ "$(zp_startov 215 Arch215)" != '1' ]; then
+    printf 'zamok_predmeta: (а) общая строка: START рабочего не записан\n' >&2
+    return 1
+  fi
+  return 0
+}
+
+# (б) ПОВТОР той же строки — отказ (строка одноразовая): применение в учёте
+#     уже есть, второй раз пропускать нельзя; учёт не меняется.
+zp_kletka_zamok_stroka_povtor() {
+  zp_world || return 1
+  zp_pauza_predmet 215 || return 1
+  zp_event "$ZP_T/e12.json" architect Arch215 \
+      'SUBJECT=215' "WORKTREE=$ZP_T/wt" 'BRANCH=wip/215/avtor' \
+      'РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК: 215 PAUZA_VLADELTSA'
+  zp_sudit "$ZP_T/e12.json"
+  if [ "$ZP_RC" -ne 0 ]; then
+    printf 'zamok_predmeta: (б) первый пропуск не состоялся (rc %s): %s\n' "$ZP_RC" "$ZP_OUT" >&2
+    return 1
+  fi
+  local before
+  before="$(cat "$ZP_T/sost/uchet.jsonl")"
+  zp_event "$ZP_T/e13.json" architect Arch215b \
+      'SUBJECT=215' "WORKTREE=$ZP_T/wt" 'BRANCH=wip/215/avtor' \
+      'РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК: 215 PAUZA_VLADELTSA'
+  zp_sudit "$ZP_T/e13.json"
+  zp_kletka '(б) общая строка: повтор — отказ' "$ZP_RC"
+  zp_expect 1 PAUZA_VLADELTSA '(б) общая строка: повтор — отказ' || return 1
+  if [ "$(cat "$ZP_T/sost/uchet.jsonl")" != "$before" ]; then
+    printf 'zamok_predmeta: (б) отказ повторной строки изменил учёт\n' >&2
+    return 1
+  fi
+  return 0
+}
+
+# (в) ЧУЖАЯ строка (чужой предмет, чужой код, чужой OBJECT) — разрешения нет:
+#     отказ как без строки.
+zp_kletka_zamok_stroka_chuzhaya() {
+  zp_world || return 1
+  zp_pauza_predmet 215 || return 1
+  zp_event "$ZP_T/e12.json" architect Arch215 \
+      'SUBJECT=215' "WORKTREE=$ZP_T/wt" 'BRANCH=wip/215/avtor' \
+      'РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК: 216 PAUZA_VLADELTSA'
+  zp_sudit "$ZP_T/e12.json"
+  zp_kletka '(в) общая строка: чужой предмет — отказ' "$ZP_RC"
+  zp_expect 1 PAUZA_VLADELTSA '(в) общая строка: чужой предмет — отказ' || return 1
+  zp_event "$ZP_T/e13.json" architect Arch215 \
+      'SUBJECT=215' "WORKTREE=$ZP_T/wt" 'BRANCH=wip/215/avtor' \
+      'РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК: 215 PEREDACHA_REMOTE'
+  zp_sudit "$ZP_T/e13.json"
+  zp_kletka '(в) общая строка: чужой код — отказ' "$ZP_RC"
+  zp_expect 1 PAUZA_VLADELTSA '(в) общая строка: чужой код — отказ' || return 1
+  zp_event "$ZP_T/e14.json" architect Arch215 \
+      'SUBJECT=215' "WORKTREE=$ZP_T/wt" 'BRANCH=wip/215/avtor' \
+      'РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК: 215 PAUZA_VLADELTSA 1234567890123456789012345678901234567890'
+  zp_sudit "$ZP_T/e14.json"
+  zp_kletka '(в) общая строка: чужой OBJECT — отказ' "$ZP_RC"
+  zp_expect 1 PAUZA_VLADELTSA '(в) общая строка: чужой OBJECT — отказ' || return 1
+  if [ "$(zp_override_schet PAUZA_VLADELTSA 215)" != '0' ]; then
+    printf 'zamok_predmeta: (в) чужая строка дала применение разрешения в учёте\n' >&2
+    return 1
+  fi
+  return 0
+}
+
+# (г) Строка на отказ, который НЕ отменяется (изоляция рабочего) — отказ
+#     NE_IZOLIROVAN: цена изоляции — реальный вред, строка её не отменяет.
+#     Событие — БЕЗ поля isolated (иначе изоляция соблюдена и гейт не сработает).
+zp_kletka_zamok_stroka_neotmenyaemaya() {
+  zp_world || return 1
+  jq -cn --arg a architect --arg n Arch215 \
+      --arg t "SUBJECT=215
+WORKTREE=$ZP_T/wt
+BRANCH=wip/215/avtor
+РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК: 215 NE_IZOLIROVAN" \
+      '{agent:$a,name:$n,task:$t}' > "$ZP_T/e12.json"
+  zp_sudit "$ZP_T/e12.json"
+  zp_kletka '(г) общая строка: неотменяемый отказ — отказ' "$ZP_RC"
+  zp_expect 1 NE_IZOLIROVAN '(г) общая строка: неотменяемый отказ — отказ' || return 1
+  if [ "$(zp_override_schet NE_IZOLIROVAN 215)" != '0' ]; then
+    printf 'zamok_predmeta: (г) неотменяемый отказ дал применение разрешения в учёте\n' >&2
+    return 1
+  fi
+  return 0
+}
+
+# ── сопоставление START↔RELEASE и проектный реестр D39 (клетки р1–р4) ──────
+# Перенос клеток ремонта по FAIL Adv140V9 (ветка #1173, источник f728e83553)
+# на дверь УПРОЩЕНИЯ ЗАМКА (A2). В A2 отказ OBJECT_UZHE_SUZHEN — ПРЕДУПРЕЖДЕНИЕ
+# с записью (rc 0), поэтому клетки судят РАЗЛИЧИЕ честной и мутантной двери:
+# мутант сопоставления START↔RELEASE считает круг НУЛЕВЫМ → предупреждения о
+# повторе нет вовсе (и записи warn нет); честная дверь пишет и предупреждение,
+# и запись с номером повтора 2 (первый круг жив). Место сопоставления в A2
+# прежнее — функция подсчёта кругов krugov_suda в scripts/zamok_predmeta.sh.
+
+# (р1) Промежуточный START того же держателя (другая роль/OBJECT) и обрыв
+#     (`obryv_bez_verdikta`) того же держателя: RELEASE закрывает ПОСЛЕДНИЙ
+#     открытый START СВОЕГО holder'а — то есть промежуточный, а НЕ состоявшийся
+#     первый круг судьи. Первый круг не стёрт → дверь видит повтор круга:
+#     ПРЕДУПРЕЖДЕНИЕ OBJECT_UZHE_SUZHEN с записью (номер повтора 2).
+#     Дверь, закрывающая ПЕРВЫЙ открытый START держателя (мутант `first`),
+#     стёрла бы первый круг — предупреждения не было бы вовсе.
+zp_kletka_release_poslednij_start() {
+  zp_mir_povtora 216 || return 1
+  zp_start_zapis 216 'Critic216' 'sudja' 'adversary' \
+      '1111111111111111111111111111111111111111' "$ZP_WT" "$ZP_BR" || return 1
+  zp_release_zapis 216 'Critic216' 'obryv_bez_verdikta' || return 1
+  zp_event "$ZP_T/e2.json" critic 'Critic216b' 'SUBJECT=216' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e2.json"
+  zp_kletka '(р1) обрыв закрывает ПОСЛЕДНИЙ открытый START своего держателя' "$ZP_RC"
+  zp_expect 0 - \
+      '(р1) обрыв закрывает ПОСЛЕДНИЙ открытый START своего держателя' || return 1
+  zp_est_predupr OBJECT_UZHE_SUZHEN \
+      '(р1) обрыв закрывает ПОСЛЕДНИЙ открытый START своего держателя' || return 1
+  zp_est_warn OBJECT_UZHE_SUZHEN 216 \
+      '(р1) обрыв закрывает ПОСЛЕДНИЙ открытый START своего держателя' || return 1
+  zp_est_povtor OBJECT_UZHE_SUZHEN 216 2 \
+      '(р1) обрыв закрывает ПОСЛЕДНИЙ открытый START своего держателя' || return 1
+  return 0
+}
+
+# (р2) RELEASE ЧУЖОГО держателя: он закрывает последний открытый START СВОЕГО
+#     holder'а, и открытый START круга судьи (другой держатель) закрывать не
+#     вправе. Поэтому состоявшийся первый круг судьи жив → дверь видит повтор:
+#     ПРЕДУПРЕЖДЕНИЕ OBJECT_UZHE_SUZHEN с записью (номер повтора 2). Дверь,
+#     закрывающая последний открытый START вообще (без holder'а; мутант
+#     `foreignholder`), стёрла бы круг судьи — предупреждения не было бы.
+zp_kletka_release_chuzhoy_holder() {
+  zp_mir_povtora 217 || return 1
+  zp_release_zapis 217 'Avtor217' 'obryv_bez_verdikta' || return 1
+  zp_event "$ZP_T/e2.json" critic 'Critic217b' 'SUBJECT=217' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e2.json"
+  zp_kletka '(р2) RELEASE чужого держателя не закрывает открытый START круга' "$ZP_RC"
+  zp_expect 0 - \
+      '(р2) RELEASE чужого держателя не закрывает открытый START круга' || return 1
+  zp_est_predupr OBJECT_UZHE_SUZHEN \
+      '(р2) RELEASE чужого держателя не закрывает открытый START круга' || return 1
+  zp_est_warn OBJECT_UZHE_SUZHEN 217 \
+      '(р2) RELEASE чужого держателя не закрывает открытый START круга' || return 1
+  zp_est_povtor OBJECT_UZHE_SUZHEN 217 2 \
+      '(р2) RELEASE чужого держателя не закрывает открытый START круга' || return 1
+  return 0
+}
+
+# (р3) Соотнесение START↔RELEASE при промежуточном START ДРУГОГО класса/роли/
+#     OBJECT: RELEASE соотносится по ПОСЛЕДОВАТЕЛЬНОСТИ START своего holder'а,
+#     а фильтр по роли/OBJECT/классу применяется ПОСЛЕ соотнесения. Промежуточный
+#     START другого класса (rabochiy) поглощает обрыв, первый круг судьи
+#     (sudja/critic/OBJECT) остаётся → дверь видит повтор: ПРЕДУПРЕЖДЕНИЕ
+#     OBJECT_UZHE_SUZHEN с записью (номер повтора 2). Дверь, отбирающая START
+#     по роли/OBJECT/классу ДО соотнесения (мутант `preselect`) либо закрывшая
+#     ПЕРВЫЙ открытый START (мутант `first`), закрыла бы первый круг —
+#     предупреждения не было бы.
+zp_kletka_release_filtr_posle_sootneseniya() {
+  zp_mir_povtora 218 || return 1
+  zp_start_zapis 218 'Critic218' 'rabochiy' 'implementer' \
+      '2222222222222222222222222222222222222222' "$ZP_WT" "$ZP_BR" || return 1
+  zp_release_zapis 218 'Critic218' 'obryv_bez_verdikta' || return 1
+  zp_event "$ZP_T/e2.json" critic 'Critic218b' 'SUBJECT=218' "OBJECT=$ZP_SHA"
+  zp_sudit "$ZP_T/e2.json"
+  zp_kletka '(р3) фильтр по роли/OBJECT/классу — ПОСЛЕ соотнесения START↔RELEASE' "$ZP_RC"
+  zp_expect 0 - \
+      '(р3) фильтр по роли/OBJECT/классу — ПОСЛЕ соотнесения START↔RELEASE' || return 1
+  zp_est_predupr OBJECT_UZHE_SUZHEN \
+      '(р3) фильтр по роли/OBJECT/классу — ПОСЛЕ соотнесения START↔RELEASE' || return 1
+  zp_est_warn OBJECT_UZHE_SUZHEN 218 \
+      '(р3) фильтр по роли/OBJECT/классу — ПОСЛЕ соотнесения START↔RELEASE' || return 1
+  zp_est_povtor OBJECT_UZHE_SUZHEN 218 2 \
+      '(р3) фильтр по роли/OBJECT/классу — ПОСЛЕ соотнесения START↔RELEASE' || return 1
+  return 0
+}
+
+# ── проверяемая передача (D39): проектный реестр контрактов ─────────────────
+# Путь реестра предмета у владельца — объявленный профилем
+# (workflowPaths.registry = .harness/registry; без профиля — реестр
+# репозитория; та же раскладка, что и в клетках (п)(р)(с)).
+# [D39] версия frozen берётся из реестра В ДЕРЕВЕ СВИДЕТЕЛЬСТВА: реестр —
+# объявленный профилем путь. Дверь, читающая реестр только по реестру
+# репозитория, отказала бы «точная frozen-версия не удостоверена» —
+# клетка (р4) различает.
+
+# Вызов двери в режиме проверяемой передачи.
+zp_peredat() {  # <репозиторий> <NNN> <коммит-свидетельство> → ZP_OUT, ZP_RC
+  ZP_OUT="$(bash "$ZP_SUBJ" --peredat --sostojanie "$ZP_T/sost" \
+      --zhurnaly "$ZP_T/zhurnaly" --repo "$1" "$2" "$3" 2>&1)"
+  ZP_RC=$?
+}
+
+# Мир проверяемой передачи: продуктовый worktree (внешний продукт, иной
+# канонический remote), рабочий START автора в учёте с журналом со сдачей,
+# аннотированный frozen-тег в продукте и коммит-свидетельство на origin/main
+# станции. Реестр предмета — ПРОЕКТНЫЙ: путь объявлен профилем
+# (workflowPaths.registry = .harness/registry), строка лежит ТОЛЬКО в
+# .harness/registry/contracts.tsv (в registry/ такого файла нет).
+# Печатает sha коммита-свидетельства.
+zp_mir_peredachi() {  # <NNN>
+  local n="$1" repo wt br obj pobj pcommit worker digest receipt
+  repo="$ZP_T/repo4"
+  rm -rf "$repo"; mkdir -p "$repo"
+  git -C "$repo" init -q . 2>/dev/null || return 1
+  git -C "$repo" remote add origin 'ssh://git@github.com/a3ka/dev-harness.git' || return 1
+  git -C "$repo" -c user.name=b -c user.email=b@t -c commit.gpgsign=false \
+      commit -q --allow-empty -m w || return 1
+  # Продукт: иной канонический remote, frozen-тег и доставленный результат.
+  wt="$ZP_T/prod$n"
+  rm -rf "$wt"; mkdir -p "$wt/contracts"
+  git -C "$wt" init -q . 2>/dev/null || return 1
+  git -C "$wt" remote add origin 'ssh://git@github.com/a3ka/Complior-mob.git' || return 1
+  git -C "$wt" -c user.name=implementer -c user.email=i@t -c commit.gpgsign=false \
+      checkout -q -b frozen-owner 2>/dev/null || return 1
+  printf 'КЛАСС РИСКА: обычный\n' > "$wt/contracts/$n-product.md" || return 1
+  git -C "$wt" add -A
+  git -C "$wt" -c user.name=implementer -c user.email=i@t -c commit.gpgsign=false \
+      commit -q -m 'product frozen' || return 1
+  git -C "$wt" -c user.name=implementer -c user.email=i@t -c tag.gpgsign=false \
+      tag -a "frozen/contracts/$n/1" -m frozen || return 1
+  pobj="$(git -C "$wt" rev-parse "refs/tags/frozen/contracts/$n/1")" || return 1
+  pcommit="$(git -C "$wt" rev-parse "refs/tags/frozen/contracts/$n/1^{commit}")" || return 1
+  br="wip/$n/implementer"
+  git -C "$wt" -c user.name=implementer -c user.email=i@t -c commit.gpgsign=false \
+      checkout -q -b "$br" || return 1
+  printf 'real delivered change\n' > "$wt/product.txt" || return 1
+  git -C "$wt" add -A
+  git -C "$wt" -c user.name=implementer -c user.email=i@t -c commit.gpgsign=false \
+      commit -q -m delivered || return 1
+  obj="$(git -C "$wt" rev-parse HEAD)" || return 1
+  # Рабочий START автора в учёте + журнал со сдачей.
+  jq -nc --arg s "$n" --arg h "Impl$n" --arg w "$wt" --arg b "$br" --arg o "$obj" \
+      '{t:"START",repoId:"dev-harness",subjectId:$s,group:"harness",holder:$h,
+        klass:"rabochij",rol:"implementer",object:$o,worktree:$w,branch:$b,
+        at:"2026-11-21T00:00:00Z"}' >> "$ZP_T/sost/uchet.jsonl"
+  zp_sdal "Impl$n"
+  worker="$(jq -cSrs --arg r dev-harness --arg n "$n" \
+      '[.[] | select(.t=="START" and .repoId==$r and .subjectId==$n and .klass=="rabochij")] | last // empty' \
+      "$ZP_T/sost/uchet.jsonl")" || return 1
+  digest="$(printf '%s' "$worker" | sha256sum | cut -d' ' -f1)" || return 1
+  # Свидетельство — ровно поля схемы двери.
+  zp_profil_reestr "$repo" '.harness/registry' || return 1
+  mkdir -p "$repo/registry/dostavki" "$repo/.harness/registry" || return 1
+  jq -cn --arg r dev-harness --arg n "$n" --arg h "Impl$n" --arg ws "$digest" \
+      --arg cr 'ssh://git@github.com/a3ka/Complior-mob.git' --arg wt "$wt" --arg br "$br" \
+      --arg o "$obj" --arg ft "frozen/contracts/$n/1" --arg fo "$pobj" --arg fc "$pcommit" \
+      '{version:1,repoId:$r,subjectId:$n,holder:$h,author:"implementer",workerStart:$ws,
+        canonicalRemote:$cr,worktree:$wt,branch:$br,object:$o,frozenTag:$ft,
+        frozenObject:$fo,frozenCommit:$fc}' > "$repo/registry/dostavki/$n.json" || return 1
+  # ПРОЕКТНЫЙ реестр: строка предмета ТОЛЬКО в .harness/registry/contracts.tsv.
+  printf '%s → %s\n' "$n" "$pobj" > "$repo/.harness/registry/contracts.tsv" || return 1
+  git -C "$repo" add -A || return 1
+  git -C "$repo" -c user.name=orchestrator -c user.email=o@t -c commit.gpgsign=false \
+      commit -q -m receipt || return 1
+  receipt="$(git -C "$repo" rev-parse HEAD)" || return 1
+  git -C "$repo" update-ref refs/remotes/origin/main "$receipt" || return 1
+  printf '%s' "$receipt"
+}
+
+# (р4) D39 с ПРОЕКТНЫМ реестром: путь реестра объявлен профилем
+#     (workflowPaths.registry = .harness/registry), строка предмета лежит
+#     ТОЛЬКО в .harness/registry/contracts.tsv (в registry/ такого файла нет) —
+#     проверяемая передача ПРИНЯТА (rc 0 PEREDANO). В A2 «точная frozen-версия
+#     не удостоверена» — ПРЕДУПРЕЖДЕНИЕ с записью, а не отказ, поэтому различие
+#     честной и мутантной двери — НАЛИЧИЕ этого предупреждения (и записи
+#     warn): честная дверь прочитала объявленный профилем реестр —
+#     предупреждения нет; дверь, читающая реестр только по реестру репозитория
+#     (мутант `reg_put`), выдаст «ПРЕДУПРЕЖДЕНИЕ: KLASS_RISKA_NET: проверяемая
+#     передача: точная frozen-версия не удостоверена» и запишет warn.
+# Требуется python3 с jsonschema: без него дверь отвечает NOT_IMPLEMENTED, и
+# клетка не измерена — это НЕ «класс закрыт честно» (сообщается явно).
+zp_kletka_d39_proektny_reestr() {
+  zp_world || return 1
+  if ! python3 -c 'import jsonschema' >/dev/null 2>&1; then
+    printf 'zamok_predmeta: (р4) D39 с проектным реестром: python3/jsonschema недоступны — клетка НЕ измерена\n' >&2
+    return 1
+  fi
+  local receipt
+  receipt="$(zp_mir_peredachi 219)" || return 1
+  zp_peredat "$ZP_T/repo4" 219 "$receipt"
+  zp_kletka '(р4) D39 с проектным реестром: передача принята' "$ZP_RC"
+  zp_expect 0 - '(р4) D39 с проектным реестром: передача принята' || return 1
+  if ! printf '%s' "$ZP_OUT" | grep -Fq 'PEREDANO'; then
+    printf 'zamok_predmeta: (р4) D39 с проектным реестром: нет PEREDANO; вывод: %s\n' \
+        "$ZP_OUT" >&2
+    return 1
+  fi
+  # Честная дверь прочитала ПРОЕКТНЫЙ реестр: предупреждения о неудостоверенной
+  # frozen-версии нет (и записи warn нет).
+  zp_net_predupr KLASS_RISKA_NET '(р4) D39 с проектным реестром: передача принята' || return 1
+  zp_net_warn KLASS_RISKA_NET 219 '(р4) D39 с проектным реестром: передача принята' || return 1
   return 0
 }
 

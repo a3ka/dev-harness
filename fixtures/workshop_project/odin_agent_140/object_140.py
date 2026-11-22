@@ -86,7 +86,7 @@ def dobavit(K, p):
         git(wt, 'add', '-A')
         return git(wt, 'commit', '-q', '-m', 'judge artifact', role=role)
 
-    def judge(m, door, obj, role='reviewer'):
+    def judge(m, door, obj, role='reviewer', actual=None):
         event = m.sobytie('judge.json', [p.item(role, 'Next140',
                            ['SUBJECT=140', 'OBJECT='+obj])])
         before = m.ledger.read_bytes()
@@ -101,8 +101,9 @@ def dobavit(K, p):
             rows = m.ledg()
             # The original worker pair stays in its original, byte-preserved START.
             # A judge's own START keeps the frozen '-' worktree/branch convention.
-            if (not m.ledger.read_bytes().startswith(before) or len(rows) != 3
-                    or rows[-1].get('object') != obj):
+            starts = [row for row in rows if row.get('t') == 'START']
+            if (not m.ledger.read_bytes().startswith(before) or len(starts) != 3
+                    or starts[-1].get('object') != (actual or obj)):
                 problems.append('исходный START/OBJECT/счёт изменены')
         elif m.ledger.read_bytes() != before:
             problems.append('отказ переписал учёт')
@@ -188,10 +189,15 @@ def dobavit(K, p):
             git(wt, 'commit', '-q', '-m', 'new code', role='architect')
             requested = git(wt, 'rev-parse', br)
             want = 0
-        r, problems = judge(m, door, requested, role)
-        problems.append(p.k_rc(r, want, 'D9'))
+        actual = requested
         if want:
-            problems.append(p.k_prichina(r, reason, 'причина'))
+            actual = (obj if name in ('q02-tip-verdikta-ne-novyj-object',
+                      'q10-povtor-roli', 'q12-ne-predok') else git(wt, 'rev-parse', br))
+        r, problems = judge(m, door, requested, role, actual)
+        if want:
+            problems += p.k_warn(r, m, reason, '140')
+        else:
+            problems.append(p.k_rc(r, 0, 'D9'))
         return problems
 
     for name, axes in CASES.items():
