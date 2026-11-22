@@ -58,7 +58,7 @@
  "kejsy": {
   "b01-paket-dva-predmeta": "пакет=разные-предметы",
   "b02-dubl-v-pakete": "пакет=один-предмет-дважды",
-  "b03-smeshannyj-otkat": "пакет=смешанный;отказ=всему-пакету",
+  "b03-smeshannyj-otkat": "пакет=смешанный;предупреждение=RABOCHEGO_NET;START=обоих",
   "b04-gonka-dva-protsessa": "пакет=гонка-двух-процессов;замок=атомарность",
   "b05-izolirovannyj-invariant": "режим=изолированный/нет;инвариант=вердикт",
   "b06-paket-rabochij-plus-scout": "пакет=рабочий+не-гейт-роль",
@@ -71,6 +71,58 @@
   "g04-bityj-vhod": "форма=битый-вход;класс=silent-drop",
   "g05-samo-prolozhenie": "класс=self-application-green",
   "g06-podstroka-pina": "форма=пин-подстрокой;класс=delimiter-collision",
+  "k03b01-profil-dangl-symlink": "К-03б;профиль=dangl;пауза=True",
+  "k03b02-profil-cikl-symlink": "К-03б;профиль=cikl;пауза=True",
+  "k03b03-profil-katalog": "К-03б;профиль=katalog;пауза=True",
+  "k03b04-profil-symlink-na-katalog": "К-03б;профиль=symlink-na-katalog;пауза=True",
+  "k03b05-profil-bez-prav": "К-03б;профиль=bez-prav;пауза=True",
+  "k03b06-profil-valid-symlink-pauza": "К-03б;профиль=valid;пауза=True",
+  "k03b07-profil-valid-symlink-bez-pauzy": "К-03б;профиль=valid;пауза=False",
+  "n01-registry-dangling": "К-03б;реестр=dangling-симлинк;пауза=140",
+  "n02-registry-cycle": "К-03б;реестр=цикл-симлинк;пауза=140;охр=резолвер",
+  "n03-registry-external-symlink": "К-03б;реестр=симлинк-вне-репо;пауза=140;охр=резолвер",
+  "n04-parent-dangling": "К-03б;родитель=dangling-симлинк;пауза=140;охр=резолвер",
+  "n05-parent-cycle": "К-03б;родитель=цикл-симлинк;пауза=140;охр=резолвер",
+  "n06-pause-dangling": "К-03б;пауза=dangling-симлинк;пауза=140",
+  "n07-pause-cycle": "К-03б;пауза=цикл-симлинк;пауза=140",
+  "n08-pause-directory": "К-03б;пауза=каталог;пауза=140",
+  "n09-pause-chmod000": "К-03б;пауза=chmod-000;пауза=140;охр=права-ОС",
+  "n10-registry-dir-chmod000": "К-03б;реестр=chmod-000;пауза=140;охр=права-ОС",
+  "n11-registry-empty-string": "К-03б;реестр=пустая-строка;охр=алфавит-резолвера",
+  "n12-registry-number": "К-03б;реестр=число;охр=алфавит-резолвера",
+  "n13-registry-array": "К-03б;реестр=массив;охр=алфавит-резолвера",
+  "n14-registry-dotdot": "К-03б;реестр=точка-точка;охр=побег-резолвера",
+  "n15-registry-absolute-outside": "К-03б;реестр=абсолютный-вне-репо;охр=побег-резолвера",
+  "n16-contracts-dangling": "К-03б;контрактовый-реестр=dangling;пауза=140;охр=суд-паузы",
+  "n17-profile-dangling": "К-03б;запись-профиля=dangling;пауза=140;охр=прежний-К-03б",
+  "n18-profile-invalid-json": "К-03б;запись-профиля=битый-JSON;пауза=140;охр=r14",
+  "n19-profile-without-workflowpaths": "К-03б;профиль=без-workflowPaths;охр=замкнутое-правило-НЕТ",
+  "n20-race-chitaem-potom-ischez": "К-03б;обёртка=cat-удаляет-лист;пауза=140;охр=чтение-без-cat",
+  "n21-registry-regular-file": "К-03б;реестр=обычный-файл;лист=отсутствует;Б-1=Rev140A2",
+  "n22-pause-external-empty": "К-03б;лист=симлинк-вне-репо;пауза=нет;Б-2=Rev140A2",
+  "n23-pause-external-paused": "К-03б;лист=симлинк-вне-репо;пауза=140;санкция=PAUZA;Б-2=Rev140A2",
+  "o01-pauza-bound": "общая-строка;PAUZA;bound",
+  "o01-pauza-code": "общая-строка;PAUZA;code",
+  "o01-pauza-object": "общая-строка;PAUZA;object",
+  "o01-pauza-once": "общая-строка;PAUZA;once",
+  "o01-pauza-subject": "общая-строка;PAUZA;subject",
+  "o02-neotmenjaemyj-avtor_eshcho_rabotaet": "общая-строка;неотменяемый=AVTOR_ESHCHO_RABOTAET",
+  "o02-neotmenjaemyj-dubl_v_pakete": "общая-строка;неотменяемый=DUBL_V_PAKETE",
+  "o02-neotmenjaemyj-ne_izolirovan": "общая-строка;неотменяемый=NE_IZOLIROVAN",
+  "o02-neotmenjaemyj-rabochij_zhiv": "общая-строка;неотменяемый=RABOCHIJ_ZHIV",
+  "o02-neotmenjaemyj-sudja_zhiv": "общая-строка;неотменяемый=SUDJA_ZHIV",
+  "o02-neotmenjaemyj-zanyato_resheniem": "общая-строка;неотменяемый=ZANYATO_RESHENIEM",
+  "o03-peredacha_nedostoverna-code": "общая-строка;PEREDACHA_NEDOSTOVERNA;code",
+  "o03-peredacha_nedostoverna-object": "общая-строка;PEREDACHA_NEDOSTOVERNA;object",
+  "o03-peredacha_nedostoverna-once": "общая-строка;PEREDACHA_NEDOSTOVERNA;once",
+  "o03-peredacha_nedostoverna-subject": "общая-строка;PEREDACHA_NEDOSTOVERNA;subject",
+  "o03-peredacha_remote-code": "общая-строка;PEREDACHA_REMOTE;code",
+  "o03-peredacha_remote-object": "общая-строка;PEREDACHA_REMOTE;object",
+  "o03-peredacha_remote-once": "общая-строка;PEREDACHA_REMOTE;once",
+  "o03-peredacha_remote-subject": "общая-строка;PEREDACHA_REMOTE;subject",
+  "o04-risk-default-critic-0": "риск=нет-записи;по-умолчанию=рисковый;роль=critic;адверсарий=False",
+  "o04-risk-default-reviewer-0": "риск=нет-записи;по-умолчанию=рисковый;роль=reviewer;адверсарий=False",
+  "o04-risk-default-reviewer-1": "риск=нет-записи;по-умолчанию=рисковый;роль=reviewer;адверсарий=True",
   "p01-produktovyj-start": "продуктовая-пара;контракт-в-OBJECT;START-настоящий",
   "p02-produktovyj-object-chuzhoj": "продуктовая-пара;OBJECT-не-tip",
   "p03-peredacha-zapis": "передача;append-PEREDACHA;без-START-и-сдвига-веток",
@@ -118,6 +170,7 @@
   "p45-legacy-peredannyj-net-zapisi": "переданный-продукт;legacy-нет-записи;станция-обычная;fail-closed",
   "p46-legacy-stancija-obychnyj": "станционный-предмет;legacy-обычный;кандидат-рисковый",
   "p47-legacy-stancija-riskovyj": "станционный-предмет;legacy-рисковый;кандидат-обычный",
+  "p48-override-peredacha-schema": "общая-строка;передача;прерывание-после-schema;разовый-пропуск",
   "q01-verdikt-ne-sdvigaet-object": "adversary→reviewer;исходный-OBJECT;START-пара-сохранены",
   "q02-tip-verdikta-ne-novyj-object": "tip-вердикта-не-обнуляет-суд",
   "q03-smeshannyj-kommit": "код-внутри-вердиктного-хвоста;отказ",
@@ -149,6 +202,24 @@
   "q29-stancija-frozen-obychnyj-object-riskovyj": "станционный-владелец;frozen-обычный;OBJECT-рисковый;допуск",
   "q30-stancija-frozen-riskovyj-object-obychnyj": "станционный-владелец;frozen-рисковый;OBJECT-обычный;отказ",
   "q31-stancija-frozen-net": "станционный-владелец;frozen-tag-нет;fail-closed",
+  "r01-reestr-profil-obychnyj": "registry=.x/reg;frozen=обычный;reviewer",
+  "r02-reestr-profil-riskovyj": "registry=.x/reg;frozen=рисковый;reviewer",
+  "r03-reestr-bez-profilja": "registry=None;frozen=обычный;reviewer",
+  "r04-pauza-profil-svoj": "registry=.x/reg;пауза=140;reviewer",
+  "r05-pauza-profil-chuzhoj": "registry=.x/reg;пауза=141;reviewer",
+  "r06-pauza-shtatnyj-svoj": "registry=.harness/registry;пауза=140;reviewer",
+  "r07-pauza-shtatnyj-chuzhoj": "registry=.harness/registry;пауза=141;reviewer",
+  "r08-pauza-bez-profilja-svoj": "registry=None;пауза=140;reviewer",
+  "r09-pauza-bez-profilja-chuzhoj": "registry=None;пауза=141;reviewer",
+  "r11-noauthor-reviewer": "автора=нет;риск=неизвестен;роль=reviewer",
+  "r12-noauthor-adversary": "автора=нет;риск=неизвестен;роль=adversary",
+  "r13-noauthor-critic": "автора=нет;риск=неизвестен;роль=critic",
+  "r14-profile-broken-pauza": "профиль=битый;пауза=140;нет-записей",
+  "r15-profile-broken-bez-pauzy": "профиль=битый;пауза=неопределима;нет-записей",
+  "r16-override-dubl-extra": "санкция=корректная+лишнее-поле;нет-override",
+  "r17-override-dubl-object": "санкция=корректная+некорректный-OBJECT;нет-override",
+  "r18-kontrakty-profil-obychnyj": "registry=.x/reg;contracts=.x/contracts;frozen=обычный",
+  "r19-kontrakty-profil-riskovyj": "registry=.x/reg;contracts=.other/contracts;frozen=рисковый",
   "s01-sudja-posle-yield": "роль=судья;состояние=автор-сдал;OBJECT=совпадает",
   "s02-kritik-pri-zhivom-rabochem": "роль=судья;состояние=рабочий-бежит;источник=замок",
   "s03-object-rashoditsja": "OBJECT=чужой-sha",
@@ -185,7 +256,7 @@
   "s41-kandidat-bez-stroki": "риск=main-обычный;кандидат=строки-нет;реестр=нет-записи",
   "s42-risk-legacy-blob-kandidata": "риск=main-рисковый;кандидат=строки-нет;реестр=blob-кандидата-обычный",
   "s43-klass-iz-dereva-ne-gryazi": "риск=дерево-рисковый;рабочий-каталог=грязный-обычный;main=обычный",
-  "s44-klass-otkaz-bez-starta": "пакет=смешанный;отказ=KLASS_RISKA_NET;откат=без-START-и-замков",
+  "s44-klass-otkaz-bez-starta": "пакет=смешанный;предупреждение=KLASS_RISKA_NET;START=обоих",
   "s45-sudja-izolirovan-ne-trebuetsja": "роль=судья;isolated=false;START=факт-false;ворота=без-новой-причины",
   "s46-sudja-start-fakt-istina": "роль=судья;isolated=true-из-поля;START=факт-true",
   "s47-sudja-start-fakt-lozh": "роль=судья;isolated=поля-нет;START=факт-false",
@@ -198,6 +269,7 @@
   "w02-vtoroj-rabochij-zhiv": "роль=рабочий;источник=журнал+замок;состояние=бежит",
   "w03-posle-yield-novyj-rabochij": "роль=рабочий;состояние=сдал",
   "w04-dubl-posle-restarta": "роль=рабочий;состояние=оборван-рестарт;дубль=после-рестарта",
+  "w04b-gluboko-broshennyj": "роль=рабочий;состояние=оборван;возраст=100000-мин;учёт=без-новых-записей",
   "w05-osvobodit-broshennyj": "роль=рабочий;состояние=оборван;замок=явное-освобождение",
   "w06-osvobodit-zhivoj": "роль=рабочий;состояние=бежит;замок=живой",
   "w07-subject-net": "форма=SUBJECT-отсутствует",
@@ -237,7 +309,14 @@
    "w03-posle-yield-novyj-rabochij"
   ],
   "s03-avto-relis-broshennogo": [
-   "w04-dubl-posle-restarta"
+   "w04-dubl-posle-restarta",
+   "w04b-gluboko-broshennyj"
+  ],
+  "s94-broshennyj-start-bez-release": [
+   "w04b-gluboko-broshennyj"
+  ],
+  "s95-broshennyj-ljuboj-vozrast": [
+   "w02-vtoroj-rabochij-zhiv"
   ],
   "s04-osvobodit-zhivogo": [
    "w06-osvobodit-zhivoj"
@@ -293,7 +372,6 @@
    "b02-dubl-v-pakete"
   ],
   "s20-otkaz-ne-ostanavlivaet": [
-   "b03-smeshannyj-otkat",
    "b07-paket-izolirovan-otkat"
   ],
   "s21-bez-atomarnosti": [
@@ -324,7 +402,6 @@
    "s28-klass-riska-shest-fajlov",
    "s29-klass-riska-realnaja-116",
    "s30-klass-riska-realnaja-139",
-   "s31-klass-riska-realnaja-140",
    "s33-klass-riska-dve-deklaracii-odinakovye",
    "s35-klass-riska-vne-alfavita",
    "s36-klass-riska-simlink",
@@ -333,7 +410,6 @@
   "s29-klass-riska-tolko-nachalo-stroki": [
    "s29-klass-riska-realnaja-116",
    "s30-klass-riska-realnaja-139",
-   "s31-klass-riska-realnaja-140",
    "s37-klass-riska-citata-shablona"
   ],
   "s30-klass-riska-type-f": [
@@ -523,10 +599,7 @@
    "p33-peredacha-nepustogo-merge"
   ],
   "s77-frozen-stancija-vmesto-vladelca": [
-   "p01-produktovyj-start",
    "p03-peredacha-zapis",
-   "p04-produkt-bez-kontrakta",
-   "p34-produkt-riskovyj-stancija-obychnyj",
    "p35-produkt-obychnyj-stancija-riskovaja"
   ],
   "s78-risk-stancija-vmesto-produkta": [
@@ -552,96 +625,251 @@
    "p40-legacy-prjamoj-riskovyj",
    "p42-legacy-peredannyj-konflikt",
    "p43-legacy-peredannyj-riskovyj"
+  ],
+  "s82-override-bez-zapisi": [
+   "o01-pauza-once",
+   "o01-pauza-bound"
+  ],
+  "s83-override-bez-abort": [
+   "p48-override-peredacha-schema"
+  ],
+  "s84-preduprezhdenie-bez-zapisi": [
+   "s08-rabochego-net",
+   "w13-limit-harness",
+   "p17-svidetelstvo-ne-orchestrator"
+  ],
+  "s85-broshennyj-bez-release": [
+   "w05-osvobodit-broshennyj"
+  ],
+  "s86-start-zaproshennyj-object": [
+   "s03-object-rashoditsja",
+   "p02-produktovyj-object-chuzhoj"
+  ],
+  "s87-reestr-literal-proekta": [
+   "r01-reestr-profil-obychnyj"
+  ],
+  "s88-pauza-ignoriruet-profil": [
+   "r04-pauza-profil-svoj"
+  ],
+  "s89-reestr-tolko-stancija": [
+   "r01-reestr-profil-obychnyj"
+  ],
+  "s90-noauthor-rannyj-continue": [
+   "r11-noauthor-reviewer"
+  ],
+  "s91-profile-error-bez-pauzy": [
+   "r14-profile-broken-pauza"
+  ],
+  "s92-override-polnaja-grammatika": [
+   "r16-override-dubl-extra",
+   "r17-override-dubl-object"
+  ],
+  "s93-kontrakty-literal": [
+   "r18-kontrakty-profil-obychnyj",
+   "r19-kontrakty-profil-riskovyj"
+  ],
+  "s96-profil-f-flag": [
+   "k03b01-profil-dangl-symlink",
+   "k03b02-profil-cikl-symlink",
+   "k03b03-profil-katalog",
+   "k03b04-profil-symlink-na-katalog"
+  ],
+  "s97-profil-ljubaja-nechitajemost": [
+   "r15-profile-broken-bez-pauzy",
+   "k03b01-profil-dangl-symlink",
+   "k03b02-profil-cikl-symlink",
+   "k03b03-profil-katalog",
+   "k03b04-profil-symlink-na-katalog"
+  ],
+  "s98-profil-otkaz-i-bez-profilja": [
+   "r03-reestr-bez-profilja",
+   "r08-pauza-bez-profilja-svoj"
+  ],
+  "s99-pauza-r": [
+   "n01-registry-dangling",
+   "n06-pause-dangling",
+   "n08-pause-directory"
+  ],
+  "s100-pauza-L": [
+   "n01-registry-dangling"
+  ],
+  "s101-pauza-second": [
+   "n01-registry-dangling",
+   "n06-pause-dangling"
+  ],
+  "s102-pauza-race": [
+   "n20-race-chitaem-potom-ischez"
+  ],
+  "s103-pauza-warn": [
+   "n01-registry-dangling",
+   "n06-pause-dangling"
+  ],
+  "s104-pauza-all": [
+   "r12-noauthor-adversary",
+   "r13-noauthor-critic"
+  ],
+  "s105-pauza-m1-net-vmesto-nedostupno": [
+   "n01-registry-dangling",
+   "n06-pause-dangling"
+  ],
+  "s106-pauza-m2-dangling-kak-pauza": [
+   "n06-pause-dangling"
+  ],
+  "s107-pauza-m3-sudja-po-klassu": [
+   "r12-noauthor-adversary",
+   "r13-noauthor-critic"
+  ],
+  "s108-pauza-m4a-net-kak-nedostupno": [
+   "n19-profile-without-workflowpaths"
+  ],
+  "s109-pauza-m4b-prochitan-net-kak-nedostupno": [
+   "k03b07-profil-valid-symlink-bez-pauzy"
+  ],
+  "s110-pauza-m6a-nedostupno-continue": [
+   "n21-registry-regular-file",
+   "n22-pause-external-empty"
+  ],
+  "s111-pauza-m6b-nedostupno-kak-pauza": [
+   "n21-registry-regular-file",
+   "n22-pause-external-empty"
+  ],
+  "s112-pauza-m6c-nedostupno-override": [
+   "n21-registry-regular-file",
+   "n23-pause-external-paused"
+  ],
+  "s113-pauza-m8-list-vne-repo": [
+   "n22-pause-external-empty",
+   "n23-pause-external-paused"
+  ],
+  "s114-pauza-m9-bez-prava-obhoda": [
+   "n10-registry-dir-chmod000"
+  ],
+  "s115-pauza-m10-roditel-ne-katalog": [
+   "n21-registry-regular-file"
   ]
  },
  "nositeli": {
-  "model/zamok_predmeta.sh": "c983070d712596f1fd111352c7c522192d3eb91f11696a074598c56de183667e",
+  "model/zamok_predmeta.sh": "e815960ddc0daf17ca0c515c5c03a18a88a5dc55e0f654eaf60edf7450390eb4",
   "materialy/116-stroka.md": "66657faf04ccafd2287fdf56343ba5e73104f8e85d3be7909b8c9215addefd72",
   "materialy/118-stroka.md": "a1b31a1729c529a76775f24099d2cdf9e995597d983f9655f9bceb9ec5009512",
   "materialy/139-stroka.md": "b765f4c3488022c70c81510060a1043bca822669d64a00d5d5b14e5ec1f03fc2",
   "materialy/140-celkom.md": "bbd4b87d9f264faddd4be982065a30057365fbc73fb244f466ac3d0fb77f3eeb",
-  "s01-bez-dublja-rabochego": "996d7d61b778090f389a895c673a07ab5e627d17edf482e3994cadaf92cc951e",
-  "s02-bez-yield-predikata": "a1d678b722a5b0e3624f07e59bbe1fb3a2ca75595da1514dd495841d6fa959d7",
-  "s03-avto-relis-broshennogo": "c73cd50f0b094c60b34dfa1f695085010aae1022ea0fb4996659164f519c7cd7",
-  "s04-osvobodit-zhivogo": "e9864abfe90915a8e9c25b9c0ea11513d9333e771296fd4b34eba305ff09de2a",
-  "s05-subjekt-bez-jakorja": "ba6dbacb680c6af5c991a11c32fe0d320bd145577d227f51979bdecc4faf1a04",
-  "s06-pin-bez-jakorja": "7aab52b8089fb35a5fa4732ff30d4812f54d3f070b6ed2d3d3a47083d68b4be9",
-  "s07-object-fabricuet": "474c3daf950ad05bcb0baae8935c932fb30d166d31a3f040eea6d4affd403e5a",
-  "s08-bez-object-sverki": "d9c31e9c26d21de8c3aa851beff053130b455d1c63b71a13b78051e807fcd3b1",
-  "s09-avtor-ne-sdal": "d24e7e3a0defc57a962099339eb4e39fbf9f7d037b40142d57cfd3a25ac0a516",
-  "s10-vtoroj-sudja": "48e7b05fa57cbea4dd4e3af96d75c8f541b35b1d31baea46032b44f7b74629b5",
-  "s11-uzhe-suzhen": "4d313e2ccad3c848f4f24ac9c9945f20bb047d8f6c7b54379f167b9ad2daf334",
-  "s12-bez-rabochego": "88ef204bb82afe08c1e07e6ae0437fda5b4eae0ed76844198a6d67443b937414",
-  "s13-klass-riska-mjagko": "369dc5238fb04b87456579fd6c17f5da12b51fbe07a3fbaef72a2e2aef335099",
-  "s14-bez-adv-do-rev": "3fe4850849087c8dd2221e09325101a7ed2b665128b37e16934b1482bd171a70",
-  "s15-bez-pauzy": "192ce571bf31dc0d65844e3b6305b2ab616946657a681c88a4425e2c9c1c0db4",
-  "s16-slovo-vsegda": "d4a9b8918d760a858494043a401a0c169eb40e720e580c17520f5b0fae0c2f6b",
-  "s17-done-net": "a609a0a3a126f074dd2a54d46117a5cdaee85ab11d3c3b9cd811560e90c764f8",
-  "s18-gruppa-vsegda-harness": "e7d0f0591ef7d33628c251a1e913cb1aab610cab1377d000e62b53ef0fd87a3b",
-  "s19-bez-dublja-v-pakete": "9eea7c86f318595a94c6a430cb1c252b60de169a8544e8732086a2c30cebebe0",
-  "s20-otkaz-ne-ostanavlivaet": "8c9dc41edee97a18def19a9d27a1a0faa4d2d57a54ec931d22774c7deaa62153",
-  "s21-bez-atomarnosti": "47aff6a86abf3125a6eaa1bf75d15e69a142b7caa519b53524d20c8c6e5dadcc",
-  "s22-bez-starta": "c0a27a764613cfe3992f3a4853b2e4a10ba6cd5bf6e9b4e1e63df3794e043e86",
-  "s23-pustota-prohodit": "65dac168fbe21a195e331a9fe4388a59cf151f427e32aca98066253a670e7e37",
-  "s24-sudi-propusk": "e6f132512362433525f5023f97b7ae103c0ebd5f52e684581eea473a77e30636",
-  "s25-bez-pin-rashozhdenija": "af2e2b2b9e3e054f6f684befed9479fd85df322975872c567c12b609ce6214d1",
-  "s26-uchet-bez-zhurnala": "44b2735ad537c5873a05f3a30601dba806bb4c6fa81004d3a0e1ff5e88e723d8",
-  "s27-pauza-schitaetsja": "4b2553eb3fe8ca77232c62979d9f19fa6a6f30f266457c54ea60a08d0eba0e28",
-  "s28-pervyj-rezultat-find": "ad6cf1301adfe930a44d49ea147b60008deb4083fd5dbf9bbd047d8dde851a1b",
-  "s29-klass-riska-tolko-nachalo-stroki": "491868fb0559365be019e6aa574ba0591672032188a33a3f7c3f91596ce08140",
-  "s30-klass-riska-type-f": "524e61e7da3d2405cf679dbc586782e3b1c3b73532de895ed52046bfbeb79266",
-  "s31-session-exit-ne-sdacha": "3c10528115384a60eeb7c4003779d097555067719c3c754e1bc87191b0c85c57",
-  "s32-session-exit-ljuboj-kind": "321faae2f849f059f103be8f230b31b625a2f5bad2b5dee3dd41d888822c402e",
-  "s33-marker-podstrokoj": "d2cf5e737bf0d5a15cf6834b50d99a2a690291d4464cdfce1a991f8843a02ce9",
-  "s34-klass-iz-gryazi": "9cb73c3a01a8faefb59cabcf4c4683a9760c18f0337818ea968122efa4543418",
-  "s35-klass-iz-main": "8068f7ccc1398676825c06b428aa83f994487c0d9acf9e22c70069a957cffc06",
-  "s36-izolirovan-ne-proverjaetsja": "5fe0ed0ff60d2958f827d12508c67b94e7f644dd3e3b86169242d8b19b5bfe85",
-  "s37-izolirovan-iz-teksta": "66bd6648cf0c9345d81efe40397043035f5201ff85ab76b34b05e873ad9f216b",
-  "s38-izolirovan-ne-bulo": "6946a51b64d4b79e838dbb10ac2f738fc1f6fded8270280d0eb9e481353be344",
-  "s39-izolirovan-trebuet-sudi": "5002ca6dad55d5a613cd56ebd0ab8710da2d6bc4c8fca4c56b53ccacc76a3818",
-  "s40-start-bez-fakta": "0da51ae5627e56f3e26dfc84062040be0d428362a814ac242c7b83eb8f47871a",
-  "s41-sudej-fakt-po-klassu": "0714fe7772510919afe05e2cd286765fd72632caed0a0e249dc630fbf1196c98",
-  "s42-sudej-fakt-vsegda-istina": "0aa04d5aeb8b78877c1cde357dd7804aee3e7d714b8c88f3724b77a83b996f40",
-  "s43-sudejskij-start-bez-fakta": "51ea00acdb54ef36f8bac6e194b29e9ee2c026de6dffa650d5504e7c2a6b8dce",
-  "s44-fakt-iz-pervogo-itema": "07707d4b60327d034d6eee045fd6716c40de36483b56c6ac03ba43fa93ec6712",
-  "s45-uchet-do-proverki": "b377983804d9be3a0904245f309219b3bf6494495d1cf91ab90e92ee3016cb26",
-  "s46-uchet-chtenie-sozdaet": "ded42c6cf6b15daed781883b5366d528740bca2418a073bc75b943db217d58d8",
-  "s47-uchet-neobychnyj-prohodit": "eead974a32a56a36732133219b4df199a02fbc62a0d5e0e086e96d3f054dd54d",
-  "s48-release-do-gotovnosti": "19ca33f5613c96ba9067734a45fd8aad06f40eb5bcaa71ae861c9e94513c712c",
-  "x01-vsegda-puschem": "9070b424c60b3f57f6ce3088f18e09d75350cb3afd68cc0cc0d4a147d914a284",
-  "s49-receipt-bez-origin": "0db016304d329130e0be9ea80d4ed43e836de1b4828f6d546c383625149580a5",
-  "s50-receipt-bez-worker": "2bea4ed2f76e90394c7883870cb1229a8a2086ecba4fc28570560f958a256a03",
-  "s51-receipt-bez-remote": "650a7464c60f2e1918ad14fe0c8cbbea2d4c67b56a864ee07ac9b69626553b95",
-  "s52-receipt-bez-tip": "1c97e3266b326e21c87eaa6797d16b69c97bf9da4c379d2f6ac0d2d59aef6006",
-  "s53-receipt-bez-avtora": "367ba9db1f4cc32b829787a77c8aec87c27f645b838fea6b3cce1999df57cebe",
-  "s54-receipt-bez-frozen-ref": "487c5363e8b861b0f6a9e33c34394d9c170eb4e19c7b99abcb95bf171ab728db",
-  "s55-receipt-ne-pereproverjaet-proof": "ef589d8079b627f022248f9c4d3f70c40ece77ce59ec3aadc90619d4ec92b5c6",
-  "s56-frozen-vmesto-kandidata": "045be4a2f53663e287a79585a5dba776e2d28f23e048892a6df18f758d6c02cd",
-  "s57-frozen-iz-main": "aa0e13b25eba3c8fa630ed9f00e27893f24443f6f247dc38a363d90d0aca722e",
-  "s58-receipt-bez-append": "da1fa3f4deb9e948aea1258c952c21bca5e3d061f008b4f7df88a931a712cd08",
-  "s59-receipt-bez-reestra": "6c6c8555f234698fa57ed05177f604f7cacf8da4da577f41d8c97b96d9d3480f",
-  "s60-receipt-pustoj-rezultat": "e85248dcdd4949a3303a68b9b24ac6361540c857bfceb49179468e13f0ac300d",
-  "s76-receipt-merge-bez-roditelja": "55eba7463fabba92239cf2f009e46b78e82ce204376d7710b807c42043e9da41",
-  "s61-receipt-bez-grammatiki": "2ba410f0c5d5cdca84d3d4ae680e17e9eb7f203feb9383548b47e2f7768b5ce2",
-  "s77-frozen-stancija-vmesto-vladelca": "02572f1511fc29140bdd6d745f551bb90c982a8a700a5cdc0af3981024005bf0",
-  "s78-risk-stancija-vmesto-produkta": "49e206c8f46bdc20d06d4fa423b53b19e21e6f187e2b8af9cecd27a6e9a69157",
-  "s79-legacy-stancija-vmesto-vladelca": "1d423525e074e1666ea6e1dbc8b85d8a25b34709885dd7d8fdff83475a24dd81",
-  "s80-legacy-proverka-stancii": "f294ebc50898d06d67397c201178a1d759e305687b1919903d19f9a80ee3d4af",
-  "s81-legacy-chtenie-stancii": "107712ff65a057c84c7fd6955f7186f4560fef43820dfc0cac209b5761d459f4",
-  "s62-object-tolko-tip": "844c50351b5e9c1781ca937f18d6c32345d968c1e0ed30e316254f5be693e8d2",
-  "s63-object-tolko-poslednij": "ee552f6e385f84898d8c72e6ac8fe4330254b7270c044fe28d04376ed6c929c7",
-  "s64-verdikt-bez-puti": "2ea251985a95dd631ea45aad4cc7796d56eee114d049295edbc4de96f6b445e1",
-  "s65-verdikt-bez-avtora": "00df2e65dfd852acbf55681bce9ddbb1d2c297a30c5d7c352945a9372d433ca2",
-  "s66-verdikt-bez-binding": "dcbfad8d011d4e7e5187d1bd39b17e01e4f0abfc1ea9639553cd915f1405cee2",
-  "s67-verdikt-bez-mode": "a1050f88c755a403fcf479d12ffb05a67ac51bf24f518f58cfc17a8145f77592",
-  "s68-verdikt-pustoj": "ffcaaf3f81976e23441f492cf3340fdd9fc59efa5cae920db6d569d687cc546e",
-  "s73-review-ne-prozrachen": "922281910a084220add8583af27a29ec7d4f5f25978b31b42b79fe2b91dea066",
-  "s74-review-only-novyj-koren": "0991192056fd92660598cd2084bfd5de0f1833206f141afa15adc1d7e4e97ebf",
-  "s69-object-bez-kornja": "df557ebc252a54cad217f8133cfaaa05f5a5df69c2c12518bf421ebfaf4ab2ac",
-  "s70-object-pustoj-tip": "5b87e9af160ce6c02e25d05cc8483f825961a79641cb9a7fb896fa9188f2fccb",
-  "s71-runtime-iz-tip": "951555c97e1daa1f0c28d572008fd4cbdd17013a90224593503115b996566528",
-  "s72-merge-bez-pervogo-roditelja": "c83062eab3c0b23aaef8bc943a39d73349dbbbca94706777a04e89238ee8f69c",
-  "s75-stancija-bez-frozen-ref": "e6a25eb79ed642372c53aebcfd659ad5fb42df8a6bf82644311b7dbc0315706c"
+  "s01-bez-dublja-rabochego": "ac3b3962657835d8bbebe5ffe05fb6ee7e2f210aebbdb903b9a394b6d9540a60",
+  "s02-bez-yield-predikata": "1e6932d121841c79c861987b83a01caee8b5ee33cd3a18fb95dba29ddeec6ea8",
+  "s03-avto-relis-broshennogo": "c40a88d5f987b1daa51e278d40b2d4a3bdba06adf5f26b65cef2c11e143c6fd1",
+  "s94-broshennyj-start-bez-release": "e56636e55946806269804e584a5f7bed51a554f0d2413f78ef4dbde6a37701d9",
+  "s95-broshennyj-ljuboj-vozrast": "2a6cf4756dc5ab44db88d388292ff6e10db704fe86a72ad177f0f47b73cbc097",
+  "s04-osvobodit-zhivogo": "7d8a1a8a110da8ebba80aac4a730dd24ae109580b8a0df60c0f452436daeac94",
+  "s05-subjekt-bez-jakorja": "798c03966a5c64753c721f3e7707ab77b93d3109ccd9e8f36589f3e8918282d0",
+  "s06-pin-bez-jakorja": "a40c24782825ea133d69ed10985cd3918135331173a90622c7e1c67a6659537b",
+  "s07-object-fabricuet": "225c46676b99d6273ad0c68eaffe586027b95ae9c99675e780f9bd70370573ff",
+  "s08-bez-object-sverki": "780a2033572f91f358b332c4883889050f0321100ab33fcd6122fd6a0a73537e",
+  "s09-avtor-ne-sdal": "c6734471a5516e12c1dbd1577240f0e8b70b806cb0fb1dbf7d67fba3c9e8e196",
+  "s10-vtoroj-sudja": "677b1e07f72a16da0482f2b5e639cdb7ab7b7f475935d886b7fe3bb011f09c63",
+  "s11-uzhe-suzhen": "9a72a116009ac65dd0ebb1cca1c4b65718ee8df561875717b05492a62b4bf06a",
+  "s12-bez-rabochego": "3ad8e0c664636f1aa95495c52fc7a6d07815f57cf4901878dc8a9013974b5f9a",
+  "s13-klass-riska-mjagko": "f0165f2addc4f7100c86f71c25540862063ac2af9621aba217940324df09d4a8",
+  "s14-bez-adv-do-rev": "0b4047f30f4d509a54325d33e5bdc079482748307875aedddfc6a5c5457ba352",
+  "s15-bez-pauzy": "863361821d3ef676546eea30ff50c17ccc9aa4cc53103d8841d556ffc98789ea",
+  "s16-slovo-vsegda": "21eb9ef0743cb333a4a6b86f5224f6ec97bdfc8d33f825ce0d0891ee0465541e",
+  "s17-done-net": "defd87e4498b0c56cecf9604ec9f2e2638c96c4479fa28ea1f8b276354b4d7ac",
+  "s18-gruppa-vsegda-harness": "cb68e32195e1f054e90a6d0ffb2cc2c6247d9f82f80332c8bfd583bd434fe013",
+  "s19-bez-dublja-v-pakete": "1bebbebb6848af6e6e46ad0aeaecb10633a0f6fd279c8cbd1f102ca909454562",
+  "s20-otkaz-ne-ostanavlivaet": "fa6004a80f1fd529ab61340290b95860bd17008085e04f65b88b14421fc480cb",
+  "s21-bez-atomarnosti": "ffed3092eddf6976d4958178e9b6ca6164d4ba41b959f7aef7f868c5bc3b9761",
+  "s22-bez-starta": "12fffc74dfc2d4f5e1c6fc7c8a66c01d44ae2f51e4a9446f80eab9678bd44c5e",
+  "s23-pustota-prohodit": "c87649b333e1a82145d41a761761116ae6a76c99184b167eb28cb19bb32360ac",
+  "s24-sudi-propusk": "de9ca9bb7e2b26e853aa569f2c36e2c38b4d824befc942330593f6f387d7a358",
+  "s25-bez-pin-rashozhdenija": "e35b8245fc0c1e000429b72197a9d8b0fd6c06e88a9b89260b85839b6f249245",
+  "s26-uchet-bez-zhurnala": "6baa9d17582457ef3b7faeec25a644c0830e3cbe3a1bd9cb1a4eef8dbf57dd5f",
+  "s27-pauza-schitaetsja": "588582b960e677fda5aac005c8505c4dab3a40ee44ce3f521f8d96161d2442a2",
+  "s28-pervyj-rezultat-find": "39681573cc4c3d7b538b99a9eadc9f26fe6d571b0ddf29e3d376940554887a75",
+  "s29-klass-riska-tolko-nachalo-stroki": "57192f2eb4d6fe071992dce8f2396384a672d6fd01e0998994636fcbc379f16b",
+  "s30-klass-riska-type-f": "734de422eb7690f4d5b38770d30fa6f38b9f26e0fd58c1de02f3f9191b5eaab2",
+  "s31-session-exit-ne-sdacha": "0b06c0f452af896497aee29a74028abaea6d1360680f7a2488cbe53922dde559",
+  "s32-session-exit-ljuboj-kind": "1085c1cee2e040d841415241af1b37bada2c35bea01f348b936f4c1db7034884",
+  "s33-marker-podstrokoj": "f361c957d20c30f95871273db621b49abf9cf0592e80cce8de4ea859c0838073",
+  "s34-klass-iz-gryazi": "149bb26ccfd7be955c7feb3ded4df5daff7c14bf16e03295bc8a9a64a25242ff",
+  "s35-klass-iz-main": "f0106ad50b49c50b6c6c03203f6ab84f0c7e0800042d6e08da5df4a37ac1b0e2",
+  "s36-izolirovan-ne-proverjaetsja": "4febdfb01d315b2c8c2048c849b7fe787190af09fb7066404202008cda5e5589",
+  "s37-izolirovan-iz-teksta": "f10c2af312af48fccb284280f7a043d273e536d6ec795655e6cd1a026b270a16",
+  "s38-izolirovan-ne-bulo": "ae2221f314e37d696e38cd5012ec5728354e28f7db8dc38f8a6d82137e5a577f",
+  "s39-izolirovan-trebuet-sudi": "4a6be29624ce1a46bc92417b6697d0a1bc992db09a4e25a19e911c4d8f52523f",
+  "s40-start-bez-fakta": "810024f25fee82726b833244edf27dc378a709e9148b20f2900686446ffcb127",
+  "s41-sudej-fakt-po-klassu": "db50bcaf4a7a0fc9822f8050a244ca5acbca00393c74dab95f37d6c3188cac3f",
+  "s42-sudej-fakt-vsegda-istina": "de0fcb38d192c61131a81f7e643cb1720de31446680ffc0fe3887600e7d96e75",
+  "s43-sudejskij-start-bez-fakta": "84e5be61c770f59e3e7155809a4a1fb8385bb9d1f42847a5f0d0d8ed6c9149e6",
+  "s44-fakt-iz-pervogo-itema": "847413973a3dc89140a36448ec6a8efbc4ce0feb0f2c608a52e7f695ee36ee46",
+  "s45-uchet-do-proverki": "a4e2509ca6f5b8149f3aa22f0b42164a6ffd561c84a94b1b03bd14df330d445b",
+  "s46-uchet-chtenie-sozdaet": "34718d4ebcf390c54244c81447e470ccbd6247aa7551a1e3722e001f419a5891",
+  "s47-uchet-neobychnyj-prohodit": "94daa765ee4d6e4e8d9f3ddef89b28637652b0e7a51141feb8c3665c185d4067",
+  "s48-release-do-gotovnosti": "303999382d01e0f4798fc1d0d93f2fca2e3d6241d545c53032e4912d59493710",
+  "x01-vsegda-puschem": "2437c137ba662d78ab3fa4ea9eed4d890c5af2ca39d12b9b22175989696a3cf7",
+  "s49-receipt-bez-origin": "9331a7b5b64017e50194faaa7972108d4524b7fd8888974f9e1da95987007cae",
+  "s50-receipt-bez-worker": "1666d4ea4316c96677d52c0653d51251d4ce0b2da4de2c9217dcf553fd4f275b",
+  "s51-receipt-bez-remote": "f88c9d698fe164a469e6704025f4c847821e6c20e3aedebb6fafd80be5b3a553",
+  "s52-receipt-bez-tip": "f19736a6a6d1965f17d57ee4a39a57e202878b8d3a24184c930bac2d0773857a",
+  "s53-receipt-bez-avtora": "34137a3737e902e5b387f0453832b27d89f66d24afb252257d4a3a69ec9053aa",
+  "s54-receipt-bez-frozen-ref": "03c46660d7a3561deb8de46da6f8f737bafe05a40b81e7806caa64fd045dcf0a",
+  "s55-receipt-ne-pereproverjaet-proof": "68b1520cfd5d0717202f40d709639a653b8044b0f31c978f24e7951197bbb3c5",
+  "s56-frozen-vmesto-kandidata": "c20da03b21b7fb01c17a7d91a5d1a0d69440379d802bd0f5f1b7821e5b60e649",
+  "s57-frozen-iz-main": "65e2ff39fd0c1d89821cb83641652f950cf0d4abf4a769bb9d7128e56e454e46",
+  "s58-receipt-bez-append": "0a02e9ec3d93b4e47f944cd9de02d9ad13bfca11032429d3162c4d138958e177",
+  "s59-receipt-bez-reestra": "e19fb6687171dd940814255da2c47bddeee4707d492436ea2de51cae40485ee5",
+  "s60-receipt-pustoj-rezultat": "20979dd3a4ff320322fe562aa1527efb851902945a19c63aceeccbe9a4e13746",
+  "s76-receipt-merge-bez-roditelja": "0f555e7de6c870ad37c91fe062e9002ffce69f5d2e43ebf883f40f152b45d9cf",
+  "s61-receipt-bez-grammatiki": "1f3b79d03e1a0e33754606d92cb383385894594de45f67ae21344b55cd3065da",
+  "s77-frozen-stancija-vmesto-vladelca": "bc60c027824d771de8febd8ca9d2ac27ba2dc1d043b6fe939d4a995d72ef9738",
+  "s78-risk-stancija-vmesto-produkta": "7fb10b534e2859f37ef387937c2fcdfd5cf7a868b8b181e3a0ded28808e0b0a1",
+  "s79-legacy-stancija-vmesto-vladelca": "7395d20c05c586db7bde3e04eb0f5e391532df61cb4c49090776c510eb5b00e1",
+  "s80-legacy-proverka-stancii": "fafd5b047d9b6210a7dbdf51979568ceec95d484287e36d19b1fecdb33e17b2d",
+  "s81-legacy-chtenie-stancii": "fd4feab9c753c24c34b21e444ad03740452fc5f792b46c5e2df6a1df9b84eb4a",
+  "s62-object-tolko-tip": "e4e4c986be2f0610d83a18eaf550b73c5c4a119b858249f431126ed96acd375b",
+  "s63-object-tolko-poslednij": "976f51983119175708b7e885de644c7b265d45392eb971edae643f5b40928dfa",
+  "s64-verdikt-bez-puti": "6c23e13a19351e2c25ff4018ad9b4272380ac3e93bd72cfd5a1ed524499743ce",
+  "s65-verdikt-bez-avtora": "be171acc14e9a9cfdda47e9895c2def84d70ac14b25071785e969e3973529260",
+  "s66-verdikt-bez-binding": "f0912f3252d4aaa72dd8a6b81b9d247ea7e288c1bd97ac72b45817fcfb507778",
+  "s67-verdikt-bez-mode": "9c21ab1845e434ba362ea80bc19fe2a81607ce3aad1b74ad86c4dbaa83eff7dd",
+  "s68-verdikt-pustoj": "751c64efbf88f50f1e39daa603022a6b575b5ce2b074f499065a1fbf5c5b5640",
+  "s73-review-ne-prozrachen": "d6e849f4c3878045ec5151196c7f54bbea04818594d40a95d04a69c279994152",
+  "s74-review-only-novyj-koren": "ca42caa711b90264f645f3b74d4fcee9cc320e6fac7e77d8deb10634d2ccce1e",
+  "s69-object-bez-kornja": "72a057bcacfc86883bd53481e9b5913aaebc9a898efcc4b12ffcdad3dde31714",
+  "s70-object-pustoj-tip": "a0820953d97662908199b0236ce59e0889717edf25a427e9665583fbceda87ea",
+  "s71-runtime-iz-tip": "222a5843dc40d88425d7ba53a1134eae0ae8d20da31a8ecba700ae907322c467",
+  "s72-merge-bez-pervogo-roditelja": "c523e06bdc79115f2f49984929785e8898012bb5a71c52b4c48c26c56cacf4ab",
+  "s75-stancija-bez-frozen-ref": "21f2765ab072a99fb251acef1f24c4d5e4230321a24257b026b59c61867aae1c",
+  "s82-override-bez-zapisi": "a8eb23419d1bec497f2bfa4193ef50f95ddda27b94585708874efecd28143164",
+  "s83-override-bez-abort": "fcfa182568e40531976db06b15f7b4d25b3f73a8bb6b5d46827b3f5a213ece38",
+  "s84-preduprezhdenie-bez-zapisi": "8d8cfc46e07af5d21b15403b05180a71824fbeedb9098539e7872127fe356ab6",
+  "s85-broshennyj-bez-release": "ff4b5cdea2f33d9ef8193fedac2388ce02a031a74012655ea794b22c09fc51fb",
+  "s86-start-zaproshennyj-object": "37e7f58d9762695b721de8e5e3511927eb64bd75d1d62bf09af3709956417996",
+  "s87-reestr-literal-proekta": "d0ed2d3c6122bdba2dab689601882177a8b62db84376a697ad09c015e2cf4c65",
+  "s88-pauza-ignoriruet-profil": "8e139f1a02acf14359849988a913016354f6219755234c7a40e60728da8d6abf",
+  "s89-reestr-tolko-stancija": "d2e88008f8285cf058075e2021f323673c7e7740a6cbfedf6fee650022885614",
+  "s90-noauthor-rannyj-continue": "0c9dcf7fe3b50730414681677d3990b8673ec2c4970552d11dd518f580a643e1",
+  "s91-profile-error-bez-pauzy": "2fd616aa835ca32c05f9b7e7979aac62bdc078304abbd2051600a62f5484acc0",
+  "s92-override-polnaja-grammatika": "4b16fe4c5c2362328bfe3110e16fad48f3b7ecc79b42e2a1583b18ddafd859bc",
+  "s93-kontrakty-literal": "3927cd90150b1e5c0437a5a485c5c5bbd19956c15edd78c4f095fbf1cddc919e",
+  "s96-profil-f-flag": "406188ca65f11dbd487caf4ff791a651a5121712a82d74dbca3cc7f6cce1e42f",
+  "s97-profil-ljubaja-nechitajemost": "f43567581a4a7ebf2f810c1e64c0f8b8c9e3f2b60e7001b30eec3fa66382a82e",
+  "s98-profil-otkaz-i-bez-profilja": "a287da50a3f2c00004d630f294277c3b5b4c0370565e0babd3848d989bb62498",
+  "s99-pauza-r": "8d7a5d5e5e7e9ffc2c3bcbb686d64708943ec4dd946068b593c46ac14d042c78",
+  "s100-pauza-L": "debd7ac9011189921e106c26820613c5d468485deb276659aa95568f91fa2d8a",
+  "s101-pauza-second": "46707039f3503364ecf261aa15b86e490d76385e9943079cd8b31767a0a8b5bf",
+  "s102-pauza-race": "778424e6addacbcba33054ffdfd85331881dd59c8a5488117957f6ba4c39c430",
+  "s103-pauza-warn": "0a6bb383e88cdd086d9c47516c9ce4a24238894f9967672b6ee0fb32292c3b3c",
+  "s104-pauza-all": "511b2b92173242b575fb1c76be06038917d7fa3a2d32ea700f2992ffe5314881",
+  "s105-pauza-m1-net-vmesto-nedostupno": "07abad276bd1d6f29e94ca6990d075b22ccc9e4e6150623789e4a98c1760ed29",
+  "s106-pauza-m2-dangling-kak-pauza": "5d564aa95f84ab2e7dab74a1f8a7023746dcb674c3d4782edc8b9fd0df79234e",
+  "s107-pauza-m3-sudja-po-klassu": "9259cb5eb5747ab6b03cf3addadc9e947af500f5a8d6857045aa58e160d6d7de",
+  "s108-pauza-m4a-net-kak-nedostupno": "81659e29b04a4c91f0ce7df2c45ea28799ee191352de37aba4583b4aa44a1d6b",
+  "s109-pauza-m4b-prochitan-net-kak-nedostupno": "e5bcb8fc7ccb82634772ab1e9e81363a018d7becd5e6227e849d6fd2308ce483",
+  "s110-pauza-m6a-nedostupno-continue": "cca9f595964badf23b75ba05ebb6840a5c3c37abaa02fb94515c327c5da9a8fe",
+  "s111-pauza-m6b-nedostupno-kak-pauza": "e0561fc78330901337b02681e4640ad4e4b65d69e2bcc9a82de0108c97085374",
+  "s112-pauza-m6c-nedostupno-override": "b21555aaaad42f210556c28ce8cae3a60c54485410195e02daf34e96971014d1",
+  "s113-pauza-m8-list-vne-repo": "6cb44ab48f42e0496b574a866c64a461ccf5c296fd67763f446eb4f4253fadb7",
+  "s114-pauza-m9-bez-prava-obhoda": "ecbe9c067c20eb46e73ba47b93b1f65349cdbac1e6895441d31b2307886b6477",
+  "s115-pauza-m10-roditel-ne-katalog": "34b359bafe5688df5ed3b7be38a90362132cdab2e4cbfba6e0f43c42a7467726"
  },
  "zametki": {
   "nositeli": "пины sha256 модели и стабов вычисляет probe.py --sgeneriruj-staby вместе с материализацией носителей; фиксируются ДО сдачи; рассинхрон на сдаче = ORACLE_TAMPERED",

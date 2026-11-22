@@ -63,7 +63,7 @@ def dobavit(K, p):
             before = m.ledger.read_bytes()
             if name == 'q31-stancija-frozen-net':
                 m.git(['tag', '-d', 'frozen/contracts/140/1'])
-                want, reason = 1, 'KLASS_RISKA_NET'
+                want, reason = 1, 'ADVERSARIJ_DO_REVJUERA'
             else:
                 opposite = 'обычный' if risk == 'рисковый' else 'рисковый'
                 (wt / 'contracts/140-fixture.md').write_text('КЛАСС РИСКА: '+opposite+'\n')
@@ -153,9 +153,12 @@ def dobavit(K, p):
             event = m.sobytie('judge.json', [p.item('adversary', 'Again140',
                                 ['SUBJECT=140', 'OBJECT='+requested])])
             r = p.sudit(door, m, event)
-        return [p.k_rc(r, 1, 'canonical-object'),
-                p.k_prichina(r, 'OBJECT_RASHODITSJA', 'не новый кандидат'),
-                None if m.ledger.read_bytes() == before else 'переписан счёт/START',
+        if name == 'q18-object-root-resolver':
+            return [p.k_rc(r, 1, 'read-only-resolver'),
+                    p.k_prichina(r, 'OBJECT_RASHODITSJA', 'не новый кандидат'),
+                    None if m.ledger.read_bytes() == before else 'resolver изменил учёт']
+        return p.k_warn(r, m, 'OBJECT_RASHODITSJA', '140') + [
+                None if m.ledger.read_bytes().startswith(before) else 'переписан START',
                 None if git(wt, 'rev-parse', br) == tip else 'сдвинута рабочая ветка']
 
     for name, axes in CASES.items():
