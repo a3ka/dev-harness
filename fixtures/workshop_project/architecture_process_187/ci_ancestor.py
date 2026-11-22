@@ -5,12 +5,25 @@ import re
 from probe import git, put
 
 LIMIT = 50
+# Б-1(б) вердикта Rev187Ci: конфигурация субмодуля мира submodule-ignore
+# и два значения gitlink src/sub (сдвиг между P и HEAD).
+SUBMODULE_GITMODULES = ('[submodule "sub"]\n\tpath = src/sub\n'
+                        '\turl = https://example.invalid/src-sub.git\n'
+                        '\tignore = all\n')
+SUBMODULE_A = '1' * 40
+SUBMODULE_B = '2' * 40
+
 # Expected results are literal requirements, not outputs of the model selector.
 SPECS = (
     ('one', 0), ('three', 0), ('product', 1), ('docs', 1), ('github', 1),
     ('mixed', 1), ('failure', 1), ('skipped', 1), ('depth', 1),
     ('limit', 0), ('root', 1), ('merge', 1), ('head', 0), ('missing', 1),
     ('tag-head', 0), ('prefix-x', 1), ('prefix-old', 1),
+    # Б-1 Rev187Ci: rename продукта в .harness/ и gitlink-сдвиг при
+    # ignore=all porcelain считает .harness-only (rc базы 0 вместо 1);
+    # guard-rename — охранная: большой .harness-only коммит с rename
+    # ВНУТРИ .harness/ принимается, чтобы дверь не стала слишком строгой.
+    ('rename', 1), ('submodule-ignore', 1), ('guard-rename', 0),
 )
 CASES = tuple((f'done-ancestor-{name}', 'done', f'ancestor-{name}', rc,
                'ARCH_CI' if rc else '', 'done') for name, rc in SPECS)
@@ -28,6 +41,11 @@ STABS = {
     'ancestor-no-sha-diagnostic': ('done-ancestor-three', 'ancestor-no-sha'),
     'ancestor-no-depth-reason': ('done-ancestor-depth', 'ancestor-no-reason'),
     'ancestor-no-root-reason': ('done-ancestor-root', 'ancestor-no-reason'),
+    # Б-1 (привязка по коду select, Н-39): потеря флагов полного списка
+    # путей; каждый дефект наблюдаем на входе своей клетки.
+    'ancestor-rename-detection': ('done-ancestor-rename', 'ancestor-renames'),
+    'ancestor-submodule-hidden': ('done-ancestor-submodule-ignore', 'ancestor-submodule-ignore'),
+    'ancestor-porcelain-paths': ('done-ancestor-rename', 'ancestor-porcelain'),
 }
 
 
@@ -75,8 +93,27 @@ def prepare(root, variation):
     name = variation.removeprefix('ancestor-')
     # The normal prepare already gave us a frozen scenario + reviewer OBJECT.
     # A real product commit C follows it, so all later done checks stay applicable.
-    product = commit(root, {'app/identity/model.js': 'module.exports = 187;\n'},
-                     'product C after review')
+    product_files = {'app/identity/model.js': 'module.exports = 187;\n'}
+    if name == 'rename':
+        # Б-1(а): источник переименования живёт в продукте; байты идентичны,
+        # чтобы porcelain diff (diff.renames) видел rename и скрывал старый путь.
+        product_files['src/r.js'] = product_files['app/identity/model.js']
+    if name == 'guard-rename':
+        product_files['.harness/a'] = 'guard source\n'
+    if name == 'submodule-ignore':
+        # Б-1(б): P несёт .gitmodules (ignore = all) и gitlink src/sub —
+        # появись .gitmodules в HEAD, он сам вышел бы из .harness и краснота
+        # исчезла бы без ремонта двери.
+        for path, text in product_files.items():
+            put(root, path, text)
+        put(root, '.gitmodules', SUBMODULE_GITMODULES)
+        git(root, 'add', '-A')
+        git(root, 'update-index', '--add', '--cacheinfo',
+            f'160000,{SUBMODULE_A},src/sub')
+        git(root, 'commit', '-qm', 'product C after review')
+        product = git(root, 'rev-parse', 'HEAD')
+    else:
+        product = commit(root, product_files, 'product C after review')
     older = git(root, 'rev-parse', product + '^')
     selected = product
     reason = ''
@@ -111,6 +148,30 @@ def prepare(root, variation):
         if name == 'mixed':
             files['.harness/x'] = 'metadata\n'
         selected = commit(root, files, 'non harness boundary')
+    elif name == 'rename':
+        # Б-1(а): git mv продукта в .harness — полный список обязан видеть
+        # ОБЕ стороны переименования, porcelain видит только новую.
+        git(root, 'mv', 'src/r.js', '.harness/r.js')
+        git(root, 'commit', '-qm', 'move product file into harness')
+        selected = git(root, 'rev-parse', 'HEAD')
+    elif name == 'submodule-ignore':
+        # Б-1(б): HEAD только сдвигает gitlink и добавляет .harness/n;
+        # submodule.sub.ignore=all скрывает gitlink из porcelain diff.
+        put(root, '.harness/n', 'metadata note\n')
+        git(root, 'add', '-A')
+        git(root, 'update-index', '--add', '--cacheinfo',
+            f'160000,{SUBMODULE_B},src/sub')
+        git(root, 'commit', '-qm', 'harness note shifts gitlink')
+        selected = git(root, 'rev-parse', 'HEAD')
+    elif name == 'guard-rename':
+        # Охранная: БОЛЬШОЙ .harness-only коммит (30 новых файлов) с
+        # переименованием ВНУТРИ .harness/ — принимается; дверь не запрещает
+        # переименования как класс и не режет большие .harness-списки путей.
+        git(root, 'mv', '.harness/a', '.harness/b')
+        for i in range(30):
+            put(root, f'.harness/bulk/{i:02d}', f'bulk {i}\n')
+        git(root, 'add', '-A')
+        git(root, 'commit', '-qm', 'large harness-only rename inside .harness')
     elif name != 'head':
         count = {'three': 3, 'depth': LIMIT + 1, 'limit': LIMIT}.get(name, 1)
         chain = [product]
@@ -153,7 +214,21 @@ def select(root, mutant=''):
             return sha, 'root'
         if len(parents) != 1 and mutant != 'ancestor-cross-merge':
             return sha, ''  # check the merge itself, never a parent
-        paths = git(root, 'diff', '--name-only', '-z', parents[0], sha).split('\0')
+        # Б-1: список путей коммита ПОЛОН — обе стороны переименования и
+        # каждый изменённый gitlink; не зависит от rename-детекта и от
+        # submodule.*.ignore. Стабы снимают флаги по одному (поведение
+        # двери OBJECT); rename-детект стабов закреплён конфигом команды,
+        # а не умолчанием станции.
+        config = []
+        flags = ['--no-renames', '--ignore-submodules=none']
+        if mutant == 'ancestor-renames':
+            config, flags = ['-c', 'diff.renames=true'], ['--ignore-submodules=none']
+        elif mutant == 'ancestor-submodule-ignore':
+            flags = ['--no-renames']
+        elif mutant == 'ancestor-porcelain':
+            config, flags = ['-c', 'diff.renames=true'], []
+        paths = git(root, *config, 'diff', *flags, '--name-only', '-z',
+                    parents[0], sha).split('\0')
         paths = [path for path in paths if path]
         prefixes = ('.harness/',)
         if mutant == 'ancestor-extra-paths':

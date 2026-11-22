@@ -23,13 +23,17 @@ done-тег. Существующие CASES/STABS и этот раннер пе�
 - census · fixtures/workshop_project/architecture_process_187/census_b5.py · 0 · 0
 - battery-model · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --model · 0 · 0
 - battery-stabs · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --stabs · 0 · 0
-- battery-repo-before-implementation · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo . · 0 · 0
+- battery-repo-before-implementation · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo . · 1 · 1
 - regression-201 · bash fixtures/workshop_project/done_dver_soderzhatelnaja_201/red_done_dver_201.sh --repo . · 0 · 0
 - wiring · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --wiring . · 0 · 0
 
-Замена строки repo на 0/0 выполнена: живой интеграционный прогон
-с реализацией на базе `a02e5f839d6b85c5e251cc19400734f65569658f`
-дал CELLS 84 FAILURES 0. `pre_critic` не назначается этим маршрутом.
+Строка repo вновь фиксирует красное ДО правки двери (Б-1 вердикта
+Rev187Ci): заявлен фактический rc 1 текущего дерева — красные ровно
+новые клетки rename/submodule из раздела «Исправление FAIL Rev187Ci
+(Б-1)». Живой интеграционный прогон первой пачки на базе
+`a02e5f839d6b85c5e251cc19400734f65569658f` дал 84/0; после правки двери
+строка снова заменяется на 0/0 новым живым замером, как в `0f19080ab7`.
+`pre_critic` не назначается этим маршрутом.
 
 ## Карта классов
 
@@ -40,14 +44,14 @@ done-тег. Существующие CASES/STABS и этот раннер пе�
 - К-05 · чисто · вход: база 67/67 зелена; после новых клеток 10 RED только done-ancestor, прежние 67 GREEN · - · -
 - К-06 · чисто · вход: реальные Git/Python/bash, автономный PATH-curl по SHA; новых зависимостей нет · - · -
 - К-07 · чисто · вход: rc из SPECS, HEAD и SHA* из конструкции мира до субъекта; наблюдаются запрос API, stderr и настоящий тег · - · -
-- К-08 · чисто · вход: stabs 84/108/0, новых стабов 15, ZHIV=0; привязки только в ci_ancestor.STABS · - · -
+- К-08 · чисто · вход: stabs 87/111/0, стабов семьи 18, ZHIV=0; привязки только в ci_ancestor.STABS · - · -
 - К-09 · чисто · вход: реальные однородительские цепочки и два родителя merge, конформные JSON check-runs; граница 50/51 и root · - · -
-- К-10 · чисто · вход: пойманы произвольный предок, лишние каталоги, merge-обход, отсутствие лимита, тег на SHA*, prefix без слеша и утрата диагностики · - · -
+- К-10 · чисто · вход: пойманы произвольный предок, лишние каталоги, merge-обход, отсутствие лимита, тег на SHA*, prefix без слеша, утрата диагностики и скрытые rename/gitlink пути · - · -
 - К-11 · чисто · вход: ожидаемые SHA/причина в памяти до вызова; субъект не становится источником ожидаемого результата · - · -
 - К-12 · чисто · вход: SPECS и LIMIT едины для новых клеток и census; ожидания rc литеральны, не вычисляются селектором модели · - · -
 - К-13 · н/п · новые клетки используют автономный curl без сетевого запроса; токены не выводятся · - · -
 - К-14 · чисто · вход: one/three/limit/head/tag-head зелены на честной модели; docs/github/product/mixed/prefix остаются отказами · - · -
-- К-15 · чисто · вход: census 84 клетки, 108 стабов, 17 новых клеток, 15 новых стабов; dangling пуст; repo 84/0/10, regression-201 62/0/0 · - · -
+- К-15 · чисто · вход: census 87 клеток, 111 стабов, 20 клеток семьи, 18 стабов семьи; dangling пуст; repo 87/0/2 до правки двери, regression-201 62/0/0 · - · -
 - К-16 · чисто · вход: ARCH_REVIEW-warning и прежние CI-отказы сохранены; тег только на HEAD, при отказе тега нет · - · -
 - К-17 · н/п · sourceCanon и модель архитектуры продукта не меняются; предмет — механическая done-дверь · - · -
 
@@ -59,6 +63,59 @@ ARCH_CI при служебном хвосте истории; scope не рас
 их reviewer-коммит меняет только .harness, поэтому после cutover он
 перестаёт быть проверяемым продуктовым SHA. Исходный успех на HEAD
 сохранён; прежние отрицательные мутации применены к обоим run.
+
+## Исправление FAIL Rev187Ci (Б-1)
+
+Основание: FAIL вердикта `verdicts/review/contracts-187-v7.md` (Rev187Ci,
+вызов 1; архив станции `archive/187/reviewer-ci-fail-3181eee080`; OBJECT
+`4333f84873eea5a0d03aae3faf0337c0fd07bddc`), блок Б-1: список путей подъёма
+`git diff --name-only -z` (scripts/done_contract.sh:352) неполон —
+переименование продукта в `.harness/` и сдвиг gitlink при `ignore = all`
+считаются `.harness`-only, живая дверь даёт rc 0. Закрывающее свойство:
+список путей каждого коммита подъёма ПОЛОН и не зависит от определения
+переименований и от `submodule.*.ignore`; обе стороны переименования и
+каждый изменённый gitlink входят в список. Ожидаемая правка двери —
+`git diff --no-renames --ignore-submodules=none --name-only -z` (мера
+осуществимости вердикта: 17 клеток семьи + rename + submodule →
+CELLS=19 FAILURES=0; контракты и дверь этой пачкой не правятся).
+
+| Клетка | rc OBJECT / состояние | rc после / требование |
+| --- | --- | --- |
+| done-ancestor-rename | 0 / RED: засчитан продуктовый предок | 1 / GREEN, SHA*=HEAD |
+| done-ancestor-submodule-ignore | 0 / RED: засчитан продуктовый предок | 1 / GREEN, SHA*=HEAD |
+| done-ancestor-guard-rename | 0 / GREEN (охранная) | 0 / GREEN |
+
+Мир rename: P создаёт `src/r.js` (байты идентичны для rename-детекта),
+HEAD = `git mv src/r.js .harness/r.js`. Мир submodule-ignore: P несёт
+`.gitmodules` (`submodule.sub.ignore = all`) и gitlink `src/sub`=1×40,
+HEAD = `.harness/n` + сдвиг gitlink до 2×40 (`update-index --cacheinfo`).
+Охранная guard-rename: HEAD = rename `.harness/a` → `.harness/b` + 30
+файлов `.harness/bulk/` — принимается: дверь не запрещает переименования
+как класс и не режет большие `.harness`-списки путей.
+
+Обманные стабы (привязка по коду select, Н-39): S-ren
+`ancestor-rename-detection` → клетка rename (`--name-only` БЕЗ
+`--no-renames`, rename-детект закреплён в команде стаба — поведение
+двери OBJECT на этом входе); S-sub `ancestor-submodule-hidden` → клетка
+submodule-ignore (`--no-renames` БЕЗ `--ignore-submodules=none`);
+S-both `ancestor-porcelain-paths` → клетка rename (оба флага сняты —
+поведение двери OBJECT). Каждый дефект наблюдаем на входе своей клетки.
+
+Счётчики: клетки 84 → 87 (семья done-ancestor 17 → 20: +rename,
++submodule-ignore, +guard-rename), стабы 108 → 111 (семья 15 → 18).
+Замер этой пачки на OBJECT без правки двери: `--model` rc 0
+CELLS=87 FAILURES=0; `--stabs` rc 0 CELLS=87 STABS=111 FAILURES=0,
+все пойманы, ZHIV=0; census 87/111, семья 20/18, OLD 67/93, DANGLING=[].
+
+Живой repo-замер этой пачки на OBJECT (правки двери нет): rc 1,
+CELLS=87 STABS=0 FAILURES=2 — красные РОВНО две новые клетки, обе с
+выводом живой двери «успешный check-run arch засчитан» и SHA* на
+продуктовом предке вместо HEAD (миры пересоздаются, SHA — этого прогона):
+rename: HEAD=a1ee994792a57478d8b65f9b2ba34b2edc2c9b69;
+SHA*=b2f1d263feea36ef36b863214676493b45fdfbda;
+submodule-ignore: HEAD=23631fb340e9870b38aa010a47fd5bc0f261a200;
+SHA*=b341aad308f926bf802e562326d3d78ec7397ce1. Охранная
+guard-rename GREEN (rc 0), остальные 84 клетки GREEN.
 
 ## ARCH_CI: предок .harness-only (слово консультанта 23:52)
 
@@ -109,8 +166,10 @@ rc реализации и GREEN проверки, пока не наблюда�
 
 Число клеток семьи и привязки пересчитывает
 `fixtures/workshop_project/architecture_process_187/census_b5.py`:
-84/108 всего, 17/15 новых, 67/93 прежних; dangling=[].
-Этот census отсутствовал на базе, несмотря на упоминание в задании.
+87/111 всего, 20/18 семьи (Б-1: +rename, +submodule-ignore,
++guard-rename), 67/93 прежних; dangling=[].
+Живой repo-замер до правки двери — в разделе
+«Исправление FAIL Rev187Ci (Б-1)».
 Сырой вывод census и прогонов сохранён в tool-трассе текущего вызова.
 
 ## Заменяемые frozen-обязательства ARCH_CI
@@ -151,9 +210,14 @@ root/корневой либо depth/limit/лимит/глубина, не по 
 
 ## Прогон листа текущей пачки
 
-`TMPDIR="$PWD/.scratch-archci" bash scripts/check_sdacha.sh "$PWD"
-contracts/187-arhitektura-v-processe.md --run` → rc 0:
+Первая пачка: `TMPDIR="$PWD/.scratch-archci" bash scripts/check_sdacha.sh
+"$PWD" contracts/187-arhitektura-v-processe.md --run` → rc 0:
 `СДАЧА: лист зелёный (двери=6 карта=17/17 дельта=0)`.
+
+Пачка Б-1 (эта): `TMPDIR="$PWD/.scratch-archci3" bash
+scripts/check_sdacha.sh "$PWD" contracts/187-arhitektura-v-processe.md
+--run` → rc 0: `СДАЧА: лист зелёный (двери=6 карта=17/17 дельта=0)`;
+repo-дверь заявлена 1·1 и прожита rc 1 (красные ровно rename/submodule).
 Двери исполнялись последовательно; тяжёлые батареи не перекрывались.
 Scratch удаляется перед коммитом; push не выполняется.
 
