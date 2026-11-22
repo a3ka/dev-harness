@@ -234,6 +234,19 @@ def invoke(subject, world):
     return rc, (out + err).decode('utf-8', 'replace')
 
 
+def observe_cell(subject, scratch, cell, mutation=None):
+    world = Path(tempfile.mkdtemp(dir=str(scratch), prefix=cell.name + '.'))
+    try:
+        cell.build(world)
+        honest_expected = cell.expect(world)
+        mutant_expected = (MUTANT_EXPECTED[mutation](cell, honest_expected)
+                           if mutation is not None else None)
+        observed = invoke(subject, world)
+        return honest_expected, mutant_expected, observed
+    finally:
+        shutil.rmtree(world, ignore_errors=True)
+
+
 def run_cells(subject, scratch, names=None):
     import json
     selected = [c for c in CELLS if names is None or c.name in names]
@@ -241,18 +254,12 @@ def run_cells(subject, scratch, names=None):
         raise Prerequisite('EMPTY_SELECTION')
     mismatches = []
     for cell in selected:
-        world = Path(tempfile.mkdtemp(dir=str(scratch), prefix=cell.name + '.'))
-        try:
-            cell.build(world)
-            want_rc, want_text = cell.expect(world)
-            rc, output = invoke(subject, world)
-            matched = rc == want_rc and output == want_text
-        finally:
-            shutil.rmtree(world, ignore_errors=True)
+        (want_rc, want_text), _, (rc, output) = observe_cell(subject, scratch, cell)
+        matched = rc == want_rc and output == want_text
         if not matched:
             mismatches.append(cell.name)
         print('CELL ' + json.dumps(dict(name=cell.name, rc=rc, expected=want_rc,
-                                        matched=matched, output=output.strip()), ensure_ascii=False))
+                                        matched=matched, output=output), ensure_ascii=False))
     print('KLETKI=%d ZELENYE=%d KRASNYE=%d' % (len(selected), len(selected) - len(mismatches), len(mismatches)))
     return mismatches
 
@@ -266,6 +273,11 @@ ANCH_EQUAL = 'if [ "$tok" = "$guard" ]; then found=1; break; fi'
 ANCH_READ_NUL = 'while IFS= read -r -d \'\' tok; do'
 ANCH_JQ = ('jq -j \'if has("sourceCanon") and (.sourceCanon.value != null) '
            'then (.sourceCanon.value.gate[]? | . + "\\u0000") else empty end\'')
+ANCH_RESOLVER_ERROR = 'if [ $? -ne 0 ]; then'
+ANCH_SUFFIX = ('if [ "${#tok}" -ge "${#suf}" ] && '
+               '[ "${tok:$((${#tok} - ${#suf}))}" = "$suf" ]; then')
+ANCH_GUARD_EXISTS = '[ -f "$ROOT/$guard" ] || die "проводка: guard-файл не существует: $guard"'
+ANCH_DIE_FUNCTION = 'die()  { printf \'%s\\n\' "$*" >&2; exit 1; }'
 JQ_LINES = ('jq -r \'if has("sourceCanon") and (.sourceCanon.value != null) '
             'then .sourceCanon.value.gate[]? else empty end\'')
 
@@ -290,12 +302,65 @@ MUTATIONS = {
     # К-09 Δ1: прежнее построчное чтение — границы argv теряются на LF
     'LF-GRANITSY': ((ANCH_READ_NUL, 'while IFS= read -r tok; do'),
                     (ANCH_JQ, JQ_LINES)),
+    # К-01 Δ2: все четыре исполненные мутации вердикта v1 — отдельными стабами.
+    'ANY-FIELD': ((ANCH_JQ,
+                   'jq -j \'if has("sourceCanon") and (.sourceCanon.value != null) then (.sourceCanon.value | .. | strings | . + "\\u0000") else empty end\''),),
+    'IGNORE-ERRORS': ((ANCH_RESOLVER_ERROR, 'if false; then'),),
+    # GATE-FIRST и ARGV0 воспроизводят один дефект: судится только gate[0].
+    # Имя критика сохранено отдельным исполняемым стабом, не только упоминанием.
+    'GATE-FIRST': ((ANCH_JQ, ANCH_JQ.replace('gate[]?', 'gate[0]?')),),
+    'OMIT-SUFFIX': ((ANCH_SUFFIX, 'if false; then'),),
+    'OTSUTSTVIE-GUARD': ((ANCH_GUARD_EXISTS, ':'),),
+    # К-10 Δ2: вывод, ошибочно принимаемый сравнением strip(), но не точным.
+    'STRIP-VYVODA': ((ANCH_DIE,
+                      'printf \' \\n\' >&2; die "проводка: профиль проекта не распознан: $prof_reason"'),),
+    'DIE-ECHO': ((ANCH_DIE,
+                  'echo "проводка: профиль проекта не распознан: $prof_reason"'),),
+    # Реальная мутация v2: разные строки в stdout/stderr перед отказом.
+    'STDOUT-STDERR-RAZDEL': ((ANCH_DIE,
+                             'printf \'stdout-first\\n\'; printf \'stderr-second\\n\' >&2; die "проводка: профиль проекта не распознан: $prof_reason"'),),
+    # Честный die уже несёт LF; отсутствие этого байта отличает printf '%s'.
+    'LF-V-KONCE': ((ANCH_DIE_FUNCTION,
+                    'die()  { printf \'%s\' "$*" >&2; exit 1; }'),),
+}
+
+
+# Точные результаты сняты с адресных предъявлений на настоящих bash/jq/resolver.
+# Ожидания вычисляются в памяти ДО invoke; неожиданный rc/вывод — не поимка.
+JQ_ERROR_PROFILE = 'jq: parse error: Invalid numeric literal at line 1, column 8\n'
+JQ_ERROR_RAW = 'jq: parse error: Invalid numeric literal at line 2, column 0\n'
+MUTANT_EXPECTED = {
+    'VETKA-NET': lambda cell, honest: (1, old_refusal(GUARD) + '\n'),
+    'PODSTROKA-BAZY': lambda cell, honest: (0, ''),
+    'SLOVO-ERE': lambda cell, honest: (0, ''),
+    'SYROJ-JSON': lambda cell, honest: {
+        'a2-gate-v-defoltsah': (1, old_refusal(PY_GUARD) + '\n'),
+        'e3-kanon-vne-alfavita': (1, JQ_ERROR_RAW + old_refusal(GUARD) + '\n'),
+    }[cell.name],
+    'TIHO': lambda cell, honest: (1, JQ_ERROR_PROFILE + old_refusal(GUARD) + '\n'),
+    'ARGV0': lambda cell, honest: (1, old_refusal(PY_GUARD) + '\n'),
+    'PODSTROKA-TOKENA': lambda cell, honest: (0, ''),
+    'REGISTR-TOKENA': lambda cell, honest: (0, ''),
+    'STRIP-RELATIVE': lambda cell, honest: honest,
+    'STRIP-DOTDOT': lambda cell, honest: honest,
+    'LISHNJAJA-STROKA': lambda cell, honest: (1, 'extraneous diagnostic\n' + honest[1]),
+    'LF-GRANITSY': lambda cell, honest: (0, ''),
+    'ANY-FIELD': lambda cell, honest: (0, ''),
+    'IGNORE-ERRORS': lambda cell, honest: (1, JQ_ERROR_PROFILE + old_refusal(GUARD) + '\n'),
+    'GATE-FIRST': lambda cell, honest: (1, old_refusal(PY_GUARD) + '\n'),
+    'OMIT-SUFFIX': lambda cell, honest: (1, old_refusal(GUARD) + '\n'),
+    'OTSUTSTVIE-GUARD': lambda cell, honest: (0, ''),
+    'STRIP-VYVODA': lambda cell, honest: (1, ' \n' + honest[1]),
+    'DIE-ECHO': lambda cell, honest: (1, honest[1] + JQ_ERROR_PROFILE + old_refusal(GUARD) + '\n'),
+    'STDOUT-STDERR-RAZDEL': lambda cell, honest: (1, 'stdout-first\nstderr-second\n' + honest[1]),
+    'LF-V-KONCE': lambda cell, honest: (1, honest[1][:-1]),
 }
 
 
 def mutated_model(name):
     text = MODEL.read_text(encoding='utf-8')
     for old, new in MUTATIONS[name]:
+        print('ANCHOR mutation=%s occurrences=%d' % (name, text.count(old)))
         if text.count(old) != 1:
             raise Prerequisite('ANCHOR %s: найдено %d вхождений' % (name, text.count(old)))
         text = text.replace(old, new)
@@ -334,35 +399,35 @@ def run_stabs(scratch):
     import json
     bindings = read_bindings()
     names = {cell for _, cell, _ in bindings}
-    known = {c.name for c in CELLS}
-    unknown = names - known
+    known = {cell.name: cell for cell in CELLS}
+    unknown = names - known.keys()
     if unknown:
         raise Prerequisite('STABS UNKNOWN CELLS: %s' % sorted(unknown))
     subject = scratch_subject(scratch)
-    honest = run_cells(subject, scratch, names=names)
-    if honest:
-        print('STABS HONEST_CONTROL RED: %s' % honest)
-        return 1
     poimany = ekvivalentnyh = 0
     zhivye = []
     used = set()
     for mutation, cell, expectation in bindings:
         used.add(mutation)
+        honest = run_cells(subject, scratch, names={cell})
+        if honest:
+            print('STABS HONEST_CONTROL RED: %s' % honest)
+            return 1
         mut_subject = scratch_subject(Path(tempfile.mkdtemp(dir=str(scratch), prefix='mut.')),
                                       mutated_model(mutation))
-        mismatched = run_cells(mut_subject, scratch, names={cell})
-        caught = bool(mismatched)
-        if expectation == 'POIMAN':
-            poimany += caught
-            if not caught:
-                zhivye.append('%s/%s' % (mutation, cell))
+        honest_expected, mutant_expected, observed = observe_cell(
+            mut_subject, scratch, known[cell], mutation=mutation)
+        caught = observed != honest_expected
+        exact = observed == mutant_expected
+        if exact and caught == (expectation == 'POIMAN'):
+            poimany += expectation == 'POIMAN'
+            ekvivalentnyh += expectation == 'EKVIVALENT'
         else:
-            if caught:
-                zhivye.append('%s/%s' % (mutation, cell))
-            else:
-                ekvivalentnyh += 1
+            zhivye.append('%s/%s' % (mutation, cell))
         print('STAB ' + json.dumps(dict(mutation=mutation, cell=cell, expectation=expectation,
-                                        caught=caught), ensure_ascii=False))
+                                        caught=caught, exact=exact, mutant_expected=mutant_expected,
+                                        observed=observed), ensure_ascii=False))
+    print('HONEST_CONTROLS=%d ZELENYE=%d KRASNYE=0' % (len(bindings), len(bindings)))
     print('MUTACII=%d SVJAZI=%d POIMANY=%d EKVIVALENT=%d ZHIVYH=%d'
           % (len(used), len(bindings), poimany, ekvivalentnyh, len(zhivye)))
     if zhivye:
