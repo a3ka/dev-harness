@@ -23,17 +23,16 @@ done-тег. Существующие CASES/STABS и этот раннер пе�
 - census · fixtures/workshop_project/architecture_process_187/census_b5.py · 0 · 0
 - battery-model · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --model · 0 · 0
 - battery-stabs · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --stabs · 0 · 0
-- battery-repo-before-implementation · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo . · 1 · 1
+- battery-repo-before-implementation · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo . · 0 · 0
 - regression-201 · bash fixtures/workshop_project/done_dver_soderzhatelnaja_201/red_done_dver_201.sh --repo . · 0 · 0
 - wiring · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --wiring . · 0 · 0
 
-Строка repo вновь фиксирует красное ДО правки двери (Б-1 вердикта
-Rev187Ci): заявлен фактический rc 1 текущего дерева — красные ровно
-новые клетки rename/submodule из раздела «Исправление FAIL Rev187Ci
-(Б-1)». Живой интеграционный прогон первой пачки на базе
-`a02e5f839d6b85c5e251cc19400734f65569658f` дал 84/0; после правки двери
-строка снова заменяется на 0/0 новым живым замером, как в `0f19080ab7`.
-`pre_critic` не назначается этим маршрутом.
+Замена строки repo на 0/0 выполнена: правка двери (Б-1 вердикта
+Rev187Ci) реализована в `fbc26bf57b060ee53cdeb90302d35a521fa2b011`,
+живой интеграционный прогон на ней дал CELLS=87 FAILURES=0 (красное
+ДО правки — rc 1, ровно клетки rename/submodule — сохранено в разделе
+«Исправление FAIL Rev187Ci (Б-1)»). `pre_critic` не назначается
+этим маршрутом.
 
 ## Карта классов
 
@@ -74,10 +73,13 @@ ARCH_CI при служебном хвосте истории; scope не рас
 считаются `.harness`-only, живая дверь даёт rc 0. Закрывающее свойство:
 список путей каждого коммита подъёма ПОЛОН и не зависит от определения
 переименований и от `submodule.*.ignore`; обе стороны переименования и
-каждый изменённый gitlink входят в список. Ожидаемая правка двери —
-`git diff --no-renames --ignore-submodules=none --name-only -z` (мера
-осуществимости вердикта: 17 клеток семьи + rename + submodule →
-CELLS=19 FAILURES=0; контракты и дверь этой пачкой не правятся).
+каждый изменённый gitlink входят в список. Правка двери выполнена:
+`fbc26bf57b060ee53cdeb90302d35a521fa2b011` (ветка `wip/187/implementer-ci2`,
+только `scripts/done_contract.sh`) заменил `:352` на
+`git diff --no-renames --ignore-submodules=none --name-only -z`
+(мера осуществимости вердикта: 17 клеток семьи + rename + submodule →
+CELLS=19 FAILURES=0). Живой замер на `fbc26bf57b`: `--repo .` rc 0,
+CELLS=87 FAILURES=0. Контракты этой пачкой не правятся.
 
 | Клетка | rc OBJECT / состояние | rc после / требование |
 | --- | --- | --- |
