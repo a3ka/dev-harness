@@ -68,6 +68,16 @@
 # держателя сохраняется; выход из брошенного замка — только явный --osvobodit.
 # Прочие упрощения v8 (предупреждение вместо отказа), общая строка владельца,
 # пути реестра из профиля (Ш-2) и К-02…К-05 — как прежде.
+# v12 (К-03б, FAIL Adv140A2b): «профиля нет» — ТОЛЬКО когда пути
+# harness.project.json нет вовсе (ни файла, ни ссылки). Существующая запись
+# профиля, которую читать нельзя (битая ссылка, цикл ссылок, каталог вместо
+# файла), — НЕ отсутствие профиля: прежний признак ([ ! -f ]) путал её с
+# отсутствием, и резервный реестр репозитория обходил ПАУЗУ предмета
+# (rc 0 PUSCHEM со START). Теперь такая запись — fail-closed: путь реестра
+# паузы не удостоверен → отказ PROFIL_NEDOSTUPEN (rc 1, без START/override);
+# путь каталога контрактов не выводится → класс риска не определён (предмет
+# рисковый). Валидный симлинк на профиль — как прежде (пауза →
+# PAUZA_VLADELTSA; нет паузы → PUSCHEM). Прочие упрощения v8…v11 — как прежде.
 #
 # ПИНЫ (инвариант 1): дверь вызывается расширением .omp/extensions/
 # spawn-guard.ts по расположению расширения, а не по env; корни состояний
@@ -461,14 +471,33 @@ profile_paths() {  # <репозиторий> → JSON резолвера (аб�
     project_paths_resolve "$abs"
   )
 }
+# [D62 profil-entry] Состояние записи профиля проекта (путь harness.project.json):
+#   0 — пути НЕТ вовсе (ни файла, ни ссылки): профиля нет — резервная
+#       раскладка репозитория (registry/, contracts/);
+#   1 — путь есть и это обычный файл: профиль читается резолвером;
+#   2 — путь ЕСТЬ (битая ссылка, цикл ссылок, каталог вместо файла), но
+#       профиль НЕ удостоверен: читать нечего.
+# Прежний признак «профиля нет» ([ ! -f ]) смешивал состояния 0 и 2:
+# недоступная запись профиля выглядела как отсутствие профиля, и резервный
+# реестр репозитория обходил ПАУЗУ предмета (К-03б). Состояние 2 —
+# fail-closed: путь реестра/каталога контрактов из нечитаемой записи НЕ
+# выводится (путь паузы → отказ PROFIL_NEDOSTUPEN без START/override;
+# путь контрактов → класс риска не определён, предмет рисковый).
+profil_sostoyanie() {  # <репозиторий> → 0 нет | 1 файл | 2 не удостоверен
+  local p="$1/harness.project.json"
+  if [ ! -e "$p" ] && [ ! -L "$p" ]; then return 0; fi
+  if [ -f "$p" ]; then return 1; fi
+  return 2
+}
 # [registry-profile] Путь файла реестра/паузы: workflowPaths.registry профиля
 # (без профиля — реестр репозитория). ОДНА функция на реестр и на паузу.
 reestr_put() {  # <репозиторий> <имя> → абсолютный путь
-  local repo="$1" name="$2" paths
-  if [ ! -f "$repo/harness.project.json" ]; then
-    printf '%s/registry/%s' "$repo" "$name"
-    return 0
-  fi
+  local repo="$1" name="$2" paths sost
+  sost=0; profil_sostoyanie "$repo" || sost=$?
+  case "$sost" in
+    0) printf '%s/registry/%s' "$repo" "$name"; return 0 ;;
+    2) return 1 ;;
+  esac
   paths="$(profile_paths "$repo")" || return 1
   printf '%s\n' "$paths" | jq -er --arg name "$name" '.registry + "/" + $name'
 }
@@ -476,11 +505,12 @@ reestr_put() {  # <репозиторий> <имя> → абсолютный п�
 # профиля владельца (без профиля — contracts/). Путь — относительный ко
 # репозиторию: по нему ищем каталог в дереве OBJECT.
 kontrakt_kat() {  # <репозиторий владельца> → относительный каталог | пусто
-  local repo="$1" abs paths kat
-  if [ ! -f "$repo/harness.project.json" ]; then
-    printf 'contracts'
-    return 0
-  fi
+  local repo="$1" abs paths kat sost
+  sost=0; profil_sostoyanie "$repo" || sost=$?
+  case "$sost" in
+    0) printf 'contracts'; return 0 ;;
+    2) return 1 ;;
+  esac
   abs="$(cd "$repo" 2>/dev/null && pwd -P)" || return 1
   paths="$(profile_paths "$repo")" || return 1
   kat="$(printf '%s\n' "$paths" | jq -er '.contracts')" || return 1
