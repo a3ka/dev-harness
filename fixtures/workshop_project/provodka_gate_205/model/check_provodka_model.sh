@@ -504,13 +504,20 @@ guard_is_wired() {
       die "проводка: профиль проекта не распознан: $prof_reason"
     fi
     suf="/$guard"
-    while IFS= read -r tok; do
+    # К-09 (205 Δ1): границы элементов argv сохраняются. Резолвер допускает
+    # непустые строки gate без NUL — и НОВУЮ СТРОКУ ВНУТРИ токена; прежнее
+    # построчное чтение резало один элемент на строки и «видело» guard внутри
+    # LF-двойника. Разделитель — NUL, которого в элементах нет по грамматике
+    # резолвера: jq -j дописывает \u0000 ПОСЛЕ каждого элемента, read -d ''
+    # читает элемент ЦЕЛИКОМ, включая внутренние LF. Сравнение — по-прежнему
+    # целый токен = <guard> либо суффикс «/<guard>», литеральный (И1).
+    while IFS= read -r -d '' tok; do
       [ -n "$tok" ] || continue
       if [ "$tok" = "$guard" ]; then found=1; break; fi
       if [ "${#tok}" -ge "${#suf}" ] && [ "${tok:$((${#tok} - ${#suf}))}" = "$suf" ]; then
         found=1; break
       fi
-    done < <(printf '%s' "$prof_out" | jq -r 'if has("sourceCanon") and (.sourceCanon.value != null) then .sourceCanon.value.gate[]? else empty end')
+    done < <(printf '%s' "$prof_out" | jq -j 'if has("sourceCanon") and (.sourceCanon.value != null) then (.sourceCanon.value.gate[]? | . + "\u0000") else empty end')
   fi
   [ "$found" -eq 1 ]
 }

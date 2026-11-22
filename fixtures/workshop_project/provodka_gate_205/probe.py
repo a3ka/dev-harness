@@ -6,8 +6,13 @@
 моделью (скретч-копия: модель + настоящий profile_resolver.sh, байты сняты
 в память до вызова субъекта); --stabs прогоняет адресные мутации модели:
 сначала честный контроль клетки, затем точный наблюдаемый результат мутации
-(не любой ненулевой rc). Привязки мутаций к клеткам — stabs.tsv и этот файл
-(Н-39), не проза контракта. Ожидания — литералы в памяти до запуска субъекта.
+(не любой ненулевой rc); --attack <MUTATION> прогоняет мутацию по ВСЕЙ
+батарее (атака критика: rc 1, красные клетки названы поимённо). Привязки
+мутаций к клеткам — stabs.tsv и этот файл (Н-39), не проза контракта.
+Ожидания — литералы в памяти до запуска субъекта. Сравниваются rc и ПОЛНЫЙ
+наблюдаемый вывод (stdout+stderr в порядке снятия probe) байт-в-байт:
+лишняя строка перед/после/внутри и непустой успешный выход — красное
+(К-10 Δ1); ожидания выведены из честной модели, не из головы.
 """
 import argparse
 from dataclasses import dataclass
@@ -96,15 +101,15 @@ def wire_registry(root, guard=GUARD):
 class Cell:
     name: str
     build: object          # callable(root) -> None
-    expect: object         # callable(world) -> (rc, first_line | None)
+    expect: object         # callable(world) -> (rc, точный полный вывод)
 
 
 def exp_ok():
-    return lambda world: (0, None)
+    return lambda world: (0, '')
 
 
 def exp_old(guard=GUARD):
-    return lambda world: (1, old_refusal(guard))
+    return lambda world: (1, old_refusal(guard) + '\n')
 
 
 def cells():
@@ -113,11 +118,13 @@ def cells():
     def add(name, build, expect):
         rows.append(Cell(name=name, build=build, expect=expect))
 
+    def gate_world(gate):
+        return lambda w: (base_world(w), put(w, 'harness.project.json',
+                          jdump(repo_profile(gate=gate))),
+                          put(w, LAYER_REL, jdump(layer_profile())), put(w, 'AGENTS.md', '# toy\n'))
+
     # ── четвёртая локация: guard, вызываемый gate профиля (красные до ремонта)
-    add('a1-gate-profilja',
-        lambda w: (base_world(w), put(w, 'harness.project.json', jdump(repo_profile())),
-                   put(w, LAYER_REL, jdump(layer_profile())), put(w, 'AGENTS.md', '# toy\n')),
-        exp_ok())
+    add('a1-gate-profilja', gate_world(['bash', GUARD]), exp_ok())
     add('a2-gate-v-defoltsah',
         lambda w: (base_world(w, PY_GUARD), put(w, 'harness.project.json',
                    jdump(repo_profile(canon=False))), put(w, LAYER_REL,
@@ -130,22 +137,21 @@ def cells():
                    jdump(repo_profile(gate=[str(w / GUARD)]))),
                    put(w, LAYER_REL, jdump(layer_profile())), put(w, 'AGENTS.md', '# toy\n')),
         exp_ok())
-    add('a4-gate-argv0',
-        lambda w: (base_world(w), put(w, 'harness.project.json',
-                   jdump(repo_profile(gate=[GUARD]))),
-                   put(w, LAYER_REL, jdump(layer_profile())), put(w, 'AGENTS.md', '# toy\n')),
-        exp_ok())
+    add('a4-gate-argv0', gate_world([GUARD]), exp_ok())
     add('a5-gate-py',
         lambda w: (base_world(w, PY_GUARD), put(w, 'harness.project.json',
                    jdump(repo_profile(gate=['python3', PY_GUARD]))),
                    put(w, LAYER_REL, jdump(layer_profile())), put(w, 'AGENTS.md', '# toy\n')),
         exp_ok())
+    # ── К-09 Δ1: границы элементов argv — LF ВНУТРИ токена не режет его
+    add('a6-lf-vnutri-tokena', gate_world(['bash', 'not-the-guard\n' + GUARD]), exp_old())
+    add('a6b-chestnyj-sosed', gate_world(['bash', GUARD]), exp_ok())
+    add('a6c-lf-posle-guarda', gate_world(['bash', GUARD + '\nx']), exp_old())
+    # ── К-08 Δ1: подстрока и регистр подключением не считаются (И1/И4)
+    add('a7-suffiks-bak', gate_world(['bash', GUARD + '.bak']), exp_old())
+    add('a8-registr', gate_world(['bash', 'scripts/RED_GATE_205.SH']), exp_old())
     # ── профиль есть, но guard не вызывается (прежние клетки, зелёные всегда)
-    add('b1-gate-chuzhoj',
-        lambda w: (base_world(w), put(w, 'harness.project.json',
-                   jdump(repo_profile(gate=['bash', 'scripts/other_check.sh']))),
-                   put(w, LAYER_REL, jdump(layer_profile())), put(w, 'AGENTS.md', '# toy\n')),
-        exp_old())
+    add('b1-gate-chuzhoj', gate_world(['bash', 'scripts/other_check.sh']), exp_old())
     add('b2-bez-kanona',
         lambda w: (base_world(w), put(w, 'harness.project.json', jdump(repo_profile(canon=False))),
                    put(w, LAYER_REL, jdump(layer_profile()))),
@@ -154,16 +160,8 @@ def cells():
         lambda w: base_world(w),
         exp_old())
     # ── двойники имени не считаются подключением (по образцу прежних локаций)
-    add('c1-podstroka-xred',
-        lambda w: (base_world(w), put(w, 'harness.project.json',
-                   jdump(repo_profile(gate=['bash', 'scripts/xred_gate_205.sh']))),
-                   put(w, LAYER_REL, jdump(layer_profile())), put(w, 'AGENTS.md', '# toy\n')),
-        exp_old())
-    add('c2-suffiks-old',
-        lambda w: (base_world(w), put(w, 'harness.project.json',
-                   jdump(repo_profile(gate=['bash', 'scripts/red_gate_205-old.sh']))),
-                   put(w, LAYER_REL, jdump(layer_profile())), put(w, 'AGENTS.md', '# toy\n')),
-        exp_old())
+    add('c1-podstroka-xred', gate_world(['bash', 'scripts/xred_gate_205.sh']), exp_old())
+    add('c2-suffiks-old', gate_world(['bash', 'scripts/red_gate_205-old.sh']), exp_old())
     add('c3-imja-vne-gate',
         lambda w: (base_world(w), put(w, 'harness.project.json',
                    jdump(repo_profile(sources=[{'path': GUARD, 'priority': 0}],
@@ -175,20 +173,20 @@ def cells():
         lambda w: (base_world(w, with_guard=False), put(w, 'harness.project.json',
                    jdump(repo_profile())), put(w, LAYER_REL, jdump(layer_profile())),
                    put(w, 'AGENTS.md', '# toy\n')),
-        lambda w: (1, 'проводка: guard-файл не существует: %s' % GUARD))
+        lambda w: (1, 'проводка: guard-файл не существует: %s\n' % GUARD))
     # ── нераспознанный формат профиля — именованный отказ с местом (правило 7)
     add('e1-ne-json',
         lambda w: (base_world(w), put(w, 'harness.project.json', '{ "schemaVersion": 1,\n')),
-        lambda w: (1, new_refusal('файл не JSON: %s' % (w / 'harness.project.json'))))
+        lambda w: (1, new_refusal('файл не JSON: %s' % (w / 'harness.project.json')) + '\n'))
     add('e2-sloj-net',
         lambda w: (base_world(w), put(w, 'harness.project.json',
                    jdump(repo_profile(profile_path='registry/net-takogo-sloja.json')))),
-        lambda w: (1, new_refusal('нет файла слоя проекта: %s' % (w / 'registry/net-takogo-sloja.json'))))
+        lambda w: (1, new_refusal('нет файла слоя проекта: %s' % (w / 'registry/net-takogo-sloja.json')) + '\n'))
     add('e3-kanon-vne-alfavita',
         lambda w: (base_world(w), put(w, 'harness.project.json',
                    jdump(repo_profile(extra={'extra': 1}))),
                    put(w, LAYER_REL, jdump(layer_profile())), put(w, 'AGENTS.md', '# toy\n')),
-        lambda w: (1, new_refusal('SOURCE_CANON_INVALID: репо-слой.sourceCanon: неизвестный ключ: extra')))
+        lambda w: (1, new_refusal('SOURCE_CANON_INVALID: репо-слой.sourceCanon: неизвестный ключ: extra') + '\n'))
     # ── прежние три локации признаются как прежде
     add('f1-githooks', lambda w: (base_world(w), wire_githooks(w)), exp_ok())
     add('f2-workflows', lambda w: (base_world(w), wire_workflow(w)), exp_ok())
@@ -246,9 +244,9 @@ def run_cells(subject, scratch, names=None):
         world = Path(tempfile.mkdtemp(dir=str(scratch), prefix=cell.name + '.'))
         try:
             cell.build(world)
-            want_rc, want_line = cell.expect(world)
+            want_rc, want_text = cell.expect(world)
             rc, output = invoke(subject, world)
-            matched = rc == want_rc and (want_line is None or want_line in output.splitlines())
+            matched = rc == want_rc and output == want_text
         finally:
             shutil.rmtree(world, ignore_errors=True)
         if not matched:
@@ -265,7 +263,11 @@ ANCH_RESOLVER = ('prof_out="$(HARNESS_PROJECT_LAYER_ROOT="$root" '
 ANCH_ARM = '[ -f "$root/harness.project.json" ]'
 ANCH_DIE = 'die "проводка: профиль проекта не распознан: $prof_reason"'
 ANCH_EQUAL = 'if [ "$tok" = "$guard" ]; then found=1; break; fi'
-ANCH_JQ = ".sourceCanon.value.gate[]? else empty end'"
+ANCH_READ_NUL = 'while IFS= read -r -d \'\' tok; do'
+ANCH_JQ = ('jq -j \'if has("sourceCanon") and (.sourceCanon.value != null) '
+           'then (.sourceCanon.value.gate[]? | . + "\\u0000") else empty end\'')
+JQ_LINES = ('jq -r \'if has("sourceCanon") and (.sourceCanon.value != null) '
+            'then .sourceCanon.value.gate[]? else empty end\'')
 
 MUTATIONS = {
     'VETKA-NET': ((ANCH_ARM, '[ -f "/net-takogo-profilya-205" ]'),),
@@ -275,7 +277,19 @@ MUTATIONS = {
     'SYROJ-JSON': ((ANCH_RESOLVER,
                     'prof_out="$(jq -r \'.sourceCanon.gate[]?\' "$root/harness.project.json" 2>&1)"'),),
     'TIHO': ((ANCH_DIE, 'prof_reason=""'),),
-    'ARGV0': ((ANCH_JQ, ".sourceCanon.value.gate[0]? else empty end'"),),
+    'ARGV0': ((ANCH_JQ, ANCH_JQ.replace('gate[]?', 'gate[0]?')),),
+    # К-08 Δ1: обманки сравнения токена из вердикта критика
+    'PODSTROKA-TOKENA': ((ANCH_EQUAL, 'if [[ "$tok" == *"$guard"* ]]; then found=1; break; fi'),),
+    'REGISTR-TOKENA': ((ANCH_EQUAL, 'if [ "${tok,,}" = "${guard,,}" ]; then found=1; break; fi'),),
+    # эквивалентные мутанты критика (правило суффикса И1) — ожидание EKVIVALENT
+    'STRIP-RELATIVE': ((ANCH_EQUAL, 'if [ "${tok#./}" = "$guard" ]; then found=1; break; fi'),),
+    'STRIP-DOTDOT': ((ANCH_EQUAL, 'if [ "${tok#../}" = "$guard" ]; then found=1; break; fi'),),
+    # К-10 Δ1: лишняя диагностическая строка перед именованным отказом
+    'LISHNJAJA-STROKA': ((ANCH_DIE,
+                          'printf \'extraneous diagnostic\\n\' >&2; die "проводка: профиль проекта не распознан: $prof_reason"'),),
+    # К-09 Δ1: прежнее построчное чтение — границы argv теряются на LF
+    'LF-GRANITSY': ((ANCH_READ_NUL, 'while IFS= read -r tok; do'),
+                    (ANCH_JQ, JQ_LINES)),
 }
 
 
@@ -304,8 +318,13 @@ def read_bindings():
     for line in STABS.read_text(encoding='utf-8').splitlines():
         if not line or line.startswith('#'):
             continue
-        mutation, cell = line.split('\t')
-        rows.append((mutation, cell))
+        parts = line.split('\t')
+        if len(parts) != 3:
+            raise Prerequisite('STABS ROW GRAMMAR (3 поля Мутация/клетка/ожидание): %r' % line)
+        mutation, cell, expectation = parts
+        if expectation not in ('POIMAN', 'EKVIVALENT'):
+            raise Prerequisite('STABS OZHIDANIE (POIMAN|EKVIVALENT): %r' % line)
+        rows.append((mutation, cell, expectation))
     if not rows:
         raise Prerequisite('EMPTY_STABS')
     return rows
@@ -314,7 +333,7 @@ def read_bindings():
 def run_stabs(scratch):
     import json
     bindings = read_bindings()
-    names = {cell for _, cell in bindings}
+    names = {cell for _, cell, _ in bindings}
     known = {c.name for c in CELLS}
     unknown = names - known
     if unknown:
@@ -324,23 +343,31 @@ def run_stabs(scratch):
     if honest:
         print('STABS HONEST_CONTROL RED: %s' % honest)
         return 1
-    poimany = 0
+    poimany = ekvivalentnyh = 0
     zhivye = []
     used = set()
-    for mutation, cell in bindings:
+    for mutation, cell, expectation in bindings:
         used.add(mutation)
         mut_subject = scratch_subject(Path(tempfile.mkdtemp(dir=str(scratch), prefix='mut.')),
                                       mutated_model(mutation))
         mismatched = run_cells(mut_subject, scratch, names={cell})
         caught = bool(mismatched)
-        poimany += caught
-        if not caught:
-            zhivye.append('%s/%s' % (mutation, cell))
-        print('STAB ' + json.dumps(dict(mutation=mutation, cell=cell, caught=caught), ensure_ascii=False))
-    print('MUTACII=%d SVJAZI=%d POIMANY=%d ZHIVYH=%d' % (len(used), len(bindings), poimany, len(zhivye)))
+        if expectation == 'POIMAN':
+            poimany += caught
+            if not caught:
+                zhivye.append('%s/%s' % (mutation, cell))
+        else:
+            if caught:
+                zhivye.append('%s/%s' % (mutation, cell))
+            else:
+                ekvivalentnyh += 1
+        print('STAB ' + json.dumps(dict(mutation=mutation, cell=cell, expectation=expectation,
+                                        caught=caught), ensure_ascii=False))
+    print('MUTACII=%d SVJAZI=%d POIMANY=%d EKVIVALENT=%d ZHIVYH=%d'
+          % (len(used), len(bindings), poimany, ekvivalentnyh, len(zhivye)))
     if zhivye:
         print('ZHIVYE: %s' % ' '.join(zhivye))
-    return 0 if (poimany == len(bindings) and not zhivye) else 1
+    return 0 if not zhivye else 1
 
 
 def main():
@@ -348,9 +375,10 @@ def main():
     parser.add_argument('--repo', nargs='?', const=str(TREE), default=None, metavar='ROOT')
     parser.add_argument('--model', action='store_true')
     parser.add_argument('--stabs', action='store_true')
+    parser.add_argument('--attack', metavar='MUTATION')
     args = parser.parse_args()
-    if (args.repo is not None) + args.model + args.stabs != 1:
-        parser.error('ровно один режим: --repo [ROOT] | --model | --stabs')
+    if (args.repo is not None) + args.model + args.stabs + (args.attack is not None) != 1:
+        parser.error('ровно один режим: --repo [ROOT] | --model | --stabs | --attack <MUTATION>')
     try:
         scratch = Path(tempfile.mkdtemp(prefix='provodka_gate_205.'))
         try:
@@ -365,6 +393,14 @@ def main():
             if args.model:
                 subject = scratch_subject(scratch)
                 mism = run_cells(subject, scratch)
+                return 1 if mism else 0
+            if args.attack is not None:
+                if args.attack not in MUTATIONS:
+                    raise Prerequisite('НЕИЗВЕСТНАЯ МУТАЦИЯ: %s (есть: %s)'
+                                       % (args.attack, ' '.join(sorted(MUTATIONS))))
+                subject = scratch_subject(scratch, mutated_model(args.attack))
+                mism = run_cells(subject, scratch)
+                print('ATTACK %s' % args.attack)
                 return 1 if mism else 0
             return run_stabs(scratch)
         finally:

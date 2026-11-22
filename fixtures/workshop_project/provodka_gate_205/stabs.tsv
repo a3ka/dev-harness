@@ -1,9 +1,25 @@
-# Мутация<TAB>различающая клетка. Н-39: привязки только здесь и в probe.py,
-# не в прозе контракта; якорь каждой мутации — ровно один в коде модели.
-VETKA-NET	a1-gate-profilja
-PODSTROKA-BAZY	c1-podstroka-xred
-SLOVO-ERE	c2-suffiks-old
-SYROJ-JSON	a2-gate-v-defoltsah
-SYROJ-JSON	e3-kanon-vne-alfavita
-TIHO	e1-ne-json
-ARGV0	a5-gate-py
+# Мутация	Клетка	Ожидание
+# Н-39: привязки только здесь и в probe.py, не в прозе контракта; якорь
+# каждой мутации — ровно один в коде модели.
+# Ожидание POIMAN — мутант обязан краснить связанную клетку (адресный стаб).
+# Ожидание EKVIVALENT — мутант обязан вести себя как честная модель на
+# связанной клетке: эквивалентный мутант критика (strip-relative/strip-dotdot),
+# неразличимый правилом суффикса И1 (токен «./<guard>» и «../<guard>»
+# оканчиваются на «/<guard>» и принимаются честной моделью независимо от
+# равенства); обоснование фиксируется здесь явно, не молчанием.
+VETKA-NET	a1-gate-profilja	POIMAN
+PODSTROKA-BAZY	c1-podstroka-xred	POIMAN
+SLOVO-ERE	c2-suffiks-old	POIMAN
+SYROJ-JSON	a2-gate-v-defoltsah	POIMAN
+SYROJ-JSON	e3-kanon-vne-alfavita	POIMAN
+TIHO	e1-ne-json	POIMAN
+ARGV0	a5-gate-py	POIMAN
+PODSTROKA-TOKENA	a7-suffiks-bak	POIMAN
+REGISTR-TOKENA	a8-registr	POIMAN
+LISHNJAJA-STROKA	e1-ne-json	POIMAN
+LISHNJAJA-STROKA	e2-sloj-net	POIMAN
+LISHNJAJA-STROKA	e3-kanon-vne-alfavita	POIMAN
+LF-GRANITSY	a6-lf-vnutri-tokena	POIMAN
+LF-GRANITSY	a6c-lf-posle-guarda	POIMAN
+STRIP-RELATIVE	a6b-chestnyj-sosed	EKVIVALENT
+STRIP-DOTDOT	a1-gate-profilja	EKVIVALENT
