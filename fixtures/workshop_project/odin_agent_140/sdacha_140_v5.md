@@ -1,4 +1,4 @@
-# СДАЧА 140 — К-03б (A2e, FAIL Adv140A2b); предыдущие исправления сохранены
+# СДАЧА 140 — A2g, после ремонта двери implementer A2f (`d9f8fd0f7a`); предыдущие исправления сохранены
 
 ## A2f: матрица недоступности (К-03б — общее закрытие, слово владельца 22.11 ~12:09)
 
@@ -89,7 +89,7 @@ s100×k03b07, s101×w10, s102×w10, s103×k03b07, s104×r11 — CELL_RC 0).
 блока вердикта на OBJECT выполнено ДО правок сырыми пробами в scratch
 (вывод — в докладе сдачи); scratch удалён до коммита.
 
-Фактическая приёмка (последовательно, `TMPDIR="$PWD/.scratch-a2f"`,
+Историческая приёмка A2f ДО ремонта двери (последовательно, `TMPDIR="$PWD/.scratch-a2f"`,
 `PYTHONDONTWRITEBYTECODE=1`; боевой замок и реальные журналы НЕ
 запускались — только песочницы батареи):
 
@@ -108,14 +108,11 @@ s100×k03b07, s101×w10, s102×w10, s103×k03b07, s104×r11 — CELL_RC 0).
 | python3 fixtures/workshop_project/obryv_167/merge_probe.py --repo | 0 | merge_167 зелёный |
 | bash scripts/check_sdacha.sh "$PWD" contracts/140-odin-agent-na-predmet.md --run | 0 | СДАЧА: лист зелёный (двери=17 карта=17/17 дельта=4) |
 
-Строки «Двери» W-stabs/W-production переведены в честное до-реализационное
-состояние (1 · 1: субъект красен ровно на шести новых клетках) — этого
-требует фактический rc `check_sdacha --run` на данном шаге; после правки
-двери implementer они возвращаются к 0 · 0 по пункту 3 приёмки
-frozen 140/5 (прецедент A2c). Матрица над production до исправления двери
-не исполняется: существующий контроль слоя останавливает её на
-SUBJEKT_KRASNO: 6; это не зелёная production-матрица и не замена
-дальнейшему прогону ведущего.
+Исторические строки «Двери» W-stabs/W-production до реализации несли
+1 · 1: субъект был красен ровно на шести новых клетках. После правки
+двери (implementer A2f, `d9f8fd0f7a`) обе строки возвращены к 0 · 0
+по пункту 3 приёмки frozen 140/5 (прецедент A2c). Результаты до ремонта
+выше сохранены как история, не как ожидания текущего кандидата.
 
 ## К-03б (FAIL Adv140A2b)
 
@@ -490,8 +487,8 @@ Rc в рядах ниже проверяет фактический check_sdacha
 - Owner-before — legacy-дефект точной базы · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --owner-before · 1 · 1
 - Owner-check — продукт, станция и адресные мутации · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --owner-check · 0 · 0
 - W-model — честная fail-closed модель · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --model · 0 · 0
-- W-stabs — A2f до правки двери: модель зелёна, стабы пойманы, субъект красен ровно на 6 новых клетках · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --stabs · 1 · 1
-- W-production — A2f до правки двери: красны ровно n01/n06/n07/n08/n09/n10, прежние 236 зелены · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh · 1 · 1
+- W-stabs — после правки двери (implementer A2f, `d9f8fd0f7a`): модель зелёна, стабы пойманы, субъект зелён · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --stabs · 0 · 0
+- W-production — после правки двери (implementer A2f, `d9f8fd0f7a`): KLETKI 242 KRASNYH 0 · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh · 0 · 0
 - W-domain — профиль/пауза/каталог зелёные · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --domain · 0 · 0
 - W-grammar — исходный критерий Ш-2 без подгонки · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --grammar · 0 · 0
 - W-sintaksis — все носители · bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --sintaksis · 0 · 0
@@ -509,11 +506,11 @@ Rc в рядах ниже проверяет фактический check_sdacha
 
 - К-01 · чисто · вход: двери листа и предыдущий закоммиченный вердикт с полной картой; штатный SDACHA_OKRUG=1 разрывает рекурсию pre_critic · - · -
 - К-02 · чисто · вход: --owner-before читает точную БАЗУ; --owner-check предъявляет legacy-привязку соответствующего владельца на обоих путях · - · -
-- К-03 · чисто · вход: frozen-текст, production и прежние инварианты 104/167/197/199 неизменны; прежние клетки входят в W-model · - · -
+- К-03 · чисто · вход: frozen-текст и прежние инварианты 104/167/197/199 неизменны; production после ремонта implementer A2f, прежние клетки входят в W-model · - · -
 - К-04 · чисто · вход: модель, миры, лист и производные носители только в fixtures/workshop_project/odin_agent_140/ architect-зоны · - · -
 - К-05 · чисто · вход: каждая дверь несёт команду и rc, соответствующие прежней приёмке 140 · - · -
-- К-06 · чисто · вход: W/stabs ожидаемо rc 1 на шести новых дефектах OBJECT (n01,n06–n10); --domain 19/0, grammar зелена внутри W; production/frozen не менялись · - · -
-- К-07 · чисто · вход: W 242 (241 динамическая + r10), прежние 222 сохранены; красны ровно n01/n06/n07/n08/n09/n10; S из этой копии не запускался · - · -
+- К-06 · чисто · вход: после правки двери (implementer A2f, `d9f8fd0f7a`) W/stabs rc 0; --domain 19/0, grammar зелена внутри W; frozen не менялся · - · -
+- К-07 · чисто · вход: W 242 (241 динамическая + r10), прежние 222 сохранены; KRASNYH 0 после правки двери (implementer A2f, `d9f8fd0f7a`); S из этой копии не запускался · - · -
 - К-08 · чисто · вход: s99–s104 и перепривязанный s15 привязаны кодом к различающим ветвям, s90–s98 и К-05 literal r18/r19 сохранены; MODEL_ZHIVYH 0 · - · -
 - К-09 · чисто · вход: n01–n20 (матрица недоступности как данные) добавляют формы реестра паузы и честные полярности; прежние k03b01–k03b07 и r01–r19 сохранены, --domain 19/0 · - · -
 - К-10 · чисто · вход: реальный --sudit/--peredat в независимых .git; сверяются rc/причина, START, proof и неизменность состояния при отказе · - · -
