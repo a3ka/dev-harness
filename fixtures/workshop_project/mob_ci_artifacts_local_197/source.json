@@ -11,7 +11,16 @@
   "piny": {
     ".github/workflows/mobile.yml": "4735880b08036757ff0ea7a8185421fe8538d6aa113ebc5143ecec0f3a1a2c06",
     "package.json": "33339210c643b6f2d42e1c1a54f5f9787ca32867b4467dac416fd466025c7b4c",
-    "mobile/scripts/ci-artefakty.cjs": "6e05c38cad900b3185dff4716b827ca04ca6d3ec718fb3e14d5c5bdf5f6f69b3"
+    "mobile/scripts/ci-artefakty.cjs": "f40a5afc4d8263436714d2f81bb1973209decacbec5942e23db5aaf0e21c47ec"
+  },
+  "kanon_211": {
+    "repo": "/home/harness/projects/Complior-mob",
+    "vetka": "wip/211/implementer",
+    "commit": "6513a2af623a0f4bd1334d759f994a15187fe9f6",
+    "pr": 252,
+    "put": "mobile/scripts/ci-artefakty.cjs",
+    "sha256": "f40a5afc4d8263436714d2f81bb1973209decacbec5942e23db5aaf0e21c47ec",
+    "zamer": "принятая реализация 211 (запрет повторной записи артефакта той же пары run_id/run_attempt, frozen/contracts/211/1 в продукте; head = вердикт reviewer accept): v4 канонизирует и пинует эти байты. mobile.yml на 6513a2af байт-в-байт пину модели 4735880b…; lanes ci:artefakt-* в package.json неизменны (добавлены посторонние ключи test/lint/typecheck/doctor — вне предмета, e02 судит только lanes); в базовом дереве fda1fc8 скрипта нет (SKRIPT_NET). Diff к канону v3 6e05c38c…: +zapis_zanyat (lstat: файл/каталог/symlink, включая битый), отказ rc 2 ARTEFAKT_UZHE_ZAPISAN до копирования, ISTOCHNIK_NE_FAIJ_NI_KATALOG перенесён до копирования (замер v4 2026-11-22, живой прогон до правки: красна ровно e01)"
   },
   "agregat_143": {
     "repo": "/home/harness/projects/Complior-mob",
