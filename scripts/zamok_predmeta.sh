@@ -26,12 +26,58 @@
 # 203). Bootstrap ТОЛЬКО при нуле frozen-тегов и ТОЛЬКО для critic/critic-sol;
 # при живом frozen-теге pinned frozen обязателен как прежде (битый pin →
 # KLASS_RISKA_NET), остальные роли (adversary/reviewer) — как прежде.
-# v7 (слово владельца 2026-11-21 00:16, «самое простое решение»): реестр
-# контрактов владельца в ПРОЕКТЕ лежит в .harness/registry/contracts.tsv (в
-# registry/ такого файла нет) — frozen_predmeta и проверка receipt (D39)
-# читают запасной путь, но ТОЛЬКО когда основного в дереве нет ([D53]);
-# основной путь найден — он и источник (строки предмета в нём нет — отказ
-# как прежде, запасной путь основной не подменяет).
+# v8 (слово владельца 2026-11-21 12:06 UTC, «замок: упростить одним проходом»):
+# отказ — ТОЛЬКО за реальный вред (один рабочий на предмет, взаимное
+# исключение, изоляция рабочего, судья до сдачи автора, порядок рискового
+# предмета); остальное — ПРЕДУПРЕЖДЕНИЕ с записью в учёт (rc 0, START
+# пишется). Одна ОБЩАЯ строка владельца
+# `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК: <NNN> <КОД> [<OBJECT 40hex>]` пропускает ровно
+# один отказ (PAUZA_VLADELTSA, PEREDACHA_NEDOSTOVERNA, PEREDACHA_REMOTE) для
+# предмета (и OBJECT, если указан) ОДИН раз; повторное использование той же
+# строка — отказ; на неотменяемые отказы (изоляция, живой рабочий, мьютекс,
+# живой судья, дубль пакета, живой автор, брошенный замок) строка не действует.
+# Класс риска не определён — предмет считается РИСКОВЫМ (норма «нет записи —
+# рисковый») с предупреждением. Частная строка `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР` (D11)
+# более не действует — её заменила общая строка.
+# v9 (слово владельца 2026-11-21, Ш-2 «путь реестра и паузы из профиля»):
+# путь файлов реестра/паузы и путь каталога контрактов — ДАННЫЕ ПРОФИЛЯ
+# проекта (workflowPaths.registry, workflowPaths.contracts), а не жёсткий
+# путь в дереве; без профиля — реестр и каталог контрактов репозитория.
+# Чтение профиля — ТОЛЬКО существующим резолвером scripts/next_id.sh
+# (project_paths_resolve): своих ключей профиля дверь не вводит.
+# v10 (исправление FAIL Adv140A2, слово владельца 21.11 «самое простое
+# решение» — три адресных дефекта двери OBJECT):
+#   К-02 (порядок без автора): отсутствие автора (RABOCHEGO_NET) — только
+#     предупреждение, но риск и порядок судей оно НЕ отменяет: автора нет —
+#     закреплённого frozen нет — класс риска НЕ ОПРЕДЕЛЁН, предмет РИСКОВЫЙ,
+#     поэтому ревьюер — только после завершённого адверсария
+#     (ADVERSARIJ_DO_REVJUERA). Проверка порядка — ДО continue по
+#     RABOCHEGO_NET; adversary/critic без автора — как прежде (предупреждение,
+#     rc 0, START);
+#   К-03 (профиль недоступен): ошибка чтения профиля НЕ есть «нет паузы» —
+#     если путь реестра паузы удостоверить нельзя, спавн fail-closed отказом
+#     PROFIL_NEDOSTUPEN (без START/override в учёте). Прежнее поведение «профиля
+#     нет вовсе → реестр репозитория» сохранено;
+#   К-04 (дубль общей строки): считаются ВСЕ строки с маркером
+#     `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК:`, а не только строки полной грамматики:
+#     любая вторая строка маркера (даже вне грамматики) — отказ, разрешение
+#     не расходуется.
+# v11 (К-01, слово консультанта 2026-11-22 00:22): TTL-автоосвобождение
+# брошенного замка ОТКЛОНЕНО (frozen 140/5 :46) — брошенный замок = именованный
+# отказ ZAMOK_BROSHEN БЕЗ записей (нет RELEASE/START), занятие прежнего
+# держателя сохраняется; выход из брошенного замка — только явный --osvobodit.
+# Прочие упрощения v8 (предупреждение вместо отказа), общая строка владельца,
+# пути реестра из профиля (Ш-2) и К-02…К-05 — как прежде.
+# v12 (К-03б, FAIL Adv140A2b): «профиля нет» — ТОЛЬКО когда пути
+# harness.project.json нет вовсе (ни файла, ни ссылки). Существующая запись
+# профиля, которую читать нельзя (битая ссылка, цикл ссылок, каталог вместо
+# файла), — НЕ отсутствие профиля: прежний признак ([ ! -f ]) путал её с
+# отсутствием, и резервный реестр репозитория обходил ПАУЗУ предмета
+# (rc 0 PUSCHEM со START). Теперь такая запись — fail-closed: путь реестра
+# паузы не удостоверен → отказ PROFIL_NEDOSTUPEN (rc 1, без START/override);
+# путь каталога контрактов не выводится → класс риска не определён (предмет
+# рисковый). Валидный симлинк на профиль — как прежде (пауза →
+# PAUZA_VLADELTSA; нет паузы → PUSCHEM). Прочие упрощения v8…v11 — как прежде.
 #
 # ПИНЫ (инвариант 1): дверь вызывается расширением .omp/extensions/
 # spawn-guard.ts по расположению расширения, а не по env; корни состояний
@@ -61,12 +107,14 @@
 #                    (факт отклика инструмента yield; orch-tablo читает тот же
 #                    факт) ИЛИ [D2b] событие рантайма session_exit kind=normal
 #                    (omp 18.18.8 завершает субагентов без yield);
-#   --repo      R  — реестр: registry/pauzy.tsv (ПАУЗА владельца), теги
-#                    done/contracts/<NNN>/* (слот закрыт), registry/
-#                    risk-legacy.tsv (класс старых frozen по blob, [D30]);
-#                    registry/contracts.tsv закрепляет точный frozen владельца
-#                    (у ПРОЕКТА — .harness/registry/contracts.tsv, [D53]);
-#                    декларации OBJECT не меняют обязательства суда.
+#   --repo      R  — реестр: pauzy.tsv (ПАУЗА владельца), теги
+#                    done/contracts/<NNN>/* (слот закрыт), risk-legacy.tsv
+#                    (класс старых frozen по blob, [D30]); contracts.tsv
+#                    закрепляет точный frozen владельца; путь реестра и путь
+#                    каталога контрактов — из профиля проекта
+#                    (workflowPaths.registry / workflowPaths.contracts), без
+#                    профиля — репозитория; декларации OBJECT не меняют
+#                    обязательства суда.
 #
 # ЗАМКНУТЫЕ АЛФАВИТЫ (норма 041; байты-разделители исключены из классов значений):
 #   SUBJECT — строка задания `^SUBJECT=[0-9]{3}$`, ровно одна (/m, якорь ^…$);
@@ -75,13 +123,20 @@
 #   PIN     — пара строк `^WORKTREE=/[^TAB]+$` и `^BRANCH=wip/[0-9]{3}/[^TAB]+$`
 #             (построчная форма грамматики 066; NNN ветки == SUBJECT; байт TAB
 #             исключён из класса значения ЛИТЕРАЛЬНО — ERE-скобки не знают \t);
-#   ПОВТОР  — необязательная строка задания судьи (слово владельца 21.11 00:55)
-#             `^РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: [0-9]{3} (critic|critic-sol|adversary|
-#             reviewer) [0-9a-f]{40}$`; ровно одна; адресное разрешение владельца
-#             на ОДИН повторный круг той же роли на том же OBJECT (предмет/роль/
-#             OBJECT в строке — те же, что у события); строки вне формата, две
-#             и более строк, чужие значения — разрешения НЕ дают (отказ как
-#             прежде), новых имён отказа не добавляет;
+#   ЗАМОК-СТРОКА — необязательная строка задания (слово владельца 21.11 12:06)
+#             `^РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК: [0-9]{3} [A-Z][A-Z_]*( [0-9a-f]{40})?$`;
+#             ровно одна; адресное разрешение владельца на ОДИН отказ: предмет
+#             (и OBJECT, если указан) — те же, что у события; отказ, который
+#             строка разрешает, — только из перечня (PAUZA_VLADELTSA,
+#             PEREDACHA_NEDOSTOVERNA, PEREDACHA_REMOTE); повторное использование
+#             той же строки — отказ; строки вне формата, две и более строк,
+#             чужие значения — разрешения НЕ дают, новых имён отказа не
+#             добавляют; ДУБЛЬ-МАРКЕРА: считаются ВСЕ строки с маркером
+#             `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК:` — любая ВТОРАЯ такая строка (даже
+#             вне грамматики) означает отказ (дубль/строка вне формата), и
+#             разрешение не расходуется; частная строка
+#             `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР` (D11) более не действует — её
+#             заменила общая строка;
 #   ИМЯ     — [A-Za-z0-9._-]+ (грамматика session-id, норма 037);
 #   ISOLATED — поле item события isolated: у рабочего — РЕАЛЬНОЕ булево
 #             true (строгое === true, jq-сравнение); отсутствие поля, ложь и
@@ -102,13 +157,19 @@
 # ОТКАЗЫ rc 1 (именованные; первая причина; stderr «ОТКАЗ: <ИМЯ>: <детали>»):
 #   SUBJECT_NET_V_ZADANII SUBEKT_DVA_V_ZADANII GRAMMATIKA_SUBEKTA
 #   OBJECT_OTSTUTSVUET SUBEKT_DVA_OBJECTA GRAMMATIKA_OBJECTA
-#   PIN_NET GRAMMATIKA_PINA RASHOZHDENIE_PINA VETKA_NEDOSTUPNA
+#   PIN_NET GRAMMATIKA_PINA RASHOZHDENIE_PINA
 #   IMJA_NET GRAMMATIKA_IMENI AGENT_NET BITYJ_VHOD
 #   DUBL_V_PAKETE RABOCHIJ_ZHIV SUDJA_ZHIV ZAMOK_BROSHEN ZANYATO_RESHENIEM
-#   AVTOR_ESHCHO_RABOTAET RABOCHEGO_NET OBJECT_RASHODITSJA OBJECT_UZHE_SUZHEN
-#   ADVERSARIJ_DO_REVJUERA KLASS_RISKA_NET PAUZA_VLADELTSA LIMIT_GRUPPY NE_IZOLIROVAN
+#   AVTOR_ESHCHO_RABOTAET
+#   ADVERSARIJ_DO_REVJUERA PAUZA_VLADELTSA NE_IZOLIROVAN
+#   PROFIL_NEDOSTUPEN (путь реестра паузы не удостоверен: битый/нечитаемый
+#   профиль — fail-closed, «нет паузы» из ошибки чтения НЕ следует)
 #   ZAMOK_ZHIV DERZHATEL_RASHODITSJA NET_ZAMKA
-#   PEREDACHA_NEDOSTOVERNA PEREDACHA_AVTOR PEREDACHA_REMOTE
+#   PEREDACHA_NEDOSTOVERNA PEREDACHA_REMOTE
+# ПРЕДУПРЕЖДЕНИЯ v8 (stderr «ПРЕДУПРЕЖДЕНИЕ: <КОД>: <детали>», запись
+# {"t":"warn",…} в uchet.jsonl, rc 0, START пишется):
+#   KLASS_RISKA_NET OBJECT_RASHODITSJA VETKA_NEDOSTUPNA RABOCHEGO_NET
+#   OBJECT_UZHE_SUZHEN LIMIT_GRUPPY PEREDACHA_AVTOR
 # rc 0 — разрешено (замки заняты, START дописан ДО возврата) / исполнено / учёт.
 # rc 2 — NOT_IMPLEMENTED (нет jq/git/find, мир нечитаем): fail-closed; вызов
 #        расширением трактуется как блок «страж сломан» — молчаливого пропуска нет.
@@ -146,6 +207,91 @@ USAGE
 
 otp()  { printf 'ОТКАЗ: %s: %s\n' "$1" "$2" >&2; exit 1; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$1" >&2; exit 2; }
+
+# ── v8: предупреждение с записью и общая строка владельца ──────────────────
+# Слово владельца 21.11 12:06: отказ — только за реальный вред; остальное —
+# ПРЕДУПРЕЖДЕНИЕ с записью в учёт (rc 0, START пишется). Записи БУФЕРУЮТСЯ:
+# отказ (rc 1) не меняет учёт — записи пишутся только при разрешённом спавне
+# (инвариант «отказ не пишет в учёт»).
+ZAPISI=''
+zapis_dodat() { ZAPISI="${ZAPISI}${ZAPISI:+$'\n'}$1"; }
+# Контекст проверки передачи: предмет, item события (для общей строки) и
+# запрошенный OBJECT этого item.
+PEREDACHA_N=''
+PEREDACHA_IDX=''
+PEREDACHA_OBJ=''
+predupr() {  # <предмет> <КОД> <детали> [фактический OBJECT] [номер повтора]
+  local n="$1" kod="$2" det="$3" ob="${4:-}" pov="${5:-}"
+  printf 'ПРЕДУПРЕЖДЕНИЕ: %s: %s\n' "$kod" "$det" >&2
+  zapis_dodat "$(jq -nc --arg t warn --arg r "$REPO_ID" --arg s "$n" --arg k "$kod" \
+        --arg o "$ob" --arg p "$pov" --arg at "$(ts_now)" \
+        '{t:$t,repoId:$r,subjectId:$s,kod:$k,at:$at} + (if $o == "" then {} else {object:$o} end) + (if $p == "" then {} else {povtor:($p|tonumber)} end)')"
+}
+# [D54 override-pisanie] применение общей строки владельца: запись в учёт и
+# пометка «строка израсходована» (одноразовость — и в учёте, и в текущем
+# решении: повторное применение той же строки в одном вызове — тоже отказ).
+ZAMOK_STROKA_ISPOLNENO=''
+zapis_override() {  # <предмет> <КОД> <OBJECT или '-'>
+  ZAMOK_STROKA_ISPOLNENO="${ZAMOK_STROKA_ISPOLNENO}${ZAMOK_STROKA_ISPOLNENO:+$'\n'}$1|$2|$3"
+  zapis_dodat "$(jq -nc --arg t override --arg r "$REPO_ID" --arg s "$1" --arg k "$2" \
+        --arg o "$3" --arg at "$(ts_now)" \
+        '{t:$t,repoId:$r,subjectId:$s,kod:$k,object:$o,at:$at}')"
+}
+# [D57 osvobozhdenie-broshennogo] RELEASE брошенного держателя пишется ТОЛЬКО
+# явным --osvobodit (sudit-путь отказывает без записей: К-01, frozen 140/5 :46).
+# Фактический OBJECT каждого item пакета (то, что пишется в START): буфер
+# "idx|OBJECT" — решение по пакету принимается до раздачи, START пишется
+# после, а фактический OBJECT известен только по итогам решения.
+FAKT=''
+fakt_zapis() { FAKT="${FAKT}${FAKT:+$'\n'}$1|$2"; }
+fakt_dlya() {  # <idx> → фактический OBJECT (пусто, если нет)
+  printf '%s\n' "$FAKT" | grep -E "^$1\|" | sed -n '1p' | cut -d'|' -f2
+}
+# Отказы, которые общая строка владельца пропускает (слово владельца
+# 21.11 12:06). Неотменяемые (изоляция, живой рабочий, мьютекс решения, живой
+# судья, дубль пакета, живой автор, брошенный замок) в перечень НЕ входят —
+# строка на них не действует.
+ZAMOK_STROKA_RE='^РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК: [0-9]{3} [A-Z][A-Z_]*( [0-9a-f]{40})?$'
+ZAMOK_STROKA_KODY='PAUZA_VLADELTSA PEREDACHA_NEDOSTOVERNA PEREDACHA_REMOTE'
+zamok_stroka_iz() {  # <task> → "ok:<NNN>|<КОД>|<OBJECT или пусто>"|net
+  local t="$1" c line
+  # [D60 stroka-dubl] Считаются ВСЕ строки с маркером, а не только строки
+  # полной грамматики: вторая строка маркера (даже вне грамматики) — отказ
+  # (дубль/строка вне формата), разрешение не действует и не расходуется.
+  c="$(kolvo_strok "$t" '^РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК:')"
+  [ "$c" = '1' ] || { printf 'net'; return 0; }
+  line="$(printf '%s\n' "$t" | grep -E "$ZAMOK_STROKA_RE" | sed -n '1p')"
+  printf 'ok:%s' "$(printf '%s' "$line" | cut -d' ' -f2- | tr ' ' '|')"
+}
+# Разрешает ли общая строка владельца конкретный отказ: предмет совпадает,
+# код — из разрешаемого перечня, OBJECT (если указан в строке) совпадает с
+# OBJECT события, строка ещё не использована (одноразовая).
+zamok_stroka_razreshayet() {  # <idx> <предмет> <КОД> <OBJECT события> → 0 да | 1 нет
+  local idx="$1" n="$2" kod="$3" item_o="$4" task stroka sn sk so
+  task="$(jq -r "(.tasks // [.])[$idx].task // \"\"" "$EVENT" 2>/dev/null)" || return 1
+  stroka="$(zamok_stroka_iz "$task")"
+  case "$stroka" in ok:*) : ;; *) return 1 ;; esac
+  stroka="${stroka#ok:}"
+  sn="${stroka%%|*}"; stroka="${stroka#*|}"
+  sk="${stroka%%|*}"; so=''
+  case "$stroka" in *\|*) so="${stroka#*|}" ;; esac
+  [ "$sn" = "$n" ] || return 1
+  [ "$sk" = "$kod" ] || return 1
+  case " $ZAMOK_STROKA_KODY " in *" $kod "*) : ;; *) return 1 ;; esac
+  if [ -n "$so" ]; then
+    [ "$so" = "$item_o" ] || return 1
+  fi
+  # Строка уже израсходована — повторное использование той же строки отказ.
+  ZAMOK_STROKA_OBJ="${so:--}"
+  jq -se --arg r "$REPO_ID" --arg n "$n" --arg k "$kod" --arg o "$ZAMOK_STROKA_OBJ" \
+    'any(.[]; .t == "override" and .repoId == $r and .subjectId == $n and .kod == $k and .object == $o)' \
+    "$LEDGER" >/dev/null 2>&1 && return 1
+  # Строка израсходована уже в текущем решении (буфер применений) — повтор отказ.
+  case "$ZAMOK_STROKA_ISPOLNENO" in
+    *"$n|$kod|$ZAMOK_STROKA_OBJ"*) return 1 ;;
+  esac
+  return 0
+}
 
 # Дельта tip всегда против первого родителя линии wip; root — против пустого дерева.
 puti_kommita() {  # <worktree> <commit>
@@ -306,12 +452,77 @@ stare_holder() {  # <holder> → yield|bezhit|broshen|net_fajla
   fi
 }
 
-# [D15 pauza] ПАУЗА владельца — только строка registry/pauzy.tsv.
-na_pauze() {  # <NNN>
-  local f="$REPO/registry/pauzy.tsv" l
-  # Проектная раскладка (04.11, та же стенка, что каталог контрактов в #500): реестр
-  # проекта лежит в .harness/registry/ — без этого паузу предмета проекта не записать.
-  [ -r "$f" ] || f="$REPO/.harness/registry/pauzy.tsv"
+# [registry-profile] Пути профиля проекта — ЕДИНЫМ существующим резолвером
+# scripts/next_id.sh (project_paths_resolve): своих ключей профиля дверь не
+# вводит и своего парсера не заводит. Слой проекта — корень, объявленный
+# окружением (HARNESS_PROJECT_LAYER_ROOT), иначе корень того же репозитория.
+# Вызов — в подshell: резолвер экспортирует свой умолчаний, и подshell не
+# оставляет его в окружении двери (иначе второй репозиторий получил бы слой
+# первого).
+profile_paths() {  # <репозиторий> → JSON резолвера (абсолютные пути)
+  local repo="$1" abs root lib
+  abs="$(cd "$repo" 2>/dev/null && pwd -P)" || return 1
+  root="${HARNESS_PROJECT_LAYER_ROOT:-}"
+  [ -n "$root" ] || root="$abs"
+  lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/next_id.sh" || return 1
+  (
+    NEXT_ID_LIB=1 source "$lib" || exit 1
+    export HARNESS_PROJECT_LAYER_ROOT="$root"
+    project_paths_resolve "$abs"
+  )
+}
+# [D62 profil-entry] Состояние записи профиля проекта (путь harness.project.json):
+#   0 — пути НЕТ вовсе (ни файла, ни ссылки): профиля нет — резервная
+#       раскладка репозитория (registry/, contracts/);
+#   1 — путь есть и это обычный файл: профиль читается резолвером;
+#   2 — путь ЕСТЬ (битая ссылка, цикл ссылок, каталог вместо файла), но
+#       профиль НЕ удостоверен: читать нечего.
+# Прежний признак «профиля нет» ([ ! -f ]) смешивал состояния 0 и 2:
+# недоступная запись профиля выглядела как отсутствие профиля, и резервный
+# реестр репозитория обходил ПАУЗУ предмета (К-03б). Состояние 2 —
+# fail-closed: путь реестра/каталога контрактов из нечитаемой записи НЕ
+# выводится (путь паузы → отказ PROFIL_NEDOSTUPEN без START/override;
+# путь контрактов → класс риска не определён, предмет рисковый).
+profil_sostoyanie() {  # <репозиторий> → 0 нет | 1 файл | 2 не удостоверен
+  local p="$1/harness.project.json"
+  if [ ! -e "$p" ] && [ ! -L "$p" ]; then return 0; fi
+  if [ -f "$p" ]; then return 1; fi
+  return 2
+}
+# [registry-profile] Путь файла реестра/паузы: workflowPaths.registry профиля
+# (без профиля — реестр репозитория). ОДНА функция на реестр и на паузу.
+reestr_put() {  # <репозиторий> <имя> → абсолютный путь
+  local repo="$1" name="$2" paths sost
+  sost=0; profil_sostoyanie "$repo" || sost=$?
+  case "$sost" in
+    0) printf '%s/registry/%s' "$repo" "$name"; return 0 ;;
+    2) return 1 ;;
+  esac
+  paths="$(profile_paths "$repo")" || return 1
+  printf '%s\n' "$paths" | jq -er --arg name "$name" '.registry + "/" + $name'
+}
+# [registry-profile] Каталог контрактов кандидата: workflowPaths.contracts
+# профиля владельца (без профиля — contracts/). Путь — относительный ко
+# репозиторию: по нему ищем каталог в дереве OBJECT.
+kontrakt_kat() {  # <репозиторий владельца> → относительный каталог | пусто
+  local repo="$1" abs paths kat sost
+  sost=0; profil_sostoyanie "$repo" || sost=$?
+  case "$sost" in
+    0) printf 'contracts'; return 0 ;;
+    2) return 1 ;;
+  esac
+  abs="$(cd "$repo" 2>/dev/null && pwd -P)" || return 1
+  paths="$(profile_paths "$repo")" || return 1
+  kat="$(printf '%s\n' "$paths" | jq -er '.contracts')" || return 1
+  printf '%s' "${kat#"$abs/"}"
+}
+# [D15 pauza] ПАУЗА владельца — строка pauzy.tsv в реестре профиля.
+# [D61 profil-nedostupen] Коды возврата РАЗЛИЧНЫ: 0 — пауза есть; 1 — паузы
+# нет (реестр прочитан); 2 — путь реестра НЕ УДОСТОВЕРЕН (битый/нечитаемый
+# профиль) — ошибка чтения НЕ есть «нет паузы» (fail-closed).
+na_pauze() {  # <NNN> → 0 пауза | 1 нет паузы | 2 путь реестра не удостоверен
+  local f l
+  f="$(reestr_put "$REPO" pauzy.tsv)" || return 2
   [ -r "$f" ] || return 1
   while IFS= read -r l; do
     case "$l" in '#'*|'') continue ;; esac
@@ -325,10 +536,10 @@ predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # не определён (fail-closed, слово владельца 24.10). [D31 frozen-risk]
 # По слову 19.11 класс — дерево закреплённого frozen владельца предмета,
 # не дерево OBJECT, main/latest или грязный рабочий каталог.
-# Каталог контрактов кандидата: contracts/, у сессии проекта — .harness/
-# contracts/ (измерено 02.11: адверсарий по бэкенд 148 не спавнился); при
-# обоих приоритет у contracts/. Записи не-blob (симлинк/каталог с именем
-# <NNN>-*.md) — нечитаемая запись канона (как D36) → neodnoznachno.
+# Каталог контрактов кандидата — из профиля владельца: workflowPaths.contracts
+# (без профиля — contracts/); путь относительный ко репозиторию, по нему
+# ищем каталог в дереве закреплённого frozen. Записи не-blob (симлинк/каталог
+# с именем <NNN>-*.md) — нечитаемая запись канона (как D36) → neodnoznachno.
 # [D29 odnoznachnyj-istochnik-riska] класс читается по ВСЕМ файлам предмета:
 # ноль файлов, нет строки в любом из них, значение вне алфавита (обычный|
 # рисковый) или РАЗНЫЕ значения — класс не определён; «первый результат»
@@ -339,9 +550,15 @@ predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # roles/architect.md), вторая декларация в файле — неоднозначность.
 klass_riska() {  # <NNN> <worktree> <OBJECT> → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
   local n="$1" wt="$2" obj="$3" kat spisok zap tip_zap blob put val znach='' ploh=''
-  if [ "$(git -C "$wt" cat-file -t "$obj:contracts" 2>/dev/null)" = tree ]; then kat='contracts'
-  elif [ "$(git -C "$wt" cat-file -t "$obj:.harness/contracts" 2>/dev/null)" = tree ]; then kat='.harness/contracts'
-  else printf 'net_stroki:ни contracts/, ни .harness/contracts/ в дереве %s нет' "$obj"; return 0; fi
+  kat="$(kontrakt_kat "$wt")" || kat=''
+  if [ -z "$kat" ]; then
+    printf 'net_stroki:каталог контрактов в профиле владельца не объявлен'
+    return 0
+  fi
+  if [ "$(git -C "$wt" cat-file -t "$obj:$kat" 2>/dev/null)" != tree ]; then
+    printf 'net_stroki:каталога %s в дереве %s нет' "$kat" "$obj"
+    return 0
+  fi
   spisok="$(git -C "$wt" ls-tree "$obj:$kat" 2>/dev/null \
     | awk -F'\t' -v n="$n" '$2 ~ "^" n "-[^/]*[.]md$" {print $1 "\t" $2}' \
     | LC_ALL=C sort)"
@@ -402,27 +619,14 @@ rabochij_json() {
   jq -cSrs --arg r "$REPO_ID" --arg n "$1" \
     '[.[] | select(.t=="START" and .repoId==$r and .subjectId==$n and .klass=="rabochij")] | last // empty' "$LEDGER"
 }
-# [D53 registry-proekta] Реестр контрактов владельца в дереве: основной путь
-# registry/contracts.tsv; если его в дереве НЕТ — проектная раскладка
-# .harness/registry/contracts.tsv (та же стенка, что каталог контрактов и
-# паузы проекта: измерено 02.11/04.11 — без неё судья ПРОЕКТА не проходит:
-# «KLASS_RISKA_NET: закреплённый frozen недоступен»). Основной путь найден —
-# он и источник: запасной его НЕ подменяет (строки предмета в основном нет —
-# отказ как прежде, молчаливого перехода на запасной нет). Печатает путь
-# существующего файла; ничего — реестра нет нигде.
-reestr_contracts_put() {  # <репозиторий> <ревизия> → путь | пусто
-  local repo="$1" rev="$2" p
-  for p in 'registry/contracts.tsv' '.harness/registry/contracts.tsv'; do
-    if git -C "$repo" cat-file -t "$rev:$p" >/dev/null 2>&1; then
-      printf '%s' "$p"
-      return 0
-    fi
-  done
-  return 1
-}
+# [registry-profile] Реестр контрактов владельца — файл РЕЕСТРА ПРОФИЛЯ
+# (workflowPaths.registry); без профиля — реестр репозитория. Запасного пути
+# нет: путь реестра — данные профиля, а не угадывание по дереву.
 frozen_predmeta() {  # <NNN> <репозиторий владельца> → commit annotated frozen
-  local row object ref owner="${2:-$REPO}" put
-  put="$(reestr_contracts_put "$owner" HEAD)" || return 1
+  local row object ref owner put
+  owner="$(cd "${2:-$REPO}" 2>/dev/null && pwd -P)" || return 1
+  put="$(reestr_put "$owner" contracts.tsv)" || return 1
+  put="${put#"$owner/"}"
   row="$(git -C "$owner" show "HEAD:$put" 2>/dev/null | grep -E "^$1 → [0-9a-f]{40}$")" || return 1
   [[ "$row" =~ ^$1\ →\ [0-9a-f]{40}$ ]] || return 1
   object="${row#* → }"
@@ -443,11 +647,28 @@ peredacha_iz_ucheta() {
       elif $e.t=="PEREDACHA" then $e else . end) // empty' "$LEDGER" 2>/dev/null
 }
 perenos_otkaz() {
+  # Отказ проверяемой передачи. Общая строка владельца (одноразовая)
+  # пропускает ровно этот отказ для этого предмета (и OBJECT, если указан):
+  # тогда проверка прерывается (rc 1 от вызывающего), применение строки
+  # пишется в учёт. Без строки — отказ как прежде.
+  if [ -n "${PEREDACHA_IDX:-}" ] \
+     && zamok_stroka_razreshayet "$PEREDACHA_IDX" "$PEREDACHA_N" "$1" "${PEREDACHA_OBJ:-}"; then
+    zapis_override "$PEREDACHA_N" "$1" "$ZAMOK_STROKA_OBJ"
+    PEREDACHA_PRORYVAN=1
+    return 1
+  fi
   mutexi_snyat_vse
   otp "$1" "проверяемая передача: $2"
 }
+# Предупреждение в проверке передачи (слово владельца 21.11 12:06): код —
+# предупреждение, проверка продолжается, факт — в записи.
+perenos_predupr() {  # <КОД> <детали>
+  predupr "$PEREDACHA_N" "$1" "проверяемая передача: $2" "${P_OBJECT:-}"
+}
 proverit_peredachu() {  # <subject> <receipt commit>; результат — P_* в памяти
   local n="$1" c="$2" worker digest path reg reg_put ptag pobj pcommit
+  PEREDACHA_N="$n"
+  PEREDACHA_PRORYVAN=''
   [[ "$c" =~ ^[0-9a-f]{40}$ ]] \
     || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'commit вне алфавита'
   # [D35 receipt-origin] Только неизменяемое свидетельство станции на origin/main.
@@ -455,7 +676,7 @@ proverit_peredachu() {  # <subject> <receipt commit>; результат — P_*
     || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'свидетельство не опубликовано на origin/main'
   [ "$(git -C "$REPO" show -s --format=%an "$c")" = orchestrator ] \
     && [ "$(git -C "$REPO" show -s --format=%cn "$c")" = orchestrator ] \
-    || perenos_otkaz PEREDACHA_AVTOR 'свидетельство не оркестратора'
+    || perenos_predupr PEREDACHA_AVTOR 'свидетельство не оркестратора'
   path="registry/dostavki/$n.json"
   [ "$(git -C "$REPO" ls-tree "$c" -- "$path" | cut -d' ' -f1)" = 100644 ] \
     || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'свидетельство не обычный файл'
@@ -496,8 +717,12 @@ sys.exit(1 if next(Draft202012Validator(schema).iter_errors(document), None) els
     1) perenos_otkaz PEREDACHA_NEDOSTOVERNA 'схема свидетельства' ;;
     *) mutexi_snyat_vse; skip 'JSON Schema: python3/jsonschema недоступны' ;;
   esac
+  # [D55 override-abort] Общая строка владельца пропустила отказ выше — остальные
+  # проверки передачи не выполняются (rc 1 вызывающему: поля берутся из заявки
+  # в учёте, применение строки уже записано).
+  [ -z "$PEREDACHA_PRORYVAN" ] || return 1
   worker="$(rabochij_json "$n")"
-  [ -n "$worker" ] || perenos_otkaz RABOCHEGO_NET 'нет реального рабочего START'
+  [ -n "$worker" ] || perenos_predupr RABOCHEGO_NET 'нет реального рабочего START'
   digest="$(printf '%s' "$worker" | sha256sum | cut -d' ' -f1)"
   # [D36 receipt-worker] Свидетельство связано со всей исходной строкой START.
   [ "$digest" = "$(printf '%s' "$P_JSON" | jq -r .workerStart)" ] \
@@ -506,10 +731,12 @@ sys.exit(1 if next(Draft202012Validator(schema).iter_errors(document), None) els
   [ "$(stare_holder "$(printf '%s' "$worker" | jq -r .holder)")" = yield ] \
     || perenos_otkaz AVTOR_ESHCHO_RABOTAET 'исходный автор не сдал'
   [ "$(printf '%s' "$worker" | jq -r .rol)" = "$(printf '%s' "$P_JSON" | jq -r .author)" ] \
-    || perenos_otkaz PEREDACHA_AVTOR 'роль исходного автора'
+    || perenos_predupr PEREDACHA_AVTOR 'роль исходного автора'
   P_WT="$(printf '%s' "$P_JSON" | jq -r .worktree)"
   P_BRANCH="$(printf '%s' "$P_JSON" | jq -r .branch)"
   P_OBJECT="$(printf '%s' "$P_JSON" | jq -r .object)"
+  # [D55 override-abort] Отказ пропущен — проверка передачи прервана.
+  [ -z "$PEREDACHA_PRORYVAN" ] || return 1
   # [D37 receipt-remote] CanonicalRemote удостоверен станцией, не basename продукта.
   [ "$(git -C "$P_WT" remote get-url origin 2>/dev/null)" = "$(printf '%s' "$P_JSON" | jq -r .canonicalRemote)" ] \
     || perenos_otkaz PEREDACHA_REMOTE 'origin продукта не канонический'
@@ -518,29 +745,36 @@ sys.exit(1 if next(Draft202012Validator(schema).iter_errors(document), None) els
   [ -n "$(puti_kommita "$P_WT" "$P_OBJECT")" ] \
     || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'пустой продуктовый результат'
   [ "$(object_kandidata "$P_WT" "$n" "refs/heads/$P_BRANCH")" = "$P_OBJECT" ] \
-    || perenos_otkaz OBJECT_RASHODITSJA 'живой tip продукта изменился'
+    || perenos_predupr OBJECT_RASHODITSJA 'живой tip продукта изменился'
   [ "$(printf '%s' "$P_JSON" | jq -r .canonicalRemote)" != "$REPO_URL" ] \
     || perenos_otkaz PEREDACHA_REMOTE 'носитель не внешний продукт'
   # [D38 receipt-author] Доставлен настоящий непустой результат того же автора.
   [ "$(git -C "$P_WT" show -s --format=%an "$P_OBJECT" 2>/dev/null)" = "$(printf '%s' "$P_JSON" | jq -r .author)" ] \
-    || perenos_otkaz PEREDACHA_AVTOR 'автор продуктового коммита'
+    || perenos_predupr PEREDACHA_AVTOR 'автор продуктового коммита'
   ptag="$(printf '%s' "$P_JSON" | jq -r .frozenTag)"
   pobj="$(printf '%s' "$P_JSON" | jq -r .frozenObject)"
   pcommit="$(printf '%s' "$P_JSON" | jq -r .frozenCommit)"
   # [D39 receipt-frozen] Версия из реестра В ДЕРЕВЕ свидетельства, не latest/main.
-  # [D53 registry-proekta] Раскладка реестра владельца — как в frozen_predmeta:
-  # основной путь, а если его в дереве свидетельства НЕТ — проектный.
-  reg_put="$(reestr_contracts_put "$REPO" "$c")" || reg_put=''
+  # [registry-profile] Путь реестра — тот же, что в frozen_predmeta: реестр
+  # профиля (без профиля — реестр репозитория).
+  reg_put="$(reestr_put "$REPO" contracts.tsv)" || reg_put=''
+  reg_put="${reg_put#"$REPO/"}"
   reg=''
   if [ -n "$reg_put" ]; then
     reg="$(git -C "$REPO" show "$c:$reg_put" 2>/dev/null | LC_ALL=C grep -E "^$n → " )"
   fi
+  # Неудостоверенная frozen-версия в учёт не идёт: класс риска дверь возьмёт
+  # у владельца предмета (P_FROZEN остаётся пустым) — предупреждение с
+  # записью, проверка продолжается.
+  P_FROZEN=''
   [ "$reg" = "$n → $pobj" ] \
     && [ "$(git -C "$P_WT" rev-parse --verify "refs/tags/$ptag" 2>/dev/null)" = "$pobj" ] \
     && [ "$(git -C "$P_WT" cat-file -t "$pobj" 2>/dev/null)" = tag ] \
     && [ "$(git -C "$P_WT" rev-parse --verify "$pobj^{commit}" 2>/dev/null)" = "$pcommit" ] \
-    || perenos_otkaz KLASS_RISKA_NET 'точная frozen-версия не удостоверена'
-  P_FROZEN="$pcommit"
+    && P_FROZEN="$pcommit" \
+    || perenos_predupr KLASS_RISKA_NET 'точная frozen-версия не удостоверена'
+  # [D55 override-abort] Отказ пропущен — проверка передачи прервана.
+  [ -z "$PEREDACHA_PRORYVAN" ] || return 1
 }
 
 peredat() {
@@ -557,6 +791,9 @@ peredat() {
   fi
   proverit_peredachu "$NNN_ARG" "$HOLDER_ARG"
   uchet_gotov || { mutexi_snyat_vse; skip "учёт не создать: $LEDGER"; }
+  # [D56 preduprezhdenie-zapis] Предупреждения проверки передачи пишутся в учёт
+  # ПЕРЕД записью передачи (отказ до этого места учёт не меняет).
+  [ -n "$ZAPISI" ] && printf '%s\n' "$ZAPISI" >> "$LEDGER"
   # [D40 receipt-append] Никакого START/RELEASE, смены занятия, ветки или счёта суда.
   jq -nc --arg r "$REPO_ID" --arg n "$NNN_ARG" --arg c "$HOLDER_ARG" \
     --argjson proof "$P_JSON" --arg at "$(ts_now)" \
@@ -742,23 +979,16 @@ pin_iz() {  # <task> → «ok:<wt>|<br>»|net|gramm
   b="$(printf '%s\n' "$t" | grep -E "$rxb" | sed -n '1p' | cut -c8-)"
   printf 'ok:%s|%s' "$w" "$b"
 }
-# [D11 uzhe-suzhen] СЛОВО владельца (21.11 00:55) — адресное разрешение на
-# ОДИН повторный круг той же роли на том же OBJECT: строка задания судьи
-# `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: <NNN> <роль> <OBJECT-40hex>`. Строка
-# необязательная; формат закрытый (норма 041), предмет/роль/OBJECT в строке —
-# те же, что у события. Разбирается ОТДЕЛЬНО от SUBJECT/OBJECT/PIN: прежние
-# отказы грамматики (лишние/повторные строки иных ключей) не меняются, новых
-# имён отказа не появляется. Разрешение выдаётся только при РОВНО одной
-# строке нужного формата: две и более строк, строка вне формата или чужие
-# значения = разрешения нет (отказ OBJECT_UZHE_SUZHEN как прежде) — молчаливого
-# пропуска нет.
-povtor_iz() {  # <task> → «ok:<NNN>|<роль>|<OBJECT>»|net
-  local t="$1" c line
-  c="$(kolvo_strok "$t" '^РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: [0-9]{3} (critic|critic-sol|adversary|reviewer) [0-9a-f]{40}$')"
-  [ "$c" = '1' ] || { printf 'net'; return 0; }
-  line="$(printf '%s\n' "$t" | grep -E '^РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: [0-9]{3} (critic|critic-sol|adversary|reviewer) [0-9a-f]{40}$' | sed -n '1p')"
-  printf 'ok:%s' "$(printf '%s' "$line" | cut -d' ' -f2- | tr ' ' '|')"
-}
+# [D11 uzhe-suzhen] Частная строка `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР` (слово владельца
+# 21.11 00:55) УБРАНА: её заменила общая строка `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК`
+# (слово владельца 21.11 12:06, см. zamok_stroka_iz). Старая форма более не
+# действует: повторный круг той же роли на том же OBJECT — ПРЕДУПРЕЖДЕНИЕ с
+# записью (номер повтора в учёте), а не отказ; «исправительный круг — новый
+# sha» остаётся правилом сверки, которое делает ревьюер по журналу.
+# Разбор общей строки — ОТДЕЛЬНО от SUBJECT/OBJECT/PIN: прежние отказы
+# грамматики (лишние/повторные строки иных ключей) не меняются, новых имён
+# отказа не появляется; строка вне формата, две и более строк, чужие значения —
+# разрешения НЕ дают (молчаливого пропуска нет).
 
 # ══════════════════════════════ --sudit ══════════════════════════════════════
 sudit() {
@@ -842,9 +1072,25 @@ sudit() {
   if [ -z "$GATED" ]; then printf 'PROPUST: gated items нет\n'; exit 0; fi
 
   # ПАУЗА владельца — реестр; судится ДО замков, для всех gated предметов.
-  while IFS='|' read -r _ _ _ psv _ _ _ _ _; do
+  # Общая строка владельца (одноразовая) пропускает ровно этот отказ: предмет
+  # и OBJECT строки — те же, что у события; применение строки пишется в учёт.
+  # [D61 profil-nedostupen] Путь реестра паузы НЕ удостоверен (битый профиль)
+  # — именованный fail-closed отказ: «нет паузы» из ошибки чтения НЕ следует.
+  while IFS='|' read -r pidx _ _ psv pobj _ _ _ _; do
     [ -n "$psv" ] || continue
-    na_pauze "$psv" && otp PAUZA_VLADELTSA "предмет $psv стоит на ПАУЗЕ владельца (registry/pauzy.tsv)"
+    if na_pauze "$psv"; then
+      :
+    else
+      case "$?" in
+        1) continue ;;
+        *) otp PROFIL_NEDOSTUPEN "путь реестра паузы предмета $psv не удостоверен (профиль не прочитан)" ;;
+      esac
+    fi
+    if zamok_stroka_razreshayet "$pidx" "$psv" 'PAUZA_VLADELTSA' "$pobj"; then
+      zapis_override "$psv" 'PAUZA_VLADELTSA' "$ZAMOK_STROKA_OBJ"
+      continue
+    fi
+    otp PAUZA_VLADELTSA "предмет $psv стоит на ПАУЗЕ владельца (реестр профиля)"
   done <<EOF
 $GATED
 EOF
@@ -869,6 +1115,9 @@ EOF
   # [D26 paket-otkat] суд под мьютексами; записи — только после решения по ВСЕМУ пакету
   while IFS='|' read -r idx agent name sv obj wt br klass rol; do
     [ -n "$sv" ] || continue
+    # Фактический OBJECT этого item (то, что попадёт в START): для рабочего —
+    # прочерк, для судьи — канонический OBJECT либо tip автора (см. ниже).
+    obj_fakt='-'
     zdir="$(zamok_dir "$sv")"
     if [ -d "$zdir/zanyat" ] && [ -f "$zdir/zanyat/holder.json" ]; then
       h_holder="$(jq -r '.holder // ""' "$zdir/zanyat/holder.json" 2>/dev/null)"
@@ -891,37 +1140,36 @@ EOF
           ;;
       esac
     fi
-    # [D11 uzhe-suzhen] повторный круг ТОЙ ЖЕ РОЛИ на ТОМ ЖЕ OBJECT — отказ
-    # (боль 117: 7×); другая роль тот же OBJECT судит свободно (конвейер).
-    # Суд идёт и при освобождённом замке (контракт 167): круг судейства считается
-    # по учёту (START и его собственный RELEASE), а не по наличию замка.
+    # [D11 uzhe-suzhen] повторный круг ТОЙ ЖЕ РОЛИ на ТОМ ЖЕ OBJECT —
+    # ПРЕДУПРЕЖДЕНИЕ с записью (слово владельца 21.11 12:06): сверку «исправи-
+    # тельный круг — новый sha» делает ревьюер по журналу, дверь лишь пишет
+    # факт и номер повтора. Другая роль тот же OBJECT судит свободно
+    # (конвейер). Суд идёт и при освобождённом замке (контракт 167): круг
+    # судейства считается по учёту (START и его собственный RELEASE), а не по
+    # наличию замка.
     if [ "$klass" = 'sudja' ] && subekt_suzhen_sudej_obj "$sv" "$rol" "$obj"; then
-      # [D11 uzhe-suzhen] СЛОВО владельца 21.11 00:55: ОДИН повторный круг
-      # той же роли на том же OBJECT пропускается, если в задании судьи есть
-      # ровно одна строка `РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР: <NNN> <роль> <OBJECT>` с
-      # теми же предметом, ролью и OBJECT И повтор ещё не использован (кругов
-      # суда роли на этом OBJECT по этому предмету — ровно один). Строка вне
-      # формата, дубль строки, чужие предмет/роль/OBJECT, исчерпанное
-      # разрешение — повтор НЕ пропускается: отказ OBJECT_UZHE_SUZHEN как
-      # прежде (молчаливого пропуска нет).
-      pov="$(povtor_iz "$(jq -r "(.tasks // [.])[$idx].task // \"\"" "$EVENT" 2>/dev/null)")"
-      psv2=''; prol2=''; pobj2=''
-      case "$pov" in
-        ok:*) psv2="${pov#ok:}"; psv2="${psv2%%|*}"
-              prol2="${pov#ok:}"; prol2="${prol2#*|}"; prol2="${prol2%%|*}"
-              pobj2="${pov#ok:}"; pobj2="${pobj2##*|}" ;;
-      esac
-      if [ "$psv2" != "$sv" ] || [ "$prol2" != "$rol" ] || [ "$pobj2" != "$obj" ] \
-         || [ "$(krugov_suda "$sv" "$rol" "$obj")" != '1' ]; then
-        mutexi_snyat_vse
-        otp OBJECT_UZHE_SUZHEN "предмет $sv: OBJECT $obj уже судился ролью $rol; исправительный круг — новый sha"
-      fi
+      predupr "$sv" 'OBJECT_UZHE_SUZHEN' "предмет $sv: OBJECT $obj уже судился ролью $rol; исправительный круг — новый sha" "$obj" "$(($(krugov_suda "$sv" "$rol" "$obj") + 1))"
     fi
     if [ "$klass" = 'sudja' ]; then
       rab="$(poslednij_rabochij "$sv")"
       if [ -z "$rab" ]; then
-        # [D12 rabochego-net] судья без автора предмета — судить нечего.
-        mutexi_snyat_vse; otp RABOCHEGO_NET "предмет $sv: рабочего START в учёте нет"
+        # [D12 rabochego-net] судья без автора предмета — ПРЕДУПРЕЖДЕНИЕ с
+        # записью (слово владельца 21.11 12:06): спавн судьи не теряется молча
+        # (START пишется), сверку «кто автор» ведёт ревьюер по журналу.
+        predupr "$sv" 'RABOCHEGO_NET' "предмет $sv: рабочего START в учёте нет" "$obj"
+        obj_fakt="$obj"
+        fakt_zapis "$idx" "$obj_fakt"
+        # [D59 porjadok-bez-avtora] Отсутствие автора НЕ отменяет ни риск, ни
+        # порядок судей: автора нет — закреплённого frozen нет — класс риска
+        # НЕ ОПРЕДЕЛЁН, предмет считается РИСКОВЫМ (норма «нет записи —
+        # рисковый»), поэтому ревьюер — только после завершённого адверсария.
+        # Проверка порядка — ДО continue по RABOCHEGO_NET (иначе ревьюер без
+        # автора и без адверсария проходил бы по неопределённому риску).
+        if [ "$rol" = 'reviewer' ] && ! subekt_suzhen_sudej "$sv" 'adversary'; then
+          mutexi_snyat_vse
+          otp ADVERSARIJ_DO_REVJUERA "предмет $sv: риск без автора неизвестен, завершённого адверсария нет"
+        fi
+        continue
       fi
       r_holder="$(printf '%s' "$rab" | cut -f1)"
       r_wt="$(printf '%s' "$rab" | cut -f3)"
@@ -941,26 +1189,45 @@ EOF
       transfer="$(peredacha_iz_ucheta "$sv")"
       if [ -n "$transfer" ]; then
         # [D41 receipt-recheck] Ledger не оракул: proof сверяется с origin-свидетельством.
-        proverit_peredachu "$sv" "$(printf '%s' "$transfer" | jq -r .receipt)"
-        [ "$(printf '%s' "$transfer" | jq -cS .proof)" = "$(printf '%s' "$P_JSON" | jq -cS .)" ] \
-          || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'поля учёта изменены'
+        # Общая строка владельца (одноразовая) пропускает ровно один отказ
+        # передачи для этого предмета (и OBJECT, если указан) — тогда проверка
+        # прерывается, поля берутся из заявки в учёте, а применение строки
+        # пишется в учёт.
+        transfer_ok=1
+        PEREDACHA_IDX="$idx"; PEREDACHA_OBJ="$obj"
+        proverit_peredachu "$sv" "$(printf '%s' "$transfer" | jq -r .receipt)" || transfer_ok=0
+        if [ "$transfer_ok" = 0 ]; then
+          P_WT="$(printf '%s' "$transfer" | jq -r .proof.worktree)"
+          P_BRANCH="$(printf '%s' "$transfer" | jq -r .proof.branch)"
+          P_OBJECT="$(printf '%s' "$transfer" | jq -r .proof.object)"
+        else
+          [ "$(printf '%s' "$transfer" | jq -cS .proof)" = "$(printf '%s' "$P_JSON" | jq -cS .)" ] \
+            || perenos_otkaz PEREDACHA_NEDOSTOVERNA 'поля учёта изменены'
+        fi
+        PEREDACHA_IDX=''; PEREDACHA_OBJ=''
         r_wt="$P_WT"; r_br="$P_BRANCH"; risk_repo="$P_WT"
         [ "$obj" = "$P_OBJECT" ] \
-          || perenos_otkaz OBJECT_RASHODITSJA 'OBJECT не переданный результат'
+          || perenos_predupr OBJECT_RASHODITSJA 'OBJECT не переданный результат'
       fi
       # [D9 object-sovpadaet] Вердиктный хвост не становится новым объектом суда.
-      git -C "$r_wt" rev-parse --verify "$r_br^{commit}" >/dev/null 2>&1 || {
-        mutexi_snyat_vse
-        otp VETKA_NEDOSTUPNA "предмет $sv: ветка $r_br в $r_wt не читается — OBJECT не сверить"
-      }
-      tip="$(object_kandidata "$r_wt" "$sv" "$r_br")" || {
-        mutexi_snyat_vse
-        otp OBJECT_RASHODITSJA "предмет $sv: вердиктный хвост не сохраняет OBJECT"
-      }
-      [ "$tip" = "$obj" ] || {
-        mutexi_snyat_vse
-        otp OBJECT_RASHODITSJA "предмет $sv: OBJECT задания $obj ≠ tip ветки $r_br ($tip)"
-      }
+      # ФАКТИЧЕСКИЙ OBJECT (то, что пишется в START): канонический, если
+      # resolver его разрешил, иначе tip ветки автора; расхождение с запрошенным
+      # OBJECT — ПРЕДУПРЕЖДЕНИЕ с записью (слово владельца 21.11 12:06), сверку
+      # ведёт ревьюер по журналу.
+      obj_fakt="$obj"; tip=''
+      if git -C "$r_wt" rev-parse --verify "$r_br^{commit}" >/dev/null 2>&1; then
+        tip="$(object_kandidata "$r_wt" "$sv" "$r_br")" || tip=''
+        if [ -z "$tip" ]; then
+          tip="$(git -C "$r_wt" rev-parse --verify "$r_br^{commit}" 2>/dev/null)" || tip=''
+          predupr "$sv" 'OBJECT_RASHODITSJA' "предмет $sv: вердиктный хвост не сохраняет OBJECT" "$tip"
+          obj_fakt="$tip"
+        elif [ "$tip" != "$obj" ]; then
+          predupr "$sv" 'OBJECT_RASHODITSJA' "предмет $sv: OBJECT задания $obj ≠ tip ветки $r_br ($tip)" "$tip"
+          obj_fakt="$tip"
+        fi
+      else
+        predupr "$sv" 'VETKA_NEDOSTUPNA' "предмет $sv: ветка $r_br в $r_wt не читается — OBJECT не сверить" "$obj"
+      fi
       # [D42 frozen-risk] Всегда frozen соответствующего владельца, не OBJECT.
       # [D52 bootstrap-kritika] Первый critic НОВОГО предмета (ни одного
       # frozen/contracts/<NNN>/* у владельца) читает класс риска из OBJECT:
@@ -970,7 +1237,7 @@ EOF
       # живом frozen-теге pinned frozen обязателен как прежде (битый pin →
       # прежний отказ KLASS_RISKA_NET). Класс читается из ДЕРЕВА OBJECT в
       # репозитории носителя (r_wt — там D9 уже сверил tip ветки с OBJECT).
-      kr=''; kl_bootstrap=0; kl_frozen=''
+      kr=''; kl_bootstrap=0; kl_frozen=''; kr_det=''
       if [ -z "$P_FROZEN" ]; then
         case "$rol" in
           critic|critic-sol)
@@ -980,21 +1247,26 @@ EOF
         esac
       fi
       if [ "$kl_bootstrap" = 1 ]; then
-        kr="$(klass_riska "$sv" "$r_wt" "$obj")"
+        kr="$(klass_riska "$sv" "$r_wt" "$obj_fakt")"
       else
         if [ -z "$P_FROZEN" ]; then
-          P_FROZEN="$(frozen_predmeta "$sv" "$risk_repo")" || {
-            mutexi_snyat_vse
-            otp KLASS_RISKA_NET "предмет $sv: закреплённый frozen недоступен"
-          }
+          P_FROZEN="$(frozen_predmeta "$sv" "$risk_repo")" || { P_FROZEN=''; kr_det='закреплённый frozen недоступен'; }
         fi
-        kr="$(klass_riska "$sv" "$risk_repo" "$P_FROZEN")"
+        if [ -n "$P_FROZEN" ]; then
+          kr="$(klass_riska "$sv" "$risk_repo" "$P_FROZEN")"
+        else
+          kr='net_stroki'
+        fi
       fi
       case "$kr" in
         risikovyj|obychnyj) : ;;
         *)
-          mutexi_snyat_vse
-          otp KLASS_RISKA_NET "предмет $sv: класс риска неоднозначно определён (${kr%%:*}); файлы: ${kr#*:}"
+          # Класс не определён — предмет считается РИСКОВЫМ (норма «нет записи —
+          # рисковый»), предупреждение с записью (слово владельца 21.11 12:06):
+          # сверку ведёт ревьюер по журналу.
+          [ -n "$kr_det" ] || kr_det="класс риска неоднозначно определён (${kr%%:*}); файлы: ${kr#*:}"
+          predupr "$sv" 'KLASS_RISKA_NET' "предмет $sv: $kr_det — класс не определён, предмет считается рисковым" "$obj_fakt"
+          kr='risikovyj'
           ;;
       esac
       # [D14 adv-do-rev] рисковый предмет: ревьюер — после завершённого адверсария.
@@ -1016,11 +1288,13 @@ EOF
         zhivo="$(zhivykh_v_gruppe "$grp" "$sv")"
         # [D25 limit-gruppy] слот 3/3/3 (слово владельца 2026-11-07 «по 3-4»); СЛОВО и done — в учёте (реестр).
         if [ "$zhivo" -ge "$cap" ] && ! slovo_vladelca "$sv"; then
-          mutexi_snyat_vse
-          otp LIMIT_GRUPPY "группа $grp: занято $zhivo из $cap (предмет $sv); сверх лимита — только СЛОВО владельца (строка SLOVO)"
+          # Превышение лимита группы — ПРЕДУПРЕЖДЕНИЕ с записью (слово владельца
+          # 21.11 12:06): слот всё равно занимается, сверку ведёт ревьюер.
+          predupr "$sv" 'LIMIT_GRUPPY' "группа $grp: занято $zhivo из $cap (предмет $sv)" "$obj"
         fi
       fi
     fi
+    fakt_zapis "$idx" "$obj_fakt"
   done <<EOF
 $GATED
 EOF
@@ -1032,8 +1306,17 @@ EOF
     mutexi_snyat_vse
     skip "учёт не создать: $LEDGER"
   fi
+  # [D56 preduprezhdenie-zapis] Записи, накопленные решением (предупреждения,
+  # освобождения брошенных замков, применения общей строки), пишутся в учёт
+  # ПЕРЕД START — отказ (rc 1) до этого места учёт не меняет вовсе.
+  [ -n "$ZAPISI" ] && printf '%s\n' "$ZAPISI" >> "$LEDGER"
   while IFS='|' read -r idx agent name sv obj wt br klass rol; do
     [ -n "$sv" ] || continue
+    # [D58 preduprezhdenie-object] В START пишется ФАКТИЧЕСКИЙ OBJECT (канонический
+    # либо tip автора), а не запрошенный: расхождение — предупреждение с
+    # записью, сверку ведёт ревьюер по журналу.
+    fakt="$(fakt_dlya "$idx")"
+    [ -n "$fakt" ] && obj="$fakt"
     if [ "$klass" = 'rabochij' ]; then grp2="$(gruppa_iz_pina "$wt")"
     else grp2="$(gruppa_ledger "$sv")"; fi
     # [D33 start-fakt-izolirovan] v5: строка START ЛЮБОЙ роли несёт факт
