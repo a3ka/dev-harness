@@ -1,0 +1,9 @@
+# Мутация<TAB>различающая клетка. Н-39: привязки только здесь и в probe.py,
+# не в прозе контракта; якорь каждой мутации — ровно один в коде модели.
+VETKA-NET	a1-gate-profilja
+PODSTROKA-BAZY	c1-podstroka-xred
+SLOVO-ERE	c2-suffiks-old
+SYROJ-JSON	a2-gate-v-defoltsah
+SYROJ-JSON	e3-kanon-vne-alfavita
+TIHO	e1-ne-json
+ARGV0	a5-gate-py
