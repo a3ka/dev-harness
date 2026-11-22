@@ -2,7 +2,7 @@
 
 КЛАСС РИСКА: рисковый — дверь замка предмета решает, на какой OBJECT допускается судья (critic/adversary/reviewer) предмета; ошибка открывает суд чужой/непроверенной работе или навсегда блокирует done-путь; основание закрытого перечня: «безопасность/авторизация» (периметр допуска судей станции).
 
-КОНТЕКСТ: номер 208 выдан `next_id` (тег `id/CONTRACT/208`, строка реестра `6739c25cc`); owner-затравка влита (PR #1232 `25b66070fd`, РАЗРЕШИЛ-ВЛАДЕЛЕЦ: «стартовые затравки двух новых контрактов станции — ускорение check_zones --incr и допуск судьи по предковому OBJECT в замке (D9); боль и решение, заменяются архитектором целиком; SLOVO обоих в учёт замка»); строка плана 208 — owner #1239 (пара 3); направления консультанта 22.11 13:58 (предковость+публикация) и 14:10 (очередь, adversary → reviewer); задание станции `/tmp/dev-harness-verify/task-arch208.md`; дельта-круг b — по FAIL Crit208V1 (вердикт `9770601092f04d7e64f82f8d3a5bd134dea98a33`, archive/208 станции; в дереве этой ветки не закоммичен — путь не заявляю), задание `/tmp/dev-harness-verify/task-arch208b.md`: блоки К-03/К-07 (база A2), К-08 (адрес санкции), К-09/К-14 (второй родитель), К-10 (полный вывод субъекта).
+КОНТЕКСТ: номер 208 выдан `next_id` (тег `id/CONTRACT/208`, строка реестра `6739c25cc`); owner-затравка влита (PR #1232 `25b66070fd`, РАЗРЕШИЛ-ВЛАДЕЛЕЦ: «стартовые затравки двух новых контрактов станции — ускорение check_zones --incr и допуск судьи по предковому OBJECT в замке (D9); боль и решение, заменяются архитектором целиком; SLOVO обоих в учёт замка»); строка плана 208 — owner #1239 (пара 3); направления консультанта 22.11 13:58 (предковость+публикация) и 14:10 (очередь, adversary → reviewer); задание станции `/tmp/dev-harness-verify/task-arch208.md`; дельта-круг b — по FAIL Crit208V1 (вердикт `9770601092f04d7e64f82f8d3a5bd134dea98a33`, archive/208 станции; в дереве этой ветки не закоммичен — путь не заявляю), задание `/tmp/dev-harness-verify/task-arch208b.md`: блоки К-03/К-07 (база A2), К-08 (адрес санкции), К-09/К-14 (второй родитель), К-10 (полный вывод субъекта); дельта-круг c — по FAIL Crit208V2 (вердикт `c8aef370e312c6d6e4692c99c4e28325efb7f53c`, archive/208 станции; в дереве этой ветки не закоммичен — путь не заявляю), задание `/tmp/dev-harness-verify/task-arch208c.md`: блок К-10 (вывод субъекта — байты обеих труб без нормализации) и решение арбитра по нему.
 
 ## Существующее
 
@@ -53,6 +53,19 @@
 
 Красные клетки производства (замер прогона на базе A2 — `378e45782e`, влитой в ветку работы): `SUBJEKT 208: KLETKI 23 KRASNYH 18`, rc 1 — r02-predok-opublikovan-v-main, r03-predok-opublikovan-v-vetke, r04-predok-ne-opublikovan, r05-vperjod-opublikovan, r06-vperjod-verdikt-hvost, r07-vperjod-ne-opublikovan, r08-merge-pustaja-delta, r10-mimo-novoj-raboty, r11-sankcija-v-uchete, r12-sankcija-chuzhoj-object, r13-sankcija-iscerpana, r14-povtor-stroka-ne-dejstvuet, r15-povtor-bez-razreshenija, r19-sankcija-chuzhoj-predmet, r20-sankcija-chuzhaja-rol, r21-sankcija-chuzhoj-repo, r22-predok-cherez-vtorogo-roditelja, r23-porjadok-roditelej-merge (боли 179/007-182/152-177, второй класс и дельта-круг b: адрес санкции, второй родитель, полный вывод); остальные 5 клеток — регрессионные на двери A2 (r01 равенство, r09 пустой НЕ-merge tip — предупреждение, r16 ПАУЗА, r17 VETKA_NEDOSTUPNA — предупреждение, r18 неоднозначный вердиктный merge — предупреждение) и зелены до реализации. Субъект отсутствует — rc 1 SUBJECT_ABSENT (зелень без субъекта невозможна).
 
+### Вывод субъекта — байты (К-10 Crit208V2)
+
+Правило: наблюдение клетки — тройка (rc, stdout bytes, stderr bytes) с ТОЧНЫМ равенством в каждом режиме — модель (`--model`), обманные стабы (`--stabs`) и субъект дерева (безфлаговый и `--repo <корень>`) идут одним путём запуска: обе трубы захватываются байтами, без text-режима; между захватом и сравнением нет ни декодирования, ни перевода строк (CRLF/CR → LF), ни strip; ожидание фиксируется в памяти до вызова двери; декодирование с `errors='replace'` служит только тексту диагностики. Различимы и остатком НЕ являются: CRLF, одиночный CR, пробел в конце строки, двойной LF, BOM, NUL, не-UTF8 байт, лишний вывод (в своей и в тихой трубе), перенос между трубами. Каждая граница предъявлена своим адресным стабом — мутация одной операции печати модели (якорь кратности 1; тексты, ветви и rc двери не меняются — только выходные байты или труба); привязки стаб↔клетка — единственный источник `source.json:.stab_vhod` батареи:
+
+- труба stderr, формат `otp`: стабы st20–st27 (восемь границ байтов), st28 (перенос отказа в stdout), st29 (лишняя строка в тихий stdout) — каждый краснит все три отказа субъекта r04, r06, r07 (30 связей);
+- труба stdout, строка допуска `PUSCHEM`: стабы st30–st37 (те же восемь границ), st38 (перенос допуска в stderr), st39 (лишняя строка в тихий stderr) — каждый краснит r01 (10 связей).
+
+Сценарии (дано → когда → тогда):
+
+- дано: честная модель; когда: `bash fixtures/workshop_project/zamok_object_predok_208/red_zamok_object_predok_208.sh --model`; тогда: rc 0, `MODEL 208: KLETKI 23 KRASNYH 0` — честный вывод обеих труб зелёный.
+- дано: 39 обманных дверей, 64 связи `source.json`; когда: `bash fixtures/workshop_project/zamok_object_predok_208/red_zamok_object_predok_208.sh --stabs`; тогда: rc 0, `STABY 208: SVJAZI 64 ZHIVYH 0`; в пару негатив: стаб не краснит ни одну связанную клетку — rc 1 `STAB_ZHIV`; якорь стаба потерян либо мутация сломала синтаксис — rc 2 `ORACLE_TAMPERED`.
+- дано: копия модели с `\r\n` в `otp` (текст стаба st20) как `<корень>/scripts/zamok_predmeta.sh`, корень вне дерева (проба ручная, вывод приложен в сдаточном листе круга c); когда: `bash fixtures/workshop_project/zamok_object_predok_208/red_zamok_object_predok_208.sh --repo <корень>`; тогда: rc 1, `SUBJEKT 208: KLETKI 23 KRASNYH 12` — красны r04, r06, r07 (первое расхождение: факт 0x0d, ожидание 0x0a) и прочие отказы `otp`; контроль: та же команда с честной моделью в `<корень>` — rc 0, `SUBJEKT 208: KLETKI 23 KRASNYH 0`.
+
 ### Зелёные контроли (rc 0)
 
 - `bash fixtures/workshop_project/zamok_object_predok_208/red_zamok_object_predok_208.sh --model`
@@ -63,16 +76,16 @@
 
 Замеры (пересчитываются гейтом):
 замер: `ls fixtures/workshop_project/zamok_object_predok_208/model/* | wc -l` = 1 census fixtures/workshop_project/zamok_object_predok_208/model/*
-замер: `ls -d fixtures/workshop_project/zamok_object_predok_208/stabs/* | wc -l` = 19 census fixtures/workshop_project/zamok_object_predok_208/stabs/*
+замер: `ls -d fixtures/workshop_project/zamok_object_predok_208/stabs/* | wc -l` = 39 census fixtures/workshop_project/zamok_object_predok_208/stabs/*
 
-Числа прогона на этом дереве (база A2): `--model` → `MODEL 208: KLETKI 23 KRASNYH 0`; `--stabs` → `MODEL 208: KLETKI 23 KRASNYH 0`, `STABY 208: SVJAZI 24 ZHIVYH 0`; `--repo .` → `SUBJEKT 208: KLETKI 23 KRASNYH 18`, rc 1. Регресс соседа (не проба листа — медленная, ~105 с): `bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --model` → `MODEL_KLETKI 244 KRASNYH 0`, rc 0 (редакция A2); `bash fixtures/parsing_hygiene_battery/run_battery.sh zamok_predmeta` → `итог 4/4 классов закрыто`, rc 0.
+Числа прогона на этом дереве (база A2): `--model` → `MODEL 208: KLETKI 23 KRASNYH 0`; `--stabs` → `MODEL 208: KLETKI 23 KRASNYH 0`, `STABY 208: SVJAZI 64 ZHIVYH 0`; `--repo .` → `SUBJEKT 208: KLETKI 23 KRASNYH 18`, rc 1. Регресс соседа (не проба листа — медленная, ~105 с): `bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --model` → `MODEL_KLETKI 244 KRASNYH 0`, rc 0 (редакция A2); `bash fixtures/parsing_hygiene_battery/run_battery.sh zamok_predmeta` → `итог 4/4 классов закрыто`, rc 0.
 
 ### После реализации (гейты ленда, выполняет оркестратор/судьи)
 
 ```
 bash fixtures/workshop_project/zamok_object_predok_208/red_zamok_object_predok_208.sh            # rc 0
 bash fixtures/workshop_project/zamok_object_predok_208/red_zamok_object_predok_208.sh --repo .   # rc 0 (KLETKI 23 KRASNYH 0)
-bash fixtures/workshop_project/zamok_object_predok_208/red_zamok_object_predok_208.sh --stabs   # rc 0 (SVJAZI 24, ZHIVYH 0)
+bash fixtures/workshop_project/zamok_object_predok_208/red_zamok_object_predok_208.sh --stabs   # rc 0 (SVJAZI 64, ZHIVYH 0)
 bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --model                     # rc 0 (244/0)
 bash fixtures/workshop_project/obryv_167/red_obryv_167.sh --repo .                              # rc 0
 bash fixtures/parsing_hygiene_battery/run_battery.sh zamok_predmeta                             # rc 0 (с клетками санкции)
@@ -169,6 +182,7 @@ bash scripts/gen_ci_steps.sh --check                                            
 - От подмены объекта суда вердиктом: OBJECT «вперёд» обязан быть кодовой границей по тому же белому списку, что у резолвера; вердиктный хвост объектом суда не становится — инвариант 3, клетка r06.
 - От потери границы «один повтор»: санкция SANKCIJA адресна ПОЛНЫМ адресом (repoId+предмет+роль+OBJECT — чужой адресат санкцией не является), действует только при неисчерпанном круге, SLOVO ею не является; строка задания 00:55 снята словом 12:06 и повтор не даёт — инвариант 6, клетки r11–r15/r19–r21.
 - От регресса замка относительно двери A2: равенство, отказы реального вреда, грамматика OBJECT, порядок гейтов и предупреждения v8 вне предмета — клетки r01/r09/r16–r18 и семьи соседей (140 A2 244/0, 167, гигиена 4/4) в приёмке.
+- От пропуска побайтового дефекта вывода двери: наблюдение — (rc, stdout bytes, stderr bytes) с точным равенством в каждом режиме и без нормализации между захватом и сравнением; CRLF, одиночный CR, пробел в конце, двойной LF, BOM, NUL, не-UTF8 байт, лишний вывод и перенос между трубами — каждый адресным стабом с красной клеткой (st20–st39, `--stabs` rc 0, живых 0) — раздел «Вывод субъекта — байты».
 
 НЕ ЗАЩИЩАЕТ:
 - Смена разрешённого риска против слова владельца 21.11 12:06 (v8) на судейских входах D9/D11 — отказы вместо предупреждений — предметом УТВЕРЖДАЕТСЯ (затравка владельца PR #1232), но согласие владельца со сменой не угадано: вопрос оркестратору до раздачи реализации (см. «Пересечение 140↔208»); ловец — оркестратор/владелец на вопросе доклада.
@@ -176,7 +190,9 @@ bash scripts/gen_ci_steps.sh --check                                            
 - Преддверие (`scripts/pre_judge.sh`, 172) остался равенству tip: prepare берёт OBJECT из tip опубликованной ветки и отказывает `VETKA_NE_OPUBLIKOVANA`/`OBJECT_NE_KANONICHEN` на своих входах; полный маршрут «судья на предке/ушедшей работе» может дополнительно требовать отдельного предмета преддверия (ловец — оркестратор на живом прогоне, боль задокументирована).
 - Третий класс боли — выбор вердикта адверсария по фиксированному имени `-v1` в `scripts/done_contract.sh` — вне предмета (отдельная зона и механизм, см. Существующее п.6); ловец — отдельный контракт по слову владельца.
 - Учёт станции — доверенная зона: пишущий в `state/zamok/uchet.jsonl` может дописать SANKCIJA, как и SLOVO сегодня; дверь не аутентифицирует автора записи (граница существующего доверия, изменение — отдельный предмет).
-- Батарея — конечный закрытый набор на объявленные механизмы (23 клетки / 19 обманных дверей / 24 связи по source.json, счёт по выводу движка), не доказательство эквивалентности произвольной программы; остаток — судьи (adversary → reviewer) на живом дереве.
+- Временной ОБЩИЙ порядок строк между stdout и stderr не наблюдается: трубы захватываются раздельно (два PIPE), merged stream не вводится — решение арбитра по К-10 круга c; ловец — арбитр/владелец на новом слове о порядке строк между трубами.
+- Побайтовая форма строк учёта `uchet.jsonl` (START/RELEASE) не судится: START судится по полям JSON (holder, object), отказ — по неизменности файла; ловец — отдельный предмет по слову владельца, если побайтовая форма учёта станет обязательством.
+- Батарея — конечный закрытый набор на объявленные механизмы (23 клетки / 39 обманных дверей / 64 связи по source.json, счёт по выводу движка), не доказательство эквивалентности произвольной программы; остаток — судьи (adversary → reviewer) на живом дереве.
 
 ПРЕДПОСЫЛКИ:
 - setting нужны bash, git, jq, python3 (rc 2 при отсутствии); новых CI secrets/variables/environments и настроек репозитория не требуется.

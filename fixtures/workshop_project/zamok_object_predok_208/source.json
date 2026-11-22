@@ -90,6 +90,86 @@
   ],
   "st19-diagnostika-r07": [
    "r07-vperjod-ne-opublikovan"
+  ],
+  "st20-otkaz-crlf": [
+   "r04-predok-ne-opublikovan",
+   "r06-vperjod-verdikt-hvost",
+   "r07-vperjod-ne-opublikovan"
+  ],
+  "st21-otkaz-odinochnyj-cr": [
+   "r04-predok-ne-opublikovan",
+   "r06-vperjod-verdikt-hvost",
+   "r07-vperjod-ne-opublikovan"
+  ],
+  "st22-otkaz-probel-v-konce": [
+   "r04-predok-ne-opublikovan",
+   "r06-vperjod-verdikt-hvost",
+   "r07-vperjod-ne-opublikovan"
+  ],
+  "st23-otkaz-dvojnoj-lf": [
+   "r04-predok-ne-opublikovan",
+   "r06-vperjod-verdikt-hvost",
+   "r07-vperjod-ne-opublikovan"
+  ],
+  "st24-otkaz-bom": [
+   "r04-predok-ne-opublikovan",
+   "r06-vperjod-verdikt-hvost",
+   "r07-vperjod-ne-opublikovan"
+  ],
+  "st25-otkaz-nul": [
+   "r04-predok-ne-opublikovan",
+   "r06-vperjod-verdikt-hvost",
+   "r07-vperjod-ne-opublikovan"
+  ],
+  "st26-otkaz-ne-utf8": [
+   "r04-predok-ne-opublikovan",
+   "r06-vperjod-verdikt-hvost",
+   "r07-vperjod-ne-opublikovan"
+  ],
+  "st27-otkaz-lishnij-vyvod": [
+   "r04-predok-ne-opublikovan",
+   "r06-vperjod-verdikt-hvost",
+   "r07-vperjod-ne-opublikovan"
+  ],
+  "st28-otkaz-perenos": [
+   "r04-predok-ne-opublikovan",
+   "r06-vperjod-verdikt-hvost",
+   "r07-vperjod-ne-opublikovan"
+  ],
+  "st29-otkaz-lishnij-v-stdout": [
+   "r04-predok-ne-opublikovan",
+   "r06-vperjod-verdikt-hvost",
+   "r07-vperjod-ne-opublikovan"
+  ],
+  "st30-puschem-crlf": [
+   "r01-ravenstvo-dopusk"
+  ],
+  "st31-puschem-odinochnyj-cr": [
+   "r01-ravenstvo-dopusk"
+  ],
+  "st32-puschem-probel-v-konce": [
+   "r01-ravenstvo-dopusk"
+  ],
+  "st33-puschem-dvojnoj-lf": [
+   "r01-ravenstvo-dopusk"
+  ],
+  "st34-puschem-bom": [
+   "r01-ravenstvo-dopusk"
+  ],
+  "st35-puschem-nul": [
+   "r01-ravenstvo-dopusk"
+  ],
+  "st36-puschem-ne-utf8": [
+   "r01-ravenstvo-dopusk"
+  ],
+  "st37-puschem-lishnij-vyvod": [
+   "r01-ravenstvo-dopusk"
+  ],
+  "st38-puschem-perenos": [
+   "r01-ravenstvo-dopusk"
+  ],
+  "st39-puschem-lishnij-v-stderr": [
+   "r01-ravenstvo-dopusk"
   ]
  },
  "nositeli": {
@@ -112,7 +192,27 @@
   "stabs/st16-predok-tolko-pervyj-roditel/zamok_predmeta.sh": "342d67e7903de2e780ff7153adca088e49625056e64457fe83736efef4cc5c0e",
   "stabs/st17-diagnostika-r04/zamok_predmeta.sh": "5c8f25832d1bbea6a8e1c2aafd9e989cce0f64041890191389f2b2b89e0ef602",
   "stabs/st18-diagnostika-r06/zamok_predmeta.sh": "1791d7c4ebc84a7c89ab39d965988b9c5162635afcafa4ac066e6c2fcedcc502",
-  "stabs/st19-diagnostika-r07/zamok_predmeta.sh": "703c74770625c9964b71383b4b7b6458eb3550eecfd4d53d097a91fcd8aa7ce8"
+  "stabs/st19-diagnostika-r07/zamok_predmeta.sh": "703c74770625c9964b71383b4b7b6458eb3550eecfd4d53d097a91fcd8aa7ce8",
+  "stabs/st20-otkaz-crlf/zamok_predmeta.sh": "91dfea11e37b58bc19e3717f06d7085f2b8336c2c1479d64de11ed266ed7d29e",
+  "stabs/st21-otkaz-odinochnyj-cr/zamok_predmeta.sh": "f3df7eac372c0691dc673f3d1947e201325f0038e9f15e26d7cbf57961028138",
+  "stabs/st22-otkaz-probel-v-konce/zamok_predmeta.sh": "d1683290d5bb7bd925538e2bba900ff3f7b9f66b9443cbc73507e9b2a25d3ec0",
+  "stabs/st23-otkaz-dvojnoj-lf/zamok_predmeta.sh": "f6d91d9c3a7901ef19c5d7c4a239e20a25ba30d48b8184782b71cfd2eabd07d1",
+  "stabs/st24-otkaz-bom/zamok_predmeta.sh": "d4f98b1df3f125002e5d86c883e40627913a7d1659106c26bce41119ae68be85",
+  "stabs/st25-otkaz-nul/zamok_predmeta.sh": "2106c2ddc28ff2290f8cc23f99eaa6b81cd2e758f01b768fdf3c0202ee6f1f09",
+  "stabs/st26-otkaz-ne-utf8/zamok_predmeta.sh": "4ac114876c634146c15a9d168953f02b71a239ce93c8fc5dfff858a1c1f1ef86",
+  "stabs/st27-otkaz-lishnij-vyvod/zamok_predmeta.sh": "acc2ecf6099e75acaca05908905de3827ea1fefcdd7770f413bf3a660b7d36cd",
+  "stabs/st28-otkaz-perenos/zamok_predmeta.sh": "6dde2e86ca2903bf700a25f06149f60024e56c5c723d31fa2635b41008942e3a",
+  "stabs/st29-otkaz-lishnij-v-stdout/zamok_predmeta.sh": "a868d9a9ea56fff93711bbb4e3b401fec1bdc38f9369adbecd0570681d9f6672",
+  "stabs/st30-puschem-crlf/zamok_predmeta.sh": "a6d3daa75482151ac65df10cd1424ce8622620427be8cde29874d4c41202b1e8",
+  "stabs/st31-puschem-odinochnyj-cr/zamok_predmeta.sh": "51735cce9b04e2cd102a2856d36a73a2a9acf46ee6d48e7a3accfc88082dd440",
+  "stabs/st32-puschem-probel-v-konce/zamok_predmeta.sh": "e5bf6b5775325d62ab7a15a5097eb825a817a676a74a774a5ee78188688aee47",
+  "stabs/st33-puschem-dvojnoj-lf/zamok_predmeta.sh": "cbce8f0416f616b8b8836d4b0337c7ca6c40f80269eec6a96b3ef56e30ff55ba",
+  "stabs/st34-puschem-bom/zamok_predmeta.sh": "753d7e443e37c7979fb7e8a4030cc448765fec2edff410e834c60d8f58045a1f",
+  "stabs/st35-puschem-nul/zamok_predmeta.sh": "603f302a68a0328a5a9b15829f4c57836c3a82b1f8124d76a692a2e721dc4b8a",
+  "stabs/st36-puschem-ne-utf8/zamok_predmeta.sh": "d5c90db1b7ec5f48fcf04dd2de30323d6406df08ac4eea30722a60756fe94679",
+  "stabs/st37-puschem-lishnij-vyvod/zamok_predmeta.sh": "c5b448da94f00ac93c90231abcb4044b9897d031178c7211f9ae37d4c7c6f88c",
+  "stabs/st38-puschem-perenos/zamok_predmeta.sh": "661cf503afa0fbde90c4461a04ffea8c679680691862a98cdc6557e4e5e4765f",
+  "stabs/st39-puschem-lishnij-v-stderr/zamok_predmeta.sh": "4d7c4335bd77ade8d917a2a2582ee3c4d8950d9b3f5c5b5649313b856281d7e7"
  },
  "zametki": "привязки стаб↔клетка — единственный источник (Н-39); якорь каждой мутации — кратность 1 в тексте модели"
 }

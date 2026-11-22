@@ -13,6 +13,12 @@
 # Каждая клетка сравнивает rc, stdout И stderr ПОЛНОСТЬЮ байт-в-байт
 # (К-10 Crit208V1): ожидания фиксируются в памяти ДО вызова субъекта —
 # и для модели, и для стабов, и для производственного слоя одинаково.
+# БАЙТЫ (К-10 Crit208V2): обе трубы субъекта захватываются байтами (subprocess
+# без text=True: universal newlines переводил CRLF/CR в LF ДО сравнения) и
+# сравниваются с ожиданием как bytes; декодирование errors='replace' — только
+# текст диагностики. Границы наблюдения — адресные стабы st20…st39 (GRANICY ×
+# TRUBY_VYHODA, перенос между трубами, лишняя строка в тихой трубе), привязки
+# — source.json:.stab_vhod.
 #
 # Режимы:
 #   (без флага) / --repo <корень>
@@ -22,7 +28,7 @@
 #         субъекта — rc 1 SUBJECT_ABSENT с перечнем всех входов.
 #   --model   контроль входов на эталоне (23/23), строгие ожидания вывода.
 #   --stabs   контроль + матрица обманных стабов над текстом модели
-#         (SVJAZI 24, живых 0); якорь потерян или синтаксис сломан — rc 2.
+#         (SVJAZI 64, живых 0); якорь потерян или синтаксис сломан — rc 2.
 #   --sgeneriruj-staby (обслуживание) материализует stabs/<имя>/ и
 #         source.json (nositeli).
 #
@@ -65,9 +71,22 @@ def sha256_bytes(b):
 
 
 def run(cmd, cwd=None, env=None, timeout=120):
-    return subprocess.run(cmd, capture_output=True, text=True, cwd=cwd,
+    # БАЙТЫ на обеих трубах (К-10 Crit208V2): без text=True — universal
+    # newlines превращал бы CRLF/CR в LF до сравнения вывода субъекта
+    return subprocess.run(cmd, capture_output=True, cwd=cwd,
                           env=env if env is not None else GIT_ENV,
                           timeout=timeout)
+
+
+def plumbing(r):
+    # вывод ИНСТРУМЕНТА мира (git plumbing: sha, путь) → str; к сравнению
+    # вывода субъекта отношения не имеет
+    return r.stdout.decode('utf-8', 'surrogateescape').strip()
+
+
+def diag(b, predel=200):
+    # ТОЛЬКО печать диагностик: декодирование с заменой, сравнения нет
+    return (b or b'').decode('utf-8', 'replace').strip()[:predel]
 
 
 # ── мир: состояние + журналы + реестр станции ───────────────────────────────
@@ -114,7 +133,7 @@ class Mir:
         run(['git', 'add', '-A'], cwd=str(wt))
         run(['git', '-c', 'user.name=b', '-c', 'user.email=b@t',
              'commit', '-q', '-m', 'k'], cwd=str(wt))
-        sha = run(['git', 'rev-parse', 'HEAD'], cwd=str(wt)).stdout.strip()
+        sha = plumbing(run(['git', 'rev-parse', 'HEAD'], cwd=str(wt)))
         self.pin_frozen(nnn, wt, sha)
         return str(wt), br, sha
 
@@ -125,7 +144,7 @@ class Mir:
         tag = 'frozen/contracts/%s/1' % nnn
         r = self.git(['tag', '-a', tag, '-m', 'fixture frozen', commit])
         assert r.returncode == 0, r.stderr
-        obj = self.git(['rev-parse', tag]).stdout.strip()
+        obj = plumbing(self.git(['rev-parse', tag]))
         registry = self.repo / 'registry/contracts.tsv'
         rows = registry.read_text().splitlines() if registry.exists() else []
         rows = [row for row in rows if not row.startswith(nnn + ' → ')]
@@ -189,8 +208,10 @@ class Mir:
         return str(p)
 
     def ledg(self):
+        # учёт — файл, написанный субъектом: читается БАЙТАМИ (без перевода
+        # строк текст-режима), каждая строка LF разбирается json.loads
         rows = []
-        for ln in self.ledger.read_text(encoding='utf-8').splitlines():
+        for ln in self.ledger.read_bytes().split(b'\n'):
             if ln.strip():
                 rows.append(json.loads(ln))
         return rows
@@ -219,7 +240,7 @@ def vpered(wt, imja, soderzimoe, role='b', soobshenie='w'):
     p.write_text(soderzimoe, encoding='utf-8')
     wt_git(wt, 'add', '-A')
     wt_git(wt, 'commit', '-q', '-m', soobshenie, role=role)
-    return wt_git(wt, 'rev-parse', 'HEAD').stdout.strip()
+    return plumbing(wt_git(wt, 'rev-parse', 'HEAD'))
 
 
 def vernut_vetku(wt, br, sha):
@@ -233,22 +254,44 @@ def vernut_vetku(wt, br, sha):
 def k_rc(r, want, chto):
     if r.returncode != want:
         return '%s: rc %s ≠ %s (stderr: %s)' % (chto, r.returncode, want,
-                                                (r.stderr or '').strip()[:200])
+                                                diag(r.stderr))
     return None
+
+
+def bajty(ozhidaemyj):
+    # ожидание — str (читаемая грамматика клетки) → UTF-8; bytes — как есть
+    return ozhidaemyj.encode('utf-8') if isinstance(ozhidaemyj, str) \
+        else ozhidaemyj
+
+
+def k_vyvod(fakt, ozhidaemyj, truba, chto):
+    # ЕДИНЫЙ предикат вывода (К-10): ПОЛНАЯ труба — bytes, ожидание — bytes;
+    # между захватом и этой строкой нет ни декодирования, ни перевода строк,
+    # ни strip — CRLF, CR, пробел в конце, двойной LF, BOM, NUL, не-UTF8 байт,
+    # лишний вывод и перенос между трубами различимы (стабы GRANICY)
+    ozh = bajty(ozhidaemyj)
+    fakt = fakt or b''
+    if fakt == ozh:
+        return None
+    i = 0
+    while i < min(len(fakt), len(ozh)) and fakt[i] == ozh[i]:
+        i += 1
+    return ('%s: %s байт-в-байт ≠ ожиданию: первое расхождение на байте %d '
+            '(факт %s, ожидание %s; длины %d/%d); факт %r ≠ ожидание %r'
+            % (chto, truba, i,
+               '0x%02x' % fakt[i] if i < len(fakt) else 'конец',
+               '0x%02x' % ozh[i] if i < len(ozh) else 'конец',
+               len(fakt), len(ozh),
+               fakt.decode('utf-8', 'replace'),
+               ozh.decode('utf-8', 'replace')))
 
 
 def k_text(r, ozhidaemyj, chto):
-    if (r.stderr or '') != ozhidaemyj:
-        return '%s: stderr байт-в-байт ≠ ожиданию: %r ≠ %r' % (
-            chto, r.stderr, ozhidaemyj)
-    return None
+    return k_vyvod(r.stderr, ozhidaemyj, 'stderr', chto)
 
 
 def k_stdout(r, ozhidaemyj, chto):
-    if (r.stdout or '') != ozhidaemyj:
-        return '%s: stdout байт-в-байт ≠ ожиданию: %r ≠ %r' % (
-            chto, r.stdout, ozhidaemyj)
-    return None
+    return k_vyvod(r.stdout, ozhidaemyj, 'stdout', chto)
 
 
 def k_start(mir, holder, obj, chto):
@@ -378,7 +421,7 @@ def kejsy():
         wt_git(wt, 'checkout', '-q', br)
         vpered(wt, 'f.txt', 'odinakovo\n', soobshenie='a')
         wt_git(wt, 'merge', '-q', '--no-ff', 'side', '-m', 'm')
-        M = wt_git(wt, 'rev-parse', 'HEAD').stdout.strip()
+        M = plumbing(wt_git(wt, 'rev-parse', 'HEAD'))
         m.publikuj(wt, 'refs/remotes/origin/main', M)
         ev = vyzov(m, M)
         r = sudit(door, m, ev)
@@ -388,7 +431,7 @@ def kejsy():
     def r09(m, door):
         wt, br, K0 = bazir(m)
         wt_git(wt, 'commit', '-q', '--allow-empty', '-m', 'pustoj')
-        E = wt_git(wt, 'rev-parse', 'HEAD').stdout.strip()
+        E = plumbing(wt_git(wt, 'rev-parse', 'HEAD'))
         do = m.ledger.read_bytes()
         ev = vyzov(m, E)
         r = sudit(door, m, ev)
@@ -517,7 +560,7 @@ def kejsy():
                'accept\nOBJECT=%s\n' % DUMMY, role='critic',
                soobshenie='v-m')
         wt_git(wt, 'merge', '-q', '--no-ff', 'side3', '-m', 'vm')
-        M2 = wt_git(wt, 'rev-parse', 'HEAD').stdout.strip()
+        M2 = plumbing(wt_git(wt, 'rev-parse', 'HEAD'))
         do = m.ledger.read_bytes()
         ev = vyzov(m, M2)
         r = sudit(door, m, ev)
@@ -571,7 +614,7 @@ def kejsy():
         wt_git(wt, 'checkout', '-q', br)
         vpered(wt, 'svoe2.txt', 'escho rabota\n', soobshenie='k2')
         wt_git(wt, 'merge', '-q', '--no-ff', 'side2', '-m', 'm22')
-        M = wt_git(wt, 'rev-parse', 'HEAD').stdout.strip()
+        M = plumbing(wt_git(wt, 'rev-parse', 'HEAD'))
         m.publikuj(wt, 'refs/remotes/origin/main', M)
         ev = vyzov(m, X)
         r = sudit(door, m, ev)
@@ -588,7 +631,7 @@ def kejsy():
         vpered(wt, 'svoe2.txt', 'escho rabota\n', soobshenie='k2')
         wt_git(wt, 'checkout', '-q', 'side3m')
         wt_git(wt, 'merge', '-q', '--no-ff', br, '-m', 'm23')
-        M2 = wt_git(wt, 'rev-parse', 'HEAD').stdout.strip()
+        M2 = plumbing(wt_git(wt, 'rev-parse', 'HEAD'))
         wt_git(wt, 'branch', '-f', br, M2)
         m.publikuj(wt, 'refs/remotes/origin/main', M2)
         ev = vyzov(m, X)
@@ -767,6 +810,75 @@ STAB_VHOD = {
 }
 
 
+# ── границы НАБЛЮДЕНИЯ (rc, stdout bytes, stderr bytes) — К-10 Crit208V2 ──
+# Мутация ОДНОЙ операции печати честной модели: тексты, ветви и rc двери не
+# меняются — меняются только ВЫХОДНЫЕ БАЙТЫ и/или труба. text-режим
+# (universal newlines) прятал бы первые две границы (CRLF/CR → LF) на обеих
+# трубах; остальные — соседние границы побайтового сравнения. Поля строки
+# GRANICY: имя · префикс формата · добавка к телу · терминатор — это
+# escape-строки bash printf: в файле стаба только ASCII, сами байты (0x0d,
+# EF BB BF, 0x00, FF) рождает дверь при вызове. На каждую трубу — границы
+# GRANICY (изменены байты СВОЕЙ строки), перенос (та же печать — в другую
+# трубу) и лишняя строка в ТИХУЮ трубу (своя строка честна, ожидание тихой
+# трубы — пусто): stderr/otp — st20…st29, stdout/PUSCHEM — st30…st39.
+GRANICY = (
+    ('crlf', '', '', r'\r\n'),
+    ('odinochnyj-cr', '', '', r'\r'),
+    ('probel-v-konce', '', ' ', r'\n'),
+    ('dvojnoj-lf', '', '', r'\n\n'),
+    ('bom', r'\xEF\xBB\xBF', '', r'\n'),
+    ('nul', '', r'\x00', r'\n'),
+    ('ne-utf8', r'\xFF', '', r'\n'),
+    ('lishnij-vyvod', '', '', r'\nLISHNJAJA stroka\n'),
+)
+TRUBY_VYHODA = (
+    # (труба · тело формата · печать как в модели · та же печать в другую
+    #  трубу · имя тихой трубы · её перенаправление · клетки — входы, где
+    #  байты вывода различимы)
+    ('otkaz', 'ОТКАЗ: %s: %s',
+     r'''printf 'ОТКАЗ: %s: %s\n' "$1" "$2" >&2''',
+     r'''printf 'ОТКАЗ: %s: %s\n' "$1" "$2"''',
+     'stdout', '',
+     ('r04-predok-ne-opublikovan', 'r06-vperjod-verdikt-hvost',
+      'r07-vperjod-ne-opublikovan')),
+    ('puschem', 'PUSCHEM %s %s/%s (%s/%s)',
+     r'''printf 'PUSCHEM %s %s/%s (%s/%s)\n' "$name" "$REPO_ID" "$sv" "$klass" "$rol"''',
+     r'''printf 'PUSCHEM %s %s/%s (%s/%s)\n' "$name" "$REPO_ID" "$sv" "$klass" "$rol" >&2''',
+     'stderr', ' >&2',
+     ('r01-ravenstvo-dopusk',)),
+)
+
+
+def stab_pechati(jakor, zamena):
+    return lambda t: _mut(t, jakor, zamena)
+
+
+def stab_vyhoda(telo, pref, dobavka, term):
+    jakor = "printf '%s\\n'" % telo
+    zamena = "printf '%s%s%s%s'" % (pref, telo, dobavka, term)
+    return stab_pechati(jakor, zamena)
+
+
+def _dobavit_staby_vyhoda():
+    nomer = 20
+    for truba, telo, pechat, v_druguju, tihaja, napr, vhody in TRUBY_VYHODA:
+        for granica, pref, dobavka, term in GRANICY:
+            imja = 'st%02d-%s-%s' % (nomer, truba, granica)
+            STAB_MUTACII[imja] = stab_vyhoda(telo, pref, dobavka, term)
+            STAB_VHOD[imja] = list(vhody)
+            nomer += 1
+        lishnjaja = "; printf 'LISHNJAJA stroka\\n'%s" % napr
+        for suffiks, zamena in (('perenos', v_druguju),
+                                ('lishnij-v-' + tihaja, pechat + lishnjaja)):
+            imja = 'st%02d-%s-%s' % (nomer, truba, suffiks)
+            STAB_MUTACII[imja] = stab_pechati(pechat, zamena)
+            STAB_VHOD[imja] = list(vhody)
+            nomer += 1
+
+
+_dobavit_staby_vyhoda()
+
+
 # ── прогон одной клетки: rc, stdout и stderr байт-в-байт в каждом режиме ────
 def prognot_kletku(fn, door):
     tmp = tempfile.mkdtemp(prefix='zamok208-')
@@ -788,7 +900,7 @@ def subjekt_repo(koren=None):
         g = run(['git', '-C', str(HERE), 'rev-parse', '--show-toplevel'])
         if g.returncode != 0:
             return None
-        root = Path(g.stdout.strip())
+        root = Path(plumbing(g))
     d = root / 'scripts' / 'zamok_predmeta.sh'
     return d if d.is_file() else None
 
@@ -819,19 +931,26 @@ def nositeli_sverka(src):
         sys.exit(2)
 
 
+def tekst_modeli():
+    # текст модели — БАЙТЫ файла, декодированные без перевода строк: стаб
+    # отличается от модели ровно одной мутацией (read_text переводил бы CRLF)
+    return MODEL.read_bytes().decode('utf-8')
+
+
 def sgeneriruj():
-    tekst = MODEL.read_text(encoding='utf-8')
+    tekst = tekst_modeli()
     K = kejsy()
     for imja, fn in sorted(STAB_MUTACII.items()):
         mut = fn(tekst)
-        sint = subprocess.run(['bash', '-n', '/dev/stdin'], input=mut,
-                              capture_output=True, text=True, env=GIT_ENV)
+        sint = subprocess.run(['bash', '-n', '/dev/stdin'],
+                              input=mut.encode('utf-8'), capture_output=True,
+                              env=GIT_ENV)
         if sint.returncode != 0:
             raise SystemExit('ORACLE_TAMPERED: стаб %s сломал синтаксис: %s'
-                             % (imja, sint.stderr.strip()[:200]))
+                             % (imja, diag(sint.stderr)))
         d = STABS / imja
         d.mkdir(parents=True, exist_ok=True)
-        (d / 'zamok_predmeta.sh').write_text(mut, encoding='utf-8')
+        (d / 'zamok_predmeta.sh').write_bytes(mut.encode('utf-8'))
         os.chmod(d / 'zamok_predmeta.sh', 0o755)
     nositeli = {'model/zamok_predmeta.sh':
                 sha256_bytes(MODEL.read_bytes())}
@@ -874,7 +993,7 @@ def main():
                 continue
             r = run(['bash', '-n', str(put)])
             if r.returncode != 0:
-                ploho.append('%s: %s' % (imja, r.stderr.strip()[:200]))
+                ploho.append('%s: %s' % (imja, diag(r.stderr)))
         if ploho:
             for s in ploho:
                 print('SINTAKSIS KRASNO: %s' % s)
@@ -918,7 +1037,7 @@ def main():
         print('MODEL 208: KLETKI %d KRASNYH 0' % len(K))
         if not argj.stabs:
             return 0
-        tekst = MODEL.read_text(encoding='utf-8')
+        tekst = tekst_modeli()
         zhivyh = 0
         svjazi = 0
         for imja, fn in sorted(STAB_MUTACII.items()):
@@ -929,13 +1048,13 @@ def main():
                 sys.exit(2)
             katalog = Path(tempfile.mkdtemp(prefix='stab208-'))
             dvor = katalog / 'zamok_predmeta.sh'
-            dvor.write_text(mut, encoding='utf-8')
+            dvor.write_bytes(mut.encode('utf-8'))
             os.chmod(dvor, 0o755)
             sint = run(['bash', '-n', str(dvor)])
             if sint.returncode != 0:
                 shutil.rmtree(katalog, ignore_errors=True)
                 print('ORACLE_TAMPERED: стаб %s сломал синтаксис: %s'
-                      % (imja, sint.stderr.strip()[:200]), file=sys.stderr)
+                      % (imja, diag(sint.stderr)), file=sys.stderr)
                 sys.exit(2)
             pojmali = []
             try:
