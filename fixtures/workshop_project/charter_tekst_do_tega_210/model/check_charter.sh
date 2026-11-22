@@ -1,0 +1,1033 @@
+#!/usr/bin/env bash
+# Уставной документ не меняется без разрешения владельца. Требование владельца дословно:
+# «уставные документы — описание проекта, архитектура, роадмап, майлстоуны, ред-тесты как контракт
+# майлстоуна — после утверждения НИКОГДА не меняются без разрешения владельца, жёстче, чем просто
+# заморозка».
+#
+# СОСТАВ УСТАВА ОБЪЯВЛЕН СПИСКОМ, И ЭТО НЕ НАРУШЕНИЕ ПРАВИЛА «область выводится из предмета».
+# Состав устава — ВОЛЯ ВЛАДЕЛЬЦА, а не выводимое свойство дерева: никакой признак файла не
+# говорит, объявил ли его владелец уставным. Выводить область здесь означало бы угадывать его
+# волю. Список:
+#
+#   AGENTS.md          норма системы. Описание проекта и архитектура живут ВНУТРИ него: отдельных
+#   ROADMAP.md         файлов сегодня нет (проверено деревом). Появятся — добавляются в этот
+#                      список коммитом со строкой владельца, потому что шапка барьера сама лежит
+#                      в scripts/ и правится по общим правилам зон и ревью.
+#   plans/NNN-*.md     устав с момента ПЕРВОЙ заморозки каждого файла, не раньше: черновик пишется
+#   contracts/NNN-*.md правками, и гейт, краснеющий на черновике, заставил бы морозить недописанное.
+#
+# Ред-тесты как контракт майлстоуна — это раздел критериев ВНУТРИ `contracts/NNN`, и он защищён
+# вместе с файлом. Сами файлы фикстур уставом НЕ являются: они реализация, их меняют исполнители в
+# зонах. Иначе ни одну находку адверсария нельзя было бы закрыть без владельца.
+#
+# ГРАММАТИКА РАЗРЕШЕНИЯ — литерал, ПЕРВАЯ КОЛОНКА тела коммита:
+#
+#   РАЗРЕШИЛ-ВЛАДЕЛЕЦ: <путь> <непустая причина>
+#
+# Путь с пробелом — в двойных кавычках. Образец разбора — `excuse_for()` в `check_protected.sh`,
+# и оттуда же взяты три измеренных урока: строка обязана лежать в первой колонке (иначе цитата в
+# теле коммита становится настоящим разрешением), обязана называть ПУТЬ (безымянное разрешение
+# снимает защиту со всего дерева навсегда) и обязана называть ПРИЧИНУ (разрешение без причины
+# неотличимо от опечатки).
+#
+# РАЗРЕШЕНИЕ ЛЕЖИТ В ТОМ ЖЕ КОММИТЕ, который меняет файл. Урок круга 2 по `ALLOW-ARTIFACT-DELETE`:
+# разрешение, выданное заранее или задним числом, есть индульгенция — оно годилось повторно и его
+# можно было положить в посторонний коммит, а потом изменить устав молча.
+#
+# `--diff-filter=MD` намеренно: ДОБАВЛЕНИЕ нового плана или контракта свободно, потому что
+# черновики пишет архитектор. Изменение и удаление — нет.
+#
+# ОСТАТОЧНЫЙ РИСК, помечен `cognitive-only`: подлинность строки при одном uid механически не
+# доказуема — это закоммиченный текст, тот же класс, что `ALLOW-ARTIFACT-DELETE` (принятый
+# прецедент). Держится записанным запретом в норме и ролях (агенту писать её запрещено) плюс
+# чтением истории ревьюером и адверсарием. Ужесточение — подписанные GPG-теги `ustav-ok/<коммит>`
+# — включается словом владельца, в план 007 не входит.
+#
+# MERGE-КОММИТЫ (контракт 019, И-7). Прежде check_charter читал историю `rev-list --no-merges`
+# и merge-коммит, вносивший уставную дельту ТОЛЬКО в результат слияния (родители файл не трогали),
+# оставался невидим судье — обход CI check:charter и делегирования check_staged. После 019
+# судимое множество = не-merge (как прежде) + merge-коммиты, судимые по дельте к ПЕРВОМУ
+# родителю. Грамматика razreshil() и вердикты НЕ меняются: разрешённый merge несёт строку
+# РАЗРЕШИЛ в теле merge-коммита, evil merge без строки — «изменён без разрешения владельца».
+#
+# ГРАНДФАЗЕР-АЛЛОУЛИСТ (контракт 046, ветвь 1, узкий non-rewriteable; 8-я пара — контракт
+# 065; 9-я/10-я — контракт 074; 11-я/12-я/13-я — Н-192, контракт 080; 14-я — squash-ленд
+# 080, Б-6 ревьюера, слово владельца 2026-10-04; 15-я/16-я — Н-213, sync-merge 2c01b1e,
+# слово владельца 2026-10-06; 17-я/18-я — контракт 084, И-12 перенос блока «Итоговый
+# порядок» ROADMAP.md на генерацию из registry/plan.tsv, слово владельца 2026-10-07) —
+# 18 пар (SHA, путь),
+# санкционированных владельцем: 7 текстом в сессии 2026-09-25 (источник — аннотации тегов
+# `frozen/contracts/037/2`, `frozen/contracts/043/2`, `frozen/contracts/045/2`), 8-я — прямым
+# словом 2026-09-30, записанным строкой РАЗРЕШИЛ-ВЛАДЕЛЕЦ в теле коммита-носителя этой пары,
+# 9-я/10-я — прямым словом 2026-10-03 (П3-двойники 074 по арбитражу 074-k1b), строкой
+# РАЗРЕШИЛ-ВЛАДЕЛЕЦ в теле коммита-добавителя, 11-я/12-я/13-я — прямым словом 2026-10-03
+# (Н-192: `frozen/contracts/080/1` указывает на коммит вне истории ветки `wip/080/architect`/
+# main — форк `080-frozen-tag-disconnect`; блоб контракта идентичен v1, переморозка v2 не
+# сдвигает якорь check_charter, т.к. он читает ТОЛЬКО `/1`, см. шапку выше), строкой
+# РАЗРЕШИЛ-ВЛАДЕЛЕЦ в теле коммита-добавителя, 15-я/16-я — прямым словом 2026-10-06
+# (Н-213: `2c01b1ed` — «Merge branch 'main' into wip/083/architect», ЛОКАЛЬНЫЙ коммит
+# сломанного land_agent, никогда не пушен на origin; импортировал уже-разрешённые на main
+# правки ROADMAP.md и contracts/082-... без переноса строки РАЗРЕШИЛ в сам merge; нового
+# содержания нет — консультант подтвердил, verdicts/consultant/
+# 083-charter-merge-false-positive-v1.md), строкой РАЗРЕШИЛ-ВЛАДЕЛЕЦ в теле
+# коммита-добавителя. Эти коммиты несут уставную
+# дельту, но не несут строки РАЗРЕШИЛ-ВЛАДЕЛЕЦ (по процедурным причинам, не из-за
+# обхода); история неприкосновенна — коммиты НЕ редактируются задним числом,
+# разрешение записано здесь как статическое допущение, и только для ровно этих
+# 15 SHA (один SHA несёт два пути — 15-я/16-я пара). «Н-124 прецедент, узкий grandfather, не-переписываемый».
+#
+# Ровно 16 пар: 7 из этих тегов + 14-я (squash-ленд 080, слово владельца 2026-10-04) + 8-я пара (контракт 065 — merge-ленд wip/060/architect,
+# санкция была строкой в веточном 7b0bc92, до переноса И-10) + 9-я/10-я пары (контракт 074 —
+# П3-двойники одного содержания в разных ветках истории, обе без строки РАЗРЕШИЛ в теле;
+# предписаны арбитражом 074-k1b и словом владельца 2026-10-03) + 11-я/12-я/13-я пары (Н-192,
+# контракт 080 — три черновых коммита contracts/080-dver-bugfiks-perezapuska.md на ветке
+# wip/080/architect, замороженной тегом frozen/contracts/080/1, который указывает на orphan-
+# коммит вне истории ветки; блоб контракта побайтово идентичен v1; слово владельца 2026-10-03)
+# + 15-я/16-я пары (Н-213, один SHA `2c01b1ed`, два пути — sync-merge main→wip/083/architect,
+# слово владельца 2026-10-06) + 17-я/18-я пары (контракт 084, два SHA, оба путь ROADMAP.md —
+# контракт 084 заменил прозаический блок «Итоговый порядок» генерируемым из
+# registry/plan.tsv, по слову владельца в самом ROADMAP.md «после done реестра плана блок
+# порядка генерируется из registry/plan.tsv»; дальнейшие правки блока — только через
+# registry/plan.tsv со строкой владельца; слово владельца 2026-10-07):
+#   0872189c654c9728f2753c36a48f99a0322ad2fd  contracts/037-samodostatochnyj-cwd-i-priemnik-task.md
+#   19678a0034fba8906a4103965516494de2ae58d2  contracts/037-samodostatochnyj-cwd-i-priemnik-task.md
+#   02f7b0cd0ce0172c66bdfe783648fa37cf853920  contracts/043-precizionnyj-prefriz-gejt.md
+#   9906f63122278ba28ffd4fee9741ef94c5466a5a  contracts/043-precizionnyj-prefriz-gejt.md
+#   4de64aa195acc309dd6d4cee876515ebeed28725  contracts/043-precizionnyj-prefriz-gejt.md
+#   8766e76946658b548bb9d4be870dfcf0b97ef288  contracts/043-precizionnyj-prefriz-gejt.md
+#   cea3a8f0c8194a8813b7d24503acc4e1686fbab0  contracts/045-pre-exchange-guard-gitw.md
+#   f2b911fbcf00225416cf8e9ad79958f9543c3cdd  contracts/060-samodostatochnost-repo-mint-reestr-boli.md
+#   9bf62dd40a82328a08eab7d6bcf0b9c3ebe299f8  contracts/074-server-obvjazka-edinyy-istochnik.md
+#   a1957624004ec18025f3c681e5ece505a7e01288  contracts/074-server-obvjazka-edinyy-istochnik.md
+#   27b1f05eec6bc8ac883f18f2943560c017a746a3  contracts/080-dver-bugfiks-perezapuska.md
+#   152b97a3b52e63e4bf555d9dd9b2dacaf308a1fd  contracts/080-dver-bugfiks-perezapuska.md
+#   abc4c60626ce0d3f89f41082f9092d0d6dcb9187  contracts/080-dver-bugfiks-perezapuska.md
+#   c672f2b3d32c92023be4a0740842b1b2c3ee3bf5  contracts/080-dver-bugfiks-perezapuska.md
+#   (14-я: squash-ленд батча 080 свернул строки РАЗРЕШИЛ коммитов цепочки 242910be/
+#   d50c0976 — слово владельца 2026-10-04, дословно в теле коммита-добавителя)
+#   2c01b1ed9c93f2ad14959f99511581de5526f68d  ROADMAP.md
+#   2c01b1ed9c93f2ad14959f99511581de5526f68d  contracts/082-per-kejsnyj-dedlajn-verify-antiplacebo.md
+#   (15-я/16-я: sync-merge main→wip/083/architect 2026-10-05 20:02, ЛОКАЛЬНЫЙ, никогда
+#   не пушен на origin — импортировал уже подписанные на main правки без переноса строк
+#   в сам merge; нового содержания нет; слово владельца 2026-10-06, Н-213)
+#   6609f708e7a35a384308245b6f21522868ab8313  ROADMAP.md
+#   797a3129410411f6e478c938e5218ada8ac1769d  ROADMAP.md
+#   (17-я/18-я: контракт 084 заменил прозаический блок «Итоговый порядок» генерируемым
+#   из registry/plan.tsv — по слову владельца в самом ROADMAP.md; дальнейшие правки блока
+#   только через registry/plan.tsv со строкой владельца; слово владельца 2026-10-07)
+#   50e020e92007aa3b91ca42f48393e0b198700028  contracts/026-zhnec-tmp.md
+#   (19-я: откат оркестратором правки da38cc58 — текст возвращён к замороженной v4
+#   без строки владельца; сама правка da38cc58 — нарушение правила 11; слово владельца 2026-10-07)
+#   d5da7c9d7c37cb8843b0a8f7dc08e6b9001deb9f  ROADMAP.md
+#   (20-я: РАЗРЕШИЛ-ВЛАДЕЛЕЦ в теле коммита назвал ДВА пути через «и» —
+#   «registry/plan.tsv и ROADMAP.md (регенерация блока)»; razreshil() по грамматике
+#   признаёт только первый токен строки как путь, ROADMAP.md вторым путём не покрыт;
+#   грамматику razreshil() не менять, допущение — только для этой пары; слово
+#   владельца 2026-10-08)
+#   4734ef880e0f7d2cb5f756c98f17033c17fa9d54  contracts/090-fix-orch-peak-home-install-safe-dir.md
+#   (21-я: откат оркестратором правки 4734ef88 — текст возвращён к замороженной v1
+#   без строки владельца; сама правка 4734ef88 — нарушение правила 11; слово владельца 2026-10-08)
+#   743f0e07cf6b2711ff686400a7b5c4f59e5652ff  ROADMAP.md
+#   (22-я: РАЗРЕШИЛ-ВЛАДЕЛЕЦ в теле коммита назвал ДВА пути через «и» —
+#   «registry/plan.tsv и ROADMAP.md»; razreshil() признаёт только первый токен как путь —
+#   тот же дефект, что 20-я (d5da7c9d); регенерация ROADMAP из plan.tsv шла по стоячей
+#   санкции владельца 2026-10-09; грамматику razreshil() не менять, допущение — только
+#   для этой пары; слово владельца 2026-10-09)
+#   41f80d3bcd41a9d73233689a39e329e9e034168e  contracts/094-prinyatie-i-publikatsiya-kandidata.md
+#   (23-я: однострочная правка маркера ЗАЩИЩАЕТ по FAIL критика v2 без строки владельца
+#   в теле; текст принят критиком v3 (ad74bba6) и заморожен frozen/contracts/094/2;
+#   переписать коммит нельзя — на нём стоит тег v2; грамматику razreshil() не менять,
+#   допущение — только для этой пары; слово владельца 2026-10-10)
+#   b7a0c27612438b9768a084abe775baf12d9e4989  contracts/094-prinyatie-i-publikatsiya-kandidata.md
+#   (24-я: merge ветки architect в wip/094/implementer-final; байты пути равны frozen/contracts/094/2 (блоб 40e8d790); грамматику razreshil() не менять, допущение только для этой пары; слово владельца 2026-10-11)
+#   f946702428ec89df4cfdf6af7f1f2702d4e44ee0  ROADMAP.md
+#   (25-я: sync-merge main в wip/092/implementer принёс регенерированный из plan.tsv блок ROADMAP, уже разрешённый на main; грамматику razreshil() не менять, допущение только для этой пары; слово владельца 2026-10-11)
+#   ae8836c6b2bc930d6aa9a36a0d97a276aecbb431  contracts/095-profil-i-vhod-agenta-contextpack.md
+#   (26-я: правка счётчиков 095 без строки; текст возвращается к frozen/contracts/095/1 отдельным коммитом со строкой владельца; грамматику razreshil() не менять, допущение только для этой пары; слово владельца 2026-10-11)
+#   5c4752bc57c269f47fad43143c84d1acf2b53365  contracts/095-profil-i-vhod-agenta-contextpack.md
+#   (27-я: перенос той же правки 095 оркестратором (ночной merge до accept ревьюера — нарушение, записано); грамматику razreshil() не менять, допущение только для этой пары; слово владельца 2026-10-11)
+#   6d1d23d4320d126d7cdce048d7fee519aff74a5a  contracts/095-profil-i-vhod-agenta-contextpack.md
+#   (28-я: merge той же правки 095 в main оркестратором (то же нарушение); грамматику razreshil() не менять, допущение только для этой пары; слово владельца 2026-10-11)
+#   f97044d064d9022939db6e0a339eba0004b653b3  contracts/094-prinyatie-i-publikatsiya-kandidata.md
+#   (29-я: текст 094 v3 (часть В нарезки Astra) закоммичен architect прямо в main до критика и без строки владельца;
+#   владелец согласен с текстом при условии accept критика v3, далее заморозка v3 на main; грамматику razreshil()
+#   не менять, допущение только для этой пары; слово владельца 2026-10-11)
+#   8c734d93b91fb3ff38528d6591d519a5145de325  contracts/098-proizvodstvennye-dokazatelstva-do-publikacii.md
+#   (30-я: материализация заморозки 098 в main перенесла текст, побайтово равный frozen/contracts/098/1,
+#   без строки владельца в теле; грамматику razreshil() не менять, допущение только для этой пары;
+#   слово владельца 2026-10-12)
+#   f53ce955b5adef6d389df790d5ef3b48cf333504  ROADMAP.md
+#   (31-я: регистрация 099 по стоячей санкции №1, но тело несёт одну самодельную строку вместо двух
+#   дословных — ROADMAP не покрыт; тот же дефект, что пара 22 (743f0e07); содержание — регенерация блока
+#   плана; грамматику razreshil() не менять, допущение только для этой пары; слово владельца 2026-10-12)
+#   b0c39a58347eb5a8479473a05fd44b8be1ba2f15  ROADMAP.md
+#   (32-я: merge канала владельца перенёс уже разрешённую правку 013ab88d — строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ
+#   в нём — без переноса строки в тело merge-коммита; нового содержания нет; допущение только для
+#   этой пары; слово владельца 2026-10-15)
+#   59ae3562ed8bda92a5e7d5e30d38d7bffcc63fcb  ROADMAP.md
+#   (33-я: merge PR#164 консультантом через GitHub перенёс уже разрешённую правку ROADMAP.md
+#   (8e0b1226, строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ в нём — регенерация блока плана 117/118) без переноса строки
+#   в тело merge-коммита; нового содержания нет; допущение только для этой пары; слово владельца
+#   2026-10-20 ~18:00 UTC, мандат консультанта на механику)
+#   7597534f9859dc19b4f5089a6a182722fb4be96c  ROADMAP.md
+#   (34-я: merge PR#501 через GitHub перенёс уже разрешённые правки ROADMAP.md (764d539b,
+#   175b46e5, f65c169e — строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ в каждом, регенерация блока плана 158–163) без
+#   переноса строки в тело merge-коммита; нового содержания нет; тот же дефект, что пара 33;
+#   допущение только для этой пары; слово владельца 2026-11-04 ~21:40 UTC через консультанта)
+#   78d8e785181e07e11c222c197b993f2bc87f0ed5  contracts/157-spawn-guard-proektnye-sessii.md
+#   (35-я: land-merge wip/157/critic перенёс в main текст контракта 157, побайтно равный
+#   frozen/contracts/157/1 (блоб 440310bd) — v1, принятый владельцем «Принимаю А» 2026-11-04 ~20:40 UTC;
+#   на main до merge лежал локальный черновик architect 8f544c1f (стенка «черновик в основном
+#   чекауте», предмет 161) — строки в теле merge нет; нового содержания нет; допущение только для
+#   этой пары; слово владельца 2026-11-05 ~01:55 Berlin «да» через консультанта)
+#
+#   97de545dd67a363e2b018204620ddaa01263f17a  contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md
+#   (36-я: GitHub merge-коммит PR #550 «Merge pull request #550» перенёс в main текст контракта 161,
+#   побайтно равный frozen/contracts/161/1 (блоб 7d757bdaf); строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ есть во
+#   влитом коммите владельца f022cb47, но не в теле merge-коммита GitHub (влит без --body);
+#   нового содержания нет; допущение только для этой пары; слово владельца 2026-11-07 «да» через консультанта)
+#
+#   f9846bcaa3d609639d3b5de75869104e6cd1220e  contracts/158-ekrannyj-nabor.md
+#   2c7abb6e6ac30cc7c848a0e1172a30ed94ebc54c  contracts/158-ekrannyj-nabor.md
+#   0c7883891b14442963adf7fe9466ab8a5a0d2472  contracts/158-ekrannyj-nabor.md
+#   (37–39-я: merge-коммиты f9846bca «land: wip/158/critic», 2c7abb6e «land: wip/161/architect (форма пробы)»
+#   и 0c788389 «Merge pull request #538» внесли contracts/158 без строки РАЗРЕШИЛ в теле; во всех трёх
+#   блоб побайтно равен frozen/contracts/158/1 (e75a9f47bc54); нового содержания нет; допущение только
+#   для этих пар; слово владельца 2026-11-07 «да» через консультанта)
+#
+#   5d48155f2623b6f6cdc7b112fe42510c54f96b71  ROADMAP.md
+#   (40-я: merge PR #624 консультантом через GitHub (ожидатель, обычный merge) перенёс уже разрешённую
+#   правку ROADMAP.md (0c53191a, строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ в нём — регенерация блока плана 168/169/170)
+#   без переноса строки в тело merge-коммита; нового содержания нет; тот же дефект, что пары 33/34;
+#   допущение только для этой пары; слово владельца 2026-11-09 через консультанта)
+#
+#   c1cf214080a5cf7bfc5bfa1060394543f05125be  contracts/162-standart-koda-mob.md
+#   056c4c6a748f25330e200357488240b995b26b14  contracts/162-standart-koda-mob.md
+#   78d8e785181e07e11c222c197b993f2bc87f0ed5  contracts/162-standart-koda-mob.md
+#   2c7abb6e6ac30cc7c848a0e1172a30ed94ebc54c  contracts/162-standart-koda-mob.md
+#   0c7883891b14442963adf7fe9466ab8a5a0d2472  contracts/162-standart-koda-mob.md
+#   (41-я…45-я: заморозка 162/1 поставлена на боковой ветке wip/162/critic (430c44469); текст попал в main
+#   этими пятью merge-лендами 2026-11-04/05 без строки РАЗРЕШИЛ в теле merge — та же схема, что пары 37–39
+#   для 158; v+1 162 (accept критика 3/5, OBJECT 3f95c73c6) иначе красен на check:contract-frozen навсегда;
+#   три SHA уже несли пару для 157/158 — их записи расширены вторым путём; нового содержания нет;
+#   допущение только для этих пар; слово владельца 2026-11-10 «да» через консультанта)
+#
+#   241bff9933cc1382f7ddf3c7a38c4eb34e681275  contracts/195-potrebiteli-116-okno-pr-sliyanij.md
+#   (46-я: land-merge wip/195/architect 2026-11-12 00:31 UTC принёс в main текст 195, замороженный
+#   frozen/contracts/195/1 (464e9e4d8, второй родитель merge), без строки РАЗРЕШИЛ в теле merge — та же
+#   схема, что пара 35 (157) и 37–39 (158); блоб на HEAD побайтно равен frozen/contracts/195/1 (a1fece736901);
+#   нового содержания нет; PR-прогоны legkij красны на этом merge (#847, #899, #900); допущение только
+#   для этой пары; слово владельца 2026-11-12 через консультанта)
+#
+#   9a27066e9aedb4dbf8ee15288ba6000a373a969d  contracts/140-odin-agent-na-predmet.md
+#   (47-я: merge PR #956 консультантом через GitHub (gh pr merge --merge, слово владельца «2. да» 2026-11-15)
+#   перенёс уже разрешённую правку contracts/140 (6bf8c96c и d0630668 — строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ в них)
+#   без переноса строки в тело merge-коммита; блоб 140 в merge побайтно равен 6bf8c96c (diff пуст);
+#   нового содержания нет; тот же дефект, что пары 33/34/36/40; main и PR-прогоны legkij красны на этом
+#   merge (#960); допущение только для этой пары; слово владельца 2026-11-15 через консультанта)
+#
+#   698060db450009698b3b9946552429a41f405871  contracts/999-cmp-mob-002-navigatsiya.md
+#   (48-я: land-merge «land: wip/996/implementer» (2026-10-19) попадает в окно (б) check_contract_frozen
+#   отбором по пути — не TREESAME ко второму родителю, — хотя diff к первому родителю по файлу ПУСТ
+#   (`git diff 698060db45^1 698060db45 -- contracts/999-…` пуст); текст 999 не меняет; ложно валит носитель
+#   999 v+1 (#966); допущение только для этой пары; слово владельца 2026-11-15 «пара 48 — да» через консультанта)
+#
+#   2defcc46a1e2b3bfe5d22cdbaf90912d64246f20  contracts/147-gespraech-vhod-menu.md
+#   (49-я: merge PR #1003 (носитель 147 v5) консультантом через GitHub (gh pr merge --merge без --body)
+#   перенёс уже разрешённую правку contracts/147 (df2d5dd9, d977ff97, 3ab61f29, 20f19ec3 — строка
+#   РАЗРЕШИЛ-ВЛАДЕЛЕЦ в каждом) без переноса строки в тело merge-коммита; блоб 147 в merge побайтно равен
+#   head PR 70ebf379 (33046971); нового содержания нет; тот же дефект, что пара 47; main и PR-прогоны legkij
+#   красны на этом merge (#1004); допущение только для этой пары; слово владельца 2026-11-16 «пара 49 — да»
+#   через консультанта)
+#
+#   be50743754cffbcd4e5a4741e9b9bd38838327c7  contracts/197-mob-ci-artefakty-lokalno.md
+#   e642c62099a417a98149900ca8e4cb321e237912  contracts/197-mob-ci-artefakty-lokalno.md
+#   4150211f935d0a0268c56387ec70f3d7d5d4ece9  contracts/197-mob-ci-artefakty-lokalno.md
+#   (50-я/51-я/52-я: merge-коммиты носителя 186 v+1 («интеграция wip/186/architect», «интеграция wip/186/arbiter-v2e», «интеграция wip/186/critic-v2e»)
+#   попадают в окно (б) check_contract_frozen для 197 отбором по пути (не TREESAME ко второму родителю), хотя
+#   diff к первому родителю по contracts/197 ПУСТ у каждого (блоб = frozen/contracts/197/1 d511b5f5); текст 197 не
+#   меняют; ложно валят носитель 197 v2 (#1019) — тот же класс, что пара 48; допущение только для этих трёх пар;
+#   слово владельца 2026-11-17 «пары 50–52 — да» через консультанта после перепроверки на head #1019 9ce15544)
+#
+#   649777a14caebbf660931a2cfc97bf0fdacbadcb  contracts/197-mob-ci-artefakty-lokalno.md
+#   8a01ad9996b5c5ee9300f446f5ec5fd20d0cb792  contracts/197-mob-ci-artefakty-lokalno.md
+#   3718851c9ac1cedd1ccd360007423cce3c61f93c  contracts/197-mob-ci-artefakty-lokalno.md
+#   123d63c7bff0a98778b4b138a78986609e2e9a5d  contracts/197-mob-ci-artefakty-lokalno.md
+#   47a12d46a95dc8434c9bc759a43d479b412417e2  contracts/197-mob-ci-artefakty-lokalno.md
+#   f1e7b54e0036ffc83fe7cd7b7e1d2cd4972213fd  contracts/197-mob-ci-artefakty-lokalno.md
+#   735af7f633fce73bbd64dcba12f78ed8617f23d6  contracts/197-mob-ci-artefakty-lokalno.md
+#   236c860415cdebd55df75bdf732e5f38aa9025e1  contracts/197-mob-ci-artefakty-lokalno.md
+#   c4286a3b19ceb41667b6a8461fe0caa79b033fe9  contracts/197-mob-ci-artefakty-lokalno.md
+#   e6371ce8caa91e9a275e49ecee5140870832d9e5  contracts/197-mob-ci-artefakty-lokalno.md
+#   (53-я…62-я: merge-коммиты вливания носителей 999/188/196/129/187/195 в окне (б) check_contract_frozen для 197; diff к первому родителю по contracts/197 пуст у каждого; ложно валят носитель 197 v2 (#1043); класс пары 48; слово владельца 2026-11-17 через консультанта после проверки)
+#   f59fd2e82f9633a351e60f7be9217822e835e78d  ROADMAP.md
+#   (63-я: merge PR #1112 (строка плана 037) консультантом через GitHub (merge-on-green, gh pr merge
+#   --merge без --body) перенёс уже разрешённую правку ROADMAP.md (f016d0a6 — строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ
+#   в нём, регенерация блока плана gen_plan после строки 037) без переноса строки в тело merge-коммита;
+#   блоб ROADMAP.md в merge побайтно равен head PR f016d0a6 (5b9ad30f); нового содержания нет; тот же
+#   дефект, что пары 33/34/49; main и PR-прогоны legkij красны на этом merge; допущение только для этой
+#   пары; слово владельца 2026-11-18 «пара 63 — да» через консультанта)
+#   b428ff6d03f254f02a8ed3319f01abcf06f775e2  contracts/154-schet-vyzovov-kritika.md
+#   (64-я: land wip/int-2048/architect (станция, 2026-11-19 01:58) внёс замороженный текст 154 v1 в main без
+#   строки РАЗРЕШИЛ в теле merge; блоб пути в merge побайтно равен frozen/contracts/154/1 (dba9dc88) — содержание
+#   разрешено заморозкой; нового содержания нет; тот же класс, что пары 33/49/63; полный check_charter на main
+#   краснел только на этом merge; допущение только для этой пары; слово владельца 2026-11-19 «пара 64 — да»
+#   через консультанта)
+#   40a93f1da02d18d7323764007aac094989ee8c74  contracts/995-cmp-mob-001-android-pilot.md
+#   8ef0e9b971993f079f65cd78f595fbbafcb37985  contracts/995-cmp-mob-001-android-pilot.md
+#   a3665a5691bb6b6a85e6b703c10406bc05e10ca9  contracts/995-cmp-mob-001-android-pilot.md
+#   a60dfde5370ffd66f0f4faf15aecd956758143af  contracts/995-cmp-mob-001-android-pilot.md
+#   cf3742d171a0c2a0c672edfbad7a8402c7201573  contracts/995-cmp-mob-001-android-pilot.md
+#   (65–69-я: черновые architect-коммиты ветки wip/995/architect (2026-10-18) до заморозки 995 v5, без строки
+#   РАЗРЕШИЛ в теле; нетто-дельта int-ветки 995 (PR #1189) к main путь не меняет — блоб в main и на PR один
+#   (bcb0e33fb7, frozen 995/5); переписать ветку нельзя без смены OBJECT суда e06e3a84cd; ровно эти пять пар
+#   названы check_charter в CI #1189 (run 44935563048); слово владельца 2026-11-21 ~19:15 «1. да» через консультанта)
+#
+#   409836ed5d918d4ecb16f132b8f6e26d287b32cc  contracts/204-karta-vyzova-po-faze.md
+#   (70-я: merge PR #1240 («Merge pull request #1240 from a3ka/wip/204/orch-freeze2») консультантом через GitHub
+#   (sync-door) внёс в main текст контракта 204 v1 (int-ветка станции wip/int-204/orch-freeze2 = architect +
+#   Crit204V3 accept + owner-переименование вердикта) ДО публикации frozen/contracts/204/1 (порядок «тег после
+#   текста», контракт 130 И-8); блоб contracts/204 в merge побайтно равен frozen/contracts/204/1 (объект тега
+#   58117ad6fc → fd294feda1); нового содержания нет; строки РАЗРЕШИЛ в теле GitHub-merge нет; полный check_charter
+#   на main краснеет только на этом merge (sync-door Д3 #1243/#1241); тот же класс, что пары 36/37–39/46/64; допущение
+#   только для этой пары; слово владельца 2026-11-22 «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: scripts/check_charter.sh — grandfather merge
+#   409836ed5d (#1240, текст контракта 204 внесён до публикации тега)» через консультанта)
+#
+#   66a37efff06a1da72febe8e36b9bb37f8ff6d3eb  contracts/204-karta-vyzova-po-faze.md
+#   (71-я: merge «Merge branch 'main' into wip/205/orch-freeze3» — синхронизация PR #1241 с main через GitHub
+#   (sync-door консультанта, родители 8cf449060c, 409836ed5d) принесла в ветку тот же текст контракта 204; блоб
+#   contracts/204 в 66a37eff = 9288a6cd69 = блоб в frozen/contracts/204/1 и в 409836ed5d; нового содержания нет;
+#   CI #1241 (run 45067553641) краснеет на этой паре и на паре 70; допущение только для этой пары; слово владельца
+#   2026-11-22 «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: scripts/check_charter.sh — grandfather merge 66a37eff (синхронизация #1241 с main
+#   принесла тот же текст контракта 204, побайтно равный frozen-тегу)» через консультанта)
+#
+# НЕ добавлять новые записи без прямого слова владельца в НОВОМ коммите с обоснованием.
+#
+# is_charter_path (контракт 019, ветвь 1 — единый источник предиката). Staged-путь
+# уставного класса — AGENTS.md/ROADMAP.md при живом теге ustav/1; plans/NNN-*.md/contracts/NNN-*.md
+# при живом теге frozen/<dir>/<NNN>/1. Предикат экспортируется библиотекой и импортируется
+# check_staged через `CHARTER_LIB=1 source check_charter.sh` — вторая реализация кольца
+# запрещена (прецедент lib_zones/lib_registry).
+#
+#   bash scripts/check_charter.sh            проверить это дерево
+#   bash scripts/check_charter.sh <корень>   проверить другое (так предъявляется красным)
+#
+# Коды возврата: 0 — устав не менялся без разрешения, 1 — менялся либо реестр недоступен,
+# 2 — нечем проверить.
+set -euo pipefail
+
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NEXT_ID_LIB=1
+# shellcheck disable=SC1091
+. "$SELF_DIR/next_id.sh"
+# shellcheck disable=SC1091
+. "$SELF_DIR/lib_registry.sh"
+# Общая грамматика `--incr <кеш>` (контракт 083, инв. 6) — один источник
+# для всех четырёх чеков. INCR_NAME обязан быть задан ДО source.
+INCR_NAME=check_charter
+# ФИКСТУРЫ-ДРИЛЛЫ КОПИРУЮТ БАРЬЕР В `$WORK/scripts/` БЕЗ `lib_incr.sh`
+# (появилось в --incr-работе, контракт 083, инв. 6): барьер обязан остаться
+# работоспособным в ПОЛНОМ режиме без `--incr`, иначе честный прогон дрилла
+# краснеет не по предмету, а на отсутствующей библиотеке. Стабы — no-op-зеркало
+# `incr_parse`/`incr_fail`/`incr_finish` для полного режима (INCR_CACHE пуст →
+# incr_finish no-op, INCR_RC=0 → incr_fail не вызывается; incr_parse кладёт
+# всё, что получил, в INCR_REST).
+# shellcheck disable=SC1091
+if [ -f "$SELF_DIR/lib_incr.sh" ]; then
+  . "$SELF_DIR/lib_incr.sh"
+else
+  incr_parse() { INCR_CACHE=""; INCR_MODE="full"; INCR_BASE=""; INCR_HEAD=""; INCR_N=0; INCR_RC=0; INCR_REST=("$@"); }
+  incr_fail() { :; }
+  incr_finish() { :; }
+fi
+
+# ── БИБЛИОТЕЧНЫЕ ФУНКЦИИ (контракт 019, ветвь 1, И-7) ─────────────────────────
+#
+# is_charter_path <ПУТЬ> <КОРЕНЬ> — предикат уставного класса (rc 0/1/2).
+#   AGENTS.md/ROADMAP.md при живом теге ustav/1;
+#   plans/NNN-*.md/contracts/NNN-*.md при живом теге frozen/<dir>/<NNN>/1
+#   (NNN — parse_artifact_basename rc 0, ровно три цифры).
+#   Реализация — та же логика, что в построении $TMP/pairs ниже, вынесена чтобы
+#   check_staged мог делегировать устав без своей копии кольца.
+is_charter_path() {
+  local path="$1" root="$2"
+  local dir base nnn ARTIFACT_NUMBER_SAVED
+  case "$path" in
+    AGENTS.md|ROADMAP.md)
+      git -C "$root" rev-parse --git-dir >/dev/null 2>&1 || return 2
+      git -C "$root" rev-parse --verify --quiet 'refs/tags/ustav/1' >/dev/null
+      ;;
+    plans/*|contracts/*)
+      git -C "$root" rev-parse --git-dir >/dev/null 2>&1 || return 2
+      dir="${path%%/*}"; base="${path##*/}"
+      [ "$dir/$base" = "$path" ] || return 1
+      # parse_artifact_basename пишет в глобальный ARTIFACT_NUMBER (его контракт); сохраняем
+      # и восстанавливаем, чтобы не вытекать в caller.
+      ARTIFACT_NUMBER_SAVED="${ARTIFACT_NUMBER:-}"
+      if ! parse_artifact_basename "$base" 2>/dev/null; then
+        ARTIFACT_NUMBER="$ARTIFACT_NUMBER_SAVED"
+        return 1
+      fi
+      if [ -z "${ARTIFACT_NUMBER:-}" ]; then
+        ARTIFACT_NUMBER="$ARTIFACT_NUMBER_SAVED"
+        return 1
+      fi
+      nnn="$(printf '%03d' "$ARTIFACT_NUMBER")"
+      ARTIFACT_NUMBER="$ARTIFACT_NUMBER_SAVED"
+      git -C "$root" rev-parse --verify --quiet "refs/tags/frozen/$dir/$nnn/1" >/dev/null
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+# charter_diff_paths <КОММИТ> <КОРЕНЬ> — пути, изменённые/удалённые в коммите
+# относительно ПЕРВОГО родителя (для merge) или единственного родителя (для
+# не-merge). `git diff-tree <merge>` без явного родителя возвращает пусто (git
+# optimization), и явный `^1 <merge>` нужен только для merge. Корневой коммит —
+# без ^1, diff-tree против пустого дерева.
+charter_diff_paths() {
+  local c="$1" root="$2"
+  if git -C "$root" rev-parse --verify --quiet "${c}^1" >/dev/null 2>&1; then
+    git -C "$root" diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "${c}^1" "$c" 2>/dev/null
+  else
+    git -C "$root" diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "$c" 2>/dev/null
+  fi
+}
+
+# ── разрешение обязано лежать в ТОМ ЖЕ коммите ────────────────────────────────
+# Разбор — по образцу `excuse_for()`: путь в кавычках либо до первого пробела, остаток — причина.
+#
+# ГРАММАТИКА razreshil — ЗАМОРОЖЕНА (065/019/074/080): тело коммита читается напрямую
+# `g log -1 --format=%B`, побайтово как в базовом барьере (контракт 113, ПЕРЕСЕЧЕНИЕ :187 —
+# «не трогая … грамматика razreshil»). Кеш тел НЕ вводится: `body="$( … )"` — это подоболочка,
+# и запись в ассоциативный массив из неё теряется (кеш был бы мёртвым при любом объявлении),
+# а починка требовала бы перенести чтение мимо `$( )`, то есть менять эту строку. Быстрый
+# режим (в) обходится без него: повторных `git log -1` на живой истории единицы, а кеш
+# состояния противоречит варианту (в) «не несёт состояния» (контракт 113, строка про (г)).
+# grandfather_pair <коммит> <путь> → 0, если пара входит в grandfather-аллоулист (см. шапку).
+# Вынесено из razreshil без изменения списка: тот же список читает check_contract_frozen.sh
+# (условие (в) предстоящего v+1 не судит исторические grandfather-коммиты; слово владельца 2026-11-10).
+grandfather_pair() {
+  local c="$1" p="$2"
+  case "$c" in
+    0872189c654c9728f2753c36a48f99a0322ad2fd)
+      [ "$p" = "contracts/037-samodostatochnyj-cwd-i-priemnik-task.md" ] && return 0 ;;
+    19678a0034fba8906a4103965516494de2ae58d2)
+      [ "$p" = "contracts/037-samodostatochnyj-cwd-i-priemnik-task.md" ] && return 0 ;;
+    02f7b0cd0ce0172c66bdfe783648fa37cf853920)
+      [ "$p" = "contracts/043-precizionnyj-prefriz-gejt.md" ] && return 0 ;;
+    9906f63122278ba28ffd4fee9741ef94c5466a5a)
+      [ "$p" = "contracts/043-precizionnyj-prefriz-gejt.md" ] && return 0 ;;
+    4de64aa195acc309dd6d4cee876515ebeed28725)
+      [ "$p" = "contracts/043-precizionnyj-prefriz-gejt.md" ] && return 0 ;;
+    8766e76946658b548bb9d4be870dfcf0b97ef288)
+      [ "$p" = "contracts/043-precizionnyj-prefriz-gejt.md" ] && return 0 ;;
+    cea3a8f0c8194a8813b7d24503acc4e1686fbab0)
+      [ "$p" = "contracts/045-pre-exchange-guard-gitw.md" ] && return 0 ;;
+    f2b911fbcf00225416cf8e9ad79958f9543c3cdd)
+      [ "$p" = "contracts/060-samodostatochnost-repo-mint-reestr-boli.md" ] && return 0 ;;
+    9bf62dd40a82328a08eab7d6bcf0b9c3ebe299f8)
+      [ "$p" = "contracts/074-server-obvjazka-edinyy-istochnik.md" ] && return 0 ;;
+    a1957624004ec18025f3c681e5ece505a7e01288)
+      [ "$p" = "contracts/074-server-obvjazka-edinyy-istochnik.md" ] && return 0 ;;
+    27b1f05eec6bc8ac883f18f2943560c017a746a3)
+      [ "$p" = "contracts/080-dver-bugfiks-perezapuska.md" ] && return 0 ;;
+    152b97a3b52e63e4bf555d9dd9b2dacaf308a1fd)
+      [ "$p" = "contracts/080-dver-bugfiks-perezapuska.md" ] && return 0 ;;
+    abc4c60626ce0d3f89f41082f9092d0d6dcb9187)
+      [ "$p" = "contracts/080-dver-bugfiks-perezapuska.md" ] && return 0 ;;
+    c672f2b3d32c92023be4a0740842b1b2c3ee3bf5)
+      [ "$p" = "contracts/080-dver-bugfiks-perezapuska.md" ] && return 0 ;;
+    2c01b1ed9c93f2ad14959f99511581de5526f68d)
+      case "$p" in
+        ROADMAP.md|contracts/082-per-kejsnyj-dedlajn-verify-antiplacebo.md) return 0 ;;
+      esac
+      ;;
+    6609f708e7a35a384308245b6f21522868ab8313)
+      [ "$p" = "ROADMAP.md" ] && return 0 ;;
+    797a3129410411f6e478c938e5218ada8ac1769d)
+      [ "$p" = "ROADMAP.md" ] && return 0 ;;
+    50e020e92007aa3b91ca42f48393e0b198700028)
+      [ "$p" = "contracts/026-zhnec-tmp.md" ] && return 0 ;;
+    d5da7c9d7c37cb8843b0a8f7dc08e6b9001deb9f)
+      [ "$p" = "ROADMAP.md" ] && return 0 ;;
+    4734ef880e0f7d2cb5f756c98f17033c17fa9d54)
+      [ "$p" = "contracts/090-fix-orch-peak-home-install-safe-dir.md" ] && return 0 ;;
+    743f0e07cf6b2711ff686400a7b5c4f59e5652ff)
+      [ "$p" = "ROADMAP.md" ] && return 0 ;;
+    41f80d3bcd41a9d73233689a39e329e9e034168e)
+      [ "$p" = "contracts/094-prinyatie-i-publikatsiya-kandidata.md" ] && return 0 ;;
+    b7a0c27612438b9768a084abe775baf12d9e4989)
+      [ "$p" = "contracts/094-prinyatie-i-publikatsiya-kandidata.md" ] && return 0 ;;
+    f946702428ec89df4cfdf6af7f1f2702d4e44ee0)
+      [ "$p" = "ROADMAP.md" ] && return 0 ;;
+    ae8836c6b2bc930d6aa9a36a0d97a276aecbb431)
+      [ "$p" = "contracts/095-profil-i-vhod-agenta-contextpack.md" ] && return 0 ;;
+    5c4752bc57c269f47fad43143c84d1acf2b53365)
+      [ "$p" = "contracts/095-profil-i-vhod-agenta-contextpack.md" ] && return 0 ;;
+    6d1d23d4320d126d7cdce048d7fee519aff74a5a)
+      [ "$p" = "contracts/095-profil-i-vhod-agenta-contextpack.md" ] && return 0 ;;
+    f97044d064d9022939db6e0a339eba0004b653b3)
+      [ "$p" = "contracts/094-prinyatie-i-publikatsiya-kandidata.md" ] && return 0 ;;
+    8c734d93b91fb3ff38528d6591d519a5145de325)
+      [ "$p" = "contracts/098-proizvodstvennye-dokazatelstva-do-publikacii.md" ] && return 0 ;;
+    f53ce955b5adef6d389df790d5ef3b48cf333504)
+      [ "$p" = "ROADMAP.md" ] && return 0 ;;
+    b0c39a58347eb5a8479473a05fd44b8be1ba2f15)
+      [ "$p" = "ROADMAP.md" ] && return 0 ;;
+    59ae3562ed8bda92a5e7d5e30d38d7bffcc63fcb)
+      [ "$p" = "ROADMAP.md" ] && return 0 ;;
+    7597534f9859dc19b4f5089a6a182722fb4be96c)
+      [ "$p" = "ROADMAP.md" ] && return 0 ;;
+    78d8e785181e07e11c222c197b993f2bc87f0ed5)
+      case "$p" in
+        contracts/157-spawn-guard-proektnye-sessii.md|contracts/162-standart-koda-mob.md) return 0 ;;
+      esac
+      ;;
+    241bff9933cc1382f7ddf3c7a38c4eb34e681275)
+      [ "$p" = "contracts/195-potrebiteli-116-okno-pr-sliyanij.md" ] && return 0 ;;
+    97de545dd67a363e2b018204620ddaa01263f17a)
+      [ "$p" = "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md" ] && return 0 ;;
+    f9846bcaa3d609639d3b5de75869104e6cd1220e)
+      [ "$p" = "contracts/158-ekrannyj-nabor.md" ] && return 0 ;;
+    2c7abb6e6ac30cc7c848a0e1172a30ed94ebc54c)
+      case "$p" in
+        contracts/158-ekrannyj-nabor.md|contracts/162-standart-koda-mob.md) return 0 ;;
+      esac
+      ;;
+    0c7883891b14442963adf7fe9466ab8a5a0d2472)
+      case "$p" in
+        contracts/158-ekrannyj-nabor.md|contracts/162-standart-koda-mob.md) return 0 ;;
+      esac
+      ;;
+    5d48155f2623b6f6cdc7b112fe42510c54f96b71)
+      [ "$p" = "ROADMAP.md" ] && return 0 ;;
+    c1cf214080a5cf7bfc5bfa1060394543f05125be)
+      [ "$p" = "contracts/162-standart-koda-mob.md" ] && return 0 ;;
+    056c4c6a748f25330e200357488240b995b26b14)
+      [ "$p" = "contracts/162-standart-koda-mob.md" ] && return 0 ;;
+    9a27066e9aedb4dbf8ee15288ba6000a373a969d)
+      [ "$p" = "contracts/140-odin-agent-na-predmet.md" ] && return 0 ;;
+    698060db450009698b3b9946552429a41f405871)
+      [ "$p" = "contracts/999-cmp-mob-002-navigatsiya.md" ] && return 0 ;;
+    2defcc46a1e2b3bfe5d22cdbaf90912d64246f20)
+      [ "$p" = "contracts/147-gespraech-vhod-menu.md" ] && return 0 ;;
+    be50743754cffbcd4e5a4741e9b9bd38838327c7)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    e642c62099a417a98149900ca8e4cb321e237912)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    4150211f935d0a0268c56387ec70f3d7d5d4ece9)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    649777a14caebbf660931a2cfc97bf0fdacbadcb)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    8a01ad9996b5c5ee9300f446f5ec5fd20d0cb792)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    3718851c9ac1cedd1ccd360007423cce3c61f93c)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    123d63c7bff0a98778b4b138a78986609e2e9a5d)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    47a12d46a95dc8434c9bc759a43d479b412417e2)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    f1e7b54e0036ffc83fe7cd7b7e1d2cd4972213fd)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    735af7f633fce73bbd64dcba12f78ed8617f23d6)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    236c860415cdebd55df75bdf732e5f38aa9025e1)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    c4286a3b19ceb41667b6a8461fe0caa79b033fe9)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    e6371ce8caa91e9a275e49ecee5140870832d9e5)
+      [ "$p" = "contracts/197-mob-ci-artefakty-lokalno.md" ] && return 0 ;;
+    f59fd2e82f9633a351e60f7be9217822e835e78d)
+      [ "$p" = "ROADMAP.md" ] && return 0 ;;
+    b428ff6d03f254f02a8ed3319f01abcf06f775e2)
+      [ "$p" = "contracts/154-schet-vyzovov-kritika.md" ] && return 0 ;;
+    40a93f1da02d18d7323764007aac094989ee8c74|8ef0e9b971993f079f65cd78f595fbbafcb37985|a3665a5691bb6b6a85e6b703c10406bc05e10ca9|a60dfde5370ffd66f0f4faf15aecd956758143af|cf3742d171a0c2a0c672edfbad7a8402c7201573)
+      [ "$p" = "contracts/995-cmp-mob-001-android-pilot.md" ] && return 0 ;;
+    409836ed5d918d4ecb16f132b8f6e26d287b32cc|66a37efff06a1da72febe8e36b9bb37f8ff6d3eb)
+      [ "$p" = "contracts/204-karta-vyzova-po-faze.md" ] && return 0 ;;
+  esac
+  return 1
+}
+
+razreshil() {  # <коммит> <путь> → 0, если разрешение выдано ИМЕННО этим коммитом
+  local c="$1" p="$2"
+
+  # ── ГРАНДФАЗЕР-АЛЛОУЛИСТ (см. шапку, контракт 046, ветвь 1; 8-я пара — 065;
+  # 9-я/10-я — 074, слово владельца 2026-10-03, двойники арбитража 074-k1b;
+  # 11-я/12-я/13-я — Н-192, контракт 080, слово владельца 2026-10-03) ──
+  # Проверяется ДО обычного разбора тела коммита. Возврат 0, если пара (SHA, путь)
+  # входит в ровно эти 14 строк; иначе — падение в основную грамматику.
+  grandfather_pair "$c" "$p" && return 0
+
+  # ГРАНДФАЗЕР 116-цепочка (слово владельца 2026-10-23 ~10:00 UTC пункт 3 плана
+  # пятницы, канал консультанта: «минт/уставные коммиты привести к тому, что
+  # принимает CI, при необходимости отдельным коммитом»). Восемь main-копий правок
+  # contracts/116-*.md (ленд #319, cherry-pick с s39): текст 116 заморожен их
+  # потомком (freeze 9f89c3785 в s39; merge 6a18fafd5 привёл ветку в main, сломав
+  # линейный порядок суда — правки ДО заморозки своей ветки читаются как M
+  # уставного). Только пара (sha, contracts/116-cmp-mob-005-mission.md);
+  # зоны не расширять.
+  case "$c" in
+    a8a58d9a6b9d456d776152ed86b42ae8a51b765f)
+      [ "$p" = "contracts/116-cmp-mob-005-mission.md" ] && return 0 ;;
+    3a5f2458afc17b71b83fb5f049796a8991ee1eb0)
+      [ "$p" = "contracts/116-cmp-mob-005-mission.md" ] && return 0 ;;
+    2db6345a2abceb7f2aeb87fb882358adb4dfba77)
+      [ "$p" = "contracts/116-cmp-mob-005-mission.md" ] && return 0 ;;
+    6f468ef8acf73ce56d31bff7aa0f0302c237c98a)
+      [ "$p" = "contracts/116-cmp-mob-005-mission.md" ] && return 0 ;;
+    c99a7a1d6d35cea2741b5b4a300422b4288d1bc0)
+      [ "$p" = "contracts/116-cmp-mob-005-mission.md" ] && return 0 ;;
+    1af9e1730ac5511a65b473342e8a1160fdfb3db3)
+      [ "$p" = "contracts/116-cmp-mob-005-mission.md" ] && return 0 ;;
+    1ec4f3da673f8e6e11dfa92da6520a8284a17479)
+      [ "$p" = "contracts/116-cmp-mob-005-mission.md" ] && return 0 ;;
+    87d416e1b3a047fc57cb96f5acc3cc063d552ec0)
+      [ "$p" = "contracts/116-cmp-mob-005-mission.md" ] && return 0 ;;
+  esac
+
+  # ГРАНДФАЗЕР 117 (слово владельца 2026-10-24 «да» через консультанта): исторический
+  # merge-коммит land wip/127/architect принёс в main текст 117 v2 без строки
+  # РАЗРЕШИЛ в теле; переписать историю main нельзя, пока блоб 117 на HEAD != тегу
+  # frozen/contracts/117/2 этот merge судится всегда и блокирует CI для 117 v3.
+  # Только пара (sha, contracts/117-cmp-mob-vkhod-splash.md); грамматику razreshil()
+  # и зоны не менять.
+  case "$c" in
+    f0b30673668318b38dcfa6c1e36eae424ce2059f)
+      [ "$p" = "contracts/117-cmp-mob-vkhod-splash.md" ] && return 0 ;;
+  esac
+
+  local body line path reason
+  body="$(g log -1 --format=%B "$c")"
+  while IFS= read -r line; do
+    if [ "${line:0:1}" = '"' ]; then
+      path="${line:1}"; path="${path%%\"*}"
+      reason="${line#\"$path\"}"
+      # Разделитель после закрывающей кавычки ОБЯЗАТЕЛЕН. Адверсарий предъявил: строка
+      # `"ROADMAP.md"причина` без пробела принималась — грамматика объявлена как
+      # `<путь> <непустая причина>`, и форма без разделителя ею не покрыта. Принять её значило
+      # бы расширить язык разрешения молча (правило 7 нормы).
+      if [ -n "$reason" ] && ! [[ "$reason" == [[:space:]]* ]]; then
+        bad "строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ в ${c:0:8} вне грамматики: после закрывающей кавычки пути обязан стоять пробел-разделитель — «$line»"
+        continue
+      fi
+    else
+      path="${line%%[[:space:]]*}"
+      reason="${line#"$path"}"
+    fi
+    reason="${reason#"${reason%%[![:space:]]*}"}"
+    if [ -z "$path" ]; then
+      bad "в коммите ${c:0:8} строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ не назвала путь — безымянное разрешение снимает защиту со всего устава навсегда"
+    elif [ "$path" != "$p" ]; then
+      continue
+    elif [ -z "$reason" ]; then
+      bad "разрешение РАЗРЕШИЛ-ВЛАДЕЛЕЦ для $path в ${c:0:8} без причины — разрешение без записанной причины неотличимо от опечатки"
+    else
+      return 0
+    fi
+  done < <(printf '%s\n' "$body" | awk 'sub(/^РАЗРЕШИЛ-ВЛАДЕЛЕЦ:[[:space:]]*/, "") { print }')
+  return 1
+}
+
+# 210: освобождение публикации, НЕ разрешение владельца. Возвраты:
+# 0 — равный опубликованной заморозке блоб связан с её историей;
+# 1 — прежний суд; 2 — происхождение проверить нельзя. Без записи в репозиторий.
+charter_frozen_publication() {
+  local c="$1" p="$2" root="$3" base nnn saved ref
+  local cb tb tc typ parent pb mb bound oid remote
+  case "$p" in contracts/*) ;; *) return 1 ;; esac
+  base="${p#contracts/}"
+  case "$base" in */*) return 1 ;; esac
+  saved="${ARTIFACT_NUMBER:-}"
+  if ! parse_artifact_basename "$base" 2>/dev/null; then
+    ARTIFACT_NUMBER="$saved"; return 1
+  fi
+  nnn="$(printf '%03d' "$ARTIFACT_NUMBER")"
+  ARTIFACT_NUMBER="$saved"
+  ref="refs/tags/frozen/contracts/$nnn/1"
+  cb="$(git -C "$root" rev-parse --verify --quiet "$c:$p" 2>/dev/null)" || return 1
+  typ="$(git -C "$root" cat-file -t "$ref" 2>/dev/null)" || return 2
+  [ "$typ" = tag ] || return 1
+  tc="$(git -C "$root" rev-parse --verify --quiet "$ref^{commit}" 2>/dev/null)" || return 2
+  tb="$(git -C "$root" rev-parse --verify --quiet "$tc:$p" 2>/dev/null)" || return 2
+  [ "$cb" = "$tb" ] || return 1
+  # Предки /1 уже исключены диапазоном суда; новый случай — только merge.
+  parent="$(git -C "$root" rev-parse --verify --quiet "$c^2" 2>/dev/null)" || return 1
+  pb="$(git -C "$root" rev-parse --verify --quiet "$parent:$p" 2>/dev/null)" || return 1
+  [ "$pb" = "$tb" ] || return 1
+  bound=0
+  mb=0; git -C "$root" merge-base --is-ancestor "$parent" "$tc" 2>/dev/null || mb=$?
+  case "$mb" in 0) bound=1 ;; 1) ;; *) return 2 ;; esac
+  if [ "$bound" -eq 0 ]; then
+    mb=0; git -C "$root" merge-base --is-ancestor "$tc" "$parent" 2>/dev/null || mb=$?
+    case "$mb" in 0) bound=1 ;; 1) ;; *) return 2 ;; esac
+  fi
+  [ "$bound" -eq 1 ] || return 1
+  # Имена registry_state не удостоверяют объект: нужен тот же аннотированный
+  # объект на живом origin. Для НОВОГО освобождения unknown-remote недостаточен.
+  git -C "$root" remote get-url origin >/dev/null 2>&1 || return 2
+  oid="$(git -C "$root" rev-parse --verify "$ref" 2>/dev/null)" || return 2
+  remote="$(git -C "$root" ls-remote --refs --tags origin "$ref" 2>/dev/null)" || return 2
+  [ "$remote" = "$oid"$'\t'"$ref" ] || return 2
+  return 0
+}
+
+# ── ИМПОРТ КАК БИБЛИОТЕКА ────────────────────────────────────────────────────
+# Когда скрипт импортируется (`CHARTER_LIB=1 source check_charter.sh`),
+# определяются функции `is_charter_path`, `charter_diff_paths`, `razreshil`
+# и работа завершается. Иначе — основной код. `set -e` основного скрипта НЕ
+# снимается: check_staged не должен падать на rc=1 от `razreshil` (это «нет
+# разрешения», а не сбой).
+if [ "${CHARTER_LIB:-}" = "1" ]; then
+  return 0 2>/dev/null || exit 0
+fi
+
+# Режимы (контракт 113, инв. 1): `--oracle <корень>` — ПРЕСЛОВУТЫЙ ПОЛНЫЙ ОБХОД
+# (бывшая единственная семантика; эталон дифференциала, инструмент судей/аудита);
+# умолчание и `--incr <кеш>` — БЫСТРЫЙ режим (вариант (в): одиночный
+# `git log --name-only --no-renames --diff-filter=MD --diff-merges=first-parent`).
+# `--oracle` снимается ДО разбора `--incr` (ордера не смешиваются: `--oracle`
+# читает всю историю — окно кеша к нему не применяется; хук check_staged и CI
+# legkij-лейн зовут барьер БЕЗ `--oracle` и БЕЗ пересечения).
+ORACLE=0
+__charter_args=()
+for __arg in "$@"; do
+  case "$__arg" in
+    --oracle) ORACLE=1 ;;
+    *)         __charter_args+=("$__arg") ;;
+  esac
+done
+set -- "${__charter_args[@]}"
+unset __charter_args __arg
+
+# Разбор `--incr <кеш>` из аргументов. Кеш-отказ — именованный rc 1.
+# Грамматика `--incr` (включая (в′) — кеш сторонней линии) живёт В lib_incr.sh
+# (контракт 083, инв. 6: «грамматика живёт в scripts/lib_incr.sh, чеки несут
+# её побайтово через вызов библиотеки; переизобретение в чеке = провал»).
+# Раньше здесь был локальный pre-parse для ветви (в′) — убран: incr_parse теперь
+# сам обрабатывает (в′) (полный прогон с маркером, INCR_CACHE сохраняется для
+# incr_finish — сеяние свой линии на зелёном).
+incr_parse "$@"
+[ "$INCR_RC" -eq 0 ] || { incr_fail; exit 1; }
+set -- "${INCR_REST[@]}"
+
+ROOT="$(cd "${1:-"$SELF_DIR/.."}" && pwd)"
+INCR_GIT_ROOT="$ROOT"
+
+fails=0
+ok()   { printf '  ok   %s\n' "$*" >&2; }
+bad()  { fails=$((fails + 1)); printf '  FAIL %s\n' "$*" >&2; }
+skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
+
+command -v git >/dev/null 2>&1 || skip "нет git — историю устава прочитать нечем"
+git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || skip "$ROOT не репозиторий git"
+git -C "$ROOT" rev-parse --verify HEAD >/dev/null 2>&1 || skip "в $ROOT нет ни одного коммита"
+
+g() { git -C "$ROOT" "$@"; }
+
+# Устав не введён — «нечем проверить», а не «проверено». Это ЕДИНСТВЕННАЯ законная двойка барьера:
+# до акта введения у него нет точки, с которой считать историю.
+g rev-parse --verify --quiet 'refs/tags/ustav/1' >/dev/null \
+  || skip "устав не введён — создайте тег ustav/1 последним коммитом документных правок"
+
+for prefix in ustav/ frozen/; do
+  state="$(registry_state "$ROOT" "$prefix")"
+  case "$state" in
+    full|unknown-remote) ;;
+    *)
+      printf 'ОТКАЗ: реестр устава (refs/tags/%s*) недоступен: %s\n' "$prefix" "$state" >&2
+      printf 'Лечится: %s\n' "$(registry_cure "$state")" >&2
+      exit 1
+      ;;
+  esac
+done
+
+mkdir -p "$ROOT/tmp"
+TMP="$(mktemp -d "$ROOT/tmp/charter.XXXXXX")"
+trap 'rm -rf "$TMP"' EXIT
+
+
+# ── область: файл → диапазон, с которого он уставной ──────────────────────────
+# У AGENTS.md и ROADMAP.md точка одна — тег `ustav/1`. У планов и контрактов своя у каждого:
+# ПЕРВАЯ его заморозка. Общий диапазон здесь был бы ложью о предмете: до заморозки файл черновик.
+: > "$TMP/pairs"
+for f in AGENTS.md ROADMAP.md; do
+  g cat-file -e "HEAD:$f" 2>/dev/null || continue
+  printf '%s\t%s\n' "$f" 'ustav/1' >> "$TMP/pairs"
+done
+
+# Ошибка ls-tree — именованный отказ, не пустая область: непрочитанное дерево
+# plans/contracts не равно «уставных документов там нет» (контракт 992).
+lt_rc=0
+g ls-tree -r --name-only HEAD -- ':(literal)plans/' ':(literal)contracts/' > "$TMP/ls-raw" 2>/dev/null || lt_rc=$?
+if [ "$lt_rc" -ne 0 ]; then
+  bad "область устава (plans/, contracts/) не читается (ls-tree rc=$lt_rc): проверить невозможно — git fsck и повтор"
+  incr_finish 1
+  exit 1
+fi
+awk '/\.md$/' "$TMP/ls-raw" | sort > "$TMP/docs"
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  dir="${f%%/*}"; base="${f##*/}"
+  [ "$dir/$base" = "$f" ] || continue
+  ARTIFACT_NUMBER=""
+  rc=0
+  parse_artifact_basename "$base" || rc=$?
+  [ "$rc" -eq 0 ] && [ -n "${ARTIFACT_NUMBER:-}" ] || continue
+  NNN="$(printf '%03d' "$ARTIFACT_NUMBER")"
+  # Уставным файл становится с ПЕРВОЙ заморозки; нет её — он черновик и здесь не предмет.
+  g rev-parse --verify --quiet "refs/tags/frozen/$dir/$NNN/1" >/dev/null || continue
+  printf '%s\t%s\n' "$f" "frozen/$dir/$NNN/1" >> "$TMP/pairs"
+done < "$TMP/docs"
+
+# ── обход ─────────────────────────────────────────────────────────────────────
+# Два режима (контракт 113, инвариант 1): `--oracle` — побайтово прежний обход
+# (полный О(уставные пары × коммиты), эталон дифференциала и судей; вызовы
+# приёмки `_krasnye_113.sh` через `--oracle`); умолчание/быстрый — вариант (в):
+# одиночный `git log --name-only --no-renames --diff-filter=MD
+# --diff-merges=first-parent HEAD` с матчингом per-document (зеркало 083:
+# окно кеша ПО ДОКУМЕНТУ, глобальная обрезка запрещена). Общая пред-разведка
+# (пары, реестр, ustav/1) — выше, без изменений: она ОБЩАЯ для обоих режимов.
+docs=0; changes=0; excused=0
+if [ "$ORACLE" = "1" ]; then
+  # ── оракул: побайтово прежний (медленный) цикл по парам × коммиты ──
+  while IFS=$'\t' read -r f since; do
+    [ -n "$f" ] || continue
+    docs=$((docs + 1))
+    doc_fails_before="$fails"
+    # В incr-режиме (контракт 083, инв. 6) кеш = последний проверенный sha, и судимое
+    # окно сужается до cache..HEAD. Полнота проверки та же — для каждого коммита
+    # в окне проверяется та же логика, что и в полном режиме. «Since» уступает
+    # место кешу, чтобы не смотреть заново уже проверенную историю.
+    if [ "${INCR_MODE:-full}" = "incr" ]; then
+      # Н-?? (контракт 083): since — ПЕРВАЯ заморозка ЭТОГО файла, INCR_BASE — общий
+      # кеш чека. Если файл заморожен ПОСЛЕ кеша (since НЕ предок INCR_BASE), окно
+      # обязано начинаться с заморозки, а не с кеша — иначе черновые commits ДО
+      # заморозки попадут в проверяемое окно как «уставные без разрешения».
+      if g merge-base --is-ancestor "$since" "$INCR_BASE" 2>/dev/null; then
+        since="$INCR_BASE"
+      fi
+    fi
+    # Все коммиты ВКЛЮЧАЯ merge (И-7). Удалён `--no-merges` — merge-коммит, вносящий уставную
+    # дельту ТОЛЬКО в результат слияния, теперь судим по diff с ПЕРВЫМ родителем через
+    # charter_diff_paths (там явный `<merge>^1 <merge>`; для не-merge это эквивалент
+    # `diff-tree <c>`).
+    # Ошибка rev-list — именованный FAIL, не пустой диапазон: непрочитанная история не равна
+    # истории без нарушений (аудит 2026-10-16, тот же класс, что fail-open pre-push 9b14bac6).
+    rl_rc=0
+    g rev-list "$since..HEAD" > "$TMP/commits" 2>/dev/null || rl_rc=$?
+    if [ "$rl_rc" -ne 0 ]; then
+      bad "$f — история $since..HEAD не читается (rev-list rc=$rl_rc): проверить невозможно — git fetch и повтор"
+      continue
+    fi
+    while IFS= read -r c; do
+      [ -n "$c" ] || continue
+      # `--no-renames` намеренно: иначе вердикт зависел бы от `diff.renames` в конфиге машины, то
+      # есть мера меняла бы результат от настроек читателя.
+      # Ошибка diff-tree — именованный FAIL, не «файл не менялся»: непрочитанная
+      # дельта коммита не равна отсутствию изменений (контракт 992).
+      dt_rc=0
+      charter_diff_paths "$c" "$ROOT" > "$TMP/dpaths" 2>/dev/null || dt_rc=$?
+      if [ "$dt_rc" -ne 0 ]; then
+        bad "$f — дельта коммита ${c:0:8} не читается (diff-tree rc=$dt_rc): проверить невозможно — git fsck и повтор"
+        continue
+      fi
+      grep -qxF -- "$f" "$TMP/dpaths" || continue
+      changes=$((changes + 1))
+      if razreshil "$c" "$f"; then
+        excused=$((excused + 1))
+        ok "уставной документ изменён с разрешения владельца: $f в ${c:0:8}"
+      else
+        publication_rc=0; charter_frozen_publication "$c" "$f" "$ROOT" || publication_rc=$?
+        if [ "$publication_rc" -eq 0 ]; then
+          excused=$((excused + 1))
+          ok "уставной документ внесён публикацией заморозки: $f в ${c:0:8}"
+        elif [ "$publication_rc" -eq 2 ]; then
+          bad "не могу проверить публикацию заморозки: $f в ${c:0:8} — проверьте origin, тег и объекты git"
+        else
+          bad "уставной документ изменён без разрешения владельца: $f в ${c:0:8} — тело коммита обязано нести строку «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: $f <причина>» в первой колонке"
+        fi
+      fi
+    done < "$TMP/commits"
+    # Зелёное НАЗЫВАЕТСЯ, и с числом просмотренных коммитов. Барьер, молча проходящий по уставному
+    # документу, не даёт доказательств, ЧТО он проверил: молчаливое зелёное неотличимо от барьера,
+    # который файл вовсе не увидел, — и это класс пусто-зелёного, а не мелочь оформления.
+    scanned="$(wc -l < "$TMP/commits" | tr -d ' ')"
+    if [ "$fails" -eq "$doc_fails_before" ]; then
+      ok "$f — уставной с $since, коммитов в диапазоне $scanned, изменений без разрешения нет"
+    fi
+  done < "$TMP/pairs"
+else
+  # ── быстрый режим (вариант (в), контракт 113) ─────────────────────────
+  # Один проход `git log` со штатными флагами mergediff/renames/filter
+  # строится ровно один раз и используется всеми документами; маркер `\x01`
+  # (SOH) — имя пути с control-символом невозможно в git, поэтому строка-маркер
+  # коммита неотличима от имени файла только для сломанного дерева.
+  # Карты ниже — состояние ПРОЦЕССА (не на диске): вариант (в) не несёт состояния между
+  # прогонами, и проверка не пишет в судимое дерево ничего (см. шаг 3).
+  declare -A __ch_doc_eff=()    # путь → эффективная since (с подменой INCR_BASE там, где законно)
+  declare -A __ch_doc_changes=()
+  declare -A __ch_doc_excused=()
+  declare -A __ch_doc_failed=()
+  declare -A __ch_eff_scanned=()
+  declare -A __ch_eff_rlrc=()
+  # 1. Карта документ → эффективная since (per-document incr-подмена, инв. 3):
+  #    «Since» — ПЕРВАЯ заморозка ЭТОГО файла; INCR_BASE — общий кеш чека.
+  #    Если файл заморожен ДО кеша (since — предок INCR_BASE), окно сужается
+  #    до кеша; иначе остаётся since (черновики ДО заморозки не попадают в
+  #    проверяемое окно как «уставные без разрешения» — прецедент 083 И-15).
+  while IFS=$'\t' read -r f since; do
+    [ -n "$f" ] || continue
+    docs=$((docs + 1))
+    eff="$since"
+    if [ "${INCR_MODE:-full}" = "incr" ] \
+       && g merge-base --is-ancestor "$since" "$INCR_BASE" 2>/dev/null; then
+      eff="$INCR_BASE"
+    fi
+    __ch_doc_eff["$f"]="$eff"
+  done < "$TMP/pairs"
+  # 2. Счётчики «коммитов в диапазоне» по эффективной since — кешируются, чтобы
+  #    одна rev-list на уникальную since, а не на каждый документ (на живой
+  #    истории это сокращает сотни вызовов до десятков).
+  #    Ошибка rev-list — ИМЕНОВАННЫЙ отказ по документу, а не «0» (контракт 992,
+  #    класс fail-open `|| echo 0`, тот же, что у оракула :534-539 и у diff-tree
+  #    :546-550): непрочитанный диапазон не равен диапазону без нарушений. Кеш rc
+  #    (по уникальной since) + проверка в шаге 4 — зеркало оракула: тот же текст
+  #    отказа на каждый документ этого диапазона, тот же rc 1.
+  for __ch_eff in "${__ch_doc_eff[@]}"; do
+    [ -n "${__ch_eff_scanned[$__ch_eff]+set}" ] && continue
+    __ch_rl_rc=0
+    __ch_rl_n="$(g rev-list --count "${__ch_eff}..HEAD" 2>/dev/null)" || __ch_rl_rc=$?
+    if [ "$__ch_rl_rc" -ne 0 ]; then
+      __ch_eff_rlrc["$__ch_eff"]="$__ch_rl_rc"
+      continue
+    fi
+    __ch_eff_scanned["$__ch_eff"]="$__ch_rl_n"
+  done
+  # Здесь НЕТ прежней строки `__ch_eff="$__ch_eff"` (no-op ради SC2155): на дереве
+  # с ustav/1 и НУЛЕМ уставных документов цикл выше не выполняется, и такое
+  # присваивание читало бы неинициализированную переменную под `set -u` — быстрый
+  # режим падал бы (rc=1) там, где оракул честно зелёный (rc=0). Далее `__ch_eff`
+  # присваивается перед каждым чтением: шаг 3 — из карты по пути, шаг 4 — то же.
+  # 3. Одиночный проход истории. Ошибка `git log` — именованный FAIL, не
+  #    молчаливое зелёное: непрочитанная история не равна истории без нарушений
+  #    (контракт 992); ok-строки с числом просмотренного (В-клетка + обманка
+  #    s8) ниже выдаются ИЗ посчитанного $TMP/commits, не из этого прохода.
+  #
+  # ПРОВЕРКА НЕ ПИШЕТ СОСТОЯНИЕ (вариант (в), контракт 113: «(в) не несёт состояния»,
+  # (г) отклонён за состояние на диске). Поэтому здесь НЕТ `git commit-graph write
+  # --reachable`: он оставлял `objects/info/commit-graph` в git-common-dir СУДИМОГО
+  # дерева — побочный эффект проверки, наблюдаемый на свежем клоне. Замер холодного
+  # клона `git clone --local` без него: rc=0 за 6.2 с (бюджет В-клетки 60 с).
+  __ch_lr=0
+  g log --format=$'\x01%H' --name-only \
+      --no-renames --diff-filter=MD --diff-merges=first-parent HEAD \
+      > "$TMP/log-data" 2>/dev/null || __ch_lr=$?
+  if [ "$__ch_lr" -ne 0 ]; then
+    bad "история не читается (git log rc=$__ch_lr): проверить невозможно — git fsck и повтор"
+  else
+    __ch_c=""
+    while IFS= read -r __ch_line; do
+      case "$__ch_line" in
+        $'\x01'*)
+          __ch_c="${__ch_line#$'\x01'}"
+          # ГРАММАТИКА SHA — НЕ 40: инвариант 1 «на любом дереве», а дерево бывает
+          # `--object-format=sha256`, где `%H` = 64 hex. Фильтр с зашитой 40 отбрасывал
+          # ВСЕ матчи молча: в sha256-репозитории барьер отдавал rc 0 с «изменений без
+          # разрешения нет» на коммите, меняющем устав без РАЗРЕШИЛ (пройдено пробой
+          # fixtures 113 клетка sha256). Принимаем 40 hex (sha1) и 64 hex (sha256).
+          case "${#__ch_c}" in
+            40|64) ;;
+            *)      __ch_c="" ;;
+          esac
+          case "$__ch_c" in
+            *[!0-9a-f]*) __ch_c="" ;;
+          esac
+          ;;
+        "") ;;
+        *)
+          [ -n "$__ch_c" ] || continue
+          __ch_p="$__ch_line"
+          __ch_eff="${__ch_doc_eff[$__ch_p]:-}"
+          [ -n "$__ch_eff" ] || continue   # путь не уставной — пропускаем без шума
+          # Включаем матч (commit, документ), если commit НЕ предок eff
+          # (т.е. commit принадлежит диапазону eff..HEAD, который проверял старый
+          # обход через `rev-list eff..HEAD`). Прецедент: direction merge-base
+          # проверялась живьём (контроль честности s7/d8 в клетках батареи 113);
+          # тут — зеркало клетки st113_sudim_default() в
+          # `fixtures/charter_fast_113/_karkas_staba.sh`.
+          # Корректность (для предков в терминах git = ancestors):
+          #   c ∈ [eff..HEAD] ⟺ (ancestors(HEAD) \ ancestors(eff)) ∋ c.
+          # reachable-from-H для коммитов из git log всегда true; остаётся
+          # ¬ancestor(eff, c) ⟺ merge-base --is-ancestor c eff возвращает rc!=0.
+          # Итого: пропускаем (continue) iff c — предок eff (т.е. коммит был ДО
+          # since, не наш случай).
+          if g merge-base --is-ancestor "$__ch_c" "$__ch_eff" 2>/dev/null; then
+            continue
+          fi
+          __ch_doc_changes["$__ch_p"]=$(( ${__ch_doc_changes["$__ch_p"]:-0} + 1 ))
+          if razreshil "$__ch_c" "$__ch_p"; then
+            __ch_doc_excused["$__ch_p"]=$(( ${__ch_doc_excused["$__ch_p"]:-0} + 1 ))
+            ok "уставной документ изменён с разрешения владельца: $__ch_p в ${__ch_c:0:8}"
+          else
+            __ch_publication_rc=0; charter_frozen_publication "$__ch_c" "$__ch_p" "$ROOT" || __ch_publication_rc=$?
+            if [ "$__ch_publication_rc" -eq 0 ]; then
+              __ch_doc_excused["$__ch_p"]=$(( ${__ch_doc_excused["$__ch_p"]:-0} + 1 ))
+              ok "уставной документ внесён публикацией заморозки: $__ch_p в ${__ch_c:0:8}"
+            else
+              __ch_doc_failed["$__ch_p"]=1
+              if [ "$__ch_publication_rc" -eq 2 ]; then
+                bad "не могу проверить публикацию заморозки: $__ch_p в ${__ch_c:0:8} — проверьте origin, тег и объекты git"
+              else
+                bad "уставной документ изменён без разрешения владельца: $__ch_p в ${__ch_c:0:8} — тело коммита обязано нести строку «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: $__ch_p <причина>» в первой колонке"
+              fi
+            fi
+          fi
+          ;;
+      esac
+    done < "$TMP/log-data"
+  fi
+  unset __ch_c __ch_line __ch_p __ch_eff __ch_lr
+  # 4. Зелёные ОК с числом просмотренного — барьер, молча проходящий по уставному
+  #    документу, не даёт доказательств, ЧТО он проверил (прецедент В-клетки +
+  #    обманка s8). Счётчик берётся из посчитанного `rev-list --count` (зеркало
+  #    wc -l < rev-list $since..HEAD оракула); per-doc — один ОК при отсутствии
+  #    FAIL на документе.
+  while IFS=$'\t' read -r f since; do
+    [ -n "$f" ] || continue
+    __ch_eff="${__ch_doc_eff[$f]:-}"
+    [ -n "$__ch_eff" ] || continue
+    # Непрочитанный диапазон — именованный отказ по этому документу, ровно как в
+    # оракуле: ни счётчика, ни «изменений без разрешения нет» (ok-строка про
+    # просмотренное обязана опираться на ПРОЧИТАННОЕ).
+    __ch_rlrc="${__ch_eff_rlrc[$__ch_eff]:-0}"
+    if [ "$__ch_rlrc" -ne 0 ]; then
+      bad "$f — история $__ch_eff..HEAD не читается (rev-list rc=$__ch_rlrc): проверить невозможно — git fetch и повтор"
+      continue
+    fi
+    __ch_scanned="${__ch_eff_scanned[$__ch_eff]:-0}"
+    changes=$((changes + ${__ch_doc_changes[$f]:-0}))
+    excused=$((excused + ${__ch_doc_excused[$f]:-0}))
+    if [ -z "${__ch_doc_failed[$f]+set}" ]; then
+      ok "$f — уставной с $__ch_eff, коммитов в диапазоне $__ch_scanned, изменений без разрешения нет"
+    fi
+  done < "$TMP/pairs"
+  unset __ch_eff __ch_scanned __ch_rlrc __ch_rl_rc __ch_rl_n
+fi
+
+printf '\nуставных документов: %d · изменений в них: %d · с разрешения: %d\n' \
+  "$docs" "$changes" "$excused" >&2
+
+if [ "$fails" -eq 0 ]; then
+  incr_finish 0
+  exit 0
+fi
+incr_finish 1
+exit 1
