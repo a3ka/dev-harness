@@ -49,12 +49,15 @@ RESPONSE_FAULTS = {
     'missing_field_github': 'missing_field',
     'missing_field_gh': 'missing_field',
 }
-# Partial stream tails (Adv992B13b M11): jq emits the FIRST document's
-# value, then fails on the tail — partial output plus a lost parse error.
+# Partial stream tails (Adv992B13b M11; Adv992B13c extends them to land):
+# jq emits the FIRST document's value, then fails on the tail — partial
+# output plus a lost parse error. trash is the UTF-8 BOM tail named by
+# the verdict/task (measured: output «1», then jq rc5 — same class as
+# any non-JSON tail such as «\nXX»).
 PARTIAL_TAILS = {
     'partial_open': '\n{',
     'partial_cut': '\n{"total_count":',
-    'partial_trash': '\nXX',
+    'partial_trash': '\n\ufeff',
 }
 PARTIAL_FAULTS = {
     'partial_open_github': 'partial_open',
@@ -64,15 +67,29 @@ PARTIAL_FAULTS = {
     'partial_trash_github': 'partial_trash',
     'partial_trash_gh': 'partial_trash',
 }
-# Only gate/writer parse total_count via jq; land reads workflow_runs.
-PARTIAL_BRANCHES = ('gate', 'writer')
+# Adv992B13c: partial cells run on EVERY branch symmetrically — the land
+# seam (gitw_preflight_071.sh:400) parses jq and loses rc the same way.
+# TOTAL_COUNT_SEAMS names the two `|| total=-1` seams of check_ci_gate.sh
+# (writer and gate); the land seam lives in gitw_preflight_071.sh.
+TOTAL_COUNT_SEAMS = ('gate', 'writer')
 
 
 def cases_for(branch):
-    return [case for case in CASES
-            if branch in PARTIAL_BRANCHES or case not in PARTIAL_FAULTS]
+    return list(CASES)
 
 FALLBACK = '${GITHUB_TOKEN:-${GH_TOKEN:-}}'
+
+# Adv992B13c (call 3): the land seam loses jq rc — partial API output
+# approves the push. The model carries the repaired seam: parse rc is
+# captured and refused by a named line of the EXISTING land refusal
+# family «PR-CI не сверяем: …» (fixed substring «не сверяем»; jq rc0
+# with empty output still falls through to «land без зелёного PR-CI»).
+LAND_SEAM = r'''    n="$(printf '%s' "$body" | jq -r '[.workflow_runs[]? | select((.event=="pull_request") and (.conclusion=="success"))] | length' 2>/dev/null)"'''
+LAND_SEAM_RC = LAND_SEAM + r''' \
+      || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI не сверяем: ответ не разобран\n' >&2; exit 1; }'''
+# S-land-pipefail stub: pipefail and the rc refusal removed in the branch.
+LAND_SEAM_TRUE = LAND_SEAM + r''' \
+      || { set +o pipefail; true; }'''
 
 
 def digest(value):
@@ -107,6 +124,12 @@ def sources(root, model=False):
             if text.count('${GITHUB_TOKEN:-}') != count or text.count('$GITHUB_TOKEN') != count:
                 raise RuntimeError('model base token anchors changed')
             text = text.replace('${GITHUB_TOKEN:-}', FALLBACK).replace('$GITHUB_TOKEN', FALLBACK)
+            if name == 'gitw_preflight_071.sh':
+                # Adv992B13c: update the model's land branch to the repair
+                # (the BASE blob still carries the unrepaired seam).
+                if text.count(LAND_SEAM) != 1:
+                    raise RuntimeError('model land seam anchor missing')
+                text = text.replace(LAND_SEAM, LAND_SEAM_RC, 1)
         else:
             text = (root / 'scripts' / name).read_text()
         result[name] = text
@@ -203,8 +226,16 @@ def observe(parent, branch, case, code):
         effect_ok = journal_bytes == expected_journal
         diagnosis_ok = not denied or ('CI не ответил' if branch != 'land' else 'PR-CI не сверяем: API') in output
         if response_fault or partial_fault:
-            reason = ('gitw ПРЕДПОЛЁТ-ОТКАЗ: land без зелёного PR-CI:'
-                      if branch == 'land' else 'ОТКАЗ: ответ CI не разобран:')
+            if branch == 'land':
+                # Adv992B13c: a land PARSE failure (jq rc!=0) joins the
+                # named refusal family «PR-CI не сверяем: …» — the ONE
+                # fixed substring of the repair; jq rc0 with empty or
+                # non-numeric output stays «land без зелёного PR-CI».
+                reason = ('gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI не сверяем:'
+                          if partial_fault
+                          else 'gitw ПРЕДПОЛЁТ-ОТКАЗ: land без зелёного PR-CI:')
+            else:
+                reason = 'ОТКАЗ: ответ CI не разобран:'
             diagnosis_ok = any(line.startswith(reason) for line in output.splitlines())
         accepted = p.returncode == expected_rc and request_ok and effect_ok and leak_free and diagnosis_ok
         return dict(branch=branch, case=case, rc=p.returncode, expected_rc=expected_rc,
@@ -266,9 +297,23 @@ def mutants(model):
     if model['check_ci_gate.sh'].count('|| total=-1') != 2:
         raise RuntimeError('total_count fallback anchors missing')
     code['check_ci_gate.sh'] = model['check_ci_gate.sh'].replace('|| total=-1', '|| true')
-    for branch in PARTIAL_BRANCHES:
+    for branch in TOTAL_COUNT_SEAMS:
         for case in PARTIAL_FAULTS:
             yield 'S-M11', branch, case, code
+    # Adv992B13c call 3 (land M11): the land seam loses jq rc — partial
+    # API output approves the push. S-land-rc reverts the model seam to
+    # the OBJECT form (no rc capture at all); S-land-pipefail removes
+    # pipefail and the rc refusal in the land branch. Each binding is
+    # observed where its defect shows: the door APPROVES (rc0) right
+    # after a partially parsed answer.
+    if model['gitw_preflight_071.sh'].count(LAND_SEAM_RC) != 1:
+        raise RuntimeError('land repaired seam anchor missing')
+    for label, seam in (('S-land-rc', LAND_SEAM),
+                        ('S-land-pipefail', LAND_SEAM_TRUE)):
+        code = dict(model)
+        code['gitw_preflight_071.sh'] = model['gitw_preflight_071.sh'].replace(LAND_SEAM_RC, seam, 1)
+        for case in PARTIAL_FAULTS:
+            yield label, 'land', case, code
 
 
 def compatibility(root):
@@ -359,6 +404,11 @@ def main():
                     (result['rc'] == 0 and not result['effect_ok'])
                     if branch == 'writer'
                     else (result['rc'] != 1 and result['effect_ok'] and not result['diagnosis_ok']))
+            if label in ('S-land-rc', 'S-land-pipefail'):
+                # The neutralized land seam approves the push after a
+                # partial answer: rc0 with the exact request and no leak.
+                caught = (result['request_ok'] and result['leak_free']
+                          and result['rc'] == 0)
             bindings += 1
             live += not caught
             print(f'stab={label} branch={branch}/{case} caught={int(caught)} ' + json.dumps(result, sort_keys=True))
