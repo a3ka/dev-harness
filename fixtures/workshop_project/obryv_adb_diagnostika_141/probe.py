@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # БАРЬЕР-ГУАРД 141 v3: три workflow-шагa вызывают файлы из дерева продукта;
 # sha256 каждого файла и поведенческий replay из ЭТОГО файла (не из модели).
+# Скрипты хранятся байтами: CRLF не нормализуется ни для пина, ни для replay.
 # Workflow-соседи свободны; имена/вызовы/управляющие свойства шагов и job
 # остаются в каноне. Оракул source.json и пиненные модельные файлы загружаются
 # в память до субъекта; мутации скриптов и workflow заданы кодом STAB_MUTACII,
@@ -577,15 +578,15 @@ def postavit_sandbox(scena, shag, katalog_sandbox):
 
 
 
-def ispolnit_replay(telo, shag, scena, okr, koren, script_path, script_text):
+def ispolnit_replay(telo, shag, scena, okr, koren, script_path, script_bytes):
     with tempfile.TemporaryDirectory(dir=str(koren)) as tmp:
         katalog_sandbox = Path(tmp)
         ws, env = postavit_sandbox(scena, shag, katalog_sandbox)
-        if '${{' in script_text:
+        if b'${{' in script_bytes:
             return None, 'VYRAZHENIE_VNE_ALFAVITA: выражение Actions в shell-скрипте'
         script = ws / script_path
         script.parent.mkdir(parents=True, exist_ok=True)
-        script.write_text(script_text, encoding='utf-8')
+        script.write_bytes(script_bytes)
         env2 = dict(env)
         if okr == 'ACTIONS':
             env2.update(OKRUZHENIE_ACTIONS)
@@ -663,7 +664,7 @@ def sud_kejs(imja, kejs, src, subj_doc, model_doc, model_tela, koren,
             script = scripts.get(nomer)
             if script is None:
                 return ('KRASNO', 'SKRIPT_%s_NET' % nomer)
-            if sha256_bytes(script.encode('utf-8')) != src['nositeli']['model/' + src['skripty'][nomer]]:
+            if sha256_bytes(script) != src['nositeli']['model/' + src['skripty'][nomer]]:
                 return ('KRASNO', 'SKRIPT_PIN_RASHOZHDENIE: %s' % nomer)
             return ('ok', None)
         if podtip == 'pereformat':
@@ -677,14 +678,14 @@ def sud_kejs(imja, kejs, src, subj_doc, model_doc, model_tela, koren,
             script = scripts.get(nomer)
             if script is None:
                 return ('KRASNO', 'SKRIPT_%s_NET' % nomer)
-            kanon = src['signatury_regex']
+            kanon = src['signatury_regex'].encode('utf-8')
             n = script.count(kanon)
             if n != src['signatur_vstrech'][nomer]:
                 return ('KRASNO', 'PODMENA_SIGNATURY: вхождений канона %d, ожидалось %d'
                         % (n, src['signatur_vstrech'][nomer]))
-            ostavshijsja = script.replace(kanon, '')
+            ostavshijsja = script.replace(kanon, b'')
             for s in src['signatury_ostatok_zapret']:
-                if s in ostavshijsja:
+                if s.encode('utf-8') in ostavshijsja:
                     return ('KRASNO', 'PODMENA_SIGNATURY: обрывок сигнатуры вне канона: %r' % s)
             return ('ok', None)
         if podtip == 'vyrazhenija':
@@ -692,7 +693,7 @@ def sud_kejs(imja, kejs, src, subj_doc, model_doc, model_tela, koren,
                 script = scripts.get(n)
                 if script is None:
                     return ('KRASNO', 'SKRIPT_%s_NET' % n)
-                for v in VYRAZHENIE_RE.findall(script):
+                for v in VYRAZHENIE_RE.findall(script.decode('utf-8', errors='surrogateescape')):
                     if v not in src['alfavit_vyrazhenij']:
                         return ('KRASNO', 'VYRAZHENIE_VNE_ALFAVITA: %s' % v)
             return ('ok', None)
@@ -1316,7 +1317,7 @@ def sdelat_stab(imja, model_tekst, model_scripts, kanon):
                                                 ('995', 'Maestro runner для CMP-MOB-001'))
                              if name == imja_shaga)
                 scripts = dict(model_scripts)
-                scripts[nomer] = FUNKCII[imja](scripts[nomer])
+                scripts[nomer] = FUNKCII[imja](scripts[nomer].decode('utf-8')).encode('utf-8')
                 if scripts[nomer] == model_scripts[nomer]:
                     raise RuntimeError('стаб %s не изменил скрипт' % imja)
                 return model_tekst, scripts
@@ -1402,7 +1403,7 @@ def zagruzit_model(src):
         b = (HERE / 'model' / path).read_bytes()
         if sha256_bytes(b) != src['nositeli']['model/' + path]:
             raise RuntimeError('пин model/%s не сходится' % path)
-        scripts[n] = b.decode('utf-8')
+        scripts[n] = b
     return tekst, doc, tela, scripts
 
 
@@ -1481,7 +1482,7 @@ def main():
             else:
                 subj_tekst = put.read_text(encoding='utf-8')
                 subject_scripts = {
-                    n: (Path(repo) / path).read_text(encoding='utf-8')
+                    n: (Path(repo) / path).read_bytes()
                     for n, path in src['skripty'].items()
                     if (Path(repo) / path).is_file()
                 }
