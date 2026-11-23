@@ -1208,12 +1208,19 @@ while IFS=$'\t' read -r nnn since; do
         # (→/5), автор orchestrator; tag-object сверены с frozen/contracts/197/3 и 147/5, frozen-коммиты —
         # предки main; разрешены словом владельца 2026-11-21 (догон реестра). Принятие риска только этих двух
         # пар, в т.ч. при импорте main вторым родителем PR-ветки; прочие SHA/пути/авторы/проверки неизменны.
+        # Пара 6eebe030268b624d12feb6a1ba9edc6155abd9a1 / registry/contracts.tsv — опубликованный REPLACE 208
+        # 3df106b3 (tag-object id/CONTRACT/208) → 2901957f (tag-object frozen/contracts/208/1), автор orchestrator,
+        # по существу корректен; внесён PR-маршрутом (#1251, второй родитель merge 91e3a032) вне first-parent main,
+        # поэтому REPLACE-форма (on_main_replace) его не признаёт. Слово владельца 2026-11-23 (через консультанта):
+        # «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: scripts/check_zones.sh — grandfather-пара 6eebe030268b624d12feb6a1ba9edc6155abd9a1 /
+        # registry/contracts.tsv (REPLACE 208 → tag-object frozen/contracts/208/1 2901957f по существу корректен,
+        # внесён PR-маршрутом вне first-parent main; принятие риска только этой пары).»
         case "$c" in
           78bae300867ffce3cfce0ae20768fd8658e97e5a|8ce382ae8260cdc18e9dae9b736070b4ed19df56|7f54f1f60bea573487da5ba2f2eb0603a05b1df3)
             skip_path=1
             continue
             ;;
-          8f1c25f011921721934d870914f562f9f3ff815c|8c734d93b91fb3ff38528d6591d519a5145de325|6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca|eb5df0064ac94551cc361e466e991f8099c0fcca|c663dd0fb0b233e56368707aef6940baaf254a30|56f62ed687a6acde05d2e1af76cf6a2ac489a45e|80ea54402c91c9f4ac6791fc10f09371623a5b70|bcd5b796a1e9328ba9440b358ea1f7e0068d8fec|fd81f057a709e1a7751bda285022fbd522c6f747|6dbee81755ac83f6d79fa649613a1e664bfae801|4ed2d2172b4e0a36bda87f38cfe73c252a1c2546|a72ee9069d00ab73abb418be99a0f1d9f53ae70d)
+          8f1c25f011921721934d870914f562f9f3ff815c|8c734d93b91fb3ff38528d6591d519a5145de325|6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca|eb5df0064ac94551cc361e466e991f8099c0fcca|c663dd0fb0b233e56368707aef6940baaf254a30|56f62ed687a6acde05d2e1af76cf6a2ac489a45e|80ea54402c91c9f4ac6791fc10f09371623a5b70|bcd5b796a1e9328ba9440b358ea1f7e0068d8fec|fd81f057a709e1a7751bda285022fbd522c6f747|6dbee81755ac83f6d79fa649613a1e664bfae801|4ed2d2172b4e0a36bda87f38cfe73c252a1c2546|a72ee9069d00ab73abb418be99a0f1d9f53ae70d|6eebe030268b624d12feb6a1ba9edc6155abd9a1)
             skip_path=1
             continue
             ;;
