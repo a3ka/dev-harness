@@ -316,6 +316,24 @@ def kejsy():
     reg('r16-dogon-vtoroj-versii',
         'строка = tag-object frozen/N/1, жива /2 — догон: старая сторона = frozen/<vmax-1>',
         lambda w, nnn: _mir_r16(w, nnn))
+    reg('r17-chuzhij-hvost-bez-lf',
+        'чужая грамматическая последняя строка манифеста БЕЗ завершающего LF — честный REPLACE проходит прямым коммитом, чужие байты и край файла сохранены (Б-2)',
+        lambda w, nnn: _mir_r17(w, nnn))
+    reg('r18-stroka-n-poslednjaja-bez-lf',
+        'строка N — последняя и без завершающего LF — REPLACE проходит, новая строка тоже без LF, прочие байты целы (Б-2)',
+        lambda w, nnn: _mir_r18(w, nnn))
+    reg('r19-manifest-nul',
+        'в манифесте NUL-байт — именованный отказ до записи, полный stderr без предупреждений оболочки, состояние не меняется (Б-3)',
+        lambda w, nnn: _mir_r19(w, nnn))
+    reg('r20-manifest-crlf',
+        'строка N заканчивается CRLF — отказ грамматики манифеста с номером первой неконформной строки (Б-3)',
+        lambda w, nnn: _mir_r20(w, nnn))
+    reg('r21-manifest-lishnie-polja',
+        'в строке N лишние поля после sha — отказ грамматики манифеста (Б-3)',
+        lambda w, nnn: _mir_r21(w, nnn))
+    reg('r22-manifest-pustaja-stroka',
+        'в манифесте пустая строка — отказ грамматики манифеста с номером строки (Б-3)',
+        lambda w, nnn: _mir_r22(w, nnn))
     return K
 
 
@@ -467,6 +485,83 @@ def _mir_r16(w, nnn):
     return m, {'id': idsha, 'f1': f1,
                'f2': m.rev('refs/tags/frozen/contracts/%s/2' % m.n)}
 
+def _mir_r17(w, nnn):
+    m = Mir(w, nnn)
+    idsha = m.mint()
+    m.freeze()
+    # чужая грамматическая строка в КРАЮ файла, без завершающего LF (Б-2)
+    with open(m.manifest_fajl(), 'a', encoding='utf-8') as f:
+        f.write('998 → %s' % m.rev('HEAD'))
+    m.g('add', '-A')
+    m.g('commit', '-q', '-m', 'чужая строка без конечного LF (мир)')
+    m.g('push', '-q', 'origin', 'main')
+    return m, {'id': idsha, 'f1': m.rev('refs/tags/frozen/contracts/%s/1' % m.n)}
+
+
+def _mir_r18(w, nnn):
+    m = Mir(w, nnn)
+    idsha = m.mint()
+    m.freeze()
+    # строка N — последняя, без завершающего LF (Б-2)
+    data = m.manifest_fajl().read_bytes()
+    m.manifest_fajl().write_bytes(data[:-1])
+    m.g('add', '-A')
+    m.g('commit', '-q', '-m', 'строка N без конечного LF (мир)')
+    m.g('push', '-q', 'origin', 'main')
+    return m, {'id': idsha, 'f1': m.rev('refs/tags/frozen/contracts/%s/1' % m.n),
+               'stroka_bez_lf': True}
+
+
+def _pochinit_manifest(m, izmenenie, soobshenie):
+    data = m.manifest_fajl().read_bytes()
+    m.manifest_fajl().write_bytes(izmenenie(data))
+    m.g('add', '-A')
+    m.g('commit', '-q', '-m', soobshenie)
+    m.g('push', '-q', 'origin', 'main')
+
+
+def _mir_r19(w, nnn):
+    m = Mir(w, nnn)
+    idsha = m.mint()
+    m.freeze()
+    # NUL в чужой строке: байтовое нарушение до любых $() над манифестом (Б-3)
+    _pochinit_manifest(m,
+                       lambda d: d + '997 → '.encode('utf-8') + b'a' * 39 + b'\x00\n',
+                       'NUL в манифесте (мир)')
+    return m, {'id': idsha, 'f1': m.rev('refs/tags/frozen/contracts/%s/1' % m.n)}
+
+
+def _mir_r20(w, nnn):
+    m = Mir(w, nnn)
+    idsha = m.mint()
+    m.freeze()
+    star = m.stroka_nn()
+    _pochinit_manifest(m,
+                       lambda d: d.replace(('%s\n' % star).encode('utf-8'),
+                                           ('%s\r\n' % star).encode('utf-8'), 1),
+                       'CRLF в строке N (мир)')
+    return m, {'id': idsha, 'f1': m.rev('refs/tags/frozen/contracts/%s/1' % m.n)}
+
+
+def _mir_r21(w, nnn):
+    m = Mir(w, nnn)
+    idsha = m.mint()
+    m.freeze()
+    star = m.stroka_nn()
+    _pochinit_manifest(m,
+                       lambda d: d.replace(('%s\n' % star).encode('utf-8'),
+                                           ('%s dopolnenie\n' % star).encode('utf-8'), 1),
+                       'лишние поля в строке N (мир)')
+    return m, {'id': idsha, 'f1': m.rev('refs/tags/frozen/contracts/%s/1' % m.n)}
+
+
+def _mir_r22(w, nnn):
+    m = Mir(w, nnn)
+    idsha = m.mint()
+    m.freeze()
+    _pochinit_manifest(m, lambda d: d + b'\n', 'пустая строка в манифесте (мир)')
+    return m, {'id': idsha, 'f1': m.rev('refs/tags/frozen/contracts/%s/1' % m.n)}
+
 
 # ожидание клетки: (rc, stdout, stderr); для зелёных stdout реконструируется
 # по миру ПОСЛЕ прогона (rev-parse HEAD) — см. шапку
@@ -510,10 +605,22 @@ def ozhidanija(imja, m, d, posle):
     if imja == 'r16-dogon-vtoroj-versii':
         return (0, ('REPLACED nnn=%s old=%s new=%s commit=%s\n'
                     % (n, d['f1'], d['f2'], posle['head'])).encode('utf-8'), DVOR)
+    if imja in ('r17-chuzhij-hvost-bez-lf', 'r18-stroka-n-poslednjaja-bez-lf'):
+        return (0, ('REPLACED nnn=%s old=%s new=%s commit=%s\n'
+                    % (n, d['id'], d['f1'], posle['head'])).encode('utf-8'), DVOR)
+    if imja == 'r19-manifest-nul':
+        return ozh_otkaz('NUL-байт в манифесте registry/contracts.tsv — реестр не текст, REPLACE невозможен')
+    if imja == 'r20-manifest-crlf':
+        return ozh_otkaz('манифест не по грамматике «NNN → 40-hex»: первая неконформная строка №2 — REPLACE невозможен')
+    if imja == 'r21-manifest-lishnie-polja':
+        return ozh_otkaz('манифест не по грамматике «NNN → 40-hex»: первая неконформная строка №2 — REPLACE невозможен')
+    if imja == 'r22-manifest-pustaja-stroka':
+        return ozh_otkaz('манифест не по грамматике «NNN → 40-hex»: первая неконформная строка №3 — REPLACE невозможен')
     raise AssertionError('нет ожидания для %s' % imja)
 
 
-ZELENYE = ('r01-chestnyj-replace', 'r15-vysokaja-versija', 'r16-dogon-vtoroj-versii')
+ZELENYE = ('r01-chestnyj-replace', 'r15-vysokaja-versija', 'r16-dogon-vtoroj-versii',
+           'r17-chuzhij-hvost-bez-lf', 'r18-stroka-n-poslednjaja-bez-lf')
 
 
 
@@ -548,9 +655,15 @@ def post_problemy(imja, m, d, pre):
         cnt = m.out('rev-list', '--count', '%s..HEAD' % pre['head'])
         if cnt != '1':
             prichiny.append('пост: коммитов %s ≠ 1' % cnt)
-        ozh_manifest = pre['manifest'].replace(
-            ('%s\n' % pre['staraja_stroka']).encode('utf-8'),
-            ('%s → %s\n' % (m.n, d['novyj'])).encode('utf-8'), 1)
+        # Ожидаемый манифест — пред-снимок с ЗАМЕНЁННОЙ строкой предмета;
+        # у r18 строка предмета — последняя без завершающего LF: ожидание
+        # сохраняет отсутствие LF (Б-2), а не дописывает его.
+        staraja = pre['staraja_stroka'].encode('utf-8')
+        novaja = ('%s → %s' % (m.n, d['novyj'])).encode('utf-8')
+        if d.get('stroka_bez_lf'):
+            ozh_manifest = pre['manifest'].replace(staraja, novaja, 1)
+        else:
+            ozh_manifest = pre['manifest'].replace(staraja + b'\n', novaja + b'\n', 1)
         if m.show_bytes('HEAD:registry/contracts.tsv') != ozh_manifest:
             prichiny.append('пост: манифест HEAD ≠ «ровно одна строка заменена, прочие байты целы»')
         ident = m.out('log', '-1', '--format=%an|%ae|%cn|%ce')
@@ -642,8 +755,8 @@ STAB_MUTACII = {
     'st06-main-rashozhdenie-propuscheno': (
         'if [ "$LOCAL_MAIN" != "$ORIGIN_MAIN" ]; then', LOZH),
     'st07-awk-inversija': (
-        "$0 == o { print n; next } { print }",
-        "$0 != o { print n; next } { print }"),
+        '  { lines[NR] = ($0 == o) ? n : $0 }',
+        '  { lines[NR] = ($0 != o) ? n : $0 }'),
     'st08-grjaznoe-propuscheno': (
         'if [ -n "$(git -C "$ROOT" status --porcelain)" ]; then', LOZH),
     'st09-ne-main-propuschen': (
@@ -673,6 +786,21 @@ STAB_MUTACII = {
         'if [ "$cnt" -ne 1 ]; then', LOZH),
     'st40-konstanta-nomera': (
         'NNN="$(printf \'%03d\' "$((10#$NNN_ARG))")"', 'NNN="212"'),
+    # Б-2 (К-07/К-14): стаб возвращает дефект круга v1 — awk ДОПИСЫВАЕТ конечный
+    # LF незавершённой последней строке; различим на мирах без конечного LF.
+    'st41-awk-dobavljaet-lf': (
+        'if [ -n "$(tail -c 1 "$ROOT/$_REG_FILE")" ]; then KONEC=\'\'; else KONEC=\'\\n\'; fi',
+        'KONEC=\'\\n\''),
+    # Б-3 (К-08/К-09): стаб удаляет проверку грамматики ВСЕГО манифеста;
+    # различим на неконформных реестрах (CRLF/лишние поля/пустая строка),
+    # НЕ на NUL-мире (там отказывает более ранняя байтовая проверка NUL).
+    'st42-grammatika-udalena': (
+        'if [ -n "$plohaja" ]; then', LOZH),
+    # Б-3 (К-10): стаб удаляет байтовую проверку NUL; различим на NUL-мире
+    # (предупреждение $() и/или неверный диагноз), НЕ на CRLF/лишних полях
+    # (там отказывает грамматика — она остаётся честной).
+    'st43-nul-udalen': (
+        'if [ "$nul_cnt" -ne 0 ]; then', LOZH),
 }
 
 STAB_VHOD = {
@@ -696,6 +824,9 @@ STAB_VHOD = {
     'st18-dogon-staraja-storona': ['r16-dogon-vtoroj-versii'],
     'st19-dubl-propuschen': ['r12-dve-stroki'],
     'st40-konstanta-nomera': ['r01-chestnyj-replace'],
+    'st41-awk-dobavljaet-lf': ['r17-chuzhij-hvost-bez-lf', 'r18-stroka-n-poslednjaja-bez-lf'],
+    'st42-grammatika-udalena': ['r20-manifest-crlf', 'r21-manifest-lishnie-polja', 'r22-manifest-pustaja-stroka'],
+    'st43-nul-udalen': ['r19-manifest-nul'],
 }
 
 # ── границы наблюдения (rc, stdout bytes, stderr bytes) — К-10 ───────────────
