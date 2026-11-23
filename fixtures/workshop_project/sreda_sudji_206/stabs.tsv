@@ -33,3 +33,5 @@ observer-object-not-assigned	observer-unassigned-object	fixtures/workshop_projec
 observer-invalid-is-incomplete	observer-null	fixtures/workshop_project/sreda_sudji_206/live.py
 observer-invalid-array-is-incomplete	observer-array	fixtures/workshop_project/sreda_sudji_206/live.py
 observer-bom-accepted	observer-bom	fixtures/workshop_project/sreda_sudji_206/live.py
+absolute-symlink-ignored	verdict-absolute-file-symlink-outside	scripts/pre_judge.sh
+cp-trailing-slash-ignored	guard-cp-trailing-slash-live-state	.omp/extensions/path-guard.ts
