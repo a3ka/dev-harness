@@ -1,0 +1,21 @@
+# Мутация<TAB>различающий вход. Н-39: привязки в данных и коде, не контракте.
+BEZ-BLOBA	g2-blob-ne-tega
+INVERSIJA-BLOBA	g2-blob-ne-tega
+BEZ-PREDKA	g5-chuzhie-roditeli
+BEZ-SYNC	b2-sync
+LEGKIJ-TEG	g3-legkij-teg
+BEZ-ORIGIN	g11-teg-ne-origin
+BEZ-ORIGIN	g14-podmena-obekta
+BEZ-RODITEL-BLOBA	g17-roditel-drugoj-blob
+BEZ-FAST	b1-lend
+BEZ-ORACLE	b3-oracle
+BEZ-PREPUSH	b5-prepush-sync
+V2-INDULGENCIJA	g15-v2-ne-indulgencija
+BEZ-POST-TAG	g1-posle-tega
+BEZ-NETWORK-FAIL	g12-net-seti
+WRONG-GRAMMAR	g16-nevernaja-grammatika
+SMESHANNYJ	g6-smeshannyj
+GRANDFATHER-UDALEN	a2-grandfather-70-71
+BEZ-PERVICHNOJ	g19-merge-vozvrat
+BEZ-PERVICHNOJ	g20-prepush-merge-vozvrat
+PARY-208-UDALENY	a3-grandfather-72-74
