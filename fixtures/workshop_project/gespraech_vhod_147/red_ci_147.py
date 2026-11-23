@@ -27,6 +27,16 @@ Job: замкнутый алфавит и буквальное равенств�
 аргумент echo и комментарий вызовом не являются. Отсутствующая lane в
 корневом package.json — именованный отказ LANEJA_NET: npm run без ключа
 падает в прогоне и красит паритет, «регистрация» без lane — ложь.
+Правка по FAIL критика (вызов 1, 23.11; К-05/К-08/К-09/К-10): непустой
+ключ lane приёмки не доказывает её ИСПОЛНЕНИЯ — пустышка «echo skipped»
+держала --repo зелёным (REGISTRACIJA_OK, rc 0) без валидатора и Maestro.
+Значение lane приёмки судится ПОБАЙТОВО против канона MODEL_PKG
+(`bash mobile/scripts/ci-ekran-gespraech-vhod.sh`): связка worker →
+lane → скрипт приёмки обязана различаться от пустышки и подавления
+(`|| true`) — именованный отказ LANE_NE_KANON. Значения lanes канона
+197 (писатель/читатель артефактов) — зона семьи 197: здесь только
+существование ключа (наблюдение критика о пустышке писателя — граница,
+не требование зоны 147).
 Отказ публикации не подавляется: continue-on-error, if: success() и
 `|| true` у судимых шагов отклоняются равенством модели (fail-closed
 писателя держит скрипт-канон 197 — ISTOCHNIK_OTSTUTSTVUET).
@@ -161,8 +171,13 @@ def sudi_kartu(root):
 
 def sudi_lineju(root):
     """Lane-вызов без lane в КОРНЕВОМ package.json — ложная регистрация:
-    npm run падает в прогоне, паритет 163/1 красен. Ключи обязаны
-    существовать и быть непустыми строками (значение — зона implementer)."""
+    npm run падает в прогоне, паритет 163/1 красен. Оба ключа обязаны
+    существовать и быть непустыми строками. Значение lane приёмки сверх
+    того ПОБАЙТОВО равно канону модели (v6-правка по FAIL критика:
+    пустышка «echo skipped» держала зелёную форму работника без экранной
+    приёмки — связка worker → lane → скрипт приёмки обязана различаться
+    от пустышки и подавления). Значения lanes канона 197 (писатель/
+    читатель) — зона семьи 197: здесь только существование ключа."""
     pkg = root / KOREN_PKG
     if not pkg.is_file():
         raise Krasno('LANEJA_NET', f'нет корневого {KOREN_PKG}')
@@ -178,6 +193,13 @@ def sudi_lineju(root):
         if not isinstance(zn, str) or not zn:
             raise Krasno('LANEJA_NET',
                          f'lane {kljuch} не объявлена в корневом {KOREN_PKG}')
+    zn = skripty[LANE_VALIDATORA]
+    kanon = MODEL_PKG['scripts'][LANE_VALIDATORA]
+    if zn != kanon:
+        raise Krasno('LANE_NE_KANON',
+                     f'lane {LANE_VALIDATORA}: значение {zn!r} != канону '
+                     f'{kanon!r} — lane обязана побайтово исполнять '
+                     f'скрипт приёмки')
 
 
 # ── структурный разбор работника (Б-1: операция, не подстрока) ────────────────
@@ -498,8 +520,10 @@ jobs:
 """
 
 # Модель корневого package.json: lanes — единственная судимая часть; значения
-# artefakt-lanes равны канону 197 (живой продукт, замер 2026-11-22), значение
-# lane приёмки называет скрипт зоны implementer.
+# artefakt-lanes равны канону 197 (живой продукт, замер 2026-11-22) и судятся
+# только существованием (зона семьи 197); значение lane приёмки — ПОБАЙТОВЫЙ
+# КАНОН (sudi_lineju, правка по FAIL критика v6): именно эта команда
+# обязана исполняться lane работника.
 MODEL_PKG = {
     'scripts': {
         'ci:artefakt-zapis': 'node mobile/scripts/ci-artefakty.cjs zapis',
@@ -570,6 +594,15 @@ def _bez_lanei(root, kljuch):
     pkg = root / KOREN_PKG
     data = json.loads(pkg.read_text())
     data['scripts'].pop(kljuch)
+    pkg.write_text(json.dumps(data, indent=2))
+
+
+def _zameni_znachenie_lanei(root, kljuch, znachenie):
+    """Мутация ЗНАЧЕНИЯ lane (ключ остаётся, проверка существования зелена):
+    различает побайтовый канон от «непустой строки» (v6-FAIL К-08)."""
+    pkg = root / KOREN_PKG
+    data = json.loads(pkg.read_text())
+    data['scripts'][kljuch] = znachenie
     pkg.write_text(json.dumps(data, indent=2))
 
 
@@ -734,6 +767,16 @@ STABY = [
      'LANEJA_NET', lambda r: _bez_lanei(r, LANE_VALIDATORA)),
     ('корневой package.json без lane писателя ci:artefakt-zapis',
      'LANEJA_NET', lambda r: _bez_lanei(r, LANE_ZAPISI)),
+    ('значение lane приёмки — пустышка echo skipped вместо команды '
+     'валидатора (v6-FAIL К-08: непустой ключ не доказывает исполнения)',
+     'LANE_NE_KANON',
+     lambda r: _zameni_znachenie_lanei(r, LANE_VALIDATORA, 'echo skipped')),
+    ('значение lane приёмки с подавлением отказа — хвост "|| true" '
+     'внутри значения lane (v6-FAIL К-10: ненулевой итог приёмки)',
+     'LANE_NE_KANON',
+     lambda r: _zameni_znachenie_lanei(
+         r, LANE_VALIDATORA,
+         MODEL_PKG['scripts'][LANE_VALIDATORA] + ' || true')),
     ('работник без валидатора', 'RABOTNIK_BEZ_VALIDATORA',
      lambda r: _zameni(r, VAL_STROKA,
                        '        run: maestro test mobile/.maestro/gespraech-vhod.yaml')),
