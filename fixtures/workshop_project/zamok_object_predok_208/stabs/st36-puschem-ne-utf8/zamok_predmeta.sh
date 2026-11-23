@@ -328,6 +328,15 @@ puti_kommita() {  # <worktree> <commit>
   fi
 }
 
+# [D45 verdict-path] Белый список вердиктных путей предмета — ОДИН предикат
+# для резолвера и kodovaja_granica (инвариант 3: список D9b тот же, что у
+# резолвера; третья копия грамматики разошлась — Б-1 Rev208).
+verdikt_put() {  # <NNN> <path> → 0 вердиктный путь | 1 нет
+  local n="$1" p="$2"
+  [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\.md$ \
+    || "$p" =~ ^\.review/[A-Za-z0-9._-]+\.md$ ]]
+}
+
 # [D43 verdict-object] Один resolver для D9, передачи и pre_judge.
 # Только линейный хвост обычных verdict-файлов этого предмета прозрачен.
 object_kandidata() {  # <worktree> <NNN> <ref> → исходный OBJECT
@@ -337,8 +346,7 @@ object_kandidata() {  # <worktree> <NNN> <ref> → исходный OBJECT
   [ -n "$paths" ] || return 1 # [D50 empty-tip]
   # Непредметный/смешанный коммит — новая кодовая граница, не вердиктный хвост.
   while IFS= read -r p; do
-    [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\.md$ \
-      || "$p" =~ ^\.review/[A-Za-z0-9._-]+\.md$ ]] \
+    verdikt_put "$n" "$p" \
       || { printf '%s\n' "$tip"; return 0; }
   done <<< "$paths"
   while IFS= read -r p; do
@@ -369,8 +377,7 @@ object_kandidata() {  # <worktree> <NNN> <ref> → исходный OBJECT
     [ -n "$paths" ] || return 1
     while IFS= read -r p; do
       # [D45 verdict-path] Белый список, а не исключение «всё кроме scripts».
-      [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\.md$ \
-        || "$p" =~ ^\.review/[A-Za-z0-9._-]+\.md$ ]] || return 1
+      verdikt_put "$n" "$p" || return 1
       dir="${p#verdicts/}"; dir="${dir%%/*}"
       case "$dir" in review|.review) role=reviewer ;; *) role="$dir" ;; esac
       # [D46 verdict-author] Автор и коммиттер того же судейского канала.
@@ -407,8 +414,7 @@ obj_opublikovan() {  # <worktree> <NNN> <object> → 0 опубликован | 
 kodovaja_granica() {  # <worktree> <NNN> <object> → 0 граница | 1 нет
   local wt="$1" n="$2" o="$3" p
   while IFS= read -r p; do
-    [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\.md$ \
-      || "$p" == .review/* ]] || return 0
+    verdikt_put "$n" "$p" || return 0
   done < <(puti_kommita "$wt" "$o")
   return 1
 }
