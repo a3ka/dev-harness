@@ -404,17 +404,23 @@ is_charter_path() {
 # optimization), и явный `^1 <merge>` нужен только для merge. Корневой коммит —
 # без ^1, diff-tree против пустого дерева.
 #
-# `core.quotePath=false` — ОБЯЗАТЕЛЬНО: по умолчанию git печатает не-ASCII имя
-# пути в кавычках (`"contracts/810-\320\272..."`), и такой путь не совпадает ни
-# с одним именем файла на диске: уставной документ с кириллическим именем
-# выпадал из области и из суда (Adv210 Б-2). Разбор кавычек не вводим — имя
-# пути читается байт в байт.
+# ФОРМАТ ПОТОКА — NUL (контракт 210, арбитраж 23bec24cc): записи разделены
+# байтом NUL, имя пути печатается ВЕРБАТИМ — сырыми байтами, включая кавычку,
+# обратную косую, пробел, TAB, LF и прочие control-байты. Имя с NUL невозможно
+# (git/POSIX это запрещают), значит NUL остаётся ЕДИНСТВЕННЫМ безопасным
+# разделителем независимо от того, какие байты несёт само имя. Поток читают
+# ТОЛЬКО как NUL-записи (`IFS= read -r -d ''`); прежняя построчная форма
+# больше не действительна.
+#
+# `core.quotePath=false` НЕ применяется: он глушил бы только non-ASCII-подкласс
+# (LF/TAB/кавычка/бэкслеш git квотирует ВСЕГДА), а двойной механизм (флаг и
+# `-z`) не оставляем — арбитраж 23bec24cc.
 charter_diff_paths() {
   local c="$1" root="$2"
   if git -C "$root" rev-parse --verify --quiet "${c}^1" >/dev/null 2>&1; then
-    git -C "$root" -c core.quotePath=false diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "${c}^1" "$c" 2>/dev/null
+    git -C "$root" diff-tree -r -z --no-commit-id --name-only --no-renames --diff-filter=MD "${c}^1" "$c" 2>/dev/null
   else
-    git -C "$root" -c core.quotePath=false diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "$c" 2>/dev/null
+    git -C "$root" diff-tree -r -z --no-commit-id --name-only --no-renames --diff-filter=MD "$c" 2>/dev/null
   fi
 }
 
@@ -837,27 +843,33 @@ trap 'rm -rf "$TMP"' EXIT
 # ── область: файл → диапазон, с которого он уставной ──────────────────────────
 # У AGENTS.md и ROADMAP.md точка одна — тег `ustav/1`. У планов и контрактов своя у каждого:
 # ПЕРВАЯ его заморозка. Общий диапазон здесь был бы ложью о предмете: до заморозки файл черновик.
+#
+# ФОРМАТ ФАЙЛА ПАР — NUL (контракт 210): пара «путь, since» записывается двумя
+# NUL-записями подряд. Имя пути с TAB/LF/кавычкой не может разорвать пару и не
+# может стать вторым полем: читается `IFS= read -r -d ''` по записям.
 : > "$TMP/pairs"
 for f in AGENTS.md ROADMAP.md; do
   g cat-file -e "HEAD:$f" 2>/dev/null || continue
-  printf '%s\t%s\n' "$f" 'ustav/1' >> "$TMP/pairs"
+  printf '%s\0%s\0' "$f" 'ustav/1' >> "$TMP/pairs"
 done
 
 # Ошибка ls-tree — именованный отказ, не пустая область: непрочитанное дерево
 # plans/contracts не равно «уставных документов там нет» (контракт 992).
-# `core.quotePath=false` — имена путей читаются байт в байт: по умолчанию git
-# печатает не-ASCII имя в кавычках, и такой документ выпадал из области
-# (Adv210 Б-2).
+# Имена области читаются NUL-транспортом (`ls-tree -z`, контракт 210): запись с
+# кавычкой/пробелом/control-байтом остаётся ОДНИМ именем, а не текстом с
+# кавычками (прежний `core.quotePath=false` закрывал только non-ASCII-подкласс —
+# двойной механизм не оставляем).
 lt_rc=0
-g -c core.quotePath=false ls-tree -r --name-only HEAD -- ':(literal)plans/' ':(literal)contracts/' > "$TMP/ls-raw" 2>/dev/null || lt_rc=$?
+g ls-tree -r -z --name-only HEAD -- ':(literal)plans/' ':(literal)contracts/' > "$TMP/ls-raw" 2>/dev/null || lt_rc=$?
 if [ "$lt_rc" -ne 0 ]; then
   bad "область устава (plans/, contracts/) не читается (ls-tree rc=$lt_rc): проверить невозможно — git fsck и повтор"
   incr_finish 1
   exit 1
 fi
-awk '/\.md$/' "$TMP/ls-raw" | sort > "$TMP/docs"
-while IFS= read -r f; do
+LC_ALL=C sort -z "$TMP/ls-raw" > "$TMP/docs"
+while IFS= read -r -d '' f; do
   [ -n "$f" ] || continue
+  case "$f" in *.md) ;; *) continue ;; esac
   dir="${f%%/*}"; base="${f##*/}"
   [ "$dir/$base" = "$f" ] || continue
   ARTIFACT_NUMBER=""
@@ -867,7 +879,7 @@ while IFS= read -r f; do
   NNN="$(printf '%03d' "$ARTIFACT_NUMBER")"
   # Уставным файл становится с ПЕРВОЙ заморозки; нет её — он черновик и здесь не предмет.
   g rev-parse --verify --quiet "refs/tags/frozen/$dir/$NNN/1" >/dev/null || continue
-  printf '%s\t%s\n' "$f" "frozen/$dir/$NNN/1" >> "$TMP/pairs"
+  printf '%s\0%s\0' "$f" "frozen/$dir/$NNN/1" >> "$TMP/pairs"
 done < "$TMP/docs"
 
 # ── обход ─────────────────────────────────────────────────────────────────────
@@ -881,7 +893,7 @@ done < "$TMP/docs"
 docs=0; changes=0; excused=0
 if [ "$ORACLE" = "1" ]; then
   # ── оракул: побайтово прежний (медленный) цикл по парам × коммиты ──
-  while IFS=$'\t' read -r f since; do
+  while IFS= read -r -d '' f && IFS= read -r -d '' since; do
     [ -n "$f" ] || continue
     docs=$((docs + 1))
     doc_fails_before="$fails"
@@ -922,7 +934,15 @@ if [ "$ORACLE" = "1" ]; then
         bad "$f — дельта коммита ${c:0:8} не читается (diff-tree rc=$dt_rc): проверить невозможно — git fsck и повтор"
         continue
       fi
-      grep -qxF -- "$f" "$TMP/dpaths" || continue
+      # Членство в дельте — по NUL-ЗАПИСЯМ, не по строкам: имя с кавычкой,
+      # пробелом или control-байтом не должно ни совпасть с посторонней
+      # строкой, ни выпасть из дельты (прежний `grep -qxF` по строкам читал
+      # дельту как текст).
+      found=0
+      while IFS= read -r -d '' dp; do
+        [ "$dp" != "$f" ] || found=1
+      done < "$TMP/dpaths"
+      [ "$found" -eq 1 ] || continue
       changes=$((changes + 1))
       if razreshil "$c" "$f"; then
         excused=$((excused + 1))
@@ -952,9 +972,10 @@ if [ "$ORACLE" = "1" ]; then
 else
   # ── быстрый режим (вариант (в), контракт 113) ─────────────────────────
   # Один проход `git log` со штатными флагами mergediff/renames/filter
-  # строится ровно один раз и используется всеми документами; маркер `\x01`
-  # (SOH) — имя пути с control-символом невозможно в git, поэтому строка-маркер
-  # коммита неотличима от имени файла только для сломанного дерева.
+  # строится ровно один раз и используется всеми документами. Транспорт имён —
+  # NUL (контракт 210): разделителя-маркера в строках больше нет, разбор идёт
+  # по структуре протокола (пустая запись → sha коммита → записи путей), поэтому
+  # имя с control-байтом (SOH/TAB/LF) не может выдать себя за заголовок коммита.
   # Карты ниже — состояние ПРОЦЕССА (не на диске): вариант (в) не несёт состояния между
   # прогонами, и проверка не пишет в судимое дерево ничего (см. шаг 3).
   declare -A __ch_doc_eff=()    # путь → эффективная since (с подменой INCR_BASE там, где законно)
@@ -968,7 +989,7 @@ else
   #    Если файл заморожен ДО кеша (since — предок INCR_BASE), окно сужается
   #    до кеша; иначе остаётся since (черновики ДО заморозки не попадают в
   #    проверяемое окно как «уставные без разрешения» — прецедент 083 И-15).
-  while IFS=$'\t' read -r f since; do
+  while IFS= read -r -d '' f && IFS= read -r -d '' since; do
     [ -n "$f" ] || continue
     docs=$((docs + 1))
     eff="$since"
@@ -1012,37 +1033,57 @@ else
   # дерева — побочный эффект проверки, наблюдаемый на свежем клоне. Замер холодного
   # клона `git clone --local` без него: rc=0 за 6.2 с (бюджет В-клетки 60 с).
   #
-  # `core.quotePath=false` — имена путей в этом проходе читаются байт в байт:
-  # по умолчанию git печатает не-ASCII имя в кавычках, и уставной документ с
-  # кириллическим именем не совпал бы с картой области (Adv210 Б-2).
+  # Имена путей в этом проходе читаются NUL-транспортом (`-z`): имя печатается
+  # вербатим (сырые байты), записи разделены NUL. Прежний `core.quotePath=false`
+  # закрывал только non-ASCII-подкласс — двойной механизм (флаг и `-z`) не
+  # оставляем (арбитраж 23bec24cc).
   __ch_lr=0
-  g -c core.quotePath=false log --format=$'\x01%H' --name-only \
+  g log -z --format=%x00%H --name-only \
       --no-renames --diff-filter=MD --diff-merges=first-parent HEAD \
       > "$TMP/log-data" 2>/dev/null || __ch_lr=$?
   if [ "$__ch_lr" -ne 0 ]; then
     bad "история не читается (git log rc=$__ch_lr): проверить невозможно — git fsck и повтор"
   else
     __ch_c=""
-    while IFS= read -r __ch_line; do
-      case "$__ch_line" in
-        $'\x01'*)
-          __ch_c="${__ch_line#$'\x01'}"
-          # ГРАММАТИКА SHA — НЕ 40: инвариант 1 «на любом дереве», а дерево бывает
-          # `--object-format=sha256`, где `%H` = 64 hex. Фильтр с зашитой 40 отбрасывал
-          # ВСЕ матчи молча: в sha256-репозитории барьер отдавал rc 0 с «изменений без
-          # разрешения нет» на коммите, меняющем устав без РАЗРЕШИЛ (пройдено пробой
-          # fixtures 113 клетка sha256). Принимаем 40 hex (sha1) и 64 hex (sha256).
-          case "${#__ch_c}" in
-            40|64) ;;
-            *)      __ch_c="" ;;
+    __ch_line=""
+    # ПРОТОКОЛ `git log -z --format=%x00%H --name-only` (живой замер, od -c):
+    # запись формата даёт ПУСТУЮ запись, следующую — sha коммита; имя пути идёт
+    # следующей записью, и у ПЕРВОГО пути каждого коммита перед именем стоит
+    # ровно один служебный LF от git. Метаданные и пути разбираются по СТРУКТУРЕ
+    # протокола, а не по догадке, что control-байт в имени невозможен: имя с
+    # SOH/LF/TAB остаётся одной записью и не может выдать себя за sha.
+    #
+    # ГРАММАТИКА SHA — НЕ 40: инвариант 1 «на любом дереве», а дерево бывает
+    # `--object-format=sha256`, где `%H` = 64 hex. Принимаем 40 hex (sha1) и
+    # 64 hex (sha256).
+    __ch_state=header
+    while IFS= read -r -d '' __ch_line; do
+      case "$__ch_state:$__ch_line" in
+        header:)
+          IFS= read -r -d '' __ch_c <&0 || { bad "оборвана запись коммита git log"; break; }
+          case "${#__ch_c}:$__ch_c" in
+            40:*|64:*) case "$__ch_c" in *[!0-9a-f]*) bad "неверный коммит git log"; break ;; esac ;;
+            *) bad "неверный коммит git log"; break ;;
           esac
-          case "$__ch_c" in
-            *[!0-9a-f]*) __ch_c="" ;;
-          esac
+          __ch_state=first
           ;;
-        "") ;;
+        first:|paths:)
+          __ch_state=header
+          IFS= read -r -d '' __ch_c || { bad "оборвана запись коммита git log"; break; }
+          case "${#__ch_c}:$__ch_c" in
+            40:*|64:*) case "$__ch_c" in *[!0-9a-f]*) bad "неверный коммит git log"; break ;; esac ;;
+            *) bad "неверный коммит git log"; break ;;
+          esac
+          __ch_state=first
+          ;;
         *)
-          [ -n "$__ch_c" ] || continue
+          if [ "$__ch_state" = first ]; then
+            case "$__ch_line" in
+              $'\n'*) __ch_line="${__ch_line:1}" ;;
+              *) bad "неверная запись пути git log"; break ;;
+            esac
+            __ch_state=paths
+          fi
           __ch_p="$__ch_line"
           __ch_eff="${__ch_doc_eff[$__ch_p]:-}"
           [ -n "$__ch_eff" ] || continue   # путь не уставной — пропускаем без шума
@@ -1084,14 +1125,19 @@ else
           ;;
       esac
     done < "$TMP/log-data"
+    # Пустой или оборванный протокол — ИМЕНОВАННЫЙ отказ, а не «чистая область»:
+    # непрочитанная история не равна истории без нарушений (контракт 992).
+    if [ -z "$__ch_c" ] || [ -n "$__ch_line" ]; then
+      bad "пустой или оборванный протокол git log: проверить невозможно"
+    fi
   fi
-  unset __ch_c __ch_line __ch_p __ch_eff __ch_lr
+  unset __ch_c __ch_line __ch_p __ch_eff __ch_lr __ch_state
   # 4. Зелёные ОК с числом просмотренного — барьер, молча проходящий по уставному
   #    документу, не даёт доказательств, ЧТО он проверил (прецедент В-клетки +
   #    обманка s8). Счётчик берётся из посчитанного `rev-list --count` (зеркало
   #    wc -l < rev-list $since..HEAD оракула); per-doc — один ОК при отсутствии
   #    FAIL на документе.
-  while IFS=$'\t' read -r f since; do
+  while IFS= read -r -d '' f && IFS= read -r -d '' since; do
     [ -n "$f" ] || continue
     __ch_eff="${__ch_doc_eff[$f]:-}"
     [ -n "$__ch_eff" ] || continue
