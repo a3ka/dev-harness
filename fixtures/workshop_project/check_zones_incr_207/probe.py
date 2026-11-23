@@ -8,6 +8,13 @@
 базовой двери на каждом мире; счётчики по И1 (в том числе ноль при K=0).
 --stabs — адресные мутации модели и обманные стабы по stabs.tsv (Н-39):
 честный контроль зелёный, мутация различима на связанной клетке; ZHIVYH == 0.
+--base — зафиксированная база base/check_zones.sh (main 0eb88386a) как субъект:
+честный контроль новых клеток Б-1; команда стабильна и до, и после правки
+implementer (урок 208 Б-2 — красное-до исполняется против зафиксированной
+базы, не против субъекта HEAD). Мутации PATERN:PROIZV-* применяются к
+production scripts/check_zones.sh выбранного дерева: якорь правки Б-1
+(zones_replay "$own_nnn") отсутствует до правки — именованный отказ
+NE_PRIMENIM rc 2 (красное-до), после правки мутация обязана быть поймана.
 Оракул (ожидания, sha, маркеры, сводки) снимается в память ДО вызова субъекта;
 субъект пишет только в одноразовых git-мирах и свой скратч.
 """
@@ -27,6 +34,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 TREE = HERE.parents[2]
 MODEL = HERE / 'model' / 'check_zones.sh'
+BASE_DOOR = HERE / 'base' / 'check_zones.sh'
 STABS_TSV = HERE / 'stabs.tsv'
 
 C_STRING = r'"(?:\\.|[^"\\])*"'
@@ -393,9 +401,22 @@ class Battery:
         self.inventory = GitInventory()
         self.scratch = Path(tempfile.mkdtemp(prefix='check_zones_incr_207.'))
         self.worlds = {}
+        self._pinned = None
 
     def cleanup(self):
         shutil.rmtree(self.scratch, ignore_errors=True)
+
+    def pinned(self):
+        """Зафиксированная база (main 0eb88386a) — канон миров Б-1 (reviewer
+        вызов 1): production-субъект меняется правкой implementer (own_nnn),
+        канон — нет, поэтому клетки e16/e17 сверяют и incr, и полный канон с
+        ней, а не с текущим субъектом.
+        """
+        if self._pinned is None:
+            if not BASE_DOOR.is_file():
+                raise Prerequisite('нет зафиксированной базы base/check_zones.sh')
+            self._pinned = self.make_scratch('scr_pin', BASE_DOOR)
+        return self._pinned
 
     # ── миры ────────────────────────────────────────────────────────────────
     def world(self, name):
@@ -600,6 +621,65 @@ class Battery:
                             f'  FAIL коммит вне зоны: architect {sha[:8]} plans/{path}.md — '
                             'зона автора (объединение всех замороженных): zones/a/ '
                             for path in ('a', 'b')])
+        elif name == 'wA':
+            # Б-1 (reviewer вызов 1): СПАСЕНО-коммит раньше ADD-минта в том же
+            # окне, ложно-зелёный класс. 033 объявляет orchestrator-автора —
+            # минт-коммит входит в сбор окна (в incr — по объединению авторов,
+            # в полном — в окно 033), его побочный эффект переприсваивает nnn,
+            # и дефектный replay стартует с номера минта 041 вместо СВОЕГО
+            # контракта: нарушитель c уходит из суда 033 (rc 0 вместо 1).
+            # Номера не 101/102 (урок 208 — мир не привязан к одной паре).
+            wfile(w.root, 'registry/contracts.tsv', '')
+            w.seed([('033', ['ЗОНА alice: a/', 'ЗОНА orchestrator: registry/'], None),
+                    ('041', ['ЗОНА alice: a/'], None)])
+            base = w.sha('HEAD')
+            w.c('alice', 'n-narushitel', {'plans/x.md': 'x\n'})
+            viol = w.sha('HEAD')
+            wfile(w.root, 'contracts/041-x.md',
+                  contract_body('041', ['ЗОНА alice: a/'],
+                                f'СПАСЕНО alice: {viol} — испытание replay'))
+            git(w.root, 'add', '-A')
+            git(w.root, 'commit', '-q', '-m', 'контракт 041 v2 со СПАСЕНО', author='arhiv')
+            git(w.root, 'tag', '-a', 'frozen/contracts/041/2', '-m', 'контракт 041 v2 утверждён')
+            w.tag_id('041', 'HEAD')
+            tag_sha = w.sha('refs/tags/id/CONTRACT/041')
+            wfile(w.root, 'registry/contracts.tsv', f'041 → {tag_sha}\n')
+            git(w.root, 'add', '-A')
+            git(w.root, 'commit', '-q', '-m', 'минт ADD 041', author='orchestrator')
+            info.update(base=base, head=w.sha('HEAD'), n=3, rc=1, fails=1,
+                        commits=6, checked=2, cache_stays=True,
+                        fail_line=f'  FAIL коммит вне зоны: alice {viol[:8]} plans/x.md — '
+                                  f'зона автора (объединение всех замороженных): a/ ',
+                        ok_line=f'  ok   контракт 041: коммит {viol[:8]} (alice) — СПАСЕНО, '
+                                'из суда зон выведен')
+        elif name == 'wB':
+            # Б-1, второй класс: СПАСЕНО у 052, минт ADD постороннего 077.
+            # Полный режим собирает окно 052 по ЕГО авторам (только alice) —
+            # минта в сборе нет, replay честен; incr собирает по объединению
+            # авторов {alice, orchestrator} — побочный эффект минта доступен
+            # дефекту, и replay 052 стартует с 077: СПАСЕНО не опознаётся,
+            # ложный FAIL (rc 1 вместо 0), кеш не записан, incr ≠ полному.
+            wfile(w.root, 'registry/contracts.tsv', '')
+            w.seed([('052', ['ЗОНА alice: b/'], None),
+                    ('061', ['ЗОНА orchestrator: registry/'], None)])
+            base = w.sha('HEAD')
+            w.c('alice', 'n-narushitel', {'plans/y.md': 'y\n'})
+            viol = w.sha('HEAD')
+            wfile(w.root, 'contracts/052-x.md',
+                  contract_body('052', ['ЗОНА alice: b/'],
+                                f'СПАСЕНО alice: {viol} — испытание replay'))
+            git(w.root, 'add', '-A')
+            git(w.root, 'commit', '-q', '-m', 'контракт 052 v2 со СПАСЕНО', author='arhiv')
+            git(w.root, 'tag', '-a', 'frozen/contracts/052/2', '-m', 'контракт 052 v2 утверждён')
+            w.tag_id('077', 'HEAD')
+            tag_sha = w.sha('refs/tags/id/CONTRACT/077')
+            wfile(w.root, 'registry/contracts.tsv', f'077 → {tag_sha}\n')
+            git(w.root, 'add', '-A')
+            git(w.root, 'commit', '-q', '-m', 'минт ADD 077', author='orchestrator')
+            info.update(base=base, head=w.sha('HEAD'), n=3, rc=0, fails=0,
+                        commits=6, checked=1,
+                        ok_line=f'  ok   контракт 052: коммит {viol[:8]} (alice) — СПАСЕНО, '
+                                'из суда зон выведен')
         elif name.startswith('wdif'):
             k = 8 if name == 'wdif8' else 24
             w.seed([(f'{i:03d}', ['ЗОНА architect: zones/d/'], None) for i in range(1, k + 1)])
@@ -720,10 +800,11 @@ class Battery:
 
 # ── клетки ────────────────────────────────────────────────────────────────────
 class Runner:
-    def __init__(self, battery, subjects, tree_door):
+    def __init__(self, battery, subjects, tree_door, pin_all=False):
         self.b = battery
         self.s = subjects          # {'subj': scripts_dir, 'base': scripts_dir|None}
         self.tree = tree_door      # полная производственная дверь дерева (full-прогон)
+        self.pin_all = pin_all     # режим --base: канон всех клеток — база
         self.results = []
 
     @staticmethod
@@ -734,29 +815,39 @@ class Runner:
                 for key, want in zip(('rk_rev', 'rk_merges', 'ak', 'dt'), expected)
                 if run['counters'][key] != want]
 
-    def eq_cell(self, name, wname, counters=None):
+    def eq_cell(self, name, wname, counters=None, pin=False):
         w = self.b.world(wname)
         w['contracts'] = {'w1': 3, 'w2': 3, 'w3': 2, 'w4': 2, 'w4b': 2, 'w5': 2, 'w6': 2,
                           'w7': 2, 'w8': 2, 'w9': 2, 'w10': 2, 'w11': 1, 'w12': 1,
                           'w13': 1, 'w14': 1, 'w15': 1, 'wk0': 1,
-                          'wdif8': 8, 'wdif24': 24, 'wa2': 20}[wname]
+                          'wdif8': 8, 'wdif24': 24, 'wa2': 20, 'wA': 2, 'wB': 2}[wname]
         w['authors'] = 1
         marker = self.b.marker_of(w)
         want_summary = self.b.summary_of(w)
+        # Клетки Б-1 (и режим --base) судят против ЗАФИКСИРОВАННОЙ базы
+        # (main 0eb88386a), не против текущего субъекта: правка implementer
+        # меняет production, канон — нет (урок 208 Б-2).
+        use_pin = pin or name in PIN_CELLS
+        canon_full = self.b.pinned() if use_pin else self.tree
         # Все канонические байты и rc — в памяти ДО вызова субъекта.
-        full = self.b.door(self.tree, self.b.full_world(w), incr=False)
-        baserun = (self.b.door(self.s['base'], w, incr=True, strace=w.get('no_zones', False))
-                   if self.s.get('base') is not None else None)
+        full = self.b.door(canon_full, self.b.full_world(w), incr=False)
+        if use_pin:
+            baserun = self.b.door(self.b.pinned(), w, incr=True)
+        else:
+            baserun = (self.b.door(self.s['base'], w, incr=True, strace=w.get('no_zones', False))
+                       if self.s.get('base') is not None else None)
         subj = self.b.door(self.s['subj'], w, incr=True, strace=counters is not None)
         problems = []
         if subj['rc'] != w['rc']:
             problems.append(f'rc={subj["rc"]} ≠ {w["rc"]}')
+        canon = ('зафиксированной базы' if use_pin
+                 else 'полного прогона производственной двери')
         if subj['rc'] != full['rc']:
-            problems.append('rc incr ≠ полному прогону производственной двери')
+            problems.append(f'rc incr ≠ канону {canon}')
         if subj['out'] != full['out']:
-            problems.append('stdout incr ≠ полному прогону производственной двери (байты)')
+            problems.append(f'stdout incr ≠ канону {canon} (байты)')
         if self.b.strip_marker(subj['err']) != full['err']:
-            problems.append('stderr incr (без маркера) ≠ полному прогону производственной двери (байты)')
+            problems.append(f'stderr incr (без маркера) ≠ канону {canon} (байты)')
         err = subj['err'].decode(errors='replace')
         if marker not in err.splitlines():
             problems.append(f'нет маркера «{marker}»')
@@ -794,7 +885,7 @@ class Runner:
 
     def run_cell(self, name):
         if name in EQ_CELLS:
-            self.eq_cell(name, EQ_CELLS[name])
+            self.eq_cell(name, EQ_CELLS[name], pin=self.pin_all)
         elif name == 'k0-bez-zon':
             self.eq_cell(name, 'wk0', counters=(0, 0, 0, 0))
         elif name in COUNTER_CELLS:
@@ -864,7 +955,11 @@ EQ_CELLS = {
     'e13-processnye-vne-suda': 'w13',
     'e14-porjadok-replay': 'w14',
     'e15-porjadok-putej': 'w15',
+    'e16-spaseno-do-add-minta': 'wA',
+    'e17-lozhnyj-fail-incr': 'wB',
 }
+# Клетки Б-1: канон — зафиксированная база, не текущий субъект.
+PIN_CELLS = frozenset({'e16-spaseno-do-add-minta', 'e17-lozhnyj-fail-incr'})
 COUNTER_CELLS = {
     'c1-okno-odin-raz': ('w1', 1, 1, 1, 1),
     'c2-pustoe-okno-schet': ('w5', 1, 1, 0, 0),
@@ -985,9 +1080,13 @@ def main():
     ap.add_argument('--repo', nargs='?', default=None)
     ap.add_argument('--model', action='store_true')
     ap.add_argument('--stabs', action='store_true')
+    ap.add_argument('--base', action='store_true',
+                    help='зафиксированная база как субъект: честный контроль '
+                         'клеток (красное-до стабильно до и после правки)')
     ap.add_argument('--catalog', action='store_true', help='пересчёт клеток, связей и якорей')
     ap.add_argument('--mutation', help='с --model: одно адресное предъявление, сырой rc клетки')
-    ap.add_argument('--delta', choices=('k0', 'replay', 'stdout', 'git'), action='append',
+    ap.add_argument('--delta', choices=('k0', 'replay', 'stdout', 'git', 'model', 'proizv'),
+                    action='append',
                     help='с --stabs: адресная группа дельта-листа; можно повторить')
     args = ap.parse_args()
     if args.catalog:
@@ -996,10 +1095,18 @@ def main():
             raise Prerequisite('повтор имени стаба')
         for name, (anchor, replacement) in PATERNS.items():
             model_text(name, anchor, replacement)
+        proizv_rows = {row[0] for row in rows if row[0] in PROIZV_PATERNS}
+        strays = [row[0] for row in rows
+                  if row[0].startswith('PATERN:PROIZV-') and row[0] not in PROIZV_PATERNS]
+        if strays:
+            raise Prerequisite(f'stabs.tsv: PROIZV-имена без мутатора: {strays}')
+        if proizv_rows != set(PROIZV_PATERNS):
+            raise Prerequisite('PROIZV-мутация без строки в stabs.tsv')
         count = len(EQ_CELLS) + len(COUNTER_CELLS) + len(GIT_FORMS) + len(TRACE_FAILURES) + 1
         print(f'EQ={len(EQ_CELLS)} C={len(COUNTER_CELLS)} H={len(GIT_FORMS)} '
               f'N={len(TRACE_FAILURES)} K0=1 KLETKI={count} '
-              f'STABS={len(rows)} PATERNS={len(PATERNS)} ANCHORS=1')
+              f'STABS={len(rows)} PATERNS={len(PATERNS)} '
+              f'PROIZV={len(PROIZV_PATERNS)} ANCHORS=1')
         return 0
 
     repo = Path(args.repo).resolve() if args.repo else TREE
@@ -1024,8 +1131,19 @@ def main():
             tree = b.make_scratch('scr_tree')
             rows = load_stabs()
             if args.delta:
-                prefixes = tuple('PATERN:' + group.upper() + '-' for group in args.delta)
-                rows = [row for row in rows if row[0].startswith(prefixes)]
+                selected = []
+                for row in rows:
+                    keep = False
+                    for group in args.delta:
+                        if group == 'proizv':
+                            keep = keep or row[0] in PROIZV_PATERNS
+                        elif group == 'model':
+                            keep = keep or row[0] not in PROIZV_PATERNS
+                        else:
+                            keep = keep or row[0].startswith('PATERN:' + group.upper() + '-')
+                    if keep:
+                        selected.append(row)
+                rows = selected
             if not rows:
                 raise Prerequisite('пустая выборка адресных мутаций')
             mutacii = poimany = svjazi = 0
@@ -1035,12 +1153,38 @@ def main():
                     r = Runner(b, {'subj': subject_dir, 'base': base_scr}, tree)
                     r.run_cell(cell_name)
                     return r.results[-1]
-                ok_name, ok_honest, det_honest, _ = run_cell(honest)
+                # PROIZV-мутация применяется к PRODUCTION выбранного дерева:
+                # якорь — правка implementer Б-1 (zones_replay "$own_nnn").
+                # До правки якоря нет — именованный отказ rc 2 (красное-до),
+                # по контракту «отсутствующий субъект — rc 2, не поимка».
+                proizv = name in PROIZV_PATERNS
+                prod_text = None
+                if proizv:
+                    anchor, replacement = PROIZV_PATERNS[name]
+                    prod_text = (repo / 'scripts/check_zones.sh').read_text()
+                    found = prod_text.count(anchor)
+                    if found != 1:
+                        print(f'NE_PRIMENIM: {name}: якорь «{anchor}» встречается в '
+                              f'production scripts/check_zones.sh {found} раз — правка '
+                              f'implementer 207 (Б-1, own_nnn) не применена, мутация '
+                              f'не предъявлена (красное-до)', file=sys.stderr)
+                        return 2
+                    honest_subj = tree
+                else:
+                    honest_subj = honest
+                ok_name, ok_honest, det_honest, _ = run_cell(honest_subj)
                 if not ok_honest:
-                    print(f'ORACLE_TAMPERED: честная модель на клетке {cell_name} красна: {det_honest}',
-                          file=sys.stderr)
+                    chem = 'production' if proizv else 'модель'
+                    print(f'ORACLE_TAMPERED: честный субъект ({chem}) на клетке '
+                          f'{cell_name} красна: {det_honest}', file=sys.stderr)
                     return 2
-                if name.startswith('PATERN:'):
+                if proizv:
+                    anchor, replacement = PROIZV_PATERNS[name]
+                    mut = b.make_scratch('scr_mut')
+                    (mut / 'check_zones.sh').write_text(
+                        prod_text.replace(anchor, replacement))
+                    subject_dir = mut
+                elif name.startswith('PATERN:'):
                     anchor, replacement = PATERNS[name]
                     mut = b.make_scratch('scr_mut')
                     (mut / 'check_zones.sh').write_text(model_text(name, anchor, replacement))
@@ -1068,6 +1212,17 @@ def main():
                   file=sys.stderr)
             return 0 if zhivyh == 0 and poimany == svjazi else 1
 
+        if args.base:
+            if args.model or args.mutation or args.stabs:
+                raise Prerequisite('--base не сочетается с --model/--stabs/--mutation')
+            # Красное-до против ЗАФИКСИРОВАННОЙ базы (урок 208 Б-2): команда
+            # стабильна до и после правки implementer — честная база зелёна
+            # на всех клетках эквивалентности, включая новые e16/e17.
+            pin = b.pinned()
+            r = Runner(b, {'subj': pin, 'base': None}, pin, pin_all=True)
+            for name in EQ_CELLS:
+                r.run_cell(name)
+            return report(r.results, [])
         # --repo / --model
         for tool in ('strace',):
             if shutil.which(tool) is None:
@@ -1215,6 +1370,18 @@ PATERNS = {
         '"$(git --exec-path)/git-log" --stdin --no-walk=sorted '
         '--format=\'%H%x00%an%x00\' < "$TMP/w_commits" > /dev/null\n'
         + LOOKUP_EXTRA_ANCHOR),
+}
+
+# Адресные мутации ПРОИЗВОДСТВЕННОЙ двери (Н-39: привязка по коду субъекта,
+# не по прозе контракта). Якорь — правка implementer Б-1: после неё
+# `zones_replay "$own_nnn"` присутствует в scripts/check_zones.sh ровно один
+# раз (:1789); до правки файла-якоря нет — именованный отказ NE_PRIMENIM
+# rc 2 (красное-до). Мутация возвращает дефект (replay стартует с
+# переприсвоенного nnn) и обязана краснеть на новых клетках wA/wB.
+PROIZV_PATERNS = {
+    'PATERN:PROIZV-CLOB-SKIP': (
+        'zones_replay "$own_nnn"',
+        'zones_replay "$nnn"'),
 }
 
 
