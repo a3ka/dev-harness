@@ -48,7 +48,7 @@ modelRoles:
   task: "minimax/MiniMax-M3"
   task-glm: "zai/glm-5.3"  # фолбек: anthropic/claude-sonnet-5-5
   smol: "minimax/MiniMax-M2.5-lightning"
-  slow: "zai/glm-5.3"  # фолбек: openai-codex/gpt-6.1-sol
+  slow: "openai-codex/gpt-6.1-sol"  # фолбек: zai/glm-5.3
   advisor: "openai-codex/gpt-6.1-terra"  # фолбек: openai-codex/gpt-6.1-sol
   apex-sol: "openai-codex/gpt-6.1-terra"  # фолбек: zai/glm-5.3
   audit: "anthropic/claude-opus-5-5"  # фолбек: openai-codex/gpt-6.1-sol
@@ -80,6 +80,8 @@ modelRoles:
 # (Н-54) здесь ВЫКЛЮЧЕН (0) — см. roles/orchestrator.md; предохранитель на эту
 # секунду — ИМЕННО softRequestBudget, не wall-clock.
 task:
+  # Слово владельца 2026-11-23: «Модели (1): включить task.perCallModel: on в операторском слое станции и проектов; судьям — только основная или запасная модель своего тира.» (судей держит scripts/check_sud_model.sh, Н-270)
+  perCallModel: on
   # Явная сдача yield доступна структурированным задачам (omp 18.18.8).
   structured: true
   maxRuntimeMs: 0
@@ -125,7 +127,7 @@ retry:
     default: ["zai/glm-5.3"]
     vision: ["openai-codex/gpt-6.1-sol"]
     task-glm: ["anthropic/claude-sonnet-5-5"]
-    slow: ["openai-codex/gpt-6.1-sol"]
+    slow: ["zai/glm-5.3"]
     apex-sol: ["zai/glm-5.3"]
     plan: ["anthropic/claude-fable-5-2"]
   # ── /fallbackChains ──
