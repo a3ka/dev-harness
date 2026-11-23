@@ -701,7 +701,7 @@ if [ "${INCR_MODE:-full}" = "incr" ]; then
   # автора — объединение зон ВСЕХ замороженных контрактов (Н-100), а окно
   # incr-прогона одно на все контракты.
   : > "$TMP/w_union_raw"
-  while IFS=$'\t' read -r u_nnn u_since; do
+  while IFS=$'\t' read -r u_nnn _; do
     [ -n "$u_nnn" ] || continue
     awk -F'\t' -v n="$u_nnn" '$3 == n { print $1 }' "$TMP/zones_scoped" | sort -u > "$TMP/w_auth_one"
     if [ -s "$TMP/w_auth_one" ]; then
@@ -1183,6 +1183,7 @@ while IFS=$'\t' read -r nnn since; do
   # по счётчикам и текстам ok/bad.
   ZONES_COLLECT=1
   eff_nnn="$nnn"
+  own_nnn="$nnn"   # 207 (Б-1): номер СВОЕГО контракта — ДО цикла сбора: ниже `nnn` переприсваивается ADD-формой минта (:1441), и replay пошёл бы с номера минта (ключ СПАСЕНО на чужом контракте)
   while IFS= read -r c; do
     [ -n "$c" ] || continue
     # BATCHED author-lookup: O(1) awk-map-read вместо per-commit git-вызова.
@@ -1786,7 +1787,7 @@ while IFS=$'\t' read -r nnn since; do
   if [ "${INCR_MODE:-full}" = "incr" ]; then
     cp "$TMP/authors_one" "$TMP/authors"
   fi
-  zones_replay "$nnn"
+  zones_replay "$own_nnn"
 done < "$TMP/ranges"
 printf '\nпроцессных вне суда:%s\n' "${process_list:+ $process_list}" >&2
 
