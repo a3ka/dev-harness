@@ -66,6 +66,11 @@ def prepare(copy, delivery, state, other, verify_base, sandbox):
         (root / 'lex' / 'existing').mkdir(parents=True, exist_ok=True)
     own_root = copy / 'scratch' / 'm206'
     (own_root / 'src.txt').write_text('matrix-source\n')
+    # Реальность оси existing/../ (Adv206c-3): промежуточный каталог обязан
+    # существовать и в трёх назначениях dirlink-ссылок, не только в
+    # основном продукте через root/lex.
+    (own_root / 'existing').mkdir(exist_ok=True)
+    (state / 'existing').mkdir(exist_ok=True)
     for dest, target in (('own', own_root), ('state', state), ('foreign', other)):
         (copy / f'm206lnk-{dest}').symlink_to(target, target_is_directory=True)
     (copy / 'm206flink-inside').symlink_to(own_root / 'src.txt')
@@ -80,6 +85,26 @@ def prepare(copy, delivery, state, other, verify_base, sandbox):
     (copy / 'm206flink-verdict-in.md').symlink_to(
         copy / 'verdicts' / 'reviewer' / 'contracts-206-v1.md')
     (copy / 'm206flink-verdict-out.md').symlink_to(other / 'verdict.md')
+    # Вердикт-ссылки статических клеток (создаются один раз: мир матрицы и
+    # sweep переиспользуют prepare, повторное создание падает FileExists).
+    (copy / 'filelink-abs.md').symlink_to(other / 'verdict.md')
+    (copy / 'verdict-link.md').symlink_to(other / 'verdict.md')
+    (copy / 'verdict-link-inside.md').symlink_to(
+        copy / 'verdicts' / 'reviewer' / 'contracts-206-v1.md')
+
+
+def existing_reality(copy, delivery, state, other, verify_base):
+    """Клетка-проверка реальности мира (Adv206c-3): ось existing/../ обязана
+    опираться на СУЩЕСТВУЮЩИЙ промежуточний каталог — в абсолютной и
+    относительной форме основного продукта и в трёх назначениях dirlink."""
+    out = {}
+    for placement, root in roots(copy, delivery, state, other, verify_base).items():
+        out[f'world-existing-abs-{placement}'] = (root / 'lex' / 'existing').is_dir()
+        rel = os.path.relpath(root / 'lex', copy) + '/existing'
+        out[f'world-existing-rel-{placement}'] = (copy / rel).is_dir()
+    for dest in LINK_DESTS:
+        out[f'world-existing-dirlink-{dest}'] = (copy / f'm206lnk-{dest}' / 'existing').is_dir()
+    return out
 
 
 def guard_rows(copy, delivery, state, other, verify_base, hint):
@@ -87,8 +112,10 @@ def guard_rows(copy, delivery, state, other, verify_base, hint):
     хвост × четыре лексические формы × пять размещений × «--» × позиции,
     применимые к операции (cp — последняя цель при двух источниках; mkdir —
     выделенная цель на первой/средней/последней позиции среди разрешённых).
-    Отдельно: symlink-продукт (три назначения ссылки), ссылка-файл cp,
-    контроль symlink+`..`, относительная цель cp без cwd."""
+    Отдельный symlink-продукт (Adv206c-1): те же применимые формы и позиции —
+    basename/`/bin`, хвост, четыре лексические формы, «--», позиции mkdir
+    среди разрешённых, три назначения ссылки (своя копия/state/чужое дерево).
+    Ссылка-файл cp, контроль symlink+`..`, относительная цель cp без cwd."""
     world = roots(copy, delivery, state, other, verify_base)
     src1 = str(state / 'HANDOFF.md')
     src2 = str(copy / 'scratch' / 'm206' / 'src.txt')
@@ -102,7 +129,7 @@ def guard_rows(copy, delivery, state, other, verify_base, hint):
     def target_text(placement, base, tail, lex, n):
         root = world[placement]
         leaf = f't{n:04d}' + ('/' if tail == 'slash' else '')
-        parent = str(root / 'lex') if base == 'abs' else os.path.relpath(root, copy)
+        parent = str(root / 'lex') if base == 'abs' else os.path.relpath(root / 'lex', copy)
         return parent + LEX_SEPS[lex] + leaf
 
     rows = []
@@ -150,23 +177,32 @@ def guard_rows(copy, delivery, state, other, verify_base, hint):
                                              position=position, sign=sign),
                                         operand, base, cmd, sign)
 
-    for op in ('cp', 'mkdir'):
+    for binname, binlabel in BINS:
+        op = 'mkdir' if binname.endswith('mkdir') else 'cp'
         for base in BASES:
             for tail in TAILS:
-                for dest in LINK_DESTS:
-                    sign = 'pos' if dest == 'own' else 'neg'
-                    for dash in DASHES:
-                        sep = ' --' if dash == 'dash' else ''
-                        n += 1
-                        leaf = f'l{n:04d}' + ('/' if tail == 'slash' else '')
-                        prefix = f'{copy}/m206lnk-{dest}/' if base == 'abs' else f'm206lnk-{dest}/'
-                        operand = prefix + leaf
-                        cmd = (f'cp{sep} {src1} {src2} {operand}' if op == 'cp'
-                               else f'mkdir -p{sep} {operand}')
-                        add(f'{op}/dirlink/{base}/{tail}/{dest}/{dash}',
-                            dict(group='dirlink', op=op, base=base, tail=tail, dest=dest,
-                                 dash=dash, sign=sign),
-                            operand, base, cmd, sign)
+                for lex in LEXES:
+                    for dest in LINK_DESTS:
+                        sign = 'pos' if dest == 'own' else 'neg'
+                        for dash in DASHES:
+                            sep = ' --' if dash == 'dash' else ''
+                            positions = ('last',) if op == 'cp' else POSITIONS
+                            for pi, position in enumerate(positions):
+                                n += 1
+                                leaf = f'l{n:04d}' + ('/' if tail == 'slash' else '')
+                                prefix = f'{copy}/m206lnk-{dest}' if base == 'abs' else f'm206lnk-{dest}'
+                                operand = prefix + LEX_SEPS[lex] + leaf
+                                if op == 'cp':
+                                    cmd = f'{binname}{sep} {src1} {src2} {operand}'
+                                else:
+                                    targets = list(allowed)
+                                    targets.insert(pi, operand)
+                                    cmd = f'{binname} -p{sep} ' + ' '.join(targets)
+                                add(f'{op}/dirlink/{binlabel}/{base}/{tail}/{lex}/{dest}/{dash}/{position}',
+                                    dict(group='dirlink', op=op, bin=binlabel, base=base,
+                                         tail=tail, lex=lex, dest=dest, dash=dash,
+                                         position=position, sign=sign),
+                                    operand, base, cmd, sign)
 
     for base in BASES:
         for side in SIDES:

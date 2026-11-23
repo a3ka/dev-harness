@@ -145,7 +145,154 @@ MUTATIONS = [
      '    *) vcandidate="$R/$VFILE" ;;',
      '    *) vcandidate="$VFILE" ;;',
      ('verdict',) + VERDICT_REL_INSIDE),
+    ('mkdir-dirlink-parent-symlink-skipped', 'guard-mkdir-dirlink-bin-outside', '.omp/extensions/path-guard.ts',
+     'for (const path of paths) pushOp(path);',
+     "for (const path of paths) { let symlink = false; try { symlink = lstatSync(dirname(path)).isSymbolicLink(); } catch {} if (!(argv[0].includes('/') && paths.length > 1 && symlink)) pushOp(path); }",
+     ('guard', _S(group='dirlink', op='mkdir', bin='abs', lex='plain', dest=('state', 'foreign'), sign='neg'),
+      _S(group='dirlink', op='mkdir', bin='abs', lex='plain', dest='own', sign='pos'))),
+    ('verdict-root-equals-repo-ignored', 'verdict-root-file', 'scripts/pre_judge.sh',
+     'if path_inside "$vcanon" "$R" && [ "$vcanon" != "$R" ]; then',
+     'if path_inside "$vcanon" "$R"; then',
+     None),
 ]
+
+def guard_static_cells(copy, delivery, state, other, sandbox):
+    """Статические guard-клетки батареи как данные: (имя, вход judge,
+    ожидание). Один источник для suite() (поштучные node-вызовы) и sweep.py
+    (систематический обход, пакетный драйвер одной сессией) — ожидания
+    между ногами батареи не дрейфируют (Adv206c-4)."""
+    def outside(p):
+        return (f'запись вне пина запрещена — Н-85: путь {p} не входит '
+                f'в WORKTREE={delivery} и не в allowlist')
+
+    base = dict(worktree=str(delivery), skipActualCheck=True, sessionCwd=str(copy),
+                sessionName='Judge206')
+    cells = []
+
+    def add(name, tool, args, decision='pass', reason=None, extra=None):
+        value = dict(base, tool=tool, args=args)
+        value.update(extra or {})
+        expected = {'decision': decision}
+        if reason is not None:
+            expected['reason'] = reason + '\n' + model.HINT
+        cells.append((name, value, expected))
+
+    src = str(state / 'HANDOFF.md')
+    add('guard-write-own', 'write', {'path': str(copy / 'verdict.md')})
+    add('guard-edit-own', 'edit', {'path': str(copy / 'verdict.md')})
+    add('guard-mkdir-absolute', 'bash', {'command': f'mkdir -p {copy}/scratch/new'})
+    add('guard-mkdir-cwd', 'bash', {'command': 'mkdir -p scratch/new', 'cwd': str(copy)})
+    add('guard-mkdir-quoted', 'bash', {'command': f'mkdir -p "{copy}/scratch/space dir"', 'cwd': str(copy)})
+    add('guard-quoted-greater', 'bash', {'command': "printf '%s' 'report > result'"})
+    add('guard-empty-command', 'bash', {'command': ''})
+    add('guard-one-character', 'bash', {'command': 'mkdir -p x', 'cwd': str(copy)})
+    add('guard-lf-token', 'bash', {'command': f'mkdir -p "{copy}/scratch/line\nname"', 'cwd': str(copy)})
+    add('guard-nul', 'bash', {'command': 'mkdir -p a\0b', 'cwd': str(copy)}, 'block', 'Н-85: NUL в команде')
+    for command, suffix in [('cp', ''), ('/bin/cp', '-absolute')]:
+        add('guard-cp-read-state' + suffix, 'bash',
+            {'command': f'{command} -- {src} {copy}/scratch/state.md', 'cwd': str(copy)})
+        add('guard-cp-outside' if not suffix else 'guard-cp-absolute-outside', 'bash',
+            {'command': f'{command} -- {src} {other}/leak.md', 'cwd': str(copy)},
+            'block', outside(other / 'leak.md'))
+    add('guard-cp-quoted-outside', 'bash',
+        {'command': f'cp "{state}/HANDOFF.md" "{other}/space name"', 'cwd': str(copy)},
+        'block', outside(other / 'space name'))
+    add('guard-cp-trailing-slash-live-state', 'bash',
+        {'command': f'cp -- {src} {state}/', 'cwd': str(copy)}, 'block', outside(f'{state}/'))
+    add('guard-cp-trailing-slash-scratch', 'bash',
+        {'command': f'cp -- {src} {copy}/scratch/', 'cwd': str(copy)})
+    add('guard-mkdir-outside', 'bash',
+        {'command': f'mkdir -p {other}/new', 'cwd': str(copy)}, 'block', outside(other / 'new'))
+    add('guard-mkdir-absolute-outside', 'bash',
+        {'command': f'/bin/mkdir -p {other}/new', 'cwd': str(copy)}, 'block', outside(other / 'new'))
+    for command, label in [('cp', 'cp'), ('/bin/cp', 'absolute-cp')]:
+        add(f'guard-{label}-dash-outside', 'bash',
+            {'command': f'{command} -- {src} -outside', 'cwd': str(other)},
+            'block', f'запись в чекаут из непиннованной сессии запрещена — Н-85/А-122: путь {other}/-outside не в null-allowlist ({sandbox}/tmp/dev-harness-verify/**, artifact://)',
+            {'worktree': None})
+        add(f'guard-{label}-dash-inside', 'bash',
+            {'command': f'{command} -- {src} -inside-ok', 'cwd': str(copy)})
+    add('guard-cp-flag-before-separator', 'bash',
+        {'command': f'cp -x -- {src} {copy}/scratch/dst', 'cwd': str(copy)})
+    add('guard-mkdir-flag-before-separator', 'bash',
+        {'command': f'mkdir -p -- {copy}/scratch/flag-ok', 'cwd': str(other)})
+    add('guard-cp-multiple-sources', 'bash',
+        {'command': 'cp -p -- -source other-source -inside-ok', 'cwd': str(copy)})
+    for command, label in [('mkdir', 'mkdir'), ('/bin/mkdir', 'absolute-mkdir')]:
+        add(f'guard-{label}-dash-outside', 'bash',
+            {'command': f'{command} -- -outside', 'cwd': str(other)},
+            'block', f'запись в чекаут из непиннованной сессии запрещена — Н-85/А-122: путь {other}/-outside не в null-allowlist ({sandbox}/tmp/dev-harness-verify/**, artifact://)',
+            {'worktree': None})
+        add(f'guard-{label}-dash-inside', 'bash',
+            {'command': f'{command} -p -- -inside-ok -another', 'cwd': str(copy)})
+    add('guard-mkdir-multiple-outside', 'bash',
+        {'command': f'mkdir -- {copy}/scratch/allowed -outside', 'cwd': str(other)},
+        'block', outside(other / '-outside'))
+    # Adv206c-1 (БЛОК 1): квалифицированное имя × несколько операндов ×
+    # symlink-родитель цели — по коду мутанта Adv206c (dirname(path) — ссылка).
+    add('guard-mkdir-dirlink-bin-outside', 'bash',
+        {'command': f'/bin/mkdir -p {copy}/scratch/m206/okA {copy}/m206lnk-foreign/newdir {copy}/scratch/m206/okB',
+         'cwd': str(copy)}, 'block', outside(f'{copy}/m206lnk-foreign/newdir'))
+    add('guard-mkdir-dirlink-bin-inside', 'bash',
+        {'command': f'/bin/mkdir -p {copy}/scratch/m206/okA {copy}/m206lnk-own/newdir', 'cwd': str(copy)})
+    add('guard-mkdir-no-cwd', 'bash', {'command': 'mkdir -p scratch/new'},
+        'block', 'запись относительным путём без cwd запрещена — Н-85: используй cwd или абсолютный путь')
+    add('guard-state-write', 'write', {'path': str(state / 'HANDOFF.md')}, 'block', outside(state / 'HANDOFF.md'))
+    add('guard-foreign-worktree', 'write', {'path': str(other / 'bad')}, 'block', outside(other / 'bad'))
+    add('guard-owner-foreign', 'write', {'path': str(copy / 'bad')}, 'block', outside(copy / 'bad'),
+        {'sessionName': 'OtherJudge'})
+    add('guard-owner-empty', 'write', {'path': str(copy / 'bad')}, 'block', outside(copy / 'bad'),
+        {'sessionName': ''})
+    add('guard-symlink-outside', 'write', {'path': str(copy / 'escape/bad')}, 'block', outside(copy / 'escape/bad'))
+    add('guard-parent-outside', 'write', {'path': str(copy / '../bad')}, 'block', outside(copy / '../bad'))
+    add('guard-pin-mismatch', 'write', {'path': str(copy / 'bad')}, 'refuse',
+        f'пинн WORKTREE не совпадает с фактическим рабочим деревом сессии (пин={delivery}, факт={copy})',
+        {'skipActualCheck': False, 'actual': str(copy)})
+    add('guard-scratch-allowed', 'write', {'path': str(sandbox / 'tmp/dev-harness-verify/probe')})
+    return cells
+
+
+def verdict_static_cells(copy, other):
+    """Данные статических вердикт-клеток: (имя, ветка-состояния HEAD, хвост
+    argv после --repo, ожидание (rc, stdout, stderr)). Один источник для
+    suite() и sweep.py. Ветка 'detach' — отсоединённый HEAD, 'main' — сброс
+    main на текущий HEAD (как в исходной батарее: вердикт уже в main)."""
+    verdict = copy / 'verdicts/reviewer/contracts-206-v1.md'
+
+    def vne(vfile):
+        return (1, b'', (f'ОТКАЗ: VERDIKT_VNE_REPO\nфайл вердикта вне репозитория: {vfile}\n'
+                         'ФОРМА: --repo <своя-копия> --file <абсолют-вердикта-в-своей-копии>\n').encode())
+
+    branch_ok = (0, 'VERDICT_BRANCH=wip/206/reviewer\n'.encode(), b'')
+    cells = [
+        ('verdict-author', 'architect', ['--file', str(verdict)],
+         (1, b'', ("ОТКАЗ: NE_SUDJSKAJA_VETKA\nветка 'wip/206/architect' не судейская\n"
+                   'ФОРМА: в своей копии git switch -c wip/<NNN>/<роль>; не коммить в detached runtime-checkout\n').encode())),
+        ('verdict-detached', 'detach', ['--file', str(verdict)],
+         (1, b'', ('ОТКАЗ: NE_SUDJSKAJA_VETKA\nветка \'отсоединённый HEAD\' не судейская\n'
+                   'ФОРМА: в своей копии git switch -c wip/<NNN>/<роль>; не коммить в detached runtime-checkout\n').encode())),
+        ('verdict-outside', 'reviewer', ['--file', str(other / 'verdict.md')], vne(other / 'verdict.md')),
+        ('verdict-absolute-file-symlink-outside', 'reviewer', ['--file', str(copy / 'filelink-abs.md')],
+         vne(copy / 'filelink-abs.md')),
+        ('verdict-absolute-inside', 'reviewer', ['--file', str(verdict)], branch_ok),
+    ]
+    for name, vfile in [('relative-outside', '../outside.md'),
+                        ('relative-parent-outside', 'a/../../outside.md'),
+                        ('relative-symlink-outside', 'escape/verdict.md'),
+                        ('relative-file-symlink-outside', 'verdict-link.md')]:
+        cells.append(('verdict-' + name, 'reviewer', ['--file', vfile], vne(vfile)))
+    for name, vfile in [('relative-inside', str(verdict.relative_to(copy))),
+                        ('relative-symlink-inside', 'verdict-link-inside.md'),
+                        ('relative-normalized-inside', 'missing/../' + str(verdict.relative_to(copy)))]:
+        cells.append(('verdict-' + name, 'reviewer', ['--file', vfile], branch_ok))
+    # Adv206c-2 (БЛОК 2): --file == корень repo — отдельный отрицательный
+    # корневой контроль (равенство корню не есть файл внутри repo).
+    cells.append(('verdict-root-file', 'reviewer', ['--file', str(copy)], vne(copy)))
+    cells.append(('verdict-no-file', 'reviewer', [], (1, b'', 'ОТКАЗ: NE_POLNYJ_VHOD\n'.encode())))
+    vrel = verdict.relative_to(copy)
+    cells.append(('verdict-main', 'main', ['--file', str(verdict)],
+                  (1, b'', f'ОТКАЗ: VERDIKT_V_MAIN\nвердикт {vrel} уже в main (staged/committed)\n'.encode())))
+    return cells
 
 def suite(subject, sandbox, verbose=True, only=None):
     home = sandbox / 'home'
@@ -176,63 +323,22 @@ def suite(subject, sandbox, verbose=True, only=None):
             if not results[name]:
                 print(f'  expected={expected!r}\n  actual={actual!r}')
 
-    base = dict(worktree=str(delivery), skipActualCheck=True, sessionCwd=str(copy), sessionName='Judge206')
+    # Мир матрицы и клетка-проверка реальности (Adv206c-3) готовятся ДО
+    # остальных клеток: prepare создаёт symlink-и вердикт-клеток и каталоги
+    # оси existing/../ ровно один раз (и переиспользуется миром sweep).
+    verify = Path(env['TMPDIR']) / 'dev-harness-verify'
+    matrix.prepare(copy, delivery, state, other, verify, sandbox)
+    for name, ok in matrix.existing_reality(copy, delivery, state, other, verify).items():
+        if only is None or name == only:
+            check(name, ok, True)
 
-    def guard_case(name, tool, args, decision='pass', reason=None, extra=None):
+    for name, value, expected in guard_static_cells(copy, delivery, state, other, sandbox):
         if only is not None and name != only:
-            return
-        value = dict(base, tool=tool, args=args)
-        value.update(extra or {})
-        expected = {'decision': decision}
-        if reason is not None:
-            expected['reason'] = reason + '\n' + model.HINT
+            continue
         actual = run(['node', str(guard), '--judge', json.dumps(value)], copy, env)
         if actual[0] != 0:
             raise RuntimeError(f'GUARD_INFRA: {name}: {actual!r}')
         check(name, actual, (0, jbytes(expected), b''))
-
-    def outside(path):
-        return f'запись вне пина запрещена — Н-85: путь {path} не входит в WORKTREE={delivery} и не в allowlist'
-
-    guard_case('guard-write-own', 'write', {'path': str(copy / 'verdict.md')})
-    guard_case('guard-edit-own', 'edit', {'path': str(copy / 'verdict.md')})
-    guard_case('guard-mkdir-absolute', 'bash', {'command': f'mkdir -p {copy}/scratch/new'})
-    guard_case('guard-mkdir-cwd', 'bash', {'command': 'mkdir -p scratch/new', 'cwd': str(copy)})
-    guard_case('guard-mkdir-quoted', 'bash', {'command': f'mkdir -p "{copy}/scratch/space dir"', 'cwd': str(copy)})
-    guard_case('guard-quoted-greater', 'bash', {'command': "printf '%s' 'report > result'"})
-    guard_case('guard-empty-command', 'bash', {'command': ''})
-    guard_case('guard-one-character', 'bash', {'command': 'mkdir -p x', 'cwd': str(copy)})
-    guard_case('guard-lf-token', 'bash', {'command': f'mkdir -p "{copy}/scratch/line\nname"', 'cwd': str(copy)})
-    guard_case('guard-nul', 'bash', {'command': 'mkdir -p a\0b', 'cwd': str(copy)}, 'block', 'Н-85: NUL в команде')
-    for command, suffix in [('cp', ''), ('/bin/cp', '-absolute')]:
-        guard_case('guard-cp-read-state' + suffix, 'bash', {'command': f'{command} -- {state}/HANDOFF.md {copy}/scratch/state.md', 'cwd': str(copy)})
-        guard_case('guard-cp-outside' if not suffix else 'guard-cp-absolute-outside', 'bash', {'command': f'{command} -- {state}/HANDOFF.md {other}/leak.md', 'cwd': str(copy)}, 'block', outside(other / 'leak.md'))
-    guard_case('guard-cp-quoted-outside', 'bash', {'command': f'cp "{state}/HANDOFF.md" "{other}/space name"', 'cwd': str(copy)}, 'block', outside(other / 'space name'))
-    guard_case('guard-cp-trailing-slash-live-state', 'bash', {'command': f'cp -- {state}/HANDOFF.md {state}/', 'cwd': str(copy)}, 'block', outside(f'{state}/'))
-    guard_case('guard-cp-trailing-slash-scratch', 'bash', {'command': f'cp -- {state}/HANDOFF.md {copy}/scratch/', 'cwd': str(copy)})
-    guard_case('guard-mkdir-outside', 'bash', {'command': f'mkdir -p {other}/new', 'cwd': str(copy)}, 'block', outside(other / 'new'))
-    guard_case('guard-mkdir-absolute-outside', 'bash', {'command': f'/bin/mkdir -p {other}/new', 'cwd': str(copy)}, 'block', outside(other / 'new'))
-    for command, label in [('cp', 'cp'), ('/bin/cp', 'absolute-cp')]:
-        guard_case(f'guard-{label}-dash-outside', 'bash', {'command': f'{command} -- {state}/HANDOFF.md -outside', 'cwd': str(other)},
-                   'block', f'запись в чекаут из непиннованной сессии запрещена — Н-85/А-122: путь {other}/-outside не в null-allowlist ({sandbox}/tmp/dev-harness-verify/**, artifact://)', {'worktree': None})
-        guard_case(f'guard-{label}-dash-inside', 'bash', {'command': f'{command} -- {state}/HANDOFF.md -inside-ok', 'cwd': str(copy)})
-    guard_case('guard-cp-flag-before-separator', 'bash', {'command': f'cp -x -- {state}/HANDOFF.md {copy}/scratch/dst', 'cwd': str(copy)})
-    guard_case('guard-mkdir-flag-before-separator', 'bash', {'command': f'mkdir -p -- {copy}/scratch/flag-ok', 'cwd': str(other)})
-    guard_case('guard-cp-multiple-sources', 'bash', {'command': 'cp -p -- -source other-source -inside-ok', 'cwd': str(copy)})
-    for command, label in [('mkdir', 'mkdir'), ('/bin/mkdir', 'absolute-mkdir')]:
-        guard_case(f'guard-{label}-dash-outside', 'bash', {'command': f'{command} -- -outside', 'cwd': str(other)},
-                   'block', f'запись в чекаут из непиннованной сессии запрещена — Н-85/А-122: путь {other}/-outside не в null-allowlist ({sandbox}/tmp/dev-harness-verify/**, artifact://)', {'worktree': None})
-        guard_case(f'guard-{label}-dash-inside', 'bash', {'command': f'{command} -p -- -inside-ok -another', 'cwd': str(copy)})
-    guard_case('guard-mkdir-multiple-outside', 'bash', {'command': f'mkdir -- {copy}/scratch/allowed -outside', 'cwd': str(other)}, 'block', outside(other / '-outside'))
-    guard_case('guard-mkdir-no-cwd', 'bash', {'command': 'mkdir -p scratch/new'}, 'block', 'запись относительным путём без cwd запрещена — Н-85: используй cwd или абсолютный путь')
-    guard_case('guard-state-write', 'write', {'path': str(state / 'HANDOFF.md')}, 'block', outside(state / 'HANDOFF.md'))
-    guard_case('guard-foreign-worktree', 'write', {'path': str(other / 'bad')}, 'block', outside(other / 'bad'))
-    guard_case('guard-owner-foreign', 'write', {'path': str(copy / 'bad')}, 'block', outside(copy / 'bad'), {'sessionName': 'OtherJudge'})
-    guard_case('guard-owner-empty', 'write', {'path': str(copy / 'bad')}, 'block', outside(copy / 'bad'), {'sessionName': ''})
-    guard_case('guard-symlink-outside', 'write', {'path': str(copy / 'escape/bad')}, 'block', outside(copy / 'escape/bad'))
-    guard_case('guard-parent-outside', 'write', {'path': str(copy / '../bad')}, 'block', outside(copy / '../bad'))
-    guard_case('guard-pin-mismatch', 'write', {'path': str(copy / 'bad')}, 'refuse', f'пинн WORKTREE не совпадает с фактическим рабочим деревом сессии (пин={delivery}, факт={copy})', {'skipActualCheck': False, 'actual': str(copy)})
-    guard_case('guard-scratch-allowed', 'write', {'path': str(sandbox / 'tmp/dev-harness-verify/probe')})
 
     # Factory: real extension registration + actual lifecycle context; not a double of judge().
     driver = sandbox / 'factory.mjs'
@@ -262,40 +368,19 @@ process.stdout.write(JSON.stringify(result??null)+'\\n');
         check(f'identity-{role}', actual_author, role)
         text = (subject / f'roles/{role}.md').read_text()
         check(f'role-{role}', text.splitlines().count(model.NORM), 1)
-    git(copy, 'switch', '-q', '-C', 'wip/206/architect')
-    check('verdict-author', run(['bash', str(script), 'verdict', '--repo', str(copy), '--file', str(verdict)], other, env), (1, b'', ("ОТКАЗ: NE_SUDJSKAJA_VETKA\nветка 'wip/206/architect' не судейская\nФОРМА: в своей копии git switch -c wip/<NNN>/<роль>; не коммить в detached runtime-checkout\n").encode()))
-    git(copy, 'switch', '-q', '--detach')
-    check('verdict-detached', run(['bash', str(script), 'verdict', '--repo', str(copy), '--file', str(verdict)], other, env), (1, b'', ('ОТКАЗ: NE_SUDJSKAJA_VETKA\nветка \'отсоединённый HEAD\' не судейская\nФОРМА: в своей копии git switch -c wip/<NNN>/<роль>; не коммить в detached runtime-checkout\n').encode()))
-    git(copy, 'switch', '-q', 'wip/206/reviewer')
-    check('verdict-outside', run(['bash', str(script), 'verdict', '--repo', str(copy), '--file', str(other / 'verdict.md')], other, env), (1, b'', (f'ОТКАЗ: VERDIKT_VNE_REPO\nфайл вердикта вне репозитория: {other}/verdict.md\nФОРМА: --repo <своя-копия> --file <абсолют-вердикта-в-своей-копии>\n').encode()))
-    (copy / 'filelink-abs.md').symlink_to(other / 'verdict.md')
-    check('verdict-absolute-file-symlink-outside', run(['bash', str(script), 'verdict', '--repo', str(copy), '--file', str(copy / 'filelink-abs.md')], other, env),
-          (1, b'', (f'ОТКАЗ: VERDIKT_VNE_REPO\nфайл вердикта вне репозитория: {copy}/filelink-abs.md\nФОРМА: --repo <своя-копия> --file <абсолют-вердикта-в-своей-копии>\n').encode()))
-    check('verdict-absolute-inside', run(['bash', str(script), 'verdict', '--repo', str(copy), '--file', str(verdict)], other, env),
-          (0, b'VERDICT_BRANCH=wip/206/reviewer\n', b''))
-    for name, vfile in [('relative-outside', '../outside.md'),
-                        ('relative-parent-outside', 'a/../../outside.md'),
-                        ('relative-symlink-outside', 'escape/verdict.md'),
-                        ('relative-file-symlink-outside', 'verdict-link.md')]:
-        if name == 'relative-file-symlink-outside':
-            (copy / vfile).symlink_to(other / 'verdict.md')
-        check('verdict-' + name, run(['bash', str(script), 'verdict', '--repo', str(copy), '--file', vfile], other, env),
-              (1, b'', (f'ОТКАЗ: VERDIKT_VNE_REPO\nфайл вердикта вне репозитория: {vfile}\nФОРМА: --repo <своя-копия> --file <абсолют-вердикта-в-своей-копии>\n').encode()))
-    (copy / 'verdict-link-inside.md').symlink_to(verdict)
-    for name, vfile in [('relative-inside', str(verdict.relative_to(copy))),
-                        ('relative-symlink-inside', 'verdict-link-inside.md'),
-                        ('relative-normalized-inside', 'missing/../' + str(verdict.relative_to(copy)))]:
-        check('verdict-' + name, run(['bash', str(script), 'verdict', '--repo', str(copy), '--file', vfile], other, env),
-              (0, b'VERDICT_BRANCH=wip/206/reviewer\n', b''))
-    git(copy, 'switch', '-q', '-C', 'main')
-    vrel = verdict.relative_to(copy)
-    check('verdict-main', run(['bash', str(script), 'verdict', '--repo', str(copy), '--file', str(verdict)], other, env), (1, b'', f'ОТКАЗ: VERDIKT_V_MAIN\nвердикт {vrel} уже в main (staged/committed)\n'.encode()))
+
+    for name, branch, tail, expected in verdict_static_cells(copy, other):
+        if only is not None and name != only:
+            continue
+        if branch == 'detach':
+            git(copy, 'switch', '-q', '--detach')
+        else:
+            git(copy, 'switch', '-q', '-C', branch if branch == 'main' else f'wip/206/{branch}')
+        check(name, run(['bash', str(script), 'verdict', '--repo', str(copy), *tail], other, env), expected)
     # Параметрическая матрица арбитража 206: настоящий --repo/--model/--stabs,
     # не отдельная демонстрация. Вердиктные строки идут на судейской ветке
     # (verdict-main выше уже отработал на main); ожидания назначены миром.
     git(copy, 'switch', '-q', '-C', 'wip/206/reviewer')
-    verify = Path(env['TMPDIR']) / 'dev-harness-verify'
-    matrix.prepare(copy, delivery, state, other, verify, sandbox)
     mrows = matrix.guard_rows(copy, delivery, state, other, verify, model.HINT)
     for name, ok in matrix.run_guard(guard, mrows, env, copy, only).items():
         check(name, ok, True)
@@ -322,7 +407,11 @@ def main():
     mode.add_argument('--repo', type=Path)
     mode.add_argument('--model', action='store_true')
     mode.add_argument('--stabs', action='store_true')
+    mode.add_argument('--sweep', action='store_true')
     args = parser.parse_args()
+    if args.sweep:
+        import sweep
+        return sweep.run(check=True)
     scratch = ROOT / '.scratch-206'
     scratch.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='probe.', dir=scratch) as tmp:
