@@ -23,7 +23,14 @@
   "b17-chuzoj-predmet-teg": "тег чужого предмета (209) на предке — предметный префикс обязателен",
   "b18-nechislovaja-versija": "нечисловая версия тега (rc1) — пропуск, прежний отказ",
   "b19-net-fajlov-kontrakta": "пустой перечень contracts/<NNN>-*.md — прежний отказ",
-  "b20-versii-leksika-ne-chislo": "версии /2 и /10: лексический порядок (…/10 < …/2) отличен от числового — выбор числовым максимумом"
+  "b20-versii-leksika-ne-chislo": "версии /2 и /10: лексический порядок (…/10 < …/2) отличен от числового — выбор числовым максимумом",
+  "b21-legacy-avtora-ne-istochnik": "незакоммиченный legacy-реестр автора + текст без строки класса — класс даёт не автор: прежний отказ байтами",
+  "b22-profil-avtora-ne-istochnik": "незакоммиченный профиль автора ведёт в каталог-приманку — класс из каталога профиля владельца: ревьюер отказан",
+  "b23-spisok-po-profilju-vladelca": "приманка после заморозки видна только каталогу автора — перечень сверяется по профилю владельца: адверсарий чисто",
+  "b24-legacy-vladelca-rabotaet": "legacy-строка ВЛАДЕЛЬЦА (HEAD станции) + текст без строки класса — класс из реестра владельца, ревьюер чисто",
+  "b25-versija-vne-int64": "версия вне int64 — числовой максимум сравнением digit-строк: новая версия не удостоверена, прежний отказ",
+  "b26-profil-vladelca-rabotaet": "каталог контрактов из профиля ВЛАДЕЛЬЦА (x/) — класс читается по нему, ревьюер чисто",
+  "b27-legacy-na-puti-d42-bez-izmenenij": "регресс D42: закреплённый frozen + текст без строки класса + legacy-строка владельца — класс как в базе, ревьюер чисто"
  },
  "stab_vhod": {
   "st01-rol-tolko-sudi": [
@@ -151,52 +158,85 @@
   ],
   "st42-puschem-lishnij-v-stderr": [
    "b01-bootstrap-adversary"
+  ],
+  "st43-koren-avtora-v-vyzove": [
+   "b21-legacy-avtora-ne-istochnik",
+   "b22-profil-avtora-ne-istochnik"
+  ],
+  "st44-profil-iz-nositelja-v-klasse": [
+   "b22-profil-avtora-ne-istochnik"
+  ],
+  "st45-legacy-iz-nositelja": [
+   "b21-legacy-avtora-ne-istochnik"
+  ],
+  "st46-profil-iz-nositelja-v-sverke": [
+   "b23-spisok-po-profilju-vladelca"
+  ],
+  "st47-katalog-po-umolchaniju-v-sverke": [
+   "b26-profil-vladelca-rabotaet"
+  ],
+  "st48-katalog-po-umolchaniju-v-klasse": [
+   "b26-profil-vladelca-rabotaet"
+  ],
+  "st49-versija-arifmetikoj-shell": [
+   "b25-versija-vne-int64"
+  ],
+  "st50-umolchanie-vladelca-pusto": [
+   "b27-legacy-na-puti-d42-bez-izmenenij"
   ]
  },
  "nositeli": {
-  "model/zamok_predmeta.sh": "c325fba92757495774368850522fe9650825ec81c5ba431b42ee7abfcc4ba278",
-  "stabs/st01-rol-tolko-sudi/zamok_predmeta.sh": "a0a470e7a0bcb22f6d1674e4726166fcb5c2c44194f34603b9be63bda0977089",
-  "stabs/st02-frozen-vsegda/zamok_predmeta.sh": "283b41461d215f4b75bf6df73a997391c66e13ac7c32855833612160ec90c46e",
-  "stabs/st03-bez-bajtov/zamok_predmeta.sh": "c3c23c1796213e792fc1608ad9e484061f7a6f9582da6f3a72e9a8bb8f710926",
-  "stabs/st04-bez-predka/zamok_predmeta.sh": "c8c9eeb8fd4c0e80b4c7ace6df765ec3f324728c0cb3dfca8abb93a2790a927b",
-  "stabs/st05-pervyj-teg/zamok_predmeta.sh": "b2871d2f224cb29995da02a8b46008c3ba117bd02c3d89fad67106b4f7db441a",
-  "stabs/st06-legkij-teg/zamok_predmeta.sh": "8b580cd628ca8f26cecc5f795f94d7e9a35e8bcf65ca9f0e147798445c3ee88c",
-  "stabs/st07-predmet-konstanta/zamok_predmeta.sh": "4a9fbe33e34dcf6c9aa72ec2f286ba11fe445583adb15e6aaae858ec56af1403",
-  "stabs/st08-ljuboj-predmet/zamok_predmeta.sh": "6030d2a077b4355e9a2efaf98f53de0b332b237bb7601f1af7c650e49fbaf81a",
-  "stabs/st09-versija-ljubaja/zamok_predmeta.sh": "dd824bb6611d8782b7b1619f138bce2580d7b422a911c3cacbd0dbb03629623c",
-  "stabs/st10-poslednij-ref/zamok_predmeta.sh": "2de67d700f725f5067f5a23009f0f1ec1bbc61a29d64c592db16e66c036fd409",
-  "stabs/st11-pustoj-spisok/zamok_predmeta.sh": "06f4aa4c8b34421565f37dc9c6ae3531a37e7466303a63793ef704cd23cd4f0b",
-  "stabs/st12-repo-nositelja/zamok_predmeta.sh": "b7d0b458671d0b6e0dec2b564f55b40b28dc6ffefab8e767db13982b58111e92",
-  "stabs/st13-predupr-crlf/zamok_predmeta.sh": "c5ae35e1bead2ebb0fb00e256aeba8c2dd5829b0d5b03b5f2d6b2b0336e49a0a",
-  "stabs/st14-predupr-odinochnyj-cr/zamok_predmeta.sh": "cb6320d6647985a032784a3f0a3fac8498ed747bf1e8c9e27eda847c2aaeb8cb",
-  "stabs/st15-predupr-probel-v-konce/zamok_predmeta.sh": "83a3f069230f3159349eede8ecdd7321fdbf7d6d702abe6621a41eeb41a3f201",
-  "stabs/st16-predupr-dvojnoj-lf/zamok_predmeta.sh": "ad860d54bd6275754b1518e96110e97ed45845db5b539cac315866f51e5ab98c",
-  "stabs/st17-predupr-bom/zamok_predmeta.sh": "8221318abf5e4f3669fe3bc3047b4921479499f15904856888cd1ed833e274f4",
-  "stabs/st18-predupr-nul/zamok_predmeta.sh": "bcb06d64e4fadc0b5d8ea256a7b77c7ab5998da79229cf8e251df20a908334aa",
-  "stabs/st19-predupr-ne-utf8/zamok_predmeta.sh": "8b01cd8eea53b0e7820f71c457016bb595cb678808526f02ceee9d3e493f8cbb",
-  "stabs/st20-predupr-lishnij-vyvod/zamok_predmeta.sh": "dc3b2254f45c30a74846076cb6bb54f8c4fb3e21dc42fa2d72181f26e7cb7497",
-  "stabs/st21-predupr-perenos/zamok_predmeta.sh": "4ac4367ebb93242aa3bdc7da92e9ac4f7642d77e1f717d67d4ed3052707cf611",
-  "stabs/st22-predupr-lishnij-v-stdout/zamok_predmeta.sh": "fff1580c752b0b95e0ee2bbaf8235efc06f9ff06df6e505084e9664b2990f351",
-  "stabs/st23-otkaz-crlf/zamok_predmeta.sh": "c10f904e76d8b6985b94b80acf3c26152060480ac953badd3e87e57b62440457",
-  "stabs/st24-otkaz-odinochnyj-cr/zamok_predmeta.sh": "efceba595a57fbdc5b42b7f6479e66afb0df0909b0d5afb858688213a888b857",
-  "stabs/st25-otkaz-probel-v-konce/zamok_predmeta.sh": "c73ebe80acb55848e686a3b9514403f7f26251d85178af796c3919213551dded",
-  "stabs/st26-otkaz-dvojnoj-lf/zamok_predmeta.sh": "32fa75d925966be60d3aa77161ec44cb1e47eaef50f525459352bcc204f89854",
-  "stabs/st27-otkaz-bom/zamok_predmeta.sh": "2874a7d8a23aa3033578fce8c71d8ef395b8a65243c9c8a0438813d0e9b4136b",
-  "stabs/st28-otkaz-nul/zamok_predmeta.sh": "8523d66df44016b009c04e1bf0f10be388be17ae2ee74305aa87458b87bf5914",
-  "stabs/st29-otkaz-ne-utf8/zamok_predmeta.sh": "0fda02b6d448fd83b2e4966122078074b2626dd06f24825321028e12e35f315b",
-  "stabs/st30-otkaz-lishnij-vyvod/zamok_predmeta.sh": "9bc01755369aad050c8260c9f674554320ad5146dfc247b37c763eb6ec27d44e",
-  "stabs/st31-otkaz-perenos/zamok_predmeta.sh": "8cb41987ea5313ef2c020027d8d05887d266f947efe47ddb545cf82dbda8d2b5",
-  "stabs/st32-otkaz-lishnij-v-stdout/zamok_predmeta.sh": "721cd6f90d595f41a36a1ef0c8f98be0feb9c5f66abe8cdd07cc947fc3a304a8",
-  "stabs/st33-puschem-crlf/zamok_predmeta.sh": "61299ee834a5e2dc74452bd9ef86f1c912c4bf38c2a40347655420e71165ee0d",
-  "stabs/st34-puschem-odinochnyj-cr/zamok_predmeta.sh": "f7d47613150a26e953a9b20e5afb3282e0b5ce6085c9e39d8752071f959b99d5",
-  "stabs/st35-puschem-probel-v-konce/zamok_predmeta.sh": "a1d56d225eb1784984307aaea2883005b93d2d8d5f82e96409a0e278f6021410",
-  "stabs/st36-puschem-dvojnoj-lf/zamok_predmeta.sh": "fc5d26c9801f28b41e52bf49fe482cf3f0456c8d7fb47ff373b593f9f3cce983",
-  "stabs/st37-puschem-bom/zamok_predmeta.sh": "0e985cb9cef483056616b53516f0ef5b63016e5381c5098063d28bac5617ae98",
-  "stabs/st38-puschem-nul/zamok_predmeta.sh": "80f15d5d839d07b75cf94b77bcedd354bb6d3c0f724813f20529aa157ad0a808",
-  "stabs/st39-puschem-ne-utf8/zamok_predmeta.sh": "d1924c739f8451f002aa7b1bc8a9eb1bb06e094cc5f33a5580414cc47f497002",
-  "stabs/st40-puschem-lishnij-vyvod/zamok_predmeta.sh": "9f61582201bb02d297972b15db6eef0fb5efb3a4a645f4913091262bb7b40adc",
-  "stabs/st41-puschem-perenos/zamok_predmeta.sh": "d364a77d468faf9667081f32e3170831ba2505f276e899415522157daa479ce6",
-  "stabs/st42-puschem-lishnij-v-stderr/zamok_predmeta.sh": "03e23014c8487ad0896a1619150380327fb0d1f0ffa74ba58644f9ae6e4e8d48"
+  "model/zamok_predmeta.sh": "b8f84da1ce40d3639dbf44ca4022f8e3516ac4e1cf70183ff9ffc0405bf8b926",
+  "stabs/st01-rol-tolko-sudi/zamok_predmeta.sh": "b5cd1b964a9869b57ab9b087524f87dff3e7bf3fc4a6605e9069c7f560e7713d",
+  "stabs/st02-frozen-vsegda/zamok_predmeta.sh": "e6ffc621bdb471b699a819dff1a46d5a62cd418ff49831098558f24fefc062c0",
+  "stabs/st03-bez-bajtov/zamok_predmeta.sh": "a2e5ea1a2140a59824d784d8935557d01aa30b8d54a5eb4c035efb3f4b7113b8",
+  "stabs/st04-bez-predka/zamok_predmeta.sh": "03bb66e9bddde856d7f99dced7987f46353674bcfe30477bfca49ed2fcd60b5c",
+  "stabs/st05-pervyj-teg/zamok_predmeta.sh": "4a6dd3929fcc778098e47f1e3b2f7a9bce8adc45c3c746df6d4aee529d85e7e8",
+  "stabs/st06-legkij-teg/zamok_predmeta.sh": "ce52adf7c7cf32c8577e91d953394f36cbe170137a4acab949807deaf76b3d8c",
+  "stabs/st07-predmet-konstanta/zamok_predmeta.sh": "bcd7039b5199cd7e169a9ee7343da26dc60afead3c5a10ce0abbc7ec2daff28a",
+  "stabs/st08-ljuboj-predmet/zamok_predmeta.sh": "5c71c1a8955ec5b107b2a9c1fe085aa1df9946bdca0d79f2f740177cf8490181",
+  "stabs/st09-versija-ljubaja/zamok_predmeta.sh": "fc433515c7542d40f162527fa585b3d449439e5d67530224a1e753ca52f4fc72",
+  "stabs/st10-poslednij-ref/zamok_predmeta.sh": "344a86da4432ccf79930ccac661d9dd030d9c41bf4650fb2bebd8a68b76b3ae2",
+  "stabs/st11-pustoj-spisok/zamok_predmeta.sh": "cfe8183d6062452553bc1dce497625d08dc7f1a3b06f76eb9604bcc8ce2f9cb0",
+  "stabs/st12-repo-nositelja/zamok_predmeta.sh": "b82052e39724ca680ab25b2da4e079c11234b92ec2f24b65117bc180e41e1aba",
+  "stabs/st13-predupr-crlf/zamok_predmeta.sh": "a5100ad55b35b76889e9585d9e4effbe74cfdb7713b96785d1125774506e604b",
+  "stabs/st14-predupr-odinochnyj-cr/zamok_predmeta.sh": "2bb3f274320576c956999c799d77c5333d65bd872a30b650104394535bf2c874",
+  "stabs/st15-predupr-probel-v-konce/zamok_predmeta.sh": "ed0eee29edfa1677f9b10eaca3865fde2ddd11c8b536ad049aaa055161d6f54b",
+  "stabs/st16-predupr-dvojnoj-lf/zamok_predmeta.sh": "15452e07353c84fcff4d3859a9c5aa30d3026d53dc78e8786f9cd653a3a224e3",
+  "stabs/st17-predupr-bom/zamok_predmeta.sh": "54dbe0fb82551df947e1ecb17f2444b65c63502879c4a1686596415b7b58976b",
+  "stabs/st18-predupr-nul/zamok_predmeta.sh": "e859e13f5e60d5a305af84e76815b5e2abd5250e78e25986471bec79c3782d49",
+  "stabs/st19-predupr-ne-utf8/zamok_predmeta.sh": "4d57ef50feb5f87a66a133bb7a3f2399861beec0c814aecf70084ba95c4bf0b3",
+  "stabs/st20-predupr-lishnij-vyvod/zamok_predmeta.sh": "142fc6435514afb65002e194b012521969caa4ce535d5b72bc47e866d35ffe36",
+  "stabs/st21-predupr-perenos/zamok_predmeta.sh": "b81a457b7d3835d91cffc7f26189e99e1bfc1729b9906876fab8aa08558dc3d0",
+  "stabs/st22-predupr-lishnij-v-stdout/zamok_predmeta.sh": "8af57072c78ceca7859ca5456843493cd618e41aeca9282dd446040c4d7f9707",
+  "stabs/st23-otkaz-crlf/zamok_predmeta.sh": "850e91bdc175c3b92d86727602238595bbe315f63ade2295d93fd4b7898135d8",
+  "stabs/st24-otkaz-odinochnyj-cr/zamok_predmeta.sh": "4f7d00792f29b9f7e0aa2daa70ffed508fc2d31b85b68b021e82d5179af383f4",
+  "stabs/st25-otkaz-probel-v-konce/zamok_predmeta.sh": "1e37addeb1a5685143d4781835fce90baca5b6b0540af85b7c10f48c736c353e",
+  "stabs/st26-otkaz-dvojnoj-lf/zamok_predmeta.sh": "5fd098efd2577ff1269ba258c9fa4e9048659b816efa143f1e55281e7e809700",
+  "stabs/st27-otkaz-bom/zamok_predmeta.sh": "0a92744115829ebe63449919cf8b9df728fe66db21ed5975f51a5744b386d72a",
+  "stabs/st28-otkaz-nul/zamok_predmeta.sh": "d4e4d2a94d660093cb594dae7e2e6287b62d8cde1c413f98920ada8468d53742",
+  "stabs/st29-otkaz-ne-utf8/zamok_predmeta.sh": "932bb1775a37db7cae7455c38fd2260e9db0972349732fab7a591ec5c94706b1",
+  "stabs/st30-otkaz-lishnij-vyvod/zamok_predmeta.sh": "b5ee05e17bfe7275c5d656f6a79d90a946f39966d0802b112bd4244307c0a91c",
+  "stabs/st31-otkaz-perenos/zamok_predmeta.sh": "48750387f4068aac5e23289f7558fd9faad2688a644320cf6c4ba785572706c3",
+  "stabs/st32-otkaz-lishnij-v-stdout/zamok_predmeta.sh": "532904d7b32219d276b200e1d26e52f7882f58b516b10c132e1772aaaa29d6c5",
+  "stabs/st33-puschem-crlf/zamok_predmeta.sh": "4dd3c733303e2f631a149800a3d550f3803492e217e48956b074197c54ccb717",
+  "stabs/st34-puschem-odinochnyj-cr/zamok_predmeta.sh": "2128e39084d78db74dfc85faa4f8e8762bfef914897beebb751f73dc64bf4ce4",
+  "stabs/st35-puschem-probel-v-konce/zamok_predmeta.sh": "6ce6b8ced9fc37917d2d0da3a765f7a5890d7ff4869116af733309de258c42ac",
+  "stabs/st36-puschem-dvojnoj-lf/zamok_predmeta.sh": "c0996b2cfbce222328e8a359fa87ff6cd4ad7829f5e567532101d2ddcb0c0a3b",
+  "stabs/st37-puschem-bom/zamok_predmeta.sh": "6c7246f4b4416571be0f1c5ca1bf907641661e56c6abc81a57e203040b4a8a4f",
+  "stabs/st38-puschem-nul/zamok_predmeta.sh": "8bf4723fa11d77c10de59d037e0b7f6363e8be48cfe8cc3d87ad30de3b0ec747",
+  "stabs/st39-puschem-ne-utf8/zamok_predmeta.sh": "ac83b290f2189977da0267aa862a6d290d205181c3951e3bae2ca6ed7ca25e29",
+  "stabs/st40-puschem-lishnij-vyvod/zamok_predmeta.sh": "dce71d084b71a9262db96bf980ef267f74afea29bcbdd248304b11502af0bc6b",
+  "stabs/st41-puschem-perenos/zamok_predmeta.sh": "a9c152f4063739f97f39d9cd5892d540f5d2325784f1009dec9f781518992cbb",
+  "stabs/st42-puschem-lishnij-v-stderr/zamok_predmeta.sh": "1ba8b70ccd1c3e42abf7da478d7b50c5f1e645e058e16ae3a5373e53d7354c76",
+  "stabs/st43-koren-avtora-v-vyzove/zamok_predmeta.sh": "eebc19e0bded280b7662ed32382fc5bfc667fee18c8d9c4974702b92564fb6b9",
+  "stabs/st44-profil-iz-nositelja-v-klasse/zamok_predmeta.sh": "4c5686b805899e43f85b9d44741759fbf386df18191e4db408b2c33654a7df4c",
+  "stabs/st45-legacy-iz-nositelja/zamok_predmeta.sh": "ea0ea6bfaaa71e070823354f37f62184932ad04af199876ad346f7dad7d5b5a1",
+  "stabs/st46-profil-iz-nositelja-v-sverke/zamok_predmeta.sh": "343d2bfcd1fd1c8c58921971f8caaa2402e683a54ed567a5534f19733562ce97",
+  "stabs/st47-katalog-po-umolchaniju-v-sverke/zamok_predmeta.sh": "606acb2cc003cdb12b915f4257128887ac6a2416b2f28d0b76cb6ddfa2fe91ab",
+  "stabs/st48-katalog-po-umolchaniju-v-klasse/zamok_predmeta.sh": "92469bfe196ce2289033f281b7e9ee431554ffc7c0d8837d18e41635476a1df9",
+  "stabs/st49-versija-arifmetikoj-shell/zamok_predmeta.sh": "55ef1bc5b3d2ff965c3645a8052a22283bb4aa8359194c80d9cc9a6ea2ff8b5a",
+  "stabs/st50-umolchanie-vladelca-pusto/zamok_predmeta.sh": "b397d24cd077c0e3c8b217e0201e5b26dcd788cc38b05fa74884383064b715cf"
  },
  "zametki": "привязки стаб↔клетка — единственный источник (Н-39); якорь каждой мутации — кратность 1 в тексте модели"
 }
