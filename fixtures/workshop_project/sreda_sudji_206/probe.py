@@ -74,6 +74,24 @@ MUTATIONS = [
     ('observer-invalid-is-incomplete', 'observer-null', 'fixtures/workshop_project/sreda_sudji_206/live.py', "raise ValueError('NEVALIDNYJ_ZHURNAL')", "return 1, 'TRI_SUDA_NE_PREDJAVLENY'"),
     ('observer-invalid-array-is-incomplete', 'observer-array', 'fixtures/workshop_project/sreda_sudji_206/live.py', "raise ValueError('NEVALIDNYJ_ZHURNAL')", "return 1, 'TRI_SUDA_NE_PREDJAVLENY'"),
     ('observer-bom-accepted', 'observer-bom', 'fixtures/workshop_project/sreda_sudji_206/live.py', ".decode('utf-8').splitlines()", ".decode('utf-8-sig').splitlines()"),
+    ('absolute-symlink-ignored', 'verdict-absolute-file-symlink-outside', 'scripts/pre_judge.sh',
+     '''  case "$VFILE" in
+    /*) vcandidate="$VFILE" ;;
+    *) vcandidate="$R/$VFILE" ;;
+  esac
+  vcanon="$(realpath -m -- "$vcandidate")" || skip 'не канонизирован --file'
+''', '''  case "$VFILE" in
+    /*) vcandidate="$VFILE" ;;
+    *) vcandidate="$R/$VFILE" ;;
+  esac
+  case "$VFILE" in
+    /*) vcanon="$(realpath -ms -- "$vcandidate")" || skip 'не канонизирован --file' ;;
+    *) vcanon="$(realpath -m -- "$vcandidate")" || skip 'не канонизирован --file' ;;
+  esac
+'''),
+    ('cp-trailing-slash-ignored', 'guard-cp-trailing-slash-live-state', '.omp/extensions/path-guard.ts',
+     "if (paths.length >= 2) pushOp(paths[paths.length - 1]);",
+     "if (paths.length >= 2) { const t = paths[paths.length - 1]; if (!t.endsWith('/')) pushOp(t); }"),
 ]
 
 def suite(subject, sandbox, verbose=True, only=None):
@@ -137,6 +155,8 @@ def suite(subject, sandbox, verbose=True, only=None):
         guard_case('guard-cp-read-state' + suffix, 'bash', {'command': f'{command} -- {state}/HANDOFF.md {copy}/scratch/state.md', 'cwd': str(copy)})
         guard_case('guard-cp-outside' if not suffix else 'guard-cp-absolute-outside', 'bash', {'command': f'{command} -- {state}/HANDOFF.md {other}/leak.md', 'cwd': str(copy)}, 'block', outside(other / 'leak.md'))
     guard_case('guard-cp-quoted-outside', 'bash', {'command': f'cp "{state}/HANDOFF.md" "{other}/space name"', 'cwd': str(copy)}, 'block', outside(other / 'space name'))
+    guard_case('guard-cp-trailing-slash-live-state', 'bash', {'command': f'cp -- {state}/HANDOFF.md {state}/', 'cwd': str(copy)}, 'block', outside(f'{state}/'))
+    guard_case('guard-cp-trailing-slash-scratch', 'bash', {'command': f'cp -- {state}/HANDOFF.md {copy}/scratch/', 'cwd': str(copy)})
     guard_case('guard-mkdir-outside', 'bash', {'command': f'mkdir -p {other}/new', 'cwd': str(copy)}, 'block', outside(other / 'new'))
     guard_case('guard-mkdir-absolute-outside', 'bash', {'command': f'/bin/mkdir -p {other}/new', 'cwd': str(copy)}, 'block', outside(other / 'new'))
     for command, label in [('cp', 'cp'), ('/bin/cp', 'absolute-cp')]:
@@ -195,6 +215,11 @@ process.stdout.write(JSON.stringify(result??null)+'\\n');
     check('verdict-detached', run(['bash', str(script), 'verdict', '--repo', str(copy), '--file', str(verdict)], other, env), (1, b'', ('ОТКАЗ: NE_SUDJSKAJA_VETKA\nветка \'отсоединённый HEAD\' не судейская\nФОРМА: в своей копии git switch -c wip/<NNN>/<роль>; не коммить в detached runtime-checkout\n').encode()))
     git(copy, 'switch', '-q', 'wip/206/reviewer')
     check('verdict-outside', run(['bash', str(script), 'verdict', '--repo', str(copy), '--file', str(other / 'verdict.md')], other, env), (1, b'', (f'ОТКАЗ: VERDIKT_VNE_REPO\nфайл вердикта вне репозитория: {other}/verdict.md\nФОРМА: --repo <своя-копия> --file <абсолют-вердикта-в-своей-копии>\n').encode()))
+    (copy / 'filelink-abs.md').symlink_to(other / 'verdict.md')
+    check('verdict-absolute-file-symlink-outside', run(['bash', str(script), 'verdict', '--repo', str(copy), '--file', str(copy / 'filelink-abs.md')], other, env),
+          (1, b'', (f'ОТКАЗ: VERDIKT_VNE_REPO\nфайл вердикта вне репозитория: {copy}/filelink-abs.md\nФОРМА: --repo <своя-копия> --file <абсолют-вердикта-в-своей-копии>\n').encode()))
+    check('verdict-absolute-inside', run(['bash', str(script), 'verdict', '--repo', str(copy), '--file', str(verdict)], other, env),
+          (0, b'VERDICT_BRANCH=wip/206/reviewer\n', b''))
     for name, vfile in [('relative-outside', '../outside.md'),
                         ('relative-parent-outside', 'a/../../outside.md'),
                         ('relative-symlink-outside', 'escape/verdict.md'),
