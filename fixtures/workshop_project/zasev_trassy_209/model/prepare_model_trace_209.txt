@@ -22,7 +22,7 @@ prepare_model_trace() {
       rm -f "$HARNESS_MODEL_TRACE.new"
       die 'TRACE_SEED_SOURCE_INVALID: bootstrapTrace должен быть station'
     fi
-    if [ ! -s "$HARNESS_MODEL_TRACE.new" ] && [ -s "$HARNESS_MODEL_TRACE" ] && [ ! -e "$seed" ]; then
+    if [ ! -s "$HARNESS_MODEL_TRACE.new" ] && [ -s "$HARNESS_MODEL_TRACE" ] && [ ! -s "$seed" ]; then
       cp -- "$HARNESS_MODEL_TRACE" "$HARNESS_MODEL_TRACE.new"
     elif [ ! -s "$HARNESS_MODEL_TRACE.new" ] && [ ! -s "$seed" ]; then
       # Read role NAMES only; model bytes still originate exclusively in JSONL.
