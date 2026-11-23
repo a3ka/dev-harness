@@ -776,6 +776,88 @@ def kejsy():
                 k_stdout(r, puschem_drugoj(imja, '209'), 'r30'),
                 k_text(r, '', 'r30'), k_start(m, imja, K0, 'r30')]
 
+    def r31(m, door):
+        # Б-1 (Rev208): белый список D9b — тот же, что у резолвера
+        # (инвариант 3): не-.md файл в .review/ — ВНЕ списка резолвера ⇒
+        # КОДОВАЯ граница; «вперёд» с публикацией — допуск. Glob .review/*
+        # в kodovaja_granica считал его вердиктным и отказывал
+        wt, br, K0 = bazir(m)
+        Kf = vpered(wt, '.review/zametki.txt', 'zametki revjuera\n',
+                    soobshenie='fix')
+        vernut_vetku(wt, br, K0)
+        m.publikuj(wt, 'refs/remotes/origin/main', Kf)
+        ev = vyzov(m, Kf)
+        r = sudit(door, m, ev)
+        return [k_rc(r, 0, 'r31'), k_stdout(r, PUSCHEM, 'r31'),
+                k_text(r, '', 'r31'), k_start(m, 'Crit208', Kf, 'r31')]
+
+    def r32(m, door):
+        # Б-1, вложенный путь: .review/sub/a.md — не вердиктный путь по
+        # резолверу (алфавит сегмента без «/») ⇒ кодовая граница ⇒ допуск
+        wt, br, K0 = bazir(m)
+        Kf = vpered(wt, '.review/sub/a.md', 'vlozhenie\n', soobshenie='fix')
+        vernut_vetku(wt, br, K0)
+        m.publikuj(wt, 'refs/remotes/origin/main', Kf)
+        ev = vyzov(m, Kf)
+        r = sudit(door, m, ev)
+        return [k_rc(r, 0, 'r32'), k_stdout(r, PUSCHEM, 'r32'),
+                k_text(r, '', 'r32'), k_start(m, 'Crit208', Kf, 'r32')]
+
+    def r33(m, door):
+        # контроль позитивной границы: .review/zametki.md — вердиктный путь
+        # ПО РЕЗОЛЬВЕРУ ⇒ НЕ кодовая граница ⇒ прежний отказ (мир r06)
+        wt, br, K0 = bazir(m)
+        Kf = vpered(wt, '.review/zametki.md', 'accept\nOBJECT=%s\n' % K0,
+                    role='critic', soobshenie='verdikt')
+        vernut_vetku(wt, br, K0)
+        m.publikuj(wt, 'refs/remotes/origin/main', Kf)
+        do = m.ledger.read_bytes()
+        ev = vyzov(m, Kf)
+        r = sudit(door, m, ev)
+        ozh = ('ОТКАЗ: OBJECT_RASHODITSJA: предмет %s: OBJECT %s впереди '
+               'кандидата %s, но не кодовая граница — вердиктный хвост не '
+               'становится объектом суда; выход: OBJECT работы, не '
+               'verdikt-коммит\n' % (SUBJ, Kf, K0))
+        return [k_rc(r, 1, 'r33'), k_stdout(r, '', 'r33'),
+                k_text(r, ozh, 'r33'), k_uchet_ne_izmenen(m, do, 'r33')]
+
+    def r34(m, door):
+        # контроль предмета 209 (урок Adv208 — не только 208):
+        # .review/zametki.md впереди кандидата 209 — вердиктный путь ⇒
+        # не кодовая граница СВОЕГО предмета ⇒ отказ
+        wt, br, K0 = bazir_subj(m, '209')
+        Kf = vpered(wt, '.review/zametki.md', 'accept\nOBJECT=%s\n' % K0,
+                    role='critic', soobshenie='verdikt')
+        vernut_vetku(wt, br, K0)
+        m.publikuj(wt, 'refs/remotes/origin/wip/209/reaccept', Kf)
+        do = m.ledger.read_bytes()
+        ev, imja = vyzov_subj(m, '209', Kf)
+        r = sudit(door, m, ev)
+        ozh = ('ОТКАЗ: OBJECT_RASHODITSJA: предмет 209: OBJECT %s впереди '
+               'кандидата %s, но не кодовая граница — вердиктный хвост не '
+               'становится объектом суда; выход: OBJECT работы, не '
+               'verdikt-коммит\n' % (Kf, K0))
+        return [k_rc(r, 1, 'r34'), k_stdout(r, '', 'r34'),
+                k_text(r, ozh, 'r34'), k_uchet_ne_izmenen(m, do, 'r34')]
+
+    def r35(m, door):
+        # контроль предмета 003 (урок Adv208): тот же вердиктный путь
+        # .review/zametki.md на предмете 003 — отказ
+        wt, br, K0 = bazir_subj(m, '003')
+        Kf = vpered(wt, '.review/zametki.md', 'accept\nOBJECT=%s\n' % K0,
+                    role='critic', soobshenie='verdikt')
+        vernut_vetku(wt, br, K0)
+        m.publikuj(wt, 'refs/remotes/origin/wip/003/reaccept', Kf)
+        do = m.ledger.read_bytes()
+        ev, imja = vyzov_subj(m, '003', Kf)
+        r = sudit(door, m, ev)
+        ozh = ('ОТКАЗ: OBJECT_RASHODITSJA: предмет 003: OBJECT %s впереди '
+               'кандидата %s, но не кодовая граница — вердиктный хвост не '
+               'становится объектом суда; выход: OBJECT работы, не '
+               'verdikt-коммит\n' % (Kf, K0))
+        return [k_rc(r, 1, 'r35'), k_stdout(r, '', 'r35'),
+                k_text(r, ozh, 'r35'), k_uchet_ne_izmenen(m, do, 'r35')]
+
     reg('r01-ravenstvo-dopusk',
         'OBJECT == кандидат последнего START — допуск как прежде (rc 0, START)',
         r01)
@@ -859,6 +941,26 @@ def kejsy():
     reg('r30-ravenstvo-209-cherez-verdikt-hvost',
         'кандидат предмета 209 резолвится через вердиктный хвост 209 — '
         'равенство OBJECT допуск без публикации (инвариант 1)', r30)
+    reg('r31-review-txt-vperjod',
+        'коммит «вперёд» добавляет .review/zametki.txt (не-.md) — вне белого '
+        'списка резолвера (инвариант 3) ⇒ кодовая граница ⇒ допуск (Б-1)',
+        r31)
+    reg('r32-review-vlozhenyj-vperjod',
+        'коммит «вперёд» добавляет вложенный .review/sub/a.md — не вердиктный '
+        'путь резолвера ⇒ кодовая граница ⇒ допуск (Б-1)',
+        r32)
+    reg('r33-review-md-vperjod',
+        'контроль: .review/zametki.md — вердиктный путь по резолверу ⇒ не '
+        'кодовая граница ⇒ прежний отказ (мир r06)',
+        r33)
+    reg('r34-review-md-209',
+        'контроль предмета 209 (Adv208): .review/zametki.md впереди '
+        'кандидата 209 — не кодовая граница СВОЕГО предмета, отказ',
+        r34)
+    reg('r35-review-md-003',
+        'контроль предмета 003 (Adv208): .review/zametki.md впереди '
+        'кандидата 003 — не кодовая граница СВОЕГО предмета, отказ',
+        r35)
     return K
 
 
@@ -944,16 +1046,23 @@ STAB_MUTACII = {
         t, '"refs/remotes/origin/wip/$n/")',
         '"refs/remotes/origin/wip/208/")'),
     'st41-konstanta-granicy-208': lambda t: _mut(
-        t, '''    [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\\.md$ \\
-      || "$p" == .review/* ]] || return 0''',
-        '''    [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-208(-[A-Za-z0-9._-]+)?\\.md$ \\
-      || "$p" == .review/* ]] || return 0'''),
+        t, '''  [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\\.md$ \\
+    || "$p" =~ ^\\.review/[A-Za-z0-9._-]+\\.md$ ]]''',
+        '''  [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-208(-[A-Za-z0-9._-]+)?\\.md$ \\
+    || "$p" =~ ^\\.review/[A-Za-z0-9._-]+\\.md$ ]]'''),
     'st42-konstanta-sankcii-208': lambda t: _mut(
         t, '.t == "SANKCIJA" and .repoId == $r and .subjectId == $n',
         '.t == "SANKCIJA" and .repoId == $r and .subjectId == "208"'),
     'st43-konstanta-kandidata-208': lambda t: _mut(
         t, 'object_kandidata "$r_wt" "$sv" "$r_br"',
         'object_kandidata "$r_wt" "208" "$r_br"'),
+    # Б-1 (Rev208): возврат glob .review/* в D9b — грамматика границы снова
+    # расходится со списком резолвера (не-.md и вложенные пути .review/
+    # молча считаются вердиктными — отказ вместо допуска)
+    'st44-glob-review-granicy': lambda t: _mut(
+        t, '''    verdikt_put "$n" "$p" || return 0''',
+        '''    [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\\.md$ \\
+      || "$p" == .review/* ]] || return 0'''),
 }
 
 # Стабы круга d лежат в ОТДЕЛЬНОМ каталоге stabs-konstanty-208d/: census
@@ -965,6 +1074,7 @@ STABY_VTOROGO_KATALOGA = frozenset((
     'st41-konstanta-granicy-208',
     'st42-konstanta-sankcii-208',
     'st43-konstanta-kandidata-208',
+    'st44-glob-review-granicy',
 ))
 
 
@@ -1003,6 +1113,8 @@ STAB_VHOD = {
     'st42-konstanta-sankcii-208': ['r28-sankcija-209-adresna',
                                    'r29-sankcija-003-chuzhoj-predmet'],
     'st43-konstanta-kandidata-208': ['r30-ravenstvo-209-cherez-verdikt-hvost'],
+    'st44-glob-review-granicy': ['r31-review-txt-vperjod',
+                                 'r32-review-vlozhenyj-vperjod'],
 }
 
 
