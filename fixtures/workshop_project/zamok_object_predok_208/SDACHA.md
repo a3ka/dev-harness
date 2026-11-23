@@ -67,7 +67,7 @@ text-режима) и один предикат вывода k_vyvod, между
 · До реализации (A2): `--repo .` → `SUBJEKT 208: KLETKI 23 KRASNYH 18`, rc 1; красные клетки производства
   (замер на двери A2): r02, r03, r04, r05, r06, r07, r08, r10, r11, r12, r13, r14, r15,
   r19, r20, r21, r22, r23; регрессионные r01/r09/r16/r17/r18 зелены.
-· Круг h (текущее состояние, прогон этого круга): `--model` → `MODEL 208: KLETKI 35
+· Круг h (прогон на двери ДО правки implementer; на OBJECT после подгонки та же команда даёт rc 0 — ряд «## Двери»): `--model` → `MODEL 208: KLETKI 35
   KRASNYH 0`, rc 0 (30 прежних + r31–r35); `--repo .` → `SUBJEKT 208: KLETKI 35
   KRASNYH 2`, rc 1 — красны РОВНО r31-review-txt-vperjod и r32-review-vlozhenyj-vperjod
   (Б-1: дверь дерева ещё несёт glob `.review/*`; обе клетки зелёны на исправленной
@@ -84,7 +84,7 @@ text-режима) и один предикат вывода k_vyvod, между
 
 ## Двери
 
-- Red-do — субъект дерева до правки двери implementer, Б-1: красны ровно r31/r32 · bash fixtures/workshop_project/zamok_object_predok_208/red_zamok_object_predok_208.sh --repo . · 1 · 1
+- Red-do (историческое имя ряда круга h) — субъект дерева ПОСЛЕ побайтной подгонки двери implementer: красных 0; до подгонки двери красны были ровно r31/r32 (Б-1) — зафиксировано в «## Дельта» п.1 и «Ручная проба круга h» · bash fixtures/workshop_project/zamok_object_predok_208/red_zamok_object_predok_208.sh --repo . · 0 · 0
 - Model — эталон (A2 + блоки 208 + один предикат verdikt_put), все клетки, обе трубы байтами · bash fixtures/workshop_project/zamok_object_predok_208/red_zamok_object_predok_208.sh --model · 0 · 0
 - Stabs — матрица обманных дверей, SVJAZI 73 ZHIVYH 0 (st01-st39 в stabs/, st40-st44 в stabs-konstanty-208d/) · bash fixtures/workshop_project/zamok_object_predok_208/red_zamok_object_predok_208.sh --stabs · 0 · 0
 - Sintaksis — модель и субъект-носители · bash fixtures/workshop_project/zamok_object_predok_208/red_zamok_object_predok_208.sh --sintaksis · 0 · 0
