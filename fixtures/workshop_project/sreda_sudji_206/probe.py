@@ -68,6 +68,9 @@ VERDICT_REL_SYMLINK = (_S(group='verdict', base='rel', side='outside', form=_SYM
                        _S(group='verdict', base='rel', side='inside', form=_SYMLINK_FORMS))
 VERDICT_ABS_SYMLINK = (_S(group='verdict', base='abs', side='outside', form=_SYMLINK_FORMS),
                        _S(group='verdict', base='abs', side='inside', form=_SYMLINK_FORMS))
+VERDICT_SYMLINK_DOTDOT = (
+    _S(group='verdict', side='outside', form='dir-symlink-dotdot'),
+    _S(group='verdict', side='inside', form='dir-symlink-dotdot'))
 
 # Mutations remove/replace reference operations. Each binding names a distinguishable input;
 # шестое поле — селектор матрицы (kind, neg, ctl) или None: строки, обязанные краснеть
@@ -154,6 +157,12 @@ MUTATIONS = [
      'if path_inside "$vcanon" "$R" && [ "$vcanon" != "$R" ]; then',
      'if path_inside "$vcanon" "$R"; then',
      None),
+    ('quoted-read-stderr-is-write', 'guard-quoted-greater-stderr-null', '.omp/extensions/path-guard.ts',
+     "if (!isWriteCommand(cmd)) return { decision: 'pass' };",
+     "if (false) return { decision: 'pass' };", None),
+    ('verdict-logical-before-physical', 'verdict/rel/plain/dir-symlink-dotdot/outside', 'scripts/pre_judge.sh',
+     'realpath -m -- "$vcandidate"', 'realpath -mL -- "$vcandidate"',
+     ('verdict',) + VERDICT_SYMLINK_DOTDOT),
 ]
 
 def guard_static_cells(copy, delivery, state, other, sandbox):
@@ -184,6 +193,10 @@ def guard_static_cells(copy, delivery, state, other, sandbox):
     add('guard-mkdir-cwd', 'bash', {'command': 'mkdir -p scratch/new', 'cwd': str(copy)})
     add('guard-mkdir-quoted', 'bash', {'command': f'mkdir -p "{copy}/scratch/space dir"', 'cwd': str(copy)})
     add('guard-quoted-greater', 'bash', {'command': "printf '%s' 'report > result'"})
+    add('guard-quoted-greater-stderr-null', 'bash',
+        {'command': "grep -n 'a > b' notes.md 2>/dev/null", 'cwd': str(copy)})
+    add('guard-quoted-greater-stderr-merge', 'bash',
+        {'command': "grep -n 'a > b' notes.md 2>&1", 'cwd': str(copy)})
     add('guard-empty-command', 'bash', {'command': ''})
     add('guard-one-character', 'bash', {'command': 'mkdir -p x', 'cwd': str(copy)})
     add('guard-lf-token', 'bash', {'command': f'mkdir -p "{copy}/scratch/line\nname"', 'cwd': str(copy)})
