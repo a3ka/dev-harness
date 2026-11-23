@@ -89,6 +89,20 @@
 # пуст, строка владельца не расходуется): «нет паузы» из ошибки чтения НЕ
 # следует. Проверка и чтение — ОДНО открытие (TOCTOU). Прежние упрощения
 # v8…v12 — как прежде.
+# v208 (контракт 208, допуск судьи по предковому OBJECT — блоки D9/D11
+# режима --sudit) поверх v8…v13. [D9a] OBJECT-предок кандидата и [D9b]
+# OBJECT-потомок (кодовая граница) допускаются при опубликованности (main
+# либо ветка предмета на origin, в носителе; fail-closed); [D9c] пустая
+# дельта tip против первого родителя при merge — сам tip кандидат допуска;
+# расхождение без предковости — отказ OBJECT_RASHODITSJA с причиной и
+# выходом. Эти входы v8 переводил в предупреждения — 208 возвращает для
+# них отказ (ПЕРЕСЕЧЕНИЕ 140↔208, вопрос оркестратору; контракт
+# 208-zamok-object-predok.md). [D11b] повтор той же роли на том же OBJECT —
+# допуск только по записанной в учёте санкции SANKCIJA (полный адрес
+# repoId+subjectId+rol+object, krugov_suda == 1); строка
+# РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР не действует (снята v8). Пустой НЕ-merge tip,
+# VETKA_NEDOSTUPNA, RABOCHEGO_NET, KLASS_RISKA_NET, LIMIT_GRUPPY и
+# предупреждения передачи — поведение v8…v13 без изменений.
 #
 # ПИНЫ (инвариант 1): дверь вызывается расширением .omp/extensions/
 # spawn-guard.ts по расположению расширения, а не по env; корни состояний
@@ -372,6 +386,31 @@ object_kandidata() {  # <worktree> <NNN> <ref> → исходный OBJECT
     done <<< "$paths"
   done <<< "$entries"
   printf '%s\n' "$base"
+}
+
+# ── [208] допуск судьи по предковости: публикация и кодовая граница ──────────
+# Публикация OBJECT: main ЛИБО ветка предмета на origin, читается в НОСИТЕЛЕ
+# (r_wt) — том же репозитории, где резолвился кандидат D9. Отсутствие/усталость
+# origin-view носителя — отказ (fail-closed), не молчаливый допуск.
+obj_opublikovan() {  # <worktree> <NNN> <object> → 0 опубликован | 1 нет
+  local wt="$1" n="$2" o="$3" ref
+  git -C "$wt" merge-base --is-ancestor "$o" refs/remotes/origin/main 2>/dev/null && return 0
+  while IFS= read -r ref; do
+    [ -n "$ref" ] || continue
+    git -C "$wt" merge-base --is-ancestor "$o" "$ref" 2>/dev/null && return 0
+  done < <(git -C "$wt" for-each-ref --format='%(refname)' "refs/remotes/origin/wip/$n/")
+  return 1
+}
+# Кодовая граница [D9b]: дельта OBJECT против первого родителя содержит путь
+# ВНЕ белого списка вердиктных артефактов предмета (тот же список, что у
+# object_kandidata) — вердиктный хвост не становится объектом суда и «вперёд».
+kodovaja_granica() {  # <worktree> <NNN> <object> → 0 граница | 1 нет
+  local wt="$1" n="$2" o="$3" p
+  while IFS= read -r p; do
+    [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\.md$ \
+      || "$p" == .review/* ]] || return 0
+  done < <(puti_kommita "$wt" "$o")
+  return 1
 }
 
 command -v jq   >/dev/null 2>&1 || skip 'нет jq'
@@ -929,6 +968,17 @@ krugov_suda() {  # <NNN> <rol> <object> → число кругов
     | [ .[] | select(.k == "sudja" and .r == $roli and .o == $o and .s != "obryv") ]
     | length' "$LEDGER" 2>/dev/null
 }
+# [D11b sankcija-v-uchete] (208) Санкция повтора в учёте: строка SANKCIJA с
+# ПОЛНЫМ адресом (repoId, subjectId, rol, object), равными событию (замкнутые
+# алфавиты: rol из JUDGES, object 40-hex, subjectId [0-9]{3}); сравнение
+# литеральное jq-фильтром, склеек из чужого текста нет; SLOVO (лимит группы)
+# санкцией повтора не является.
+sankcija_ucheta() {  # <NNN> <rol> <object> → 0 санкция есть | 1 нет
+  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" \
+    'any(.[]; .t == "SANKCIJA" and .repoId == $r and .subjectId == $n
+              and .rol == $roli and .object == $o)' \
+    "$LEDGER" >/dev/null 2>&1
+}
 # [D16 slovo] СЛОВО владельца — строка SLOVO в учёте (санкция сверх лимита).
 slovo_vladelca() {  # <NNN>
   jq -se --arg r "$REPO_ID" --arg n "$1" \
@@ -1197,15 +1247,26 @@ EOF
           ;;
       esac
     fi
-    # [D11 uzhe-suzhen] повторный круг ТОЙ ЖЕ РОЛИ на ТОМ ЖЕ OBJECT —
-    # ПРЕДУПРЕЖДЕНИЕ с записью (слово владельца 21.11 12:06): сверку «исправи-
-    # тельный круг — новый sha» делает ревьюер по журналу, дверь лишь пишет
-    # факт и номер повтора. Другая роль тот же OBJECT судит свободно
-    # (конвейер). Суд идёт и при освобождённом замке (контракт 167): круг
-    # судейства считается по учёту (START и его собственный RELEASE), а не по
-    # наличию замка.
+    # [D11 uzhe-suzhen] повторный круг ТОЙ ЖЕ РОЛИ на ТОМ ЖЕ OBJECT (208):
+    # допуск ТОЛЬКО по записанной в учёте санкции SANKCIJA (полный адрес:
+    # repoId+subjectId+rol+object) и только пока круг не исчерпан
+    # (krugov_suda == 1). Строка задания РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР (слово
+    # 21.11 00:55) снята словом владельца 21.11 12:06 (v8: «частная строка
+    # более не действует»); SLOVO санкцией повтора не является; иных
+    # источников повтора нет. Иначе — именованный отказ с выходом (инвариант 6
+    # контракта 208; вход, который v8 переводил в предупреждение, — см.
+    # ПЕРЕСЕЧЕНИЕ 140↔208 в контракте). Другая роль тот же OBJECT судит
+    # свободно (конвейер). Суд идёт и при освобождённом замке (контракт 167):
+    # круг судейства считается по учёту (START и его собственный RELEASE), а
+    # не по наличию замка.
     if [ "$klass" = 'sudja' ] && subekt_suzhen_sudej_obj "$sv" "$rol" "$obj"; then
-      predupr "$sv" 'OBJECT_UZHE_SUZHEN' "предмет $sv: OBJECT $obj уже судился ролью $rol; исправительный круг — новый sha" "$obj" "$(($(krugov_suda "$sv" "$rol" "$obj") + 1))"
+      if [ "$(krugov_suda "$sv" "$rol" "$obj")" = '1' ] \
+         && sankcija_ucheta "$sv" "$rol" "$obj"; then
+        :
+      else
+        mutexi_snyat_vse
+        otp OBJECT_UZHE_SUZHEN "предмет $sv: OBJECT $obj уже судился ролью $rol; исправительный круг — новый sha; повтор — записанная в учёте санкция SANKCIJA (один круг, пока не исчерпан)"
+      fi
     fi
     if [ "$klass" = 'sudja' ]; then
       rab="$(poslednij_rabochij "$sv")"
@@ -1266,21 +1327,62 @@ EOF
         [ "$obj" = "$P_OBJECT" ] \
           || perenos_predupr OBJECT_RASHODITSJA 'OBJECT не переданный результат'
       fi
-      # [D9 object-sovpadaet] Вердиктный хвост не становится новым объектом суда.
-      # ФАКТИЧЕСКИЙ OBJECT (то, что пишется в START): канонический, если
-      # resolver его разрешил, иначе tip ветки автора; расхождение с запрошенным
-      # OBJECT — ПРЕДУПРЕЖДЕНИЕ с записью (слово владельца 21.11 12:06), сверку
-      # ведёт ревьюер по журналу.
+      # [D9 object-sovpadaet] (208) Вердиктный хвост не становится новым
+      # объектом суда. Допуск судьи решается ПРЕДКОВОСТЬЮ запрошенного OBJECT
+      # с кандидатом K последнего рабочего START и опубликованностью OBJECT
+      # (main либо ветка предмета на origin, в носителе), не только равенством
+      # tip; расхождение вне предковости — именованный отказ с причиной и
+      # выходом (инварианты 2–5 контракта 208). Для входов вне предмета 208
+      # поведение двери A2 (v8) сохранено дословно.
       obj_fakt="$obj"; tip=''
       if git -C "$r_wt" rev-parse --verify "$r_br^{commit}" >/dev/null 2>&1; then
         tip="$(object_kandidata "$r_wt" "$sv" "$r_br")" || tip=''
         if [ -z "$tip" ]; then
-          tip="$(git -C "$r_wt" rev-parse --verify "$r_br^{commit}" 2>/dev/null)" || tip=''
-          predupr "$sv" 'OBJECT_RASHODITSJA' "предмет $sv: вердиктный хвост не сохраняет OBJECT" "$tip"
-          obj_fakt="$tip"
-        elif [ "$tip" != "$obj" ]; then
-          predupr "$sv" 'OBJECT_RASHODITSJA' "предмет $sv: OBJECT задания $obj ≠ tip ветки $r_br ($tip)" "$tip"
-          obj_fakt="$tip"
+          # [D9c merge-porjadok] (208, боль 152/177): резолвер отверг ветку
+          # из-за пустой дельты tip против первого родителя, а tip — merge
+          # (родители 40-hex, ≥2) — сам tip является кандидатом допуска;
+          # перестановка родителей merge решение не меняет. Пустой НЕ-merge
+          # tip и прочие отказы резолвера — прежнее поведение двери A2:
+          # предупреждение с записью, фактический OBJECT — tip автора.
+          mtip="$(git -C "$r_wt" rev-parse --verify "$r_br^{commit}" 2>/dev/null)" || mtip=''
+          if [ -n "$mtip" ] \
+             && printf '%s' "$(git -C "$r_wt" show -s --format=%P "$mtip" 2>/dev/null)" \
+                  | grep -Eq '^[0-9a-f]{40}( [0-9a-f]{40})+$' \
+             && [ -z "$(puti_kommita "$r_wt" "$mtip")" ]; then
+            tip="$mtip"
+          else
+            tip="$mtip"
+            predupr "$sv" 'OBJECT_RASHODITSJA' "предмет $sv: вердиктный хвост не сохраняет OBJECT" "$tip"
+            obj_fakt="$tip"
+          fi
+        fi
+        if [ "$obj_fakt" = "$obj" ] && [ "$tip" != "$obj" ]; then
+          # [D9a predok] (208, боль 179): OBJECT-предок кандидата допускается
+          # при опубликованности — main либо ветка предмета на origin, в
+          # носителе; отказ называет причину и выход.
+          if git -C "$r_wt" merge-base --is-ancestor "$obj" "$tip" 2>/dev/null; then
+            obj_opublikovan "$r_wt" "$sv" "$obj" || {
+              mutexi_snyat_vse
+              otp OBJECT_RASHODITSJA "предмет $sv: OBJECT $obj — предок кандидата $tip, но не опубликован (refs/remotes/origin/main и refs/remotes/origin/wip/$sv/* его не содержат); выход: fetch origin в носителе либо опубликовать работу"
+            }
+          elif git -C "$r_wt" merge-base --is-ancestor "$tip" "$obj" 2>/dev/null; then
+            # [D9b vperjod] (208, боли 007/182): работа ушла вперёд START-ветки;
+            # OBJECT обязан быть КОДОВОЙ границей (не вердиктным хвостом) и
+            # опубликованным.
+            kodovaja_granica "$r_wt" "$sv" "$obj" || {
+              mutexi_snyat_vse
+              otp OBJECT_RASHODITSJA "предмет $sv: OBJECT $obj впереди кандидата $tip, но не кодовая граница — вердиктный хвост не становится объектом суда; выход: OBJECT работы, не verdikt-коммит"
+            }
+            obj_opublikovan "$r_wt" "$sv" "$obj" || {
+              mutexi_snyat_vse
+              otp OBJECT_RASHODITSJA "предмет $sv: OBJECT $obj впереди кандидата $tip (кодовая граница), но не опубликован (refs/remotes/origin/main и refs/remotes/origin/wip/$sv/* его не содержат); выход: опубликовать работу в main либо ветке wip/$sv/* на origin"
+            }
+          else
+            # [D9 mimo-raboty] (208, инвариант 5): не предок и не потомок —
+            # отказ с причиной (кандидат K приведён) и выходом.
+            mutexi_snyat_vse
+            otp OBJECT_RASHODITSJA "предмет $sv: OBJECT задания $obj ≠ tip ветки $r_br ($tip) и не связан предковостью с работой последнего START; выход: новый OBJECT (исправительный круг) либо опубликовать ветку с этой работой"
+          fi
         fi
       else
         predupr "$sv" 'VETKA_NEDOSTUPNA' "предмет $sv: ветка $r_br в $r_wt не читается — OBJECT не сверить" "$obj"
