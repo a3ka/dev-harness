@@ -31,8 +31,10 @@
 # недоступном закреплённом frozen читают класс из ДЕРЕВА OBJECT по
 # УДОСТОВЕРЕННОМУ локальному frozen-тегу НОВОЙ версии предмета ([D64]):
 # коммит заморозки — предок OBJECT, блобы contracts/<NNN>-*.md побайтно
-# равны; промах — прежнее KLASS_RISKA_NET (предмет рисковый). critic —
-# как в v6; порядок судей рискового — как прежде.
+# равны; промах — прежнее KLASS_RISKA_NET (предмет рисковый). Дерево OBJECT
+# читается в носителе автора, профиль каталога контрактов и legacy-реестр
+# D30 — только у ВЛАДЕЛЬЦА (risk_repo): незакоммиченные файлы носителя
+# класс не задают. critic — как в v6; порядок судей рискового — как прежде.
 # v8 (слово владельца 2026-11-21 12:06 UTC, «замок: упростить одним проходом»):
 # отказ — ТОЛЬКО за реальный вред (один рабочий на предмет, взаимное
 # исключение, изоляция рабочего, судья до сдачи автора, порядок рискового
@@ -335,6 +337,15 @@ puti_kommita() {  # <worktree> <commit>
   fi
 }
 
+# [D45 verdict-path] Белый список вердиктных путей предмета — ОДИН предикат
+# для резолвера и kodovaja_granica (инвариант 3: список D9b тот же, что у
+# резолвера; третья копия грамматики разошлась — Б-1 Rev208).
+verdikt_put() {  # <NNN> <path> → 0 вердиктный путь | 1 нет
+  local n="$1" p="$2"
+  [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\.md$ \
+    || "$p" =~ ^\.review/[A-Za-z0-9._-]+\.md$ ]]
+}
+
 # [D43 verdict-object] Один resolver для D9, передачи и pre_judge.
 # Только линейный хвост обычных verdict-файлов этого предмета прозрачен.
 object_kandidata() {  # <worktree> <NNN> <ref> → исходный OBJECT
@@ -344,8 +355,7 @@ object_kandidata() {  # <worktree> <NNN> <ref> → исходный OBJECT
   [ -n "$paths" ] || return 1 # [D50 empty-tip]
   # Непредметный/смешанный коммит — новая кодовая граница, не вердиктный хвост.
   while IFS= read -r p; do
-    [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\.md$ \
-      || "$p" =~ ^\.review/[A-Za-z0-9._-]+\.md$ ]] \
+    verdikt_put "$n" "$p" \
       || { printf '%s\n' "$tip"; return 0; }
   done <<< "$paths"
   while IFS= read -r p; do
@@ -376,8 +386,7 @@ object_kandidata() {  # <worktree> <NNN> <ref> → исходный OBJECT
     [ -n "$paths" ] || return 1
     while IFS= read -r p; do
       # [D45 verdict-path] Белый список, а не исключение «всё кроме scripts».
-      [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\.md$ \
-        || "$p" =~ ^\.review/[A-Za-z0-9._-]+\.md$ ]] || return 1
+      verdikt_put "$n" "$p" || return 1
       dir="${p#verdicts/}"; dir="${dir%%/*}"
       case "$dir" in review|.review) role=reviewer ;; *) role="$dir" ;; esac
       # [D46 verdict-author] Автор и коммиттер того же судейского канала.
@@ -414,8 +423,7 @@ obj_opublikovan() {  # <worktree> <NNN> <object> → 0 опубликован | 
 kodovaja_granica() {  # <worktree> <NNN> <object> → 0 граница | 1 нет
   local wt="$1" n="$2" o="$3" p
   while IFS= read -r p; do
-    [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\.md$ \
-      || "$p" == .review/* ]] || return 0
+    verdikt_put "$n" "$p" || return 0
   done < <(puti_kommita "$wt" "$o")
   return 1
 }
@@ -647,9 +655,16 @@ predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # Перечень сортируется LC_ALL=C — сообщение отказа детерминировано.
 # Декларация — в любой позиции строки, хвост-основание допустим (норма
 # roles/architect.md), вторая декларация в файле — неоднозначность.
-klass_riska() {  # <NNN> <worktree> <OBJECT> → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
-  local n="$1" wt="$2" obj="$3" kat spisok zap tip_zap blob put val znach='' ploh=''
-  kat="$(kontrakt_kat "$wt")" || kat=''
+# [D64 bootstrap-sudej] (211) 4-й аргумент НЕОБЯЗАТЕЛЬНЫЙ — репозиторий
+# ВЛАДЕЛЬЦА: из его рабочего дерева читаются профиль каталога контрактов
+# (kontrakt_kat) и legacy-реестр D30. Вызовы D42/D52 его не передают —
+# владелец = тот же <worktree>, поведение базы байт-в-байт. D64 читает
+# ДЕРЕВО OBJECT в носителе (там его видит D9), а профиль и legacy-реестр —
+# только у владельца: незакоммиченные файлы носителя автора класс не задают.
+klass_riska() {  # <NNN> <worktree> <OBJECT> [<репозиторий владельца>] → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
+  local n="$1" wt="$2" obj="$3" owner kat spisok zap tip_zap blob put val znach='' ploh=''
+  owner="${4:-$wt}"  # отдельной строкой: слова local раскрываются ДО присваиваний wt
+  kat="$(kontrakt_kat "$owner")" || kat=''
   if [ -z "$kat" ]; then
     printf 'net_stroki:каталог контрактов в профиле владельца не объявлен'
     return 0
@@ -678,8 +693,8 @@ klass_riska() {  # <NNN> <worktree> <OBJECT> → risikovyj|obychnyj|net_stroki:<
     # владельца предмета (станции либо продукта, 0814d2f5a).
     # Литеральное сравнение blob (awk -F'\t' $1==b), нет записи — класс
     # не определён (fail-closed).
-    if [ -z "$val" ] && [ -f "$wt/registry/risk-legacy.tsv" ]; then
-      val="$(awk -F'\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}' "$wt/registry/risk-legacy.tsv")"
+    if [ -z "$val" ] && [ -f "$owner/registry/risk-legacy.tsv" ]; then
+      val="$(awk -F'\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}' "$owner/registry/risk-legacy.tsv")"
     fi
     case "$val" in
       обычный)  val='obychnyj' ;;
@@ -744,29 +759,33 @@ frozen_predmeta() {  # <NNN> <репозиторий владельца> → com
 # <NNN> → <frozen tag-object> на HEAD репозитория владельца нет, либо она
 # указывает на id-тег/не-frozen), судья РЕАЛИЗАЦИИ (reviewer/adversary)
 # читает класс риска из ДЕРЕВА OBJECT — но только по УДОСТОВЕРЕННОМУ
-# локальному frozen-тегу предмета:
+# локальному frozen-тегу предмета В РЕПОЗИТОРИИ ВЛАДЕЛЬЦА:
 #   (б1) тег — annotated (объект-тег) под refs/tags/frozen/contracts/<NNN>/<v>,
-#        версия v — числовая [1-9][0-9]*; выбор ТОЛЬКО новой (числовой
-#        максимум): живая /2 отменила /1, старая версия суд не удостоверяет;
+#        версия v — числовая [1-9][0-9]*; выбор ТОЛЬКО новой версии —
+#        ЧИСЛОВОЙ максимум сравнением digit-строк (длина, затем порядок
+#        знаков в C; арифметики shell нет — версия любой длины сравнима):
+#        живая /2 отменила /1, старая версия суд не удостоверяет;
 #        нечисловой суффикс версии — пропуск (fail-closed);
 #   (б2) коммит заморозки tag^{commit} — ПРЕДОК OBJECT (в носителе r_wt):
 #        заморозка входит в историю судимой работы;
 #   (б3) состав и блобы contracts/<NNN>-*.md в OBJECT и в заморозке равны
-#        ПОБАЙТОВО (тот же перечень имён, что у klass_riska; blob-ша в git
-#        и есть байты): подмена текста/класса в OBJECT после заморозки
-#        различима.
+#        ПОБАЙТОВО (тот же перечень имён, что у klass_riska; каталог —
+#        профиль ВЛАДЕЛЬЦА; blob-ша в git и есть байты): подмена текста
+#        класса в OBJECT после заморозки различима.
+# Дерево OBJECT читается в носителе (там D9 сверил tip ветки с OBJECT);
+# профиль каталога контрактов и legacy-реестр D30 — из репозитория
+# ВЛАДЕЛЬЦА (owner = risk_repo — тот же корень, что у D42/D30), не из
+# рабочего дерева носителя автора: незакоммиченные профиль и legacy-реестр
+# автора класс не задают.
 # Промах любого условия — bootstrap НЕ применяется: прежнее поведение
 # (KLASS_RISKA_NET → предмет считается рисковым). critic/critic-sol — как в
 # D52 (bootstrap только при нуле frozen-тегов предмета); порядок судей
 # рискового (D14/D59) не меняется — bootstrap лишь уточняет класс.
 poslednj_frozen_teg() {  # <NNN> <репозиторий владельца> → tag-object новой версии | пусто
-  local n="$1" owner="$2" ref v maxv=0 teg=''
-  while IFS= read -r ref; do
-    [ -n "$ref" ] || continue
-    v="${ref##*/}"
-    [[ "$v" =~ ^[1-9][0-9]*$ ]] || continue
-    if [ "$v" -gt "$maxv" ]; then maxv="$v"; teg="$ref"; fi
-  done < <(git -C "$owner" for-each-ref --format='%(refname)' "refs/tags/frozen/contracts/$n/" 2>/dev/null)
+  local n="$1" owner="$2" teg
+  teg="$(git -C "$owner" for-each-ref --format='%(refname)' "refs/tags/frozen/contracts/$n/" 2>/dev/null \
+    | awk -F/ '{v=$NF} v ~ /^[1-9][0-9]*$/ {print length(v) "\t" v "\t" $0}' \
+    | LC_ALL=C sort -t$'\t' -k1,1n -k2,2 | tail -n 1 | cut -f3)"
   [ -n "$teg" ] || return 1
   git -C "$owner" rev-parse --verify "$teg" 2>/dev/null || return 1
 }
@@ -778,7 +797,7 @@ frozen_udostoveren_objectu() {  # <NNN> <репозиторий владельц
   [ "$(git -C "$owner" cat-file -t "$tagobj" 2>/dev/null)" = tag ] || return 1
   F="$(git -C "$owner" rev-parse --verify "$tagobj^{commit}" 2>/dev/null)" || return 1
   git -C "$wt" merge-base --is-ancestor "$F" "$obj" 2>/dev/null || return 1
-  kat="$(kontrakt_kat "$wt")" || return 1
+  kat="$(kontrakt_kat "$owner")" || return 1
   spO="$(git -C "$wt" ls-tree "$obj:$kat" 2>/dev/null | awk -F'\t' -v n="$n" '$2 ~ "^" n "-[^/]*[.]md$" {print $1 "\t" $2}' | LC_ALL=C sort)"
   spF="$(git -C "$wt" ls-tree "$F:$kat" 2>/dev/null | awk -F'\t' -v n="$n" '$2 ~ "^" n "-[^/]*[.]md$" {print $1 "\t" $2}' | LC_ALL=C sort)"
   [ "$spO" = "$spF" ] || return 1
@@ -1470,10 +1489,11 @@ EOF
           # [D64 bootstrap-sudej] (211): закреплённый frozen недоступен, но
           # локальный frozen-тег НОВОЙ версии удостоверен для дерева OBJECT
           # (предок + побайтовое равенство текста контракта) — класс из
-          # ДЕРЕВА OBJECT, как у critic-bootstrap; промах — прежний отказ
-          # (kr='net_stroki', предупреждение KLASS_RISKA_NET ниже).
+          # ДЕРЕВА OBJECT (дерево — в носителе r_wt, профиль и legacy-реестр —
+          # у владельца risk_repo), как у critic-bootstrap; промах — прежний
+          # отказ (kr='net_stroki', предупреждение KLASS_RISKA_NET ниже).
           if frozen_udostoveren_objectu "$sv" "$risk_repo" "$r_wt" "$obj_fakt"; then
-            kr="$(klass_riska "$sv" "$r_wt" "$obj_fakt")"; kr_det=''
+            kr="$(klass_riska "$sv" "$r_wt" "$obj_fakt" "$risk_repo")"; kr_det=''
           else
             kr='net_stroki'
           fi
