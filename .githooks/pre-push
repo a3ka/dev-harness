@@ -51,7 +51,7 @@
 #
 # КОЛЬЦО ОДНО. Судимое множество и вердикт наследуют scoped-семантику check_charter:
 # импорт `CHARTER_LIB=1` из scripts/check_charter.sh даёт is_charter_path,
-# charter_diff_paths, razreshil. Вторая реализация кольца запрещена (прецедент
+# charter_diff_paths, razreshil, charter_frozen_publication. Вторая реализация кольца запрещена (прецедент
 # lib_zones/lib_registry). razreshil перемещён выше точки возврата CHARTER_LIB в
 # scripts/check_charter.sh (контракт 022, И-2 круга 1).
 #
@@ -417,9 +417,19 @@ while IFS=' ' read -r lref lsha rref rsha; do
       # check_charter). razreshil возвращает 0, если строка валидна и зовёт
       # раз; rc 1 — нет разрешения / строка вне грамматики.
       if ! razreshil "$c" "$f"; then
-        printf 'ОТКАЗ: pre-push: устав-дельта M/D без РАЗРЕШИЛ-ВЛАДЕЛЕЦ: ref=%s коммит=%s путь=%s\n' \
-          "$lref" "$c" "$f" >&2
-        rc=1
+        # Публикация frozen-текста (контракт 210) — тот же библиотечный предикат,
+        # что и в check_charter: место вызова обязано пользоваться тем же
+        # освобождением, иначе CLI починен, а передача той же истории запрещена.
+        publication_rc=0; charter_frozen_publication "$c" "$f" "$ROOT" || publication_rc=$?
+        if [ "$publication_rc" -eq 2 ]; then
+          printf 'ОТКАЗ: pre-push: не могу проверить публикацию заморозки: ref=%s коммит=%s путь=%s\n' \
+            "$lref" "$c" "$f" >&2
+          rc=1
+        elif [ "$publication_rc" -ne 0 ]; then
+          printf 'ОТКАЗ: pre-push: устав-дельта M/D без РАЗРЕШИЛ-ВЛАДЕЛЕЦ: ref=%s коммит=%s путь=%s\n' \
+            "$lref" "$c" "$f" >&2
+          rc=1
+        fi
       fi
     done < <(charter_diff_paths "$c" "$ROOT")
 
