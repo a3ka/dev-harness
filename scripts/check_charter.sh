@@ -407,12 +407,18 @@ is_charter_path() {
 # не-merge). `git diff-tree <merge>` без явного родителя возвращает пусто (git
 # optimization), и явный `^1 <merge>` нужен только для merge. Корневой коммит —
 # без ^1, diff-tree против пустого дерева.
+#
+# `core.quotePath=false` — ОБЯЗАТЕЛЬНО: по умолчанию git печатает не-ASCII имя
+# пути в кавычках (`"contracts/810-\320\272..."`), и такой путь не совпадает ни
+# с одним именем файла на диске: уставной документ с кириллическим именем
+# выпадал из области и из суда (Adv210 Б-2). Разбор кавычек не вводим — имя
+# пути читается байт в байт.
 charter_diff_paths() {
   local c="$1" root="$2"
   if git -C "$root" rev-parse --verify --quiet "${c}^1" >/dev/null 2>&1; then
-    git -C "$root" diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "${c}^1" "$c" 2>/dev/null
+    git -C "$root" -c core.quotePath=false diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "${c}^1" "$c" 2>/dev/null
   else
-    git -C "$root" diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "$c" 2>/dev/null
+    git -C "$root" -c core.quotePath=false diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "$c" 2>/dev/null
   fi
 }
 
@@ -695,6 +701,7 @@ razreshil() {  # <коммит> <путь> → 0, если разрешение 
 charter_frozen_publication() {
   local c="$1" p="$2" root="$3"
   local base nnn saved ref cb tb tc typ parent pb bound oid remote first mb fb
+  local past past_c seen
   # И1: предмет — прямой путь contracts/NNN-<slug>.md в существующей грамматике
   # next_id. Планы, AGENTS.md и ROADMAP.md новым освобождением НЕ охватываются:
   # для них rc 1 — действует прежний суд.
@@ -745,10 +752,27 @@ charter_frozen_publication() {
   # родителя. Первый родитель, выводимый из T, уже прошёл заморозку: его линия
   # публиковала либо меняла путь после тега, и равный блоб в C восстанавливает
   # прежние байты вместо текущей разрешённой версии — это возврат, а не публикация;
-  # такой merge судится прежним порядком, без освобождения.
+  # такой merge судится прежним порядком, без освобождения. Обратная половина
+  # того же критерия — ниже: первичности нет и тогда, когда T в линию первого
+  # родителя не вошёл, а публиковал её предок T.
   first="$(git -C "$root" rev-parse --verify --quiet "$c^1" 2>/dev/null)" || return 1
   fb=0; git -C "$root" merge-base --is-ancestor "$tc" "$first" 2>/dev/null || fb=$?
   case "$fb" in 0) return 1 ;; 1) ;; *) return 2 ;; esac
+  # И3/И4 (Adv210 Б-1): предковость T относительно первого родителя — НЕ
+  # достаточное свидетельство первичной публикации. frozen-блоб мог быть уже
+  # опубликован коммитом, который НЕ выводится из T: публиковал предок T с
+  # боковой ветки, а сам T в линию первого родителя так и не вошёл. Тогда
+  # равный frozen-блоб в C — возврат прежних байтов после иной разрешённой
+  # правки, а не публикация: публикация уже была. Значит, судим не предковость,
+  # а саму линию первого родителя — был ли блоб B(T,P) уже внесён в неё.
+  # Коммиты, достижимые из T, из линии исключаются: до тега заморозка ещё не
+  # публиковалась (там она только была создана).
+  past="$(git -C "$root" rev-list --first-parent "$first" "^$tc" 2>/dev/null)" || return 2
+  while IFS= read -r past_c; do
+    [ -n "$past_c" ] || continue
+    seen="$(git -C "$root" ls-tree --format='%(objectname)' "$past_c" -- ":(literal)$p" 2>/dev/null)" || return 2
+    [ "$seen" != "$tb" ] || return 1
+  done <<< "$past"
   # И5: основание ОПУБЛИКОВАНО — локальный ref /1 должен буквально совпадать
   # объектом с одноимённым ref живого настроенного origin. Сравнения peeled-коммитов,
   # числа или имён тегов и текста аннотации недостаточно: подменённая аннотация —
@@ -847,8 +871,11 @@ done
 
 # Ошибка ls-tree — именованный отказ, не пустая область: непрочитанное дерево
 # plans/contracts не равно «уставных документов там нет» (контракт 992).
+# `core.quotePath=false` — имена путей читаются байт в байт: по умолчанию git
+# печатает не-ASCII имя в кавычках, и такой документ выпадал из области
+# (Adv210 Б-2).
 lt_rc=0
-g ls-tree -r --name-only HEAD -- ':(literal)plans/' ':(literal)contracts/' > "$TMP/ls-raw" 2>/dev/null || lt_rc=$?
+g -c core.quotePath=false ls-tree -r --name-only HEAD -- ':(literal)plans/' ':(literal)contracts/' > "$TMP/ls-raw" 2>/dev/null || lt_rc=$?
 if [ "$lt_rc" -ne 0 ]; then
   bad "область устава (plans/, contracts/) не читается (ls-tree rc=$lt_rc): проверить невозможно — git fsck и повтор"
   incr_finish 1
@@ -1010,8 +1037,12 @@ else
   # --reachable`: он оставлял `objects/info/commit-graph` в git-common-dir СУДИМОГО
   # дерева — побочный эффект проверки, наблюдаемый на свежем клоне. Замер холодного
   # клона `git clone --local` без него: rc=0 за 6.2 с (бюджет В-клетки 60 с).
+  #
+  # `core.quotePath=false` — имена путей в этом проходе читаются байт в байт:
+  # по умолчанию git печатает не-ASCII имя в кавычках, и уставной документ с
+  # кириллическим именем не совпал бы с картой области (Adv210 Б-2).
   __ch_lr=0
-  g log --format=$'\x01%H' --name-only \
+  g -c core.quotePath=false log --format=$'\x01%H' --name-only \
       --no-renames --diff-filter=MD --diff-merges=first-parent HEAD \
       > "$TMP/log-data" 2>/dev/null || __ch_lr=$?
   if [ "$__ch_lr" -ne 0 ]; then
