@@ -132,8 +132,9 @@ symlink+`..` 4, rel-без-cwd 1 — guard 2057 строк; вердиктная
 | `gen_ci_steps.sh --check` | 0 | реестр и workflow согласованы |
 
 Время ног замерено `time` на станции: --repo 19.4 с + --model 16.2 с +
---stabs 97.7 с = 133.3 с; отдельная нога --sweep (раннер) 218.5 с — вес
-CI-шага правит оркестратор. Валидатор исполнен полной командой `env
+--stabs 97.7 с = 133.3 с; отдельная нога --sweep раннера замерена 218.5 с
+(холодной) и 139.8 с (тёплой), итог счётчиков идентичен — вес CI-шага
+правит оркестратор. Валидатор исполнен полной командой `env
 VALIDATE_STD_SHELLCHECK=/home/harness/.local/state/dev-harness/validators/shellcheck/0.11.0/shellcheck
 bash scripts/validate_std.sh bash
 fixtures/workshop_project/sreda_sudji_206/red_sreda_sudji_206.sh`. Дверей,
