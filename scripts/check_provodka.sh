@@ -482,6 +482,43 @@ guard_is_wired() {
       esac
     done < "$ci_steps"
   fi
+  # ── ЧЕТВЁРТАЯ ЛОКАЦИЯ (205): gate профиля проекта ──────────────────────────
+  # Guard, вызываемый gate'ом профиля проекта (996: sourceCanon.gate argv;
+  # его исполняет scripts/check_project_sources.sh со stage=pre_critic|done —
+  # нога (д) scripts/pre_critic.sh и scripts/done_contract.sh). Грамматика
+  # профиля и слияние репо-слоя со слоём проекта — ЕДИНЫЙ источник
+  # scripts/profile_resolver.sh (996: helper вызывает resolver один раз);
+  # здесь читается ТОЛЬКО готовый эффективный профиль. harness.project.json
+  # есть, а резолвер отказал — именованный отказ с местом из фразы резолвера
+  # («неразобранное — отказ», правило 7 AGENTS). Канон не объявлен (К6) —
+  # локация ничего не подключает и молчит. Токен gate подключает guard ⇔
+  # токен = <guard> либо оканчивается на «/<guard>» — ЛИТЕРАЛЬНОЕ сравнение
+  # путей (норма 041), без regex/glob: подстроки-двойники (xred_…, …-old) и
+  # имя в других полях профиля подключением не считаются.
+  if [ "$found" -eq 0 ] && [ -f "$root/harness.project.json" ]; then
+    local prof_out prof_reason tok suf
+    prof_out="$(HARNESS_PROJECT_LAYER_ROOT="$root" bash "$SELF_DIR/profile_resolver.sh" --repo "$root" 2>&1)"
+    if [ $? -ne 0 ]; then
+      prof_reason="${prof_out%%$'\n'*}"
+      prof_reason="${prof_reason#profile ОТКАЗ: }"
+      die "проводка: профиль проекта не распознан: $prof_reason"
+    fi
+    suf="/$guard"
+    # К-09 (205 Δ1): границы элементов argv сохраняются. Резолвер допускает
+    # непустые строки gate без NUL — и НОВУЮ СТРОКУ ВНУТРИ токена; прежнее
+    # построчное чтение резало один элемент на строки и «видело» guard внутри
+    # LF-двойника. Разделитель — NUL, которого в элементах нет по грамматике
+    # резолвера: jq -j дописывает \u0000 ПОСЛЕ каждого элемента, read -d ''
+    # читает элемент ЦЕЛИКОМ, включая внутренние LF. Сравнение — по-прежнему
+    # целый токен = <guard> либо суффикс «/<guard>», литеральный (И1).
+    while IFS= read -r -d '' tok; do
+      [ -n "$tok" ] || continue
+      if [ "$tok" = "$guard" ]; then found=1; break; fi
+      if [ "${#tok}" -ge "${#suf}" ] && [ "${tok:$((${#tok} - ${#suf}))}" = "$suf" ]; then
+        found=1; break
+      fi
+    done < <(printf '%s' "$prof_out" | jq -j 'if has("sourceCanon") and (.sourceCanon.value != null) then (.sourceCanon.value.gate[]? | . + "\u0000") else empty end')
+  fi
   [ "$found" -eq 1 ]
 }
 
