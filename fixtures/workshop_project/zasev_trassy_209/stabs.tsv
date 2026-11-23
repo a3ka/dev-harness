@@ -1,0 +1,15 @@
+# mutation<TAB>observable cell; executable bindings, not contract prose.
+FILE-AS-SOURCE	istochnik
+NO-REGISTRY	rejestr
+DROP-ACTUAL	vytesnenie
+NO-DISPLACE	vytesnenie
+SEED-NONEMPTY	nepustoj
+NO-MARK	metka
+DUPLICATE	idempotentnost
+SOURCE-OVERRIDE	source-path
+EMPTY-FIRST-AWK	idempotentnost
+OVERWRITE-EXISTING	existing-archive
+DROP-ROLE	make-task
+BIND-AS-FACT	bind
+JUDGE-ACCEPTS-SEED	bind
+JUDGE-GATE-BYPASS	sud-gate
