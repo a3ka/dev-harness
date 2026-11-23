@@ -15,6 +15,12 @@
 #   PATERN:KESH-NE-PISHETSJA   — зелёный прогон не перезаписывает кеш HEAD;
 #   PATERN:PROPUSK-MERGE-ISKL  — чужие land: wip/<OTHER>/ принесённые не исключаются;
 #   PATERN:SPASENO-NE-CHITAETSJA — СПАСЕНО-признание replay не читает.
+# Имена PATERN:PROIZV-* — адресные мутации ПРОИЗВОДСТВЕННОЙ двери (Б-1):
+# якорь правки implementer (zones_replay "$own_nnn") обязан встречаться в
+# scripts/check_zones.sh выбранного дерева ровно один раз; до правки якоря
+# нет — NE_PRIMENIM rc 2 (красное-до), после правки мутация поймана:
+#   PATERN:PROIZV-CLOB-SKIP — replay стартует с переприсвоенного nnn (возврат дефекта Б-1).
+PATERN:PROIZV-CLOB-SKIP	scripts/check_zones.sh	e16-spaseno-do-add-minta
 stab_vsegda_nol.sh	scripts/check_zones.sh	e2-chuzhaja-zona
 stab_tolko_marker.sh	scripts/check_zones.sh	e2-chuzhaja-zona
 PATERN:PROPUSK-SUDA-VTOROGO	scripts/check_zones.sh	e2-chuzhaja-zona
