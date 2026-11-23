@@ -23,7 +23,7 @@ if a.zones:
         reason = 'производная материализация scripts/gen_ci_steps.sh из registry/ci-steps.tsv' if path == '.github/workflows/ci.yml' else ('собственная строка батареи 206 и её замер' if author == 'orchestrator' else 'среда судьи 206; прежние обязательства сохраняются')
         print(f'ПЕРЕСЕЧЕНИЕ {author}: {path} — {number} только {reason}')
 else:
-    catalog = 'stab\tcell\tsubject\n' + ''.join(f'{name}\t{cell}\t{path}\n' for name, cell, path, _, _ in MUTATIONS)
+    catalog = 'stab\tcell\tsubject\n' + ''.join(f'{name}\t{cell}\t{path}\n' for name, cell, path, *_ in MUTATIONS)
     if a.check:
         if (HERE / 'stabs.tsv').read_bytes() != catalog.encode():
             sys.exit('STABS_CATALOG_MISMATCH')
