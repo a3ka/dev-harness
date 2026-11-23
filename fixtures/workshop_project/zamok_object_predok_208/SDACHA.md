@@ -31,7 +31,7 @@ text-режима) и один предикат вывода k_vyvod, между
 140↔208 (отказы 208 для судейских D9/D11 поверх предупреждений v8) названо в контракте
 отдельным разделом — решено словом владельца 22.11 (вариант А).
 
-· `--repo .` → `SUBJEKT 208: KLETKI 23 KRASNYH 18`, rc 1; красные клетки производства
+· До реализации (A2): `--repo .` → `SUBJEKT 208: KLETKI 23 KRASNYH 18`, rc 1; красные клетки производства
   (замер на двери A2): r02, r03, r04, r05, r06, r07, r08, r10, r11, r12, r13, r14, r15,
   r19, r20, r21, r22, r23; регрессионные r01/r09/r16/r17/r18 зелены.
 · `--model` → `MODEL 208: KLETKI 23 KRASNYH 0`, rc 0.
@@ -44,7 +44,7 @@ text-режима) и один предикат вывода k_vyvod, между
 
 ## Двери
 
-- Red-do — живая дверь A2 до реализации · bash fixtures/workshop_project/zamok_object_predok_208/red_zamok_object_predok_208.sh --repo . · 1 · 1
+- Red-posle — живая дверь A2 после реализации 208 · bash fixtures/workshop_project/zamok_object_predok_208/red_zamok_object_predok_208.sh --repo . · 0 · 0
 - Model — эталон (A2 + блоки 208), все клетки, обе трубы байтами · bash fixtures/workshop_project/zamok_object_predok_208/red_zamok_object_predok_208.sh --model · 0 · 0
 - Stabs — матрица обманных дверей, SVJAZI 64 ZHIVYH 0 · bash fixtures/workshop_project/zamok_object_predok_208/red_zamok_object_predok_208.sh --stabs · 0 · 0
 - Sintaksis — модель и субъект-носители · bash fixtures/workshop_project/zamok_object_predok_208/red_zamok_object_predok_208.sh --sintaksis · 0 · 0
