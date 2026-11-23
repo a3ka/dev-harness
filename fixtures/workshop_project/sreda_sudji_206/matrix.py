@@ -9,8 +9,8 @@ predmet-206-granica-ohrannyh-predikatov).
 передаётся СЫРЫМ, генератор не нормализует); размещение (своя М1-копия,
 scratch-allowlist 025, live-state, чужое неназначенное дерево, явно
 назначенный пин); «--» и позиция цели; назначение symlink. Вердиктная
-матрица: abs/rel × четыре формы × прямой путь/ссылка-каталог/ссылка-файл ×
-внутри/снаружи.
+матрица: abs/rel × четыре формы × прямой путь/ссылка-каталог/ссылка-файл/
+ссылка-каталог с последующим «..» × внутри/снаружи.
 
 Ожидание каждой строки назначается миром ДО вызова субъекта: своя копия,
 scratch и назначенный пин положительны; live-state и чужое дерево
@@ -36,7 +36,7 @@ PLACEMENTS = ('own', 'scratch', 'state', 'foreign', 'pin')
 POSITIONS = ('position-0', 'position-1', 'position-2')
 DASHES = ('no-dash', 'dash')
 LINK_DESTS = ('own', 'state', 'foreign')
-FORMS = ('direct', 'dir-symlink', 'file-symlink')
+FORMS = ('direct', 'dir-symlink', 'file-symlink', 'dir-symlink-dotdot')
 SIDES = ('inside', 'outside')
 LEX_SEPS = {'plain': '/', 'double': '//', 'dot': '/./', 'existing': '/existing/../'}
 REVIEWER_BRANCH = 'wip/206/reviewer'
@@ -244,14 +244,18 @@ VERDICT_PARENTS = {
     ('dir-symlink', 'outside'): ('m206dlink-out', 'verdict.md'),
     ('file-symlink', 'inside'): ('.', 'm206flink-verdict-in.md'),
     ('file-symlink', 'outside'): ('.', 'm206flink-verdict-out.md'),
+    ('dir-symlink-dotdot', 'inside'): ('m206dlink-in', '../x.md'),
+    ('dir-symlink-dotdot', 'outside'): ('m206dlink-out', '../x.md'),
 }
 
 
 def verdict_rows(copy, other, sandbox):
     """Вердиктная матрица арбитража: abs/rel × четыре лексические формы ×
-    прямой путь/ссылка-каталог/ссылка-файл × внутри/снаружи. Относительная
-    форма считается от --repo, не от cwd вызывающего (cwd вызывающего —
-    чужой репозиторий)."""
+    прямой путь/ссылка-каталог/ссылка-файл/ссылка-каталог с последующим «..» ×
+    внутри/снаружи. В последней форме физический родитель внешней ссылки —
+    sandbox (отказ), внутренней — copy (допуск), а не лексический copy.
+    Относительная форма считается от --repo, не от cwd вызывающего
+    (cwd вызывающего — чужой репозиторий)."""
     rows = []
     for base in BASES:
         for lex in LEXES:
@@ -261,7 +265,7 @@ def verdict_rows(copy, other, sandbox):
                     if base == 'abs':
                         if form == 'direct':
                             parent = f'{copy}/verdicts' if side == 'inside' else f'{other}/m206lex'
-                        elif form == 'dir-symlink':
+                        elif form in ('dir-symlink', 'dir-symlink-dotdot'):
                             parent = f'{copy}/m206dlink-in' if side == 'inside' else f'{copy}/m206dlink-out'
                         else:
                             parent = str(copy)
