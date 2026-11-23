@@ -1,0 +1,219 @@
+{
+ "versija": 1,
+ "kontrakt": "contracts/212-replace-posle-lenda.md",
+ "subjekt": "scripts/replace_line.sh",
+ "model": "model/replace_line.sh",
+ "kejsy": {
+  "r01-chestnyj-replace": "ленд состоялся, тег опубликован, строка = id-тег — REPLACE проходит прямым коммитом сквозь живую дверь (rc 0)",
+  "r02-teg-ne-na-origin": "frozen-тег жив локально, НЕ запушен на origin (self-freeze) — именованный отказ, дерево не мутировано",
+  "r03-zamorozka-ne-predok-main": "frozen-тег опубликован, но коммит заморозки НЕ предок origin/main (ленд не состоялся) — отказ",
+  "r04-staraja-stroka-chuzhaja": "строка N указывает на посторонний sha (ни id-тег, ни frozen/<vmax-1>) — отказ старой стороны",
+  "r05-povtornyj-replace": "строка N уже указывает на tag-object frozen/<vmax> — повторный REPLACE отказ",
+  "r06-grjaznoe-derevo": "рабочее дерево грязное (untracked) — отказ до любых обменов, дерево не мутировано",
+  "r07-ne-main": "HEAD на wip-ветке — отказ «не main» до любых обменов",
+  "r08-main-rashoditsja": "локальный main позади origin/main — отказ расхождения до записи",
+  "r09-dver-otkljuchena": "core.hooksPath ведёт в каталог без pre-commit — именованный отказ конфиг-дизарма ДО записи",
+  "r10-stroki-net": "строки N нет в манифесте — REPLACE нечего менять",
+  "r11-frozen-ljogkij": "локальный frozen-тег лёгкий (не аннотированный) — отказ",
+  "r12-dve-stroki": "в манифесте две строки N — отказ неоднозначности",
+  "r13-drejf-frozen": "локальный frozen-тег перетегирован (sha ≠ origin) — отказ переминта заморозки",
+  "r14-avtoritet-nedostupen": "origin недоступен (ls-remote rc 128) — fail-closed «авторитет недоступен», НЕ «тег не выдан»",
+  "r15-vysokaja-versija": "живы frozen/N/1 и /2, строка = id-тег — REPLACE ставит tag-object ВЫСШЕЙ заморозки (/2)",
+  "r16-dogon-vtoroj-versii": "строка = tag-object frozen/N/1, жива /2 — догон: старая сторона = frozen/<vmax-1>"
+ },
+ "stab_vhod": {
+  "st01-povtor-propuschen": [
+   "r05-povtornyj-replace"
+  ],
+  "st02-teg-origin-ne-sverjaetsja": [
+   "r02-teg-ne-na-origin"
+  ],
+  "st03-setevoj-otkaz-prodolzhaet": [
+   "r14-avtoritet-nedostupen"
+  ],
+  "st04-predok-ne-proverjaetsja": [
+   "r03-zamorozka-ne-predok-main"
+  ],
+  "st05-staraja-stroka-ne-sverjaetsja": [
+   "r04-staraja-stroka-chuzhaja"
+  ],
+  "st06-main-rashozhdenie-propuscheno": [
+   "r08-main-rashoditsja"
+  ],
+  "st07-awk-inversija": [
+   "r01-chestnyj-replace"
+  ],
+  "st08-grjaznoe-propuscheno": [
+   "r06-grjaznoe-derevo"
+  ],
+  "st09-ne-main-propuschen": [
+   "r07-ne-main"
+  ],
+  "st10-dver-disarm-propuschen": [
+   "r09-dver-otkljuchena"
+  ],
+  "st11-nizshaja-versija": [
+   "r15-vysokaja-versija"
+  ],
+  "st12-annotirovannost-propuschena": [
+   "r11-frozen-ljogkij"
+  ],
+  "st13-stroki-net-propuscheno": [
+   "r10-stroki-net"
+  ],
+  "st14-identitet-consultant": [
+   "r01-chestnyj-replace"
+  ],
+  "st15-no-verify-injekcija": [
+   "r01-chestnyj-replace"
+  ],
+  "st16-hookspath-injekcija": [
+   "r01-chestnyj-replace"
+  ],
+  "st17-drejf-propuschen": [
+   "r13-drejf-frozen"
+  ],
+  "st18-dogon-staraja-storona": [
+   "r16-dogon-vtoroj-versii"
+  ],
+  "st19-dubl-propuschen": [
+   "r12-dve-stroki"
+  ],
+  "st40-konstanta-nomera": [
+   "r01-chestnyj-replace"
+  ],
+  "st20-otkaz-crlf": [
+   "r02-teg-ne-na-origin",
+   "r05-povtornyj-replace",
+   "r14-avtoritet-nedostupen"
+  ],
+  "st21-otkaz-odinochnyj-cr": [
+   "r02-teg-ne-na-origin",
+   "r05-povtornyj-replace",
+   "r14-avtoritet-nedostupen"
+  ],
+  "st22-otkaz-probel-v-konce": [
+   "r02-teg-ne-na-origin",
+   "r05-povtornyj-replace",
+   "r14-avtoritet-nedostupen"
+  ],
+  "st23-otkaz-dvojnoj-lf": [
+   "r02-teg-ne-na-origin",
+   "r05-povtornyj-replace",
+   "r14-avtoritet-nedostupen"
+  ],
+  "st24-otkaz-bom": [
+   "r02-teg-ne-na-origin",
+   "r05-povtornyj-replace",
+   "r14-avtoritet-nedostupen"
+  ],
+  "st25-otkaz-nul": [
+   "r02-teg-ne-na-origin",
+   "r05-povtornyj-replace",
+   "r14-avtoritet-nedostupen"
+  ],
+  "st26-otkaz-ne-utf8": [
+   "r02-teg-ne-na-origin",
+   "r05-povtornyj-replace",
+   "r14-avtoritet-nedostupen"
+  ],
+  "st27-otkaz-lishnij-vyvod": [
+   "r02-teg-ne-na-origin",
+   "r05-povtornyj-replace",
+   "r14-avtoritet-nedostupen"
+  ],
+  "st28-otkaz-perenos": [
+   "r02-teg-ne-na-origin",
+   "r05-povtornyj-replace",
+   "r14-avtoritet-nedostupen"
+  ],
+  "st29-otkaz-lishnij-v-stdout": [
+   "r02-teg-ne-na-origin",
+   "r05-povtornyj-replace",
+   "r14-avtoritet-nedostupen"
+  ],
+  "st30-replaced-crlf": [
+   "r01-chestnyj-replace",
+   "r15-vysokaja-versija"
+  ],
+  "st31-replaced-odinochnyj-cr": [
+   "r01-chestnyj-replace",
+   "r15-vysokaja-versija"
+  ],
+  "st32-replaced-probel-v-konce": [
+   "r01-chestnyj-replace",
+   "r15-vysokaja-versija"
+  ],
+  "st33-replaced-dvojnoj-lf": [
+   "r01-chestnyj-replace",
+   "r15-vysokaja-versija"
+  ],
+  "st34-replaced-bom": [
+   "r01-chestnyj-replace",
+   "r15-vysokaja-versija"
+  ],
+  "st35-replaced-nul": [
+   "r01-chestnyj-replace",
+   "r15-vysokaja-versija"
+  ],
+  "st36-replaced-ne-utf8": [
+   "r01-chestnyj-replace",
+   "r15-vysokaja-versija"
+  ],
+  "st37-replaced-lishnij-vyvod": [
+   "r01-chestnyj-replace",
+   "r15-vysokaja-versija"
+  ],
+  "st38-replaced-perenos": [
+   "r01-chestnyj-replace",
+   "r15-vysokaja-versija"
+  ],
+  "st39-replaced-lishnij-v-stderr": [
+   "r01-chestnyj-replace",
+   "r15-vysokaja-versija"
+  ]
+ },
+ "nositeli": {
+  "model/replace_line.sh": "b08868b7597eb04e5dca41535b45e4f8f2eae79e47391cd4bff4a6ec7d0f7da4",
+  "stabs/st01-povtor-propuschen/replace_line.sh": "9f0824f16aa0cd75c532c8622bf59d3d3994cb618eec4c0c4071a0c654650afd",
+  "stabs/st02-teg-origin-ne-sverjaetsja/replace_line.sh": "11ef1629584532b6608a96e4ad483823a6f4f8fdf39d366790ef93c917ca33f5",
+  "stabs/st03-setevoj-otkaz-prodolzhaet/replace_line.sh": "2c97e55eca08c1568b77b4eb0467b35aed27995718acb6e719593448f57e2905",
+  "stabs/st04-predok-ne-proverjaetsja/replace_line.sh": "d39c6fdcaee0cb274caae686b45161f8ee606eee8f5c8ff1726bc6dca3f69eef",
+  "stabs/st05-staraja-stroka-ne-sverjaetsja/replace_line.sh": "a30d26d03f1b1cb592910d4863c162310d54a5920038d927b389cdfc901edf52",
+  "stabs/st06-main-rashozhdenie-propuscheno/replace_line.sh": "8e8b8a35841484a867f0fe710b38b1fdb79c7f626efeafb941cb8808b17fa1dd",
+  "stabs/st07-awk-inversija/replace_line.sh": "a83a6c2cd5daf67c24a079da1ee00e9a089c04fb6eb412f9741d230d686d52a9",
+  "stabs/st08-grjaznoe-propuscheno/replace_line.sh": "f7cbd4d06b415817acc7bda41840c9e3fc09a30224b34f97686e95f5e83bedff",
+  "stabs/st09-ne-main-propuschen/replace_line.sh": "e3aa79b272dfd5b45d39b41887299c0007fa5e0c65a183d3499c7cd67389f784",
+  "stabs/st10-dver-disarm-propuschen/replace_line.sh": "1122f3f38fd45a05c34872195457b78b6f70de0890f4caaab75f1a647ceef6b7",
+  "stabs/st11-nizshaja-versija/replace_line.sh": "b72790929e9cc1eb65f80aec0928a1073ac2d47d42f480a3be9e9e2db58120bb",
+  "stabs/st12-annotirovannost-propuschena/replace_line.sh": "69c39e9209327ff86c9535ea69f50eae0d02230d472b9884b298ad9c97f13bb1",
+  "stabs/st13-stroki-net-propuscheno/replace_line.sh": "80d600929857fc559d00967918abcddc5cfb0706b8de7baca15a21c642d7927e",
+  "stabs/st14-identitet-consultant/replace_line.sh": "b9095af8fc0afb4c67fd576fa1373946ef495a3ff0d8774298e568c39e48ceff",
+  "stabs/st15-no-verify-injekcija/replace_line.sh": "d240ad9170f6acd91e770f3028dad24d7a5d606a6590bdcda78a3618b714ba7d",
+  "stabs/st16-hookspath-injekcija/replace_line.sh": "5ea3427ed243fe68bf22fd1f3bc4d449a65f2ba11bba4e24fd10a186a4b803e1",
+  "stabs/st17-drejf-propuschen/replace_line.sh": "0bf917f756af628c0766e0443d0cc0efcd51490d8e3c40ea4e10e3ce6652398b",
+  "stabs/st18-dogon-staraja-storona/replace_line.sh": "52f84e3679c85551f7e1d459e0ae4b6731450dc6ab102c244578f336ab2c3ed2",
+  "stabs/st19-dubl-propuschen/replace_line.sh": "89faabf79ea4a69f6c0bd65b364aa2b7d750f6a25d4e3cebe0ca3196058f6956",
+  "stabs/st20-otkaz-crlf/replace_line.sh": "a40f7d42f110696f705e87fac53247b45b0be1b22145223511641e56ad76986d",
+  "stabs/st21-otkaz-odinochnyj-cr/replace_line.sh": "fea5357da9ed12a4b1fac6bbae07629f9509f8bb972af4e6789d7c6785d45905",
+  "stabs/st22-otkaz-probel-v-konce/replace_line.sh": "f27e78a117df2f23d27eb39e3e8c88a6bc6f139988a1340272b97dec696ff1a1",
+  "stabs/st23-otkaz-dvojnoj-lf/replace_line.sh": "30a407c1a45c1edbea4db0991299603b7b74085e32dc48f0371f1e426185bfc0",
+  "stabs/st24-otkaz-bom/replace_line.sh": "81233e881b0c391578f7ad9d985684ee1bef6934ffaa58d459eb635e0e159f5c",
+  "stabs/st25-otkaz-nul/replace_line.sh": "e6c08fb127a52eeead0e7f3364316f33a5ca41e62c1edb9cd0c3e691e0b3ff09",
+  "stabs/st26-otkaz-ne-utf8/replace_line.sh": "be23e3572c6b6827829641c5e85f5a115b939adfe233c452853c00c4c03746ff",
+  "stabs/st27-otkaz-lishnij-vyvod/replace_line.sh": "1754bac78ef1962818ed921a48cb8b04ff42b2de81226618c3f194e4d866c7f3",
+  "stabs/st28-otkaz-perenos/replace_line.sh": "8375f4504b024e4930acb6efe0d18ab461c4f30453492e8092806e1538ce6b5e",
+  "stabs/st29-otkaz-lishnij-v-stdout/replace_line.sh": "94be7d5df1f5a5557413482cb3c5e9efccf419ff41fc69d120d2b1e7be720c35",
+  "stabs/st30-replaced-crlf/replace_line.sh": "683f4d5653ae650e7c6ec2ba98b2ae228993589bdd71a3144c575a09a7346380",
+  "stabs/st31-replaced-odinochnyj-cr/replace_line.sh": "e7e0d0c108773b1256c70f95784aa00bcd3597dd0779f8d8ac953538a85f68bb",
+  "stabs/st32-replaced-probel-v-konce/replace_line.sh": "03a1e433df763f8e4e559fb93c737e8de275f62e815411cacbc64ab7cf0c30a2",
+  "stabs/st33-replaced-dvojnoj-lf/replace_line.sh": "2ff1a3e1248c8d365d4987abf95b8467ddbc5acab2fca67b4c0d6772b0c0acf6",
+  "stabs/st34-replaced-bom/replace_line.sh": "d96d5f15c6841d56e9f4bb9ef2b4b369bb64c90a7e31677a3c5322c0e883099c",
+  "stabs/st35-replaced-nul/replace_line.sh": "0bcc4a7d6f9db7a0b3077f1eef63544b041969924941493cc6c764f5b4a7b348",
+  "stabs/st36-replaced-ne-utf8/replace_line.sh": "23e121dff89cdfdaa7c6e7a4b38597092e0c738d3afe227cb9afdfe5f3a94f7b",
+  "stabs/st37-replaced-lishnij-vyvod/replace_line.sh": "6accd805c213b4c68a3f8ea112c9bbb4ba71b458623c421ca8b4f295b9690c52",
+  "stabs/st38-replaced-perenos/replace_line.sh": "38517c1b428cbc36989ae7d80e866bb4ec6b3a4c998ee57d89ecd0d2e85eb6a1",
+  "stabs/st39-replaced-lishnij-v-stderr/replace_line.sh": "74ed24428b4be9c126a2fdcd48f3e46c8e093ec54de88dac7c4b17dc35f9d81b",
+  "stabs/st40-konstanta-nomera/replace_line.sh": "f3759267c54da3bf5727cea1b7c0f90f905a8ebdf5fd71a31d0860bca2324e76"
+ }
+}
