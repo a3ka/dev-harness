@@ -317,3 +317,4 @@ export default function register(pi: unknown): void {
     }
   });
 }
+// 157: носитель узкого adversary на финальном OBJECT main (слово владельца 21.11) — строка-шапка, поведение не меняет
