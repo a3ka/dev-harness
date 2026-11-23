@@ -1,0 +1,49 @@
+# Батарея 207 — привязки обманных реализаций и мутаций к различающим входам
+# (Н-39: данными батареи, не прозой контракта).
+# Формат: имя <TAB> заменяемый файл субъекта <TAB> клетка.
+# Поимка = результат обманной реализации на клетке не удовлетворяет ожиданию
+# клетки (rc, байты вывода, маркер, кеш, число bad-строк, счётчики под strace).
+# Имена stab_*.sh — файлы-обманки из stabs/, заменяют субъекта целиком.
+# Имена PATERN:* — адресные мутации модели: якорная замена РОВНО одного
+# вхождения в честный файл (нулевая/множественная замена — ORACLE_TAMPERED
+# rc 2, поимкой не считается). Якоря и замены — в PATERNS probe.py:
+#   PATERN:PROPUSK-SUDA-VTOROGO — replay судит только первый контракт;
+#   PATERN:PODMENA-VERDIKTA    — вердикт всегда rc 0;
+#   PATERN:OBREZKA-OKNA        — окно обрезано до HEAD~1..HEAD;
+#   PATERN:KESH-OKNA-IGNOR     — судится и до-базовый коммит (кеш игнорируется);
+#   PATERN:SCHETCHIK-CHECKED   — счётчик «проверено по зонам» не растёт;
+#   PATERN:KESH-NE-PISHETSJA   — зелёный прогон не перезаписывает кеш HEAD;
+#   PATERN:PROPUSK-MERGE-ISKL  — чужие land: wip/<OTHER>/ принесённые не исключаются;
+#   PATERN:SPASENO-NE-CHITAETSJA — СПАСЕНО-признание replay не читает.
+stab_vsegda_nol.sh	scripts/check_zones.sh	e2-chuzhaja-zona
+stab_tolko_marker.sh	scripts/check_zones.sh	e2-chuzhaja-zona
+PATERN:PROPUSK-SUDA-VTOROGO	scripts/check_zones.sh	e2-chuzhaja-zona
+PATERN:PODMENA-VERDIKTA	scripts/check_zones.sh	e2-chuzhaja-zona
+PATERN:OBREZKA-OKNA	scripts/check_zones.sh	e10-seredina-i-do-bazy
+PATERN:KESH-OKNA-IGNOR	scripts/check_zones.sh	e10-seredina-i-do-bazy
+PATERN:SCHETCHIK-CHECKED	scripts/check_zones.sh	e1-chistoe-okno
+PATERN:KESH-NE-PISHETSJA	scripts/check_zones.sh	e1-chistoe-okno
+PATERN:PROPUSK-MERGE-ISKL	scripts/check_zones.sh	e4-merge-okno-svoi-chuzhie
+PATERN:SPASENO-NE-CHITAETSJA	scripts/check_zones.sh	e7-spaseno-replay
+PATERN:K0-SUDIT-OKNO	scripts/check_zones.sh	k0-bez-zon
+PATERN:K0-NEMOJ-VYHOD	scripts/check_zones.sh	k0-bez-zon
+PATERN:REPLAY-TAC	scripts/check_zones.sh	e14-porjadok-replay
+PATERN:REPLAY-PUTI-TAC	scripts/check_zones.sh	e15-porjadok-putej
+PATERN:STDOUT-DUBL	scripts/check_zones.sh	e1-chistoe-okno
+PATERN:STDOUT-SPASENO	scripts/check_zones.sh	e7-spaseno-replay
+PATERN:GIT-INYM-PUTEM	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:GIT-EXEC-A-DUBL	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:REPLAY-SORT	scripts/check_zones.sh	e14-porjadok-replay
+PATERN:REPLAY-DEDUP	scripts/check_zones.sh	e2-chuzhaja-zona
+PATERN:FIRST-CONTRACT-AUTHORS	scripts/check_zones.sh	e3-arhitektor-v-zone-implementer
+PATERN:IGNORE-OTHER-ZONES	scripts/check_zones.sh	e8-peresechenie-zon
+PATERN:STDOUT-NEWLINE	scripts/check_zones.sh	e1-chistoe-okno
+PATERN:GIT-LOG-DUBL	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:GIT-LOG-TRACE2-OFF	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:GIT-ALIAS-DUBL	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:GIT-COMMAND-V-DUBL	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:GIT-ENV-DUBL	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:GIT-REV-LIST-DUBL	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:GIT-DIFF-TREE-DUBL	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:GIT-REORDER-DUBL	scripts/check_zones.sh	c1-okno-odin-raz
+PATERN:GIT-EXEC-PATH-DUBL	scripts/check_zones.sh	c1-okno-odin-raz
