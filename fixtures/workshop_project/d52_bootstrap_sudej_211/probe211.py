@@ -7,9 +7,10 @@
 # предок OBJECT; блобы contracts/<NNN>-*.md в OBJECT и в заморозке равны
 # побайтно). Промах — прежнее поведение (KLASS_RISKA_NET → предмет
 # рисковый). critic — как прежде (D52); порядок судей рискового не меняется.
-# Эталон — model/zamok_predmeta.sh: дверь базы (main 6d311c00e + реализация
-# 208, ветка wip/208/orch-lin d0b95658) + блок D64; реализация несёт ту же
-# семантику.
+# Эталон — model/zamok_predmeta.sh: дверь базы (HEAD 10ff5df41 — носитель
+# реализации 208; scripts/zamok_predmeta.sh sha256 47de5c02…) + дельта D64
+# (helpers, ветвь, 4-й аргумент klass_riska); семья 208 зелена против модели
+# как субъекта (--sosed-208); реализация несёт ту же семантику.
 # Привязки стаб↔клетка — ТОЛЬКО source.json:.stab_vhod (Н-39: проза
 # контракта пар не утверждает; якорь стаба — кратность 1 в тексте модели).
 # Оракул — source.json в памяти ДО вызова субъекта (правило 8); носители —
@@ -34,9 +35,16 @@
 #         (ЖИВЫХ 0); якорь потерян или синтаксис сломан — rc 2.
 #   --sgeneriruj-staby (обслуживание) материализует stabs/<имя>/ и
 #         source.json (nositeli).
-#
-# Миры — в mktemp под $TMPDIR (диск тесный: по одному миру на клетку, мир
-# удаляется сразу); omp не нужен; сети нет; git/jq/bash обязательны.
+#   --sosed-208  модель как субъект семьи 208: в отдельном корне под $TMPDIR
+#         scripts/zamok_predmeta.sh = модель побайтно, батарея 208 — её
+#         штатным --repo <корень>; вывод и rc — её собственные.
+#   --negativ-208  негатив к --sosed-208 (Б-2 Rev211 вызов 1): мутация
+#         модели «kodovaja_granica — третья копия белого списка путей
+#         вердиктов из базы ДО unification (glob .review/* вместо единого
+#         предиката verdikt_put)», якорь кратности 1, обязана красить
+#         РОВНО r31/r32 семьи 208 — иначе --sosed-208 не различает модель
+#         актуальной базы от устаревшей (rc 1); якорь потерян либо сломан
+#         синтаксис — rc 2 ORACLE_TAMPERED.
 # Коды возврата: 0 — зелено; 1 — красная клетка либо STAB_ZHIV либо субъекта
 # нет; 2 — нечем проверять (нет git/jq, ORACLE_TAMPERED, дрейф стабов/модели).
 import argparse
@@ -53,6 +61,18 @@ HERE = Path(__file__).resolve().parent
 MODEL = HERE / 'model' / 'zamok_predmeta.sh'
 STABS = HERE / 'stabs'
 SOURCE = HERE / 'source.json'
+KOREN = HERE.parents[2]  # корень репозитория батареи: fixtures/workshop_project/<пачка>
+SOSED_208 = HERE.parent / 'zamok_object_predok_208' / 'red_zamok_object_predok_208.sh'
+
+# негатив к --sosed-208: якорь (кратность 1) и мутация — третья копия белого
+# списка путей вердиктов в kodovaja_granica возвращается к форме базы ДО
+# unification (glob .review/*), ровно то расхождение, на котором критик
+# вызов 1 поймал устаревшую модель (r31/r32)
+JAKOR_NEG_208 = '    verdikt_put "$n" "$p" || return 0\n'
+MUTACIJA_NEG_208 = ('    [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n'
+                     '(-[A-Za-z0-9._-]+)?\\.md$ \\\n'
+                     '      || "$p" == .review/* ]] || return 0\n')
+NEGATIV_208_KRASNYE = ['r31-review-txt-vperjod', 'r32-review-vlozhenyj-vperjod']
 
 REPO_ID = 'dev-harness'
 HARNESS_REMOTE = 'ssh://git@github.com/a3ka/dev-harness.git'
@@ -202,9 +222,12 @@ def item(agent, name, stroki):
 
 
 def sudit(door, mir, event):
+    # cwd — КОРЕНЬ РЕПОЗИТОРИЯ БАТАРЕИ, не cwd вызывающего: модель и обманные
+    # копии лежат вне scripts/, и резолвер профиля двери (profile_paths) берёт
+    # соседа scripts/next_id.sh из репозитория рабочего каталога.
     return run(['bash', str(door), '--sudit', '--sostojanie', str(mir.sost),
                 '--zhurnaly', str(mir.zhurnaly), '--repo', str(mir.repo),
-                str(event)])
+                str(event)], cwd=str(KOREN))
 
 
 # ── строители мира предмета ──────────────────────────────────────────────────
@@ -215,9 +238,12 @@ def kontrakt_tekst(subj, klass):
     return '# Контракт %s (фикстура)\nКЛАСС РИСКА: %s\n' % (subj, klass)
 
 
-def nositel(m, subj, klass_f='обычный', chto_esche=('readme.txt', 'ЧИТАЙ\n')):
+def nositel(m, subj, klass_f='обычный', chto_esche=('readme.txt', 'ЧИТАЙ\n'),
+            kat='contracts', profil=None):
     # авторский носитель: ветка wip/<subj>/impl, коммит заморозки F
-    # (контракт предмета + chto_esche); klass_f=None — без строки класса
+    # (контракт предмета + chto_esche); klass_f=None — без строки класса;
+    # kat — каталог контракта в носителе; profil — каталог контрактов профиля
+    # проекта, закоммиченного в носителе (клон владельца несёт его профиль)
     wt = m.root / ('wt%s' % subj)
     wt.mkdir(parents=True, exist_ok=True)
     g = run(['git', 'init', '-q', '.'], cwd=str(wt))
@@ -225,13 +251,17 @@ def nositel(m, subj, klass_f='обычный', chto_esche=('readme.txt', 'ЧИТ
     run(['git', 'remote', 'add', 'origin', HARNESS_REMOTE], cwd=str(wt))
     br = 'wip/%s/impl' % subj
     run(['git', 'checkout', '-q', '-b', br], cwd=str(wt))
-    kat = wt / 'contracts'
-    kat.mkdir(exist_ok=True)
-    (kat / ('%s-fixture.md' % subj)).write_text(
+    katdir = wt / kat
+    katdir.mkdir(parents=True, exist_ok=True)
+    (katdir / ('%s-fixture.md' % subj)).write_text(
         kontrakt_tekst(subj, klass_f), encoding='utf-8')
     if chto_esche:
         imja, dannye = chto_esche
-        (wt / imja).write_text(dannye, encoding='utf-8')
+        p = wt / imja
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(dannye, encoding='utf-8')
+    if profil is not None:
+        profil_proekta(wt, profil)
     run(['git', 'add', '-A'], cwd=str(wt))
     run(['git', '-c', 'user.name=b', '-c', 'user.email=b@t',
          'commit', '-q', '-m', 'F'], cwd=str(wt))
@@ -253,18 +283,20 @@ def kommit_vse(wt, soobshenie='w'):
     wt_git(wt, 'commit', '-q', '-m', soobshenie)
     return plumbing(wt_git(wt, 'rev-parse', 'HEAD'))
 
-def perepisat_kontrakt(wt, subj, klass):
-    (Path(wt) / 'contracts' / ('%s-fixture.md' % subj)).write_text(
+def perepisat_kontrakt(wt, subj, klass, kat='contracts'):
+    (Path(wt) / kat / ('%s-fixture.md' % subj)).write_text(
         kontrakt_tekst(subj, klass), encoding='utf-8')
 
 
 def mir_bootstrap(m, subj=SUBJ, klass_f='обычный', klass_w=None,
-                  chto_esche=('readme.txt', 'ЧИТАЙ\n')):
+                  chto_esche=('readme.txt', 'ЧИТАЙ\n'), kat='contracts',
+                  profil=None):
     # F (заморозка, klass_f) → W (работа; klass_w задан — контракт в OBJECT
     # переписан ПОСЛЕ заморозки); возвращает (wt, br, F, W)
-    wt, br, F = nositel(m, subj, klass_f=klass_f, chto_esche=chto_esche)
+    wt, br, F = nositel(m, subj, klass_f=klass_f, chto_esche=chto_esche,
+                        kat=kat, profil=profil)
     if klass_w is not None:
-        perepisat_kontrakt(wt, subj, klass_w)
+        perepisat_kontrakt(wt, subj, klass_w, kat)
     W = kommit(wt, 'rabota/impl.txt', 'rabota\n', soobshenie='W')
     return wt, br, F, W
 
@@ -273,6 +305,61 @@ def avtor_sdal(m, subj, wt, br):
     m.start(subj, 'Impl%s' % subj, wt=wt, branch=br)
     m.zhurnal('Impl%s' % subj, sdal=True)
 
+
+PROFIL_SLOJ = dict(schemaVersion=1, version='1', projectId='toy211',
+                   workspaceId='toy', defaults={})
+
+
+def profil_proekta(repo, kontrakty='x'):
+    # валидный профиль проекта (та же грамматика profile_resolver.sh, что в
+    # мирах 140): workflowPaths.contracts = kontrakty, слой .profile/project.json
+    (Path(repo) / '.profile').mkdir(parents=True, exist_ok=True)
+    (Path(repo) / '.profile' / 'project.json').write_text(
+        json.dumps(PROFIL_SLOJ), encoding='utf-8')
+    vp = dict(schemaVersion=1, repoId=REPO_ID, language='bash',
+              projectLayer=dict(version='1',
+                                profilePath='.profile/project.json'),
+              workflowPaths=dict(contracts=kontrakty, verdicts='verdicts',
+                                 registry='registry', fixtures='fixtures'))
+    (Path(repo) / 'harness.project.json').write_text(json.dumps(vp),
+                                                     encoding='utf-8')
+
+
+def legacy_stroka(wt, obj, subj, kat='contracts'):
+    # blob файла контракта в дереве OBJECT — plumbing самого git (для строки
+    # legacy-реестра D30: <blob>\t<класс>\t<основание>\t<подтвердил>)
+    return plumbing(run(['git', '-C', str(wt), 'rev-parse',
+                         '%s:%s/%s-fixture.md' % (obj, kat, subj)]))
+
+
+def legacy_avtora(m, wt, obj, subj, kat='contracts'):
+    # НЕЗАКОММИЧЕННЫЙ registry/risk-legacy.tsv в рабочем дереве носителя
+    # АВТОРА (мир критика 211, БЛОК-1): «<blob> → обычный»
+    k = Path(wt) / 'registry'
+    k.mkdir(exist_ok=True)
+    (k / 'risk-legacy.tsv').write_text(
+        legacy_stroka(wt, obj, subj, kat) + '\tобычный\tоснование\tподтвердил\n',
+        encoding='utf-8')
+    st = run(['git', '-C', str(wt), 'status', '--porcelain'])
+    assert b'?? registry/' in st.stdout, 'legacy-файл автора закоммичен: %r' % st.stdout
+
+
+def legacy_vladelcy(m, wt, obj, subj, kat='contracts'):
+    # строка legacy-реестра ВЛАДЕЛЬЦА (станции) — закоммичена на HEAD станции
+    (m.repo / 'registry' / 'risk-legacy.tsv').write_text(
+        legacy_stroka(wt, obj, subj, kat) + '\tобычный\tоснование\tподтвердил\n',
+        encoding='utf-8')
+    m.git(['add', 'registry/risk-legacy.tsv'])
+    r = m.git(['commit', '-q', '-m', 'legacy ' + subj])
+    assert r.returncode == 0, r.stderr
+
+
+def profil_avtora(m, wt, kontrakty='x'):
+    # НЕЗАКОММИЧЕННЫЙ профиль проекта в рабочем дереве носителя АВТОРА
+    # (сосед мира БЛОКА-1: профиль, как и legacy-реестр, читался из $wt)
+    profil_proekta(wt, kontrakty)
+    st = run(['git', '-C', str(wt), 'status', '--porcelain'])
+    assert b'?? harness.project.json' in st.stdout, 'профиль автора закоммичен: %r' % st.stdout
 
 def krug_adv(m, subj, obj, holder='AdvPred'):
     # завершённый круг адверсария на OBJECT (порядок D14)
@@ -598,8 +685,9 @@ def kejsy():
         # пустой перечень не удостоверяет текст: прежний отказ
         wt, br, F, _ = mir_bootstrap(m, SUBJ, None,
                                       chto_esche=('readme.txt', 'ЧИТАЙ\n'))
-        run(['git', '-C', str(wt), 'rm', '-q',
-             'contracts/%s-fixture.md' % SUBJ])
+        rr = run(['git', '-C', str(wt), 'rm', '-q',
+                  'contracts/%s-fixture.md' % SUBJ])
+        assert rr.returncode == 0, rr.stderr
         wt_git(wt, 'commit', '-q', '-m', 'bez kontrakta')
         F = plumbing(wt_git(wt, 'rev-parse', 'HEAD'))
         W = kommit(wt, 'rabota/impl.txt', 'rabota\n', soobshenie='W')
@@ -627,6 +715,120 @@ def kejsy():
         return [k_rc(r, 1, 'b20'), k_stdout(r, '', 'b20'),
                 k_text(r, predupr_zakrep(SUBJ) + otkaz_adv_do_rev(SUBJ), 'b20'),
                 k_uchet_ne_izmenen(m, do, 'b20')]
+
+    def b21(m, door):
+        # мир критика (БЛОК-1 Rev211): bootstrap удостоверен, строки класса
+        # нет, в НОСИТЕЛЕ АВТОРА незакоммиченный registry/risk-legacy.tsv
+        # «<blob> → обычный». Класс даёт не автор: прежний отказ байтами —
+        # диагностика неоднозначности + ADVERSARIJ_DO_REVJUERA, учёт не изменён
+        wt, br, F, W = mir_bootstrap(m, SUBJ, None)
+        avtor_sdal(m, SUBJ, wt, br)
+        m.stancija_teg(wt, SUBJ, F)
+        legacy_avtora(m, wt, W, SUBJ)
+        do = m.ledger.read_bytes()
+        r = sudit(door, m, vyzov(m, 'reviewer', 'Rev211', W))
+        return [k_rc(r, 1, 'b21'), k_stdout(r, '', 'b21'),
+                k_text(r, predupr_neodnoznachno(SUBJ) + otkaz_adv_do_rev(SUBJ), 'b21'),
+                k_uchet_ne_izmenen(m, do, 'b21')]
+
+    def b22(m, door):
+        # профиль НОСИТЕЛЯ АВТОРА (незакоммиченный harness.project.json:
+        # каталог контрактов → x) и приманка x/<NNN>-fake.md «обычный»,
+        # закоммиченная в заморозку; настоящий контракт «рисковый». Класс
+        # читается из каталога профиля ВЛАДЕЛЬЦА — ревьюер отказан без
+        # предупреждения KLASS_RISKA_NET, учёт не изменён
+        subj = CHUZHIE_SUBEKTY[0]
+        wt, br, F, W = mir_bootstrap(m, subj, 'рисковый',
+                                     chto_esche=('x/%s-fake.md' % subj,
+                                                 kontrakt_tekst(subj, 'обычный')))
+        avtor_sdal(m, subj, wt, br)
+        m.stancija_teg(wt, subj, F)
+        profil_avtora(m, wt, 'x')
+        do = m.ledger.read_bytes()
+        r = sudit(door, m, vyzov(m, 'reviewer', 'Rev137', W, subj=subj))
+        return [k_rc(r, 1, 'b22'), k_stdout(r, '', 'b22'),
+                k_text(r, otkaz_adv_do_rev(subj), 'b22'),
+                k_uchet_ne_izmenen(m, do, 'b22')]
+
+    def b23(m, door):
+        # та же подделка профиля автора, но приманка добавлена ПОСЛЕ заморозки
+        # (есть только в OBJECT): перечень сверяется по каталогу профиля
+        # ВЛАДЕЛЬЦА (contracts/ — равен), bootstrap удостоверен, адверсарий
+        # чисто; с каталогом автора перечень разошёлся бы — было бы предупреждение
+        subj = CHUZHIE_SUBEKTY[1]
+        wt, br, F, _ = mir_bootstrap(m, subj, 'обычный')
+        W = kommit(wt, 'x/%s-fake.md' % subj, kontrakt_tekst(subj, 'обычный'),
+                   soobshenie='primanka')
+        avtor_sdal(m, subj, wt, br)
+        m.stancija_teg(wt, subj, F)
+        profil_avtora(m, wt, 'x')
+        r = sudit(door, m, vyzov(m, 'adversary', 'Adv209', W, subj=subj))
+        return [k_rc(r, 0, 'b23'), k_stdout(r, puschem('Adv209', subj, 'adversary'), 'b23'),
+                k_text(r, '', 'b23'), k_start(m, 'Adv209', W, 'b23')]
+
+    def b24(m, door):
+        # честная запись legacy-реестра ВЛАДЕЛЬЦА (строка «<blob> → обычный»
+        # закоммичена на HEAD станции), строки класса в тексте нет: класс
+        # читается из реестра владельца — тот же источник, что у D42/D30, —
+        # ревьюер допускается чисто
+        wt, br, F, W = mir_bootstrap(m, SUBJ, None)
+        avtor_sdal(m, SUBJ, wt, br)
+        m.stancija_teg(wt, SUBJ, F)
+        legacy_vladelcy(m, wt, W, SUBJ)
+        r = sudit(door, m, vyzov(m, 'reviewer', 'Rev211', W))
+        return [k_rc(r, 0, 'b24'), k_stdout(r, puschem('Rev211', SUBJ, 'reviewer'), 'b24'),
+                k_text(r, '', 'b24'), k_start(m, 'Rev211', W, 'b24')]
+
+    def b25(m, door):
+        # версии /1 и /999999999999999999999999999999 (вне int64): новая
+        # версия — числовой максимум сравнением digit-строк; она не предок
+        # OBJECT — прежний отказ. Арифметика shell такую версию теряет и
+        # оставляет старую /1 (совет С-1 Rev211)
+        subj = CHUZHIE_SUBEKTY[0]
+        wt, br, F1, W = mir_bootstrap(m, subj, 'обычный')
+        wt_git(wt, 'checkout', '-q', '-b', 'side-big', W)
+        perepisat_kontrakt(wt, subj, 'рисковый')
+        F2 = kommit(wt, 'x-big.txt', 'большая версия\n', soobshenie='F2')
+        wt_git(wt, 'checkout', '-q', br)
+        avtor_sdal(m, subj, wt, br)
+        m.stancija_teg(wt, subj, F1, versija='1')
+        m.stancija_teg(wt, subj, F2, versija='999999999999999999999999999999')
+        do = m.ledger.read_bytes()
+        r = sudit(door, m, vyzov(m, 'reviewer', 'Rev137', W, subj=subj))
+        return [k_rc(r, 1, 'b25'), k_stdout(r, '', 'b25'),
+                k_text(r, predupr_zakrep(subj) + otkaz_adv_do_rev(subj), 'b25'),
+                k_uchet_ne_izmenen(m, do, 'b25')]
+
+    def b26(m, door):
+        # честный профиль ВЛАДЕЛЬЦА: у станции каталог контрактов профиля — x
+        # (клон-носитель несёт тот же закоммиченный профиль), контракт лежит
+        # в x/<NNN>-fixture.md. Класс читается по профилю владельца — ревьюер
+        # допускается чисто (продукты с путями профиля вне contracts/)
+        subj = CHUZHIE_SUBEKTY[1]
+        profil_proekta(m.repo, 'x')
+        m.git(['add', '-A'])
+        r = m.git(['commit', '-q', '-m', 'profil stancii'])
+        assert r.returncode == 0, r.stderr
+        wt, br, F, W = mir_bootstrap(m, subj, 'обычный', kat='x', profil='x')
+        avtor_sdal(m, subj, wt, br)
+        m.stancija_teg(wt, subj, F)
+        r = sudit(door, m, vyzov(m, 'reviewer', 'Rev209', W, subj=subj))
+        return [k_rc(r, 0, 'b26'), k_stdout(r, puschem('Rev209', subj, 'reviewer'), 'b26'),
+                k_text(r, '', 'b26'), k_start(m, 'Rev209', W, 'b26')]
+
+    def b27(m, door):
+        # РЕГРЕСС пути D42 (вне D64): закреплённый frozen доступен (строка
+        # REPLACE на HEAD станции), строки класса в замороженном тексте нет,
+        # legacy-строка — в реестре ВЛАДЕЛЬЦА. Класс читается как в базе —
+        # ревьюер допускается чисто: 4-й аргумент klass_riska этот путь не меняет
+        wt, br, F, W = mir_bootstrap(m, SUBJ, None)
+        avtor_sdal(m, SUBJ, wt, br)
+        tegobj = m.stancija_teg(wt, SUBJ, F)
+        m.stancija_stroka(SUBJ, tegobj)
+        legacy_vladelcy(m, wt, W, SUBJ)
+        r = sudit(door, m, vyzov(m, 'reviewer', 'Rev211', W))
+        return [k_rc(r, 0, 'b27'), k_stdout(r, puschem('Rev211', SUBJ, 'reviewer'), 'b27'),
+                k_text(r, '', 'b27'), k_start(m, 'Rev211', W, 'b27')]
 
     reg('b01-bootstrap-adversary',
         'тег /1 на предке, байты равны, строки на main нет — адверсарий без предупреждения',
@@ -688,6 +890,27 @@ def kejsy():
     reg('b20-versii-leksika-ne-chislo',
         'версии /2 и /10: лексический порядок (…/10 < …/2) отличен от числового — выбор числовым максимумом',
         b20)
+    reg('b21-legacy-avtora-ne-istochnik',
+        'незакоммиченный legacy-реестр автора + текст без строки класса — класс даёт не автор: прежний отказ байтами',
+        b21)
+    reg('b22-profil-avtora-ne-istochnik',
+        'незакоммиченный профиль автора ведёт в каталог-приманку — класс из каталога профиля владельца: ревьюер отказан',
+        b22)
+    reg('b23-spisok-po-profilju-vladelca',
+        'приманка после заморозки видна только каталогу автора — перечень сверяется по профилю владельца: адверсарий чисто',
+        b23)
+    reg('b24-legacy-vladelca-rabotaet',
+        'legacy-строка ВЛАДЕЛЬЦА (HEAD станции) + текст без строки класса — класс из реестра владельца, ревьюер чисто',
+        b24)
+    reg('b25-versija-vne-int64',
+        'версия вне int64 — числовой максимум сравнением digit-строк: новая версия не удостоверена, прежний отказ',
+        b25)
+    reg('b26-profil-vladelca-rabotaet',
+        'каталог контрактов из профиля ВЛАДЕЛЬЦА (x/) — класс читается по нему, ревьюер чисто',
+        b26)
+    reg('b27-legacy-na-puti-d42-bez-izmenenij',
+        'регресс D42: закреплённый frozen + текст без строки класса + legacy-строка владельца — класс как в базе, ревьюер чисто',
+        b27)
     return K
 
 
@@ -714,33 +937,64 @@ STAB_MUTACII = {
         t, '''  git -C "$wt" merge-base --is-ancestor "$F" "$obj" 2>/dev/null || return 1''',
         '''  true'''),
     'st05-pervyj-teg': lambda t: _mut(
-        t, '''    if [ "$v" -gt "$maxv" ]; then maxv="$v"; teg="$ref"; fi''',
-        '''    if [ -z "$teg" ]; then teg="$ref"; fi'''),
+        t, r'''| LC_ALL=C sort -t$'\t' -k1,1n -k2,2 | tail -n 1 | cut -f3)"''',
+        r'''| LC_ALL=C sort -t$'\t' -k1,1n -k2,2 | head -n 1 | cut -f3)"'''),
     'st06-legkij-teg': lambda t: _mut(
         t, '''  [ "$(git -C "$owner" cat-file -t "$tagobj" 2>/dev/null)" = tag ] || return 1''',
         '''  true'''),
     'st07-predmet-konstanta': lambda t: _mut(
-        t, '''"refs/tags/frozen/contracts/$n/" 2>/dev/null)
-  [ -n "$teg" ] || return 1''',
-        '''"refs/tags/frozen/contracts/211/" 2>/dev/null)
-  [ -n "$teg" ] || return 1'''),
+        t, '''"refs/tags/frozen/contracts/$n/" 2>/dev/null \\''',
+        '''"refs/tags/frozen/contracts/211/" 2>/dev/null \\'''),
     'st08-ljuboj-predmet': lambda t: _mut(
-        t, '''"refs/tags/frozen/contracts/$n/" 2>/dev/null)
-  [ -n "$teg" ] || return 1''',
-        '''"refs/tags/frozen/contracts/" 2>/dev/null)
-  [ -n "$teg" ] || return 1'''),
+        t, '''"refs/tags/frozen/contracts/$n/" 2>/dev/null \\''',
+        '''"refs/tags/frozen/contracts/" 2>/dev/null \\'''),
     'st09-versija-ljubaja': lambda t: _mut(
-        t, '''    [[ "$v" =~ ^[1-9][0-9]*$ ]] || continue''',
-        '''    :'''),
+        t, r"""{v=$NF} v ~ /^[1-9][0-9]*$/ {print""",
+        r"""{v=$NF} {print"""),
     'st10-poslednij-ref': lambda t: _mut(
-        t, '''    if [ "$v" -gt "$maxv" ]; then maxv="$v"; teg="$ref"; fi''',
-        '''    teg="$ref"'''),
+        t, r'''LC_ALL=C sort -t$'\t' -k1,1n -k2,2''',
+        r'''LC_ALL=C sort -t$'\t' -k2,2'''),
     'st11-pustoj-spisok': lambda t: _mut(
         t, '''  [ -n "$spO" ] && [ "$spO" = "$spF" ] || return 1''',
         '''  [ "$spO" = "$spF" ] || return 1'''),
     'st12-repo-nositelja': lambda t: _mut(
         t, '''  tagobj="$(poslednj_frozen_teg "$n" "$owner")" || return 1''',
         '''  tagobj="$(poslednj_frozen_teg "$n" "$wt")" || return 1'''),
+    'st43-koren-avtora-v-vyzove': lambda t: _mut(
+        t, r"""kr="$(klass_riska "$sv" "$r_wt" "$obj_fakt" "$risk_repo")"; kr_det=""" + "''",
+        r"""kr="$(klass_riska "$sv" "$r_wt" "$obj_fakt")"; kr_det=""" + "''"),
+    'st44-profil-iz-nositelja-v-klasse': lambda t: _mut(
+        t, r"""  kat="$(kontrakt_kat "$owner")" || kat=""" + "''",
+        r"""  kat="$(kontrakt_kat "$wt")" || kat=""" + "''"),
+    'st45-legacy-iz-nositelja': lambda t: _mut(
+        t, r'''    if [ -z "$val" ] && [ -f "$owner/registry/risk-legacy.tsv" ]; then
+      val="$(awk -F'\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}' "$owner/registry/risk-legacy.tsv")"''',
+        r'''    if [ -z "$val" ] && [ -f "$wt/registry/risk-legacy.tsv" ]; then
+      val="$(awk -F'\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}' "$wt/registry/risk-legacy.tsv")"'''),
+    'st46-profil-iz-nositelja-v-sverke': lambda t: _mut(
+        t, '''  kat="$(kontrakt_kat "$owner")" || return 1''',
+        '''  kat="$(kontrakt_kat "$wt")" || return 1'''),
+    'st47-katalog-po-umolchaniju-v-sverke': lambda t: _mut(
+        t, '''  kat="$(kontrakt_kat "$owner")" || return 1''',
+        r"""  kat='contracts'"""),
+    'st48-katalog-po-umolchaniju-v-klasse': lambda t: _mut(
+        t, r"""  kat="$(kontrakt_kat "$owner")" || kat=""" + "''",
+        r"""  kat='contracts'"""),
+    'st49-versija-arifmetikoj-shell': lambda t: _mut(
+        t, r'''  teg="$(git -C "$owner" for-each-ref --format='%(refname)' "refs/tags/frozen/contracts/$n/" 2>/dev/null \
+    | awk -F/ '{v=$NF} v ~ /^[1-9][0-9]*$/ {print length(v) "\t" v "\t" $0}' \
+    | LC_ALL=C sort -t$'\t' -k1,1n -k2,2 | tail -n 1 | cut -f3)"''',
+        r'''  local ref v maxv=0
+  teg=''
+  while IFS= read -r ref; do
+    [ -n "$ref" ] || continue
+    v="${ref##*/}"
+    [[ "$v" =~ ^[1-9][0-9]*$ ]] || continue
+    if [ "$v" -gt "$maxv" ]; then maxv="$v"; teg="$ref"; fi
+  done < <(git -C "$owner" for-each-ref --format='%(refname)' "refs/tags/frozen/contracts/$n/" 2>/dev/null)'''),
+    'st50-umolchanie-vladelca-pusto': lambda t: _mut(
+        t, r'''  owner="${4:-$wt}"''',
+        r'''  owner="${4:-}"'''),
 }
 
 STAB_VHOD = {
@@ -756,6 +1010,15 @@ STAB_VHOD = {
     'st10-poslednij-ref': ['b20-versii-leksika-ne-chislo'],
     'st11-pustoj-spisok': ['b19-net-fajlov-kontrakta'],
     'st12-repo-nositelja': ['b01-bootstrap-adversary'],
+    'st43-koren-avtora-v-vyzove': ['b21-legacy-avtora-ne-istochnik',
+                                   'b22-profil-avtora-ne-istochnik'],
+    'st44-profil-iz-nositelja-v-klasse': ['b22-profil-avtora-ne-istochnik'],
+    'st45-legacy-iz-nositelja': ['b21-legacy-avtora-ne-istochnik'],
+    'st46-profil-iz-nositelja-v-sverke': ['b23-spisok-po-profilju-vladelca'],
+    'st47-katalog-po-umolchaniju-v-sverke': ['b26-profil-vladelca-rabotaet'],
+    'st48-katalog-po-umolchaniju-v-klasse': ['b26-profil-vladelca-rabotaet'],
+    'st49-versija-arifmetikoj-shell': ['b25-versija-vne-int64'],
+    'st50-umolchanie-vladelca-pusto': ['b27-legacy-na-puti-d42-bez-izmenenij'],
 }
 
 
@@ -842,6 +1105,72 @@ def prognot_kletku(fn, door):
     return problemy
 
 
+def sosed_208():
+    # модель как субъект семьи 208 (БЛОК-2 Rev211): в отдельном корне под
+    # $TMPDIR единственный файл scripts/zamok_predmeta.sh — модель побайтно;
+    # батарея 208 запускается её штатным режимом --repo <корень> из корня
+    # репозитория батареи; вывод и rc — её собственные, обёртка не маскирует
+    if not MODEL.is_file() or not SOSED_208.is_file():
+        print('NOT_IMPLEMENTED: нет модели или батареи 208', file=sys.stderr)
+        return 2
+    katalog = Path(tempfile.mkdtemp(prefix='zamok211-sosed-'))
+    try:
+        (katalog / 'scripts').mkdir()
+        dver = katalog / 'scripts' / 'zamok_predmeta.sh'
+        dver.write_bytes(MODEL.read_bytes())
+        os.chmod(dver, 0o755)
+        r = subprocess.run(['bash', str(SOSED_208), '--repo', str(katalog)],
+                           cwd=str(KOREN), env=GIT_ENV)
+        return r.returncode
+    finally:
+        shutil.rmtree(katalog, ignore_errors=True)
+
+
+def negativ_208():
+    # негатив к --sosed-208 (Б-2 Rev211 вызов 1): мутация «kodovaja_granica —
+    # третья копия белого списка путей вердиктов из базы ДО unification
+    # verdikt_put» обязана красить РОВНО r31/r32 семьи 208; иное множество
+    # либо зелень — режим --sosed-208 не различает эталон от устаревшей базы
+    if not MODEL.is_file() or not SOSED_208.is_file():
+        print('NOT_IMPLEMENTED: нет модели или батареи 208', file=sys.stderr)
+        return 2
+    tekst = tekst_modeli()
+    if tekst.count(JAKOR_NEG_208) != 1:
+        print('ORACLE_TAMPERED: якорь негатива 208 не кратности 1: %r'
+              % JAKOR_NEG_208, file=sys.stderr)
+        return 2
+    mut = tekst.replace(JAKOR_NEG_208, MUTACIJA_NEG_208)
+    sint = subprocess.run(['bash', '-n', '/dev/stdin'],
+                          input=mut.encode('utf-8'), capture_output=True,
+                          env=GIT_ENV)
+    if sint.returncode != 0:
+        print('ORACLE_TAMPERED: мутация негатива сломала синтаксис: %s'
+              % diag(sint.stderr), file=sys.stderr)
+        return 2
+    katalog = Path(tempfile.mkdtemp(prefix='zamok211-negativ-'))
+    try:
+        (katalog / 'scripts').mkdir()
+        dver = katalog / 'scripts' / 'zamok_predmeta.sh'
+        dver.write_bytes(mut.encode('utf-8'))
+        os.chmod(dver, 0o755)
+        r = subprocess.run(['bash', str(SOSED_208), '--repo', str(katalog)],
+                           cwd=str(KOREN), env=GIT_ENV, capture_output=True)
+        krasnye = sorted({ln[len('KRASNAJA-KLETKA '):].split(':', 1)[0]
+                          for ln in r.stdout.decode('utf-8', 'replace').splitlines()
+                          if ln.startswith('KRASNAJA-KLETKA ')})
+        if r.returncode != 1 or krasnye != NEGATIV_208_KRASNYE:
+            print('NEGATIV 208: rc %d, krasnye: %s — ждали ровно %s%s'
+                  % (r.returncode, ', '.join(krasnye) or '-',
+                     ', '.join(NEGATIV_208_KRASNYE),
+                     '' if krasnye else ' (%s)' % diag(r.stderr)))
+            return 1
+        print('NEGATIV 208: KLETKI 35 KRASNYH %d (%s) — режим --sosed-208 '
+              'различает базу без verdikt_put'
+              % (len(krasnye), ', '.join(krasnye)))
+        return 0
+    finally:
+        shutil.rmtree(katalog, ignore_errors=True)
+
 def subjekt_repo(koren=None):
     if koren:
         root = Path(koren).resolve()
@@ -889,6 +1218,11 @@ def tekst_modeli():
 def sgeneriruj():
     tekst = tekst_modeli()
     K = kejsy()
+    # устаревшие копии (имя вышло из матрицы) в census не остаются
+    if STABS.is_dir():
+        for d in STABS.iterdir():
+            if d.is_dir() and d.name not in STAB_MUTACII:
+                shutil.rmtree(d, ignore_errors=True)
     for imja, fn in sorted(STAB_MUTACII.items()):
         mut = fn(tekst)
         sint = subprocess.run(['bash', '-n', '/dev/stdin'],
@@ -929,6 +1263,8 @@ def main():
     ap.add_argument('--stabs', action='store_true')
     ap.add_argument('--sgeneriruj-staby', action='store_true')
     ap.add_argument('--sintaksis', action='store_true')
+    ap.add_argument('--sosed-208', action='store_true')
+    ap.add_argument('--negativ-208', action='store_true')
     argj = ap.parse_args()
     if getattr(argj, 'sintaksis', False):
         # носители пачки синтаксически цельны: модель и (если поставлен)
@@ -950,6 +1286,10 @@ def main():
         print('SINTAKSIS OK')
         return 0
     zashita_zavisimostej()
+    if argj.sosed_208:
+        return sosed_208()
+    if argj.negativ_208:
+        return negativ_208()
 
     if argj.sgeneriruj_staby:
         sgeneriruj()
