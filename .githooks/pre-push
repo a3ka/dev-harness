@@ -198,7 +198,7 @@ done <<< "$lsremote_out"
 # `^[0-9]{3} → [0-9a-f]{40}$`, ключ — первые три цифры.
 merge_167_razreshen() {  # <коммит> <remote ref> → 0 (разрешено) | 1 (запрещено)
   local c="$1" ref="$2" p1 p2 base tree auto auto1 r line key val path
-  local r1 r2 ours theirs peresech reestr
+  local r1 r2 ours theirs peresech reestr paths_167
   local -a parents d1 d2 cm cm2
   declare -A L=() R=() M=()
   case "$ref" in refs/heads/wip/[0-9][0-9][0-9]/*) ;; *) return 1 ;; esac
@@ -212,8 +212,17 @@ merge_167_razreshen() {  # <коммит> <remote ref> → 0 (разрешено
   [ "$r" -eq 1 ] || return 1
   base="$(git -C "$ROOT" merge-base "$p1" "$p2" 2>/dev/null)" || return 1
   [ -n "$base" ] || return 1
-  mapfile -t d1 < <(git -C "$ROOT" diff --no-renames --name-only "$base" "$p1" 2>/dev/null)
-  mapfile -t d2 < <(git -C "$ROOT" diff --no-renames --name-only "$base" "$p2" 2>/dev/null)
+  # Имена путей дельт — NUL-транспортом (`-z`, контракт 210): имя с кавычкой,
+  # пробелом или control-байтом остаётся ОДНОЙ записью. Поток сохраняем во
+  # временный файл с ПРОВЕРКОЙ rc производителя: `mapfile` из
+  # процесса-замещения терял код возврата git, и сбойный diff молча давал
+  # «пустой» набор путей (fail-open).
+  paths_167="$(mktemp)" || return 1
+  git -C "$ROOT" diff -z --no-renames --name-only "$base" "$p1" > "$paths_167" || { rm -f "$paths_167"; return 1; }
+  mapfile -d '' -t d1 < "$paths_167"
+  git -C "$ROOT" diff -z --no-renames --name-only "$base" "$p2" > "$paths_167" || { rm -f "$paths_167"; return 1; }
+  mapfile -d '' -t d2 < "$paths_167"
+  rm -f "$paths_167"
   peresech=0; reestr=0
   for path in "${d1[@]}"; do
     for val in "${d2[@]}"; do
@@ -268,8 +277,12 @@ merge_167_razreshen() {  # <коммит> <remote ref> → 0 (разрешено
     [ -n "${L[$key]+x}" ] || [ -n "${R[$key]+x}" ] || return 1
   done
   # прочие пути результата — как в независимом трёхстороннем слиянии
-  mapfile -t cm < <(git -C "$ROOT" diff --no-renames --name-only "$p1" "$c" 2>/dev/null)
-  mapfile -t cm2 < <(git -C "$ROOT" diff --no-renames --name-only "$p2" "$c" 2>/dev/null)
+  paths_167="$(mktemp)" || return 1
+  git -C "$ROOT" diff -z --no-renames --name-only "$p1" "$c" > "$paths_167" || { rm -f "$paths_167"; return 1; }
+  mapfile -d '' -t cm < "$paths_167"
+  git -C "$ROOT" diff -z --no-renames --name-only "$p2" "$c" > "$paths_167" || { rm -f "$paths_167"; return 1; }
+  mapfile -d '' -t cm2 < "$paths_167"
+  rm -f "$paths_167"
   for path in "${cm[@]}" "${cm2[@]}"; do
     [ "$path" = 'registry/contracts.tsv' ] && continue
     ours="$(git -C "$ROOT" rev-parse "$c:$path" 2>/dev/null)"; r1=$?
@@ -354,13 +367,13 @@ merge_main_verdict() {  # <коммит> <remote ref>
 
 # docs/owner/ — канал владельца: путь, ВНЕСЁННЫЙ этим коммитом (для слияния — отличный от
 # всех родителей, т.е. чистое слияние чужой owner-правки не судится), при авторе ≠ owner.
-owner_docs_paths() {  # <коммит> → пути docs/owner/, внесённые коммитом
+owner_docs_paths() {  # <коммит> → пути docs/owner/, внесённые коммитом (NUL-записи)
   local c="$1" np
-  np=$(git -C "$ROOT" rev-list --parents -n 1 "$c" | awk '{print NF-1}')
+  np=$(git -C "$ROOT" rev-list --parents -n 1 "$c" | awk '{print NF-1}') || return 1
   if [ "$np" -ge 2 ]; then
-    git -C "$ROOT" diff-tree --cc --no-commit-id --name-only -r "$c" -- docs/owner/
+    git -C "$ROOT" diff-tree -z --cc --no-commit-id --name-only -r "$c" -- docs/owner/
   else
-    git -C "$ROOT" diff-tree --root --no-commit-id --name-only -r "$c" -- docs/owner/
+    git -C "$ROOT" diff-tree -z --root --no-commit-id --name-only -r "$c" -- docs/owner/
   fi
 }
 
@@ -404,10 +417,18 @@ while IFS=' ' read -r lref lsha rref rsha; do
   rm -f "$range_err"
 
   # Судим КАЖДЫЙ коммит диапазона. charter_diff_paths сам различает merge (по ^1)
-  # и не-merge (по ^) — грамматика единая.
+  # и не-merge (по ^) — грамматика единая. ФОРМАТ ПОТОКА — NUL (контракт 210):
+  # дельта читается по NUL-записям, имя с кавычкой/пробелом/control-байтом
+  # остаётся одной записью. Поток идёт во временный файл С ПРОВЕРКОЙ rc
+  # производителя: процесс-замещение терял код возврата git.
   while IFS= read -r c; do
     [ -n "$c" ] || continue
-    while IFS= read -r f; do
+    delta_file="$(mktemp)" || exit 1
+    if ! charter_diff_paths "$c" "$ROOT" > "$delta_file"; then
+      printf 'ОТКАЗ: pre-push: дельта коммита не читается: %s\n' "$c" >&2
+      rm -f "$delta_file"; rc=1; continue
+    fi
+    while IFS= read -r -d '' f; do
       [ -n "$f" ] || continue
       # is_charter_path: AGENTS.md/ROADMAP.md при живом ustav/1; plans|contracts/NNN-*
       # при живом frozen/<dir>/<NNN>/1. rc 0/1 — да/нет; rc 2 — нечем проверить
@@ -431,16 +452,23 @@ while IFS=' ' read -r lref lsha rref rsha; do
           rc=1
         fi
       fi
-    done < <(charter_diff_paths "$c" "$ROOT")
+    done < "$delta_file"
+    rm -f "$delta_file"
 
     author="$(git -C "$ROOT" log -1 --format=%an "$c")"
     if [ "$author" != "owner" ]; then
-      while IFS= read -r f; do
+      owner_file="$(mktemp)" || exit 1
+      if ! owner_docs_paths "$c" > "$owner_file"; then
+        printf 'ОТКАЗ: pre-push: owner-дельта не читается: %s\n' "$c" >&2
+        rm -f "$owner_file"; rc=1; continue
+      fi
+      while IFS= read -r -d '' f; do
         [ -n "$f" ] || continue
         printf 'ОТКАЗ: pre-push: docs/owner/ пишет только owner (канал владельца): ref=%s коммит=%s автор=%s путь=%s\n' \
           "$lref" "$c" "$author" "$f" >&2
         rc=1
-      done < <(owner_docs_paths "$c")
+      done < "$owner_file"
+      rm -f "$owner_file"
     fi
 
     case "$rref" in
