@@ -173,7 +173,7 @@ class World:
         profile["bootstrapTrace"] = value
         self.profile.write_bytes(json.dumps(profile).encode() + b"\n")
 
-    def launch(self, dev=False, invalid=False, unknown=False):
+    def launch(self, dev=False, invalid=False, unknown=b""):
         runtime = (self.station if dev else self.project_home) / "runtime"
         saved = {p.name: (p.read_bytes(), p.stat().st_mode & 0o777)
                  for p in runtime.iterdir()} if runtime.is_dir() else {}
@@ -196,7 +196,7 @@ class World:
         self.log.unlink(missing_ok=True)
         observed = run(args, self.base, self.env_base)
         wanted = (1 if invalid else 0, reference.stdout,
-                  reference.stderr + (SOURCE_ERROR if invalid else UNKNOWN if unknown else b""))
+                  reference.stderr + (SOURCE_ERROR if invalid else unknown))
         healthy = observed.returncode in (0, 1)
         if not healthy:
             raise ProbeFault(f"subject launch failed outside its contract: {result_tuple(observed)!r}")
@@ -261,12 +261,15 @@ def cases(source, subject, legacy, only=None):
     def needs(*names):
         return only is None or bool(set(names) & set(only))
 
-    a = ("pustoj", "metka", "make-task", "bind", "sud-gate", "vytesnenie", "idempotentnost")
+    a = ("pustoj", "metka", "archive-mode", "make-task", "bind", "sud-gate", "vytesnenie", "idempotentnost")
     if needs(*a):
         with world(source, subject, legacy) as w:
             boot = w.launch()
             emit("pustoj", boot and content(w.archive) == SEED)
             emit("metka", boot and content(w.mark) == SEED
+                 and w.mark.stat().st_mode & 0o777 == 0o600)
+            emit("archive-mode", boot and content(w.archive) == SEED and content(w.mark) == SEED
+                 and w.archive.stat().st_mode & 0o777 == 0o600
                  and w.mark.stat().st_mode & 0o777 == 0o600)
             if needs("make-task"):
                 emit("make-task", all([w.task(role, SEED) for role in ROLES]))
@@ -297,8 +300,14 @@ def cases(source, subject, legacy, only=None):
     if needs("rejestr"):
         with world(source, subject, legacy) as w:
             trace_file(w.station, "outsider", "toy/unregistered", 30)
-            emit("rejestr", w.launch(unknown=True) and content(w.archive) == SEED
+            emit("rejestr", w.launch(unknown=UNKNOWN) and content(w.archive) == SEED
                  and content(w.mark) == SEED and w.task("outsider", SEED))
+
+    if needs("partial-role"):
+        with world(source, subject, legacy) as w:
+            trace_file(w.station, "implementer-g", "toy/unregistered-prefix", 30)
+            emit("partial-role", w.launch(unknown=b"TRACE_SEED_ROLE_UNKNOWN: implementer-g\n")
+                 and content(w.archive) == SEED and content(w.mark) == SEED)
 
     if needs("istochnik"):
         with world(source, subject, legacy) as w:
@@ -315,6 +324,25 @@ def cases(source, subject, legacy, only=None):
             w.archive.write_bytes(previous)
             emit("existing-archive", w.launch() and content(w.archive) == previous
                  and content(w.mark) is None)
+
+    if needs("empty-mark"):
+        with world(source, subject, legacy) as w:
+            previous = b"architect\ttoy/own\tallowed\n"
+            refusal = (1, b"", "ОТКАЗ: свидетельство не той роли: critic\n".encode())
+            w.archive.parent.mkdir(parents=True)
+            w.archive.write_bytes(previous)
+            w.mark.write_bytes(b"")
+            w.mark.chmod(0o600)
+            args = ["bash", str(w.tools / "scripts/make_task.sh"), "--repo", str(w.repo),
+                    "--role", "critic", "--contract", "777", "--task-file", str(w.toy / "task.md"),
+                    "--model-trace", str(w.archive)]
+            before = run(args, w.base, w.env_base)
+            if result_tuple(before) != refusal:
+                raise ProbeFault(f"empty-mark refusal control unavailable: {result_tuple(before)!r}")
+            launched = w.launch()
+            after = run(args, w.base, w.env_base)
+            emit("empty-mark", launched and content(w.archive) == previous
+                 and content(w.mark) == b"" and result_tuple(after) == refusal)
 
     if needs("station-explicit"):
         with world(source, subject, legacy) as w:
@@ -403,7 +431,14 @@ def mutations(model):
         "DUPLICATE": replace_one(model, b'cat "$seed" >>"$HARNESS_MODEL_TRACE.new"', b'cat "$seed" "$seed" >>"$HARNESS_MODEL_TRACE.new"'),
         "SOURCE-OVERRIDE": replace_one(model, b'if [ "$source" != true ]; then', b'if false; then'),
         "EMPTY-FIRST-AWK": replace_one(model, b'FILENAME == ARGV[1]', b'NR == FNR'),
-        "OVERWRITE-EXISTING": replace_one(model, b'if [ ! -s "$HARNESS_MODEL_TRACE.new" ] && [ -s "$HARNESS_MODEL_TRACE" ] && [ ! -e "$seed" ]; then',
+        "EMPTY-MARK": replace_one(model,
+            b'if [ ! -s "$HARNESS_MODEL_TRACE.new" ] && [ -s "$HARNESS_MODEL_TRACE" ] && [ ! -s "$seed" ]; then',
+            b'if [ ! -s "$HARNESS_MODEL_TRACE.new" ] && [ -s "$HARNESS_MODEL_TRACE" ] && [ ! -e "$seed" ]; then'),
+        "ARCHIVE-MODE": replace_one(model, b'chmod 600 "$HARNESS_MODEL_TRACE.new"',
+            b'chmod 644 "$HARNESS_MODEL_TRACE.new"'),
+        "PARTIAL-ROLE": replace_one(model, b'grep -Fx -- "$role" "$roles"',
+            b'grep -F -- "$role" "$roles"'),
+        "OVERWRITE-EXISTING": replace_one(model, b'if [ ! -s "$HARNESS_MODEL_TRACE.new" ] && [ -s "$HARNESS_MODEL_TRACE" ] && [ ! -s "$seed" ]; then',
             b'if false; then'),
         "DROP-ROLE": replace_one(model, b'done <"$raw.rows"',
             b'''done < <(awk -F'\\t' '$1 != "architect"' "$raw.rows")'''),

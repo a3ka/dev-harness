@@ -13,3 +13,6 @@ DROP-ROLE	make-task
 BIND-AS-FACT	bind
 JUDGE-ACCEPTS-SEED	bind
 JUDGE-GATE-BYPASS	sud-gate
+EMPTY-MARK	empty-mark
+ARCHIVE-MODE	archive-mode
+PARTIAL-ROLE	partial-role
