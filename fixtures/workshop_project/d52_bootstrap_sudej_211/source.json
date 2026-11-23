@@ -1,0 +1,202 @@
+{
+ "versija": 1,
+ "kontrakt": "contracts/211-d52-bootstrap-sudej.md",
+ "subjekt": "scripts/zamok_predmeta.sh",
+ "model": "model/zamok_predmeta.sh",
+ "kejsy": {
+  "b01-bootstrap-adversary": "тег /1 на предке, байты равны, строки на main нет — адверсарий без предупреждения",
+  "b02-bootstrap-reviewer-obychnyj": "класс обычный из OBJECT — ревьюер до адверсария допускается",
+  "b03-bootstrap-risikovyj-porjadok": "класс рисковый из OBJECT — ревьюер без адверсария отказан, предупреждения нет",
+  "b04-bootstrap-posle-adversarija": "рисковый из OBJECT + завершённый адверсарий — ревьюер чисто",
+  "b05-podmena-klassa-v-objecte": "правка контракта в OBJECT после заморозки — прежний отказ байтами",
+  "b06-chuzoj-tag-object": "тег на боковом коммите (не предок) — прежний отказ байтами",
+  "b07-net-tega": "ноль frozen-тегов у владельца — прежний отказ байтами",
+  "b08-id-teg-v-stroke-na-main": "строка на main хранит id-тег (замер Rev204) — bootstrap даёт ревьюеру класс",
+  "b09-critic-ne-menjaetsja": "critic при живом теге без строки на main — прежний отказ байтами (D52)",
+  "b10-versija-vtoraja": "/1 и /2: OBJECT от /2 — выбор новой версии, класс из OBJECT",
+  "b11-starejshaja-versija-sovpadaet": "/1 совпадает, жива /2 — новая версия не удостоверена: прежний отказ",
+  "b12-zakreplennyj-frozen-prioritet": "REPLACE на main влит — класс из закреплённого frozen, bootstrap не нужен",
+  "b13-frozen-risikovyj-porjadok": "закреплённый frozen рисковый — D14 не ослаблен",
+  "b14-net-stroki-klassa": "bootstrap удостоверен, строки класса нет — neodnoznachno, рисковый",
+  "b15-legkij-teg": "лёгкий (не annotated) тег — не заморозка, прежний отказ",
+  "b16-chuzoj-predmet-bootstrap": "предмет 137: bootstrap предметен, константа 211 наблюдаема",
+  "b17-chuzoj-predmet-teg": "тег чужого предмета (209) на предке — предметный префикс обязателен",
+  "b18-nechislovaja-versija": "нечисловая версия тега (rc1) — пропуск, прежний отказ",
+  "b19-net-fajlov-kontrakta": "пустой перечень contracts/<NNN>-*.md — прежний отказ",
+  "b20-versii-leksika-ne-chislo": "версии /2 и /10: лексический порядок (…/10 < …/2) отличен от числового — выбор числовым максимумом"
+ },
+ "stab_vhod": {
+  "st01-rol-tolko-sudi": [
+   "b09-critic-ne-menjaetsja"
+  ],
+  "st02-frozen-vsegda": [
+   "b12-zakreplennyj-frozen-prioritet"
+  ],
+  "st03-bez-bajtov": [
+   "b05-podmena-klassa-v-objecte"
+  ],
+  "st04-bez-predka": [
+   "b06-chuzoj-tag-object"
+  ],
+  "st05-pervyj-teg": [
+   "b11-starejshaja-versija-sovpadaet"
+  ],
+  "st06-legkij-teg": [
+   "b15-legkij-teg"
+  ],
+  "st07-predmet-konstanta": [
+   "b16-chuzoj-predmet-bootstrap"
+  ],
+  "st08-ljuboj-predmet": [
+   "b17-chuzoj-predmet-teg"
+  ],
+  "st09-versija-ljubaja": [
+   "b18-nechislovaja-versija"
+  ],
+  "st10-poslednij-ref": [
+   "b20-versii-leksika-ne-chislo"
+  ],
+  "st11-pustoj-spisok": [
+   "b19-net-fajlov-kontrakta"
+  ],
+  "st12-repo-nositelja": [
+   "b01-bootstrap-adversary"
+  ],
+  "st13-predupr-crlf": [
+   "b05-podmena-klassa-v-objecte"
+  ],
+  "st14-predupr-odinochnyj-cr": [
+   "b05-podmena-klassa-v-objecte"
+  ],
+  "st15-predupr-probel-v-konce": [
+   "b05-podmena-klassa-v-objecte"
+  ],
+  "st16-predupr-dvojnoj-lf": [
+   "b05-podmena-klassa-v-objecte"
+  ],
+  "st17-predupr-bom": [
+   "b05-podmena-klassa-v-objecte"
+  ],
+  "st18-predupr-nul": [
+   "b05-podmena-klassa-v-objecte"
+  ],
+  "st19-predupr-ne-utf8": [
+   "b05-podmena-klassa-v-objecte"
+  ],
+  "st20-predupr-lishnij-vyvod": [
+   "b05-podmena-klassa-v-objecte"
+  ],
+  "st21-predupr-perenos": [
+   "b05-podmena-klassa-v-objecte"
+  ],
+  "st22-predupr-lishnij-v-stdout": [
+   "b05-podmena-klassa-v-objecte"
+  ],
+  "st23-otkaz-crlf": [
+   "b03-bootstrap-risikovyj-porjadok"
+  ],
+  "st24-otkaz-odinochnyj-cr": [
+   "b03-bootstrap-risikovyj-porjadok"
+  ],
+  "st25-otkaz-probel-v-konce": [
+   "b03-bootstrap-risikovyj-porjadok"
+  ],
+  "st26-otkaz-dvojnoj-lf": [
+   "b03-bootstrap-risikovyj-porjadok"
+  ],
+  "st27-otkaz-bom": [
+   "b03-bootstrap-risikovyj-porjadok"
+  ],
+  "st28-otkaz-nul": [
+   "b03-bootstrap-risikovyj-porjadok"
+  ],
+  "st29-otkaz-ne-utf8": [
+   "b03-bootstrap-risikovyj-porjadok"
+  ],
+  "st30-otkaz-lishnij-vyvod": [
+   "b03-bootstrap-risikovyj-porjadok"
+  ],
+  "st31-otkaz-perenos": [
+   "b03-bootstrap-risikovyj-porjadok"
+  ],
+  "st32-otkaz-lishnij-v-stdout": [
+   "b03-bootstrap-risikovyj-porjadok"
+  ],
+  "st33-puschem-crlf": [
+   "b01-bootstrap-adversary"
+  ],
+  "st34-puschem-odinochnyj-cr": [
+   "b01-bootstrap-adversary"
+  ],
+  "st35-puschem-probel-v-konce": [
+   "b01-bootstrap-adversary"
+  ],
+  "st36-puschem-dvojnoj-lf": [
+   "b01-bootstrap-adversary"
+  ],
+  "st37-puschem-bom": [
+   "b01-bootstrap-adversary"
+  ],
+  "st38-puschem-nul": [
+   "b01-bootstrap-adversary"
+  ],
+  "st39-puschem-ne-utf8": [
+   "b01-bootstrap-adversary"
+  ],
+  "st40-puschem-lishnij-vyvod": [
+   "b01-bootstrap-adversary"
+  ],
+  "st41-puschem-perenos": [
+   "b01-bootstrap-adversary"
+  ],
+  "st42-puschem-lishnij-v-stderr": [
+   "b01-bootstrap-adversary"
+  ]
+ },
+ "nositeli": {
+  "model/zamok_predmeta.sh": "c325fba92757495774368850522fe9650825ec81c5ba431b42ee7abfcc4ba278",
+  "stabs/st01-rol-tolko-sudi/zamok_predmeta.sh": "a0a470e7a0bcb22f6d1674e4726166fcb5c2c44194f34603b9be63bda0977089",
+  "stabs/st02-frozen-vsegda/zamok_predmeta.sh": "283b41461d215f4b75bf6df73a997391c66e13ac7c32855833612160ec90c46e",
+  "stabs/st03-bez-bajtov/zamok_predmeta.sh": "c3c23c1796213e792fc1608ad9e484061f7a6f9582da6f3a72e9a8bb8f710926",
+  "stabs/st04-bez-predka/zamok_predmeta.sh": "c8c9eeb8fd4c0e80b4c7ace6df765ec3f324728c0cb3dfca8abb93a2790a927b",
+  "stabs/st05-pervyj-teg/zamok_predmeta.sh": "b2871d2f224cb29995da02a8b46008c3ba117bd02c3d89fad67106b4f7db441a",
+  "stabs/st06-legkij-teg/zamok_predmeta.sh": "8b580cd628ca8f26cecc5f795f94d7e9a35e8bcf65ca9f0e147798445c3ee88c",
+  "stabs/st07-predmet-konstanta/zamok_predmeta.sh": "4a9fbe33e34dcf6c9aa72ec2f286ba11fe445583adb15e6aaae858ec56af1403",
+  "stabs/st08-ljuboj-predmet/zamok_predmeta.sh": "6030d2a077b4355e9a2efaf98f53de0b332b237bb7601f1af7c650e49fbaf81a",
+  "stabs/st09-versija-ljubaja/zamok_predmeta.sh": "dd824bb6611d8782b7b1619f138bce2580d7b422a911c3cacbd0dbb03629623c",
+  "stabs/st10-poslednij-ref/zamok_predmeta.sh": "2de67d700f725f5067f5a23009f0f1ec1bbc61a29d64c592db16e66c036fd409",
+  "stabs/st11-pustoj-spisok/zamok_predmeta.sh": "06f4aa4c8b34421565f37dc9c6ae3531a37e7466303a63793ef704cd23cd4f0b",
+  "stabs/st12-repo-nositelja/zamok_predmeta.sh": "b7d0b458671d0b6e0dec2b564f55b40b28dc6ffefab8e767db13982b58111e92",
+  "stabs/st13-predupr-crlf/zamok_predmeta.sh": "c5ae35e1bead2ebb0fb00e256aeba8c2dd5829b0d5b03b5f2d6b2b0336e49a0a",
+  "stabs/st14-predupr-odinochnyj-cr/zamok_predmeta.sh": "cb6320d6647985a032784a3f0a3fac8498ed747bf1e8c9e27eda847c2aaeb8cb",
+  "stabs/st15-predupr-probel-v-konce/zamok_predmeta.sh": "83a3f069230f3159349eede8ecdd7321fdbf7d6d702abe6621a41eeb41a3f201",
+  "stabs/st16-predupr-dvojnoj-lf/zamok_predmeta.sh": "ad860d54bd6275754b1518e96110e97ed45845db5b539cac315866f51e5ab98c",
+  "stabs/st17-predupr-bom/zamok_predmeta.sh": "8221318abf5e4f3669fe3bc3047b4921479499f15904856888cd1ed833e274f4",
+  "stabs/st18-predupr-nul/zamok_predmeta.sh": "bcb06d64e4fadc0b5d8ea256a7b77c7ab5998da79229cf8e251df20a908334aa",
+  "stabs/st19-predupr-ne-utf8/zamok_predmeta.sh": "8b01cd8eea53b0e7820f71c457016bb595cb678808526f02ceee9d3e493f8cbb",
+  "stabs/st20-predupr-lishnij-vyvod/zamok_predmeta.sh": "dc3b2254f45c30a74846076cb6bb54f8c4fb3e21dc42fa2d72181f26e7cb7497",
+  "stabs/st21-predupr-perenos/zamok_predmeta.sh": "4ac4367ebb93242aa3bdc7da92e9ac4f7642d77e1f717d67d4ed3052707cf611",
+  "stabs/st22-predupr-lishnij-v-stdout/zamok_predmeta.sh": "fff1580c752b0b95e0ee2bbaf8235efc06f9ff06df6e505084e9664b2990f351",
+  "stabs/st23-otkaz-crlf/zamok_predmeta.sh": "c10f904e76d8b6985b94b80acf3c26152060480ac953badd3e87e57b62440457",
+  "stabs/st24-otkaz-odinochnyj-cr/zamok_predmeta.sh": "efceba595a57fbdc5b42b7f6479e66afb0df0909b0d5afb858688213a888b857",
+  "stabs/st25-otkaz-probel-v-konce/zamok_predmeta.sh": "c73ebe80acb55848e686a3b9514403f7f26251d85178af796c3919213551dded",
+  "stabs/st26-otkaz-dvojnoj-lf/zamok_predmeta.sh": "32fa75d925966be60d3aa77161ec44cb1e47eaef50f525459352bcc204f89854",
+  "stabs/st27-otkaz-bom/zamok_predmeta.sh": "2874a7d8a23aa3033578fce8c71d8ef395b8a65243c9c8a0438813d0e9b4136b",
+  "stabs/st28-otkaz-nul/zamok_predmeta.sh": "8523d66df44016b009c04e1bf0f10be388be17ae2ee74305aa87458b87bf5914",
+  "stabs/st29-otkaz-ne-utf8/zamok_predmeta.sh": "0fda02b6d448fd83b2e4966122078074b2626dd06f24825321028e12e35f315b",
+  "stabs/st30-otkaz-lishnij-vyvod/zamok_predmeta.sh": "9bc01755369aad050c8260c9f674554320ad5146dfc247b37c763eb6ec27d44e",
+  "stabs/st31-otkaz-perenos/zamok_predmeta.sh": "8cb41987ea5313ef2c020027d8d05887d266f947efe47ddb545cf82dbda8d2b5",
+  "stabs/st32-otkaz-lishnij-v-stdout/zamok_predmeta.sh": "721cd6f90d595f41a36a1ef0c8f98be0feb9c5f66abe8cdd07cc947fc3a304a8",
+  "stabs/st33-puschem-crlf/zamok_predmeta.sh": "61299ee834a5e2dc74452bd9ef86f1c912c4bf38c2a40347655420e71165ee0d",
+  "stabs/st34-puschem-odinochnyj-cr/zamok_predmeta.sh": "f7d47613150a26e953a9b20e5afb3282e0b5ce6085c9e39d8752071f959b99d5",
+  "stabs/st35-puschem-probel-v-konce/zamok_predmeta.sh": "a1d56d225eb1784984307aaea2883005b93d2d8d5f82e96409a0e278f6021410",
+  "stabs/st36-puschem-dvojnoj-lf/zamok_predmeta.sh": "fc5d26c9801f28b41e52bf49fe482cf3f0456c8d7fb47ff373b593f9f3cce983",
+  "stabs/st37-puschem-bom/zamok_predmeta.sh": "0e985cb9cef483056616b53516f0ef5b63016e5381c5098063d28bac5617ae98",
+  "stabs/st38-puschem-nul/zamok_predmeta.sh": "80f15d5d839d07b75cf94b77bcedd354bb6d3c0f724813f20529aa157ad0a808",
+  "stabs/st39-puschem-ne-utf8/zamok_predmeta.sh": "d1924c739f8451f002aa7b1bc8a9eb1bb06e094cc5f33a5580414cc47f497002",
+  "stabs/st40-puschem-lishnij-vyvod/zamok_predmeta.sh": "9f61582201bb02d297972b15db6eef0fb5efb3a4a645f4913091262bb7b40adc",
+  "stabs/st41-puschem-perenos/zamok_predmeta.sh": "d364a77d468faf9667081f32e3170831ba2505f276e899415522157daa479ce6",
+  "stabs/st42-puschem-lishnij-v-stderr/zamok_predmeta.sh": "03e23014c8487ad0896a1619150380327fb0d1f0ffa74ba58644f9ae6e4e8d48"
+ },
+ "zametki": "привязки стаб↔клетка — единственный источник (Н-39); якорь каждой мутации — кратность 1 в тексте модели"
+}
