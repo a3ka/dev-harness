@@ -1,6 +1,7 @@
 ## ГДЕ МЫ — 2026-11-23 ~16:45 UTC (рестарт GLM→Sol выполнен; ПЕРВАЯ СЕКЦИЯ, перекрывает нижние там, где расходится)
 
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+- **ИТОГИ 19:45 UTC (date -u; перекрывают строки ниже там, где расходится).** **Rev209 вызов 1 (полный) = accept** `cfaca83ceb4d0c0bdf350c3f80b5e48aa045664e` (`wip/209/reviewer`; OBJECT `2a98aa68a`; модель-факт `anthropic/claude-opus-5-5` по `СУД:` и `models_actual --bind --session Rev209`; блоков нет; советы `.review/2026-11-23-154.md` С-1…С-4). **Rev206b вызов 2 (узкий) = accept** `dcf3d350577d92a3e5cca73e951e5f9cbf5db8b7` (`wip/206/reviewer`; OBJECT `b83edfaac`; модель-факт `anthropic/claude-opus-5-5`; блоков нет; советы С-8/С-9 `.review/2026-11-23-155.md`). **done 204 и 207 поставлены** (`done/contracts/204/1`, `done/contracts/207/1` на origin; `done_contract.sh` в detached WT на main). **done 208/209/206 ОТКАЗАНЫ дверью 6б (`done_contract.sh:761`):** для РИСКОВОГО accept адверсария обязан быть на ТОМ ЖЕ OBJECT, что accept ревьюера (208: adv `94251e24` vs rev `872a0641c`; 209: adv `81d5cf8e2` vs rev `2a98aa68a` — пересобранный носитель; 206: adversary accept нет вовсе, остаток принят словом владельца 23.11) — нужен клапан/строка владельца либо узкий adversary-аттестат на новый OBJECT (inbox-STANCIJA-REV209-ACCEPT-1825). **Пересборки (cherry-pick на main `0f33bee8a`, без merge-синхронизаций):** state → `wip/011/orchestrator-s4` (#1287; заменил #1277), 210 → `wip/210/orchestrator-r3` (#1288; hold `7ee63979e`; заменил #1273), 147 v6 → #1283, 148 v6 → #1284 (красный `legkij`: `check:contract-frozen` берёт `frozen/148/5..HEAD` по first-parent и цепляет ~16 merge-коммитов main с 141 — класс окна, cherry-pick не снимает), 205 → #1285. **211:** носитель `wip/211/orchestrator-r3` собран локально (8 коммитов cherry-pick `-X theirs` на `0f33bee8a`; contracts/211 и фикстуры побайтно = `e964a3c20a`; accept Crit211d `48c8100d0`); freeze 211 отказан «вне плана» — в #1286 нет строк `registry/plan.tsv` 211/212 (inbox-STANCIJA-211-PLAN-1855). **157:** узкий adversary по слову владельца упирается в `pre_judge prepare` (`VETKA_NE_OPUBLIKOVANA`: у 157 нет опубликованной ветки с каноническим OBJECT; реализация уже в main) — вопрос консультанту (inbox-STANCIJA-157-VOPROS-1945); слово владельца по 157 в HANDOFF значилось «проект» — подтверждение запрошено. **СЛОТЫ:** 0 из 3 с 19:30 — ждёт: вливов #1281/#1282/#1283/#1285/#1287/#1288 и строк plan.tsv 211/212 (консультант/владелец), решения по 157 и клапана done. Независимой работы без этих входов в очереди нет. Дальше по приходу: publish тегов 147/6, 205/1, 210/1 + REPLACE, freeze 211 (+ Impl211 MiniMax), Adv157/Rev157.
 - **СДЕЛАНО ЗА СЕССИЮ (date -u 15:36–16:45).** **Adv209 вызов 1 = FAIL** `2f635444c3` (архив `archive/209/adversary-v1-fail-2f635444c3`; модель-факт `openai-codex/gpt-6.1-terra` по строке `СУД:`; OBJECT `0928b7197`): Б-1 production `workshop:261/263` (пустая метка + собственный архив → перезапись станционными ролями, `make_task critic` rc 1→0), Б-2 (mode архива не проверен), Б-3 (`grep -F` вместо `-Fx`). → **Arch209c** (sol) `675fc2768`→принят `c4fc38195` (27 клеток, 17 стабов; empty-mark красная на OBJECT) → **Impl209b** (MiniMax) `9954e58ef`→принят `0153c3908` (одна строка `workshop:261` `! -e`→`! -s`; `--repo` 27/27/0, `--model` 27/0, `--stabs` 17/17/0; сырые rc в докладе) → CI-коммит orchestrator `81d5cf8e2` (вес 470, замер 468 с: --repo 198 + --model 85 + --stabs 185 при загрузке). `wip/209/orchestrator` = OBJECT `81d5cf8e254166b494ec451e76833d869e2b9033`, опубликована.
 - **СУД (ДО ВЫЗОВА): ОДИН adversary по 209, ВЫЗОВ 2 (УЗКИЙ scoped-повтор: «1 полный + не более 1 scoped», `roles/critic.md` §Быстрый-процесс, реализация); класс РИСКОВЫЙ — порядок adversary → reviewer; ~16:45 UTC (date -u).** Сессия `Adv209b`; предмет=209; фаза=реализация; роль=adversary; вызов=2 (узкий); модель-план=`openai-codex/gpt-6.1-terra`; независимость: авторы implementer MiniMax (Impl209, Impl209b) / architect sol (Arch209c) / orchestrator (CI) ≠ Terra; предыдущий=`verdicts/adversary/contracts-209-v1.md` (FAIL, архив `archive/209/adversary-v1-fail-2f635444c3`); OBJECT=`81d5cf8e254166b494ec451e76833d869e2b9033`; задание `/tmp/dev-harness-verify/task-adv209b.md`; вердикт `contracts-209-v2.md`; **модель-факт и сверка — дописка оркестратора ПОСЛЕ судьи**. Затем reviewer 209 (Opus).
 - **ИТОГ ~17:15 UTC: Adv209b вызов 2 (узкий) = accept** `576e564700aa4e9768647d2bca6b37b27a06d9c5` (`wip/209/adversary`, материализован `pre_judge verdict` → `VERDICT_BRANCH=wip/209/adversary`; OBJECT `81d5cf8e2`; модель-факт `openai-codex/gpt-6.1-terra` по строке `СУД:` и `models_actual --bind --session Adv209b` rc 0; три блока Adv209 закрыты, мутации пойманы своими клетками; `--repo` 27/27/0, `--model` 27/0, `--stabs` 17/17/0, pre_critic 0, check_sdacha 0). **ПЕРЕСБОРКА НОСИТЕЛЕЙ (17:20–17:50, окно check_charter/`check:sharing` красили PR на старой базе; рецепт консультанта (в): cherry-pick на текущий main, merge-синхронизации не делать):** 209 → `wip/209/orchestrator-r2` tip `2a98aa68af80ccb3c6606a1f92a05ef5247aa283` (PR #1281; `git diff 81d5cf8e2 2a98aa68a -- workshop fixtures/workshop_project/zasev_trassy_209` пуст); 206 → `wip/206/orchestrator-r2` tip `b83edfaacf6368d69f809e08f229ecadd475f503` (PR #1282; 7 содержательных коммитов + CI-вес 220; diff семьи 206 к `066ced02a` пуст); 147 v6 → `wip/147/orchestrator-r3` tip `eb528e70575a2f6650af189f8fd874ee82c79c57` (PR #1283; тег `frozen/contracts/147/6` перезаморожен: `freeze_contract.sh` с env GIT_*_NAME/EMAIL=orchestrator, затем `git update-ref -d refs/frozen-hold/…/6` + `gitw_teg_130.sh hold`; hold `b7e35fea6`); 148 v6 → `wip/148/orchestrator-r3` tip `06998e553a65e846e7663204feb63ee04250677c` (#1284; hold `ac0c8c094`); 205 → `wip/205/orchestrator-r3` tip `74a21933f267422365bd096c70b909a826d138b5` (#1285; hold `a455b0a79`; заменил #1241). Закрыты как заменённые: #1278, #1279, #1268, #1269, #1241. После влива каждого — publish тега (`gitw_teg_130.sh publish`) + REPLACE (`replace-main.sh <N> <tag-object>`). Двери: `freeze_contract` в WT оставляет staged `registry/contracts.tsv` (REPLACE отказан «дверь не на main») — `git restore --staged --worktree registry/contracts.tsv`; door D9 (`OBJECT_RASHODITSJA`) требует выровнять держателя `wip/<N>/<автор>-<x>` на OBJECT (`git update-ref`).
@@ -10000,29 +10001,7 @@ soreview-v1.md.
 <!-- BEGIN GENERATED NEXT SESSION -->
 ## Следующая сессия (генерируется: bash scripts/gen_plan.sh --write)
 
-- 092 · пара 3 · заморожен · трек autonomy
-- 094 · пара 3 · заморожен · трек autonomy
-- 097 · пара 3 · заморожен · трек autonomy
-- 098 · пара 3 · заморожен · трек autonomy
-- 201 · пара 3 · заморожен · трек architecture
-- 116 · пара 3 · заморожен · трек complior
-- 138 · пара 3 · заморожен · трек complior
-- 141 · пара 3 · заморожен · трек complior
-- 147 · пара 3 · заморожен · трек complior
-- 148 · пара 3 · заморожен · трек complior
-- 149 · пара 3 · заморожен · трек complior
-- 154 · пара 3 · заморожен · трек autonomy
-- 157 · пара 3 · заморожен · трек autonomy
-- 163 · пара 3 · заморожен · трек complior
-- 168 · пара 3 · заморожен · трек autonomy
-- 184 · пара 3 · заморожен · трек complior
-- 199 · пара 3 · заморожен · трек autonomy
-- 204 · пара 3 · заморожен · трек architecture
-- 206 · пара 3 · заморожен · трек autonomy
-- 207 · пара 3 · заморожен · трек CI
-- 208 · пара 3 · заморожен · трек autonomy
-- 095 · пара 4 · заморожен · трек context
-- 209 · пара 4 · заморожен · трек autonomy
+- нет пунктов: всё закрыто или зависимости открыты
 <!-- END GENERATED NEXT SESSION -->
 
 ## Счёт доводок mob 145 (правило маршрута, слово владельца 2026-10-29 ~00:05)
