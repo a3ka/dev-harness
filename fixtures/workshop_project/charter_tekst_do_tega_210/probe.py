@@ -6,6 +6,7 @@ judgments are declared while constructing the input and rendered BEFORE the subj
 Git plumbing supplies only immutable commit identities, ordering and census counts.
 """
 import argparse
+from fnmatch import fnmatchcase
 from dataclasses import dataclass
 import os
 from pathlib import Path
@@ -14,6 +15,8 @@ import signal
 import subprocess
 import sys
 import tempfile
+sys.dont_write_bytecode = True
+import transport
 
 HERE = Path(__file__).resolve().parent
 TREE = HERE.parents[2]
@@ -68,10 +71,11 @@ class Cell:
     object_format: str = 'sha1'
     ref: str = 'refs/heads/wip/810/architect'
     slug: str = 'publication'
+    directory: str = 'contracts'
 
 
 def cells():
-    return [
+    original = [
         Cell('a1-v-istorii-tega', 'history'),
         Cell('a2-grandfather-70-71', 'history', 'library'),
         Cell('a3-grandfather-72-74', 'history', 'library'),
@@ -115,6 +119,30 @@ def cells():
         Cell('v6-number', 'land', number='007'),
         Cell('v7-sha256', 'land', object_format='sha256'),
     ]
+    forms = {
+        'ascii': 'ascii', 'cyrillic': 'кириллица', 'nfc': 'café',
+        'nfd': 'cafe\u0301', 'quote': 'a"quote', 'slash': 'a\\slash',
+        'space': 'a space', 'leading-space': ' leading', 'trailing-space': 'trailing ',
+        'dash': '-dash', 'dot': '.dot',
+        'literal-escape': 'a\\t\\n\\"quote',
+    }
+    for form, slug in forms.items():
+        for shape, mode in (('draft', 'fast'), ('history', 'fast'), ('land', 'fast'),
+                            ('sync', 'fast'), ('edit', 'fast'), ('edit', 'oracle'),
+                            ('edit', 'incr'), ('sync', 'incr'), ('sync', 'push'), ('edit', 'push')):
+            original.append(Cell(f'nul-{form}-{shape}-{mode}', shape, mode, slug=slug))
+    for form, slug in {**forms, 'tab': 'a\ttab', 'lf': 'a\nline',
+                       'soh': 'a\x01' + 'f' * 40, 'sha': 'f' * 64,
+                       'header': 'a\n\x01' + 'f' * 40}.items():
+        for mode in ('fast', 'oracle', 'incr', 'push'):
+            if form not in forms:
+                original.append(Cell(f'nul-{form}-edit-{mode}', 'edit', mode, slug=slug))
+        if form in ('quote', 'slash', 'tab', 'lf', 'soh'):
+            original.append(Cell(f'nul-{form}-mixed', 'mixed', slug=slug))
+    for mode in ('fast', 'oracle', 'incr', 'push'):
+        original.append(Cell(f'nul-plan-{mode}', 'edit', mode, slug='a"quote', directory='plans'))
+        original.append(Cell(f'nul-plan-clean-{mode}', 'history', mode, slug='a\\slash', directory='plans'))
+    return original + transport.cells(sys.modules[__name__])
 
 
 class World:
@@ -123,9 +151,9 @@ class World:
         self.root = self.directory / 'world'
         self.root.mkdir()
         self.cell = cell
-        self.path = f'contracts/{cell.number}-{cell.slug}.md'
+        self.path = f'{cell.directory}/{cell.number}-{cell.slug}.md'
         self.other = 'contracts/820-other.md'
-        self.tag = TAG.format(number=cell.number)
+        self.tag = TAG.format(number=cell.number).replace('/contracts/', f'/{cell.directory}/')
         self.commits = {}
         self.files = {}
         self.events = {}
@@ -176,10 +204,10 @@ class World:
             entries = []
             for name, value in node.items():
                 if isinstance(value, dict):
-                    entries.append(b'040000 tree ' + make(value) + b'\t' + name.encode() + b'\n')
+                    entries.append(b'040000 tree ' + make(value) + b'\t' + name.encode() + b'\0')
                 else:
-                    entries.append(b'100644 blob ' + value + b'\t' + name.encode() + b'\n')
-            return git(self.root, 'mktree', data=b''.join(entries)).strip()
+                    entries.append(b'100644 blob ' + value + b'\t' + name.encode() + b'\0')
+            return git(self.root, 'mktree', '-z', data=b''.join(entries)).strip()
         return make(nodes).decode()
 
     def commit(self, name, changes, parents=None, message=None):
@@ -309,6 +337,9 @@ class World:
                 return 0, b'72=' + accepted + b'\n73=' + accepted + b'\n74=' + accepted + b'\nwrongpath=1\n', b''
             return 0, b'70=' + accepted + b'\n71=' + accepted + b'\nwrongpath=1\nwrongcommit=1\n', b''
         events = {**self.events, **(overrides or {})}
+        if overrides and any(status == 'lost-events' for status in overrides.values()):
+            events = {(name, path): status for (name, path), status in self.events.items()
+                      if path != self.path}
         if overrides and any(status == 'out-of-scope' for status in overrides.values()):
             # The quoting mutant loses the entire path, not merely its denial.
             # Keep the counterfactual expectation independent of subject output.
@@ -350,7 +381,7 @@ class World:
             lines.append(f'incr: check_charter судит {self.commits["base"][:8]}..{self.commits[self.head][:8]} ({n} {suffix})\n')
         summaries = {}
         for path in self.docs:
-            since = ('ustav/1' if path == 'AGENTS.md' else 'frozen/contracts/' + path.split('/')[1][:3] + '/1')
+            since = ('ustav/1' if path == 'AGENTS.md' else 'frozen/' + path.split('/')[0] + '/' + path.split('/')[1][:3] + '/1')
             if self.cell.mode == 'incr' and path == 'AGENTS.md':
                 since = self.commits['base']
             n = int(git(self.root, 'rev-list', '--count', since + '..' + self.commits[self.head]))
@@ -374,6 +405,8 @@ def snapshot(root):
 
 
 def observe(cell, sources, scratch, override=None):
+    if cell.mode == 'seam':
+        return transport.observe(sys.modules[__name__], cell, sources, scratch, override)
     with tempfile.TemporaryDirectory(prefix=cell.name + '-', dir=scratch) as directory:
         world = World(directory, cell)
         # Freeze both honest and mutant expected observations before any subject execution.
@@ -429,6 +462,8 @@ printf 'wrongpath=%s\\n' "$?"
             raise Prerequisite('SUBJECT_MUTATED_WORLD: ' + cell.name)
         if cell.mode == 'incr' and actual[0] == 0 and world.cache.read_bytes() != world.commits[world.head].encode() + b'\n':
             raise Prerequisite('CACHE_NOT_HEAD: ' + cell.name)
+        if cell.mode == 'incr' and actual[0] == 1 and world.cache.read_bytes() != world.commits['base'].encode() + b'\n':
+            raise Prerequisite('CACHE_ADVANCED_ON_DENIAL: ' + cell.name)
         return actual, expected
 
 
@@ -461,14 +496,60 @@ MUTATIONS = {
                            '    [ "$seen" != "$tb" ] || return 1', '    :',
                            {('mergec', None): 'publish'}),
     'CYRILLIC-VNE-OBLASTI': ('scripts/check_charter.sh',
-                            'g -c core.quotePath=false ls-tree -r --name-only HEAD',
+                            'g ls-tree -r -z --name-only HEAD',
                             'g ls-tree -r --name-only HEAD', {('edit', None): 'out-of-scope'}),
+    'NUL-DIFF': ('scripts/check_charter.sh',
+                 'diff-tree -r -z --no-commit-id --name-only --no-renames --diff-filter=MD "${c}^1"',
+                 'diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "${c}^1"',
+                 {('wire', None): 'wire-diff-line'}),
+    'NUL-PAIRS': ('scripts/check_charter.sh',
+                  "printf '%s\\0%s\\0' \"$f\" \"frozen/$dir/$NNN/1\"",
+                  "printf '%s\\t%s\\n' \"$f\" \"frozen/$dir/$NNN/1\"",
+                  {('edit', None): 'out-of-scope'}),
+    'NUL-ORACLE': ('scripts/check_charter.sh',
+                   "while IFS= read -r -d '' dp; do", 'while IFS= read -r dp; do',
+                   {('edit', None): 'lost-events'}),
+    'NUL-FAST': ('scripts/check_charter.sh', '__ch_p="$__ch_line"',
+                 '__ch_p="${__ch_line%%$\'\\n\'*}"', {('edit', None): 'lost-events'}),
+    'NUL-RING': ('.githooks/pre-push', "while IFS= read -r -d '' f; do\n      [ -n \"$f\" ]",
+                 'while IFS= read -r f; do\n      [ -n "$f" ]', {('edit', None): 'lost-events'}),
+    'NUL-OWNER': ('.githooks/pre-push',
+                  'diff-tree -z --root --no-commit-id --name-only -r "$c" -- docs/owner/',
+                  'diff-tree --root --no-commit-id --name-only -r "$c" -- docs/owner/',
+                  {('wire', None): 'wire-owner-line'}),
+    'NUL-OWNER-READ': ('.githooks/pre-push',
+                       "      while IFS= read -r -d '' f; do",
+                       '      while IFS= read -r f; do',
+                       {('wire', None): 'wire-empty'}),
+    'NUL-HEAD': ('reader-model.sh', 'ls-tree -r -z --name-only HEAD',
+                 'ls-tree -r --name-only HEAD', {('wire', None): 'wire-zero'}),
+    'NUL-HISTORY': ('reader-model.sh', 'log -z --all --diff-filter=A',
+                    'log --all --diff-filter=A', {('wire', None): 'wire-zero'}),
+    'NUL-BACKFILL': ('reader-model.sh', 'find "$root/contracts/" -type f -print0',
+                     'find "$root/contracts/" -type f -print', {('wire', None): 'wire-empty'}),
+    'NUL-FROZEN': ('reader-model.sh', "while IFS= read -r -d '' df; do\n      [ -n \"$df\" ] || continue\n      if",
+                   'while IFS= read -r df; do\n      [ -n "$df" ] || continue\n      if',
+                   {('wire', None): 'wire-frozen-clean'}),
+    'NUL-ZONES': ('reader-model.sh', "while IFS= read -r -d '' df; do\n      [ -n \"$df\" ] || continue\n      case",
+                  'while IFS= read -r df; do\n      [ -n "$df" ] || continue\n      case',
+                  {('wire', None): 'wire-zones-clean'}),
+    **{f'NUL-167-{array.upper()}': (
+        '.githooks/pre-push',
+        f'  git -C "$ROOT" diff -z --no-renames --name-only {args} > "$paths_167" || {{ rm -f "$paths_167"; return 1; }}\n'
+        f"  mapfile -d '' -t {array} < \"$paths_167\"",
+        f'  mapfile -t {array} < <(git -C "$ROOT" diff --no-renames --name-only {args} 2>/dev/null)',
+        {('wire', None): 'wire-167-allow' if array in ('d1', 'd2') else 'wire-167-deny'})
+       for array, args in (('d1', '"$base" "$p1"'), ('d2', '"$base" "$p2"'),
+                           ('cm', '"$p1" "$c"'), ('cm2', '"$p2" "$c"'))},
 }
 
 
 def sources(root, model):
     names = ('scripts/check_charter.sh', 'scripts/next_id.sh', 'scripts/lib_registry.sh',
-             'scripts/lib_incr.sh', '.githooks/pre-push')
+             'scripts/lib_incr.sh', '.githooks/pre-push',
+             'scripts/check_contract_frozen.sh', 'scripts/check_zones.sh',
+             'scripts/check_staged.sh', 'scripts/lib_zones.sh', 'scripts/mint_line.sh',
+             '.githooks/pre-commit')
     result = {}
     for name in names:
         source = root / name
@@ -477,6 +558,8 @@ def sources(root, model):
         if not source.is_file():
             raise Prerequisite('SUBJECT_ABSENT: ' + str(source))
         result[name] = source.read_bytes()
+    if model:
+        result['reader-model.sh'] = (MODEL / 'path_readers.sh').read_bytes()
     return result
 
 
@@ -540,17 +623,18 @@ def main():
             if not shutil.which(binary):
                 raise Prerequisite('LIVE_PREDPOSYLKA: ' + binary)
         if args.syntax:
-            compile((HERE / 'probe.py').read_bytes(), str(HERE / 'probe.py'), 'exec')
+            for source in (HERE / 'probe.py', HERE / 'transport.py'):
+                compile(source.read_bytes(), str(source), 'exec')
             for script in (MODEL / 'check_charter.sh', MODEL / 'pre-push',
-                           HERE / 'red_charter_tekst_do_tega_210.sh'):
+                           MODEL / 'path_readers.sh', HERE / 'red_charter_tekst_do_tega_210.sh'):
                 actual = command(['bash', '-n', script], cwd=HERE)
                 if actual != (0, b'', b''):
                     raise Prerequisite(f'BASH_SYNTAX: {script.name} {actual!r}')
-            print('210 SYNTAX: bash=3 python=1')
+            print('210 SYNTAX: bash=4 python=2')
             return 0
         cases = cells()
         if args.cell:
-            cases = [cell for cell in cases if cell.name == args.cell]
+            cases = [cell for cell in cases if fnmatchcase(cell.name, args.cell)]
         if not cases or len({c.name for c in cases}) != len(cases):
             raise Prerequisite('EMPTY_OR_DUPLICATED_CENSUS')
         selected = sources(args.repo.resolve(), args.model or args.stabs)
