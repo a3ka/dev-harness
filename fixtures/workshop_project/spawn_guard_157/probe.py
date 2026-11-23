@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Installed spawn-guard task-hook probe for observed session layouts (157).
 
-The accepted owner patch cf4054e8e is the reference for --model; this
-worktree's hook is the live subject. Stub-to-cell mappings live in code.
-The TaskItem wire-type declaration selects the pre/post-199 event schema;
-both retain exact byte comparison, including strict boolean isolation.
+The accepted owner patch cf4054e8e is the reference for --model.
+The current event oracle is fixed by contract 199: each item carries a strict
+boolean isolated field, regardless of the hook's text. Only the two frozen
+pre-199 revisions and their model mutants use the historical event schema.
 Mixed batches exercise isolation independently at every position and across
 worker/judge roles; isolation stubs mutate only the installed normalization.
 """
@@ -21,6 +21,10 @@ REPO = HERE.parents[2]
 SOURCE = REPO / '.omp/extensions/spawn-guard.ts'
 PATCH = 'cf4054e8e'
 START = 'function stateRoots(sessionFile: string): Roots | null {'
+HISTORICAL_REVISIONS = frozenset({
+    'cf4054e8e1c7a338d1260a608c67b75ef6c03fc2',  # accepted patch
+    '4cde3040daee06eefdfa40c56c67dc0c4bf61338',  # its red parent
+})
 DENY = 'DOOR_DENY_157'
 ZAMOK_BROKEN = 'ОТКАЗ: страж замка сломан (fail-closed)'
 BROKEN = 'ОТКАЗ: страж замка сломан (fail-closed): файл сессии вне грамматики'
@@ -72,6 +76,7 @@ ISOLATED_TYPE = 'type TaskItem = { agent: string; name: string; task: string; is
 ISOLATED_SEAM = '      isolated: o.isolated === true,'
 ISOLATION_MUTATIONS = {
     'isolated-always-false': 'false',
+    'drop-isolated': None,  # removes both the declared field and its emission
     'isolated-truthy': 'Boolean(o.isolated)',
     'first-only': 'out.length === 0 && o.isolated === true',
     'last-only': 'out.length === raw.length - 1 && o.isolated === true',
@@ -206,6 +211,30 @@ def mutation(source, name):
     elif name in BATCH_DROPS:
         anchor = BATCH_SEAM
         replacement = BATCH_DROPS[name]
+    elif name == 'drop-isolated':
+        # Adv157s3: one block anchor, not two independently applied edits.
+        # This source literal is a mutation seam only, never the event oracle.
+        anchor = ISOLATED_TYPE + '''
+
+function taskItems(input: unknown): TaskItem[] {
+  const raw: unknown[] =
+    isObject(input) && 'tasks' in input && Array.isArray(input.tasks)
+      ? (input.tasks as unknown[])
+      : [input];
+  const out: TaskItem[] = [];
+  for (const item of raw) {
+    const o = isObject(item) ? item : {};
+    out.push({
+      agent: typeof o.agent === 'string' ? o.agent : '',
+      name: typeof o.name === 'string' ? o.name : '',
+      task: typeof o.task === 'string' ? o.task : '',
+      isolated: o.isolated === true,
+    });
+  }
+  return out;
+}
+'''
+        replacement = anchor.replace('; isolated: boolean', '').replace(ISOLATED_SEAM + '\n', '')
     elif name in ISOLATION_MUTATIONS:
         anchor = ISOLATED_SEAM
         replacement = f'      isolated: {ISOLATION_MUTATIONS[name]},'
@@ -237,7 +266,7 @@ def build(base, label, home_parts, profile, tail, state_parts):
 
 
 def case(base, guard, label, home_parts, profile, tail, state_parts, outcome, role='architect',
-         batch_roles=None, isolated=None, carries_isolated=False):
+         batch_roles=None, isolated=None, carries_isolated=True):
     case_root, install, home, state = build(base, label, home_parts, profile, tail, state_parts)
     (install / '.omp/extensions/spawn-guard.ts').write_text(guard)
     cfg = install / 'config/agent_models.json'
@@ -408,12 +437,11 @@ def scenarios():
     ]
 
 
-def run(source, tag):
+def run(source, tag, *, carries_isolated=True):
     failed = []
     all_scenarios = scenarios()
-    # Schema selection uses the declared wire type, not the normalization
-    # expression: broken normalization must not change the oracle.
-    carries_isolated = ISOLATED_TYPE in source
+    # Contract 199 fixes the current wire schema independently of source.
+    # Historical callers explicitly select the pre-199 schema.
     with tempfile.TemporaryDirectory(prefix='spawn-guard-157-') as temp:
         for name, home, profile, tail, state, outcome, role, isolated in all_scenarios:
             try:
@@ -449,14 +477,19 @@ def main():
         if len(sys.argv) == 3 and sys.argv[1] == '--mutant':
             name = sys.argv[2]
             candidate = source if name in ISOLATION_MUTATIONS else reference()
-            return int(bool(run(mutation(candidate, name), 'subject')))
+            return int(bool(run(mutation(candidate, name), 'subject',
+                                carries_isolated=name in ISOLATION_MUTATIONS)))
         if len(sys.argv) == 3:
             revision = subprocess.run(
                 ['git', 'show', sys.argv[2] + ':.omp/extensions/spawn-guard.ts'],
                 cwd=REPO, capture_output=True, text=True, check=True).stdout
-            return int(bool(run(revision, 'subject')))
+            revision_id = subprocess.run(
+                ['git', 'rev-parse', '--verify', sys.argv[2] + '^{commit}'],
+                cwd=REPO, capture_output=True, text=True, check=True).stdout.strip()
+            return int(bool(run(revision, 'subject',
+                                carries_isolated=revision_id not in HISTORICAL_REVISIONS)))
         ref_source = reference()
-        control = run(ref_source, 'model')
+        control = run(ref_source, 'model', carries_isolated=False)
         if control:
             print('NOT_IMPLEMENTED: reference model failed', file=sys.stderr)
             return 2
@@ -479,7 +512,7 @@ def main():
             **{name: set(BATCH_GE5_CELLS) for name in BATCH_DROPS if name.endswith('-five-plus')},
         }
         for name, observed in targets.items():
-            fails = run(mutation(ref_source, name), name)
+            fails = run(mutation(ref_source, name), name, carries_isolated=False)
             if not observed <= fails:
                 print(f'STAB_ZHIV: {name}: expected {sorted(observed)}, got {sorted(fails)}', file=sys.stderr)
                 return 1
@@ -502,55 +535,58 @@ def main():
             'skip-last-six-plus': cells_over(lambda ln: ln >= 6),
         }
         for name, observed in exact_targets.items():
-            fails = run(mutation(ref_source, name), name)
+            fails = run(mutation(ref_source, name), name, carries_isolated=False)
             if fails != observed:
                 print(f'STAB_ZHIV: {name}: expected exactly {sorted(observed)}, got {sorted(fails)}',
                       file=sys.stderr)
                 return 1
-        isolation_targets = {}
-        if ISOLATED_TYPE in source:
-            if run(source, 'isolated-control'):
-                print('NOT_IMPLEMENTED: live isolation control failed', file=sys.stderr)
-                return 2
-            isolation_targets = {
-                'isolated-always-false': {'project-isolated-true'} | set(ISOLATION_EXPECTED),
-                'isolated-truthy': {'project-isolated-string'} | {
-                    name for name in STRICT_BATCH_CELLS if '-null-' not in name},
-                'first-only': STRICT_BATCH_CELLS | {
-                    'project-isolated-batch-second', 'project-isolated-batch-last',
-                    'project-isolated-batch-all', 'project-isolated-missing-worker',
-                    'project-isolated-judge-missing-worker',
-                    'project-isolated-worker-judge-true', 'project-isolated-judge-true-worker'},
-                'last-only': STRICT_BATCH_CELLS | {
-                    'project-isolated-batch-first', 'project-isolated-batch-second',
-                    'project-isolated-batch-all', 'project-isolated-worker-missing',
-                    'project-isolated-worker-judge-missing',
-                    'project-isolated-worker-judge-true', 'project-isolated-judge-true-worker'},
-                'middle-only': STRICT_BATCH_CELLS | {
-                    'project-isolated-true', 'project-isolated-batch-first',
-                    'project-isolated-batch-last', 'project-isolated-batch-all',
-                    'project-isolated-worker-missing', 'project-isolated-worker-judge-missing',
-                    'project-isolated-worker-judge-true', 'project-isolated-judge-true-worker'},
-                'batch-all-or-nothing': STRICT_BATCH_CELLS | {
-                    'project-isolated-batch-first', 'project-isolated-batch-second',
-                    'project-isolated-batch-last', 'project-isolated-worker-missing',
-                    'project-isolated-missing-worker', 'project-isolated-worker-judge-missing',
-                    'project-isolated-judge-missing-worker'},
-                'batch-any': STRICT_BATCH_CELLS | {
-                    'project-isolated-batch-first', 'project-isolated-batch-second',
-                    'project-isolated-batch-last', 'project-isolated-worker-missing',
-                    'project-isolated-missing-worker', 'project-isolated-worker-judge-missing',
-                    'project-isolated-judge-missing-worker'},
-                'batch-only': {'project-isolated-true'},
-                'worker-only': {
-                    'project-isolated-worker-judge-true', 'project-isolated-judge-true-worker'},
-            }
-            for name, observed in isolation_targets.items():
-                fails = run(mutation(source, name), name)
-                if fails != observed:
-                    print(f'STAB_ZHIV: {name}: expected exactly {sorted(observed)}, got {sorted(fails)}',
-                          file=sys.stderr)
-                    return 1
+        if run(source, 'isolated-control'):
+            print('NOT_IMPLEMENTED: live isolation control failed', file=sys.stderr)
+            return 2
+        isolation_targets = {
+            # The missing field differs even for false/default flags: every
+            # door-reaching cell requires the complete contract-199 event.
+            'drop-isolated': set(DOOR_CELLS_STATION) | set(DOOR_CELLS_PROJECT) |
+                {cell[0] for cell in scenarios() if isinstance(cell[6], tuple)} |
+                {'project-isolated-true', 'project-isolated-string'},
+            'isolated-always-false': {'project-isolated-true'} | set(ISOLATION_EXPECTED),
+            'isolated-truthy': {'project-isolated-string'} | {
+                name for name in STRICT_BATCH_CELLS if '-null-' not in name},
+            'first-only': STRICT_BATCH_CELLS | {
+                'project-isolated-batch-second', 'project-isolated-batch-last',
+                'project-isolated-batch-all', 'project-isolated-missing-worker',
+                'project-isolated-judge-missing-worker',
+                'project-isolated-worker-judge-true', 'project-isolated-judge-true-worker'},
+            'last-only': STRICT_BATCH_CELLS | {
+                'project-isolated-batch-first', 'project-isolated-batch-second',
+                'project-isolated-batch-all', 'project-isolated-worker-missing',
+                'project-isolated-worker-judge-missing',
+                'project-isolated-worker-judge-true', 'project-isolated-judge-true-worker'},
+            'middle-only': STRICT_BATCH_CELLS | {
+                'project-isolated-true', 'project-isolated-batch-first',
+                'project-isolated-batch-last', 'project-isolated-batch-all',
+                'project-isolated-worker-missing', 'project-isolated-worker-judge-missing',
+                'project-isolated-worker-judge-true', 'project-isolated-judge-true-worker'},
+            'batch-all-or-nothing': STRICT_BATCH_CELLS | {
+                'project-isolated-batch-first', 'project-isolated-batch-second',
+                'project-isolated-batch-last', 'project-isolated-worker-missing',
+                'project-isolated-missing-worker', 'project-isolated-worker-judge-missing',
+                'project-isolated-judge-missing-worker'},
+            'batch-any': STRICT_BATCH_CELLS | {
+                'project-isolated-batch-first', 'project-isolated-batch-second',
+                'project-isolated-batch-last', 'project-isolated-worker-missing',
+                'project-isolated-missing-worker', 'project-isolated-worker-judge-missing',
+                'project-isolated-judge-missing-worker'},
+            'batch-only': {'project-isolated-true'},
+            'worker-only': {
+                'project-isolated-worker-judge-true', 'project-isolated-judge-true-worker'},
+        }
+        for name, observed in isolation_targets.items():
+            fails = run(mutation(source, name), name)
+            if fails != observed:
+                print(f'STAB_ZHIV: {name}: expected exactly {sorted(observed)}, got {sorted(fails)}',
+                      file=sys.stderr)
+                return 1
         print(f'STABY {len(targets) + len(exact_targets) + len(isolation_targets)} NEPOIMANNYH 0')
         return 0
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
