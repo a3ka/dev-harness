@@ -270,38 +270,44 @@ next_id_max_for_class() {
   # сам себе следующий номер. `find` ходил бы по РАБОЧЕМУ дереву и съел бы staged-файл
   # задним числом (002-draft.md виден find'у, и peek возвращал 003 — не совпадал со
   # staged 002). `git ls-tree -r HEAD` читает дерево коммита, без staged.
+  # ТРАНСПОРТ ИМЁН — NUL (контракт 210): `ls-tree -z` отдаёт записи, разделённые
+  # NUL, и печатает имя вербатим — имя с кавычкой/пробелом/control-байтом
+  # остаётся одной записью (прежняя построчная форма читала имя как текст).
   local f base path_in_tree
   for loc in "${locations[@]}"; do
-    while IFS= read -r path_in_tree; do
+    while IFS= read -r -d '' path_in_tree; do
       [ -n "$path_in_tree" ] || continue
+      case "$path_in_tree" in "$loc"*) ;; *) continue ;; esac
       f="$path_in_tree"
       base="${f##*/}"
       parse_artifact_basename "$base" || true
       [ -n "${ARTIFACT_NUMBER:-}" ] || continue
       NEXT_ID_USED+=("$ARTIFACT_NUMBER"); [ "$ARTIFACT_NUMBER" -gt "$max" ] && max="$ARTIFACT_NUMBER"
-    done < <(git -C "$root" ls-tree -r --name-only "HEAD" -- "$loc" 2>/dev/null              | awk -v loc="$loc" '"'"'$0 ~ "^" loc { print }'"'"')
+    done < <(git -C "$root" ls-tree -r -z --name-only "HEAD" -- "$loc" 2>/dev/null)
   done
 
   # Источник 4: пути в достижимой истории (рекурсивно по локациям)
+  # ТРАНСПОРТ ИМЁН — NUL (контракт 210): `git log -z` отдаёт записи, разделённые
+  # NUL, и печатает имя вербатим. Прежняя построчная форма (awk по строкам)
+  # теряла имя с кавычкой/пробелом/control-байтом; фильтр по локациям перенесён
+  # в bash — сравнение префикса по ЗАПИСЯМ, а не по строкам.
   local joined="${locations[*]}"
-  while IFS= read -r path; do
+  local -a joined_locs=()
+  read -r -a joined_locs <<< "$joined"
+  while IFS= read -r -d '' path; do
     [ -n "$path" ] || continue
+    # Между коммитами git кладёт в запись ровно один служебный LF — снимаем его.
+    path="${path#$'\n'}"
+    keep=0
+    for loc in "${joined_locs[@]}"; do
+      case "$path" in "$loc"*) keep=1; break ;; esac
+    done
+    [ "$keep" -eq 1 ] || continue
     base="${path##*/}"
     parse_artifact_basename "$base" || true
     [ -n "${ARTIFACT_NUMBER:-}" ] || continue
     NEXT_ID_USED+=("$ARTIFACT_NUMBER"); [ "$ARTIFACT_NUMBER" -gt "$max" ] && max="$ARTIFACT_NUMBER"
-  done < <(git -C "$root" log --all --diff-filter=A --name-only --format= 2>/dev/null \
-           | awk -v locs="$joined" '
-               BEGIN { for (i=1; i<=split(locs, arr, " "); i++) { locs_arr[i]=arr[i] } }
-               {
-                 for (i=1; i<=length(locs_arr); i++) {
-                   l = locs_arr[i]
-                   if (length($0) > length(l) && substr($0, 1, length(l)) == l) {
-                     print
-                     break
-                   }
-                 }
-               }' || true)
+  done < <(git -C "$root" log -z --all --diff-filter=A --name-only --format= 2>/dev/null || true)
 
   printf '%d\n' "$max"
 }
@@ -620,9 +626,13 @@ if [ "$mode" = "backfill" ]; then
   for loc in "${locations[@]}"; do
     d="$HERE/$loc"
     [ -d "$d" ] || continue
-    while IFS= read -r f; do
+    # Имена файлов — NUL-транспортом (`find -print0`, контракт 210): имя с
+    # LF/TAB/кавычкой остаётся одной записью. Прежний построчный `find` рвал
+    # имя по LF — из одного файла получалось два «имени», и backfill выдавал
+    # лишний номер.
+    while IFS= read -r -d '' f; do
       [ -n "$f" ] || continue
-      name="$(basename "$f")"
+      name="${f##*/}"
       parse_artifact_basename "$name" || continue
       n="$ARTIFACT_NUMBER"
       tagname="id/${class}/$(printf '%03d' "$n")"
@@ -633,7 +643,7 @@ if [ "$mode" = "backfill" ]; then
       git -C "$HERE" tag "$tagname" -m "выдано до заведения регистра" \
         || die "не удалось создать тег $tagname"
       created=$((created + 1))
-    done < <(find "$d" -type f 2>/dev/null)
+    done < <(find "$d" -type f -print0 2>/dev/null)
   done
   printf '  ok   backfill %s: создано %d, уже было %d\n' "$class" "$created" "$skipped" >&2
   exit 0

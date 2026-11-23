@@ -222,7 +222,11 @@ while IFS= read -r f; do
           # Исторический grandfather-коммит этого пути (check_charter.sh, grandfather_pair) — не носитель
           # текста v+1: его дельта по другим контрактам — прошлое, не переписываемое (слово владельца 2026-11-10).
           grandfather_pair "$c" "$f" && continue
-          while IFS= read -r df; do
+          # Поток charter_diff_paths — NUL-записи (контракт 210): имя пути с
+          # кавычкой/пробелом/control-байтом читается ОДНОЙ записью и не может
+          # ни потеряться, ни совпасть с посторонним путём. Решение, окно и
+          # сообщения прежние.
+          while IFS= read -r -d '' df; do
             [ -n "$df" ] || continue
             if [ "$df" != "$f" ]; then
               case "$df" in
