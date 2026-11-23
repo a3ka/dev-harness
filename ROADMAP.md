@@ -523,6 +523,8 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 4 | 140 | до V-2 | autonomy | - | docs/owner/2026-10-21-dubli-agentov.md#Порядок |
 | 4 | sessii-proektov | до V-2 | project-mode | 122 | docs/owner/2026-10-21-uskorenie-mob.md#Порядок |
 | 4 | 142 | до V-2 | autonomy | - | docs/owner/2026-10-26-skaner-sekretov.md#Порядок |
+| 4 | 209 | до V-2 | autonomy | - | b4a39c229f9e31b827e7348bece1f3bf8d4ef7a7 |
+| 4 | 210 | до V-2 | autonomy | - | b4a39c229f9e31b827e7348bece1f3bf8d4ef7a7 |
 | 5 | 096 | до V-2 | autonomy | 095 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 5 |
 | 5 | CMP-BCK-133 | до V-2 | complior | 993 | docs/owner/2026-10-18-arhitektor-beka-5-8-4.md#Порядок |
 | 6 | V-2 | до V-2 | autonomy | 090,091,094,095,096 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 3 |
