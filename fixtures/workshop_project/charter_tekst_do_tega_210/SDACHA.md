@@ -47,9 +47,9 @@
 ## Измерения и ограничения среды
 
 W --model: rc 0, KLETKI=36 ZELENYE=36 KRASNYE=0.
-W --stabs: rc 0, MUTACII=17 SVJAZI=19 POIMANY=19 ZHIVYH=0.
+W --stabs: rc 0, MUTACII=18 SVJAZI=20 POIMANY=20 ZHIVYH=0.
 Честный контроль перед каждым предъявлением зелёный; сверяется и полный отдельный результат мутации.
-Независимая мера данных: stabs.tsv — 20 физических строк (одна шапка, 19 привязок);
+Независимая мера данных: stabs.tsv — 21 физическая строка (одна шапка, 20 привязок);
 model/ — 2 файла; клеток в коде — 36 (перечисление по одной Cell-строке).
 
 W --repo: rc 1, KLETKI=36 ZELENYE=17 KRASNYE=19. Красные-до: b1-lend,
@@ -62,7 +62,7 @@ v5-long, v6-number, v7-sha256.
 их краснота возникает только на мутанте удаления пар (стабы GRANDFATHER-UDALEN,
 PARY-208-UDALENY). Этот rc не используется машинной строкой Двери.
 
-check_sdacha --run: rc 0, двери=12 карта=17/17 дельта=5.
+check_sdacha --run: rc 0, двери=12 карта=17/17 дельта=6.
 pre_critic: rc 0, «КРИТИК: дверь зелёная».
 check_spec_ready, check_ids, check_ceilings, check_precision_gate,
 check_threat_model, check_predposylki, check_provodka --grammar и gen_ci_steps --check: rc 0.
@@ -81,6 +81,7 @@ validate_std для модели: rc 2, VALIDATOR_MISSING: shellcheck.
 
 ## Дельта
 
+- К-01 · клетка · bash fixtures/workshop_project/charter_tekst_do_tega_210/red_charter_tekst_do_tega_210.sh --stabs · 0 · 0
 - К-03 · клетка · bash fixtures/workshop_project/charter_tekst_do_tega_210/red_charter_tekst_do_tega_210.sh --model · 0 · 0
 - К-07 · клетка · bash fixtures/workshop_project/charter_tekst_do_tega_210/red_charter_tekst_do_tega_210.sh --model · 0 · 0
 - К-08 · клетка · bash fixtures/workshop_project/charter_tekst_do_tega_210/red_charter_tekst_do_tega_210.sh --stabs · 0 · 0
@@ -112,3 +113,15 @@ grandfather_pair для трёх SHA 208 (72–74) — production возвращ
 и на production. Стаб PARY-208-UDALENY (удаление case 72–74) красит именно a3;
 GRANDFATHER-UDALEN по-прежнему ловится на a2. Инвариант И8 контракта переформулирован:
 действующие пары не удаляются и не расширяются.
+
+К-01 (способ клетка; единственный блок вызова 2 — archive/210/critic-v1-fail2-07f4c59f0a:
+инверсия сравнения blob из первого вердикта не была закреплена как точный адресный стаб,
+BEZ-BLOBA удаляет проверку, а не инвертирует её). Исправление: стаб INVERSIJA-BLOBA
+в probe.py повторяет предъявленную мутацию критика вызова 1 буквально — якорь кратности 1
+`[ "$cb" = "$tb" ]` заменяется на `[ "$cb" != "$tb" ]` в model/check_charter.sh
+(charter_frozen_publication, строка 674), привязка в stabs.tsv — g2-blob-ne-tega,
+клетке различения по коду: честная модель rc 1 (deny), мутант rc 0 (publish), полные
+тройки rc/stdout/stderr расходятся и совпадают с отдельным ожиданием. Другие клетки
+не задеты: якорь встречается в модели ровно один раз, файлы модели на диске не меняются,
+прогоны --repo/--model дают прежние 36/17/19 и 36/36/0. Прогон: `--stabs` rc 0,
+MUTACII=18 SVJAZI=20 POIMANY=20 ZHIVYH=0, строка `INVERSIJA-BLOBA -> g2-blob-ne-tega POIMAN`.
