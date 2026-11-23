@@ -44,13 +44,13 @@ CI self-test, замер и производный workflow коммитит orc
 
 Финальная батарея, включая настоящий judge_gate --sud:
 
-- W --model: rc 0, KLETKI=24 ZELENYE=24 KRASNYE=0.
-- W --stabs: rc 0, MUTACII=14 SVJAZI=14 POIMANY=14 ZHIVYH=0.
-- W --repo .: rc 1, KLETKI=24 ZELENYE=4 KRASNYE=20. Зелёные охранные клетки: nepustoj, dev, judge-fact, sud-boundaries; остальные именованно красные до реализации.
-- check_sdacha --run: rc 0, «СДАЧА: лист зелёный (двери=5 карта=17/17 дельта=0)».
-- pre_critic: rc 0, «КРИТИК: дверь зелёная».
-- check_spec_ready, check_ids, check_ceilings, check_provodka --grammar, check_precision_gate, check_threat_model, check_predposylki и gen_ci_steps --check: каждый rc 0.
-- validate_std.sh bash для раннера и модели: каждый rc 0; shellcheck 0.11.0 проверен пином ops/server/validators.tsv. В зоне HOME бинарь не найден автоматически; использован установленный пинованный бинарь через VALIDATE_STD_SHELLCHECK, без смены пина или отключения проверки.
+1. W --model: rc 0, KLETKI=24 ZELENYE=24 KRASNYE=0.
+2. W --stabs: rc 0, MUTACII=14 SVJAZI=14 POIMANY=14 ZHIVYH=0.
+3. W --repo .: rc 1, KLETKI=24 ZELENYE=4 KRASNYE=20. Зелёные охранные клетки: nepustoj, dev, judge-fact, sud-boundaries; остальные именованно красные до реализации.
+4. check_sdacha --run: rc 0, «СДАЧА: лист зелёный (двери=5 карта=17/17 дельта=0)».
+5. pre_critic: rc 0, «КРИТИК: дверь зелёная».
+6. check_spec_ready, check_ids, check_ceilings, check_provodka --grammar, check_precision_gate, check_threat_model, check_predposylki и gen_ci_steps --check: каждый rc 0.
+7. validate_std.sh bash для раннера и модели: каждый rc 0; shellcheck 0.11.0 проверен пином ops/server/validators.tsv. В зоне HOME бинарь не найден автоматически; использован установленный пинованный бинарь через VALIDATE_STD_SHELLCHECK, без смены пина или отключения проверки.
 
 Снимок зон: origin/main 3f313c37cd336905a7a6621034889f8b9d0622c9;
 union zones_scoped содержит 2157 строк, сопоставлены все девять токенов зон
