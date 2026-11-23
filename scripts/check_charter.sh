@@ -301,6 +301,18 @@
 #   2026-11-22 «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: scripts/check_charter.sh — grandfather merge 66a37eff (синхронизация #1241 с main
 #   принесла тот же текст контракта 204, побайтно равный frozen-тегу)» через консультанта)
 #
+#   3f313c37cd336905a7a6621034889f8b9d0622c9  contracts/208-zamok-object-predok.md
+#   c8711daa62892b1833472f6d54ac7e5a3d7d15c7  contracts/208-zamok-object-predok.md
+#   3f25b7e6da54750e511dbd154f1d98d6c5e89765  contracts/208-zamok-object-predok.md
+#   (72–74-я: «land: wip/int-208/orch-freeze» 3f313c37 внёс в main текст контракта 208 v1 до публикации
+#   frozen/contracts/208/1 (порядок 130 И-8); c8711daa и 3f25b7e6 — синхронизации PR #1241 и #1246 с main через
+#   GitHub (второй родитель 3f313c37) принесли тот же текст; блоб contracts/208 во всех трёх = 38743e669b = блоб в
+#   frozen/contracts/208/1 (сверено API консультантом); нового содержания нет; CI #1241 (run 45082250035) и #1246
+#   красны только на этих парах; стоячее слово владельца 2026-11-22 «До ленда задачи 210: grandfather-пары
+#   check_charter для коммитов, внёсших текст контракта, побайтно равный опубликованному frozen-тегу этого
+#   контракта, консультант вносит owner-PR без отдельного слова на каждую пару; равенство блоба проверяется и
+#   пишется в журнал.»)
+#
 # НЕ добавлять новые записи без прямого слова владельца в НОВОМ коммите с обоснованием.
 #
 # is_charter_path (контракт 019, ветвь 1 — единый источник предиката). Staged-путь
@@ -552,6 +564,8 @@ grandfather_pair() {
       [ "$p" = "contracts/995-cmp-mob-001-android-pilot.md" ] && return 0 ;;
     409836ed5d918d4ecb16f132b8f6e26d287b32cc|66a37efff06a1da72febe8e36b9bb37f8ff6d3eb)
       [ "$p" = "contracts/204-karta-vyzova-po-faze.md" ] && return 0 ;;
+    3f313c37cd336905a7a6621034889f8b9d0622c9|c8711daa62892b1833472f6d54ac7e5a3d7d15c7|3f25b7e6da54750e511dbd154f1d98d6c5e89765)
+      [ "$p" = "contracts/208-zamok-object-predok.md" ] && return 0 ;;
   esac
   return 1
 }
