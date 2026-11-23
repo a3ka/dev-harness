@@ -42,3 +42,5 @@ target-not-passed-to-judge	mkdir/bare/abs/noslash/plain/foreign/no-dash/position
 verdict-relative-base-ignored	verdict/rel/plain/direct/inside	scripts/pre_judge.sh
 mkdir-dirlink-parent-symlink-skipped	guard-mkdir-dirlink-bin-outside	.omp/extensions/path-guard.ts
 verdict-root-equals-repo-ignored	verdict-root-file	scripts/pre_judge.sh
+quoted-read-stderr-is-write	guard-quoted-greater-stderr-null	.omp/extensions/path-guard.ts
+verdict-logical-before-physical	verdict/rel/plain/dir-symlink-dotdot/outside	scripts/pre_judge.sh
