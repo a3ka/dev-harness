@@ -1,22 +1,53 @@
 #!/usr/bin/env python3
-"""147 v5: регистрация пачки, карты и работника лекала 143/2.
+"""147 v6: регистрация пачки, карты и работника лекала 143/2 на транспорте 197.
+
+Слово владельца 22.11 ~10:53 UTC, п.(4)«А»: требования GitHub-артефактного
+шага заменены lane-вызовом канона 197 с сохранением if: always(), источника
+кадров, обязательной экранной приёмки и отказа ошибочной публикации; шаг
+валидатора переведён в паритетно допустимую форму (npm-lane, 163/1: каждая
+run:-команда .github/** — npm run <NAME> либо исключение, новых исключений
+и долга работник 147 не добавляет).
 
 Оракул работника — MODEL_YML: адаптация живого работника 149 mob@60a62ecb6,
-сверенная с worker-147.yml автора и независимым build_honest.py критика.
-Он разбирается в память ДО чтения субъекта (прецедент 141 v3 upravlenie_job).
+сверенная с worker-147.yml автора и независимым build_honest.py критика (v5);
+v6 меняет в модели ТОЛЬКО транспорт: публикация кадров — однострочный
+lane-вызов `npm run ci:artefakt-zapis -- --imja maestro-gespraech-vhod
+--chto mobile/maestro-out-gespraech` (if: always(); имя каталогу достраивает
+скрипт-канон 197 парой run_id/run_attempt — workflow имя не строит, d01);
+исполнение приёмки — `npm run ci:ekran-gespraech-vhod` (lane КОРНЕВОГО
+package.json, тело — mobile/scripts/ci-ekran-gespraech-vhod.sh, зона
+implementer); читатель APK — измеренный контекст P+L+Q канона 197 с
+продюсерской парой --run-id/--run-attempt. Оракул разбирается в память ДО
+чтения субъекта (прецедент 141 v3 upravlenie_job).
+
 Job: замкнутый алфавит и буквальное равенство полей, кроме steps; судимые
-шаги H-checkout/валидатор/артефакт: позиция, алфавит и значения полей
-против модели. Shell-команды сравниваются разобранными словами; данные
-heredoc, аргумент echo и комментарий вызовом валидатора не являются.
-Обёртка run тоже равна модели словами: определение без вызова не операция.
-Needs проверяются у android-e2e И mobile-regression-signal, не счётчиком.
+шаги H-checkout/валидатор/публикация кадров: позиция, алфавит и значения
+полей против модели. Lane-вызовы сравниваются разобранными shell-словами
+(слово lane, --imja, --chto — самостоятельные слова); данные heredoc,
+аргумент echo и комментарий вызовом не являются. Отсутствующая lane в
+корневом package.json — именованный отказ LANEJA_NET: npm run без ключа
+падает в прогоне и красит паритет, «регистрация» без lane — ложь.
+Правка по FAIL критика (вызов 1, 23.11; К-05/К-08/К-09/К-10): непустой
+ключ lane приёмки не доказывает её ИСПОЛНЕНИЯ — пустышка «echo skipped»
+держала --repo зелёным (REGISTRACIJA_OK, rc 0) без валидатора и Maestro.
+Значение lane приёмки судится ПОБАЙТОВО против канона MODEL_PKG
+(`bash mobile/scripts/ci-ekran-gespraech-vhod.sh`): связка worker →
+lane → скрипт приёмки обязана различаться от пустышки и подавления
+(`|| true`) — именованный отказ LANE_NE_KANON. Значения lanes канона
+197 (писатель/читатель артефактов) — зона семьи 197: здесь только
+существование ключа (наблюдение критика о пустышке писателя — граница,
+не требование зоны 147).
+Отказ публикации не подавляется: continue-on-error, if: success() и
+`|| true` у судимых шагов отклоняются равенством модели (fail-closed
+писателя держит скрипт-канон 197 — ISTOCHNIK_OTSTUTSTVUET).
 
 --model: честный контроль rc 0; --stabs: каждый мутант красен СВОЕЙ
 причиной, матрица rc 0; --repo R: живой продукт, rc 0 REGISTRACIJA_OK.
 Отказ: rc 1 PRICHINA <ветвь>; без режима/предпосылки: rc 2 NOT_IMPLEMENTED.
 Привязки стабов к ветвям — STABY, не проза контракта (Н-39).
-Содержимое пачки судит неизменный валидатор 132 v3 в продуктовом CI;
-эти клетки не исполняют shell и не доказывают исправность эмулятора.
+Содержимое пачки и исполнение lane судит неизменный валидатор 132 v3 в
+продуктовом CI; эти клетки не исполняют shell и не доказывают исправность
+эмулятора.
 """
 import argparse
 import json
@@ -67,17 +98,19 @@ SELEKTOR = 'select-screens'
 VYHOD_KLJUCH = 'e2e-gespraech-vhod'
 VYHOD_ZNACHENIE = '${{ steps.vybor.outputs.e2e-gespraech-vhod }}'
 VYBOR = f'{VYHOD_KLJUCH}: {VYHOD_ZNACHENIE}'  # текстовый якорь мутаций стабов
-VALIDATOR = "ekran_shablon.py --pack 'mobile/e2e-gespraech-vhod/'"  # якорь мутаций
-VAL_SKRIPT = 'ekran_shablon.py'
-VAL_PACHKA = 'mobile/e2e-gespraech-vhod/'
 SHAG_CHECKOUT = 'actions/checkout'
 REPOSITORIJ = 'a3ka/dev-harness'
 PIN_HARNESSA = 'd01c9414ef792ea1382750c825759ab51a418ff4'
 PIN_STROKA = f'ref: {PIN_HARNESSA}'  # текстовый якорь мутаций стабов
-SHAG_VYGRUZKI = 'actions/upload-artifact'
+
+# ── транспорт 197: lanes КОРНЕВОГО package.json (И-2/И-8, замкнутая грамматика)
+KOREN_PKG = 'package.json'
+LANE_VALIDATORA = 'ci:ekran-gespraech-vhod'   # паритетная форма шага приёмки
+LANE_ZAPISI = 'ci:artefakt-zapis'             # публикация кадров (канон 197)
+LANE_CHTENIJA = 'ci:artefakt-chtenie'         # читатель APK (канон 197)
+# источник кадров и имя публикации — семантика v5 без изменения (И-11 v6)
+KADRY_IMJA = 'maestro-gespraech-vhod'
 KADRY_PUT = 'mobile/maestro-out-gespraech'
-KADRY_STRAZH = 'error'  # значение with['if-no-files-found']
-KADRY_STRAZH_STROKA = 'if-no-files-found: error'  # текстовый якорь мутаций
 
 # Единственная модель управляющих полей и судимых шагов — MODEL_YML ниже.
 AGREGATY_IMENA = ('android-e2e', 'mobile-regression-signal')  # лекало 143/2
@@ -136,6 +169,39 @@ def sudi_kartu(root):
                      f"status: {zapis.get('status')!r} не в {STATUSY}")
 
 
+def sudi_lineju(root):
+    """Lane-вызов без lane в КОРНЕВОМ package.json — ложная регистрация:
+    npm run падает в прогоне, паритет 163/1 красен. Оба ключа обязаны
+    существовать и быть непустыми строками. Значение lane приёмки сверх
+    того ПОБАЙТОВО равно канону модели (v6-правка по FAIL критика:
+    пустышка «echo skipped» держала зелёную форму работника без экранной
+    приёмки — связка worker → lane → скрипт приёмки обязана различаться
+    от пустышки и подавления). Значения lanes канона 197 (писатель/
+    читатель) — зона семьи 197: здесь только существование ключа."""
+    pkg = root / KOREN_PKG
+    if not pkg.is_file():
+        raise Krasno('LANEJA_NET', f'нет корневого {KOREN_PKG}')
+    try:
+        data = json.loads(pkg.read_text())
+    except ValueError as e:
+        raise Krasno('LANEJA_NET', f'{KOREN_PKG} не JSON: {e}')
+    skripty = data.get('scripts') if isinstance(data, dict) else None
+    if not isinstance(skripty, dict):
+        raise Krasno('LANEJA_NET', f'{KOREN_PKG} без словаря scripts')
+    for kljuch in (LANE_VALIDATORA, LANE_ZAPISI):
+        zn = skripty.get(kljuch)
+        if not isinstance(zn, str) or not zn:
+            raise Krasno('LANEJA_NET',
+                         f'lane {kljuch} не объявлена в корневом {KOREN_PKG}')
+    zn = skripty[LANE_VALIDATORA]
+    kanon = MODEL_PKG['scripts'][LANE_VALIDATORA]
+    if zn != kanon:
+        raise Krasno('LANE_NE_KANON',
+                     f'lane {LANE_VALIDATORA}: значение {zn!r} != канону '
+                     f'{kanon!r} — lane обязана побайтово исполнять '
+                     f'скрипт приёмки')
+
+
 # ── структурный разбор работника (Б-1: операция, не подстрока) ────────────────
 def razbor_workflow(root):
     """jobs из YAML-разбора mobile.yml; битый YAML — работника нет."""
@@ -149,8 +215,6 @@ def razbor_workflow(root):
     if not isinstance(dok, dict) or not isinstance(dok.get('jobs'), dict):
         raise Krasno('RABOTNIKA_NET', f'{WORKFLOW} без словаря jobs')
     return dok['jobs']
-
-
 
 
 def sudi_vybor(joby):
@@ -270,7 +334,8 @@ def sudi_model_shaga(shag, i, rol):
 
 
 def sudi_validatora(shagi):
-    """Только командное слово python3 и свои аргументы, не текст в данных."""
+    """Только lane-вызов своими shell-словами (npm, run, имя lane), не текст
+    в данных: echo/heredoc/комментарий операцией не являются (m8/m9/MA-2)."""
     for i, shag in enumerate(shagi):
         if not isinstance(shag, dict) or not isinstance(shag.get('run'), str):
             continue
@@ -279,7 +344,8 @@ def sudi_validatora(shagi):
             sudi_model_shaga(shag, i, 'валидатор')
             return
     raise Krasno('RABOTNIK_BEZ_VALIDATORA',
-                 f'команды-вызова {VALIDATOR} своими shell-словами нет')
+                 f'команды-вызова npm run {LANE_VALIDATORA} '
+                 f'своими shell-словами нет')
 
 
 def sudi_pina(shagi):
@@ -298,21 +364,18 @@ def sudi_pina(shagi):
 
 
 def sudi_kadry(shagi):
+    """Публикация кадров — lane-вызов канона 197 своими shell-словами:
+    lane, --imja и --chto (источник кадров) — самостоятельные слова."""
     for i, shag in enumerate(shagi):
-        if not isinstance(shag, dict):
+        if not isinstance(shag, dict) or not isinstance(shag.get('run'), str):
             continue
-        with_ = shag.get('with')
-        if str(shag.get('uses') or '').startswith(SHAG_VYGRUZKI) \
-                and isinstance(with_, dict) \
-                and with_.get('path') == KADRY_PUT \
-                and with_.get('if-no-files-found') == KADRY_STRAZH:
+        if any(slova_komandy(k) == MODEL_SLOVA_ZAPISI
+               for k in aktivnye_komandy(shag['run'])):
             sudi_model_shaga(shag, i, 'артефакт кадров')
             return
     raise Krasno('RABOTNIK_BEZ_KADROV',
-                 f'шага upload-artifact ({KADRY_PUT} + '
-                 f'{KADRY_STRAZH_STROKA}) нет')
-
-
+                 f'шага публикации кадров lane-вызовом ({LANE_ZAPISI} -- '
+                 f'--imja {KADRY_IMJA} --chto {KADRY_PUT}, if: always()) нет')
 
 
 def sudi_rabotnika(root):
@@ -332,14 +395,17 @@ def sudi_rabotnika(root):
 def sudi(root):
     sudi_pachku(root)
     sudi_kartu(root)
+    sudi_lineju(root)
     sudi_rabotnika(root)
 
 
 # ── честная встроенная модель (контроль входов; содержимое файлов не судится
 #    этими клетками — грамматику пачки судит валидатор 132 v3 на работнике).
-#    РАБОТНИК — дословное тело честного работника-147 (адаптация 149 из
-#    mob@60a62ecb6 по образцу замера Arch147An/критика build_honest.py):
-#    модель несёт и управляющие ключи job, и судимые шаги, и вызов. ──────────
+#    РАБОТНИК — тело честного работника-147 на транспорте 197 (v6): каркас и
+#    судимые шаги v5 (адаптация 149 из mob@60a62ecb6, сверен с worker-147.yml
+#    автора и build_honest.py критика) при lane-форме публикации кадров и
+#    исполнения приёмки; читатель APK — измеренный контекст P+L+Q канона 197
+#    с продюсерской парой run_id/run_attempt. ────────────────────────────────
 MODEL_YML = r"""
 jobs:
   select-screens:
@@ -350,6 +416,7 @@ jobs:
       apk_sha256: primer
       artifact_name: primer
       run_id: primer
+      run_attempt: primer
   e2e-gespraech-vhod:
     needs: [select-screens, build-apk]
     if: needs.select-screens.outputs['e2e-gespraech-vhod'] == 'true'
@@ -371,18 +438,22 @@ jobs:
       - name: Изоляция раннера (/home недоступен коду из PR)
         run: test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness
       # работник НЕ пересобирает APK: артефакт по ТОЧНОМУ имени из outputs
-      # сборки (имя переживает выборочный повтор), sha256 ДО установки
+      # сборки (имя переживает выборочный повтор), sha256 ДО установки;
+      # транспорт 197: локальный читатель с ПРОДЮСЕРСКОЙ парой run_id/
+      # run_attempt из needs.build-apk.outputs (И-4 197 — своя попытка
+      # читала бы пусто на выборочном повторе работника)
       - name: 'APK сборки: артефакт по имени, digest до установки'
         working-directory: ${{ github.workspace }}
         env:
-          GH_TOKEN: ${{ github.token }}
           IMJA_ARTEFAKTA: ${{ needs.build-apk.outputs.artifact_name }}
           ZHELANYJ_DIGEST: ${{ needs.build-apk.outputs.apk_sha256 }}
+          RUN_SBORKI: ${{ needs.build-apk.outputs.run_id }}
+          POPYTKA_SBORKI: ${{ needs.build-apk.outputs.run_attempt }}
         run: |
           set -euo pipefail
           test -n "$IMJA_ARTEFAKTA" && test -n "$ZHELANYJ_DIGEST"
           rm -rf apk-build && mkdir -p apk-build
-          gh run download "${{ github.run_id }}" --name "$IMJA_ARTEFAKTA" --dir apk-build
+          npm run ci:artefakt-chtenie -- --imja "$IMJA_ARTEFAKTA" --kuda apk-build --run-id "$RUN_SBORKI" --run-attempt "$POPYTKA_SBORKI"
           test -f apk-build/app-release.apk
           got="$(sha256sum apk-build/app-release.apk | awk '{print $1}')"
           if [ "$got" != "$ZHELANYJ_DIGEST" ]; then
@@ -414,101 +485,28 @@ jobs:
           ref: d01c9414ef792ea1382750c825759ab51a418ff4
           path: .harness147
           persist-credentials: false
+      # 163/1 (паритет run:-команд .github/**): каждая команда мобильного CI
+      # обязана быть `npm run <NAME>` либо объявленным исключением; работник
+      # 147 новых исключений НЕ добавляет — приёмку исполняет lane КОРНЕВОГО
+      # package.json. Тело приёмки (AVD, Maestro, валидатор 132 v3 на пачке,
+      # один уровень восстановления по adb-сигнатуре) — скрипт lane:
+      # mobile/scripts/ci-ekran-gespraech-vhod.sh (зона implementer); канал
+      # GitHub (upload/download-artifact, gh run download) в работнике закрыт
+      # каноном 197.
       - name: 'Экранная пачка: валидатор 132 v3 + Maestro, один уровень восстановления'
         working-directory: ${{ github.workspace }}
         env:
           FLOWS_PACHKI: mobile/.maestro/gespraech-vhod.yaml,mobile/.maestro/gespraech-vhod-393.yaml
-        run: |
-          set -euo pipefail
-          APK='mobile/android/app/build/outputs/apk/release/app-release.apk'
-          AVD="cigespraech-vhod-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          PORT=5572
-          SERIAL="emulator-${PORT}"
-          AVDM="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
-          cleanup() {
-            adb -s "$SERIAL" emu kill >/dev/null 2>&1 || true
-            sleep 3
-            pkill -f "qemu-system-x86_64.*-avd $AVD" >/dev/null 2>&1 || true
-            "$AVDM" delete avd -n "$AVD" >/dev/null 2>&1 || true
-          }
-          trap cleanup EXIT
-          echo no | "$AVDM" create avd --force -n "$AVD" \
-            -k "system-images;android-36;google_apis;x86_64" -d pixel_7 >/dev/null
-          sed -i 's/^hw.ramSize=.*/hw.ramSize=2048/' "$ANDROID_AVD_HOME/$AVD.avd/config.ini"
-          adb start-server >/dev/null
-          boot() {
-            adb -s "$SERIAL" emu kill >/dev/null 2>&1 || true
-            sleep 3
-            pkill -f "qemu-system-x86_64.*-avd $AVD" >/dev/null 2>&1 || true
-            emulator -avd "$AVD" -port "$PORT" -no-window -no-audio -no-boot-anim -no-snapshot \
-              -gpu swiftshader_indirect >"emulator-$AVD.log" 2>&1 &
-            adb -s "$SERIAL" wait-for-device
-            for _ in $(seq 1 130); do
-              [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
-              sleep 3
-            done
-            [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] || {
-              echo "ОТКАЗ: эмулятор gespraech-vhod не загрузился за 390 с" >&2; return 1; }
-            local ok=0
-            for _ in $(seq 1 40); do
-              if [ "$(adb -s "$SERIAL" get-state 2>/dev/null)" = "device" ] &&
-                 adb -s "$SERIAL" shell pm path android >/dev/null 2>&1; then
-                ok=$((ok + 1)); [ "$ok" -ge 3 ] && break
-              else
-                ok=0
-              fi
-              sleep 2
-            done
-            if [ "$ok" -lt 3 ]; then
-              echo "ОТКАЗ: эмулятор $SERIAL не стабилизировался (adb offline)" >&2
-              return 1
-            fi
-            for s in window_animation_scale transition_animation_scale animator_duration_scale; do
-              adb -s "$SERIAL" shell settings put global "$s" 0
-            done
-            adb -s "$SERIAL" install -r "$APK" >/dev/null
-          }
-          diag() {
-            echo "ДИАГНОСТИКА gespraech-vhod: adb devices" >&2
-            adb devices >&2 || true
-            echo "ДИАГНОСТИКА gespraech-vhod: сигнатуры Maestro в mobile/maestro-out-gespraech" >&2
-            grep -rnE 'device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException' \
-              'mobile/maestro-out-gespraech' >&2 2>/dev/null || true
-            echo "ДИАГНОСТИКА gespraech-vhod: хвост emulator-$AVD.log" >&2
-            tail -n 40 "emulator-$AVD.log" >&2 || true
-          }
-          run_priemka() {
-            rm -rf 'mobile/maestro-out-gespraech'
-            mkdir -p 'mobile/maestro-out-gespraech'
-            python3 .harness147/scripts/ekran_shablon.py --pack 'mobile/e2e-gespraech-vhod/' --repo . --harness '.harness147'
-          }
-          if ! boot; then diag; exit 1; fi
-          set +e
-          run_priemka
-          rc=$?
-          set -e
-          if [ "$rc" -ne 0 ]; then
-            diag
-            if grep -rqE 'device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException' \
-              'mobile/maestro-out-gespraech' 2>/dev/null; then
-              echo "ПОВТОР: обрыв adb-транспорта эмулятора gespraech-vhod — перезапуск эмулятора и валидатора" >&2
-              if ! boot; then diag; exit 1; fi
-              set +e
-              run_priemka
-              rc=$?
-              set -e
-              if [ "$rc" -ne 0 ]; then diag; fi
-            fi
-          fi
-          [ "$rc" -eq 0 ] || exit "$rc"
+        run: npm run ci:ekran-gespraech-vhod
+      # 197: публикация кадров ЛОКАЛЬНЫМ транспортом lane-вызовом; имя
+      # каталогу maestro-gespraech-vhod достраивает скрипт-канон парой
+      # (run_id, run_attempt) — workflow имя не строит (d01). if: always():
+      # кадры выходят и при красной приёмке; отказ писателя (отсутствующий
+      # источник) краснит шаг и джобу — подавления нет.
       - name: Артефакты экрана (кадры, отчёт)
         if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: maestro-gespraech-vhod-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: mobile/maestro-out-gespraech
-          if-no-files-found: error
-          retention-days: 14
+        working-directory: ${{ github.workspace }}
+        run: npm run ci:artefakt-zapis -- --imja maestro-gespraech-vhod --chto mobile/maestro-out-gespraech
   android-e2e:
     needs: [select-screens, quality, build-apk, e2e-gespraech-vhod]
     runs-on: [self-hosted, linux, x64, complior]
@@ -521,22 +519,40 @@ jobs:
     needs: [build-apk, select-screens]
 """
 
+# Модель корневого package.json: lanes — единственная судимая часть; значения
+# artefakt-lanes равны канону 197 (живой продукт, замер 2026-11-22) и судятся
+# только существованием (зона семьи 197); значение lane приёмки — ПОБАЙТОВЫЙ
+# КАНОН (sudi_lineju, правка по FAIL критика v6): именно эта команда
+# обязана исполняться lane работника.
+MODEL_PKG = {
+    'scripts': {
+        'ci:artefakt-zapis': 'node mobile/scripts/ci-artefakty.cjs zapis',
+        'ci:artefakt-chtenie': 'node mobile/scripts/ci-artefakty.cjs chtenie',
+        'ci:ekran-gespraech-vhod': 'bash mobile/scripts/ci-ekran-gespraech-vhod.sh',
+    }
+}
+
 # Снимок оракула снимается один раз; файлы модели в --repo не перечитываются.
 MODEL_JOB = yaml.safe_load(MODEL_YML)['jobs'][RABOTNIK] if yaml else {}
 MODEL_SHAGI = {}
 if yaml:
     for i, shag in enumerate(MODEL_JOB['steps']):
         with_ = shag.get('with') or {}
+        run_tekst = shag.get('run') or ''
         if with_.get('repository') == REPOSITORIJ:
             MODEL_SHAGI['H-checkout'] = (i, shag)
-        elif with_.get('path') == KADRY_PUT:
+        elif LANE_ZAPISI in run_tekst:
             MODEL_SHAGI['артефакт кадров'] = (i, shag)
-        elif VAL_SKRIPT in shag.get('run', ''):
+        elif LANE_VALIDATORA in run_tekst:
             MODEL_SHAGI['валидатор'] = (i, shag)
     MODEL_SLOVA_VYZOVA = next(
         slova_komandy(k)
         for k in aktivnye_komandy(MODEL_SHAGI['валидатор'][1]['run'])
-        if (slova_komandy(k) or [''])[0] == 'python3')
+        if (slova_komandy(k) or [''])[0] == 'npm')
+    MODEL_SLOVA_ZAPISI = next(
+        slova_komandy(k)
+        for k in aktivnye_komandy(MODEL_SHAGI['артефакт кадров'][1]['run'])
+        if (slova_komandy(k) or [''])[0] == 'npm')
 
 
 def postroj_model(kuda):
@@ -551,6 +567,7 @@ def postroj_model(kuda):
     (kuda / KARTA).parent.mkdir(parents=True, exist_ok=True)
     (kuda / KARTA).write_text(json.dumps(
         {'schema': 1, 'ekrany': [zapis], 'integracija': {}}, indent=2))
+    (kuda / KOREN_PKG).write_text(json.dumps(MODEL_PKG, indent=2))
     wf = kuda / WORKFLOW
     wf.parent.mkdir(parents=True, exist_ok=True)
     wf.write_text(MODEL_YML)
@@ -571,6 +588,22 @@ def _chuzhoe_pole(root):
     data = json.loads(kart.read_text())
     data['ekrany'][0]['job'] = 'e2e-gespraech-tekst'
     kart.write_text(json.dumps(data, indent=2))
+
+
+def _bez_lanei(root, kljuch):
+    pkg = root / KOREN_PKG
+    data = json.loads(pkg.read_text())
+    data['scripts'].pop(kljuch)
+    pkg.write_text(json.dumps(data, indent=2))
+
+
+def _zameni_znachenie_lanei(root, kljuch, znachenie):
+    """Мутация ЗНАЧЕНИЯ lane (ключ остаётся, проверка существования зелена):
+    различает побайтовый канон от «непустой строки» (v6-FAIL К-08)."""
+    pkg = root / KOREN_PKG
+    data = json.loads(pkg.read_text())
+    data['scripts'][kljuch] = znachenie
+    pkg.write_text(json.dumps(data, indent=2))
 
 
 def _udal_stroki(root, predikat):
@@ -595,6 +628,20 @@ def _udal_job(root):
             break
     if nachalo is None:
         return
+    wf.write_text('\n'.join(stroki[:nachalo] + stroki[konec:]) + '\n')
+
+
+def _udal_shag(root, imja_stroki):
+    """Удаление блока шага целиком: от строки '- name: <…>' до следующего
+    шага ('      - ') или конца job (строка мельче 6 пробелов)."""
+    wf = root / WORKFLOW
+    stroki = wf.read_text().splitlines()
+    nachalo = next(i for i, l in enumerate(stroki) if l == imja_stroki)
+    konec = len(stroki)
+    for j in range(nachalo + 1, len(stroki)):
+        if stroki[j].startswith('      - ') or not stroki[j].startswith('      '):
+            konec = j
+            break
     wf.write_text('\n'.join(stroki[:nachalo] + stroki[konec:]) + '\n')
 
 
@@ -672,8 +719,12 @@ NEEDS_JOB_STROKA = '    needs: [select-screens, build-apk]'
 NAME_PINA_STROKA = '      - name: Checkout H пачки экрана (.harness147)'
 NAME_VALID_STROKA = ("      - name: 'Экранная пачка: валидатор 132 v3 + Maestro, "
                      "один уровень восстановления'")
-VAL_STROKA = ("            python3 .harness147/scripts/ekran_shablon.py "
-              "--pack 'mobile/e2e-gespraech-vhod/' --repo . --harness '.harness147'")
+NAME_KADRY_STROKA = '      - name: Артефакты экрана (кадры, отчёт)'
+VAL_STROKA = '        run: npm run ci:ekran-gespraech-vhod'
+ZAPIS_STROKA = ('        run: npm run ci:artefakt-zapis -- --imja '
+                'maestro-gespraech-vhod --chto mobile/maestro-out-gespraech')
+IF_ALWAYS_STROKA = '        if: always()'
+
 
 def _dubl_job_false(root):
     """Второй job с тем же id: судится фактический последний YAML-узел."""
@@ -711,17 +762,41 @@ STABY = [
      'RABOTNIK_BEZ_VYBORA', _vynes_vybor_v_env),
     ('имя вне needs агрегатов', 'RABOTNIK_VNE_AGGREGATOV',
      lambda r: _zameni(r, ', e2e-gespraech-vhod]', ']')),
+    # ── v6: lane-транспорт (197) и паритетная форма валидатора (163/1) ──────
+    ('корневой package.json без lane приёмки ci:ekran-gespraech-vhod',
+     'LANEJA_NET', lambda r: _bez_lanei(r, LANE_VALIDATORA)),
+    ('корневой package.json без lane писателя ci:artefakt-zapis',
+     'LANEJA_NET', lambda r: _bez_lanei(r, LANE_ZAPISI)),
+    ('значение lane приёмки — пустышка echo skipped вместо команды '
+     'валидатора (v6-FAIL К-08: непустой ключ не доказывает исполнения)',
+     'LANE_NE_KANON',
+     lambda r: _zameni_znachenie_lanei(r, LANE_VALIDATORA, 'echo skipped')),
+    ('значение lane приёмки с подавлением отказа — хвост "|| true" '
+     'внутри значения lane (v6-FAIL К-10: ненулевой итог приёмки)',
+     'LANE_NE_KANON',
+     lambda r: _zameni_znachenie_lanei(
+         r, LANE_VALIDATORA,
+         MODEL_PKG['scripts'][LANE_VALIDATORA] + ' || true')),
     ('работник без валидатора', 'RABOTNIK_BEZ_VALIDATORA',
-     lambda r: _zameni(r, VALIDATOR, 'maestro test mobile/.maestro/gespraech-vhod.yaml')),
-    ('вызов валидатора закомментирован, подстрока в теле (MA-2)',
-     'RABOTNIK_BEZ_VALIDATORA', lambda r: _zakommentirj(r, VAL_SKRIPT)),
+     lambda r: _zameni(r, VAL_STROKA,
+                       '        run: maestro test mobile/.maestro/gespraech-vhod.yaml')),
+    ('вызов lane валидатора закомментирован, подстрока в теле (MA-2)',
+     'RABOTNIK_BEZ_VALIDATORA',
+     lambda r: _zakommentirj(r, VAL_STROKA.strip())),
     ('работник без пина H-checkout', 'RABOTNIK_BEZ_PINA',
      lambda r: _udal_stroki(r, lambda l: l.strip() == PIN_STROKA)),
-    ('работник без артефакта кадров', 'RABOTNIK_BEZ_KADROV',
-     lambda r: _udal_stroki(r, lambda l: l.strip() in
-                            (f'path: {KADRY_PUT}', KADRY_STRAZH_STROKA))),
-    ('страж артефакта в комментарии, подстрока в теле (MA-2b)',
-     'RABOTNIK_BEZ_KADROV', lambda r: _zakommentirj(r, KADRY_STRAZH_STROKA)),
+    ('работник без публикации кадров', 'RABOTNIK_BEZ_KADROV',
+     lambda r: _udal_shag(r, NAME_KADRY_STROKA)),
+    ('строка lane-писателя закомментирована, подстрока в теле (MA-2b)',
+     'RABOTNIK_BEZ_KADROV', lambda r: _zakommentirj(r, LANE_ZAPISI)),
+    ('источник кадров подменён: --chto mobile/maestro-out-vkladki',
+     'RABOTNIK_BEZ_KADROV',
+     lambda r: _zameni(r, '--chto mobile/maestro-out-gespraech',
+                       '--chto mobile/maestro-out-vkladki')),
+    ('имя публикации кадров подменено: --imja maestro-gespraech-tekst',
+     'RABOTNIK_BEZ_KADROV',
+     lambda r: _zameni(r, '--imja maestro-gespraech-vhod',
+                       '--imja maestro-gespraech-tekst')),
     # ── испр. Б-1 вызов 2 (вердикт vyzov2-fail): замкнутая модель работника —
     #    управляющие ключи/слова/имена; стабы по КОДУ ветвей (Н-39) ─────────
     ('if: false на job работника — тихий обход варианта Б (m7)',
@@ -749,9 +824,12 @@ STABY = [
     ('if: false на шаге H-checkout пина (m15)',
      'UPRAVLYAYUSHCHIJ_KLYUCH',
      lambda r: _vstav_posle(r, NAME_PINA_STROKA, ['        if: false'])),
-    ('if: false на шаге артефакта кадров (m6b)',
+    ('if: false на шаге публикации кадров (m6b)',
      'UPRAVLYAYUSHCHIJ_KLYUCH',
-     lambda r: _zameni(r, '        if: always()', '        if: false')),
+     lambda r: _zameni(r, IF_ALWAYS_STROKA, '        if: false')),
+    ('if: success() на шаге публикации кадров — кадры только при зелёной приёмке',
+     'UPRAVLYAYUSHCHIJ_KLYUCH',
+     lambda r: _zameni(r, IF_ALWAYS_STROKA, '        if: success()')),
     ('continue-on-error: true на job работника — маскировка итога (m6c)',
      'UPRAVLYAYUSHCHIJ_KLYUCH',
      lambda r: _vstav_posle(r, NEEDS_JOB_STROKA,
@@ -764,20 +842,35 @@ STABY = [
      'UPRAVLYAYUSHCHIJ_KLYUCH',
      lambda r: _vstav_posle(r, NEEDS_JOB_STROKA,
                             ['    strategy:', '      fail-fast: false'])),
-    ('вызов валидатора — аргумент echo, подстрока в команде (m8)',
-     'RABOTNIK_BEZ_VALIDATORA',
-     lambda r: _zameni(r, VAL_STROKA, '            echo "' + VAL_STROKA.strip() + '"')),
-    ('вызов валидатора — тело heredoc cat >/dev/null, данные (m9)',
+    ('вызов lane валидатора — аргумент echo, подстрока в команде (m8)',
      'RABOTNIK_BEZ_VALIDATORA',
      lambda r: _zameni(r, VAL_STROKA,
-                       "            cat >/dev/null <<'KONEC'\n"
-                       + VAL_STROKA + '\n            KONEC')),
+                       '        run: echo "npm run ci:ekran-gespraech-vhod"')),
+    ('вызов lane валидатора — тело heredoc cat >/dev/null, данные (m9)',
+     'RABOTNIK_BEZ_VALIDATORA',
+     lambda r: _zameni(r, VAL_STROKA,
+                       "        run: |\n"
+                       "          cat >/dev/null <<'KONEC'\n"
+                       "          npm run ci:ekran-gespraech-vhod\n"
+                       "          KONEC")),
+    ('вызов lane валидатора — данные no-op heredoc',
+     'RABOTNIK_BEZ_VALIDATORA',
+     lambda r: _zameni(r, VAL_STROKA,
+                       "        run: |\n"
+                       "          : <<'KONEC'\n"
+                       "          npm run ci:ekran-gespraech-vhod\n"
+                       "          KONEC")),
+    ('lane валидатора с подавлением отказа — хвост "|| true"',
+     'RABOTNIK_BEZ_VALIDATORA',
+     lambda r: _zameni(r, VAL_STROKA, VAL_STROKA + ' || true')),
+    ('lane писателя кадров с подавлением отказа — хвост "|| true"',
+     'RABOTNIK_BEZ_KADROV',
+     lambda r: _zameni(r, ZAPIS_STROKA, ZAPIS_STROKA + ' || true')),
     ('имя в needs двух НЕагрегатов вместо обоих агрегатов, без цикла (m10)',
      'RABOTNIK_VNE_AGGREGATOV', _podmeni_agregaty),
-    ('перестановка: шаг валидатора после шага артефакта кадров (m14)',
+    ('перестановка: шаг валидатора после шага публикации кадров (m14)',
      'UPRAVLYAYUSHCHIJ_KLYUCH',
-     lambda r: _perestav_shag_za(r, NAME_VALID_STROKA,
-                                 '          retention-days: 14')),
+     lambda r: _perestav_shag_za(r, NAME_VALID_STROKA, ZAPIS_STROKA)),
     ('needs работника без ребра select-screens',
      'UPRAVLYAYUSHCHIJ_KLYUCH',
      lambda r: _zameni(r, NEEDS_JOB_STROKA, '    needs: [build-apk]')),
@@ -791,14 +884,6 @@ STABY = [
      lambda r: _zameni(r, 'FLOWS_PACHKI: mobile/.maestro/gespraech-vhod.yaml,'
                        'mobile/.maestro/gespraech-vhod-393.yaml',
                        'FLOWS_PACHKI: mobile/.maestro/chuzhoj.yaml')),
-    ('валидатор определён, но функция run_priemka не вызывается',
-     'UPRAVLYAYUSHCHIJ_KLYUCH',
-     lambda r: _udal_stroki(r, lambda l: l.strip() == 'run_priemka')),
-    ('вызов валидатора — данные no-op heredoc',
-     'RABOTNIK_BEZ_VALIDATORA',
-     lambda r: _zameni(r, VAL_STROKA,
-                       "            : <<'KONEC'\n"
-                       + VAL_STROKA + '\n            KONEC')),
     ('дубль if: последним остаётся false',
      'UPRAVLYAYUSHCHIJ_KLYUCH',
      lambda r: _zameni(r, IF_JOB_STROKA, IF_JOB_STROKA + '\n    if: false')),
@@ -808,9 +893,9 @@ STABY = [
                 _zameni(r, IF_JOB_STROKA, '    if: *neaktivno'))),
     ('дубль job: последний работник выключен',
      'UPRAVLYAYUSHCHIJ_KLYUCH', _dubl_job_false),
-    ('continue-on-error выражением на шаге артефакта',
+    ('continue-on-error выражением на шаге публикации кадров',
      'UPRAVLYAYUSHCHIJ_KLYUCH',
-     lambda r: _vstav_posle(r, '        if: always()',
+     lambda r: _vstav_posle(r, IF_ALWAYS_STROKA,
                             ['        continue-on-error: ${{ true }}'])),
 ]
 
