@@ -303,7 +303,19 @@ LIB_ZONES_ROOT="$ROOT"
 
 fails=0
 ok()   { printf '  ok   %s\n' "$*" >&2; }
-bad()  { fails=$((fails + 1)); printf '  FAIL %s\n' "$*" >&2; }
+# НАРУШЕНИЕ. Контракт 207: решение по паре (коммит, путь) контракт-независимо,
+# поэтому в incr-ветви решения СОБИРАЮТСЯ (складываются в хранилище решений
+# коммита, NUL-разделённые строки — путь может нести сырой LF) и печатаются
+# позже, при пер-контрактном воспроизведении. Текст, порядок и счётчик
+# нарушений — прежние: полный режим печатает сразу, как раньше.
+bad() {
+  if [ "${ZONES_COLLECT:-0}" = "1" ]; then
+    printf '%s\0' "$*" >> "$TMP/dec/${ZONES_CUR}.bad"
+  else
+    fails=$((fails + 1))
+    printf '  FAIL %s\n' "$*" >&2
+  fi
+}
 
 # DECIMAL STRING GREATER-THAN — корректное сравнение decimal-строк ЛЮБОЙ длины (Блокер A,
 # контракт 049 v1 адверсария: `[ -gt ]` ограничен диапазоном long (~64 бита), а грамматика
@@ -673,6 +685,92 @@ is_process_file() {
 #   локальный реестр). Fail-closed чтения локального реестра: тег, удалённый из
 #   локального реестра к моменту аудита, красит признание — лечение восстановлением
 #   тега, НЕ ослаблением признания (прецедент 023 (iv)).
+# ── 207: СУД ОКНА ОДИН РАЗ (incr-ветвь) ─────────────────────────────────────────
+# Полный режим (без --incr) не меняется: у каждого контракта своё окно (у
+# закрытых — свой done-тег), общего прохода там быть не может. В incr-режиме
+# окно у всех контрактов одно и то же (кеш..HEAD), и данные окна (список
+# коммитов, merge-исключения, batched-авторы, batched-пути) готовятся ОДНИМ
+# проходом, а цикл по контрактам ниже воспроизводит только пер-контрактные
+# решения (счётчики, СПАСЕНО, сообщения) из готовых данных.
+mkdir -p "$TMP/dec"
+ZONES_COLLECT=0
+ZONES_FULL=0
+ZONES_WPREP=1
+if [ "${INCR_MODE:-full}" = "incr" ]; then
+  # Объединение авторов participating-контрактов — основа общего окна: зона
+  # автора — объединение зон ВСЕХ замороженных контрактов (Н-100), а окно
+  # incr-прогона одно на все контракты.
+  : > "$TMP/w_union_raw"
+  while IFS=$'\t' read -r u_nnn _; do
+    [ -n "$u_nnn" ] || continue
+    awk -F'\t' -v n="$u_nnn" '$3 == n { print $1 }' "$TMP/zones_scoped" | sort -u > "$TMP/w_auth_one"
+    if [ -s "$TMP/w_auth_one" ]; then
+      cat "$TMP/w_auth_one" >> "$TMP/w_union_raw"
+    fi
+  done < "$TMP/ranges"
+  sort -u "$TMP/w_union_raw" > "$TMP/w_authors"
+fi
+
+# MERGE-ИСКЛЮЧЕНИЯ КОНТРАКТА (incr-ветвь) — по общему окну: субъекты merge'ей и
+# принесённые ими коммиты собраны ОДИН раз, а «свой» merge контракта
+# (`land: wip/<NNN>/…`) не исключается — исключение пер-контрактное, как прежде.
+zones_exclude_incr() {
+  local w_mc="" w_msg=""
+  : > "$TMP/exclude"
+  while IFS=$'\t' read -r w_mc w_msg; do
+    [ -n "$w_mc" ] || continue
+    case "$w_msg" in
+      "land: wip/${nnn}/"*) ;;  # свой merge — НЕ исключаем
+      "land: wip/"*)
+        if [ -s "$TMP/w_merges/$w_mc" ]; then
+          cat "$TMP/w_merges/$w_mc" >> "$TMP/exclude"
+        fi
+        ;;
+    esac
+  done < "$TMP/w_msub"
+  sort -u "$TMP/exclude" -o "$TMP/exclude"
+  cp "$TMP/w_commits" "$TMP/commits"
+  if [ -s "$TMP/exclude" ]; then
+    # comm требует лекс-сортировки обоих входов; $TMP/commits хранит хронологию (--reverse),
+    # поэтому фильтруем через лекс-сортированную копию — множество судимых коммитов неизменно,
+    # хронологический обход цикла суда сохранён.
+    sort -u "$TMP/commits" -o "$TMP/commits_sorted"
+    comm -23 "$TMP/commits_sorted" "$TMP/exclude" > "$TMP/judged"
+    mv "$TMP/judged" "$TMP/commits"
+  fi
+}
+
+# ПЕР-КОНТРАКТНОЕ ВОСПРОИЗВЕДЕНИЕ — счётчики, СПАСЕНО и тексты нарушений.
+# Порядок и байты — прежние: решения по путям контракт-независимы и собраны
+# выше (в полном режиме — тем же сбором на этом контракте).
+zones_replay() {
+  local c="" an="" eff_nnn="$1" zmsg="" zclob=""
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    commits=$((commits + 1))
+    an="$(awk -F'\t' -v c="$c" '$1 == c { print $2; exit }' "$TMP/author_map")"
+    [ -n "$an" ] || continue
+    grep -qxF -- "$an" "$TMP/authors" || continue
+    if grep -qxF "$(printf '%s\t%s\t%s' "$an" "$c" "$eff_nnn")" "$TMP/saved"; then
+      printf '  ok   контракт %s: коммит %s (%s) — СПАСЕНО, из суда зон выведен\n' "$eff_nnn" "${c:0:8}" "$an" >&2
+      continue
+    fi
+    checked=$((checked + 1))
+    if [ -f "$TMP/dec/$c.bad" ]; then
+      while IFS= read -r -d '' zmsg; do
+        bad "$zmsg"
+      done < "$TMP/dec/$c.bad"
+    fi
+    # Побочный эффект минт-признания (в базе — переприсваивание переменной
+    # цикла контрактов `nnn` внутри ADD-формы) воспроизводится по записанному
+    # значению: иначе ключ СПАСЕНО уехал бы на другой контракт.
+    if [ -f "$TMP/dec/$c.clob" ]; then
+      IFS= read -r zclob < "$TMP/dec/$c.clob" || zclob=""
+      if [ -n "$zclob" ]; then eff_nnn="$zclob"; fi
+    fi
+  done < "$TMP/commits"
+}
+
 commits=0; checked=0
 while IFS=$'\t' read -r nnn since; do
   [ -n "$nnn" ] || continue
@@ -697,37 +795,80 @@ while IFS=$'\t' read -r nnn since; do
   # него чекаут-независимо: та же история mainline на ветке и на её merge
   # с base, локальная refs/heads/main не нужна.
   CUR_UNTIL="${until:-HEAD}"
+  # ── 207: какое окно судится ──
+  # Полный режим — окно и данные окна СВОИ у каждого контракта (прежний порядок
+  # вызовов и прежние входы батчинга — байт-в-байт). incr-режим — окно общее:
+  # первый participating-контракт готовит его ОДИН раз (по объединению авторов),
+  # остальные контракты только отфильтровывают merge-исключения этого контракта
+  # и воспроизводят пер-контрактные решения.
+  if [ "${INCR_MODE:-full}" = "incr" ]; then
+    if [ "$ZONES_WPREP" = "0" ]; then
+      # общее окно уже собрано: остались merge-исключения этого контракта
+      # и пер-контрактное воспроизведение готовых решений.
+      zones_exclude_incr
+      zones_replay "$nnn"
+      continue
+    fi
+    ZONES_WPREP=0
+    cp "$TMP/authors" "$TMP/authors_one"
+    cp "$TMP/w_authors" "$TMP/authors"
+    ZONES_REVS="$TMP/w_commits"
+    ZONES_LOGIN="$TMP/w_commits"
+    ZONES_LIST="$TMP/w_commits"
+  else
+    ZONES_FULL=1
+    ZONES_REVS="$TMP/commits"
+    ZONES_LOGIN="$TMP/commits"
+    ZONES_LIST="$TMP/commits"
+  fi
   # Линейный rev-list (как раньше) — для контрактов с ЗАКРЫТЫМИ окнами и
   # без чужих wip/<OTHER>/… merge'ей даёт ту же сводку (регресс-инвариант
   # ветви Г; для 017/019 merge'и без `land:` маркера тоже остаются).
-  if ! g rev-list --no-merges --reverse "$range" > "$TMP/commits" 2>/dev/null; then
+  if ! g rev-list --no-merges --reverse "$range" > "$ZONES_REVS" 2>/dev/null; then
     printf 'ОТКАЗ: git rev-list --no-merges --reverse отказал (контракт %s, диапазон %s) — список судимых коммитов окна недоступен.\n' "$nnn" "$range" >&2
     printf 'Лечится: диагностируйте git-окружение (PATH, версия git, доступность объектной базы) и повторите прогон.\n' >&2
     printf 'Без списка коммитов окно стало бы пусто-зелёным — это дороже красного (прецедент case_reestr_nedostupen, тот же класс, что круг 1 контракта 040, арбитраж 040-II п.3).\n' >&2
     exit 1
   fi
-  # Исключаем коммиты, принесённые ЧУЖИМИ wip-merge'ями (`land: wip/<OTHER>/…`):
-  # в последовательной истории таких нет, регресс закрытых контрактов
-  # держится; в открытом окне с cross-track касанием они уходят. Merge'и
-  # БЕЗ `land:` маркера (admin merge, intra-wip сведение) трактуются как
-  # внутренние — НЕ исключаем (та же семантика, что в линейной модели).
-  : > "$TMP/exclude"
-  g rev-list --merges "$range" 2>/dev/null | while IFS= read -r mc; do
-    [ -n "$mc" ] || continue
-    msg="$(g log -1 --format=%s "$mc" 2>/dev/null)"
-    case "$msg" in
-      "land: wip/${nnn}/"*) ;;  # свой merge — НЕ исключаем
-      "land: wip/"*) g rev-list --no-merges "${mc}^1..${mc}" 2>/dev/null >> "$TMP/exclude" ;;
-    esac
-  done
-  sort -u "$TMP/exclude" -o "$TMP/exclude"
-  if [ -s "$TMP/exclude" ]; then
-    # comm требует лекс-сортировки обоих входов; $TMP/commits хранит хронологию (--reverse),
-    # поэтому фильтруем через лекс-сортированную копию — множество судимых коммитов неизменно,
-    # хронологический обход цикла суда сохранён.
-    sort -u "$TMP/commits" -o "$TMP/commits_sorted"
-    comm -23 "$TMP/commits_sorted" "$TMP/exclude" > "$TMP/judged"
-    mv "$TMP/judged" "$TMP/commits"
+  if [ "${INCR_MODE:-full}" = "incr" ]; then
+    # Субъекты merge'ей и принесённые ими коммиты — ОДИН проход по общему окну:
+    # собственный `land: wip/<NNN>/…` зависит от контракта, поэтому хранятся
+    # СУБЪЕКТ и ПРИНЕСЁННЫЕ, а не готовое исключение.
+    mkdir -p "$TMP/w_merges"
+    : > "$TMP/w_msub"
+    g rev-list --merges "$range" 2>/dev/null | while IFS= read -r mc; do
+      [ -n "$mc" ] || continue
+      msg="$(g log -1 --format=%s "$mc" 2>/dev/null)"
+      printf '%s\t%s\n' "$mc" "$msg" >> "$TMP/w_msub"
+      case "$msg" in
+        "land: wip/"*) g rev-list --no-merges "${mc}^1..${mc}" 2>/dev/null > "$TMP/w_merges/$mc" ;;
+      esac
+    done
+    zones_exclude_incr
+  else
+    # Исключаем коммиты, принесённые ЧУЖИМИ wip-merge'ями (`land: wip/<OTHER>/…`):
+    # в последовательной истории таких нет, регресс закрытых контрактов
+    # держится; в открытом окне с cross-track касанием они уходят. Merge'и
+    # БЕЗ `land:` маркера (admin merge, intra-wip сведение) трактуются как
+    # внутренние — НЕ исключаем (та же семантика, что в линейной модели).
+    : > "$TMP/exclude"
+    g rev-list --merges "$range" 2>/dev/null | while IFS= read -r mc; do
+      [ -n "$mc" ] || continue
+      msg="$(g log -1 --format=%s "$mc" 2>/dev/null)"
+      case "$msg" in
+        "land: wip/${nnn}/"*) ;;  # свой merge — НЕ исключаем
+        "land: wip/"*) g rev-list --no-merges "${mc}^1..${mc}" 2>/dev/null >> "$TMP/exclude" ;;
+      esac
+    done
+    sort -u "$TMP/exclude" -o "$TMP/exclude"
+    if [ -s "$TMP/exclude" ]; then
+      # comm требует лекс-сортировки обоих входов; $TMP/commits хранит хронологию (--reverse),
+      # поэтому фильтруем через лекс-сортированную копию — множество судимых коммитов неизменно,
+      # хронологический обход цикла суда сохранён.
+      sort -u "$TMP/commits" -o "$TMP/commits_sorted"
+      comm -23 "$TMP/commits_sorted" "$TMP/exclude" > "$TMP/judged"
+      mv "$TMP/judged" "$TMP/commits"
+    fi
   fi
 
   # ── A2 BATCHING (контракт 040, §Инварианты п.1) ───────────────────────────────
@@ -773,8 +914,8 @@ while IFS=$'\t' read -r nnn since; do
   #    пусто), так что к checked-счётчику это не идёт, но лишний git-вызов и лишняя
   #    запись в $TMP/matched_commits — мусор, которого допускать нельзя (та же
   #    причина, по которой для diff-tree уже стоит `[ -s "$TMP/matched_commits" ]`).
-  if [ -s "$TMP/commits" ]; then
-    if ! g log --no-walk --format='%H%x00%an%x00' --stdin < "$TMP/commits" \
+  if [ -s "$ZONES_LOGIN" ]; then
+    if ! g log --no-walk --format='%H%x00%an%x00' --stdin < "$ZONES_LOGIN" \
         > "$TMP/author_nul" 2>/dev/null; then
       printf 'ОТКАЗ: batched git log --no-walk --stdin отказал (контракт %s, диапазон %s) — список авторов окна недоступен.\n' "$nnn" "$range" >&2
       printf 'Лечится: диагностируйте git-окружение (PATH, версия git, доступность объектной базы) и повторите прогон.\n' >&2
@@ -828,7 +969,7 @@ while IFS=$'\t' read -r nnn since; do
       }
       printf("%d\t%d\n", missing, dup)
     }
-  ' "$TMP/commits" "$TMP/author_map" > "$TMP/author_map_completeness"
+  ' "$ZONES_LOGIN" "$TMP/author_map" > "$TMP/author_map_completeness"
   IFS=$'\t' read -r missing_shas dup_shas < "$TMP/author_map_completeness"
   if [ "${missing_shas:-0}" -gt 0 ] || [ "${dup_shas:-0}" -gt 0 ]; then
     printf 'ОТКАЗ: batched git log --no-walk --stdin вернул неполный поток (контракт %s, диапазон %s) — %s SHA без записи автора, %s SHA с более чем одной записью; список авторов окна недостоверен.\n' \
@@ -1028,22 +1169,36 @@ while IFS=$'\t' read -r nnn since; do
     exit 1
   fi
 
-  # Счётчик `commits` ниже считает коммиты, дошедшие ДО author-фильтра (как и
-  # в исходной форме, §Инварианты п.1); для не-совпавших цикл пройдёт, увеличит
-  # `commits`, прочтёт автора из map (O(awk)), skip'нет — что эквивалентно
-  # per-commit форме по счётчикам и текстам ok/bad.
+  # ── СБОР РЕШЕНИЙ ПО ПУТЯМ (207) ─────────────────────────────────────────────
+  # Решение по паре (коммит, путь) контракт-независимо: зона автора — объединение
+  # путей из ВСЕХ замороженных контрактов (Н-100), признания 023(iv)/031(ii) и
+  # ГРАНДФАЗЕРЫ смотрят на коммит и путь, а не на контракт. Поэтому решения
+  # считаются ОДИН РАЗ (в incr-ветви — по общему окну, в полном режиме — по
+  # контракту, как прежде) и складываются в хранилище коммита; цикл по контрактам
+  # (воспроизведение) их только выводит. Порядок, тексты и счётчики — прежние.
+  #
+  # Счётчик `commits` считается при воспроизведении (как и в исходной форме,
+  # §Инварианты п.1); для не-совпавших цикл пройдёт, увеличит `commits`,
+  # прочтёт автора из map (O(awk)), skip'нет — что эквивалентно per-commit форме
+  # по счётчикам и текстам ok/bad.
+  ZONES_COLLECT=1
+  eff_nnn="$nnn"
+  own_nnn="$nnn"   # 207 (Б-1): номер СВОЕГО контракта — ДО цикла сбора: ниже `nnn` переприсваивается ADD-формой минта (:1441), и replay пошёл бы с номера минта (ключ СПАСЕНО на чужом контракте)
   while IFS= read -r c; do
     [ -n "$c" ] || continue
-    commits=$((commits + 1))
     # BATCHED author-lookup: O(1) awk-map-read вместо per-commit git-вызова.
     an="$(awk -F'\t' -v c="$c" '$1 == c { print $2; exit }' "$TMP/author_map")"
     [ -n "$an" ] || continue
     grep -qxF -- "$an" "$TMP/authors" || continue
-    if grep -qxF "$(printf '%s\t%s\t%s' "$an" "$c" "$nnn")" "$TMP/saved"; then
-      printf '  ok   контракт %s: коммит %s (%s) — СПАСЕНО, из суда зон выведен\n' "$nnn" "${c:0:8}" "$an" >&2
-      continue
+    if [ "$ZONES_FULL" = "1" ]; then
+      # Полный режим: СПАСЕНО исключает коммит из суда зон — как прежде.
+      if grep -qxF "$(printf '%s\t%s\t%s' "$an" "$c" "$eff_nnn")" "$TMP/saved"; then
+        continue
+      fi
     fi
-    checked=$((checked + 1))
+    ZONES_CUR="$c"
+    ZONES_CLOBBER=""
+    : > "$TMP/dec/$c.bad"
     # Н-100: зона автора — ОБЪЕДИНЕНИЕ путей из ВСЕХ замороженных контрактов — так заявлено
     # шапкой выше и так судит check_staged (единый читатель lib_zones). Per-contract фильтр
     # красил легальные коммиты перекрывающихся окон (026∥027): путь зоны B внутри диапазона
@@ -1208,12 +1363,19 @@ while IFS=$'\t' read -r nnn since; do
         # (→/5), автор orchestrator; tag-object сверены с frozen/contracts/197/3 и 147/5, frozen-коммиты —
         # предки main; разрешены словом владельца 2026-11-21 (догон реестра). Принятие риска только этих двух
         # пар, в т.ч. при импорте main вторым родителем PR-ветки; прочие SHA/пути/авторы/проверки неизменны.
+        # Пара 6eebe030268b624d12feb6a1ba9edc6155abd9a1 / registry/contracts.tsv — опубликованный REPLACE 208
+        # 3df106b3 (tag-object id/CONTRACT/208) → 2901957f (tag-object frozen/contracts/208/1), автор orchestrator,
+        # по существу корректен; внесён PR-маршрутом (#1251, второй родитель merge 91e3a032) вне first-parent main,
+        # поэтому REPLACE-форма (on_main_replace) его не признаёт. Слово владельца 2026-11-23 (через консультанта):
+        # «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: scripts/check_zones.sh — grandfather-пара 6eebe030268b624d12feb6a1ba9edc6155abd9a1 /
+        # registry/contracts.tsv (REPLACE 208 → tag-object frozen/contracts/208/1 2901957f по существу корректен,
+        # внесён PR-маршрутом вне first-parent main; принятие риска только этой пары).»
         case "$c" in
           78bae300867ffce3cfce0ae20768fd8658e97e5a|8ce382ae8260cdc18e9dae9b736070b4ed19df56|7f54f1f60bea573487da5ba2f2eb0603a05b1df3)
             skip_path=1
             continue
             ;;
-          8f1c25f011921721934d870914f562f9f3ff815c|8c734d93b91fb3ff38528d6591d519a5145de325|6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca|eb5df0064ac94551cc361e466e991f8099c0fcca|c663dd0fb0b233e56368707aef6940baaf254a30|56f62ed687a6acde05d2e1af76cf6a2ac489a45e|80ea54402c91c9f4ac6791fc10f09371623a5b70|bcd5b796a1e9328ba9440b358ea1f7e0068d8fec|fd81f057a709e1a7751bda285022fbd522c6f747|6dbee81755ac83f6d79fa649613a1e664bfae801|4ed2d2172b4e0a36bda87f38cfe73c252a1c2546|a72ee9069d00ab73abb418be99a0f1d9f53ae70d)
+          8f1c25f011921721934d870914f562f9f3ff815c|8c734d93b91fb3ff38528d6591d519a5145de325|6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca|eb5df0064ac94551cc361e466e991f8099c0fcca|c663dd0fb0b233e56368707aef6940baaf254a30|56f62ed687a6acde05d2e1af76cf6a2ac489a45e|80ea54402c91c9f4ac6791fc10f09371623a5b70|bcd5b796a1e9328ba9440b358ea1f7e0068d8fec|fd81f057a709e1a7751bda285022fbd522c6f747|6dbee81755ac83f6d79fa649613a1e664bfae801|4ed2d2172b4e0a36bda87f38cfe73c252a1c2546|a72ee9069d00ab73abb418be99a0f1d9f53ae70d|6eebe030268b624d12feb6a1ba9edc6155abd9a1)
             skip_path=1
             continue
             ;;
@@ -1278,6 +1440,7 @@ while IFS=$'\t' read -r nnn since; do
             [ -n "$ln" ] || continue
             if [ "$mint_fail" -ne 0 ]; then break; fi
             nnn="${ln%% *}"
+            ZONES_CLOBBER="$nnn"   # 207: побочный эффект — по нему восстанавливается ключ СПАСЕНО
             sha_ln="${ln##* }"
             if [ -z "$nnn" ] || [ -z "$sha_ln" ]; then
               bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: строка не по грамматике манифеста"
@@ -1614,7 +1777,17 @@ while IFS=$'\t' read -r nnn since; do
       NR % 2 == 1 { sha = $0; next }
       sha == want { print }
     ' "$TMP/paths_by_commit")
-  done < "$TMP/commits"
+    # Побочный эффект минт-признания (переприсваивание `nnn` в ADD-форме) —
+    # записывается для воспроизведения: иначе ключ СПАСЕНО уехал бы на другой
+    # контракт (в базе — тот же порядок внутри цикла по контрактам).
+    printf '%s\n' "$ZONES_CLOBBER" > "$TMP/dec/$c.clob"
+    if [ -n "$ZONES_CLOBBER" ]; then eff_nnn="$ZONES_CLOBBER"; fi
+  done < "$ZONES_LIST"
+  ZONES_COLLECT=0
+  if [ "${INCR_MODE:-full}" = "incr" ]; then
+    cp "$TMP/authors_one" "$TMP/authors"
+  fi
+  zones_replay "$own_nnn"
 done < "$TMP/ranges"
 printf '\nпроцессных вне суда:%s\n' "${process_list:+ $process_list}" >&2
 
