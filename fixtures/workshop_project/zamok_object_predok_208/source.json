@@ -26,7 +26,14 @@
   "r20-sankcija-chuzhaja-rol": "санкция чужой роли (reviewer) — повтор запрещён (К-08)",
   "r21-sankcija-chuzhoj-repo": "санкция чужого repoId (other-repo) — повтор запрещён (К-08)",
   "r22-predok-cherez-vtorogo-roditelja": "OBJECT достижим только через второго родителя merge — допуск (К-09)",
-  "r23-porjadok-roditelej-merge": "порядок родителей merge не меняет допуск (инвариант 4, К-14)"
+  "r23-porjadok-roditelej-merge": "порядок родителей merge не меняет допуск (инвариант 4, К-14)",
+  "r24-predok-209-opublikovan-v-vetke": "предок кандидата предмета 209, опубликован в ветке wip/209/* — допуск (публикация — адрес судимого предмета, Adv208)",
+  "r25-vperjod-003-opublikovan-v-vetke": "кодовая граница предмета 003, опубликована в ветке wip/003/* — допуск (публикация — адрес судимого предмета)",
+  "r26-vperjod-209-verdikt-hvost": "вердиктный хвост предмета 209 впереди кандидата — отказ: не кодовая граница СВОЕГО предмета",
+  "r27-vperjod-003-verdikt-hvost": "вердиктный хвост предмета 003 впереди кандидата — отказ: не кодовая граница СВОЕГО предмета",
+  "r28-sankcija-209-adresna": "повтор роли предмета 209 по санкции SANKCIJA полного адреса 209 — допуск (санкция — адрес судимого предмета)",
+  "r29-sankcija-003-chuzhoj-predmet": "санкция subjectId 208 при суде предмета 003 — чужой предмет, повтор запрещён (К-08)",
+  "r30-ravenstvo-209-cherez-verdikt-hvost": "кандидат предмета 209 резолвится через вердиктный хвост 209 — равенство OBJECT допуск без публикации (инвариант 1)"
  },
  "stab_vhod": {
   "st01-ravenstvo-tolko": [
@@ -170,10 +177,29 @@
   ],
   "st39-puschem-lishnij-v-stderr": [
    "r01-ravenstvo-dopusk"
+  ],
+  "st40-konstanta-publikacii-208": [
+   "r24-predok-209-opublikovan-v-vetke",
+   "r25-vperjod-003-opublikovan-v-vetke"
+  ],
+  "st41-konstanta-granicy-208": [
+   "r26-vperjod-209-verdikt-hvost",
+   "r27-vperjod-003-verdikt-hvost"
+  ],
+  "st42-konstanta-sankcii-208": [
+   "r28-sankcija-209-adresna",
+   "r29-sankcija-003-chuzhoj-predmet"
+  ],
+  "st43-konstanta-kandidata-208": [
+   "r30-ravenstvo-209-cherez-verdikt-hvost"
   ]
  },
  "nositeli": {
   "model/zamok_predmeta.sh": "d79af60e82c7c698c35015f6289cf8cb3feb57e4b80a833e96930057aa588734",
+  "stabs-konstanty-208d/st40-konstanta-publikacii-208/zamok_predmeta.sh": "9393128ae8cd9f74e5ac8908465383572aeaf6a6228b667ce7e1615e11167c0a",
+  "stabs-konstanty-208d/st41-konstanta-granicy-208/zamok_predmeta.sh": "943be183b2d9102ce547d3d260441fd819fdcbcd1928a70fe4fa64a42ef7e9ed",
+  "stabs-konstanty-208d/st42-konstanta-sankcii-208/zamok_predmeta.sh": "ad234264c72d1596531bf63f94c76bdc095baf91f5cead456ea7964bd7baf2e6",
+  "stabs-konstanty-208d/st43-konstanta-kandidata-208/zamok_predmeta.sh": "3cfcf852e875f9f3ce1ccc8703774637cb2aa4e9aead6d2bc71e62e8d0f847d1",
   "stabs/st01-ravenstvo-tolko/zamok_predmeta.sh": "3635d32ce386d7a5df0d892129628ff8c727f1ce7f2210233fd059ec1ee5ad47",
   "stabs/st02-predok-bez-publikacii/zamok_predmeta.sh": "bcdef0f21ea3a070846e994cafdebd0d51a063341da8cc13dff2a9a68ddb1793",
   "stabs/st03-vperjod-bez-granicy/zamok_predmeta.sh": "f30d68e152612ddb68e8c09119ee812614928b3e840f36c16ddd3dc6ab0abb3a",
