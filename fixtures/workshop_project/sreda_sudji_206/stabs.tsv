@@ -40,3 +40,5 @@ write-command-basename-ignored	cp/abs/abs/noslash/plain/state/no-dash/last	.omp/
 mkdir-last-operand-only	mkdir/bare/abs/noslash/plain/state/no-dash/position-1	.omp/extensions/path-guard.ts
 target-not-passed-to-judge	mkdir/bare/abs/noslash/plain/foreign/no-dash/position-0	.omp/extensions/path-guard.ts
 verdict-relative-base-ignored	verdict/rel/plain/direct/inside	scripts/pre_judge.sh
+mkdir-dirlink-parent-symlink-skipped	guard-mkdir-dirlink-bin-outside	.omp/extensions/path-guard.ts
+verdict-root-equals-repo-ignored	verdict-root-file	scripts/pre_judge.sh
