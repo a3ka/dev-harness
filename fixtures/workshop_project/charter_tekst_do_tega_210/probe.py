@@ -67,6 +67,7 @@ class Cell:
     number: str = '810'
     object_format: str = 'sha1'
     ref: str = 'refs/heads/wip/810/architect'
+    slug: str = 'publication'
 
 
 def cells():
@@ -100,6 +101,12 @@ def cells():
         Cell('g18-udalenie', 'delete', 'push'),
         Cell('g19-merge-vozvrat', 'merge-return'),
         Cell('g20-prepush-merge-vozvrat', 'merge-return', 'push', ref='refs/heads/main'),
+        Cell('g21-vozvrat-bez-predka-T', 'ancestor-return'),
+        Cell('g22-oracle-vozvrat-bez-predka-T', 'ancestor-return', 'oracle'),
+        Cell('g23-prepush-vozvrat-bez-predka-T', 'ancestor-return', 'push', ref='refs/heads/main'),
+        Cell('v8-kirillica-land', 'land', slug='кириллица'),
+        Cell('g24-kirillica-pravka', 'edit', slug='кириллица'),
+        Cell('g25-oracle-kirillica-pravka', 'edit', 'oracle', slug='кириллица'),
         Cell('v1-empty', 'land', value=b''),
         Cell('v2-nul', 'land', value=b'\x00frozen\x00\n'),
         Cell('v3-crlf', 'land', value=b'first\r\nsecond\r\n'),
@@ -116,7 +123,7 @@ class World:
         self.root = self.directory / 'world'
         self.root.mkdir()
         self.cell = cell
-        self.path = f'contracts/{cell.number}-publication.md'
+        self.path = f'contracts/{cell.number}-{cell.slug}.md'
         self.other = 'contracts/820-other.md'
         self.tag = TAG.format(number=cell.number)
         self.commits = {}
@@ -256,6 +263,21 @@ class World:
             self.commit('land', {p: value, self.other: b'unauthorized other\n'}, ['mainline', 'mixed-source'])
             self.event('land', 'publish'); self.event('land', 'deny', self.other)
             self.docs.append(self.other); self.head = 'land'; return
+        if s == 'ancestor-return':
+            # Adv210 Б-1: Q is a strict ancestor of T; land has already published
+            # the blob although T never enters the first-parent main line.
+            self.commit('mainline', {'main.txt': b'main\n'}, ['base'])
+            self.commit('land', {p: value}, ['mainline', 'freeze'])
+            self.event('land', 'publish')
+            self.commit('branch2', {'side.txt': b'side\n'}, ['freeze'])
+            self.commit('tagchild', {'tag.txt': b'tag child\n'}, ['branch2'])
+            git(self.root, 'tag', '-d', self.tag.removeprefix('refs/tags/'))
+            self.annotate(self.tag.removeprefix('refs/tags/'), 'tagchild')
+            self.commit('edit', {p: b'authorized new version\n'}, ['land'],
+                        message=f'РАЗРЕШИЛ-ВЛАДЕЛЕЦ: {p} authorized\n')
+            self.event('edit', 'razreshil')
+            self.commit('mergec', {p: value, 'side.txt': b'side\n'}, ['edit', 'branch2'])
+            self.event('mergec', 'deny'); self.head = 'mergec'; return
         if s == 'merge-return':
             # Crit210 form: land publishes frozen text into main, a permitted edit
             # follows the tag on main, a branch off T keeps frozen bytes, and a
@@ -287,6 +309,12 @@ class World:
                 return 0, b'72=' + accepted + b'\n73=' + accepted + b'\n74=' + accepted + b'\nwrongpath=1\n', b''
             return 0, b'70=' + accepted + b'\n71=' + accepted + b'\nwrongpath=1\nwrongcommit=1\n', b''
         events = {**self.events, **(overrides or {})}
+        if overrides and any(status == 'out-of-scope' for status in overrides.values()):
+            # The quoting mutant loses the entire path, not merely its denial.
+            # Keep the counterfactual expectation independent of subject output.
+            self.docs = [path for path in self.docs if path != self.path]
+            events = {(name, path): status for (name, path), status in self.events.items()
+                      if path != self.path}
         if self.cell.mode == 'push':
             names = git(self.root, 'rev-list', self.commits[self.head], '^' + self.commits[self.push_base]).splitlines()
             wanted = []
@@ -423,11 +451,18 @@ MUTATIONS = {
     'SMESHANNYJ': ('scripts/check_charter.sh', '            __ch_publication_rc=0; charter_frozen_publication "$__ch_c" "$__ch_p" "$ROOT" || __ch_publication_rc=$?', '            if [ "${__ch_last_commit:-}" != "$__ch_c" ]; then __ch_last_commit="$__ch_c"; __ch_first_path="$__ch_p"; fi\n            __ch_publication_rc=0; charter_frozen_publication "$__ch_c" "$__ch_first_path" "$ROOT" || __ch_publication_rc=$?', {('land', 'contracts/820-other.md'): 'publish'}),
     'GRANDFATHER-UDALEN': ('scripts/check_charter.sh', '    409836ed5d918d4ecb16f132b8f6e26d287b32cc|66a37efff06a1da72febe8e36b9bb37f8ff6d3eb)', '    0000000000000000000000000000000000000000)', {('grandfather', ''): 'removed'}),
     'BEZ-PERVICHNOJ': ('scripts/check_charter.sh',
-                       '  case "$fb" in 0) return 1 ;; 1) ;; *) return 2 ;; esac', '  :',
+                       '  case "$fb" in 0) return 1 ;; 1) ;; *) return 2 ;; esac',
+                       '  case "$fb" in 0) return 0 ;; 1) ;; *) return 2 ;; esac',
                        {('mergec', None): 'publish'}),
     'PARY-208-UDALENY': ('scripts/check_charter.sh',
                          '    3f313c37cd336905a7a6621034889f8b9d0622c9|c8711daa62892b1833472f6d54ac7e5a3d7d15c7|3f25b7e6da54750e511dbd154f1d98d6c5e89765)',
                          '    0000000000000000000000000000000000000000)', {('grandfather', ''): 'removed'}),
+    'T-VMESTO-PUBLIKACII': ('scripts/check_charter.sh',
+                           '    [ "$seen" != "$tb" ] || return 1', '    :',
+                           {('mergec', None): 'publish'}),
+    'CYRILLIC-VNE-OBLASTI': ('scripts/check_charter.sh',
+                            'g -c core.quotePath=false ls-tree -r --name-only HEAD',
+                            'g ls-tree -r --name-only HEAD', {('edit', None): 'out-of-scope'}),
 }
 
 
@@ -476,7 +511,7 @@ def stabs(cases, selected, scratch):
         syntax_file.write_bytes(mutant[path])
         if command(['bash', '-n', syntax_file], cwd=scratch)[0]:
             raise Prerequisite('MUTANT_SYNTAX: ' + name)
-        changes = {(commit, path or f'contracts/{cell.number}-publication.md'): status
+        changes = {(commit, path or f'contracts/{cell.number}-{cell.slug}.md'): status
                    for (commit, path), status in overrides.items()}
         actual, expected = observe(cell, mutant, scratch, changes)
         # Exact mutant result, not any crash or arbitrary difference.

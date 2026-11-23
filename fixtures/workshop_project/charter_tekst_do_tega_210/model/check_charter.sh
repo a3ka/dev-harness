@@ -406,9 +406,9 @@ is_charter_path() {
 charter_diff_paths() {
   local c="$1" root="$2"
   if git -C "$root" rev-parse --verify --quiet "${c}^1" >/dev/null 2>&1; then
-    git -C "$root" diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "${c}^1" "$c" 2>/dev/null
+    git -C "$root" -c core.quotePath=false diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "${c}^1" "$c" 2>/dev/null
   else
-    git -C "$root" diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "$c" 2>/dev/null
+    git -C "$root" -c core.quotePath=false diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "$c" 2>/dev/null
   fi
 }
 
@@ -655,7 +655,7 @@ razreshil() {  # <коммит> <путь> → 0, если разрешение 
 # 1 — прежний суд; 2 — происхождение проверить нельзя. Без записи в репозиторий.
 charter_frozen_publication() {
   local c="$1" p="$2" root="$3" base nnn saved ref
-  local cb tb tc typ parent pb mb bound oid remote first fb
+  local cb tb tc typ parent pb mb bound oid remote first fb past_commits past seen
   case "$p" in contracts/*) ;; *) return 1 ;; esac
   base="${p#contracts/}"
   case "$base" in */*) return 1 ;; esac
@@ -692,6 +692,14 @@ charter_frozen_publication() {
   first="$(git -C "$root" rev-parse --verify --quiet "$c^1" 2>/dev/null)" || return 1
   fb=0; git -C "$root" merge-base --is-ancestor "$tc" "$first" 2>/dev/null || fb=$?
   case "$fb" in 0) return 1 ;; 1) ;; *) return 2 ;; esac
+  # Adv210 Б-1: land мог публиковать предка T, не включая сам T в main.
+  # Проверяем frozen-блоб в судимой линии первого родителя, а не только T.
+  past_commits="$(git -C "$root" rev-list --first-parent "$first" "^$tc" 2>/dev/null)" || return 2
+  while IFS= read -r past; do
+    [ -n "$past" ] || continue
+    seen="$(git -C "$root" ls-tree --format='%(objectname)' "$past" -- ":(literal)$p" 2>/dev/null)" || return 2
+    [ "$seen" != "$tb" ] || return 1
+  done <<< "$past_commits"
   # Имена registry_state не удостоверяют объект: нужен тот же аннотированный
   # объект на живом origin. Для НОВОГО освобождения unknown-remote недостаточен.
   git -C "$root" remote get-url origin >/dev/null 2>&1 || return 2
@@ -788,7 +796,7 @@ done
 # Ошибка ls-tree — именованный отказ, не пустая область: непрочитанное дерево
 # plans/contracts не равно «уставных документов там нет» (контракт 992).
 lt_rc=0
-g ls-tree -r --name-only HEAD -- ':(literal)plans/' ':(literal)contracts/' > "$TMP/ls-raw" 2>/dev/null || lt_rc=$?
+g -c core.quotePath=false ls-tree -r --name-only HEAD -- ':(literal)plans/' ':(literal)contracts/' > "$TMP/ls-raw" 2>/dev/null || lt_rc=$?
 if [ "$lt_rc" -ne 0 ]; then
   bad "область устава (plans/, contracts/) не читается (ls-tree rc=$lt_rc): проверить невозможно — git fsck и повтор"
   incr_finish 1
@@ -949,7 +957,7 @@ else
   # дерева — побочный эффект проверки, наблюдаемый на свежем клоне. Замер холодного
   # клона `git clone --local` без него: rc=0 за 6.2 с (бюджет В-клетки 60 с).
   __ch_lr=0
-  g log --format=$'\x01%H' --name-only \
+  g -c core.quotePath=false log --format=$'\x01%H' --name-only \
       --no-renames --diff-filter=MD --diff-merges=first-parent HEAD \
       > "$TMP/log-data" 2>/dev/null || __ch_lr=$?
   if [ "$__ch_lr" -ne 0 ]; then
