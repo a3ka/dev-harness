@@ -995,6 +995,15 @@ STAB_MUTACII = {
     'st50-umolchanie-vladelca-pusto': lambda t: _mut(
         t, r'''  owner="${4:-$wt}"''',
         r'''  owner="${4:-}"'''),
+    'st51-spisok-bez-ravenstva': lambda t: _mut(
+        t, '''  [ -n "$spO" ] && [ "$spO" = "$spF" ] || return 1''',
+        '''  [ -n "$spO" ] || return 1'''),
+    'st52-klass-po-objectu': lambda t: _mut(
+        t, '''          kr="$(klass_riska "$sv" "$risk_repo" "$P_FROZEN")"''',
+        '''          kr="$(klass_riska "$sv" "$r_wt" "$obj_fakt")"'''),
+    'st53-bez-porjadka-sudej': lambda t: _mut(
+        t, '''      if [ "$kr" = 'risikovyj' ] && [ "$rol" = 'reviewer' ]; then''',
+        '''      if false; then'''),
 }
 
 STAB_VHOD = {
@@ -1019,6 +1028,9 @@ STAB_VHOD = {
     'st48-katalog-po-umolchaniju-v-klasse': ['b26-profil-vladelca-rabotaet'],
     'st49-versija-arifmetikoj-shell': ['b25-versija-vne-int64'],
     'st50-umolchanie-vladelca-pusto': ['b27-legacy-na-puti-d42-bez-izmenenij'],
+    'st51-spisok-bez-ravenstva': ['b05-podmena-klassa-v-objecte'],
+    'st52-klass-po-objectu': ['b12-zakreplennyj-frozen-prioritet'],
+    'st53-bez-porjadka-sudej': ['b03-bootstrap-risikovyj-porjadok'],
 }
 
 
