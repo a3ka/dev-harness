@@ -479,7 +479,11 @@ while IFS= read -r nnn; do
   razrechen=1
   while IFS= read -r c; do
     [ -n "$c" ] || continue
-    while IFS= read -r df; do
+    # Поток charter_diff_paths — NUL-записи (контракт 210): имя пути с
+    # кавычкой/пробелом/control-байтом читается ОДНОЙ записью и не может ни
+    # потеряться, ни совпасть с посторонним путём. Предикат v+1, разрешения и
+    # окна прежние.
+    while IFS= read -r -d '' df; do
       [ -n "$df" ] || continue
       case "$df" in
         contracts/"$nnn"-*.md) ;;
