@@ -407,6 +407,7 @@ printf 'wrongpath=%s\\n' "$?"
 # Every anchor is exact and must occur once. Per-cell bindings live in stabs.tsv.
 MUTATIONS = {
     'BEZ-BLOBA': ('scripts/check_charter.sh', '  [ "$cb" = "$tb" ] || return 1', '  :', {('land', None): 'publish'}),
+    'INVERSIJA-BLOBA': ('scripts/check_charter.sh', '[ "$cb" = "$tb" ]', '[ "$cb" != "$tb" ]', {('land', None): 'publish'}),
     'BEZ-PREDKA': ('scripts/check_charter.sh', '  [ "$bound" -eq 1 ] || return 1', '  :', {('land', None): 'publish'}),
     'BEZ-SYNC': ('scripts/check_charter.sh', 'merge-base --is-ancestor "$tc" "$parent"', 'merge-base --is-ancestor "$parent" "$tc"', {('sync', None): 'deny'}),
     'LEGKIJ-TEG': ('scripts/check_charter.sh', '  [ "$typ" = tag ] || return 1', '  :', {('land', None): 'publish'}),
