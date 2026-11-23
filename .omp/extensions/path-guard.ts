@@ -444,6 +444,11 @@ function stripQuotes(s: string): string {
 }
 
 function isWriteCommand(cmd: string): boolean {
+  // Контракт 206, инвариант 3: предметная операция определяется независимо от
+  // размещения бинарника — cp и /bin/cp, mkdir и /bin/mkdir судимы одинаково.
+  // Первый токен команды (tokenizeShell снимает кавычки): «/bin/cp» → «cp».
+  const first = tokenizeShell(cmd)[0] ?? '';
+  if (['cp', 'mkdir'].includes(first.split('/').pop() ?? '')) return true;
   const c = stripQuotes(cmd);
   if (/\bsed\s+-[A-Za-z]*i\b/.test(c)) return true;
   if (/>>/.test(c)) return true;
@@ -522,10 +527,12 @@ function extractFileOperands(cmd: string): string[] {
     }
   }
 
-  // tee / cp / mv / rm / dd / touch / truncate / install / ln — каждый
+  // tee / mv / rm / dd / touch / truncate / install / ln — каждый
   // не-флаг аргумент (после ключевого слова и до следующего оператора
-  // | & ; или конца команды).
-  for (const kw of ['tee', 'cp', 'mv', 'rm', 'dd', 'touch', 'truncate', 'install', 'ln']) {
+  // | & ; или конца команды). cp здесь НЕ перечислен: у cp источники —
+  // чтение, запись — только последняя цель; грамматику cp судит
+  // extractExtraWriteOperands (контракт 206, инвариант 1).
+  for (const kw of ['tee', 'mv', 'rm', 'dd', 'touch', 'truncate', 'install', 'ln']) {
     const kwRe = new RegExp(`(?:^|[|&;])\\s*${kw}\\b([^|&;]*)`, 'g');
     while ((m = kwRe.exec(c)) !== null) {
       const args = m[1].trim().split(/\s+/).filter(Boolean);
@@ -559,12 +566,29 @@ function extractExtraWriteOperands(cmd: string): string[] {
 
   for (const argv of cmds) {
     if (argv.length === 0) continue;
-    const head = argv[0];
+    // Контракт 206, инвариант 3: квалифицированное имя не превращает запись в
+    // чтение — /bin/cp это та же операция cp, /bin/mkdir — та же mkdir.
+    const head = argv[0].split('/').pop() ?? argv[0];
 
-    // mkdir DIR [DIR …] — каждый не-флаг аргумент.
-    if (head === 'mkdir') {
-      for (let i = 1; i < argv.length; i++) {
-        if (!argv[i].startsWith('-')) pushOp(argv[i]);
+    // Грамматика предмета (контракт 206, инвариант 3): простая команда cp с
+    // литеральными источниками и последней целью либо mkdir с -p/-- и
+    // литеральными целями. До `--` — флаги, после него все токены — операнды
+    // (в том числе имена с ведущим «-»).
+    if (head === 'cp' || head === 'mkdir') {
+      const paths: string[] = [];
+      let options = true;
+      for (const arg of argv.slice(1)) {
+        if (options && arg === '--') { options = false; continue; }
+        if (options && arg.startsWith('-')) continue;
+        paths.push(arg);
+      }
+      // cp читает все источники и пишет только в последнюю цель.
+      if (head === 'cp') {
+        if (paths.length >= 2) pushOp(paths[paths.length - 1]);
+        continue;
+      }
+      if (head === 'mkdir') {
+        for (const path of paths) pushOp(path);
       }
       continue;
     }
@@ -1080,6 +1104,8 @@ function judgeBash(
   const cwd = typeof cwdRaw === 'string' && cwdRaw.length > 0 ? cwdRaw : null;
 
   if (!cmd) return { decision: 'pass' };
+  // NUL в команде — block, а не молчаливый pass (контракт 206, инвариант 3).
+  if (cmd.includes('\0')) return { decision: 'block', reason: 'Н-85: NUL в команде' };
 
   // Форма чтения — всегда pass (Г1 «читать свободно»).
   if (!isWriteCommand(cmd)) return { decision: 'pass' };
@@ -1140,7 +1166,12 @@ function judgeBash(
 }
 
 // ── Публичный judge (и CLI, и фабрика) ────────────────────────────────────────
-export function judge(input: JudgeInput): Decision {
+// Каноническая подсказка формы (контракт 206, инвариант 4): каждый отказ
+// сохраняет свой диагноз и ДОБАВЛЯЕТ отдельной строкой форму продолжения.
+// Указание формы — не разрешение сменить цель на чужую и не обход стража.
+const WRITE_FORM_HINT = 'Н-85: форма записи: абсолютный path внутри своей копии; bash — с абсолютным cwd своей копии. WORKTREE задания — адрес доставки, не место записи изолированного судьи.';
+
+function baseJudge(input: JudgeInput): Decision {
   const { tool, args } = input;
   const worktree = input.worktree ?? null;
   const actual = input.actual ?? null;
@@ -1205,6 +1236,14 @@ export function judge(input: JudgeInput): Decision {
   }
   // read / grep / glob / прочие — pass (Г1).
   return { decision: 'pass' };
+}
+
+// Публичная точка входа: и CLI, и фабрика суда проходят через неё, поэтому
+// подсказка формы достаёт оба канала (контракт 206, инвариант 4).
+export function judge(input: JudgeInput): Decision {
+  const result = baseJudge(input);
+  if (result.decision === 'pass') return result;
+  return { ...result, reason: result.reason + '\n' + WRITE_FORM_HINT };
 }
 
 // ── CLI: `node path-guard.ts --judge '<json>'` ─────────────────────────────────

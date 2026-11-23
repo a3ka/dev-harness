@@ -64,6 +64,13 @@ refuse() {
   printf 'ОТКАЗ: %s\n' "$1" >&2
   if [ -n "${2:-}" ]; then printf '%s\n' "$2" >&2; fi
   if [ -n "${3:-}" ]; then printf '%s\n' "$3" >&2; fi
+  # Контракт 206, инвариант 4: отказ сохраняет код и первую строку, а форму
+  # продолжения несёт ОТДЕЛЬНОЙ строкой. Форма — не разрешение сменить цель
+  # на чужую и не обход стража.
+  case "$1" in
+    VERDIKT_VNE_REPO) printf 'ФОРМА: --repo <своя-копия> --file <абсолют-вердикта-в-своей-копии>\n' >&2 ;;
+    NE_SUDJSKAJA_VETKA) printf 'ФОРМА: в своей копии git switch -c wip/<NNN>/<роль>; не коммить в detached runtime-checkout\n' >&2 ;;
+  esac
   exit 1
 }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$1" >&2; exit 2; }
@@ -358,26 +365,20 @@ if [ "$MODE" = 'verdict' ]; then
   [ -n "$VFILE" ] || refuse NE_POLNYJ_VHOD
 
   # Путь вердикта — относительно репозитория (как git -C R): относительный
-  # аргумент не привязан к cwd вызывающего.
+  # аргумент не привязан к cwd вызывающего. Граница файла проверяется ПОСЛЕ
+  # нормализации: абсолютный путь или относительный от repo, с разрешением
+  # «..» и symlink каталогов/файла (контракт 206, инвариант 6).
+  command -v realpath >/dev/null 2>&1 || skip 'нет realpath'
   case "$VFILE" in
-    /*)
-      vdir="$(dirname "$VFILE")"; vbase="$(basename "$VFILE")"
-      if [ -d "$vdir" ]; then
-        vcanon="$(canon_dir "$vdir")/$vbase"
-      else
-        vcanon="$VFILE"
-      fi
-      if path_inside "$vcanon" "$R" && [ "$vcanon" != "$R" ]; then
-        VREL="${vcanon#"$R"/}"
-      else
-        refuse VERDIKT_VNE_REPO "файл вердикта вне репозитория: $VFILE"
-      fi
-      ;;
-    *)
-      VREL="${VFILE#./}"
-      [ -n "$VREL" ] || refuse VERDIKT_VNE_REPO "пустой --file"
-      ;;
+    /*) vcandidate="$VFILE" ;;
+    *) vcandidate="$R/$VFILE" ;;
   esac
+  vcanon="$(realpath -m -- "$vcandidate")" || skip 'не канонизирован --file'
+  if path_inside "$vcanon" "$R" && [ "$vcanon" != "$R" ]; then
+    VREL="${vcanon#"$R"/}"
+  else
+    refuse VERDIKT_VNE_REPO "файл вердикта вне репозитория: $VFILE"
+  fi
 
   head_branch="$(git -C "$R" symbolic-ref --short HEAD 2>/dev/null)" || head_branch=''
 
