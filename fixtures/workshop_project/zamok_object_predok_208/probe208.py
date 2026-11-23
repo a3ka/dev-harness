@@ -20,15 +20,21 @@
 # TRUBY_VYHODA, перенос между трубами, лишняя строка в тихой трубе), привязки
 # — source.json:.stab_vhod.
 #
+# Круг d (Adv208 FAIL «константа предмета»): миры строятся и на предметах
+# НЕ 208 (209/003) — публикация, кодовая граница и санкция остаются адресом
+# СУДИМОГО предмета, константа 208 на них различима; стабы константы
+# st40…st43 лежат в stabs-konstanty-208d/ (census заморозки «stabs/* = 39»
+# правкой батареи не трогается), привязки — те же source.json:.stab_vhod.
+#
 # Режимы:
 #   (без флага) / --repo <корень>
 #         субъект = <корень>/scripts/zamok_predmeta.sh (корень по умолчанию —
 #         toplevel репозитория батареи; база работы — A2). До реализации
 #         клетки нового допуска красны (перечень поимённо), итог rc 1; нет
 #         субъекта — rc 1 SUBJECT_ABSENT с перечнем всех входов.
-#   --model   контроль входов на эталоне (23/23), строгие ожидания вывода.
-#   --stabs   контроль + матрица обманных стабов над текстом модели
-#         (SVJAZI 64, живых 0); якорь потерян или синтаксис сломан — rc 2.
+#   --model   контроль входов на эталоне (30/30), строгие ожидания вывода.
+#   --stabs   контроль + матрица обманных дверей над текстом модели
+#         (SVJAZI 71, живых 0); якорь потерян или синтаксис сломан — rc 2.
 #   --sgeneriruj-staby (обслуживание) материализует stabs/<имя>/ и
 #         source.json (nositeli).
 #
@@ -331,6 +337,31 @@ def kejsy():
                                         'OBJECT=' + obj]
                                        + list(dop_stroki))])
         return ev
+
+    def puschem_drugoj(imja, subj):
+        # строка допуска предмета subj ≠ 208: имя судьи и предмет события
+        return 'PUSCHEM %s %s/%s (sudja/critic)\n' % (imja, REPO_ID, subj)
+
+    def bazir_subj(m, subj):
+        # мир предмета subj (круг d): формат тот же, что bazir, — файл класса
+        # риска, ветка, frozen-тег и рабочий START своего предмета
+        wt, br, sha = m.worktree(subj, kontrakty=[
+            ('fajl', '%s-fixture.md' % subj, '# К\nКЛАСС РИСКА: обычный\n')])
+        m.start(subj, 'Arch208', wt=wt, branch=br)
+        m.zhurnal('Arch208', sdal=True)
+        return wt, br, sha
+
+    def vyzov_subj(m, subj, obj):
+        imja = 'Crit%s' % subj
+        ev = m.sobytie('e-%s.json' % subj,
+                       [item('critic', imja, ['SUBJECT=' + subj,
+                                              'OBJECT=' + obj])])
+        return ev, imja
+
+    def krug_subj(m, subj, K0, derzhatel='Critic1'):
+        m.start(subj, derzhatel, klass='sudja', rol='critic', obj=K0,
+                zanyat=False)
+        m.release(subj, derzhatel, prichina='verdikt_zakommiten')
 
     def r01(m, door):
         wt, br, K0 = bazir(m)
@@ -639,6 +670,112 @@ def kejsy():
         return [k_rc(r, 0, 'r23'), k_stdout(r, PUSCHEM, 'r23'),
                 k_text(r, '', 'r23'), k_start(m, 'Crit208', X, 'r23')]
 
+    def r24(m, door):
+        # круг d (Adv208: константа предмета в публикации): предок кандидата
+        # предмета 209, опубликованный в ВЕТКЕ предмета 209, — допуск; дверь
+        # с константой wip/208/ ветку чужого предмета не видит и отказывает
+        wt, br, K0 = bazir_subj(m, '209')
+        K2 = vpered(wt, 'rabota.txt', 'novaja rabota\n')
+        m.publikuj(wt, 'refs/remotes/origin/wip/209/reaccept', K2)
+        ev, imja = vyzov_subj(m, '209', K0)
+        r = sudit(door, m, ev)
+        return [k_rc(r, 0, 'r24'),
+                k_stdout(r, puschem_drugoj(imja, '209'), 'r24'),
+                k_text(r, '', 'r24'), k_start(m, imja, K0, 'r24')]
+
+    def r25(m, door):
+        # вторая сторона адреса: кодовая граница предмета 003, опубликованная
+        # в ветке предмета 003 (D9b), — допуск; константа 208 мимо ветки
+        wt, br, K0 = bazir_subj(m, '003')
+        Kf = vpered(wt, 'ispravlenie.txt', 'kontract fix\n',
+                    soobshenie='fix')
+        vernut_vetku(wt, br, K0)
+        m.publikuj(wt, 'refs/remotes/origin/wip/003/reaccept', Kf)
+        ev, imja = vyzov_subj(m, '003', Kf)
+        r = sudit(door, m, ev)
+        return [k_rc(r, 0, 'r25'),
+                k_stdout(r, puschem_drugoj(imja, '003'), 'r25'),
+                k_text(r, '', 'r25'), k_start(m, imja, Kf, 'r25')]
+
+    def r26(m, door):
+        # вердиктный хвост СВОЕГО предмета (209) не кодовая граница — отказ;
+        # константа contracts-208 в белом списке хвост 209 за границу не
+        # считает И наоборот: здесь хвост опубликован — мутант допускает
+        wt, br, K0 = bazir_subj(m, '209')
+        verdikt = ('accept\nOBJECT=%s\n\n# proverka\n' % K0)
+        V = vpered(wt, 'verdicts/critic/contracts-209-v1.md', verdikt,
+                   role='critic', soobshenie='verdikt')
+        vernut_vetku(wt, br, K0)
+        m.publikuj(wt, 'refs/remotes/origin/wip/209/reaccept', V)
+        do = m.ledger.read_bytes()
+        ev, imja = vyzov_subj(m, '209', V)
+        r = sudit(door, m, ev)
+        ozh = ('ОТКАЗ: OBJECT_RASHODITSJA: предмет 209: OBJECT %s впереди '
+               'кандидата %s, но не кодовая граница — вердиктный хвост не '
+               'становится объектом суда; выход: OBJECT работы, не '
+               'verdikt-коммит\n' % (V, K0))
+        return [k_rc(r, 1, 'r26'), k_stdout(r, '', 'r26'),
+                k_text(r, ozh, 'r26'), k_uchet_ne_izmenen(m, do, 'r26')]
+
+    def r27(m, door):
+        # то же на втором предмете (003): белый список границы обязан быть
+        # параметризован номером судимого предмета
+        wt, br, K0 = bazir_subj(m, '003')
+        verdikt = ('accept\nOBJECT=%s\n\n# proverka\n' % K0)
+        V = vpered(wt, 'verdicts/critic/contracts-003-v1.md', verdikt,
+                   role='critic', soobshenie='verdikt')
+        vernut_vetku(wt, br, K0)
+        m.publikuj(wt, 'refs/remotes/origin/wip/003/reaccept', V)
+        do = m.ledger.read_bytes()
+        ev, imja = vyzov_subj(m, '003', V)
+        r = sudit(door, m, ev)
+        ozh = ('ОТКАЗ: OBJECT_RASHODITSJA: предмет 003: OBJECT %s впереди '
+               'кандидата %s, но не кодовая граница — вердиктный хвост не '
+               'становится объектом суда; выход: OBJECT работы, не '
+               'verdikt-коммит\n' % (V, K0))
+        return [k_rc(r, 1, 'r27'), k_stdout(r, '', 'r27'),
+                k_text(r, ozh, 'r27'), k_uchet_ne_izmenen(m, do, 'r27')]
+
+    def r28(m, door):
+        # санкция ПОЛНОГО адреса предмета 209 действует на повтор роли 209;
+        # константа 208 в фильтре свою санкцию не находит и повтор ломает
+        wt, br, K0 = bazir_subj(m, '209')
+        krug_subj(m, '209', K0)
+        m.sankcija('209', 'critic', K0)
+        ev, imja = vyzov_subj(m, '209', K0)
+        r = sudit(door, m, ev)
+        return [k_rc(r, 0, 'r28'),
+                k_stdout(r, puschem_drugoj(imja, '209'), 'r28'),
+                k_text(r, '', 'r28'), k_start(m, imja, K0, 'r28')]
+
+    def r29(m, door):
+        # санкция чужого предмета (subjectId 208) при суде 003 — не адресна,
+        # отказ; константа 208 в фильтре ЧУЖУЮ санкцию принимает за свою
+        wt, br, K0 = bazir_subj(m, '003')
+        krug_subj(m, '003', K0)
+        m.sankcija('003', 'critic', K0, subject='208')
+        do = m.ledger.read_bytes()
+        ev, imja = vyzov_subj(m, '003', K0)
+        r = sudit(door, m, ev)
+        ozh = uzhe_suzhen_ozh() % ('003', K0)
+        return [k_rc(r, 1, 'r29'), k_stdout(r, '', 'r29'),
+                k_text(r, ozh, 'r29'), k_uchet_ne_izmenen(m, do, 'r29')]
+
+    def r30(m, door):
+        # кандидат последнего START предмета 209 резолвится ЧЕРЕЗ вердиктный
+        # хвост 209 (ветка автора на хвосте): равенство с запрошенным OBJECT —
+        # допуск без публикации (инвариант 1); константа 208 в кандидате D9
+        # хвост чужого предмета не проходит и отказывает «не опубликован»
+        wt, br, K0 = bazir_subj(m, '209')
+        verdikt = ('accept\nOBJECT=%s\n\n# proverka\n' % K0)
+        vpered(wt, 'verdicts/critic/contracts-209-v1.md', verdikt,
+               role='critic', soobshenie='verdikt')
+        ev, imja = vyzov_subj(m, '209', K0)
+        r = sudit(door, m, ev)
+        return [k_rc(r, 0, 'r30'),
+                k_stdout(r, puschem_drugoj(imja, '209'), 'r30'),
+                k_text(r, '', 'r30'), k_start(m, imja, K0, 'r30')]
+
     reg('r01-ravenstvo-dopusk',
         'OBJECT == кандидат последнего START — допуск как прежде (rc 0, START)',
         r01)
@@ -701,6 +838,27 @@ def kejsy():
         r22)
     reg('r23-porjadok-roditelej-merge',
         'порядок родителей merge не меняет допуск (инвариант 4, К-14)', r23)
+    reg('r24-predok-209-opublikovan-v-vetke',
+        'предок кандидата предмета 209, опубликован в ветке wip/209/* — допуск '
+        '(публикация — адрес судимого предмета, Adv208)', r24)
+    reg('r25-vperjod-003-opublikovan-v-vetke',
+        'кодовая граница предмета 003, опубликована в ветке wip/003/* — допуск '
+        '(публикация — адрес судимого предмета)', r25)
+    reg('r26-vperjod-209-verdikt-hvost',
+        'вердиктный хвост предмета 209 впереди кандидата — отказ: не кодовая '
+        'граница СВОЕГО предмета', r26)
+    reg('r27-vperjod-003-verdikt-hvost',
+        'вердиктный хвост предмета 003 впереди кандидата — отказ: не кодовая '
+        'граница СВОЕГО предмета', r27)
+    reg('r28-sankcija-209-adresna',
+        'повтор роли предмета 209 по санкции SANKCIJA полного адреса 209 — '
+        'допуск (санкция — адрес судимого предмета)', r28)
+    reg('r29-sankcija-003-chuzhoj-predmet',
+        'санкция subjectId 208 при суде предмета 003 — чужой предмет, повтор '
+        'запрещён (К-08)', r29)
+    reg('r30-ravenstvo-209-cherez-verdikt-hvost',
+        'кандидат предмета 209 резолвится через вердиктный хвост 209 — '
+        'равенство OBJECT допуск без публикации (инвариант 1)', r30)
     return K
 
 
@@ -780,7 +938,38 @@ STAB_MUTACII = {
     'st19-diagnostika-r07': lambda t: _mut(
         t, '''выход: опубликовать работу в main либо ветке wip/$sv/* на origin"''',
         '''выход: опубликовать работу в ветке wip/$sv/* либо в main на origin"'''),
+    # Круг d (Adv208 «константа предмета»): параметр адреса предмета заменён
+    # константой 208 — на предметах 209/003 мутант расходится с моделью.
+    'st40-konstanta-publikacii-208': lambda t: _mut(
+        t, '"refs/remotes/origin/wip/$n/")',
+        '"refs/remotes/origin/wip/208/")'),
+    'st41-konstanta-granicy-208': lambda t: _mut(
+        t, '''    [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\\.md$ \\
+      || "$p" == .review/* ]] || return 0''',
+        '''    [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-208(-[A-Za-z0-9._-]+)?\\.md$ \\
+      || "$p" == .review/* ]] || return 0'''),
+    'st42-konstanta-sankcii-208': lambda t: _mut(
+        t, '.t == "SANKCIJA" and .repoId == $r and .subjectId == $n',
+        '.t == "SANKCIJA" and .repoId == $r and .subjectId == "208"'),
+    'st43-konstanta-kandidata-208': lambda t: _mut(
+        t, 'object_kandidata "$r_wt" "$sv" "$r_br"',
+        'object_kandidata "$r_wt" "208" "$r_br"'),
 }
+
+# Стабы круга d лежат в ОТДЕЛЬНОМ каталоге stabs-konstanty-208d/: census
+# заморозки контракта (замер «stabs/* = 39») судит первый каталог, и правка
+# батареи не вправе его менять; носители и привязки — те же source.json.
+STAB_KAT_VTOROJ = 'stabs-konstanty-208d'
+STABY_VTOROGO_KATALOGA = frozenset((
+    'st40-konstanta-publikacii-208',
+    'st41-konstanta-granicy-208',
+    'st42-konstanta-sankcii-208',
+    'st43-konstanta-kandidata-208',
+))
+
+
+def stab_katalog(imja):
+    return STAB_KAT_VTOROJ if imja in STABY_VTOROGO_KATALOGA else 'stabs'
 
 STAB_VHOD = {
     'st01-ravenstvo-tolko': ['r04-predok-ne-opublikovan',
@@ -807,6 +996,13 @@ STAB_VHOD = {
     'st17-diagnostika-r04': ['r04-predok-ne-opublikovan'],
     'st18-diagnostika-r06': ['r06-vperjod-verdikt-hvost'],
     'st19-diagnostika-r07': ['r07-vperjod-ne-opublikovan'],
+    'st40-konstanta-publikacii-208': ['r24-predok-209-opublikovan-v-vetke',
+                                       'r25-vperjod-003-opublikovan-v-vetke'],
+    'st41-konstanta-granicy-208': ['r26-vperjod-209-verdikt-hvost',
+                                   'r27-vperjod-003-verdikt-hvost'],
+    'st42-konstanta-sankcii-208': ['r28-sankcija-209-adresna',
+                                   'r29-sankcija-003-chuzhoj-predmet'],
+    'st43-konstanta-kandidata-208': ['r30-ravenstvo-209-cherez-verdikt-hvost'],
 }
 
 
@@ -948,14 +1144,14 @@ def sgeneriruj():
         if sint.returncode != 0:
             raise SystemExit('ORACLE_TAMPERED: стаб %s сломал синтаксис: %s'
                              % (imja, diag(sint.stderr)))
-        d = STABS / imja
+        d = HERE / stab_katalog(imja) / imja
         d.mkdir(parents=True, exist_ok=True)
         (d / 'zamok_predmeta.sh').write_bytes(mut.encode('utf-8'))
         os.chmod(d / 'zamok_predmeta.sh', 0o755)
     nositeli = {'model/zamok_predmeta.sh':
                 sha256_bytes(MODEL.read_bytes())}
     for imja in sorted(STAB_MUTACII):
-        otn = 'stabs/%s/zamok_predmeta.sh' % imja
+        otn = '%s/%s/zamok_predmeta.sh' % (stab_katalog(imja), imja)
         nositeli[otn] = sha256_bytes((HERE / otn).read_bytes())
     src = {
         'versija': 1,
