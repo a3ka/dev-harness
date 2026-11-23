@@ -52,6 +52,9 @@ MUTATIONS = {
     'PATERN:PERVAJA-CIFRA': (("printf '%s' \"$faza\"", "printf '%s' \"${faza:0:1}\""),),
     'PATERN:CUT-C1': (("printf '%s' \"$faza\"", "printf '%s' \"$faza\" | cut -c1"),),
     'PATERN:REGEX-ODNA-CIFRA': (('contracts-[0-9]+-v([0-9]+)', 'contracts-[0-9]+-v([0-9])'),),
+    # Б-1 Rev204 v1: обход имён без -m не видит файлов, добавленных в самом
+    # merge-коммите; различается только merge-миром m1.
+    'PATERN:BEZ-M': (('--full-history -m HEAD', '--full-history HEAD'),),
 }
 
 
@@ -123,6 +126,9 @@ class Cell:
     closed: tuple = ()
     rc: int = 0
     output: str = ''
+    # Б-1 Rev204 v1: (путь постороннего файла стороны, данные, путь FAIL, данные)
+    # — FAIL фазы живёт только в самом merge-коммите, не в родителях.
+    merge_fail: tuple = ()
 
 
 def cells(real197):
@@ -208,6 +214,14 @@ def cells(real197):
         Cell('h1-odin-blob-dve-fazy', 'karta', cur3,
              verdict('2', changes={2: 'без изменений с вызова 1.'}),
              ((v1, common_blob), (v3, common_blob))),
+        # Б-1 Rev204 v1: FAIL фазы предъявлен только diff-ом merge-коммита.
+        Cell('m1-fail-v-samom-merge', 'sdacha', p('contracts-777-v3-call-03.md'),
+             verdict('3'),
+             ((p('contracts-777-v3-call-01.md'), verdict('1', note='вызов 1 фазы v3')),),
+             rc=1, output='ОТКАЗ: блок К-09 предыдущего вердикта не закрыт в «## Дельта»',
+             merge_fail=('notes-postoronnij.md', b'204: postoronnij kommit storony\n',
+                         p('contracts-777-v3-krug2-fail.md'),
+                         verdict('2', 'FAIL', {9: 'блок — вход: FAIL в merge-коммите'}))),
         Cell('e1-realnaja-istorija-197', 'sdacha', p('contracts-197-v3.md'),
              dict(real197)[p('contracts-197-v3.md')], real197),
     ]
@@ -251,6 +265,19 @@ def observe(cell, deps, library, scratch):
             (root / path).write_bytes(data)
             git(root, 'add', '-A')
             git(root, 'commit', '--allow-empty', '-qm', '204: исторический артефакт')
+        if cell.merge_fail:
+            side_file, side_data, fail_path, fail_data = cell.merge_fail
+            # Б-1 Rev204 v1: мир строится только git-ом — сторона с посторонним
+            # коммитом, merge --no-commit и FAIL фазы в самом merge-коммите.
+            git(root, 'checkout', '-qb', 'side')
+            (root / side_file).write_bytes(side_data)
+            git(root, 'add', '-A')
+            git(root, 'commit', '-qm', '204: посторонний коммит стороны')
+            git(root, 'checkout', '-q', 'main')
+            git(root, 'merge', '--no-ff', '--no-commit', 'side')
+            (root / fail_path).write_bytes(fail_data)
+            git(root, 'add', '-A')
+            git(root, 'commit', '-qm', '204: FAIL фазы в самом merge-коммите')
         (root / cell.path).write_bytes(cell.current)
         (root / 'sdacha.md').write_bytes(sheet(cell.path, cell.closed))
         git(root, 'add', '-A')
@@ -291,6 +318,10 @@ def mutant_expected(name, cell):
             'a1-tri-fazy-sdacha': (1, 'ОТКАЗ: последний FAIL: неоднозначный вызов 1'),
             'v1-fail-tolko-svoej-fazy': (1, 'ОТКАЗ: блок К-09 предыдущего вердикта не закрыт в «## Дельта»'),
             'f7-ssylka-ne-iz-chuzhoj-fazy': (0, KARTA_OK),
+        }[cell.name]
+    if name == 'PATERN:BEZ-M':
+        return {
+            'm1-fail-v-samom-merge': (0, green_sheet()),
         }[cell.name]
     if name in ('PATERN:PERVYJ-BLOB', 'PATERN:IZ-SUD'):
         return 0, green_sheet()
