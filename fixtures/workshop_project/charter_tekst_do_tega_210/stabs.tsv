@@ -19,3 +19,8 @@ GRANDFATHER-UDALEN	a2-grandfather-70-71
 BEZ-PERVICHNOJ	g19-merge-vozvrat
 BEZ-PERVICHNOJ	g20-prepush-merge-vozvrat
 PARY-208-UDALENY	a3-grandfather-72-74
+T-VMESTO-PUBLIKACII	g21-vozvrat-bez-predka-T
+T-VMESTO-PUBLIKACII	g22-oracle-vozvrat-bez-predka-T
+T-VMESTO-PUBLIKACII	g23-prepush-vozvrat-bez-predka-T
+CYRILLIC-VNE-OBLASTI	g24-kirillica-pravka
+CYRILLIC-VNE-OBLASTI	g25-oracle-kirillica-pravka
