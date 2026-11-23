@@ -24,3 +24,7 @@
 204	9288a6cd6979733546fade0d02efbc64445ac0b9	станция	ЗОНА implementer frozen/contracts/204/1: scripts/lib_karta_sdachi.sh	implementer
 207	1e7ce3f290dd8ceed5a5220202c5ee92fe195f3e	станция	ЗОНА implementer frozen/contracts/207/1: scripts/check_zones.sh	implementer
 208	38743e669b06ace031a7cf2850f51b03441fd233	станция	ЗОНА implementer frozen/contracts/208/1: scripts/zamok_predmeta.sh fixtures/parsing_hygiene_battery/profiles/zamok_predmeta.sh	implementer
+205	1611e4d0481b2b8056d58c93e7dea79de9aff655	станция	ЗОНА implementer frozen/contracts/205/1: scripts/check_provodka.sh	implementer
+206	7b89189a2825e7a32618e643cc67b9abb09599bc	станция	ЗОНА implementer frozen/contracts/206/1: .omp/extensions/path-guard.ts scripts/pre_judge.sh roles/critic.md roles/adversary.md roles/reviewer.md .omp/agents/critic.md .omp/agents/adversary.md .omp/agents/reviewer.md	implementer
+209	4c7a296507620e2e7cb71d347e5b6c91bcb884d3	станция	ЗОНА implementer frozen/contracts/209/1: workshop	implementer
+210	9c46a64a358109d26aa64798472fb3068135f762	станция	ЗОНА implementer frozen/contracts/210/1: scripts/check_charter.sh .githooks/pre-push	implementer
