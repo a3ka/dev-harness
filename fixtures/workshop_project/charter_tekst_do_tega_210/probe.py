@@ -66,12 +66,14 @@ class Cell:
     value: bytes = b'# Frozen contract\n\ncanonical bytes\n'
     number: str = '810'
     object_format: str = 'sha1'
+    ref: str = 'refs/heads/wip/810/architect'
 
 
 def cells():
     return [
         Cell('a1-v-istorii-tega', 'history'),
         Cell('a2-grandfather-70-71', 'history', 'library'),
+        Cell('a3-grandfather-72-74', 'history', 'library'),
         Cell('b1-lend', 'land'),
         Cell('b2-sync', 'sync'),
         Cell('b3-oracle', 'sync', 'oracle'),
@@ -96,6 +98,8 @@ def cells():
         Cell('g16-nevernaja-grammatika', 'wrong-name'),
         Cell('g17-roditel-drugoj-blob', 'parent-different'),
         Cell('g18-udalenie', 'delete', 'push'),
+        Cell('g19-merge-vozvrat', 'merge-return'),
+        Cell('g20-prepush-merge-vozvrat', 'merge-return', 'push', ref='refs/heads/main'),
         Cell('v1-empty', 'land', value=b''),
         Cell('v2-nul', 'land', value=b'\x00frozen\x00\n'),
         Cell('v3-crlf', 'land', value=b'first\r\nsecond\r\n'),
@@ -171,7 +175,7 @@ class World:
             return git(self.root, 'mktree', data=b''.join(entries)).strip()
         return make(nodes).decode()
 
-    def commit(self, name, changes, parents=None):
+    def commit(self, name, changes, parents=None, message=None):
         if parents is None:
             parents = [] if not self.commits else [next(reversed(self.commits))]
         files = {} if not parents else self.files[parents[0]].copy()
@@ -184,8 +188,8 @@ class World:
         argv = ['commit-tree', self.tree(files)]
         for parent in parents:
             argv += ['-p', self.commits[parent]]
-        self.commits[name] = git(self.root, *argv, data=('210 world: ' + name + '\n').encode(),
-                                  tick=self.tick).strip().decode()
+        self.commits[name] = git(self.root, *argv, data=(message or '210 world: ' + name + '\n').encode(),
+                                 tick=self.tick).strip().decode()
         self.files[name] = files
         return name
 
@@ -252,6 +256,19 @@ class World:
             self.commit('land', {p: value, self.other: b'unauthorized other\n'}, ['mainline', 'mixed-source'])
             self.event('land', 'publish'); self.event('land', 'deny', self.other)
             self.docs.append(self.other); self.head = 'land'; return
+        if s == 'merge-return':
+            # Crit210 form: land publishes frozen text into main, a permitted edit
+            # follows the tag on main, a branch off T keeps frozen bytes, and a
+            # two-parent merge without an owner string restores them (a return).
+            self.commit('mainline', {'main.txt': b'main\n'}, ['base'])
+            self.commit('land', {p: value}, ['mainline', 'freeze'])
+            self.event('land', 'publish')
+            self.commit('edit', {p: b'after freeze\n'}, ['land'],
+                        message=f'РАЗРЕШИЛ-ВЛАДЕЛЕЦ: {p} правка после тега\n')
+            self.event('edit', 'razreshil')
+            self.commit('branch', {'branch.txt': b'branch off T\n'}, ['freeze'])
+            self.commit('mergec', {p: value, 'branch.txt': b'branch off T\n'}, ['edit', 'branch'])
+            self.event('mergec', 'deny'); self.head = 'mergec'; return
         self.commit('mainline', {'main.txt': b'main\n'}, ['base'])
         result = b'first\r\nsecond\r\n' if self.cell.name == 'v4-crlf-ne-lf' else b'not frozen\n'
         self.commit('land', {p: result if s == 'different' else value}, ['mainline', 'freeze'])
@@ -266,6 +283,8 @@ class World:
     def expected(self, overrides=None):
         if self.cell.mode == 'library':
             accepted = b'1' if overrides else b'0'
+            if self.cell.name == 'a3-grandfather-72-74':
+                return 0, b'72=' + accepted + b'\n73=' + accepted + b'\n74=' + accepted + b'\nwrongpath=1\n', b''
             return 0, b'70=' + accepted + b'\n71=' + accepted + b'\nwrongpath=1\nwrongcommit=1\n', b''
         events = {**self.events, **(overrides or {})}
         if self.cell.mode == 'push':
@@ -278,7 +297,7 @@ class World:
                     if status in ('deny', 'unknown'):
                         reason = ('устав-дельта M/D без РАЗРЕШИЛ-ВЛАДЕЛЕЦ' if status == 'deny'
                                   else 'не могу проверить публикацию заморозки')
-                        wanted.append(f'ОТКАЗ: pre-push: {reason}: ref=refs/heads/wip/810/architect коммит={sha.decode()} путь={path}\n')
+                        wanted.append(f'ОТКАЗ: pre-push: {reason}: ref={self.cell.ref} коммит={sha.decode()} путь={path}\n')
             return int(bool(wanted)), b'', ''.join(wanted).encode()
         order = git(self.root, 'rev-list', self.commits[self.head]).splitlines()
         messages = {}
@@ -290,6 +309,8 @@ class World:
             elif status == 'unknown':
                 text = f'  FAIL не могу проверить публикацию заморозки: {path} в {short} — проверьте origin, тег и объекты git\n'
                 failed.add(path)
+            elif status == 'razreshil':
+                text = f'  ok   уставной документ изменён с разрешения владельца: {path} в {short}\n'
             else:
                 text = f'  FAIL уставной документ изменён без разрешения владельца: {path} в {short} — тело коммита обязано нести строку «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: {path} <причина>» в первой колонке\n'
                 failed.add(path)
@@ -314,7 +335,7 @@ class World:
         else:
             lines += [messages[(sha, path)] for sha in order for path in sorted(self.docs) if (sha, path) in messages]
             lines += [summaries[path] for path in self.docs if path not in failed]
-        lines.append(f'\nуставных документов: {len(self.docs)} · изменений в них: {len(events)} · с разрешения: {sum(s == "publish" for s in events.values())}\n')
+        lines.append(f'\nуставных документов: {len(self.docs)} · изменений в них: {len(events)} · с разрешения: {sum(s in ("publish", "razreshil") for s in events.values())}\n')
         return int(bool(failed)), b'', ''.join(lines).encode()
 
 
@@ -347,11 +368,24 @@ printf 'wrongpath=%s\\n' "$?"
 grandfather_pair aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa contracts/204-karta-vyzova-po-faze.md
 printf 'wrongcommit=%s\\n' "$?"
 '''
+            if cell.name == 'a3-grandfather-72-74':
+                program = '''CHARTER_LIB=1
+. "$1"
+set +e
+grandfather_pair 3f313c37cd336905a7a6621034889f8b9d0622c9 contracts/208-zamok-object-predok.md
+printf '72=%s\\n' "$?"
+grandfather_pair c8711daa62892b1833472f6d54ac7e5a3d7d15c7 contracts/208-zamok-object-predok.md
+printf '73=%s\\n' "$?"
+grandfather_pair 3f25b7e6da54750e511dbd154f1d98d6c5e89765 contracts/208-zamok-object-predok.md
+printf '74=%s\\n' "$?"
+grandfather_pair 3f313c37cd336905a7a6621034889f8b9d0622c9 contracts/204-karta-vyzova-po-faze.md
+printf 'wrongpath=%s\\n' "$?"
+'''
             argv = ['bash', '-c', program, 'library-210', world.root / 'scripts/check_charter.sh']
             stdin = None
         elif cell.mode == 'push':
             argv = ['bash', world.root / '.githooks/pre-push', 'origin', world.origin]
-            stdin = f'refs/heads/wip/810/architect {world.commits[world.head]} refs/heads/wip/810/architect {"0" * len(world.commits[world.head])}\n'.encode()
+            stdin = f'{cell.ref} {world.commits[world.head]} {cell.ref} {"0" * len(world.commits[world.head])}\n'.encode()
         else:
             argv = ['bash', world.root / 'scripts/check_charter.sh']
             if cell.mode == 'oracle':
@@ -387,6 +421,12 @@ MUTATIONS = {
     'WRONG-GRAMMAR': ('scripts/check_charter.sh', '  ref="refs/tags/frozen/contracts/$nnn/1"', '  ref="refs/tags/frozen/contracts/$nnn/01"', {('land', None): 'publish'}),
     'SMESHANNYJ': ('scripts/check_charter.sh', '            __ch_publication_rc=0; charter_frozen_publication "$__ch_c" "$__ch_p" "$ROOT" || __ch_publication_rc=$?', '            if [ "${__ch_last_commit:-}" != "$__ch_c" ]; then __ch_last_commit="$__ch_c"; __ch_first_path="$__ch_p"; fi\n            __ch_publication_rc=0; charter_frozen_publication "$__ch_c" "$__ch_first_path" "$ROOT" || __ch_publication_rc=$?', {('land', 'contracts/820-other.md'): 'publish'}),
     'GRANDFATHER-UDALEN': ('scripts/check_charter.sh', '    409836ed5d918d4ecb16f132b8f6e26d287b32cc|66a37efff06a1da72febe8e36b9bb37f8ff6d3eb)', '    0000000000000000000000000000000000000000)', {('grandfather', ''): 'removed'}),
+    'BEZ-PERVICHNOJ': ('scripts/check_charter.sh',
+                       '  case "$fb" in 0) return 1 ;; 1) ;; *) return 2 ;; esac', '  :',
+                       {('mergec', None): 'publish'}),
+    'PARY-208-UDALENY': ('scripts/check_charter.sh',
+                         '    3f313c37cd336905a7a6621034889f8b9d0622c9|c8711daa62892b1833472f6d54ac7e5a3d7d15c7|3f25b7e6da54750e511dbd154f1d98d6c5e89765)',
+                         '    0000000000000000000000000000000000000000)', {('grandfather', ''): 'removed'}),
 }
 
 
