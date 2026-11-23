@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 from live_control import suite as observer_suite
+import matrix
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -40,40 +41,71 @@ def jbytes(value):
     return (json.dumps(value, ensure_ascii=False, separators=(',', ':')) + '\n').encode()
 
 
-# Mutations remove/replace reference operations. Each binding names a distinguishable input.
+# Селекторы матрицы (исполнение арбитража 206): neg — строки, обязанные
+# краснеть на мутанте, ctl — честный разрешённый контроль ТОГО ЖЕ
+# представления, обязанный оставаться зелёным на том же мутанте. Оси строк
+# назначает matrix.py миром до вызова субъекта; ответ субъекта ожиданием
+# не считается. Значение-кортеж в предикате — принадлежность множеству.
+def _S(**spec):
+    def pred(axes):
+        for key, value in spec.items():
+            if isinstance(value, tuple):
+                if axes.get(key) not in value:
+                    return False
+            elif axes.get(key) != value:
+                return False
+        return True
+    return pred
+
+GUARD_CP_NEG = _S(op='cp', sign='neg'), _S(op='cp', sign='pos')
+GUARD_BIN_ABS = _S(group='main', bin='abs', sign='neg'), _S(group='main', bin='abs', sign='pos')
+GUARD_ALL_NEG = _S(sign='neg'), _S(sign='pos')
+VERDICT_OUTSIDE = _S(group='verdict', side='outside'), _S(group='verdict', side='inside')
+VERDICT_REL_OUTSIDE = _S(group='verdict', base='rel', side='outside'), _S(group='verdict', base='rel', side='inside')
+VERDICT_REL_INSIDE = _S(group='verdict', base='rel', side='inside'), _S(group='verdict', base='abs', side='inside')
+_SYMLINK_FORMS = ('dir-symlink', 'file-symlink')
+VERDICT_REL_SYMLINK = (_S(group='verdict', base='rel', side='outside', form=_SYMLINK_FORMS),
+                       _S(group='verdict', base='rel', side='inside', form=_SYMLINK_FORMS))
+VERDICT_ABS_SYMLINK = (_S(group='verdict', base='abs', side='outside', form=_SYMLINK_FORMS),
+                       _S(group='verdict', base='abs', side='inside', form=_SYMLINK_FORMS))
+
+# Mutations remove/replace reference operations. Each binding names a distinguishable input;
+# шестое поле — селектор матрицы (kind, neg, ctl) или None: строки, обязанные краснеть
+# на мутанте, и честный разрешённый контроль того же представления, обязанный
+# оставаться зелёным на нём (арбитраж 206; привязка по позициям кода, Н-39).
 MUTATIONS = [
-    ('cp-source-is-write', 'guard-cp-read-state', '.omp/extensions/path-guard.ts', "if (paths.length >= 2) pushOp(paths[paths.length - 1]);", 'for (const path of paths) pushOp(path);'),
-    ('cp-no-destination', 'guard-cp-outside', '.omp/extensions/path-guard.ts', "if (paths.length >= 2) pushOp(paths[paths.length - 1]);", '/* destination forgotten */'),
-    ('mkdir-no-operands', 'guard-mkdir-outside', '.omp/extensions/path-guard.ts', "if (head === 'mkdir') {", "if (head === 'mkdir-disabled') {"),
-    ('absolute-cp-ignored', 'guard-cp-absolute-outside', '.omp/extensions/path-guard.ts', "const head = argv[0].split('/').pop() ?? argv[0];", 'const head = argv[0];'),
-    ('absolute-mkdir-ignored', 'guard-mkdir-absolute-outside', '.omp/extensions/path-guard.ts', "const head = argv[0].split('/').pop() ?? argv[0];", 'const head = argv[0];'),
-    ('own-copy-removed', 'guard-write-own', '.omp/extensions/path-guard.ts', 'canonicalSessionCwd !== null &&', 'false && canonicalSessionCwd !== null &&'),
-    ('owner-not-compared', 'guard-owner-foreign', '.omp/extensions/path-guard.ts', 'if (ownerId !== sessionName) return false;', '/* owner comparison omitted */'),
-    ('ancestor-not-checked', 'guard-symlink-outside', '.omp/extensions/path-guard.ts', 'realAncestorWithin(canonicalSessionCwd, resolved)', 'true'),
-    ('cwd-not-required', 'guard-mkdir-no-cwd', '.omp/extensions/path-guard.ts', 'if (!cwd) {', "if (!cwd) return {decision:'pass'}; if (!cwd) {"),
-    ('quoted-text-is-write', 'guard-quoted-greater', '.omp/extensions/path-guard.ts', "if (!isWriteCommand(cmd)) return { decision: 'pass' };", "if (!isWriteCommand(cmd)) return {decision:'block',reason:'text treated as write'};"),
-    ('diagnostic-hint-lost', 'guard-mkdir-no-cwd', '.omp/extensions/path-guard.ts', "reason: result.reason + '\\n' +", 'reason: result.reason +'),
-    ('nul-ignored', 'guard-nul', '.omp/extensions/path-guard.ts', "if (cmd.includes('\\0'))", 'if (false)'),
-    ('verdict-branch-ignored', 'verdict-author', 'scripts/pre_judge.sh', "'^wip/[0-9]{3}/(critic|adversary|reviewer|arbiter)$'", "'.*'"),
-    ('verdict-hint-lost', 'verdict-detached', 'scripts/pre_judge.sh', "NE_SUDJSKAJA_VETKA) printf 'ФОРМА:", "UNREACHABLE) printf 'ФОРМА:"),
-    ('verdict-main-ignored', 'verdict-main', 'scripts/pre_judge.sh', 'refuse VERDIKT_V_MAIN', ': VERDIKT_V_MAIN'),
-    ('verdict-outside-ignored', 'verdict-outside', 'scripts/pre_judge.sh', 'refuse VERDIKT_VNE_REPO "файл вердикта вне репозитория: $VFILE"', 'VREL=verdicts/fake.md'),
-    *[(f'role-{role}-no-rule', f'role-{role}', f'roles/{role}.md', model.NORM, 'Судья пишет в WORKTREE задания.') for role in model.ROLES],
-    ('hint-refuse', 'guard-pin-mismatch', '.omp/extensions/path-guard.ts', "  if (result.decision === 'pass') return result;", "  if (result.decision === 'pass' || result.decision === 'refuse') return result;"),
-    ('boundary-no-inside', 'verdict-outside', 'scripts/pre_judge.sh', 'if path_inside "$vcanon" "$R" && [ "$vcanon" != "$R" ]; then', 'if [ "$vcanon" != "$R" ]; then'),
-    ('observer-no-sequence', 'observer-overlapping-judges', 'fixtures/workshop_project/sreda_sudji_206/live.py', 'if i <= previous or len(releases) != 1', 'if len(releases) != 1'),
-    ('options-after-separator', 'guard-cp-dash-outside', '.omp/extensions/path-guard.ts', "if (options && arg.startsWith('-')) continue;", "if (arg.startsWith('-')) continue;"),
-    ('mkdir-options-after-separator', 'guard-mkdir-dash-outside', '.omp/extensions/path-guard.ts', "if (options && arg.startsWith('-')) continue;", "if (arg.startsWith('-')) continue;"),
-    ('options-before-separator', 'guard-mkdir-flag-before-separator', '.omp/extensions/path-guard.ts', "if (options && arg.startsWith('-')) continue;", "/* options become operands */"),
-    ('mkdir-only-first-operand', 'guard-mkdir-multiple-outside', '.omp/extensions/path-guard.ts', 'for (const path of paths) pushOp(path);', 'if (paths.length) pushOp(paths[0]);'),
-    ('relative-boundary-ignored', 'verdict-relative-outside', 'scripts/pre_judge.sh', 'if path_inside "$vcanon" "$R" && [ "$vcanon" != "$R" ]; then', 'if { [[ "$VFILE" != /* ]] || path_inside "$vcanon" "$R"; } && [ "$vcanon" != "$R" ]; then'),
-    ('relative-normalization-ignored', 'verdict-relative-parent-outside', 'scripts/pre_judge.sh', 'vcanon="$(realpath -m -- "$vcandidate")"', 'vcanon="$vcandidate"'),
-    ('relative-symlink-ignored', 'verdict-relative-symlink-outside', 'scripts/pre_judge.sh', 'realpath -m -- "$vcandidate"', 'realpath -ms -- "$vcandidate"'),
-    ('observer-object-ignored', 'observer-different-objects', 'fixtures/workshop_project/sreda_sudji_206/live.py', "if any(start.get('object') != object_id for start in starts):", 'if False:'),
-    ('observer-object-not-assigned', 'observer-unassigned-object', 'fixtures/workshop_project/sreda_sudji_206/live.py', "if any(start.get('object') != object_id for start in starts):", "if len({start.get('object') for start in starts}) != 1:"),
-    ('observer-invalid-is-incomplete', 'observer-null', 'fixtures/workshop_project/sreda_sudji_206/live.py', "raise ValueError('NEVALIDNYJ_ZHURNAL')", "return 1, 'TRI_SUDA_NE_PREDJAVLENY'"),
-    ('observer-invalid-array-is-incomplete', 'observer-array', 'fixtures/workshop_project/sreda_sudji_206/live.py', "raise ValueError('NEVALIDNYJ_ZHURNAL')", "return 1, 'TRI_SUDA_NE_PREDJAVLENY'"),
-    ('observer-bom-accepted', 'observer-bom', 'fixtures/workshop_project/sreda_sudji_206/live.py', ".decode('utf-8').splitlines()", ".decode('utf-8-sig').splitlines()"),
+    ('cp-source-is-write', 'guard-cp-read-state', '.omp/extensions/path-guard.ts', "if (paths.length >= 2) pushOp(paths[paths.length - 1]);", 'for (const path of paths) pushOp(path);', None),
+    ('cp-no-destination', 'guard-cp-outside', '.omp/extensions/path-guard.ts', "if (paths.length >= 2) pushOp(paths[paths.length - 1]);", '/* destination forgotten */', ('guard',) + GUARD_CP_NEG),
+    ('mkdir-no-operands', 'guard-mkdir-outside', '.omp/extensions/path-guard.ts', "if (head === 'mkdir') {", "if (head === 'mkdir-disabled') {", None),
+    ('absolute-cp-ignored', 'guard-cp-absolute-outside', '.omp/extensions/path-guard.ts', "const head = argv[0].split('/').pop() ?? argv[0];", 'const head = argv[0];', ('guard', _S(group='main', op='cp', bin='abs', sign='neg'), _S(group='main', op='cp', bin='abs', sign='pos'))),
+    ('absolute-mkdir-ignored', 'guard-mkdir-absolute-outside', '.omp/extensions/path-guard.ts', "const head = argv[0].split('/').pop() ?? argv[0];", 'const head = argv[0];', ('guard', _S(group='main', op='mkdir', bin='abs', sign='neg'), _S(group='main', op='mkdir', bin='abs', sign='pos'))),
+    ('own-copy-removed', 'guard-write-own', '.omp/extensions/path-guard.ts', 'canonicalSessionCwd !== null &&', 'false && canonicalSessionCwd !== null &&', None),
+    ('owner-not-compared', 'guard-owner-foreign', '.omp/extensions/path-guard.ts', 'if (ownerId !== sessionName) return false;', '/* owner comparison omitted */', None),
+    ('ancestor-not-checked', 'guard-symlink-outside', '.omp/extensions/path-guard.ts', 'realAncestorWithin(canonicalSessionCwd, resolved)', 'true', None),
+    ('cwd-not-required', 'guard-mkdir-no-cwd', '.omp/extensions/path-guard.ts', 'if (!cwd) {', "if (!cwd) return {decision:'pass'}; if (!cwd) {", None),
+    ('quoted-text-is-write', 'guard-quoted-greater', '.omp/extensions/path-guard.ts', "if (!isWriteCommand(cmd)) return { decision: 'pass' };", "if (!isWriteCommand(cmd)) return {decision:'block',reason:'text treated as write'};", None),
+    ('diagnostic-hint-lost', 'guard-mkdir-no-cwd', '.omp/extensions/path-guard.ts', "reason: result.reason + '\\n' +", 'reason: result.reason +', None),
+    ('nul-ignored', 'guard-nul', '.omp/extensions/path-guard.ts', "if (cmd.includes('\\0'))", 'if (false)', None),
+    ('verdict-branch-ignored', 'verdict-author', 'scripts/pre_judge.sh', "'^wip/[0-9]{3}/(critic|adversary|reviewer|arbiter)$'", "'.*'", None),
+    ('verdict-hint-lost', 'verdict-detached', 'scripts/pre_judge.sh', "NE_SUDJSKAJA_VETKA) printf 'ФОРМА:", "UNREACHABLE) printf 'ФОРМА:", None),
+    ('verdict-main-ignored', 'verdict-main', 'scripts/pre_judge.sh', 'refuse VERDIKT_V_MAIN', ': VERDIKT_V_MAIN', None),
+    ('verdict-outside-ignored', 'verdict-outside', 'scripts/pre_judge.sh', 'refuse VERDIKT_VNE_REPO "файл вердикта вне репозитория: $VFILE"', 'VREL=verdicts/fake.md', ('verdict',) + VERDICT_OUTSIDE),
+    *[(f'role-{role}-no-rule', f'role-{role}', f'roles/{role}.md', model.NORM, 'Судья пишет в WORKTREE задания.', None) for role in model.ROLES],
+    ('hint-refuse', 'guard-pin-mismatch', '.omp/extensions/path-guard.ts', "  if (result.decision === 'pass') return result;", "  if (result.decision === 'pass' || result.decision === 'refuse') return result;", None),
+    ('boundary-no-inside', 'verdict-outside', 'scripts/pre_judge.sh', 'if path_inside "$vcanon" "$R" && [ "$vcanon" != "$R" ]; then', 'if [ "$vcanon" != "$R" ]; then', ('verdict',) + VERDICT_OUTSIDE),
+    ('observer-no-sequence', 'observer-overlapping-judges', 'fixtures/workshop_project/sreda_sudji_206/live.py', 'if i <= previous or len(releases) != 1', 'if len(releases) != 1', None),
+    ('options-after-separator', 'guard-cp-dash-outside', '.omp/extensions/path-guard.ts', "if (options && arg.startsWith('-')) continue;", "if (arg.startsWith('-')) continue;", None),
+    ('mkdir-options-after-separator', 'guard-mkdir-dash-outside', '.omp/extensions/path-guard.ts', "if (options && arg.startsWith('-')) continue;", "if (arg.startsWith('-')) continue;", None),
+    ('options-before-separator', 'guard-mkdir-flag-before-separator', '.omp/extensions/path-guard.ts', "if (options && arg.startsWith('-')) continue;", "/* options become operands */", None),
+    ('mkdir-only-first-operand', 'guard-mkdir-multiple-outside', '.omp/extensions/path-guard.ts', 'for (const path of paths) pushOp(path);', 'if (paths.length) pushOp(paths[0]);', ('guard', _S(group='main', op='mkdir', position=('position-1', 'position-2'), sign='neg'), _S(op='mkdir', sign='pos'))),
+    ('relative-boundary-ignored', 'verdict-relative-outside', 'scripts/pre_judge.sh', 'if path_inside "$vcanon" "$R" && [ "$vcanon" != "$R" ]; then', 'if { [[ "$VFILE" != /* ]] || path_inside "$vcanon" "$R"; } && [ "$vcanon" != "$R" ]; then', ('verdict',) + VERDICT_REL_OUTSIDE),
+    ('relative-normalization-ignored', 'verdict-relative-parent-outside', 'scripts/pre_judge.sh', 'vcanon="$(realpath -m -- "$vcandidate")"', 'vcanon="$vcandidate"', ('verdict',) + VERDICT_REL_OUTSIDE),
+    ('relative-symlink-ignored', 'verdict-relative-symlink-outside', 'scripts/pre_judge.sh', 'realpath -m -- "$vcandidate"', 'realpath -ms -- "$vcandidate"', ('verdict',) + VERDICT_REL_SYMLINK),
+    ('observer-object-ignored', 'observer-different-objects', 'fixtures/workshop_project/sreda_sudji_206/live.py', "if any(start.get('object') != object_id for start in starts):", 'if False:', None),
+    ('observer-object-not-assigned', 'observer-unassigned-object', 'fixtures/workshop_project/sreda_sudji_206/live.py', "if any(start.get('object') != object_id for start in starts):", "if len({start.get('object') for start in starts}) != 1:", None),
+    ('observer-invalid-is-incomplete', 'observer-null', 'fixtures/workshop_project/sreda_sudji_206/live.py', "raise ValueError('NEVALIDNYJ_ZHURNAL')", "return 1, 'TRI_SUDA_NE_PREDJAVLENY'", None),
+    ('observer-invalid-array-is-incomplete', 'observer-array', 'fixtures/workshop_project/sreda_sudji_206/live.py', "raise ValueError('NEVALIDNYJ_ZHURNAL')", "return 1, 'TRI_SUDA_NE_PREDJAVLENY'", None),
+    ('observer-bom-accepted', 'observer-bom', 'fixtures/workshop_project/sreda_sudji_206/live.py', ".decode('utf-8').splitlines()", ".decode('utf-8-sig').splitlines()", None),
     ('absolute-symlink-ignored', 'verdict-absolute-file-symlink-outside', 'scripts/pre_judge.sh',
      '''  case "$VFILE" in
     /*) vcandidate="$VFILE" ;;
@@ -88,10 +120,31 @@ MUTATIONS = [
     /*) vcanon="$(realpath -ms -- "$vcandidate")" || skip 'не канонизирован --file' ;;
     *) vcanon="$(realpath -m -- "$vcandidate")" || skip 'не канонизирован --file' ;;
   esac
-'''),
+''', ('verdict',) + VERDICT_ABS_SYMLINK),
     ('cp-trailing-slash-ignored', 'guard-cp-trailing-slash-live-state', '.omp/extensions/path-guard.ts',
      "if (paths.length >= 2) pushOp(paths[paths.length - 1]);",
-     "if (paths.length >= 2) { const t = paths[paths.length - 1]; if (!t.endsWith('/')) pushOp(t); }"),
+     "if (paths.length >= 2) { const t = paths[paths.length - 1]; if (!t.endsWith('/')) pushOp(t); }",
+     ('guard', _S(op='cp', tail='slash', sign='neg'), _S(op='cp', tail='slash', sign='pos'))),
+    ('mkdir-absolute-slash-ignored', 'mkdir/bare/abs/slash/plain/state/no-dash/position-0', '.omp/extensions/path-guard.ts',
+     'for (const path of paths) pushOp(path);',
+     "for (const path of paths) if (!(path.startsWith('/') && path.endsWith('/'))) pushOp(path);",
+     ('guard', _S(op='mkdir', base='abs', tail='slash', sign='neg'), _S(op='mkdir', base='abs', tail='slash', sign='pos'))),
+    ('write-command-basename-ignored', 'cp/abs/abs/noslash/plain/state/no-dash/last', '.omp/extensions/path-guard.ts',
+     "if (['cp', 'mkdir'].includes(first.split('/').pop() ?? '')) return true;",
+     "if (['cp', 'mkdir'].includes(first)) return true;",
+     ('guard',) + GUARD_BIN_ABS),
+    ('mkdir-last-operand-only', 'mkdir/bare/abs/noslash/plain/state/no-dash/position-1', '.omp/extensions/path-guard.ts',
+     'for (const path of paths) pushOp(path);',
+     'if (paths.length) pushOp(paths[paths.length - 1]);',
+     ('guard', _S(group='main', op='mkdir', position=('position-0', 'position-1'), sign='neg'), _S(group='main', op='mkdir', sign='pos'))),
+    ('target-not-passed-to-judge', 'mkdir/bare/abs/noslash/plain/foreign/no-dash/position-0', '.omp/extensions/path-guard.ts',
+     'if (!pathAllowed(resolved, canonicalWt, canonicalActual, worktree, sessionName, canonicalSessionCwd)) {',
+     'if (false) {',
+     ('guard',) + GUARD_ALL_NEG),
+    ('verdict-relative-base-ignored', 'verdict/rel/plain/direct/inside', 'scripts/pre_judge.sh',
+     '    *) vcandidate="$R/$VFILE" ;;',
+     '    *) vcandidate="$VFILE" ;;',
+     ('verdict',) + VERDICT_REL_INSIDE),
 ]
 
 def suite(subject, sandbox, verbose=True, only=None):
@@ -237,6 +290,18 @@ process.stdout.write(JSON.stringify(result??null)+'\\n');
     git(copy, 'switch', '-q', '-C', 'main')
     vrel = verdict.relative_to(copy)
     check('verdict-main', run(['bash', str(script), 'verdict', '--repo', str(copy), '--file', str(verdict)], other, env), (1, b'', f'ОТКАЗ: VERDIKT_V_MAIN\nвердикт {vrel} уже в main (staged/committed)\n'.encode()))
+    # Параметрическая матрица арбитража 206: настоящий --repo/--model/--stabs,
+    # не отдельная демонстрация. Вердиктные строки идут на судейской ветке
+    # (verdict-main выше уже отработал на main); ожидания назначены миром.
+    git(copy, 'switch', '-q', '-C', 'wip/206/reviewer')
+    verify = Path(env['TMPDIR']) / 'dev-harness-verify'
+    matrix.prepare(copy, delivery, state, other, verify, sandbox)
+    mrows = matrix.guard_rows(copy, delivery, state, other, verify, model.HINT)
+    for name, ok in matrix.run_guard(guard, mrows, env, copy, only).items():
+        check(name, ok, True)
+    for name, ok in matrix.run_verdict(script, copy, matrix.verdict_rows(copy, other, sandbox),
+                                       env, other, only).items():
+        check(name, ok, True)
     check('state-unchanged', (state / 'HANDOFF.md').read_bytes(), before_state)
     check('foreign-unchanged', git(other, 'rev-parse', 'HEAD'), before_foreign)
     observer = subject / 'fixtures/workshop_project/sreda_sudji_206/live.py'
@@ -270,21 +335,72 @@ def main():
             if not all(honest.values()):
                 print('HONEST_CONTROL_RED', [k for k, v in honest.items() if not v])
                 return 2
+            grows, vrows, selcopy, selother, selenv = _selector_world(tmp / 'selworld')
             caught = 0
-            for n, (name, cell, path, old, new) in enumerate(MUTATIONS):
+            for n, (name, cell, path, old, new, selector) in enumerate(MUTATIONS):
                 mutant = tmp / f'mutant-{n}'
                 shutil.copytree(subject, mutant)
                 target = mutant / path
                 target.write_text(model.replace(target.read_text(), old, new))
                 result = suite(mutant, tmp / f'world-{n}', False, cell)
                 killed = not result[cell]
+                note = ''
+                if selector is not None:
+                    kind, negpred, ctlpred = selector
+                    rows = grows if kind == 'guard' else vrows
+                    if kind == 'guard':
+                        outcomes = matrix.run_guard(mutant / '.omp/extensions/path-guard.ts', rows, selenv, selcopy)
+                    else:
+                        subrows = [r for r in rows if negpred(r['axes']) or ctlpred(r['axes'])]
+                        outcomes = matrix.run_verdict(mutant / 'scripts/pre_judge.sh', selcopy, subrows, selenv, selother)
+                    neg = [r for r in rows if negpred(r['axes'])]
+                    ctl = [r for r in rows if ctlpred(r['axes'])]
+                    ok = (all(not outcomes[r['name']] for r in neg)
+                          and all(outcomes[r['name']] for r in ctl))
+                    note = (f' SELEKTOR neg={len(neg)} ctl={len(ctl)} '
+                            f'krasnyh={sum(1 for v in outcomes.values() if not v)}:'
+                            f'{"POIMAN" if ok else "ZHIV"}')
+                    killed = killed and ok
                 caught += killed
-                print(f'{name}: {cell}: {"POIMAN" if killed else "ZHIV"}')
+                print(f'{name}: {cell}: {"POIMAN" if killed else "ZHIV"}{note}')
             print(f'OBMANOK={len(MUTATIONS)} POIMANY={caught} ZHIVYH={len(MUTATIONS)-caught}')
             return int(caught != len(MUTATIONS))
         result = suite(subject, tmp / 'world')
         print(f'KLETKI={len(result)} ZELENYE={sum(result.values())} KRASNYE={len(result)-sum(result.values())}')
         return int(not all(result.values()))
+
+
+def _selector_world(sandbox):
+    """Общий мир селекторов --stabs: суд verdict не пишет, guard — чистая
+    функция, поэтому один мир обслуживает всех мутантов. Судейская ветка
+    wip/206/reviewer с закоммиченным вердиктом создана до прогонов."""
+    home = sandbox / 'home'
+    copy = home / 'wt/owner/m'
+    init(copy)
+    (copy.parent / '.omp-isolation-owner.json').write_text(json.dumps({'id': 'Judge206'}))
+    (copy / 'scratch').mkdir()
+    other = sandbox / 'foreign'
+    init(other)
+    state = sandbox / 'live-state'
+    state.mkdir()
+    (state / 'HANDOFF.md').write_text('selector-world\n')
+    delivery = sandbox / 'wip-206-critic'
+    git(other, 'worktree', 'add', '-q', '-b', 'wip/206/critic', str(delivery))
+    verdict = copy / 'verdicts/reviewer/contracts-206-v1.md'
+    verdict.parent.mkdir(parents=True)
+    verdict.write_text('206 selector world verdict\n')
+    git(copy, 'switch', '-q', '-C', 'wip/206/reviewer')
+    git(copy, 'add', str(verdict))
+    git(copy, '-c', 'user.name=reviewer', '-c', 'user.email=reviewer@dev-harness.local',
+        'commit', '-q', '-m', 'verdict')
+    (sandbox / 'tmp').mkdir(parents=True)
+    env = dict(os.environ, HOME=str(home), TMPDIR=str(sandbox / 'tmp'),
+               GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_SYSTEM='/dev/null')
+    env.pop('WORKTREE', None)
+    verify = Path(env['TMPDIR']) / 'dev-harness-verify'
+    matrix.prepare(copy, delivery, state, other, verify, sandbox)
+    return (matrix.guard_rows(copy, delivery, state, other, verify, model.HINT),
+            matrix.verdict_rows(copy, other, sandbox), copy, other, env)
 
 
 if __name__ == '__main__':
