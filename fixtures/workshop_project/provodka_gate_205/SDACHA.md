@@ -16,7 +16,7 @@
 
 ## Двери
 
-- красное-до · bash fixtures/workshop_project/provodka_gate_205/red_provodka_gate_205.sh --repo . · 1 · 1
+- реальная-дверь · bash fixtures/workshop_project/provodka_gate_205/red_provodka_gate_205.sh --repo . · 0 · 0
 - модель-батареи · bash fixtures/workshop_project/provodka_gate_205/red_provodka_gate_205.sh --model · 0 · 0
 - адресные-мутации · bash fixtures/workshop_project/provodka_gate_205/red_provodka_gate_205.sh --stabs · 0 · 0
 - атака-подстрока · bash fixtures/workshop_project/provodka_gate_205/red_provodka_gate_205.sh --attack PODSTROKA-TOKENA · 1 · 1
@@ -104,7 +104,8 @@ exact=true, POIMANY=1, ZHIVYH=0. Одноразовая проба после п
 
 W = bash fixtures/workshop_project/provodka_gate_205/red_provodka_gate_205.sh.
 W --model: rc 0, KLETKI=24 ZELENYE=24 KRASNYE=0.
-W --repo .: rc 1, KLETKI=24 ZELENYE=15 KRASNYE=9 (дверь не менялась).
+W --repo .: исторический замер ДО реализации — rc 1, KLETKI=24 ZELENYE=15 KRASNYE=9 (дверь тогда не менялась).
+W --repo . после реализации: rc 0, KLETKI=24 ZELENYE=24 KRASNYE=0.
 W --stabs: rc 0, MUTACII=21 SVJAZI=27 POIMANY=25 EKVIVALENT=2 ZHIVYH=0;
 HONEST_CONTROLS=27 ZELENYE=27 KRASNYE=0, все exact=true.
 
