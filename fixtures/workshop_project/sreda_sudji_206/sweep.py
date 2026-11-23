@@ -27,8 +27,8 @@ observer по НЕмутируемому live.py, identity/текстовые к
 
 Выживший (батарея зелёная на мутанте) — либо эквивалент (EQUIVALENTS с
 обоснованием по коду), либо дыра батареи → клетка + адресный стаб в
-MUTATIONS (probe.py). `sweep.py --check` даёт rc 0 только при пустом списке
-необъяснённых выживших. Авария синтаксиса мутанта — отдельный класс AVARIA:
+MUTATIONS (probe.py). `sweep.py --check` даёт rc 0 только при пустых списках
+необъяснённых выживших и устаревших EQUIVALENTS. Авария синтаксиса мутанта — отдельный класс AVARIA:
 не выживший и не поимка (норма арбитража 206: rc2/авария — не поимка).
 """
 import argparse
@@ -115,28 +115,26 @@ SH_PREDICATES = [
 # Эквиваленты по коду: мутант меняет недостижимое/ненаблюдаемое в каноне
 # батареи 206. Ключ — (файл, якорь, оператор): читаем и стабилен к сдвигу
 # строк. Заполняется architect'ом по результатам прогона с обоснованием по
-# коду и названным ловцом вне канона 206.
+# коду и ловцом вне канона 206 либо явным отсутствием ловца.
 TS = TS_PATH
 SH = SH_PATH
 EQUIVALENTS = {
     (TS, "if (!cmd) return { decision: 'pass' };", 'if-false'):
         'пустая команда не является формой записи: следующий предикат !isWriteCommand(\'\')=false возвращает тот же pass',
-    (TS, "if (!isWriteCommand(cmd)) return { decision: 'pass' };", 'if-false'):
-        'структурная эквивалентность: при isWriteCommand=false все «>» и словарные формы записи лежат внутри кавычек, extractFileOperands судит ту же stripQuotes-строку без них — операндов нет, цикл даёт тот же pass',
     (TS, 'if (operands.length === 0) {', 'if-false'):
         'ранний return pass при пустых операндах эквивалентен for-of по пустому массиву — тот же pass',
     (TS, 'if (!path.startsWith(\'/\')) {', 'if-false'):
-        'относительный путь ИНСТРУМЕНТА записи (judgeEditWrite) блокируется дальше общим pathAllowed с иной причиной; в каноне 206 нет write-клетки с относительным путём — ловец батарея 025 (Г1/Г2)',
+        'относительный путь ИНСТРУМЕНТА записи блокируется дальше pathAllowed с иной причиной; ловца нет: инв. 1–6 не нарушены, все восемь регресс-батарей reviewer зелёные',
     (TS, 'if (slash <= 0) return false;', 'if-false'):
-        'ветвь достижима только для операнда без «/» в realAncestorWithin; все операнды канона абсолютны либо блокируются раньше предикатом !cwd — ловец клетка guard-cp-no-cwd и батарея 025',
+        'ветвь достижима через write /nonexist206/../<своя-копия>/x.md: честный guard блокирует, мутант зависает при поиске предка без «/»; pass не возникает, инв. 1–6 не нарушены, ловца зависания в каноне нет',
     (TS, 'if (isAllowedURI(resolved)) return true;', 'if-false'):
         'URI-операнды вне канона 206 (матрица и клетки несут только пути); ловец — батареи 025/030 (allowlist URI)',
     (TS, 'if (canonicalWt !== null) continue;', 'if-false'):
-        'ветвь внутри isAllowedURI(op); в каноне 206 нет URI-операндов — ловец батареи 025/030',
+        'пиннованный bash-URI становится block (строже); ловца нет: URI вне канона 206, инв. 1–6 не нарушены, все восемь регресс-батарей reviewer зелёные',
     (TS, 'if (canonicalWt !== null) continue;', 'if-invert'):
         'ветвь внутри isAllowedURI(op); в каноне 206 нет URI-операндов — ловец батареи 025/030',
     (TS, 'if (canonicalWt !== null) continue;', 'del-continue'):
-        'ветвь внутри isAllowedURI(op); в каноне 206 нет URI-операндов — ловец батареи 025/030',
+        'пиннованный bash-URI становится block (строже); ловца нет: URI вне канона 206, инв. 1–6 не нарушены, все восемь регресс-батарей reviewer зелёные',
     (TS, 'if (canonicalWt !== null) continue;', 'cmp-!=='):
         'ветвь внутри isAllowedURI(op); в каноне 206 нет URI-операндов — ловец батареи 025/030',
     (TS, "if (op === 'xd://report_issue') continue;", 'if-false'):
@@ -452,7 +450,7 @@ def run(check=False, verbose=False):
         for key in stale:
             print(f'EKVIVALENT_POIMAN (запись устарела): {key}')
         if check:
-            return 1 if unexplained else 0
+            return 1 if unexplained or stale else 0
         return 0
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
