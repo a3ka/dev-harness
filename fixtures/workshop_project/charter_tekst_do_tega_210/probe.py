@@ -493,6 +493,12 @@ def observe_empty(cell, sources, scratch, override):
     with tempfile.TemporaryDirectory(prefix=cell.name + '-', dir=scratch) as directory:
         world = EmptyWorld(directory, cell)
         expected = world.expected(override)
+        if cell.name == 'empty-root-incr' and 'reader-model.sh' not in sources:
+            # 217 И1: production no longer reads history for base == HEAD.
+            # The pinned 210 model/stabs keep their pre-217 byte oracle above.
+            head = world.commits[world.head]
+            marker = f'incr: check_charter судит {head[:8]}..{head[:8]} (0 коммитов)\n'
+            expected = (0, b'', marker.encode(), head.encode() + b'\n')
         for name, data in sources.items():
             target = world.root / name
             target.parent.mkdir(parents=True, exist_ok=True)
