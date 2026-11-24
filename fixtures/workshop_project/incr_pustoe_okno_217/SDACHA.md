@@ -28,6 +28,9 @@ VALIDATE_STD_SHELLCHECK=/home/harness/.local/state/dev-harness/validators/shellc
 - проводка · bash scripts/check_provodka.sh . contracts/217-incr-pustoe-okno.md · 0 · 0
 - источники-done · bash scripts/check_project_sources.sh --repo . --contract contracts/217-incr-pustoe-okno.md --stage done · 0 · 0
 - генератор-CI · bash scripts/gen_ci_steps.sh --check · 0 · 0
+- совместимость-210-v2 · bash fixtures/workshop_project/charter_tekst_do_tega_210/red_charter_tekst_do_tega_210.sh --repo . · 0 · 0
+- совместимость-113-v2 · bash fixtures/charter_fast_113/red_113.sh · 0 · 0
+- совместимость-083-база · bash fixtures/_krasnye_083.sh · 1 · 1
 
 ## Карта классов
 
@@ -206,3 +209,27 @@ pre_critic rc 0, «КРИТИК: дверь зелёная». Оба прого�
 суммарное время 179.72 с. Первый прогон обеих дверей имел rc 1 из-за
 моих строк «- --repo …» вне машинной секции листа; исправлен только формат
 новых строк измерений, критерии и production не менялись.
+
+## 217 v2 — п.5, перепин соседних клеток
+
+210 empty-root-incr: для production ожидание теперь rc 0, пустой stdout,
+stderr — только маркер пустого окна + LF, кеш HEAD + LF. Прежний оракул
+EmptyWorld.expected сохранён для --model/--stabs; их источник явно несёт
+reader-model.sh. Остальные клетки и мутационные привязки 210 не меняются.
+
+113 Д/gonka_kesha(а): после штатного сеяния кеша добавляется чистый коммит
+без правок файлов. Кеш становится строгим предком HEAD начала гонки:
+окно непусто, чтение истории запускает прежний gonka-bin/git. Затем прежние
+проверки требуют маркер гонки, дочерний HEAD конца, кеш не новее HEAD начала
+и совпадение второго incr с oracle. И3а 113 охраняется на непустом окне;
+несостоявшаяся гонка по-прежнему красна, пропуска/молчаливого зелёного нет.
+Ветвь (б), gonka-bin/git, s10 и все остальные клетки побайтово прежние.
+
+083 — не rc 0: база ok=117 FAIL=3, красны только И0/check_charter,
+И0/check_zones, И0б/check_zones по умыслу до частей Г и И 083.
+Строки дверей выше отражают новый п.5; остальные обязательства не меняются.
+
+Рефлексия: входная remote-ветка wip/217/architect-d уже отсутствовала
+(fetch rc 128); точный заданный объект 1d3fd398714c055ae4485cf94d58160194f9e087
+доступен локально и выбран без замены базы. Общий журнал А-NN из wip
+не изменялся: это процессное наблюдение передаётся orchestrator этим листом.

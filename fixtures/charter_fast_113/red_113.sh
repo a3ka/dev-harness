@@ -144,6 +144,13 @@ gonka_kletka() {
       snap "$WORK/gonka-$vetka.seed" "$R" "$CHARTER" --incr "$KESH" "$R"
       seedrc="$(sed -n 's/^rc=//p' "$WORK/gonka-$vetka.seed" | tail -n1)"
       [ "$seedrc" = "0" ] || { krasnym "Д/gonka_kesha(а): сеяный прогон барьера не зелёный (rc=$seedrc)"; bad_=1; continue; }
+      # 217 И1/И2: пустое окно не читает историю и не запускает расписание.
+      # Чистый потомок сеяного HEAD делает окно непустым: И3а 113 по-прежнему
+      # проверяет снимок ДО истории, а не пропускает несостоявшуюся гонку.
+      git -C "$R" -c core.hooksPath=/dev/null -c commit.gpgsign=false \
+        -c user.name=fixture -c user.email=fixture@local \
+        commit --allow-empty -qm '113: непустое окно перед гонкой (217)' \
+        || { krasnym "Д/gonka_kesha(а): непустое окно не построено"; bad_=1; continue; }
     fi
     h0="$(git -C "$R" rev-parse HEAD)"
     gonka_snap "$WORK/gonka-$vetka.race" "$R" "$KESH" "$MK"
