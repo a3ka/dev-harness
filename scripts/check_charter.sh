@@ -436,6 +436,24 @@ grandfather_pair() {
       [ "$p" = "contracts/217-incr-pustoe-okno.md" ] && return 0 ;;
     8f2dc6c24f5b54425eb3e3a0106984f5edffc44c)
       [ "$p" = "contracts/143-mob-ci-razdelenie.md" ] && return 0 ;;
+    11e4aaadbdfe99b993860a41b6106f32d20c4f15)
+      { [ "$p" = "contracts/209-zasev-trassy-proekta.md" ]; } && return 0 ;;
+    1c2d1c1e2b45679f93121215ef06c272b5462317)
+      { [ "$p" = "contracts/206-sreda-sudji.md" ] || [ "$p" = "contracts/207-check-zones-incr-odin-sud-okna.md" ]; } && return 0 ;;
+    3e8db2655d08dcdfbf0fffaf4fb0d6f0a293b95d)
+      { [ "$p" = "contracts/206-sreda-sudji.md" ]; } && return 0 ;;
+    71384784ddfa74a78e55dc7c2e19157ffa88460b)
+      { [ "$p" = "contracts/205-provodka-gate-profilja.md" ]; } && return 0 ;;
+    78579513c3c40833fc4af321514925a441f20738)
+      { [ "$p" = "contracts/212-replace-posle-lenda.md" ]; } && return 0 ;;
+    90365f1054c34911d577bdcc68a9c7ee7e6fd01a)
+      { [ "$p" = "contracts/207-check-zones-incr-odin-sud-okna.md" ]; } && return 0 ;;
+    a1654418fef324ab4ee5cb0ec3e9f70db6a7c33d)
+      { [ "$p" = "contracts/210-charter-tekst-do-tega.md" ]; } && return 0 ;;
+    c25196f6cb8245759f20788cf91ee8293216d4d8)
+      { [ "$p" = "contracts/211-d52-bootstrap-sudej.md" ]; } && return 0 ;;
+    ef7ce55f313bf563e1242f4e91bc4cf1037b6931)
+      { [ "$p" = "contracts/206-sreda-sudji.md" ] || [ "$p" = "contracts/207-check-zones-incr-odin-sud-okna.md" ]; } && return 0 ;;
     0872189c654c9728f2753c36a48f99a0322ad2fd)
       [ "$p" = "contracts/037-samodostatochnyj-cwd-i-priemnik-task.md" ] && return 0 ;;
     19678a0034fba8906a4103965516494de2ae58d2)
