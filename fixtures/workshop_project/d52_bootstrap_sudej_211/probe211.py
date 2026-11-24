@@ -920,6 +920,43 @@ def kejsy():
                 k_stdout(r, puschem('Crit211', SUBJ, 'critic'), 'b37'),
                 k_text(r, '', 'b37'), k_start(m, 'Crit211', W, 'b37')]
 
+    def d52_spisok(nabor, plohie, kontroli=()):
+        # Ожидания D52 — литералы поведения БАЗЫ 1ec47271534b8c468611ce26a7769eaeec298644,
+        # не результат запуска production или сортировки в проверяющем.
+        # Для kontrakt_tekst(211, klass): ordinary blob 0b86d5d8…,
+        # risky blob a1c4cd545…; база читает ordinary первым, затем risky.
+        # Полный список ошибок и его порядок заданы каждым входом отдельно.
+        def case(m, door):
+            checks = []
+            for i, (fajly, bad) in enumerate(((nabor, plohie), *kontroli)):
+                chto = 'D52 предъявление %d' % i
+                mir = m if i == 0 else Mir(m.root / ('kontrol-%d' % i))
+                wt, br, _ = nositel(mir, SUBJ, 'обычный')
+                kat = Path(wt) / 'contracts'
+                (kat / '211-fixture.md').unlink()
+                for imja, klass in fajly:
+                    (kat / imja).write_text(kontrakt_tekst(SUBJ, klass),
+                                            encoding='utf-8')
+                W = kommit_vse(wt, 'D52 spisok')
+                avtor_sdal(mir, SUBJ, wt, br)
+                for repo in (mir.repo, wt):
+                    tags = run(['git', '-C', str(repo), 'for-each-ref',
+                                'refs/tags/frozen/contracts/' + SUBJ + '/'])
+                    assert tags.returncode == 0 and tags.stdout == b''
+                # Все ожидания — в памяти ДО субъекта, включая тихий
+                # stderr честных контролей; каждая труба сравнивается целиком.
+                stderr = (('ПРЕДУПРЕЖДЕНИЕ: KLASS_RISKA_NET: предмет 211: '
+                           'класс риска неоднозначно определён (neodnoznachno); '
+                           'файлы: %s — класс не определён, предмет считается '
+                           'рисковым\n') % bad).encode('utf-8') if bad else b''
+                stdout = bajty(puschem('Crit211', SUBJ, 'critic'))
+                r = sudit(door, mir, vyzov(mir, 'critic', 'Crit211', W))
+                checks.extend([k_rc(r, 0, chto), k_stdout(r, stdout, chto),
+                               k_text(r, stderr, chto),
+                               k_start(mir, 'Crit211', W, chto)])
+            return checks
+        return case
+
     reg('b01-bootstrap-adversary',
         'тег /1 на предке, байты равны, строки на main нет — адверсарий без предупреждения',
         b01)
@@ -1013,6 +1050,25 @@ def kejsy():
     reg('b36-katalog-ne-kanon', 'равный каталог 040000 в F/OBJECT — отказ', ne_fajl('tree'))
     reg('b37-d52-legacy-nositelja',
         'critic D52 без frozen: legacy носителя остаётся источником — без предупреждения', b37)
+    reg('b44-d52-dva-raznyh-klassa',
+        'D52: a рисковый, z обычный — stderr базы; контроль одного файла',
+        d52_spisok((('211-a.md', 'рисковый'), ('211-z.md', 'обычный')),
+                   '211-a.md',
+                   kontroli=[([('211-a.md', 'обычный')], '')]))
+    reg('b45-d52-tri-fajla',
+        'D52: a/m/z р/о/р — полный список a z в порядке базы; равные классы зелены',
+        d52_spisok((('211-a.md', 'рисковый'), ('211-m.md', 'обычный'),
+                    ('211-z.md', 'рисковый')), '211-a.md 211-z.md',
+                   kontroli=[([('211-a.md', 'обычный'), ('211-z.md', 'обычный')], '')]))
+    reg('b46-d52-cifrovye-imena',
+        'D52: 10 обычный, 2 рисковый — stderr базы; числовая форма имени не меняет ключ',
+        d52_spisok((('211-10.md', 'обычный'), ('211-2.md', 'рисковый')),
+                   '211-2.md'))
+    reg('b47-d52-obratnoe-sozdanie',
+        'D52: z создан раньше a — stderr базы; non-ASCII без неоднозначности зелён',
+        d52_spisok((('211-z.md', 'обычный'), ('211-a.md', 'рисковый')),
+                   '211-a.md',
+                   kontroli=[([('211-a.md', 'обычный'), ('211-риск.md', 'обычный')], '')]))
     return K
 
 
@@ -1107,15 +1163,18 @@ STAB_MUTACII = {
         t, '''      if [ "$kr" = 'risikovyj' ] && [ "$rol" = 'reviewer' ]; then''',
         '''      if false; then'''),
     'st54-ls-tree-bez-z': lambda t: _mut(
-        t, '''  done < <(git -C "$wt" ls-tree -z "$derevo" 2>/dev/null)''',
+        t, '''  done < <(git -C "$wt" ls-tree -z "$derevo" 2>/dev/null | LC_ALL=C sort -z)''',
         r'''  done < <(git -C "$wt" ls-tree "$derevo" 2>/dev/null |
-    awk -F'\t' -v n="$n" '$2 ~ "^" n "-[^/]*[.]md$" {printf "%s%c", $0, 0}')'''),
+    awk -F'\t' -v n="$n" '$2 ~ "^" n "-[^/]*[.]md$" {printf "%s%c", $0, 0}' | LC_ALL=C sort -z)'''),
     'st55-sravnenie-s-mode': lambda t: _mut(
         t, r'''    printf '%q %s\n' "$imya" "$blob"''',
         r'''    printf '%q %s %s\n' "$imya" "$blob" "$mode"'''),
     'st56-umolchanie-vladelca-repo': lambda t: _mut(
         t, r'''  owner="${4:-$wt}"''',
         r'''  owner="${4:-$REPO}"'''),
+    'st57-ordered-by-name-only': lambda t: _mut(
+        t, '''  done < <(git -C "$wt" ls-tree -z "$derevo" 2>/dev/null | LC_ALL=C sort -z)''',
+        '''  done < <(git -C "$wt" ls-tree -z "$derevo" 2>/dev/null)'''),
 }
 
 STAB_VHOD = {
@@ -1150,6 +1209,9 @@ STAB_VHOD = {
                           'b33-imja-lf-posle-f'],
     'st55-sravnenie-s-mode': ['b34-tolko-mode'],
     'st56-umolchanie-vladelca-repo': ['b37-d52-legacy-nositelja'],
+    'st57-ordered-by-name-only': ['b44-d52-dva-raznyh-klassa',
+                                'b45-d52-tri-fajla',
+                                'b47-d52-obratnoe-sozdanie'],
 }
 
 
