@@ -38,6 +38,14 @@ def cells(p):
     for site in ('d1', 'd2', 'cm', 'cm2'):
         for decision in ('allow', 'deny'):
             result.append(p.Cell(f'wire-167-{site}-{decision}', 'history', 'seam', slug='a"quote'))
+    for form, slug in (('ascii', 'ascii'), ('quote', 'a"quote'), ('slash', 'a\\slash'),
+                       ('cyrillic', 'кириллица'), ('nfc', 'café'),
+                       ('nfd', 'cafe\u0301'), ('space', 'a space')):
+        for shape in ('draft', 'history', 'land', 'edit'):
+            result.append(p.Cell(f'wire-frozenscope-{form}-{shape}', shape, 'seam', slug=slug))
+        for seam in ('zoneshead', 'zonestag'):
+            for decision in ('valid', 'invalid'):
+                result.append(p.Cell(f'wire-{seam}-{form}-{decision}', 'history', 'seam', slug=slug))
     return result
 
 
@@ -53,6 +61,10 @@ def observe(p, cell, sources, scratch, override=None):
             dest.write_bytes(raw)
         if cell.name.startswith('wire-route-'):
             return route(p, cell, world, sources)
+        if cell.name.startswith('wire-frozenscope-'):
+            return frozen_scope(p, cell, world, sources, override)
+        if cell.name.startswith(('wire-zoneshead-', 'wire-zonestag-')):
+            return zones_tree(p, cell, world, sources, tmp, override)
         model = sources.get('reader-model.sh')
         libs = '''set -uo pipefail
 NEXT_ID_LIB=1
@@ -243,6 +255,101 @@ locations=(contracts/)
 
 def quote(value):
     return "'" + value.replace("'", "'\\''") + "'"
+
+
+def frozen_scope(p, cell, world, sources, override):
+    """Whole external CLI: discovery, blob judgment and census, not only v+1."""
+    root = world.root
+    world.commit('scope-verdict', {'verdicts/critic/contracts-810-v1.md': b'accept\n'},
+                 [world.head])
+    p.git(root, 'update-ref', 'refs/heads/main', world.commits['scope-verdict'])
+    summary = '\nпланов и контрактов на HEAD: 1 · черновиков: {} · заморожено: {} · реестр: full\n'
+    path = world.path
+    if cell.shape == 'draft':
+        expected = (0, b'', (f'  ok   {path} — черновик, не заморожен\n' + summary.format(1, 0)).encode())
+    elif cell.shape == 'edit':
+        # Blob IDs are taken from the input bytes before invoking the subject.
+        head_blob = p.git(root, 'hash-object', '--stdin', data=b'after freeze\n').strip().decode()
+        tag_blob = p.git(root, 'hash-object', '--stdin', data=cell.value).strip().decode()
+        reason = (f'  FAIL {path} изменён без новой заморозки: на HEAD блоб {head_blob}, '
+                  f'в заморозке v1 — {tag_blob}. Выход: новый вердикт критика v2, '
+                  'freeze_contract.sh и строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ: в изменяющем коммите\n')
+        expected = (1, b'', (reason + summary.format(0, 1)).encode())
+    else:
+        expected = (0, b'', (f'  ok   {path} — заморожен v1, блоб совпадает побайтово, '
+                            'вердикты v1..v1 разрешают\n' + summary.format(0, 1)).encode())
+    if override:
+        expected = (0, b'', '\nпланов и контрактов на HEAD: 0 · черновиков: 0 · заморожено: 0 · реестр: full\n'.encode())
+    if 'reader-model.sh' in sources:
+        raw = sources['scripts/check_contract_frozen.sh']
+        start = raw.index(b'\ng ls-tree', raw.index('# ── предмет:'.encode()))
+        end = raw.index('# Все теги'.encode(), start)
+        old = raw[start:end]
+        raw = raw.replace(old, b'\n. "$ROOT/reader-model.sh"\nfrozen_scope_210\n\n', 1)
+        loop = b'while IFS= read -r f; do'
+        if raw.count(loop) != 1:
+            raise p.Prerequisite('FROZEN_SCOPE_LOOP_NOT_UNIQUE')
+        raw = raw.replace(loop, b'while IFS= read -r -d "$scope_delimiter_210" f; do', 1)
+        (root / 'scripts/check_contract_frozen.sh').write_bytes(raw)
+    before = p.snapshot(root)
+    actual = p.command(['bash', root / 'scripts/check_contract_frozen.sh', root], cwd=root)
+    if actual[0] not in (0, 1):
+        raise p.Prerequisite(f'FROZEN_SCOPE_ENVIRONMENT: {actual!r}')
+    if p.snapshot(root) != before:
+        raise p.Prerequisite('FROZEN_SCOPE_MUTATED_WORLD')
+    return actual, expected
+
+
+def zones_tree(p, cell, world, sources, tmp, override):
+    """Address the two independent selectors, with the real zone parser downstream."""
+    root = world.root
+    head = cell.name.startswith('wire-zoneshead-')
+    invalid = cell.name.endswith('-invalid')
+    body = 'ЗОНА broken\n'.encode() if invalid else ('ЗОНА architect: ' + ('head/' if head else 'frozen/') + '\n').encode()
+    # The frozen source and HEAD deliberately disagree: reading the wrong ref is red.
+    if not head:
+        world.commit('zones-freeze', {world.path: body})
+        p.git(root, 'tag', '-d', 'frozen/contracts/810/1')
+        world.annotate('frozen/contracts/810/1', 'zones-freeze')
+    world.commit('zones-head', {world.path: body if head else 'ЗОНА architect: decoy/\n'.encode(),
+                               'verdicts/critic/contracts-810-v2.md': b'accept\n'},
+                 message=f'РАЗРЕШИЛ-ВЛАДЕЛЕЦ: {world.path} authorized\n')
+    p.git(root, 'update-ref', 'refs/heads/main', world.commits['zones-head'])
+    raw = sources['scripts/check_zones.sh']
+    if head:
+        reader = between(raw, '  file_head="$(', '\n  [ -n "$body_head" ]')
+        selected, contents = 'file_head', 'body_head'
+        entry = 'zones_head_tree_210'
+    else:
+        reader = between(raw, '    file="$(g ls-tree', '\n  fi\n\n  declared=0')
+        selected, contents = 'file', 'body'
+        entry = 'zones_tag_tree_210'
+    if 'reader-model.sh' in sources:
+        reader = sources['reader-model.sh'].decode() + '\n' + entry + '\n'
+    program = f'ROOT={quote(str(root))}\nTMP={quote(str(tmp))}\n' + '''
+set -euo pipefail
+. "$ROOT/scripts/lib_zones.sh"
+g() { git -C "$ROOT" "$@"; }
+file= body= file_head= body_head= vmax=1
+: > "$TMP/zones_scoped"
+: > "$TMP/zones_violations"
+for nnn in 810; do
+''' + reader + f'''
+  zones_declare_rows "$nnn" "${{{selected}}}" "$TMP" < <(printf '%s\\n' "${{{contents}}}" | grep '^ЗОНА ' || true)
+done
+printf '%s\\0%s\\0' "${{{selected}}}" "${{{contents}}}"
+cat "$TMP/zones_scoped" "$TMP/zones_violations"
+'''
+    payload = world.path.encode() + b'\0' + body.rstrip(b'\n') + b'\0'
+    if invalid:
+        payload += b'810\0' + world.path.encode() + b'\0bad_author\0broken\0\0' + body
+    else:
+        payload += b'architect\t' + (b'head/' if head else b'frozen/') + b'\t810\n'
+    expected = (0, b'\0\0' if override else payload, b'')
+    actual = p.command(['bash', '-c', program], cwd=root)
+    if actual[0] not in (0, 1):
+        raise p.Prerequisite(f'ZONES_TREE_ENVIRONMENT: {actual!r}')
+    return actual, expected
 
 def route(p, cell, world, sources):
     """Live next_id -> mint_line -> ordinary commit, with the real pre-commit."""

@@ -67,3 +67,28 @@ zones_reader_210() {
     done < "$TMP/delta"
   done <<<"$pred_komity"
 }
+frozen_scope_210() {
+  scope_delimiter_210=''
+  g ls-tree -z -r --name-only HEAD -- ':(literal)plans/' ':(literal)contracts/' > "$TMP/scope-raw" || return 1
+  while IFS= read -r -d '' path_210; do
+    case "$path_210" in *.md) printf '%s\0' "$path_210" ;; esac
+  done < "$TMP/scope-raw" | sort -z > "$TMP/files"
+}
+zones_head_tree_210() {
+  file_head=""
+  g ls-tree -z -r --name-only HEAD -- ':(literal)contracts/' > "$TMP/zone-head" || return 1
+  while IFS= read -r -d '' path_210; do
+    case "$path_210" in contracts/"$nnn"-*) file_head="$path_210"; break ;; esac
+  done < "$TMP/zone-head"
+  body_head=""
+  [ -z "$file_head" ] || body_head="$(g cat-file -p "HEAD:$file_head")"
+}
+zones_tag_tree_210() {
+  file=""
+  g ls-tree -z -r --name-only "refs/tags/frozen/contracts/$nnn/$vmax^{commit}" -- ':(literal)contracts/' > "$TMP/zone-tag" || return 1
+  while IFS= read -r -d '' path_210; do
+    case "$path_210" in contracts/"$nnn"-*) file="$path_210"; break ;; esac
+  done < "$TMP/zone-tag"
+  body=""
+  [ -z "$file" ] || body="$(g cat-file -p "refs/tags/frozen/contracts/$nnn/$vmax^{commit}:$file")"
+}

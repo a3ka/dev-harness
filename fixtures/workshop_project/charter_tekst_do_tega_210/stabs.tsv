@@ -42,3 +42,6 @@ NUL-167-D2	wire-167-d2-deny
 NUL-167-CM	wire-167-cm-allow
 NUL-167-CM2	wire-167-cm2-allow
 NUL-OWNER-READ	wire-ownerread-quote
+NUL-FROZEN-SCOPE	wire-frozenscope-quote-edit
+NUL-ZONES-HEAD-TREE	wire-zoneshead-quote-invalid
+NUL-ZONES-FROZEN-TREE	wire-zonestag-quote-invalid
