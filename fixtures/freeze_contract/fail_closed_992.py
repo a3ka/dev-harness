@@ -5,6 +5,11 @@
 model only patches copied subjects; production scripts are implementer's zone.
 Fault shims delegate every non-target invocation to the real binary. Assertions
 and pre-call state remain in this process, outside the subject's directory.
+
+A cell whose branch does not exist in the packet-A parent is reported as N/A
+with its reason (NA_PARENT_A): it is neither observed nor judged. N/A is
+granted only when the fault is NOT deliverable on that revision, so the claim
+is measured by the run, not asserted in prose.
 """
 import argparse
 import json
@@ -88,6 +93,19 @@ CASES = {
     'B-done-versions': ('done_contract.sh', r'done: .*for-each-ref.*'),
     'B-ci-ok-write': ('check_ci_gate.sh', r'ОТКАЗ: журнал: check-строка не записана:.*'),
     'B-ci-fail-write': ('check_ci_gate.sh', r'ОТКАЗ: журнал: check-строка не записана:.*'),
+}
+
+# Cells whose subject has no such branch in the packet-A parent (3e071370^):
+# the scenario is not executable there, so the cell is INAPPLICABLE with a named
+# reason — not a weakened expectation. The reason states the code fact; the run
+# confirms it (the fault is not deliverable — see the N/A branch in main()).
+NA_PARENT_A = {
+    'C-charter-fast-log': (
+        'быстрый режим check_charter.sh (контракт 113, коммит 80f610153) введён '
+        'ПОСЛЕ parent-A (3e071370^): обход истории там — git rev-list + git diff-tree '
+        'на коммит, одиночного `git log --name-only` в коде нет — сбой git log '
+        'доставить нечем, клетка к parent-A неприменима'
+    ),
 }
 
 
@@ -289,6 +307,8 @@ def main():
         return 0
     selected = [args.case] if args.case else list(CASES)
     failures = 0
+    observations = 0
+    not_applicable = 0
     from model_992 import candidate
     for case in selected:
         name = CASES[case][0]
@@ -302,6 +322,14 @@ def main():
         for label, source in versions:
             green, grc, gout, _ = execute(case, source, False)
             ok, rc, out, hit = execute(case, source, True)
+            na = NA_PARENT_A.get(case) if label == 'parent-A' else None
+            if na is not None and not hit:
+                # Ветви клетки в коде parent-A нет: сбой НЕ доставляется, сценарий
+                # неисполним — клетка НЕ наблюдается и НЕ судится, причина — в строке.
+                not_applicable += 1
+                print(f'{case} {label}: N/A ({na})')
+                print(f'  измерение: сбой не доставлен (hit=0, control_rc={grc}, fault_rc={rc}) — ветви в коде parent-A нет')
+                continue
             expected = ok
             if args.matrix:
                 if label == 'model' or (label == 'current' and case.startswith('A-')):
@@ -309,13 +337,14 @@ def main():
                 else:
                     expected = not ok and rc == (1 if '-ci-' in case else 0)
             good = green and expected and hit
+            observations += 1
             failures += not good
             print(f'{case} {label}: control_rc={grc} fault_rc={rc} oracle={int(ok)} hit={int(hit)} accepted={int(good)}')
             if rc or not good:
                 print('  ' + out.replace('\n', '\n  '))
             if not green:
                 print('  CONTROL: ' + gout.replace('\n', '\n  '))
-    print(f'cases={len(selected)} observations={len(selected)*(3 if args.matrix else 1)} failures={failures}')
+    print(f'cases={len(selected)} observations={observations} failures={failures} not_applicable={not_applicable}')
     return int(failures != 0)
 
 
