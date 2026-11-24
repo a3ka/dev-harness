@@ -1,0 +1,975 @@
+{
+  "base": "55d9be4484bf058d655a2eef6b558ab21d9393d9",
+  "workflow": {
+    "name": "mobile",
+    "on": {
+      "pull_request": null,
+      "push": {
+        "branches": [
+          "main"
+        ]
+      },
+      "schedule": [
+        {
+          "cron": "17 1 * * *"
+        }
+      ],
+      "workflow_dispatch": null
+    },
+    "permissions": {
+      "contents": "read"
+    },
+    "concurrency": {
+      "group": "${{ github.event_name == 'pull_request' && format('mobile-pr-{0}', github.event.number) || (github.event_name == 'schedule' && 'mobile-nightly' || (github.event_name == 'workflow_dispatch' && format('mobile-dispatch-{0}', github.sha) || format('mobile-{0}', github.ref))) }}",
+      "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+    },
+    "defaults": {
+      "run": {
+        "working-directory": "mobile"
+      }
+    },
+    "jobs": {
+      "select-screens": {
+        "runs-on": [
+          "self-hosted",
+          "linux",
+          "x64",
+          "complior"
+        ],
+        "timeout-minutes": 10,
+        "outputs": {
+          "selection": "${{ steps.sel.outputs.selection }}",
+          "e2e-splash": "${{ steps.vybor.outputs.e2e-splash }}",
+          "e2e-first-run": "${{ steps.vybor.outputs.e2e-first-run }}",
+          "e2e-erstinformation": "${{ steps.vybor.outputs.e2e-erstinformation }}",
+          "e2e-start": "${{ steps.vybor.outputs.e2e-start }}",
+          "e2e-pilot": "${{ steps.vybor.outputs.e2e-pilot }}",
+          "matrix": "${{ steps.sel.outputs.matrix }}"
+        },
+        "steps": [
+          {
+            "uses": "actions/checkout@v7",
+            "with": {
+              "persist-credentials": false,
+              "fetch-depth": 0
+            }
+          },
+          {
+            "name": "Изоляция раннера (/home недоступен коду из PR)",
+            "run": "test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness"
+          },
+          {
+            "name": "Выбор экранов (select-ci-screens.cjs, fail-closed)",
+            "id": "sel",
+            "working-directory": "${{ github.workspace }}",
+            "run": "set -euo pipefail\ncase \"${{ github.event_name }}\" in\n  pull_request) MODE=pull_request ;;\n  push) MODE=push ;;\n  schedule) MODE=schedule ;;\n  workflow_dispatch) MODE=dispatch ;;\n  merge_group) MODE=merge_group ;;\n  *) echo \"REZHIM: ${{ github.event_name }}\" >&2; exit 1 ;;\nesac\nARGS=(--mode \"$MODE\" --out selection.json --repo .)\nif [ \"$MODE\" = pull_request ]; then\n  ARGS+=(--base-sha \"${{ github.event.pull_request.base.sha }}\" --head-sha \"${{ github.event.pull_request.head.sha }}\" --pr \"${{ github.event.pull_request.number }}\")\nelif [ \"$MODE\" = push ]; then\n  ARGS+=(--base-sha \"${{ github.event.before }}\" --head-sha \"${{ github.sha }}\")\nelif [ \"$MODE\" = merge_group ]; then\n  ARGS+=(--base-sha \"${{ github.event.merge_group.base_sha }}\" --head-sha \"${{ github.event.merge_group.head_sha }}\")\nfi\nnode mobile/scripts/select-ci-screens.cjs \"${ARGS[@]}\"\n{\n  echo \"selection<<SELECTION_KONEC\"\n  cat selection.json\n  echo \"SELECTION_KONEC\"\n} >> \"$GITHUB_OUTPUT\"\n"
+          },
+          {
+            "name": "Выходы выбора по работникам",
+            "id": "vybor",
+            "working-directory": "${{ github.workspace }}",
+            "run": "set -euo pipefail\nnode -e '\n  const fs = require(\"fs\");\n  const sel = JSON.parse(fs.readFileSync(\"selection.json\", \"utf8\"));\n  const fs2 = require(\"fs\");\n  const out = [];\n  for (const s of sel.selected) out.push(`${s.job}=true`);\n  for (const e of sel.excluded) out.push(`${e.job}=false`);\n  fs2.appendFileSync(process.env.GITHUB_OUTPUT, out.join(\"\\n\") + \"\\n\");\n'\n"
+          },
+          {
+            "name": "Артефакт selection.json",
+            "if": "always()",
+            "working-directory": "${{ github.workspace }}",
+            "run": "npm run ci:artefakt-zapis -- --imja selection --chto selection.json"
+          }
+        ]
+      },
+      "quality": {
+        "runs-on": [
+          "self-hosted",
+          "linux",
+          "x64",
+          "complior"
+        ],
+        "timeout-minutes": 15,
+        "steps": [
+          {
+            "uses": "actions/checkout@v7",
+            "with": {
+              "persist-credentials": false
+            }
+          },
+          {
+            "name": "Изоляция раннера (/home недоступен коду из PR)",
+            "run": "test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness"
+          },
+          {
+            "uses": "actions/setup-python@v7",
+            "with": {
+              "python-version": "3.12"
+            }
+          },
+          {
+            "uses": "actions/setup-node@v7",
+            "with": {
+              "node-version-file": ".node-version",
+              "cache": "npm",
+              "cache-dependency-path": "mobile/package-lock.json"
+            }
+          },
+          {
+            "name": "212 батарея --repo",
+            "working-directory": "${{ github.workspace }}",
+            "run": "npm run ci:red_mob_harness_events_212"
+          },
+          {
+            "name": "Checkout frozen probe harness H",
+            "uses": "actions/checkout@v7",
+            "with": {
+              "repository": "a3ka/dev-harness",
+              "ref": "b9b4c66f3d84dc8aa7eb7c8e83b466e807817416",
+              "path": ".harness",
+              "persist-credentials": false
+            }
+          },
+          {
+            "name": "cmp frozen pilot.test.tsx + source.json с H",
+            "working-directory": "${{ github.workspace }}",
+            "run": "set -e\ntest -f mobile/src/bootstrap/__tests__/pilot.test.tsx\ntest -f mobile/src/bootstrap/__tests__/source.json\ncmp mobile/src/bootstrap/__tests__/pilot.test.tsx .harness/fixtures/workshop_project/pilot_995/pilot.test.tsx\ncmp mobile/src/bootstrap/__tests__/source.json .harness/fixtures/workshop_project/pilot_995/source.json\n"
+          },
+          {
+            "run": "npm ci --no-audit --no-fund"
+          },
+          {
+            "name": "Checkout H батареи 151 (публичный dev-harness, SHA-пин)",
+            "uses": "actions/checkout@v7",
+            "with": {
+              "repository": "a3ka/dev-harness",
+              "ref": "4467f5e24d441b66cf1cf01892e7853c73034d60",
+              "path": ".harness151",
+              "persist-credentials": false
+            }
+          },
+          {
+            "name": "151 батарея --model (реальный Jest продукта)",
+            "working-directory": "${{ github.workspace }}",
+            "env": {
+              "PYTHONDONTWRITEBYTECODE": "1"
+            },
+            "run": "set -e\nbash .harness151/fixtures/workshop_project/gespraech_otdacha_151/red_gespraech_otdacha_151.sh --model --runtime \"$GITHUB_WORKSPACE\"\n"
+          },
+          {
+            "name": "151 батарея --stabs (обманные стабы красны своей клеткой)",
+            "working-directory": "${{ github.workspace }}",
+            "env": {
+              "PYTHONDONTWRITEBYTECODE": "1"
+            },
+            "run": "set -e\nbash .harness151/fixtures/workshop_project/gespraech_otdacha_151/red_gespraech_otdacha_151.sh --stabs --runtime \"$GITHUB_WORKSPACE\"\n"
+          },
+          {
+            "name": "151 батарея --repo (реализация продукта)",
+            "working-directory": "${{ github.workspace }}",
+            "env": {
+              "PYTHONDONTWRITEBYTECODE": "1"
+            },
+            "run": "set -e\nbash .harness151/fixtures/workshop_project/gespraech_otdacha_151/red_gespraech_otdacha_151.sh --repo \"$GITHUB_WORKSPACE\"\n"
+          },
+          {
+            "name": "probe.py --check-frozen (H, --repo disposable R)",
+            "working-directory": "${{ github.workspace }}",
+            "run": "set -e\nmkdir -p /tmp/dev-harness-verify\ncp -a . /tmp/dev-harness-verify/impl995-r-${{ github.run_id }}-${{ github.run_attempt }}\npython3 -m pip install -r /tmp/dev-harness-verify/impl995-r-${{ github.run_id }}-${{ github.run_attempt }}/.harness/fixtures/workshop_project/pilot_995/requirements.txt\ncd /tmp/dev-harness-verify/impl995-r-${{ github.run_id }}-${{ github.run_attempt }}\npython3 .harness/fixtures/workshop_project/pilot_995/probe.py --repo . --check-frozen\n"
+          },
+          {
+            "name": "runtime_probe.py, bundle_probe.py, schema_probe.py, frozen_matrix.py, transport_probe.py, admission_probe.py, stale_probe.py, types_probe.py, pins_probe.py, admission_family_probe.py, stale_table_probe.py (H, --repo disposable R)",
+            "working-directory": "${{ github.workspace }}",
+            "run": "set -e\ncd /tmp/dev-harness-verify/impl995-r-${{ github.run_id }}-${{ github.run_attempt }}\npython3 .harness/fixtures/workshop_project/pilot_995/runtime_probe.py --repo .\npython3 .harness/fixtures/workshop_project/pilot_995/bundle_probe.py --repo .\npython3 .harness/fixtures/workshop_project/pilot_995/schema_probe.py --repo .\npython3 .harness/fixtures/workshop_project/pilot_995/frozen_matrix.py --repo .\npython3 .harness/fixtures/workshop_project/pilot_995/transport_probe.py --repo .\npython3 .harness/fixtures/workshop_project/pilot_995/admission_probe.py --repo .\npython3 .harness/fixtures/workshop_project/pilot_995/stale_probe.py --repo .\npython3 .harness/fixtures/workshop_project/pilot_995/types_probe.py --repo .\npython3 .harness/fixtures/workshop_project/pilot_995/pins_probe.py --repo .\npython3 .harness/fixtures/workshop_project/pilot_995/admission_family_probe.py --repo .\npython3 .harness/fixtures/workshop_project/pilot_995/stale_table_probe.py --repo .\n"
+          },
+          {
+            "name": "999 nav_probe.py / ui_probe.py / shell_static_probe.py / copy_probe.py (H, --repo disposable R)",
+            "working-directory": "${{ github.workspace }}",
+            "run": "set -e\nmkdir -p /tmp/dev-harness-verify\ncp -a . /tmp/dev-harness-verify/impl999-r-${{ github.run_id }}-${{ github.run_attempt }}\ncd /tmp/dev-harness-verify/impl999-r-${{ github.run_id }}-${{ github.run_attempt }}\npython3 .harness/fixtures/workshop_project/nav_999/nav_probe.py --repo .\npython3 .harness/fixtures/workshop_project/nav_999/ui_probe.py --repo .\npython3 .harness/fixtures/workshop_project/nav_999/shell_static_probe.py --repo .\npython3 .harness/fixtures/workshop_project/nav_999/copy_probe.py --repo .\n"
+          },
+          {
+            "name": "108 start_static_probe.py / start_probe.py (H, --repo disposable R)",
+            "working-directory": "${{ github.workspace }}",
+            "run": "set -e\nmkdir -p /tmp/dev-harness-verify\ncp -a . /tmp/dev-harness-verify/impl108-r-${{ github.run_id }}-${{ github.run_attempt }}\ncd /tmp/dev-harness-verify/impl108-r-${{ github.run_id }}-${{ github.run_attempt }}\npython3 .harness/fixtures/workshop_project/start_108/start_static_probe.py --repo .\npython3 .harness/fixtures/workshop_project/start_108/start_probe.py --repo .\n"
+          },
+          {
+            "name": "111 first_run_static_probe.py / first_run_probe.py (H, --repo disposable R)",
+            "working-directory": "${{ github.workspace }}",
+            "run": "set -e\nmkdir -p /tmp/dev-harness-verify\ncp -a . /tmp/dev-harness-verify/impl111-r-${{ github.run_id }}-${{ github.run_attempt }}\ncd /tmp/dev-harness-verify/impl111-r-${{ github.run_id }}-${{ github.run_attempt }}\npython3 .harness/fixtures/workshop_project/first_run_111/first_run_static_probe.py --repo .\npython3 .harness/fixtures/workshop_project/first_run_111/first_run_probe.py --repo .\n"
+          },
+          {
+            "name": "Checkout probe battery 117 (frozen/contracts/117/5)",
+            "uses": "actions/checkout@v7",
+            "with": {
+              "repository": "a3ka/dev-harness",
+              "ref": "4ac99af9fe8b02f16206b5c98bb9556556c05e74",
+              "path": ".harness117",
+              "persist-credentials": false
+            }
+          },
+          {
+            "name": "Checkout probe battery 117 v2 — поведенческая (frozen/contracts/117/2)",
+            "uses": "actions/checkout@v7",
+            "with": {
+              "repository": "a3ka/dev-harness",
+              "ref": "8d3f48b886b180689114f15bc90c8d13bcd8480f",
+              "path": ".harness117b",
+              "persist-credentials": false
+            }
+          },
+          {
+            "name": "pyyaml для клеток Maestro батареи 117 (контракт 117 v5: приёмка)",
+            "working-directory": "${{ github.workspace }}",
+            "run": "python3 -m pip install 'pyyaml==6.0.1'"
+          },
+          {
+            "name": "117 vkhod_static_probe.py (v5, .harness117) / vkhod_probe.py (v2, .harness117b) — батарея 117, --repo disposable R",
+            "working-directory": "${{ github.workspace }}",
+            "run": "set -e\nmkdir -p /tmp/dev-harness-verify\ncp -a . /tmp/dev-harness-verify/impl117-r-${{ github.run_id }}-${{ github.run_attempt }}\ncd /tmp/dev-harness-verify/impl117-r-${{ github.run_id }}-${{ github.run_attempt }}\nrm -rf .harness\npython3 .harness117/fixtures/workshop_project/vkhod_117/vkhod_static_probe.py --repo .\npython3 .harness117b/fixtures/workshop_project/vkhod_117/vkhod_probe.py --repo .\n"
+          },
+          {
+            "name": "Инвентаризация пачек по карте и вынос H, батареи 117, пачек экранов из дерева до lint",
+            "working-directory": "${{ github.workspace }}",
+            "run": "set -e\nmkdir -p /tmp/dev-harness-verify\nnode mobile/scripts/select-ci-screens.cjs --mode inventar --repo . \\\n  --out /tmp/dev-harness-verify/impl-inventar-${{ github.run_id }}-${{ github.run_attempt }}.json \\\n  > /tmp/dev-harness-verify/impl-inventar-${{ github.run_id }}-${{ github.run_attempt }}.out\nwhile IFS= read -r stroka; do\n  case \"$stroka\" in\n    PACHKA\\ *)\n      pachka=\"${stroka#PACHKA }\"\n      test -n \"$pachka\"\n      test -d \"$pachka\"\n      mv \"$pachka\" \"/tmp/dev-harness-verify/impl-pack-$(basename \"${pachka%/}\")-${{ github.run_id }}-${{ github.run_attempt }}\"\n      ;;\n  esac\ndone < /tmp/dev-harness-verify/impl-inventar-${{ github.run_id }}-${{ github.run_attempt }}.out\nmv .harness /tmp/dev-harness-verify/impl995-h-${{ github.run_id }}-${{ github.run_attempt }}\nmv .harness117 /tmp/dev-harness-verify/impl117-b-${{ github.run_id }}-${{ github.run_attempt }}\nmv .harness117b /tmp/dev-harness-verify/impl117b-b-${{ github.run_id }}-${{ github.run_attempt }}\nmv .harness151 /tmp/dev-harness-verify/impl151-h-${{ github.run_id }}-${{ github.run_attempt }}\nmv mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh /tmp/dev-harness-verify/impl118-probe-${{ github.run_id }}-${{ github.run_attempt }}\n"
+          },
+          {
+            "run": "npm test"
+          },
+          {
+            "run": "npm run lint"
+          },
+          {
+            "run": "npm run typecheck"
+          },
+          {
+            "run": "npm run doctor",
+            "env": {
+              "EXPO_DOCTOR_SKIP_DEPENDENCY_VERSION_CHECK": "1"
+            }
+          }
+        ]
+      },
+      "build-apk": {
+        "needs": "quality",
+        "runs-on": [
+          "self-hosted",
+          "linux",
+          "x64",
+          "kvm",
+          "complior"
+        ],
+        "timeout-minutes": 25,
+        "outputs": {
+          "apk_sha256": "${{ steps.ident.outputs.apk_sha256 }}",
+          "artifact_name": "${{ steps.ident.outputs.artifact_name }}",
+          "run_id": "${{ steps.ident.outputs.run_id }}",
+          "run_attempt": "${{ steps.ident.outputs.run_attempt }}"
+        },
+        "steps": [
+          {
+            "uses": "actions/checkout@v7",
+            "with": {
+              "persist-credentials": false,
+              "clean": true
+            }
+          },
+          {
+            "name": "Сборка из проверяемой ревизии (HEAD == GITHUB_SHA)",
+            "working-directory": "${{ github.workspace }}",
+            "run": "test \"$(git rev-parse HEAD)\" = \"$GITHUB_SHA\""
+          },
+          {
+            "name": "Изоляция раннера (/home недоступен коду из PR)",
+            "run": "test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness"
+          },
+          {
+            "name": "Версия Node совпадает с .node-version",
+            "working-directory": "${{ github.workspace }}",
+            "run": "test \"$(node -v)\" = \"v$(cat .node-version)\""
+          },
+          {
+            "uses": "actions/setup-node@v7",
+            "with": {
+              "node-version-file": ".node-version",
+              "cache": "npm",
+              "cache-dependency-path": "mobile/package-lock.json"
+            }
+          },
+          {
+            "run": "npm ci --no-audit --no-fund"
+          },
+          {
+            "name": "Сборка release-APK (JS внутри, без Metro; только x86_64)",
+            "env": {
+              "EXPO_PUBLIC_API_MODE": "mock"
+            },
+            "run": "npx expo prebuild --platform android --no-install\ncd android && ./gradlew --no-daemon assembleRelease -PreactNativeArchitectures=x86_64 --max-workers=4\n"
+          },
+          {
+            "name": "Идентичность сборки и артефакт APK",
+            "id": "ident",
+            "working-directory": "${{ github.workspace }}",
+            "run": "set -euo pipefail\nAPK='mobile/android/app/build/outputs/apk/release/app-release.apk'\ntest -f \"$APK\"\ndigest=\"$(sha256sum \"$APK\" | awk '{print $1}')\"\nimja=\"apk-${{ github.run_id }}-${digest:0:12}\"\nprintf '%s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" \"$digest\" \"${{ github.sha }}\" \"${{ github.run_id }}\" \"${{ github.run_attempt }}\" \"$imja\" > mobile/build-identichnost.txt\n{\n  echo \"apk_sha256=$digest\"\n  echo \"artifact_name=$imja\"\n  echo \"run_id=${{ github.run_id }}\"\n  echo \"run_attempt=${{ github.run_attempt }}\"\n} >> \"$GITHUB_OUTPUT\"\n"
+          },
+          {
+            "name": "Артефакт APK (одна сборка на прогон)",
+            "if": "always()",
+            "working-directory": "${{ github.workspace }}",
+            "env": {
+              "IMJA_ARTEFAKTA": "${{ steps.ident.outputs.artifact_name }}"
+            },
+            "run": "npm run ci:artefakt-zapis -- --imja \"$IMJA_ARTEFAKTA\" --chto mobile/android/app/build/outputs/apk/release/app-release.apk"
+          }
+        ]
+      },
+      "e2e-splash": {
+        "needs": [
+          "select-screens",
+          "build-apk"
+        ],
+        "if": "needs.select-screens.outputs['e2e-splash'] == 'true'",
+        "outputs": {
+          "apk_sha256": "${{ steps.ident.outputs.apk_sha256 }}",
+          "artifact_name": "${{ steps.ident.outputs.artifact_name }}",
+          "run_id": "${{ steps.ident.outputs.run_id }}"
+        },
+        "runs-on": [
+          "self-hosted",
+          "linux",
+          "x64",
+          "kvm",
+          "complior"
+        ],
+        "timeout-minutes": 40,
+        "permissions": {
+          "contents": "read",
+          "actions": "read"
+        },
+        "steps": [
+          {
+            "uses": "actions/checkout@v7",
+            "with": {
+              "persist-credentials": false,
+              "clean": true
+            }
+          },
+          {
+            "name": "Изоляция раннера (/home недоступен коду из PR)",
+            "run": "test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness"
+          },
+          {
+            "name": "APK сборки: артефакт по имени, digest до установки",
+            "working-directory": "${{ github.workspace }}",
+            "env": {
+              "IMJA_ARTEFAKTA": "${{ needs.build-apk.outputs.artifact_name }}",
+              "ZHELANYJ_DIGEST": "${{ needs.build-apk.outputs.apk_sha256 }}",
+              "RUN_SBORKI": "${{ needs.build-apk.outputs.run_id }}",
+              "POPYTKA_SBORKI": "${{ needs.build-apk.outputs.run_attempt }}"
+            },
+            "run": "set -euo pipefail\ntest -n \"$IMJA_ARTEFAKTA\" && test -n \"$ZHELANYJ_DIGEST\"\nrm -rf apk-build && mkdir -p apk-build\nnpm run ci:artefakt-chtenie -- --imja \"$IMJA_ARTEFAKTA\" --kuda apk-build --run-id \"$RUN_SBORKI\" --run-attempt \"$POPYTKA_SBORKI\"\ntest -f apk-build/app-release.apk\ngot=\"$(sha256sum apk-build/app-release.apk | awk '{print $1}')\"\nif [ \"$got\" != \"$ZHELANYJ_DIGEST\" ]; then\n  echo \"APK_DIGEST_RASKHOZHDENIE: $got != $ZHELANYJ_DIGEST\" >&2\n  exit 1\nfi\nmkdir -p mobile/android/app/build/outputs/apk/release\ncp apk-build/app-release.apk mobile/android/app/build/outputs/apk/release/app-release.apk\n"
+          },
+          {
+            "name": "Идентичность прогона работника (outputs для агрегата)",
+            "id": "ident",
+            "working-directory": "${{ github.workspace }}",
+            "run": "set -euo pipefail\ngot=\"$(sha256sum mobile/android/app/build/outputs/apk/release/app-release.apk | awk '{print $1}')\"\n{\n  echo \"apk_sha256=$got\"\n  echo \"artifact_name=${{ needs.build-apk.outputs.artifact_name }}\"\n  echo \"run_id=${{ needs.build-apk.outputs.run_id }}\"\n} >> \"$GITHUB_OUTPUT\"\n"
+          },
+          {
+            "name": "117 splash/F03.01/F03.02 × тема (Maestro, release APK)",
+            "working-directory": "${{ github.workspace }}/mobile",
+            "run": "set -euo pipefail\nAPK='android/app/build/outputs/apk/release/app-release.apk'\nAVD=\"ci117-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}\"\nPORT=5562\nSERIAL=\"emulator-${PORT}\"\nAVDM=\"$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager\"\ncleanup117() {\n  adb -s \"$SERIAL\" emu kill >/dev/null 2>&1 || true\n  sleep 3\n  pkill -f \"qemu-system-x86_64.*-avd $AVD\" >/dev/null 2>&1 || true\n  \"$AVDM\" delete avd -n \"$AVD\" >/dev/null 2>&1 || true\n}\ntrap cleanup117 EXIT\necho no | \"$AVDM\" create avd --force -n \"$AVD\" \\\n  -k \"system-images;android-36;google_apis;x86_64\" -d pixel_7 >/dev/null\nsed -i 's/^hw.ramSize=.*/hw.ramSize=2048/' \"$ANDROID_AVD_HOME/$AVD.avd/config.ini\"\nadb start-server >/dev/null\n\n# adb-транспорт эмулятора иногда кратко уходит в offline (PR #114, шаги 995 и 117:\n# «device offline» / «device <...> not found» / DeviceServerDiedException). Ждём, пока\n# adb стабильно отвечает на shell pm path android три проверки подряд.\nwait_stable117() {\n  local ok=0\n  for _ in $(seq 1 40); do\n    if [ \"$(adb -s \"$SERIAL\" get-state 2>/dev/null)\" = \"device\" ] &&\n       adb -s \"$SERIAL\" shell pm path android >/dev/null 2>&1; then\n      ok=$((ok + 1)); [ \"$ok\" -ge 3 ] && return 0\n    else\n      ok=0\n    fi\n    sleep 2\n  done\n  echo \"ОТКАЗ: эмулятор $SERIAL не стабилизировался (adb offline)\" >&2\n  return 1\n}\n\nboot_emulator() {\n  emulator -avd \"$AVD\" -port \"$PORT\" -no-window -no-audio -no-boot-anim -no-snapshot \\\n    -gpu swiftshader_indirect >\"emulator-$AVD.log\" 2>&1 &\n  adb -s \"$SERIAL\" wait-for-device\n  for _ in $(seq 1 130); do\n    [ \"$(adb -s \"$SERIAL\" shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')\" = \"1\" ] && break\n    sleep 3\n  done\n  [ \"$(adb -s \"$SERIAL\" shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')\" = \"1\" ] || {\n    echo \"ОТКАЗ: эмулятор 117 не загрузился за 390 с\" >&2; return 1; }\n  wait_stable117\n  for s in window_animation_scale transition_animation_scale animator_duration_scale; do\n    adb -s \"$SERIAL\" shell settings put global \"$s\" 0\n  done\n  adb -s \"$SERIAL\" install -r \"$APK\" >/dev/null\n}\n\n# Прогон темы ровно один раз; при сигнатуре обрыва adb-транспорта в выводе темы —\n# перезапуск эмулятора и второй (последний) прогон этой темы с чистым каталогом.\n# Провал assert/assertVisible (rc≠0 без сигнатуры) — НЕ повторяется.\nrun_theme() {\n  local theme=\"$1\" night\n  if [ \"$theme\" = \"dark\" ]; then night=yes; else night=no; fi\n  adb -s \"$SERIAL\" shell cmd uimode night \"$night\"\n  sleep 2\n  rm -rf \"maestro-out-117/$theme\"\n  set +e\n  maestro --device \"$SERIAL\" test --format junit \\\n    --output \"maestro-out-117/report-$theme.xml\" \\\n    --test-output-dir \"maestro-out-117/$theme\" \\\n    .maestro/vkhod-117-splash-vhod.yaml\n  local rc=$?\n  set -e\n  if [ \"$rc\" -ne 0 ] && grep -rqE 'device offline|device .* not found|DeviceServerDiedException' \"maestro-out-117/$theme\" 2>/dev/null; then\n    echo \"ПОВТОР: обрыв adb-транспорта эмулятора — перезапуск и повтор темы $theme\" >&2\n    adb -s \"$SERIAL\" emu kill >/dev/null 2>&1 || true\n    sleep 3\n    pkill -f \"qemu-system-x86_64.*-avd $AVD\" >/dev/null 2>&1 || true\n    boot_emulator\n    adb -s \"$SERIAL\" shell cmd uimode night \"$night\"\n    sleep 2\n    rm -rf \"maestro-out-117/$theme\"\n    set +e\n    maestro --device \"$SERIAL\" test --format junit \\\n      --output \"maestro-out-117/report-$theme.xml\" \\\n      --test-output-dir \"maestro-out-117/$theme\" \\\n      .maestro/vkhod-117-splash-vhod.yaml\n    rc=$?\n    set -e\n  fi\n  return \"$rc\"\n}\n\nboot_emulator\nrm -rf maestro-out-117\nfor theme in dark light; do\n  run_theme \"$theme\" || { echo \"ПОВТОРЫ ИСЧЕРПАНЫ: тема $theme\" >&2; exit 1; }\ndone\n"
+          },
+          {
+            "name": "Checkout scripts/sverka_maketa.py (mob-sverka-123 implementation)",
+            "uses": "actions/checkout@v7",
+            "with": {
+              "repository": "a3ka/dev-harness",
+              "ref": "5d98a1cd745ce08eeb21b89f8e05750c4e769a0e",
+              "path": ".harness123",
+              "persist-credentials": false
+            }
+          },
+          {
+            "name": "123 сверка кадров с макетом (scripts/sverka_maketa.py)",
+            "working-directory": "${{ github.workspace }}",
+            "run": "set -o pipefail\npython3 .harness123/scripts/sverka_maketa.py --manifest .harness123/fixtures/workshop_project/mob_sverka_123/kadry_117.json --kadry mobile/maestro-out-117 --repo . | tee mobile/maestro-out-117/sverka-123.tsv\n"
+          },
+          {
+            "name": "Артефакты 117 (кадры по правилу (В), отчёт)",
+            "if": "always()",
+            "working-directory": "${{ github.workspace }}",
+            "run": "npm run ci:artefakt-zapis -- --imja maestro-117 --chto mobile/maestro-out-117"
+          }
+        ]
+      },
+      "e2e-first-run": {
+        "needs": [
+          "select-screens",
+          "build-apk"
+        ],
+        "if": "needs.select-screens.outputs['e2e-first-run'] == 'true'",
+        "outputs": {
+          "apk_sha256": "${{ steps.ident.outputs.apk_sha256 }}",
+          "artifact_name": "${{ steps.ident.outputs.artifact_name }}",
+          "run_id": "${{ steps.ident.outputs.run_id }}"
+        },
+        "runs-on": [
+          "self-hosted",
+          "linux",
+          "x64",
+          "kvm",
+          "complior"
+        ],
+        "timeout-minutes": 40,
+        "permissions": {
+          "contents": "read",
+          "actions": "read"
+        },
+        "steps": [
+          {
+            "uses": "actions/checkout@v7",
+            "with": {
+              "persist-credentials": false,
+              "clean": true
+            }
+          },
+          {
+            "name": "Изоляция раннера (/home недоступен коду из PR)",
+            "run": "test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness"
+          },
+          {
+            "name": "APK сборки: артефакт по имени, digest до установки",
+            "working-directory": "${{ github.workspace }}",
+            "env": {
+              "IMJA_ARTEFAKTA": "${{ needs.build-apk.outputs.artifact_name }}",
+              "ZHELANYJ_DIGEST": "${{ needs.build-apk.outputs.apk_sha256 }}",
+              "RUN_SBORKI": "${{ needs.build-apk.outputs.run_id }}",
+              "POPYTKA_SBORKI": "${{ needs.build-apk.outputs.run_attempt }}"
+            },
+            "run": "set -euo pipefail\ntest -n \"$IMJA_ARTEFAKTA\" && test -n \"$ZHELANYJ_DIGEST\"\nrm -rf apk-build && mkdir -p apk-build\nnpm run ci:artefakt-chtenie -- --imja \"$IMJA_ARTEFAKTA\" --kuda apk-build --run-id \"$RUN_SBORKI\" --run-attempt \"$POPYTKA_SBORKI\"\ntest -f apk-build/app-release.apk\ngot=\"$(sha256sum apk-build/app-release.apk | awk '{print $1}')\"\nif [ \"$got\" != \"$ZHELANYJ_DIGEST\" ]; then\n  echo \"APK_DIGEST_RASKHOZHDENIE: $got != $ZHELANYJ_DIGEST\" >&2\n  exit 1\nfi\nmkdir -p mobile/android/app/build/outputs/apk/release\ncp apk-build/app-release.apk mobile/android/app/build/outputs/apk/release/app-release.apk\n"
+          },
+          {
+            "name": "Идентичность прогона работника (outputs для агрегата)",
+            "id": "ident",
+            "working-directory": "${{ github.workspace }}",
+            "run": "set -euo pipefail\ngot=\"$(sha256sum mobile/android/app/build/outputs/apk/release/app-release.apk | awk '{print $1}')\"\n{\n  echo \"apk_sha256=$got\"\n  echo \"artifact_name=${{ needs.build-apk.outputs.artifact_name }}\"\n  echo \"run_id=${{ needs.build-apk.outputs.run_id }}\"\n} >> \"$GITHUB_OUTPUT\"\n"
+          },
+          {
+            "name": "Checkout H пачки first-run-ekran (.harness135)",
+            "uses": "actions/checkout@v7",
+            "with": {
+              "repository": "a3ka/dev-harness",
+              "ref": "ca277b3ac80c052bdb6b984953fa3ba23c64bab5",
+              "path": ".harness135",
+              "persist-credentials": false
+            }
+          },
+          {
+            "name": "Checkout scripts/sverka_maketa.py (mob-sverka-123 implementation)",
+            "uses": "actions/checkout@v7",
+            "with": {
+              "repository": "a3ka/dev-harness",
+              "ref": "5d98a1cd745ce08eeb21b89f8e05750c4e769a0e",
+              "path": ".harness123",
+              "persist-credentials": false
+            }
+          },
+          {
+            "name": "135 first-run-ekran (валидатор 132 + cmp + проверка происхождения, Maestro × тема)",
+            "working-directory": "${{ github.workspace }}",
+            "run": "bash mobile/scripts/ci-first-run-135.sh"
+          },
+          {
+            "name": "Артефакты 135 (кадры first-run-ekran, отчёт)",
+            "if": "always()",
+            "working-directory": "${{ github.workspace }}",
+            "run": "npm run ci:artefakt-zapis -- --imja maestro-first-run --chto mobile/maestro-out-first-run"
+          }
+        ]
+      },
+      "e2e-erstinformation": {
+        "needs": [
+          "select-screens",
+          "build-apk"
+        ],
+        "if": "needs.select-screens.outputs['e2e-erstinformation'] == 'true'",
+        "outputs": {
+          "apk_sha256": "${{ steps.ident.outputs.apk_sha256 }}",
+          "artifact_name": "${{ steps.ident.outputs.artifact_name }}",
+          "run_id": "${{ steps.ident.outputs.run_id }}"
+        },
+        "runs-on": [
+          "self-hosted",
+          "linux",
+          "x64",
+          "kvm",
+          "complior"
+        ],
+        "timeout-minutes": 40,
+        "permissions": {
+          "contents": "read",
+          "actions": "read"
+        },
+        "steps": [
+          {
+            "uses": "actions/checkout@v7",
+            "with": {
+              "persist-credentials": false,
+              "clean": true
+            }
+          },
+          {
+            "name": "Изоляция раннера (/home недоступен коду из PR)",
+            "run": "test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness"
+          },
+          {
+            "name": "APK сборки: артефакт по имени, digest до установки",
+            "working-directory": "${{ github.workspace }}",
+            "env": {
+              "IMJA_ARTEFAKTA": "${{ needs.build-apk.outputs.artifact_name }}",
+              "ZHELANYJ_DIGEST": "${{ needs.build-apk.outputs.apk_sha256 }}",
+              "RUN_SBORKI": "${{ needs.build-apk.outputs.run_id }}",
+              "POPYTKA_SBORKI": "${{ needs.build-apk.outputs.run_attempt }}"
+            },
+            "run": "set -euo pipefail\ntest -n \"$IMJA_ARTEFAKTA\" && test -n \"$ZHELANYJ_DIGEST\"\nrm -rf apk-build && mkdir -p apk-build\nnpm run ci:artefakt-chtenie -- --imja \"$IMJA_ARTEFAKTA\" --kuda apk-build --run-id \"$RUN_SBORKI\" --run-attempt \"$POPYTKA_SBORKI\"\ntest -f apk-build/app-release.apk\ngot=\"$(sha256sum apk-build/app-release.apk | awk '{print $1}')\"\nif [ \"$got\" != \"$ZHELANYJ_DIGEST\" ]; then\n  echo \"APK_DIGEST_RASKHOZHDENIE: $got != $ZHELANYJ_DIGEST\" >&2\n  exit 1\nfi\nmkdir -p mobile/android/app/build/outputs/apk/release\ncp apk-build/app-release.apk mobile/android/app/build/outputs/apk/release/app-release.apk\n"
+          },
+          {
+            "name": "Идентичность прогона работника (outputs для агрегата)",
+            "id": "ident",
+            "working-directory": "${{ github.workspace }}",
+            "run": "set -euo pipefail\ngot=\"$(sha256sum mobile/android/app/build/outputs/apk/release/app-release.apk | awk '{print $1}')\"\n{\n  echo \"apk_sha256=$got\"\n  echo \"artifact_name=${{ needs.build-apk.outputs.artifact_name }}\"\n  echo \"run_id=${{ needs.build-apk.outputs.run_id }}\"\n} >> \"$GITHUB_OUTPUT\"\n"
+          },
+          {
+            "uses": "actions/setup-node@v7",
+            "with": {
+              "node-version-file": ".node-version",
+              "cache": "npm",
+              "cache-dependency-path": "mobile/package-lock.json"
+            }
+          },
+          {
+            "run": "npm ci --no-audit --no-fund"
+          },
+          {
+            "name": "Checkout H пачки erstinformation (.harness118)",
+            "uses": "actions/checkout@v7",
+            "with": {
+              "repository": "a3ka/dev-harness",
+              "ref": "5dbcb549dcd226b2bdc858a06aeb2a1be7bcbf04",
+              "path": ".harness118",
+              "persist-credentials": false
+            }
+          },
+          {
+            "name": "Checkout scripts/sverka_maketa.py (mob-sverka-123 implementation)",
+            "uses": "actions/checkout@v7",
+            "with": {
+              "repository": "a3ka/dev-harness",
+              "ref": "5d98a1cd745ce08eeb21b89f8e05750c4e769a0e",
+              "path": ".harness123",
+              "persist-credentials": false
+            }
+          },
+          {
+            "name": "118 миграция 117 v+1 заморожена (frozen/contracts/117/3)",
+            "working-directory": "${{ github.workspace }}",
+            "run": "set -euo pipefail\ngit -C .harness118 fetch --tags origin\ngit -C .harness118 rev-parse --quiet --verify refs/tags/frozen/contracts/117/3 >/dev/null || {\n  echo \"MIGRATION_117_V1_ABSENT: pilot-app.tsx нельзя править без frozen/contracts/117/3\" >&2\n  exit 1\n}\n"
+          },
+          {
+            "run": "npm test -- --json --outputFile=e2e-erstinformation/jest-otchet.json"
+          },
+          {
+            "name": "118 erstinformation (валидатор 132 + cmp + проверка происхождения, Maestro × тема)",
+            "working-directory": "${{ github.workspace }}",
+            "run": "bash mobile/scripts/ci-erstinformation-118.sh"
+          },
+          {
+            "name": "118 судья срока с отчётом Jest (--jest-otchet)",
+            "working-directory": "${{ github.workspace }}",
+            "run": "python3 mobile/e2e-erstinformation/batareja/proverka_proiskhozdenija.py --pack \"$PWD/mobile/e2e-erstinformation\" --repo \"$PWD\" --harness .harness118 --jest-otchet e2e-erstinformation/jest-otchet.json"
+          },
+          {
+            "name": "Артефакты 118 (кадры erstinformation, отчёт)",
+            "if": "always()",
+            "working-directory": "${{ github.workspace }}",
+            "run": "npm run ci:artefakt-zapis -- --imja maestro-erstinformation --chto mobile/maestro-out-erstinformation"
+          }
+        ]
+      },
+      "e2e-start": {
+        "needs": [
+          "select-screens",
+          "build-apk"
+        ],
+        "if": "needs.select-screens.outputs['e2e-start'] == 'true'",
+        "outputs": {
+          "apk_sha256": "${{ steps.ident.outputs.apk_sha256 }}",
+          "artifact_name": "${{ steps.ident.outputs.artifact_name }}",
+          "run_id": "${{ steps.ident.outputs.run_id }}"
+        },
+        "runs-on": [
+          "self-hosted",
+          "linux",
+          "x64",
+          "kvm",
+          "complior"
+        ],
+        "timeout-minutes": 40,
+        "permissions": {
+          "contents": "read",
+          "actions": "read"
+        },
+        "steps": [
+          {
+            "uses": "actions/checkout@v7",
+            "with": {
+              "persist-credentials": false,
+              "clean": true
+            }
+          },
+          {
+            "name": "Изоляция раннера (/home недоступен коду из PR)",
+            "run": "test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness"
+          },
+          {
+            "name": "APK сборки: артефакт по имени, digest до установки",
+            "working-directory": "${{ github.workspace }}",
+            "env": {
+              "IMJA_ARTEFAKTA": "${{ needs.build-apk.outputs.artifact_name }}",
+              "ZHELANYJ_DIGEST": "${{ needs.build-apk.outputs.apk_sha256 }}",
+              "RUN_SBORKI": "${{ needs.build-apk.outputs.run_id }}",
+              "POPYTKA_SBORKI": "${{ needs.build-apk.outputs.run_attempt }}"
+            },
+            "run": "set -euo pipefail\ntest -n \"$IMJA_ARTEFAKTA\" && test -n \"$ZHELANYJ_DIGEST\"\nrm -rf apk-build && mkdir -p apk-build\nnpm run ci:artefakt-chtenie -- --imja \"$IMJA_ARTEFAKTA\" --kuda apk-build --run-id \"$RUN_SBORKI\" --run-attempt \"$POPYTKA_SBORKI\"\ntest -f apk-build/app-release.apk\ngot=\"$(sha256sum apk-build/app-release.apk | awk '{print $1}')\"\nif [ \"$got\" != \"$ZHELANYJ_DIGEST\" ]; then\n  echo \"APK_DIGEST_RASKHOZHDENIE: $got != $ZHELANYJ_DIGEST\" >&2\n  exit 1\nfi\nmkdir -p mobile/android/app/build/outputs/apk/release\ncp apk-build/app-release.apk mobile/android/app/build/outputs/apk/release/app-release.apk\n"
+          },
+          {
+            "name": "Идентичность прогона работника (outputs для агрегата)",
+            "id": "ident",
+            "working-directory": "${{ github.workspace }}",
+            "run": "set -euo pipefail\ngot=\"$(sha256sum mobile/android/app/build/outputs/apk/release/app-release.apk | awk '{print $1}')\"\n{\n  echo \"apk_sha256=$got\"\n  echo \"artifact_name=${{ needs.build-apk.outputs.artifact_name }}\"\n  echo \"run_id=${{ needs.build-apk.outputs.run_id }}\"\n} >> \"$GITHUB_OUTPUT\"\n"
+          },
+          {
+            "name": "108 start (Maestro, release APK, свой эмулятор)",
+            "working-directory": "${{ github.workspace }}/mobile",
+            "run": "set -euo pipefail\nAPK='android/app/build/outputs/apk/release/app-release.apk'\nAVD=\"ci108-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}\"\nPORT=5568\nSERIAL=\"emulator-${PORT}\"\nAVDM=\"$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager\"\nKANON='device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException'\ncleanup108() {\n  adb -s \"$SERIAL\" emu kill >/dev/null 2>&1 || true\n  sleep 3\n  pkill -f \"qemu-system-x86_64.*-avd $AVD\" >/dev/null 2>&1 || true\n  \"$AVDM\" delete avd -n \"$AVD\" >/dev/null 2>&1 || true\n}\ntrap cleanup108 EXIT\necho no | \"$AVDM\" create avd --force -n \"$AVD\" \\\n  -k \"system-images;android-36;google_apis;x86_64\" -d pixel_7 >/dev/null\nsed -i 's/^hw.ramSize=.*/hw.ramSize=2048/' \"$ANDROID_AVD_HOME/$AVD.avd/config.ini\"\nadb start-server >/dev/null\nboot108() {\n  adb -s \"$SERIAL\" emu kill >/dev/null 2>&1 || true\n  sleep 3\n  pkill -f \"qemu-system-x86_64.*-avd $AVD\" >/dev/null 2>&1 || true\n  emulator -avd \"$AVD\" -port \"$PORT\" -no-window -no-audio -no-boot-anim -no-snapshot \\\n    -gpu swiftshader_indirect >\"emulator-$AVD.log\" 2>&1 &\n  adb -s \"$SERIAL\" wait-for-device\n  for _ in $(seq 1 130); do\n    [ \"$(adb -s \"$SERIAL\" shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')\" = \"1\" ] && break\n    sleep 3\n  done\n  [ \"$(adb -s \"$SERIAL\" shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')\" = \"1\" ] || {\n    echo \"ОТКАЗ: эмулятор 108 не загрузился за 390 с\" >&2; return 1; }\n  local ok=0\n  for _ in $(seq 1 40); do\n    if [ \"$(adb -s \"$SERIAL\" get-state 2>/dev/null)\" = \"device\" ] &&\n       adb -s \"$SERIAL\" shell pm path android >/dev/null 2>&1; then\n      ok=$((ok + 1)); [ \"$ok\" -ge 3 ] && break\n    else\n      ok=0\n    fi\n    sleep 2\n  done\n  [ \"$ok\" -ge 3 ] || { echo \"ОТКАЗ: эмулятор $SERIAL не стабилизировался (adb offline)\" >&2; return 1; }\n  for s in window_animation_scale transition_animation_scale animator_duration_scale; do\n    adb -s \"$SERIAL\" shell settings put global \"$s\" 0\n  done\n  adb -s \"$SERIAL\" install -r \"$APK\" >/dev/null\n}\nzapusk108() {\n  rm -rf maestro-out-start\n  mkdir -p maestro-out-start\n  set +e\n  maestro --device \"$SERIAL\" test --format junit \\\n    --output maestro-out-start/report.xml \\\n    --test-output-dir maestro-out-start \\\n    .maestro/cmp-mob-004-start.yaml\n  local rc=$?\n  # 143 (Б-1 Rev143): БЕЗ set -e — errexit в функции глобален и\n  # ронял шаг на ненулевом rc Maestro ДО ветки ДИАГНОСТИКА/ПОВТОР\n  # (мёртвая ветка повтора; живой отказ — run 40961808157 att.1).\n  return \"$rc\"\n}\nif ! boot108; then\n  echo \"ДИАГНОСТИКА 108: adb devices\" >&2\n  adb devices >&2 || true\n  exit 1\nfi\nset +e\nzapusk108\nrc=$?\nset -e\nif [ \"$rc\" -ne 0 ]; then\n  echo \"ДИАГНОСТИКА 108: сигнатуры Maestro в maestro-out-start\" >&2\n  grep -rnE \"$KANON\" maestro-out-start >&2 2>/dev/null || true\n  if grep -rqE \"$KANON\" maestro-out-start 2>/dev/null; then\n    echo \"ПОВТОР: обрыв adb-транспорта эмулятора 108 — перезапуск и повтор набора\" >&2\n    adb -s \"$SERIAL\" emu kill >/dev/null 2>&1 || true\n    sleep 3\n    pkill -f \"qemu-system-x86_64.*-avd $AVD\" >/dev/null 2>&1 || true\n    if ! boot108; then exit 1; fi\n    set +e\n    zapusk108\n    rc=$?\n    set -e\n  fi\nfi\n[ \"$rc\" -eq 0 ] || exit \"$rc\"\n"
+          },
+          {
+            "name": "Артефакты 108 (отчёт start)",
+            "if": "always()",
+            "working-directory": "${{ github.workspace }}",
+            "run": "npm run ci:artefakt-zapis -- --imja maestro-start --chto mobile/maestro-out-start"
+          }
+        ]
+      },
+      "e2e-pilot": {
+        "needs": [
+          "select-screens",
+          "build-apk"
+        ],
+        "if": "needs.select-screens.outputs['e2e-pilot'] == 'true'",
+        "outputs": {
+          "apk_sha256": "${{ steps.ident.outputs.apk_sha256 }}",
+          "artifact_name": "${{ steps.ident.outputs.artifact_name }}",
+          "run_id": "${{ steps.ident.outputs.run_id }}"
+        },
+        "runs-on": [
+          "self-hosted",
+          "linux",
+          "x64",
+          "kvm",
+          "complior"
+        ],
+        "timeout-minutes": 40,
+        "permissions": {
+          "contents": "read",
+          "actions": "read"
+        },
+        "steps": [
+          {
+            "uses": "actions/checkout@v7",
+            "with": {
+              "persist-credentials": false,
+              "clean": true
+            }
+          },
+          {
+            "name": "Изоляция раннера (/home недоступен коду из PR)",
+            "run": "test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness"
+          },
+          {
+            "name": "APK сборки: артефакт по имени, digest до установки",
+            "working-directory": "${{ github.workspace }}",
+            "env": {
+              "IMJA_ARTEFAKTA": "${{ needs.build-apk.outputs.artifact_name }}",
+              "ZHELANYJ_DIGEST": "${{ needs.build-apk.outputs.apk_sha256 }}",
+              "RUN_SBORKI": "${{ needs.build-apk.outputs.run_id }}",
+              "POPYTKA_SBORKI": "${{ needs.build-apk.outputs.run_attempt }}"
+            },
+            "run": "set -euo pipefail\ntest -n \"$IMJA_ARTEFAKTA\" && test -n \"$ZHELANYJ_DIGEST\"\nrm -rf apk-build && mkdir -p apk-build\nnpm run ci:artefakt-chtenie -- --imja \"$IMJA_ARTEFAKTA\" --kuda apk-build --run-id \"$RUN_SBORKI\" --run-attempt \"$POPYTKA_SBORKI\"\ntest -f apk-build/app-release.apk\ngot=\"$(sha256sum apk-build/app-release.apk | awk '{print $1}')\"\nif [ \"$got\" != \"$ZHELANYJ_DIGEST\" ]; then\n  echo \"APK_DIGEST_RASKHOZHDENIE: $got != $ZHELANYJ_DIGEST\" >&2\n  exit 1\nfi\nmkdir -p mobile/android/app/build/outputs/apk/release\ncp apk-build/app-release.apk mobile/android/app/build/outputs/apk/release/app-release.apk\n"
+          },
+          {
+            "name": "Идентичность прогона работника (outputs для агрегата)",
+            "id": "ident",
+            "working-directory": "${{ github.workspace }}",
+            "run": "set -euo pipefail\ngot=\"$(sha256sum mobile/android/app/build/outputs/apk/release/app-release.apk | awk '{print $1}')\"\n{\n  echo \"apk_sha256=$got\"\n  echo \"artifact_name=${{ needs.build-apk.outputs.artifact_name }}\"\n  echo \"run_id=${{ needs.build-apk.outputs.run_id }}\"\n} >> \"$GITHUB_OUTPUT\"\n"
+          },
+          {
+            "name": "Checkout frozen probe harness H",
+            "uses": "actions/checkout@v7",
+            "with": {
+              "repository": "a3ka/dev-harness",
+              "ref": "4ac99af9fe8b02f16206b5c98bb9556556c05e74",
+              "path": ".harness",
+              "persist-credentials": false
+            }
+          },
+          {
+            "uses": "actions/setup-python@v7",
+            "with": {
+              "python-version": "3.12"
+            }
+          },
+          {
+            "name": "H-pин приватного кода вне checkout",
+            "env": {
+              "PILOT_DEMO_CODE": "${{ secrets.PILOT_DEMO_CODE }}"
+            },
+            "run": "if [ -z \"$PILOT_DEMO_CODE\" ]; then\n  echo \"PILOT_DEMO_CODE_ABSENT\" >&2\n  exit 1\nfi\numask 077\nmkdir -p /tmp/impl995-pilot-private-${{ github.run_id }}-${{ github.run_attempt }}\nprintf '%s' \"$PILOT_DEMO_CODE\" > /tmp/impl995-pilot-private-${{ github.run_id }}-${{ github.run_attempt }}/code\n"
+          },
+          {
+            "name": "Maestro runner для CMP-MOB-001 (через maestro_probe.py → ci-e2e.sh)",
+            "working-directory": "${{ github.workspace }}",
+            "run": "bash mobile/scripts/ci-pilot-995.sh"
+          },
+          {
+            "name": "Cleanup private code file",
+            "if": "always()",
+            "run": "rm -rf /tmp/impl995-pilot-private-${{ github.run_id }}-${{ github.run_attempt }}"
+          },
+          {
+            "name": "Check rehearsal evidence",
+            "id": "rehearsal_evidence",
+            "run": "bash scripts/rehearsal-evidence.sh"
+          },
+          {
+            "name": "Артефакты (скриншоты, отчёт)",
+            "if": "always()",
+            "working-directory": "${{ github.workspace }}",
+            "run": "npm run ci:artefakt-zapis -- --imja maestro --chto mobile/maestro-out"
+          },
+          {
+            "name": "Check Maestro version",
+            "id": "rehearsal_version",
+            "run": "actual_version=\"$(maestro --version 2>/dev/null || true)\"\nif [ \"$actual_version\" != \"2.11.0\" ]; then\n  echo \"MAESTRO_VERSION_MISMATCH: expected=2.11.0 actual='$actual_version'\" >&2\n  exit 1\nfi\n"
+          }
+        ]
+      },
+      "e2e-screen": {
+        "needs": [
+          "select-screens",
+          "build-apk"
+        ],
+        "if": "${{ needs.select-screens.result == 'success' && needs.build-apk.result == 'success' && needs.select-screens.outputs.matrix != '' }}",
+        "strategy": {
+          "fail-fast": false,
+          "max-parallel": 2,
+          "matrix": "${{ fromJSON(needs.select-screens.outputs.matrix) }}"
+        },
+        "runs-on": [
+          "self-hosted",
+          "linux",
+          "x64",
+          "kvm",
+          "complior"
+        ],
+        "timeout-minutes": 30,
+        "steps": [
+          {
+            "uses": "actions/checkout@v7",
+            "with": {
+              "persist-credentials": false
+            }
+          },
+          {
+            "name": "Изоляция раннера",
+            "run": "test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness"
+          },
+          {
+            "name": "Download the single APK",
+            "working-directory": "${{ github.workspace }}",
+            "env": {
+              "IMJA_ARTEFAKTA": "${{ needs.build-apk.outputs.artifact_name }}",
+              "RUN_SBORKI": "${{ needs.build-apk.outputs.run_id }}",
+              "POPYTKA_SBORKI": "${{ needs.build-apk.outputs.run_attempt }}"
+            },
+            "run": "set -euo pipefail\nnpm run ci:artefakt-chtenie -- --imja \"$IMJA_ARTEFAKTA\" --kuda mobile/screen-apk --run-id \"$RUN_SBORKI\" --run-attempt \"$POPYTKA_SBORKI\"\n"
+          },
+          {
+            "name": "APK digest before installation",
+            "working-directory": "${{ github.workspace }}",
+            "run": "APK_FILE=mobile/screen-apk/app-release.apk\ntest -f \"$APK_FILE\"\necho \"APK_FILE=$APK_FILE\" >> \"$GITHUB_ENV\"\ntest \"$(sha256sum \"$APK_FILE\" | cut -d ' ' -f 1)\" = \"${{ needs.build-apk.outputs.apk_sha256 }}\" || { echo APK_DIGEST_RASKHOZHDENIE; exit 1; }\n"
+          },
+          {
+            "name": "Run selected screen",
+            "working-directory": "${{ github.workspace }}",
+            "env": {
+              "SCREEN_ID": "${{ matrix.screen.id }}",
+              "SCREEN_PACK": "${{ matrix.screen.pack }}",
+              "SCREEN_FLOW": "${{ matrix.screen.flow }}",
+              "AVD_PORT": "${{ matrix.screen.avd_port }}",
+              "APK_SHA256": "${{ needs.build-apk.outputs.apk_sha256 }}",
+              "APK_ARTIFACT_NAME": "${{ needs.build-apk.outputs.artifact_name }}"
+            },
+            "run": "export ANDROID_AVD_HOME=\"${RUNNER_TEMP}/avd-${RUNNER_NAME}-${SCREEN_ID}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}\"\nexport ANDROID_ADB_SERVER_PORT=\"$((AVD_PORT + 20000))\"\nflock \"/tmp/complior-ci-port-${AVD_PORT}.lock\" node mobile/scripts/run-ci-screen.cjs --id \"$SCREEN_ID\" --pack \"$SCREEN_PACK\" --flow \"$SCREEN_FLOW\" --port \"$AVD_PORT\"\n"
+          },
+          {
+            "name": "Publish child evidence",
+            "if": "always()",
+            "working-directory": "${{ github.workspace }}",
+            "run": "npm run ci:artefakt-zapis -- --imja \"screen-evidence-${{ matrix.screen.id }}\" --chto \"mobile/screen-evidence/${{ matrix.screen.id }}/\""
+          }
+        ]
+      },
+      "android-e2e": {
+        "needs": [
+          "select-screens",
+          "quality",
+          "build-apk",
+          "e2e-splash",
+          "e2e-first-run",
+          "e2e-erstinformation",
+          "e2e-start",
+          "e2e-pilot",
+          "e2e-screen"
+        ],
+        "if": "always() && (github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'merge_group')",
+        "runs-on": [
+          "self-hosted",
+          "linux",
+          "x64",
+          "complior"
+        ],
+        "timeout-minutes": 5,
+        "steps": [
+          {
+            "uses": "actions/checkout@v7",
+            "with": {
+              "persist-credentials": false
+            }
+          },
+          {
+            "name": "Изоляция раннера (/home недоступен коду из PR)",
+            "run": "test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness"
+          },
+          {
+            "name": "Download child evidence",
+            "if": "always()",
+            "working-directory": "${{ github.workspace }}",
+            "run": "npm run ci:artefakt-chtenie -- --shablon 'screen-evidence-*' --kuda mobile/screen-evidence-collected"
+          },
+          {
+            "name": "Verify selected children",
+            "if": "always()",
+            "working-directory": "${{ github.workspace }}",
+            "env": {
+              "NEEDS_KONTEKST": "${{ toJSON(needs) }}"
+            },
+            "run": "set -euo pipefail\n# Каталог доказательств обязан существовать: пока ни один новый\n# экран не подключён (matrix пуста), шаблонный сбор собирает ноль\n# детей (CHTENIE_PUSTO) и каталог пуст — агрегат требует РОВНО\n# множество выбранных id, пустое ≠ непустому выбору.\nmkdir -p mobile/screen-evidence-collected\nprintf '%s' \"$NEEDS_KONTEKST\" > needs.json\nnode mobile/scripts/ci-aggregate.cjs --needs needs.json --evidence mobile/screen-evidence-collected\n"
+          }
+        ]
+      },
+      "mobile-regression-signal": {
+        "needs": [
+          "select-screens",
+          "quality",
+          "build-apk",
+          "e2e-splash",
+          "e2e-first-run",
+          "e2e-erstinformation",
+          "e2e-start",
+          "e2e-pilot",
+          "e2e-screen"
+        ],
+        "if": "always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')",
+        "runs-on": [
+          "self-hosted",
+          "linux",
+          "x64",
+          "complior"
+        ],
+        "timeout-minutes": 5,
+        "steps": [
+          {
+            "uses": "actions/checkout@v7",
+            "with": {
+              "persist-credentials": false
+            }
+          },
+          {
+            "name": "Изоляция раннера (/home недоступен коду из PR)",
+            "run": "test ! -e /home/harness/.ssh && test ! -e /home/harness/dev-harness"
+          },
+          {
+            "name": "Download child evidence",
+            "if": "always()",
+            "working-directory": "${{ github.workspace }}",
+            "run": "npm run ci:artefakt-chtenie -- --shablon 'screen-evidence-*' --kuda mobile/screen-evidence-collected"
+          },
+          {
+            "name": "Verify selected children",
+            "if": "always()",
+            "working-directory": "${{ github.workspace }}",
+            "env": {
+              "NEEDS_KONTEKST": "${{ toJSON(needs) }}"
+            },
+            "run": "set -euo pipefail\n# Каталог доказательств обязан существовать (пустая matrix — ноль\n# детей, CHTENIE_PUSTO; mkdir — страховка): агрегат судит пустое\n# множество выбранных id, а не отсутствие каталога.\nmkdir -p mobile/screen-evidence-collected\nprintf '%s' \"$NEEDS_KONTEKST\" > needs.json\nnode mobile/scripts/ci-aggregate.cjs --needs needs.json --evidence mobile/screen-evidence-collected\n"
+          },
+          {
+            "name": "Маркер полной регрессии (freshness-монитор)",
+            "if": "always()",
+            "working-directory": "${{ github.workspace }}",
+            "run": "npm run ci:artefakt-zapis -- --imja regression-marker --chto needs.json"
+          }
+        ]
+      }
+    }
+  },
+  "bodies": {
+    "build-revision": "test \"$(git rev-parse HEAD)\" = \"$GITHUB_SHA\"",
+    "node-version": "test \"$(node -v)\" = \"v$(cat .node-version)\"",
+    "build-identity": "set -euo pipefail\nAPK='mobile/android/app/build/outputs/apk/release/app-release.apk'\ntest -f \"$APK\"\ndigest=\"$(sha256sum \"$APK\" | awk '{print $1}')\"\nimja=\"apk-${{ github.run_id }}-${digest:0:12}\"\nprintf '%s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" \"$digest\" \"${{ github.sha }}\" \"${{ github.run_id }}\" \"${{ github.run_attempt }}\" \"$imja\" > mobile/build-identichnost.txt\n{\n  echo \"apk_sha256=$digest\"\n  echo \"artifact_name=$imja\"\n  echo \"run_id=${{ github.run_id }}\"\n  echo \"run_attempt=${{ github.run_attempt }}\"\n} >> \"$GITHUB_OUTPUT\"\n",
+    "select-screens": "set -euo pipefail\ncase \"${{ github.event_name }}\" in\n  pull_request) MODE=pull_request ;;\n  push) MODE=push ;;\n  schedule) MODE=schedule ;;\n  workflow_dispatch) MODE=dispatch ;;\n  merge_group) MODE=merge_group ;;\n  *) echo \"REZHIM: ${{ github.event_name }}\" >&2; exit 1 ;;\nesac\nARGS=(--mode \"$MODE\" --out selection.json --repo .)\nif [ \"$MODE\" = pull_request ]; then\n  ARGS+=(--base-sha \"${{ github.event.pull_request.base.sha }}\" --head-sha \"${{ github.event.pull_request.head.sha }}\" --pr \"${{ github.event.pull_request.number }}\")\nelif [ \"$MODE\" = push ]; then\n  ARGS+=(--base-sha \"${{ github.event.before }}\" --head-sha \"${{ github.sha }}\")\nelif [ \"$MODE\" = merge_group ]; then\n  ARGS+=(--base-sha \"${{ github.event.merge_group.base_sha }}\" --head-sha \"${{ github.event.merge_group.head_sha }}\")\nfi\nnode mobile/scripts/select-ci-screens.cjs \"${ARGS[@]}\"\n{\n  echo \"selection<<SELECTION_KONEC\"\n  cat selection.json\n  echo \"SELECTION_KONEC\"\n} >> \"$GITHUB_OUTPUT\"\n",
+    "selection-outputs": "set -euo pipefail\nnode -e '\n  const fs = require(\"fs\");\n  const sel = JSON.parse(fs.readFileSync(\"selection.json\", \"utf8\"));\n  const fs2 = require(\"fs\");\n  const out = [];\n  for (const s of sel.selected) out.push(`${s.job}=true`);\n  for (const e of sel.excluded) out.push(`${e.job}=false`);\n  fs2.appendFileSync(process.env.GITHUB_OUTPUT, out.join(\"\\n\") + \"\\n\");\n'\n",
+    "inventar": "set -e\nmkdir -p /tmp/dev-harness-verify\nnode mobile/scripts/select-ci-screens.cjs --mode inventar --repo . \\\n  --out /tmp/dev-harness-verify/impl-inventar-${{ github.run_id }}-${{ github.run_attempt }}.json \\\n  > /tmp/dev-harness-verify/impl-inventar-${{ github.run_id }}-${{ github.run_attempt }}.out\nwhile IFS= read -r stroka; do\n  case \"$stroka\" in\n    PACHKA\\ *)\n      pachka=\"${stroka#PACHKA }\"\n      test -n \"$pachka\"\n      test -d \"$pachka\"\n      mv \"$pachka\" \"/tmp/dev-harness-verify/impl-pack-$(basename \"${pachka%/}\")-${{ github.run_id }}-${{ github.run_attempt }}\"\n      ;;\n  esac\ndone < /tmp/dev-harness-verify/impl-inventar-${{ github.run_id }}-${{ github.run_attempt }}.out\nmv .harness /tmp/dev-harness-verify/impl995-h-${{ github.run_id }}-${{ github.run_attempt }}\nmv .harness117 /tmp/dev-harness-verify/impl117-b-${{ github.run_id }}-${{ github.run_attempt }}\nmv .harness117b /tmp/dev-harness-verify/impl117b-b-${{ github.run_id }}-${{ github.run_attempt }}\nmv .harness151 /tmp/dev-harness-verify/impl151-h-${{ github.run_id }}-${{ github.run_attempt }}\nmv mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh /tmp/dev-harness-verify/impl118-probe-${{ github.run_id }}-${{ github.run_attempt }}\n"
+  },
+  "package": {
+    "name": "complior-mob",
+    "private": true,
+    "scripts": {
+      "test": "npm --prefix mobile run test",
+      "lint": "npm --prefix mobile run lint",
+      "typecheck": "npm --prefix mobile run typecheck",
+      "doctor": "npm --prefix mobile run doctor",
+      "ci:artefakt-zapis": "node mobile/scripts/ci-artefakty.cjs zapis",
+      "ci:artefakt-chtenie": "node mobile/scripts/ci-artefakty.cjs chtenie",
+      "ci:red_mob_harness_events_212": "bash .harness/fixtures/mob_harness_events_212/red_mob_harness_events_212.sh --repo ."
+    }
+  },
+  "preserve": {
+    "mobile/scripts/select-ci-screens.cjs": "335b4d261a037877f57783c6bcc50d9f3a0ddebabc9b4ad745a515ce7c6b1f4a",
+    "mobile/scripts/ci-artefakty.cjs": "6e05c38cad900b3185dff4716b827ca04ca6d3ec718fb3e14d5c5bdf5f6f69b3",
+    "mobile/scripts/ci-aggregate.cjs": "e486e353f319ed2c0a65fc1092a0f16f8c9d8314bab4aed6e1d3619630d8fec6",
+    "mobile/scripts/run-ci-screen.cjs": "4b76ed1103e873e6de61d2032fd89c004d036142960afa4a385670d3ee70f9ff",
+    "mobile/scripts/ci-first-run-135.sh": "5b4c61ecf827d8685d1b70a38d2a52e8f27d4e407299a9c2057e8e345ffbcb5c",
+    "mobile/scripts/ci-erstinformation-118.sh": "e79c415d8317908ac81b08dc5ef93e66bdce3414c4462ee80fc63a4ff40d08d9",
+    "mobile/scripts/ci-pilot-995.sh": "b10dd371989996b0e1a81663a268a053f5e54b2b8debb375f817f6d66acd995f",
+    "mobile/ci-screens.json": "6eceac2fa4587961b526cdaea092ebe7aa0a62ac8a0276747b3cd4c03dbc78ea",
+    "mobile/package.json": "820bfb8270580862cfe600037c1d578fb9172a25d0f93e52ed2e13701656512c",
+    "mobile/package-lock.json": "7a1bee6c828a212182a04dc275be3f1ef01691e0391e713b88335cb75e9b22c8",
+    ".github/workflows/mobile-cloud-e2e.yml": "570437d1498549ee2d073a6d9c5a64193912bf7298dd5443dc8d5119017334a8",
+    ".harness/registry/ci_parity_exceptions.txt": "2d30326e274b603fafe1ac59b9a96a4d746bde3b7431edfcd3d85efab579114d"
+  },
+  "lanes": [
+    "node-version",
+    "build-identity",
+    "select-screens",
+    "selection-outputs",
+    "inventar"
+  ]
+}

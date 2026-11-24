@@ -1,82 +1,65 @@
 accept
+OBJECT=aa72e2d762b138aeeb1f77626af6022d123c1805
+СУД: repo=dev-harness; предмет=143; роль=critic; вызов=один адресный по v6 (слово владельца 24.11); фаза=v6; модель-план=openai-codex/gpt-6.1-terra (штатный тир apex-sol); сессия=Crit143V6; модель-факт=openai-codex/gpt-6.1-terra; независимость: автор Architect143b — другая модель/сессия; предыдущий=verdicts/critic/contracts-143-v7.md (accept на v5, OBJECT 180352174bc136f35e3f57bc780e1d4eaa610d84); класс риска=рисковый, health/required CI.
 
-СУД: repo=dev-harness; предмет=143; фаза=контракт — закрытие находки Critic143 v4 `0817e26ed` (scoped вызов 6); роль=critic; вызов=6/6 (сверх капа 5 по слову владельца 2026-11-09 ~13:04 UTC через консультанта: ровно вызов 6, строго scoped к finding 0817e26ed — новый критерий исполняет настоящий шаг sel, сверяет GITHUB_OUTPUT с selection, именованно отвергает второй writer `matrix=`/hardcoded matrix после честного селектора; повтор той же причины — стоп, седьмой вызов запрещён); модель-план=zai/glm-5.3; сессия=Critic143ScopedSixth; модель-факт=zai/glm-5.3 (workstation; совпадение семейства с автором отказом не является — контракт 166, §Независимость); SHA=49b27bdf79d9b671785c116d7d47a6d7bcff5973 (tip `wip/143/architect`, сверен до вызова); предыдущий=FAIL `verdicts/critic/contracts-143-v4-fail.md` (commit 0817e26ed, OBJECT b0ee5335b); исключение=нет. Оговорка §Счёт: записи СУД до вызова на достижимых ref (origin/main, все heads/worktrees) нет — санкция владельца зеркалена в задании судьи дословно и повторена здесь; оркестратору отразить строку в HANDOFF.
+## Решение
 
-## Область и дельта
+Адресно рассмотрена дельта `git diff 5e5a274c35750f8f29319f39bae43780af1446db aa72e2d762b138aeeb1f77626af6022d123c1805`: признание только доказанных lane-тел, сохранение inline и исходных проверок, точный внешний остаток. Повторного полного суда v5 нет. `models_actual.sh --tsv --bind --session Crit143V6`: rc 0, `critic openai-codex/gpt-6.1-terra allowed Crit143V6 aa72e2d762b138aeeb1f77626af6022d123c1805` (две одинаковые строки).
 
-OBJECT `49b27bdf7` = merge `d53958817` (red cell 762625345 + v3 0205e323d) и `a40676325` (v4 на main). Дельта к отклонённому кандидату v4 `b0ee5335b` — ровно закрытие находки: `contracts/143-mob-ci-razdelenie.md` (+11: абзац закрытия `:325`, вторая строка приёмки `:341`, пулет second-writer `:342`, числа 21/14/21 в `:343`, ЗАЩИЩАЕТ v4 `:348`), `matrix_v3.py` (+45: `selector_output_case` — исполнение фактического run-блока sel, стаб `matrix-second-writer`, счётчики +8/+15), `matrix_inventory_v4.py` (пин продукта `88e9cc8`, режим `--second-writer`), `model/matrix-select-v3.cjs`/`matrix-aggregate-v3.cjs` (union v3-файлов из 49271a91d/5abc05c0e, существующая семья mob_ci_143 — новых семей и ЗОНА-строк нет, precision-gate основания нет). Все пути в ЗОНА architect `:165`; probe.py не тронут (подстрочная проба осталась предусловием, производство проверяет новая клетка). Н-39 соблюдён: привязка стаба — код matrix_v3.py, контракт несёт инвариант `:325` и rc-команды `:340`–`:343`.
+Снимок `nositeli/lanes-216.json` и baseline настоящего 216 на `fa6678d2163b5c96e5a8a5f71a194c8a7c4e4e79` имеют SHA256 `e502c44d93bd93e090ba4e2be80462bfc753a961af10dd0efc310f37b8831511`. Проекция сверяет маршрут, lifecycle, dispatcher, тело, env, cwd, name/id до подстановки; селектор отдельно исполняется в песочнице. Старые клетки не удалены; `probe.py` и `matrix_v3.py` проверены построчным diff.
 
-## Исполняемые проверки — сырой вывод (клон /tmp/dev-harness-verify/Crit143V6/repo, detached OBJECT)
+## Измерения
 
-```
-$ bash scripts/pre_critic.sh --repo . contracts/143-mob-ci-razdelenie.md        # rc 0
-  ok   гейт предпосылок: PREDPOSYLKI_OK secrets=0 variables=0 environments=0 settings=4
-КРИТИК: дверь зелёная
-$ bash fixtures/workshop_project/mob_ci_143/red_mob_ci_143.sh --model           # rc 0
-  … КЛЕТКА selector-output ЗЕЛЕНА … клеток 21, зелёных 21, красных 0; клеток 80, зелёных 80
-$ bash fixtures/workshop_project/mob_ci_143/red_mob_ci_143.sh --stabs           # rc 0
-  СТАБ matrix-second-writer @ selector-output КРАСЕН: MATRIX_OUTPUT_WRITERS: 2
-  стабов 14, привязок 21, живых 0; клеток 80/80; стабов 62, привязок 78, непойманных 0
-$ bash fixtures/workshop_project/mob_ci_143/red_mob_ci_143.sh --repo /tmp/dev-harness-verify/Impl143v3/mob   # rc 0
-  … КЛЕТКА selector-output ЗЕЛЕНА … клеток 11, зелёных 11, красных 0; клеток 79, зелёных 79, красных 0
-$ python3 fixtures/workshop_project/mob_ci_143/matrix_inventory_v4.py --product /tmp/dev-harness-verify/Impl143v3/mob          # rc 0 (внутренний rc 1)
-  клеток 11: 10 зелёных, 1 красная (MATRIX_DAG); клеток 79: 74 зелёных, 5 красных
-  y01/y02/i02/i04: MATRIX_OUTPUT_REQUIRED; i03: выходы […] ≠ канон […] (нет выхода работнику: ['matrix'])
-$ python3 …/matrix_inventory_v4.py --product …/Impl143v3/mob --second-writer    # rc 0 (внутренний rc 1)
-  КЛЕТКА selector-output КРАСНА: MATRIX_OUTPUT_WRITERS: 2; 11: 10 зелёных, 1 красная; 79: 79 зелёных, 0 красных
-$ bash scripts/check_zones.sh <корень OBJECT-клона>                             # rc 0
-  только ok-строки; итог: замороженных контрактов: 158 · объявленных авторов: 5 · коммитов в диапазонах: 49409 · проверено по зонам: 12295
-$ bash scripts/check_threat_model.sh <корень> contracts/143-mob-ci-razdelenie.md # rc 0
-  секция валидна (ЗАЩИЩАЕТ 11, НЕ ЗАЩИЩАЕТ 10)
-```
+`TMPDIR=/tmp/dev-harness-verify/scratch-crit143v6`; мобильный git — одноразовый клон с отдельным `.git`. Все rc ниже наблюдались.
 
-## Red-before и атаки критика (одноразовые копии продукта 88e9cc8; diff каждой — одна правка)
+- `bash scripts/check_sdacha.sh "$PWD" contracts/143-mob-ci-razdelenie.md --run`: rc 0, `СДАЧА: лист зелёный (двери=5 карта=17/17 дельта=2)`; пять дверей включают model/stabs/syntax/provodka/pre-critic, в листе заявлен rc 0.
+- `bash scripts/pre_critic.sh contracts/143-mob-ci-razdelenie.md`: rc 0, `КРИТИК: дверь зелёная`.
+- `python3 -B fixtures/workshop_project/mob_ci_143/lane_v6_acceptance.py --prepare <mobile> <R>`: rc 0, настоящий `run.sh --repo R --base 55d9be4484bf058d655a2eef6b558ab21d9393d9`, все 23 `CASE ... OK`, `RC 0`.
+- `bash fixtures/workshop_project/mob_ci_143/red_mob_ci_143.sh --repo <R>`: rc 1, `клеток 405, зелёных 402, красных 3`; `клеток 79, зелёных 75, красных 4`. Красные ровно `legacy: LEGACY_JOB_CHANGED`, `workflow-quality-run-step-3`, `workflow-quality-run-step-6`, `y12-avd-namespace`, `y13-odin-uroven-vosstanovlenija`, `y23-ispolnenie-povtora`, `p01-P-nabor`.
+- `python3 -B fixtures/workshop_project/mob_ci_143/lane_v6_acceptance.py --repo <R>`: rc 0; внутренний `RC 1`; `RESIDUAL_EXACT legacy,p01-P-nabor,workflow-quality-run-step-3,workflow-quality-run-step-6,y12-avd-namespace,y13-odin-uroven-vosstanovlenija,y23-ispolnenie-povtora`; `LANE_DELTA_GREEN 11`; `LANE_CONTROLS 11 NEGATIVE_BINDINGS 88`. Пары включают честный эквивалент preamble каждой lane.
+- `bash fixtures/workshop_project/mob_ci_143/red_mob_ci_143.sh --repo <inline-fda1fc8>`: rc 0, `клеток 396, зелёных 396, красных 0`; `клеток 79, зелёных 79, красных 0`.
+- `git diff --quiet` соответствующих файлов относительно frozen 141/3, 995/5, 135/1, 118/3 и 197/3: каждый rc 0. Проектный 216 судится по отдельному мобильному git; его baseline побайтово совпадает со снимком. Frozen 143/4 даёт architect пути `contracts/143-mob-ci-razdelenie.md fixtures/workshop_project/mob_ci_143/`; все восемь путей diff внутри них. Строка разрешения владельца имеется в теле `aa72e2d...`.
+- `bash scripts/check_zones.sh "$PWD"`: общий прогон не завершился за 300 секунд, rc не получен; в частичном выводе `ok ... contracts/143-mob-ci-razdelenie.md`. Глобальный PASS зон не утверждается; адресная сверка восьми путей выполнена по frozen-блобу выше.
 
-Red-before (та же мутация второго писателя, что у обёртки):
-```
-$ git -C repo checkout b0ee5335b; <копия+echo 'matrix={"include":[{"screen":{"id":"podmena"}}]}' >> "$GITHUB_OUTPUT" после честного вызова>
-$ bash …/red_mob_ci_143.sh --repo mutant-before        # rc 0 — ЛОЖНАЯ ЗЕЛЕНЬ (10/10 + 79/79): находка 0817e26ed воспроизведена на родителе
-$ git -C repo checkout 762625345
-$ bash …/red_mob_ci_143.sh --repo mutant-before        # rc 1 — КЛЕТКА selector-output КРАСНА: MATRIX_OUTPUT_WRITERS: 2
-```
-Красная клетка закоммичена ДО merge (762625345, «red cell preserved»), в OBJECT дожила.
+## Мутации критика
 
-Мои мутации против красного (батарея OBJECT, каждый вход — отдельная копия):
-```
-A  v4-дословная атака, строка ВНУТРИ блока `} >> "$GITHUB_OUTPUT"`:  rc 1 — selector-output КРАСНА: MATRIX_OUTPUT_WRITERS: 2 (11: 10/1; 79: 79/0)
-B  второй шаг с тем же id: sel, дописывающий matrix=:               rc 1 — selector-output КРАСНА: MATRIX_SEL_STEP_COUNT (11: 10/1; 79: 75/4 — четыре клетки probe-клаузулой)
-C  единственный пишущий лжёт (скрипт эмитит podmena, selection.json честен):  rc 1 — selector-output КРАСНА: MATRIX_OUTPUT_DIVERGENCE (+ selector: MATRIX_OUTPUT_ABSENT)
-D  согласованно лгущий скрипт (selection.json и эмиcсия оба podmena):         rc 1 — selector-output КРАСНА: MATRIX_OUTPUT_DIVERGENCE
-```
+Каждая команда копировала R во временный каталог, меняла указанное тело и вызывала полную батарею. Ни одна замена не является стабом `lane_v6_acceptance.py`; ниже собственная добавленная красная клетка и итог помимо семи внешних красных. Вызовы исполнялись с `TMPDIR=/tmp/dev-harness-verify/scratch-crit143v6`.
 
-Мутации оракула (только в клоне, после каждой — restore, дерево чисто):
-```
-O1  убрать счётчик писателей (len(emitted)!=1):   --stabs rc 1 — STAB_ZHIV matrix-second-writer @ selector-output — механизм закреплён красным
-O2  убрать независимое ожидание (== expected):    --stabs rc 0, --model rc 0 — нога не закреплена (совет 1)
-O3  убрать счётчик sel-шагов (len(steps)!=1):     --stabs rc 0, но вход B всё равно rc 1 четырьмя клетками probe — клаузула закреплена однократно (совет 2)
-```
+1. `python3 -B -c 'import tempfile,shutil,pathlib,subprocess; t=tempfile.TemporaryDirectory(); r=pathlib.Path(t.name)/"R"; shutil.copytree("/tmp/dev-harness-verify/scratch-crit143v6/R",r); p=r/"mobile/scripts/ci-build-identity.sh"; s=p.read_text(); p.write_text(s.replace("echo \"run_attempt=${GITHUB_RUN_ATTEMPT}\"", "echo \"run_attempt=1\"")); z=subprocess.run(["bash","fixtures/workshop_project/mob_ci_143/red_mob_ci_143.sh","--repo",str(r)]); print("MUTANT_IDENTITY_RC",z.returncode,flush=True); t.cleanup()'`.
+   Вывод: `КЛЕТКА workflow-build-apk-run-step-7 КРАСНА: WORKFLOW_CONTROL_workflow-build-apk-run-step-7`; `клеток 405, зелёных 401, красных 4`; `клеток 79, зелёных 75, красных 4`; `MUTANT_IDENTITY_RC 1`.
+2. `python3 -B -c 'import tempfile,shutil,pathlib,subprocess; t=tempfile.TemporaryDirectory(); r=pathlib.Path(t.name)/"R"; shutil.copytree("/tmp/dev-harness-verify/scratch-crit143v6/R",r); p=r/"mobile/scripts/ci-selection-outputs.sh"; s=p.read_text(); p.write_text(s.replace("sel.selected", "sel.excluded")); z=subprocess.run(["bash","fixtures/workshop_project/mob_ci_143/red_mob_ci_143.sh","--repo",str(r)]); print("MUTANT_SELECTION_RC",z.returncode,flush=True); t.cleanup()'`.
+   Вывод: `КЛЕТКА workflow-select-screens-run-step-3 КРАСНА: WORKFLOW_CONTROL_workflow-select-screens-run-step-3`; `клеток 405, зелёных 401, красных 4`; `клеток 79, зелёных 75, красных 4`; `MUTANT_SELECTION_RC 1`.
+3. `python3 -B -c 'import tempfile,shutil,pathlib,subprocess; t=tempfile.TemporaryDirectory(); r=pathlib.Path(t.name)/"R"; shutil.copytree("/tmp/dev-harness-verify/scratch-crit143v6/R",r); p=r/"mobile/scripts/ci-inventar.sh"; s=p.read_text(); p.write_text(s.replace("node mobile/scripts/select-ci-screens.cjs --mode inventar", "true mobile/scripts/select-ci-screens.cjs --mode inventar")); z=subprocess.run(["bash","fixtures/workshop_project/mob_ci_143/red_mob_ci_143.sh","--repo",str(r)]); print("MUTANT_INVENTAR_RC",z.returncode,flush=True); t.cleanup()'`.
+   Вывод: `КЛЕТКА i05-vynos-iz-inventarja: НЕТ_ИНВЕНТАРИЗАЦИИ: в quality нет шага с вызовом селектора --mode inventar КРАСНА`; `клеток 405, зелёных 402, красных 3`; `клеток 79, зелёных 74, красных 5`; `MUTANT_INVENTAR_RC 1`.
 
-## Механические сверки — полным списком
+## Карта классов
 
-1. `:340` honest `88e9cc8`: rc 0, матричные 11/11 (включая selector-output на настоящем run-блоке), продуктовые 79/79 без красных, инвентарные y01/y02/i02/i04 зелёны внутри 79 — наблюдено.
-2. `:341` обёртка без флага: rc 0 ⇔ внутренний rc 1; 11: 10/1 (MATRIX_DAG); 79: 74/5; четыре клетки поимённо MATRIX_OUTPUT_REQUIRED, i03 — канон выходов — наблюдено дословно.
-3. `:342` `--second-writer`: rc 0 ⇔ внутренний rc 1; `MATRIX_OUTPUT_WRITERS: 2`, остальные матричные 10/10, продуктовые 79/79 — наблюдено; «два шага с id: sel краснят selector-output причиной MATRIX_SEL_STEP_COUNT» — наблюдено (атака B).
-4. `:343` `--model`/`--stabs` rc 0; 21/21 = прежние 20 + selector-output; v2 80/80; 14 субъектов/21 привязка/0 живых (= len(STUBS)+8/+15); legacy 62/78/0 — наблюдено.
-5. Пин продукта `88e9cc8` в обёртке (PRODUCT_REVISION_UNEXPECTED иначе) — сверен: HEAD продуктового клона 88e9cc8, дерево чисто.
-6. check_zones: rc 0 (только ok, итоговая строка; логика выхода — fails==0). check_threat_model rc 0 (11/10).
-7. КЛАСС РИСКА `:3` и ЗОНА-строки `:165`–`:169` не менялись; новых ЗОНА-строк и новых семей case-файлов в дельте нет — precision-gate не запускался за неимением основания.
-8. Расхождений счётных утверждений `:340`–`:343` с живыми прогонами нет.
+К-01: чисто — check_sdacha --run rc 0, pre_critic rc 0.
+К-02: чисто — вход: OBJECT и письмо задания 216, baseline 216 совпадает по SHA256.
+К-03: чисто — diff файлов frozen 141/3, 995/5, 135/1, 118/3, 197/3 rc 0; продуктовый 216 не меняется.
+К-04: чисто — вход: восемь путей diff и зоны frozen 143/4; общий check_zones не завершён, см. измерения.
+К-05: чисто — вход: contracts/143-mob-ci-razdelenie.md:471-497, команды с кодами; запущены сдаточный лист, R и inline.
+К-06: чисто — вход: lanes_216.py oracle проверяет SHA до чтения субъекта; ошибка обрабатывается как ORACLE_TAMPERED rc 2.
+К-07: чисто — --prepare rc 0, настоящая 216 23 CASE OK; inline rc 0.
+К-08: чисто — L --repo R rc 0, 88 негативных привязок; три собственные мутации красны адресно.
+К-09: чисто — вход: И-20 и lanes_216.py ограничивают модель пятью именованными lane и inline; 11 ветвей зелёны на R.
+К-10: чисто — вход: matrix_v3.py selector_output_case исполняет шаг и сверяет единственный вывод, selection.json и независимое ожидание.
+К-11: чисто — вход: baseline 216 сопоставлен с независимым SHA256 до проекции, источник снаружи R.
+К-12: чисто — вход: lanes_216.py сопоставляет байты фиксированного канона; YAML safe_load, реальный npm/bash для селектора.
+К-13: н/п — новые секретные входы дельтой не вводятся; git diff файлов проверок.
+К-14: чисто — L --repo R rc 0, честные эквивалентные preamble проверены перед 88 отрицательными парами.
+К-15: чисто — V --repo R rc 1, 405/402/3 и 79/75/4; L --repo rc 0, 11 и 88.
+К-16: чисто — вход: contracts/143-mob-ci-razdelenie.md:406-407,500-514; риск health и остаток R названы.
+К-17: н/п — вход: git diff: модель операций/схем 188 и продуктовые API дельтой не меняются.
 
-## Закрытие находки 0817e26ed
+## Блоки
 
-ОБЯЗАТЕЛЬСТВО: `:325` — ровно один писатель matrix в фактическом GITHUB_OUTPUT шага sel, последнее значение = matrix той же selection.json = независимому ожиданию; `:348` — исполнение фактического шага на --repo. НАБЛЮДЕНИЕ закрытия: на родителе b0ee5335b та же мутация проходила всю батарею rc 0 (наблюдено выше), в OBJECT — rc 1 именованной причиной во всех вариантах класса (дописанная строка внутри блока и после, второй sel-шаг, а также оба варианта лжи селектора — DIVERGENCE); честный 88e9cc8 остаётся rc 0; механизм закреплён красным (O1 → STAB_ZHIV). Закрывающее свойство из v4 (исполнение run-блока по образцу connected_v3 + именованный отказ двух входов + честный rc 0) исполнено полностью; «в четырёх клетках» из черновика свойства заменено центральной клеткой selector-output — суть (rc 1 именованной причиной, честный rc 0) соблюдена, реализация не предписывалась.
+Нет доказанных блокирующих нарушений в области адресного вызова.
 
-## Советы (не блокируют)
+## НЕ ЗАЩИЩАЕТ
 
-1. СОВЕТ matrix_v3.py `selector_output_case` — нога независимого ожидания (`== expected`, демо-карта на двух экранах) не закреплена красным: O2 проходит --stabs/--model rc 0; вход «согласованно лгущий скрипт» ловится только целым оракулом (моя атака D). Закрыть стабом/входом обёртки по усмотрению автора.
-2. СОВЕТ там же — клаузула `MATRIX_SEL_STEP_COUNT` закреплена однократно (вход B отвергается и probe-клаузулой len(sel)==1 из v4; O3 проходит --stabs rc 0). Родственен С-1 v4; глубина защиты есть, пин по усмотрению.
-3. СОВЕТ §Счёт — записи СУД вызовов 4–6 в HANDOFF на достижимых ref нет (найдена только 3/5); санкция вызова 6 зеркалена в задании судьи и в этой строке СУД выше — оркестратору дописать по форме.
+Общий rc 0 R216 не достигнут: семь именованных исходных красных не отменены и требуют отдельного согласования канонов 141/995; ловец — Critic/Reviewer 216. Живое исполнение GitHub/self-hosted и произвольный переписанный shell/JS вне ограниченного канона — независимый review и живой CI 216.
 
-## Вывод
+## Советы
 
-Scope вызова 6 исчерпан: finding 0817e26ed закрыт исполнением настоящего шага sel, тройной сверкой GITHUB_OUTPUT ↔ selection.json ↔ независимого ожидания и именованным отказом второго писателя во всех исполненных вариантах; red-before доказан (ложная зелень на родителе → красная клетка 762625345 → OBJECT), честный продукт rc 0, --model/--stabs rc 0 с точными числами, check_zones/check_threat_model rc 0, зоны и замороженные поверхности не тронуты. Блокирующих находок нет; советы выше едут с accept. Повторной причины для FAIL нет — седьмой вызов не требуется.
+СОВЕТ contracts/143-mob-ci-razdelenie.md:497 — общий `check_zones.sh` в этой копии не успел завершиться за 300 секунд. Перед лендингом получить его полный итог; адресная сверка frozen-зоны сделана отдельно и не выдаётся за общий PASS.
