@@ -49,7 +49,7 @@ modelRoles:
   task-glm: "zai/glm-5.3"  # фолбек: anthropic/claude-sonnet-5-5
   smol: "minimax/MiniMax-M2.5-lightning"
   slow: "openai-codex/gpt-6.1-sol"  # фолбек: zai/glm-5.3
-  advisor: "openai-codex/gpt-6.1-terra"  # фолбек: zai/glm-5.3
+  advisor: "openai-codex/gpt-6.1-terra"  # фолбек: anthropic/claude-sonnet-5-5
   apex-sol: "openai-codex/gpt-6.1-terra"  # фолбек: zai/glm-5.3
   audit: "anthropic/claude-opus-5-5"  # фолбек: openai-codex/gpt-6.1-sol
   plan: "openai-codex/gpt-6-astra"  # фолбек: anthropic/claude-fable-5-2
@@ -128,7 +128,7 @@ retry:
     vision: ["openai-codex/gpt-6.1-sol"]
     task-glm: ["anthropic/claude-sonnet-5-5"]
     slow: ["zai/glm-5.3"]
-    advisor: ["zai/glm-5.3"]
+    advisor: ["anthropic/claude-sonnet-5-5"]
     apex-sol: ["zai/glm-5.3"]
     plan: ["anthropic/claude-fable-5-2"]
     consultant: ["zai/glm-5.3"]
