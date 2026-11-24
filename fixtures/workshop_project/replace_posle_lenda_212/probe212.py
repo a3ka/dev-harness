@@ -979,6 +979,7 @@ def subjekt_put(koren=None):
         p = Path(koren) / SUBJ_IMJA
     else:
         p = REPO / SUBJ_IMJA
+    p = p.resolve()
     return p if p.is_file() else None
 
 
