@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Adv212 Б-1…Б-3: production mutants in one disposable independent clone.
+"""Adv212 v1 Б-1…Б-3 and v2 Б-1/Б-2: disposable production mutants.
 
-Full --repo runs cover the three reported mutants; scoped neighbour and honest
-controls exercise each new predicate without extending the binding matrix.
+Full --repo runs cover all five reported mutants; scoped neighbours and honest
+controls exercise each predicate without extending the binding matrix.
 """
 import importlib.util
 import sys
@@ -40,12 +40,20 @@ def main():
         original = subject.read_bytes().decode('utf-8')
         cases = probe.kejsy()
         pairs = (
-            ('st44-sverka-peeled-kommitov', 'r23-peremint-tot-zhe-kommit'),
-            ('st45-otkat-udalen', 'r24-otkaz-hooka-otkat'),
-            ('st46-prjamaja-zapis-s-uborkoj', 'r25-atomarnaja-zamena'),
+            ('st44-sverka-peeled-kommitov',
+             ('r23-peremint-tot-zhe-kommit', 'r26-peremint-vtoroj-versii')),
+            ('st45-otkat-udalen', ('r24-otkaz-hooka-otkat',)),
+            ('st46-prjamaja-zapis-s-uborkoj', ('r25-atomarnaja-zamena', 'r27-mv-na-toj-zhe-fs')),
+            ('st47-sverka-tolko-v1', ('r26-peremint-vtoroj-versii',)),
+            ('st48-mktemp-drugaja-fs', ('r27-mv-na-toj-zhe-fs',)),
         )
+        # У модели TMP в корне toy (та же ФС), у production — в registry.
+        # Мутация Б-2 меняет только настоящий production mktemp.
+        temp_anchor = 'mktemp "$ROOT/$_REGISTRY_PATH/.replace-line-$NNN.XXXXXX"'
         for name, case in pairs:
             anchor, replacement = probe.STAB_MUTACII[name]
+            if name == 'st48-mktemp-drugaja-fs':
+                anchor = temp_anchor
             subject.write_text(probe._mut(original, anchor, replacement), encoding='utf-8')
             argv = ['bash', HERE / 'red_replace_posle_lenda_212.sh', '--repo', clone]
             result = probe.run(argv, timeout=300)
@@ -53,23 +61,34 @@ def main():
             print(result.stdout.decode('utf-8'), end='', flush=True)
             print('RC %s=%d' % (name, result.returncode), flush=True)
             assert result.returncode == 1, (name, result.stderr)
-            assert b'KRASNAJA-KLETKA ' + case.encode() + b':' in result.stdout, name
-            assert result.stdout.endswith(b'SUBJEKT 212: KLETKI 31 KRASNYH 1\n'), name
+            red_cases = {line.split(b':', 1)[0].split()[1].decode()
+                         for line in result.stdout.splitlines()
+                         if line.startswith(b'KRASNAJA-KLETKA ')}
+            assert red_cases == set(case), (name, red_cases, case)
+            summary = 'SUBJEKT 212: KLETKI %d KRASNYH %d\n' % (
+                len(cases) + len(probe.ARGV_KEJSY), len(case))
+            assert result.stdout.endswith(summary.encode()), name
 
         # Broader than the examples: absent equality; partial rollbacks; direct
         # write followed by mv changes inode but still corrupts the held file.
         neighbours = (
-            ('peeled-neighbour', pairs[0][1], probe.STAB_MUTACII[pairs[0][0]][0],
+            ('peeled-neighbour', pairs[0][1][0], probe.STAB_MUTACII[pairs[0][0]][0],
              'if false; then', 'переминт'),
-            ('rollback-index-only', pairs[1][1], probe.STAB_MUTACII[pairs[1][0]][0],
+            ('rollback-index-only', pairs[1][1][0], probe.STAB_MUTACII[pairs[1][0]][0],
              '  git -C "$ROOT" reset -q HEAD -- "$_REG_FILE"', 'манифест worktree'),
-            ('rollback-worktree-only', pairs[1][1], probe.STAB_MUTACII[pairs[1][0]][0],
+            ('rollback-worktree-only', pairs[1][1][0], probe.STAB_MUTACII[pairs[1][0]][0],
              '  git -C "$ROOT" restore --worktree -- "$_REG_FILE"', 'добавил грязь'),
-            ('inode-same-old-bytes', pairs[2][1], probe.STAB_MUTACII[pairs[2][0]][0],
+            ('inode-same-old-bytes', pairs[2][1][0], probe.STAB_MUTACII[pairs[2][0]][0],
              'rm -f "$TMP"; git -C "$ROOT" checkout HEAD -- "$_REG_FILE"', 'вместо mv'),
-            ('old-file-write-then-mv', pairs[2][1], probe.STAB_MUTACII[pairs[2][0]][0],
+            ('old-file-write-then-mv', pairs[2][1][0], probe.STAB_MUTACII[pairs[2][0]][0],
              'cat "$TMP" > "$ROOT/$_REG_FILE"; mv "$TMP" "$ROOT/$_REG_FILE"',
              'открытый старый файл'),
+            ('tag-only-vmax-ge2', pairs[0][1][0], probe.STAB_MUTACII[pairs[3][0]][0],
+             'if [ "$vmax" -ge 2 ] && [ "$NEW_SHA" != "$sha_origin" ]; then', 'переминт'),
+            ('temp-shm-equivalent-option', pairs[4][1][0], temp_anchor,
+             'mktemp --tmpdir=/dev/shm', 'между файловыми системами'),
+            ('mv-not-observed', pairs[4][1][0], probe.STAB_MUTACII[pairs[2][0]][0],
+             'cat "$TMP" > "$ROOT/$_REG_FILE"; rm -f "$TMP"', 'mv реестра не наблюдался'),
         )
         for name, case, anchor, replacement, reason in neighbours:
             subject.write_text(probe._mut(original, anchor, replacement), encoding='utf-8')
@@ -78,18 +97,34 @@ def main():
             assert any(reason in p for p in problems), name
 
         equivalents = (
-            ('tag-equality-reversed', pairs[0][1], probe.STAB_MUTACII[pairs[0][0]][0],
+            ('tag-equality-reversed', pairs[0][1][0], probe.STAB_MUTACII[pairs[0][0]][0],
              'if [ "$sha_origin" != "$NEW_SHA" ]; then'),
-            ('rollback-restore', pairs[1][1], probe.STAB_MUTACII[pairs[1][0]][0],
+            ('rollback-restore', pairs[1][1][0], probe.STAB_MUTACII[pairs[1][0]][0],
              '  git -C "$ROOT" restore --source=HEAD --staged --worktree -- "$_REG_FILE"'),
-            ('atomic-mv-force', pairs[2][1], probe.STAB_MUTACII[pairs[2][0]][0],
+            ('atomic-mv-force', pairs[2][1][0], probe.STAB_MUTACII[pairs[2][0]][0],
              'mv -f "$TMP" "$ROOT/$_REG_FILE"'),
+            ('tag-v2-equality-reversed', pairs[3][1][0], probe.STAB_MUTACII[pairs[3][0]][0],
+             'if [ "$sha_origin" != "$NEW_SHA" ]; then'),
+            ('atomic-mv-force-r27', pairs[4][1][0], probe.STAB_MUTACII[pairs[2][0]][0],
+             'mv -f "$TMP" "$ROOT/$_REG_FILE"'),
+            ('atomic-mv-target-r27', pairs[4][1][0], probe.STAB_MUTACII[pairs[2][0]][0],
+             'mv -T -- "$TMP" "$ROOT/$_REG_FILE"'),
+            ('temp-in-root-same-fs', pairs[4][1][0], temp_anchor,
+             'mktemp "$ROOT/.replace-line-$NNN.XXXXXX"'),
         )
         for name, case, anchor, replacement in equivalents:
             subject.write_text(probe._mut(original, anchor, replacement), encoding='utf-8')
             problems = probe.prognot_kletku(case, cases, subject)
             print('EQUIVALENT %s RED=%r' % (name, problems), flush=True)
             assert not problems, (name, problems)
+        subject.write_text(probe._mut(original, temp_anchor, 'mktemp -p /tmp'), encoding='utf-8')
+        problems = probe.prognot_kletku(pairs[4][1][0], cases, subject)
+        same_fs = Path('/tmp').stat().st_dev == scratch.stat().st_dev
+        print('TMP-IN-/tmp SAME_FS=%s RED=%r' % (same_fs, problems), flush=True)
+        if same_fs:
+            assert not problems, problems
+        else:
+            assert any('между файловыми системами' in p for p in problems), problems
         return 0
     finally:
         shutil.rmtree(scratch)
