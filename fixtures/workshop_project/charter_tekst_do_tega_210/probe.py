@@ -690,6 +690,24 @@ MUTATIONS = {
                          '  incr_finish 0\n  exit 0',
                          '  incr_finish 1\n  exit 0',
                          {('empty', None): 'cache-absent'}),
+    'NUL-OWNER-CC': ('.githooks/pre-push',
+                     'diff-tree -z --cc --no-commit-id --name-only -r "$c" -- docs/owner/',
+                     'diff-tree --cc --no-commit-id --name-only -r "$c" -- docs/owner/',
+                     {('wire', None): 'wire-owner-merge-lost'}),
+    **{f'NUL-167-{array.upper()}-READ': (
+        '.githooks/pre-push',
+        f"  mapfile -d '' -t {array} < \"$paths_167\"",
+        f'  mapfile -t {array} < "$paths_167"',
+        {('wire', None): 'wire-167-allow'})
+       for array in ('cm', 'cm2')},
+    'EMPTY-PROBE-RC-IGNORED': ('scripts/check_charter.sh',
+                              'HEAD 2>/dev/null)" || __ch_pr=$?',
+                              'HEAD 2>/dev/null)" || true',
+                              {('wire', None): 'wire-probe-ignored'}),
+    'EMPTY-PROBE-RC-UNCHECKED': ('scripts/check_charter.sh',
+                                '[ "$__ch_pr" -ne 0 ] || [ -n "$__ch_pmatch" ]',
+                                '[ -n "$__ch_pmatch" ]',
+                                {('wire', None): 'wire-probe-ignored'}),
 }
 
 
