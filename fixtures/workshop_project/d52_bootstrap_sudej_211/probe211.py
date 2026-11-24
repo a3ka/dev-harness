@@ -78,6 +78,16 @@ REPO_ID = 'dev-harness'
 HARNESS_REMOTE = 'ssh://git@github.com/a3ka/dev-harness.git'
 SUBJ = '211'
 CHUZHIE_SUBEKTY = ('137', '209')  # миры НЕ-211: константа предмета наблюдаема (урок Adv208)
+# Реальные POSIX/Git-имена: каждое — отдельная клетка отказа и честный
+# эквивалентный вход. NUL и "/" не входят в алфавит basename Git.
+IMENA_211 = (
+    ('unicode', '211-риск.md'),
+    ('probel', '211-risk space.md'),
+    ('kavychka', '211-risk"quote.md'),
+    ('backslash', '211-risk\\slash.md'),
+    ('tab', '211-risk\ttab.md'),
+    ('lf', '211-risk\nline.md'),
+)
 
 GIT_ENV = dict(os.environ)
 GIT_ENV.update({
@@ -830,6 +840,86 @@ def kejsy():
         return [k_rc(r, 0, 'b27'), k_stdout(r, puschem('Rev211', SUBJ, 'reviewer'), 'b27'),
                 k_text(r, '', 'b27'), k_start(m, 'Rev211', W, 'b27')]
 
+    def imja_posle_f(imja):
+        def case(m, door):
+            wt, br, F = nositel(m, SUBJ, 'обычный')
+            W = kommit(wt, 'contracts/' + imja,
+                       kontrakt_tekst(SUBJ, 'рисковый'))
+            avtor_sdal(m, SUBJ, wt, br)
+            m.stancija_teg(wt, SUBJ, F)
+            do = m.ledger.read_bytes()
+            r = sudit(door, m, vyzov(m, 'reviewer', 'Rev211', W))
+            return [k_rc(r, 1, imja), k_stdout(r, '', imja),
+                    k_text(r, predupr_zakrep(SUBJ) + otkaz_adv_do_rev(SUBJ), imja),
+                    k_uchet_ne_izmenen(m, do, imja)]
+        return case
+
+    def imja_v_f(imja):
+        def case(m, door):
+            wt, br, _ = nositel(m, SUBJ, 'обычный')
+            (Path(wt) / 'contracts/211-fixture.md').rename(
+                Path(wt) / 'contracts' / imja)
+            F = kommit_vse(wt, 'F s imenem Git')
+            W = kommit(wt, 'rabota/impl.txt', 'work\n')
+            avtor_sdal(m, SUBJ, wt, br)
+            m.stancija_teg(wt, SUBJ, F)
+            r = sudit(door, m, vyzov(m, 'reviewer', 'Rev211', W))
+            return [k_rc(r, 0, imja),
+                    k_stdout(r, puschem('Rev211', SUBJ, 'reviewer'), imja),
+                    k_text(r, '', imja), k_start(m, 'Rev211', W, imja)]
+        return case
+
+    def b34(m, door):
+        wt, br, F = nositel(m, SUBJ, 'обычный')
+        os.chmod(Path(wt) / 'contracts/211-fixture.md', 0o755)
+        W = kommit_vse(wt, 'tolko exec-bit')
+        # Независимая проверка входа: ровно mode, имена/тип/blob неизменны.
+        a = run(['git', '-C', wt, 'ls-tree', '-z', F + ':contracts'])
+        b = run(['git', '-C', wt, 'ls-tree', '-z', W + ':contracts'])
+        assert a.returncode == b.returncode == 0
+        assert a.stdout.startswith(b'100644 ') and b.stdout.startswith(b'100755 ')
+        assert a.stdout[6:] == b.stdout[6:]
+        avtor_sdal(m, SUBJ, wt, br)
+        m.stancija_teg(wt, SUBJ, F)
+        r = sudit(door, m, vyzov(m, 'reviewer', 'Rev211', W))
+        return [k_rc(r, 0, 'b34'),
+                k_stdout(r, puschem('Rev211', SUBJ, 'reviewer'), 'b34'),
+                k_text(r, '', 'b34'), k_start(m, 'Rev211', W, 'b34')]
+
+    def ne_fajl(tip):
+        def case(m, door):
+            wt, br, _ = nositel(m, SUBJ, 'обычный')
+            p = Path(wt) / 'contracts/211-dir.md'
+            if tip == 'symlink':
+                p.symlink_to('211-fixture.md')
+            else:
+                p.mkdir()
+                (p / 'nested.md').write_text(kontrakt_tekst(SUBJ, 'обычный'),
+                                             encoding='utf-8')
+            # Неверный тип УЖЕ в F: равенства деревьев недостаточно, даже
+            # одинаковый симлинк/каталог не удостоверяет обычный файл.
+            F = kommit_vse(wt, 'F s neobychnym tipom')
+            W = kommit(wt, 'rabota/impl.txt', 'work\n')
+            avtor_sdal(m, SUBJ, wt, br)
+            m.stancija_teg(wt, SUBJ, F)
+            do = m.ledger.read_bytes()
+            r = sudit(door, m, vyzov(m, 'reviewer', 'Rev211', W))
+            return [k_rc(r, 1, tip), k_stdout(r, '', tip),
+                    k_text(r, predupr_zakrep(SUBJ) + otkaz_adv_do_rev(SUBJ), tip),
+                    k_uchet_ne_izmenen(m, do, tip)]
+        return case
+
+    def b37(m, door):
+        # D52, ноль frozen-тегов: legacy — только у $wt, не у $REPO.
+        # Умолчание владельца обязано остаться прежним, stderr пуст.
+        wt, br, F, W = mir_bootstrap(m, SUBJ, None)
+        avtor_sdal(m, SUBJ, wt, br)
+        legacy_avtora(m, wt, W, SUBJ)
+        r = sudit(door, m, vyzov(m, 'critic', 'Crit211', W))
+        return [k_rc(r, 0, 'b37'),
+                k_stdout(r, puschem('Crit211', SUBJ, 'critic'), 'b37'),
+                k_text(r, '', 'b37'), k_start(m, 'Crit211', W, 'b37')]
+
     reg('b01-bootstrap-adversary',
         'тег /1 на предке, байты равны, строки на main нет — адверсарий без предупреждения',
         b01)
@@ -911,6 +1001,18 @@ def kejsy():
     reg('b27-legacy-na-puti-d42-bez-izmenenij',
         'регресс D42: закреплённый frozen + текст без строки класса + legacy-строка владельца — класс как в базе, ревьюер чисто',
         b27)
+    for i, (tip, imja) in enumerate(IMENA_211):
+        reg('b%02d-imja-%s-posle-f' % (28 + i, tip),
+            'новое Git-имя %r после F — отказ удостоверения' % imja,
+            imja_posle_f(imja))
+        reg('b%02d-imja-%s-v-f' % (38 + i, tip),
+            'то же Git-имя %r в F и OBJECT — чистый допуск' % imja,
+            imja_v_f(imja))
+    reg('b34-tolko-mode', '100644 → 100755: те же имена и blob — чистый допуск', b34)
+    reg('b35-symlink-ne-kanon', 'равный симлинк 120000 в F/OBJECT — отказ', ne_fajl('symlink'))
+    reg('b36-katalog-ne-kanon', 'равный каталог 040000 в F/OBJECT — отказ', ne_fajl('tree'))
+    reg('b37-d52-legacy-nositelja',
+        'critic D52 без frozen: legacy носителя остаётся источником — без предупреждения', b37)
     return K
 
 
@@ -1004,6 +1106,16 @@ STAB_MUTACII = {
     'st53-bez-porjadka-sudej': lambda t: _mut(
         t, '''      if [ "$kr" = 'risikovyj' ] && [ "$rol" = 'reviewer' ]; then''',
         '''      if false; then'''),
+    'st54-ls-tree-bez-z': lambda t: _mut(
+        t, '''  done < <(git -C "$wt" ls-tree -z "$derevo" 2>/dev/null)''',
+        r'''  done < <(git -C "$wt" ls-tree "$derevo" 2>/dev/null |
+    awk -F'\t' -v n="$n" '$2 ~ "^" n "-[^/]*[.]md$" {printf "%s%c", $0, 0}')'''),
+    'st55-sravnenie-s-mode': lambda t: _mut(
+        t, r'''    printf '%q %s\n' "$imya" "$blob"''',
+        r'''    printf '%q %s %s\n' "$imya" "$blob" "$mode"'''),
+    'st56-umolchanie-vladelca-repo': lambda t: _mut(
+        t, r'''  owner="${4:-$wt}"''',
+        r'''  owner="${4:-$REPO}"'''),
 }
 
 STAB_VHOD = {
@@ -1031,6 +1143,13 @@ STAB_VHOD = {
     'st51-spisok-bez-ravenstva': ['b05-podmena-klassa-v-objecte'],
     'st52-klass-po-objectu': ['b12-zakreplennyj-frozen-prioritet'],
     'st53-bez-porjadka-sudej': ['b03-bootstrap-risikovyj-porjadok'],
+    'st54-ls-tree-bez-z': ['b28-imja-unicode-posle-f',
+                          'b30-imja-kavychka-posle-f',
+                          'b31-imja-backslash-posle-f',
+                          'b32-imja-tab-posle-f',
+                          'b33-imja-lf-posle-f'],
+    'st55-sravnenie-s-mode': ['b34-tolko-mode'],
+    'st56-umolchanie-vladelca-repo': ['b37-d52-legacy-nositelja'],
 }
 
 
