@@ -343,6 +343,12 @@ def kejsy():
     reg('r25-atomarnaja-zamena',
         'честный REPLACE через временный файл и mv: идентичность реестра меняется, открытый старый файл сохраняет исходные байты',
         mir_chestnyj)
+    reg('r26-peremint-vtoroj-versii',
+        'живы /1 и опубликованная /2; remint /2 на тот же commit — именованный отказ переминта выбранного vmax=2',
+        lambda w, nnn: _mir_r26(w, nnn))
+    reg('r27-mv-na-toj-zhe-fs',
+        'честный REPLACE: источник фактически исполняемого mv реестра на той же ФС, что каталог реестра (без EXDEV-копирования)',
+        mir_chestnyj)
     return K
 
 
@@ -597,11 +603,26 @@ def _mir_r24(w, nnn):
     return m, {'id': idsha, 'f1': m.rev('refs/tags/frozen/contracts/%s/1' % m.n)}
 
 
+def _mir_r26(w, nnn):
+    m = Mir(w, nnn)
+    idsha = m.mint()
+    m.freeze()
+    m.freeze_v2()
+    ref = 'refs/tags/frozen/contracts/%s/2' % m.n
+    original = m.rev(ref)
+    commit = m.rev(ref + '^{}')
+    m.g('tag', '-f', '-a', ref.removeprefix('refs/tags/'),
+        '-m', 'remint same commit v2', commit)
+    assert m.rev(ref) != original, 'мир r26: tag-object должен отличаться'
+    assert m.rev(ref + '^{}') == commit, 'мир r26: peeled commit должен совпадать'
+    return m, {'id': idsha, 'f2': m.rev(ref), 'origin_f2': original}
+
+
 # ожидание клетки: (rc, stdout, stderr); для зелёных stdout реконструируется
 # по миру ПОСЛЕ прогона (rev-parse HEAD) — см. шапку
 def ozhidanija(imja, m, d, posle):
     n = m.n
-    if imja in ('r01-chestnyj-replace', 'r25-atomarnaja-zamena'):
+    if imja in ('r01-chestnyj-replace', 'r25-atomarnaja-zamena', 'r27-mv-na-toj-zhe-fs'):
         return (0, ('REPLACED nnn=%s old=%s new=%s commit=%s\n'
                     % (n, d['id'], d['f1'], posle['head'])).encode('utf-8'), DVOR)
     if imja == 'r02-teg-ne-na-origin':
@@ -631,6 +652,9 @@ def ozhidanija(imja, m, d, posle):
     if imja in ('r13-drejf-frozen', 'r23-peremint-tot-zhe-kommit'):
         return ozh_otkaz('переминт заморозки: sha локального frozen/contracts/%s/1 (%s) ≠ sha тега на origin (%s)'
                          % (n, d['f1'], d['origin_f1']))
+    if imja == 'r26-peremint-vtoroj-versii':
+        return ozh_otkaz('переминт заморозки: sha локального frozen/contracts/%s/2 (%s) ≠ sha тега на origin (%s)'
+                         % (n, d['f2'], d['origin_f2']))
     if imja == 'r14-avtoritet-nedostupen':
         return ozh_otkaz('авторитет недоступен (ls-remote origin не ответил, rc=128) — fail-closed, обрыв сети НЕ пишет строку')
     if imja == 'r15-vysokaja-versija':
@@ -658,14 +682,45 @@ def ozhidanija(imja, m, d, posle):
 
 ZELENYE = ('r01-chestnyj-replace', 'r15-vysokaja-versija', 'r16-dogon-vtoroj-versii',
            'r17-chuzhij-hvost-bez-lf', 'r18-stroka-n-poslednjaja-bez-lf',
-           'r25-atomarnaja-zamena')
+           'r25-atomarnaja-zamena', 'r27-mv-na-toj-zhe-fs')
 
 
 
 
 # ── прогон одной клетки ──────────────────────────────────────────────────────
-def vyzvat(subjekt, t, n):
-    return run(['bash', str(subjekt), '--root', str(t), '--nnn', n], timeout=240)
+def vyzvat(subjekt, t, n, env=None):
+    return run(['bash', str(subjekt), '--root', str(t), '--nnn', n], env=env, timeout=240)
+
+
+def nabludenie_mv(m):
+    # contracts/212-replace-posle-lenda.md:36: временный файл + mv.
+    # r25 не различает rename и межфайловый mv (copy+unlink). Шим только
+    # снимает stat источника непосредственно ДО настоящего mv; argv, трубы
+    # и код не подменяются. Поддерживает штатную форму src dst и её честные
+    # варианты с -f/-T/--. Точный родитель TMP не предписывается: любая та же
+    # ФС допустима, в том числе корень toy у модели и /tmp на той же ФС.
+    real_mv = shutil.which('mv', path=GIT_ENV.get('PATH'))
+    if not real_mv:
+        raise RuntimeError('нет настоящего mv для наблюдения r27')
+    shimdir = m.w / 'mv-observer'
+    shimdir.mkdir()
+    log = m.w / 'mv.jsonl'
+    shim = shimdir / 'mv'
+    shim.write_text('#!%s\n' % sys.executable
+                    + 'import json, os, sys\nfrom pathlib import Path\n'
+                    + 'registry = Path(%r)\nlog = Path(%r)\n' % (str(m.manifest_fajl()), str(log))
+                    + 'args = sys.argv[1:]\n'
+                    + 'if len(args) >= 2 and Path(args[-1]).absolute() == registry:\n'
+                    + '    source = Path(args[-2])\n'
+                    + '    if source.is_file():\n'
+                    + '        record = [source.stat().st_dev, registry.parent.stat().st_dev]\n'
+                    + '        with log.open("a", encoding="utf-8") as out:\n'
+                    + '            out.write(json.dumps(record) + "\\n")\n'
+                    + 'os.execv(%r, [%r] + args)\n' % (real_mv, real_mv),
+                    encoding='utf-8')
+    shim.chmod(0o755)
+    env = dict(GIT_ENV, PATH=str(shimdir) + os.pathsep + GIT_ENV.get('PATH', os.defpath))
+    return env, log
 
 
 def sravnit(imja, r, ozh):
@@ -733,11 +788,12 @@ def prognot_kletku(imja, kejs, subjekt, s_post=True):
         d['novyj'] = d.get('f2', d.get('f1'))
         if imja == 'r03-zamorozka-ne-predok-main':
             d['freeze_commit'] = m.out('rev-parse', 'refs/tags/frozen/contracts/%s/1^{}' % m.n)
+        env, mv_log = nabludenie_mv(m) if imja == 'r27-mv-na-toj-zhe-fs' else (None, None)
         # Держим исходный inode открытым: он не может быть переиспользован
         # после mv. Канон — инвариант 6 контракта: временный файл + mv.
         # Проверяем наблюдаемый cutover, не гадаем о гонке по sleep.
         with m.manifest_fajl().open('rb') as ishodnyj:
-            r = vyzvat(subjekt, m.t, m.n)
+            r = vyzvat(subjekt, m.t, m.n, env=env)
             posle = {'head': m.rev('HEAD')}
             ozh = ozhidanija(imja, m, d, posle)
             prichiny = sravnit(imja, r, ozh)
@@ -750,6 +806,13 @@ def prognot_kletku(imja, kejs, subjekt, s_post=True):
                         prichiny.append('пост: реестр перезаписан на месте вместо mv временного файла')
                     if ishodnyj.read() != pre['manifest_fajl']:
                         prichiny.append('пост: открытый старый файл изменён вместо атомарного cutover')
+                if mv_log is not None:
+                    records = [json.loads(line) for line in mv_log.read_text().splitlines()] if mv_log.exists() else []
+                    if not records:
+                        prichiny.append('пост: mv реестра не наблюдался')
+                    for source_dev, registry_dev in records:
+                        if source_dev != registry_dev:
+                            prichiny.append('пост: mv между файловыми системами — copy/unlink вместо атомарного rename')
             return prichiny
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -861,6 +924,12 @@ STAB_MUTACII = {
     'st46-prjamaja-zapis-s-uborkoj': (
         'mv "$TMP" "$ROOT/$_REG_FILE"',
         'cat "$TMP" > "$ROOT/$_REG_FILE"; rm -f "$TMP"'),
+    'st47-sverka-tolko-v1': (
+        'if [ "$NEW_SHA" != "$sha_origin" ]; then',
+        'if [ "$vmax" = 1 ] && [ "$NEW_SHA" != "$sha_origin" ]; then'),
+    'st48-mktemp-drugaja-fs': (
+        'mktemp "$ROOT/.replace-line-$NNN.XXXXXX"',
+        'mktemp -p /dev/shm'),
 }
 
 STAB_VHOD = {
@@ -890,6 +959,8 @@ STAB_VHOD = {
     'st44-sverka-peeled-kommitov': ['r23-peremint-tot-zhe-kommit'],
     'st45-otkat-udalen': ['r24-otkaz-hooka-otkat'],
     'st46-prjamaja-zapis-s-uborkoj': ['r25-atomarnaja-zamena'],
+    'st47-sverka-tolko-v1': ['r26-peremint-vtoroj-versii'],
+    'st48-mktemp-drugaja-fs': ['r27-mv-na-toj-zhe-fs'],
 }
 
 # ── границы наблюдения (rc, stdout bytes, stderr bytes) — К-10 ───────────────
