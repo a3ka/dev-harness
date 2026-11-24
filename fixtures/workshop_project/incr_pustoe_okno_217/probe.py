@@ -103,6 +103,8 @@ def cells():
         Cell('e3-empty-equals', mode='equals', large=True, empty=True),
         Cell('e4-empty-oracle', mode='oracle-incr', empty=True),
         Cell('e5-empty-old-violation', shape='old', empty=True),
+        Cell('e6-empty-no-lf', cache='no-lf', empty=True),
+        Cell('e7-empty-oracle-no-lf', mode='oracle-incr', cache='no-lf', large=True, empty=True),
         Cell('w1-denied', shape='denied'),
         Cell('w2-allowed', shape='allowed'),
         Cell('w3-clean'),
@@ -111,6 +113,7 @@ def cells():
         Cell('w6-late-freeze-denied', shape='late-denied'),
         Cell('w7-oracle-denied', shape='denied', mode='oracle-incr'),
         Cell('w8-oracle-allowed', shape='allowed', mode='oracle-incr'),
+        Cell('w9-ancestor-no-lf', shape='allowed', cache='no-lf'),
         Cell('c1-missing-denied', shape='denied', cache='missing'),
         Cell('c2-missing-clean', cache='missing'),
         Cell('c3-unknown-denied', shape='denied', cache='unknown'),
@@ -179,7 +182,9 @@ class World:
                 self.commit('ordinary.txt', b'ordinary code\n')
         self.head = git(self.root, 'rev-parse', 'HEAD').decode().strip()
         value = (self.base + '\n').encode()
-        if cell.cache == 'unknown':
+        if cell.cache == 'no-lf':
+            value = self.base.encode()
+        elif cell.cache == 'unknown':
             value = b'a' * 40 + b'\n'
         elif cell.cache == 'foreign':
             tree = git(self.root, 'rev-parse', 'HEAD^{tree}').strip()
@@ -294,6 +299,7 @@ MUTATIONS = {
     'FULL_TOO': ('door', b'[ "${INCR_MODE:-full}" = "incr" ] && [ "$INCR_BASE" = "$INCR_HEAD" ]', b'true'),
     'CACHE_CORRUPT': ('block', b'  incr_finish 0\n', b'  printf stale > "$INCR_CACHE"\n'),
     'NO_FINISH': ('lib', b'  local rc="$1"\n', b'  local rc="$1"\n  return 0\n'),
+    'NO_FINISH_EMPTY': ('block', b'  incr_finish 0\n', b''),
     'FAIL_EMPTY': ('block', b'  exit 0\n', b'  exit 1\n'),
     'DOCUMENT_WALK': ('block', b'  incr_finish 0\n', b'  git -C "$ROOT" ls-tree -r --name-only HEAD >/dev/null\n  incr_finish 0\n'),
     'TAG_LOG': ('block', b'  incr_finish 0\n', b'  git -C "$ROOT" log --format=%H ustav/1..HEAD >/dev/null\n  incr_finish 0\n'),
