@@ -49,3 +49,13 @@ EMPTY-OLD-REJECTION	empty-root-fast
 EMPTY-OLD-REJECTION	empty-additions-fast
 EMPTY-OLD-REJECTION	empty-root-incr
 EMPTY-ROOT-CACHE	empty-root-incr-seed
+NUL-OWNER-CC	wire-ownermerge-ascii-edit
+NUL-OWNER-CC	wire-ownermerge-quote-edit
+NUL-OWNER-CC	wire-ownermergeread-ascii-edit
+NUL-OWNER-CC	wire-ownermergeread-quote-edit
+NUL-167-CM-READ	wire-167-cmread-deny-ascii
+NUL-167-CM-READ	wire-167-cmread-deny-quote
+NUL-167-CM2-READ	wire-167-cm2read-deny-ascii
+NUL-167-CM2-READ	wire-167-cm2read-deny-quote
+EMPTY-PROBE-RC-IGNORED	wire-errors-probe
+EMPTY-PROBE-RC-UNCHECKED	wire-errors-probe

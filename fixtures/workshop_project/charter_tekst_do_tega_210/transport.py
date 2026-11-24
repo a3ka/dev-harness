@@ -27,7 +27,7 @@ def cells(p):
     for form, slug in (('quote', 'a"quote'), ('slash', 'a\\slash'), ('tab', 'a\ttab'),
                        ('lf', 'a\nline'), ('cr', 'a\rcr'), ('soh', 'a\x01soh'), ('del', 'a\x7fdel')):
         result.append(p.Cell(f'wire-route-{form}', 'history', 'seam', slug=slug))
-    for variant in ('scope', 'log', 'empty', 'truncated'):
+    for variant in ('scope', 'log', 'empty', 'truncated', 'probe'):
         result.append(p.Cell(f'wire-errors-{variant}', 'history', 'seam'))
     for seam in ('diff', 'head', 'history', 'backfill', 'frozen', 'zones', 'owner', 'ownerread'):
         for form, slug in (('ascii', 'ascii'), ('quote', 'a"quote'), ('slash', 'a\\slash'),
@@ -38,6 +38,13 @@ def cells(p):
     for site in ('d1', 'd2', 'cm', 'cm2'):
         for decision in ('allow', 'deny'):
             result.append(p.Cell(f'wire-167-{site}-{decision}', 'history', 'seam', slug='a"quote'))
+    for form, slug in (('ascii', 'ascii'), ('quote', 'a"quote')):
+        for seam in ('ownermerge', 'ownermergeread'):
+            for shape in ('edit', 'history'):
+                result.append(p.Cell(f'wire-{seam}-{form}-{shape}', shape, 'seam', slug=slug))
+        for site in ('cmread', 'cm2read'):
+            for decision in ('allow', 'deny'):
+                result.append(p.Cell(f'wire-167-{site}-{decision}-{form}', 'history', 'seam', slug=slug))
     for form, slug in (('ascii', 'ascii'), ('quote', 'a"quote'), ('slash', 'a\\slash'),
                        ('cyrillic', 'кириллица'), ('nfc', 'café'),
                        ('nfd', 'cafe\u0301'), ('space', 'a space')):
@@ -51,7 +58,8 @@ def cells(p):
 
 def observe(p, cell, sources, scratch, override=None):
     with tempfile.TemporaryDirectory(prefix=cell.name + '-', dir=scratch) as directory:
-        world = p.World(directory, cell)
+        world = (p.EmptyWorld(directory, p.Cell('probe-world', 'empty-additions'))
+                 if cell.name == 'wire-errors-probe' else p.World(directory, cell))
         root = world.root
         tmp = Path(directory) / 'reader-tmp'
         tmp.mkdir()
@@ -88,19 +96,22 @@ parse_artifact_basename() { printf '%s\\0' "$1" >> "$TMP/audit"; parse_original_
 '''
         if seam == 'errors':
             variant = cell.name.split('-')[2]
-            fail = {'scope': 'ls-tree', 'log': 'log', 'empty': 'log', 'truncated': 'log'}[variant]
+            fail = {'scope': 'ls-tree', 'log': 'log', 'empty': 'log',
+                    'truncated': 'log', 'probe': 'log -1'}[variant]
             effect = 'return 128'
             reason = ('  FAIL область устава (plans/, contracts/) не читается (ls-tree rc=128): проверить невозможно — git fsck и повтор\n'
                       if variant == 'scope' else
                       '  FAIL история не читается (git log rc=128): проверить невозможно — git fsck и повтор\n')
-            if variant in ('empty', 'truncated'):
-                effect = ('return 0' if variant == 'empty' else
+            if variant in ('empty', 'truncated', 'probe'):
+                effect = ('return 128' if variant == 'probe' else 'return 0'
+                          if variant == 'empty' else
                           f"printf '\\0{world.commits[world.head]}\\0\\ncontracts/unclosed'; return 0")
                 reason = '  FAIL пустой или оборванный протокол git log: проверить невозможно\n'
+            selector = '*' if variant == 'probe' else '*" --name-only "*'
             program = prefix + f'''git() {{
   case " $* " in
     *" {fail} "*) case " $* " in
-      *" --name-only "*) {effect} ;;
+      {selector}) {effect} ;;
     esac ;;
   esac
   command git "$@"
@@ -108,9 +119,12 @@ parse_artifact_basename() { printf '%s\\0' "$1" >> "$TMP/audit"; parse_original_
 export -f git
 bash "$ROOT/scripts/check_charter.sh" "$ROOT"
 '''
-            clean = p.Cell('error-control', 'history')
-            world.cell = clean
-            clean_expected = world.expected()
+            if variant == 'probe':
+                clean_expected = world.expected()
+            else:
+                clean = p.Cell('error-control', 'history')
+                world.cell = clean
+                clean_expected = world.expected()
             expected = (1, b'', reason.encode() + (b'' if variant == 'scope' else clean_expected[2]))
         elif seam == 'diff':
             sha = world.commits[world.head]
@@ -171,10 +185,20 @@ locations=(contracts/)
             else:
                 program += '\nprintf "%s\\n" "$razrechen"\n'
                 expected = (0, b'1\n' if clean else b'0\n', b'')
-        elif seam in ('owner', 'ownerread'):
+        elif seam in ('owner', 'ownerread', 'ownermerge', 'ownermergeread'):
             path = 'docs/owner/' + cell.slug + '.md'
             world.commit('owner-base', {path: b'old\n'})
-            if cell.shape == 'history':
+            if seam in ('ownermerge', 'ownermergeread'):
+                # Same path differs from BOTH parents; a clean merge alone
+                # cannot expose the independent --cc transport producer.
+                world.commit('owner-left', {path: b'left\n'}, ['owner-base'])
+                world.commit('owner-right', {path: b'right\n'}, ['owner-base'])
+                clean = cell.shape == 'history'
+                world.commit('owner-merge', {path: b'right\n' if clean else b'evil\n'},
+                             ['owner-left', 'owner-right'])
+                sha = world.commits['owner-merge']
+                payload = b'' if clean else path.encode() + b'\0'
+            elif cell.shape == 'history':
                 world.commit('owner-left', {'left.txt': b'left\n'})
                 world.commit('owner-right', {path: b'new\n'}, ['owner-base'])
                 world.commit('owner-merge', {path: b'new\n'}, ['owner-left', 'owner-right'])
@@ -186,16 +210,23 @@ locations=(contracts/)
                 payload = path.encode() + b'\0'
             program = prefix + function(sources['.githooks/pre-push'], 'owner_docs_paths') + f'owner_docs_paths {sha}\n'
             expected = (0, payload, b'')
-            if seam == 'ownerread':
+            if seam in ('ownerread', 'ownermergeread'):
                 body = between(sources['.githooks/pre-push'],
                                '    if [ "$author" != "owner" ]; then',
                                '\n    case "$rref" in')
                 program = prefix + function(sources['.githooks/pre-push'], 'owner_docs_paths')
                 program += f'c={sha}\nlref=refs/heads/main\nauthor=architect\nrc=0\n' + body
                 expected = (0, b'', (f'ОТКАЗ: pre-push: docs/owner/ пишет только owner (канал владельца): ref=refs/heads/main коммит={sha} автор=architect путь={path}\n'.encode() if payload else b''))
+                if seam == 'ownermergeread':
+                    program += '\nexit "$rc"\n'
+                    expected = (int(bool(payload)), expected[1], expected[2])
         elif seam == '167':
-            site, decision = cell.name.split('-')[2:]
-            path = 'notes/a"quote.md'
+            parts = cell.name.split('-')
+            site, decision = parts[2:4]
+            reader_only = site in ('cmread', 'cm2read')
+            if reader_only:
+                site = 'cm' if site == 'cmread' else 'cm2'
+            path = 'zzz/' + cell.slug + '.md' if reader_only else 'notes/a"quote.md'
             registry = 'registry/contracts.tsv'
             row1 = b'801 \xe2\x86\x92 ' + b'a' * 40 + b'\n'
             row2 = b'802 \xe2\x86\x92 ' + b'b' * 40 + b'\n'
@@ -212,13 +243,13 @@ locations=(contracts/)
                 wanted = 1 if decision == 'deny' else 0
             else:
                 # Registry union enters the second pair of diff readers.
-                left = {registry: row1, path if site == 'cm2' else 'left.txt': b'left\n'}
-                right = {registry: row2, path if site == 'cm' else 'right.txt': b'right\n'}
+                left = {registry: row1, path if site == ('cm' if reader_only else 'cm2') else 'left.txt': b'left\n'}
+                right = {registry: row2, path if site == ('cm2' if reader_only else 'cm') else 'right.txt': b'right\n'}
                 world.commit('left', left)
                 world.commit('right', right, ['merge-base'])
                 merged = {**left, **right, registry: row1 + row2}
                 if decision == 'deny':
-                    merged[path] = b'evil merge\n'
+                    merged[path] = b'base\n' if reader_only else b'evil merge\n'
                 wanted = 1 if decision == 'deny' else 0
             world.commit('merge-result', merged, ['left', 'right'])
             program = prefix + function(sources['.githooks/pre-push'], 'reg_167_stroka') + function(sources['.githooks/pre-push'], 'merge_167_razreshen')
@@ -231,6 +262,12 @@ locations=(contracts/)
             kind = next(iter(override.values()))
             if kind == 'wire-empty':
                 expected = (0, b'', b'')
+            elif kind == 'wire-probe-ignored':
+                expected = (0, b'', clean_expected[2])
+            elif kind == 'wire-owner-merge-lost':
+                payload = (b'"docs/owner/a\\"quote.md"\n' if cell.slug == 'a"quote'
+                           else path.encode() + b'\n')
+                expected = (0, payload if seam == 'ownermerge' else b'', b'')
             elif kind == 'wire-zero':
                 expected = (0, b'0\n', b'')
             elif kind == 'wire-frozen-clean':
