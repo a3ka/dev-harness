@@ -28,7 +28,9 @@
   "r22-manifest-pustaja-stroka": "в манифесте пустая строка — отказ грамматики манифеста с номером строки (Б-3)",
   "r23-peremint-tot-zhe-kommit": "опубликованный annotated тег переминчен на тот же commit: tag-object различны, peeled commits равны — отказ переминта",
   "r24-otkaz-hooka-otkat": "исполняемый pre-commit печатает DENIED и отказывает: rc 1, HEAD, байты реестра и чистый индекс восстановлены",
-  "r25-atomarnaja-zamena": "честный REPLACE через временный файл и mv: идентичность реестра меняется, открытый старый файл сохраняет исходные байты"
+  "r25-atomarnaja-zamena": "честный REPLACE через временный файл и mv: идентичность реестра меняется, открытый старый файл сохраняет исходные байты",
+  "r26-peremint-vtoroj-versii": "живы /1 и опубликованная /2; remint /2 на тот же commit — именованный отказ переминта выбранного vmax=2",
+  "r27-mv-na-toj-zhe-fs": "честный REPLACE: источник фактически исполняемого mv реестра на той же ФС, что каталог реестра (без EXDEV-копирования)"
  },
  "stab_vhod": {
   "st01-povtor-propuschen": [
@@ -111,6 +113,12 @@
   ],
   "st46-prjamaja-zapis-s-uborkoj": [
    "r25-atomarnaja-zamena"
+  ],
+  "st47-sverka-tolko-v1": [
+   "r26-peremint-vtoroj-versii"
+  ],
+  "st48-mktemp-drugaja-fs": [
+   "r27-mv-na-toj-zhe-fs"
   ],
   "st20-otkaz-crlf": [
    "r02-teg-ne-na-origin",
@@ -250,6 +258,8 @@
   "stabs/st43-nul-udalen/replace_line.sh": "915af712c0ff0c1392ff17848594b40f7dbee923c4b7ba2d4d110b092f734b98",
   "stabs/st44-sverka-peeled-kommitov/replace_line.sh": "66d619e1855cac195c2506d9e44ed3bfd1dfeca63dbd028c5fb455860e1dea96",
   "stabs/st45-otkat-udalen/replace_line.sh": "4ffdefc79808102aa5e3a6eb8f6e21314030e590cafca8a87ca8b3e18416bf28",
-  "stabs/st46-prjamaja-zapis-s-uborkoj/replace_line.sh": "1af81dc20663db2677d289e56873f0d75e2ac947a0ea81f445aa6e9f6d07a239"
+  "stabs/st46-prjamaja-zapis-s-uborkoj/replace_line.sh": "1af81dc20663db2677d289e56873f0d75e2ac947a0ea81f445aa6e9f6d07a239",
+  "stabs/st47-sverka-tolko-v1/replace_line.sh": "b2ddba05e0988ff6101951e1ffae60e2dfeb62cc613be220988a82bae25d76f3",
+  "stabs/st48-mktemp-drugaja-fs/replace_line.sh": "19cfb9fc2d178cfb9cb74af921b218805d5d8a1cf377880e37686675db787c36"
  }
 }
