@@ -108,10 +108,14 @@ import tempfile
 
 import yaml
 from workflow_sweep_v3 import check as workflow_controls, stabs as workflow_stabs
+import forma_transporta
+import lanes_216
 
 HERE = Path(__file__).resolve().parent
 BASE = HERE / 'model'
-LEGACY = ('e2e-splash', 'e2e-first-run', 'e2e-erstinformation', 'e2e-start', 'e2e-pilot')
+# v5 (окно ленда 197): перечень legacy-работников и lane-модель — единый
+# источник forma_transporta (модель 197 по ссылке, структурный пин).
+LEGACY = forma_transporta.LEGACY
 SELECT_MODEL = BASE / 'mobile/scripts/select-ci-screens.cjs'
 AGG_MODEL = BASE / 'mobile/scripts/ci-aggregate.cjs'
 
@@ -145,6 +149,18 @@ def model_workflow():
         else:
             base['jobs'][name] = job
     return base
+
+
+def sweep_bazir(wf):
+    """v5: базир sweep-клеток ПО ФОРМЕ ТРАНСПОРТА субъекта (forma_transporta):
+    'old' — слитая модель 143 (GitHub-транспорт, fda1fc8 и старше), 'lane' —
+    модель 197 по ссылке (структурный пин сверен префлайтом ДО клеток)."""
+    if forma_transporta.forma_transporta(wf) == 'lane':
+        m197, oshibka = forma_transporta.model_197()
+        if oshibka:
+            raise ValueError('MODEL_197: ' + oshibka)
+        return m197
+    return model_workflow()
 
 
 def selected(map_data):
@@ -208,15 +224,26 @@ def selector_output_case(wf, root, tmp):
     script = root / 'mobile/scripts/select-ci-screens.cjs'
     if not script.is_file():
         return checked(False, 'MATRIX_SELECTOR_ABSENT')
+    lane_step = steps[0].get('run', '').strip() == 'npm run ci:select-screens'
+    if lane_step and not lanes_216.valid(root, steps[0], 'select-screens'):
+        return checked(False, 'MATRIX_SEL_LANE: route/body/env/cwd')
     mapping = demo_map()
     expected = selected(mapping)['matrix']
     (tmp / 'mobile/scripts').mkdir(parents=True)
     shutil.copy2(script, tmp / 'mobile/scripts/select-ci-screens.cjs')
     (tmp / 'mobile/ci-screens.json').write_text(json.dumps(mapping))
+    if lane_step:
+        shutil.copy2(root / 'package.json', tmp / 'package.json')
+        for name in lanes_216.scripts(lanes_216.oracle()):
+            shutil.copy2(root / 'mobile/scripts' / name, tmp / 'mobile/scripts' / name)
+    context = {expression[4:-3].strip(): '' for expression in lanes_216.ENV.values()}
+    context['github.event_name'] = 'schedule'
     output = tmp / 'gh-output'
+    environment = dict(os.environ, GITHUB_OUTPUT=str(output))
+    environment.update({key: github(value, context) for key, value in steps[0].get('env', {}).items()})
     proc = subprocess.run(['bash', '-eo', 'pipefail', '-c',
-                           github(steps[0]['run'], {'github.event_name': 'schedule'})],
-                          cwd=tmp, env=dict(os.environ, GITHUB_OUTPUT=str(output)),
+                           github(steps[0]['run'], context)],
+                          cwd=tmp, env=environment,
                           capture_output=True, text=True, timeout=25)
     if proc.returncode:
         return checked(False, 'MATRIX_SEL_RUN: ' + (proc.stdout + proc.stderr)[-160:])
@@ -584,7 +611,16 @@ def workflow_case(wf, old, which):
     jobs = wf.get('jobs', {})
     matrix = jobs.get('e2e-screen', {})
     if which == 'legacy':
-        return checked(all(jobs.get(j) == old.get('jobs', {}).get(j) for j in LEGACY), 'LEGACY_JOB_CHANGED')
+        # v5 (окно ленда 197): legacy-опора И-15 сравнивается с ЦЕЛОЙ базой
+        # пинов — прежней (GitHub-транспорт, fda1fc8 и старше) ИЛИ lane-моделью
+        # 197 (ссылка). Смешение (часть работников на канале GitHub, часть на
+        # lane) не совпадает ни с одной базой целиком — LEGACY_JOB_CHANGED.
+        m197, oshibka = forma_transporta.model_197()
+        if oshibka:
+            return checked(False, 'MODEL_197: ' + oshibka)
+        staryj = all(jobs.get(j) == old.get('jobs', {}).get(j) for j in LEGACY)
+        lane = all(jobs.get(j) == m197.get('jobs', {}).get(j) for j in LEGACY)
+        return checked(staryj or lane, 'LEGACY_JOB_CHANGED')
     if which == 'matrix':
         return checked(matrix.get('needs') == ['select-screens', 'build-apk'] and
                        matrix.get('strategy', {}).get('matrix') == '${{ fromJSON(needs.select-screens.outputs.matrix) }}' and
@@ -606,18 +642,32 @@ def workflow_case(wf, old, which):
                        'flock ' in launch and 'ANDROID_AVD_HOME=' in launch and
                        adb_server in launch.splitlines(), 'MATRIX_ALLOCATOR')
     if which == 'evidence':
+        # v5: проводка child-evidence судится ПО ФОРМЕ ТРАНСПОРТА субъекта
+        # (forma_transporta, целая по пяти legacy-работникам): канал GitHub —
+        # download-artifact с pattern/merge-multiple, lane — шаблонное чтение
+        # канона 197; смешение форм ловит 'legacy', здесь судится форма целиком.
+        forma = forma_transporta.forma_transporta(wf)
         for aggregate in ('android-e2e', 'mobile-regression-signal'):
             job = jobs.get(aggregate, {})
             if 'e2e-screen' not in job.get('needs', []):
                 return checked(False, 'MATRIX_NEEDS_AGGREGATE_' + aggregate)
             steps = job.get('steps', [])
-            if not any('download-artifact@' in str(s.get('uses', '')) and
-                       s.get('with', {}).get('merge-multiple') is False and
-                       'screen-evidence-*' in str(s.get('with', {}).get('pattern', '')) for s in steps):
+            if forma == 'lane':
+                if not any('ci:artefakt-chtenie' in str(s.get('run', '')) and
+                           '--shablon' in str(s.get('run', '')) and
+                           'screen-evidence-*' in str(s.get('run', '')) for s in steps):
+                    return checked(False, 'CHILD_DOWNLOAD_ABSENT_' + aggregate)
+            elif not any('download-artifact@' in str(s.get('uses', '')) and
+                         s.get('with', {}).get('merge-multiple') is False and
+                         'screen-evidence-*' in str(s.get('with', {}).get('pattern', '')) for s in steps):
                 return checked(False, 'CHILD_DOWNLOAD_ABSENT_' + aggregate)
             if not any('ci-aggregate.cjs' in str(s.get('run', '')) and '--evidence' in str(s.get('run', '')) for s in steps):
                 return checked(False, 'CHILD_VERIFIER_ABSENT_' + aggregate)
         upload = matrix.get('steps', [])
+        if forma == 'lane':
+            return checked(any('ci:artefakt-zapis' in str(s.get('run', '')) and
+                               'screen-evidence-${{ matrix.screen.id }}' in str(s.get('run', '')) and
+                               s.get('if') == 'always()' for s in upload), 'CHILD_UPLOAD_ABSENT')
         return checked(any('upload-artifact@' in str(s.get('uses', '')) and
                            s.get('if') == 'always()' and 'matrix.screen.id' in
                            str(s.get('with', {}).get('name', '')) for s in upload), 'CHILD_UPLOAD_ABSENT')
@@ -626,8 +676,17 @@ def workflow_case(wf, old, which):
         digest = next((i for i, s in enumerate(steps) if 'APK_DIGEST_RASKHOZHDENIE' in str(s.get('run', ''))), -1)
         run = next((i for i, s in enumerate(steps) if 'run-ci-screen.cjs' in str(s.get('run', ''))), -1)
         secret = str(matrix)
-        return checked(0 <= digest < run and 'needs.build-apk.outputs.apk_sha256' in str(steps[digest]) and
-                       'PILOT_DEMO_CODE' not in secret, 'MATRIX_APK_OR_SECRET')
+        bazovyj = (0 <= digest < run and 'needs.build-apk.outputs.apk_sha256' in str(steps[digest]) and
+                   'PILOT_DEMO_CODE' not in secret)
+        if forma_transporta.forma_transporta(wf) != 'lane':
+            return checked(bazovyj, 'MATRIX_APK_OR_SECRET')
+        # v5 (lane, И-4 197 у матрицы): APK-читатель универсального работника
+        # обязан нести ПРОДЮСЕРСКУЮ пару run_id/run_attempt из outputs сборки.
+        para = any('ci:artefakt-chtenie' in str(s.get('run', '')) and
+                   '--run-id' in str(s.get('run', '')) and '--run-attempt' in str(s.get('run', '')) and
+                   set(forma_transporta.PARA_SBORKI) <=
+                   set(str(v) for v in (s.get('env') or {}).values()) for s in steps)
+        return checked(bazovyj and para, 'MATRIX_APK_OR_SECRET' if not bazovyj else 'MATRIX_APK_BEZ_PARY')
     raise ValueError(which)
 
 
@@ -767,6 +826,83 @@ STUBS = {
 }
 
 
+# v5 (окно ленда 197): lane-стабы — мутации модели 197 (ссылка) с якорями по
+# литеральным текстам шагов; каждый дефект наблюдаем на СВОЕЙ ветви (Н-39),
+# дрейф модели 197 сверх структурного пина = ORACLE_TAMPERED, не тихий стаб.
+IMJA_DIGEST_SHAGA_197 = 'APK сборки: артефакт по имени, digest до установки'
+
+
+def _shag_197(wf, job, imja):
+    for i, s in enumerate(wf['jobs'][job].get('steps', [])):
+        if (s.get('name') or '') == imja:
+            return i, s
+    return -1, None
+
+
+def _lane_agg_download_vernut(wf):
+    i, s = _shag_197(wf, 'android-e2e', 'Download child evidence')
+    if i < 0 or 'ci:artefakt-chtenie' not in str(s.get('run', '')):
+        return 'шаг чтения child-evidence не найден в android-e2e'
+    wf['jobs']['android-e2e']['steps'][i] = {
+        'name': 'Download child evidence', 'if': 'always()',
+        'uses': 'actions/download-artifact@v7',
+        'with': {'pattern': 'screen-evidence-*', 'merge-multiple': False,
+                 'path': 'mobile/screen-evidence-collected'}}
+    return None
+
+
+def _lane_worker_gh_vernut(wf):
+    i, s = _shag_197(wf, 'e2e-splash', IMJA_DIGEST_SHAGA_197)
+    if i < 0:
+        return 'digest-шаг e2e-splash не найден'
+    staryj = ('npm run ci:artefakt-chtenie -- --imja "$IMJA_ARTEFAKTA" --kuda apk-build '
+              '--run-id "$RUN_SBORKI" --run-attempt "$POPYTKA_SBORKI"')
+    novyj = 'gh run download "${{ github.run_id }}" --name "$IMJA_ARTEFAKTA" --dir apk-build'
+    if s.get('run', '').count(staryj) != 1:
+        return 'lane-чтение APK у e2e-splash не найдено (или не одно)'
+    s['run'] = s['run'].replace(staryj, novyj)
+    return None
+
+
+def _lane_child_zapis_bez_always(wf):
+    i, s = _shag_197(wf, 'e2e-screen', 'Publish child evidence')
+    if i < 0 or 'ci:artefakt-zapis' not in str(s.get('run', '')):
+        return 'шаг публикации child-evidence не найден в e2e-screen'
+    s.pop('if', None)
+    return None
+
+
+def _lane_ident_bez_popytki(wf):
+    shag = next((s for s in wf['jobs']['build-apk'].get('steps', []) if s.get('id') == 'ident'), None)
+    if shag is None:
+        return 'шаг ident сборки не найден'
+    stroka = 'echo "run_attempt=${{ github.run_attempt }}"'
+    if str(shag.get('run', '')).count(stroka) != 1:
+        return 'echo run_attempt не найден в ident (или не один)'
+    shag['run'] = '\n'.join(l for l in shag['run'].splitlines() if l.strip() != stroka)
+    return None
+
+
+def _lane_matrix_chitatel_bez_pary(wf):
+    i, s = _shag_197(wf, 'e2e-screen', 'Download the single APK')
+    if i < 0 or 'ci:artefakt-chtenie' not in str(s.get('run', '')):
+        return 'шаг чтения APK не найден в e2e-screen'
+    env = s.setdefault('env', {})
+    if env.get('POPYTKA_SBORKI') != '${{ needs.build-apk.outputs.run_attempt }}':
+        return 'env POPYTKA_SBORKI не несёт продюсерскую попытку'
+    env['POPYTKA_SBORKI'] = '${{ github.run_attempt }}'
+    return None
+
+
+LANE_STUBS = {
+    'lane-agg-download-vernut': ('evidence', _lane_agg_download_vernut),
+    'lane-worker-gh-vernut': ('legacy', _lane_worker_gh_vernut),
+    'lane-child-zapis-bez-always': ('evidence', _lane_child_zapis_bez_always),
+    'lane-ident-bez-popytki': ('workflow-build-apk-run-step-7', _lane_ident_bez_popytki),
+    'lane-matrix-chitatel-bez-pary': ('apk', _lane_matrix_chitatel_bez_pary),
+}
+
+
 LEGACY_GUARD_LINES = {
     'no-needs-arg': 27, 'invalid-needs-json': 30,
     'invalid-selection-json': 45, 'selection-absent': 51,
@@ -873,6 +1009,22 @@ def main():
     except (OSError, KeyError, ValueError) as exc:
         print('ORACLE_TAMPERED: ' + str(exc), file=sys.stderr)
         return 2
+    # v5 (окно ленда 197): ссылка на модель 197 пинируется ДО клеток —
+    # структурный канон (forma_transporta) сверен с source.json:.ssylki.
+    try:
+        src = json.loads((HERE / 'source.json').read_text())
+    except (OSError, ValueError) as exc:
+        print('ORACLE_TAMPERED: source.json: %s' % exc, file=sys.stderr)
+        return 2
+    _, oshibka197 = forma_transporta.model_197(src)
+    if oshibka197:
+        print('ORACLE_TAMPERED: модель-197: ' + oshibka197, file=sys.stderr)
+        return 2
+    try:
+        lanes_216.oracle()
+    except (OSError, ValueError) as exc:
+        print('ORACLE_TAMPERED: ' + str(exc), file=sys.stderr)
+        return 2
     root = BASE if not args.repo else args.repo.resolve()
     try:
         workflow = model_workflow() if not args.repo else yaml.safe_load((root / '.github/workflows/mobile.yml').read_text())
@@ -884,7 +1036,8 @@ def main():
         if not args.repo:
             print('WORKFLOW_CELL_REQUIRES_REPO', file=sys.stderr)
             return 2
-        hits = [(name, result) for name, result in workflow_controls(workflow, model_workflow())
+        hits = [(name, result) for name, result in workflow_controls(
+                    lanes_216.project(workflow, root, sweep_bazir(workflow)), sweep_bazir(workflow))
                 if name == args.workflow_cell]
         if len(hits) != 1:
             print('WORKFLOW_CELL_UNKNOWN: ' + args.workflow_cell, file=sys.stderr)
@@ -895,7 +1048,8 @@ def main():
     with tempfile.TemporaryDirectory(prefix='matrix-143-v3-') as t:
         tmp = Path(t)
         results = [(name, workflow_case(workflow, old, name)) for name in ('legacy', 'matrix', 'allocator', 'evidence', 'apk')]
-        results.extend(workflow_controls(workflow, model_workflow()))
+        results.extend(workflow_controls(lanes_216.project(workflow, root, sweep_bazir(workflow)),
+                                         sweep_bazir(workflow)))
         results.append(('selector', selector_case(root, not args.repo, tmp)))
         results.append(('selector-output', selector_output_case(workflow, root, tmp / 'selector-output')))
         if not args.repo:
@@ -955,6 +1109,23 @@ def main():
         print('клеток %d, зелёных %d, красных %d' % (len(results), sum(ok for _, (ok, _) in results), sum(not ok for _, (ok, _) in results)))
         if any(not ok for _, (ok, _) in results):
             return 1
+        if not args.repo:
+            # v5 (окно ленда 197): контроль lane-эталона ДО мутаций — модель 197
+            # по ссылке (структурный пин префлайта), транспорт-связанные клетки
+            # зелёны; канал судит батарея 197, здесь — целость формы в 143.
+            m197wf, oshibka197 = forma_transporta.model_197()
+            if oshibka197:
+                print('ORACLE_TAMPERED: модель-197: ' + oshibka197, file=sys.stderr)
+                return 2
+            lane = [(name, workflow_case(m197wf, old, name))
+                    for name in ('legacy', 'matrix', 'allocator', 'evidence', 'apk')]
+            lane_krasnye = [(n, r) for n, (ok, r) in lane if not ok]
+            print('модель-197 (lane-транспорт): клеток %d, зелёных %d, красных %d'
+                  % (len(lane), len(lane) - len(lane_krasnye), len(lane_krasnye)))
+            for n, r in lane_krasnye:
+                print('КЛЕТКА-197 %s КРАСНА: %s' % (n, r))
+            if lane_krasnye:
+                return 1
         if args.stabs:
             for name, reason in workflow_stabs(workflow, model_workflow()):
                 print('СТАБ %s @ %s КРАСЕН: %s' % (name, name, reason))
@@ -1229,12 +1400,31 @@ def main():
                     print('STAB_ZHIV selector-entry-%s @ selector-entry-%s: %s' % (variant, variant, reason))
                     return 1
                 print('СТАБ selector-entry-%s @ selector-entry-%s КРАСЕН: %s' % (variant, variant, reason))
+            for name, (branch, mutate) in LANE_STUBS.items():
+                weak = copy.deepcopy(m197wf)
+                oshibka_mutacii = mutate(weak)
+                if oshibka_mutacii:
+                    print('ORACLE_TAMPERED: lane-стаб %s: %s' % (name, oshibka_mutacii), file=sys.stderr)
+                    return 2
+                if branch.startswith('workflow-'):
+                    hits = [(ok, reason) for cell, (ok, reason)
+                            in workflow_controls(weak, m197wf) if cell == branch]
+                    if len(hits) != 1:
+                        print('ORACLE_TAMPERED: lane-стаб %s: ветвь %s не единственна' % (name, branch), file=sys.stderr)
+                        return 2
+                    ok, reason = hits[0]
+                else:
+                    ok, reason = workflow_case(weak, old, branch)
+                if ok:
+                    print('STAB_ZHIV %s @ %s' % (name, branch))
+                    return 1
+                print('СТАБ %s @ %s КРАСЕН: %s' % (name, branch, reason))
             from workflow_sweep_v3 import controls, root_controls
             control_count = len(controls(model_workflow())) + len(root_controls(model_workflow(), workflow))
             extension_count = 8
             print('стабов %d, привязок %d, живых 0' % (
-                len(STUBS) + 27 + len(AGG_GUARD_LINES) + len(SELECTOR_GUARD_LINES) + len(LEGACY_GUARD_LINES) + len(INVENTORY_GUARD_LINES) + len(SELECTOR_ENTRY_LINES) + control_count + extension_count,
-                len(STUBS) + 36 + len(AGG_GUARD_LINES) + len(SELECTOR_GUARD_LINES) + len(LEGACY_GUARD_LINES) + len(INVENTORY_GUARD_LINES) + len(SELECTOR_ENTRY_LINES) + control_count + extension_count))
+                len(STUBS) + 27 + len(LANE_STUBS) + len(AGG_GUARD_LINES) + len(SELECTOR_GUARD_LINES) + len(LEGACY_GUARD_LINES) + len(INVENTORY_GUARD_LINES) + len(SELECTOR_ENTRY_LINES) + control_count + extension_count,
+                len(STUBS) + 36 + len(LANE_STUBS) + len(AGG_GUARD_LINES) + len(SELECTOR_GUARD_LINES) + len(LEGACY_GUARD_LINES) + len(INVENTORY_GUARD_LINES) + len(SELECTOR_ENTRY_LINES) + control_count + extension_count))
         return 0
 
 
