@@ -16,6 +16,12 @@
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)" || exit 2
 command -v python3 >/dev/null 2>&1 || { echo 'NOT_IMPLEMENTED: нет python3' >&2; exit 2; }
+if [[ "${1:-}" == --syntax ]]; then
+  exec python3 -B "$HERE/lane_v6_acceptance.py" --syntax
+fi
+if [[ "${1:-}" == --model || "${1:-}" == --stabs ]]; then
+  python3 -B "$HERE/lane_v6_acceptance.py" "$1" || exit "$?"
+fi
 PYTHONDONTWRITEBYTECODE=1 python3 "$HERE/matrix_v3.py" "$@"
 matrix_rc=$?
 if [[ " $* " == *" --repo "* ]]; then
