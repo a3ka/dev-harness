@@ -669,7 +669,9 @@ predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # задают при risk_repo ≠ носитель автора; при risk_repo = носитель (клон
 # без/с иным origin) — унаследованная граница базы (211: ГРАНИЦА ПРИНЯТА
 # ВЛАДЕЛЬЦЕМ, слово 23.11; арбитраж 2353d9e0b8 §4).
-# NUL-поток git: имя не цитируется и не делится по LF/TAB.
+# NUL-поток git: имя не цитируется и не делится по LF/TAB. Независимый
+# канон порядка D52: штатный sort -z над ЦЕЛОЙ записью ls-tree сохраняет
+# ключ базы (mode, type, blob, имя), не повторяя массивы production.
 kontrakt_zapisi() {  # <repo> <tree:каталог> <NNN>
   local wt="$1" derevo="$2" n="$3" zap meta imya mode tip blob
   while IFS= read -r -d '' zap; do
@@ -677,7 +679,7 @@ kontrakt_zapisi() {  # <repo> <tree:каталог> <NNN>
     case "$imya" in "$n"-*.md) ;; *) continue ;; esac
     read -r mode tip blob <<< "$meta"
     printf '%s\0%s\0%s\0%s\0' "$imya" "$mode" "$tip" "$blob"
-  done < <(git -C "$wt" ls-tree -z "$derevo" 2>/dev/null)
+  done < <(git -C "$wt" ls-tree -z "$derevo" 2>/dev/null | LC_ALL=C sort -z)
 }
 # Независимый канон сравнения: shell %q однозначно кодирует имя; mode
 # проверяется на обычный файл, но НЕ участвует в удостоверении его байтов.
