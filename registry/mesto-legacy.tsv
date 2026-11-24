@@ -28,3 +28,4 @@
 206	7b89189a2825e7a32618e643cc67b9abb09599bc	станция	ЗОНА implementer frozen/contracts/206/1: .omp/extensions/path-guard.ts scripts/pre_judge.sh roles/critic.md roles/adversary.md roles/reviewer.md .omp/agents/critic.md .omp/agents/adversary.md .omp/agents/reviewer.md	implementer
 209	4c7a296507620e2e7cb71d347e5b6c91bcb884d3	станция	ЗОНА implementer frozen/contracts/209/1: workshop	implementer
 210	9c46a64a358109d26aa64798472fb3068135f762	станция	ЗОНА implementer frozen/contracts/210/1: scripts/check_charter.sh .githooks/pre-push	implementer
+197	54be75d1326ec246ea129590070bcb129ea31002	a3ka/Complior-mob	ЗОНА implementer frozen/contracts/197/4: .github/workflows/mobile.yml package.json mobile/scripts/ci-artefakty.cjs (продукт a3ka/Complior-mob; канон v4 = скрипт f40a5afc4d82, пришёл из предмета 211 (mob 6a88729), пин v4; mob main f8acbbdf8 на 24.11 18:04; слово владельца 24.11 «1, 2, 3 да»)	orchestrator
