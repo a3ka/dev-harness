@@ -664,7 +664,8 @@ predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # рисковый) или РАЗНЫЕ значения — класс не определён; «первый результат»
 # не каноничен (вердикт адверсария 140 вызов 1/2: один «рисковый» файл среди
 # шести молча определял класс «обычный» — ревьюер шёл без адверсария).
-# Перечень сортируется LC_ALL=C — сообщение отказа детерминировано.
+# Перечень идёт в порядке дерева git (имя байтами, LC_ALL=C) — сообщение
+# отказа детерминировано.
 # Декларация — в любой позиции строки, хвост-основание допустим (норма
 # roles/architect.md), вторая декларация в файле — неоднозначность.
 # [D64 bootstrap-sudej] (211) 4-й аргумент НЕОБЯЗАТЕЛЬНЫЙ — репозиторий
@@ -677,8 +678,30 @@ predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # автора; если risk_repo — сам носитель (клон без origin либо с иным
 # origin) — унаследованная граница базы (211: ГРАНИЦА ПРИНЯТА ВЛАДЕЛЬЦЕМ,
 # слово 23.11; арбитраж 2353d9e0b8 §4).
+# [Б-1 перечень NUL-безопасен] Перечень файлов предмета читается через
+# kontrakt_zapisi: `git ls-tree -z` печатает имя БАЙТ-в-байт. Обычный
+# ls-tree цитирует и octal-экранирует не-ASCII имя ЦЕЛИКОМ
+# ("211-\321\200\321\240\321\201\321\272.md") — поле имени перестаёт
+# начинаться с <NNN>-, и такой файл ВЫПАДАЛ из перечня: подмена класса риска
+# после заморозки (добавление файла 211-риск.md) была невидимой, предмет
+# допускался без адверсария (адверсарий 211, Б-1). Имя с пробелом, кавычкой,
+# обратным слешем и управляющими символами — обычный файл, в перечень входит.
+kontrakt_zapisi() {  # <репозиторий> <tree:каталог> <NNN> → поток NUL-полей
+  local wt="$1" derevo="$2" n="$3" zap meta imya mode tip sha
+  while IFS= read -r -d '' zap; do
+    [ -n "$zap" ] || continue
+    meta="${zap%%$'\t'*}"; imya="${zap#*$'\t'}"
+    case "$imya" in
+      "$n"-*.md) ;;
+      *) continue ;;
+    esac
+    mode=''; tip=''; sha=''
+    read -r mode tip sha <<< "$meta"
+    printf '%s\0%s\0%s\0%s\0' "$imya" "$mode" "$tip" "$sha"
+  done < <(git -C "$wt" ls-tree -z "$derevo" 2>/dev/null)
+}
 klass_riska() {  # <NNN> <worktree> <OBJECT> [<репозиторий владельца>] → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
-  local n="$1" wt="$2" obj="$3" owner kat spisok zap tip_zap blob put val znach='' ploh=''
+  local n="$1" wt="$2" obj="$3" owner kat imya mode tip_zap blob put val znach='' ploh='' schetchik=0
   owner="${4:-$wt}"  # отдельной строкой: слова local раскрываются ДО присваиваний wt
   kat="$(kontrakt_kat "$owner")" || kat=''
   if [ -z "$kat" ]; then
@@ -689,17 +712,21 @@ klass_riska() {  # <NNN> <worktree> <OBJECT> [<репозиторий владе
     printf 'net_stroki:каталога %s в дереве %s нет' "$kat" "$obj"
     return 0
   fi
-  spisok="$(git -C "$wt" ls-tree "$obj:$kat" 2>/dev/null \
-    | awk -F'\t' -v n="$n" '$2 ~ "^" n "-[^/]*[.]md$" {print $1 "\t" $2}' \
-    | LC_ALL=C sort)"
-  if [ -z "$spisok" ]; then printf 'net_stroki:файлов %s/%s-*.md в дереве %s нет' "$kat" "$n" "$obj"; return 0; fi
-  while IFS= read -r zap; do
-    [ -n "$zap" ] || continue
-    put="$(printf '%s' "$zap" | cut -f2)"
-    tip_zap="$(printf '%s' "$zap" | cut -f1 | cut -d' ' -f2)"
-    blob="$(printf '%s' "$zap" | cut -f1 | cut -d' ' -f3)"
-    if [ "$tip_zap" != blob ]; then ploh="${ploh:+$ploh }$put"; continue; fi
-    val="$(git -C "$wt" show "$obj:$kat/$put" 2>/dev/null \
+  # Перечень — NUL-безопасно (kontrakt_zapisi): имя файла печатается
+  # байт-в-байт, обычный ls-tree цитирует не-ASCII имя целиком, и такой файл
+  # выпадал из перечня (адверсарий 211, Б-1).
+  while IFS= read -r -d '' imya && IFS= read -r -d '' mode \
+        && IFS= read -r -d '' tip_zap && IFS= read -r -d '' blob; do
+    schetchik=$((schetchik + 1))
+    put="$imya"
+    # Запись предмета — обычный файл: симлинк (120000), gitlink (160000) и
+    # каталог (040000) каноном не являются (D36) — класс по ним не читается.
+    # Исполняемый бит (100644 против 100755) на канон не влияет: оба обычных
+    # файла (адверсарий 211, Б-2).
+    if [ "$tip_zap" != blob ] || { [ "$mode" != 100644 ] && [ "$mode" != 100755 ]; }; then
+      ploh="${ploh:+$ploh }$put"; continue
+    fi
+    val="$(git -C "$wt" cat-file blob "$blob" 2>/dev/null \
           | grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' \
           | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"
     # [D30 risk-legacy] старый frozen без строки класса (до слова владельца 24.10):
@@ -721,9 +748,8 @@ klass_riska() {  # <NNN> <worktree> <OBJECT> [<репозиторий владе
     esac
     if [ -z "$znach" ]; then znach="$val"
     elif [ "$znach" != "$val" ]; then ploh="${ploh:+$ploh }$put"; fi
-  done <<EOF
-$spisok
-EOF
+  done < <(kontrakt_zapisi "$wt" "$obj:$kat" "$n")
+  if [ "$schetchik" -eq 0 ]; then printf 'net_stroki:файлов %s/%s-*.md в дереве %s нет' "$kat" "$n" "$obj"; return 0; fi
   if [ -n "$ploh" ]; then printf 'neodnoznachno:%s' "$ploh"; return 0; fi
   printf '%s' "$znach"
 }
@@ -812,18 +838,51 @@ poslednj_frozen_teg() {  # <NNN> <репозиторий владельца> →
   [ -n "$teg" ] || return 1
   git -C "$owner" rev-parse --verify "$teg" 2>/dev/null || return 1
 }
+# Перечни файлов предмета двух деревьев равны побайтово (инвариант 1б3):
+# запись к записи — имя и blob-ша совпадают; mode НЕ входит (исполняемый бит
+# не влияет на удостоверение: 100644 и 100755 — оба обычных файла, адверсарий
+# 211, Б-2); записи — обычные файлы (тип blob, mode 100644/100755) с обеих
+# сторон: симлинк (120000), gitlink (160000) и каталог (040000) перечень не
+# удостоверяют; пустой перечень (файлов предмета нет) — тоже. Перечни читаются
+# NUL-безопасно (kontrakt_zapisi), имя — байт-в-байт (адверсарий 211, Б-1).
+perechen_kontrakta_raven() {  # <репозиторий> <treeO:каталог> <treeF:каталог> <NNN> → 0 равны | 1 нет
+  local wt="$1" derevo_o="$2" derevo_f="$3" n="$4"
+  local imya_o mode_o tip_o sha_o imya_f mode_f tip_f sha_f schetchik=0
+  (
+    exec 3< <(kontrakt_zapisi "$wt" "$derevo_o" "$n")
+    exec 4< <(kontrakt_zapisi "$wt" "$derevo_f" "$n")
+    while IFS= read -r -d '' imya_o <&3 \
+       && IFS= read -r -d '' mode_o <&3 \
+       && IFS= read -r -d '' tip_o <&3 \
+       && IFS= read -r -d '' sha_o <&3; do
+      schetchik=$((schetchik + 1))
+      IFS= read -r -d '' imya_f <&4 || exit 1
+      IFS= read -r -d '' mode_f <&4 || exit 1
+      IFS= read -r -d '' tip_f <&4 || exit 1
+      IFS= read -r -d '' sha_f <&4 || exit 1
+      [ "$imya_o" = "$imya_f" ] || exit 1
+      [ "$sha_o" = "$sha_f" ] || exit 1
+      [ "$tip_o" = blob ] && [ "$tip_f" = blob ] || exit 1
+      { [ "$mode_o" = 100644 ] || [ "$mode_o" = 100755 ]; } || exit 1
+      { [ "$mode_f" = 100644 ] || [ "$mode_f" = 100755 ]; } || exit 1
+    done
+    # Перечень OBJECT исчерпан — в перечне заморозки записей быть не должно.
+    IFS= read -r -d '' imya_f <&4 && exit 1
+    # Пустой перечень текста не удостоверяет.
+    [ "$schetchik" -gt 0 ] || exit 1
+    exit 0
+  )
+}
 # Удостоверен ли frozen-тег новой версии для дерева OBJECT: 0 — да | 1 — нет.
 frozen_udostoveren_objectu() {  # <NNN> <репозиторий владельца> <r_wt> <OBJECT> → 0 да | 1 нет
-  local n="$1" owner="$2" wt="$3" obj="$4" teg F kat spO spF
+  local n="$1" owner="$2" wt="$3" obj="$4" teg F kat
   teg="$(poslednj_frozen_teg "$n" "$owner")" || return 1
   [ -n "$teg" ] || return 1
   [ "$(git -C "$owner" cat-file -t "$teg" 2>/dev/null)" = tag ] || return 1
   F="$(git -C "$owner" rev-parse --verify "$teg^{commit}" 2>/dev/null)" || return 1
   git -C "$wt" merge-base --is-ancestor "$F" "$obj" 2>/dev/null || return 1
   kat="$(kontrakt_kat "$owner")" || return 1
-  spO="$(git -C "$wt" ls-tree "$obj:$kat" 2>/dev/null | awk -F'\t' -v n="$n" '$2 ~ "^" n "-[^/]*[.]md$" {print $1 "\t" $2}' | LC_ALL=C sort)"
-  spF="$(git -C "$wt" ls-tree "$F:$kat" 2>/dev/null | awk -F'\t' -v n="$n" '$2 ~ "^" n "-[^/]*[.]md$" {print $1 "\t" $2}' | LC_ALL=C sort)"
-  [ -n "$spO" ] && [ "$spO" = "$spF" ] || return 1
+  perechen_kontrakta_raven "$wt" "$obj:$kat" "$F:$kat" "$n" || return 1
   return 0
 }
 peredacha_iz_ucheta() {
