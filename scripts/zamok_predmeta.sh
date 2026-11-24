@@ -664,8 +664,11 @@ predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # рисковый) или РАЗНЫЕ значения — класс не определён; «первый результат»
 # не каноничен (вердикт адверсария 140 вызов 1/2: один «рисковый» файл среди
 # шести молча определял класс «обычный» — ревьюер шёл без адверсария).
-# Перечень идёт в порядке дерева git (имя байтами, LC_ALL=C) — сообщение
-# отказа детерминировано.
+# Перечень сортируется КАК НА БАЗЕ: строки «<mode> <tip> <sha>\t<имя>» под
+# LC_ALL=C sort — сначала mode, затем tip, затем sha, затем имя (байты).
+# Порядок перечня определяет диагностику неоднозначности (первый файл задаёт
+# значение класса, остальные попадают в список neodnoznachno), поэтому он
+# обязан совпадать с базой байт-в-байт (адверсарий 211, Б-1).
 # Декларация — в любой позиции строки, хвост-основание допустим (норма
 # roles/architect.md), вторая декларация в файле — неоднозначность.
 # [D64 bootstrap-sudej] (211) 4-й аргумент НЕОБЯЗАТЕЛЬНЫЙ — репозиторий
@@ -701,7 +704,10 @@ kontrakt_zapisi() {  # <репозиторий> <tree:каталог> <NNN> → 
   done < <(git -C "$wt" ls-tree -z "$derevo" 2>/dev/null)
 }
 klass_riska() {  # <NNN> <worktree> <OBJECT> [<репозиторий владельца>] → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
-  local n="$1" wt="$2" obj="$3" owner kat imya mode tip_zap blob put val znach='' ploh='' schetchik=0
+  local n="$1" wt="$2" obj="$3" owner kat imya mode tip_zap blob put val znach='' ploh=''
+  # Перечень — во временных массивах: сортировка базы требует целого списка.
+  local -a sp_imya=() sp_mode=() sp_tip=() sp_sha=() sp_poradok=()
+  local sk=0 sj kl
   owner="${4:-$wt}"  # отдельной строкой: слова local раскрываются ДО присваиваний wt
   kat="$(kontrakt_kat "$owner")" || kat=''
   if [ -z "$kat" ]; then
@@ -715,9 +721,35 @@ klass_riska() {  # <NNN> <worktree> <OBJECT> [<репозиторий владе
   # Перечень — NUL-безопасно (kontrakt_zapisi): имя файла печатается
   # байт-в-байт, обычный ls-tree цитирует не-ASCII имя целиком, и такой файл
   # выпадал из перечня (адверсарий 211, Б-1).
+  #
+  # [Б-3 порядок перечня — как на базе] База (1ec472715) сортировала перечень
+  # строк «<mode> <tip> <sha>\t<имя>» через LC_ALL=C sort: сначала mode, затем
+  # tip, затем sha, затем имя (байты). Порядок перечня определяет диагностику
+  # неоднозначности (первый файл задаёт значение класса, файлы с иным значением
+  # и нечитаемая запись попадают в список neodnoznachno) — смена порядка
+  # меняет байты диагностики (адверсарий 211, Б-1). Сортируются те же поля;
+  # имя в ключ сортировки НЕ входит (TAB/LF в имени разорвали бы построчную
+  # сортировку) — равные ключи (одинаковое содержимое) разбираются ПОРЯДКОМ
+  # ДЕРЕВА (имя байтами), что для базы даёт тот же результат.
   while IFS= read -r -d '' imya && IFS= read -r -d '' mode \
         && IFS= read -r -d '' tip_zap && IFS= read -r -d '' blob; do
-    schetchik=$((schetchik + 1))
+    sp_imya[$sk]="$imya"; sp_mode[$sk]="$mode"; sp_tip[$sk]="$tip_zap"; sp_sha[$sk]="$blob"
+    sk=$((sk + 1))
+  done < <(kontrakt_zapisi "$wt" "$obj:$kat" "$n")
+  if [ "$sk" -eq 0 ]; then printf 'net_stroki:файлов %s/%s-*.md в дереве %s нет' "$kat" "$n" "$obj"; return 0; fi
+  # Ключ сортировки — те же поля базы; равные ключи разбирает порядковый номер
+  # записи (порядок дерева = имя байтами). Номер — десятичный, с нулями до
+  # 8 знаков: сортировка построчная, номер в ключе единственный.
+  while IFS= read -r kl; do
+    sp_poradok+=( "${kl##*$'\t'}" )
+  done < <(
+    for ((sj = 0; sj < sk; sj++)); do
+      printf '%s\t%s\t%s\t%08d\n' "${sp_mode[$sj]}" "${sp_tip[$sj]}" "${sp_sha[$sj]}" "$sj"
+    done | LC_ALL=C sort
+  )
+  for sj in "${sp_poradok[@]}"; do
+    sj=$((10#$sj))  # ключ сортировки несёт номер с нулями — в индекс идёт десятичный
+    imya="${sp_imya[$sj]}"; mode="${sp_mode[$sj]}"; tip_zap="${sp_tip[$sj]}"; blob="${sp_sha[$sj]}"
     put="$imya"
     # Запись предмета — обычный файл: симлинк (120000), gitlink (160000) и
     # каталог (040000) каноном не являются (D36) — класс по ним не читается.
@@ -748,8 +780,7 @@ klass_riska() {  # <NNN> <worktree> <OBJECT> [<репозиторий владе
     esac
     if [ -z "$znach" ]; then znach="$val"
     elif [ "$znach" != "$val" ]; then ploh="${ploh:+$ploh }$put"; fi
-  done < <(kontrakt_zapisi "$wt" "$obj:$kat" "$n")
-  if [ "$schetchik" -eq 0 ]; then printf 'net_stroki:файлов %s/%s-*.md в дереве %s нет' "$kat" "$n" "$obj"; return 0; fi
+  done
   if [ -n "$ploh" ]; then printf 'neodnoznachno:%s' "$ploh"; return 0; fi
   printf '%s' "$znach"
 }
