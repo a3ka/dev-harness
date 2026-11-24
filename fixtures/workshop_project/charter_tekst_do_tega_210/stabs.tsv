@@ -45,3 +45,7 @@ NUL-OWNER-READ	wire-ownerread-quote
 NUL-FROZEN-SCOPE	wire-frozenscope-quote-edit
 NUL-ZONES-HEAD-TREE	wire-zoneshead-quote-invalid
 NUL-ZONES-FROZEN-TREE	wire-zonestag-quote-invalid
+EMPTY-OLD-REJECTION	empty-root-fast
+EMPTY-OLD-REJECTION	empty-additions-fast
+EMPTY-OLD-REJECTION	empty-root-incr
+EMPTY-ROOT-CACHE	empty-root-incr-seed
