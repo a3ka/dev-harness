@@ -45,6 +45,7 @@ from pathlib import Path
 import yaml
 
 import forma_transporta
+import lanes_216
 
 HERE = Path(__file__).resolve().parent
 MODEL = HERE / "model"
@@ -141,7 +142,8 @@ def inventar_rabotnikov(wf, rep):
                  "${{ fromJSON(needs.select-screens.outputs.matrix) }}" and
                  selector.get("outputs", {}).get("matrix") == "${{ steps.sel.outputs.matrix }}" and
                  len(sel) == 1 and
-                 "node mobile/scripts/select-ci-screens.cjs" in str(sel[0].get("run", "")))
+                 ("node mobile/scripts/select-ci-screens.cjs" in str(sel[0].get("run", "")) or
+                  lanes_216.valid(rep, sel[0], "select-screens")))
         if not valid:
             raise KartaSubiekta("MATRIX_OUTPUT_REQUIRED: e2e-screen без вывода селектора")
         rab.add("e2e-screen")
@@ -192,6 +194,10 @@ def zhestkij_kanon(src):
     _, oshibka197 = forma_transporta.model_197(src)
     if oshibka197:
         return "модель-197: %s" % oshibka197
+    try:
+        lanes_216.oracle()
+    except (OSError, ValueError) as exc:
+        return str(exc)
     return None
 
 
@@ -2096,7 +2102,8 @@ KLETKI_Y = [
     ("y14-jest-118", sud_jest),
     ("y15-h-checkouty", sud_h),
     ("y16-noch-polnyj-nabor", lambda wf, rep: (
-        "schedule) MODE=schedule" in text_joba(wf, "select-screens"), "селектор не знает schedule")),
+        "schedule) MODE=schedule" in text_joba(lanes_216.project(wf, rep), "select-screens"),
+        "селектор не знает schedule")),
     ("y17-noch-ne-required", sud_signal),
     ("y18-marker-nochi", lambda wf, rep: (
         any(s.get("name", "").startswith("Маркер полной регрессии")
@@ -2335,6 +2342,7 @@ def sud_vynos_iz_inventarja(wf, rep=None):
     (v1-форма) и wildcard-вынос запрещены; H-checkoutы (.harness*) и
     спец-проба композиции 118 остаются явными; npm test/lint/typecheck/
     doctor стоят ПОСЛЕ выноса (lint не урезан)."""
+    wf = lanes_216.project(wf, rep)
     q = wf.get("jobs", {}).get("quality", {})
     shagi = q.get("steps") or []
     poz_vynosa = None

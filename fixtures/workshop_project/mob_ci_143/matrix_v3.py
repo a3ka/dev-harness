@@ -109,6 +109,7 @@ import tempfile
 import yaml
 from workflow_sweep_v3 import check as workflow_controls, stabs as workflow_stabs
 import forma_transporta
+import lanes_216
 
 HERE = Path(__file__).resolve().parent
 BASE = HERE / 'model'
@@ -223,15 +224,26 @@ def selector_output_case(wf, root, tmp):
     script = root / 'mobile/scripts/select-ci-screens.cjs'
     if not script.is_file():
         return checked(False, 'MATRIX_SELECTOR_ABSENT')
+    lane_step = steps[0].get('run', '').strip() == 'npm run ci:select-screens'
+    if lane_step and not lanes_216.valid(root, steps[0], 'select-screens'):
+        return checked(False, 'MATRIX_SEL_LANE: route/body/env/cwd')
     mapping = demo_map()
     expected = selected(mapping)['matrix']
     (tmp / 'mobile/scripts').mkdir(parents=True)
     shutil.copy2(script, tmp / 'mobile/scripts/select-ci-screens.cjs')
     (tmp / 'mobile/ci-screens.json').write_text(json.dumps(mapping))
+    if lane_step:
+        shutil.copy2(root / 'package.json', tmp / 'package.json')
+        for name in lanes_216.scripts(lanes_216.oracle()):
+            shutil.copy2(root / 'mobile/scripts' / name, tmp / 'mobile/scripts' / name)
+    context = {expression[4:-3].strip(): '' for expression in lanes_216.ENV.values()}
+    context['github.event_name'] = 'schedule'
     output = tmp / 'gh-output'
+    environment = dict(os.environ, GITHUB_OUTPUT=str(output))
+    environment.update({key: github(value, context) for key, value in steps[0].get('env', {}).items()})
     proc = subprocess.run(['bash', '-eo', 'pipefail', '-c',
-                           github(steps[0]['run'], {'github.event_name': 'schedule'})],
-                          cwd=tmp, env=dict(os.environ, GITHUB_OUTPUT=str(output)),
+                           github(steps[0]['run'], context)],
+                          cwd=tmp, env=environment,
                           capture_output=True, text=True, timeout=25)
     if proc.returncode:
         return checked(False, 'MATRIX_SEL_RUN: ' + (proc.stdout + proc.stderr)[-160:])
@@ -1008,6 +1020,11 @@ def main():
     if oshibka197:
         print('ORACLE_TAMPERED: модель-197: ' + oshibka197, file=sys.stderr)
         return 2
+    try:
+        lanes_216.oracle()
+    except (OSError, ValueError) as exc:
+        print('ORACLE_TAMPERED: ' + str(exc), file=sys.stderr)
+        return 2
     root = BASE if not args.repo else args.repo.resolve()
     try:
         workflow = model_workflow() if not args.repo else yaml.safe_load((root / '.github/workflows/mobile.yml').read_text())
@@ -1019,7 +1036,8 @@ def main():
         if not args.repo:
             print('WORKFLOW_CELL_REQUIRES_REPO', file=sys.stderr)
             return 2
-        hits = [(name, result) for name, result in workflow_controls(workflow, sweep_bazir(workflow))
+        hits = [(name, result) for name, result in workflow_controls(
+                    lanes_216.project(workflow, root, sweep_bazir(workflow)), sweep_bazir(workflow))
                 if name == args.workflow_cell]
         if len(hits) != 1:
             print('WORKFLOW_CELL_UNKNOWN: ' + args.workflow_cell, file=sys.stderr)
@@ -1030,7 +1048,8 @@ def main():
     with tempfile.TemporaryDirectory(prefix='matrix-143-v3-') as t:
         tmp = Path(t)
         results = [(name, workflow_case(workflow, old, name)) for name in ('legacy', 'matrix', 'allocator', 'evidence', 'apk')]
-        results.extend(workflow_controls(workflow, sweep_bazir(workflow)))
+        results.extend(workflow_controls(lanes_216.project(workflow, root, sweep_bazir(workflow)),
+                                         sweep_bazir(workflow)))
         results.append(('selector', selector_case(root, not args.repo, tmp)))
         results.append(('selector-output', selector_output_case(workflow, root, tmp / 'selector-output')))
         if not args.repo:

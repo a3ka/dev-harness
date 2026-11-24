@@ -1,121 +1,157 @@
-# СДАЧА 143 — согласование шва v5 с 197/3 (форма контракта 193)
+# СДАЧА 143 v6 — lane-дельта пяти операций 216
 
-Предмет этой исправительной пачки — только контракт и этот лист; батарея,
-модели, пины и код шва не менялись. Основание — слово владельца №44
-(m1474) и закреплённая в контракте 197 §1 замена baseline словом
-2026-11-18 ~21:09 UTC. Н-39: стабы к ветвям привязаны кодом, не прозой.
+ПРЕДЫДУЩИЙ ВЕРДИКТ: verdicts/critic/contracts-143-v5.md
 
-Предыдущий вердикт — `verdicts/critic/contracts-143-v7.md`: FAIL,
-Crit143V5, OBJECT `0d391630a037d3c3e71d0795866dddba55f1fc57`,
-блок К-03/К-05 о несогласованной приёмке шва (контракт :370,387,
-прежний лист :89–92). Прочитана копия
-`/tmp/dev-harness-verify/p143/crit143v5-verdict.md`.
-Вердикт не содержит раздела «## Карта классов»: машинное поле предыдущего
-вердикта не заявляется, поскольку check_sdacha.sh требует карту;
-чужой вердикт не правится. Оба блока явно закрываются в «Дельта» ниже.
-Ранее принятый v6 (OBJECT 49b27bdf79d9b671785c116d7d47a6d7bcff5973)
-не подменяет последний FAIL v5.
+База: `5e5a274c35750f8f29319f39bae43780af1446db`, v5, PR станции #1141.
+Предыдущая фаза v5 принята Crit143V5b на `180352174bc136f35e3f57bc780e1d4eaa610d84`;
+v6 не исправительный круг того FAIL и не новый номер. Задание с уточнением
+приёмки разрешает только lane-дельту; прежний критерий общего rc 0 R216 снят
+оркестратором ДО этой пачки. Текст v5 сохранён, зона frozen143/4 не расширена.
+Н-39: стабы привязаны кодом `lane_v6_acceptance.py`, не прозой контракта.
 
 ## Двери
 
-- pre_critic · bash scripts/pre_critic.sh --repo . contracts/143-mob-ci-razdelenie.md · 0 · 0
+- pre-critic · bash scripts/pre_critic.sh --repo . contracts/143-mob-ci-razdelenie.md · 0 · 0
+- provodka · bash scripts/check_provodka.sh . contracts/143-mob-ci-razdelenie.md · 0 · 0
 - battery-model · bash fixtures/workshop_project/mob_ci_143/red_mob_ci_143.sh --model · 0 · 0
 - battery-stabs · bash fixtures/workshop_project/mob_ci_143/red_mob_ci_143.sh --stabs · 0 · 0
-- seam-before · bash fixtures/workshop_project/mob_ci_artifacts_local_197/sverka_inventarja_143.sh до · 0 · 0
-- seam-after-directory · bash fixtures/workshop_project/mob_ci_artifacts_local_197/sverka_inventarja_143.sh после --dir /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/tcbd2c5156/m/fixtures/workshop_project/mob_ci_143 · 0 · 0
+- battery-syntax · bash fixtures/workshop_project/mob_ci_143/red_mob_ci_143.sh --syntax · 0 · 0
 
 ## Карта классов
 
-- К-01 · чисто · bash scripts/pre_critic.sh --repo . contracts/143-mob-ci-razdelenie.md · 0 · 0
-- К-02 · чисто · вход: слово №44 (m1474), контракт 197 §1 и FAIL Crit143V5; дельта только согласует текст шва, батареи/модели/пины неизменны · - · -
-- К-03 · чисто · bash fixtures/workshop_project/mob_ci_artifacts_local_197/sverka_inventarja_143.sh до · 0 · 0
-- К-04 · чисто · вход: ровно contracts/143-mob-ci-razdelenie.md и fixtures/workshop_project/mob_ci_143/sdacha_143.md внутри frozen ЗОНА architect; новые файлы не вводятся · - · -
-- К-05 · чисто · bash fixtures/workshop_project/mob_ci_artifacts_local_197/sverka_inventarja_143.sh после --dir /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/tcbd2c5156/m/fixtures/workshop_project/mob_ci_143 · 0 · 0
-- К-06 · чисто · вход: шапки red_mob_ci_143.sh и check_sdacha.sh — отсутствие python3/node/git/timeout даёт rc 2 NOT_IMPLEMENTED, не красную клетку · - · -
-- К-07 · чисто · вход: replay подложных git/gh/adb/emulator/maestro по живым форматам носителей; клетки i08/i09 — настоящий git-diff; модели .cjs исполняет node станции · - · -
-- К-08 · чисто · bash fixtures/workshop_project/mob_ci_143/red_mob_ci_143.sh --stabs · 0 · 0
-- К-09 · чисто · вход: демаркация v5 — обе целые формы транспорта конформны (эталон GitHub-эпохи frozen 143/4 и lane-модель 197), смешение форм красно именованными причинами И-16…И-18 · - · -
-- К-10 · чисто · вход: клетки судят rc и именованную причину полного вывода субъекта (SVJAZI, WORKFLOW_CONTROL, ПАРА_NE_IZ_SBORKI), не строку-маркер · - · -
-- К-11 · чисто · bash fixtures/workshop_project/mob_ci_143/red_mob_ci_143.sh --model · 0 · 0
-- К-12 · чисто · вход: разбор workflow — yaml safe_load плюс структурный канон модели 197 по ссылке (source.json:.ssylki, нормализация run-шагов правилом sweep); самописного парсера формата и второй копии модели нет · - · -
-- К-13 · н/п · секреты не предмет: PILOT_DEMO_CODE — продуктовая предпосылка v3, батареи без секретов · - · -
-- К-14 · чисто · вход: old-форма не ослаблена — исторический прогон чистого fda1fc8 rc 0 (396/396 и 79/79); свежие model/stabs зелены, И-18 не требует пару run_attempt в old-форме (Н-39) · - · -
-- К-15 · чисто · вход: пины/клетки/стабы не менялись; свежие --model и --stabs печатают счёт ниже, шесть ДО сверяет существующий оракул 197; четыре frozen/4 не выдаются за шесть · - · -
-- К-16 · чисто · bash scripts/check_threat_model.sh . contracts/143-mob-ci-razdelenie.md · 0 · 0
-- К-17 · н/п · архитектура 188 не предмет: markdown-дельта без продуктового кода · - · -
+- К-01 · чисто · вход: пять команд дверей выше; форма прежнего контракта/ПРОВОДКА сохраняется, нового CI step нет · - · -
+- К-02 · чисто · вход: уточнение задания; 163 A/B; 216 fa6678d216; PR #1141/#283/#252; 165 моба read-only, чужая реализация не добавлена · - · -
+- К-03 · чисто · вход: исходные каноны 141/995 не правятся, полный --repo R остаётся rc 1 с точным перечнем, 197/3 не меняется · - · -
+- К-04 · чисто · вход: только contracts/143-mob-ci-razdelenie.md и fixtures/workshop_project/mob_ci_143/; канон 216 захвачен в nositeli с постоянным SHA256 · - · -
+- К-05 · чисто · вход: контракт v6 приёмка 1–5 — команды prepare, --repo R, inline --repo, model/stabs/syntax и двери со своими rc · - · -
+- К-06 · чисто · вход: повреждённый оракул/запуск/таймаут драйвера — rc 2; предметный несовпавший route/body остаётся rc 1 своей клетки · - · -
+- К-07 · чисто · вход: реальный npm/dispatcher/bash/selector в MATRIX_SEL_RUN; реконструкция compatibility.py216 предъявлена реальной 216, 23 CASE OK · - · -
+- К-08 · чисто · вход: --stabs запускает 88 новых адресных негативных привязок, затем все прежние matrix/legacy стабы без снятия клеток · - · -
+- К-09 · чисто · вход: демаркация И-20 — inline либо bounded canon пяти lanes; 11 собственных положительных ветвей, маршрут/тело/dispatcher/lifecycle/cwd/env/name/id имеют отдельные негативные пары · - · -
+- К-10 · чисто · вход: selector-output сверяет единственный matrix GITHUB_OUTPUT, selection.json и независимый ожидаемый выбор; полный --repo R rc/поимённый остаток сохранены · - · -
+- К-11 · чисто · вход: nositeli/lanes-216.json SHA256 e502c44d93bd93e090ba4e2be80462bfc753a961af10dd0efc310f37b8831511 проверяется до чтения субъекта; expected не перечитывается с диска R · - · -
+- К-12 · чисто · вход: YAML safe_load + структурный прежний sweep; script сравнивается с каноном, без парсера bash/JS; синтаксис AST/bash -n/node --check · - · -
+- К-13 · н/п · новые секретные входы не вводятся; PILOT_DEMO_CODE и прежняя защита неизменны · - · -
+- К-14 · чисто · вход: split set -eu + set -o pipefail зелён на каждой lane-ветви; inline fda1fc871960b8061d8e6f6d12f2cc38f5834cee зелён 396/396 и 79/79 · - · -
+- К-15 · чисто · вход: stdout --model/--stabs и --repo R ниже; 11 ветвей перечислены LANE_CELLS, негативные привязки считает код, остаток RESIDUAL не выводится из субъекта · - · -
+- К-16 · чисто · вход: риск health-required не снижен; общий rc 0 R216 не обещан, ловец исходного остатка Critic/Reviewer216 явно назван · - · -
+- К-17 · н/п · продуктовые API/БД/операции188 не меняются; тестовый транспорт пяти существующих CI-операций · - · -
 
 ## Дельта
 
-- К-03 · канон/инструмент · bash fixtures/workshop_project/mob_ci_artifacts_local_197/sverka_inventarja_143.sh до · 0 · 0
-- К-05 · канон/инструмент · bash fixtures/workshop_project/mob_ci_artifacts_local_197/sverka_inventarja_143.sh после --dir /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/tcbd2c5156/m/fixtures/workshop_project/mob_ci_143 · 0 · 0
+- К-03 · граница · fixtures/workshop_project/mob_ci_143/lane_v6_acceptance.py --model · 0 · 0
+- К-08 · канон/инструмент · fixtures/workshop_project/mob_ci_143/lane_v6_acceptance.py --stabs · 0 · 0
 
-К-03: совместимость предъявляется существующим механизмом 197/3 на одном
-псевдо-продукте fda1fc8+197, а не соседней текущей батареей вместо baseline.
-Закреплены commit/tree ДО, 197 остаётся зелёной 29/29; код и пины 197 не меняются.
-К-05: пункт 1 приёмки называет исполнимые команды ДО и ПОСЛЕ с разными
-ожидаемыми rc дочерней 143 (1 и 0); после freeze — повтор на frozen/143/5.
-Отложенная развилка «после ленда либо перепинировать» снята: механизм уже
-поставлен 197/3. Новые предикаты/клетки/стабы не добавлены; адресные
-негативные и эквивалентные входы интерфейса уже живут в proverka_sverki_143.sh
-(прогон по итоговому ref подтверждает оркестратор).
+Способ — канон/инструмент: новые bodies/маршруты сравниваются с одной
+иммутабельной моделью 216, затем используются прежние предметные клетки.
+Нового самописного оракула формата нет. Остаток по 141/995 — граница,
+разрешённая уточнением задания; это НЕ снятие красных полного --repo.
+Таблица клетка → защита → форма — контракт И-20; привязки стаба → ветвь
+исполняются только кодом. Исторический шов 143/197 v5 не меняется.
 
-## Свежие замеры исправительной пачки (2026-11-19)
+## Воспроизведение честного R
 
-Корень копии (pwd):
-`/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/tcbd2c5156/m`.
-Для всех прогонов `TMPDIR=<этот pwd>/tmp`. База после обязательного git am:
-ref/commit `1183064f05c51a2a105ee7d080b62087eb277c42`,
-исходный tree каталога 143 `a99b4b17d2e93fab6ee70a76f04fd353aee09be6`
-(до правки этого листа; исполняемые файлы неизменны).
+Рабочий pwd:
+`/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t7a75072ca/m`.
+Все прогоны: `TMPDIR=/tmp/dev-harness-verify/scratch-arch143` (без /zones/).
+SSH clone моба отказал Repository not found; read-only gh API подтвердил
+`fa6678d2163b5c96e5a8a5f71a194c8a7c4e4e79`. Полный одноразовый клон с
+собственным .git получен HTTPS через gitw и credential helper gh; push нет.
+Доставка WORKTREE из задания не использовалась как cwd.
 
-1. `sverka_inventarja_143.sh до` → фактический rc 0;
-   ref/commit `9d3ad2bea4f1f15be15a9d975966bb20451a9a54`,
-   tree `89ccddf8281b15842eda6aa1a316bdde579845ee`.
-   Дочерняя 143 rc 1 (обязательный контроль скрипта); 197 зелёна 29/29;
-   `ИНВЕНТАРЬ_143_СОВПАЛ: красных 6 из 6 пина, поимённо`.
-   Состав из полного вывода:
+`lane_v6_acceptance.py --prepare <mobile-git> <R>` исполняет тот же порядок,
+что compatibility.py216: clone --no-hardlinks --no-checkout → checkout
+`55d9be4484bf058d655a2eef6b558ab21d9393d9` → b.model(generated,b.oracle()) →
+наложение generated в R → настоящий run.sh216 --repo R --base полного SHA.
+Ни исходный mobile clone, ни источник продукта не меняются. Контроль rc 0,
+вывод — 23 CASE OK (revision/node/identity/selection/events/inventory/dispatcher).
+`--capture` воспроизводит nositeli/lanes-216.json только при совпадении
+оригинального SHA256; чужие frozen-пины не перепинируются.
+
+Inline-контроль — отдельный clone того же mobile-git с checkout
+`fda1fc871960b8061d8e6f6d12f2cc38f5834cee`; ни GIT_DIR/GIT_WORK_TREE aliases,
+ни эксперименты в основном чекауте не использовались.
+
+## Сырые результаты и замеры
+
+КРАСНОЕ-ДО — измерение предыдущего Architect143 из задания (повторно не
+запускалось для подтверждения): v5 на честном R — 405/397/8 и 79/69/10, rc 1.
+Lane-дельта там: selector шаги2/3, build шаги3/7, selector-output MATRIX_SEL_RUN,
+y01/y02/y16/i02/i04/i05. Прочие красные — исходный внешний остаток.
+
+ЗЕЛЁНОЕ-ПОСЛЕ lane-дельты — свежий полный --repo R из этой пачки (9.19 с;
+повтор через исправленный драйвер точного остатка — 11.46 с вместе с парами):
 
 ```
-a17-digest-do-ustanovki: e2e-splash: РЕНДЕР_ВНЕ_АЛФАВИТА: needs.build-apk.outputs.run_attempt
-evidence: CHILD_DOWNLOAD_ABSENT_android-e2e
-legacy: LEGACY_JOB_CHANGED
-workflow-build-apk-outputs: WORKFLOW_CONTROL_workflow-build-apk-outputs
-workflow-build-apk-run-step-7: WORKFLOW_CONTROL_workflow-build-apk-run-step-7
-y19-outputs-provodka: outputs build-apk: ['apk_sha256', 'artifact_name', 'run_attempt', 'run_id']
+КЛЕТКА legacy КРАСНА: LEGACY_JOB_CHANGED
+КЛЕТКА workflow-quality-run-step-3 КРАСНА: WORKFLOW_CONTROL_workflow-quality-run-step-3
+КЛЕТКА workflow-quality-run-step-6 КРАСНА: WORKFLOW_CONTROL_workflow-quality-run-step-6
+клеток 405, зелёных 402, красных 3
+клеток 79, зелёных 75, красных 4
+КЛЕТКА y12-avd-namespace: e2e-first-run без PORT КРАСНА
+КЛЕТКА y13-odin-uroven-vosstanovlenija: e2e-first-run: маркеров ПОВТОР 0, канон 1 КРАСНА
+КЛЕТКА y23-ispolnenie-povtora: e2e-first-run: нет шага с веткой повтора (ПОВТОР: в run) КРАСНА
+КЛЕТКА p01-P-nabor: нет checkout .harness до шага запуска maestro_probe.py — P не исполняется этим workflow КРАСНА
+RC 1
+RESIDUAL_EXACT legacy,p01-P-nabor,workflow-quality-run-step-3,workflow-quality-run-step-6,y12-avd-namespace,y13-odin-uroven-vosstanovlenija,y23-ispolnenie-povtora
+LANE_DELTA_GREEN 11
+LANE_CONTROLS 11 NEGATIVE_BINDINGS 88
 ```
 
-2. `sverka_inventarja_143.sh после --dir <абсолютный каталог из двери
-   seam-after-directory>` → фактический rc 0; 197 зелёна 29/29,
-   `ИНВЕНТАРЬ_143_НОЛЬ_КРАСНЫХ: ноль красных; батарея 143 приняла lane-форму`.
-   Оба состояния сверили исходный агрегат по sha256
-   `e486e353f319ed2c0a65fc1092a0f16f8c9d8314bab4aed6e1d3619630d8fec6`.
-3. `red_mob_ci_143.sh --model` → фактический rc 0:
-   397/397 + lane 5/5; legacy 80/80 + lane 79/79.
-   `--stabs` → фактический rc 0: matrix 413 стабов/422 привязки/0 живых;
-   legacy 66 стабов/82 привязки/0 непойманных.
-4. Итоговый commit ещё не существует при составлении листа.
-   `bash fixtures/workshop_project/mob_ci_artifacts_local_197/sverka_inventarja_143.sh после --ref <полный-SHA-итогового-коммита>`
-   и `bash fixtures/workshop_project/mob_ci_artifacts_local_197/proverka_sverki_143.sh --ref <полный-SHA-итогового-коммита>`
-   — подтверждает оркестратор после коммита на чистом клоне; ожидаются rc 0,
-   это НЕ фактические замеры этой копии. Ref/commit/tree/rc — в карточку ленда.
-   После freeze — `sverka_inventarja_143.sh после --ref frozen/contracts/143/5`
-   с теми же полями; ожидается rc 0.
-5. `bash scripts/check_sdacha.sh . contracts/143-mob-ci-razdelenie.md --run`
-   → rc 0, «СДАЧА: лист зелёный (двери=5 карта=17/17 дельта=2)».
-   `bash scripts/pre_critic.sh --repo . contracts/143-mob-ci-razdelenie.md`
-   → rc 0, «КРИТИК: дверь зелёная». Результаты записаны после прогонов;
-   машинные ряды листа не менялись.
+Драйвер L --repo R rc 0 — только точный остаток плюс честные и отрицательные
+пары. Внутренняя полная батарея по-прежнему rc 1, что видно строкой RC 1.
+Первая версия самого драйвера имела неверные полные имена y12/y13 и ждала
+положительные legacy-строки, которые CLI не печатает: вернула rc 1
+RESIDUAL_MISMATCH при уже правильном предмете. Исправлена проверка, не продукт:
+legacy-положительные ветви теперь исполняются явно. Повтор rc 0 выше.
 
-## Исторические замеры исходной v5 (не текущая приёмка шва)
+Свежий inline --repo (10.35 с):
 
-Прежний лист :89–92 зафиксировал: 197 `--model` rc 0 (28/28);
-старый `sverka_inventarja_143.sh` без выбора версии запустил соседнюю
-текущую 143, получил 0 красных вместо шести и вернул rc 1 — прежняя
-«развилка 2 (зона 197)». Этот FAIL сохранён как история, не перекрашен.
-Числа 28/28 и 29 стабов относятся к 197/2; действующий контракт 197/3
-требует модель 29/29 и 38 стабов, код соседа этой пачкой не менялся.
+```
+клеток 396, зелёных 396, красных 0
+клеток 79, зелёных 79, красных 0
+```
 
-Исторические прогоны исходной v5: чистый fda1fc8 → rc 0 (396/396 и
-79/79); псевдо-продукт fda1fc8+модель 197 → rc 0 (403/403 и 79/79).
-Прежнее красное-до двери без поля СДАЧА: pre_critic rc 1,
-«строка СДАЧА: обязательна». Они не выдаются за новые замеры.
+rc 0. Свежий --model rc 0 (23.98 с):
+
+```
+LANE_CONTROLS 11 NEGATIVE_BINDINGS 0
+клеток 397, зелёных 397, красных 0
+модель-197 (lane-транспорт): клеток 5, зелёных 5, красных 0
+клеток 80, зелёных 80, красных 0
+модель-197 (lane-транспорт): клеток 79, зелёных 79, красных 0
+```
+
+Свежий --stabs rc 0 (58.37 с), прежние census не изменены:
+
+```
+LANE_CONTROLS 11 NEGATIVE_BINDINGS 88
+стабов 413, привязок 422, живых 0
+стабов 66, привязок 82, непойманных 0
+```
+
+Новые bindings отдельно добавлены, не включены задним числом в исторические
+413/422 и 66/82. Честный эквивалент каждого lane проходит перед мутациями.
+`--syntax` rc 0: `SYNTAX_143_OK`. Двери листа запускаются ниже через check_sdacha;
+фактический итог прогонов/sha — доклад сдачи, не заранее выдуманный вывод.
+
+## Граница и процесс
+
+rc 0 на R 216 требует отдельного согласования канона 141/995 (вне v6;
+ловец — Critic/Reviewer 216, внешний остаток). Зоны architect неизменны;
+freeze и owner-строка не создавались; live CI продукта не выдаётся за
+локальный replay. Новых процессных Н-записей в wip не заведено: журнал А-NN
+разрешён только коммитом main, вне выданной зоны; передаточное наблюдение
+оркестратору — исходный общий rc 0 смешивал lane-дельту с внешним остатком,
+уточнение задания разделило эти два обещания до этой пачки.
+
+## Итог обязательных дверей
+
+`check_provodka.sh . contracts/143-mob-ci-razdelenie.md` — rc 0.
+`pre_critic.sh --repo . contracts/143-mob-ci-razdelenie.md` — rc 0,
+110.35 с, `КРИТИК: дверь зелёная`.
+`check_sdacha.sh . contracts/143-mob-ci-razdelenie.md --run` — rc 0,
+100.08 с: `СДАЧА: лист зелёный (двери=5 карта=17/17 дельта=2)`.
+Это фактические прогоны, не ожидаемые коды. Ряды дверей после них неизменны.
+Импортные bytecode-кэши, созданные прямым shebang-прогоном листа, удалены;
+драйвер запрещает их повторное создание. Дерево TMPDIR удаляется перед сдачей.
