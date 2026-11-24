@@ -11,8 +11,8 @@
 # реализации 208; scripts/zamok_predmeta.sh sha256 47de5c02…) + дельта D64
 # (helpers, ветвь, 4-й аргумент klass_riska); семья 208 зелена против модели
 # как субъекта (--sosed-208); реализация несёт ту же семантику.
-# Привязки стаб↔клетка — ТОЛЬКО source.json:.stab_vhod (Н-39: проза
-# контракта пар не утверждает; якорь стаба — кратность 1 в тексте модели).
+# Привязки стаб↔клетка — source.json:.stab_vhod, генерируются из кода (Н-39).
+# Якорь — кратность 1; st58–st63 мутируют pinned production, остальные — модель.
 # Оракул — source.json в памяти ДО вызова субъекта (правило 8); носители —
 # sha256; рассинхрон множеств — rc 2 ORACLE_TAMPERED.
 #
@@ -31,7 +31,7 @@
 #         красны (перечень поимённо), итог rc 1; нет субъекта — rc 1
 #         SUBJECT_ABSENT с перечнем всех входов.
 #   --model   контроль входов на эталоне, строгие ожидания вывода.
-#   --stabs   контроль + матрица обманных стабов над текстом модели
+#   --stabs   контроль + матрица обманных стабов модели и pinned production
 #         (ЖИВЫХ 0); якорь потерян или синтаксис сломан — rc 2.
 #   --sgeneriruj-staby (обслуживание) материализует stabs/<имя>/ и
 #         source.json (nositeli).
@@ -48,6 +48,7 @@
 # Коды возврата: 0 — зелено; 1 — красная клетка либо STAB_ZHIV либо субъекта
 # нет; 2 — нечем проверять (нет git/jq, ORACLE_TAMPERED, дрейф стабов/модели).
 import argparse
+from functools import cache
 import hashlib
 import json
 import os
@@ -77,6 +78,8 @@ NEGATIV_208_KRASNYE = ['r31-review-txt-vperjod', 'r32-review-vlozhenyj-vperjod']
 REPO_ID = 'dev-harness'
 HARNESS_REMOTE = 'ssh://git@github.com/a3ka/dev-harness.git'
 SUBJ = '211'
+BAZA_D52 = '1ec47271534b8c468611ce26a7769eaeec298644'
+BAZA_PRODUCTION = 'f8eaa3bb87664c7a32d7a79eb261f32363bf447d'
 CHUZHIE_SUBEKTY = ('137', '209')  # миры НЕ-211: константа предмета наблюдаема (урок Adv208)
 # Реальные POSIX/Git-имена: каждое — отдельная клетка отказа и честный
 # эквивалентный вход. NUL и "/" не входят в алфавит basename Git.
@@ -463,6 +466,13 @@ def otkaz_adv_do_rev(subj):
     return ('ОТКАЗ: ADVERSARIJ_DO_REVJUERA: предмет %s рисковый, завершённого '
             'адверсария в учёте нет — ревьюер раньше адверсария запрещён\n'
             % subj)
+
+
+@cache
+def tekst_bazy(ref):
+    r = run(['git', 'show', ref + ':scripts/zamok_predmeta.sh'], cwd=str(KOREN))
+    assert r.returncode == 0 and r.stdout, 'нет pinned двери %s: %r' % (ref, r.stderr)
+    return r.stdout
 
 
 # ── клетки ───────────────────────────────────────────────────────────────────
@@ -957,6 +967,68 @@ def kejsy():
             return checks
         return case
 
+    def b48(m, door):
+        # T: удалён именно хвост F, а оставшийся обычный файл совпадает.
+        wt, br, _ = nositel(m, SUBJ, 'обычный')
+        p = Path(wt) / 'contracts' / '211-z.md'
+        p.write_text(kontrakt_tekst(SUBJ, 'рисковый'), encoding='utf-8')
+        F = kommit_vse(wt, 'F ordinary plus risky tail')
+        p.unlink()
+        W = kommit_vse(wt, 'W removes risky tail')
+        avtor_sdal(m, SUBJ, wt, br)
+        m.stancija_teg(wt, SUBJ, F)
+        do = m.ledger.read_bytes()
+        stderr = bajty(predupr_zakrep(SUBJ) + otkaz_adv_do_rev(SUBJ))
+        r = sudit(door, m, vyzov(m, 'reviewer', 'Rev211', W))
+        return [k_rc(r, 1, 'b48'), k_stdout(r, b'', 'b48'),
+                k_text(r, stderr, 'b48'), k_uchet_ne_izmenen(m, do, 'b48')]
+
+    def d52_zhivaja_baza(nabor, plohie):
+        # Независимый оракул — ЖИВАЯ pinned дверь базы, не production.
+        # Два отдельных git-мира исключают повторный START критика.
+        def mir_vhoda(mir):
+            wt, br, _ = nositel(mir, SUBJ, 'обычный')
+            kat = Path(wt) / 'contracts'
+            (kat / '211-fixture.md').unlink()
+            for imja, klass, mode in nabor:
+                p = kat / imja
+                if mode == 'tree':
+                    p.mkdir()
+                    (p / 'n.md').write_text('x\n', encoding='utf-8')
+                else:
+                    p.write_text(kontrakt_tekst(SUBJ, klass), encoding='utf-8')
+                    p.chmod(mode)
+            W = kommit_vse(wt, 'D52 live-base world')
+            avtor_sdal(mir, SUBJ, wt, br)
+            for repo in (mir.repo, wt):
+                tags = run(['git', '-C', str(repo), 'for-each-ref',
+                            'refs/tags/frozen/contracts/' + SUBJ + '/'])
+                assert tags.returncode == 0 and tags.stdout == b''
+            return W
+
+        def case(m, door):
+            base = m.root / 'base-d52.sh'
+            base.write_bytes(tekst_bazy(BAZA_D52))
+            kontrol = Mir(m.root / 'base-world')
+            obj = mir_vhoda(kontrol)
+            r0 = sudit(base, kontrol, vyzov(kontrol, 'critic', 'Crit211', obj))
+            stderr = bajty(('ПРЕДУПРЕЖДЕНИЕ: KLASS_RISKA_NET: предмет 211: '
+                           'класс риска неоднозначно определён (neodnoznachno); '
+                           'файлы: %s — класс не определён, предмет считается '
+                           'рисковым\n') % plohie) if plohie else b''
+            # Неоднозначный/невоспроизводимый канон не выдаём за красный продукт.
+            assert (r0.returncode, r0.stdout, r0.stderr) == (
+                0, bajty(puschem('Crit211', SUBJ, 'critic')), stderr), (
+                    'D52_BASE_DRIFT', r0.returncode, r0.stdout, r0.stderr)
+            expected = (r0.returncode, r0.stdout, r0.stderr)
+            W = mir_vhoda(m)
+            r = sudit(door, m, vyzov(m, 'critic', 'Crit211', W))
+            return [k_rc(r, expected[0], 'D52 live base'),
+                    k_stdout(r, expected[1], 'D52 live base'),
+                    k_text(r, expected[2], 'D52 live base'),
+                    k_start(m, 'Crit211', W, 'D52 live base')]
+        return case
+
     reg('b01-bootstrap-adversary',
         'тег /1 на предке, байты равны, строки на main нет — адверсарий без предупреждения',
         b01)
@@ -1069,6 +1141,32 @@ def kejsy():
         d52_spisok((('211-z.md', 'обычный'), ('211-a.md', 'рисковый')),
                    '211-a.md',
                    kontroli=[([('211-a.md', 'обычный'), ('211-риск.md', 'обычный')], '')]))
+    reg('b48-frozen-riskovyj-hvost-udalen',
+        'D64: F обычный + рисковый хвост; OBJECT удалил хвост — reviewer отказан', b48)
+    reg('b49-d52-mode-pered-sha',
+        'D52: ordinary 755 + risky 644 — mode задаёт порядок раньше blob',
+        d52_zhivaja_baza((('211-a.md', 'обычный', 0o755),
+                         ('211-b.md', 'рисковый', 0o644)), '211-a.md'))
+    reg('b50-d52-txt-ne-kontrakt',
+        'D52: рисковый 211-x.txt не входит в перечень *.md',
+        d52_zhivaja_baza((('211-a.md', 'обычный', 0o644),
+                         ('211-x.txt', 'рисковый', 0o644)), ''))
+    reg('b51-d52-chuzhoj-prefiks',
+        'D52: рисковый 2110-b.md не входит в предмет 211-*',
+        d52_zhivaja_baza((('211-a.md', 'обычный', 0o644),
+                         ('2110-b.md', 'рисковый', 0o644)), ''))
+    reg('b52-d52-chetyrnadcat-fajlov',
+        'D52: 14 файлов без класса — индексы 08/09 десятичные, весь stderr базы',
+        d52_zhivaja_baza(tuple(('211-%02d.md' % i, None, 0o644) for i in range(14)),
+                         ' '.join('211-%02d.md' % i for i in range(14))))
+    reg('b53-d52-dvenadcat-ravnyh',
+        'D52: 12 равных blob без класса — индекс 10 не раньше 2',
+        d52_zhivaja_baza(tuple(('211-%02d.md' % i, None, 0o644) for i in range(12)),
+                         ' '.join('211-%02d.md' % i for i in range(12))))
+    reg('b54-d52-ravnye-katalogi-prefiks',
+        'D52: равные деревья 211-a.md/ и 211-a.md.md/ — имя байтами, не Git tree-order',
+        d52_zhivaja_baza((('211-a.md', None, 'tree'),
+                         ('211-a.md.md', None, 'tree')), '211-a.md 211-a.md.md'))
     return K
 
 
@@ -1175,6 +1273,22 @@ STAB_MUTACII = {
     'st57-ordered-by-name-only': lambda t: _mut(
         t, '''  done < <(git -C "$wt" ls-tree -z "$derevo" 2>/dev/null | LC_ALL=C sort -z)''',
         '''  done < <(git -C "$wt" ls-tree -z "$derevo" 2>/dev/null)'''),
+    # Adv211c: ровно одна замена над PINNED production, не двойник модели.
+    'st58-T-bez-hvosta-frozen': lambda t: _mut(
+        t, "    IFS= read -r -d '' imya_f <&4 && exit 1",
+        '    true'),
+    'st59-P-sort-bez-mode': lambda t: _mut(
+        t, r'''printf '%s\t%s\t%s\t%08d\n' "${sp_mode[$sj]}"''',
+        r'''printf '%s\t%s\t%s\t%08d\n' "x"'''),
+    'st60-Q-ljuboj-suffiks': lambda t: _mut(
+        t, '      "$n"-*.md) ;;', '      "$n"-*) ;;'),
+    'st61-R-ljuboj-prefiks': lambda t: _mut(
+        t, '      "$n"-*.md) ;;', '      "$n"*.md) ;;'),
+    'st62-L-indeks-vosmerichnyj': lambda t: _mut(
+        t, '    sj=$((10#$sj))', '    sj=$((sj))'),
+    'st63-M-indeks-bez-nulej': lambda t: _mut(
+        t, r'''printf '%s\t%s\t%s\t%08d\n' ''',
+        r'''printf '%s\t%s\t%s\t%d\n' '''),
 }
 
 STAB_VHOD = {
@@ -1212,7 +1326,22 @@ STAB_VHOD = {
     'st57-ordered-by-name-only': ['b44-d52-dva-raznyh-klassa',
                                 'b45-d52-tri-fajla',
                                 'b47-d52-obratnoe-sozdanie'],
+    'st58-T-bez-hvosta-frozen': ['b48-frozen-riskovyj-hvost-udalen'],
+    'st59-P-sort-bez-mode': ['b49-d52-mode-pered-sha'],
+    'st60-Q-ljuboj-suffiks': ['b50-d52-txt-ne-kontrakt'],
+    'st61-R-ljuboj-prefiks': ['b51-d52-chuzhoj-prefiks'],
+    'st62-L-indeks-vosmerichnyj': ['b52-d52-chetyrnadcat-fajlov'],
+    'st63-M-indeks-bez-nulej': ['b53-d52-dvenadcat-ravnyh'],
 }
+STAB_VHOD['st57-ordered-by-name-only'].append('b54-d52-ravnye-katalogi-prefiks')
+PRODUCTION_STABY = frozenset(imja for imja in STAB_MUTACII
+                            if imja.startswith(('st58-', 'st59-', 'st60-',
+                                                'st61-', 'st62-', 'st63-')))
+
+
+def tekst_staba(imja, model):
+    return (tekst_bazy(BAZA_PRODUCTION).decode('utf-8')
+            if imja in PRODUCTION_STABY else model)
 
 
 # ── границы НАБЛЮДЕНИЯ (rc, stdout bytes, stderr bytes) — арбитраж 208 ──────
@@ -1417,7 +1546,7 @@ def sgeneriruj():
             if d.is_dir() and d.name not in STAB_MUTACII:
                 shutil.rmtree(d, ignore_errors=True)
     for imja, fn in sorted(STAB_MUTACII.items()):
-        mut = fn(tekst)
+        mut = fn(tekst_staba(imja, tekst))
         sint = subprocess.run(['bash', '-n', '/dev/stdin'],
                               input=mut.encode('utf-8'), capture_output=True,
                               env=GIT_ENV)
@@ -1438,11 +1567,14 @@ def sgeneriruj():
         'kontrakt': 'contracts/211-d52-bootstrap-sudej.md',
         'subjekt': 'scripts/zamok_predmeta.sh',
         'model': 'model/zamok_predmeta.sh',
+        'baza_d52': BAZA_D52,
+        'baza_production_stabov': BAZA_PRODUCTION,
         'kejsy': {imja: os for imja, (os, _) in sorted(K.items())},
         'stab_vhod': {k: sorted(v) for k, v in sorted(STAB_VHOD.items())},
         'nositeli': dict(sorted(nositeli.items())),
         'zametki': 'привязки стаб↔клетка — единственный источник (Н-39); '
-                   'якорь каждой мутации — кратность 1 в тексте модели',
+                   'якорь каждой мутации — кратность 1; st58–st63 — pinned production, '
+                   'остальные — модель',
     }
     SOURCE.write_text(json.dumps(src, ensure_ascii=False, indent=1) + '\n',
                       encoding='utf-8')
@@ -1524,7 +1656,7 @@ def main():
         svjazi = 0
         for imja, fn in sorted(STAB_MUTACII.items()):
             try:
-                mut = fn(tekst)
+                mut = fn(tekst_staba(imja, tekst))
             except AssertionError as e:
                 print('ORACLE_TAMPERED: %s: %s' % (imja, e), file=sys.stderr)
                 sys.exit(2)

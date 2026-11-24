@@ -3,6 +3,8 @@
  "kontrakt": "contracts/211-d52-bootstrap-sudej.md",
  "subjekt": "scripts/zamok_predmeta.sh",
  "model": "model/zamok_predmeta.sh",
+ "baza_d52": "1ec47271534b8c468611ce26a7769eaeec298644",
+ "baza_production_stabov": "f8eaa3bb87664c7a32d7a79eb261f32363bf447d",
  "kejsy": {
   "b01-bootstrap-adversary": "тег /1 на предке, байты равны, строки на main нет — адверсарий без предупреждения",
   "b02-bootstrap-reviewer-obychnyj": "класс обычный из OBJECT — ревьюер до адверсария допускается",
@@ -50,7 +52,14 @@
   "b44-d52-dva-raznyh-klassa": "D52: a рисковый, z обычный — stderr базы; контроль одного файла",
   "b45-d52-tri-fajla": "D52: a/m/z р/о/р — полный список a z в порядке базы; равные классы зелены",
   "b46-d52-cifrovye-imena": "D52: 10 обычный, 2 рисковый — stderr базы; числовая форма имени не меняет ключ",
-  "b47-d52-obratnoe-sozdanie": "D52: z создан раньше a — stderr базы; non-ASCII без неоднозначности зелён"
+  "b47-d52-obratnoe-sozdanie": "D52: z создан раньше a — stderr базы; non-ASCII без неоднозначности зелён",
+  "b48-frozen-riskovyj-hvost-udalen": "D64: F обычный + рисковый хвост; OBJECT удалил хвост — reviewer отказан",
+  "b49-d52-mode-pered-sha": "D52: ordinary 755 + risky 644 — mode задаёт порядок раньше blob",
+  "b50-d52-txt-ne-kontrakt": "D52: рисковый 211-x.txt не входит в перечень *.md",
+  "b51-d52-chuzhoj-prefiks": "D52: рисковый 2110-b.md не входит в предмет 211-*",
+  "b52-d52-chetyrnadcat-fajlov": "D52: 14 файлов без класса — индексы 08/09 десятичные, весь stderr базы",
+  "b53-d52-dvenadcat-ravnyh": "D52: 12 равных blob без класса — индекс 10 не раньше 2",
+  "b54-d52-ravnye-katalogi-prefiks": "D52: равные деревья 211-a.md/ и 211-a.md.md/ — имя байтами, не Git tree-order"
  },
  "stab_vhod": {
   "st01-rol-tolko-sudi": [
@@ -229,7 +238,26 @@
   "st57-ordered-by-name-only": [
    "b44-d52-dva-raznyh-klassa",
    "b45-d52-tri-fajla",
-   "b47-d52-obratnoe-sozdanie"
+   "b47-d52-obratnoe-sozdanie",
+   "b54-d52-ravnye-katalogi-prefiks"
+  ],
+  "st58-T-bez-hvosta-frozen": [
+   "b48-frozen-riskovyj-hvost-udalen"
+  ],
+  "st59-P-sort-bez-mode": [
+   "b49-d52-mode-pered-sha"
+  ],
+  "st60-Q-ljuboj-suffiks": [
+   "b50-d52-txt-ne-kontrakt"
+  ],
+  "st61-R-ljuboj-prefiks": [
+   "b51-d52-chuzhoj-prefiks"
+  ],
+  "st62-L-indeks-vosmerichnyj": [
+   "b52-d52-chetyrnadcat-fajlov"
+  ],
+  "st63-M-indeks-bez-nulej": [
+   "b53-d52-dvenadcat-ravnyh"
   ]
  },
  "nositeli": {
@@ -290,7 +318,13 @@
   "stabs/st54-ls-tree-bez-z/zamok_predmeta.sh": "2b87fb5669a9744ea32c930c657c3d226417c1ca14761529fc85033c7c81f185",
   "stabs/st55-sravnenie-s-mode/zamok_predmeta.sh": "517fb41bf19296edf4c3199bffffaff8781f50defeeeac5265c675c35548045c",
   "stabs/st56-umolchanie-vladelca-repo/zamok_predmeta.sh": "ba257fe4e3c139693ecc64e238a2bf91c83ff64ef50e851977d41bf76d0931b0",
-  "stabs/st57-ordered-by-name-only/zamok_predmeta.sh": "2fe6717fb2556be2f8852a559f9011517a9f5aaa8236a2ca30bf1c6bd989025f"
+  "stabs/st57-ordered-by-name-only/zamok_predmeta.sh": "2fe6717fb2556be2f8852a559f9011517a9f5aaa8236a2ca30bf1c6bd989025f",
+  "stabs/st58-T-bez-hvosta-frozen/zamok_predmeta.sh": "def70bb9a32f8197895a2d564a814c004cc21c2e7541e27ffbdeaed2fbf4230c",
+  "stabs/st59-P-sort-bez-mode/zamok_predmeta.sh": "3c7578cb5e71d9d03dc1ddf3669d7ec625f04198fe258c2cc3ed86d3e4b49bff",
+  "stabs/st60-Q-ljuboj-suffiks/zamok_predmeta.sh": "9f72c897408f8deb06c62d4404337ce9fe1423b67dfb014db5c601e553a9f3de",
+  "stabs/st61-R-ljuboj-prefiks/zamok_predmeta.sh": "34172a800d9757903eefe730631b650332b3b31177844d68080dd579d7381f74",
+  "stabs/st62-L-indeks-vosmerichnyj/zamok_predmeta.sh": "a0d77d5017bf4025879f96fd5163ea8f5bcec2ac858ac9d6f9114daf8d95fee6",
+  "stabs/st63-M-indeks-bez-nulej/zamok_predmeta.sh": "887a82a286d4160c2d4c35a4e8409399d1f59b234ad7fbfed8d79c328ed9ed79"
  },
- "zametki": "привязки стаб↔клетка — единственный источник (Н-39); якорь каждой мутации — кратность 1 в тексте модели"
+ "zametki": "привязки стаб↔клетка — единственный источник (Н-39); якорь каждой мутации — кратность 1; st58–st63 — pinned production, остальные — модель"
 }
