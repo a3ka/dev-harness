@@ -334,6 +334,15 @@ def kejsy():
     reg('r22-manifest-pustaja-stroka',
         'в манифесте пустая строка — отказ грамматики манифеста с номером строки (Б-3)',
         lambda w, nnn: _mir_r22(w, nnn))
+    reg('r23-peremint-tot-zhe-kommit',
+        'опубликованный annotated тег переминчен на тот же commit: tag-object различны, peeled commits равны — отказ переминта',
+        lambda w, nnn: _mir_r23(w, nnn))
+    reg('r24-otkaz-hooka-otkat',
+        'исполняемый pre-commit печатает DENIED и отказывает: rc 1, HEAD, байты реестра и чистый индекс восстановлены',
+        lambda w, nnn: _mir_r24(w, nnn))
+    reg('r25-atomarnaja-zamena',
+        'честный REPLACE через временный файл и mv: идентичность реестра меняется, открытый старый файл сохраняет исходные байты',
+        mir_chestnyj)
     return K
 
 
@@ -563,11 +572,36 @@ def _mir_r22(w, nnn):
     return m, {'id': idsha, 'f1': m.rev('refs/tags/frozen/contracts/%s/1' % m.n)}
 
 
+def _mir_r23(w, nnn):
+    m = Mir(w, nnn)
+    idsha = m.mint()
+    m.freeze()
+    ref = 'refs/tags/frozen/contracts/%s/1' % m.n
+    original = m.rev(ref)
+    commit = m.rev(ref + '^{}')
+    m.g('tag', '-f', '-a', ref.removeprefix('refs/tags/'),
+        '-m', 'remint same commit', commit)
+    assert m.rev(ref) != original, 'мир r23: tag-object должен отличаться'
+    assert m.rev(ref + '^{}') == commit, 'мир r23: peeled commit должен совпадать'
+    return m, {'id': idsha, 'f1': m.rev(ref), 'origin_f1': original}
+
+
+def _mir_r24(w, nnn):
+    m = Mir(w, nnn)
+    idsha = m.mint()
+    m.freeze()
+    hook = m.w / 'hookdir' / 'pre-commit'
+    hook.write_text('#!/bin/sh\necho DENIED >&2\nexit 1\n', encoding='utf-8')
+    hook.chmod(0o755)
+    assert m.out('status', '--porcelain') == '', 'мир r24 должен быть чистым'
+    return m, {'id': idsha, 'f1': m.rev('refs/tags/frozen/contracts/%s/1' % m.n)}
+
+
 # ожидание клетки: (rc, stdout, stderr); для зелёных stdout реконструируется
 # по миру ПОСЛЕ прогона (rev-parse HEAD) — см. шапку
 def ozhidanija(imja, m, d, posle):
     n = m.n
-    if imja == 'r01-chestnyj-replace':
+    if imja in ('r01-chestnyj-replace', 'r25-atomarnaja-zamena'):
         return (0, ('REPLACED nnn=%s old=%s new=%s commit=%s\n'
                     % (n, d['id'], d['f1'], posle['head'])).encode('utf-8'), DVOR)
     if imja == 'r02-teg-ne-na-origin':
@@ -594,7 +628,7 @@ def ozhidanija(imja, m, d, posle):
         return ozh_otkaz('тег frozen/contracts/%s/1 не аннотированный' % n)
     if imja == 'r12-dve-stroki':
         return ozh_otkaz('строк %s в манифесте не одна (2) — REPLACE неоднозначен' % n)
-    if imja == 'r13-drejf-frozen':
+    if imja in ('r13-drejf-frozen', 'r23-peremint-tot-zhe-kommit'):
         return ozh_otkaz('переминт заморозки: sha локального frozen/contracts/%s/1 (%s) ≠ sha тега на origin (%s)'
                          % (n, d['f1'], d['origin_f1']))
     if imja == 'r14-avtoritet-nedostupen':
@@ -616,11 +650,15 @@ def ozhidanija(imja, m, d, posle):
         return ozh_otkaz('манифест не по грамматике «NNN → 40-hex»: первая неконформная строка №2 — REPLACE невозможен')
     if imja == 'r22-manifest-pustaja-stroka':
         return ozh_otkaz('манифест не по грамматике «NNN → 40-hex»: первая неконформная строка №3 — REPLACE невозможен')
+    if imja == 'r24-otkaz-hooka-otkat':
+        return (1, b'', b'DENIED\n' + ozh_otkaz(
+            'commit строки реестра отказал (дверь минта 031) — дерево возвращено к HEAD')[2])
     raise AssertionError('нет ожидания для %s' % imja)
 
 
 ZELENYE = ('r01-chestnyj-replace', 'r15-vysokaja-versija', 'r16-dogon-vtoroj-versii',
-           'r17-chuzhij-hvost-bez-lf', 'r18-stroka-n-poslednjaja-bez-lf')
+           'r17-chuzhij-hvost-bez-lf', 'r18-stroka-n-poslednjaja-bez-lf',
+           'r25-atomarnaja-zamena')
 
 
 
@@ -695,13 +733,24 @@ def prognot_kletku(imja, kejs, subjekt, s_post=True):
         d['novyj'] = d.get('f2', d.get('f1'))
         if imja == 'r03-zamorozka-ne-predok-main':
             d['freeze_commit'] = m.out('rev-parse', 'refs/tags/frozen/contracts/%s/1^{}' % m.n)
-        r = vyzvat(subjekt, m.t, m.n)
-        posle = {'head': m.rev('HEAD')}
-        ozh = ozhidanija(imja, m, d, posle)
-        prichiny = sravnit(imja, r, ozh)
-        if s_post:
-            prichiny += post_problemy(imja, m, d, pre)
-        return prichiny
+        # Держим исходный inode открытым: он не может быть переиспользован
+        # после mv. Канон — инвариант 6 контракта: временный файл + mv.
+        # Проверяем наблюдаемый cutover, не гадаем о гонке по sleep.
+        with m.manifest_fajl().open('rb') as ishodnyj:
+            r = vyzvat(subjekt, m.t, m.n)
+            posle = {'head': m.rev('HEAD')}
+            ozh = ozhidanija(imja, m, d, posle)
+            prichiny = sravnit(imja, r, ozh)
+            if s_post:
+                prichiny += post_problemy(imja, m, d, pre)
+                if imja == 'r25-atomarnaja-zamena':
+                    staryj = os.fstat(ishodnyj.fileno())
+                    novyj = m.manifest_fajl().stat()
+                    if (staryj.st_dev, staryj.st_ino) == (novyj.st_dev, novyj.st_ino):
+                        prichiny.append('пост: реестр перезаписан на месте вместо mv временного файла')
+                    if ishodnyj.read() != pre['manifest_fajl']:
+                        prichiny.append('пост: открытый старый файл изменён вместо атомарного cutover')
+            return prichiny
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -801,6 +850,17 @@ STAB_MUTACII = {
     # (там отказывает грамматика — она остаётся честной).
     'st43-nul-udalen': (
         'if [ "$nul_cnt" -ne 0 ]; then', LOZH),
+    # Adv212 Б-1…Б-3: каждый стаб различим именно новой адресной клеткой.
+    'st44-sverka-peeled-kommitov': (
+        'if [ "$NEW_SHA" != "$sha_origin" ]; then',
+        'if [ "$(git -C "$ROOT" rev-parse "${ref_new}^{}")" != '
+        '"$(git -C "$ROOT" rev-parse "${sha_origin}^{}")" ]; then'),
+    'st45-otkat-udalen': (
+        '  git -C "$ROOT" checkout HEAD -- "$_REG_FILE" 2>/dev/null || true',
+        '  :'),
+    'st46-prjamaja-zapis-s-uborkoj': (
+        'mv "$TMP" "$ROOT/$_REG_FILE"',
+        'cat "$TMP" > "$ROOT/$_REG_FILE"; rm -f "$TMP"'),
 }
 
 STAB_VHOD = {
@@ -827,6 +887,9 @@ STAB_VHOD = {
     'st41-awk-dobavljaet-lf': ['r17-chuzhij-hvost-bez-lf', 'r18-stroka-n-poslednjaja-bez-lf'],
     'st42-grammatika-udalena': ['r20-manifest-crlf', 'r21-manifest-lishnie-polja', 'r22-manifest-pustaja-stroka'],
     'st43-nul-udalen': ['r19-manifest-nul'],
+    'st44-sverka-peeled-kommitov': ['r23-peremint-tot-zhe-kommit'],
+    'st45-otkat-udalen': ['r24-otkaz-hooka-otkat'],
+    'st46-prjamaja-zapis-s-uborkoj': ['r25-atomarnaja-zamena'],
 }
 
 # ── границы наблюдения (rc, stdout bytes, stderr bytes) — К-10 ───────────────
