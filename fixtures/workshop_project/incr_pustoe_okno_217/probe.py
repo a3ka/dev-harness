@@ -7,6 +7,7 @@ The ordinary histories deliberately need no publication exemption from 210.
 """
 import argparse
 import dataclasses
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -24,6 +25,8 @@ FILES = ('scripts/check_charter.sh', 'scripts/lib_incr.sh',
          'scripts/next_id.sh', 'scripts/lib_registry.sh')
 ANCHOR = b'INCR_GIT_ROOT="$ROOT"\n'
 MODEL = HERE / 'model/empty_window.sh'
+EMPTY_BRANCH = b'if ' + MODEL.read_bytes().split(b'if ', 1)[1]
+REGISTRY_END = b'mkdir -p "$ROOT/tmp"\n'
 
 
 class Prerequisite(RuntimeError):
@@ -126,6 +129,14 @@ def cells():
         Cell('f2-fast-allowed', shape='allowed', mode='fast'),
         Cell('f3-oracle-denied', shape='denied', mode='oracle'),
         Cell('f4-oracle-allowed', shape='allowed', mode='oracle'),
+        Cell('e8-empty-origin', shape='origin', empty=True),
+        Cell('e9-empty-origin-oracle', shape='origin', mode='oracle-incr', empty=True),
+        Cell('w10-edit-revert-denied', shape='revert-denied'),
+        Cell('w11-merge-only-denied', shape='merge-denied'),
+        Cell('w12-prefix4-denied', shape='prefix-denied'),
+        Cell('w13-edit-revert-allowed', shape='revert-allowed'),
+        Cell('w14-merge-only-allowed', shape='merge-allowed'),
+        Cell('w15-prefix4-allowed', shape='prefix-allowed'),
     ]
 
 
@@ -158,6 +169,83 @@ def seed(root, count, documents):
     print(f'HISTORY commits={actual} documents={len(files)}', flush=True)
 
 
+def extend_window(world, directory, cell):
+    """Additional conforming worlds; ordinary pre-existing cells stay untouched."""
+    allowed = cell.shape.endswith('-allowed')
+    if cell.shape == 'origin':
+        remote = directory / 'authority.git'
+        git(world.root, 'clone', '-q', '--bare', '--no-hardlinks', world.root, remote)
+        git(world.root, 'remote', 'add', 'origin', str(remote))
+        if git(remote, 'rev-parse', '--is-bare-repository').strip() != b'true':
+            raise Prerequisite('ORIGIN_NOT_BARE')
+    elif cell.shape.startswith('revert-'):
+        original = git(world.root, 'show', f'{world.base}:AGENTS.md')
+        world.commit('AGENTS.md', b'edit before revert\n', allowed)
+        world.commit('AGENTS.md', original, allowed)
+        trees = git(world.root, 'rev-parse', f'{world.base}^{{tree}}', 'HEAD^{tree}').splitlines()
+        if len(trees) != 2 or trees[0] != trees[1]:
+            raise Prerequisite('REVERT_TREES_NOT_EQUAL')
+    elif cell.shape.startswith('merge-'):
+        other = world.base
+        world.commit('ordinary.txt', b'first parent\n')
+        world.base = git(world.root, 'rev-parse', 'HEAD').decode().strip()
+        (world.root / 'AGENTS.md').write_bytes(b'merge-only charter change\n')
+        git(world.root, 'add', '--', 'AGENTS.md')
+        tree = git(world.root, 'write-tree').decode().strip()
+        message = 'evil merge\n'
+        if allowed:
+            message += '\nРАЗРЕШИЛ-ВЛАДЕЛЕЦ: AGENTS.md synthetic fixture only\n'
+        head = git(world.root, 'commit-tree', tree, '-p', world.base, '-p', other,
+                   data=message.encode()).decode().strip()
+        git(world.root, 'reset', '--hard', '-q', head)
+        counts = (git(world.root, 'rev-list', '--count', f'{world.base}..HEAD').strip(),
+                  git(world.root, 'rev-list', '--count', '--no-merges', f'{world.base}..HEAD').strip())
+        if counts != (b'1', b'0'):
+            raise Prerequisite(f'MERGE_WINDOW_NOT_SINGLE: {counts!r}')
+    elif cell.shape.startswith('prefix-'):
+        # Birthday search: candidate heads may match ANY of 512 ancestors, not
+        # one fixed SHA. Only the winning head is written; Git validates its SHA.
+        start = time.monotonic()
+        identity = b'architect <architect@dev-harness.local> 1700000000 +0000\n'
+        stream = bytearray()
+        for n in range(512):
+            message = f'prefix ancestor {n}\n'.encode()
+            stream += (b'commit refs/heads/main\ncommitter ' + identity +
+                       f'data {len(message)}\n'.encode() + message)
+            if n == 0:
+                stream += f'from {world.base}\n'.encode()
+            stream += b'\n'
+        git(world.root, 'fast-import', '--quiet', data=bytes(stream))
+        parent = git(world.root, 'rev-parse', 'HEAD').decode().strip()
+        ancestors = git(world.root, 'rev-list', 'HEAD').decode().splitlines()
+        prefixes = {sha[:4]: sha for sha in ancestors}
+        (world.root / 'AGENTS.md').write_bytes(b'prefix collision forbidden edit\n')
+        git(world.root, 'add', '--', 'AGENTS.md')
+        tree = git(world.root, 'write-tree').decode().strip()
+        for attempt in range(20000 - 512):
+            message = f'prefix head {attempt}\n'
+            if allowed:
+                message += '\nРАЗРЕШИЛ-ВЛАДЕЛЕЦ: AGENTS.md synthetic fixture only\n'
+            body = (f'tree {tree}\nparent {parent}\n'.encode() +
+                    b'author ' + identity + b'committer ' + identity + b'\n' + message.encode())
+            sha = hashlib.sha1(f'commit {len(body)}\0'.encode() + body).hexdigest()
+            if sha[:4] in prefixes:
+                written = git(world.root, 'hash-object', '-t', 'commit', '-w', '--stdin',
+                              data=body).decode().strip()
+                if written != sha:
+                    raise Prerequisite('PREFIX_GIT_HASH_MISMATCH')
+                world.base = prefixes[sha[:4]]
+                git(world.root, 'reset', '--hard', '-q', sha)
+                print(f'PREFIX4 base={world.base} head={sha} probes={513+attempt} '
+                      f'seconds={time.monotonic()-start:.3f}', flush=True)
+                break
+        else:
+            raise Prerequisite('PREFIX4_SEARCH_EXHAUSTED: 20000 probes')
+        if world.base == sha or world.base[:4] != sha[:4]:
+            raise Prerequisite('PREFIX4_WORLD_INVALID')
+        git(world.root, 'merge-base', '--is-ancestor', world.base, sha)
+
+
 class World:
     def __init__(self, directory, template, cell):
         self.root = directory / 'world'
@@ -178,9 +266,13 @@ class World:
                 git(self.root, 'tag', '-a', 'frozen/contracts/850/1', '-m', 'late freeze')
                 if cell.shape == 'late-denied':
                     self.commit('contracts/850-late.md', b'forbidden after freeze\n')
+            elif cell.shape.startswith(('revert-', 'merge-', 'prefix-')):
+                extend_window(self, directory, cell)
             else:
                 self.commit('ordinary.txt', b'ordinary code\n')
         self.head = git(self.root, 'rev-parse', 'HEAD').decode().strip()
+        if cell.shape == 'origin':
+            extend_window(self, directory, cell)
         value = (self.base + '\n').encode()
         if cell.cache == 'no-lf':
             value = self.base.encode()
@@ -257,6 +349,8 @@ def observe(cell, selected, baseline, scratch, templates, mutant_rc=None):
                 raise Prerequisite(f'BASELINE_ENVIRONMENT {cell.name}: {expected!r}')
             # Check the oracle against independent semantic rc, not itself.
             deny = cell.shape in ('denied', 'late-denied') or cell.cache in ('broken', 'empty')
+            if cell.shape in ('revert-denied', 'merge-denied', 'prefix-denied'):
+                deny = True
             if expected[0] != int(deny):
                 raise Prerequisite(f'BASELINE_SEMANTICS {cell.name}: {expected!r}')
         expected_cache = (None if cell.mode in ('fast', 'oracle') and w.original_cache is None
@@ -282,6 +376,12 @@ def observe(cell, selected, baseline, scratch, templates, mutant_rc=None):
         forbidden = [argv for argv in calls if any(op in argv for op in ('ls-tree', 'log', 'for-each-ref'))]
         if cell.empty and forbidden:
             errors.append(f'EMPTY_DISCOVERY: {forbidden!r}')
+        if cell.shape == 'origin':
+            registry_calls = {op: sum(op in argv for argv in calls)
+                              for op in ('for-each-ref', 'ls-remote')}
+            print(f'ORIGIN_TRACE {cell.name}: {registry_calls!r}', flush=True)
+            if any(registry_calls.values()):
+                errors.append(f'EMPTY_REGISTRY_DISCOVERY: {registry_calls!r}')
         if cell.empty and (elapsed > 2 or actual[0] == 124):
             errors.append('EMPTY_BUDGET_EXCEEDED')
         print(f'{cell.name}: rc={actual[0]} seconds={elapsed:.3f} '
@@ -309,6 +409,15 @@ MUTATIONS = {
     'UNKNOWN_CLEAN': ('lib', '    INCR_MODE="full"\n    printf \'incr: %s полный прогон (база'.encode(), '    exit 0\n    printf \'incr: %s полный прогон (база'.encode()),
     'MISSING_CLEAN': ('lib', '    INCR_MODE="full"\n    printf \'incr: %s полный прогон (кеш отсутствует)'.encode(), '    exit 0\n    printf \'incr: %s полный прогон (кеш отсутствует)'.encode()),
     'SLOW_EMPTY': ('block', b'  incr_finish 0\n', b'  sleep 3\n  incr_finish 0\n'),
+    'M10_AFTER_REGISTRY': ('door', EMPTY_BRANCH, b''),
+    'M13_TREE_EQUAL': ('door', b'[ "$INCR_BASE" = "$INCR_HEAD" ]',
+                       b'git -C "$ROOT" diff --quiet "$INCR_BASE" "$INCR_HEAD"'),
+    'M14_NO_MERGES': ('door', b'[ "$INCR_BASE" = "$INCR_HEAD" ]',
+                      b'[ "$(git -C "$ROOT" rev-list --count --no-merges "$INCR_BASE..$INCR_HEAD")" = 0 ]'),
+    'M17_TREE_OBJECT_EQUAL': ('door', b'[ "$INCR_BASE" = "$INCR_HEAD" ]',
+                             b'[ "$(git -C "$ROOT" rev-parse "$INCR_BASE^{tree}")" = "$(git -C "$ROOT" rev-parse "$INCR_HEAD^{tree}")" ]'),
+    'M04B_PREFIX4': ('door', b'[ "$INCR_BASE" = "$INCR_HEAD" ]',
+                     b'[ "${INCR_BASE:0:4}" = "${INCR_HEAD:0:4}" ]'),
 }
 
 
@@ -362,6 +471,7 @@ def main():
     mode = ap.add_mutually_exclusive_group()
     for name in ('model', 'stabs', 'syntax', 'catalog', 'context'):
         mode.add_argument('--' + name, action='store_true')
+    mode.add_argument('--production-stabs', action='store_true')
     ap.add_argument('--live', action='store_true')
     ap.add_argument('--cell')
     args = ap.parse_args()
@@ -373,6 +483,8 @@ def main():
         if args.context:
             return context(root)
         rows = bindings()
+        if args.production_stabs:
+            rows = [row for row in rows if row[0].startswith('M') and row[0][1:3].isdigit()]
         if args.catalog:
             print(f'KLETKI={len(cells())} MUTACII={len(MUTATIONS)} SVJAZI={len(rows)}')
             for mutation, cell in rows:
@@ -388,6 +500,8 @@ def main():
             return 0
         baseline = sources(root, pinned=True)
         selected = model_sources(baseline) if args.model or args.stabs else sources(root)
+        if args.production_stabs:
+            selected = sources(root)
         with tempfile.TemporaryDirectory(prefix='incr-217-') as tmp:
             scratch = Path(tmp)
             if args.live:
@@ -411,7 +525,7 @@ def main():
             cases = [cell for cell in cells() if not args.cell or cell.name == args.cell]
             if not cases:
                 raise Prerequisite('EMPTY_CENSUS')
-            if args.stabs:
+            if args.stabs or args.production_stabs:
                 by_name = {c.name: c for c in cases}
                 caught = 0
                 for name, cell_name in rows:
@@ -426,11 +540,14 @@ def main():
                         mutant[path] = replace(mutant[path], block, replace(block, anchor, replacement))
                     else:
                         mutant[path] = replace(mutant[path], anchor, replacement)
+                    if name == 'M10_AFTER_REGISTRY':
+                        mutant[path] = replace(mutant[path], REGISTRY_END,
+                                               EMPTY_BRANCH + b'\n' + REGISTRY_END)
                     rc = {'FAIL_EMPTY': 1, 'SLOW_EMPTY': 124}.get(name, 0)
                     dead = not observe(cell, mutant, baseline, scratch, templates, mutant_rc=rc)
                     caught += dead
                     print(f'{name} -> {cell_name}: {"POIMAN" if dead else "ZHIV"}', flush=True)
-                print(f'MUTACII={len(MUTATIONS)} SVJAZI={len(rows)} POIMANY={caught} ZHIVYH={len(rows)-caught}')
+                print(f'MUTACII={len({name for name, _ in rows})} SVJAZI={len(rows)} POIMANY={caught} ZHIVYH={len(rows)-caught}')
                 return int(caught != len(rows))
             green = sum(observe(cell, selected, baseline, scratch, templates) for cell in cases)
             print(f'KLETKI={len(cases)} ZELENYE={green} KRASNYE={len(cases)-green}')

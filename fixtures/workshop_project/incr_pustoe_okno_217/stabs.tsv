@@ -18,3 +18,9 @@ UNKNOWN_CLEAN	c3-unknown-denied
 UNKNOWN_CLEAN	c5-foreign-denied
 MISSING_CLEAN	c1-missing-denied
 SLOW_EMPTY	e1-empty-small
+M10_AFTER_REGISTRY	e8-empty-origin
+M10_AFTER_REGISTRY	e9-empty-origin-oracle
+M13_TREE_EQUAL	w10-edit-revert-denied
+M14_NO_MERGES	w11-merge-only-denied
+M17_TREE_OBJECT_EQUAL	w10-edit-revert-denied
+M04B_PREFIX4	w12-prefix4-denied
