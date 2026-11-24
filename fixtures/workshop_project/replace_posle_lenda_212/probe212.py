@@ -10,7 +10,7 @@
 # Оракул (правило 8): source.json читается в память ДО вызова субъекта;
 # носители — sha256; дрейф модели/стабов = rc 2 ORACLE_TAMPERED. Привязки
 # стаб↔вход — ТОЛЬКО source.json:.stab_vhod (Н-39: проза контракта пар
-# не утверждает; якорь каждой мутации кратен 1 в тексте модели).
+# не утверждает; якорь каждой мутации кратен 1 в модели либо production).
 #
 # НАБЛЮДЕНИЕ — байты обеих труб (К-10, арбитраж 208): каждая клетка
 # сравнивает rc, stdout И stderr ПОЛНОСТЬЮ байт-в-байт; обе трубы
@@ -29,7 +29,7 @@
 #         дерево батареи). До реализации клетки красны поимённо, итог rc 1;
 #         нет субъекта — rc 1 SUBJECT_ABSENT с перечнем всех входов.
 #   --model   контроль входов на эталоне (KLETKI N KRASNYH 0).
-#   --stabs   контроль + матрица обманных стабов над текстом модели
+#   --stabs   контроль + матрица обманных стабов модели/production
 #         (SVJAZI N ZHIVYH 0); якорь потерян/синтаксис сломан — rc 2.
 #   --sgeneriruj-staby (обслуживание) материализует stabs/<имя>/ и
 #         source.json (nositeli).
@@ -349,6 +349,9 @@ def kejsy():
     reg('r27-mv-na-toj-zhe-fs',
         'честный REPLACE: источник фактически исполняемого mv реестра на той же ФС, что каталог реестра (без EXDEV-копирования)',
         mir_chestnyj)
+    reg('r28-tmpdir-cwd-drugaja-fs',
+        'TMPDIR и cwd на другой ФС: источник mv реестра остаётся на ФС реестра; нет доступной другой ФС — rc 2, не пропуск',
+        mir_chestnyj)
     return K
 
 
@@ -622,7 +625,8 @@ def _mir_r26(w, nnn):
 # по миру ПОСЛЕ прогона (rev-parse HEAD) — см. шапку
 def ozhidanija(imja, m, d, posle):
     n = m.n
-    if imja in ('r01-chestnyj-replace', 'r25-atomarnaja-zamena', 'r27-mv-na-toj-zhe-fs'):
+    if imja in ('r01-chestnyj-replace', 'r25-atomarnaja-zamena',
+                'r27-mv-na-toj-zhe-fs', 'r28-tmpdir-cwd-drugaja-fs'):
         return (0, ('REPLACED nnn=%s old=%s new=%s commit=%s\n'
                     % (n, d['id'], d['f1'], posle['head'])).encode('utf-8'), DVOR)
     if imja == 'r02-teg-ne-na-origin':
@@ -682,14 +686,16 @@ def ozhidanija(imja, m, d, posle):
 
 ZELENYE = ('r01-chestnyj-replace', 'r15-vysokaja-versija', 'r16-dogon-vtoroj-versii',
            'r17-chuzhij-hvost-bez-lf', 'r18-stroka-n-poslednjaja-bez-lf',
-           'r25-atomarnaja-zamena', 'r27-mv-na-toj-zhe-fs')
+           'r25-atomarnaja-zamena', 'r27-mv-na-toj-zhe-fs',
+           'r28-tmpdir-cwd-drugaja-fs')
 
 
 
 
 # ── прогон одной клетки ──────────────────────────────────────────────────────
-def vyzvat(subjekt, t, n, env=None):
-    return run(['bash', str(subjekt), '--root', str(t), '--nnn', n], env=env, timeout=240)
+def vyzvat(subjekt, t, n, env=None, cwd=None):
+    return run(['bash', str(subjekt), '--root', str(t), '--nnn', n],
+               env=env, cwd=cwd, timeout=240)
 
 
 def nabludenie_mv(m):
@@ -710,7 +716,7 @@ def nabludenie_mv(m):
                     + 'import json, os, sys\nfrom pathlib import Path\n'
                     + 'registry = Path(%r)\nlog = Path(%r)\n' % (str(m.manifest_fajl()), str(log))
                     + 'args = sys.argv[1:]\n'
-                    + 'if len(args) >= 2 and Path(args[-1]).absolute() == registry:\n'
+                    + 'if len(args) >= 2 and Path(args[-1]).resolve() == registry.resolve():\n'
                     + '    source = Path(args[-2])\n'
                     + '    if source.is_file():\n'
                     + '        record = [source.stat().st_dev, registry.parent.stat().st_dev]\n'
@@ -721,6 +727,34 @@ def nabludenie_mv(m):
     shim.chmod(0o755)
     env = dict(GIT_ENV, PATH=str(shimdir) + os.pathsep + GIT_ENV.get('PATH', os.defpath))
     return env, log
+
+
+def cwd_drugoj_fs(m):
+    registry_dev = m.manifest_fajl().parent.stat().st_dev
+    for parent in ('/dev/shm', '/run/user/%d' % os.getuid(), '/tmp', '/var/tmp'):
+        try:
+            if Path(parent).stat().st_dev == registry_dev:
+                continue
+            cwd = Path(tempfile.mkdtemp(prefix='zamena212-cwd-', dir=parent))
+        except OSError:
+            continue
+        # Пустой registry вне toy: cwd-относительный mktemp должен дойти до
+        # настоящего mv и покраситься именно EXDEV, не отсутствием каталога.
+        try:
+            (cwd / 'registry').mkdir()
+            # Модель ищет next_id.sh через git top cwd (у production есть
+            # настоящий сосед). Дадим ей живую библиотеку, не меняя субъекта.
+            initialized = run(['git', 'init', '-q', cwd])
+            if initialized.returncode:
+                raise RuntimeError('r28: git init cwd: %s' % diag(initialized.stderr))
+            (cwd / 'scripts').symlink_to(REPO / 'scripts', target_is_directory=True)
+            assert cwd.stat().st_dev != registry_dev
+            return cwd
+        except BaseException:
+            shutil.rmtree(cwd)
+            raise
+    raise RuntimeError('ORACLE_TAMPERED: r28 не может быть проверена: '
+                       'нет доступной для записи ФС с другим st_dev')
 
 
 def sravnit(imja, r, ozh):
@@ -777,6 +811,7 @@ def post_problemy(imja, m, d, pre):
 
 def prognot_kletku(imja, kejs, subjekt, s_post=True):
     tmp = tempfile.mkdtemp(prefix='zamena212-')
+    foreign_cwd = None
     try:
         nnn = random.choice(NNN_POOL)
         m, d = kejs[imja]['postroit'](tmp, nnn)
@@ -784,16 +819,21 @@ def prognot_kletku(imja, kejs, subjekt, s_post=True):
                'manifest': m.show_bytes('HEAD:registry/contracts.tsv'),
                'manifest_fajl': m.manifest_fajl().read_bytes(),
                'status': m.out('status', '--porcelain'),
-               'staraja_stroka': m.stroka_nn()}
+               'staraja_stroka': m.stroka_nn(),
+               'registry_dev': m.manifest_fajl().parent.stat().st_dev}
         d['novyj'] = d.get('f2', d.get('f1'))
         if imja == 'r03-zamorozka-ne-predok-main':
             d['freeze_commit'] = m.out('rev-parse', 'refs/tags/frozen/contracts/%s/1^{}' % m.n)
-        env, mv_log = nabludenie_mv(m) if imja == 'r27-mv-na-toj-zhe-fs' else (None, None)
+        observe_mv = imja in ('r27-mv-na-toj-zhe-fs', 'r28-tmpdir-cwd-drugaja-fs')
+        env, mv_log = nabludenie_mv(m) if observe_mv else (None, None)
+        if imja == 'r28-tmpdir-cwd-drugaja-fs':
+            foreign_cwd = cwd_drugoj_fs(m)
+            env['TMPDIR'] = str(foreign_cwd)
         # Держим исходный inode открытым: он не может быть переиспользован
         # после mv. Канон — инвариант 6 контракта: временный файл + mv.
         # Проверяем наблюдаемый cutover, не гадаем о гонке по sleep.
         with m.manifest_fajl().open('rb') as ishodnyj:
-            r = vyzvat(subjekt, m.t, m.n, env=env)
+            r = vyzvat(subjekt, m.t, m.n, env=env, cwd=foreign_cwd)
             posle = {'head': m.rev('HEAD')}
             ozh = ozhidanija(imja, m, d, posle)
             prichiny = sravnit(imja, r, ozh)
@@ -811,10 +851,12 @@ def prognot_kletku(imja, kejs, subjekt, s_post=True):
                     if not records:
                         prichiny.append('пост: mv реестра не наблюдался')
                     for source_dev, registry_dev in records:
-                        if source_dev != registry_dev:
+                        if source_dev != pre['registry_dev'] or registry_dev != pre['registry_dev']:
                             prichiny.append('пост: mv между файловыми системами — copy/unlink вместо атомарного rename')
             return prichiny
     finally:
+        if foreign_cwd is not None:
+            shutil.rmtree(foreign_cwd)
         shutil.rmtree(tmp, ignore_errors=True)
 
 
@@ -930,6 +972,12 @@ STAB_MUTACII = {
     'st48-mktemp-drugaja-fs': (
         'mktemp "$ROOT/.replace-line-$NNN.XXXXXX"',
         'mktemp -p /dev/shm'),
+    'st49-mktemp-tmpdir': (
+        'mktemp "$ROOT/$_REGISTRY_PATH/.replace-line-$NNN.XXXXXX"',
+        'mktemp "${TMPDIR:-/tmp}/.replace-line-$NNN.XXXXXX"'),
+    'st50-mktemp-cwd-rel': (
+        'mktemp "$ROOT/$_REGISTRY_PATH/.replace-line-$NNN.XXXXXX"',
+        'mktemp -p "$_REGISTRY_PATH" .replace-line-$NNN.XXXXXX'),
 }
 
 STAB_VHOD = {
@@ -961,6 +1009,8 @@ STAB_VHOD = {
     'st46-prjamaja-zapis-s-uborkoj': ['r25-atomarnaja-zamena'],
     'st47-sverka-tolko-v1': ['r26-peremint-vtoroj-versii'],
     'st48-mktemp-drugaja-fs': ['r27-mv-na-toj-zhe-fs'],
+    'st49-mktemp-tmpdir': ['r28-tmpdir-cwd-drugaja-fs'],
+    'st50-mktemp-cwd-rel': ['r28-tmpdir-cwd-drugaja-fs'],
 }
 
 # ── границы наблюдения (rc, stdout bytes, stderr bytes) — К-10 ───────────────
@@ -1045,11 +1095,14 @@ def tekst_modeli():
 
 def sgeneriruj():
     tekst = tekst_modeli()
+    # Adv212c: адресные копии production с одним изменённым mktemp.
+    production = (REPO / SUBJ_IMJA).read_bytes().decode('utf-8')
     if STABS.is_dir():
         shutil.rmtree(STABS)
     STABS.mkdir(parents=True)
     for imja, (jakor, zamena) in sorted(STAB_MUTACII.items()):
-        mut = _mut(tekst, jakor, zamena)
+        original = production if imja in ('st49-mktemp-tmpdir', 'st50-mktemp-cwd-rel') else tekst
+        mut = _mut(original, jakor, zamena)
         d = STABS / imja
         d.mkdir()
         (d / 'replace_line.sh').write_bytes(mut.encode('utf-8'))

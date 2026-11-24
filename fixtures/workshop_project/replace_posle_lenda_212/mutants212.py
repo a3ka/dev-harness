@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Adv212 v1 Б-1…Б-3 and v2 Б-1/Б-2: disposable production mutants.
+"""Adv212 v1–v3: disposable production mutants.
 
-Full --repo runs cover all five reported mutants; scoped neighbours and honest
+Full --repo runs cover the reported mutants; scoped neighbours and honest
 controls exercise each predicate without extending the binding matrix.
 """
 import importlib.util
@@ -43,9 +43,12 @@ def main():
             ('st44-sverka-peeled-kommitov',
              ('r23-peremint-tot-zhe-kommit', 'r26-peremint-vtoroj-versii')),
             ('st45-otkat-udalen', ('r24-otkaz-hooka-otkat',)),
-            ('st46-prjamaja-zapis-s-uborkoj', ('r25-atomarnaja-zamena', 'r27-mv-na-toj-zhe-fs')),
+            ('st46-prjamaja-zapis-s-uborkoj',
+             ('r25-atomarnaja-zamena', 'r27-mv-na-toj-zhe-fs', 'r28-tmpdir-cwd-drugaja-fs')),
             ('st47-sverka-tolko-v1', ('r26-peremint-vtoroj-versii',)),
-            ('st48-mktemp-drugaja-fs', ('r27-mv-na-toj-zhe-fs',)),
+            ('st48-mktemp-drugaja-fs', ('r27-mv-na-toj-zhe-fs', 'r28-tmpdir-cwd-drugaja-fs')),
+            ('st49-mktemp-tmpdir', ('r28-tmpdir-cwd-drugaja-fs',)),
+            ('st50-mktemp-cwd-rel', ('r28-tmpdir-cwd-drugaja-fs',)),
         )
         # У модели TMP в корне toy (та же ФС), у production — в registry.
         # Мутация Б-2 меняет только настоящий production mktemp.
@@ -89,6 +92,10 @@ def main():
              'mktemp --tmpdir=/dev/shm', 'между файловыми системами'),
             ('mv-not-observed', pairs[4][1][0], probe.STAB_MUTACII[pairs[2][0]][0],
              'cat "$TMP" > "$ROOT/$_REG_FILE"; rm -f "$TMP"', 'mv реестра не наблюдался'),
+            ('temp-env-no-template', 'r28-tmpdir-cwd-drugaja-fs', temp_anchor,
+             'mktemp', 'между файловыми системами'),
+            ('mv-not-observed-r28', 'r28-tmpdir-cwd-drugaja-fs', probe.STAB_MUTACII[pairs[2][0]][0],
+             'cat "$TMP" > "$ROOT/$_REG_FILE"; rm -f "$TMP"', 'mv реестра не наблюдался'),
         )
         for name, case, anchor, replacement, reason in neighbours:
             subject.write_text(probe._mut(original, anchor, replacement), encoding='utf-8')
@@ -110,6 +117,12 @@ def main():
             ('atomic-mv-target-r27', pairs[4][1][0], probe.STAB_MUTACII[pairs[2][0]][0],
              'mv -T -- "$TMP" "$ROOT/$_REG_FILE"'),
             ('temp-in-root-same-fs', pairs[4][1][0], temp_anchor,
+             'mktemp "$ROOT/.replace-line-$NNN.XXXXXX"'),
+            ('mv-dotdot-r27', 'r27-mv-na-toj-zhe-fs', probe.STAB_MUTACII[pairs[2][0]][0],
+             'mv "$TMP" "$ROOT/registry/../registry/contracts.tsv"'),
+            ('mv-dotdot-r28', 'r28-tmpdir-cwd-drugaja-fs', probe.STAB_MUTACII[pairs[2][0]][0],
+             'mv "$TMP" "$ROOT/registry/../registry/contracts.tsv"'),
+            ('temp-in-root-foreign-env', 'r28-tmpdir-cwd-drugaja-fs', temp_anchor,
              'mktemp "$ROOT/.replace-line-$NNN.XXXXXX"'),
         )
         for name, case, anchor, replacement in equivalents:

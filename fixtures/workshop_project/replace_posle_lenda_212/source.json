@@ -30,7 +30,8 @@
   "r24-otkaz-hooka-otkat": "исполняемый pre-commit печатает DENIED и отказывает: rc 1, HEAD, байты реестра и чистый индекс восстановлены",
   "r25-atomarnaja-zamena": "честный REPLACE через временный файл и mv: идентичность реестра меняется, открытый старый файл сохраняет исходные байты",
   "r26-peremint-vtoroj-versii": "живы /1 и опубликованная /2; remint /2 на тот же commit — именованный отказ переминта выбранного vmax=2",
-  "r27-mv-na-toj-zhe-fs": "честный REPLACE: источник фактически исполняемого mv реестра на той же ФС, что каталог реестра (без EXDEV-копирования)"
+  "r27-mv-na-toj-zhe-fs": "честный REPLACE: источник фактически исполняемого mv реестра на той же ФС, что каталог реестра (без EXDEV-копирования)",
+  "r28-tmpdir-cwd-drugaja-fs": "TMPDIR и cwd на другой ФС: источник mv реестра остаётся на ФС реестра; нет доступной другой ФС — rc 2, не пропуск"
  },
  "stab_vhod": {
   "st01-povtor-propuschen": [
@@ -119,6 +120,12 @@
   ],
   "st48-mktemp-drugaja-fs": [
    "r27-mv-na-toj-zhe-fs"
+  ],
+  "st49-mktemp-tmpdir": [
+   "r28-tmpdir-cwd-drugaja-fs"
+  ],
+  "st50-mktemp-cwd-rel": [
+   "r28-tmpdir-cwd-drugaja-fs"
   ],
   "st20-otkaz-crlf": [
    "r02-teg-ne-na-origin",
@@ -260,6 +267,8 @@
   "stabs/st45-otkat-udalen/replace_line.sh": "4ffdefc79808102aa5e3a6eb8f6e21314030e590cafca8a87ca8b3e18416bf28",
   "stabs/st46-prjamaja-zapis-s-uborkoj/replace_line.sh": "1af81dc20663db2677d289e56873f0d75e2ac947a0ea81f445aa6e9f6d07a239",
   "stabs/st47-sverka-tolko-v1/replace_line.sh": "b2ddba05e0988ff6101951e1ffae60e2dfeb62cc613be220988a82bae25d76f3",
-  "stabs/st48-mktemp-drugaja-fs/replace_line.sh": "19cfb9fc2d178cfb9cb74af921b218805d5d8a1cf377880e37686675db787c36"
+  "stabs/st48-mktemp-drugaja-fs/replace_line.sh": "19cfb9fc2d178cfb9cb74af921b218805d5d8a1cf377880e37686675db787c36",
+  "stabs/st49-mktemp-tmpdir/replace_line.sh": "3d9a534278b766b67e3c27152b0501207780f50cc169e11330fb1c50c060df5b",
+  "stabs/st50-mktemp-cwd-rel/replace_line.sh": "77908ff68c1f6ec81a115786e04dc502a7e7ec5d66af3930aa72d69a807f55fc"
  }
 }
