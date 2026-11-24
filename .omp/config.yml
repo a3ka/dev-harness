@@ -55,7 +55,7 @@ modelRoles:
   plan: "openai-codex/gpt-6-astra"  # фолбек: anthropic/claude-fable-5-2
   consultant: "openai-codex/gpt-6.1-sol"  # фолбек: zai/glm-5.3
   steward: "anthropic/claude-haiku-4-5"  # фолбек: openai-codex/gpt-6-luna
-  steward-arch: "openai-codex/gpt-6.1-sol"  # фолбек: zai/glm-5.3
+  steward-arch: "openai-codex/gpt-6.1-sol"  # фолбек: openai-codex/gpt-6-astra
 # ── /modelRoles ──
 
 # ── Изоляция спавна субагентов (контракт 067: backend auto, шаг А контракта 012) ─
@@ -132,5 +132,4 @@ retry:
     apex-sol: ["zai/glm-5.3"]
     plan: ["anthropic/claude-fable-5-2"]
     consultant: ["zai/glm-5.3"]
-    steward-arch: ["zai/glm-5.3"]
   # ── /fallbackChains ──
