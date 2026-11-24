@@ -312,6 +312,10 @@
 #   check_charter для коммитов, внёсших текст контракта, побайтно равный опубликованному frozen-тегу этого
 #   контракта, консультант вносит owner-PR без отдельного слова на каждую пару; равенство блоба проверяется и
 #   пишется в журнал.»)
+#   1fb51dc3378087bcfc9143d9e2a6aad103a00485  contracts/217-incr-pustoe-okno.md
+#   8f2dc6c24f5b54425eb3e3a0106984f5edffc44c  contracts/143-mob-ci-razdelenie.md
+#   (24.11: GitHub-merge носителя #1348 (217) и ленд 143 v5/v6 внесли в main текст контракта; блоб = блоб frozen/contracts/217/1
+#   и frozen/contracts/143/6 (сверено консультантом); нового содержания нет; по стоячему слову владельца 2026-11-22 выше.)
 #
 # НЕ добавлять новые записи без прямого слова владельца в НОВОМ коммите с обоснованием.
 #
@@ -428,6 +432,10 @@ charter_diff_paths() {
 grandfather_pair() {
   local c="$1" p="$2"
   case "$c" in
+    1fb51dc3378087bcfc9143d9e2a6aad103a00485)
+      [ "$p" = "contracts/217-incr-pustoe-okno.md" ] && return 0 ;;
+    8f2dc6c24f5b54425eb3e3a0106984f5edffc44c)
+      [ "$p" = "contracts/143-mob-ci-razdelenie.md" ] && return 0 ;;
     0872189c654c9728f2753c36a48f99a0322ad2fd)
       [ "$p" = "contracts/037-samodostatochnyj-cwd-i-priemnik-task.md" ] && return 0 ;;
     19678a0034fba8906a4103965516494de2ae58d2)
