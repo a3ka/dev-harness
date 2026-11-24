@@ -144,7 +144,10 @@ class World:
         return {p.name: (p.read_bytes(), p.stat().st_mode) for p in hooks.iterdir() if p.is_file()}
 
     def invoke(self, subject):
-        env = dict(ENV, HARNESS_TOOLS_ROOT=str(self.tools), HARNESS_PROJECT_LAYER_ROOT=str(self.root))
+        scratch = self.root.parent / 'scratch'
+        scratch.mkdir(exist_ok=True)
+        env = dict(ENV, HARNESS_TOOLS_ROOT=str(self.tools),
+                   HARNESS_PROJECT_LAYER_ROOT=str(self.root), TMPDIR=str(scratch))
         if self.case == 'p05-foreign-env':
             env.update(GIT_AUTHOR_NAME='foreign-env', GIT_AUTHOR_EMAIL='env@example.invalid',
                        GIT_COMMITTER_NAME='foreign-env', GIT_COMMITTER_EMAIL='env@example.invalid')
