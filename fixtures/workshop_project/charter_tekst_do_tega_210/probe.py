@@ -142,6 +142,11 @@ def cells():
     for mode in ('fast', 'oracle', 'incr', 'push'):
         original.append(Cell(f'nul-plan-{mode}', 'edit', mode, slug='a"quote', directory='plans'))
         original.append(Cell(f'nul-plan-clean-{mode}', 'history', mode, slug='a\\slash', directory='plans'))
+    for shape in ('root', 'additions', 'no-ustav'):
+        for mode in ('fast', 'oracle', 'incr'):
+            original.append(Cell(f'empty-{shape}-{mode}', 'empty-' + shape, mode))
+    original.append(Cell('empty-root-incr-seed', 'empty-root', 'incr-seed'))
+    original.append(Cell('empty-md-edit-fast', 'empty-md-edit'))
     return original + transport.cells(sys.modules[__name__])
 
 
@@ -404,7 +409,115 @@ def snapshot(root):
     return files, git(root, 'rev-parse', 'HEAD'), git(root, 'ls-files', '--stage')
 
 
+class EmptyWorld(World):
+    """The make_repo charter shape, without manufacturing an M/D before the test."""
+
+    def __init__(self, directory, cell):
+        self.directory = Path(directory)
+        self.root = self.directory / 'world'
+        self.root.mkdir()
+        self.cell = cell
+        self.commits, self.files, self.events = {}, {}, {}
+        self.tick = 0
+        git(self.root, 'init', '-q', '-b', 'main')
+        self.commit('base', {
+            'AGENTS.md': '# норма системы\nправило 1: правило без механизма не существует\n'.encode(),
+            'ROADMAP.md': '# роадмап\nшаг 5 сделан\n'.encode(),
+            'plans/001-p.md': 'предмет плана, критерий готовности, исполнители\n'.encode(),
+            'verdicts/critic/plans-001-v1.md': 'accept\nвердикт критика по плану 001\n'.encode(),
+        })
+        self.annotate('frozen/plans/001/1', 'base')
+        if cell.shape != 'empty-no-ustav':
+            self.annotate('ustav/1', 'base')
+        self.head = 'base'
+        if cell.shape in ('empty-additions', 'empty-no-ustav'):
+            self.commit('add-one', {'one.txt': b'one\n'})
+            self.commit('add-two', {'two.txt': b'two\n'})
+            self.head = 'add-two'
+        elif cell.shape == 'empty-md-edit':
+            self.commit('edit', {'AGENTS.md': b'unauthorized charter edit\n'})
+            self.head = 'edit'
+        git(self.root, 'update-ref', 'refs/heads/main', self.commits[self.head])
+        self.cache = self.directory / 'cache'
+        if cell.mode == 'incr':
+            self.cache.write_bytes(self.commits['base'].encode() + b'\n')
+        # Observe the native protocol, not a Git double. Both invocations must
+        # describe this input before any subject has a chance to mutate it.
+        native = git(self.root, 'log', '-z', '--format=%x00%H', '--name-only',
+                     '--no-renames', '--diff-filter=MD', '--diff-merges=first-parent', 'HEAD')
+        match = git(self.root, 'log', '-1', '--format=%H', '--no-renames',
+                    '--diff-filter=MD', '--diff-merges=first-parent', 'HEAD')
+        has_md = cell.shape == 'empty-md-edit'
+        count = int(git(self.root, 'rev-list', '--count', 'HEAD'))
+        wanted_count = 2 if has_md else (1 if cell.shape == 'empty-root' else 3)
+        if bool(native) != has_md or bool(match) != has_md or count != wanted_count:
+            raise Prerequisite('INVALID_EMPTY_WORLD: ' + cell.name)
+        if len(git(self.root, 'rev-list', '--parents', self.commits['base']).split()) != 1:
+            raise Prerequisite('ROOT_HAS_PARENT: ' + cell.name)
+
+    def expected(self, overrides=None):
+        statuses = set((overrides or {}).values())
+        lines = []
+        head = self.commits[self.head]
+        if self.cell.mode == 'incr':
+            n = 0 if self.head == 'base' else 2
+            suffix = 'коммитов' if n == 0 else 'коммита'
+            lines.append(f'incr: check_charter судит {self.commits["base"][:8]}..{head[:8]} ({n} {suffix})\n')
+        elif self.cell.mode == 'incr-seed':
+            lines.append('incr: check_charter полный прогон (кеш отсутствует)\n')
+        if self.cell.shape == 'empty-no-ustav':
+            lines.append('NOT_IMPLEMENTED: устав не введён — создайте тег ustav/1 последним коммитом документных правок\n')
+            cache = self.commits['base'].encode() + b'\n' if self.cell.mode == 'incr' else None
+            return 2, b'', ''.join(lines).encode(), cache
+        rejected = 'empty-log-rejected' in statuses
+        edited = self.cell.shape == 'empty-md-edit'
+        if rejected:
+            lines.append('  FAIL пустой или оборванный протокол git log: проверить невозможно\n')
+        n = 2 if self.cell.shape == 'empty-additions' else int(edited)
+        for path in ('AGENTS.md', 'ROADMAP.md', 'plans/001-p.md'):
+            if edited and path == 'AGENTS.md':
+                lines.append(f'  FAIL уставной документ изменён без разрешения владельца: {path} в {head[:8]} — тело коммита обязано нести строку «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: {path} <причина>» в первой колонке\n')
+                continue
+            since = 'frozen/plans/001/1' if path.startswith('plans/') else 'ustav/1'
+            if self.cell.mode == 'incr':
+                since = self.commits['base']
+            lines.append(f'  ok   {path} — уставной с {since}, коммитов в диапазоне {n}, изменений без разрешения нет\n')
+        lines.append(f'\nуставных документов: 3 · изменений в них: {int(edited)} · с разрешения: 0\n')
+        cache = head.encode() + b'\n' if self.cell.mode in ('incr', 'incr-seed') else None
+        if 'cache-absent' in statuses:
+            cache = None
+        return int(rejected or edited), b'', ''.join(lines).encode(), cache
+
+
+def observe_empty(cell, sources, scratch, override):
+    with tempfile.TemporaryDirectory(prefix=cell.name + '-', dir=scratch) as directory:
+        world = EmptyWorld(directory, cell)
+        expected = world.expected(override)
+        for name, data in sources.items():
+            target = world.root / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+        before = snapshot(world.root)
+        argv = ['bash', world.root / 'scripts/check_charter.sh']
+        if cell.mode == 'oracle':
+            argv += ['--oracle']
+        elif cell.mode in ('incr', 'incr-seed'):
+            argv += ['--incr', world.cache]
+        actual = command([*argv, world.root], cwd=world.root)
+        # rc 2 is a declared observation ONLY for the no-ustav input. Other
+        # missing prerequisites remain infrastructure failures, never catches.
+        allowed = (0, 1, 2) if cell.shape == 'empty-no-ustav' else (0, 1)
+        if actual[0] not in allowed:
+            raise Prerequisite(f'SUBJECT_ENVIRONMENT {cell.name}: {actual!r}')
+        if snapshot(world.root) != before:
+            raise Prerequisite('SUBJECT_MUTATED_WORLD: ' + cell.name)
+        cache = world.cache.read_bytes() if world.cache.is_file() else None
+        return (*actual, cache), expected
+
+
 def observe(cell, sources, scratch, override=None):
+    if cell.shape.startswith('empty-'):
+        return observe_empty(cell, sources, scratch, override)
     if cell.mode == 'seam':
         return transport.observe(sys.modules[__name__], cell, sources, scratch, override)
     with tempfile.TemporaryDirectory(prefix=cell.name + '-', dir=scratch) as directory:
@@ -559,6 +672,24 @@ MUTATIONS = {
   body=""
   [ -z "$file" ] || body="$(g cat-file -p "refs/tags/frozen/contracts/$nnn/$vmax^{commit}:$file")"
   return 0''', {('wire', None): 'wire-tree-missing'}),
+    'EMPTY-OLD-REJECTION': ('scripts/check_charter.sh',
+                            '''    if [ -n "$__ch_line" ]; then
+      bad "пустой или оборванный протокол git log: проверить невозможно"
+    elif [ -z "$__ch_c" ]; then
+      __ch_pr=0
+      __ch_pmatch="$(g log -1 --format=%H --no-renames --diff-filter=MD --diff-merges=first-parent HEAD 2>/dev/null)" || __ch_pr=$?
+      if [ "$__ch_pr" -ne 0 ] || [ -n "$__ch_pmatch" ]; then
+        bad "пустой или оборванный протокол git log: проверить невозможно"
+      fi
+    fi''',
+                            '''    if [ -z "$__ch_c" ] || [ -n "$__ch_line" ]; then
+      bad "пустой или оборванный протокол git log: проверить невозможно"
+    fi''',
+                            {('empty', None): 'empty-log-rejected'}),
+    'EMPTY-ROOT-CACHE': ('scripts/check_charter.sh',
+                         '  incr_finish 0\n  exit 0',
+                         '  incr_finish 1\n  exit 0',
+                         {('empty', None): 'cache-absent'}),
 }
 
 

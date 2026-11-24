@@ -1035,11 +1035,17 @@ else
           ;;
       esac
     done < "$TMP/log-data"
-    if [ -z "$__ch_c" ] || [ -n "$__ch_line" ]; then
+    if [ -n "$__ch_line" ]; then
       bad "пустой или оборванный протокол git log: проверить невозможно"
+    elif [ -z "$__ch_c" ]; then
+      __ch_pr=0
+      __ch_pmatch="$(g log -1 --format=%H --no-renames --diff-filter=MD --diff-merges=first-parent HEAD 2>/dev/null)" || __ch_pr=$?
+      if [ "$__ch_pr" -ne 0 ] || [ -n "$__ch_pmatch" ]; then
+        bad "пустой или оборванный протокол git log: проверить невозможно"
+      fi
     fi
   fi
-  unset __ch_c __ch_line __ch_p __ch_eff __ch_lr
+  unset __ch_c __ch_line __ch_p __ch_eff __ch_lr __ch_pr __ch_pmatch
   # 4. Зелёные ОК с числом просмотренного — барьер, молча проходящий по уставному
   #    документу, не даёт доказательств, ЧТО он проверил (прецедент В-клетки +
   #    обманка s8). Счётчик берётся из посчитанного `rev-list --count` (зеркало
