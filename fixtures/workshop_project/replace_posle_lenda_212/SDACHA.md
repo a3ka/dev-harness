@@ -24,7 +24,7 @@ stabs — 43 копии, 76 связей, живых 0. Каждая связь 
 
 ## Двери
 
-- Red-do · bash fixtures/workshop_project/replace_posle_lenda_212/red_replace_posle_lenda_212.sh --repo . · 1 · 1
+- Repo-posle-realizacii · bash fixtures/workshop_project/replace_posle_lenda_212/red_replace_posle_lenda_212.sh --repo . · 0 · 0
 - Model · bash fixtures/workshop_project/replace_posle_lenda_212/red_replace_posle_lenda_212.sh --model · 0 · 0
 - Stabs · bash fixtures/workshop_project/replace_posle_lenda_212/red_replace_posle_lenda_212.sh --stabs · 0 · 0
 - Sintaksis · bash fixtures/workshop_project/replace_posle_lenda_212/red_replace_posle_lenda_212.sh --sintaksis · 0 · 0
@@ -81,3 +81,23 @@ r19–r22 предъявляют NUL, CRLF, лишние поля и пусту�
 st43-nul-udalen краснеют каждый на своих входах. Полная матрица остаётся
 обязательной дверью Stabs и шагом CI. Предмет, связи и обязательность
 матрицы не изменены.
+
+## Исправление пути субъекта после реализации
+
+`subjekt_put()` разрешает путь в абсолютный до передачи процессам: `--repo .`
+и абсолютный корень обращаются к одному субъекту даже в argv-клетках с другим
+cwd. Ожидаемые коды, байты, клетки и адресные связи стабов не изменены.
+Дверь Repo-posle-realizacii отражает поставленную реализацию; до неё Red-do
+для этой же команды требовала rc 1 SUBJECT_ABSENT.
+
+Прогоны исправленной пробы на реализации `619f99583104a5159ba05bb47be9f987c839683d`:
+
+`--repo .` и `--repo "$PWD"` — rc 0, `SUBJEKT 212: KLETKI 28 KRASNYH 0`.
+`--model` — rc 0, `MODEL 212: KLETKI 28 KRASNYH 0`.
+`--stabs` — rc 0, `STABY 212: SVJAZI 76 ZHIVYH 0`.
+`--sintaksis` — rc 0, bash -n: 45, пинованный shellcheck: 3.
+`bash scripts/gen_ci_steps.sh --check` — rc 0.
+
+Отдельный клон origin/main `4576309b967a22818cd7c2ed0738333dd014ca80`
+с исправленной пробой, без `scripts/replace_line.sh`: `--repo .` — rc 1,
+`SUBJEKT 212: SUBJECT_ABSENT .`, перечислены все 28 входов.
