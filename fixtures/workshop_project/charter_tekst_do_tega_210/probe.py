@@ -541,6 +541,24 @@ MUTATIONS = {
         {('wire', None): 'wire-167-allow' if array in ('d1', 'd2') else 'wire-167-deny'})
        for array, args in (('d1', '"$base" "$p1"'), ('d2', '"$base" "$p2"'),
                            ('cm', '"$p1" "$c"'), ('cm2', '"$p2" "$c"'))},
+    'NUL-FROZEN-SCOPE': ('reader-model.sh',
+                         "frozen_scope_210() {\n  scope_delimiter_210=''",
+                         '''frozen_scope_210() {
+  scope_delimiter_210=$'\\n'
+  g ls-tree -r --name-only HEAD -- ':(literal)plans/' ':(literal)contracts/' 2>/dev/null | awk '/\\.md$/' | sort > "$TMP/files" || true
+  return 0''', {('wire', None): 'wire-scope-missing'}),
+    'NUL-ZONES-HEAD-TREE': ('reader-model.sh', 'zones_head_tree_210() {',
+                           '''zones_head_tree_210() {
+  file_head="$(g ls-tree -r --name-only HEAD -- ':(literal)contracts/' 2>/dev/null | awk -v n="$nnn" 'index($0, "contracts/" n "-") == 1 { print; exit }')"
+  body_head=""
+  [ -z "$file_head" ] || body_head="$(g cat-file -p "HEAD:$file_head")"
+  return 0''', {('wire', None): 'wire-tree-missing'}),
+    'NUL-ZONES-FROZEN-TREE': ('reader-model.sh', 'zones_tag_tree_210() {',
+                             '''zones_tag_tree_210() {
+  file="$(g ls-tree -r --name-only "refs/tags/frozen/contracts/$nnn/$vmax^{commit}" -- ':(literal)contracts/' 2>/dev/null | awk -v n="$nnn" 'index($0, "contracts/" n "-") == 1 { print; exit }')"
+  body=""
+  [ -z "$file" ] || body="$(g cat-file -p "refs/tags/frozen/contracts/$nnn/$vmax^{commit}:$file")"
+  return 0''', {('wire', None): 'wire-tree-missing'}),
 }
 
 
