@@ -1,0 +1,1 @@
+{"name":"s03-head-only","file":"pr_window.sh","old":"g rev-list --reverse \"$head\" --not \"$base\"","new":"g rev-list --max-count=1 \"$head\" --not \"$base\"","cells":["charter-reverted-charter","frozen-retroactive-frozen"]}

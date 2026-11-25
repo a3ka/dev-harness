@@ -1,0 +1,1 @@
+{"name":"s09-permission","file":"pr_window.sh","old":"if razreshil \"$c\" \"$p\"; then","new":"if :; then","cells":["charter-own-charter","charter-renamed-values"]}

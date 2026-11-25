@@ -1,0 +1,1 @@
+{"name":"s04-no-merges","file":"pr_window.sh","old":"g rev-list --reverse \"$head\" --not \"$base\"","new":"g rev-list --no-merges --reverse \"$head\" --not \"$base\"","cells":["charter-evil-merge"]}
