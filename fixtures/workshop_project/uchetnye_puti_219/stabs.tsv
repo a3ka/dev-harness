@@ -27,3 +27,6 @@ ALWAYS_UCHET	registry-replace-uchet	pause-edit
 ALWAYS_UCHET	registry-executable-policy	pause-edit
 ALWAYS_UCHET	new-list-cannot-amnesty	pause-edit
 STRIP_NOOP	strip-accounting-only	place-edit
+REGISTRY_WITH_DATA_IS_UCHET	registry-add-uchet-with-data	accounting-data-only
+REGISTRY_WITH_DATA_IS_UCHET	registry-remove-uchet-with-data	accounting-data-only
+REGISTRY_WITH_DATA_IS_UCHET	registry-replace-uchet-with-data	accounting-data-only
