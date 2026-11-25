@@ -102,6 +102,21 @@
 #           ПОБАЙТНО/ПО СВОЙСТВАМ; не установлено вовсе — rc 0 «ci-artifacts: не
 #           установлены» (не расхождение, прецедент 189).
 #
+#   mob-tmpdir — TMPDIR моб-раннеров (боли Complior-mob, предмет 216):
+#           euid-гард ДО любых записей (не-root — rc 1 «ОТКАЗ: mob-tmpdir
+#           требует euid 0»), предусловия ДО записей (два источника drop-in'ов,
+#           учётная запись владельца, корень моб-раннера — факт станции, его
+#           chown/chmod не делается). По НАЛИЧИЮ юнита раннера в <ETC_DST>
+#           (юнита нет — не применимо, это не ошибка, как у drop-in'ов 196):
+#           каталог <MOBTMP_ROOT>/tmp1|tmp2 (владелец <владелец>, 700) и
+#           drop-in <ETC_DST>/<юнит>.service.d/tmpdir.conf — байт-в-байт из
+#           репо (Environment=TMPDIR=…, своё tmp-имя у каждого раннера),
+#           644 root:root, с sha256-перечитыванием; затем daemon-reload
+#           (рестарт раннеров, чтобы TMPDIR вступил в силу, — действие
+#           оператора при простое раннеров). rc 0 — «установлено: mob-tmpdir …».
+#           verify дополнительно сверяет drop-in'ы ПОБАЙТНО и каталоги ПО
+#           СВОЙСТВАМ; юнитов нет — «не применимо» (не расхождение).
+#
 # Швы (инвариант 6): OPS_SERVER_SRC (умолчание — каталог скрипта), адресаты
 # OPS_SERVER_BIN_DST / OPS_SERVER_SBIN_DST / OPS_SERVER_ETC_DST, и OPS_SERVER_MAIN
 # (081 — корень основного чекаута, по умолчанию /home/harness/dev-harness).
@@ -112,6 +127,8 @@
 # /var/lib/ci-artifacts), OPS_SERVER_CI_ARTIFACTS_MOB_OWNER (harness),
 # OPS_SERVER_CI_ARTIFACTS_BACK_OWNER (ci-back), OPS_SERVER_CI_ARTIFACTS_GROUP
 # (harness), OPS_SERVER_SYSTEMCTL (система инициации, по умолчанию systemctl).
+# Швы mob-tmpdir: OPS_SERVER_MOB_TMP (корень tmp-каталогов) и
+# OPS_SERVER_MOB_TMP_OWNER (владелец каталогов); шов systemctl — общий.
 # При шве скрипт не читает и не пишет умолчальный путь того же шва.
 # Швы OPS_SERVER_AGENT_USER / OPS_SERVER_AGENT_HOME (093, И-3) переопределяют
 # идентичность пользователя-агента; install.sh root провизионит их идемпотентно.
@@ -185,6 +202,14 @@ CIART_DROPIN_SRC="$SRC_ROOT/root/gh-runner-complior-ci-artifacts.conf"
 CIART_CLEAN_DST="$SBIN_DST/ci-artifacts-clean"
 CIART_SVC_DST="$ETC_DST/ci-artifacts-clean.service"
 CIART_TMR_DST="$ETC_DST/ci-artifacts-clean.timer"
+# TMPDIR моб-раннеров (боли Complior-mob, предмет 216): корень — факт станции
+# (WorkingDirectory раннеров — $MOBTMP_ROOT/runner*), chown/chmod корня не
+# делается; tmp1/tmp2 и drop-in'ы ставит mob-tmpdir, сверяет verify.
+MOBTMP_ROOT="${OPS_SERVER_MOB_TMP-/var/lib/ci-runner}"
+MOBTMP_OWNER="${OPS_SERVER_MOB_TMP_OWNER-harness}"
+MOBTMP_SYSTEMCTL="${OPS_SERVER_SYSTEMCTL-systemctl}"
+MOBTMP_CONF1_SRC="$SRC_ROOT/root/gh-runner-complior-tmpdir.conf"
+MOBTMP_CONF2_SRC="$SRC_ROOT/root/gh-runner-complior-2-tmpdir.conf"
 
 # ── зависимости и источник (fail-closed rc 2) ────────────────────────────────
 command -v sha256sum >/dev/null 2>&1 \
@@ -194,7 +219,7 @@ command -v sha256sum >/dev/null 2>&1 \
 
 # ── помощники ────────────────────────────────────────────────────────────────
 usage() {
-  printf 'NOT_IMPLEMENTED: использование: ops/server/install.sh user|root|verify|verify-start|rollback|validators|artifacts\n' >&2
+  printf 'NOT_IMPLEMENTED: использование: ops/server/install.sh user|root|verify|verify-start|rollback|validators|artifacts|mob-tmpdir\n' >&2
   exit 2
 }
 die_write() {
@@ -593,6 +618,107 @@ verify_ci_artifacts() {
   printf 'ci-artifacts: сверка 3/3\n'
   return 0
 }
+# ── TMPDIR моб-раннеров (боли Complior-mob, предмет 216) ─────────────────────
+# ci-inventar.sh моба падает под set -u без TMPDIR; у бэкенд-раннеров TMPDIR
+# задан в юните, у моб-раннеров форма — drop-in из репо (прецедент 196).
+# Существующий верный каталог принимается идемпотентно БЕЗ chown/chmod,
+# расходящийся — именованный отказ (как у корней 196).
+mobtmp_dir() { # <tmp-каталог>
+  if [ -L "$1" ]; then
+    printf 'ОТКАЗ: tmp-каталог — символьная ссылка: %s\n' "$1" >&2; exit 1
+  fi
+  if [ -e "$1" ]; then
+    [ -d "$1" ] || { printf 'ОТКАЗ: не каталог: %s\n' "$1" >&2; exit 1; }
+    ciart_matches "$1" 700 "$MOBTMP_OWNER:$MOBTMP_GROUP" \
+      || { printf 'ОТКАЗ: существующий tmp-каталог расходится: %s\n' "$1" >&2; exit 1; }
+  else
+    mkdir -p -- "$1" || die_write "$1"
+    chown "$MOBTMP_OWNER:$MOBTMP_GROUP" -- "$1" || die_write "chown $1"
+    chmod 700 -- "$1" || die_write "chmod $1"
+  fi
+}
+# Drop-in + каталог одного моб-раннера: ставятся ТОЛЬКО при наличии юнита в
+# $ETC_DST (юнита нет — молча, это не ошибка); содержимое drop-in'а байт-в-байт
+# из репо-источника (Environment=TMPDIR=…), 644 root:root, sha256-перечитывание.
+mobtmp_install_unit() { # <юнит> <tmp-имя> <conf-источник>
+  local dropin_dir="$ETC_DST/$1.service.d"
+  local dropin_dst="$dropin_dir/tmpdir.conf"
+  local tmpdir="$MOBTMP_ROOT/$2"
+  [ -f "$ETC_DST/$1.service" ] || return 0
+  mobtmp_dir "$tmpdir"
+  mkdir -p -- "$dropin_dir" || die_write "$dropin_dir"
+  cp -- "$3" "$dropin_dst" || die_write "$dropin_dst"
+  chmod 644 -- "$dropin_dst" || die_write "$dropin_dst"
+  chown root:root -- "$dropin_dst" || die_write "$dropin_dst"
+  check_one "$dropin_dst" "$3" || exit 1
+  printf 'установлено: %s (TMPDIR=%s)\n' "$dropin_dst" "$tmpdir"
+}
+# Сверка одного моб-раннера: drop-in ПОБАЙТНО, каталог ПО СВОЙСТВАМ.
+mobtmp_check_unit() { # <юнит> <tmp-имя> <conf-источник>
+  local rc=0
+  check_one "$ETC_DST/$1.service.d/tmpdir.conf" "$3" || rc=1
+  if [ ! -d "$MOBTMP_ROOT/$2" ] \
+     || [ "$(stat -c %a -- "$MOBTMP_ROOT/$2")" != 700 ] \
+     || [ "$(stat -c %U:%G -- "$MOBTMP_ROOT/$2")" != "$MOBTMP_OWNER:$MOBTMP_GROUP" ]; then
+    printf 'ОТКАЗ: расхождение mob-tmpdir: %s\n' "$MOBTMP_ROOT/$2" >&2
+    rc=1
+  fi
+  return "$rc"
+}
+# Установка предмета: euid-гард и предусловия ДО записей; юнит-пары — по
+# наличию юнита; затем daemon-reload. Рестарт раннеров НЕ делается (действие
+# оператора при простое).
+install_mob_tmpdir() {
+  local src n=0 unit
+  if [ "$(id -u)" -ne 0 ]; then
+    printf 'ОТКАЗ: mob-tmpdir требует euid 0\n' >&2
+    exit 1
+  fi
+  for src in "$MOBTMP_CONF1_SRC" "$MOBTMP_CONF2_SRC"; do
+    [ -f "$src" ] || { printf 'ОТКАЗ: нет источника: %s\n' "$src" >&2; exit 1; }
+  done
+  getent passwd "$MOBTMP_OWNER" >/dev/null 2>&1 \
+    || { printf 'ОТКАЗ: нет пользователя: %s\n' "$MOBTMP_OWNER" >&2; exit 1; }
+  MOBTMP_GROUP="$(id -gn "$MOBTMP_OWNER" 2>/dev/null)" \
+    || { printf 'ОТКАЗ: нет группы пользователя: %s\n' "$MOBTMP_OWNER" >&2; exit 1; }
+  [ -d "$MOBTMP_ROOT" ] \
+    || { printf 'ОТКАЗ: нет корня моб-раннера: %s\n' "$MOBTMP_ROOT" >&2; exit 1; }
+  for unit in $RUNNER_UNITS; do
+    [ -f "$ETC_DST/$unit.service" ] && n=$((n + 1))
+  done
+  if [ "$n" -eq 0 ]; then
+    printf 'mob-tmpdir: юниты моб-раннеров отсутствуют — не применимо (нечего ставить)\n'
+    exit 0
+  fi
+  mobtmp_install_unit gh-runner-complior tmp1 "$MOBTMP_CONF1_SRC"
+  mobtmp_install_unit gh-runner-complior-2 tmp2 "$MOBTMP_CONF2_SRC"
+  command -v "$MOBTMP_SYSTEMCTL" >/dev/null 2>&1 \
+    || { printf 'NOT_IMPLEMENTED: нет %s\n' "$MOBTMP_SYSTEMCTL" >&2; exit 2; }
+  "$MOBTMP_SYSTEMCTL" daemon-reload >/dev/null 2>&1 \
+    || { printf 'ОТКАЗ: systemctl daemon-reload\n' >&2; exit 1; }
+  printf 'установлено: mob-tmpdir (юнитов моб-раннеров: %d)\n' "$n"
+  exit 0
+}
+# Сверка предмета (прецедент 196 — условность): юнитов нет — не расхождение;
+# расхождение drop-in'а или каталога — именованный отказ с путём.
+verify_mob_tmpdir() {
+  local rc=0 n=0
+  MOBTMP_GROUP="$(id -gn "$MOBTMP_OWNER" 2>/dev/null || true)"
+  if [ -f "$ETC_DST/gh-runner-complior.service" ]; then
+    n=$((n + 1))
+    mobtmp_check_unit gh-runner-complior tmp1 "$MOBTMP_CONF1_SRC" || rc=1
+  fi
+  if [ -f "$ETC_DST/gh-runner-complior-2.service" ]; then
+    n=$((n + 1))
+    mobtmp_check_unit gh-runner-complior-2 tmp2 "$MOBTMP_CONF2_SRC" || rc=1
+  fi
+  if [ "$n" -eq 0 ]; then
+    printf 'mob-tmpdir: не применимо (юниты моб-раннеров отсутствуют)\n'
+  elif [ "$rc" -eq 0 ]; then
+    printf 'mob-tmpdir: сверка %d/%d\n' "$n" "$n"
+  fi
+  return "$rc"
+}
 # ── разбор подкоманды ────────────────────────────────────────────────────────
 [ $# -eq 1 ] || usage
 case "$1" in
@@ -828,6 +954,9 @@ case "$1" in
     # Контракт 196: сверка локального хранилища артефактов CI (условная: не
     # установлено вовсе — не расхождение).
     verify_ci_artifacts || rc=1
+    # TMPDIR моб-раннеров (предмет 216): условная сверка (юнитов нет — не
+    # расхождение, прецедент 196).
+    verify_mob_tmpdir || rc=1
     exit "$rc"
     ;;
   artifacts)
@@ -835,6 +964,13 @@ case "$1" in
     # root-подкоманда (не расширение root-прохода: у неё свои предусловия и
     # свой отказ, базовая установка станции от неё не зависит).
     install_ci_artifacts
+    exit $?
+    ;;
+  mob-tmpdir)
+    # TMPDIR моб-раннеров (боли Complior-mob, предмет 216) — отдельная
+    # root-подкоманда (как artifacts: свой гард и свой отказ, базовая
+    # установка станции от неё не зависит).
+    install_mob_tmpdir
     exit $?
     ;;
   validators)
