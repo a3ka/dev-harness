@@ -37,6 +37,15 @@ STABS = [
     ('receipt-any-id', 'models_actual.py', "r.get('modelChangeId') == entry.get('id') and ", '', ['trace']),
     ('receipt-any-model', 'models_actual.py', " and r.get('target') == entry.get('model')", '', ['trace']),
     ('all-denied', 'models_actual.py', "entry.get('resolvedModelIsFallback') is True or recovery", 'True', ['trace']),
+    # Critic Б-1 (verdict 215 v1, M1/M5): the WRITER of the receipt must not forge
+    # the binding to the real model_change — caught by the trace cell only.
+    ('M1-forged-id', 'fallback-route.ts',
+     "const modelChangeId = [...ctx.sessionManager.getEntries()].reverse().find((entry) => entry.type === 'model_change')?.id;",
+     "const modelChangeId = 'forged-215-id';", ['trace']),
+    ('M5-forged-target', 'fallback-route.ts',
+     "pi.appendEntry('fallback-route-215', { reason: 'CONTENT_FALLBACK_SWITCH', from: current, target, modelChangeId });",
+     "pi.appendEntry('fallback-route-215', { reason: 'CONTENT_FALLBACK_SWITCH', from: current, target: 'forged/fallback-x', modelChangeId });",
+     ['trace']),
 ]
 
 
@@ -66,15 +75,22 @@ def cases(am):
     return result
 
 
-def trace_checks(subject, w, entries, model, override):
+def trace_checks(subject, w, entries, model, override, wire_target):
     native = [e for e in entries if e.get('type') == 'model_change']
     receipts = [e for e in entries if e.get('customType') == 'fallback-route-215'
                 and e.get('data', {}).get('reason') == 'CONTENT_FALLBACK_SWITCH']
     if len(receipts) != 1:
         return 'TRACE_RECEIPT_ABSENT_OR_DUPLICATE'
     receipt = receipts[0]
-    target = receipt['data']['target']
-    change_id = receipt['data']['modelChangeId']
+    # Critic Б-1 (215 v1): the paired expectation is derived INDEPENDENTLY of the
+    # receipt — the real model_change of this session is the last native change in
+    # the world trace, and its model must be the selector the child actually
+    # completed on (provider wire), as the TSV consumer sees the transition. A
+    # receipt with a forged id or a foreign target cannot pair with it and leaves
+    # the real change allowed -> red (writer stabs M1/M5, verdict 215 v1).
+    change = native[-1] if native else None
+    if not change or change.get('model') != wire_target:
+        return 'TRACE_REAL_MODEL_CHANGE_ABSENT_OR_MISMATCH'
     trace_script = override or (HERE / 'model/models_actual.py' if model else subject / 'scripts/models_actual.sh')
     command = ['python3' if trace_script.suffix == '.py' else 'bash', str(trace_script)]
     failures = []
@@ -93,7 +109,7 @@ def trace_checks(subject, w, entries, model, override):
         zone.mkdir()
         (zone / 'Child129.jsonl').write_text(''.join(json.dumps(e, separators=(',', ':')) + '\n' for e in changed))
         expected = [('architect', e['model'], 'denied' if e.get('resolvedModelIsFallback') or
-                     (name == 'paired' and e.get('id') == change_id and e['model'] == target) else 'allowed') for e in native]
+                     (name == 'paired' and e.get('id') == change['id']) else 'allowed') for e in native]
         for bind in (False, True):
             expected_text = ''.join('\t'.join(list(row) + (['Child129', OBJECT] if bind else [])) + '\n' for row in expected)
             got = subprocess.run(command + ['--tsv', '--session', 'Child129'] + (['--bind'] if bind else []),
@@ -193,7 +209,8 @@ def run(subject, extension, name, model=False, trace_override=None):
                                        e.get('data', {}).get('reason') == 'CONTENT_FALLBACK_EXHAUSTED' for e in entries):
             why = why or 'CONTENT_FALLBACK_EXHAUSTED absent'
         if case.get('trace') and not why:
-            why = trace_checks(subject, w, entries, model, trace_override)
+            why = trace_checks(subject, w, entries, model, trace_override,
+                               old.remap(am)[0].get(turns[-1]['model']))
         print('OBS', name, json.dumps(turns), 'rc', rc, flush=True)
         return why
 
@@ -270,9 +287,12 @@ def main():
     names = [args.case] if args.case else names
     red = 0
     for name in names:
-        # Trace isolation: exercise the actual recovery using the honest extension,
-        # then independently judge the subject's real TSV consumer on those logs.
-        extension = HERE / 'model/fallback-route.ts' if args.model or name == 'trace' else subject / old.EXT_REL
+        # Critic Б-1: the trace cell exercises the SUBJECT writer in --repo (the
+        # receipt is written by the subject extension) and the honest model in
+        # --model; the TSV consumer is the subject's in --repo and the honest one
+        # in --model. The paired expectation always comes from the real
+        # model_change of the session, never from the receipt fields.
+        extension = HERE / 'model/fallback-route.ts' if args.model else subject / old.EXT_REL
         why = run(subject, extension, name, args.model)
         red += bool(why)
         print(('KRASNO ' + name + ': ' + why) if why else 'ok ' + name, flush=True)
