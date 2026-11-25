@@ -18,8 +18,11 @@
 #   1 — именованный отказ «ОТКАЗ: …» (место и выход названы);
 #   2 — NOT_IMPLEMENTED: нечем проверять (нет git/timeout/awk, нет контракта).
 #
-# Швы (объявлены контрактом 193, И3): SDACHA_TIMEOUT_SEK (умолчание 300 —
-# бюджет одной команды), SDACHA_BUDZHET_SEK (умолчание 900 — бюджет листа).
+# Швы (объявлены контрактом 193, И3): SDACHA_TIMEOUT_SEK — бюджет одной
+# команды, SDACHA_BUDZHET_SEK — бюджет листа. Источники по старшинству
+# (R-0102): ENV-шов > профиль проекта (harness.project.json: sdacha.timeoutSec /
+# sdacha.budgetSec) > умолчание станции 300/900 — fallback для проектов без
+# ключа; без профиля поведение двери побайтно прежнее.
 # Команду, пережившую TERM, добивает SIGKILL через KILL_SEK=2 с (timeout -k):
 # rc 137 — именованный отказ «убита», предел стены — predel + KILL_SEK (Б-4
 # Rev193: бюджет ограничивает и ВЫПОЛНЯЮЩУЮСЯ команду, И3).
@@ -56,8 +59,43 @@ NNN="$(printf '%s' "$base" | sed -nE 's/^([0-9]{3})-.*/\1/p')"
 [ -f "$ROOT/$CONTRACT" ] || ni "контракт не найден: $ROOT/$CONTRACT"
 [ -r "$ROOT/$CONTRACT" ] || ni "контракт не читается: $ROOT/$CONTRACT"
 
-TIMEOUT_SEK="${SDACHA_TIMEOUT_SEK:-300}"
-BUDZHET_SEK="${SDACHA_BUDZHET_SEK:-900}"
+# значение ключа профиля → переменная-приёмник ($2). Ключ не объявлен —
+# приёмник не тронут (умолчание станции ниже); значение вне алфавита целых
+# секунд (нечисло, пусто, отрицательное) — именованный отказ ni-классом, как
+# у швов: неизвестность не превращается в «без бюджета». Отсутствие ключа
+# опознаётся маркером: profile_get печатает умолчание и на отсутствующий
+# ключ (М-0, контракт 184).
+sdacha_iz_profilya() { # $1 jq-путь ключа; $2 имя переменной-приёмника
+    local v
+    v="$(profile_get "$ROOT" "$1" 'НЕТ-КЛЮЧА')"
+    [ "$v" = 'НЕТ-КЛЮЧА' ] && return 0
+    case "$v" in
+        ''|*[!0-9]*) ni "ключ профиля $1 обязан быть целым числом секунд (получено: «$v»)" ;;
+    esac
+    printf -v "$2" '%s' "$v"
+}
+TIMEOUT_SEK="${SDACHA_TIMEOUT_SEK:-}"
+BUDZHET_SEK="${SDACHA_BUDZHET_SEK:-}"
+if [ -f "$ROOT/harness.project.json" ]; then
+    command -v jq >/dev/null 2>&1 || ni 'нет jq'
+    _sd_self="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+    [ -r "$_sd_self/profile_resolver.sh" ] || ni 'нет profile_resolver.sh рядом с дверью'
+    # ЕДИНЫЙ резолвер 996 — как соседние двери с профилем (pre_critic.sh):
+    # отказ резолвера — именованный отказ двери; битый профиль не заменяется
+    # молча умолчанием. Слой проекта — корень задан снаружи, иначе сам ROOT.
+    if ! _sd_res="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$ROOT}" \
+            bash "$_sd_self/profile_resolver.sh" --repo "$ROOT" 2>&1)"; then
+        otkaz "${_sd_res#profile ОТКАЗ: }"
+    fi
+    unset _sd_res
+    # shellcheck disable=SC1091
+    PROFILE_RESOLVER_LIB=1 . "$_sd_self/profile_resolver.sh"
+    unset _sd_self
+    [ -n "$TIMEOUT_SEK" ] || sdacha_iz_profilya 'sdacha.timeoutSec' TIMEOUT_SEK
+    [ -n "$BUDZHET_SEK" ] || sdacha_iz_profilya 'sdacha.budgetSec' BUDZHET_SEK
+fi
+TIMEOUT_SEK="${TIMEOUT_SEK:-300}"
+BUDZHET_SEK="${BUDZHET_SEK:-900}"
 KILL_SEK=2   # сек до SIGKILL после TERM (timeout -k, Б-4 Rev193)
 case "$TIMEOUT_SEK$BUDZHET_SEK" in
     *[!0-9]*) ni 'швы SDACHA_TIMEOUT_SEK/SDACHA_BUDZHET_SEK обязаны быть целыми секундами' ;;
