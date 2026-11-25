@@ -500,6 +500,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 208 | до V-2 | autonomy | - | f2dfd18c7b209148fc647b564c8f96dd8410b682 |
 | 3 | 054 | до V-2 | complior | - | docs/owner/2026-11-10-dnevnye-resheniya.md#Слово владельца |
 | 3 | 203 | до V-2 | architecture | - | a42a71cc049c822e17bcf61240dee7603e5112bc |
+| 3 | 226 | до V-2 | architecture | - | b573ec6ca791e9fcde67f36d4aef8f17adb15430 |
 | 4 | 095 | до V-2 | context | 094 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
 | 4 | 110 | параллельно с V-2 | done | 087 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
 | 4 | 993 | до V-2 | complior | - | docs/owner/2026-10-17-resheniya-back-992-993.md#4 |
@@ -539,6 +540,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 4 | 218 | до V-2 | CI | 217 | a42a71cc049c822e17bcf61240dee7603e5112bc |
 | 4 | 223 | до V-2 | complior | - | a42a71cc049c822e17bcf61240dee7603e5112bc |
 | 4 | 224 | до V-2 | CI | - | c9e1d7d88e21b3ac04b2f330c3a1d91d4238b3f8 |
+| 4 | 225 | до V-2 | CI | - | 471b225b109eda671f33f185a331d123a8823e63 |
 | 5 | 096 | до V-2 | autonomy | 095 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 5 |
 | 5 | CMP-BCK-133 | до V-2 | complior | 993 | docs/owner/2026-10-18-arhitektor-beka-5-8-4.md#Порядок |
 | 6 | V-2 | до V-2 | autonomy | 090,091,094,095,096 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 3 |
