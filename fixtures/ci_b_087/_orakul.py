@@ -14,6 +14,13 @@ import sys
 # U контракта 087 (И-1) — литерально, независимо от реестра субъекта.
 U87 = ['verdicts/', 'docs/', 'forks/', '.review/', 'HANDOFF.md', 'ROADMAP.md', 'NABLIUDENIA*',
        'registry/contracts.tsv', 'registry/closed-without-done.tsv', 'registry/plan.tsv']
+# 219: exact snapshot extension; historic 087 cases and predicates are unchanged.
+from pathlib import Path
+U87 += [row.split('\t')[1] for row in (
+    Path(__file__).resolve().parents[1]
+    / 'workshop_project/uchetnye_puti_219/model/uchet.tsv'
+).read_text(encoding='utf-8').splitlines()]
+
 DECISION = ("needs.klass.outputs.tyazh == 'run'", "${{ needs.klass.outputs.tyazh == 'run' }}")
 PUSH_IF = ("github.event_name == 'push'", "${{ github.event_name == 'push' }}")
 CMD_RESHENIE = 'bash scripts/ci_klass.sh reshenie >> "$GITHUB_OUTPUT"'
