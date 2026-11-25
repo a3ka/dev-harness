@@ -28,6 +28,8 @@ BASE = 'primary-vendor/base-1'
 FALLBACK = 'reserve-vendor/reserve-2'
 EFFORT = 'other-vendor/other-family-9:xhigh'
 SUBSTR = 'other-vendor/other-family'
+SUBSTR_SUFFIX = 'vendor/other-family-9'
+CASE_FACT = 'Primary-Vendor/Base-1'
 ROLES = ('critic', 'adversary', 'reviewer', 'arbiter')
 NEIGHBOUR_198 = 'fixtures/workshop_project/modeli_tolko_v_reestre_198'
 # 222 supersedes exactly these spawn-leg cells of frozen family 198 (declared model is accepted on spawn).
@@ -67,6 +69,10 @@ def cases():
         Case('gate-effort-fact-truncated', 'gate', model=FACT, assigned=EFFORT, expected=1, reason='вердикт не материализуется'.encode()),
         Case('spawn-substring-of-declared', 'spawn', model=SUBSTR, expected=1, reason='модель не объявлена'.encode()),
         Case('verdict-assigned-substring-undeclared', 'verdict', model=FACT, assigned=SUBSTR, expected=2, reason='назначенная модель не объявлена'.encode()),
+        Case('spawn-suffix-of-declared', 'spawn', model=SUBSTR_SUFFIX, expected=1, reason='модель не объявлена'.encode()),
+        Case('verdict-assigned-suffix-undeclared', 'verdict', model=FACT, assigned=SUBSTR_SUFFIX, expected=2, reason='назначенная модель не объявлена'.encode()),
+        Case('verdict-fact-case', 'verdict', model=CASE_FACT, expected=1, reason='вердикт не материализуется'.encode()),
+        Case('gate-fact-case', 'gate', model=CASE_FACT, expected=1, reason='вердикт не материализуется'.encode()),
         Case('verdict-object-dash', 'verdict', model=BASE, object='-', expected=1, reason='трасса не об объекте суда'.encode()),
         Case('gate-object-dash', 'gate', model=BASE, object='-', expected=1, reason='трасса не об объекте суда'.encode()),
         Case('sosed-198-door-cells', 'sosed'),
