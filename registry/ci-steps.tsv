@@ -330,3 +330,7 @@ step	check:dver-brifa-203-family-selftest	40	bash fixtures/workshop_project/dver
 step	check:lyubaja-model-222-family-selftest	45	bash fixtures/workshop_project/lyubaja_model_222/red_lyubaja_model_222.sh --repo . && SC=$(mktemp -d) && curl -fsSL https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.gz | tar -xz -C "$SC" && VALIDATE_STD_SHELLCHECK="$SC/shellcheck-v0.11.0/shellcheck" bash fixtures/workshop_project/lyubaja_model_222/red_lyubaja_model_222.sh --sintaksis
 step	check:d52-bootstrap-sudej-211-family-selftest	70	bash fixtures/workshop_project/d52_bootstrap_sudej_211/red_d52_bootstrap_sudej_211.sh --repo . && bash fixtures/workshop_project/d52_bootstrap_sudej_211/red_d52_bootstrap_sudej_211.sh --model && bash fixtures/workshop_project/d52_bootstrap_sudej_211/red_d52_bootstrap_sudej_211.sh --stabs
 step	check:sreda-sudji-206-family-selftest	220	bash fixtures/workshop_project/sreda_sudji_206/red_sreda_sudji_206.sh --repo . && bash fixtures/workshop_project/sreda_sudji_206/red_sreda_sudji_206.sh --model && bash fixtures/workshop_project/sreda_sudji_206/red_sreda_sudji_206.sh --stabs
+uchet	registry/pauzy.tsv
+uchet	registry/mesto-legacy.tsv
+uchet	registry/lessons-harness.tsv
+step	check:uchetnye-puti-219-family-selftest	20	bash fixtures/workshop_project/uchetnye_puti_219/red_uchetnye_puti_219.sh --repo .
