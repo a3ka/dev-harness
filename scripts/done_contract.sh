@@ -110,6 +110,182 @@ _json_one_object() {
   return 1
 }
 
+# ── 224: ВЫБОР СВЕЖЕГО ВЕРДИКТА ПО КРУГУ (числовой порядок) ───────────────────
+# Свежесть вердикта задаёт числовой ключ круга (поколение, вызов), а НЕ предок
+# коммита: параллельные носители одного круга несравнимы по ancestry, но
+# сравнимы по номеру. Ancestry МЕЖДУ коммитами вердиктов СВЕЖЕГО НЕ выбирает;
+# ancestry F/CID/OBJECT (шаг 6б) остаётся обязательным.
+#
+# ВЫЗОВ: _select_round_verdict <список-носителей> <роль>
+#   <список-носителей> — пути по одному в строке (файлы на HEAD);
+#   на выходе — глобальные _rv_file (путь носителя), _rv_cid (его коммит) и
+#   _rv_first (первая строка, trim). Отказ — именованный (VERDICT_ROUND_*):
+#   тег не ставится, HEAD не меняется.
+_select_round_verdict() {
+  local carriers="$1" role="$2"
+  local f name text cid cid_rc anc_rc key
+  local version number declared call denominator phase_version explicit
+  local day name_day field kind token rest
+  local count=0 best=0 seen=' ' dated='' prior_key prior_day
+
+  _rv_file='' _rv_cid='' _rv_first=''
+
+  # Носителей у роли сколько: единственный без номера допустим, несколько — нет.
+  while IFS= read -r f; do
+    [ -z "$f" ] || count=$((count + 1))
+  done <<< "$carriers"
+
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    name="${f##*/}"
+    version='' number=0 declared='' explicit=0
+
+    # ── координата круга из имени носителя ───────────────────────────────
+    if [[ "$name" =~ -impl-v([1-9][0-9]*)-vyzov([1-9][0-9]*)\.md$ ]]; then
+      # Явная пара «поколение-вызов» — разбирается ПЕРЕД общей формой.
+      version="${BASH_REMATCH[1]}" number="${BASH_REMATCH[2]}"
+      declared="$number" explicit=1
+    elif [[ "$name" == *-impl-v*-vyzov*.md ]]; then
+      # Префикс -impl-v…-vyzov… зарезервирован: неконформный вызов — не «произвольный S».
+      die "done: VERDICT_ROUND_INVALID: $role: $f"
+    elif [[ "$name" =~ -v([1-9][0-9]*)(-[A-Za-z0-9._-]+)?\.md$ ]]; then
+      version="${BASH_REMATCH[1]}" declared="$version"
+    elif [[ "$name" =~ -impl-a([1-9][0-9]*)\.md$ ]]; then
+      version="${BASH_REMATCH[1]}" declared="$version"
+    elif [[ "$name" =~ -(v|impl-v|impl-a)[0-9] ]]; then
+      # Неканоничный номер (ведущий ноль и т.п.).
+      die "done: VERDICT_ROUND_INVALID: $role: $f"
+    elif [ "$count" -eq 1 ]; then
+      # Единственный носитель без номера — тривиально свежий.
+      version=1
+    else
+      die "done: VERDICT_ROUND_MISSING: $role: $f"
+    fi
+    [ "${#version}" -le 9 ] && [ "${#number}" -le 9 ] \
+      || die "done: VERDICT_ROUND_INVALID: $role: $f"
+
+    # ── объявления носителя: СУД-строки и дата в имени ───────────────────
+    text="$(git -C "$ROOT" cat-file -p "HEAD:$f" 2>/dev/null)" \
+      || die "done: VERDICT_ROUND_READ: $role: $f"
+    text="${text//$'\r'/}"
+    call='' denominator='' day='' phase_version='' name_day=''
+    if [[ "$name" =~ -([0-9]{4}-[0-9]{2}-[0-9]{2})(-|\.md$) ]]; then
+      name_day="${BASH_REMATCH[1]}"
+    fi
+    # Каждая СУД-строка разбирается целиком: объявления полей не прячутся за
+    # первым совпадением, порядок полей не важен.
+    while IFS= read -r field; do
+      [[ "$field" == 'СУД: '* ]] || continue
+      rest="${field#СУД: }"
+      while [[ "$rest" =~ (^|[\;\ ])(фаза|вызов|дата)= ]]; do
+        kind="${BASH_REMATCH[2]}"
+        rest="${rest#*"${BASH_REMATCH[0]}"}"
+        token="${rest%%;*}"
+        # Следующее объявление через пробел тоже закрывает значение.
+        if [[ "$token" =~ \ (фаза|вызов|дата)= ]]; then
+          token="${token%%"${BASH_REMATCH[0]}"*}"
+        fi
+        case "$kind" in
+          фаза)
+            # Две исторические формы поколения: «реализация vV» и «…круг V».
+            if [[ "$token" =~ ^реализация\ v([1-9][0-9]*)(\ |$) ]]; then
+              token="${BASH_REMATCH[1]}"
+            elif [[ "$token" =~ ^реализация[^\;]*круг\ ([1-9][0-9]*)([,\)\ ]|$) ]]; then
+              token="${BASH_REMATCH[1]}"
+            else
+              continue   # Фаза без поколения — свободная проза.
+            fi
+            [ -z "$phase_version" ] \
+              || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+            phase_version="$token"
+            ;;
+          вызов)
+            token="${token%% *}"
+            [ -z "$call" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+            [[ "$token" =~ ^([1-9][0-9]*)(/([1-9][0-9]*))?$ ]] \
+              || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+            call="${BASH_REMATCH[1]}" denominator="${BASH_REMATCH[3]}"
+            [ "${#call}" -le 9 ] && [ "${#denominator}" -le 9 ] \
+              || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+            ;;
+          дата)
+            token="${token%% *}"
+            [ -z "$day" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+            [[ "$token" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] \
+              || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+            day="$token"
+            ;;
+        esac
+      done
+    done <<< "$text"
+
+    # ── сверка объявлений с именем носителя ──────────────────────────────
+    if [ -n "$phase_version" ]; then
+      # Поколение требует вызова и совпадает с явной версией имени.
+      [ "${#phase_version}" -le 9 ] && [ -n "$call" ] \
+        || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+      if [ "$explicit" -eq 1 ]; then
+        [ "$version" = "$phase_version" ] \
+          || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+      else
+        version="$phase_version" number="$call" declared="$call"
+      fi
+    fi
+    [ -z "$call" ] || [ -z "$declared" ] || [ "$call" = "$declared" ] \
+      || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+
+    # ── ключ круга и его единственность ───────────────────────────────────
+    key=$((version * 1000000000 + number))
+    case "$seen" in
+      *" $key "*) die "done: VERDICT_ROUND_DUPLICATE: $role: $key: $f" ;;
+    esac
+    seen="$seen$key "
+
+    # ── дата: поле и суффикс имени совпадают; ключ не инвертирует дату ───
+    if [ -n "$name_day" ]; then
+      [ -z "$day" ] || [ "$day" = "$name_day" ] \
+        || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+      day="$name_day"
+    fi
+    if [ -n "$day" ]; then
+      [ "$(date -u -d "$day" +%F 2>/dev/null)" = "$day" ] \
+        || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+      while read -r prior_key prior_day; do
+        [ -n "$prior_day" ] || continue
+        if { [ "$prior_key" -lt "$key" ] && [[ "$prior_day" > "$day" ]]; } \
+          || { [ "$prior_key" -gt "$key" ] && [[ "$prior_day" < "$day" ]]; }; then
+          die "done: VERDICT_ROUND_ORDER: $role: $f"
+        fi
+      done <<< "$dated"
+      dated="${dated}${key} ${day}"$'\n'
+    fi
+
+    # ── коммит носителя (связь F/CID), читаемость истории, выбор свежего ──
+    cid_rc=0
+    cid="$(git -C "$ROOT" log --format=%H -1 -- "$f" 2>/dev/null)" || cid_rc=$?
+    [ "$cid_rc" -eq 0 ] \
+      || die "done: история вердикта не читается (git log rc=$cid_rc): $f — проверить невозможно"
+    [ -n "$cid" ] \
+      || die "done: у вердикта на HEAD нет коммита в истории: $f — проверить невозможно"
+    # Ancestry между носителями СВЕЖЕГО НЕ выбирает (224: порядок по номеру
+    # круга), но остаётся гейтом читаемости истории: непрочитанный порядок —
+    # отказ, а не молчаливое угадывание (992/2; прежняя отказная фраза).
+    anc_rc=1
+    if [ -n "$_rv_cid" ]; then
+      anc_rc=0
+      ( cd "$ROOT" && git merge-base --is-ancestor "$_rv_cid" "$cid" 2>/dev/null ) || anc_rc=$?
+      [ "$anc_rc" -le 1 ] \
+        || die "done: порядок вердиктов не читается (merge-base rc=$anc_rc): $f — проверить невозможно"
+    fi
+    if [ "$key" -gt "$best" ]; then
+      best="$key" _rv_file="$f" _rv_cid="$cid"
+      _rv_first="${text%%$'\n'*}"
+      _rv_first="${_rv_first#"${_rv_first%%[![:space:]]*}"}"
+      _rv_first="${_rv_first%"${_rv_first##*[![:space:]]}"}"
+    fi
+  done <<< "$carriers"
+}
+
 TARGET="${1:?использование: $0 <contracts/NNN-*.md> \"<причина>\" [корень]}"
 REASON="${2-}"  # пустая причина допустима — проверяется ниже отдельной веткой
 # ROOT: 3-й аргумент ИЛИ (после env-гигиены) cwd-репозиторий — написатель ВДВОЙНЕ
@@ -205,7 +381,7 @@ head_blob="$(cd "$ROOT" && git rev-parse --verify --quiet "HEAD:$TARGET_REL" || 
 work_blob="$(cd "$ROOT" && git hash-object -- "$TARGET_REL")"
 [ "$work_blob" = "$head_blob" ] || die "done: контракт не закоммичен на HEAD: $TARGET_REL в рабочем дереве отличается от HEAD (блобы $work_blob и $head_blob)"
 # Файлы verdicts/review/contracts-<NNN>-*.md на HEAD; если несколько —
-# свежий по коммит-истории. Первая строка → trim + case-fold → равенство
+# свежий по номеру круга (224). Первая строка → trim + case-fold → равенство
 # `accept` (НЕ префикс; «Acceptance criteria met», «accepted» → вне грамматики).
 # ОДНОВРЕМЕННО: первая строка ОБЯЗАНА быть `ACCEPT` | `FAIL` | `ESCALATE`.
 vmax=0
@@ -213,31 +389,10 @@ vfiles="$(cd "$ROOT" && git ls-tree -r --name-only HEAD -- "${_PROFILE_VERDICTS_
 if [ -z "$vfiles" ]; then
   die "done: вердикт ревьюера не найден: ${_PROFILE_VERDICTS_DIR%/}/contracts-$NNN-*.md"
 fi
-# Свежий по коммит-истории: перебираем в обратном хронологическом порядке
-freshest=""
-freshest_cid=""
-freshest_first=""
-while IFS= read -r f; do
-  [ -n "$f" ] || continue
-  # Ошибка git — отказ, а не пропуск/«не свежее»: иначе свежий FAIL выпадал из сравнения
-  # и done проходил по более старому accept (аудит 2026-10-16).
-  cid_rc=0
-  cid="$(cd "$ROOT" && git log --format=%H -1 -- "$f" 2>/dev/null)" || cid_rc=$?
-  [ "$cid_rc" -eq 0 ] || die "done: история вердикта не читается (git log rc=$cid_rc): $f — проверить невозможно"
-  [ -n "$cid" ] || die "done: у вердикта на HEAD нет коммита в истории: $f — проверить невозможно"
-  anc_rc=1
-  if [ -n "$freshest_cid" ]; then
-    anc_rc=0
-    ( cd "$ROOT" && git merge-base --is-ancestor "$freshest_cid" "$cid" 2>/dev/null ) || anc_rc=$?
-    [ "$anc_rc" -le 1 ] || die "done: порядок вердиктов не читается (merge-base rc=$anc_rc): $f — проверить невозможно"
-  fi
-  if [ -z "$freshest_cid" ] || [ "$anc_rc" -eq 0 ]; then
-    freshest="$f"; freshest_cid="$cid"
-    freshest_first="$(cd "$ROOT" && git cat-file -p "HEAD:$f" 2>/dev/null | sed -n 1p | tr -d '\r')"
-    freshest_first="${freshest_first#"${freshest_first%%[![:space:]]*}"}"
-    freshest_first="${freshest_first%"${freshest_first##*[![:space:]]}"}"
-  fi
-done <<< "$vfiles"
+# Свежий — по числовому ключу круга (224): ancestry между коммитами вердиктов
+# на выбор не влияет, параллельные носители одного круга сравнимы.
+_select_round_verdict "$vfiles" review
+freshest="$_rv_file" freshest_cid="$_rv_cid" freshest_first="$_rv_first"
 vcount=$(printf '%s\n' "$vfiles" | wc -l)
 
 norm="$(printf '%s' "$freshest_first" | tr '[:upper:]' '[:lower:]')"
@@ -732,28 +887,9 @@ if [ "$risk_class" = "рисковый" ]; then
   if [ -z "$_afiles" ]; then
     die "done: предмет рисковый, accept адверсария не найден: $_adir/contracts-$NNN-*.md"
   fi
-  # Свежий — по коммит-истории, тем же алгоритмом, что у review.
-  _afresh_cid=""
-  _afresh_first=""
-  while IFS= read -r _af; do
-    [ -n "$_af" ] || continue
-    _acid_rc=0
-    _acid="$(cd "$ROOT" && git log --format=%H -1 -- "$_af" 2>/dev/null)" || _acid_rc=$?
-    [ "$_acid_rc" -eq 0 ] && [ -n "$_acid" ] || die "done: история вердикта адверсария не читается: $_af — проверить невозможно"
-    _aanc_rc=1
-    if [ -n "$_afresh_cid" ]; then
-      _aanc_rc=0
-      ( cd "$ROOT" && git merge-base --is-ancestor "$_afresh_cid" "$_acid" 2>/dev/null ) || _aanc_rc=$?
-      [ "$_aanc_rc" -le 1 ] || die "done: порядок вердиктов адверсария не читается (merge-base rc=$_aanc_rc): $_af — проверить невозможно"
-    fi
-    if [ -z "$_afresh_cid" ] || [ "$_aanc_rc" -eq 0 ]; then
-      afresh="$_af"
-      _afresh_cid="$_acid"
-      _afresh_first="$(cd "$ROOT" && git cat-file -p "HEAD:$_af" 2>/dev/null | sed -n 1p | tr -d '\r')"
-      _afresh_first="${_afresh_first#"${_afresh_first%%[![:space:]]*}"}"
-      _afresh_first="${_afresh_first%"${_afresh_first##*[![:space:]]}"}"
-    fi
-  done <<< "$_afiles"
+  # Свежий — по числовому ключу круга, тем же алгоритмом, что у review (224).
+  _select_round_verdict "$_afiles" adversary
+  afresh="$_rv_file" _afresh_cid="$_rv_cid" _afresh_first="$_rv_first"
   _anorm="$(printf '%s' "$_afresh_first" | tr '[:upper:]' '[:lower:]')"
   [ "$_anorm" = "accept" ] || die "done: свежий вердикт адверсария $afresh не accept"
   _aobject="$(cd "$ROOT" && git cat-file -p "HEAD:$afresh" 2>/dev/null | tr -d '\r' | sed -nE 's/^OBJECT=([0-9a-f]{40})$/\1/p' | sed -n 1p)"
