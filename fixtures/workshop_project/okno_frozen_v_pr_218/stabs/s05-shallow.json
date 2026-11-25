@@ -1,0 +1,1 @@
+{"name":"s05-shallow","file":"pr_window.sh","old":"[ \"$shallow\" = false ] || pr_refuse SHALLOW","new":": \"$shallow\"","cells":["frozen-shallow","charter-shallow"]}

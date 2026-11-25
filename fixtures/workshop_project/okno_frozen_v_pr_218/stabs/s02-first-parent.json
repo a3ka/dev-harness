@@ -1,0 +1,1 @@
+{"name":"s02-first-parent","file":"pr_window.sh","old":"g rev-list --reverse \"$head\" --not \"$base\"","new":"g rev-list --first-parent --reverse \"$head\" --not \"$base\"","cells":["charter-side-charter"]}

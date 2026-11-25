@@ -1,0 +1,1 @@
+{"name":"s10-event","file":"check_charter.sh","old":"[ \"${GITHUB_EVENT_NAME:-}\" != pull_request ] || PR_ACTIVE=1","new":"[ \"${GITHUB_EVENT_NAME:-}\" != pull_request ] || PR_ACTIVE=0","cells":["charter-owner-update"]}
