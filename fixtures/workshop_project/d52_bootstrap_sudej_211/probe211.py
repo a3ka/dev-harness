@@ -12,9 +12,9 @@
 # (helpers, ветвь, 4-й аргумент klass_riska); семья 208 зелена против модели
 # как субъекта (--sosed-208); реализация несёт ту же семантику.
 # Привязки стаб↔клетка — source.json:.stab_vhod, генерируются из кода (Н-39).
-# Якорь — кратность 1; st58–st63 мутируют pinned production 8c50b4c67,
-# st64–st67 — 211d (21aafbe4e), st68 — 211e (1a239b49a),
-# st69 — 211f (bc303e9ae); все пины — предки носителя, остальные — модель.
+# Якорь — кратность 1; st58–st63 мутируют pinned production 5131664ec,
+# st64–st67 — 211d (23bdfb3ba), st68 — 211e (07cd89297),
+# st69 — 211f (51665ada0); предковость всех литералов проверяет piny_sverka.
 # Оракул — source.json в памяти ДО вызова субъекта (правило 8); носители —
 # sha256; рассинхрон множеств — rc 2 ORACLE_TAMPERED.
 #
@@ -54,6 +54,7 @@ from functools import cache
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -81,10 +82,10 @@ REPO_ID = 'dev-harness'
 HARNESS_REMOTE = 'ssh://git@github.com/a3ka/dev-harness.git'
 SUBJ = '211'
 BAZA_D52 = '1ec47271534b8c468611ce26a7769eaeec298644'
-BAZA_PRODUCTION = '8c50b4c67058595e879a79eac08c62a431f30f80'
-BAZA_PRODUCTION_211D = '21aafbe4e1315c72744703792db6572449d7839d'  # имя в ключе
-BAZA_PRODUCTION_211E = '1a239b49a5e36fb81281e0678ffbc43713910d25'  # класс по пути (Impl211e)
-BAZA_PRODUCTION_211F = 'bc303e9ae07c2d6c13b80b85d3957c152bffdf2e'  # mode вне порядка сверки
+BAZA_PRODUCTION = '5131664ec3cad043489ec6b3923c1e8a6716c559'
+BAZA_PRODUCTION_211D = '23bdfb3ba26de5d4c880c734aa5f65d7bf6254b1'  # имя в ключе
+BAZA_PRODUCTION_211E = '07cd89297dbd4b8d96efc044289d7a65b3f9d2dd'  # класс по пути (Impl211e)
+BAZA_PRODUCTION_211F = '51665ada0935c0d4bbacc46b03cc57e1fa5d295c'  # mode вне порядка сверки
 CHUZHIE_SUBEKTY = ('137', '209')  # миры НЕ-211: константа предмета наблюдаема (урок Adv208)
 # Реальные POSIX/Git-имена: каждое — отдельная клетка отказа и честный
 # эквивалентный вход. NUL и "/" не входят в алфавит basename Git.
@@ -1784,6 +1785,26 @@ def istochnik():
     return json.loads(SOURCE.read_text(encoding='utf-8'))
 
 
+def piny_sverka():
+    # В том числе комментарии и source.json; SHA-256 носителей не SHA-1.
+    piny = {pin for put in HERE.rglob('*') if put.is_file()
+            and put.suffix in ('.py', '.sh', '.json', '.md')
+            for pin in re.findall(rb'(?<![0-9a-f])[0-9a-f]{40}(?![0-9a-f])',
+                                  put.read_bytes())}
+    if not piny:
+        print('ORACLE_TAMPERED: PINY_PUSTO', file=sys.stderr)
+        sys.exit(2)
+    for pin in sorted(piny):
+        sha = pin.decode('ascii')
+        r = run(['git', 'merge-base', '--is-ancestor', sha, 'HEAD'],
+                cwd=str(KOREN))
+        if r.returncode != 0:
+            print('ORACLE_TAMPERED: PIN_NE_PREDOK_HEAD: %s' % sha,
+                  file=sys.stderr)
+            sys.exit(2)
+    return len(piny)
+
+
 def nositeli_sverka(src):
     ploho = []
     for otn, pin in src.get('nositeli', {}).items():
@@ -1842,10 +1863,10 @@ def sgeneriruj():
         'nositeli': dict(sorted(nositeli.items())),
         'zametki': 'привязки стаб↔клетка — единственный источник (Н-39); '
                    'якорь каждой мутации — кратность 1; st58–st63 — pinned '
-                   'production 8c50b4c67, st64–st67 — pinned production '
-                   '21aafbe4e (Adv211d: имя в ключе), st68 — pinned '
-                   'production 1a239b49a (Rev211 Б-1: класс по пути), '
-                   'st69 — pinned production bc303e9ae (Rev211b Б-1: '
+                   'production 5131664ec, st64–st67 — pinned production '
+                   '23bdfb3ba (Adv211d: имя в ключе), st68 — pinned '
+                   'production 07cd89297 (Rev211 Б-1: класс по пути), '
+                   'st69 — pinned production 51665ada0 (Rev211b Б-1: '
                    'mode вне сверки); все пины — предки носителя; остальные — модель',
     }
     SOURCE.write_text(json.dumps(src, ensure_ascii=False, indent=1) + '\n',
@@ -1891,6 +1912,7 @@ def main():
     if argj.sgeneriruj_staby:
         sgeneriruj()
         return 0
+    piny_sverka()
 
     K = kejsy()
     src = istochnik()

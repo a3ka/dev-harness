@@ -4,10 +4,10 @@
  "subjekt": "scripts/zamok_predmeta.sh",
  "model": "model/zamok_predmeta.sh",
  "baza_d52": "1ec47271534b8c468611ce26a7769eaeec298644",
- "baza_production_stabov": "8c50b4c67058595e879a79eac08c62a431f30f80",
- "baza_production_stabov_211d": "21aafbe4e1315c72744703792db6572449d7839d",
- "baza_production_stabov_211e": "1a239b49a5e36fb81281e0678ffbc43713910d25",
- "baza_production_stabov_211f": "bc303e9ae07c2d6c13b80b85d3957c152bffdf2e",
+ "baza_production_stabov": "5131664ec3cad043489ec6b3923c1e8a6716c559",
+ "baza_production_stabov_211d": "23bdfb3ba26de5d4c880c734aa5f65d7bf6254b1",
+ "baza_production_stabov_211e": "07cd89297dbd4b8d96efc044289d7a65b3f9d2dd",
+ "baza_production_stabov_211f": "51665ada0935c0d4bbacc46b03cc57e1fa5d295c",
  "kejsy": {
   "b01-bootstrap-adversary": "тег /1 на предке, байты равны, строки на main нет — адверсарий без предупреждения",
   "b02-bootstrap-reviewer-obychnyj": "класс обычный из OBJECT — ревьюер до адверсария допускается",
@@ -359,5 +359,5 @@
   "stabs/st68-V-klass-po-blob/zamok_predmeta.sh": "c250ad670f29d3219a0007c118633fd0c0b6b0d41cb73d75b5d06933e274a2a0",
   "stabs/st69-W-poparno-po-mode/zamok_predmeta.sh": "9003e3172a38c337d149981375a927dbe77474830fbe045e696a1fd07cee0bd7"
  },
- "zametki": "привязки стаб↔клетка — единственный источник (Н-39); якорь каждой мутации — кратность 1; st58–st63 — pinned production 8c50b4c67, st64–st67 — pinned production 21aafbe4e (Adv211d: имя в ключе), st68 — pinned production 1a239b49a (Rev211 Б-1: класс по пути), st69 — pinned production bc303e9ae (Rev211b Б-1: mode вне сверки); все пины — предки носителя; остальные — модель"
+ "zametki": "привязки стаб↔клетка — единственный источник (Н-39); якорь каждой мутации — кратность 1; st58–st63 — pinned production 5131664ec, st64–st67 — pinned production 23bdfb3ba (Adv211d: имя в ключе), st68 — pinned production 07cd89297 (Rev211 Б-1: класс по пути), st69 — pinned production 51665ada0 (Rev211b Б-1: mode вне сверки); все пины — предки носителя; остальные — модель"
 }
