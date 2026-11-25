@@ -14,6 +14,19 @@
 # одного -c (identity — env GIT_AUTHOR_*/GIT_COMMITTER_*): hooksPath-инъекция
 # -c остаётся единственной чужеродной точкой и различима клеткой батареи.
 #
+# PROJECT-МАРШРУТ (контракт 221). Признак project-маршрута — harness.project.json
+# в R; путь реестра и валидация профиля — существующий project_paths_resolve
+# (свой резолвер и новые CLI-флаги запрещены). В клоне ПРОЕКТА штатного
+# pre-commit обычно нет (либо core.hooksPath=/dev/null), а общий file-config
+# может нести запрещённые user.name/user.email. Тогда минт ВЛАДЕЕТ своим
+# одноразовым project-хуком: хук исполняет ЖИВОЙ check_staged этой же
+# установки инструментов на R и удаляется на выходе (и при успехе, и при
+# отказе); постоянные core.hooksPath и файлы имеющихся хуков не меняются
+# (hooksPath задаётся process-local через GIT_CONFIG_*). Запрещённые ключи
+# identity УДАЛЯЮТСЯ штатным `git config --local --unset-all` — запрет 080/4 не
+# ослабляется, снимается причина отказа. Ветвь без профиля (станционная)
+# остаётся прежней: ни нормализации, ни автохука там нет.
+#
 # ЧТО НЕ ДЕЛАЕТ: НЕ минтит тег (next_id — единый источник выдачи номеров);
 # НЕ пушит (публикация — отдельный шаг оркестратора через scripts/gitw, норма
 # HANDOFF «git-обмены — только через gitw»); НЕ правит чужие строки манифеста
@@ -34,7 +47,8 @@
 #   обрыв сети НЕ пишет строку) / тег не достижим на origin (self-mint) /
 #   sha локального тега ≠ sha тега на origin (переминт) / номер уже в
 #   манифесте — повторный минт / HEAD не main / грязное дерево / дверь 031
-#   отключена конфигом (эффективный hooks-каталог без живого pre-commit).
+#   отключена конфигом (эффективный hooks-каталог без живого pre-commit) /
+#   нормализация запрещённого file-config identity не удалась (project-маршрут).
 # rc 2 — нечем проверить (нет git, --root не репозиторий, --nnn вне грамматики).
 #
 # ГРАММАТИКА СТРУКТУРНЫХ ПОЛЕЙ (норма 041 §Инварианты п.2):
@@ -120,6 +134,72 @@ if [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
   printf 'ОТКАЗ: грязное дерево — коммит строки реестра обязан быть единственным предметом\n' >&2
   exit 1
 fi
+
+# ── PROJECT-МАРШРУТ МИНТА (контракт 221) ─────────────────────────────────────
+# Станционная ветвь (клона БЕЗ harness.project.json) выше и ниже остаётся
+# прежней побайтно: ни нормализации identity, ни автохука там нет.
+# Убор одноразового project-хука — на ЛЮБОМ выходе из project-ветви (успех
+# ИЛИ отказ живой двери); исходный код выхода сохраняется.
+_mint_hook_cleanup() {
+  local _rc=$?
+  if [ -n "${_mint_hook_work:-}" ]; then
+    rm -rf -- "$_mint_hook_work" >/dev/null 2>&1 || true
+  fi
+  return "$_rc"
+}
+if [ -f "$ROOT/harness.project.json" ]; then
+  # Префлайт профиля: битый профиль — именованный отказ ДО нормализации.
+  # Путь реестра — тот же project_paths_resolve (ниже, шаг 4); своего
+  # резолвера и новых CLI-флагов у 221 нет.
+  project_paths_resolve "$ROOT" >/dev/null || exit 1
+  # 080/4 (инвариант 18): живая дверя отвергает НАЛИЧИЕ user.name/user.email
+  # в общем file-config (даже пустого значения). Нормализация УДАЛЯЕТ причину
+  # штатным `git config --local --unset-all` (все значения, включая пустые и
+  # многозначные); сам запрет 080 НЕ выключается и НЕ ослабляется. Ключа нет
+  # — rc 5 (допустимо); иная ошибка удаления — именованный rc 1, минта нет.
+  for _mint_key in user.name user.email; do
+    _mint_rc=0
+    git -C "$ROOT" config --local --unset-all "$_mint_key" || _mint_rc=$?
+    case "$_mint_rc" in
+      0|5) ;;
+      *) printf 'ОТКАЗ: не удалось удалить запрещённый ключ %s из общего file-config (rc=%s) — минт без нормированной identity невозможен\n' "$_mint_key" "$_mint_rc" >&2
+         exit 1 ;;
+    esac
+  done
+  unset _mint_key _mint_rc
+  # Одноразовый project-хук (инвариант 2): он ОБЯЗАТЕЛЕН для самого коммита и
+  # не зависит ни от отсутствующего .git/hooks/pre-commit, ни от
+  # core.hooksPath=/dev/null в клоне. Хук исполняет ЖИВОЙ check_staged этой
+  # же установки инструментов на R: дверь 031 остаётся судьёй (--no-verify не
+  # используется, вывод двери не подменяется, пустой хук недопустим).
+  # Постоянные core.hooksPath и файлы имеющихся хуков НЕ меняются: hooksPath
+  # задаётся process-local (GIT_CONFIG_*) только на время этого коммита.
+  if [ ! -f "$SELF_DIR/check_staged.sh" ]; then
+    printf 'NOT_IMPLEMENTED: рядом с mint_line нет живой двери 031 (check_staged.sh в %s)\n' "$SELF_DIR" >&2
+    exit 2
+  fi
+  _mint_hook_work="$(mktemp -d)" \
+    || { printf 'NOT_IMPLEMENTED: не создан каталог одноразового project-хука\n' >&2; exit 2; }
+  _mint_hook_work="$(cd -- "$_mint_hook_work" 2>/dev/null && pwd -P)" \
+    || { printf 'NOT_IMPLEMENTED: не канонизирован каталог одноразового project-хука\n' >&2; exit 2; }
+  trap '_mint_hook_cleanup' EXIT
+  printf '#!/usr/bin/env bash\nexec bash %q %q\n' "$SELF_DIR/check_staged.sh" "$ROOT" > "$_mint_hook_work/pre-commit" \
+    || { printf 'NOT_IMPLEMENTED: не записан одноразовый project-хук\n' >&2; exit 2; }
+  chmod 700 "$_mint_hook_work/pre-commit" \
+    || { printf 'NOT_IMPLEMENTED: одноразовый project-хук не исполняем\n' >&2; exit 2; }
+  # process-local core.hooksPath: чужой process-local конфиг вызывающего не
+  # затираем — свои пары key/value добавляем В КОНЕЦ (GIT_CONFIG_COUNT —
+  # счётчик пар). Постоянный конфиг репозитория не меняется.
+  _mint_cfg_n="${GIT_CONFIG_COUNT:-0}"
+  case "$_mint_cfg_n" in
+    ''|*[!0-9]*) _mint_cfg_n=0 ;;
+  esac
+  export "GIT_CONFIG_KEY_$_mint_cfg_n=core.hooksPath"
+  export "GIT_CONFIG_VALUE_$_mint_cfg_n=$_mint_hook_work"
+  export GIT_CONFIG_COUNT=$((_mint_cfg_n + 1))
+  unset _mint_cfg_n
+fi
+
 # 0. Дверь 031 неотвратима для ЭТОГО коммита (Б2 круга 1): эффективный
 # hooks-каталог обязан нести ИСПОЛНЯЕМЫЙ pre-commit ЕЩЁ ДО записи строки —
 # конфиг-дизарм (core.hooksPath ведёт мимо двери) отказывает именем. Формы
