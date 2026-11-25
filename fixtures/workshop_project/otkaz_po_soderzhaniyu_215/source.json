@@ -108,6 +108,20 @@
       "cells": [
         "trace"
       ]
+    },
+    {
+      "id": "M1-forged-id",
+      "file": "fallback-route.ts",
+      "cells": [
+        "trace"
+      ]
+    },
+    {
+      "id": "M5-forged-target",
+      "file": "fallback-route.ts",
+      "cells": [
+        "trace"
+      ]
     }
   ],
   "sha256": {
