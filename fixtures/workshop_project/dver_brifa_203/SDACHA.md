@@ -23,8 +23,10 @@ id; (4) кап пака — эффективный pack.maxBytes, ветки 400
 до вызова субъекта. Стабы меняют исполняемый код эталона; адресные привязки
 только в stabs.py (16 мутаций, все пойманы своими клетками, ZHIVYH=0).
 
-Счёт (из прогонов этой пачки, не из головы): клеток 21 (7 зависимости,
-4 причина, 6 элементы, 3 кап, 1 free-контроль внутри зависимости), стабов 16,
+## Red-do
+
+Замер ДО реализации: клеток 21 (7 зависимости, 4 причина, 7 элементы,
+3 кап), стабов 16;
 `--repo .` красных 13 (deps-linked, deps-lock-differs, deps-lock-same-size,
 deps-donor-lock-missing, deps-donor-modules-missing, deps-pin-lock-missing,
 reason-json, reason-second, element-line-unknown, element-flag-unknown,
@@ -48,7 +50,7 @@ pack.maxBytes сохранено (frozen 170/1:29). Разбор — COMPATIBILI
 ## Двери
 
 - Honest model · bash fixtures/workshop_project/dver_brifa_203/red_dver_brifa_203.sh --model · 0 · 0
-- Production до реализации · bash fixtures/workshop_project/dver_brifa_203/red_dver_brifa_203.sh --repo . · 1 · 1
+- Production после реализации · bash fixtures/workshop_project/dver_brifa_203/red_dver_brifa_203.sh --repo . · 0 · 0
 - Addressed mutants · bash fixtures/workshop_project/dver_brifa_203/red_dver_brifa_203.sh --stabs · 0 · 0
 - Syntax carriers · bash fixtures/workshop_project/dver_brifa_203/red_dver_brifa_203.sh --sintaksis · 0 · 0
 - Provodka · bash scripts/check_provodka.sh . contracts/203-dver-brifa-arhitektury.md · 0 · 0
@@ -61,8 +63,8 @@ pack.maxBytes сохранено (frozen 170/1:29). Разбор — COMPATIBILI
 
 ## Карта классов
 
-- К-01 · чисто · вход: все двери листа исполняются check_sdacha --run; красный production rc 1 честно заявлен до реализации (13 именованных красных клеток), rc 2 среды клеткой не засчитывается · - · -
-- К-02 · чисто · вход: Н-454 (а/в) и «8 не-элементов» представлены наблюдаемыми отказами швов: зависимости (6 красных), причина (3 красных, включая второй компонент), членство (5 красных: строка/флаг/пин-не-HEAD/заморозка/дверь) · - · -
+- К-01 · чисто · вход: все двери листа исполняются check_sdacha --run; production после реализации обязан вернуть rc 0 (21 клетка, 0 красных); история 13 именованных красных ДО сохранена в Red-do, rc 2 среды клеткой не засчитывается · - · -
+- К-02 · чисто · вход: Н-454 (а/в) и «8 не-элементов» представлены наблюдаемыми отказами швов: зависимости (6 красных ДО), причина (2 красных ДО, включая второй компонент), членство (5 красных ДО: строка/флаг/пин-не-HEAD/заморозка/дверь) · - · -
 - К-03 · чисто · вход: frozen 170/1 inline-бриф/порядок/роли и сценарий over-budget 40000 покрыты зелёными контролами cap-default и deps-free; 187/3 побайтовые формы stderr покрыты контролами reason-nonjson/reason-empty · - · -
 - К-04 · чисто · вход: контракт и семья — architect; две производственные двери — implementer; три CI-пути — orchestrator; перечень пересечений выводится из замороженных деревьев прогоном overlaps.py · - · -
 - К-05 · чисто · вход: каждый критерий контракта имеет rc-команду; production CI после реализации — шаг check:dver-brifa-203-family-selftest, не модель вместо двери · - · -
