@@ -538,6 +538,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 4 | 221 | до V-2 | CI | - | ca76965910ea23941e4a5058a4c8e6db845f9b98 |
 | 4 | 218 | до V-2 | CI | 217 | a42a71cc049c822e17bcf61240dee7603e5112bc |
 | 4 | 223 | до V-2 | complior | - | a42a71cc049c822e17bcf61240dee7603e5112bc |
+| 4 | 224 | до V-2 | CI | - | c9e1d7d88e21b3ac04b2f330c3a1d91d4238b3f8 |
 | 5 | 096 | до V-2 | autonomy | 095 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 5 |
 | 5 | CMP-BCK-133 | до V-2 | complior | 993 | docs/owner/2026-10-18-arhitektor-beka-5-8-4.md#Порядок |
 | 6 | V-2 | до V-2 | autonomy | 090,091,094,095,096 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 3 |
