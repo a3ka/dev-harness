@@ -683,6 +683,8 @@ kontrakt_zapisi() {  # <repo> <tree:каталог> <NNN>
 }
 # Независимый канон сравнения: shell %q однозначно кодирует имя; mode
 # проверяется на обычный файл, но НЕ участвует в удостоверении его байтов.
+# Строки «%q имя sha» сравниваются после LC_ALL=C sort: порядок исходного
+# ls-tree начинается с mode и меняется при chmod одного из нескольких файлов.
 kontrakt_perechen() {
   local wt="$1" derevo="$2" n="$3" imya mode tip blob
   while IFS= read -r -d '' imya && IFS= read -r -d '' mode \

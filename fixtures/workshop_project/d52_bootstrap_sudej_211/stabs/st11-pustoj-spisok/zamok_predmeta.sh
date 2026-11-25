@@ -683,6 +683,8 @@ kontrakt_zapisi() {  # <repo> <tree:каталог> <NNN>
 }
 # Независимый канон сравнения: shell %q однозначно кодирует имя; mode
 # проверяется на обычный файл, но НЕ участвует в удостоверении его байтов.
+# Строки «%q имя sha» сравниваются после LC_ALL=C sort: порядок исходного
+# ls-tree начинается с mode и меняется при chmod одного из нескольких файлов.
 kontrakt_perechen() {
   local wt="$1" derevo="$2" n="$3" imya mode tip blob
   while IFS= read -r -d '' imya && IFS= read -r -d '' mode \
@@ -828,7 +830,7 @@ frozen_udostoveren_objectu() {  # <NNN> <репозиторий владельц
   kat="$(kontrakt_kat "$owner")" || return 1
   spO="$(kontrakt_perechen "$wt" "$obj:$kat" "$n")" || return 1
   spF="$(kontrakt_perechen "$wt" "$F:$kat" "$n")" || return 1
-  [ "$spO" = "$spF" ] || return 1
+  [ "$(printf '%s\n' "$spO" | LC_ALL=C sort)" = "$(printf '%s\n' "$spF" | LC_ALL=C sort)" ] || return 1
   return 0
 }
 peredacha_iz_ucheta() {

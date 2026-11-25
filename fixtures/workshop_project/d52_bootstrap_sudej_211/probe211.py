@@ -12,9 +12,9 @@
 # (helpers, ветвь, 4-й аргумент klass_riska); семья 208 зелена против модели
 # как субъекта (--sosed-208); реализация несёт ту же семантику.
 # Привязки стаб↔клетка — source.json:.stab_vhod, генерируются из кода (Н-39).
-# Якорь — кратность 1; st58–st63 мутируют pinned production f8eaa3bb8,
-# st64–st67 — pinned production 211d (a6bfd871c), st68 — pinned
-# production 211e (24230d10, класс по пути; Rev211 Б-1), остальные — модель.
+# Якорь — кратность 1; st58–st63 мутируют pinned production 8c50b4c67,
+# st64–st67 — 211d (21aafbe4e), st68 — 211e (1a239b49a),
+# st69 — 211f (bc303e9ae); все пины — предки носителя, остальные — модель.
 # Оракул — source.json в памяти ДО вызова субъекта (правило 8); носители —
 # sha256; рассинхрон множеств — rc 2 ORACLE_TAMPERED.
 #
@@ -81,9 +81,10 @@ REPO_ID = 'dev-harness'
 HARNESS_REMOTE = 'ssh://git@github.com/a3ka/dev-harness.git'
 SUBJ = '211'
 BAZA_D52 = '1ec47271534b8c468611ce26a7769eaeec298644'
-BAZA_PRODUCTION = 'f8eaa3bb87664c7a32d7a79eb261f32363bf447d'
-BAZA_PRODUCTION_211D = 'a6bfd871c729d6e684317dab5edb7350fdf9e3d4'  # имя в ключе
-BAZA_PRODUCTION_211E = '24230d10df489b9d077b087738c9c3d4a9544d44'  # класс по пути (Impl211e)
+BAZA_PRODUCTION = '8c50b4c67058595e879a79eac08c62a431f30f80'
+BAZA_PRODUCTION_211D = '21aafbe4e1315c72744703792db6572449d7839d'  # имя в ключе
+BAZA_PRODUCTION_211E = '1a239b49a5e36fb81281e0678ffbc43713910d25'  # класс по пути (Impl211e)
+BAZA_PRODUCTION_211F = 'bc303e9ae07c2d6c13b80b85d3957c152bffdf2e'  # mode вне порядка сверки
 CHUZHIE_SUBEKTY = ('137', '209')  # миры НЕ-211: константа предмета наблюдаема (урок Adv208)
 # Реальные POSIX/Git-имена: каждое — отдельная клетка отказа и честный
 # эквивалентный вход. NUL и "/" не входят в алфавит basename Git.
@@ -1124,6 +1125,66 @@ def kejsy():
                     k_uchet_ne_izmenen(m, do, 'D42 live base')]
         return case
 
+    def b59(m, door):
+        # Rev211b Б-1: два regular-файла, chmod у МЕНЬШЕГО blob-sha
+        # переставляет mode-сортированный поток, но не меняет имён/blob.
+        # Живая база ещё без D64: kontrol проходит D42 с REPLACE. Субъект
+        # получает тот же класс БЕЗ REPLACE через D64; ожидание снято до него.
+        def mir_vhoda(mir, zakrep=False):
+            wt, br, _ = nositel(mir, SUBJ, 'обычный')
+            kat = Path(wt) / 'contracts'
+            (kat / '211-zz.md').write_text(
+                kontrakt_tekst(SUBJ, 'обычный') + 'второй файл\n',
+                encoding='utf-8')
+            F = kommit_vse(wt, 'F dva obychnyh fajla')
+
+            def zapisi(obj):
+                r = run(['git', '-C', wt, 'ls-tree', '-z', obj + ':contracts'])
+                assert r.returncode == 0, r.stderr
+                rows = {}
+                for row in r.stdout.split(b'\0'):
+                    if row:
+                        meta, imja = row.split(b'\t', 1)
+                        mode, tip, sha = meta.split()
+                        assert tip == b'blob'
+                        rows[imja] = (mode, sha)
+                return rows
+
+            do = zapisi(F)
+            assert set(do) == {b'211-fixture.md', b'211-zz.md'}
+            assert all(mode == b'100644' for mode, _ in do.values())
+            assert len({sha for _, sha in do.values()}) == 2
+            menshij = min(do, key=lambda imja: do[imja][1])
+            (kat / os.fsdecode(menshij)).chmod(0o755)
+            W = kommit_vse(wt, 'tolko exec-bit menshego blob')
+            posle = zapisi(W)
+            expected_rows = dict(do)
+            expected_rows[menshij] = (b'100755', do[menshij][1])
+            assert posle == expected_rows, (do, posle)
+            avtor_sdal(mir, SUBJ, wt, br)
+            tegobj = mir.stancija_teg(wt, SUBJ, F)
+            if zakrep:
+                mir.stancija_stroka(SUBJ, tegobj)
+            else:
+                assert not (mir.repo / 'registry/contracts.tsv').exists()
+            return W
+
+        base = m.root / 'base-d64-mode.sh'
+        base.write_bytes(tekst_bazy(BAZA_D52))
+        kontrol = Mir(m.root / 'base-world')
+        obj = mir_vhoda(kontrol, zakrep=True)
+        r0 = sudit(base, kontrol, vyzov(kontrol, 'reviewer', 'Rev211', obj))
+        assert (r0.returncode, r0.stdout, r0.stderr) == (
+            0, bajty(puschem('Rev211', SUBJ, 'reviewer')), b''), (
+                'D64_MODE_BASE_DRIFT', r0.returncode, r0.stdout, r0.stderr)
+        expected = (r0.returncode, r0.stdout, r0.stderr)
+        W = mir_vhoda(m)
+        r = sudit(door, m, vyzov(m, 'reviewer', 'Rev211', W))
+        return [k_rc(r, expected[0], 'D64 mode menshego blob'),
+                k_stdout(r, expected[1], 'D64 mode menshego blob'),
+                k_text(r, expected[2], 'D64 mode menshego blob'),
+                k_start(m, 'Rev211', W, 'D64 mode menshego blob')]
+
     reg('b01-bootstrap-adversary',
         'тег /1 на предке, байты равны, строки на main нет — адверсарий без предупреждения',
         b01)
@@ -1288,6 +1349,10 @@ def kejsy():
         'предупреждение KLASS_RISKA_NET байтами живой базы',
         d52_zhivaja_baza((('211-a^-b.md', 'обычный', 0o644),),
                          '211-a^-b.md'))
+    reg('b59-d64-dva-fajla-mode-menshego-sha',
+        'D64: два обычных файла, chmod 755 у меньшего blob-sha после F; '
+        'без REPLACE reviewer допущен байтами живой базы D42 с REPLACE',
+        b59)
     return K
 
 
@@ -1308,7 +1373,7 @@ STAB_MUTACII = {
         '''        if false; then
           kr="$(klass_riska "$sv" "$risk_repo" "$P_FROZEN")"'''),
     'st03-bez-bajtov': lambda t: _mut(
-        t, '''  [ -n "$spO" ] && [ "$spO" = "$spF" ] || return 1''',
+        t, '''  [ -n "$spO" ] && [ "$(printf '%s\\n' "$spO" | LC_ALL=C sort)" = "$(printf '%s\\n' "$spF" | LC_ALL=C sort)" ] || return 1''',
         '''  true'''),
     'st04-bez-predka': lambda t: _mut(
         t, '''  git -C "$wt" merge-base --is-ancestor "$F" "$obj" 2>/dev/null || return 1''',
@@ -1332,8 +1397,8 @@ STAB_MUTACII = {
         t, r'''LC_ALL=C sort -t$'\t' -k1,1n -k2,2''',
         r'''LC_ALL=C sort -t$'\t' -k2,2'''),
     'st11-pustoj-spisok': lambda t: _mut(
-        t, '''  [ -n "$spO" ] && [ "$spO" = "$spF" ] || return 1''',
-        '''  [ "$spO" = "$spF" ] || return 1'''),
+        t, r'''  [ -n "$spO" ] && [ "$(printf '%s\n' "$spO" | LC_ALL=C sort)" = "$(printf '%s\n' "$spF" | LC_ALL=C sort)" ] || return 1''',
+        r'''  [ "$(printf '%s\n' "$spO" | LC_ALL=C sort)" = "$(printf '%s\n' "$spF" | LC_ALL=C sort)" ] || return 1'''),
     'st12-repo-nositelja': lambda t: _mut(
         t, '''  tagobj="$(poslednj_frozen_teg "$n" "$owner")" || return 1''',
         '''  tagobj="$(poslednj_frozen_teg "$n" "$wt")" || return 1'''),
@@ -1373,7 +1438,7 @@ STAB_MUTACII = {
         t, r'''  owner="${4:-$wt}"''',
         r'''  owner="${4:-}"'''),
     'st51-spisok-bez-ravenstva': lambda t: _mut(
-        t, '''  [ -n "$spO" ] && [ "$spO" = "$spF" ] || return 1''',
+        t, r'''  [ -n "$spO" ] && [ "$(printf '%s\n' "$spO" | LC_ALL=C sort)" = "$(printf '%s\n' "$spF" | LC_ALL=C sort)" ] || return 1''',
         '''  [ -n "$spO" ] || return 1'''),
     'st52-klass-po-objectu': lambda t: _mut(
         t, '''          kr="$(klass_riska "$sv" "$risk_repo" "$P_FROZEN")"''',
@@ -1426,7 +1491,7 @@ STAB_MUTACII = {
     'st67-U-sort-slovarnyj': lambda t: _mut(
         t, '    done | LC_ALL=C sort -z', '    done | LC_ALL=C sort -z -d'),
     # Rev211 Б-1 (вызов 1): чтение класса файла предмета по blob вместо
-    # пути — на PINNED починенной production 211e (24230d10: класс по
+    # пути — на PINNED починенной production 211e (1a239b49a: класс по
     # пути, как на базе и в модели) ровно одна замена якоря кратности 1
     # возвращает форму r6 (git cat-file blob): имя с «^-» git по пути не
     # разрешает, по blob читается — класс занижался, ревьюер допускался
@@ -1434,6 +1499,39 @@ STAB_MUTACII = {
     'st68-V-klass-po-blob': lambda t: _mut(
         t, '    val="$(git -C "$wt" show "$obj:$kat/$put" 2>/dev/null \\\n',
         '    val="$(git -C "$wt" cat-file blob "$blob" 2>/dev/null \\\n'),
+    # Rev211b Б-1: одна замена тела сверки возвращает r8 — попарный
+    # обход mode-сортированного потока. Наблюдаем именно на b59 (Н-39).
+    'st69-W-poparno-po-mode': lambda t: _mut(
+        t, r'''  local wt="$1" derevo_o="$2" derevo_f="$3" n="$4" spO spF
+  spO="$(kontrakt_perechen "$wt" "$derevo_o" "$n")" || return 1
+  spF="$(kontrakt_perechen "$wt" "$derevo_f" "$n")" || return 1
+  # Пустой перечень текста не удостоверяет.
+  [ -n "$spO" ] || return 1
+  [ "$(printf '%s\n' "$spO" | LC_ALL=C sort)" = "$(printf '%s\n' "$spF" | LC_ALL=C sort)" ]''',
+        r'''  local wt="$1" derevo_o="$2" derevo_f="$3" n="$4"
+  local imya_o mode_o tip_o sha_o imya_f mode_f tip_f sha_f schetchik=0
+  (
+    exec 3< <(kontrakt_zapisi "$wt" "$derevo_o" "$n")
+    exec 4< <(kontrakt_zapisi "$wt" "$derevo_f" "$n")
+    while IFS= read -r -d '' imya_o <&3 \
+       && IFS= read -r -d '' mode_o <&3 \
+       && IFS= read -r -d '' tip_o <&3 \
+       && IFS= read -r -d '' sha_o <&3; do
+      schetchik=$((schetchik + 1))
+      IFS= read -r -d '' imya_f <&4 || exit 1
+      IFS= read -r -d '' mode_f <&4 || exit 1
+      IFS= read -r -d '' tip_f <&4 || exit 1
+      IFS= read -r -d '' sha_f <&4 || exit 1
+      [ "$imya_o" = "$imya_f" ] || exit 1
+      [ "$sha_o" = "$sha_f" ] || exit 1
+      [ "$tip_o" = blob ] && [ "$tip_f" = blob ] || exit 1
+      { [ "$mode_o" = 100644 ] || [ "$mode_o" = 100755 ]; } || exit 1
+      { [ "$mode_f" = 100644 ] || [ "$mode_f" = 100755 ]; } || exit 1
+    done
+    IFS= read -r -d '' imya_f <&4 && exit 1
+    [ "$schetchik" -gt 0 ] || exit 1
+    exit 0
+  )'''),
 }
 
 STAB_VHOD = {
@@ -1483,6 +1581,7 @@ STAB_VHOD = {
     'st67-U-sort-slovarnyj': ['b56-d52-registr-punkt-cifry'],
     'st68-V-klass-po-blob': ['b57-d42-imja-karet-minus',
                              'b58-d52-imja-karet-minus'],
+    'st69-W-poparno-po-mode': ['b59-d64-dva-fajla-mode-menshego-sha'],
 }
 STAB_VHOD['st57-ordered-by-name-only'].append('b54-d52-ravnye-katalogi-prefiks')
 PRODUCTION_STABY = frozenset(imja for imja in STAB_MUTACII
@@ -1493,12 +1592,15 @@ PRODUCTION_STABY_211D = frozenset(imja for imja in STAB_MUTACII
                                                      'st66-', 'st67-')))
 PRODUCTION_STABY_211E = frozenset(imja for imja in STAB_MUTACII
                                  if imja.startswith('st68-'))
+PRODUCTION_STABY_211F = frozenset(imja for imja in STAB_MUTACII
+                                 if imja.startswith('st69-'))
 
 
 def tekst_staba(imja, model):
-    # три pinned production-слоя: st58–st63 — база Adv211c (f8eaa3bb8),
-    # st64–st67 — production 211d с именем в ключе (a6bfd871c, Adv211d),
-    # st68 — починенная production 211e (24230d10, класс по пути, Rev211 Б-1)
+    # Пины — предки носителя; st58–st68 перепинены без изменения blob.
+    # st69 — починенная production 211f (Rev211b Б-1: mode вне сверки).
+    if imja in PRODUCTION_STABY_211F:
+        return tekst_bazy(BAZA_PRODUCTION_211F).decode('utf-8')
     if imja in PRODUCTION_STABY_211E:
         return tekst_bazy(BAZA_PRODUCTION_211E).decode('utf-8')
     if imja in PRODUCTION_STABY_211D:
@@ -1733,15 +1835,18 @@ def sgeneriruj():
         'baza_d52': BAZA_D52,
         'baza_production_stabov': BAZA_PRODUCTION,
         'baza_production_stabov_211d': BAZA_PRODUCTION_211D,
+        'baza_production_stabov_211e': BAZA_PRODUCTION_211E,
+        'baza_production_stabov_211f': BAZA_PRODUCTION_211F,
         'kejsy': {imja: os for imja, (os, _) in sorted(K.items())},
         'stab_vhod': {k: sorted(v) for k, v in sorted(STAB_VHOD.items())},
         'nositeli': dict(sorted(nositeli.items())),
         'zametki': 'привязки стаб↔клетка — единственный источник (Н-39); '
                    'якорь каждой мутации — кратность 1; st58–st63 — pinned '
-                   'production f8eaa3bb8, st64–st67 — pinned production '
-                   'a6bfd871c (Adv211d: имя в ключе), st68 — pinned '
-                   'production 24230d10 (Rev211 Б-1: класс по пути), '
-                   'остальные — модель',
+                   'production 8c50b4c67, st64–st67 — pinned production '
+                   '21aafbe4e (Adv211d: имя в ключе), st68 — pinned '
+                   'production 1a239b49a (Rev211 Б-1: класс по пути), '
+                   'st69 — pinned production bc303e9ae (Rev211b Б-1: '
+                   'mode вне сверки); все пины — предки носителя; остальные — модель',
     }
     SOURCE.write_text(json.dumps(src, ensure_ascii=False, indent=1) + '\n',
                       encoding='utf-8')
