@@ -499,6 +499,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 207 | до V-2 | CI | - | f2dfd18c7b209148fc647b564c8f96dd8410b682 |
 | 3 | 208 | до V-2 | autonomy | - | f2dfd18c7b209148fc647b564c8f96dd8410b682 |
 | 3 | 054 | до V-2 | complior | - | docs/owner/2026-11-10-dnevnye-resheniya.md#Слово владельца |
+| 3 | 203 | до V-2 | architecture | - | a42a71cc049c822e17bcf61240dee7603e5112bc |
 | 4 | 095 | до V-2 | context | 094 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
 | 4 | 110 | параллельно с V-2 | done | 087 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
 | 4 | 993 | до V-2 | complior | - | docs/owner/2026-10-17-resheniya-back-992-993.md#4 |
