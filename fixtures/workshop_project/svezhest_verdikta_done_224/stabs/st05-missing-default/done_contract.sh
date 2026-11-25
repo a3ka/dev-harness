@@ -113,38 +113,64 @@ _json_one_object() {
 
 # 224: round numbers order verdicts; commit ancestry still binds OBJECT/F.
 _select_round_verdict() {
-  local files="$1" role="$2" f text cid number call field day name_day key
+  local files="$1" role="$2" f name text cid number call field day name_day key
+  local version declared rest token denominator phase_version explicit count=0
   local best=0 seen=' ' metadata='' prior_n prior_d
   _rv_file='' _rv_cid='' _rv_first=''
   while IFS= read -r f; do
+    [ -z "$f" ] || count=$((count + 1))
+  done <<< "$files"
+  while IFS= read -r f; do
     [ -n "$f" ] || continue
-    name="${f##*/}"
-    if [[ "$name" =~ -v([1-9][0-9]*)(-[A-Za-z0-9._-]+)?\.md$ ]]; then
-      number="${BASH_REMATCH[1]}"
+    name="${f##*/}" version='' declared='' explicit=0
+    if [[ "$name" =~ -impl-v([1-9][0-9]*)-vyzov([1-9][0-9]*)\.md$ ]]; then
+      version="${BASH_REMATCH[1]}" number="${BASH_REMATCH[2]}" explicit=1
+      declared="$number"
+    elif [[ "$name" == *-impl-v*-vyzov*.md ]]; then
+      die "done: VERDICT_ROUND_INVALID: $role: $f"
+    elif [[ "$name" =~ -v([1-9][0-9]*)(-[A-Za-z0-9._-]+)?\.md$ ]]; then
+      version="${BASH_REMATCH[1]}" number=0 declared="$version"
+    elif [[ "$name" =~ -impl-a([1-9][0-9]*)\.md$ ]]; then
+      version="${BASH_REMATCH[1]}" number=0 declared="$version"
+    elif [[ "$name" =~ -(v|impl-v|impl-a)[0-9] ]]; then
+      die "done: VERDICT_ROUND_INVALID: $role: $f"
+    elif [ "$count" -eq 1 ]; then
+      version=1 number=0
     else
-      number=4
+      version=4 number=0
     fi
-    # Bound arithmetic without accepting an overflowing or noncanonical number.
-    [ "${#number}" -le 9 ] || die "done: VERDICT_ROUND_INVALID: $role: $f"
-    case "$seen" in
-      *" $number "*) die "done: VERDICT_ROUND_DUPLICATE: $role: $number: $f" ;;
-    esac
-    seen="$seen$number "
+    [ "${#version}" -le 9 ] && [ "${#number}" -le 9 ] \
+      || die "done: VERDICT_ROUND_INVALID: $role: $f"
     text="$(git -C "$ROOT" cat-file -p "HEAD:$f")" \
       || die "done: VERDICT_ROUND_READ: $role: $f"
     text="${text//$'\r'/}"
-    call='' day='' name_day=''
+    call='' day='' name_day='' phase_version=''
     if [[ "$name" =~ -([0-9]{4}-[0-9]{2}-[0-9]{2})(-|\.md$) ]]; then
       name_day="${BASH_REMATCH[1]}"
     fi
     while IFS= read -r field; do
       [[ "$field" == 'СУД: '* ]] || continue
-      if [[ "$field" =~ (^|[\;\ ])вызов=([1-9][0-9]*)(/([1-9][0-9]*))?([\;\ ]|$) ]]; then
-        [ -z "$call" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
-        call="${BASH_REMATCH[2]}"
-      elif [[ "$field" == *'вызов='* ]]; then
-        die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+      if [[ "$field" =~ (^|[\;\ ])фаза=реализация\ v([1-9][0-9]*)([\;\ ]|$) ]]; then
+        [ -z "$phase_version" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+        phase_version="${BASH_REMATCH[2]}"
+      elif [[ "$field" =~ (^|[\;\ ])фаза=реализация[^\;]*круг\ ([1-9][0-9]*)([,\)\ ]|$) ]]; then
+        [ -z "$phase_version" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+        phase_version="${BASH_REMATCH[2]}"
       fi
+      rest="${field#СУД: }"
+      # Inspect every named call token, including repeated fields on one line.
+      while [[ "$rest" =~ (^|[\;\ ])вызов=([^;\ ]*) ]]; do
+        token="${BASH_REMATCH[2]}"
+        rest="${rest#*"${BASH_REMATCH[0]}"}"
+        [ -z "$call" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+        if [[ "$token" =~ ^([1-9][0-9]*)(/([1-9][0-9]*))?$ ]]; then
+          call="${BASH_REMATCH[1]}" denominator="${BASH_REMATCH[3]}"
+          [ "${#call}" -le 9 ] && [ "${#denominator}" -le 9 ] \
+            || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+        else
+          die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+        fi
+      done
       if [[ "$field" =~ (^|[\;\ ])дата=([0-9]{4}-[0-9]{2}-[0-9]{2})([\;\ ]|$) ]]; then
         [ -z "$day" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
         day="${BASH_REMATCH[2]}"
@@ -152,8 +178,24 @@ _select_round_verdict() {
         die "done: VERDICT_ROUND_CONFLICT: $role: $f"
       fi
     done <<< "$text"
-    [ -z "$call" ] || [ "$call" = "$number" ] \
+    if [ -n "$phase_version" ]; then
+      [ "${#phase_version}" -le 9 ] && [ -n "$call" ] \
+        || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+      if [ "$explicit" -eq 1 ]; then
+        [ "$version" = "$phase_version" ] \
+          || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+      else
+        version="$phase_version" number="$call" declared="$call"
+      fi
+    fi
+    [ -z "$call" ] || [ -z "$declared" ] || [ "$call" = "$declared" ] \
       || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+    # Two coordinates avoid confusing implementation generation and call.
+    key=$((version * 1000000000 + number))
+    case "$seen" in
+      *" $key "*) die "done: VERDICT_ROUND_DUPLICATE: $role: $key: $f" ;;
+    esac
+    seen="$seen$key "
     if [ -n "$name_day" ]; then
       [ -z "$day" ] || [ "$day" = "$name_day" ] \
         || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
@@ -164,17 +206,16 @@ _select_round_verdict() {
         || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
       while read -r prior_n prior_d; do
         [ -n "$prior_d" ] || continue
-        if { [ "$prior_n" -lt "$number" ] && [[ "$prior_d" > "$day" ]]; } \
-          || { [ "$prior_n" -gt "$number" ] && [[ "$prior_d" < "$day" ]]; }; then
+        if { [ "$prior_n" -lt "$key" ] && [[ "$prior_d" > "$day" ]]; } \
+          || { [ "$prior_n" -gt "$key" ] && [[ "$prior_d" < "$day" ]]; }; then
           die "done: VERDICT_ROUND_ORDER: $role: $f"
         fi
       done <<< "$metadata"
-      metadata="${metadata}${number} ${day}"$'\n'
+      metadata="${metadata}${key} ${day}"$'\n'
     fi
     cid="$(git -C "$ROOT" log --format=%H -1 -- "$f")" \
       || die "done: история вердикта не читается: $f — проверить невозможно"
     [ -n "$cid" ] || die "done: у вердикта на HEAD нет коммита в истории: $f — проверить невозможно"
-    key="$number"
     if [ "$key" -gt "$best" ]; then
       best="$key" _rv_file="$f" _rv_cid="$cid"
       _rv_first="${text%%$'\n'*}"

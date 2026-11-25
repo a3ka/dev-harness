@@ -1,19 +1,30 @@
 {
   "base": "5fa6b2c294c2dfd677febb200c73dc27467461e6",
+  "kletki": 54,
+  "mutacii": 19,
+  "svjazi": 30,
   "nositeli": {
     "model/station.sh": "873726506de5d8af173a3653892984fe9566f0d67556cfa565bbb744a97b076c",
-    "model/done_contract.sh": "d87c1e11c7196ef3fa48a9e8ef08f772eeeb2913a17128c999fb145741139cae",
+    "model/done_contract.sh": "e12b23b28a800e07096dcce1da9f1fc0465ec691cbb19c2cdc16ce6791f1ff11",
     "stabs/st01-ancestry/done_contract.sh": "873726506de5d8af173a3653892984fe9566f0d67556cfa565bbb744a97b076c",
-    "stabs/st02-mtime/done_contract.sh": "55954b04865717bd506995e33b38798c0e79563337c4f8861c805a97377a2ca8",
-    "stabs/st03-first-file/done_contract.sh": "20ce5429faa289a8cacb1bc129736bc69994ba9a478c07b3fefb1744e00ad88f",
-    "stabs/st04-duplicate-allowed/done_contract.sh": "5bca46530bcc422fc63f044d7f065d22e4c44c31f1ca1e6f4d931c32480abebc",
-    "stabs/st05-missing-default/done_contract.sh": "ca541a4e2374e4fcc4fc6eeba7c792f12d6a523108f9b993088f334ff7dfa95d",
-    "stabs/st06-metadata-ignored/done_contract.sh": "24f7adfcafbbcac328709be74e9d8ccf848db8b80d188051c29335d0f6d56033",
-    "stabs/st07-date-ignored/done_contract.sh": "3376dec6eda00e1cefba2cdffb8235a9d49c5c134734f7f9352e38496032e1d4",
-    "stabs/st08-object-bind-removed/done_contract.sh": "b960bbab8fe248996d6523b83dd14a27c02f75705442dc12ce1f599fd627dd43",
-    "stabs/st09-adverse-object-removed/done_contract.sh": "bd4bf2ffdcb00c94d23951f427acb8f0992c6b54050178555a1164ac5f2ccc83",
-    "stabs/st10-old-round/done_contract.sh": "50487fe94258cf3d38c759085737f6302ea6af19c05d17d7cd248d1e239c4130",
-    "stabs/st11-no-frozen-bind/done_contract.sh": "192f59894323717d21e77889ad4386aa67202699d0012f13fc93e55bd6a4392e"
+    "stabs/st02-mtime/done_contract.sh": "a0eb818836567fe1872954fe20f104f69193775acd66d465f751cdfcc5086eff",
+    "stabs/st03-first-file/done_contract.sh": "7d9d0f4b19ef4cba217fa3d565d47cdf3ad25adbd270e8f6d023337024c29dc2",
+    "stabs/st04-duplicate-allowed/done_contract.sh": "aa2d1bfaa41b6697c986a4cab9df0f0083ed220aa73f237d2c705aa3579c2bd5",
+    "stabs/st05-missing-default/done_contract.sh": "1819555a78995767b6e40ae6a5485f0315f8c3731e36b39548f8f4239a547262",
+    "stabs/st06-metadata-ignored/done_contract.sh": "261399daac7ca602ea7fda563935fc83dbfa432d5f0fef5da64fe96ac81a85f6",
+    "stabs/st07-date-ignored/done_contract.sh": "792899131df1dc1567b52ec59c450e660b2d60fff8234373102b5f96d5e032c8",
+    "stabs/st08-object-bind-removed/done_contract.sh": "5dee4d47bf62e50b64d0c919160177d8a018926ff4814a51abbc61ab13479dfe",
+    "stabs/st09-adverse-object-removed/done_contract.sh": "6dff1a4fd5f04ee92b5479fa36ff2a41dd7fe604b8fd89b47ab97e1e2faa775b",
+    "stabs/st10-old-round/done_contract.sh": "eb3445d297a56c7d4e5460d69a34589ca9f570f4ff5a1a97bc30d71c6baadd70",
+    "stabs/st11-no-frozen-bind/done_contract.sh": "febf1e4a0e85a5015da3a36797714b49441d7139ead9357b50da613d3bbc994d",
+    "stabs/st12-first-call-only/done_contract.sh": "854b69788d33eeabd971225abdea82602aa9c17fab8ab094171b3682811dd947",
+    "stabs/st13-legacy-a-missing/done_contract.sh": "07af905996d08f589fda198557cdb53df7022f0492764052887994db6d07c532",
+    "stabs/st14-version-is-call/done_contract.sh": "5b8658c007db77a92fc4d31ec5d9a465f53f1d6632453a0fb3d1d4aaa36fec3c",
+    "stabs/st15-ignore-phase/done_contract.sh": "cd94575ee87753b807b8faf34cb9bd10ab9adbcdc08fbcf3664e9b4c6210fa6a",
+    "stabs/st16-ignore-phase-conflict/done_contract.sh": "7c411396ba615c646969ba4b5884ca73f05c08eb210db0b61522f4ee9f99c738",
+    "stabs/st17-phase-without-call/done_contract.sh": "4ccb657abfdefaf2dc9d8dae4a9a51c4c21d996bb378e699d79a7b977b1f86a2",
+    "stabs/st18-ignore-cycle/done_contract.sh": "22ac06e673eadfdbc5c0d24edacf53cfdf67dd1d0a05c7ba42dd633c5a263839",
+    "stabs/st19-malformed-suffix/done_contract.sh": "31ba0652f30f940dd9f9917111094979f7efa6222d71ba3e95047eaaa9c96d57"
   },
   "stab_vhod": [
     {
@@ -91,6 +102,50 @@
     {
       "stab": "stabs/st11-no-frozen-bind/done_contract.sh",
       "case": "regression-new-freeze"
+    },
+    {
+      "stab": "stabs/st12-first-call-only/done_contract.sh",
+      "case": "review-second-conflict"
+    },
+    {
+      "stab": "stabs/st12-first-call-only/done_contract.sh",
+      "case": "adversary-second-conflict"
+    },
+    {
+      "stab": "stabs/st12-first-call-only/done_contract.sh",
+      "case": "review-repeat-call"
+    },
+    {
+      "stab": "stabs/st12-first-call-only/done_contract.sh",
+      "case": "adversary-repeat-call"
+    },
+    {
+      "stab": "stabs/st13-legacy-a-missing/done_contract.sh",
+      "case": "frozen201-risk-same-object"
+    },
+    {
+      "stab": "stabs/st14-version-is-call/done_contract.sh",
+      "case": "historic186"
+    },
+    {
+      "stab": "stabs/st15-ignore-phase/done_contract.sh",
+      "case": "historic186"
+    },
+    {
+      "stab": "stabs/st16-ignore-phase-conflict/done_contract.sh",
+      "case": "historic186-phase-conflict"
+    },
+    {
+      "stab": "stabs/st17-phase-without-call/done_contract.sh",
+      "case": "historic186-phase-no-call"
+    },
+    {
+      "stab": "stabs/st18-ignore-cycle/done_contract.sh",
+      "case": "historic129"
+    },
+    {
+      "stab": "stabs/st19-malformed-suffix/done_contract.sh",
+      "case": "historic186-bad-call-name"
     }
   ]
 }

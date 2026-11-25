@@ -1,14 +1,14 @@
-# СДАЧА 224 — свежесть по кругам
+# СДАЧА 224 — исправление двух блоков Crit224
 
-Обещание: порядок круга вместо ancestry между носителями, без снятия frozen/OBJECT. Наблюдение: реальный CLI done, отдельные stdout/stderr, Git-тег и неизменный HEAD. Предпосылки: Git/bash/python3/jq/date/stat, пин shellcheck 0.11.0; TMPDIR существует. Все авторские миры — в собственной копии, .scratch-224; в исходный репозиторий и настоящий origin мира записи нет. Батарея удаляет свои TemporaryDirectory на любом выходе.
+Обещание: числовой порядок носителей вместо их ancestry, с совместимостью frozen 201/186 и проверкой всех объявленных вызовов. Наблюдение: полный done CLI, rc, отдельные stdout/stderr, annotated тег на исходном HEAD, отсутствие тега при отказе. Ожидания сохраняются до субъекта; Git-миры автономны и удаляются TemporaryDirectory. TMPDIR — существующий tmp своей изолированной копии; shellcheck — пин 0.11.0 через VALIDATE_STD_SHELLCHECK.
 
-Из вывода: KLETKI 32; NOSITELI 13; STABY 11; SVJAZI 19. --repo . rc 1, KRASNYH 14: у каждой роли parallel/late-fail/duplicate/missing/conflict/date-order/name-date-conflict. --model rc 0, KLETKI 32 KRASNYH 0; --stabs rc 0, честные 32 зелёные, STABY 11 SVJAZI 19 ZHIVYH 0. --sintaksis rc 0, SINTAKSIS 14 SHELLCHECK 2; --catalog rc 0. Старые сценарии регрессии зелёны и совпадают с baseline обеими трубами.
+Источник дельты: закоммиченный FAIL Crit224, вызов 1, verdicts/critic/contracts-224-v1.md из архивной ветки, указанной в task-architect224b. База задания 6c021128eb8ecde054b26ad22700910412d88f7b НЕ содержит этот последующий вердикт в HEAD; файл чужой зоны не копируется, ссылка не выдаётся за HEAD-вход гейта. Дельта покрывает К-03, К-07 и К-09 карты этого FAIL, команды исполняются листом. Замороженные контракты, production, реестры и CI architect не меняет.
 
-Baseline — коммит 5fa6b2c294c2dfd677febb200c73dc27467461e6, предок результата. Миры полностью создаются кодом. Модель содержит только общий round-selector, два вызова вместо двух старых циклов, export NEXT_ID_LIB для source и документированные suppressions уже существующих baseline-предупреждений SC2034/SC2295/SC1010. Ни один новый предикат round-selector не выключен из shellcheck. Production и реестры architect не правит.
+КЛЕТКИ: 54. МУТАЦИИ: 19. СВЯЗИ: 30. Носители: 21; bash-носители вместе с обёрткой: 22. Единый источник клеток — CASES/probe.py, связей — MUTATIONS/build.py; source.json генерируется из них. Старые 32 клетки и 19 связей сохранены; новые номера стабов продолжают st12…st19.
 
-Фактические финальные двери (с указанным пином shellcheck, TMPDIR своей копии, SDACHA_TIMEOUT_SEK=600 SDACHA_BUDZHET_SEK=2400): pre_critic rc 0, «КРИТИК: дверь зелёная» (291.44 с); отдельный check_sdacha --run rc 0, «СДАЧА: лист зелёный (двери=13 карта=17/17 дельта=0)» (275.86 с). Полная check_provodka rc 1: «проводка: guard не подключён: fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh не вызывается в .githooks/ или .github/workflows/». Это оставшаяся зона orchestrator, до paid critic/done подключить CI; grammar-проверка не выдана за полную зелёную проводку.
+Baseline 5fa6b2c294c2dfd677febb200c73dc27467461e6 и пин исторических блобов 6c021128eb8ecde054b26ad22700910412d88f7b — предки результата. Переносятся настоящие review/adversary-блобы 186 и review-блобы прямо названных frozen 201 честных 129/190; меняются идентификатор предмета и OBJECT/SHA на автономные Git-объекты. У 186 review impl-v3 с вызов=1 реализации v2 и у 129 impl-v3/v4 с вызовами 1/2 круга реализации 2 сохранены настоящие метаданные: синтетический filename-only не считается совместимостью.
 
-Наблюдение процесса (кандидат для журнала main, без самовольного А-номера в wip): адрес WORKTREE из задания не совпал с выданным runtime изолированным деревом; адрес BRANCH заканчивается architect-a, а то же задание требует именно wip/224/architect для двери 018. Работа осталась в выданной изолированной копии на требуемой дверью ветке; фактический pwd и sha передаются в докладе. Ловец следующей пачки — выдавать единую пару фактического isolated-cwd/guard-совместимой ветки. Общий NABLIUDENIA_ARCHITECT.md в wip не менялся.
+Б-1 закрыт числовым ключом (поколение, вызов) и историческими формами impl-aN, impl-vV-vyzovK, фаза=реализация vV либо фаза=реализация…круг V вместе с вызовом K. Номер носителя, поколение реализации и локальный вызов различены. Singleton допустим, несколько файлов без определимого порядка отказываются; зарезервированный vyzov-суффикс не маскирует неканонический K. Б-2 закрыт обходом всех полей вызов=, включая второе в одной строке и одинаковый повтор. Канон/инструмент: настоящий Git/date/bash -n/shellcheck. Клетка нужна потому, что эти инструменты сами не удостоверяют семантику выбора вердикта; снятие/граница изменили бы заданное обязательство и не применены.
 
 ## Двери
 
@@ -17,6 +17,8 @@ Baseline — коммит 5fa6b2c294c2dfd677febb200c73dc27467461e6, предок
 - Stabs · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --stabs · 0 · 0
 - Sintaksis · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --sintaksis · 0 · 0
 - Catalog · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --catalog · 0 · 0
+- Compatibility · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --compatibility · 0 · 0
+- Independent-mutants · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --independent-mutants · 0 · 0
 - Precision · bash scripts/check_precision_gate.sh . contracts/224-svezhest-verdikta-done.md · 0 · 0
 - Spec-ready · bash scripts/check_spec_ready.sh . contracts/224-svezhest-verdikta-done.md · 0 · 0
 - Threat-model · bash scripts/check_threat_model.sh . contracts/224-svezhest-verdikta-done.md · 0 · 0
@@ -28,60 +30,88 @@ Baseline — коммит 5fa6b2c294c2dfd677febb200c73dc27467461e6, предок
 
 ## Карта классов
 
-- К-01 · чисто · вход: двери формы этого листа, поле ПРОВОДКА guard-каналом и незаполненные требования; строка плана 224 реально есть в данной базе · - · -
-- К-02 · чисто · вход: task-architect224 и owner-затравка #1379; Н-465 относится к state-ветке, не выдана за запись main; m2393 п.4 и обязательные три входа m2417 исполнены · - · -
-- К-03 · чисто · вход: context.py читает высшие frozen-блобы через git show, в том числе 038/2 и 201/1; меняется только выбор между вердиктами, не связи F/CID/OBJECT и другие ворота · - · -
-- К-04 · чисто · вход: контракт и новая семья — architect; scripts/done_contract.sh — implementer; реестры и CI — orchestrator; свои 73 ПЕРЕСЕЧЕНИЕ-строки выведены из frozen-блобов, чужих production-правок нет · - · -
-- К-05 · чисто · вход: публичные W --repo/--model/--stabs/--sintaksis/--catalog, consumer, pre_critic/check_sdacha с rc; полная проводка заявлена после подключения orchestrator · - · -
-- К-06 · чисто · вход: нет Git/bash/jq/date/stat, carrier hash mismatch, поломка мира или негодный синтаксис — rc 2, не поимка; каждый возврат subject rc вне 0/1 именуется отказом среды · - · -
-- К-07 · чисто · вход: --model — полный настоящий done в настоящих Git-мирах с живыми check_provodka/check_consumers, переиспользуется лишь world-constructor 201, не oracle/двойник двери; честный контроль 32/0 · - · -
-- К-08 · чисто · вход: MUTATIONS/build.py и source.json — 11 реальных мутантов двери, 19 отдельно исполняемых связей; при дубле оба файла accept, default номера согласован с metadata, CID/F-клетка имеет корректный OBJECT/F и изолирует удалённую связь · - · -
-- К-09 · чисто · вход: две роли × параллельный/линейный круг, поздний FAIL, дубли, номер отсутствует, конфликт вызова, инверсия дат, конфликт даты имени; filename-only и нормализуемая первая строка разрешены; station/product-пути и прежние отказные сценарии · - · -
-- К-10 · чисто · вход: проверяются rc, stdout, stderr, список done-тегов, peeled target и HEAD; регресс сравнивает полные байты с baseline того же мира; фактическая параллельность подтверждена merge-base в обе стороны до субъекта · - · -
-- К-11 · чисто · вход: ожидания, baseline bytes и исходный HEAD сохранены в памяти до кандидата, source.json прочитан/хеши сверены до запуска; дерево субъекта после вызова не является источником ожидаемого порядка · - · -
-- К-12 · чисто · вход: реальные Git plumbing, date ISO validation, bash -n, пинованный shellcheck/validate_std, JSON стандартной библиотекой; source.json сгенерирован build.py, не отдельная спецификация грамматики · - · -
-- К-13 · н/п · секретов/сетевых свидетельств нет: синтетические identity и кодом созданные Git-миры с локальным bare-origin; нового токена или CI-secret нет · - · -
-- К-14 · чисто · вход: параллельный и линейный accept, filename-only без СУД, одинаковое согласованное значение вызова с пояснением, CR/пробелы/case первой строки зелены; независимые legacy-отказы сохраняют байты · - · -
-- К-15 · чисто · вход: --catalog печатает 32/11/19; build.py — 13/11/19; --model и --stabs подтверждают клетки/связи другой мерой; context.py печатает 73 декларации, не ручной счёт прозы · - · -
-- К-16 · чисто · вход: рисковый допуск done; в НЕ ЗАЩИЩАЕТ названы согласованная ложь metadata, сговор, компрометация инструментов и независимые дефекты смежных дверей с ловцами · - · -
-- К-17 · н/п · существующий станционный скрипт; продуктовой архитектурной модели 188 и новых writers/scope_id нет; второй реестр/дверь не создаётся · - · -
+- К-01 · чисто · вход: двери формы листа и ПРОВОДКА guard-каналом; SDACHA_TIMEOUT_SEK=600 SDACHA_BUDZHET_SEK=2400 · - · -
+- К-02 · чисто · вход: owner-затравка #1379, task-architect224b и два блока закоммиченного FAIL Crit224; новых предметов нет · - · -
+- К-03 · чисто · вход: настоящая клетка 201 world201.live; шесть исторических блобов 186, включая review impl-v3 вызов=1; по четыре review-блоба 129/190 и парные поздние FAIL; frozen 201/186 неизменны · - · -
+- К-04 · чисто · вход: только contracts/224 и новая семья 224; context.py читает высшие frozen и выдаёт реальные пересечения; production/CI/журналы чужих зон не правятся · - · -
+- К-05 · чисто · вход: CLI W --repo/--model/--stabs/--sintaksis/--catalog/--compatibility/--independent-mutants, consumer и двери листа · - · -
+- К-06 · чисто · вход: отсутствие Git/bash/jq/date/stat, carrier hash mismatch, поломка мира/синтаксиса — rc 2, не поимка; результат предмета вне 0/1 именуется ошибкой среды · - · -
+- К-07 · чисто · вход: полный настоящий done, реальные check_provodka/check_consumers, Git и date; --model проверяет все поля вызова и старые положительные входы; модель не оракул ожидаемых rc · - · -
+- К-08 · чисто · вход: MUTATIONS/build.py и source.json; все старые связи сохранены, новые адресные стабы исполняются отдельно; два независимых мутанта меняют иные операции · - · -
+- К-09 · чисто · вход: обе роли × second-conflict/repeat-call/second-invalid и честное call-explanation; исторические version/call-координаты; отказ не создаёт тега · - · -
+- К-10 · чисто · вход: rc, stdout/stderr, список done-тегов, peeled target и HEAD; legacy-regress сравнивает полные байты baseline; параллельность подтверждена Git в обе стороны · - · -
+- К-11 · чисто · вход: ожидания, baseline bytes, исходный HEAD, source.json и хеши носителей сохранены до вызова; диск субъекта не перечитывается как ожидаемый результат · - · -
+- К-12 · чисто · вход: Git plumbing, date ISO, bash -n, validate_std с пинованным shellcheck; генерация носителей из одного SELECTOR/build.py · - · -
+- К-13 · н/п · новых секретов, сетевых свидетельств или токена нет; миры с синтетической identity и локальным bare-origin · - · -
+- К-14 · чисто · вход: linear/equivalent/no-metadata/call-explanation/singleton-unnumbered; реальные 201/186; все парные честные записи остаются зелёными · - · -
+- К-15 · чисто · вход: source.json/catalog и build.py согласуют 54 клетки, 19 мутаций, 30 связей; --model/--stabs выполняют другую меру · - · -
+- К-16 · чисто · вход: авторизация done; прежние F/CID/OBJECT/same-OBJECT и fail-closed сохранены; согласованная ложь metadata — прежний остаток с ловцами pre_judge/замок/origin · - · -
+- К-17 · н/п · станционный скрипт без продуктовой модели 188; новый writer/реестр/scope_id не вводится · - · -
+
+## Дельта
+
+- К-03 · клетка · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --compatibility · 0 · 0
+- К-07 · клетка · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --independent-mutants · 0 · 0
+- К-09 · клетка · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --independent-mutants · 0 · 0
 
 ## Сырой red-do до реализации
 
-Команда: `TMPDIR=<своя копия>/.scratch-224 bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --repo .`, rc 1. Ниже stdout без перевода repr stderr в прозу; финальный счёт из вывода.
+`W --repo .` rc 1. Красны 23 клетки: для каждой роли review/adversary parallel, late-fail, duplicate, missing, conflict, date-order, name-date-conflict, second-conflict, repeat-call, second-invalid; дополнительно historic186-phase-conflict, historic186-phase-no-call и historic186-bad-call-name. Остальные зелёные, включая настоящие 201/186/129/190 и их поздние FAIL.
 
 ```text
-REPO review-parallel RED RC,TAG_TARGET,STDERR rc=1 stderr=b'done: \xd0\xbd\xd0\xb5\xd1\x81\xd0\xba\xd0\xbe\xd0\xbb\xd1\x8c\xd0\xba\xd0\xbe \xd0\xb2\xd0\xb5\xd1\x80\xd0\xb4\xd0\xb8\xd0\xba\xd1\x82\xd0\xbe\xd0\xb2, \xd1\x81\xd0\xb2\xd0\xb5\xd0\xb6\xd0\xb8\xd0\xb9 contracts-777-impl-v3.md \xd0\xbd\xd0\xb5 accept\n'
-REPO review-late-fail RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
-REPO review-duplicate RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
-REPO review-missing RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
-REPO review-conflict RED DIAGNOSIS rc=1 stderr=b'done: \xd0\xbd\xd0\xb5\xd1\x81\xd0\xba\xd0\xbe\xd0\xbb\xd1\x8c\xd0\xba\xd0\xbe \xd0\xb2\xd0\xb5\xd1\x80\xd0\xb4\xd0\xb8\xd0\xba\xd1\x82\xd0\xbe\xd0\xb2, \xd1\x81\xd0\xb2\xd0\xb5\xd0\xb6\xd0\xb8\xd0\xb9 contracts-777-impl-v3.md \xd0\xbd\xd0\xb5 accept\n'
-REPO review-date-order RED DIAGNOSIS rc=1 stderr=b'done: \xd0\xbd\xd0\xb5\xd1\x81\xd0\xba\xd0\xbe\xd0\xbb\xd1\x8c\xd0\xba\xd0\xbe \xd0\xb2\xd0\xb5\xd1\x80\xd0\xb4\xd0\xb8\xd0\xba\xd1\x82\xd0\xbe\xd0\xb2, \xd1\x81\xd0\xb2\xd0\xb5\xd0\xb6\xd0\xb8\xd0\xb9 contracts-777-impl-v3.md \xd0\xbd\xd0\xb5 accept\n'
-REPO review-linear GREEN 
-REPO review-equivalent GREEN 
-REPO review-no-metadata GREEN 
-REPO review-name-date-conflict RED DIAGNOSIS rc=1 stderr=b'done: \xd0\xbd\xd0\xb5\xd1\x81\xd0\xba\xd0\xbe\xd0\xbb\xd1\x8c\xd0\xba\xd0\xbe \xd0\xb2\xd0\xb5\xd1\x80\xd0\xb4\xd0\xb8\xd0\xba\xd1\x82\xd0\xbe\xd0\xb2, \xd1\x81\xd0\xb2\xd0\xb5\xd0\xb6\xd0\xb8\xd0\xb9 contracts-777-impl-v3.md \xd0\xbd\xd0\xb5 accept\n'
-REPO adversary-parallel RED RC,TAG_TARGET,STDERR rc=1 stderr=b'done: \xd1\x81\xd0\xb2\xd0\xb5\xd0\xb6\xd0\xb8\xd0\xb9 \xd0\xb2\xd0\xb5\xd1\x80\xd0\xb4\xd0\xb8\xd0\xba\xd1\x82 \xd0\xb0\xd0\xb4\xd0\xb2\xd0\xb5\xd1\x80\xd1\x81\xd0\xb0\xd1\x80\xd0\xb8\xd1\x8f verdicts/adversary/contracts-777-impl-v3.md \xd0\xbd\xd0\xb5 accept\n'
-REPO adversary-late-fail RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
-REPO adversary-duplicate RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
-REPO adversary-missing RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
-REPO adversary-conflict RED DIAGNOSIS rc=1 stderr=b'done: \xd1\x81\xd0\xb2\xd0\xb5\xd0\xb6\xd0\xb8\xd0\xb9 \xd0\xb2\xd0\xb5\xd1\x80\xd0\xb4\xd0\xb8\xd0\xba\xd1\x82 \xd0\xb0\xd0\xb4\xd0\xb2\xd0\xb5\xd1\x80\xd1\x81\xd0\xb0\xd1\x80\xd0\xb8\xd1\x8f verdicts/adversary/contracts-777-impl-v3.md \xd0\xbd\xd0\xb5 accept\n'
-REPO adversary-date-order RED DIAGNOSIS rc=1 stderr=b'done: \xd1\x81\xd0\xb2\xd0\xb5\xd0\xb6\xd0\xb8\xd0\xb9 \xd0\xb2\xd0\xb5\xd1\x80\xd0\xb4\xd0\xb8\xd0\xba\xd1\x82 \xd0\xb0\xd0\xb4\xd0\xb2\xd0\xb5\xd1\x80\xd1\x81\xd0\xb0\xd1\x80\xd0\xb8\xd1\x8f verdicts/adversary/contracts-777-impl-v3.md \xd0\xbd\xd0\xb5 accept\n'
-REPO adversary-linear GREEN 
-REPO adversary-equivalent GREEN 
-REPO adversary-no-metadata GREEN 
-REPO adversary-name-date-conflict RED DIAGNOSIS rc=1 stderr=b'done: \xd1\x81\xd0\xb2\xd0\xb5\xd0\xb6\xd0\xb8\xd0\xb9 \xd0\xb2\xd0\xb5\xd1\x80\xd0\xb4\xd0\xb8\xd0\xba\xd1\x82 \xd0\xb0\xd0\xb4\xd0\xb2\xd0\xb5\xd1\x80\xd1\x81\xd0\xb0\xd1\x80\xd0\xb8\xd1\x8f verdicts/adversary/contracts-777-impl-v3.md \xd0\xbd\xd0\xb5 accept\n'
-REPO review-old-object GREEN 
-REPO adversary-other-object GREEN 
-REPO regression-new-freeze GREEN 
-REPO regression-no-object GREEN 
-REPO regression-single-fail GREEN 
-REPO regression-escalate GREEN 
-REPO regression-bad-first GREEN 
-REPO regression-no-freeze GREEN 
-REPO regression-empty-reason GREEN 
-REPO regression-uncommitted GREEN 
-REPO regression-product GREEN 
-REPO regression-product-not-merged GREEN 
-KLETKI 32 KRASNYH 14
+REPO review-second-conflict RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
+REPO review-repeat-call RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
+REPO review-second-invalid RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
+REPO adversary-second-conflict RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
+REPO adversary-repeat-call RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
+REPO adversary-second-invalid RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
+REPO historic186-phase-conflict RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
+REPO historic186-phase-no-call RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
+REPO historic186-bad-call-name RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
+KLETKI 54 KRASNYH 23
+world201.live (0, '')
+HISTORIC_RAW historic186 RAW 0 b'' b''
+HISTORIC_RAW historic186 GREEN
+HISTORIC_RAW historic129 RAW 0 b'' b''
+HISTORIC_RAW historic129 GREEN
+HISTORIC_RAW historic190 RAW 0 b'' b''
+HISTORIC_RAW historic190 GREEN
+```
+
+## Сырой честный контроль
+
+`W --model` rc 0; итог полного прогона:
+
+```text
+KLETKI 54 KRASNYH 0
+```
+
+## Наблюдение процесса
+
+Адрес доставки WORKTREE и BRANCH architect-b в задании отличаются от фактической isolated-копии и требуемой заданием для контракта ветки wip/224/architect. Работа остаётся в выданной isolated-копии, на guard-совместимой ветке; фактические pwd/sha передаются ведущему. Журнал NABLIUDENIA_ARCHITECT.md не правится в wip; кандидат для main без самовольного А-номера: выдавать единую пару actual-cwd/guard-совместимая ветка. Расхождение предотвращает доставка по фактическому sha, не запись в чужой WORKTREE. К ВЛАДЕЛЬЦУ по предмету ничего не вынесено: обязательства и риск frozen не меняются.
+
+Кандидат наблюдения main (класс: процедура дешёвого префлайта; источник: свой прогон): st18 потерял экранирование пробела в bash-regex; ошибка синтаксиса обнаружилась после честного контроля, цена прогона 286.62 с. Rc 2 не зачтён как поимка стаба. После ремонта именно генератора `--sintaksis` дал rc 0 (`SINTAKSIS 22 SHELLCHECK 2`) ДО повторного полного `--stabs`; ловец следующей пачки — дешёвый синтаксис всех сгенерированных носителей перед поведенческой батареей.
+
+## Сырые итоги отдельных режимов
+
+После ремонта st18: `W --stabs`, `W --sintaksis`, `W --catalog`, `W --compatibility`, `W --independent-mutants` — каждый rc 0. Итоги без перевода:
+
+```text
+STABY 19 SVJAZI 30 ZHIVYH 0
+SINTAKSIS 22 SHELLCHECK 2
+KLETKI 54 STABY 19 SVJAZI 30
+INDEPENDENT_MUTANTS 2 ZHIVYH 0
+first-call-tail review-second-conflict RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
+first-call-tail adversary-second-conflict RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
+single-a-rejected frozen201-risk-same-object RAW 1 b'' b'done: VERDICT_ROUND_MISSING: adversary: verdicts/adversary/contracts-777-impl-a1.md\n'
+```
+
+## Финальные двери
+
+С пином shellcheck и бюджетами из раздела «Двери»: pre_critic rc 0 (489.24 с); check_sdacha --run rc 0 (776.16 с); отдельный check_precision_gate rc 0 (15.76 с), с полным набором frozen/done-тегов. Сырые итоги:
+
+```text
+КРИТИК: дверь зелёная
+СДАЧА: лист зелёный (двери=15 карта=17/17 дельта=3)
+OK
 ```
