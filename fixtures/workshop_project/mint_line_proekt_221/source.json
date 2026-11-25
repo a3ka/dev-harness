@@ -1,5 +1,39 @@
 {
   "base": "8b52fade7975034d7cabece67e46c16a7d1abe3b",
+  "production_base": "7cd4dbbe51bc6ba0df021d3104134160a926dfc3",
+  "kletki": [
+    "p01-no-hook",
+    "p02-foreign-config",
+    "p03-empty-config",
+    "p04-email-only",
+    "p05-foreign-env",
+    "p06-disabled-config-hook",
+    "p07-live-door-refusal",
+    "p08-repeat",
+    "p09-no-verify-argument",
+    "p10-not-repository",
+    "p11-multivalue-config",
+    "p12-user-family-config",
+    "s01-live-hook",
+    "s02-no-hook",
+    "s03-foreign-config",
+    "s04-repeat",
+    "s05-live-door-refusal",
+    "p13-hook-cleanup-success",
+    "p14-hook-cleanup-refusal",
+    "p15-local-refs-success",
+    "p16-local-refs-refusal",
+    "p17-ignored-rollback",
+    "p18-foreign-cwd",
+    "p19-untracked-profile",
+    "p20-broken-profile",
+    "p21-not-main",
+    "p22-dirty",
+    "p23-other-config",
+    "s06-layer-only",
+    "s07-parent-profile",
+    "s08-workflow-only"
+  ],
   "nositeli": {
     "model/station.sh": "e00e7df236ac13a8c089bc7bb770a4bf4ef8d5037b76d4ee36ca6d6adf8c5418",
     "model/mint_line.sh": "6192557027d615c322052c3ae5a35f7a621623390d9e0e1ff30b75de586a526f",
@@ -16,7 +50,26 @@
     "stabs/st11-single-value-unset/mint_line.sh": "543262d5968351285a66ddbed1c52c8c96dccbedb11ee6b6d5e6ff9e7f69fa64",
     "stabs/st12-unrelated-config/mint_line.sh": "a0d599c79c37efaf5453afed31d77a1de189e1767ef76c1a1f33892f99b0b21e",
     "stabs/st13-no-cleanup/mint_line.sh": "255172a86faa29d55f013cde06b2a2dbc27f2e3e75ef44ba2f40d7b3f35b71f7",
-    "stabs/st14-user-section/mint_line.sh": "1121bbd7bf23716edd336c75eb16d6cfac2619e6b94247af6e0be8d4485d0cd9"
+    "stabs/st14-user-section/mint_line.sh": "1121bbd7bf23716edd336c75eb16d6cfac2619e6b94247af6e0be8d4485d0cd9",
+    "stabs/st15-residue-git/mint_line.sh": "dff6d7c1914a4ca79e8258a0ba48562f04c3ef516daf71367f7af57e59e9517b",
+    "stabs/st16-residue-tmp/mint_line.sh": "37403c4ff85e1a8e85e15a74bf5b0c566cce7fe94af0bea7af3c59b6ed857427",
+    "stabs/st17-residue-hooks/mint_line.sh": "992e606c365e0eeff23986c3b9661988f55b809dc787fa2d65c964795a994cbf",
+    "stabs/st18-residue-info/mint_line.sh": "ff189da34ce07868cd8bbd8d08086b653029f8c3800a734702ceb115e9d0e0ba",
+    "stabs/st19-residue-home/mint_line.sh": "e643ad4758159d90192311c5b310d4f7f34c48a687ec39f9b27e0dee6aac9767",
+    "stabs/st20-tag-created/mint_line.sh": "cc88b4f85ebd1b88fb5e1d404b61ea7293b6b22d504e123b4440ba77befe41a4",
+    "stabs/st21-tag-deleted/mint_line.sh": "07908a8ab39532df1e695b568f2768739ea63a61c05f92c8b575bcdb7c01cb7f",
+    "stabs/st22-tag-rewritten/mint_line.sh": "294a0fac87bf9fe2cab3bd5f7aa24c18a3dd17ab605f2f01173152d0a06a8f16",
+    "stabs/st23-branch-created/mint_line.sh": "0076064499f3f60fd04f4af63ea1b291b7bfcbbd74aaf2c3da5471500ca315c7",
+    "stabs/st24-refusal-tag-deleted/mint_line.sh": "b583b963c62bbf7f108753f22cccbe50dfa1a952502383466e7e3ebfe63b9048",
+    "stabs/st25-clean-ignored/mint_line.sh": "8b2c8ba622a292a19fc8b5193de9defe27a6878059253b88487e4b7d78ecad7b",
+    "stabs/st26-marker-layer/mint_line.sh": "dfc7a8bc387449d966ccfa6bf0e126ea22cc3a0dae76348a43bf02c5cee109e3",
+    "stabs/st27-marker-cwd/mint_line.sh": "f1ae43fe7ea848191db7cd2a92e3fcc4ced467bc634052571b89ae0120365442",
+    "stabs/st28-marker-workflow/mint_line.sh": "bcf737b26456fbcc17ad5d69714aed1cf7c4466ee42c85638d03304dbdd48b09",
+    "stabs/st29-marker-tracked/mint_line.sh": "ae8455e2c162111954f8bb346cfafacbc5bbedd9865282912919b46d6b040ff4",
+    "stabs/st30-marker-parent/mint_line.sh": "c85593537216dfaa1b70d3469d57c3d13f7022f39276d71732c7f5551a045103",
+    "stabs/st31-no-profile-preflight/mint_line.sh": "3052756776bcc8a198251751496daf459aa7cacf3396db3631021da703b241be",
+    "stabs/st32-early-normalization/mint_line.sh": "6796ea5e860ff8e1a55b46e3f98c1feda72d92e1524c4166be3cc50296a5a09d",
+    "stabs/st33-config-sed/mint_line.sh": "99255f35e43a286cfd1f0e5c00bf84a2822a47fd026ee2bbcdeae931acf8c967"
   },
   "stab_vhod": [
     {
@@ -90,6 +143,106 @@
     {
       "stab": "stabs/st14-user-section/mint_line.sh",
       "case": "p12-user-family-config"
+    },
+    {
+      "stab": "stabs/st15-residue-git/mint_line.sh",
+      "case": "p13-hook-cleanup-success"
+    },
+    {
+      "stab": "stabs/st15-residue-git/mint_line.sh",
+      "case": "p14-hook-cleanup-refusal"
+    },
+    {
+      "stab": "stabs/st16-residue-tmp/mint_line.sh",
+      "case": "p13-hook-cleanup-success"
+    },
+    {
+      "stab": "stabs/st16-residue-tmp/mint_line.sh",
+      "case": "p14-hook-cleanup-refusal"
+    },
+    {
+      "stab": "stabs/st17-residue-hooks/mint_line.sh",
+      "case": "p13-hook-cleanup-success"
+    },
+    {
+      "stab": "stabs/st17-residue-hooks/mint_line.sh",
+      "case": "p14-hook-cleanup-refusal"
+    },
+    {
+      "stab": "stabs/st18-residue-info/mint_line.sh",
+      "case": "p13-hook-cleanup-success"
+    },
+    {
+      "stab": "stabs/st18-residue-info/mint_line.sh",
+      "case": "p14-hook-cleanup-refusal"
+    },
+    {
+      "stab": "stabs/st19-residue-home/mint_line.sh",
+      "case": "p13-hook-cleanup-success"
+    },
+    {
+      "stab": "stabs/st19-residue-home/mint_line.sh",
+      "case": "p14-hook-cleanup-refusal"
+    },
+    {
+      "stab": "stabs/st20-tag-created/mint_line.sh",
+      "case": "p15-local-refs-success"
+    },
+    {
+      "stab": "stabs/st21-tag-deleted/mint_line.sh",
+      "case": "p15-local-refs-success"
+    },
+    {
+      "stab": "stabs/st22-tag-rewritten/mint_line.sh",
+      "case": "p15-local-refs-success"
+    },
+    {
+      "stab": "stabs/st23-branch-created/mint_line.sh",
+      "case": "p15-local-refs-success"
+    },
+    {
+      "stab": "stabs/st24-refusal-tag-deleted/mint_line.sh",
+      "case": "p16-local-refs-refusal"
+    },
+    {
+      "stab": "stabs/st25-clean-ignored/mint_line.sh",
+      "case": "p17-ignored-rollback"
+    },
+    {
+      "stab": "stabs/st26-marker-layer/mint_line.sh",
+      "case": "s06-layer-only"
+    },
+    {
+      "stab": "stabs/st27-marker-cwd/mint_line.sh",
+      "case": "p18-foreign-cwd"
+    },
+    {
+      "stab": "stabs/st28-marker-workflow/mint_line.sh",
+      "case": "s08-workflow-only"
+    },
+    {
+      "stab": "stabs/st29-marker-tracked/mint_line.sh",
+      "case": "p19-untracked-profile"
+    },
+    {
+      "stab": "stabs/st30-marker-parent/mint_line.sh",
+      "case": "s07-parent-profile"
+    },
+    {
+      "stab": "stabs/st31-no-profile-preflight/mint_line.sh",
+      "case": "p20-broken-profile"
+    },
+    {
+      "stab": "stabs/st32-early-normalization/mint_line.sh",
+      "case": "p21-not-main"
+    },
+    {
+      "stab": "stabs/st32-early-normalization/mint_line.sh",
+      "case": "p22-dirty"
+    },
+    {
+      "stab": "stabs/st33-config-sed/mint_line.sh",
+      "case": "p23-other-config"
     }
   ]
 }
