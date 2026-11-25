@@ -187,6 +187,49 @@ sudo bash ops/server/install.sh verify
 `ОТКАЗ:` с путём (например `ОТКАЗ: имя прогона вне грамматики <число>-<число>: <путь>`), при этом валидные
 прогоны того же репо всё равно вычищаются — квота не должна стоять из-за одной мусорной записи.
 
+## TMPDIR моб-раннеров (боли Complior-mob, предмет 216)
+
+Юниты мобильных раннеров `gh-runner-complior` и `gh-runner-complior-2` заданы
+без `TMPDIR`, поэтому `ci-inventar.sh` моба под `set -u` падает на незаданной
+переменной; у бэкенд-раннеров (`gh-runner-back-*`) `TMPDIR` задан в самом
+юните. Форма моба — drop-in из репо (как у drop-in'а ci-artifacts), у каждого
+раннера свой каталог tmp1/tmp2:
+
+- Источники (при установке 644 root:root):
+  `ops/server/root/gh-runner-complior-tmpdir.conf` →
+  `/etc/systemd/system/gh-runner-complior.service.d/tmpdir.conf`
+  (`Environment=TMPDIR=/var/lib/ci-runner/tmp1`);
+  `ops/server/root/gh-runner-complior-2-tmpdir.conf` →
+  `/etc/systemd/system/gh-runner-complior-2.service.d/tmpdir.conf`
+  (`Environment=TMPDIR=/var/lib/ci-runner/tmp2`).
+- Каталоги: `/var/lib/ci-runner/tmp1`, `/var/lib/ci-runner/tmp2` — владелец
+  `harness` (пользователь раннера), режим 700. Корень `/var/lib/ci-runner` —
+  факт станции (там же WorkingDirectory раннеров); установщик корень не
+  переформатирует, расходящийся существующий tmp-каталог — именованный отказ.
+- Путь уже покрыт `ReadWritePaths=/var/lib/ci-runner` юнита — отдельной правки
+  юнита раннера не требуется.
+
+Установка (root); рестарт раннеров, чтобы TMPDIR вступил в силу, — действие
+оператора при простое раннеров:
+
+```sh
+sudo bash ops/server/install.sh mob-tmpdir
+# → каталоги tmp1/tmp2 (harness, 700) и drop-in'ы tmpdir.conf — по наличию
+#   юнита раннера на станции (юнита нет — не ставится, это не ошибка),
+#   затем systemctl daemon-reload. Вступает в силу при рестарте раннера:
+#   sudo systemctl restart gh-runner-complior gh-runner-complior-2
+
+sudo bash ops/server/install.sh verify
+# → «mob-tmpdir: сверка 2/2» (установлено) либо «mob-tmpdir: не применимо»
+#   (юнитов моб-раннеров на машине нет — это не расхождение).
+```
+
+Выключение: снять drop-in и рестартовать раннер (`sudo rm
+/etc/systemd/system/gh-runner-complior.service.d/tmpdir.conf` — и второй),
+затем `systemctl daemon-reload`; отдельного таймера у предмета нет. Швы:
+`OPS_SERVER_MOB_TMP` (корень tmp-каталогов), `OPS_SERVER_MOB_TMP_OWNER`
+(владелец каталогов), `OPS_SERVER_SYSTEMCTL`.
+
 ## Singleton (orch-loop, контракт 997, инв. 5)
 
 Один цикл на HOME: `flock -n 9` на каноническом пути
