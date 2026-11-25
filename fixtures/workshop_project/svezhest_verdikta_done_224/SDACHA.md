@@ -1,14 +1,30 @@
-# СДАЧА 224 — исправление двух блоков Crit224
+# СДАЧА 224 — все объявления поддерживаемых полей СУД
 
-Обещание: числовой порядок носителей вместо их ancestry, с совместимостью frozen 201/186 и проверкой всех объявленных вызовов. Наблюдение: полный done CLI, rc, отдельные stdout/stderr, annotated тег на исходном HEAD, отсутствие тега при отказе. Ожидания сохраняются до субъекта; Git-миры автономны и удаляются TemporaryDirectory. TMPDIR — существующий tmp своей изолированной копии; shellcheck — пин 0.11.0 через VALIDATE_STD_SHELLCHECK.
+Обещание: числовой порядок носителей вместо ancestry, совместимость frozen 201/186/129/190 и проверка всех объявлений поддерживаемых полей СУД. Наблюдение: настоящий полный done CLI, rc, отдельные stdout/stderr, annotated тег на исходном HEAD; при отказе тега нет, HEAD неизменен. Ожидания сохранены в памяти до субъекта. TMPDIR — .scratch224c внутри своей isolated-копии; shellcheck 0.11.0 через VALIDATE_STD_SHELLCHECK.
 
-Источник дельты: закоммиченный FAIL Crit224, вызов 1, verdicts/critic/contracts-224-v1.md из архивной ветки, указанной в task-architect224b. База задания 6c021128eb8ecde054b26ad22700910412d88f7b НЕ содержит этот последующий вердикт в HEAD; файл чужой зоны не копируется, ссылка не выдаётся за HEAD-вход гейта. Дельта покрывает К-03, К-07 и К-09 карты этого FAIL, команды исполняются листом. Замороженные контракты, production, реестры и CI architect не меняет.
+Источник исправления: FAIL Crit224, вызов 2, commit 859c0de39cf6b0be6a52165ee49d16746f5e59cb:verdicts/critic/contracts-224-v2.md; база ba70659fc5e9cae5b439f1d71c994ba92ee1f7e2. Вердикт прочитан целиком через git show, чужой файл в HEAD не копируется. Единственный блок К-09: первое совпадение поколения фазы в строке скрывает второе. К-07 той же карты закрывается честным контролем. Новых предметов, изменений production/frozen/реестров/CI нет. Позиция автора для §Остановка: блок принят; конечная граница — все объявления вызова, поколения фазы и даты, не новая грамматика всей СУД-прозы. Этот ремонт не даёт freeze и не отменяет маршрут арбитража оркестратором.
 
-КЛЕТКИ: 54. МУТАЦИИ: 19. СВЯЗИ: 30. Носители: 21; bash-носители вместе с обёрткой: 22. Единый источник клеток — CASES/probe.py, связей — MUTATIONS/build.py; source.json генерируется из них. Старые 32 клетки и 19 связей сохранены; новые номера стабов продолжают st12…st19.
+КЛЕТКИ: 92. МУТАЦИИ: 21. СВЯЗИ: 56. Носители: 23; bash-носители вместе с обёрткой: 24. CASES/probe.py — источник клеток; MUTATIONS/build.py — источник связей; source.json сгенерирован из них. Исходные 54 клетки и 30 связей сохранены; добавлены record-клетки обеих ролей, st20/st21. Старые st12/st18 адаптированы к новому шву без изменения их входов или красноты.
 
-Baseline 5fa6b2c294c2dfd677febb200c73dc27467461e6 и пин исторических блобов 6c021128eb8ecde054b26ad22700910412d88f7b — предки результата. Переносятся настоящие review/adversary-блобы 186 и review-блобы прямо названных frozen 201 честных 129/190; меняются идентификатор предмета и OBJECT/SHA на автономные Git-объекты. У 186 review impl-v3 с вызов=1 реализации v2 и у 129 impl-v3/v4 с вызовами 1/2 круга реализации 2 сохранены настоящие метаданные: синтетический filename-only не считается совместимостью.
+Baseline 5fa6b2c294c2dfd677febb200c73dc27467461e6 и источник исторических блобов 6c021128eb8ecde054b26ad22700910412d88f7b остаются предками результата. Реальная клетка 201 world201.live и полные исторические 186/129/190 остаются положительными контролями. Перенос меняет идентификатор предмета и OBJECT/SHA на автономные Git-объекты, не метаданные. Все новые record-клетки редактируют одну СУД-запись в настоящем мире historic186: review impl-v3 (вызов 1) либо adversary impl-v2-vyzov2 (вызов 2); сохраняют OBJECT и прочее содержимое. Клетка record-adversary-phase-v-second-conflict дословно предъявляет строку критика: `СУД: фаза=реализация v2; фаза=реализация v3; вызов=2/2`.
 
-Б-1 закрыт числовым ключом (поколение, вызов) и историческими формами impl-aN, impl-vV-vyzovK, фаза=реализация vV либо фаза=реализация…круг V вместе с вызовом K. Номер носителя, поколение реализации и локальный вызов различены. Singleton допустим, несколько файлов без определимого порядка отказываются; зарезервированный vyzov-суффикс не маскирует неканонический K. Б-2 закрыт обходом всех полей вызов=, включая второе в одной строке и одинаковый повтор. Канон/инструмент: настоящий Git/date/bash -n/shellcheck. Клетка нужна потому, что эти инструменты сами не удостоверяют семантику выбора вердикта; снятие/граница изменили бы заданное обязательство и не применены.
+## Поля и правило
+
+`вызов=N` или `вызов=N/M`: все объявления; повтор даже того же значения — CONFLICT; числа канонические, объявленный вызов согласован с применимой координатой имени/поколения.
+
+`фаза=реализация vV` и `фаза=реализация…круг V`: одно поле поколения с двумя историческими формами; все объявления, включая смешанные; повтор даже той же версии — CONFLICT. Это сохраняет прежний запрет повторов между строками и делает его одинаковым внутри строки. Поколение требует вызов и совпадает с явной версией имени. Фаза без поколения остаётся свободной.
+
+`дата=YYYY-MM-DD`: все объявления; повтор даже той же даты — CONFLICT; единственное значение проверяет date, оно совпадает с датой имени и не инвертирует порядок разных кандидатов.
+
+Левая граница поддерживаемого имени — начало содержимого СУД, пробел или `;`; поля могут идти в любом порядке, через пробел либо `;` без обязательного пробела. Фаза не поглощает следующее поддерживаемое поле. Иные поля (репо/предмет/роль/сессия/модель и т.п.) не входят в грамматику порядка; слова без поля и свободное пояснение не превращаются в metadata. Повтор одинаковой даты у разных кандидатов допустим.
+
+## Закрытие блока
+
+Клетка, не снятие/граница: снятие либо ограничение первым совпадением ослабили бы обещание. Git/date/bash -n/shellcheck проверяют свои канонические свойства, но не семантику выбора, поэтому нужен поведенческий контроль. В SELECTOR/build.py один курсор по именам фаза/вызов/дата потребляет все объявления; значения проверяются в своей ветви. Ветви отказа получают адресные повтор/конфликт и честные единственные эквиваленты. Н-39: связи существуют только кодом, не контрактной прозой.
+
+Обе роли: обе формы фазы, второе противоречие, одинаковый повтор, смешение форм в обе стороны, три объявления, вызов перед/между фазами, пробел вместо `;`, повтор между строками. Для даты — второе противоречие, повтор, три объявления, пробельный разделитель и единственный честный контроль. Для вызова прежние second-conflict/repeat-call/second-invalid сохранены, добавлены три объявления. Честные phase-v-single/phase-cycle-single/date-single/explanation зелены.
+
+st20-first-phase-only имеет один якорь запрета повторной фазы; st21-first-date-only — один якорь даты. Каждая связь исполняется отдельно; кратность каждого якоря проверяет replace_one. Независимые first-each-field и last-each-field вмешиваются в курсор записи, а не якоря стабов: на КАЖДОМ из полей вызова, обеих форм поколения и даты, отдельно для обеих ролей, предъявляются одинаковые повторы. Нельзя зачесть полю красноту соседнего поля. Прежние два независимых мутанта сохранены; хвост после первого поля отрезается ПОСЛЕ проверки его значения, иначе новый шов даёт честный отказ на пустом вызове.
 
 ## Двери
 
@@ -30,45 +46,39 @@ Baseline 5fa6b2c294c2dfd677febb200c73dc27467461e6 и пин историческ
 
 ## Карта классов
 
-- К-01 · чисто · вход: двери формы листа и ПРОВОДКА guard-каналом; SDACHA_TIMEOUT_SEK=600 SDACHA_BUDZHET_SEK=2400 · - · -
-- К-02 · чисто · вход: owner-затравка #1379, task-architect224b и два блока закоммиченного FAIL Crit224; новых предметов нет · - · -
-- К-03 · чисто · вход: настоящая клетка 201 world201.live; шесть исторических блобов 186, включая review impl-v3 вызов=1; по четыре review-блоба 129/190 и парные поздние FAIL; frozen 201/186 неизменны · - · -
-- К-04 · чисто · вход: только contracts/224 и новая семья 224; context.py читает высшие frozen и выдаёт реальные пересечения; production/CI/журналы чужих зон не правятся · - · -
-- К-05 · чисто · вход: CLI W --repo/--model/--stabs/--sintaksis/--catalog/--compatibility/--independent-mutants, consumer и двери листа · - · -
-- К-06 · чисто · вход: отсутствие Git/bash/jq/date/stat, carrier hash mismatch, поломка мира/синтаксиса — rc 2, не поимка; результат предмета вне 0/1 именуется ошибкой среды · - · -
-- К-07 · чисто · вход: полный настоящий done, реальные check_provodka/check_consumers, Git и date; --model проверяет все поля вызова и старые положительные входы; модель не оракул ожидаемых rc · - · -
-- К-08 · чисто · вход: MUTATIONS/build.py и source.json; все старые связи сохранены, новые адресные стабы исполняются отдельно; два независимых мутанта меняют иные операции · - · -
-- К-09 · чисто · вход: обе роли × second-conflict/repeat-call/second-invalid и честное call-explanation; исторические version/call-координаты; отказ не создаёт тега · - · -
-- К-10 · чисто · вход: rc, stdout/stderr, список done-тегов, peeled target и HEAD; legacy-regress сравнивает полные байты baseline; параллельность подтверждена Git в обе стороны · - · -
-- К-11 · чисто · вход: ожидания, baseline bytes, исходный HEAD, source.json и хеши носителей сохранены до вызова; диск субъекта не перечитывается как ожидаемый результат · - · -
-- К-12 · чисто · вход: Git plumbing, date ISO, bash -n, validate_std с пинованным shellcheck; генерация носителей из одного SELECTOR/build.py · - · -
-- К-13 · н/п · новых секретов, сетевых свидетельств или токена нет; миры с синтетической identity и локальным bare-origin · - · -
-- К-14 · чисто · вход: linear/equivalent/no-metadata/call-explanation/singleton-unnumbered; реальные 201/186; все парные честные записи остаются зелёными · - · -
-- К-15 · чисто · вход: source.json/catalog и build.py согласуют 54 клетки, 19 мутаций, 30 связей; --model/--stabs выполняют другую меру · - · -
-- К-16 · чисто · вход: авторизация done; прежние F/CID/OBJECT/same-OBJECT и fail-closed сохранены; согласованная ложь metadata — прежний остаток с ловцами pre_judge/замок/origin · - · -
-- К-17 · н/п · станционный скрипт без продуктовой модели 188; новый writer/реестр/scope_id не вводится · - · -
+- К-01 · чисто · вход: двери формы листа, ПРОВОДКА guard-каналом; SDACHA_TIMEOUT_SEK=600 SDACHA_BUDZHET_SEK=2400 · - · -
+- К-02 · чисто · вход: task-architect224c и единственный блок закоммиченного FAIL Crit224 вызов 2, класс всех объявлений поддерживаемого поля · - · -
+- К-03 · чисто · вход: world201.live и исторические 186/129/190 с исходными metadata, frozen неизменны · - · -
+- К-04 · чисто · вход: только контракт 224 и его семья; context.py/precision читают настоящие высшие frozen; production/реестры/CI/журналы вне правки · - · -
+- К-05 · чисто · вход: полный CLI W и двери формы; повтор любого поддерживаемого поля именован CONFLICT до тега · - · -
+- К-06 · чисто · вход: ошибка среды/носителя/синтаксиса — rc 2, не поимка стаба · - · -
+- К-07 · чисто · вход: W --model, все record-клетки на полном CLI, rc/трубы/тег/HEAD; модель не оракул ожидаемого rc · - · -
+- К-08 · чисто · вход: st20/st21 и независимые first-each-field/last-each-field проверяются по каждой связи/каждому полю отдельно, не суммарной краснотой · - · -
+- К-09 · чисто · вход: RECORDS/probe.py, обе формы поколения, обе роли, повтор/второе противоречие/три поля/смешение/порядок/межстрочный повтор; дата и вызов не исключены · - · -
+- К-10 · чисто · вход: rc, обе трубы, отсутствие тега на отказе, peeled target на успехе, HEAD и побайтная legacy-regress · - · -
+- К-11 · чисто · вход: литеральные ожидания в памяти, исходный HEAD и carrier hashes до субъекта; диск субъекта не источник ожиданий · - · -
+- К-12 · чисто · вход: Git/date/bash -n/validate_std shellcheck; SELECTOR/build.py — единственный источник генерируемого кода · - · -
+- К-13 · н/п · новые секреты и сеть в оракуле не вводятся · - · -
+- К-14 · чисто · вход: phase-v-single/phase-cycle-single/date-single/explanation обеих ролей и исторические положительные контроли · - · -
+- К-15 · чисто · вход: catalog/source.json: 92 клетки, 21 мутация, 56 связей; --model/--stabs — другая мера · - · -
+- К-16 · чисто · вход: авторизация done, F/CID/OBJECT/same-OBJECT сохранены; согласованная ложь остаётся у pre_judge/замка/origin · - · -
+- К-17 · н/п · станционный скрипт без продуктовой модели; новых writer/scope_id нет · - · -
 
 ## Дельта
 
-- К-03 · клетка · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --compatibility · 0 · 0
-- К-07 · клетка · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --independent-mutants · 0 · 0
+- К-07 · клетка · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --model · 0 · 0
 - К-09 · клетка · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --independent-mutants · 0 · 0
 
-## Сырой red-do до реализации
+## Сырые результаты отдельных прогонов
 
-`W --repo .` rc 1. Красны 23 клетки: для каждой роли review/adversary parallel, late-fail, duplicate, missing, conflict, date-order, name-date-conflict, second-conflict, repeat-call, second-invalid; дополнительно historic186-phase-conflict, historic186-phase-no-call и historic186-bad-call-name. Остальные зелёные, включая настоящие 201/186/129/190 и их поздние FAIL.
+W --repo .: rc 1, `KLETKI 92 KRASNYH 53`. Исходные 23 красных сохранены: обе роли × parallel/late-fail/duplicate/missing/conflict/date-order/name-date-conflict/second-conflict/repeat-call/second-invalid; historic186-phase-conflict/phase-no-call/bad-call-name. Новые красные: обе роли × record-{role}-phase-v-second-conflict/phase-cycle-second-conflict/phase-v-repeat/phase-cycle-repeat/phase-mixed/phase-reverse-mixed/phase-three/call-before-phase/date-second-conflict/date-repeat/date-three/phase-spaces/phase-multiline/call-three/date-spaces. Каждый новый красный: `RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''`. Единственные объявления и свободное пояснение зелены ДО реализации.
 
 ```text
-REPO review-second-conflict RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
-REPO review-repeat-call RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
-REPO review-second-invalid RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
-REPO adversary-second-conflict RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
-REPO adversary-repeat-call RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
-REPO adversary-second-invalid RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
-REPO historic186-phase-conflict RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
-REPO historic186-phase-no-call RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
-REPO historic186-bad-call-name RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
-KLETKI 54 KRASNYH 23
+KLETKI 92 KRASNYH 53
+KLETKI 92 KRASNYH 0
+STABY 21 SVJAZI 56 ZHIVYH 0
+SINTAKSIS 24 SHELLCHECK 2
+KLETKI 92 STABY 21 SVJAZI 56
 world201.live (0, '')
 HISTORIC_RAW historic186 RAW 0 b'' b''
 HISTORIC_RAW historic186 GREEN
@@ -76,42 +86,29 @@ HISTORIC_RAW historic129 RAW 0 b'' b''
 HISTORIC_RAW historic129 GREEN
 HISTORIC_RAW historic190 RAW 0 b'' b''
 HISTORIC_RAW historic190 GREEN
+INDEPENDENT_MUTANTS 4 ZHIVYH 0
 ```
 
-## Сырой честный контроль
-
-`W --model` rc 0; итог полного прогона:
-
-```text
-KLETKI 54 KRASNYH 0
-```
+W --model rc 0 (117.64 с); W --stabs rc 0 (199.83 с), W --sintaksis rc 0, W --catalog rc 0, W --compatibility rc 0 (5.87 с), W --independent-mutants rc 0 (34.86 с). Первый independent-прогон дал rc 1 ZHIVYH 2: старый tail-мутант очищал значение ДО проверки и потому честно отказывал. Исправлен только его якорь; никакой зелёный результат не объявлен по первому прогону. Новые first/last-each-field красны каждый на своих полях уже в первом прогоне.
 
 ## Наблюдение процесса
 
-Адрес доставки WORKTREE и BRANCH architect-b в задании отличаются от фактической isolated-копии и требуемой заданием для контракта ветки wip/224/architect. Работа остаётся в выданной isolated-копии, на guard-совместимой ветке; фактические pwd/sha передаются ведущему. Журнал NABLIUDENIA_ARCHITECT.md не правится в wip; кандидат для main без самовольного А-номера: выдавать единую пару actual-cwd/guard-совместимая ветка. Расхождение предотвращает доставка по фактическому sha, не запись в чужой WORKTREE. К ВЛАДЕЛЬЦУ по предмету ничего не вынесено: обязательства и риск frozen не меняются.
-
-Кандидат наблюдения main (класс: процедура дешёвого префлайта; источник: свой прогон): st18 потерял экранирование пробела в bash-regex; ошибка синтаксиса обнаружилась после честного контроля, цена прогона 286.62 с. Rc 2 не зачтён как поимка стаба. После ремонта именно генератора `--sintaksis` дал rc 0 (`SINTAKSIS 22 SHELLCHECK 2`) ДО повторного полного `--stabs`; ловец следующей пачки — дешёвый синтаксис всех сгенерированных носителей перед поведенческой батареей.
-
-## Сырые итоги отдельных режимов
-
-После ремонта st18: `W --stabs`, `W --sintaksis`, `W --catalog`, `W --compatibility`, `W --independent-mutants` — каждый rc 0. Итоги без перевода:
-
-```text
-STABY 19 SVJAZI 30 ZHIVYH 0
-SINTAKSIS 22 SHELLCHECK 2
-KLETKI 54 STABY 19 SVJAZI 30
-INDEPENDENT_MUTANTS 2 ZHIVYH 0
-first-call-tail review-second-conflict RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
-first-call-tail adversary-second-conflict RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
-single-a-rejected frozen201-risk-same-object RAW 1 b'' b'done: VERDICT_ROUND_MISSING: adversary: verdicts/adversary/contracts-777-impl-a1.md\n'
-```
+Адрес доставки WORKTREE и ветка architect-c задания отличаются от выданной runtime isolated-копии и guard-совместимой ветки wip/224/architect. Пишется только выданная копия; ведущему доставляются фактические pwd/sha. Scratch тоже внутри копии, не в чужом /tmp. Журнал NABLIUDENIA_ARCHITECT.md в wip не правится. Кандидат для записи main без самовольного А-номера (класс: конструкция проверки; источник: первый --independent-mutants; цена: 28.93 с): при смене шва старый мутант может превратиться в честный отказ; его anchor переносится вместе с операцией, адресные входы и требование красноты сохраняются. Закрыто переносом очистки хвоста после проверки первого значения и повторным --independent-mutants rc 0. Расхождение cwd уже наблюдалось в предыдущем листе; нужна единая пара actual-cwd/guard-ветка в выдаче.
 
 ## Финальные двери
 
-С пином shellcheck и бюджетами из раздела «Двери»: pre_critic rc 0 (489.24 с); check_sdacha --run rc 0 (776.16 с); отдельный check_precision_gate rc 0 (15.76 с), с полным набором frozen/done-тегов. Сырые итоги:
+`bash scripts/check_precision_gate.sh "$PWD" contracts/224-svezhest-verdikta-done.md` rc 0 (14.25 с), сырой вывод `OK`.
+
+`bash scripts/pre_critic.sh contracts/224-svezhest-verdikta-done.md` rc 0 (711.64 с) с VALIDATE_STD_SHELLCHECK и SDACHA_TIMEOUT_SEK=600 SDACHA_BUDZHET_SEK=2400; полный прогон, без SDACHA_OKRUG. Он исполнил дверь сдаточного листа с командами разделов «Двери» и «Дельта»; ограничение изолированной копии не возникло.
 
 ```text
+  ok   гейт предпосылок: PREDPOSYLKI_OK secrets=0 variables=0 environments=0 settings=2
+  ok   гейт трека:
+  ok   модель угроз красна
+  ok   потолки красны
+  ok   проводка красна
+  ok   сдаточный лист красен
 КРИТИК: дверь зелёная
-СДАЧА: лист зелёный (двери=15 карта=17/17 дельта=3)
-OK
 ```
+
+Фразы «красна/красен» здесь — дословные статические имена ног pre_critic после `ok`, не ненулевой rc. Отдельный повтор check_sdacha после этого не запускался: дверь уже выполнена настоящим pre_critic; stdout вложенной двери он подавляет.

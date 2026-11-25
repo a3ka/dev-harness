@@ -22,6 +22,30 @@ SCENARIOS = ('parallel', 'late-fail', 'duplicate', 'missing', 'conflict', 'date-
              'linear', 'equivalent', 'no-metadata', 'name-date-conflict',
              'second-conflict', 'repeat-call', 'call-explanation', 'second-invalid',
              'singleton-unnumbered')
+# Each cell edits one historical carrier, preserving its OBJECT and Git history.
+# The boolean is the independent literal oracle: True means CONFLICT, no tag.
+RECORDS = {
+    'phase-v-second-conflict': ('фаза=реализация v2; фаза=реализация v3; вызов={call}/2', True),
+    'phase-cycle-second-conflict': ('фаза=реализация (круг 2); фаза=реализация (круг 3); вызов={call}/2', True),
+    'phase-v-repeat': ('фаза=реализация v2; фаза=реализация v2; вызов={call}/2', True),
+    'phase-cycle-repeat': ('фаза=реализация (круг 2); фаза=реализация (круг 2); вызов={call}/2', True),
+    'phase-mixed': ('фаза=реализация v2; вызов={call}/2; фаза=реализация (круг 3)', True),
+    'phase-reverse-mixed': ('фаза=реализация (круг 2); вызов={call}/2; фаза=реализация v3', True),
+    'phase-three': ('фаза=реализация v2; фаза=реализация (круг 2); фаза=реализация v3; вызов={call}/2', True),
+    'call-before-phase': ('вызов={call}/2; фаза=реализация v2; фаза=реализация v3', True),
+    'phase-v-single': ('фаза=реализация v2; вызов={call}/2', False),
+    'phase-cycle-single': ('вызов={call}/2; фаза=реализация (круг 2)', False),
+    'date-second-conflict': ('фаза=реализация v2; вызов={call}/2; дата=2026-11-25; дата=2026-11-26', True),
+    'date-repeat': ('дата=2026-11-25; фаза=реализация v2; дата=2026-11-25; вызов={call}/2', True),
+    'date-single': ('дата=2026-11-25; вызов={call}/2; фаза=реализация v2', False),
+    'date-three': ('дата=2026-11-25; дата=2026-11-25; дата=2026-11-26; фаза=реализация v2; вызов={call}/2', True),
+    'explanation': ('фаза=реализация v2 (фаза без поля; дата без поля); вызов={call}/2 (вызов без поля)', False),
+    'phase-spaces': ('фаза=реализация (круг 2) фаза=реализация v3 вызов={call}/2', True),
+    'phase-multiline': ('фаза=реализация v2; вызов={call}/2\nСУД: фаза=реализация v2', True),
+    'call-three': ('фаза=реализация v2; вызов={call}/2; вызов={call}/2; вызов=9/9', True),
+    'date-spaces': ('фаза=реализация v2 вызов={call}/2 дата=2026-11-25 дата=2026-11-26', True),
+}
+
 CASES = tuple(role + '-' + name for role in ('review', 'adversary') for name in SCENARIOS) + (
     'review-old-object', 'adversary-other-object', 'regression-new-freeze',
     'regression-no-object', 'regression-single-fail', 'regression-escalate',
@@ -31,6 +55,8 @@ CASES = tuple(role + '-' + name for role in ('review', 'adversary') for name in 
     'historic186-phase-conflict', 'historic186-phase-no-call', 'historic186-review-late-fail',
     'historic129', 'historic129-late-fail', 'historic190', 'historic190-late-fail',
     'historic186-bad-call-name')
+CASES += tuple('record-' + role + '-' + name
+               for role in ('review', 'adversary') for name in RECORDS)
 
 
 def run(args, cwd=None, env=None):
@@ -62,6 +88,19 @@ def commit(root, message):
 
 
 def make_world(work, case):
+    if case.startswith('record-'):
+        role, name = case[len('record-'):].split('-', 1)
+        root, target, reason, _, _, tag, _ = make_world(work, 'historic186')
+        suffix, call = ('v3', 1) if role == 'review' else ('v2-vyzov2', 2)
+        path = root / f'verdicts/{role}/contracts-777-impl-{suffix}.md'
+        # Literal historical OBJECT and all non-record text remain unchanged.
+        body = '\n'.join(line for line in path.read_text().splitlines()
+                         if not line.startswith('СУД: ')) + '\n'
+        record, refuse = RECORDS[name]
+        path.write_text(body + 'СУД: ' + record.format(call=call) + '\n')
+        head = commit(root, 'record declarations ' + role + ' ' + name)
+        marker = f'done: VERDICT_ROUND_CONFLICT: {role}:'.encode() if refuse else b''
+        return root, target, reason, int(refuse), marker, tag, head
     if case.startswith('frozen201-'):
         label = ('v-riskovyi-sopostavimyj-object' if case.endswith('same-object')
                  else 'v-riskovyi-svezhij-fail')
@@ -389,21 +428,39 @@ def main():
                 return 1
         return int(suite(model, baseline, ['historic186', 'historic129', 'historic190'], 'HISTORIC_RAW', tools_repo) != 0)
     if args.independent_mutants:
-        # Different operations from catalog anchors: ignore the unconsumed tail,
-        # or reject the singleton aN before any filename interpretation.
+        # Independent defects act at the per-record cursor, not the catalog's
+        # call assignment / phase/date cardinality guards.
+        fields = [role + '-repeat-call' for role in ('review', 'adversary')]
+        fields += ['record-' + role + '-' + name for role in ('review', 'adversary')
+                   for name in ('phase-v-repeat', 'phase-cycle-repeat', 'date-repeat')]
         mutants = (
-            ('first-call-tail', b'rest="${rest#*"${BASH_REMATCH[0]}"}"', b"rest=''",
+            ('first-call-tail', [(b'        esac\n      done', b'        esac\n        rest=""\n      done')],
              ['review-second-conflict', 'adversary-second-conflict']),
-            ('single-a-rejected', b'    name="${f##*/}"', b'    if [[ "$f" == *-impl-a*.md ]] && [ "$count" -eq 1 ]; then\n'
-             b'      die "done: VERDICT_ROUND_MISSING: $role: $f"\n    fi\n    name="${f##*/}"',
+            ('single-a-rejected', [(b'    name="${f##*/}"', b'    if [[ "$f" == *-impl-a*.md ]] && [ "$count" -eq 1 ]; then\n'
+             b'      die "done: VERDICT_ROUND_MISSING: $role: $f"\n    fi\n    name="${f##*/}"')],
              ['frozen201-risk-same-object']),
+            ('first-each-field', [
+                ('rest="${field#СУД: }"'.encode(), 'rest="${field#СУД: }" record_seen=" "'.encode()),
+                (b'        case "$kind" in',
+                 b'        case "$record_seen" in *" $kind "*) continue ;; esac\n'
+                 b'        record_seen="$record_seen$kind "\n        case "$kind" in'),
+            ], fields),
+            ('last-each-field', [
+                (b'        case "$kind" in',
+                 b'        if [[ "$rest" =~ (^|[\\;\\ ])${kind}= ]]; then continue; fi\n'
+                 b'        case "$kind" in'),
+            ], fields),
         )
         alive = 0
-        for name, old, new, cases in mutants:
-            if model.count(old) != 1:
-                raise RuntimeError('NOT_IMPLEMENTED: independent anchor ' + name)
-            candidate = model.replace(old, new)
-            alive += suite(candidate, baseline, cases, name, tools_repo) == 0
+        for name, edits, cases in mutants:
+            candidate = model
+            for old, new in edits:
+                if candidate.count(old) != 1:
+                    raise RuntimeError('NOT_IMPLEMENTED: independent anchor ' + name)
+                candidate = candidate.replace(old, new)
+            # Every field and spelling must expose its own defect; no pooled red.
+            for case in cases:
+                alive += suite(candidate, baseline, [case], name, tools_repo) == 0
         print('INDEPENDENT_MUTANTS', len(mutants), 'ZHIVYH', alive)
         return int(alive != 0)
     if args.stabs:

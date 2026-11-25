@@ -114,7 +114,7 @@ _json_one_object() {
 # 224: round numbers order verdicts; commit ancestry still binds OBJECT/F.
 _select_round_verdict() {
   local files="$1" role="$2" f name text cid number call field day name_day key
-  local version declared rest token denominator phase_version explicit count=0
+  local version declared rest token kind denominator phase_version explicit count=0
   local best=0 seen=' ' metadata='' prior_n prior_d
   _rv_file='' _rv_cid='' _rv_first=''
   while IFS= read -r f; do
@@ -150,33 +150,49 @@ _select_round_verdict() {
     fi
     while IFS= read -r field; do
       [[ "$field" == 'СУД: '* ]] || continue
-      if [[ "$field" =~ (^|[\;\ ])фаза=реализация\ v([1-9][0-9]*)([\;\ ]|$) ]]; then
-        [ -z "$phase_version" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
-        phase_version="${BASH_REMATCH[2]}"
-      elif [[ "$field" =~ (^|[\;\ ])фаза=реализация[^\;]*круг\ ([1-9][0-9]*)([,\)\ ]|$) ]]; then
-        [ -z "$phase_version" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
-        phase_version="${BASH_REMATCH[2]}"
-      fi
       rest="${field#СУД: }"
-      # Inspect every named call token, including repeated fields on one line.
-      while [[ "$rest" =~ (^|[\;\ ])вызов=([^;\ ]*) ]]; do
-        token="${BASH_REMATCH[2]}"
+      # One cursor consumes every supported field start, regardless of order.
+      while [[ "$rest" =~ (^|[\;\ ])(фаза|вызов|дата)= ]]; do
+        kind="${BASH_REMATCH[2]}"
         rest="${rest#*"${BASH_REMATCH[0]}"}"
-        [ -z "$call" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
-        if [[ "$token" =~ ^([1-9][0-9]*)(/([1-9][0-9]*))?$ ]]; then
-          call="${BASH_REMATCH[1]}" denominator="${BASH_REMATCH[3]}"
-          [ "${#call}" -le 9 ] && [ "${#denominator}" -le 9 ] \
-            || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
-        else
-          die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+        token="${rest%%;*}"
+        # A space-separated next field also ends this value: a cycle must not
+        # greedily absorb a later phase/call/date declaration.
+        if [[ "$token" =~ \ (фаза|вызов|дата)= ]]; then
+          token="${token%%"${BASH_REMATCH[0]}"*}"
         fi
+        case "$kind" in
+          фаза)
+            if [[ "$token" =~ ^реализация\ v([1-9][0-9]*)(\ |$) ]]; then
+              token="${BASH_REMATCH[1]}"
+            elif [[ "$token" =~ ^реализация[^\;]*круг\ ([1-9][0-9]*)([,\)\ ]|$) ]]; then
+              token="${BASH_REMATCH[1]}"
+            else
+              continue # An unversioned phase remains free historical prose.
+            fi
+            [ -z "$phase_version" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+            phase_version="$token"
+            ;;
+          вызов)
+            token="${token%% *}"
+            [ -z "$call" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+            if [[ "$token" =~ ^([1-9][0-9]*)(/([1-9][0-9]*))?$ ]]; then
+              call="${BASH_REMATCH[1]}" denominator="${BASH_REMATCH[3]}"
+              [ "${#call}" -le 9 ] && [ "${#denominator}" -le 9 ] \
+                || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+            else
+              die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+            fi
+            ;;
+          дата)
+            token="${token%% *}"
+            [ -z "$day" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+            [[ "$token" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] \
+              || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+            day="$token"
+            ;;
+        esac
       done
-      if [[ "$field" =~ (^|[\;\ ])дата=([0-9]{4}-[0-9]{2}-[0-9]{2})([\;\ ]|$) ]]; then
-        [ -z "$day" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
-        day="${BASH_REMATCH[2]}"
-      elif [[ "$field" == *'дата='* ]]; then
-        die "done: VERDICT_ROUND_CONFLICT: $role: $f"
-      fi
     done <<< "$text"
     if [ -n "$phase_version" ]; then
       [ "${#phase_version}" -le 9 ] \

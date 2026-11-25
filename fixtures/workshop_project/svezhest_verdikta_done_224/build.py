@@ -15,7 +15,7 @@ BASE = '5fa6b2c294c2dfd677febb200c73dc27467461e6'
 SELECTOR = r'''# 224: round numbers order verdicts; commit ancestry still binds OBJECT/F.
 _select_round_verdict() {
   local files="$1" role="$2" f name text cid number call field day name_day key
-  local version declared rest token denominator phase_version explicit count=0
+  local version declared rest token kind denominator phase_version explicit count=0
   local best=0 seen=' ' metadata='' prior_n prior_d
   _rv_file='' _rv_cid='' _rv_first=''
   while IFS= read -r f; do
@@ -51,33 +51,49 @@ _select_round_verdict() {
     fi
     while IFS= read -r field; do
       [[ "$field" == 'СУД: '* ]] || continue
-      if [[ "$field" =~ (^|[\;\ ])фаза=реализация\ v([1-9][0-9]*)([\;\ ]|$) ]]; then
-        [ -z "$phase_version" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
-        phase_version="${BASH_REMATCH[2]}"
-      elif [[ "$field" =~ (^|[\;\ ])фаза=реализация[^\;]*круг\ ([1-9][0-9]*)([,\)\ ]|$) ]]; then
-        [ -z "$phase_version" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
-        phase_version="${BASH_REMATCH[2]}"
-      fi
       rest="${field#СУД: }"
-      # Inspect every named call token, including repeated fields on one line.
-      while [[ "$rest" =~ (^|[\;\ ])вызов=([^;\ ]*) ]]; do
-        token="${BASH_REMATCH[2]}"
+      # One cursor consumes every supported field start, regardless of order.
+      while [[ "$rest" =~ (^|[\;\ ])(фаза|вызов|дата)= ]]; do
+        kind="${BASH_REMATCH[2]}"
         rest="${rest#*"${BASH_REMATCH[0]}"}"
-        [ -z "$call" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
-        if [[ "$token" =~ ^([1-9][0-9]*)(/([1-9][0-9]*))?$ ]]; then
-          call="${BASH_REMATCH[1]}" denominator="${BASH_REMATCH[3]}"
-          [ "${#call}" -le 9 ] && [ "${#denominator}" -le 9 ] \
-            || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
-        else
-          die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+        token="${rest%%;*}"
+        # A space-separated next field also ends this value: a cycle must not
+        # greedily absorb a later phase/call/date declaration.
+        if [[ "$token" =~ \ (фаза|вызов|дата)= ]]; then
+          token="${token%%"${BASH_REMATCH[0]}"*}"
         fi
+        case "$kind" in
+          фаза)
+            if [[ "$token" =~ ^реализация\ v([1-9][0-9]*)(\ |$) ]]; then
+              token="${BASH_REMATCH[1]}"
+            elif [[ "$token" =~ ^реализация[^\;]*круг\ ([1-9][0-9]*)([,\)\ ]|$) ]]; then
+              token="${BASH_REMATCH[1]}"
+            else
+              continue # An unversioned phase remains free historical prose.
+            fi
+            [ -z "$phase_version" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+            phase_version="$token"
+            ;;
+          вызов)
+            token="${token%% *}"
+            [ -z "$call" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+            if [[ "$token" =~ ^([1-9][0-9]*)(/([1-9][0-9]*))?$ ]]; then
+              call="${BASH_REMATCH[1]}" denominator="${BASH_REMATCH[3]}"
+              [ "${#call}" -le 9 ] && [ "${#denominator}" -le 9 ] \
+                || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+            else
+              die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+            fi
+            ;;
+          дата)
+            token="${token%% *}"
+            [ -z "$day" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+            [[ "$token" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] \
+              || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
+            day="$token"
+            ;;
+        esac
       done
-      if [[ "$field" =~ (^|[\;\ ])дата=([0-9]{4}-[0-9]{2}-[0-9]{2})([\;\ ]|$) ]]; then
-        [ -z "$day" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"
-        day="${BASH_REMATCH[2]}"
-      elif [[ "$field" == *'дата='* ]]; then
-        die "done: VERDICT_ROUND_CONFLICT: $role: $f"
-      fi
     done <<< "$text"
     if [ -n "$phase_version" ]; then
       [ "${#phase_version}" -le 9 ] && [ -n "$call" ] \
@@ -151,14 +167,23 @@ MUTATIONS = {
     'st09-adverse-object-removed': ('[ "$_aobject" = "$object_sha" ] || die', 'true || die', ['adversary-other-object']),
     'st10-old-round': ('[ "$key" -gt "$best" ]', '{ [ "$best" -eq 0 ] || [ "$key" -lt "$best" ]; }', ['review-late-fail', 'adversary-late-fail']),
     'st11-no-frozen-bind': ('( cd "$ROOT" && git merge-base --is-ancestor "$frozen_commit" "$freshest_cid" ) || fresh_rc=$?', ': # stale accept accepted', ['regression-new-freeze']),
-    'st12-first-call-only': ('      done\n      if [[ "$field" =~', '        break\n      done\n      if [[ "$field" =~', ['review-second-conflict', 'adversary-second-conflict', 'review-repeat-call', 'adversary-repeat-call']),
+    'st12-first-call-only': ('call="${BASH_REMATCH[1]}" denominator="${BASH_REMATCH[3]}"', 'call="${BASH_REMATCH[1]}" denominator="${BASH_REMATCH[3]}" rest=""', ['review-second-conflict', 'adversary-second-conflict', 'review-repeat-call', 'adversary-repeat-call']),
     'st13-legacy-a-missing': ('elif [[ "$name" =~ -impl-a([1-9][0-9]*)\\.md$ ]]; then\n      version="${BASH_REMATCH[1]}" number=0 declared="$version"', 'elif [[ "$name" =~ -impl-a([1-9][0-9]*)\\.md$ ]]; then\n      die "done: VERDICT_ROUND_MISSING: $role: $f"', ['frozen201-risk-same-object']),
     'st14-version-is-call': ('version="${BASH_REMATCH[1]}" number="${BASH_REMATCH[2]}" explicit=1', 'version="${BASH_REMATCH[1]}" number=0 explicit=1', ['historic186']),
     'st15-ignore-phase': ('version="$phase_version" number="$call" declared="$call"', ': # phase namespace ignored', ['historic186']),
     'st16-ignore-phase-conflict': ('[ "$version" = "$phase_version" ]', 'true', ['historic186-phase-conflict']),
     'st17-phase-without-call': ('[ "${#phase_version}" -le 9 ] && [ -n "$call" ]', '[ "${#phase_version}" -le 9 ]', ['historic186-phase-no-call']),
-    'st18-ignore-cycle': ('фаза=реализация[^\\;]*круг\\ ', 'фаза=реализация[^\\;]*круг_\\ ', ['historic129']),
+    'st18-ignore-cycle': ('^реализация[^\\;]*круг\\ ', '^реализация[^\\;]*круг_\\ ', ['historic129']),
     'st19-malformed-suffix': ('elif [[ "$name" == *-impl-v*-vyzov*.md ]]; then', 'elif false; then', ['historic186-bad-call-name']),
+    'st20-first-phase-only': ('[ -z "$phase_version" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"', '[ -z "$phase_version" ] || continue',
+                            ['record-' + role + '-' + name for role in ('review', 'adversary')
+                             for name in ('phase-v-second-conflict', 'phase-cycle-second-conflict',
+                                          'phase-v-repeat', 'phase-cycle-repeat', 'phase-mixed',
+                                          'phase-reverse-mixed', 'phase-three', 'call-before-phase',
+                                          'phase-spaces')]),
+    'st21-first-date-only': ('[ -z "$day" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"', '[ -z "$day" ] || continue',
+                           ['record-' + role + '-' + name for role in ('review', 'adversary')
+                            for name in ('date-second-conflict', 'date-repeat', 'date-three', 'date-spaces')]),
 }
 
 
