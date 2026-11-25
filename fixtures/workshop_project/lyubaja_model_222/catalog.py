@@ -41,7 +41,7 @@ def main():
         if len(paths) != 1:
             continue
         text = git('show', ref + '^{commit}:' + paths[0])
-        if args.frozen and number in {'028', '099', '104', '129', '140', '166', '186'}:
+        if args.frozen and number in {'028', '099', '104', '129', '140', '166', '186', '198'}:
             print(ref + ' ' + paths[0])
             for lineno, line in enumerate(text.splitlines(), 1):
                 if line.startswith('ЗОНА '):
