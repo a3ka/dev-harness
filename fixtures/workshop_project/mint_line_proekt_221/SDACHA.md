@@ -2,17 +2,18 @@
 
 Обещание: штатный project-минт без ручного hooksPath. Наблюдение: реальный Git commit, профильный реестр, identity и rc живого check_staged, станционная побайтовая диффпроба. Frozen 068/031/080 учтены в Существующем контракта. Политика 080 не выключается: project-нормализация удаляет запрещённые локальные ключи, даже пустые/многозначные; другие ключи сохраняются. Производство этой пачкой не правится.
 
-Среда: TMPDIR=/tmp/dev-harness-verify/scratch-arch221b существует; VALIDATE_STD_SHELLCHECK=/home/harness/.local/state/dev-harness/validators/shellcheck/0.11.0/shellcheck. Нет валидатора — rc 2, не зелёный пропуск. Bash-синтаксис мутантов судится перед запуском, shellcheck — стандартным пинованным инструментом на честной модели/обёртке. Числа модели/связей определяет вывод, нижние границы контракта — 16 клеток, 11 стабов, 14 связей.
+Среда: каждый мир получает собственные TMPDIR и пустой HOME; VALIDATE_STD_SHELLCHECK=/home/harness/.local/state/dev-harness/validators/shellcheck/0.11.0/shellcheck. Нет валидатора — rc 2, не зелёный пропуск. Bash-синтаксис мутантов судится перед запуском, shellcheck — стандартным пинованным инструментом на честной модели/обёртке. Нижние границы контракта — 16 клеток, 11 стабов, 14 связей.
 
-Наблюдённые rc: --repo 1 (KLETKI 17 KRASNYH 10: p01–p08, p11, p12 — клетки реализации; p09, p10, s01–s05 зелёные); --model 0 (KLETKI 17 KRASNYH 0); --stabs 0 (честные 17 зелёных, STABY 14 SVJAZI 18 ZHIVYH 0); --sintaksis 0 (SINTAKSIS 17 SHELLCHECK 2); pre_critic 0 («КРИТИК: дверь зелёная»); check_sdacha --run 0 (двери=12 карта=17/17 дельта=2). Генератор напечатал NOSITELI 16 STABY 14 SVJAZI 18; model/ байт-в-байт прежняя, добавлены два носителя st13/st14.
+Ремонт Adv221 К-08.1…К-08.6: КЛЕТКИ 31 (добавлены 14), МУТАЦИИ 33 (добавлены 19 точных production-мутантов Adv221), СВЯЗИ 43 (добавлены 25), NOSITELI 35. Счёт и каталог клеток/связей генерирует build.py → source.json. Первые 17 клеток и 14 стабов сохранены; модель-эталон не менялась. Наблюдённые --repo и --model: rc 0, KLETKI 31 KRASNYH 0.
+Прогоны ремонта: --stabs rc 0, STABY 33 SVJAZI 43 ZHIVYH 0 (честный контроль 31/0); --sintaksis rc 0, SINTAKSIS 36 SHELLCHECK 2. repair_proof.py rc 0, оба независимых мутанта красны при честных зелёных контролях; все пять эквивалентных размещений хука с очисткой зелены на успехе и отказе.
 
 План не менялся: запрошенный gen_plan --check вернул rc 1 «gen_plan: флаг вне грамматики: --check» (у инструмента только --write); штатный немутирующий эквивалент check_plan --root вернул rc 1 «done-пункт стоит следующим: 157». Это существующая очередь, не отсутствие строки 221 и не предмет architect. Никакого обхода этой проверки либо зелёного заявления о плане нет.
 
-Полный check_provodka (не --grammar) до подключения orchestrator вернул rc 1: «проводка: guard не подключён: fixtures/workshop_project/mint_line_proekt_221/red_mint_line_proekt_221.sh не вызывается в .githooks/ или .github/workflows/». Подключение своего CI-шага — зона orchestrator контракта, до вызова критика/ворот done; architect не объявляет полную проводку зелёной.
+Известная красная строка «Red-do» после реализации исправлена без ослабления: та же production-команда теперь обязана вернуть 0. Контракт и scripts/mint_line.sh не меняются.
 
 ## Двери
 
-- Red-do · bash fixtures/workshop_project/mint_line_proekt_221/red_mint_line_proekt_221.sh --repo . · 1 · 1
+- Production · bash fixtures/workshop_project/mint_line_proekt_221/red_mint_line_proekt_221.sh --repo . · 0 · 0
 - Model · bash fixtures/workshop_project/mint_line_proekt_221/red_mint_line_proekt_221.sh --model · 0 · 0
 - Stabs · bash fixtures/workshop_project/mint_line_proekt_221/red_mint_line_proekt_221.sh --stabs · 0 · 0
 - Sintaksis · bash fixtures/workshop_project/mint_line_proekt_221/red_mint_line_proekt_221.sh --sintaksis · 0 · 0
@@ -57,3 +58,21 @@
 
 - К-08 · клетка · bash fixtures/workshop_project/mint_line_proekt_221/red_mint_line_proekt_221.sh --stabs · 0 · 0
 - К-09 · клетка · bash fixtures/workshop_project/mint_line_proekt_221/red_mint_line_proekt_221.sh --stabs · 0 · 0
+
+## Ремонт шести дыр Adv221
+
+Обещания и границы frozen 221/1 не менялись. Ожидания новых клеток — снимки живого мира до вызова; production-текст нужен только генератору обманных носителей. source.json пинует базу production, являющуюся предком кандидата, и несёт каталог клеток. Все 19 мутантов Adv221 воспроизведены побайтно; C05…C09 используют один уникальный протяжённый якорь, объединяющий удаление очистки и перенос mktemp без изменения промежуточного кода.
+
+К-08.1 · клетка · p13/p14: рекурсивные имена/типы .git вне изменяемого Git-хранилища; пустой HOME мира; прозрачный регистратор эффективного hooksPath с последующим exec настоящей sibling-двери. Сверяется отсутствие записанного каталога после возврата, в том числе вне TMPDIR. Снимки, содержимое/права имеющихся хуков и прежний TMPDIR-предикат сохранены. Остатки C06 за пределами мира убираются только по записанному mktemp-пути после вынесения результата; глобального сканирования /tmp нет. Эквивалентные честные размещения с сохранённой очисткой предъявляет repair_proof.py.
+
+К-08.2 · клетка · p15/p16: show-ref сравнивается с сохранённым world.refs; на успехе допускается ровно изменение refs/heads/main на наблюдённый HEAD, на отказе — ни одного изменения. Отдельно ловятся добавление, удаление, переписывание тега, новая ветка и удаление тега при отказе.
+
+К-08.3 · клетка · p17: отказ настоящей двери с .gitignore, игнорируемым файлом и каталогом; после вызова прежние байты, stat-режимы и status --porcelain --ignored.
+
+К-08.4 · клетка · p18/p19 и s06/s07/s08: чужой cwd с явным --root, игнорируемый untracked-профиль, ложные маркеры слоя/родителя/.workflow; станционные миры сравниваются с неизменным станционным каноном.
+
+К-08.5 · клетка · p20/p21/p22: чужие file-ключи и битый профиль/не-main/грязное дерево; отказ с собственной причиной, прежние HEAD/index/реестр/status и побайтно прежний .git/config.
+
+К-08.6 · клетка · p23: одноимённые name/email в [alias], [user "work"], [sendemail], signingkey/useConfigOnly; ключи/значения и байтовый конфиг сохраняются кроме запрещённых user.name/email.
+
+Привязки стабов к входам — только production_mutations() в build.py и сгенерированный source.json. Проверка каждой связи отдельна; p22 предъявлен early-normalization отдельно от p21. Два независимых мутанта и честные соседние формы: `PYTHONDONTWRITEBYTECODE=1 python3 fixtures/workshop_project/mint_line_proekt_221/repair_proof.py` (rc 0 означает обе мутации красны, их честные контроли и пять размещений с очисткой зелены).
