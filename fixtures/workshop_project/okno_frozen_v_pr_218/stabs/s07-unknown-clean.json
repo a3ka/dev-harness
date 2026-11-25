@@ -1,0 +1,1 @@
+{"name":"s07-unknown-clean","file":"pr_window.sh","old":"pr_refuse() { printf 'PR_WINDOW_%s\\n' \"$1\" >&2; exit 1; }","new":"pr_refuse() { printf 'PR_WINDOW_%s\\n' \"$1\" >&2; exit 0; }","cells":["frozen-missing-base","charter-missing-base","frozen-no-origin","charter-no-origin","frozen-unrelated","charter-unrelated"]}

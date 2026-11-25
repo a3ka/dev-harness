@@ -1,0 +1,1 @@
+{"name":"s15-final-charter","file":"pr_window.sh","old":"if g merge-base --is-ancestor \"$c\" \"$since\"; then continue; fi","new":"if [ \"$(g rev-parse \"$PR_HEAD:$p\")\" = \"$(g rev-parse \"$since:$p\")\" ]; then continue; fi\n      if g merge-base --is-ancestor \"$c\" \"$since\"; then continue; fi","cells":["charter-frozen-revert","charter-carrier-main-first-revert"]}

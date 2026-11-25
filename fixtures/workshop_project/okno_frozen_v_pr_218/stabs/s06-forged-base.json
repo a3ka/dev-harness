@@ -1,0 +1,1 @@
+{"name":"s06-forged-base","file":"pr_window.sh","old":"[ \"$remote\" = \"$base\"$'\\trefs/heads/main' ] || pr_refuse BASE_UNTRUSTED","new":": \"$remote\"","cells":["frozen-forged-base","charter-forged-base"]}

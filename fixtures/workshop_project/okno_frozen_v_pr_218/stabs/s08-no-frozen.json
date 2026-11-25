@@ -1,0 +1,1 @@
+{"name":"s08-no-frozen","file":"pr_window.sh","old":"pr_files() {\n","new":"pr_files() {\n  return 0\n","cells":["frozen-own-frozen","frozen-verdict-fail","frozen-delete-frozen"]}
