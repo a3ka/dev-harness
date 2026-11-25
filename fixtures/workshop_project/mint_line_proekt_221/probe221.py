@@ -16,7 +16,7 @@ REPO = HERE.parents[2]
 CASES = ('p01-no-hook', 'p02-foreign-config', 'p03-empty-config', 'p04-email-only',
          'p05-foreign-env', 'p06-disabled-config-hook', 'p07-live-door-refusal',
          'p08-repeat', 'p09-no-verify-argument', 'p10-not-repository',
-         'p11-multivalue-config',
+         'p11-multivalue-config', 'p12-user-family-config',
          's01-live-hook', 's02-no-hook', 's03-foreign-config', 's04-repeat',
          's05-live-door-refusal')
 ENV = {k: v for k, v in os.environ.items()
@@ -52,6 +52,11 @@ class World:
             self.registry = 'registry/contracts.tsv'
         if case == 'p03-empty-config':
             self.registry = '.workflow/book/contracts.tsv'
+        # p12: positive mint on the root-registry layout (same shape as the
+        # refusal seam p07) — door 031 reads HEAD/origin manifests literally,
+        # so dual-control runs fully live here.
+        if case == 'p12-user-family-config':
+            self.registry = 'registry/contracts.tsv'
         self.contracts = '.harness/contracts' if self.project else 'contracts'
         root.mkdir()
         self.git('init', '-q', '-b', 'main')
@@ -113,6 +118,14 @@ class World:
             self.git('config', '--add', 'user.name', 'two')
             self.git('config', '--add', 'user.email', 'one@example.invalid')
             self.git('config', '--add', 'user.email', 'two@example.invalid')
+        # К-09 (Crit221 v1 БЛОК-2): [user]-семейство вне запрещённых ключей —
+        # нормализация обязана сохранить их байт-в-байт, удалив только
+        # user.name/user.email (инвариант 3).
+        if case == 'p12-user-family-config':
+            self.git('config', 'user.name', 'foreign-person')
+            self.git('config', 'user.email', 'foreign@example.invalid')
+            self.git('config', 'user.signingkey', 'ABCDEF0123456789ABCDEF0123456789ABCDEF12')
+            self.git('config', 'user.useConfigOnly', 'true')
         if case == 'p06-disabled-config-hook':
             self.git('config', 'core.hooksPath', '/dev/null')
         self.before = self.rev('HEAD')
@@ -173,6 +186,39 @@ class World:
         self.g('reset', '--hard', self.before)
         (self.root / '.git/config').write_bytes(self.cfg)
 
+def normalized_config(cfg):
+    """Expected local .git/config bytes after honest normalization: only the
+    [user] name/email entry lines are removed, every other byte is intact
+    (К-09: byte-in-byte preservation of the rest of the configuration)."""
+    out, section = [], None
+    for line in cfg.splitlines(keepends=True):
+        stripped = line.strip()
+        if stripped.startswith(b'[') and stripped.endswith(b']'):
+            section = stripped
+            out.append(line)
+        elif section == b'[user]' and stripped.split(b' = ')[0] in (b'name', b'email'):
+            continue
+        else:
+            out.append(line)
+    return b''.join(out)
+
+
+def once_hook_residue(scratch):
+    """Leftovers of the SUBJECT's one-time hook in its TMPDIR world (К-08):
+    any surviving pre-commit file anywhere under scratch, or any temp catalog
+    other than the live door's own lib_zones.* scratch (dir + .active marker —
+    a station-tooling leak of check_staged/lib_zones, observed on the honest
+    model; not subject 221 and not part of invariant 2)."""
+    residue = set()
+    if scratch.is_dir():
+        for entry in scratch.iterdir():
+            if not entry.name.startswith('lib_zones.'):
+                residue.add(entry.name)
+        for path in scratch.rglob('pre-commit'):
+            residue.add(str(path.relative_to(scratch)))
+    return sorted(residue)
+
+
 
 def cell(tools, candidate, baseline, case, root):
     world = World(root, tools, case)
@@ -224,6 +270,16 @@ def cell(tools, candidate, baseline, case, root):
         problems.append('HOOK_CONFIG_CHANGED')
     if obs[9] != world.hooks or obs[10] != world.remote:
         problems.append('HOOKS_OR_ORIGIN_CHANGED')
+    # К-08 (Crit221 v1 БЛОК-1): the one-time hook must be gone on EVERY exit
+    # path of a project call — success and door refusal alike. The probe
+    # localizes the subject's TMPDIR to <world>/scratch; a surviving
+    # pre-commit or a foreign temp catalog there is the un-removed hook.
+    residue = once_hook_residue(root.parent / 'scratch')
+    if residue:
+        problems.append('ONCE_HOOK_LEFT(' + ','.join(residue) + ')')
+    # К-09: raw bytes of the surviving configuration (invariant 3).
+    if case == 'p12-user-family-config' and obs[8] != normalized_config(world.cfg):
+        problems.append('RAW_CONFIG_PARITY')
     return not problems, ','.join(problems) + ' rc=' + str(result.returncode) + ' stderr=' + repr(result.stderr)
 
 

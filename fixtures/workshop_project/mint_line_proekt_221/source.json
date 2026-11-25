@@ -14,7 +14,9 @@
     "stabs/st09-repeat-unchecked/mint_line.sh": "54372347f342972e153867e26d911d62b294402868b688562f4b55b0e0397ece",
     "stabs/st10-empty-name-left/mint_line.sh": "49250b8a5d3ebe98ade56b73db9214f65a5256247f4af8e8d5ec1b1586d06093",
     "stabs/st11-single-value-unset/mint_line.sh": "543262d5968351285a66ddbed1c52c8c96dccbedb11ee6b6d5e6ff9e7f69fa64",
-    "stabs/st12-unrelated-config/mint_line.sh": "a0d599c79c37efaf5453afed31d77a1de189e1767ef76c1a1f33892f99b0b21e"
+    "stabs/st12-unrelated-config/mint_line.sh": "a0d599c79c37efaf5453afed31d77a1de189e1767ef76c1a1f33892f99b0b21e",
+    "stabs/st13-no-cleanup/mint_line.sh": "255172a86faa29d55f013cde06b2a2dbc27f2e3e75ef44ba2f40d7b3f35b71f7",
+    "stabs/st14-user-section/mint_line.sh": "1121bbd7bf23716edd336c75eb16d6cfac2619e6b94247af6e0be8d4485d0cd9"
   },
   "stab_vhod": [
     {
@@ -76,6 +78,18 @@
     {
       "stab": "stabs/st12-unrelated-config/mint_line.sh",
       "case": "p01-no-hook"
+    },
+    {
+      "stab": "stabs/st13-no-cleanup/mint_line.sh",
+      "case": "p01-no-hook"
+    },
+    {
+      "stab": "stabs/st13-no-cleanup/mint_line.sh",
+      "case": "p07-live-door-refusal"
+    },
+    {
+      "stab": "stabs/st14-user-section/mint_line.sh",
+      "case": "p12-user-family-config"
     }
   ]
 }
