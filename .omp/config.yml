@@ -128,6 +128,5 @@ retry:
     vision: ["openai-codex/gpt-6.1-sol"]
     task-glm: ["anthropic/claude-sonnet-5-5"]
     slow: ["zai/glm-5.3"]
-    apex-sol: ["zai/glm-5.3"]
     plan: ["anthropic/claude-fable-5-2"]
   # ── /fallbackChains ──
