@@ -333,5 +333,4 @@ step	check:sreda-sudji-206-family-selftest	220	bash fixtures/workshop_project/sr
 uchet	registry/pauzy.tsv
 uchet	registry/mesto-legacy.tsv
 uchet	registry/lessons-harness.tsv
-step	check:uchetnye-puti-219-family-selftest	20	bash fixtures/workshop_project/uchetnye_puti_219/red_uchetnye_puti_219.sh --repo .
 step	check:uchetnye-puti-219-family-selftest	30	bash fixtures/workshop_project/uchetnye_puti_219/red_uchetnye_puti_219.sh --repo . && bash fixtures/workshop_project/uchetnye_puti_219/red_uchetnye_puti_219.sh --stabs
