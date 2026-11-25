@@ -27,7 +27,7 @@ st69-W-poparno-po-mode — копия pinned починенной production Imp
 - Red-do — 59/0 на честной production, включая b59 · bash fixtures/workshop_project/d52_bootstrap_sudej_211/red_d52_bootstrap_sudej_211.sh --repo . · 0 · 0
 - Model — 59 клеток, обе трубы байтами; mode вне порядка сверки D64 · bash fixtures/workshop_project/d52_bootstrap_sudej_211/red_d52_bootstrap_sudej_211.sh --model · 0 · 0
 - Stabs — SVJAZI 78 ZHIVYH 0, st58–st69 на пинах-предках · bash fixtures/workshop_project/d52_bootstrap_sudej_211/red_d52_bootstrap_sudej_211.sh --stabs · 0 · 0
-- Piny — все sha-литералы предки HEAD; два адресных негатива --stabs, честная эквивалентная запись зелена · python3 fixtures/workshop_project/d52_bootstrap_sudej_211/check_piny211.py · 0 · 0
+- Piny — все sha-литералы предки HEAD; два адресных негатива --stabs, честная эквивалентная запись зелена · fixtures/workshop_project/d52_bootstrap_sudej_211/check_piny211.py · 0 · 0
 - Sosed-208 — модель как субъект семьи 208, 35/0 · bash fixtures/workshop_project/d52_bootstrap_sudej_211/red_d52_bootstrap_sudej_211.sh --sosed-208 · 0 · 0
 - Negativ-208 — ровно r31/r32 · bash fixtures/workshop_project/d52_bootstrap_sudej_211/red_d52_bootstrap_sudej_211.sh --negativ-208 · 0 · 0
 - Sintaksis — модель и production · bash fixtures/workshop_project/d52_bootstrap_sudej_211/red_d52_bootstrap_sudej_211.sh --sintaksis · 0 · 0
