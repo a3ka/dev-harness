@@ -33,3 +33,14 @@ observer-object-not-assigned	observer-unassigned-object	fixtures/workshop_projec
 observer-invalid-is-incomplete	observer-null	fixtures/workshop_project/sreda_sudji_206/live.py
 observer-invalid-array-is-incomplete	observer-array	fixtures/workshop_project/sreda_sudji_206/live.py
 observer-bom-accepted	observer-bom	fixtures/workshop_project/sreda_sudji_206/live.py
+absolute-symlink-ignored	verdict-absolute-file-symlink-outside	scripts/pre_judge.sh
+cp-trailing-slash-ignored	guard-cp-trailing-slash-live-state	.omp/extensions/path-guard.ts
+mkdir-absolute-slash-ignored	mkdir/bare/abs/slash/plain/state/no-dash/position-0	.omp/extensions/path-guard.ts
+write-command-basename-ignored	cp/abs/abs/noslash/plain/state/no-dash/last	.omp/extensions/path-guard.ts
+mkdir-last-operand-only	mkdir/bare/abs/noslash/plain/state/no-dash/position-1	.omp/extensions/path-guard.ts
+target-not-passed-to-judge	mkdir/bare/abs/noslash/plain/foreign/no-dash/position-0	.omp/extensions/path-guard.ts
+verdict-relative-base-ignored	verdict/rel/plain/direct/inside	scripts/pre_judge.sh
+mkdir-dirlink-parent-symlink-skipped	guard-mkdir-dirlink-bin-outside	.omp/extensions/path-guard.ts
+verdict-root-equals-repo-ignored	verdict-root-file	scripts/pre_judge.sh
+quoted-read-stderr-is-write	guard-quoted-greater-stderr-null	.omp/extensions/path-guard.ts
+verdict-logical-before-physical	verdict/rel/plain/dir-symlink-dotdot/outside	scripts/pre_judge.sh
