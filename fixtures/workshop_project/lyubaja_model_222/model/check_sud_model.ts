@@ -87,6 +87,6 @@ for (const row of rows) {
   if (s !== session) stop(1, 'чужая трасса');
   if (o !== object) stop(1, 'трасса не об объекте суда');
   const want = status === 'denied' ? assignment.fallback : expected;
-  if (!want || !same(fact, want)) stop(1, 'вердикт не материализуется: модель-факт не назначенная');
+  if (!want || !same(fact, want)) stop(1, status === 'denied' ? 'вердикт не материализуется: фолбэк вне списка тира' : 'вердикт не материализуется: модель-факт не назначенная');
 }
 process.exit(0);

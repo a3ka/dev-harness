@@ -15,6 +15,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import re
 import tempfile
 
 HERE = Path(__file__).resolve().parent
@@ -26,7 +27,11 @@ FACT = 'other-vendor/other-family-9'
 BASE = 'primary-vendor/base-1'
 FALLBACK = 'reserve-vendor/reserve-2'
 EFFORT = 'other-vendor/other-family-9:xhigh'
+SUBSTR = 'other-vendor/other-family'
 ROLES = ('critic', 'adversary', 'reviewer', 'arbiter')
+NEIGHBOUR_198 = 'fixtures/workshop_project/modeli_tolko_v_reestre_198'
+# 222 supersedes exactly these spawn-leg cells of frozen family 198 (declared model is accepted on spawn).
+SUPERSEDED_198 = frozenset(('door_spawn_fallback_refused', 'door_spawn_foreign_refused', 'door_stale_primary'))
 
 
 @dataclass(frozen=True)
@@ -57,6 +62,14 @@ def cases():
         Case('spawn-manual-fallback', 'spawn', model=FALLBACK),
         Case('spawn-effort', 'spawn', model=EFFORT),
         Case('verdict-effort', 'verdict', model=EFFORT, assigned=EFFORT),
+        Case('verdict-effort-fact-truncated', 'verdict', model=FACT, assigned=EFFORT, expected=1, reason='вердикт не материализуется'.encode()),
+        Case('verdict-effort-fact-extended', 'verdict', model=EFFORT, assigned=FACT, expected=1, reason='вердикт не материализуется'.encode()),
+        Case('gate-effort-fact-truncated', 'gate', model=FACT, assigned=EFFORT, expected=1, reason='вердикт не материализуется'.encode()),
+        Case('spawn-substring-of-declared', 'spawn', model=SUBSTR, expected=1, reason='модель не объявлена'.encode()),
+        Case('verdict-assigned-substring-undeclared', 'verdict', model=FACT, assigned=SUBSTR, expected=2, reason='назначенная модель не объявлена'.encode()),
+        Case('verdict-object-dash', 'verdict', model=BASE, object='-', expected=1, reason='трасса не об объекте суда'.encode()),
+        Case('gate-object-dash', 'gate', model=BASE, object='-', expected=1, reason='трасса не об объекте суда'.encode()),
+        Case('sosed-198-door-cells', 'sosed'),
         Case('verdict-primary', 'verdict', model=BASE),
         Case('verdict-bare-equivalent', 'verdict', model='base-1'),
         Case('verdict-automatic-fallback', 'verdict', model=FALLBACK, status='denied'),
@@ -268,6 +281,29 @@ def observe(repo, world, c, cfg):
             okay &= r.returncode == 0 and r.stdout.split(b'\t')[1] == EFFORT.encode()
             okay &= f'model: ["@{tier}"]' in (world / '.omp/agents' / (role + '.md')).read_text().splitlines()
         return p, okay
+    if c.kind == 'sosed':
+        # Neighbour family 198 judges the same door in its own toy-registry worlds. Its probe is run
+        # unmodified on a copy whose door is the one under test; only the cells superseded by 222 may be red.
+        tree = world / 'sosed'
+        for rel in ('scripts/roles.ts', 'scripts/gen-harness.ts', 'scripts/check_project_session.sh', '.omp/config.yml', 'config/agent_models.json'):
+            put(tree / rel, (repo / rel).read_bytes())
+        shutil.copytree(repo / 'roles', tree / 'roles')
+        shutil.copytree(repo / NEIGHBOUR_198, tree / NEIGHBOUR_198, ignore=shutil.ignore_patterns('stabs', '__pycache__'))
+        door_ts = world / 'scripts/check_sud_model.ts'
+        if door_ts.exists():
+            # The 198 worlds copy only the .sh: the reference .ts is reached by absolute path.
+            put(tree / 'scripts/check_sud_model.ts', door_ts.read_bytes())
+            put(tree / 'scripts/check_sud_model.sh', f'#!/usr/bin/env bash\nexec node "{tree / "scripts/check_sud_model.ts"}" "$@"\n')
+        else:
+            put(tree / 'scripts/check_sud_model.sh', (world / 'scripts/check_sud_model.sh').read_bytes())
+        p = subprocess.run(['python3', str(tree / NEIGHBOUR_198 / 'probe.py'), '--model'], cwd=tree,
+                           env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1'),
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=170)
+        text = p.stdout.decode()
+        red = set(re.findall(r'^CELL (\S+) КРАСНА', text, re.M))
+        okay = (re.search(r'^CELLS=\d+ FAILURES=\d+$', text, re.M) is not None
+                and p.returncode in (0, 1) and (p.returncode == 0) == (not red) and red <= SUPERSEDED_198)
+        return subprocess.CompletedProcess(p.args, 0 if okay else 1, f'198 rc={p.returncode} red={sorted(red)}\n'.encode(), p.stderr), okay
     if c.kind == 'frontmatter':
         tier = cfg['roles'][c.role] if c.model == BASE else 'wrong'
         put(world / '.omp/agents' / (c.role + '.md'), f'---\nmodel: ["@{tier}"]\n---\n')
