@@ -42,6 +42,14 @@ MUTATIONS = {
     'st10-empty-name-left': ('git -C "$ROOT" config --local --unset-all "$key" || cfg_rc=$?', 'if [ -n "$(git -C "$ROOT" config --local --get "$key" || true)" ]; then git -C "$ROOT" config --local --unset-all "$key" || cfg_rc=$?; fi', ['p03-empty-config']),
     'st11-single-value-unset': ('config --local --unset-all "$key"', 'config --local --unset "$key"', ['p11-multivalue-config']),
     'st12-unrelated-config': ('  project_paths_resolve "$ROOT" >/dev/null || exit 1', '  project_paths_resolve "$ROOT" >/dev/null || exit 1\n  git -C "$ROOT" config --local core.ignorecase true', ['p01-no-hook']),
+    # Crit221 v1 БЛОК-1 (К-08): очистка одноразового хука стёрта — остаток
+    # временного каталога обязан красить и успех (p01), и отказ двери (p07).
+    'st13-no-cleanup': ("trap 'rm -rf -- \"$HOOK_WORK\"' EXIT", ': # cleanup removed (m2)', ['p01-no-hook', 'p07-live-door-refusal']),
+    # Crit221 v1 БЛОК-2 (К-09): нормализация сносит всю секцию [user] вместо
+    # точечного unset-all — клетка p12 несёт иные [user]-ключи.
+    'st14-user-section': ('git -C "$ROOT" config --local --unset-all "$key" || cfg_rc=$?',
+                          '{ git -C "$ROOT" config --local --remove-section user 2>/dev/null || true; }',
+                          ['p12-user-family-config']),
 }
 
 
@@ -56,6 +64,10 @@ def main():
     original = baseline.decode()
     anchor = '# 0. Дверь 031 неотвратима для ЭТОГО коммита'
     assert original.count(anchor) == 1
+    # `export NEXT_ID_LIB=1` is NOT part of the contract and NOT required of the
+    # implementer: check_staged.sh/check_charter.sh set NEXT_ID_LIB themselves, so it
+    # is inert for the hook chain. It exists only so the pinned shellcheck pass on
+    # the model (--sintaksis) does not stop on SC2034 for the baseline's bare assignment.
     model = original.replace('NEXT_ID_LIB=1', 'export NEXT_ID_LIB=1').replace(anchor, PROJECT + anchor)
     carriers = {'model/station.sh': baseline, 'model/mint_line.sh': model.encode()}
     links = []
