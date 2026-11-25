@@ -1,36 +1,151 @@
 accept
-OBJECT=aaf46a817834424a4610b62b5f601364e62b7e67
-КЛАСС=кодовый (дверь 187а: многострочный JSON-ответ locate); риск=обычный — подтверждён по закрытому перечню contracts/187-arhitektura-v-processe.md:4: дельта меняет только клетки/стабы автономной батареи и текст контракта, права/роли БД, авторизация, деньги, ПД/health и согласия, юридически значимые действия не затрагиваются; оснований для повышения нет.
-СУД: repo=dev-harness; предмет=187; фаза=контракт v3 (дверь 187а, грамматика ответа locate); роль=critic; вызов=исправительный 2/2 фазы v3 по дельте (основание: согласие автора с единственным блоком Б-1 — «ПОЗИЦИЯ АВТОРА: СОГЛАСЕН с блоком», Arch187Fix; запись СУД — HANDOFF оркестратора, PR dev-harness#912); модель-план=zai/glm-5.3; сессия=Crit187v3b; модель-факт=zai/glm-5.3 (manifest trace /tmp/dev-harness-verify/orch/trace-ac3.tsv: critic zai/glm-5.3, fallback не использован); предыдущий=verdicts/critic/contracts-187-v3-vyzov1-fail.md (FAIL, OBJECT a2d4e0eee); SHA=aaf46a817834424a4610b62b5f601364e62b7e67 (tip wip/187/architect, сверен `git rev-parse origin/wip/187/architect`); исключение=нет.
 
-# Вердикт критика — контракт 187 v3, исправительный вызов 2 по дельте: accept
+OBJECT=c2bdf5a74e74cc0a91c0e486392a68af26dc288e
+СУД: repo=dev-harness; предмет=187; фаза=контракт v3, узкое исполнение Arb187V1 и зависимый регресс; роль=critic; вызов=1/2 по отдельному счёту ADR, ровно один по санкции Cons187Sign; модель-план=openai-codex/gpt-6.1-terra; сессия=Crit187V6; модель-факт=openai-codex/gpt-6.1-terra, allowed; SHA=c2bdf5a74e74cc0a91c0e486392a68af26dc288e; предыдущий=Crit187V5 FAIL + Arb187V1 resolved; исключение=санкция Cons187Sign.
 
-Кандидат: tip `wip/187/architect` `aaf46a817` (клон `/tmp/dev-harness-verify/Crit187v3b/repo` из `ssh://git@github.com/a3ka/dev-harness.git`, sha сверен с OBJECT). Дельта `a2d4e0eee..aaf46a817` — ровно 2 файла, оба в ЗОНА architect: контракт (+14/−9) и `fixtures/workshop_project/architecture_process_187/workflow_probe.py` (+109/−3). Область вызова — закрытие блока Б-1 вердикта вызова 1 по дельте и по моим мутантам MA1/MA2/MA3; неизменные поверхности без нового риска не исследовались. Судья не автор; совпадение модели с моделью автора отказа не даёт (контракт 166, §Независимость).
+## Основание и граница
 
-## Блок Б-1 закрыт исполнением: литерально суженная дверь больше не проходит зелёный критерий
+Проверено исполнение решения Arb187V1 по К-10, а не весь контракт. По `workflow_probe.py:529-570,1433-1454,1475-1483` ожидание снимается из lock до вызова; один предикат применяется к модельному, стабовому и живому выводу. За неконформным pin принимается конец вывода либо LF, за неразрешимым — фиксированное продолжение с допустимым путём. Честные эквивалентные формы и соседи прежней суффиксной подмены проверены ниже; `--stabs` сохраняет прежние различители и ловит четыре новые адресные подмены. Привязки — в коде, не в прозе контракта (Н-39). `pin-unresolvable-sha` имеет отдельную форму и не является различающим входом воспроизведённой мутации.
 
-Обход вызова 1 воспроизведён мной заново на КАНДИДАТЕ: те же три сужения честного контроля, применённые ГЛОБАЛЬНО (дверь судит каждый вход, не только клетку стаба) через патчер одноразового клонa (файл восстановлен `git checkout --` после каждого прогона; дерево чисто). Команда каждого прогона: `python3 /tmp/dev-harness-verify/Crit187v3b/patch_ma.py <режим> && bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --model`.
+Связь поиска с дельтой: проверены новый предикат границы и его вызовы, соседние окончания и честные формы, а также зависимые стабы. Иные поверхности без основания не пересуждались. Предсудебные двери и сдаточный лист по заданию не повторялись. Живую дверь не запускал; факт общего пути установлен чтением кода, а не выдаётся за самостоятельный live-прогон.
 
-- MA1 (класс б: конформ только для литерала `module.tests`) → rc 1, красна НОВАЯ клетка: `RuntimeError: broken fixture: locate-declared-empty-worker expected 0/, got 1/PATH_WITHOUT_COMPONENT: путь worker/main.js не размещён в закреплённой модели`. На объекте вызова 1 тот же мутант давал `CELLS=64 FAILURES=0` rc 0.
-- MA2 (класс в: конформ только для литерала `FILES.sha256`) → rc 1, `broken fixture: locate-outside-provenance expected 0/, got 1/PATH_WITHOUT_COMPONENT: путь provenance.json не размещён в закреплённой модели` (за ней в порядке клеток — `locate-outside-structure`).
-- MA3 (класс г: отказ только при непустых компонентах претендентов) → rc 1, `broken fixture: path-unplaced-empty-claimants expected 1/PATH_WITHOUT_COMPONENT, got 0/`.
-- MA1+MA2+MA3 одной дверью → rc 1 (первая по порядку — клетка worker).
+## Команды и наблюдения
 
-Закрывающее свойство вердикта вызова 1 выполнено дословно: у каждого сужения — второе значение наблюдаемого ключа из наблюдённого на пине (worker/main.js → `module.worker` :89; provenance.json/STRUCTURE.md :91; server/index.js → претенденты с пустыми компонентами :95) и своя пара клетка+стаб; сужение до литерала единственного предъявленного значения более не проходит приёмочный критерий зелёной (:68, :76, :113).
+Рабочий каталог `/tmp/dev-harness-verify/Crit187V6/repo`, исходный HEAD — OBJECT. `git fetch --tags origin` rc 0. Модель установлена из `/home/harness/dev-harness`:
 
-## Что подтверждено исполнением (все заявления автора по дельте)
+```text
+$ bash scripts/models_actual.sh --tsv --bind --session Crit187V6 | cut -f1-3
+critic	openai-codex/gpt-6.1-terra	allowed
+critic	openai-codex/gpt-6.1-terra	allowed
+```
 
-- Батарея на OBJECT: `--model` rc 0 `CELLS=68 STABS=0 FAILURES=0 SKIPPED=0`; `--stabs` rc 0 `CELLS=68 STABS=70 FAILURES=0` — 0 ZHIV, все 70 пойманы; 4 новых стаба поимённо пойманы РОВНО своей клеткой: `locate-empty-refused-literal caught @ locate-declared-empty-worker`, `universe-refused-literal caught @ locate-outside-provenance`, `universe-refused-named-pair caught @ locate-outside-structure`, `ambiguous-empty-green caught @ path-unplaced-empty-claimants`. Привязка по коду (Н-39): словарь STABS → мутант-ветви честного контроля `verdict_v2` (workflow_probe.py:885-915), проза контракта привязку не несёт.
-- Красные до реализации: `--repo .` rc 1 `FAILURES=30 SKIPPED=2` — красны РОВНО 30 поимённо: 21 из v2 (17 первой сдачи + 4 из v2-r1) и 9 из v3 (5 вызова 1 + 4 новые), список совпадает с :80; `line-duplicate` и `pin-foreign-hex` зелёны (якоря «как сейчас» подтверждены); bare-прогон без аргументов — те же rc 1 `FAILURES=30 SKIPPED=2`; SKIP×2 — живые клетки без env, именованный SKIP.
-- Счёты второй мерой (импорт модуля, cwd=OBJECT): `CASES=68`, `STABS=70`; классификатор структурный — `locate_answer('worker/main.js') → declared [module.worker]`, `('server/index.js') → unresolved-multi [module.server, module.entrypoints]`, `('provenance.json')/('STRUCTURE.md') → unresolved-zero`; `STRUCTURE.md` существует в toy-мире (`world()` создаёт по умолчанию), `provenance.json` создаётся вариацией — заявление «файлы существуют в продукте» (:91) верно. Счётных расхождений с живыми источниками не найдено: 64→68, 66→70, 26→30, +123/−12, 2 файла — всё подтверждено.
-- Ничто из принятого не ослаблено: все −12 строк дельты просмотрены поимённо — 9 в контракте (переписанные канон-строки с расширением «при ЛЮБОМ id/пути», счёты 64→68/66→70/26→30) и 3 в зонде (строка докстринга, расширение кортежей REAL_VARIATIONS и диспетчера вариаций); ни одна клетка, стаб или ожидание не удалены и не изменены, новые — только добавления. Семья `arch_component_170` дельтой не тронута (список файлов дельты механически полон).
-- Гейты исполнением (cwd=OBJECT), каждый rc 0: `pre_critic.sh`, `check_precision_gate.sh`, `check_threat_model.sh` (ЗАЩИЩАЕТ 6 / НЕ ЗАЩИЩАЕТ 6), `check_ceilings.sh`, `check_spec_ready.sh`, `check_provodka.sh`, `check_consumers.sh`.
-- Модель угроз (:107-:121): расширяющие формулировки «при ЛЮБОМ id модуля» / «при ЛЮБОМ пути» / «при ЛЮБОЙ форме компонентов претендентов» (:68, :113) усиливают, не сужают; демаркация 019 (:72) не тронута.
+```text
+$ bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --model
+GREEN pin-diagnostic-boundary-selfcheck 9/9
+... 61 GREEN клетка ...
+CELLS=61 STABS=0 FAILURES=0
+rc=0
+$ bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --stabs
+GREEN pin-diagnostic-boundary-selfcheck 9/9
+... 61 GREEN клетка и 75 STAB caught ...
+STAB pin-suffix-forged-head caught @ pin-symbolic-head
+STAB pin-suffix-forged-branch caught @ pin-symbolic-branch
+STAB pin-suffix-forged-short caught @ pin-short-sha
+STAB pin-suffix-forged-noflag caught @ pin-head-noflag
+CELLS=61 STABS=75 FAILURES=0
+rc=0
+```
 
-## Советы (не блокируют)
+Многоточие обозначает опущенный вывод; полный сырой вывод обеих команд сохранён в трассе сессии, не является дословной частью этого фрагмента. Прежние `pin-bare-reason`, `pin-diagnostic-swapped`, `pin-value-lost` и `pin-value-forged` также напечатаны как caught.
 
-- СОВЕТ contracts/187-arhitektura-v-processe.md:89 — глубина различения у классов несимметрична: класс (в) несёт три значения и ДВА стаба сужения (литерал и пара), класс (б) — два значения и один стаб (литерал). Дверь, суженная до ПЕРЕЧИСЛЕНИЯ предъявленных батареей значений класса (б) (`module.tests`+`module.worker`), проходит батарею зелёной (воспроизведено: `CELLS=68 FAILURES=0` rc 0), как и тройка литералов для класса (в). Это не блокирующий класс: документированный прежний дефект механизма — сужение до литерала ЕДИНСТВЕННОГО предъявленного значения (MA1-MA3, :107, :113) — закрыт; запрет перечисления N≥2 значений не имеет документированного источника ошибки и в конечной батарее незамыкаем (каждое добавленное значение поглощается перечислением — регресс показан на самой паре (в)). Если автор захочет симметрии — третье значение класса (б) из наблюдённых на пине (`module.skills`/`module.harness`, вердикт вызова 1) со стабом «конформ только для пары». По §Порог — совет, не обязанность расширять батарею.
+Дословная мутация Crit187V5, только в памяти процесса:
 
-## Итог
+```sh
+env PYTHONDONTWRITEBYTECODE=1 python3 -c 'import sys; sys.path.insert(0,"fixtures/workshop_project/architecture_process_187"); import workflow_probe as w; original=w.verdict; exec("def mutant(*a, **k):\n r,o=original(*a,**k)\n if a[3] == \"task\" and k.get(\"variation\", \u0022\u0022) in (\"pin-head\", \"pin-branch\", \"pin-short\", \"pin-head-noflag\") and r == 1 and \"закреплённый pin не полный\" in o: o += \"-wrong\"\n return r,o"); w.verdict=mutant; sys.argv=["workflow_probe.py","--model"]; sys.exit(w.main())'
+```
 
-Единственный блокирующий класс вердикта вызова 1 (ложная достаточность приёмочной батареи против литерального сужения) закрыт по коду: вторые значения наблюдаемого ключа каждого класса ответа, пары клетка+стаб на каждое сужение MA1/MA2/MA3, воспроизведённые мной глобальные сужения краснят ровно новую клетку и rc≠0. Все счётные заявления автора подтверждены второй мерой, гейты зелёные, ничего из принятого v2/v3-вызова-1 не ослаблено, риск-класс подтверждён. Заморозка разрешена.
+Сырой вывод (rc 1):
+
+```text
+GREEN pin-diagnostic-boundary-selfcheck 9/9
+GREEN task-valid: rc=0 expected=0
+GREEN task-line-missing: rc=1 expected=1 reason=ARCH_LINE_MISSING
+GREEN task-line-blank: rc=1 expected=1 reason=ARCH_LINE_MISSING
+GREEN task-l3: rc=1 expected=1 reason=ARCH_OWNER
+GREEN task-unmapped: rc=1 expected=1 reason=PATH_WITHOUT_COMPONENT
+GREEN task-foreign: rc=1 expected=1 reason=ARCH_ZONE
+GREEN task-locate-json-malformed: rc=1 expected=1 reason=ARCH_LOCATE_GRAMMAR
+GREEN task-locate-status-missing: rc=1 expected=1 reason=ARCH_LOCATE_GRAMMAR
+GREEN task-locate-status-unknown: rc=1 expected=1 reason=ARCH_LOCATE_GRAMMAR
+GREEN brief-lock: rc=0 expected=0 reason=PINNED_BRIEF_187
+GREEN brief-no-local-copy: rc=0 expected=0 reason=PINNED_BRIEF_187
+GREEN brief-inline-line-missing: rc=1 expected=1 reason=ARCH_LINE_MISSING
+GREEN brief-document-no-local: rc=0 expected=0 reason=PINNED_BRIEF_187
+GREEN brief-with-rules: rc=0 expected=0 reason=RULES_FROM_PIN_187
+GREEN brief-no-rules: rc=0 expected=0 reason=PINNED_BRIEF_187
+GREEN freeze-valid: rc=0 expected=0
+GREEN freeze-no-line: rc=1 expected=1 reason=ARCH_LINE_MISSING
+GREEN freeze-foreign: rc=1 expected=1 reason=ARCH_ZONE
+GREEN freeze-unmapped: rc=1 expected=1 reason=PATH_WITHOUT_COMPONENT
+GREEN freeze-draft: rc=1 expected=1 reason=ARCH_DRAFT
+GREEN freeze-draft-marker: rc=1 expected=1 reason=ARCH_DRAFT
+GREEN freeze-draft-schema: rc=1 expected=1 reason=ARCH_DRAFT
+GREEN check-valid: rc=0 expected=0
+GREEN check-failure: rc=1 expected=1 reason=ARCH_CHECK
+GREEN check-not-evaluated: rc=1 expected=1 reason=ARCH_NOT_EVALUATED
+GREEN check-digest-mismatch: rc=1 expected=1 reason=ARCH_CHECK
+GREEN done-valid: rc=0 expected=0
+GREEN done-review-missing: rc=1 expected=1 reason=ARCH_REVIEW
+GREEN done-ci-missing: rc=1 expected=1 reason=ARCH_CI
+GREEN done-ci-other-sha: rc=1 expected=1 reason=ARCH_CI
+GREEN done-ci-red: rc=1 expected=1 reason=ARCH_CI
+GREEN done-ci-skipped: rc=1 expected=1 reason=ARCH_CI
+GREEN done-ci-head-ahead: rc=1 expected=1 reason=ARCH_CI
+GREEN legacy-mob: rc=0 expected=0
+GREEN legacy-harness: rc=0 expected=0
+GREEN wiring-valid: rc=0 expected=0
+GREEN wiring-omitted: rc=1 expected=1 reason=CI_BATTERY_187_MISSING_OR_NOT_EXACT
+GREEN wiring-no-repo: rc=1 expected=1 reason=CI_BATTERY_187_MISSING_OR_NOT_EXACT
+GREEN wiring-python: rc=1 expected=1 reason=CI_BATTERY_187_MISSING_OR_NOT_EXACT
+GREEN wiring-direct-missing: rc=1 expected=1 reason=CI_DIRECT_ARCH_187_MISSING
+GREEN check-green-latency-unresolved: rc=0 expected=0
+GREEN check-rc2-real-gate: rc=2 expected=2 reason=ARCH_NOT_EVALUATED
+GREEN check-rc1-real-gate: rc=1 expected=1 reason=ARCH_CHECK
+GREEN check-rc0-gate-lie: rc=2 expected=2 reason=ARCH_NOT_EVALUATED
+GREEN zone-container-file: rc=0 expected=0
+GREEN zone-container-escape: rc=1 expected=1 reason=ARCH_ZONE
+GREEN path-unplaced-absent: rc=1 expected=1 reason=PATH_WITHOUT_COMPONENT
+GREEN zone-outside-runtime: rc=0 expected=0
+GREEN zone-outside-false-refused: rc=1 expected=1 reason=PATH_WITHOUT_COMPONENT
+GREEN path-unresolved-zero-absent: rc=0 expected=0 reason=вне модели: scripts/ci-helper.sh
+GREEN path-unresolved-zero-present: rc=0 expected=0 reason=вне модели: provenance.json
+GREEN path-area-without-component: rc=1 expected=1 reason=PATH_WITHOUT_COMPONENT
+GREEN zone-outside-snapshot-failed: rc=2 expected=2 reason=ARCH_NOT_EVALUATED
+GREEN zone-outside-snapshot-missing: rc=2 expected=2 reason=ARCH_NOT_EVALUATED
+RED pin-symbolic-head: rc=1 expected=1 reason=ARCH_PIN output='ARCH_PIN: закреплённый pin не полный 40-hex SHA: HEAD-wrong'
+RED pin-symbolic-branch: rc=1 expected=1 reason=ARCH_PIN output='ARCH_PIN: закреплённый pin не полный 40-hex SHA: main-wrong'
+RED pin-short-sha: rc=1 expected=1 reason=ARCH_PIN output='ARCH_PIN: закреплённый pin не полный 40-hex SHA: bfadace9481a-wrong'
+GREEN pin-unresolvable-sha: rc=1 expected=1 reason=ARCH_PIN
+RED pin-head-noflag: rc=1 expected=1 reason=ARCH_PIN output='ARCH_PIN: закреплённый pin не полный 40-hex SHA: HEAD-wrong'
+GREEN applicability-lock-no-dir: rc=1 expected=1 reason=ARCH_COMPONENT_NET
+GREEN applicability-dir-no-lock: rc=1 expected=1 reason=ARCH_COMPONENT_NET
+CELLS=61 STABS=0 FAILURES=4
+```
+
+Дополнительный адресный контроль предиката, не подмена живой двери:
+
+```sh
+env PYTHONDONTWRITEBYTECODE=1 python3 -c 'import sys; sys.path.insert(0,"fixtures/workshop_project/architecture_process_187"); import workflow_probe as w; e=w.pin_expectation("pin-head","HEAD"); d=w.ARCH_PIN_PREFIX+w.PIN_NONCONFORMING_DIAG.format(pin="HEAD"); cases=[("без LF",d,True),("с LF и префиксом","ОТКАЗ: "+d+"\n",True),("суффикс digit",d+"9",False),("суффикс текст",d+" extra",False),("суффикс slash",d+"/other",False)]; p="e"*40; u=w.pin_expectation("pin-unresolvable",p); t="ОТКАЗ: "+w.ARCH_PIN_PREFIX+w.PIN_UNRESOLVABLE_DIAG.format(pin=p); cases += [("путь клона",t+": /tmp/clone\n",True),("подмена неразрешимого",t.replace(p,p+"9")+": /tmp/clone\n",False)]; results=[(name,w.pin_diagnostic_matched(out,u if name in ("путь клона","подмена неразрешимого") else e),wanted) for name,out,wanted in cases]; [print(f"{n}: actual={v} expected={want}") for n,v,want in results]; sys.exit(any(v!=want for _,v,want in results))'
+```
+
+Сырой вывод, rc 0:
+
+```text
+без LF: actual=True expected=True
+с LF и префиксом: actual=True expected=True
+суффикс digit: actual=False expected=False
+суффикс текст: actual=False expected=False
+суффикс slash: actual=False expected=False
+путь клона: actual=True expected=True
+подмена неразрешимого: actual=False expected=False
+```
+
+## Карта классов
+
+К-01: н/п — без изменений с Crit187V5; двери по заданию не повторялись.
+К-02: чисто — вход: санкция Cons187Sign, решение Arb187V1 и дельта e9c70d2706..OBJECT.
+К-03: н/п — без изменений с Crit187V5 в узкой дельте.
+К-04: чисто — вход: дельта contracts/187-arhitektura-v-processe.md и fixtures/workshop_project/architecture_process_187/.
+К-05: н/п — без изменений с Crit187V5, кроме числа стабов.
+К-06: н/п — без изменений с Crit187V5 в отказах среды.
+К-07: чисто — вход: workflow_probe.py:1433-1454,1475-1483, единый предикат модели, стабов и live.
+К-08: чисто — `red_architecture_process_187.sh --stabs`, rc 0, 75 пойманных стабов.
+К-09: н/п — без изменений с Crit187V5 в объявленной области входов.
+К-10: чисто — вход: воспроизведённая мутация Crit187V5 rc 1, четыре красные клетки; ожидание из lock до вызова.
+К-11: чисто — вход: workflow_probe.py:538-544,1433-1439, ожидание из входного lock.
+К-12: н/п — без изменений с Crit187V5 в грамматике pin.
+К-13: н/п — секреты не затронуты дельтой.
+К-14: чисто — вход: адресные формы без LF, с LF и префиксом, с путём клона и соседние суффиксы; rc 0.
+К-15: чисто — `--model` CELLS=61, `--stabs` STABS=75, оба rc 0; контракт изменяет число стабов на 75.
+К-16: н/п — без изменений с Crit187V5 в границе риска.
+К-17: н/п — без изменений с Crit187V5 в архитектурной модели.
