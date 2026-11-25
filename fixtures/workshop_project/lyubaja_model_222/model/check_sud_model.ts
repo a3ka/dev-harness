@@ -19,6 +19,9 @@ while (args.length) {
   const key = args.shift()!;
   if (key.startsWith('--')) {
     const value = args.shift();
+    if (key === '--assigned-model' && (value === undefined || value === '')) {
+      stop(2, 'назначенная модель пуста');
+    }
     if (value === undefined) stop(2, 'аргумент отсутствует');
     options.set(key, value);
   } else if (mode === '--spawn' && !model) model = key;

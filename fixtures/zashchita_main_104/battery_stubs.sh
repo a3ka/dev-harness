@@ -18,7 +18,8 @@
 # t104-m11 judge_gate: без --sud пишет строку (bootstrap-пропуск) red_judge_gate_svidetelstvo_sudi (вход 1)
 # t104-m12 хук: корень — HARNESS_TOOLS_ROOT прежде расположения   red_huk_alfavit_ustanovki (условие б, вход 1: evil прошёл)
 # t104-m13 хук: нет установочного конфига → фолбэк на HARNESS_TOOLS_ROOT red_huk_bez_ustanovochnogo_konfiga (условие б, вход 1)
-# t104-m14 дверь --spawn/--frontmatter: любая роль → тир critic    red_sud_model_dver_spavna (вход 7: adversary на терре отказан)
+# t104-m14 дверь --spawn/--frontmatter: любая роль → тир critic    red_sud_model_dver_spavna (вход 9: frontmatter arbiter @plan отказан — тир роли
+#                                                           значения на спавне не имеет, контракт 222)
 # t104-m15 --verdict: любая роль → тир critic                      red_sud_model_materializatsija (вход 10: reviewer на opus отказан)
 # t104-m16 judge_gate: дверь зовётся с --verdict critic при любой --sud роли red_judge_gate_svidetelstvo_sudi (вход 5: argv ≠ reviewer)
 # t104-m17 --verdict: судится только первая строка роли (break)    red_sud_model_materializatsija (вход 14: вторая строка не судится)
@@ -124,8 +125,10 @@ printf 'СУДЬЯ СВОЕЙ МОДЕЛИ: ok\n'
 exit 0
 EOF
 
-# Честный каркас ног --spawn/--frontmatter (roles→tiers→@семейство→models, модель
-# спавна и frontmatter роли против тира РОЛИ ВЫЗОВА); стаб m14 — одна ПОРЧА.
+# Честный каркас ног --spawn/--frontmatter (roles→tiers→@семейство→models; контракт
+# 222: на спавне сверяется ОБЪЯВЛЕННОСТЬ модели в реестре — любая вписанная модель
+# применима к любой роли, тир роли значения не имеет; frontmatter роли против тира
+# РОЛИ ВЫЗОВА); стаб m14 — одна ПОРЧА.
 SPAWN_TPL='#!/usr/bin/env bash
 set -uo pipefail
 mode=""; role=""; model=""; root=""
@@ -144,7 +147,18 @@ fam="$(jq -r --arg t "$tier" ".tiers[\$t].model // \"\"" "$CFG")"; fam="${fam#@}
 expected="$(jq -r --arg f "$fam" ".models[\$f] // \"\"" "$CFG")"; [ -n "$expected" ] || exit 2
 if [ "$mode" = spawn ]; then
   [ -n "$model" ] || { printf "ОТКАЗ: спавн судьи без явного agent: %s\n" "$role" >&2; exit 1; }
-  [ "$model" = "$expected" ] || { printf "ОТКАЗ: модель не тира роли: %s тир %s спавн %s\n" "$role" "$tier" "$model" >&2; exit 1; }
+  declared="$(jq -r "(.models // {}) as \$m | ((.models // {}) | to_entries[] | .value), ((.tiers // {}) | to_entries[] | (.value.model, (.value.fallback // empty)) | if startswith(\"@\") then \$m[.[1:]] else . end)" "$CFG")"
+  found=0
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    if [ "$d" = "$model" ]; then found=1; break; fi
+    case "$d" in
+      */*) case "$model" in */*) ;; *) [ "${d#*/}" = "$model" ] && { found=1; break; } ;; esac ;;
+    esac
+  done <<EOF
+$declared
+EOF
+  [ "$found" = "1" ] || { printf "ОТКАЗ: модель не объявлена: %s\n" "$model" >&2; exit 1; }
   printf "СУДЬЯ СВОЕЙ МОДЕЛИ: %s тир %s модель %s\n" "$role" "$tier" "$model"; exit 0
 fi
 FM="$root/.omp/agents/$role.md"; [ -f "$FM" ] || exit 2

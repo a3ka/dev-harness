@@ -45,11 +45,21 @@ def pinned_candidate():
 
 
 class World:
+    # Отказ двери на спавне — текст СУБЪЕКТА, а не роли: у ПИНNED кандидата
+    # (frozen 104/2) он один («модель не тира роли»), у живого предмета после
+    # контракта 222 — другой (сверяется объявленность в реестре, а не тир
+    # роли: «модель не объявлена»). Обе формы проверены: кандидат — в режимах
+    # --model/--stabs, живой предмет — в --repo.
+    SPAWN_REFUSAL_PINNED = 'ОТКАЗ: модель не тира роли: {role} тир {tier} спавн {model}\n'
+    SPAWN_REFUSAL_LIVE = ('ОТКАЗ: модель не объявлена: {model} '
+                          '(тир роли {tier}; в реестре назначений такой модели нет)\n')
+
     def __init__(self, base):
         self.base = base
         self.script = base / 'subject.sh'
         self.root = base / 'toy'
         (self.root / 'config').mkdir(parents=True)
+        self.spawn_refusal = World.SPAWN_REFUSAL_PINNED
         self.models = {'opus': 'anthropic/claude-opus-5-5',
                        'sol': 'openai-codex/gpt-6-sol', 'glm': 'zai/glm-5.3'}
         self.config = {'roles': {'reviewer': 'audit', 'critic': 'apex'},
@@ -77,7 +87,7 @@ class World:
                 want_err = ''
                 want_out = f'СУДЬЯ СВОЕЙ МОДЕЛИ: {role} тир {tier} модель {model}\n'
             else:
-                want_err = f'ОТКАЗ: модель не тира роли: {role} тир {tier} спавн {model}\n'
+                want_err = self.spawn_refusal.format(role=role, tier=tier, model=model)
                 want_out = ''
         else:
             trace = self.base / 'trace.tsv'
@@ -167,6 +177,9 @@ def main(mode):
         world = World(Path(scratch))
         if mode == '--repo':
             world.script = ROOT / 'scripts/check_sud_model.sh'
+            # Живой предмет после контракта 222 отказывает на спавне по
+            # объявленности модели в реестре, а не по тиру роли.
+            world.spawn_refusal = World.SPAWN_REFUSAL_LIVE
             for label, args in CASES.items():
                 errors += not world.case(label, *args)
         else:
