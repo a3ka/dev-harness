@@ -224,9 +224,14 @@ sudo bash ops/server/install.sh verify
 #   (юнитов моб-раннеров на машине нет — это не расхождение).
 ```
 
-Выключение: снять drop-in и рестартовать раннер (`sudo rm
+Выключение: снять drop-in (`sudo rm
 /etc/systemd/system/gh-runner-complior.service.d/tmpdir.conf` — и второй),
-затем `systemctl daemon-reload`; отдельного таймера у предмета нет. Швы:
+затем `systemctl daemon-reload` и только ПОТОМ рестарт раннера (`sudo systemctl
+restart gh-runner-complior gh-runner-complior-2`): без daemon-reload юнит
+остаётся на старой версии в памяти демона, и рестарт поднимет его со старым
+TMPDIR. Состояние «выключено» сверкой не санкционировано: после снятия
+drop-in'а `install.sh verify` красный (юнит есть, drop-in'а нет — «нет файла») —
+это ожидаемо, а не поломка установки. Отдельного таймера у предмета нет. Швы:
 `OPS_SERVER_MOB_TMP` (корень tmp-каталогов), `OPS_SERVER_MOB_TMP_OWNER`
 (владелец каталогов), `OPS_SERVER_SYSTEMCTL`.
 
