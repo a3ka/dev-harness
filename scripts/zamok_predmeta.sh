@@ -866,39 +866,34 @@ poslednj_frozen_teg() {  # <NNN> <репозиторий владельца> →
   git -C "$owner" rev-parse --verify "$teg" 2>/dev/null || return 1
 }
 # Перечни файлов предмета двух деревьев равны побайтово (инвариант 1б3):
-# запись к записи — имя и blob-ша совпадают; mode НЕ входит (исполняемый бит
-# не влияет на удостоверение: 100644 и 100755 — оба обычных файла, адверсарий
-# 211, Б-2); записи — обычные файлы (тип blob, mode 100644/100755) с обеих
-# сторон: симлинк (120000), gitlink (160000) и каталог (040000) перечень не
-# удостоверяют; пустой перечень (файлов предмета нет) — тоже. Перечни читаются
-# NUL-безопасно (kontrakt_zapisi), имя — байт-в-байт (адверсарий 211, Б-1).
+# сверка идёт по СТРОКАМ «%q имя sha», ОТСОРТИРОВАННЫМ (LC_ALL=C): в ключ
+# сравнения mode НЕ входит (исполняемый бит не влияет на удостоверение:
+# 100644 и 100755 — оба обычных файла, адверсарий 211, Б-2). Попарная
+# сверка «запись к записи» в порядке ПЕРЕЧНЯ не годилась: порядок перечня
+# начинается с mode (kontrakt_zapisi сортирует ЦЕЛУЮ запись ls-tree), и
+# смена одного exec-бита после заморозки переставляла записи OBJECT
+# относительно перечня заморозки — удостоверение снималось, хотя ни имя,
+# ни blob-ша не разошлись (Rev211, Б-1). Записи — обычные файлы (тип blob,
+# mode 100644/100755) с обеих сторон: симлинк (120000), gitlink (160000)
+# и каталог (040000) перечень не удостоверяют; пустой перечень (файлов
+# предмета нет) — тоже. Перечни читаются NUL-безопасно (kontrakt_zapisi),
+# имя — байт-в-байт (адверсарий 211, Б-1).
+kontrakt_perechen() {  # <репозиторий> <tree:каталог> <NNN> → «%q имя sha» по строке | rc 1 — запись не обычный файл
+  local wt="$1" derevo="$2" n="$3" imya mode tip sha
+  while IFS= read -r -d '' imya && IFS= read -r -d '' mode \
+        && IFS= read -r -d '' tip && IFS= read -r -d '' sha; do
+    [ "$tip" = blob ] || return 1
+    { [ "$mode" = 100644 ] || [ "$mode" = 100755 ]; } || return 1
+    printf '%q %s\n' "$imya" "$sha"
+  done < <(kontrakt_zapisi "$wt" "$derevo" "$n")
+}
 perechen_kontrakta_raven() {  # <репозиторий> <treeO:каталог> <treeF:каталог> <NNN> → 0 равны | 1 нет
-  local wt="$1" derevo_o="$2" derevo_f="$3" n="$4"
-  local imya_o mode_o tip_o sha_o imya_f mode_f tip_f sha_f schetchik=0
-  (
-    exec 3< <(kontrakt_zapisi "$wt" "$derevo_o" "$n")
-    exec 4< <(kontrakt_zapisi "$wt" "$derevo_f" "$n")
-    while IFS= read -r -d '' imya_o <&3 \
-       && IFS= read -r -d '' mode_o <&3 \
-       && IFS= read -r -d '' tip_o <&3 \
-       && IFS= read -r -d '' sha_o <&3; do
-      schetchik=$((schetchik + 1))
-      IFS= read -r -d '' imya_f <&4 || exit 1
-      IFS= read -r -d '' mode_f <&4 || exit 1
-      IFS= read -r -d '' tip_f <&4 || exit 1
-      IFS= read -r -d '' sha_f <&4 || exit 1
-      [ "$imya_o" = "$imya_f" ] || exit 1
-      [ "$sha_o" = "$sha_f" ] || exit 1
-      [ "$tip_o" = blob ] && [ "$tip_f" = blob ] || exit 1
-      { [ "$mode_o" = 100644 ] || [ "$mode_o" = 100755 ]; } || exit 1
-      { [ "$mode_f" = 100644 ] || [ "$mode_f" = 100755 ]; } || exit 1
-    done
-    # Перечень OBJECT исчерпан — в перечне заморозки записей быть не должно.
-    IFS= read -r -d '' imya_f <&4 && exit 1
-    # Пустой перечень текста не удостоверяет.
-    [ "$schetchik" -gt 0 ] || exit 1
-    exit 0
-  )
+  local wt="$1" derevo_o="$2" derevo_f="$3" n="$4" spO spF
+  spO="$(kontrakt_perechen "$wt" "$derevo_o" "$n")" || return 1
+  spF="$(kontrakt_perechen "$wt" "$derevo_f" "$n")" || return 1
+  # Пустой перечень текста не удостоверяет.
+  [ -n "$spO" ] || return 1
+  [ "$(printf '%s\n' "$spO" | LC_ALL=C sort)" = "$(printf '%s\n' "$spF" | LC_ALL=C sort)" ]
 }
 # Удостоверен ли frozen-тег новой версии для дерева OBJECT: 0 — да | 1 — нет.
 frozen_udostoveren_objectu() {  # <NNN> <репозиторий владельца> <r_wt> <OBJECT> → 0 да | 1 нет
