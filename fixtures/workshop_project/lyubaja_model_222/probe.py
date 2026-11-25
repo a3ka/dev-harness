@@ -51,6 +51,7 @@ class Case:
     config: str = 'valid'
     second: bool = False
     missing: bool = False
+    assignment_arg: str = 'value'
 
 
 def cases():
@@ -114,6 +115,20 @@ def cases():
                 Case('fork-consultant-arbiter-same-model', 'fork'),
                 Case('fork-witness-author-same-model', 'fork-author'),
                 Case('fork-model-field-stays-required', 'fork', missing=True, expected=1, reason='артефакт без строки МОДЕЛЬ'.encode())))
+    # 77–83: Adv222 К-08/К-09; each input has its own literal expectation.
+    out.extend((
+        Case('verdict-denied-per-call-wrong-fallback', 'verdict', assigned=FACT, status='denied',
+             expected=1, reason='фолбэк вне списка тира'.encode()),
+        Case('verdict-denied-per-call-fallback', 'verdict', model=FALLBACK, assigned=FALLBACK, status='denied'),
+        Case('verdict-denied-per-call-different-assignment', 'verdict', model=FALLBACK, assigned=FACT, status='denied'),
+        Case('verdict-assigned-empty', 'verdict', model=BASE, assigned='',
+             expected=2, reason='назначенная модель пуста'.encode()),
+        Case('verdict-assigned-empty-before-root', 'verdict', model=BASE, assigned='', assignment_arg='before-root',
+             expected=2, reason='назначенная модель пуста'.encode()),
+        Case('verdict-assigned-missing-at-end', 'verdict', model=BASE, assignment_arg='missing',
+             expected=2, reason='назначенная модель пуста'.encode()),
+        Case('verdict-assignment-absent', 'verdict', model=BASE),
+    ))
     return {c.name: c for c in out}
 
 
@@ -150,11 +165,22 @@ def install(repo, world, model, mutation=None):
             text = text.replace(change['old'], change['new'])
         put(world / 'scripts/check_fork_route.sh', text)
     if mutation:
-        path = world / mutation['file']
-        before = path.read_text()
-        if before.count(mutation['old']) != 1:
-            raise RuntimeError('STAB_ANCHOR_DRIFT: ' + mutation['name'])
-        put(path, before.replace(mutation['old'], mutation['new']))
+        definition = mutation
+        if 'stub' in mutation:
+            definition = json.loads((HERE / mutation['stub']).read_text())
+        path = world / definition['file']
+        if 'base' in definition:
+            frozen = run(['git', '-C', repo, 'show', definition['base']], repo)
+            if frozen.returncode:
+                raise RuntimeError('STAB_BASE_MISSING: ' + mutation['name'])
+            before = frozen.stdout.decode()
+        else:
+            before = path.read_text()
+        for change in definition.get('changes', [definition]):
+            if before.count(change['old']) != 1:
+                raise RuntimeError('STAB_ANCHOR_DRIFT: ' + mutation['name'])
+            before = before.replace(change['old'], change['new'])
+        put(path, before)
         parser = ['node', '--check', path] if path.suffix == '.ts' else ['bash', '-n', path]
         parsed = run(parser, world)
         if parsed.returncode:
@@ -335,10 +361,27 @@ def observe(repo, world, c, cfg):
         argv = ['bash', world / 'scripts/judge_gate.sh', OBJECT, '--verdict-row', 'contracts/222', 'c' * 64, world / 'decision']
         if not c.missing:
             argv += ['--sud', c.role, trace, SESSION]
-    if c.assigned:
-        argv += ['--assigned-model', c.assigned]
-    p = run(argv, world)
+    if c.assignment_arg == 'missing':
+        argv.append('--assigned-model')
+    elif c.assigned is not None:
+        if c.assignment_arg == 'before-root':
+            argv[-2:-2] = ['--assigned-model', c.assigned]
+        else:
+            argv += ['--assigned-model', c.assigned]
+    # A hung subject is a red behavioral result for the missing-value cell,
+    # not a fixture/dependency error. timeout kills and reaps the child.
+    try:
+        p = run(argv, world)
+    except subprocess.TimeoutExpired as error:
+        if c.assignment_arg != 'missing':
+            raise
+        p = subprocess.CompletedProcess(argv, 124, error.stdout or b'', b'SUBJECT_TIMEOUT: --assigned-model\n')
     effect = True
+    if c.name.startswith('verdict-assigned-') or c.name == 'verdict-assignment-absent':
+        journal = world / 'registry/candidates.tsv'
+        effect = not journal.exists()
+        if c.expected:
+            effect &= 'материализуется'.encode() not in p.stdout
     if c.kind == 'gate':
         journal = world / 'registry/candidates.tsv'
         actual = journal.read_bytes() if journal.exists() else b''
@@ -366,7 +409,8 @@ def battery(repo, model=False, mutation=None, selected=None, quiet=False):
 
 
 def syntax():
-    ast.parse(Path(__file__).read_text())
+    for p in HERE.rglob('*.py'):
+        ast.parse(p.read_text(), filename=str(p))
     for p in HERE.rglob('*.sh'):
         r = run(['bash', ROOT / 'scripts/validate_std.sh', 'bash', p], ROOT)
         if r.returncode:
