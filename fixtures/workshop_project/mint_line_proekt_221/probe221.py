@@ -18,7 +18,16 @@ CASES = ('p01-no-hook', 'p02-foreign-config', 'p03-empty-config', 'p04-email-onl
          'p08-repeat', 'p09-no-verify-argument', 'p10-not-repository',
          'p11-multivalue-config', 'p12-user-family-config',
          's01-live-hook', 's02-no-hook', 's03-foreign-config', 's04-repeat',
-         's05-live-door-refusal')
+         's05-live-door-refusal',
+         'p13-hook-cleanup-success', 'p14-hook-cleanup-refusal',
+         'p15-local-refs-success', 'p16-local-refs-refusal',
+         'p17-ignored-rollback', 'p18-foreign-cwd', 'p19-untracked-profile',
+         'p20-broken-profile', 'p21-not-main', 'p22-dirty',
+         'p23-other-config', 's06-layer-only', 's07-parent-profile',
+         's08-workflow-only')
+DOOR_REFUSALS = ('p07-live-door-refusal', 'p14-hook-cleanup-refusal',
+                 'p16-local-refs-refusal', 'p17-ignored-rollback')
+PREFLIGHT_REFUSALS = ('p20-broken-profile', 'p21-not-main', 'p22-dirty')
 ENV = {k: v for k, v in os.environ.items()
        if not k.startswith(('GIT_', 'HARNESS_'))}
 ENV.update(GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_SYSTEM='/dev/null',
@@ -45,18 +54,12 @@ class World:
         self.project = case.startswith('p')
         self.n = '%03d' % random.SystemRandom().randrange(880, 940)
         self.registry = '.harness/registry/contracts.tsv' if self.project else 'registry/contracts.tsv'
-        # Existing door 031 still reads remote registry/contracts.tsv literally.
-        # Use a conforming root-registry project for the refusal seam; changing
-        # that independent project-path defect is not subject 221.
-        if case == 'p07-live-door-refusal':
+        # Door 031 still reads remote registry/contracts.tsv literally. Its
+        # independent path defect is not 221: refusal worlds use root registry.
+        if case in DOOR_REFUSALS or case in ('p12-user-family-config', 'p23-other-config'):
             self.registry = 'registry/contracts.tsv'
         if case == 'p03-empty-config':
             self.registry = '.workflow/book/contracts.tsv'
-        # p12: positive mint on the root-registry layout (same shape as the
-        # refusal seam p07) — door 031 reads HEAD/origin manifests literally,
-        # so dual-control runs fully live here.
-        if case == 'p12-user-family-config':
-            self.registry = 'registry/contracts.tsv'
         self.contracts = '.harness/contracts' if self.project else 'contracts'
         root.mkdir()
         self.git('init', '-q', '-b', 'main')
@@ -74,6 +77,19 @@ class World:
                 'projectLayer': {'version': '1', 'profilePath': '.harness/project-layer.json'},
                 'workflowPaths': {'contracts': self.contracts, 'verdicts': '.harness/verdicts',
                                   'registry': str(Path(self.registry).parent), 'fixtures': '.harness/fixtures'}}))
+        if case in ('p17-ignored-rollback', 'p19-untracked-profile'):
+            (root / '.gitignore').write_text(
+                'secret.env\nbuild/\n' if case == 'p17-ignored-rollback'
+                else 'harness.project.json\n')
+        if case == 's06-layer-only':
+            (root / '.harness/project-layer.json').write_text('{}\n')
+        if case == 's07-parent-profile':
+            (root.parent / 'harness.project.json').write_text('{}\n')
+        if case == 's08-workflow-only':
+            (root / '.workflow').mkdir()
+            (root / '.workflow/keep').write_text('station\n')
+        if case == 'p20-broken-profile':
+            (root / 'harness.project.json').write_text('{broken\n')
         self.g('add', '-A')
         self.g('commit', '-q', '-m', 'world')
         self.file.write_text('000 → ' + self.rev('HEAD') + '\n')
@@ -94,18 +110,19 @@ class World:
             self.g('add', '-A')
             self.g('commit', '-q', '-m', 'already minted')
             self.g('push', '-q', 'origin', 'main')
-        if case in ('p07-live-door-refusal', 's05-live-door-refusal'):
+        if case in DOOR_REFUSALS or case == 's05-live-door-refusal':
             before = self.rev('HEAD')
             self.file.write_bytes(self.file.read_bytes() + self.line)
             self.g('add', '-A')
             self.g('commit', '-q', '-m', 'remote raced')
             self.g('push', '-q', 'origin', 'main')
             self.g('reset', '--hard', before)
-        if not self.project and case != 's02-no-hook':
+        if not self.project and case not in ('s02-no-hook', 's06-layer-only',
+                                             's07-parent-profile', 's08-workflow-only'):
             hook = root / '.git/hooks/pre-commit'
             hook.write_text('#!/usr/bin/env bash\nexec bash ' + str(tools / 'scripts/check_staged.sh') + ' ' + str(root) + '\n')
             hook.chmod(0o755)
-        if case in ('p02-foreign-config', 's03-foreign-config'):
+        if case in PREFLIGHT_REFUSALS or case in ('p02-foreign-config', 's03-foreign-config'):
             self.git('config', 'user.name', 'foreign-person')
             self.git('config', 'user.email', 'foreign@example.invalid')
         if case == 'p03-empty-config':
@@ -118,24 +135,42 @@ class World:
             self.git('config', '--add', 'user.name', 'two')
             self.git('config', '--add', 'user.email', 'one@example.invalid')
             self.git('config', '--add', 'user.email', 'two@example.invalid')
-        # К-09 (Crit221 v1 БЛОК-2): [user]-семейство вне запрещённых ключей —
-        # нормализация обязана сохранить их байт-в-байт, удалив только
-        # user.name/user.email (инвариант 3).
-        if case == 'p12-user-family-config':
+        # Keep original p12 intact; p23 adds same-named keys in other sections.
+        if case in ('p12-user-family-config', 'p23-other-config'):
             self.git('config', 'user.name', 'foreign-person')
             self.git('config', 'user.email', 'foreign@example.invalid')
             self.git('config', 'user.signingkey', 'ABCDEF0123456789ABCDEF0123456789ABCDEF12')
             self.git('config', 'user.useConfigOnly', 'true')
+        if case == 'p23-other-config':
+            for key, value in (('alias.name', 'status'), ('alias.email', 'log'),
+                               ('user.work.name', 'keep-me'), ('user.work.email', 'keep@example.invalid'),
+                               ('sendemail.name', 'mailer'), ('sendemail.email', 'mail@example.invalid')):
+                self.git('config', key, value)
         if case == 'p06-disabled-config-hook':
             self.git('config', 'core.hooksPath', '/dev/null')
+        if case == 'p17-ignored-rollback':
+            (root / 'secret.env').write_bytes(b'synthetic-secret\n')
+            (root / 'secret.env').chmod(0o600)
+            (root / 'build').mkdir()
+            (root / 'build/out.bin').write_bytes(b'\x00build\xff')
+        if case == 'p21-not-main':
+            self.g('switch', '-q', '-c', 'side')
+        if case == 'p22-dirty':
+            (root / 'HANDOFF.md').write_text('dirty-world\n')
+        self.home = root.parent / 'home'
+        self.home.mkdir()
+        self.hook_log = root.parent / 'hook-paths'
         self.before = self.rev('HEAD')
         self.manifest = self.file.read_bytes()
         self.cfg = (root / '.git/config').read_bytes()
         self.hooks = self.hook_snapshot()
         self.refs = self.git('show-ref').stdout
         self.remote = checked(['git', '-C', self.origin, 'show-ref'])
-        self.other_config = [row for row in self.git('config', '--local', '--null', '--list').stdout.split(b'\0')
-                             if not row.startswith((b'user.name\n', b'user.email\n'))]
+        self.other_config = self.unrelated_config()
+        self.status = self.git('status', '--porcelain').stdout
+        self.ignored_status = self.git('status', '--porcelain', '--ignored').stdout
+        self.ignored = self.ignored_snapshot()
+        self.git_entries = self.git_snapshot()
 
     @property
     def file(self):
@@ -152,15 +187,37 @@ class World:
     def rev(self, ref):
         return self.git('rev-parse', ref).stdout.decode().strip()
 
+    def unrelated_config(self):
+        return [row for row in self.git('config', '--local', '--null', '--list').stdout.split(b'\0')
+                if not row.startswith((b'user.name\n', b'user.email\n'))]
+
     def hook_snapshot(self):
         hooks = self.root / '.git/hooks'
         return {p.name: (p.read_bytes(), p.stat().st_mode) for p in hooks.iterdir() if p.is_file()}
+
+    def git_snapshot(self):
+        # Object/reflog/ref storage and fetch bookkeeping legitimately change.
+        # Retain every other .git name/type recursively, including hook subdirs.
+        return {str(p.relative_to(self.root / '.git')): p.is_dir()
+                for p in (self.root / '.git').rglob('*')
+                if p.relative_to(self.root / '.git').parts[0] not in
+                ('objects', 'logs', 'refs', 'index', 'FETCH_HEAD',
+                 'COMMIT_EDITMSG', 'ORIG_HEAD')}
+
+    def ignored_snapshot(self):
+        paths = [self.root / 'secret.env', self.root / 'build']
+        if paths[1].is_dir():
+            paths.extend(paths[1].rglob('*'))
+        return {str(p.relative_to(self.root)):
+                (p.stat().st_mode, None if p.is_dir() else p.read_bytes())
+                for p in paths if p.exists()}
 
     def invoke(self, subject):
         scratch = self.root.parent / 'scratch'
         scratch.mkdir(exist_ok=True)
         env = dict(ENV, HARNESS_TOOLS_ROOT=str(self.tools),
-                   HARNESS_PROJECT_LAYER_ROOT=str(self.root), TMPDIR=str(scratch))
+                   HARNESS_PROJECT_LAYER_ROOT=str(self.root), TMPDIR=str(scratch),
+                   HOME=str(self.home), MINT221_HOOK_LOG=str(self.hook_log))
         if self.case == 'p05-foreign-env':
             env.update(GIT_AUTHOR_NAME='foreign-env', GIT_AUTHOR_EMAIL='env@example.invalid',
                        GIT_COMMITTER_NAME='foreign-env', GIT_COMMITTER_EMAIL='env@example.invalid')
@@ -171,7 +228,7 @@ class World:
             outside = self.root.parent / 'not-repo'
             outside.mkdir(exist_ok=True)
             args[3] = outside
-        return run(args, self.root, env)
+        return run(args, self.root.parent if self.case == 'p18-foreign-cwd' else self.root, env)
 
     def observe(self, result):
         head = self.rev('HEAD')
@@ -186,10 +243,9 @@ class World:
         self.g('reset', '--hard', self.before)
         (self.root / '.git/config').write_bytes(self.cfg)
 
+
 def normalized_config(cfg):
-    """Expected local .git/config bytes after honest normalization: only the
-    [user] name/email entry lines are removed, every other byte is intact
-    (К-09: byte-in-byte preservation of the rest of the configuration)."""
+    """p12/p23 retain nonidentity [user] entries: only name/email lines go."""
     out, section = [], None
     for line in cfg.splitlines(keepends=True):
         stripped = line.strip()
@@ -204,11 +260,7 @@ def normalized_config(cfg):
 
 
 def once_hook_residue(scratch):
-    """Leftovers of the SUBJECT's one-time hook in its TMPDIR world (К-08):
-    any surviving pre-commit file anywhere under scratch, or any temp catalog
-    other than the live door's own lib_zones.* scratch (dir + .active marker —
-    a station-tooling leak of check_staged/lib_zones, observed on the honest
-    model; not subject 221 and not part of invariant 2)."""
+    """Only lib_zones.* is the declared, independent live judge scratch leak."""
     residue = set()
     if scratch.is_dir():
         for entry in scratch.iterdir():
@@ -217,7 +269,6 @@ def once_hook_residue(scratch):
         for path in scratch.rglob('pre-commit'):
             residue.add(str(path.relative_to(scratch)))
     return sorted(residue)
-
 
 
 def cell(tools, candidate, baseline, case, root):
@@ -230,15 +281,18 @@ def cell(tools, candidate, baseline, case, root):
     result = world.invoke(candidate)
     obs = world.observe(result)
     problems = []
-    failure = {'p07-live-door-refusal': (1, 'дверь минта 031'),
-               'p08-repeat': (1, 'повторный минт'),
-               'p09-no-verify-argument': (1, 'неизвестный аргумент: --no-verify'),
-               'p10-not-repository': (2, '--root не репозиторий git')}
+    failure = {name: (1, 'дверь минта 031') for name in DOOR_REFUSALS}
+    failure.update({'p08-repeat': (1, 'повторный минт'),
+                    'p09-no-verify-argument': (1, 'неизвестный аргумент: --no-verify'),
+                    'p10-not-repository': (2, '--root не репозиторий git'),
+                    'p20-broken-profile': (1, 'файл не JSON'),
+                    'p21-not-main': (1, 'HEAD не main'),
+                    'p22-dirty': (1, 'грязное дерево')})
     if case in failure:
         code, reason = failure[case]
         if result.returncode != code or reason.encode() not in result.stderr:
             problems.append('REFUSAL_REASON')
-        if result.stdout or obs[3] != world.before or obs[4] or obs[5] != world.manifest or obs[6] != world.manifest:
+        if result.stdout or obs[3] != world.before or obs[4] != world.status or obs[5] != world.manifest or obs[6] != world.manifest:
             problems.append('REFUSAL_NOT_ATOMIC')
     else:
         if result.returncode != 0:
@@ -258,27 +312,41 @@ def cell(tools, candidate, baseline, case, root):
             problems.append('ONLY_REGISTRY')
         if obs[7] != b'orchestrator\norchestrator@dev-harness.local\norchestrator\norchestrator@dev-harness.local\n':
             problems.append('IDENTITY')
-    if case not in ('p09-no-verify-argument', 'p10-not-repository'):
+    preflight = case in PREFLIGHT_REFUSALS
+    if preflight and obs[8] != world.cfg:
+        problems.append('PREFLIGHT_CONFIG_CHANGED')
+    if not preflight and case not in ('p09-no-verify-argument', 'p10-not-repository'):
         for key in ('user.name', 'user.email'):
             if world.git('config', '--local', '--get', key).returncode != 1:
                 problems.append('FILE_IDENTITY_LEFT')
-    remaining_config = [row for row in world.git('config', '--local', '--null', '--list').stdout.split(b'\0')
-                        if not row.startswith((b'user.name\n', b'user.email\n'))]
-    if case not in ('p09-no-verify-argument', 'p10-not-repository') and remaining_config != world.other_config:
+    if case not in ('p09-no-verify-argument', 'p10-not-repository') and world.unrelated_config() != world.other_config:
         problems.append('UNRELATED_CONFIG_CHANGED')
     if world.git('config', '--get', 'core.hooksPath').stdout != (b'/dev/null\n' if case == 'p06-disabled-config-hook' else b''):
         problems.append('HOOK_CONFIG_CHANGED')
     if obs[9] != world.hooks or obs[10] != world.remote:
         problems.append('HOOKS_OR_ORIGIN_CHANGED')
-    # К-08 (Crit221 v1 БЛОК-1): the one-time hook must be gone on EVERY exit
-    # path of a project call — success and door refusal alike. The probe
-    # localizes the subject's TMPDIR to <world>/scratch; a surviving
-    # pre-commit or a foreign temp catalog there is the un-removed hook.
     residue = once_hook_residue(root.parent / 'scratch')
     if residue:
         problems.append('ONCE_HOOK_LEFT(' + ','.join(residue) + ')')
-    # К-09: raw bytes of the surviving configuration (invariant 3).
-    if case == 'p12-user-family-config' and obs[8] != normalized_config(world.cfg):
+    if world.git_snapshot() != world.git_entries:
+        problems.append('GIT_TOPOLOGY_CHANGED')
+    if list(world.home.iterdir()):
+        problems.append('HOME_HOOK_LEFT')
+    # Transparent recorder captures the actual hooksPath before the real judge;
+    # even hooks placed outside the world's TMPDIR/HOME/.git are observable.
+    if world.hook_log.exists():
+        for hook_path in world.hook_log.read_text().splitlines():
+            if hook_path and Path(hook_path).exists():
+                problems.append('RECORDED_HOOK_LEFT')
+    expected_refs = dict(row.split(b' ', 1)[::-1] for row in world.refs.splitlines())
+    if case not in failure:
+        expected_refs[b'refs/heads/main'] = obs[3].encode()
+    actual_refs = dict(row.split(b' ', 1)[::-1] for row in world.git('show-ref').stdout.splitlines())
+    if actual_refs != expected_refs:
+        problems.append('LOCAL_REFS_CHANGED')
+    if world.ignored_snapshot() != world.ignored or world.git('status', '--porcelain', '--ignored').stdout != world.ignored_status:
+        problems.append('IGNORED_FILES_CHANGED')
+    if case in ('p12-user-family-config', 'p23-other-config') and obs[8] != normalized_config(world.cfg):
         problems.append('RAW_CONFIG_PARITY')
     return not problems, ','.join(problems) + ' rc=' + str(result.returncode) + ' stderr=' + repr(result.stderr)
 
@@ -287,6 +355,14 @@ def install(work, carrier):
     tools = work / 'tools'
     shutil.copytree(REPO / 'scripts', tools / 'scripts')
     (tools / 'scripts/mint_line.sh').write_bytes(carrier)
+    judge = tools / 'scripts/check_staged.sh'
+    judge.rename(tools / 'scripts/check_staged221-real.sh')
+    judge.write_text(
+        '#!/usr/bin/env bash\n'
+        'if [ -n "${MINT221_HOOK_LOG:-}" ]; then\n'
+        '  git config --get core.hooksPath >> "$MINT221_HOOK_LOG" || true\n'
+        'fi\n'
+        'exec bash "$(dirname "$0")/check_staged221-real.sh" "$@"\n')
     return tools
 
 
@@ -298,6 +374,8 @@ def check_carriers():
         if hashlib.sha256(data).hexdigest() != sha:
             raise RuntimeError('ORACLE_TAMPERED ' + rel)
         saved[rel] = data
+    if source['kletki'] != list(CASES):
+        raise RuntimeError('CASE_CATALOG_CHANGED')
     return source, saved
 
 
@@ -315,6 +393,15 @@ def suite(carrier, baseline_data, cases, label):
             ok, detail = cell(tools, tools / 'scripts/mint_line.sh', baseline, case, directory / 'product')
             print(label, case, 'GREEN' if ok else 'RED', detail if not ok else '')
             red += not ok
+            # C06 intentionally ignores TMPDIR. Reap only its freshly recorded
+            # mktemp path AFTER judging it, never scan/delete shared /tmp names.
+            log = directory / 'hook-paths'
+            if log.exists():
+                for recorded in log.read_text().splitlines():
+                    path = Path(recorded)
+                    if path.parent == Path('/tmp') and path.name.startswith('mint-hook.'):
+                        if path.is_dir():
+                            shutil.rmtree(path)
     return red
 
 
@@ -340,6 +427,7 @@ def main():
             checked(['bash', REPO / 'scripts/validate_std.sh', 'bash', file])
         compile(Path(__file__).read_bytes(), str(__file__), 'exec')
         compile((HERE / 'build.py').read_bytes(), str(HERE / 'build.py'), 'exec')
+        compile((HERE / 'repair_proof.py').read_bytes(), str(HERE / 'repair_proof.py'), 'exec')
         print('SINTAKSIS', len(files), 'SHELLCHECK', 2)
         return 0
     if args.stabs:
