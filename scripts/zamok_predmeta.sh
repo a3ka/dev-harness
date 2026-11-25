@@ -103,6 +103,32 @@
 # РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ПОВТОР не действует (снята v8). Пустой НЕ-merge tip,
 # VETKA_NEDOSTUPNA, RABOCHEGO_NET, KLASS_RISKA_NET, LIMIT_GRUPPY и
 # предупреждения передачи — поведение v8…v13 без изменений.
+# v211 (контракт 211, D64 bootstrap-sudej — слово владельца 22.11 «вариант А»)
+# поверх v208…v13. [D64] Судья РЕАЛИЗАЦИИ (reviewer/adversary) при
+# недоступном закреплённом frozen (строки <NNN> → <frozen tag-object> на HEAD
+# репозитория владельца нет либо она указывает на id-тег минта) читает класс
+# риска из ДЕРЕВА OBJECT — но только по УДОСТОВЕРЕННОМУ локальному frozen-тегу
+# НОВОЙ версии предмета: annotated-тег под refs/tags/frozen/contracts/<NNN>/<v>
+# в репозитории ВЛАДЕЛЬЦА (версия — числовая [1-9][0-9]*, выбор ТОЛЬКО новой
+# версии — числовой максимум сравнением digit-строк штатной сортировкой;
+# длина, затем порядок знаков в C — арифметики shell нет, версия любой длины
+# сравнима), коммит заморозки — ПРЕДОК OBJECT, перечень и блобы
+# <каталог>/<NNN>-*.md в OBJECT и в заморозке равны побайтно. Промах любого
+# условия — прежнее поведение (KLASS_RISKA_NET, предмет рисковый). Дерево
+# OBJECT читается в носителе автора (r_wt — там D9 сверил tip ветки с
+# OBJECT), профиль каталога контрактов и legacy-реестр D30 — только у
+# ВЛАДЕЛЬЦА (risk_repo): незакоммиченные файлы носителя класс не задают,
+# пока правило базы выбирает как risk_repo репозиторий, отличный от носителя
+# автора; если risk_repo — сам носитель (клон без origin либо с иным
+# origin), его файлы класс задают — унаследованная граница базы (211:
+# ГРАНИЦА ПРИНЯТА ВЛАДЕЛЬЦЕМ, слово 23.11; арбитраж 2353d9e0b8 §4).
+# critic/critic-sol — как в D52 (bootstrap только при нуле frozen-тегов
+# предмета); порядок судей рискового (D14/D59) — как прежде.
+# [Б-1 адверсария 211] Порядок перечня klass_riska — как на базе 1ec472715:
+# ключ «<mode> <tip> <sha>\t<имя>», сравнение байт в байт; равные ключи
+# (одинаковое содержимое) разбирает ИМЯ, а не порядок записей дерева Git
+# (каталог сравнивается как «имя/», а «/» больше «.» — каталоги-близнецы
+# 211-a.md/ и 211-a.md.md/ на базе идут «211-a.md 211-a.md.md»).
 #
 # ПИНЫ (инвариант 1): дверь вызывается расширением .omp/extensions/
 # spawn-guard.ts по расположению расширения, а не по env; корни состояний
@@ -643,12 +669,60 @@ predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # рисковый) или РАЗНЫЕ значения — класс не определён; «первый результат»
 # не каноничен (вердикт адверсария 140 вызов 1/2: один «рисковый» файл среди
 # шести молча определял класс «обычный» — ревьюер шёл без адверсария).
-# Перечень сортируется LC_ALL=C — сообщение отказа детерминировано.
+# Перечень сортируется КАК НА БАЗЕ: строки «<mode> <tip> <sha>\t<имя>» под
+# LC_ALL=C sort — сначала mode, затем tip, затем sha, затем имя (байты).
+# Порядок перечня определяет диагностику неоднозначности (первый файл задаёт
+# значение класса, остальные попадают в список neodnoznachno), поэтому он
+# обязан совпадать с базой байт-в-байт (адверсарий 211, Б-1).
 # Декларация — в любой позиции строки, хвост-основание допустим (норма
 # roles/architect.md), вторая декларация в файле — неоднозначность.
-klass_riska() {  # <NNN> <worktree> <OBJECT> → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
-  local n="$1" wt="$2" obj="$3" kat spisok zap tip_zap blob put val znach='' ploh=''
-  kat="$(kontrakt_kat "$wt")" || kat=''
+# [D64 bootstrap-sudej] (211) 4-й аргумент НЕОБЯЗАТЕЛЬНЫЙ — репозиторий
+# ВЛАДЕЛЬЦА: из его рабочего дерева читаются профиль каталога контрактов
+# (kontrakt_kat) и legacy-реестр D30. Вызовы D42/D52 его не передают —
+# владелец = тот же <worktree>, поведение базы байт-в-байт; D64 читает
+# ДЕРЕВО OBJECT в носителе (r_wt), а профиль и legacy-реестр — у владельца
+# (risk_repo): рабочий каталог носителя автора класс не задаёт, пока
+# правило базы выбирает как risk_repo репозиторий, отличный от носителя
+# автора; если risk_repo — сам носитель (клон без origin либо с иным
+# origin) — унаследованная граница базы (211: ГРАНИЦА ПРИНЯТА ВЛАДЕЛЬЦЕМ,
+# слово 23.11; арбитраж 2353d9e0b8 §4).
+# [Б-1 перечень NUL-безопасен] Перечень файлов предмета читается через
+# kontrakt_zapisi: `git ls-tree -z` печатает имя БАЙТ-в-байт. Обычный
+# ls-tree цитирует и octal-экранирует не-ASCII имя ЦЕЛИКОМ
+# ("211-\321\200\321\240\321\201\321\272.md") — поле имени перестаёт
+# начинаться с <NNN>-, и такой файл ВЫПАДАЛ из перечня: подмена класса риска
+# после заморозки (добавление файла 211-риск.md) была невидимой, предмет
+# допускался без адверсария (адверсарий 211, Б-1). Имя с пробелом, кавычкой,
+# обратным слешем и управляющими символами — обычный файл, в перечень входит.
+#
+# [Б-3 порядок перечня — как на базе] Порядок даёт СОРТИРОВКА ПОТОКА
+# (`ls-tree -z | LC_ALL=C sort -z`), как на базе (1ec472715) и в модели:
+# сортируется ЦЕЛАЯ запись «<mode> <tip> <sha>\t<имя>» — сначала mode, затем
+# tip, затем sha, затем имя (байты); имя в ключе входит ЦЕЛИКОМ, равные ключи
+# (одинаковые mode/tip/sha — одинаковое содержимое) разбирает ИМЯ (тай-брейк
+# базы). Порядок записей дерева Git для тай-брейка не годится: каталог
+# сравнивается как «имя/», а «/» (0x2f) больше «.» (0x2e) — каталоги-близнецы
+# 211-a.md/ и 211-a.md.md/ на базе идут «211-a.md 211-a.md.md», а по дереву —
+# наоборот (адверсарий 211, Б-1). TAB/LF в имени сортировку не рвут: записи
+# разделяет NUL (sort -z), а не перевод строки.
+kontrakt_zapisi() {  # <репозиторий> <tree:каталог> <NNN> → поток NUL-полей
+  local wt="$1" derevo="$2" n="$3" zap meta imya mode tip sha
+  while IFS= read -r -d '' zap; do
+    [ -n "$zap" ] || continue
+    meta="${zap%%$'\t'*}"; imya="${zap#*$'\t'}"
+    case "$imya" in
+      "$n"-*.md) ;;
+      *) continue ;;
+    esac
+    mode=''; tip=''; sha=''
+    read -r mode tip sha <<< "$meta"
+    printf '%s\0%s\0%s\0%s\0' "$imya" "$mode" "$tip" "$sha"
+  done < <(git -C "$wt" ls-tree -z "$derevo" 2>/dev/null | LC_ALL=C sort -z)
+}
+klass_riska() {  # <NNN> <worktree> <OBJECT> [<репозиторий владельца>] → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
+  local n="$1" wt="$2" obj="$3" owner kat imya mode tip_zap blob put val znach='' ploh='' schetchik=0
+  owner="${4:-$wt}"  # отдельной строкой: слова local раскрываются ДО присваиваний wt
+  kat="$(kontrakt_kat "$owner")" || kat=''
   if [ -z "$kat" ]; then
     printf 'net_stroki:каталог контрактов в профиле владельца не объявлен'
     return 0
@@ -657,28 +731,42 @@ klass_riska() {  # <NNN> <worktree> <OBJECT> → risikovyj|obychnyj|net_stroki:<
     printf 'net_stroki:каталога %s в дереве %s нет' "$kat" "$obj"
     return 0
   fi
-  spisok="$(git -C "$wt" ls-tree "$obj:$kat" 2>/dev/null \
-    | awk -F'\t' -v n="$n" '$2 ~ "^" n "-[^/]*[.]md$" {print $1 "\t" $2}' \
-    | LC_ALL=C sort)"
-  if [ -z "$spisok" ]; then printf 'net_stroki:файлов %s/%s-*.md в дереве %s нет' "$kat" "$n" "$obj"; return 0; fi
-  while IFS= read -r zap; do
-    [ -n "$zap" ] || continue
-    put="$(printf '%s' "$zap" | cut -f2)"
-    tip_zap="$(printf '%s' "$zap" | cut -f1 | cut -d' ' -f2)"
-    blob="$(printf '%s' "$zap" | cut -f1 | cut -d' ' -f3)"
-    if [ "$tip_zap" != blob ]; then ploh="${ploh:+$ploh }$put"; continue; fi
+  # Перечень — NUL-безопасно (kontrakt_zapisi): имя файла печатается
+  # байт-в-байт, обычный ls-tree цитирует не-ASCII имя целиком, и такой файл
+  # выпадал из перечня (адверсарий 211, Б-1). Порядок перечня — сортировкой
+  # потока в kontrakt_zapisi (ls-tree -z | LC_ALL=C sort -z), как на базе.
+  #
+  # [Б-1 Rev211 класс читается ПО ПУТИ] Класс файла предмета берётся из
+  # «git show <OBJECT>:<каталог>/<имя>» — как на базе (1ec472715) и в модели.
+  # Имя с «^-» (211-a^-b.md) git по пути не разрешает (rc 128) — класс такого
+  # файла НЕ ОПРЕДЕЛЁН (fail-closed), предмет рисковый. Чтение по blob
+  # (git cat-file blob) эту границу обходило: ревьюер рискового по базе
+  # предмета проходил без адверсария (Rev211, Б-1).
+  while IFS= read -r -d '' imya && IFS= read -r -d '' mode \
+        && IFS= read -r -d '' tip_zap && IFS= read -r -d '' blob; do
+    schetchik=$((schetchik + 1))
+    put="$imya"
+    # Запись предмета — обычный файл: симлинк (120000), gitlink (160000) и
+    # каталог (040000) каноном не являются (D36) — класс по ним не читается.
+    # Исполняемый бит (100644 против 100755) на канон не влияет: оба обычных
+    # файла (адверсарий 211, Б-2).
+    if [ "$tip_zap" != blob ] || { [ "$mode" != 100644 ] && [ "$mode" != 100755 ]; }; then
+      ploh="${ploh:+$ploh }$put"; continue
+    fi
     val="$(git -C "$wt" show "$obj:$kat/$put" 2>/dev/null \
           | grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' \
           | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"
     # [D30 risk-legacy] старый frozen без строки класса (до слова владельца 24.10):
     # класс — из registry/risk-legacy.tsv по blob файла (колонки: blob, класс,
     # основание, подтвердил; норма roles/orchestrator.md §«Порядок судей и класс
-    # риска»). blob — записи ДЕРЕВА закреплённого frozen; сам реестр — $wt
-    # владельца предмета (станции либо продукта, 0814d2f5a).
+    # риска»). blob — записи ДЕРЕВА закреплённого frozen; сам реестр — $owner
+    # владельца предмета (станции либо продукта, 0814d2f5a): при bootstrap
+    # D64 это репозиторий ВЛАДЕЛЬЦА (risk_repo), а не носитель автора —
+    # незакоммиченный реестр носителя класс не задаёт.
     # Литеральное сравнение blob (awk -F'\t' $1==b), нет записи — класс
     # не определён (fail-closed).
-    if [ -z "$val" ] && [ -f "$wt/registry/risk-legacy.tsv" ]; then
-      val="$(awk -F'\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}' "$wt/registry/risk-legacy.tsv")"
+    if [ -z "$val" ] && [ -f "$owner/registry/risk-legacy.tsv" ]; then
+      val="$(awk -F'\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}' "$owner/registry/risk-legacy.tsv")"
     fi
     case "$val" in
       обычный)  val='obychnyj' ;;
@@ -687,9 +775,8 @@ klass_riska() {  # <NNN> <worktree> <OBJECT> → risikovyj|obychnyj|net_stroki:<
     esac
     if [ -z "$znach" ]; then znach="$val"
     elif [ "$znach" != "$val" ]; then ploh="${ploh:+$ploh }$put"; fi
-  done <<EOF
-$spisok
-EOF
+  done < <(kontrakt_zapisi "$wt" "$obj:$kat" "$n")
+  if [ "$schetchik" -eq 0 ]; then printf 'net_stroki:файлов %s/%s-*.md в дереве %s нет' "$kat" "$n" "$obj"; return 0; fi
   if [ -n "$ploh" ]; then printf 'neodnoznachno:%s' "$ploh"; return 0; fi
   printf '%s' "$znach"
 }
@@ -736,6 +823,89 @@ frozen_predmeta() {  # <NNN> <репозиторий владельца> → com
     fi
   done < <(git -C "$owner" for-each-ref --format='%(objectname)' "refs/tags/frozen/contracts/$1/")
   return 1
+}
+# ── [D64 bootstrap-sudej] (211): класс судей реализации из ДЕРЕВА OBJECT ───────
+# Слово владельца 22.11 (вариант А): когда закреплённый frozen недоступен
+# (frozen_predmeta отказал: строки <NNN> → <frozen tag-object> на HEAD
+# репозитория владельца нет, либо строка указывает не на frozen-тег), судья
+# РЕАЛИЗАЦИИ (reviewer/adversary) читает класс риска из ДЕРЕВА OBJECT — но
+# только по УДОСТОВЕРЕННОМУ локальному frozen-тегу предмета в репозитории
+# ВЛАДЕЛЬЦА:
+#   (б1) тег — annotated (объект-тег, не коммит) под
+#        refs/tags/frozen/contracts/<NNN>/<v>, версия v — числовая
+#        [1-9][0-9]*; выбор ТОЛЬКО новой версии — ЧИСЛОВОЙ максимум сравнением
+#        digit-строк штатной сортировкой (сначала длина, затем порядок знаков в
+#        C; арифметики shell нет — версия любой длины сравнима): живая /2
+#        отменила /1, старая версия суд не удостоверяет; нечисловой суффикс
+#        версии — пропуск (fail-closed);
+#   (б2) коммит заморозки tag^{commit} — ПРЕДОК OBJECT (merge-base
+#        --is-ancestor в носителе r_wt): заморозка входит в историю судимой
+#        работы; заморозка с боковой линии не удостоверяет;
+#   (б3) состав и блобы <каталог>/<NNN>-*.md в OBJECT и в коммите заморозки
+#        равны ПОБАЙТОВО (перечень имён и blob-ша — как у klass_riska; blob-ша
+#        в git и есть байты): подмена текста или строки класса в OBJECT после
+#        заморозки различима; пустой перечень (файлов предмета нет) текста не
+#        удостоверяет.
+# Дерево OBJECT читается в носителе автора (r_wt — там D9 сверил tip ветки с
+# OBJECT), профиль каталога контрактов и legacy-реестр D30 — из репозитория
+# ВЛАДЕЛЬЦА (risk_repo): незакоммиченные файлы носителя класс не задают,
+# пока правило базы выбирает как risk_repo репозиторий, отличный от носителя
+# автора; если risk_repo — сам носитель (клон без origin либо с иным origin) —
+# унаследованная граница базы (211: ГРАНИЦА ПРИНЯТА ВЛАДЕЛЬЦЕМ, слово 23.11;
+# арбитраж 2353d9e0b8 §4).
+# Промах любого условия — bootstrap НЕ применяется: прежнее поведение
+# (KLASS_RISKA_NET, предмет считается рисковым). critic/critic-sol — как в
+# D52 (bootstrap только при нуле frozen-тегов предмета); порядок судей
+# рискового (D14/D59) не меняется — bootstrap лишь уточняет класс.
+poslednj_frozen_teg() {  # <NNN> <репозиторий владельца> → tag-object новой версии | пусто
+  local n="$1" owner="$2" teg
+  teg="$(git -C "$owner" for-each-ref --format='%(refname)' "refs/tags/frozen/contracts/$n/" 2>/dev/null \
+    | awk -v pre="refs/tags/frozen/contracts/$n/" '{ v = substr($0, length(pre) + 1); if (v ~ /^[1-9][0-9]*$/) print length(v) "\t" v "\t" $0 }' \
+    | LC_ALL=C sort -t$'\t' -k1,1n -k2,2 | tail -n 1 | cut -f3)"
+  [ -n "$teg" ] || return 1
+  git -C "$owner" rev-parse --verify "$teg" 2>/dev/null || return 1
+}
+# Перечни файлов предмета двух деревьев равны побайтово (инвариант 1б3):
+# сверка идёт по СТРОКАМ «%q имя sha», ОТСОРТИРОВАННЫМ (LC_ALL=C): в ключ
+# сравнения mode НЕ входит (исполняемый бит не влияет на удостоверение:
+# 100644 и 100755 — оба обычных файла, адверсарий 211, Б-2). Попарная
+# сверка «запись к записи» в порядке ПЕРЕЧНЯ не годилась: порядок перечня
+# начинается с mode (kontrakt_zapisi сортирует ЦЕЛУЮ запись ls-tree), и
+# смена одного exec-бита после заморозки переставляла записи OBJECT
+# относительно перечня заморозки — удостоверение снималось, хотя ни имя,
+# ни blob-ша не разошлись (Rev211, Б-1). Записи — обычные файлы (тип blob,
+# mode 100644/100755) с обеих сторон: симлинк (120000), gitlink (160000)
+# и каталог (040000) перечень не удостоверяют; пустой перечень (файлов
+# предмета нет) — тоже. Перечни читаются NUL-безопасно (kontrakt_zapisi),
+# имя — байт-в-байт (адверсарий 211, Б-1).
+kontrakt_perechen() {  # <репозиторий> <tree:каталог> <NNN> → «%q имя sha» по строке | rc 1 — запись не обычный файл
+  local wt="$1" derevo="$2" n="$3" imya mode tip sha
+  while IFS= read -r -d '' imya && IFS= read -r -d '' mode \
+        && IFS= read -r -d '' tip && IFS= read -r -d '' sha; do
+    [ "$tip" = blob ] || return 1
+    { [ "$mode" = 100644 ] || [ "$mode" = 100755 ]; } || return 1
+    printf '%q %s\n' "$imya" "$sha"
+  done < <(kontrakt_zapisi "$wt" "$derevo" "$n")
+}
+perechen_kontrakta_raven() {  # <репозиторий> <treeO:каталог> <treeF:каталог> <NNN> → 0 равны | 1 нет
+  local wt="$1" derevo_o="$2" derevo_f="$3" n="$4" spO spF
+  spO="$(kontrakt_perechen "$wt" "$derevo_o" "$n")" || return 1
+  spF="$(kontrakt_perechen "$wt" "$derevo_f" "$n")" || return 1
+  # Пустой перечень текста не удостоверяет.
+  [ -n "$spO" ] || return 1
+  [ "$(printf '%s\n' "$spO" | LC_ALL=C sort)" = "$(printf '%s\n' "$spF" | LC_ALL=C sort)" ]
+}
+# Удостоверен ли frozen-тег новой версии для дерева OBJECT: 0 — да | 1 — нет.
+frozen_udostoveren_objectu() {  # <NNN> <репозиторий владельца> <r_wt> <OBJECT> → 0 да | 1 нет
+  local n="$1" owner="$2" wt="$3" obj="$4" teg F kat
+  teg="$(poslednj_frozen_teg "$n" "$owner")" || return 1
+  [ -n "$teg" ] || return 1
+  [ "$(git -C "$owner" cat-file -t "$teg" 2>/dev/null)" = tag ] || return 1
+  F="$(git -C "$owner" rev-parse --verify "$teg^{commit}" 2>/dev/null)" || return 1
+  git -C "$wt" merge-base --is-ancestor "$F" "$obj" 2>/dev/null || return 1
+  kat="$(kontrakt_kat "$owner")" || return 1
+  perechen_kontrakta_raven "$wt" "$obj:$kat" "$F:$kat" "$n" || return 1
+  return 0
 }
 peredacha_iz_ucheta() {
   jq -crs --arg r "$REPO_ID" --arg n "$1" '
@@ -1419,6 +1589,19 @@ EOF
         fi
         if [ -n "$P_FROZEN" ]; then
           kr="$(klass_riska "$sv" "$risk_repo" "$P_FROZEN")"
+        elif [ "$rol" = reviewer ] || [ "$rol" = adversary ]; then
+          # [D64 bootstrap-sudej] (211): закреплённый frozen недоступен, но
+          # локальный frozen-тег новой версии удостоверен для дерева OBJECT
+          # (предок + побайтовое равенство состава и блобов контракта) —
+          # класс из ДЕРЕВА OBJECT (дерево — в носителе r_wt; профиль каталога
+          # контрактов и legacy-реестр D30 — у владельца risk_repo), как у
+          # critic-bootstrap; промах удостоверения — прежнее поведение
+          # (kr='net_stroki', предупреждение KLASS_RISKA_NET ниже).
+          if frozen_udostoveren_objectu "$sv" "$risk_repo" "$r_wt" "$obj_fakt"; then
+            kr="$(klass_riska "$sv" "$r_wt" "$obj_fakt" "$risk_repo")"; kr_det=''
+          else
+            kr='net_stroki'
+          fi
         else
           kr='net_stroki'
         fi

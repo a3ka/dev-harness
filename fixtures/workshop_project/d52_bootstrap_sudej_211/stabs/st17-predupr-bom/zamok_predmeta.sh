@@ -669,8 +669,33 @@ predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # задают при risk_repo ≠ носитель автора; при risk_repo = носитель (клон
 # без/с иным origin) — унаследованная граница базы (211: ГРАНИЦА ПРИНЯТА
 # ВЛАДЕЛЬЦЕМ, слово 23.11; арбитраж 2353d9e0b8 §4).
+# NUL-поток git: имя не цитируется и не делится по LF/TAB. Независимый
+# канон порядка D52: штатный sort -z над ЦЕЛОЙ записью ls-tree сохраняет
+# ключ базы (mode, type, blob, имя), не повторяя массивы production.
+kontrakt_zapisi() {  # <repo> <tree:каталог> <NNN>
+  local wt="$1" derevo="$2" n="$3" zap meta imya mode tip blob
+  while IFS= read -r -d '' zap; do
+    meta="${zap%%$'\t'*}"; imya="${zap#*$'\t'}"
+    case "$imya" in "$n"-*.md) ;; *) continue ;; esac
+    read -r mode tip blob <<< "$meta"
+    printf '%s\0%s\0%s\0%s\0' "$imya" "$mode" "$tip" "$blob"
+  done < <(git -C "$wt" ls-tree -z "$derevo" 2>/dev/null | LC_ALL=C sort -z)
+}
+# Независимый канон сравнения: shell %q однозначно кодирует имя; mode
+# проверяется на обычный файл, но НЕ участвует в удостоверении его байтов.
+# Строки «%q имя sha» сравниваются после LC_ALL=C sort: порядок исходного
+# ls-tree начинается с mode и меняется при chmod одного из нескольких файлов.
+kontrakt_perechen() {
+  local wt="$1" derevo="$2" n="$3" imya mode tip blob
+  while IFS= read -r -d '' imya && IFS= read -r -d '' mode \
+        && IFS= read -r -d '' tip && IFS= read -r -d '' blob; do
+    [ "$tip" = blob ] || return 1
+    { [ "$mode" = 100644 ] || [ "$mode" = 100755 ]; } || return 1
+    printf '%q %s\n' "$imya" "$blob"
+  done < <(kontrakt_zapisi "$wt" "$derevo" "$n")
+}
 klass_riska() {  # <NNN> <worktree> <OBJECT> [<репозиторий владельца>] → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
-  local n="$1" wt="$2" obj="$3" owner kat spisok zap tip_zap blob put val znach='' ploh=''
+  local n="$1" wt="$2" obj="$3" owner kat mode tip_zap blob put val znach='' ploh='' schetchik=0
   owner="${4:-$wt}"  # отдельной строкой: слова local раскрываются ДО присваиваний wt
   kat="$(kontrakt_kat "$owner")" || kat=''
   if [ -z "$kat" ]; then
@@ -681,16 +706,12 @@ klass_riska() {  # <NNN> <worktree> <OBJECT> [<репозиторий владе
     printf 'net_stroki:каталога %s в дереве %s нет' "$kat" "$obj"
     return 0
   fi
-  spisok="$(git -C "$wt" ls-tree "$obj:$kat" 2>/dev/null \
-    | awk -F'\t' -v n="$n" '$2 ~ "^" n "-[^/]*[.]md$" {print $1 "\t" $2}' \
-    | LC_ALL=C sort)"
-  if [ -z "$spisok" ]; then printf 'net_stroki:файлов %s/%s-*.md в дереве %s нет' "$kat" "$n" "$obj"; return 0; fi
-  while IFS= read -r zap; do
-    [ -n "$zap" ] || continue
-    put="$(printf '%s' "$zap" | cut -f2)"
-    tip_zap="$(printf '%s' "$zap" | cut -f1 | cut -d' ' -f2)"
-    blob="$(printf '%s' "$zap" | cut -f1 | cut -d' ' -f3)"
-    if [ "$tip_zap" != blob ]; then ploh="${ploh:+$ploh }$put"; continue; fi
+  while IFS= read -r -d '' put && IFS= read -r -d '' mode \
+        && IFS= read -r -d '' tip_zap && IFS= read -r -d '' blob; do
+    schetchik=$((schetchik + 1))
+    if [ "$tip_zap" != blob ] || { [ "$mode" != 100644 ] && [ "$mode" != 100755 ]; }; then
+      ploh="${ploh:+$ploh }$put"; continue
+    fi
     val="$(git -C "$wt" show "$obj:$kat/$put" 2>/dev/null \
           | grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' \
           | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"
@@ -711,9 +732,8 @@ klass_riska() {  # <NNN> <worktree> <OBJECT> [<репозиторий владе
     esac
     if [ -z "$znach" ]; then znach="$val"
     elif [ "$znach" != "$val" ]; then ploh="${ploh:+$ploh }$put"; fi
-  done <<EOF
-$spisok
-EOF
+  done < <(kontrakt_zapisi "$wt" "$obj:$kat" "$n")
+  if [ "$schetchik" -eq 0 ]; then printf 'net_stroki:файлов %s/%s-*.md в дереве %s нет' "$kat" "$n" "$obj"; return 0; fi
   if [ -n "$ploh" ]; then printf 'neodnoznachno:%s' "$ploh"; return 0; fi
   printf '%s' "$znach"
 }
@@ -808,9 +828,9 @@ frozen_udostoveren_objectu() {  # <NNN> <репозиторий владельц
   F="$(git -C "$owner" rev-parse --verify "$tagobj^{commit}" 2>/dev/null)" || return 1
   git -C "$wt" merge-base --is-ancestor "$F" "$obj" 2>/dev/null || return 1
   kat="$(kontrakt_kat "$owner")" || return 1
-  spO="$(git -C "$wt" ls-tree "$obj:$kat" 2>/dev/null | awk -F'\t' -v n="$n" '$2 ~ "^" n "-[^/]*[.]md$" {print $1 "\t" $2}' | LC_ALL=C sort)"
-  spF="$(git -C "$wt" ls-tree "$F:$kat" 2>/dev/null | awk -F'\t' -v n="$n" '$2 ~ "^" n "-[^/]*[.]md$" {print $1 "\t" $2}' | LC_ALL=C sort)"
-  [ -n "$spO" ] && [ "$spO" = "$spF" ] || return 1
+  spO="$(kontrakt_perechen "$wt" "$obj:$kat" "$n")" || return 1
+  spF="$(kontrakt_perechen "$wt" "$F:$kat" "$n")" || return 1
+  [ -n "$spO" ] && [ "$(printf '%s\n' "$spO" | LC_ALL=C sort)" = "$(printf '%s\n' "$spF" | LC_ALL=C sort)" ] || return 1
   return 0
 }
 peredacha_iz_ucheta() {
