@@ -1,0 +1,131 @@
+{
+  "stabs": [
+    {
+      "id": "no-content",
+      "file": "fallback-route.ts",
+      "cells": [
+        "flagged",
+        "cyber",
+        "filter"
+      ]
+    },
+    {
+      "id": "any-error",
+      "file": "fallback-route.ts",
+      "cells": [
+        "other",
+        "error500",
+        "short429"
+      ]
+    },
+    {
+      "id": "substring",
+      "file": "fallback-route.ts",
+      "cells": [
+        "near-token"
+      ]
+    },
+    {
+      "id": "ignore-auto",
+      "file": "fallback-route.ts",
+      "cells": [
+        "auto-off"
+      ]
+    },
+    {
+      "id": "invent-chain",
+      "file": "fallback-route.ts",
+      "cells": [
+        "no-chain"
+      ]
+    },
+    {
+      "id": "poison-provider",
+      "file": "fallback-route.ts",
+      "cells": [
+        "foreign-sibling"
+      ]
+    },
+    {
+      "id": "no-resume",
+      "file": "fallback-route.ts",
+      "cells": [
+        "flagged"
+      ]
+    },
+    {
+      "id": "late-hook",
+      "file": "fallback-route.ts",
+      "cells": [
+        "flagged"
+      ]
+    },
+    {
+      "id": "no-stop-reason",
+      "file": "fallback-route.ts",
+      "cells": [
+        "exhausted"
+      ]
+    },
+    {
+      "id": "wrong-target",
+      "file": "fallback-route.ts",
+      "cells": [
+        "flagged"
+      ]
+    },
+    {
+      "id": "same-provider",
+      "file": "fallback-route.ts",
+      "cells": [
+        "same-provider"
+      ]
+    },
+    {
+      "id": "no-receipt",
+      "file": "models_actual.py",
+      "cells": [
+        "trace"
+      ]
+    },
+    {
+      "id": "receipt-any-id",
+      "file": "models_actual.py",
+      "cells": [
+        "trace"
+      ]
+    },
+    {
+      "id": "receipt-any-model",
+      "file": "models_actual.py",
+      "cells": [
+        "trace"
+      ]
+    },
+    {
+      "id": "all-denied",
+      "file": "models_actual.py",
+      "cells": [
+        "trace"
+      ]
+    },
+    {
+      "id": "M1-forged-id",
+      "file": "fallback-route.ts",
+      "cells": [
+        "trace"
+      ]
+    },
+    {
+      "id": "M5-forged-target",
+      "file": "fallback-route.ts",
+      "cells": [
+        "trace"
+      ]
+    }
+  ],
+  "sha256": {
+    "model/fallback-route.ts": "bc1eb8d8f24c3728cb6da477145cee224896667008af248f996a007cf3e75dcd",
+    "model/models_actual.py": "d4b1ad09f4a899685937882436b370a2e680888a211f7719ce2907b274026342"
+  }
+}
