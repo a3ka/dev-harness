@@ -1,0 +1,95 @@
+{
+  "base": "8b52fade7975034d7cabece67e46c16a7d1abe3b",
+  "nositeli": {
+    "model/station.sh": "e00e7df236ac13a8c089bc7bb770a4bf4ef8d5037b76d4ee36ca6d6adf8c5418",
+    "model/mint_line.sh": "6192557027d615c322052c3ae5a35f7a621623390d9e0e1ff30b75de586a526f",
+    "stabs/st01-no-project-hook/mint_line.sh": "1dc54e26b083eb9e8bbbca4489e856dceeea1ed8f6e3f67c769cfd9cc106f0da",
+    "stabs/st02-name-left/mint_line.sh": "4d0c88cc359056c746f66902d6724592d5bd8ee39c69278d245b2c0253c4c0fd",
+    "stabs/st03-email-left/mint_line.sh": "664cc960eba4719471db67d4c06234ca7b2622cba871a21806c66e81170b1950",
+    "stabs/st04-config-identity/mint_line.sh": "be47a3843857a64686b8c3c6c7d995b8fb629b5f577c1f1feebbb60fd642e3ad",
+    "stabs/st05-no-verify/mint_line.sh": "1e1b2f63f9645d0785669249952b261ca88ab8edccd50448075f0269418529bb",
+    "stabs/st06-no-rollback/mint_line.sh": "0bbb77a20bcfa2aea80fc304f706390d0e1c8e5a1737a21ff82b11c08af0f547",
+    "stabs/st07-project-on-station/mint_line.sh": "e9f172fc4a67e957f74a7b5291657818e1031aeb86253c26d13e3026e17a976a",
+    "stabs/st08-config-hook-wins/mint_line.sh": "827648e4d40ced11a45d6159f2a2e298da69cbd446bbe2b684b2824fe94e62eb",
+    "stabs/st09-repeat-unchecked/mint_line.sh": "54372347f342972e153867e26d911d62b294402868b688562f4b55b0e0397ece",
+    "stabs/st10-empty-name-left/mint_line.sh": "49250b8a5d3ebe98ade56b73db9214f65a5256247f4af8e8d5ec1b1586d06093",
+    "stabs/st11-single-value-unset/mint_line.sh": "543262d5968351285a66ddbed1c52c8c96dccbedb11ee6b6d5e6ff9e7f69fa64",
+    "stabs/st12-unrelated-config/mint_line.sh": "a0d599c79c37efaf5453afed31d77a1de189e1767ef76c1a1f33892f99b0b21e",
+    "stabs/st13-no-cleanup/mint_line.sh": "255172a86faa29d55f013cde06b2a2dbc27f2e3e75ef44ba2f40d7b3f35b71f7",
+    "stabs/st14-user-section/mint_line.sh": "1121bbd7bf23716edd336c75eb16d6cfac2619e6b94247af6e0be8d4485d0cd9"
+  },
+  "stab_vhod": [
+    {
+      "stab": "stabs/st01-no-project-hook/mint_line.sh",
+      "case": "p01-no-hook"
+    },
+    {
+      "stab": "stabs/st02-name-left/mint_line.sh",
+      "case": "p02-foreign-config"
+    },
+    {
+      "stab": "stabs/st03-email-left/mint_line.sh",
+      "case": "p04-email-only"
+    },
+    {
+      "stab": "stabs/st04-config-identity/mint_line.sh",
+      "case": "p05-foreign-env"
+    },
+    {
+      "stab": "stabs/st05-no-verify/mint_line.sh",
+      "case": "p07-live-door-refusal"
+    },
+    {
+      "stab": "stabs/st05-no-verify/mint_line.sh",
+      "case": "p01-no-hook"
+    },
+    {
+      "stab": "stabs/st06-no-rollback/mint_line.sh",
+      "case": "p07-live-door-refusal"
+    },
+    {
+      "stab": "stabs/st07-project-on-station/mint_line.sh",
+      "case": "s02-no-hook"
+    },
+    {
+      "stab": "stabs/st07-project-on-station/mint_line.sh",
+      "case": "s03-foreign-config"
+    },
+    {
+      "stab": "stabs/st08-config-hook-wins/mint_line.sh",
+      "case": "p06-disabled-config-hook"
+    },
+    {
+      "stab": "stabs/st08-config-hook-wins/mint_line.sh",
+      "case": "p07-live-door-refusal"
+    },
+    {
+      "stab": "stabs/st09-repeat-unchecked/mint_line.sh",
+      "case": "p08-repeat"
+    },
+    {
+      "stab": "stabs/st10-empty-name-left/mint_line.sh",
+      "case": "p03-empty-config"
+    },
+    {
+      "stab": "stabs/st11-single-value-unset/mint_line.sh",
+      "case": "p11-multivalue-config"
+    },
+    {
+      "stab": "stabs/st12-unrelated-config/mint_line.sh",
+      "case": "p01-no-hook"
+    },
+    {
+      "stab": "stabs/st13-no-cleanup/mint_line.sh",
+      "case": "p01-no-hook"
+    },
+    {
+      "stab": "stabs/st13-no-cleanup/mint_line.sh",
+      "case": "p07-live-door-refusal"
+    },
+    {
+      "stab": "stabs/st14-user-section/mint_line.sh",
+      "case": "p12-user-family-config"
+    }
+  ]
+}
