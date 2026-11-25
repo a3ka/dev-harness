@@ -13,7 +13,8 @@
 # как субъекта (--sosed-208); реализация несёт ту же семантику.
 # Привязки стаб↔клетка — source.json:.stab_vhod, генерируются из кода (Н-39).
 # Якорь — кратность 1; st58–st63 мутируют pinned production f8eaa3bb8,
-# st64–st67 — pinned production 211d (a6bfd871c), остальные — модель.
+# st64–st67 — pinned production 211d (a6bfd871c), st68 — pinned
+# production 211e (24230d10, класс по пути; Rev211 Б-1), остальные — модель.
 # Оракул — source.json в памяти ДО вызова субъекта (правило 8); носители —
 # sha256; рассинхрон множеств — rc 2 ORACLE_TAMPERED.
 #
@@ -82,6 +83,7 @@ SUBJ = '211'
 BAZA_D52 = '1ec47271534b8c468611ce26a7769eaeec298644'
 BAZA_PRODUCTION = 'f8eaa3bb87664c7a32d7a79eb261f32363bf447d'
 BAZA_PRODUCTION_211D = 'a6bfd871c729d6e684317dab5edb7350fdf9e3d4'  # имя в ключе
+BAZA_PRODUCTION_211E = '24230d10df489b9d077b087738c9c3d4a9544d44'  # класс по пути (Impl211e)
 CHUZHIE_SUBEKTY = ('137', '209')  # миры НЕ-211: константа предмета наблюдаема (урок Adv208)
 # Реальные POSIX/Git-имена: каждое — отдельная клетка отказа и честный
 # эквивалентный вход. NUL и "/" не входят в алфавит basename Git.
@@ -481,11 +483,14 @@ def predupr_zakrep(subj):
             % subj)
 
 
-def predupr_neodnoznachno(subj):
+def predupr_neodnoznachno(subj, fajly=None):
+    # fajly — точный перечень файлов диагностики (умолчание — файл
+    # фикстуры носителя); единый источник формы предупреждения
     return ('ПРЕДУПРЕЖДЕНИЕ: KLASS_RISKA_NET: предмет %s: класс риска '
             'неоднозначно определён (neodnoznachno); файлы: '
-            '%s-fixture.md — класс не определён, предмет считается рисковым\n'
-            % (subj, subj))
+            '%s — класс не определён, предмет считается рисковым\n'
+            % (subj, fajly if fajly is not None
+               else '%s-fixture.md' % subj))
 
 
 def otkaz_adv_do_rev(subj):
@@ -1073,6 +1078,52 @@ def kejsy():
             return vnutrennjaja(m, door)
         return case
 
+    def d42_zhivaja_baza(imja):
+        # Независимый оракул — ЖИВАЯ pinned дверь базы, не production, на
+        # пути D42 (Б-1 Rev211): закреплённый frozen (тег + строка REPLACE
+        # на HEAD станции), единственный файл предмета — ASCII-имя с «^-»
+        # и строкой «КЛАСС РИСКА: обычный». Перечень базы (ls-tree -z)
+        # имя ВИДИТ, но чтение класса по пути «git show <frozen>:<кат>/…
+        # …» даёт rc 128 («^-» — синтаксис ревизии git) — класс не
+        # определён, предмет рисковый, ревьюер отказан. Чтение по blob
+        # (git cat-file blob) границу обходило: ревьюер рискового по базе
+        # предмета проходил без адверсария. Отдельный kontrol-мир
+        # исключает повторный START ревьюера.
+        def mir_vhoda(mir):
+            wt, br, _ = nositel(mir, SUBJ, 'обычный')
+            (Path(wt) / 'contracts/211-fixture.md').rename(
+                Path(wt) / 'contracts' / imja)
+            F = kommit_vse(wt, 'F s imenem ^-')
+            W = kommit(wt, 'rabota/impl.txt', 'work\n')
+            avtor_sdal(mir, SUBJ, wt, br)
+            tegobj = mir.stancija_teg(wt, SUBJ, F)
+            mir.stancija_stroka(SUBJ, tegobj)
+            return W
+
+        def case(m, door):
+            base = m.root / 'base-d42.sh'
+            base.write_bytes(tekst_bazy(BAZA_D52))
+            kontrol = Mir(m.root / 'base-world')
+            obj = mir_vhoda(kontrol)
+            r0 = sudit(base, kontrol, vyzov(kontrol, 'reviewer', 'Rev211',
+                                            obj))
+            stderr = bajty(predupr_neodnoznachno(SUBJ, imja)
+                           + otkaz_adv_do_rev(SUBJ))
+            # Неоднозначный/невоспроизводимый канон не выдаём за красный
+            # продукт: живая база обязана отказывать ревьюеру байтами.
+            assert (r0.returncode, r0.stdout, r0.stderr) == (1, b'',
+                                                             stderr), (
+                'D42_BASE_DRIFT', r0.returncode, r0.stdout, r0.stderr)
+            expected = (r0.returncode, r0.stdout, r0.stderr)
+            W = mir_vhoda(m)
+            do = m.ledger.read_bytes()
+            r = sudit(door, m, vyzov(m, 'reviewer', 'Rev211', W))
+            return [k_rc(r, expected[0], 'D42 live base'),
+                    k_stdout(r, expected[1], 'D42 live base'),
+                    k_text(r, expected[2], 'D42 live base'),
+                    k_uchet_ne_izmenen(m, do, 'D42 live base')]
+        return case
+
     reg('b01-bootstrap-adversary',
         'тег /1 на предке, байты равны, строки на main нет — адверсарий без предупреждения',
         b01)
@@ -1226,6 +1277,17 @@ def kejsy():
                           ('211-a.md', None, 'tree'),
                           ('211-a0.md', None, 'tree')),
                          '211-A.md 211-a.1.md 211-a.md 211-a0.md'))
+
+    reg('b57-d42-imja-karet-minus',
+        'D42: ASCII-имя 211-a^-b.md (обычный) — git show по пути не '
+        'разрешает «^-»: класс не определён, предмет рисковый, ревьюер '
+        'отказан байтами живой базы',
+        d42_zhivaja_baza('211-a^-b.md'))
+    reg('b58-d52-imja-karet-minus',
+        'D52: то же имя 211-a^-b.md у critic (ноль frozen-тегов) — '
+        'предупреждение KLASS_RISKA_NET байтами живой базы',
+        d52_zhivaja_baza((('211-a^-b.md', 'обычный', 0o644),),
+                         '211-a^-b.md'))
     return K
 
 
@@ -1363,6 +1425,15 @@ STAB_MUTACII = {
         t, '    done | LC_ALL=C sort -z', '    done | LC_ALL=C sort -z -f'),
     'st67-U-sort-slovarnyj': lambda t: _mut(
         t, '    done | LC_ALL=C sort -z', '    done | LC_ALL=C sort -z -d'),
+    # Rev211 Б-1 (вызов 1): чтение класса файла предмета по blob вместо
+    # пути — на PINNED починенной production 211e (24230d10: класс по
+    # пути, как на базе и в модели) ровно одна замена якоря кратности 1
+    # возвращает форму r6 (git cat-file blob): имя с «^-» git по пути не
+    # разрешает, по blob читается — класс занижался, ревьюер допускался
+    # без адверсария. Ловят b57 (D42, reviewer) и b58 (D52, critic).
+    'st68-V-klass-po-blob': lambda t: _mut(
+        t, '    val="$(git -C "$wt" show "$obj:$kat/$put" 2>/dev/null \\\n',
+        '    val="$(git -C "$wt" cat-file blob "$blob" 2>/dev/null \\\n'),
 }
 
 STAB_VHOD = {
@@ -1410,6 +1481,8 @@ STAB_VHOD = {
     'st65-O-sort-versijnyj': ['b56-d52-registr-punkt-cifry'],
     'st66-S-sort-bez-registra': ['b56-d52-registr-punkt-cifry'],
     'st67-U-sort-slovarnyj': ['b56-d52-registr-punkt-cifry'],
+    'st68-V-klass-po-blob': ['b57-d42-imja-karet-minus',
+                             'b58-d52-imja-karet-minus'],
 }
 STAB_VHOD['st57-ordered-by-name-only'].append('b54-d52-ravnye-katalogi-prefiks')
 PRODUCTION_STABY = frozenset(imja for imja in STAB_MUTACII
@@ -1418,11 +1491,16 @@ PRODUCTION_STABY = frozenset(imja for imja in STAB_MUTACII
 PRODUCTION_STABY_211D = frozenset(imja for imja in STAB_MUTACII
                                  if imja.startswith(('st64-', 'st65-',
                                                      'st66-', 'st67-')))
+PRODUCTION_STABY_211E = frozenset(imja for imja in STAB_MUTACII
+                                 if imja.startswith('st68-'))
 
 
 def tekst_staba(imja, model):
-    # два pinned production-слоя: st58–st63 — база Adv211c (f8eaa3bb8),
-    # st64–st67 — production 211d с именем в ключе (a6bfd871c, Adv211d)
+    # три pinned production-слоя: st58–st63 — база Adv211c (f8eaa3bb8),
+    # st64–st67 — production 211d с именем в ключе (a6bfd871c, Adv211d),
+    # st68 — починенная production 211e (24230d10, класс по пути, Rev211 Б-1)
+    if imja in PRODUCTION_STABY_211E:
+        return tekst_bazy(BAZA_PRODUCTION_211E).decode('utf-8')
     if imja in PRODUCTION_STABY_211D:
         return tekst_bazy(BAZA_PRODUCTION_211D).decode('utf-8')
     return (tekst_bazy(BAZA_PRODUCTION).decode('utf-8')
@@ -1661,7 +1739,9 @@ def sgeneriruj():
         'zametki': 'привязки стаб↔клетка — единственный источник (Н-39); '
                    'якорь каждой мутации — кратность 1; st58–st63 — pinned '
                    'production f8eaa3bb8, st64–st67 — pinned production '
-                   'a6bfd871c (Adv211d: имя в ключе), остальные — модель',
+                   'a6bfd871c (Adv211d: имя в ключе), st68 — pinned '
+                   'production 24230d10 (Rev211 Б-1: класс по пути), '
+                   'остальные — модель',
     }
     SOURCE.write_text(json.dumps(src, ensure_ascii=False, indent=1) + '\n',
                       encoding='utf-8')
