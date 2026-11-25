@@ -406,9 +406,9 @@ is_charter_path() {
 charter_diff_paths() {
   local c="$1" root="$2"
   if git -C "$root" rev-parse --verify --quiet "${c}^1" >/dev/null 2>&1; then
-    git -C "$root" diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "${c}^1" "$c" 2>/dev/null
+    git -C "$root" diff-tree -r -z --no-commit-id --name-only --no-renames --diff-filter=MD "${c}^1" "$c" 2>/dev/null
   else
-    git -C "$root" diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "$c" 2>/dev/null
+    git -C "$root" diff-tree -r -z --no-commit-id --name-only --no-renames --diff-filter=MD "$c" 2>/dev/null
   fi
 }
 
@@ -655,7 +655,7 @@ razreshil() {  # <коммит> <путь> → 0, если разрешение 
 # 1 — прежний суд; 2 — происхождение проверить нельзя. Без записи в репозиторий.
 charter_frozen_publication() {
   local c="$1" p="$2" root="$3" base nnn saved ref
-  local cb tb tc typ parent pb mb bound oid remote first fb
+  local cb tb tc typ parent pb mb bound oid remote first fb past_commits past seen
   case "$p" in contracts/*) ;; *) return 1 ;; esac
   base="${p#contracts/}"
   case "$base" in */*) return 1 ;; esac
@@ -692,6 +692,14 @@ charter_frozen_publication() {
   first="$(git -C "$root" rev-parse --verify --quiet "$c^1" 2>/dev/null)" || return 1
   fb=0; git -C "$root" merge-base --is-ancestor "$tc" "$first" 2>/dev/null || fb=$?
   case "$fb" in 0) return 1 ;; 1) ;; *) return 2 ;; esac
+  # Adv210 Б-1: land мог публиковать предка T, не включая сам T в main.
+  # Проверяем frozen-блоб в судимой линии первого родителя, а не только T.
+  past_commits="$(git -C "$root" rev-list --first-parent "$first" "^$tc" 2>/dev/null)" || return 2
+  while IFS= read -r past; do
+    [ -n "$past" ] || continue
+    seen="$(git -C "$root" ls-tree --format='%(objectname)' "$past" -- ":(literal)$p" 2>/dev/null)" || return 2
+    [ "$seen" != "$tb" ] || return 1
+  done <<< "$past_commits"
   # Имена registry_state не удостоверяют объект: нужен тот же аннотированный
   # объект на живом origin. Для НОВОГО освобождения unknown-remote недостаточен.
   git -C "$root" remote get-url origin >/dev/null 2>&1 || return 2
@@ -782,21 +790,21 @@ trap 'rm -rf "$TMP"' EXIT
 : > "$TMP/pairs"
 for f in AGENTS.md ROADMAP.md; do
   g cat-file -e "HEAD:$f" 2>/dev/null || continue
-  printf '%s\t%s\n' "$f" 'ustav/1' >> "$TMP/pairs"
+  printf '%s\0%s\0' "$f" 'ustav/1' >> "$TMP/pairs"
 done
 
 # Ошибка ls-tree — именованный отказ, не пустая область: непрочитанное дерево
 # plans/contracts не равно «уставных документов там нет» (контракт 992).
 lt_rc=0
-g ls-tree -r --name-only HEAD -- ':(literal)plans/' ':(literal)contracts/' > "$TMP/ls-raw" 2>/dev/null || lt_rc=$?
+g ls-tree -r -z --name-only HEAD -- ':(literal)plans/' ':(literal)contracts/' > "$TMP/ls-raw" 2>/dev/null || lt_rc=$?
 if [ "$lt_rc" -ne 0 ]; then
   bad "область устава (plans/, contracts/) не читается (ls-tree rc=$lt_rc): проверить невозможно — git fsck и повтор"
   incr_finish 1
   exit 1
 fi
-awk '/\.md$/' "$TMP/ls-raw" | sort > "$TMP/docs"
-while IFS= read -r f; do
-  [ -n "$f" ] || continue
+LC_ALL=C sort -z "$TMP/ls-raw" > "$TMP/docs"
+while IFS= read -r -d '' f; do
+  case "$f" in *.md) ;; *) continue ;; esac
   dir="${f%%/*}"; base="${f##*/}"
   [ "$dir/$base" = "$f" ] || continue
   ARTIFACT_NUMBER=""
@@ -806,7 +814,7 @@ while IFS= read -r f; do
   NNN="$(printf '%03d' "$ARTIFACT_NUMBER")"
   # Уставным файл становится с ПЕРВОЙ заморозки; нет её — он черновик и здесь не предмет.
   g rev-parse --verify --quiet "refs/tags/frozen/$dir/$NNN/1" >/dev/null || continue
-  printf '%s\t%s\n' "$f" "frozen/$dir/$NNN/1" >> "$TMP/pairs"
+  printf '%s\0%s\0' "$f" "frozen/$dir/$NNN/1" >> "$TMP/pairs"
 done < "$TMP/docs"
 
 # ── обход ─────────────────────────────────────────────────────────────────────
@@ -820,7 +828,7 @@ done < "$TMP/docs"
 docs=0; changes=0; excused=0
 if [ "$ORACLE" = "1" ]; then
   # ── оракул: побайтово прежний (медленный) цикл по парам × коммиты ──
-  while IFS=$'\t' read -r f since; do
+  while IFS= read -r -d '' f && IFS= read -r -d '' since; do
     [ -n "$f" ] || continue
     docs=$((docs + 1))
     doc_fails_before="$fails"
@@ -861,7 +869,11 @@ if [ "$ORACLE" = "1" ]; then
         bad "$f — дельта коммита ${c:0:8} не читается (diff-tree rc=$dt_rc): проверить невозможно — git fsck и повтор"
         continue
       fi
-      grep -qxF -- "$f" "$TMP/dpaths" || continue
+      found=0
+      while IFS= read -r -d '' dp; do
+        [ "$dp" != "$f" ] || found=1
+      done < "$TMP/dpaths"
+      [ "$found" -eq 1 ] || continue
       changes=$((changes + 1))
       if razreshil "$c" "$f"; then
         excused=$((excused + 1))
@@ -888,10 +900,9 @@ if [ "$ORACLE" = "1" ]; then
   done < "$TMP/pairs"
 else
   # ── быстрый режим (вариант (в), контракт 113) ─────────────────────────
-  # Один проход `git log` со штатными флагами mergediff/renames/filter
-  # строится ровно один раз и используется всеми документами; маркер `\x01`
-  # (SOH) — имя пути с control-символом невозможно в git, поэтому строка-маркер
-  # коммита неотличима от имени файла только для сломанного дерева.
+  # One native NUL log stream: empty records announce commit metadata,
+  # the first path record has exactly one Git-owned LF prefix.
+  # Names, including control bytes, never supply metadata.
   # Карты ниже — состояние ПРОЦЕССА (не на диске): вариант (в) не несёт состояния между
   # прогонами, и проверка не пишет в судимое дерево ничего (см. шаг 3).
   declare -A __ch_doc_eff=()    # путь → эффективная since (с подменой INCR_BASE там, где законно)
@@ -905,7 +916,7 @@ else
   #    Если файл заморожен ДО кеша (since — предок INCR_BASE), окно сужается
   #    до кеша; иначе остаётся since (черновики ДО заморозки не попадают в
   #    проверяемое окно как «уставные без разрешения» — прецедент 083 И-15).
-  while IFS=$'\t' read -r f since; do
+  while IFS= read -r -d '' f && IFS= read -r -d '' since; do
     [ -n "$f" ] || continue
     docs=$((docs + 1))
     eff="$since"
@@ -949,36 +960,45 @@ else
   # дерева — побочный эффект проверки, наблюдаемый на свежем клоне. Замер холодного
   # клона `git clone --local` без него: rc=0 за 6.2 с (бюджет В-клетки 60 с).
   __ch_lr=0
-  g log --format=$'\x01%H' --name-only \
+  g log -z --format=%x00%H --name-only \
       --no-renames --diff-filter=MD --diff-merges=first-parent HEAD \
       > "$TMP/log-data" 2>/dev/null || __ch_lr=$?
   if [ "$__ch_lr" -ne 0 ]; then
     bad "история не читается (git log rc=$__ch_lr): проверить невозможно — git fsck и повтор"
   else
     __ch_c=""
-    while IFS= read -r __ch_line; do
-      case "$__ch_line" in
-        $'\x01'*)
-          __ch_c="${__ch_line#$'\x01'}"
-          # ГРАММАТИКА SHA — НЕ 40: инвариант 1 «на любом дереве», а дерево бывает
-          # `--object-format=sha256`, где `%H` = 64 hex. Фильтр с зашитой 40 отбрасывал
-          # ВСЕ матчи молча: в sha256-репозитории барьер отдавал rc 0 с «изменений без
-          # разрешения нет» на коммите, меняющем устав без РАЗРЕШИЛ (пройдено пробой
-          # fixtures 113 клетка sha256). Принимаем 40 hex (sha1) и 64 hex (sha256).
-          case "${#__ch_c}" in
-            40|64) ;;
-            *)      __ch_c="" ;;
+    __ch_state=header
+    while IFS= read -r -d '' __ch_line; do
+      case "$__ch_state:$__ch_line" in
+        header:)
+          IFS= read -r -d '' __ch_c <&0 || { bad "оборвана запись коммита git log"; break; }
+          case "${#__ch_c}:$__ch_c" in
+            40:*|64:*) case "$__ch_c" in *[!0-9a-f]*) bad "неверный коммит git log"; break ;; esac ;;
+            *) bad "неверный коммит git log"; break ;;
           esac
-          case "$__ch_c" in
-            *[!0-9a-f]*) __ch_c="" ;;
-          esac
+          __ch_state=first
           ;;
-        "") ;;
+        first:|paths:)
+          __ch_state=header
+          # The empty separator was consumed; next record is the commit SHA.
+          IFS= read -r -d '' __ch_c || { bad "оборвана запись коммита git log"; break; }
+          case "${#__ch_c}:$__ch_c" in
+            40:*|64:*) case "$__ch_c" in *[!0-9a-f]*) bad "неверный коммит git log"; break ;; esac ;;
+            *) bad "неверный коммит git log"; break ;;
+          esac
+          __ch_state=first
+          ;;
         *)
-          [ -n "$__ch_c" ] || continue
+          if [ "$__ch_state" = first ]; then
+            case "$__ch_line" in
+              $'\n'*) __ch_line="${__ch_line:1}" ;;
+              *) bad "неверная запись пути git log"; break ;;
+            esac
+            __ch_state=paths
+          fi
           __ch_p="$__ch_line"
           __ch_eff="${__ch_doc_eff[$__ch_p]:-}"
-          [ -n "$__ch_eff" ] || continue   # путь не уставной — пропускаем без шума
+          [ -n "$__ch_eff" ] || continue
           # Включаем матч (commit, документ), если commit НЕ предок eff
           # (т.е. commit принадлежит диапазону eff..HEAD, который проверял старый
           # обход через `rev-list eff..HEAD`). Прецедент: direction merge-base
@@ -1015,14 +1035,23 @@ else
           ;;
       esac
     done < "$TMP/log-data"
+    if [ -n "$__ch_line" ]; then
+      bad "пустой или оборванный протокол git log: проверить невозможно"
+    elif [ -z "$__ch_c" ]; then
+      __ch_pr=0
+      __ch_pmatch="$(g log -1 --format=%H --no-renames --diff-filter=MD --diff-merges=first-parent HEAD 2>/dev/null)" || __ch_pr=$?
+      if [ "$__ch_pr" -ne 0 ] || [ -n "$__ch_pmatch" ]; then
+        bad "пустой или оборванный протокол git log: проверить невозможно"
+      fi
+    fi
   fi
-  unset __ch_c __ch_line __ch_p __ch_eff __ch_lr
+  unset __ch_c __ch_line __ch_p __ch_eff __ch_lr __ch_pr __ch_pmatch
   # 4. Зелёные ОК с числом просмотренного — барьер, молча проходящий по уставному
   #    документу, не даёт доказательств, ЧТО он проверил (прецедент В-клетки +
   #    обманка s8). Счётчик берётся из посчитанного `rev-list --count` (зеркало
   #    wc -l < rev-list $since..HEAD оракула); per-doc — один ОК при отсутствии
   #    FAIL на документе.
-  while IFS=$'\t' read -r f since; do
+  while IFS= read -r -d '' f && IFS= read -r -d '' since; do
     [ -n "$f" ] || continue
     __ch_eff="${__ch_doc_eff[$f]:-}"
     [ -n "$__ch_eff" ] || continue

@@ -479,7 +479,11 @@ while IFS= read -r nnn; do
   razrechen=1
   while IFS= read -r c; do
     [ -n "$c" ] || continue
-    while IFS= read -r df; do
+    # Поток charter_diff_paths — NUL-записи (контракт 210): имя пути с
+    # кавычкой/пробелом/control-байтом читается ОДНОЙ записью и не может ни
+    # потеряться, ни совпасть с посторонним путём. Предикат v+1, разрешения и
+    # окна прежние.
+    while IFS= read -r -d '' df; do
       [ -n "$df" ] || continue
       case "$df" in
         contracts/"$nnn"-*.md) ;;
@@ -491,8 +495,14 @@ while IFS= read -r nnn; do
   [ "$razrechen" -eq 1 ] || continue
 
   # (а)∧(б): перечитать ЗОНА-строки контракта из РАБОЧЕГО файла ветки.
-  file_head="$(g ls-tree -r --name-only HEAD -- ':(literal)contracts/' 2>/dev/null \
-    | awk -v n="$nnn" 'index($0, "contracts/" n "-") == 1 { print; exit }')"
+  # Файл контракта на HEAD — NUL-ТРАНСПОРТ (контракт 210): `ls-tree -z` печатает имя
+  # вербатим, и запись с кавычкой/пробелом/не-ASCII остаётся ОДНОЙ записью. Прежняя
+  # форма (`ls-tree --name-only` + `awk`) отдавала C-цитированное имя: файл по нему не
+  # находился, тело контракта не читалось, и строки ЗОНА молча выпадали из суда.
+  file_head="$(g ls-tree -z -r --name-only HEAD -- ':(literal)contracts/' 2>/dev/null \
+    | while IFS= read -r -d '' p; do
+        case "$p" in contracts/"$nnn"-*) printf '%s' "$p"; break ;; esac
+      done)"
   [ -n "$file_head" ] || continue
   body_head="$(g cat-file -p "HEAD:$file_head" 2>/dev/null || true)"
   [ -n "$body_head" ] || continue
@@ -550,8 +560,13 @@ while IFS= read -r nnn; do
     file="$pred_src"
     body="$(g cat-file -p "HEAD:$file" 2>/dev/null || true)"
   else
-    file="$(g ls-tree -r --name-only "refs/tags/frozen/contracts/$nnn/$vmax^{commit}" -- ':(literal)contracts/' 2>/dev/null \
-          | awk -v n="$nnn" 'index($0, "contracts/" n "-") == 1 { print; exit }')"
+    # Файл контракта замороженного тега — NUL-ТРАНСПОРТ (контракт 210), как у HEAD
+    # выше: имя печатается вербатим, запись с кавычкой/пробелом/не-ASCII не теряется
+    # и не подменяется C-цитатой.
+    file="$(g ls-tree -z -r --name-only "refs/tags/frozen/contracts/$nnn/$vmax^{commit}" -- ':(literal)contracts/' 2>/dev/null \
+          | while IFS= read -r -d '' p; do
+              case "$p" in contracts/"$nnn"-*) printf '%s' "$p"; break ;; esac
+            done)"
     [ -n "$file" ] || continue
     body="$(g cat-file -p "refs/tags/frozen/contracts/$nnn/$vmax^{commit}:$file" 2>/dev/null || true)"
   fi

@@ -407,12 +407,24 @@ is_charter_path() {
 # не-merge). `git diff-tree <merge>` без явного родителя возвращает пусто (git
 # optimization), и явный `^1 <merge>` нужен только для merge. Корневой коммит —
 # без ^1, diff-tree против пустого дерева.
+#
+# ФОРМАТ ПОТОКА — NUL (контракт 210, арбитраж 23bec24cc): записи разделены
+# байтом NUL, имя пути печатается ВЕРБАТИМ — сырыми байтами, включая кавычку,
+# обратную косую, пробел, TAB, LF и прочие control-байты. Имя с NUL невозможно
+# (git/POSIX это запрещают), значит NUL остаётся ЕДИНСТВЕННЫМ безопасным
+# разделителем независимо от того, какие байты несёт само имя. Поток читают
+# ТОЛЬКО как NUL-записи (`IFS= read -r -d ''`); прежняя построчная форма
+# больше не действительна.
+#
+# `core.quotePath=false` НЕ применяется: он глушил бы только non-ASCII-подкласс
+# (LF/TAB/кавычка/бэкслеш git квотирует ВСЕГДА), а двойной механизм (флаг и
+# `-z`) не оставляем — арбитраж 23bec24cc.
 charter_diff_paths() {
   local c="$1" root="$2"
   if git -C "$root" rev-parse --verify --quiet "${c}^1" >/dev/null 2>&1; then
-    git -C "$root" diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "${c}^1" "$c" 2>/dev/null
+    git -C "$root" diff-tree -r -z --no-commit-id --name-only --no-renames --diff-filter=MD "${c}^1" "$c" 2>/dev/null
   else
-    git -C "$root" diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "$c" 2>/dev/null
+    git -C "$root" diff-tree -r -z --no-commit-id --name-only --no-renames --diff-filter=MD "$c" 2>/dev/null
   fi
 }
 
@@ -676,9 +688,112 @@ razreshil() {  # <коммит> <путь> → 0, если разрешение 
   return 1
 }
 
+# ── ОСВОБОЖДЕНИЕ ПУБЛИКАЦИИ ЗАМОРОЗКИ (контракт 210) ──────────────────────────
+# charter_frozen_publication <коммит> <путь> <корень> — «уставная дельта внесена
+# публикацией frozen-текста». Это НЕ разрешение владельца: освобождение возникает
+# само по себе только когда внесённый блоб побайтово равен блобу ОПУБЛИКОВАННОЙ
+# заморозки, принесён merge-ом со связанной с заморозкой историей, а основание
+# (аннотированный тег /1) опубликовано на живом origin тем же объектом.
+# Основание выпускается только по паре (коммит, путь): другая уставная дельта того
+# же коммита освобождения не получает.
+#
+# Возвраты:
+#   0 — освобождение (публикация заморозки);
+#   1 — основания нет: действует прежний суд (нужна строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ);
+#   2 — происхождение проверить НЕЛЬЗЯ (нет origin/связи/объекта) — fail-closed:
+#       кандидат краснеет самостоятельной причиной, а не проходит молча.
+# Только чтение git (rev-parse/cat-file/merge-base/ls-remote): ни HEAD, ни индекс,
+# ни файлы судимого мира не меняются.
+charter_frozen_publication() {
+  local c="$1" p="$2" root="$3"
+  local base nnn saved ref cb tb tc typ parent pb bound oid remote first mb fb
+  local past past_c seen
+  # И1: предмет — прямой путь contracts/NNN-<slug>.md в существующей грамматике
+  # next_id. Планы, AGENTS.md и ROADMAP.md новым освобождением НЕ охватываются:
+  # для них rc 1 — действует прежний суд.
+  case "$p" in contracts/*) ;; *) return 1 ;; esac
+  base="${p#contracts/}"
+  case "$base" in */*) return 1 ;; esac
+  # Номер NNN — тем же разбором, что is_charter_path: parse_artifact_basename пишет
+  # в ARTIFACT_NUMBER, значение сохраняем и восстанавливаем (глобальное не течёт).
+  saved="${ARTIFACT_NUMBER:-}"
+  if ! parse_artifact_basename "$base" 2>/dev/null || [ -z "${ARTIFACT_NUMBER:-}" ]; then
+    ARTIFACT_NUMBER="$saved"
+    return 1
+  fi
+  nnn="$(printf '%03d' "$ARTIFACT_NUMBER")"
+  ARTIFACT_NUMBER="$saved"
+  # Основание — ПЕРВАЯ заморозка /1. Другой номер, /01, произвольная метка и
+  # последующая /2 её не заменяют: ref собирается строго из NNN пути и версии 1.
+  ref="refs/tags/frozen/contracts/$nnn/1"
+  # Блоб в судимом коммите: пути нет (удаление) — прежний суд.
+  cb="$(git -C "$root" rev-parse --verify --quiet "$c:$p" 2>/dev/null)" || return 1
+  # И5: локальный /1 обязан быть АННОТИРОВАННЫМ тегом (тип tag) и разыменовываться
+  # в коммит. Лёгкий тег основания не даёт (rc 1 — прежний суд); нечитаемое
+  # основание — rc 2 (проверить нельзя).
+  typ="$(git -C "$root" cat-file -t "$ref" 2>/dev/null)" || return 2
+  [ "$typ" = tag ] || return 1
+  tc="$(git -C "$root" rev-parse --verify --quiet "$ref^{commit}" 2>/dev/null)" || return 2
+  tb="$(git -C "$root" rev-parse --verify --quiet "$tc:$p" 2>/dev/null)" || return 2
+  # И2: побайтовое равенство блобов. Пустота, NUL, CRLF, объём и кодировка не
+  # нормализуются: иной блоб (в том числе LF вместо CRLF) остаётся под прежним судом.
+  [ "$cb" = "$tb" ] || return 1
+  # Связанная с заморозкой история приносит блоб ВТОРЫМ родителем: у land-merge
+  # второй родитель — предок коммита тега, у sync — потомок его. Обычный (не merge)
+  # коммит второго родителя не имеет — основания нет.
+  parent="$(git -C "$root" rev-parse --verify --quiet "$c^2" 2>/dev/null)" || return 1
+  pb="$(git -C "$root" rev-parse --verify --quiet "$parent:$p" 2>/dev/null)" || return 1
+  [ "$pb" = "$tb" ] || return 1
+  # И3: Q сравним с T — Q предок T (land) либо T предок Q (sync). Связь с другим
+  # родителем, общая когда-то база или боковая ветка сами по себе не основание.
+  bound=0
+  mb=0; git -C "$root" merge-base --is-ancestor "$parent" "$tc" 2>/dev/null || mb=$?
+  case "$mb" in 0) bound=1 ;; 1) ;; *) return 2 ;; esac
+  if [ "$bound" -eq 0 ]; then
+    mb=0; git -C "$root" merge-base --is-ancestor "$tc" "$parent" 2>/dev/null || mb=$?
+    case "$mb" in 0) bound=1 ;; 1) ;; *) return 2 ;; esac
+  fi
+  [ "$bound" -eq 1 ] || return 1
+  # И3/И4: освобождается только ПЕРВИЧНАЯ публикация frozen-блоба в линию первого
+  # родителя. Первый родитель, выводимый из T, уже прошёл заморозку: его линия
+  # публиковала либо меняла путь после тега, и равный блоб в C восстанавливает
+  # прежние байты вместо текущей разрешённой версии — это возврат, а не публикация;
+  # такой merge судится прежним порядком, без освобождения. Обратная половина
+  # того же критерия — ниже: первичности нет и тогда, когда T в линию первого
+  # родителя не вошёл, а публиковал её предок T.
+  first="$(git -C "$root" rev-parse --verify --quiet "$c^1" 2>/dev/null)" || return 1
+  fb=0; git -C "$root" merge-base --is-ancestor "$tc" "$first" 2>/dev/null || fb=$?
+  case "$fb" in 0) return 1 ;; 1) ;; *) return 2 ;; esac
+  # И3/И4 (Adv210 Б-1): предковость T относительно первого родителя — НЕ
+  # достаточное свидетельство первичной публикации. frozen-блоб мог быть уже
+  # опубликован коммитом, который НЕ выводится из T: публиковал предок T с
+  # боковой ветки, а сам T в линию первого родителя так и не вошёл. Тогда
+  # равный frozen-блоб в C — возврат прежних байтов после иной разрешённой
+  # правки, а не публикация: публикация уже была. Значит, судим не предковость,
+  # а саму линию первого родителя — был ли блоб B(T,P) уже внесён в неё.
+  # Коммиты, достижимые из T, из линии исключаются: до тега заморозка ещё не
+  # публиковалась (там она только была создана).
+  past="$(git -C "$root" rev-list --first-parent "$first" "^$tc" 2>/dev/null)" || return 2
+  while IFS= read -r past_c; do
+    [ -n "$past_c" ] || continue
+    seen="$(git -C "$root" ls-tree --format='%(objectname)' "$past_c" -- ":(literal)$p" 2>/dev/null)" || return 2
+    [ "$seen" != "$tb" ] || return 1
+  done <<< "$past"
+  # И5: основание ОПУБЛИКОВАНО — локальный ref /1 должен буквально совпадать
+  # объектом с одноимённым ref живого настроенного origin. Сравнения peeled-коммитов,
+  # числа или имён тегов и текста аннотации недостаточно: подменённая аннотация —
+  # другой объект, а локальная копия чужого тега — не публикация.
+  git -C "$root" remote get-url origin >/dev/null 2>&1 || return 2
+  oid="$(git -C "$root" rev-parse --verify "$ref" 2>/dev/null)" || return 2
+  remote="$(git -C "$root" ls-remote --refs --tags origin "$ref" 2>/dev/null)" || return 2
+  [ "$remote" = "$oid"$'\t'"$ref" ] || return 2
+  return 0
+}
+
 # ── ИМПОРТ КАК БИБЛИОТЕКА ────────────────────────────────────────────────────
 # Когда скрипт импортируется (`CHARTER_LIB=1 source check_charter.sh`),
-# определяются функции `is_charter_path`, `charter_diff_paths`, `razreshil`
+# определяются функции `is_charter_path`, `charter_diff_paths`, `razreshil`,
+# `charter_frozen_publication`
 # и работа завершается. Иначе — основной код. `set -e` основного скрипта НЕ
 # снимается: check_staged не должен падать на rc=1 от `razreshil` (это «нет
 # разрешения», а не сбой).
@@ -754,24 +869,33 @@ trap 'rm -rf "$TMP"' EXIT
 # ── область: файл → диапазон, с которого он уставной ──────────────────────────
 # У AGENTS.md и ROADMAP.md точка одна — тег `ustav/1`. У планов и контрактов своя у каждого:
 # ПЕРВАЯ его заморозка. Общий диапазон здесь был бы ложью о предмете: до заморозки файл черновик.
+#
+# ФОРМАТ ФАЙЛА ПАР — NUL (контракт 210): пара «путь, since» записывается двумя
+# NUL-записями подряд. Имя пути с TAB/LF/кавычкой не может разорвать пару и не
+# может стать вторым полем: читается `IFS= read -r -d ''` по записям.
 : > "$TMP/pairs"
 for f in AGENTS.md ROADMAP.md; do
   g cat-file -e "HEAD:$f" 2>/dev/null || continue
-  printf '%s\t%s\n' "$f" 'ustav/1' >> "$TMP/pairs"
+  printf '%s\0%s\0' "$f" 'ustav/1' >> "$TMP/pairs"
 done
 
 # Ошибка ls-tree — именованный отказ, не пустая область: непрочитанное дерево
 # plans/contracts не равно «уставных документов там нет» (контракт 992).
+# Имена области читаются NUL-транспортом (`ls-tree -z`, контракт 210): запись с
+# кавычкой/пробелом/control-байтом остаётся ОДНИМ именем, а не текстом с
+# кавычками (прежний `core.quotePath=false` закрывал только non-ASCII-подкласс —
+# двойной механизм не оставляем).
 lt_rc=0
-g ls-tree -r --name-only HEAD -- ':(literal)plans/' ':(literal)contracts/' > "$TMP/ls-raw" 2>/dev/null || lt_rc=$?
+g ls-tree -r -z --name-only HEAD -- ':(literal)plans/' ':(literal)contracts/' > "$TMP/ls-raw" 2>/dev/null || lt_rc=$?
 if [ "$lt_rc" -ne 0 ]; then
   bad "область устава (plans/, contracts/) не читается (ls-tree rc=$lt_rc): проверить невозможно — git fsck и повтор"
   incr_finish 1
   exit 1
 fi
-awk '/\.md$/' "$TMP/ls-raw" | sort > "$TMP/docs"
-while IFS= read -r f; do
+LC_ALL=C sort -z "$TMP/ls-raw" > "$TMP/docs"
+while IFS= read -r -d '' f; do
   [ -n "$f" ] || continue
+  case "$f" in *.md) ;; *) continue ;; esac
   dir="${f%%/*}"; base="${f##*/}"
   [ "$dir/$base" = "$f" ] || continue
   ARTIFACT_NUMBER=""
@@ -781,7 +905,7 @@ while IFS= read -r f; do
   NNN="$(printf '%03d' "$ARTIFACT_NUMBER")"
   # Уставным файл становится с ПЕРВОЙ заморозки; нет её — он черновик и здесь не предмет.
   g rev-parse --verify --quiet "refs/tags/frozen/$dir/$NNN/1" >/dev/null || continue
-  printf '%s\t%s\n' "$f" "frozen/$dir/$NNN/1" >> "$TMP/pairs"
+  printf '%s\0%s\0' "$f" "frozen/$dir/$NNN/1" >> "$TMP/pairs"
 done < "$TMP/docs"
 
 # ── обход ─────────────────────────────────────────────────────────────────────
@@ -795,7 +919,7 @@ done < "$TMP/docs"
 docs=0; changes=0; excused=0
 if [ "$ORACLE" = "1" ]; then
   # ── оракул: побайтово прежний (медленный) цикл по парам × коммиты ──
-  while IFS=$'\t' read -r f since; do
+  while IFS= read -r -d '' f && IFS= read -r -d '' since; do
     [ -n "$f" ] || continue
     docs=$((docs + 1))
     doc_fails_before="$fails"
@@ -836,13 +960,31 @@ if [ "$ORACLE" = "1" ]; then
         bad "$f — дельта коммита ${c:0:8} не читается (diff-tree rc=$dt_rc): проверить невозможно — git fsck и повтор"
         continue
       fi
-      grep -qxF -- "$f" "$TMP/dpaths" || continue
+      # Членство в дельте — по NUL-ЗАПИСЯМ, не по строкам: имя с кавычкой,
+      # пробелом или control-байтом не должно ни совпасть с посторонней
+      # строкой, ни выпасть из дельты (прежний `grep -qxF` по строкам читал
+      # дельту как текст).
+      found=0
+      while IFS= read -r -d '' dp; do
+        [ "$dp" != "$f" ] || found=1
+      done < "$TMP/dpaths"
+      [ "$found" -eq 1 ] || continue
       changes=$((changes + 1))
       if razreshil "$c" "$f"; then
         excused=$((excused + 1))
         ok "уставной документ изменён с разрешения владельца: $f в ${c:0:8}"
       else
-        bad "уставной документ изменён без разрешения владельца: $f в ${c:0:8} — тело коммита обязано нести строку «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: $f <причина>» в первой колонке"
+        # Освобождение публикации заморозки (контракт 210) — тот же предикат, что и
+        # в быстром режиме и в pre-push: один библиотечный предикат на обе ветви.
+        publication_rc=0; charter_frozen_publication "$c" "$f" "$ROOT" || publication_rc=$?
+        if [ "$publication_rc" -eq 0 ]; then
+          excused=$((excused + 1))
+          ok "уставной документ внесён публикацией заморозки: $f в ${c:0:8}"
+        elif [ "$publication_rc" -eq 2 ]; then
+          bad "не могу проверить публикацию заморозки: $f в ${c:0:8} — проверьте origin, тег и объекты git"
+        else
+          bad "уставной документ изменён без разрешения владельца: $f в ${c:0:8} — тело коммита обязано нести строку «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: $f <причина>» в первой колонке"
+        fi
       fi
     done < "$TMP/commits"
     # Зелёное НАЗЫВАЕТСЯ, и с числом просмотренных коммитов. Барьер, молча проходящий по уставному
@@ -856,9 +998,10 @@ if [ "$ORACLE" = "1" ]; then
 else
   # ── быстрый режим (вариант (в), контракт 113) ─────────────────────────
   # Один проход `git log` со штатными флагами mergediff/renames/filter
-  # строится ровно один раз и используется всеми документами; маркер `\x01`
-  # (SOH) — имя пути с control-символом невозможно в git, поэтому строка-маркер
-  # коммита неотличима от имени файла только для сломанного дерева.
+  # строится ровно один раз и используется всеми документами. Транспорт имён —
+  # NUL (контракт 210): разделителя-маркера в строках больше нет, разбор идёт
+  # по структуре протокола (пустая запись → sha коммита → записи путей), поэтому
+  # имя с control-байтом (SOH/TAB/LF) не может выдать себя за заголовок коммита.
   # Карты ниже — состояние ПРОЦЕССА (не на диске): вариант (в) не несёт состояния между
   # прогонами, и проверка не пишет в судимое дерево ничего (см. шаг 3).
   declare -A __ch_doc_eff=()    # путь → эффективная since (с подменой INCR_BASE там, где законно)
@@ -872,7 +1015,7 @@ else
   #    Если файл заморожен ДО кеша (since — предок INCR_BASE), окно сужается
   #    до кеша; иначе остаётся since (черновики ДО заморозки не попадают в
   #    проверяемое окно как «уставные без разрешения» — прецедент 083 И-15).
-  while IFS=$'\t' read -r f since; do
+  while IFS= read -r -d '' f && IFS= read -r -d '' since; do
     [ -n "$f" ] || continue
     docs=$((docs + 1))
     eff="$since"
@@ -915,34 +1058,58 @@ else
   # --reachable`: он оставлял `objects/info/commit-graph` в git-common-dir СУДИМОГО
   # дерева — побочный эффект проверки, наблюдаемый на свежем клоне. Замер холодного
   # клона `git clone --local` без него: rc=0 за 6.2 с (бюджет В-клетки 60 с).
+  #
+  # Имена путей в этом проходе читаются NUL-транспортом (`-z`): имя печатается
+  # вербатим (сырые байты), записи разделены NUL. Прежний `core.quotePath=false`
+  # закрывал только non-ASCII-подкласс — двойной механизм (флаг и `-z`) не
+  # оставляем (арбитраж 23bec24cc).
   __ch_lr=0
-  g log --format=$'\x01%H' --name-only \
+  g log -z --format=%x00%H --name-only \
       --no-renames --diff-filter=MD --diff-merges=first-parent HEAD \
       > "$TMP/log-data" 2>/dev/null || __ch_lr=$?
   if [ "$__ch_lr" -ne 0 ]; then
     bad "история не читается (git log rc=$__ch_lr): проверить невозможно — git fsck и повтор"
   else
     __ch_c=""
-    while IFS= read -r __ch_line; do
-      case "$__ch_line" in
-        $'\x01'*)
-          __ch_c="${__ch_line#$'\x01'}"
-          # ГРАММАТИКА SHA — НЕ 40: инвариант 1 «на любом дереве», а дерево бывает
-          # `--object-format=sha256`, где `%H` = 64 hex. Фильтр с зашитой 40 отбрасывал
-          # ВСЕ матчи молча: в sha256-репозитории барьер отдавал rc 0 с «изменений без
-          # разрешения нет» на коммите, меняющем устав без РАЗРЕШИЛ (пройдено пробой
-          # fixtures 113 клетка sha256). Принимаем 40 hex (sha1) и 64 hex (sha256).
-          case "${#__ch_c}" in
-            40|64) ;;
-            *)      __ch_c="" ;;
+    __ch_line=""
+    # ПРОТОКОЛ `git log -z --format=%x00%H --name-only` (живой замер, od -c):
+    # запись формата даёт ПУСТУЮ запись, следующую — sha коммита; имя пути идёт
+    # следующей записью, и у ПЕРВОГО пути каждого коммита перед именем стоит
+    # ровно один служебный LF от git. Метаданные и пути разбираются по СТРУКТУРЕ
+    # протокола, а не по догадке, что control-байт в имени невозможен: имя с
+    # SOH/LF/TAB остаётся одной записью и не может выдать себя за sha.
+    #
+    # ГРАММАТИКА SHA — НЕ 40: инвариант 1 «на любом дереве», а дерево бывает
+    # `--object-format=sha256`, где `%H` = 64 hex. Принимаем 40 hex (sha1) и
+    # 64 hex (sha256).
+    __ch_state=header
+    while IFS= read -r -d '' __ch_line; do
+      case "$__ch_state:$__ch_line" in
+        header:)
+          IFS= read -r -d '' __ch_c <&0 || { bad "оборвана запись коммита git log"; break; }
+          case "${#__ch_c}:$__ch_c" in
+            40:*|64:*) case "$__ch_c" in *[!0-9a-f]*) bad "неверный коммит git log"; break ;; esac ;;
+            *) bad "неверный коммит git log"; break ;;
           esac
-          case "$__ch_c" in
-            *[!0-9a-f]*) __ch_c="" ;;
-          esac
+          __ch_state=first
           ;;
-        "") ;;
+        first:|paths:)
+          __ch_state=header
+          IFS= read -r -d '' __ch_c || { bad "оборвана запись коммита git log"; break; }
+          case "${#__ch_c}:$__ch_c" in
+            40:*|64:*) case "$__ch_c" in *[!0-9a-f]*) bad "неверный коммит git log"; break ;; esac ;;
+            *) bad "неверный коммит git log"; break ;;
+          esac
+          __ch_state=first
+          ;;
         *)
-          [ -n "$__ch_c" ] || continue
+          if [ "$__ch_state" = first ]; then
+            case "$__ch_line" in
+              $'\n'*) __ch_line="${__ch_line:1}" ;;
+              *) bad "неверная запись пути git log"; break ;;
+            esac
+            __ch_state=paths
+          fi
           __ch_p="$__ch_line"
           __ch_eff="${__ch_doc_eff[$__ch_p]:-}"
           [ -n "$__ch_eff" ] || continue   # путь не уставной — пропускаем без шума
@@ -966,20 +1133,55 @@ else
             __ch_doc_excused["$__ch_p"]=$(( ${__ch_doc_excused["$__ch_p"]:-0} + 1 ))
             ok "уставной документ изменён с разрешения владельца: $__ch_p в ${__ch_c:0:8}"
           else
-            __ch_doc_failed["$__ch_p"]=1
-            bad "уставной документ изменён без разрешения владельца: $__ch_p в ${__ch_c:0:8} — тело коммита обязано нести строку «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: $__ch_p <причина>» в первой колонке"
+            # Освобождение публикации заморозки (контракт 210): тот же предикат, что
+            # в оракуле и в pre-push, — на зелёном incr кеш равен проверенному HEAD.
+            __ch_publication_rc=0; charter_frozen_publication "$__ch_c" "$__ch_p" "$ROOT" || __ch_publication_rc=$?
+            if [ "$__ch_publication_rc" -eq 0 ]; then
+              __ch_doc_excused["$__ch_p"]=$(( ${__ch_doc_excused["$__ch_p"]:-0} + 1 ))
+              ok "уставной документ внесён публикацией заморозки: $__ch_p в ${__ch_c:0:8}"
+            else
+              __ch_doc_failed["$__ch_p"]=1
+              if [ "$__ch_publication_rc" -eq 2 ]; then
+                bad "не могу проверить публикацию заморозки: $__ch_p в ${__ch_c:0:8} — проверьте origin, тег и объекты git"
+              else
+                bad "уставной документ изменён без разрешения владельца: $__ch_p в ${__ch_c:0:8} — тело коммита обязано нести строку «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: $__ch_p <причина>» в первой колонке"
+              fi
+            fi
           fi
           ;;
       esac
     done < "$TMP/log-data"
+    # Пустой или оборванный протокол — ИМЕНОВАННЫЙ отказ, а не «чистая область»:
+    # непрочитанная история не равна истории без нарушений (контракт 992).
+    #
+    # НО «пустой» ≠ «непрочитанный». `git log --diff-filter=MD` на истории, где
+    # НЕТ ни одного коммита, меняющего или удаляющего путь (только ДОБАВЛЕНИЯ —
+    # свежий мир с корневым коммитом), печатает ПУСТОЙ вывод ШТАТНО: коммиты без
+    # совпавших путей не показываются. Это ЛЕГАЛЬНО пустой результат, а не
+    # оборванный протокол, и отказывать здесь — ложный красный (замерено: свежий
+    # мир из одного корневого коммита «основание»). Поэтому пустота оправдывается
+    # НЕЗАВИСИМЫМ дешёвым вопросом, который НЕ читает тот же поток: есть ли в
+    # истории хоть один коммит под тем же фильтром (отдельный вызов `git log -1`
+    # БЕЗ `-z`: rc 0 и ПУСТОЙ вывод = совпавших коммитов нет).
+    # Если такой коммит ЕСТЬ, а основной поток пуст/оборван — протокол оборван:
+    # отказ как раньше. Оборванный хвост (`__ch_line` не пуст) — отказ как раньше.
+    if [ -n "$__ch_line" ]; then
+      bad "пустой или оборванный протокол git log: проверить невозможно"
+    elif [ -z "$__ch_c" ]; then
+      __ch_pr=0
+      __ch_pmatch="$(g log -1 --format=%H --no-renames --diff-filter=MD --diff-merges=first-parent HEAD 2>/dev/null)" || __ch_pr=$?
+      if [ "$__ch_pr" -ne 0 ] || [ -n "$__ch_pmatch" ]; then
+        bad "пустой или оборванный протокол git log: проверить невозможно"
+      fi
+    fi
   fi
-  unset __ch_c __ch_line __ch_p __ch_eff __ch_lr
+  unset __ch_c __ch_line __ch_p __ch_eff __ch_lr __ch_state __ch_pr __ch_pmatch
   # 4. Зелёные ОК с числом просмотренного — барьер, молча проходящий по уставному
   #    документу, не даёт доказательств, ЧТО он проверил (прецедент В-клетки +
   #    обманка s8). Счётчик берётся из посчитанного `rev-list --count` (зеркало
   #    wc -l < rev-list $since..HEAD оракула); per-doc — один ОК при отсутствии
   #    FAIL на документе.
-  while IFS=$'\t' read -r f since; do
+  while IFS= read -r -d '' f && IFS= read -r -d '' since; do
     [ -n "$f" ] || continue
     __ch_eff="${__ch_doc_eff[$f]:-}"
     [ -n "$__ch_eff" ] || continue
