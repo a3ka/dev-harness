@@ -1,0 +1,11 @@
+{
+  "base": "8b52fade7975034d7cabece67e46c16a7d1abe3b:scripts/check_fork_route.sh",
+  "changes": [
+    {"old":"[ -n \"$witness_model\" ] && [ \"$witness_model\" != \"$avtor\" ]","new":"[ -n \"$witness_model\" ]"},
+    {"old":"  consultant_models=()\n  arbitration_models=()\n","new":""},
+    {"old":"    consultant_models+=(\"$m\")\n","new":""},
+    {"old":"    arbitration_models+=(\"$m\")\n","new":""},
+    {"old":"  # Совпадение значений МОДЕЛЬ на одном <id> между консультантом и арбитражем.\n  for cm in \"${consultant_models[@]}\"; do\n    for am in \"${arbitration_models[@]}\"; do\n      if [ \"$cm\" = \"$am\" ]; then\n        printf 'двойная роль на предмете %s: модель %s в роли консультанта и арбитра\\n' \\\n               \"$id\" \"$cm\" >&2\n        exit 1\n      fi\n    done\n  done\n","new":""},
+    {"old":"      # Проверка 5: МОДЕЛЬ свидетельства ≠ АВТОР записи.\n      if [ -n \"$witness_model\" ] && [ \"$witness_model\" = \"$avtor\" ]; then\n        printf 'самоподтверждение класса — модель свидетельства равна автору записи: %s\\n' \"$id\" >&2\n        exit 1\n      fi\n","new":""}
+  ]
+}
