@@ -35,7 +35,7 @@ def environment(extra=None):
                GIT_AUTHOR_NAME='architect', GIT_AUTHOR_EMAIL='architect@dev-harness.local',
                GIT_COMMITTER_NAME='architect', GIT_COMMITTER_EMAIL='architect@dev-harness.local',
                GIT_AUTHOR_DATE='1700000000 +0000', GIT_COMMITTER_DATE='1700000000 +0000',
-               LC_ALL='C.UTF-8')
+               LC_ALL='C.UTF-8', TMPDIR=str(TREE / 'tmp/scratch-arch218'))
     if extra:
         env.update(extra)
     return env
@@ -123,6 +123,14 @@ else
         pred_komity="$(pr_changes)"
       else
 ''' + old + b'      fi\n')
+    # Frozen history remains subject to the existing v+1 conjunction even when
+    # a later own commit restores the final frozen blob.
+    frozen = replace(frozen, b'  if [ -z "$tag_blob" ]; then\n', b'''  pr_pending=""
+  if [ "$PR_ACTIVE" -eq 1 ]; then pr_pending="$(pr_changes)"; fi
+  if [ -z "$tag_blob" ]; then
+''')
+    frozen = replace(frozen, b'  elif [ "$head_blob" != "$tag_blob" ]; then\n',
+                     b'  elif [ "$head_blob" != "$tag_blob" ] || [ -n "$pr_pending" ]; then\n')
     result['check_contract_frozen.sh'] = frozen
     return result
 
@@ -144,9 +152,14 @@ def cells():
         for world in ('clean', 'late-tag', 'neighbor-before', 'neighbor-after',
                       'owner-update', 'owner-update-allowed', 'draft', 'long-main'):
             result.append(Cell(f'{guard}-{world}', world, guard))
+        for world in ('frozen-revert-allowed', 'frozen-revert-refrozen', 'code-revert',
+                      'unique-base', 'carrier-main-first'):
+            result.append(Cell(f'{guard}-{world}', world, guard))
         for world, diagnosis in (('missing-base', 'BASE_MISSING'), ('shallow', 'SHALLOW'),
                                  ('forged-base', 'BASE_UNTRUSTED'), ('no-origin', 'ORIGIN_UNAVAILABLE'),
-                                 ('unrelated', 'BASE_UNRELATED')):
+                                 ('unrelated', 'BASE_UNRELATED'),
+                                 ('ambiguous-base', 'BASE_AMBIGUOUS'),
+                                 ('ambiguous-base-descendant', 'BASE_AMBIGUOUS')):
             result.append(Cell(f'{guard}-{world}', world, guard, 1, 'PR_WINDOW_' + diagnosis))
         for world in ('own-frozen', 'retroactive-frozen', 'delete-frozen', 'verdict-fail'):
             reason = 'без новой заморозки' if guard == 'frozen' else 'без разрешения владельца'
@@ -154,6 +167,9 @@ def cells():
                 if guard == 'charter':
                     continue
                 reason = 'вердикта, который её не разрешил'
+            result.append(Cell(f'{guard}-{world}', world, guard, 1, reason))
+        for world in ('frozen-revert', 'carrier-main-first-revert'):
+            reason = 'без новой заморозки' if guard == 'frozen' else 'без разрешения владельца'
             result.append(Cell(f'{guard}-{world}', world, guard, 1, reason))
         for world in ('push-clean', 'push-bad', 'push-incr-empty', 'push-oracle'):
             result.append(Cell(f'{guard}-{world}', world, guard, legacy=True, mode='push'))
@@ -227,6 +243,15 @@ class World:
                 raise Prerequisite('EMPTY_OWN_HISTORY')
         else:
             self.own = []
+        if cell.world in ('ambiguous-base', 'ambiguous-base-descendant', 'unique-base'):
+            bases = git(self.root, 'merge-base', '--all', self.main, self.head).decode().splitlines()
+            expected_bases = {self.cross_a, self.cross_b} if cell.world != 'unique-base' else {self.cross_b}
+            if set(bases) != expected_bases or len(bases) != len(expected_bases):
+                raise Prerequisite('WORLD_MERGE_BASES: ' + repr(bases))
+        if cell.world.startswith('carrier-main-first'):
+            parents = git(self.root, 'rev-list', '--parents', '-n', '1', self.head).decode().split()[1:]
+            if parents != [self.main, self.carrier]:
+                raise Prerequisite('WORLD_CARRIER_PARENTS')
 
     def tree_files(self, commit):
         names = git(self.root, 'ls-tree', '-r', '-z', '--name-only', commit).split(b'\0')
@@ -314,6 +339,40 @@ class World:
             self.head = self.commit(updates, (self.head, self.main), 'update-branch main merges')
         elif kind == 'push-bad':
             self.head = self.commit({'ROADMAP.md': b'forbidden\n', self.path: b'forbidden\n'}, (self.head,), 'forbidden')
+        elif kind in ('frozen-revert', 'frozen-revert-allowed', 'frozen-revert-refrozen',
+                      'carrier-main-first-revert'):
+            permitted = kind in ('frozen-revert-allowed', 'frozen-revert-refrozen')
+            next_verdict = f'verdicts/critic/contracts-{self.number:03d}-v2.md'
+            updates = {self.path: b'own intermediate frozen\n'}
+            if permitted:
+                updates[next_verdict] = b'accept\n'
+            message = self.allowed(self.path) if permitted else 'own forbidden frozen'
+            self.head = self.commit(updates, (self.head,), message)
+            self.head = self.commit({self.path: b'frozen one\n'}, (self.head,),
+                                    self.allowed(self.path) if permitted else 'revert own frozen')
+            if kind == 'frozen-revert-refrozen':
+                git(self.root, 'tag', '-a', f'frozen/contracts/{self.number:03d}/2',
+                    self.head, '-m', 'fixture next freeze')
+        elif kind == 'code-revert':
+            self.head = self.commit({'code.txt': b'intermediate code\n'}, (self.head,), 'code edit')
+            self.head = self.commit({'code.txt': b'own work\n'}, (self.head,), 'revert code only')
+        elif kind in ('ambiguous-base', 'ambiguous-base-descendant', 'unique-base'):
+            self.cross_a = self.commit({'a.txt': b'A\n'}, (self.seed,), 'cross A')
+            self.cross_b = self.commit({'b.txt': b'B\n'}, (self.seed,), 'cross B')
+            updates = {'a.txt': b'A\n', 'b.txt': b'B\n'}
+            self.main = self.commit(updates, (self.cross_a, self.cross_b), 'main A B')
+            parents = (self.cross_b,) if kind == 'unique-base' else (self.cross_b, self.cross_a)
+            self.head = self.commit(updates, parents, 'PR B A')
+            if kind == 'ambiguous-base-descendant':
+                self.head = self.commit({'code.txt': b'own descendant\n'}, (self.head,), 'after cross')
+        if kind in ('carrier-main-first', 'carrier-main-first-revert'):
+            self.main_change()
+            self.main = self.commit({'AGENTS.md': b'imported main charter\n'}, (self.main,),
+                                    'main-only unauthorized charter')
+            self.carrier = self.head
+            imported = self.tree_files(self.main)
+            imported['code.txt'] = b'own work\n'
+            self.head = self.commit(imported, (self.main, self.carrier), 'carrier main first')
 
     def run(self, selected, directory, trace):
         tool = directory / 'scripts'
@@ -431,6 +490,10 @@ def catalog():
     for change in changes.values():
         if not change['cells'] or any(n not in names for n in change['cells']):
             raise Prerequisite('MUTATION_BINDINGS')
+    index = 'name\tcell\n' + ''.join(f"{m['name']}\t{n}\n"
+                                    for m in changes.values() for n in m['cells'])
+    if (HERE / 'stabs.tsv').read_bytes() != index.encode():
+        raise Prerequisite('STABS_CATALOG')
     census = {'cells': len(cases), 'mutations': len(changes),
               'bindings': sum(len(m['cells']) for m in changes.values())}
     if SOURCE['census'] != census:
@@ -477,9 +540,9 @@ def main():
             return 0
         if args.context:
             return command(['python3', HERE / 'context.py'], TREE)[0]
-        baseline = sources(args.repo.resolve(), pinned=True)
         scratch = TREE / 'tmp/scratch-arch218'
         scratch.mkdir(parents=True, exist_ok=True)
+        baseline = sources(args.repo.resolve(), pinned=True)
         if args.sintaksis:
             return syntax(scratch, baseline)
         selected = model_sources(baseline) if args.model or args.stabs else sources(args.repo.resolve())
