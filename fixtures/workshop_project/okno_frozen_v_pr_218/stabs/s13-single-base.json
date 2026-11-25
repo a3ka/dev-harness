@@ -1,0 +1,1 @@
+{"name":"s13-single-base","file":"pr_window.sh","old":"g merge-base --all \"$base\" \"$head\"","new":"g merge-base \"$base\" \"$head\"","cells":["frozen-ambiguous-base","charter-ambiguous-base","frozen-ambiguous-base-descendant","charter-ambiguous-base-descendant"]}
