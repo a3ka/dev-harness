@@ -1,0 +1,1 @@
+{"name":"s11-legacy-permission","file":"check_charter.sh","old":"if razreshil \"$__ch_c\" \"$__ch_p\"; then","new":"if :; then","cells":["charter-push-bad"]}
