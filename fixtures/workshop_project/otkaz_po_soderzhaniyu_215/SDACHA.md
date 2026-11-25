@@ -1,4 +1,4 @@
-# СДАЧА 215 — отказ по содержанию: продолжение субагента на объявленной запасной (v1 → исправление Б-1 критика, до реализации)
+# СДАЧА 215 — содержимое followUp (Adv215b К-08, R-0115 п.1)
 
 Обещание: при провайдерском отказе ПО СОДЕРЖАНИЮ (закрытый список из трёх
 маркеров) расширение переключает текущую сессию субагента на запасную модель,
@@ -10,16 +10,31 @@ HTTP-журнал, task-result с собственным маркером, sessi
 сессии ребёнка и полные байты TSV-проекции. Реализация — implementer по
 красным тестам; эта пачка architect.
 
-Числа этой редакции — из фактических прогонов: клеток 14, стабов 17, связей
-21, живых 0, красных до реализации 5 (flagged, cyber, filter, exhausted,
+Исторический замер до этой дельты: клеток 14, стабов 17, связей 21,
+живых 0, красных до реализации 5 (flagged, cyber, filter, exhausted,
 trace); честная модель 14/0; соседняя батарея 129 с расширением 215 — 6/0.
+Текущий замер: клеток 15 (14 → 15), стабов 20 (17 → 20), связей 24
+(21 → 24), ЖИВЫХ 0; production --repo и независимая --model — 15/0.
+--sosed и неизменённая батарея 129 на production — обе 6/0.
+--sintaksis, --catalog и gen_ci_steps.sh --check — rc 0.
 Исправление Б-1 (вердикт 215 v1): парное ожидание trace выводится из настоящего
 model_change сессии (последняя native-запись; модель — фактический selector
 завершения по журналу провайдера), клетка trace в --repo гоняет субъект-расширение
 (квиток пишет субъект), в --model — честную модель; стабы писателя квитка
 M1-forged-id и M5-forged-target ловятся только этой клеткой.
 
-Среда: TMPDIR — scratch разрешённой копии (`tmp/arch215`, убран); валидатор
+Клетка `followup-content` проверяет последнее user-сообщение настоящего
+HTTP-запроса запасной модели, а не исходник расширения и не наличие фразы
+где-нибудь в истории. Независимый литерал обещания в probe215.py передаётся
+провайдеру до запуска субъекта; только точное совпадение разрешает прежний
+успешный yield-протокол 129. Иное содержимое получает ошибку
+FOLLOWUP_CONTENT_MISMATCH без yield, отсутствие запроса —
+FOLLOWUP_CONTENT_ABSENT. Итоговый completed task-result по-прежнему обязателен.
+Обратная инструкция из Adv215b, пустая строка и продолжение с посторонним
+добавлением/сменой языка — адресные мутации реальной ветви sendUserMessage;
+их связи с клеткой заданы в STABS, не в тексте контракта.
+
+Среда: TMPDIR — scratch разрешённой копии (`tmp/scratch-arch215d`); валидатор
 VALIDATE_STD_SHELLCHECK=/home/harness/.local/state/dev-harness/validators/shellcheck/0.11.0/shellcheck
 через штатный шов validate_std (пин ops/server/validators.tsv). Станция под
 нагрузкой: медленные двери листа исполняются по одной; при упоре в таймаут 300 с
@@ -28,13 +43,16 @@ VALIDATE_STD_SHELLCHECK=/home/harness/.local/state/dev-harness/validators/shellc
 
 ## Двери
 
-- Red-do · bash fixtures/workshop_project/otkaz_po_soderzhaniyu_215/red_otkaz_po_soderzhaniyu_215.sh --repo . · 1 · 1
+- Repo · bash fixtures/workshop_project/otkaz_po_soderzhaniyu_215/red_otkaz_po_soderzhaniyu_215.sh --repo . · 0 · 0
 - Model · bash fixtures/workshop_project/otkaz_po_soderzhaniyu_215/red_otkaz_po_soderzhaniyu_215.sh --model · 0 · 0
 - Stabs · bash fixtures/workshop_project/otkaz_po_soderzhaniyu_215/red_otkaz_po_soderzhaniyu_215.sh --stabs · 0 · 0
 - Sosed-129 · bash fixtures/workshop_project/otkaz_po_soderzhaniyu_215/red_otkaz_po_soderzhaniyu_215.sh --sosed · 0 · 0
 - Sintaksis · bash fixtures/workshop_project/otkaz_po_soderzhaniyu_215/red_otkaz_po_soderzhaniyu_215.sh --sintaksis · 0 · 0
 - Catalog · bash fixtures/workshop_project/otkaz_po_soderzhaniyu_215/red_otkaz_po_soderzhaniyu_215.sh --catalog · 0 · 0
 - Pre-critic · bash scripts/pre_critic.sh contracts/215-otkaz-po-soderzhaniyu-zapasnaya.md · 0 · 0
+
+Pre-critic — исторический результат прежнего сдаточного листа; в узкой
+дельте К-08 не повторялся. Текущие прогоны перечислены в замере выше.
 
 ## Карта классов
 
@@ -43,7 +61,7 @@ VALIDATE_STD_SHELLCHECK=/home/harness/.local/state/dev-harness/validators/shellc
 - К-03 · чисто · вход: registry/plan.tsv не тронут (строка 215 уже в main), производные ролей и генератор этой пачкой не правятся, двери 129/104/166/186/198 не ослабляются · - · -
 - К-04 · чисто · вход: ЗОНА architect — контракт и одна семья fixtures; ЗОНА implementer — fallback-route.ts и models_actual.sh; ЗОНА orchestrator — roles/orchestrator.md и .omp/agents/orchestrator.md; каждая строка ПЕРЕСЕЧЕНИЕ выведена живым zones_load (catalog.py --zones), не наивным счётом (А-962) · - · -
 - К-05 · чисто · вход: предмет — один наблюдаемый результат (итоговый task-result исходного задания на запасной), приёмочные строки несут команды и rc; количественная граница повтора (≤2 агентских HTTP-запросов ребёнка на содержимом-отказе) исполнима клетками по журналу провайдера · - · -
-- К-06 · чисто · bash fixtures/workshop_project/otkaz_po_soderzhaniyu_215/red_otkaz_po_soderzhaniyu_215.sh --repo . · 1 · 1
+- К-06 · чисто · bash fixtures/workshop_project/otkaz_po_soderzhaniyu_215/red_otkaz_po_soderzhaniyu_215.sh --repo . · 0 · 0
 - К-07 · чисто · вход: медленные двери прогнаны по одной (задание станции); каждая укладывается в таймаут; бюджет листа при нагрузке расширяется штатным швом SDACHA_BUDZHET_SEK с обязательным повтором строки · - · -
 - К-08 · чисто · bash fixtures/workshop_project/otkaz_po_soderzhaniyu_215/red_otkaz_po_soderzhaniyu_215.sh --stabs · 0 · 0
 - К-09 · чисто · вход: клетки различают входы — три маркера закрытого списка дают переход, не-содержательные ошибки (другая 400, 5xx, короткий 429, близкий токен notcyber_policyx), здоровый примарий, отсутствие цепочки/autoFallback и запасная того же провайдера НЕ переключают; счёт запросов отлавливает и лишние повторы · - · -
@@ -51,23 +69,25 @@ VALIDATE_STD_SHELLCHECK=/home/harness/.local/state/dev-harness/validators/shellc
 - К-11 · чисто · вход: ожидания исхода/селекторов/полного TSV собраны в памяти probe215.py ДО вызова субъекта; файлы сессий и журнал провайдера — наблюдаемые факты, не оракул; source.json с sha256 модели сверяется до прогона (порча → rc 2 ORACLE_TAMPERED) · - · -
 - К-12 · чисто · вход: настоящий omp 18.18.8 (sha256 сверян в runtime_evidence.py), настоящий git в мире 129, loopback HTTP без credentials; источник сигнала — встроенный исходник бинаря по байтовым адресам, не выдуманный API · - · -
 - К-13 · н/п · loopback 127.0.0.1 без аутентификации; секретов, credentials и внешних сервисов предмет не вводит · - · -
-- К-14 · чисто · вход: честная исполняемая модель зелена на всех 14 предъявлениях включая повторный содержимый отказ запасной (exhausted) и полную TSV-проекцию (trace) с парным ожиданием из настоящего model_change, не из полей квитка; каждый запрет имеет честную эквивалентную запись, остающуюся зелёной · - · -
-- К-15 · чисто · вход: числа из фактических прогонов этой редакции — RED 14/5, MODEL 14/0, STABY 17 SVJAZI 21 ZHIVYH 0, SOSED 6/0, SINTAKSIS 0; контракт чисел census не дублирует вторым списком · - · -
+- К-14 · чисто · вход: честная исполняемая модель зелена на всех 15 предъявлениях, включая followup-content с исходной инструкцией продолжения, повторный отказ запасной и trace; строковое и текстово-блочное представления сообщения сравниваются по одному тексту · - · -
+- К-15 · чисто · вход: числа из текущих прогонов — REPO 15/0, MODEL 15/0, STABY 20 SVJAZI 24 ZHIVYH 0, SOSED 6/0, исходная 129 6/0, SINTAKSIS 0, CATALOG 15/20/24; контракт census не дублирует · - · -
 - К-16 · чисто · вход: класс рисковый (автоматическая смена модели исполнителя/судьи и свидетельство этой смены — доверенный поток); суд реализации adversary → reviewer на одном OBJECT; границы перечислены в НЕ ЗАЩИЩАЕТ с ловцами · - · -
 - К-17 · н/п · новых CI-шагов, схем 188, сервисов и параллельных механизмов предмет не заявляет: станционная батарея требует живого omp, CI-решение — оркестратор по ПРОВОДКЕ-ЭНФОРСМЕНТ · - · -
 
 ## Дельта
 
-- К-01 · канон/инструмент · bash scripts/pre_critic.sh contracts/215-otkaz-po-soderzhaniyu-zapasnaya.md · 0 · 0
-- К-04 · канон/инструмент · bash scripts/check_precision_gate.sh . contracts/215-otkaz-po-soderzhaniyu-zapasnaya.md · 0 · 0
+- К-08 · клетка · bash fixtures/workshop_project/otkaz_po_soderzhaniyu_215/red_otkaz_po_soderzhaniyu_215.sh --stabs · 0 · 0
 
 ## Основание дельты
 
-Вердикт вызова 2: archive/215/critic-v2-fail-db5c459b51:verdicts/critic/contracts-215-v2.md;
-база исправления: 6e3a6aa5eab4355db2942b8f4209e1a002c9fd85.
-Единственный блок К-01/К-04 закрывается объявлениями обоих пересечений с 222,
-полученных настоящим zones_load: roles/orchestrator.md и .omp/agents/orchestrator.md.
-Соседний путь проверяется тем же каталогом; точечная правка — дополнение блока
-батареи 129 и его регенерация после 222 без отмены назначений и сверки факта.
-Новых предикатов, клеток, дверей и обязательств нет; прежние прогоны выше —
-свидетельства предыдущей редакции, повторные rc этой дельты предъявляются в докладе.
+Вердикт: 4e417ed707:verdicts/adversary/contracts-215-impl-v1.md, только К-08;
+база: 14fa2916983cd22915a062150c2c18b8a0a40c7e. Слово владельца:
+R-0115 п.1 — клетка на содержимое followUp и один узкий adversary.
+Снятие или граница не закрывают обещание продолжить исходную задачу;
+валидатора семантики задания нет. Поэтому клетка сравнивает реальное
+сообщение с независимым литералом заявленного продолжения до выдачи yield.
+Именованные отказы — mismatch/absent; честный контроль — production и
+независимая модель, родственные мутации — пустая строка и постороннее добавление.
+Существующие клетки, стабы и модель не ослаблены; контракт, production и
+семья 129 не меняются. К-16 о распознавании стенда остаётся вне защиты.
+

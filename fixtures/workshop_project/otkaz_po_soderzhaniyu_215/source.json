@@ -1,4 +1,21 @@
 {
+  "cells": [
+    "flagged",
+    "cyber",
+    "filter",
+    "other",
+    "error500",
+    "short429",
+    "near-token",
+    "healthy",
+    "exhausted",
+    "no-chain",
+    "auto-off",
+    "same-provider",
+    "foreign-sibling",
+    "trace",
+    "followup-content"
+  ],
   "stabs": [
     {
       "id": "no-content",
@@ -121,6 +138,27 @@
       "file": "fallback-route.ts",
       "cells": [
         "trace"
+      ]
+    },
+    {
+      "id": "followup-reverse",
+      "file": ".omp/extensions/fallback-route.ts",
+      "cells": [
+        "followup-content"
+      ]
+    },
+    {
+      "id": "followup-empty",
+      "file": ".omp/extensions/fallback-route.ts",
+      "cells": [
+        "followup-content"
+      ]
+    },
+    {
+      "id": "followup-addition",
+      "file": ".omp/extensions/fallback-route.ts",
+      "cells": [
+        "followup-content"
       ]
     }
   ],
