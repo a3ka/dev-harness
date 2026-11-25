@@ -17,13 +17,16 @@ import subprocess
 import sys
 import tempfile
 import time
+sys.dont_write_bytecode = True
 
 HERE = Path(__file__).resolve().parent
 TREE = HERE.parents[2]
-BASE = '4576309b967a22818cd7c2ed0738333dd014ca80'
+SOURCE = json.loads((HERE / 'source.json').read_bytes())
+BASE = SOURCE['baseline']
 FILES = ('scripts/check_charter.sh', 'scripts/lib_incr.sh',
          'scripts/next_id.sh', 'scripts/lib_registry.sh')
-ANCHOR = b'INCR_GIT_ROOT="$ROOT"\n'
+TAG_GUARD = ("g rev-parse --verify --quiet 'refs/tags/ustav/1' >/dev/null \\\n"
+             '  || skip "устав не введён — создайте тег ustav/1 последним коммитом документных правок"\n').encode()
 MODEL = HERE / 'model/empty_window.sh'
 EMPTY_BRANCH = b'if ' + MODEL.read_bytes().split(b'if ', 1)[1]
 REGISTRY_END = b'mkdir -p "$ROOT/tmp"\n'
@@ -85,7 +88,7 @@ def sources(root, pinned=False):
 
 def model_sources(original):
     result = dict(original)
-    result[FILES[0]] = replace(result[FILES[0]], ANCHOR, ANCHOR + b'\n' + MODEL.read_bytes())
+    result[FILES[0]] = replace(result[FILES[0]], TAG_GUARD, TAG_GUARD + b'\n' + MODEL.read_bytes())
     return result
 
 
@@ -137,6 +140,11 @@ def cells():
         Cell('w13-edit-revert-allowed', shape='revert-allowed'),
         Cell('w14-merge-only-allowed', shape='merge-allowed'),
         Cell('w15-prefix4-allowed', shape='prefix-allowed'),
+        Cell('w16-prefix10-denied', shape='prefix10-denied'),
+        Cell('w17-prefix10-allowed', shape='prefix10-allowed'),
+        Cell('e10-no-ustav', shape='no-ustav', empty=True),
+        Cell('e11-no-ustav-oracle-no-lf', shape='no-ustav', mode='oracle-incr', cache='no-lf', empty=True),
+        Cell('c9-no-ustav-broken', shape='no-ustav', cache='broken'),
     ]
 
 
@@ -244,6 +252,12 @@ def extend_window(world, directory, cell):
         if world.base == sha or world.base[:4] != sha[:4]:
             raise Prerequisite('PREFIX4_WORLD_INVALID')
         git(world.root, 'merge-base', '--is-ancestor', world.base, sha)
+    elif cell.shape.startswith('prefix10-'):
+        from prefix10 import construct
+        try:
+            world.base = construct(world.root, world.base, git, allowed=allowed)
+        except RuntimeError as exc:
+            raise Prerequisite(str(exc)) from exc
 
 
 class World:
@@ -266,13 +280,15 @@ class World:
                 git(self.root, 'tag', '-a', 'frozen/contracts/850/1', '-m', 'late freeze')
                 if cell.shape == 'late-denied':
                     self.commit('contracts/850-late.md', b'forbidden after freeze\n')
-            elif cell.shape.startswith(('revert-', 'merge-', 'prefix-')):
+            elif cell.shape.startswith(('revert-', 'merge-', 'prefix-', 'prefix10-')):
                 extend_window(self, directory, cell)
             else:
                 self.commit('ordinary.txt', b'ordinary code\n')
         self.head = git(self.root, 'rev-parse', 'HEAD').decode().strip()
         if cell.shape == 'origin':
             extend_window(self, directory, cell)
+        if cell.shape == 'no-ustav':
+            git(self.root, 'tag', '-d', 'ustav/1')
         value = (self.base + '\n').encode()
         if cell.cache == 'no-lf':
             value = self.base.encode()
@@ -343,13 +359,17 @@ def observe(cell, selected, baseline, scratch, templates, mutant_rc=None):
             marker = (f'incr: check_charter судит {w.base[:8]}..{w.head[:8]} '
                       '(0 коммитов)\n').encode()
             expected = (0, b'', marker)
+            if cell.shape == 'no-ustav':
+                expected = (2, b'', marker + (
+                    'NOT_IMPLEMENTED: устав не введён — создайте тег ustav/1 '
+                    'последним коммитом документных правок\n').encode())
         else:
             expected, _ = w.run(baseline)
             if expected[0] not in (0, 1):
                 raise Prerequisite(f'BASELINE_ENVIRONMENT {cell.name}: {expected!r}')
             # Check the oracle against independent semantic rc, not itself.
             deny = cell.shape in ('denied', 'late-denied') or cell.cache in ('broken', 'empty')
-            if cell.shape in ('revert-denied', 'merge-denied', 'prefix-denied'):
+            if cell.shape in ('revert-denied', 'merge-denied', 'prefix-denied', 'prefix10-denied'):
                 deny = True
             if expected[0] != int(deny):
                 raise Prerequisite(f'BASELINE_SEMANTICS {cell.name}: {expected!r}')
@@ -418,6 +438,10 @@ MUTATIONS = {
                              b'[ "$(git -C "$ROOT" rev-parse "$INCR_BASE^{tree}")" = "$(git -C "$ROOT" rev-parse "$INCR_HEAD^{tree}")" ]'),
     'M04B_PREFIX4': ('door', b'[ "$INCR_BASE" = "$INCR_HEAD" ]',
                      b'[ "${INCR_BASE:0:4}" = "${INCR_HEAD:0:4}" ]'),
+    'M21_PREFIX8': ('door', b'[ "$INCR_BASE" = "$INCR_HEAD" ]',
+                    b'[ "${INCR_BASE:0:8}" = "${INCR_HEAD:0:8}" ]'),
+    'M22_BEFORE_USTAV': ('door', EMPTY_BRANCH, b''),
+    'M23_NO_USTAV': ('door', TAG_GUARD, b':\n'),
 }
 
 
@@ -428,6 +452,9 @@ def bindings():
         raise Prerequisite('STABS_CENSUS')
     if {row[0] for row in rows} != set(MUTATIONS) or len({tuple(r) for r in rows}) != len(rows):
         raise Prerequisite('STABS_COVERAGE')
+    actual = dict(cells=len(cells()), mutations=len(MUTATIONS), bindings=len(rows))
+    if SOURCE['census'] != actual:
+        raise Prerequisite(f'SOURCE_CENSUS: {SOURCE["census"]!r} != {actual!r}')
     return rows
 
 
@@ -472,6 +499,7 @@ def main():
     for name in ('model', 'stabs', 'syntax', 'catalog', 'context'):
         mode.add_argument('--' + name, action='store_true')
     mode.add_argument('--production-stabs', action='store_true')
+    mode.add_argument('--independent-mutants', action='store_true')
     ap.add_argument('--live', action='store_true')
     ap.add_argument('--cell')
     args = ap.parse_args()
@@ -492,12 +520,38 @@ def main():
             return 0
         if args.syntax:
             compile(Path(__file__).read_bytes(), str(__file__), 'exec')
+            compile((HERE / 'prefix10.py').read_bytes(), str(HERE / 'prefix10.py'), 'exec')
             for script in (MODEL, HERE / 'red_incr_pustoe_okno_217.sh'):
                 result, _ = command(['bash', TREE / 'scripts/validate_std.sh', 'bash', script], TREE)
                 if result != (0, b'', b''):
                     raise Prerequisite(f'BASH_VALIDATION: {script}: {result!r}')
-            print('SYNTAX bash=2 python=1 rc=0')
+            print('SYNTAX bash=2 python=2 rc=0')
             return 0
+        if args.independent_mutants:
+            baseline = sources(root, pinned=True)
+            selected = sources(root)
+            variants = [
+                ('prefix10', 'w16-prefix10-denied', FILES[0],
+                 b'if [ "${INCR_MODE:-full}" = "incr" ] && [ "$INCR_BASE" = "$INCR_HEAD" ]; then\n',
+                 b'if [ "${INCR_MODE:-full}" = "incr" ] && [ "${INCR_BASE:0:10}" = "${INCR_HEAD:0:10}" ]; then\n'),
+                ('before-cache', 'c9-no-ustav-broken', FILES[1],
+                 b'  local base\n', b'  incr_finish 0\n  exit 0\n  local base\n'),
+            ]
+            with tempfile.TemporaryDirectory(prefix='incr-217-independent-') as tmp:
+                scratch = Path(tmp)
+                templates = {False: scratch / 'small'}
+                seed(templates[False], 1, 1)
+                caught = 0
+                for name, cell_name, path, anchor, replacement in variants:
+                    cell = next(c for c in cells() if c.name == cell_name)
+                    if not observe(cell, selected, baseline, scratch, templates):
+                        raise Prerequisite('HONEST_CONTROL_RED: ' + cell_name)
+                    mutant = dict(selected)
+                    mutant[path] = replace(mutant[path], anchor, replacement)
+                    dead = not observe(cell, mutant, baseline, scratch, templates, mutant_rc=0)
+                    caught += dead
+                    print(f'INDEPENDENT {name} -> {cell_name}: {"POIMAN" if dead else "ZHIV"}', flush=True)
+                return int(caught != len(variants))
         baseline = sources(root, pinned=True)
         selected = model_sources(baseline) if args.model or args.stabs else sources(root)
         if args.production_stabs:
@@ -543,6 +597,9 @@ def main():
                     if name == 'M10_AFTER_REGISTRY':
                         mutant[path] = replace(mutant[path], REGISTRY_END,
                                                EMPTY_BRANCH + b'\n' + REGISTRY_END)
+                    if name == 'M22_BEFORE_USTAV':
+                        mutant[path] = replace(mutant[path], TAG_GUARD,
+                                               EMPTY_BRANCH + b'\n' + TAG_GUARD)
                     rc = {'FAIL_EMPTY': 1, 'SLOW_EMPTY': 124}.get(name, 0)
                     dead = not observe(cell, mutant, baseline, scratch, templates, mutant_rc=rc)
                     caught += dead
