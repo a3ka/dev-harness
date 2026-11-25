@@ -12,6 +12,8 @@ import subprocess
 import sys
 import tempfile
 
+from model.registry_data_mutation import BEFORE, AFTER
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 BASE = '8b52fade7975034d7cabece67e46c16a7d1abe3b'
@@ -151,6 +153,10 @@ CASES.update({
     'registry-add-uchet': ('reg-add', REG, 'kod'),
     'registry-remove-uchet': ('reg-remove', REG, 'kod'),
     'registry-replace-uchet': ('reg-replace', REG, 'kod'),
+    'registry-add-uchet-with-data': ('reg-add-data', REG, 'kod'),
+    'registry-remove-uchet-with-data': ('reg-remove-data', REG, 'kod'),
+    'registry-replace-uchet-with-data': ('reg-replace-data', REG, 'kod'),
+    'accounting-data-only': ('data-only', PAUSE, 'uchet'),
     'new-list-cannot-amnesty': ('widen', REG, 'kod'),
     'strip-accounting-only': ('strip', PAUSE, 'uchet'),
 })
@@ -175,6 +181,7 @@ MUTATIONS = {
     'ALWAYS_UCHET': ('source', ("print('uchet' if kod_hash(o, pats) == kod_hash(n, pats) else 'kod')",
                                 "print('uchet')")),
     'STRIP_NOOP': ('source', ('os.unlink(fp)', 'pass')),
+    'REGISTRY_WITH_DATA_IS_UCHET': ('source', (BEFORE, AFTER)),
 }
 
 
@@ -231,17 +238,21 @@ def world(root, registry, script, case, variant):
         (repo / path).chmod(0o755)
     elif op == 'policy':
         write_file(repo, path, f'step\tcheck:policy-{variant}\t1\tbash scripts/work.sh\n'.encode())
-    elif op == 'reg-add':
+    elif op in ('reg-add', 'reg-add-data'):
         write_file(repo, REG, registry + b'uchet\tfixtures/data/\n')
-    elif op == 'reg-remove':
+    elif op in ('reg-remove', 'reg-remove-data'):
         write_file(repo, REG, registry.replace(b'uchet\tdocs/\n', b'', 1))
-    elif op == 'reg-replace':
+    elif op in ('reg-replace', 'reg-replace-data'):
         write_file(repo, REG, registry.replace(b'uchet\tdocs/\n', b'uchet\tother-docs/\n', 1))
     elif op == 'widen':
         write_file(repo, REG, registry + b'uchet\tscripts/work.sh\n')
         write_file(repo, 'scripts/work.sh', b'printf changed\\n\n')
     elif op == 'strip':
         write_file(repo, PAUSE, DATA[PAUSE] + b'# next state\n')
+    if op in ('reg-add-data', 'reg-remove-data', 'reg-replace-data', 'data-only'):
+        paths = (PAUSE, PLACE, LESSONS) if op in ('reg-replace-data', 'data-only') else (PAUSE,)
+        for data_path in paths:
+            write_file(repo, data_path, DATA[data_path] + f'# changed {variant}\n'.encode())
     new = commit(repo, f'fixture change {variant}')
     return repo, old, new, registry
 
@@ -271,9 +282,11 @@ def exercise(registry, script, case, variant=0):
         h_old = oracle_hash(repo, old, patterns)
         # klass always uses U(old), independent of any new registry changes.
         h_new = oracle_hash(repo, new, patterns)
+        if op in ('reg-add-data', 'reg-remove-data', 'reg-replace-data') and h_old == h_new:
+            raise Infrastructure('joint registry/data fixture has identical code hashes')
         errors = compare(call(command + ['klass', old, new], repo), 0,
                          (expected + '\n').encode(), b'')
-        if expected == 'uchet':
+        if expected == 'uchet' or op in ('reg-add-data', 'reg-remove-data', 'reg-replace-data'):
             errors += compare(call(command + ['hash', old], repo), 0, h_old, b'')
             errors += compare(call(command + ['hash', new], repo), 0, h_new, b'')
         if op == 'strip':
@@ -342,8 +355,11 @@ def compatibility(repo, model):
 
 
 def syntax():
-    for p in (HERE / 'probe.py', HERE / 'model/oracle_extension.py'):
+    for p in (HERE / 'probe.py', HERE / 'model/oracle_extension.py',
+              HERE / 'model/registry_data_mutation.py'):
         compile(p.read_bytes(), str(p), 'exec')
+    compile('def c_klass(o, n, pats):\n' + AFTER + '\n',
+            'registry_data_mutation.AFTER', 'exec')
     p = call(['bash', ROOT / 'scripts/validate_std.sh', 'bash',
               HERE / 'red_uchetnye_puti_219.sh'])
     sys.stdout.buffer.write(p.stdout)
