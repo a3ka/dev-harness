@@ -5,7 +5,8 @@ All worlds are disposable repositories under TMPDIR. The launcher and its real
 chain are copied without alteration, except the selected workshop model/mutant.
 Expected artifacts are literals in memory. The unchanged frozen launcher supplies
 FULL byte stdout/stderr oracles before each subject invocation in the same world.
-Only bash's NUL-input warning line numbers are normalized in the NUL case.
+Only bash's NUL-input warning line numbers and the added assigned-model usage
+literal for an empty --object are normalized, each only in its own case.
 """
 import argparse
 import contextlib
@@ -398,6 +399,11 @@ def cases(source, subject, legacy, only=None):
             door_subject = door.read_bytes()
             door_legacy = frozen("scripts/check_sud_model.sh")
             values = (b"", OBJECT.encode(), OBJECT.upper().encode(), b"a" * 39, b"a" * 41, b"a" * 39 + b"\r", b"\xff" * 40)
+
+            def empty_object_result(result):
+                stderr = result.stderr.replace(b" [--assigned-model <selector>]", b"", 1)
+                return result.returncode, result.stdout, stderr
+
             ok = True
             for obj in values:
                 tail = ["--verdict", "critic", "--trace", str(trace), "--object", obj, "--session", "judge-209"]
@@ -405,7 +411,8 @@ def cases(source, subject, legacy, only=None):
                 oracle = run(["bash", str(door), *tail], w.base, w.env_base)
                 door.write_bytes(door_subject)
                 actual = run(["bash", str(door), *tail], w.base, w.env_base)
-                ok &= oracle.returncode != 0 and result_tuple(actual) == result_tuple(oracle)
+                observed = empty_object_result(actual) if obj == b"" else result_tuple(actual)
+                ok &= oracle.returncode != 0 and observed == result_tuple(oracle)
             # NUL is data in a file, never an impossible execve argument.
             def nul_result(result):
                 stderr = re.sub(
