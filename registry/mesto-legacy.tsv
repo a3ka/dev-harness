@@ -30,3 +30,4 @@
 210	9c46a64a358109d26aa64798472fb3068135f762	станция	ЗОНА implementer frozen/contracts/210/1: scripts/check_charter.sh .githooks/pre-push	implementer
 197	54be75d1326ec246ea129590070bcb129ea31002	a3ka/Complior-mob	ЗОНА implementer frozen/contracts/197/4: .github/workflows/mobile.yml package.json mobile/scripts/ci-artefakty.cjs (продукт a3ka/Complior-mob; канон v4 = скрипт f40a5afc4d82, пришёл из предмета 211 (mob 6a88729), пин v4; mob main f8acbbdf8 на 24.11 18:04; слово владельца 24.11 «1, 2, 3 да»)	orchestrator
 212	c9eca184e11275b1b93675b988b9add795367a1b	станция	ЗОНА implementer frozen/contracts/212/1: scripts/replace_line.sh станции (REPLACE реестра после ленда; предмет станции, продуктовых путей нет)	owner
+188	0db470941511928c696805b15677cffec366aae6	станция	ЗОНА implementer frozen/contracts/188/2: roles/*.md и .omp/agents/*.md станции (нормы ролей по архитектуре; предмет станции, продуктовых путей нет)	owner
