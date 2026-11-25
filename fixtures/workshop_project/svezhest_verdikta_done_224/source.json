@@ -1,0 +1,257 @@
+{
+  "base": "5fa6b2c294c2dfd677febb200c73dc27467461e6",
+  "kletki": 92,
+  "mutacii": 21,
+  "svjazi": 56,
+  "nositeli": {
+    "model/station.sh": "873726506de5d8af173a3653892984fe9566f0d67556cfa565bbb744a97b076c",
+    "model/done_contract.sh": "6a1f8e9f3fe85a833c9fc57810e5a174292f89534dd41826c4b80deb0ee661ac",
+    "stabs/st01-ancestry/done_contract.sh": "873726506de5d8af173a3653892984fe9566f0d67556cfa565bbb744a97b076c",
+    "stabs/st02-mtime/done_contract.sh": "e97b2e819557b27cb01c9015dfe0324bc228f9496a2e4e8574227c3d6181f47b",
+    "stabs/st03-first-file/done_contract.sh": "3e75ed3283ff044781cad52c307a25597009e292642dbbb70b92fb2758741820",
+    "stabs/st04-duplicate-allowed/done_contract.sh": "6c7a16505b5f5ffb53c5cf6b9cd4392f9f8db84ec531ed4b08388cdb4c3f0810",
+    "stabs/st05-missing-default/done_contract.sh": "dc3e1c7b3ee6de085c99d8b064f2a3ad4bfde3ea58f27ffc40f470094d8d6b0e",
+    "stabs/st06-metadata-ignored/done_contract.sh": "cd5bfc56a5cc5874817dbf33beb10e380109b5b5c4b432d33f9059f114290a07",
+    "stabs/st07-date-ignored/done_contract.sh": "9e4f00dd7aa45e00b7e3b532d235043e41ac39231c831b496cc4b1752bd2d4cc",
+    "stabs/st08-object-bind-removed/done_contract.sh": "de5a7f70d76cde7522824c44d2066ad861da60b86992cdad3148750036582b62",
+    "stabs/st09-adverse-object-removed/done_contract.sh": "e823156a6d787830fc883ea151c8fc7d8aa5a0e3f3897749425675279ac7262f",
+    "stabs/st10-old-round/done_contract.sh": "cff1f8c1dd36a1e8011e606787dbc01292f94a2c5d65e6865d3578eb857dc92c",
+    "stabs/st11-no-frozen-bind/done_contract.sh": "29581f6f1f7a60cb1f91538ffee55f55a365915d219b0e863d557a33c4d0c33f",
+    "stabs/st12-first-call-only/done_contract.sh": "0823aa131519064d08d1a673b9388bcdafacab21ae1334f53601713a23d681e9",
+    "stabs/st13-legacy-a-missing/done_contract.sh": "e61bbe97e74ac505173348ec0a649a5bebe5a8abf1c97b11000a10333640fdef",
+    "stabs/st14-version-is-call/done_contract.sh": "4bef32b7f521e79e1e6ecbdb5810b7aca48627a9f9782e86eeddc7d30a6e692f",
+    "stabs/st15-ignore-phase/done_contract.sh": "7452971abe950e30b953bf4baac5b4dbb68b518d938b56aa15973d1fc73c49b1",
+    "stabs/st16-ignore-phase-conflict/done_contract.sh": "5c94b6ebe9ccf17ea96e914476d8bceedef85c714b01987813dcd1a585507e2d",
+    "stabs/st17-phase-without-call/done_contract.sh": "8293f7a83525a79c4e6d475efc6ccbb60f65a1011914dced8360ddeb23de285d",
+    "stabs/st18-ignore-cycle/done_contract.sh": "01a815324b6d378286a9bedf0db4a14411d10750e0f7dbf6967e05f877f321a9",
+    "stabs/st19-malformed-suffix/done_contract.sh": "7885ac6a5871355fd9838aa1a78876140aec1d3f6c225be81dd153bb0742108d",
+    "stabs/st20-first-phase-only/done_contract.sh": "898eefa1353cd6f3a5bb34ce72a576503868b61360f0bf4d4562331e43e5f33c",
+    "stabs/st21-first-date-only/done_contract.sh": "b6b00c9bd3d61a25813731d97eefadeb8d5933426d82dd0e908a6bf8aec31788"
+  },
+  "stab_vhod": [
+    {
+      "stab": "stabs/st01-ancestry/done_contract.sh",
+      "case": "review-parallel"
+    },
+    {
+      "stab": "stabs/st01-ancestry/done_contract.sh",
+      "case": "adversary-parallel"
+    },
+    {
+      "stab": "stabs/st02-mtime/done_contract.sh",
+      "case": "review-parallel"
+    },
+    {
+      "stab": "stabs/st02-mtime/done_contract.sh",
+      "case": "adversary-parallel"
+    },
+    {
+      "stab": "stabs/st03-first-file/done_contract.sh",
+      "case": "review-parallel"
+    },
+    {
+      "stab": "stabs/st03-first-file/done_contract.sh",
+      "case": "adversary-parallel"
+    },
+    {
+      "stab": "stabs/st04-duplicate-allowed/done_contract.sh",
+      "case": "review-duplicate"
+    },
+    {
+      "stab": "stabs/st04-duplicate-allowed/done_contract.sh",
+      "case": "adversary-duplicate"
+    },
+    {
+      "stab": "stabs/st05-missing-default/done_contract.sh",
+      "case": "review-missing"
+    },
+    {
+      "stab": "stabs/st05-missing-default/done_contract.sh",
+      "case": "adversary-missing"
+    },
+    {
+      "stab": "stabs/st06-metadata-ignored/done_contract.sh",
+      "case": "review-conflict"
+    },
+    {
+      "stab": "stabs/st06-metadata-ignored/done_contract.sh",
+      "case": "adversary-conflict"
+    },
+    {
+      "stab": "stabs/st07-date-ignored/done_contract.sh",
+      "case": "review-date-order"
+    },
+    {
+      "stab": "stabs/st07-date-ignored/done_contract.sh",
+      "case": "adversary-date-order"
+    },
+    {
+      "stab": "stabs/st08-object-bind-removed/done_contract.sh",
+      "case": "review-old-object"
+    },
+    {
+      "stab": "stabs/st09-adverse-object-removed/done_contract.sh",
+      "case": "adversary-other-object"
+    },
+    {
+      "stab": "stabs/st10-old-round/done_contract.sh",
+      "case": "review-late-fail"
+    },
+    {
+      "stab": "stabs/st10-old-round/done_contract.sh",
+      "case": "adversary-late-fail"
+    },
+    {
+      "stab": "stabs/st11-no-frozen-bind/done_contract.sh",
+      "case": "regression-new-freeze"
+    },
+    {
+      "stab": "stabs/st12-first-call-only/done_contract.sh",
+      "case": "review-second-conflict"
+    },
+    {
+      "stab": "stabs/st12-first-call-only/done_contract.sh",
+      "case": "adversary-second-conflict"
+    },
+    {
+      "stab": "stabs/st12-first-call-only/done_contract.sh",
+      "case": "review-repeat-call"
+    },
+    {
+      "stab": "stabs/st12-first-call-only/done_contract.sh",
+      "case": "adversary-repeat-call"
+    },
+    {
+      "stab": "stabs/st13-legacy-a-missing/done_contract.sh",
+      "case": "frozen201-risk-same-object"
+    },
+    {
+      "stab": "stabs/st14-version-is-call/done_contract.sh",
+      "case": "historic186"
+    },
+    {
+      "stab": "stabs/st15-ignore-phase/done_contract.sh",
+      "case": "historic186"
+    },
+    {
+      "stab": "stabs/st16-ignore-phase-conflict/done_contract.sh",
+      "case": "historic186-phase-conflict"
+    },
+    {
+      "stab": "stabs/st17-phase-without-call/done_contract.sh",
+      "case": "historic186-phase-no-call"
+    },
+    {
+      "stab": "stabs/st18-ignore-cycle/done_contract.sh",
+      "case": "historic129"
+    },
+    {
+      "stab": "stabs/st19-malformed-suffix/done_contract.sh",
+      "case": "historic186-bad-call-name"
+    },
+    {
+      "stab": "stabs/st20-first-phase-only/done_contract.sh",
+      "case": "record-review-phase-v-second-conflict"
+    },
+    {
+      "stab": "stabs/st20-first-phase-only/done_contract.sh",
+      "case": "record-review-phase-cycle-second-conflict"
+    },
+    {
+      "stab": "stabs/st20-first-phase-only/done_contract.sh",
+      "case": "record-review-phase-v-repeat"
+    },
+    {
+      "stab": "stabs/st20-first-phase-only/done_contract.sh",
+      "case": "record-review-phase-cycle-repeat"
+    },
+    {
+      "stab": "stabs/st20-first-phase-only/done_contract.sh",
+      "case": "record-review-phase-mixed"
+    },
+    {
+      "stab": "stabs/st20-first-phase-only/done_contract.sh",
+      "case": "record-review-phase-reverse-mixed"
+    },
+    {
+      "stab": "stabs/st20-first-phase-only/done_contract.sh",
+      "case": "record-review-phase-three"
+    },
+    {
+      "stab": "stabs/st20-first-phase-only/done_contract.sh",
+      "case": "record-review-call-before-phase"
+    },
+    {
+      "stab": "stabs/st20-first-phase-only/done_contract.sh",
+      "case": "record-review-phase-spaces"
+    },
+    {
+      "stab": "stabs/st20-first-phase-only/done_contract.sh",
+      "case": "record-adversary-phase-v-second-conflict"
+    },
+    {
+      "stab": "stabs/st20-first-phase-only/done_contract.sh",
+      "case": "record-adversary-phase-cycle-second-conflict"
+    },
+    {
+      "stab": "stabs/st20-first-phase-only/done_contract.sh",
+      "case": "record-adversary-phase-v-repeat"
+    },
+    {
+      "stab": "stabs/st20-first-phase-only/done_contract.sh",
+      "case": "record-adversary-phase-cycle-repeat"
+    },
+    {
+      "stab": "stabs/st20-first-phase-only/done_contract.sh",
+      "case": "record-adversary-phase-mixed"
+    },
+    {
+      "stab": "stabs/st20-first-phase-only/done_contract.sh",
+      "case": "record-adversary-phase-reverse-mixed"
+    },
+    {
+      "stab": "stabs/st20-first-phase-only/done_contract.sh",
+      "case": "record-adversary-phase-three"
+    },
+    {
+      "stab": "stabs/st20-first-phase-only/done_contract.sh",
+      "case": "record-adversary-call-before-phase"
+    },
+    {
+      "stab": "stabs/st20-first-phase-only/done_contract.sh",
+      "case": "record-adversary-phase-spaces"
+    },
+    {
+      "stab": "stabs/st21-first-date-only/done_contract.sh",
+      "case": "record-review-date-second-conflict"
+    },
+    {
+      "stab": "stabs/st21-first-date-only/done_contract.sh",
+      "case": "record-review-date-repeat"
+    },
+    {
+      "stab": "stabs/st21-first-date-only/done_contract.sh",
+      "case": "record-review-date-three"
+    },
+    {
+      "stab": "stabs/st21-first-date-only/done_contract.sh",
+      "case": "record-review-date-spaces"
+    },
+    {
+      "stab": "stabs/st21-first-date-only/done_contract.sh",
+      "case": "record-adversary-date-second-conflict"
+    },
+    {
+      "stab": "stabs/st21-first-date-only/done_contract.sh",
+      "case": "record-adversary-date-repeat"
+    },
+    {
+      "stab": "stabs/st21-first-date-only/done_contract.sh",
+      "case": "record-adversary-date-three"
+    },
+    {
+      "stab": "stabs/st21-first-date-only/done_contract.sh",
+      "case": "record-adversary-date-spaces"
+    }
+  ]
+}
