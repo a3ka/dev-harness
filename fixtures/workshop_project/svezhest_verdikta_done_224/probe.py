@@ -21,7 +21,8 @@ spec.loader.exec_module(world201)
 SCENARIOS = ('parallel', 'late-fail', 'duplicate', 'missing', 'conflict', 'date-order',
              'linear', 'equivalent', 'no-metadata', 'name-date-conflict',
              'second-conflict', 'repeat-call', 'call-explanation', 'second-invalid',
-             'singleton-unnumbered')
+             'singleton-unnumbered', 'nine-ten-late-fail', 'nine-ten-accept',
+             'nine-digit', 'ten-digit')
 # Each cell edits one historical carrier, preserving its OBJECT and Git history.
 # The boolean is the independent literal oracle: True means CONFLICT, no tag.
 RECORDS = {
@@ -134,6 +135,10 @@ def make_world(work, case):
     verdict_dir = prefix + 'verdicts/' + role + '/'
     newer = verdict_dir + f'contracts-{nn}-impl-v4.md'
     older = verdict_dir + f'contracts-{nn}-impl-v3.md'
+    old_round, new_round = (9, 10) if scenario.startswith('nine-ten-') else (3, 4)
+    if scenario.startswith('nine-ten-'):
+        older = verdict_dir + f'contracts-{nn}-impl-v9.md'
+        newer = verdict_dir + f'contracts-{nn}-impl-v10.md'
     reason = 'fixture done'
 
     def verdict(path, first, number, date, object_id=obj, metadata=True):
@@ -141,7 +146,8 @@ def make_world(work, case):
         if object_id is not None:
             body += 'OBJECT=' + object_id + '\n'
         if metadata:
-            body += f'СУД: repo=fixture; предмет={nn}; фаза=реализация; роль={role}; вызов={number}/9; дата={date}; сессия=fixture\n'
+            total = 10 if scenario.startswith('nine-ten-') else 9
+            body += f'СУД: repo=fixture; предмет={nn}; фаза=реализация; роль={role}; вызов={number}/{total}; дата={date}; сессия=fixture\n'
         put(root, path, body)
 
     expected_rc, marker = 0, ''
@@ -243,19 +249,28 @@ def make_world(work, case):
             reason = ' \t '
         if case == 'regression-uncommitted':
             put(root, target, text + '\nworking change\n')
+    elif scenario in ('nine-digit', 'ten-digit'):
+        if risk:
+            put(root, prefix + 'verdicts/review/contracts-777-impl-v4.md', f'accept\nOBJECT={obj}\n')
+        number = 999999999 if scenario == 'nine-digit' else 1000000000
+        path = verdict_dir + f'contracts-{nn}-impl-v{number}.md'
+        verdict(path, 'accept', number, '2026-11-25', metadata=False)
+        commit(root, 'single round width boundary')
+        if scenario == 'ten-digit':
+            expected_rc, marker = 1, f'done: VERDICT_ROUND_INVALID: {role}: {path}'
     else:
         if risk:
             put(root, prefix + 'verdicts/review/contracts-777-impl-v4.md', f'accept\nOBJECT={obj}\n')
             objbase = commit(root, 'independent reviewer')
         else:
             objbase = obj
-        old_first, new_first = ('accept', 'FAIL') if scenario == 'late-fail' else ('FAIL', 'accept')
+        old_first, new_first = ('accept', 'FAIL') if scenario in ('late-fail', 'nine-ten-late-fail') else ('FAIL', 'accept')
         if scenario in ('equivalent', 'no-metadata', 'duplicate', 'second-conflict',
                         'repeat-call', 'call-explanation', 'second-invalid', 'singleton-unnumbered'):
             old_first = 'accept'
             new_first = '  AcCePt \r' if scenario == 'equivalent' else 'accept'
         g(root, 'switch', '-q', '-c', 'round3', objbase)
-        verdict(older, old_first, 3, '2026-11-26' if scenario == 'date-order' else '2026-11-24', metadata=scenario != 'no-metadata')
+        verdict(older, old_first, old_round, '2026-11-26' if scenario == 'date-order' else '2026-11-24', metadata=scenario != 'no-metadata')
         c3 = commit(root, 'round three')
         if scenario == 'linear':
             g(root, 'switch', '-q', '-c', 'round4')
@@ -267,7 +282,7 @@ def make_world(work, case):
             newer = verdict_dir + f'contracts-{nn}-impl-final.md'
         if scenario == 'name-date-conflict':
             newer = verdict_dir + f'contracts-{nn}-impl-v4-2026-11-24.md'
-        verdict(newer, new_first, 3 if scenario in ('duplicate', 'conflict') else 4, '2026-11-25', metadata=scenario != 'no-metadata')
+        verdict(newer, new_first, 3 if scenario in ('duplicate', 'conflict') else new_round, '2026-11-25', metadata=scenario != 'no-metadata')
         c4 = commit(root, 'round four')
         if scenario in ('second-conflict', 'repeat-call', 'call-explanation', 'second-invalid',
                         'singleton-unnumbered'):
@@ -300,7 +315,7 @@ def make_world(work, case):
         os.utime(root / newer, (1500000000, 1500000000))
         late = (f'done: свежий вердикт адверсария {newer} не accept' if risk else
                 f'done: несколько вердиктов, свежий {Path(newer).name} не accept')
-        markers = {'late-fail': late, 'duplicate': 'VERDICT_ROUND_DUPLICATE',
+        markers = {'late-fail': late, 'nine-ten-late-fail': late, 'duplicate': 'VERDICT_ROUND_DUPLICATE',
                    'missing': 'VERDICT_ROUND_MISSING', 'conflict': 'VERDICT_ROUND_CONFLICT',
                    'date-order': 'VERDICT_ROUND_ORDER', 'name-date-conflict': 'VERDICT_ROUND_CONFLICT',
                    'second-conflict': 'VERDICT_ROUND_CONFLICT', 'repeat-call': 'VERDICT_ROUND_CONFLICT',
@@ -385,6 +400,9 @@ def carriers():
         raise RuntimeError('NOT_IMPLEMENTED: empty/duplicate catalog')
     if any(link['case'] not in CASES for link in source['stab_vhod']):
         raise RuntimeError('NOT_IMPLEMENTED: unknown link')
+    catalog = ''.join(link['stab'] + '\t' + link['case'] + '\n' for link in source['stab_vhod'])
+    if (HERE / 'stabs.tsv').read_bytes() != catalog.encode():
+        raise RuntimeError('NOT_IMPLEMENTED: STAB_CATALOG_CHANGED')
     return source, saved
 
 
