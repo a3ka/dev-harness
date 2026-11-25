@@ -12,7 +12,8 @@
 # (helpers, ветвь, 4-й аргумент klass_riska); семья 208 зелена против модели
 # как субъекта (--sosed-208); реализация несёт ту же семантику.
 # Привязки стаб↔клетка — source.json:.stab_vhod, генерируются из кода (Н-39).
-# Якорь — кратность 1; st58–st63 мутируют pinned production, остальные — модель.
+# Якорь — кратность 1; st58–st63 мутируют pinned production f8eaa3bb8,
+# st64–st67 — pinned production 211d (a6bfd871c), остальные — модель.
 # Оракул — source.json в памяти ДО вызова субъекта (правило 8); носители —
 # sha256; рассинхрон множеств — rc 2 ORACLE_TAMPERED.
 #
@@ -80,6 +81,7 @@ HARNESS_REMOTE = 'ssh://git@github.com/a3ka/dev-harness.git'
 SUBJ = '211'
 BAZA_D52 = '1ec47271534b8c468611ce26a7769eaeec298644'
 BAZA_PRODUCTION = 'f8eaa3bb87664c7a32d7a79eb261f32363bf447d'
+BAZA_PRODUCTION_211D = 'a6bfd871c729d6e684317dab5edb7350fdf9e3d4'  # имя в ключе
 CHUZHIE_SUBEKTY = ('137', '209')  # миры НЕ-211: константа предмета наблюдаема (урок Adv208)
 # Реальные POSIX/Git-имена: каждое — отдельная клетка отказа и честный
 # эквивалентный вход. NUL и "/" не входят в алфавит basename Git.
@@ -99,6 +101,29 @@ GIT_ENV.update({
     'GIT_CONFIG_NOSYSTEM': '1',
     'LC_ALL': 'C',
 })
+# Adv211d Б-1 (К-08): сортировка перечня klass_riska обязана пинить LC_ALL=C
+# (scripts/zamok_predmeta.sh:791) — порядок имён не зависит от локали
+# окружения. Единственная не-C локаль станции с ИНЫМ порядком имён —
+# en_US.utf8 (C.utf8 сравнивает кодовые точки, как C). Локали нет — клетка
+# b55 отказывает именованным rc 2 LOKAL_NEDOSTUPNA, не молчаливым зелёным.
+LOKAL_SDACHI = 'en_US.utf8'
+
+
+def lokal_env():
+    # окружение ДВЕРИ (базы и субъекта одинаково): не-C локаль, как у
+    # честного вызова оркестратора; LC_ALL перекрывает LANG; мир строится
+    # тем же герметичным GIT_ENV и от локали не зависит
+    env = dict(GIT_ENV)
+    env['LC_ALL'] = LOKAL_SDACHI
+    return env
+
+
+def lokal_dostupna():
+    r = run(['locale', '-a'])
+    return (r.returncode == 0
+            and any(stroka.strip().lower() == LOKAL_SDACHI.lower()
+                    for stroka in
+                    r.stdout.decode('utf-8', 'replace').splitlines()))
 
 
 def sha256_bytes(b):
@@ -234,13 +259,14 @@ def item(agent, name, stroki):
     return {'agent': agent, 'name': name, 'task': '\n'.join(stroki)}
 
 
-def sudit(door, mir, event):
+def sudit(door, mir, event, env=None):
     # cwd — КОРЕНЬ РЕПОЗИТОРИЯ БАТАРЕИ, не cwd вызывающего: модель и обманные
     # копии лежат вне scripts/, и резолвер профиля двери (profile_paths) берёт
     # соседа scripts/next_id.sh из репозитория рабочего каталога.
+    # env — окружение локали ДВЕРИ (клетка b55): база и субъект одинаково.
     return run(['bash', str(door), '--sudit', '--sostojanie', str(mir.sost),
                 '--zhurnaly', str(mir.zhurnaly), '--repo', str(mir.repo),
-                str(event)], cwd=str(KOREN))
+                str(event)], cwd=str(KOREN), env=env)
 
 
 # ── строители мира предмета ──────────────────────────────────────────────────
@@ -983,7 +1009,7 @@ def kejsy():
         return [k_rc(r, 1, 'b48'), k_stdout(r, b'', 'b48'),
                 k_text(r, stderr, 'b48'), k_uchet_ne_izmenen(m, do, 'b48')]
 
-    def d52_zhivaja_baza(nabor, plohie):
+    def d52_zhivaja_baza(nabor, plohie, env=None):
         # Независимый оракул — ЖИВАЯ pinned дверь базы, не production.
         # Два отдельных git-мира исключают повторный START критика.
         def mir_vhoda(mir):
@@ -1011,7 +1037,8 @@ def kejsy():
             base.write_bytes(tekst_bazy(BAZA_D52))
             kontrol = Mir(m.root / 'base-world')
             obj = mir_vhoda(kontrol)
-            r0 = sudit(base, kontrol, vyzov(kontrol, 'critic', 'Crit211', obj))
+            r0 = sudit(base, kontrol, vyzov(kontrol, 'critic', 'Crit211', obj),
+                       env=env)
             stderr = bajty(('ПРЕДУПРЕЖДЕНИЕ: KLASS_RISKA_NET: предмет 211: '
                            'класс риска неоднозначно определён (neodnoznachno); '
                            'файлы: %s — класс не определён, предмет считается '
@@ -1022,11 +1049,28 @@ def kejsy():
                     'D52_BASE_DRIFT', r0.returncode, r0.stdout, r0.stderr)
             expected = (r0.returncode, r0.stdout, r0.stderr)
             W = mir_vhoda(m)
-            r = sudit(door, m, vyzov(m, 'critic', 'Crit211', W))
+            r = sudit(door, m, vyzov(m, 'critic', 'Crit211', W), env=env)
             return [k_rc(r, expected[0], 'D52 live base'),
                     k_stdout(r, expected[1], 'D52 live base'),
                     k_text(r, expected[2], 'D52 live base'),
                     k_start(m, 'Crit211', W, 'D52 live base')]
+        return case
+
+    def d52_lokal_ne_c(nabor, plohie):
+        # Б-1 Adv211d (К-08): тот же живой оракул базы, но ОБОЕ двери —
+        # база и субъект — исполняются с одним и тем же окружением не-C
+        # локали (LC_ALL=en_US.utf8, как честный вызов оркестратора).
+        # Локаль в среде нет — именованный rc 2, не молчаливый зелёный.
+        vnutrennjaja = d52_zhivaja_baza(nabor, plohie, env=lokal_env())
+
+        def case(m, door):
+            if not lokal_dostupna():
+                print('LOKAL_NEDOSTUPNA: %s отсутствует в locale -a — '
+                      'клетка не может судить порядок перечня под не-C '
+                      'локалью (молчаливый зелёный пропуск запрещён)'
+                      % LOKAL_SDACHI, file=sys.stderr)
+                sys.exit(2)
+            return vnutrennjaja(m, door)
         return case
 
     reg('b01-bootstrap-adversary',
@@ -1167,6 +1211,21 @@ def kejsy():
         'D52: равные деревья 211-a.md/ и 211-a.md.md/ — имя байтами, не Git tree-order',
         d52_zhivaja_baza((('211-a.md', None, 'tree'),
                          ('211-a.md.md', None, 'tree')), '211-a.md 211-a.md.md'))
+    reg('b55-d52-tri-blizneca-ne-c-lokal',
+        'D52: три равных дерева-близнеца под en_US.utf8 — LC_ALL=C сортировки '
+        'несущий: порядок байтами как у живой базы (ловит мутант без LC_ALL=C)',
+        d52_lokal_ne_c((('211-a.md', None, 'tree'),
+                        ('211-a.md-x.md', None, 'tree'),
+                        ('211-a.md.md', None, 'tree')),
+                       '211-a.md 211-a.md-x.md 211-a.md.md'))
+    reg('b56-d52-registr-punkt-cifry',
+        'D52: четыре равных дерева (регистр/точка/цифра) — байтовый порядок '
+        'живой базы; флаги -V/-f/-d его меняют',
+        d52_zhivaja_baza((('211-A.md', None, 'tree'),
+                          ('211-a.1.md', None, 'tree'),
+                          ('211-a.md', None, 'tree'),
+                          ('211-a0.md', None, 'tree')),
+                         '211-A.md 211-a.1.md 211-a.md 211-a0.md'))
     return K
 
 
@@ -1289,6 +1348,21 @@ STAB_MUTACII = {
     'st63-M-indeks-bez-nulej': lambda t: _mut(
         t, r'''printf '%s\t%s\t%s\t%08d\n' ''',
         r'''printf '%s\t%s\t%s\t%d\n' '''),
+    # Adv211d Б-1 (К-08): живые мутанты ключа сортировки klass_riska на
+    # PINNED production 211d (имя в ключе, BAZA_PRODUCTION_211D). Якорь один
+    # и тот же (кратность 1 в том тексте); N — мутант без LC_ALL=C ловится
+    # ТОЛЬКО клеткой локали b55 (под LC_ALL=C он эквивалентен честной
+    # двери — требовать его красноты в C-клетках значило бы ложный оракул,
+    # Н-39); O/S/U — флаговые мутанты, меняющие порядок уже при LC_ALL=C,
+    # ловит b56 (регистр/точка/цифра; -V/-f/-d измерены на этой станции).
+    'st64-N-sort-bez-lc-all': lambda t: _mut(
+        t, '    done | LC_ALL=C sort -z', '    done | sort -z'),
+    'st65-O-sort-versijnyj': lambda t: _mut(
+        t, '    done | LC_ALL=C sort -z', '    done | LC_ALL=C sort -z -V'),
+    'st66-S-sort-bez-registra': lambda t: _mut(
+        t, '    done | LC_ALL=C sort -z', '    done | LC_ALL=C sort -z -f'),
+    'st67-U-sort-slovarnyj': lambda t: _mut(
+        t, '    done | LC_ALL=C sort -z', '    done | LC_ALL=C sort -z -d'),
 }
 
 STAB_VHOD = {
@@ -1332,14 +1406,25 @@ STAB_VHOD = {
     'st61-R-ljuboj-prefiks': ['b51-d52-chuzhoj-prefiks'],
     'st62-L-indeks-vosmerichnyj': ['b52-d52-chetyrnadcat-fajlov'],
     'st63-M-indeks-bez-nulej': ['b53-d52-dvenadcat-ravnyh'],
+    'st64-N-sort-bez-lc-all': ['b55-d52-tri-blizneca-ne-c-lokal'],
+    'st65-O-sort-versijnyj': ['b56-d52-registr-punkt-cifry'],
+    'st66-S-sort-bez-registra': ['b56-d52-registr-punkt-cifry'],
+    'st67-U-sort-slovarnyj': ['b56-d52-registr-punkt-cifry'],
 }
 STAB_VHOD['st57-ordered-by-name-only'].append('b54-d52-ravnye-katalogi-prefiks')
 PRODUCTION_STABY = frozenset(imja for imja in STAB_MUTACII
                             if imja.startswith(('st58-', 'st59-', 'st60-',
                                                 'st61-', 'st62-', 'st63-')))
+PRODUCTION_STABY_211D = frozenset(imja for imja in STAB_MUTACII
+                                 if imja.startswith(('st64-', 'st65-',
+                                                     'st66-', 'st67-')))
 
 
 def tekst_staba(imja, model):
+    # два pinned production-слоя: st58–st63 — база Adv211c (f8eaa3bb8),
+    # st64–st67 — production 211d с именем в ключе (a6bfd871c, Adv211d)
+    if imja in PRODUCTION_STABY_211D:
+        return tekst_bazy(BAZA_PRODUCTION_211D).decode('utf-8')
     return (tekst_bazy(BAZA_PRODUCTION).decode('utf-8')
             if imja in PRODUCTION_STABY else model)
 
@@ -1569,12 +1654,14 @@ def sgeneriruj():
         'model': 'model/zamok_predmeta.sh',
         'baza_d52': BAZA_D52,
         'baza_production_stabov': BAZA_PRODUCTION,
+        'baza_production_stabov_211d': BAZA_PRODUCTION_211D,
         'kejsy': {imja: os for imja, (os, _) in sorted(K.items())},
         'stab_vhod': {k: sorted(v) for k, v in sorted(STAB_VHOD.items())},
         'nositeli': dict(sorted(nositeli.items())),
         'zametki': 'привязки стаб↔клетка — единственный источник (Н-39); '
-                   'якорь каждой мутации — кратность 1; st58–st63 — pinned production, '
-                   'остальные — модель',
+                   'якорь каждой мутации — кратность 1; st58–st63 — pinned '
+                   'production f8eaa3bb8, st64–st67 — pinned production '
+                   'a6bfd871c (Adv211d: имя в ключе), остальные — модель',
     }
     SOURCE.write_text(json.dumps(src, ensure_ascii=False, indent=1) + '\n',
                       encoding='utf-8')
