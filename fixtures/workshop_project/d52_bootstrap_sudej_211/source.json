@@ -5,6 +5,7 @@
  "model": "model/zamok_predmeta.sh",
  "baza_d52": "1ec47271534b8c468611ce26a7769eaeec298644",
  "baza_production_stabov": "f8eaa3bb87664c7a32d7a79eb261f32363bf447d",
+ "baza_production_stabov_211d": "a6bfd871c729d6e684317dab5edb7350fdf9e3d4",
  "kejsy": {
   "b01-bootstrap-adversary": "тег /1 на предке, байты равны, строки на main нет — адверсарий без предупреждения",
   "b02-bootstrap-reviewer-obychnyj": "класс обычный из OBJECT — ревьюер до адверсария допускается",
@@ -59,7 +60,9 @@
   "b51-d52-chuzhoj-prefiks": "D52: рисковый 2110-b.md не входит в предмет 211-*",
   "b52-d52-chetyrnadcat-fajlov": "D52: 14 файлов без класса — индексы 08/09 десятичные, весь stderr базы",
   "b53-d52-dvenadcat-ravnyh": "D52: 12 равных blob без класса — индекс 10 не раньше 2",
-  "b54-d52-ravnye-katalogi-prefiks": "D52: равные деревья 211-a.md/ и 211-a.md.md/ — имя байтами, не Git tree-order"
+  "b54-d52-ravnye-katalogi-prefiks": "D52: равные деревья 211-a.md/ и 211-a.md.md/ — имя байтами, не Git tree-order",
+  "b55-d52-tri-blizneca-ne-c-lokal": "D52: три равных дерева-близнеца под en_US.utf8 — LC_ALL=C сортировки несущий: порядок байтами как у живой базы (ловит мутант без LC_ALL=C)",
+  "b56-d52-registr-punkt-cifry": "D52: четыре равных дерева (регистр/точка/цифра) — байтовый порядок живой базы; флаги -V/-f/-d его меняют"
  },
  "stab_vhod": {
   "st01-rol-tolko-sudi": [
@@ -258,6 +261,18 @@
   ],
   "st63-M-indeks-bez-nulej": [
    "b53-d52-dvenadcat-ravnyh"
+  ],
+  "st64-N-sort-bez-lc-all": [
+   "b55-d52-tri-blizneca-ne-c-lokal"
+  ],
+  "st65-O-sort-versijnyj": [
+   "b56-d52-registr-punkt-cifry"
+  ],
+  "st66-S-sort-bez-registra": [
+   "b56-d52-registr-punkt-cifry"
+  ],
+  "st67-U-sort-slovarnyj": [
+   "b56-d52-registr-punkt-cifry"
   ]
  },
  "nositeli": {
@@ -324,7 +339,11 @@
   "stabs/st60-Q-ljuboj-suffiks/zamok_predmeta.sh": "9f72c897408f8deb06c62d4404337ce9fe1423b67dfb014db5c601e553a9f3de",
   "stabs/st61-R-ljuboj-prefiks/zamok_predmeta.sh": "34172a800d9757903eefe730631b650332b3b31177844d68080dd579d7381f74",
   "stabs/st62-L-indeks-vosmerichnyj/zamok_predmeta.sh": "a0d77d5017bf4025879f96fd5163ea8f5bcec2ac858ac9d6f9114daf8d95fee6",
-  "stabs/st63-M-indeks-bez-nulej/zamok_predmeta.sh": "887a82a286d4160c2d4c35a4e8409399d1f59b234ad7fbfed8d79c328ed9ed79"
+  "stabs/st63-M-indeks-bez-nulej/zamok_predmeta.sh": "887a82a286d4160c2d4c35a4e8409399d1f59b234ad7fbfed8d79c328ed9ed79",
+  "stabs/st64-N-sort-bez-lc-all/zamok_predmeta.sh": "8a50052d4641b25d071da05934e1a12cb349a3c98bd78741fed5ca0d5c4b57ea",
+  "stabs/st65-O-sort-versijnyj/zamok_predmeta.sh": "7428231ea92293d649ef1a674dabcf2c9b64a306ba613fe20aa393c26b49447a",
+  "stabs/st66-S-sort-bez-registra/zamok_predmeta.sh": "eb54d5a990a6bb3522d939ca7853eab4fe736af4de10b79d55d2e1a3cf062c8a",
+  "stabs/st67-U-sort-slovarnyj/zamok_predmeta.sh": "480220194054faeee98d5a17fbec91a88adc284e622b387b5c600315d111ab17"
  },
- "zametki": "привязки стаб↔клетка — единственный источник (Н-39); якорь каждой мутации — кратность 1; st58–st63 — pinned production, остальные — модель"
+ "zametki": "привязки стаб↔клетка — единственный источник (Н-39); якорь каждой мутации — кратность 1; st58–st63 — pinned production f8eaa3bb8, st64–st67 — pinned production a6bfd871c (Adv211d: имя в ключе), остальные — модель"
 }
