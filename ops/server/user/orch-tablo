@@ -2,7 +2,7 @@
 """orch-tablo — табло потоков ведущей сессии: что работает и что СТОИТ без хода.
 
 Запуск из чекаута: python3 ops/server/user/orch-tablo [минут-окна, по умолчанию 360]. Читает только: журналы субагентов сессий
-оркестратора, origin/main и теги dev-harness, открытые PR (gh). Ничего не пишет.
+оркестратора, origin/main и теги dev-harness, открытые PR (gh), профиль и паузы владельца репозиториев проекта (gh). Ничего не пишет.
 
 Предмет (номер контракта) попадает в табло, если за окно по нему работал агент или по его форку
 пришло решение (ОТВЕЧЕНО), и он ещё не done. Вердикт: РАБОТАЕТ (агент пишет в журнал),
@@ -33,6 +33,26 @@ def nnn_of(text):
 
 def sh(*a):
     return subprocess.run(a, capture_output=True, text=True).stdout
+
+
+def pauzy_parse(text):
+    """pauzy.tsv (грамматика одна у станции и проектов): номер предмета → поля строки."""
+    d = {}
+    for _l in text.splitlines():
+        _f = _l.split('\t')
+        if _l and not _l.startswith('#') and len(_f) >= 4:
+            d[_f[0]] = _f
+    return d
+
+
+def _gh_main_file(repo, path):
+    """Содержимое файла на main репозитория проекта (gh api, raw-срез) — тот же инструмент
+    gh, что и список PR. Недоступно/испорчено — пусто: неизвестность ≠ пауза (fail-open)."""
+    try:
+        return sh('gh', 'api', f'repos/{repo}/contents/{path}?ref=main',
+                  '-H', 'Accept: application/vnd.github.raw')
+    except Exception:
+        return ''
 
 
 # ── журналы субагентов ────────────────────────────────────────────────────────
@@ -114,7 +134,8 @@ mob_vedet = bool(mob_last) and max(mob_last) >= NOW.timestamp() - WINDOW * 60
 # ── открытые PR ───────────────────────────────────────────────────────────────
 prs = []   # (репо, номер, ветка, состояние, обновлён)
 # Complior-back ведёт сессия проекта (scripts/connect_project.sh, контракт 125) — её PR не строки станции.
-for repo in ('a3ka/dev-harness', 'a3ka/Complior-mob'):
+PR_REPOS = ('a3ka/dev-harness', 'a3ka/Complior-mob')   # станция + репозитории проектов; список как был
+for repo in PR_REPOS:
     out = sh('gh', 'pr', 'list', '-R', repo, '--json', 'number,headRefName,title,statusCheckRollup,updatedAt')
     try:
         rows = json.loads(out or '[]')
@@ -145,11 +166,27 @@ subjects = sorted((set(agents) | answered) - done)
 print(f'ТАБЛО {NOW:%H:%M} UTC (окно {WINDOW} мин)')
 stoit = 0
 # ПАУЗЫ владельца (registry/pauzy.tsv на origin/main): строка ПАУЗА вместо СТОИТ, в итог «стоит без хода» не входят.
-pauzy = {}
-for _l in sh('git', '-C', REPO, 'show', 'origin/main:registry/pauzy.tsv').splitlines():
-    _f = _l.split('\t')
-    if _l and not _l.startswith('#') and len(_f) >= 4:
-        pauzy[_f[0]] = _f
+pauzy = pauzy_parse(sh('git', '-C', REPO, 'show', 'origin/main:registry/pauzy.tsv'))
+
+# ПАУЗЫ владельца репозиториев ПРОЕКТА (их PR): путь файла пауз объявляет профиль проекта
+# на его main — harness.project.json → workflowPaths.registry → pauzy.tsv (норма R-0102:
+# путь из профиля, не литералом). Опубликованный срез читается тем же gh, что и список PR,
+# новых инструментов и обменов нет. Предмет PR (номер контракта по ветке wip/<NNN>/…) в
+# паузах проекта — строка ПАУЗА PR вместо СТОИТ, без счёта: пауза не разрешает закрыть PR,
+# но и хода не требует. Нет профиля/ключа/файла, битый ответ либо недоступная сеть — пауз
+# нет: неизвестность ≠ пауза, PR показывается прежним «СТОИТ» (fail-open показа, не паузы).
+pauzy_pr = {}   # репо проекта → {номер предмета: поля строки паузы}
+for _repo in PR_REPOS:
+    if _repo == 'a3ka/dev-harness' or not any(p[0] == _repo.split('/')[1] for p in prs):
+        continue   # станция — своим registry/pauzy.tsv выше; проект без открытых PR не читаем
+    try:
+        _reg = ((json.loads(_gh_main_file(_repo, 'harness.project.json')) or {})
+                .get('workflowPaths') or {}).get('registry') or ''
+    except ValueError:
+        _reg = ''
+    if _reg:
+        pauzy_pr[_repo.split('/')[1]] = pauzy_parse(
+            _gh_main_file(_repo, _reg.strip('/') + '/pauzy.tsv'))
 for n in subjects:
     if n in pauzy:
         print(f'  ПАУЗА {n}: с {pauzy[n][1]}, согласовал {pauzy[n][2]}; вернуться: {pauzy[n][3]}')
@@ -178,8 +215,14 @@ for repo, num, br, state, upd in prs:
         continue   # ветки предметов вне работы (давние PR) — не поток; PR без номера (поезд, owner/*) — показываются
     busy = n and any(not a[2] and mins(a[1]) <= ACTIVE_MIN for a in agents.get(n, []))
     if state in ('зелёный', 'красный') and not busy:
-        stoit += 1
-        print(f'  СТОИТ {mins(upd)} мин PR {repo}#{num} ({br}): CI {state}, по нему никто не работает')
+        pz = pauzy_pr.get(repo, {}).get(n)
+        if pz:
+            # Предмет PR на паузе владельца в проекте: строка-факт из строки паузы, без «СТОИТ»
+            # и без счёта — wait-guard контракта 128 хода по ней не требует.
+            print(f'  ПАУЗА PR {repo}#{num} ({br}): с {pz[1]}, согласовал {pz[2]}; вернуться: {pz[3]}')
+        else:
+            stoit += 1
+            print(f'  СТОИТ {mins(upd)} мин PR {repo}#{num} ({br}): CI {state}, по нему никто не работает')
 
 # ── потоки: харнесс / mob / бэкенд — всегда, даже без предмета ────────────────
 # Поток предмета: по тексту контракта на origin/main (Complior-mob / Complior-back), иначе по
