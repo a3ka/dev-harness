@@ -694,6 +694,17 @@ predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # после заморозки (добавление файла 211-риск.md) была невидимой, предмет
 # допускался без адверсария (адверсарий 211, Б-1). Имя с пробелом, кавычкой,
 # обратным слешем и управляющими символами — обычный файл, в перечень входит.
+#
+# [Б-3 порядок перечня — как на базе] Порядок даёт СОРТИРОВКА ПОТОКА
+# (`ls-tree -z | LC_ALL=C sort -z`), как на базе (1ec472715) и в модели:
+# сортируется ЦЕЛАЯ запись «<mode> <tip> <sha>\t<имя>» — сначала mode, затем
+# tip, затем sha, затем имя (байты); имя в ключе входит ЦЕЛИКОМ, равные ключи
+# (одинаковые mode/tip/sha — одинаковое содержимое) разбирает ИМЯ (тай-брейк
+# базы). Порядок записей дерева Git для тай-брейка не годится: каталог
+# сравнивается как «имя/», а «/» (0x2f) больше «.» (0x2e) — каталоги-близнецы
+# 211-a.md/ и 211-a.md.md/ на базе идут «211-a.md 211-a.md.md», а по дереву —
+# наоборот (адверсарий 211, Б-1). TAB/LF в имени сортировку не рвут: записи
+# разделяет NUL (sort -z), а не перевод строки.
 kontrakt_zapisi() {  # <репозиторий> <tree:каталог> <NNN> → поток NUL-полей
   local wt="$1" derevo="$2" n="$3" zap meta imya mode tip sha
   while IFS= read -r -d '' zap; do
@@ -706,13 +717,10 @@ kontrakt_zapisi() {  # <репозиторий> <tree:каталог> <NNN> → 
     mode=''; tip=''; sha=''
     read -r mode tip sha <<< "$meta"
     printf '%s\0%s\0%s\0%s\0' "$imya" "$mode" "$tip" "$sha"
-  done < <(git -C "$wt" ls-tree -z "$derevo" 2>/dev/null)
+  done < <(git -C "$wt" ls-tree -z "$derevo" 2>/dev/null | LC_ALL=C sort -z)
 }
 klass_riska() {  # <NNN> <worktree> <OBJECT> [<репозиторий владельца>] → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
-  local n="$1" wt="$2" obj="$3" owner kat imya mode tip_zap blob put val znach='' ploh=''
-  # Перечень — во временных массивах: сортировка базы требует целого списка.
-  local -a sp_imya=() sp_mode=() sp_tip=() sp_sha=()
-  local sk=0 sj zap kl
+  local n="$1" wt="$2" obj="$3" owner kat imya mode tip_zap blob put val znach='' ploh='' schetchik=0
   owner="${4:-$wt}"  # отдельной строкой: слова local раскрываются ДО присваиваний wt
   kat="$(kontrakt_kat "$owner")" || kat=''
   if [ -z "$kat" ]; then
@@ -725,36 +733,18 @@ klass_riska() {  # <NNN> <worktree> <OBJECT> [<репозиторий владе
   fi
   # Перечень — NUL-безопасно (kontrakt_zapisi): имя файла печатается
   # байт-в-байт, обычный ls-tree цитирует не-ASCII имя целиком, и такой файл
-  # выпадал из перечня (адверсарий 211, Б-1).
+  # выпадал из перечня (адверсарий 211, Б-1). Порядок перечня — сортировкой
+  # потока в kontrakt_zapisi (ls-tree -z | LC_ALL=C sort -z), как на базе.
   #
-  # [Б-3 порядок перечня — как на базе] База (1ec472715) сортировала перечень
-  # строк «<mode> <tip> <sha>\t<имя>» через LC_ALL=C sort: сначала mode, затем
-  # tip, затем sha, затем имя (байты). Порядок перечня определяет диагностику
-  # неоднозначности (первый файл задаёт значение класса, файлы с иным значением
-  # и нечитаемая запись попадают в список neodnoznachno) — смена порядка
-  # меняет байты диагностики (адверсарий 211, Б-1). Сортируются те же поля, и
-  # имя в ключе входит ЦЕЛИКОМ: равные ключи (одинаковые mode/tip/sha —
-  # одинаковое содержимое) база разбирала ИМЕНЕМ (байты). Порядок записей
-  # дерева Git для тай-брейка не годится: каталог сравнивается как «имя/», а
-  # «/» (0x2f) больше «.» (0x2e) — каталоги-близнецы 211-a.md/ и
-  # 211-a.md.md/ на базе идут «211-a.md 211-a.md.md», а по дереву — наоборот
-  # (адверсарий 211, Б-1). TAB/LF в имени сортировку не рвут: записи
-  # разделяет NUL (sort -z), а не перевод строки.
+  # [Б-1 Rev211 класс читается ПО ПУТИ] Класс файла предмета берётся из
+  # «git show <OBJECT>:<каталог>/<имя>» — как на базе (1ec472715) и в модели.
+  # Имя с «^-» (211-a^-b.md) git по пути не разрешает (rc 128) — класс такого
+  # файла НЕ ОПРЕДЕЛЁН (fail-closed), предмет рисковый. Чтение по blob
+  # (git cat-file blob) эту границу обходило: ревьюер рискового по базе
+  # предмета проходил без адверсария (Rev211, Б-1).
   while IFS= read -r -d '' imya && IFS= read -r -d '' mode \
         && IFS= read -r -d '' tip_zap && IFS= read -r -d '' blob; do
-    sp_imya[$sk]="$imya"; sp_mode[$sk]="$mode"; sp_tip[$sk]="$tip_zap"; sp_sha[$sk]="$blob"
-    sk=$((sk + 1))
-  done < <(kontrakt_zapisi "$wt" "$obj:$kat" "$n")
-  if [ "$sk" -eq 0 ]; then printf 'net_stroki:файлов %s/%s-*.md в дереве %s нет' "$kat" "$n" "$obj"; return 0; fi
-  # Сортировка — те же поля базы и то же сравнение (байты, LC_ALL=C); ключ
-  # записи — «<mode> <tip> <sha>\t<имя>»: имя входит целиком, равные ключи
-  # разбирает имя (тай-брейк базы). Записи разделяет NUL — TAB/LF в имени
-  # сортировку не рвут.
-  while IFS= read -r -d '' zap; do
-    [ -n "$zap" ] || continue
-    mode="${zap%%$'\t'*}"; kl="${zap#*$'\t'}"
-    tip_zap="${kl%%$'\t'*}"; kl="${kl#*$'\t'}"
-    blob="${kl%%$'\t'*}"; imya="${kl#*$'\t'}"
+    schetchik=$((schetchik + 1))
     put="$imya"
     # Запись предмета — обычный файл: симлинк (120000), gitlink (160000) и
     # каталог (040000) каноном не являются (D36) — класс по ним не читается.
@@ -763,7 +753,7 @@ klass_riska() {  # <NNN> <worktree> <OBJECT> [<репозиторий владе
     if [ "$tip_zap" != blob ] || { [ "$mode" != 100644 ] && [ "$mode" != 100755 ]; }; then
       ploh="${ploh:+$ploh }$put"; continue
     fi
-    val="$(git -C "$wt" cat-file blob "$blob" 2>/dev/null \
+    val="$(git -C "$wt" show "$obj:$kat/$put" 2>/dev/null \
           | grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' \
           | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"
     # [D30 risk-legacy] старый frozen без строки класса (до слова владельца 24.10):
@@ -785,11 +775,8 @@ klass_riska() {  # <NNN> <worktree> <OBJECT> [<репозиторий владе
     esac
     if [ -z "$znach" ]; then znach="$val"
     elif [ "$znach" != "$val" ]; then ploh="${ploh:+$ploh }$put"; fi
-  done < <(
-    for ((sj = 0; sj < sk; sj++)); do
-      printf '%s\t%s\t%s\t%s\0' "${sp_mode[$sj]}" "${sp_tip[$sj]}" "${sp_sha[$sj]}" "${sp_imya[$sj]}"
-    done | LC_ALL=C sort -z
-  )
+  done < <(kontrakt_zapisi "$wt" "$obj:$kat" "$n")
+  if [ "$schetchik" -eq 0 ]; then printf 'net_stroki:файлов %s/%s-*.md в дереве %s нет' "$kat" "$n" "$obj"; return 0; fi
   if [ -n "$ploh" ]; then printf 'neodnoznachno:%s' "$ploh"; return 0; fi
   printf '%s' "$znach"
 }
