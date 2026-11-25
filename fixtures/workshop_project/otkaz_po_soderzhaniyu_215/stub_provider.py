@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extend provider 129's HTTP handler; all successful/tool traffic stays in 129."""
+"""Extend provider 129; 215 validates followUp before delegating successful traffic."""
 import io
 import json
 import runpy
@@ -29,6 +29,23 @@ def initialize(server, address, handler, *args, **kwargs):
             'other': (400, 'unrelated request error'),
             'near-token': (400, 'notcyber_policyx notcontent_filterx'),
         }
+        followup = plan.get('_followup')
+        if followup and model == followup['model'] and body.get('tools') and not sib:
+            # Inspect the actual HTTP user message, never the extension's source
+            # or an occurrence of the expected text elsewhere in the conversation.
+            users = [m for m in body.get('messages', []) if m.get('role') == 'user']
+            content = users[-1].get('content') if users else None
+            if isinstance(content, list):
+                content = ''.join(p.get('text', '') for p in content if p.get('type') == 'text')
+            matches = content == followup['text']
+            with open(sys.argv[3], 'a') as log:
+                log.write(json.dumps({'model': model, 'sib': sib, 'turn': False,
+                                      'status': 'followup-content', 'matches': matches,
+                                      'content': content}) + '\n')
+            if not matches:
+                payload = json.dumps({'error': {'type': 'invalid_request_error',
+                                               'message': 'FOLLOWUP_CONTENT_MISMATCH [stub129 ' + plan['_marker'] + ']'}}).encode()
+                return self._json(400, payload)
         if mode not in errors:
             self.rfile = io.BytesIO(raw)
             return original_post(self)
