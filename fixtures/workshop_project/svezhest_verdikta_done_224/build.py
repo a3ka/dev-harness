@@ -184,6 +184,11 @@ MUTATIONS = {
     'st21-first-date-only': ('[ -z "$day" ] || die "done: VERDICT_ROUND_CONFLICT: $role: $f"', '[ -z "$day" ] || continue',
                            ['record-' + role + '-' + name for role in ('review', 'adversary')
                             for name in ('date-second-conflict', 'date-repeat', 'date-three', 'date-spaces')]),
+    'st22-lexical-order': ('if [ "$key" -gt "$best" ]; then', 'if [[ "$key" > "$best" ]]; then',
+                           [role + '-' + name for role in ('review', 'adversary')
+                            for name in ('nine-ten-late-fail', 'nine-ten-accept')]),
+    'st23-eight-digit-limit': ('[ "${#version}" -le 9 ]', '[ "${#version}" -le 8 ]',
+                               ['review-nine-digit', 'adversary-nine-digit']),
 }
 
 
@@ -225,6 +230,7 @@ def main():
     manifest = {'base': BASE, 'kletki': len(CASES), 'mutacii': len(MUTATIONS), 'svjazi': len(links),
                 'nositeli': {k: hashlib.sha256(v.encode()).hexdigest() for k, v in carriers.items()}, 'stab_vhod': links}
     (HERE / 'source.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+    (HERE / 'stabs.tsv').write_text(''.join(link['stab'] + '\t' + link['case'] + '\n' for link in links))
     print('NOSITELI', len(carriers), 'STABY', len(MUTATIONS), 'SVJAZI', len(links))
 
 

@@ -1,84 +1,106 @@
-# СДАЧА 224 — все объявления поддерживаемых полей СУД
+# СДАЧА 224 — числовой порядок и граница девяти цифр
 
-Обещание: числовой порядок носителей вместо ancestry, совместимость frozen 201/186/129/190 и проверка всех объявлений поддерживаемых полей СУД. Наблюдение: настоящий полный done CLI, rc, отдельные stdout/stderr, annotated тег на исходном HEAD; при отказе тега нет, HEAD неизменен. Ожидания сохранены в памяти до субъекта. TMPDIR — .scratch224c внутри своей isolated-копии; shellcheck 0.11.0 через VALIDATE_STD_SHELLCHECK.
+Обещание: полный done CLI выбирает максимальный числовой круг отдельно для review/adversary, сохраняет прежние проверки F/CID/OBJECT и все объявления поддерживаемых полей СУД. Наблюдение: rc, раздельные stdout/stderr, done-тег на исходном HEAD; при отказе тега нет, HEAD неизменен. Ожидания — литералы в памяти до запуска субъекта, не значения из результата или диска субъекта.
 
-Источник исправления: FAIL Crit224, вызов 2, commit 859c0de39cf6b0be6a52165ee49d16746f5e59cb:verdicts/critic/contracts-224-v2.md; база ba70659fc5e9cae5b439f1d71c994ba92ee1f7e2. Вердикт прочитан целиком через git show, чужой файл в HEAD не копируется. Единственный блок К-09: первое совпадение поколения фазы в строке скрывает второе. К-07 той же карты закрывается честным контролем. Новых предметов, изменений production/frozen/реестров/CI нет. Позиция автора для §Остановка: блок принят; конечная граница — все объявления вызова, поколения фазы и даты, не новая грамматика всей СУД-прозы. Этот ремонт не даёт freeze и не отменяет маршрут арбитража оркестратором.
+Источник исправления: единственный блок К-08 Adv224, `0968979ed582624ba9081b584cf087e420367b35:verdicts/adversary/contracts-224-impl-v1.md`, прочитан целиком. База задания и фактический HEAD после fetch/switch: `4841a1a06693e902cdbd919e1fb1e7f510ed12e2`. Исправляется только семья фикстуры; production, frozen-контракт, CI, реестры и прежние семейства не меняются. Это ремонт проверки, не дефект честной production и не самостоятельное разрешение freeze/done.
 
-КЛЕТКИ: 92. МУТАЦИИ: 21. СВЯЗИ: 56. Носители: 23; bash-носители вместе с обёрткой: 24. CASES/probe.py — источник клеток; MUTATIONS/build.py — источник связей; source.json сгенерирован из них. Исходные 54 клетки и 30 связей сохранены; добавлены record-клетки обеих ролей, st20/st21. Старые st12/st18 адаптированы к новому шву без изменения их входов или красноты.
+## Существующее и дельта конструкции
 
-Baseline 5fa6b2c294c2dfd677febb200c73dc27467461e6 и источник исторических блобов 6c021128eb8ecde054b26ad22700910412d88f7b остаются предками результата. Реальная клетка 201 world201.live и полные исторические 186/129/190 остаются положительными контролями. Перенос меняет идентификатор предмета и OBJECT/SHA на автономные Git-объекты, не метаданные. Все новые record-клетки редактируют одну СУД-запись в настоящем мире historic186: review impl-v3 (вызов 1) либо adversary impl-v2-vyzov2 (вызов 2); сохраняют OBJECT и прочее содержимое. Клетка record-adversary-phase-v-second-conflict дословно предъявляет строку критика: `СУД: фаза=реализация v2; фаза=реализация v3; вызов=2/2`.
+`probe.py` уже строит настоящие Git-миры через world201.world/build, реальные F/OBJECT, две несравнимые ветви и два merge-коммита. `suite` сравнивает rc/трубы/тег/HEAD, регрессии дополнительно сравнивает побайтно с до-224 дверью. Исторические 186/129/190 и настоящий world201.live остаются положительными контролями. Модель и старые мутации генерируются `build.py`; их код не изменён.
 
-## Поля и правило
+КЛЕТКИ: 100. МУТАЦИИ: 23. СВЯЗИ: 62. Носители: 25; bash-носители с обёрткой: 26. Числа взяты из build/catalog; независимая мера — фактические model/stabs-прогоны. Прежние 92 клетки и 56 адресных связей сохранены.
 
-`вызов=N` или `вызов=N/M`: все объявления; повтор даже того же значения — CONFLICT; числа канонические, объявленный вызов согласован с применимой координатой имени/поколения.
+Добавлены четыре сценария для каждой роли:
 
-`фаза=реализация vV` и `фаза=реализация…круг V`: одно поле поколения с двумя историческими формами; все объявления, включая смешанные; повтор даже той же версии — CONFLICT. Это сохраняет прежний запрет повторов между строками и делает его одинаковым внутри строки. Поколение требует вызов и совпадает с явной версией имени. Фаза без поколения остаётся свободной.
+- `nine-ten-late-fail`: v9 accept, v10 FAIL; rc 1, диагноз называет impl-v10.md, done-тега нет.
+- `nine-ten-accept`: v9 FAIL, v10 accept; rc 0, тег указывает на исходный HEAD, обе трубы пусты.
+- `nine-digit`: единственный impl-v999999999 accept без СУД-метаданных; rc 0. Отсутствие метаданных изолирует границу номера имени от ограничений полей вызова/фазы.
+- `ten-digit`: единственный impl-v1000000000 accept без СУД-метаданных; rc 1, `done: VERDICT_ROUND_INVALID: <роль>: <полный путь>`, done-тега нет.
 
-`дата=YYYY-MM-DD`: все объявления; повтор даже той же даты — CONFLICT; единственное значение проверяет date, оно совпадает с датой имени и не инвертирует порядок разных кандидатов.
+Для пары v9/v10 номера и даты записываются сразу на двух независимых носителях, не переименовываются после merge. СУД несёт вызов=9/10 и вызов=10/10, даты 2026-11-24 и 2026-11-25; OBJECT один настоящий. До вызова CLI merge-base в обе стороны обязан вернуть 1; носители лендятся двумя --no-ff merge. Adversary-миры сохраняют независимый review accept на том же OBJECT.
 
-Левая граница поддерживаемого имени — начало содержимого СУД, пробел или `;`; поля могут идти в любом порядке, через пробел либо `;` без обязательного пробела. Фаза не поглощает следующее поддерживаемое поле. Иные поля (репо/предмет/роль/сессия/модель и т.п.) не входят в грамматику порядка; слова без поля и свободное пояснение не превращаются в metadata. Повтор одинаковой даты у разных кандидатов допустим.
+## Закрытие К-08
 
-## Закрытие блока
+Способ — клетка. Снятие числового порядка или границы девяти цифр ослабило бы frozen-обязательство; граница угроз здесь неприменима. Git/date проверяют объекты/даты, но не выбор максимума двери, поэтому требуется поведенческая клетка на существующем публичном шве.
 
-Клетка, не снятие/граница: снятие либо ограничение первым совпадением ослабили бы обещание. Git/date/bash -n/shellcheck проверяют свои канонические свойства, но не семантику выбора, поэтому нужен поведенческий контроль. В SELECTOR/build.py один курсор по именам фаза/вызов/дата потребляет все объявления; значения проверяются в своей ветви. Ветви отказа получают адресные повтор/конфликт и честные единственные эквиваленты. Н-39: связи существуют только кодом, не контрактной прозой.
+Н-39: architect привязал стабы к различающим ветвям кодом MUTATIONS/build.py. `replace_one` требует ровно один якорь; старый/новый фрагменты совпадают с операциями предъявленных production-мутантов:
 
-Обе роли: обе формы фазы, второе противоречие, одинаковый повтор, смешение форм в обе стороны, три объявления, вызов перед/между фазами, пробел вместо `;`, повтор между строками. Для даты — второе противоречие, повтор, три объявления, пробельный разделитель и единственный честный контроль. Для вызова прежние second-conflict/repeat-call/second-invalid сохранены, добавлены три объявления. Честные phase-v-single/phase-cycle-single/date-single/explanation зелены.
+- st22-lexical-order: `if [ "$key" -gt "$best" ]; then` → `if [[ "$key" > "$best" ]]; then`. Отдельные связи к late-fail и accept обеих ролей; каждой связи нужна собственная краснота.
+- st23-eight-digit-limit: `[ "${#version}" -le 9 ]` → `[ "${#version}" -le 8 ]`. Отдельные связи к nine-digit обеих ролей. Ten-digit не приписывается этому стабу: на десяти цифрах он отказывает честно.
 
-st20-first-phase-only имеет один якорь запрета повторной фазы; st21-first-date-only — один якорь даты. Каждая связь исполняется отдельно; кратность каждого якоря проверяет replace_one. Независимые first-each-field и last-each-field вмешиваются в курсор записи, а не якоря стабов: на КАЖДОМ из полей вызова, обеих форм поколения и даты, отдельно для обеих ролей, предъявляются одинаковые повторы. Нельзя зачесть полю красноту соседнего поля. Прежние два независимых мутанта сохранены; хвост после первого поля отрезается ПОСЛЕ проверки его значения, иначе новый шов даёт честный отказ на пустом вызове.
+Как и прежние стабы, новые — полные bash-носители модели с одной заменённой операцией, не двойник Git. Модель не является оракулом ожидаемого результата. Каждый носитель проверяется bash -n, затем вызывается полный CLI. Ошибка среды/синтаксиса — rc 2, не поимка стаба.
+
+Единственный редактируемый реестр связей — MUTATIONS/build.py. Генератор выпускает source.json и требуемый stabs.tsv; carriers() сравнивает TSV побайтно с каноническими строками из manifest до любых режимов, без собственного TSV-парсера. `--catalog` потребляет ту же карту; отдельного ручного словаря нет.
 
 ## Двери
 
-- Red-do · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --repo . · 1 · 1
+W — `bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh`.
+
+Все прогоны выполнены последовательно в выданной isolated-копии. TMPDIR=`$PWD/tmp/architect224d`, вне временных субъектов; VALIDATE_STD_SHELLCHECK=`/home/harness/.local/state/dev-harness/validators/shellcheck/0.11.0/shellcheck`. Baseline --stabs снят до изменения файлов; остальные — после генерации.
+
+- Repo · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --repo . · 0 · 0
 - Model · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --model · 0 · 0
 - Stabs · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --stabs · 0 · 0
 - Sintaksis · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --sintaksis · 0 · 0
 - Catalog · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --catalog · 0 · 0
 - Compatibility · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --compatibility · 0 · 0
 - Independent-mutants · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --independent-mutants · 0 · 0
-- Precision · bash scripts/check_precision_gate.sh . contracts/224-svezhest-verdikta-done.md · 0 · 0
-- Spec-ready · bash scripts/check_spec_ready.sh . contracts/224-svezhest-verdikta-done.md · 0 · 0
-- Threat-model · bash scripts/check_threat_model.sh . contracts/224-svezhest-verdikta-done.md · 0 · 0
-- Predposylki · bash scripts/check_predposylki.sh . contracts/224-svezhest-verdikta-done.md · 0 · 0
-- Ceilings · bash scripts/check_ceilings.sh . · 0 · 0
-- Ids · bash scripts/check_ids.sh . · 0 · 0
-- Provodka-grammar · bash scripts/check_provodka.sh --grammar . contracts/224-svezhest-verdikta-done.md · 0 · 0
-- CI-canon · bash scripts/gen_ci_steps.sh --check · 0 · 0
 
 ## Карта классов
 
-- К-01 · чисто · вход: двери формы листа, ПРОВОДКА guard-каналом; SDACHA_TIMEOUT_SEK=600 SDACHA_BUDZHET_SEK=2400 · - · -
-- К-02 · чисто · вход: task-architect224c и единственный блок закоммиченного FAIL Crit224 вызов 2, класс всех объявлений поддерживаемого поля · - · -
-- К-03 · чисто · вход: world201.live и исторические 186/129/190 с исходными metadata, frozen неизменны · - · -
-- К-04 · чисто · вход: только контракт 224 и его семья; context.py/precision читают настоящие высшие frozen; production/реестры/CI/журналы вне правки · - · -
-- К-05 · чисто · вход: полный CLI W и двери формы; повтор любого поддерживаемого поля именован CONFLICT до тега · - · -
-- К-06 · чисто · вход: ошибка среды/носителя/синтаксиса — rc 2, не поимка стаба · - · -
-- К-07 · чисто · вход: W --model, все record-клетки на полном CLI, rc/трубы/тег/HEAD; модель не оракул ожидаемого rc · - · -
-- К-08 · чисто · вход: st20/st21 и независимые first-each-field/last-each-field проверяются по каждой связи/каждому полю отдельно, не суммарной краснотой · - · -
-- К-09 · чисто · вход: RECORDS/probe.py, обе формы поколения, обе роли, повтор/второе противоречие/три поля/смешение/порядок/межстрочный повтор; дата и вызов не исключены · - · -
-- К-10 · чисто · вход: rc, обе трубы, отсутствие тега на отказе, peeled target на успехе, HEAD и побайтная legacy-regress · - · -
-- К-11 · чисто · вход: литеральные ожидания в памяти, исходный HEAD и carrier hashes до субъекта; диск субъекта не источник ожиданий · - · -
-- К-12 · чисто · вход: Git/date/bash -n/validate_std shellcheck; SELECTOR/build.py — единственный источник генерируемого кода · - · -
-- К-13 · н/п · новые секреты и сеть в оракуле не вводятся · - · -
-- К-14 · чисто · вход: phase-v-single/phase-cycle-single/date-single/explanation обеих ролей и исторические положительные контроли · - · -
-- К-15 · чисто · вход: catalog/source.json: 92 клетки, 21 мутация, 56 связей; --model/--stabs — другая мера · - · -
-- К-16 · чисто · вход: авторизация done, F/CID/OBJECT/same-OBJECT сохранены; согласованная ложь остаётся у pre_judge/замка/origin · - · -
-- К-17 · н/п · станционный скрипт без продуктовой модели; новых writer/scope_id нет · - · -
+- К-01 · чисто · вход: семь перечисленных дверей батареи, последовательный запуск; общие pre_critic/check_sdacha этим исправительным заданием не запускались · - · -
+- К-02 · чисто · вход: task-architect224d и один блок К-08 закоммиченного Adv224; frozen-текст не правится · - · -
+- К-03 · чисто · вход: world201.live и исторические 186/129/190, --compatibility rc 0 · - · -
+- К-04 · чисто · вход: только семья fixtures/workshop_project/svezhest_verdikta_done_224/ · - · -
+- К-05 · чисто · вход: полный CLI; v10 FAIL и десятизначный номер отказывают до тега · - · -
+- К-06 · чисто · вход: прежний fail-closed среды/синтаксиса в suite/install, не менялся · - · -
+- К-07 · чисто · вход: --model, все восемь новых клеток зелены, включая положительные полярности · - · -
+- К-08 · чисто · вход: st22 и st23 красны каждой из шести новых адресных связей отдельно; --stabs 23/62/0 · - · -
+- К-09 · чисто · вход: прежние RECORDS-клетки и четыре independent-mutants сохранены · - · -
+- К-10 · чисто · вход: rc/обе трубы/тег/HEAD и побайтная legacy-regress в неизменённом suite · - · -
+- К-11 · чисто · вход: литеральные ожидания, HEAD до субъекта и хеши носителей в carriers · - · -
+- К-12 · чисто · вход: Git/date/bash -n/validate_std shellcheck; TSV генерируется и побайтно сравнивается с единым источником · - · -
+- К-13 · н/п · новых секретов и сети в оракуле нет · - · -
+- К-14 · чисто · вход: nine-ten-accept и nine-digit обеих ролей, положительные historical/frozen201 · - · -
+- К-15 · чисто · вход: build/catalog 100/23/62, фактические model/stabs 100/0 и 23/62/0 · - · -
+- К-16 · чисто · вход: F/CID/OBJECT/same-OBJECT не ослаблены; согласованная ложь остаётся за прежней границей pre_judge/замок/origin · - · -
+- К-17 · н/п · станционная фикстура без продуктовой модели, новых writer/scope_id нет · - · -
 
 ## Дельта
 
-- К-07 · клетка · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --model · 0 · 0
-- К-09 · клетка · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --independent-mutants · 0 · 0
+- К-08 · клетка · bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --stabs · 0 · 0
 
-## Сырые результаты отдельных прогонов
-
-W --repo .: rc 1, `KLETKI 92 KRASNYH 53`. Исходные 23 красных сохранены: обе роли × parallel/late-fail/duplicate/missing/conflict/date-order/name-date-conflict/second-conflict/repeat-call/second-invalid; historic186-phase-conflict/phase-no-call/bad-call-name. Новые красные: обе роли × record-{role}-phase-v-second-conflict/phase-cycle-second-conflict/phase-v-repeat/phase-cycle-repeat/phase-mixed/phase-reverse-mixed/phase-three/call-before-phase/date-second-conflict/date-repeat/date-three/phase-spaces/phase-multiline/call-three/date-spaces. Каждый новый красный: `RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''`. Единственные объявления и свободное пояснение зелены ДО реализации.
+## Сырые результаты
 
 ```text
-KLETKI 92 KRASNYH 53
-KLETKI 92 KRASNYH 0
+ДО, --stabs, rc 0:
 STABY 21 SVJAZI 56 ZHIVYH 0
-SINTAKSIS 24 SHELLCHECK 2
-KLETKI 92 STABY 21 SVJAZI 56
+
+Генерация, rc 0:
+NOSITELI 25 STABY 23 SVJAZI 62
+--catalog, rc 0:
+KLETKI 100 STABY 23 SVJAZI 62
+--sintaksis, rc 0:
+SINTAKSIS 26 SHELLCHECK 2
+--repo ., rc 0:
+KLETKI 100 KRASNYH 0
+--model, rc 0:
+KLETKI 100 KRASNYH 0
+MODEL_RC=0
+
+ПОСЛЕ, --stabs, rc 0:
+stabs/st22-lexical-order/done_contract.sh review-nine-ten-late-fail RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
+stabs/st22-lexical-order/done_contract.sh review-nine-ten-accept RED RC,TAG_TARGET,STDERR rc=1
+stabs/st22-lexical-order/done_contract.sh adversary-nine-ten-late-fail RED RC,DIAGNOSIS,TAG_ON_REFUSAL rc=0 stderr=b''
+stabs/st22-lexical-order/done_contract.sh adversary-nine-ten-accept RED RC,TAG_TARGET,STDERR rc=1
+stabs/st23-eight-digit-limit/done_contract.sh review-nine-digit RED RC,TAG_TARGET,STDERR rc=1
+stabs/st23-eight-digit-limit/done_contract.sh adversary-nine-digit RED RC,TAG_TARGET,STDERR rc=1
+STABY 23 SVJAZI 62 ZHIVYH 0
+STABS_RC=0
+--independent-mutants, rc 0:
+INDEPENDENT_MUTANTS 4 ZHIVYH 0
+INDEPENDENT_RC=0
+--compatibility, rc 0:
 world201.live (0, '')
 HISTORIC_RAW historic186 RAW 0 b'' b''
 HISTORIC_RAW historic186 GREEN
@@ -86,29 +108,11 @@ HISTORIC_RAW historic129 RAW 0 b'' b''
 HISTORIC_RAW historic129 GREEN
 HISTORIC_RAW historic190 RAW 0 b'' b''
 HISTORIC_RAW historic190 GREEN
-INDEPENDENT_MUTANTS 4 ZHIVYH 0
+COMPATIBILITY_RC=0
 ```
 
-W --model rc 0 (117.64 с); W --stabs rc 0 (199.83 с), W --sintaksis rc 0, W --catalog rc 0, W --compatibility rc 0 (5.87 с), W --independent-mutants rc 0 (34.86 с). Первый independent-прогон дал rc 1 ZHIVYH 2: старый tail-мутант очищал значение ДО проверки и потому честно отказывал. Исправлен только его якорь; никакой зелёный результат не объявлен по первому прогону. Новые first/last-each-field красны каждый на своих полях уже в первом прогоне.
+У положительных nine-ten-клеток st22 stderr называет impl-v9.md не accept; у nine-digit st23 — `VERDICT_ROUND_INVALID` с ролью и impl-v999999999.md. Честные model/production проходят все новые клетки. В выдержке выше строки с rc=1 приведены без длинного байтового stderr; полный вывод находится в транскрипте прогона. До-стабы заняли 215.35 с; --repo — 142.58 с; последовательная цепь model/stabs/independent/compatibility — 567.37 с. Это длительности команд, не отдельные оценки вложенных режимов.
 
 ## Наблюдение процесса
 
-Адрес доставки WORKTREE и ветка architect-c задания отличаются от выданной runtime isolated-копии и guard-совместимой ветки wip/224/architect. Пишется только выданная копия; ведущему доставляются фактические pwd/sha. Scratch тоже внутри копии, не в чужом /tmp. Журнал NABLIUDENIA_ARCHITECT.md в wip не правится. Кандидат для записи main без самовольного А-номера (класс: конструкция проверки; источник: первый --independent-mutants; цена: 28.93 с): при смене шва старый мутант может превратиться в честный отказ; его anchor переносится вместе с операцией, адресные входы и требование красноты сохраняются. Закрыто переносом очистки хвоста после проверки первого значения и повторным --independent-mutants rc 0. Расхождение cwd уже наблюдалось в предыдущем листе; нужна единая пара actual-cwd/guard-ветка в выдаче.
-
-## Финальные двери
-
-`bash scripts/check_precision_gate.sh "$PWD" contracts/224-svezhest-verdikta-done.md` rc 0 (14.25 с), сырой вывод `OK`.
-
-`bash scripts/pre_critic.sh contracts/224-svezhest-verdikta-done.md` rc 0 (711.64 с) с VALIDATE_STD_SHELLCHECK и SDACHA_TIMEOUT_SEK=600 SDACHA_BUDZHET_SEK=2400; полный прогон, без SDACHA_OKRUG. Он исполнил дверь сдаточного листа с командами разделов «Двери» и «Дельта»; ограничение изолированной копии не возникло.
-
-```text
-  ok   гейт предпосылок: PREDPOSYLKI_OK secrets=0 variables=0 environments=0 settings=2
-  ok   гейт трека:
-  ok   модель угроз красна
-  ok   потолки красны
-  ok   проводка красна
-  ok   сдаточный лист красен
-КРИТИК: дверь зелёная
-```
-
-Фразы «красна/красен» здесь — дословные статические имена ног pre_critic после `ok`, не ненулевой rc. Отдельный повтор check_sdacha после этого не запускался: дверь уже выполнена настоящим pre_critic; stdout вложенной двери он подавляет.
+Кандидат для main-журнала без самовольного А-номера: числовой максимум и его лексикографическая подмена неразличимы на однозначных раундах; зелёные 92 клетки и 21/56/0 не доказывали разноразрядность. Источник — Adv224 К-08, класс — конструкция проверки. Закрыто настоящими v9/v10-мирами обеих полярностей и двумя границами ширины для обеих ролей; новые шесть адресных связей красны. NABLIUDENIA_ARCHITECT.md в wip не меняется. WORKTREE из задания — адрес доставки; записи и коммит сделаны только в фактически выданной isolated-копии.

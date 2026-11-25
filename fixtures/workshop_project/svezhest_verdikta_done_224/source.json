@@ -1,8 +1,8 @@
 {
   "base": "5fa6b2c294c2dfd677febb200c73dc27467461e6",
-  "kletki": 92,
-  "mutacii": 21,
-  "svjazi": 56,
+  "kletki": 100,
+  "mutacii": 23,
+  "svjazi": 62,
   "nositeli": {
     "model/station.sh": "873726506de5d8af173a3653892984fe9566f0d67556cfa565bbb744a97b076c",
     "model/done_contract.sh": "6a1f8e9f3fe85a833c9fc57810e5a174292f89534dd41826c4b80deb0ee661ac",
@@ -26,7 +26,9 @@
     "stabs/st18-ignore-cycle/done_contract.sh": "01a815324b6d378286a9bedf0db4a14411d10750e0f7dbf6967e05f877f321a9",
     "stabs/st19-malformed-suffix/done_contract.sh": "7885ac6a5871355fd9838aa1a78876140aec1d3f6c225be81dd153bb0742108d",
     "stabs/st20-first-phase-only/done_contract.sh": "898eefa1353cd6f3a5bb34ce72a576503868b61360f0bf4d4562331e43e5f33c",
-    "stabs/st21-first-date-only/done_contract.sh": "b6b00c9bd3d61a25813731d97eefadeb8d5933426d82dd0e908a6bf8aec31788"
+    "stabs/st21-first-date-only/done_contract.sh": "b6b00c9bd3d61a25813731d97eefadeb8d5933426d82dd0e908a6bf8aec31788",
+    "stabs/st22-lexical-order/done_contract.sh": "4cc8e8620df73bbc93e3e16cc18dc888da34d7db4355913d975e00ed14f9a61f",
+    "stabs/st23-eight-digit-limit/done_contract.sh": "908755549f94c6c23b44344ac9b352e3ff1b98891036602352c128545236c2bc"
   },
   "stab_vhod": [
     {
@@ -252,6 +254,30 @@
     {
       "stab": "stabs/st21-first-date-only/done_contract.sh",
       "case": "record-adversary-date-spaces"
+    },
+    {
+      "stab": "stabs/st22-lexical-order/done_contract.sh",
+      "case": "review-nine-ten-late-fail"
+    },
+    {
+      "stab": "stabs/st22-lexical-order/done_contract.sh",
+      "case": "review-nine-ten-accept"
+    },
+    {
+      "stab": "stabs/st22-lexical-order/done_contract.sh",
+      "case": "adversary-nine-ten-late-fail"
+    },
+    {
+      "stab": "stabs/st22-lexical-order/done_contract.sh",
+      "case": "adversary-nine-ten-accept"
+    },
+    {
+      "stab": "stabs/st23-eight-digit-limit/done_contract.sh",
+      "case": "review-nine-digit"
+    },
+    {
+      "stab": "stabs/st23-eight-digit-limit/done_contract.sh",
+      "case": "adversary-nine-digit"
     }
   ]
 }
