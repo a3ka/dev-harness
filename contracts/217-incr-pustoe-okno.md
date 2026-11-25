@@ -1,4 +1,4 @@
-# Контракт 217 — пустое окно `check_charter.sh --incr` завершается за O(1)
+# Контракт 217 — пустое окно `check_charter.sh --incr` завершается за O(1), v2
 
 КЛАСС ЗАДАЧИ: кодовый.
 КЛАСС РИСКА: рисковый — безопасность стража устава: ускорение не вправе амнистировать непроверенную историю; реализация проходит adversary → reviewer.
@@ -52,7 +52,7 @@ W — `bash fixtures/workshop_project/incr_pustoe_okno_217/red_incr_pustoe_okno_
 2. Дано честная модель; когда `W --model`; тогда rc 0, все клетки зелены: пустая история с длинным прошлым противопоставлена непустому окну, HEAD без LF нормализуется как HEAD с LF, строгий предок без LF проходит непустой суд, правка без разрешения — разрешённой, черновая правка до поздней заморозки — правке после неё, каждый full-fallback — чистой истории, corrupted-cache — валидной базе, fast/oracle — обеим полярностям устава. Когда `W --stabs`; тогда rc 0, ZHIVYH=0; перед каждым предъявлением честный контроль зелёный, поломка якоря/инструмента не считается поимкой.
 3. Дано реальная история станции; когда `W --model --live` до реализации либо `W --repo . --live` после; тогда rc 0, CLI ≤2 с, маркер/кеш точны. Проба клонирует историю под TMPDIR и не записывает в исходное дерево; цена clone не входит в замер CLI.
 4. Правило формы: `W --syntax`, `W --catalog`, `bash scripts/pre_critic.sh contracts/217-incr-pustoe-okno.md`, `bash scripts/check_sdacha.sh . contracts/217-incr-pustoe-okno.md --run`, `bash scripts/check_provodka.sh . contracts/217-incr-pustoe-okno.md` — каждый rc 0; лист ≤900 с. --syntax запускает bash -n + закреплённый shellcheck через validate_std, Python compile без pycache. Счёт клеток/мутаций/привязок вычисляется --catalog и проверяется против TSV.
-5. Правило совместимости на реализации ПОСЛЕ 210: `bash fixtures/workshop_project/charter_tekst_do_tega_210/red_charter_tekst_do_tega_210.sh --repo .`, `bash fixtures/charter_fast_113/red_113.sh`, `bash fixtures/_krasnye_083.sh` — каждый rc 0; тексты семей, marker и timeout 60 клетки И0 не меняются. Полнота чужих барьеров не выводится из зелени модели 217.
+5. Правило совместимости на реализации ПОСЛЕ 210: `bash fixtures/workshop_project/charter_tekst_do_tega_210/red_charter_tekst_do_tega_210.sh --repo .` — rc 0 после перепина клетки `empty-root-incr` под И1 217: stdout пуст, stderr ровно `incr: check_charter судит <base:8>..<head:8> (0 коммитов)` + LF; `bash fixtures/charter_fast_113/red_113.sh` — rc 0 после перепина клетки `Д/gonka_kesha(а)` под И1/И2 217: на пустом окне история не читается, клетка гонки применима только к непустому окну и сохраняет охрану И3а 113. `bash fixtures/_krasnye_083.sh` — НЕ ХУЖЕ БАЗЫ: ok≥117 и FAIL≤3, множество красных клеток ⊆ множества красных на базе `17847ff7c` (измерено ok=116 FAIL=4: `И0/check_charter`, `И0б/check_charter`, `И0/check_zones`, `И0б/check_zones`); на реализации 217 измерено ok=117 FAIL=3, красны `И0б/check_charter`, `И0/check_zones`, `И0б/check_zones`, `И0/check_charter` зелёная; красные клетки красны по умыслу до частей Г и И 083, а не rc 0. Перепины — только по ПЕРЕСЕЧЕНИЕ ниже; остальные клетки и тексты семей, marker и timeout 60 клетки И0 остаются побайтово прежними. Полнота чужих барьеров не выводится из зелени модели 217.
 
 ## Не входит
 
@@ -75,7 +75,7 @@ W — `bash fixtures/workshop_project/incr_pustoe_okno_217/red_incr_pustoe_okno_
 
 ## Зоны и порядок
 
-ЗОНА architect: contracts/217-incr-pustoe-okno.md fixtures/workshop_project/incr_pustoe_okno_217/
+ЗОНА architect: contracts/217-incr-pustoe-okno.md fixtures/workshop_project/incr_pustoe_okno_217/ fixtures/workshop_project/charter_tekst_do_tega_210/probe.py fixtures/charter_fast_113/red_113.sh
 ЗОНА implementer: scripts/check_charter.sh scripts/lib_incr.sh
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
@@ -85,6 +85,8 @@ W — `bash fixtures/workshop_project/incr_pustoe_okno_217/red_incr_pustoe_okno_
 ПЕРЕСЕЧЕНИЕ architect: contracts/217-incr-pustoe-okno.md — 993 только станционный контракт 217 внутри широкого contracts/, продуктовый 993 не меняется
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/incr_pustoe_okno_217/ — 054 только новый подкаталог, прежняя проектная семья не меняется
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/incr_pustoe_okno_217/ — 055 только новый подкаталог, прежняя изоляционная семья не меняется
+ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/charter_tekst_do_tega_210/probe.py — 210 только перепин клетки empty-root-incr под 217 И1/И2 добавлением нового ожидания; остальное побайтово
+ПЕРЕСЕЧЕНИЕ architect: fixtures/charter_fast_113/red_113.sh — 113 только перепин клетки Д/gonka_kesha(а) под 217 И1/И2 добавлением нового ожидания; остальное побайтово
 ПЕРЕСЕЧЕНИЕ implementer: scripts/check_charter.sh — 019 только пустая CLI-ветвь после валидации кеша; is_charter_path и первый родитель merge неизменны
 ПЕРЕСЕЧЕНИЕ implementer: scripts/check_charter.sh — 022 только пустая CLI-ветвь; CHARTER_LIB и импорт кольца pre-push неизменны
 ПЕРЕСЕЧЕНИЕ implementer: scripts/check_charter.sh — 065 только ранний выход incr; разрешительная грамматика и grandfather-пары не меняются
