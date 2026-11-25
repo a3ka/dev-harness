@@ -1,0 +1,14 @@
+{
+  "versija": 1,
+  "kontrakt": "contracts/217-incr-pustoe-okno.md",
+  "subjekt": "scripts/check_charter.sh",
+  "model": "model/empty_window.sh",
+  "baseline": "4576309b967a22818cd7c2ed0738333dd014ca80",
+  "census": {"cells": 41, "mutations": 23, "bindings": 29},
+  "prefix10": {
+    "seed": 217,
+    "ancestors": 32768,
+    "denied_salt": 45945976,
+    "allowed_salt": 2385099
+  }
+}
