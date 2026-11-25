@@ -35,15 +35,30 @@
 #                источником не являются (две разные версии модели в одном
 #                пакете не смешиваются).
 #
-# ЧТО СУДИТСЯ (порядок шва: строка → pin → зоны):
+# ЧТО СУДИТСЯ (порядок шва: строка → pin → членство → зоны):
 #   * строка `АРХИТЕКТУРА: L1|L2|L3 <id,…>` — самостоятельная строка; список
 #     непустой, без дублей и прозы (id: [A-Za-z0-9_][A-Za-z0-9._-]*). Пустая или
 #     отсутствующая строка — ARCH_LINE_MISSING; L3 — отказ до решения владельца
 #     (ARCH_OWNER);
 #   * грамматика закреплённого pin — сразу ПОСЛЕ строки «АРХИТЕКТУРА:» и ДО
-#     зон (arch187_line → arch187_model_prepare → arch187_zones), и ДО вопроса
-#     о флаге `--arch-component`: неконформный либо неразрешимый pin — отказ
-#     ARCH_PIN (см. «ЗАКРЕПЛЁННАЯ МОДЕЛЬ»), а не ARCH_COMPONENT_NET;
+#     зон (arch187_line → arch187_model_prepare → arch187_element_ids →
+#     arch187_zones), и ДО вопроса о флаге `--arch-component`: неконформный
+#     либо неразрешимый pin — отказ ARCH_PIN (см. «ЗАКРЕПЛЁННАЯ МОДЕЛЬ»), а не
+#     ARCH_COMPONENT_NET;
+#   * зависимости выгрузки пина (контракт 203) — в arch187_model_prepare, ДО
+#     первого вызова CLI: выгрузка с `package-lock.json` требует, чтобы он
+#     ПОБАЙТОВО совпадал с `package-lock.json` установленного клона (включая
+#     его отсутствие — `cmp -s` даёт rc≠0), в клоне был `node_modules`, и
+#     дверь подключает его выгрузке симлинком на абсолютный путь; манифест с
+#     runtime-зависимостями без lock — тот же отказ. Расхождение — именованный
+#     отказ ARCH_BRIEF_DEPS с требованием `npm ci на закреплённом пине` (сеть
+#     дверь не трогает); дерево без lock и без runtime-зависимостей
+#     исполняется как прежде;
+#   * членство id строки «АРХИТЕКТУРА:» в модели ПО ПИНУ (контракт 203) —
+#     краткий `brief --compact --component <id>` из ВЫГРУЗКИ пина: rc 0 —
+#     элемент известен; ответ модели с кодом UNKNOWN_ARCHITECTURE_ELEMENT —
+#     именованный отказ с САМИМ id. Гейт стоит ДО зон и ДО вопроса о флаге
+#     `--arch-component`; ответ модели без кода членства гейт не сужает.
 #   * продуктовые пути `ЗОНА implementer:` — `locate --path` закреплённой
 #     модели. Ответ модели — многострочный JSON: разбирается ЦЕЛИКОМ, а
 #     компоненты — объединение matches[].components всех матчей; класс ответа
@@ -58,6 +73,15 @@
 #     модели (UNRESOLVED, матчей ноль) — не судятся («вне модели: <путь>»);
 #   * операция предмета — со схемами входа/выхода и не DRAFT, иначе
 #     ARCH_DRAFT (судится только текст контракта: make_task судит задание);
+#   * причина отказа брифа — из ОТВЕТА МОДЕЛИ целиком (контракт 203): stderr
+#     модели разбирается ЦЕЛИКОМ; JSON-объект с непустым `findings[0].code`
+#     даёт строку причины `<code>: <message>` (CR/LF/TAB нормализуются в
+#     пробел, одна строка, без обрезки — id в конце сообщения не срезается);
+#     вне грамматики — прежняя первая непустая строка stderr, пустой stderr —
+#     прежняя константа. Форма строки `ARCH_BRIEF_STDERR: <причина>` и строка
+#     `ОТКАЗ: ARCH_BRIEF_OTKAZ: <id> (закреплённая модель не отдала бриф)`
+#     побайтово прежние (потребитель — замороженная батарея 187
+#     brief_stderr.py);
 #   * `check --base` модели против УТВЕРЖДЁННОГО снимка (путь снимка и его
 #     digest — по формату 167, из architecture.lock.json) — по rc-грамматике
 #     инструмента: rc 1 — ARCH_CHECK; rc 2 — ARCH_NOT_EVALUATED; rc 0 при
@@ -224,6 +248,38 @@ arch187_model_prepare() {
   if [ -L "$tmp/tooling/checks/cli.js" ]; then
     rm -rf "$tmp"
     ARCH187_REFUSAL="ARCH_PIN: tooling/checks/cli.js в закреплённом дереве — ссылка, а не файл"
+    return 1
+  fi
+  # КОНТРАКТ 203: зависимости выгрузки закреплённого пина. `git archive` несёт
+  # исходники БЕЗ node_modules, а CLI пина может требовать модулей; дверь
+  # подключает их САМА — симлинком на абсолютный путь node_modules установленного
+  # клона, но только если package-lock.json выгрузки ПОБАЙТОВО равен lock'у
+  # клона: иначе в одном пакете смешаны два разных дерева зависимостей.
+  # Расхождение (включая отсутствие lock'а в клоне — `cmp -s` даёт rc≠0),
+  # отсутствие node_modules в клоне и манифест с runtime-зависимостями без
+  # lock — именованный отказ ARCH_BRIEF_DEPS с требованием `npm ci на
+  # закреплённом пине`; сеть дверь не трогает. Отказ ДО первого вызова CLI:
+  # выгрузка удаляется, донор не тронут (симлинк снимается вместе с выгрузкой).
+  if [ -f "$tmp/package-lock.json" ]; then
+    if ! cmp -s "$tmp/package-lock.json" "$root/package-lock.json"; then
+      rm -rf "$tmp"
+      ARCH187_REFUSAL="ARCH_BRIEF_DEPS: package-lock.json закреплённого пина не совпадает с установленным клоном модели: $root; npm ci на закреплённом пине"
+      return 1
+    fi
+    if [ ! -d "$root/node_modules" ]; then
+      rm -rf "$tmp"
+      ARCH187_REFUSAL="ARCH_BRIEF_DEPS: в установленном клоне модели нет node_modules: $root; npm ci на закреплённом пине"
+      return 1
+    fi
+    if ! ln -s "$(cd "$root/node_modules" && pwd -P)" "$tmp/node_modules" 2>/dev/null; then
+      rm -rf "$tmp"
+      ARCH187_REFUSAL="ARCH_BRIEF_DEPS: node_modules выгрузки не подключить: $root; npm ci на закреплённом пине"
+      return 1
+    fi
+  elif [ -f "$tmp/package.json" ] \
+    && jq -e '(.dependencies // {}) | length > 0' "$tmp/package.json" >/dev/null 2>&1; then
+    rm -rf "$tmp"
+    ARCH187_REFUSAL="ARCH_BRIEF_DEPS: у закреплённого пина есть runtime-зависимости без package-lock.json; npm ci на закреплённом пине"
     return 1
   fi
   ARCH187_MODEL_DIR="$tmp"
@@ -507,7 +563,7 @@ arch187_locate() {
 # файл. Ловушка INT НЕ снимает EXIT-ловушку (иначе файл пережил бы INT) и
 # трогает только свой файл — чужие файлы TMPDIR не удаляются.
 arch187_brief() (
-  local comp="${1:-}" rules="${2:-0}" out rc=0 err errf first="" rest line
+  local comp="${1:-}" rules="${2:-0}" out rc=0 err errf first="" rest line reason=""
   [ -n "${ARCH187_MODEL_DIR:-}" ] || return 1
   errf=""
   trap 'if [ -n "${errf:-}" ]; then rm -f "$errf"; fi' EXIT
@@ -533,7 +589,22 @@ arch187_brief() (
       if [ "$line" = "$rest" ]; then rest=""; else rest="${rest#*$'\n'}"; fi
       if [ -n "$line" ]; then first="$line"; break; fi
     done
-    [ -n "$first" ] || first="(stderr модели пуст)"
+    # КОНТРАКТ 203: причина отказа — ИЗ ОТВЕТА МОДЕЛИ. Настоящий CLI при отказе
+    # печатает stderr МНОГОСТРОЧНЫМ JSON-отчётом
+    # {status,scope,findings:[{code,message}]}; его первая строка «{» причиной
+    # не является, и код с сообщением теряться не должны. Ответ разбирается
+    # ЦЕЛИКОМ: JSON-объект с непустым findings[0].code даёт строку причины
+    # «<code>: <message>» (CR/LF/TAB нормализуются в пробел, одна строка, без
+    # обрезки — id в конце сообщения не срезается). Вне этой грамматики —
+    # прежняя первая непустая строка stderr; пустой stderr — прежняя константа.
+    reason=""
+    reason="$(printf '%s' "$err" | jq -r 'try (if (type == "object") and ((.findings[0].code | type) == "string") and ((.findings[0].code | length) > 0) then (.findings[0].code) + (if ((.findings[0].message | type) == "string") and ((.findings[0].message | length) > 0) then ": " + (.findings[0].message) else "" end) else "" end) catch ""' 2>/dev/null)" || reason=""
+    reason="$(printf '%s' "$reason" | tr '\r\n\t' '   ' | sed -e 's/  */ /g' -e 's/^ //' -e 's/ $//')"
+    if [ -n "$reason" ]; then
+      first="$reason"
+    else
+      [ -n "$first" ] || first="(stderr модели пуст)"
+    fi
     printf 'ARCH_BRIEF_STDERR: %s\n' "$first" >&2
     return 1
   fi
@@ -674,6 +745,39 @@ arch187_line() {
     ARCH187_REFUSAL="ARCH_OWNER: уровень L3 требует решения владельца: $line"
     return 1
   fi
+  return 0
+}
+
+# arch187_element_ids — членство id строки «АРХИТЕКТУРА:» в модели ПО ПИНУ
+# (контракт 203). Отвечает САМА модель: краткий `brief --compact --component
+# <id>` для каждого id из ВЫГРУЗКИ закреплённого пина (stdout не нужен,
+# stderr несёт вердикт модели и в вывод двери не печатается). rc 0 — элемент
+# модели известен; ответ модели с кодом UNKNOWN_ARCHITECTURE_ELEMENT — её
+# положительный вердикт «не элемент», и тогда именованный отказ с САМИМ id.
+# Прочие исходы (иной код, пустой ответ, недоступный CLI) вердикта о членстве
+# НЕ несут: недоступная модель отказала именованно ещё в arch187_model_prepare
+# (ARCH_PIN/ARCH_BRIEF_DEPS), а неизвестный id флага `--arch-component`
+# отказывает кодом модели в строке ARCH_BRIEF_STDERR (arch187_brief).
+# Список id — разбор строки «АРХИТЕКТУРА:» (ARCH187_COMPONENTS).
+arch187_element_ids() {
+  local rest="${ARCH187_COMPONENTS:-}" id err="" rc=0 code=""
+  [ -n "$rest" ] || return 0
+  [ -n "${ARCH187_MODEL_DIR:-}" ] || return 0
+  while [ -n "$rest" ]; do
+    id="${rest%%,*}"
+    if [ "$rest" = "$id" ]; then rest=""; else rest="${rest#*,}"; fi
+    rc=0
+    err="$(cd "$ARCH187_MODEL_DIR" && node tooling/checks/cli.js brief --compact --component "$id" 2>&1 >/dev/null)" || rc=$?
+    code=""
+    if [ -n "$err" ]; then
+      code="$(printf '%s' "$err" | jq -r 'try (if (type == "object") then (.findings[0].code // "") else "" end) catch ""' 2>/dev/null)" || code=""
+    fi
+    if [ "$rc" -ne 0 ] && [ "$code" = "UNKNOWN_ARCHITECTURE_ELEMENT" ]; then
+      ARCH187_REFUSAL="UNKNOWN_ARCHITECTURE_ELEMENT: $id"
+      ARCH187_REFUSAL_RC="1"
+      return 1
+    fi
+  done
   return 0
 }
 
@@ -867,6 +971,9 @@ arch187_check_text() {
   ARCH187_REFUSAL_RC="1"
   arch187_line "$file" || return 1
   arch187_model_prepare "$repo" || return 1
+  # КОНТРАКТ 203: членство id строки «АРХИТЕКТУРА:» в модели ПО ПИНУ — ДО зон
+  # и ДО вопроса о флаге `--arch-component`.
+  arch187_element_ids || { arch187_snapshot_drop; return 1; }
   # Выгрузка snapshot — временный файл: после суждения она не нужна (убирается
   # тут, а ловушка вызывающего — backstop).
   arch187_zones "$file" "$repo" || { arch187_snapshot_drop; return 1; }
