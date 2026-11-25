@@ -33,6 +33,18 @@
 #                                            check_sud_model --verdict; трасса
 #                                            095 НЕ расширяется на месте
 #                                            (make_task читает ровно 3 поля).
+#                                            Дополнение 215: `model_change`,
+#                                            подтверждённый квитком расширения
+#                                            (customType=fallback-route-215,
+#                                            причина CONTENT_FALLBACK_SWITCH),
+#                                            печатается как denied: заявленная
+#                                            модель отвергнута, взята запасная.
+#                                            Основание — буквальное совпадение
+#                                            id смены и её target с парной
+#                                            квитанцией; нет квитка, чужой
+#                                            id/target или другая причина —
+#                                            обычный native статус остаётся
+#                                            обычным.
 #   bash scripts/models_actual.sh --session <id>
 #                                            ОДНА сессия (контракт 174): входные
 #                                            JSONL ограничиваются ДО разбора
@@ -171,6 +183,23 @@ if [ "$TSV" = "1" ]; then
       _tsv_tail=""
     fi
     if [ -z "$_events" ]; then continue; fi
+    # Квитки 215 (контракт 215): подтверждение смены модели расширением
+    # fallback-route (customType=fallback-route-215, причина
+    # CONTENT_FALLBACK_SWITCH) — единственное основание пометить ЭТОТ
+    # model_change как denied. Пара — буквальное совпадение id смены и её
+    # target; нет квитка, чужой id/target или другая причина — обычный native
+    # статус остаётся обычным (прежний native true остаётся denied).
+    _receipts="$(grep -E '"type"[[:space:]]*:[[:space:]]*"custom"' "$f" 2>/dev/null \
+                 | grep -E '"customType"[[:space:]]*:[[:space:]]*"fallback-route-215"' \
+                 | grep -E '"reason"[[:space:]]*:[[:space:]]*"CONTENT_FALLBACK_SWITCH"' || true)"
+    _pairs=""
+    while IFS= read -r _receipt; do
+      [ -z "$_receipt" ] && continue
+      _rid="$(printf '%s' "$_receipt" | sed -n 's/.*"modelChangeId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
+      [ -n "$_rid" ] || continue
+      _rtarget="$(printf '%s' "$_receipt" | sed -n 's/.*"target"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
+      _pairs="${_pairs}${_rid}${TAB}${_rtarget}"$'\n'
+    done <<<"$_receipts"
     while IFS= read -r ev; do
       [ -z "$ev" ] && continue
       _m="$(printf '%s' "$ev" | sed -n 's/.*"model":"\([^"]*\)".*/\1/p')"
@@ -180,6 +209,17 @@ if [ "$TSV" = "1" ]; then
         true)  _perm="denied"  ;;
         *)     _perm="$_fb"    ;;
       esac
+      # 215: смена, подтверждённая квитком расширения (id смены И её target
+      # совпадают буквально), — заявленная модель отвергнута, взята запасная.
+      if [ "$_perm" != "denied" ] && [ -n "$_pairs" ]; then
+        _id="$(printf '%s' "$ev" | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
+        if [ -n "$_id" ]; then
+          while IFS="$TAB" read -r _pid _ptarget; do
+            [ -z "$_pid" ] && continue
+            if [ "$_pid" = "$_id" ] && [ "$_ptarget" = "$_m" ]; then _perm="denied"; break; fi
+          done <<<"$_pairs"
+        fi
+      fi
       printf '%s%s%s%s%s%s\n' "${_role:-}" "$TAB" "$_m" "$TAB" "$_perm" "$_tsv_tail"
       _tsv_found=$((_tsv_found + 1))
     done <<<"$_events"
