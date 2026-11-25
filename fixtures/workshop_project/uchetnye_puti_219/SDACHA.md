@@ -1,5 +1,41 @@
 # СДАЧА 219 — точные учётные пути
 
+## Ремонт К-08 — Architect219b
+
+База ремонта: 89893e66aaa8de10ef07e9f44122cc6b4f066c5d, ветка wip/219/architect-b. Frozen-контракт и production неизменны. Предъявление Adv219: 159beca827175e64a0ddfd074748df61479f2b1a, verdicts/adversary/contracts-219-impl-v1.md, блок К-08.
+
+Существующее: probe.py уже строит настоящие Git-миры reg-add/remove/replace и снимает независимый H до subject; stabs.tsv связывает каждую мутацию с наблюдением и неизменным контролем. Новые клетки используют эти же операции, но включают правку pauzy в тот же коммит; replace дополнительно правит место и уроки. Парный accounting-data-only меняет все три учётных файла без правки U и требует uchet. Для совместных изменений требуется kod, проверяются оба точных H; независимые H обязаны различаться до вызова субъекта.
+
+model/registry_data_mutation.py содержит старый/новый фрагмент c_klass из находки. Применение требует единственного якоря, --sintaksis компилирует файл и подставляемое тело функции. Привязки к трём новым ветвям находятся в stabs.tsv, не в контракте. source.json и генератор каталога в этой семье отсутствуют: каталог по-прежнему строится непосредственно из CASES/MUTATIONS/stabs.tsv, второй источник чисел не вводится.
+
+Окружение ремонта: TMPDIR=$PWD/tmp, PYTHONDONTWRITEBYTECODE=1; shellcheck 0.11.0 по пути из задания; identity architect. W — прежний red_uchetnye_puti_219.sh.
+
+| Блок | Способ | Команда | rc и сырой итог |
+|---|---|---|---|
+| К-08, до | замер прежней батареи | W --stabs | 0; KLETKI=31 MUTACII=13 SVJAZI=28; POIMANY=28 ZHIVYH=0 |
+| К-08, после | клетка на настоящем Git-входе, отдельное наблюдение каждой операции | W --repo . | 0; KLETKI=35 ZELENYE=35 KRASNYE=0 |
+| К-08, честный контроль | существующая модель расширения | W --model | 0; KLETKI=35 ZELENYE=35 KRASNYE=0 |
+| К-08, эквивалентная запись | перестановка U и симметрия сравнения | W --model --equivalent | 0; KLETKI=35 ZELENYE=35 KRASNYE=0 |
+| К-08, адресная обманка | мутация Adv219 и неизменный контроль | W --stabs | 0; MUTACII=14 SVJAZI=31 POIMANY=31 ZHIVYH=0 |
+| Форма | прежние инструменты | W --catalog; W --sintaksis | оба 0; KLETKI=35 MUTACII=14 SVJAZI=31 UCHET=13; SYNTAX rc=0 |
+| Совместимость | полная прежняя батарея и проводка | W --model --compat | 0; 087 ok=110 КРАСНО=0, стабы 31/31; COMPAT red_ci_b_087.sh rc=0; COMPAT gen_ci_steps.sh rc=0; COMPAT check_provodka.sh rc=0 |
+| Регресс 087 | полная прежняя батарея в отдельном клоне | bash fixtures/ci_b_087/red_ci_b_087.sh "$PWD/tmp/219-087-subject" | 0; ok=110 КРАСНО=0; стаб-пак 31/31 |
+
+Сырые новые предъявления:
+
+```text
+REGISTRY_WITH_DATA_IS_UCHET -> registry-add-uchet-with-data: POIMAN; control=accounting-data-only GREEN; ["BYTES expected=(0, b'kod\\n', b'') actual=(0, b'uchet\\n', b'')"]
+REGISTRY_WITH_DATA_IS_UCHET -> registry-remove-uchet-with-data: POIMAN; control=accounting-data-only GREEN; ["BYTES expected=(0, b'kod\\n', b'') actual=(0, b'uchet\\n', b'')"]
+REGISTRY_WITH_DATA_IS_UCHET -> registry-replace-uchet-with-data: POIMAN; control=accounting-data-only GREEN; ["BYTES expected=(0, b'kod\\n', b'') actual=(0, b'uchet\\n', b'')"]
+SVJAZI=31 POIMANY=31 ZHIVYH=0
+```
+
+Независимая мера: wc -l stabs.tsv = 32 с заголовком; каталог печатает SVJAZI=31. Прежние привязки сохранены, новая обманка поймана на каждой из своих ветвей.
+
+Рефлексия для orchestrator (общий журнал только в main): прямой запуск 087 на $PWD при TMPDIR=$PWD/tmp сначала дал rc 1, ok=109 КРАСНО=1, стабы 31/31: К10 делает cp дерева в TMPDIR и получает «cannot copy a directory ... into itself». Причина среды устранена без правки 087: отдельный disposable Git-клон внутри $PWD/tmp, TMPDIR — сосед субъекта, не его потомок. На нём 110/110; --compat также имеет собственный отдельный субъект и прошёл сразу. Это не отказ классификатора и не повод ослаблять клетку. Старые измерения ниже — история первоначальной сдачи, не текущий статус.
+
+## Первоначальная сдача (история)
+
 База: 8b52fade7975034d7cabece67e46c16a7d1abe3b. Первый коммит — побайтовый импорт owner-затравки. Production не меняется architect: модель добавляет точные строки и мигрирует независимый снимок U87 только в отдельном tracked-снимке дерева. Числа и сырые результаты ниже заполняются из прогонов, а не из оценок задания.
 
 Окружение: TMPDIR=/tmp/dev-harness-verify/scratch-arch219, VALIDATE_STD_SHELLCHECK=/home/harness/.local/state/dev-harness/validators/shellcheck/0.11.0/shellcheck. Двери содержат ожидаемые rc; наблюдённые результаты — в разделе измерений. Если единственный отказ — отсутствующая строка плана 219, её доставляет owner-PR #1335, а не architect.
