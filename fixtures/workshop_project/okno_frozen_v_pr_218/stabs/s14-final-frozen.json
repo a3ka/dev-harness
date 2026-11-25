@@ -1,0 +1,1 @@
+{"name":"s14-final-frozen","file":"check_contract_frozen.sh","old":"elif [ \"$head_blob\" != \"$tag_blob\" ] || [ -n \"$pr_pending\" ]; then","new":"elif [ \"$head_blob\" != \"$tag_blob\" ]; then","cells":["frozen-frozen-revert","frozen-carrier-main-first-revert"]}
