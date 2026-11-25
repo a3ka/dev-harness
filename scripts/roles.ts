@@ -376,6 +376,81 @@ export function resolveModelCli(argv: string[]): number {
   }
 }
 
+/** Сравнение ИМЁН моделей (контракт 173): полная строка «провайдер/модель» и та же
+ *  строка без префикса провайдера — ОДНА назначенная модель; обе полные — только
+ *  побайтно (чужой провайдер — другая модель), обе bare — тоже побайтно. Подстрока,
+ *  суффикс и регистр равенства НЕ дают: сравнение буквальное, кроме этой
+ *  эквивалентности одного bare/full имени. */
+function sameModelName(a: string, b: string): boolean {
+  if (a === b) return true
+  if (!a.includes('/')) return b.includes('/') && b.slice(b.indexOf('/') + 1) === a
+  if (!b.includes('/')) return a.slice(a.indexOf('/') + 1) === b
+  return false
+}
+
+/** ОБЪЯВЛЕННЫЕ модели реестра назначений (контракт 222): секция `models` плюс
+ *  разрешённые значения `tiers.*.model` и `tiers.*.fallback`. Второго списка
+ *  моделей нет: объявленность — свойство реестра, а не тира и не роли, поэтому
+ *  любая вписанная модель применима к любой роли. Неразрешённая ссылка тира —
+ *  исключение резолвера: список не выводится вслепую. */
+function declaredModels(am: AgentModels): string[] {
+  const out: string[] = []
+  for (const id of Object.values(am.models ?? {})) {
+    if (typeof id === 'string' && id !== '') out.push(id)
+  }
+  for (const [tier, spec] of Object.entries(am.tiers ?? {})) {
+    out.push(resolveModelRef(am, spec.model, `tiers.${tier}.model`))
+    if (spec.fallback !== null && spec.fallback !== undefined) {
+      out.push(resolveModelRef(am, spec.fallback, `tiers.${tier}.fallback`))
+    }
+  }
+  return out
+}
+
+/** CLI объявленности selector'а (контракт 222): `--resolve-selector <selector>
+ *  [--root <кат>]`. rc 0 — объявлен (stdout: канонический id из реестра);
+ *  rc 1 — не объявлен (именованный отказ MODEL_NOT_DECLARED); rc 2 — нечем
+ *  читать реестр (fail-closed) либо неверный вызов. */
+export function resolveSelectorCli(argv: string[]): number {
+  const at = argv.indexOf('--resolve-selector')
+  const selector = at >= 0 ? (argv[at + 1] ?? '') : ''
+  if (at < 0 || selector === '' || selector.startsWith('--')) {
+    process.stderr.write('использование: roles.ts --resolve-selector <selector> [--root <кат>]\n')
+    return 2
+  }
+  const rootAt = argv.indexOf('--root')
+  const root = rootAt >= 0 && argv[rootAt + 1] !== undefined
+    ? argv[rootAt + 1]
+    : join(import.meta.dirname, '..')
+  let am: AgentModels
+  try {
+    am = readAgentModels(root)
+  } catch (err) {
+    if (err instanceof RoleModelError) {
+      process.stderr.write(`ОТКАЗ: ${err.code}: ${err.message}\n`)
+      return err.rc
+    }
+    throw err
+  }
+  let declared: string[]
+  try {
+    declared = declaredModels(am)
+  } catch (err) {
+    if (err instanceof RoleParseError) {
+      process.stderr.write(`ОТКАЗ: REGISTRY_INVALID: ${err.message}\n`)
+      return 2
+    }
+    throw err
+  }
+  const found = declared.find((v) => sameModelName(selector, v))
+  if (found === undefined) {
+    process.stderr.write(`ОТКАЗ: MODEL_NOT_DECLARED: ${selector}\n`)
+    return 1
+  }
+  process.stdout.write(`${found}\n`)
+  return 0
+}
+
 /** Таблица моделей — ЛЕНИВО и терпимо к отсутствию файла. Фикстуры анти-плацебо собирают
  * ЧАСТИЧНЫЕ деревья (ровно то, что судит их предмет), и чтение на уровне импорта валило
  * генератор ENOENT-ом внутри ЗЕЛЁНОЙ фазы чужого барьера (overlay/gen-harness, a9ea528,
@@ -461,5 +536,10 @@ function isDirectRun(): boolean {
 }
 
 if (isDirectRun()) {
-  process.exit(resolveModelCli(process.argv.slice(2)))
+  const argv = process.argv.slice(2)
+  // Два режима CLI резолвера: назначение роли (--resolve-model) и объявленность
+  // selector'а (--resolve-selector, контракт 222). Оба читают ОДИН реестр и
+  // один и тот же разбор ссылок — второй список моделей не заводится.
+  if (argv.includes('--resolve-selector')) process.exit(resolveSelectorCli(argv))
+  process.exit(resolveModelCli(argv))
 }

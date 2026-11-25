@@ -9,7 +9,7 @@
 #       check_ci_gate ПЕРВЫМ аргументом (иначе bypass #3); скрипт ищется рядом
 #       (SELF предмета); rc 0 ⟺ его rc 0.
 #
-#   judge_gate.sh <sha> --verdict-row <задача> <object_id> <вердикт-файл> --sud <роль> <трасса> <session>
+#   judge_gate.sh <sha> --verdict-row <задача> <object_id> <вердикт-файл> --sud <роль> <трасса> <session> [--assigned-model <selector>]
 #       verdict-писатель (098 решение 3 + 104 Решение 4): исход — ТОЛЬКО
 #       СОБЫТИЕ решения из ПЕРВОЙ строки вердикт-файла круга
 #       (accept|FAIL|ESCALATE; зелёный CI в accept НЕ превращается);
@@ -17,7 +17,10 @@
 #       «--verdict <роль> --trace <трасса> --object <sha> --session <session>»
 #       (порядок литеральный): rc двери ≠ 0 → строка НЕ пишется, rc двери
 #       пробрасывается; тройки --sud нет → rc 1 «свидетельство судьи не
-#       передано» (не bootstrap-пропуск); строка `verdict` с object_id — в
+#       передано» (не bootstrap-пропуск); хвост `--assigned-model <selector>`
+#       (контракт 222) переносит ЯВНОЕ назначение этой сверки — значение
+#       выбрано оркестратором из запроса task ДО запуска, не из трассы;
+#       строка `verdict` с object_id — в
 #       журнал принятой стороны $SELF/../registry/candidates.tsv (грамматика
 #       И-0 контракта 094; журнал вне проверяемой ветки, Б-6; append-only;
 #       создаётся писателем при отсутствии — контракт 098).
@@ -49,14 +52,24 @@ usage() {
 
 SHA="${1:-}"; [ -n "$SHA" ] || usage
 MODE=""
+ASSIGNED_MODEL=""
 case "${2:-}" in
   --verdict-row)
+    # Хвост `--assigned-model <selector>` (контракт 222) — ПОСЛЕ тройки --sud:
+    # явное назначение этой сверки, выбранное оркестратором из запроса task до
+    # запуска (не из полученной трассы). Без хвоста — обычная форма.
+    if [ "$#" -eq 11 ]; then
+      [ "${10}" = --assigned-model ] || d98_die "verdict-row: десятый аргумент — не --assigned-model: ${10}"
+      ASSIGNED_MODEL="${11:-}"
+      [ -n "$ASSIGNED_MODEL" ] || d98_die "verdict-row: --assigned-model без значения"
+      set -- "${@:1:9}"
+    fi
     case $# in
       5) TASK="$3"; OID="$4"; VF="$5"; MODE=verdict; SUD_MISSING=1 ;;
       9) [ "$6" = --sud ] || d98_die "verdict-row: шестой аргумент — не --sud: $6"
          TASK="$3"; OID="$4"; VF="$5"
          SUD_ROLE="$7"; SUD_TRACE="$8"; SUD_SESSION="$9"; MODE=verdict ;;
-      *) d98_die "verdict-row: <sha> --verdict-row <задача> <object_id> <вердикт-файл> --sud <роль> <трасса> <session> — аргументов $#, нужно 5 или 9" ;;
+      *) d98_die "verdict-row: <sha> --verdict-row <задача> <object_id> <вердикт-файл> --sud <роль> <трасса> <session> [--assigned-model <selector>] — аргументов $#, нужно 5, 9 или 11" ;;
     esac ;;
   --policy-row)
     [ $# -eq 6 ] || d98_die "policy-row: <sha> --policy-row <object_id> <старая> <новая> <файл-санкции> — аргументов $# , нужно 6"
@@ -112,7 +125,13 @@ verdict)
   fi
   [ -x "$SELF/check_sud_model.sh" ] || { printf 'ОТКАЗ: check_sud_model.sh не найден рядом (нужен %s/check_sud_model.sh)\n' "$SELF" >&2; exit 2; }
   rc=0
-  "$SELF/check_sud_model.sh" --verdict "$SUD_ROLE" --trace "$SUD_TRACE" --object "$SHA" --session "$SUD_SESSION" || rc=$?
+  if [ -n "$ASSIGNED_MODEL" ]; then
+    "$SELF/check_sud_model.sh" --verdict "$SUD_ROLE" --trace "$SUD_TRACE" --object "$SHA" \
+      --session "$SUD_SESSION" --assigned-model "$ASSIGNED_MODEL" || rc=$?
+  else
+    "$SELF/check_sud_model.sh" --verdict "$SUD_ROLE" --trace "$SUD_TRACE" --object "$SHA" \
+      --session "$SUD_SESSION" || rc=$?
+  fi
   [ "$rc" -eq 0 ] || exit "$rc"
   # rc d98_seq не теряется (992): ошибочная грамматика seq журнала прежде
   # печатала отказ, но пустой seq продолжал записываться строкой.

@@ -88,6 +88,11 @@ ZAGOLOVOK_PRAVIL = '## Правила, каждое из которых уже �
 # Судейский алфавит двери (контракт 104): ровно четыре роли.
 JUDGES = ('critic', 'adversary', 'reviewer', 'arbiter')
 
+# Модель, которой НЕТ в реестре назначений (контракт 222): спавн на ней —
+# именованный отказ rc 1 «модель не объявлена». Имена toy-мира — 'toyprovN/tm-N',
+# поэтому этот id в реестре не встречается.
+UNDECLARED = 'toyprov-absent/tm-absent'
+
 
 def run(argv, cwd, env=None, timeout=90):
     e = {'PATH': os.environ.get('PATH', '/usr/bin:/bin'), 'HOME': str(cwd)}
@@ -531,43 +536,60 @@ def c_door_spawn_primary(ctx):
 
 @cell('door_spawn_fallback_refused')
 def c_door_spawn_fallback(ctx):
-    """На СПАВНЕ запасная не принимается (обязательство 104: только primary)."""
+    """Запасная тира на СПАВНЕ принимается (контракт 222: единственный источник
+    назначения — реестр, любая вписанная модель применима к любой роли; запрет
+    «спавн не на основной тира» СНЯТ). Необъявленная модель — отказ rc 1."""
     world = ctx['world_door']
     reg = world_reg(world)
     fb = fallback_of(reg, 'critic')
-    if fb == '-':
-        return check(True, 'door_spawn_fallback_refused', '')
-    r = door(world, ['--spawn', 'critic', fb, '--root', str(world)], world.parent)
-    return check(r.returncode == 1 and 'не тира роли' in r.stderr,
-                 'door_spawn_fallback_refused',
-                 'фолбэк на спавне должен отказывать rc 1 «модель не тира роли»: rc=%d stderr=%r'
-                 % (r.returncode, r.stderr.strip()[:100]))
+    ok = True
+    if fb != '-':
+        r = door(world, ['--spawn', 'critic', fb, '--root', str(world)], world.parent)
+        ok = check(r.returncode == 0, 'door_spawn_fallback_refused',
+                   'запасная тира объявлена в реестре — спавн на ней законен (222): rc=%d stderr=%r'
+                   % (r.returncode, r.stderr.strip()[:100])) and ok
+    r = door(world, ['--spawn', 'critic', UNDECLARED, '--root', str(world)], world.parent)
+    ok = check(r.returncode == 1 and 'не объявлена' in r.stderr,
+               'door_spawn_fallback_refused',
+               'необъявленная в реестре модель обязана отказывать rc 1 «модель не объявлена»: rc=%d stderr=%r'
+               % (r.returncode, r.stderr.strip()[:100])) and ok
+    if ok:
+        check(True, 'door_spawn_fallback_refused', '')
+    return ok
 
 
 @cell('door_spawn_foreign_refused')
 def c_door_spawn_foreign(ctx):
-    """«Чужая» = primary ДРУГОГО судьи вне primary/объявленного фолбэка тира
-    критика — выбор ВЫЧИСЛЯЕТСЯ из реестра мира, не литералом роли: модель,
-    разделяемая ролями, для двери СОБСТВЕННАЯ (104 вход 10), owner-PR #1000
-    свёл primary critic и adversary к одному семейству. Нет судьи с чужой
-    primary — КРАСНОЕ с именованной причиной «реестр изменился», а не
-    молчаливый rc 0 клетки на собственной модели."""
+    """«Чужая» = primary ДРУГОГО судьи — выбор ВЫЧИСЛЯЕТСЯ из реестра мира, не
+    литералом роли: модель, разделяемая ролями, для двери СОБСТВЕННАЯ (104 вход
+    10), owner-PR #1000 свёл primary critic и adversary к одному семейству.
+    Контракт 222: запрет «чужой тир на спавне» СНЯТ — объявленная в реестре
+    модель принимается любой ролью; необъявленная — отказ rc 1."""
     world = ctx['world_door']
     reg = world_reg(world)
     own = {primary_of(reg, 'critic'), fallback_of(reg, 'critic')}
     chuzhie = [primary_of(reg, j) for j in JUDGES if j != 'critic'
                and oracle(reg, j)[0] == 0 and primary_of(reg, j) not in own]
+    ok = True
     if not chuzhie:
-        return check(False, 'door_spawn_foreign_refused',
-                     'реестр изменился: нет чужой модели — primary всех '
-                     'судей совпадает с primary/фолбэком критика, '
-                     'отказ двери проверять нечем')
-    m = chuzhie[0]
-    r = door(world, ['--spawn', 'critic', m, '--root', str(world)], world.parent)
-    return check(r.returncode == 1 and 'не тира роли' in r.stderr,
-                 'door_spawn_foreign_refused',
-                 'чужая модель обязана отказывать rc 1: rc=%d stderr=%r'
-                 % (r.returncode, r.stderr.strip()[:100]))
+        ok = check(False, 'door_spawn_foreign_refused',
+                   'реестр изменился: нет чужой модели — primary всех '
+                   'судей совпадает с primary/фолбэком критика, '
+                   'отказ двери проверять нечем') and ok
+    else:
+        m = chuzhie[0]
+        r = door(world, ['--spawn', 'critic', m, '--root', str(world)], world.parent)
+        ok = check(r.returncode == 0, 'door_spawn_foreign_refused',
+                   'primary другого судьи объявлен в реестре — спавн на ней законен (222): rc=%d stderr=%r'
+                   % (r.returncode, r.stderr.strip()[:100])) and ok
+    r = door(world, ['--spawn', 'critic', UNDECLARED, '--root', str(world)], world.parent)
+    ok = check(r.returncode == 1 and 'не объявлена' in r.stderr,
+               'door_spawn_foreign_refused',
+               'необъявленная в реестре модель обязана отказывать rc 1 «модель не объявлена»: rc=%d stderr=%r'
+               % (r.returncode, r.stderr.strip()[:100])) and ok
+    if ok:
+        check(True, 'door_spawn_foreign_refused', '')
+    return ok
 
 
 def verdict_world_files(tmp, model, flag):
@@ -639,7 +661,9 @@ def c_door_swap_green(ctx):
 
 @cell('door_stale_primary')
 def c_door_stale_primary(ctx):
-    """Та же перестановка: СТАРАЯ модель больше не проходит —双向 красна, не «любая не-GLM»."""
+    """Та же перестановка: СТАРАЯ модель на СПАВНЕ объявлена (она осталась в
+    реестре) и потому законна (контракт 222); но как ФАКТ allowed в трассе она
+    назначением РОЛИ после перестановки не является — вердикт не материализуется."""
     world = ctx['world_door']
     reg = world_reg(world)
     tier = reg['roles']['critic']
@@ -651,11 +675,22 @@ def c_door_stale_primary(ctx):
     spec['model'] = '@' + new
     write_registry(world, reg)
     try:
+        ok = True
         r = door(world, ['--spawn', 'critic', stale, '--root', str(world)], world.parent)
-        return check(r.returncode == 1 and 'не тира роли' in r.stderr,
-                     'door_stale_primary',
-                     'устаревшая модель обязана отказывать после перестановки: rc=%d stderr=%r'
-                     % (r.returncode, r.stderr.strip()[:100]))
+        ok = check(r.returncode == 0, 'door_stale_primary',
+                   'устаревшая модель осталась объявленной в реестре — спавн на ней законен (222): rc=%d stderr=%r'
+                   % (r.returncode, r.stderr.strip()[:100])) and ok
+        trace = world.parent / 'stale-trace.tsv'
+        trace.write_text('critic\t%s\tallowed\ts-198\t%s\n' % (stale, 'a' * 40), encoding='utf-8')
+        r = door(world, ['--verdict', 'critic', '--trace', str(trace), '--object', 'a' * 40,
+                         '--session', 's-198', '--root', str(world)], world.parent)
+        ok = check(r.returncode == 1 and 'не материализуется' in r.stderr,
+                   'door_stale_primary',
+                   'устаревшая модель как факт после перестановки обязана отказывать rc 1 «вердикт не материализуется»: rc=%d stderr=%r'
+                   % (r.returncode, r.stderr.strip()[:100])) and ok
+        if ok:
+            check(True, 'door_stale_primary', '')
+        return ok
     finally:
         spec['model'] = old
         write_registry(world, reg)
@@ -929,8 +964,16 @@ def cell_repo_door_judges(root, tmp):
         foreign = [v for v in values if v != primaries[j]][0]
         r = run(['bash', str(root / 'scripts' / 'check_sud_model.sh'),
                  '--spawn', j, foreign, '--root', str(root)], tmp)
-        ok = check(r.returncode == 1, 'repo_door_judges',
-                   '%s на чужой модели обязан отказывать: rc=%d' % (j, r.returncode)) and ok
+        # Контракт 222: запрет «чужой тир на спавне» снят — объявленная в реестре
+        # модель принимается любой ролью.
+        ok = check(r.returncode == 0, 'repo_door_judges',
+                   '%s на объявленной чужой модели обязан проходить: rc=%d' % (j, r.returncode)) and ok
+    j = sorted(primaries)[0] if primaries else 'critic'
+    r = run(['bash', str(root / 'scripts' / 'check_sud_model.sh'),
+             '--spawn', j, UNDECLARED, '--root', str(root)], tmp)
+    ok = check(r.returncode == 1 and 'не объявлена' in (r.stderr or ''),
+               'repo_door_judges',
+               '%s на необъявленной модели обязан отказывать rc 1: rc=%d' % (j, r.returncode)) and ok
     if ok:
         check(True, 'repo_door_judges', '')
     return ok

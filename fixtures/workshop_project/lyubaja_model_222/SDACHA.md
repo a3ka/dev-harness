@@ -2,6 +2,12 @@
 
 База: 8b52fade7975034d7cabece67e46c16a7d1abe3b. Production в этой пачке не меняется. Предмет и классификация — contracts/222-sudja-ljubaja-model.md. Reference — достижимый честный контроль публичных швов, не обязательный текст реализации. Н-39: исполняемый реестр source.json содержит адрес каждой мутации и перечень её собственных входов; контракт эту таблицу не пересказывает.
 
+Исправление Adv222 К-08/К-09 на базе 98994a152290b31c8bbfad09e2cca1f2c5bb2a8d: меняется только эта fixture-семья; контракт и production не меняются. Текущий замер: `--repo .` и `--model` — 83 клетки, 0 красных, rc 0; `--stabs` — 35 стабов, 35 поймано, 0 живых, rc 0; `--catalog` — `KLETKI=83 STABS=35 SVJAZI=64`, rc 0; `--sintaksis` — rc 0. Исходный red-до ниже — исторический замер, не пересчитан на реализации.
+
+Новые клетки 77–83 (порядок `cases()`): verdict-denied-per-call-wrong-fallback, verdict-denied-per-call-fallback, verdict-denied-per-call-different-assignment, verdict-assigned-empty, verdict-assigned-empty-before-root, verdict-assigned-missing-at-end, verdict-assignment-absent. Отрицательный denied/per-call даёт rc 1 «фолбэк вне списка тира»; честный fallback проходит и при назначении самого fallback, и при другом объявленном назначении. Пустой selector в конце и перед --root, а также последний флаг без значения дают rc 2 «назначенная модель пуста», без строки материализации и без verdict-журнала; отсутствие флага сохраняет rc 0. Последний флаг ограничен существующим таймаутом subprocess (40 с): зависание превращается в наблюдаемый rc 124 и красную клетку, не NOT_IMPLEMENTED.
+
+st34/st35 в stabs/ — рецепты материализации копий production из неизменяемого git-объекта базы; каждая замена и native bash syntax проверяются до предъявления. Н-39: привязка к новым входам исполняется source.json, не этой прозой. Адресная проба `PYTHONDONTWRITEBYTECODE=1 python3 fixtures/workshop_project/lyubaja_model_222/check_adv222.py` предъявляет оба стаба своим новым клеткам и независимо мутирует текущую production в других местах: пустое назначение = отсутствие и continue при denied/per-call. На каждом предъявлении ожидается ровно свой набор красных клеток; честные зелёные полюса входят в полный --repo/--model.
+
 Измерено до реализации (числа из вывода команд листа): `--repo .` — `SUBJEKT 222: KLETKI 76 KRASNYH 29`, rc 1; `--model` — `MODEL 222: KLETKI 76 KRASNYH 0`, rc 0; `--stabs` — `STABY 222: STABS 33 ZHIVYH 0`, rc 0; `--catalog` — `KLETKI=76 STABS=33 SVJAZI=60`, rc 0; `--sintaksis` — rc 0. Перечень KRASNO `--repo .` — наблюдение, не эталон количества красных строк для будущей реализации: двенадцать клеток спавн/verdict/gate по четырём судьям, spawn-manual-fallback, spawn-effort, verdict-effort, verdict-manual-fallback, verdict-same-model-as-author, spawn-unconfigured (причина), verdict-per-call-wrong-fact, verdict-unconfigured-assignment, пять клеток подстроки/суффикса (verdict-effort-fact-truncated, verdict-effort-fact-extended, gate-effort-fact-truncated, spawn-substring-of-declared, verdict-assigned-substring-undeclared), две суффиксные клетки объявления (spawn-suffix-of-declared, verdict-assigned-suffix-undeclared: старая дверь отказывает суффикс селектора как «не тира роли» и не принимает --assigned-model) и два модельных прокси fork_route. Клетки verdict-object-dash, gate-object-dash, verdict-fact-case, gate-fact-case и sosed-198-door-cells зелёны на production: отказ на `-`, буквальный отказ регистра и сверка соседней семьи уже есть, они защищают реализацию от регресса.
 
 Соседняя семья frozen 198: клетка sosed-198-door-cells запускает её неизменённый probe `--model` в копии, где дверь — испытуемая, и допускает красными только door_spawn_fallback_refused, door_spawn_foreign_refused, door_stale_primary. Четвёртая снятая клетка, repo_door_judges (`--repo`), измерена отдельно на reference: красна на «adversary на чужой модели обязан отказывать: rc=0». Все четыре перепиниваются implementer'ом (зона и ПЕРЕСЕЧЕНИЕ в контракте), текст frozen 198 не правится; прочие ожидания 198 reference выдерживает (denied-факт вне fallback тира отказан с «фолбэк вне списка тира»).
@@ -18,6 +24,7 @@
 - Bound-mutations · bash fixtures/workshop_project/lyubaja_model_222/red_lyubaja_model_222.sh --stabs · 0 · 0
 - Native-syntax · bash fixtures/workshop_project/lyubaja_model_222/red_lyubaja_model_222.sh --sintaksis · 0 · 0
 - Catalog · bash fixtures/workshop_project/lyubaja_model_222/red_lyubaja_model_222.sh --catalog · 0 · 0
+- Addressed-Adv222 · fixtures/workshop_project/lyubaja_model_222/check_adv222.py · 0 · 0
 - Precision · bash scripts/check_precision_gate.sh . contracts/222-sudja-ljubaja-model.md · 0 · 0
 - Spec-ready · bash scripts/check_spec_ready.sh . contracts/222-sudja-ljubaja-model.md · 0 · 0
 - Predposylki · bash scripts/check_predposylki.sh . contracts/222-sudja-ljubaja-model.md · 0 · 0
@@ -54,6 +61,8 @@
 - К-04 · канон/инструмент · bash scripts/check_precision_gate.sh . contracts/222-sudja-ljubaja-model.md · 0 · 0
 - К-08 · клетка · bash fixtures/workshop_project/lyubaja_model_222/red_lyubaja_model_222.sh --stabs · 0 · 0
 - К-14 · клетка · bash fixtures/workshop_project/lyubaja_model_222/red_lyubaja_model_222.sh --model · 0 · 0
+- К-08 · клетка · fixtures/workshop_project/lyubaja_model_222/check_adv222.py · 0 · 0
+- К-09 · клетка · bash fixtures/workshop_project/lyubaja_model_222/red_lyubaja_model_222.sh --model · 0 · 0
 
 ## Рефлексия
 
