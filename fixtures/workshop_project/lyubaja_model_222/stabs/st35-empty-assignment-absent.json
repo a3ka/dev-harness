@@ -1,0 +1,15 @@
+{
+  "file": "scripts/check_sud_model.sh",
+  "base": "98994a152290b31c8bbfad09e2cca1f2c5bb2a8d:scripts/check_sud_model.sh",
+  "changes": [
+    {"old": "assigned_given=0\n", "new": ""},
+    {
+      "old": "    --assigned-model)\n      # Флаг передан — значит назначение ЕСТЬ; значение может оказаться пустым\n      # (явно пустое значение или флаг без значения в конце аргументов — оба\n      # случая дают пустое значение). Разбор не зависает: сдвиг на 2 при\n      # единственном оставшемся аргументе невозможен.\n      assigned_given=1\n      assigned=\"${2:-}\"\n      if [ \"$#\" -ge 2 ]; then shift 2; else shift; fi\n      ;;",
+      "new": "    --assigned-model) assigned=\"${2:-}\"; shift 2 ;;"
+    },
+    {
+      "old": "if [ \"$assigned_given\" -eq 1 ]; then\n  if [ -z \"$assigned\" ]; then\n    printf 'ОТКАЗ: назначенная модель пуста: --assigned-model передан без значения (назначенная модель не объявлена в конфиге; selector непустой; fail-closed, Н-270)\\n' >&2\n    exit 2\n  fi\n",
+      "new": "if [ -n \"$assigned\" ]; then\n"
+    }
+  ]
+}

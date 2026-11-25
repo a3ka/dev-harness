@@ -31,5 +31,7 @@
   {"name":"object-dash-accepted","file":"scripts/check_sud_model.ts","old":"if (o !== object)","new":"if (o !== object && o !== '-')","cases":["verdict-object-dash","gate-object-dash"]},
   {"name":"denied-any-declared","file":"scripts/check_sud_model.ts","old":"const want = status === 'denied' ? assignment.fallback : expected;","new":"const want = status === 'denied' ? (configured(fact) ? fact : assignment.fallback) : expected;","cases":["sosed-198-door-cells"]},
   {"name":"same-by-suffix","file":"scripts/check_sud_model.ts","old":"return a === b || (!a.includes('/')","new":"return a === b || a.endsWith(b) || b.endsWith(a) || (!a.includes('/')","cases":["spawn-suffix-of-declared","verdict-assigned-suffix-undeclared"]},
-  {"name":"same-by-case","file":"scripts/check_sud_model.ts","old":"return a === b || (!a.includes('/')","new":"return a === b || a.toLowerCase() === b.toLowerCase() || (!a.includes('/')","cases":["verdict-fact-case","gate-fact-case"]}
+  {"name":"same-by-case","file":"scripts/check_sud_model.ts","old":"return a === b || (!a.includes('/')","new":"return a === b || a.toLowerCase() === b.toLowerCase() || (!a.includes('/')","cases":["verdict-fact-case","gate-fact-case"]},
+  {"name":"st34-denied-per-call-bypass","stub":"stabs/st34-denied-per-call-bypass.json","cases":["verdict-denied-per-call-wrong-fallback"]},
+  {"name":"st35-empty-assignment-absent","stub":"stabs/st35-empty-assignment-absent.json","cases":["verdict-assigned-empty","verdict-assigned-empty-before-root","verdict-assigned-missing-at-end"]}
 ]

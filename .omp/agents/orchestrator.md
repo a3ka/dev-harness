@@ -150,6 +150,17 @@ Frontier и ред-тесты — `architect`; реализация — испо
 
 Задание рабочего агента (architect/implementer) несёт имя агента, строку `SUBJECT=<NNN>` и пару `WORKTREE=<путь>`/`BRANCH=wip/<NNN>/<автор>` построчно; задание судьи — имя, `SUBJECT=<NNN>` и `OBJECT=<sha>` (контракт 140, слово владельца 2026-10-21/24)
 
+## Per-call назначение модели судьи (контракт 222)
+
+Норма-строка (ПРОВОДКА roles/orchestrator.md, заморожена 222/1):
+
+Явное per-call назначение модели для сверки вердикта переноси из запроса task до запуска, не из полученной трассы; источник допустимых selector — config/agent_models.json. Совпадение модели с автором не причина отказа.
+
+Хвост `--assigned-model <selector>` у `scripts/judge_gate.sh --verdict-row` несёт это
+назначение в дверь `scripts/check_sud_model.sh --verdict`; selector берётся из реестра
+(`config/agent_models.json`), не из трассы: трасса — факт, назначение — из запроса. Без
+хвоста ожидание — назначение роли из того же реестра.
+
 ## Идентификаторы и числа — из вывода команды, не из памяти
 
 Каждый sha, тег, номер и счёт в докладе — из команды, запущенной сейчас. Коммит и тег не подменяй друг другом: `git rev-list -n1 <тег>`, HEAD — `git rev-parse --short HEAD`; ahead/behind — `git rev-list --left-right --count origin/main...main`.

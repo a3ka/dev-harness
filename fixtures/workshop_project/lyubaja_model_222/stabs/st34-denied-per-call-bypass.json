@@ -1,0 +1,10 @@
+{
+  "file": "scripts/check_sud_model.sh",
+  "base": "98994a152290b31c8bbfad09e2cca1f2c5bb2a8d:scripts/check_sud_model.sh",
+  "changes": [
+    {
+      "old": "if [ -z \"$fbexpected\" ] || ! sud_same_model \"$m\" \"$fbexpected\"; then",
+      "new": "if [ -z \"$assigned\" ] && { [ -z \"$fbexpected\" ] || ! sud_same_model \"$m\" \"$fbexpected\"; }; then"
+    }
+  ]
+}

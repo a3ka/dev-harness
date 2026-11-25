@@ -5,11 +5,15 @@
 # РЕАЛЬНОГО запроса — хук tool_call, клетка red_huk_task_spavna.sh (граница
 # арбитража verdicts/arbitration/contracts-099-spawn-trust-v1.md).
 # Десять входов (7–10 — закрытие A104-1 / Рв97-3: дверь обязана судить РОЛЬ ВЫЗОВА,
-# не константу critic; тиры и модели — из z104_cfg_ustanovka):
+# не константу critic; тиры и модели — из z104_cfg_ustanovka). Контракт 222:
+# единственный источник назначения — реестр, ЛЮБАЯ вписанная модель применима к
+# любой роли; запрет «модель не тира роли» на спавне СНЯТ, а объявленность
+# модели проверяется:
 #   (1) --spawn critic БЕЗ модели → «спавн судьи без явного agent: critic»;
-#   (2) модель автора (zai/glm-5.3) → «модель не тира роли»;
+#   (2) модель автора (zai/glm-5.3, объявлена в реестре) → rc 0 (равенство
+#       моделей автора и судьи отказа не даёт — контракт 166/222);
 #   (3) чужой правильный тир (openai-codex/gpt-5.6-terra — разведение семейств
-#       095 этого НЕ ловит) → «модель не тира роли»;
+#       095 этого НЕ ловит; модель объявлена) → rc 0;
 #   (4) честная модель тира (openai-codex/gpt-6-astra) → rc 0;
 #   (5) --frontmatter critic: frontmatter .omp/agents/critic.md
 #       model: ["@slow"] ≠ тир apex из config/agent_models.json → «frontmatter
@@ -17,18 +21,19 @@
 #       сверка модели спавна: несовпадение frontmatter и источника назначений
 #       не молчит; арбитраж 099, граница круга 3);
 #   (6) честный frontmatter model: ["@apex"] → rc 0;
-#   (7) --spawn adversary openai-codex/gpt-5.6-terra (тир advisor) → rc 0
-#       (та же модель, что отказана critic на входе 3: дверь, судящая любую роль
-#       тиром critic, здесь отказывает — наблюдаемо);
-#   (8) --spawn reviewer openai-codex/gpt-6-astra (модель тира critic, не audit)
-#       → «модель не тира роли: reviewer тир audit спавн openai-codex/gpt-6-astra»;
+#   (7) --spawn adversary openai-codex/gpt-5.6-terra (тир advisor) → rc 0;
+#   (8) --spawn reviewer openai-codex/gpt-6-astra (модель тира critic, объявлена
+#       в реестре) → rc 0;
 #   (9) --frontmatter arbiter с model: ["@plan"] → rc 0;
 #  (10) --frontmatter reviewer с model: ["@apex"] → «frontmatter роли не тира
 #       роли: reviewer frontmatter @apex тир audit».
+#  (11) --spawn critic с моделью, которой НЕТ в реестре → rc 1 «модель не
+#       объявлена» (объявленность — единственное, что спавн проверяет).
 # До реализации красна «предмет отсутствует»; стаб-пак — battery_stubs.sh
 # (t104-m7 вход 1; frontmatter-ветвь накрывается тем же стабом — дефект
 # «всегда rc 0» наблюдаем и на входе 5; t104-m14 «любая роль → тир critic» —
-# вход 7).
+# вход 9: frontmatter не-critic роли (тир роли ОБЯЗАН быть её тиром, а не тиром
+# critic; на спавне тир роли значения не имеет — контракт 222)).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/_mir.sh"
@@ -48,9 +53,8 @@ fm() { printf -- '---\nname: %s\ndescription: toy\nmodel: ["%s"]\n---\n\n# toy\n
 
 # Оракул в памяти ДО вызова (правило 8)
 want1='спавн судьи без явного agent: critic'
-want2='модель не тира роли'
+want11='модель не объявлена'
 want5='frontmatter роли не тира роли: critic frontmatter @slow тир apex'
-want8='модель не тира роли: reviewer тир audit спавн openai-codex/gpt-6-astra'
 want10='frontmatter роли не тира роли: reviewer frontmatter @apex тир audit'
 
 out="$(bash "$SUBJ" --spawn critic --root "$T" 2>&1)"; rc=$?
@@ -61,16 +65,16 @@ if [ "$rc" -ne 1 ] || ! printf '%s' "$out" | grep -Fq "$want1"; then
 fi
 
 out="$(bash "$SUBJ" --spawn critic zai/glm-5.3 --root "$T" 2>&1)"; rc=$?
-if [ "$rc" -ne 1 ] || ! printf '%s' "$out" | grep -Fq "$want2"; then
-  printf 'КРАСНО: red_sud_model_dver_spavna: вход 2: ожидался отказ rc 1 «%s»; факт rc=%s, вывод: %s\n' \
-    "$want2" "$rc" "$(printf '%s' "$out" | head -c 200)" >&2
+if [ "$rc" -ne 0 ]; then
+  printf 'КРАСНО: red_sud_model_dver_spavna: вход 2: модель автора объявлена в реестре — ожидался rc 0; факт rc=%s, вывод: %s\n' \
+    "$rc" "$(printf '%s' "$out" | head -c 200)" >&2
   exit 1
 fi
 
 out="$(bash "$SUBJ" --spawn critic openai-codex/gpt-5.6-terra --root "$T" 2>&1)"; rc=$?
-if [ "$rc" -ne 1 ] || ! printf '%s' "$out" | grep -Fq "$want2"; then
-  printf 'КРАСНО: red_sud_model_dver_spavna: вход 3: ожидался отказ rc 1 «%s»; факт rc=%s, вывод: %s\n' \
-    "$want2" "$rc" "$(printf '%s' "$out" | head -c 200)" >&2
+if [ "$rc" -ne 0 ]; then
+  printf 'КРАСНО: red_sud_model_dver_spavna: вход 3: объявленная в реестре модель — ожидался rc 0; факт rc=%s, вывод: %s\n' \
+    "$rc" "$(printf '%s' "$out" | head -c 200)" >&2
   exit 1
 fi
 
@@ -107,11 +111,12 @@ if [ "$rc" -ne 0 ]; then
   exit 1
 fi
 
-# вход 8: не-critic роль на модели тира critic → именованный отказ с РОЛЬЮ ВЫЗОВА и её тиром
+# вход 8: не-critic роль на объявленной в реестре модели тира critic → rc 0
+# (контракт 222: любая вписанная модель применима к любой роли)
 out="$(bash "$SUBJ" --spawn reviewer openai-codex/gpt-6-astra --root "$T" 2>&1)"; rc=$?
-if [ "$rc" -ne 1 ] || ! printf '%s' "$out" | grep -Fq "$want8"; then
-  printf 'КРАСНО: red_sud_model_dver_spavna: вход 8: ожидался отказ rc 1 «%s»; факт rc=%s, вывод: %s\n' \
-    "$want8" "$rc" "$(printf '%s' "$out" | head -c 200)" >&2
+if [ "$rc" -ne 0 ]; then
+  printf 'КРАСНО: red_sud_model_dver_spavna: вход 8: объявленная в реестре модель — ожидался rc 0; факт rc=%s, вывод: %s\n' \
+    "$rc" "$(printf '%s' "$out" | head -c 200)" >&2
   exit 1
 fi
 
@@ -130,6 +135,14 @@ out="$(bash "$SUBJ" --frontmatter reviewer --root "$T" 2>&1)"; rc=$?
 if [ "$rc" -ne 1 ] || ! printf '%s' "$out" | grep -Fq "$want10"; then
   printf 'КРАСНО: red_sud_model_dver_spavna: вход 10: ожидался отказ rc 1 «%s»; факт rc=%s, вывод: %s\n' \
     "$want10" "$rc" "$(printf '%s' "$out" | head -c 200)" >&2
+  exit 1
+fi
+
+# вход 11: модель, которой НЕТ в реестре → именованный отказ «модель не объявлена»
+out="$(bash "$SUBJ" --spawn critic openai-codex/gpt-6-astra-x --root "$T" 2>&1)"; rc=$?
+if [ "$rc" -ne 1 ] || ! printf '%s' "$out" | grep -Fq "$want11"; then
+  printf 'КРАСНО: red_sud_model_dver_spavna: вход 11: ожидался отказ rc 1 «%s»; факт rc=%s, вывод: %s\n' \
+    "$want11" "$rc" "$(printf '%s' "$out" | head -c 200)" >&2
   exit 1
 fi
 
