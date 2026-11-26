@@ -41,7 +41,7 @@ def main():
         print(result.stderr, end='', file=sys.stderr)
         print('MUTANT_REPO_RC', result.returncode)
         red = {line.split()[0] for line in result.stdout.splitlines() if ' KRASNO ' in line}
-        if result.returncode != 1 or red != EXPECTED_RED or 'KLETKI 133 KRASNYH 8' not in result.stdout.splitlines():
+        if result.returncode != 1 or red != EXPECTED_RED or 'KLETKI 154 KRASNYH 8' not in result.stdout.splitlines():
             return 1
     return 0
 

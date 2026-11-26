@@ -164,6 +164,31 @@ MUTATIONS.update({
         'phase = rounds(Path(args.ledger), args.repo_id, args.subject, args.role, args.object)',
         ['phase-critic-stop-other-object', 'phase-reviewer-arbiter-other-object']),
 })
+MUTATIONS.update({
+    'retry-without-154-account': (
+        'scripts/zamok_predmeta.sh',
+        '--arg h "$name" --arg k "$klass" --arg ro "$rol" --arg o "$obj"',
+        '--arg h "$name" --arg k "$klass" --arg ro internal_retry --arg o "$obj"',
+        ['joint154-retries']),
+    'retry-without-start': (
+        'scripts/zamok_predmeta.sh',
+        '      >> "$LEDGER"\n    printf \'PUSCHEM',
+        '      | cat >/dev/null\n    printf \'PUSCHEM',
+        ['joint154-retries']),
+    'retry-counts-substantive': (
+        'scripts/judges_policy.py',
+        "substantive = sum(s['state'] == 'verdikt_zakommiten' for s in phase)",
+        'substantive = len(phase)', ['joint154-retries']),
+    'warn154-refuses': (
+        'model154_warn.py', '    return 0\n', '    return int(warning)\n',
+        ['joint154-retries', *(f'warn154-{prop}-{phase}' for prop in
+          ('i2', 'i3', 'i4-missing', 'i4-ambiguous', 'i4-consultant',
+           'i5-sanction', 'i5-arbitration', 'i6') for phase in ('spawn', 'freeze'))]),
+    'retry-renames-position': (
+        'scripts/zamok_predmeta.sh',
+        'jq -nc --arg t START --arg r "$REPO_ID"',
+        'jq -nc --arg t internal_retry --arg r "$REPO_ID"', ['joint154-retries']),
+})
 for _path, _rules in DATA['norms'].items():
     for _g, _line in _rules.items():
         _case = f'norm-{_g}-{Path(_path).stem}'

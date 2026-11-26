@@ -9,7 +9,7 @@ import subprocess
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 BASE = '78672b79bac88b9c3765b3d9b53cd983d4a13728'
-NUMBERS = ('140', '167', '172', '211', '222', '224', '218', '206', '230')
+NUMBERS = ('140', '154', '167', '172', '211', '222', '224', '218', '206', '230')
 MERGED = ('AGENT_NET', 'IMJA_NET', 'GRAMMATIKA_IMENI',
           'SUBJECT_NET_V_ZADANII', 'SUBEKT_DVA_V_ZADANII', 'GRAMMATIKA_SUBEKTA',
           'PIN_NET', 'GRAMMATIKA_PINA', 'RASHOZHDENIE_PINA',

@@ -23,6 +23,7 @@ sys.path.insert(0, str(HERE))
 from catalog import MERGED, inventory
 from build import MUTATIONS
 from phase_cells import PHASE_CASES, INVALID, phase_case
+from joint_cells import JOINT_CASES, joint_case
 DATA = json.loads((HERE / 'policy.json').read_bytes())
 
 spec = importlib.util.spec_from_file_location('old140', ROOT / 'fixtures/workshop_project/odin_agent_140/probe.py')
@@ -274,10 +275,14 @@ NORMS = {f'norm-{g}-{Path(path).stem}': (path, line)
          for path, rules in DATA['norms'].items() for g, line in rules.items()}
 CASES = (*LOCK_CASES, *SETUP_CASES, *PHASE_CASES, *('grammar-' + x for x in INPUTS),
          'grammar-GRAMMATIKA_IMENI', 'grammar-GRAMMATIKA_SUBEKTA', 'code-budget', *NORMS)
+CASES += JOINT_CASES
 
 
 def cell(source, name):
     try:
+        if name in JOINT_CASES:
+            joint_case(sys.modules[__name__], source, name)
+            return None
         if name in LOCK_CASES:
             lock_case(source, name)
         elif name in SETUP_CASES:
