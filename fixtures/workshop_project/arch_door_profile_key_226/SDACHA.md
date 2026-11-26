@@ -8,9 +8,11 @@ Frontier сохранён: отсутствие ЛИСТА в корректно
 
 ПРЕДЫДУЩИЙ ВЕРДИКТ: verdicts/critic/contracts-226-v1.md
 
+Историческое Red-до: до production-реализации W --repo . давала rc 1, KLETKI 56 KRASNYH 45 на OBJECT=1ab6f19bda3ac01d15f0e9adce9f24e542400da2; свидетельство — verdicts/critic/contracts-226-v1.md §«Доказательства». Ниже проверяется состояние после реализации на базе 6d758b918382096e75ee96ff9dd20ad87841b09e: та же команда обязана дать rc 0, KLETKI 56 KRASNYH 0.
+
 ## Двери
 
-- Red-do · bash fixtures/workshop_project/arch_door_profile_key_226/red_arch_door_profile_key_226.sh --repo . · 1 · 1
+- Repo-posle · bash fixtures/workshop_project/arch_door_profile_key_226/red_arch_door_profile_key_226.sh --repo . · 0 · 0
 - Model · bash fixtures/workshop_project/arch_door_profile_key_226/red_arch_door_profile_key_226.sh --model · 0 · 0
 - Stabs · bash fixtures/workshop_project/arch_door_profile_key_226/red_arch_door_profile_key_226.sh --stabs · 0 · 0
 - Sintaksis · bash fixtures/workshop_project/arch_door_profile_key_226/red_arch_door_profile_key_226.sh --sintaksis · 0 · 0
