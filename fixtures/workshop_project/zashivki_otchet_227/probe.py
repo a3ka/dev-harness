@@ -25,9 +25,10 @@ class Unavailable(RuntimeError):
     pass
 
 
-def run(command, cwd):
+def run(command, cwd, env=None):
     try:
-        return subprocess.run(command, cwd=cwd, env=ENV, capture_output=True, timeout=45)
+        return subprocess.run(command, cwd=cwd, env=ENV if env is None else env,
+                              capture_output=True, timeout=45)
     except (OSError, subprocess.TimeoutExpired) as error:
         raise Unavailable(str(error)) from error
 
@@ -97,6 +98,9 @@ def cases():
         case('above-file-baseline', {f'scripts/a{n:02}.sh': 'Complior-back\n' for n in range(21)},
              [(f'scripts/a{n:02}.sh', 1, 'Complior-back') for n in range(21)]),
         case('empty-directories', {'notes.txt': 'Complior-back\n'}, []),
+        case('git-failure', {'scripts/a.sh': 'Complior-back\n'}, [], error='git'),
+        case('invalid-config', {'scripts/a.sh': 'Complior-back\n'}, [], error='config-json'),
+        case('unreadable-config', {'scripts/a.sh': 'Complior-back\n'}, [], error='config-read'),
     ]
 
 
@@ -131,26 +135,45 @@ def world_test(carrier, row, scratch):
                   'commit', '-qm', '227 real tracked inputs'], root)
         for file, data in {**row.get('untracked', {}), **row.get('dirty', {})}.items():
             put(root, file, data)
+        subject_env = ENV.copy()
+        if row.get('error') == 'git':
+            # Only the subject sees the failing tool; setup and witness use real Git.
+            tools = root / 'failing-tools'
+            put(root, 'failing-tools/git', '#!/bin/sh\nprintf "git failure\\n" >&2\nexit 128\n')
+            (tools / 'git').chmod(0o755)
+            subject_env['PATH'] = str(tools) + os.pathsep + ENV['PATH']
+        elif row.get('error') == 'config-json':
+            put(root, build.CONFIG, '{"pattern":')
+        elif row.get('error') == 'config-read':
+            # A directory is unreadable as a config even for privileged runners.
+            (root / build.CONFIG).unlink()
+            (root / build.CONFIG).mkdir()
         records = copy.deepcopy(row['records'])
         expected = {'lines': len(records), 'files': len({r['path'] for r in records}),
                     'matches': records, 'baseline': copy.deepcopy(config['baseline'])}
         before = snapshot(root)
         # The public command is exactly the registered bash command, no model overlay.
-        result = run(['bash', build.SCRIPT], root)
-        if result.returncode == 2:
-            raise Unavailable('SUBJECT_UNAVAILABLE: ' + repr(result.stderr))
+        result = run(['bash', build.SCRIPT], root, subject_env)
         failures = []
-        if result.returncode != 0:
-            failures.append('REPORT_BLOCKS_RESIDUE rc=' + str(result.returncode))
-        try:
-            actual = json.loads(result.stdout)
-        except (ValueError, UnicodeError):
-            actual = None
-        # Standard JSON parse then full structural comparison; not substring markers.
-        if json.dumps(actual, sort_keys=True) != json.dumps(expected, sort_keys=True):
-            failures.append('REPORT_CONTENT')
-        if result.stderr != b'':
-            failures.append('STDERR ' + repr(result.stderr))
+        if row.get('error'):
+            if result.returncode != 2:
+                failures.append('MEASUREMENT_ERROR_RC rc=' + str(result.returncode))
+            if not any(line.startswith(b'NOT_IMPLEMENTED:') for line in result.stderr.splitlines()):
+                failures.append('MEASUREMENT_ERROR_DIAGNOSIS')
+            if result.stdout != b'':
+                failures.append('MEASUREMENT_ERROR_REPORT ' + repr(result.stdout))
+        else:
+            if result.returncode != 0:
+                failures.append('REPORT_BLOCKS_RESIDUE rc=' + str(result.returncode))
+            try:
+                actual = json.loads(result.stdout)
+            except (ValueError, UnicodeError):
+                actual = None
+            # Standard JSON parse then full structural comparison; not substring markers.
+            if json.dumps(actual, sort_keys=True) != json.dumps(expected, sort_keys=True):
+                failures.append('REPORT_CONTENT')
+            if result.stderr != b'':
+                failures.append('STDERR ' + repr(result.stderr))
         if snapshot(root) != before:
             failures.append('SUBJECT_MUTATED_INPUT')
         return not failures, ','.join(failures)
@@ -299,5 +322,5 @@ if __name__ == '__main__':
     try:
         sys.exit(main())
     except (Unavailable, OSError, ValueError, KeyError, SyntaxError) as error:
-        print('NOT_IMPLEMENTED:', error, file=sys.stderr)
+        print('NOT_IMPLEMENTED: VERIFIER_UNAVAILABLE:', error, file=sys.stderr)
         sys.exit(2)
