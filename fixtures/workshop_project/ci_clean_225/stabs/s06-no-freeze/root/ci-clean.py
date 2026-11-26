@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import time
@@ -105,16 +106,16 @@ def remove(entry):
 
 def artifacts(cfg):
     conf = cfg['artifacts']
-    days = os.environ.get('CI_ARTIFACTS_RETENTION_DAYS', str(conf['retention_days']))
+    days = os.environ.get('CI_ARTIFACTS_RETENTION_DAYS') or str(conf['retention_days'])
     if not re.fullmatch(r'[0-9]+', days) or int(days) < 1:
         refuse(f'срок не целое ≥1: {days}')
-    repos = os.environ.get('CI_ARTIFACTS_REPOS', ' '.join(conf['repos'])).split()
+    repos = (os.environ.get('CI_ARTIFACTS_REPOS') or ' '.join(conf['repos'])).split()
     if not repos:
         refuse('список репо пуст')
     for repo in repos:
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]*', repo) or repo in ('.', '..'):
             refuse(f'недопустимое имя репо: {repo}')
-    root_value = os.environ.get('CI_ARTIFACTS_ROOT', conf['root'])
+    root_value = os.environ.get('CI_ARTIFACTS_ROOT') or conf['root']
     try:
         root = directory(root_value)
     except Refusal:
@@ -162,18 +163,27 @@ def ctl(conf, *args):
 
 
 def worker_present(conf, group):
-    proc = directory(conf['proc_root'])
-    for parent, dirs, _ in os.walk(group, followlinks=False):
-        for name in dirs:
-            if (Path(parent) / name).is_symlink():
-                refuse('RUNNER_STATE_UNAVAILABLE symlink cgroup')
-        for pid in (Path(parent) / 'cgroup.procs').read_text().splitlines():
-            if not re.fullmatch(r'[1-9][0-9]*', pid):
-                refuse('RUNNER_STATE_UNAVAILABLE pid')
-            name = (proc / pid / 'comm').read_text().removesuffix('\n')
-            if name in conf['worker_names']:
-                return True
-    return False
+    def unavailable(exc):
+        refuse(f'RUNNER_STATE_UNAVAILABLE {exc}')
+
+    present = False
+    try:
+        proc = directory(conf['proc_root'])
+        for parent, dirs, files in os.walk(group, followlinks=False, onerror=unavailable):
+            # os.walk may suppress DirEntry.is_dir errors and classify the entry
+            # as a file. Explicit lstat keeps such a partial view fail-closed.
+            for child in dirs + files:
+                if stat.S_ISLNK((Path(parent) / child).lstat().st_mode):
+                    refuse('RUNNER_STATE_UNAVAILABLE symlink cgroup')
+            for pid in (Path(parent) / 'cgroup.procs').read_text().splitlines():
+                if not re.fullmatch(r'[1-9][0-9]*', pid):
+                    refuse('RUNNER_STATE_UNAVAILABLE pid')
+                name = (proc / pid / 'comm').read_text().removesuffix('\n')
+                if name in conf['worker_names']:
+                    present = True
+    except OSError as exc:
+        unavailable(exc)
+    return present
 
 
 @contextmanager
