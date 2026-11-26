@@ -199,6 +199,7 @@ def run_grid(base, tools, cells):
              'grid', str(tools / 'scripts/profile_resolver.sh'), str(product)],
             cwd=product, env=env, capture_output=True, pass_fds=(trace.fileno(),),
             timeout=240)
+    env.pop('BASH_XTRACEFD')
     if control.returncode:
         raise RuntimeError('GRID_RESOLVER_CONTROL ' + repr(control.stderr))
     import shlex
