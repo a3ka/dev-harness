@@ -38,6 +38,10 @@ def joint_case(p, source, name):
     with tempfile.TemporaryDirectory(prefix='jp229-joint-', dir=p.old.GIT_ENV['TMPDIR']) as tmp:
         m, wt, branch, obj = p.world(tmp)
         if name == 'joint154-retries':
+            bare = Path(tmp) / 'remote/dev-harness.git'
+            bare.parent.mkdir()
+            p.command(p.run(['git', 'init', '-q', '--bare', str(bare)]), 0)
+            m.git(['remote', 'set-url', 'origin', str(bare)])
             # Crit229c's input: two released technical sessions, no sanctions.
             p.profile(m.repo, dict(p.DATA['defaults'], criticCalls=1))
             p.add_failed(m, obj, 2, 'obryv_bez_verdikta')
@@ -56,8 +60,10 @@ def joint_case(p, source, name):
                     and starts[0]['object'] == obj, 'THIRD_START_NOT_IN_154_ACCOUNT')
             p.check(m.ledger.read_bytes().startswith(initial), 'OLD_STARTS_CHANGED')
             accounting(p, source, m, 'freeze', 3, 3)
-            # Model fixture RELEASE closes the third launch, not the first START.
-            m.release('141', 'ThirdRetry', 'obryv_bez_verdikta')
+            # Real release clears both the session lock and its own START.
+            m.zhurnal('ThirdRetry', sdal=True)
+            p.command(p.old.osvobodit(source / 'scripts/zamok_predmeta.sh',
+                                     m, '141', 'ThirdRetry'), 0)
             before = m.ledger.read_bytes()
             result = p.old.sudit(source / 'scripts/zamok_predmeta.sh', m,
                                   p.attempt(m, 'critic', 'FourthRetry', obj))
