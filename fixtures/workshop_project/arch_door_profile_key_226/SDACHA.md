@@ -1,10 +1,12 @@
 # СДАЧА 226 — профильная дверь архитектуры
 
-Обещание: политика hooks.archBrief вместо селектора имени и адреса продукта. Наблюдение: полный CLI на настоящих Git/Node/профильных мирах, раздельные stdout/stderr, HEAD/refs/файлы и отдельно argv gh. Ожидания литеральны и в памяти до субъекта. База 5b8ae0cdca9429d9d651c19d2775016e57ce271f; production/реестры/CI/чужие фикстуры в сдаче не изменены. Эталонные изменения последних лежат только в model/ для будущего implementer.
+Обещание: hooks.archBrief вместо селектора имени и адреса продукта; неизвестность профиля не выключает страж. Наблюдение: настоящий CLI на Git/Node/профильных мирах, раздельные stdout/stderr, HEAD/refs/файлы и argv gh. Ожидания литеральны и в памяти до субъекта. Production, реестры, CI и чужие фикстуры не меняются; overlay существует только в model/. База генерации 5b8ae0cdca9429d9d651c19d2775016e57ce271f, база исправления cbce7ecc43a2749164e972dc2ef911cc02ca3176.
 
-Frontier: repo-only hooks.archBrief = false либо owner/repo; нет ключа — выключено, неверное значение/битый профиль — отказ. Resolver валидирует до profile_get; PRODUCT_REPO env не используется. Backend-ключ — отдельный PR в его harness.project.json до установки 226, не файл станции. Это определённый заданием выбор доставки, не выдуманная санкция владельца.
+Frontier сохранён: отсутствие ЛИСТА в корректном repo-профиле, даже при lock, и false — выключение; owner/repo при lock — включение. Это сохраняет отсутствие автовключения по lock и переключатель 187/203. Нет ФАЙЛА при lock — ARCH_PROFILE_MISSING; повреждение/недоступность профиля или объявленного слоя — ARCH_PROFILE; известный лист в defaults (включая false или конфликт с repo) — ARCH_PROFILE_LAYER. Неизвестные имена остаются предупреждениями М-0. Backend-ключ доставляет orchestrator отдельным PR проекта до установки 226.
 
-КЛЕТКИ: 45. МУТАЦИИ: 15. СВЯЗИ: 18. Носители: 23 (8 честных файлов, 15 изменённых); shell-носители вместе с обёрткой: 22. Другие меры: CASES/probe.py и MUTATIONS/build.py; source.json с sha256 и связями; --stabs реально исполняет каждую связь. Батарея 203: 21 клетка; прежний pin186: 5 клеток. Полный --regression на честном overlay дал rc 0 для обеих семей без изменения их ожиданий.
+КЛЕТКИ: 56 (было 45). МУТАЦИИ: 18 (было 15). СВЯЗИ: 25 (было 18). Носители: 26 (8 честных, 18 изменённых); shell с обёрткой: 25. Меры: CASES/probe.py, MUTATIONS/build.py, source.json с sha256 и исполняемый catalog. Старые клетки и связи сохранены; layer-cannot-enable усилена с разрешения пака до именованного отказа, остальные ожидания не меняются. Область implementer не расширена; context.py сверяет высшие frozen-блобы.
+
+ПРЕДЫДУЩИЙ ВЕРДИКТ: verdicts/critic/contracts-226-v1.md
 
 ## Двери
 
@@ -26,42 +28,49 @@ Frontier: repo-only hooks.archBrief = false либо owner/repo; нет ключ
 
 ## Карта классов
 
-- К-01 · чисто · вход: двери листа, тип кодовый, рисковый процессный страж; никакой production до freeze · - · -
-- К-02 · чисто · вход: R-0103/R-0102 и Л10 плана; другие ключи Ш-5 не входят · - · -
-- К-03 · чисто · вход: 203/1 187/3 170/1 188/2 186/2 193/3 184/1 996/2; явная миграция профилей миров без смены ожиданий · - · -
-- К-04 · чисто · вход: context.py --sources/--emit, высшие frozen, точные зоны и отдельный backend PR · - · -
-- К-05 · чисто · вход: W --model; поля JSON судит существующий resolver, HTTP-шов только metadata · - · -
-- К-06 · чисто · вход: ошибки среды/носителя rc 2; INVALID_MUTANT не засчитывает инфраструктурный отказ как поимку · - · -
-- К-07 · чисто · вход: полный make_task и pin CLI, реальные объекты pin/HEAD/merge; честный --model 45/0 · - · -
-- К-08 · чисто · вход: W --stabs, 15 копий/18 отдельно исполненных связей; игнорирование ключа, ноль, регистр, длина и подстроки · - · -
-- К-09 · чисто · вход: отсутствие/false и backend без ключа; bad-null/zero/one/true/array/object/string-false/empty/NUL/LF/space/slashes; минимальный, длинный, смешанный регистр · - · -
-- К-10 · чисто · вход: rc и диагностика в stderr, пустой stdout отказа, отсутствие тегов/изменения HEAD, байты файлов pin-мира · - · -
-- К-11 · чисто · вход: ожидания CASES в памяти; gh-calls — наблюдение argv, не источник ожидаемого repo; хеши носителей до субъекта · - · -
-- К-12 · чисто · вход: настоящий jq/resolver, git plumbing, node, bash -n и пинованный shellcheck JSON differential; не двойник валидатора · - · -
-- К-13 · н/п · новых секретов/сетевых разрешений нет, батарея offline; существующий gh-субъект прежний · - · -
-- К-14 · чисто · вход: minimal/mixed-case/long-value, explicit-false, backend-brief, legacy-local и unknown-sibling с предупреждением М-0 · - · -
-- К-15 · чисто · вход: catalog 45/15/18 и carriers 23; отдельные model/stabs/regression как другая мера · - · -
-- К-16 · чисто · вход: смена ключа на одном мире и независимый журнал product PR argv; М-0 не отменён, backend cutover требует профиль проекта · - · -
-- К-17 · н/п · станционный конфигурационный предмет, продуктовую модель/writers/isolationKeys не меняет · - · -
+- К-01 · чисто · вход: двери листа, кодовый предмет, рисковый процессный страж; production после freeze · - · -
+- К-02 · чисто · вход: R-0103/R-0102, Л10; Б-1 закрыт различением файла и листа, таблица состояний контракта · - · -
+- К-03 · чисто · вход: 203/1 187/3 170/1 188/2 186/2 193/3 184/1 996/2; прежние ожидания 203/pin186 не меняются · - · -
+- К-04 · чисто · вход: context.py по высшим frozen, точные зоны без расширения implementer, отдельный backend PR · - · -
+- К-05 · чисто · вход: W --model; JSON судит существующий resolver, metadata HTTP отдельно от argv · - · -
+- К-06 · чисто · вход: ошибки среды/носителя rc 2; INVALID_MUTANT не засчитывает infra-отказ · - · -
+- К-07 · чисто · вход: настоящий make_task и pin CLI, реальные pin/HEAD/merge; честный контроль 56/0 · - · -
+- К-08 · чисто · вход: W --stabs, 18 мутантов и 25 отдельных связей; все прежние связи и новые адресные Б-1 · - · -
+- К-09 · чисто · вход: missing-profile-door/no-lock, layer-cannot-enable/conflict/false, malformed-profile/layer-door, missing-layer-door; прежние типы/значения сохранены · - · -
+- К-10 · чисто · вход: rc/именованная причина в stderr, пустой stdout отказа, HEAD/refs; layer-freeze/done и layer-door · - · -
+- К-11 · чисто · вход: CASES и ожидаемые значения в памяти до субъекта; gh-calls только наблюдение, хеши носителей до запуска · - · -
+- К-12 · чисто · вход: настоящий jq/resolver, git, node, bash -n и пин shellcheck, без двойника валидатора · - · -
+- К-13 · н/п · новых секретов/сетевых разрешений нет, батарея offline · - · -
+- К-14 · чисто · вход: other-absent/backend-absent при lock, explicit-false/backend-false, enabled/no-pin, minimal/mixed/long, unknown-sibling и unknown-layer-sibling · - · -
+- К-15 · чисто · вход: catalog 56/18/25, carriers 26; отдельные model/stabs и regression 203/pin186 · - · -
+- К-16 · чисто · вход: неизвестность профиля и ошибочный слой отказывают до пака/тегов; честное отсутствие листа не стало автовключением; key-toggle и argv сохранились · - · -
+- К-17 · н/п · станционный конфигурационный предмет не меняет продуктовую модель/writers/isolationKeys · - · -
 
-## Сырые результаты до формальных дверей
+## Дельта
 
-W --repo .: rc 1, KLETKI 45 KRASNYH 35. Именованные красные: backend-absent/backend-false, other-enabled/mixed-case/long-value/minimal-value/with-component, неконформные известные значения, публичные bad-door/bad-freeze/bad-done, merged/sibling, профильный pin и literal-free/key-toggle. Зеленые контроли включают backend-enabled/backend-brief/pin-backend, иные проекты без ключа/с false, документный класс, legacy и отсутствие пина.
+- К-02 · канон/инструмент · bash fixtures/workshop_project/arch_door_profile_key_226/red_arch_door_profile_key_226.sh --model --cell missing-profile-door · 0 · 0
+- К-09 · канон/инструмент · bash fixtures/workshop_project/arch_door_profile_key_226/red_arch_door_profile_key_226.sh --model --cell layer-conflict · 0 · 0
+- К-16 · канон/инструмент · bash fixtures/workshop_project/arch_door_profile_key_226/red_arch_door_profile_key_226.sh --model --cell malformed-profile-door · 0 · 0
 
-W --model: rc 0, KLETKI 45 KRASNYH 0. W --stabs: rc 0, SVJAZI 18 ZHIVYH 0. W --regression: rc 0, CELLS=21 FAILURES=0, pin186 5/5. Последовательный суммарный вызов model/stabs/regression занял 129.12 с, не выдаётся за замер отдельной команды.
+## Закрытие Б-1 по классу
 
-W --sintaksis: rc 0, SINTAKSIS 22 SHELLCHECK_DIFFERENTIAL 6 BASELINE_DIAGNOSTICS 30. Новый wrapper прошёл validate_std; остальные шесть скриптов сравниваются с именованной базой по code/message/source-line, без исключения кодов, флагов подавления и исправления чужих диагностик. Первый полный shellcheck был красен на inherited 2034/2043/1003/2317 резолвера; новый реальный 2034 в pin import устранён inline assignment при source. Это не заявление, что весь прежний код lint-чистый.
+Способ — канон/инструмент: расширение существующего resolver и общего arch187_profile/scope, не второй форматный валидатор. Мутация критика «нет файла = выключено» и соседний мир «без файла и без lock» различены. Ошибочный слой проверен на owner/repo, false и двух объявлениях, через make_task/публичную дверь/freeze/done. Повреждение проверено на repo JSON, project JSON и отсутствующем объявленном слое. Новых судящих предикатов нет: judge/HEAD/TAG/M0_WARNING/INVALID_MUTANT не менялись; новые клетки используют их прежний оракул. Новых обещаний вне Б-1 нет.
 
-Первый мутант pin-constant давал rc 2 от строгого HTTP-двойника, поэтому НЕ был засчитан. Проверка исправлена по причине: metadata-шов допускает любой product repo при том же PR, отдельно логирует настоящий argv. После этого адресные pin-constant/env/case копии возвращают обычный результат команды, но краснеют по PRODUCT_REPO_DEPENDENCY, а честный контроль зелён. Исполняемая связь остаётся в build.py/source.json, не в контракте.
+Адресные стабы и связи живут только в build.py/source.json: st18 — missing-profile-door, st19 — layer-cannot-enable/conflict/false, st20 — malformed-profile-door/missing-layer-door/malformed-layer-door. Честные противоположности: missing-profile-no-lock; корректный repo без листа и false; owner/repo; неизвестный defaults.hooks.futureHook. Все проверены полным --model и до мутантов в --stabs.
 
-## Наблюдение процесса
+## Наблюдаемые результаты исправления
 
-Runtime isolated-копия отличается от WORKTREE-адреса доставки задания; пишется только собственная копия, ведущему передаются фактические pwd/sha, push не выполняется. Журнал NABLIUDENIA_ARCHITECT.md в wip не правится. Кандидат наблюдения для записи main без самовольного А-номера: строгий сетевой двойник может превращать содержательную ошибку адресации в infra rc 2 и делать обманку невалидной. Источник — первый --stabs st12, цена один прогон 65.59 с. Закрыто наблюдением argv независимо от metadata-ответа и полным повтором честного/адресных контролей. Другой нового класса процесса для следующей пачки не выявлено.
+W --repo . на OBJECT с расширением: rc 1, KLETKI 56 KRASNYH 45. Прежние 35 красных сохранены; добавились layer-cannot-enable и missing-profile-door, missing-layer-door, malformed-profile-door, malformed-layer-door, layer-conflict, layer-false, layer-door, layer-freeze, layer-done. missing-profile-no-lock и unknown-layer-sibling зелены.
 
-## Финальные двери
+W --model: rc 0, KLETKI 56 KRASNYH 0 (65.95 с). W --stabs: rc 0, SVJAZI 25 ZHIVYH 0 (156.05 с). W --sintaksis: rc 0, SINTAKSIS 25 SHELLCHECK_DIFFERENTIAL 6 BASELINE_DIAGNOSTICS 30. W --catalog: rc 0, KLETKI 56 STABY 18 SVJAZI 25. context.py: rc 0, FROZEN 199 BLOBS 199 OVERLAPS 123 MISSING 0. W --regression: rc 0, CELLS=21 FAILURES=0, pin186 5/5; ожидания не ослаблены (47.46 с).
 
-Чистый сетевой клон в `tmp/clean226` внутри собственной isolated-копии, база та же; remote только origin=ssh://git@github.com/a3ka/dev-harness.git. В него перенесён только scoped-кандидат (контракт и семья), без чужих remotes/контекста сессии. Полные проверки запускались последовательно, не параллельно, с VALIDATE_STD_SHELLCHECK и SDACHA_TIMEOUT_SEK=600 / SDACHA_BUDZHET_SEK=2400; TMPDIR внутри клона.
+## Процесс
 
-`bash scripts/pre_critic.sh contracts/226-arch-door-profile-key.md` → rc 0, `КРИТИК: дверь зелёная`. Затем отдельным вызовом `bash scripts/check_sdacha.sh . contracts/226-arch-door-profile-key.md --run` → rc 0, `СДАЧА: лист зелёный (двери=15 карта=17/17 дельта=0)`. Суммарная стена обоих вызовов 427.63 с; таймаута не было. Слова «красна/красен» после `ok` в логе pre_critic — его статические подписи ног, не ненулевые rc.
+Пишется только собственная isolated-копия; WORKTREE — адрес доставки. Общий NABLIUDENIA_ARCHITECT.md в wip не правится, номера А вручную не выдаются. Процессное наблюдение для main: заданная база cbce7ecc4 предшествует отдельному коммиту вердикта 1747cff791; gate дельты требует вердикт именно в HEAD, не только доступный git object. Проверка сдачи поэтому требует сборки кандидата с уже закоммиченным Crit226, без копирования/переавторства его файла в architect-зону. Источник: check_sdacha.sh:293. Риск — ложная краснота формы, не дефект продукта; ловец — корректный verification-base оркестратора.
 
-Первый pre_critic отказал до прогона листа: его CLI-грамматика допускает bash-файл либо исполняемый путь, не `python3 файл`. В строке Context заменена только форма запуска на собственный executable context.py; повтор полного pre_critic и отдельный check_sdacha выше зелёные. Двери/порог/семантика не выключались. Временный проверочный драйвер и клон не входят в сдачу.
+## Формальные двери исправления
+
+В сетевом клоне `tmp/clean226b` внутри своей копии HEAD=1747cff791e39043b0742ad85076bf9a4529e526 (предыдущий вердикт уже закоммичен); поверх скопированы только контракт и семья кандидата, production совпадает с OBJECT. Единственный remote — канонический origin. Прогоны последовательные, TMPDIR внутри клона, VALIDATE_STD_SHELLCHECK задан, SDACHA_TIMEOUT_SEK=600 / SDACHA_BUDZHET_SEK=2400.
+
+`bash scripts/pre_critic.sh contracts/226-arch-door-profile-key.md` → rc 0, `КРИТИК: дверь зелёная` (314.74 с). Затем отдельный `bash scripts/check_sdacha.sh . contracts/226-arch-door-profile-key.md --run` → rc 0, `СДАЧА: лист зелёный (двери=15 карта=17/17 дельта=3)` (363.96 с). Таймаутов не было. Эти прогоны повторно исполнили полный model/stabs/регресс и три адресных дельта-команды; изменённые lists/counts сверены исполняемым catalog. Временные клон и драйвер не входят в сдачу.
+

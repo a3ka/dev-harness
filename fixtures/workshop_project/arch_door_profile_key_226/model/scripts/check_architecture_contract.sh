@@ -121,7 +121,13 @@ arch187_profile() {
   ARCH187_PRODUCT_REPO=""
   ARCH187_REFUSAL=""
   local repo="$1" self value
-  [ -f "$repo/harness.project.json" ] || return 0
+  if [ ! -f "$repo/harness.project.json" ]; then
+    if [ -f "$repo/architecture.lock.json" ]; then
+      ARCH187_REFUSAL="ARCH_PROFILE_MISSING: harness.project.json"
+      return 2
+    fi
+    return 0
+  fi
   self="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   if ! HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$repo}" \
       bash "$self/profile_resolver.sh" --repo "$repo" >/dev/null; then
