@@ -28,7 +28,7 @@ def main():
             n, v = match.groups()
             if int(v) > latest.get(n, (0, ''))[0]:
                 latest[n] = (int(v), tag)
-    found, checked = set(), 0
+    found, late, checked = set(), {}, 0
     own = zones(CONTRACT.read_text())
     for number, (_, tag) in sorted(latest.items()):
         if number == '226':
@@ -42,6 +42,20 @@ def main():
                 print('SOURCE', tag, git('rev-parse', tag + '^{commit}').strip(), name)
                 print('\n'.join(line for line in text.splitlines() if line.startswith(('ЗОНА', 'ПЕРЕСЕЧЕНИЕ'))))
             foreign = zones(text)
+            commit = git('rev-parse', tag + '^{commit}').strip()
+            ancestry = subprocess.run(
+                ['git', '-C', str(ROOT), 'merge-base', '--is-ancestor', commit, 'HEAD'],
+                capture_output=True)
+            if ancestry.returncode not in (0, 1):
+                raise RuntimeError('FROZEN_ANCESTRY ' + tag)
+            overlaps = {(role, path, number) for role, path in own
+                        if any((path == other or (other.endswith('/') and path.startswith(other)) or fnmatch.fnmatchcase(path, other))
+                               and (role != author or role == 'implementer') for author, other in foreign)}
+            if ancestry.returncode == 1:
+                # Census still reads every live tag and reports exact paths.
+                # Independent later freezes cannot amend the frozen 226 text.
+                late.update({row: (tag, commit) for row in overlaps})
+                continue
             found.update((role, path, number) for role, path in own
                          if any((path == other or (other.endswith('/') and path.startswith(other)) or fnmatch.fnmatchcase(path, other))
                                 and (role != author or role == 'implementer') for author, other in foreign))
@@ -54,6 +68,8 @@ def main():
     declared = set(re.findall(r'^ПЕРЕСЕЧЕНИЕ (\w+): ([^ ]+) — (\d{3}) ', CONTRACT.read_text(), re.M))
     missing = found - declared
     print('FROZEN', len(latest), 'BLOBS', checked, 'OVERLAPS', len(found), 'MISSING', len(missing))
+    for row, (tag, commit) in sorted(late.items()):
+        print('LATE_FROZEN', *row, tag, commit, 'поздний frozen: не предок носителя')
     for row in sorted(missing):
         print('MISSING', *row)
     return int(bool(missing))
