@@ -860,12 +860,15 @@ pr_prepare() {
   printf 'pr: %s main=%s base=%s head=%s\n' "$name" "$PR_MAIN" "$PR_BASE" "$PR_HEAD" >&2
 }
 
-# pr_collect <каталог> <номер> — пути замороженных артефактов этого номера на
-# HEAD ветки (уже сужено до документов каталога и номера).
+# pr_collect <каталог> <номер> [дерево] — пути замороженных артефактов этого
+# номера в указанном дереве (по умолчанию — HEAD ветки; уже сужено до
+# документов каталога и номера). Третий аргумент — дерево коммита-основания
+# СОБСТВЕННОЙ заморозки: её артефакт не исчезает из области из-за отсутствия
+# пути на HEAD (инвариант 4).
 pr_collect() {
-  local dir="$1" number="$2" row path
+  local dir="$1" number="$2" row path tree="${3:-$PR_HEAD}"
   row="$(mktemp "$ROOT/tmp/pr-scope.XXXXXX")" || pr_refuse TEMP_UNAVAILABLE
-  if ! g ls-tree -r -z --name-only "$PR_HEAD" -- "$dir/" > "$row"; then
+  if ! g ls-tree -r -z --name-only "$tree" -- "$dir/" > "$row"; then
     rm -f "$row"; pr_refuse SCOPE_UNREADABLE
   fi
   while IFS= read -r -d '' path; do
@@ -900,6 +903,10 @@ pr_files() {
     case $'\n'"$PR_COMMITS"$'\n' in *$'\n'"$c"$'\n'*)
       n="${t#refs/tags/frozen/}"; dir="${n%%/*}"; n="${n#*/}"; n="${n%%/*}"
       pr_collect "$dir" "$n"
+      # И ДЕРЕВО СОБСТВЕННОГО ОСНОВАНИЯ: импорт main может удалить артефакт с
+      # HEAD, и без этого своя заморозка исчезла бы из области только из-за
+      # отсутствия пути на HEAD (инвариант 4).
+      pr_collect "$dir" "$n" "$c"
       ;;
   esac
   done <<< "$tags"
