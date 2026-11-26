@@ -1,0 +1,6 @@
+{
+  "pattern": "Complior-(back|mob)|a3ka/Complior|complior-(back|mob)|\\.harness/",
+  "include": ["scripts", ".omp/extensions", ".githooks"],
+  "exclude": ["scripts/proxy"],
+  "baseline": {"lines": 89, "files": 20, "commit": "6565542c1"}
+}
