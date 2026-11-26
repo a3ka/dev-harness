@@ -13,6 +13,10 @@ FILES = (SCRIPT, CONFIG, STEPS, ZAMERY)
 KEY = 'report:zashivki-227'
 COMMAND = 'bash scripts/report_zashivki.sh'
 # name, mutated file, one exact operation, replacement, individually exercised cells
+GREP_CHECK = ("    if result.returncode not in (0, 1):\n"
+              "        sys.stderr.buffer.write(result.stderr)\n"
+              "        raise RuntimeError('git grep unavailable')\n")
+CONFIG_READ = "    config = json.loads((root / 'config/zashivki.json').read_text())"
 MUTATIONS = [
     ('s01-block-residue', SCRIPT, '    print(json.dumps(report, ensure_ascii=False))',
      '    print(json.dumps(report, ensure_ascii=False))\n    sys.exit(1 if matches else 0)', ('nonempty', 'above-baseline')),
@@ -45,10 +49,28 @@ MUTATIONS = [
      "    print(json.dumps(report, ensure_ascii=False))\n    sys.exit(int(report['lines'] > config['baseline']['lines']))", ('above-baseline',)),
     ('s25-file-threshold', SCRIPT, '    print(json.dumps(report, ensure_ascii=False))',
      "    print(json.dumps(report, ensure_ascii=False))\n    sys.exit(int(report['files'] > config['baseline']['files']))", ('above-file-baseline',)),
+    ('s26-unchecked-grep', SCRIPT, GREP_CHECK, '', ('git-failure',)),
+    ('s27-any-grep-error-empty', SCRIPT, GREP_CHECK,
+     "    if result.returncode != 0:\n        result.stdout = b''\n", ('git-failure',)),
+    ('s28-config-error-defaults', SCRIPT, CONFIG_READ,
+     "    try:\n    " + CONFIG_READ + "\n    except (OSError, ValueError):\n        config = " +
+     repr(json.loads((HERE / 'model' / CONFIG).read_bytes())),
+     ('invalid-config', 'unreadable-config')),
+    ('s29-binary-subject-error', SCRIPT, "'-I', '-E'", "'-E'", ('binary',)),
+    ('s30-error-rc-zero', SCRIPT, '    sys.exit(2)', '    sys.exit(0)', ('git-failure',)),
+    ('s31-error-unmarked', SCRIPT, "'NOT_IMPLEMENTED: ZASHIVKI_REPORT: '",
+     "'ZASHIVKI_REPORT: '", ('git-failure',)),
+    ('s32-error-fake-report', SCRIPT, '    sys.exit(2)',
+     "    print(json.dumps({'lines': 0, 'files': 0, 'matches': []}))\n    sys.exit(2)", ('git-failure',)),
 ]
 EQUIVALENTS = [
     ('e01-files-equivalent', SCRIPT, "len({m['path'] for m in matches})", "len(set(m['path'] for m in matches))", ('nonempty',)),
     ('e02-json-layout', SCRIPT, 'json.dumps(report, ensure_ascii=False)', 'json.dumps(report, ensure_ascii=True, indent=2, sort_keys=True)', ('unicode-path',)),
+    ('e03-grep-status-equivalent', SCRIPT, 'result.returncode not in (0, 1)',
+     'result.returncode != 0 and result.returncode != 1', ('git-failure', 'empty')),
+    ('e04-config-read-equivalent', SCRIPT, CONFIG_READ,
+     "    with (root / 'config/zashivki.json').open() as stream:\n        config = json.load(stream)",
+     ('invalid-config', 'unreadable-config')),
 ]
 
 
