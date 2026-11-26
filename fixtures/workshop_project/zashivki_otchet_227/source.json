@@ -132,6 +132,18 @@
     "stabs/s32-error-fake-report/config/zashivki.json": "dd02a8c23d0f754de4eab3e9207662080c31ff1358c4b138be91bccd6e39547e",
     "stabs/s32-error-fake-report/registry/ci-steps.tsv": "e86111e5bc1fcddde978ca11f468c4f5eae716d5cac75c439cc5a29dc802be3c",
     "stabs/s32-error-fake-report/registry/ci-zamery.tsv": "59775b70ea2b4afd45f507543209e2c83a5fcf280c1a7e062612bdef6b879b50",
+    "stabs/s33-pathspecs-not-literal/scripts/report_zashivki.sh": "7b337c7604132b10106afcbf95b3c2aa78d092c0969af814231b2f3d31cd24eb",
+    "stabs/s33-pathspecs-not-literal/config/zashivki.json": "dd02a8c23d0f754de4eab3e9207662080c31ff1358c4b138be91bccd6e39547e",
+    "stabs/s33-pathspecs-not-literal/registry/ci-steps.tsv": "e86111e5bc1fcddde978ca11f468c4f5eae716d5cac75c439cc5a29dc802be3c",
+    "stabs/s33-pathspecs-not-literal/registry/ci-zamery.tsv": "59775b70ea2b4afd45f507543209e2c83a5fcf280c1a7e062612bdef6b879b50",
+    "stabs/s34-include-not-literal/scripts/report_zashivki.sh": "f2012fa2c86e722e3e131430eafd7db9688ce50e2bce3236589978c743c41816",
+    "stabs/s34-include-not-literal/config/zashivki.json": "dd02a8c23d0f754de4eab3e9207662080c31ff1358c4b138be91bccd6e39547e",
+    "stabs/s34-include-not-literal/registry/ci-steps.tsv": "e86111e5bc1fcddde978ca11f468c4f5eae716d5cac75c439cc5a29dc802be3c",
+    "stabs/s34-include-not-literal/registry/ci-zamery.tsv": "59775b70ea2b4afd45f507543209e2c83a5fcf280c1a7e062612bdef6b879b50",
+    "stabs/s35-exclude-not-literal/scripts/report_zashivki.sh": "a904947074c7db9baf8d934897dd774b29abda318187eadebcc24b311c8d08e2",
+    "stabs/s35-exclude-not-literal/config/zashivki.json": "dd02a8c23d0f754de4eab3e9207662080c31ff1358c4b138be91bccd6e39547e",
+    "stabs/s35-exclude-not-literal/registry/ci-steps.tsv": "e86111e5bc1fcddde978ca11f468c4f5eae716d5cac75c439cc5a29dc802be3c",
+    "stabs/s35-exclude-not-literal/registry/ci-zamery.tsv": "59775b70ea2b4afd45f507543209e2c83a5fcf280c1a7e062612bdef6b879b50",
     "stabs/e01-files-equivalent/scripts/report_zashivki.sh": "a1a1f3c90d7722fd9ab838bec2bc1f202532c34085b562042022ea415685b95d",
     "stabs/e01-files-equivalent/config/zashivki.json": "dd02a8c23d0f754de4eab3e9207662080c31ff1358c4b138be91bccd6e39547e",
     "stabs/e01-files-equivalent/registry/ci-steps.tsv": "e86111e5bc1fcddde978ca11f468c4f5eae716d5cac75c439cc5a29dc802be3c",
@@ -147,7 +159,11 @@
     "stabs/e04-config-read-equivalent/scripts/report_zashivki.sh": "7b3826e2ed2a2b847ad07f5451accac4d95c8e4b4de2f6b590e306a9cd1beae1",
     "stabs/e04-config-read-equivalent/config/zashivki.json": "dd02a8c23d0f754de4eab3e9207662080c31ff1358c4b138be91bccd6e39547e",
     "stabs/e04-config-read-equivalent/registry/ci-steps.tsv": "e86111e5bc1fcddde978ca11f468c4f5eae716d5cac75c439cc5a29dc802be3c",
-    "stabs/e04-config-read-equivalent/registry/ci-zamery.tsv": "59775b70ea2b4afd45f507543209e2c83a5fcf280c1a7e062612bdef6b879b50"
+    "stabs/e04-config-read-equivalent/registry/ci-zamery.tsv": "59775b70ea2b4afd45f507543209e2c83a5fcf280c1a7e062612bdef6b879b50",
+    "stabs/e05-top-literal-pathspecs/scripts/report_zashivki.sh": "fb07dd5036f5e864c2350a75c4ecc322ff7e6b247aef58bc0ee17da8dd9b1cdb",
+    "stabs/e05-top-literal-pathspecs/config/zashivki.json": "dd02a8c23d0f754de4eab3e9207662080c31ff1358c4b138be91bccd6e39547e",
+    "stabs/e05-top-literal-pathspecs/registry/ci-steps.tsv": "e86111e5bc1fcddde978ca11f468c4f5eae716d5cac75c439cc5a29dc802be3c",
+    "stabs/e05-top-literal-pathspecs/registry/ci-zamery.tsv": "59775b70ea2b4afd45f507543209e2c83a5fcf280c1a7e062612bdef6b879b50"
   },
   "links": [
     {
@@ -377,6 +393,40 @@
       "polarity": "red"
     },
     {
+      "carrier": "stabs/s33-pathspecs-not-literal",
+      "cells": [
+        "literal-include-star",
+        "literal-include-question",
+        "literal-include-bracket",
+        "literal-include-backslash",
+        "literal-exclude-question",
+        "literal-exclude-star",
+        "literal-exclude-bracket",
+        "literal-exclude-backslash"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s34-include-not-literal",
+      "cells": [
+        "literal-include-star",
+        "literal-include-question",
+        "literal-include-bracket",
+        "literal-include-backslash"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s35-exclude-not-literal",
+      "cells": [
+        "literal-exclude-question",
+        "literal-exclude-star",
+        "literal-exclude-bracket",
+        "literal-exclude-backslash"
+      ],
+      "polarity": "red"
+    },
+    {
       "carrier": "stabs/e01-files-equivalent",
       "cells": [
         "nonempty"
@@ -403,6 +453,20 @@
       "cells": [
         "invalid-config",
         "unreadable-config"
+      ],
+      "polarity": "green"
+    },
+    {
+      "carrier": "stabs/e05-top-literal-pathspecs",
+      "cells": [
+        "literal-include-star",
+        "literal-include-question",
+        "literal-include-bracket",
+        "literal-include-backslash",
+        "literal-exclude-question",
+        "literal-exclude-star",
+        "literal-exclude-bracket",
+        "literal-exclude-backslash"
       ],
       "polarity": "green"
     }
