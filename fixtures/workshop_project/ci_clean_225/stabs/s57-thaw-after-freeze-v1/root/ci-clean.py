@@ -105,50 +105,11 @@ def remove(entry):
 
 
 def artifacts(cfg):
+    # Binary, NUL-framed defaults only. Bash 196 owns ALL artifact semantics.
     conf = cfg['artifacts']
-    days = os.environ.get('CI_ARTIFACTS_RETENTION_DAYS') or str(conf['retention_days'])
-    if not re.fullmatch(r'[0-9]+', days) or int(days) < 1:
-        refuse(f'срок не целое ≥1: {days}')
-    repos = (os.environ.get('CI_ARTIFACTS_REPOS', ' '.join(conf['repos']))).split()
-    if not repos:
-        refuse('список репо пуст')
-    for repo in repos:
-        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]*', repo) or repo in ('.', '..'):
-            refuse(f'недопустимое имя репо: {repo}')
-    root_value = os.environ.get('CI_ARTIFACTS_ROOT') or conf['root']
-    try:
-        root = directory(root_value)
-    except Refusal:
-        refuse(f'корень не каталог: {root_value}')
-    cutoff = time.time() - int(days) * 86400
-    refused = False
-    for repo in repos:
-        parent = root / repo
-        if not parent.exists() and not parent.is_symlink():
-            continue
-        if parent.is_symlink() or not parent.is_dir():
-            print(f'ОТКАЗ: репо не каталог: {parent}', file=sys.stderr)
-            refused = True
-            continue
-        deleted = kept = 0
-        for entry in sorted(parent.iterdir()):
-            reason = None
-            if not re.fullmatch(r'[0-9]+-[0-9]+', entry.name):
-                reason = 'имя прогона вне грамматики <число>-<число>'
-            elif entry.is_symlink():
-                reason = 'прогон — символьная ссылка'
-            elif not entry.is_dir():
-                reason = 'прогон не каталог'
-            if reason:
-                print(f'ОТКАЗ: {reason}: {entry}', file=sys.stderr)
-                refused = True
-            elif young(entry, cutoff):
-                kept += 1
-            else:
-                remove(entry)
-                deleted += 1
-        print(f'ci-artifacts: репо {repo}: удалено {deleted}, хранится {kept}')
-    return int(refused)
+    for value in (conf['root'], str(conf['retention_days']), ' '.join(conf['repos'])):
+        sys.stdout.buffer.write(os.fsencode(value) + b'\0')
+    return 0
 
 
 def ctl(conf, *args):
@@ -223,8 +184,9 @@ def tmp(cfg):
                     refuse('RUNNER_STATE_UNAVAILABLE cgroup')
                 group = directory(str(directory(conf['cgroup_root']) / cgroup.lstrip('/')))
                 # Thaw даже после неуспешной/частично выполненной freeze.
-                thaw = True
+                thaw = False
                 ctl(conf, 'freeze', unit)
+                thaw = True
                 if 'frozen 1' not in (group / 'cgroup.events').read_text().splitlines():
                     refuse('RUNNER_NOT_FROZEN')
                 if worker_present(conf, group):

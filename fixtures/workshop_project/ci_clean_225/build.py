@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import sys
+import subprocess
 
 sys.dont_write_bytecode = True
 from probe import CASES, FILES
@@ -11,10 +12,36 @@ from probe import CASES, FILES
 HERE = Path(__file__).resolve().parent
 HELPER = 'root/ci-clean.py'
 INSTALL = 'install-ci-clean.sh'
+ARTIFACTS = 'root/ci-artifacts-clean'
+LEGACY_BLOB = 'b81b1e105d4daea14eea66539475ee9c519b0c6a'
+
+
+def artifact_source():
+    source = subprocess.check_output(['git', 'show', 'done/contracts/196/1:ops/server/root/ci-artifacts-clean'])
+    digest = hashlib.sha1(b'blob ' + str(len(source)).encode() + b'\0' + source).hexdigest()
+    if digest != LEGACY_BLOB:
+        raise SystemExit('LEGACY_BLOB_CHANGED')
+    bootstrap = """HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+mapfile -d '' -t CI_DEFAULTS < <(python3 "$HERE/ci-clean.py" artifacts; printf '%s\\0' "$?")
+rc="${CI_DEFAULTS[-1]}"
+[ "$rc" -eq 0 ] || exit "$rc"
+[ "${#CI_DEFAULTS[@]}" -eq 4 ] || exit 2
+"""
+    text = source.decode()
+    text = text.replace('set -u\n', 'set -u\n\n' + bootstrap, 1)
+    for old, new in (('/var/lib/ci-artifacts', '${CI_DEFAULTS[0]}'),
+                     ('14}', '${CI_DEFAULTS[1]}}'),
+                     ('Complior-mob Complior-back}', '${CI_DEFAULTS[2]}}')):
+        # Only the three assignment lines change; comments remain the frozen text.
+        lines = text.splitlines(keepends=True)
+        text = ''.join(line.replace(old, new) if line.startswith(('ROOT_ENV=', 'RET_ENV=', 'REPOS_ENV=')) else line
+                       for line in lines)
+    return text
+
 # Имя, файл, уникальная замена, предъявления. Отдельный зачёт каждой связи.
 MUTATIONS = [
     ('s01-tmp-hardcoded', HELPER, "cutoff = time.time() - conf['retention_days'] * 86400", 'cutoff = time.time() - 2 * 86400', ['tmp-retention']),
-    ('s02-artifact-hardcoded', HELPER, "int(days) * 86400", '2 * 86400', ['artifact-retention', 'artifact-env']),
+    ('s02-artifact-hardcoded', ARTIFACTS, 'RET_ENV="${CI_ARTIFACTS_RETENTION_DAYS:-${CI_DEFAULTS[1]}}"', 'RET_ENV=2', ['artifact-retention', 'artifact-env']),
     ('s03-first-root-only', HELPER, "for runner, root in zip(conf['runners'], roots):", "for runner, root in zip(conf['runners'][:1], roots[:1]):", ['second-root']),
     ('s04-top-mtime', HELPER, 'return any(young(Path(c.path), cutoff) for c in children)', 'return False', ['young-inside']),
     ('s05-no-busy', HELPER, "if name in conf['worker_names']:", 'if False:', ['busy', 'busy-second', 'race-worker']),
@@ -30,7 +57,7 @@ MUTATIONS = [
     ('s15-inactive-on-unknown', HELPER, "elif active not in ('inactive', 'failed'):", 'elif False:', ['unknown-state']),
     ('s16-ignore-freeze-error', HELPER, "    if proc.returncode:", "    if proc.returncode and args[0] != 'freeze':", ['freeze-fail']),
     ('s17-no-root-config', HELPER, "roots = [directory(r['root']) for r in conf['runners']]", "roots = [directory(str(Path(conf['proc_root']).parent / leaf)) for leaf in ('runner one', 'runner two')]", ['tmp-root-config']),
-    ('s18-artifact-root-ignored', HELPER, "os.environ.get('CI_ARTIFACTS_ROOT') or conf['root']", "str(Path(cfg['tmp']['proc_root']).parent / 'artifacts')", ['artifact-root-config']),
+    ('s18-artifact-root-ignored', HELPER, "conf['root'], str(conf['retention_days'])", "str(Path(cfg['tmp']['proc_root']).parent / 'artifacts'), str(conf['retention_days'])", ['artifact-root-config']),
     ('s19-no-euid', INSTALL, '[ "$(id -u)" -eq 0 ] ||', 'true ||', ['install-euid']),
     ('s20-no-validation', INSTALL, '    validate_config || exit $?', '    :', ['install-invalid-config']),
     ('s21-no-owner', INSTALL, ' && chown root:root -- "$dst"', '', ['install-clean']),
@@ -49,11 +76,28 @@ MUTATIONS = [
     ('s41-unit-terminator', 'ci-clean.schema.json', r'\\.service$(?![\\s\\S])', r'\\.service$', ['config-unit-newline']),
     ('s42-name-terminator', 'ci-clean.schema.json', r'^[A-Za-z0-9][A-Za-z0-9._-]*$(?![\\s\\S])', r'^[A-Za-z0-9][A-Za-z0-9._-]*$', ['config-worker-newline']),
     ('s43-walk-ignore-errors', HELPER, 'followlinks=False, onerror=unavailable', 'followlinks=False', ['cgroup-child-unreadable', 'cgroup-parent-unreadable', 'cgroup-readdir-error']),
-    ('s44-empty-days', HELPER, "os.environ.get('CI_ARTIFACTS_RETENTION_DAYS') or str(conf['retention_days'])", "os.environ.get('CI_ARTIFACTS_RETENTION_DAYS', str(conf['retention_days']))", ['env-empty-days', 'env-empty-all']),
-    ('s45-empty-root', HELPER, "os.environ.get('CI_ARTIFACTS_ROOT') or conf['root']", "os.environ.get('CI_ARTIFACTS_ROOT', conf['root'])", ['env-empty-root', 'env-empty-all']),
-    ('s46-empty-repos', HELPER, "os.environ.get('CI_ARTIFACTS_REPOS') or ' '.join(conf['repos'])", "os.environ.get('CI_ARTIFACTS_REPOS', ' '.join(conf['repos']))", ['env-empty-repos', 'env-empty-all']),
+    ('s44-empty-days', ARTIFACTS, '${CI_ARTIFACTS_RETENTION_DAYS:-', '${CI_ARTIFACTS_RETENTION_DAYS-', ['env-empty-days', 'env-empty-all']),
+    ('s45-empty-root', ARTIFACTS, '${CI_ARTIFACTS_ROOT:-', '${CI_ARTIFACTS_ROOT-', ['env-empty-root', 'env-empty-all']),
+    ('s46-empty-repos', ARTIFACTS, '${CI_ARTIFACTS_REPOS:-', '${CI_ARTIFACTS_REPOS-', ['env-empty-repos', 'env-empty-all']),
     ('s47-stat-ignore-error', HELPER, '(Path(parent) / child).lstat().st_mode', '0', ['cgroup-stat-error']),
     ('s48-early-worker-return', HELPER, '                    present = True', '                    return True', ['cgroup-busy-unreadable']),
+    ('s49-zero-repos-refusal', ARTIFACTS, "case \"$REPOS\" in\n  ' ')", "case \"$REPOS\" in\n  ''|' ')", ['grid-zero-0']),
+    ('s50-zero-repos-fallback', ARTIFACTS, "case \"$REPOS\" in", '[ -n "$REPOS" ] || REPOS="${CI_DEFAULTS[2]}"\ncase "$REPOS" in', ['grid-zero-0']),
+    ('s51-unicode-split', ARTIFACTS, "REPOS=''", """REPOS_ENV="$(python3 -c 'import sys; print(" ".join(sys.argv[1].split()))' "$REPOS_ENV")"
+REPOS=''""", ['grid-nonbash-0', 'grid-nonbash-1']),
+    ('s52-trim-days', ARTIFACTS, 'case "$RET_ENV" in', """RET_ENV="$(python3 -c 'import sys; print(sys.argv[1].strip())' "$RET_ENV")"
+case "$RET_ENV" in""", ['grid-days-12']),
+    ('s53-trim-root', ARTIFACTS, 'if [ -L "$ROOT_ENV" ]', """ROOT_ENV="$(python3 -c 'import sys; print(sys.argv[1].strip())' "$ROOT_ENV")"
+if [ -L "$ROOT_ENV" ]""", ['grid-root-2']),
+    ('s54-canonical-env-root', ARTIFACTS, 'if [ -L "$ROOT_ENV" ]', """if [[ "$ROOT_ENV" != /* || "$ROOT_ENV" == */ || "$ROOT_ENV" == *"/../"* ]]; then
+  printf 'ОТКАЗ: корень не каталог: %s\\n' "$ROOT_ENV" >&2; exit 1
+fi
+if [ -L "$ROOT_ENV" ]""", ['grid-root-3', 'grid-root-4', 'grid-root-5']),
+    ('s55-delete-young-v1', HELPER, 'if entry.lstat().st_mtime >= cutoff:', 'if False and entry.lstat().st_mtime >= cutoff:', ['old-young']),
+    ('s56-worker-second-v1', HELPER, 'if worker_present(conf, group):', "if unit != 'toy-b.service' and worker_present(conf, group):", ['busy-second']),
+    ('s57-thaw-after-freeze-v1', HELPER, "                thaw = True\n                ctl(conf, 'freeze', unit)", "                thaw = False\n                ctl(conf, 'freeze', unit)\n                thaw = True", ['freeze-fail']),
+    ('s58-one-day-v1', HELPER, "cutoff = time.time() - conf['retention_days'] * 86400", 'cutoff = time.time() - 86400', ['tmp-retention']),
+    ('s59-error-busy-v2', HELPER, '    except OSError as exc:\n        unavailable(exc)', '    except OSError as exc:\n        return True', ['cgroup-procs-unreadable', 'proc-comm-unreadable', 'cgroup-stat-error']),
 ]
 # Поадресные мутации шага сверки: не усредняем файлы/два типа дефекта.
 for index, rel in enumerate(FILES):
@@ -64,19 +108,23 @@ for index, rel in enumerate(FILES):
 
 
 def main():
+    (HERE / 'model' / ARTIFACTS).write_text(artifact_source())
     links = []
     for name, rel, needle, replacement, cases in MUTATIONS:
         source = (HERE / 'model' / rel).read_text()
         if source.count(needle) != 1:
             raise SystemExit('STAB_ANCHOR ' + name + ': ' + str(source.count(needle)))
         path = HERE / 'stabs' / name / rel
+        for stale in (HERE / 'stabs' / name).rglob('*'):
+            if stale.is_file() and stale != path:
+                stale.unlink()
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(source.replace(needle, replacement))
         for case in cases:
             if case not in CASES: raise SystemExit('UNKNOWN_CASE ' + case)
             links.append([name, case])
     paths = sorted(p for directory in ('model', 'stabs', 'shims') for p in (HERE / directory).rglob('*') if p.is_file())
-    paths += [HERE / 'probe.py', HERE / 'build.py', HERE / 'red_ci_clean_225.sh']
+    paths += [HERE / name for name in ('probe.py', 'env_grid.py', 'build.py', 'red_ci_clean_225.sh')]
     payload = {'base': 'e7f2e9dab64b83a1226f63ab89f9c3b8abed19f5', 'kletki': CASES, 'stab_vhod': links,
                'nositeli': {str(p.relative_to(HERE)): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}}
     (HERE / 'source.json').write_text(json.dumps(payload, ensure_ascii=False, indent=2) + '\n')

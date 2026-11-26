@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from env_grid import GRID, grid_case, pinned_legacy
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
@@ -55,7 +56,7 @@ def snapshot(root):
             path = Path(parent) / name
             mode = path.lstat().st_mode
             value = os.readlink(path) if path.is_symlink() else (path.read_bytes() if path.is_file() else None)
-            result[str(path.relative_to(root))] = (mode, value)
+            result[str(path.relative_to(root))] = (mode, value, path.lstat().st_uid, path.lstat().st_gid)
     return result
 
 
@@ -67,9 +68,9 @@ def run(argv, env):
     clean['PYTHONDONTWRITEBYTECODE'] = '1'
     proc = subprocess.run(argv, env=clean, cwd=env.get('TMPDIR'),
                           stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE, text=True, timeout=30)
-    if proc.returncode == 2 and 'NOT_IMPLEMENTED: использование:' not in proc.stderr:
-        raise BadWorld(proc.stderr.strip())
+                          stderr=subprocess.PIPE, timeout=30)
+    if proc.returncode == 2 and 'NOT_IMPLEMENTED: использование:'.encode() not in proc.stderr:
+        raise BadWorld(repr(proc.stderr))
     return proc
 
 
@@ -261,7 +262,7 @@ def clean_case(source, overlay, kind):
         result = w.execute()
         check(result.returncode == expected_rc, f'RC {result.returncode} != {expected_rc}: {result.stderr}')
         if reason:
-            check(reason in result.stderr, f'REASON {reason}: {result.stderr}')
+            check(reason.encode() in result.stderr, f'REASON {reason}: {result.stderr}')
         retain = kind in ('young-inside', 'busy', 'busy-nested', 'busy-second', 'configured-worker', 'race-worker', 'tmp-retention', 'tmp-root-config', 'freeze-fail', 'not-frozen', 'state-fail', 'unknown-state', 'proc-missing', 'cgroup-traversal', 'root-dotdot', 'parent-symlink')
         if retain:
             check(old.exists(), 'OLD_LIVE_REMOVED')
@@ -274,7 +275,7 @@ def clean_case(source, overlay, kind):
         if kind in ('busy', 'busy-nested', 'busy-second', 'configured-worker', 'race-worker'):
             root = Path(w.cfg['tmp']['runners'][1 if kind == 'busy-second' else 0]['root'])
             check(snapshot(root) == before, 'BUSY_TREE_CHANGED')
-            check('ci-tmp: BUSY ' in result.stdout, 'BUSY_NOT_NAMED')
+            check(b'ci-tmp: BUSY ' in result.stdout, 'BUSY_NOT_NAMED')
         if kind == 'entry-symlink':
             check(link.is_symlink(), 'SYMLINK_REMOVED')
         if kind == 'tmp-root-config':
@@ -311,7 +312,7 @@ def config_case(source, overlay, kind):
         elif kind == 'lock-inside-root': w.cfg['tmp']['lock_path'] = w.cfg['tmp']['runners'][0]['root'] + '/lock'
         before = snapshot(w.root / 'runner one')
         result = w.execute(raw=raw)
-        check(result.returncode == 1 and 'CONFIG_INVALID' in result.stderr, f'CONFIG_ACCEPTED {result.returncode}: {result.stderr}')
+        check(result.returncode == 1 and b'CONFIG_INVALID' in result.stderr, f'CONFIG_ACCEPTED {result.returncode}: {result.stderr}')
         check(old.exists() and snapshot(w.root / 'runner one') == before, 'CONFIG_REFUSAL_WROTE')
         check(not w.journal(), 'CONFIG_REFUSAL_CTL')
 
@@ -381,7 +382,7 @@ def uncertainty_case(source, overlay, kind):
             for p, mode in reversed(modes):
                 p.chmod(mode)
         check(result.returncode == 1, f'UNCERTAINTY_RC {result.returncode}: {result.stderr}')
-        check('ОТКАЗ:' in result.stderr, 'UNCERTAINTY_NOT_NAMED')
+        check('ОТКАЗ:'.encode() in result.stderr, 'UNCERTAINTY_NOT_NAMED')
         check(old.is_dir() and snapshot(root) == before, 'UNCERTAIN_ROOT_CHANGED')
         check(not neighbor.exists(), 'UNCERTAINTY_BLOCKED_NEIGHBOR')
         calls = [(r[0], r[1]) for r in w.journal()]
@@ -400,7 +401,7 @@ def env_case(source, overlay, kind):
         w.cfg['artifacts']['repos'] = ['Repo-A']
         # The only intentional 196 change is the source of these defaults.
         # Normalize its three default values, preserving the actual bash :-.
-        legacy = (HERE.parent / 'ops_ci_artifacts_196/model/ci-artifacts-clean').read_text()
+        legacy = pinned_legacy(REPO).decode()
         defaults = [
             ('${CI_ARTIFACTS_ROOT:-/var/lib/ci-artifacts}', '${CI_ARTIFACTS_ROOT:-' + str(w.root / 'artifacts') + '}'),
             ('${CI_ARTIFACTS_RETENTION_DAYS:-14}', '${CI_ARTIFACTS_RETENTION_DAYS:-4}'),
@@ -434,7 +435,7 @@ def env_case(source, overlay, kind):
                                ('225', lambda: w.execute('artifacts'))]:
             result = execute()
             check(result.returncode == expected_rc, f'ENV_{label}_RC {result.returncode}: {result.stderr}')
-            check(result.stdout == expected_stdout and result.stderr == refusal, f'ENV_{label}_OUTPUT {result.stdout!r} {result.stderr!r}')
+            check(result.stdout == expected_stdout.encode() and result.stderr == refusal.encode(), f'ENV_{label}_OUTPUT {result.stdout!r} {result.stderr!r}')
             check(old.exists() == (removed == 0) and young.is_dir(), f'ENV_{label}_EFFECT')
             check(snapshot(Path(w.cfg['artifacts']['root'])) == expected_tree, f'ENV_{label}_TREE_CHANGED')
             if label == '196' and removed:
@@ -478,21 +479,21 @@ def installer_case(source, overlay, kind):
                     dst = destinations[rel]
                     check(dst.is_file() and dst.read_bytes() == expected.get(rel), 'ARTIFACTS_COMMON_MISSING ' + rel)
                 result = run(prefix + ['verify'], env)
-                check(result.returncode == 0 and 'ci-clean:' in result.stdout, 'ARTIFACTS_COMMON_VERIFY ' + result.stderr)
+                check(result.returncode == 0 and b'ci-clean:' in result.stdout, f'ARTIFACTS_COMMON_VERIFY {result.stderr}')
                 return
             before = {key: snapshot(fw.path(key)) for key in ('sbin', 'etc/systemd/system')}
             result = run(prefix + ['ci-clean'], env)
             refusal = kind in ('install-euid', 'install-invalid-config') or kind.startswith('source-missing:')
             if refusal:
-                check(result.returncode == 1 and 'ОТКАЗ:' in result.stderr, f'INSTALL_PRECONDITION {result.returncode}: {result.stderr}')
-                if kind == 'install-euid': check('euid 0' in result.stderr, 'EUID_REASON')
-                if kind.startswith('source-missing:'): check(kind.partition(':')[2] in result.stderr, 'SOURCE_REASON')
+                check(result.returncode == 1 and 'ОТКАЗ:'.encode() in result.stderr, f'INSTALL_PRECONDITION {result.returncode}: {result.stderr}')
+                if kind == 'install-euid': check(b'euid 0' in result.stderr, 'EUID_REASON')
+                if kind.startswith('source-missing:'): check(kind.partition(':')[2].encode() in result.stderr, 'SOURCE_REASON')
                 for key in before:
                     check(snapshot(fw.path(key)) == before[key], 'PRECONDITION_WROTE')
                 check(not fw.journal('chown') and not fw.journal('chmod') and not fw.journal('systemctl'), 'PRECONDITION_EFFECT')
                 return
             if kind in ('install-reload-fail', 'install-enable-fail'):
-                check(result.returncode == 1 and 'systemctl' in result.stderr, 'SYSTEMCTL_FAILURE_IGNORED')
+                check(result.returncode == 1 and b'systemctl' in result.stderr, 'SYSTEMCTL_FAILURE_IGNORED')
                 return
             check(result.returncode == 0, f'INSTALL_RC {result.returncode}: {result.stderr}')
             for rel, dst in destinations.items():
@@ -510,12 +511,12 @@ def installer_case(source, overlay, kind):
                     check(prepared.returncode == 0, f'ARTIFACTS_PREPARATION {prepared.stderr}')
                 if kind == 'verify-clean':
                     result = run(prefix + ['verify'], env)
-                    check(result.returncode == 0 and 'ci-clean:' in result.stdout, f'VERIFY_FALSE_RED {result.stderr}')
+                    check(result.returncode == 0 and b'ci-clean:' in result.stdout, f'VERIFY_FALSE_RED {result.stderr}')
                 elif kind == 'verify-not-installed':
                     for rel in ('root/ci-runner-tmp-clean', 'root/systemd/ci-runner-tmp-clean.service', 'root/systemd/ci-runner-tmp-clean.timer'):
                         destinations[rel].unlink()
                     result = run(prefix + ['verify'], env)
-                    check(result.returncode == 0 and 'ci-clean: не установлены' in result.stdout, 'OPTIONAL_FALSE_RED ' + result.stderr)
+                    check(result.returncode == 0 and 'ci-clean: не установлены'.encode() in result.stdout, f'OPTIONAL_FALSE_RED {result.stderr}')
                 elif kind.startswith('verify-partial:'):
                     kept = kind.partition(':')[2]
                     group = ('root/ci-clean.py', 'ci-clean.json', 'ci-clean.schema.json') if kept in ('root/ci-clean.py', 'ci-clean.json', 'ci-clean.schema.json') else ('root/ci-runner-tmp-clean', 'root/systemd/ci-runner-tmp-clean.service', 'root/systemd/ci-runner-tmp-clean.timer')
@@ -525,14 +526,14 @@ def installer_case(source, overlay, kind):
                         for rel in ('root/ci-runner-tmp-clean', 'root/systemd/ci-runner-tmp-clean.service', 'root/systemd/ci-runner-tmp-clean.timer'):
                             destinations[rel].unlink()
                     result = run(prefix + ['verify'], env)
-                    check(result.returncode == 1 and 'расхождение' in result.stderr, 'PARTIAL_ACCEPTED ' + kept)
+                    check(result.returncode == 1 and 'расхождение'.encode() in result.stderr, 'PARTIAL_ACCEPTED ' + kept)
                 else:
                     rel = kind.partition(':')[2]
                     dst = destinations[rel]
                     if kind.startswith('verify-missing:'): dst.unlink()
                     else: dst.write_bytes(expected[rel] + b'\ndrift\n')
                     result = run(prefix + ['verify'], env)
-                    check(result.returncode == 1 and 'расхождение' in result.stderr and str(dst) in result.stderr, f'VERIFY_BLIND {rel}: {result.returncode} {result.stderr}')
+                    check(result.returncode == 1 and 'расхождение'.encode() in result.stderr and str(dst).encode() in result.stderr, f'VERIFY_BLIND {rel}: {result.returncode} {result.stderr}')
         finally:
             fw.close()
 
@@ -581,7 +582,7 @@ def lock_case(source, overlay):
         with Path(w.cfg['tmp']['lock_path']).open('w') as stream:
             fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
             result = w.execute()
-        check(result.returncode == 1 and 'CLEAN_BUSY' in result.stderr, 'CONCURRENT_CLEAN_ACCEPTED')
+        check(result.returncode == 1 and b'CLEAN_BUSY' in result.stderr, 'CONCURRENT_CLEAN_ACCEPTED')
         check(snapshot(old) == before and not w.journal(), 'CONCURRENT_CLEAN_EFFECT')
 
 
@@ -595,6 +596,7 @@ CASES = (['defaults', 'units', 'readme', 'lock-busy'] + list(TMP_CASES) + ['conf
          + ['source-missing:' + p for p in FILES] + ['verify-drift:' + p for p in FILES] + ['verify-missing:' + p for p in FILES]
          + ['verify-partial:' + p for p in FILES if p != 'root/ci-artifacts-clean'])
 CASES += list(UNCERTAINTY_CASES) + list(ENV_CASES)
+CASES += list(GRID)
 
 
 def cell(source, overlay, name):
@@ -608,6 +610,7 @@ def cell(source, overlay, name):
         elif name in ARTIFACT_CASES: artifact_case(source, overlay, name)
         elif name in UNCERTAINTY_CASES: uncertainty_case(source, overlay, name)
         elif name in ENV_CASES: env_case(source, overlay, name)
+        elif name in GRID: grid_case(World, run, snapshot, age, check, REPO, source, overlay, name)
         else: installer_case(source, overlay, name)
         return True, ''
     except (AssertionError, FileNotFoundError) as exc:
@@ -634,7 +637,7 @@ def suite(source, overlay=None, names=CASES):
 
 
 def syntax():
-    paths = list((HERE / 'model').rglob('*')) + list((HERE / 'stabs').rglob('*')) + list((HERE / 'shims').rglob('*')) + [HERE / 'red_ci_clean_225.sh', HERE / 'probe.py', HERE / 'build.py']
+    paths = list((HERE / 'model').rglob('*')) + list((HERE / 'stabs').rglob('*')) + list((HERE / 'shims').rglob('*')) + [HERE / 'red_ci_clean_225.sh', HERE / 'probe.py', HERE / 'build.py', HERE / 'env_grid.py']
     count = 0
     for path in paths:
         if not path.is_file(): continue
@@ -663,7 +666,10 @@ def main():
             return 0
         if args == ['--sintaksis']: return syntax()
         if args == ['--model']: return suite(MODEL)
-        if args == ['--delta']: return suite(MODEL, names=UNCERTAINTY_CASES + ENV_CASES)
+        if args == ['--delta']:
+            rc = suite(MODEL, names=UNCERTAINTY_CASES + ENV_CASES + tuple(GRID))
+            print(f'DIFFERENTIAL_GRID={len(GRID)} RAZHOZHDENIJA={rc}')
+            return rc
         if args == ['--stabs']:
             for path in (HERE / 'stabs').rglob('*'):
                 if not path.is_file(): continue
