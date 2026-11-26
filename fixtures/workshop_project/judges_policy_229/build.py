@@ -132,6 +132,11 @@ def build():
     resolver = one(resolver, "  repo:pack:maxBytes:optional\n", "  repo:pack:maxBytes:optional\n  repo:judges:optional\n  repo:judges:policy:optional\n  project:defaults:judges:optional\n  project:defaults:judges:policy:optional\n  repo:hooks:optional\n  repo:hooks:judgeSetup:optional\n  project:defaults:hooks:optional\n  project:defaults:hooks:judgeSetup:optional\n")
     resolver = one(resolver, ' sourceCanon pack"', ' sourceCanon pack judges hooks"')
     resolver = one(resolver, '_BAD_KIND_ROW=', RESOLVER + '\n_BAD_KIND_ROW=')
+    resolver = one(resolver, '_CW_PATH_TMP=$(mktemp)\n', r'''TMPDIR="${TMPDIR:-$REPO/tmp}"
+mkdir -p -- "$TMPDIR" || die_p 'TMPDIR_UNWRITABLE'
+export TMPDIR
+_CW_PATH_TMP=$(mktemp) || die_p 'TMPDIR_UNWRITABLE'
+''')
     put(model / 'scripts/profile_resolver.sh', resolver)
     lock = original('scripts/zamok_predmeta.sh')
     for code in MERGED:

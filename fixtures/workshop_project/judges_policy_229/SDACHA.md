@@ -12,7 +12,7 @@
 
 ## Двери
 
-Среда: TMPDIR=$PWD/tmp/scratch-arch229; VALIDATE_STD_SHELLCHECK=/home/harness/.local/state/dev-harness/validators/shellcheck/0.11.0/shellcheck. Старый builder140 запускается с тем же TMPDIR, а не теряет его при собственной очистке env. Команды выполняются последовательно.
+Среда: TMPDIR текущего запуска (при отсутствии/пустом значении — tmp внутри текущей копии); VALIDATE_STD_SHELLCHECK=/home/harness/.local/state/dev-harness/validators/shellcheck/0.11.0/shellcheck. Каталог создаётся и проверяется до предметных клеток; недоступное хранилище даёт NOT_IMPLEMENTED TMPDIR_UNWRITABLE, rc 2. Миры и старый builder140 получают этот же runtime TMPDIR; носитель resolver использует ${TMPDIR:-$REPO/tmp} с mkdir -p. Ни абсолютный scratch, ни автор прогона в source.json/хеши не входят. Команды выполняются последовательно.
 
 - Model · bash fixtures/workshop_project/judges_policy_229/red_judges_policy_229.sh --model · 0 · 0
 - Stabs · bash fixtures/workshop_project/judges_policy_229/red_judges_policy_229.sh --stabs · 0 · 0
@@ -43,13 +43,17 @@
 
 ## Дельта
 
-Первый вызов architect по новому предмету, предыдущего critic-вердикта нет.
+ПРЕДЫДУЩИЙ ВЕРДИКТ: verdicts/critic/contracts-229-v1.md
+
+- К-01 · канон/инструмент · fixtures/workshop_project/judges_policy_229/tmpdir_229.py · 0 · 0
+
+Мутация критика — отсутствующий scratch автора при другом TMPDIR; соседняя — новый вложенный TMPDIR с пробелами. Честные эквиваленты — отсутствие и пустое значение TMPDIR; отказ среды — TMPDIR, указывающий на обычный файл: rc 2 до любой KRASNO. Предметные клетки и связи не менялись. До правки чистый origin-клон OBJECT=4c23273854bf148640bee1554a129b9185d5db4d дал --stabs rc 1, KLETKI 53 KRASNYH 12 (mktemp: No such file or directory); после правки заявленные двери воспроизводятся в отдельном origin-клоне без scratch автора.
 
 ## Наблюдение процесса
 
 Без самовольного А-номера, для main-журнала: фактический D11 исключает каждый RELEASE obryv_bez_verdikta, но не ограничивает число последовательных обрывов, хотя роль обещает один. Проверка текста нормы не обнаруживает этот разрыв. Цена — возможность бесконечного автоматического retry; источник — чтение krugov_suda и красная interruption-cap на production. Класс — конструкция механизма; закрытие в reference — адресный счёт START/RELEASE и граница третьего технического исхода, production исправляет implementer 229. Общий NABLIUDENIA_ARCHITECT.md из wip не изменён.
 
-Дополнительный процессный остаток: старый Mir.run строит урезанный env без TMPDIR; новый потребитель обязан явно пронести свой разрешённый TMPDIR. В этой семье перед первым запуском мира old.GIT_ENV получает абсолютный путь внутри копии.
+Дополнительное наблюдение для main-журнала (без А-номера в wip): константа scratch в old.GIT_ENV сделала зелёный авторский прогон невоспроизводимым у критика. Цена — остановка суда по К-01 до содержания; источник — contracts-229-v1.md и чистый origin-повтор. Закрыто runtime TMPDIR, предварительной пробой записи и адресной portability-проверкой; process-остаток — среду нового потребителя урезанного Mir.run нужно предъявлять из чистой копии, не из оставленного scratch.
 
 ## Вопросы и ограничения передачи
 

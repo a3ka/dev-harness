@@ -1189,7 +1189,10 @@ fi
 # делит по NUL, но execvp делит cmdline по whitespace/LF); сентинел `printf x;
 # ${VAR%x}"` режет ровно один завершающий LF — недостаточно для `z/ok.yml\n`
 # (теряет решающий байт). Поэтому — `readlink -f -z | IFS= read -r -d ''`.
-_CW_PATH_TMP=$(mktemp)
+TMPDIR="${TMPDIR:-$REPO/tmp}"
+mkdir -p -- "$TMPDIR" || die_p 'TMPDIR_UNWRITABLE'
+export TMPDIR
+_CW_PATH_TMP=$(mktemp) || die_p 'TMPDIR_UNWRITABLE'
 trap 'rm -f "$_CW_PATH_TMP"' EXIT
 
 # Один jq-фильтр по MERGED (рекомендация арбитра п.8): судит и печатает байты.

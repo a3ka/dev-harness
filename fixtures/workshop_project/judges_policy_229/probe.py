@@ -27,7 +27,6 @@ DATA = json.loads((HERE / 'policy.json').read_bytes())
 spec = importlib.util.spec_from_file_location('old140', ROOT / 'fixtures/workshop_project/odin_agent_140/probe.py')
 old = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(old)
-old.GIT_ENV['TMPDIR'] = str(ROOT / 'tmp/scratch-arch229')
 
 INVALID_POLICIES = {
     'policy-null': None, 'policy-boolean': False, 'policy-array': [],
@@ -39,7 +38,8 @@ INVALID_POLICIES = {
 
 def run(argv, cwd=None, env=None):
     return subprocess.run(argv, cwd=cwd, env={**os.environ, 'GIT_CONFIG_GLOBAL': '/dev/null',
-                          'GIT_CONFIG_SYSTEM': '/dev/null', **(env or {})},
+                          'GIT_CONFIG_SYSTEM': '/dev/null', 'TMPDIR': old.GIT_ENV['TMPDIR'],
+                          **(env or {})},
                           capture_output=True, timeout=90)
 
 
@@ -116,7 +116,7 @@ def add_failed(m, obj, count, reason, repo_id='dev-harness', holder=None):
 
 
 def lock_case(source, name):
-    with tempfile.TemporaryDirectory(prefix='jp229-', dir=ROOT / 'tmp') as tmp:
+    with tempfile.TemporaryDirectory(prefix='jp229-', dir=old.GIT_ENV['TMPDIR']) as tmp:
         m, wt, branch, obj = world(tmp, risk='рисковый' if name == 'env-not-adversary' else 'обычный')
         door = source / 'scripts/zamok_predmeta.sh'
         if name in ('env-release', 'env-no-evidence', 'court-release', 'env-not-adversary'):
@@ -205,7 +205,7 @@ INPUTS = {
 
 
 def grammar_case(source, code):
-    with tempfile.TemporaryDirectory(prefix='jp229-', dir=ROOT / 'tmp') as tmp:
+    with tempfile.TemporaryDirectory(prefix='jp229-', dir=old.GIT_ENV['TMPDIR']) as tmp:
         m, wt, br, obj = world(tmp)
         door = source / 'scripts/zamok_predmeta.sh'
         before = m.ledger.read_bytes()
@@ -221,7 +221,7 @@ def grammar_case(source, code):
 
 
 def setup_case(source, name):
-    with tempfile.TemporaryDirectory(prefix='jp229-', dir=ROOT / 'tmp') as tmp:
+    with tempfile.TemporaryDirectory(prefix='jp229-', dir=old.GIT_ENV['TMPDIR']) as tmp:
         m = old.Mir(tmp)
         profile(m.repo, value=DATA['defaults'] if name == 'policy-causal' else 'station')
         if name.startswith('policy-'):
@@ -329,8 +329,17 @@ def main():
         group.add_argument('--' + mode, action='store_true')
     parser.add_argument('--case', choices=CASES)
     args = parser.parse_args()
-    (ROOT / 'tmp').mkdir(exist_ok=True)
     try:
+        # Validate the caller's storage before a subject can turn an environment
+        # failure into a red policy cell. Never use tempfile's cached fallback.
+        scratch = Path(os.environ.get('TMPDIR') or ROOT / 'tmp').resolve()
+        try:
+            scratch.mkdir(parents=True, exist_ok=True)
+            with tempfile.TemporaryDirectory(prefix='jp229-env-', dir=scratch):
+                pass
+        except OSError as error:
+            raise RuntimeError('TMPDIR_UNWRITABLE ' + str(scratch) + ': ' + str(error)) from error
+        old.GIT_ENV['TMPDIR'] = str(scratch)
         for executable in ('git', 'bash', 'jq', 'python3'):
             if shutil.which(executable) is None:
                 raise RuntimeError('MISSING_TOOL ' + executable)
@@ -358,7 +367,7 @@ def main():
         if args.stabs:
             live = 0
             for name, (path, _, _, links) in MUTATIONS.items():
-                with tempfile.TemporaryDirectory(prefix='jp229-stab-', dir=ROOT / 'tmp') as tmp:
+                with tempfile.TemporaryDirectory(prefix='jp229-stab-', dir=old.GIT_ENV['TMPDIR']) as tmp:
                     dest = Path(tmp)
                     shutil.copytree(HERE / 'model', dest, dirs_exist_ok=True)
                     shutil.copyfile(HERE / 'stabs' / name / path, dest / path)

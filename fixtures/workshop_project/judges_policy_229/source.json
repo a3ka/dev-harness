@@ -1003,7 +1003,7 @@
     "model/roles/reviewer.md": "8b60137436be0887791451a650a5891c856ca8a3d2ceebcd3d79013290faeef1",
     "model/scripts/judges_policy.py": "d9cd11d5301c5b75960e3fd941131954cc8acdb11ac0fc6126ce20c53c2f930b",
     "model/scripts/pre_judge.sh": "31220c3f3ad5cd4ef2d5d478def25cc1f42857ca58f9def746678ce88c275697",
-    "model/scripts/profile_resolver.sh": "559314e081fa9fa737d57b84f0e42c470f520062a73f6b60225fea5f0f916771",
+    "model/scripts/profile_resolver.sh": "caaea5efe1d8b3264a0a32cf5ca62c30ba6553ae0798f2f69b01e99ebacf4781",
     "model/scripts/zamok_predmeta.sh": "0bfc254684d20e90088f7eaebe4f4c7f7e47096f1cf12a0882b6f82292248704",
     "stabs/bad-is-missing/scripts/judges_policy.py": "c1512d2055c120493c47f4ab4cc86b89fa5f3296e414bc1d0fa3d9079e644fed",
     "stabs/env-counts-as-court/scripts/zamok_predmeta.sh": "91ec9dc320e6e6a07a1db1141b574c892741725ce2636f985cb9312eb86f3aa6",
