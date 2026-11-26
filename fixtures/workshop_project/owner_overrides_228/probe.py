@@ -468,7 +468,11 @@ def syntax():
 
 def main():
     import historical_checks
+    import historical_snapshot_checks
+    import historical
     args = sys.argv[1:]
+    if args[:1] == ['--historical']:
+        return historical.main()
     if args == ['--capture']:
         capture_matrix()
         return 0
@@ -492,6 +496,7 @@ def main():
             raise RuntimeError('SOURCE_CENSUS_DRIFT')
         print('CELLS=' + str(len(catalog)), 'STABS=' + str(len(mutations)), 'BINDINGS=' + str(sum(len(m['cells']) for m in mutations)), 'ROWS=' + str(len(ROWS)), 'MATRIX=' + str(len(BASELINE['matrix'])))
         print(f'HISTORICAL_POLICY_CELLS={len(historical_checks.CELLS)} HISTORICAL_STABS={len(historical_checks.STABS)} HISTORICAL_BINDINGS={len(historical_checks.STABS)}')
+        print(f'SNAPSHOT_CELLS={len(historical_snapshot_checks.CELLS)} SNAPSHOT_STABS={len(historical_snapshot_checks.STABS)} SNAPSHOT_BINDINGS={len(historical_snapshot_checks.STABS)}')
         return 0
     selected = list(catalog)
     if '--cell' in args:
@@ -536,6 +541,7 @@ def main():
         print(f'KLETKI={len(result)} ZELENYE={len(result)-bad} KRASNYE={bad}')
         if args == ['--model']:
             bad += historical_checks.run('--model')
+            bad += historical.dispatch('--model')
         return int(bad != 0)
 
 
