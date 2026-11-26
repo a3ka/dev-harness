@@ -233,6 +233,62 @@ MUTATIONS = {
 }
 
 
+# Arb226: mutations of the actual jq operations, with single-axis witnesses.
+MUTATIONS.update({
+ 'st27-false-case-adv226b': ('scripts/profile_resolver.sh',
+     'if . == false then true',
+     'if . == false or . == "FALSE" or . == "False" then true',
+     ['grid-false-case-31', 'grid-false-case-01']),
+ 'st28-boolean-type': ('scripts/profile_resolver.sh',
+     'if . == false then true', 'if type == "boolean" then true', ['grid-type-true']),
+ 'st29-number-false': ('scripts/profile_resolver.sh',
+     'if . == false then true', 'if . == false or type == "number" then true',
+     ['grid-type-zero']),
+ 'st30-trim': ('scripts/profile_resolver.sh',
+     '.hooks.archBrief | if . == false',
+     r'.hooks.archBrief | if type == "string" then gsub("^\\s+|\\s+$"; "") else . end | if . == false',
+     ['grid-boundary-before-sp', 'grid-boundary-after-sp']),
+ 'st31-owner-initial-dot': ('scripts/profile_resolver.sh',
+     '^[A-Za-z0-9]', '^[A-Za-z0-9.]', ['grid-ascii-owner-first-046']),
+ 'st32-owner-initial-hyphen': ('scripts/profile_resolver.sh',
+     '^[A-Za-z0-9]', '^[A-Za-z0-9-]', ['grid-ascii-owner-first-045']),
+ 'st33-repo-initial-dot': ('scripts/profile_resolver.sh',
+     '/[A-Za-z0-9]', '/[A-Za-z0-9.]', ['grid-ascii-repo-first-046']),
+ 'st34-owner-inner-slash': ('scripts/profile_resolver.sh',
+     '[A-Za-z0-9_.-]*/', '[A-Za-z0-9_./-]*/', ['grid-ascii-owner-middle-047']),
+ 'st35-repo-inner-slash': ('scripts/profile_resolver.sh',
+     r'[A-Za-z0-9_.-]*\\z', r'[A-Za-z0-9_./-]*\\z', ['grid-ascii-repo-middle-047']),
+ 'st36-owner-empty': ('scripts/profile_resolver.sh',
+     '^[A-Za-z0-9]', '^[A-Za-z0-9]?', ['grid-separator-02']),
+ 'st37-repo-empty': ('scripts/profile_resolver.sh',
+     '/[A-Za-z0-9]', '/[A-Za-z0-9]?', ['grid-separator-03']),
+ 'st38-unicode-owner-first': ('scripts/profile_resolver.sh',
+     '^[A-Za-z0-9]', r'^[\\p{L}\\d]', ['grid-unicode-owner-first-0', 'grid-unicode-owner-first-1']),
+ 'st39-unicode-repo-first': ('scripts/profile_resolver.sh',
+     '/[A-Za-z0-9]', r'/[\\p{L}\\d]', ['grid-unicode-repo-first-0', 'grid-unicode-repo-first-1']),
+ 'st40-unicode-owner-rest': ('scripts/profile_resolver.sh',
+     '[A-Za-z0-9_.-]*/', r'[\\p{L}\\d_.-]*/', ['grid-unicode-owner-rest-0', 'grid-unicode-owner-rest-1']),
+ 'st41-unicode-repo-rest': ('scripts/profile_resolver.sh',
+     r'[A-Za-z0-9_.-]*\\z', r'[\\p{L}\\d_.-]*\\z', ['grid-unicode-repo-rest-0', 'grid-unicode-repo-rest-1']),
+ 'st42-length-1024': ('scripts/profile_resolver.sh',
+     'elif type == "string" then test(',
+     'elif type == "string" then (length <= 1024) and test(',
+     ['grid-length-owner', 'grid-length-repo', 'grid-length-both']),
+ 'st43-merge-casefold': ('scripts/profile_resolver.sh',
+     '($r.hooks | with_entries(select(.key == "archBrief")))',
+     '($r.hooks | with_entries(select(.key == "archBrief")) | .archBrief |= if type == "string" then ascii_downcase else . end)',
+     ['grid-separator-10']),
+ 'st44-start-anchor': ('scripts/profile_resolver.sh',
+     'test("^[A-Za-z0-9]', 'test("[A-Za-z0-9]', ['grid-boundary-before-sp']),
+})
+for index, char in enumerate('false'):
+    spelling = 'false'[:index] + char.upper() + 'false'[index + 1:]
+    MUTATIONS[f'st{45 + index}-casefold-position-{index}'] = (
+        'scripts/profile_resolver.sh', 'if . == false then true',
+        f'if . == false or . == "{spelling}" then true',
+        [f'grid-false-case-{1 << index:02d}'])
+
+
 def generate():
     texts = {p: subprocess.run(['git', '-C', str(ROOT), 'show', BASE + ':' + p],
                               check=True, capture_output=True, text=True).stdout for p in FILES}
