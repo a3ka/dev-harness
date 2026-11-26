@@ -26,9 +26,9 @@ adversary-conflict: было rc 1 VERDICT_ROUND_CONFLICT → стало rc 1 VER
 
 Мутация критика — точный прежний scripts-only installer, генерируемый в stabs/scripts-only/install.py. Адресная связь задана install224.LINKS, включена build.py в прежние source.json/stabs.tsv и выполняется независимо. Она предъявляется только независимому TMPDIR, где дефект наблюдаем; checkout-клетка — честный эквивалентный режим. Прежние 97 клеток/24 стаба/68 связей сохранены; добавлены две клетки среды и один стаб/одна связь. Каждый режим отдельно вызывает оба исторических входа. Значения SHA/идентификаторов не становятся оракулом.
 
-- К-04 · канон/инструмент · python3 -B fixtures/workshop_project/done_round_compat_231/install224.py --case install224-checkout · 0 · 0
-- К-07 · канон/инструмент · python3 -B fixtures/workshop_project/done_round_compat_231/install224.py --case install224-independent · 0 · 0
-- К-07 · канон/инструмент · python3 -B fixtures/workshop_project/done_round_compat_231/install224.py --case install224-independent --scripts-only · 1 · 1
+- К-04 · канон/инструмент · fixtures/workshop_project/done_round_compat_231/install224.py --case install224-checkout · 0 · 0
+- К-07 · канон/инструмент · fixtures/workshop_project/done_round_compat_231/install224.py --case install224-independent · 0 · 0
+- К-07 · канон/инструмент · fixtures/workshop_project/done_round_compat_231/install224.py --case install224-independent --scripts-only · 1 · 1
 
 ## Измерения исправления
 
@@ -39,6 +39,10 @@ adversary-conflict: было rc 1 VERDICT_ROUND_CONFLICT → стало rc 1 VER
 Генератор: NOSITELI 26 STABY 25 SVJAZI 69. Census 97→99 клеток, 24→25 стабов, 68→69 связей; независимая мера — прежний AST-каталог плюс install224.CASES, файлы стабов и строки TSV. Полные прогоны выполняет acceptance.py по одной, включая reference и production 224 в ОБОИХ TMPDIR, регрессы 201/187/193, pre_critic, check_sdacha --run, precision и spec. Сырые stdout/stderr/results.json сохраняются в tmp/acceptance231 внутри origin-клона.
 
 B = bash fixtures/workshop_project/done_round_compat_231/red_done_round_compat_231.sh. До реализации B --repo . намеренно красен: прежние 56 клеток совместимости (старые имена, независимый вызов, конфиг/точка). Две новые клетки установщика проверяют честную установку и не добавляют production-отказов. Регресс production 224 до реализации красен ровно review-conflict/adversary-conflict; reference должен быть зелён независимо от TMPDIR.
+
+Полный origin-прогон кандидата 371542d792cc32e0ebb32d208ba13495599e095f, `tmp/verify231-origin`: B --model rc 0 (99/0); --stabs rc 0 (25/69/ЖИВЫХ 0); --sintaksis rc 0; --catalog rc 0 (99/25/69); --repo . rc 1 (99/56). Оба install-контроля rc 0, scripts-only rc 1. B --regression224: checkout rc 0 и independent rc 0, каждый 100/0. Production 224: checkout rc 1 и independent rc 1, каждый 100/2, ровно review-conflict/adversary-conflict. 201 rc 0 (62/0); 187 rc 0 (111/0); 193 rc 0 (152/0). Context rc 0 (84 декларации), schema/precision/spec rc 0. pre_critic/check_sdacha первично rc 1: машинная грамматика листа не допускает python3 как первый токен команды. Исправлена только запись трёх команд дельты на прямой исполняемый .py; смысл и код проверок не меняются, дорогие поведенческие прогоны не повторяются.
+
+Именованные 56 красных B --repo .: для КАЖДОЙ роли review/adversary — back181, back179, mobile218, krug, bare-duplicate, old-conflict-low, old-conflict-high, numeric-fail, numeric-accept, three-digits, ten-digits, old-zero, old-leading-zero, old-empty, krug-zero, krug-leading-zero, plain-call-high, plain-call-low, plain-v, plain-order, same-call, live227, config-name-added, config-name-removed; дополнительно product-live215, product-config-added, config-broken, config-empty, config-missing, config-schema, config-version, config-control.
 
 ## Двери
 
