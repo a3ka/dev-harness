@@ -213,6 +213,14 @@ SCHEMA_LEVELS='
   # репо-слое; внутри — единственный необязательный ключ maxBytes (десятичное
   # целое в [40000,1000000]). Прочие ключи внутри pack — как любой неизвестный
   # ключ: ПРЕДУПРЕЖДЕНИЕ и rc 0 (М-0), scan_levels ниже.
+  # 226: hooks.archBrief — repo-only лист политики архитектурной двери: он
+  # ВКЛЮЧАЕТ дверь и ЗАДАЁТ адрес продуктового PR. Лист необязателен и живёт
+  # ТОЛЬКО в репо-слое; значение — ровно JSON false либо строка owner/repo
+  # (грамматику судит блок 226 ниже, до слияния). Прочие ключи внутри hooks —
+  # как любой неизвестный ключ: ПРЕДУПРЕЖДЕНИЕ и rc 0 (М-0), scan_levels ниже.
+  repo:hooks:optional
+  repo:hooks:archBrief:optional
+
   repo:pack:optional
   repo:pack:maxBytes:optional
 '
@@ -474,7 +482,7 @@ scan_levels() {
   # ТОЛЬКО из него (родитель — scan_levels — продолжал бы работу молча; см.
   # отладочную историю). Поэтому обход — здесь же, через одну переменную-список.
   # Каждая ветвь — если она задана как объект, проверяются её ключи.
-local known_branches="projectLayer workflowPaths commands git ci barriers contextPack sourceCanon pack"
+local known_branches="projectLayer workflowPaths commands git ci barriers contextPack sourceCanon hooks pack"
   if [ "$level" = "project" ]; then
     known_branches="$known_branches defaults.workflowPaths defaults.commands defaults.git defaults.ci defaults.barriers defaults.contextPack defaults.sourceCanon"
     if jq -e 'has("defaults") and (.defaults|type)=="object"' "$file" >/dev/null 2>&1; then
@@ -929,6 +937,33 @@ if jq -e 'has("pack")' "$REPO_JSON_FD" >/dev/null 2>&1; then
   fi
 fi
 
+# ── 226: hooks.archBrief — грамматика значения и место объявления ───────────
+# Лист политики объявляется ТОЛЬКО в репо-слое (harness.project.json). Значение
+# — ровно JSON false либо строка полного owner/repo: в каждой половине первый
+# символ ASCII [A-Za-z0-9], остальные [A-Za-z0-9_.-]; половины непустые, ровно
+# один «/», конец значения точный. Без trim/casefold: пробелы, NUL/CR/LF,
+# пустые половины и лишние «/» — вне грамматики. null, true, числа, массивы,
+# объекты и строка «false» — НЕ «выключено»: это отказ с названной причиной.
+# Неизвестные ИМЕНА внутри hooks — предупреждение М-0 (scan_levels выше).
+#
+# Известный лист в defaults слоя проекта — ошибка РАЗМЕЩЕНИЯ, а не значение:
+# слой в слиянии не участвует, поэтому он не может ни включить, ни выключить
+# страж (ARCH_PROFILE_LAYER — независимо от значения и наличия repo-листа).
+if jq -e 'if (.defaults.hooks | type) == "object"
+    then .defaults.hooks | (has("archBrief")) else false end' "$PROJECT_JSON_FD" >/dev/null; then
+  die_p "ARCH_PROFILE_LAYER: hooks.archBrief: разрешён только репо-слой harness.project.json"
+fi
+if jq -e 'has("hooks")' "$REPO_JSON_FD" >/dev/null; then
+  jq -e '.hooks | type == "object"' "$REPO_JSON_FD" >/dev/null \
+    || die_p "значение вне алфавита: hooks.archBrief: hooks не объект"
+  if jq -e '.hooks | has("archBrief")' "$REPO_JSON_FD" >/dev/null; then
+    jq -e '.hooks.archBrief | if . == false then true
+      elif type == "string" then test("^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*\\z")
+      else false end' "$REPO_JSON_FD" >/dev/null \
+      || die_p "значение вне алфавита: hooks.archBrief: ожидается false или owner/repo"
+  fi
+fi
+
 # ── И-5: пин версии слоя проекта ───────────────────────────────────────────
 PIN="$(jq -r '.projectLayer.version' "$REPO_JSON_FD")"
 LAYER_VER="$(jq -r '.version' "$PROJECT_JSON_FD")"
@@ -1052,6 +1087,14 @@ MERGED=$(jq -n \
     sourceCanon: (
       if $r.sourceCanon != null then { value: $r.sourceCanon, origin: "repo" }
       elif $p.defaults and $p.defaults.sourceCanon != null then { value: $p.defaults.sourceCanon, origin: "project" }
+      else null end
+    ),
+    # 226: hooks — лист политики архитектурной двери. Ключ repo-only: слияния
+    # нет, значение — объявленное репо-слой. В merged уходит ТОЛЬКО известный
+    # ключ archBrief (with_entries, как pack ниже): неизвестные ИМЕНА внутри
+    # hooks до stdout не доходят, о них — предупреждение scan_levels (rc 0).
+    hooks: (
+      if $r.hooks != null then { value: ($r.hooks | with_entries(select(.key == "archBrief"))), origin: "repo" }
       else null end
     ),
     # Б-4: pack — кап пака вклейки. Ключ необязателен и живёт только в
