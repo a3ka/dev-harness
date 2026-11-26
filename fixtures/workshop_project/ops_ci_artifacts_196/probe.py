@@ -18,6 +18,7 @@ rc: 0 — всё зелёное (для --stabs: все обманки пойм�
 или живой стаб; 2 — NOT_IMPLEMENTED (нет файлов семьи/модели, нет корня).
 """
 import os
+import pwd
 import shutil
 import stat
 import subprocess
@@ -260,7 +261,7 @@ class Subjects:
 
     def __init__(self, kind, repo_root=None, stub=None):
         self.kind = kind
-        self.repo_root = Path(repo_root) if repo_root else None
+        self.repo_root = Path(repo_root).resolve() if repo_root else None
         self.stub = stub
 
     def clean(self):
@@ -706,6 +707,8 @@ def install_env(w, src_ops, users=('toymob', 'toyback'), groups=('toygroup',),
         'OPS_SERVER_CI_ARTIFACTS_MOB_OWNER': 'toymob',
         'OPS_SERVER_CI_ARTIFACTS_BACK_OWNER': 'toyback',
         'OPS_SERVER_CI_ARTIFACTS_GROUP': 'toygroup',
+        'OPS_SERVER_MOB_TMP': str(w.path('mob-runner')),
+        'OPS_SERVER_MOB_TMP_OWNER': pwd.getpwuid(os.getuid()).pw_name,
         'OPS_SERVER_SYSTEMCTL': 'systemctl',
     }
 
@@ -723,10 +726,25 @@ def install_core_files(w, src_ops):
     shutil.copyfile(src_ops / 'root/orch-peak', sbin / 'orch-peak')
     (sbin / 'orch-peak').chmod(0o755)
     for u in sorted((src_ops / 'root/systemd').iterdir()):
-        if u.name in ('ci-artifacts-clean.service', 'ci-artifacts-clean.timer'):
+        if u.name in ('ci-artifacts-clean.service', 'ci-artifacts-clean.timer',
+                      'ci-runner-tmp-clean.service', 'ci-runner-tmp-clean.timer'):
             continue
         shutil.copyfile(u, etc / u.name)
         (etc / u.name).chmod(0o644)
+    # verify теперь проверяет также независимо установленный mob-tmpdir.
+    # Это предусловие мира 196, не результат проверяемой artifacts-установки.
+    # Сохраняем все раунды D1/D2: исправный соседний предмет не маскирует их.
+    for unit, leaf, source in (
+        (RUNNER_UNITS[0], 'tmp1', 'gh-runner-complior-tmpdir.conf'),
+        (RUNNER_UNITS[1], 'tmp2', 'gh-runner-complior-2-tmpdir.conf'),
+    ):
+        if (etc / f'{unit}.service').exists():
+            tmp = w.path('mob-runner', leaf)
+            tmp.mkdir(parents=True, exist_ok=True)
+            tmp.chmod(0o700)
+            drop = etc / f'{unit}.service.d'
+            drop.mkdir(exist_ok=True)
+            shutil.copyfile(src_ops / 'root' / source, drop / 'tmpdir.conf')
     return bin_dst
 
 

@@ -1,0 +1,9 @@
+[Unit]
+Description=Очистка tmp раннеров CI (контракт 225)
+
+[Timer]
+OnCalendar=daily
+Persistent=false
+
+[Install]
+WantedBy=timers.target

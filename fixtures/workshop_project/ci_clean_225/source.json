@@ -1,0 +1,381 @@
+{
+  "base": "e7f2e9dab64b83a1226f63ab89f9c3b8abed19f5",
+  "kletki": [
+    "defaults",
+    "units",
+    "readme",
+    "lock-busy",
+    "old-young",
+    "second-root",
+    "young-inside",
+    "file-names",
+    "busy",
+    "busy-nested",
+    "busy-second",
+    "race-worker",
+    "idle-process",
+    "configured-worker",
+    "inactive",
+    "empty-root",
+    "tmp-retention",
+    "tmp-root-config",
+    "entry-symlink",
+    "nested-symlink",
+    "freeze-fail",
+    "thaw-fail",
+    "not-frozen",
+    "state-fail",
+    "unknown-state",
+    "proc-missing",
+    "cgroup-traversal",
+    "root-symlink",
+    "parent-symlink",
+    "root-missing",
+    "root-dotdot",
+    "config-empty",
+    "config-empty-object",
+    "config-duplicate",
+    "config-nul-path",
+    "config-overlap",
+    "config-unknown-key",
+    "config-zero",
+    "config-nonnumeric",
+    "config-negative",
+    "config-fraction",
+    "config-artifact-zero",
+    "config-config-path-empty",
+    "config-missing",
+    "config-unit-newline",
+    "config-worker-newline",
+    "config-unit-duplicate",
+    "config-relative-root",
+    "config-repo-traversal",
+    "config-lock-inside-root",
+    "artifact-age",
+    "artifact-retention",
+    "artifact-root-config",
+    "artifact-env",
+    "install-clean",
+    "install-euid",
+    "install-invalid-config",
+    "install-reload-fail",
+    "install-enable-fail",
+    "verify-clean",
+    "verify-not-installed",
+    "artifacts-common",
+    "source-missing:root/ci-artifacts-clean",
+    "source-missing:root/ci-runner-tmp-clean",
+    "source-missing:root/ci-clean.py",
+    "source-missing:ci-clean.json",
+    "source-missing:ci-clean.schema.json",
+    "source-missing:root/systemd/ci-runner-tmp-clean.service",
+    "source-missing:root/systemd/ci-runner-tmp-clean.timer",
+    "verify-drift:root/ci-artifacts-clean",
+    "verify-drift:root/ci-runner-tmp-clean",
+    "verify-drift:root/ci-clean.py",
+    "verify-drift:ci-clean.json",
+    "verify-drift:ci-clean.schema.json",
+    "verify-drift:root/systemd/ci-runner-tmp-clean.service",
+    "verify-drift:root/systemd/ci-runner-tmp-clean.timer",
+    "verify-missing:root/ci-artifacts-clean",
+    "verify-missing:root/ci-runner-tmp-clean",
+    "verify-missing:root/ci-clean.py",
+    "verify-missing:ci-clean.json",
+    "verify-missing:ci-clean.schema.json",
+    "verify-missing:root/systemd/ci-runner-tmp-clean.service",
+    "verify-missing:root/systemd/ci-runner-tmp-clean.timer",
+    "verify-partial:root/ci-runner-tmp-clean",
+    "verify-partial:root/ci-clean.py",
+    "verify-partial:ci-clean.json",
+    "verify-partial:ci-clean.schema.json",
+    "verify-partial:root/systemd/ci-runner-tmp-clean.service",
+    "verify-partial:root/systemd/ci-runner-tmp-clean.timer"
+  ],
+  "stab_vhod": [
+    [
+      "s01-tmp-hardcoded",
+      "tmp-retention"
+    ],
+    [
+      "s02-artifact-hardcoded",
+      "artifact-retention"
+    ],
+    [
+      "s02-artifact-hardcoded",
+      "artifact-env"
+    ],
+    [
+      "s03-first-root-only",
+      "second-root"
+    ],
+    [
+      "s04-top-mtime",
+      "young-inside"
+    ],
+    [
+      "s05-no-busy",
+      "busy"
+    ],
+    [
+      "s05-no-busy",
+      "busy-second"
+    ],
+    [
+      "s05-no-busy",
+      "race-worker"
+    ],
+    [
+      "s06-no-freeze",
+      "old-young"
+    ],
+    [
+      "s07-no-thaw",
+      "old-young"
+    ],
+    [
+      "s07-no-thaw",
+      "busy"
+    ],
+    [
+      "s07-no-thaw",
+      "freeze-fail"
+    ],
+    [
+      "s08-top-cgroup",
+      "busy-nested"
+    ],
+    [
+      "s09-worker-hardcoded",
+      "configured-worker"
+    ],
+    [
+      "s10-skip-schema",
+      "config-zero"
+    ],
+    [
+      "s10-skip-schema",
+      "config-nonnumeric"
+    ],
+    [
+      "s10-skip-schema",
+      "config-unknown-key"
+    ],
+    [
+      "s11-dotdot",
+      "root-dotdot"
+    ],
+    [
+      "s12-symlink-root",
+      "root-symlink"
+    ],
+    [
+      "s12-symlink-root",
+      "parent-symlink"
+    ],
+    [
+      "s13-symlink-entry",
+      "entry-symlink"
+    ],
+    [
+      "s14-no-frozen-ack",
+      "not-frozen"
+    ],
+    [
+      "s15-inactive-on-unknown",
+      "unknown-state"
+    ],
+    [
+      "s16-ignore-freeze-error",
+      "freeze-fail"
+    ],
+    [
+      "s17-no-root-config",
+      "tmp-root-config"
+    ],
+    [
+      "s18-artifact-root-ignored",
+      "artifact-root-config"
+    ],
+    [
+      "s19-no-euid",
+      "install-euid"
+    ],
+    [
+      "s20-no-validation",
+      "install-invalid-config"
+    ],
+    [
+      "s21-no-owner",
+      "install-clean"
+    ],
+    [
+      "s22-no-mode",
+      "install-clean"
+    ],
+    [
+      "s23-no-enable",
+      "install-clean"
+    ],
+    [
+      "s24-no-reload",
+      "install-clean"
+    ],
+    [
+      "s25-swallow-reload",
+      "install-reload-fail"
+    ],
+    [
+      "s26-swallow-enable",
+      "install-enable-fail"
+    ],
+    [
+      "s27-no-persistent",
+      "units"
+    ],
+    [
+      "s35-no-lock",
+      "lock-busy"
+    ],
+    [
+      "s36-no-readme",
+      "readme"
+    ],
+    [
+      "s37-artifacts-no-common",
+      "artifacts-common"
+    ],
+    [
+      "s38-optional-false-red",
+      "verify-not-installed"
+    ],
+    [
+      "s39-common-partial",
+      "verify-partial:ci-clean.json"
+    ],
+    [
+      "s40-tmp-partial",
+      "verify-partial:root/ci-runner-tmp-clean"
+    ],
+    [
+      "s41-unit-terminator",
+      "config-unit-newline"
+    ],
+    [
+      "s42-name-terminator",
+      "config-worker-newline"
+    ],
+    [
+      "s28-blind-file",
+      "verify-drift:root/ci-artifacts-clean"
+    ],
+    [
+      "s28-blind-file",
+      "verify-missing:root/ci-artifacts-clean"
+    ],
+    [
+      "s29-blind-file",
+      "verify-drift:root/ci-runner-tmp-clean"
+    ],
+    [
+      "s29-blind-file",
+      "verify-missing:root/ci-runner-tmp-clean"
+    ],
+    [
+      "s30-blind-file",
+      "verify-drift:root/ci-clean.py"
+    ],
+    [
+      "s30-blind-file",
+      "verify-missing:root/ci-clean.py"
+    ],
+    [
+      "s31-blind-file",
+      "verify-drift:ci-clean.json"
+    ],
+    [
+      "s31-blind-file",
+      "verify-missing:ci-clean.json"
+    ],
+    [
+      "s32-blind-file",
+      "verify-drift:ci-clean.schema.json"
+    ],
+    [
+      "s32-blind-file",
+      "verify-missing:ci-clean.schema.json"
+    ],
+    [
+      "s33-blind-file",
+      "verify-drift:root/systemd/ci-runner-tmp-clean.service"
+    ],
+    [
+      "s33-blind-file",
+      "verify-missing:root/systemd/ci-runner-tmp-clean.service"
+    ],
+    [
+      "s34-blind-file",
+      "verify-drift:root/systemd/ci-runner-tmp-clean.timer"
+    ],
+    [
+      "s34-blind-file",
+      "verify-missing:root/systemd/ci-runner-tmp-clean.timer"
+    ]
+  ],
+  "nositeli": {
+    "model/README.md": "646a00ce3a61e04bde440e4c66e077ece98f2967e2004e5e2f02e7b9fe14cd44",
+    "model/ci-clean.json": "0f6c3032a611aab73843714ee310eef7f20034288eb7c7f95dd0061cc01bd5d2",
+    "model/ci-clean.schema.json": "e8cee71f4d626a37550e8b3d6d42653d3648185cc568aadb3e64a0c8f3528881",
+    "model/install-ci-clean.sh": "387b50ac5da91eb8826afe26ac529d05c68b660ca13f02894dc035bd76bb866d",
+    "model/root/ci-artifacts-clean": "5a3d613aed70614ae97c32e845c924e73f3540d8535b958056fe824827396c38",
+    "model/root/ci-clean.py": "92a00e9202abf64dffe2d769bed22ceec0cd461be23d0e56879d07e5d9535540",
+    "model/root/ci-runner-tmp-clean": "13a523769b7c512c9a8be3e55753db143c8a2d1d5187a774148a75d02195ef41",
+    "model/root/systemd/ci-runner-tmp-clean.service": "0998f9d28b375aefb8af29c10e36a1f1faff6e69ed2140b24d246c6289584456",
+    "model/root/systemd/ci-runner-tmp-clean.timer": "56707afd964a3b87f440fe5986da35d6c2964decc11d390fa8fbeda4ecb76dae",
+    "shims/systemctl.py": "4bbc336ef27a5ae0546efdd019f94b8301418367dc84daa4d9ec95f67314ba20",
+    "stabs/s01-tmp-hardcoded/root/ci-clean.py": "7cff538c83e81adda31669122b9650d4b51753dfa7504b72847c030173a76206",
+    "stabs/s02-artifact-hardcoded/root/ci-clean.py": "e3ceddd3eebb8b37af2283b574fcb2bf2ded1cbe43ef5086afc49ebc5c5ce994",
+    "stabs/s03-first-root-only/root/ci-clean.py": "cc75cc328248e2ed9d1b7893ab6ce6875573ccb27cd4cceb74c5d05793550e55",
+    "stabs/s04-top-mtime/root/ci-clean.py": "8c928b06b1e195177ccf4a6e84729153028ed22bf1fa000ab13bc3e41a2e5271",
+    "stabs/s05-no-busy/root/ci-clean.py": "1256775b309adee6fa0338cf2ab032d12e16b2d3452e57f9438399a480a69eb8",
+    "stabs/s06-no-freeze/root/ci-clean.py": "890f03c71069984df4d1ce4fdc7b44beb73fea30dcebce0f29e8f6afc86ce2e3",
+    "stabs/s07-no-thaw/root/ci-clean.py": "954663ebf51daab299fb5a7bc81b018c51ceb4ffffdbd3940282d65d065dd58b",
+    "stabs/s08-top-cgroup/root/ci-clean.py": "5eef45238ec279f7b1a8a2f80c757ef7ff8a8b44d2929437e4887ab61498bde3",
+    "stabs/s09-worker-hardcoded/root/ci-clean.py": "b263b048c1dbc6fba9dd15024b492aa2752d54c7dea02362567cc1351a943a33",
+    "stabs/s10-skip-schema/root/ci-clean.py": "f681f0cee522af29fba7bbe537354131ecc3678b15375755bf38274812803a30",
+    "stabs/s11-dotdot/root/ci-clean.py": "4b3a814666731c126c6f8c799a5cfff4ec29b7de51e309bb9da637c8adf27242",
+    "stabs/s12-symlink-root/root/ci-clean.py": "14976ac73588422ad7a2be0c1e3b708a4aa063d42098133c1dd3163ac1f83316",
+    "stabs/s13-symlink-entry/root/ci-clean.py": "39a29f1ea5c58e2b795e15470748f813ac72ccdcf93e79ac55c2e4c08a690d30",
+    "stabs/s14-no-frozen-ack/root/ci-clean.py": "f4327b945943a515b89cb71c6fe6104f8627bd08dbb9ae680124a705d5e15c1c",
+    "stabs/s15-inactive-on-unknown/root/ci-clean.py": "36c21766715f850db1f5a941af92f726df234cf2febc76f67f68f9994220d163",
+    "stabs/s16-ignore-freeze-error/root/ci-clean.py": "fe4daa3560225e9bf1c43fd9c08c87d24e09f8c16bcabf39ed910ccfa4b08404",
+    "stabs/s17-no-root-config/root/ci-clean.py": "bb502cad902bd0f06b65ab86d81c5b475edbe8bd55a6e821f0b962605b430313",
+    "stabs/s18-artifact-root-ignored/root/ci-clean.py": "a386e238eb81a4957921b46feb11ded1d045b616148e3db0fa9b436bb7f27395",
+    "stabs/s19-no-euid/install-ci-clean.sh": "993dcb28450881a9d6cf7a607e44326af6fa785fa6ca5ff0c5c377ed34d2d9df",
+    "stabs/s20-no-validation/install-ci-clean.sh": "127a43497355e9db5fbf5ae818a4355df126b767ab7b9dcc90914742da033a17",
+    "stabs/s21-no-owner/install-ci-clean.sh": "a001e7a2564dc3143c3b6302e67d2220151467de92e8c0e27043cdc3cb5c1454",
+    "stabs/s22-no-mode/install-ci-clean.sh": "ad4c608a1b344771102f2fe76ea84b68406ff0b3ee11be8bb5e4a4b4a00db1a2",
+    "stabs/s23-no-enable/install-ci-clean.sh": "bbb906a873b4056fcc0d2abc6a3376b2b5738dae54e49ee6d481d54dc98664d6",
+    "stabs/s24-no-reload/install-ci-clean.sh": "c3328fae0f303012c3c545687136a585ddbfbc031daa553d0671bee5ae0b4bc5",
+    "stabs/s25-swallow-reload/install-ci-clean.sh": "6545324a770b60ea78f752ba19adb368cf86e598693d34edeaaecef929af19b7",
+    "stabs/s26-swallow-enable/install-ci-clean.sh": "ad3dea54a755c4be4954423c1d3c38004a4cf86a620ea15975474cd6b9de8fc7",
+    "stabs/s27-no-persistent/root/systemd/ci-runner-tmp-clean.timer": "3b03e38c229b42af6c15d2819aa6d00feed994a4b5f7ab28574e1e1eb6eb3b73",
+    "stabs/s28-blind-file/install-ci-clean.sh": "d1d09b9b03846447de3f1c2a31ef7a51a59d42cbfb25e3c8335e23668c2b6828",
+    "stabs/s29-blind-file/install-ci-clean.sh": "9e75876a855bc1d867f5980c61ece8d32d50d1737c5c8b69dcbc0892edd8c977",
+    "stabs/s30-blind-file/install-ci-clean.sh": "14af80ea16d915b96ba68f2d5bfe84fbe407fe99298302dbedf279e427d0b0ce",
+    "stabs/s31-blind-file/install-ci-clean.sh": "84cb05f1254442cc93eb88903f8037176724465d7e19b3497307ca4e0b763d46",
+    "stabs/s32-blind-file/install-ci-clean.sh": "4caca4b00bbc0a8535b6186a35f1d313e19c4c9101da1b102d208195fc91179e",
+    "stabs/s33-blind-file/install-ci-clean.sh": "312c80906dd349205f19bfe50525e40e31e2b115881d90f88727577ebdb817bd",
+    "stabs/s34-blind-file/install-ci-clean.sh": "ed3da44ca5ad0bba687a4bf9cc4ebad251acc0494dc60b697a1e483f25a90546",
+    "stabs/s35-no-lock/root/ci-clean.py": "ec4777d1801661545d624a4a96b7818fcd1317b4885d99bd0e8080c1646e4277",
+    "stabs/s36-no-readme/README.md": "9cb9a5856e2fa20056435aa109546ac109a877e5bfbb38780329f9bebe570db0",
+    "stabs/s37-artifacts-no-common/install-ci-clean.sh": "26e41c571f25a8e22482f1623740e7c1bba2be6a6c67db85e409969d1d173db8",
+    "stabs/s38-optional-false-red/install-ci-clean.sh": "0cd1c1720d41528c9bb0e7aaf19ff06787d85a975dbb4775050fa5a04cf7c8c9",
+    "stabs/s39-common-partial/install-ci-clean.sh": "5414741808ff63f1230f5e3cb51b100b05232f839af4d06ca1a6ccf80352d0c2",
+    "stabs/s40-tmp-partial/install-ci-clean.sh": "c1454c5472080f1bb1d617dbc3a0c815f38c889b182de8d2d744c290c3e7726f",
+    "stabs/s41-unit-terminator/ci-clean.schema.json": "faf34066922aaefa666dd708e6b0c391492e4c1fac164cc302bfe3a40159fe48",
+    "stabs/s42-name-terminator/ci-clean.schema.json": "a7048c7aa5ac155204a507a7aab1287b20e5021ec4b39b6404ff0c3b10beb233",
+    "probe.py": "58d7a983104be8f245c3bc0f8b20e589bf5983194b00b4d11b49685275cba082",
+    "build.py": "913a345d1f99e05107d0f77bf3b64409f4fb8b7b651b8dde8da7b9537564a51a",
+    "red_ci_clean_225.sh": "b37f44519d5d57b6b45e2051a68cca0d16c0ba3ce5d6a18f1e4c2a5bcc4b5336"
+  }
+}

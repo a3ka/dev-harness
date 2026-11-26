@@ -1,0 +1,19 @@
+{
+  "artifacts": {
+    "root": "/var/lib/ci-artifacts",
+    "retention_days": 3,
+    "repos": ["Complior-mob", "Complior-back"]
+  },
+  "tmp": {
+    "retention_days": 1,
+    "runners": [
+      {"root": "/var/lib/ci-runner/tmp1", "unit": "gh-runner-complior.service"},
+      {"root": "/var/lib/ci-runner/tmp2", "unit": "gh-runner-complior-2.service"}
+    ],
+    "worker_names": ["Runner.Worker"],
+    "proc_root": "/proc",
+    "cgroup_root": "/sys/fs/cgroup",
+    "lock_path": "/run/lock/ci-runner-tmp-clean.lock",
+    "systemctl": "systemctl"
+  }
+}

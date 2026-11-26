@@ -1,0 +1,6 @@
+[Unit]
+Description=Очистка tmp раннеров CI (контракт 225)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ci-runner-tmp-clean
