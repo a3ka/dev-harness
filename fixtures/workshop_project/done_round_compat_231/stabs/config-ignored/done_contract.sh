@@ -152,6 +152,7 @@ _select_round_verdict() {
           explicit) explicit=1 declared="$number" ;;
           plain) plain=1 ;;
           legacy) legacy=1 ;;
+          numbered) : ;;
         esac
         break
       elif [ "$reject" != '-' ] && [[ "$name" =~ $reject ]]; then
@@ -313,7 +314,7 @@ _forms_plain="$(jq -r '.plain_call_from_record' "$_forms_file")" || die "done: D
 
 __fixed_rows='-impl-v([1-9][0-9]*)-vyzov([1-9][0-9]*)\.md$	1	2	1	explicit	-impl-v.*-vyzov.*\.md$
 -v([1-9][0-9]*)(-[A-Za-z0-9._-]+)?\.md$	1	0	1	plain	-
--impl-a([1-9][0-9]*)\.md$	1	0	1	legacy	-
+-impl-a([1-9][0-9]*)\.md$	1	0	1	numbered	-
 -impl-(krug)?([1-9][0-9]*)\.md$	2	0	1	legacy	-
 -impl\.md$	0	0	1	legacy	-'
 __fixed_station='ПРОДУКТ: станция

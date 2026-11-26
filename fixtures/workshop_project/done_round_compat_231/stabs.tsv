@@ -62,3 +62,7 @@ stabs/config-fail-open/done_contract.sh	config-broken
 stabs/config-fail-open/done_contract.sh	config-empty
 stabs/config-fail-open/done_contract.sh	config-missing
 stabs/config-fail-open/done_contract.sh	config-schema
+stabs/config-fail-open/done_contract.sh	config-version
+stabs/config-fail-open/done_contract.sh	config-control
+stabs/config-schema-ignored/done_contract.sh	config-version
+stabs/config-schema-ignored/done_contract.sh	config-control

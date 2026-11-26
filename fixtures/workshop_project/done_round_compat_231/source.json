@@ -1,30 +1,31 @@
 {
   "base": "568f0ea63271e3461b574105cba8faec7563a8fd",
   "nositeli": {
-    "model/done_contract.sh": "9cab603fe2cd8f78d25bccd5cea315cf842df491175972f61efbafd97f04ef0b",
-    "stabs/lexical/done_contract.sh": "783abca0a4b9e98c7e9da3abcc4ea664339479c12dda58da0e703128debc3702",
-    "stabs/bare-zero/done_contract.sh": "d48e84bffacc401028ad40bac3215a0823e229ec5bcd1f0fe69ad4e9f9f3dd59",
-    "stabs/bare-skipped/done_contract.sh": "a0b0060d2e85674bdd0e5555f2489d778bc3980fc471ce62a8450e32f8b0a2ca",
-    "stabs/krug-rejected/done_contract.sh": "b623cb3ce804f1864cf361473ae914bd1b561aed132de57711c1887b92c644c3",
-    "stabs/unchecked-call/done_contract.sh": "cb1f467db16941af44005f47c5a418b70ef44982903ae6d43bee98a2f0f533c8",
-    "stabs/always-conflict/done_contract.sh": "e930c569b51325c2b5f69c45e635aea21f90cfc5a63eaf5f2cc5da57a71edf9b",
-    "stabs/old-rejected/done_contract.sh": "b623cb3ce804f1864cf361473ae914bd1b561aed132de57711c1887b92c644c3",
-    "stabs/call-instead-name/done_contract.sh": "5dba803404c353423dbee1b14ab0448305b6b5d00ed95f15b9d85194b327b2e0",
-    "stabs/v-call-required/done_contract.sh": "31c534db048cbfc14f7cbbcdbb77bfd0fed4e782d8d41a1f48da3d0aa0b2cd8f",
-    "stabs/explicit-unchecked/done_contract.sh": "0111b8d4be58a1a08b83407bfb1ea69f4ad34a0816e4cac75c49de436b261a7f",
-    "stabs/duplicates-allowed/done_contract.sh": "3b70a1199cec3132d73dbdac7e1608fb749c16c3ccf186c71ee21fc1c31e5394",
-    "stabs/dot-rejected/done_contract.sh": "6782ffe1d48d05ec959924a39469cb730dce3ad45fb8d7a33b06b75cf449e511",
-    "stabs/dot-tail-allowed/done_contract.sh": "43d5820d12e13c10ac61812b7d637586a919b31f899ad72a27e93bce13d51fdf",
-    "stabs/zero-allowed/done_contract.sh": "f4ff3e1626d9a22ae54ac1abcaa8568631f738ff066c1c7f27cf8b17c713e5a6",
-    "stabs/hardcoded-names/done_contract.sh": "33cb925318e7b212e5e7a1c820424ce218e4cb79f122c4d0a8fb02077bdba483",
-    "stabs/hardcoded-products/done_contract.sh": "002cb95eb143c0ce23b4e0ca3910558b1c31ac7234c581075dc1c159655aea0f",
-    "stabs/hardcoded-call-rule/done_contract.sh": "04c98ec528decee6d49b10870677adda424c48f91fabcc75d375d0447d5837a9",
-    "stabs/config-ignored/done_contract.sh": "33cb925318e7b212e5e7a1c820424ce218e4cb79f122c4d0a8fb02077bdba483",
-    "stabs/config-worktree/done_contract.sh": "8d63267c09df54d596e8e6576b98d1d1007343166420bec8debffe77d73bc228",
-    "stabs/config-author-tree/done_contract.sh": "ea53045232e31ed96759b7fbf81924b9533b7bea5072e0f5516b3bd0b2682b84",
-    "stabs/config-environment/done_contract.sh": "671933ce62798d86a1b54ba76b266e6b3530b61f9cbba9d4d2b22f9ea3cd2382",
-    "stabs/config-dirty-install/done_contract.sh": "e515e109b5bfa272ae2a5f472c147cdd714a34932f3ca168d206c9725f69e55e",
-    "stabs/config-fail-open/done_contract.sh": "e4de398f24bdb0a25c5e82270b2fa2908b10772e3bcaaed64cbad25ddae8bd26"
+    "model/done_contract.sh": "e4b7d222054d01f48223f511487336250bc57059c13d450aab63cb4e3f2b4d52",
+    "stabs/lexical/done_contract.sh": "d582a7bf19316412f551c1c51ec076ea5770c9e9a5d2986f18c2f23ed2440b64",
+    "stabs/bare-zero/done_contract.sh": "f29eb461e2537a8076de377eb8a4ca31cdfaf44dc878190b1b2a22a648a1495e",
+    "stabs/bare-skipped/done_contract.sh": "dc552e06ae0a15ec88f3eb57efd5ac01b54a361f0db4b7e1f002c255709386df",
+    "stabs/krug-rejected/done_contract.sh": "e22b38902edadcfdd6648c0c75a12276910bf54d18bf24891942d1deba2c4595",
+    "stabs/unchecked-call/done_contract.sh": "183c920b6aa136621f59e40e3414f3e73762d4d2751583d73c941abc5a637f63",
+    "stabs/always-conflict/done_contract.sh": "591fe623330e1a90bd66ae67b16e21d99021fc1e5d3879eeb19b6045efdf2563",
+    "stabs/old-rejected/done_contract.sh": "e22b38902edadcfdd6648c0c75a12276910bf54d18bf24891942d1deba2c4595",
+    "stabs/call-instead-name/done_contract.sh": "b233b4e1547c92e4ba486a085ef1a662fbe2f7c8f4eee25ef102fab32f5468a6",
+    "stabs/v-call-required/done_contract.sh": "a6db08553dc8471ae686c8d2b449890d245809f058088cdbd3b1e5ffdc397ae3",
+    "stabs/explicit-unchecked/done_contract.sh": "074238c01d8d6d39939ad8c294501fb0e086c3e99dc1fc67e355486688b1ed25",
+    "stabs/duplicates-allowed/done_contract.sh": "3960aad4c0511a5af55f23a2390bc160cc19f450691e103a9fc7d7e46520ce6a",
+    "stabs/dot-rejected/done_contract.sh": "ba0858b2b20e1aea9cddb8dcf9a9d76ea0c757a01b08aaef43d7f53d6aad9f21",
+    "stabs/dot-tail-allowed/done_contract.sh": "aa628b75d67349936e7858aa0fb83a5c08a016305bc89187311655e223c35c66",
+    "stabs/zero-allowed/done_contract.sh": "ef448855168cdf9b8722595072e2e945c60d9a88a33a4a448d6e9d21cfb57828",
+    "stabs/hardcoded-names/done_contract.sh": "e3703cf7141cf1cc2a0025f894ca019bde1774b16a092984b0fa62f671d4b173",
+    "stabs/hardcoded-products/done_contract.sh": "1562658795fbd90c1a59830b4101ac4b36a7f70edf85cdb0e2eaef390ab890a7",
+    "stabs/hardcoded-call-rule/done_contract.sh": "5a7ab941a6e7a9b0e29447396bad2c6bdf846ad821b90c56b80469cccacdea9f",
+    "stabs/config-ignored/done_contract.sh": "e3703cf7141cf1cc2a0025f894ca019bde1774b16a092984b0fa62f671d4b173",
+    "stabs/config-worktree/done_contract.sh": "4595f256b7a4cebb2365b4eb9e7d4df0dca20a649d6a73fd90c2f53d14499d65",
+    "stabs/config-author-tree/done_contract.sh": "eb4d8604e26781e9b1c645f36e4bdf8412d3a6dcc7d425083687e1b86d8ae74b",
+    "stabs/config-environment/done_contract.sh": "aa5d7df8005eb6cac67f16c6dacda8a1121b70575c5a6876d2ca74880a662665",
+    "stabs/config-dirty-install/done_contract.sh": "4ea87a328491f0d2b3cce345095fb615dea86ba776e59b35e5ad61874972d969",
+    "stabs/config-fail-open/done_contract.sh": "74166e6e4208c52b043686d022a8ba1c3e1e882a6640e1fc6d465f7b44f352db",
+    "stabs/config-schema-ignored/done_contract.sh": "04f2a1204a77268a2891e2b8ee01c94f2d8fb59bf006059fcb26594fa8a95800"
   },
   "stab_vhod": [
     {
@@ -282,6 +283,22 @@
     {
       "stab": "stabs/config-fail-open/done_contract.sh",
       "case": "config-schema"
+    },
+    {
+      "stab": "stabs/config-fail-open/done_contract.sh",
+      "case": "config-version"
+    },
+    {
+      "stab": "stabs/config-fail-open/done_contract.sh",
+      "case": "config-control"
+    },
+    {
+      "stab": "stabs/config-schema-ignored/done_contract.sh",
+      "case": "config-version"
+    },
+    {
+      "stab": "stabs/config-schema-ignored/done_contract.sh",
+      "case": "config-control"
     }
   ]
 }

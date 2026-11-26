@@ -16,7 +16,7 @@
           "version_group": {"type": "integer", "minimum": 0, "maximum": 9},
           "number_group": {"type": "integer", "minimum": 0, "maximum": 9},
           "default_version": {"type": "integer", "minimum": 1, "maximum": 999999999},
-          "mode": {"enum": ["explicit", "plain", "legacy"]}
+          "mode": {"enum": ["explicit", "plain", "legacy", "numbered"]}
         }
       }
     },
@@ -25,5 +25,5 @@
     "station_lines": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/text"}},
     "external_pattern": {"$ref": "#/$defs/text"}
   },
-  "$defs": {"text": {"type": "string", "minLength": 1, "pattern": "^[^\\u0000-\\u001f\\u007f]+$"}}
+  "$defs": {"text": {"type": "string", "minLength": 1, "pattern": "^[^\\u0000-\\u001f\\u007f]+$(?![\\s\\S])"}}
 }
