@@ -981,8 +981,8 @@ ARCH_SEC=""
 if [ "$KIND" = task ]; then
   _arch_dir="$REPO/architecture"
   # ── КОНТРАКТ 187а: ИСТОЧНИК брифа и КОДОВЫЙ ГЕЙТ — разные признаки ───────
-  # (1) ИСТОЧНИК брифа — режим 187а (arch187_scope: эффективный repoId
-  #     Complior-back И pin модели в architecture.lock.json). В режиме 187а
+  # (1) ИСТОЧНИК брифа — режим 187а (arch187_scope: включённая профильная
+  #     политика hooks.archBrief И pin модели в architecture.lock.json). В режиме 187а
   #     бриф компонента читается из ЗАКРЕПЛЁННОГО коммита модели (exact SHA
   #     пина); локальная architecture/ (устаревшая копия после 167) источником
   #     не является и её отсутствие бриф не отменяет. Вне режима 187а —
@@ -1009,15 +1009,21 @@ if [ "$KIND" = task ]; then
   if printf '%s' "$CBYTES" | arch187_code_subject -; then
     _arch187_code=1
   fi
-  if arch187_scope "$REPO_ABS"; then
+  # Режим 187а — по профильной политике hooks.archBrief И пину модели.
+  # Ошибка профиля (rc 2) — ОТКАЗ с названной причиной: неизвестный профиль
+  # не вправе выглядеть как «дверь выключена» (226).
+  _scope_rc=0
+  arch187_scope "$REPO_ABS" || _scope_rc=$?
+  [ "$_scope_rc" -le 1 ] || die "$ARCH187_REFUSAL"
+  if [ "$_scope_rc" = 0 ]; then
     _arch187_scope=1
   fi
   # КОНТРАКТ 187 v3, ПРИМЕНИМОСТЬ требования --arch-component: требование
   # применимо при локальном каталоге architecture/ (старое требование frozen
   # 170/1 — любой проект, не сужается одним backend) ЛИБО при применимом
-  # lock (режим 187а: эффективный repoId=Complior-back и architecture.lock.json)
+  # lock (режим 187а: включённая политика hooks.archBrief и architecture.lock.json)
   # — в том числе БЕЗ локальной копии architecture/ (её удаление после 167 не
-  # переводит backend в legacy). Требование флага и ИСТОЧНИК pinned-brief —
+  # переводит проект в legacy). Требование флага и ИСТОЧНИК pinned-brief —
   # РАЗНЫЕ предикаты: источник определяется режимом 187а, применимость —
   # этим предикатом.
   _arch_applicable=0
