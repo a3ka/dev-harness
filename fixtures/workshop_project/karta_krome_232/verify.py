@@ -12,7 +12,7 @@ import time
 ROOT = Path(__file__).resolve().parents[3]
 FAMILY = 'fixtures/workshop_project/karta_krome_232'
 CONTRACT = 'contracts/232-gramm-karta-krome.md'
-BASE = '8fe4e79ca8c5165bcd1e7dfb75768c5bd329d3cb'
+BASE = 'bbda9d3f9ebcb035e95b4671db8064a46dbe7a23'
 ORIGIN = 'ssh://git@github.com/a3ka/dev-harness.git'
 
 
@@ -52,7 +52,7 @@ def main():
             print('STOP: occupied verification path: ' + str(destination), file=sys.stderr)
             return 2
         if not execute('origin-clone', ['bash', str(ROOT / 'scripts/gitw'), 'clone', '--quiet',
-                                       '--branch', 'wip/232/orchestrator-c1', '--single-branch',
+                                       '--branch', 'archive/232/critic-v1-fail-bbda9d3f9', '--single-branch',
                                        ORIGIN, str(destination)], ROOT):
             return 2
         if not execute('origin-tags', ['bash', 'scripts/gitw', 'fetch', 'origin', '+refs/heads/main:refs/remotes/origin/main', '+refs/tags/*:refs/tags/*'], destination):
@@ -75,6 +75,8 @@ def main():
               ('sintaksis', ['bash', FAMILY + '/red_karta_krome_232.sh', '--sintaksis'], 0),
               ('catalog', ['bash', FAMILY + '/red_karta_krome_232.sh', '--catalog'], 0),
               ('repo', ['bash', FAMILY + '/red_karta_krome_232.sh', '--repo', '.'], 1),
+              ('reproduce-before', ['python3', '-B', FAMILY + '/reproduce.py', '--before'], 0),
+              ('reproduce-after', ['python3', '-B', FAMILY + '/reproduce.py'], 0),
               ('context', ['python3', '-B', FAMILY + '/context.py'], 0),
               ('pre_critic', ['bash', 'scripts/pre_critic.sh', CONTRACT], 0),
               ('sdacha', ['bash', 'scripts/check_sdacha.sh', '.', CONTRACT, '--run'], 0),

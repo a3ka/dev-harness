@@ -37,14 +37,39 @@ def main():
                   '        blob="$(git -C "$2" rev-parse "HEAD:$3")" || return 1\n'
                   '        telo="$(karta_tekst_bloha "$2" "$blob")" || { printf \'%s\' "$telo"; return 1; }\n'
                   '    fi\n    ryady="$(karta_stroki "$telo")"')
+    lib = replace(lib, '[ "$#" -eq 3 ] ||', '[ "$#" -ge 3 ] ||')
     lib += '\n# 232: policy is pinned to this installation, never the judged checkout.\n'
     lib += 'K232_SCRIPTS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"\n'
     lib += 'karta_tekst_bloha() { python3 -B "$K232_SCRIPTS/karta_registry.py" "$1" "$2"; }\n'
+    lib += 'karta_tekst_fajla() { python3 -B "$K232_SCRIPTS/karta_registry.py" "$1" --file "$2"; }\n'
+    door = original('scripts/check_verdict_karta.sh')
+    door = replace(door, 'NEXT_ID_LIB=1', 'export NEXT_ID_LIB=1')
+    door = replace(door, '[ $# -eq 2 ] ||',
+                   'CONTENT=0\nif [ "$#" -eq 3 ] && [ "$2" = --file ]; then CONTENT=1; set -- "$1" "$3"; fi\n[ $# -eq 2 ] ||')
+    head_read = '''telo="$(git -C "$ROOT" cat-file -p "HEAD:$VERDICT" 2>/dev/null)"
+[ -n "$telo" ] || otkaz "вердикт не закоммичен (AGENTS п.9): $VERDICT нет на HEAD"'''
+    door = replace(door, head_read, '''if [ "$CONTENT" -eq 1 ]; then
+    [ -f "$ROOT/$VERDICT" ] && [ -r "$ROOT/$VERDICT" ] || otkaz "файл вердикта отсутствует или нечитаем: $VERDICT"
+    telo="$(karta_tekst_fajla "$ROOT" "$ROOT/$VERDICT")" || otkaz "$VERDICT: $telo"
+else
+''' + head_read + '\nfi')
+    door = replace(door, 'spisok="$(karta_proverit "$telo" "$ROOT" "$VERDICT")" || otkaz "$VERDICT: $spisok"',
+                   '''if [ "$CONTENT" -eq 1 ]; then
+    spisok="$(karta_proverit "$telo" "$ROOT" "$VERDICT" --content)" || otkaz "$VERDICT: $spisok"
+else
+    spisok="$(karta_proverit "$telo" "$ROOT" "$VERDICT")" || otkaz "$VERDICT: $spisok"
+fi''')
     gate = '''  # 232: every critic materialization, independent of decision/invocation.
   if [[ "$head_branch" == */critic || "$VREL" == */critic/* ]]; then
     map_scripts="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-    if ! map_out="$(bash "$map_scripts/check_verdict_karta.sh" "$R" "$VREL" 2>&1)"; then
+    if ! map_out="$(bash "$map_scripts/check_verdict_karta.sh" "$R" --file "$VREL" 2>&1)"; then
       refuse KARTA_NE_SHTATNA "карта не штатная: $map_out"
+    fi
+    # An existing index entry must name exactly the judged working bytes.
+    index_blob="$(git -C "$R" rev-parse --verify ":$VREL" 2>/dev/null)" || index_blob=''
+    file_blob="$(git -C "$R" hash-object -- "$R/$VREL")" || refuse KARTA_NE_SHTATNA "карта не штатная: файл не прочитан"
+    if [ -n "$index_blob" ] && [ "$index_blob" != "$file_blob" ]; then
+      refuse KARTA_NE_SHTATNA "карта не штатная: индекс отличается от --file"
     fi
   fi
 '''
@@ -59,6 +84,7 @@ def main():
                  author='architect', date='2026-11-26', owner_ref='R-0168')
     policy = json.dumps(dict(version=1, exceptions=[entry]), ensure_ascii=False, indent=2) + '\n'
     outputs = {'model/lib_karta_sdachi.sh': lib, 'model/pre_judge.sh': pj,
+               'model/check_verdict_karta.sh': door,
                'model/karta_registry.py': helper, 'model/karta-exceptions.schema.json': schema,
                'model/karta-exceptions.json': policy}
     mutations = {}
@@ -96,10 +122,10 @@ def main():
     mutation('st13-prejudge-weakened', 'pre_judge.sh', replace(pj,
              '      refuse KARTA_NE_SHTATNA "карта не штатная: $map_out"', '      :'), ['pj-invalid-fail'])
     mutation('st14-only-accept', 'pre_judge.sh', replace(pj,
-             '    if ! map_out=', '    if [ "$(git -C "$R" show "HEAD:$VREL" | head -n 1)" = accept ] && ! map_out='),
+             '    if ! map_out=', '    if [ "$(head -n 1 "$R/$VREL")" = accept ] && ! map_out='),
              ['pj-invalid-fail'])
     mutation('st15-only-first', 'pre_judge.sh', replace(pj,
-             '    if ! map_out=', '    if git -C "$R" show "HEAD:$VREL" | grep -q "вызов=1;" && ! map_out='),
+             '    if ! map_out=', '    if grep -q "вызов=1;" "$R/$VREL" && ! map_out='),
              ['pj-invalid-call2'])
     mutation('st16-wrong-install', 'pre_judge.sh', replace(pj,
              '"$map_scripts/check_verdict_karta.sh"', '"$R/scripts/check_verdict_karta.sh"'),
@@ -107,9 +133,9 @@ def main():
     mutation('st17-call-repaint', 'karta_registry.py', replace(helper,
              "if current and str(int(current[1])) != entry['call']:", 'if False:'), ['change-call'])
     mutation('st18-registry-from-subject', 'karta_registry.py', replace(helper,
-             "    body = git(root, 'cat-file', '-p', blob)",
-             "    global POLICY\n    POLICY = Path(root) / 'registry/karta-exceptions.json'\n"
-             "    body = git(root, 'cat-file', '-p', blob)"), ['config-add-only', 'subject-policy-bait'])
+             "    root = sys.argv[1]",
+             "    global POLICY\n    root = sys.argv[1]\n"
+             "    POLICY = Path(root) / 'registry/karta-exceptions.json'"), ['config-add-only', 'subject-policy-bait'])
     mutation('st19-flag-bypass', 'pre_judge.sh', replace(pj,
              '    --file) ', '    --skip-karta) printf \'VERDICT_BRANCH=wip/777/critic\\n\'; exit 0 ;;\n    --file) '),
              ['pj-no-skip-flag'])
@@ -125,6 +151,23 @@ def main():
              "x['blob'] == blob and blob == " + repr(blob)), ['config-new-blob-only'])
     mutation('st24-hardcoded-map', 'karta_registry.py', replace(helper,
              '    return result', '    return ' + repr(entry['map'])), ['config-new-map-only'])
+    mutation('st25-head-not-file', 'pre_judge.sh', replace(pj,
+             '"$R" --file "$VREL"', '"$R" "$VREL"'), ['pj-new-honest', 'pj-replace-invalid'])
+    mutation('st26-wrong-file', 'pre_judge.sh', replace(pj,
+             '"$R" --file "$VREL"', '"$R" --file "${VREL%/*}/contracts-178-v1-source.md"'),
+             ['pj-new-invalid'])
+    mutation('st27-new-only', 'pre_judge.sh', replace(pj,
+             '    if ! map_out=', '    if ! git -C "$R" cat-file -e "HEAD:$VREL" 2>/dev/null && ! map_out='),
+             ['pj-replace-invalid'])
+    mutation('st28-after-commit', 'pre_judge.sh', replace(pj,
+             '    if ! map_out=', '    git -C "$R" add -- "$VREL"; git -C "$R" -c user.name=Fixture -c user.email=fixture@local commit -qm "premature materialization"\n    if ! map_out='),
+             ['pj-new-invalid'])
+    index_check = '''    if [ -n "$index_blob" ] && [ "$index_blob" != "$file_blob" ]; then
+      refuse KARTA_NE_SHTATNA "карта не штатная: индекс отличается от --file"
+    fi
+'''
+    mutation('st29-wrong-commit-bytes', 'pre_judge.sh', replace(pj, index_check, ''),
+             ['pj-index-different'])
     # Schema case weakening must accompany the identity mutation to expose the
     # actual acceptance path; otherwise the grammar rejects before comparison.
     weakened = json.loads(schema)

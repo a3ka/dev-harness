@@ -398,8 +398,14 @@ if [ "$MODE" = 'verdict' ]; then
   # 232: every critic materialization, independent of decision/invocation.
   if [[ "$head_branch" == */critic || "$VREL" == */critic/* ]]; then
     map_scripts="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-    if [ "$(git -C "$R" show "HEAD:$VREL" | head -n 1)" = accept ] && ! map_out="$(bash "$map_scripts/check_verdict_karta.sh" "$R" "$VREL" 2>&1)"; then
+    if [ "$(head -n 1 "$R/$VREL")" = accept ] && ! map_out="$(bash "$map_scripts/check_verdict_karta.sh" "$R" --file "$VREL" 2>&1)"; then
       refuse KARTA_NE_SHTATNA "карта не штатная: $map_out"
+    fi
+    # An existing index entry must name exactly the judged working bytes.
+    index_blob="$(git -C "$R" rev-parse --verify ":$VREL" 2>/dev/null)" || index_blob=''
+    file_blob="$(git -C "$R" hash-object -- "$R/$VREL")" || refuse KARTA_NE_SHTATNA "карта не штатная: файл не прочитан"
+    if [ -n "$index_blob" ] && [ "$index_blob" != "$file_blob" ]; then
+      refuse KARTA_NE_SHTATNA "карта не штатная: индекс отличается от --file"
     fi
   fi
   printf 'VERDICT_BRANCH=%s\n' "$head_branch"

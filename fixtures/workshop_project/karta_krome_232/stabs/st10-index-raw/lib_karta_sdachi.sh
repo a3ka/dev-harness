@@ -296,7 +296,7 @@ karta_proverit() { # текст; необязательные ROOT и путь �
     fi
     ryady="$(karta_stroki "$telo")" || { printf '%s' "$ryady"; return 1; }
     if [[ "$ryady" == *$'\tссылка:'* ]]; then
-        [ "$#" -eq 3 ] || { printf 'ссылка требует закоммиченного контекста'; return 1; }
+        [ "$#" -ge 3 ] || { printf 'ссылка требует закоммиченного контекста'; return 1; }
         karta_index "$2" "$3" "$1" || return 1
         karta_raskryt "$ryady"
     else
@@ -316,3 +316,4 @@ karta_poslednij_fail() { # ROOT, путь, текст; полный послед
 # 232: policy is pinned to this installation, never the judged checkout.
 K232_SCRIPTS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 karta_tekst_bloha() { python3 -B "$K232_SCRIPTS/karta_registry.py" "$1" "$2"; }
+karta_tekst_fajla() { python3 -B "$K232_SCRIPTS/karta_registry.py" "$1" --file "$2"; }

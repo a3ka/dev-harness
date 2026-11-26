@@ -52,8 +52,16 @@ def normalize(body):
 
 
 def main():
-    root, blob = sys.argv[1:]
-    body = git(root, 'cat-file', '-p', blob)
+    root = sys.argv[1]
+    if sys.argv[2] == '--file':
+        raw = Path(sys.argv[3]).read_bytes()
+        p = subprocess.run(['git', '-C', root, 'hash-object', '--stdin'],
+                           input=raw, capture_output=True, check=True)
+        blob = p.stdout.decode().strip()
+        body = raw.decode()
+    else:
+        blob = sys.argv[2]
+        body = git(root, 'cat-file', '-p', blob)
     if not POLICY.exists():
         print(body, end='')
         return 0

@@ -1,36 +1,42 @@
 {
   "base": "8fe4e79ca8c5165bcd1e7dfb75768c5bd329d3cb",
   "sha256": {
-    "model/lib_karta_sdachi.sh": "31e6ee6fd01870c5dd96b870c031f261d2330f87f1cdc55c7d05cca063a476ff",
-    "model/pre_judge.sh": "9af44ada6a75120ffe2d931f327e2fdf99b55ebf3c1ee196cde9be546444880c",
-    "model/karta_registry.py": "c7f7224b701727b6e310f667f4e6c8713213faff2232a773479bb50acf7a2219",
+    "model/lib_karta_sdachi.sh": "1028116b0889b61ea80db1a2a78d835bf69119eeb14f0abe4854d5576f15e960",
+    "model/pre_judge.sh": "440a019f76e6caffa64c819572b7483ae6284a46eccd8cacff56d2057c1c1bec",
+    "model/check_verdict_karta.sh": "1e2718e2713495da13b223a3ec6038cec885ac561abeb096508709c6a842057b",
+    "model/karta_registry.py": "6948f225f19a1b2773db72caba91e66b33d639885976faa25f6c9a29c30a66d6",
     "model/karta-exceptions.schema.json": "5079e766fcc233cb4c0977d34665328eae662a9bb47f38c068a0eee4e4eb0210",
     "model/karta-exceptions.json": "9f9c1484a215b86614f57571efe58baca92af7122b8e89491c9c2579b319b39f",
     "stabs/st04-uppercase/karta-exceptions.schema.json": "517bafa0a533350fa36a02394f0006500d3ef9a17a3330db3890cd5cf09b45be",
-    "stabs/st01-no-registry/karta_registry.py": "d8a4f6ea24bc0379201be363257d73d537e43969795839a65ba06134889c47a4",
-    "stabs/st02-hardcoded/karta_registry.py": "e1283e66689ad34d6737729159732cf294f7e8272a1d27f62dc7ec76c0d6e193",
-    "stabs/st03-prefix/karta_registry.py": "531d144f7cded503578402aff3fad20b82128fcab3b029a062c23099706dce78",
-    "stabs/st04-uppercase/karta_registry.py": "a1d126370b65399680b6b10e27cbf39bde5d7d467f478c4aa961357930fb0838",
-    "stabs/st05-no-identity/karta_registry.py": "31d2c0d566c4a78ae0345303243d16b52d7d17b3b5cab4415dcb3e8e7712d790",
-    "stabs/st06-schema-open/karta_registry.py": "52003d23e1b59292262913c98ee833b57ef72357831055c898670964dfb1f7fd",
-    "stabs/st07-no-dedup/karta_registry.py": "32ddfb87110b52c0fdb5eabefc1cf165a5a06980894f5b332447908e05cbe05b",
-    "stabs/st08-repaint/karta_registry.py": "e2c8caefd2719092f84ea3bbdc8d4f82b76cdd54ac5e1e6a3a28e77627c7aaeb",
-    "stabs/st09-global-normalize/karta_registry.py": "0698610b05c678b6c9d42179b0dc1b578e1ec25b42bf320b74b0613d8d5e8fc0",
-    "stabs/st10-index-raw/lib_karta_sdachi.sh": "44437c72b75cf5f251d5d43c1e924df7d9c15c6a60f9d85010bffddf90f6e14b",
-    "stabs/st11-raw-current/lib_karta_sdachi.sh": "9e667d6e515648b4400e5d8a0e22330e5c7650f2d687d00db05a6eb7e53742ce",
+    "stabs/st01-no-registry/karta_registry.py": "9f4a6e3e072ef26d7824d69678548c306a0246a56f7d8acb708fcdf948600e64",
+    "stabs/st02-hardcoded/karta_registry.py": "73be7e6e31f9586d39301d26389968366f84f948b542a22fbfb11245d1a16a1e",
+    "stabs/st03-prefix/karta_registry.py": "7a618cb6810b2bd1c56aac3630e68f7b14a2f28a09f9f5ab48d1ea1c41900b6c",
+    "stabs/st04-uppercase/karta_registry.py": "50958d50c3fc830e51c04e0cf7e0f763fe98c650ad15348ddf1f712354f4df5f",
+    "stabs/st05-no-identity/karta_registry.py": "92075d48d3d91378a851c405113678cd19005b7d67fa760ddccfdf6d1703d853",
+    "stabs/st06-schema-open/karta_registry.py": "81df12a85015c0bb9d44269fe034bf2aa1db688c5e6f828e60763ac61ad0dfb5",
+    "stabs/st07-no-dedup/karta_registry.py": "25fd7113a660b6d23929cfd297ffd3987b83658eb714030ec7f8c560551f774e",
+    "stabs/st08-repaint/karta_registry.py": "e49a9773c81cd6244c396f73bf6742aca9457f2512fcdc5f88c0f85d66ff5948",
+    "stabs/st09-global-normalize/karta_registry.py": "aeb4981225b2a2791b12413f239c378f541942ac3fba191d4a03f637dca179ec",
+    "stabs/st10-index-raw/lib_karta_sdachi.sh": "0e3d390d35d27f2f782c0ab5d0ef17dcaf93a00585c046053a1fb3b3fbd1e090",
+    "stabs/st11-raw-current/lib_karta_sdachi.sh": "75a7469d22ac5f885047fef9854c23ed9865f76fbea6a771b124a651b83f3f74",
     "stabs/st12-no-prejudge/pre_judge.sh": "856f8b7cba8908440ea0a91f76c45b4b77f9f4efb0250279bb9f1d68dbf7cb4f",
-    "stabs/st13-prejudge-weakened/pre_judge.sh": "783531046b82c4d69931c58206227f560aa4f3d8fec5a5964f0b4180f3b82587",
-    "stabs/st14-only-accept/pre_judge.sh": "c84dd7dd2e7c9575dbb21dc675012cac1804de1ff8aaa7e4350a5489419a362b",
-    "stabs/st15-only-first/pre_judge.sh": "de5c1d3692e425c04f41dfe177c8ec4465ae4ce816558e84e9febb36aba2b87f",
-    "stabs/st16-wrong-install/pre_judge.sh": "71d10ba5c9e44bd053ef6dcdc2e97757f82a00b3901ed75c96a1bb84b5ed71aa",
-    "stabs/st17-call-repaint/karta_registry.py": "c9a583e9c4807c95d0f7599de06411892b35654a88be21c735790bbd8d1b7629",
-    "stabs/st18-registry-from-subject/karta_registry.py": "3fe2b330d2bf0b71a70346730005d951a8b6abc2154c50430dc5cc85fc7df373",
-    "stabs/st19-flag-bypass/pre_judge.sh": "cceda41b17538ebb8494e7f4347f86b1252f515fdb648db3d257d3899f1a1e91",
-    "stabs/st20-role-bypass/pre_judge.sh": "6ae9cb051b578d2f5292d70d93176b8a536e3db6d7105b2c29ab8a14f47b0df3",
-    "stabs/st21-hardcoded-tail/lib_karta_sdachi.sh": "ad31f0a94aeb5eba3bc1762ecc2ca94e3eb01875ee217566da069d772c0d0e6e",
-    "stabs/st22-no-json-dedup/karta_registry.py": "5c13aa4b3cdd01d54d0b833d715505fbaeb814efdc068582f9497dffdaa18d31",
-    "stabs/st23-hardcoded-key/karta_registry.py": "27fdf3e6ab3c080a7cd52c60e02c958159c0f693a6ec027820441448aec88566",
-    "stabs/st24-hardcoded-map/karta_registry.py": "ca3445e6ad62d48979eecf4b507bca1e1071f2caf5c369d2431a22b4ef7bd9de",
+    "stabs/st13-prejudge-weakened/pre_judge.sh": "9c61a0003e10bcac1f38a8dc06c063b1da0af182237119027b1e2966ed21a395",
+    "stabs/st14-only-accept/pre_judge.sh": "b0b4584d89844171320692081fb8dd95a7ebaad48e4a01999284377e17c29d61",
+    "stabs/st15-only-first/pre_judge.sh": "322abe3fad745a382d19adfffde602c49cfba752c1ea4546dfa9bd3df3291c5c",
+    "stabs/st16-wrong-install/pre_judge.sh": "e83c618a35e348192155cfdd1d72bfd74afaab63edc5b1da078eb72d129c9b25",
+    "stabs/st17-call-repaint/karta_registry.py": "0ddd674e45268e8159c0dfd2ed6417a89984b74900d7431fc5f79607efec914d",
+    "stabs/st18-registry-from-subject/karta_registry.py": "de5d5a6244919f0fcad45e07616002f2884f9c419421e97a35612ae0598e2bd3",
+    "stabs/st19-flag-bypass/pre_judge.sh": "6a40ce89a2829c9791c038449f14c674c1bc78eadfa2fba36f7ab99f152dbcfb",
+    "stabs/st20-role-bypass/pre_judge.sh": "50cf6132bfc1f5f9d374d26f3287fcdf01221f15af4fd90d3a0dd3facfda95d8",
+    "stabs/st21-hardcoded-tail/lib_karta_sdachi.sh": "277bb0e637228c79d29447e1b2ae2e9336b258f8fad1ac0ded9ea11034ca4e6d",
+    "stabs/st22-no-json-dedup/karta_registry.py": "ffd2e51483f7389f41a4832b5ff33b33fa682376f7a55c196aeed71748e34d82",
+    "stabs/st23-hardcoded-key/karta_registry.py": "daae9a9ae515138d924a4890448386c734120efb1e6829c0eb00a844ab96640d",
+    "stabs/st24-hardcoded-map/karta_registry.py": "70c2ae568a7504b5b41fbbbbd1965f2723bbfd366330e6edc0a1110b3c764494",
+    "stabs/st25-head-not-file/pre_judge.sh": "24b0fc3ef5b8d7b8b12be6fa1e6686c4c6fa8336172174d755bcf4e1fb3025ff",
+    "stabs/st26-wrong-file/pre_judge.sh": "ce40a5803979cafb3b30b135b24d26c93746993704c626d662bbc17939355f59",
+    "stabs/st27-new-only/pre_judge.sh": "5e147c5ace7a1f977fa196be5a13ba0cf3731e353632cc02260ae7177c48f372",
+    "stabs/st28-after-commit/pre_judge.sh": "a24af516758a9f211686f5baa41c2f8e24e8ac174f242d05750b63e06b77905f",
+    "stabs/st29-wrong-commit-bytes/pre_judge.sh": "b86524c673cdcee70668c01bf3daaba86ff1cc5c220e16cad8fb2b8167489c6d",
     "live178.md": "0a7d5c84b0cbebc8e9e61bfd58db185f6d4f38c0ae711842a7b72c820aacae66",
     "normalized178.json": "ae0f9dc317ef3d464020e98acbbdbbb003a905ae6196d1fe733d4aeb490ab5e8"
   },
@@ -186,6 +192,30 @@
     {
       "stab": "st24-hardcoded-map",
       "case": "config-new-map-only"
+    },
+    {
+      "stab": "st25-head-not-file",
+      "case": "pj-new-honest"
+    },
+    {
+      "stab": "st25-head-not-file",
+      "case": "pj-replace-invalid"
+    },
+    {
+      "stab": "st26-wrong-file",
+      "case": "pj-new-invalid"
+    },
+    {
+      "stab": "st27-new-only",
+      "case": "pj-replace-invalid"
+    },
+    {
+      "stab": "st28-after-commit",
+      "case": "pj-new-invalid"
+    },
+    {
+      "stab": "st29-wrong-commit-bytes",
+      "case": "pj-index-different"
     }
   ],
   "live_git_blob": "0c079b17b3d1a3fee5cf58c5daf19ea9c156d713",

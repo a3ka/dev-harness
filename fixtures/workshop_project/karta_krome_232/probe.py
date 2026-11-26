@@ -18,6 +18,7 @@ POLICY = 'registry/karta-exceptions.json'
 SCHEMA = 'registry/karta-exceptions.schema.json'
 FILES = {'lib_karta_sdachi.sh': 'scripts/lib_karta_sdachi.sh',
          'pre_judge.sh': 'scripts/pre_judge.sh', 'karta_registry.py': 'scripts/karta_registry.py',
+         'check_verdict_karta.sh': 'scripts/check_verdict_karta.sh',
          'karta-exceptions.schema.json': SCHEMA, 'karta-exceptions.json': POLICY}
 CASES = {
     'live-registered': dict(live=True),
@@ -75,6 +76,21 @@ CASES = {
     'pj-timeout-not-bypass': dict(pj=True, status='чисто', flags=['--timeout', '0'], rc=1, reason='KARTA_NE_SHTATNA'),
     'pj-role-bypass': dict(pj=True, status='чисто', role='reviewer', rc=1, reason='KARTA_NE_SHTATNA'),
     'pj-other-role-unchanged': dict(pj=True, other_role=True),
+    'pj-new-honest': dict(pj=True, call='1', commit_equivalence=True),
+    'pj-new-invalid': dict(pj=True, status='чисто', rc=1, reason='KARTA_NE_SHTATNA'),
+    'pj-replace-invalid': dict(pj=True, replace=True, staged=True, call='1', status='чисто', rc=1, reason='KARTA_NE_SHTATNA'),
+    'pj-replace-honest': dict(pj=True, replace=True, call='1', staged=True, commit_equivalence=True),
+    'pj-index-different': dict(pj=True, index_different=True, rc=1, reason='KARTA_NE_SHTATNA'),
+    'pj-file-missing': dict(pj=True, missing=True, rc=1, reason='KARTA_NE_SHTATNA'),
+    'pj-outside-critic': dict(pj=True, outside=True, rc=1, reason='KARTA_NE_SHTATNA'),
+    'pj-nonjudicial-branch': dict(pj=True, role='author', rc=1, reason='NE_SUDJSKAJA_VETKA'),
+    'pj-adversary-unchanged': dict(pj=True, other_role=True, role='adversary'),
+    'pj-arbiter-unchanged': dict(pj=True, other_role=True, role='arbiter'),
+    'content-new-honest': dict(content=True, commit_equivalence=True),
+    'content-new-invalid': dict(content=True, status='чисто', rc=1, reason='статус вне алфавита'),
+    'content-live-uncommitted': dict(content=True, live=True, commit_equivalence=True),
+    'content-changed-byte': dict(content=True, live=True, changed=True, rc=1, reason='К-05: ссылка вне грамматики'),
+    'content-replacement-invalid': dict(content=True, replace=True, status='чисто', rc=1, reason='статус вне алфавита'),
 }
 
 
@@ -136,14 +152,22 @@ def world(work, spec, tools, saved):
         target = 'verdicts/critic/contracts-178-v1-other.md'
     if spec.get('other_role'):
         target = 'verdicts/review/contracts-178-impl-v1.md'
+    if spec.get('outside'):
+        target = 'verdicts/review/contracts-178-impl-v1.md'
     body = (saved['live178.md'] if spec.get('live') else
             verdict(spec.get('call', '6'), {5: spec.get('status', 'чисто — вход: контроль')},
                     spec.get('decision', 'accept')))
     if spec.get('changed'):
         body += b'\n'
+    precommit = spec.get('pj') or spec.get('content')
+    if spec.get('replace'):
+        put(root, target, verdict(spec.get('call', '6')))
+        git(root, 'add', target)
+        git(root, 'commit', '-qm', 'previous valid target')
     put(root, target, body)
-    git(root, 'add', '-A')
-    git(root, 'commit', '-qm', 'unchanged historical verdict')
+    if not precommit:
+        git(root, 'add', '-A')
+        git(root, 'commit', '-qm', 'unchanged historical verdict')
     policy = json.loads(saved['model/karta-exceptions.json'])
     mode = spec.get('config', '')
     if spec.get('numeric_entry'):
@@ -196,8 +220,19 @@ def world(work, spec, tools, saved):
         target = 'verdicts/critic/contracts-178-v1-krug7.md'
         body = verdict('7')
         put(root, target, body)
-    git(root, 'add', '-A')
+    if precommit:
+        git(root, 'add', '-A', '--', '.', ':(exclude)' + target)
+    else:
+        git(root, 'add', '-A')
     git(root, 'commit', '--allow-empty', '-qm', 'world ready')
+    if spec.get('staged'):
+        git(root, 'add', target)
+    if spec.get('index_different'):
+        put(root, target, verdict('6', {5: 'чисто'}))
+        git(root, 'add', target)
+        put(root, target, body)
+    if spec.get('missing'):
+        (root / target).unlink()
     expected = ''.join('К-%02d\t%s\n' %
                       (k, 'блок' if spec.get('live') and k in (2, 3, 7) else 'чисто')
                       for k in range(1, 18)).encode()
@@ -207,6 +242,17 @@ def world(work, spec, tools, saved):
 def observe(tools, root, target, spec, expected):
     rc = spec.get('rc', 0)
     errors = []
+    if spec.get('content'):
+        p = run(['bash', tools / 'scripts/check_verdict_karta.sh', root, '--file', target])
+        if p.returncode not in (0, 1):
+            raise RuntimeError('SUBJECT_ERROR: ' + repr(p.stderr))
+        if p.returncode != rc: errors.append('CONTENT_RC')
+        if rc == 0:
+            if p.stdout != 'КАРТА: 17/17 зелёный\n'.encode() or p.stderr:
+                errors.append('CONTENT_OUTPUT')
+        elif spec['reason'].encode() not in p.stderr or p.stdout:
+            errors.append('CONTENT_REASON')
+        return errors, p
     if spec.get('pj'):
         p = run(['bash', tools / 'scripts/pre_judge.sh', 'verdict', '--repo', root,
                  '--file', target, *spec.get('flags', [])])
@@ -254,6 +300,8 @@ def suite(overlay, names, tools_repo, saved, label):
             work = Path(temp)
             tools = installed(work, tools_repo, overlay)
             root, target, body, head, expected = world(work, spec, tools, saved)
+            original_file = (root / target).read_bytes() if (root / target).exists() else None
+            original_index = git(root, 'ls-files', '--stage', '--', target)
             before = {p.name: p.read_bytes() for p in (tools / 'scripts').iterdir() if p.is_file()}
             if spec.get('sequence'):
                 policy = (tools / POLICY).read_bytes()
@@ -270,8 +318,22 @@ def suite(overlay, names, tools_repo, saved, label):
                 errors, p = observe(tools, root, target, spec, expected)
             if before != {p.name: p.read_bytes() for p in (tools / 'scripts').iterdir() if p.is_file()}:
                 errors.append('CODE_MUTATED')
-            if git(root, 'rev-parse', 'HEAD') != head or git(root, 'show', 'HEAD:' + target) != body:
+            actual_file = (root / target).read_bytes() if (root / target).exists() else None
+            if git(root, 'rev-parse', 'HEAD') != head or actual_file != original_file:
                 errors.append('INPUT_MUTATED')
+            if git(root, 'ls-files', '--stage', '--', target) != original_index:
+                errors.append('INDEX_MUTATED')
+            if spec.get('commit_equivalence'):
+                # Only the checker commits, after observing no subject mutation.
+                raw = run(['bash', tools / 'scripts/check_verdict_karta.sh', root, '--file', target])
+                git(root, 'add', target)
+                git(root, 'commit', '-qm', 'materialize exactly checked file')
+                committed = git(root, 'show', 'HEAD:' + target)
+                head_result = run(['bash', tools / 'scripts/check_verdict_karta.sh', root, target])
+                if committed != body or (raw.returncode, raw.stdout, raw.stderr) != (head_result.returncode, head_result.stdout, head_result.stderr):
+                    errors.append('COMMIT_IDENTITY')
+                if head_result.returncode != 0:
+                    errors.append('COMMITTED_RC')
             if errors:
                 red += 1
                 print(label, name, 'RED', ','.join(errors), 'rc=', p.returncode,
@@ -314,12 +376,12 @@ def main():
         shell = [HERE / p for p in saved if p.endswith('.sh')]
         shell.append(HERE / 'red_karta_krome_232.sh')
         for path in shell: checked(['bash', '-n', path])
-        for path in [HERE / 'model/lib_karta_sdachi.sh', HERE / 'model/pre_judge.sh', HERE / 'red_karta_krome_232.sh']:
+        for path in [HERE / 'model/lib_karta_sdachi.sh', HERE / 'model/pre_judge.sh', HERE / 'model/check_verdict_karta.sh', HERE / 'red_karta_krome_232.sh']:
             checked(['bash', REPO / 'scripts/validate_std.sh', 'bash', path])
         checked(['bash', REPO / 'scripts/validate_std.sh', 'json', HERE / 'model/karta-exceptions.schema.json', HERE / 'model/karta-exceptions.json'])
         for path in [HERE / 'probe.py', HERE / 'build.py', HERE / 'context.py', HERE / 'verify.py', *[HERE / p for p in saved if p.endswith('.py')]]:
             compile(path.read_bytes(), str(path), 'exec')
-        print('SINTAKSIS', len(shell), 'SHELLCHECK', 3, 'JSON_SCHEMA', 1)
+        print('SINTAKSIS', len(shell), 'SHELLCHECK', 4, 'JSON_SCHEMA', 1)
         return 0
     tools_repo = (args.repo or REPO).resolve()
     if args.stabs:

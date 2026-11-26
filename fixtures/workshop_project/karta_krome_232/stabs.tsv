@@ -36,3 +36,9 @@ st21-hardcoded-tail	unregistered-semicolon
 st22-no-json-dedup	duplicate-json-key
 st23-hardcoded-key	config-new-blob-only
 st24-hardcoded-map	config-new-map-only
+st25-head-not-file	pj-new-honest
+st25-head-not-file	pj-replace-invalid
+st26-wrong-file	pj-new-invalid
+st27-new-only	pj-replace-invalid
+st28-after-commit	pj-new-invalid
+st29-wrong-commit-bytes	pj-index-different
