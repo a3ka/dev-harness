@@ -1,121 +1,134 @@
 FAIL
-OBJECT=b3149e02663ba454635bfe1f7bfc2546ab7f2d14
-СУД: repo=dev-harness; предмет=225; фаза=контракт; роль=critic; вызов=1/2 (полный; новый предмет); модель-план=openai-codex/gpt-6.1-terra; сессия=Crit225; модель-факт=openai-codex/gpt-6.1-terra; автор Architect225=openai-codex/gpt-6.1-sol; SHA=b3149e02663ba454635bfe1f7bfc2546ab7f2d14; предыдущий=нет; исключение=нет.
+OBJECT=c11a5b323883547ea1140b42195b3e22d340c20c
+СУД: repo=dev-harness; предмет=225; фаза=контракт; роль=critic; вызов=2/2 (исправительный; дельта Architect225b); модель-план=openai-codex/gpt-6.1-terra; сессия=Crit225b; модель-факт=openai-codex/gpt-6.1-terra; автор Architect225b=openai-codex/gpt-6.1-sol; SHA=c11a5b323883547ea1140b42195b3e22d340c20c; предыдущий=archive/225/critic-v1-fail-c71f93117a; исключение=нет.
 
-Фактические модели: `bash scripts/models_actual.sh --tsv --bind --session Crit225` и аналогично `Architect225`, rc 0: соответственно `critic openai-codex/gpt-6.1-terra allowed Crit225 b3149e02663ba454635bfe1f7bfc2546ab7f2d14` и `architect openai-codex/gpt-6.1-sol allowed Architect225 -`. Разные сессии и авторы. Сверка записи HANDOFF и трейса до материализации — за оркестратором. По runtime `uptime`: `load average: 18.60, 18.73, 25.82`.
+`models_actual.sh --tsv --bind --session Crit225b` и `--session Architect225b` rc 0: разные сессии, фактические модели и роли соответствуют указанным. Задание на этот OBJECT сообщает санкцию R-0085 п.2; окончательная сверка записи HANDOFF с трассой — оркестратору. Основание scoped-поиска: ремонт Б-2 утверждает сохранение всего ENV-интерфейса 196 и меняет чтение всех трёх переменных; проверены также соседние непустые значения. Проверка каталога прежних атак прямо требуется нормой 192. Остальные поверхности повторно полностью не исследовались.
 
 ## Блоки
 
-БЛОКИРУЕТ contracts/225-ci-clean-vremennye-katalogi.md:35,49 — честная модель удаляет данные при неполном обзоре cgroup и получает зелёный контроль.
-ПРОИСХОЖДЕНИЕ: пропущен-ранее
-КЛАСС: К-08
-ОБЯЗАТЕЛЬСТВО: нечитаемая cgroup/proc — rc 1 без удаления этого корня, рекурсивный осмотр всех worker; `--model` — честный контроль.
-СОСТОЯНИЕ: в штатном игрушечном мире `World` создаётся `w.entry()` старше срока и `w.worker(nested=True)`; у дочерней cgroup временно сняты права чтения и обхода (`chmod(0)`), остальная среда исправна. На реальной cgroup при исполнении root аналогичную неопределённость может вызвать ошибка чтения/FS; права игрушки — воспроизводимый шов, не утверждение об обычных root-правах. Это явно предусмотренный отказной сценарий контракта, не гонка и не враждебный root.
-НАБЛЮДЕНИЕ: `model/root/ci-clean.py:166` использует `os.walk(group, followlinks=False)` без обработки `onerror`; ошибка перечисления дочерней cgroup подавляется, worker не найден и старая запись удаляется. До исправления `--model` уже зелёный. Свойство закрытия: любую ошибку обхода всей cgroup трактовать как неопределённость с отказом без удаления, проверить реально наблюдаемыми rc/деревом и thaw, включая недоступную вложенную группу.
-
-БЛОКИРУЕТ contracts/225-ci-clean-vremennye-katalogi.md:14,36,49,52 — сохранение существующего ENV-интерфейса 196 не выполнено моделью, хотя оба модельных контроля зелёные.
-ПРОИСХОЖДЕНИЕ: пропущен-ранее
+БЛОКИРУЕТ contracts/225-ci-clean-vremennye-katalogi.md:36,50 — класс сохранения ENV-интерфейса 196 закрыт только на пустой строке; честная модель противоречит существующему поведению на соседнем доступном входе.
+ПРОИСХОЖДЕНИЕ: узкое-закрытие
 КЛАСС: К-03
-ОБЯЗАТЕЛЬСТВО: сохранить bash CLI/ENV и отказы 196, кроме прямо изменённого источника значений по умолчанию; сохранить регресс 196.
-СОСТОЯНИЕ: достижимый публичный вызов cleaner с `CI_ARTIFACTS_RETENTION_DAYS=''`, явным существующим игрушечным `CI_ARTIFACTS_ROOT` и корректным `CI_ARTIFACTS_REPOS`. Старый `ops/server/root/ci-artifacts-clean:15-17` использует `${VAR:-default}`: пустая переменная означает умолчание. Модель `model/root/ci-clean.py:108` использует `os.environ.get`: пустую строку принимает за явно заданный неверный срок. Такие же отличия есть у ROOT и REPOS в строках 111 и 117.
-НАБЛЮДЕНИЕ: старый cleaner rc 0, модель rc 1 `ОТКАЗ: срок не целое ≥1:`; команды зелёной батареи не различают это состояние. Свойство закрытия: сохранить поведение незаданного и пустого ENV при чтении нового конфигурационного умолчания для каждого из трёх швов, с проверкой настоящих эффектов и rc, не восстанавливая старый 14-дневный литерал.
+ОБЯЗАТЕЛЬСТВО: сохранить грамматику, stdout и ENV-поведение 196, за исключением явно изменённого источника умолчаний; модель должна быть честным контролем.
+СОСТОЯНИЕ: публичный вызов с `CI_ARTIFACTS_REPOS=' '` (один пробел), корректным сроком `4` и существующим игрушечным ROOT. Значение непустое: bash использует его, а не default. Это поддерживаемый ENV-шов, а не специально внесённая мутация.
+НАБЛЮДЕНИЕ: исходный cleaner 196 возвращает rc 0 и пустые stdout/stderr, поскольку цикл `for r in $REPOS_ENV` не выполняется и пустая строка `REPOS` не совпадает с case `' '`. Модель 225 после `.split()` отказывает с rc 1 `ОТКАЗ: список репо пуст`. `--model` и `--delta` при этом зелёные; последний не включает этот соседний вход. Проверяемое закрывающее свойство: совпадение 196 по rc, stdout/stderr и эффекту для непустых ENV в области обещанной совместимости, включая whitespace-only REPOS, с различающей проверкой на настоящем исходнике 196. Менять frozen-поведение или сужать обязательство без полномочного решения нельзя.
 
-## Воспроизведение
+АРБИТР: повтор класса Б-2 о сохранении ENV 196; вопрос — как закрыть совместимость непустого whitespace-only REPOS без изменения frozen-обязательства. Второй FAIL по той же причине; созывается арбитр, а не автоматический дополнительный круг.
 
-Все миры — в собственной копии под TMPDIR; живые `/var/lib` и systemd не затрагивались. Обе пробы запускались `TMPDIR="$PWD/tmp/scratch-crit225" python3 "$PWD/tmp/scratch-crit225/<имя>.py"` (rc команды 0). Содержимое `cgroup_case.py`:
+БЛОКИРУЕТ contracts/225-ci-clean-vremennye-katalogi.md:51 — отсутствуют обязательные адресные стабы мутаций из предыдущего вердикта.
+ПРОИСХОЖДЕНИЕ: узкое-закрытие
+КЛАСС: К-01
+ОБЯЗАТЕЛЬСТВО: roles/critic.md, §Связка с автором (контракт 192): каждая мутация критика из вердикта после исправления становится адресным стабом батареи и проверяется `--stabs`.
+СОСТОЯНИЕ: вердикт v1 документирует четыре реально исполненные мутации: игнорирование young-проверки, пропуск worker только второго юнита, постановка `thaw=True` только после успешного freeze, хардкод срока в один день. Дифф семейства и каталог `stabs/` OBJECT проверены; точных мутаций нет. Близкие s05 игнорирует ВСЕ worker, s07 отключает ВСЕ thaw, s01 задаёт ДВА дня; это не четыре адресных предъявления из вердикта. В частности поиск `if False and entry.lstat`, `unit != 'toy-b.service'`, `time.time() - 86400` и шаблона `ctl(conf, 'freeze', unit)` непосредственно перед `thaw = True` по каталогу стабов не дал совпадений.
+НАБЛЮДЕНИЕ: `--stabs` rc 0, `STABY=48 SVJAZI=68 ZHIVYH=0`, но этих четырёх обязательных адресных предъявлений не исполняет. Свойство закрытия: все четыре мутации из v1 присутствуют как отдельные адресные стабы с собственными связями и действительно краснеют; изменения модели/каталога учитывают её нынешний код. Н-39 соблюдается: привязки по коду делает architect, а не контрактная проза.
 
-```python
-import importlib.util, pathlib
-p = pathlib.Path('fixtures/workshop_project/ci_clean_225/probe.py').resolve()
-spec = importlib.util.spec_from_file_location('probe225', p)
-m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-with m.World(m.MODEL) as w:
-    old = w.entry()
-    w.worker(nested=True)
-    child = w.root / 'cgroup/toy-a.service/child.scope'
-    child.chmod(0)
-    try:
-        r = w.execute()
-        print('rc=', r.returncode, 'old_exists=', old.exists())
-        print('stdout:', r.stdout.strip())
-        print('stderr:', r.stderr.strip())
-    finally:
-        child.chmod(0o700)
+## Проверки закрытия и последствия дельты
+
+В чистом origin-only клоне OBJECT, TMPDIR внутри собственной копии, без обращения к живым `/var/lib` и systemd. `git diff b3149e026 c11a5b323 -- fixtures/workshop_project/ci_clean_225/probe.py`: прежние тела клеток не удалены, добавлены `uncertainty_case`, `env_case`, перечни и диспетчер; изменение syntax добавляет все shims. Риск повышен обоснованно: root-удаление данных живого раннера при неполном обзоре cgroup; после реализации порядок судов adversary → reviewer.
+
+Б-1: дословный `cgroup_case.py` из v1 запущен в том же `World` с chmod 0. Сырой вывод:
 ```
-
-Сырой результат (префикс абсолютного временного пути приведён целиком):
+rc= 1 old_exists= True
+stdout: ci-tmp: toy-b.service: удалено 0, хранится 0
+stderr: ОТКАЗ: RUNNER_STATE_UNAVAILABLE [Errno 13] Permission denied: '/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/te1d83e4a2/m/tmp/scratch-crit225b/ci225-b4p2oz51/cgroup/toy-a.service/child.scope'
 ```
-rc= 0 old_exists= False
-stdout: удалено: /home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/t8ddae7add/m/tmp/scratch-crit225/ci225-y_og86mh/runner one/job old
-ci-tmp: toy-a.service: удалено 1, хранится 0
-ci-tmp: toy-b.service: удалено 0, хранится 0
-stderr:
+`--delta` дополнительно наблюдает freeze→thaw, frozen 0 и обработку соседа. Соседние самостоятельные швы: `scandir` EMFILE и ENOENT, `stat` EACCES, вложенный symlink и `io.open` EACCES для cgroup.procs дают rc 1, старое дерево сохранено, сосед очищен, thaw вызван. Первый вариант шва `builtins.open` не перехватывал `pathlib`, а первоначальный вариант `io.open` мешал pipe-дескрипторам subprocess; они не засчитываются как доказательство. Исправленный шов:
 ```
+procs-denied rc= 1 old= True neighbor= False thaw= True stderr= "ОТКАЗ: RUNNER_STATE_UNAVAILABLE [Errno 13] injected: PosixPath('/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/te1d83e4a2/m/tmp/scratch-crit225b/ci225-xm2o872p/cgroup/toy-a.service/child.scope/cgroup.procs')\n"
+```
+Собственная соседняя мутация в одноразовом overlay: существующий `except OSError as exc: unavailable(exc)` в `worker_present` заменён на `except OSError as exc: return True`, то есть неопределённость маскируется под обычный BUSY вместо rc 1. Исполнены адресные `m.cell(m.MODEL, overlay, name)`; команда драйвера `TMPDIR="$PWD/../scratch-crit225b" PYTHONDONTWRITEBYTECODE=1 python3 "$TMPDIR/mutation.py"`, rc 0, сырой вывод:
+```
+cgroup-procs-unreadable green= False reason= 'UNCERTAINTY_RC 0: '
+proc-comm-unreadable green= False reason= 'UNCERTAINTY_RC 0: '
+cgroup-stat-error green= False reason= 'UNCERTAINTY_RC 0: '
+```
+Для данного класса отказа Б-1 закрыт; честные busy/idle проходят модель.
 
-`env_case.py`:
+Б-2: дословный `env_case.py` из v1 дал:
+```
+old rc= 0 stdout= '' stderr= ''
+model rc= 0 stdout= '' stderr= ''
+```
+Пустые три шва и их комбинация проверены также `--delta`. Проверка соседних значений `' '`, `'0'`, `'-1'` каждого ENV по отдельности через публичные bash-входы выявила только расхождение, приведённое в блоке. Воспроизведение блока (запуск из корня клона, `TMPDIR` — каталог внутри своей копии; `World` создаёт и удаляет только игрушечные пути):
 ```python
 import importlib.util, pathlib
 p=pathlib.Path('fixtures/workshop_project/ci_clean_225/probe.py').resolve()
 s=importlib.util.spec_from_file_location('p225',p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m)
 with m.World(m.MODEL) as w:
- w.cfg['artifacts']['repos']=['Repo-A']; w.save()
- env=dict(w.env,CI_ARTIFACTS_ROOT=str(w.root/'artifacts'),CI_ARTIFACTS_REPOS='Repo-A',CI_ARTIFACTS_RETENTION_DAYS='')
- old=m.run(['bash',str(pathlib.Path('ops/server/root/ci-artifacts-clean').resolve())],env)
- new=m.run(['bash',str(w.runtime/'ci-artifacts-clean')],env)
- print('old rc=',old.returncode,'stdout=',repr(old.stdout),'stderr=',repr(old.stderr))
- print('model rc=',new.returncode,'stdout=',repr(new.stdout),'stderr=',repr(new.stderr))
+    w.cfg['artifacts']['repos']=['Repo-A']; w.save()
+    env=dict(w.env, CI_ARTIFACTS_ROOT=str(w.root/'artifacts'), CI_ARTIFACTS_REPOS=' ', CI_ARTIFACTS_RETENTION_DAYS='4')
+    old=m.run(['bash',str(pathlib.Path('ops/server/root/ci-artifacts-clean').resolve())],env)
+    new=m.run(['bash',str(w.runtime/'ci-artifacts-clean')],env)
+    print('old',old.returncode,repr(old.stdout),repr(old.stderr),'new',new.returncode,repr(new.stdout),repr(new.stderr))
 ```
-Результат:
+Сырой вывод более широкого прогона `TMPDIR="$PWD/../scratch-crit225b" PYTHONDONTWRITEBYTECODE=1 python3 "$TMPDIR/env_neighbors.py"`, rc 0:
 ```
-old rc= 0 stdout= '' stderr= ''
-model rc= 1 stdout= '' stderr= 'ОТКАЗ: срок не целое ≥1: \n'
-```
-
-Независимые мутации в отдельном `git clone --no-hardlinks --local "$PWD" "$PWD/tmp/clone-crit225"`. По одной подменялась операция в `clone-crit225/fixtures/workshop_project/ci_clean_225/model/root/ci-clean.py`; на каждой исполнялись все `m.CASES` через `m.cell(clone_model, None, cell)` из неизменённой пробы OBJECT; затем исходный файл восстанавливался. Команда: `TMPDIR="$PWD/tmp/scratch-crit225" python3 "$PWD/tmp/scratch-crit225/mutations.py"`, rc 0; ниже rc — агрегат соответствующей мутированной батареи. Замены:
-1. `if entry.lstat().st_mtime >= cutoff:` → `if False and entry.lstat().st_mtime >= cutoff:`.
-2. `if worker_present(conf, group):` → `if unit != 'toy-b.service' and worker_present(conf, group):`.
-3. `ctl(conf, 'freeze', unit)` → `thaw = False; ctl(...); thaw = True` (три отдельные строки, тот же вызов); ошибка freeze больше не делает thaw.
-4. `cutoff = time.time() - conf['retention_days'] * 86400` → `cutoff = time.time() - 86400`.
-Сырой вывод:
-```
-delete-young rc= 1 red= 14 cells= 89 failures= [('old-young', 'YOUNG_REMOVED'), ('second-root', 'YOUNG_REMOVED'), ('young-inside', 'OLD_LIVE_REMOVED'), ('file-names', 'YOUNG_REMOVED'), ('busy-second', 'YOUNG_REMOVED'), ('idle-process', 'YOUNG_REMOVED'), ('inactive', 'YOUNG_REMOVED'), ('tmp-retention', 'OLD_LIVE_REMOVED'), ('entry-symlink', 'YOUNG_REMOVED'), ('nested-symlink', 'YOUNG_REMOVED'), ('thaw-fail', 'YOUNG_REMOVED'), ('artifact-age', 'ARTIFACT_CONFIG_IGNORED'), ('artifact-retention', 'ARTIFACT_CONFIG_IGNORED'), ('artifact-env', 'ARTIFACT_CONFIG_IGNORED')]
-ignore-workers-second rc= 1 red= 1 cells= 89 failures= [('busy-second', 'OLD_LIVE_REMOVED')]
-no-thaw-on-freeze-fail rc= 1 red= 1 cells= 89 failures= [('freeze-fail', 'QUIESCENCE_OR_RELEASE_MISSING')]
-retention-one-day rc= 1 red= 1 cells= 89 failures= [('tmp-retention', 'OLD_LIVE_REMOVED')]
+CI_ARTIFACTS_RETENTION_DAYS ' ' old 1 '' 'ОТКАЗ: срок не целое ≥1:  \n' new 1 '' 'ОТКАЗ: срок не целое ≥1:  \n'
+CI_ARTIFACTS_RETENTION_DAYS '0' old 1 '' 'ОТКАЗ: срок не целое ≥1: 0\n' new 1 '' 'ОТКАЗ: срок не целое ≥1: 0\n'
+CI_ARTIFACTS_RETENTION_DAYS '-1' old 1 '' 'ОТКАЗ: срок не целое ≥1: -1\n' new 1 '' 'ОТКАЗ: срок не целое ≥1: -1\n'
+CI_ARTIFACTS_ROOT ' ' old 1 '' 'ОТКАЗ: корень не каталог:  \n' new 1 '' 'ОТКАЗ: корень не каталог:  \n'
+CI_ARTIFACTS_ROOT '0' old 1 '' 'ОТКАЗ: корень не каталог: 0\n' new 1 '' 'ОТКАЗ: корень не каталог: 0\n'
+CI_ARTIFACTS_ROOT '-1' old 1 '' 'ОТКАЗ: корень не каталог: -1\n' new 1 '' 'ОТКАЗ: корень не каталог: -1\n'
+CI_ARTIFACTS_REPOS ' ' old 0 '' '' new 1 '' 'ОТКАЗ: список репо пуст\n'
+CI_ARTIFACTS_REPOS '0' old 0 '' '' new 0 '' ''
+CI_ARTIFACTS_REPOS '-1' old 1 '' 'ОТКАЗ: недопустимое имя репо: -1\n' new 1 '' 'ОТКАЗ: недопустимое имя репо: -1\n'
 ```
 
-## Остальные свидетельства
+## Прогоны
 
-- `SDACHA_TIMEOUT_SEK=1200 SDACHA_BUDZHET_SEK=2400 bash scripts/check_sdacha.sh "$PWD" contracts/225-ci-clean-vremennye-katalogi.md --run` rc 0: `СДАЧА: лист зелёный (двери=15 карта=17/17 дельта=0)`. Он исполнил заявленные 15 дверей, включая model/stabs, регресс 196 и precision; это не доказывает два отсутствующих состояния выше.
-- `bash scripts/pre_critic.sh contracts/225-ci-clean-vremennye-katalogi.md` rc 0: `КРИТИК: дверь зелёная`.
-- `bash scripts/check_precision_gate.sh "$PWD" contracts/225-ci-clean-vremennye-katalogi.md` rc 0: `OK`.
-- `bash fixtures/workshop_project/ci_clean_225/red_ci_clean_225.sh --repo .` rc 1: `ИТОГ 225: KLETKI=89 KRASNYH=89`; начало `defaults: KRASNO CONFIG_ABSENT`, `units: KRASNO UNIT_ABSENT ci-runner-tmp-clean.service`, `readme: KRASNO README_SECTION_ABSENT`, `lock-busy: KRASNO SUBJECT_ABSENT ci-runner-tmp-clean`. Основание красного — новый инвентарь отсутствует; implementer должен реализовать перечисленные production-файлы, установить общий helper/config/schema и сохранить действующие 196/074, а не переписать их отрицательные ожидания.
-- `git show b3149e026 -- fixtures/workshop_project/ops_ci_artifacts_196/probe.py`: подготовлены реальные предусловия соседнего mob-tmpdir в игрушке, относительный `--repo` разрешается до смены cwd, D1/D2 не удалены. Отдельный CI-шаг после freeze — зона orchestrator, поэтому отсутствие полного check_provodka на OBJECT не объявлено дефектом.
+Команды из `fixtures/workshop_project/ci_clean_225/SDACHA.md`, исполненные в origin-only клоне с `VALIDATE_STD_SHELLCHECK` на установленный пин, TMPDIR внутри копии:
+```
+check_sdacha.sh "$PWD" contracts/225-ci-clean-vremennye-katalogi.md --run: rc 0
+СДАЧА: лист зелёный (двери=16 карта=17/17 дельта=3)
+pre_critic.sh contracts/225-ci-clean-vremennye-katalogi.md: rc 0
+КРИТИК: дверь зелёная
+check_precision_gate.sh "$PWD" contracts/225-ci-clean-vremennye-katalogi.md: rc 0
+OK
+225 --repo .: rc 1
+ИТОГ 225: KLETKI=104 KRASNYH=104
+225 --model: rc 0
+ИТОГ 225: KLETKI=104 KRASNYH=0
+225 --delta: rc 0
+ИТОГ 225: KLETKI=15 KRASNYH=0
+225 --stabs: rc 0
+STABY=48 SVJAZI=68 ZHIVYH=0
+225 --sintaksis: rc 0
+SINTAKSIS=53 JSON_SCHEMA=0
+225 --catalog: rc 0
+KLETKI=104 STABY=48 SVJAZI=68 NOSITELI=62
+196 --repo .: rc 0
+ИТОГ 196: rc=0 KLETKI=25 ZELENYE=25 KRASNYE=0
+196 --model: rc 0
+ИТОГ 196: rc=0 KLETKI=25 ZELENYE=25 KRASNYE=0
+196 --stabs: rc 0
+ИТОГ 196: rc=0 OBMANOK=34 POIMANY=34 ZHIVYH=0
+```
+Красные 225 — неготовые новые production/config/unit/install поверхности: `CONFIG_ABSENT`, `UNIT_ABSENT`, `SUBJECT_ABSENT`, отсутствующая ветвь установки и связанные ожидания, не отказ среды. После freeze implementer должен реализовать указанный инвентарь и сохранить 196/074, а не ослабить батарею. `uptime` до прогонов: `load average: 17.89, 18.51, 18.66`.
 
 ## Карта классов
 
-К-01: чисто — check_sdacha --run rc 0 и pre_critic rc 0
-К-02: чисто — вход R-0101/R-0102 и model/ci-clean.json пути и сроки
-К-03: блок — пустые ENV меняют frozen-интерфейс 196
-К-04: чисто — check_precision_gate rc 0 и инвентарь ЗОНА контракта
-К-05: чисто — вход приёмочные rc-команды и отдельная операторская приёмка
-К-06: чисто — вход SDACHA и BadWorld rc 2
-К-07: чисто — вход model bash/Python и отдельный живой контроль ядра оператором
-К-08: блок — нечитаемая вложенная cgroup молча пропущена моделью
-К-09: блок — отказной вход cgroup и пустые ENV не различаются батареей
-К-10: чисто — вход снимки дерева и журнал freeze/thaw probe.py
-К-11: чисто — вход snapshot до вызова World и внешний sentinel
-К-12: чисто — вход JSON Schema и структурный INI-канон
-К-13: н/п — секретов и новых CI credentials предмет не вводит
-К-14: чисто — вход old/young busy/idle и четыре независимые мутации выше
-К-15: чисто — --repo rc 1 KLETKI=89 KRASNYH=89 и сдаточный лист rc 0
-К-16: чисто — вход обычный риск по списку оснований и явная граница root/TOCTOU
-К-17: н/п — продуктовая архитектура 188 не изменяется
+К-01: блок — не перенесены четыре адресные мутации v1
+К-02: без изменений с вызова 1
+К-03: блок — непустой whitespace REPOS расходится с 196
+К-04: без изменений с вызова 1
+К-05: без изменений с вызова 1
+К-06: без изменений с вызова 1
+К-07: без изменений с вызова 1
+К-08: чисто — исходная ошибка cgroup и соседняя мутация дают отказ и thaw
+К-09: блок — непустой whitespace REPOS не проверяется дельтой
+К-10: без изменений с вызова 1
+К-11: без изменений с вызова 1
+К-12: без изменений с вызова 1
+К-13: без изменений с вызова 1
+К-14: чисто — --model rc 0 и честные busy/idle и empty ENV проходят
+К-15: чисто — catalog 104/48/68/62 и прямые прогоны выше
+К-16: чисто — рисковый класс root-удаления обоснован
+К-17: без изменений с вызова 1
 
 ## НЕ ЗАЩИЩАЕТ
 
-Контракт ограничивает произвольные конкурентные смены путей/cgroup, злонамеренный root, SIGKILL и реальные отличия systemd от шима. Ловцы — production reviewer и обязательная живая операторская приёмка. Это не исключает отдельно обещанный отказ на ошибку чтения cgroup.
+Остатки контракта: враждебный root/конкурентная смена FS и cgroup, SIGKILL между freeze и thaw, отличия реального systemd от игрушки. Ловцы — reviewer production-diff, операторское восстановление и обязательная живая приёмка до done; это не исключает обещанную обработку ошибок чтения.
 
 ## Советы
 
-СОВЕТ contracts/225-ci-clean-vremennye-katalogi.md:56 — для живой приёмки заранее записать команды получения и проверки свидетельств long-job, idle и Persistent; операторская процедура не должна зависеть от догадки исполнителя.
+СОВЕТ contracts/225-ci-clean-vremennye-katalogi.md:56 — прежний совет о заранее воспроизводимой операторской процедуре сохраняется; живая проверка остаётся за оператором.
