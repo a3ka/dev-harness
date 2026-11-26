@@ -329,17 +329,37 @@ while IFS= read -r f; do
       continue
     fi
     verdict="verdicts/critic/${dir}-${NNN}-v${k}.md"
-    body="$(g cat-file -p "HEAD:$verdict" 2>/dev/null || true)"
+    if [ "$PR_ACTIVE" -eq 1 ]; then
+      # ТЕЛО ВЕРДИКТА — ИЗ ЗАПИСИ ДЕРЕВА HEAD: доказанное отсутствие записи,
+      # непрочитанный блоб и существующее пустое тело — РАЗНЫЕ состояния
+      # (arbiter 218, Б-1). Прежний `cat-file … || true` смешивал их, и при
+      # непрочитанном блоке подставлялось историческое тело основания.
+      pr_verdict "$PR_HEAD" "$verdict"
+      body="$PR_VERDICT_BODY"
+      head_present="$PR_VERDICT_PRESENT"
+    else
+      body="$(g cat-file -p "HEAD:$verdict" 2>/dev/null || true)"
+      head_present=1
+    fi
     if [ "$PR_ACTIVE" -eq 1 ] && [ -z "$body" ]; then
-      # Импорт main может удалить вердикт с HEAD: свидетельство собственной
-      # заморозки — вердикт её ОСНОВАНИЯ (дерево тега), а не исчезнувший путь
-      # HEAD. Основание берётся, только когда оно принадлежит окну PR
-      # (инвариант 4); вердикт, найденный на HEAD, историческим не заменяется.
-      anchor="$(g rev-parse --verify "refs/tags/frozen/$dir/$NNN/$k^{commit}")" || pr_refuse TAG_UNREADABLE
-      case $'\n'"$PR_COMMITS"$'\n' in *$'\n'"$anchor"$'\n'*)
-        body="$(g cat-file -p "$anchor:$verdict" 2>/dev/null || true)"
-        ;;
-      esac
+      # ИСТОРИЧЕСКОЕ ТЕЛО ОСНОВАНИЯ — только при доказанном отсутствии записи в
+      # дереве HEAD: успешно прочитанное дерево без записи. Существующая запись —
+      # уже свидетельство: пустое её тело означает неразрешающий вердикт, а не
+      # отсутствие записи, и историческое тело её не заменяет. Основание берётся,
+      # только когда оно принадлежит окну PR (инвариант 4); вердикт, найденный на
+      # HEAD, историческим не заменяется.
+      if [ "$head_present" -eq 1 ] && [ -z "$body" ]; then
+        # Запись на HEAD есть, но тело не разрешает: тело остаётся пустым, и
+        # прежний отказ «заморозка без вердикта критика» скажет об этом сам.
+        body=""
+      else
+        anchor="$(g rev-parse --verify "refs/tags/frozen/$dir/$NNN/$k^{commit}")" || pr_refuse TAG_UNREADABLE
+        case $'\n'"$PR_COMMITS"$'\n' in *$'\n'"$anchor"$'\n'*)
+          pr_verdict "$anchor" "$verdict"
+          body="$PR_VERDICT_BODY"
+          ;;
+        esac
+      fi
     fi
     if [ -z "$body" ]; then
       bad "$f: заморозка v$k без вердикта критика — на HEAD нет $verdict"
