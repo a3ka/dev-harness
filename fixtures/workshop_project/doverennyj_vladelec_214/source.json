@@ -1,0 +1,111 @@
+{
+  "base": "f82ff8c9d0d4ba45a53b7aa2e712c552141715f9",
+  "files": {
+    "model/zamok_predmeta.sh": "8a70b8280d5e7297591f914c7b9dfcb7422d61c7ce7cf6e58c9c5f865f2a68cb",
+    "stabs/s01-holder-no-origin/zamok_predmeta.sh": "13782ed224820d7a1508e5c0de47b2561e34e23475ef1ba2fd4944f9798d5573",
+    "stabs/s02-working-legacy/zamok_predmeta.sh": "ad44f1bf7010d4dc67baf14711ca53fbab495413e587feda2a9ddac5e31507f5",
+    "stabs/s03-working-profile/zamok_predmeta.sh": "720ddb7bb93806a03a0d83c5b294eb66bb2157c64951958ef945bd4cf8f27c2a",
+    "stabs/s04-holder-tags/zamok_predmeta.sh": "1e92c32595703ac191ee72f053abc262e04d5c6e357f793291eee51d0d6d8bab",
+    "stabs/s05-unknown-safe/zamok_predmeta.sh": "3eff89b34cd09cb83c1d7fe78bc6e1e8a264f471e1a8f50d3b8da47c6a256800",
+    "stabs/s06-floating-head/zamok_predmeta.sh": "f6c1abe985ef9908317febd52b4749ff759e7bd71741ce6562f3ca942b173e4e",
+    "stabs/s07-d52-holder-profile/zamok_predmeta.sh": "532266ce7352cdb0b4da87e7b97372e59bbf42609fdc88ac443c1c5df44c8b26",
+    "stabs/s08-d64-holder-legacy/zamok_predmeta.sh": "30c01b4a95723038d95646b82b94d683ffcc933029a3e9d3a9cfe57113534df3",
+    "stabs/s09-holder-pin/zamok_predmeta.sh": "72834af26b92203edd7393d2cfbd73b3a7b9b4a1841394be05b6f32d5165b902",
+    "stabs/s10-transfer-head/zamok_predmeta.sh": "9a9aef1217644c80cc5a04d3f3de81e2c8e33f1be70ca1f8a83e565a22c005a3",
+    "stabs/s11-symlink-legacy/zamok_predmeta.sh": "61ca37192ab6b83bb153606cc8d4807d0b1d9697233170e69c1576995c213d6c",
+    "stabs/s12-receipt-working-profile/zamok_predmeta.sh": "52ef0086030fdbd7c023ce106d698c9648a5b7635fac693efaab98323ca53df3"
+  },
+  "links": [
+    {
+      "name": "s01-holder-no-origin",
+      "path": "stabs/s01-holder-no-origin/zamok_predmeta.sh",
+      "cases": [
+        "isolated-risk"
+      ]
+    },
+    {
+      "name": "s02-working-legacy",
+      "path": "stabs/s02-working-legacy/zamok_predmeta.sh",
+      "cases": [
+        "dirty-legacy-risk",
+        "dirty-legacy-safe",
+        "dirty-legacy-untracked"
+      ]
+    },
+    {
+      "name": "s03-working-profile",
+      "path": "stabs/s03-working-profile/zamok_predmeta.sh",
+      "cases": [
+        "dirty-profile",
+        "profile-deleted"
+      ]
+    },
+    {
+      "name": "s04-holder-tags",
+      "path": "stabs/s04-holder-tags/zamok_predmeta.sh",
+      "cases": [
+        "forged-latest-tag"
+      ]
+    },
+    {
+      "name": "s05-unknown-safe",
+      "path": "stabs/s05-unknown-safe/zamok_predmeta.sh",
+      "cases": [
+        "arb1",
+        "arb2",
+        "arb5",
+        "arb6",
+        "unknown-legacy"
+      ]
+    },
+    {
+      "name": "s06-floating-head",
+      "path": "stabs/s06-floating-head/zamok_predmeta.sh",
+      "cases": [
+        "pinned-head"
+      ]
+    },
+    {
+      "name": "s07-d52-holder-profile",
+      "path": "stabs/s07-d52-holder-profile/zamok_predmeta.sh",
+      "cases": [
+        "critic-profile"
+      ]
+    },
+    {
+      "name": "s08-d64-holder-legacy",
+      "path": "stabs/s08-d64-holder-legacy/zamok_predmeta.sh",
+      "cases": [
+        "dirty-author-legacy"
+      ]
+    },
+    {
+      "name": "s09-holder-pin",
+      "path": "stabs/s09-holder-pin/zamok_predmeta.sh",
+      "cases": [
+        "forged-pin"
+      ]
+    },
+    {
+      "name": "s10-transfer-head",
+      "path": "stabs/s10-transfer-head/zamok_predmeta.sh",
+      "cases": [
+        "product-dirty-profile"
+      ]
+    },
+    {
+      "name": "s11-symlink-legacy",
+      "path": "stabs/s11-symlink-legacy/zamok_predmeta.sh",
+      "cases": [
+        "legacy-symlink"
+      ]
+    },
+    {
+      "name": "s12-receipt-working-profile",
+      "path": "stabs/s12-receipt-working-profile/zamok_predmeta.sh",
+      "cases": [
+        "product-station-profile"
+      ]
+    }
+  ]
+}
