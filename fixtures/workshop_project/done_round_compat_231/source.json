@@ -1,0 +1,210 @@
+{
+  "base": "568f0ea63271e3461b574105cba8faec7563a8fd",
+  "nositeli": {
+    "model/done_contract.sh": "6e142e91ae22bdb792b4d6141ffe97ad08b5f5b4def70c57751c40a64e1994c1",
+    "stabs/lexical/done_contract.sh": "cc4b1a60d11d37b822b343f2d945eb321065fb271fc559679ede9e1bb433badc",
+    "stabs/bare-zero/done_contract.sh": "e2f772d58d9d5e1e77ae7783df5165d91904e68ff919ea67b44a9c90629ef6c6",
+    "stabs/bare-skipped/done_contract.sh": "514b33ccfa61b53566f1db513aefb1b3dbdcb3adb2fdd075a7a6bac6b0c16901",
+    "stabs/krug-rejected/done_contract.sh": "6009ae250a627ab8af4c89dacefa3417356c5a8e5a2c493fde3ecc975883ea32",
+    "stabs/unchecked-call/done_contract.sh": "397801da9998f4aa90c1e3422f9fbc664588fa8e73cc2e08a3f3b424878c2a0e",
+    "stabs/always-conflict/done_contract.sh": "cb9e201b5d1204ca86d630d26e8315e24ad99c15c4a73c6e79351703212616c0",
+    "stabs/old-rejected/done_contract.sh": "ed2c0a6af56e05d081b0e60217b27e5cce35dea90f418916e360e98804e4c76d",
+    "stabs/call-instead-name/done_contract.sh": "dfa23dea4ad35bfff0ca7e565c8ab21a7c99d4e2074814fd64823edc1fe19a40",
+    "stabs/v-call-required/done_contract.sh": "96a71fe41fe533d0f90b61f75bab8a86fe2735ce765d29b17850289f847c4e3d",
+    "stabs/explicit-unchecked/done_contract.sh": "84541dd3ddc16ab2f22d1376d3541bff8c384dff79d6b69d3b197ed4d38b8e10",
+    "stabs/duplicates-allowed/done_contract.sh": "689a6ca392a3f83f166967cace88c0ab9d5b0375863235571a77d9dd841874cc",
+    "stabs/dot-rejected/done_contract.sh": "dba5d0cedcf7e022501094d80c3ba73c9c66142d625f89151fa72beaff5adde8",
+    "stabs/dot-tail-allowed/done_contract.sh": "b40d185f4fe758c73cc90761df93b68b7f8e7b4d63064730b247d42c0695340a",
+    "stabs/zero-allowed/done_contract.sh": "03d46645932a53aa1cd25f08e1403a9f78a49efb82dbdf8112272c36bbed252e"
+  },
+  "stab_vhod": [
+    {
+      "stab": "stabs/lexical/done_contract.sh",
+      "case": "review-numeric-fail"
+    },
+    {
+      "stab": "stabs/lexical/done_contract.sh",
+      "case": "adversary-numeric-fail"
+    },
+    {
+      "stab": "stabs/lexical/done_contract.sh",
+      "case": "review-numeric-accept"
+    },
+    {
+      "stab": "stabs/lexical/done_contract.sh",
+      "case": "adversary-numeric-accept"
+    },
+    {
+      "stab": "stabs/bare-zero/done_contract.sh",
+      "case": "review-bare-duplicate"
+    },
+    {
+      "stab": "stabs/bare-zero/done_contract.sh",
+      "case": "adversary-bare-duplicate"
+    },
+    {
+      "stab": "stabs/bare-skipped/done_contract.sh",
+      "case": "review-bare-fail"
+    },
+    {
+      "stab": "stabs/bare-skipped/done_contract.sh",
+      "case": "adversary-bare-fail"
+    },
+    {
+      "stab": "stabs/krug-rejected/done_contract.sh",
+      "case": "review-krug"
+    },
+    {
+      "stab": "stabs/krug-rejected/done_contract.sh",
+      "case": "adversary-krug"
+    },
+    {
+      "stab": "stabs/unchecked-call/done_contract.sh",
+      "case": "review-old-conflict-low"
+    },
+    {
+      "stab": "stabs/unchecked-call/done_contract.sh",
+      "case": "adversary-old-conflict-low"
+    },
+    {
+      "stab": "stabs/unchecked-call/done_contract.sh",
+      "case": "review-old-conflict-high"
+    },
+    {
+      "stab": "stabs/unchecked-call/done_contract.sh",
+      "case": "adversary-old-conflict-high"
+    },
+    {
+      "stab": "stabs/always-conflict/done_contract.sh",
+      "case": "review-old-call-equal"
+    },
+    {
+      "stab": "stabs/always-conflict/done_contract.sh",
+      "case": "adversary-old-call-equal"
+    },
+    {
+      "stab": "stabs/old-rejected/done_contract.sh",
+      "case": "review-back181"
+    },
+    {
+      "stab": "stabs/old-rejected/done_contract.sh",
+      "case": "adversary-back181"
+    },
+    {
+      "stab": "stabs/old-rejected/done_contract.sh",
+      "case": "review-back179"
+    },
+    {
+      "stab": "stabs/old-rejected/done_contract.sh",
+      "case": "adversary-back179"
+    },
+    {
+      "stab": "stabs/old-rejected/done_contract.sh",
+      "case": "review-mobile218"
+    },
+    {
+      "stab": "stabs/old-rejected/done_contract.sh",
+      "case": "adversary-mobile218"
+    },
+    {
+      "stab": "stabs/old-rejected/done_contract.sh",
+      "case": "review-krug"
+    },
+    {
+      "stab": "stabs/old-rejected/done_contract.sh",
+      "case": "adversary-krug"
+    },
+    {
+      "stab": "stabs/call-instead-name/done_contract.sh",
+      "case": "review-old-conflict-low"
+    },
+    {
+      "stab": "stabs/call-instead-name/done_contract.sh",
+      "case": "adversary-old-conflict-low"
+    },
+    {
+      "stab": "stabs/call-instead-name/done_contract.sh",
+      "case": "review-old-conflict-high"
+    },
+    {
+      "stab": "stabs/call-instead-name/done_contract.sh",
+      "case": "adversary-old-conflict-high"
+    },
+    {
+      "stab": "stabs/v-call-required/done_contract.sh",
+      "case": "review-live227"
+    },
+    {
+      "stab": "stabs/v-call-required/done_contract.sh",
+      "case": "adversary-live227"
+    },
+    {
+      "stab": "stabs/v-call-required/done_contract.sh",
+      "case": "review-plain-call-high"
+    },
+    {
+      "stab": "stabs/v-call-required/done_contract.sh",
+      "case": "adversary-plain-call-high"
+    },
+    {
+      "stab": "stabs/v-call-required/done_contract.sh",
+      "case": "review-plain-call-low"
+    },
+    {
+      "stab": "stabs/v-call-required/done_contract.sh",
+      "case": "adversary-plain-call-low"
+    },
+    {
+      "stab": "stabs/explicit-unchecked/done_contract.sh",
+      "case": "review-explicit-conflict"
+    },
+    {
+      "stab": "stabs/explicit-unchecked/done_contract.sh",
+      "case": "adversary-explicit-conflict"
+    },
+    {
+      "stab": "stabs/duplicates-allowed/done_contract.sh",
+      "case": "review-same-call"
+    },
+    {
+      "stab": "stabs/duplicates-allowed/done_contract.sh",
+      "case": "adversary-same-call"
+    },
+    {
+      "stab": "stabs/duplicates-allowed/done_contract.sh",
+      "case": "review-bare-duplicate"
+    },
+    {
+      "stab": "stabs/duplicates-allowed/done_contract.sh",
+      "case": "adversary-bare-duplicate"
+    },
+    {
+      "stab": "stabs/dot-rejected/done_contract.sh",
+      "case": "product-live215"
+    },
+    {
+      "stab": "stabs/dot-tail-allowed/done_contract.sh",
+      "case": "product-double-dot"
+    },
+    {
+      "stab": "stabs/dot-tail-allowed/done_contract.sh",
+      "case": "product-dot-x"
+    },
+    {
+      "stab": "stabs/zero-allowed/done_contract.sh",
+      "case": "review-old-zero"
+    },
+    {
+      "stab": "stabs/zero-allowed/done_contract.sh",
+      "case": "adversary-old-zero"
+    },
+    {
+      "stab": "stabs/zero-allowed/done_contract.sh",
+      "case": "review-old-leading-zero"
+    },
+    {
+      "stab": "stabs/zero-allowed/done_contract.sh",
+      "case": "adversary-old-leading-zero"
+    }
+  ]
+}
