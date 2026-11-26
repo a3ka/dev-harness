@@ -299,15 +299,19 @@ work_blob="$(g hash-object -- "$ROOT/$TARGET")"
 
 # ── 4а. КОНТРАКТ 187а: архитектура предмета — до записи тега ─────────────────
 # Суд идёт по HEAD-блобу контракта (тот же текст, что увидит читатель заморозки).
-# Признак режима — эффективный repoId=Complior-back И пин модели
+# Признак режима — включённая профильная политика hooks.archBrief И пин модели
 # (architecture.lock.json): харнесс, mob и документальные предметы нового
 # отказа не получают. Отказ атомарен: до §5/§6/§7 тега нет, реестр не изменён,
-# HEAD не сдвинут.
+# HEAD не сдвинут. Ошибка профиля (неизвестный профиль) — отказ с названной
+# причиной, а не «дверь выключена» (226).
 if [ -x "$SELF_DIR/check_architecture_contract.sh" ]; then
   ARCH187_LIB=1
   # shellcheck disable=SC1091
   . "$SELF_DIR/check_architecture_contract.sh"
-  if arch187_scope "$ROOT"; then
+  _scope_rc=0
+  arch187_scope "$ROOT" || _scope_rc=$?
+  [ "$_scope_rc" -le 1 ] || die "$ARCH187_REFUSAL"
+  if [ "$_scope_rc" = 0 ]; then
     _a187_text="$(mktemp 2>/dev/null || true)"
     if [ -n "$_a187_text" ] && [ -f "$_a187_text" ]; then
       g cat-file -p "HEAD:$TARGET" > "$_a187_text" 2>/dev/null || true
