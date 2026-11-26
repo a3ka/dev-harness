@@ -1,0 +1,1 @@
+{"name":"s27-head-scope-only","file":"pr_window.sh","old":"tree=\"${3:-$PR_HEAD}\"","new":"tree=\"$PR_HEAD\"","cells":["frozen-own-v2-delete-contract-after","frozen-own-v2-delete-both-after"]}

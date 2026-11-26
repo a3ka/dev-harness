@@ -1,0 +1,1 @@
+{"name":"s16-verdict-v1-only","file":"pr_window.sh","old":"verdicts/critic/contracts-*-v*.md|verdicts/critic/plans-*-v*.md)","new":"verdicts/critic/contracts-*-v1.md|verdicts/critic/plans-*-v1.md)","cells":["frozen-verdict-contracts-v2-fail","frozen-verdict-plans-v3-fail"]}
