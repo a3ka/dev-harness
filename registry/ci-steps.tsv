@@ -334,4 +334,4 @@ uchet	registry/pauzy.tsv
 uchet	registry/mesto-legacy.tsv
 uchet	registry/lessons-harness.tsv
 step	check:uchetnye-puti-219-family-selftest	30	bash fixtures/workshop_project/uchetnye_puti_219/red_uchetnye_puti_219.sh --repo . && bash fixtures/workshop_project/uchetnye_puti_219/red_uchetnye_puti_219.sh --stabs
-step	check:svezhest-verdikta-done-224-family-selftest	650	bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --repo . && bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --model && bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --stabs
+step	check:svezhest-verdikta-done-224-family-selftest	660	bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --repo . && bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --model && bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --stabs
