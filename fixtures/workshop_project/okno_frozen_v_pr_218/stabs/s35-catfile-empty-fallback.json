@@ -1,0 +1,1 @@
+{"name":"s35-catfile-empty-fallback","file":"check_contract_frozen.sh","old":"      pr_verdict \"$PR_HEAD\" \"$verdict\"\n      body=\"$PR_VERDICT_BODY\"","new":"      PR_VERDICT_PRESENT=0\n      body=\"$(g cat-file -p \"HEAD:$verdict\" 2>/dev/null || true)\"","cells":["frozen-evidence-contracts-v2-head-missingblob","frozen-evidence-plans-v3-head-empty"]}

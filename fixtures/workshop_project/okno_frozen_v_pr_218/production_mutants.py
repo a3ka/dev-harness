@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Reproduce Adv218's three production mutations in disposable local clones."""
+"""Reproduce production mutations on an explicit candidate in disposable clones."""
+import argparse
+import contextlib
+import io
 import json
 from pathlib import Path
 import sys
@@ -7,7 +10,7 @@ import tempfile
 
 import probe
 
-OBJECT = '682fb9881c94cf674b107d99238102b0313eb18d'
+OBJECT = 'ca726d350306c7cb4a1e37a1c974cc57ef7c309b'
 
 
 def mutants():
@@ -37,38 +40,58 @@ def mutants():
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--candidate', default=OBJECT)
+    parser.add_argument('--adv218b-priority', action='store_true',
+                        help='also reproduce the exact Adv218b mutation (original candidate)')
+    parser.add_argument('--only', help='select one named mutation for isolated reproduction')
+    args = parser.parse_args()
+    candidate = probe.git(probe.TREE, 'rev-parse', '--verify', args.candidate + '^{commit}').decode().strip()
+    print('CANDIDATE=' + candidate, flush=True)
     scratch = probe.TREE / 'tmp/scratch-arch218'
     scratch.mkdir(parents=True, exist_ok=True)
     baseline = probe.sources(probe.TREE, pinned=True)
     cases = {c.name: c for c in probe.cells()}
     report = []
-    for name, old, new, witness in mutants():
+    changes = [('check_charter.sh', *row) for row in mutants()]
+    if args.adv218b_priority:
+        changes.append(('check_contract_frozen.sh', 'anchor-over-head',
+                        b'if [ "$PR_ACTIVE" -eq 1 ] && [ -z "$body" ]; then',
+                        b'if [ "$PR_ACTIVE" -eq 1 ]; then',
+                        'frozen-evidence-contracts-v2-head-fail'))
+    if args.only:
+        changes = [row for row in changes if row[1] == args.only]
+        if not changes:
+            raise probe.Prerequisite('EMPTY_MUTATION_SELECTION')
+    for filename, name, old, new, witness in changes:
         with tempfile.TemporaryDirectory(prefix='production-mutant-' + name + '-', dir=scratch) as temporary:
             directory = Path(temporary)
             clone = directory / 'clone'
-            probe.git(probe.TREE, 'clone', '-q', '--shared', '--no-checkout', str(probe.TREE), str(clone))
-            probe.git(clone, 'checkout', '-q', '--detach', OBJECT)
+            probe.git(probe.TREE, 'clone', '-q', '--no-hardlinks', '--no-checkout', str(probe.TREE), str(clone))
+            probe.git(clone, 'checkout', '-q', '--detach', candidate)
             honest = probe.sources(clone)
             control = directory / 'control'
             control.mkdir()
             if not probe.observe(cases[witness], honest, baseline, control):
                 raise probe.Prerequisite('PRODUCTION_HONEST_CONTROL_RED: ' + witness)
-            path = clone / 'scripts/check_charter.sh'
+            path = clone / 'scripts' / filename
             path.write_bytes(probe.replace(path.read_bytes(), old, new))
             altered = probe.sources(clone)
             attack = directory / 'attack'
             attack.mkdir()
             if probe.observe(cases[witness], altered, baseline, attack, mutant=True):
                 raise probe.Prerequisite('PRODUCTION_MUTANT_SURVIVED: ' + name)
-            # Exercise the public --repo door on the actual mutant clone too.
-            result = probe.command(['python3', probe.HERE / 'probe.py', '--repo', clone], probe.TREE)
-            sys.stdout.buffer.write(result[1])
-            sys.stderr.buffer.write(result[2])
-            sys.stdout.flush()
-            if result[0] != 1 or (witness + ' RED ').encode() not in result[1]:
+            # The whole battery has per-process deadlines already. Invoke its
+            # same public argument dispatch without nesting a 60s CLI deadline.
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                rc = probe.main(['--repo', str(clone)])
+            text = output.getvalue()
+            print(text, end='', flush=True)
+            if rc != 1 or witness + ' RED ' not in text:
                 raise probe.Prerequisite('PRODUCTION_MUTANT_WRONG_RED: ' + name)
-            row = {'mutant': name, 'witness': witness, 'honest_green': True,
-                   'mutant_red': True, 'repo_rc': result[0]}
+            row = {'mutant': name, 'witness': witness, 'candidate': candidate, 'honest_green': True,
+                   'mutant_red': True, 'repo_rc': rc}
             report.append(row)
             print('PRODUCTION_MUTANT ' + json.dumps(row, sort_keys=True), flush=True)
     print('PRODUCTION_MUTANTS=' + str(len(report)))
