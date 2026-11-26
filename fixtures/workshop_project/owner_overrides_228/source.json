@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "contract": "contracts/228-sh3-owner-overrides.md",
+  "baseline": "78672b79bac88b9c3765b3d9b53cd983d4a13728",
+  "subjects": ["scripts/lib_owner.sh", "registry/owner-overrides.tsv", "scripts/check_charter.sh", "scripts/check_zones.sh", "scripts/check_protected.sh", "scripts/check_contract_frozen.sh"],
+  "model": "model/lib_owner.sh",
+  "oracle": "baseline.json",
+  "mutations": "stabs/mutations.json",
+  "census": {"cells": 124, "mutations": 44, "bindings": 104, "rows": 148, "matrix": 586, "unique_sha": 133, "historical_cli_decisions": 532},
+  "runner": {"timeout_seconds": 60},
+  "worlds": {"date": "2026-11-20T00:00:00Z", "future_expiry": "2099-12-31", "expired": "2000-01-01"}
+}
