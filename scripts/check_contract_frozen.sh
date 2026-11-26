@@ -330,6 +330,17 @@ while IFS= read -r f; do
     fi
     verdict="verdicts/critic/${dir}-${NNN}-v${k}.md"
     body="$(g cat-file -p "HEAD:$verdict" 2>/dev/null || true)"
+    if [ "$PR_ACTIVE" -eq 1 ] && [ -z "$body" ]; then
+      # Импорт main может удалить вердикт с HEAD: свидетельство собственной
+      # заморозки — вердикт её ОСНОВАНИЯ (дерево тега), а не исчезнувший путь
+      # HEAD. Основание берётся, только когда оно принадлежит окну PR
+      # (инвариант 4); вердикт, найденный на HEAD, историческим не заменяется.
+      anchor="$(g rev-parse --verify "refs/tags/frozen/$dir/$NNN/$k^{commit}")" || pr_refuse TAG_UNREADABLE
+      case $'\n'"$PR_COMMITS"$'\n' in *$'\n'"$anchor"$'\n'*)
+        body="$(g cat-file -p "$anchor:$verdict" 2>/dev/null || true)"
+        ;;
+      esac
+    fi
     if [ -z "$body" ]; then
       bad "$f: заморозка v$k без вердикта критика — на HEAD нет $verdict"
     else
