@@ -20,7 +20,13 @@ arch187_profile() {
   ARCH187_PRODUCT_REPO=""
   ARCH187_REFUSAL=""
   local repo="$1" self value
-  [ -f "$repo/harness.project.json" ] || return 0
+  if [ ! -f "$repo/harness.project.json" ]; then
+    if [ -f "$repo/architecture.lock.json" ]; then
+      ARCH187_REFUSAL="ARCH_PROFILE_MISSING: harness.project.json"
+      return 2
+    fi
+    return 0
+  fi
   self="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   if ! HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$repo}" \\
       bash "$self/profile_resolver.sh" --repo "$repo" >/dev/null; then
@@ -47,6 +53,10 @@ arch187_scope() {
 }'''
 
 VALIDATE = '''# 226: repo-only hooks.archBrief. Unknown sibling names retain M-0 warnings.
+if jq -e 'if (.defaults.hooks | type) == "object"
+    then .defaults.hooks | (has("archBrief")) else false end' "$PROJECT_JSON_FD" >/dev/null; then
+  die_p "ARCH_PROFILE_LAYER: hooks.archBrief: разрешён только репо-слой harness.project.json"
+fi
 if jq -e 'has("hooks")' "$REPO_JSON_FD" >/dev/null; then
   jq -e '.hooks | type == "object"' "$REPO_JSON_FD" >/dev/null \\
     || die_p "значение вне алфавита: hooks.archBrief: hooks не объект"
@@ -188,6 +198,17 @@ MUTATIONS = {
                        'PRODUCT_REPO="$ARCH187_PRODUCT_REPO"', 'PRODUCT_REPO="${ARCH187_PRODUCT_REPO,,}"', ['pin-case']),
  'st17-array-allowed': ('scripts/profile_resolver.sh',
                        'else false end\' "$REPO_JSON_FD"', 'else true end\' "$REPO_JSON_FD"', ['bad-array']),
+ 'st18-missing-profile-off': ('scripts/check_architecture_contract.sh',
+                            '      return 2\n    fi\n    return 0',
+                            '      return 0\n    fi\n    return 0', ['missing-profile-door']),
+ 'st19-wrong-layer-off': ('scripts/profile_resolver.sh',
+                        '  die_p "ARCH_PROFILE_LAYER: hooks.archBrief: разрешён только репо-слой harness.project.json"',
+                        '  : # wrong layer silently ignored',
+                        ['layer-cannot-enable', 'layer-conflict', 'layer-false']),
+ 'st20-corrupt-profile-off': ('scripts/check_architecture_contract.sh',
+                             '    return 2\n  fi\n  # shellcheck disable=SC1091',
+                             '    return 0\n  fi\n  # shellcheck disable=SC1091',
+                             ['malformed-profile-door', 'missing-layer-door', 'malformed-layer-door']),
 }
 
 
