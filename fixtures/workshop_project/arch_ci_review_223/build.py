@@ -39,6 +39,16 @@ MUTATIONS = (
      '--find-renames --ignore-submodules=none --name-only', ('product-rename-in',)),
     ('s08-second-parent', '_a187_p1="${_a187_rest%% *}"',
      '_a187_p1="${_a187_rest##* }"', ('review-merge', 'backend177-chain')),
+    ('s09-critic-empty-predicate', '[ "$_a187_npaths" -eq 0 ] || [ "$_a187_only" -ne 1 ]',
+     '[ "$_a187_only" -ne 1 ]',
+     ('empty-first-parent-success', 'empty-first-head-success')),
+    ('s10-empty-is-service', '_a187_npaths=0', '_a187_npaths=1',
+     ('empty-first-parent-success', 'empty-first-head-success')),
+    ('s11-empty-by-second-diff', '"$_a187_p1" "$_a187_sel" )',
+     '"${_a187_sel}^2" "$_a187_sel" )',
+     ('empty-first-parent-success', 'empty-second-review', 'empty-second-harness')),
+    ('s12-octopus-third-ignored', '[ "$_a187_np" -gt 2 ]', '[ "$_a187_np" -gt 3 ]',
+     ('octopus-empty', 'octopus-service', 'octopus-mixed')),
 )
 EQUIVALENTS = (
     ('e01-case-order', '.harness/*|.review/*', '.review/*|.harness/*',
@@ -46,6 +56,13 @@ EQUIVALENTS = (
     ('e02-if-equivalent', NEW,
      '            if ! _arch_ci_service_path "$_a187_path"; then _a187_only=0; fi',
      ('reviewx', 'review-uppercase', 'review-missing-run', 'review-rename')),
+    ('e03-empty-guard-equivalent',
+     '[ "$_a187_npaths" -eq 0 ] || [ "$_a187_only" -ne 1 ]',
+     '[ "$_a187_only" -ne 1 ] || [ "$_a187_npaths" -lt 1 ]',
+     ('empty-first-parent-success', 'empty-first-head-success', 'empty-second-review',
+      'empty-second-harness', 'empty-second-product', 'both-services')),
+    ('e04-octopus-guard-equivalent', '[ "$_a187_np" -gt 2 ]', '[ "$_a187_np" -ge 3 ]',
+     ('octopus-empty', 'octopus-service', 'octopus-mixed', 'harness-merge')),
 )
 
 

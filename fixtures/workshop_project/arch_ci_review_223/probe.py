@@ -61,6 +61,14 @@ CASES = (
     ('review-name-space', 'add', '.review/a.md', 0, 'product', 'arch fitness'),
     ('review-name-parenthesis', 'add', '.review/a.md', 0, 'product', 'arch (model)'),
     ('product-head-success', 'mixed', '.review/a.md', 0, 'head', 'head-success'),
+    ('empty-first-parent-success', 'empty-first', '.review/empty.md', 1, 'head', 'success'),
+    ('empty-first-head-success', 'empty-first', '.review/empty.md', 0, 'head', 'head-success'),
+    ('empty-second-review', 'empty-second', '.review/nonempty.md', 0, 'product', 'success'),
+    ('empty-second-harness', 'empty-second', '.harness/notes/nonempty.md', 0, 'product', 'success'),
+    ('empty-second-product', 'empty-second', 'src/nonempty.js', 1, 'head', 'success'),
+    ('octopus-empty', 'octopus-empty', '.review/octopus.md', 1, 'head', 'octopus'),
+    ('octopus-service', 'octopus-service', '.review/octopus.md', 1, 'head', 'octopus'),
+    ('octopus-mixed', 'octopus-mixed', 'src/octopus.js', 1, 'head', 'octopus'),
 )
 CURL = '''#!/usr/bin/env python3
 import json, os, re, sys
@@ -166,6 +174,33 @@ def make_world(work, case):
         if operation != 'linear':
             g(root, 'checkout', '-q', 'main')
             g(root, 'merge', '--no-ff', '-qm', 'merge PR #1031 review', 'verdict-pr')
+    # commit-tree makes the reachable topology explicit; no Git double.
+    if operation == 'empty-first' or operation.startswith('octopus-'):
+        p2 = g(root, 'rev-parse', 'HEAD^2')
+        if operation == 'octopus-mixed':
+            put(root, '.review/octopus.md', 'service alongside product\n')
+            commit(root, 'mixed octopus result tree')
+        tree = g(root, 'rev-parse',
+                 product + '^{tree}' if operation in ('empty-first', 'octopus-empty')
+                 else 'HEAD^{tree}')
+        parents = ['-p', product, '-p', p2]
+        if operation.startswith('octopus-'):
+            p3 = g(root, 'commit-tree', product + '^{tree}', '-p', product,
+                   '-m', 'independent third parent')
+            parents += ['-p', p3]
+        replacement = g(root, 'commit-tree', tree, *parents, '-m', operation)
+        g(root, 'reset', '--hard', replacement)
+        if g(root, 'show', '-s', '--format=%P', 'HEAD').split() != parents[1::2]:
+            raise RuntimeError('MERGE_PARENTS_NOT_CONFORMANT')
+        if operation in ('empty-first', 'octopus-empty'):
+            if g(root, 'diff', '--name-only', product, 'HEAD'):
+                raise RuntimeError('EMPTY_FIRST_DELTA_NOT_EMPTY')
+        elif not g(root, 'diff', '--name-only', product, 'HEAD'):
+            raise RuntimeError('NONEMPTY_FIRST_DELTA_EMPTY')
+    if operation == 'empty-second':
+        if (g(root, 'diff', '--name-only', 'HEAD^2', 'HEAD')
+                or not g(root, 'diff', '--name-only', 'HEAD^1', 'HEAD')):
+            raise RuntimeError('EMPTY_SECOND_DELTA_NOT_CONFORMANT')
     head = g(root, 'rev-parse', 'HEAD')
     selected = product if selected_kind == 'product' else head
     # Assert the source of pathological spelling: Git stores canonical x,
@@ -176,6 +211,9 @@ def make_world(work, case):
     g(root, 'push', '-q', 'origin', 'main')
     api = {product: report(product, variant)}
     if variant == 'head-success':
+        api[head] = report(head, 'success')
+    if variant == 'octopus':
+        # Even success on both candidates cannot authorize an octopus.
         api[head] = report(head, 'success')
     # All expectations and external response bytes exist before invoking subject.
     api_file, queries = work / 'api.json', work / 'queries.jsonl'
@@ -212,6 +250,27 @@ def suite(carrier, cases, label, tools_repo):
             if result.returncode == 1 and not any(line.startswith(b'ARCH_CI:') for line in result.stderr.splitlines()):
                 raise RuntimeError('UNRELATED_REFUSAL ' + case[0] + ' ' + repr(result.stderr))
             problems = []
+            if case[5] == 'octopus':
+                prefix = f'ARCH_CI: HEAD={head}; SHA*={selected}; '.encode()
+                expected_stderr = prefix + (
+                    'octopus: более двух родителей — подъём по первому родителю '
+                    'не определён — успешного check-run arch нет\n').encode()
+                if result.returncode != expected_rc:
+                    problems.append('RC')
+                if actual_queries:
+                    problems.append('OCTOPUS_API_CALLED')
+                if result.stderr != expected_stderr:
+                    problems.append('OCTOPUS_DIAGNOSIS')
+                if result.stdout:
+                    problems.append('STDOUT')
+                if g(root, 'tag', '-l', 'done/contracts/*'):
+                    problems.append('TAG_ON_REFUSAL')
+                if g(root, 'rev-parse', 'HEAD') != head:
+                    problems.append('HEAD_CHANGED')
+                red += bool(problems)
+                print(label, case[0], 'RED ' + ','.join(problems) if problems else 'GREEN',
+                      'rc=' + str(result.returncode), flush=True)
+                continue
             if result.returncode != expected_rc:
                 problems.append('RC')
             if actual_queries != [selected]:

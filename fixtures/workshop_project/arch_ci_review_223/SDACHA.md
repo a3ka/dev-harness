@@ -1,20 +1,14 @@
 # СДАЧА 223 — `.review/**` в служебном хвосте ARCH_CI
 
-Предмет: полный done CLI обходит только непустые дельты корневых `.harness/**` + `.review/**`, сохраняет продуктовую границу, check-run arch и done-тег на HEAD. Тип доказательства — поведение настоящей двери и Git; не статическая подстановка строки. Источник — task-architect223.md и прочитанное письмо back-1190 о done 177/6 на 09f8ba635cd34af657b0376ba8388abbde0ba4dc. Реальный done бэкенда не запускался; backend177-chain воспроизводит топологию и состав путей, не чужие SHA/сеть.
+Предмет: полный done CLI обходит только непустые дельты корневых `.harness/**` + `.review/**`, сохраняет продуктовую границу, check-run arch и done-тег на HEAD. Тип доказательства — поведение настоящей двери и Git, не статическая подстановка строки. Production/CI/реестры/прежние семьи не меняются. Шов, обещание и frozen-обязательства — §Предмет контракта; correction не добавляет нового отказа.
 
-База fetch/switch: f82ff8c9d0d4ba45a53b7aa2e712c552141715f9. Production/CI/реестры/прежние семейства не меняются; зона — контракт 223 и новая семья. Конструктор world201.build переиспользуется без его оракула. Модель — полная дверь базы с одной функцией служебных путей и заменой прежнего case её вызовом; унаследованные SC2034/SC2295/SC1010 отмечены только в reference. Production переносится точечной правкой текущей двери исполнителем после заморозки.
+ПРЕДЫДУЩИЙ ВЕРДИКТ: verdicts/critic/contracts-223-v1.md
 
-## Счёт и наблюдение
-
-`--catalog`: KLETKI 39 STABY 8 EKVIVALENTY 2 SVJAZI 23. Build: NOSITELI 11; это модель, восемь дефектных и два честных эквивалентных носителя. Независимое наблюдение — фактический --model 39/0, --stabs ZHIVYH 0 при 23 отдельных предъявлениях. Красных адресных связей 14, зелёных 9 (число строк с red/green в сгенерированном stabs.tsv). Единственный редактируемый реестр — MUTATIONS/EQUIVALENTS build.py; source.json и TSV — его производные, хеши и TSV проверяются до субъекта.
-
-Оракул — литералы CASES и снятые ДО вызова значения HEAD/продуктового коммита/ожидаемого SHA*, не повтор классификатора. Каждый мир строится настоящими git commit/merge --no-ff; у backend177-chain четыре служебных merge поверх продукта. API-шлюз отвечает по SHA в URL и журналирует каждый запрос; ожидается ровно один запрос к выбранному SHA*. Никакого git-двойника, извлечения селектора из продукта или вызова модели вместо CLI нет. Проверяются раздельные rc/stdout/stderr, предметная строка с обоими полными SHA, peeled-цель настоящего annotated тега и неизменность HEAD.
-
-Пути rename/delete/mode/symlink/type-change имеют служебные допуски и продуктовые отказы. Есть пробел/Unicode/LF/буквальное `a..b`, каталоговая/корневая/регистровая граница, смесь и негативные состояния API. `.review/a/../../x` вводится через файловую систему: перед субъектом git diff обязан показать `x`; невозможный для Git raw-путь не выдается за конформный вход. Остальные root/depth/octopus/gitlink остаются за неизменной полной семьёй 187.
+База исправления: 862ed947bd9a760d33e84b074b51bd42f405c4fd (авторская пачка 7ad42a6cf380cac99e8ebc1074ffd39e7acdf5f1 плюс закоммиченный FAIL Crit223, вызов 1). Прочитаны полный вердикт, исходное задание и дельта-пакет task-architect223b.md. Ровно один блок К-08: потеря условия непустоты дельты. Снятие обещания и граница неприемлемы: это сохранённое поведение frozen 187/3. Git plumbing задаёт канон миров, но само по себе не доказывает эффект CLI; поэтому способ закрытия — клетка на существующем шве, не новый guard/парсер.
 
 ## Двери
 
-Все команды выполнены последовательно в isolated-копии. TMPDIR=`$PWD/tmp/scratch-arch223`; VALIDATE_STD_SHELLCHECK=`/home/harness/.local/state/dev-harness/validators/shellcheck/0.11.0/shellcheck`. В строках — ожидаемый и измеренный rc, не статус PASS.
+Команды исполняются последовательно; TMPDIR находится внутри своей копии. VALIDATE_STD_SHELLCHECK=/home/harness/.local/state/dev-harness/validators/shellcheck/0.11.0/shellcheck; SDACHA_TIMEOUT_SEK=1200; SDACHA_BUDZHET_SEK=2400. Поля — ожидаемый и измеренный rc; сырые результаты — §Замер исправления.
 
 - Model · bash fixtures/workshop_project/arch_ci_review_223/red_arch_ci_review_223.sh --model · 0 · 0
 - Stabs · bash fixtures/workshop_project/arch_ci_review_223/red_arch_ci_review_223.sh --stabs · 0 · 0
@@ -27,79 +21,90 @@
 - Provodka-grammar · bash scripts/check_provodka.sh --grammar . contracts/223-arch-ci-review.md · 0 · 0
 - Threat · bash scripts/check_threat_model.sh . contracts/223-arch-ci-review.md · 0 · 0
 
-Полная проводка до подключения CI — заявленно не подключена, как в 205/224; grammar проверена. Это не разрешение обходить done. Подключение своего шага/замера — зона orchestrator до done.
+## Дельта
 
-## Красное предъявление production
+- К-08 · клетка · fixtures/workshop_project/arch_ci_review_223/empty223.py · 0 · 0
 
-Сырой итог `B --repo .`: KLETKI 39 KRASNYH 22, rc 1. Красные по именам:
+## Блок → клетка → стаб
+
+К-08 → empty-first-parent-success → s09-critic-empty-predicate: дословная мутация критика `[ "$_a187_npaths" -eq 0 ] || [ "$_a187_only" -ne 1 ]` → `[ "$_a187_only" -ne 1 ]`. У двухродительского merge дерево первого родителя; success только на p1. Честная дверь запрашивает HEAD, отказывает ARCH_CI rc 1 без тега; мутант запрашивает p1, допускает rc 0 и ставит тег. empty223.py воспроизводит сценарий вердикта, сравнивает байты мутации с сгенерированным s09 и предъявляет честный/ложный носители тому же публичному CLI.
+
+К-08 → empty-first-head-success → тот же s09 (соседняя мутация s10-empty-is-service): положительный контроль с success на HEAD. Проверка SHA не позволяет спрятать дефект за совпавшим rc 0. s10 считает пустую дельту служебной через начальный счётчик 1 вместо 0; обе клетки различают эту ошибку. e03-empty-guard-equivalent меняет порядок дизъюнктов и использует `<1` вместо `==0`: обе пустые клетки и непустые review/harness/product/both-controls зелены.
+
+К-08 → empty-first-parent-success, empty-second-review, empty-second-harness → s11-empty-by-second-diff: сравнение с p2 вместо p1. Для двух последних дерево merge равно p2, но отлично от p1, дельта p1 непуста и служебна: честный запрос идёт к продуктовому p1. Парный empty-second-product остаётся продуктовым отказом. Непустые both-services/harness-merge из прежней батареи сохранены.
+
+К-08 → octopus-empty, octopus-service, octopus-mixed → s12-octopus-third-ignored: `np > 2` заменён на `np > 3`. Во всех трёх мирах ровно три настоящих родителя; success имеется и на HEAD, и на p1, но честная дверь отказывает до API. e04-octopus-guard-equivalent (`np >= 3`) остаётся зелёным на всех трёх и двухродительском harness-контроле.
+
+## Новые предикаты и честные эквиваленты
+
+Предикаты конструктора подтверждают настоящие родительские SHA, пустоту/непустоту дельты p1 и отдельную пустоту p2 через Git. Это предпосылки конформности, ошибка даёт NOT_IMPLEMENTED rc 2, не поимку стаба. Ожидания остаются литералами до субъекта. Проверка octopus требует rc 1, отсутствие API/тега, точную именованную причину с обоими SHA, пустой stdout и неизменный HEAD; s12 красит её каждым из трёх миров, e04 на тех же мирах зелён. Для непустоты и выбора родителя используются прежние предикаты RC/QUERY_SHA/SHA_DIAGNOSIS/TAG, не второй оракул; s09/s10/s11 и e03 дают парные красные/зелёные предъявления. Новых существенных обещаний или дверей сверх К-08 нет.
+
+## Счёт и наблюдение
+
+Единственный реестр адресных связей — MUTATIONS/EQUIVALENTS в build.py; source.json и stabs.tsv генерируются из него, хеши/TSV проверяются до субъекта. Счёт исправления: KLETKI 47 STABY 12 EKVIVALENTY 4 SVJAZI 43; NOSITELI 17. Прежние 39 клеток и 23 связи сохранены, добавлены 8 клеток и 20 связей. Красных связей 24, зелёных 19; независимая мера — строки red/green сгенерированного TSV и --catalog/фактический --stabs. Только добавления в probe.py относительно OBJECT_БАЗЫ; прежние носители неизменны.
+
+Истина — литералы CASES и снятые до вызова SHA/байты. Конструктор world201.build используется без его оракула. Новые пустые/октопус-миры созданы настоящим git commit-tree, tree == p1 или tree == p2 проверены до CLI; остальные миры — настоящие commit/merge --no-ff. API-шлюз адресован по SHA, Git не подменяется. Полные rc/раздельные трубы, единственный ожидаемый SHA-запрос (либо отсутствие API у octopus), оба SHA в своей строке ARCH_CI, annotated done-тег на HEAD, отсутствие тега при отказе и неизменный HEAD проверяются независимо.
+
+## Замер исправления
+
+Дословный мутант критика до расширения батареи: `B --repo <origin-клон с мутантом>` → rc 0, `KLETKI 39 KRASNYH 0`. После расширения тот же неизменённый носитель → rc 1, `KLETKI 47 KRASNYH 2`:
 
 ```text
-review-merge
-review-nested
-both-services
-backend177-chain
-review-linear
-review-space
-review-unicode
-review-dotdot-name
-review-newline
-review-delete
-review-rename
-review-mode
-review-symlink
-review-type-change
-review-missing-run
-review-failed-run
-review-skipped-run
-review-other-sha
-review-incomplete-run
-review-wrong-name
-review-name-space
-review-name-parenthesis
+REPO empty-first-parent-success RED RC,QUERY_SHA,SHA_DIAGNOSIS,TAG_ON_REFUSAL rc=0
+REPO empty-first-head-success RED QUERY_SHA,SHA_DIAGNOSIS rc=0
 ```
 
-У последних негативных API-входов (missing/failed/skipped/other/incomplete/wrong-name) rc 1 верен, но запрос идёт к служебному merge, а не к продуктовому предку: красны QUERY_SHA/SHA_DIAGNOSIS. Нельзя засчитать их зелёными только по rc. Положительные review-входы красны RC/QUERY_SHA/SHA_DIAGNOSIS/TAG_TARGET. Продуктовые отказы, `.harness/` и продуктовый HEAD с собственным success уже зелены.
+Точное удаление предиката выполнено в scratch-клоне; production своей копии не менялась. Исходная команда Python из вердикта прочитана; её a/b воспроизведены побайтно в build.py и empty223.py (индивидуальные правки выполняются edit, не Python -c).
 
-Сырой итог модели: KLETKI 39 KRASNYH 0, rc 0. Стабы: ZHIVYH 0 SVJAZI 23, rc 0; каждая связь отдельно, перед ними полный честный контроль 39/0. SINTAKSIS 11 SHELLCHECK 2, rc 0. Каталог 39/8/2/23, rc 0. Context: ДЕКЛАРАЦИИ 75, rc 0; в том числе высшие frozen 224/1 и 226/1, уже существующие в дереве. 205 не владеет done_contract.sh, его зона — check_provodka.sh. Подготавливаемого 231 в этой базе/ref нет; совместимость объявлена текстом, не вымышленным frozen-тегом.
+Чистый SSH-origin-клон `tmp/origin-223b` закреплён на 862ed947bd9a760d33e84b074b51bd42f405c4fd; теги получены с origin. Production восстановлена из неизменной своей копии после отдельного предъявления мутанта. В клон перенесены только контракт и семейство 223; все команды ниже выполнены по одной. TMPDIR=`<клон>/tmp/scratch-arch223b`.
 
-## Scoped-регрессы
+| Команда | Сырой rc | Наблюдение | Секунды |
+|---|---:|---|---:|
+| 224 --repo . до переноса исправления | 0 | KLETKI 100 KRASNYH 0 | 117.37 |
+| B --model | 0 | KLETKI 47 KRASNYH 0 | 44.36 |
+| B --stabs | 0 | CONTROL 47/0; ZHIVYH 0 SVJAZI 43 | 89.81 |
+| B --sintaksis | 0 | SINTAKSIS 17 SHELLCHECK 2 | 1.17 |
+| B --catalog | 0 | KLETKI 47 STABY 12 EKVIVALENTY 4 SVJAZI 43 | 0.05 |
+| B --repo . | 1 | KLETKI 47 KRASNYH 23, предметный red до реализации | 30.26 |
+| python3 -B fixtures/workshop_project/arch_ci_review_223/empty223.py | 0 | honest-empty RED 0; mutant-empty RED 1 | 2.00 |
+| python3 -B fixtures/workshop_project/arch_ci_review_223/context.py | 0 | ДЕКЛАРАЦИИ 75 | 0.85 |
+| bash scripts/pre_critic.sh contracts/223-arch-ci-review.md | 0 | КРИТИК: дверь зелёная | 219.11 |
+| bash scripts/check_sdacha.sh . contracts/223-arch-ci-review.md --run | 0 | двери=10 карта=17/17 дельта=1 | 235.04 |
+| bash scripts/check_precision_gate.sh . contracts/223-arch-ci-review.md | 0 | OK | 23.72 |
+| 224 --repo . после исправления | 0 | KLETKI 100 KRASNYH 0 | 152.24 |
+| 187 --repo . | 0 | CELLS=111 STABS=0 FAILURES=0; pin-boundary 9/9 | 150.01 |
+| 201 --repo . | 0 | CELLS=62 STABS=0 FAILURES=0 | 75.92 |
 
-До новой семьи: 224 --repo . → KLETKI 100 KRASNYH 0, rc 0 (163.45 s).
-После новой семьи: 187 --repo . → CELLS=111 STABS=0 FAILURES=0, rc 0 (178.75 s); pin-boundary самоконтроль 9/9.
-После новой семьи: 201 --repo . → CELLS=62 STABS=0 FAILURES=0, rc 0 (96.41 s).
+Имена 224/187/201 раскрыты полными командами в приёмке контракта; budgets для формы — 1200/2400, как в задании. Сырые stdout/stderr и rc сохранены в `tmp/evidence-223b/` своей копии (не часть поставки). Независимая мера `cut -f3 fixtures/workshop_project/arch_ci_review_223/stabs.tsv | sort | uniq -c` дала `19 green`, `24 red`. `git diff --numstat 862ed947bd9a760d33e84b074b51bd42f405c4fd -- fixtures/workshop_project/arch_ci_review_223/probe.py` дал `59 0`: только добавления. Прежние клетки/связи не ослаблены.
 
-Production не меняется, результаты этих команд — baseline для исполнителя. Полный повтор 224 после завершения семьи докладывается вместе с SHA сдачи. Новые API-негативы не заменяют прежние 201 JSON/NUL/transport-сценарии.
+## Красное production до реализации
+
+Прежние красные review-merge/review-nested/both-services/backend177-chain/review-linear, review-space/unicode/dotdot-name/newline/delete/rename/mode/symlink/type-change, review-missing-run/failed-run/skipped-run/other-sha/incomplete-run/wrong-name/name-space/name-parenthesis остаются предметным красным. Новая empty-second-review имеет ту же ещё не реализованную review-классификацию. API-негативы красны SHA-запросом даже при верном rc 1; одного rc недостаточно. Остальные новые пустые/harness/product/octopus-клетки уже зелены на production и сохраняют 187. Полный rc 0 ожидается только после implementer; старый reference не переносится поверх production.
 
 ## Карта классов
 
-- К-01 · чисто · вход: десять дверей листа; grammar, threat и precision измерены rc 0; форма pre_critic/check_sdacha — отдельные итоговые прогоны · - · -
-- К-02 · чисто · вход: task-architect223.md целиком, слово «ARCH_CI v2 да», письмо back-1190; sourceCanon не объявлен · - · -
-- К-03 · чисто · вход: context.py читает высшие frozen-blobs; 75 объявлений, 187/201 регрессы rc 0, 224 baseline rc 0 · - · -
-- К-04 · чисто · вход: только contracts/223-arch-ci-review.md и arch_ci_review_223/; build.py — источник носителей/manifest/TSV, CI — не зона architect · - · -
-- К-05 · чисто · вход: приёмка переведена в B-режимы и scoped-команды с rc; нет срока/порога без меры · - · -
-- К-06 · чисто · вход: suite требует rc 0/1 и ARCH_CI на отказе, сторонний отказ/синтаксис/таймаут дают NOT_IMPLEMENTED rc 2 · - · -
-- К-07 · чисто · вход: --model 39/0 запускает полный done CLI с настоящими Git-объектами и тем же инсталлятором scripts, что --repo · - · -
-- К-08 · чисто · вход: --stabs 8 дефектных носителей, 14 красных связей; отдельно 9 зелёных связей эквивалентов, ZHIVYH 0 · - · -
-- К-09 · чисто · вход: CASES — граница каталога/корня/регистра, смешение, цепочка, операции Git, отрицательные состояния arch; прежние глубина/root/octopus — семья 187 · - · -
-- К-10 · чисто · вход: rc/раздельные трубы, полный SHA в своей ARCH_CI-строке, запрос по SHA и peeled-цель annotated-тега; негативы API до реализации красны даже при верном rc · - · -
-- К-11 · чисто · вход: литералы CASES/HEAD/selected/carrier сняты в память до субъекта; ожидаемый результат не лежит внутри мира · - · -
-- К-12 · чисто · вход: Git plumbing, jq внутри настоящей двери, bash -n/стандартный shellcheck; source/TSV из одного генератора, побайтная сверка · - · -
-- К-13 · н/п · новые секретные входы/сеть не вводятся, токены в батарее не нужны · - · -
-- К-14 · чисто · вход: e01 переставляет альтернативы case, e02 — эквивалентный if; служебные допуски парны продуктовым отказам для нестандартных дельт · - · -
-- К-15 · чисто · вход: build/catalog и фактические прогоны 39/8/2/23, 11 носителей; 75 пересечений из context.py · - · -
-- К-16 · чисто · вход: рисковый класс авторизации приёмки; содержимое служебных каталогов и single-uid компрометация явно вне защиты, ловцы названы · - · -
-- К-17 · н/п · станционный механизм без модели продукта/новых writers/isolationKeys, операция архитектуры не объявляется · - · -
+- К-01 · чисто · вход: десять дверей формы, отдельная исполняемая дельта; pre_critic/check_sdacha/precision — итоговые scoped-прогоны · - · -
+- К-02 · чисто · вход: исходное задание, дельта-пакет, полный FAIL Crit223, слово «ARCH_CI v2 да» и письмо back-1190; sourceCanon не объявлен · - · -
+- К-03 · чисто · вход: context.py читает высшие frozen-блобы, 187/3 и 201/1 сохранены; scoped 224/187/201 включены · - · -
+- К-04 · чисто · вход: зона — контракт 223 и arch_ci_review_223/, production/CI/прежние семьи неизменны · - · -
+- К-05 · чисто · вход: приёмка — B-режимы, empty223.py и scoped-команды с rc; новый смысл не добавлен · - · -
+- К-06 · чисто · вход: исключение/синтаксис/таймаут/сторонний отказ дают NOT_IMPLEMENTED rc 2, не поимку · - · -
+- К-07 · чисто · вход: --model и полный CONTROL перед --stabs; empty223.py предъявляет честный контроль до мутанта · - · -
+- К-08 · чисто · вход: адресные s09/s10/s11/s12 на настоящих пустых/p2/octopus-мирах плюс e03/e04; точный мутант до 39/0, после 47/2 · - · -
+- К-09 · чисто · вход: прежние 39 клеток сохранены; добавлены 8 по К-08; root/depth/gitlink защищает неизменная 187 · - · -
+- К-10 · чисто · вход: rc, трубы, SHA-запрос/отсутствие API у octopus, оба SHA, annotated-тег и HEAD; empty HEAD-success ловит ложный выбор даже при совпавшем rc · - · -
+- К-11 · чисто · вход: литералы CASES, HEAD/selected/carrier сняты в память до субъекта; файл ожиданий внутри мира не перечитывается · - · -
+- К-12 · чисто · вход: настоящий Git plumbing, jq двери, bash -n и стандартный shellcheck, manifest/TSV из единого build.py · - · -
+- К-13 · н/п · секретные входы и сеть не вводятся; токены батарее не нужны · - · -
+- К-14 · чисто · вход: e01/e02 сохранены; e03/e04 на тех же пустых/непустых/octopus-входах, парные продуктовые отказы и служебные допуски · - · -
+- К-15 · чисто · вход: build/catalog/TSV и фактический --stabs проверяют 47/12/4/43, носителей 17; нулевая выборка запрещена · - · -
+- К-16 · чисто · вход: класс рисковый — авторизация приёмки; содержимое служебных каталогов и single-uid компрометация вне защиты, ловцы названы в контракте · - · -
+- К-17 · н/п · станционный механизм, модель продукта и новые writers/isolationKeys не объявляются · - · -
 
 ## Наблюдение процесса
 
-Кандидат для main-журнала, без самовольного А-номера: путь `.review/a/../../x` нельзя предъявлять как raw Git-путь — это не состояние, которое создаёт обычный Git; файловая запись канонизируется в продуктовый `x`. Цена — отдельный контроль plumbing до субъекта вместо ложной «фикстуры» строкового selector. Класс — конструкция конформного входа; закрыто normalized-escape в настоящем Git-мире. Общий NABLIUDENIA_ARCHITECT.md в wip не меняется; публикация наблюдения принадлежит main.
+Кандидат для main-журнала, без А-номера и без записи общего журнала в wip: прежние 39 миров и три scoped-регресса не различали удаление уже существующего условия непустоты. Цена — один исправительный круг. Класс — конструкция: список путей без элемента не эквивалентен списку служебных путей. Закрыто прямым commit-tree-миром и парным HEAD-success с проверкой SHA, а не усилением прозы или новым guard. Предыдущее наблюдение о каноническом `.review/a/../../x` сохраняется в normalized-escape; новых процессных обязательств не вводится.
 
-## Итоговые двери формы
+## Проводка
 
-`SDACHA_TIMEOUT_SEK=1200 SDACHA_BUDZHET_SEK=2400 bash scripts/check_sdacha.sh "$PWD" contracts/223-arch-ci-review.md --run` → rc 0, `СДАЧА: лист зелёный (двери=10 карта=17/17 дельта=0)` (180.07 s).
-
-`bash scripts/pre_critic.sh contracts/223-arch-ci-review.md` при тех же TMPDIR/shellcheck/бюджетах → rc 0, `КРИТИК: дверь зелёная` (202.30 s). Прежние два отказа формы листа (буллеты вне машинной секции и python3 как первый токен команды) исправлены формой листа, не ослаблением гейта.
-
-После завершения семьи 224 --repo . повторён: rc 0, KLETKI 100 KRASNYH 0 (193.92 s); результат до/после одинаков. Production ни одной строкой не изменён.
-
-Сухой done-гейт `bash scripts/check_provodka.sh "$PWD" contracts/223-arch-ci-review.md` → rc 1: `проводка: guard не подключён: fixtures/workshop_project/arch_ci_review_223/red_arch_ci_review_223.sh не вызывается в .githooks/ или .github/workflows/`. Это единственная недостающая проводка, уже выделенная контрактом в зону orchestrator; architect не меняет CI вне выданной зоны. Полный rc 0 обязателен перед done, не заявляется этой сдачей.
+Полный check_provodka до CI-подключения остаётся rc 1: guard семьи не подключён. Это прежний явно распределённый этап orchestrator до done, не блок исправления К-08 и не разрешение обходить done. Grammar проверяется отдельно; чужой CI вне зоны architect.
