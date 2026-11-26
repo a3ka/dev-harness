@@ -70,7 +70,20 @@ PRODUCTS = {
     # This already-conformant repository identifier is NOT silently renamed.
     'product-owner-dot': ('ПРОДУКТ: vendor/repo.', 1, 'EXTERNAL'),
 }
+WORLDS.update({
+    'config-name-added': ([('z2', 'FAIL', None), ('z10', 'accept', None)], 0, ''),
+    'config-name-removed': ([('2', 'FAIL', None), ('10', 'accept', None)], 1, 'VERDICT_ROUND_INVALID'),
+    'config-call-disabled': ([('v1', 'accept', '2')], 1, 'VERDICT_ROUND_CONFLICT'),
+})
+PRODUCTS.update({
+    'product-config-added': ('ПРОДУКТ: мастерская', 0, ''),
+    'product-config-removed': ('ПРОДУКТ: станция.', 1, 'GRAMMAR'),
+})
+CONFIG_CASES = ('config-broken', 'config-empty', 'config-missing', 'config-schema',
+                'config-worktree', 'config-index', 'config-author', 'config-environment',
+                'config-equivalent')
 CASES = tuple(role + '-' + name for role in ('review', 'adversary') for name in WORLDS) + tuple(PRODUCTS)
+CASES += CONFIG_CASES
 
 
 def blob(ref, path):
@@ -169,6 +182,74 @@ def make_world(work, case):
     return root, target, expected, marker, f'done/contracts/{nn}/1', g(root, 'rev-parse', 'HEAD')
 
 
+POLICY_PATH = 'config/done_forms.json'
+SCHEMA_PATH = 'config/done_forms.schema.json'
+_original_install = prior.install
+
+
+def install_policy(work, carrier, tools_repo):
+    subject = _original_install(work, carrier, tools_repo)
+    tools = subject.parents[1]
+    # Real installed repository, separate from the author's project.
+    g(tools, 'init', '-q', '-b', 'main')
+    for path in (POLICY_PATH, SCHEMA_PATH, 'ops/server/validators.tsv'):
+        put(tools, path, (ROOT / path).read_text())
+    commit(tools, 'installed policy')
+    return subject
+
+
+prior.install = install_policy
+_original_world = make_world
+
+
+def make_world(work, case):
+    if case not in CONFIG_CASES:
+        return _original_world(work, case)
+    root, target, _, _, tag, _ = _original_world(work, 'product-station')
+    # Author's committed/dirty config and ambient config are never authoritative.
+    put(root, POLICY_PATH, '{}\n')
+    head = commit(root, 'untrusted author policy')
+    expected = 1 if case in CONFIG_CASES[:4] else 0
+    marker = 'done: DONE_FORMS_CONFIG' if expected else ''
+    return root, target, expected, marker, tag, head
+
+
+def prepare_policy(subject, root, case):
+    tools = subject.parents[1]
+    policy = json.loads((ROOT / POLICY_PATH).read_text())
+    name = case.split('-', 1)[1] if case.startswith(('review-', 'adversary-')) else case
+    if name == 'config-name-added':
+        policy['verdicts'].append({'pattern': r'-impl-z([1-9][0-9]*)\.md$',
+                                  'version_group': 1, 'number_group': 0,
+                                  'default_version': 1, 'mode': 'legacy'})
+    elif name == 'config-name-removed':
+        policy['verdicts'] = policy['verdicts'][:3]
+    elif name == 'config-call-disabled':
+        policy['plain_call_from_record'] = False
+    elif case == 'product-config-added':
+        policy['station_lines'].append('ПРОДУКТ: мастерская')
+    elif case == 'product-config-removed':
+        policy['station_lines'].remove('ПРОДУКТ: станция.')
+    text = json.dumps(policy, ensure_ascii=False, indent=4 if case == 'config-equivalent' else None) + '\n'
+    if case == 'config-broken':
+        text = '{'
+    elif case == 'config-empty':
+        text = ''
+    elif case == 'config-schema':
+        text = '{}\n'
+    put(tools, POLICY_PATH, text)
+    if case == 'config-missing':
+        (tools / POLICY_PATH).unlink()
+    g(tools, 'add', '-A')
+    g(tools, 'commit', '-q', '--allow-empty', '-m', 'policy world ' + case)
+    if case in ('config-worktree', 'config-index'):
+        put(tools, POLICY_PATH, '{}\n')
+        if case == 'config-index':
+            g(tools, 'add', POLICY_PATH)
+    # Always present an alternative ambient policy, even for honest controls.
+    os.environ['DONE_FORMS_CONFIG'] = str(root / POLICY_PATH)
+
+
 def suite(carrier, cases, label, tools_repo):
     red = 0
     with tempfile.TemporaryDirectory(prefix='compat231-', dir=os.environ['TMPDIR']) as temp:
@@ -178,6 +259,7 @@ def suite(carrier, cases, label, tools_repo):
             home = work / str(index)
             home.mkdir()
             root, target, expected, marker, tag, head = make_world(home, case)
+            prepare_policy(subject, root, case)
             env = {k: v for k, v in os.environ.items() if not k.startswith(('GIT_', 'HARNESS_PROJECT_'))}
             env['GIT_CONFIG_GLOBAL'] = env['GIT_CONFIG_SYSTEM'] = '/dev/null'
             result = run(['bash', subject, target, 'fixture done', root], cwd=root, env=env)

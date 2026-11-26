@@ -8,6 +8,13 @@ spec = importlib.util.spec_from_file_location('context224', HERE.parent / 'svezh
 prior = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(prior)
 OWN = [('architect', 'contracts/231-sovmestimost-doski-224.md'),
+       ('architect', 'contracts/224-svezhest-verdikta-done.md'),
+       ('architect', 'contracts/201-done-dver-soderzhatelnaja-sverka.md'),
+       ('architect', 'fixtures/workshop_project/svezhest_verdikta_done_224/probe.py'),
+       ('architect', 'config/done_forms.json'),
+       ('architect', 'config/done_forms.schema.json'),
+       ('implementer', 'config/done_forms.json'),
+       ('implementer', 'config/done_forms.schema.json'),
        ('architect', 'fixtures/workshop_project/done_round_compat_231/'),
        ('implementer', 'scripts/done_contract.sh'),
        ('orchestrator', 'registry/ci-steps.tsv'),
@@ -43,9 +50,9 @@ def declarations():
                         if author != own_author or own == 'scripts/done_contract.sh':
                             reason = 'только свои CI-шаг и замер 231; чужие строки сохраняются'
                             if own_author == 'architect':
-                                reason = 'только контракт и новая семья 231; прежние семьи не меняются'
+                                reason = 'только переход R-0162: 231, адресные v+1 224/201 и две клетки 224'
                             if own_author == 'implementer':
-                                reason = 'только совместимость входов done; F/CID/OBJECT и остальные двери сохраняются; конфликт 224 раскрыт отдельно'
+                                reason = 'только совместимость входов done из конфига; F/CID/OBJECT и остальные двери сохраняются'
                             found.add(f'ПЕРЕСЕЧЕНИЕ {own_author}: {own} — {n} {reason}')
                             matched.add(line)
         if matched:
