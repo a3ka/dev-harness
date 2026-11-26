@@ -1,0 +1,7 @@
+{
+  "name": "first-found-session",
+  "file": "scripts/models_actual.py",
+  "old": "if (selected is not None or bind) and len(set(names)) != len(names):",
+  "new": "files = files[:1]\n    if False:",
+  "cases": ["duplicate-bind", "duplicate-allowed-tsv"]
+}
