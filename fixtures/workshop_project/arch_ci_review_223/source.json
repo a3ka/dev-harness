@@ -1,0 +1,163 @@
+{
+  "base": "f82ff8c9d0d4ba45a53b7aa2e712c552141715f9",
+  "files": {
+    "model/done_contract.sh": "610dd9fb9ba8df1ea0fbfe0317a460429608a7a54cf08b6e8faebc555c6f4838",
+    "stabs/s01-review-prefix/done_contract.sh": "9b02bbff8e2922a903cbfbff8885da107c0e46b3644aa7098e95cad8f7703082",
+    "stabs/s02-any-dot-directory/done_contract.sh": "dd06ac987869472e859282448a7d31a7e85a195c4fcca2617bac8d14fd754008",
+    "stabs/s03-any-service-mixed/done_contract.sh": "a43c47b94cf20556203caee40f4d90798aa7745945bd6187b8400107e26957b1",
+    "stabs/s04-foldcase/done_contract.sh": "359ee4c173636c7e4945002340ce39b5d6833de8df6098180af6dc955bc6aa4c",
+    "stabs/s05-no-success-required/done_contract.sh": "d88bdf1278dcec988cba7556e5473077459b788c09abcb29c1cfd668e1d49dc3",
+    "stabs/s06-harness-broken/done_contract.sh": "f6585d162a75c548b43f689347323704e7362def2e3de10be842bf215bedc482",
+    "stabs/s07-rename-source-hidden/done_contract.sh": "b57b35bdd2a7e1dcfaa99a285d500583a6f5d6e593e6ede7550e0339b25c6d73",
+    "stabs/s08-second-parent/done_contract.sh": "ccbd60a59860db6309146e5afd8c16e7904a171aec88d3e1c90fe52374f7a796",
+    "stabs/s09-critic-empty-predicate/done_contract.sh": "e23404a94c5a12e27ff8b09f547e895a30d6fc62e6601045f97f0924de9f9b89",
+    "stabs/s10-empty-is-service/done_contract.sh": "b7e7b8fe6e1a188e9ab8fad6d029ef9f379ca867b39533a6e12fc0269db9afb6",
+    "stabs/s11-empty-by-second-diff/done_contract.sh": "612eae76430c946fcde043def8c9911da022f1e862c98af7676e824b9bbb37e3",
+    "stabs/s12-octopus-third-ignored/done_contract.sh": "a8d91b5e379768903a990725226033602b0cc153ed4a04b5c41ea631dc06fd8a",
+    "stabs/e01-case-order/done_contract.sh": "c5d3654ee7599e95ba93715526150b14546ce75f1b4b8e24276eaf57359a514c",
+    "stabs/e02-if-equivalent/done_contract.sh": "5e965d1493e8ea526b552b758c555f419fd848d86d226dfe1106f652604e4973",
+    "stabs/e03-empty-guard-equivalent/done_contract.sh": "0ccf8a9f2df14c0bb425513ce76f0ffd33be68c38c0760428a9ed5de22eb401e",
+    "stabs/e04-octopus-guard-equivalent/done_contract.sh": "9a0f12f0158c6a39d45b43edc60ad2a4430fbea7fe3e63fbec92f16a2b9d6184"
+  },
+  "links": [
+    {
+      "carrier": "stabs/s01-review-prefix/done_contract.sh",
+      "cells": [
+        "reviewx",
+        "review-file"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s02-any-dot-directory/done_contract.sh",
+      "cells": [
+        "review-other-dot"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s03-any-service-mixed/done_contract.sh",
+      "cells": [
+        "mixed-review-product",
+        "mixed-both-product"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s04-foldcase/done_contract.sh",
+      "cells": [
+        "review-uppercase"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s05-no-success-required/done_contract.sh",
+      "cells": [
+        "review-missing-run",
+        "review-failed-run",
+        "review-skipped-run",
+        "review-other-sha"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s06-harness-broken/done_contract.sh",
+      "cells": [
+        "harness-merge"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s07-rename-source-hidden/done_contract.sh",
+      "cells": [
+        "product-rename-in"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s08-second-parent/done_contract.sh",
+      "cells": [
+        "review-merge",
+        "backend177-chain"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s09-critic-empty-predicate/done_contract.sh",
+      "cells": [
+        "empty-first-parent-success",
+        "empty-first-head-success"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s10-empty-is-service/done_contract.sh",
+      "cells": [
+        "empty-first-parent-success",
+        "empty-first-head-success"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s11-empty-by-second-diff/done_contract.sh",
+      "cells": [
+        "empty-first-parent-success",
+        "empty-second-review",
+        "empty-second-harness"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s12-octopus-third-ignored/done_contract.sh",
+      "cells": [
+        "octopus-empty",
+        "octopus-service",
+        "octopus-mixed"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/e01-case-order/done_contract.sh",
+      "cells": [
+        "both-services",
+        "harness-merge",
+        "review-merge",
+        "mixed-review-product",
+        "review-file"
+      ],
+      "polarity": "green"
+    },
+    {
+      "carrier": "stabs/e02-if-equivalent/done_contract.sh",
+      "cells": [
+        "reviewx",
+        "review-uppercase",
+        "review-missing-run",
+        "review-rename"
+      ],
+      "polarity": "green"
+    },
+    {
+      "carrier": "stabs/e03-empty-guard-equivalent/done_contract.sh",
+      "cells": [
+        "empty-first-parent-success",
+        "empty-first-head-success",
+        "empty-second-review",
+        "empty-second-harness",
+        "empty-second-product",
+        "both-services"
+      ],
+      "polarity": "green"
+    },
+    {
+      "carrier": "stabs/e04-octopus-guard-equivalent/done_contract.sh",
+      "cells": [
+        "octopus-empty",
+        "octopus-service",
+        "octopus-mixed",
+        "harness-merge"
+      ],
+      "polarity": "green"
+    }
+  ]
+}
