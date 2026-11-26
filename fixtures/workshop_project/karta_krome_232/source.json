@@ -1,0 +1,154 @@
+{
+  "base": "568f0ea63271e3461b574105cba8faec7563a8fd",
+  "source": "scripts/lib_karta_sdachi.sh",
+  "base_sha256": "e6c8a20a849e094cbe6d13e21f9e0e9adc624b9c970300a3b4f83a77aaa94937",
+  "sha256": {
+    "model/lib_karta_sdachi.sh": "80c6ffd759c2cee1134a916eecc9e17e3eec81f18e81d8eabb6a6e7e5362120e",
+    "stabs/st01-any-tail/lib_karta_sdachi.sh": "3ed52f61fdd255628aae4dee5cd11baf44ce8d3c74f188137bb999a01c62c0d5",
+    "stabs/st02-empty-text/lib_karta_sdachi.sh": "7b264674c3ad9b5fe08fac8f5a3f7cd19d9ca2beeddb7410bddb6ed5acaa573d",
+    "stabs/st03-dot-optional/lib_karta_sdachi.sh": "e4a7b08735904da1b743844cdddc3450a71ab88f9c6549281bf6c2f896875b7c",
+    "stabs/st04-promote-direct/lib_karta_sdachi.sh": "f794306abdea2e7dfee2c9dd9a9eeb48ea4f9b21e7c38cf79e08f3ab868007ef",
+    "stabs/st05-case-insensitive/lib_karta_sdachi.sh": "79274aa63c2aff6dd313ccf344d661a32e4a7d4571013d5745ee524061489ef7",
+    "stabs/st06-number-only/lib_karta_sdachi.sh": "5b154196a569660386ea901d5076d66c327d5de61654ed47db593b52d2a96ba0",
+    "stabs/st07-previous-only/lib_karta_sdachi.sh": "7f7946ff4ba0562d750aed48f01055bd52ed8be71d298a358f437d571668ed47",
+    "stabs/st08-greedy-newline/lib_karta_sdachi.sh": "36c5ee8ba18a307693aa411607e6c35eb7a6dbf90411b16a15bb95b47a72829c",
+    "stabs/st09-no-expansion/lib_karta_sdachi.sh": "e6c8a20a849e094cbe6d13e21f9e0e9adc624b9c970300a3b4f83a77aaa94937",
+    "stabs/st10-whitespace-text/lib_karta_sdachi.sh": "ec6d457160f149db4d3095bb48b6d685b61bac5fc54f0e24bd2badb3d5fa0f5e",
+    "live178.md": "0a7d5c84b0cbebc8e9e61bfd58db185f6d4f38c0ae711842a7b72c820aacae66"
+  },
+  "stab_vhod": [
+    {
+      "stab": "stabs/st01-any-tail/lib_karta_sdachi.sh",
+      "case": "number-arbitrary"
+    },
+    {
+      "stab": "stabs/st01-any-tail/lib_karta_sdachi.sh",
+      "case": "previous-arbitrary"
+    },
+    {
+      "stab": "stabs/st01-any-tail/lib_karta_sdachi.sh",
+      "case": "number-no-comma-space"
+    },
+    {
+      "stab": "stabs/st02-empty-text/lib_karta_sdachi.sh",
+      "case": "number-except-empty"
+    },
+    {
+      "stab": "stabs/st02-empty-text/lib_karta_sdachi.sh",
+      "case": "previous-except-empty"
+    },
+    {
+      "stab": "stabs/st02-empty-text/lib_karta_sdachi.sh",
+      "case": "number-semicolon-empty"
+    },
+    {
+      "stab": "stabs/st02-empty-text/lib_karta_sdachi.sh",
+      "case": "previous-semicolon-empty"
+    },
+    {
+      "stab": "stabs/st03-dot-optional/lib_karta_sdachi.sh",
+      "case": "number-except-no-dot"
+    },
+    {
+      "stab": "stabs/st03-dot-optional/lib_karta_sdachi.sh",
+      "case": "previous-except-no-dot"
+    },
+    {
+      "stab": "stabs/st03-dot-optional/lib_karta_sdachi.sh",
+      "case": "number-semicolon-no-dot"
+    },
+    {
+      "stab": "stabs/st03-dot-optional/lib_karta_sdachi.sh",
+      "case": "previous-semicolon-no-dot"
+    },
+    {
+      "stab": "stabs/st04-promote-direct/lib_karta_sdachi.sh",
+      "case": "direct-semicolon"
+    },
+    {
+      "stab": "stabs/st04-promote-direct/lib_karta_sdachi.sh",
+      "case": "direct-except"
+    },
+    {
+      "stab": "stabs/st05-case-insensitive/lib_karta_sdachi.sh",
+      "case": "number-uppercase"
+    },
+    {
+      "stab": "stabs/st05-case-insensitive/lib_karta_sdachi.sh",
+      "case": "previous-uppercase"
+    },
+    {
+      "stab": "stabs/st06-number-only/lib_karta_sdachi.sh",
+      "case": "previous-except"
+    },
+    {
+      "stab": "stabs/st06-number-only/lib_karta_sdachi.sh",
+      "case": "previous-semicolon-command"
+    },
+    {
+      "stab": "stabs/st06-number-only/lib_karta_sdachi.sh",
+      "case": "previous-semicolon-prose"
+    },
+    {
+      "stab": "stabs/st07-previous-only/lib_karta_sdachi.sh",
+      "case": "number-except"
+    },
+    {
+      "stab": "stabs/st07-previous-only/lib_karta_sdachi.sh",
+      "case": "number-semicolon-command"
+    },
+    {
+      "stab": "stabs/st07-previous-only/lib_karta_sdachi.sh",
+      "case": "number-semicolon-prose"
+    },
+    {
+      "stab": "stabs/st08-greedy-newline/lib_karta_sdachi.sh",
+      "case": "number-newline"
+    },
+    {
+      "stab": "stabs/st08-greedy-newline/lib_karta_sdachi.sh",
+      "case": "previous-newline"
+    },
+    {
+      "stab": "stabs/st08-greedy-newline/lib_karta_sdachi.sh",
+      "case": "number-except-newline"
+    },
+    {
+      "stab": "stabs/st08-greedy-newline/lib_karta_sdachi.sh",
+      "case": "previous-except-newline"
+    },
+    {
+      "stab": "stabs/st09-no-expansion/lib_karta_sdachi.sh",
+      "case": "number-except"
+    },
+    {
+      "stab": "stabs/st09-no-expansion/lib_karta_sdachi.sh",
+      "case": "number-semicolon-command"
+    },
+    {
+      "stab": "stabs/st09-no-expansion/lib_karta_sdachi.sh",
+      "case": "number-semicolon-prose"
+    },
+    {
+      "stab": "stabs/st09-no-expansion/lib_karta_sdachi.sh",
+      "case": "previous-except"
+    },
+    {
+      "stab": "stabs/st10-whitespace-text/lib_karta_sdachi.sh",
+      "case": "number-double-space"
+    },
+    {
+      "stab": "stabs/st10-whitespace-text/lib_karta_sdachi.sh",
+      "case": "previous-double-space"
+    },
+    {
+      "stab": "stabs/st10-whitespace-text/lib_karta_sdachi.sh",
+      "case": "number-semicolon-double-space"
+    },
+    {
+      "stab": "stabs/st10-whitespace-text/lib_karta_sdachi.sh",
+      "case": "previous-semicolon-double-space"
+    }
+  ],
+  "live_source": "Complior-back@1a27515cb9e9010bb74cb2fc1b0439995d854f61:.harness/verdicts/critic/contracts-178-v1-krug6-fail.md"
+}
