@@ -51,6 +51,12 @@ def world(base, name, kind='backend'):
                'contextPack': {'rows': [
                    {'kind': 'map', 'path': 'STRUCTURE.md', 'roles': 'orchestrator,architect,critic,arbiter,implementer,adversary,reviewer', 'mandatory': True, 'why': 'project structure'}
                ], 'adrPath': 'decisions', 'lessonsPath': '.harness/registry/lessons.tsv'}}
+    if kind == 'backend':
+        # 226: политика архитектурной двери объявляется ЯВНО — прежний
+        # включённый режим выводился из литерала repoId в коде двери, теперь
+        # селектор — профильный лист hooks.archBrief. Входы мира меняются,
+        # ожидания и судящие предикаты — нет.
+        profile['hooks'] = {'archBrief': 'a3ka/Complior-back'}
     put(root, 'harness.project.json', json.dumps(profile))
     put(root, '.harness/project-layer.json', json.dumps({'schemaVersion': 1, 'version': '1',
                                                           'projectId': 'toy', 'workspaceId': 'toy',
