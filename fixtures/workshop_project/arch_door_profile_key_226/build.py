@@ -353,8 +353,11 @@ def generate():
     import runpy
     public = runpy.run_path(str(HERE / 'probe.py'), run_name='catalog226')['public_source'](bindings)
     repairs = runpy.run_path(str(HERE / 'repair_checks.py'), run_name='repairs226')['catalog']()
+    repair_bindings = runpy.run_path(str(HERE / 'repair_checks.py'),
+                                    run_name='repair_stabs226')['REPAIR_BINDINGS']
     (HERE / 'source.json').write_text(json.dumps({'base': BASE, 'files': list(FILES),
         'carriers': carriers, 'bindings': bindings, 'public': public,
+        'repair_bindings': repair_bindings,
         'repairs': repairs}, ensure_ascii=False, indent=2) + '\n')
     print('CARRIERS', len(carriers), 'STABY', len(bindings),
           'SVJAZI', sum(len(v['cells']) for v in bindings.values()))

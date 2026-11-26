@@ -18,6 +18,18 @@ CONTEXT_CHECKS = ['before-late-freeze', 'after-late-freeze',
 STATUS_CHECKS = ['honest', 'hooks-skip', 'hooks-invert', 'leaf-skip',
                  'string-check-skip', 'string-check-invert',
                  'honest-seam-failure', 'equivalent-guard']
+CONTEXT_CHECKS += ['missing-own-freeze-fail-closed']
+STATUS_CHECKS += ['public-red-non-grid-failure']
+# Bind each literal reviewer stub to the input that exposes its defect (Н-39).
+REPAIR_BINDINGS = {
+    'X4': {'path': 'context.py', 'cell': CONTEXT_CHECKS[-1],
+           'replacements': [
+               ["            if ancestry.returncode not in (0, 1):\n"
+                "                raise RuntimeError('FROZEN_ANCESTRY ' + tag)\n", ""],
+               ['if ancestry.returncode == 1:', 'if ancestry.returncode != 0:']]},
+    'Y3': {'path': 'probe.py', 'cell': STATUS_CHECKS[-1],
+           'replacements': [['except GridFailure as exc:', 'except RuntimeError as exc:']]},
+}
 # Literal reviewer mutations, independent of the generated historical carriers.
 MUTATIONS = [
     ('hooks-skip', 'has("hooks")', 'has("hooks") and false'),
@@ -47,6 +59,12 @@ def replace(text, old, new):
     if text.count(old) != 1:
         raise RuntimeError('ANCHOR ' + repr(old))
     return text.replace(old, new, 1)
+
+
+def mutate(text, name):
+    for old, new in REPAIR_BINDINGS[name]['replacements']:
+        text = replace(text, old, new)
+    return text
 
 
 def context_checks(base):
@@ -92,6 +110,14 @@ def context_checks(base):
     own.write_text('ЗОНА implementer: scripts/done_contract.sh\n')
     expect(CONTEXT_CHECKS[3], run([sys.executable, '-B', script], repo), 1,
            'MISSING implementer scripts/done_contract.sh 201')
+    own.write_text(declared)
+    git('tag', '-d', 'frozen/contracts/226/1')
+    expect(CONTEXT_CHECKS[-1], run([sys.executable, '-B', script], repo), 1,
+           'FROZEN_ANCESTRY')
+    script.write_text(mutate(original, 'X4'))
+    expect('X4-counterexample', run([sys.executable, '-B', script], repo), 0,
+           'OVERLAPS 0 MISSING 0')
+    print('CAUGHT_REPAIR X4', CONTEXT_CHECKS[-1], flush=True)
 
 
 def status_checks(base):
@@ -119,12 +145,23 @@ def status_checks(base):
     resolver.write_text(replace(original, '.hooks | has("archBrief")',
                                '.hooks | (has("archBrief") == true)'))
     expect('equivalent-guard', run(command, tools), 0, 'KRASNYH 0')
+    # Same real public counterexample as hooks-skip; only the observer's
+    # infrastructure exception class changes. Resolver and jq remain real.
+    resolver.write_text(replace(original, 'has("hooks")', 'has("hooks") and false'))
+    non_grid = replace(checker_text, "raise GridFailure('GRID_JQ_SEAM '",
+                       "raise RuntimeError('GRID_JQ_SEAM '")
+    checker.write_text(non_grid)
+    expect(STATUS_CHECKS[-1], run(command, tools), 2, 'NOT_IMPLEMENTED: GRID_JQ_SEAM')
+    checker.write_text(mutate(non_grid, 'Y3'))
+    expect('Y3-counterexample', run(command, tools), 1, 'PUBLIC_COUNTEREXAMPLE:')
+    print('CAUGHT_REPAIR Y3', STATUS_CHECKS[-1], flush=True)
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--context', action='store_true')
     parser.add_argument('--status', action='store_true')
+    parser.add_argument('--stabs', action='store_true')
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix='repair226-') as temporary:
         base = Path(temporary)
@@ -134,6 +171,9 @@ def main():
             status_checks(base)
     print('REPAIR_CONTROLS', len(CONTEXT_CHECKS) if args.context else
           len(STATUS_CHECKS) if args.status else len(CONTEXT_CHECKS) + len(STATUS_CHECKS))
+    if args.stabs:
+        print('REPAIR_STABY', len(REPAIR_BINDINGS), 'SVJAZI',
+              len(REPAIR_BINDINGS), 'ZHIVYH 0')
     return 0
 
 
