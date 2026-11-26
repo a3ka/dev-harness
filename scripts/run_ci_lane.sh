@@ -62,7 +62,35 @@ for k in "$@"; do
   fi
   printf '+ %s\n' "$cmd" >&2
   t0="$(date +%s)"
-  bash -c "$cmd"
+  # GITHUB_EVENT_NAME у self-test'ов СНИМАЕТСЯ (решение консультанта m2541 п.3,
+  # вариант (б)). Джоба pull_request экспортирует GITHUB_EVENT_NAME=pull_request
+  # в окружение ВСЕХ шагов lane, а замороженное И1 218 включает по этой
+  # переменной режим окна PR (scripts/check_charter.sh ~:1055,
+  # scripts/check_contract_frozen.sh ~:64): миру нужна база origin/main,
+  # которой в мирах батарей НЕТ — зелёные на push шаги краснеют
+  # PR_WINDOW_BASE_MISSING (PR #1442, run 45772933886: l6
+  # check:charter-tekst-do-tega-210-family-selftest, l7
+  # check:incr-pustoe-okno-217-family-selftest, l4 check:document, l2
+  # drill:contract-change). Правило — данные/узкий предикат по КЛАССАМ ключей
+  # (R-0102), не «все шаги»:
+  #   * `*-family-selftest` — self-test'ы батарей семей (измерено красны
+  #     210/217; остальные члены класса переменную не читают, чистка им
+  #     безразлична);
+  #   * `check:document` — doc-батарея строит миры с check_charter без
+  #     PR-базы;
+  #   * `drill:contract-change` — учебный прогон ведёт check_contract_frozen
+  #     в toy-мире без origin/main.
+  # Реальные проверки уставной защиты (legkij: check:charter,
+  # check:contract-frozen и др.) переменную СОХРАНЯЮТ: окно PR в бою обязано
+  # видеть событие.
+  case "$k" in
+    *-family-selftest|check:document|drill:contract-change)
+      env -u GITHUB_EVENT_NAME bash -c "$cmd"
+      ;;
+    *)
+      bash -c "$cmd"
+      ;;
+  esac
   rc=$?
   t1="$(date +%s)"
   printf 'замер: %s %d\n' "$k" "$((t1 - t0))"
