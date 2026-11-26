@@ -14,7 +14,7 @@
 - Stabs · bash fixtures/workshop_project/arch_ci_review_223/red_arch_ci_review_223.sh --stabs · 0 · 0
 - Sintaksis · bash fixtures/workshop_project/arch_ci_review_223/red_arch_ci_review_223.sh --sintaksis · 0 · 0
 - Catalog · bash fixtures/workshop_project/arch_ci_review_223/red_arch_ci_review_223.sh --catalog · 0 · 0
-- Repo-red-now · bash fixtures/workshop_project/arch_ci_review_223/red_arch_ci_review_223.sh --repo . · 1 · 1
+- Repo-after-implementation · bash fixtures/workshop_project/arch_ci_review_223/red_arch_ci_review_223.sh --repo . · 0 · 0
 - Context · fixtures/workshop_project/arch_ci_review_223/context.py · 0 · 0
 - Precision · bash scripts/check_precision_gate.sh . contracts/223-arch-ci-review.md · 0 · 0
 - Spec · bash scripts/check_spec_ready.sh . contracts/223-arch-ci-review.md · 0 · 0
@@ -24,6 +24,7 @@
 ## Дельта
 
 - К-08 · клетка · fixtures/workshop_project/arch_ci_review_223/empty223.py · 0 · 0
+- К-01 · канон/инструмент · bash fixtures/workshop_project/arch_ci_review_223/red_arch_ci_review_223.sh --catalog · 0 · 0
 
 ## Блок → клетка → стаб
 
@@ -108,3 +109,44 @@ REPO empty-first-head-success RED QUERY_SHA,SHA_DIAGNOSIS rc=0
 ## Проводка
 
 Полный check_provodka до CI-подключения остаётся rc 1: guard семьи не подключён. Это прежний явно распределённый этап orchestrator до done, не блок исправления К-08 и не разрешение обходить done. Grammar проверяется отдельно; чужой CI вне зоны architect.
+
+## Исправление Adv223 К-01 — собственная заморозка
+
+База: 704a67d726dc10eb9e4eaa1c980a6199adba2d47. Полный FAIL Adv223 вызов 1 прочитан из origin/archive/223/adversary-v1-fail-3deff003a:verdicts/adversary/contracts-223-impl-v1.md. Только второй блок К-01 входит в эту пачку; К-04 (CI) принадлежит orchestrator. Контракт заморожен и не меняется.
+
+К-01 → канон/инструмент: context.py исключает SUBJECT из выбора высших frozen-блобов ДО census зон. Другие номера, выбор высшей версии и прежние 75 деклараций не меняются. Имена собственных путей и подписи получают тот же SUBJECT, не новые литералы. Repo-дверь листа приведена к уже выполненному этапу «После реализации» frozen-контракта; историческое красное до реализации выше остаётся историей, не текущим ожидаемым rc.
+
+Клетка context_freeze.py включена в --catalog, поскольку --repo/--model испытывают done CLI, а не census. До вызова субъекта она снимает 75 точных строк из frozen/contracts/223/1 и высшие чужие frozen-блобы в память; строит настоящий Git-репозиторий с этими текстами. На состояниях без своего тега, с 223/1 и дополнительно с 223/999 CLI обязан дать rc 0, те же 75 строк и ни одного собственного ИСТОЧНИК. Файлы мира после CLI не являются оракулом.
+
+Адресные стабы по коду context_freeze.py: self-included удаляет пропуск SUBJECT; only-first-self-excluded исключает лишь версию 1, оставляя собственную 999. Оба предъявлены миру со своими тегами и требуют предметный rc 1 CONTRACT_OVERLAPS_INCOMPLETE с собственной декларацией. Честная эквивалентная запись SUBJECT == n остаётся зелёной с теми же 75 строками. Счёт дополнительной клетки: 3 состояния, 2 стаба, 1 эквивалент; прежние 47/12/4/43 остаются неизменны. Изменение probe.py — только добавление вызова в --catalog.
+
+Рефлексия для main-журнала без А-номера: предусловие «до freeze» было неявно встроено в census чужих контрактов. Цена — красная обязательная сдача уже после реализации; закрыто исключением своего номера и настоящим переходом состояния без тега → frozen → высшая frozen-версия, не самопересечением в frozen-тексте. Общий журнал в wip не меняется.
+
+## Замер Architect223c
+
+Чистый SSH-origin-клон `tmp/origin-223c` закреплён на OBJECT_БАЗЫ; frozen/contracts/223/1 и 228/1 присутствуют. Перенесена только семья 223. Команды выполнены последовательно с заданными shellcheck/TMPDIR/1200/2400. Сырые трубы и rc: `tmp/evidence-223c/` своей копии, не часть поставки.
+
+| Команда | Сырой rc | Наблюдение |
+|---|---:|---|
+| context.py до правки | 1 | CONTRACT_OVERLAPS_INCOMPLETE, собственная декларация |
+| context_freeze.py до правки | 1 | before-freeze зелён; own-frozen красен |
+| context.py после правки | 0 | ДЕКЛАРАЦИИ 75 |
+| B --model | 0 | KLETKI 47 KRASNYH 0 |
+| B --stabs | 0 | ZHIVYH 0 SVJAZI 43 |
+| B --sintaksis | 0 | SINTAKSIS 17 SHELLCHECK 2 |
+| B --catalog | 0 | прежние 47/12/4/43; CONTEXT 3/2/1, ZHIVYH 0 |
+| B --repo . | 0 | KLETKI 47 KRASNYH 0 |
+| check_precision_gate.sh | 0 | OK |
+| check_sdacha.sh --run | 0 | двери=10 карта=17/17 дельта=2, строка 18 зелена |
+| pre_critic.sh | 0 | КРИТИК: дверь зелёная |
+| 224 --repo . | 0 | KLETKI 100 KRASNYH 0 |
+| 187 --repo . | 0 | CELLS=111 STABS=0 FAILURES=0 |
+| 201 --repo . | 0 | CELLS=62 STABS=0 FAILURES=0 |
+
+К-01 → канон/инструмент → context.py / B --catalog / check_sdacha --run / pre_critic → rc 0. В новом catalog три состояния честного CLI дали rc 0 и тот же точный набор из 75 строк; self-included и only-first-self-excluded дали rc 1 с собственной декларацией; literal-equality-equivalent дал rc 0. Прежние клетки/стабы и frozen-контракт не менялись.
+
+## Отдельно orchestrator — сравнение 22x
+
+В чистом main-клоне на bcd1de3876bbf13fd6612fd1d3b1df1516a2b94c с полными origin-тегами найдены context.py семейств 223/224/226/227/228. 224 тоже включает собственный номер в census (специальное условие done_contract.sh), но только выводит объявления и не сверяет их с контрактом; его context.py дал rc 0. 227 исключает совпадающие роли и не требует самопересечения, context.py rc 0. 226 явно пропускает номер 226; 228 использует zones_load и исключает совпадающие роли вне REQUIRED (228 туда не входит). Для 226/228 здесь только сверка кода, не отдельный check_sdacha. Идентичный отказ после собственной заморозки для них не установлен.
+
+Требуемые однократные `check_sdacha --run` на main: 224 rc 1 до запуска команд — строка 15 листа, ряд `nine-ten-late-fail` вне машинной секции; 227 rc 1 — строка 18, replay_critic.py фактически rc 2 вместо 0. Это красные листы, но не отказ census после собственного frozen. Чужие семьи не правились и повторным прогоном не подгонялись.

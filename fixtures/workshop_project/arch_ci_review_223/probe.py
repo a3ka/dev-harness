@@ -329,6 +329,7 @@ def main():
     source, saved = carriers()
     model = saved['model/done_contract.sh']
     if args.catalog:
+        print(checked([sys.executable, '-B', HERE / 'context_freeze.py']))
         print('KLETKI', len(CASES), 'STABY', sum(row['polarity'] == 'red' for row in source['links']),
               'EKVIVALENTY', sum(row['polarity'] == 'green' for row in source['links']),
               'SVJAZI', sum(len(row['cells']) for row in source['links']))

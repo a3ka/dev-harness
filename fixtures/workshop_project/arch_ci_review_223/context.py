@@ -6,8 +6,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-OWN = [('architect', 'contracts/223-arch-ci-review.md'),
-       ('architect', 'fixtures/workshop_project/arch_ci_review_223/'),
+SUBJECT = '223'
+OWN = [('architect', f'contracts/{SUBJECT}-arch-ci-review.md'),
+       ('architect', f'fixtures/workshop_project/arch_ci_review_{SUBJECT}/'),
        ('implementer', 'scripts/done_contract.sh'),
        ('orchestrator', 'registry/ci-steps.tsv'),
        ('orchestrator', 'registry/ci-zamery.tsv'),
@@ -25,6 +26,8 @@ def census():
         match = re.fullmatch(r'frozen/contracts/([0-9]{3})/([0-9]+)', ref)
         if match:
             n, v = match.groups()
+            if n == SUBJECT:
+                continue
             if n not in tags or int(v) > tags[n][0]:
                 tags[n] = int(v), ref
     declarations, sources = set(), []
@@ -44,9 +47,9 @@ def census():
                 for own_author, own in OWN:
                     overlap = old == own or (old.endswith('/') and own.startswith(old)) or (own.endswith('/') and old.startswith(own))
                     if overlap and (author != own_author or own == 'scripts/done_contract.sh'):
-                        reason = 'только CI 223, чужие шаги без изменений'
+                        reason = f'только CI {SUBJECT}, чужие шаги без изменений'
                         if own_author == 'architect':
-                            reason = 'новая семья 223'
+                            reason = f'новая семья {SUBJECT}'
                         if own_author == 'implementer':
                             reason = 'только пути SHA*, остальные гейты сохранены'
                         declarations.add(f'ПЕРЕСЕЧЕНИЕ {own_author}: {own} — {n} {reason}')
@@ -65,7 +68,7 @@ def main():
         print('\n'.join(lines))
     print('ДЕКЛАРАЦИИ', len(declarations))
     print('\n'.join(declarations))
-    contract = ROOT / 'contracts/223-arch-ci-review.md'
+    contract = ROOT / f'contracts/{SUBJECT}-arch-ci-review.md'
     text = contract.read_text()
     if sys.argv[1:] == ['--write']:
         start = text.index('## Пересечения\n') + len('## Пересечения\n')
