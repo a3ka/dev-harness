@@ -1,0 +1,3 @@
+lanes	6
+step	report:other	1	bash scripts/report_zashivki.sh
+shard	ap1	check_ids
