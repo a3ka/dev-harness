@@ -14,6 +14,9 @@
     "stabs/s10-empty-is-service/done_contract.sh": "b7e7b8fe6e1a188e9ab8fad6d029ef9f379ca867b39533a6e12fc0269db9afb6",
     "stabs/s11-empty-by-second-diff/done_contract.sh": "612eae76430c946fcde043def8c9911da022f1e862c98af7676e824b9bbb37e3",
     "stabs/s12-octopus-third-ignored/done_contract.sh": "a8d91b5e379768903a990725226033602b0cc153ed4a04b5c41ea631dc06fd8a",
+    "stabs/s13-reviewer-partial-fold/done_contract.sh": "5e83866a03774f8a9d785c58be0bcf59b45d1a37e92f7fa14971794d252db7f1",
+    "stabs/s14-reviewer-review-hidden/done_contract.sh": "73033efe31d80d848634a7b19d63a373a2856e0d1b9a85824e50a25e65972721",
+    "stabs/s15-harness-hidden/done_contract.sh": "b68e8192e64a3937128007d2873d68135635d8cbb26141a365e61562edb2fbb7",
     "stabs/e01-case-order/done_contract.sh": "c5d3654ee7599e95ba93715526150b14546ce75f1b4b8e24276eaf57359a514c",
     "stabs/e02-if-equivalent/done_contract.sh": "5e965d1493e8ea526b552b758c555f419fd848d86d226dfe1106f652604e4973",
     "stabs/e03-empty-guard-equivalent/done_contract.sh": "0ccf8a9f2df14c0bb425513ce76f0ffd33be68c38c0760428a9ed5de22eb401e",
@@ -117,13 +120,39 @@
       "polarity": "red"
     },
     {
+      "carrier": "stabs/s13-reviewer-partial-fold/done_contract.sh",
+      "cells": [
+        "review-titlecase",
+        "harness-titlecase"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s14-reviewer-review-hidden/done_contract.sh",
+      "cells": [
+        "review-hidden"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s15-harness-hidden/done_contract.sh",
+      "cells": [
+        "harness-hidden"
+      ],
+      "polarity": "red"
+    },
+    {
       "carrier": "stabs/e01-case-order/done_contract.sh",
       "cells": [
         "both-services",
         "harness-merge",
         "review-merge",
         "mixed-review-product",
-        "review-file"
+        "review-file",
+        "review-titlecase",
+        "harness-titlecase",
+        "review-hidden",
+        "harness-hidden"
       ],
       "polarity": "green"
     },
@@ -133,7 +162,11 @@
         "reviewx",
         "review-uppercase",
         "review-missing-run",
-        "review-rename"
+        "review-rename",
+        "review-titlecase",
+        "harness-titlecase",
+        "review-hidden",
+        "harness-hidden"
       ],
       "polarity": "green"
     },
