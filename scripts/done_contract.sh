@@ -429,13 +429,18 @@ esac
 #   (2) check-run `arch` проектного CI на ЭТОМ ЖЕ финальном SHA продукта main:
 #       чужой SHA, отсутствующий, красный, skipped — ARCH_CI. Движок в done не
 #       запускается (движок и CI проекта владеют этим свойством).
-# Признак режима — эффективный repoId=Complior-back И пин модели; харнесс, mob
-# и документальные предметы этих требований не получают.
+# Признак режима — включённая профильная политика hooks.archBrief И пин модели;
+# харнесс, mob и документальные предметы этих требований не получают. Ошибка
+# профиля (неизвестный профиль) — отказ с названной причиной, а не «дверь
+# выключена» (226).
 if [ -x "$SELF_DIR/check_architecture_contract.sh" ]; then
   ARCH187_LIB=1
   # shellcheck disable=SC1091
   . "$SELF_DIR/check_architecture_contract.sh"
-  if arch187_scope "$ROOT"; then
+  _scope_rc=0
+  arch187_scope "$ROOT" || _scope_rc=$?
+  [ "$_scope_rc" -le 1 ] || die "$ARCH187_REFUSAL"
+  if [ "$_scope_rc" = 0 ]; then
     _a187_txt="$(mktemp 2>/dev/null || true)"
     if [ -n "$_a187_txt" ] && [ -f "$_a187_txt" ]; then
       ( cd "$ROOT" && git cat-file -p "HEAD:$TARGET_REL" ) > "$_a187_txt" 2>/dev/null || true

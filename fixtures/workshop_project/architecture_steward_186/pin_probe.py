@@ -81,6 +81,28 @@ def world(tmp, case):
         (product / 'architecture.lock.json').write_text(json.dumps(pin) + '\n')
     else:
         (product / 'README.md').write_text('product with no architecture pin\n')
+    # 226: продуктовый мир ЯВНО объявляет политику архитектурной двери:
+    # адрес продуктового PR берётся из профиля (hooks.archBrief), а не из
+    # литерала в коде станции. Входы мира меняются; ожидания, судящие
+    # предикаты и проверки пина 186 — прежние.
+    profile = {'schemaVersion': 1, 'repoId': 'Complior-back', 'language': 'javascript',
+               'projectLayer': {'version': '1', 'profilePath': '.harness/project-layer.json'},
+               'workflowPaths': {'contracts': '.harness/contracts', 'verdicts': '.harness/verdicts',
+                                 'registry': '.harness/registry', 'fixtures': '.harness/fixtures'},
+               'git': {'canonicalRemote': 'ssh://git@github.com/a3ka/Complior-back.git'},
+               'commands': dict.fromkeys(['test', 'build', 'typecheck', 'lint'], 'true'),
+               'ci': {'workflow': '.github/workflows/toy.yml'},
+               'barriers': {'mandatory': [], 'optional': []},
+               'hooks': {'archBrief': PRODUCT_REPO}}
+    for relative, content in {
+        'harness.project.json': json.dumps(profile),
+        '.harness/project-layer.json': json.dumps({'schemaVersion': 1, 'version': '1',
+            'projectId': 'toy', 'workspaceId': 'toy', 'defaults': {}}),
+        '.github/workflows/toy.yml': 'name: toy\non: push\njobs: {}\n',
+    }.items():
+        path = product / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
     product_head = commit(product, 'COMPLIOR-186 pin architecture' if case != 'lock_missing' else 'COMPLIOR-186 code')
     state = {'arch': {'title': 'COMPLIOR-186 architectural correction', 'state': 'MERGED',
                       'headRefOid': arch_head, 'mergeCommit': {'oid': merge_sha}},
