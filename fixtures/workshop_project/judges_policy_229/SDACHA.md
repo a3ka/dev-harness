@@ -46,7 +46,7 @@
 
 ПРЕДЫДУЩИЙ ВЕРДИКТ: verdicts/critic/contracts-229-v1.md
 
-- К-03 · канон/инструмент · python3 fixtures/workshop_project/judges_policy_229/context.py · 0 · 0
+- К-03 · канон/инструмент · fixtures/workshop_project/judges_policy_229/context.py · 0 · 0
 - К-03 · клетка · bash fixtures/workshop_project/judges_policy_229/red_judges_policy_229.sh --model --case joint154-retries · 0 · 0
 - К-03 · клетка · bash fixtures/workshop_project/judges_policy_229/red_judges_policy_229.sh --stabs · 0 · 0
 
