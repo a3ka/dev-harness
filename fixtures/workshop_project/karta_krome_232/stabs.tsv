@@ -42,3 +42,4 @@ st26-wrong-file	pj-new-invalid
 st27-new-only	pj-replace-invalid
 st28-after-commit	pj-new-invalid
 st29-wrong-commit-bytes	pj-index-different
+st30-filtered-index-hash	pj-index-text-normalized

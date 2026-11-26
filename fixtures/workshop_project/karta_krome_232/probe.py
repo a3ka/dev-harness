@@ -81,6 +81,13 @@ CASES = {
     'pj-replace-invalid': dict(pj=True, replace=True, staged=True, call='1', status='чисто', rc=1, reason='KARTA_NE_SHTATNA'),
     'pj-replace-honest': dict(pj=True, replace=True, call='1', staged=True, commit_equivalence=True),
     'pj-index-different': dict(pj=True, index_different=True, rc=1, reason='KARTA_NE_SHTATNA'),
+    'pj-index-text-normalized': dict(pj=True, call='1', index_bytes='crlf', text=True,
+                                    stage_sequence=True, rc=1, reason='KARTA_NE_SHTATNA',
+                                    detail='индекс отличается от --file'),
+    'pj-index-text-lf': dict(pj=True, call='1', index_bytes='lf', text=True,
+                            stage_sequence=True, commit_equivalence=True),
+    'pj-index-crlf-raw': dict(pj=True, call='1', index_bytes='crlf',
+                             stage_sequence=True, commit_equivalence=True),
     'pj-file-missing': dict(pj=True, missing=True, rc=1, reason='KARTA_NE_SHTATNA'),
     'pj-outside-critic': dict(pj=True, outside=True, rc=1, reason='KARTA_NE_SHTATNA'),
     'pj-nonjudicial-branch': dict(pj=True, role='author', rc=1, reason='NE_SUDJSKAJA_VETKA'),
@@ -159,6 +166,11 @@ def world(work, spec, tools, saved):
                     spec.get('decision', 'accept')))
     if spec.get('changed'):
         body += b'\n'
+    if spec.get('index_bytes'):
+        body = verdict('1') + (b'\n## Other\nline\r\n' if spec['index_bytes'] == 'crlf'
+                               else b'\n## Other\nline\n')
+    if spec.get('text'):
+        put(root, '.gitattributes', 'verdicts/critic/*.md text\n')
     precommit = spec.get('pj') or spec.get('content')
     if spec.get('replace'):
         put(root, target, verdict(spec.get('call', '6')))
@@ -268,6 +280,8 @@ def observe(tools, root, target, spec, expected):
         if rc == 1 and spec['reason'] == 'KARTA_NE_SHTATNA':
             if not p.stderr.startswith(b'\xd0\x9e\xd0\xa2\xd0\x9a\xd0\x90\xd0\x97: KARTA_NE_SHTATNA\n') or 'карта не штатная'.encode() not in p.stderr:
                 errors.append('PJ_REFUSAL_FORM')
+        if spec.get('detail') and spec['detail'].encode() not in p.stderr:
+            errors.append('PJ_DETAIL')
         return errors, p
     operation = 'karta_poslednij_fail "$2" "$3" "$telo"' if spec.get('operation') == 'last' else 'karta_proverit "$telo" "$2" "$3"'
     q = run(['bash', '-c', 'source "$1"; telo="$(git -C "$2" cat-file -p "HEAD:$3")"; ' + operation,
@@ -303,7 +317,23 @@ def suite(overlay, names, tools_repo, saved, label):
             original_file = (root / target).read_bytes() if (root / target).exists() else None
             original_index = git(root, 'ls-files', '--stage', '--', target)
             before = {p.name: p.read_bytes() for p in (tools / 'scripts').iterdir() if p.is_file()}
-            if spec.get('sequence'):
+            if spec.get('stage_sequence'):
+                first_errors, first = observe(tools, root, target, dict(spec, rc=0, detail=''), expected)
+                if (git(root, 'rev-parse', 'HEAD') != head or
+                        (root / target).read_bytes() != original_file or
+                        git(root, 'ls-files', '--stage', '--', target) != original_index):
+                    first_errors.append('INPUT_MUTATED')
+                git(root, 'add', '--', target)
+                original_index = git(root, 'ls-files', '--stage', '--', target)
+                staged = git(root, 'show', ':' + target)
+                if (staged != body) != (spec.get('rc', 0) == 1):
+                    raise RuntimeError('WORLD_ERROR: staging did not produce the declared byte relation')
+                errors, p = observe(tools, root, target, spec, expected)
+                errors += ['FIRST_' + x for x in first_errors]
+                if first_errors:
+                    print(label, name, 'INITIAL rc=', first.returncode,
+                          'stdout=', repr(first.stdout), 'stderr=', repr(first.stderr), flush=True)
+            elif spec.get('sequence'):
                 policy = (tools / POLICY).read_bytes()
                 empty = b'{"version":1,"exceptions":[]}'
                 first, last = (empty, policy) if spec['sequence'] == 'add' else (policy, empty)
@@ -379,7 +409,7 @@ def main():
         for path in [HERE / 'model/lib_karta_sdachi.sh', HERE / 'model/pre_judge.sh', HERE / 'model/check_verdict_karta.sh', HERE / 'red_karta_krome_232.sh']:
             checked(['bash', REPO / 'scripts/validate_std.sh', 'bash', path])
         checked(['bash', REPO / 'scripts/validate_std.sh', 'json', HERE / 'model/karta-exceptions.schema.json', HERE / 'model/karta-exceptions.json'])
-        for path in [HERE / 'probe.py', HERE / 'build.py', HERE / 'context.py', HERE / 'verify.py', *[HERE / p for p in saved if p.endswith('.py')]]:
+        for path in [HERE / 'probe.py', HERE / 'build.py', HERE / 'context.py', HERE / 'verify.py', HERE / 'reproduce.py', HERE / 'index_filter.py', *[HERE / p for p in saved if p.endswith('.py')]]:
             compile(path.read_bytes(), str(path), 'exec')
         print('SINTAKSIS', len(shell), 'SHELLCHECK', 4, 'JSON_SCHEMA', 1)
         return 0

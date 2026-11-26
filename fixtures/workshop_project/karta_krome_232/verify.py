@@ -12,7 +12,7 @@ import time
 ROOT = Path(__file__).resolve().parents[3]
 FAMILY = 'fixtures/workshop_project/karta_krome_232'
 CONTRACT = 'contracts/232-gramm-karta-krome.md'
-BASE = 'bbda9d3f9ebcb035e95b4671db8064a46dbe7a23'
+BASE = '0901d79cf18d64073c9ad25f13065cbf7ad7b603'
 ORIGIN = 'ssh://git@github.com/a3ka/dev-harness.git'
 
 
@@ -29,6 +29,8 @@ def main():
     scratch = ROOT / 'tmp/scratch-arch232'
     scratch.mkdir(parents=True, exist_ok=True)
     env['TMPDIR'] = str(scratch)
+    source_head = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
+                                 check=True, capture_output=True, text=True).stdout.strip()
     results = []
     if records.exists():
         results = json.loads(records.read_text())
@@ -38,7 +40,7 @@ def main():
         p = subprocess.run(argv, cwd=cwd, env=env, capture_output=True, text=True)
         record = dict(name=name, command=argv, cwd=str(cwd), rc=p.returncode,
                       expected=expected, seconds=round(time.monotonic() - start, 2),
-                      stdout=p.stdout, stderr=p.stderr)
+                      source_head=source_head, stdout=p.stdout, stderr=p.stderr)
         results.append(record)
         records.write_text(json.dumps(results, ensure_ascii=False, indent=2) + '\n')
         print(name, 'rc=' + str(p.returncode), 'expected=' + str(expected),
@@ -52,7 +54,7 @@ def main():
             print('STOP: occupied verification path: ' + str(destination), file=sys.stderr)
             return 2
         if not execute('origin-clone', ['bash', str(ROOT / 'scripts/gitw'), 'clone', '--quiet',
-                                       '--branch', 'archive/232/critic-v1-fail-bbda9d3f9', '--single-branch',
+                                       '--branch', 'archive/232/arbiter-b1-0901d79cf', '--single-branch',
                                        ORIGIN, str(destination)], ROOT):
             return 2
         if not execute('origin-tags', ['bash', 'scripts/gitw', 'fetch', 'origin', '+refs/heads/main:refs/remotes/origin/main', '+refs/tags/*:refs/tags/*'], destination):
@@ -70,6 +72,8 @@ def main():
         shutil.rmtree(old_family)
     shutil.copytree(ROOT / FAMILY, old_family)
     shutil.copyfile(ROOT / CONTRACT, destination / CONTRACT)
+    shutil.copyfile(ROOT / 'contracts/193-svyazka-sdatochnyj-list.md',
+                    destination / 'contracts/193-svyazka-sdatochnyj-list.md')
     checks = [('model', ['bash', FAMILY + '/red_karta_krome_232.sh', '--model'], 0),
               ('stabs', ['bash', FAMILY + '/red_karta_krome_232.sh', '--stabs'], 0),
               ('sintaksis', ['bash', FAMILY + '/red_karta_krome_232.sh', '--sintaksis'], 0),
@@ -77,6 +81,8 @@ def main():
               ('repo', ['bash', FAMILY + '/red_karta_krome_232.sh', '--repo', '.'], 1),
               ('reproduce-before', ['python3', '-B', FAMILY + '/reproduce.py', '--before'], 0),
               ('reproduce-after', ['python3', '-B', FAMILY + '/reproduce.py'], 0),
+              ('index-before', ['python3', '-B', FAMILY + '/index_filter.py', '--before'], 0),
+              ('index-after', ['python3', '-B', FAMILY + '/index_filter.py'], 0),
               ('context', ['python3', '-B', FAMILY + '/context.py'], 0),
               ('pre_critic', ['bash', 'scripts/pre_critic.sh', CONTRACT], 0),
               ('sdacha', ['bash', 'scripts/check_sdacha.sh', '.', CONTRACT, '--run'], 0),

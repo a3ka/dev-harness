@@ -404,7 +404,7 @@ if [ "$MODE" = 'verdict' ]; then
     fi
     # An existing index entry must name exactly the judged working bytes.
     index_blob="$(git -C "$R" rev-parse --verify ":$VREL" 2>/dev/null)" || index_blob=''
-    file_blob="$(git -C "$R" hash-object -- "$R/$VREL")" || refuse KARTA_NE_SHTATNA "карта не штатная: файл не прочитан"
+    file_blob="$(git -C "$R" hash-object --no-filters -- "$R/$VREL")" || refuse KARTA_NE_SHTATNA "карта не штатная: файл не прочитан"
     if [ -n "$index_blob" ] && [ "$index_blob" != "$file_blob" ]; then
       refuse KARTA_NE_SHTATNA "карта не штатная: индекс отличается от --file"
     fi

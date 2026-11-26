@@ -67,7 +67,7 @@ fi''')
     fi
     # An existing index entry must name exactly the judged working bytes.
     index_blob="$(git -C "$R" rev-parse --verify ":$VREL" 2>/dev/null)" || index_blob=''
-    file_blob="$(git -C "$R" hash-object -- "$R/$VREL")" || refuse KARTA_NE_SHTATNA "карта не штатная: файл не прочитан"
+    file_blob="$(git -C "$R" hash-object --no-filters -- "$R/$VREL")" || refuse KARTA_NE_SHTATNA "карта не штатная: файл не прочитан"
     if [ -n "$index_blob" ] && [ "$index_blob" != "$file_blob" ]; then
       refuse KARTA_NE_SHTATNA "карта не штатная: индекс отличается от --file"
     fi
@@ -168,6 +168,9 @@ fi''')
 '''
     mutation('st29-wrong-commit-bytes', 'pre_judge.sh', replace(pj, index_check, ''),
              ['pj-index-different'])
+    mutation('st30-filtered-index-hash', 'pre_judge.sh', replace(pj,
+             'hash-object --no-filters -- "$R/$VREL"', 'hash-object -- "$R/$VREL"'),
+             ['pj-index-text-normalized'])
     # Schema case weakening must accompany the identity mutation to expose the
     # actual acceptance path; otherwise the grammar rejects before comparison.
     weakened = json.loads(schema)

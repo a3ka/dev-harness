@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 OWN = [('architect', 'contracts/232-gramm-karta-krome.md'),
        ('architect', 'fixtures/workshop_project/karta_krome_232/'),
+       ('architect', 'contracts/193-svyazka-sdatochnyj-list.md'),
        ('implementer', 'scripts/lib_karta_sdachi.sh'),
        ('implementer', 'scripts/check_verdict_karta.sh'),
        ('implementer', 'scripts/pre_judge.sh'),
@@ -45,8 +46,11 @@ def declarations(verbose=False):
             for old in m[2].split():
                 for author, own in OWN:
                     overlap = old == own or (old.endswith('/') and own.startswith(old)) or (own.endswith('/') and old.startswith(own))
-                    if overlap and (m[1] != author or author == 'implementer'):
-                        reason = ('только реестр исторических карт и обязательная дверь materialization; прочие обязательства сохраняются'
+                    draft193 = n == '193' and author == 'architect' and own == 'contracts/193-svyazka-sdatochnyj-list.md'
+                    if overlap and (m[1] != author or author == 'implementer' or draft193):
+                        reason = ('только абзац черновика v+1 по R-0168: raw-byte идентичность и финальная дверь после add перед коммитом; И5/И7 и прочие обязательства сохраняются'
+                                  if draft193 else
+                                  'только реестр исторических карт и обязательная дверь materialization; прочие обязательства сохраняются'
                                   if author == 'implementer' else 'только своя семья и шаг 232; чужие строки сохраняются')
                         result.add(f'ПЕРЕСЕЧЕНИЕ {author}: {own} — {n} {reason}')
                         hits.append(f'{paths[0]}:{line_no}: {line}')
