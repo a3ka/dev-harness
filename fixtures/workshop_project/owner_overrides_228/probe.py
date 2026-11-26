@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """228: real Bash API, literal migration oracle, real Git CLI worlds."""
 import ast
+import errno
 import json
 import os
 from pathlib import Path
@@ -358,6 +359,86 @@ def malformed_cli(subject, work, gate):
     return check(got[0] == 1 and b'OWNER_OVERRIDES_INVALID: registry/owner-overrides.tsv:1:' in got[2], repr(got))
 
 
+def actor_cli(subject, work, kind, polarity):
+    """Exercise the door's author argument, not a caller-supplied API author."""
+    world = work / f'actor-{kind}-{polarity}'
+    new_world(world)
+    author = 'orchestrator' if kind == 'mint' else 'fixture'
+    path = 'registry/contracts.tsv' if kind == 'mint' else 'outside/sub/value.txt'
+    put(world / path, 'not-a-mint\n' if kind == 'mint' else 'outside\n')
+    previous = ENV['GIT_AUTHOR_NAME']
+    try:
+        ENV['GIT_AUTHOR_NAME'] = author
+        sha = commit(world, 'actor-scoped subject delta\n')
+    finally:
+        ENV['GIT_AUTHOR_NAME'] = previous
+    actor = {'match': author, 'other': 'fixture' if kind == 'mint' else 'orchestrator',
+             'wildcard': '*'}[polarity]
+    scope = 'outside/*' if kind == 'prefix' else path
+    key = 'check_zones/' + ('mint' if kind == 'mint' else 'process')
+    put(world / 'registry/owner-overrides.tsv',
+        registry([[key, sha, scope, actor, 'R-0114', 'never']]))
+    before = git(world, 'rev-parse', 'HEAD')
+    got = cli(subject, world, 'check_zones')
+    expected = 1 if polarity == 'other' else 0
+    ok = got[0] == expected and not got[1]
+    if expected:
+        ok &= 'коммит вне зоны:'.encode() in got[2]
+    ok &= git(world, 'rev-parse', 'HEAD') == before
+    return check(ok, repr(got))
+
+
+def unreadable_registry(subject, work, seam, kind):
+    """A readable grant is the green pair; each real OSError must fail closed."""
+    world = work / f'unreadable-{seam}-{kind}'
+    new_world(world)
+    put(world / 'AGENTS.md', 'changed\n')
+    sha = commit(world, 'charter subject delta\n')
+    target = world / 'registry/owner-overrides.tsv'
+    good = registry([['check_charter/grandfather', sha, 'AGENTS.md', '*', 'R-0114', 'never']])
+    put(target, good)
+    before = git(world, 'rev-parse', 'HEAD')
+
+    def observe():
+        if seam == 'api':
+            return lookup(subject, world, 'check_charter/grandfather', sha, 'AGENTS.md', 'fixture')
+        return cli(subject, world, 'check_charter')
+
+    control = observe()
+    if control[0] != 0 or control[1] or (seam == 'api' and control[2]):
+        return check(False, 'readable grant control: ' + repr(control))
+    expected_errno = {'eacces': errno.EACCES, 'directory': errno.EISDIR, 'eloop': errno.ELOOP}[kind]
+    if kind == 'eacces':
+        target.chmod(0)
+    else:
+        target.unlink()
+        if kind == 'directory':
+            target.mkdir()
+            put(target / 'grant.tsv', good)
+        else:
+            put(target.with_name('grant.tsv'), good)
+            target.symlink_to(target.name)
+    try:
+        try:
+            target.read_bytes()
+        except OSError as exc:
+            if exc.errno != expected_errno:
+                raise RuntimeError('READ_ERROR_ENVIRONMENT: ' + repr(exc)) from exc
+        else:
+            raise RuntimeError('ОКРУЖЕНИЕ: root' if os.geteuid() == 0 else 'READ_ERROR_NOT_OBSERVABLE')
+        got = observe()
+    finally:
+        if kind == 'eacces':
+            target.chmod(0o600)
+    expected = 2 if seam == 'api' else 1
+    diagnostic = any(re.fullmatch(
+        rb'OWNER_OVERRIDES_INVALID: registry/owner-overrides[.]tsv:[0-9]+: [^\r\n]+', line)
+        for line in got[2].splitlines())
+    ok = got[0] == expected and not got[1] and diagnostic
+    ok &= git(world, 'rev-parse', 'HEAD') == before
+    return check(ok, repr(got))
+
+
 def cells():
     result = {'migration-matrix': matrix, 'no-sha-literals': lambda s, w: literals(s)}
     for mode in RAW:
@@ -373,6 +454,12 @@ def cells():
     result['frozen-deny'] = lambda s, w: frozen(s, w, False)
     for gate in GATES:
         result['malformed:' + gate] = lambda s, w, g=gate: malformed_cli(s, w, g)
+    for kind in ('process', 'prefix', 'mint'):
+        for polarity in ('match', 'other', 'wildcard'):
+            result[f'actor:{kind}:{polarity}'] = lambda s, w, k=kind, p=polarity: actor_cli(s, w, k, p)
+    for seam in ('api', 'cli'):
+        for kind in ('eacces', 'directory', 'eloop'):
+            result[f'unreadable:{seam}:{kind}'] = lambda s, w, a=seam, k=kind: unreadable_registry(s, w, a, k)
     return result
 
 

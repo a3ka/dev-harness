@@ -26,16 +26,35 @@
 - К-05 · чисто · вход: приёмка задаёт команды и rc; исторический живой пересъём явно ручной, не обязательная дверь · - · -
 - К-06 · чисто · вход: historical-missing-tools запускает настоящий historical.py с PATH=/nonexistent и требует rc 2; timeout/SIGPIPE ручного check_zones явно записываются, не объявляются полным доказательством · - · -
 - К-07 · чисто · вход: настоящие Bash API, Git и четыре CLI; parsing — runner 041; baseline-identity сравнивает материализованные двери с pinned git show, не двойник инструмента · - · -
-- К-08 · чисто · вход: прежние 35 мутаций/43 предъявления и пять клеток/четыре стаба политики сохранены; новые snapshot-стабы адресно привязаны кодом, честный контроль обязателен · - · -
+- К-08 · чисто · вход: прежние клетки/35 мутаций/43 связи сохранены; добавлены CLI actor match/other/wildcard для process exact/prefix и mint и API/CLI реальные EACCES/EISDIR/ELOOP с читаемым контролем; адресные мутанты обоих блоков — stabs/mutations.json · - · -
 - К-09 · чисто · вход: все 148 строк/586 старых предикатных ответов и живые allow/deny миры сохранены; snapshot требует все 312 пар четырёх CLI на 78 SHA · - · -
 - К-10 · чисто · вход: snapshot сверяет rc и хеши обеих труб, покрытие, закрытый перечень четырёх исключений и complete=false; реальный live replay вынесен в ручной --historical · - · -
 - К-11 · чисто · вход: все oracle-байты снимаются до субъекта; equality-log и хеши закоммичены; реконструкция reference из измеренного равенства указана явно, не выдана за отдельно сохранённые actual-трубы · - · -
 - К-12 · чисто · вход: Bash — bash -n и pinned shellcheck через validate_std; Python — ast; snapshot — JSON Schema Draft 2020-12 через jsonschema; git-факты — plumbing · - · -
 - К-13 · н/п · секреты в выводе не предмет; новых secrets/variables/environments нет · - · -
-- К-14 · чисто · вход: прежние listed/not-listed, scope/sibling, allowed/denied остаются; snapshot имеет честный контроль и mismatch/truncated/growth/complete/hash контрпримеры · - · -
+- К-14 · чисто · вход: каждый новый отрицательный actor имеет равный/'*' зелёный контроль; каждая ошибка чтения — читаемый grandfather на том же мире; четыре новых стаба и расширенная привязка ignore-actor различаются собственными клетками · - · -
 - К-15 · чисто · вход: --catalog сверяет прежние числа с source.json; schema задаёт 78/4/312, snapshot независимо сверяет лог, исходные 532 ответа и точное декартово покрытие · - · -
 - К-16 · чисто · вход: рисковая авторизация; граница исторического доказательства — cognitive-only с reviewer, literal-матрицей, живыми мирами и ручным replay перед ленд-ревью · - · -
 - К-17 · н/п · станционный предмет, продуктовой модели 188 нет; общий reader и TSV вместо ветвей в дверях · - · -
+
+## Дельта
+
+ПРЕДЫДУЩИЙ ВЕРДИКТ: verdicts/critic/contracts-228-v1.md
+
+- К-08 · клетка · bash fixtures/workshop_project/owner_overrides_228/red_owner_overrides_228.sh --stabs · 0 · 0
+- К-14 · клетка · bash fixtures/workshop_project/owner_overrides_228/red_owner_overrides_228.sh --model · 0 · 0
+
+## Соответствие блоков
+
+| Блок Crit228/1 | Клетки | Стаб (код-якорь в mutations.json) | Ловит --repo |
+| --- | --- | --- | --- |
+| И3: потеря автора CLI | actor:process:match/other/wildcard, actor:prefix:match/other/wildcard, actor:mint:match/other/wildcard | critic-literal-author; соседний prefix-ignores-actor; существующий ignore-actor дополнительно привязан к process:other/mint:other | Да: эти же живые CLI-миры исполняются без патча production |
+| И1: ошибка чтения стала допуском | unreadable:api:eacces/directory/eloop, unreadable:cli:eacces/directory/eloop | critic-oserror-allow; соседний oserror-empty-registry | Да: те же API и check_charter с читаемым контролем |
+
+Способ «клетка»: снять обещание/сузить границу нельзя без изменения И1/И3; канон формата не доказывает передачу автора и fail-closed реальной ошибки чтения. Используются настоящие Git/Bash и системные OSError, а не двойник инструмента. При EACCES проверяется реальное открытие: root, способный читать chmod 000, получает именованный rc 2 батареи, не фиктивный зелёный; EISDIR/ELOOP наблюдаемы и для root.
+
+Новые предикаты: actor match/other/wildcard и ожидаемый rc (мутанты literal-author/ignore-actor, честные равный/'*'); errno подтверждает именно созданную ошибку (реальные chmod 000, каталог и self-symlink, читаемый файл — контроль); rc API/CLI и самостоятельная диагностика (OSError→allow/empty, читаемый grandfather — контроль). Неизменность HEAD проверяется прежним Git-оракулом. Новых дверей/обязательств сверх двух блоков нет; историческая граница не менялась.
+
 
 ## Исторический снимок: происхождение и граница
 
@@ -69,3 +88,39 @@ pre_critic rc 0 (136.36 с); SDACHA_TIMEOUT_SEK=1200 SDACHA_BUDZHET_SEK=2400 che
 
 Ровно одна фоновая ручная проба W --historical --seconds 120: rc 2 за 0.68 с, именованный GIT/tool failure при восстановлении refs.json — в чистом origin-клоне нет объекта ca425084bad2090fbb38535a33d9a5a0ae6445e1 (refs/tags/archive/wip-140-impl-v2-ca425084b). Проба не объявлена зелёной, исключения/ожидания ради неё не изменены; это недоступная предпосылка полного исторического мира, не обязательная дверь. Для живого replay перед ленд-ревью нужна полная объектная база сохранённых тегов.
 
+## Рефлексия 228d
+
+Первая адресная проба нового unreadable:cli:directory нашла дефект самой клетки: честный check_charter пишет штатные ok-строки в stderr. Положительный CLI-контроль теперь требует rc 0 и пустой stdout, не запрещает штатную диагностику; API-контроль остаётся без вывода. Отказ на OSError по-прежнему требует самостоятельную строку OWNER_OVERRIDES_INVALID. Журнал А-NN в wip не пишется; запись при необходимости делает orchestrator в main.
+
+## Замер 228d
+
+Чистый SSH-origin-клон внутри собственной копии, база 1af3cd3c9dbd4e99b1fbc89efc49f10a04c20f10; команды исполнены последовательно. И1/И3 и историческое доказательство не менялись. Все прежние строки probe.py сохранены; новые клетки добавлены. Числа ниже — stdout собственных прогонов, не обещание количества в инвариантах.
+
+```text
+--model: RAW_RC=0 SECONDS=32.23
+KLETKI=67 ZELENYE=67 KRASNYE=0
+--stabs: RAW_RC=0 SECONDS=61.52
+STABS=39 BINDINGS=62 ZHIVYH=0
+HISTORICAL_STABS=4 BINDINGS=4 ZHIVYH=0
+SNAPSHOT_CELLS=9 SNAPSHOT_STABS=6 ZHIVYH=0
+--sintaksis: RAW_RC=0 SECONDS=0.32
+--catalog: RAW_RC=0 SECONDS=0.08
+CELLS=67 STABS=39 BINDINGS=62 ROWS=148 MATRIX=586
+--repo .: RAW_RC=1 SECONDS=9.66
+KLETKI=67 ZELENYE=9 KRASNYE=58
+pre_critic: RAW_RC=0 SECONDS=263.12
+check_sdacha --run: RAW_RC=0 SECONDS=304.46
+СДАЧА: лист зелёный (двери=12 карта=17/17 дельта=2)
+check_precision_gate: RAW_RC=0 SECONDS=23.89
+```
+
+Оба мутанта критика проверены полным --model до/после добавления клеток, не только адресным --stabs. Для --repo материализована та же честная/мутантная реализация: байты четырёх дверей и библиотеки копируются обычным --repo, без reference-патчей на этом пути.
+
+| Блок | Способ | Команда/вход | До: rc, секунды | После: rc, секунды, красных |
+| --- | --- | --- | --- | --- |
+| И3, К-08/К-14 | клетка | --model; build.py process/mint: "$an" → orchestrator | 0, 30.10; 52/52 зелёных | 1, 27.47; 4 |
+| И3, К-08/К-14 | клетка | --repo; честный контроль / тот же мутант | н/п | 0, 23.68; 0 / 1, 31.39; 4 |
+| И1, К-08/К-14 | клетка | --model; except OSError: sys.exit(0) | 0, 19.96; 52/52 зелёных | 1, 31.52; 6 |
+| И1, К-08/К-14 | клетка | --repo; честный контроль / тот же мутант | н/п | 0, 32.51; 0 / 1, 31.15; 6 |
+
+Адресный --stabs отдельно поймал prefix-ignores-actor на actor:prefix:other и oserror-empty-registry на каждой из шести API/CLI ошибок; ignore-actor дополнительно пойман на actor:process:other и actor:mint:other. Все 62 привязки красны своим предъявлением после честного контроля. Сырой полный stdout/stderr прогона хранится в tmp/evidence-228d/ собственной копии. Печать KRASNO snapshot в --model/--stabs — существующий намеренный отрицательный контроль снимка, не новый провал: итог MISMATCHES=0, ZHIVYH=0, rc 0.

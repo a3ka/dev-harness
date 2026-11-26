@@ -5,7 +5,7 @@
   {"name":"case-fold-query","file":"scripts/lib_owner.sh","old":"if key != '--validate':","new":"sha = sha.lower()\nif key != '--validate':","cells":["upper-query"]},
   {"name":"truncate-sha","file":"scripts/lib_owner.sh","old":"if key != '--validate':","new":"sha = sha[:40]\nif key != '--validate':","cells":["long-query"]},
   {"name":"ignore-scope","file":"scripts/lib_owner.sh","old":"if context and scope != '*' and not (scope == path or scope.endswith('/*') and path.startswith(scope[:-1])):","new":"if False:","cells":["wrong-path","prefix-scope-sibling","regex-path"]},
-  {"name":"ignore-actor","file":"scripts/lib_owner.sh","old":"if context and actor != '*' and actor != author:","new":"if False:","cells":["wrong-author"]},
+  {"name":"ignore-actor","file":"scripts/lib_owner.sh","old":"if context and actor != '*' and actor != author:","new":"if False:","cells":["wrong-author","actor:process:other","actor:mint:other"]},
   {"name":"ignore-door","file":"scripts/lib_owner.sh","old":"if gate != key or oid != sha:","new":"if oid != sha:","cells":["wrong-door"]},
   {"name":"skip-fields","file":"scripts/lib_owner.sh","old":"fail(line_no, 'six TAB fields required')","new":"continue","cells":["bad-fields","bad-tail"]},
   {"name":"strip-nul","file":"scripts/lib_owner.sh","old":"if b'\\0' in raw:","new":"raw = raw.replace(b'\\0', b'')\nif b'\\0' in raw:","cells":["bad-nul"]},
@@ -33,5 +33,9 @@
   {"name":"zones-skip-validation","file":"scripts/check_zones.sh","old":"owner_override_validate || exit 1","new":":","cells":["malformed:check_zones"]},
   {"name":"protected-skip-validation","file":"scripts/check_protected.sh","old":"owner_override_validate || exit 1","new":":","cells":["malformed:check_protected"]},
   {"name":"frozen-skip-validation","file":"scripts/check_contract_frozen.sh","old":"owner_override_validate || exit 1","new":":","cells":["malformed:check_contract_frozen"]},
-  {"name":"missing-migration-row","file":"registry/owner-overrides.tsv","old":"check_charter/grandfather\t02f7b0cd0ce0172c66bdfe783648fa37cf853920\tcontracts/043-precizionnyj-prefriz-gejt.md\t*\tR-0114\tnever\n","new":"","cells":["migration-matrix"]}
+  {"name":"missing-migration-row","file":"registry/owner-overrides.tsv","old":"check_charter/grandfather\t02f7b0cd0ce0172c66bdfe783648fa37cf853920\tcontracts/043-precizionnyj-prefriz-gejt.md\t*\tR-0114\tnever\n","new":"","cells":["migration-matrix"]},
+  {"name":"critic-literal-author","edits":[{"file":"scripts/check_zones.sh","old":"owner_override_has check_zones/process \"$c\" \"$f\" \"$an\"","new":"owner_override_has check_zones/process \"$c\" \"$f\" orchestrator"},{"file":"scripts/check_zones.sh","old":"owner_override_has check_zones/mint \"$c\" \"$f\" \"$an\"","new":"owner_override_has check_zones/mint \"$c\" \"$f\" orchestrator"}],"cells":["actor:process:match","actor:process:other","actor:prefix:match","actor:prefix:other"]},
+  {"name":"prefix-ignores-actor","file":"scripts/lib_owner.sh","old":"if context and actor != '*' and actor != author:","new":"if context and not scope.endswith('/*') and actor != '*' and actor != author:","cells":["actor:prefix:other"]},
+  {"name":"critic-oserror-allow","file":"scripts/lib_owner.sh","old":"except OSError:\n    fail(0, 'unreadable file')","new":"except OSError:\n    sys.exit(0)","cells":["unreadable:api:eacces","unreadable:cli:eacces","unreadable:api:directory","unreadable:cli:directory","unreadable:api:eloop","unreadable:cli:eloop"]},
+  {"name":"oserror-empty-registry","file":"scripts/lib_owner.sh","old":"except OSError:\n    fail(0, 'unreadable file')","new":"except OSError:\n    raw = b''","cells":["unreadable:api:eacces","unreadable:cli:eacces","unreadable:api:directory","unreadable:cli:directory","unreadable:api:eloop","unreadable:cli:eloop"]}
 ]
