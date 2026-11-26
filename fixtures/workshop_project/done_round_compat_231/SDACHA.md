@@ -52,6 +52,10 @@ adversary-conflict: было rc 1 VERDICT_ROUND_CONFLICT → стало rc 1 VER
 B = bash fixtures/workshop_project/done_round_compat_231/red_done_round_compat_231.sh. Census до→после: клетки 78→97, стабы 14→24, связи 47→68. Прежние клетки/связи не удалены. Независимая мера — AST словарей/добавлений, фактические файлы стабов и строки TSV; probe.py — только добавления к b0ef65a93.
 
 Список 56 намеренных красных: для КАЖДОЙ роли review/adversary — back181, back179, mobile218, krug, bare-duplicate, old-conflict-low, old-conflict-high, numeric-fail, numeric-accept, three-digits, ten-digits, old-zero, old-leading-zero, old-empty, krug-zero, krug-leading-zero, plain-call-high, plain-call-low, plain-v, plain-order, same-call, live227, config-name-added, config-name-removed; дополнительно product-live215, product-config-added, config-broken, config-empty, config-missing, config-schema, config-version, config-control.
+Итог после исправления формы листа, кандидат 3b2742e0a089757b6278e2f346447f9559957fc1 в том же origin-клоне: pre_critic rc 0 («КРИТИК: дверь зелёная»); check_sdacha --run rc 0 («двери=7 карта=17/17 дельта=0»). Поведение двери/клетки/стабы не менялись; дорогие прогоны не повторялись ради исправления Markdown.
+
+Независимый census: AST WORLDS=34 + добавлено 3, PRODUCTS=10 + добавлено 2, CONFIG_CASES=9 + ещё 2; итог (34+3)×2+(10+2)+9+2=97. Файлов стабов 24, строк TSV 68. `git diff --numstat b0ef65a93eeb03b58946cb57356ff6afa113e3aa -- fixtures/workshop_project/done_round_compat_231/probe.py` → 89 добавлений, 0 удалений.
+
 
 ## Двери
 
