@@ -3,7 +3,7 @@
   "verdicts": [
     {"pattern": "-impl-v([1-9][0-9]*)-vyzov([1-9][0-9]*)\\.md$", "reject_on_miss": "-impl-v.*-vyzov.*\\.md$", "version_group": 1, "number_group": 2, "default_version": 1, "mode": "explicit"},
     {"pattern": "-v([1-9][0-9]*)(-[A-Za-z0-9._-]+)?\\.md$", "version_group": 1, "number_group": 0, "default_version": 1, "mode": "plain"},
-    {"pattern": "-impl-a([1-9][0-9]*)\\.md$", "version_group": 1, "number_group": 0, "default_version": 1, "mode": "legacy"},
+    {"pattern": "-impl-a([1-9][0-9]*)\\.md$", "version_group": 1, "number_group": 0, "default_version": 1, "mode": "numbered"},
     {"pattern": "-impl-(krug)?([1-9][0-9]*)\\.md$", "version_group": 2, "number_group": 0, "default_version": 1, "mode": "legacy"},
     {"pattern": "-impl\\.md$", "version_group": 0, "number_group": 0, "default_version": 1, "mode": "legacy"}
   ],

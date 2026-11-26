@@ -152,6 +152,7 @@ _select_round_verdict() {
           explicit) explicit=1 declared="$number" ;;
           plain) plain=1 ;;
           legacy) plain=1 declared="" ;;
+          numbered) : ;;
         esac
         break
       elif [ "$reject" != '-' ] && [[ "$name" =~ $reject ]]; then

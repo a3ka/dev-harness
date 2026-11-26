@@ -33,6 +33,7 @@ NAMES = '''    while IFS=$'\\t' read -r pattern vg ng default mode reject; do
           explicit) explicit=1 declared="$number" ;;
           plain) plain=1 ;;
           legacy) legacy=1 ;;
+          numbered) : ;;
         esac
         break
       elif [ "$reject" != '-' ] && [[ "$name" =~ $reject ]]; then
@@ -116,7 +117,8 @@ MUTATIONS = {
     'config-author-tree': ('git -C "$_forms_root" show HEAD:config/done_forms.json', 'cat "$PWD/config/done_forms.json"', ['config-author']),
     'config-environment': ('git -C "$_forms_root" show HEAD:config/done_forms.json', 'cat "$DONE_FORMS_CONFIG"', ['config-environment']),
     'config-dirty-install': ('git -C "$_forms_root" show HEAD:config/done_forms.json', 'cat "$_forms_root/config/done_forms.json"', ['config-worktree']),
-    'config-fail-open': ('|| die "done: DONE_FORMS_CONFIG"', '|| exit 0', ['config-broken', 'config-empty', 'config-missing', 'config-schema']),
+    'config-fail-open': ('|| die "done: DONE_FORMS_CONFIG"', '|| exit 0', ['config-broken', 'config-empty', 'config-missing', 'config-schema', 'config-version', 'config-control']),
+    'config-schema-ignored': (LOAD.splitlines()[8], ': # schema ignored', ['config-version', 'config-control']),
 }
 
 
