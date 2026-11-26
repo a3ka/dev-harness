@@ -820,6 +820,49 @@ charter_frozen_publication() {
 # окно» (инвариант 2).
 pr_refuse() { printf 'PR_WINDOW_%s\n' "$1" >&2; exit 1; }
 
+# pr_verdict <дерево> <путь> — ТЕЛО ВЕРДИКТА ИЗ ЗАПИСИ ДЕРЕВА.
+#
+# ГРАНИЦА — доказанное отсутствие записи пути в УСПЕШНО прочитанном дереве, а не
+# пустая строка тела и не любой ненулевой rc Git (arbiter 218, Б-1). Три состояния
+# РАЗНЫ: записи нет · запись есть, но блоб непрочитан · запись есть и тело пусто.
+# Канон чтения — `ls-tree -r -z --full-tree` с literal-pathspec: он отдаёт запись
+# (режим, тип, OID) и НЕ читает сам блоб, поэтому отсутствие записи доказывается
+# успешным чтением дерева, а отказ чтения дерева — отказом, а не отсутствием.
+# Ошибка чтения дерева, разбора записи или блоба — именованный отказ
+# PR_WINDOW_TAG_UNREADABLE (rc 1), а не пустое зелёное (инвариант 2).
+#
+# Результат — ГЛОБАЛЬНЫЕ PR_VERDICT_PRESENT (0 — записи нет, 1 — запись есть) и
+# PR_VERDICT_BODY: команда в подстановке потеряла бы статус pr_refuse.
+# shellcheck disable=SC2034
+pr_verdict() {
+  local tree="$1" path="$2" row record metadata found_path mode type oid extra
+  PR_VERDICT_PRESENT=0
+  PR_VERDICT_BODY=""
+  row="$(mktemp "$ROOT/tmp/pr-verdict.XXXXXX")" || pr_refuse TEMP_UNAVAILABLE
+  if ! g ls-tree -r -z --full-tree "$tree" -- ":(literal)$path" > "$row"; then
+    rm -f "$row"; pr_refuse TAG_UNREADABLE
+  fi
+  # Отказ удаляет приватный временный файл и выходит; вход он не переписывает.
+  # shellcheck disable=SC2094
+  while IFS= read -r -d '' record; do
+    # Ровно одна запись: две записи одного пути — неразобранное чтение, не вердикт.
+    [ "$PR_VERDICT_PRESENT" -eq 0 ] || { rm -f "$row"; pr_refuse TAG_UNREADABLE; }
+    case "$record" in *$'\t'*) ;; *) rm -f "$row"; pr_refuse TAG_UNREADABLE ;; esac
+    metadata="${record%%$'\t'*}"; found_path="${record#*$'\t'}"
+    IFS=' ' read -r mode type oid extra <<< "$metadata"
+    if [ "$found_path" != "$path" ] || [ "$type" != blob ] || [ -n "$extra" ] ||
+       [[ ! "$oid" =~ ^[0-9a-f]{40,64}$ ]]; then
+      rm -f "$row"; pr_refuse TAG_UNREADABLE
+    fi
+    case "$mode" in 100644|100755) ;; *) rm -f "$row"; pr_refuse TAG_UNREADABLE ;; esac
+    PR_VERDICT_PRESENT=1
+    # Блоб читается по полученному OID, и его статус — часть решения: непрочитанный
+    # блоб — отказ, а не пустое тело.
+    PR_VERDICT_BODY="$(g cat-file -p "$oid")" || { rm -f "$row"; pr_refuse TAG_UNREADABLE; }
+  done < "$row"
+  rm -f "$row"
+}
+
 # pr_prepare <имя-чека> — зафиксировать окно PR: HEAD, main (origin), merge-base,
 # свои коммиты и их дельты. Печатает свидетельство выбора режима (`pr: …`) в
 # stderr; stdout остаётся пустым.
