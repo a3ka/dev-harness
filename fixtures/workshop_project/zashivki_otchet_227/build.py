@@ -17,6 +17,12 @@ GREP_CHECK = ("    if result.returncode not in (0, 1):\n"
               "        sys.stderr.buffer.write(result.stderr)\n"
               "        raise RuntimeError('git grep unavailable')\n")
 CONFIG_READ = "    config = json.loads((root / 'config/zashivki.json').read_text())"
+LITERAL_PATHS = ("    paths = [':(literal)' + p for p in config['include']]\n"
+                 "    paths += [':(exclude,literal)' + p for p in config['exclude']]")
+LITERAL_INCLUDES = ('literal-include-star', 'literal-include-question',
+                    'literal-include-bracket', 'literal-include-backslash')
+LITERAL_EXCLUDES = ('literal-exclude-question', 'literal-exclude-star',
+                    'literal-exclude-bracket', 'literal-exclude-backslash')
 MUTATIONS = [
     ('s01-block-residue', SCRIPT, '    print(json.dumps(report, ensure_ascii=False))',
      '    print(json.dumps(report, ensure_ascii=False))\n    sys.exit(1 if matches else 0)', ('nonempty', 'above-baseline')),
@@ -62,6 +68,11 @@ MUTATIONS = [
      "'ZASHIVKI_REPORT: '", ('git-failure',)),
     ('s32-error-fake-report', SCRIPT, '    sys.exit(2)',
      "    print(json.dumps({'lines': 0, 'files': 0, 'matches': []}))\n    sys.exit(2)", ('git-failure',)),
+    ('s33-pathspecs-not-literal', SCRIPT, LITERAL_PATHS,
+     LITERAL_PATHS.replace("':(literal)'", "''").replace("':(exclude,literal)'", "':(exclude)'"),
+     LITERAL_INCLUDES + LITERAL_EXCLUDES),
+    ('s34-include-not-literal', SCRIPT, "':(literal)'", "''", LITERAL_INCLUDES),
+    ('s35-exclude-not-literal', SCRIPT, "':(exclude,literal)'", "':(exclude)'", LITERAL_EXCLUDES),
 ]
 EQUIVALENTS = [
     ('e01-files-equivalent', SCRIPT, "len({m['path'] for m in matches})", "len(set(m['path'] for m in matches))", ('nonempty',)),
@@ -71,6 +82,10 @@ EQUIVALENTS = [
     ('e04-config-read-equivalent', SCRIPT, CONFIG_READ,
      "    with (root / 'config/zashivki.json').open() as stream:\n        config = json.load(stream)",
      ('invalid-config', 'unreadable-config')),
+    ('e05-top-literal-pathspecs', SCRIPT, LITERAL_PATHS,
+     LITERAL_PATHS.replace("':(literal)'", "':(top,literal)'")
+     .replace("':(exclude,literal)'", "':(exclude,top,literal)'"),
+     LITERAL_INCLUDES + LITERAL_EXCLUDES),
 ]
 
 

@@ -134,3 +134,5 @@ check:sreda-sudji-206-family-selftest	220	217	0
 check:uchetnye-puti-219-family-selftest	30	16	0
 check:svezhest-verdikta-done-224-family-selftest	660	570	0
 check:otkaz-po-soderzhaniyu-215-family-selftest	30	8	0
+report:zashivki-227	10	2	0
+check:zashivki-otchet-227-family-selftest	240	150	0
