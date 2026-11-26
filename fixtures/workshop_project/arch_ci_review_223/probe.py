@@ -69,6 +69,10 @@ CASES = (
     ('octopus-empty', 'octopus-empty', '.review/octopus.md', 1, 'head', 'octopus'),
     ('octopus-service', 'octopus-service', '.review/octopus.md', 1, 'head', 'octopus'),
     ('octopus-mixed', 'octopus-mixed', 'src/octopus.js', 1, 'head', 'octopus'),
+    ('review-titlecase', 'add', '.Review/a.md', 1, 'head', 'success'),
+    ('harness-titlecase', 'add', '.Harness/a.md', 1, 'head', 'success'),
+    ('review-hidden', 'add', '.review/.hidden', 0, 'product', 'success'),
+    ('harness-hidden', 'add', '.harness/.hidden', 0, 'product', 'success'),
 )
 CURL = '''#!/usr/bin/env python3
 import json, os, re, sys
@@ -329,6 +333,7 @@ def main():
     source, saved = carriers()
     model = saved['model/done_contract.sh']
     if args.catalog:
+        print(checked([sys.executable, '-B', HERE / 'context_freeze.py']))
         print('KLETKI', len(CASES), 'STABY', sum(row['polarity'] == 'red' for row in source['links']),
               'EKVIVALENTY', sum(row['polarity'] == 'green' for row in source['links']),
               'SVJAZI', sum(len(row['cells']) for row in source['links']))
