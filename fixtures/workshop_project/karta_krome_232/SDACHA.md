@@ -107,3 +107,43 @@ check_precision_gate: rc 0, OK (27.60 с)
 ## Наблюдение исправительного круга
 
 Кандидат в main-журнал без А-номера: файловый `git hash-object -- <путь>` применяет атрибуты и не доказывает raw-byte идентичность. Цена — узкий Crit232b и арбитраж. Источник — Crit232b К-08 и contracts-232-b1.md. Класс — конструкция проверки/выбор инструмента. Закрыто штатным --no-filters, отрицательной последовательностью и честными соседями; один только успех до add не свидетельствует об индексных байтах, поэтому финальная дверь после add обязательна. Запись общего журнала — только в main оркестратором; в wip журнал не правится.
+
+## Авторская сдача Architect232d по арбитражу
+
+Фиксированный SHA исходной пачки: `5e973939c869a73d9dc67497cfbd7659e5946518`; отдельный текстовый черновик 193 — `300189c47`. Выполнено `python3 -B fixtures/workshop_project/karta_krome_232/verify.py --prepare` → rc 0, UNEXPECTED 0. Это чистый SSH-origin-клон `tmp/verify232-origin` на базе `0901d79cf18d64073c9ad25f13065cbf7ad7b603`, с наложением только двух назначенных контрактов и семьи из фиксированного SHA; production/старые батареи не подменялись. HEAD клона не выдаётся за SHA авторской пачки: `source_head` каждой записи указывает её источник. Полные команды, stdout/stderr/rc и секунды — `tmp/verify232-results.json`; история предыдущего круга выше относится к прежней копии этого пути.
+
+Все прогоны последовательны; `SDACHA_TIMEOUT_SEK=1200 SDACHA_BUDZHET_SEK=2400`, TMPDIR внутри своей копии, shellcheck 0.11.0 по пину задания. B — команда из приёмки 232:
+
+| Команда | Фактический rc | Сырой итог |
+|---|---:|---|
+| B --model | 0 | KLETKI 73 KRASNYH 0 |
+| B --stabs | 0 | STABY 30 SVJAZI 45 ZHIVYH 0 |
+| B --sintaksis | 0 | SINTAKSIS 20 SHELLCHECK 4 JSON_SCHEMA 1 |
+| B --catalog | 0 | KLETKI 73 STABY 30 SVJAZI 45 |
+| B --repo . | 1 | KLETKI 73 KRASNYH 50 |
+| python3 -B fixtures/workshop_project/karta_krome_232/context.py | 0 | ДЕКЛАРАЦИИ 74 |
+| bash scripts/pre_critic.sh contracts/232-gramm-karta-krome.md | 0 | КРИТИК: дверь зелёная |
+| bash scripts/check_sdacha.sh . contracts/232-gramm-karta-krome.md --run | 0 | СДАЧА: лист зелёный (двери=7 карта=17/17 дельта=5) |
+| bash scripts/check_precision_gate.sh . contracts/232-gramm-karta-krome.md | 0 | OK |
+| bash fixtures/workshop_project/sdacha_193/red_sdacha_193.sh --repo . | 0 | ИТОГ 193: rc=0 KLETKI=152 ZELENYE=152 KRASNYE=0 |
+| bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --repo . | 0 | KLETKI 100 KRASNYH 0 |
+
+Каталог и реальное исполнение независимо подтверждают переход **70/29/44 → 73/30/45** (клетки/стабы/связи), прежние входы и связи сохранены. Красные production — прежние 47, перечисленные выше, плюс `pj-index-text-normalized`, `pj-index-text-lf`, `pj-index-crlf-raw`: первая получает ложный успех вместо отказа индексного расхождения; честные соседи проходят pre_judge, но production ещё не имеет content-режима, поэтому COMMIT_IDENTITY красен. Итого 50 — ожидаемое red-before, не регресс 193/224. Новое пересечение 193 и исполнитель architect явно объявлены; дополнительных запретов на CRLF не введено.
+
+К-08 → **канон/инструмент** → `python3 -B fixtures/workshop_project/karta_krome_232/index_filter.py --before` и та же команда без `--before` → оба раннера rc 0. ДО: первый unstaged и staged-вызовы rc 0, хотя staged=`be050a1b0a0be911950356926920c3d927559d0a`, raw=`b73f98cb5211388f1a4599047b5b511e15cc151d`. ПОСЛЕ: первоначальный unstaged rc 0; git add; staged pre_judge rc 1, stdout пуст, stderr:
+
+```text
+ОТКАЗ: KARTA_NE_SHTATNA
+карта не штатная: индекс отличается от --file
+```
+
+LF/text и CRLF/raw — честные контроли: unstaged/staged rc 0, stdout `VERDICT_BRANCH=wip/178/critic`, stderr пуст. Ни HEAD, ни индекс, ни рабочий файл субъектом не изменены. Сырой красный на возвращённом прежнем механизме из B --stabs:
+
+```text
+st30-filtered-index-hash pj-index-text-normalized RED PJ_RC,PJ_REASON,PJ_REFUSAL_FORM,PJ_DETAIL rc= 0 stdout= b'VERDICT_BRANCH=wip/178/critic\n' stderr= b''
+STABY 30 SVJAZI 45 ZHIVYH 0
+```
+
+Новый предикат причины проверяет ровно индексное расхождение; его красит показанная мутация, честные соседи не требуют отказа. Структурный отрицательный оракул требует пустой stdout и точную первую строку отказа, снимки — до каждого вызова. Собственного парсера Git-фильтров или карты нет. Прежние `python3 -B fixtures/workshop_project/karta_krome_232/reproduce.py --before` и без флага также rc 0: старый новый файл rc 1/плохая замена rc 0; новый новый файл rc 0/плохая замена rc 1. Значения и грамматика прежних инвариантов не расширены.
+
+Длительности: pre_critic 532.43 с, check_sdacha --run 529.85 с, precision 23.28 с; полный последовательный драйвер 1620.43 с. Замер станции после прогона: uptime `up 16 days 7:39`, load average `27.47, 28.25, 19.73`; размер собственной копии `414M`. Финальный коммит этой секции добавляет только фактические свидетельства, не меняет проверяющий код/контракт/машинные строки листа. Дополнительный critic не вызывался, accept/freeze не заявляются; п.8 арбитража требует отдельной адресной санкции на узкий суд.
