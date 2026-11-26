@@ -1,0 +1,101 @@
+{
+  "base": "f82ff8c9d0d4ba45a53b7aa2e712c552141715f9",
+  "files": {
+    "model/done_contract.sh": "610dd9fb9ba8df1ea0fbfe0317a460429608a7a54cf08b6e8faebc555c6f4838",
+    "stabs/s01-review-prefix/done_contract.sh": "9b02bbff8e2922a903cbfbff8885da107c0e46b3644aa7098e95cad8f7703082",
+    "stabs/s02-any-dot-directory/done_contract.sh": "dd06ac987869472e859282448a7d31a7e85a195c4fcca2617bac8d14fd754008",
+    "stabs/s03-any-service-mixed/done_contract.sh": "a43c47b94cf20556203caee40f4d90798aa7745945bd6187b8400107e26957b1",
+    "stabs/s04-foldcase/done_contract.sh": "359ee4c173636c7e4945002340ce39b5d6833de8df6098180af6dc955bc6aa4c",
+    "stabs/s05-no-success-required/done_contract.sh": "d88bdf1278dcec988cba7556e5473077459b788c09abcb29c1cfd668e1d49dc3",
+    "stabs/s06-harness-broken/done_contract.sh": "f6585d162a75c548b43f689347323704e7362def2e3de10be842bf215bedc482",
+    "stabs/s07-rename-source-hidden/done_contract.sh": "b57b35bdd2a7e1dcfaa99a285d500583a6f5d6e593e6ede7550e0339b25c6d73",
+    "stabs/s08-second-parent/done_contract.sh": "ccbd60a59860db6309146e5afd8c16e7904a171aec88d3e1c90fe52374f7a796",
+    "stabs/e01-case-order/done_contract.sh": "c5d3654ee7599e95ba93715526150b14546ce75f1b4b8e24276eaf57359a514c",
+    "stabs/e02-if-equivalent/done_contract.sh": "5e965d1493e8ea526b552b758c555f419fd848d86d226dfe1106f652604e4973"
+  },
+  "links": [
+    {
+      "carrier": "stabs/s01-review-prefix/done_contract.sh",
+      "cells": [
+        "reviewx",
+        "review-file"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s02-any-dot-directory/done_contract.sh",
+      "cells": [
+        "review-other-dot"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s03-any-service-mixed/done_contract.sh",
+      "cells": [
+        "mixed-review-product",
+        "mixed-both-product"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s04-foldcase/done_contract.sh",
+      "cells": [
+        "review-uppercase"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s05-no-success-required/done_contract.sh",
+      "cells": [
+        "review-missing-run",
+        "review-failed-run",
+        "review-skipped-run",
+        "review-other-sha"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s06-harness-broken/done_contract.sh",
+      "cells": [
+        "harness-merge"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s07-rename-source-hidden/done_contract.sh",
+      "cells": [
+        "product-rename-in"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/s08-second-parent/done_contract.sh",
+      "cells": [
+        "review-merge",
+        "backend177-chain"
+      ],
+      "polarity": "red"
+    },
+    {
+      "carrier": "stabs/e01-case-order/done_contract.sh",
+      "cells": [
+        "both-services",
+        "harness-merge",
+        "review-merge",
+        "mixed-review-product",
+        "review-file"
+      ],
+      "polarity": "green"
+    },
+    {
+      "carrier": "stabs/e02-if-equivalent/done_contract.sh",
+      "cells": [
+        "reviewx",
+        "review-uppercase",
+        "review-missing-run",
+        "review-rename"
+      ],
+      "polarity": "green"
+    }
+  ]
+}
