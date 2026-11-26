@@ -439,6 +439,90 @@ def unreadable_registry(subject, work, seam, kind):
     return check(ok, repr(got))
 
 
+# Literal identities are test inputs, not a second implementation of matching.
+# Mint retains its existing orchestrator-only caller condition; process also
+# exercises distinct, legal author spellings declared in a real frozen zone.
+ACTOR_NAMES = (
+    ('prefix', 'fix', 'fixture', 1),
+    ('extension-digit', 'fixture2', 'fixture', 1),
+    ('extension-letter', 'fixtureX', 'fixture', 1),
+    ('infix', 'ixtur', 'fixture', 1),
+    ('suffix', 'ture', 'fixture', 1),
+    ('title-case', 'Fixture', 'fixture', 1),
+    ('upper-case', 'FIXTURE', 'fixture', 1),
+    ('trailing-dash', 'fixture-', 'fixture', 1),
+    ('trailing-dot', 'fixture.', 'fixture', 1),
+    ('separator-swap', 'fix_ture', 'fix-ture', 1),
+    ('separator-insert', 'fix-ture', 'fixture', 1),
+    ('dot-components', 'fixture.one', 'fixture.two', 1),
+    ('dash-components', 'fixture-one', 'fixture-two', 1),
+    ('case-reversed', 'fixture', 'Fixture', 1),
+    ('equal', 'fixture', 'fixture', 0),
+    ('wildcard', '*', 'fixture', 0),
+    ('equal-dot', 'fixture.dev', 'fixture.dev', 0),
+    ('equal-dash', 'fix-ture', 'fix-ture', 0),
+    ('equal-underscore', 'fix_ture', 'fix_ture', 0),
+    ('equal-digit', 'fixture2', 'fixture2', 0),
+    ('equal-title-case', 'Fixture', 'Fixture', 0),
+    ('equal-upper-case', 'FIXTURE', 'FIXTURE', 0),
+)
+MINT_ACTOR_NAMES = (
+    ('prefix', 'orc', 'orchestrator', 1),
+    ('extension-digit', 'orchestrator2', 'orchestrator', 1),
+    ('extension-letter', 'orchestratorX', 'orchestrator', 1),
+    ('infix', 'chestr', 'orchestrator', 1),
+    ('suffix', 'trator', 'orchestrator', 1),
+    ('title-case', 'Orchestrator', 'orchestrator', 1),
+    ('upper-case', 'ORCHESTRATOR', 'orchestrator', 1),
+    ('trailing-dash', 'orchestrator-', 'orchestrator', 1),
+    ('trailing-dot', 'orchestrator.', 'orchestrator', 1),
+    ('separator-swap', 'orches_trator', 'orchestrator', 1),
+    ('separator-insert', 'orches-trator', 'orchestrator', 1),
+    ('equal', 'orchestrator', 'orchestrator', 0),
+    ('wildcard', '*', 'orchestrator', 0),
+)
+
+
+def actor_name_cli(subject, work, kind, case):
+    """Every grant has a no-grant red control on the same real CLI/world."""
+    label, actor, author, expected = case
+    world = work / f'actor-name-{kind}-{label}'
+    new_world(world)
+    if author not in ('fixture', 'orchestrator'):
+        contract = world / 'contracts/001-fixture.md'
+        put(contract, contract.read_text() + f'ЗОНА {author}: allowed.txt\n')
+        commit(world, 'declare legal author before frozen window\n')
+        git(world, 'tag', '-f', '-a', 'frozen/contracts/001/1', '-m', 'fixture zones')
+    path = 'registry/contracts.tsv' if kind == 'mint' else 'outside/sub/value.txt'
+    put(world / path, 'not-a-mint\n' if kind == 'mint' else 'outside\n')
+    previous = ENV['GIT_AUTHOR_NAME']
+    try:
+        ENV['GIT_AUTHOR_NAME'] = author
+        sha = commit(world, 'literal actor subject delta\n')
+    finally:
+        ENV['GIT_AUTHOR_NAME'] = previous
+    if git(world, 'show', '-s', '--format=%an', sha) != author:
+        raise RuntimeError('ACTOR_AUTHOR_ENVIRONMENT')
+    scope = 'outside/*' if kind == 'prefix' else path
+    key = 'check_zones/' + ('mint' if kind == 'mint' else 'process')
+    grant = registry([[key, sha, scope, actor, 'R-0114', 'never']])
+    before = git(world, 'rev-parse', 'HEAD')
+    reason = f'коммит вне зоны: {author} {sha[:8]} {path} —'.encode()
+    # Empty source must really judge this author/path, not silently skip it.
+    put(world / 'registry/owner-overrides.tsv', b'')
+    control = cli(subject, world, 'check_zones')
+    if control[0] != 1 or control[1] or reason not in control[2]:
+        return check(False, 'no-grant control: ' + repr(control))
+    put(world / 'registry/owner-overrides.tsv', grant)
+    got = cli(subject, world, 'check_zones')
+    ok = got[0] == expected and not got[1]
+    if expected:
+        ok &= reason in got[2]
+        ok &= b'OWNER_OVERRIDES_INVALID:' not in got[2]
+    ok &= git(world, 'rev-parse', 'HEAD') == before
+    return check(ok, repr(got))
+
+
 def cells():
     result = {'migration-matrix': matrix, 'no-sha-literals': lambda s, w: literals(s)}
     for mode in RAW:
@@ -460,6 +544,9 @@ def cells():
     for seam in ('api', 'cli'):
         for kind in ('eacces', 'directory', 'eloop'):
             result[f'unreadable:{seam}:{kind}'] = lambda s, w, a=seam, k=kind: unreadable_registry(s, w, a, k)
+    for kind in ('process', 'prefix', 'mint'):
+        for case in MINT_ACTOR_NAMES if kind == 'mint' else ACTOR_NAMES:
+            result[f'actor-name:{kind}:{case[0]}'] = lambda s, w, k=kind, c=case: actor_name_cli(s, w, k, c)
     return result
 
 
