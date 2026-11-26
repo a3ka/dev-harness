@@ -181,6 +181,8 @@ def world(base, name, kind):
                    {'kind': 'map', 'path': 'STRUCTURE.md',
                     'roles': 'orchestrator,architect,critic,arbiter,implementer,adversary,reviewer',
                     'mandatory': True, 'why': 'toy structure'}]}}
+    if kind == 'back':
+        profile['hooks'] = {'archBrief': 'a3ka/Complior-back'}
     put(root, 'harness.project.json', json.dumps(profile))
     put(root, layer_path, json.dumps({'schemaVersion': 1, 'version': '1',
                                       'projectId': 'toy', 'workspaceId': 'toy', 'defaults': {}}))
