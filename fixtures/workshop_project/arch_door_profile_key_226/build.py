@@ -289,6 +289,50 @@ for index, char in enumerate('false'):
         [f'grid-false-case-{1 << index:02d}'])
 
 
+# Arb226b: control-flow mutations bind to public aliases, never extraction errors.
+_GUARD = 'if jq -e \'.hooks | has("archBrief")\' "$REPO_JSON_FD" >/dev/null; then'
+_OUTER = 'if jq -e \'has("hooks")\' "$REPO_JSON_FD" >/dev/null; then'
+_REJECT = '|| die_p "значение вне алфавита: hooks.archBrief: ожидается false или owner/repo"'
+_DIE = 'die_p() { printf \'profile ОТКАЗ: %s\\n\' "$*" >&2; exit 1; }'
+MUTATIONS.update({
+ 'st50-guard-cr-adv226c': ('scripts/profile_resolver.sh', _GUARD,
+     'if jq -e \'.hooks | has("archBrief") and ((.archBrief | type != "string") or (.archBrief | contains("\\r") | not))\' "$REPO_JSON_FD" >/dev/null; then',
+     ['public-control-cr']),
+ 'st51-hooks-skip': ('scripts/profile_resolver.sh', _OUTER,
+     'if false; then', ['public-control-null']),
+ 'st52-hooks-invert': ('scripts/profile_resolver.sh', _OUTER,
+     'if ! jq -e \'has("hooks")\' "$REPO_JSON_FD" >/dev/null; then',
+     ['public-control-null', 'public-hooks-absent']),
+ 'st53-hooks-shape-skip': ('scripts/profile_resolver.sh',
+     '|| die_p "значение вне алфавита: hooks.archBrief: hooks не объект"',
+     '|| :', ['public-hooks-null']),
+ 'st54-leaf-strings-only': ('scripts/profile_resolver.sh', _GUARD,
+     'if jq -e \'.hooks | has("archBrief") and (.archBrief | type == "string")\' "$REPO_JSON_FD" >/dev/null; then',
+     ['public-control-null']),
+ 'st55-leaf-skip': ('scripts/profile_resolver.sh', _GUARD,
+     'if false; then', ['public-control-cr']),
+ 'st56-zero-instead-false': ('scripts/profile_resolver.sh',
+     'if . == false then true', 'if . == 0 then true',
+     ['public-control-zero', 'public-control-false']),
+ 'st57-string-check-skip': ('scripts/profile_resolver.sh',
+     'elif type == "string" then test(', 'elif true then test(',
+     ['public-control-null']),
+ 'st58-string-check-invert': ('scripts/profile_resolver.sh',
+     'elif type == "string" then test(', 'elif type != "string" then test(',
+     ['public-control-valid']),
+ 'st59-rejection-skip': ('scripts/profile_resolver.sh', _REJECT,
+     '|| :', ['public-control-cr']),
+ 'st60-rejection-rc-zero': ('scripts/profile_resolver.sh', _DIE,
+     _DIE.replace('exit 1', 'exit 0'), ['public-control-cr']),
+ 'st61-rejection-rc-two': ('scripts/profile_resolver.sh', _DIE,
+     _DIE.replace('exit 1', 'exit 2'), ['public-control-cr']),
+ 'st62-rejection-no-reason': ('scripts/profile_resolver.sh', _REJECT,
+     '|| die_p "неверный профиль"', ['public-control-cr']),
+ 'st63-rejection-stdout': ('scripts/profile_resolver.sh', _DIE,
+     _DIE.replace(' >&2', ''), ['public-control-cr']),
+})
+
+
 def generate():
     texts = {p: subprocess.run(['git', '-C', str(ROOT), 'show', BASE + ':' + p],
                               check=True, capture_output=True, text=True).stdout for p in FILES}
@@ -306,8 +350,10 @@ def generate():
         out.write_text(once(texts[path], old, new))
         carriers[str(out.relative_to(HERE))] = hashlib.sha256(out.read_bytes()).hexdigest()
         bindings[name] = {'path': path, 'cells': cells}
+    import runpy
+    public = runpy.run_path(str(HERE / 'probe.py'), run_name='catalog226')['public_source'](bindings)
     (HERE / 'source.json').write_text(json.dumps({'base': BASE, 'files': list(FILES),
-        'carriers': carriers, 'bindings': bindings}, ensure_ascii=False, indent=2) + '\n')
+        'carriers': carriers, 'bindings': bindings, 'public': public}, ensure_ascii=False, indent=2) + '\n')
     print('CARRIERS', len(carriers), 'STABY', len(bindings),
           'SVJAZI', sum(len(v['cells']) for v in bindings.values()))
 

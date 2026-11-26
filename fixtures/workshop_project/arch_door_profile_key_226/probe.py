@@ -180,6 +180,88 @@ CASES.update({name: ('grid', value, 'toy', 0 if grammar_accepts(value) else 1,
               for name, value in GRID.items()})
 
 
+def public_catalog():
+    """Unique raw hooks inputs, with expectations captured before any subject."""
+    entries, aliases, axes = {}, {}, {}
+
+    def add(name, axis, fragment):
+        # Keep duplicate-key JSON raw; ordinary repeated inputs share one witness.
+        identity = fragment
+        if identity not in entries:
+            parsed = json.loads('{' + fragment + '}')
+            hooks = parsed.get('hooks', MISSING)
+            shape_ok = hooks is MISSING or type(hooks) is dict
+            value = hooks.get('archBrief', MISSING) if type(hooks) is dict else MISSING
+            accepted = shape_ok and (value is MISSING or grammar_accepts(value))
+            reason = ('ожидается false или owner/repo' if shape_ok else 'hooks не объект')
+            projection = (None if hooks is MISSING else
+                          {'origin': 'repo', 'value': (
+                              {} if value is MISSING else {'archBrief': value})})
+            entries[identity] = dict(name=name, fragment=fragment, rc=0 if accepted else 1,
+                                     projection=projection, reason=reason,
+                                     warning=type(hooks) is dict and 'futureHook' in hooks)
+        aliases[name] = identity
+        axes.setdefault(axis, []).append(name)
+
+    masks = {0, 31, 1, 2, 4, 8, 16, 10}  # false/FALSE/False/fAlSe + each position.
+    for name, value in GRID.items():
+        axis = name.split('-')[1]
+        selected = (axis in {'type', 'separator', 'boundary', 'unicode', 'length'} or
+                    (axis == 'false' and ('case-' not in name or int(name[-2:]) in masks)) or
+                    (axis == 'ascii' and int(name[-3:]) in {95, 45, 46, 64}))
+        if selected:
+            add(name, axis, '"hooks":' + json.dumps({'archBrief': value}, sort_keys=True))
+    # Existing public resolver cells participate in the same deduplicated layer.
+    for name, (kind, value, _, _, _) in list(CASES.items()):
+        if kind in {'resolver', 'hooks', 'unknown'}:
+            hooks = None if kind == 'hooks' else {'archBrief': value}
+            if kind == 'unknown':
+                hooks['futureHook'] = 'keep-M0'
+            add(name, 'existing-' + kind, '"hooks":' + json.dumps(hooks, sort_keys=True))
+    for name, fragment in [
+            ('absent', ''), ('empty', '"hooks":{}'),
+            ('future', '"hooks":{"futureHook":"keep-M0"}'),
+            ('null', '"hooks":null'), ('false', '"hooks":false'), ('true', '"hooks":true'),
+            ('zero', '"hooks":0'), ('string', '"hooks":""'), ('array', '"hooks":[]')]:
+        add('public-hooks-' + name, 'hooks', fragment)
+    good, cr = json.dumps('ab/cd'), json.dumps('ab/cd\r')
+    for first, last, label in [(good, cr, 'last-cr'), (cr, good, 'last-good')]:
+        add('public-duplicate-leaf-' + label, 'duplicates',
+            '"hooks":{"archBrief":' + first + ',"archBrief":' + last + '}')
+        add('public-duplicate-hooks-' + label, 'duplicates',
+            '"hooks":{"archBrief":' + first + '},"hooks":{"archBrief":' + last + '}')
+    for name in ('mixed-case', 'long-value'):
+        add('public-' + name, 'positive-controls',
+            '"hooks":' + json.dumps({'archBrief': CASES[name][1]}, sort_keys=True))
+    for name, value in [('null', None), ('cr', 'ab/cd\r'), ('true', True),
+                        ('zero', 0), ('false', False), ('valid', 'ab/cd')]:
+        add('public-control-' + name, 'control',
+            '"hooks":' + json.dumps({'archBrief': value}, sort_keys=True))
+    return entries, aliases, axes
+
+
+PUBLIC_INPUTS, PUBLIC_ALIASES, PUBLIC_AXES = public_catalog()
+for _name, _identity in PUBLIC_ALIASES.items():
+    if _name not in CASES:
+        _entry = PUBLIC_INPUTS[_identity]
+        CASES[_name] = ('public', _identity, 'toy', _entry['rc'], b'hooks.archBrief')
+PUBLIC_WORLDS = {}
+PUBLIC_RESULTS = {}
+
+def public_source(bindings):
+    return {
+        'unique_inputs': len(PUBLIC_INPUTS),
+        'axes': PUBLIC_AXES,
+        'witnesses': {row['name']: {'fragment': row['fragment'], 'rc': row['rc']}
+                      for row in PUBLIC_INPUTS.values()},
+        'bindings': {name: {cell: ('public-cli' if cell in PUBLIC_ALIASES else
+                                  'internal-jq' if cell in GRID else 'integration-cli')
+                           for cell in row['cells']}
+                     for name, row in bindings.items()},
+    }
+
+
+
 def run_grid(base, tools, cells):
     """One real resolver/world captures its actual jq argv; real jq judges the grid.
 
@@ -436,6 +518,79 @@ def run_cell(base, tools, cell):
     return errors, result
 
 
+_integration_cell = run_cell
+
+
+def run_public(base, tools, cell):
+    identity = PUBLIC_ALIASES[cell]
+    key = (base.parent, tools)
+    cache_key = (key, identity)
+    if cache_key in PUBLIC_RESULTS:
+        return PUBLIC_RESULTS[cache_key]
+    expected = PUBLIC_INPUTS[identity]
+    if key not in PUBLIC_WORLDS:
+        world = base.parent / (tools.name + '-public')
+        world.mkdir()
+        product, arch, *_ = old.build(world, 'product')
+        profile = install_profile(product, MISSING, 'toy')
+        PUBLIC_WORLDS[key] = product, old.env_for(product, arch), profile
+    product, env, profile = PUBLIC_WORLDS[key]
+    raw = json.dumps(profile)[:-1]
+    if expected['fragment']:
+        raw += ',' + expected['fragment']
+    raw += '}'
+    path = product / 'harness.project.json'
+    path.write_text(raw)
+    before = (old.git(product, 'rev-parse', 'HEAD'), old.git(product, 'show-ref'), raw)
+    result = call(['bash', tools / 'scripts/profile_resolver.sh', '--repo', product], product, env)
+    errors = []
+    if result.returncode != expected['rc']:
+        errors.append('PUBLIC_RC')
+    if expected['rc']:
+        diagnostic = ('profile ОТКАЗ: значение вне алфавита: hooks.archBrief: ' +
+                      expected['reason']).encode()
+        if result.stderr != diagnostic + b'\n':
+            errors.append('PUBLIC_DIAGNOSIS')
+        if result.stdout:
+            errors.append('PUBLIC_PARTIAL_OUTPUT')
+    else:
+        try:
+            merged = json.loads(result.stdout)
+            if json.dumps(merged.get('hooks'), sort_keys=True) != json.dumps(
+                    expected['projection'], sort_keys=True):
+                errors.append('PUBLIC_MERGED_POLICY')
+        except (ValueError, AttributeError):
+            errors.append('PUBLIC_JSON')
+        if expected['warning']:
+            if b'hooks.futureHook' not in result.stderr:
+                errors.append('PUBLIC_M0_WARNING')
+        elif result.stderr:
+            errors.append('PUBLIC_STDERR')
+    after = (old.git(product, 'rev-parse', 'HEAD'), old.git(product, 'show-ref'), path.read_text())
+    if after != before:
+        errors.append('PUBLIC_SIDE_EFFECT')
+    # rc 2 with the exact refusal is a wrong subject status, not infrastructure.
+    # Keep its real rc/channels in evidence; never rewrite it as rc 1.
+    if result.returncode in (126, 127) or (
+            result.returncode == 2 and not any(
+                line.startswith('profile ОТКАЗ: '.encode())
+                for line in result.stderr.splitlines())):
+        raise RuntimeError('PUBLIC_INFRA ' + repr(result))
+    evidence = repr(('PUBLIC_CLI', result.returncode, result.stdout[:100], result.stderr))
+    PUBLIC_RESULTS[cache_key] = errors, evidence
+    return errors, evidence
+
+
+def run_cell(base, tools, cell):
+    if cell not in PUBLIC_ALIASES:
+        return _integration_cell(base, tools, cell)
+    # Grid still executes in full at its original internal seam. The public
+    # observation is unconditional, independent of whether that jq agreed.
+    internal = _integration_cell(base, tools, cell)[0] if cell in GRID else []
+    errors, evidence = run_public(base, tools, cell)
+    return internal + errors, evidence
+
+
 def carrier_catalog():
     source = json.loads((HERE / 'source.json').read_text())
     build = load('build226', HERE / 'build.py')
@@ -458,6 +613,13 @@ def carrier_catalog():
             raise RuntimeError('EMPTY_GRID_AXIS ' + axis)
         print('GRID_AXIS', axis, 'CASES', len(cells), 'ACCEPT',
               sum(CASES[name][3] == 0 for name in cells))
+    public = public_source(source['bindings'])
+    if source.get('public') != public:
+        raise RuntimeError('PUBLIC_CATALOG_DRIFT')
+    print('PUBLIC_UNIQUE_INPUTS', len(PUBLIC_INPUTS))
+    for axis, cells in PUBLIC_AXES.items():
+        print('PUBLIC_AXIS', axis, 'POSITIONS', len(cells), 'UNIQUE_INPUTS',
+              len({PUBLIC_ALIASES[cell] for cell in cells}))
     return source
 
 
