@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["pattern", "include", "exclude", "baseline"],
+  "properties": {
+    "pattern": {"type": "string", "minLength": 1},
+    "include": {"$ref": "#/$defs/paths", "minItems": 1},
+    "exclude": {"$ref": "#/$defs/paths"},
+    "baseline": {
+      "type": "object", "additionalProperties": false,
+      "required": ["lines", "files", "commit"],
+      "properties": {
+        "lines": {"type": "integer", "minimum": 0},
+        "files": {"type": "integer", "minimum": 0},
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"}
+      }
+    }
+  },
+  "$defs": {
+    "paths": {
+      "type": "array", "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\u0000]+$"}
+    }
+  }
+}
