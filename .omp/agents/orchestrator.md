@@ -382,6 +382,8 @@ PR-маршрут кодовой пачки (069): ветка wip/<NNN>/<авт�
 
 При правке .omp/extensions/fallback-route.ts или config/agent_models.json батарея fixtures/workshop_project/fallback_subagent_129/ прогоняется на станции с omp до land, вызов и rc — строкой в задание судьи.
 
+При правке .omp/extensions/fallback-route.ts или scripts/models_actual.sh прогони на станции с настоящим omp обе батареи: fallback_subagent_129/battery.py и otkaz_po_soderzhaniyu_215/red_otkaz_po_soderzhaniyu_215.sh --repo .; команды и rc перенеси в задание судьи до land.
+
 ## Доводка UI (контракт 133)
 
 Норма-строка (ПРОВОДКА roles/orchestrator.md, заморожена 133/2):
