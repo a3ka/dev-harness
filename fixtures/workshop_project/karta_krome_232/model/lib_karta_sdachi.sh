@@ -82,11 +82,11 @@ karta_stroki() { # Синтаксис один для обеих дверей и
                         printf '%s: %s без команды или входа' "$klass" "${rest%% — *}"
                         return 1 ;;
                     'без изменений с вызова '*|'без изменений с предыдущего вызова'*)
-                        if [[ "$rest" =~ ^без\ изменений\ с\ вызова\ ([0-9]+)([.]|\ —\ .+|,\ кроме\ [^[:space:]]([^[:cntrl:]]*[^[:space:]])?[.]|;\ [^[:space:]]([^[:cntrl:]]*[^[:space:]])?[.])?$ ]]; then
+                        if [[ "$rest" =~ ^без\ изменений\ с\ вызова\ ([0-9]+)([.]|\ —\ .+)?$ ]]; then
                             status="${BASH_REMATCH[1]}"
                             while [[ "$status" == 0* ]]; do status="${status#0}"; done
                             [ -n "$status" ] || { printf '%s: номер вызова вне грамматики' "$klass"; return 1; }
-                        elif [[ "$rest" =~ ^без\ изменений\ с\ предыдущего\ вызова([.]|\ —\ .+|,\ кроме\ [^[:space:]]([^[:cntrl:]]*[^[:space:]])?[.]|;\ [^[:space:]]([^[:cntrl:]]*[^[:space:]])?[.])?$ ]]; then
+                        elif [[ "$rest" =~ ^без\ изменений\ с\ предыдущего\ вызова([.]|\ —\ .+)?$ ]]; then
                             status="$(karta_predydushchij "$1")" \
                                 || { printf '%s: %s' "$klass" "$status"; return 1; }
                         else
@@ -220,6 +220,7 @@ karta_index() { # ROOT, путь предъявленного вердикта, 
         [ -z "${videli[$blob]:-}" ] || continue
         videli[$blob]=1
         telo="$(git -C "$root" cat-file -p "$blob")" || return 1
+        telo="$(karta_tekst_bloha "$root" "$blob")" || { printf '%s' "$telo"; return 1; }
         karta_metadannye "$telo"
         [ "$K193_TEMA" = "$tema" ] && [ "$K193_ROL" = critic ] \
             && [ -n "$K193_VYZOV" ] || continue
@@ -289,8 +290,12 @@ karta_raskryt() {
 }
 
 karta_proverit() { # текст; необязательные ROOT и путь для ссылок
-    local ryady
-    ryady="$(karta_stroki "$1")" || { printf '%s' "$ryady"; return 1; }
+    local ryady telo="$1" blob
+    if [ "$#" -eq 3 ]; then
+        blob="$(git -C "$2" rev-parse "HEAD:$3")" || return 1
+        telo="$(karta_tekst_bloha "$2" "$blob")" || { printf '%s' "$telo"; return 1; }
+    fi
+    ryady="$(karta_stroki "$telo")" || { printf '%s' "$ryady"; return 1; }
     if [[ "$ryady" == *$'\tссылка:'* ]]; then
         [ "$#" -eq 3 ] || { printf 'ссылка требует закоммиченного контекста'; return 1; }
         karta_index "$2" "$3" "$1" || return 1
@@ -308,3 +313,7 @@ karta_poslednij_fail() { # ROOT, путь, текст; полный послед
         || { printf 'последний FAIL %s: %s' "$K193_POSLED_FAIL" "$ryady"; return 1; }
     karta_raskryt "$ryady"
 }
+
+# 232: policy is pinned to this installation, never the judged checkout.
+K232_SCRIPTS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+karta_tekst_bloha() { python3 -B "$K232_SCRIPTS/karta_registry.py" "$1" "$2"; }

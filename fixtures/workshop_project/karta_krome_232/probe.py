@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""232: real committed maps, real verdict CLI, literal pre-call expectations."""
+"""232: real Git, installed real doors, pre-call literal map and rc oracles."""
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -13,77 +14,74 @@ import tempfile
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
-LIB = 'scripts/lib_karta_sdachi.sh'
-EXPLICIT = 'без изменений с вызова 5'
-PREVIOUS = 'без изменений с предыдущего вызова'
-# Expectations are data, not a second parser of the subject's grammar.
-TAILS = {
-    'except': ', кроме команды зависимости 152, приведённой в блоке.',
-    'semicolon-command': '; --stabs rc 0.',
-    'semicolon-prose': '; новая граница Ф3 и зависимость 152 отражены в блоке К-03.',
-    'old-empty': '', 'old-dot': '.', 'old-dash': ' — тот же класс',
-    'old-dash-dot': ' — тот же класс.',
-    'single-character': '; x.', 'except-character': ', кроме x.',
-    'long': '; ' + 'доказательство ' * 6000 + 'x.',
+POLICY = 'registry/karta-exceptions.json'
+SCHEMA = 'registry/karta-exceptions.schema.json'
+FILES = {'lib_karta_sdachi.sh': 'scripts/lib_karta_sdachi.sh',
+         'pre_judge.sh': 'scripts/pre_judge.sh', 'karta_registry.py': 'scripts/karta_registry.py',
+         'karta-exceptions.schema.json': SCHEMA, 'karta-exceptions.json': POLICY}
+CASES = {
+    'live-registered': dict(live=True),
+    'live-installed-default': dict(live=True, config='installed'),
+    'live-empty': dict(live=True, config='empty', rc=1, reason='К-05: ссылка вне грамматики'),
+    'live-absent': dict(live=True, config='absent', rc=1, reason='К-05: ссылка вне грамматики'),
+    'foreign-sha': dict(live=True, config='foreign', rc=1, reason='К-05: ссылка вне грамматики'),
+    'foreign-sha-prefix': dict(live=True, config='foreign-prefix', rc=1, reason='К-05: ссылка вне грамматики'),
+    'changed-blob': dict(live=True, changed=True, rc=1, reason='К-05: ссылка вне грамматики'),
+    'changed-other-path': dict(live=True, changed=True, other=True, rc=1, reason='К-05: ссылка вне грамматики'),
+    'identical-other-path': dict(live=True, other=True),
+    'index-call6': dict(live=True, operation='index'),
+    'last-fail6': dict(live=True, operation='last'),
+    'config-add-only': dict(live=True, sequence='add'),
+    'config-remove-only': dict(live=True, sequence='remove'),
+    'config-new-blob-only': dict(live=True, changed=True, new_entry=True, sequence='add'),
+    'config-new-map-only': dict(status='чисто в измеренных границах — новый вход', new_entry=True, new_map=True),
+    'honest-empty': dict(config='empty'),
+    'honest-absent': dict(config='absent'),
+    'honest-registry': {},
+    'config-equivalent': dict(live=True, config='equivalent'),
+    'subject-policy-bait': dict(live=True, config='empty', bait=True, rc=1, reason='К-05: ссылка вне грамматики'),
+    'subject-empty-bait': dict(live=True, bait=True),
+    'invalid-json': dict(config='invalid', rc=1, reason='KARTA_REGISTRY_INVALID:'),
+    'unreadable-registry': dict(config='directory', rc=1, reason='KARTA_REGISTRY_INVALID:'),
+    'schema-missing': dict(config='schema-missing', rc=1, reason='KARTA_REGISTRY_INVALID:'),
+    'schema-invalid': dict(config='schema-invalid', rc=1, reason='KARTA_REGISTRY_INVALID:'),
+    'wrong-version': dict(config='version', rc=1, reason='KARTA_REGISTRY_INVALID:'),
+    'duplicate-sha': dict(live=True, config='duplicate', rc=1, reason='KARTA_REGISTRY_INVALID:'),
+    'duplicate-json-key': dict(config='duplicate-key', rc=1, reason='KARTA_REGISTRY_INVALID:'),
+    'prefix-sha': dict(live=True, config='prefix', rc=1, reason='KARTA_REGISTRY_INVALID:'),
+    'uppercase-sha': dict(live=True, config='uppercase', rc=1, reason='KARTA_REGISTRY_INVALID:'),
+    'mask-sha': dict(live=True, config='mask', rc=1, reason='KARTA_REGISTRY_INVALID:'),
+    'repaint-block': dict(live=True, config='block', rc=1, reason='KARTA_REGISTRY_INVALID:'),
+    'repaint-reference': dict(live=True, config='reference', rc=1, reason='KARTA_REGISTRY_INVALID:'),
+    'change-reference-target': dict(live=True, config='target', rc=1, reason='KARTA_REGISTRY_INVALID:'),
+    'change-tail': dict(live=True, config='tail', rc=1, reason='KARTA_REGISTRY_INVALID:'),
+    'bad-normalized-grammar': dict(live=True, config='grammar', rc=1, reason='KARTA_REGISTRY_INVALID:'),
+    'missing-normalized-class': dict(live=True, config='class', rc=1, reason='KARTA_REGISTRY_INVALID:'),
+    'change-call': dict(config='call', numeric_entry=True, rc=1, reason='KARTA_REGISTRY_INVALID:'),
+    'unregistered-comma': dict(status='без изменений с вызова 5, кроме текста.', rc=1, reason='К-05: ссылка вне грамматики'),
+    'unregistered-semicolon': dict(status='без изменений с вызова 5; текст.', rc=1, reason='К-05: ссылка вне грамматики'),
+    'unregistered-clean-qualifier': dict(status='чисто в измеренных границах — контроль', rc=1, reason='статус вне алфавита'),
+    'old-reference': dict(status='без изменений с вызова 5.'),
+    'old-reference-dash': dict(status='без изменений с вызова 5 — пояснение'),
+    'pj-honest-accept': dict(pj=True, call='1'),
+    'pj-honest-fail': dict(pj=True, decision='FAIL', call='2'),
+    'pj-invalid-accept': dict(pj=True, status='чисто', call='1', rc=1, reason='KARTA_NE_SHTATNA'),
+    'pj-invalid-fail': dict(pj=True, status='чисто', decision='FAIL', call='1', rc=1, reason='KARTA_NE_SHTATNA'),
+    'pj-invalid-call2': dict(pj=True, status='чисто', decision='FAIL', call='2', rc=1, reason='KARTA_NE_SHTATNA'),
+    'pj-live-registered': dict(pj=True, live=True),
+    'pj-live-unregistered': dict(pj=True, live=True, config='empty', rc=1, reason='KARTA_NE_SHTATNA'),
+    'pj-local-fake': dict(pj=True, status='чисто', fake=True, rc=1, reason='KARTA_NE_SHTATNA'),
+    'pj-no-skip-flag': dict(pj=True, status='чисто', flags=['--skip-karta'], rc=2, reason='использование:'),
+    'pj-timeout-not-bypass': dict(pj=True, status='чисто', flags=['--timeout', '0'], rc=1, reason='KARTA_NE_SHTATNA'),
+    'pj-role-bypass': dict(pj=True, status='чисто', role='reviewer', rc=1, reason='KARTA_NE_SHTATNA'),
+    'pj-other-role-unchanged': dict(pj=True, other_role=True),
 }
-BAD = {
-    'arbitrary': ', потому что проверено.',
-    'except-no-text': ', кроме',
-    'no-comma-space': ',кроме текста.',
-    'uppercase': ', КРОМЕ текста.',
-    'double-space': ', кроме  текста.',
-    'semicolon-double-space': ';  текст.',
-    'except-empty': ', кроме .',
-    'semicolon-empty': '; .',
-    'except-no-dot': ', кроме текста',
-    'semicolon-no-dot': '; текст',
-    'newline': '; начало\nпродолжение.',
-    'except-newline': ', кроме начала\nпродолжение.',
-    'dot-except': '. кроме текста.',
-    'missing-comma': ' кроме текста.',
-    'dash-empty': ' — ',
-    'semicolon-no-space': ';текст.',
-    'except-trailing-space': ', кроме текста. ',
-    'semicolon-tab': '; \t.',
-}
-CASES = {}
-for form, prefix in (('number', EXPLICIT), ('previous', PREVIOUS)):
-    for name, tail in TAILS.items():
-        CASES[form + '-' + name] = dict(status=prefix + tail, rc=0)
-    for name, tail in BAD.items():
-        CASES[form + '-' + name] = dict(status=prefix + tail, rc=1,
-                                      reason='К-05: ссылка вне грамматики')
-CASES.update({
-    'number-zero': dict(status='без изменений с вызова 000; текст.', rc=1,
-                        reason='К-05: номер вызова вне грамматики'),
-    'number-leading-zero': dict(status='без изменений с вызова 0005, кроме текста.', rc=0),
-    'number-huge': dict(status='без изменений с вызова 100000000000000000000; текст.',
-                        source='100000000000000000000', rc=0),
-    'previous-leading-zero': dict(status=PREVIOUS + ', кроме текста.', current='0006', rc=0),
-    'previous-huge': dict(status=PREVIOUS + '; текст.', current='100000000000000000001',
-                          source='100000000000000000000', rc=0),
-    'missing-number': dict(status='без изменений с вызова 99, кроме текста.', rc=1,
-                          reason='отсутствует вызов 99 (К-05)'),
-    'missing-previous': dict(status=PREVIOUS + '; текст.', source='4', rc=1,
-                            reason='отсутствует вызов 5 (К-05)'),
-    'inherit-same-class': dict(status=EXPLICIT + '; текст.', source_status='блок', resolved='блок', rc=0),
-    'direct-except': dict(status='чисто — без изменений с вызова 99, кроме текста.', direct=True, rc=0),
-    'direct-semicolon': dict(status='чисто — без изменений с вызова 5; текст.', direct=True,
-                             source_status='блок', rc=0),
-    'direct-empty': dict(status='чисто — ', rc=1, reason='К-05: чисто без команды или входа'),
-    'unknown-status': dict(status='чисто в измеренных границах — вход: контроль', rc=1,
-                           reason='статус вне алфавита'),
-    # Raw live artifact is deliberately NOT repaired. See contract conflict.
-    'live178-as-is': dict(live=True, rc=0),
-})
 
 
 def run(args, cwd=None):
-    env = os.environ.copy()
-    for key in tuple(env):
-        if key.startswith('GIT_'):
-            del env[key]
-    env.update(GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_SYSTEM='/dev/null')
+    env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
+    env.update(GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_SYSTEM='/dev/null',
+               PYTHONDONTWRITEBYTECODE='1', SDACHA_OKRUG='1')
     return subprocess.run([str(x) for x in args], cwd=cwd, env=env,
                           capture_output=True, timeout=90)
 
@@ -91,7 +89,7 @@ def run(args, cwd=None):
 def checked(args, cwd=None):
     p = run(args, cwd)
     if p.returncode:
-        raise RuntimeError('NOT_IMPLEMENTED: ' + repr(args) + ': ' + repr(p.stderr))
+        raise RuntimeError('NOT_IMPLEMENTED: ' + repr(args) + ': ' + repr(p.stdout) + ': ' + repr(p.stderr))
     return p.stdout
 
 
@@ -100,84 +98,184 @@ def git(root, *args):
                     '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', *args])
 
 
-def put(root, path, data):
-    file = root / path
-    file.parent.mkdir(parents=True, exist_ok=True)
-    file.write_bytes(data if isinstance(data, bytes) else data.encode())
+def put(root, path, body):
+    p = root / path
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_bytes(body if isinstance(body, bytes) else body.encode())
 
 
-def verdict(call, statuses=None, tema='777'):
+def verdict(call='6', statuses=None, decision='accept'):
     statuses = statuses or {}
-    return ('accept\nOBJECT=' + 'a' * 40 + '\nСУД: предмет=' + tema +
-            '; роль=critic; вызов=' + call + '/9;\n\n## Карта классов\n' +
-            ''.join('К-%02d: %s\n' % (k, statuses.get(k, 'чисто — вход: честный контроль'))
-                    for k in range(1, 18)))
+    return (decision + '\nOBJECT=' + 'a' * 40 + '\nСУД: предмет=178; роль=critic; вызов=' + call + ';\n\n'
+            '## Карта классов\n' + ''.join('К-%02d: %s\n' %
+            (k, statuses.get(k, 'чисто — вход: честный контроль')) for k in range(1, 18))).encode()
 
 
-def world(work, name, spec):
-    root = work / name
+def installed(work, tools_repo, overlay):
+    tools = work / 'installation'
+    shutil.copytree(tools_repo / 'scripts', tools / 'scripts')
+    shutil.copytree(tools_repo / 'ops/server', tools / 'ops/server')
+    for path in (POLICY, SCHEMA):
+        if (tools_repo / path).is_file():
+            put(tools, path, (tools_repo / path).read_bytes())
+    for name, body in overlay.items():
+        put(tools, FILES[name], body)
+    return tools
+
+
+def world(work, spec, tools, saved):
+    root = work / 'subject'
     root.mkdir()
-    git(root, 'init', '-q')
-    source = spec.get('source', '5')
-    tema = '178' if spec.get('live') else '777'
-    put(root, 'verdicts/critic/contracts-' + tema + '-v1-source.md',
-        verdict(source, {5: spec.get('source_status', 'чисто') + ' — вход: источник'}, tema))
+    role = spec.get('role', 'reviewer' if spec.get('other_role') else 'critic')
+    git(root, 'init', '-q', '-b', 'wip/178/' + role)
+    put(root, 'verdicts/critic/contracts-178-v1-source.md', verdict('5'))
     git(root, 'add', '-A')
-    git(root, 'commit', '-qm', 'independent historical source')
-    target = 'verdicts/critic/contracts-' + tema + '-v1-krug6-fail.md'
-    body = ((HERE / 'live178.md').read_bytes() if spec.get('live') else
-            verdict(spec.get('current', '6'), {5: spec['status']}).encode())
+    git(root, 'commit', '-qm', 'source call 5')
+    target = 'verdicts/critic/contracts-178-v1-krug6-fail.md'
+    if spec.get('other'):
+        target = 'verdicts/critic/contracts-178-v1-other.md'
+    if spec.get('other_role'):
+        target = 'verdicts/review/contracts-178-impl-v1.md'
+    body = (saved['live178.md'] if spec.get('live') else
+            verdict(spec.get('call', '6'), {5: spec.get('status', 'чисто — вход: контроль')},
+                    spec.get('decision', 'accept')))
+    if spec.get('changed'):
+        body += b'\n'
     put(root, target, body)
     git(root, 'add', '-A')
-    git(root, 'commit', '-qm', 'committed verdict under test')
-    head = git(root, 'rev-parse', 'HEAD')
-    # Independent literal oracle is captured BEFORE invoking any subject.
-    resolved = {5: spec.get('resolved', 'чисто')}
-    if spec.get('live'):
-        resolved = {2: 'блок', 3: 'блок', 7: 'блок'}
-    expected_map = ''.join('К-%02d\t%s\n' % (k, resolved.get(k, 'чисто'))
-                           for k in range(1, 18)).encode()
-    return root, target, body, head, expected_map
+    git(root, 'commit', '-qm', 'unchanged historical verdict')
+    policy = json.loads(saved['model/karta-exceptions.json'])
+    mode = spec.get('config', '')
+    if spec.get('numeric_entry'):
+        entry = policy['exceptions'][0]
+        entry['blob'] = git(root, 'rev-parse', 'HEAD:' + target).decode().strip()
+        entry['map'] = verdict().decode().split('## Карта классов\n')[1].splitlines()
+        entry['map'][4] = 'К-05: чисто — вход: контроль'
+        entry['call'] = '7'
+    if spec.get('new_entry'):
+        entry = policy['exceptions'][0]
+        entry['blob'] = git(root, 'rev-parse', 'HEAD:' + target).decode().strip()
+        if spec.get('new_map'):
+            entry['map'] = verdict(statuses={5: 'чисто — новый вход'}).decode().split('## Карта классов\n')[1].splitlines()
+    entry = policy['exceptions'][0]
+    if mode == 'empty': policy['exceptions'] = []
+    if mode == 'foreign': entry['blob'] = 'f' * 40
+    if mode == 'foreign-prefix': entry['blob'] = entry['blob'][:8] + '1' * 32
+    if mode == 'version': policy['version'] = 2
+    if mode == 'duplicate': policy['exceptions'].append(copy.deepcopy(entry))
+    if mode == 'prefix': entry['blob'] = entry['blob'][:8]
+    if mode == 'uppercase': entry['blob'] = entry['blob'].upper()
+    if mode == 'mask': entry['blob'] = '*'
+    if mode == 'block': entry['map'][1] = entry['map'][1].replace('блок —', 'чисто —')
+    if mode == 'reference': entry['map'][4] = 'К-05: чисто — скрытая перекраска'
+    if mode == 'target': entry['map'][4] = entry['map'][4].replace('вызова 5', 'вызова 4')
+    if mode == 'tail': entry['map'][14] += ' подмена'
+    if mode == 'grammar': entry['map'][14] = 'К-15: чисто'
+    if mode == 'class': entry['map'].pop()
+    if mode == 'schema-missing': (tools / SCHEMA).unlink(missing_ok=True)
+    if mode == 'schema-invalid': put(tools, SCHEMA, 'not JSON')
+    encoded = json.dumps(policy, ensure_ascii=False, indent=2 if mode != 'equivalent' else None)
+    if mode == 'invalid': encoded = '{'
+    if mode == 'duplicate-key': encoded = '{"version": 2, "version": 1, "exceptions": []}'
+    if mode == 'absent':
+        (tools / POLICY).unlink(missing_ok=True)
+    elif mode == 'directory':
+        (tools / POLICY).unlink(missing_ok=True)
+        (tools / POLICY).mkdir(parents=True)
+    elif mode != 'installed':
+        put(tools, POLICY, encoded)
+    if spec.get('bait'):
+        put(root, POLICY, saved['model/karta-exceptions.json'] if mode == 'empty' else '{"version":1,"exceptions":[]}')
+    if spec.get('fake'):
+        put(root, 'scripts/check_verdict_karta.sh', '#!/bin/bash\nexit 0\n')
+    if spec.get('operation') == 'index':
+        target = 'verdicts/critic/contracts-178-v1-krug7.md'
+        body = verdict('7', {k: 'без изменений с вызова 6.' for k in range(1, 18)})
+        put(root, target, body)
+    if spec.get('operation') == 'last':
+        target = 'verdicts/critic/contracts-178-v1-krug7.md'
+        body = verdict('7')
+        put(root, target, body)
+    git(root, 'add', '-A')
+    git(root, 'commit', '--allow-empty', '-qm', 'world ready')
+    expected = ''.join('К-%02d\t%s\n' %
+                      (k, 'блок' if spec.get('live') and k in (2, 3, 7) else 'чисто')
+                      for k in range(1, 18)).encode()
+    return root, target, body, git(root, 'rev-parse', 'HEAD'), expected
 
 
-def suite(candidate, names, tools_repo, label):
+def observe(tools, root, target, spec, expected):
+    rc = spec.get('rc', 0)
+    errors = []
+    if spec.get('pj'):
+        p = run(['bash', tools / 'scripts/pre_judge.sh', 'verdict', '--repo', root,
+                 '--file', target, *spec.get('flags', [])])
+        if rc != 2 and p.returncode not in (0, 1):
+            raise RuntimeError('SUBJECT_ERROR: ' + repr(p.stderr))
+        if p.returncode != rc: errors.append('PJ_RC')
+        if rc == 0:
+            role = spec.get('role', 'reviewer' if spec.get('other_role') else 'critic')
+            if p.stdout != ('VERDICT_BRANCH=wip/178/' + role + '\n').encode() or p.stderr:
+                errors.append('PJ_OUTPUT')
+        elif spec['reason'].encode() not in p.stderr or p.stdout:
+            errors.append('PJ_REASON')
+        if rc == 1 and spec['reason'] == 'KARTA_NE_SHTATNA':
+            if not p.stderr.startswith(b'\xd0\x9e\xd0\xa2\xd0\x9a\xd0\x90\xd0\x97: KARTA_NE_SHTATNA\n') or 'карта не штатная'.encode() not in p.stderr:
+                errors.append('PJ_REFUSAL_FORM')
+        return errors, p
+    operation = 'karta_poslednij_fail "$2" "$3" "$telo"' if spec.get('operation') == 'last' else 'karta_proverit "$telo" "$2" "$3"'
+    q = run(['bash', '-c', 'source "$1"; telo="$(git -C "$2" cat-file -p "HEAD:$3")"; ' + operation,
+             'probe', tools / 'scripts/lib_karta_sdachi.sh', root, target])
+    if q.returncode not in (0, 1):
+        raise RuntimeError('SUBJECT_ERROR: ' + repr(q.stderr))
+    if q.returncode != rc: errors.append('API_RC')
+    if rc == 0:
+        if q.stdout != expected or q.stderr: errors.append('RESOLVED_MAP')
+    elif spec['reason'].encode() not in q.stdout or q.stderr:
+        errors.append('API_REASON')
+    if spec.get('operation') != 'last':
+        p = run(['bash', tools / 'scripts/check_verdict_karta.sh', root, target])
+        if p.returncode not in (0, 1): raise RuntimeError('SUBJECT_ERROR: ' + repr(p.stderr))
+        if p.returncode != rc: errors.append('CLI_RC')
+        if rc == 0:
+            if p.stdout != 'КАРТА: 17/17 зелёный\n'.encode() or p.stderr: errors.append('CLI_OUTPUT')
+        elif spec['reason'].encode() not in p.stderr or p.stdout:
+            errors.append('CLI_REASON')
+    else:
+        p = q
+    return errors, p
+
+
+def suite(overlay, names, tools_repo, saved, label):
     red = 0
-    with tempfile.TemporaryDirectory(prefix='karta232-', dir=REPO / 'tmp') as temp:
-        work = Path(temp)
-        tools = work / 'tools'
-        shutil.copytree(tools_repo / 'scripts', tools / 'scripts')
-        put(tools, LIB, candidate)
-        checked(['bash', '-n', tools / LIB])
-        for name in names:
-            spec = CASES[name]
-            root, target, body, head, expected_map = world(work, name, spec)
-            p = run(['bash', tools / 'scripts/check_verdict_karta.sh', root, target])
-            q = run(['bash', '-c',
-                     'source "$1"; telo="$(git -C "$2" cat-file -p "HEAD:$3")"; '
-                     'karta_proverit "$telo" "$2" "$3"', 'probe', tools / LIB, root, target])
-            errors = []
-            for tag, result in (('CLI', p), ('API', q)):
-                if result.returncode not in (0, 1):
-                    raise RuntimeError('SUBJECT_ERROR ' + name + ' ' + repr(result.stderr))
-                if result.returncode != spec['rc']:
-                    errors.append(tag + '_RC')
-            if spec['rc'] == 0:
-                if p.stdout != 'КАРТА: 17/17 зелёный\n'.encode() or p.stderr:
-                    errors.append('CLI_OUTPUT')
-                if q.stdout != expected_map or q.stderr:
-                    errors.append('RESOLVED_MAP')
+    for name in names:
+        spec = CASES[name]
+        with tempfile.TemporaryDirectory(prefix='karta232-', dir=REPO / 'tmp') as temp:
+            work = Path(temp)
+            tools = installed(work, tools_repo, overlay)
+            root, target, body, head, expected = world(work, spec, tools, saved)
+            before = {p.name: p.read_bytes() for p in (tools / 'scripts').iterdir() if p.is_file()}
+            if spec.get('sequence'):
+                policy = (tools / POLICY).read_bytes()
+                empty = b'{"version":1,"exceptions":[]}'
+                first, last = (empty, policy) if spec['sequence'] == 'add' else (policy, empty)
+                put(tools, POLICY, first)
+                first_spec = dict(spec, rc=1, reason='К-05: ссылка вне грамматики') if spec['sequence'] == 'add' else dict(spec, rc=0)
+                first_errors, _ = observe(tools, root, target, first_spec, expected)
+                put(tools, POLICY, last)
+                last_spec = dict(spec, rc=0) if spec['sequence'] == 'add' else dict(spec, rc=1, reason='К-05: ссылка вне грамматики')
+                errors, p = observe(tools, root, target, last_spec, expected)
+                errors += ['FIRST_' + x for x in first_errors]
             else:
-                reason = spec['reason'].encode()
-                if reason not in p.stderr or p.stdout:
-                    errors.append('CLI_REASON')
-                if reason not in q.stdout or q.stderr:
-                    errors.append('API_REASON')
+                errors, p = observe(tools, root, target, spec, expected)
+            if before != {p.name: p.read_bytes() for p in (tools / 'scripts').iterdir() if p.is_file()}:
+                errors.append('CODE_MUTATED')
             if git(root, 'rev-parse', 'HEAD') != head or git(root, 'show', 'HEAD:' + target) != body:
-                errors.append('MUTATED_INPUT')
+                errors.append('INPUT_MUTATED')
             if errors:
                 red += 1
                 print(label, name, 'RED', ','.join(errors), 'rc=', p.returncode,
-                      'stderr=', repr(p.stderr), flush=True)
+                      'stdout=', repr(p.stdout), 'stderr=', repr(p.stderr), flush=True)
     return red
 
 
@@ -198,48 +296,45 @@ def carriers():
 
 def main():
     parser = argparse.ArgumentParser()
-    group = parser.add_mutually_exclusive_group()
+    group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--repo', type=Path)
-    for mode in ('model', 'stabs', 'sintaksis', 'catalog', 'reachable'):
+    for mode in ('model', 'stabs', 'sintaksis', 'catalog'):
         group.add_argument('--' + mode, action='store_true')
     args = parser.parse_args()
     (REPO / 'tmp').mkdir(exist_ok=True)
     source, saved = carriers()
-    model = saved['model/lib_karta_sdachi.sh']
+    model = {name: saved['model/' + name] for name in FILES}
     names = list(CASES)
+    stabs = sorted({x['stab'] for x in source['stab_vhod']})
     if args.catalog:
-        print('KLETKI', len(names), 'STABY', len({x['stab'] for x in source['stab_vhod']}),
-              'SVJAZI', len(source['stab_vhod']))
+        print('KLETKI', len(names), 'STABY', len(stabs), 'SVJAZI', len(source['stab_vhod']))
         print('\n'.join(names))
         return 0
     if args.sintaksis:
         shell = [HERE / p for p in saved if p.endswith('.sh')]
         shell.append(HERE / 'red_karta_krome_232.sh')
-        for path in shell:
-            checked(['bash', '-n', path])
-        for path in (HERE / 'model/lib_karta_sdachi.sh', HERE / 'red_karta_krome_232.sh'):
+        for path in shell: checked(['bash', '-n', path])
+        for path in [HERE / 'model/lib_karta_sdachi.sh', HERE / 'model/pre_judge.sh', HERE / 'red_karta_krome_232.sh']:
             checked(['bash', REPO / 'scripts/validate_std.sh', 'bash', path])
-        for path in (HERE / 'probe.py', HERE / 'build.py', HERE / 'context.py'):
+        checked(['bash', REPO / 'scripts/validate_std.sh', 'json', HERE / 'model/karta-exceptions.schema.json', HERE / 'model/karta-exceptions.json'])
+        for path in [HERE / 'probe.py', HERE / 'build.py', HERE / 'context.py', HERE / 'verify.py', *[HERE / p for p in saved if p.endswith('.py')]]:
             compile(path.read_bytes(), str(path), 'exec')
-        print('SINTAKSIS', len(shell), 'SHELLCHECK', 2)
+        print('SINTAKSIS', len(shell), 'SHELLCHECK', 3, 'JSON_SCHEMA', 1)
         return 0
     tools_repo = (args.repo or REPO).resolve()
     if args.stabs:
-        # An explicit unresolved input is not silently declared green.
-        reachable = [n for n in names if n != 'live178-as-is']
-        if suite(model, reachable, tools_repo, 'CONTROL'):
-            return 1
+        if suite(model, names, tools_repo, saved, 'CONTROL'): return 1
         alive = 0
         for link in source['stab_vhod']:
-            alive += suite(saved[link['stab']], [link['case']], tools_repo, link['stab']) == 0
-        print('STABY', len({x['stab'] for x in source['stab_vhod']}), 'SVJAZI', len(source['stab_vhod']),
-              'ZHIVYH', alive, 'LIVE178_BLOCKED_BY_FROZEN193')
+            candidate = dict(model)
+            for name in FILES:
+                path = 'stabs/' + link['stab'] + '/' + name
+                if path in saved: candidate[name] = saved[path]
+            alive += suite(candidate, [link['case']], tools_repo, saved, link['stab']) == 0
+        print('STABY', len(stabs), 'SVJAZI', len(source['stab_vhod']), 'ZHIVYH', alive)
         return int(alive != 0)
-    candidate = model if (args.model or args.reachable) else (tools_repo / LIB).read_bytes()
-    if args.reachable:
-        names.remove('live178-as-is')
-        print('SCOPED_CONTROL_ONLY: live178-as-is remains mandatory and blocked')
-    red = suite(candidate, names, tools_repo, 'MODEL' if args.model or args.reachable else 'REPO')
+    overlay = model if args.model else {}
+    red = suite(overlay, names, tools_repo, saved, 'MODEL' if args.model else 'REPO')
     print('KLETKI', len(names), 'KRASNYH', red)
     return int(red != 0)
 
@@ -247,6 +342,6 @@ def main():
 if __name__ == '__main__':
     try:
         sys.exit(main())
-    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
-        print(str(error), file=sys.stderr)
+    except (RuntimeError, OSError, subprocess.TimeoutExpired) as e:
+        print('NOT_IMPLEMENTED:', e, file=sys.stderr)
         sys.exit(2)
