@@ -1,0 +1,1303 @@
+#!/usr/bin/env bash
+# М1 — резолвер профиля два слоя (контракт 054, В2 — слой проекта + слой репо).
+#
+#   bash scripts/profile_resolver.sh --repo <корень>
+#
+# Читает два слоя: <корень>/harness.project.json и
+# ${HARNESS_PROJECT_LAYER_ROOT}/<projectLayer.profilePath> (умолчание
+# registry/harness-project.json). Замкнутые алфавиты перечислены ниже ОДНИМ
+# массивом; ключ вне алфавита любого уровня — НЕ отказ (см. «М-0» ниже).
+# Слияние скалярное: ключ репо перекрывает defaults слоя проекта; вывод —
+# {"<лист>": {"value": ..., "origin": "repo"|"project"}}. `projectId`/`workspaceId`
+# всегда origin `project`, `repoId` — `repo`. Пин версии слоя проекта
+# (`projectLayer.version` репо == `version` слоя) сверяется буквально (И-5).
+#
+# М-0 (контракт 184; ADR владельца 2026-11-21-plan-fable п.3 и
+# 2026-11-21-plan-v9 п.6): обязательства замороженных контрактов, требовавшие
+# ОТКАЗА на неизвестное имя (P4), этим решением ЗАМЕНЕНЫ. Ключ вне алфавита
+# любого уровня — одна строка предупреждения с точным путём ключа
+# («профиль ПРЕДУПРЕЖДЕНИЕ: неизвестный ключ <уровень>: <путь>»), rc 0; в
+# выходной JSON такой ключ не попадает (merged перечисляет только известные
+# листы). ИЗВЕСТНЫЙ ключ с неверным значением и отсутствие обязательных полей —
+# отказ как прежде (P1..P7). Замороженные тексты не правятся.
+#
+# КАНАЛ ПРЕДУПРЕЖДЕНИЯ (Б-1): строка идёт на stderr, когда stderr и stdout —
+# РАЗНЫЕ каналы. При СЛИТЫХ каналах (`$(... 2>&1)` — так читают резолвер
+# gen_ci_workflow.sh, check_merge_gate.sh, check_project_connection.sh и
+# разбирают содержимое как JSON) строка в общий поток НЕ пишется: общий
+# поток несёт JSON, и диагностика в нём ломает разбор. Тогда строка уходит
+# во ВТОРОЙ канал — файл PROFILE_RESOLVER_WARN_FILE (если задан). Подробности
+# и признак «каналы разные» — у warn_unknown ниже.
+#
+# КОНТЕКСТPACK слоя проекта (Б-2): defaults.contextPack переносится в merged
+# ТОЛЬКО известными ключами (rows/adrPath/lessonsPath, порядок ключей
+# сохраняется) — неизвестный ключ в нём (например `rowz`) до stdout не
+# доходит, о нём — предупреждение с точным путём (`defaults.contextPack.rowz`).
+#
+# БИБЛИОТЕЧНЫЙ ШОВ (тот же М-0): `PROFILE_RESOLVER_LIB=1 source
+# scripts/profile_resolver.sh` — определена функция `profile_get`, основной код
+# НЕ исполняется (соглашение `NEXT_ID_LIB=1 source next_id.sh`).
+#   profile_get <корень репо> <jq-путь> <умолчание>
+# Печатает значение ключа из СЫРОГО <корень>/harness.project.json одним
+# jq-вызовом; нет файла / нет ключа / битый JSON → умолчание; слой проекта
+# (HARNESS_PROJECT_LAYER_ROOT) тут не читается. На stdout — значение и перевод
+# строки: строка как есть, прочее — JSON.
+#
+# Коды возврата: 0 — успех (JSON на stdout), 1 — отказ с именованной причиной P1..P7 на stderr.
+# Возвращает:
+#   0 — успех, JSON на stdout (предупреждения об неизвестных ключах — на stderr)
+#   1 — отказ с именованной причиной на stderr (P1..P7, дословно)
+#
+# Сообщения P1..P7 — строки контракта, и фикстуры сверяют их grep -F; любые
+# сокращения/перефразирования ЗДЕСЬ ломают проверку. Байт-в-байт.
+
+# ── ФУНКЦИЯ profile_get (М-0, контракт 184) ─────────────────────────────────
+# profile_get <корень репо> <jq-путь> <умолчание>
+#   Один jq-вызов по СЫРОМУ <корень>/harness.project.json. Нет файла, нет ключа
+#   или битый JSON → печатается умолчание. Слой проекта не читается: значение
+#   берётся из корневого профиля репо, а не из defaults слоя.
+#   На stdout — значение и перевод строки: строка как есть, прочее — JSON.
+#   Префикс S:/J: различает строку и прочее; при отсутствии значения jq не
+#   печатает ничего (rc 4) — тогда умолчание.
+profile_get() {
+  local repo="${1-}" jq_path="${2-}" default="${3-}"
+  local file="$repo/harness.project.json" out rc=0
+  if [ -f "$file" ]; then
+    out="$(jq -er --arg p "$jq_path" '
+          ($p | ltrimstr(".") | split(".") | map(select(length > 0))) as $parts
+          | getpath($parts) as $v
+          | if $v == null then empty
+            elif ($v | type) == "string" then "S:" + $v
+            else "J:" + ($v | tojson)
+            end
+        ' "$file" 2>/dev/null)" || rc=$?
+  else
+    rc=4
+  fi
+  if [ "$rc" -ne 0 ] || [ -z "$out" ]; then
+    printf '%s\n' "$default"
+    return 0
+  fi
+  case "$out" in
+    S:*) printf '%s\n' "${out#S:}" ;;
+    J:*) printf '%s\n' "${out#J:}" ;;
+    *)   printf '%s\n' "$default" ;;
+  esac
+}
+
+# ── ИМПОРТ КАК БИБЛИОТЕКА ────────────────────────────────────────────────────
+# PROFILE_RESOLVER_LIB=1 source scripts/profile_resolver.sh → определена
+# profile_get, основной код НЕ исполняется. Ранний возврат стоит ДО
+# `set -uo pipefail`: иначе импортирующий скрипт унаследовал бы nounset и
+# pipefail от резолвера (прецедент next_id.sh, NEXT_ID_LIB).
+if [ "${PROFILE_RESOLVER_LIB:-}" = "1" ]; then
+  return 0 2>/dev/null || exit 0
+fi
+
+set -uo pipefail
+
+# ── алфавиты И-3 — ОДИН массив (прецедент lib_zones/lib_registry) ────────────
+# Структура: <уровень>:<ключ-верхнего>:<путь-внутри>:<обязательное:да/нет>
+# Уровень «repo» сканирует репо-слой и обязательные поля И-4; уровень «project»
+# сканирует слой проекта; уровень «defaults» сканирует defaults слоя проекта.
+#
+# ПАРСЕР — jq (И-7): разделители представления — синтаксис JSON, байты данных
+# не переиспользуются как разделители. Точечный якорь терминатора — конец JSON
+# (jq сам отказывает на мусоре).
+#
+# ОБЯЗАТЕЛЬНОСТЬ уровня «repo»: schemaVersion, repoId, language, projectLayer
+# (без projectLayer И-5 не судить — репо-слой принимается как минимум по этим).
+# Остальные ветви репо опциональны — умолчание из defaults слоя проекта.
+#
+# ОБЯЗАТЕЛЬНОСТЬ уровня «project»: schemaVersion, version, projectId, workspaceId.
+# defaults — опциональная ветвь.
+#
+# Словарь `barriers.mandatory`/`barriers.optional` сливается как ЕДИНИЦА: ключ
+# репо-слоя замещает массив целиком (поэлементное слияние — вне этапа 1, Граница-6).
+SCHEMA_LEVELS='
+  repo:schemaVersion:required
+  repo:repoId:required
+  repo:language:required
+  repo:projectLayer:required
+  repo:workflowPaths:optional
+  repo:commands:optional
+  repo:git:optional
+  repo:ci:optional
+  repo:barriers:optional
+
+  repo:projectLayer:version:required
+  repo:projectLayer:profilePath:required
+
+  repo:workflowPaths:contracts:required
+  repo:workflowPaths:verdicts:required
+  repo:workflowPaths:registry:required
+  repo:workflowPaths:fixtures:required
+  repo:workflowPaths:state:optional
+
+  # Контракт 996: sourceCanon — опциональный юнит репо-слоя
+  # ({sources, gate}; sources=array of {path, priority}, priority int ≥0;
+  # gate=argv-массив строк без NUL). Слияние — ЮНИТОМ как contextPack (054/095):
+  # репо-объявление замещает defaults ЦЕЛИКОМ. Словарь закрыт: известные ключи
+  # sources, gate; priority ∈ {0|1|…}; путь относительный внутри R, без NUL.
+  repo:sourceCanon:optional
+  repo:sourceCanon:sources:optional
+  repo:sourceCanon:gate:optional
+
+  project:defaults:sourceCanon:optional
+  project:defaults:sourceCanon:sources:optional
+  project:defaults:sourceCanon:gate:optional
+
+  repo:commands:test:required
+  repo:commands:build:required
+  repo:commands:typecheck:required
+  repo:commands:lint:required
+
+  repo:git:canonicalRemote:required
+
+  repo:ci:workflow:required
+
+  repo:barriers:mandatory:required
+  repo:barriers:optional:required
+
+  project:schemaVersion:required
+  project:version:required
+  project:projectId:required
+  project:workspaceId:required
+  project:defaults:optional
+
+  project:defaults:language:required
+  project:defaults:workflowPaths:required
+  project:defaults:commands:required
+  project:defaults:git:required
+  project:defaults:ci:required
+  project:defaults:barriers:required
+
+  project:defaults:workflowPaths:contracts:required
+  project:defaults:workflowPaths:verdicts:required
+  project:defaults:workflowPaths:registry:required
+  project:defaults:workflowPaths:fixtures:required
+  project:defaults:workflowPaths:state:optional
+
+  project:defaults:commands:test:required
+  project:defaults:commands:build:required
+  project:defaults:commands:typecheck:required
+  project:defaults:commands:lint:required
+
+  project:defaults:git:canonicalRemote:required
+
+  project:defaults:ci:workflow:required
+
+  project:defaults:barriers:mandatory:required
+  project:defaults:barriers:optional:required
+
+  repo:packs:optional
+  project:defaults:packs:optional
+
+  # 095-миграция (контракт 095, Решение 3, Frontier п.в): contextPack — носитель
+  # карты/rules/reuse/adrPath/lessonsPath в ДЕЙСТВУЮЩЕЙ схеме (Astra 1.2 — второй
+  # профиль не заводится). Семантика слияния ЮНИТОМ (массив rows замещается
+  # целиком, прецедент barriers.* 054): репо-rows замещают defaults-rows ЦЕЛИКОМ.
+  repo:contextPack:optional
+  repo:contextPack:rows:optional
+  repo:contextPack:adrPath:optional
+  repo:contextPack:lessonsPath:optional
+
+  project:defaults:contextPack:optional
+  project:defaults:contextPack:rows:optional
+  project:defaults:contextPack:adrPath:optional
+  project:defaults:contextPack:lessonsPath:optional
+
+  # Б-4 (контракт 095, Решение 2; основание — ADR
+  # docs/owner/adr/2026-11-21-plan-fable.md): pack — кап пака вклейки, который
+  # проект проекта объявляет профилем. Ключ НЕОБЯЗАТЕЛЕН и живёт ТОЛЬКО в
+  # репо-слое; внутри — единственный необязательный ключ maxBytes (десятичное
+  # целое в [40000,1000000]). Прочие ключи внутри pack — как любой неизвестный
+  # ключ: ПРЕДУПРЕЖДЕНИЕ и rc 0 (М-0), scan_levels ниже.
+  repo:hooks:optional
+  repo:hooks:archBrief:optional
+  repo:pack:optional
+  repo:pack:maxBytes:optional
+'
+
+die_p() { printf 'profile ОТКАЗ: %s\n' "$*" >&2; exit 1; }
+
+# ── М-0: неизвестный ключ — ПРЕДУПРЕЖДЕНИЕ, не отказ ─────────────────────────
+# Контракт 184; ADR владельца 2026-11-21-plan-fable п.3 и 2026-11-21-plan-v9
+# п.6: обязательства замороженных контрактов, требовавшие отказа на
+# неизвестное имя, ЗАМЕНЕНЫ. Одна строка предупреждения с точным путём ключа;
+# rc 0. Известный ключ с неверным значением и отсутствие обязательных полей —
+# отказ как прежде (die_p). Формат строки — дословно:
+#   профиль ПРЕДУПРЕЖДЕНИЕ: неизвестный ключ <репо-слой|слой-проекта>: <путь>
+#
+# КАНАЛ ПРЕДУПРЕЖДЕНИЯ (Б-1, контракт 184): строка идёт на stderr — НО только
+# когда stderr и stdout — РАЗНЫЕ каналы. Потребители резолвера
+# (gen_ci_workflow.sh:44-54, check_merge_gate.sh:46-52,
+# check_project_connection.sh:85-100) читают его как `$(... 2>&1)` и разбирают
+# содержимое как JSON; при СЛИТЫХ каналах (`2>&1` — копия ссылки на тот же
+# поток) предупреждение в общем потоке ломает разбор (`jq: parse error`), и
+# потребитель уходит в ложный отказ («профиль не объявляет ci.workflow» и
+# т.п.). При раздельных каналах (прямой CLI) предупреждение остаётся на
+# stderr, с точным путём ключа, — как прежде. ТЕРМИНАЛ ОПЕРАТОРА — тоже
+# раздельный канал: fd1 и fd2 на одном терминале дают строку в терминале
+# (Б-3(а)), а не молчание.
+#
+# ВТОРОЙ КАНАЛ: когда каналы слиты, строка не пропадает — она пишется в файл
+# PROFILE_RESOLVER_WARN_FILE (если переменная задана): журнал предупреждений,
+# путь ключа в нём остаётся доступен без разбора stdout.
+#
+# Признак «каналы слиты» — ОДИН объект канала (dev:inode дескрипторов 1 и 2)
+# И этот объект НЕ терминал. У `2>&1` оба дескриптора — ОДИН объект (dup),
+# поэтому dev:inode совпадают; у раздельных каналов (труба stderr ≠ труба
+# stdout, файл) — разные. Результат кэшируется: состояние каналов за прогон
+# не меняется.
+#
+# ТЕРМИНАЛЬНОЕ ИСКЛЮЧЕНИЕ (Б-3(а), контракт 184): ОДИН терминал на fd1 и fd2 —
+# это терминал ОПЕРАТОРА, а не канал захвата потребителя: строка
+# предупреждения там обязана быть видна. Общий объект-терминал поэтому
+# считается РАЗДЕЛЬНЫМИ каналами — предупреждение уходит на stderr и
+# печатается в терминале. Каналы захвата (`$(… 2>&1)`, `2>&1 | cat`,
+# `> f 2>&1`) не терминалы: для них различение сохраняется, и Б-1 не
+# возвращается.
+#
+# ЗАМЕР: сначала ДУБЛИРУЮТСЯ исходные каналы (fd 8 ← stdout, fd 7 ← stderr),
+# потом снимается dev:inode этих копий. Прямой замер /proc/self/fd/1 и
+# /proc/self/fd/2 внутри `$(…)` не годится: командная подстановка подменяет
+# fd 1 дочернего процесса (а `2>/dev/null` в самой команде — подменяет fd 2),
+# и измеряется не тот канал.
+_WARN_CHANNELS=""
+_WARN_CHANNELS_SET=0
+channels_merged() {  # 0 — каналы СЛИТЫ (один объект), 1 — каналы разные
+  if [ "$_WARN_CHANNELS_SET" -eq 0 ]; then
+    local a b
+    # Дубли исходных каналов. Перенаправлять stderr здесь НЕЛЬЗЯ: `exec` с
+    # `2>/dev/null` уводит stderr самого резолвера в /dev/null НАВСЕГДА.
+    exec 8<&1 7<&2
+    a="$(stat -L -c '%d:%i' /proc/self/fd/8 2>/dev/null)" || a=""
+    b="$(stat -L -c '%d:%i' /proc/self/fd/7 2>/dev/null)" || b=""
+    # Неразличимый случай (stat недоступен) — каналы считаются РАЗДЕЛЬНЫМИ:
+    # строка уходит на stderr, как прежде (диагностика не теряется).
+    # fd 8 — дубликат ИСХОДНОГО stdout. Терминал оператора на fd1 и fd2 —
+    # один объект канала, но это НЕ захват потребителя: строка предупреждения
+    # в нём обязана быть видна (Б-3(а)). Терминал — единственный общий объект,
+    # который не считается слитыми каналами.
+    if [ -n "$a" ] && [ -n "$b" ] && [ "$a" = "$b" ] && ! [ -t 8 ]; then
+      _WARN_CHANNELS=0
+    else
+      _WARN_CHANNELS=1
+    fi
+    _WARN_CHANNELS_SET=1
+  fi
+  return "$_WARN_CHANNELS"
+}
+
+warn_unknown() {  # <уровень> <путь ключа>
+  local line
+  line="$(printf 'профиль ПРЕДУПРЕЖДЕНИЕ: неизвестный ключ %s: %s' "$1" "$2")"
+  # Второй канал — журнал предупреждений (PROFILE_RESOLVER_WARN_FILE). Запись
+  # идёт при ЛЮБЫХ каналах: это полный журнал, а не замена stderr.
+  if [ -n "${PROFILE_RESOLVER_WARN_FILE:-}" ]; then
+    printf '%s\n' "$line" 2>/dev/null >> "$PROFILE_RESOLVER_WARN_FILE" || true
+  fi
+  # stderr — только при РАЗДЕЛЬНЫХ каналах: в слитом канале общий поток несёт
+  # JSON, и строка диагностики в нём ломает разбор потребителя. Терминал
+  # оператора — раздельный канал (Б-3(а)): строка печатается в терминале.
+  if ! channels_merged; then
+    printf '%s\n' "$line" >&2
+  fi
+}
+
+# ── разбор argv ──────────────────────────────────────────────────────────────
+REPO=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --repo) REPO="${2:-}"; [ $# -ge 2 ] && shift ;;
+    --) shift; break ;;
+    *) REPO="$1" ;;
+  esac
+  shift
+done
+[ -n "$REPO" ] || die_p "usage: bash scripts/profile_resolver.sh --repo <корень>"
+[ -d "$REPO" ] || die_p "каталог репо не существует: $REPO"
+
+# ── И-1: репо-слой ──────────────────────────────────────────────────────────
+REPO_JSON="$REPO/harness.project.json"
+[ -f "$REPO_JSON" ] || die_p "нет harness.project.json: $REPO_JSON. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh"
+
+# КАНОНИЗАЦИЯ репо-слоя: harness.project.json обязан физически лежать ВНУТРИ
+# корня --repo. Адверсарий 054 круг 3: симлинк `<repo>/harness.project.json →
+# <внешний-валидный-файл>` принимался rc=0, и merged-профиль нёс repoId/
+# commands/CI/canonicalRemote/barriers/pin из внешнего владельца. `[ -f ]`
+# следует по симлинке, и `jq` читает цель; нужна явная проверка resolved-пути.
+# Прецедент — канонизация project-layer ниже (LAYER_ROOT_ABS / TARGET_ABS);
+# зеркальная семантика: «корень слоя недоступен для этого пути». P-фраза по
+# контракту 054 в стиле P3 «нет файла слоя»: симлинк за пределами репо —
+# «нет файла репо-слоя в этом корне», с точной инструкцией.
+#
+# 054-ФИКС-РАУНД 7 (закрытие TOCTOU к5, ИНВЕРСИЯ ПОРЯДКА). Прежний порядок
+# (readlink -f -- "$REPO_JSON" → exec {fd}<"$REPO_JSON") оставлял окно для
+# подмены: между readlink (проверка границы по pathname) и exec (открытие
+# fd) атакующий мог подменить имя `harness.project.json` на симлинк
+# внешнего JSON-файла — exec следовал УЖЕ ВНЕШНЕМУ inode, и merged-профиль
+# нёс внешний repoId/commands/CI/canonicalRemote/barriers/pin (доказано
+# адверсарием 054-v1, круг 5, через PATH-шим readlink + атомарную подмену
+# симлинка сразу после возврата readlink). КОРНЕВОЙ ФИКС — ИНВЕРТИРОВАТЬ
+# порядок: (1) `exec {fd}<"$REPO_JSON"` — fd биндится к inode ОТКРЫВАЕМОГО
+# файла на уровне ядра; (2) `readlink -f -- "/proc/self/fd/$fd"` — фактическая
+# цель УЖЕ ОТКРЫТОГО inode (НЕ pathname; подмена симлинка `harness.project.json`
+# ПОСЛЕ exec не меняет inode, к которому привязан fd, и `/proc/self/fd/$fd`
+# остаётся симлинком на исходный файл); (3) если цель вне REPO_ABS →
+# именованный отказ «нет файла репо-слоя в корне репо» + инструкция
+# «не symlink на внешний файл» (фраза контракта 054 В2); (4) читать
+# `$REPO_JSON` через `/proc/self/fd/$REPO_FD`, как в раунде 6. Прецедент
+# семантически эквивалентен `openat(2)` + `fstatat(fd, "", AT_EMPTY_PATH)`
+# на C: граница проверяется по РЕАЛЬНО ОТКРЫТОМУ объекту, не по имени.
+REPO_ABS="$(cd "$REPO" && pwd -P)"
+exec {REPO_FD}<"$REPO_JSON" || die_p "не удалось открыть репо-слой: $REPO_JSON"
+[ -f "/proc/self/fd/$REPO_FD" ] || {
+  exec {REPO_FD}<&- || true
+  die_p "не удалось открыть репо-слой: $REPO_JSON"
+}
+REPO_JSON_ABS="$(readlink -f -- "/proc/self/fd/$REPO_FD" 2>/dev/null || true)"
+case "$REPO_JSON_ABS" in
+  "$REPO_ABS"/*) ;;
+  *) exec {REPO_FD}<&- || true
+     die_p "нет файла репо-слоя в корне репо: $REPO_JSON. Инструкция: harness.project.json должен лежать в корне репо — не symlink на внешний файл" ;;
+esac
+# АТОМАРНЫЙ FD-OPEN репо-слоя (054-фикс-раунд 6, закрытие TOCTOU к4; в раунде 7
+# инвертирован порядок — fd открывается ПЕРЕД канонизацией, чтобы readlink
+# работал на УЖЕ ОТКРЫТЫЙ inode). Все jq-чтения репо-слоя ниже идут через
+# `$REPO_JSON_FD` (= `/proc/self/fd/$REPO_FD`), а не через повторное
+# открытие по имени `$REPO_JSON`. Один объект ФС для проверки границы
+# и чтения = окно readlink→open закрыто (адверсарий к5). Прецедент
+# scripts/check_provodka.sh круг 6 Б1 (тот же класс обхода).
+REPO_JSON_FD="/proc/self/fd/$REPO_FD"
+
+# ── И-2: слой проекта и его корень ─────────────────────────────────────────
+LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-}"
+[ -n "$LAYER_ROOT" ] && [ -d "$LAYER_ROOT" ] \
+  || die_p "корень слоя проекта не задан/недоступен. Инструкция: export HARNESS_PROJECT_LAYER_ROOT=<корень клона слоя проекта (odelix-stack)>"
+
+# Байтовая валидация JSON обоих слоёв ДО прочих чтений (И-7). jq сам отказывает
+# на мусоре; отказ проксирован фразой P7 с именем файла.
+jq -e . "$REPO_JSON_FD" >/dev/null 2>&1 || die_p "файл не JSON: $REPO_JSON"
+PROFILE_PATH_REL="$(jq -r '.projectLayer.profilePath // "registry/harness-project.json"' "$REPO_JSON_FD")"
+# Только относительный путь (граница-2: абсолютный путь в версионируемом файле
+# запрещён). Здесь — отбрасываем ведущий слэш и принимаем как относительный
+# от HARNESS_PROJECT_LAYER_ROOT.
+case "$PROFILE_PATH_REL" in
+  /*) die_p "profilePath обязан быть относительным, не абсолютным: $PROFILE_PATH_REL" ;;
+esac
+PROJECT_JSON="$LAYER_ROOT/${PROFILE_PATH_REL#./}"
+[ -f "$PROJECT_JSON" ] || die_p "нет файла слоя проекта: $PROJECT_JSON"
+
+# КАНОНИЗАЦИЯ profilePath: разрешённый путь обязан лежать ВНУТРИ корня слоя.
+# До этого правки отбрасывался только ведущий `/`, а `../escaped.json`
+# уходил в sibling-каталог и принимался (обход №3: P-фраза нужна по смыслу —
+# выбран P2 «корень слоя проекта не задан/недоступен», поскольку
+# канонизированный путь лежит ВНЕ того корня, к которому обязано быть
+# привязано; читай `недоступен для этого profilePath`).
+#
+# 054-ФИКС-РАУНД 7 — ТЕМ ЖЕ ПАТТЕРНОМ, что и репо-слой выше. Прежний
+# порядок (readlink -f pathname → exec {fd}<) имел окно для подмены;
+# новая последовательность: (1) exec {fd}<"$PROJECT_JSON" — fd биндится
+# к inode; (2) readlink -f /proc/self/fd/$fd → фактическая цель ОТКРЫТОГО
+# inode (подмена пути после exec не меняет inode fd); (3) если цель вне
+# LAYER_ROOT_ABS → именованный отказ с P-фразой «корень слоя проекта
+# не задан/недоступен» (тот же класс, что b3 — путь разрешён ВНУТРИ
+# слоя; P-фраза 054 не меняется для проекта, потому что b3 уже
+# зафиксирована на ней, и отказ симметричен семантике слоя).
+LAYER_ROOT_ABS="$(cd "$LAYER_ROOT" && pwd -P)"
+exec {PROJECT_FD}<"$PROJECT_JSON" || die_p "не удалось открыть слой проекта: $PROJECT_JSON"
+[ -f "/proc/self/fd/$PROJECT_FD" ] || {
+  exec {PROJECT_FD}<&- || true
+  die_p "не удалось открыть слой проекта: $PROJECT_JSON"
+}
+TARGET_ABS="$(readlink -f -- "/proc/self/fd/$PROJECT_FD" 2>/dev/null || true)"
+case "$TARGET_ABS" in
+  "$LAYER_ROOT_ABS"/*) ;;
+  *) exec {PROJECT_FD}<&- || true
+     die_p "корень слоя проекта не задан/недоступен. Инструкция: export HARNESS_PROJECT_LAYER_ROOT=<корень клона слоя проекта (odelix-stack)>" ;;
+esac
+# АТОМАРНЫЙ FD-OPEN слоя проекта (054-фикс-раунд 6; в раунде 7 инвертирован
+# порядок — fd открывается ПЕРЕД канонизацией, чтобы readlink работал на
+# УЖЕ ОТКРЫТЫЙ inode). Все jq-чтения слоя проекта ниже идут через
+# `$PROJECT_JSON_FD` (= `/proc/self/fd/$PROJECT_FD`), не через повторное
+# открытие по имени `$PROJECT_JSON`. Байтовая валидация JSON перенесена
+# СЮДА (после канонизации И открытия дескриптора), чтобы jq гарантированно
+# читал тот же объект, что прошёл readlink-проверку.
+PROJECT_JSON_FD="/proc/self/fd/$PROJECT_FD"
+jq -e . "$PROJECT_JSON_FD" >/dev/null 2>&1 || die_p "файл не JSON: $PROJECT_JSON"
+
+# ── И-7: проверка замкнутых алфавитов ДО прочих правил ──────────────────────
+# Здесь же, рядом, ради структурного фикса класса «cap ниже длины поля»:
+# цикл идёт по всему SCHEMA_LEVELS, а не по хардкоду ключей.
+#
+# Уровень «repo» — в $REPO_JSON; уровень «project» — в $PROJECT_JSON.
+# Проверяет, что в $level:$parent_path:$key есть в SCHEMA_LEVELS. Если нет —
+# die_p с ключом-точками. Сканирует ВСЕ вложенные объектные ключи по каждому
+# известному пути верхнего уровня (корневой, projectLayer, defaults, плюс
+# дочерние объектные ветви defaults).
+# Тест наличия ключа в SCHEMA_LEVELS. Использовать только ВНУТРИ основного
+# процесса (не через pipeline): subshell `(...| grep ...)` ловил бы exit 1
+# внутри себя — die_p внутри под-шелла НЕ убивал бы родителя, и проверка
+# молча проваливалась. Поэтому поиск — функцией с here-string.
+_key_in_schema() {  # <искомая-строка>
+  local needle="$1"
+  # here-string `<<<"$SCHEMA_LEVELS"` (НЕ `printf '%s' "$SCHEMA_LEVELS" | grep -q`):
+  # при set -o pipefail форма `printf | grep -q` гонкой рвёт пайп на первом
+  # совпадении (grep -q выходит, printf получает SIGPIPE/EPIPE → rc 141 →
+  # pipefail поднимает rc пайпа до 141), и `_key_in_schema "…"` ложно
+  # возвращает «ключ вне алфавита» при ранней остановке grep. Здесь-stdin
+  # создаётся без живого пайпа, поэтому SIGPIPE производителю невозможен;
+  # поведение поиска по байтам байт-в-байт прежнее (here-string без
+  # завершающего \n, как и printf '%s').
+  grep -qF -- "$needle" <<<"$SCHEMA_LEVELS"
+}
+
+scan_levels() {
+  local level="$1" file="$2"
+  # Контракт 057 (Ч-3, Б5): P4 дословно по frozen-блобу 054 — литерал
+  # `<репо-слой|слой-проекта>`, не `repo`/`project`. Здесь отображаем имя
+  # уровня в каноническую форму ДЛЯ ПЕЧАТИ; внутренний ключ `repo`/`project`
+  # для $SCHEMA_LEVELS сохраняем (нужен для поиска в схеме).
+  local level_label="репо-слой"
+  [ "$level" = "project" ] && level_label="слой-проекта"
+  # Корневые ключи
+  local roots
+  roots="$(jq -r 'keys_unsorted[]' "$file" 2>/dev/null)" || die_p "файл не JSON: $file"
+  while IFS= read -r k; do
+    [ -z "$k" ] && continue
+    # М-0: ключ вне алфавита — предупреждение, не отказ (см. warn_unknown).
+    _key_in_schema "  ${level}:${k}:" || warn_unknown "${level_label}" "${k}"
+  done <<<"$roots"
+
+  # Дочерние ветви корня. Здесь НЕЛЬЗЯ использовать `piped-while`: каждый
+  # сегмент pipeline — subshell, и die_p внутри while-read выходил бы
+  # ТОЛЬКО из него (родитель — scan_levels — продолжал бы работу молча; см.
+  # отладочную историю). Поэтому обход — здесь же, через одну переменную-список.
+  # Каждая ветвь — если она задана как объект, проверяются её ключи.
+local known_branches="projectLayer workflowPaths commands git ci barriers contextPack sourceCanon pack hooks"
+  if [ "$level" = "project" ]; then
+    known_branches="$known_branches defaults.workflowPaths defaults.commands defaults.git defaults.ci defaults.barriers defaults.contextPack defaults.sourceCanon"
+    if jq -e 'has("defaults") and (.defaults|type)=="object"' "$file" >/dev/null 2>&1; then
+      local dk dk_rc
+      dk_rc=0
+      # Авария jq (rc>1) — отказ, не пустая ветвь (992); rc1 сюда не доходит:
+      # вызов без -e, осознанного false не бывает.
+      dk="$(jq -r '.defaults | keys_unsorted[]' "$file" 2>/dev/null)" || dk_rc=$?
+      [ "$dk_rc" -le 1 ] || die_p "defaults: перечисление ключей ветви не выполнилось (jq rc=$dk_rc) — авария jq не равна пустой ветви"
+      while IFS= read -r k; do
+        [ -z "$k" ] && continue
+        # М-0: ключ вне алфавита — предупреждение, не отказ.
+        _key_in_schema "  project:defaults:${k}:" || warn_unknown "${level_label}" "defaults.${k}"
+      done <<<"$dk"
+    fi
+  fi
+  local branch branch_path bk bk_rc k2 ob_rc
+  for branch in $known_branches; do
+    if [ "$branch" = "projectLayer" ] && [ "$level" = "project" ]; then
+      continue  # projectLayer только в repo
+    fi
+    # 996: sourceCanon — ЗАКРЫТЫЙ алфавит внутри (sources, gate); дополнительные
+    # ключи отвергаются check_project_sources.sh, а не profile_resolver.
+    # Причина — перенос строгой валидации к единственной детали (источники
+    # и gate — закрыто-новое), чтобы профиль проходил резолвер даже при
+    # невалидном canon (иначе gate_test К5 превращается в «неизвестный ключ
+    # в репо-слой» — что препятствует проверке шва).
+    if [ "$branch" = "sourceCanon" ] || [ "$branch" = "defaults.sourceCanon" ]; then
+      continue
+    fi
+    # Путь к ветви для jq. Гейт `has($branch)` НЕКОРРЕКТЕН для ветвей-путей
+    # вроде `defaults.workflowPaths`: `has(...)` ищет литеральный ключ с
+    # ТОЧКОЙ в имени, а не путь. Заменено на проверку типа по пути: если
+    # объект — спускаемся и валидируем его ключи. На отсутствующей ветви
+    # `.path` даёт null и type не равен «object» — обход пропускается.
+    # Это закрывает обход №1 (вложенные defaults-ключи вне алфавита).
+    branch_path="$branch"
+    [ "$level" = "project" ] && [[ "$branch" == defaults.* ]] && branch_path="$branch" || :
+    # Авария jq (rc>1) — отказ (992), а rc1 от `jq -e` — осознанный false:
+    # «ветвь не объект» → законный пропуск ветви. Прежде rc>1 молча
+    # прочитывался как false, и ветвь (с её ключами) выпадала из проверки.
+    ob_rc=0
+    jq -e "(.${branch}|type)==\"object\"" "$file" >/dev/null 2>&1 || ob_rc=$?
+    [ "$ob_rc" -le 1 ] || die_p "${branch}: проверка типа ветви не выполнилась (jq rc=$ob_rc) — авария jq не равна отсутствию ветви"
+    [ "$ob_rc" -eq 0 ] || continue
+    bk_rc=0
+    bk="$(jq -r ".${branch} | keys_unsorted[]" "$file" 2>/dev/null)" || bk_rc=$?
+    [ "$bk_rc" -le 1 ] || die_p "${branch}: перечисление ключей ветви не выполнилось (jq rc=$bk_rc) — авария jq не равна пустой ветви"
+    # Схема хранит пути через «:» (как разделитель полей строки SCHEMA_LEVELS);
+    # `${branch}` же — это jq-путь с «.» (например `defaults.workflowPaths`).
+    # Подставляем в иголку колоночную форму, иначе для defaults.* ветвей
+    # совпадения со схемой не находятся (закрывает обход №1).
+    local branch_colon="${branch//./:}"
+    while IFS= read -r k2; do
+      [ -z "$k2" ] && continue
+      # М-0: ключ вне алфавита — предупреждение, не отказ.
+      _key_in_schema "  ${level}:${branch_colon}:${k2}:" || warn_unknown "${level_label}" "${branch}.${k2}"
+    done <<<"$bk"
+  done
+}
+# ── 996: ВАЛИДАЦИЯ ЗАКРЫТОГО АЛФАВИТА sourceCanon (Б-2) ─────────────────────
+# Контракт 996 §Lifecycle L41: «Неизвестный ключ/неверный тип — отказ resolver»
+# и L55 «Единственный источник грамматики — расширение SCHEMA_LEVELS/проверок
+# действующего resolver». Грамматика sourceCanon — закрытое множество
+# {sources, gate}: sources — массив {path, priority}; priority — целое ≥0
+# (bool НЕ целое, дробное НЕ целое); path — непустая строка, относительная,
+# без «..», без NUL, уникальные; gate — массив непустых argv-строк без NUL.
+# ВТОРОЙ валидатор в check_project_sources.sh теперь лишний (закрывает Б-2
+# adversarial): здесь же, рядом с scan_levels, общий шаблон audit 996 §К6.
+#
+# ОТДЕЛЬНАЯ функция для обеих точек объявления (репо и project defaults):
+# `repo:sourceCanon` и `project:defaults:sourceCanon`. Репо-объявление
+# замещает defaults целиком (ЮНИТОМ, прецедент contextPack 095, barriers 054);
+# валидация каждого слоя — одинаковой формы.
+#
+# Путь в JSON для репо — `.sourceCanon`; для defaults — `.defaults.sourceCanon`.
+# jq-выражения различаются симметрично через $path.
+scan_canon() {  # $1=level_label, $2=file, $3=json-path ("sourceCanon" | "defaults.sourceCanon")
+  local label="$1" file="$2" path="$3"
+  # Поле отсутствует — законный пропуск (опционально). Поле ПРИСУТСТВУЕТ, но
+  # null — НЕ отсутствие (контракт 996 §Lifecycle L53); отказ SOURCE_CANON_INVALID.
+  # Различаем has() и null: getpath() на отсутствующем пути даёт null, на
+  # явном null — тоже null. Приём — отдельные ветви через .has(...)
+  if jq -e --arg p "$path" 'has($p | split(".")[0]) | not' "$file" >/dev/null 2>&1; then
+    return 0
+  fi
+  # Точнее: проверим, ЕСТЬ ЛИ путь как ключ верхнего уровня. Для сложных
+  # путей ("defaults.sourceCanon") — двухуровневый has-цикл.
+  if [ "$path" = "defaults.sourceCanon" ]; then
+    if ! jq -e '.defaults | type == "object" and (has("sourceCanon") | not)' "$file" >/dev/null 2>&1; then
+      :  # defaults есть; идём ниже
+    else
+      return 0  # defaults.sourceCanon не задан
+    fi
+  elif [ "$path" = "sourceCanon" ]; then
+    if jq -e 'has("sourceCanon") | not' "$file" >/dev/null 2>&1; then
+      return 0  # не задан
+    fi
+  fi
+  # Теперь поле ПРИСУТСТВУЕТ — даже если null.
+  local ft
+  ft="$(jq -r --arg p "$path" 'getpath($p | split(".")) | type' "$file" 2>/dev/null)" || die_p "SOURCE_CANON_INVALID: чтение типа ${label} не выполнено (jq rc=$?)"
+  [ "$ft" = "object" ] || die_p "SOURCE_CANON_INVALID: ${label}: <$ft>"
+  # Алфавит ключей sourceCanon: ровно {sources, gate}. Лишний ключ → отказ.
+  local extra
+  extra="$(jq -r --arg p "$path" '
+    [getpath($p | split(".")) | keys_unsorted[]
+     | select(. != "sources" and . != "gate")] | join(",")
+  ' "$file" 2>/dev/null)"
+  if [ -n "$extra" ]; then
+    die_p "SOURCE_CANON_INVALID: ${label}: неизвестный ключ: $extra"
+  fi
+  # sources — массив, непустой.
+  local sources_type
+  sources_type="$(jq -r --arg p "$path" 'getpath($p | split(".")) | .sources | type' "$file" 2>/dev/null)"
+  [ "$sources_type" = "array" ] || die_p "SOURCE_CANON_INVALID: ${label}.sources: <$sources_type>"
+  local sources_len
+  sources_len="$(jq -r --arg p "$path" 'getpath($p | split(".")) | .sources | length' "$file" 2>/dev/null)"
+  [ "$sources_len" -gt 0 ] 2>/dev/null || die_p "SOURCE_CANON_INVALID: ${label}.sources: пустой массив"
+  # Элементы sources — объекты {path, priority}; известные ключи ровно эти два.
+  # priority — JSON-число, INTEGER (не bool, не дробь), ≥0. path — непустая строка,
+  # без NUL, без ведущего /. Авто-индексация делает позицию видимой в отказе.
+  local bad_row
+  bad_row="$(jq -r --arg p "$path" '
+    (getpath($p | split(".")) | .sources) as $arr |
+    ($arr | to_entries[]) as $e |
+    (if ($e.value | type) != "object"
+       then {idx: $e.key, why: ("<не объект>")}
+     else
+       (($e.value | keys_unsorted | sort) | tostring) as $ks |
+       (if ($e.value | has("path")) and ($e.value | has("priority"))
+        then
+          ((($e.value.priority | type) == "number"
+            and ($e.value.priority | (floor == .))
+            and ($e.value.priority >= 0)) as $pri |
+          (($e.value.path | type) == "string"
+            and (($e.value.path | length) > 0)
+            and (($e.value.path | contains("\u0000")) | not)
+            and (($e.value.path | contains("..") | not))
+            and (($e.value.path | startswith("/") | not))) as $pth |
+          if ($pri and $pth) then empty
+          elif (($e.value.priority | type) != "number") then
+            {idx: $e.key, why: ("priority <" + (($e.value.priority | type) // "<null>") + ">")}
+          elif (($e.value.priority | (floor != .)) or ($e.value.priority < 0)) then
+            {idx: $e.key, why: ("priority " + ($e.value.priority | tostring))}
+          elif (($e.value.path | type) != "string") then
+            {idx: $e.key, why: "path <не строка>"}
+          elif ($e.value.path | length) == 0 then
+            {idx: $e.key, why: "path пусто"}
+          elif ($e.value.path | startswith("/")) then
+            {idx: $e.key, why: "path абсолютный"}
+          elif ($e.value.path | contains("..")) then
+            {idx: $e.key, why: "path .."}
+          else {idx: $e.key, why: "path NUL"}
+          end)
+        else {idx: $e.key, why: "отсутствует обязательное поле"}
+       end)
+     end)
+    | "\(.idx)\t\(.why)"
+  ' "$file" 2>/dev/null)"
+  if [ -n "$bad_row" ]; then
+    local idx="${bad_row%%	*}" why="${bad_row#*	}"
+    die_p "SOURCE_CANON_INVALID: ${label}.sources[${idx}]: ${why}"
+  fi
+  # Лишние ключи внутри source-items — отказ. Аналогично keys_unsorted-{sources,gate}.
+  local extra_item
+  extra_item="$(jq -r --arg p "$path" '
+    [getpath($p | split(".")) | .sources[]
+     | keys_unsorted[]
+     | select(. != "path" and . != "priority")] | join(",")
+  ' "$file" 2>/dev/null)"
+  if [ -n "$extra_item" ]; then
+    die_p "SOURCE_CANON_INVALID: ${label}.sources[?]: неизвестный ключ: $extra_item"
+  fi
+  # Уникальность path (контракт L53 «уникальные относительные пути»).
+  local dup
+  dup="$(jq -r --arg p "$path" '
+    [getpath($p | split(".")) | .sources[].path]
+    | group_by(.) | map(select(length>1))[0] // empty
+  ' "$file" 2>/dev/null)"
+  if [ -n "$dup" ]; then
+    die_p "SOURCE_CANON_INVALID: ${label}.sources: повтор пути: $dup"
+  fi
+  # gate — массив непустых argv-строк без NUL.
+  local gate_type gate_len
+  gate_type="$(jq -r --arg p "$path" 'getpath($p | split(".")) | .gate | type' "$file" 2>/dev/null)"
+  [ "$gate_type" = "array" ] || die_p "SOURCE_CANON_INVALID: ${label}.gate: <$gate_type>"
+  gate_len="$(jq -r --arg p "$path" 'getpath($p | split(".")) | .gate | length' "$file" 2>/dev/null)"
+  [ "$gate_len" -gt 0 ] 2>/dev/null || die_p "SOURCE_CANON_INVALID: ${label}.gate: пустой массив"
+  local bad_gate
+  bad_gate="$(jq -r --arg p "$path" '
+    (getpath($p | split(".")) | .gate) as $g |
+    ($g | to_entries[]) as $e |
+    select(($e.value | type) != "string"
+           or ($e.value | length) == 0
+           or ($e.value | contains("\u0000")))
+    | "\(.key)\t\(
+        if (($e.value | type) != "string") then "не строка"
+        elif ($e.value | length) == 0 then "пусто"
+        else "NUL" end)"
+  ' "$file" 2>/dev/null)"
+  if [ -n "$bad_gate" ]; then
+    local gidx="${bad_gate%%	*}" gwhy="${bad_gate#*	}"
+    die_p "SOURCE_CANON_INVALID: ${label}.gate[${gidx}]: ${gwhy}"
+  fi
+  # Лишний ключ верхнего уровня в sourceCanon — тот же SOURCE_CANON_INVALID.
+  # (покрыт выше единым extra-фильтром keys_unsorted)
+}
+scan_levels repo   "$REPO_JSON_FD"
+scan_levels project "$PROJECT_JSON_FD"
+
+scan_canon "репо-слой.sourceCanon"          "$REPO_JSON_FD"     "sourceCanon"
+scan_canon "слой-проекта.defaults.sourceCanon" "$PROJECT_JSON_FD" "defaults.sourceCanon"
+
+
+# ── И-4: значения и обязательные поля ───────────────────────────────────────
+# schemaVersion = 1 литерально в обоих слоях. language ∈ {rust, typescript, bash}
+# (bash — язык харнеса-как-проекта, 095 А8 «реальный харнес — первый пользователь»;
+# расширение алфавита 054 объявлено записью А-388 NABLIUDENIA_ARCHITECT.md;
+# полярность клеток 054-семьи сохранена: python → P6, _krasnye_054 зелёная).
+# repoId, projectId, workspaceId, canonicalRemote, version, profilePath,
+# ci.workflow — непустые строки.
+declare -A A
+# `schemaVersion` — JSON-литерал 1 (число), не строка «1». Контракт И-4 говорит
+# «`schemaVersion` = 1 (литерально)»; в JSON это число, не строка. Адверсарий
+# 054 круг 2 (наблюдение 6) принял `schemaVersion: "1"` — строковое значение
+# прошло как валидное, и merged-профиль нес `schemaVersion.value: "1"`.
+# Фикс: требовать type == number И значение == 1.
+A[repo_schemaVersion_type]="$(jq -r '.schemaVersion | type' "$REPO_JSON_FD")"
+A[repo_schemaVersion]="$(jq -r '.schemaVersion' "$REPO_JSON_FD")"
+A[project_schemaVersion_type]="$(jq -r '.schemaVersion | type' "$PROJECT_JSON_FD")"
+A[project_schemaVersion]="$(jq -r '.schemaVersion' "$PROJECT_JSON_FD")"
+[ "${A[repo_schemaVersion_type]}" = "number" ] \
+  || die_p "значение вне алфавита: schemaVersion: <${A[repo_schemaVersion_type]}>"
+[ "${A[repo_schemaVersion]}" = "1" ] || die_p "значение вне алфавита: schemaVersion: ${A[repo_schemaVersion]}"
+[ "${A[project_schemaVersion_type]}" = "number" ] \
+  || die_p "значение вне алфавита: schemaVersion: <${A[project_schemaVersion_type]}>"
+[ "${A[project_schemaVersion]}" = "1" ] || die_p "значение вне алфавита: schemaVersion: ${A[project_schemaVersion]}"
+
+A[repo_language]="$(jq -r '.language' "$REPO_JSON_FD")"
+case "${A[repo_language]}" in
+  rust|typescript|bash|javascript) ;;
+  *) die_p "значение вне алфавита: language: ${A[repo_language]}" ;;
+esac
+
+# Обязательные строки репо-слоя
+for fld in repoId; do
+  v="$(jq -r --arg f "$fld" 'if has($f) and (.[$f] | type) == "string" and (.[$f] | length) > 0 then .[$f] else empty end' "$REPO_JSON_FD")"
+  ft="$(jq -r --arg f "$fld" 'if has($f) then (.[$f] | type) else "missing" end' "$REPO_JSON_FD")"
+  [ "$ft" = "string" ] || die_p "значение вне алфавита: $fld: <$ft>"
+  [ -n "$v" ] || die_p "значение вне алфавита: $fld: пусто"
+done
+
+# Обязательные строки слоя проекта
+for fld in version projectId workspaceId; do
+  ft="$(jq -r --arg f "$fld" 'if has($f) then (.[$f] | type) else "missing" end' "$PROJECT_JSON_FD")"
+  [ "$ft" = "string" ] || die_p "значение вне алфавита: $fld: <$ft>"
+  v="$(jq -r --arg f "$fld" '.[$f] // empty' "$PROJECT_JSON_FD")"
+  [ -n "$v" ] || die_p "значение вне алфавита: $fld: пусто"
+done
+
+# ci.workflow репо и canonicalRemote репо — непустые строки (если ветвь объявлена).
+# 059-додел (арбитраж 420753f п.3): непустота — через `jq -e … | length > 0` БЕЗ
+# подстановки байтов значения в переменную; иначе bash при значении с NUL печатает
+# на stderr «warning: command substitution: ignored null byte in input» (З-Б) и
+# замусоривает вторую строку stderr без префикса `profile ОТКАЗ: ` (`one_p_line`
+# NUL-клетки не пройдёт). Семантика 054 не меняется: фраза P6 байт-в-байт.
+if jq -e '.ci | type == "object"' "$REPO_JSON_FD" >/dev/null 2>&1; then
+  cw_type="$(jq -r '.ci.workflow | type' "$REPO_JSON_FD")"
+  [ "$cw_type" = "string" ] || die_p "значение вне алфавита: ci.workflow: <$cw_type>"
+  jq -e '.ci.workflow | type == "string" and length > 0' "$REPO_JSON_FD" >/dev/null 2>&1 \
+    || die_p "значение вне алфавита: ci.workflow: пусто"
+fi
+if jq -e '.git | type == "object"' "$REPO_JSON_FD" >/dev/null 2>&1; then
+  cr_type="$(jq -r '.git.canonicalRemote | type' "$REPO_JSON_FD")"
+  [ "$cr_type" = "string" ] || die_p "значение вне алфавита: canonicalRemote: <$cr_type>"
+  jq -e '.git.canonicalRemote | type == "string" and length > 0' "$REPO_JSON_FD" >/dev/null 2>&1 \
+    || die_p "значение вне алфавита: canonicalRemote: пусто"
+fi
+
+# commands.* репо и workflowPaths.* репо — непустые строки ЕСЛИ объявлены
+# (И-4: «значения workflowPaths/commands — непустые строки»; обход №2 —
+# `commands.test: ""` принимался, потому что ветвь валидировалась только на
+# тип/наличие, не на непустоту значения). Здесь и в defaults проекта.
+#
+# ДОПОЛНЕНИЕ 054-фикс-раунд 4 (адверсарий круг 2, класс P6): если поле
+# объявлено, оно должно быть СТРОГО JSON-string, не число/boolean/null/array/
+# object. Старая проверка `if type == "string" and length > 0 then . else
+# empty end` уже отсеивала нестроковые значения, но единым сообщением
+# `пусто`; здесь — отдельный gate с типом в `<...>`, чтобы байт-в-байт
+# различать «не строка» и «пустая строка».
+check_object_strings() { # $1=file $2=parent $3=field-list
+  local file="$1" parent="$2"; shift 2
+  # Авария jq (rc>1) — отказ (992), не «ветви нет»: прежде пустой вывод
+  # подстановки выглядел как type != object, и поля ветви выпадали из
+  # проверки. rc1 здесь невозможен (вызов без -e).
+  local pst_type pst_rc=0
+  pst_type="$(jq -r --arg p "$parent" '(getpath($p | split(".")) // null) | type' "$file" 2>/dev/null)" || pst_rc=$?
+  [ "$pst_rc" -le 1 ] || die_p "${parent}: проверка типа ветви не выполнилась (jq rc=$pst_rc) — авария jq не равна отсутствию ветви"
+  [ "$pst_type" = "object" ] || return 0
+  local f ft
+  for f in "$@"; do
+    # Поле объявлено как объект-член $parent → если есть, должно быть непустой строкой.
+    # 059-додел (арбитраж 420753f п.3): непустота — через `jq -e … | length > 0` БЕЗ
+    # подстановки байтов значения в переменную; иначе bash при значении с NUL печатает
+    # «warning: command substitution: ignored null byte in input» (З-Б). Семантика 054
+    # не меняется: фраза P6 (`значение вне алфавита: ${parent}.${f}: пусто`) байт-в-байт.
+    if jq -e --arg p "$parent" --arg f "$f" '(getpath($p | split(".")) | has($f))' "$file" >/dev/null 2>&1; then
+      ft="$(jq -r --arg p "$parent" --arg f "$f" 'getpath($p | split("."))[$f] | type' "$file" 2>/dev/null)"
+      [ "$ft" = "string" ] || die_p "значение вне алфавита: ${parent}.${f}: <${ft}>"
+      jq -e --arg p "$parent" --arg f "$f" 'getpath($p | split("."))[$f] | type == "string" and length > 0' "$file" >/dev/null 2>&1 \
+        || die_p "значение вне алфавита: ${parent}.${f}: пусто"
+    fi
+  done
+}
+check_object_strings "$REPO_JSON_FD"    commands       test build typecheck lint
+check_object_strings "$REPO_JSON_FD"    workflowPaths  contracts verdicts registry fixtures
+check_object_strings "$PROJECT_JSON_FD" defaults.commands       test build typecheck lint
+check_object_strings "$PROJECT_JSON_FD" defaults.workflowPaths  contracts verdicts registry fixtures
+# 054-фикс-Б8: defaults.git.canonicalRemote и defaults.ci.workflow — теми же
+# правилами И-4, что и репо-ветви (непустая строка, JSON-string). Адверсарий
+# 054 круг 3: workflow:7 / canonicalRemote:"" / canonicalRemote:[1] проходили
+# rc=0 после фикс-Б7, и defaults попадал в merged (И-4 нарушено). Паттерн —
+# зеркало репо-ветвей (`if jq -e '.git | type == "object"' ...`, строки 357-369).
+check_object_strings "$PROJECT_JSON_FD" defaults.git       canonicalRemote
+check_object_strings "$PROJECT_JSON_FD" defaults.ci        workflow
+
+# projectLayer.version и projectLayer.profilePath — обязательные строки репо
+# (И-4). Их type-gate стоит ОТДЕЛЬНО от check_object_strings, потому что они
+# лежат в ветви `projectLayer`, не в commands/workflowPaths. Адверсарий 054
+# круг 2 принял `projectLayer.profilePath: 7` через `jq -r` (число
+# превратилось в строку «7»).
+pl_v_type="$(jq -r '.projectLayer.version | type' "$REPO_JSON_FD")"
+[ "$pl_v_type" = "string" ] || die_p "значение вне алфавита: projectLayer.version: <$pl_v_type>"
+pl_p_type="$(jq -r '.projectLayer.profilePath | type' "$REPO_JSON_FD")"
+[ "$pl_p_type" = "string" ] || die_p "значение вне алфавита: projectLayer.profilePath: <$pl_p_type>"
+
+# barriers элементы — непустые строки класса ^[a-z0-9][a-z0-9_-]*$
+# ДОПОЛНЕНИЕ 054-фикс-раунд 4: ключ `barriers.mandatory/optional` обязан быть
+# МАССИВОМ. Прежняя проверка пропускала молча, если ни репо, ни слой не
+# объявляли массив — это и был обход (`barriers.mandatory: "not-array"` шёл).
+check_barrier_array() {
+  local level="$1" path="$2"
+  local file="$REPO_JSON_FD"
+  [ "$level" = "project" ] && file="$PROJECT_JSON_FD"
+  # Контракт 057 (Ч-2, Б3): «ключ отсутствует — пропускаем». Для ветвей,
+  # объявленных в схеме как optional, отсутствие в ОБОИХ слоях — норма
+  # (форма M Ч-1). Раньше `getpath | type` для отсутствующего пути даёт
+  # «null», и прежняя ветвь падала на `<null>` — это и был мёртвый
+  # переход (вердикт Б3). Теперь явный гейт «getpath == null → skip»
+  # (тот же приём, что в check_packs_array ниже): путь отсутствует —
+  # return 0 без диагностики; путь задан не-массивом — die_p с типом.
+  if jq -e --arg p "$path" 'getpath($p | split(".")) == null' "$file" >/dev/null 2>&1; then
+    return 0
+  fi
+  local ft
+  ft="$(jq -r --arg p "$path" 'getpath($p | split(".")) | type' "$file" 2>/dev/null)"
+  [ "$ft" = "array" ] || die_p "значение вне алфавита: $path: <$ft>"
+  local arr arr_rc=0
+  # Авария jq (rc>1) — отказ (992), не пустой массив: прежде элементы
+  # выпадали из проверки алфавита молча. rc1 здесь невозможен (без -e).
+  arr="$(jq -r --arg p "$path" 'if (getpath($p | split(".")) | type) == "array" then (getpath($p | split(".")) | join("\n")) else empty end' "$file" 2>/dev/null)" || arr_rc=$?
+  [ "$arr_rc" -le 1 ] || die_p "$path: чтение элементов массива не выполнилось (jq rc=$arr_rc) — авария jq не равна пустому массиву"
+  while IFS= read -r item; do
+    [ -z "$item" ] && continue
+    printf '%s' "$item" | grep -Eq '^[a-z0-9][a-z0-9_-]*$' \
+      || die_p "значение вне алфавита: $path: $item"
+  done <<<"$arr"
+}
+# Для репо-слоя — если barriers.mandatory/optional заданы
+check_barrier_array repo    barriers.mandatory
+check_barrier_array repo    barriers.optional
+check_barrier_array project defaults.barriers.mandatory
+check_barrier_array project defaults.barriers.optional
+
+# packs элементы — массив класса ^[a-z0-9][a-z0-9_-]*$ (контракт 055, И-8).
+# Тот же формат P6, что и check_barrier_array: НЕ-массив → `<тип>` в угловых
+# скобках, элемент вне класса → имя элемента в причине.
+check_packs_array() {
+  local level="$1" path="$2"
+  local file="$REPO_JSON_FD"
+  [ "$level" = "project" ] && file="$PROJECT_JSON_FD"
+  # `getpath` на отсутствующем пути даёт null; `null == null` — истина, и
+  # мы пропускаем ключ. НЕ-массив при явном задании падает ниже на P6.
+  if jq -e --arg p "$path" 'getpath($p | split(".")) == null' "$file" >/dev/null 2>&1; then
+    return 0
+  fi
+  local ft
+  ft="$(jq -r --arg p "$path" 'getpath($p | split(".")) | type' "$file" 2>/dev/null)"
+  [ "$ft" = "array" ] || die_p "значение вне алфавита: $path: <$ft>"
+  # Фикс 055-к2 (адверсарий круг 1): итерация через `jq` ВМЕСТО
+  # `join("\n") + read-loop`. Прежний путь через `while IFS= read` от
+  # пустого heredoc `<<<""` читал ОДНУ пустую строку (`item=""`) даже для
+  # пустого массива `[]` — и после `[ -z "$item" ] && continue` отбрасывал
+  # её тихо. Это и был обход: `[""]` и `[]` шли одной дорогой.
+  #
+  # Двухступенчатая проверка: сначала `length` посчитанного списка плохих
+  # элементов (всё через `jq -r`, чтобы JSON-грамматика осталась в ОДНОМ
+  # месте). Затем — извлечение первого плохого с маркером «EMPTY_MARKER»
+  # для пустых/только-пробельных элементов (иначе `command substitution`
+  # съедает trailing newlines, и пустой результат не отличить от
+  # «элемента нет»).
+  local bad_count first_bad
+  bad_count="$(jq -r --arg p "$path" '
+    [getpath($p | split("."))[] | select(test("^[a-z0-9][a-z0-9_-]*$") | not)] | length' \
+    "$file" 2>/dev/null || echo 0)"
+  if [ "${bad_count:-0}" -gt 0 ]; then
+    first_bad="$(jq -r --arg p "$path" '
+      [getpath($p | split("."))[]
+       | select(test("^[a-z0-9][a-z0-9_-]*$") | not)
+       | if (. | test("^\\s*$")) then "EMPTY_MARKER" else . end][0] // "EMPTY_MARKER"' \
+      "$file" 2>/dev/null || echo EMPTY_MARKER)"
+    if [ "$first_bad" = "EMPTY_MARKER" ]; then
+      die_p "значение вне алфавита: $path: пусто"
+    else
+      die_p "значение вне алфавита: $path: $first_bad"
+    fi
+  fi
+}
+# Репо-слой — packs на верхнем уровне; слой проекта — defaults.packs.
+check_packs_array repo    packs
+check_packs_array project defaults.packs
+
+# ── Б-4: pack.maxBytes — кап пака вклейки (репо-слой) ───────────────────────
+# Ключ `pack` необязателен и живёт только в репо-слое (в SCHEMA_LEVELS выше);
+# внутри — единственный необязательный ключ `maxBytes`. Прочие ключи внутри
+# pack предупреждены РАНЬШЕ (scan_levels: «профиль ПРЕДУПРЕЖДЕНИЕ: неизвестный
+# ключ репо-слой: pack.<ключ>», rc 0) — здесь значения допустимого ключа.
+#
+# ФОРМА значения: «десятичное целое» — это не то же, что «число, записанное
+# иначе» (1e5 → «1E+5», 130000.5 → «130000.5», 1.0 → «1.0»). jq печатает число
+# его исходной записью, поэтому форма судится по tostring, а не по floor:
+# floor от экспоненты не отличает. Диапазон [40000,1000000] судится jq'ом
+# (целое любой длины — не переполнение арифметики оболочки).
+#
+# Отказ — именованный (P6, прецедент 054): ключ в тексте отказа.
+if jq -e 'has("pack")' "$REPO_JSON_FD" >/dev/null 2>&1; then
+  jq -e '.pack | type == "object"' "$REPO_JSON_FD" >/dev/null 2>&1 \
+    || die_p "значение вне алфавита: pack.maxBytes: pack не объект"
+  if jq -e '.pack | has("maxBytes")' "$REPO_JSON_FD" >/dev/null 2>&1; then
+    _PACK_MB_TYPE="$(jq -r '.pack.maxBytes | type' "$REPO_JSON_FD" 2>/dev/null)" \
+      || die_p "pack.maxBytes: тип значения не прочитан"
+    [ "$_PACK_MB_TYPE" = "number" ] \
+      || die_p "значение вне алфавита: pack.maxBytes: <${_PACK_MB_TYPE}>"
+    _PACK_MB_LEX="$(jq -r '.pack.maxBytes | tostring' "$REPO_JSON_FD" 2>/dev/null)" \
+      || die_p "pack.maxBytes: значение не прочитано"
+    case "$_PACK_MB_LEX" in
+      ''|*[!0-9]*) die_p "значение вне алфавита: pack.maxBytes: не десятичное целое: ${_PACK_MB_LEX}" ;;
+    esac
+    jq -e '.pack.maxBytes >= 40000 and .pack.maxBytes <= 1000000' "$REPO_JSON_FD" >/dev/null 2>&1 \
+      || die_p "значение вне алфавита: pack.maxBytes: вне диапазона [40000,1000000]: ${_PACK_MB_LEX}"
+  fi
+fi
+
+# 226: repo-only hooks.archBrief. Unknown sibling names retain M-0 warnings.
+if jq -e 'if (.defaults.hooks | type) == "object"
+    then .defaults.hooks | (has("archBrief")) else false end' "$PROJECT_JSON_FD" >/dev/null; then
+  die_p "ARCH_PROFILE_LAYER: hooks.archBrief: разрешён только репо-слой harness.project.json"
+fi
+if jq -e 'has("hooks")' "$REPO_JSON_FD" >/dev/null; then
+  jq -e '.hooks | type == "object"' "$REPO_JSON_FD" >/dev/null \
+    || die_p "значение вне алфавита: hooks.archBrief: hooks не объект"
+  if jq -e '.hooks | has("archBrief")' "$REPO_JSON_FD" >/dev/null; then
+    jq -e '.hooks.archBrief | if . == false then true
+      elif type == "string" then test("^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9.][A-Za-z0-9_.-]*\\z")
+      else false end' "$REPO_JSON_FD" >/dev/null \
+      || die_p "значение вне алфавита: hooks.archBrief: ожидается false или owner/repo"
+  fi
+fi
+
+# ── И-5: пин версии слоя проекта ───────────────────────────────────────────
+PIN="$(jq -r '.projectLayer.version' "$REPO_JSON_FD")"
+LAYER_VER="$(jq -r '.version' "$PROJECT_JSON_FD")"
+[ "$PIN" = "$LAYER_VER" ] || die_p "пин слоя проекта расходится: репо пинит '$PIN', слой несёт '$LAYER_VER'"
+
+# ── И-6: слияние с происхождением ──────────────────────────────────────────
+# Скалярный лист берётся из репо, если ключ там есть, иначе из defaults слоя
+# проекта. projectId/workspaceId — всегда origin project, repoId — repo.
+#
+# СБОРКА В ОДИН БОЛЬШОЙ jq-вызов — чтобы грамматика алфавита оставалась
+# зафиксированной в ОДНОМ месте (одна — иначе правило 7 «неизвестный ключ
+# должен ругаться» получает двойной источник истины и расходится молча).
+#
+# Все значения ниже вынуты ПОТОКОВО из обоих файлов ключами; происхождение —
+# JSON-литерал "repo" / "project" выводится из факта наличия ключа в источнике.
+MERGED=$(jq -n \
+  --slurpfile repo "$REPO_JSON_FD" \
+  --slurpfile project "$PROJECT_JSON_FD" \
+  --arg layerRoot "$LAYER_ROOT" \
+  '
+  ($repo[0]) as $r |
+  ($project[0]) as $p |
+  def v($path):
+    (try ($r | getpath($path)) catch null) as $rv |
+    (try (if ($p.defaults | type) == "object" then $p.defaults | getpath($path) else null end) catch null) as $pv |
+    if $rv != null then { value: $rv, origin: "repo" }
+    elif $pv != null and ($pv | type) != "null" then { value: $pv, origin: "project" }
+    else null end;
+  def vscal(p): v(p);
+
+  {
+    language:     (if $r.language != null then { value: $r.language, origin: "repo" } elif $p.defaults.language != null then { value: $p.defaults.language, origin: "project" } else null end),
+    projectId:    { value: $p.projectId, origin: "project" },
+    workspaceId:  { value: $p.workspaceId, origin: "project" },
+    repoId:       { value: $r.repoId, origin: "repo" },
+    schemaVersion:{ value: $p.schemaVersion, origin: "project" },
+    projectLayer: { value: { version: $r.projectLayer.version, profilePath: $r.projectLayer.profilePath, layerRoot: $layerRoot }, origin: "repo" },
+    workflowPaths: {
+      contracts:  v(["workflowPaths","contracts"]),
+      verdicts:   v(["workflowPaths","verdicts"]),
+      registry:   v(["workflowPaths","registry"]),
+      fixtures:   v(["workflowPaths","fixtures"]),
+      state:      v(["workflowPaths","state"])
+    },
+    commands: {
+      test:      vscal(["commands","test"]),
+      build:     vscal(["commands","build"]),
+      typecheck: vscal(["commands","typecheck"]),
+      lint:      vscal(["commands","lint"])
+    },
+    # 054-фикс-Б7 (закрытие silent-drop defaults.git/ci): репо-слой
+    # перекрывает defaults слоя проекта для git.canonicalRemote и
+    # ci.workflow — ранее ветвь `elif $p.defaults…` отсутствовала, и
+    # `else null end` молча отбрасывал defaults из слоя проекта (И-4/И-6
+    # frozen 054; контрмодель Б7 — «defaults.git/ci не дошли до merged»).
+    # Тот же шаблон, что barriers.mandatory/optional ниже.
+    git: (
+      if $r.git and $r.git.canonicalRemote != null then { value: { canonicalRemote: $r.git.canonicalRemote }, origin: "repo" }
+      elif $p.defaults and $p.defaults.git and $p.defaults.git.canonicalRemote != null then { value: { canonicalRemote: $p.defaults.git.canonicalRemote }, origin: "project" }
+      else null end
+    ),
+    ci: (
+      if $r.ci and $r.ci.workflow != null then { value: { workflow: $r.ci.workflow }, origin: "repo" }
+      elif $p.defaults and $p.defaults.ci and $p.defaults.ci.workflow != null then { value: { workflow: $p.defaults.ci.workflow }, origin: "project" }
+      else null end
+    ),
+    barriers: {
+      mandatory: (
+        if $r.barriers and $r.barriers.mandatory != null then { value: $r.barriers.mandatory, origin: "repo" }
+        elif $p.defaults and $p.defaults.barriers and $p.defaults.barriers.mandatory != null then { value: $p.defaults.barriers.mandatory, origin: "project" }
+        else null end
+      ),
+      optional: (
+        if $r.barriers and $r.barriers.optional != null then { value: $r.barriers.optional, origin: "repo" }
+        elif $p.defaults and $p.defaults.barriers and $p.defaults.barriers.optional != null then { value: $p.defaults.barriers.optional, origin: "project" }
+        else null end
+      )
+    },
+    packs: (
+      if $r.packs != null then { value: $r.packs, origin: "repo" }
+      elif $p.defaults and $p.defaults.packs != null then { value: $p.defaults.packs, origin: "project" }
+      else { value: [], origin: "project" } end
+    ),
+    # 095-миграция (контракт 095, Решение 3): contextPack — карта/rules/reuse
+    # проекта + пути ADR/уроков. Семантика слияния ЮНИТОМ: если репо-слой
+    # задаёт contextPack.rows, он ЗАМЕЩАЕТ defaults.rows ЦЕЛИКОМ (прецедент
+    # barriers.mandatory 054); скаляры adrPath/lessonsPath — репо замещает
+    # defaults как обычные скаляры. Если ни один слой не задаёт ключ —
+    # null (сборщик make_task сообщает «нет карты контекста: contextPack»).
+    contextPack: (
+      if $r.contextPack != null then
+        (if $p.defaults and $p.defaults.contextPack and $p.defaults.contextPack.rows != null
+         then $p.defaults.contextPack.rows else [] end) as $default_rows |
+        ($r.contextPack.rows // $default_rows) as $merged_rows |
+        {
+          value: {
+            rows: $merged_rows,
+            adrPath: ($r.contextPack.adrPath // ($p.defaults.contextPack.adrPath // null)),
+            lessonsPath: ($r.contextPack.lessonsPath // ($p.defaults.contextPack.lessonsPath // null))
+          },
+          origin: "repo"
+        }
+      elif $p.defaults and $p.defaults.contextPack != null then
+        # Б-2 (контракт 184): defaults.contextPack переносится в merged ТОЛЬКО
+        # известными ключами (rows/adrPath/lessonsPath) — порядок ключей
+        # сохраняется (with_entries идёт по порядку исходного объекта), а
+        # неизвестный ключ (например `rowz`) до stdout не доходит: о нём —
+        # предупреждение scan_levels с путём `defaults.contextPack.<ключ>`.
+        # Слой только из известных ключей — вывод побайтно прежний.
+        { value: ($p.defaults.contextPack
+                  | if type == "object"
+                    then with_entries(select(.key == "rows" or .key == "adrPath" or .key == "lessonsPath"))
+                    else . end),
+          origin: "project" }
+      else null end
+    ),
+    # 996: sourceCanon — канон источников и argv-гейт сверки. Семантика
+    # слияния ЮНИТОМ (как contextPack): репо-слой замещает defaults целиком.
+    # Если ни один слой не объявляет — null (дверь check_project_sources
+    # пропускает; freeze/done/pre_critic НЕ зовут gate).
+    sourceCanon: (
+      if $r.sourceCanon != null then { value: $r.sourceCanon, origin: "repo" }
+      elif $p.defaults and $p.defaults.sourceCanon != null then { value: $p.defaults.sourceCanon, origin: "project" }
+      else null end
+    ),
+    # Б-4: pack — кап пака вклейки. Ключ необязателен и живёт только в
+    # репо-слое, поэтому слияния нет: значение — объявленное репо-слой.
+    # Не объявлен — merged не несёт pack (потребитель берёт умолчание 40000).
+    # М-0 (контракт 184): в merged уходят ТОЛЬКО известные ключи pack
+    # (maxBytes) — with_entries, как defaults.contextPack ниже: неизвестный
+    # ключ внутри pack (например rowz) до stdout не доходит, о нём —
+    # предупреждение scan_levels с путём `pack.rowz` (rc 0).
+    hooks: (
+      if $r.hooks != null then {value: ($r.hooks | with_entries(select(.key == "archBrief"))), origin: "repo"}
+      else null end
+    ),
+    pack: (
+      if $r.pack != null then { value: ($r.pack | with_entries(select(.key == "maxBytes"))), origin: "repo" }
+      else null end
+    )
+  }
+  | del(.. | nulls)
+  ')
+
+# ── 095-миграция: проверка алфавита contextPack.rows[].kind (контракт 095) ─
+# Контракт 095 (И-0 грамматики): kind ∈ {map, rules, reuse}. Вне алфавита —
+# P6 «значение вне алфавита: contextPack.rows[N].kind: <факт>». N — позиция
+# первой некорректной строки (0-индексация). Семантика P6 байт-в-байт
+# (прецедент 054 «значение вне алфавита: <путь>: <факт>»).
+# Строка-не-объект — тоже вне алфавита («<не объект>»); ошибка jq — отказ, а не пропуск
+# (аудит 2026-10-16: `|| true` пропускал запрещённый kind и строку "not-an-object").
+_KIND_RC=0
+_BAD_KIND_ROW="$(printf '%s' "$MERGED" | jq -r '
+  if .contextPack and (.contextPack.value|type)=="object" and (.contextPack.value.rows|type)=="array"
+  then (.contextPack.value.rows | to_entries[]
+        | select(if (.value|type)!="object" then true
+                 else ((.value.kind // "") as $k | ["map","rules","reuse"] | index($k) | not) end)
+        | {i: .key, k: (if (.value|type)=="object" then (.value.kind // "<null>") else "<не объект>" end)})
+       | "\(.i)\t\(.k)"
+  else empty
+  end
+' 2>/dev/null)" || _KIND_RC=$?
+[ "$_KIND_RC" -eq 0 ] || die_p "contextPack.rows: проверка алфавита kind не выполнилась (jq rc=${_KIND_RC})"
+if [ -n "$_BAD_KIND_ROW" ]; then
+  _BAD_IDX="$(printf '%s' "$_BAD_KIND_ROW" | head -1 | cut -f1)"
+  _BAD_VAL="$(printf '%s' "$_BAD_KIND_ROW" | head -1 | cut -f2)"
+  die_p "значение вне алфавита: contextPack.rows[${_BAD_IDX}].kind: ${_BAD_VAL}"
+fi
+
+
+# ── И-1..И-4 контракт 059 — сверка объявленного пути ci.workflow ────────────
+# Сверка ЭФФЕКТИВНОГО значения ci.workflow из MERGED с деревом REPO_ABS
+# (Граница-1: только ci.workflow — единственный класс, утверждающий
+# СУЩЕСТВУЮЩУЮ инфраструктуру проекта; workflowPaths.* НЕ сверяется — это
+# целевая раскладка II-3, ещё не существующая в дереве). Атомарность (И-4):
+# при отказе stdout пуст — `printf '%s\n' "$MERGED"` ниже НЕ выполняется.
+# Не объявлен ни одним слоем → И-1: сверки нет, rc 0.
+#
+# 059-додел (арбитраж 420753f 059-nul-lf-predstavlenie.md, п.(а)-(в)). Значение
+# `ci.workflow` = полные байты UTF-8-вывода `jq -j '.ci.value.workflow'` из
+# MERGED, ВСЕ, включая NUL/LF/CR/TAB/прочие управляющие. Ни одна bash-переменная,
+# прошедшая через `$(…)`/`read -d ''`/`cat`, значением не является и для суждения
+# не используется (командная подстановка режет LF; `read -d ''` обрывается на NUL;
+# `cat` — «иной срезать канал» из формулировки арбитража). Замер арбитра:
+# `readlink -f -z | IFS= read -r -d ''` даёт 32/32 байта и `-f=yes` для файла с
+# хвостовым LF — то есть байт-точная передача CANON в обход «срезающих каналов».
+#
+# Один jq-фильтр по MERGED (рекомендация арбитра, п.8): jq несёт U+0000, не
+# зависит от локали; вывод после экранирования безопасен для `$(…)`. Рендер —
+# сырьём, если значение не содержит байтов C={0x00–0x1F, 0x7F} И не начинается с
+# двух байтов `$'`; иначе — `$'…'`-нотация по фиксированной таблице:
+# `\` → `\\`; `'` → `\'`; LF → `\n`; CR → `\r`; TAB → `\t`; прочие C (включая
+# NUL/DEL) → `\xHH` (две строчные hex-цифры: NUL → `\x00`, DEL → `\x7f`); UTF-8
+# ≥0x80 — сырьём. `printf %q` НЕ используется (локаль; неспособность нести NUL).
+# Отображение инъективно: сырая форма никогда не начинается с `$'`, экранированная
+# — всегда; декодирование однозначно (п.8).
+#
+# 059-додел (п.4): ветвь «LF → отсутствует» (бывшая `:631-637`) УДАЛЕНА. LF — и
+# CR, и TAB, и пробел, и `'`, и UTF-8 ≥0x80 — законные байты имени файла; посылка
+# «файл с LF в имени существовать не может» ложна, и ревьюер прав по Н2 целиком.
+# Существование судится ТОЛЬКО канонизацией полного байтового значения через
+# `readlink -f -z` (З-А; CANON захватывается байт-точно).
+#
+# 059-додел (п.2): NUL внутри алфавита 054 (И-3/И-4 frozen 054: «непустые строки»;
+# P6 не расширяется). NUL не может быть частью POSIX-пути и не может быть передан
+# `readlink`; «пустой результат / несуществующий объект» И-2(б) → фраза ОТСУТСТВУЕТ,
+# rc 1, stdout пуст. Наличие NUL судится счётом байтов: `jq contains("\u0000")`
+# по MERGED (вариант из п.2; работает на JSON-строке до декодирования в байты).
+# Порядок И-2: (а) АБС по первому байту → отказ АБС; (б) NUL → ОТСУТСТВУЕТ;
+# (в) канонизация (readlink -f -z); (г) внутри REPO_ABS; (д) `-f` регулярный файл.
+#
+# 059-додел (п.3): предупреждения bash «warning: command substitution: ignored
+# null byte in input» из 054-гейтов `:361/:391` обязаны исчезнуть — непустота
+# проверяется без подстановки байтов значения (через `jq -e … | length > 0`,
+# см. правки в `check_object_strings` и в репо-гейтах `.ci/.git` выше). Семантика
+# 054 не меняется: фразы P6 байт-в-байт (`значение вне алфавита: …: пусто` и т.п.
+# — эталон `empty_cw` арбитра: `profile ОТКАЗ: значение вне алфавита: ci.workflow:
+# пусто`); батареи 054/055/058 rc 0; текст 054 не трогается.
+#
+# Защита от потери байт в аргументе readlink: целевой путь `$REPO_ABS/<значение>`
+# строится конкатенацией во временном файле — `printf '%s/' "$REPO_ABS"` +
+# `jq -j …` (НЕ `cat`/`$(cat)`; НЕ `read -d ''`). Считывание файла в оболочковую
+# переменную для передачи в readlink — `IFS= read -r -d '' _TARGET_PATH < файл`.
+# Это ТОЖЕ `read -d ''`, но: (1) файл — не «источник значения» как JSON-выражение
+# MERGED; значение пришло из `jq -j`; (2) `read` здесь читает PATH, а не VALUE, и
+# путь уже прошёл NUL-gate (Step C выше), поэтому NUL-байт read не урежет —
+# читает до EOF; (3) `cat`/`$(cat)`-эквиваленты не используются (`$(…)` бы
+# срезал хвостовой LF, ломая `z/ok.yml\n` → фантомный `z/ok.yml`).
+# Альтернативы через `xargs -0` теряют LF в execvp-парсинге (`xargs -0` корректно
+# делит по NUL, но execvp делит cmdline по whitespace/LF); сентинел `printf x;
+# ${VAR%x}"` режет ровно один завершающий LF — недостаточно для `z/ok.yml\n`
+# (теряет решающий байт). Поэтому — `readlink -f -z | IFS= read -r -d ''`.
+_CW_PATH_TMP=$(mktemp)
+trap 'rm -f "$_CW_PATH_TMP"' EXIT
+
+# Один jq-фильтр по MERGED (рекомендация арбитра п.8): судит и печатает байты.
+# Выход — JSON-объект с булевыми атрибутами и экранированным `<CW>`. Сам выход
+# ASCII (NUL-байты заменены на `\x00`), поэтому безопасен для `$(…)` (jq несёт
+# U+0000, вывод после экранирования — нет; арбитр п.8).
+_CW_INFO=$(printf '%s' "$MERGED" | jq -r '
+  def hex: ["0","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f"];
+  def render_v($v):
+    $v | explode as $b |
+    (($b | map((. >= 0 and . <= 31) or . == 127) | any)) as $hc |
+    (($b[0:2] == [36, 39])) as $sda |
+    if ($hc or $sda) then
+      "$'"'"'" +
+      ([$b[] |
+        if   . == 92 then "\\"
+        elif . == 39 then "\\'"'"'"
+        elif . == 10 then "\\n"
+        elif . == 13 then "\\r"
+        elif . == 9  then "\\t"
+        elif (. >= 0 and . <= 31) or . == 127 then
+          "\\x" + hex[(. / 16 | floor)] + hex[(. % 16)]
+        else
+          ([.] | implode)
+        end
+      ] | join("")) +
+      "'"'"'"
+    else
+      $v
+    end;
+  .ci.value.workflow as $v
+  | if $v == null then
+      {empty: true, abs: false, nul: false, rendered: ""}
+    else
+      {
+        empty: ($v | length == 0),
+        abs:   ($v | startswith("/")),
+        nul:   ($v | contains("\u0000")),
+        rendered: ($v | render_v($v))
+      }
+    end
+')
+
+# Атрибуты — через `jq -r` на JSON-объекте. Here-string `<<<"$_VAR"` — без $(),
+# без `read`, без `cat`; ASCII-данные; NUL там нет.
+_CW_EMPTY=$(jq -r '.empty'    <<<"$_CW_INFO")
+_CW_ABS=$(jq -r   '.abs'      <<<"$_CW_INFO")
+_CW_NUL=$(jq -r   '.nul'      <<<"$_CW_INFO")
+_CW_RENDERED=$(jq -r '.rendered' <<<"$_CW_INFO")
+
+# Step A: ci.workflow не объявлен ни одним слоем → И-1: сверки нет, rc 0.
+if [ "$_CW_EMPTY" = "true" ]; then
+  printf '%s\n' "$MERGED"
+  exit 0
+fi
+
+# Step B: И-2(а) — абсолютный путь. Префикс до NUL начинается с `/` ⟺ значение
+# начинается с `/` (первый байт совпадает; jq startswith — первый char).
+if [ "$_CW_ABS" = "true" ]; then
+  die_p "ci.workflow обязан быть относительным путём от корня репо, получен абсолютный: $_CW_RENDERED"
+fi
+
+# Step C: И-2(б) — NUL по счёту байтов (через `jq contains("\u0000")` по MERGED).
+# NUL — вне алфавита POSIX-путей (readlink «невозможно передать NUL»); результат
+# канонизации — пустой или несуществующий объект → «отсутствует».
+if [ "$_CW_NUL" = "true" ]; then
+  die_p "объявленный путь отсутствует в дереве репо: ci.workflow=$_CW_RENDERED от корня $REPO_ABS"
+fi
+
+# Step E: readlink -f -z на байтово-полном пути `$REPO_ABS/<значение>`. Целевой
+# путь строится конкатенацией во временном файле через две `printf`+`jq -j`
+# (не `$(cat …)`, не `cat`).
+{
+  printf '%s/' "$REPO_ABS"
+  printf '%s' "$MERGED" | jq -j '.ci.value.workflow // ""'
+} > "$_CW_PATH_TMP" 2>/dev/null || true
+
+# Считываем байты целевого пути в оболочковую переменную. После NUL-gate (Step C)
+# путь NUL не содержит, и `IFS= read -r -d ''` читает ДО EOF, не обрываясь на NUL
+# и не теряя ни хвостовой LF, ни внутренние управляющие. См. длинный комментарий
+# выше (защита от потери байт) — это единственный формат, который сохраняет
+# хвостовой LF (`$(…)` режет; сентинел `${VAR%x}` режет один LF; `xargs -0` теряет
+# LF в execvp-парсинге).
+_TARGET_PATH=""
+IFS= read -r -d '' _TARGET_PATH < "$_CW_PATH_TMP" || true
+
+# Step F: И-2(б) — канонизация полного байтового значения. CANON захватывается
+# байт-точно через `readlink -f -z` + process substitution (`< <(…)`), НЕ через
+# `cmd | IFS= read -d ''` — правая часть конвейера в bash выполняется в
+# подшелле, и переменная `CANON`, установленная там, теряется при возврате в
+# родительский шелл (классическая bash pipeline-subshell ловушка; замер:
+# голый `cmd | read var` оставляет `var` пустой в родителе). Process
+# substitution `< <(cmd)` подставляет файловый дескриптор в РОДИТЕЛЬСКОМ
+# шелле — `read` выполняется без подшелла, переменная сохраняется (форма
+# из п.5 «`readlink -f -z … | IFS= read -r -d ''`» — байт-точность та же,
+# труба заменена на `<()`, чтобы избежать subshell-потери).
+# Без `-z` `readlink` приписывает `\n`, который `$(…)` срезает; без `read -d ''`
+# при наличии NUL в CANON (теоретически — в реальности POSIX-пути NUL не несут)
+# `$(…)` обрывал бы запись.
+CANON=""
+IFS= read -r -d '' CANON < <(readlink -f -z -- "$_TARGET_PATH" 2>/dev/null) || true
+
+# Step G: И-2(б) — пустой / несуществующий → ОТСУТСТВУЕТ (после снятия ветви
+# `:631-637` LF сам по себе не отказывает; только несуществование объекта).
+if [ -z "$CANON" ] || [ ! -e "$CANON" ]; then
+  die_p "объявленный путь отсутствует в дереве репо: ci.workflow=$_CW_RENDERED от корня $REPO_ABS"
+fi
+
+# Step H: И-2(в) — канонизированный путь внутри REPO_ABS (`../`-побег и симлинк
+# наружу — Граница-3).
+case "$CANON" in
+  "$REPO_ABS"/*) ;;
+  *) die_p "ci.workflow выходит за корень репо после канонизации: $_CW_RENDERED -> $CANON вне $REPO_ABS" ;;
+esac
+
+# Step I: И-2(г) — регулярный файл (каталог / FIFO / socket / device → «не файл»;
+# предикат `-f`, не `-d`; арбитраж 059-к3 9e874be п.2/п.3).
+[ -f "$CANON" ] || die_p "объявленный путь не файл: ci.workflow=$_CW_RENDERED"
+
+# Step J: успех (И-1): атомарно печатаем MERGED.
+printf '%s\n' "$MERGED"

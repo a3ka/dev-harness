@@ -42,7 +42,30 @@
     "stabs/st23-repo-initial-underscore/scripts/profile_resolver.sh": "2091f2ed874c4ff9e19ebc83d93cec240548b10b8e17b5af74dc69d9441403a9",
     "stabs/st24-repo-initial-hyphen/scripts/profile_resolver.sh": "9efeecfe5e1902bc3d4a02cc5f16e423c03349cef0b430dca55b7d0b3379b615",
     "stabs/st25-final-lf/scripts/profile_resolver.sh": "00c34bdc752a98dcec807f2bc095026afe23d953b0156fc892a6dc96be5cd1b9",
-    "stabs/st26-internal-space/scripts/profile_resolver.sh": "549cd27c7cff9bec9fb97637b34347cbfb4da48bb780d1b0e33aecdad06dad54"
+    "stabs/st26-internal-space/scripts/profile_resolver.sh": "549cd27c7cff9bec9fb97637b34347cbfb4da48bb780d1b0e33aecdad06dad54",
+    "stabs/st27-false-case-adv226b/scripts/profile_resolver.sh": "c695e5ea5198671b1396888386698608780e1cf6d77ba93902d09c4a5b3c8f86",
+    "stabs/st28-boolean-type/scripts/profile_resolver.sh": "3b1c9931ee1b692445d8d7406616d70afa7638268ad16a5a519288fc9e4ee67e",
+    "stabs/st29-number-false/scripts/profile_resolver.sh": "836564f3ce53616123917a09435a7cb269a65e6cadd3bf91bc6775e365b55e01",
+    "stabs/st30-trim/scripts/profile_resolver.sh": "0c8a76bf823fb87b7684c71155e53947b40fc8658b96ce69f70538798458024f",
+    "stabs/st31-owner-initial-dot/scripts/profile_resolver.sh": "0a01fbef04114f9a6242ab6af0847080fa43932fa8841de1c29114f0497f6fff",
+    "stabs/st32-owner-initial-hyphen/scripts/profile_resolver.sh": "db168fd864dc9de6df7369f4984a443fc510d6b5e172cf1002514cc9faaa25dc",
+    "stabs/st33-repo-initial-dot/scripts/profile_resolver.sh": "df7efee9e47d3d9f2afbc8d18938e2c80ac1aaf9e9b4213db9b74b5203bb72c2",
+    "stabs/st34-owner-inner-slash/scripts/profile_resolver.sh": "d49aacfdb9aa4f789ff158bc2fcffa1a931ea35ea45bd764f2d566408fb62cc9",
+    "stabs/st35-repo-inner-slash/scripts/profile_resolver.sh": "b1786592242d6274636fb65db31748781377f6cbe684bc3aec40d0418a2936d9",
+    "stabs/st36-owner-empty/scripts/profile_resolver.sh": "3551aad00e20bd1efe374882183edfd033e6aef62784c7db6daeaadafc4c4236",
+    "stabs/st37-repo-empty/scripts/profile_resolver.sh": "20f3d4cb9eae0d81d18d9b44da974fd83b59797f94db86ff821694fa47561c0d",
+    "stabs/st38-unicode-owner-first/scripts/profile_resolver.sh": "d231991b4f636d6ddc02df23b5c54b6568d5d3a560348a6d8a841f3eddd1f25d",
+    "stabs/st39-unicode-repo-first/scripts/profile_resolver.sh": "2b63672f7d9ed0780dee5a4cabdea6fd301927761233f489e41d3f507811ab41",
+    "stabs/st40-unicode-owner-rest/scripts/profile_resolver.sh": "7edeba9bd67f6a190dd53523c846f93195dd31988f1379e1e6900e4e5160fc8a",
+    "stabs/st41-unicode-repo-rest/scripts/profile_resolver.sh": "3b8668367222e0474a978e6d38f12665289e35b463cae3d1c618120d03f52141",
+    "stabs/st42-length-1024/scripts/profile_resolver.sh": "feff5a5e5944758ac8c088d4921eb8ac9109ffab523e04c9d932c5fc97a7f842",
+    "stabs/st43-merge-casefold/scripts/profile_resolver.sh": "a5afcfc298fa489b72ea15d0887793d6405fe891356cb8867bfdcfa497efb138",
+    "stabs/st44-start-anchor/scripts/profile_resolver.sh": "e88e3dddc7f4732a86b4243a3eab264b6afa14e8d204af197390b45d48fdc09a",
+    "stabs/st45-casefold-position-0/scripts/profile_resolver.sh": "8bbecb1f1104b90dfe42c11526e90b180bc034f26612b7d65c6161a1c18ea708",
+    "stabs/st46-casefold-position-1/scripts/profile_resolver.sh": "53c04a4af96c7338e83f5d09eb302718911f0f270edaf85ee102539e1914f024",
+    "stabs/st47-casefold-position-2/scripts/profile_resolver.sh": "ee8be9a3ce8041d749059d64a110ed7611e849030f2e12770a372f028e46cb03",
+    "stabs/st48-casefold-position-3/scripts/profile_resolver.sh": "f0648e50244df48e7b36d0240eeb938fcb06faec6579a9ae0039513ab9755964",
+    "stabs/st49-casefold-position-4/scripts/profile_resolver.sh": "9c15d0439c6ce9d11528f5833b2d0e205861e539d75c0a50c62799ee85c27d42"
   },
   "bindings": {
     "st01-ignore-key": {
@@ -195,6 +218,152 @@
       "cells": [
         "bad-owner-internal-space",
         "bad-repo-internal-space"
+      ]
+    },
+    "st27-false-case-adv226b": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-false-case-31",
+        "grid-false-case-01"
+      ]
+    },
+    "st28-boolean-type": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-type-true"
+      ]
+    },
+    "st29-number-false": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-type-zero"
+      ]
+    },
+    "st30-trim": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-boundary-before-sp",
+        "grid-boundary-after-sp"
+      ]
+    },
+    "st31-owner-initial-dot": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-ascii-owner-first-046"
+      ]
+    },
+    "st32-owner-initial-hyphen": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-ascii-owner-first-045"
+      ]
+    },
+    "st33-repo-initial-dot": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-ascii-repo-first-046"
+      ]
+    },
+    "st34-owner-inner-slash": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-ascii-owner-middle-047"
+      ]
+    },
+    "st35-repo-inner-slash": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-ascii-repo-middle-047"
+      ]
+    },
+    "st36-owner-empty": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-separator-02"
+      ]
+    },
+    "st37-repo-empty": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-separator-03"
+      ]
+    },
+    "st38-unicode-owner-first": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-unicode-owner-first-0",
+        "grid-unicode-owner-first-1"
+      ]
+    },
+    "st39-unicode-repo-first": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-unicode-repo-first-0",
+        "grid-unicode-repo-first-1"
+      ]
+    },
+    "st40-unicode-owner-rest": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-unicode-owner-rest-0",
+        "grid-unicode-owner-rest-1"
+      ]
+    },
+    "st41-unicode-repo-rest": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-unicode-repo-rest-0",
+        "grid-unicode-repo-rest-1"
+      ]
+    },
+    "st42-length-1024": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-length-owner",
+        "grid-length-repo",
+        "grid-length-both"
+      ]
+    },
+    "st43-merge-casefold": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-separator-10"
+      ]
+    },
+    "st44-start-anchor": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-boundary-before-sp"
+      ]
+    },
+    "st45-casefold-position-0": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-false-case-01"
+      ]
+    },
+    "st46-casefold-position-1": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-false-case-02"
+      ]
+    },
+    "st47-casefold-position-2": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-false-case-04"
+      ]
+    },
+    "st48-casefold-position-3": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-false-case-08"
+      ]
+    },
+    "st49-casefold-position-4": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "grid-false-case-16"
       ]
     }
   }
