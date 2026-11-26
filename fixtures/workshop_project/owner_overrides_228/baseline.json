@@ -1,0 +1,7649 @@
+{
+  "baseline": "78672b79bac88b9c3765b3d9b53cd983d4a13728",
+  "files": {
+    "check_charter": "715198fde1c5d74865ddc18c38bf8f41e5dcae99759ed82bb2ffd98ed61a642a",
+    "check_zones": "d8cd4f21fb4d40d39bf966aa2c28c49b729b7ca64eb86b358b9b9ab93f548e9d",
+    "check_protected": "98cdc84ea5a117f9674083227535b7ac8cdc4ef8c77e3d6f004be29de060d818",
+    "check_contract_frozen": "3bef0547a355bbc074feb084814a7a3949f378d8503eb00d6672189179571a98"
+  },
+  "rows": [
+    [
+      "check_charter/grandfather",
+      "02f7b0cd0ce0172c66bdfe783648fa37cf853920",
+      "contracts/043-precizionnyj-prefriz-gejt.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "056c4c6a748f25330e200357488240b995b26b14",
+      "contracts/162-standart-koda-mob.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "0872189c654c9728f2753c36a48f99a0322ad2fd",
+      "contracts/037-samodostatochnyj-cwd-i-priemnik-task.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "0c7883891b14442963adf7fe9466ab8a5a0d2472",
+      "contracts/158-ekrannyj-nabor.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "0c7883891b14442963adf7fe9466ab8a5a0d2472",
+      "contracts/162-standart-koda-mob.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "11e4aaadbdfe99b993860a41b6106f32d20c4f15",
+      "contracts/209-zasev-trassy-proekta.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "123d63c7bff0a98778b4b138a78986609e2e9a5d",
+      "contracts/197-mob-ci-artefakty-lokalno.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "152b97a3b52e63e4bf555d9dd9b2dacaf308a1fd",
+      "contracts/080-dver-bugfiks-perezapuska.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "19678a0034fba8906a4103965516494de2ae58d2",
+      "contracts/037-samodostatochnyj-cwd-i-priemnik-task.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "1c2d1c1e2b45679f93121215ef06c272b5462317",
+      "contracts/206-sreda-sudji.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "1c2d1c1e2b45679f93121215ef06c272b5462317",
+      "contracts/207-check-zones-incr-odin-sud-okna.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "1fb51dc3378087bcfc9143d9e2a6aad103a00485",
+      "contracts/217-incr-pustoe-okno.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "236c860415cdebd55df75bdf732e5f38aa9025e1",
+      "contracts/197-mob-ci-artefakty-lokalno.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "241bff9933cc1382f7ddf3c7a38c4eb34e681275",
+      "contracts/195-potrebiteli-116-okno-pr-sliyanij.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "27b1f05eec6bc8ac883f18f2943560c017a746a3",
+      "contracts/080-dver-bugfiks-perezapuska.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "2c01b1ed9c93f2ad14959f99511581de5526f68d",
+      "ROADMAP.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "2c01b1ed9c93f2ad14959f99511581de5526f68d",
+      "contracts/082-per-kejsnyj-dedlajn-verify-antiplacebo.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "2c7abb6e6ac30cc7c848a0e1172a30ed94ebc54c",
+      "contracts/158-ekrannyj-nabor.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "2c7abb6e6ac30cc7c848a0e1172a30ed94ebc54c",
+      "contracts/162-standart-koda-mob.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "2defcc46a1e2b3bfe5d22cdbaf90912d64246f20",
+      "contracts/147-gespraech-vhod-menu.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "3718851c9ac1cedd1ccd360007423cce3c61f93c",
+      "contracts/197-mob-ci-artefakty-lokalno.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "3e8db2655d08dcdfbf0fffaf4fb0d6f0a293b95d",
+      "contracts/206-sreda-sudji.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "3f25b7e6da54750e511dbd154f1d98d6c5e89765",
+      "contracts/208-zamok-object-predok.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "3f313c37cd336905a7a6621034889f8b9d0622c9",
+      "contracts/208-zamok-object-predok.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "409836ed5d918d4ecb16f132b8f6e26d287b32cc",
+      "contracts/204-karta-vyzova-po-faze.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "40a93f1da02d18d7323764007aac094989ee8c74",
+      "contracts/995-cmp-mob-001-android-pilot.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "4150211f935d0a0268c56387ec70f3d7d5d4ece9",
+      "contracts/197-mob-ci-artefakty-lokalno.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "41f80d3bcd41a9d73233689a39e329e9e034168e",
+      "contracts/094-prinyatie-i-publikatsiya-kandidata.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "4734ef880e0f7d2cb5f756c98f17033c17fa9d54",
+      "contracts/090-fix-orch-peak-home-install-safe-dir.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "47a12d46a95dc8434c9bc759a43d479b412417e2",
+      "contracts/197-mob-ci-artefakty-lokalno.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "4de64aa195acc309dd6d4cee876515ebeed28725",
+      "contracts/043-precizionnyj-prefriz-gejt.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "50e020e92007aa3b91ca42f48393e0b198700028",
+      "contracts/026-zhnec-tmp.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "59ae3562ed8bda92a5e7d5e30d38d7bffcc63fcb",
+      "ROADMAP.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "5c4752bc57c269f47fad43143c84d1acf2b53365",
+      "contracts/095-profil-i-vhod-agenta-contextpack.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "5d48155f2623b6f6cdc7b112fe42510c54f96b71",
+      "ROADMAP.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "649777a14caebbf660931a2cfc97bf0fdacbadcb",
+      "contracts/197-mob-ci-artefakty-lokalno.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "6609f708e7a35a384308245b6f21522868ab8313",
+      "ROADMAP.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "66a37efff06a1da72febe8e36b9bb37f8ff6d3eb",
+      "contracts/204-karta-vyzova-po-faze.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "698060db450009698b3b9946552429a41f405871",
+      "contracts/999-cmp-mob-002-navigatsiya.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "6d1d23d4320d126d7cdce048d7fee519aff74a5a",
+      "contracts/095-profil-i-vhod-agenta-contextpack.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "71384784ddfa74a78e55dc7c2e19157ffa88460b",
+      "contracts/205-provodka-gate-profilja.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "735af7f633fce73bbd64dcba12f78ed8617f23d6",
+      "contracts/197-mob-ci-artefakty-lokalno.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "743f0e07cf6b2711ff686400a7b5c4f59e5652ff",
+      "ROADMAP.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "7597534f9859dc19b4f5089a6a182722fb4be96c",
+      "ROADMAP.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "78579513c3c40833fc4af321514925a441f20738",
+      "contracts/212-replace-posle-lenda.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "78d8e785181e07e11c222c197b993f2bc87f0ed5",
+      "contracts/157-spawn-guard-proektnye-sessii.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "78d8e785181e07e11c222c197b993f2bc87f0ed5",
+      "contracts/162-standart-koda-mob.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "797a3129410411f6e478c938e5218ada8ac1769d",
+      "ROADMAP.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "8766e76946658b548bb9d4be870dfcf0b97ef288",
+      "contracts/043-precizionnyj-prefriz-gejt.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "8a01ad9996b5c5ee9300f446f5ec5fd20d0cb792",
+      "contracts/197-mob-ci-artefakty-lokalno.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "8c734d93b91fb3ff38528d6591d519a5145de325",
+      "contracts/098-proizvodstvennye-dokazatelstva-do-publikacii.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "8ef0e9b971993f079f65cd78f595fbbafcb37985",
+      "contracts/995-cmp-mob-001-android-pilot.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "8f2dc6c24f5b54425eb3e3a0106984f5edffc44c",
+      "contracts/143-mob-ci-razdelenie.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "90365f1054c34911d577bdcc68a9c7ee7e6fd01a",
+      "contracts/207-check-zones-incr-odin-sud-okna.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "97de545dd67a363e2b018204620ddaa01263f17a",
+      "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "9906f63122278ba28ffd4fee9741ef94c5466a5a",
+      "contracts/043-precizionnyj-prefriz-gejt.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "9a27066e9aedb4dbf8ee15288ba6000a373a969d",
+      "contracts/140-odin-agent-na-predmet.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "9bf62dd40a82328a08eab7d6bcf0b9c3ebe299f8",
+      "contracts/074-server-obvjazka-edinyy-istochnik.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "a1654418fef324ab4ee5cb0ec3e9f70db6a7c33d",
+      "contracts/210-charter-tekst-do-tega.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "a1957624004ec18025f3c681e5ece505a7e01288",
+      "contracts/074-server-obvjazka-edinyy-istochnik.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "a3665a5691bb6b6a85e6b703c10406bc05e10ca9",
+      "contracts/995-cmp-mob-001-android-pilot.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "a60dfde5370ffd66f0f4faf15aecd956758143af",
+      "contracts/995-cmp-mob-001-android-pilot.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "abc4c60626ce0d3f89f41082f9092d0d6dcb9187",
+      "contracts/080-dver-bugfiks-perezapuska.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "ae8836c6b2bc930d6aa9a36a0d97a276aecbb431",
+      "contracts/095-profil-i-vhod-agenta-contextpack.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "b0c39a58347eb5a8479473a05fd44b8be1ba2f15",
+      "ROADMAP.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "b428ff6d03f254f02a8ed3319f01abcf06f775e2",
+      "contracts/154-schet-vyzovov-kritika.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "b7a0c27612438b9768a084abe775baf12d9e4989",
+      "contracts/094-prinyatie-i-publikatsiya-kandidata.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "be50743754cffbcd4e5a4741e9b9bd38838327c7",
+      "contracts/197-mob-ci-artefakty-lokalno.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "c1cf214080a5cf7bfc5bfa1060394543f05125be",
+      "contracts/162-standart-koda-mob.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "c25196f6cb8245759f20788cf91ee8293216d4d8",
+      "contracts/211-d52-bootstrap-sudej.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "c4286a3b19ceb41667b6a8461fe0caa79b033fe9",
+      "contracts/197-mob-ci-artefakty-lokalno.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "c672f2b3d32c92023be4a0740842b1b2c3ee3bf5",
+      "contracts/080-dver-bugfiks-perezapuska.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "c8711daa62892b1833472f6d54ac7e5a3d7d15c7",
+      "contracts/208-zamok-object-predok.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "cea3a8f0c8194a8813b7d24503acc4e1686fbab0",
+      "contracts/045-pre-exchange-guard-gitw.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "cf3742d171a0c2a0c672edfbad7a8402c7201573",
+      "contracts/995-cmp-mob-001-android-pilot.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "d5da7c9d7c37cb8843b0a8f7dc08e6b9001deb9f",
+      "ROADMAP.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "e6371ce8caa91e9a275e49ecee5140870832d9e5",
+      "contracts/197-mob-ci-artefakty-lokalno.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "e642c62099a417a98149900ca8e4cb321e237912",
+      "contracts/197-mob-ci-artefakty-lokalno.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "ef7ce55f313bf563e1242f4e91bc4cf1037b6931",
+      "contracts/206-sreda-sudji.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "ef7ce55f313bf563e1242f4e91bc4cf1037b6931",
+      "contracts/207-check-zones-incr-odin-sud-okna.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "f1e7b54e0036ffc83fe7cd7b7e1d2cd4972213fd",
+      "contracts/197-mob-ci-artefakty-lokalno.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "f2b911fbcf00225416cf8e9ad79958f9543c3cdd",
+      "contracts/060-samodostatochnost-repo-mint-reestr-boli.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "f53ce955b5adef6d389df790d5ef3b48cf333504",
+      "ROADMAP.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "f59fd2e82f9633a351e60f7be9217822e835e78d",
+      "ROADMAP.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "f946702428ec89df4cfdf6af7f1f2702d4e44ee0",
+      "ROADMAP.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "f97044d064d9022939db6e0a339eba0004b653b3",
+      "contracts/094-prinyatie-i-publikatsiya-kandidata.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/grandfather",
+      "f9846bcaa3d609639d3b5de75869104e6cd1220e",
+      "contracts/158-ekrannyj-nabor.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/permit",
+      "1af9e1730ac5511a65b473342e8a1160fdfb3db3",
+      "contracts/116-cmp-mob-005-mission.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/permit",
+      "1ec4f3da673f8e6e11dfa92da6520a8284a17479",
+      "contracts/116-cmp-mob-005-mission.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/permit",
+      "2db6345a2abceb7f2aeb87fb882358adb4dfba77",
+      "contracts/116-cmp-mob-005-mission.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/permit",
+      "3a5f2458afc17b71b83fb5f049796a8991ee1eb0",
+      "contracts/116-cmp-mob-005-mission.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/permit",
+      "6f468ef8acf73ce56d31bff7aa0f0302c237c98a",
+      "contracts/116-cmp-mob-005-mission.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/permit",
+      "87d416e1b3a047fc57cb96f5acc3cc063d552ec0",
+      "contracts/116-cmp-mob-005-mission.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/permit",
+      "a8a58d9a6b9d456d776152ed86b42ae8a51b765f",
+      "contracts/116-cmp-mob-005-mission.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/permit",
+      "c99a7a1d6d35cea2741b5b4a300422b4288d1bc0",
+      "contracts/116-cmp-mob-005-mission.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_charter/permit",
+      "f0b30673668318b38dcfa6c1e36eae424ce2059f",
+      "contracts/117-cmp-mob-vkhod-splash.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_contract_frozen/skip-version",
+      "-",
+      "contracts/148/4",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_protected/delete",
+      "023f7dafcd444daf5d47dbccf9dde7642cd1b5cd",
+      "verdicts/consultant/993-krug5-stop-klass-v1.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_protected/delete",
+      "08ce2e7f33f9374368da5c12ef3c5f729c04f376",
+      "verdicts/review/contracts-105-land-v2.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_protected/delete",
+      "0a4e9c490acb7c01d6d32b55b4d8f787e34959a8",
+      "verdicts/critic/contracts-189-v4.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_protected/delete",
+      "230c43376d27ae754d525f8109f0f6068170963b",
+      "verdicts/critic/contracts-993-v2.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_protected/delete",
+      "2ac0f5f2e7250bf90cd4569a1b52bf03f188f32d",
+      "verdicts/consultant/fork-093-v2c-otkrytie-i-a908-razreshenie-klass-v1.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_protected/delete",
+      "2ac0f5f2e7250bf90cd4569a1b52bf03f188f32d",
+      "verdicts/consultant/fork-093-v2c-otkrytie-i-a908-razreshenie-v1.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_protected/delete",
+      "31fcb46bd3e6e9faf11868ea766e083ea7b32069",
+      "verdicts/critic/contracts-043-v2-spaseno-draft.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_protected/delete",
+      "4aa5e0a345752a70e418625a54ef30ef5b09efde",
+      "verdicts/critic/contracts-090-v3.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_protected/delete",
+      "66e3a0b950264d4be597eb0d4e5722b9c98e4186",
+      "verdicts/consultant/263-grandfather-b7a0c276-klass-v1.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_protected/delete",
+      "66e3a0b950264d4be597eb0d4e5722b9c98e4186",
+      "verdicts/consultant/263-grandfather-b7a0c276-v1.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_protected/delete",
+      "66e3a0b950264d4be597eb0d4e5722b9c98e4186",
+      "verdicts/consultant/266-orch-loop-test-mode-soreview-v1.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_protected/delete",
+      "96e01e91c760b7f231d3adb27e09190c43b8f010",
+      "verdicts/critic/contracts-994-v3.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_protected/delete",
+      "aace01dd1f1b4959bcea061fc54c3e5e485934ba",
+      "verdicts/critic/contracts-044-v2.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/mint",
+      "4ed2d2172b4e0a36bda87f38cfe73c252a1c2546",
+      "registry/contracts.tsv",
+      "orchestrator",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/mint",
+      "56f62ed687a6acde05d2e1af76cf6a2ac489a45e",
+      "registry/contracts.tsv",
+      "orchestrator",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/mint",
+      "6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca",
+      "registry/contracts.tsv",
+      "orchestrator",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/mint",
+      "6dbee81755ac83f6d79fa649613a1e664bfae801",
+      "registry/contracts.tsv",
+      "orchestrator",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/mint",
+      "6eebe030268b624d12feb6a1ba9edc6155abd9a1",
+      "registry/contracts.tsv",
+      "orchestrator",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/mint",
+      "78bae300867ffce3cfce0ae20768fd8658e97e5a",
+      "registry/contracts.tsv",
+      "orchestrator",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/mint",
+      "7f54f1f60bea573487da5ba2f2eb0603a05b1df3",
+      "registry/contracts.tsv",
+      "orchestrator",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/mint",
+      "80ea54402c91c9f4ac6791fc10f09371623a5b70",
+      "registry/contracts.tsv",
+      "orchestrator",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/mint",
+      "8c734d93b91fb3ff38528d6591d519a5145de325",
+      "registry/contracts.tsv",
+      "orchestrator",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/mint",
+      "8ce382ae8260cdc18e9dae9b736070b4ed19df56",
+      "registry/contracts.tsv",
+      "orchestrator",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/mint",
+      "8f1c25f011921721934d870914f562f9f3ff815c",
+      "registry/contracts.tsv",
+      "orchestrator",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/mint",
+      "a72ee9069d00ab73abb418be99a0f1d9f53ae70d",
+      "registry/contracts.tsv",
+      "orchestrator",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/mint",
+      "bcd5b796a1e9328ba9440b358ea1f7e0068d8fec",
+      "registry/contracts.tsv",
+      "orchestrator",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/mint",
+      "c663dd0fb0b233e56368707aef6940baaf254a30",
+      "registry/contracts.tsv",
+      "orchestrator",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/mint",
+      "eb5df0064ac94551cc361e466e991f8099c0fcca",
+      "registry/contracts.tsv",
+      "orchestrator",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/mint",
+      "fd81f057a709e1a7751bda285022fbd522c6f747",
+      "registry/contracts.tsv",
+      "orchestrator",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "056be22d116da8f0e26b155534f16b7d7e2f969a",
+      "registry/plan.tsv",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "0678a94962bd86aaea6d79883e02dd9dd56087a6",
+      "*",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "0bf2fecf58ed5e74cfa42b257d0877a8efc2743d",
+      "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "1c787a9d5429f751258a2ee311ce3dc058cee2bd",
+      "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "398d4f61fb2fbb48e71ca547eee05fbc4bc6fc20",
+      "forks/093-ops-granica-oracle-074-pin-stale.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "3d0c29ac64ea13e6ad894672f4239c311191b8cc",
+      "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "563807ddc2eb23d5ca29054fd5fa1aa10cb09da9",
+      "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "7ed4a89c2f03fe554d8809358bf60a64e2a48e5c",
+      "docs/owner/2026-10-15-complior-mob-reshenija.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "81e6e252074f931fed5df2776b1a5309eebd3f13",
+      "*",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "82421bcc35143112978313fb7f801bc85d010322",
+      "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "868d386f146781af18db40be08b94bf7c2d12dfb",
+      "docs/owner/2026-10-15-complior-mob-reshenija.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "8c734d93b91fb3ff38528d6591d519a5145de325",
+      "fixtures/_krasnye_098.sh",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "8c734d93b91fb3ff38528d6591d519a5145de325",
+      "fixtures/dokazatelstva_098/*",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "990d37068181f869b0e751a12022e0b25592e2bb",
+      "ROADMAP.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "a99ef2dc3715233d22f3e16e8d6b1dc9b602b75f",
+      "registry/plan.tsv",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "af90be5eb1b8c26e6947799fb6e1faf34524e861",
+      "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "b6daee0a0205d1e1008948e4332781dd9d10dd34",
+      "contracts/092-vozobnovlyaemoe-sostoyanie-zadachi.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "b99c667be138f344906b352ea5a6d510f11473a4",
+      "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "cb5c070cf3d7a03e09fc5e327ccdacc753103863",
+      "docs/owner/2026-10-14-razblokirovka-093-v4-l4-l5.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "de609555d63c4a272d49ab6b7525668eccd5829c",
+      "ROADMAP.md",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/process",
+      "de609555d63c4a272d49ab6b7525668eccd5829c",
+      "registry/plan.tsv",
+      "*",
+      "R-0114",
+      "never"
+    ],
+    [
+      "check_zones/skip-version",
+      "-",
+      "contracts/148/4",
+      "*",
+      "R-0114",
+      "never"
+    ]
+  ],
+  "sha40_occurrences": {
+    "check_charter": 166,
+    "check_zones": 53,
+    "check_protected": 18,
+    "check_contract_frozen": 0
+  },
+  "matrix": [
+    {
+      "args": [
+        "check_charter/grandfather",
+        "02f7b0cd0ce0172c66bdfe783648fa37cf853920",
+        "contracts/043-precizionnyj-prefriz-gejt.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "02f7b0cd0ce0172c66bdfe783648fa37cf853920",
+        "contracts/043-precizionnyj-prefriz-gejt.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "02f7b0cd0ce0172c66bdfe783648fa37cf853920",
+        "contracts/043-precizionnyj-prefriz-gejt.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "02f7b0cd0ce0172c66bdfe783648fa37cf853920",
+        "contracts/043-precizionnyj-prefriz-gejt.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "056c4c6a748f25330e200357488240b995b26b14",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "056c4c6a748f25330e200357488240b995b26b14",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "056c4c6a748f25330e200357488240b995b26b14",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "056c4c6a748f25330e200357488240b995b26b14",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "0872189c654c9728f2753c36a48f99a0322ad2fd",
+        "contracts/037-samodostatochnyj-cwd-i-priemnik-task.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "0872189c654c9728f2753c36a48f99a0322ad2fd",
+        "contracts/037-samodostatochnyj-cwd-i-priemnik-task.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "0872189c654c9728f2753c36a48f99a0322ad2fd",
+        "contracts/037-samodostatochnyj-cwd-i-priemnik-task.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "0872189c654c9728f2753c36a48f99a0322ad2fd",
+        "contracts/037-samodostatochnyj-cwd-i-priemnik-task.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "0c7883891b14442963adf7fe9466ab8a5a0d2472",
+        "contracts/158-ekrannyj-nabor.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "0c7883891b14442963adf7fe9466ab8a5a0d2472",
+        "contracts/158-ekrannyj-nabor.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "0c7883891b14442963adf7fe9466ab8a5a0d2472",
+        "contracts/158-ekrannyj-nabor.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "0c7883891b14442963adf7fe9466ab8a5a0d2472",
+        "contracts/158-ekrannyj-nabor.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "0c7883891b14442963adf7fe9466ab8a5a0d2472",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "0c7883891b14442963adf7fe9466ab8a5a0d2472",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "0c7883891b14442963adf7fe9466ab8a5a0d2472",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "0c7883891b14442963adf7fe9466ab8a5a0d2472",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "11e4aaadbdfe99b993860a41b6106f32d20c4f15",
+        "contracts/209-zasev-trassy-proekta.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "11e4aaadbdfe99b993860a41b6106f32d20c4f15",
+        "contracts/209-zasev-trassy-proekta.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "11e4aaadbdfe99b993860a41b6106f32d20c4f15",
+        "contracts/209-zasev-trassy-proekta.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "11e4aaadbdfe99b993860a41b6106f32d20c4f15",
+        "contracts/209-zasev-trassy-proekta.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "123d63c7bff0a98778b4b138a78986609e2e9a5d",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "123d63c7bff0a98778b4b138a78986609e2e9a5d",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "123d63c7bff0a98778b4b138a78986609e2e9a5d",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "123d63c7bff0a98778b4b138a78986609e2e9a5d",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "152b97a3b52e63e4bf555d9dd9b2dacaf308a1fd",
+        "contracts/080-dver-bugfiks-perezapuska.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "152b97a3b52e63e4bf555d9dd9b2dacaf308a1fd",
+        "contracts/080-dver-bugfiks-perezapuska.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "152b97a3b52e63e4bf555d9dd9b2dacaf308a1fd",
+        "contracts/080-dver-bugfiks-perezapuska.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "152b97a3b52e63e4bf555d9dd9b2dacaf308a1fd",
+        "contracts/080-dver-bugfiks-perezapuska.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "19678a0034fba8906a4103965516494de2ae58d2",
+        "contracts/037-samodostatochnyj-cwd-i-priemnik-task.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "19678a0034fba8906a4103965516494de2ae58d2",
+        "contracts/037-samodostatochnyj-cwd-i-priemnik-task.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "19678a0034fba8906a4103965516494de2ae58d2",
+        "contracts/037-samodostatochnyj-cwd-i-priemnik-task.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "19678a0034fba8906a4103965516494de2ae58d2",
+        "contracts/037-samodostatochnyj-cwd-i-priemnik-task.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "1c2d1c1e2b45679f93121215ef06c272b5462317",
+        "contracts/206-sreda-sudji.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "1c2d1c1e2b45679f93121215ef06c272b5462317",
+        "contracts/206-sreda-sudji.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "1c2d1c1e2b45679f93121215ef06c272b5462317",
+        "contracts/206-sreda-sudji.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "1c2d1c1e2b45679f93121215ef06c272b5462317",
+        "contracts/206-sreda-sudji.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "1c2d1c1e2b45679f93121215ef06c272b5462317",
+        "contracts/207-check-zones-incr-odin-sud-okna.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "1c2d1c1e2b45679f93121215ef06c272b5462317",
+        "contracts/207-check-zones-incr-odin-sud-okna.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "1c2d1c1e2b45679f93121215ef06c272b5462317",
+        "contracts/207-check-zones-incr-odin-sud-okna.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "1c2d1c1e2b45679f93121215ef06c272b5462317",
+        "contracts/207-check-zones-incr-odin-sud-okna.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "1fb51dc3378087bcfc9143d9e2a6aad103a00485",
+        "contracts/217-incr-pustoe-okno.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "1fb51dc3378087bcfc9143d9e2a6aad103a00485",
+        "contracts/217-incr-pustoe-okno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "1fb51dc3378087bcfc9143d9e2a6aad103a00485",
+        "contracts/217-incr-pustoe-okno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "1fb51dc3378087bcfc9143d9e2a6aad103a00485",
+        "contracts/217-incr-pustoe-okno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "236c860415cdebd55df75bdf732e5f38aa9025e1",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "236c860415cdebd55df75bdf732e5f38aa9025e1",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "236c860415cdebd55df75bdf732e5f38aa9025e1",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "236c860415cdebd55df75bdf732e5f38aa9025e1",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "241bff9933cc1382f7ddf3c7a38c4eb34e681275",
+        "contracts/195-potrebiteli-116-okno-pr-sliyanij.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "241bff9933cc1382f7ddf3c7a38c4eb34e681275",
+        "contracts/195-potrebiteli-116-okno-pr-sliyanij.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "241bff9933cc1382f7ddf3c7a38c4eb34e681275",
+        "contracts/195-potrebiteli-116-okno-pr-sliyanij.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "241bff9933cc1382f7ddf3c7a38c4eb34e681275",
+        "contracts/195-potrebiteli-116-okno-pr-sliyanij.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "27b1f05eec6bc8ac883f18f2943560c017a746a3",
+        "contracts/080-dver-bugfiks-perezapuska.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "27b1f05eec6bc8ac883f18f2943560c017a746a3",
+        "contracts/080-dver-bugfiks-perezapuska.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "27b1f05eec6bc8ac883f18f2943560c017a746a3",
+        "contracts/080-dver-bugfiks-perezapuska.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "27b1f05eec6bc8ac883f18f2943560c017a746a3",
+        "contracts/080-dver-bugfiks-perezapuska.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "2c01b1ed9c93f2ad14959f99511581de5526f68d",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "2c01b1ed9c93f2ad14959f99511581de5526f68d",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "2c01b1ed9c93f2ad14959f99511581de5526f68d",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "2c01b1ed9c93f2ad14959f99511581de5526f68d",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "2c01b1ed9c93f2ad14959f99511581de5526f68d",
+        "contracts/082-per-kejsnyj-dedlajn-verify-antiplacebo.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "2c01b1ed9c93f2ad14959f99511581de5526f68d",
+        "contracts/082-per-kejsnyj-dedlajn-verify-antiplacebo.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "2c01b1ed9c93f2ad14959f99511581de5526f68d",
+        "contracts/082-per-kejsnyj-dedlajn-verify-antiplacebo.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "2c01b1ed9c93f2ad14959f99511581de5526f68d",
+        "contracts/082-per-kejsnyj-dedlajn-verify-antiplacebo.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "2c7abb6e6ac30cc7c848a0e1172a30ed94ebc54c",
+        "contracts/158-ekrannyj-nabor.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "2c7abb6e6ac30cc7c848a0e1172a30ed94ebc54c",
+        "contracts/158-ekrannyj-nabor.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "2c7abb6e6ac30cc7c848a0e1172a30ed94ebc54c",
+        "contracts/158-ekrannyj-nabor.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "2c7abb6e6ac30cc7c848a0e1172a30ed94ebc54c",
+        "contracts/158-ekrannyj-nabor.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "2c7abb6e6ac30cc7c848a0e1172a30ed94ebc54c",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "2c7abb6e6ac30cc7c848a0e1172a30ed94ebc54c",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "2c7abb6e6ac30cc7c848a0e1172a30ed94ebc54c",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "2c7abb6e6ac30cc7c848a0e1172a30ed94ebc54c",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "2defcc46a1e2b3bfe5d22cdbaf90912d64246f20",
+        "contracts/147-gespraech-vhod-menu.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "2defcc46a1e2b3bfe5d22cdbaf90912d64246f20",
+        "contracts/147-gespraech-vhod-menu.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "2defcc46a1e2b3bfe5d22cdbaf90912d64246f20",
+        "contracts/147-gespraech-vhod-menu.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "2defcc46a1e2b3bfe5d22cdbaf90912d64246f20",
+        "contracts/147-gespraech-vhod-menu.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "3718851c9ac1cedd1ccd360007423cce3c61f93c",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "3718851c9ac1cedd1ccd360007423cce3c61f93c",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "3718851c9ac1cedd1ccd360007423cce3c61f93c",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "3718851c9ac1cedd1ccd360007423cce3c61f93c",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "3e8db2655d08dcdfbf0fffaf4fb0d6f0a293b95d",
+        "contracts/206-sreda-sudji.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "3e8db2655d08dcdfbf0fffaf4fb0d6f0a293b95d",
+        "contracts/206-sreda-sudji.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "3e8db2655d08dcdfbf0fffaf4fb0d6f0a293b95d",
+        "contracts/206-sreda-sudji.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "3e8db2655d08dcdfbf0fffaf4fb0d6f0a293b95d",
+        "contracts/206-sreda-sudji.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "3f25b7e6da54750e511dbd154f1d98d6c5e89765",
+        "contracts/208-zamok-object-predok.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "3f25b7e6da54750e511dbd154f1d98d6c5e89765",
+        "contracts/208-zamok-object-predok.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "3f25b7e6da54750e511dbd154f1d98d6c5e89765",
+        "contracts/208-zamok-object-predok.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "3f25b7e6da54750e511dbd154f1d98d6c5e89765",
+        "contracts/208-zamok-object-predok.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "3f313c37cd336905a7a6621034889f8b9d0622c9",
+        "contracts/208-zamok-object-predok.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "3f313c37cd336905a7a6621034889f8b9d0622c9",
+        "contracts/208-zamok-object-predok.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "3f313c37cd336905a7a6621034889f8b9d0622c9",
+        "contracts/208-zamok-object-predok.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "3f313c37cd336905a7a6621034889f8b9d0622c9",
+        "contracts/208-zamok-object-predok.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "409836ed5d918d4ecb16f132b8f6e26d287b32cc",
+        "contracts/204-karta-vyzova-po-faze.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "409836ed5d918d4ecb16f132b8f6e26d287b32cc",
+        "contracts/204-karta-vyzova-po-faze.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "409836ed5d918d4ecb16f132b8f6e26d287b32cc",
+        "contracts/204-karta-vyzova-po-faze.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "409836ed5d918d4ecb16f132b8f6e26d287b32cc",
+        "contracts/204-karta-vyzova-po-faze.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "40a93f1da02d18d7323764007aac094989ee8c74",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "40a93f1da02d18d7323764007aac094989ee8c74",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "40a93f1da02d18d7323764007aac094989ee8c74",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "40a93f1da02d18d7323764007aac094989ee8c74",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "4150211f935d0a0268c56387ec70f3d7d5d4ece9",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "4150211f935d0a0268c56387ec70f3d7d5d4ece9",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "4150211f935d0a0268c56387ec70f3d7d5d4ece9",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "4150211f935d0a0268c56387ec70f3d7d5d4ece9",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "41f80d3bcd41a9d73233689a39e329e9e034168e",
+        "contracts/094-prinyatie-i-publikatsiya-kandidata.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "41f80d3bcd41a9d73233689a39e329e9e034168e",
+        "contracts/094-prinyatie-i-publikatsiya-kandidata.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "41f80d3bcd41a9d73233689a39e329e9e034168e",
+        "contracts/094-prinyatie-i-publikatsiya-kandidata.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "41f80d3bcd41a9d73233689a39e329e9e034168e",
+        "contracts/094-prinyatie-i-publikatsiya-kandidata.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "4734ef880e0f7d2cb5f756c98f17033c17fa9d54",
+        "contracts/090-fix-orch-peak-home-install-safe-dir.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "4734ef880e0f7d2cb5f756c98f17033c17fa9d54",
+        "contracts/090-fix-orch-peak-home-install-safe-dir.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "4734ef880e0f7d2cb5f756c98f17033c17fa9d54",
+        "contracts/090-fix-orch-peak-home-install-safe-dir.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "4734ef880e0f7d2cb5f756c98f17033c17fa9d54",
+        "contracts/090-fix-orch-peak-home-install-safe-dir.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "47a12d46a95dc8434c9bc759a43d479b412417e2",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "47a12d46a95dc8434c9bc759a43d479b412417e2",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "47a12d46a95dc8434c9bc759a43d479b412417e2",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "47a12d46a95dc8434c9bc759a43d479b412417e2",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "4de64aa195acc309dd6d4cee876515ebeed28725",
+        "contracts/043-precizionnyj-prefriz-gejt.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "4de64aa195acc309dd6d4cee876515ebeed28725",
+        "contracts/043-precizionnyj-prefriz-gejt.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "4de64aa195acc309dd6d4cee876515ebeed28725",
+        "contracts/043-precizionnyj-prefriz-gejt.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "4de64aa195acc309dd6d4cee876515ebeed28725",
+        "contracts/043-precizionnyj-prefriz-gejt.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "50e020e92007aa3b91ca42f48393e0b198700028",
+        "contracts/026-zhnec-tmp.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "50e020e92007aa3b91ca42f48393e0b198700028",
+        "contracts/026-zhnec-tmp.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "50e020e92007aa3b91ca42f48393e0b198700028",
+        "contracts/026-zhnec-tmp.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "50e020e92007aa3b91ca42f48393e0b198700028",
+        "contracts/026-zhnec-tmp.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "59ae3562ed8bda92a5e7d5e30d38d7bffcc63fcb",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "59ae3562ed8bda92a5e7d5e30d38d7bffcc63fcb",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "59ae3562ed8bda92a5e7d5e30d38d7bffcc63fcb",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "59ae3562ed8bda92a5e7d5e30d38d7bffcc63fcb",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "5c4752bc57c269f47fad43143c84d1acf2b53365",
+        "contracts/095-profil-i-vhod-agenta-contextpack.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "5c4752bc57c269f47fad43143c84d1acf2b53365",
+        "contracts/095-profil-i-vhod-agenta-contextpack.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "5c4752bc57c269f47fad43143c84d1acf2b53365",
+        "contracts/095-profil-i-vhod-agenta-contextpack.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "5c4752bc57c269f47fad43143c84d1acf2b53365",
+        "contracts/095-profil-i-vhod-agenta-contextpack.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "5d48155f2623b6f6cdc7b112fe42510c54f96b71",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "5d48155f2623b6f6cdc7b112fe42510c54f96b71",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "5d48155f2623b6f6cdc7b112fe42510c54f96b71",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "5d48155f2623b6f6cdc7b112fe42510c54f96b71",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "649777a14caebbf660931a2cfc97bf0fdacbadcb",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "649777a14caebbf660931a2cfc97bf0fdacbadcb",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "649777a14caebbf660931a2cfc97bf0fdacbadcb",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "649777a14caebbf660931a2cfc97bf0fdacbadcb",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "6609f708e7a35a384308245b6f21522868ab8313",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "6609f708e7a35a384308245b6f21522868ab8313",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "6609f708e7a35a384308245b6f21522868ab8313",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "6609f708e7a35a384308245b6f21522868ab8313",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "66a37efff06a1da72febe8e36b9bb37f8ff6d3eb",
+        "contracts/204-karta-vyzova-po-faze.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "66a37efff06a1da72febe8e36b9bb37f8ff6d3eb",
+        "contracts/204-karta-vyzova-po-faze.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "66a37efff06a1da72febe8e36b9bb37f8ff6d3eb",
+        "contracts/204-karta-vyzova-po-faze.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "66a37efff06a1da72febe8e36b9bb37f8ff6d3eb",
+        "contracts/204-karta-vyzova-po-faze.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "698060db450009698b3b9946552429a41f405871",
+        "contracts/999-cmp-mob-002-navigatsiya.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "698060db450009698b3b9946552429a41f405871",
+        "contracts/999-cmp-mob-002-navigatsiya.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "698060db450009698b3b9946552429a41f405871",
+        "contracts/999-cmp-mob-002-navigatsiya.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "698060db450009698b3b9946552429a41f405871",
+        "contracts/999-cmp-mob-002-navigatsiya.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "6d1d23d4320d126d7cdce048d7fee519aff74a5a",
+        "contracts/095-profil-i-vhod-agenta-contextpack.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "6d1d23d4320d126d7cdce048d7fee519aff74a5a",
+        "contracts/095-profil-i-vhod-agenta-contextpack.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "6d1d23d4320d126d7cdce048d7fee519aff74a5a",
+        "contracts/095-profil-i-vhod-agenta-contextpack.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "6d1d23d4320d126d7cdce048d7fee519aff74a5a",
+        "contracts/095-profil-i-vhod-agenta-contextpack.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "71384784ddfa74a78e55dc7c2e19157ffa88460b",
+        "contracts/205-provodka-gate-profilja.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "71384784ddfa74a78e55dc7c2e19157ffa88460b",
+        "contracts/205-provodka-gate-profilja.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "71384784ddfa74a78e55dc7c2e19157ffa88460b",
+        "contracts/205-provodka-gate-profilja.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "71384784ddfa74a78e55dc7c2e19157ffa88460b",
+        "contracts/205-provodka-gate-profilja.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "735af7f633fce73bbd64dcba12f78ed8617f23d6",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "735af7f633fce73bbd64dcba12f78ed8617f23d6",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "735af7f633fce73bbd64dcba12f78ed8617f23d6",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "735af7f633fce73bbd64dcba12f78ed8617f23d6",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "743f0e07cf6b2711ff686400a7b5c4f59e5652ff",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "743f0e07cf6b2711ff686400a7b5c4f59e5652ff",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "743f0e07cf6b2711ff686400a7b5c4f59e5652ff",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "743f0e07cf6b2711ff686400a7b5c4f59e5652ff",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "7597534f9859dc19b4f5089a6a182722fb4be96c",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "7597534f9859dc19b4f5089a6a182722fb4be96c",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "7597534f9859dc19b4f5089a6a182722fb4be96c",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "7597534f9859dc19b4f5089a6a182722fb4be96c",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "78579513c3c40833fc4af321514925a441f20738",
+        "contracts/212-replace-posle-lenda.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "78579513c3c40833fc4af321514925a441f20738",
+        "contracts/212-replace-posle-lenda.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "78579513c3c40833fc4af321514925a441f20738",
+        "contracts/212-replace-posle-lenda.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "78579513c3c40833fc4af321514925a441f20738",
+        "contracts/212-replace-posle-lenda.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "78d8e785181e07e11c222c197b993f2bc87f0ed5",
+        "contracts/157-spawn-guard-proektnye-sessii.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "78d8e785181e07e11c222c197b993f2bc87f0ed5",
+        "contracts/157-spawn-guard-proektnye-sessii.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "78d8e785181e07e11c222c197b993f2bc87f0ed5",
+        "contracts/157-spawn-guard-proektnye-sessii.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "78d8e785181e07e11c222c197b993f2bc87f0ed5",
+        "contracts/157-spawn-guard-proektnye-sessii.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "78d8e785181e07e11c222c197b993f2bc87f0ed5",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "78d8e785181e07e11c222c197b993f2bc87f0ed5",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "78d8e785181e07e11c222c197b993f2bc87f0ed5",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "78d8e785181e07e11c222c197b993f2bc87f0ed5",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "797a3129410411f6e478c938e5218ada8ac1769d",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "797a3129410411f6e478c938e5218ada8ac1769d",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "797a3129410411f6e478c938e5218ada8ac1769d",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "797a3129410411f6e478c938e5218ada8ac1769d",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "8766e76946658b548bb9d4be870dfcf0b97ef288",
+        "contracts/043-precizionnyj-prefriz-gejt.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "8766e76946658b548bb9d4be870dfcf0b97ef288",
+        "contracts/043-precizionnyj-prefriz-gejt.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "8766e76946658b548bb9d4be870dfcf0b97ef288",
+        "contracts/043-precizionnyj-prefriz-gejt.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "8766e76946658b548bb9d4be870dfcf0b97ef288",
+        "contracts/043-precizionnyj-prefriz-gejt.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "8a01ad9996b5c5ee9300f446f5ec5fd20d0cb792",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "8a01ad9996b5c5ee9300f446f5ec5fd20d0cb792",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "8a01ad9996b5c5ee9300f446f5ec5fd20d0cb792",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "8a01ad9996b5c5ee9300f446f5ec5fd20d0cb792",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "8c734d93b91fb3ff38528d6591d519a5145de325",
+        "contracts/098-proizvodstvennye-dokazatelstva-do-publikacii.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "8c734d93b91fb3ff38528d6591d519a5145de325",
+        "contracts/098-proizvodstvennye-dokazatelstva-do-publikacii.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "8c734d93b91fb3ff38528d6591d519a5145de325",
+        "contracts/098-proizvodstvennye-dokazatelstva-do-publikacii.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "8c734d93b91fb3ff38528d6591d519a5145de325",
+        "contracts/098-proizvodstvennye-dokazatelstva-do-publikacii.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "8ef0e9b971993f079f65cd78f595fbbafcb37985",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "8ef0e9b971993f079f65cd78f595fbbafcb37985",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "8ef0e9b971993f079f65cd78f595fbbafcb37985",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "8ef0e9b971993f079f65cd78f595fbbafcb37985",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "8f2dc6c24f5b54425eb3e3a0106984f5edffc44c",
+        "contracts/143-mob-ci-razdelenie.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "8f2dc6c24f5b54425eb3e3a0106984f5edffc44c",
+        "contracts/143-mob-ci-razdelenie.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "8f2dc6c24f5b54425eb3e3a0106984f5edffc44c",
+        "contracts/143-mob-ci-razdelenie.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "8f2dc6c24f5b54425eb3e3a0106984f5edffc44c",
+        "contracts/143-mob-ci-razdelenie.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "90365f1054c34911d577bdcc68a9c7ee7e6fd01a",
+        "contracts/207-check-zones-incr-odin-sud-okna.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "90365f1054c34911d577bdcc68a9c7ee7e6fd01a",
+        "contracts/207-check-zones-incr-odin-sud-okna.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "90365f1054c34911d577bdcc68a9c7ee7e6fd01a",
+        "contracts/207-check-zones-incr-odin-sud-okna.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "90365f1054c34911d577bdcc68a9c7ee7e6fd01a",
+        "contracts/207-check-zones-incr-odin-sud-okna.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "97de545dd67a363e2b018204620ddaa01263f17a",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "97de545dd67a363e2b018204620ddaa01263f17a",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "97de545dd67a363e2b018204620ddaa01263f17a",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "97de545dd67a363e2b018204620ddaa01263f17a",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "9906f63122278ba28ffd4fee9741ef94c5466a5a",
+        "contracts/043-precizionnyj-prefriz-gejt.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "9906f63122278ba28ffd4fee9741ef94c5466a5a",
+        "contracts/043-precizionnyj-prefriz-gejt.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "9906f63122278ba28ffd4fee9741ef94c5466a5a",
+        "contracts/043-precizionnyj-prefriz-gejt.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "9906f63122278ba28ffd4fee9741ef94c5466a5a",
+        "contracts/043-precizionnyj-prefriz-gejt.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "9a27066e9aedb4dbf8ee15288ba6000a373a969d",
+        "contracts/140-odin-agent-na-predmet.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "9a27066e9aedb4dbf8ee15288ba6000a373a969d",
+        "contracts/140-odin-agent-na-predmet.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "9a27066e9aedb4dbf8ee15288ba6000a373a969d",
+        "contracts/140-odin-agent-na-predmet.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "9a27066e9aedb4dbf8ee15288ba6000a373a969d",
+        "contracts/140-odin-agent-na-predmet.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "9bf62dd40a82328a08eab7d6bcf0b9c3ebe299f8",
+        "contracts/074-server-obvjazka-edinyy-istochnik.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "9bf62dd40a82328a08eab7d6bcf0b9c3ebe299f8",
+        "contracts/074-server-obvjazka-edinyy-istochnik.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "9bf62dd40a82328a08eab7d6bcf0b9c3ebe299f8",
+        "contracts/074-server-obvjazka-edinyy-istochnik.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "9bf62dd40a82328a08eab7d6bcf0b9c3ebe299f8",
+        "contracts/074-server-obvjazka-edinyy-istochnik.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "a1654418fef324ab4ee5cb0ec3e9f70db6a7c33d",
+        "contracts/210-charter-tekst-do-tega.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "a1654418fef324ab4ee5cb0ec3e9f70db6a7c33d",
+        "contracts/210-charter-tekst-do-tega.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "a1654418fef324ab4ee5cb0ec3e9f70db6a7c33d",
+        "contracts/210-charter-tekst-do-tega.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "a1654418fef324ab4ee5cb0ec3e9f70db6a7c33d",
+        "contracts/210-charter-tekst-do-tega.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "a1957624004ec18025f3c681e5ece505a7e01288",
+        "contracts/074-server-obvjazka-edinyy-istochnik.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "a1957624004ec18025f3c681e5ece505a7e01288",
+        "contracts/074-server-obvjazka-edinyy-istochnik.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "a1957624004ec18025f3c681e5ece505a7e01288",
+        "contracts/074-server-obvjazka-edinyy-istochnik.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "a1957624004ec18025f3c681e5ece505a7e01288",
+        "contracts/074-server-obvjazka-edinyy-istochnik.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "a3665a5691bb6b6a85e6b703c10406bc05e10ca9",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "a3665a5691bb6b6a85e6b703c10406bc05e10ca9",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "a3665a5691bb6b6a85e6b703c10406bc05e10ca9",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "a3665a5691bb6b6a85e6b703c10406bc05e10ca9",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "a60dfde5370ffd66f0f4faf15aecd956758143af",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "a60dfde5370ffd66f0f4faf15aecd956758143af",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "a60dfde5370ffd66f0f4faf15aecd956758143af",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "a60dfde5370ffd66f0f4faf15aecd956758143af",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "abc4c60626ce0d3f89f41082f9092d0d6dcb9187",
+        "contracts/080-dver-bugfiks-perezapuska.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "abc4c60626ce0d3f89f41082f9092d0d6dcb9187",
+        "contracts/080-dver-bugfiks-perezapuska.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "abc4c60626ce0d3f89f41082f9092d0d6dcb9187",
+        "contracts/080-dver-bugfiks-perezapuska.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "abc4c60626ce0d3f89f41082f9092d0d6dcb9187",
+        "contracts/080-dver-bugfiks-perezapuska.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "ae8836c6b2bc930d6aa9a36a0d97a276aecbb431",
+        "contracts/095-profil-i-vhod-agenta-contextpack.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "ae8836c6b2bc930d6aa9a36a0d97a276aecbb431",
+        "contracts/095-profil-i-vhod-agenta-contextpack.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "ae8836c6b2bc930d6aa9a36a0d97a276aecbb431",
+        "contracts/095-profil-i-vhod-agenta-contextpack.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "ae8836c6b2bc930d6aa9a36a0d97a276aecbb431",
+        "contracts/095-profil-i-vhod-agenta-contextpack.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "b0c39a58347eb5a8479473a05fd44b8be1ba2f15",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "b0c39a58347eb5a8479473a05fd44b8be1ba2f15",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "b0c39a58347eb5a8479473a05fd44b8be1ba2f15",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "b0c39a58347eb5a8479473a05fd44b8be1ba2f15",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "b428ff6d03f254f02a8ed3319f01abcf06f775e2",
+        "contracts/154-schet-vyzovov-kritika.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "b428ff6d03f254f02a8ed3319f01abcf06f775e2",
+        "contracts/154-schet-vyzovov-kritika.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "b428ff6d03f254f02a8ed3319f01abcf06f775e2",
+        "contracts/154-schet-vyzovov-kritika.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "b428ff6d03f254f02a8ed3319f01abcf06f775e2",
+        "contracts/154-schet-vyzovov-kritika.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "b7a0c27612438b9768a084abe775baf12d9e4989",
+        "contracts/094-prinyatie-i-publikatsiya-kandidata.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "b7a0c27612438b9768a084abe775baf12d9e4989",
+        "contracts/094-prinyatie-i-publikatsiya-kandidata.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "b7a0c27612438b9768a084abe775baf12d9e4989",
+        "contracts/094-prinyatie-i-publikatsiya-kandidata.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "b7a0c27612438b9768a084abe775baf12d9e4989",
+        "contracts/094-prinyatie-i-publikatsiya-kandidata.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "be50743754cffbcd4e5a4741e9b9bd38838327c7",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "be50743754cffbcd4e5a4741e9b9bd38838327c7",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "be50743754cffbcd4e5a4741e9b9bd38838327c7",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "be50743754cffbcd4e5a4741e9b9bd38838327c7",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "c1cf214080a5cf7bfc5bfa1060394543f05125be",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "c1cf214080a5cf7bfc5bfa1060394543f05125be",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "c1cf214080a5cf7bfc5bfa1060394543f05125be",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "c1cf214080a5cf7bfc5bfa1060394543f05125be",
+        "contracts/162-standart-koda-mob.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "c25196f6cb8245759f20788cf91ee8293216d4d8",
+        "contracts/211-d52-bootstrap-sudej.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "c25196f6cb8245759f20788cf91ee8293216d4d8",
+        "contracts/211-d52-bootstrap-sudej.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "c25196f6cb8245759f20788cf91ee8293216d4d8",
+        "contracts/211-d52-bootstrap-sudej.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "c25196f6cb8245759f20788cf91ee8293216d4d8",
+        "contracts/211-d52-bootstrap-sudej.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "c4286a3b19ceb41667b6a8461fe0caa79b033fe9",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "c4286a3b19ceb41667b6a8461fe0caa79b033fe9",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "c4286a3b19ceb41667b6a8461fe0caa79b033fe9",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "c4286a3b19ceb41667b6a8461fe0caa79b033fe9",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "c672f2b3d32c92023be4a0740842b1b2c3ee3bf5",
+        "contracts/080-dver-bugfiks-perezapuska.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "c672f2b3d32c92023be4a0740842b1b2c3ee3bf5",
+        "contracts/080-dver-bugfiks-perezapuska.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "c672f2b3d32c92023be4a0740842b1b2c3ee3bf5",
+        "contracts/080-dver-bugfiks-perezapuska.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "c672f2b3d32c92023be4a0740842b1b2c3ee3bf5",
+        "contracts/080-dver-bugfiks-perezapuska.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "c8711daa62892b1833472f6d54ac7e5a3d7d15c7",
+        "contracts/208-zamok-object-predok.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "c8711daa62892b1833472f6d54ac7e5a3d7d15c7",
+        "contracts/208-zamok-object-predok.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "c8711daa62892b1833472f6d54ac7e5a3d7d15c7",
+        "contracts/208-zamok-object-predok.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "c8711daa62892b1833472f6d54ac7e5a3d7d15c7",
+        "contracts/208-zamok-object-predok.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "cea3a8f0c8194a8813b7d24503acc4e1686fbab0",
+        "contracts/045-pre-exchange-guard-gitw.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "cea3a8f0c8194a8813b7d24503acc4e1686fbab0",
+        "contracts/045-pre-exchange-guard-gitw.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "cea3a8f0c8194a8813b7d24503acc4e1686fbab0",
+        "contracts/045-pre-exchange-guard-gitw.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "cea3a8f0c8194a8813b7d24503acc4e1686fbab0",
+        "contracts/045-pre-exchange-guard-gitw.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "cf3742d171a0c2a0c672edfbad7a8402c7201573",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "cf3742d171a0c2a0c672edfbad7a8402c7201573",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "cf3742d171a0c2a0c672edfbad7a8402c7201573",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "cf3742d171a0c2a0c672edfbad7a8402c7201573",
+        "contracts/995-cmp-mob-001-android-pilot.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "d5da7c9d7c37cb8843b0a8f7dc08e6b9001deb9f",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "d5da7c9d7c37cb8843b0a8f7dc08e6b9001deb9f",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "d5da7c9d7c37cb8843b0a8f7dc08e6b9001deb9f",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "d5da7c9d7c37cb8843b0a8f7dc08e6b9001deb9f",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "e6371ce8caa91e9a275e49ecee5140870832d9e5",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "e6371ce8caa91e9a275e49ecee5140870832d9e5",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "e6371ce8caa91e9a275e49ecee5140870832d9e5",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "e6371ce8caa91e9a275e49ecee5140870832d9e5",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "e642c62099a417a98149900ca8e4cb321e237912",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "e642c62099a417a98149900ca8e4cb321e237912",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "e642c62099a417a98149900ca8e4cb321e237912",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "e642c62099a417a98149900ca8e4cb321e237912",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "ef7ce55f313bf563e1242f4e91bc4cf1037b6931",
+        "contracts/206-sreda-sudji.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "ef7ce55f313bf563e1242f4e91bc4cf1037b6931",
+        "contracts/206-sreda-sudji.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "ef7ce55f313bf563e1242f4e91bc4cf1037b6931",
+        "contracts/206-sreda-sudji.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "ef7ce55f313bf563e1242f4e91bc4cf1037b6931",
+        "contracts/206-sreda-sudji.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "ef7ce55f313bf563e1242f4e91bc4cf1037b6931",
+        "contracts/207-check-zones-incr-odin-sud-okna.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "ef7ce55f313bf563e1242f4e91bc4cf1037b6931",
+        "contracts/207-check-zones-incr-odin-sud-okna.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "ef7ce55f313bf563e1242f4e91bc4cf1037b6931",
+        "contracts/207-check-zones-incr-odin-sud-okna.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "ef7ce55f313bf563e1242f4e91bc4cf1037b6931",
+        "contracts/207-check-zones-incr-odin-sud-okna.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "f1e7b54e0036ffc83fe7cd7b7e1d2cd4972213fd",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "f1e7b54e0036ffc83fe7cd7b7e1d2cd4972213fd",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "f1e7b54e0036ffc83fe7cd7b7e1d2cd4972213fd",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "f1e7b54e0036ffc83fe7cd7b7e1d2cd4972213fd",
+        "contracts/197-mob-ci-artefakty-lokalno.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "f2b911fbcf00225416cf8e9ad79958f9543c3cdd",
+        "contracts/060-samodostatochnost-repo-mint-reestr-boli.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "f2b911fbcf00225416cf8e9ad79958f9543c3cdd",
+        "contracts/060-samodostatochnost-repo-mint-reestr-boli.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "f2b911fbcf00225416cf8e9ad79958f9543c3cdd",
+        "contracts/060-samodostatochnost-repo-mint-reestr-boli.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "f2b911fbcf00225416cf8e9ad79958f9543c3cdd",
+        "contracts/060-samodostatochnost-repo-mint-reestr-boli.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "f53ce955b5adef6d389df790d5ef3b48cf333504",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "f53ce955b5adef6d389df790d5ef3b48cf333504",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "f53ce955b5adef6d389df790d5ef3b48cf333504",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "f53ce955b5adef6d389df790d5ef3b48cf333504",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "f59fd2e82f9633a351e60f7be9217822e835e78d",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "f59fd2e82f9633a351e60f7be9217822e835e78d",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "f59fd2e82f9633a351e60f7be9217822e835e78d",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "f59fd2e82f9633a351e60f7be9217822e835e78d",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "f946702428ec89df4cfdf6af7f1f2702d4e44ee0",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "f946702428ec89df4cfdf6af7f1f2702d4e44ee0",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "f946702428ec89df4cfdf6af7f1f2702d4e44ee0",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "f946702428ec89df4cfdf6af7f1f2702d4e44ee0",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "f97044d064d9022939db6e0a339eba0004b653b3",
+        "contracts/094-prinyatie-i-publikatsiya-kandidata.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "f97044d064d9022939db6e0a339eba0004b653b3",
+        "contracts/094-prinyatie-i-publikatsiya-kandidata.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "f97044d064d9022939db6e0a339eba0004b653b3",
+        "contracts/094-prinyatie-i-publikatsiya-kandidata.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "f97044d064d9022939db6e0a339eba0004b653b3",
+        "contracts/094-prinyatie-i-publikatsiya-kandidata.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "f9846bcaa3d609639d3b5de75869104e6cd1220e",
+        "contracts/158-ekrannyj-nabor.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "f9846bcaa3d609639d3b5de75869104e6cd1220e",
+        "contracts/158-ekrannyj-nabor.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "f9846bcaa3d609639d3b5de75869104e6cd1220e",
+        "contracts/158-ekrannyj-nabor.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "f9846bcaa3d609639d3b5de75869104e6cd1220e",
+        "contracts/158-ekrannyj-nabor.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/permit",
+        "1af9e1730ac5511a65b473342e8a1160fdfb3db3",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "1af9e1730ac5511a65b473342e8a1160fdfb3db3",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "1af9e1730ac5511a65b473342e8a1160fdfb3db3",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "1af9e1730ac5511a65b473342e8a1160fdfb3db3",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/permit",
+        "1ec4f3da673f8e6e11dfa92da6520a8284a17479",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "1ec4f3da673f8e6e11dfa92da6520a8284a17479",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "1ec4f3da673f8e6e11dfa92da6520a8284a17479",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "1ec4f3da673f8e6e11dfa92da6520a8284a17479",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/permit",
+        "2db6345a2abceb7f2aeb87fb882358adb4dfba77",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "2db6345a2abceb7f2aeb87fb882358adb4dfba77",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "2db6345a2abceb7f2aeb87fb882358adb4dfba77",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "2db6345a2abceb7f2aeb87fb882358adb4dfba77",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/permit",
+        "3a5f2458afc17b71b83fb5f049796a8991ee1eb0",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "3a5f2458afc17b71b83fb5f049796a8991ee1eb0",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "3a5f2458afc17b71b83fb5f049796a8991ee1eb0",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "3a5f2458afc17b71b83fb5f049796a8991ee1eb0",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/permit",
+        "6f468ef8acf73ce56d31bff7aa0f0302c237c98a",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "6f468ef8acf73ce56d31bff7aa0f0302c237c98a",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "6f468ef8acf73ce56d31bff7aa0f0302c237c98a",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "6f468ef8acf73ce56d31bff7aa0f0302c237c98a",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/permit",
+        "87d416e1b3a047fc57cb96f5acc3cc063d552ec0",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "87d416e1b3a047fc57cb96f5acc3cc063d552ec0",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "87d416e1b3a047fc57cb96f5acc3cc063d552ec0",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "87d416e1b3a047fc57cb96f5acc3cc063d552ec0",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/permit",
+        "a8a58d9a6b9d456d776152ed86b42ae8a51b765f",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "a8a58d9a6b9d456d776152ed86b42ae8a51b765f",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "a8a58d9a6b9d456d776152ed86b42ae8a51b765f",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "a8a58d9a6b9d456d776152ed86b42ae8a51b765f",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/permit",
+        "c99a7a1d6d35cea2741b5b4a300422b4288d1bc0",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "c99a7a1d6d35cea2741b5b4a300422b4288d1bc0",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "c99a7a1d6d35cea2741b5b4a300422b4288d1bc0",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "c99a7a1d6d35cea2741b5b4a300422b4288d1bc0",
+        "contracts/116-cmp-mob-005-mission.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/permit",
+        "f0b30673668318b38dcfa6c1e36eae424ce2059f",
+        "contracts/117-cmp-mob-vkhod-splash.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "f0b30673668318b38dcfa6c1e36eae424ce2059f",
+        "contracts/117-cmp-mob-vkhod-splash.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "f0b30673668318b38dcfa6c1e36eae424ce2059f",
+        "contracts/117-cmp-mob-vkhod-splash.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "f0b30673668318b38dcfa6c1e36eae424ce2059f",
+        "contracts/117-cmp-mob-vkhod-splash.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "-",
+        "contracts/148/4",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "023f7dafcd444daf5d47dbccf9dde7642cd1b5cd",
+        "verdicts/consultant/993-krug5-stop-klass-v1.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "023f7dafcd444daf5d47dbccf9dde7642cd1b5cd",
+        "verdicts/consultant/993-krug5-stop-klass-v1.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "023f7dafcd444daf5d47dbccf9dde7642cd1b5cd",
+        "verdicts/consultant/993-krug5-stop-klass-v1.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "023f7dafcd444daf5d47dbccf9dde7642cd1b5cd",
+        "verdicts/consultant/993-krug5-stop-klass-v1.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "08ce2e7f33f9374368da5c12ef3c5f729c04f376",
+        "verdicts/review/contracts-105-land-v2.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "08ce2e7f33f9374368da5c12ef3c5f729c04f376",
+        "verdicts/review/contracts-105-land-v2.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "08ce2e7f33f9374368da5c12ef3c5f729c04f376",
+        "verdicts/review/contracts-105-land-v2.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "08ce2e7f33f9374368da5c12ef3c5f729c04f376",
+        "verdicts/review/contracts-105-land-v2.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "0a4e9c490acb7c01d6d32b55b4d8f787e34959a8",
+        "verdicts/critic/contracts-189-v4.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "0a4e9c490acb7c01d6d32b55b4d8f787e34959a8",
+        "verdicts/critic/contracts-189-v4.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "0a4e9c490acb7c01d6d32b55b4d8f787e34959a8",
+        "verdicts/critic/contracts-189-v4.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "0a4e9c490acb7c01d6d32b55b4d8f787e34959a8",
+        "verdicts/critic/contracts-189-v4.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "230c43376d27ae754d525f8109f0f6068170963b",
+        "verdicts/critic/contracts-993-v2.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "230c43376d27ae754d525f8109f0f6068170963b",
+        "verdicts/critic/contracts-993-v2.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "230c43376d27ae754d525f8109f0f6068170963b",
+        "verdicts/critic/contracts-993-v2.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "230c43376d27ae754d525f8109f0f6068170963b",
+        "verdicts/critic/contracts-993-v2.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "2ac0f5f2e7250bf90cd4569a1b52bf03f188f32d",
+        "verdicts/consultant/fork-093-v2c-otkrytie-i-a908-razreshenie-klass-v1.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "2ac0f5f2e7250bf90cd4569a1b52bf03f188f32d",
+        "verdicts/consultant/fork-093-v2c-otkrytie-i-a908-razreshenie-klass-v1.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "2ac0f5f2e7250bf90cd4569a1b52bf03f188f32d",
+        "verdicts/consultant/fork-093-v2c-otkrytie-i-a908-razreshenie-klass-v1.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "2ac0f5f2e7250bf90cd4569a1b52bf03f188f32d",
+        "verdicts/consultant/fork-093-v2c-otkrytie-i-a908-razreshenie-klass-v1.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "2ac0f5f2e7250bf90cd4569a1b52bf03f188f32d",
+        "verdicts/consultant/fork-093-v2c-otkrytie-i-a908-razreshenie-v1.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "2ac0f5f2e7250bf90cd4569a1b52bf03f188f32d",
+        "verdicts/consultant/fork-093-v2c-otkrytie-i-a908-razreshenie-v1.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "2ac0f5f2e7250bf90cd4569a1b52bf03f188f32d",
+        "verdicts/consultant/fork-093-v2c-otkrytie-i-a908-razreshenie-v1.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "2ac0f5f2e7250bf90cd4569a1b52bf03f188f32d",
+        "verdicts/consultant/fork-093-v2c-otkrytie-i-a908-razreshenie-v1.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "31fcb46bd3e6e9faf11868ea766e083ea7b32069",
+        "verdicts/critic/contracts-043-v2-spaseno-draft.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "31fcb46bd3e6e9faf11868ea766e083ea7b32069",
+        "verdicts/critic/contracts-043-v2-spaseno-draft.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "31fcb46bd3e6e9faf11868ea766e083ea7b32069",
+        "verdicts/critic/contracts-043-v2-spaseno-draft.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "31fcb46bd3e6e9faf11868ea766e083ea7b32069",
+        "verdicts/critic/contracts-043-v2-spaseno-draft.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "4aa5e0a345752a70e418625a54ef30ef5b09efde",
+        "verdicts/critic/contracts-090-v3.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "4aa5e0a345752a70e418625a54ef30ef5b09efde",
+        "verdicts/critic/contracts-090-v3.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "4aa5e0a345752a70e418625a54ef30ef5b09efde",
+        "verdicts/critic/contracts-090-v3.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "4aa5e0a345752a70e418625a54ef30ef5b09efde",
+        "verdicts/critic/contracts-090-v3.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "66e3a0b950264d4be597eb0d4e5722b9c98e4186",
+        "verdicts/consultant/263-grandfather-b7a0c276-klass-v1.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "66e3a0b950264d4be597eb0d4e5722b9c98e4186",
+        "verdicts/consultant/263-grandfather-b7a0c276-klass-v1.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "66e3a0b950264d4be597eb0d4e5722b9c98e4186",
+        "verdicts/consultant/263-grandfather-b7a0c276-klass-v1.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "66e3a0b950264d4be597eb0d4e5722b9c98e4186",
+        "verdicts/consultant/263-grandfather-b7a0c276-klass-v1.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "66e3a0b950264d4be597eb0d4e5722b9c98e4186",
+        "verdicts/consultant/263-grandfather-b7a0c276-v1.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "66e3a0b950264d4be597eb0d4e5722b9c98e4186",
+        "verdicts/consultant/263-grandfather-b7a0c276-v1.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "66e3a0b950264d4be597eb0d4e5722b9c98e4186",
+        "verdicts/consultant/263-grandfather-b7a0c276-v1.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "66e3a0b950264d4be597eb0d4e5722b9c98e4186",
+        "verdicts/consultant/263-grandfather-b7a0c276-v1.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "66e3a0b950264d4be597eb0d4e5722b9c98e4186",
+        "verdicts/consultant/266-orch-loop-test-mode-soreview-v1.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "66e3a0b950264d4be597eb0d4e5722b9c98e4186",
+        "verdicts/consultant/266-orch-loop-test-mode-soreview-v1.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "66e3a0b950264d4be597eb0d4e5722b9c98e4186",
+        "verdicts/consultant/266-orch-loop-test-mode-soreview-v1.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "66e3a0b950264d4be597eb0d4e5722b9c98e4186",
+        "verdicts/consultant/266-orch-loop-test-mode-soreview-v1.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "96e01e91c760b7f231d3adb27e09190c43b8f010",
+        "verdicts/critic/contracts-994-v3.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "96e01e91c760b7f231d3adb27e09190c43b8f010",
+        "verdicts/critic/contracts-994-v3.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "96e01e91c760b7f231d3adb27e09190c43b8f010",
+        "verdicts/critic/contracts-994-v3.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "96e01e91c760b7f231d3adb27e09190c43b8f010",
+        "verdicts/critic/contracts-994-v3.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "aace01dd1f1b4959bcea061fc54c3e5e485934ba",
+        "verdicts/critic/contracts-044-v2.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "aace01dd1f1b4959bcea061fc54c3e5e485934ba",
+        "verdicts/critic/contracts-044-v2.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "aace01dd1f1b4959bcea061fc54c3e5e485934ba",
+        "verdicts/critic/contracts-044-v2.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "aace01dd1f1b4959bcea061fc54c3e5e485934ba",
+        "verdicts/critic/contracts-044-v2.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "4ed2d2172b4e0a36bda87f38cfe73c252a1c2546",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/mint",
+        "4ed2d2172b4e0a36bda87f38cfe73c252a1c2546",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "4ed2d2172b4e0a36bda87f38cfe73c252a1c2546",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "4ed2d2172b4e0a36bda87f38cfe73c252a1c2546",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "56f62ed687a6acde05d2e1af76cf6a2ac489a45e",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/mint",
+        "56f62ed687a6acde05d2e1af76cf6a2ac489a45e",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "56f62ed687a6acde05d2e1af76cf6a2ac489a45e",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "56f62ed687a6acde05d2e1af76cf6a2ac489a45e",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/mint",
+        "6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "6dbee81755ac83f6d79fa649613a1e664bfae801",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/mint",
+        "6dbee81755ac83f6d79fa649613a1e664bfae801",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "6dbee81755ac83f6d79fa649613a1e664bfae801",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "6dbee81755ac83f6d79fa649613a1e664bfae801",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "6eebe030268b624d12feb6a1ba9edc6155abd9a1",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/mint",
+        "6eebe030268b624d12feb6a1ba9edc6155abd9a1",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "6eebe030268b624d12feb6a1ba9edc6155abd9a1",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "6eebe030268b624d12feb6a1ba9edc6155abd9a1",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "78bae300867ffce3cfce0ae20768fd8658e97e5a",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/mint",
+        "78bae300867ffce3cfce0ae20768fd8658e97e5a",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "78bae300867ffce3cfce0ae20768fd8658e97e5a",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "78bae300867ffce3cfce0ae20768fd8658e97e5a",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "7f54f1f60bea573487da5ba2f2eb0603a05b1df3",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/mint",
+        "7f54f1f60bea573487da5ba2f2eb0603a05b1df3",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "7f54f1f60bea573487da5ba2f2eb0603a05b1df3",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "7f54f1f60bea573487da5ba2f2eb0603a05b1df3",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "80ea54402c91c9f4ac6791fc10f09371623a5b70",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/mint",
+        "80ea54402c91c9f4ac6791fc10f09371623a5b70",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "80ea54402c91c9f4ac6791fc10f09371623a5b70",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "80ea54402c91c9f4ac6791fc10f09371623a5b70",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "8c734d93b91fb3ff38528d6591d519a5145de325",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/mint",
+        "8c734d93b91fb3ff38528d6591d519a5145de325",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "8c734d93b91fb3ff38528d6591d519a5145de325",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "8c734d93b91fb3ff38528d6591d519a5145de325",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "8ce382ae8260cdc18e9dae9b736070b4ed19df56",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/mint",
+        "8ce382ae8260cdc18e9dae9b736070b4ed19df56",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "8ce382ae8260cdc18e9dae9b736070b4ed19df56",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "8ce382ae8260cdc18e9dae9b736070b4ed19df56",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "8f1c25f011921721934d870914f562f9f3ff815c",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/mint",
+        "8f1c25f011921721934d870914f562f9f3ff815c",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "8f1c25f011921721934d870914f562f9f3ff815c",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "8f1c25f011921721934d870914f562f9f3ff815c",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "a72ee9069d00ab73abb418be99a0f1d9f53ae70d",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/mint",
+        "a72ee9069d00ab73abb418be99a0f1d9f53ae70d",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "a72ee9069d00ab73abb418be99a0f1d9f53ae70d",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "a72ee9069d00ab73abb418be99a0f1d9f53ae70d",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "bcd5b796a1e9328ba9440b358ea1f7e0068d8fec",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/mint",
+        "bcd5b796a1e9328ba9440b358ea1f7e0068d8fec",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "bcd5b796a1e9328ba9440b358ea1f7e0068d8fec",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "bcd5b796a1e9328ba9440b358ea1f7e0068d8fec",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "c663dd0fb0b233e56368707aef6940baaf254a30",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/mint",
+        "c663dd0fb0b233e56368707aef6940baaf254a30",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "c663dd0fb0b233e56368707aef6940baaf254a30",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "c663dd0fb0b233e56368707aef6940baaf254a30",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "eb5df0064ac94551cc361e466e991f8099c0fcca",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/mint",
+        "eb5df0064ac94551cc361e466e991f8099c0fcca",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "eb5df0064ac94551cc361e466e991f8099c0fcca",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "eb5df0064ac94551cc361e466e991f8099c0fcca",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "fd81f057a709e1a7751bda285022fbd522c6f747",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/mint",
+        "fd81f057a709e1a7751bda285022fbd522c6f747",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "fd81f057a709e1a7751bda285022fbd522c6f747",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "fd81f057a709e1a7751bda285022fbd522c6f747",
+        "registry/contracts.tsv",
+        "orchestrator"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "056be22d116da8f0e26b155534f16b7d7e2f969a",
+        "registry/plan.tsv",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "056be22d116da8f0e26b155534f16b7d7e2f969a",
+        "registry/plan.tsv",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "056be22d116da8f0e26b155534f16b7d7e2f969a",
+        "registry/plan.tsv",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "056be22d116da8f0e26b155534f16b7d7e2f969a",
+        "registry/plan.tsv",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "0678a94962bd86aaea6d79883e02dd9dd56087a6",
+        "sample",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "0678a94962bd86aaea6d79883e02dd9dd56087a6",
+        "sample",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "0678a94962bd86aaea6d79883e02dd9dd56087a6",
+        "sample",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "0678a94962bd86aaea6d79883e02dd9dd56087a6",
+        "sample",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "0bf2fecf58ed5e74cfa42b257d0877a8efc2743d",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "0bf2fecf58ed5e74cfa42b257d0877a8efc2743d",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "0bf2fecf58ed5e74cfa42b257d0877a8efc2743d",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "0bf2fecf58ed5e74cfa42b257d0877a8efc2743d",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "1c787a9d5429f751258a2ee311ce3dc058cee2bd",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "1c787a9d5429f751258a2ee311ce3dc058cee2bd",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "1c787a9d5429f751258a2ee311ce3dc058cee2bd",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "1c787a9d5429f751258a2ee311ce3dc058cee2bd",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "398d4f61fb2fbb48e71ca547eee05fbc4bc6fc20",
+        "forks/093-ops-granica-oracle-074-pin-stale.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "398d4f61fb2fbb48e71ca547eee05fbc4bc6fc20",
+        "forks/093-ops-granica-oracle-074-pin-stale.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "398d4f61fb2fbb48e71ca547eee05fbc4bc6fc20",
+        "forks/093-ops-granica-oracle-074-pin-stale.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "398d4f61fb2fbb48e71ca547eee05fbc4bc6fc20",
+        "forks/093-ops-granica-oracle-074-pin-stale.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "3d0c29ac64ea13e6ad894672f4239c311191b8cc",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "3d0c29ac64ea13e6ad894672f4239c311191b8cc",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "3d0c29ac64ea13e6ad894672f4239c311191b8cc",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "3d0c29ac64ea13e6ad894672f4239c311191b8cc",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "563807ddc2eb23d5ca29054fd5fa1aa10cb09da9",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "563807ddc2eb23d5ca29054fd5fa1aa10cb09da9",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "563807ddc2eb23d5ca29054fd5fa1aa10cb09da9",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "563807ddc2eb23d5ca29054fd5fa1aa10cb09da9",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "7ed4a89c2f03fe554d8809358bf60a64e2a48e5c",
+        "docs/owner/2026-10-15-complior-mob-reshenija.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "7ed4a89c2f03fe554d8809358bf60a64e2a48e5c",
+        "docs/owner/2026-10-15-complior-mob-reshenija.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "7ed4a89c2f03fe554d8809358bf60a64e2a48e5c",
+        "docs/owner/2026-10-15-complior-mob-reshenija.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "7ed4a89c2f03fe554d8809358bf60a64e2a48e5c",
+        "docs/owner/2026-10-15-complior-mob-reshenija.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "81e6e252074f931fed5df2776b1a5309eebd3f13",
+        "sample",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "81e6e252074f931fed5df2776b1a5309eebd3f13",
+        "sample",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "81e6e252074f931fed5df2776b1a5309eebd3f13",
+        "sample",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "81e6e252074f931fed5df2776b1a5309eebd3f13",
+        "sample",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "82421bcc35143112978313fb7f801bc85d010322",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "82421bcc35143112978313fb7f801bc85d010322",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "82421bcc35143112978313fb7f801bc85d010322",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "82421bcc35143112978313fb7f801bc85d010322",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "868d386f146781af18db40be08b94bf7c2d12dfb",
+        "docs/owner/2026-10-15-complior-mob-reshenija.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "868d386f146781af18db40be08b94bf7c2d12dfb",
+        "docs/owner/2026-10-15-complior-mob-reshenija.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "868d386f146781af18db40be08b94bf7c2d12dfb",
+        "docs/owner/2026-10-15-complior-mob-reshenija.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "868d386f146781af18db40be08b94bf7c2d12dfb",
+        "docs/owner/2026-10-15-complior-mob-reshenija.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "8c734d93b91fb3ff38528d6591d519a5145de325",
+        "fixtures/_krasnye_098.sh",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "8c734d93b91fb3ff38528d6591d519a5145de325",
+        "fixtures/_krasnye_098.sh",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "8c734d93b91fb3ff38528d6591d519a5145de325",
+        "fixtures/_krasnye_098.sh",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "8c734d93b91fb3ff38528d6591d519a5145de325",
+        "fixtures/_krasnye_098.sh",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "8c734d93b91fb3ff38528d6591d519a5145de325",
+        "fixtures/dokazatelstva_098/sample",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "8c734d93b91fb3ff38528d6591d519a5145de325",
+        "fixtures/dokazatelstva_098/sample",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "8c734d93b91fb3ff38528d6591d519a5145de325",
+        "fixtures/dokazatelstva_098/sample",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "8c734d93b91fb3ff38528d6591d519a5145de325",
+        "fixtures/dokazatelstva_098/sample",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "990d37068181f869b0e751a12022e0b25592e2bb",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "990d37068181f869b0e751a12022e0b25592e2bb",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "990d37068181f869b0e751a12022e0b25592e2bb",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "990d37068181f869b0e751a12022e0b25592e2bb",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "a99ef2dc3715233d22f3e16e8d6b1dc9b602b75f",
+        "registry/plan.tsv",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "a99ef2dc3715233d22f3e16e8d6b1dc9b602b75f",
+        "registry/plan.tsv",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "a99ef2dc3715233d22f3e16e8d6b1dc9b602b75f",
+        "registry/plan.tsv",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "a99ef2dc3715233d22f3e16e8d6b1dc9b602b75f",
+        "registry/plan.tsv",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "af90be5eb1b8c26e6947799fb6e1faf34524e861",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "af90be5eb1b8c26e6947799fb6e1faf34524e861",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "af90be5eb1b8c26e6947799fb6e1faf34524e861",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "af90be5eb1b8c26e6947799fb6e1faf34524e861",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "b6daee0a0205d1e1008948e4332781dd9d10dd34",
+        "contracts/092-vozobnovlyaemoe-sostoyanie-zadachi.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "b6daee0a0205d1e1008948e4332781dd9d10dd34",
+        "contracts/092-vozobnovlyaemoe-sostoyanie-zadachi.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "b6daee0a0205d1e1008948e4332781dd9d10dd34",
+        "contracts/092-vozobnovlyaemoe-sostoyanie-zadachi.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "b6daee0a0205d1e1008948e4332781dd9d10dd34",
+        "contracts/092-vozobnovlyaemoe-sostoyanie-zadachi.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "b99c667be138f344906b352ea5a6d510f11473a4",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "b99c667be138f344906b352ea5a6d510f11473a4",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "b99c667be138f344906b352ea5a6d510f11473a4",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "b99c667be138f344906b352ea5a6d510f11473a4",
+        "contracts/161-revizija-mekhanizmov-proektnaja-raskladka.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "cb5c070cf3d7a03e09fc5e327ccdacc753103863",
+        "docs/owner/2026-10-14-razblokirovka-093-v4-l4-l5.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "cb5c070cf3d7a03e09fc5e327ccdacc753103863",
+        "docs/owner/2026-10-14-razblokirovka-093-v4-l4-l5.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "cb5c070cf3d7a03e09fc5e327ccdacc753103863",
+        "docs/owner/2026-10-14-razblokirovka-093-v4-l4-l5.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "cb5c070cf3d7a03e09fc5e327ccdacc753103863",
+        "docs/owner/2026-10-14-razblokirovka-093-v4-l4-l5.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "de609555d63c4a272d49ab6b7525668eccd5829c",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "de609555d63c4a272d49ab6b7525668eccd5829c",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "de609555d63c4a272d49ab6b7525668eccd5829c",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "de609555d63c4a272d49ab6b7525668eccd5829c",
+        "ROADMAP.md",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_charter/grandfather",
+        "de609555d63c4a272d49ab6b7525668eccd5829c",
+        "registry/plan.tsv",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/process",
+        "de609555d63c4a272d49ab6b7525668eccd5829c",
+        "registry/plan.tsv",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_protected/delete",
+        "de609555d63c4a272d49ab6b7525668eccd5829c",
+        "registry/plan.tsv",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_contract_frozen/skip-version",
+        "de609555d63c4a272d49ab6b7525668eccd5829c",
+        "registry/plan.tsv",
+        "*"
+      ],
+      "rc": 1,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "args": [
+        "check_zones/skip-version",
+        "-",
+        "contracts/148/4",
+        "*"
+      ],
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}
