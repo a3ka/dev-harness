@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "verdicts", "reserved", "plain_call_from_record", "station_lines", "external_pattern"],
+  "properties": {
+    "version": {"const": 1},
+    "verdicts": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["pattern", "version_group", "number_group", "default_version", "mode"],
+        "properties": {
+          "pattern": {"$ref": "#/$defs/text"},
+          "reject_on_miss": {"$ref": "#/$defs/text"},
+          "version_group": {"type": "integer", "minimum": 0, "maximum": 9},
+          "number_group": {"type": "integer", "minimum": 0, "maximum": 9},
+          "default_version": {"type": "integer", "minimum": 1, "maximum": 999999999},
+          "mode": {"enum": ["explicit", "plain", "legacy"]}
+        }
+      }
+    },
+    "reserved": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/text"}},
+    "plain_call_from_record": {"type": "boolean"},
+    "station_lines": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/text"}},
+    "external_pattern": {"$ref": "#/$defs/text"}
+  },
+  "$defs": {"text": {"type": "string", "minLength": 1, "pattern": "^[^\\u0000-\\u001f\\u007f]+$"}}
+}

@@ -1,11 +1,11 @@
 # Контракт 231 — совместимость входов двери done: старые имена, точка ПРОДУКТ и вызов без vyzov
 
-СТАТУС: ЧЕРНОВИК — конфликт frozen 224 раскрыт ниже; без решения владельца не замораживать и не реализовывать production.
+СТАТУС: ЧЕРНОВИК v1 — переход R-0162; до freeze 231 нужны v+1 и freeze 224/201.
 КЛАСС ЗАДАЧИ: кодовый.
 КЛАСС РИСКА: рисковый — авторизация приёмки: неверный выбор свежего суда даёт ложный done.
 ПРОДУКТ: станция
 АРХИТЕКТУРА: н/п — ремонт станционного писателя без продуктовой модели 188.
-КОНТЕКСТ: затравка owner contracts/231-sovmestimost-doski-224.md на базе 568f0ea63271e3461b574105cba8faec7563a8fd; задание task-architect231.md с обоими дополнениями, консультант m2534/m2538/m2541. SourceCanon не объявлен.
+КОНТЕКСТ: база b0ef65a93eeb03b58946cb57356ff6afa113e3aa, задания task-architect231.md и task-architect231b.md; R-0162 через консультанта m2559. SourceCanon не объявлен.
 СДАЧА: fixtures/workshop_project/done_round_compat_231/SDACHA.md
 
 ## Существующее
@@ -13,11 +13,12 @@
 База 568f0ea63271e3461b574105cba8faec7563a8fd; затравка/slug сохранены. Сверены 224 и frozen/224/1 (69b88241882320d67c007830dfdc343cf5739d14), scripts/done_contract.sh, семья svezhest_verdikta_done_224, 201, contracts/213-posledniy-fail-fazy.md и scripts/lib_karta_sdachi.sh. 213 пока затравка, не выполненный ремонт: её предмет — последний FAIL фазы листа, не done. Реестр registry/plan.tsv на базе НЕ несёт 231; номер уже выдан (registry/contracts.tsv, id/CONTRACT/231). Строку плана добавляет владелец.
 
 - Общий _select_round_verdict читает HEAD для review/adversary, возвращает файл/CID/первую строку. Дорабатывается он; второго селектора нет. F/CID/OBJECT, same-OBJECT, workflowPaths, ARCH_CI сохраняются.
-- Миры 201 и install 224 переиспользуются read-only, ожидания 231 — собственные литералы. Reference копирует дверь названной базы с точечной дельтой, не разрешает откатить последующую production.
+- Миры 201 и установщик 224 переиспользуются; только review-conflict/adversary-conflict 224 меняют ожидаемую причину по R-0162. Новая install_policy добавляет настоящий Git installation HEAD; ожидания 231 — собственные литералы. Reference копирует исходную дверь с адресной дельтой, не разрешает откатить последующую production.
 - frozen/215/1:contracts/215-otkaz-po-soderzhaniyu-zapasnaya.md:5 несёт «ПРОДУКТ: станция.». Клетка переносит ВЕСЬ текст без изменений, настоящую guard/role-проводку и заканчивает annotated done.
 - verdicts/review/contracts-227-impl-v1.md:1–3 на базе несёт accept, OBJECT, вызов=2 без поколения фазы. Клетка переносит полный blob, меняя только OBJECT на реальный; парный adversary меняет также поле роли.
 - context.py этой семьи читает высшие frozen-блобы, печатает commit и реальные зоны. Сверены 038/2,094/2,168/1,184/1,187/3,201/1,223/1,224/1,226/1,992/2,996/2. Читатель scripts/check_spec_ready.sh вызывается ниже.
 - Поиск wip: ветки 224 и собственная 231. Открытые PR по gh pr list --repo a3ka/dev-harness относятся к 223/218/226/044; готового ремонта 231 нет.
+- Данные станции уже вынесены в config/agent_models.json, config/zashivki.json; registry/harness-project.json несёт профильные defaults/workflowPaths. В scripts/ и registry/ не найден существующий judges.policy: профиль не следует превращать в авторский override грамматики станционной двери. Новый config/done_forms.json продолжает каталог config/, а validate_std.sh json и validate_std_json.py — существующий стандарт JSON Schema, не второй валидатор.
 
 ## Боль
 
@@ -27,17 +28,23 @@
 
 Один наблюдаемый результат: тот же публичный CLI `bash scripts/done_contract.sh <контракт> <причина> [корень]` принимает три исторических представления без переименований и без ослабления позднего FAIL/дублей/F/OBJECT. Наблюдение: rc, раздельные трубы, annotated done-тег на исходном HEAD; при отказе тега нет и HEAD неизменен. Тип доказательства — поведенческий; context доказывает только происхождение зон.
 
-Порядок: решение конфликта frozen → critic → freeze → implementer только scripts/done_contract.sh → orchestrator свой CI-шаг/замер → рисковый суд реализации и reviewer → land → done. Предписанный путь А (один PR, без v+1 224/215) не выдаётся за уже разрешённое изменение frozen. Production и судебные файлы этой architect-пачкой не меняются.
+Порядок: адресные v+1 224/201 с оформлением слова владельца оркестратором → freeze 224/201 → critic и freeze 231 → implementer читатель конфига в прежней двери → собственный CI-шаг/замер orchestrator → рисковый суд реализации и reviewer → land → done. Production и судебные артефакты проектов этой architect-пачкой не меняются.
 
-## Конфликт с 224
+## Переход (R-0162)
 
-ДА. frozen/contracts/224/1^{commit}:contracts/224-svezhest-verdikta-done.md:45 (И1) требует MISSING среди нескольких безномерных носителей. Явных legacy impl-N/impl-krugN там нет, отдельной клетки на них нет. review-missing/adversary-missing используют impl-final (probe.py:281–285,318–325) и остаются отказными; расширение известных форм меняет замкнутую грамматику И1.
+Слово владельца 26.11 через консультанта m2559, R-0162, дословно: «да, но это опять проблема хардкода переменных, вместо вынесения их в конфиги... множество раз говорил что так делать не надо». Условие поручения: допустимые формы имён, ПРОДУКТ и правило вызова задаются конфигом, новая допустимая форма не требует правки кода.
 
-Прямой конфликт третьего дополнения: frozen 224:46 (И2) требует «Без поколения фазы объявленный вызов общей формы совпадает с N»; :48 (И4) требует CONFLICT при несовпадении. Семья 224 probe.py:285 задаёт impl-v4 с вызов=3; :318–325 требует CONFLICT в review-conflict/adversary-conflict. По 231 одиночный такой носитель допустим, а в старом двухносительном мире оба объявляют вызов=3 → DUPLICATE, НЕ CONFLICT. --regression224 исполняет старую батарею без правок и возвращает сырой rc: её краснота НЕ зелёный регресс.
+Адресные v+1-черновики: contracts/224-svezhest-verdikta-done.md:45–48 делегирует формы/согласование конфигу 231; contracts/201-done-dver-soderzhatelnaja-sverka.md:54 делегирует литералы ПРОДУКТ тому же источнику. Порядок перехода — v+1 224/201 (+freeze) ПЕРЕД freeze 231. Строку слова владельца оформляет orchestrator; architect её не пишет.
 
-Ещё прямой конфликт: frozen/contracts/201/1^{commit}:contracts/201-done-dver-soderzhatelnaja-sverka.md:54 требует станционный литерал БЕЗ хвоста; точка из 215 расширяет эту грамматику. 215 собственного отказа на точку не требует.
+Ровно review-conflict/adversary-conflict батареи 224 меняют ожидаемый VERDICT_ROUND_CONFLICT → VERDICT_ROUND_DUPLICATE: impl-v3 и impl-v4 объявляют один вызов=3, ключ 3000000000. Явный -vyzovN с несовпадающим СУД и неканоничная строка по-прежнему дают CONFLICT. Остальные клетки 224 и все клетки 201 не меняются. Тексты/клетки 215, 227, backend 181/179 и mobile 218 остаются как есть.
 
-Путь А требует слова владельца (адресное разрешение конфликтов либо v+1 соответствующих обязательств). Architect его не пишет. Совокупная приёмка «224 неизменно зелёный» до решения недостижима; диагноз нельзя подменить ради зелени. Frozen и прежние клетки не редактируются.
+## Источник допустимых форм
+
+Единственный источник — config/done_forms.json версии 1; схема config/done_forms.schema.json, Draft 2020-12. Дверь читает ОБА blob из HEAD репозитория установленного скрипта (git -C SELF_DIR rev-parse --show-toplevel), не из корня авторского продукта, индекса, рабочей копии или переменной окружения. Репозиторий установки и авторский репозиторий различены настоящими Git-мирами. JSON Schema проверяется существующим validate_std json с пинами установки. Отсутствие/нечитаемость/синтаксическая ошибка/несоответствие схеме — rc 1, самостоятельная строка `done: DONE_FORMS_CONFIG`, без тега. Пустой конфиг не включает прежнюю грамматику и не разрешает всё.
+
+verdicts — упорядоченный список ERE-шаблонов имени, version_group/number_group (0 означает константу default_version/0), default_version и mode из замкнутого {explicit,plain,legacy}. reject_on_miss резервирует явный префикс перед следующим правилом; reserved — отказные шаблоны после списка. Выигрывает первое совпадение. Номер — канонический положительный ASCII decimal до девяти цифр. station_lines — список ЦЕЛЫХ допустимых строк; external_pattern — ERE всей строки с захватом буквального owner/repo. plain_call_from_record — boolean: true берёт вызов из СУД без требования номера вызова в общем v-имени, false сохраняет сверку с номером имени. Явный vyzov всегда сверяется. Алфавит строк конфига исключает ASCII control/DEL; служебные TSV-разделители никогда не бывают данными; литералы сравниваются буквально, regex — только доверенные шаблоны конфига, не значения полей автора. Терминатор имени .md и всей строки ПРОДУКТ задан шаблоном, не поиском подстроки.
+
+Текущий набор форм зафиксирован данными конфига; следующие инварианты описывают его семантику, не второй исполняемый словарь. В production/reference нет дубля грамматики имён, допустимых строк ПРОДУКТ или литерального true вместо настройки вызова. Новая форма и удаление формы — только изменение конфига. Канон-схема не перечисляет допустимые строки/имена; расширение данных не требует её правки.
 
 ## Инварианты
 
@@ -57,7 +64,9 @@ B = `bash fixtures/workshop_project/done_round_compat_231/red_done_round_compat_
 - Дано неизменённая дверь на базе; когда B --repo .; тогда rc 1, собственные именованные красные совместимости. После реализации та же команда — rc 0, KRASNYH 0, положительные формы ставят annotated done, отрицательные не ставят тег.
 - Правило честного контроля и различимости: B --model и B --stabs — каждый rc 0, непустой каталог, ZHIVYH 0. Честные legacy с совпадающим вызовом/без него и v-формы с независимым вызовом проходят; конфликтные/нечисловые/дубли/свежий FAIL отказывают своими причинами. Census — B --catalog, не ручной словарь в контракте.
 - Правило формы: B --sintaksis и B --catalog — каждый rc 0; bash -n, пинованный shellcheck через validate_std, compile Python без pycache. Унаследованные SC2034/SC2295/SC1010 reference явно помечены, production не правится ради них.
-- Правило frozen: B --regression224 запускает старые клетки без изменений. Цель после РЕШЕНИЯ конфликта — rc 0; сейчас ожидаемый сырой rc 1 с раскрытыми конфликтами, это блок заморозки, не исключение из регресса. `bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --repo .` на неизменённом production — rc 0.
+- Правило регресса: B --regression224 на reference с двумя правленными клетками 224 — rc 0; `bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --repo .` после реализации — rc 0 (до реализации rc 1 ровно review-conflict/adversary-conflict). Семья 201 --repo . — rc 0 до/после. Полные живые blob 215/227 и формы backend 181/179, mobile 218 проходят B --model и после реализации B --repo . без переименований.
+- Правило данных: B --model и B --stabs проверяют добавление новой формы имён и ПРОДУКТ только конфигом, удаление формы и переключение plain_call_from_record; отсутствие/пустой/битый конфиг; отделение committed installation HEAD от dirty/index/author/environment. Зашитые в код имена, ПРОДУКТ и правило вызова краснеют адресными стабами. Честная эквивалентная JSON-запись с иным форматированием остаётся зелёной.
+- Правило схемы: `bash scripts/validate_std.sh json config/done_forms.schema.json config/done_forms.json` — rc 0; пустой/битый документ и несовпадающая версия — rc≠0 через ту же дверь в B --model.
 - Правило допуска: `python3 -B fixtures/workshop_project/done_round_compat_231/context.py`, `bash scripts/pre_critic.sh contracts/231-sovmestimost-doski-224.md`, `SDACHA_TIMEOUT_SEK=1200 SDACHA_BUDZHET_SEK=2400 bash scripts/check_sdacha.sh . contracts/231-sovmestimost-doski-224.md --run`, `bash scripts/check_precision_gate.sh . contracts/231-sovmestimost-doski-224.md` — каждый rc 0 формы; никакой из них не является словом владельца о frozen.
 - Правило потребителя: `bash scripts/check_spec_ready.sh . contracts/231-sovmestimost-doski-224.md` — rc 0. До done orchestrator подключает B --repo . / --model / --stabs / --sintaksis своим шагом и замером; `bash scripts/check_provodka.sh . contracts/231-sovmestimost-doski-224.md` и `bash scripts/gen_ci_steps.sh --check` — rc 0 после проводки, не объявляются зелёными до неё.
 
@@ -76,17 +85,25 @@ B = `bash fixtures/workshop_project/done_round_compat_231/red_done_round_compat_
 НЕ ЗАЩИЩАЕТ:
 - От согласованной лжи суда или удаления позднего вердикта из истории; ловцы — существующие pre_judge/замок предмета, origin и независимый reviewer.
 - От компрометации Git/PATH/установки или субъекта, распознающего стенд; ловцы — изоляция, CI и независимый adversary/reviewer, конечная батарея не доказывает любые программы.
-- От противоречия frozen-обязательств: ловец — раскрытый конфликт и решение владельца ДО заморозки; reference не уполномочивает менять риск или ослаблять 224.
+- От незаконного пересмотра frozen: ловец — порядок перехода R-0162, отдельные коммиты 224/201 и оформление слова владельца оркестратором до freeze; новая конфигурация не отменяет запреты DUPLICATE/явного CONFLICT.
 - От независимых дефектов архитектурного API/профиля/sourceCanon/карты листа; ловцы — прежние семьи 187/201/213/992/996 и полный production-diff reviewer.
 
 ## Зоны и проводка
 
-ЗОНА architect: contracts/231-sovmestimost-doski-224.md fixtures/workshop_project/done_round_compat_231/
-ЗОНА implementer: scripts/done_contract.sh
+ЗОНА architect: contracts/231-sovmestimost-doski-224.md fixtures/workshop_project/done_round_compat_231/ contracts/224-svezhest-verdikta-done.md contracts/201-done-dver-soderzhatelnaja-sverka.md fixtures/workshop_project/svezhest_verdikta_done_224/probe.py config/done_forms.json config/done_forms.schema.json
+ЗОНА implementer: scripts/done_contract.sh config/done_forms.json config/done_forms.schema.json
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
 ЗОНА reviewer: verdicts/review/
 ЗОНА orchestrator: registry/ci-steps.tsv registry/ci-zamery.tsv .github/workflows/ci.yml
+ПЕРЕСЕЧЕНИЕ architect: config/done_forms.json — 002 только данные грамматики 231
+ПЕРЕСЕЧЕНИЕ architect: config/done_forms.json — 003 только данные грамматики 231
+ПЕРЕСЕЧЕНИЕ architect: config/done_forms.schema.json — 002 только схема грамматики 231
+ПЕРЕСЕЧЕНИЕ architect: config/done_forms.schema.json — 003 только схема грамматики 231
+ПЕРЕСЕЧЕНИЕ architect: contracts/201-done-dver-soderzhatelnaja-sverka.md — 993 только адресный v+1 R-0162
+ПЕРЕСЕЧЕНИЕ architect: contracts/224-svezhest-verdikta-done.md — 993 только адресный v+1 R-0162
+ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/svezhest_verdikta_done_224/probe.py — 054 только review-conflict/adversary-conflict
+ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/svezhest_verdikta_done_224/probe.py — 055 только review-conflict/adversary-conflict
 
 ПЕРЕСЕЧЕНИЕ architect: contracts/231-sovmestimost-doski-224.md — 993 только 231; прежние семьи сохраняются
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/done_round_compat_231/ — 054 только 231; прежние семьи сохраняются
@@ -98,7 +115,7 @@ B = `bash fixtures/workshop_project/done_round_compat_231/red_done_round_compat_
 ПЕРЕСЕЧЕНИЕ implementer: scripts/done_contract.sh — 187 только совместимость 231; прочие двери сохраняются
 ПЕРЕСЕЧЕНИЕ implementer: scripts/done_contract.sh — 201 только совместимость 231; прочие двери сохраняются
 ПЕРЕСЕЧЕНИЕ implementer: scripts/done_contract.sh — 223 только совместимость 231; прочие двери сохраняются
-ПЕРЕСЕЧЕНИЕ implementer: scripts/done_contract.sh — 224 конфликт раскрыт выше; требуется решение владельца
+ПЕРЕСЕЧЕНИЕ implementer: scripts/done_contract.sh — 224 только переход R-0162 после v+1 224; остальные запреты сохраняются
 ПЕРЕСЕЧЕНИЕ implementer: scripts/done_contract.sh — 226 только совместимость 231; прочие двери сохраняются
 ПЕРЕСЕЧЕНИЕ implementer: scripts/done_contract.sh — 992 только совместимость 231; прочие двери сохраняются
 ПЕРЕСЕЧЕНИЕ implementer: scripts/done_contract.sh — 996 только совместимость 231; прочие двери сохраняются
@@ -166,8 +183,8 @@ B = `bash fixtures/workshop_project/done_round_compat_231/red_done_round_compat_
 ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 114 только свой шаг 231
 
 ПРЕДПОСЫЛКИ:
-- setting Git/bash/python3/jq/date/stat и pinned shellcheck 0.11.0; новых secrets/variables/environments/settings не требуется.
-- setting Свою CI-проводку подключает orchestrator после решения конфликта; чужие шаги не меняются.
+- setting Git/bash/python3/jq/date/stat, jsonschema по ops/server/validators.tsv и pinned shellcheck 0.11.0; новых secrets/variables/environments/settings не требуется.
+- setting Установка двери является доступным Git-репозиторием с config/done_forms.json и config/done_forms.schema.json на HEAD; копирование одного скрипта без данных не поддерживается. Свою CI-проводку подключает orchestrator после перехода R-0162; чужие шаги не меняются.
 
 ПРОВОДКА:
 - guard=fixtures/workshop_project/done_round_compat_231/red_done_round_compat_231.sh
