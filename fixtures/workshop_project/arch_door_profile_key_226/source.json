@@ -11,29 +11,32 @@
     "fixtures/workshop_project/architecture_steward_186/pin_probe.py"
   ],
   "carriers": {
-    "model/scripts/profile_resolver.sh": "4ba325c1fc8d37a7e6abb1ec06858c37d7fdb02a38446423260985635976df53",
-    "model/scripts/check_architecture_contract.sh": "9840c2004930eaf2ebc4f81cd659208f7226e529986caf7dfaeaf520614784e5",
+    "model/scripts/profile_resolver.sh": "32ed92649a10e93b22a41f84cefc0881fc564adda6764d5c7c7534c7e18260c1",
+    "model/scripts/check_architecture_contract.sh": "3a5330d7f5fc489ee2a8f871f0080c693d388c6a72e9b2e4e4857b7f51628fc8",
     "model/scripts/check_architecture_pin.sh": "9debee02391b1b3d1f584164d43fa473d3e98b8a0846662bc3f1abc57578cc3e",
     "model/scripts/make_task.sh": "3c69bdb29f6814e4ef4b7979a3eb92900beaa3a4c1e8f693b73a8ac8dc4366c5",
     "model/scripts/freeze_contract.sh": "91f7170bf91f4e6e696614db869a046a249a0c2efabedf1bbc90f0196b9e98b9",
     "model/scripts/done_contract.sh": "b7d773b89ce59d06aaee1f5e8e13966f7fb4b5d2424b5d01f4a4769a46adcf50",
     "model/fixtures/workshop_project/architecture_process_187/probe.py": "1ab4fe8838b29cb3283a7f8c6cd6d94c941eff21bb86bbda62ad1549310cf1d1",
     "model/fixtures/workshop_project/architecture_steward_186/pin_probe.py": "242b48e52328bc3bef462e71d82b514657e869f6da81685eee04829e09799ea3",
-    "stabs/st01-ignore-key/scripts/check_architecture_contract.sh": "1ab9dd45396e87f7a98a812d23cde0af592135dd50e28f1cab63c174d21b6d7f",
-    "stabs/st02-name-selector/scripts/check_architecture_contract.sh": "eb0695aaf0bba54b6953a3a04cad35bb392f3b1ad13c43a02391a2d0583c4847",
-    "stabs/st03-absence-on/scripts/check_architecture_contract.sh": "9529d4e8e086a68dd7688db54e8c51fc33bae72b7b757b5beed3b604521713a0",
-    "stabs/st04-false-on/scripts/check_architecture_contract.sh": "d9292764c330c46158fca588749adda823ea70a9cdf3dd85ad609810718cf4a7",
-    "stabs/st05-invalid-off/scripts/check_architecture_contract.sh": "9cfbe70a14e7aa84f6d3600d845626028960818ee04c4f7b3d6444a62277f347",
-    "stabs/st06-null-absent/scripts/profile_resolver.sh": "93f13d2bdf06fa410d52d0a0ed0e74361927ac2628a2a891fa9291881b236cb2",
-    "stabs/st07-zero-false/scripts/profile_resolver.sh": "1b0e4f33287b2890721e313ce51c2438e9f7b1b966a76d5528df3a2e4cea1a60",
-    "stabs/st08-string-false/scripts/profile_resolver.sh": "6cd2ceefecdfc4f2f71ade0a0285091fc5574032febec50c95b9b0cfe77ed71d",
-    "stabs/st09-substring/scripts/profile_resolver.sh": "04dcc90e696d34ea453777c12b8c83ab5a87039bcf9d69f6526fa23cecd3d649",
-    "stabs/st10-lowercase-only/scripts/profile_resolver.sh": "2dba432d4a622c16a7e6aca5e2d5b2ec6cd247e05398c5b118a677222ee01927",
-    "stabs/st11-length-cap/scripts/profile_resolver.sh": "2e3bbf8ddf4c98acf0546485e3f664a1b4c563dee6c0eb4fc2104ccf03061f4c",
+    "stabs/st01-ignore-key/scripts/check_architecture_contract.sh": "79dddf0fcaf60cdcd97855815a6ea39222ff83c1c4f5e19f5ffdf134434b7017",
+    "stabs/st02-name-selector/scripts/check_architecture_contract.sh": "a74294cdb4649e2a15a15cc98dd077f2b9f6de112c06b142c78c7f11d6feb3b1",
+    "stabs/st03-absence-on/scripts/check_architecture_contract.sh": "8af25e7e42fec57b596e63a61b06eef38463268a22a8f4ba5382b7a8eed79946",
+    "stabs/st04-false-on/scripts/check_architecture_contract.sh": "04813ac41525743884e938f9db4fe55540793275377fe33c541d43e60de7b922",
+    "stabs/st05-invalid-off/scripts/check_architecture_contract.sh": "d607239e928d6ffbc1a132f121c7e6b0cc1de9a4a7e744fe440870f5c9172915",
+    "stabs/st06-null-absent/scripts/profile_resolver.sh": "9b1da0187a920cdd8a71358c16926204600fae1cd7277c2e47ceec327d219c28",
+    "stabs/st07-zero-false/scripts/profile_resolver.sh": "eb8c8e74331ab955affe78ad7cc5194cc53a70a72f117707393bb6bad1687eed",
+    "stabs/st08-string-false/scripts/profile_resolver.sh": "472370e978bf0d5b43677fd221366ea75b07f5c0788803d2cb5c74c2e0951b8a",
+    "stabs/st09-substring/scripts/profile_resolver.sh": "6741a2b592a8fc46105d54f638b39432b75d2c4f983b97457f64d60b021c6893",
+    "stabs/st10-lowercase-only/scripts/profile_resolver.sh": "c0f5d9b247c76602689eab15e32cf6d5990d7ee26550444c2b225805a837b013",
+    "stabs/st11-length-cap/scripts/profile_resolver.sh": "6c50ea39fd4ec766e34d157f07717954e3139e2e841dca152da1137413f8e4d8",
     "stabs/st12-pin-constant/scripts/check_architecture_pin.sh": "12cf1bd7d0080bdcfd5f20600b6ed480ad4a833928ec8309e93daf8de1e280e6",
     "stabs/st13-pin-env/scripts/check_architecture_pin.sh": "fbda44ce62778d0c8b13ff1f9255cb840979fb681bfcd7d965284139b46306d4",
     "stabs/st14-pin-substring/scripts/check_architecture_pin.sh": "ce2d15c1eea39e2b9d8b8cfb80f1323878f944e6e3e99d4f3eca9d8ae2c16ad1",
-    "stabs/st17-array-allowed/scripts/profile_resolver.sh": "1e066f892b8805663176dae555b2554cfcdc670b65d7d3da2b54e6051f0b5875"
+    "stabs/st17-array-allowed/scripts/profile_resolver.sh": "0cff4376f600b0d61bbe515ca117e0dd823bc92f58b69da5d9336d90ec8100ef",
+    "stabs/st18-missing-profile-off/scripts/check_architecture_contract.sh": "edd594eaf7bf133d09fc10a219407b4579cd839725cc8f18b09ecd7952c3fb8c",
+    "stabs/st19-wrong-layer-off/scripts/profile_resolver.sh": "07cc3e4605a0757f31ab765a5256f4d453d5d9e75a44630d7a550734bc9fa0c9",
+    "stabs/st20-corrupt-profile-off/scripts/check_architecture_contract.sh": "d607239e928d6ffbc1a132f121c7e6b0cc1de9a4a7e744fe440870f5c9172915"
   },
   "bindings": {
     "st01-ignore-key": {
@@ -127,6 +130,28 @@
       "path": "scripts/profile_resolver.sh",
       "cells": [
         "bad-array"
+      ]
+    },
+    "st18-missing-profile-off": {
+      "path": "scripts/check_architecture_contract.sh",
+      "cells": [
+        "missing-profile-door"
+      ]
+    },
+    "st19-wrong-layer-off": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "layer-cannot-enable",
+        "layer-conflict",
+        "layer-false"
+      ]
+    },
+    "st20-corrupt-profile-off": {
+      "path": "scripts/check_architecture_contract.sh",
+      "cells": [
+        "malformed-profile-door",
+        "missing-layer-door",
+        "malformed-layer-door"
       ]
     }
   }

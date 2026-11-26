@@ -932,6 +932,10 @@ if jq -e 'has("pack")' "$REPO_JSON_FD" >/dev/null 2>&1; then
 fi
 
 # 226: repo-only hooks.archBrief. Unknown sibling names retain M-0 warnings.
+if jq -e 'if (.defaults.hooks | type) == "object"
+    then .defaults.hooks | (has("archBrief")) else false end' "$PROJECT_JSON_FD" >/dev/null; then
+  die_p "ARCH_PROFILE_LAYER: hooks.archBrief: разрешён только репо-слой harness.project.json"
+fi
 if jq -e 'has("hooks")' "$REPO_JSON_FD" >/dev/null; then
   jq -e '.hooks | type == "object"' "$REPO_JSON_FD" >/dev/null \
     || die_p "значение вне алфавита: hooks.archBrief: hooks не объект"
