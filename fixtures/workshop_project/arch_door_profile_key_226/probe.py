@@ -105,6 +105,153 @@ CASES = {
 }
 
 
+# Independent character oracle from invariant 1, not the subject's jq regex.
+ASCII_FIRST = frozenset('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789')
+ASCII_REST = ASCII_FIRST | frozenset('_.-')
+
+
+def grammar_accepts(value):
+    if value is False:
+        return True
+    if type(value) is not str or value.count('/') != 1:
+        return False
+    return all(part and part[0] in ASCII_FIRST and
+               all(char in ASCII_REST for char in part[1:])
+               for part in value.split('/'))
+
+
+def grammar_grid():
+    values = {}
+    for name, value in [('false', False), ('null', None), ('zero', 0),
+                        ('one', 1), ('true', True), ('array', []), ('object', {}),
+                        ('array-full', ['a/b']), ('object-full', {'enabled': True})]:
+        values['grid-type-' + name] = value
+    for mask in range(32):
+        values[f'grid-false-case-{mask:02d}'] = ''.join(
+            char.upper() if mask & (1 << index) else char
+            for index, char in enumerate('false'))
+    for name, value in [('leading', ' false'), ('trailing', 'false ')]:
+        values['grid-false-' + name] = value
+    for index, value in enumerate(('', '/', '/r', 'u/', 'ur', 'u//r', 'u/r/s',
+                                    'a/b', '0/9', 'ab/cd', 'OwNer/RePo.Name_7-x')):
+        values[f'grid-separator-{index:02d}'] = value
+    for position in ('owner-first', 'repo-first', 'owner-middle', 'owner-end',
+                     'repo-middle', 'repo-end'):
+        for code in range(128):
+            char = chr(code)
+            owner, repo = 'ab', 'cd'
+            if position == 'owner-first':
+                owner = char + 'b'
+            elif position == 'repo-first':
+                repo = char + 'd'
+            elif position == 'owner-middle':
+                owner = 'a' + char + 'b'
+            elif position == 'owner-end':
+                owner += char
+            elif position == 'repo-middle':
+                repo = 'c' + char + 'd'
+            else:
+                repo += char
+            values[f'grid-ascii-{position}-{code:03d}'] = owner + '/' + repo
+    for name, char in [('sp', ' '), ('tab', '\t'), ('cr', '\r'),
+                       ('lf', '\n'), ('nul', '\0')]:
+        for position, value in [('before', char + 'ab/cd'), ('after', 'ab/cd' + char),
+                                ('owner', 'a' + char + 'b/cd'),
+                                ('repo', 'ab/c' + char + 'd')]:
+            values[f'grid-boundary-{position}-{name}'] = value
+    for code, char in enumerate(('ǹ', '١', 'Ａ', '１')):
+        for position, value in [('owner-first', char + 'b/cd'),
+                                ('repo-first', 'ab/' + char + 'd'),
+                                ('owner-rest', 'a' + char + '/cd'),
+                                ('repo-rest', 'ab/c' + char)]:
+            values[f'grid-unicode-{position}-{code}'] = value
+    values['grid-unicode-slash'] = 'ab／cd'
+    for name, value in [('owner', 'O' * 1024 + '/R'),
+                        ('repo', 'O/' + 'R' * 1024),
+                        ('both', 'O' * 1024 + '/' + 'R' * 1024)]:
+        values['grid-length-' + name] = value
+    return values
+
+
+GRID = grammar_grid()
+# Freeze both values and expectations before any subject runs.
+CASES.update({name: ('grid', value, 'toy', 0 if grammar_accepts(value) else 1,
+                     'значение вне алфавита'.encode())
+              for name, value in GRID.items()})
+
+
+def run_grid(base, tools, cells):
+    """One real resolver/world captures its actual jq argv; real jq judges the grid.
+
+    Native bash xtrace observes commands without replacing jq/PATH or reading a
+    model predicate. Existing integration cells still judge public CLI diagnostics.
+    The captured validation and complete merge are replayed, not reimplemented.
+    """
+    base.mkdir()
+    product, arch, *_ = old.build(base, 'grid-product')
+    profile = install_profile(product, 'ab/cd', 'toy')
+    env = old.env_for(product, arch)
+    trace_path = base / 'resolver.trace'
+    with trace_path.open('wb') as trace:
+        env.update(BASH_XTRACEFD=str(trace.fileno()))
+        control = subprocess.run(
+            ['bash', '-c', 'PS4=$\'\\nARCH226 \'; set -x; source "$1" --repo "$2"',
+             'grid', str(tools / 'scripts/profile_resolver.sh'), str(product)],
+            cwd=product, env=env, capture_output=True, pass_fds=(trace.fileno(),),
+            timeout=240)
+    if control.returncode:
+        raise RuntimeError('GRID_RESOLVER_CONTROL ' + repr(control.stderr))
+    import shlex
+    commands = []
+    for record in trace_path.read_text().split('\nARCH226 '):
+        if record.startswith('jq '):
+            commands.append(shlex.split(record))
+    validators = [argv for argv in commands if len(argv) == 4 and
+                  argv[1] == '-e' and argv[2].startswith('.hooks.archBrief |')]
+    merges = [argv for argv in commands if '--slurpfile' in argv and
+              'repo' in argv and 'project' in argv]
+    if len(validators) != 1 or len(merges) != 1:
+        raise RuntimeError('GRID_JQ_SEAM ' + repr((len(validators), len(merges))))
+    validation, merge = validators[0], merges[0]
+    # Replacing only the input file keeps the actual predicate and jq -e rc.
+    # Each positive also runs the subject's full merged expression unchanged.
+    results = {}
+    input_path = base / 'profile.json'
+    for cell in cells:
+        _, value, _, rc, _ = CASES[cell]
+        profile['hooks'] = {'archBrief': value}
+        input_path.write_text(json.dumps(profile))
+        result = call(validation[:-1] + [input_path], product, env)
+        if result.returncode not in (0, 1) or result.stderr:
+            raise RuntimeError('GRID_JQ_INFRA ' + cell + repr(result))
+        errors = [] if result.returncode == rc else ['GRAMMAR_RC']
+        if rc == 0 and result.returncode == 0:
+            argv = merge.copy()
+            argv[argv.index('repo') + 1] = str(input_path)
+            argv[argv.index('project') + 1] = str(product / profile['projectLayer']['profilePath'])
+            merged = call(argv, product, env)
+            if merged.returncode:
+                raise RuntimeError('GRID_MERGE_INFRA ' + repr(merged.stderr))
+            if json.loads(merged.stdout).get('hooks') != {
+                    'origin': 'repo', 'value': {'archBrief': value}}:
+                errors.append('MERGED_POLICY')
+        if errors:
+            # A discrepancy must also be observable through the public resolver,
+            # with its real rc, diagnostic and merged output, not a synthetic rc.
+            install_profile(product, value, 'toy')
+            result = call(['bash', tools / 'scripts/profile_resolver.sh',
+                           '--repo', product], product, env)
+            if result.returncode not in (0, 1):
+                raise RuntimeError('GRID_RESOLVER_INFRA ' + repr(result.stderr))
+            errors += judge(result, rc, 'значение вне алфавита'.encode() if rc else b'')
+        results[cell] = errors, result
+    return results
+
+
+GRID_CACHE = {}
+GRID_LINKS = {}
+
+
 def call(argv, cwd, env):
     return subprocess.run([str(a) for a in argv], cwd=cwd, env=env,
                           capture_output=True, timeout=240)
@@ -184,6 +331,12 @@ def judge(result, rc, token, stdout_token=False):
 
 
 def run_cell(base, tools, cell):
+    if cell in GRID:
+        key = (base.parent, tools)
+        if key not in GRID_CACHE:
+            cells = GRID_LINKS.get(tools.name, GRID)
+            GRID_CACHE[key] = run_grid(base.parent / (tools.name + '-grid'), tools, cells)
+        return GRID_CACHE[key][cell]
     base.mkdir()
     kind, value, rid, rc, token = CASES[cell]
     if kind.startswith('pin'):
@@ -295,8 +448,15 @@ def carrier_catalog():
     for name, row in source['bindings'].items():
         if not row['cells'] or set(row['cells']) - CASES.keys():
             raise RuntimeError('ORPHAN ' + name)
+        GRID_LINKS[name] = [cell for cell in row['cells'] if cell in GRID]
     print('KLETKI', len(CASES), 'STABY', len(source['bindings']),
           'SVJAZI', sum(len(v['cells']) for v in source['bindings'].values()))
+    for axis in ('type', 'false', 'separator', 'ascii', 'boundary', 'unicode', 'length'):
+        cells = [name for name in GRID if name.startswith('grid-' + axis + '-')]
+        if not cells:
+            raise RuntimeError('EMPTY_GRID_AXIS ' + axis)
+        print('GRID_AXIS', axis, 'CASES', len(cells), 'ACCEPT',
+              sum(CASES[name][3] == 0 for name in cells))
     return source
 
 
