@@ -12,6 +12,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import install224
+
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -87,6 +89,7 @@ CONFIG_CASES = ('config-broken', 'config-empty', 'config-missing', 'config-schem
 CASES = tuple(role + '-' + name for role in ('review', 'adversary') for name in WORLDS) + tuple(PRODUCTS)
 CASES += CONFIG_CASES
 CASES += ('config-version', 'config-control')
+CASES += install224.CASES
 
 
 def blob(ref, path):
@@ -187,21 +190,6 @@ def make_world(work, case):
 
 POLICY_PATH = 'config/done_forms.json'
 SCHEMA_PATH = 'config/done_forms.schema.json'
-_original_install = prior.install
-
-
-def install_policy(work, carrier, tools_repo):
-    subject = _original_install(work, carrier, tools_repo)
-    tools = subject.parents[1]
-    # Real installed repository, separate from the author's project.
-    g(tools, 'init', '-q', '-b', 'main')
-    for path in (POLICY_PATH, SCHEMA_PATH, 'ops/server/validators.tsv'):
-        put(tools, path, (ROOT / path).read_text())
-    commit(tools, 'installed policy')
-    return subject
-
-
-prior.install = install_policy
 _original_world = make_world
 
 
@@ -257,8 +245,14 @@ def prepare_policy(subject, root, case):
     os.environ['DONE_FORMS_CONFIG'] = str(root / POLICY_PATH)
 
 
-def suite(carrier, cases, label, tools_repo):
+def suite(carrier, cases, label, tools_repo, installer=None):
     red = 0
+    installation_cases = [case for case in cases if case in install224.CASES]
+    for case in installation_cases:
+        red += bool(install224.check(case, carrier, tools_repo, installer))
+    cases = [case for case in cases if case not in install224.CASES]
+    if not cases:
+        return red
     with tempfile.TemporaryDirectory(prefix='compat231-', dir=os.environ['TMPDIR']) as temp:
         work = Path(temp)
         subject = prior.install(work, carrier, tools_repo)
@@ -339,7 +333,10 @@ def main():
         return 0
     if args.sintaksis:
         for path in saved:
-            checked(['bash', '-n', HERE / path])
+            if path.endswith('.py'):
+                compile(saved[path], path, 'exec')
+            else:
+                checked(['bash', '-n', HERE / path])
         for path in ('model/done_contract.sh', 'red_done_round_compat_231.sh'):
             checked(['bash', ROOT / 'scripts/validate_std.sh', 'bash', HERE / path])
         for path in HERE.glob('*.py'):
@@ -357,7 +354,9 @@ def main():
             return 1
         alive = 0
         for link in source['stab_vhod']:
-            alive += suite(saved[link['stab']], [link['case']], link['stab'], tools) == 0
+            installer = saved[link['stab']] if link['stab'].endswith('.py') else None
+            carrier = model if installer is not None else saved[link['stab']]
+            alive += suite(carrier, [link['case']], link['stab'], tools, installer) == 0
         print('STABY', len({x['stab'] for x in source['stab_vhod']}), 'SVJAZI', len(source['stab_vhod']), 'ZHIVYH', alive)
         return int(alive != 0)
     candidate = model if args.model else (tools / 'scripts/done_contract.sh').read_bytes()
