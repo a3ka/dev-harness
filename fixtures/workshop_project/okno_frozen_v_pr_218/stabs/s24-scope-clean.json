@@ -1,0 +1,1 @@
+{"name":"s24-scope-clean","file":"pr_window.sh","old":"    rm -f \"$row\"; pr_refuse SCOPE_UNREADABLE","new":"    :","cells":["frozen-git-fault-scope"]}

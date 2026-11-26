@@ -1,0 +1,1 @@
+{"name":"s26-tag-clean","file":"pr_window.sh","old":"pr_refuse() { printf 'PR_WINDOW_%s\\n' \"$1\" >&2; exit 1; }","new":"pr_refuse() { [ \"$1\" != TAG_UNREADABLE ] || return 0; printf 'PR_WINDOW_%s\\n' \"$1\" >&2; exit 1; }","cells":["frozen-git-fault-tag"]}
