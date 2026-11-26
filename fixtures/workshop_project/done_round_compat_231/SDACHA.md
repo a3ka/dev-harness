@@ -44,6 +44,8 @@ B = bash fixtures/workshop_project/done_round_compat_231/red_done_round_compat_2
 
 Именованные 56 красных B --repo .: для КАЖДОЙ роли review/adversary — back181, back179, mobile218, krug, bare-duplicate, old-conflict-low, old-conflict-high, numeric-fail, numeric-accept, three-digits, ten-digits, old-zero, old-leading-zero, old-empty, krug-zero, krug-leading-zero, plain-call-high, plain-call-low, plain-v, plain-order, same-call, live227, config-name-added, config-name-removed; дополнительно product-live215, product-config-added, config-broken, config-empty, config-missing, config-schema, config-version, config-control.
 
+После исправления только грамматики листа, кандидат 60c5571f4 в том же origin-клоне: `bash scripts/pre_critic.sh contracts/231-sovmestimost-doski-224.md` → RAW_RC 0, «КРИТИК: дверь зелёная»; `SDACHA_TIMEOUT_SEK=1200 SDACHA_BUDZHET_SEK=2400 bash scripts/check_sdacha.sh . contracts/231-sovmestimost-doski-224.md --run` → RAW_RC 0, «СДАЧА: лист зелёный (двери=7 карта=17/17 дельта=3)». Каждый адресный вход дельты выполнен; отказы config на прежнем установщике не подменены зеленью.
+
 ## Двери
 
 - Sintaksis · bash fixtures/workshop_project/done_round_compat_231/red_done_round_compat_231.sh --sintaksis · 0 · 0
