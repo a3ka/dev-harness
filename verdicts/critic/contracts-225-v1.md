@@ -1,134 +1,71 @@
 FAIL
-OBJECT=c11a5b323883547ea1140b42195b3e22d340c20c
-СУД: repo=dev-harness; предмет=225; фаза=контракт; роль=critic; вызов=2/2 (исправительный; дельта Architect225b); модель-план=openai-codex/gpt-6.1-terra; сессия=Crit225b; модель-факт=openai-codex/gpt-6.1-terra; автор Architect225b=openai-codex/gpt-6.1-sol; SHA=c11a5b323883547ea1140b42195b3e22d340c20c; предыдущий=archive/225/critic-v1-fail-c71f93117a; исключение=нет.
+OBJECT=7bf20852e8e13f30433cc52db34e7a86b6337e8e
+СУД: репо=dev-harness; предмет=225; фаза=контракт; роль=critic; вызов=3 (последний исправительный; дельта Architect225c по Arb225); модель-план=openai-codex/gpt-6.1-terra; сессия=Crit225c; модель-факт=openai-codex/gpt-6.1-terra; автор Architect225c=openai-codex/gpt-6.1-sol; SHA=7bf20852e8e13f30433cc52db34e7a86b6337e8e; предыдущий=archive/225/critic-v2-fail-25e1391f73; арбитраж=archive/225/arbiter-env-f538d41385; исключение=санкция на этот OBJECT по заданию R-0085 п.2.
 
-`models_actual.sh --tsv --bind --session Crit225b` и `--session Architect225b` rc 0: разные сессии, фактические модели и роли соответствуют указанным. Задание на этот OBJECT сообщает санкцию R-0085 п.2; окончательная сверка записи HANDOFF с трассой — оркестратору. Основание scoped-поиска: ремонт Б-2 утверждает сохранение всего ENV-интерфейса 196 и меняет чтение всех трёх переменных; проверены также соседние непустые значения. Проверка каталога прежних атак прямо требуется нормой 192. Остальные поверхности повторно полностью не исследовались.
+`bash scripts/models_actual.sh --tsv --bind --session Crit225c` и то же для `Architect225c`: rc 0, роли и фактические модели как в строке выше, сессии разные. Задание сообщает отдельную санкцию запуска; запись и дописку факта в живом HANDOFF должен сверить оркестратор: HANDOFF на предъявленном OBJECT отстаёт. Предыдущий вердикт вызова 2 действительно закоммичен на OBJECT в `verdicts/critic/contracts-225-v1.md`, не в v2.
 
-## Блоки
+## Блок
 
-БЛОКИРУЕТ contracts/225-ci-clean-vremennye-katalogi.md:36,50 — класс сохранения ENV-интерфейса 196 закрыт только на пустой строке; честная модель противоречит существующему поведению на соседнем доступном входе.
-ПРОИСХОЖДЕНИЕ: узкое-закрытие
-КЛАСС: К-03
-ОБЯЗАТЕЛЬСТВО: сохранить грамматику, stdout и ENV-поведение 196, за исключением явно изменённого источника умолчаний; модель должна быть честным контролем.
-СОСТОЯНИЕ: публичный вызов с `CI_ARTIFACTS_REPOS=' '` (один пробел), корректным сроком `4` и существующим игрушечным ROOT. Значение непустое: bash использует его, а не default. Это поддерживаемый ENV-шов, а не специально внесённая мутация.
-НАБЛЮДЕНИЕ: исходный cleaner 196 возвращает rc 0 и пустые stdout/stderr, поскольку цикл `for r in $REPOS_ENV` не выполняется и пустая строка `REPOS` не совпадает с case `' '`. Модель 225 после `.split()` отказывает с rc 1 `ОТКАЗ: список репо пуст`. `--model` и `--delta` при этом зелёные; последний не включает этот соседний вход. Проверяемое закрывающее свойство: совпадение 196 по rc, stdout/stderr и эффекту для непустых ENV в области обещанной совместимости, включая whitespace-only REPOS, с различающей проверкой на настоящем исходнике 196. Менять frozen-поведение или сужать обязательство без полномочного решения нельзя.
-
-АРБИТР: повтор класса Б-2 о сохранении ENV 196; вопрос — как закрыть совместимость непустого whitespace-only REPOS без изменения frozen-обязательства. Второй FAIL по той же причине; созывается арбитр, а не автоматический дополнительный круг.
-
-БЛОКИРУЕТ contracts/225-ci-clean-vremennye-katalogi.md:51 — отсутствуют обязательные адресные стабы мутаций из предыдущего вердикта.
-ПРОИСХОЖДЕНИЕ: узкое-закрытие
+БЛОКИРУЕТ contracts/225-ci-clean-vremennye-katalogi.md:54 и fixtures/workshop_project/ci_clean_225/SDACHA.md:61 — сдаточный лист ссылается на отсутствующий в OBJECT файл предыдущего вердикта, поэтому обязательная дверь недостижима на предъявленном носителе.
+ПРОИСХОЖДЕНИЕ: дельта
 КЛАСС: К-01
-ОБЯЗАТЕЛЬСТВО: roles/critic.md, §Связка с автором (контракт 192): каждая мутация критика из вердикта после исправления становится адресным стабом батареи и проверяется `--stabs`.
-СОСТОЯНИЕ: вердикт v1 документирует четыре реально исполненные мутации: игнорирование young-проверки, пропуск worker только второго юнита, постановка `thaw=True` только после успешного freeze, хардкод срока в один день. Дифф семейства и каталог `stabs/` OBJECT проверены; точных мутаций нет. Близкие s05 игнорирует ВСЕ worker, s07 отключает ВСЕ thaw, s01 задаёт ДВА дня; это не четыре адресных предъявления из вердикта. В частности поиск `if False and entry.lstat`, `unit != 'toy-b.service'`, `time.time() - 86400` и шаблона `ctl(conf, 'freeze', unit)` непосредственно перед `thaw = True` по каталогу стабов не дал совпадений.
-НАБЛЮДЕНИЕ: `--stabs` rc 0, `STABY=48 SVJAZI=68 ZHIVYH=0`, но этих четырёх обязательных адресных предъявлений не исполняет. Свойство закрытия: все четыре мутации из v1 присутствуют как отдельные адресные стабы с собственными связями и действительно краснеют; изменения модели/каталога учитывают её нынешний код. Н-39 соблюдается: привязки по коду делает architect, а не контрактная проза.
+ОБЯЗАТЕЛЬСТВО: контракт требует rc 0 для `check_sdacha --run` и `pre_critic`; дельта-лист обязан ссылаться на действительно закоммиченный предыдущий вердикт и пройти машинную проверку, не имитируя историю.
+СОСТОЯНИЕ: чистый origin-only клон на OBJECT. Строка листа указывает `verdicts/critic/contracts-225-v2.md`, которого на HEAD нет; вердикт вызова 2 находится в `verdicts/critic/contracts-225-v1.md`. `git cat-file -e HEAD:verdicts/critic/contracts-225-v2.md` rc 128: `fatal: path 'verdicts/critic/contracts-225-v2.md' does not exist in 'HEAD'`.
+НАБЛЮДЕНИЕ: `check_sdacha --run` rc 1: `ОТКАЗ: предыдущий вердикт не закоммичен (AGENTS п.9): verdicts/critic/contracts-225-v2.md`; `pre_critic` rc 1 по той же причине. Закрывающее свойство: настоящий предыдущий вердикт и его карта доступны штатному механизму сдаточного листа на предъявленном коммите, обе двери действительно возвращают 0 без подмены истории или обхода машинного отказа.
 
-## Проверки закрытия и последствия дельты
+Позиция автора: SDACHA.md:9 прямо признаёт красные двери и описывает проблему представления истории, не заявляет разрешение на подмену вердиктов; на данном OBJECT ссылка всё ещё на отсутствующий v2. Это не утверждение о неверности ENV-исправления. Из-за отказа обязательной двери и расхождения с rc 0, требуемым контрактом и заданием, глубинная атака, прогоны батарей и вывод о закрытии обоих прежних блоков не засчитываются: по норме К-01 разбор по существу остановлен. Успехи, перечисленные автором, здесь не воспроизведены. Никакая мутация не выполнялась. Заморозка не разрешена.
 
-В чистом origin-only клоне OBJECT, TMPDIR внутри собственной копии, без обращения к живым `/var/lib` и systemd. `git diff b3149e026 c11a5b323 -- fixtures/workshop_project/ci_clean_225/probe.py`: прежние тела клеток не удалены, добавлены `uncertainty_case`, `env_case`, перечни и диспетчер; изменение syntax добавляет все shims. Риск повышен обоснованно: root-удаление данных живого раннера при неполном обзоре cgroup; после реализации порядок судов adversary → reviewer.
+АРБИТР: после третьего вызова с FAIL требуется арбитраж о конечной границе по открытому К-01, включая корректное представление подлинной истории и машинную дверь; решение не заменяет accept. Ранее заявленные Б-2/К-03 и К-01 вызова 2 в этом вызове из-за остановки не признаны закрытыми, их рассмотрение относится к законному пути после решения арбитра, не к автоматическому новому полному вызову. Рисковый предмет: после реализации adversary → reviewer.
 
-Б-1: дословный `cgroup_case.py` из v1 запущен в том же `World` с chmod 0. Сырой вывод:
-```
-rc= 1 old_exists= True
-stdout: ci-tmp: toy-b.service: удалено 0, хранится 0
-stderr: ОТКАЗ: RUNNER_STATE_UNAVAILABLE [Errno 13] Permission denied: '/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/te1d83e4a2/m/tmp/scratch-crit225b/ci225-b4p2oz51/cgroup/toy-a.service/child.scope'
-```
-`--delta` дополнительно наблюдает freeze→thaw, frozen 0 и обработку соседа. Соседние самостоятельные швы: `scandir` EMFILE и ENOENT, `stat` EACCES, вложенный symlink и `io.open` EACCES для cgroup.procs дают rc 1, старое дерево сохранено, сосед очищен, thaw вызван. Первый вариант шва `builtins.open` не перехватывал `pathlib`, а первоначальный вариант `io.open` мешал pipe-дескрипторам subprocess; они не засчитываются как доказательство. Исправленный шов:
-```
-procs-denied rc= 1 old= True neighbor= False thaw= True stderr= "ОТКАЗ: RUNNER_STATE_UNAVAILABLE [Errno 13] injected: PosixPath('/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/wt/te1d83e4a2/m/tmp/scratch-crit225b/ci225-xm2o872p/cgroup/toy-a.service/child.scope/cgroup.procs')\n"
-```
-Собственная соседняя мутация в одноразовом overlay: существующий `except OSError as exc: unavailable(exc)` в `worker_present` заменён на `except OSError as exc: return True`, то есть неопределённость маскируется под обычный BUSY вместо rc 1. Исполнены адресные `m.cell(m.MODEL, overlay, name)`; команда драйвера `TMPDIR="$PWD/../scratch-crit225b" PYTHONDONTWRITEBYTECODE=1 python3 "$TMPDIR/mutation.py"`, rc 0, сырой вывод:
-```
-cgroup-procs-unreadable green= False reason= 'UNCERTAINTY_RC 0: '
-proc-comm-unreadable green= False reason= 'UNCERTAINTY_RC 0: '
-cgroup-stat-error green= False reason= 'UNCERTAINTY_RC 0: '
-```
-Для данного класса отказа Б-1 закрыт; честные busy/idle проходят модель.
+## Сырые прогоны
 
-Б-2: дословный `env_case.py` из v1 дал:
-```
-old rc= 0 stdout= '' stderr= ''
-model rc= 0 stdout= '' stderr= ''
-```
-Пустые три шва и их комбинация проверены также `--delta`. Проверка соседних значений `' '`, `'0'`, `'-1'` каждого ENV по отдельности через публичные bash-входы выявила только расхождение, приведённое в блоке. Воспроизведение блока (запуск из корня клона, `TMPDIR` — каталог внутри своей копии; `World` создаёт и удаляет только игрушечные пути):
-```python
-import importlib.util, pathlib
-p=pathlib.Path('fixtures/workshop_project/ci_clean_225/probe.py').resolve()
-s=importlib.util.spec_from_file_location('p225',p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m)
-with m.World(m.MODEL) as w:
-    w.cfg['artifacts']['repos']=['Repo-A']; w.save()
-    env=dict(w.env, CI_ARTIFACTS_ROOT=str(w.root/'artifacts'), CI_ARTIFACTS_REPOS=' ', CI_ARTIFACTS_RETENTION_DAYS='4')
-    old=m.run(['bash',str(pathlib.Path('ops/server/root/ci-artifacts-clean').resolve())],env)
-    new=m.run(['bash',str(w.runtime/'ci-artifacts-clean')],env)
-    print('old',old.returncode,repr(old.stdout),repr(old.stderr),'new',new.returncode,repr(new.stdout),repr(new.stderr))
-```
-Сырой вывод более широкого прогона `TMPDIR="$PWD/../scratch-crit225b" PYTHONDONTWRITEBYTECODE=1 python3 "$TMPDIR/env_neighbors.py"`, rc 0:
-```
-CI_ARTIFACTS_RETENTION_DAYS ' ' old 1 '' 'ОТКАЗ: срок не целое ≥1:  \n' new 1 '' 'ОТКАЗ: срок не целое ≥1:  \n'
-CI_ARTIFACTS_RETENTION_DAYS '0' old 1 '' 'ОТКАЗ: срок не целое ≥1: 0\n' new 1 '' 'ОТКАЗ: срок не целое ≥1: 0\n'
-CI_ARTIFACTS_RETENTION_DAYS '-1' old 1 '' 'ОТКАЗ: срок не целое ≥1: -1\n' new 1 '' 'ОТКАЗ: срок не целое ≥1: -1\n'
-CI_ARTIFACTS_ROOT ' ' old 1 '' 'ОТКАЗ: корень не каталог:  \n' new 1 '' 'ОТКАЗ: корень не каталог:  \n'
-CI_ARTIFACTS_ROOT '0' old 1 '' 'ОТКАЗ: корень не каталог: 0\n' new 1 '' 'ОТКАЗ: корень не каталог: 0\n'
-CI_ARTIFACTS_ROOT '-1' old 1 '' 'ОТКАЗ: корень не каталог: -1\n' new 1 '' 'ОТКАЗ: корень не каталог: -1\n'
-CI_ARTIFACTS_REPOS ' ' old 0 '' '' new 1 '' 'ОТКАЗ: список репо пуст\n'
-CI_ARTIFACTS_REPOS '0' old 0 '' '' new 0 '' ''
-CI_ARTIFACTS_REPOS '-1' old 1 '' 'ОТКАЗ: недопустимое имя репо: -1\n' new 1 '' 'ОТКАЗ: недопустимое имя репо: -1\n'
-```
+Клон создан локально из своей копии, затем единственный origin установлен на `ssh://git@github.com/a3ka/dev-harness.git`, checkout OBJECT, `git fetch origin main '+refs/tags/*:refs/tags/*'` rc 0. TMPDIR внутри своей копии, живые systemd и `/var/lib` не использовались.
 
-## Прогоны
+```
+SDACHA_TIMEOUT_SEK=1200 SDACHA_BUDZHET_SEK=2400 bash scripts/check_sdacha.sh "$PWD" contracts/225-ci-clean-vremennye-katalogi.md --run
+ОТКАЗ: предыдущий вердикт не закоммичен (AGENTS п.9): verdicts/critic/contracts-225-v2.md
+rc=1
 
-Команды из `fixtures/workshop_project/ci_clean_225/SDACHA.md`, исполненные в origin-only клоне с `VALIDATE_STD_SHELLCHECK` на установленный пин, TMPDIR внутри копии:
+bash scripts/pre_critic.sh contracts/225-ci-clean-vremennye-katalogi.md
+  ok   гейт предпосылок: PREDPOSYLKI_OK secrets=0 variables=0 environments=0 settings=3
+  ok   гейт трека:
+  ok   модель угроз красна
+  ok   потолки красны
+  ok   проводка красна
+ОТКАЗ: сдаточный лист красен (rc=1): ОТКАЗ: предыдущий вердикт не закоммичен (AGENTS п.9): verdicts/critic/contracts-225-v2.md
+rc=1
+
+models_actual.sh --tsv --bind --session Crit225c
+critic openai-codex/gpt-6.1-terra allowed Crit225c 7bf20852e8e13f30433cc52db34e7a86b6337e8e
+critic openai-codex/gpt-6.1-terra allowed Crit225c 7bf20852e8e13f30433cc52db34e7a86b6337e8e
+rc=0
+models_actual.sh --tsv --bind --session Architect225c
+architect openai-codex/gpt-6.1-sol allowed Architect225c -
+architect openai-codex/gpt-6.1-sol allowed Architect225c -
+rc=0
+uptime: load average: 28.87, 25.34, 26.67
 ```
-check_sdacha.sh "$PWD" contracts/225-ci-clean-vremennye-katalogi.md --run: rc 0
-СДАЧА: лист зелёный (двери=16 карта=17/17 дельта=3)
-pre_critic.sh contracts/225-ci-clean-vremennye-katalogi.md: rc 0
-КРИТИК: дверь зелёная
-check_precision_gate.sh "$PWD" contracts/225-ci-clean-vremennye-katalogi.md: rc 0
-OK
-225 --repo .: rc 1
-ИТОГ 225: KLETKI=104 KRASNYH=104
-225 --model: rc 0
-ИТОГ 225: KLETKI=104 KRASNYH=0
-225 --delta: rc 0
-ИТОГ 225: KLETKI=15 KRASNYH=0
-225 --stabs: rc 0
-STABY=48 SVJAZI=68 ZHIVYH=0
-225 --sintaksis: rc 0
-SINTAKSIS=53 JSON_SCHEMA=0
-225 --catalog: rc 0
-KLETKI=104 STABY=48 SVJAZI=68 NOSITELI=62
-196 --repo .: rc 0
-ИТОГ 196: rc=0 KLETKI=25 ZELENYE=25 KRASNYE=0
-196 --model: rc 0
-ИТОГ 196: rc=0 KLETKI=25 ZELENYE=25 KRASNYE=0
-196 --stabs: rc 0
-ИТОГ 196: rc=0 OBMANOK=34 POIMANY=34 ZHIVYH=0
-```
-Красные 225 — неготовые новые production/config/unit/install поверхности: `CONFIG_ABSENT`, `UNIT_ABSENT`, `SUBJECT_ABSENT`, отсутствующая ветвь установки и связанные ожидания, не отказ среды. После freeze implementer должен реализовать указанный инвентарь и сохранить 196/074, а не ослабить батарею. `uptime` до прогонов: `load average: 17.89, 18.51, 18.66`.
 
 ## Карта классов
 
-К-01: блок — не перенесены четыре адресные мутации v1
-К-02: без изменений с вызова 1
-К-03: блок — непустой whitespace REPOS расходится с 196
-К-04: без изменений с вызова 1
-К-05: без изменений с вызова 1
-К-06: без изменений с вызова 1
-К-07: без изменений с вызова 1
-К-08: чисто — исходная ошибка cgroup и соседняя мутация дают отказ и thaw
-К-09: блок — непустой whitespace REPOS не проверяется дельтой
-К-10: без изменений с вызова 1
-К-11: без изменений с вызова 1
-К-12: без изменений с вызова 1
-К-13: без изменений с вызова 1
-К-14: чисто — --model rc 0 и честные busy/idle и empty ENV проходят
-К-15: чисто — catalog 104/48/68/62 и прямые прогоны выше
-К-16: чисто — рисковый класс root-удаления обоснован
-К-17: без изменений с вызова 1
+К-01: блок — отсутствует предыдущий вердикт по пути дельта-листа
+К-02: ссылка:2
+К-03: н/п — закрытие предыдущего блока не рассмотрено из-за отказа двери К-01
+К-04: ссылка:2
+К-05: ссылка:2
+К-06: ссылка:2
+К-07: ссылка:2
+К-08: н/п — дельта и мутации не рассмотрены из-за отказа двери К-01
+К-09: н/п — закрытие предыдущего блока не рассмотрено из-за отказа двери К-01
+К-10: ссылка:2
+К-11: ссылка:2
+К-12: ссылка:2
+К-13: ссылка:2
+К-14: н/п — дельта не рассмотрена из-за отказа двери К-01
+К-15: н/п — прогоны заявленных чисел остановлены дверью К-01
+К-16: ссылка:2
+К-17: ссылка:2
 
 ## НЕ ЗАЩИЩАЕТ
 
-Остатки контракта: враждебный root/конкурентная смена FS и cgroup, SIGKILL между freeze и thaw, отличия реального systemd от игрушки. Ловцы — reviewer production-diff, операторское восстановление и обязательная живая приёмка до done; это не исключает обещанную обработку ошибок чтения.
-
-## Советы
-
-СОВЕТ contracts/225-ci-clean-vremennye-katalogi.md:56 — прежний совет о заранее воспроизводимой операторской процедуре сохраняется; живая проверка остаётся за оператором.
+Остатки и ловцы — ссылка на вердикт вызова 2; данный отказ двери не является разрешением сужать обязательства или заменять приёмку.
