@@ -338,6 +338,112 @@ def artifact_case(source, overlay, kind):
         check(not w.journal(), 'ARTIFACTS_TOUCHED_RUNNER')
 
 
+def uncertainty_case(source, overlay, kind):
+    with World(source, overlay) as w:
+        old = w.entry()
+        neighbor = w.entry(index=1)
+        root = old.parent
+        before = snapshot(root)
+        w.worker(nested=True)
+        child = w.root / 'cgroup/toy-a.service/child.scope'
+        deep = child / 'grandchild.scope'
+        deep.mkdir()
+        (child / 'cgroup.procs').rename(deep / 'cgroup.procs')
+        (child / 'cgroup.procs').write_text('')
+        if kind == 'cgroup-busy-unreadable':
+            (child.parent / 'cgroup.procs').write_text('54321\n')
+        restricted = []
+        if kind in ('cgroup-child-unreadable', 'cgroup-parent-unreadable', 'cgroup-busy-unreadable'):
+            restricted = [deep, child] if kind == 'cgroup-parent-unreadable' else [deep]
+        elif kind == 'cgroup-procs-unreadable':
+            restricted = [deep / 'cgroup.procs']
+        elif kind == 'proc-comm-unreadable':
+            restricted = [w.root / 'proc/54321/comm']
+        else:
+            shutil.copyfile(HERE / 'shims/fs_fault.py', w.bin / 'sitecustomize.py')
+            w.env.update(PYTHONPATH=str(w.bin), CI225_FAULT_PATH=str(deep),
+                         CI225_FAULT_KIND='readdir' if kind == 'cgroup-readdir-error' else 'stat')
+        modes = [(p, stat.S_IMODE(p.stat().st_mode)) for p in restricted]
+        try:
+            for p, _ in modes:
+                p.chmod(0)
+            if restricted:
+                # A privileged process would not exercise the intended failure.
+                target = restricted[-1]
+                try:
+                    list(target.iterdir()) if target.is_dir() else target.read_bytes()
+                except PermissionError:
+                    pass
+                else:
+                    raise BadWorld('NOT_IMPLEMENTED permission fault not observable')
+            result = w.execute()
+        finally:
+            for p, mode in reversed(modes):
+                p.chmod(mode)
+        check(result.returncode == 1, f'UNCERTAINTY_RC {result.returncode}: {result.stderr}')
+        check('ОТКАЗ:' in result.stderr, 'UNCERTAINTY_NOT_NAMED')
+        check(old.is_dir() and snapshot(root) == before, 'UNCERTAIN_ROOT_CHANGED')
+        check(not neighbor.exists(), 'UNCERTAINTY_BLOCKED_NEIGHBOR')
+        calls = [(r[0], r[1]) for r in w.journal()]
+        for unit in ('toy-a.service', 'toy-b.service'):
+            check(calls.count(('freeze', unit)) == calls.count(('thaw', unit)) == 1, 'UNCERTAIN_RELEASE_MISSING')
+            check(calls.index(('freeze', unit)) < calls.index(('thaw', unit)), 'UNCERTAIN_RELEASE_ORDER')
+            check((w.root / 'cgroup' / unit / 'cgroup.events').read_text().splitlines() == ['populated 1', 'frozen 0'], 'UNCERTAIN_STILL_FROZEN')
+
+
+def env_case(source, overlay, kind):
+    with World(source, overlay) as w:
+        old = w.artifact(days=5)
+        young = old.parent / '222-2'
+        shutil.copytree(old, young)
+        age(young, 0.25)
+        w.cfg['artifacts']['repos'] = ['Repo-A']
+        # The only intentional 196 change is the source of these defaults.
+        # Normalize its three default values, preserving the actual bash :-.
+        legacy = (HERE.parent / 'ops_ci_artifacts_196/model/ci-artifacts-clean').read_text()
+        defaults = [
+            ('${CI_ARTIFACTS_ROOT:-/var/lib/ci-artifacts}', '${CI_ARTIFACTS_ROOT:-' + str(w.root / 'artifacts') + '}'),
+            ('${CI_ARTIFACTS_RETENTION_DAYS:-14}', '${CI_ARTIFACTS_RETENTION_DAYS:-4}'),
+            ('${CI_ARTIFACTS_REPOS:-Complior-mob Complior-back}', '${CI_ARTIFACTS_REPOS:-Repo-A}'),
+        ]
+        for needle, replacement in defaults:
+            check(legacy.count(needle) == 1, 'LEGACY_DEFAULT_ANCHOR')
+            legacy = legacy.replace(needle, replacement)
+        script = w.root / 'legacy-clean'
+        script.write_text(legacy)
+        keys = ('CI_ARTIFACTS_RETENTION_DAYS', 'CI_ARTIFACTS_ROOT', 'CI_ARTIFACTS_REPOS')
+        empty = {'env-empty-days': keys[:1], 'env-empty-root': keys[1:2],
+                 'env-empty-repos': keys[2:], 'env-empty-all': keys}.get(kind, ())
+        w.env.update({key: '' for key in empty})
+        expected_rc, removed, kept, refusal = 0, 1, 1, ''
+        if kind == 'env-valid':
+            w.env.update(zip(keys, ('8', str(w.root / 'artifacts'), 'Repo-A')))
+            removed, kept = 0, 2
+        elif kind in ('env-invalid-abc', 'env-invalid-zero'):
+            w.env[keys[0]] = 'abc' if kind == 'env-invalid-abc' else '0'
+            expected_rc, removed, kept = 1, 0, 2
+            refusal = 'ОТКАЗ: срок не целое ≥1: ' + w.env[keys[0]] + '\n'
+        expected_tree = snapshot(Path(w.cfg['artifacts']['root']))
+        if removed:
+            expected_tree = {key: value for key, value in expected_tree.items()
+                             if key != 'Repo-A/111-1' and not key.startswith('Repo-A/111-1/')}
+        expected_stdout = (f'удалено: {old}\n' if removed else '') + f'ci-artifacts: репо Repo-A: удалено {removed}, хранится {kept}\n'
+        if expected_rc:
+            expected_stdout = ''
+        for label, execute in [('196', lambda: run(['bash', str(script)], w.env)),
+                               ('225', lambda: w.execute('artifacts'))]:
+            result = execute()
+            check(result.returncode == expected_rc, f'ENV_{label}_RC {result.returncode}: {result.stderr}')
+            check(result.stdout == expected_stdout and result.stderr == refusal, f'ENV_{label}_OUTPUT {result.stdout!r} {result.stderr!r}')
+            check(old.exists() == (removed == 0) and young.is_dir(), f'ENV_{label}_EFFECT')
+            check(snapshot(Path(w.cfg['artifacts']['root'])) == expected_tree, f'ENV_{label}_TREE_CHANGED')
+            if label == '196' and removed:
+                old.mkdir()
+                (old / 'data').write_bytes(b'artifact')
+                age(old, 5)
+        check(not w.journal(), 'ENV_ARTIFACTS_TOUCHED_RUNNER')
+
+
 def load196():
     spec = importlib.util.spec_from_file_location('ci225_regression196', HERE.parent / 'ops_ci_artifacts_196/probe.py')
     module = importlib.util.module_from_spec(spec)
@@ -482,10 +588,13 @@ def lock_case(source, overlay):
 TMP_CASES = ('old-young', 'second-root', 'young-inside', 'file-names', 'busy', 'busy-nested', 'busy-second', 'race-worker', 'idle-process', 'configured-worker', 'inactive', 'empty-root', 'tmp-retention', 'tmp-root-config', 'entry-symlink', 'nested-symlink', 'freeze-fail', 'thaw-fail', 'not-frozen', 'state-fail', 'unknown-state', 'proc-missing', 'cgroup-traversal', 'root-symlink', 'parent-symlink', 'root-missing', 'root-dotdot')
 CONFIG_CASES = ('empty', 'empty-object', 'duplicate', 'nul-path', 'overlap', 'unknown-key', 'zero', 'nonnumeric', 'negative', 'fraction', 'artifact-zero', 'config-path-empty', 'missing', 'unit-newline', 'worker-newline', 'unit-duplicate', 'relative-root', 'repo-traversal', 'lock-inside-root')
 ARTIFACT_CASES = ('artifact-age', 'artifact-retention', 'artifact-root-config', 'artifact-env')
+UNCERTAINTY_CASES = ('cgroup-child-unreadable', 'cgroup-parent-unreadable', 'cgroup-procs-unreadable', 'proc-comm-unreadable', 'cgroup-readdir-error', 'cgroup-stat-error', 'cgroup-busy-unreadable')
+ENV_CASES = ('env-unset', 'env-empty-days', 'env-empty-root', 'env-empty-repos', 'env-empty-all', 'env-valid', 'env-invalid-abc', 'env-invalid-zero')
 INSTALL_CASES = ('install-clean', 'install-euid', 'install-invalid-config', 'install-reload-fail', 'install-enable-fail', 'verify-clean', 'verify-not-installed', 'artifacts-common')
 CASES = (['defaults', 'units', 'readme', 'lock-busy'] + list(TMP_CASES) + ['config-' + c for c in CONFIG_CASES] + list(ARTIFACT_CASES) + list(INSTALL_CASES)
          + ['source-missing:' + p for p in FILES] + ['verify-drift:' + p for p in FILES] + ['verify-missing:' + p for p in FILES]
          + ['verify-partial:' + p for p in FILES if p != 'root/ci-artifacts-clean'])
+CASES += list(UNCERTAINTY_CASES) + list(ENV_CASES)
 
 
 def cell(source, overlay, name):
@@ -497,6 +606,8 @@ def cell(source, overlay, name):
         elif name.startswith('config-'): config_case(source, overlay, name.removeprefix('config-'))
         elif name in TMP_CASES: clean_case(source, overlay, name)
         elif name in ARTIFACT_CASES: artifact_case(source, overlay, name)
+        elif name in UNCERTAINTY_CASES: uncertainty_case(source, overlay, name)
+        elif name in ENV_CASES: env_case(source, overlay, name)
         else: installer_case(source, overlay, name)
         return True, ''
     except (AssertionError, FileNotFoundError) as exc:
@@ -523,7 +634,7 @@ def suite(source, overlay=None, names=CASES):
 
 
 def syntax():
-    paths = list((HERE / 'model').rglob('*')) + list((HERE / 'stabs').rglob('*')) + [HERE / 'red_ci_clean_225.sh', HERE / 'shims/systemctl.py', HERE / 'probe.py', HERE / 'build.py']
+    paths = list((HERE / 'model').rglob('*')) + list((HERE / 'stabs').rglob('*')) + list((HERE / 'shims').rglob('*')) + [HERE / 'red_ci_clean_225.sh', HERE / 'probe.py', HERE / 'build.py']
     count = 0
     for path in paths:
         if not path.is_file(): continue
@@ -552,6 +663,7 @@ def main():
             return 0
         if args == ['--sintaksis']: return syntax()
         if args == ['--model']: return suite(MODEL)
+        if args == ['--delta']: return suite(MODEL, names=UNCERTAINTY_CASES + ENV_CASES)
         if args == ['--stabs']:
             for path in (HERE / 'stabs').rglob('*'):
                 if not path.is_file(): continue

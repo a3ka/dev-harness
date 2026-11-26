@@ -20,7 +20,7 @@ MUTATIONS = [
     ('s05-no-busy', HELPER, "if name in conf['worker_names']:", 'if False:', ['busy', 'busy-second', 'race-worker']),
     ('s06-no-freeze', HELPER, "                ctl(conf, 'freeze', unit)", '                pass', ['old-young']),
     ('s07-no-thaw', HELPER, '            if thaw:', '            if False:', ['old-young', 'busy', 'freeze-fail']),
-    ('s08-top-cgroup', HELPER, 'for parent, dirs, _ in os.walk(group, followlinks=False):', 'for parent, dirs, _ in [(str(group), [], [])]:', ['busy-nested']),
+    ('s08-top-cgroup', HELPER, 'for parent, dirs, files in os.walk(group, followlinks=False, onerror=unavailable):', 'for parent, dirs, files in [(str(group), [], [])]:', ['busy-nested']),
     ('s09-worker-hardcoded', HELPER, "if name in conf['worker_names']:", "if name == 'Runner.Worker':", ['configured-worker']),
     ('s10-skip-schema', HELPER, 'jsonschema.Draft202012Validator(schema).validate(cfg)', 'pass', ['config-zero', 'config-nonnumeric', 'config-unknown-key']),
     ('s11-dotdot', HELPER, "or '..' in p.parts", 'or False', ['root-dotdot']),
@@ -30,7 +30,7 @@ MUTATIONS = [
     ('s15-inactive-on-unknown', HELPER, "elif active not in ('inactive', 'failed'):", 'elif False:', ['unknown-state']),
     ('s16-ignore-freeze-error', HELPER, "    if proc.returncode:", "    if proc.returncode and args[0] != 'freeze':", ['freeze-fail']),
     ('s17-no-root-config', HELPER, "roots = [directory(r['root']) for r in conf['runners']]", "roots = [directory(str(Path(conf['proc_root']).parent / leaf)) for leaf in ('runner one', 'runner two')]", ['tmp-root-config']),
-    ('s18-artifact-root-ignored', HELPER, "os.environ.get('CI_ARTIFACTS_ROOT', conf['root'])", "str(Path(cfg['tmp']['proc_root']).parent / 'artifacts')", ['artifact-root-config']),
+    ('s18-artifact-root-ignored', HELPER, "os.environ.get('CI_ARTIFACTS_ROOT') or conf['root']", "str(Path(cfg['tmp']['proc_root']).parent / 'artifacts')", ['artifact-root-config']),
     ('s19-no-euid', INSTALL, '[ "$(id -u)" -eq 0 ] ||', 'true ||', ['install-euid']),
     ('s20-no-validation', INSTALL, '    validate_config || exit $?', '    :', ['install-invalid-config']),
     ('s21-no-owner', INSTALL, ' && chown root:root -- "$dst"', '', ['install-clean']),
@@ -48,6 +48,12 @@ MUTATIONS = [
     ('s40-tmp-partial', INSTALL, 'if [ "$present" -eq 0 ]; then', 'if [ "$present" -lt 4 ]; then', ['verify-partial:root/ci-runner-tmp-clean']),
     ('s41-unit-terminator', 'ci-clean.schema.json', r'\\.service$(?![\\s\\S])', r'\\.service$', ['config-unit-newline']),
     ('s42-name-terminator', 'ci-clean.schema.json', r'^[A-Za-z0-9][A-Za-z0-9._-]*$(?![\\s\\S])', r'^[A-Za-z0-9][A-Za-z0-9._-]*$', ['config-worker-newline']),
+    ('s43-walk-ignore-errors', HELPER, 'followlinks=False, onerror=unavailable', 'followlinks=False', ['cgroup-child-unreadable', 'cgroup-parent-unreadable', 'cgroup-readdir-error']),
+    ('s44-empty-days', HELPER, "os.environ.get('CI_ARTIFACTS_RETENTION_DAYS') or str(conf['retention_days'])", "os.environ.get('CI_ARTIFACTS_RETENTION_DAYS', str(conf['retention_days']))", ['env-empty-days', 'env-empty-all']),
+    ('s45-empty-root', HELPER, "os.environ.get('CI_ARTIFACTS_ROOT') or conf['root']", "os.environ.get('CI_ARTIFACTS_ROOT', conf['root'])", ['env-empty-root', 'env-empty-all']),
+    ('s46-empty-repos', HELPER, "os.environ.get('CI_ARTIFACTS_REPOS') or ' '.join(conf['repos'])", "os.environ.get('CI_ARTIFACTS_REPOS', ' '.join(conf['repos']))", ['env-empty-repos', 'env-empty-all']),
+    ('s47-stat-ignore-error', HELPER, '(Path(parent) / child).lstat().st_mode', '0', ['cgroup-stat-error']),
+    ('s48-early-worker-return', HELPER, '                    present = True', '                    return True', ['cgroup-busy-unreadable']),
 ]
 # Поадресные мутации шага сверки: не усредняем файлы/два типа дефекта.
 for index, rel in enumerate(FILES):

@@ -89,7 +89,22 @@
     "verify-partial:ci-clean.json",
     "verify-partial:ci-clean.schema.json",
     "verify-partial:root/systemd/ci-runner-tmp-clean.service",
-    "verify-partial:root/systemd/ci-runner-tmp-clean.timer"
+    "verify-partial:root/systemd/ci-runner-tmp-clean.timer",
+    "cgroup-child-unreadable",
+    "cgroup-parent-unreadable",
+    "cgroup-procs-unreadable",
+    "proc-comm-unreadable",
+    "cgroup-readdir-error",
+    "cgroup-stat-error",
+    "cgroup-busy-unreadable",
+    "env-unset",
+    "env-empty-days",
+    "env-empty-root",
+    "env-empty-repos",
+    "env-empty-all",
+    "env-valid",
+    "env-invalid-abc",
+    "env-invalid-zero"
   ],
   "stab_vhod": [
     [
@@ -265,6 +280,50 @@
       "config-worker-newline"
     ],
     [
+      "s43-walk-ignore-errors",
+      "cgroup-child-unreadable"
+    ],
+    [
+      "s43-walk-ignore-errors",
+      "cgroup-parent-unreadable"
+    ],
+    [
+      "s43-walk-ignore-errors",
+      "cgroup-readdir-error"
+    ],
+    [
+      "s44-empty-days",
+      "env-empty-days"
+    ],
+    [
+      "s44-empty-days",
+      "env-empty-all"
+    ],
+    [
+      "s45-empty-root",
+      "env-empty-root"
+    ],
+    [
+      "s45-empty-root",
+      "env-empty-all"
+    ],
+    [
+      "s46-empty-repos",
+      "env-empty-repos"
+    ],
+    [
+      "s46-empty-repos",
+      "env-empty-all"
+    ],
+    [
+      "s47-stat-ignore-error",
+      "cgroup-stat-error"
+    ],
+    [
+      "s48-early-worker-return",
+      "cgroup-busy-unreadable"
+    ],
+    [
       "s28-blind-file",
       "verify-drift:root/ci-artifacts-clean"
     ],
@@ -327,29 +386,30 @@
     "model/ci-clean.schema.json": "e8cee71f4d626a37550e8b3d6d42653d3648185cc568aadb3e64a0c8f3528881",
     "model/install-ci-clean.sh": "387b50ac5da91eb8826afe26ac529d05c68b660ca13f02894dc035bd76bb866d",
     "model/root/ci-artifacts-clean": "5a3d613aed70614ae97c32e845c924e73f3540d8535b958056fe824827396c38",
-    "model/root/ci-clean.py": "92a00e9202abf64dffe2d769bed22ceec0cd461be23d0e56879d07e5d9535540",
+    "model/root/ci-clean.py": "c4d8ffef03cee33c5a69f9df796554f76245d4ae6db9ad71ec0ef827573e0d04",
     "model/root/ci-runner-tmp-clean": "13a523769b7c512c9a8be3e55753db143c8a2d1d5187a774148a75d02195ef41",
     "model/root/systemd/ci-runner-tmp-clean.service": "0998f9d28b375aefb8af29c10e36a1f1faff6e69ed2140b24d246c6289584456",
     "model/root/systemd/ci-runner-tmp-clean.timer": "56707afd964a3b87f440fe5986da35d6c2964decc11d390fa8fbeda4ecb76dae",
+    "shims/fs_fault.py": "d2e3b4d10c77316dd9af72ba3056d690b3cc7a4737efbcce55f901dbf0f28aa8",
     "shims/systemctl.py": "4bbc336ef27a5ae0546efdd019f94b8301418367dc84daa4d9ec95f67314ba20",
-    "stabs/s01-tmp-hardcoded/root/ci-clean.py": "7cff538c83e81adda31669122b9650d4b51753dfa7504b72847c030173a76206",
-    "stabs/s02-artifact-hardcoded/root/ci-clean.py": "e3ceddd3eebb8b37af2283b574fcb2bf2ded1cbe43ef5086afc49ebc5c5ce994",
-    "stabs/s03-first-root-only/root/ci-clean.py": "cc75cc328248e2ed9d1b7893ab6ce6875573ccb27cd4cceb74c5d05793550e55",
-    "stabs/s04-top-mtime/root/ci-clean.py": "8c928b06b1e195177ccf4a6e84729153028ed22bf1fa000ab13bc3e41a2e5271",
-    "stabs/s05-no-busy/root/ci-clean.py": "1256775b309adee6fa0338cf2ab032d12e16b2d3452e57f9438399a480a69eb8",
-    "stabs/s06-no-freeze/root/ci-clean.py": "890f03c71069984df4d1ce4fdc7b44beb73fea30dcebce0f29e8f6afc86ce2e3",
-    "stabs/s07-no-thaw/root/ci-clean.py": "954663ebf51daab299fb5a7bc81b018c51ceb4ffffdbd3940282d65d065dd58b",
-    "stabs/s08-top-cgroup/root/ci-clean.py": "5eef45238ec279f7b1a8a2f80c757ef7ff8a8b44d2929437e4887ab61498bde3",
-    "stabs/s09-worker-hardcoded/root/ci-clean.py": "b263b048c1dbc6fba9dd15024b492aa2752d54c7dea02362567cc1351a943a33",
-    "stabs/s10-skip-schema/root/ci-clean.py": "f681f0cee522af29fba7bbe537354131ecc3678b15375755bf38274812803a30",
-    "stabs/s11-dotdot/root/ci-clean.py": "4b3a814666731c126c6f8c799a5cfff4ec29b7de51e309bb9da637c8adf27242",
-    "stabs/s12-symlink-root/root/ci-clean.py": "14976ac73588422ad7a2be0c1e3b708a4aa063d42098133c1dd3163ac1f83316",
-    "stabs/s13-symlink-entry/root/ci-clean.py": "39a29f1ea5c58e2b795e15470748f813ac72ccdcf93e79ac55c2e4c08a690d30",
-    "stabs/s14-no-frozen-ack/root/ci-clean.py": "f4327b945943a515b89cb71c6fe6104f8627bd08dbb9ae680124a705d5e15c1c",
-    "stabs/s15-inactive-on-unknown/root/ci-clean.py": "36c21766715f850db1f5a941af92f726df234cf2febc76f67f68f9994220d163",
-    "stabs/s16-ignore-freeze-error/root/ci-clean.py": "fe4daa3560225e9bf1c43fd9c08c87d24e09f8c16bcabf39ed910ccfa4b08404",
-    "stabs/s17-no-root-config/root/ci-clean.py": "bb502cad902bd0f06b65ab86d81c5b475edbe8bd55a6e821f0b962605b430313",
-    "stabs/s18-artifact-root-ignored/root/ci-clean.py": "a386e238eb81a4957921b46feb11ded1d045b616148e3db0fa9b436bb7f27395",
+    "stabs/s01-tmp-hardcoded/root/ci-clean.py": "b8bd981b80616f2152fcacd958ba380e6561ceeb814e505f2e5ede10d633ad29",
+    "stabs/s02-artifact-hardcoded/root/ci-clean.py": "38867eea6147ad04d80209224da752ae8be9205b72ce8924a71e03c829f2f94c",
+    "stabs/s03-first-root-only/root/ci-clean.py": "70e82e269c014ee43bcbbbecf2fec3362d9e90499ecab718b613ef7b1871d9df",
+    "stabs/s04-top-mtime/root/ci-clean.py": "f5dc782fa2081a4a5cbded3f4b63d61af2f7506f93a409bb1e2f40a1ee1f4d98",
+    "stabs/s05-no-busy/root/ci-clean.py": "9afa5f4cfeb7e5d7cc327bf8d18563e4ad166d9662e2ace14dd4b55273adbac1",
+    "stabs/s06-no-freeze/root/ci-clean.py": "6ff8be24c1765cace8223068e3c6ee3b1d6700a2dd579bb1aab9c94f0c2322ba",
+    "stabs/s07-no-thaw/root/ci-clean.py": "239613505772effcae3d2989e5c63bae9c4c6b42316090565fb1943a68c267ef",
+    "stabs/s08-top-cgroup/root/ci-clean.py": "e7bb959fecc85f896078ecb72c59d73f8496dd2e22505a172599f2e4b2be499a",
+    "stabs/s09-worker-hardcoded/root/ci-clean.py": "76cd69e099d7617b937b16b535bf5dcfb3379567f79804b2fc388b7fb73c42a0",
+    "stabs/s10-skip-schema/root/ci-clean.py": "8c5c3e5ef7c495f956826b84439b9d75af3e5478a379fc1b3963a235a000d300",
+    "stabs/s11-dotdot/root/ci-clean.py": "2330c64fa538be26310a4acf285e610e8e12179113f6246ddf00db7c41f07740",
+    "stabs/s12-symlink-root/root/ci-clean.py": "a27b76822bfb80383331900c407d5cf124640a336ad8623f9ef1686f45ca3d1a",
+    "stabs/s13-symlink-entry/root/ci-clean.py": "0002feb53471f375e7f0941f0748f043f974defd58d1eb409ba6e22c0164c158",
+    "stabs/s14-no-frozen-ack/root/ci-clean.py": "eda62501436a5a950e4b2aae090e2b75bfa7ddad1ec35723ad3f2a891e630163",
+    "stabs/s15-inactive-on-unknown/root/ci-clean.py": "b808f8ea3fe9d9c948e0e674e3cead871fc549d7e268e8a36597490cc679467e",
+    "stabs/s16-ignore-freeze-error/root/ci-clean.py": "4caea7ea831e5c47d3aab83734cd0cfbd4ad92acc8099d458ce97b012f51f4f6",
+    "stabs/s17-no-root-config/root/ci-clean.py": "ccd73dd16daeec6951854ac593e347d798e8db6c425b1c3ccade9d024dc1878f",
+    "stabs/s18-artifact-root-ignored/root/ci-clean.py": "b27d25d3945bb9c611f9675a3148af757e896b9cb74c23498bc3b6c95df62a33",
     "stabs/s19-no-euid/install-ci-clean.sh": "993dcb28450881a9d6cf7a607e44326af6fa785fa6ca5ff0c5c377ed34d2d9df",
     "stabs/s20-no-validation/install-ci-clean.sh": "127a43497355e9db5fbf5ae818a4355df126b767ab7b9dcc90914742da033a17",
     "stabs/s21-no-owner/install-ci-clean.sh": "a001e7a2564dc3143c3b6302e67d2220151467de92e8c0e27043cdc3cb5c1454",
@@ -366,7 +426,7 @@
     "stabs/s32-blind-file/install-ci-clean.sh": "4caca4b00bbc0a8535b6186a35f1d313e19c4c9101da1b102d208195fc91179e",
     "stabs/s33-blind-file/install-ci-clean.sh": "312c80906dd349205f19bfe50525e40e31e2b115881d90f88727577ebdb817bd",
     "stabs/s34-blind-file/install-ci-clean.sh": "ed3da44ca5ad0bba687a4bf9cc4ebad251acc0494dc60b697a1e483f25a90546",
-    "stabs/s35-no-lock/root/ci-clean.py": "ec4777d1801661545d624a4a96b7818fcd1317b4885d99bd0e8080c1646e4277",
+    "stabs/s35-no-lock/root/ci-clean.py": "80ba46119ebdbdb02f70a549727bb4618d7065e85d9f4550ebd3222cb901a02f",
     "stabs/s36-no-readme/README.md": "9cb9a5856e2fa20056435aa109546ac109a877e5bfbb38780329f9bebe570db0",
     "stabs/s37-artifacts-no-common/install-ci-clean.sh": "26e41c571f25a8e22482f1623740e7c1bba2be6a6c67db85e409969d1d173db8",
     "stabs/s38-optional-false-red/install-ci-clean.sh": "0cd1c1720d41528c9bb0e7aaf19ff06787d85a975dbb4775050fa5a04cf7c8c9",
@@ -374,8 +434,14 @@
     "stabs/s40-tmp-partial/install-ci-clean.sh": "c1454c5472080f1bb1d617dbc3a0c815f38c889b182de8d2d744c290c3e7726f",
     "stabs/s41-unit-terminator/ci-clean.schema.json": "faf34066922aaefa666dd708e6b0c391492e4c1fac164cc302bfe3a40159fe48",
     "stabs/s42-name-terminator/ci-clean.schema.json": "a7048c7aa5ac155204a507a7aab1287b20e5021ec4b39b6404ff0c3b10beb233",
-    "probe.py": "58d7a983104be8f245c3bc0f8b20e589bf5983194b00b4d11b49685275cba082",
-    "build.py": "913a345d1f99e05107d0f77bf3b64409f4fb8b7b651b8dde8da7b9537564a51a",
+    "stabs/s43-walk-ignore-errors/root/ci-clean.py": "9b210fb69c8260f3104b5fc9191a097db4e22c07098f36f45eeec9594a62a855",
+    "stabs/s44-empty-days/root/ci-clean.py": "54ca54d39e07a16bfb9b3e703b1c4263d03189fb467fc315c949c79b9c922a82",
+    "stabs/s45-empty-root/root/ci-clean.py": "a9e45f180c8bfb7de89efc4342626a15d6a560c0b748c495078563a2b98927de",
+    "stabs/s46-empty-repos/root/ci-clean.py": "5fecadabee2bfc2216535ca345c33f5721516940f4189e9af38b79fcda4bbe94",
+    "stabs/s47-stat-ignore-error/root/ci-clean.py": "301dd127f363e526ae8550acca95a0e7660f2d04da8019c461471e833ecb70cf",
+    "stabs/s48-early-worker-return/root/ci-clean.py": "c1bab3e84e67509aa083df4b7e717d48e97725d18cda7fbf6c773ec5c5d66881",
+    "probe.py": "883b43b8e5e6aca21399995280146190c6eb8bfe7e7d1ed4fdc1f2c76d9e7311",
+    "build.py": "56c4cf8745a43631d5db5f9bf115caf3731ee9ed99ca6a72461b3c0081ea0fdc",
     "red_ci_clean_225.sh": "b37f44519d5d57b6b45e2051a68cca0d16c0ba3ce5d6a18f1e4c2a5bcc4b5336"
   }
 }
