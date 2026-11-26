@@ -2,6 +2,8 @@
 
 Предмет: полный done CLI обходит только непустые дельты корневых `.harness/**` + `.review/**`, сохраняет продуктовую границу, check-run arch и done-тег на HEAD. Тип доказательства — поведение настоящей двери и Git, не статическая подстановка строки. Production/CI/реестры/прежние семьи не меняются. Шов, обещание и frozen-обязательства — §Предмет контракта; correction не добавляет нового отказа.
 
+Текущая пачка Architect223d: советы С-1/С-2 Rev223 (оба К-08), база c7707242161a559c95f95b79c29a4960c9a579f2. Production, frozen-контракт и С-3 вне зоны. Текущий каталог: 51 клетка / 15 стабов / 4 эквивалента / 55 связей; ниже сохранена история прежних замеров 223b/223c, актуальный замер — §Architect223d.
+
 ПРЕДЫДУЩИЙ ВЕРДИКТ: verdicts/critic/contracts-223-v1.md
 
 База исправления: 862ed947bd9a760d33e84b074b51bd42f405c4fd (авторская пачка 7ad42a6cf380cac99e8ebc1074ffd39e7acdf5f1 плюс закоммиченный FAIL Crit223, вызов 1). Прочитаны полный вердикт, исходное задание и дельта-пакет task-architect223b.md. Ровно один блок К-08: потеря условия непустоты дельты. Снятие обещания и граница неприемлемы: это сохранённое поведение frozen 187/3. Git plumbing задаёт канон миров, но само по себе не доказывает эффект CLI; поэтому способ закрытия — клетка на существующем шве, не новый guard/парсер.
@@ -25,6 +27,8 @@
 
 - К-08 · клетка · fixtures/workshop_project/arch_ci_review_223/empty223.py · 0 · 0
 - К-01 · канон/инструмент · bash fixtures/workshop_project/arch_ci_review_223/red_arch_ci_review_223.sh --catalog · 0 · 0
+- К-08 · клетка · bash fixtures/workshop_project/arch_ci_review_223/red_arch_ci_review_223.sh --repo . · 0 · 0
+- К-08 · клетка · bash fixtures/workshop_project/arch_ci_review_223/red_arch_ci_review_223.sh --stabs · 0 · 0
 
 ## Блок → клетка → стаб
 
@@ -150,3 +154,57 @@ REPO empty-first-head-success RED QUERY_SHA,SHA_DIAGNOSIS rc=0
 В чистом main-клоне на bcd1de3876bbf13fd6612fd1d3b1df1516a2b94c с полными origin-тегами найдены context.py семейств 223/224/226/227/228. 224 тоже включает собственный номер в census (специальное условие done_contract.sh), но только выводит объявления и не сверяет их с контрактом; его context.py дал rc 0. 227 исключает совпадающие роли и не требует самопересечения, context.py rc 0. 226 явно пропускает номер 226; 228 использует zones_load и исключает совпадающие роли вне REQUIRED (228 туда не входит). Для 226/228 здесь только сверка кода, не отдельный check_sdacha. Идентичный отказ после собственной заморозки для них не установлен.
 
 Требуемые однократные `check_sdacha --run` на main: 224 rc 1 до запуска команд — строка 15 листа, ряд `nine-ten-late-fail` вне машинной секции; 227 rc 1 — строка 18, replay_critic.py фактически rc 2 вместо 0. Это красные листы, но не отказ census после собственного frozen. Чужие семьи не правились и повторным прогоном не подгонялись.
+
+## Architect223d
+
+Советы Rev223 прочитаны целиком в `.review/2026-11-26-2231.md` и `verdicts/review/contracts-223-impl-v1.md`. С-1 → К-08 → клетка: review-titlecase (`.Review/a.md`) и harness-titlecase (`.Harness/a.md`) требуют rc 1, запрос к HEAD и отсутствие done-тега при success только на продуктовом предке. s13-reviewer-partial-fold несёт дословную маску m03 `.[Hh]arness/*|.[Rr]eview/*` и привязан к обеим различающим её ветвям по build.py. Полностью верхний регистр review-uppercase сохранён. Двух titlecase-входов достаточно, чтобы различить эту классовую маску и точные префиксы; произвольное складывание иных подмножеств регистра не обещается.
+
+С-2 → К-08 → клетка: review-hidden (`.review/.hidden`) и harness-hidden (`.harness/.hidden`) требуют rc 0, запрос к продуктовому SHA* и annotated done-тег на HEAD. s14-reviewer-review-hidden несёт дословную мутацию m05 `.review/*` → `.review/[!.]*` и привязан только к review-hidden; соседний s15-harness-hidden аналогично сужает `.harness/*` и привязан только к harness-hidden. Это ложные отказы, не ложные допуски. Обе машинные строки К-08 в §Дельта исполняют существующие публичные двери, без нового проверяющего кода.
+
+Снятие/граница не закрывают советы внутри frozen-инварианта точных префиксов; канонический Git задаёт пути, но не доказывает результат CLI. Поэтому выбран способ клетка. Новых предикатов оракула нет: прежние RC/QUERY_SHA/SHA_DIAGNOSIS/TAG проверяют эффект; ожидания и SHA снимаются до субъекта. e01-case-order и e02-if-equivalent остаются честными эквивалентами и дополнительно предъявлены каждой из четырёх новых клеток. Прежние 47 клеток, 12 стабов, 4 эквивалента и 43 связи сохранены; добавлены 4 клетки, 3 стаба и 12 связей (4 red, 8 green). Источник каталога — build.py; source.json и stabs.tsv сгенерированы им.
+
+Рефлексия для main-журнала, без А-номера: полностью верхний регистр не различает частичное складывание, а обычные имена внутри служебного каталога не различают исключение скрытых файлов. Цена — два совета ревьюера после accept; закрыто адресными мирами на существующем CLI и соседним harness-контролем, без расширения контракта и без новых механизмов. Общий журнал в wip не меняется.
+
+### Замер Architect223d
+
+Все команды выполнены последовательно в чистом SSH-origin-клоне `tmp/origin-223d`, закреплённом на c7707242161a559c95f95b79c29a4960c9a579f2, с origin-тегами и перенесённой только семьёй 223. TMPDIR — `<клон>/tmp/scratch-223d`, shellcheck — пин 0.11.0, бюджеты листа 1200/2400. Сырые раздельные stdout/stderr и rc сохранены в `tmp/evidence-223d/` своей копии, не часть поставки.
+
+| Команда | Сырой rc | Наблюдение |
+|---|---:|---|
+| B --repo . | 0 | KLETKI 51 KRASNYH 0 |
+| B --model | 0 | KLETKI 51 KRASNYH 0 |
+| B --stabs | 0 | CONTROL 51/0; ZHIVYH 0 SVJAZI 55 |
+| B --sintaksis | 0 | SINTAKSIS 20 SHELLCHECK 2 |
+| B --catalog | 0 | KLETKI 51 STABY 15 EKVIVALENTY 4 SVJAZI 55; CONTEXT 3/2/1, ZHIVYH 0 |
+| python3 -B fixtures/workshop_project/arch_ci_review_223/context.py | 0 | ДЕКЛАРАЦИИ 75 |
+| pre_critic | 0 | КРИТИК: дверь зелёная |
+| check_sdacha --run | 0 | СДАЧА: лист зелёный (двери=10 карта=17/17 дельта=4) |
+| check_precision_gate | 0 | OK |
+| 224 --repo . | 0 | KLETKI 100 KRASNYH 0 |
+| 187 --repo . | 0 | CELLS=111 STABS=0 FAILURES=0 |
+| 201 --repo . | 0 | CELLS=62 STABS=0 FAILURES=0 |
+
+Независимый счёт `cut -f3 fixtures/workshop_project/arch_ci_review_223/stabs.tsv | sort | uniq -c` дал `27 green`, `28 red`: всего 55 связей. Запрошенный `git diff c7707242161a559c95f95b79c29a4960c9a579f2 -- fixtures/workshop_project/arch_ci_review_223/probe.py` содержит только четыре добавленные строки CASES, без удалений или изменения оракула.
+
+Дословные production-мутанты Rev223 созданы в scratch-копиях scripts; production своего дерева и чистого клона не менялась. Оба носителя неизменны между ДО/ПОСЛЕ; до переноса новой семьи:
+
+```text
+m03: KLETKI 47 KRASNYH 0
+before-m03 RC=0
+m05: KLETKI 47 KRASNYH 0
+before-m05 RC=0
+```
+
+После переноса новой семьи, та же команда `B --repo <носитель>`:
+
+```text
+REPO review-titlecase RED RC,QUERY_SHA,SHA_DIAGNOSIS,TAG_ON_REFUSAL rc=0
+REPO harness-titlecase RED RC,QUERY_SHA,SHA_DIAGNOSIS,TAG_ON_REFUSAL rc=0
+KLETKI 51 KRASNYH 2
+after-m03 RC=1
+REPO review-hidden RED RC,QUERY_SHA,SHA_DIAGNOSIS,TAG_TARGET rc=1
+KLETKI 51 KRASNYH 1
+after-m05 RC=1
+```
+
+Честный CLI на новых входах: review-titlecase/harness-titlecase GREEN rc=1; review-hidden/harness-hidden GREEN rc=0. s13/s14/s15 красны на всех четырёх своих связях; e01/e02 зелены на всех восьми новых эквивалентных связях. С-1 → клетка → B --repo / B --stabs → rc 0; С-2 → клетка → те же команды → rc 0. Контракт, production и совет С-3 не менялись.
