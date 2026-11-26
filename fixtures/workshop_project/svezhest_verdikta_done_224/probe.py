@@ -316,7 +316,7 @@ def make_world(work, case):
         late = (f'done: свежий вердикт адверсария {newer} не accept' if risk else
                 f'done: несколько вердиктов, свежий {Path(newer).name} не accept')
         markers = {'late-fail': late, 'nine-ten-late-fail': late, 'duplicate': 'VERDICT_ROUND_DUPLICATE',
-                   'missing': 'VERDICT_ROUND_MISSING', 'conflict': 'VERDICT_ROUND_CONFLICT',
+                   'missing': 'VERDICT_ROUND_MISSING', 'conflict': 'VERDICT_ROUND_DUPLICATE',
                    'date-order': 'VERDICT_ROUND_ORDER', 'name-date-conflict': 'VERDICT_ROUND_CONFLICT',
                    'second-conflict': 'VERDICT_ROUND_CONFLICT', 'repeat-call': 'VERDICT_ROUND_CONFLICT',
                    'second-invalid': 'VERDICT_ROUND_CONFLICT'}
