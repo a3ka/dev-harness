@@ -1,0 +1,1 @@
+{"name":"s30-empty-is-absent","file":"check_contract_frozen.sh","old":"      if [ \"$PR_VERDICT_PRESENT\" -eq 0 ]; then","new":"      if [ -z \"$body\" ]; then","cells":["frozen-evidence-contracts-v2-head-empty","frozen-evidence-plans-v3-head-empty"]}

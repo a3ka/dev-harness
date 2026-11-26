@@ -1,0 +1,1 @@
+{"name":"s29-anchor-preferred","file":"check_contract_frozen.sh","old":"    if [ \"$PR_ACTIVE\" -eq 1 ] && [ -z \"$body\" ]; then\n      if [ \"$PR_VERDICT_PRESENT\" -eq 0 ]; then","new":"    if [ \"$PR_ACTIVE\" -eq 1 ]; then\n      if true; then","cells":["frozen-evidence-contracts-v2-head-fail","frozen-evidence-plans-v3-head-fail"]}

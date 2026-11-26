@@ -3,6 +3,36 @@
 # The caller supplies existing g/bad/razreshil/publication predicates.
 pr_refuse() { printf 'PR_WINDOW_%s\n' "$1" >&2; exit 1; }
 
+# Tree absence, read failure, and an existing empty blob are distinct states.
+# Globals avoid losing pr_refuse's status in a command-substitution subshell.
+# PR_VERDICT_BODY is consumed by the calling frozen CLI.
+# shellcheck disable=SC2034
+pr_verdict() {
+  local tree="$1" path="$2" row record metadata found_path mode type oid extra
+  PR_VERDICT_PRESENT=0
+  PR_VERDICT_BODY=""
+  row="$(mktemp "$ROOT/tmp/pr-verdict.XXXXXX")" || pr_refuse TEMP_UNAVAILABLE
+  if ! g ls-tree -r -z --full-tree "$tree" -- ":(literal)$path" > "$row"; then
+    rm -f "$row"; pr_refuse TAG_UNREADABLE
+  fi
+  # Refusal deletes the private temporary and exits; it never rewrites input.
+  # shellcheck disable=SC2094
+  while IFS= read -r -d '' record; do
+    [ "$PR_VERDICT_PRESENT" -eq 0 ] || { rm -f "$row"; pr_refuse TAG_UNREADABLE; }
+    case "$record" in *$'\t'*) ;; *) rm -f "$row"; pr_refuse TAG_UNREADABLE ;; esac
+    metadata="${record%%$'\t'*}"; found_path="${record#*$'\t'}"
+    IFS=' ' read -r mode type oid extra <<< "$metadata"
+    if [ "$found_path" != "$path" ] || [ "$type" != blob ] || [ -n "$extra" ] ||
+       [[ ! "$oid" =~ ^[0-9a-f]{40,64}$ ]]; then
+      rm -f "$row"; pr_refuse TAG_UNREADABLE
+    fi
+    case "$mode" in 100644|100755) ;; *) rm -f "$row"; pr_refuse TAG_UNREADABLE ;; esac
+    PR_VERDICT_PRESENT=1
+    PR_VERDICT_BODY="$(g cat-file -p "$oid")" || { rm -f "$row"; pr_refuse TAG_UNREADABLE; }
+  done < "$row"
+  rm -f "$row"
+}
+
 pr_prepare() {
   local shallow remote base head bases c row p
   local merge_mode=-c
