@@ -1,0 +1,1 @@
+{"name":"s28-head-verdict-only","file":"check_contract_frozen.sh","old":"    if [ \"$PR_ACTIVE\" -eq 1 ] && [ -z \"$body\" ]; then","new":"    if false; then","cells":["frozen-own-v2-delete-verdict-after","frozen-own-v2-delete-both-after"]}
