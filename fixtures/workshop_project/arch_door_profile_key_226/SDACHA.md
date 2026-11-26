@@ -19,6 +19,8 @@ Frontier сохранён: отсутствие ЛИСТА в корректно
 - Catalog · bash fixtures/workshop_project/arch_door_profile_key_226/red_arch_door_profile_key_226.sh --catalog · 0 · 0
 - Regression · bash fixtures/workshop_project/arch_door_profile_key_226/red_arch_door_profile_key_226.sh --regression · 0 · 0
 - Context · fixtures/workshop_project/arch_door_profile_key_226/context.py · 0 · 0
+- Context-stability · python3 -B fixtures/workshop_project/arch_door_profile_key_226/repair_checks.py --context · 0 · 0
+- Grid-status · python3 -B fixtures/workshop_project/arch_door_profile_key_226/repair_checks.py --status · 0 · 0
 - Precision · bash scripts/check_precision_gate.sh . contracts/226-arch-door-profile-key.md · 0 · 0
 - Spec-ready · bash scripts/check_spec_ready.sh . contracts/226-arch-door-profile-key.md · 0 · 0
 - Threat-model · bash scripts/check_threat_model.sh . contracts/226-arch-door-profile-key.md · 0 · 0
@@ -62,6 +64,8 @@ Frontier сохранён: отсутствие ЛИСТА в корректно
 - К-09 · канон/инструмент · bash fixtures/workshop_project/arch_door_profile_key_226/red_arch_door_profile_key_226.sh --repo . · 0 · 0
 - К-10 · клетка · bash fixtures/workshop_project/arch_door_profile_key_226/red_arch_door_profile_key_226.sh --model --cell public-control-cr · 0 · 0
 - К-16 · клетка · bash fixtures/workshop_project/arch_door_profile_key_226/red_arch_door_profile_key_226.sh --model --cell public-duplicate-hooks-last-cr · 0 · 0
+- К-04 · клетка · python3 -B fixtures/workshop_project/arch_door_profile_key_226/repair_checks.py --context · 0 · 0
+- К-06 · клетка · python3 -B fixtures/workshop_project/arch_door_profile_key_226/repair_checks.py --status · 0 · 0
 
 ## Закрытие Б-1 по классу
 
@@ -141,3 +145,11 @@ KLETKI 71 KRASNYH 1 SVJAZI 0 ZHIVYH 0
 Census читает все актуальные высшие frozen-блобы. Для непредкового frozen печатает точные пересечения, tag и commit с причиной «поздний frozen: не предок носителя»; ретроактивное дополнение frozen-контракта не требуется. Предковые пересечения по-прежнему обязаны быть объявлены, пустая выборка красна. Теги не удаляются.
 
 Сдача проверяется после фиксации SHA в чистом origin-клоне; сырые rc, полный CI-замер и CR/эквивалентный контроль передаются отдельным итогом без дописывания этих байтов после прогона. Вес 240 — LPT, не timeout. Процессная рефлексия: публичность свидетельства должна быть видна в машинном каталоге; иначе зелёный внутренний предикат маскирует непроверенную достижимость.
+
+## Rev226: Б-1 и С-2
+
+Б-1 → клетка: `repair_checks.py --context` исполняет настоящий census на Git-истории до/после поздней заморозки 223, где 223 уже предок HEAD. Старый стаб `HEAD` вместо точки заморозки 226 красен именно после позднего freeze; удаление обязательного старого пересечения 201 тоже красно. Предковость определяется относительно `frozen/contracts/226/1^{commit}`; все live-теги по-прежнему читаются, поздние пересечения остаются LATE_FROZEN. Реальные носители a62207a3d, archive/226/architect-f-53eaee8f4 и origin/main с этой дельтой проверяются отдельно после коммита. Это проверка стабильности census, не новая клетка грамматики продукта.
+
+С-2 → клетка: публичное наблюдение выполняется до внутренней сетки. Только GridFailure и уже снятый красный публичный результат того же носителя дают rc 1 с GRID_UNAVAILABLE и явным указанием, что оставшаяся сетка не судилась. Иначе сохраняется rc 2 NOT_IMPLEMENTED; другие ошибки среды не перехватываются. `repair_checks.py --status` исполняет пять дословных управляющих мутаций ревьюера, честный контроль, честную эквивалентную запись guard и настоящий сбой распознавания argv в копии проверяющего при неизменной production (rc 2). Subject/jq не заменяются двойниками. Ожидания rc/каналов, старые 954 клетки, 61 стаб, 79 связей не ослаблены; 12 ремонтных контролей учтены отдельно в source.json/repairs и catalog.
+
+Процессная рефлексия: носитель не является временной границей frozen-обязательства; проверка только на старой базе скрывала отказ пересборки. Общий журнал А в wip не меняется; наблюдение передаётся оркестратору этим листом.

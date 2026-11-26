@@ -1375,5 +1375,23 @@
         "public-control-cr": "public-cli"
       }
     }
+  },
+  "repairs": {
+    "context": [
+      "before-late-freeze",
+      "after-late-freeze",
+      "old-head-ancestry-red",
+      "missing-older-overlap-red"
+    ],
+    "status": [
+      "honest",
+      "hooks-skip",
+      "hooks-invert",
+      "leaf-skip",
+      "string-check-skip",
+      "string-check-invert",
+      "honest-seam-failure",
+      "equivalent-guard"
+    ]
   }
 }

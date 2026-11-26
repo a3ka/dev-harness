@@ -262,6 +262,10 @@ def public_source(bindings):
 
 
 
+class GridFailure(RuntimeError):
+    """The internal jq seam failed, independently of public CLI observations."""
+
+
 def run_grid(base, tools, cells):
     """One real resolver/world captures its actual jq argv; real jq judges the grid.
 
@@ -283,7 +287,7 @@ def run_grid(base, tools, cells):
             timeout=240)
     env.pop('BASH_XTRACEFD')
     if control.returncode:
-        raise RuntimeError('GRID_RESOLVER_CONTROL ' + repr(control.stderr))
+        raise GridFailure('GRID_RESOLVER_CONTROL ' + repr(control.stderr))
     import shlex
     commands = []
     for record in trace_path.read_text().split('\nARCH226 '):
@@ -294,7 +298,7 @@ def run_grid(base, tools, cells):
     merges = [argv for argv in commands if '--slurpfile' in argv and
               'repo' in argv and 'project' in argv]
     if len(validators) != 1 or len(merges) != 1:
-        raise RuntimeError('GRID_JQ_SEAM ' + repr((len(validators), len(merges))))
+        raise GridFailure('GRID_JQ_SEAM ' + repr((len(validators), len(merges))))
     validation, merge = validators[0], merges[0]
     # Replacing only the input file keeps the actual predicate and jq -e rc.
     # Each positive also runs the subject's full merged expression unchanged.
@@ -306,7 +310,7 @@ def run_grid(base, tools, cells):
         input_path.write_text(json.dumps(profile))
         result = call(validation[:-1] + [input_path], product, env)
         if result.returncode not in (0, 1) or result.stderr:
-            raise RuntimeError('GRID_JQ_INFRA ' + cell + repr(result))
+            raise GridFailure('GRID_JQ_INFRA ' + cell + repr(result))
         errors = [] if result.returncode == rc else ['GRAMMAR_RC']
         if rc == 0 and result.returncode == 0:
             argv = merge.copy()
@@ -314,7 +318,7 @@ def run_grid(base, tools, cells):
             argv[argv.index('project') + 1] = str(product / profile['projectLayer']['profilePath'])
             merged = call(argv, product, env)
             if merged.returncode:
-                raise RuntimeError('GRID_MERGE_INFRA ' + repr(merged.stderr))
+                raise GridFailure('GRID_MERGE_INFRA ' + repr(merged.stderr))
             if json.loads(merged.stdout).get('hooks') != {
                     'origin': 'repo', 'value': {'archBrief': value}}:
                 errors.append('MERGED_POLICY')
@@ -325,7 +329,7 @@ def run_grid(base, tools, cells):
             result = call(['bash', tools / 'scripts/profile_resolver.sh',
                            '--repo', product], product, env)
             if result.returncode not in (0, 1):
-                raise RuntimeError('GRID_RESOLVER_INFRA ' + repr(result.stderr))
+                raise GridFailure('GRID_RESOLVER_INFRA ' + repr(result.stderr))
             errors += judge(result, rc, 'значение вне алфавита'.encode() if rc else b'')
         results[cell] = errors, result
     return results
@@ -586,8 +590,8 @@ def run_cell(base, tools, cell):
         return _integration_cell(base, tools, cell)
     # Grid still executes in full at its original internal seam. The public
     # observation is unconditional, independent of whether that jq agreed.
-    internal = _integration_cell(base, tools, cell)[0] if cell in GRID else []
     errors, evidence = run_public(base, tools, cell)
+    internal = _integration_cell(base, tools, cell)[0] if cell in GRID else []
     return internal + errors, evidence
 
 
@@ -620,6 +624,10 @@ def carrier_catalog():
     for axis, cells in PUBLIC_AXES.items():
         print('PUBLIC_AXIS', axis, 'POSITIONS', len(cells), 'UNIQUE_INPUTS',
               len({PUBLIC_ALIASES[cell] for cell in cells}))
+    repairs = load('repairs226', HERE / 'repair_checks.py').catalog()
+    if source.get('repairs') != repairs:
+        raise RuntimeError('REPAIR_CATALOG_DRIFT')
+    print('REPAIR_CONTROLS', sum(len(cells) for cells in repairs.values()))
     return source
 
 
@@ -712,7 +720,22 @@ def main():
         base = Path(temp)
         tools = args.repo.resolve() if args.repo else materialize(base, 'honest', source)
         for cell in ([args.cell] if args.cell else CASES):
-            errors, result = run_cell(base / cell, tools, cell)
+            try:
+                errors, result = run_cell(base / cell, tools, cell)
+            except GridFailure as exc:
+                public_red = any(key[0][1] == tools and errors
+                                 for key, (errors, _) in PUBLIC_RESULTS.items())
+                if not public_red:
+                    raise
+                # A failed seam cannot erase an independently observed public
+                # counterexample. Do not claim the unexecuted grid cells green.
+                for key, (errors, evidence) in PUBLIC_RESULTS.items():
+                    if key[0][1] == tools and errors:
+                        print('RED', PUBLIC_INPUTS[key[1]]['name'],
+                              ','.join(errors), evidence, flush=True)
+                print('GRID_UNAVAILABLE:', exc, file=sys.stderr)
+                print('PUBLIC_COUNTEREXAMPLE: rc=1; remaining internal cells not judged')
+                return 1
             failed += bool(errors)
             detail = repr((result.returncode, result.stdout[:100], result.stderr[:250])) if hasattr(result, 'returncode') else result
             print('RED' if errors else 'GREEN', cell, ','.join(errors), detail, flush=True)

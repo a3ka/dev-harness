@@ -44,7 +44,7 @@ def main():
             foreign = zones(text)
             commit = git('rev-parse', tag + '^{commit}').strip()
             ancestry = subprocess.run(
-                ['git', '-C', str(ROOT), 'merge-base', '--is-ancestor', commit, 'HEAD'],
+                ['git', '-C', str(ROOT), 'merge-base', '--is-ancestor', commit, 'frozen/contracts/226/1^{commit}'],
                 capture_output=True)
             if ancestry.returncode not in (0, 1):
                 raise RuntimeError('FROZEN_ANCESTRY ' + tag)
@@ -69,7 +69,7 @@ def main():
     missing = found - declared
     print('FROZEN', len(latest), 'BLOBS', checked, 'OVERLAPS', len(found), 'MISSING', len(missing))
     for row, (tag, commit) in sorted(late.items()):
-        print('LATE_FROZEN', *row, tag, commit, 'поздний frozen: не предок носителя')
+        print('LATE_FROZEN', *row, tag, commit, 'поздний frozen: не предок заморозки 226/1')
     for row in sorted(missing):
         print('MISSING', *row)
     return int(bool(missing))
