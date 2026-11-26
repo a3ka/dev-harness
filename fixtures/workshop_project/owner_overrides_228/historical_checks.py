@@ -90,6 +90,8 @@ def load(source):
 
 def run(mode):
     source = (HERE / 'historical.py').read_text()
+    import historical_snapshot_checks
+    snapshot_bad = historical_snapshot_checks.run(mode)
     honest = load(source)
     for name, test in CELLS.items():
         if not test(honest):
@@ -104,6 +106,6 @@ def run(mode):
             alive += int(ok)
             print(('ZHIV ' if ok else 'POIMAN ') + name + ' historical:' + cell)
         print(f'HISTORICAL_STABS={len(STABS)} BINDINGS={len(STABS)} ZHIVYH={alive}')
-        return int(alive != 0)
+        return int(alive != 0 or snapshot_bad != 0)
     print(f'HISTORICAL_POLICY_CELLS={len(CELLS)} KRASNYE=0')
-    return 0
+    return snapshot_bad

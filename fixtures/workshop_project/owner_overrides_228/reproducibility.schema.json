@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "baseline", "complete", "provenance", "historical_sha256", "refs_sha256", "completed_shas", "reproducible_shas", "declared_unreproducible_shas", "unreproducible", "records", "failure"],
+  "properties": {
+    "version": {"const": 2},
+    "baseline": {"$ref": "#/$defs/sha"},
+    "complete": {"const": false},
+    "provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "log", "log_sha256", "producer"],
+      "properties": {
+        "kind": {"const": "reconstructed-from-equality-log"},
+        "log": {"const": "historical-parity.log"},
+        "log_sha256": {"$ref": "#/$defs/hash"},
+        "producer": {"const": "247e39679b059dfb8d823e77bfbc95c25152004c"}
+      }
+    },
+    "historical_sha256": {"$ref": "#/$defs/hash"},
+    "refs_sha256": {"$ref": "#/$defs/hash"},
+    "completed_shas": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/sha"}, "minItems": 82, "maxItems": 82},
+    "reproducible_shas": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/sha"}, "minItems": 78, "maxItems": 78},
+    "declared_unreproducible_shas": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/sha"}, "minItems": 4, "maxItems": 4},
+    "unreproducible": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["sha", "gate", "reason", "saved", "rechecked"],
+        "properties": {
+          "sha": {"$ref": "#/$defs/sha"}, "gate": {"const": "check_zones"},
+          "reason": {"const": "BASELINE_SIGPIPE"}, "saved": {"$ref": "#/$defs/answer"},
+          "rechecked": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"$ref": "#/$defs/answer"}}
+        }
+      }
+    },
+    "records": {
+      "type": "array", "minItems": 312, "maxItems": 312,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["sha", "gate", "baseline", "reference"],
+        "properties": {
+          "sha": {"$ref": "#/$defs/sha"},
+          "gate": {"enum": ["check_charter", "check_zones", "check_protected", "check_contract_frozen"]},
+          "baseline": {"$ref": "#/$defs/answer"}, "reference": {"$ref": "#/$defs/answer"}
+        }
+      }
+    },
+    "failure": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "gate", "seconds", "elapsed_seconds", "last_completed_sha", "rc", "next_sha"],
+      "properties": {
+        "kind": {"const": "BASELINE_TIMEOUT"}, "gate": {"const": "check_zones"},
+        "seconds": {"const": 60}, "elapsed_seconds": {"type": "number", "minimum": 0},
+        "last_completed_sha": {"$ref": "#/$defs/sha"}, "next_sha": {"$ref": "#/$defs/sha"}, "rc": {"const": 2}
+      }
+    }
+  },
+  "$defs": {
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "answer": {
+      "type": "object", "additionalProperties": false,
+      "required": ["rc", "stdout_sha256", "stderr_sha256"],
+      "properties": {"rc": {"enum": [0, 1, 141]}, "stdout_sha256": {"$ref": "#/$defs/hash"}, "stderr_sha256": {"$ref": "#/$defs/hash"}}
+    }
+  }
+}
