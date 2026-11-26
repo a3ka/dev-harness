@@ -467,6 +467,7 @@ def syntax():
 
 
 def main():
+    import historical_checks
     args = sys.argv[1:]
     if args == ['--capture']:
         capture_matrix()
@@ -490,6 +491,7 @@ def main():
         if actual != SOURCE['census']:
             raise RuntimeError('SOURCE_CENSUS_DRIFT')
         print('CELLS=' + str(len(catalog)), 'STABS=' + str(len(mutations)), 'BINDINGS=' + str(sum(len(m['cells']) for m in mutations)), 'ROWS=' + str(len(ROWS)), 'MATRIX=' + str(len(BASELINE['matrix'])))
+        print(f'HISTORICAL_POLICY_CELLS={len(historical_checks.CELLS)} HISTORICAL_STABS={len(historical_checks.STABS)} HISTORICAL_BINDINGS={len(historical_checks.STABS)}')
         return 0
     selected = list(catalog)
     if '--cell' in args:
@@ -525,12 +527,15 @@ def main():
                     alive += int(ok)
                     print(('ZHIV ' if ok else 'POIMAN ') + m['name'] + ' ' + cell)
             print(f'STABS={len(mutations)} BINDINGS={count} ZHIVYH={alive}')
+            alive += historical_checks.run('--stabs')
             return int(alive != 0)
         else:
             raise RuntimeError('USAGE: --repo R | --model | --stabs | --sintaksis | --catalog')
         result = execute(subject, selected)
         bad = sum(not v for v in result.values())
         print(f'KLETKI={len(result)} ZELENYE={len(result)-bad} KRASNYE={bad}')
+        if args == ['--model']:
+            bad += historical_checks.run('--model')
         return int(bad != 0)
 
 
