@@ -22,6 +22,7 @@ ROOT = HERE.parents[2]
 sys.path.insert(0, str(HERE))
 from catalog import MERGED, inventory
 from build import MUTATIONS
+from phase_cells import PHASE_CASES, INVALID, phase_case
 DATA = json.loads((HERE / 'policy.json').read_bytes())
 
 spec = importlib.util.spec_from_file_location('old140', ROOT / 'fixtures/workshop_project/odin_agent_140/probe.py')
@@ -34,6 +35,7 @@ INVALID_POLICIES = {
     'policy-unknown-field': dict(DATA['defaults'], extra=True),
     'policy-boolean-count': dict(DATA['defaults'], criticCalls=True),
     'policy-negative-count': dict(DATA['defaults'], interruptionRetries=-1),
+    **{name: dict(DATA['defaults'], **delta) for name, delta in INVALID.items()},
 }
 
 def run(argv, cwd=None, env=None):
@@ -270,7 +272,7 @@ SETUP_CASES = ('setup-hook', 'setup-hook-fails', 'setup-wrong-object', 'setup-wr
                'policy-absent', 'policy-causal', 'policy-layer')
 NORMS = {f'norm-{g}-{Path(path).stem}': (path, line)
          for path, rules in DATA['norms'].items() for g, line in rules.items()}
-CASES = (*LOCK_CASES, *SETUP_CASES, *('grammar-' + x for x in INPUTS),
+CASES = (*LOCK_CASES, *SETUP_CASES, *PHASE_CASES, *('grammar-' + x for x in INPUTS),
          'grammar-GRAMMATIKA_IMENI', 'grammar-GRAMMATIKA_SUBEKTA', 'code-budget', *NORMS)
 
 
@@ -280,6 +282,8 @@ def cell(source, name):
             lock_case(source, name)
         elif name in SETUP_CASES:
             setup_case(source, name)
+        elif name in PHASE_CASES:
+            phase_case(sys.modules[__name__], source, name)
         elif name.startswith('grammar-'):
             grammar_case(source, name[len('grammar-'):])
         elif name == 'code-budget':

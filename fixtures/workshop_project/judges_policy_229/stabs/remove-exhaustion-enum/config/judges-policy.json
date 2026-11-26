@@ -1,0 +1,89 @@
+{
+  "defaults": {
+    "criticCalls": 2,
+    "reviewerCalls": 2,
+    "adversaryCalls": 2,
+    "environmentRetries": 2,
+    "interruptionRetries": 2,
+    "onExhaustion": "arbiter",
+    "adversary": "risk-only",
+    "testFinding": "residual",
+    "waitingOwner": "yield-slot"
+  },
+  "schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "criticCalls",
+      "reviewerCalls",
+      "adversaryCalls",
+      "environmentRetries",
+      "interruptionRetries",
+      "onExhaustion",
+      "adversary",
+      "testFinding",
+      "waitingOwner"
+    ],
+    "properties": {
+      "criticCalls": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "reviewerCalls": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "adversaryCalls": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "environmentRetries": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "interruptionRetries": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "onExhaustion": {},
+      "adversary": {
+        "const": "risk-only"
+      },
+      "testFinding": {
+        "enum": [
+          "residual",
+          "block"
+        ]
+      },
+      "waitingOwner": {
+        "const": "yield-slot"
+      }
+    }
+  },
+  "norms": {
+    "roles/critic.md": {
+      "Г-2": "БЛОК-СРЕДЫ — не FAIL: укажи команду, её rc и наблюдение, доказывающее невозможность суда; не объявляй accept и не скрывай доказанный production-дефект.",
+      "Г-5": "При judges.policy.testFinding=residual замечание только к тесту при честном production-коде — ОСТАТОК в очередь architect, не FAIL; нарушение инварианта контракта на production остаётся блокирующим. Оценка честности cognitive-only, ловец reviewer.",
+      "Г-8": "Пределы и выходы читай из эффективного judges.policy; отсутствие ключа сохраняет прежний режим, неверное значение не является отсутствием. Назначение моделей — только действующий конфиг моделей."
+    },
+    "roles/adversary.md": {
+      "Г-2": "БЛОК-СРЕДЫ — не FAIL: укажи команду, её rc и наблюдение, доказывающее невозможность суда; не объявляй accept и не скрывай доказанный production-дефект.",
+      "Г-5": "При judges.policy.testFinding=residual замечание только к тесту при честном production-коде — ОСТАТОК в очередь architect, не FAIL; нарушение инварианта контракта на production остаётся блокирующим. Оценка честности cognitive-only, ловец reviewer."
+    },
+    "roles/reviewer.md": {
+      "Г-2": "БЛОК-СРЕДЫ — не FAIL: укажи команду, её rc и наблюдение, доказывающее невозможность суда; не объявляй accept и не скрывай доказанный production-дефект.",
+      "Г-5": "При judges.policy.testFinding=residual замечание только к тесту при честном production-коде — ОСТАТОК в очередь architect, не FAIL; нарушение инварианта контракта на production остаётся блокирующим. Оценка честности cognitive-only, ловец reviewer."
+    },
+    "roles/architect.md": {
+      "Г-6": "Контракт замораживает инварианты и rc-команды, не перечень клеток, стабов и текстовых якорей; ремонт батареи без смены обязательства не требует v+1 и слова владельца. Смена смысла — прежний маршрут owner/v+1."
+    },
+    "roles/orchestrator.md": {
+      "Г-1": "До суда prepare фиксирует OBJECT; setup в собственной копии судьи проверяет HEAD и ветку wip/NNN/роль, создаёт JUDGE_SCRATCH внутри копии и запускает hooks.judgeSetup до предметных команд. Ошибка setup — среда, не FAIL продукта.",
+      "Г-3": "БЛОК-СРЕДЫ и обрыв без закоммиченного вердикта освобождай штатным --osvobodit; круг содержательного суда не тратится, автоповторы ограничены judges.policy по repoId/subjectId/роль/OBJECT, не по имени сессии.",
+      "Г-4": "При ARBITRATION_REQUIRED созови arbiter автоматически с открытыми блоками и позицией автора; accept и ещё один critic из запроса арбитража не следуют. Владельцу только К ВЛАДЕЛЬЦУ; повторный запрос одного адреса не порождает второго арбитра.",
+      "Г-7": "Адверсарий вызывается только по классу риска контракта; дверь, ставшая предупреждением, сама по себе не основание риска. Неизвестный класс по-прежнему рисковый, reviewer рискового идёт после содержательно завершённого adversary, не БЛОК-СРЕДЫ.",
+      "Г-9": "Ждущий слова владельца предмет уступает слот следующему по очереди; вопросы собирай одним списком с готовыми строками, ожидание не является разрешением. Порядок выбора следующего предмета cognitive-only, ловец HANDOFF и reviewer."
+    }
+  }
+}

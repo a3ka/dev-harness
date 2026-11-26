@@ -52,13 +52,21 @@ def rounds(ledger, repo_id, subject, role, obj):
                     start['state'] = row.get('prichina')
                     break
     return [s for s in starts if s.get('klass') == 'sudja' and
-            s.get('rol') == role and s.get('object') == obj]
+            s.get('rol') == role and (obj is None or s.get('object') == obj)]
 
 
 def accounting(args):
     value = policy(Path(args.repo))
     if value is None:
         print('legacy')
+        return 0
+    phase = rounds(Path(args.ledger), args.repo_id, args.subject, args.role, None)
+    substantive = sum(s['state'] == 'verdikt_zakommiten' for s in phase)
+    limit = value.get(args.role + 'Calls')
+    if limit is not None and substantive + 1 > limit:
+        action = 'ARBITRATION_REQUIRED' if value['onExhaustion'] == 'arbiter' else 'BUDGET_EXHAUSTED'
+        print(f'{action} repo={args.repo_id} subject={args.subject} role={args.role} '
+              f'object={args.object} limit={limit} fact={substantive}')
         return 0
     states = rounds(Path(args.ledger), args.repo_id, args.subject, args.role, args.object)
     interruptions = sum(s['state'] == 'obryv_bez_verdikta' for s in states)

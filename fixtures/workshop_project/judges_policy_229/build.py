@@ -69,6 +69,16 @@ RETRY = r'''    if [ "$klass" = sudja ] && [ "$JUDGE_POLICY" != null ]; then
         mutexi_snyat_vse
         otp OBJECT_UZHE_SUZHEN "$retry_status repo=$REPO_ID subject=$sv role=$rol object=$obj"
       fi
+      case "$retry_status" in
+        ARBITRATION_REQUIRED\ *)
+          mutexi_snyat_vse
+          otp ARBITRATION_REQUIRED "${retry_status#* }"
+          ;;
+        BUDGET_EXHAUSTED\ *)
+          mutexi_snyat_vse
+          otp BUDGET_EXHAUSTED "${retry_status#* }"
+          ;;
+      esac
     fi
 '''
 
@@ -115,6 +125,45 @@ MUTATIONS['ignore-exhaustion-action'] = (
     'scripts/judges_policy.py',
     "print('ARBITRATION_REQUIRED' if value['onExhaustion'] == 'arbiter' else 'BUDGET_EXHAUSTED')",
     "print('ARBITRATION_REQUIRED')", ['policy-stop-action'])
+MUTATIONS.update({
+    'remove-exhaustion-enum': (
+        'config/judges-policy.json',
+        '"onExhaustion": {\n        "enum": [\n          "arbiter",\n          "stop"\n        ]\n      }',
+        '"onExhaustion": {}', ['policy-exhaustion-unknown', 'policy-exhaustion-padded']),
+    'phase-counts-technical': (
+        'scripts/judges_policy.py',
+        "substantive = sum(s['state'] == 'verdikt_zakommiten' for s in phase)",
+        'substantive = len(phase)', ['phase-critic-stop-interruption', 'phase-reviewer-arbiter-environment']),
+    'phase-ignores-role': (
+        'scripts/judges_policy.py',
+        "s.get('rol') == role and (obj is None or s.get('object') == obj)",
+        "(obj is None or s.get('object') == obj)",
+        ['phase-critic-stop-other-role', 'phase-adversary-arbiter-other-role']),
+    'phase-off-by-one': (
+        'scripts/judges_policy.py', 'substantive + 1 > limit', 'substantive + 1 >= limit',
+        ['phase-critic-stop-below', 'phase-reviewer-arbiter-below']),
+    'phase-no-limit': (
+        'scripts/judges_policy.py', 'if limit is not None and substantive + 1 > limit:',
+        'if False:', ['phase-critic-stop-one', 'phase-adversary-arbiter-one']),
+    'phase-stop-is-arbiter': (
+        'scripts/judges_policy.py',
+        "action = 'ARBITRATION_REQUIRED' if value['onExhaustion'] == 'arbiter' else 'BUDGET_EXHAUSTED'",
+        "action = 'ARBITRATION_REQUIRED'", ['phase-critic-stop-one', 'phase-reviewer-stop-at']),
+    'phase-arbiter-is-stop': (
+        'scripts/judges_policy.py',
+        "action = 'ARBITRATION_REQUIRED' if value['onExhaustion'] == 'arbiter' else 'BUDGET_EXHAUSTED'",
+        "action = 'BUDGET_EXHAUSTED'", ['phase-adversary-arbiter-one', 'phase-reviewer-arbiter-at']),
+    'phase-old-diagnosis': (
+        'scripts/zamok_predmeta.sh',
+        'otp BUDGET_EXHAUSTED "${retry_status#* }"',
+        'otp OBJECT_UZHE_SUZHEN "${retry_status#* }"',
+        ['phase-critic-stop-one', 'phase-adversary-stop-at']),
+    'phase-resets-on-object': (
+        'scripts/judges_policy.py',
+        'phase = rounds(Path(args.ledger), args.repo_id, args.subject, args.role, None)',
+        'phase = rounds(Path(args.ledger), args.repo_id, args.subject, args.role, args.object)',
+        ['phase-critic-stop-other-object', 'phase-reviewer-arbiter-other-object']),
+})
 for _path, _rules in DATA['norms'].items():
     for _g, _line in _rules.items():
         _case = f'norm-{_g}-{Path(_path).stem}'
