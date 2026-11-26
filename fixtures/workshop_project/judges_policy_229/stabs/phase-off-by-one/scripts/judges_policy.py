@@ -62,21 +62,30 @@ def accounting(args):
     if value is None:
         print('legacy')
         return 0
-    phase = rounds(Path(args.ledger), args.repo_id, args.subject, args.role, None)
-    substantive = sum(s['state'] == 'verdikt_zakommiten' for s in phase)
-    limit = value.get(args.role + 'Calls')
-    if limit is not None and substantive + 1 >= limit:
-        action = 'ARBITRATION_REQUIRED' if value['onExhaustion'] == 'arbiter' else 'BUDGET_EXHAUSTED'
-        print(f'{action} repo={args.repo_id} subject={args.subject} role={args.role} '
-              f'object={args.object} limit={limit} fact={substantive}')
-        return 0
     states = rounds(Path(args.ledger), args.repo_id, args.subject, args.role, args.object)
     interruptions = sum(s['state'] == 'obryv_bez_verdikta' for s in states)
     environment = sum(s['state'] == 'blok_sredy' for s in states)
     # Two retries means initial + two subsequent attempts; after three failures,
     # request arbitration. Independent causes do not erase the other counter.
-    if interruptions > value['interruptionRetries'] or environment > value['environmentRetries']:
+    if args.phase == 'spawn' and (interruptions > value['interruptionRetries'] or environment > value['environmentRetries']):
         print('ARBITRATION_REQUIRED' if value['onExhaustion'] == 'arbiter' else 'BUDGET_EXHAUSTED')
+        return 0
+    phase = rounds(Path(args.ledger), args.repo_id, args.subject, args.role, None)
+    substantive = sum(s['state'] == 'verdikt_zakommiten' for s in phase)
+    if args.phase == 'freeze':
+        substantive += sum(s['state'] == 'open' for s in phase)
+    limit = value.get(args.role + 'Calls')
+    if limit is not None and substantive + (args.phase == 'spawn') >= limit:
+        action = 'ARBITRATION_REQUIRED'
+        record = {'t': 'JUDGES_POLICY_WARNING', 'repoId': args.repo_id,
+                  'subjectId': args.subject, 'rol': args.role, 'object': args.object,
+                  'limit': limit, 'fact': substantive, 'phase': args.phase, 'action': action}
+        with Path(args.ledger).open('a') as stream:
+            stream.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + '\n')
+        message = (f'{action} repo={args.repo_id} subject={args.subject} role={args.role} '
+                   f'object={args.object} limit={limit} fact={substantive} phase={args.phase}')
+        print('ПРЕДУПРЕЖДЕНИЕ: ' + message, file=sys.stderr)
+        print('WARNING ' + message)
     else:
         print('retry')
     return 0
@@ -130,6 +139,7 @@ def main():
     parser.add_argument('--subject')
     parser.add_argument('--role')
     parser.add_argument('--object')
+    parser.add_argument('--phase', choices=('spawn', 'freeze'), default='spawn')
     args = parser.parse_args()
     try:
         if args.mode == 'validate':

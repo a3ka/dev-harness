@@ -70,14 +70,7 @@ RETRY = r'''    if [ "$klass" = sudja ] && [ "$JUDGE_POLICY" != null ]; then
         otp OBJECT_UZHE_SUZHEN "$retry_status repo=$REPO_ID subject=$sv role=$rol object=$obj"
       fi
       case "$retry_status" in
-        ARBITRATION_REQUIRED\ *)
-          mutexi_snyat_vse
-          otp ARBITRATION_REQUIRED "${retry_status#* }"
-          ;;
-        BUDGET_EXHAUSTED\ *)
-          mutexi_snyat_vse
-          otp BUDGET_EXHAUSTED "${retry_status#* }"
-          ;;
+        WARNING\ *) : ;;
       esac
     fi
 '''
@@ -99,7 +92,7 @@ MUTATIONS = {
         "    elif [ \"$verdict_rc\" = 3 ]; then\n      prichina='blok_sredy'\n",
         "    elif [ \"$verdict_rc\" = 3 ]; then\n      prichina='obryv_bez_verdikta'\n", ['env-release']),
     'unlimited-retries': ('scripts/judges_policy.py',
-        "if interruptions > value['interruptionRetries'] or environment > value['environmentRetries']:",
+        "if args.phase == 'spawn' and (interruptions > value['interruptionRetries'] or environment > value['environmentRetries']):",
         'if False:', ['interruption-cap', 'environment-cap']),
     'one-not-two': ('scripts/judges_policy.py',
         "interruptions > value['interruptionRetries']", "interruptions >= value['interruptionRetries']",
@@ -140,24 +133,31 @@ MUTATIONS.update({
         "(obj is None or s.get('object') == obj)",
         ['phase-critic-stop-other-role', 'phase-adversary-arbiter-other-role']),
     'phase-off-by-one': (
-        'scripts/judges_policy.py', 'substantive + 1 > limit', 'substantive + 1 >= limit',
+        'scripts/judges_policy.py', "substantive + (args.phase == 'spawn') > limit",
+        "substantive + (args.phase == 'spawn') >= limit",
         ['phase-critic-stop-below', 'phase-reviewer-arbiter-below']),
     'phase-no-limit': (
-        'scripts/judges_policy.py', 'if limit is not None and substantive + 1 > limit:',
+        'scripts/judges_policy.py', "if limit is not None and substantive + (args.phase == 'spawn') > limit:",
         'if False:', ['phase-critic-stop-one', 'phase-adversary-arbiter-one']),
-    'phase-stop-is-arbiter': (
+    'g4-refuses-spawn': (
+        'scripts/zamok_predmeta.sh', 'WARNING\\ *) : ;;',
+        'WARNING\\ *) mutexi_snyat_vse; otp ARBITRATION_REQUIRED \"${retry_status#* }\" ;;',
+        ['phase-critic-stop-one', 'own229-warning-journal']),
+    'g4-no-account': (
         'scripts/judges_policy.py',
-        "action = 'ARBITRATION_REQUIRED' if value['onExhaustion'] == 'arbiter' else 'BUDGET_EXHAUSTED'",
-        "action = 'ARBITRATION_REQUIRED'", ['phase-critic-stop-one', 'phase-reviewer-stop-at']),
-    'phase-arbiter-is-stop': (
+        "stream.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + '\\n')",
+        'pass', ['phase-adversary-arbiter-at', 'own229-warning-journal']),
+    'g4-no-arbiter': (
+        'scripts/judges_policy.py', "action = 'ARBITRATION_REQUIRED'",
+        "action = 'STOP'", ['phase-reviewer-stop-above', 'own229-warning-journal']),
+    'g4-refuses-freeze': (
+        'scripts/judges_policy.py', "print('WARNING ' + message)",
+        "print('WARNING ' + message)\n        if args.phase == 'freeze':\n            return 1",
+        ['own229-warning-journal']),
+    'g4-freeze-skips-open': (
         'scripts/judges_policy.py',
-        "action = 'ARBITRATION_REQUIRED' if value['onExhaustion'] == 'arbiter' else 'BUDGET_EXHAUSTED'",
-        "action = 'BUDGET_EXHAUSTED'", ['phase-adversary-arbiter-one', 'phase-reviewer-arbiter-at']),
-    'phase-old-diagnosis': (
-        'scripts/zamok_predmeta.sh',
-        'otp BUDGET_EXHAUSTED "${retry_status#* }"',
-        'otp OBJECT_UZHE_SUZHEN "${retry_status#* }"',
-        ['phase-critic-stop-one', 'phase-adversary-stop-at']),
+        "substantive += sum(s['state'] == 'open' for s in phase)",
+        'substantive += 0', ['own229-warning-journal']),
     'phase-resets-on-object': (
         'scripts/judges_policy.py',
         'phase = rounds(Path(args.ledger), args.repo_id, args.subject, args.role, None)',
@@ -165,29 +165,20 @@ MUTATIONS.update({
         ['phase-critic-stop-other-object', 'phase-reviewer-arbiter-other-object']),
 })
 MUTATIONS.update({
-    'retry-without-154-account': (
-        'scripts/zamok_predmeta.sh',
-        '--arg h "$name" --arg k "$klass" --arg ro "$rol" --arg o "$obj"',
-        '--arg h "$name" --arg k "$klass" --arg ro internal_retry --arg o "$obj"',
-        ['joint154-retries']),
     'retry-without-start': (
         'scripts/zamok_predmeta.sh',
         '      >> "$LEDGER"\n    printf \'PUSCHEM',
         '      | cat >/dev/null\n    printf \'PUSCHEM',
-        ['joint154-retries']),
+        ['own229-retries-interruption', 'own229-retries-environment']),
     'retry-counts-substantive': (
         'scripts/judges_policy.py',
         "substantive = sum(s['state'] == 'verdikt_zakommiten' for s in phase)",
-        'substantive = len(phase)', ['joint154-retries']),
-    'warn154-refuses': (
-        'model154_warn.py', '    return 0\n', '    return int(warning)\n',
-        ['joint154-retries', *(f'warn154-{prop}-{phase}' for prop in
-          ('i2', 'i3', 'i4-missing', 'i4-ambiguous', 'i4-consultant',
-           'i5-sanction', 'i5-arbitration', 'i6') for phase in ('spawn', 'freeze'))]),
+        'substantive = len(phase)', ['own229-retries-interruption', 'own229-retries-environment']),
     'retry-renames-position': (
         'scripts/zamok_predmeta.sh',
         'jq -nc --arg t START --arg r "$REPO_ID"',
-        'jq -nc --arg t internal_retry --arg r "$REPO_ID"', ['joint154-retries']),
+        'jq -nc --arg t internal_retry --arg r "$REPO_ID"',
+        ['own229-retries-interruption', 'own229-retries-environment']),
 })
 for _path, _rules in DATA['norms'].items():
     for _g, _line in _rules.items():

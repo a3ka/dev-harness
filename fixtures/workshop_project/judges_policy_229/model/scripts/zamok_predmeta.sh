@@ -1442,14 +1442,7 @@ EOF
         otp OBJECT_UZHE_SUZHEN "$retry_status repo=$REPO_ID subject=$sv role=$rol object=$obj"
       fi
       case "$retry_status" in
-        ARBITRATION_REQUIRED\ *)
-          mutexi_snyat_vse
-          otp ARBITRATION_REQUIRED "${retry_status#* }"
-          ;;
-        BUDGET_EXHAUSTED\ *)
-          mutexi_snyat_vse
-          otp BUDGET_EXHAUSTED "${retry_status#* }"
-          ;;
+        WARNING\ *) : ;;
       esac
     fi
     # [D11 uzhe-suzhen] повторный круг ТОЙ ЖЕ РОЛИ на ТОМ ЖЕ OBJECT (208):

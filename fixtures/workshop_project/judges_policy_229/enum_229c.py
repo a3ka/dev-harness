@@ -11,6 +11,7 @@ import tempfile
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
+from probe import CASES
 EXPECTED_RED = {
     'policy-exhaustion-unknown', 'policy-exhaustion-empty', 'policy-exhaustion-null',
     'policy-exhaustion-number', 'policy-exhaustion-upper-stop',
@@ -41,7 +42,7 @@ def main():
         print(result.stderr, end='', file=sys.stderr)
         print('MUTANT_REPO_RC', result.returncode)
         red = {line.split()[0] for line in result.stdout.splitlines() if ' KRASNO ' in line}
-        if result.returncode != 1 or red != EXPECTED_RED or 'KLETKI 154 KRASNYH 8' not in result.stdout.splitlines():
+        if result.returncode != 1 or red != EXPECTED_RED or f'KLETKI {len(CASES)} KRASNYH 8' not in result.stdout.splitlines():
             return 1
     return 0
 

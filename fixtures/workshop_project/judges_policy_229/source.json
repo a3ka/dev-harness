@@ -1121,57 +1121,56 @@
     "ZAMOK_ZHIV": "ZAMOK_ZHIV"
   },
   "nositeli": {
-    "model/config/judges-policy.json": "37bc36b617274d43720b0f0d69148f8250aaff46f20c208f1a96b3fee9a5089b",
-    "model/judges_policy.py": "c2863bec8b1a4c7a6904b0cfa50df9492a3cc65014091e9c45402d176df96af2",
-    "model/model154_warn.py": "fd52735c5b8ecc3f7c447cc6cd5cc99cd2bc8cbdb9c01b7443a085dbb814c9b2",
+    "model/config/judges-policy.json": "ec9523de01438182ddb5b37a482e93248859ddcc0293d03bee051fb0d91c452f",
+    "model/judges_policy.py": "aab8c2f1b071c145368ebe4bf2287b7843721bf5d0d85f6d92007f503f7861df",
     "model/roles/adversary.md": "8b60137436be0887791451a650a5891c856ca8a3d2ceebcd3d79013290faeef1",
     "model/roles/architect.md": "0efd78489d3135ff38f4d47a12e3e4befcd60aaa40fc324b53ebc1889798484f",
     "model/roles/critic.md": "ecb6f98321d3398134df934c78195558be2a4c3b1ccf24d202b86369ba660d2c",
-    "model/roles/orchestrator.md": "2cb375d3cc402ab39bd07ca0d1470bc09b9c3ed970eba43fd09bf36923d4f733",
+    "model/roles/orchestrator.md": "79b95f36de6b4777c2b63c551548e4926c43babc2e144e8b3aae66eec6fd0891",
     "model/roles/reviewer.md": "8b60137436be0887791451a650a5891c856ca8a3d2ceebcd3d79013290faeef1",
-    "model/scripts/judges_policy.py": "dc2cadff91c81c4c1a60139457c69fc44867a6dde3e6bf9fce3a23814d5c7d9f",
+    "model/scripts/judges_policy.py": "c0bfbb9f489cf52fb042d6a22b410a20fa1ed8795929c95978d62fb97d37edd7",
     "model/scripts/pre_judge.sh": "31220c3f3ad5cd4ef2d5d478def25cc1f42857ca58f9def746678ce88c275697",
     "model/scripts/profile_resolver.sh": "caaea5efe1d8b3264a0a32cf5ca62c30ba6553ae0798f2f69b01e99ebacf4781",
-    "model/scripts/zamok_predmeta.sh": "14a1f5a4f9329ff5b1df6bd5f6b424e1e89dca071edca991d9b58bda7133bea5",
-    "stabs/bad-is-missing/scripts/judges_policy.py": "8fa09c789636122c987b22720d4963b4854c707e1ebb87837c953d68b2ec8b3d",
-    "stabs/env-counts-as-court/scripts/zamok_predmeta.sh": "91d8a16531eaf4999b4b8695f2fe01c44c088d4697626405a7ae8330ba6b56be",
-    "stabs/env-is-interruption/scripts/zamok_predmeta.sh": "65ba561cdc2a799fc6d30a7719ab74e1719bfcd666be06f4bc502d050983be00",
-    "stabs/env-opens-reviewer/scripts/zamok_predmeta.sh": "bac855ae7f30c651770f17f6cadb2bb87ec464608370c013f954029ae5e5443e",
-    "stabs/ignore-exhaustion-action/scripts/judges_policy.py": "6a03d3102e087726826d6c82057b63a0e9b22b62923c39c511d00a567a8e6c70",
-    "stabs/ignore-scope/scripts/judges_policy.py": "62213c2946c2354a8ed43fd61adec84d238c9ee06a6e57095f7ca6717a888dd6",
-    "stabs/norm-Г-1-orchestrator/roles/orchestrator.md": "7ca70e8e7edeaa6362f363e4e18599c49ad60a2d97bddac54a9fa8ffbaad885c",
+    "model/scripts/zamok_predmeta.sh": "9073eb056cc7dace15caabdee6fd2baafa6651799c8f66ba18476a13cbc30230",
+    "stabs/bad-is-missing/scripts/judges_policy.py": "fe01865b850f63d5862a057421868e46dd41c6b4af639b0dc483a911a2cc03e1",
+    "stabs/env-counts-as-court/scripts/zamok_predmeta.sh": "cfebf1b41db7dd454017ddb26138e45fcc1f40f49675e070a551659e9ec6047c",
+    "stabs/env-is-interruption/scripts/zamok_predmeta.sh": "4f31e8321cf9647a44518e854e24c550f7d56b183a48ba924cd092dec9422927",
+    "stabs/env-opens-reviewer/scripts/zamok_predmeta.sh": "7619bff194bb390504517748770788eab289c46170e6e06c3bf04cfa061f9df7",
+    "stabs/g4-freeze-skips-open/scripts/judges_policy.py": "c0314ad97d7ffb70b3cdbb5ab6555b35312c8c3e2c3a77c1d325e45f8178b1c2",
+    "stabs/g4-no-account/scripts/judges_policy.py": "cb5756c027aa1985393bd83ef0cd036ddf6f92fd6f6d90a29eb3e7ad4f6f4b47",
+    "stabs/g4-no-arbiter/scripts/judges_policy.py": "a8467a208b8dcea788c4fc211afe5acec72b07d36c54f76e646494061493414e",
+    "stabs/g4-refuses-freeze/scripts/judges_policy.py": "66c13762cc6c787a848a2e404454cad6472e2937ae8de58c341fc7e794147b74",
+    "stabs/g4-refuses-spawn/scripts/zamok_predmeta.sh": "72c2335f5d73507cd3584c32fec2849d8490ecbc89351facdd90ba0b11e0cfb2",
+    "stabs/ignore-exhaustion-action/scripts/judges_policy.py": "4c2491b986d5baa60c25a18752d9abec52afc36f9f2d1b24cc1070a4438d0293",
+    "stabs/ignore-scope/scripts/judges_policy.py": "3b364cb5f45b5d7457bc4808ddc8da063f4c4d094c62783badef76e1436d2053",
+    "stabs/norm-Г-1-orchestrator/roles/orchestrator.md": "bb1e7ea31f318366f71c6005fe80a1636d8c740ace312dbee5fb2bca5ccff4bc",
     "stabs/norm-Г-2-adversary/roles/adversary.md": "7cc16f7afd315bce2574a12c9461e4d2b539d88a8b88575d4c0a2870e7545ebe",
     "stabs/norm-Г-2-critic/roles/critic.md": "87674d4532eaf1cbf1ef8998559aecc0901d8d23942880ef5a4c66ea713d3159",
     "stabs/norm-Г-2-reviewer/roles/reviewer.md": "7cc16f7afd315bce2574a12c9461e4d2b539d88a8b88575d4c0a2870e7545ebe",
-    "stabs/norm-Г-3-orchestrator/roles/orchestrator.md": "336e4334793f9dce0d2baf8365e8309de509d845fcd1a71da99976489ba14f63",
-    "stabs/norm-Г-4-orchestrator/roles/orchestrator.md": "6fdce4d07050e3efd98961a6bfaa4ce418c3c4cf6c024cdaa30ac96bd1e74937",
+    "stabs/norm-Г-3-orchestrator/roles/orchestrator.md": "ac25064b5fc133b8f2f10dcf716b6663155ef97f975c1274db08279d86852fe7",
+    "stabs/norm-Г-4-orchestrator/roles/orchestrator.md": "b265454385358f32f698eca1d58d4ccf9842d9867108bb2d58e9560c4246fba5",
     "stabs/norm-Г-5-adversary/roles/adversary.md": "62383741aee62bdbdea5bf8fd2f253b25340caa76deca1a6bf6b3fb23cdb47bb",
     "stabs/norm-Г-5-critic/roles/critic.md": "bd4c17ffd9e028559701cdff91ca8aa3a7db8206ccfaca475a06be3dcb944f3a",
     "stabs/norm-Г-5-reviewer/roles/reviewer.md": "62383741aee62bdbdea5bf8fd2f253b25340caa76deca1a6bf6b3fb23cdb47bb",
     "stabs/norm-Г-6-architect/roles/architect.md": "86f43a525d1507161523bdb732f19cba946f3d6200ecbacc2b9217774f56279c",
-    "stabs/norm-Г-7-orchestrator/roles/orchestrator.md": "3a4aa1854970bebd7f58b001bd47235128827daccc5746a0183321ee976fa7cc",
+    "stabs/norm-Г-7-orchestrator/roles/orchestrator.md": "d0ebd159c8bc5fe7d4e6ae40c3305dc14eceacdba5e194cc77aa94da90cf3c01",
     "stabs/norm-Г-8-critic/roles/critic.md": "8b60137436be0887791451a650a5891c856ca8a3d2ceebcd3d79013290faeef1",
-    "stabs/norm-Г-9-orchestrator/roles/orchestrator.md": "01d92d4c5144a06658955558b4fc6d2dbf6f39712d3040585ca7366e7c62e52f",
-    "stabs/one-not-two/scripts/judges_policy.py": "a70bde61987a1744275c9bd12ca30e65f54f8c0c80825cf728d482cc889db46c",
-    "stabs/phase-arbiter-is-stop/scripts/judges_policy.py": "1643a230d547867c6c28656c1b3046813815a0b5d3c5262250d46c46461d03a5",
-    "stabs/phase-counts-technical/scripts/judges_policy.py": "1cd2bf22fcfc1d3e705ecddb23261a2e22825ed9f8516641dfc29cfb800e07be",
-    "stabs/phase-ignores-role/scripts/judges_policy.py": "bf14b0fa602f84c22842bd2dc6317709bf532ef8bec20e672e00ffbf169b8ad1",
-    "stabs/phase-no-limit/scripts/judges_policy.py": "df690ed5f8d2a4aed2aaa62a59306fbd3956fd40370ac3360a5425558ef99fc3",
-    "stabs/phase-off-by-one/scripts/judges_policy.py": "94b3fa996675a019822671f1d33c0ea1a35d1ab53708f00e4e51d541e83f6831",
-    "stabs/phase-old-diagnosis/scripts/zamok_predmeta.sh": "7a7eac273fef251fbdadf777c8a36b51ebfd58e501874e08ae5b5e09d47714f5",
-    "stabs/phase-resets-on-object/scripts/judges_policy.py": "b4b660546c10def186dc9bde95c6f97c330ef2a51f2c0553e1cbbda836145eb5",
-    "stabs/phase-stop-is-arbiter/scripts/judges_policy.py": "994ba790ff58fd778b88cc41c5daed4dacd6e2c1f9ac105e793dc34541859713",
-    "stabs/release-oldest/scripts/judges_policy.py": "6e2bd4a169db3dc114d31dd5b2612934952e7e72711a66289eb8ca00ad3c58f1",
-    "stabs/remove-exhaustion-enum/config/judges-policy.json": "6e76db281bbac24c94fc261abffd92620211961b4deda1dac425d0d5b2634ad5",
-    "stabs/retry-counts-substantive/scripts/judges_policy.py": "1cd2bf22fcfc1d3e705ecddb23261a2e22825ed9f8516641dfc29cfb800e07be",
-    "stabs/retry-renames-position/scripts/zamok_predmeta.sh": "163cceffda55b59cc453b447aed3811c8c1a28da3ae5fda18c4bfe6dc1aecd91",
-    "stabs/retry-without-154-account/scripts/zamok_predmeta.sh": "70684ff9d5c2f75756712ac5ba00e510ae6a339edabdce2c426536139ac448c8",
-    "stabs/retry-without-start/scripts/zamok_predmeta.sh": "0bd4c55eebbe66aa881288e608210a235b5ee3e870225dd875cf544086de4c4a",
-    "stabs/skip-branch/scripts/judges_policy.py": "72c481aec02e3a7b7aba02e8d7779285135962571bd3ce511fe5e2bab65b0d3a",
-    "stabs/skip-hook/scripts/judges_policy.py": "fca8596846b99e0427d8571fb979cfc81836f38583f3daad0e4c6e33aa86760b",
-    "stabs/skip-object/scripts/judges_policy.py": "d57a6b0f3a98eef07944dbbe1e368583c5eac8532498de3a740d9f1e829b6210",
-    "stabs/unlimited-retries/scripts/judges_policy.py": "edc3927f01333990a0f2f3dc4ebf12332ace3c8726fe4f34525ae05aa8c11369",
-    "stabs/warn154-refuses/model154_warn.py": "6a9a8c2976200366be2343dc4b368c8b6e99957565b580d5ef604a79ff5679dc"
+    "stabs/norm-Г-9-orchestrator/roles/orchestrator.md": "caa520b13b158b8691aa3c960c70b902a4ce230b2a79298940b38d0402b72ce2",
+    "stabs/one-not-two/scripts/judges_policy.py": "71d044f8617ffa3889078b9e667bae9ece1cdb6a908b906b6e53ea2783b0e24f",
+    "stabs/phase-counts-technical/scripts/judges_policy.py": "c5db180d94cfec5d9b06cedd277b3503c4abe06f0d3c005c1d494a1c9b803628",
+    "stabs/phase-ignores-role/scripts/judges_policy.py": "56882b4a09e7783a64f6fd93ef8519c0af50ccb48e59b43532bf2425cf7219b7",
+    "stabs/phase-no-limit/scripts/judges_policy.py": "72cedf58e5565b3c57e7acc2874342d1d60fd6a0da8f5b18be99959b30a1660b",
+    "stabs/phase-off-by-one/scripts/judges_policy.py": "b5a904441928b2d40dd4b092c1b66ac786e7091cfab633636b6c220e38b610b2",
+    "stabs/phase-resets-on-object/scripts/judges_policy.py": "76b4dffd3ff0e290eff5a4fe179c443529e2bc303bc83e4833228bcef7819be9",
+    "stabs/release-oldest/scripts/judges_policy.py": "e0135a3048a4a14c1c2d01b4d84fff6355def49c8c16065217b3cee9e510c861",
+    "stabs/remove-exhaustion-enum/config/judges-policy.json": "9f49eac592ac9ab2ad8b9a011ac8856374bcddb4511c4319fa88800cdfd55ad8",
+    "stabs/retry-counts-substantive/scripts/judges_policy.py": "c5db180d94cfec5d9b06cedd277b3503c4abe06f0d3c005c1d494a1c9b803628",
+    "stabs/retry-renames-position/scripts/zamok_predmeta.sh": "a0cf6b88b7ad0ec7f374a9632516c176774753af29df77304b1c899197f6927e",
+    "stabs/retry-without-start/scripts/zamok_predmeta.sh": "40461b6ef9d40d435285b895f04b181a65b3a880abf5fd985691fa0ff6db3101",
+    "stabs/skip-branch/scripts/judges_policy.py": "05206a873c17218fc8c33341f30ee70e151b37ae779c86d118ebadc8d0e100e1",
+    "stabs/skip-hook/scripts/judges_policy.py": "4fcf42efb3c1b87c4915145dcaa95ec6ce30b34a02a61d4ff03c2ce058d705da",
+    "stabs/skip-object/scripts/judges_policy.py": "83b2f43b572b5d583eb23d368c2d0d2072769c94de287185eba1e2db151d8999",
+    "stabs/unlimited-retries/scripts/judges_policy.py": "babc4cfd5cb5768228922f5ca6ee34d129bed486f153d98474f1ee4aa6cd9e2a"
   },
   "stab_vhod": {
     "env-counts-as-court": [
@@ -1231,52 +1230,39 @@
       "phase-critic-stop-one",
       "phase-adversary-arbiter-one"
     ],
-    "phase-stop-is-arbiter": [
+    "g4-refuses-spawn": [
       "phase-critic-stop-one",
-      "phase-reviewer-stop-at"
+      "own229-warning-journal"
     ],
-    "phase-arbiter-is-stop": [
-      "phase-adversary-arbiter-one",
-      "phase-reviewer-arbiter-at"
+    "g4-no-account": [
+      "phase-adversary-arbiter-at",
+      "own229-warning-journal"
     ],
-    "phase-old-diagnosis": [
-      "phase-critic-stop-one",
-      "phase-adversary-stop-at"
+    "g4-no-arbiter": [
+      "phase-reviewer-stop-above",
+      "own229-warning-journal"
+    ],
+    "g4-refuses-freeze": [
+      "own229-warning-journal"
+    ],
+    "g4-freeze-skips-open": [
+      "own229-warning-journal"
     ],
     "phase-resets-on-object": [
       "phase-critic-stop-other-object",
       "phase-reviewer-arbiter-other-object"
     ],
-    "retry-without-154-account": [
-      "joint154-retries"
-    ],
     "retry-without-start": [
-      "joint154-retries"
+      "own229-retries-interruption",
+      "own229-retries-environment"
     ],
     "retry-counts-substantive": [
-      "joint154-retries"
-    ],
-    "warn154-refuses": [
-      "joint154-retries",
-      "warn154-i2-spawn",
-      "warn154-i2-freeze",
-      "warn154-i3-spawn",
-      "warn154-i3-freeze",
-      "warn154-i4-missing-spawn",
-      "warn154-i4-missing-freeze",
-      "warn154-i4-ambiguous-spawn",
-      "warn154-i4-ambiguous-freeze",
-      "warn154-i4-consultant-spawn",
-      "warn154-i4-consultant-freeze",
-      "warn154-i5-sanction-spawn",
-      "warn154-i5-sanction-freeze",
-      "warn154-i5-arbitration-spawn",
-      "warn154-i5-arbitration-freeze",
-      "warn154-i6-spawn",
-      "warn154-i6-freeze"
+      "own229-retries-interruption",
+      "own229-retries-environment"
     ],
     "retry-renames-position": [
-      "joint154-retries"
+      "own229-retries-interruption",
+      "own229-retries-environment"
     ],
     "norm-Г-2-critic": [
       "norm-Г-2-critic"
