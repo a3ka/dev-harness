@@ -192,8 +192,9 @@ def observe(repo, world, c, model, mutation=None):
     put(path, encode(events))
     if c.kind.startswith('duplicate'):
         second = zone / '2026-11-23' / (session + '.jsonl')
-        other = events + ([] if c.kind == 'duplicate-allowed' else [dict(type='model_change', model=DENIED, resolvedModelIsFallback=True)])
-        put(second, encode(other))
+        put(second, encode(events))
+        newer = events + ([] if c.kind == 'duplicate-allowed' else [dict(type='model_change', model=DENIED, resolvedModelIsFallback=True)])
+        put(path, encode(newer))
         os.utime(path, (100, 100))
         os.utime(second, (200 if c.kind == 'duplicate-reverse' else 50,) * 2)
     if c.kind in ('decoy', 'zero-decoy', 'long-decoy'):
