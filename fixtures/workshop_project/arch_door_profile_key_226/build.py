@@ -352,8 +352,10 @@ def generate():
         bindings[name] = {'path': path, 'cells': cells}
     import runpy
     public = runpy.run_path(str(HERE / 'probe.py'), run_name='catalog226')['public_source'](bindings)
+    repairs = runpy.run_path(str(HERE / 'repair_checks.py'), run_name='repairs226')['catalog']()
     (HERE / 'source.json').write_text(json.dumps({'base': BASE, 'files': list(FILES),
-        'carriers': carriers, 'bindings': bindings, 'public': public}, ensure_ascii=False, indent=2) + '\n')
+        'carriers': carriers, 'bindings': bindings, 'public': public,
+        'repairs': repairs}, ensure_ascii=False, indent=2) + '\n')
     print('CARRIERS', len(carriers), 'STABY', len(bindings),
           'SVJAZI', sum(len(v['cells']) for v in bindings.values()))
 
