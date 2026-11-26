@@ -79,11 +79,14 @@ PRODUCTS.update({
     'product-config-added': ('ПРОДУКТ: мастерская', 0, ''),
     'product-config-removed': ('ПРОДУКТ: станция.', 1, 'GRAMMAR'),
 })
+CONFIG_REFUSALS = ('config-broken', 'config-empty', 'config-missing', 'config-schema',
+                   'config-version', 'config-control')
 CONFIG_CASES = ('config-broken', 'config-empty', 'config-missing', 'config-schema',
                 'config-worktree', 'config-index', 'config-author', 'config-environment',
                 'config-equivalent')
 CASES = tuple(role + '-' + name for role in ('review', 'adversary') for name in WORLDS) + tuple(PRODUCTS)
 CASES += CONFIG_CASES
+CASES += ('config-version', 'config-control')
 
 
 def blob(ref, path):
@@ -203,13 +206,13 @@ _original_world = make_world
 
 
 def make_world(work, case):
-    if case not in CONFIG_CASES:
+    if case not in CONFIG_CASES + ('config-version', 'config-control'):
         return _original_world(work, case)
     root, target, _, _, tag, _ = _original_world(work, 'product-station')
     # Author's committed/dirty config and ambient config are never authoritative.
     put(root, POLICY_PATH, '{}\n')
     head = commit(root, 'untrusted author policy')
-    expected = 1 if case in CONFIG_CASES[:4] else 0
+    expected = 1 if case in CONFIG_REFUSALS else 0
     marker = 'done: DONE_FORMS_CONFIG' if expected else ''
     return root, target, expected, marker, tag, head
 
@@ -230,6 +233,10 @@ def prepare_policy(subject, root, case):
         policy['station_lines'].append('ПРОДУКТ: мастерская')
     elif case == 'product-config-removed':
         policy['station_lines'].remove('ПРОДУКТ: станция.')
+    if case == 'config-version':
+        policy['version'] = 2
+    elif case == 'config-control':
+        policy['station_lines'].append('ПРОДУКТ: станция\n')
     text = json.dumps(policy, ensure_ascii=False, indent=4 if case == 'config-equivalent' else None) + '\n'
     if case == 'config-broken':
         text = '{'
