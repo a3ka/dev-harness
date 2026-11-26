@@ -65,7 +65,21 @@
     "stabs/st46-casefold-position-1/scripts/profile_resolver.sh": "53c04a4af96c7338e83f5d09eb302718911f0f270edaf85ee102539e1914f024",
     "stabs/st47-casefold-position-2/scripts/profile_resolver.sh": "ee8be9a3ce8041d749059d64a110ed7611e849030f2e12770a372f028e46cb03",
     "stabs/st48-casefold-position-3/scripts/profile_resolver.sh": "f0648e50244df48e7b36d0240eeb938fcb06faec6579a9ae0039513ab9755964",
-    "stabs/st49-casefold-position-4/scripts/profile_resolver.sh": "9c15d0439c6ce9d11528f5833b2d0e205861e539d75c0a50c62799ee85c27d42"
+    "stabs/st49-casefold-position-4/scripts/profile_resolver.sh": "9c15d0439c6ce9d11528f5833b2d0e205861e539d75c0a50c62799ee85c27d42",
+    "stabs/st50-guard-cr-adv226c/scripts/profile_resolver.sh": "135f47a291e2fa8cff4f775ca18e291d8416caec3a35c34e030947fb70bb8e57",
+    "stabs/st51-hooks-skip/scripts/profile_resolver.sh": "40e6190cbebd63074339c6e689a9bc0576068d285afa4fb7d3ad668cdcda0a0e",
+    "stabs/st52-hooks-invert/scripts/profile_resolver.sh": "36f462552646825bc9e9a69bc4aee5ef72885eee8c03a7d6c774bc7913f38977",
+    "stabs/st53-hooks-shape-skip/scripts/profile_resolver.sh": "6888cadd0778f7b03ed6f967b9d83bba40d45bf699acd045b3cbeadee6e14b1f",
+    "stabs/st54-leaf-strings-only/scripts/profile_resolver.sh": "8ef3f72a9f6c31850bd3403f30946cd305531d47df7d1b74382b10fc38d7ea6a",
+    "stabs/st55-leaf-skip/scripts/profile_resolver.sh": "1188acb001195a7e6f3c125a54d0d6986c85807476b11d02484954a315d1099a",
+    "stabs/st56-zero-instead-false/scripts/profile_resolver.sh": "e80bb46f4211d99150005349951b87375054fee7c3c13fe28c705e15fa1afcfa",
+    "stabs/st57-string-check-skip/scripts/profile_resolver.sh": "65750dcce601dc509cb02766648e0477210585422b578a630f534102eb510a51",
+    "stabs/st58-string-check-invert/scripts/profile_resolver.sh": "49f4dfb1c204cfa397820117d69d00c0e82015daa9037c27f10b077047705761",
+    "stabs/st59-rejection-skip/scripts/profile_resolver.sh": "1cbc33de2f37d1188d78093fc72e2e3267b848c25957e7dfcf8adb9b87751241",
+    "stabs/st60-rejection-rc-zero/scripts/profile_resolver.sh": "90d3fd8f7ad326dc11c4300b78322f220f082b10ace30229b2d7c45fbab5c228",
+    "stabs/st61-rejection-rc-two/scripts/profile_resolver.sh": "7e9ce79ab03ab391a7486ac7df75f3707746d4d4f5a9b3a95cc964005163fb7b",
+    "stabs/st62-rejection-no-reason/scripts/profile_resolver.sh": "bdd565222e65dac1b3939f986a2cc523e38488be1fcb93efbd7154977285c167",
+    "stabs/st63-rejection-stdout/scripts/profile_resolver.sh": "cbc0296b82b0dea79cbd5d3dd5242927353fb5fa3337f9b6b7e48ce1abbea8ee"
   },
   "bindings": {
     "st01-ignore-key": {
@@ -365,6 +379,1001 @@
       "cells": [
         "grid-false-case-16"
       ]
+    },
+    "st50-guard-cr-adv226c": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "public-control-cr"
+      ]
+    },
+    "st51-hooks-skip": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "public-control-null"
+      ]
+    },
+    "st52-hooks-invert": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "public-control-null",
+        "public-hooks-absent"
+      ]
+    },
+    "st53-hooks-shape-skip": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "public-hooks-null"
+      ]
+    },
+    "st54-leaf-strings-only": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "public-control-null"
+      ]
+    },
+    "st55-leaf-skip": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "public-control-cr"
+      ]
+    },
+    "st56-zero-instead-false": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "public-control-zero",
+        "public-control-false"
+      ]
+    },
+    "st57-string-check-skip": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "public-control-null"
+      ]
+    },
+    "st58-string-check-invert": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "public-control-valid"
+      ]
+    },
+    "st59-rejection-skip": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "public-control-cr"
+      ]
+    },
+    "st60-rejection-rc-zero": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "public-control-cr"
+      ]
+    },
+    "st61-rejection-rc-two": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "public-control-cr"
+      ]
+    },
+    "st62-rejection-no-reason": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "public-control-cr"
+      ]
+    },
+    "st63-rejection-stdout": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "public-control-cr"
+      ]
+    }
+  },
+  "public": {
+    "unique_inputs": 131,
+    "axes": {
+      "type": [
+        "grid-type-false",
+        "grid-type-null",
+        "grid-type-zero",
+        "grid-type-one",
+        "grid-type-true",
+        "grid-type-array",
+        "grid-type-object",
+        "grid-type-array-full",
+        "grid-type-object-full"
+      ],
+      "false": [
+        "grid-false-case-00",
+        "grid-false-case-01",
+        "grid-false-case-02",
+        "grid-false-case-04",
+        "grid-false-case-08",
+        "grid-false-case-10",
+        "grid-false-case-16",
+        "grid-false-case-31",
+        "grid-false-leading",
+        "grid-false-trailing"
+      ],
+      "separator": [
+        "grid-separator-00",
+        "grid-separator-01",
+        "grid-separator-02",
+        "grid-separator-03",
+        "grid-separator-04",
+        "grid-separator-05",
+        "grid-separator-06",
+        "grid-separator-07",
+        "grid-separator-08",
+        "grid-separator-09",
+        "grid-separator-10"
+      ],
+      "ascii": [
+        "grid-ascii-owner-first-045",
+        "grid-ascii-owner-first-046",
+        "grid-ascii-owner-first-064",
+        "grid-ascii-owner-first-095",
+        "grid-ascii-repo-first-045",
+        "grid-ascii-repo-first-046",
+        "grid-ascii-repo-first-064",
+        "grid-ascii-repo-first-095",
+        "grid-ascii-owner-middle-045",
+        "grid-ascii-owner-middle-046",
+        "grid-ascii-owner-middle-064",
+        "grid-ascii-owner-middle-095",
+        "grid-ascii-owner-end-045",
+        "grid-ascii-owner-end-046",
+        "grid-ascii-owner-end-064",
+        "grid-ascii-owner-end-095",
+        "grid-ascii-repo-middle-045",
+        "grid-ascii-repo-middle-046",
+        "grid-ascii-repo-middle-064",
+        "grid-ascii-repo-middle-095",
+        "grid-ascii-repo-end-045",
+        "grid-ascii-repo-end-046",
+        "grid-ascii-repo-end-064",
+        "grid-ascii-repo-end-095"
+      ],
+      "boundary": [
+        "grid-boundary-before-sp",
+        "grid-boundary-after-sp",
+        "grid-boundary-owner-sp",
+        "grid-boundary-repo-sp",
+        "grid-boundary-before-tab",
+        "grid-boundary-after-tab",
+        "grid-boundary-owner-tab",
+        "grid-boundary-repo-tab",
+        "grid-boundary-before-cr",
+        "grid-boundary-after-cr",
+        "grid-boundary-owner-cr",
+        "grid-boundary-repo-cr",
+        "grid-boundary-before-lf",
+        "grid-boundary-after-lf",
+        "grid-boundary-owner-lf",
+        "grid-boundary-repo-lf",
+        "grid-boundary-before-nul",
+        "grid-boundary-after-nul",
+        "grid-boundary-owner-nul",
+        "grid-boundary-repo-nul"
+      ],
+      "unicode": [
+        "grid-unicode-owner-first-0",
+        "grid-unicode-repo-first-0",
+        "grid-unicode-owner-rest-0",
+        "grid-unicode-repo-rest-0",
+        "grid-unicode-owner-first-1",
+        "grid-unicode-repo-first-1",
+        "grid-unicode-owner-rest-1",
+        "grid-unicode-repo-rest-1",
+        "grid-unicode-owner-first-2",
+        "grid-unicode-repo-first-2",
+        "grid-unicode-owner-rest-2",
+        "grid-unicode-repo-rest-2",
+        "grid-unicode-owner-first-3",
+        "grid-unicode-repo-first-3",
+        "grid-unicode-owner-rest-3",
+        "grid-unicode-repo-rest-3",
+        "grid-unicode-slash"
+      ],
+      "length": [
+        "grid-length-owner",
+        "grid-length-repo",
+        "grid-length-both"
+      ],
+      "existing-resolver": [
+        "bad-null",
+        "bad-zero",
+        "bad-one",
+        "bad-true",
+        "bad-empty",
+        "bad-array",
+        "bad-object",
+        "bad-string-false",
+        "bad-space",
+        "bad-newline",
+        "bad-nul",
+        "bad-two-slashes",
+        "bad-empty-owner",
+        "bad-empty-repo",
+        "bad-trailing-space",
+        "bad-trailing-tab",
+        "bad-trailing-lf",
+        "bad-owner-underscore",
+        "bad-owner-hyphen",
+        "bad-owner-dot",
+        "bad-repo-underscore",
+        "bad-repo-hyphen",
+        "bad-repo-dot",
+        "bad-leading-space",
+        "bad-owner-internal-space",
+        "bad-repo-internal-space",
+        "grammar-plain",
+        "grammar-internal-punctuation",
+        "grammar-initial-digits",
+        "resolver-known"
+      ],
+      "existing-hooks": [
+        "bad-hooks"
+      ],
+      "existing-unknown": [
+        "unknown-sibling"
+      ],
+      "hooks": [
+        "public-hooks-absent",
+        "public-hooks-empty",
+        "public-hooks-future",
+        "public-hooks-null",
+        "public-hooks-false",
+        "public-hooks-true",
+        "public-hooks-zero",
+        "public-hooks-string",
+        "public-hooks-array"
+      ],
+      "duplicates": [
+        "public-duplicate-leaf-last-cr",
+        "public-duplicate-hooks-last-cr",
+        "public-duplicate-leaf-last-good",
+        "public-duplicate-hooks-last-good"
+      ],
+      "positive-controls": [
+        "public-mixed-case",
+        "public-long-value"
+      ],
+      "control": [
+        "public-control-null",
+        "public-control-cr",
+        "public-control-true",
+        "public-control-zero",
+        "public-control-false",
+        "public-control-valid"
+      ]
+    },
+    "witnesses": {
+      "grid-type-false": {
+        "fragment": "\"hooks\":{\"archBrief\": false}",
+        "rc": 0
+      },
+      "grid-type-null": {
+        "fragment": "\"hooks\":{\"archBrief\": null}",
+        "rc": 1
+      },
+      "grid-type-zero": {
+        "fragment": "\"hooks\":{\"archBrief\": 0}",
+        "rc": 1
+      },
+      "grid-type-one": {
+        "fragment": "\"hooks\":{\"archBrief\": 1}",
+        "rc": 1
+      },
+      "grid-type-true": {
+        "fragment": "\"hooks\":{\"archBrief\": true}",
+        "rc": 1
+      },
+      "grid-type-array": {
+        "fragment": "\"hooks\":{\"archBrief\": []}",
+        "rc": 1
+      },
+      "grid-type-object": {
+        "fragment": "\"hooks\":{\"archBrief\": {}}",
+        "rc": 1
+      },
+      "grid-type-array-full": {
+        "fragment": "\"hooks\":{\"archBrief\": [\"a/b\"]}",
+        "rc": 1
+      },
+      "grid-type-object-full": {
+        "fragment": "\"hooks\":{\"archBrief\": {\"enabled\": true}}",
+        "rc": 1
+      },
+      "grid-false-case-00": {
+        "fragment": "\"hooks\":{\"archBrief\": \"false\"}",
+        "rc": 1
+      },
+      "grid-false-case-01": {
+        "fragment": "\"hooks\":{\"archBrief\": \"False\"}",
+        "rc": 1
+      },
+      "grid-false-case-02": {
+        "fragment": "\"hooks\":{\"archBrief\": \"fAlse\"}",
+        "rc": 1
+      },
+      "grid-false-case-04": {
+        "fragment": "\"hooks\":{\"archBrief\": \"faLse\"}",
+        "rc": 1
+      },
+      "grid-false-case-08": {
+        "fragment": "\"hooks\":{\"archBrief\": \"falSe\"}",
+        "rc": 1
+      },
+      "grid-false-case-10": {
+        "fragment": "\"hooks\":{\"archBrief\": \"fAlSe\"}",
+        "rc": 1
+      },
+      "grid-false-case-16": {
+        "fragment": "\"hooks\":{\"archBrief\": \"falsE\"}",
+        "rc": 1
+      },
+      "grid-false-case-31": {
+        "fragment": "\"hooks\":{\"archBrief\": \"FALSE\"}",
+        "rc": 1
+      },
+      "grid-false-leading": {
+        "fragment": "\"hooks\":{\"archBrief\": \" false\"}",
+        "rc": 1
+      },
+      "grid-false-trailing": {
+        "fragment": "\"hooks\":{\"archBrief\": \"false \"}",
+        "rc": 1
+      },
+      "grid-separator-00": {
+        "fragment": "\"hooks\":{\"archBrief\": \"\"}",
+        "rc": 1
+      },
+      "grid-separator-01": {
+        "fragment": "\"hooks\":{\"archBrief\": \"/\"}",
+        "rc": 1
+      },
+      "grid-separator-02": {
+        "fragment": "\"hooks\":{\"archBrief\": \"/r\"}",
+        "rc": 1
+      },
+      "grid-separator-03": {
+        "fragment": "\"hooks\":{\"archBrief\": \"u/\"}",
+        "rc": 1
+      },
+      "grid-separator-04": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ur\"}",
+        "rc": 1
+      },
+      "grid-separator-05": {
+        "fragment": "\"hooks\":{\"archBrief\": \"u//r\"}",
+        "rc": 1
+      },
+      "grid-separator-06": {
+        "fragment": "\"hooks\":{\"archBrief\": \"u/r/s\"}",
+        "rc": 1
+      },
+      "grid-separator-07": {
+        "fragment": "\"hooks\":{\"archBrief\": \"a/b\"}",
+        "rc": 0
+      },
+      "grid-separator-08": {
+        "fragment": "\"hooks\":{\"archBrief\": \"0/9\"}",
+        "rc": 0
+      },
+      "grid-separator-09": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/cd\"}",
+        "rc": 0
+      },
+      "grid-separator-10": {
+        "fragment": "\"hooks\":{\"archBrief\": \"OwNer/RePo.Name_7-x\"}",
+        "rc": 0
+      },
+      "grid-ascii-owner-first-045": {
+        "fragment": "\"hooks\":{\"archBrief\": \"-b/cd\"}",
+        "rc": 1
+      },
+      "grid-ascii-owner-first-046": {
+        "fragment": "\"hooks\":{\"archBrief\": \".b/cd\"}",
+        "rc": 1
+      },
+      "grid-ascii-owner-first-064": {
+        "fragment": "\"hooks\":{\"archBrief\": \"@b/cd\"}",
+        "rc": 1
+      },
+      "grid-ascii-owner-first-095": {
+        "fragment": "\"hooks\":{\"archBrief\": \"_b/cd\"}",
+        "rc": 1
+      },
+      "grid-ascii-repo-first-045": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/-d\"}",
+        "rc": 1
+      },
+      "grid-ascii-repo-first-046": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/.d\"}",
+        "rc": 1
+      },
+      "grid-ascii-repo-first-064": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/@d\"}",
+        "rc": 1
+      },
+      "grid-ascii-repo-first-095": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/_d\"}",
+        "rc": 1
+      },
+      "grid-ascii-owner-middle-045": {
+        "fragment": "\"hooks\":{\"archBrief\": \"a-b/cd\"}",
+        "rc": 0
+      },
+      "grid-ascii-owner-middle-046": {
+        "fragment": "\"hooks\":{\"archBrief\": \"a.b/cd\"}",
+        "rc": 0
+      },
+      "grid-ascii-owner-middle-064": {
+        "fragment": "\"hooks\":{\"archBrief\": \"a@b/cd\"}",
+        "rc": 1
+      },
+      "grid-ascii-owner-middle-095": {
+        "fragment": "\"hooks\":{\"archBrief\": \"a_b/cd\"}",
+        "rc": 0
+      },
+      "grid-ascii-owner-end-045": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab-/cd\"}",
+        "rc": 0
+      },
+      "grid-ascii-owner-end-046": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab./cd\"}",
+        "rc": 0
+      },
+      "grid-ascii-owner-end-064": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab@/cd\"}",
+        "rc": 1
+      },
+      "grid-ascii-owner-end-095": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab_/cd\"}",
+        "rc": 0
+      },
+      "grid-ascii-repo-middle-045": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/c-d\"}",
+        "rc": 0
+      },
+      "grid-ascii-repo-middle-046": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/c.d\"}",
+        "rc": 0
+      },
+      "grid-ascii-repo-middle-064": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/c@d\"}",
+        "rc": 1
+      },
+      "grid-ascii-repo-middle-095": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/c_d\"}",
+        "rc": 0
+      },
+      "grid-ascii-repo-end-045": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/cd-\"}",
+        "rc": 0
+      },
+      "grid-ascii-repo-end-046": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/cd.\"}",
+        "rc": 0
+      },
+      "grid-ascii-repo-end-064": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/cd@\"}",
+        "rc": 1
+      },
+      "grid-ascii-repo-end-095": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/cd_\"}",
+        "rc": 0
+      },
+      "grid-boundary-before-sp": {
+        "fragment": "\"hooks\":{\"archBrief\": \" ab/cd\"}",
+        "rc": 1
+      },
+      "grid-boundary-after-sp": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/cd \"}",
+        "rc": 1
+      },
+      "grid-boundary-owner-sp": {
+        "fragment": "\"hooks\":{\"archBrief\": \"a b/cd\"}",
+        "rc": 1
+      },
+      "grid-boundary-repo-sp": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/c d\"}",
+        "rc": 1
+      },
+      "grid-boundary-before-tab": {
+        "fragment": "\"hooks\":{\"archBrief\": \"\\tab/cd\"}",
+        "rc": 1
+      },
+      "grid-boundary-after-tab": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/cd\\t\"}",
+        "rc": 1
+      },
+      "grid-boundary-owner-tab": {
+        "fragment": "\"hooks\":{\"archBrief\": \"a\\tb/cd\"}",
+        "rc": 1
+      },
+      "grid-boundary-repo-tab": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/c\\td\"}",
+        "rc": 1
+      },
+      "grid-boundary-before-cr": {
+        "fragment": "\"hooks\":{\"archBrief\": \"\\rab/cd\"}",
+        "rc": 1
+      },
+      "grid-boundary-after-cr": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/cd\\r\"}",
+        "rc": 1
+      },
+      "grid-boundary-owner-cr": {
+        "fragment": "\"hooks\":{\"archBrief\": \"a\\rb/cd\"}",
+        "rc": 1
+      },
+      "grid-boundary-repo-cr": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/c\\rd\"}",
+        "rc": 1
+      },
+      "grid-boundary-before-lf": {
+        "fragment": "\"hooks\":{\"archBrief\": \"\\nab/cd\"}",
+        "rc": 1
+      },
+      "grid-boundary-after-lf": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/cd\\n\"}",
+        "rc": 1
+      },
+      "grid-boundary-owner-lf": {
+        "fragment": "\"hooks\":{\"archBrief\": \"a\\nb/cd\"}",
+        "rc": 1
+      },
+      "grid-boundary-repo-lf": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/c\\nd\"}",
+        "rc": 1
+      },
+      "grid-boundary-before-nul": {
+        "fragment": "\"hooks\":{\"archBrief\": \"\\u0000ab/cd\"}",
+        "rc": 1
+      },
+      "grid-boundary-after-nul": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/cd\\u0000\"}",
+        "rc": 1
+      },
+      "grid-boundary-owner-nul": {
+        "fragment": "\"hooks\":{\"archBrief\": \"a\\u0000b/cd\"}",
+        "rc": 1
+      },
+      "grid-boundary-repo-nul": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/c\\u0000d\"}",
+        "rc": 1
+      },
+      "grid-unicode-owner-first-0": {
+        "fragment": "\"hooks\":{\"archBrief\": \"\\u01f9b/cd\"}",
+        "rc": 1
+      },
+      "grid-unicode-repo-first-0": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/\\u01f9d\"}",
+        "rc": 1
+      },
+      "grid-unicode-owner-rest-0": {
+        "fragment": "\"hooks\":{\"archBrief\": \"a\\u01f9/cd\"}",
+        "rc": 1
+      },
+      "grid-unicode-repo-rest-0": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/c\\u01f9\"}",
+        "rc": 1
+      },
+      "grid-unicode-owner-first-1": {
+        "fragment": "\"hooks\":{\"archBrief\": \"\\u0661b/cd\"}",
+        "rc": 1
+      },
+      "grid-unicode-repo-first-1": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/\\u0661d\"}",
+        "rc": 1
+      },
+      "grid-unicode-owner-rest-1": {
+        "fragment": "\"hooks\":{\"archBrief\": \"a\\u0661/cd\"}",
+        "rc": 1
+      },
+      "grid-unicode-repo-rest-1": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/c\\u0661\"}",
+        "rc": 1
+      },
+      "grid-unicode-owner-first-2": {
+        "fragment": "\"hooks\":{\"archBrief\": \"\\uff21b/cd\"}",
+        "rc": 1
+      },
+      "grid-unicode-repo-first-2": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/\\uff21d\"}",
+        "rc": 1
+      },
+      "grid-unicode-owner-rest-2": {
+        "fragment": "\"hooks\":{\"archBrief\": \"a\\uff21/cd\"}",
+        "rc": 1
+      },
+      "grid-unicode-repo-rest-2": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/c\\uff21\"}",
+        "rc": 1
+      },
+      "grid-unicode-owner-first-3": {
+        "fragment": "\"hooks\":{\"archBrief\": \"\\uff11b/cd\"}",
+        "rc": 1
+      },
+      "grid-unicode-repo-first-3": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/\\uff11d\"}",
+        "rc": 1
+      },
+      "grid-unicode-owner-rest-3": {
+        "fragment": "\"hooks\":{\"archBrief\": \"a\\uff11/cd\"}",
+        "rc": 1
+      },
+      "grid-unicode-repo-rest-3": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab/c\\uff11\"}",
+        "rc": 1
+      },
+      "grid-unicode-slash": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ab\\uff0fcd\"}",
+        "rc": 1
+      },
+      "grid-length-owner": {
+        "fragment": "\"hooks\":{\"archBrief\": \"OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO/R\"}",
+        "rc": 0
+      },
+      "grid-length-repo": {
+        "fragment": "\"hooks\":{\"archBrief\": \"O/RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR\"}",
+        "rc": 0
+      },
+      "grid-length-both": {
+        "fragment": "\"hooks\":{\"archBrief\": \"OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO/RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR\"}",
+        "rc": 0
+      },
+      "bad-space": {
+        "fragment": "\"hooks\":{\"archBrief\": \" a/b \"}",
+        "rc": 1
+      },
+      "bad-newline": {
+        "fragment": "\"hooks\":{\"archBrief\": \"a/b\\n\"}",
+        "rc": 1
+      },
+      "bad-nul": {
+        "fragment": "\"hooks\":{\"archBrief\": \"a/b\\u0000suffix\"}",
+        "rc": 1
+      },
+      "bad-two-slashes": {
+        "fragment": "\"hooks\":{\"archBrief\": \"a/b/c\"}",
+        "rc": 1
+      },
+      "bad-empty-owner": {
+        "fragment": "\"hooks\":{\"archBrief\": \"/b\"}",
+        "rc": 1
+      },
+      "bad-empty-repo": {
+        "fragment": "\"hooks\":{\"archBrief\": \"a/\"}",
+        "rc": 1
+      },
+      "bad-trailing-space": {
+        "fragment": "\"hooks\":{\"archBrief\": \"owner/repo \"}",
+        "rc": 1
+      },
+      "bad-trailing-tab": {
+        "fragment": "\"hooks\":{\"archBrief\": \"owner/repo\\t\"}",
+        "rc": 1
+      },
+      "bad-trailing-lf": {
+        "fragment": "\"hooks\":{\"archBrief\": \"owner/repo\\n\"}",
+        "rc": 1
+      },
+      "bad-owner-underscore": {
+        "fragment": "\"hooks\":{\"archBrief\": \"_owner/repo\"}",
+        "rc": 1
+      },
+      "bad-owner-hyphen": {
+        "fragment": "\"hooks\":{\"archBrief\": \"-owner/repo\"}",
+        "rc": 1
+      },
+      "bad-owner-dot": {
+        "fragment": "\"hooks\":{\"archBrief\": \".owner/repo\"}",
+        "rc": 1
+      },
+      "bad-repo-underscore": {
+        "fragment": "\"hooks\":{\"archBrief\": \"owner/_repo\"}",
+        "rc": 1
+      },
+      "bad-repo-hyphen": {
+        "fragment": "\"hooks\":{\"archBrief\": \"owner/-repo\"}",
+        "rc": 1
+      },
+      "bad-repo-dot": {
+        "fragment": "\"hooks\":{\"archBrief\": \"owner/.repo\"}",
+        "rc": 1
+      },
+      "bad-leading-space": {
+        "fragment": "\"hooks\":{\"archBrief\": \" owner/repo\"}",
+        "rc": 1
+      },
+      "bad-owner-internal-space": {
+        "fragment": "\"hooks\":{\"archBrief\": \"ow ner/repo\"}",
+        "rc": 1
+      },
+      "bad-repo-internal-space": {
+        "fragment": "\"hooks\":{\"archBrief\": \"owner/re po\"}",
+        "rc": 1
+      },
+      "grammar-plain": {
+        "fragment": "\"hooks\":{\"archBrief\": \"owner/repo\"}",
+        "rc": 0
+      },
+      "grammar-internal-punctuation": {
+        "fragment": "\"hooks\":{\"archBrief\": \"o_w-n.e/r_e-p.o\"}",
+        "rc": 0
+      },
+      "grammar-initial-digits": {
+        "fragment": "\"hooks\":{\"archBrief\": \"0wner/9repo\"}",
+        "rc": 0
+      },
+      "bad-hooks": {
+        "fragment": "\"hooks\":null",
+        "rc": 1
+      },
+      "resolver-known": {
+        "fragment": "\"hooks\":{\"archBrief\": \"Other/Product\"}",
+        "rc": 0
+      },
+      "unknown-sibling": {
+        "fragment": "\"hooks\":{\"archBrief\": \"Other/Product\", \"futureHook\": \"keep-M0\"}",
+        "rc": 0
+      },
+      "public-hooks-absent": {
+        "fragment": "",
+        "rc": 0
+      },
+      "public-hooks-empty": {
+        "fragment": "\"hooks\":{}",
+        "rc": 0
+      },
+      "public-hooks-future": {
+        "fragment": "\"hooks\":{\"futureHook\":\"keep-M0\"}",
+        "rc": 0
+      },
+      "public-hooks-false": {
+        "fragment": "\"hooks\":false",
+        "rc": 1
+      },
+      "public-hooks-true": {
+        "fragment": "\"hooks\":true",
+        "rc": 1
+      },
+      "public-hooks-zero": {
+        "fragment": "\"hooks\":0",
+        "rc": 1
+      },
+      "public-hooks-string": {
+        "fragment": "\"hooks\":\"\"",
+        "rc": 1
+      },
+      "public-hooks-array": {
+        "fragment": "\"hooks\":[]",
+        "rc": 1
+      },
+      "public-duplicate-leaf-last-cr": {
+        "fragment": "\"hooks\":{\"archBrief\":\"ab/cd\",\"archBrief\":\"ab/cd\\r\"}",
+        "rc": 1
+      },
+      "public-duplicate-hooks-last-cr": {
+        "fragment": "\"hooks\":{\"archBrief\":\"ab/cd\"},\"hooks\":{\"archBrief\":\"ab/cd\\r\"}",
+        "rc": 1
+      },
+      "public-duplicate-leaf-last-good": {
+        "fragment": "\"hooks\":{\"archBrief\":\"ab/cd\\r\",\"archBrief\":\"ab/cd\"}",
+        "rc": 0
+      },
+      "public-duplicate-hooks-last-good": {
+        "fragment": "\"hooks\":{\"archBrief\":\"ab/cd\\r\"},\"hooks\":{\"archBrief\":\"ab/cd\"}",
+        "rc": 0
+      },
+      "public-long-value": {
+        "fragment": "\"hooks\":{\"archBrief\": \"OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO/RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR\"}",
+        "rc": 0
+      }
+    },
+    "bindings": {
+      "st01-ignore-key": {
+        "other-enabled": "integration-cli"
+      },
+      "st02-name-selector": {
+        "other-enabled": "integration-cli",
+        "backend-absent": "integration-cli"
+      },
+      "st03-absence-on": {
+        "other-absent": "integration-cli"
+      },
+      "st04-false-on": {
+        "explicit-false": "integration-cli"
+      },
+      "st05-invalid-off": {
+        "bad-door": "integration-cli"
+      },
+      "st06-null-absent": {
+        "bad-null": "public-cli"
+      },
+      "st07-zero-false": {
+        "bad-zero": "public-cli"
+      },
+      "st08-string-false": {
+        "bad-string-false": "public-cli"
+      },
+      "st09-substring": {
+        "bad-space": "public-cli",
+        "bad-nul": "public-cli",
+        "bad-newline": "public-cli"
+      },
+      "st10-lowercase-only": {
+        "mixed-case": "integration-cli"
+      },
+      "st11-length-cap": {
+        "long-value": "integration-cli"
+      },
+      "st12-pin-constant": {
+        "pin-other": "integration-cli"
+      },
+      "st13-pin-env": {
+        "pin-env": "integration-cli"
+      },
+      "st14-pin-substring": {
+        "pin-case": "integration-cli"
+      },
+      "st17-array-allowed": {
+        "bad-array": "public-cli"
+      },
+      "st18-missing-profile-off": {
+        "missing-profile-door": "integration-cli"
+      },
+      "st19-wrong-layer-off": {
+        "layer-cannot-enable": "integration-cli",
+        "layer-conflict": "integration-cli",
+        "layer-false": "integration-cli"
+      },
+      "st20-corrupt-profile-off": {
+        "malformed-profile-door": "integration-cli",
+        "missing-layer-door": "integration-cli",
+        "malformed-layer-door": "integration-cli"
+      },
+      "st21-trailing-space": {
+        "bad-trailing-space": "public-cli"
+      },
+      "st22-owner-initial-underscore": {
+        "bad-owner-underscore": "public-cli"
+      },
+      "st23-repo-initial-underscore": {
+        "bad-repo-underscore": "public-cli"
+      },
+      "st24-repo-initial-hyphen": {
+        "bad-repo-hyphen": "public-cli"
+      },
+      "st25-final-lf": {
+        "bad-trailing-lf": "public-cli"
+      },
+      "st26-internal-space": {
+        "bad-owner-internal-space": "public-cli",
+        "bad-repo-internal-space": "public-cli"
+      },
+      "st27-false-case-adv226b": {
+        "grid-false-case-31": "public-cli",
+        "grid-false-case-01": "public-cli"
+      },
+      "st28-boolean-type": {
+        "grid-type-true": "public-cli"
+      },
+      "st29-number-false": {
+        "grid-type-zero": "public-cli"
+      },
+      "st30-trim": {
+        "grid-boundary-before-sp": "public-cli",
+        "grid-boundary-after-sp": "public-cli"
+      },
+      "st31-owner-initial-dot": {
+        "grid-ascii-owner-first-046": "public-cli"
+      },
+      "st32-owner-initial-hyphen": {
+        "grid-ascii-owner-first-045": "public-cli"
+      },
+      "st33-repo-initial-dot": {
+        "grid-ascii-repo-first-046": "public-cli"
+      },
+      "st34-owner-inner-slash": {
+        "grid-ascii-owner-middle-047": "internal-jq"
+      },
+      "st35-repo-inner-slash": {
+        "grid-ascii-repo-middle-047": "internal-jq"
+      },
+      "st36-owner-empty": {
+        "grid-separator-02": "public-cli"
+      },
+      "st37-repo-empty": {
+        "grid-separator-03": "public-cli"
+      },
+      "st38-unicode-owner-first": {
+        "grid-unicode-owner-first-0": "public-cli",
+        "grid-unicode-owner-first-1": "public-cli"
+      },
+      "st39-unicode-repo-first": {
+        "grid-unicode-repo-first-0": "public-cli",
+        "grid-unicode-repo-first-1": "public-cli"
+      },
+      "st40-unicode-owner-rest": {
+        "grid-unicode-owner-rest-0": "public-cli",
+        "grid-unicode-owner-rest-1": "public-cli"
+      },
+      "st41-unicode-repo-rest": {
+        "grid-unicode-repo-rest-0": "public-cli",
+        "grid-unicode-repo-rest-1": "public-cli"
+      },
+      "st42-length-1024": {
+        "grid-length-owner": "public-cli",
+        "grid-length-repo": "public-cli",
+        "grid-length-both": "public-cli"
+      },
+      "st43-merge-casefold": {
+        "grid-separator-10": "public-cli"
+      },
+      "st44-start-anchor": {
+        "grid-boundary-before-sp": "public-cli"
+      },
+      "st45-casefold-position-0": {
+        "grid-false-case-01": "public-cli"
+      },
+      "st46-casefold-position-1": {
+        "grid-false-case-02": "public-cli"
+      },
+      "st47-casefold-position-2": {
+        "grid-false-case-04": "public-cli"
+      },
+      "st48-casefold-position-3": {
+        "grid-false-case-08": "public-cli"
+      },
+      "st49-casefold-position-4": {
+        "grid-false-case-16": "public-cli"
+      },
+      "st50-guard-cr-adv226c": {
+        "public-control-cr": "public-cli"
+      },
+      "st51-hooks-skip": {
+        "public-control-null": "public-cli"
+      },
+      "st52-hooks-invert": {
+        "public-control-null": "public-cli",
+        "public-hooks-absent": "public-cli"
+      },
+      "st53-hooks-shape-skip": {
+        "public-hooks-null": "public-cli"
+      },
+      "st54-leaf-strings-only": {
+        "public-control-null": "public-cli"
+      },
+      "st55-leaf-skip": {
+        "public-control-cr": "public-cli"
+      },
+      "st56-zero-instead-false": {
+        "public-control-zero": "public-cli",
+        "public-control-false": "public-cli"
+      },
+      "st57-string-check-skip": {
+        "public-control-null": "public-cli"
+      },
+      "st58-string-check-invert": {
+        "public-control-valid": "public-cli"
+      },
+      "st59-rejection-skip": {
+        "public-control-cr": "public-cli"
+      },
+      "st60-rejection-rc-zero": {
+        "public-control-cr": "public-cli"
+      },
+      "st61-rejection-rc-two": {
+        "public-control-cr": "public-cli"
+      },
+      "st62-rejection-no-reason": {
+        "public-control-cr": "public-cli"
+      },
+      "st63-rejection-stdout": {
+        "public-control-cr": "public-cli"
+      }
     }
   }
 }
