@@ -27,6 +27,8 @@ CASES = ('arb1', 'arb2', 'arb3', 'arb4', 'arb5', 'arb6',
          'pinned-head', 'missing-source', 'risk-after-adversary', 'adversary-risk',
          'legacy-symlink', 'product-safe', 'product-risk', 'product-dirty-profile',
          'product-station-profile')
+CASES += ('frozen211-b37', 'd52-compat-safe', 'd52-compat-risk',
+          'd52-no-legacy', 'd52-trusted-safe')
 
 
 def put(path, text):
@@ -124,7 +126,43 @@ def product_case(name, door):
         return errors
 
 
+def d52_case(name, door):
+    with tempfile.TemporaryDirectory(prefix='d52compat214-') as tmp:
+        w = p.Mir(tmp)
+        if name == 'frozen211-b37':
+            # Invoke the ORIGINAL frozen-family cell, without patching its oracle.
+            return [e for e in p.kejsy()['b37-d52-legacy-nositelja'][1](w, door) if e]
+        wt, br, _, obj = p.mir_bootstrap(w, '211', None)
+        trusted_safe = name == 'd52-trusted-safe'
+        if trusted_safe:
+            legacy(w, wt, obj, 'обычный')
+        if name != 'd52-no-legacy':
+            p.legacy_avtora(w, wt, obj, '211')
+            if name in ('d52-compat-risk', 'd52-trusted-safe'):
+                file = Path(wt) / 'registry/risk-legacy.tsv'
+                file.write_text(file.read_text().replace('обычный', 'рисковый'))
+        p.avtor_sdal(w, '211', wt, br)
+        expected = (0, p.puschem('Crit211', '211', 'critic').encode(),
+                    p.predupr_neodnoznachno('211').encode() if name == 'd52-no-legacy' else b'')
+        warning = [] if trusted_safe else [('warn', p.REPO_ID, '211', 'KLASS_RISKA_NET', obj)]
+        before = len(w.ledg())
+        result = p.sudit(door, w, p.vyzov(w, 'critic', 'Crit211', obj))
+        actual = result.returncode, result.stdout, result.stderr
+        errors = [] if actual == expected else ['RESULT expected=%r actual=%r' % (expected, actual)]
+        rows = w.ledg()[before:]
+        warnings = [(r.get('t'), r.get('repoId'), r.get('subjectId'), r.get('kod'), r.get('object'))
+                    for r in rows if r.get('t') == 'warn']
+        if warnings != warning:
+            errors.append('TRUSTED_RISK_LEDGER expected=%r actual=%r' % (warning, warnings))
+        starts = [r for r in rows if r.get('t') == 'START' and r.get('holder') == 'Crit211']
+        if len(starts) != 1 or starts[0].get('object') != obj:
+            errors.append('START_OBJECT')
+        return errors
+
+
 def case(name, door):
+    if name == 'frozen211-b37' or name.startswith('d52-'):
+        return d52_case(name, door)
     if name.startswith('product-'):
         return product_case(name, door)
     with tempfile.TemporaryDirectory(prefix='owner214-') as tmp:

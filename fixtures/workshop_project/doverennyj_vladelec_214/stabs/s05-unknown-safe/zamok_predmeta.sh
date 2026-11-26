@@ -693,7 +693,7 @@ kontrakt_zapisi() {  # <репозиторий> <tree:каталог> <NNN> → 
 }
 # [214] --repo is supplied by the trusted runtime, never by the author task.
 # Freeze metadata HEAD once. Clone checks out committed bytes, including the
-# existing project resolver inputs; local author refs/files are never consulted.
+# existing project resolver inputs; author data never selects the risk decision.
 RISK_SNAPSHOTS=()
 trap 'if [ "${#RISK_SNAPSHOTS[@]}" -gt 0 ]; then rm -rf -- "${RISK_SNAPSHOTS[@]}"; fi' EXIT
 risk_snapshot() {  # trusted repository, immutable commit, destination
@@ -707,10 +707,20 @@ risk_metadata_kat() {
 risk_metadata_registry() {
   ( unset HARNESS_PROJECT_LAYER_ROOT; reestr_put "$1" contracts.tsv )
 }
+risk_d52_was_quiet() {
+  # Compatibility observation ONLY: this value never flows into kr or owner.
+  local diagnostic
+  diagnostic="$(klass_riska "$sv" "$r_wt" "$obj_fakt" "$r_wt" diagnostic)"
+  case "$diagnostic" in obychnyj|risikovyj) return 0 ;; *) return 1 ;; esac
+}
 klass_riska() {  # <NNN> <worktree> <OBJECT> [<репозиторий владельца>] → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
   local n="$1" wt="$2" obj="$3" owner kat imya mode tip_zap blob put val znach='' ploh='' schetchik=0
   owner="${4:-$wt}"  # отдельной строкой: слова local раскрываются ДО присваиваний wt
-  kat="$(risk_metadata_kat "$owner")" || kat=''
+  if [ "${5:-}" = diagnostic ]; then
+    kat="$(kontrakt_kat "$owner")" || kat=''
+  else
+    kat="$(risk_metadata_kat "$owner")" || kat=''
+  fi
   if [ -z "$kat" ]; then
     printf 'net_stroki:каталог контрактов в профиле владельца не объявлен'
     return 0
@@ -754,7 +764,13 @@ klass_riska() {  # <NNN> <worktree> <OBJECT> [<репозиторий владе
     # Литеральное сравнение blob (awk -F'\t' $1==b), нет записи — класс
     # не определён (fail-closed).
     if [ -z "$val" ]; then
-      val="$(git -C "$owner" show HEAD:registry/risk-legacy.tsv 2>/dev/null | awk -F'\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}')"
+      if [ "${5:-}" = diagnostic ]; then
+        if [ -f "$owner/registry/risk-legacy.tsv" ]; then
+          val="$(awk -F'\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}' "$owner/registry/risk-legacy.tsv")"
+        fi
+      else
+        val="$(git -C "$owner" show HEAD:registry/risk-legacy.tsv 2>/dev/null | awk -F'\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}')"
+      fi
     fi
     case "$val" in
       обычный)  val='obychnyj' ;;
@@ -1622,7 +1638,13 @@ EOF
           # рисковый»), предупреждение с записью (слово владельца 21.11 12:06):
           # сверку ведёт ревьюер по журналу.
           [ -n "$kr_det" ] || kr_det="класс риска неоднозначно определён (${kr%%:*}); файлы: ${kr#*:}"
-          predupr "$sv" 'KLASS_RISKA_NET' "предмет $sv: $kr_det — класс не определён, предмет считается рисковым" "$obj_fakt"
+          local risk_warning="предмет $sv: $kr_det — класс не определён, предмет считается рисковым"
+          if [ "$kl_bootstrap" = 1 ] && risk_d52_was_quiet; then
+            # Preserve frozen D52's quiet pipe, not its untrusted class.
+            predupr "$sv" 'KLASS_RISKA_NET' "$risk_warning" "$obj_fakt" 2>/dev/null
+          else
+            predupr "$sv" 'KLASS_RISKA_NET' "$risk_warning" "$obj_fakt"
+          fi
           kr='obychnyj'
           ;;
       esac

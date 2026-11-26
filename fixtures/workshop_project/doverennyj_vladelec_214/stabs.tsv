@@ -17,3 +17,8 @@ s09-holder-pin	stabs/s09-holder-pin/zamok_predmeta.sh	forged-pin
 s10-transfer-head	stabs/s10-transfer-head/zamok_predmeta.sh	product-dirty-profile
 s11-symlink-legacy	stabs/s11-symlink-legacy/zamok_predmeta.sh	legacy-symlink
 s12-receipt-working-profile	stabs/s12-receipt-working-profile/zamok_predmeta.sh	product-station-profile
+s13-migration-b37-required	stabs/s13-migration-b37-required/zamok_predmeta.sh	frozen211-b37
+s13-migration-b37-required	stabs/s13-migration-b37-required/zamok_predmeta.sh	d52-compat-safe
+s14-drop-d52-warning-ledger	stabs/s14-drop-d52-warning-ledger/zamok_predmeta.sh	d52-compat-safe
+s15-diagnostic-becomes-class	stabs/s15-diagnostic-becomes-class/zamok_predmeta.sh	d52-compat-safe
+s16-silence-all-d52	stabs/s16-silence-all-d52/zamok_predmeta.sh	d52-no-legacy

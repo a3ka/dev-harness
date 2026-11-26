@@ -10,7 +10,6 @@ CONTRACT = ROOT / 'contracts/214-vybor-vladelca-risk-repo.md'
 OWN = [('architect', 'contracts/214-vybor-vladelca-risk-repo.md'),
        ('architect', 'fixtures/workshop_project/doverennyj_vladelec_214/'),
        ('implementer', 'scripts/zamok_predmeta.sh'),
-       ('implementer', 'fixtures/workshop_project/d52_bootstrap_sudej_211/'),
        ('orchestrator', 'registry/ci-steps.tsv'),
        ('orchestrator', 'registry/ci-zamery.tsv'),
        ('orchestrator', '.github/workflows/ci.yml')]

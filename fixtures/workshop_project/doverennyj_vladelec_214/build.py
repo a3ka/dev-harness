@@ -10,7 +10,7 @@ ROOT = HERE.parents[2]
 BASE = 'f82ff8c9d0d4ba45a53b7aa2e712c552141715f9'
 HELPER = r'''# [214] --repo is supplied by the trusted runtime, never by the author task.
 # Freeze metadata HEAD once. Clone checks out committed bytes, including the
-# existing project resolver inputs; local author refs/files are never consulted.
+# existing project resolver inputs; author data never selects the risk decision.
 RISK_SNAPSHOTS=()
 trap 'if [ "${#RISK_SNAPSHOTS[@]}" -gt 0 ]; then rm -rf -- "${RISK_SNAPSHOTS[@]}"; fi' EXIT
 risk_snapshot() {  # trusted repository, immutable commit, destination
@@ -23,6 +23,12 @@ risk_metadata_kat() {
 }
 risk_metadata_registry() {
   ( unset HARNESS_PROJECT_LAYER_ROOT; reestr_put "$1" contracts.tsv )
+}
+risk_d52_was_quiet() {
+  # Compatibility observation ONLY: this value never flows into kr or owner.
+  local diagnostic
+  diagnostic="$(klass_riska "$sv" "$r_wt" "$obj_fakt" "$r_wt" diagnostic)"
+  case "$diagnostic" in obychnyj|risikovyj) return 0 ;; *) return 1 ;; esac
 }
 '''
 # These replace complete operations, each anchor must occur exactly once.
@@ -73,6 +79,10 @@ MUTATIONS = {
     's10-transfer-head': ('risk_snapshot "$P_WT" "$P_FROZEN" "$risk_repo"', 'risk_snapshot "$P_WT" HEAD "$risk_repo"', ['product-dirty-profile']),
     's11-symlink-legacy': ('git -C "$owner" show HEAD:registry/risk-legacy.tsv', 'cat "$owner/registry/risk-legacy.tsv"', ['legacy-symlink']),
     's12-receipt-working-profile': ('    reg_put="$(risk_metadata_registry "$risk_repo")" || reg_put=\'\'', '    reg_put="$(reestr_put "$REPO" contracts.tsv)" || reg_put=\'\'', ['product-station-profile']),
+    's13-migration-b37-required': ('if [ "$kl_bootstrap" = 1 ] && risk_d52_was_quiet', 'if false && risk_d52_was_quiet', ['frozen211-b37', 'd52-compat-safe']),
+    's14-drop-d52-warning-ledger': ('predupr "$sv" \'KLASS_RISKA_NET\' "$risk_warning" "$obj_fakt" 2>/dev/null', ': # lost warning ledger', ['d52-compat-safe']),
+    's15-diagnostic-becomes-class': ('kr="$(klass_riska "$sv" "$r_wt" "$obj_fakt" "$risk_repo")"\n', 'kr="$(klass_riska "$sv" "$r_wt" "$obj_fakt" "$r_wt" diagnostic)"\n', ['d52-compat-safe']),
+    's16-silence-all-d52': ('if [ "$kl_bootstrap" = 1 ] && risk_d52_was_quiet', 'if [ "$kl_bootstrap" = 1 ] || risk_d52_was_quiet', ['d52-no-legacy']),
 }
 
 
@@ -101,7 +111,11 @@ def model():
     text = one(text, SELECT_OLD, SELECT_NEW)
     text = one(text, TRANSFER_OLD, TRANSFER_NEW)
     text = one(text, 'local transfer P_JSON P_WT P_BRANCH P_OBJECT P_FROZEN risk_repo', 'local transfer P_JSON P_WT P_BRANCH P_OBJECT P_FROZEN risk_repo risk_source risk_ref risk_tmp')
-    text = one(text, '  kat="$(kontrakt_kat "$owner")" || kat=\'\'', '  kat="$(risk_metadata_kat "$owner")" || kat=\'\'')
+    text = one(text, '  kat="$(kontrakt_kat "$owner")" || kat=\'\'', '''  if [ "${5:-}" = diagnostic ]; then
+    kat="$(kontrakt_kat "$owner")" || kat=''
+  else
+    kat="$(risk_metadata_kat "$owner")" || kat=''
+  fi''')
     text = one(text, '  kat="$(kontrakt_kat "$owner")" || return 1', '  kat="$(risk_metadata_kat "$owner")" || return 1')
     text = one(text, 'kr="$(klass_riska "$sv" "$r_wt" "$obj_fakt")"', 'kr="$(klass_riska "$sv" "$r_wt" "$obj_fakt" "$risk_repo")"')
     text = one(text, '  put="$(reestr_put "$owner" contracts.tsv)"', '  put="$(risk_metadata_registry "$owner")"')
@@ -119,10 +133,24 @@ def model():
       val="$(awk -F'\\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}' "$owner/registry/risk-legacy.tsv")"
     fi'''
     new_legacy = '''    if [ -z "$val" ]; then
-      val="$(git -C "$owner" show HEAD:registry/risk-legacy.tsv 2>/dev/null | awk -F'\\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}')"
+      if [ "${5:-}" = diagnostic ]; then
+        if [ -f "$owner/registry/risk-legacy.tsv" ]; then
+          val="$(awk -F'\\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}' "$owner/registry/risk-legacy.tsv")"
+        fi
+      else
+        val="$(git -C "$owner" show HEAD:registry/risk-legacy.tsv 2>/dev/null | awk -F'\\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}')"
+      fi
     fi'''
     text = one(text, old_legacy, new_legacy)
     text = one(text, '      case "$kr" in\n', '      rm -rf -- "$risk_tmp"\n      case "$kr" in\n')
+    warning = '''          predupr "$sv" 'KLASS_RISKA_NET' "предмет $sv: $kr_det — класс не определён, предмет считается рисковым" "$obj_fakt"'''
+    text = one(text, warning, '''          local risk_warning="предмет $sv: $kr_det — класс не определён, предмет считается рисковым"
+          if [ "$kl_bootstrap" = 1 ] && risk_d52_was_quiet; then
+            # Preserve frozen D52's quiet pipe, not its untrusted class.
+            predupr "$sv" 'KLASS_RISKA_NET' "$risk_warning" "$obj_fakt" 2>/dev/null
+          else
+            predupr "$sv" 'KLASS_RISKA_NET' "$risk_warning" "$obj_fakt"
+          fi''')
     return text
 
 
