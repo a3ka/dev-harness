@@ -209,6 +209,27 @@ MUTATIONS = {
                              '    return 2\n  fi\n  # shellcheck disable=SC1091',
                              '    return 0\n  fi\n  # shellcheck disable=SC1091',
                              ['malformed-profile-door', 'missing-layer-door', 'malformed-layer-door']),
+ # The same jq branch as production profile_resolver.sh:960-963. The first
+ # two replacements reproduce Adv226 Б-2 verbatim; each link observes only
+ # the changed side of the grammar, not a combined invalid input.
+ 'st21-trailing-space': ('scripts/profile_resolver.sh',
+                       r'[A-Za-z0-9_.-]*\\z', r'[A-Za-z0-9_.-]* ?\\z',
+                       ['bad-trailing-space']),
+ 'st22-owner-initial-underscore': ('scripts/profile_resolver.sh',
+                                 '^[A-Za-z0-9]', '^[A-Za-z0-9_]',
+                                 ['bad-owner-underscore']),
+ 'st23-repo-initial-underscore': ('scripts/profile_resolver.sh',
+                                '/[A-Za-z0-9]', '/[A-Za-z0-9_]',
+                                ['bad-repo-underscore']),
+ 'st24-repo-initial-hyphen': ('scripts/profile_resolver.sh',
+                            '/[A-Za-z0-9]', '/[A-Za-z0-9-]',
+                            ['bad-repo-hyphen']),
+ 'st25-final-lf': ('scripts/profile_resolver.sh',
+                  r'\\z', '$', ['bad-trailing-lf']),
+ 'st26-internal-space': ('scripts/profile_resolver.sh',
+                        '[A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*',
+                        '[A-Za-z0-9_. -]*/[A-Za-z0-9][A-Za-z0-9_. -]*',
+                        ['bad-owner-internal-space', 'bad-repo-internal-space']),
 }
 
 
