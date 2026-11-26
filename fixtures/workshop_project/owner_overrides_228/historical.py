@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Full CLI differential on every literal historical grant SHA, crossed with four doors.
+"""Literal CLI parity, restricted to twice-reproduced pinned-baseline SHAs.
 
-No synthetic SHA replacement: object database and annotated refs come from the
-pinned Git ancestor. An incr window ending at the original commit is restored
-for each invocation. Captured rc and both stream hashes are literal oracle data.
+The saved oracle is never replaced. Baseline-only observations may be recorded
+explicitly in the reproducibility manifest; they are not candidate expectations.
 """
 import hashlib
 import json
@@ -17,12 +16,32 @@ import probe
 
 HERE = Path(__file__).resolve().parent
 ROOT = probe.ROOT
+MANIFEST = HERE / 'reproducibility.json'
 
 
 def digest(result):
     rc, stdout, stderr = result
     return {'rc': rc, 'stdout_sha256': hashlib.sha256(stdout).hexdigest(),
             'stderr_sha256': hashlib.sha256(stderr).hexdigest()}
+
+
+def assess(saved, repeat):
+    """Both observations are mandatory, even when the first already differs."""
+    rechecked = [repeat(), repeat()]
+    return all(answer == saved for answer in rechecked), rechecked
+
+
+def parity(saved, actual):
+    return saved == actual
+
+
+def exclusion(sha, gate, saved, rechecked, declared, observed):
+    item = dict(sha=sha, gate=gate, saved=saved, rechecked=rechecked)
+    observed.append(item)
+    print(f'EXCLUDED_SHAS={len({r["sha"] for r in observed})} UNREPRODUCIBLE_RESPONSES={len(observed)}', flush=True)
+    if len({r['sha'] for r in observed}) > len(declared):
+        raise RuntimeError('HISTORICAL_ORACLE_TOOL_FAILURE: exclusion growth ' + repr(item))
+    return item
 
 
 def history_world(world):
@@ -32,8 +51,7 @@ def history_world(world):
     objects = (ROOT / objects).resolve()
     probe.put(world / '.git/objects/info/alternates', str(objects) + '\n')
     refs = json.loads((HERE / 'refs.json').read_text())
-    # Actual published tag objects are retained, including grandfather provenance;
-    # no origin is invented and no tag is retargeted to a fixture commit.
+    # Retain actual published tag objects, not synthetic origin/provenance.
     for name, sha in refs:
         probe.git(world, 'update-ref', name, sha)
     probe.put(world / 'registry/owner-overrides.tsv', probe.registry(probe.ROWS))
@@ -43,46 +61,45 @@ def history_world(world):
 
 def main():
     args = sys.argv[1:]
-    resume = args == ['--capture-resume']
-    capture = args in (['--capture'], ['--capture-resume'])
-    if not capture and args not in (['--model'], ['--repo', '.']) and not (len(args) == 2 and args[0] == '--repo'):
-        raise RuntimeError('HISTORICAL_USAGE')
-    if not capture or resume:
-        expected = json.loads((HERE / 'historical.json').read_text())
-    records = list(expected['records']) if resume else []
-    resumed = len(records)
-    if not capture or resume:
-        invalid = [(r['sha'], r['gate'], r['rc']) for r in expected['records'] if r['rc'] not in (0, 1)]
-        if invalid:
-            raise RuntimeError('HISTORICAL_ORACLE_TOOL_FAILURE: ' + repr(invalid))
-    bad = 0
+    record = '--record-reproducibility' in args
+    if record:
+        args.remove('--record-reproducibility')
+    if args != ['--model'] and not (len(args) == 2 and args[0] == '--repo'):
+        raise RuntimeError('HISTORICAL_USAGE: --model | --repo R [--record-reproducibility]')
+    if record and args != ['--model']:
+        raise RuntimeError('HISTORICAL_RECORD_BASELINE_ONLY')
+    # Snapshot all expectations and the closed exception budget before subjects.
+    expected = json.loads((HERE / 'historical.json').read_text())
+    manifest = json.loads(MANIFEST.read_text())
+    declared = set(manifest['declared_unreproducible_shas'])
     shas = sorted({r[1] for r in probe.ROWS if r[1] != '-'})
     pairs = [(sha, gate) for sha in shas for gate in probe.GATES]
-    if capture:
-        for gate in probe.GATES:
-            source = (ROOT / 'scripts' / (gate + '.sh')).read_bytes()
-            if hashlib.sha256(source).hexdigest() != probe.BASELINE['files'][gate]:
-                raise RuntimeError('CAPTURE_SOURCE_NOT_BASELINE: ' + gate)
-    if resume and (not resumed or expected['baseline'] != probe.build.BASE or
-                   [(r['sha'], r['gate']) for r in records] != pairs[:resumed]):
-        raise RuntimeError('HISTORICAL_RESUME_NOT_BASELINE_PREFIX')
-    if resume:
-        print(f'RESUMED_DECISIONS={resumed}', flush=True)
-    if not capture and (expected['baseline'] != probe.build.BASE or
-                        [(r['sha'], r['gate']) for r in expected['records']] !=
-                        [(sha, gate) for sha in shas for gate in probe.GATES]):
+    if (expected['baseline'] != probe.build.BASE or manifest['baseline'] != probe.build.BASE or
+            [(r['sha'], r['gate']) for r in expected['records']] != pairs or
+            len(declared) != len(manifest['declared_unreproducible_shas']) or not declared.issubset(set(shas))):
         raise RuntimeError('HISTORICAL_ORACLE_INCOMPLETE')
+    answers = {(r['sha'], r['gate']): {k: v for k, v in r.items() if k not in ('sha', 'gate')}
+               for r in expected['records']}
+    for entry in manifest['unreproducible']:
+        if entry['saved'] != answers[entry['sha'], entry['gate']]:
+            raise RuntimeError('HISTORICAL_ORACLE_TOOL_FAILURE: changed saved answer')
+    bad = decisions = 0
+    observed = []
+    excluded = []
+    proof = []
     with tempfile.TemporaryDirectory(prefix='historical-', dir=probe.SCRATCH) as tmp:
         work = Path(tmp)
         subject = probe.materialize(work / 'subject', model=args == ['--model'],
-                                    repo=ROOT if capture or args == ['--model'] else Path(args[1]).resolve())
+                                    repo=ROOT if args == ['--model'] else Path(args[1]).resolve())
+        baseline = probe.materialize(work / 'baseline')
+        for gate in probe.GATES:
+            text = probe.build.base('scripts/' + gate + '.sh')
+            if hashlib.sha256(text.encode()).hexdigest() != probe.BASELINE['files'][gate]:
+                raise RuntimeError('HISTORICAL_ORACLE_TOOL_FAILURE: baseline source ' + gate)
+            probe.put(baseline / 'scripts' / (gate + '.sh'), text)
         world = work / 'world'
         all_refs = history_world(world)
         active_refs = set(all_refs)
-        if not capture:
-            candidate = subject / 'registry/owner-overrides.tsv'
-            probe.put(world / 'registry/owner-overrides.tsv', candidate.read_bytes() if candidate.is_file() else b'')
-        visited = 0
         for sha in shas:
             if probe.git(world, 'cat-file', '-t', sha) != 'commit':
                 raise RuntimeError('HISTORICAL_COMMIT_MISSING: ' + sha)
@@ -95,30 +112,56 @@ def main():
             active_refs = wanted
             probe.git(world, 'update-ref', 'HEAD', sha)
             parent = probe.git(world, 'rev-parse', sha + '^1')
-            for gate in probe.GATES:
-                visited += 1
-                if visited <= resumed:
-                    continue
+
+            def invoke(tree, gate):
                 cache = world / ('cache-' + gate)
                 probe.put(cache, parent + '\n')
-                # Frozen has no incr public interface; its full CLI is compared.
                 extra = () if gate == 'check_contract_frozen' else ('--incr', cache)
-                result = probe.cli(subject, world, gate, extra)
-                if result[0] not in (0, 1):
-                    raise RuntimeError('HISTORICAL_TOOL_FAILURE: ' + repr((sha, gate, result)))
-                item = dict(sha=sha, gate=gate, **digest(result))
-                records.append(item)
-                if capture:
-                    probe.put(HERE / 'historical.json', json.dumps({'baseline': probe.build.BASE, 'records': records}, indent=2) + '\n')
-                if not capture and item != expected['records'][len(records) - 1]:
+                registry = (tree / 'registry/owner-overrides.tsv')
+                data = registry.read_bytes() if registry.is_file() else b''
+                probe.put(world / 'registry/owner-overrides.tsv', data)
+                return digest(probe.cli(tree, world, gate, extra))
+
+            stable_sha = True
+            for gate in probe.GATES:
+                saved = answers[sha, gate]
+                stable, rechecked = assess(saved, lambda: invoke(baseline, gate))
+                proof.append(dict(sha=sha, gate=gate, saved=saved, rechecked=rechecked))
+                if not stable:
+                    stable_sha = False
+                    try:
+                        exclusion(sha, gate, saved, rechecked, declared, observed)
+                    finally:
+                        checkpoint = dict(baseline=probe.build.BASE, complete=False,
+                                          declared_unreproducible_shas=sorted(declared),
+                                          unreproducible=observed, observations=proof)
+                        probe.put(probe.SCRATCH / 'historical-reproducibility-observed.json',
+                                  json.dumps(checkpoint, indent=2) + '\n')
+                elif saved['rc'] not in (0, 1):
+                    raise RuntimeError('HISTORICAL_ORACLE_TOOL_FAILURE: stable invalid rc ' + repr((sha, gate, saved)))
+            if not stable_sha:
+                excluded.append(sha)
+                print('HISTORICAL_SHA', sha, 'EXCLUDED_UNREPRODUCIBLE', flush=True)
+                continue
+            for gate in probe.GATES:
+                actual = invoke(subject, gate)
+                decisions += 1
+                if actual['rc'] not in (0, 1):
+                    raise RuntimeError('HISTORICAL_ORACLE_TOOL_FAILURE: candidate ' + repr((sha, gate, actual)))
+                if not parity(answers[sha, gate], actual):
                     bad += 1
-                    print('KRASNO historical', sha, gate, item, flush=True)
-                    print(f'HISTORICAL_SHAS={len(shas)} DECISIONS={len(records)} MISMATCHES={bad}')
-                    return 1
+                    print('KRASNO historical', sha, gate, actual, flush=True)
             print('HISTORICAL_SHA', sha, 'doors=4', flush=True)
-    if capture:
-        probe.put(HERE / 'historical.json', json.dumps({'baseline': probe.build.BASE, 'records': records}, indent=2) + '\n')
-    print(f'HISTORICAL_SHAS={len(shas)} DECISIONS={len(records)} MISMATCHES={bad}')
+    report = dict(baseline=probe.build.BASE, complete=True,
+                  declared_unreproducible_shas=sorted(declared), unreproducible=observed,
+                  reproducible_shas=[sha for sha in shas if sha not in excluded], observations=proof)
+    probe.put(probe.SCRATCH / 'historical-reproducibility-observed.json', json.dumps(report, indent=2) + '\n')
+    if record:
+        # The saved oracle remains untouched; only measured baseline evidence.
+        probe.put(MANIFEST, json.dumps(report, indent=2) + '\n')
+    print(f'HISTORICAL_SHAS={len(shas)} REPRODUCIBLE_SHAS={len(shas)-len(excluded)} '
+          f'EXCLUDED_SHAS={len(excluded)} UNREPRODUCIBLE_RESPONSES={len(observed)} '
+          f'DECISIONS={decisions} MISMATCHES={bad}', flush=True)
     return int(bad != 0)
 
 
