@@ -1376,12 +1376,39 @@
       }
     }
   },
+  "repair_bindings": {
+    "X4": {
+      "path": "context.py",
+      "cell": "missing-own-freeze-fail-closed",
+      "replacements": [
+        [
+          "            if ancestry.returncode not in (0, 1):\n                raise RuntimeError('FROZEN_ANCESTRY ' + tag)\n",
+          ""
+        ],
+        [
+          "if ancestry.returncode == 1:",
+          "if ancestry.returncode != 0:"
+        ]
+      ]
+    },
+    "Y3": {
+      "path": "probe.py",
+      "cell": "public-red-non-grid-failure",
+      "replacements": [
+        [
+          "except GridFailure as exc:",
+          "except RuntimeError as exc:"
+        ]
+      ]
+    }
+  },
   "repairs": {
     "context": [
       "before-late-freeze",
       "after-late-freeze",
       "old-head-ancestry-red",
-      "missing-older-overlap-red"
+      "missing-older-overlap-red",
+      "missing-own-freeze-fail-closed"
     ],
     "status": [
       "honest",
@@ -1391,7 +1418,8 @@
       "string-check-skip",
       "string-check-invert",
       "honest-seam-failure",
-      "equivalent-guard"
+      "equivalent-guard",
+      "public-red-non-grid-failure"
     ]
   }
 }

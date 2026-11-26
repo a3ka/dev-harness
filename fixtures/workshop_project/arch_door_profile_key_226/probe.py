@@ -628,6 +628,10 @@ def carrier_catalog():
     if source.get('repairs') != repairs:
         raise RuntimeError('REPAIR_CATALOG_DRIFT')
     print('REPAIR_CONTROLS', sum(len(cells) for cells in repairs.values()))
+    repair_bindings = load('repair_stabs226', HERE / 'repair_checks.py').REPAIR_BINDINGS
+    if source.get('repair_bindings') != repair_bindings:
+        raise RuntimeError('REPAIR_BINDINGS_DRIFT')
+    print('REPAIR_STABY', len(repair_bindings), 'SVJAZI', len(repair_bindings))
     return source
 
 
@@ -749,6 +753,9 @@ def main():
                     links += 1
                     living += not bool(errors)
                     print('CAUGHT' if errors else 'ZHIV', name, cell, flush=True)
+    if args.stabs and not failed and not living:
+        subprocess.run([sys.executable, '-B', HERE / 'repair_checks.py', '--stabs'],
+                       check=True)
     print('KLETKI', 1 if args.cell else len(CASES), 'KRASNYH', failed,
           'SVJAZI', links, 'ZHIVYH', living)
     return int(bool(failed or living))
