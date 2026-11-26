@@ -137,3 +137,4 @@ check:otkaz-po-soderzhaniyu-215-family-selftest	30	8	0
 report:zashivki-227	10	2	0
 check:zashivki-otchet-227-family-selftest	240	150	0
 check:arch-ci-review-223-family-selftest	450	320	0
+check:arch-door-profile-key-226-family-selftest	200	150	0
