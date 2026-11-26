@@ -1,99 +1,87 @@
-FAIL
-OBJECT=704a67d726dc10eb9e4eaa1c980a6199adba2d47
-СУД: репо=dev-harness; предмет=223; фаза=реализация; роль=adversary; вызов=1 (полный); сессия=Adv223; модель-факт=openai-codex/gpt-6.1-terra; автор Impl223 — minimax/MiniMax-M3.
+accept
+OBJECT=c1a83c1ad4acf7b4fb2c69f4a505202232cf8c37
+СУД: репо=dev-harness; предмет=223; фаза=реализация; роль=adversary; вызов=2 (scoped; по дельте Architect223c + CI); сессия=Adv223b; модель-факт=openai-codex/gpt-6.1-terra; автор Impl223 — minimax/MiniMax-M3; предыдущий=archive/223/adversary-v1-fail-3deff003a.
 
-Счёт задания: первый полный вызов, предшествующих вызовов adversary и арбитражей нет; соответствует §Счёт роли critic. Модель автора: `bash scripts/models_actual.sh --tsv --bind --session Impl223` → `implementer minimax/MiniMax-M3 allowed Impl223 -`, rc 0. Разные сессии; совпадение моделей само по себе не запрет. SourceCanon и архитектура 188 для этого предмета не объявлены.
+Счёт: первый вызов полный FAIL, этот второй и последний scoped, арбитражей нет. `scripts/models_actual.sh --tsv --bind` подтверждает разные сессии и модели. SourceCanon и архитектурная модель 188 не объявлены. Область повтора — два прежних блока, дельта census и CI и зависимые регрессы, не полный повтор. CI на OBJECT подтверждён: `gh run list --commit c1a83c1ad4acf7b4fb2c69f4a505202232cf8c37` → run 45823227176 completed/success; `gh pr checks 1447` показывает ci l4 pass с семьёй 223, остальные обязательные проверки pass, vorota skipping. Предыдущий CI был незавершён, теперь порядок допуска подтверждён.
 
-Ограничение процесса: на момент запроса `gh run list --repo a3ka/dev-harness --commit 704a67d726dc10eb9e4eaa1c980a6199adba2d47 --limit 10 --json status,conclusion,name,databaseId` вернул rc 0, `[{"conclusion":"","databaseId":45811928943,"name":"ci","status":"in_progress"}]`. Обязательный для рисковой реализации предшествующий зелёный CI на OBJECT этим наблюдением не установлен; данный FAIL не удостоверяет завершение судейского порядка.
+## Закрытие К-04
 
-## Блоки
+ПРОИСХОЖДЕНИЕ: исправление orchestrator в `registry/ci-steps.tsv:341` и генерируемой секции ci.yml. КЛАСС: К-04. ОБХОД прежний: CI не исполнял обязательный shellcheck. Теперь строка содержит `--repo .`, `--model`, `--stabs`, `--catalog`, загрузку `shellcheck-v0.11.0.linux.x86_64.tar.gz`, `VALIDATE_STD_SHELLCHECK` и `--sintaksis`.
 
-БЛОКИРУЕТ `contracts/223-arch-ci-review.md:173`, `registry/ci-steps.tsv:341` — в обязательном собственном CI-шаге 223 отсутствует `--sintaksis`.
-ПРОИСХОЖДЕНИЕ: дельта orchestrator на OBJECT.
-КЛАСС: К-04.
-ОБЯЗАТЕЛЬСТВО: после реализации тот же шаг содержит `--model`, `--stabs`, `--sintaksis` и `--repo .`; пинованный shellcheck доступен.
-СОСТОЯНИЕ: настоящая строка реестра запускает `--repo . && --model && --stabs && --catalog`, но не `--sintaksis`; `.github/workflows/ci.yml` выполняет её через `scripts/run_ci_lane.sh`.
-НАБЛЮДЕНИЕ: в одноразовом клоне добавлена в конец model/done_contract.sh корректная для bash недостижимая строка `if false; then echo $adv223_unquoted; fi`, хеш носителя в source.json обновлён. Выполнены по отдельности четыре команды реальной строки CI и обязательный пропущенный режим:
+В отдельном клоне к `model/done_contract.sh` добавлена недостижимая корректная Bash-строка `if false; then echo $adv223_unquoted; fi`, затем пересчитан SHA-256 в `source.json`. Контроль прямым shellcheck 0.11.0:
 ```
-CI_SHELLCHECK repo rc 0
-KLETKI 47 KRASNYH 0
-CI_SHELLCHECK model rc 0
-KLETKI 47 KRASNYH 0
-CI_SHELLCHECK stabs rc 0
-ZHIVYH 0 SVJAZI 43
-CI_SHELLCHECK catalog rc 0
-KLETKI 47 STABY 12 EKVIVALENTY 4 SVJAZI 43
-CI_SHELLCHECK sintaksis rc 2
-NOT_IMPLEMENTED: ARCH223: COMMAND ['bash', '<clone>/scripts/validate_std.sh', 'bash', '<clone>/fixtures/workshop_project/arch_ci_review_223/model/done_contract.sh']: b''
+line 980: if false; then echo $adv223_unquoted; fi
+SC2154 (warning): adv223_unquoted is referenced but not assigned.
+SC2086 (info): Double quote to prevent globbing and word splitting.
+DIRECT SHELLCHECK rc=1
 ```
-ОБХОД: CI-строка остаётся зелёной без обязательной проверки стандартного shellcheck; намеренно добавленный недостижимый фрагмент — демонстрация отличия проверок, не утверждение о дефекте честной модели. Контроль с невалидным bash, напротив, пойман `--model` и `--stabs` rc 2: ложного обхода синтаксиса bash не заявляю. Закрывающее свойство: CI реально исполняет весь названный контрактом набор с пинованным shellcheck.
+Отдельный `B --sintaksis` дал rc 2 `NOT_IMPLEMENTED: ARCH223: COMMAND [... validate_std.sh ... model/done_contract.sh]: b''`. Полная точная команда строки реестра выполнена в клоне: первые режимы `--repo` и `--model` дали 47/0, `--stabs` — `ZHIVYH 0 SVJAZI 43`, `--catalog` — 47/12/4/43 и CONTEXT 3/2/1; затем `--sintaksis` дал тот же `NOT_IMPLEMENTED`, общая команда rc 2. ОБХОД предыдущего вызова закрыт: CI не зелёный на том же дефекте, непосредственно подтверждённом shellcheck. rc 2 — отказ проверки, а не предметный red-стаб.
 
-БЛОКИРУЕТ `contracts/223-arch-ci-review.md:52-53`, `fixtures/workshop_project/arch_ci_review_223/context.py` — обязательная сдача красна после появления собственного frozen-тега.
-ПРОИСХОЖДЕНИЕ: пропущен ранее; существует на базе 1702766a3, не вызван правкой implementer.
-КЛАСС: К-01.
-ОБЯЗАТЕЛЬСТВО: context.py, check_sdacha --run и pre_critic возвращают rc 0, полный frozen-census и объявления присутствуют.
-СОСТОЯНИЕ: на OBJECT доступен frozen/contracts/223/1; census требует собственное пересечение implementer для scripts/done_contract.sh, которого в frozen-контракте нет. В задании и измерении implementer указано то же состояние на базе.
-НАБЛЮДЕНИЕ: `python3 -B fixtures/workshop_project/arch_ci_review_223/context.py` → rc 1 `RuntimeError: CONTRACT_OVERLAPS_INCOMPLETE`. После повторного fetch тегов (за время суда на origin появился frozen/contracts/228/1) и отдельного повтора precision → rc 0 `OK`, но:
+## Закрытие К-01
+
+ПРОИСХОЖДЕНИЕ: Architect223c, `fixtures/workshop_project/arch_ci_review_223/context.py` и `context_freeze.py`. КЛАСС: К-01. ОБХОД прежний: свой frozen-тег делал обязательную сдачу красной. Новый census исключает только номер SUBJECT до выбора высшей версии; код сравнивает `n == SUBJECT`, чужие контракты не исключает. Тест воспроизводит до freeze, 223/1 и 223/999; декларации сняты из frozen-контракта до вызова испытуемого CLI.
+
+Независимые мутации в отдельном клоне по одной: `if n == '228':` вместо исключения SUBJECT; аналогично 224; `if '22' in n:`; `if n:`. В каждом случае `B --catalog` rc 2, не ложный успех. Сырой существенный вывод:
 ```
-check_sdacha.sh . contracts/223-arch-ci-review.md --run: rc 1
-ОТКАЗ: строка 18: фактический rc=1 ≠ заявленного 0: fixtures/workshop_project/arch_ci_review_223/context.py
-pre_critic.sh contracts/223-arch-ci-review.md: rc 1
-ОТКАЗ: сдаточный лист красен (rc=1): ОТКАЗ: строка 18: фактический rc=1 ≠ заявленного 0: fixtures/workshop_project/arch_ci_review_223/context.py
+wrong-228: CONTEXT own-frozen RED rc=1; RC=2
+wrong-224: CONTEXT before-freeze RED rc=0; RC=2
+substring-22: CONTEXT before-freeze RED rc=0; RC=2
+exclude-all: CONTEXT before-freeze RED rc=1; RC=2
 ```
-Это не дефект изменения scripts/done_contract.sh и не доказательство ложного done. Это невыполненное явное условие сдачи, а не объявленный в НЕ ЗАЩИЩАЕТ остаток. Закрывающее свойство: census и frozen-объявления согласованы и все три команды проходят при наличии собственного тега; зона architect/нормативный круг, не implementer.
+В двух средних строках `rc=0` — rc самого ошибочного context.py, но каталог отказал из-за расхождения точных деклараций. Отдельно `if n == SUBJECT or n == '228':` дал rc 2 `CONTEXT_MUTATION_ANCHOR`; это статическое выявление изменения якоря, не доказательство наблюдаемого пересечения 228. Существующие стабы проверяют self-included и only-first-self-excluded, не отдельный стаб «исключены все»; последняя мутация выше проверена независимо. Причина прежней красной сдачи устранена без изменения frozen-контракта.
 
 ## Карта классов
-К-01: блок — красная обязательная сдача и context.py после собственного frozen.
-К-02: чисто — вход: задание, контракт 223, SDACHA; sourceCanon не объявлен.
-К-03: чисто — 187 rc 0 CELLS=111; 201 rc 0 CELLS=62; 224 rc 0 100/0.
-К-04: блок — CI-шаг не запускает обязательный --sintaksis.
-К-05: чисто — вход: команды и rc заданы в приёмке; фактические расхождения отмечены блоками.
-К-06: чисто — exit 1 и 127 носителя и отсутствие git дали батарее rc 2, не ложную поимку.
-К-07: чисто — --repo . и --model rc 0, каждый KLETKI 47 KRASNYH 0.
-К-08: чисто — основные предикаты пойманы; три искусственных специальных расширения остаются зелёными и приведены как совет ниже, с пределом §Порог.
-К-09: чисто — входы rename, удаление, mode, symlink, type-change, пустота, octopus и смешанные дельты в 47 зелёных клетках.
-К-10: чисто — вход: probe.py проверяет rc, SHA-запрос, диагностику, annotated tag и HEAD; воспроизведены красные мутанты.
-К-11: чисто — вход: probe.py, CASES и SHA вне мира субъекта, реальный Git.
-К-12: чисто — --sintaksis rc 0, SINTAKSIS 17 SHELLCHECK 2; сбор Git-дельты с -z и --no-renames.
-К-13: н/п — новых секретных входов 223 не вводит.
-К-14: чисто — --stabs rc 0, 43 связи, честные эквиваленты зелены.
-К-15: чисто — --catalog rc 0: 47 клеток, 12 стабов, 4 эквивалента, 43 связи.
-К-16: чисто — риск авторизации и исключения доверенной среды названы; проверены отдельные отрицательные миры и отсутствие инструмента.
-К-17: н/п — станционный механизм, продуктовая архитектурная модель 188 не объявлена.
+К-01: чисто — исправление census и независимые мутации/декларации 75; подробности выше.
+К-02: чисто — вход: исходное и scoped задания, полный предыдущий вердикт, frozen 223; sourceCanon не объявлен.
+К-03: чисто — зависимые регрессы 224/187/201, результаты ниже.
+К-04: чисто — CI исполняет все режимы; дефект SC2086 отвергнут полной CI-командой.
+К-05: чисто — контрактные rc-команды и полное выполнение строки CI, не только наличие текста.
+К-06: чисто — результаты rc 2 названы отказом окружения/проверки, а не пойманной предметной мутацией.
+К-07: чисто — честный контроль модели и носителя в регрессах; независимый зелёный catalog включает три Git-состояния.
+К-08: чисто — четыре новые мутации census не дают зелёной батареи; три старых расширения классификатора остаются советом ниже.
+К-09: чисто — census до/после собственной заморозки и высшей версии; чужие исключения проверены отдельно.
+К-10: чисто — точные множества 75 строк и отсутствие своего источника, не только rc; SC2086 подтверждён прямым shellcheck.
+К-11: чисто — независимый frozen-блоб задаёт 75 ожидаемых строк до вызова CLI.
+К-12: чисто — реальный Git, отдельный клон и пинованный shellcheck; полной CI-команде предъявлен синтаксически допустимый дефект.
+К-13: н/п — новые секретные входы и недоверенный PATH не входят в границу модели угроз.
+К-14: чисто — literal-equality-equivalent rc 0, self-included и only-first-self-excluded rc 1.
+К-15: чисто — каталог фиксирует 47/12/4/43 и отдельные CONTEXT 3/2/1, не нулевую выборку.
+К-16: чисто — рисковый класс и границы доверенной среды подтверждены, порядок CI → adversary соблюдён.
+К-17: н/п — станционный механизм, модель 188 не объявлена.
 
-## Мутации и контроли
+## Советы предыдущего вызова
 
-Все изменения выполнялись по одной в клоне origin на OBJECT; после каждого теста исходный носитель восстановлен. `B` — `bash fixtures/workshop_project/arch_ci_review_223/red_arch_ci_review_223.sh`. Честный `B --repo .`: rc 0 `KLETKI 47 KRASNYH 0`; `B --model`: rc 0 `KLETKI 47 KRASNYH 0`; `B --stabs`: rc 0 `ZHIVYH 0 SVJAZI 43`.
-
-СОВЕТ `scripts/done_contract.sh:295-298`, К-08: три соседних специальных расширения функции, которых нет в stabs.tsv, прошли всю батарею `B --repo .`:
-```
-.harness/*|.review/*|.review.bak/*    rc 0 KLETKI 47 KRASNYH 0
-.harness/*|.review/*|.Review/*        rc 0 KLETKI 47 KRASNYH 0
-.harness/*|.review/*|other/.review/*  rc 0 KLETKI 47 KRASNYH 0
-```
-Дополнительные настоящие Git-миры `.review.bak/x`, `.Review/x`, `other/.review/x` с success только на продуктовом предке: каждый честный носитель `GREEN rc=1`; каждый соответствующий мутант `RED RC,QUERY_SHA,SHA_DIAGNOSIS,TAG_ON_REFUSAL rc=0`. Эти имена доступны через обычное добавление Git-файлов. Ошибочные механизмы здесь специально вставлены, а не показаны как замена существующей предметной операции; по общему §Порог зелёные специально внесённые исключения сами по себе не доказывают дефект честной production. Рекомендуется добавить данные парные входы, не приписывая им самостоятельную блокирующую силу.
-
-Ещё четыре новых отдельных изменения, отсутствующих в stabs.tsv, и сырой итог `B --repo .`:
-```
-.review/[a-z]* вместо .review/*: rc 1 KLETKI 47 KRASNYH 3
-.review/*.md вместо .review/*: rc 1 KLETKI 47 KRASNYH 1 (review-symlink)
-[ "$_a187_only" -ge 1 ] вместо -ne 1: rc 1 KLETKI 47 KRASNYH 42
-_a187_only=2 вместо 1: rc 1 KLETKI 47 KRASNYH 25
-```
-Дополнительные отдельные контрольные мутации: удаление `-z` → rc 1, 25 красных; `--find-renames` вместо `--no-renames` → rc 1, `product-rename-in RED ... TAG_ON_REFUSAL rc=0`, одна красная; удаление проверки пустоты → rc 1, две красных empty-first; удаление .harness → rc 1, четыре красных; все пути служебные → rc 1, 42 красных. Последние три предметные операции также представлены в авторском реестре, поэтому не выдаются за новые семь.
-
-Дверь действительно использует `git diff --no-renames --ignore-submodules=none --name-only -z` и `read -r -d ''` (`scripts/done_contract.sh:542-547`): `B` зелёная на newline, пробеле, Unicode, rename в обе стороны, удалении, mode, symlink, type-change, review-only цепочке 177, failure/skipped/missing и пустой дельте/octopus. Дополнительный однобайтовый Git-путь с переводом строки `.review/x\nscripts/y` и путь с кавычкой вернули ожидаемый service rc 0; это один Git-путь, не два пути. `./` и `..` как компоненты не являются реальными Git-путями; normalized-escape в батарее rc 1. Предел 50/root охвачен 187: rc 0 CELLS=111 FAILURES=0.
-
-Отказ как успех: полный носитель `exit 1` → батарея rc 2 `NOT_IMPLEMENTED: ARCH223: UNRELATED_REFUSAL review-merge b''`; `exit 127` → rc 2 `SUBJECT_ENVIRONMENT`. При PATH с bash/python/dirname, но без git: rc 2 `NOT_IMPLEMENTED: ARCH223: [Errno 2] No such file or directory: 'git'`. Пустота: empty-first отдельно различает неверный выбор родителя при success на p1 и при success на HEAD; octopus отказывает до API. Чужой вопрос: rename source/destination и first-vs-second parent пойманы; отдельная мутация обнаруживает неверную обработку p1. Нейтрализация .harness красит свой harness-merge и связанные четыре клетки, а не всю батарею.
-
-## Регрессы и среда
-
-Область `git diff --name-status 1702766a3b3c32e4f06c948e0f7aeabd00297f45 OBJECT`: только `.github/workflows/ci.yml`, `registry/ci-steps.tsv`, `registry/ci-zamery.tsv`, `scripts/done_contract.sh`; diff contracts и fixtures 223 пуст. `B --sintaksis` rc 0 `SINTAKSIS 17 SHELLCHECK 2`; `B --catalog` rc 0 `KLETKI 47 STABY 12 EKVIVALENTY 4 SVJAZI 43`; `gen_ci_steps.sh --check` rc 0; `check_precision_gate.sh <absolute clone> contracts/223-arch-ci-review.md` rc 0, после обновления тегов команда с `.` также rc 0 `OK`.
-
-Регрессы в origin-клоне: 224 rc 0 `KLETKI 100 KRASNYH 0`; 187 rc 0 `CELLS=111 STABS=0 FAILURES=0`; 201 rc 0 `CELLS=62 STABS=0 FAILURES=0`; 205 rc 0 `KLETKI=24 ZELENYE=24 KRASNYE=0`; 992 rc 0 `cases=25 observations=25 failures=0`; 996 rc 0 `examined=111 mutants=0 mismatches=0`; 038 и C6 rc 0. 116/195 после обновления тегов rc 1: `195: честных клеток 14, зелёных 13, красных: k187a-okno-187-s-probami-r0`, причина `потребители 116: замер маппинга отсутствует (контракт правит писателя scripts/done_contract.sh)`. Сравнительный запуск этой клетки на базе в данном суде не выполнялся; регрессией OBJECT это не объявляется. Первый прогон pre_critic/116 столкнулся с `missing-remote` из-за появившегося во время суда тега 228; после fetch и отдельных повторов причина уточнена выше.
+СОВЕТ, К-08: в исходном вызове отдельно расширялись шаблоны `.review.bak/*`, `.Review/*`, `other/.review/*`, и батарея оставалась 47/0; искусственные реальные Git-миры давали честная дверь GREEN rc=1 против мутанта RED rc=0. На текущем OBJECT production не изменилась: `git diff 704a67d72 c1a83c1ad4acf7b4fb2c69f4a505202232cf8c37 -- scripts/` пуст; конкретная `_arch_ci_service_path` принимает только `.harness/*|.review/*`, все три соседних пути попадают в `*) return 1`. Достижимого ложного done на честной production эти три примера не демонстрируют. Это специально добавленные ветви без источника ошибочного механизма, поэтому по §Порог советы, а не блок.
 
 ## НЕ ЗАЩИЩАЕТ
 
-ОСТАТОК: К-16 — не укусил: `PATH semantic-product-in-service GREEN rc=0` на `.review/product.js`; классификация по имени внутри служебного каталога намеренная, содержательный продукт там вне обещания, независимые ловцы и владельцы каталога названы контрактом.
-ОСТАТОК: К-13 — не укусил: отсутствие git в PATH даёт NOT_IMPLEMENTED rc 2, а согласованная подмена Git/PATH/UID/API исключена моделью угроз; ложный API вне границы не выдан за блок.
-ОСТАТОК: К-03 — не укусил: независимые done-ноги не заменены 223; перечисленные регрессы исполнены, 116/195 с названным ограничением сравнения. Строки НЕ ЗАЩИЩАЕТ контракта не содержат собственных номеров К-NN; номера здесь отражают общий каталог классов.
+ОСТАТОК: К-16 — не укусил: наблюдение полного вызова `semantic-product-in-service GREEN rc=0` на `.review/product.js` — содержательная классификация внутри служебного каталога не обещана, ловцы reviewer/adversary и владельцы каталогов; production не изменилась.
+ОСТАТОК: К-13 — не укусил: в полном вызове отсутствие git в PATH давало `NOT_IMPLEMENTED` rc 2; согласованная подмена Git/PATH/API исключена моделью угроз, проверка не объявляет её защищённой.
+ОСТАТОК: К-03 — не укусил: прежний полный вызов дал 224/187/201 зелёные; отдельные регрессы scoped повтора приведены ниже. Независимые done-ноги и профиль не подменяются проверкой 223. Номера К-NN сопоставлены общему каталогу классов, сам контракт остатки так не нумерует.
+
+## Регресс и сдача
+
+Команды выполнены последовательно в SSH-origin-клоне на OBJECT; fetch origin тегов подтвердил `frozen/contracts/223/1` и `frozen/contracts/228/1`. `TMPDIR` внутри клона, `VALIDATE_STD_SHELLCHECK` — установленный 0.11.0, `SDACHA_TIMEOUT_SEK=1200 SDACHA_BUDZHET_SEK=2400`. B = `bash fixtures/workshop_project/arch_ci_review_223/red_arch_ci_review_223.sh`. Сырой итог:
+```
+B --repo .       rc=0 KLETKI 47 KRASNYH 0
+B --model        rc=0 KLETKI 47 KRASNYH 0
+B --stabs        rc=0 ZHIVYH 0 SVJAZI 43
+B --catalog      rc=0 KLETKI 47 STABY 12 EKVIVALENTY 4 SVJAZI 43
+CONTEXT before-freeze rc=0 DECLARATIONS=75
+CONTEXT own-frozen rc=0 DECLARATIONS=75
+CONTEXT own-highest-frozen rc=0 DECLARATIONS=75
+CONTEXT self-included rc=1 expected=1
+CONTEXT only-first-self-excluded rc=1 expected=1
+CONTEXT literal-equality-equivalent rc=0 expected=0
+CONTEXT KLETKI 3 STABY 2 EKVIVALENTY 1 ZHIVYH 0
+B --sintaksis    rc=0 SINTAKSIS 17 SHELLCHECK 2
+224 --repo .     rc=0 KLETKI 100 KRASNYH 0
+187 --repo .     rc=0 CELLS=111 STABS=0 FAILURES=0; pin-diagnostic-boundary-selfcheck 9/9
+201 --repo .     rc=0 CELLS=62 STABS=0 FAILURES=0
+python3 -B fixtures/workshop_project/arch_ci_review_223/context.py   rc=0 ДЕКЛАРАЦИИ 75
+bash scripts/gen_ci_steps.sh --check                                rc=0
+bash scripts/check_precision_gate.sh "$PWD" contracts/223-arch-ci-review.md   rc=0 OK
+bash scripts/check_sdacha.sh "$PWD" contracts/223-arch-ci-review.md --run    rc=0 СДАЧА: лист зелёный (двери=10 карта=17/17 дельта=2)
+bash scripts/pre_critic.sh contracts/223-arch-ci-review.md           rc=0 КРИТИК: дверь зелёная
+```
+Полные пути соседних семейств: `fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh`, `fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh`, `fixtures/workshop_project/done_dver_soderzhatelnaja_201/red_done_dver_201.sh`. Изменения ci.yml относительно прежнего OBJECT находятся только между маркерами GENERATED CI JOBS; генератор подтвердил соответствие реестру. `pre_judge.sh verdict --repo <своя копия> --file <абсолютный вердикт>` rc 0 `VERDICT_BRANCH=wip/223/adversary`.
