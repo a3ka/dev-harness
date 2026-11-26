@@ -124,6 +124,7 @@ MUTATIONS = {
 
 def main():
     import sys
+    import install224
     sys.dont_write_bytecode = True
     from probe import CASES
     model = reference()
@@ -145,13 +146,15 @@ def main():
                 if case not in CASES:
                     raise RuntimeError('UNKNOWN_CASE ' + case)
                 links.append({'stab': path, 'case': case})
+    carriers[install224.STAB] = install224.SCRIPTS_ONLY.encode()
+    links.extend(install224.LINKS)
     for path, content in carriers.items():
         dest = HERE / path
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(content)
     (HERE / 'source.json').write_text(json.dumps({'base': BASE, 'nositeli': {p: hashlib.sha256(c).hexdigest() for p, c in carriers.items()}, 'stab_vhod': links}, indent=2) + '\n')
     (HERE / 'stabs.tsv').write_text(''.join(x['stab'] + '\t' + x['case'] + '\n' for x in links))
-    print('NOSITELI', len(carriers), 'STABY', len(MUTATIONS), 'SVJAZI', len(links))
+    print('NOSITELI', len(carriers), 'STABY', len(MUTATIONS) + 1, 'SVJAZI', len(links))
 
 
 if __name__ == '__main__':

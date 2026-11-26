@@ -1,61 +1,44 @@
 # СДАЧА 231 — формы done из закоммиченного конфига (R-0162)
 
-ПРЕДМЕТ: совместимость трёх представлений done из config/done_forms.json: legacy-имена, точка станционного ПРОДУКТ, независимый вызов в v-носителе. Reference и адресные красные предъявления; production scripts/done_contract.sh не меняется. Слово владельца R-0162 требует данные вместо хардкода. Перед freeze 231 orchestrator оформляет адресные v+1 224/201 и их freeze.
+ПРЕДМЕТ: три исторических представления done из config/done_forms.json; исправление единственного блока Crit231 К-04/К-07 — самостоятельная установка регресса 224. Production scripts/done_contract.sh не меняется. До freeze 231 orchestrator оформляет адресные v+1 224/201 и их freeze.
+
+ПРЕДЫДУЩИЙ ВЕРДИКТ: verdicts/critic/contracts-231-v1.md
 
 ## Обещание и наблюдение
 
-Полный CLI, настоящий Git, rc и раздельные трубы, annotated done на исходном HEAD; отказ без тега и изменения HEAD. Ожидания и HEAD снимаются до субъекта, диагноз судится целой строкой в своей роли/пути. Конфиг и схема читаются из installation HEAD, отдельно от авторского репозитория/рабочей копии/индекса/окружения. Добавление новой формы только конфигом, удаление формы и изменение флага вызова измеряются поведением, не поиском строки в коде.
+Полный CLI, настоящий Git, rc и раздельные трубы, annotated done на исходном HEAD; отказ без тега и изменения HEAD. Ожидания и HEAD снимаются до субъекта; конфиг/схема — из installation HEAD, отдельно от author HEAD/index/worktree/env. Новые формы задаются только конфигом, JSON Schema проверяет настоящий validate_std json. Оракул старых клеток 224 не меняется.
 
-База задания b0ef65a93eeb03b58946cb57356ff6afa113e3aa. Прежний source-базис двери 568f0ea63271e3461b574105cba8faec7563a8fd сохранён: reference не откатывает production. Scratch/TMPDIR только внутри копии. VALIDATE_STD_SHELLCHECK=/home/harness/.local/state/dev-harness/validators/shellcheck/0.11.0/shellcheck.
+База исправления 4ad679feda7bd00e8884ee77a6d74a62d6db4285. Source-базис двери 568f0ea63271e3461b574105cba8faec7563a8fd сохранён. Scratch, TMPDIR и origin-клон — только внутри своей копии. Независимый TMPDIR — вложенный пустой Git-репозиторий без HEAD: Git не может подняться к HEAD родителя, записи вне копии не нужны.
 
 ## Адресная дельта frozen
 
-contracts/224-svezhest-verdikta-done.md:45–48: формы и сверка вызова делегированы конфигу 231. Явный vyzov-конфликт, неканоничный СУД и DUPLICATE сохранены. Отдельный коммит 2caf6a0f7; orchestrator переоформляет слово владельца.
-
-contracts/201-done-dver-soderzhatelnaja-sverka.md:54: литерал без хвоста заменён допустимыми формами того же конфига. Отдельный коммит f0cf83f38; orchestrator переоформляет слово владельца.
+v+1 224 делегирует формы/сверку вызова конфигу 231; v+1 201 делегирует литералы ПРОДУКТ тому же источнику (уже в базе). В этом исправлении 201 не меняется: его установщик не задействован, production-регресс отдельно запускается прежней командой.
 
 review-conflict: было rc 1 VERDICT_ROUND_CONFLICT → стало rc 1 VERDICT_ROUND_DUPLICATE (ключ 3000000000).
 
 adversary-conflict: было rc 1 VERDICT_ROUND_CONFLICT → стало rc 1 VERDICT_ROUND_DUPLICATE (ключ 3000000000).
 
-Две клетки меняются одной общей записью markers['conflict'] в probe.py 224, отдельный коммит 65ad4cd35. Все прочие клетки 224/201 неизменны. Явный -vyzovN + несовпадающий СУД остаётся CONFLICT (historic186-bad-call-name, собственные explicit-conflict обеих ролей).
+Третья дельта 224: общий install после прежнего копирования scripts/ и bash -n создаёт свой Git, копирует config/done_forms.json, config/done_forms.schema.json, ops/server/validators.tsv и коммитит HEAD. Остальные scripts/ и все старые клетки/ожидания неизменны. Черновик 224 дополнен отдельным коммитом; строку слова владельца оформляет orchestrator, не architect.
 
-## Конструкция и различимость
+## Дельта
 
-Единый исполняемый источник допустимых форм — config/done_forms.json, не build.py или reference. JSON Schema — config/done_forms.schema.json; применяется настоящий validate_std json. MUTATIONS/build.py — единственный реестр связей стаб→вход; source.json/stabs.tsv сгенерированы. Прежние 78 клеток и 14 стабов/47 связей сохранены; probe.py базы меняется только добавлениями.
+Единственный блок К-04/К-07 закрыт способом канон/инструмент: обе батареи используют общий настоящий install 224 и прежний suite 224 без адаптера install_policy. Конфиг читается из HEAD собственной установки. Снятие/граница не применены: обещание сохраняется полностью. Новый оракул не написан — install224.py вызывает прежний suite на честных historic186 и соседнем historic129, сохраняя его проверки rc/труб/тега/HEAD.
 
-Честная добавленная форма имён zN и литерал ПРОДУКТ: мастерская появляются исключительно в конфиге мира, код субъекта неизменен. Удаление legacy-правила и станционного литерала отказывает; false plain_call_from_record возвращает проверку имени. Три hardcoded-* стаба различимы по своим config-name-added/product-config-added/config-call-disabled. config-ignored различим и на добавлении, и на удалении формы. Отдельные мутанты читают index, dirty installation, author cwd и env вместо installation HEAD. config-fail-open предъявляется каждому из missing/empty/broken/schema отдельно. Положительный config-equivalent сохраняет зелень при эквивалентном JSON с иным форматированием. Отсутствие инструмента/непостроенный мир/синтаксис — NOT_IMPLEMENTED rc 2, не поимка.
+Мутация критика — точный прежний scripts-only installer, генерируемый в stabs/scripts-only/install.py. Адресная связь задана install224.LINKS, включена build.py в прежние source.json/stabs.tsv и выполняется независимо. Она предъявляется только независимому TMPDIR, где дефект наблюдаем; checkout-клетка — честный эквивалентный режим. Прежние 97 клеток/24 стаба/68 связей сохранены; добавлены две клетки среды и один стаб/одна связь. Каждый режим отдельно вызывает оба исторических входа. Значения SHA/идентификаторов не становятся оракулом.
 
-Полные blob frozen 215 и review 227 взяты без перепечатки (у 227 заменён только OBJECT и роль для парной проверки). Backend 181/179 и mobile 218 — точный перенос имён/топологий из измерения, не утверждение запуска настоящих проектов. owner/repo. сохраняется буквальным внешним адресом; станционная точка не распространяется на адрес.
+- К-04 · канон/инструмент · python3 -B fixtures/workshop_project/done_round_compat_231/install224.py --case install224-checkout · 0 · 0
+- К-07 · канон/инструмент · python3 -B fixtures/workshop_project/done_round_compat_231/install224.py --case install224-independent · 0 · 0
+- К-07 · канон/инструмент · python3 -B fixtures/workshop_project/done_round_compat_231/install224.py --case install224-independent --scripts-only · 1 · 1
 
-## Измерения
+## Измерения исправления
 
-Чистый origin-клон tmp/verify231-origin, кандидат 4a77f317cf2a47ba80b502a02eba052b81a0314a. Команда `python3 -B fixtures/workshop_project/done_round_compat_231/acceptance.py` последовательно исполнила все назначенные прогоны. Сырые stdout/stderr и results.json — tmp/acceptance231/ внутри клона.
+До правки install: install224-independent rc 1, historic186 и historic129 RAW 1 b'' b'done: DONE_FORMS_CONFIG\n', RED RC,TAG_TARGET,STDERR. Внутри checkout оба входа RAW 0, rc 0 — случайная родительская установка.
 
-| Команда | rc | Сырой итог |
-|---|---|---|
-| B --model | 0 | KLETKI 97 KRASNYH 0 |
-| B --stabs | 0 | STABY 24 SVJAZI 68 ZHIVYH 0, CONTROL 97 зелёных |
-| B --sintaksis | 0 | SINTAKSIS 26 SHELLCHECK 2 |
-| B --catalog | 0 | KLETKI 97 STABY 24 SVJAZI 68 |
-| B --repo . | 1 | KLETKI 97 KRASNYH 56, намеренная краснота до реализации |
-| B --regression224 | 0 | KLETKI 100 KRASNYH 0; REGRESSION224_RAW_RC 0 |
-| context.py | 0 | ДЕКЛАРАЦИИ 84 |
-| validate_std json | 0 | конфиг соответствует схеме |
-| pre_critic, первичный | 1 | неверные markdown-списки в немашинном разделе SDACHA |
-| check_sdacha --run, первичный | 1 | та же строка 13; исправлена форма листа, не критерий |
-| check_precision_gate | 0 | OK |
-| check_spec_ready | 0 | OK |
-| 224 --repo . (production) | 1 | KLETKI 100 KRASNYH 2, ровно review-conflict/adversary-conflict |
-| 201 --repo . (production) | 0 | CELLS=62 STABS=0 FAILURES=0 |
+После правки install: оба режима rc 0, historic186 и historic129 RAW 0 b'' b'', GREEN. Прежний scripts-only installer в независимом TMPDIR rc 1, оба входа RAW 1 b'' b'done: DONE_FORMS_CONFIG\n'. Команды — строки дельты; результаты получены до полного origin-прогона.
 
-B = bash fixtures/workshop_project/done_round_compat_231/red_done_round_compat_231.sh. Census до→после: клетки 78→97, стабы 14→24, связи 47→68. Прежние клетки/связи не удалены. Независимая мера — AST словарей/добавлений, фактические файлы стабов и строки TSV; probe.py — только добавления к b0ef65a93.
+Генератор: NOSITELI 26 STABY 25 SVJAZI 69. Census 97→99 клеток, 24→25 стабов, 68→69 связей; независимая мера — прежний AST-каталог плюс install224.CASES, файлы стабов и строки TSV. Полные прогоны выполняет acceptance.py по одной, включая reference и production 224 в ОБОИХ TMPDIR, регрессы 201/187/193, pre_critic, check_sdacha --run, precision и spec. Сырые stdout/stderr/results.json сохраняются в tmp/acceptance231 внутри origin-клона.
 
-Список 56 намеренных красных: для КАЖДОЙ роли review/adversary — back181, back179, mobile218, krug, bare-duplicate, old-conflict-low, old-conflict-high, numeric-fail, numeric-accept, three-digits, ten-digits, old-zero, old-leading-zero, old-empty, krug-zero, krug-leading-zero, plain-call-high, plain-call-low, plain-v, plain-order, same-call, live227, config-name-added, config-name-removed; дополнительно product-live215, product-config-added, config-broken, config-empty, config-missing, config-schema, config-version, config-control.
-Итог после исправления формы листа, кандидат 3b2742e0a089757b6278e2f346447f9559957fc1 в том же origin-клоне: pre_critic rc 0 («КРИТИК: дверь зелёная»); check_sdacha --run rc 0 («двери=7 карта=17/17 дельта=0»). Поведение двери/клетки/стабы не менялись; дорогие прогоны не повторялись ради исправления Markdown.
-
-Независимый census: AST WORLDS=34 + добавлено 3, PRODUCTS=10 + добавлено 2, CONFIG_CASES=9 + ещё 2; итог (34+3)×2+(10+2)+9+2=97. Файлов стабов 24, строк TSV 68. `git diff --numstat b0ef65a93eeb03b58946cb57356ff6afa113e3aa -- fixtures/workshop_project/done_round_compat_231/probe.py` → 89 добавлений, 0 удалений.
-
+B = bash fixtures/workshop_project/done_round_compat_231/red_done_round_compat_231.sh. До реализации B --repo . намеренно красен: прежние 56 клеток совместимости (старые имена, независимый вызов, конфиг/точка). Две новые клетки установщика проверяют честную установку и не добавляют production-отказов. Регресс production 224 до реализации красен ровно review-conflict/adversary-conflict; reference должен быть зелён независимо от TMPDIR.
 
 ## Двери
 
@@ -69,24 +52,24 @@ B = bash fixtures/workshop_project/done_round_compat_231/red_done_round_compat_2
 
 ## Карта классов
 
-- К-01 · чисто · вход: двери формы ниже, pinned shellcheck и validate_std json · - · -
-- К-02 · чисто · вход: task-architect231.md и task-architect231b.md прочитаны целиком, R-0162 исполняется данными · - · -
+- К-01 · чисто · вход: двери формы, pinned shellcheck и validate_std json · - · -
+- К-02 · чисто · вход: task-architect231c.md и предшествующие задания, R-0162, отдельный коммит frozen 224 · - · -
 - К-03 · чисто · вход: переход v+1 224/201 до freeze 231, слово владельца оформляет orchestrator · - · -
-- К-04 · чисто · вход: context.py перечисляет высшие frozen и их зоны, адресная дельта 224/201 выделена коммитами · - · -
+- К-04 · чисто · вход: контракт 231 разрешает ровно установщик и две клетки 224, context.py высшие frozen · - · -
 - К-05 · чисто · вход: B --model/--repo, rc/трубы/tag/HEAD; legacy/215/227 без переименований · - · -
 - К-06 · чисто · вход: ошибка среды/таймаут/синтаксис rc 2 NOT_IMPLEMENTED, не предметная поимка · - · -
-- К-07 · чисто · вход: B --model; честный config-equivalent, положительные формы ставят annotated done · - · -
-- К-08 · чисто · вход: B --stabs; каждый адресный вызов самостоятелен, hardcoded формы различимы изменением конфига · - · -
-- К-09 · чисто · вход: review/adversary, оба направления конфликта, numeric 2/10/100 и две координаты · - · -
+- К-07 · чисто · вход: install224.py оба TMPDIR, общий install и настоящий suite 224, historic186/historic129 · - · -
+- К-08 · чисто · вход: B --stabs, scripts-only только на independent-клетке, прежние адресные связи сохранены · - · -
+- К-09 · чисто · вход: review/adversary, оба направления конфликта, numeric 2/10/100, два режима TMPDIR · - · -
 - К-10 · чисто · вход: committed installation HEAD против index/worktree/author/env, ожидания до субъекта · - · -
-- К-11 · чисто · вход: source.json хеширует носители, TSV побайтово из MUTATIONS; оракул не читает выход субъекта как истину · - · -
-- К-12 · чисто · вход: bash -n, pinned shellcheck, JSON Schema через validate_std; собственного JSON/YAML-валидатора нет · - · -
+- К-11 · чисто · вход: source.json хеширует носители, TSV из кода, прежний suite хранит ожидания до двери · - · -
+- К-12 · чисто · вход: bash -n, pinned shellcheck, compile Python, JSON Schema через validate_std · - · -
 - К-13 · н/п · новых credentials и внешней сети в оракуле нет · - · -
-- К-14 · чисто · вход: station без/с точкой, literal owner/repo., filename-only, equal-call, explicit-equal и JSON-equivalent · - · -
-- К-15 · чисто · вход: --catalog и независимый AST/FS/TSV census, прежние 78/14/47 сохранены · - · -
-- К-16 · чисто · вход: границы по свойствам и ловцам; несовместимые frozen переводятся адресным v+1, не прячутся · - · -
+- К-14 · чисто · вход: station без/с точкой, owner/repo., filename-only, equal-call, JSON-equivalent, checkout TMPDIR · - · -
+- К-15 · чисто · вход: --catalog, AST/FS/TSV census, прежние 97/24/68 сохранены · - · -
+- К-16 · чисто · вход: границы и ловцы сохранены, обещание регресса не сужено · - · -
 - К-17 · н/п · продуктовая модель 188 не объявлена, новых операций/writer/scope_id нет · - · -
 
 ## Наблюдение процесса
 
-Кандидат main-журнала без самовольной нумерации: конфиг-происхождение требует различать installation HEAD и author HEAD в фикстурах; прежний install 224 копировал только scripts/, потому не моделировал эту границу. Цена — явная Git-установка с собственным committed config/schema в новых мирах; источник — условие R-0162; класс — конструкция наблюдателя. Закрыто install_policy/prepare_policy и отдельными адресными мутантами источника. Общий NABLIUDENIA_ARCHITECT.md в wip не меняется; запись в main — orchestrator.
+Кандидат записи main-журнала без самовольного номера: при новом installation HEAD старый установщик scripts-only случайно зеленеет внутри checkout, читая чужой HEAD; явная изоляция TMPDIR пустым Git-контейнером делает дефект наблюдаемым без записи вне копии. Цена — один исправительный круг Crit231; источник — verdicts/critic/contracts-231-v1.md; класс — конструкция регрессионной установки. Закрыто общим install и адресной scripts-only мутацией на historic186/historic129 в независимом TMPDIR. NABLIUDENIA_ARCHITECT.md в wip не меняется; запись в main — orchestrator.

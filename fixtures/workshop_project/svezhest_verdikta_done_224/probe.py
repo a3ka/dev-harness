@@ -334,6 +334,13 @@ def install(work, carrier, tools_repo):
     shutil.copytree(tools_repo / 'scripts', tools / 'scripts')
     (tools / 'scripts/done_contract.sh').write_bytes(carrier)
     checked(['bash', '-n', tools / 'scripts/done_contract.sh'])
+    # 231: the door reads policy/schema from its own installation HEAD.
+    # Never let Git discover a checkout above the temporary installation.
+    g(tools, 'init', '-q', '-b', 'main')
+    for path in ('config/done_forms.json', 'config/done_forms.schema.json',
+                 'ops/server/validators.tsv'):
+        put(tools, path, (tools_repo / path).read_text())
+    commit(tools, 'installed done policy')
     return tools / 'scripts/done_contract.sh'
 
 

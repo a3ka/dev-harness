@@ -13,7 +13,7 @@
 База 568f0ea63271e3461b574105cba8faec7563a8fd; затравка/slug сохранены. Сверены 224 и frozen/224/1 (69b88241882320d67c007830dfdc343cf5739d14), scripts/done_contract.sh, семья svezhest_verdikta_done_224, 201, contracts/213-posledniy-fail-fazy.md и scripts/lib_karta_sdachi.sh. 213 пока затравка, не выполненный ремонт: её предмет — последний FAIL фазы листа, не done. Реестр registry/plan.tsv на базе НЕ несёт 231; номер уже выдан (registry/contracts.tsv, id/CONTRACT/231). Строку плана добавляет владелец.
 
 - Общий _select_round_verdict читает HEAD для review/adversary, возвращает файл/CID/первую строку. Дорабатывается он; второго селектора нет. F/CID/OBJECT, same-OBJECT, workflowPaths, ARCH_CI сохраняются.
-- Миры 201 и установщик 224 переиспользуются; только review-conflict/adversary-conflict 224 меняют ожидаемую причину по R-0162. Новая install_policy добавляет настоящий Git installation HEAD; ожидания 231 — собственные литералы. Reference копирует исходную дверь с адресной дельтой, не разрешает откатить последующую production.
+- Миры 201 и установщик 224 переиспользуются. Дельта 224: ожидания review-conflict/adversary-conflict по R-0162 и install, устанавливающий scripts/, config/done_forms.json, config/done_forms.schema.json и ops/server/validators.tsv в самостоятельный Git с committed HEAD. Обе семьи вызывают этот же установщик без адаптера 231; ожидания 231 — собственные литералы. Reference копирует исходную дверь с адресной дельтой, не разрешает откатить последующую production.
 - frozen/215/1:contracts/215-otkaz-po-soderzhaniyu-zapasnaya.md:5 несёт «ПРОДУКТ: станция.». Клетка переносит ВЕСЬ текст без изменений, настоящую guard/role-проводку и заканчивает annotated done.
 - verdicts/review/contracts-227-impl-v1.md:1–3 на базе несёт accept, OBJECT, вызов=2 без поколения фазы. Клетка переносит полный blob, меняя только OBJECT на реальный; парный adversary меняет также поле роли.
 - context.py этой семьи читает высшие frozen-блобы, печатает commit и реальные зоны. Сверены 038/2,094/2,168/1,184/1,187/3,201/1,223/1,224/1,226/1,992/2,996/2. Читатель scripts/check_spec_ready.sh вызывается ниже.
@@ -36,7 +36,7 @@
 
 Адресные v+1-черновики: contracts/224-svezhest-verdikta-done.md:45–48 делегирует формы/согласование конфигу 231; contracts/201-done-dver-soderzhatelnaja-sverka.md:54 делегирует литералы ПРОДУКТ тому же источнику. Порядок перехода — v+1 224/201 (+freeze) ПЕРЕД freeze 231. Строку слова владельца оформляет orchestrator; architect её не пишет.
 
-Ровно review-conflict/adversary-conflict батареи 224 меняют ожидаемый VERDICT_ROUND_CONFLICT → VERDICT_ROUND_DUPLICATE: impl-v3 и impl-v4 объявляют один вызов=3, ключ 3000000000. Явный -vyzovN с несовпадающим СУД и неканоничная строка по-прежнему дают CONFLICT. Остальные клетки 224 и все клетки 201 не меняются. Тексты/клетки 215, 227, backend 181/179 и mobile 218 остаются как есть.
+Дельта батареи 224 — ровно три изменения: review-conflict/adversary-conflict меняют ожидаемый VERDICT_ROUND_CONFLICT → VERDICT_ROUND_DUPLICATE (impl-v3 и impl-v4 объявляют один вызов=3, ключ 3000000000); общий install устанавливает scripts/, config/done_forms.json, config/done_forms.schema.json и ops/server/validators.tsv в собственный Git-репозиторий с коммитом HEAD. Дверь читает данные из HEAD СВОЕЙ установки; прежнее копирование только scripts/ случайно читало родительский HEAD и не поддерживается. Явный -vyzovN с несовпадающим СУД и неканоничная строка по-прежнему дают CONFLICT. Остальные клетки 224 и все клетки 201 не меняются. Тексты/клетки 215, 227, backend 181/179 и mobile 218 остаются как есть.
 
 ## Источник допустимых форм
 
@@ -64,7 +64,7 @@ B = `bash fixtures/workshop_project/done_round_compat_231/red_done_round_compat_
 - Дано неизменённая дверь на базе; когда B --repo .; тогда rc 1, собственные именованные красные совместимости. После реализации та же команда — rc 0, KRASNYH 0, положительные формы ставят annotated done, отрицательные не ставят тег.
 - Правило честного контроля и различимости: B --model и B --stabs — каждый rc 0, непустой каталог, ZHIVYH 0. Честные legacy с совпадающим вызовом/без него и v-формы с независимым вызовом проходят; конфликтные/нечисловые/дубли/свежий FAIL отказывают своими причинами. Census — B --catalog, не ручной словарь в контракте.
 - Правило формы: B --sintaksis и B --catalog — каждый rc 0; bash -n, пинованный shellcheck через validate_std, compile Python без pycache. Унаследованные SC2034/SC2295/SC1010 reference явно помечены, production не правится ради них.
-- Правило регресса: B --regression224 на reference с двумя правленными клетками 224 — rc 0; `bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --repo .` после реализации — rc 0 (до реализации rc 1 ровно review-conflict/adversary-conflict). Семья 201 --repo . — rc 0 до/после. Полные живые blob 215/227 и формы backend 181/179, mobile 218 проходят B --model и после реализации B --repo . без переименований.
+- Правило регресса: B --regression224 на reference с двумя правленными клетками и самостоятельным установщиком 224 — rc 0; `bash fixtures/workshop_project/svezhest_verdikta_done_224/red_svezhest_verdikta_done_224.sh --repo .` после реализации — rc 0 (до реализации rc 1 ровно review-conflict/adversary-conflict). Обе команды выполняются в режимах TMPDIR внутри checkout и независимого пустого Git-контейнера без родительского HEAD; `python3 -B fixtures/workshop_project/done_round_compat_231/acceptance.py` исполняет оба режима. `python3 -B fixtures/workshop_project/done_round_compat_231/install224.py --case install224-independent` и та же команда с `--case install224-checkout` — rc 0 на reference; `--case install224-independent --scripts-only` — rc 1 на прежнем установщике. Эти клетки включены в B --model/--stabs; привязка стаба — в коде. Семья 201 --repo . — rc 0 до/после. Полные живые blob 215/227 и формы backend 181/179, mobile 218 проходят B --model и после реализации B --repo . без переименований.
 - Правило данных: B --model и B --stabs проверяют добавление новой формы имён и ПРОДУКТ только конфигом, удаление формы и переключение plain_call_from_record; отсутствие/пустой/битый конфиг; отделение committed installation HEAD от dirty/index/author/environment. Зашитые в код имена, ПРОДУКТ и правило вызова краснеют адресными стабами. Честная эквивалентная JSON-запись с иным форматированием остаётся зелёной.
 - Правило схемы: `bash scripts/validate_std.sh json config/done_forms.schema.json config/done_forms.json` — rc 0; пустой/битый документ и несовпадающая версия — rc≠0 через ту же дверь в B --model.
 - Правило допуска: `python3 -B fixtures/workshop_project/done_round_compat_231/context.py`, `bash scripts/pre_critic.sh contracts/231-sovmestimost-doski-224.md`, `SDACHA_TIMEOUT_SEK=1200 SDACHA_BUDZHET_SEK=2400 bash scripts/check_sdacha.sh . contracts/231-sovmestimost-doski-224.md --run`, `bash scripts/check_precision_gate.sh . contracts/231-sovmestimost-doski-224.md` — каждый rc 0 формы; никакой из них не является словом владельца о frozen.
@@ -102,8 +102,8 @@ B = `bash fixtures/workshop_project/done_round_compat_231/red_done_round_compat_
 ПЕРЕСЕЧЕНИЕ architect: config/done_forms.schema.json — 003 только схема грамматики 231
 ПЕРЕСЕЧЕНИЕ architect: contracts/201-done-dver-soderzhatelnaja-sverka.md — 993 только адресный v+1 R-0162
 ПЕРЕСЕЧЕНИЕ architect: contracts/224-svezhest-verdikta-done.md — 993 только адресный v+1 R-0162
-ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/svezhest_verdikta_done_224/probe.py — 054 только review-conflict/adversary-conflict
-ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/svezhest_verdikta_done_224/probe.py — 055 только review-conflict/adversary-conflict
+ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/svezhest_verdikta_done_224/probe.py — 054 только установщик и review-conflict/adversary-conflict
+ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/svezhest_verdikta_done_224/probe.py — 055 только установщик и review-conflict/adversary-conflict
 
 ПЕРЕСЕЧЕНИЕ architect: contracts/231-sovmestimost-doski-224.md — 993 только 231; прежние семьи сохраняются
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/done_round_compat_231/ — 054 только 231; прежние семьи сохраняются
@@ -184,7 +184,7 @@ B = `bash fixtures/workshop_project/done_round_compat_231/red_done_round_compat_
 
 ПРЕДПОСЫЛКИ:
 - setting Git/bash/python3/jq/date/stat, jsonschema по ops/server/validators.tsv и pinned shellcheck 0.11.0; новых secrets/variables/environments/settings не требуется.
-- setting Установка двери является доступным Git-репозиторием с config/done_forms.json и config/done_forms.schema.json на HEAD; копирование одного скрипта без данных не поддерживается. Свою CI-проводку подключает orchestrator после перехода R-0162; чужие шаги не меняются.
+- setting Установка двери является доступным Git-репозиторием с config/done_forms.json и config/done_forms.schema.json на HEAD и ops/server/validators.tsv для validate_std; копирование одного скрипта без данных не поддерживается. Установщик батареи 224 создаёт эту предпосылку сам независимо от TMPDIR; набор остальных scripts/ сохраняется. Свою CI-проводку подключает orchestrator после перехода R-0162; чужие шаги не меняются.
 
 ПРОВОДКА:
 - guard=fixtures/workshop_project/done_round_compat_231/red_done_round_compat_231.sh

@@ -25,7 +25,8 @@
     "stabs/config-environment/done_contract.sh": "aa5d7df8005eb6cac67f16c6dacda8a1121b70575c5a6876d2ca74880a662665",
     "stabs/config-dirty-install/done_contract.sh": "4ea87a328491f0d2b3cce345095fb615dea86ba776e59b35e5ad61874972d969",
     "stabs/config-fail-open/done_contract.sh": "74166e6e4208c52b043686d022a8ba1c3e1e882a6640e1fc6d465f7b44f352db",
-    "stabs/config-schema-ignored/done_contract.sh": "04f2a1204a77268a2891e2b8ee01c94f2d8fb59bf006059fcb26594fa8a95800"
+    "stabs/config-schema-ignored/done_contract.sh": "04f2a1204a77268a2891e2b8ee01c94f2d8fb59bf006059fcb26594fa8a95800",
+    "stabs/scripts-only/install.py": "9701ddf2b59b39bd19e6e28a39508cc3a5fb0ce7018b869aa10ad5940c590369"
   },
   "stab_vhod": [
     {
@@ -299,6 +300,10 @@
     {
       "stab": "stabs/config-schema-ignored/done_contract.sh",
       "case": "config-control"
+    },
+    {
+      "stab": "stabs/scripts-only/install.py",
+      "case": "install224-independent"
     }
   ]
 }
