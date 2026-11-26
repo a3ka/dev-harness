@@ -1,0 +1,1 @@
+{"name":"s23-history-clean","file":"pr_window.sh","old":"  PR_COMMITS=\"$(g rev-list --reverse \"$head\" --not \"$base\")\" || pr_refuse HISTORY_UNREADABLE","new":"  PR_COMMITS=\"$(g rev-list --reverse \"$head\" --not \"$base\")\" || :","cells":["frozen-git-fault-history","charter-git-fault-history"]}

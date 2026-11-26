@@ -1,0 +1,1 @@
+{"name":"s19-hide-roadmap","file":"pr_window.sh","old":"    rm -f \"$row\"\n  done <<< \"$PR_COMMITS\"","new":"    if [ -n \"${PR_MD[$c:AGENTS.md]+set}\" ] && [ -n \"${PR_MD[$c:ROADMAP.md]+set}\" ]; then unset 'PR_MD[$c:ROADMAP.md]'; fi\n    rm -f \"$row\"\n  done <<< \"$PR_COMMITS\"","cells":["charter-two-documents-agents"]}

@@ -1,0 +1,1 @@
+{"name":"s18-verdict-accept-only","file":"pr_window.sh","old":"        pr_collect \"$dir\" \"$n\"\n","new":"        case \"$(g cat-file -p \"$PR_HEAD:$p\")\" in accept*) ;; *) continue ;; esac\n        pr_collect \"$dir\" \"$n\"\n","cells":["frozen-verdict-contracts-v3-fail","frozen-verdict-plans-v1-fail"]}

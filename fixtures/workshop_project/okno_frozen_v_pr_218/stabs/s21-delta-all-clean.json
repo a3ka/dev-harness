@@ -1,0 +1,1 @@
+{"name":"s21-delta-all-clean","file":"pr_window.sh","old":"      rm -f \"$row\"; pr_refuse DELTA_UNREADABLE\n    fi\n    while IFS= read -r -d '' p; do\n","new":"      :\n    fi\n    while IFS= read -r -d '' p; do\n","cells":["frozen-git-fault-diff-all","charter-git-fault-diff-all"]}

@@ -38,9 +38,9 @@ pr_prepare() {
 }
 
 pr_collect() {
-  local dir="$1" number="$2" row path
+  local dir="$1" number="$2" row path tree="${3:-$PR_HEAD}"
   row="$(mktemp "$ROOT/tmp/pr-scope.XXXXXX")" || pr_refuse TEMP_UNAVAILABLE
-  if ! g ls-tree -r -z --name-only "$PR_HEAD" -- "$dir/" > "$row"; then
+  if ! g ls-tree -r -z --name-only "$tree" -- "$dir/" > "$row"; then
     rm -f "$row"; pr_refuse SCOPE_UNREADABLE
   fi
   while IFS= read -r -d '' path; do
@@ -58,6 +58,10 @@ pr_files() {
       verdicts/critic/contracts-*-v*.md|verdicts/critic/plans-*-v*.md)
         n="${p#verdicts/critic/}"; dir="${n%%-*}"; n="${n#*-}"; n="${n%%-*}"
         pr_collect "$dir" "$n"
+        pr_collect "$dir" "$n" "$PR_BASE"
+        while IFS= read -r c; do
+          [ -z "$c" ] || pr_collect "$dir" "$n" "$c"
+        done <<< "$PR_COMMITS"
         ;;
     esac
   done
@@ -69,7 +73,7 @@ pr_files() {
     c="$(g rev-parse --verify "$t^{commit}")" || pr_refuse TAG_UNREADABLE
     case $'\n'"$PR_COMMITS"$'\n' in *$'\n'"$c"$'\n'*)
       n="${t#refs/tags/frozen/}"; dir="${n%%/*}"; n="${n#*/}"; n="${n%%/*}"
-      pr_collect "$dir" "$n"
+      pr_collect "$dir" "$n" "$c"
       ;;
     esac
   done <<< "$tags"
