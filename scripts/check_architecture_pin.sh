@@ -8,7 +8,14 @@
 # `architecture.lock.json` (формат 167), и станция не даёт продуктовому PR уйти
 # с неверным пином.
 #
-#   bash scripts/check_architecture_pin.sh <корень-CompliorOS-architecture> <№ архитектурного PR> <корень-Complior-back> <№ продуктового PR>
+#   bash scripts/check_architecture_pin.sh <корень-CompliorOS-architecture> <№ архитектурного PR> <корень-продукта> <№ продуктового PR>
+#
+# ПОЛИТИКА ПРОЕКТА (контракт 226): адрес продуктового PR — значение
+# `hooks.archBrief` профиля продукта (repo-only лист: ровно `owner/repo`).
+# Команда — явная операция проверки, а не skip-дверь: политика обязана быть
+# включена и грамматически корректна; её отсутствие/явный false — отказ
+# ARCH_PROFILE_REQUIRED ДО обращения к сети. PRODUCT_REPO из окружения больше
+# не источник и не override (адрес — только из профиля).
 #
 # Проверки (каждая — именованный отказ, rc 1, записи в продукт НЕТ и merge НЕТ):
 #   1. архитектурный PR в состоянии MERGED, `mergeCommit.oid` — полный SHA40;
@@ -26,7 +33,7 @@
 set -uo pipefail
 
 usage() {
-  printf 'использование: check_architecture_pin.sh <корень-CompliorOS-architecture> <№ архитектурного PR> <корень-Complior-back> <№ продуктового PR>\n' >&2
+  printf 'использование: check_architecture_pin.sh <корень-CompliorOS-architecture> <№ архитектурного PR> <корень-продукта> <№ продуктового PR>\n' >&2
   exit 2
 }
 
@@ -36,7 +43,23 @@ ARCH_PR="$2"
 PRODUCT_ROOT="$3"
 PRODUCT_PR="$4"
 ARCH_REPO="${ARCH_REPO:-a3ka/CompliorOS-architecture}"
-PRODUCT_REPO="${PRODUCT_REPO:-a3ka/Complior-back}"
+# 226: адрес продуктового PR — ИЗ ПРОФИЛЯ проекта (hooks.archBrief), не из
+# окружения: PRODUCT_REPO больше не источник и не override. Политика читается
+# тем же швом, что и дверь (check_architecture_contract.sh): неизвестный
+# профиль — отказ с причиной, отсутствие/явный false — ARCH_PROFILE_REQUIRED,
+# и всё это ДО обращения к gh.
+_PIN_SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+ARCH187_LIB=1 . "$_PIN_SELF/check_architecture_contract.sh"
+arch187_profile "$PRODUCT_ROOT" || {
+  printf '%s\n' "$ARCH187_REFUSAL" >&2
+  exit 1
+}
+[ -n "$ARCH187_PRODUCT_REPO" ] || {
+  printf 'ARCH_PROFILE_REQUIRED: hooks.archBrief\n' >&2
+  exit 1
+}
+PRODUCT_REPO="$ARCH187_PRODUCT_REPO"
 
 exec python3 - "$ARCH_ROOT" "$ARCH_PR" "$PRODUCT_ROOT" "$PRODUCT_PR" "$ARCH_REPO" "$PRODUCT_REPO" <<'PY'
 import json

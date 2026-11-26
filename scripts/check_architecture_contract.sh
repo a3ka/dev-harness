@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
 # ДВЕРЬ АРХИТЕКТУРЫ (контракт 187а) — общий шов четырёх дверей станции.
 #
-# ПРЕДМЕТ: кодовые задачи проекта `repoId=Complior-back` в профильных
-# workflowPaths.contracts. Только они получают требования 187а: харнесс, mob,
-# документальные задачи и контракты модулей репозитория архитектуры нового
-# отказа не получают. Отсутствие локальной `architecture/` после 167 НЕ
-# переводит backend в legacy — переносит только ИСТОЧНИК брифа.
+# ПРЕДМЕТ: кодовые задачи проекта с включённой профильной политикой
+# архитектурной двери, в профильных workflowPaths.contracts. Только они получают
+# требования 187а: харнесс, mob, документальные задачи и контракты модулей
+# репозитория архитектуры нового отказа не получают. Отсутствие локальной
+# `architecture/` после 167 НЕ переводит проект в legacy — переносит только
+# ИСТОЧНИК брифа.
 #
 # ПРИЗНАК РЕЖИМА (две проверки, обе обязательны):
-#   (1) эффективный repoId == Complior-back (repoId всегда origin repo —
-#       scripts/profile_resolver.sh §merge; слой проекта его не перекрывает);
+#   (1) профильная политика `hooks.archBrief` репо-слоя harness.project.json —
+#       ровно JSON false (дверь выключена) либо строка `owner/repo` (дверь
+#       включена; эта строка — адрес продуктового PR, единственный источник).
+#       Ключа в корректном профиле нет — тот же выключенный случай (проверенное
+#       отсутствие); НЕИЗВЕСТНЫЙ профиль (нет файла при заведённом пине, битый
+#       профиль, недоступный или битый объявленный слой, известный лист в
+#       defaults слоя) — ОТКАЗ с названной причиной, а НЕ «выключено» (226);
 #   (2) наличие `architecture.lock.json` — пин модели. Это ТОЧКА ПЕРЕКЛЮЧЕНИЯ:
 #       до неё бриф компонента читается из локальной `R/architecture/` (контракт
 #       170), после — из закреплённого коммита. Пока пина нет, проект не в
@@ -114,15 +120,54 @@
 # модели: раскладка 2.5.x, как его читают run-arch.js и verify-pin.js.
 ARCH187_SNAPSHOT="governance/baseline/approved.json"
 
+# arch187_profile <repo> — политика архитектурной двери из профиля репо.
+# Возвраты: 0 — профиль прочитан (политика включена или выключена), 2 —
+# профиль НЕИЗВЕСТЕН: файла профиля нет при заведённом пине, профиль повреждён,
+# объявленный слой недоступен или повреждён. Неизвестность НЕ означает
+# «выключено»: отказ с названной причиной (ARCH187_REFUSAL), а не тихий пропуск.
+# ARCH187_PRODUCT_REPO — адрес продуктового PR из профиля (пусто — выключено).
+arch187_profile() {
+  ARCH187_PRODUCT_REPO=""
+  ARCH187_REFUSAL=""
+  local repo="${1:-}" self value
+  if [ ! -f "$repo/harness.project.json" ]; then
+    # Файла профиля нет, а пин модели заведён — fail-closed: ключ не
+    # «отсутствует», его нечем прочитать. Без пина — прежняя неприменимость.
+    if [ -f "$repo/architecture.lock.json" ]; then
+      ARCH187_REFUSAL="ARCH_PROFILE_MISSING: harness.project.json"
+      return 2
+    fi
+    return 0
+  fi
+  self="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  # Резолвер ПЕРЕД чтением листа: библиотечный profile_get на битом JSON отдаёт
+  # умолчание, а умолчание здесь означало бы «выключено» (прецедент 193
+  # BUDZHET-KONFIG: чтению profile_get предшествует успешный полный resolver).
+  if ! HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$repo}" \
+      bash "$self/profile_resolver.sh" --repo "$repo" >/dev/null; then
+    ARCH187_REFUSAL="ARCH_PROFILE: профиль проекта не прошёл resolver"
+    return 2
+  fi
+  # shellcheck disable=SC1091
+  PROFILE_RESOLVER_LIB=1 . "$self/profile_resolver.sh"
+  value="$(profile_get "$repo" hooks.archBrief false)"
+  if [ "$value" = false ]; then
+    return 0
+  fi
+  ARCH187_PRODUCT_REPO="$value"
+  return 0
+}
+
 # arch187_scope <repo> — режим 187а применим к проекту <repo>?
-# 0 — применим, 1 — не применим (проект не backend, пин не заведён, профиля нет).
+# 0 — применим, 1 — не применим (политика выключена, пин не заведён, профиля нет),
+# 2 — профиль неизвестен (см. arch187_profile). Потребитель обязан отличать
+# ошибку профиля (2) от честной неприменимости (1): ошибка — отказ с причиной.
 arch187_scope() {
   ARCH187_SCOPE=0
-  local repo="${1:-}" rid=""
+  local repo="${1:-}"
   [ -n "$repo" ] && [ -d "$repo" ] || return 1
-  [ -f "$repo/harness.project.json" ] || return 1
-  rid="$(jq -r '.repoId // empty' "$repo/harness.project.json" 2>/dev/null || true)"
-  [ "$rid" = "Complior-back" ] || return 1
+  arch187_profile "$repo" || return 2
+  [ -n "$ARCH187_PRODUCT_REPO" ] || return 1
   [ -f "$repo/architecture.lock.json" ] || return 1
   ARCH187_SCOPE=1
   return 0
@@ -1023,13 +1068,21 @@ repo="$(cd "$repo" 2>/dev/null && pwd -P)" || {
 # Профиль проекта читается jq; без него режим не определить — «нечем проверить»
 # (fail-closed), а не «не применимо».
 if [ -f "$repo/harness.project.json" ] && ! command -v jq >/dev/null 2>&1; then
-  printf 'ARCH_PIN: jq недоступен — эффективный repoId проекта не прочитан\n' >&2
+  printf 'ARCH_PIN: jq недоступен — политика профиля проекта не прочитана\n' >&2
   exit 2
 fi
 
 # Не применимо — не отказ: харнесс, mob и документальные предметы нового
-# отказа не получают.
-if ! arch187_scope "$repo"; then
+# отказа не получают. Ошибка профиля — ОТКАЗ с названной причиной: неизвестный
+# профиль не вправе выглядеть как «выключено» (226). Строка ARCH_187A_SKIP —
+# прежняя формулировка, зафиксированная батареей 187.
+_scope_rc=0
+arch187_scope "$repo" || _scope_rc=$?
+if [ "$_scope_rc" -gt 1 ]; then
+  printf '%s\n' "$ARCH187_REFUSAL" >&2
+  exit 1
+fi
+if [ "$_scope_rc" = 1 ]; then
   printf 'ARCH_187A_SKIP: проект не в режиме 187а (repoId/пин модели)\n'
   exit 0
 fi
