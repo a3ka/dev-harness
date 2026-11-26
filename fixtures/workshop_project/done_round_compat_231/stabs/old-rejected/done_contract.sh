@@ -125,7 +125,7 @@ _json_one_object() {
 _select_round_verdict() {
   local carriers="$1" role="$2"
   local f name text cid cid_rc anc_rc key
-  local version number declared call denominator phase_version explicit legacy plain
+  local version number declared call denominator phase_version explicit legacy plain pattern vg ng default mode reject
   local day name_day field kind token rest
   local count=0 best=0 seen=' ' dated='' prior_key prior_day
 
@@ -142,25 +142,27 @@ _select_round_verdict() {
     version='' number=0 declared='' explicit=0 legacy=0 plain=0
 
     # ── координата круга из имени носителя ───────────────────────────────
-    if [[ "$name" =~ -impl-v([1-9][0-9]*)-vyzov([1-9][0-9]*)\.md$ ]]; then
-      # Явная пара «поколение-вызов» — разбирается ПЕРЕД общей формой.
-      version="${BASH_REMATCH[1]}" number="${BASH_REMATCH[2]}"
-      declared="$number" explicit=1
-    elif [[ "$name" == *-impl-v*-vyzov*.md ]]; then
-      # Префикс -impl-v…-vyzov… зарезервирован: неконформный вызов — не «произвольный S».
-      die "done: VERDICT_ROUND_INVALID: $role: $f"
-    elif [[ "$name" =~ -v([1-9][0-9]*)(-[A-Za-z0-9._-]+)?\.md$ ]]; then
-      version="${BASH_REMATCH[1]}" declared="$version" plain=1
-    elif [[ "$name" =~ -impl-a([1-9][0-9]*)\.md$ ]]; then
-      version="${BASH_REMATCH[1]}" declared="$version"
-    elif [[ "$name" =~ -(v|impl-v|impl-a)[0-9] ]]; then
-      # Неканоничный номер (ведущий ноль и т.п.).
-      die "done: VERDICT_ROUND_INVALID: $role: $f"
-    elif [ "$count" -eq 1 ]; then
-      # Единственный носитель без номера — тривиально свежий.
-      version=1
-    else
-      die "done: VERDICT_ROUND_MISSING: $role: $f"
+    while IFS=$'\t' read -r pattern vg ng default mode reject; do
+      if [[ "$name" =~ $pattern ]]; then
+        version="$default"
+        if [ "$vg" -ne 0 ]; then version="${BASH_REMATCH[$vg]-}"; fi
+        if [ "$ng" -ne 0 ]; then number="${BASH_REMATCH[$ng]-}"; fi
+        declared="$version"
+        case "$mode" in
+          explicit) explicit=1 declared="$number" ;;
+          plain) plain=1 ;;
+          legacy) legacy=1 ;;
+        esac
+        break
+      elif [ "$reject" != '-' ] && [[ "$name" =~ $reject ]]; then
+        die "done: VERDICT_ROUND_INVALID: $role: $f"
+      fi
+    done <<< "$_forms_rows"
+    if [ -z "$version" ]; then
+      while IFS= read -r pattern; do
+        if [[ "$name" =~ $pattern ]]; then die "done: VERDICT_ROUND_INVALID: $role: $f"; fi
+      done <<< "$_forms_reserved"
+      if [ "$count" -eq 1 ]; then version=1; else die "done: VERDICT_ROUND_MISSING: $role: $f"; fi
     fi
     [ "${#version}" -le 9 ] && [ "${#number}" -le 9 ] \
       || die "done: VERDICT_ROUND_INVALID: $role: $f"
@@ -221,11 +223,10 @@ _select_round_verdict() {
     done <<< "$text"
 
     # ── сверка объявлений с именем носителя ──────────────────────────────
-    # 231: a plain v carrier does not assert the call number.
     if [ "$legacy" -eq 1 ] && [ -n "$call" ] && [ "$call" != "$declared" ]; then
       die "done: VERDICT_ROUND_CONFLICT: $role: $f"
     fi
-    if [ "$plain" -eq 1 ] && [ -n "$call" ]; then
+    if [ "$plain" -eq 1 ] && [ "$_forms_plain" = true ] && [ -n "$call" ]; then
       declared=''
       if [ -z "$phase_version" ]; then version="$call"; fi
     fi
@@ -294,6 +295,21 @@ _select_round_verdict() {
     fi
   done <<< "$carriers"
 }
+
+# 231: installation HEAD is authoritative, never author cwd/index/environment.
+_forms_root="$(git -C "$SELF_DIR" rev-parse --show-toplevel 2>/dev/null)" || die "done: DONE_FORMS_CONFIG"
+_new_done_tmp || die "done: DONE_FORMS_CONFIG"
+_forms_file="$_DONE_TMP_LAST"
+_new_done_tmp || die "done: DONE_FORMS_CONFIG"
+_forms_schema="$_DONE_TMP_LAST"
+git -C "$_forms_root" show HEAD:config/done_forms.json > "$_forms_file" 2>/dev/null || die "done: DONE_FORMS_CONFIG"
+git -C "$_forms_root" show HEAD:config/done_forms.schema.json > "$_forms_schema" 2>/dev/null || die "done: DONE_FORMS_CONFIG"
+VALIDATE_STD_PINS="$_forms_root/ops/server/validators.tsv" bash "$SELF_DIR/validate_std.sh" json "$_forms_schema" "$_forms_file" >/dev/null 2>&1 || die "done: DONE_FORMS_CONFIG"
+_forms_rows="$(jq -r '.verdicts[:3][] | [.pattern, .version_group, .number_group, .default_version, .mode, (.reject_on_miss // "-")] | map(tostring) | join("\t")' "$_forms_file")" || die "done: DONE_FORMS_CONFIG"
+_forms_reserved="$(jq -r '.reserved[]' "$_forms_file")" || die "done: DONE_FORMS_CONFIG"
+_forms_station="$(jq -r '.station_lines[]' "$_forms_file")" || die "done: DONE_FORMS_CONFIG"
+_forms_external="$(jq -r '.external_pattern' "$_forms_file")" || die "done: DONE_FORMS_CONFIG"
+_forms_plain="$(jq -r '.plain_call_from_record' "$_forms_file")" || die "done: DONE_FORMS_CONFIG"
 
 TARGET="${1:?использование: $0 <contracts/NNN-*.md> \"<причина>\" [корень]}"
 REASON="${2-}"  # пустая причина допустима — проверяется ниже отдельной веткой
@@ -787,10 +803,14 @@ else
     die "done: строка ПРОДУКТ: неоднозначна: $_pvals"
   elif [ "${#plines[@]}" -eq 1 ]; then
     _pdecl="${plines[0]}"
-    if [ "$_pdecl" = "ПРОДУКТ: станция" ] || [ "$_pdecl" = "ПРОДУКТ: станция." ]; then
+    _station=0
+    while IFS= read -r _literal; do
+      if [ "$_pdecl" = "$_literal" ]; then _station=1; fi
+    done <<< "$_forms_station"
+    if [ "$_station" -eq 1 ]; then
       place="станция"
-    elif printf '%s' "$_pdecl" | grep -Eq '^ПРОДУКТ: [A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'; then
-      place="$(printf '%s' "$_pdecl" | sed -nE 's/^ПРОДУКТ: ([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)$/\1/p')"
+    elif [[ "$_pdecl" =~ $_forms_external ]]; then
+      place="${BASH_REMATCH[1]}"
     else
       die "done: строка ПРОДУКТ: вне грамматики: $_pdecl"
     fi
