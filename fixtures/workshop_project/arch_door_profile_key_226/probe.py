@@ -66,7 +66,7 @@ CASES = {
  'bad-done': ('done', None, 'toy', 1, b'hooks.archBrief'),
  'resolver-known': ('resolver', 'Other/Product', 'toy', 0, b''),
  'unknown-sibling': ('unknown', 'Other/Product', 'toy', 0, b''),
- 'layer-cannot-enable': ('layer', MISSING, 'toy', 0, b'=== make_task contract=777 role=architect kind=task ==='),
+ 'layer-cannot-enable': ('layer', MISSING, 'toy', 1, b'ARCH_PROFILE_LAYER'),
  'pin-other': ('pin', 'Elsewhere/Project', 'other', 0, 'ПИН ВЕРЕН'.encode()),
  'pin-case': ('pin', 'OwNer/RePo.Name_7-x', 'other', 0, 'ПИН ВЕРЕН'.encode()),
  'pin-backend': ('pin', 'a3ka/Complior-back', 'Complior-back', 0, 'ПИН ВЕРЕН'.encode()),
@@ -76,6 +76,17 @@ CASES = {
  'pin-invalid': ('pin', None, 'other', 1, b'hooks.archBrief'),
  'literal-free': ('static', MISSING, '', 0, b''),
  'key-toggle': ('toggle', 'Elsewhere/Project', 'other', 0, b''),
+ 'missing-profile-door': ('missing-profile-door', MISSING, 'toy', 1, b'ARCH_PROFILE_MISSING'),
+ 'missing-profile-no-lock': ('missing-profile-no-lock', MISSING, 'toy', 0, 'ARCH_187A_SKIP: проект не в режиме 187а (repoId/пин модели)'.encode()),
+ 'missing-layer-door': ('missing-layer-door', MISSING, 'toy', 1, b'ARCH_PROFILE'),
+ 'malformed-profile-door': ('malformed-profile-door', MISSING, 'toy', 1, b'ARCH_PROFILE'),
+ 'malformed-layer-door': ('malformed-layer-door', MISSING, 'toy', 1, b'ARCH_PROFILE'),
+ 'layer-conflict': ('layer-conflict', False, 'toy', 1, b'ARCH_PROFILE_LAYER'),
+ 'layer-false': ('layer-false', MISSING, 'toy', 1, b'ARCH_PROFILE_LAYER'),
+ 'layer-door': ('layer-door', MISSING, 'toy', 1, b'ARCH_PROFILE_LAYER'),
+ 'layer-freeze': ('layer-freeze', MISSING, 'toy', 1, b'ARCH_PROFILE_LAYER'),
+ 'layer-done': ('layer-done', MISSING, 'toy', 1, b'ARCH_PROFILE_LAYER'),
+ 'unknown-layer-sibling': ('unknown-layer-sibling', MISSING, 'toy', 0, b''),
 }
 
 
@@ -182,11 +193,28 @@ def run_cell(base, tools, cell):
         data = json.loads(layer.read_text())
         data['defaults']['hooks'] = {'archBrief': 'Other/Product'}
         layer.write_text(json.dumps(data))
+    if kind.startswith('layer-') or kind == 'unknown-layer-sibling':
+        layer = product / '.harness/project-layer.json'
+        data = json.loads(layer.read_text())
+        data['defaults']['hooks'] = (
+            {'futureHook': 'keep-M0'} if kind == 'unknown-layer-sibling'
+            else {'archBrief': False if kind == 'layer-false' else 'Other/Product'})
+        layer.write_text(json.dumps(data))
     old.put(product, 'harness.project.json', json.dumps(profile))
     if kind == 'json':
         old.put(product, 'harness.project.json', '{broken')
     if kind == 'no-pin':
         (product / 'architecture.lock.json').unlink()
+    if kind.startswith('missing-profile'):
+        (product / 'harness.project.json').unlink()
+        if kind == 'missing-profile-no-lock':
+            (product / 'architecture.lock.json').unlink()
+    if kind == 'malformed-profile-door':
+        old.put(product, 'harness.project.json', '{broken')
+    if kind == 'missing-layer-door':
+        (product / '.harness/project-layer.json').unlink()
+    if kind == 'malformed-layer-door':
+        old.put(product, '.harness/project-layer.json', '{broken')
     if kind == 'document':
         path = product / old.CONTRACT
         path.write_text(path.read_text().replace('КЛАСС ЗАДАЧИ: кодовый.', 'КЛАСС ЗАДАЧИ: документальный.'))
@@ -197,11 +225,19 @@ def run_cell(base, tools, cell):
     script = tools / 'scripts'
     if kind in ('resolver', 'hooks', 'unknown'):
         argv = ['bash', script / 'profile_resolver.sh', '--repo', product]
+    elif kind == 'unknown-layer-sibling':
+        argv = ['bash', script / 'profile_resolver.sh', '--repo', product]
     elif kind == 'door':
+        argv = ['bash', script / 'check_architecture_contract.sh', '--repo', product, old.CONTRACT]
+    elif kind.endswith('-door') or kind == 'missing-profile-no-lock':
         argv = ['bash', script / 'check_architecture_contract.sh', '--repo', product, old.CONTRACT]
     elif kind == 'freeze':
         argv = ['bash', script / 'freeze_contract.sh', old.CONTRACT, '226 toy', product, old.critic_state(product)]
+    elif kind == 'layer-freeze':
+        argv = ['bash', script / 'freeze_contract.sh', old.CONTRACT, '226 toy', product, old.critic_state(product)]
     elif kind == 'done':
+        argv = ['bash', script / 'done_contract.sh', old.CONTRACT, product]
+    elif kind == 'layer-done':
         argv = ['bash', script / 'done_contract.sh', old.CONTRACT, product]
     else:
         argv = ['bash', script / 'make_task.sh', '--repo', product, '--role', 'architect',
