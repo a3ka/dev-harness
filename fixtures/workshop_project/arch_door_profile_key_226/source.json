@@ -36,7 +36,13 @@
     "stabs/st17-array-allowed/scripts/profile_resolver.sh": "0cff4376f600b0d61bbe515ca117e0dd823bc92f58b69da5d9336d90ec8100ef",
     "stabs/st18-missing-profile-off/scripts/check_architecture_contract.sh": "edd594eaf7bf133d09fc10a219407b4579cd839725cc8f18b09ecd7952c3fb8c",
     "stabs/st19-wrong-layer-off/scripts/profile_resolver.sh": "07cc3e4605a0757f31ab765a5256f4d453d5d9e75a44630d7a550734bc9fa0c9",
-    "stabs/st20-corrupt-profile-off/scripts/check_architecture_contract.sh": "d607239e928d6ffbc1a132f121c7e6b0cc1de9a4a7e744fe440870f5c9172915"
+    "stabs/st20-corrupt-profile-off/scripts/check_architecture_contract.sh": "d607239e928d6ffbc1a132f121c7e6b0cc1de9a4a7e744fe440870f5c9172915",
+    "stabs/st21-trailing-space/scripts/profile_resolver.sh": "b6270a073efed458b7ba98ddd57d8b225d742acc396687859c67b8dc14f3e49f",
+    "stabs/st22-owner-initial-underscore/scripts/profile_resolver.sh": "2b92a69f4eab179b223c0db2a295a6d2cd25394fcbf9fa43f3f74116d7071a0b",
+    "stabs/st23-repo-initial-underscore/scripts/profile_resolver.sh": "2091f2ed874c4ff9e19ebc83d93cec240548b10b8e17b5af74dc69d9441403a9",
+    "stabs/st24-repo-initial-hyphen/scripts/profile_resolver.sh": "9efeecfe5e1902bc3d4a02cc5f16e423c03349cef0b430dca55b7d0b3379b615",
+    "stabs/st25-final-lf/scripts/profile_resolver.sh": "00c34bdc752a98dcec807f2bc095026afe23d953b0156fc892a6dc96be5cd1b9",
+    "stabs/st26-internal-space/scripts/profile_resolver.sh": "549cd27c7cff9bec9fb97637b34347cbfb4da48bb780d1b0e33aecdad06dad54"
   },
   "bindings": {
     "st01-ignore-key": {
@@ -152,6 +158,43 @@
         "malformed-profile-door",
         "missing-layer-door",
         "malformed-layer-door"
+      ]
+    },
+    "st21-trailing-space": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "bad-trailing-space"
+      ]
+    },
+    "st22-owner-initial-underscore": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "bad-owner-underscore"
+      ]
+    },
+    "st23-repo-initial-underscore": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "bad-repo-underscore"
+      ]
+    },
+    "st24-repo-initial-hyphen": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "bad-repo-hyphen"
+      ]
+    },
+    "st25-final-lf": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "bad-trailing-lf"
+      ]
+    },
+    "st26-internal-space": {
+      "path": "scripts/profile_resolver.sh",
+      "cells": [
+        "bad-owner-internal-space",
+        "bad-repo-internal-space"
       ]
     }
   }
