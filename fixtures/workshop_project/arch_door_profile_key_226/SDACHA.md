@@ -19,8 +19,8 @@ Frontier сохранён: отсутствие ЛИСТА в корректно
 - Catalog · bash fixtures/workshop_project/arch_door_profile_key_226/red_arch_door_profile_key_226.sh --catalog · 0 · 0
 - Regression · bash fixtures/workshop_project/arch_door_profile_key_226/red_arch_door_profile_key_226.sh --regression · 0 · 0
 - Context · fixtures/workshop_project/arch_door_profile_key_226/context.py · 0 · 0
-- Context-stability · python3 -B fixtures/workshop_project/arch_door_profile_key_226/repair_checks.py --context · 0 · 0
-- Grid-status · python3 -B fixtures/workshop_project/arch_door_profile_key_226/repair_checks.py --status · 0 · 0
+- Context-stability · fixtures/workshop_project/arch_door_profile_key_226/repair_checks.py --context · 0 · 0
+- Grid-status · fixtures/workshop_project/arch_door_profile_key_226/repair_checks.py --status · 0 · 0
 - Precision · bash scripts/check_precision_gate.sh . contracts/226-arch-door-profile-key.md · 0 · 0
 - Spec-ready · bash scripts/check_spec_ready.sh . contracts/226-arch-door-profile-key.md · 0 · 0
 - Threat-model · bash scripts/check_threat_model.sh . contracts/226-arch-door-profile-key.md · 0 · 0
@@ -64,8 +64,8 @@ Frontier сохранён: отсутствие ЛИСТА в корректно
 - К-09 · канон/инструмент · bash fixtures/workshop_project/arch_door_profile_key_226/red_arch_door_profile_key_226.sh --repo . · 0 · 0
 - К-10 · клетка · bash fixtures/workshop_project/arch_door_profile_key_226/red_arch_door_profile_key_226.sh --model --cell public-control-cr · 0 · 0
 - К-16 · клетка · bash fixtures/workshop_project/arch_door_profile_key_226/red_arch_door_profile_key_226.sh --model --cell public-duplicate-hooks-last-cr · 0 · 0
-- К-04 · клетка · python3 -B fixtures/workshop_project/arch_door_profile_key_226/repair_checks.py --context · 0 · 0
-- К-06 · клетка · python3 -B fixtures/workshop_project/arch_door_profile_key_226/repair_checks.py --status · 0 · 0
+- К-04 · клетка · fixtures/workshop_project/arch_door_profile_key_226/repair_checks.py --context · 0 · 0
+- К-06 · клетка · fixtures/workshop_project/arch_door_profile_key_226/repair_checks.py --status · 0 · 0
 
 ## Закрытие Б-1 по классу
 
