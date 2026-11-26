@@ -10,11 +10,15 @@
 
 ## Адресная дельта frozen
 
-- contracts/224-svezhest-verdikta-done.md:45–48: формы и сверка вызова делегированы конфигу 231. Явный vyzov-конфликт, неканоничный СУД и DUPLICATE сохранены. Отдельный коммит 2caf6a0f7; orchestrator переоформляет слово владельца.
-- contracts/201-done-dver-soderzhatelnaja-sverka.md:54: литерал без хвоста заменён допустимыми формами того же конфига. Отдельный коммит f0cf83f38; orchestrator переоформляет слово владельца.
-- review-conflict: было rc 1 VERDICT_ROUND_CONFLICT → стало rc 1 VERDICT_ROUND_DUPLICATE (ключ 3000000000).
-- adversary-conflict: было rc 1 VERDICT_ROUND_CONFLICT → стало rc 1 VERDICT_ROUND_DUPLICATE (ключ 3000000000).
-- Две клетки меняются одной общей записью markers['conflict'] в probe.py 224, отдельный коммит 65ad4cd35. Все прочие клетки 224/201 неизменны. Явный -vyzovN + несовпадающий СУД остаётся CONFLICT (historic186-bad-call-name, собственные explicit-conflict обеих ролей).
+contracts/224-svezhest-verdikta-done.md:45–48: формы и сверка вызова делегированы конфигу 231. Явный vyzov-конфликт, неканоничный СУД и DUPLICATE сохранены. Отдельный коммит 2caf6a0f7; orchestrator переоформляет слово владельца.
+
+contracts/201-done-dver-soderzhatelnaja-sverka.md:54: литерал без хвоста заменён допустимыми формами того же конфига. Отдельный коммит f0cf83f38; orchestrator переоформляет слово владельца.
+
+review-conflict: было rc 1 VERDICT_ROUND_CONFLICT → стало rc 1 VERDICT_ROUND_DUPLICATE (ключ 3000000000).
+
+adversary-conflict: было rc 1 VERDICT_ROUND_CONFLICT → стало rc 1 VERDICT_ROUND_DUPLICATE (ключ 3000000000).
+
+Две клетки меняются одной общей записью markers['conflict'] в probe.py 224, отдельный коммит 65ad4cd35. Все прочие клетки 224/201 неизменны. Явный -vyzovN + несовпадающий СУД остаётся CONFLICT (historic186-bad-call-name, собственные explicit-conflict обеих ролей).
 
 ## Конструкция и различимость
 
@@ -26,13 +30,28 @@
 
 ## Измерения
 
+Чистый origin-клон tmp/verify231-origin, кандидат 4a77f317cf2a47ba80b502a02eba052b81a0314a. Команда `python3 -B fixtures/workshop_project/done_round_compat_231/acceptance.py` последовательно исполнила все назначенные прогоны. Сырые stdout/stderr и results.json — tmp/acceptance231/ внутри клона.
+
 | Команда | rc | Сырой итог |
 |---|---|---|
-| B --model | 0 | KLETKI 95 KRASNYH 0 |
-| B --sintaksis | 0 | SINTAKSIS 25 SHELLCHECK 2 |
+| B --model | 0 | KLETKI 97 KRASNYH 0 |
+| B --stabs | 0 | STABY 24 SVJAZI 68 ZHIVYH 0, CONTROL 97 зелёных |
+| B --sintaksis | 0 | SINTAKSIS 26 SHELLCHECK 2 |
+| B --catalog | 0 | KLETKI 97 STABY 24 SVJAZI 68 |
+| B --repo . | 1 | KLETKI 97 KRASNYH 56, намеренная краснота до реализации |
+| B --regression224 | 0 | KLETKI 100 KRASNYH 0; REGRESSION224_RAW_RC 0 |
 | context.py | 0 | ДЕКЛАРАЦИИ 84 |
+| validate_std json | 0 | конфиг соответствует схеме |
+| pre_critic, первичный | 1 | неверные markdown-списки в немашинном разделе SDACHA |
+| check_sdacha --run, первичный | 1 | та же строка 13; исправлена форма листа, не критерий |
+| check_precision_gate | 0 | OK |
+| check_spec_ready | 0 | OK |
+| 224 --repo . (production) | 1 | KLETKI 100 KRASNYH 2, ровно review-conflict/adversary-conflict |
+| 201 --repo . (production) | 0 | CELLS=62 STABS=0 FAILURES=0 |
 
-B = bash fixtures/workshop_project/done_round_compat_231/red_done_round_compat_231.sh. Полный итог последовательного прогона на origin-клоне прилагается после исполнения в разделе результатов. Числа каталога проверяются независимо AST/файлами/TSV, не повтором carriers().
+B = bash fixtures/workshop_project/done_round_compat_231/red_done_round_compat_231.sh. Census до→после: клетки 78→97, стабы 14→24, связи 47→68. Прежние клетки/связи не удалены. Независимая мера — AST словарей/добавлений, фактические файлы стабов и строки TSV; probe.py — только добавления к b0ef65a93.
+
+Список 56 намеренных красных: для КАЖДОЙ роли review/adversary — back181, back179, mobile218, krug, bare-duplicate, old-conflict-low, old-conflict-high, numeric-fail, numeric-accept, three-digits, ten-digits, old-zero, old-leading-zero, old-empty, krug-zero, krug-leading-zero, plain-call-high, plain-call-low, plain-v, plain-order, same-call, live227, config-name-added, config-name-removed; дополнительно product-live215, product-config-added, config-broken, config-empty, config-missing, config-schema, config-version, config-control.
 
 ## Двери
 
