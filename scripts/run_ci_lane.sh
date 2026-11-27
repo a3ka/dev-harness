@@ -64,10 +64,11 @@ for k in "$@"; do
   t0="$(date +%s)"
   # GITHUB_EVENT_NAME у self-test'ов СНИМАЕТСЯ (решение консультанта m2541 п.3,
   # вариант (б)). Джоба pull_request экспортирует GITHUB_EVENT_NAME=pull_request
-  # в окружение ВСЕХ шагов lane, а замороженное И1 218 включает по этой
-  # переменной режим окна PR (scripts/check_charter.sh ~:1055,
-  # scripts/check_contract_frozen.sh ~:64): миру нужна база origin/main,
-  # которой в мирах батарей НЕТ — зелёные на push шаги краснеют
+  # в окружение ВСЕХ шагов lane, а замороженное И1 218
+  # (contracts/218-okno-frozen-v-pr.md) включает по этой переменной режим
+  # окна PR: его включают проверки check_charter/check_contract_frozen по
+  # переменной окружения GITHUB_EVENT_NAME=pull_request; миру нужна база
+  # origin/main, которой в мирах батарей НЕТ — зелёные на push шаги краснеют
   # PR_WINDOW_BASE_MISSING (PR #1442, run 45772933886: l6
   # check:charter-tekst-do-tega-210-family-selftest, l7
   # check:incr-pustoe-okno-217-family-selftest, l4 check:document, l2
