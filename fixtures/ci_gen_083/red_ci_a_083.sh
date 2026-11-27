@@ -197,16 +197,18 @@ bad() { fails=$((fails+1)); printf '  FAIL %s\n' "$*" >&2; }
 # Г11: наблюдаем событие ВНУТРИ команд реального lane-раннера субъекта.
 # Оракул — литеральные значения в памяти ДО вызова; toy-команды не содержат
 # имён классов в поле команды, поэтому подмена key→command различима.
-# Три снимающих класса и четыре сохраняющих ключа (включая оба настоящих
-# уставных имени и два похожих) исполняются ОДНИМ lane. Отдельный запуск без
-# события — позитивный контроль; exit 127 проверяет оба плеча fail-fast.
-# Н-39: точные профили красных подклеток шести мутантов заданы КОДОМ раннера
-# fixtures/_krasnye_083.sh; остальных красных у мутанта быть не должно.
+# Три снимающих класса и пять сохраняющих ключей (включая оба настоящих
+# уставных имени и doc-соседа) исполняются ОДНИМ lane; семейный класс наблюдаем
+# на двух разных основах имени. Запуск без события — позитивный контроль;
+# exit 127 проверяет оба плеча fail-fast. Н-39: точные профили восьми мутантов
+# заданы КОДОМ fixtures/_krasnye_083.sh; прочих красных быть не должно.
 lane_env11() {
   local d="$SCRATCH/lane11" key want got out rc mode i failkey
   local -a keys=(probe-family-selftest check:document drill:contract-change
-    check:charter check:contract-frozen check:foo-selftest drill:other)
-  local -a pr=(unset unset unset pull_request pull_request pull_request pull_request)
+    check:charter check:contract-frozen check:foo-selftest drill:other
+    check:documentation other-family-selftest)
+  local -a pr=(unset unset unset pull_request pull_request pull_request pull_request
+    pull_request unset)
   if [ ! -f "$ROOT/scripts/run_ci_lane.sh" ]; then
     bad "Г11 — предмет отсутствует: нет lane-исполнителя"
     return
