@@ -209,7 +209,128 @@ MUTATIONS = {
                              '    return 2\n  fi\n  # shellcheck disable=SC1091',
                              '    return 0\n  fi\n  # shellcheck disable=SC1091',
                              ['malformed-profile-door', 'missing-layer-door', 'malformed-layer-door']),
+ # The same jq branch as production profile_resolver.sh:960-963. The first
+ # two replacements reproduce Adv226 Б-2 verbatim; each link observes only
+ # the changed side of the grammar, not a combined invalid input.
+ 'st21-trailing-space': ('scripts/profile_resolver.sh',
+                       r'[A-Za-z0-9_.-]*\\z', r'[A-Za-z0-9_.-]* ?\\z',
+                       ['bad-trailing-space']),
+ 'st22-owner-initial-underscore': ('scripts/profile_resolver.sh',
+                                 '^[A-Za-z0-9]', '^[A-Za-z0-9_]',
+                                 ['bad-owner-underscore']),
+ 'st23-repo-initial-underscore': ('scripts/profile_resolver.sh',
+                                '/[A-Za-z0-9]', '/[A-Za-z0-9_]',
+                                ['bad-repo-underscore']),
+ 'st24-repo-initial-hyphen': ('scripts/profile_resolver.sh',
+                            '/[A-Za-z0-9]', '/[A-Za-z0-9-]',
+                            ['bad-repo-hyphen']),
+ 'st25-final-lf': ('scripts/profile_resolver.sh',
+                  r'\\z', '$', ['bad-trailing-lf']),
+ 'st26-internal-space': ('scripts/profile_resolver.sh',
+                        '[A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*',
+                        '[A-Za-z0-9_. -]*/[A-Za-z0-9][A-Za-z0-9_. -]*',
+                        ['bad-owner-internal-space', 'bad-repo-internal-space']),
 }
+
+
+# Arb226: mutations of the actual jq operations, with single-axis witnesses.
+MUTATIONS.update({
+ 'st27-false-case-adv226b': ('scripts/profile_resolver.sh',
+     'if . == false then true',
+     'if . == false or . == "FALSE" or . == "False" then true',
+     ['grid-false-case-31', 'grid-false-case-01']),
+ 'st28-boolean-type': ('scripts/profile_resolver.sh',
+     'if . == false then true', 'if type == "boolean" then true', ['grid-type-true']),
+ 'st29-number-false': ('scripts/profile_resolver.sh',
+     'if . == false then true', 'if . == false or type == "number" then true',
+     ['grid-type-zero']),
+ 'st30-trim': ('scripts/profile_resolver.sh',
+     '.hooks.archBrief | if . == false',
+     r'.hooks.archBrief | if type == "string" then gsub("^\\s+|\\s+$"; "") else . end | if . == false',
+     ['grid-boundary-before-sp', 'grid-boundary-after-sp']),
+ 'st31-owner-initial-dot': ('scripts/profile_resolver.sh',
+     '^[A-Za-z0-9]', '^[A-Za-z0-9.]', ['grid-ascii-owner-first-046']),
+ 'st32-owner-initial-hyphen': ('scripts/profile_resolver.sh',
+     '^[A-Za-z0-9]', '^[A-Za-z0-9-]', ['grid-ascii-owner-first-045']),
+ 'st33-repo-initial-dot': ('scripts/profile_resolver.sh',
+     '/[A-Za-z0-9]', '/[A-Za-z0-9.]', ['grid-ascii-repo-first-046']),
+ 'st34-owner-inner-slash': ('scripts/profile_resolver.sh',
+     '[A-Za-z0-9_.-]*/', '[A-Za-z0-9_./-]*/', ['grid-ascii-owner-middle-047']),
+ 'st35-repo-inner-slash': ('scripts/profile_resolver.sh',
+     r'[A-Za-z0-9_.-]*\\z', r'[A-Za-z0-9_./-]*\\z', ['grid-ascii-repo-middle-047']),
+ 'st36-owner-empty': ('scripts/profile_resolver.sh',
+     '^[A-Za-z0-9]', '^[A-Za-z0-9]?', ['grid-separator-02']),
+ 'st37-repo-empty': ('scripts/profile_resolver.sh',
+     '/[A-Za-z0-9]', '/[A-Za-z0-9]?', ['grid-separator-03']),
+ 'st38-unicode-owner-first': ('scripts/profile_resolver.sh',
+     '^[A-Za-z0-9]', r'^[\\p{L}\\d]', ['grid-unicode-owner-first-0', 'grid-unicode-owner-first-1']),
+ 'st39-unicode-repo-first': ('scripts/profile_resolver.sh',
+     '/[A-Za-z0-9]', r'/[\\p{L}\\d]', ['grid-unicode-repo-first-0', 'grid-unicode-repo-first-1']),
+ 'st40-unicode-owner-rest': ('scripts/profile_resolver.sh',
+     '[A-Za-z0-9_.-]*/', r'[\\p{L}\\d_.-]*/', ['grid-unicode-owner-rest-0', 'grid-unicode-owner-rest-1']),
+ 'st41-unicode-repo-rest': ('scripts/profile_resolver.sh',
+     r'[A-Za-z0-9_.-]*\\z', r'[\\p{L}\\d_.-]*\\z', ['grid-unicode-repo-rest-0', 'grid-unicode-repo-rest-1']),
+ 'st42-length-1024': ('scripts/profile_resolver.sh',
+     'elif type == "string" then test(',
+     'elif type == "string" then (length <= 1024) and test(',
+     ['grid-length-owner', 'grid-length-repo', 'grid-length-both']),
+ 'st43-merge-casefold': ('scripts/profile_resolver.sh',
+     '($r.hooks | with_entries(select(.key == "archBrief")))',
+     '($r.hooks | with_entries(select(.key == "archBrief")) | .archBrief |= if type == "string" then ascii_downcase else . end)',
+     ['grid-separator-10']),
+ 'st44-start-anchor': ('scripts/profile_resolver.sh',
+     'test("^[A-Za-z0-9]', 'test("[A-Za-z0-9]', ['grid-boundary-before-sp']),
+})
+for index, char in enumerate('false'):
+    spelling = 'false'[:index] + char.upper() + 'false'[index + 1:]
+    MUTATIONS[f'st{45 + index}-casefold-position-{index}'] = (
+        'scripts/profile_resolver.sh', 'if . == false then true',
+        f'if . == false or . == "{spelling}" then true',
+        [f'grid-false-case-{1 << index:02d}'])
+
+
+# Arb226b: control-flow mutations bind to public aliases, never extraction errors.
+_GUARD = 'if jq -e \'.hooks | has("archBrief")\' "$REPO_JSON_FD" >/dev/null; then'
+_OUTER = 'if jq -e \'has("hooks")\' "$REPO_JSON_FD" >/dev/null; then'
+_REJECT = '|| die_p "значение вне алфавита: hooks.archBrief: ожидается false или owner/repo"'
+_DIE = 'die_p() { printf \'profile ОТКАЗ: %s\\n\' "$*" >&2; exit 1; }'
+MUTATIONS.update({
+ 'st50-guard-cr-adv226c': ('scripts/profile_resolver.sh', _GUARD,
+     'if jq -e \'.hooks | has("archBrief") and ((.archBrief | type != "string") or (.archBrief | contains("\\r") | not))\' "$REPO_JSON_FD" >/dev/null; then',
+     ['public-control-cr']),
+ 'st51-hooks-skip': ('scripts/profile_resolver.sh', _OUTER,
+     'if false; then', ['public-control-null']),
+ 'st52-hooks-invert': ('scripts/profile_resolver.sh', _OUTER,
+     'if ! jq -e \'has("hooks")\' "$REPO_JSON_FD" >/dev/null; then',
+     ['public-control-null', 'public-hooks-absent']),
+ 'st53-hooks-shape-skip': ('scripts/profile_resolver.sh',
+     '|| die_p "значение вне алфавита: hooks.archBrief: hooks не объект"',
+     '|| :', ['public-hooks-null']),
+ 'st54-leaf-strings-only': ('scripts/profile_resolver.sh', _GUARD,
+     'if jq -e \'.hooks | has("archBrief") and (.archBrief | type == "string")\' "$REPO_JSON_FD" >/dev/null; then',
+     ['public-control-null']),
+ 'st55-leaf-skip': ('scripts/profile_resolver.sh', _GUARD,
+     'if false; then', ['public-control-cr']),
+ 'st56-zero-instead-false': ('scripts/profile_resolver.sh',
+     'if . == false then true', 'if . == 0 then true',
+     ['public-control-zero', 'public-control-false']),
+ 'st57-string-check-skip': ('scripts/profile_resolver.sh',
+     'elif type == "string" then test(', 'elif true then test(',
+     ['public-control-null']),
+ 'st58-string-check-invert': ('scripts/profile_resolver.sh',
+     'elif type == "string" then test(', 'elif type != "string" then test(',
+     ['public-control-valid']),
+ 'st59-rejection-skip': ('scripts/profile_resolver.sh', _REJECT,
+     '|| :', ['public-control-cr']),
+ 'st60-rejection-rc-zero': ('scripts/profile_resolver.sh', _DIE,
+     _DIE.replace('exit 1', 'exit 0'), ['public-control-cr']),
+ 'st61-rejection-rc-two': ('scripts/profile_resolver.sh', _DIE,
+     _DIE.replace('exit 1', 'exit 2'), ['public-control-cr']),
+ 'st62-rejection-no-reason': ('scripts/profile_resolver.sh', _REJECT,
+     '|| die_p "неверный профиль"', ['public-control-cr']),
+ 'st63-rejection-stdout': ('scripts/profile_resolver.sh', _DIE,
+     _DIE.replace(' >&2', ''), ['public-control-cr']),
+})
 
 
 def generate():
@@ -229,8 +350,15 @@ def generate():
         out.write_text(once(texts[path], old, new))
         carriers[str(out.relative_to(HERE))] = hashlib.sha256(out.read_bytes()).hexdigest()
         bindings[name] = {'path': path, 'cells': cells}
+    import runpy
+    public = runpy.run_path(str(HERE / 'probe.py'), run_name='catalog226')['public_source'](bindings)
+    repairs = runpy.run_path(str(HERE / 'repair_checks.py'), run_name='repairs226')['catalog']()
+    repair_bindings = runpy.run_path(str(HERE / 'repair_checks.py'),
+                                    run_name='repair_stabs226')['REPAIR_BINDINGS']
     (HERE / 'source.json').write_text(json.dumps({'base': BASE, 'files': list(FILES),
-        'carriers': carriers, 'bindings': bindings}, ensure_ascii=False, indent=2) + '\n')
+        'carriers': carriers, 'bindings': bindings, 'public': public,
+        'repair_bindings': repair_bindings,
+        'repairs': repairs}, ensure_ascii=False, indent=2) + '\n')
     print('CARRIERS', len(carriers), 'STABY', len(bindings),
           'SVJAZI', sum(len(v['cells']) for v in bindings.values()))
 

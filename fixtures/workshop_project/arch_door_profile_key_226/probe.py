@@ -59,6 +59,21 @@ CASES = {
  'bad-two-slashes': ('resolver', 'a/b/c', 'toy', 1, b'hooks.archBrief'),
  'bad-empty-owner': ('resolver', '/b', 'toy', 1, b'hooks.archBrief'),
  'bad-empty-repo': ('resolver', 'a/', 'toy', 1, b'hooks.archBrief'),
+ 'bad-trailing-space': ('resolver', 'owner/repo ', 'toy', 1, 'значение вне алфавита'.encode()),
+ 'bad-trailing-tab': ('resolver', 'owner/repo\t', 'toy', 1, 'значение вне алфавита'.encode()),
+ 'bad-trailing-lf': ('resolver', 'owner/repo\n', 'toy', 1, 'значение вне алфавита'.encode()),
+ 'bad-owner-underscore': ('resolver', '_owner/repo', 'toy', 1, 'значение вне алфавита'.encode()),
+ 'bad-owner-hyphen': ('resolver', '-owner/repo', 'toy', 1, 'значение вне алфавита'.encode()),
+ 'bad-owner-dot': ('resolver', '.owner/repo', 'toy', 1, 'значение вне алфавита'.encode()),
+ 'bad-repo-underscore': ('resolver', 'owner/_repo', 'toy', 1, 'значение вне алфавита'.encode()),
+ 'bad-repo-hyphen': ('resolver', 'owner/-repo', 'toy', 1, 'значение вне алфавита'.encode()),
+ 'bad-repo-dot': ('resolver', 'owner/.repo', 'toy', 1, 'значение вне алфавита'.encode()),
+ 'bad-leading-space': ('resolver', ' owner/repo', 'toy', 1, 'значение вне алфавита'.encode()),
+ 'bad-owner-internal-space': ('resolver', 'ow ner/repo', 'toy', 1, 'значение вне алфавита'.encode()),
+ 'bad-repo-internal-space': ('resolver', 'owner/re po', 'toy', 1, 'значение вне алфавита'.encode()),
+ 'grammar-plain': ('resolver', 'owner/repo', 'toy', 0, b''),
+ 'grammar-internal-punctuation': ('resolver', 'o_w-n.e/r_e-p.o', 'toy', 0, b''),
+ 'grammar-initial-digits': ('resolver', '0wner/9repo', 'toy', 0, b''),
  'bad-hooks': ('hooks', None, 'toy', 1, b'hooks.archBrief'),
  'bad-json': ('json', MISSING, 'toy', 1, 'файл не JSON'.encode()),
  'bad-door': ('door', None, 'toy', 1, b'hooks.archBrief'),
@@ -88,6 +103,240 @@ CASES = {
  'layer-done': ('layer-done', MISSING, 'toy', 1, b'ARCH_PROFILE_LAYER'),
  'unknown-layer-sibling': ('unknown-layer-sibling', MISSING, 'toy', 0, b''),
 }
+
+
+# Independent character oracle from invariant 1, not the subject's jq regex.
+ASCII_FIRST = frozenset('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789')
+ASCII_REST = ASCII_FIRST | frozenset('_.-')
+
+
+def grammar_accepts(value):
+    if value is False:
+        return True
+    if type(value) is not str or value.count('/') != 1:
+        return False
+    return all(part and part[0] in ASCII_FIRST and
+               all(char in ASCII_REST for char in part[1:])
+               for part in value.split('/'))
+
+
+def grammar_grid():
+    values = {}
+    for name, value in [('false', False), ('null', None), ('zero', 0),
+                        ('one', 1), ('true', True), ('array', []), ('object', {}),
+                        ('array-full', ['a/b']), ('object-full', {'enabled': True})]:
+        values['grid-type-' + name] = value
+    for mask in range(32):
+        values[f'grid-false-case-{mask:02d}'] = ''.join(
+            char.upper() if mask & (1 << index) else char
+            for index, char in enumerate('false'))
+    for name, value in [('leading', ' false'), ('trailing', 'false ')]:
+        values['grid-false-' + name] = value
+    for index, value in enumerate(('', '/', '/r', 'u/', 'ur', 'u//r', 'u/r/s',
+                                    'a/b', '0/9', 'ab/cd', 'OwNer/RePo.Name_7-x')):
+        values[f'grid-separator-{index:02d}'] = value
+    for position in ('owner-first', 'repo-first', 'owner-middle', 'owner-end',
+                     'repo-middle', 'repo-end'):
+        for code in range(128):
+            char = chr(code)
+            owner, repo = 'ab', 'cd'
+            if position == 'owner-first':
+                owner = char + 'b'
+            elif position == 'repo-first':
+                repo = char + 'd'
+            elif position == 'owner-middle':
+                owner = 'a' + char + 'b'
+            elif position == 'owner-end':
+                owner += char
+            elif position == 'repo-middle':
+                repo = 'c' + char + 'd'
+            else:
+                repo += char
+            values[f'grid-ascii-{position}-{code:03d}'] = owner + '/' + repo
+    for name, char in [('sp', ' '), ('tab', '\t'), ('cr', '\r'),
+                       ('lf', '\n'), ('nul', '\0')]:
+        for position, value in [('before', char + 'ab/cd'), ('after', 'ab/cd' + char),
+                                ('owner', 'a' + char + 'b/cd'),
+                                ('repo', 'ab/c' + char + 'd')]:
+            values[f'grid-boundary-{position}-{name}'] = value
+    for code, char in enumerate(('ǹ', '١', 'Ａ', '１')):
+        for position, value in [('owner-first', char + 'b/cd'),
+                                ('repo-first', 'ab/' + char + 'd'),
+                                ('owner-rest', 'a' + char + '/cd'),
+                                ('repo-rest', 'ab/c' + char)]:
+            values[f'grid-unicode-{position}-{code}'] = value
+    values['grid-unicode-slash'] = 'ab／cd'
+    for name, value in [('owner', 'O' * 1024 + '/R'),
+                        ('repo', 'O/' + 'R' * 1024),
+                        ('both', 'O' * 1024 + '/' + 'R' * 1024)]:
+        values['grid-length-' + name] = value
+    return values
+
+
+GRID = grammar_grid()
+# Freeze both values and expectations before any subject runs.
+CASES.update({name: ('grid', value, 'toy', 0 if grammar_accepts(value) else 1,
+                     'значение вне алфавита'.encode())
+              for name, value in GRID.items()})
+
+
+def public_catalog():
+    """Unique raw hooks inputs, with expectations captured before any subject."""
+    entries, aliases, axes = {}, {}, {}
+
+    def add(name, axis, fragment):
+        # Keep duplicate-key JSON raw; ordinary repeated inputs share one witness.
+        identity = fragment
+        if identity not in entries:
+            parsed = json.loads('{' + fragment + '}')
+            hooks = parsed.get('hooks', MISSING)
+            shape_ok = hooks is MISSING or type(hooks) is dict
+            value = hooks.get('archBrief', MISSING) if type(hooks) is dict else MISSING
+            accepted = shape_ok and (value is MISSING or grammar_accepts(value))
+            reason = ('ожидается false или owner/repo' if shape_ok else 'hooks не объект')
+            projection = (None if hooks is MISSING else
+                          {'origin': 'repo', 'value': (
+                              {} if value is MISSING else {'archBrief': value})})
+            entries[identity] = dict(name=name, fragment=fragment, rc=0 if accepted else 1,
+                                     projection=projection, reason=reason,
+                                     warning=type(hooks) is dict and 'futureHook' in hooks)
+        aliases[name] = identity
+        axes.setdefault(axis, []).append(name)
+
+    masks = {0, 31, 1, 2, 4, 8, 16, 10}  # false/FALSE/False/fAlSe + each position.
+    for name, value in GRID.items():
+        axis = name.split('-')[1]
+        selected = (axis in {'type', 'separator', 'boundary', 'unicode', 'length'} or
+                    (axis == 'false' and ('case-' not in name or int(name[-2:]) in masks)) or
+                    (axis == 'ascii' and int(name[-3:]) in {95, 45, 46, 64}))
+        if selected:
+            add(name, axis, '"hooks":' + json.dumps({'archBrief': value}, sort_keys=True))
+    # Existing public resolver cells participate in the same deduplicated layer.
+    for name, (kind, value, _, _, _) in list(CASES.items()):
+        if kind in {'resolver', 'hooks', 'unknown'}:
+            hooks = None if kind == 'hooks' else {'archBrief': value}
+            if kind == 'unknown':
+                hooks['futureHook'] = 'keep-M0'
+            add(name, 'existing-' + kind, '"hooks":' + json.dumps(hooks, sort_keys=True))
+    for name, fragment in [
+            ('absent', ''), ('empty', '"hooks":{}'),
+            ('future', '"hooks":{"futureHook":"keep-M0"}'),
+            ('null', '"hooks":null'), ('false', '"hooks":false'), ('true', '"hooks":true'),
+            ('zero', '"hooks":0'), ('string', '"hooks":""'), ('array', '"hooks":[]')]:
+        add('public-hooks-' + name, 'hooks', fragment)
+    good, cr = json.dumps('ab/cd'), json.dumps('ab/cd\r')
+    for first, last, label in [(good, cr, 'last-cr'), (cr, good, 'last-good')]:
+        add('public-duplicate-leaf-' + label, 'duplicates',
+            '"hooks":{"archBrief":' + first + ',"archBrief":' + last + '}')
+        add('public-duplicate-hooks-' + label, 'duplicates',
+            '"hooks":{"archBrief":' + first + '},"hooks":{"archBrief":' + last + '}')
+    for name in ('mixed-case', 'long-value'):
+        add('public-' + name, 'positive-controls',
+            '"hooks":' + json.dumps({'archBrief': CASES[name][1]}, sort_keys=True))
+    for name, value in [('null', None), ('cr', 'ab/cd\r'), ('true', True),
+                        ('zero', 0), ('false', False), ('valid', 'ab/cd')]:
+        add('public-control-' + name, 'control',
+            '"hooks":' + json.dumps({'archBrief': value}, sort_keys=True))
+    return entries, aliases, axes
+
+
+PUBLIC_INPUTS, PUBLIC_ALIASES, PUBLIC_AXES = public_catalog()
+for _name, _identity in PUBLIC_ALIASES.items():
+    if _name not in CASES:
+        _entry = PUBLIC_INPUTS[_identity]
+        CASES[_name] = ('public', _identity, 'toy', _entry['rc'], b'hooks.archBrief')
+PUBLIC_WORLDS = {}
+PUBLIC_RESULTS = {}
+
+def public_source(bindings):
+    return {
+        'unique_inputs': len(PUBLIC_INPUTS),
+        'axes': PUBLIC_AXES,
+        'witnesses': {row['name']: {'fragment': row['fragment'], 'rc': row['rc']}
+                      for row in PUBLIC_INPUTS.values()},
+        'bindings': {name: {cell: ('public-cli' if cell in PUBLIC_ALIASES else
+                                  'internal-jq' if cell in GRID else 'integration-cli')
+                           for cell in row['cells']}
+                     for name, row in bindings.items()},
+    }
+
+
+
+class GridFailure(RuntimeError):
+    """The internal jq seam failed, independently of public CLI observations."""
+
+
+def run_grid(base, tools, cells):
+    """One real resolver/world captures its actual jq argv; real jq judges the grid.
+
+    Native bash xtrace observes commands without replacing jq/PATH or reading a
+    model predicate. Existing integration cells still judge public CLI diagnostics.
+    The captured validation and complete merge are replayed, not reimplemented.
+    """
+    base.mkdir()
+    product, arch, *_ = old.build(base, 'grid-product')
+    profile = install_profile(product, 'ab/cd', 'toy')
+    env = old.env_for(product, arch)
+    trace_path = base / 'resolver.trace'
+    with trace_path.open('wb') as trace:
+        env.update(BASH_XTRACEFD=str(trace.fileno()))
+        control = subprocess.run(
+            ['bash', '-c', 'PS4=$\'\\nARCH226 \'; set -x; source "$1" --repo "$2"',
+             'grid', str(tools / 'scripts/profile_resolver.sh'), str(product)],
+            cwd=product, env=env, capture_output=True, pass_fds=(trace.fileno(),),
+            timeout=240)
+    env.pop('BASH_XTRACEFD')
+    if control.returncode:
+        raise GridFailure('GRID_RESOLVER_CONTROL ' + repr(control.stderr))
+    import shlex
+    commands = []
+    for record in trace_path.read_text().split('\nARCH226 '):
+        if record.startswith('jq '):
+            commands.append(shlex.split(record))
+    validators = [argv for argv in commands if len(argv) == 4 and
+                  argv[1] == '-e' and argv[2].startswith('.hooks.archBrief |')]
+    merges = [argv for argv in commands if '--slurpfile' in argv and
+              'repo' in argv and 'project' in argv]
+    if len(validators) != 1 or len(merges) != 1:
+        raise GridFailure('GRID_JQ_SEAM ' + repr((len(validators), len(merges))))
+    validation, merge = validators[0], merges[0]
+    # Replacing only the input file keeps the actual predicate and jq -e rc.
+    # Each positive also runs the subject's full merged expression unchanged.
+    results = {}
+    input_path = base / 'profile.json'
+    for cell in cells:
+        _, value, _, rc, _ = CASES[cell]
+        profile['hooks'] = {'archBrief': value}
+        input_path.write_text(json.dumps(profile))
+        result = call(validation[:-1] + [input_path], product, env)
+        if result.returncode not in (0, 1) or result.stderr:
+            raise GridFailure('GRID_JQ_INFRA ' + cell + repr(result))
+        errors = [] if result.returncode == rc else ['GRAMMAR_RC']
+        if rc == 0 and result.returncode == 0:
+            argv = merge.copy()
+            argv[argv.index('repo') + 1] = str(input_path)
+            argv[argv.index('project') + 1] = str(product / profile['projectLayer']['profilePath'])
+            merged = call(argv, product, env)
+            if merged.returncode:
+                raise GridFailure('GRID_MERGE_INFRA ' + repr(merged.stderr))
+            if json.loads(merged.stdout).get('hooks') != {
+                    'origin': 'repo', 'value': {'archBrief': value}}:
+                errors.append('MERGED_POLICY')
+        if errors:
+            # A discrepancy must also be observable through the public resolver,
+            # with its real rc, diagnostic and merged output, not a synthetic rc.
+            install_profile(product, value, 'toy')
+            result = call(['bash', tools / 'scripts/profile_resolver.sh',
+                           '--repo', product], product, env)
+            if result.returncode not in (0, 1):
+                raise GridFailure('GRID_RESOLVER_INFRA ' + repr(result.stderr))
+            errors += judge(result, rc, 'значение вне алфавита'.encode() if rc else b'')
+        results[cell] = errors, result
+    return results
+
+
+GRID_CACHE = {}
+GRID_LINKS = {}
 
 
 def call(argv, cwd, env):
@@ -169,6 +418,12 @@ def judge(result, rc, token, stdout_token=False):
 
 
 def run_cell(base, tools, cell):
+    if cell in GRID:
+        key = (base.parent, tools)
+        if key not in GRID_CACHE:
+            cells = GRID_LINKS.get(tools.name, GRID)
+            GRID_CACHE[key] = run_grid(base.parent / (tools.name + '-grid'), tools, cells)
+        return GRID_CACHE[key][cell]
     base.mkdir()
     kind, value, rid, rc, token = CASES[cell]
     if kind.startswith('pin'):
@@ -267,6 +522,79 @@ def run_cell(base, tools, cell):
     return errors, result
 
 
+_integration_cell = run_cell
+
+
+def run_public(base, tools, cell):
+    identity = PUBLIC_ALIASES[cell]
+    key = (base.parent, tools)
+    cache_key = (key, identity)
+    if cache_key in PUBLIC_RESULTS:
+        return PUBLIC_RESULTS[cache_key]
+    expected = PUBLIC_INPUTS[identity]
+    if key not in PUBLIC_WORLDS:
+        world = base.parent / (tools.name + '-public')
+        world.mkdir()
+        product, arch, *_ = old.build(world, 'product')
+        profile = install_profile(product, MISSING, 'toy')
+        PUBLIC_WORLDS[key] = product, old.env_for(product, arch), profile
+    product, env, profile = PUBLIC_WORLDS[key]
+    raw = json.dumps(profile)[:-1]
+    if expected['fragment']:
+        raw += ',' + expected['fragment']
+    raw += '}'
+    path = product / 'harness.project.json'
+    path.write_text(raw)
+    before = (old.git(product, 'rev-parse', 'HEAD'), old.git(product, 'show-ref'), raw)
+    result = call(['bash', tools / 'scripts/profile_resolver.sh', '--repo', product], product, env)
+    errors = []
+    if result.returncode != expected['rc']:
+        errors.append('PUBLIC_RC')
+    if expected['rc']:
+        diagnostic = ('profile ОТКАЗ: значение вне алфавита: hooks.archBrief: ' +
+                      expected['reason']).encode()
+        if result.stderr != diagnostic + b'\n':
+            errors.append('PUBLIC_DIAGNOSIS')
+        if result.stdout:
+            errors.append('PUBLIC_PARTIAL_OUTPUT')
+    else:
+        try:
+            merged = json.loads(result.stdout)
+            if json.dumps(merged.get('hooks'), sort_keys=True) != json.dumps(
+                    expected['projection'], sort_keys=True):
+                errors.append('PUBLIC_MERGED_POLICY')
+        except (ValueError, AttributeError):
+            errors.append('PUBLIC_JSON')
+        if expected['warning']:
+            if b'hooks.futureHook' not in result.stderr:
+                errors.append('PUBLIC_M0_WARNING')
+        elif result.stderr:
+            errors.append('PUBLIC_STDERR')
+    after = (old.git(product, 'rev-parse', 'HEAD'), old.git(product, 'show-ref'), path.read_text())
+    if after != before:
+        errors.append('PUBLIC_SIDE_EFFECT')
+    # rc 2 with the exact refusal is a wrong subject status, not infrastructure.
+    # Keep its real rc/channels in evidence; never rewrite it as rc 1.
+    if result.returncode in (126, 127) or (
+            result.returncode == 2 and not any(
+                line.startswith('profile ОТКАЗ: '.encode())
+                for line in result.stderr.splitlines())):
+        raise RuntimeError('PUBLIC_INFRA ' + repr(result))
+    evidence = repr(('PUBLIC_CLI', result.returncode, result.stdout[:100], result.stderr))
+    PUBLIC_RESULTS[cache_key] = errors, evidence
+    return errors, evidence
+
+
+def run_cell(base, tools, cell):
+    if cell not in PUBLIC_ALIASES:
+        return _integration_cell(base, tools, cell)
+    # Grid still executes in full at its original internal seam. The public
+    # observation is unconditional, independent of whether that jq agreed.
+    errors, evidence = run_public(base, tools, cell)
+    internal = _integration_cell(base, tools, cell)[0] if cell in GRID else []
+    return internal + errors, evidence
+
+
 def carrier_catalog():
     source = json.loads((HERE / 'source.json').read_text())
     build = load('build226', HERE / 'build.py')
@@ -280,8 +608,30 @@ def carrier_catalog():
     for name, row in source['bindings'].items():
         if not row['cells'] or set(row['cells']) - CASES.keys():
             raise RuntimeError('ORPHAN ' + name)
+        GRID_LINKS[name] = [cell for cell in row['cells'] if cell in GRID]
     print('KLETKI', len(CASES), 'STABY', len(source['bindings']),
           'SVJAZI', sum(len(v['cells']) for v in source['bindings'].values()))
+    for axis in ('type', 'false', 'separator', 'ascii', 'boundary', 'unicode', 'length'):
+        cells = [name for name in GRID if name.startswith('grid-' + axis + '-')]
+        if not cells:
+            raise RuntimeError('EMPTY_GRID_AXIS ' + axis)
+        print('GRID_AXIS', axis, 'CASES', len(cells), 'ACCEPT',
+              sum(CASES[name][3] == 0 for name in cells))
+    public = public_source(source['bindings'])
+    if source.get('public') != public:
+        raise RuntimeError('PUBLIC_CATALOG_DRIFT')
+    print('PUBLIC_UNIQUE_INPUTS', len(PUBLIC_INPUTS))
+    for axis, cells in PUBLIC_AXES.items():
+        print('PUBLIC_AXIS', axis, 'POSITIONS', len(cells), 'UNIQUE_INPUTS',
+              len({PUBLIC_ALIASES[cell] for cell in cells}))
+    repairs = load('repairs226', HERE / 'repair_checks.py').catalog()
+    if source.get('repairs') != repairs:
+        raise RuntimeError('REPAIR_CATALOG_DRIFT')
+    print('REPAIR_CONTROLS', sum(len(cells) for cells in repairs.values()))
+    repair_bindings = load('repair_stabs226', HERE / 'repair_checks.py').REPAIR_BINDINGS
+    if source.get('repair_bindings') != repair_bindings:
+        raise RuntimeError('REPAIR_BINDINGS_DRIFT')
+    print('REPAIR_STABY', len(repair_bindings), 'SVJAZI', len(repair_bindings))
     return source
 
 
@@ -374,7 +724,22 @@ def main():
         base = Path(temp)
         tools = args.repo.resolve() if args.repo else materialize(base, 'honest', source)
         for cell in ([args.cell] if args.cell else CASES):
-            errors, result = run_cell(base / cell, tools, cell)
+            try:
+                errors, result = run_cell(base / cell, tools, cell)
+            except GridFailure as exc:
+                public_red = any(key[0][1] == tools and errors
+                                 for key, (errors, _) in PUBLIC_RESULTS.items())
+                if not public_red:
+                    raise
+                # A failed seam cannot erase an independently observed public
+                # counterexample. Do not claim the unexecuted grid cells green.
+                for key, (errors, evidence) in PUBLIC_RESULTS.items():
+                    if key[0][1] == tools and errors:
+                        print('RED', PUBLIC_INPUTS[key[1]]['name'],
+                              ','.join(errors), evidence, flush=True)
+                print('GRID_UNAVAILABLE:', exc, file=sys.stderr)
+                print('PUBLIC_COUNTEREXAMPLE: rc=1; remaining internal cells not judged')
+                return 1
             failed += bool(errors)
             detail = repr((result.returncode, result.stdout[:100], result.stderr[:250])) if hasattr(result, 'returncode') else result
             print('RED' if errors else 'GREEN', cell, ','.join(errors), detail, flush=True)
@@ -388,6 +753,9 @@ def main():
                     links += 1
                     living += not bool(errors)
                     print('CAUGHT' if errors else 'ZHIV', name, cell, flush=True)
+    if args.stabs and not failed and not living:
+        subprocess.run([sys.executable, '-B', HERE / 'repair_checks.py', '--stabs'],
+                       check=True)
     print('KLETKI', 1 if args.cell else len(CASES), 'KRASNYH', failed,
           'SVJAZI', links, 'ZHIVYH', living)
     return int(bool(failed or living))
