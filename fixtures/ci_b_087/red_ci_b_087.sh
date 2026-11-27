@@ -560,7 +560,8 @@ K10I() {  # <S> — команды трёх ключей зелены на де�
   k10_tree "$1" "$d" || { R='дерево без учётных путей не построено'; return 1; }
   for k in $K10_KEYS; do
     cmd="$(k10_cmd "$1" "$k")"
-    if ! (cd "$d" && bash -c "$cmd") >/dev/null 2>&1; then bad="$bad $k"; fi
+    # Как в run_ci_lane.sh: self-test исполняется без PR-события внешней джобы.
+    if ! (cd "$d" && env -u GITHUB_EVENT_NAME bash -c "$cmd") >/dev/null 2>&1; then bad="$bad $k"; fi
   done
   [ -z "$bad" ] && return 0
   R="на дереве без учётных путей (strip И-7) отказ — чтение учётного пути:$bad"
