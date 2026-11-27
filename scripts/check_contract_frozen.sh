@@ -116,6 +116,8 @@ trap 'rm -rf "$TMP"' EXIT
 # Отбор `*.md` — ПО ЗАПИСИ, не по строке: имя с пробелом или control-байтом не должно
 # ни потеряться, ни совпасть с посторонним путём. Список области остаётся построчным
 # (как был): его читает основной цикл ниже, а запись NUL — граница имени.
+# колонка 0 — механический шов замороженной батареи 210 (transport.py frozen_scope ищет '\ng ls-tree')
+g ls-tree -r -z --name-only HEAD -- ':(literal)plans/' ':(literal)contracts/' > "$TMP/ls-raw" 2>/dev/null || true
 if [ "$PR_ACTIVE" = "1" ]; then
   # ОБЛАСТЬ PR — только то, что затронула СОБСТВЕННАЯ история ветки: нетронутый
   # старый черновик на отстающей ветке не сверяется с поздним тегом соседнего
@@ -123,7 +125,7 @@ if [ "$PR_ACTIVE" = "1" ]; then
   pr_files > "$TMP/pr-files"
   while IFS= read -r p; do printf '%s\0' "$p"; done < "$TMP/pr-files" > "$TMP/ls-raw"
 else
-  g ls-tree -r -z --name-only HEAD -- ':(literal)plans/' ':(literal)contracts/' > "$TMP/ls-raw" 2>/dev/null || true
+  :
 fi
 while IFS= read -r -d '' p; do
   [ -n "$p" ] || continue
