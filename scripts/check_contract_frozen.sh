@@ -54,6 +54,21 @@ CHARTER_LIB=1
 # shellcheck disable=SC1091
 . "$SELF_DIR/check_charter.sh"
 
+# ── РЕЖИМ PR (контракт 218, инвариант 1) ─────────────────────────────────────
+# Режим выбирает СОБЫТИЕ или явный --pr; имя ветки, владелец и detached HEAD на
+# решение не смотрят. Push и локальный вызов без --pr сохраняют прежний
+# режим: область всех планов и контрактов на HEAD и прежняя конъюнкция
+# предстоящего v+1. Явный --pr снимается из аргументов — иначе он стал бы
+# позиционным корнем («cd: --: invalid option»).
+PR_ACTIVE=0
+[ "${GITHUB_EVENT_NAME:-}" != pull_request ] || PR_ACTIVE=1
+__pr_args=()
+for __pr_arg in "$@"; do
+  if [ "$__pr_arg" = --pr ]; then PR_ACTIVE=1; else __pr_args+=("$__pr_arg"); fi
+done
+set -- "${__pr_args[@]}"
+unset __pr_args __pr_arg
+
 ROOT="$(cd "${1:-"$SELF_DIR/.."}" && pwd)"
 
 fails=0
@@ -66,6 +81,15 @@ git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || skip "$ROOT не репо�
 git -C "$ROOT" rev-parse --verify HEAD >/dev/null 2>&1 || skip "в $ROOT нет ни одного коммита"
 
 g() { git -C "$ROOT" "$@"; }
+
+# ── ОКНО PR — СУД СВОЕЙ ИСТОРИИ (контракт 218) ───────────────────────────────
+# В PR-режиме замораживается окно ветки: HEAD, main по живому origin и единственная
+# merge-base фиксируются ОДИН раз, и судятся собственные коммиты ветки. Импорт
+# main и поздние теги соседей в суд не входят; собственная правка — входит.
+if [ "$PR_ACTIVE" = "1" ]; then
+  mkdir -p "$ROOT/tmp"
+  pr_prepare check_contract_frozen
+fi
 
 # ── реестр ────────────────────────────────────────────────────────────────────
 state="$(registry_state "$ROOT" 'frozen/')"
@@ -92,7 +116,17 @@ trap 'rm -rf "$TMP"' EXIT
 # Отбор `*.md` — ПО ЗАПИСИ, не по строке: имя с пробелом или control-байтом не должно
 # ни потеряться, ни совпасть с посторонним путём. Список области остаётся построчным
 # (как был): его читает основной цикл ниже, а запись NUL — граница имени.
+# колонка 0 — механический шов замороженной батареи 210 (transport.py frozen_scope ищет '\ng ls-tree')
 g ls-tree -r -z --name-only HEAD -- ':(literal)plans/' ':(literal)contracts/' > "$TMP/ls-raw" 2>/dev/null || true
+if [ "$PR_ACTIVE" = "1" ]; then
+  # ОБЛАСТЬ PR — только то, что затронула СОБСТВЕННАЯ история ветки: нетронутый
+  # старый черновик на отстающей ветке не сверяется с поздним тегом соседнего
+  # main (инвариант 4).
+  pr_files > "$TMP/pr-files"
+  while IFS= read -r p; do printf '%s\0' "$p"; done < "$TMP/pr-files" > "$TMP/ls-raw"
+else
+  :
+fi
 while IFS= read -r -d '' p; do
   [ -n "$p" ] || continue
   case "$p" in *.md) printf '%s\n' "$p" ;; esac
@@ -100,7 +134,13 @@ done < "$TMP/ls-raw" | sort > "$TMP/files" || true
 
 # Все теги заморозок — один раз, а не по файлу: иначе N обращений к реестру там, где хватает
 # одного, и вердикт зависел бы от того, сколько файлов в дереве.
-g for-each-ref --format='%(refname)' 'refs/tags/frozen/' 2>/dev/null | sort > "$TMP/tags" || true
+if [ "$PR_ACTIVE" = "1" ]; then
+  # В окне PR реестр — только заморозки ОБЛАСТИ PR: заморозка чужого, позднего
+  # артефакта в суд не входит (инвариант 4).
+  pr_tags > "$TMP/tags"
+else
+  g for-each-ref --format='%(refname)' 'refs/tags/frozen/' 2>/dev/null | sort > "$TMP/tags" || true
+fi
 
 # ТЕГ РЕЕСТРА — АННОТИРОВАННЫЙ (Н-35: судья поставил лёгкий тег руками мимо писателя).
 # freeze_contract.sh — единственный писатель — создаёт тег всегда с причиной в сообщении:
@@ -156,9 +196,15 @@ while IFS= read -r f; do
   # переводов строк, а имя блоба есть sha1 содержимого — та же мера, которой пользуется сам git.
   head_blob="$(g rev-parse --verify --quiet "HEAD:$f" || true)"
   tag_blob="$(g rev-parse --verify --quiet "refs/tags/frozen/$dir/$NNN/$vmax^{commit}:$f" || true)"
+  # НОСИТЕЛИ ПРАВКИ В ОКНЕ PR: собственные коммиты ветки, менявшие этот путь.
+  # Их наличие — САМО ПО СЕБЕ отказ, даже когда итоговый блоб совпал с
+  # заморожкой: собственная правка с последующим revert не амнистируется
+  # равенством конечных блобов (инвариант 3).
+  pr_pending=""
+  if [ "$PR_ACTIVE" = "1" ]; then pr_pending="$(pr_changes)"; fi
   if [ -z "$tag_blob" ]; then
     bad "$f заморожен как v$vmax, но в коммите заморозки этого файла нет — тег поставлен не на то состояние"
-  elif [ "$head_blob" != "$tag_blob" ]; then
+  elif [ "$head_blob" != "$tag_blob" ] || [ -n "$pr_pending" ]; then
     # ПРЕДСТОЯЩЕЕ v+1 (слово владельца 2026-10-22 ~21:20, пункт 1 — дефект цикла 130 ×
     # contract-frozen): текст следующей версии УЖЕ в дереве, а тег v+1 публикуется ШТАТНО
     # ПОСЛЕ ленда текста (контракт 130: тег — после текста). До публикации тега дерево
@@ -186,8 +232,14 @@ while IFS= read -r f; do
       # (б): разрешение обязано лежать в каждом коммите-носителе текста — как у устава,
       # merge несёт строку в теле merge-коммита, а --diff-merges=first-parent предъявляет
       # evil merge, меняющий текст поверх первого родителя.
-      pred_komity="$(g log -s --format=%H --no-renames --diff-merges=first-parent \
-        "refs/tags/frozen/$dir/$NNN/$vmax"..HEAD -- "$f" 2>/dev/null || true)"
+      if [ "$PR_ACTIVE" = "1" ]; then
+        # В окне PR носители — собственные коммиты ветки, менявшие этот путь:
+        # чужие коммиты main и поздние заморозки носителями не являются.
+        pred_komity="$(pr_changes)"
+      else
+        pred_komity="$(g log -s --format=%H --no-renames --diff-merges=first-parent \
+          "refs/tags/frozen/$dir/$NNN/$vmax"..HEAD -- "$f" 2>/dev/null || true)"
+      fi
       # 200: окно (б) — коммит входит в список ТОЛЬКО когда diff пути $f
       # к ПЕРВОМУ родителю НЕ пуст. git log по пути в этом режиме отбирает
       # и merge, равные первому родителю, но отличные от боковой ветки
@@ -279,7 +331,38 @@ while IFS= read -r f; do
       continue
     fi
     verdict="verdicts/critic/${dir}-${NNN}-v${k}.md"
-    body="$(g cat-file -p "HEAD:$verdict" 2>/dev/null || true)"
+    if [ "$PR_ACTIVE" -eq 1 ]; then
+      # ТЕЛО ВЕРДИКТА — ИЗ ЗАПИСИ ДЕРЕВА HEAD: доказанное отсутствие записи,
+      # непрочитанный блоб и существующее пустое тело — РАЗНЫЕ состояния
+      # (arbiter 218, Б-1). Прежний `cat-file … || true` смешивал их, и при
+      # непрочитанном блоке подставлялось историческое тело основания.
+      pr_verdict "$PR_HEAD" "$verdict"
+      body="$PR_VERDICT_BODY"
+      head_present="$PR_VERDICT_PRESENT"
+    else
+      body="$(g cat-file -p "HEAD:$verdict" 2>/dev/null || true)"
+      head_present=1
+    fi
+    if [ "$PR_ACTIVE" -eq 1 ] && [ -z "$body" ]; then
+      # ИСТОРИЧЕСКОЕ ТЕЛО ОСНОВАНИЯ — только при доказанном отсутствии записи в
+      # дереве HEAD: успешно прочитанное дерево без записи. Существующая запись —
+      # уже свидетельство: пустое её тело означает неразрешающий вердикт, а не
+      # отсутствие записи, и историческое тело её не заменяет. Основание берётся,
+      # только когда оно принадлежит окну PR (инвариант 4); вердикт, найденный на
+      # HEAD, историческим не заменяется.
+      if [ "$head_present" -eq 1 ] && [ -z "$body" ]; then
+        # Запись на HEAD есть, но тело не разрешает: тело остаётся пустым, и
+        # прежний отказ «заморозка без вердикта критика» скажет об этом сам.
+        body=""
+      else
+        anchor="$(g rev-parse --verify "refs/tags/frozen/$dir/$NNN/$k^{commit}")" || pr_refuse TAG_UNREADABLE
+        case $'\n'"$PR_COMMITS"$'\n' in *$'\n'"$anchor"$'\n'*)
+          pr_verdict "$anchor" "$verdict"
+          body="$PR_VERDICT_BODY"
+          ;;
+        esac
+      fi
+    fi
     if [ -z "$body" ]; then
       bad "$f: заморозка v$k без вердикта критика — на HEAD нет $verdict"
     else

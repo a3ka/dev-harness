@@ -1,197 +1,169 @@
-# СДАЧА 218 — собственное окно PR
+# СДАЧА 218 — различение свидетельства HEAD (Architect218d)
 
-База reference: source.json/baseline, main a32c577f292a2e925417d78a85cdb00abf25fae3.
-База исправительного круга: dcc6f2a9c5c5aac1af358b19a53846645ca2ec3f.
-Production, workflow, реестры и соседние frozen-семьи не изменяются.
---repo до реализации красен; SourceCanon не объявлен.
+OBJECT=ca726d350306c7cb4a1e37a1c974cc57ef7c309b
+Вход Adv218b: 696f860f47:verdicts/adversary/contracts-218-impl-v2.md.
+Решение Arb218: 570f57b5b3:verdicts/arbitration/contracts-218-b1.md — «исправить».
+Зона этой пачки — только fixtures/workshop_project/okno_frozen_v_pr_218/.
+Frozen 218/1, production, CI и registry не изменяются. Production на OBJECT намеренно красна.
+Базовый reference a32c577f292a2e925417d78a85cdb00abf25fae3 сохранён.
 
-## Двери
+## Обещание и существующее
 
+И2/И4: исторический accept допустим только после доказанного отсутствия пути на HEAD
+и только для основания собственной заморозки. Ошибка чтения не является отсутствием;
+пустое существующее тело не заменяется историческим. Наблюдение — rc/предметный диагноз
+настоящего guard, неизменность HEAD/отслеживаемого состояния/кеша, Git Trace2.
+Существующие World/observe, bare origin, plumbing, 108 клеток и 28 стабов переиспользованы.
+Новые миры — contracts/plans, v2/v3: HEAD accept/FAIL/пустой, отсутствующий путь,
+accept/FAIL/пустой/отсутствующий/чужой anchor, отказ чтения blob/дерева HEAD и anchor.
+Все ожидаемые rc/диагнозы — в памяти до субъекта; файлы субъекта не оракул.
+
+## Дельта-лист
+
+| Блок | Способ | Свидетельство |
+|---|---|---|
+| Б-1 К-09 | канон/инструмент | model/pr_window.sh: успешный ls-tree -r -z --full-tree с literal-pathspec различает отсутствие записи; существующий blob читается по OID с проверкой rc; ошибка → PR_WINDOW_TAG_UNREADABLE |
+| Б-1, пустое тело | клетка | head-empty против head-accept для обоих каталогов и версий; пустое тело даёт прежний отказ «без вердикта критика», не fallback |
+| Б-1, настоящий отказ Git | клетка | head/anchor-missingblob: после целого контроля удаляется ровно loose blob, PATH прежний, затем точные байты объекта восстановлены до наблюдения состояния |
+| Б-1, адресный отказ | клетка | head/anchor-catfault и treefault: rc 127 только выбранного свидетельства; injected подтверждает достижение; целый контроль выполняется на том же мире до отказа |
+| Б-2 К-08 | клетка | собственный anchor accept → HEAD FAIL, парный HEAD accept; s29 и точная production-мутация Adv218b красны именно на head-fail |
+
+Снятие/граница ослабили бы И2/И4. Git — канон фактов дерева, но не решения guard;
+поэтому поведенческие клетки используют прежний observe. Новых production-механизмов нет.
+Charter не проверяет accept критика: Б-1/Б-2 выбора тела к нему неприменимы.
+Его прежние own-v2-delete-* до/после импорта проверяют собственную неразрешённую
+правку контракта и сохранены, как и остальные charter/non-PR клетки.
+
+Исполняемые привязки — stabs/*.json; stabs.tsv сверяется генерацией в catalog().
+Новые s29–s35: приоритет anchor, пустое тело=отсутствие, ошибка blob=отсутствие,
+ошибка дерева=отсутствие, отсутствие literal/full-tree, исходный cat-file || true +
+пусто-строчный fallback. Последние два флага судятся структурным Trace2-свидетельством
+EVIDENCE_TREE_CANON на успешных чтениях, а не выдаются за изменение rc на числовом пути.
+Их честные контроли остаются rc 0; остальные новые стабы различаются поведением.
+Старые стабы/связи не ослаблены.
+
+## Двери и сырые rc
+
+W = bash fixtures/workshop_project/okno_frozen_v_pr_218/red_okno_frozen_v_pr_218.sh
+M = python3 fixtures/workshop_project/okno_frozen_v_pr_218/production_mutants.py
+
+- production-красный · bash fixtures/workshop_project/okno_frozen_v_pr_218/red_okno_frozen_v_pr_218.sh --repo . · 1 · 1
 - честная-модель · bash fixtures/workshop_project/okno_frozen_v_pr_218/red_okno_frozen_v_pr_218.sh --model · 0 · 0
 - адресные-мутации · bash fixtures/workshop_project/okno_frozen_v_pr_218/red_okno_frozen_v_pr_218.sh --stabs · 0 · 0
 - синтаксис · bash fixtures/workshop_project/okno_frozen_v_pr_218/red_okno_frozen_v_pr_218.sh --sintaksis · 0 · 0
 - каталог · bash fixtures/workshop_project/okno_frozen_v_pr_218/red_okno_frozen_v_pr_218.sh --catalog · 0 · 0
-- пре-критик · bash scripts/pre_critic.sh contracts/218-okno-frozen-v-pr.md · 0 · 0
-- готовность-спеки · bash scripts/check_spec_ready.sh . contracts/218-okno-frozen-v-pr.md · 0 · 0
-- precision · bash scripts/check_precision_gate.sh . contracts/218-okno-frozen-v-pr.md · 0 · 0
-- модель-угроз · bash scripts/check_threat_model.sh . contracts/218-okno-frozen-v-pr.md · 0 · 0
-- предпосылки · bash scripts/check_predposylki.sh . contracts/218-okno-frozen-v-pr.md · 0 · 0
-- проводка-форма · bash scripts/check_provodka.sh --grammar . contracts/218-okno-frozen-v-pr.md · 0 · 0
-- потолки · bash scripts/check_ceilings.sh . · 0 · 0
+- прежние-production-мутации · python3 fixtures/workshop_project/okno_frozen_v_pr_218/production_mutants.py · 0 · 0
+- точная-мутация-Adv218b · python3 fixtures/workshop_project/okno_frozen_v_pr_218/production_mutants.py --adv218b-priority --only anchor-over-head · 0 · 0
+- контекст · python3 fixtures/workshop_project/okno_frozen_v_pr_218/context.py · 0 · 0
+- CI-паритет · bash scripts/gen_ci_steps.sh --check · 0 · 0
 
-## Карта классов
+Синтаксис: VALIDATE_STD_SHELLCHECK=/home/harness/.local/state/dev-harness/validators/shellcheck/0.11.0/shellcheck.
+Полные pre_critic/check_sdacha/done и соседний регресс не запускались: это не done и не суд.
+Исправленный production-кандидат ещё не предъявлен; implementer/оркестратор запускает
+W --repo на нём и M --candidate <полный-SHA>, не на прежнем снимке.
 
-- К-01 · чисто · вход: двери листа и незаполненные требования нет, полный check_sdacha/pre_critic до вызова critic · - · -
-- К-02 · чисто · вход: затравка 218, дословная воля 23.11 и §Существующее; sourceCanon отсутствует; исправительный дельта-пакет task-architect218b.md · - · -
-- К-03 · чисто · вход: высшие frozen 200/207/195/083/210/217/992/071 прочитаны context.py; non-PR legacy сверяется с pinned-базой; внешние регрессы обязательны реализации · - · -
-- К-04 · чисто · вход: только contracts/218 и новая семья; CI, production и реестры отданы именованным исполнителям · - · -
-- К-05 · чисто · вход: раздел Приёмочный критерий, каждая дверь имеет команду и rc · - · -
-- К-06 · чисто · вход: настоящий Git/Python/Bash; отказ среды, якоря, синтаксиса и timeout дают NOT_IMPLEMENTED rc 2; старый CLI без --pr отдельно назван красным интерфейсом · - · -
+## Измерения
+
+CELLS: 108 → 164. MUTATIONS: 28 → 35. BINDINGS: 53 → 68.
+Новые 56 клеток/7 стабов/15 связей — вывод catalog, не оценка на глаз.
+Финальная модель: KLETKI=164 ZELENYE=164 KRASNYE=0, rc 0.
+Финальные стабы: STABY=35 SVJAZI=68 POIMANY=68 ZHIVYH=0, rc 0.
+Финальная production: KLETKI=164 ZELENYE=136 KRASNYE=28, rc 1.
+Все прежние 108 клеток зелены. Красны только следующие новые:
+
+```text
+frozen-evidence-contracts-v2-head-empty
+frozen-evidence-contracts-v2-head-missingblob
+frozen-evidence-contracts-v2-head-catfault
+frozen-evidence-contracts-v2-head-treefault
+frozen-evidence-contracts-v2-anchor-missingblob
+frozen-evidence-contracts-v2-anchor-catfault
+frozen-evidence-contracts-v2-anchor-treefault
+frozen-evidence-contracts-v3-head-empty
+frozen-evidence-contracts-v3-head-missingblob
+frozen-evidence-contracts-v3-head-catfault
+frozen-evidence-contracts-v3-head-treefault
+frozen-evidence-contracts-v3-anchor-missingblob
+frozen-evidence-contracts-v3-anchor-catfault
+frozen-evidence-contracts-v3-anchor-treefault
+frozen-evidence-plans-v2-head-empty
+frozen-evidence-plans-v2-head-missingblob
+frozen-evidence-plans-v2-head-catfault
+frozen-evidence-plans-v2-head-treefault
+frozen-evidence-plans-v2-anchor-missingblob
+frozen-evidence-plans-v2-anchor-catfault
+frozen-evidence-plans-v2-anchor-treefault
+frozen-evidence-plans-v3-head-empty
+frozen-evidence-plans-v3-head-missingblob
+frozen-evidence-plans-v3-head-catfault
+frozen-evidence-plans-v3-head-treefault
+frozen-evidence-plans-v3-anchor-missingblob
+frozen-evidence-plans-v3-anchor-catfault
+frozen-evidence-plans-v3-anchor-treefault
+```
+
+Пустой HEAD: subject rc 0 вместо 1. Head missingblob/catfault: rc 0 вместо 1
+PR_WINDOW_TAG_UNREADABLE. Head treefault: прежний FAIL без именованного отказа,
+нужная tree-операция отсутствует. Anchor missingblob/catfault: rc 1, но неверная
+причина «без вердикта», потерян статус чтения. Anchor treefault: rc 0.
+Пары HEAD FAIL и доказанное отсутствие с anchor accept зелены на OBJECT;
+первая становится красной на мутанте предпочтения anchor.
+
+Production mutation CANDIDATE=ca726d350306c7cb4a1e37a1c974cc57ef7c309b,
+отдельные --no-hardlinks клоны, без изменения production рабочей копии:
+
+| Мутант | Адресный контроль → мутант | Полный --repo |
+|---|---|---|
+| verdict-v1-only | frozen-verdict-contracts-v2-fail: GREEN rc=1 → RED rc=0 | rc 1, 128/164 зелёных |
+| hide-roadmap | charter-two-documents-agents: GREEN rc=1 → RED rc=0 | rc 1, 134/164 зелёных |
+| delta-errors-clean | charter-git-fault-diff-all: GREEN rc=1 → RED rc=0 | rc 1, 132/164 зелёных |
+| anchor-over-head (точно Adv218b) | frozen-evidence-contracts-v2-head-fail: GREEN rc=1 → RED rc=0 | rc 1, 132/164 зелёных |
+
+M: PRODUCTION_MUTANTS=3, rc 0. M --adv218b-priority --only anchor-over-head:
+PRODUCTION_MUTANTS=1, rc 0. Мутация Adv218b дословно заменяет
+`if [ "$PR_ACTIVE" -eq 1 ] && [ -z "$body" ]; then`
+на `if [ "$PR_ACTIVE" -eq 1 ]; then` в check_contract_frozen.sh одноразового клона.
+Поведенческая новая клетка краснит её до какого-либо отказа Git.
+context.py: INTERSECTIONS=88, rc 0. CI generator --check: rc 0.
+
+Технические первые прогоны не засчитаны как поимка: --sintaksis rc 2 без заданного
+shellcheck; затем rc 2 из-за SC2094 (удаление private temp при выходе) и SC2034
+(возвращаемый вызывающему CLI global). Локальные аннотации объясняют обе особенности;
+с пинованным shellcheck окончательный синтаксис rc 0.
+Первый exact-mutant прогон rc 2 обнаружил ошибку наблюдателя: неверный результат
+проверяемого на intact-контроле ошибочно считался неисправностью среды. Теперь это
+предметный RED INTACT_CONTROL; синтаксис/NOT_IMPLEMENTED/rc 2 остаются ошибкой среды.
+Окончательные модель, стабы, exact-mutant и --repo выполнены после исправления.
+Первый foreign-anchor мир не нёс собственной дельты удаления: исправлен мир,
+собственное удаление теперь действительно попадает в scope; ожидание не ослаблено.
+
+## Карта К-01…К-17
+
+- К-01 · чисто · вход: исправительный task-architect218d.md; нового суда/freeze/done нет · - · -
+- К-02 · чисто · вход: frozen 218/1, Adv218b и Arb218 прочитаны целиком · - · -
+- К-03 · чисто · python3 fixtures/workshop_project/okno_frozen_v_pr_218/context.py · 0 · 0
+- К-04 · чисто · вход: только назначенная семья; production-мутации только в одноразовых клонах · - · -
+- К-05 · чисто · вход: все назначенные двери и сырые rc перечислены выше · - · -
+- К-06 · чисто · вход: настоящий Git + missingblob без PATH, ошибки подготовки не поимка · - · -
 - К-07 · чисто · bash fixtures/workshop_project/okno_frozen_v_pr_218/red_okno_frozen_v_pr_218.sh --model · 0 · 0
-- К-08 · чисто · bash fixtures/workshop_project/okno_frozen_v_pr_218/red_okno_frozen_v_pr_218.sh --stabs · 0 · 0
-- К-09 · чисто · вход: event/explicit, owner update, поздний тег, own commit/revert/side/evil merge, неполная/чужая/множественная основа, парная единственная база, push full/oracle/incr и PR cache=HEAD · - · -
-- К-10 · чисто · вход: CLI rc и предметная причина, реальные HEAD/status/cache и Trace2; legacy полный stdout/stderr; PR не объявляется доказанным только по маркеру · - · -
-- К-11 · чисто · вход: ожидания/пин/исходный кеш и DAG снимаются до вызова, вне каталога subject/scripts; Git-пути/объекты задаются конструктором, не выводом субъекта · - · -
-- К-12 · чисто · вход: Git plumbing для DAG/блобов, stdlib JSON для Trace2, bash -n и validate_std для Bash; TSV-каталог сверяется побайтно с каноном из единственного реестра stabs/*.json · - · -
-- К-13 · н/п · секретов и реальных авторских данных нет; synthetic разрешения только внутри временных Git-миров · - · -
-- К-14 · чисто · вход: frozen-revert/разрешённый v+1/новая v2/code-revert, criss-cross/unique-base, late-tag/own-frozen, owner-update/own-charter/allowed, empty cache non-PR/PR cache own-violation · - · -
+- К-08 · чисто · python3 fixtures/workshop_project/okno_frozen_v_pr_218/production_mutants.py --adv218b-priority --only anchor-over-head · 0 · 0
+- К-09 · чисто · вход: обе ветви выбора свидетельства, несколько версий/каталогов, пустое тело/отсутствие/ошибка различаются · - · -
+- К-10 · чисто · вход: литералы Cell, rc/диагноз, прежнее наблюдение состояния и Trace2 сохранены · - · -
+- К-11 · чисто · вход: ожидания и точные bytes объекта сохранены до субъекта · - · -
+- К-12 · чисто · вход: канон Git, stdlib JSON, TSV из JSON-реестра, bash -n и pinned shellcheck · - · -
+- К-13 · н/п · вход: секретов/owner-identity нет; permissions только синтетические миры · - · -
+- К-14 · чисто · вход: head-accept/anchor-accept/intact-контроли зелены; старые положительные клетки сохранены · - · -
 - К-15 · чисто · bash fixtures/workshop_project/okno_frozen_v_pr_218/red_okno_frozen_v_pr_218.sh --catalog · 0 · 0
-- К-16 · чисто · вход: рисковый класс, раздел Модель угроз с доверенной средой и отдельными ловцами неизвестного вычисления/внешних дверей · - · -
-- К-17 · н/п · станционный guard, проектной архитектурной модели 188 нет · - · -
+- К-16 · чисто · вход: доверенная среда не расширяется; отказ настоящего Git явно в И2 · - · -
+- К-17 · н/п · вход: станционный guard; продуктовой модели 188 нет · - · -
 
-## Дельта
+## Процессная рефлексия
 
-- К-07 · клетка · bash fixtures/workshop_project/okno_frozen_v_pr_218/red_okno_frozen_v_pr_218.sh --model --cell frozen-frozen-revert · 0 · 0
-- К-08 · клетка · bash fixtures/workshop_project/okno_frozen_v_pr_218/red_okno_frozen_v_pr_218.sh --stabs · 0 · 0
-- К-09 · клетка · bash fixtures/workshop_project/okno_frozen_v_pr_218/red_okno_frozen_v_pr_218.sh --model --cell charter-ambiguous-base · 0 · 0
-
-Источник блоков: закоммиченный вердикт Crit218 вызов 1,
-51c34b2ff3e6cdcd73e8492197058fd2927d4085:verdicts/critic/contracts-218-v1.md
-(archive/218/critic-v1-fail-51c34b2ff3). Самого пути в HEAD переданной базы нет;
-зеркало вердикта в чужую зону автор не добавляет.
-
-Б-1 / К-07 — клетка: существующий суд v+1 обязан выполняться также при
-конечных равных блобах, если pr_changes содержит собственных носителей.
-Изменён только reference model_sources, production не исправлялся.
-От снятия/границы отказано: это ослабило бы И3/И4; канонического guard с
-этим исправлением на переданной базе нет. Новый проверяющий алгоритм не
-добавлен: используются прежние rc/диагноз, Git-миры и прежний observe.
-Мутация s14 возвращает прежнюю развилку; s15 вводит такую же амнистию
-в charter. Каждая красна на frozen-revert и соседнем carrier-main-first-revert.
-Честные эквивалентные по допустимости записи: разрешённые носители v+1
-с accept v2, опубликованная v2 и revert только кода остаются зелёными
-для ОБОИХ CLI. Никакого общего запрета revert нет.
-
-Б-2 / К-08, К-09 — клетка: criss-cross main=(A,B), PR=(B,A) и его
-собственный потомок. До субъекта настоящий git merge-base --all обязан
-дать ровно множество {A,B}; парный unique-base — ровно {B}.
-Существующий предикат И2 не менялся; s13 удаляет только --all и красен
-на обеих формах для каждого CLI. Снятие/граница ослабили бы И2; Git
-служит каноном DAG, но без поведенческого мира не доказывает отказ CLI.
-Дополнительного разбора Git-форматов или новых дверей нет.
-
-Совет критика: carrier-main-first и carrier-main-first-revert проверяют
-первого родителя main/вершину стека и второго — цепочку носителя через
-настоящий rev-list --parents. Импорт main зелён, собственная правка
-frozen с revert во втором родителе красна для обоих CLI.
-
-stabs/*.json остаётся единственным исполняемым реестром Н-39.
-Запрошенный stabs.tsv — побайтовый производный каталог этих привязок,
-проверяемый существующей --catalog, не второй писатель ожиданий.
-Новый предикат каталога использует каноническое сравнение без разбора TSV;
-допустимость представления задаёт генерация из JSON, а не ручной парсер.
-Прежние 12 стабов / 24 связи и все прежние клетки сохранены.
-
-## Наблюдавшиеся измерения
-
-ДО исправления, из вердикта Crit218 (не повторный прогон):
---repo rc 1: KLETKI=53 ZELENYE=8 KRASNYE=45.
---model rc 0: KLETKI=53 ZELENYE=53 KRASNYE=0.
---stabs rc 0: STABY=12 SVJAZI=24 POIMANY=24 ZHIVYH=0.
-
-ПОСЛЕ исправления, живые последовательные прогоны Architect218b:
---repo rc 1: KLETKI=71 ZELENYE=8 KRASNYE=63 (27.83 с).
---model rc 0: KLETKI=71 ZELENYE=71 KRASNYE=0 (24.56 с).
---stabs rc 0: STABY=15 SVJAZI=32 POIMANY=32 ZHIVYH=0 (22.16 с).
---sintaksis rc 0: SYNTAX rc=0, пинованный shellcheck 0.11.0.
-
-Каталог: rc 0, CELLS=71 MUTATIONS=15 BINDINGS=32.
-Независимый census: cells=71 stabs=15 bindings=32 nonPR=8 TSV_rows=32.
-Просмотренный diff probe.py от dcc6f2a9c: прежние ожидания и observe не
-удалены и не ослаблены; TMPDIR явно закреплён внутри копии.
-
-Последовательно после ремонта:
-pre_critic rc 0, «КРИТИК: дверь зелёная» (222.10 с).
-check_sdacha --run rc 0,
-«СДАЧА: лист зелёный (двери=11 карта=17/17 дельта=3)» (228.10 с).
-Прогоны листа повторно исполнили модель, стабы, синтаксис и каталог
-после добавления TSV-каталога и закрепления TMPDIR.
-check_zones отдельно не запускался: суд зон остаётся оркестратору.
-
-Production ДО реализации: красны все PR-клетки ниже; прежние восемь
-non-PR клеток остаются зелёными. Отказные subject-rc 1 без режима PR или
-с неограниченным обходом не выдаются за выполненный контракт.
-
-```
-frozen-clean
-frozen-late-tag
-frozen-neighbor-before
-frozen-neighbor-after
-frozen-owner-update
-frozen-owner-update-allowed
-frozen-draft
-frozen-long-main
-frozen-frozen-revert-allowed
-frozen-frozen-revert-refrozen
-frozen-code-revert
-frozen-unique-base
-frozen-carrier-main-first
-frozen-missing-base
-frozen-shallow
-frozen-forged-base
-frozen-no-origin
-frozen-unrelated
-frozen-ambiguous-base
-frozen-ambiguous-base-descendant
-frozen-own-frozen
-frozen-retroactive-frozen
-frozen-delete-frozen
-frozen-verdict-fail
-frozen-frozen-revert
-frozen-carrier-main-first-revert
-charter-clean
-charter-late-tag
-charter-neighbor-before
-charter-neighbor-after
-charter-owner-update
-charter-owner-update-allowed
-charter-draft
-charter-long-main
-charter-frozen-revert-allowed
-charter-frozen-revert-refrozen
-charter-code-revert
-charter-unique-base
-charter-carrier-main-first
-charter-missing-base
-charter-shallow
-charter-forged-base
-charter-no-origin
-charter-unrelated
-charter-ambiguous-base
-charter-ambiguous-base-descendant
-charter-own-frozen
-charter-retroactive-frozen
-charter-delete-frozen
-charter-frozen-revert
-charter-carrier-main-first-revert
-charter-own-charter
-charter-reverted-charter
-charter-evil-merge
-charter-side-charter
-frozen-main-merges-1284
-charter-explicit-owner
-frozen-explicit-late-tag
-charter-pr-oracle
-charter-pr-cache-head
-charter-pr-cache-green
-frozen-renamed-values
-charter-renamed-values
-```
-
-На новых frozen-revert/carrier-main-first-revert старый frozen-guard
-даёт rc 0; на неоднозначной базе оба старых CLI дают rc 0.
-На собственных отказах charter уже может отказать, но нет PR-окна;
-на чистом carrier-main-first он отказывает за импортированный AGENTS.md.
-Явный --pr старым CLI не поддержан: известный «cd: --: invalid option»
-именуется PR_INTERFACE_ABSENT; прочие ошибки среды по-прежнему rc 2.
-
-## Граница и рефлексия
-
-Вне PR поведение не заменяется reference. После реализации выполняются
-старые семьи 200/207/217/210/083/992 и check_charter; контракт не объявляет
-закрытыми Д4 и локальное pre-push копирование frozen-текста.
-Все миры и TMPDIR дочерних процессов закреплены внутри собственной копии,
-вне subject-клона; TemporaryDirectory удаляет миры. Журнал А-NN пишется
-только в main, wip его не меняет. Процессное наблюдение для оркестратора:
-вердикт передан доступным архивным коммитом, но отсутствует по своему пути
-в базе ремонта; механическую ссылку листа на HEAD нельзя честно заявить.
+Наблюдение: вложенный 60-секундный timeout полного CLI в production_mutants был
+меньше суммы законных отдельных проб при нагрузке станции. Драйвер вызывает тот же
+probe.main(['--repo', clone]) без вложенного общего deadline; прежние индивидуальные
+60-секундные deadlines Git/subject не подняты. Ошибка intact-контроля теперь не
+маскирует реальный дефект продукта rc 2. Журнал А-NN разрешён только коммитом main,
+в этой wip-ветке не изменяется; наблюдение передаётся оркестратору этим разделом.
+Scratch/клоны внутри собственной копии и вне субъекта; TemporaryDirectory удаляет их.
+Push, owner-identity и --no-verify не использовались.

@@ -1,0 +1,1 @@
+{"name":"s22-delta-md-clean","file":"pr_window.sh","old":"      rm -f \"$row\"; pr_refuse DELTA_UNREADABLE\n    fi\n    while IFS= read -r -d '' p; do PR_MD","new":"      :\n    fi\n    while IFS= read -r -d '' p; do PR_MD","cells":["frozen-git-fault-diff-md","charter-git-fault-diff-md"]}

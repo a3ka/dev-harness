@@ -4,7 +4,7 @@
   "baseline": "a32c577f292a2e925417d78a85cdb00abf25fae3",
   "subjekty": ["scripts/check_contract_frozen.sh", "scripts/check_charter.sh"],
   "model": "model/pr_window.sh",
-  "census": {"cells": 71, "mutations": 15, "bindings": 32},
+  "census": {"cells": 164, "mutations": 35, "bindings": 68},
   "runner": {"timeout_seconds": 60},
   "worlds": {"number": 701, "alternate_number": 809, "foreign_number": 702, "history_commits": 96, "main_merges": 16}
 }

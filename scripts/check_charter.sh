@@ -790,6 +790,250 @@ charter_frozen_publication() {
   return 0
 }
 
+# ── ОКНО PR (контракт 218) ────────────────────────────────────────────────────
+# Общая логика окна pull_request: барьер судит СВОЮ историю ветки относительно
+# main, а не чужие коммиты main и поздние теги соседних контрактов.
+#
+# ОКНО = ancestors(HEAD) \ ancestors(main), где main — refs/remotes/origin/main,
+# ПРОВЕРЕННЫЙ по живому настроенному origin (ls-remote). Это не first-parent и не
+# «последние коммиты»: в окне остаются боковые (не-main) коммиты ветки и merge с
+# собственным эффектом — дельта merge считается к КАЖДОМУ родителю (combined
+# diff), поэтому импорт main (результат слияния, равный одному из родителей)
+# собственной правкой НЕ является. Вне PR прежние полные потоки, решения и
+# incr-семантика сохраняются (инвариант 7).
+#
+# ОБЩИЙ КОД ДЛЯ ОБОИХ БАРЬЕРОВ — ЗДЕСЬ: check_contract_frozen.sh импортирует этот
+# файл библиотекой (CHARTER_LIB=1) — тем же приёмом, что razreshil,
+# grandfather_pair и charter_diff_paths. Отдельный файл библиотеки был бы ВТОРЫМ
+# источником того же кода: охранники копируются в окружение проверки ВМЕСТЕ С
+# УЖЕ СУЩЕСТВУЮЩИМИ библиотеками (next_id.sh, lib_registry.sh, lib_incr.sh), и
+# библиотеки, которой там нет, до первой команды git не дожить — барьер упал бы
+# не по предмету, а по отсутствующему файлу.
+#
+# Имена функций и переменных окна — как в эталонной модели фикстуры 218
+# (fixtures/workshop_project/okno_frozen_v_pr_218/model/pr_window.sh), чтобы
+# реализацию можно было сверять с эталоном построчно; отличается только
+# передача имени чека: аргументом, а не переменной другого файла.
+#
+# ОТКАЗЫ — ИМЕНОВАННЫЕ (rc 1), никогда пустое зелёное: неизвестная или
+# подменённая основа, shallow и недоступный origin не превращаются в «чистое
+# окно» (инвариант 2).
+pr_refuse() { printf 'PR_WINDOW_%s\n' "$1" >&2; exit 1; }
+
+# pr_verdict <дерево> <путь> — ТЕЛО ВЕРДИКТА ИЗ ЗАПИСИ ДЕРЕВА.
+#
+# ГРАНИЦА — доказанное отсутствие записи пути в УСПЕШНО прочитанном дереве, а не
+# пустая строка тела и не любой ненулевой rc Git (arbiter 218, Б-1). Три состояния
+# РАЗНЫ: записи нет · запись есть, но блоб непрочитан · запись есть и тело пусто.
+# Канон чтения — `ls-tree -r -z --full-tree` с literal-pathspec: он отдаёт запись
+# (режим, тип, OID) и НЕ читает сам блоб, поэтому отсутствие записи доказывается
+# успешным чтением дерева, а отказ чтения дерева — отказом, а не отсутствием.
+# Ошибка чтения дерева, разбора записи или блоба — именованный отказ
+# PR_WINDOW_TAG_UNREADABLE (rc 1), а не пустое зелёное (инвариант 2).
+#
+# Результат — ГЛОБАЛЬНЫЕ PR_VERDICT_PRESENT (0 — записи нет, 1 — запись есть) и
+# PR_VERDICT_BODY: команда в подстановке потеряла бы статус pr_refuse.
+# shellcheck disable=SC2034
+pr_verdict() {
+  local tree="$1" path="$2" row record metadata found_path mode type oid extra
+  PR_VERDICT_PRESENT=0
+  PR_VERDICT_BODY=""
+  row="$(mktemp "$ROOT/tmp/pr-verdict.XXXXXX")" || pr_refuse TEMP_UNAVAILABLE
+  if ! g ls-tree -r -z --full-tree "$tree" -- ":(literal)$path" > "$row"; then
+    rm -f "$row"; pr_refuse TAG_UNREADABLE
+  fi
+  # Отказ удаляет приватный временный файл и выходит; вход он не переписывает.
+  # shellcheck disable=SC2094
+  while IFS= read -r -d '' record; do
+    # Ровно одна запись: две записи одного пути — неразобранное чтение, не вердикт.
+    [ "$PR_VERDICT_PRESENT" -eq 0 ] || { rm -f "$row"; pr_refuse TAG_UNREADABLE; }
+    case "$record" in *$'\t'*) ;; *) rm -f "$row"; pr_refuse TAG_UNREADABLE ;; esac
+    metadata="${record%%$'\t'*}"; found_path="${record#*$'\t'}"
+    IFS=' ' read -r mode type oid extra <<< "$metadata"
+    if [ "$found_path" != "$path" ] || [ "$type" != blob ] || [ -n "$extra" ] ||
+       [[ ! "$oid" =~ ^[0-9a-f]{40,64}$ ]]; then
+      rm -f "$row"; pr_refuse TAG_UNREADABLE
+    fi
+    case "$mode" in 100644|100755) ;; *) rm -f "$row"; pr_refuse TAG_UNREADABLE ;; esac
+    PR_VERDICT_PRESENT=1
+    # Блоб читается по полученному OID, и его статус — часть решения: непрочитанный
+    # блоб — отказ, а не пустое тело.
+    PR_VERDICT_BODY="$(g cat-file -p "$oid")" || { rm -f "$row"; pr_refuse TAG_UNREADABLE; }
+  done < "$row"
+  rm -f "$row"
+}
+
+# pr_prepare <имя-чека> — зафиксировать окно PR: HEAD, main (origin), merge-base,
+# свои коммиты и их дельты. Печатает свидетельство выбора режима (`pr: …`) в
+# stderr; stdout остаётся пустым.
+pr_prepare() {
+  local name="$1"
+  local shallow remote base head bases c row p
+  local merge_mode=-c
+  shallow="$(g rev-parse --is-shallow-repository)" || pr_refuse HISTORY_UNREADABLE
+  [ "$shallow" = false ] || pr_refuse SHALLOW
+  head="$(g rev-parse --verify 'HEAD^{commit}')" || pr_refuse HEAD_UNREADABLE
+  base="$(g rev-parse --verify 'refs/remotes/origin/main^{commit}' 2>/dev/null)" || pr_refuse BASE_MISSING
+  remote="$(g ls-remote --exit-code origin refs/heads/main)" || pr_refuse ORIGIN_UNAVAILABLE
+  [ "$remote" = "$base"$'\trefs/heads/main' ] || pr_refuse BASE_UNTRUSTED
+  bases="$(g merge-base --all "$base" "$head")" || pr_refuse BASE_UNRELATED
+  case "$bases" in ''|*$'\n'*) pr_refuse BASE_AMBIGUOUS ;; esac
+  PR_HEAD="$head"; PR_MAIN="$base"; PR_BASE="$bases"
+  PR_COMMITS="$(g rev-list --reverse "$head" --not "$base")" || pr_refuse HISTORY_UNREADABLE
+  declare -gA PR_PATHS=() PR_MD=() PR_CHANGE=()
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    # -c: только пути, результат которых отличается от КАЖДОГО родителя. Импорт
+    # main не является новой правкой PR; при этом все не-main боковые коммиты
+    # остаются в PR_COMMITS.
+    row="$(mktemp "$ROOT/tmp/pr-paths.XXXXXX")" || pr_refuse TEMP_UNAVAILABLE
+    if ! g diff-tree --root -r "$merge_mode" --no-commit-id --no-renames --name-only -z "$c" > "$row"; then
+      rm -f "$row"; pr_refuse DELTA_UNREADABLE
+    fi
+    while IFS= read -r -d '' p; do
+      PR_PATHS["$p"]=1; PR_CHANGE["$c:$p"]=1
+    done < "$row"
+    # M/D — те же пути, что устава: добавление нового контракта свободно.
+    if ! g diff-tree --root -r "$merge_mode" --no-commit-id --no-renames --diff-filter=MD --name-only -z "$c" > "$row"; then
+      rm -f "$row"; pr_refuse DELTA_UNREADABLE
+    fi
+    while IFS= read -r -d '' p; do PR_MD["$c:$p"]=1; done < "$row"
+    rm -f "$row"
+  done <<< "$PR_COMMITS"
+  printf 'pr: %s main=%s base=%s head=%s\n' "$name" "$PR_MAIN" "$PR_BASE" "$PR_HEAD" >&2
+}
+
+# pr_collect <каталог> <номер> [дерево] — пути замороженных артефактов этого
+# номера в указанном дереве (по умолчанию — HEAD ветки; уже сужено до
+# документов каталога и номера). Третий аргумент — дерево коммита-основания
+# СОБСТВЕННОЙ заморозки: её артефакт не исчезает из области из-за отсутствия
+# пути на HEAD (инвариант 4).
+pr_collect() {
+  local dir="$1" number="$2" row path tree="${3:-$PR_HEAD}"
+  row="$(mktemp "$ROOT/tmp/pr-scope.XXXXXX")" || pr_refuse TEMP_UNAVAILABLE
+  if ! g ls-tree -r -z --name-only "$tree" -- "$dir/" > "$row"; then
+    rm -f "$row"; pr_refuse SCOPE_UNREADABLE
+  fi
+  while IFS= read -r -d '' path; do
+    case "$path" in "$dir/$number-"*.md) PR_FROZEN_PATHS["$path"]=1 ;; esac
+  done < "$row"
+  rm -f "$row"
+}
+
+# pr_files — ОБЛАСТЬ ЗАМОРОЗКИ PR: планы и контракты, затронутые СОБСТВЕННОЙ
+# историей ветки, плюс артефакты затронутых вердиктов и заморозок, чей
+# коммит-основание сам принадлежит окну. Нетронутый старый черновик на
+# отстающей ветке в область не попадает и поздним тегом соседнего main не
+# сверяется (инвариант 4).
+pr_files() {
+  local p c t n dir tags
+  declare -gA PR_FROZEN_PATHS=()
+  for p in "${!PR_PATHS[@]}"; do
+    case "$p" in
+      contracts/*.md|plans/*.md) PR_FROZEN_PATHS["$p"]=1 ;;
+      verdicts/critic/contracts-*-v*.md|verdicts/critic/plans-*-v*.md)
+        n="${p#verdicts/critic/}"; dir="${n%%-*}"; n="${n#*-}"; n="${n%%-*}"
+        pr_collect "$dir" "$n"
+        ;;
+    esac
+  done
+  # Заморозка, поставленная на СОБСТВЕННЫЙ коммит ветки, — сама в области:
+  # её основание принадлежит окну.
+  tags="$(g for-each-ref --format='%(refname)' refs/tags/frozen/)" || pr_refuse TAGS_UNREADABLE
+  while IFS= read -r t; do
+    [ -n "$t" ] || continue
+    c="$(g rev-parse --verify "$t^{commit}")" || pr_refuse TAG_UNREADABLE
+    case $'\n'"$PR_COMMITS"$'\n' in *$'\n'"$c"$'\n'*)
+      n="${t#refs/tags/frozen/}"; dir="${n%%/*}"; n="${n#*/}"; n="${n%%/*}"
+      pr_collect "$dir" "$n"
+      # И ДЕРЕВО СОБСТВЕННОГО ОСНОВАНИЯ: импорт main может удалить артефакт с
+      # HEAD, и без этого своя заморозка исчезла бы из области только из-за
+      # отсутствия пути на HEAD (инвариант 4).
+      pr_collect "$dir" "$n" "$c"
+      ;;
+  esac
+  done <<< "$tags"
+  for p in "${!PR_FROZEN_PATHS[@]}"; do
+    printf '%s\n' "$p"
+  done | LC_ALL=C sort
+}
+
+# pr_tags — теги заморозок, ЧЬИ артефакты в области PR. Остальные (чужие,
+# поздние) в суд не входят: в области нет артефакта — нет и его заморозки.
+pr_tags() {
+  local t dir n f found tags
+  tags="$(g for-each-ref --format='%(refname)' refs/tags/frozen/)" || pr_refuse TAGS_UNREADABLE
+  while IFS= read -r t; do
+    [ -n "$t" ] || continue
+    n="${t#refs/tags/frozen/}"; dir="${n%%/*}"; n="${n#*/}"; n="${n%%/*}"
+    found=0
+    while IFS= read -r f; do
+      case "$f" in "$dir/$n-"*.md) found=1 ;; esac
+    done < "$TMP/files"
+    [ "$found" -eq 0 ] || printf '%s\n' "$t"
+  done <<< "$tags"
+}
+
+# pr_changes — НОСИТЕЛИ правки пути $f: собственные коммиты окна, менявшие
+# этот путь и не предшествующие заморозке v$vmax. $f, $dir, $NNN и $vmax —
+# переменные цикла вызывающего барьера (динамическая область bash).
+pr_changes() {
+  local c
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    [ -n "${PR_CHANGE[$c:$f]+set}" ] || continue
+    # shellcheck disable=SC2154
+    if g merge-base --is-ancestor "$c" "refs/tags/frozen/$dir/$NNN/$vmax"; then continue; fi
+    printf '%s\n' "$c"
+  done <<< "$PR_COMMITS"
+}
+
+# pr_charter — суд устава по окну PR: те же библиотечные предикаты (уставной
+# класс, разрешение владельца, освобождение публикацией заморозки) и та же
+# per-document точка отсчёта (первая заморозка файла), что и вне PR. Собственная
+# правка без разрешения — отказ; разрешение на одном пути не оправдывает другой.
+pr_charter() {
+  local c p since n membership_rc publication_rc
+  local changes=0 excused=0
+  declare -gA PR_DOCS=()
+  g rev-parse --verify --quiet refs/tags/ustav/1 >/dev/null || skip 'устав не введён'
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    for p in "${!PR_PATHS[@]}"; do
+      [ -n "${PR_MD[$c:$p]+set}" ] || continue
+      membership_rc=0; is_charter_path "$p" "$ROOT" || membership_rc=$?
+      [ "$membership_rc" -ne 2 ] || pr_refuse SCOPE_UNREADABLE
+      [ "$membership_rc" -eq 0 ] || continue
+      PR_DOCS["$p"]=1
+      case "$p" in
+        AGENTS.md|ROADMAP.md) since=refs/tags/ustav/1 ;;
+        *) n="${p##*/}"; n="${n%%-*}"; since="refs/tags/frozen/${p%%/*}/$n/1" ;;
+      esac
+      if g merge-base --is-ancestor "$c" "$since"; then continue; fi
+      changes=$((changes + 1))
+      if razreshil "$c" "$p"; then
+        excused=$((excused + 1))
+        ok "уставной документ изменён с разрешения владельца: $p в ${c:0:8}"
+      else
+        publication_rc=0; charter_frozen_publication "$c" "$p" "$ROOT" || publication_rc=$?
+        if [ "$publication_rc" -eq 0 ]; then
+          excused=$((excused + 1))
+          ok "уставной документ внесён публикацией заморозки: $p в ${c:0:8}"
+        elif [ "$publication_rc" -eq 2 ]; then
+          bad "не могу проверить публикацию заморозки: $p в ${c:0:8} — проверьте origin, тег и объекты git"
+        else
+          bad "уставной документ изменён без разрешения владельца: $p в ${c:0:8} — тело коммита обязано нести строку «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: $p <причина>» в первой колонке"
+        fi
+      fi
+    done
+  done <<< "$PR_COMMITS"
+  printf '\nуставных документов в окне PR: %d · изменений в них: %d · с разрешения: %d\n' \
+    "${#PR_DOCS[@]}" "$changes" "$excused" >&2
+  # fails — счётчик отказов вызывающего барьера.
+  # shellcheck disable=SC2154
+  [ "$fails" -eq 0 ]
+}
+
 # ── ИМПОРТ КАК БИБЛИОТЕКА ────────────────────────────────────────────────────
 # Когда скрипт импортируется (`CHARTER_LIB=1 source check_charter.sh`),
 # определяются функции `is_charter_path`, `charter_diff_paths`, `razreshil`,
@@ -800,6 +1044,21 @@ charter_frozen_publication() {
 if [ "${CHARTER_LIB:-}" = "1" ]; then
   return 0 2>/dev/null || exit 0
 fi
+
+# ── РЕЖИМ PR (контракт 218, инвариант 1) ─────────────────────────────────────
+# Режим выбирает СОБЫТИЕ или явный --pr; имя ветки, владелец и detached HEAD на
+# решение не смотрят. Push и локальный вызов без --pr сохраняют прежний режим
+# (полный обход, --oracle, --incr) — здесь ничего не меняется.
+# Явный --pr снимается из аргументов: иначе он стал бы позиционным корнем и
+# «cd: --: invalid option».
+PR_ACTIVE=0
+[ "${GITHUB_EVENT_NAME:-}" != pull_request ] || PR_ACTIVE=1
+__pr_args=()
+for __pr_arg in "$@"; do
+  if [ "$__pr_arg" = --pr ]; then PR_ACTIVE=1; else __pr_args+=("$__pr_arg"); fi
+done
+set -- "${__pr_args[@]}"
+unset __pr_args __pr_arg
 
 # Режимы (контракт 113, инв. 1): `--oracle <корень>` — ПРЕСЛОВУТЫЙ ПОЛНЫЙ ОБХОД
 # (бывшая единственная семантика; эталон дифференциала, инструмент судей/аудита);
@@ -843,6 +1102,19 @@ git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || skip "$ROOT не репо�
 git -C "$ROOT" rev-parse --verify HEAD >/dev/null 2>&1 || skip "в $ROOT нет ни одного коммита"
 
 g() { git -C "$ROOT" "$@"; }
+
+# ── ОКНО PR — СУД СВОЕЙ ИСТОРИИ (контракт 218) ───────────────────────────────
+# В PR-режиме судится СВОЁ окно ветки (merge-base..HEAD против origin/main), а не
+# обход всей истории до HEAD: чужие коммиты main и поздние теги соседей в суд не
+# входят, а собственные правки — входят, включая боковые коммиты и merge с
+# собственным эффектом. Восстановленный --incr-кеш окно PR не сужает и не
+# продвигается (разделение PR/full в scripts/lib_incr.sh).
+if [ "$PR_ACTIVE" = "1" ]; then
+  mkdir -p "$ROOT/tmp"
+  pr_prepare check_charter
+  pr_charter
+  exit $?
+fi
 
 # Устав не введён — «нечем проверить», а не «проверено». Это ЕДИНСТВЕННАЯ законная двойка барьера:
 # до акта введения у него нет точки, с которой считать историю.

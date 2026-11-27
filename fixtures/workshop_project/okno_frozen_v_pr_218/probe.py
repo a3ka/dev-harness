@@ -131,6 +131,24 @@ else
 ''')
     frozen = replace(frozen, b'  elif [ "$head_blob" != "$tag_blob" ]; then\n',
                      b'  elif [ "$head_blob" != "$tag_blob" ] || [ -n "$pr_pending" ]; then\n')
+    old = b'    body="$(g cat-file -p "HEAD:$verdict" 2>/dev/null || true)"\n'
+    frozen = replace(frozen, old, b'''    if [ "$PR_ACTIVE" -eq 1 ]; then
+      pr_verdict "$PR_HEAD" "$verdict"
+      body="$PR_VERDICT_BODY"
+    else
+''' + old + b'''    fi
+    # Keep the legacy empty-body check, but absence is a separate tree fact.
+    if [ "$PR_ACTIVE" -eq 1 ] && [ -z "$body" ]; then
+      if [ "$PR_VERDICT_PRESENT" -eq 0 ]; then
+        anchor="$(g rev-parse --verify "refs/tags/frozen/$dir/$NNN/$k^{commit}")" || pr_refuse TAG_UNREADABLE
+        case $'\\n'"$PR_COMMITS"$'\\n' in *$'\\n'"$anchor"$'\\n'*)
+          pr_verdict "$anchor" "$verdict"
+          body="$PR_VERDICT_BODY"
+          ;;
+        esac
+      fi
+    fi
+''')
     result['check_contract_frozen.sh'] = frozen
     return result
 
@@ -185,6 +203,56 @@ def cells():
         Cell('frozen-renamed-values', 'late-tag-alt', 'frozen'),
         Cell('charter-renamed-values', 'own-charter-alt', 'charter', 1, 'без разрешения владельца'),
     ])
+    # Adv218: every version and both artifact kinds are independently scoped.
+    for directory in ('contracts', 'plans'):
+        for version in (1, 2, 3):
+            for verdict in ('fail', 'accept'):
+                world = f'verdict-{directory}-v{version}-{verdict}'
+                reason = f'заморозка v{version} лежит поверх вердикта, который её не разрешил'
+                result.append(Cell('frozen-' + world, world, 'frozen',
+                                   int(verdict == 'fail'), reason if verdict == 'fail' else ''))
+    for guard in GUARDS:
+        for removed in ('contract', 'verdict', 'both'):
+            for stage in ('before', 'after'):
+                world = f'own-v2-delete-{removed}-{stage}'
+                reason = ('заморозка v2 лежит поверх вердикта, который её не разрешил'
+                          if guard == 'frozen' else 'без разрешения владельца')
+                result.append(Cell(f'{guard}-{world}', world, guard, 1, reason))
+        for fault, reason in (('diff-all', 'DELTA_UNREADABLE'),
+                              ('diff-md', 'DELTA_UNREADABLE'),
+                              ('history', 'HISTORY_UNREADABLE')):
+            result.append(Cell(f'{guard}-git-fault-{fault}', 'git-fault-' + fault,
+                               guard, 1, 'PR_WINDOW_' + reason))
+    for fault, reason in (('scope', 'SCOPE_UNREADABLE'), ('tags', 'TAGS_UNREADABLE'),
+                          ('tag', 'TAG_UNREADABLE')):
+        result.append(Cell('frozen-git-fault-' + fault, 'git-fault-' + fault,
+                           'frozen', 1, 'PR_WINDOW_' + reason))
+    for permission in ('agents', 'roadmap', 'both', 'neither'):
+        denied = {'agents': 'ROADMAP.md', 'roadmap': 'AGENTS.md', 'neither': 'ROADMAP.md'}
+        reason = ('без разрешения владельца: ' + denied[permission]
+                  if permission in denied else '')
+        result.append(Cell('charter-two-documents-' + permission,
+                           'two-documents-' + permission, 'charter',
+                           int(permission != 'both'), reason))
+    # Arb218: HEAD evidence outranks an own freeze's historical accept.
+    # Expectations are literals; no post-subject Git read supplies this oracle.
+    for directory in ('contracts', 'plans'):
+        for version in (2, 3):
+            for state in ('head-accept', 'head-fail', 'head-empty',
+                          'head-missingblob', 'head-catfault', 'head-treefault',
+                          'anchor-accept', 'anchor-fail', 'anchor-empty',
+                          'anchor-absent', 'anchor-foreign',
+                          'anchor-missingblob', 'anchor-catfault', 'anchor-treefault'):
+                reason = ''
+                rc = int(state not in ('head-accept', 'anchor-accept'))
+                if state.endswith(('missingblob', 'catfault', 'treefault')):
+                    reason = 'PR_WINDOW_TAG_UNREADABLE'
+                elif state.endswith('fail'):
+                    reason = f'заморозка v{version} лежит поверх вердикта, который её не разрешил: первая строка «FAIL»'
+                elif rc:
+                    reason = f'заморозка v{version} без вердикта критика'
+                world = f'evidence-{directory}-v{version}-{state}'
+                result.append(Cell('frozen-' + world, world, 'frozen', rc, reason))
     return result
 
 
@@ -252,6 +320,12 @@ class World:
             parents = git(self.root, 'rev-list', '--parents', '-n', '1', self.head).decode().split()[1:]
             if parents != [self.main, self.carrier]:
                 raise Prerequisite('WORLD_CARRIER_PARENTS')
+        if cell.world.startswith('evidence-'):
+            self.evidence_oid = git(self.root, 'rev-parse',
+                                    f'{self.evidence_ref}:{self.evidence_path}').decode().strip() if self.evidence_fault else ''
+            if self.evidence_fault:
+                self.evidence_object = self.root / '.git/objects' / self.evidence_oid[:2] / self.evidence_oid[2:]
+                self.evidence_bytes = self.evidence_object.read_bytes()
 
     def tree_files(self, commit):
         names = git(self.root, 'ls-tree', '-r', '-z', '--name-only', commit).split(b'\0')
@@ -365,6 +439,112 @@ class World:
             self.head = self.commit(updates, parents, 'PR B A')
             if kind == 'ambiguous-base-descendant':
                 self.head = self.commit({'code.txt': b'own descendant\n'}, (self.head,), 'after cross')
+        elif kind.startswith('evidence-'):
+            _, directory, version_text, location, state = kind.split('-')
+            version = int(version_text[1:])
+            if directory == 'plans':
+                self.path = f'plans/{self.number:03d}-fixture.md'
+                self.main = self.commit({self.path: b'frozen one\n',
+                                        f'verdicts/critic/plans-{self.number:03d}-v1.md': b'accept\n'},
+                                       (self.seed,), 'main plan')
+                git(self.root, 'tag', '-a', f'frozen/plans/{self.number:03d}/1',
+                    self.main, '-m', 'plan v1')
+                self.head = self.commit({'code.txt': b'own work\n'}, (self.main,), 'own plan PR')
+            self.evidence_path = f'verdicts/critic/{directory}-{self.number:03d}-v{version}.md'
+            self.evidence_fault = state if state in ('missingblob', 'catfault', 'treefault') else ''
+            for k in range(2, version + 1):
+                path = f'verdicts/critic/{directory}-{self.number:03d}-v{k}.md'
+                body = f'accept\nown {directory} v{k}\n'.encode()
+                if location == 'anchor' and k == version:
+                    if state == 'fail':
+                        body = b'FAIL\n'
+                    elif state == 'empty':
+                        body = b''
+                    elif state == 'absent':
+                        body = None
+                parent = self.main if state == 'foreign' else self.head
+                anchor = self.commit({path: body}, (parent,), f'own {directory} v{k}')
+                git(self.root, 'tag', '-a', f'frozen/{directory}/{self.number:03d}/{k}',
+                    anchor, '-m', f'own v{k}')
+                if state == 'foreign':
+                    self.main = anchor
+                else:
+                    self.head = anchor
+            if state == 'foreign':
+                self.head = self.commit({'code.txt': b'own work\n'}, (self.main,), 'own foreign-tag PR')
+            if location == 'head':
+                body = b'accept\nupdated HEAD explanation\n' if state == 'accept' else b'FAIL\n'
+                if state == 'empty':
+                    body = b''
+                self.head = self.commit({self.evidence_path: body}, (self.head,), 'own HEAD evidence')
+                self.evidence_ref = self.head
+            else:
+                self.evidence_ref = anchor
+                if state == 'foreign':
+                    self.head = self.commit({self.evidence_path: None}, (self.head,), 'own deletes foreign verdict')
+                else:
+                    self.main = self.commit({self.evidence_path: None}, (self.main,), 'main removes verdict')
+                    self.head = self.commit({self.evidence_path: None}, (self.head, self.main), 'import verdict deletion')
+                if git(self.root, 'ls-tree', '-r', '-z', '--full-tree', self.head,
+                       '--', ':(literal)' + self.evidence_path):
+                    raise Prerequisite('WORLD_EVIDENCE_NOT_ABSENT')
+        elif kind.startswith('verdict-'):
+            _, directory, version, outcome = kind.split('-')
+            if directory == 'plans':
+                self.path = f'plans/{self.number:03d}-fixture.md'
+                self.main = self.commit({self.path: b'frozen one\n',
+                                        f'verdicts/critic/plans-{self.number:03d}-v1.md': b'accept\n'},
+                                       (self.seed,), 'main plan')
+                git(self.root, 'tag', '-a', f'frozen/plans/{self.number:03d}/1',
+                    self.main, '-m', 'plan v1')
+            for k in (2, 3):
+                self.main = self.commit({f'verdicts/critic/{directory}-{self.number:03d}-v{k}.md': b'accept\n'},
+                                       (self.main,), f'main v{k}')
+                git(self.root, 'tag', '-a', f'frozen/{directory}/{self.number:03d}/{k}',
+                    self.main, '-m', f'main v{k}')
+            verdict = f'verdicts/critic/{directory}-{self.number:03d}-{version}.md'
+            body = b'FAIL\n' if outcome == 'fail' else b'accept\nupdated explanation\n'
+            self.head = self.commit({verdict: body}, (self.main,), 'own verdict only')
+        elif kind.startswith('own-v2-delete-'):
+            _, _, _, removed, stage = kind.split('-')
+            verdict = f'verdicts/critic/contracts-{self.number:03d}-v2.md'
+            updates = {verdict: b'FAIL\n'}
+            if self.cell.guard == 'charter':
+                updates[self.path] = b'own forbidden frozen\n'
+            own = self.commit(updates, (self.head,), 'own failing verdict')
+            git(self.root, 'tag', '-a', f'frozen/contracts/{self.number:03d}/2',
+                own, '-m', 'own v2')
+            deleted = {}
+            if removed in ('contract', 'both'):
+                deleted[self.path] = None
+            if removed in ('verdict', 'both'):
+                deleted[verdict] = None
+            self.main = self.commit(deleted, (self.seed,), 'main deletes artifact')
+            merged = self.commit(deleted, (own, self.main), 'import main deletion')
+            self.head = own if stage == 'before' else merged
+            # Independent Git facts: the same own annotated tag survives import.
+            if git(self.root, 'rev-parse', f'frozen/contracts/{self.number:03d}/2^{{commit}}').decode().strip() != own:
+                raise Prerequisite('WORLD_OWN_TAG')
+            if git(self.root, 'show', f'{own}:{verdict}') != b'FAIL\n':
+                raise Prerequisite('WORLD_OWN_VERDICT')
+            if stage == 'after':
+                for path in deleted:
+                    if path in self.tree_files(merged):
+                        raise Prerequisite('WORLD_IMPORTED_DELETION')
+        elif kind.startswith('two-documents-'):
+            permission = kind.removeprefix('two-documents-')
+            message = 'own two documents'
+            if permission in ('agents', 'both'):
+                message += '\n\n' + self.allowed('AGENTS.md')
+            if permission in ('roadmap', 'both'):
+                message += '\n\n' + self.allowed('ROADMAP.md')
+            self.head = self.commit({'AGENTS.md': b'own agents\n', 'ROADMAP.md': b'own roadmap\n'},
+                                    (self.head,), message)
+        elif kind.startswith('git-fault-'):
+            # Real Git still builds/verifies the world. Only subject invocations
+            # receive the deterministic tool-error injector below.
+            self.head = self.commit({'ROADMAP.md': b'own roadmap\n',
+                                     self.verdict: b'FAIL\n'}, (self.head,), 'own scoped change')
         if kind in ('carrier-main-first', 'carrier-main-first-revert'):
             self.main_change()
             self.main = self.commit({'AGENTS.md': b'imported main charter\n'}, (self.main,),
@@ -374,13 +554,78 @@ class World:
             imported['code.txt'] = b'own work\n'
             self.head = self.commit(imported, (self.main, self.carrier), 'carrier main first')
 
-    def run(self, selected, directory, trace):
+    def run(self, selected, directory, trace, fault=True):
         tool = directory / 'scripts'
         tool.mkdir()
         for name, data in selected.items():
             (tool / name).write_bytes(data)
         args = ['bash', tool / SCRIPT[self.cell.guard]]
         extra = {'GIT_TRACE2_EVENT': str(trace)}
+        if self.cell.world.startswith('git-fault-'):
+            fault = self.cell.world.removeprefix('git-fault-')
+            injector = directory / 'bin'
+            injector.mkdir()
+            wrapper = injector / 'git'
+            wrapper.write_text('''#!/usr/bin/env bash
+set -eu
+op=""
+md=0
+ref=""
+for arg in "$@"; do
+  case "$arg" in
+    diff-tree|rev-list|ls-tree|for-each-ref|rev-parse) op="$arg" ;;
+    --diff-filter=MD) md=1 ;;
+    refs/tags/frozen/*^{commit}) ref=1 ;;
+  esac
+done
+hit=0
+case "$FAULT:$op:$md:$ref" in
+  diff-all:diff-tree:0:*|diff-md:diff-tree:1:*|history:rev-list:*|scope:ls-tree:*|tags:for-each-ref:*|tag:rev-parse:*:1) hit=1 ;;
+esac
+# Let registry_state complete its first catalog read; fail subsequent reads
+# in the PR scope/tag enumeration, rather than testing a different guard.
+if [ "$FAULT:$op" = tags:for-each-ref ] && [ ! -e "$FAULT_MARKER.first" ]; then
+  touch "$FAULT_MARKER.first"
+  hit=0
+fi
+if [ "$hit" -eq 1 ]; then
+  printf '%s\\n' "$FAULT" >> "$FAULT_MARKER"
+  exit 127
+fi
+exec "$REAL_GIT" "$@"
+''')
+            wrapper.chmod(0o755)
+            extra.update(PATH=str(injector) + os.pathsep + os.environ['PATH'],
+                         REAL_GIT=shutil.which('git'), FAULT=fault,
+                         FAULT_MARKER=str(directory / 'injected'))
+        evidence = self.cell.world.startswith('evidence-')
+        if evidence and fault and self.evidence_fault in ('catfault', 'treefault'):
+            injector = directory / 'bin'
+            injector.mkdir()
+            wrapper = injector / 'git'
+            wrapper.write_text('''#!/usr/bin/env bash
+set -eu
+op=""
+hit=0
+tree=0
+for arg in "$@"; do
+  [ "$arg" != "$EVIDENCE_REF" ] || tree=1
+  case "$arg" in cat-file|ls-tree) op="$arg" ;; esac
+  if [ "$arg" = "$EVIDENCE_OID" ] || [ "$arg" = "$EVIDENCE_REF:$EVIDENCE_PATH" ] ||
+     [ "$arg" = "HEAD:$EVIDENCE_PATH" ] || [ "$arg" = "$EVIDENCE_PATH" ] ||
+     [ "$arg" = ":(literal)$EVIDENCE_PATH" ]; then hit=1; fi
+done
+case "$EVIDENCE_FAULT:$op:$hit:$tree" in
+  catfault:cat-file:1:*|treefault:ls-tree:1:1)
+    printf '%s\\n' "$EVIDENCE_FAULT" >> "$FAULT_MARKER"; exit 127 ;;
+esac
+exec "$REAL_GIT" "$@"
+''')
+            wrapper.chmod(0o755)
+            extra.update(PATH=str(injector) + os.pathsep + os.environ['PATH'],
+                         REAL_GIT=shutil.which('git'), EVIDENCE_FAULT=self.evidence_fault,
+                         EVIDENCE_REF=self.evidence_ref, EVIDENCE_PATH=self.evidence_path,
+                         EVIDENCE_OID=self.evidence_oid, FAULT_MARKER=str(directory / 'injected'))
         if self.cell.mode in ('event', 'oracle', 'cache'):
             extra['GITHUB_EVENT_NAME'] = 'pull_request'
         elif self.cell.mode == 'explicit':
@@ -394,7 +639,15 @@ class World:
             if self.cell.guard == 'charter':
                 args += ['--incr', self.cache]
         args += [self.root]
-        return command(args, self.root, extra=extra)
+        missing = evidence and fault and self.evidence_fault == 'missingblob'
+        if missing:
+            self.evidence_object.unlink()
+        try:
+            return command(args, self.root, extra=extra)
+        finally:
+            # Restore the exact damaged loose object before the state observer.
+            if missing:
+                self.evidence_object.write_bytes(self.evidence_bytes)
 
 
 def history_calls(path):
@@ -409,20 +662,36 @@ def observe(cell, selected, baseline, scratch, mutant=False):
         directory = Path(temporary)
         world = World(directory, cell)
         expected = None
+        errors = []
         if cell.legacy:
             oracle_dir = directory / 'oracle'
             oracle_dir.mkdir()
             expected = world.run(baseline, oracle_dir, directory / 'oracle.trace')
             # Oracle is saved before the tested process; reset only the known cache.
             world.cache.write_bytes(world.original_cache)
+        if cell.world.startswith('evidence-') and world.evidence_fault:
+            control_dir = directory / 'intact'
+            control_dir.mkdir()
+            head = '-head-' in cell.world
+            control_rc = 1 if head else 0
+            intact = world.run(selected, control_dir, directory / 'intact.trace', fault=False)
+            if intact[0] == 2 or b'NOT_IMPLEMENTED' in intact[2] or b'syntax error' in intact[2]:
+                raise Prerequisite('EVIDENCE_CONTROL_ENVIRONMENT: ' + repr(intact))
+            if intact[0] != control_rc or intact[1] or (head and 'первая строка «FAIL»'.encode() not in intact[2]):
+                errors.append('INTACT_CONTROL')
         target_dir = directory / 'subject'
         target_dir.mkdir()
         result = world.run(selected, target_dir, directory / 'subject.trace')
-        errors = []
         if cell.legacy:
             if result != expected:
                 errors.append('LEGACY_BYTES')
         else:
+            if cell.world.startswith('git-fault-') and not (target_dir / 'injected').is_file():
+                raise Prerequisite('GIT_FAULT_NOT_EXERCISED')
+            if cell.world.startswith('evidence-') and world.evidence_fault in ('catfault', 'treefault'):
+                if not (target_dir / 'injected').is_file():
+                    # An implementation may avoid this read only by dropping evidence.
+                    errors.append('EVIDENCE_FAULT_NOT_EXERCISED')
             if result[0] != cell.rc:
                 errors.append('RC')
             if cell.diagnosis and cell.diagnosis.encode() not in result[2]:
@@ -442,6 +711,14 @@ def observe(cell, selected, baseline, scratch, mutant=False):
                 calls = []
             else:
                 calls = history_calls(trace_path)
+            if cell.world.startswith('evidence-'):
+                # Canonical tree witness (Arb218); not a body-empty heuristic.
+                for argv in calls:
+                    if 'ls-tree' not in argv:
+                        continue
+                    if any(a.endswith(world.evidence_path) for a in argv):
+                        if '--full-tree' not in argv or ':(literal)' + world.evidence_path not in argv:
+                            errors.append('EVIDENCE_TREE_CANON')
             for argv in calls:
                 for op in ('log', 'rev-list'):
                     if op not in argv:
@@ -505,6 +782,7 @@ def catalog():
 def syntax(root, baseline):
     compile(Path(__file__).read_bytes(), str(__file__), 'exec')
     compile((HERE / 'context.py').read_bytes(), str(HERE / 'context.py'), 'exec')
+    compile((HERE / 'production_mutants.py').read_bytes(), str(HERE / 'production_mutants.py'), 'exec')
     with tempfile.TemporaryDirectory(prefix='syntax-218-', dir=root) as temporary:
         directory = Path(temporary)
         for name, data in model_sources(baseline).items():
@@ -521,14 +799,14 @@ def syntax(root, baseline):
     return 0
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repo', type=Path, default=TREE)
     modes = parser.add_mutually_exclusive_group()
     for name in ('model', 'stabs', 'catalog', 'sintaksis', 'context'):
         modes.add_argument('--' + name, action='store_true')
     parser.add_argument('--cell')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
         cases, changes = catalog()
         if args.catalog:
