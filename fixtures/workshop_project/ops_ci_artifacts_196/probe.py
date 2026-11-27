@@ -1408,6 +1408,20 @@ def cell_verify_runner_dropin(subj):
     if prefix is None:
         return no_subject('ops/server/install.sh')
     _, verify_mode = subj.install_modes()
+
+    def install_runner_tmpdir(w, env):
+        """Полный repo-мир: verify также сверяет TMPDIR моб-раннеров (216)."""
+        root = w.path('var/lib/ci-runner')
+        root.mkdir(parents=True)
+        # chown — журнал; TMPDIR принадлежит настоящему пользователю пробы,
+        # чтобы id -gn и stat видели одну пару без выдуманного владельца.
+        owner = root.owner()
+        users = w.path('known-users')
+        users.write_text(users.read_text() + owner + '\n')
+        env['OPS_SERVER_MOB_TMP'] = str(root)
+        env['OPS_SERVER_MOB_TMP_OWNER'] = owner
+        return w.run(prefix + ['mob-tmpdir'], env)
+
     for unit, drift_kind in (
         (RUNNER_UNITS[0], 'bytes'), (RUNNER_UNITS[0], 'missing'),
         (RUNNER_UNITS[1], 'bytes'), (RUNNER_UNITS[1], 'missing'),
@@ -1426,6 +1440,10 @@ def cell_verify_runner_dropin(subj):
             rc, out, err = w.run(install_prefix + ['artifacts'], env)
             if rc != 0:
                 return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'установка для мира дрейфа drop-in не зелёная: rc={rc}, {err.strip()[:300]}'
+            if subj.kind == 'repo':
+                rc, out, err = install_runner_tmpdir(w, env)
+                if rc != 0:
+                    return False, f'установка TMPDIR для мира дрейфа drop-in не зелёная: rc={rc}, {err.strip()[:300]}'
             etc = w.path('etc/systemd/system')
             dropin = etc / f'{unit}.service.d' / 'ci-artifacts.conf'
             if not dropin.exists():
@@ -1457,6 +1475,10 @@ def cell_verify_runner_dropin(subj):
             rc, out, err = w.run(install_prefix + ['artifacts'], env)
             if rc != 0:
                 return False, install_missing(rc, err) if 'NOT_IMPLEMENTED: использование' in err else f'установка без дрейфа не зелёная: rc={rc}, {err.strip()[:300]}'
+            if subj.kind == 'repo':
+                rc, out, err = install_runner_tmpdir(w, env)
+                if rc != 0:
+                    return False, f'установка TMPDIR без дрейфа не зелёная: rc={rc}, {err.strip()[:300]}'
             rc, out, err = w.run(prefix + [verify_mode], env)
             if rc != 0:
                 return False, f'исправная конфигурация раннеров ({",".join(units) or "00"}) названа расхождением: rc={rc}, stderr: {err.strip()[:300]}'
@@ -1522,7 +1544,7 @@ def main():
         mode = 'stabs'
     elif len(args) == 2 and args[0] == '--repo':
         mode = 'repo'
-        repo_root = Path(args[1])
+        repo_root = Path(args[1]).resolve()
         if not repo_root.exists():
             print(f'NOT_IMPLEMENTED: корень не существует: {repo_root}', file=sys.stderr)
             return 2
