@@ -560,7 +560,15 @@ K10I() {  # <S> — команды трёх ключей зелены на де�
   k10_tree "$1" "$d" || { R='дерево без учётных путей не построено'; return 1; }
   for k in $K10_KEYS; do
     cmd="$(k10_cmd "$1" "$k")"
-    if ! (cd "$d" && bash -c "$cmd") >/dev/null 2>&1; then bad="$bad $k"; fi
+    # Зеркало классов run_ci_lane.sh:89 (m2541 п.3 (б)): прочие ключи сохраняют PR-событие.
+    if ! (cd "$d" && case "$k" in
+      *-family-selftest|check:document|drill:contract-change)
+        env -u GITHUB_EVENT_NAME bash -c "$cmd"
+        ;;
+      *)
+        bash -c "$cmd"
+        ;;
+    esac) >/dev/null 2>&1; then bad="$bad $k"; fi
   done
   [ -z "$bad" ] && return 0
   R="на дереве без учётных путей (strip И-7) отказ — чтение учётного пути:$bad"
