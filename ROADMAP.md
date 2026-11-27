@@ -500,7 +500,10 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 208 | до V-2 | autonomy | - | f2dfd18c7b209148fc647b564c8f96dd8410b682 |
 | 3 | 054 | до V-2 | complior | - | docs/owner/2026-11-10-dnevnye-resheniya.md#Слово владельца |
 | 3 | 203 | до V-2 | architecture | - | a42a71cc049c822e17bcf61240dee7603e5112bc |
+| 3 | 224 | до V-2 | CI | - | c9e1d7d88e21b3ac04b2f330c3a1d91d4238b3f8 |
 | 3 | 226 | до V-2 | architecture | - | ecdbe11bd510ec75dd74398dcf8cf0bfeafcab4b |
+| 3 | 231 | до V-2 | CI | - | 674dd0348f3660c353dba439febaea95f38f5907 |
+| 3 | 232 | до V-2 | CI | - | 674dd0348f3660c353dba439febaea95f38f5907 |
 | 4 | 095 | до V-2 | context | 094 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
 | 4 | 110 | параллельно с V-2 | done | 087 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
 | 4 | 993 | до V-2 | complior | - | docs/owner/2026-10-17-resheniya-back-992-993.md#4 |
@@ -539,7 +542,6 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 4 | 221 | до V-2 | CI | - | ca76965910ea23941e4a5058a4c8e6db845f9b98 |
 | 4 | 218 | до V-2 | CI | 217 | a42a71cc049c822e17bcf61240dee7603e5112bc |
 | 4 | 223 | до V-2 | complior | - | a42a71cc049c822e17bcf61240dee7603e5112bc |
-| 4 | 224 | до V-2 | CI | - | c9e1d7d88e21b3ac04b2f330c3a1d91d4238b3f8 |
 | 4 | 227 | до V-2 | CI | - | 66b375c7dc0f85b1628561f6c8af87ef4b8f8d51 |
 | 4 | 228 | до V-2 | autonomy | - | 50c740871d41fc911038a0b985d7489146832db1 |
 | 4 | 229 | до V-2 | autonomy | - | 6b15f5f7117fa01d6a3d62b32090f48833c02b98 |
