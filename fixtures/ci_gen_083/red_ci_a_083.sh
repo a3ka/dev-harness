@@ -157,6 +157,8 @@
 # check_zones дополнительно требует тегов frozen/* в клоне (fetch --tags).
 #
 # Прогон: bash red_ci_a_083.sh [корень]
+#   bash red_ci_a_083.sh <корень> --lane-env-only — только живые клетки Г11
+#     (адресный прогон мутантов раннера из fixtures/_krasnye_083.sh).
 #   rc 0 — все клетки зелёные (после реализации предмета);
 #   rc 1 — есть красные (до реализации: Г0-Г10, И0, И0б, И2-И5, И7-И8,
 #          И10-И11, И13-И14, И4-3/И4-4 трёх чеков, И4-5 четырёх чеков и И15
@@ -191,6 +193,84 @@ oks=0; fails=0
 ok()  { oks=$((oks+1));  printf '  ok   %s\n' "$*" >&2; }
 bad() { fails=$((fails+1)); printf '  FAIL %s\n' "$*" >&2; }
 
+
+# Г11: наблюдаем событие ВНУТРИ команд реального lane-раннера субъекта.
+# Оракул — литеральные значения в памяти ДО вызова; toy-команды не содержат
+# имён классов в поле команды, поэтому подмена key→command различима.
+# Три снимающих класса и четыре сохраняющих ключа (включая оба настоящих
+# уставных имени и два похожих) исполняются ОДНИМ lane. Отдельный запуск без
+# события — позитивный контроль; exit 127 проверяет оба плеча fail-fast.
+# Н-39: точные профили красных подклеток шести мутантов заданы КОДОМ раннера
+# fixtures/_krasnye_083.sh; остальных красных у мутанта быть не должно.
+lane_env11() {
+  local d="$SCRATCH/lane11" key want got out rc mode i failkey
+  local -a keys=(probe-family-selftest check:document drill:contract-change
+    check:charter check:contract-frozen check:foo-selftest drill:other)
+  local -a pr=(unset unset unset pull_request pull_request pull_request pull_request)
+  if [ ! -f "$ROOT/scripts/run_ci_lane.sh" ]; then
+    bad "Г11 — предмет отсутствует: нет lane-исполнителя"
+    return
+  fi
+  mkdir -p "$d/scripts" "$d/registry" || die "Г11: не смог создать toy"
+  cp "$ROOT/scripts/run_ci_lane.sh" "$d/scripts/run_ci_lane.sh" || die "Г11: не смог скопировать раннер"
+  {
+    printf '%s\n' '#!/usr/bin/env bash'
+    declare -p keys
+    printf '%s\n' 'keys+=(next)' \
+      'printf "083-event:%s:%s\n" "${keys[$1]}" "${GITHUB_EVENT_NAME-unset}"'
+  } | tee "$d/scripts/event_probe.sh" >/dev/null
+  printf '%s\n' '#!/usr/bin/env bash' 'exit 127' \
+    | tee "$d/scripts/fail127.sh" >/dev/null
+  {
+    printf 'lanes\t6\n'
+    i=0
+    for key in "${keys[@]}" next; do
+      printf 'step\t%s\t1\tbash scripts/event_probe.sh %s\n' "$key" "$i"
+      i=$((i+1))
+    done
+    for key in fail-family-selftest fail-real; do
+      printf 'step\t%s\t1\tbash scripts/fail127.sh\n' "$key"
+    done
+  } | tee "$d/registry/ci-steps.tsv" >/dev/null
+  for mode in PR без-PR; do
+    if [ "$mode" = PR ]; then
+      out="$(cd "$d" && env GITHUB_EVENT_NAME=pull_request timeout 30 bash scripts/run_ci_lane.sh "${keys[@]}")"; rc=$?
+    else
+      out="$(cd "$d" && env -u GITHUB_EVENT_NAME timeout 30 bash scripts/run_ci_lane.sh "${keys[@]}")"; rc=$?
+    fi
+    got="$(printf '%s\n' "$out" | grep -c '^083-event:')"
+    if [ "$rc" -eq 0 ] && [ "$got" -eq "${#keys[@]}" ]; then
+      ok "Г11-$mode/rc — rc 0, исполнены все ключи"
+    else
+      bad "Г11-$mode/rc — rc=$rc, наблюдений=$got: $out"
+    fi
+    for i in "${!keys[@]}"; do
+      key="${keys[$i]}"; want=unset
+      [ "$mode" = PR ] && want="${pr[$i]}"
+      got="$(printf '%s\n' "$out" | grep -F "083-event:$key:")"
+      if [ "$rc" -eq 0 ] && [ "$got" = "083-event:$key:$want" ]; then
+        ok "Г11-$mode/$key — событие=$want"
+      else
+        bad "Г11-$mode/$key — ожидалось $want, rc=$rc, наблюдение='$got'"
+      fi
+    done
+  done
+  for failkey in fail-family-selftest fail-real; do
+    out="$(cd "$d" && env GITHUB_EVENT_NAME=pull_request timeout 30 bash scripts/run_ci_lane.sh "$failkey" next)"; rc=$?
+    got="$(printf '%s\n' "$out" | grep '^083-event:')"
+    if [ "$rc" -eq 127 ] && [ -z "$got" ]; then
+      ok "Г11-fail-fast/$failkey — rc 127, следующий ключ не исполнен"
+    else
+      bad "Г11-fail-fast/$failkey — rc=$rc, наблюдения='$got': $out"
+    fi
+  done
+}
+if [ "${2:-}" = --lane-env-only ]; then
+  lane_env11
+  printf '083-Г11: ok=%d FAIL=%d\n' "$oks" "$fails" >&2
+  [ "$fails" -eq 0 ]
+  exit $?
+fi
 # ═══════════════════════════════════════════════════════════════════════════
 # Оракул батареи: парсер include-блока ci.yml (собственный, НЕ субъект).
 # Блок между маркерами; lane-строки `*- lane: <имя>`; ключи `*keys: <...>`.
@@ -648,6 +728,8 @@ else
     esac
   fi
 fi
+
+lane_env11
 
 # Г10: этикет кеша инкрементальных чеков (§Зоны контракта: «restore всегда;
 # save — на push И pull_request»; Б-1 ревьюера 083 круг 1 — PR-события кеш не
