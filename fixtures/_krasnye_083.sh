@@ -18,7 +18,7 @@
 # чеков и сдвиг HEAD между incr_parse и incr_finish И15 красны по умыслу —
 # «предмет отсутствует»). Подключение в ci —
 # реализационной пачкой (контракт 083 §ПРОВОДКА; прецедент 080).
-# Г11 и шесть адресных мутантов ниже защищают предикат очистки PR-события:
+# Г11 и восемь адресных мутантов ниже защищают предикат очистки PR-события:
 # реальный раннер копируется в одноразовый мир, меняется РОВНО один фрагмент.
 # Зачёт — rc 1 и ТОЧНЫЙ профиль красных подклеток (Н-39), не любой отказ.
 # --lane-env-only оставляет только Г11 + этот стаб-пак для адресной пробы.
@@ -71,21 +71,26 @@ lane_stub() { # <имя> <один старый фрагмент> <новый> <
   fi
 }
 
-# Н-39: wrong-field различим у всех трёх снимающих классов, no-family —
-# только у family, all-keys — только у четырёх сохраняющих; no-document и
-# no-drill — каждый на своём ключе; broad-selftest — на похожем НЕ-family.
+# Н-39: wrong-field различим у всех снимающих ключей, no-family — у обоих
+# family, all-keys — у пяти сохраняющих; no-document и no-drill — каждый
+# на своём ключе; broad-selftest — на похожем НЕ-family. doc-glob красен
+# только у doc-соседа, family-literal — только у второй основы family.
 predicate='    *-family-selftest|check:document|drill:contract-change)'
 lane_stub wrong-field 'case "$k" in' 'case "$cmd" in' \
-  'Г11-PR/probe-family-selftest Г11-PR/check:document Г11-PR/drill:contract-change'
+  'Г11-PR/probe-family-selftest Г11-PR/check:document Г11-PR/drill:contract-change Г11-PR/other-family-selftest'
 lane_stub no-family "$predicate" '    check:document|drill:contract-change)' \
-  'Г11-PR/probe-family-selftest'
+  'Г11-PR/probe-family-selftest Г11-PR/other-family-selftest'
 lane_stub all-keys "$predicate" '    *)' \
-  'Г11-PR/check:charter Г11-PR/check:contract-frozen Г11-PR/check:foo-selftest Г11-PR/drill:other'
+  'Г11-PR/check:charter Г11-PR/check:contract-frozen Г11-PR/check:foo-selftest Г11-PR/drill:other Г11-PR/check:documentation'
 lane_stub no-document "$predicate" '    *-family-selftest|drill:contract-change)' \
   'Г11-PR/check:document'
 lane_stub no-drill "$predicate" '    *-family-selftest|check:document)' \
   'Г11-PR/drill:contract-change'
 lane_stub broad-selftest "$predicate" '    *selftest|check:document|drill:contract-change)' \
   'Г11-PR/check:foo-selftest'
+lane_stub doc-glob "$predicate" '    *-family-selftest|check:doc*|drill:contract-change)' \
+  'Г11-PR/check:documentation'
+lane_stub family-literal "$predicate" '    probe-family-selftest|check:document|drill:contract-change)' \
+  'Г11-PR/other-family-selftest'
 printf '083-Г11-стабы: поймано=%d пропущено=%d\n' "$caught" "$missed" >&2
-[ "$battery_rc" -eq 0 ] && [ "$missed" -eq 0 ]
+[ "$battery_rc" -eq 0 ] && [ "$caught" -eq 8 ] && [ "$missed" -eq 0 ]
