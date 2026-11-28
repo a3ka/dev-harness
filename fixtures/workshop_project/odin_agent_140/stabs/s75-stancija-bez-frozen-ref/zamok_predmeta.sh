@@ -541,7 +541,7 @@ frozen_predmeta() {  # <NNN> <репозиторий владельца> → com
       return $?
     fi
   done < <(git -C "$owner" for-each-ref --format='%(objectname)' "refs/tags/frozen/contracts/$1/")
-  git -C "$REPO" rev-parse --verify "$object^{commit}"
+  git -C "$owner" rev-parse --verify "$object^{commit}"
 }
 peredacha_iz_ucheta() {
   jq -crs --arg r "$REPO_ID" --arg n "$1" '

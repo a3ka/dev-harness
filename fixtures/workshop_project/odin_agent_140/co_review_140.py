@@ -197,8 +197,8 @@ def mutacii(z):
             '  paths="$(puti_kommita "$wt" "$tip")" || return 1',
             '  paths="$(git -C "$wt" diff-tree --root --no-commit-id --name-only --no-renames -r "$tip")" || return 1'),
         's75-stancija-bez-frozen-ref': lambda t: z(t,
-            '  return 1\n}\nperedacha_iz_ucheta()',
-            '  git -C "$REPO" rev-parse --verify "$object^{commit}"\n}\nperedacha_iz_ucheta()'),
+            '  done < <(git -C "$owner" for-each-ref --format=\'%(objectname)\' "refs/tags/frozen/contracts/$1/")\n  return 1\n}',
+            '  done < <(git -C "$owner" for-each-ref --format=\'%(objectname)\' "refs/tags/frozen/contracts/$1/")\n  git -C "$owner" rev-parse --verify "$object^{commit}"\n}'),
     }
 
 

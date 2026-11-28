@@ -4,9 +4,9 @@ import os
 from pathlib import Path
 
 BINDINGS = {
-    's87-reestr-literal-proekta': ['r01-reestr-profil-obychnyj'],
+    's87-reestr-literal-proekta': ['r04-pauza-profil-svoj'],
     's88-pauza-ignoriruet-profil': ['r04-pauza-profil-svoj'],
-    's89-reestr-tolko-stancija': ['r01-reestr-profil-obychnyj'],
+    's89-reestr-tolko-stancija': ['r04-pauza-profil-svoj'],
     's90-noauthor-rannyj-continue': ['r11-noauthor-reviewer'],
     's91-profile-error-bez-pauzy': ['r14-profile-broken-pauza'],
     's92-override-polnaja-grammatika': ['r16-override-dubl-extra', 'r17-override-dubl-object'],
@@ -276,9 +276,14 @@ def grammar(p, door):
     return int(bool(problems))
 
 def replace_function(t, name, body, z):
-    start = t.index(name+'() {')
-    end = t.index('\n}\n', start)+3
-    return z(t, t[start:end], body)
+    marker = name+'() {'
+    if t.count(marker) != 1:
+        raise RuntimeError('мутирование не нашло ровно одну функцию: '+name)
+    start = t.index(marker)
+    end = t.find('\n}\n', start)
+    if end < 0:
+        raise RuntimeError('мутирование не нашло конец функции: '+name)
+    return z(t, t[start:end+3], body)
 
 
 def fixed_contracts(t, z):

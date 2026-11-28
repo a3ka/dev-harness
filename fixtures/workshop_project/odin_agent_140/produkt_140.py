@@ -620,6 +620,16 @@ def dobavit(K, p):
 
 def mutacii(z):
     """Адресные удаления/замены существующих операций модели; привязки — source.json."""
+    def legacy(t, check, read):
+        # D64 separates owner from payload wt; mutate the same D30 fields.
+        owner = 'owner' if '  owner="${4:-$wt}"' in t else 'wt'
+        old = '''    if [ -z "$val" ] && [ -f "$%s/registry/risk-legacy.tsv" ]; then
+      val="$(awk -F'\\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}' "$%s/registry/risk-legacy.tsv")"
+    fi''' % (owner, owner)
+        new = '''    if [ -z "$val" ] && [ -f "$%s/registry/risk-legacy.tsv" ]; then
+      val="$(awk -F'\\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}' "$%s/registry/risk-legacy.tsv")"
+    fi''' % ('REPO' if check else owner, 'REPO' if read else owner)
+        return z(t, old, new)
     return {
         's49-receipt-bez-origin': lambda t:z(t,
             '  git -C "$REPO" merge-base --is-ancestor "$c" refs/remotes/origin/main 2>/dev/null \\\n    || perenos_otkaz PEREDACHA_NEDOSTOVERNA \'свидетельство не опубликовано на origin/main\'',
@@ -673,17 +683,9 @@ def mutacii(z):
         's78-risk-stancija-vmesto-produkta': lambda t:z(t,
             '      kr="$(klass_riska "$sv" "$risk_repo" "$P_FROZEN")"',
             '      kr="$(klass_riska "$sv" "$REPO" "$(frozen_predmeta "$sv")")"'),
-        's79-legacy-stancija-vmesto-vladelca': lambda t:z(z(t,
-            '[ -f "$wt/registry/risk-legacy.tsv" ]',
-            '[ -f "$REPO/registry/risk-legacy.tsv" ]'),
-            '\' "$wt/registry/risk-legacy.tsv")',
-            '\' "$REPO/registry/risk-legacy.tsv")'),
-        's80-legacy-proverka-stancii': lambda t:z(t,
-            '[ -f "$wt/registry/risk-legacy.tsv" ]',
-            '[ -f "$REPO/registry/risk-legacy.tsv" ]'),
-        's81-legacy-chtenie-stancii': lambda t:z(t,
-            '\' "$wt/registry/risk-legacy.tsv")',
-            '\' "$REPO/registry/risk-legacy.tsv")'),
+        's79-legacy-stancija-vmesto-vladelca': lambda t: legacy(t, True, True),
+        's80-legacy-proverka-stancii': lambda t: legacy(t, True, False),
+        's81-legacy-chtenie-stancii': lambda t: legacy(t, False, True),
     }
 
 

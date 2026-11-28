@@ -1908,6 +1908,40 @@ def m_klass_riska_mjagko(t):
     # тихо пропускаются, пустой итог — обычный; КОНФЛИКТ согласных значений
     # остаётся отказом (семантика стаба прежняя — «класс не определён → тихо
     # обычный»; источник после v+1 — дерево кандидата, привязка — stab_vhod).
+    if 'kontrakt_zapisi() {' in t:
+        # Production enumerates NUL fields, not the model's $spisok.
+        # One structural replacement of the actual risk reader; conflicts stay closed.
+        return reestr_140.replace_function(t, 'klass_riska', r'''klass_riska() {
+  local n="$1" wt="$2" obj="$3" owner kat imya mode tip_zap blob put val znach='' ploh=''
+  owner="${4:-$wt}"
+  kat="$(kontrakt_kat "$owner")" || kat=''
+  if [ -z "$kat" ] || [ "$(git -C "$wt" cat-file -t "$obj:$kat" 2>/dev/null)" != tree ]; then
+    printf 'obychnyj'; return 0
+  fi
+  while IFS= read -r -d '' imya && IFS= read -r -d '' mode \
+        && IFS= read -r -d '' tip_zap && IFS= read -r -d '' blob; do
+    put="$imya"
+    if [ "$tip_zap" != blob ] || { [ "$mode" != 100644 ] && [ "$mode" != 100755 ]; }; then
+      continue
+    fi
+    val="$(git -C "$wt" show "$obj:$kat/$put" 2>/dev/null \
+          | grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' \
+          | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"
+    if [ -z "$val" ] && [ -f "$owner/registry/risk-legacy.tsv" ]; then
+      val="$(awk -F'\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}' "$owner/registry/risk-legacy.tsv")"
+    fi
+    case "$val" in
+      обычный) val='obychnyj' ;;
+      рисковый) val='risikovyj' ;;
+      *) continue ;;
+    esac
+    if [ -z "$znach" ]; then znach="$val"
+    elif [ "$znach" != "$val" ]; then ploh="${ploh:+$ploh }$put"; fi
+  done < <(kontrakt_zapisi "$wt" "$obj:$kat" "$n")
+  if [ -n "$ploh" ]; then printf 'neodnoznachno:%s' "$ploh"; return 0; fi
+  printf '%s' "${znach:-obychnyj}"
+}
+''', _z)
     t = _z(t, '''  if [ -z "$spisok" ]; then printf 'net_stroki:файлов %s/%s-*.md в дереве %s нет' "$kat" "$n" "$obj"; return 0; fi''',
               '''  if [ -z "$spisok" ]; then printf 'obychnyj'; return 0; fi # стаб: пустой перечень — обычный''')
     t = _z(t, '''    if [ "$tip_zap" != blob ]; then ploh="${ploh:+$ploh }$put"; continue; fi''',
@@ -1927,6 +1961,29 @@ def m_pervyj_rezultat_find(t):
     # чтения — историческая дверь 73aa92b7a (^-якорь строки, grep -q, не-файлы
     # молча выпадают): краснота на реальных формах наследуется. После v+1
     # источник первый-по-списку записи ДЕРЕВА OBJECT (перечень стабилен LC_ALL=C).
+    if 'kontrakt_zapisi() {' in t:
+        # Same historical defect on the NUL reader: first filename only,
+        # ^-anchored declaration, non-files ignored. Helpers remain untouched.
+        return reestr_140.replace_function(t, 'klass_riska', r'''klass_riska() {
+  local n="$1" wt="$2" obj="$3" owner kat zap meta put mode tip_zap blob val
+  owner="${4:-$wt}"
+  kat="$(kontrakt_kat "$owner")" || kat=''
+  if [ -z "$kat" ]; then printf 'net_stroki:каталог не объявлен'; return 0; fi
+  while IFS= read -r -d '' zap; do
+    meta="${zap%%$'\t'*}"; put="${zap#*$'\t'}"
+    case "$put" in "$n"-*.md) ;; *) continue ;; esac
+    read -r mode tip_zap blob <<< "$meta"
+    [ "$tip_zap" = blob ] && { [ "$mode" = 100644 ] || [ "$mode" = 100755 ]; } || continue
+    if git -C "$wt" show "$obj:$kat/$put" 2>/dev/null | grep -q '^КЛАСС РИСКА: рисковый'; then
+      val='risikovyj'
+    elif git -C "$wt" show "$obj:$kat/$put" 2>/dev/null | grep -q '^КЛАСС РИСКА:'; then
+      val='obychnyj'
+    else val='net_stroki:первый файл без строки'; fi
+    printf '%s' "$val"; return 0
+  done < <(git -C "$wt" ls-tree -z "$obj:$kat" 2>/dev/null | LC_ALL=C sort -z -t "$TAB" -k2,2)
+  printf 'net_stroki:файлов нет'
+}
+''', _z)
     t = _z(t, '''    | LC_ALL=C sort)"''',
               '''    | LC_ALL=C sort -t "$TAB" -k2,2 | sed -n '1p')" # стаб: только первое имя файла''')
     t = _z(t, '''    if [ "$tip_zap" != blob ]; then ploh="${ploh:+$ploh }$put"; continue; fi''',
@@ -2072,6 +2129,12 @@ def m_klass_riska_type_f(t):
     # ревьюеру без адверсария; битый симлинк/каталог тоже исчезают из канона.
     # После v+1 аналог в дереве OBJECT: записи не-blob молча выпадают вместо
     # отказа «нечитаемая запись».
+    if 'kontrakt_zapisi() {' in t:
+        return _z(t, '''    if [ "$tip_zap" != blob ] || { [ "$mode" != 100644 ] && [ "$mode" != 100755 ]; }; then
+      ploh="${ploh:+$ploh }$put"; continue
+    fi''', '''    if [ "$tip_zap" != blob ] || { [ "$mode" != 100644 ] && [ "$mode" != 100755 ]; }; then
+      continue # стаб: не-файлы молча выпадают из канона
+    fi''')
     return _z(t, '''    if [ "$tip_zap" != blob ]; then ploh="${ploh:+$ploh }$put"; continue; fi''',
               '''    [ "$tip_zap" = blob ] || continue # стаб: не-blob записи молча выпадают из канона''')
 
@@ -2107,6 +2170,10 @@ def m_klass_iz_gryazi(t):
     # [D31] класс читается из ГРЯЗНОГО рабочего каталога автора (cat файла
     # worktree и hash-object каталога), не из дерева OBJECT: незакоммиченная
     # правка контракта меняет класс судимого предмета
+    if 'kontrakt_zapisi() {' in t:
+        # wt is the frozen owner here; r_wt is the author's dirty payload checkout.
+        return _z(t, '    val="$(git -C "$wt" show "$obj:$kat/$put" 2>/dev/null \\\n',
+                  '    val="$(cat "$r_wt/$kat/$put" 2>/dev/null \\\n')
     t = _z(t, '''    val="$(git -C "$wt" show "$obj:$kat/$put" 2>/dev/null \\
           | grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' \\
           | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"''',
@@ -2125,6 +2192,37 @@ def m_klass_iz_main(t):
     # hash-object файлов main, содержимое — cat файлов main
     # Модель несёт прежний выбор каталога, production Ш-2 — kontrakt_kat.
     # В обоих случаях подменяем источник целиком на рабочий каталог станции.
+    if 'kontrakt_zapisi() {' in t:
+        return reestr_140.replace_function(t, 'klass_riska', r'''klass_riska() {
+  local n="$1" kat put blob val znach='' ploh='' schetchik=0
+  kat="$(kontrakt_kat "$REPO")" || kat=''
+  if [ -z "$kat" ] || [ ! -d "$REPO/$kat" ]; then
+    printf 'net_stroki:каталога в main нет'; return 0
+  fi
+  while IFS= read -r -d '' put; do
+    schetchik=$((schetchik + 1))
+    if [ ! -f "$put" ] || [ -L "$put" ]; then
+      ploh="${ploh:+$ploh }$put"; continue
+    fi
+    blob="$(git -C "$REPO" hash-object "$put" 2>/dev/null)"
+    val="$(grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' "$put" 2>/dev/null \
+          | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"
+    if [ -z "$val" ] && [ -f "$REPO/registry/risk-legacy.tsv" ]; then
+      val="$(awk -F'\t' -v b="$blob" 'b!="" && $1==b {print $2; exit}' "$REPO/registry/risk-legacy.tsv")"
+    fi
+    case "$val" in
+      обычный) val='obychnyj' ;;
+      рисковый) val='risikovyj' ;;
+      *) ploh="${ploh:+$ploh }$put"; continue ;;
+    esac
+    if [ -z "$znach" ]; then znach="$val"
+    elif [ "$znach" != "$val" ]; then ploh="${ploh:+$ploh }$put"; fi
+  done < <(find "$REPO/$kat" -maxdepth 1 -name "$n-*.md" -print0 | LC_ALL=C sort -z)
+  if [ "$schetchik" -eq 0 ]; then printf 'net_stroki:файлов нет'; return 0; fi
+  if [ -n "$ploh" ]; then printf 'neodnoznachno:%s' "$ploh"; return 0; fi
+  printf '%s' "$znach"
+}
+''', _z)
     if '  kat="$(kontrakt_kat "$wt")" || kat=\'\'' in t:
         vybor = '''  kat="$(kontrakt_kat "$wt")" || kat=''
   if [ -z "$kat" ]; then

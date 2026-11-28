@@ -645,13 +645,13 @@
    "q17-object-predydushchego-verdikta"
   ],
   "s87-reestr-literal-proekta": [
-   "r01-reestr-profil-obychnyj"
+   "r04-pauza-profil-svoj"
   ],
   "s88-pauza-ignoriruet-profil": [
    "r04-pauza-profil-svoj"
   ],
   "s89-reestr-tolko-stancija": [
-   "r01-reestr-profil-obychnyj"
+   "r04-pauza-profil-svoj"
   ],
   "s90-noauthor-rannyj-continue": [
    "r11-noauthor-reviewer"
@@ -836,7 +836,7 @@
   "s70-object-pustoj-tip": "48331d45c095f9942a808e1efc4abb9c726e6687373d88a66fd21fd27c0f40c1",
   "s71-runtime-iz-tip": "81216ba104760b21aaae4417335b2820f013e013a59b6f31df9a237f4b5a86f0",
   "s72-merge-bez-pervogo-roditelja": "2849b085de733cade7148ce8bdd7a531402b94b3db2738ec09215dc176cfdf5d",
-  "s75-stancija-bez-frozen-ref": "015206a737a68ab4d8f84dadd88a02555b721848e90f3f57bc83fe6fbaf66a01",
+  "s75-stancija-bez-frozen-ref": "133600aa153bc0f1c101ac6b2877a3c63dc27af06fbb4d58c6812c52b4fb6b01",
   "s82-override-bez-zapisi": "43c16f22084eaefc18b680f6f5ee1fdf6d5fb50cd972a75902112f373f4a1737",
   "s83-override-bez-abort": "acd451746c83707bc99dd3d730cfe6f65028d757f5cd17193e1830286c873138",
   "s84-preduprezhdenie-bez-zapisi": "126a5efb5a285604d5d101a3c8fe03f9843d1726f8f025cef5a387bf6bdc45e6",
