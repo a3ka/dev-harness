@@ -10,7 +10,6 @@ import re
 import runpy
 import subprocess
 import sys
-import tempfile
 
 ROOT = Path(__file__).resolve().parents[3]
 COMMAND = ('python3', 'fixtures/workshop_project/rezhim_996/probe.py', '--matrix')
@@ -57,17 +56,9 @@ def main():
     # Definitions only; __main__ is not invoked. No copy of the matrix catalogue.
     probe = runpy.run_path(str(ROOT / COMMAND[1]))
     cases, mutants = tuple(probe['CASES']), dict(probe['MUTANTS'])
-    scratch = (ROOT / 'tmp').resolve()
-    if not scratch.is_relative_to(ROOT):
-        print('matrix201: own tmp escapes repository', file=sys.stderr)
-        return 1
-    scratch.mkdir(exist_ok=True)
     try:
-        with tempfile.TemporaryDirectory(prefix='matrix201-', dir=scratch) as tmp:
-            env = matrix_env()
-            env['TMPDIR'] = tmp
-            result = subprocess.run(COMMAND, cwd=ROOT, env=env,
-                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.run(COMMAND, cwd=ROOT, env=matrix_env(),
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except OSError as error:
         print(f'matrix201: execution error: {error}', file=sys.stderr)
         return 1

@@ -26,16 +26,20 @@ SOURCE: `9d37c35a714a52deeba7fd91753dceea1a5c8c38` (parent
 Проверяются все строки исходного протокола и согласованность суммы/итога/rc;
 rc2/PROBE_ERROR, stderr, сигнал, неполный/неразобранный/противоречивый вывод
 не являются нормативным одним mismatch. stdout/stderr сохраняются байтами,
-raw child exitstatus печатается отдельно. Наследуется остальное окружение;
-меняются только заданный ENV и TMPDIR в собственном `<repo>/tmp`.
+raw child exitstatus печатается отдельно. Наследуется всё окружение, включая
+операторский TMPDIR; меняется только заданный PYTHONDONTWRITEBYTECODE=1.
+Adapter не создаёт `<repo>/tmp` и не переопределяет TMPDIR: уникальный
+TemporaryDirectory создаёт сам probe. Перед полным измерением оператор
+проверяет realpath scratch вне дерева TOOLS; без TMPDIR сохраняется штатная
+семантика tempfile исходной команды.
 Это локальный предикат одного пункта, не executor/DSL или новый критерий.
 
-Публичные швы адресного доказательства: предикат над завершённым результатом
-probe и вызов subprocess с буквальным argv/ENV. Полные синтетические записи
-подчиняются протоколу probe, ожидания 0/1 заданы независимо; реального child,
-Git/session/state/journal/event-писателей proof не вызывает. Подмена лишь
-транспорта в памяти НЕ объявляется actual matrix. Кодовые стабы always-green,
-reject-one, lost-matrix и lost-ENV привязаны в `matrix_996_201_proof.py`.
+Публичный шов адресного доказательства — matrix_ok над завершённым результатом
+probe. Полные синтетические записи подчиняются протоколу probe, ожидания 0/1
+заданы независимо; реального child, транспорта, Git/session/state/journal/event-
+писателей proof не вызывает. Один verifier проверяет честный предикат и
+отвергает кодовые стабы always-green/reject-one на различающих входах;
+проверок копирования argv/ENV/cwd/TMPDIR/PIPE и mock-транспорта нет.
 Честные эквивалентные записи: mismatch в базовой клетке либо в mutation,
 различный текст assertion; обе границы 0 и 1 принимаются.
 
@@ -52,6 +56,16 @@ A2:94), а не повтор дореализационного красного
 ACTUAL_MATRIX=NOT_RUN: здесь native-клон под `/zones/`, unsafe matrix не запускался.
 Адресное доказательство запускается отдельно единожды после цельной правки:
 `fixtures/workshop_project/done_dver_soderzhatelnaja_201/matrix_996_201_proof.py`.
+
+Фактический оригинал matrix на неизменённом `2527d2e653181227fb511b797b37315cfbc4a9b2`
+измерила ведущая (bg5960, rc0): examined=111 mutants=76 mismatches=0.
+Единственное изменение условий — внешний realpath-проверенный
+`TMPDIR=/tmp/dev-harness-verify/matrix201-m2727.HcShWqyN`; raw:
+`/tmp/dev-harness-verify/consultant/m2727-201-original-matrix-external.log`.
+Это не прогон architect и не actual matrix исправленного adapter.
+Предшествующий отказ adapter (bg5957, rc1, mismatches=7) сохранён в
+`/tmp/dev-harness-verify/consultant/m2726-201-matrix-diagnostic.log`;
+его принудительный nested TMPDIR менял условия context-клеток.
 
 Условные обязанности C:119 — ДО freeze ПОСЛЕ подключения CI, исполнитель
 orchestrator; не безусловные команды architect и не исключённые обязательства:

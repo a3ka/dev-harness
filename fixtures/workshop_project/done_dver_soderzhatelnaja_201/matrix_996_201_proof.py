@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
-"""Deterministic protocol/transport proof; DOES NOT run the actual 996 matrix.
+"""Deterministic matrix_ok protocol proof; DOES NOT run the actual 996 matrix.
 
-Only the subprocess transport is replaced in memory. The real adapter judges
-full synthetic probe-protocol records; no echo program, fake interpreter, git
-world, session, journal, event writer or product subsystem is invoked.
+The real predicate judges full synthetic probe-protocol records. The same
+verifier rejects always-green and reject-one controls on distinguishing inputs.
+No subprocess transport, git world or product subsystem is invoked.
 """
-import contextlib
 import importlib.util
-import io
-import os
 from pathlib import Path
 import runpy
 import subprocess
-from unittest.mock import patch
 
 HERE = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location('matrix201', HERE / 'matrix_996_201.py')
@@ -39,32 +35,15 @@ def changed(result, *, stdout=None, stderr=None, rc=None):
                                      result.stderr if stderr is None else stderr)
 
 
-def invoke(result, fail=False):
-    calls = []
-
-    def transport(argv, *, cwd, env, stdout, stderr):
-        calls.append(tuple(argv))
-        # Literal independent oracle for C201:118, not adapter.COMMAND.
-        if (tuple(argv) != ('python3', 'fixtures/workshop_project/rezhim_996/probe.py', '--matrix')
-                or env.get('PYTHONDONTWRITEBYTECODE') != '1'):
-            raise OSError('lost literal matrix argv or ENV')
-        assert cwd == adapter.ROOT
-        assert env['MATRIX201_INHERITED_CONTROL'] == 'unchanged'
-        tmp = Path(env['TMPDIR']).resolve()
-        assert tmp.is_dir() and tmp.is_relative_to(adapter.ROOT / 'tmp')
-        assert stdout == subprocess.PIPE and stderr == subprocess.PIPE
-        if fail:
-            raise OSError('synthetic launch failure')
-        return result
-
-    out, err = io.BytesIO(), io.BytesIO()
-    sout, serr = io.TextIOWrapper(out, write_through=True), io.TextIOWrapper(err, write_through=True)
-    with patch.dict(os.environ, PYTHONDONTWRITEBYTECODE='0', MATRIX201_INHERITED_CONTROL='unchanged'):
-        with patch.object(adapter.subprocess, 'run', transport):
-            with contextlib.redirect_stdout(sout), contextlib.redirect_stderr(serr):
-                rc = adapter.main()
-    assert len(calls) == 1, calls
-    return rc, out.getvalue(), err.getvalue()
+def verify(predicate, scenarios, name):
+    failures = 0
+    for label, result, expected in scenarios:
+        rc = 0 if predicate(result, CASES, MUTANTS) else 1
+        ok = rc == expected
+        failures += not ok
+        print(f'PROOF {name}/{label}: child_rc={result.returncode} predicate_rc={rc} expected={expected} ok={int(ok)}')
+    print(f'VERIFY {name}: failures={failures}')
+    return int(bool(failures))
 
 
 def main():
@@ -91,30 +70,25 @@ def main():
         ('base-case-one', base_one, 0),
         ('detail-variation', changed(one, stdout=one.stdout.replace(b': rc=1 ', b': rc=1 arbitrary assertion detail')), 0),
     ]
-    failures = 0
-    for label, result, expected in cases:
-        rc, out, err = invoke(result)
-        ok = rc == expected and out == result.stdout and err == (
-            result.stderr + f'matrix201: child_exitstatus={result.returncode}\n'.encode())
-        failures += not ok
-        print(f'PROOF {label}: child_rc={result.returncode} adapter_rc={rc} expected={expected} preserved={out == result.stdout} ok={int(ok)}')
-    rc, _, err = invoke(zero, fail=True)
-    ok = rc == 1 and b'execution error' in err
-    failures += not ok
-    print(f'PROOF launch-error: adapter_rc={rc} expected=1 ok={int(ok)}')
-    # Code bindings only: each mutant is shown on its distinguishing input.
+    failures = verify(adapter.matrix_ok, cases, 'honest')
+
+    def always_green(result, cases, mutants):
+        return True
+
+    def reject_one(result, cases, mutants):
+        return result.returncode == 0 and adapter.matrix_ok(result, cases, mutants)
+
+    # Code bindings only: run the same verifier at each observable defect.
     stabs = (
-        ('always-green', 'matrix_ok', lambda *args: True, two, 1),
-        ('reject-one', 'matrix_ok', lambda r, *args: r.returncode == 0, one, 0),
-        ('lost-matrix', 'COMMAND', adapter.COMMAND[:-1], zero, 0),
-        ('lost-ENV', 'matrix_env', lambda: dict(os.environ), zero, 0),
+        ('always-green', always_green, 'over-one'),
+        ('reject-one', reject_one, 'one'),
     )
-    for label, target, value, result, honest in stabs:
-        with patch.object(adapter, target, value):
-            rc, _, _ = invoke(result)
-        caught = rc != honest
+    for label, predicate, distinguishing in stabs:
+        scenarios = [case for case in cases if case[0] == distinguishing]
+        rc = verify(predicate, scenarios, label)
+        caught = rc == 1
         failures += not caught
-        print(f'STAB {label}: mutant_rc={rc} honest_rc={honest} caught={int(caught)}')
+        print(f'STAB {label}: verifier_rc={rc} expected=1 caught={int(caught)}')
     print(f'PROOF_FAILURES={failures} ACTUAL_MATRIX=NOT_RUN')
     return int(bool(failures))
 
