@@ -1,4 +1,115 @@
-# Сдаточный лист 201 — Круг: красные клетки Adv201c (Arch201Cells)
+# Сдаточный лист 201 — действующая машинная форма (m2725)
+
+SOURCE: `9d37c35a714a52deeba7fd91753dceea1a5c8c38` (parent
+`47f61ba470d094a96af7045be468d35b789a03bc`). C =
+`contracts/201-done-dver-soderzhatelnaja-sverka.md` этого SOURCE; A2 =
+`verdicts/arbitration/201-granica-done-dveri-2.md` того же SOURCE.
+Полный предшествующий разбор:
+`/tmp/dev-harness-verify/consultant/201-form-reconcile-original-report.txt`
+(Architect201FormReconcile/artifact16476); разрешение только узкого адаптера —
+`/tmp/dev-harness-verify/task-architect201-matrix-adapter.md`, m2725.
+
+## Существующее и граница проводки
+
+`dver_probe.py:116–119` уже использует прямой subprocess argv и снимает rc/вывод
+до сверки; этот приём переиспользован. Его `run` объединяет stderr со stdout,
+поэтому для matrix он непригоден: диагностический поток должен оставаться
+отличимым от протокола. `rezhim_996/probe.py:1567–1590` — единственный источник
+порядка CASES/MUTANTS и суммы несовпадений. Определения снимаются в память
+до child; ни probe, ни parser, ни контракт не меняются. Существующий
+`rezhim_996/probe.sh` добавляет npm-dispatch и не тождествен исходной команде.
+
+Единственная adapter-строка ниже означает ДОСЛОВНО исходную команду C:118:
+`PYTHONDONTWRITEBYTECODE=1 python3 fixtures/workshop_project/rezhim_996/probe.py --matrix`.
+Исходный предикат: `examined=111`, `mismatches≤1`; допускаются raw child rc=0
+при нуле и rc=1 при одном несовпадении. Adapter возвращает rc0 для обоих.
+Проверяются все строки исходного протокола и согласованность суммы/итога/rc;
+rc2/PROBE_ERROR, stderr, сигнал, неполный/неразобранный/противоречивый вывод
+не являются нормативным одним mismatch. stdout/stderr сохраняются байтами,
+raw child exitstatus печатается отдельно. Наследуется остальное окружение;
+меняются только заданный ENV и TMPDIR в собственном `<repo>/tmp`.
+Это локальный предикат одного пункта, не executor/DSL или новый критерий.
+
+Публичные швы адресного доказательства: предикат над завершённым результатом
+probe и вызов subprocess с буквальным argv/ENV. Полные синтетические записи
+подчиняются протоколу probe, ожидания 0/1 заданы независимо; реального child,
+Git/session/state/journal/event-писателей proof не вызывает. Подмена лишь
+транспорта в памяти НЕ объявляется actual matrix. Кодовые стабы always-green,
+reject-one, lost-matrix и lost-ENV привязаны в `matrix_996_201_proof.py`.
+Честные эквивалентные записи: mismatch в базовой клетке либо в mutation,
+различный текст assertion; обе границы 0 и 1 принимаются.
+
+## Условия стадий и свидетельства
+
+Ряды «Двери» — действующие обязательства после сборки реализации (C:117,
+A2:94), а не повтор дореализационного красного опыта C:116. Оба rc-поля —
+предписанный результат при исполнении `check_sdacha --run`, НЕ утверждение
+о новом фактическом прогоне. Полный набор сейчас NOT_RUN: его исполняет main
+после 037 на цельном кандидате без ambient GIT_AUTHOR_*/GIT_COMMITTER_*.
+`SDACHA_OKRUG=1` штатно разрывает рекурсию pre_critic, новый обход не вводится.
+187 сохраняет CELLS=54; актуальные числа 201 берутся из живого вывода,
+старые 45/15/30 остаются историей согласно A2:92.
+ACTUAL_MATRIX=NOT_RUN: здесь native-клон под `/zones/`, unsafe matrix не запускался.
+Адресное доказательство запускается отдельно единожды после цельной правки:
+`fixtures/workshop_project/done_dver_soderzhatelnaja_201/matrix_996_201_proof.py`.
+
+Условные обязанности C:119 — ДО freeze ПОСЛЕ подключения CI, исполнитель
+orchestrator; не безусловные команды architect и не исключённые обязательства:
+
+| Условная команда (дословно) | Предписанный rc | Источник |
+|---|---:|---|
+| `bash scripts/gen_ci_steps.sh --write` | 0 | C:119, orchestrator |
+| `bash scripts/gen_ci_steps.sh --check` | 0 | C:119, затем после --write |
+| `bash scripts/check_provodka.sh . contracts/201-done-dver-soderzhatelnaja-sverka.md` | 0 | C:119, та же стадия |
+
+C:120 (ПОТРЕБИТЕЛЬ) и C:121 (census) не превращены в новые rc-двери.
+Исторические `check_charter`/`bash -n` также не добавлены к приёмке C:114–119.
+Предыдущая карта critic-v2 судила только C:54/R-0162, не весь 201:
+не объявляется новым prior-verdict этой сдачи.
+
+## Двери
+
+- 201 голый после реализации [C:116; A2:92,94] · bash fixtures/workshop_project/done_dver_soderzhatelnaja_201/red_done_dver_201.sh · 0 · 0
+- 201 repo [C:117; A2:94] · bash fixtures/workshop_project/done_dver_soderzhatelnaja_201/red_done_dver_201.sh --repo . · 0 · 0
+- 201 model [C:116; A2:92,94] · bash fixtures/workshop_project/done_dver_soderzhatelnaja_201/red_done_dver_201.sh --model · 0 · 0
+- 201 stabs [C:116; A2:80,92,94] · bash fixtures/workshop_project/done_dver_soderzhatelnaja_201/red_done_dver_201.sh --stabs · 0 · 0
+- 187 repo CELLS54 [C:118] · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --repo . · 0 · 0
+- 187 model CELLS54 [C:118] · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --model · 0 · 0
+- 187 stabs CELLS54 [C:118] · bash fixtures/workshop_project/architecture_process_187/red_architecture_process_187.sh --stabs · 0 · 0
+- 996 examined111 mismatches≤1 [C:118; m2725 adapter] · fixtures/workshop_project/done_dver_soderzhatelnaja_201/matrix_996_201.py · 0 · 0
+- pre_critic исправленный черновик без ambient git identity [C:119] · bash scripts/pre_critic.sh --repo . contracts/201-done-dver-soderzhatelnaja-sverka.md · 0 · 0
+- spec [C:119] · bash scripts/check_spec_ready.sh . contracts/201-done-dver-soderzhatelnaja-sverka.md · 0 · 0
+- precision [C:119] · bash scripts/check_precision_gate.sh . contracts/201-done-dver-soderzhatelnaja-sverka.md · 0 · 0
+- threat [C:119] · bash scripts/check_threat_model.sh . contracts/201-done-dver-soderzhatelnaja-sverka.md · 0 · 0
+- ceilings [C:119] · bash scripts/check_ceilings.sh . · 0 · 0
+
+## Карта классов
+
+- К-01 · чисто · вход: C:114–119 и A2:92,94; полный набор и стадия выше; фактический fullgate NOT_RUN · - · -
+- К-02 · чисто · вход: C:9,30–65 и прежняя карта К-02 (история ниже); m2725 не меняет предмет · - · -
+- К-03 · чисто · вход: C:151 и A2:94; 187 все режимы и исходный 996 сохранены в дверях · - · -
+- К-04 · чисто · вход: C:151; дельта только fixture-семьи201, contract/parser/996/187 read-only · - · -
+- К-05 · чисто · вход: C:116–119; команды и rc стадий перенесены без ослабления, stdout-порог через один adapter · - · -
+- К-06 · н/п · вход: прежняя карта К-06; новых требований rc2 к done-двери нет, runtimefail adapter отвергает · - · -
+- К-07 · чисто · fixtures/workshop_project/done_dver_soderzhatelnaja_201/matrix_996_201_proof.py · 0 · 0
+- К-08 · чисто · вход: кодовые STABS dver_probe.py и стабы matrix_996_201_proof.py; различающие результаты proof в докладе · - · -
+- К-09 · чисто · вход: CASES dver_probe.py и протокол probe.py:1567–1590; границы 0/1/>1 и ошибки различимы · - · -
+- К-10 · чисто · вход: A2:94 и dver_probe.py:983–1018; rc+тег сохранены; adapter наблюдает raw child rc и полные потоки · - · -
+- К-11 · чисто · вход: прежняя карта К-11 и dver_probe.py:975–983; adapter снимает CASES/MUTANTS до child · - · -
+- К-12 · чисто · вход: A2:44–49; jq/git-каноны неизменны, adapter разбирает только собственный протокол996 · - · -
+- К-13 · чисто · вход: прежняя карта К-13; секретов дельта не вводит, исходные child-потоки не маскируются · - · -
+- К-14 · чисто · вход: matrix_996_201_proof.py; ноль/один mismatch, базовая/mutation клетка и другой текст assertion · - · -
+- К-15 · чисто · вход: A2:92; история чисел сохранена, текущие числа только из фактических выводов main, matrix examined111 неизменен · - · -
+- К-16 · чисто · вход: C:1,80–102 и A2:98–104; риск и остаточная граница не меняются · - · -
+- К-17 · чисто · вход: прежняя карта К-17; механизм харнесса, модель архитектуры дельтой не меняется · - · -
+
+## История — сохранённые свидетельства прежних кругов
+
+Следующий текст — прежний лист SOURCE, не новые прогоны/вердикты.
+У шести исторических списков только маркер `-` заменён на `*`, чтобы
+старые command/rc не стали машинными рядами вне секции; значения сохранены.
+
+# Исторический сдаточный лист 201 — Круг: красные клетки Adv201c (Arch201Cells)
 
 Текущий круг — один коммит поверх `154c73bbd8`, только `dver_probe.py` и
 этот лист; новых файлов нет (привязки стабов — в словаре STABS). Замороженный
@@ -582,7 +693,7 @@ verification-phase=mutations rc=0
 
 ## Прогоны (числа из вывода, 2026-11-17, круг fix3)
 
-- Голый прогон против текущего дерева:
+* Голый прогон против текущего дерева:
   `bash fixtures/workshop_project/done_dver_soderzhatelnaja_201/red_done_dver_201.sh`
   → rc 1, `CELLS=45 STABS=0 FAILURES=30`. Красные 30: (а) `a-accept-staroj-versii`,
   `a-net-zamorozki`, `a-verdikt-bez-object`, `a-object-do-zamorozki`, `a-dve-zamorozki`,
@@ -604,21 +715,21 @@ verification-phase=mutations rc=0
   `v-legacy-obychnyj`, `g-arch-tochno-imja`, `g-archive`, `g-architecture`, `g-march`
   (у зелёных live-клеток тег `done/contracts/777/1` создан, у красных — отсутствует;
   проверено раннером по каждой клетке).
-- `--repo .` → rc 1, `CELLS=45 STABS=0 FAILURES=30` (те же числа, tools из cwd).
-- `--model` → rc 0, `CELLS=45 STABS=0 FAILURES=0`.
-- `--stabs` → rc 0, `CELLS=45 STABS=15 FAILURES=0` (все 15 стабов caught, каждый на
+* `--repo .` → rc 1, `CELLS=45 STABS=0 FAILURES=30` (те же числа, tools из cwd).
+* `--model` → rc 0, `CELLS=45 STABS=0 FAILURES=0`.
+* `--stabs` → rc 0, `CELLS=45 STABS=15 FAILURES=0` (все 15 стабов caught, каждый на
   своей клетке; в том числе круга 3: s-b-mesto-iz-rabochego-fajla @
   b-legacy-rabochaja-zapis, s-v-risk-iz-rabochego-fajla @ v-legacy-rabochaja-zapis —
   привязка только кодом STABS; сырые строки: `STAB s-b-mesto-iz-rabochego-fajla caught
   @ b-legacy-rabochaja-zapis`, `STAB s-v-risk-iz-rabochego-fajla caught @
   v-legacy-rabochaja-zapis`).
-- Соседи (сохранность): `architecture_process_187` — `--repo .` rc 0
+* Соседи (сохранность): `architecture_process_187` — `--repo .` rc 0
   (`CELLS=54 STABS=0 FAILURES=0`), `--model` rc 0 (`54/0/0`), `--stabs` rc 0
   (`CELLS=54 STABS=56 FAILURES=0`). `rezhim_996 --matrix` → rc 1, `examined=111
   mutants=76 mismatches=1` — единственный пропуск (mutant skip-committed /
   done-committed-preserved) существует ДО предмета 201 (базлайн; то же значение в
   прогонах критиков 201-v1/v1b/V3).
-- Гейты (все с `env -u GIT_AUTHOR_* GIT_COMMITTER_*`): `pre_critic --repo .
+* Гейты (все с `env -u GIT_AUTHOR_* GIT_COMMITTER_*`): `pre_critic --repo .
   contracts/201-…md` rc 0 («КРИТИК: дверь зелёная», модель угроз красна, потолки красны,
   проводка красна); `check_spec_ready` rc 0 (OK); `check_precision_gate` rc 0 (OK);
   `check_threat_model` rc 0 (валидна: ЗАЩИЩАЕТ 9, НЕ ЗАЩИЩАЕТ 9); `check_ceilings`
