@@ -211,9 +211,9 @@ def dobavit(K, p):
         wt, br, obj = product(m, 'КЛАСС РИСКА: обычный\n')
         m.start('197', 'Impl197', rol='implementer', wt=str(wt), branch=br)
         m.zhurnal('Impl197', sdal=True)
+        before = p.snimok_fajlov(m.sost)
         r = judge(door, m, dict(obj=obj), obj=p.OBJECT_DUMMY)
-        return p.k_warn(r, m, 'OBJECT_RASHODITSJA', '197') + [
-            p.k_stroka(m, 'фактический-OBJECT', holder='Judge197', object=obj)]
+        return p.k_otkaz_bez_effektov(r, m, 'OBJECT_RASHODITSJA', before)
     cell('p02-produktovyj-object-chuzhoj', p02)
 
     def p03(m, door, merge=False):
@@ -297,8 +297,11 @@ def dobavit(K, p):
             m.start('197','OldJudge',klass='sudja',rol='critic',obj=s['obj'])
             m.zhurnal('OldJudge',sdal=True)
             reason='OBJECT_UZHE_SUZHEN'
+        state_before = p.snimok_fajlov(m.sost)
         before=m.ledger.read_bytes()
         r=judge(door,m,s,role)
+        if variant == 'repeat':
+            return p.k_otkaz_bez_effektov(r, m, reason, state_before)
         if reason in ('KLASS_RISKA_NET', 'OBJECT_RASHODITSJA', 'OBJECT_UZHE_SUZHEN'):
             return p.k_warn(r, m, reason, '197') + [
                 None if m.ledger.read_bytes().startswith(before) else 'переписан исходный учёт']
@@ -329,8 +332,8 @@ def dobavit(K, p):
         c = 'PAUZA_VLADELTSA' if variant == 'code' else code
         target = p.OBJECT_DUMMY if variant == 'object' else s['obj']
         line = 'РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ЗАМОК: '+n+' '+c+' '+target
-        def event(name):
-            return m.sobytie(name+'.json', [p.item('critic',name,
+        def event(name, role='critic'):
+            return m.sobytie(name+'.json', [p.item(role,name,
                 ['SUBJECT=197','OBJECT='+s['obj'],line])])
         before = m.ledger.read_bytes()
         r = p.sudit(door,m,event('Override197'))
@@ -344,7 +347,8 @@ def dobavit(K, p):
             None if len(rows)==1 else 'нет единственного override передачи']
         m.zhurnal('Override197',sdal=True)
         before = m.ledger.read_bytes()
-        r2 = p.sudit(door,m,event('Again197'))
+        # Другая роль: проверяем повтор receipt-санкции, не ранний D11.
+        r2 = p.sudit(door,m,event('Again197', 'adversary'))
         return problems+refusal(r2,code)+[
             None if m.ledger.read_bytes()==before else 'повтор санкции изменил учёт']
 
@@ -606,7 +610,8 @@ def dobavit(K, p):
                     None if m.ledger.read_bytes().startswith(before) else 'переписан исходный учёт']
         m.zhurnal('Override197', sdal=True)
         before2 = m.ledger.read_bytes()
-        r2 = p.sudit(door, m, m.sobytie('again.json', [dict(it, name='Again197')]))
+        # Тот же OBJECT/override, другая роль: дефект наблюдаем в D55, не D11.
+        r2 = p.sudit(door, m, m.sobytie('again.json', [dict(it, agent='adversary', name='Again197')]))
         return problems + refusal(r2, 'PEREDACHA_NEDOSTOVERNA') + [
             None if m.ledger.read_bytes() == before2 else 'повтор санкции изменил учёт']
 

@@ -125,7 +125,9 @@ BINDINGS = {
     # К-01: авто-RELEASE в sudit-пути больше нет; различающий вход стаба —
     # явный --osvobodit брошенного держателя (RELEASE обязан быть записан).
     's85-broshennyj-bez-release': ['w05-osvobodit-broshennyj'],
-    's86-start-zaproshennyj-object': ['s03-object-rashoditsja', 'p02-produktovyj-object-chuzhoj'],
+    # D9/D11 208 теперь отказывают до START. Фактический tip различим
+    # на оставшемся A2 fallback: неконформный вердиктный корень q17.
+    's86-start-zaproshennyj-object': ['q17-object-predydushchego-verdikta'],
 }
 
 

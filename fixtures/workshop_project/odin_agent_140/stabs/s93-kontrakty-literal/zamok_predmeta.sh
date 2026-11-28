@@ -71,7 +71,10 @@
 #   AVTOR_ESHCHO_RABOTAET ADVERSARIJ_DO_REVJUERA PAUZA_VLADELTSA NE_IZOLIROVAN
 #   ZAMOK_ZHIV DERZHATEL_RASHODITSJA NET_ZAMKA PEREDACHA_NEDOSTOVERNA PEREDACHA_REMOTE
 # ПРЕДУПРЕЖДЕНИЯ с записью warn: KLASS_RISKA_NET OBJECT_RASHODITSJA
-# VETKA_NEDOSTUPNA RABOCHEGO_NET OBJECT_UZHE_SUZHEN LIMIT_GRUPPY PEREDACHA_AVTOR.
+# VETKA_NEDOSTUPNA RABOCHEGO_NET LIMIT_GRUPPY PEREDACHA_AVTOR.
+#
+# 208: D9-расхождение судьи и повтор D11 без полной SANKCIJA — отказы,
+# не общие предупреждения A2; D9c принимает пустой merge-tip только в --sudit.
 # rc 0 — разрешено (замки заняты, START дописан ДО возврата) / исполнено / учёт.
 # rc 2 — NOT_IMPLEMENTED (нет jq/git/find, мир нечитаем): fail-closed; вызов
 #        расширением трактуется как блок «страж сломан» — молчаливого пропуска нет.
@@ -182,6 +185,13 @@ puti_kommita() {  # <worktree> <commit>
   fi
 }
 
+# 208: один алфавит вердиктных путей для resolver и кодовой границы D9b.
+verdikt_put() {
+  local n="$1" p="$2"
+  [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\.md$ \
+    || "$p" =~ ^\.review/[A-Za-z0-9._-]+\.md$ ]]
+}
+
 # [D43 verdict-object] Один resolver для D9, передачи и pre_judge.
 # Только линейный хвост обычных verdict-файлов этого предмета прозрачен.
 object_kandidata() {  # <worktree> <NNN> <ref> → исходный OBJECT
@@ -191,8 +201,7 @@ object_kandidata() {  # <worktree> <NNN> <ref> → исходный OBJECT
   [ -n "$paths" ] || return 1 # [D50 empty-tip]
   # Непредметный/смешанный коммит — новая кодовая граница, не вердиктный хвост.
   while IFS= read -r p; do
-    [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\.md$ \
-      || "$p" =~ ^\.review/[A-Za-z0-9._-]+\.md$ ]] \
+    verdikt_put "$n" "$p" \
       || { printf '%s\n' "$tip"; return 0; }
   done <<< "$paths"
   while IFS= read -r p; do
@@ -223,8 +232,7 @@ object_kandidata() {  # <worktree> <NNN> <ref> → исходный OBJECT
     [ -n "$paths" ] || return 1
     while IFS= read -r p; do
       # [D45 verdict-path] Белый список, а не исключение «всё кроме scripts».
-      [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\.md$ \
-        || "$p" =~ ^\.review/[A-Za-z0-9._-]+\.md$ ]] || return 1
+      verdikt_put "$n" "$p" || return 1
       dir="${p#verdicts/}"; dir="${dir%%/*}"
       case "$dir" in review|.review) role=reviewer ;; *) role="$dir" ;; esac
       # [D46 verdict-author] Автор и коммиттер того же судейского канала.
@@ -240,6 +248,24 @@ object_kandidata() {  # <worktree> <NNN> <ref> → исходный OBJECT
     done <<< "$paths"
   done <<< "$entries"
   printf '%s\n' "$base"
+}
+
+# 208 И-2/3: только fetched origin-view носителя, без нового публикационного множества.
+obj_opublikovan() {
+  local wt="$1" n="$2" o="$3" ref
+  git -C "$wt" merge-base --is-ancestor "$o" refs/remotes/origin/main 2>/dev/null && return 0
+  while IFS= read -r ref; do
+    [ -n "$ref" ] || continue
+    git -C "$wt" merge-base --is-ancestor "$o" "$ref" 2>/dev/null && return 0
+  done < <(git -C "$wt" for-each-ref --format='%(refname)' "refs/remotes/origin/wip/$n/")
+  return 1
+}
+kodovaja_granica() {
+  local wt="$1" n="$2" o="$3" p
+  while IFS= read -r p; do
+    verdikt_put "$n" "$p" || return 0
+  done < <(puti_kommita "$wt" "$o")
+  return 1
 }
 
 command -v jq   >/dev/null 2>&1 || skip 'нет jq'
@@ -714,6 +740,13 @@ krugov_suda() {  # <NNN> <rol> <object> → число кругов
     | [ .[] | select(.k == "sudja" and .r == $roli and .o == $o and .s != "obryv") ]
     | length' "$LEDGER" 2>/dev/null
 }
+# 208 И-6: буквальный полный адрес санкции; SLOVO/override — не санкция D11.
+sankcija_ucheta() {
+  jq -se --arg r "$REPO_ID" --arg n "$1" --arg roli "$2" --arg o "$3" \
+    'any(.[]; .t == "SANKCIJA" and .repoId == $r and .subjectId == $n
+              and .rol == $roli and .object == $o)' \
+    "$LEDGER" >/dev/null 2>&1
+}
 # [D16 slovo] СЛОВО владельца — строка SLOVO в учёте (санкция сверх лимита).
 slovo_vladelca() {  # <NNN>
   jq -se --arg r "$REPO_ID" --arg n "$1" \
@@ -961,9 +994,15 @@ EOF
           ;;
       esac
     fi
-    # [D11 uzhe-suzhen] Повтор роли/OBJECT — предупреждение с номером.
+    # [D11 uzhe-suzhen] 208 И-6: повтор — только полный адрес SANKCIJA и один круг.
     if [ "$klass" = 'sudja' ] && subekt_suzhen_sudej_obj "$sv" "$rol" "$obj"; then
-      predupr "$sv" 'OBJECT_UZHE_SUZHEN' "предмет $sv: OBJECT $obj уже судился ролью $rol; исправительный круг — новый sha" "$obj" "$(($(krugov_suda "$sv" "$rol" "$obj") + 1))"
+      if [ "$(krugov_suda "$sv" "$rol" "$obj")" = '1' ] \
+         && sankcija_ucheta "$sv" "$rol" "$obj"; then
+        :
+      else
+        mutexi_snyat_vse
+        otp OBJECT_UZHE_SUZHEN "предмет $sv: OBJECT $obj уже судился ролью $rol; исправительный круг — новый sha; повтор — записанная в учёте санкция SANKCIJA (один круг, пока не исчерпан)"
+      fi
     fi
     if [ "$klass" = 'sudja' ]; then
       rab="$(poslednij_rabochij "$sv")"
@@ -1013,17 +1052,42 @@ EOF
         [ "$obj" = "$P_OBJECT" ] \
           || perenos_predupr OBJECT_RASHODITSJA 'OBJECT не переданный результат'
       fi
-      # [D9 object-sovpadaet] Вердиктный хвост не становится новым объектом суда.
+      # [D9 object-sovpadaet] 208 И-1…5; resolver вне --sudit не меняется.
       obj_fakt="$obj"; tip=''
       if git -C "$r_wt" rev-parse --verify "$r_br^{commit}" >/dev/null 2>&1; then
         tip="$(object_kandidata "$r_wt" "$sv" "$r_br")" || tip=''
         if [ -z "$tip" ]; then
-          tip="$(git -C "$r_wt" rev-parse --verify "$r_br^{commit}" 2>/dev/null)" || tip=''
-          predupr "$sv" 'OBJECT_RASHODITSJA' "предмет $sv: вердиктный хвост не сохраняет OBJECT" "$tip"
-          obj_fakt="$tip"
-        elif [ "$tip" != "$obj" ]; then
-          predupr "$sv" 'OBJECT_RASHODITSJA' "предмет $sv: OBJECT задания $obj ≠ tip ветки $r_br ($tip)" "$tip"
-          obj_fakt="$tip"
+          mtip="$(git -C "$r_wt" rev-parse --verify "$r_br^{commit}" 2>/dev/null)" || mtip=''
+          if [ -n "$mtip" ] \
+             && printf '%s' "$(git -C "$r_wt" show -s --format=%P "$mtip" 2>/dev/null)" \
+                  | grep -Eq '^[0-9a-f]{40}( [0-9a-f]{40})+$' \
+             && [ -z "$(puti_kommita "$r_wt" "$mtip")" ]; then
+            tip="$mtip"
+          else
+            tip="$mtip"
+            predupr "$sv" 'OBJECT_RASHODITSJA' "предмет $sv: вердиктный хвост не сохраняет OBJECT" "$tip"
+            obj_fakt="$tip"
+          fi
+        fi
+        if [ "$obj_fakt" = "$obj" ] && [ "$tip" != "$obj" ]; then
+          if git -C "$r_wt" merge-base --is-ancestor "$obj" "$tip" 2>/dev/null; then
+            obj_opublikovan "$r_wt" "$sv" "$obj" || {
+              mutexi_snyat_vse
+              otp OBJECT_RASHODITSJA "предмет $sv: OBJECT $obj — предок кандидата $tip, но не опубликован (refs/remotes/origin/main и refs/remotes/origin/wip/$sv/* его не содержат); выход: fetch origin в носителе либо опубликовать работу"
+            }
+          elif git -C "$r_wt" merge-base --is-ancestor "$tip" "$obj" 2>/dev/null; then
+            kodovaja_granica "$r_wt" "$sv" "$obj" || {
+              mutexi_snyat_vse
+              otp OBJECT_RASHODITSJA "предмет $sv: OBJECT $obj впереди кандидата $tip, но не кодовая граница — вердиктный хвост не становится объектом суда; выход: OBJECT работы, не verdikt-коммит"
+            }
+            obj_opublikovan "$r_wt" "$sv" "$obj" || {
+              mutexi_snyat_vse
+              otp OBJECT_RASHODITSJA "предмет $sv: OBJECT $obj впереди кандидата $tip (кодовая граница), но не опубликован (refs/remotes/origin/main и refs/remotes/origin/wip/$sv/* его не содержат); выход: опубликовать работу в main либо ветке wip/$sv/* на origin"
+            }
+          else
+            mutexi_snyat_vse
+            otp OBJECT_RASHODITSJA "предмет $sv: OBJECT задания $obj ≠ tip ветки $r_br ($tip) и не связан предковостью с работой последнего START; выход: новый OBJECT (исправительный круг) либо опубликовать ветку с этой работой"
+          fi
         fi
       else
         predupr "$sv" 'VETKA_NEDOSTUPNA' "предмет $sv: ветка $r_br в $r_wt не читается — OBJECT не сверить" "$obj"

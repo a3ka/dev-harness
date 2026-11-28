@@ -347,6 +347,18 @@ def k_prichina(r, imja, chto):
     return None
 
 
+def k_otkaz_bez_effektov(r, mir, kod, before):
+    """208 D9/D11: именованный отказ, без START и долговечных записей."""
+    prefix = 'ОТКАЗ: %s: ' % kod
+    return [
+        k_rc(r, 1, 'отказ-208'),
+        None if any(line.startswith(prefix) and len(line) > len(prefix)
+                    for line in r.stderr.splitlines()) else 'нет строки '+prefix,
+        None if snimok_fajlov(mir.sost) == before
+        else 'отказ изменил START/учёт/занятие',
+    ]
+
+
 def k_warn(r, mir, kod, subject, start=True):
     """Публичные эффекты предупреждения: stderr, JSONL и START."""
     prefix = 'ПРЕДУПРЕЖДЕНИЕ: %s: ' % kod
@@ -908,9 +920,9 @@ def kejsy():
         wt, br, sha = _avtor_sdal(mir, '141')
         ev = mir.sobytie('e.json', [item('critic', 'Critic141',
                         ['SUBJECT=141', 'OBJECT=' + OBJECT_DUMMY])])
+        before = snimok_fajlov(mir.sost)
         r = sudit(door, mir, ev)
-        return k_warn(r, mir, 'OBJECT_RASHODITSJA', '141') + [
-                k_stroka(mir, 'фактический-OBJECT', holder='Critic141', object=sha)]
+        return k_otkaz_bez_effektov(r, mir, 'OBJECT_RASHODITSJA', before)
     reg('s03-object-rashoditsja', 'OBJECT=чужой-sha', s03)
 
     def s04(mir, door):
@@ -942,9 +954,10 @@ def kejsy():
         _verdikt_sudyi(mir, '141', 'critic', 'Critic141', sha)
         ev = mir.sobytie('e.json', [item('critic', 'Critic141b',
                         ['SUBJECT=141', 'OBJECT=' + sha])])
+        before = snimok_fajlov(mir.sost)
         r = sudit(door, mir, ev)
-        return k_warn(r, mir, 'OBJECT_UZHE_SUZHEN', '141') + [
-                k_chislo_startov(mir, 'повтор-записан', 3)]
+        return k_otkaz_bez_effektov(r, mir, 'OBJECT_UZHE_SUZHEN', before) + [
+                k_chislo_startov(mir, 'повтор-не-записан', 2)]
     reg('s06-object-uzhe-suzhen', 'OBJECT=повтор-того-же-sha', s06)
 
     def s07(mir, door):
@@ -1862,8 +1875,8 @@ def m_object_fabricuet(t):
 
 
 def m_bez_object_sverki(t):
-    return _z(t, '''        elif [ "$tip" != "$obj" ]; then''',
-              '''        elif false; then # стаб: расхождение OBJECT не проверяется''')
+    return _z(t, '''        if [ "$obj_fakt" = "$obj" ] && [ "$tip" != "$obj" ]; then''',
+              '''        if false; then # стаб: расхождение OBJECT не проверяется''')
 
 
 def m_avtor_ne_sdal(t):

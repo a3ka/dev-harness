@@ -7,7 +7,7 @@ CASES = {
     'q17-object-predydushchego-verdikta': 'C→V1(C)→V2(V1);повтор-роли-не-сбрасывается',
     'q18-object-root-resolver': 'корень-не-самодекларация;неверный-якорь-отвергнут',
     'q19-pustoj-finalnyj-tip': 'пустой-последний-коммит;не-новый-OBJECT',
-    'q20-pustoj-finalnyj-merge': 'пустая-merge-дельта;не-новый-OBJECT',
+    'q20-pustoj-finalnyj-merge': 'пустая-merge-дельта;resolver-отказывает;D9c-допускает-tip',
     'q21-runtime-source-md': 'mode100644;source-md;runtime-из-OBJECT',
     'q22-runtime-python-md': 'mode100644;runpy-md;runtime-из-OBJECT',
     'q23-runtime-chestnyj-ekvivalent': 'инертная-правка-тела;законный-хвост-зелён',
@@ -152,13 +152,29 @@ def dobavit(K, p):
         else:
             event = m.sobytie('judge.json', [p.item('adversary', 'Again140',
                                 ['SUBJECT=140', 'OBJECT='+requested])])
+            if name == 'q20-pustoj-finalnyj-merge':
+                # 208 И-1/4: resolver прежний; только D9c принимает merge-tip.
+                resolved = p.run([p.BASH, str(door), '--object', '--repo', str(wt), '140', br])
+                resolver_problems = [
+                    p.k_rc(resolved, 1, 'пустой-merge-resolver'),
+                    p.k_prichina(resolved, 'OBJECT_RASHODITSJA', 'причина-resolver'),
+                    None if m.ledger.read_bytes() == before else 'resolver изменил учёт']
             r = p.sudit(door, m, event)
         if name == 'q18-object-root-resolver':
             return [p.k_rc(r, 1, 'read-only-resolver'),
                     p.k_prichina(r, 'OBJECT_RASHODITSJA', 'не новый кандидат'),
                     None if m.ledger.read_bytes() == before else 'resolver изменил учёт']
+        if name == 'q20-pustoj-finalnyj-merge':
+            return resolver_problems + [
+                p.k_rc(r, 0, 'D9c-merge'),
+                None if not r.stderr else 'D9c ошибочно предупреждает: '+r.stderr,
+                None if m.ledger.read_bytes().startswith(before) else 'переписан START',
+                p.k_chislo_startov(m, 'D9c-START', 3),
+                p.k_stroka(m, 'D9c-запрошенный-OBJECT', holder='Again140', object=requested),
+                None if git(wt, 'rev-parse', br) == tip else 'сдвинута рабочая ветка']
         return p.k_warn(r, m, 'OBJECT_RASHODITSJA', '140') + [
                 None if m.ledger.read_bytes().startswith(before) else 'переписан START',
+                p.k_stroka(m, 'fallback-фактический-OBJECT', holder='Again140', object=tip),
                 None if git(wt, 'rev-parse', br) == tip else 'сдвинута рабочая ветка']
 
     for name, axes in CASES.items():

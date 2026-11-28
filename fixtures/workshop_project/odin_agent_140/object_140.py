@@ -193,8 +193,12 @@ def dobavit(K, p):
         if want:
             actual = (obj if name in ('q02-tip-verdikta-ne-novyj-object',
                       'q10-povtor-roli', 'q12-ne-predok') else git(wt, 'rev-parse', br))
+        state_before = p.snimok_fajlov(m.sost)
         r, problems = judge(m, door, requested, role, actual)
-        if want:
+        if name in ('q02-tip-verdikta-ne-novyj-object', 'q05-chuzhoj-predmet',
+                    'q10-povtor-roli', 'q12-ne-predok'):
+            problems += p.k_otkaz_bez_effektov(r, m, reason, state_before)
+        elif want:
             problems += p.k_warn(r, m, reason, '140')
         else:
             problems.append(p.k_rc(r, 0, 'D9'))
@@ -214,7 +218,7 @@ def mutacii(z):
             '  entries="$(git -C "$wt" rev-list "$base..$tip")" || return 1',
             '  entries="$tip" # стаб: нет истории'),
         's64-verdikt-bez-puti': lambda t: z(t,
-            '      [[ "$p" =~ ^verdicts/(critic|adversary|review)/contracts-$n(-[A-Za-z0-9._-]+)?\\.md$ \\\n        || "$p" =~ ^\\.review/[A-Za-z0-9._-]+\\.md$ ]] || return 1',
+            '      verdikt_put "$n" "$p" || return 1',
             '      : # стаб: любой путь'),
         's65-verdikt-bez-avtora': lambda t: z(t,
             '      [ "$(git -C "$wt" show -s --format=%an "$c")" = "$role" ] \\\n        && [ "$(git -C "$wt" show -s --format=%cn "$c")" = "$role" ] || return 1',
@@ -229,8 +233,8 @@ def mutacii(z):
             '    [ -n "$paths" ] || return 1',
             '    [ -n "$paths" ] || continue # стаб: пустой коммит прозрачен'),
         's73-review-ne-prozrachen': lambda t: z(t,
-            '      || "$p" =~ ^\\.review/[A-Za-z0-9._-]+\\.md$ ]] \\',
-            '      ]] \\'),
+            '    || "$p" =~ ^\\.review/[A-Za-z0-9._-]+\\.md$ ]]',
+            '    ]]'),
         's74-review-only-novyj-koren': lambda t: z(t,
             '    base="$(object_kandidata "$wt" "$n" "$tip^1")" || return 1',
             '    printf \'%s\\n\' "$tip"; return 0 # стаб: .review-only новый корень'),
